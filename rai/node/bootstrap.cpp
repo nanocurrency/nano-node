@@ -999,7 +999,7 @@ void rai::bootstrap_attempt::populate_connections ()
 	if (sorted_connections.size () >= (node->config.bootstrap_connections * 2) / 3 && node->config.bootstrap_connections >= 4)
 	{
 		// 4 -> 1, 8 -> 2, 16 -> 4, arbitrary, but seems to work well.
-		auto drop = (int)roundf(sqrtf((float)node->config.bootstrap_connections - 2.0f));
+		auto drop = (int)roundf (sqrtf ((float)node->config.bootstrap_connections - 2.0f));
 		for (int i = 0; i < drop; i++)
 		{
 			auto client = sorted_connections.top ();
