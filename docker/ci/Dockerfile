@@ -26,6 +26,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get install -yq \
     qt5-default \
     valgrind \
-    xorg xvfb xauth xfonts-100dpi xfonts-75dpi xfonts-scalable xfonts-cyrillic
+    xorg xvfb xauth xfonts-100dpi xfonts-75dpi xfonts-scalable xfonts-cyrillic \
+    cargo
 
 RUN rm -rf /tmp/*
