@@ -1008,7 +1008,7 @@ void rai::bootstrap_attempt::populate_connections ()
 		}
 	}
 
-	if (connection->node->config.logging.bulk_pull_logging ())
+	if (node->config.logging.bulk_pull_logging ())
 	{
 		std::unique_lock<std::mutex> lock (mutex);
 		BOOST_LOG (node->log) << boost::str (boost::format ("Bulk pull connections: %1%, rate: %2% blocks/sec, remaining account pulls: %3%, total blocks: %4%") % connections.load () % (int)rate_sum % pulls.size () % (int)total_blocks.load ());

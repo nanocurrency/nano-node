@@ -26,3 +26,24 @@
 
 # IDEs
 .idea
+
+# Visual Studio
+*.vcxproj
+*.vcxproj.filters
+*.sln
+*.qrc.depends
+*.dir
+Debug
+Release
+.vs
+*.aps
+*.db
+*.opendb
+qrc_resources.cpp
+
+
+# CMAKE
+CPack*
+CMakeCache.txt
+CMakeFiles
+cmake_install.cmake
