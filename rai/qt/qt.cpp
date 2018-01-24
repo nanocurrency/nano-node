@@ -10,7 +10,7 @@ namespace QTimerWrapper
 	{
 		QTimer::singleShot (ms.count (), nullptr, std::move (func));
 	}
-};
+}
 
 namespace
 {
