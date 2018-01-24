@@ -12,7 +12,6 @@ constexpr double bootstrap_minimum_termination_time = 30.0;
 constexpr unsigned bootstrap_max_new_connections = 10;
 constexpr unsigned bootstrap_peer_frontier_minimum = rai::rai_network == rai::rai_networks::rai_live_network ? 339000 : 0;
 
-
 rai::block_synchronization::block_synchronization (boost::log::sources::logger_mt & log_a) :
 log (log_a)
 {
@@ -970,14 +969,15 @@ struct block_rate_cmp
 
 unsigned rai::bootstrap_attempt::target_connections (size_t pulls_remaining)
 {
-	if (node->config.bootstrap_connections >= node->config.bootstrap_connections_max) {
-		return std::max(1U, node->config.bootstrap_connections_max);
+	if (node->config.bootstrap_connections >= node->config.bootstrap_connections_max)
+	{
+		return std::max (1U, node->config.bootstrap_connections_max);
 	}
-	
+
 	// Only scale up to bootstrap_connections_max for large pulls.
 	double step = std::min (1.0, std::max (0.0, (double)pulls_remaining / bootstrap_connection_scale_target));
 	double target = (double)node->config.bootstrap_connections + (double)(node->config.bootstrap_connections_max - node->config.bootstrap_connections) * step;
-	return std::max(1U, (unsigned)(target + 0.5f));
+	return std::max (1U, (unsigned)(target + 0.5f));
 }
 
 void rai::bootstrap_attempt::populate_connections ()
