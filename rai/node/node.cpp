@@ -744,7 +744,7 @@ password_fanout (1024),
 io_threads (std::max<unsigned> (4, std::thread::hardware_concurrency ())),
 work_threads (std::max<unsigned> (4, std::thread::hardware_concurrency ())),
 enable_voting (true),
-bootstrap_connections (4),
+bootstrap_connections (16),
 callback_port (0),
 lmdb_max_dbs (128)
 {
