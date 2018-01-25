@@ -36,6 +36,8 @@ use rand::Rng;
 
 extern crate time;
 
+extern crate env_logger;
+
 mod errors {
     error_chain!{}
 }
@@ -425,6 +427,7 @@ fn run(params: Parameters) -> Result<()> {
 }
 
 fn main() {
+    env_logger::init();
     let matches = clap::App::new("raiblocks-load-tester")
         .version(env!("CARGO_PKG_VERSION"))
         .arg(
