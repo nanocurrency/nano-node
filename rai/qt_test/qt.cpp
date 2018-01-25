@@ -53,7 +53,7 @@ TEST (wallet, status)
 		++iterations;
 		ASSERT_LT (iterations, 500);
 	}
-	system.nodes[0]->peers.purge_list (std::chrono::system_clock::now () + std::chrono::seconds (5));
+	system.nodes[0]->peers.purge_list (std::chrono::steady_clock::now () + std::chrono::seconds (5));
 	while (wallet_has (rai_qt::status_types::synchronizing))
 	{
 		test_application->processEvents ();

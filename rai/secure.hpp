@@ -55,6 +55,7 @@ public:
 	rai::block_hash rep_block;
 	rai::block_hash open_block;
 	rai::amount balance;
+	/** Seconds since posix epoch */
 	uint64_t modified;
 	uint64_t block_count;
 };
@@ -174,7 +175,6 @@ class block_store
 {
 public:
 	block_store (bool &, boost::filesystem::path const &, int lmdb_max_dbs = 128);
-	uint64_t now ();
 
 	MDB_dbi block_database (rai::block_type);
 	void block_put_raw (MDB_txn *, MDB_dbi, rai::block_hash const &, MDB_val);

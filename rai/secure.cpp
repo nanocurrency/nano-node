@@ -1,6 +1,7 @@
 #include <rai/secure.hpp>
 
 #include <rai/lib/interface.h>
+#include <rai/node/common.hpp>
 #include <rai/node/working.hpp>
 #include <rai/versioning.hpp>
 
@@ -2306,7 +2307,7 @@ void rai::ledger::change_latest (MDB_txn * transaction_a, rai::account const & a
 		info.head = hash_a;
 		info.rep_block = rep_block_a;
 		info.balance = balance_a;
-		info.modified = store.now ();
+		info.modified = rai::seconds_since_epoch ();
 		info.block_count = block_count_a;
 		store.account_put (transaction_a, account_a, info);
 		if (!(block_count_a % store.block_info_max))
@@ -2666,7 +2667,7 @@ void rai::genesis::initialize (MDB_txn * transaction_a, rai::block_store & store
 	auto hash_l (hash ());
 	assert (store_a.latest_begin (transaction_a) == store_a.latest_end ());
 	store_a.block_put (transaction_a, hash_l, *open);
-	store_a.account_put (transaction_a, genesis_account, { hash_l, open->hash (), open->hash (), std::numeric_limits<rai::uint128_t>::max (), store_a.now (), 1 });
+	store_a.account_put (transaction_a, genesis_account, { hash_l, open->hash (), open->hash (), std::numeric_limits<rai::uint128_t>::max (), rai::seconds_since_epoch (), 1 });
 	store_a.representation_put (transaction_a, genesis_account, std::numeric_limits<rai::uint128_t>::max ());
 	store_a.checksum_put (transaction_a, 0, 0, hash_l);
 	store_a.frontier_put (transaction_a, hash_l, genesis_account);

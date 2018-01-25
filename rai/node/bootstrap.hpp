@@ -122,7 +122,7 @@ public:
 	rai::account landing;
 	rai::account faucet;
 	std::chrono::steady_clock::time_point start_time;
-	std::chrono::system_clock::time_point next_report;
+	std::chrono::steady_clock::time_point next_report;
 	std::promise<bool> promise;
 };
 class bulk_pull_client : public std::enable_shared_from_this<rai::bulk_pull_client>

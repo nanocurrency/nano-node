@@ -51,7 +51,6 @@ public:
 	landing (rai::node &, std::shared_ptr<rai::wallet>, rai::landing_store &, boost::filesystem::path const &);
 	void write_store ();
 	rai::uint128_t distribution_amount (uint64_t);
-	uint64_t seconds_since_epoch ();
 	void distribute_one ();
 	void distribute_ongoing ();
 	boost::filesystem::path path;

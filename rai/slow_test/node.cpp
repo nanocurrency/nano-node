@@ -58,7 +58,7 @@ TEST (system, receive_while_synchronizing)
 		auto wallet (node1->wallets.create (1));
 		ASSERT_EQ (key.pub, wallet->insert_adhoc (key.prv));
 		node1->start ();
-		system.alarm.add (std::chrono::system_clock::now () + std::chrono::milliseconds (200), ([&system, &key]() {
+		system.alarm.add (std::chrono::steady_clock::now () + std::chrono::milliseconds (200), ([&system, &key]() {
 			auto hash (system.wallet (0)->send_sync (rai::test_genesis_key.pub, key.pub, system.nodes[0]->config.receive_minimum.number ()));
 			auto block (system.nodes[0]->store.block_get (rai::transaction (system.nodes[0]->store.environment, nullptr, false), hash));
 			std::string block_text;
@@ -362,17 +362,17 @@ TEST (peer_container, random_set)
 	{
 		container.contacted (rai::endpoint (loopback, 24001 + i), 0);
 	}
-	auto old (std::chrono::system_clock::now ());
+	auto old (std::chrono::steady_clock::now ());
 	for (auto i (0); i < 10000; ++i)
 	{
 		auto list (container.list_sqrt ());
 	}
-	auto current (std::chrono::system_clock::now ());
+	auto current (std::chrono::steady_clock::now ());
 	for (auto i (0); i < 10000; ++i)
 	{
 		auto list (container.random_set (15));
 	}
-	auto end (std::chrono::system_clock::now ());
+	auto end (std::chrono::steady_clock::now ());
 	auto old_ms (std::chrono::duration_cast<std::chrono::milliseconds> (current - old));
 	auto new_ms (std::chrono::duration_cast<std::chrono::milliseconds> (end - current));
 }

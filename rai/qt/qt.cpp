@@ -249,7 +249,7 @@ void rai_qt::accounts::refresh_wallet_balance ()
 		final_text += "\nPending: " + wallet.format_balance (pending);
 	}
 	wallet_balance_label->setText (QString (final_text.c_str ()));
-	this->wallet.node.alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (60), [this]() {
+	this->wallet.node.alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (60), [this]() {
 		this->wallet.application.postEvent (&this->wallet.processor, new eventloop_event ([this]() {
 			refresh_wallet_balance ();
 		}));
@@ -1200,7 +1200,7 @@ void rai_qt::wallet::update_connected ()
 
 void rai_qt::wallet::empty_password ()
 {
-	this->node.alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (3), [this]() {
+	this->node.alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (3), [this]() {
 		wallet_m->enter_password (std::string (""));
 	});
 }

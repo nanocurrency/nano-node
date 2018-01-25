@@ -240,4 +240,12 @@ public:
 	virtual void frontier_req (rai::frontier_req const &) = 0;
 	virtual ~message_visitor ();
 };
+
+/**
+ * Returns seconds passed since unix epoch (posix time)
+ */
+inline uint64_t seconds_since_epoch ()
+{
+	return std::chrono::duration_cast<std::chrono::seconds> (std::chrono::system_clock::now ().time_since_epoch ()).count ();
+}
 }
