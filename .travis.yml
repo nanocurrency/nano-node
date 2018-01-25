@@ -33,7 +33,7 @@ compiler:
 
 before_install:
   - if [ "$TRAVIS_OS_NAME" = "linux" ]; then sudo mkdir -p /etc/docker && echo '{"ipv6":true,"fixed-cidr-v6":"2001:db8:1::/64"}' | sudo tee /etc/docker/daemon.json && sudo service docker restart; fi
-  - if [ "$TRAVIS_OS_NAME" = "osx" ]; then brew update && brew install qt5 && brew cask install xquartz && brew upgrade boost; fi
+  - if [ "$TRAVIS_OS_NAME" = "osx" ]; then brew update && brew install qt5 && brew cask install xquartz && brew upgrade boost && brew install rust; fi
   - if [ "$TRAVIS_OS_NAME" = "linux" ]; then docker pull lukealonso/raiblocks-ci:latest; fi
 
 script:
