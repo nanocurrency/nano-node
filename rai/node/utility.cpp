@@ -12,7 +12,7 @@ boost::filesystem::path rai::unique_path ()
 	return result;
 }
 
-rai::mdb_env::mdb_env (bool & error_a, boost::filesystem::path const & path_a)
+rai::mdb_env::mdb_env (bool & error_a, boost::filesystem::path const & path_a, int max_dbs)
 {
 	boost::system::error_code error;
 	if (path_a.has_parent_path ())
@@ -22,7 +22,7 @@ rai::mdb_env::mdb_env (bool & error_a, boost::filesystem::path const & path_a)
 		{
 			auto status1 (mdb_env_create (&environment));
 			assert (status1 == 0);
-			auto status2 (mdb_env_set_maxdbs (environment, 128));
+			auto status2 (mdb_env_set_maxdbs (environment, max_dbs));
 			assert (status2 == 0);
 			auto status3 (mdb_env_set_mapsize (environment, 1ULL * 1024 * 1024 * 1024 * 1024)); // 1 Terabyte
 			assert (status3 == 0);
@@ -58,7 +58,7 @@ rai::mdb_env::operator MDB_env * () const
 }
 
 rai::mdb_val::mdb_val () :
-value ({0, nullptr})
+value ({ 0, nullptr })
 {
 }
 
@@ -68,17 +68,17 @@ value (value_a)
 }
 
 rai::mdb_val::mdb_val (size_t size_a, void * data_a) :
-value ({size_a, data_a})
+value ({ size_a, data_a })
 {
 }
 
 rai::mdb_val::mdb_val (rai::uint128_union const & val_a) :
-mdb_val (sizeof (val_a), const_cast <rai::uint128_union *> (&val_a))
+mdb_val (sizeof (val_a), const_cast<rai::uint128_union *> (&val_a))
 {
 }
 
 rai::mdb_val::mdb_val (rai::uint256_union const & val_a) :
-mdb_val (sizeof (val_a), const_cast <rai::uint256_union *> (&val_a))
+mdb_val (sizeof (val_a), const_cast<rai::uint256_union *> (&val_a))
 {
 }
 
@@ -96,14 +96,14 @@ rai::uint256_union rai::mdb_val::uint256 () const
 {
 	rai::uint256_union result;
 	assert (size () == sizeof (result));
-	std::copy (reinterpret_cast <uint8_t const *> (data ()), reinterpret_cast <uint8_t const *> (data ()) + sizeof (result), result.bytes.data ());
+	std::copy (reinterpret_cast<uint8_t const *> (data ()), reinterpret_cast<uint8_t const *> (data ()) + sizeof (result), result.bytes.data ());
 	return result;
 }
 
 rai::mdb_val::operator MDB_val * () const
 {
 	// Allow passing a temporary to a non-c++ function which doesn't have constness
-	return const_cast <MDB_val *> (&value);
+	return const_cast<MDB_val *> (&value);
 };
 
 rai::mdb_val::operator MDB_val const & () const

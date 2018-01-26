@@ -11,6 +11,6 @@ void rai::work_thread_reprioritize ()
 	{
 		policy = SCHED_BATCH;
 		auto result (pthread_setschedparam (handle, policy, &sched));
-		(void) result;
+		(void)result;
 	}
 }

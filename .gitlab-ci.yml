@@ -1,6 +1,6 @@
 ## Raiblocks CI config
 
-image: ubuntu:zesty
+image: ubuntu:xenial
 
 stages:
   - build
@@ -11,6 +11,7 @@ variables:
 
 .linux_template: &linux_cfg
   variables:
+    BOOST_ROOT: /usr/local/boost
     CC: clang
     CXX: clang++
 
@@ -23,9 +24,6 @@ variables:
 
   script:
     - ./ci/build.sh
-
-  after_script:
-    - ./ci/test.sh
 
 
 Arch Linux:
@@ -46,29 +44,40 @@ Ubuntu Linux Trusty:
   stage: build
   image: ubuntu:trusty
   variables:
-    BOOST_ROOT: /usr/local/boost
     CC: gcc
     CXX: g++
-    NO_SIMD: 1
-    FLAVOR: trusty_no_simd
+    FLAVOR: trusty
 
   before_script:
     - ./ci/ubuntu_prep.sh
     - ./ci/bootstrap_boost.sh
 
 
-Ubuntu Linux Zesty:
+Ubuntu Linux Artful:
   <<: *linux_cfg
   stage: build
-  image: ubuntu:zesty
+  image: ubuntu:artful
   variables:
-    FLAVOR: zesty
+    FLAVOR: artful
 
   before_script:
     - ./ci/ubuntu_prep.sh
+    - ./ci/bootstrap_boost.sh
+
+Ubuntu Linux Xenial:
+  <<: *linux_cfg
+  stage: build
+  image: ubuntu:xenial
+  variables:
+    FLAVOR: xenial
+
+  before_script:
+    - ./ci/ubuntu_prep.sh
+    - ./ci/bootstrap_boost.sh
 
 
-Ubuntu Linux:ASAN:
+# DISABLED for now
+.Ubuntu Linux:ASAN:
   <<: *linux_cfg
   stage: build
   variables:
@@ -77,10 +86,12 @@ Ubuntu Linux:ASAN:
 
   before_script:
     - ./ci/ubuntu_prep.sh
+    - ./ci/bootstrap_boost.sh
 
 
 
-Ubuntu Linux:TSAN:
+# DISABLED for now
+.Ubuntu Linux:TSAN:
   <<: *linux_cfg
   stage: build
   variables:

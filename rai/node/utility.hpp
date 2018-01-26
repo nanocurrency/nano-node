@@ -5,9 +5,9 @@
 #include <condition_variable>
 #include <type_traits>
 
+#include <boost/filesystem.hpp>
 #include <boost/iostreams/device/back_inserter.hpp>
 #include <boost/iostreams/stream.hpp>
-#include <boost/filesystem.hpp>
 #include <boost/property_tree/json_parser.hpp>
 
 #include <cryptopp/osrng.h>
@@ -20,8 +20,8 @@
 
 namespace rai
 {
-using bufferstream = boost::iostreams::stream_buffer <boost::iostreams::basic_array_source <uint8_t>>;
-using vectorstream = boost::iostreams::stream_buffer <boost::iostreams::back_insert_device <std::vector <uint8_t>>>;
+using bufferstream = boost::iostreams::stream_buffer<boost::iostreams::basic_array_source<uint8_t>>;
+using vectorstream = boost::iostreams::stream_buffer<boost::iostreams::back_insert_device<std::vector<uint8_t>>>;
 // OS-specific way of finding a path to a home directory.
 boost::filesystem::path working_path ();
 // Get a unique path within the home directory, used for testing
@@ -35,7 +35,7 @@ bool fetch_object (T & object, std::iostream & stream_a)
 	assert (stream_a.tellg () == std::streampos (0) || stream_a.tellg () == std::streampos (-1));
 	assert (stream_a.tellp () == std::streampos (0) || stream_a.tellp () == std::streampos (-1));
 	bool error (false);
-    boost::property_tree::ptree tree;
+	boost::property_tree::ptree tree;
 	try
 	{
 		boost::property_tree::read_json (stream_a, tree);
@@ -43,7 +43,7 @@ bool fetch_object (T & object, std::iostream & stream_a)
 	catch (std::runtime_error const &)
 	{
 		auto pos (stream_a.tellg ());
-		if (pos != std::streampos(0))
+		if (pos != std::streampos (0))
 		{
 			error = true;
 		}
@@ -71,7 +71,7 @@ bool fetch_object (T & object, boost::filesystem::path const & path_a, std::fstr
 		catch (std::runtime_error const &)
 		{
 			auto pos (stream_a.tellg ());
-			if (pos != std::streampos(0))
+			if (pos != std::streampos (0))
 			{
 				error = true;
 			}
@@ -101,7 +101,7 @@ bool fetch_object (T & object, boost::filesystem::path const & path_a, std::fstr
 class mdb_env
 {
 public:
-	mdb_env (bool &, boost::filesystem::path const &);
+	mdb_env (bool &, boost::filesystem::path const &, int max_dbs = 128);
 	~mdb_env ();
 	operator MDB_env * () const;
 	MDB_env * environment;

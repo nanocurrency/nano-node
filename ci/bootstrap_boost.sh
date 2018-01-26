@@ -9,7 +9,7 @@ tar xf ${BOOST_BASENAME}.tar.gz
 cd ${BOOST_BASENAME}
 ./bootstrap.sh
 ./b2 --prefix=${BOOST_ROOT} link=static install
+cd ..
 rm -rf ${BOOST_BASENAME}
 rm -f ${BOOST_BASENAME}.tar.gz
-cd ..
-mkdir app
+mkdir -p app
