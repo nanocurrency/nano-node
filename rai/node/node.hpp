@@ -367,6 +367,7 @@ public:
 	bool log_to_cerr_value;
 	bool flush;
 	uintmax_t max_size;
+	uintmax_t rotation_size;
 	boost::log::sources::logger_mt log;
 };
 class node_init

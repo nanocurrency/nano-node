@@ -547,6 +547,7 @@ bulk_pull_logging_value (false),
 work_generation_time_value (true),
 log_to_cerr_value (false),
 max_size (16 * 1024 * 1024),
+rotation_size (4 * 1024 * 1024),
 flush (true)
 {
 }
@@ -561,7 +562,7 @@ void rai::logging::init (boost::filesystem::path const & application_path_a)
 		{
 			boost::log::add_console_log (std::cerr, boost::log::keywords::format = "[%TimeStamp%]: %Message%");
 		}
-		boost::log::add_file_log (boost::log::keywords::target = application_path_a / "log", boost::log::keywords::file_name = application_path_a / "log" / "log_%Y-%m-%d_%H-%M-%S.%N.log", boost::log::keywords::rotation_size = 4 * 1024 * 1024, boost::log::keywords::auto_flush = flush, boost::log::keywords::scan_method = boost::log::sinks::file::scan_method::scan_matching, boost::log::keywords::max_size = max_size, boost::log::keywords::format = "[%TimeStamp%]: %Message%");
+		boost::log::add_file_log (boost::log::keywords::target = application_path_a / "log", boost::log::keywords::file_name = application_path_a / "log" / "log_%Y-%m-%d_%H-%M-%S.%N.log", boost::log::keywords::rotation_size = rotation_size, boost::log::keywords::auto_flush = flush, boost::log::keywords::scan_method = boost::log::sinks::file::scan_method::scan_matching, boost::log::keywords::max_size = max_size, boost::log::keywords::format = "[%TimeStamp%]: %Message%");
 	}
 }
 
@@ -583,6 +584,7 @@ void rai::logging::serialize_json (boost::property_tree::ptree & tree_a) const
 	tree_a.put ("work_generation_time", work_generation_time_value);
 	tree_a.put ("log_to_cerr", log_to_cerr_value);
 	tree_a.put ("max_size", max_size);
+	tree_a.put("rotation_size", rotation_size);
 	tree_a.put ("flush", flush);
 }
 
@@ -637,6 +639,7 @@ bool rai::logging::deserialize_json (bool & upgraded_a, boost::property_tree::pt
 		work_generation_time_value = tree_a.get<bool> ("work_generation_time");
 		log_to_cerr_value = tree_a.get<bool> ("log_to_cerr");
 		max_size = tree_a.get<uintmax_t> ("max_size");
+		rotation_size = tree_a.get<uintmax_t> ("rotation_size", 4194304);
 		flush = tree_a.get<bool> ("flush", true);
 	}
 	catch (std::runtime_error const &)
