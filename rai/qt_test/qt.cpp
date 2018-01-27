@@ -715,7 +715,7 @@ TEST (wallet, seed_work_generation)
 		++iterations;
 		ASSERT_LT (iterations, 200);
 	}
-	ASSERT_FALSE (rai::work_validate (system.nodes[0]->ledger.latest_root (rai::transaction (system.wallet (0)->store.environment, nullptr, false), key1), work));
+	ASSERT (rai::work_validate (system.nodes[0]->ledger.latest_root (rai::transaction (system.wallet (0)->store.environment, nullptr, false), key1), work));
 }
 
 TEST (wallet, backup_seed)
