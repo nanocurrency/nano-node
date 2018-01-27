@@ -712,7 +712,7 @@ boost::optional<uint64_t> rai::opencl_work::generate_work (rai::uint256_union co
 	uint64_t result (0);
 	unsigned thread_count (config.threads);
 	size_t work_size[] = { thread_count, 0, 0 };
-	while (rai::work_validate (root_a, result) && !error)
+	while (!rai::work_validate (root_a, result) && !error)
 	{
 		result = rand.next ();
 		cl_int write_error1 = clEnqueueWriteBuffer (queue, attempt_buffer, false, 0, sizeof (uint64_t), &result, 0, nullptr, nullptr);

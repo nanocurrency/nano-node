@@ -1411,7 +1411,6 @@ wallet (wallet_a)
 					{
 						lock_toggle->setText ("Unlock");
 					}
-
 				});
 			}
 		}

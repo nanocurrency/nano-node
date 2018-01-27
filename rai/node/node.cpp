@@ -584,7 +584,7 @@ void rai::logging::serialize_json (boost::property_tree::ptree & tree_a) const
 	tree_a.put ("work_generation_time", work_generation_time_value);
 	tree_a.put ("log_to_cerr", log_to_cerr_value);
 	tree_a.put ("max_size", max_size);
-	tree_a.put("rotation_size", rotation_size);
+	tree_a.put ("rotation_size", rotation_size);
 	tree_a.put ("flush", flush);
 }
 
@@ -2116,7 +2116,7 @@ public:
 			uint64_t work;
 			if (!rai::from_string_hex (work_text, work))
 			{
-				if (!rai::work_validate (root, work))
+				if (rai::work_validate (root, work))
 				{
 					set_once (work);
 					stop ();
