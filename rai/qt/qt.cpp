@@ -1282,7 +1282,7 @@ void rai_qt::wallet::push_main_stack (QWidget * widget_a)
 	main_stack->setCurrentIndex (main_stack->count () - 1);
 }
 
-void rai_qt::wallet::pop_main_stack()
+void rai_qt::wallet::pop_main_stack ()
 {
 	main_stack->removeWidget (main_stack->currentWidget ());
 }
