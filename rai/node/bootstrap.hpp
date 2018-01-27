@@ -88,6 +88,7 @@ public:
 	void add_pull (rai::pull_info const &);
 	bool still_pulling ();
 	void process_fork (MDB_txn *, std::shared_ptr<rai::block>);
+	unsigned target_connections (size_t pulls_remaining);
 	std::deque<std::weak_ptr<rai::bootstrap_client>> clients;
 	std::weak_ptr<rai::bootstrap_client> connection_frontier_request;
 	std::weak_ptr<rai::frontier_req_client> frontiers;
