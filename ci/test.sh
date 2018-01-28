@@ -25,7 +25,7 @@ xvfb_run_() {
     Xvfb :2 -screen 0 1024x768x24 &
     xvfb_pid=$!
     sleep ${INIT_DELAY_SEC}
-    DISPLAY=:2 ${TIMEOUT_CMD} ${TIMEOUT_TIME_ARG} ${TIMEOUT_SEC-600} $@
+    DISPLAY=:2 ${TIMEOUT_CMD} ${TIMEOUT_TIME_ARG} ${TIMEOUT_SEC-420} $@
     res=${?}
     kill ${xvfb_pid}
 
@@ -41,18 +41,18 @@ run_tests() {
         TIMEOUT_TIME_ARG=""
     fi
 
-    ${TIMEOUT_CMD} ${TIMEOUT_TIME_ARG} ${TIMEOUT_SEC-600} ./core_test
+    ${TIMEOUT_CMD} ${TIMEOUT_TIME_ARG} ${TIMEOUT_SEC-420} ./core_test
     core_test_res=${?}
 
     xvfb_run_ ./qt_test
     qt_test_res=${?}
 
-    ./load_test ./rai_node
+    ${TIMEOUT_CMD} ${TIMEOUT_TIME_ARG} ${TIMEOUT_SEC-420} ./load_test ./rai_node
     load_test_res=${?}
 
     echo "Core Test return code: ${core_test_res}"
     echo "QT Test return code: ${qt_test_res}"
-    echo "Load Test return code: ${qt_test_res}"
+    echo "Load Test return code: ${load_test_res}"
     return $((${core_test_res} + ${qt_test_res} + ${load_test_res}))
 }
 
