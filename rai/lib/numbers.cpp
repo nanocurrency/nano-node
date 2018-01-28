@@ -75,68 +75,68 @@ std::string rai::uint256_union::to_account () const
 
 bool rai::uint256_union::decode_account_v1 (std::string const & source_a)
 {
-	auto result (source_a.size () != 50);
-	if (!result)
+	auto error (source_a.size () != 50);
+	if (!error)
 	{
 		rai::uint512_t number_l;
-		for (auto i (source_a.begin ()), j (source_a.end ()); !result && i != j; ++i)
+		for (auto i (source_a.begin ()), j (source_a.end ()); !error && i != j; ++i)
 		{
 			uint8_t character (*i);
-			result = character < 0x30 || character >= 0x80;
-			if (!result)
+			error = character < 0x30 || character >= 0x80;
+			if (!error)
 			{
 				uint8_t byte (base58_decode (character));
-				result = byte == '~';
-				if (!result)
+				error = byte == '~';
+				if (!error)
 				{
 					number_l *= 58;
 					number_l += byte;
 				}
 			}
 		}
-		if (!result)
+		if (!error)
 		{
 			*this = number_l.convert_to<rai::uint256_t> ();
 			uint32_t check ((number_l >> 256).convert_to<uint32_t> ());
-			result = (number_l >> (256 + 32)) != 13;
-			if (!result)
+			error = (number_l >> (256 + 32)) != 13;
+			if (!error)
 			{
 				uint32_t validation;
 				blake2b_state hash;
 				blake2b_init (&hash, sizeof (validation));
 				blake2b_update (&hash, bytes.data (), sizeof (bytes));
 				blake2b_final (&hash, reinterpret_cast<uint8_t *> (&validation), sizeof (validation));
-				result = check != validation;
+				error = check != validation;
 			}
 		}
 	}
-	return result;
+	return error;
 }
 
 bool rai::uint256_union::decode_account (std::string const & source_a)
 {
-	auto result (source_a.size () != 64);
-	if (!result)
+	auto error (source_a.size () != 64);
+	if (!error)
 	{
 		if (source_a[0] == 'x' && source_a[1] == 'r' && source_a[2] == 'b' && (source_a[3] == '_' || source_a[3] == '-'))
 		{
 			rai::uint512_t number_l;
-			for (auto i (source_a.begin () + 4), j (source_a.end ()); !result && i != j; ++i)
+			for (auto i (source_a.begin () + 4), j (source_a.end ()); !error && i != j; ++i)
 			{
 				uint8_t character (*i);
-				result = character < 0x30 || character >= 0x80;
-				if (!result)
+				error = character < 0x30 || character >= 0x80;
+				if (!error)
 				{
 					uint8_t byte (account_decode (character));
-					result = byte == '~';
-					if (!result)
+					error = byte == '~';
+					if (!error)
 					{
 						number_l <<= 5;
 						number_l += byte;
 					}
 				}
 			}
-			if (!result)
+			if (!error)
 			{
 				*this = (number_l >> 40).convert_to<rai::uint256_t> ();
 				uint64_t check (number_l.convert_to<uint64_t> ());
@@ -146,19 +146,19 @@ bool rai::uint256_union::decode_account (std::string const & source_a)
 				blake2b_init (&hash, 5);
 				blake2b_update (&hash, bytes.data (), bytes.size ());
 				blake2b_final (&hash, reinterpret_cast<uint8_t *> (&validation), 5);
-				result = check != validation;
+				error = check != validation;
 			}
 		}
 		else
 		{
-			result = true;
+			error = true;
 		}
 	}
 	else
 	{
-		result = decode_account_v1 (source_a);
+		error = decode_account_v1 (source_a);
 	}
-	return result;
+	return error;
 }
 
 rai::uint256_union::uint256_union (rai::uint256_t const & number_a)
@@ -256,7 +256,7 @@ void rai::uint256_union::encode_hex (std::string & text) const
 
 bool rai::uint256_union::decode_hex (std::string const & text)
 {
-	auto result (false);
+	auto error (false);
 	if (!text.empty () && text.size () <= 64)
 	{
 		std::stringstream stream (text);
@@ -268,19 +268,19 @@ bool rai::uint256_union::decode_hex (std::string const & text)
 			*this = number_l;
 			if (!stream.eof ())
 			{
-				result = true;
+				error = true;
 			}
 		}
 		catch (std::runtime_error &)
 		{
-			result = true;
+			error = true;
 		}
 	}
 	else
 	{
-		result = true;
+		error = true;
 	}
-	return result;
+	return error;
 }
 
 void rai::uint256_union::encode_dec (std::string & text) const
@@ -294,8 +294,8 @@ void rai::uint256_union::encode_dec (std::string & text) const
 
 bool rai::uint256_union::decode_dec (std::string const & text)
 {
-	auto result (text.size () > 78 || (text.size () > 1 && text[0] == '0') || (text.size () > 0 && text[0] == '-'));
-	if (!result)
+	auto error (text.size () > 78 || (text.size () > 1 && text[0] == '0') || (text.size () > 0 && text[0] == '-'));
+	if (!error)
 	{
 		std::stringstream stream (text);
 		stream << std::dec << std::noshowbase;
@@ -306,15 +306,15 @@ bool rai::uint256_union::decode_dec (std::string const & text)
 			*this = number_l;
 			if (!stream.eof ())
 			{
-				result = true;
+				error = true;
 			}
 		}
 		catch (std::runtime_error &)
 		{
-			result = true;
+			error = true;
 		}
 	}
-	return result;
+	return error;
 }
 
 rai::uint256_union::uint256_union (uint64_t value0)
@@ -371,8 +371,8 @@ void rai::uint512_union::encode_hex (std::string & text) const
 
 bool rai::uint512_union::decode_hex (std::string const & text)
 {
-	auto result (text.size () > 128);
-	if (!result)
+	auto error (text.size () > 128);
+	if (!error)
 	{
 		std::stringstream stream (text);
 		stream << std::hex << std::noshowbase;
@@ -383,15 +383,15 @@ bool rai::uint512_union::decode_hex (std::string const & text)
 			*this = number_l;
 			if (!stream.eof ())
 			{
-				result = true;
+				error = true;
 			}
 		}
 		catch (std::runtime_error &)
 		{
-			result = true;
+			error = true;
 		}
 	}
-	return result;
+	return error;
 }
 
 bool rai::uint512_union::operator!= (rai::uint512_union const & other_a) const
@@ -523,8 +523,8 @@ void rai::uint128_union::encode_hex (std::string & text) const
 
 bool rai::uint128_union::decode_hex (std::string const & text)
 {
-	auto result (text.size () > 32);
-	if (!result)
+	auto error (text.size () > 32);
+	if (!error)
 	{
 		std::stringstream stream (text);
 		stream << std::hex << std::noshowbase;
@@ -535,15 +535,15 @@ bool rai::uint128_union::decode_hex (std::string const & text)
 			*this = number_l;
 			if (!stream.eof ())
 			{
-				result = true;
+				error = true;
 			}
 		}
 		catch (std::runtime_error &)
 		{
-			result = true;
+			error = true;
 		}
 	}
-	return result;
+	return error;
 }
 
 void rai::uint128_union::encode_dec (std::string & text) const
@@ -557,8 +557,8 @@ void rai::uint128_union::encode_dec (std::string & text) const
 
 bool rai::uint128_union::decode_dec (std::string const & text)
 {
-	auto result (text.size () > 39 || (text.size () > 1 && text[0] == '0') || (text.size () > 0 && text[0] == '-'));
-	if (!result)
+	auto error (text.size () > 39 || (text.size () > 1 && text[0] == '0') || (text.size () > 0 && text[0] == '-'));
+	if (!error)
 	{
 		std::stringstream stream (text);
 		stream << std::dec << std::noshowbase;
@@ -569,15 +569,15 @@ bool rai::uint128_union::decode_dec (std::string const & text)
 			*this = number_l;
 			if (!stream.eof ())
 			{
-				result = true;
+				error = true;
 			}
 		}
 		catch (std::runtime_error &)
 		{
-			result = true;
+			error = true;
 		}
 	}
-	return result;
+	return error;
 }
 
 void format_frac (std::ostringstream & stream, rai::uint128_t value, rai::uint128_t scale, int precision)

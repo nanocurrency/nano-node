@@ -37,24 +37,21 @@ int xrb_uint256_from_string (const char * source, xrb_uint256 destination)
 {
 	auto & number (*reinterpret_cast<rai::uint256_union *> (destination));
 	auto error (number.decode_hex (source));
-	auto result (error ? 1 : 0);
-	return result;
+	return error ? 1 : 0;
 }
 
 int xrb_uint512_from_string (const char * source, xrb_uint512 destination)
 {
 	auto & number (*reinterpret_cast<rai::uint512_union *> (destination));
 	auto error (number.decode_hex (source));
-	auto result (error ? 1 : 0);
-	return result;
+	return error ? 1 : 0;
 }
 
 int xrb_valid_address (const char * account_a)
 {
 	rai::uint256_union account;
 	auto error (account.decode_account (account_a));
-	auto result (error ? 1 : 0);
-	return result;
+	return error ? 1 : 0;
 }
 
 void xrb_generate_random (xrb_uint256 seed)

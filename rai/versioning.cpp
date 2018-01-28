@@ -33,20 +33,20 @@ void rai::account_info_v1::serialize (rai::stream & stream_a) const
 
 bool rai::account_info_v1::deserialize (rai::stream & stream_a)
 {
-	auto result (read (stream_a, head.bytes));
-	if (!result)
+	auto error (read (stream_a, head.bytes));
+	if (!error)
 	{
-		result = read (stream_a, rep_block.bytes);
-		if (!result)
+		error = read (stream_a, rep_block.bytes);
+		if (!error)
 		{
-			result = read (stream_a, balance.bytes);
-			if (!result)
+			error = read (stream_a, balance.bytes);
+			if (!error)
 			{
-				result = read (stream_a, modified);
+				error = read (stream_a, modified);
 			}
 		}
 	}
-	return result;
+	return error;
 }
 
 rai::mdb_val rai::account_info_v1::val () const
@@ -84,16 +84,16 @@ void rai::pending_info_v3::serialize (rai::stream & stream_a) const
 
 bool rai::pending_info_v3::deserialize (rai::stream & stream_a)
 {
-	auto result (rai::read (stream_a, source.bytes));
-	if (!result)
+	auto error (rai::read (stream_a, source.bytes));
+	if (!error)
 	{
-		result = rai::read (stream_a, amount.bytes);
-		if (!result)
+		error = rai::read (stream_a, amount.bytes);
+		if (!error)
 		{
-			result = rai::read (stream_a, destination.bytes);
+			error = rai::read (stream_a, destination.bytes);
 		}
 	}
-	return result;
+	return error;
 }
 
 bool rai::pending_info_v3::operator== (rai::pending_info_v3 const & other_a) const
@@ -142,24 +142,24 @@ void rai::account_info_v5::serialize (rai::stream & stream_a) const
 
 bool rai::account_info_v5::deserialize (rai::stream & stream_a)
 {
-	auto result (read (stream_a, head.bytes));
-	if (!result)
+	auto error (read (stream_a, head.bytes));
+	if (!error)
 	{
-		result = read (stream_a, rep_block.bytes);
-		if (!result)
+		error = read (stream_a, rep_block.bytes);
+		if (!error)
 		{
-			result = read (stream_a, open_block.bytes);
-			if (!result)
+			error = read (stream_a, open_block.bytes);
+			if (!error)
 			{
-				result = read (stream_a, balance.bytes);
-				if (!result)
+				error = read (stream_a, balance.bytes);
+				if (!error)
 				{
-					result = read (stream_a, modified);
+					error = read (stream_a, modified);
 				}
 			}
 		}
 	}
-	return result;
+	return error;
 }
 
 rai::mdb_val rai::account_info_v5::val () const
