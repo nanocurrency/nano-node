@@ -48,15 +48,4 @@ else
     TRUE_CMD=true
 fi
 
-if ! cargo --version &>/dev/null; then
-    # We'll update the docker image once this PR gets merged.
-    # If you're reading this comment on master, contact @PlasmaPower
-    apt-get update && apt-get install -yq cargo
-fi
-
-pushd load-tester
-cargo build --release
-popd
-cp ./load-tester/target/release/raiblocks-load-tester ./build/load_test
-
 ./ci/test.sh ./build || ${TRUE_CMD}

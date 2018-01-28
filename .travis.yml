@@ -37,7 +37,6 @@ before_install:
   - if [ "$TRAVIS_OS_NAME" = "linux" ]; then docker pull lukealonso/raiblocks-ci:latest; fi
 
 script:
-  - if [ -n "$ONE_TIME_TESTS" ]; then ci/check-commit-format.sh; fi
-  - if [ -n "$ONE_TIME_TESTS" ]; then doxygen doxygen.config; fi # TODO also deploy the built HTML
+  - if [ -n "$ONE_TIME_TESTS" ]; then docker run -v $TRAVIS_BUILD_DIR:/workspace lukealonso/raiblocks-ci:latest /bin/bash -c "cd /workspace && ./ci/one_time_tests.sh"; fi
   - if [ "$TRAVIS_OS_NAME" = "osx" ]; then ci/build-travis.sh "/usr/local/opt/qt5/lib/cmake/Qt5"; fi
   - if [ "$TRAVIS_OS_NAME" = "linux" ]; then docker run -v $TRAVIS_BUILD_DIR:/workspace lukealonso/raiblocks-ci:latest /bin/bash -c "cd /workspace && ASAN=${ASAN} TSAN=${TSAN} ./ci/build-travis.sh /usr/lib/x86_64-linux-gnu/cmake/Qt5 ${PWD}"; fi
