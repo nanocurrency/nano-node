@@ -10,6 +10,8 @@ constexpr double bootstrap_connection_warmup_time = 5.0;
 constexpr double bootstrap_minimum_block_rate = 10.0;
 constexpr double bootstrap_minimum_termination_time = 30.0;
 constexpr unsigned bootstrap_max_new_connections = 10;
+constexpr unsigned bootstrap_peer_frontier_minimum = rai::rai_network == rai::rai_networks::rai_live_network ? 339000 : 0;
+
 
 rai::block_synchronization::block_synchronization (boost::log::sources::logger_mt & log_a) :
 log (log_a)
@@ -426,7 +428,7 @@ void rai::frontier_req_client::received_frontier (boost::system::error_code cons
 			{
 				try
 				{
-					promise.set_value (false);
+					promise.set_value (count < bootstrap_peer_frontier_minimum);
 				}
 				catch (std::future_error &)
 				{
@@ -476,7 +478,8 @@ rai::bulk_pull_client::~bulk_pull_client ()
 	// If received end block is not expected end block
 	if (expected != pull.end)
 	{
-		connection->attempt->requeue_pull (rai::pull_info (pull.account, expected, pull.end));
+		pull.head = expected;
+		connection->attempt->requeue_pull (pull);
 		if (connection->node->config.logging.bulk_pull_logging ())
 		{
 			BOOST_LOG (connection->node->log) << boost::str (boost::format ("Bulk pull end block is not expected %1% for account %2%") % pull.end.to_string () % pull.account.to_account ());
