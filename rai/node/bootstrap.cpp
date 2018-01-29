@@ -18,10 +18,6 @@ log (log_a)
 {
 }
 
-rai::block_synchronization::~block_synchronization ()
-{
-}
-
 namespace
 {
 class add_dependency_visitor : public rai::block_visitor
@@ -135,10 +131,6 @@ rai::push_synchronization::push_synchronization (rai::node & node_a, std::functi
 block_synchronization (node_a.log),
 target_m (target_a),
 node (node_a)
-{
-}
-
-rai::push_synchronization::~push_synchronization ()
 {
 }
 
@@ -1531,9 +1523,7 @@ public:
 	connection (connection_a)
 	{
 	}
-	virtual ~request_response_visitor ()
-	{
-	}
+	virtual ~request_response_visitor () = default;
 	void keepalive (rai::keepalive const &) override
 	{
 		assert (false);
