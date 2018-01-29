@@ -400,6 +400,7 @@ public:
 	unsigned work_threads;
 	bool enable_voting;
 	unsigned bootstrap_connections;
+	unsigned bootstrap_connections_max;
 	std::string callback_address;
 	uint16_t callback_port;
 	std::string callback_target;

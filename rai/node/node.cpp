@@ -750,7 +750,8 @@ password_fanout (1024),
 io_threads (std::max<unsigned> (4, std::thread::hardware_concurrency ())),
 work_threads (std::max<unsigned> (4, std::thread::hardware_concurrency ())),
 enable_voting (true),
-bootstrap_connections (16),
+bootstrap_connections (4),
+bootstrap_connections_max (64),
 callback_port (0),
 lmdb_max_dbs (128)
 {
@@ -822,6 +823,7 @@ void rai::node_config::serialize_json (boost::property_tree::ptree & tree_a) con
 	tree_a.put ("work_threads", std::to_string (work_threads));
 	tree_a.put ("enable_voting", enable_voting);
 	tree_a.put ("bootstrap_connections", bootstrap_connections);
+	tree_a.put ("bootstrap_connections_max", bootstrap_connections_max);
 	tree_a.put ("callback_address", callback_address);
 	tree_a.put ("callback_port", std::to_string (callback_port));
 	tree_a.put ("callback_target", callback_target);
@@ -966,6 +968,7 @@ bool rai::node_config::deserialize_json (bool & upgraded_a, boost::property_tree
 		auto work_threads_l (tree_a.get<std::string> ("work_threads"));
 		enable_voting = tree_a.get<bool> ("enable_voting");
 		auto bootstrap_connections_l (tree_a.get<std::string> ("bootstrap_connections"));
+		auto bootstrap_connections_max_l (tree_a.get<std::string> ("bootstrap_connections_max"));
 		callback_address = tree_a.get<std::string> ("callback_address");
 		auto callback_port_l (tree_a.get<std::string> ("callback_port"));
 		callback_target = tree_a.get<std::string> ("callback_target");
@@ -979,6 +982,7 @@ bool rai::node_config::deserialize_json (bool & upgraded_a, boost::property_tree
 			io_threads = std::stoul (io_threads_l);
 			work_threads = std::stoul (work_threads_l);
 			bootstrap_connections = std::stoul (bootstrap_connections_l);
+			bootstrap_connections_max = std::stoul (bootstrap_connections_max_l);
 			lmdb_max_dbs = std::stoi (lmdb_max_dbs_l);
 			result |= peering_port > std::numeric_limits<uint16_t>::max ();
 			result |= logging.deserialize_json (upgraded_a, logging_l);
