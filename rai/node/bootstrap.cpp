@@ -5,6 +5,9 @@
 
 #include <boost/log/trivial.hpp>
 
+// Updated 1-27-18
+constexpr unsigned bootstrap_peer_frontier_minimum = rai::rai_network == rai::rai_networks::rai_live_network ? 339000 : 0;
+
 rai::block_synchronization::block_synchronization (boost::log::sources::logger_mt & log_a) :
 log (log_a)
 {
@@ -420,7 +423,7 @@ void rai::frontier_req_client::received_frontier (boost::system::error_code cons
 			{
 				try
 				{
-					promise.set_value (false);
+					promise.set_value (count < bootstrap_peer_frontier_minimum);
 				}
 				catch (std::future_error &)
 				{
