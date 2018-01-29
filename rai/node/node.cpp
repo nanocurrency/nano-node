@@ -323,9 +323,7 @@ public:
 	sender (sender_a)
 	{
 	}
-	virtual ~network_message_visitor ()
-	{
-	}
+	virtual ~network_message_visitor () = default;
 	void keepalive (rai::keepalive const & message_a) override
 	{
 		if (node.config.logging.network_keepalive_logging ())
@@ -584,7 +582,7 @@ void rai::logging::serialize_json (boost::property_tree::ptree & tree_a) const
 	tree_a.put ("work_generation_time", work_generation_time_value);
 	tree_a.put ("log_to_cerr", log_to_cerr_value);
 	tree_a.put ("max_size", max_size);
-	tree_a.put("rotation_size", rotation_size);
+	tree_a.put ("rotation_size", rotation_size);
 	tree_a.put ("flush", flush);
 }
 
@@ -2213,9 +2211,7 @@ public:
 	block (block_a)
 	{
 	}
-	virtual ~confirmed_visitor ()
-	{
-	}
+	virtual ~confirmed_visitor () = default;
 	void send_block (rai::send_block const & block_a) override
 	{
 		for (auto i (node.wallets.items.begin ()), n (node.wallets.items.end ()); i != n; ++i)

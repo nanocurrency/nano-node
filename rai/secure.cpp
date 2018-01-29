@@ -594,9 +594,7 @@ public:
 	result (0)
 	{
 	}
-	virtual ~representative_visitor ()
-	{
-	}
+	virtual ~representative_visitor () = default;
 	void compute (rai::block_hash const & hash_a)
 	{
 		current = hash_a;
@@ -802,9 +800,7 @@ public:
 	store (store_a)
 	{
 	}
-	virtual ~set_predecessor ()
-	{
-	}
+	virtual ~set_predecessor () = default;
 	void fill_value (rai::block const & block_a)
 	{
 		auto hash (block_a.hash ());
@@ -1731,9 +1727,7 @@ public:
 	store (store_a)
 	{
 	}
-	virtual ~root_visitor ()
-	{
-	}
+	virtual ~root_visitor () = default;
 	void send_block (rai::send_block const & block_a) override
 	{
 		result = block_a.previous ();
@@ -1798,7 +1792,7 @@ class ledger_processor : public rai::block_visitor
 {
 public:
 	ledger_processor (rai::ledger &, MDB_txn *);
-	virtual ~ledger_processor ();
+	virtual ~ledger_processor () = default;
 	void send_block (rai::send_block const &) override;
 	void receive_block (rai::receive_block const &) override;
 	void open_block (rai::open_block const &) override;
@@ -1813,7 +1807,7 @@ class amount_visitor : public rai::block_visitor
 {
 public:
 	amount_visitor (MDB_txn *, rai::block_store &);
-	virtual ~amount_visitor ();
+	virtual ~amount_visitor () = default;
 	void compute (rai::block_hash const &);
 	void send_block (rai::send_block const &) override;
 	void receive_block (rai::receive_block const &) override;
@@ -1830,7 +1824,7 @@ class balance_visitor : public rai::block_visitor
 {
 public:
 	balance_visitor (MDB_txn *, rai::block_store &);
-	virtual ~balance_visitor ();
+	virtual ~balance_visitor () = default;
 	void compute (rai::block_hash const &);
 	void send_block (rai::send_block const &) override;
 	void receive_block (rai::receive_block const &) override;
@@ -1845,10 +1839,6 @@ public:
 amount_visitor::amount_visitor (MDB_txn * transaction_a, rai::block_store & store_a) :
 transaction (transaction_a),
 store (store_a)
-{
-}
-
-amount_visitor::~amount_visitor ()
 {
 }
 
@@ -1893,10 +1883,6 @@ transaction (transaction_a),
 store (store_a),
 current (0),
 result (0)
-{
-}
-
-balance_visitor::~balance_visitor ()
 {
 }
 
@@ -1954,9 +1940,7 @@ public:
 	ledger (ledger_a)
 	{
 	}
-	virtual ~rollback_visitor ()
-	{
-	}
+	virtual ~rollback_visitor () = default;
 	void send_block (rai::send_block const & block_a) override
 	{
 		auto hash (block_a.hash ());
@@ -2541,10 +2525,6 @@ void ledger_processor::open_block (rai::open_block const & block_a)
 ledger_processor::ledger_processor (rai::ledger & ledger_a, MDB_txn * transaction_a) :
 ledger (ledger_a),
 transaction (transaction_a)
-{
-}
-
-ledger_processor::~ledger_processor ()
 {
 }
 

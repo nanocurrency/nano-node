@@ -32,7 +32,7 @@ class block_synchronization
 {
 public:
 	block_synchronization (boost::log::sources::logger_mt &);
-	virtual ~block_synchronization ();
+	virtual ~block_synchronization () = default;
 	// Return true if target already has block
 	virtual bool synchronized (MDB_txn *, rai::block_hash const &) = 0;
 	virtual std::unique_ptr<rai::block> retrieve (MDB_txn *, rai::block_hash const &) = 0;
@@ -49,7 +49,7 @@ class push_synchronization : public rai::block_synchronization
 {
 public:
 	push_synchronization (rai::node &, std::function<rai::sync_result (MDB_txn *, rai::block const &)> const &);
-	virtual ~push_synchronization ();
+	virtual ~push_synchronization () = default;
 	bool synchronized (MDB_txn *, rai::block_hash const &) override;
 	std::unique_ptr<rai::block> retrieve (MDB_txn *, rai::block_hash const &) override;
 	rai::sync_result target (MDB_txn *, rai::block const &) override;
