@@ -964,7 +964,7 @@ void rai::bootstrap_attempt::process_fork (MDB_txn * transaction_a, std::shared_
 	{
 		node->network.broadcast_confirm_req (ledger_block);
 		node->network.broadcast_confirm_req (block_a);
-		BOOST_LOG (node->log) << boost::str (boost::format ("While bootstrappping, fork between our block: %2% and block %1% both with root %3%") % ledger_block->hash ().to_string () % block_a->hash ().to_string () % block_a->root ().to_string ());
+		BOOST_LOG (node->log) << boost::str (boost::format ("While bootstrappping, fork between our block %1% and block %2% both with root %3%") % ledger_block->hash ().to_string () % block_a->hash ().to_string () % block_a->root ().to_string ());
 	}
 }
 
