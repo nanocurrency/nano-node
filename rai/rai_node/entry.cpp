@@ -115,6 +115,7 @@ int main (int argc, char * const * argv)
 	// clang-format off
 	description.add_options ()
 		("help", "Print out options")
+		("version", "Prints out version")
 		("daemon", "Start node daemon")
 		("debug_block_count", "Display the number of block")
 		("debug_bootstrap_generate", "Generate bootstrap sequence of blocks")
@@ -421,6 +422,10 @@ int main (int argc, char * const * argv)
 			auto end1 (std::chrono::high_resolution_clock::now ());
 			std::cerr << boost::str (boost::format ("%|1$ 12d|\n") % std::chrono::duration_cast<std::chrono::microseconds> (end1 - begin1).count ());
 		}
+	}
+	else if (vm.count ("version"))
+	{
+		std::cout << "Version " << RAIBLOCKS_VERSION_MAJOR << "." << RAIBLOCKS_VERSION_MINOR << std::endl;
 	}
 #if 0
 	else if (vm.count ("debug_xorshift_profile"))

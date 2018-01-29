@@ -887,8 +887,8 @@ TEST (node, port_mapping)
 	auto node0 (system.nodes[0]);
 	node0->port_mapping.refresh_devices ();
 	node0->port_mapping.start ();
-	auto end (std::chrono::system_clock::now () + std::chrono::seconds (500));
-	//while (std::chrono::system_clock::now () < end)
+	auto end (std::chrono::steady_clock::now () + std::chrono::seconds (500));
+	//while (std::chrono::steady_clock::now () < end)
 	{
 		system.poll ();
 	}

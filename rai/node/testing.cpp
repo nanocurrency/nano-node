@@ -1,7 +1,7 @@
-#include <rai/node/testing.hpp>
-
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
+#include <rai/node/common.hpp>
+#include <rai/node/testing.hpp>
 
 rai::system::system (uint16_t port_a, size_t count_a) :
 alarm (service),
@@ -99,7 +99,7 @@ public:
 		if (count_l > 0)
 		{
 			auto this_l (shared_from_this ());
-			node->alarm.add (std::chrono::system_clock::now () + std::chrono::milliseconds (wait), [this_l]() { this_l->run (); });
+			node->alarm.add (std::chrono::steady_clock::now () + std::chrono::milliseconds (wait), [this_l]() { this_l->run (); });
 		}
 	}
 	std::vector<rai::account> accounts;
@@ -303,12 +303,12 @@ void rai::system::generate_mass_activity (uint32_t count_a, rai::node & node_a)
 	std::vector<rai::account> accounts;
 	wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	accounts.push_back (rai::test_genesis_key.pub);
-	auto previous (std::chrono::system_clock::now ());
+	auto previous (std::chrono::steady_clock::now ());
 	for (uint32_t i (0); i < count_a; ++i)
 	{
 		if ((i & 0xfff) == 0)
 		{
-			auto now (std::chrono::system_clock::now ());
+			auto now (std::chrono::steady_clock::now ());
 			auto us (std::chrono::duration_cast<std::chrono::microseconds> (now - previous).count ());
 			std::cerr << boost::str (boost::format ("Mass activity iteration %1% us %2% us/t %3%\n") % i % us % (us / 256));
 			previous = now;
@@ -462,14 +462,9 @@ rai::uint128_t rai::landing::distribution_amount (uint64_t interval)
 	return result;
 }
 
-uint64_t rai::landing::seconds_since_epoch ()
-{
-	return std::chrono::duration_cast<std::chrono::seconds> (std::chrono::system_clock::now ().time_since_epoch ()).count ();
-}
-
 void rai::landing::distribute_one ()
 {
-	auto now (seconds_since_epoch ());
+	auto now (rai::seconds_since_epoch ());
 	rai::block_hash last (1);
 	while (!last.is_zero () && store.last + distribution_interval.count () < now)
 	{
@@ -492,7 +487,7 @@ void rai::landing::distribute_ongoing ()
 {
 	distribute_one ();
 	BOOST_LOG (node.log) << "Waiting for next distribution cycle";
-	node.alarm.add (std::chrono::system_clock::now () + sleep_seconds, [this]() { distribute_ongoing (); });
+	node.alarm.add (std::chrono::steady_clock::now () + sleep_seconds, [this]() { distribute_ongoing (); });
 }
 
 std::chrono::seconds constexpr rai::landing::distribution_interval;

@@ -1199,11 +1199,11 @@ void rai::wallet::init_free_accounts (MDB_txn * transaction_a)
 
 void rai::wallet::work_generate (rai::account const & account_a, rai::block_hash const & root_a)
 {
-	auto begin (std::chrono::system_clock::now ());
+	auto begin (std::chrono::steady_clock::now ());
 	auto work (node.generate_work (root_a));
 	if (node.config.logging.work_generation_time ())
 	{
-		BOOST_LOG (node.log) << "Work generation complete: " << (std::chrono::duration_cast<std::chrono::microseconds> (std::chrono::system_clock::now () - begin).count ()) << " us";
+		BOOST_LOG (node.log) << "Work generation complete: " << (std::chrono::duration_cast<std::chrono::microseconds> (std::chrono::steady_clock::now () - begin).count ()) << " us";
 	}
 	rai::transaction transaction (store.environment, nullptr, true);
 	if (store.exists (transaction, account_a))
@@ -1364,10 +1364,10 @@ void rai::wallets::foreach_representative (MDB_txn * transaction_a, std::functio
 				}
 				else
 				{
-					static auto last_log = std::chrono::system_clock::time_point ();
-					if (last_log < std::chrono::system_clock::now () - std::chrono::seconds (60))
+					static auto last_log = std::chrono::steady_clock::time_point ();
+					if (last_log < std::chrono::steady_clock::now () - std::chrono::seconds (60))
 					{
-						last_log = std::chrono::system_clock::now ();
+						last_log = std::chrono::steady_clock::now ();
 						BOOST_LOG (node.log) << boost::str (boost::format ("Representative locked inside wallet %1%") % i->first.to_string ());
 					}
 				}

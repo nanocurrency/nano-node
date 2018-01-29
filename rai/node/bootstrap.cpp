@@ -5,12 +5,16 @@
 
 #include <boost/log/trivial.hpp>
 
+constexpr double bootstrap_connection_scale_target = 50000.0;
+constexpr double bootstrap_connection_warmup_time = 5.0;
+constexpr double bootstrap_minimum_block_rate = 10.0;
+constexpr double bootstrap_minimum_termination_time = 30.0;
+constexpr unsigned bootstrap_max_new_connections = 10;
+constexpr unsigned bootstrap_peer_frontier_minimum = rai::rai_network == rai::rai_networks::rai_live_network ? 339000 : 0;
+
+
 rai::block_synchronization::block_synchronization (boost::log::sources::logger_mt & log_a) :
 log (log_a)
-{
-}
-
-rai::block_synchronization::~block_synchronization ()
 {
 }
 
@@ -115,8 +119,8 @@ rai::sync_result rai::block_synchronization::synchronize (MDB_txn * transaction_
 	auto result (rai::sync_result::success);
 	blocks.clear ();
 	blocks.push_back (hash_a);
-	auto cutoff (std::chrono::system_clock::now () + rai::transaction_timeout);
-	while (std::chrono::system_clock::now () < cutoff && result != rai::sync_result::fork && !blocks.empty ())
+	auto cutoff (std::chrono::steady_clock::now () + rai::transaction_timeout);
+	while (std::chrono::steady_clock::now () < cutoff && result != rai::sync_result::fork && !blocks.empty ())
 	{
 		result = synchronize_one (transaction_a);
 	}
@@ -127,10 +131,6 @@ rai::push_synchronization::push_synchronization (rai::node & node_a, std::functi
 block_synchronization (node_a.log),
 target_m (target_a),
 node (node_a)
-{
-}
-
-rai::push_synchronization::~push_synchronization ()
 {
 }
 
@@ -287,7 +287,7 @@ rai::frontier_req_client::frontier_req_client (std::shared_ptr<rai::bootstrap_cl
 connection (connection_a),
 current (0),
 count (0),
-next_report (std::chrono::system_clock::now () + std::chrono::seconds (15))
+next_report (std::chrono::steady_clock::now () + std::chrono::seconds (15))
 {
 	rai::transaction transaction (connection->node->store.environment, nullptr, false);
 	next (transaction);
@@ -347,7 +347,7 @@ void rai::frontier_req_client::received_frontier (boost::system::error_code cons
 			start_time = std::chrono::steady_clock::now ();
 		}
 		++count;
-		auto now (std::chrono::system_clock::now ());
+		auto now (std::chrono::steady_clock::now ());
 		if (next_report < now)
 		{
 			next_report = now + std::chrono::seconds (15);
@@ -420,7 +420,7 @@ void rai::frontier_req_client::received_frontier (boost::system::error_code cons
 			{
 				try
 				{
-					promise.set_value (false);
+					promise.set_value (count < bootstrap_peer_frontier_minimum);
 				}
 				catch (std::future_error &)
 				{
@@ -470,7 +470,8 @@ rai::bulk_pull_client::~bulk_pull_client ()
 	// If received end block is not expected end block
 	if (expected != pull.end)
 	{
-		connection->attempt->requeue_pull (rai::pull_info (pull.account, expected, pull.end));
+		pull.head = expected;
+		connection->attempt->requeue_pull (pull);
 		if (connection->node->config.logging.bulk_pull_logging ())
 		{
 			BOOST_LOG (connection->node->log) << boost::str (boost::format ("Bulk pull end block is not expected %1% for account %2%") % pull.end.to_string () % pull.account.to_account ());
@@ -967,12 +968,26 @@ struct block_rate_cmp
 	}
 };
 
+unsigned rai::bootstrap_attempt::target_connections (size_t pulls_remaining)
+{
+	if (node->config.bootstrap_connections >= node->config.bootstrap_connections_max) {
+		return std::max(1U, node->config.bootstrap_connections_max);
+	}
+	
+	// Only scale up to bootstrap_connections_max for large pulls.
+	double step = std::min (1.0, std::max (0.0, (double)pulls_remaining / bootstrap_connection_scale_target));
+	double target = (double)node->config.bootstrap_connections + (double)(node->config.bootstrap_connections_max - node->config.bootstrap_connections) * step;
+	return std::max(1U, (unsigned)(target + 0.5f));
+}
+
 void rai::bootstrap_attempt::populate_connections ()
 {
 	double rate_sum = 0.0;
+	size_t num_pulls = 0;
 	std::priority_queue<std::shared_ptr<rai::bootstrap_client>, std::vector<std::shared_ptr<rai::bootstrap_client>>, block_rate_cmp> sorted_connections;
 	{
 		std::unique_lock<std::mutex> lock (mutex);
+		num_pulls = pulls.size ();
 		for (auto & c : clients)
 		{
 			if (auto client = c.lock ())
@@ -980,13 +995,13 @@ void rai::bootstrap_attempt::populate_connections ()
 				double elapsed = client->elapsed_seconds ();
 				auto rate = client->block_rate ();
 				rate_sum += rate;
-				if (client->elapsed_seconds () > 5.0 && client->block_count > 0)
+				if (client->elapsed_seconds () > bootstrap_connection_warmup_time && client->block_count > 0)
 				{
 					sorted_connections.push (client);
 				}
 				// Force-stop the slowest peers, since they can take the whole bootstrap hostage by dribbling out blocks on the last remaining pull.
 				// This is ~1.5kilobits/sec.
-				if (elapsed > 30.0 && rate < 10.0)
+				if (elapsed > bootstrap_minimum_termination_time && rate < bootstrap_minimum_block_rate)
 				{
 					client->stop (true);
 				}
@@ -994,12 +1009,16 @@ void rai::bootstrap_attempt::populate_connections ()
 		}
 	}
 
+	auto target = target_connections (num_pulls);
+
 	// We only want to drop slow peers when more than 2/3 are active. 2/3 because 1/2 is too aggressive, and 100% rarely happens.
 	// Probably needs more tuning.
-	if (sorted_connections.size () >= (node->config.bootstrap_connections * 2) / 3 && node->config.bootstrap_connections >= 4)
+	if (sorted_connections.size () >= (target * 2) / 3 && target >= 4)
 	{
 		// 4 -> 1, 8 -> 2, 16 -> 4, arbitrary, but seems to work well.
-		auto drop = (int)roundf (sqrtf ((float)node->config.bootstrap_connections - 2.0f));
+
+		auto drop = (int)roundf (sqrtf ((float)target - 2.0f));
+
 		for (int i = 0; i < drop; i++)
 		{
 			auto client = sorted_connections.top ();
@@ -1014,9 +1033,9 @@ void rai::bootstrap_attempt::populate_connections ()
 		BOOST_LOG (node->log) << boost::str (boost::format ("Bulk pull connections: %1%, rate: %2% blocks/sec, remaining account pulls: %3%, total blocks: %4%") % connections.load () % (int)rate_sum % pulls.size () % (int)total_blocks.load ());
 	}
 
-	if (connections < node->config.bootstrap_connections)
+	if (connections < target)
 	{
-		auto delta = std::min ((node->config.bootstrap_connections - connections) * 2, 10U);
+		auto delta = std::min ((target - connections) * 2, bootstrap_max_new_connections);
 		// TODO - tune this better
 		// Not many peers respond, need to try to make more connections than we need.
 		for (int i = 0; i < delta; i++)
@@ -1040,7 +1059,7 @@ void rai::bootstrap_attempt::populate_connections ()
 	if (!stopped)
 	{
 		std::weak_ptr<rai::bootstrap_attempt> this_w (shared_from_this ());
-		node->alarm.add (std::chrono::system_clock::now () + std::chrono::seconds (1), [this_w]() {
+		node->alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (1), [this_w]() {
 			if (auto this_l = this_w.lock ())
 			{
 				this_l->populate_connections ();
@@ -1506,9 +1525,7 @@ public:
 	connection (connection_a)
 	{
 	}
-	virtual ~request_response_visitor ()
-	{
-	}
+	virtual ~request_response_visitor () = default;
 	void keepalive (rai::keepalive const &) override
 	{
 		assert (false);
@@ -1988,7 +2005,7 @@ void rai::frontier_req_server::skip_old ()
 {
 	if (request->age != std::numeric_limits<decltype (request->age)>::max ())
 	{
-		auto now (connection->node->store.now ());
+		auto now (rai::seconds_since_epoch ());
 		while (!current.is_zero () && (now - info.modified) >= request->age)
 		{
 			next ();

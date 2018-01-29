@@ -23,8 +23,6 @@
 
 #include <miniupnpc.h>
 
-std::ostream & operator<< (std::ostream &, std::chrono::system_clock::time_point const &);
-
 namespace boost
 {
 namespace program_options
@@ -59,7 +57,7 @@ public:
 	rai::uint128_t minimum_threshold (MDB_txn *, rai::ledger &);
 	rai::votes votes;
 	rai::node & node;
-	std::chrono::system_clock::time_point last_vote;
+	std::chrono::steady_clock::time_point last_vote;
 	std::shared_ptr<rai::block> last_winner;
 	std::atomic_flag confirmed;
 };
@@ -102,7 +100,7 @@ class operation
 {
 public:
 	bool operator> (rai::operation const &) const;
-	std::chrono::system_clock::time_point wakeup;
+	std::chrono::steady_clock::time_point wakeup;
 	std::function<void()> function;
 };
 class alarm
@@ -110,7 +108,7 @@ class alarm
 public:
 	alarm (boost::asio::io_service &);
 	~alarm ();
-	void add (std::chrono::system_clock::time_point const &, std::function<void()> const &);
+	void add (std::chrono::steady_clock::time_point const &, std::function<void()> const &);
 	void run ();
 	boost::asio::io_service & service;
 	std::mutex mutex;
@@ -121,7 +119,7 @@ public:
 class gap_information
 {
 public:
-	std::chrono::system_clock::time_point arrival;
+	std::chrono::steady_clock::time_point arrival;
 	rai::block_hash hash;
 	std::unique_ptr<rai::votes> votes;
 };
@@ -136,7 +134,7 @@ public:
 	boost::multi_index_container<
 	rai::gap_information,
 	boost::multi_index::indexed_by<
-	boost::multi_index::ordered_non_unique<boost::multi_index::member<gap_information, std::chrono::system_clock::time_point, &gap_information::arrival>>,
+	boost::multi_index::ordered_non_unique<boost::multi_index::member<gap_information, std::chrono::steady_clock::time_point, &gap_information::arrival>>,
 	boost::multi_index::hashed_unique<boost::multi_index::member<gap_information, rai::block_hash, &gap_information::hash>>>>
 	blocks;
 	size_t const max = 256;
@@ -148,13 +146,13 @@ class peer_information
 {
 public:
 	peer_information (rai::endpoint const &, unsigned);
-	peer_information (rai::endpoint const &, std::chrono::system_clock::time_point const &, std::chrono::system_clock::time_point const &);
+	peer_information (rai::endpoint const &, std::chrono::steady_clock::time_point const &, std::chrono::steady_clock::time_point const &);
 	rai::endpoint endpoint;
-	std::chrono::system_clock::time_point last_contact;
-	std::chrono::system_clock::time_point last_attempt;
-	std::chrono::system_clock::time_point last_bootstrap_attempt;
-	std::chrono::system_clock::time_point last_rep_request;
-	std::chrono::system_clock::time_point last_rep_response;
+	std::chrono::steady_clock::time_point last_contact;
+	std::chrono::steady_clock::time_point last_attempt;
+	std::chrono::steady_clock::time_point last_bootstrap_attempt;
+	std::chrono::steady_clock::time_point last_rep_request;
+	std::chrono::steady_clock::time_point last_rep_response;
 	rai::amount rep_weight;
 	unsigned network_version;
 };
@@ -162,7 +160,7 @@ class peer_attempt
 {
 public:
 	rai::endpoint endpoint;
-	std::chrono::system_clock::time_point last_attempt;
+	std::chrono::steady_clock::time_point last_attempt;
 };
 class peer_container
 {
@@ -188,7 +186,7 @@ public:
 	// Get the next peer for attempting bootstrap
 	rai::endpoint bootstrap_peer ();
 	// Purge any peer where last_contact < time_point and return what was left
-	std::vector<rai::peer_information> purge_list (std::chrono::system_clock::time_point const &);
+	std::vector<rai::peer_information> purge_list (std::chrono::steady_clock::time_point const &);
 	std::vector<rai::endpoint> rep_crawl ();
 	bool rep_response (rai::endpoint const &, rai::amount const &);
 	void rep_request (rai::endpoint const &);
@@ -203,18 +201,18 @@ public:
 	peer_information,
 	boost::multi_index::indexed_by<
 	boost::multi_index::hashed_unique<boost::multi_index::member<peer_information, rai::endpoint, &peer_information::endpoint>>,
-	boost::multi_index::ordered_non_unique<boost::multi_index::member<peer_information, std::chrono::system_clock::time_point, &peer_information::last_contact>>,
-	boost::multi_index::ordered_non_unique<boost::multi_index::member<peer_information, std::chrono::system_clock::time_point, &peer_information::last_attempt>, std::greater<std::chrono::system_clock::time_point>>,
+	boost::multi_index::ordered_non_unique<boost::multi_index::member<peer_information, std::chrono::steady_clock::time_point, &peer_information::last_contact>>,
+	boost::multi_index::ordered_non_unique<boost::multi_index::member<peer_information, std::chrono::steady_clock::time_point, &peer_information::last_attempt>, std::greater<std::chrono::steady_clock::time_point>>,
 	boost::multi_index::random_access<>,
-	boost::multi_index::ordered_non_unique<boost::multi_index::member<peer_information, std::chrono::system_clock::time_point, &peer_information::last_bootstrap_attempt>>,
-	boost::multi_index::ordered_non_unique<boost::multi_index::member<peer_information, std::chrono::system_clock::time_point, &peer_information::last_rep_request>>,
+	boost::multi_index::ordered_non_unique<boost::multi_index::member<peer_information, std::chrono::steady_clock::time_point, &peer_information::last_bootstrap_attempt>>,
+	boost::multi_index::ordered_non_unique<boost::multi_index::member<peer_information, std::chrono::steady_clock::time_point, &peer_information::last_rep_request>>,
 	boost::multi_index::ordered_non_unique<boost::multi_index::member<peer_information, rai::amount, &peer_information::rep_weight>, std::greater<rai::amount>>>>
 	peers;
 	boost::multi_index_container<
 	peer_attempt,
 	boost::multi_index::indexed_by<
 	boost::multi_index::hashed_unique<boost::multi_index::member<peer_attempt, rai::endpoint, &peer_attempt::endpoint>>,
-	boost::multi_index::ordered_non_unique<boost::multi_index::member<peer_attempt, std::chrono::system_clock::time_point, &peer_attempt::last_attempt>>>>
+	boost::multi_index::ordered_non_unique<boost::multi_index::member<peer_attempt, std::chrono::steady_clock::time_point, &peer_attempt::last_attempt>>>>
 	attempts;
 	// Called when a new peer is observed
 	std::function<void(rai::endpoint const &)> peer_observer;
@@ -277,7 +275,7 @@ public:
 class block_arrival_info
 {
 public:
-	std::chrono::system_clock::time_point arrival;
+	std::chrono::steady_clock::time_point arrival;
 	rai::block_hash hash;
 };
 // This class tracks blocks that are probably live because they arrived in a UDP packet
@@ -290,7 +288,7 @@ public:
 	boost::multi_index_container<
 	rai::block_arrival_info,
 	boost::multi_index::indexed_by<
-	boost::multi_index::ordered_non_unique<boost::multi_index::member<rai::block_arrival_info, std::chrono::system_clock::time_point, &rai::block_arrival_info::arrival>>,
+	boost::multi_index::ordered_non_unique<boost::multi_index::member<rai::block_arrival_info, std::chrono::steady_clock::time_point, &rai::block_arrival_info::arrival>>,
 	boost::multi_index::hashed_unique<boost::multi_index::member<rai::block_arrival_info, rai::block_hash, &rai::block_arrival_info::hash>>>>
 	arrival;
 	std::mutex mutex;
@@ -304,7 +302,7 @@ public:
 	void receive_action (boost::system::error_code const &, size_t);
 	void rpc_action (boost::system::error_code const &, size_t);
 	void rebroadcast_reps (std::shared_ptr<rai::block>);
-	void republish_vote (std::chrono::system_clock::time_point const &, std::shared_ptr<rai::vote>);
+	void republish_vote (std::chrono::steady_clock::time_point const &, std::shared_ptr<rai::vote>);
 	void republish_block (MDB_txn *, std::shared_ptr<rai::block>);
 	void republish (rai::block_hash const &, std::shared_ptr<std::vector<uint8_t>>, rai::endpoint);
 	void publish_broadcast (std::vector<rai::peer_information> &, std::unique_ptr<rai::block>);
@@ -367,7 +365,9 @@ public:
 	bool bulk_pull_logging_value;
 	bool work_generation_time_value;
 	bool log_to_cerr_value;
+	bool flush;
 	uintmax_t max_size;
+	uintmax_t rotation_size;
 	boost::log::sources::logger_mt log;
 };
 class node_init
@@ -400,6 +400,7 @@ public:
 	unsigned work_threads;
 	bool enable_voting;
 	unsigned bootstrap_connections;
+	unsigned bootstrap_connections_max;
 	std::string callback_address;
 	uint16_t callback_port;
 	std::string callback_target;

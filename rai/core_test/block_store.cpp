@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+#include <rai/node/common.hpp>
 #include <rai/node/node.hpp>
 #include <rai/versioning.hpp>
 
@@ -9,7 +10,7 @@ TEST (block_store, construction)
 	bool init (false);
 	rai::block_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
-	auto now (store.now ());
+	auto now (rai::seconds_since_epoch ());
 	ASSERT_GT (now, 1408074640);
 }
 
@@ -154,7 +155,7 @@ TEST (block_store, genesis)
 	ASSERT_NE (nullptr, block1);
 	auto receive1 (dynamic_cast<rai::open_block *> (block1.get ()));
 	ASSERT_NE (nullptr, receive1);
-	ASSERT_LE (info.modified, store.now ());
+	ASSERT_LE (info.modified, rai::seconds_since_epoch ());
 	auto test_pub_text (rai::test_genesis_key.pub.to_string ());
 	auto test_pub_account (rai::test_genesis_key.pub.to_account ());
 	auto test_prv_text (rai::test_genesis_key.prv.data.to_string ());

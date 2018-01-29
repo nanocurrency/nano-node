@@ -32,7 +32,7 @@ class block_synchronization
 {
 public:
 	block_synchronization (boost::log::sources::logger_mt &);
-	virtual ~block_synchronization ();
+	virtual ~block_synchronization () = default;
 	// Return true if target already has block
 	virtual bool synchronized (MDB_txn *, rai::block_hash const &) = 0;
 	virtual std::unique_ptr<rai::block> retrieve (MDB_txn *, rai::block_hash const &) = 0;
@@ -49,7 +49,7 @@ class push_synchronization : public rai::block_synchronization
 {
 public:
 	push_synchronization (rai::node &, std::function<rai::sync_result (MDB_txn *, rai::block const &)> const &);
-	virtual ~push_synchronization ();
+	virtual ~push_synchronization () = default;
 	bool synchronized (MDB_txn *, rai::block_hash const &) override;
 	std::unique_ptr<rai::block> retrieve (MDB_txn *, rai::block_hash const &) override;
 	rai::sync_result target (MDB_txn *, rai::block const &) override;
@@ -88,6 +88,7 @@ public:
 	void add_pull (rai::pull_info const &);
 	bool still_pulling ();
 	void process_fork (MDB_txn *, std::shared_ptr<rai::block>);
+	unsigned target_connections (size_t pulls_remaining);
 	std::deque<std::weak_ptr<rai::bootstrap_client>> clients;
 	std::weak_ptr<rai::bootstrap_client> connection_frontier_request;
 	std::weak_ptr<rai::frontier_req_client> frontiers;
@@ -122,7 +123,7 @@ public:
 	rai::account landing;
 	rai::account faucet;
 	std::chrono::steady_clock::time_point start_time;
-	std::chrono::system_clock::time_point next_report;
+	std::chrono::steady_clock::time_point next_report;
 	std::promise<bool> promise;
 };
 class bulk_pull_client : public std::enable_shared_from_this<rai::bulk_pull_client>

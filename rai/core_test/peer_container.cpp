@@ -4,7 +4,7 @@
 TEST (peer_container, empty_peers)
 {
 	rai::peer_container peers (rai::endpoint{});
-	auto list (peers.purge_list (std::chrono::system_clock::now ()));
+	auto list (peers.purge_list (std::chrono::steady_clock::now ()));
 	ASSERT_EQ (0, list.size ());
 }
 
@@ -20,7 +20,7 @@ TEST (peer_container, no_recontact)
 	ASSERT_FALSE (peers.insert (endpoint1, 0));
 	ASSERT_EQ (1, peers.size ());
 	ASSERT_TRUE (peers.insert (endpoint1, 0));
-	auto remaining (peers.purge_list (std::chrono::system_clock::now () + std::chrono::seconds (5)));
+	auto remaining (peers.purge_list (std::chrono::steady_clock::now () + std::chrono::seconds (5)));
 	ASSERT_TRUE (remaining.empty ());
 	ASSERT_EQ (1, observed_peer);
 	ASSERT_TRUE (observed_disconnect);
@@ -58,7 +58,7 @@ TEST (peer_container, reserved_peers_no_contact)
 TEST (peer_container, split)
 {
 	rai::peer_container peers (rai::endpoint{});
-	auto now (std::chrono::system_clock::now ());
+	auto now (std::chrono::steady_clock::now ());
 	rai::endpoint endpoint1 (boost::asio::ip::address_v6::any (), 100);
 	rai::endpoint endpoint2 (boost::asio::ip::address_v6::any (), 101);
 	peers.peers.insert (rai::peer_information (endpoint1, now - std::chrono::seconds (1), now));
@@ -153,9 +153,9 @@ TEST (peer_container, reachout)
 	// Reaching out to them once should signal we shouldn't reach out again.
 	ASSERT_TRUE (peers.reachout (endpoint1));
 	// Make sure we don't purge new items
-	peers.purge_list (std::chrono::system_clock::now () - std::chrono::seconds (10));
+	peers.purge_list (std::chrono::steady_clock::now () - std::chrono::seconds (10));
 	ASSERT_TRUE (peers.reachout (endpoint1));
 	// Make sure we purge old items
-	peers.purge_list (std::chrono::system_clock::now () + std::chrono::seconds (10));
+	peers.purge_list (std::chrono::steady_clock::now () + std::chrono::seconds (10));
 	ASSERT_FALSE (peers.reachout (endpoint1));
 }
