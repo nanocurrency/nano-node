@@ -219,7 +219,8 @@ rai::keypair::keypair (std::string const & prv_a)
 
 rai::ledger::ledger (rai::block_store & store_a, rai::uint128_t const & inactive_supply_a) :
 store (store_a),
-inactive_supply (inactive_supply_a)
+inactive_supply (inactive_supply_a),
+check_bootstrap_weights (true)
 {
 }
 
@@ -2153,6 +2154,22 @@ std::string rai::ledger::block_text (rai::block_hash const & hash_a)
 // Vote weight of an account
 rai::uint128_t rai::ledger::weight (MDB_txn * transaction_a, rai::account const & account_a)
 {
+	if (check_bootstrap_weights.load ())
+	{
+		auto blocks = store.block_count (transaction_a);
+		if (blocks.sum () < bootstrap_weight_max_blocks)
+		{
+			auto weight = bootstrap_weights.find (account_a);
+			if (weight != bootstrap_weights.end ())
+			{
+				return weight->second;
+			}
+		}
+		else
+		{
+			check_bootstrap_weights = false;
+		}
+	}
 	return store.representation_get (transaction_a, account_a);
 }
 

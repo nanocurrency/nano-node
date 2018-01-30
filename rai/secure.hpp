@@ -377,6 +377,9 @@ public:
 	static rai::uint128_t const unit;
 	rai::block_store & store;
 	rai::uint128_t inactive_supply;
+	std::unordered_map<rai::account, rai::uint128_t> bootstrap_weights;
+	uint64_t bootstrap_weight_max_blocks;
+	std::atomic<bool> check_bootstrap_weights;
 };
 extern rai::keypair const & zero_key;
 extern rai::keypair const & test_genesis_key;

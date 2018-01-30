@@ -1420,3 +1420,38 @@ TEST (ledger, send_open_receive_rollback)
 	ASSERT_EQ (0, ledger.weight (transaction, key3.pub));
 	ASSERT_EQ (rai::genesis_amount - 0, ledger.weight (transaction, rai::test_genesis_key.pub));
 }
+
+TEST (ledger, bootstrap_rep_weight)
+{
+	bool init (false);
+	rai::block_store store (init, rai::unique_path ());
+	ASSERT_TRUE (!init);
+	rai::ledger ledger (store, 40);
+	rai::account_info info1;
+	rai::keypair key2;
+	rai::genesis genesis;
+	{
+		rai::transaction transaction (store.environment, nullptr, true);
+		genesis.initialize (transaction, store);
+		ASSERT_FALSE (store.account_get (transaction, rai::test_genesis_key.pub, info1));
+		rai::send_block send (info1.head, key2.pub, std::numeric_limits<rai::uint128_t>::max () - 50, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
+		ledger.process (transaction, send);
+	}
+	{
+		rai::transaction transaction (store.environment, nullptr, false);
+		ledger.bootstrap_weight_max_blocks = 3;
+		ledger.bootstrap_weights[key2.pub] = 1000;
+		ASSERT_EQ (1000, ledger.weight (transaction, key2.pub));
+	}
+	{
+		rai::transaction transaction (store.environment, nullptr, true);
+		genesis.initialize (transaction, store);
+		ASSERT_FALSE (store.account_get (transaction, rai::test_genesis_key.pub, info1));
+		rai::send_block send (info1.head, key2.pub, std::numeric_limits<rai::uint128_t>::max () - 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
+		ledger.process (transaction, send);
+	}
+	{
+		rai::transaction transaction (store.environment, nullptr, false);
+		ASSERT_EQ (0, ledger.weight (transaction, key2.pub));
+	}
+}
