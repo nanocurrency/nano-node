@@ -784,7 +784,7 @@ lmdb_max_dbs (128)
 
 void rai::node_config::serialize_json (boost::property_tree::ptree & tree_a) const
 {
-	tree_a.put ("version", "8");
+	tree_a.put ("version", "9");
 	tree_a.put ("peering_port", std::to_string (peering_port));
 	tree_a.put ("bootstrap_fraction_numerator", std::to_string (bootstrap_fraction_numerator));
 	tree_a.put ("receive_minimum", receive_minimum.to_string_dec ());
@@ -895,10 +895,17 @@ bool rai::node_config::upgrade_json (unsigned version, boost::property_tree::ptr
 			break;
 		case 7:
 			tree_a.put ("lmdb_max_dbs", "128");
+			tree_a.erase ("version");
 			tree_a.put ("version", "8");
 			result = true;
 			break;
 		case 8:
+			tree_a.put ("bootstrap_connections_max", "64");
+			tree_a.erase ("version");
+			tree_a.put ("version", "9");
+			result = true;
+			break;
+		case 9:
 			break;
 		default:
 			throw std::runtime_error ("Unknown node_config version");
