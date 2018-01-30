@@ -37,11 +37,11 @@ namespace rai
 class node;
 class election : public std::enable_shared_from_this<rai::election>
 {
-	std::function<void(std::shared_ptr<rai::block>)> confirmation_action;
+	std::function<void(std::shared_ptr<rai::block>, bool)> confirmation_action;
 	void confirm_once (MDB_txn *);
 
 public:
-	election (MDB_txn *, rai::node &, std::shared_ptr<rai::block>, std::function<void(std::shared_ptr<rai::block>)> const &);
+	election (MDB_txn *, rai::node &, std::shared_ptr<rai::block>, std::function<void(std::shared_ptr<rai::block>, bool)> const &);
 	void vote (std::shared_ptr<rai::vote>);
 	// Check if we have vote quorum
 	bool have_quorum (MDB_txn *);
@@ -77,7 +77,7 @@ public:
 	active_transactions (rai::node &);
 	// Start an election for a block
 	// Call action with confirmed block, may be different than what we started with
-	bool start (MDB_txn *, std::shared_ptr<rai::block>, std::function<void(std::shared_ptr<rai::block>)> const & = [](std::shared_ptr<rai::block>) {});
+	bool start (MDB_txn *, std::shared_ptr<rai::block>, std::function<void(std::shared_ptr<rai::block>, bool)> const & = [](std::shared_ptr<rai::block>, bool) {});
 	void vote (std::shared_ptr<rai::vote>);
 	// Is the root of this block in the roots container
 	bool active (rai::block const &);

@@ -5,12 +5,14 @@
 
 #include <boost/log/trivial.hpp>
 
-constexpr double bootstrap_connection_scale_target = 50000.0;
-constexpr double bootstrap_connection_warmup_time = 5.0;
-constexpr double bootstrap_minimum_block_rate = 10.0;
-constexpr double bootstrap_minimum_termination_time = 30.0;
+constexpr double bootstrap_connection_scale_target_blocks = 50000.0;
+constexpr double bootstrap_connection_warmup_time_sec = 5.0;
+constexpr double bootstrap_minimum_blocks_per_sec = 10.0;
+constexpr double bootstrap_minimum_frontier_blocks_per_sec = 1000.0;
+constexpr unsigned bootstrap_frontier_retry_limit = 16;
+constexpr double bootstrap_minimum_termination_time_sec = 30.0;
 constexpr unsigned bootstrap_max_new_connections = 10;
-constexpr unsigned bootstrap_peer_frontier_minimum = rai::rai_network == rai::rai_networks::rai_live_network ? 339000 : 0;
+constexpr unsigned bootstrap_peer_frontier_minimum_blocks = rai::rai_network == rai::rai_networks::rai_live_network ? 339000 : 0;
 
 rai::block_synchronization::block_synchronization (boost::log::sources::logger_mt & log_a) :
 log (log_a)
@@ -346,6 +348,15 @@ void rai::frontier_req_client::received_frontier (boost::system::error_code cons
 			start_time = std::chrono::steady_clock::now ();
 		}
 		++count;
+		std::chrono::duration<double> time_span = std::chrono::duration_cast<std::chrono::duration<double>> (std::chrono::steady_clock::now () - start_time);
+		double elapsed_sec = time_span.count ();
+		double blocks_per_sec = (double)count / elapsed_sec;
+		if (elapsed_sec > bootstrap_connection_warmup_time_sec && blocks_per_sec < bootstrap_minimum_frontier_blocks_per_sec)
+		{
+			BOOST_LOG (connection->node->log) << boost::str (boost::format ("Aborting frontier req because it was too slow"));
+			promise.set_value (true);
+			return;
+		}
 		auto now (std::chrono::steady_clock::now ());
 		if (next_report < now)
 		{
@@ -419,7 +430,7 @@ void rai::frontier_req_client::received_frontier (boost::system::error_code cons
 			{
 				try
 				{
-					promise.set_value (count < bootstrap_peer_frontier_minimum);
+					promise.set_value (count < bootstrap_peer_frontier_minimum_blocks);
 				}
 				catch (std::future_error &)
 				{
@@ -608,7 +619,6 @@ void rai::bulk_pull_client::received_block (boost::system::error_code const & ec
 			{
 				expected = block->previous ();
 			}
-			connection->attempt->node->block_processor.add (rai::block_processor_item (block));
 			if (connection->block_count++ == 0)
 			{
 				connection->start_time = std::chrono::steady_clock::now ();
@@ -867,19 +877,21 @@ bool rai::bootstrap_attempt::still_pulling ()
 	auto running (!stopped);
 	auto more_pulls (!pulls.empty ());
 	auto still_pulling (pulling > 0);
-	return running && (more_pulls || still_pulling);
+	auto more_forks (!unresolved_forks.empty ());
+	return running && (more_pulls || still_pulling || more_forks);
 }
 
 void rai::bootstrap_attempt::run ()
 {
 	populate_connections ();
+	resolve_forks ();
 	std::unique_lock<std::mutex> lock (mutex);
 	auto frontier_failure (true);
 	while (!stopped && frontier_failure)
 	{
 		frontier_failure = request_frontier (lock);
 	}
-	// Shuffle frontiers.
+	// Shuffle pulls.
 	for (int i = pulls.size () - 1; i > 0; i--)
 	{
 		auto k = rai::random_pool.GenerateWord32 (0, i);
@@ -950,12 +962,95 @@ bool rai::bootstrap_attempt::consume_future (std::future<bool> & future_a)
 
 void rai::bootstrap_attempt::process_fork (MDB_txn * transaction_a, std::shared_ptr<rai::block> block_a)
 {
+	try_resolve_fork (transaction_a, block_a, true);
+}
+
+void rai::bootstrap_attempt::try_resolve_fork (MDB_txn * transaction_a, std::shared_ptr<rai::block> block_a, bool from_processor)
+{
+	std::weak_ptr<rai::bootstrap_attempt> this_w (shared_from_this ());
 	std::shared_ptr<rai::block> ledger_block (node->ledger.forked_block (transaction_a, *block_a));
-	if (!node->active.start (transaction_a, ledger_block))
+	if (ledger_block)
 	{
-		node->network.broadcast_confirm_req (ledger_block);
-		node->network.broadcast_confirm_req (block_a);
-		BOOST_LOG (node->log) << boost::str (boost::format ("While bootstrappping, fork between our block %1% and block %2% both with root %3%") % ledger_block->hash ().to_string () % block_a->hash ().to_string () % block_a->root ().to_string ());
+		node->active.start (transaction_a, ledger_block, [this_w, block_a](std::shared_ptr<rai::block>, bool resolved) {
+			if (auto this_l = this_w.lock ())
+			{
+				if (resolved)
+				{
+					{
+						std::unique_lock<std::mutex> lock (this_l->mutex);
+						this_l->unresolved_forks.erase (block_a->hash ());
+						this_l->condition.notify_all ();
+					}
+					rai::transaction transaction (this_l->node->store.environment, nullptr, false);
+					auto account (this_l->node->ledger.store.frontier_get (transaction, block_a->root ()));
+					if (!account.is_zero ())
+					{
+						this_l->requeue_pull (rai::pull_info (account, block_a->root (), block_a->root ()));
+					}
+					else if (this_l->node->ledger.store.account_exists (transaction, block_a->root ()))
+					{
+						this_l->requeue_pull (rai::pull_info (block_a->root (), rai::block_hash (0), rai::block_hash (0)));
+					}
+				}
+			}
+		});
+
+		auto hash = block_a->hash ();
+		bool exists = true;
+		if (from_processor)
+		{
+			// Only add the block to the unresolved fork tracker if it's the first time we've seen it (i.e. this call came from the block processor).
+			std::unique_lock<std::mutex> lock (mutex);
+			exists = unresolved_forks.find (hash) != unresolved_forks.end ();
+			if (!exists)
+			{
+				unresolved_forks[hash] = block_a;
+			}
+		}
+
+		if (!exists)
+		{
+			BOOST_LOG (node->log) << boost::str (boost::format ("While bootstrappping, fork between our block: %1% and block %2% both with root %3%") % ledger_block->hash ().to_string () % hash.to_string () % block_a->root ().to_string ());
+		}
+		if (!exists || !from_processor)
+		{
+			// Only broadcast if it's a new fork, or if the request is coming from the retry loop.
+			node->network.broadcast_confirm_req (ledger_block);
+			node->network.broadcast_confirm_req (block_a);
+		}
+	}
+}
+
+void rai::bootstrap_attempt::resolve_forks ()
+{
+	std::unordered_map<rai::block_hash, std::shared_ptr<rai::block>> forks_to_resolve;
+	{
+		std::unique_lock<std::mutex> lock (mutex);
+		forks_to_resolve = unresolved_forks;
+	}
+
+	if (forks_to_resolve.size () > 0)
+	{
+		BOOST_LOG (node->log) << boost::str (boost::format ("%1% unresolved forks while bootstrapping") % forks_to_resolve.size ());
+		rai::transaction transaction (node->store.environment, nullptr, false);
+		for (auto & it : forks_to_resolve)
+		{
+			try_resolve_fork (transaction, it.second, false);
+		}
+	}
+
+	{
+		std::unique_lock<std::mutex> lock (mutex);
+		if (!stopped)
+		{
+			std::weak_ptr<rai::bootstrap_attempt> this_w (shared_from_this ());
+			node->alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (30), [this_w]() {
+				if (auto this_l = this_w.lock ())
+				{
+					this_l->resolve_forks ();
+				}
+			});
+		}
 	}
 }
 
@@ -975,7 +1070,7 @@ unsigned rai::bootstrap_attempt::target_connections (size_t pulls_remaining)
 	}
 
 	// Only scale up to bootstrap_connections_max for large pulls.
-	double step = std::min (1.0, std::max (0.0, (double)pulls_remaining / bootstrap_connection_scale_target));
+	double step = std::min (1.0, std::max (0.0, (double)pulls_remaining / bootstrap_connection_scale_target_blocks));
 	double target = (double)node->config.bootstrap_connections + (double)(node->config.bootstrap_connections_max - node->config.bootstrap_connections) * step;
 	return std::max (1U, (unsigned)(target + 0.5f));
 }
@@ -992,16 +1087,16 @@ void rai::bootstrap_attempt::populate_connections ()
 		{
 			if (auto client = c.lock ())
 			{
-				double elapsed = client->elapsed_seconds ();
-				auto rate = client->block_rate ();
-				rate_sum += rate;
-				if (client->elapsed_seconds () > bootstrap_connection_warmup_time && client->block_count > 0)
+				double elapsed_sec = client->elapsed_seconds ();
+				auto blocks_per_sec = client->block_rate ();
+				rate_sum += blocks_per_sec;
+				if (client->elapsed_seconds () > bootstrap_connection_warmup_time_sec && client->block_count > 0)
 				{
 					sorted_connections.push (client);
 				}
 				// Force-stop the slowest peers, since they can take the whole bootstrap hostage by dribbling out blocks on the last remaining pull.
 				// This is ~1.5kilobits/sec.
-				if (elapsed > bootstrap_minimum_termination_time && rate < bootstrap_minimum_block_rate)
+				if (elapsed_sec > bootstrap_minimum_termination_time_sec && blocks_per_sec < bootstrap_minimum_blocks_per_sec)
 				{
 					client->stop (true);
 				}
@@ -1115,34 +1210,21 @@ void rai::bootstrap_attempt::stop ()
 
 void rai::bootstrap_attempt::add_pull (rai::pull_info const & pull)
 {
-	static rai::account landing ("059F68AAB29DE0D3A27443625C7EA9CDDB6517A8B76FE37727EF6A4D76832AD5");
-	static rai::account faucet ("8E319CE6F3025E5B2DF66DA7AB1467FE48F1679C13DD43BFDB29FA2E9FC40D3B");
-	static rai::account account_1 ("6B31E80CABDD2FEE6F54A7BDBF91B666010418F4438EF0B48168F93CD79DBC85"); // xrb_1tsjx18cqqbhxsqobbxxqyauesi31iehaiwgy4ta4t9s9mdsuh671npo1st9
-	static rai::account account_2 ("FD6EE9E0E107A6A8584DB94A3F154799DD5C2A7D6ABED0889DA3B837B0E61663"); // xrb_3zdgx9ig43x8o3e6ugcc9wcnh8gxdio9ttoyt46buaxr8yrge7m5331qdwhk
-
 	std::lock_guard<std::mutex> lock (mutex);
-	rai::pull_info pull2 = pull;
-	if (pull.account != rai::genesis_account && pull.account != landing && pull.account != faucet && pull.account != account_1 && pull.account != account_2)
-	{
-		pulls.push_back (pull2);
-	}
-	else
-	{
-		pulls.push_front (pull2);
-	}
+	pulls.push_back (pull);
 	condition.notify_all ();
 }
 
 void rai::bootstrap_attempt::requeue_pull (rai::pull_info const & pull_a)
 {
 	auto pull (pull_a);
-	if (++pull.attempts < 4)
+	if (++pull.attempts < bootstrap_frontier_retry_limit)
 	{
 		std::lock_guard<std::mutex> lock (mutex);
 		pulls.push_front (pull);
 		condition.notify_all ();
 	}
-	else if (pull.attempts == 4)
+	else if (pull.attempts == bootstrap_frontier_retry_limit)
 	{
 		pull.attempts++;
 		std::lock_guard<std::mutex> lock (mutex);

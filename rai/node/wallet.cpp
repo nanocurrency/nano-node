@@ -1112,7 +1112,7 @@ public:
 						std::shared_ptr<rai::block> block_l (wallet->node.store.block_get (transaction, info.head));
 						wallet->node.background ([this_l, account, block_l] {
 							rai::transaction transaction (this_l->wallet->node.store.environment, nullptr, true);
-							this_l->wallet->node.active.start (transaction, block_l, [this_l, account](std::shared_ptr<rai::block>) {
+							this_l->wallet->node.active.start (transaction, block_l, [this_l, account](std::shared_ptr<rai::block>, bool) {
 								// If there were any forks for this account they've been rolled back and we can receive anything remaining from this account
 								this_l->receive_all (account);
 							});
