@@ -119,10 +119,10 @@ void rai_daemon::daemon::run (boost::filesystem::path const & data_path)
 			if (!init.error ())
 			{
 				node->start ();
-				rai::rpc rpc (service, *node, config.rpc);
-				if (config.rpc_enable)
+				std::unique_ptr<rai::rpc> rpc = get_rpc (service, *node, config.rpc);
+				if (rpc && config.rpc_enable)
 				{
-					rpc.start ();
+					rpc->start ();
 				}
 				runner.reset (new rai::thread_runner (service, node->config.io_threads));
 				runner->join ();
