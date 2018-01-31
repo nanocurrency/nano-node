@@ -31,5 +31,4 @@ RUN mkdir /tmp/build && \
 
 FROM ubuntu:16.04
 COPY --from=0 /tmp/build/rai_node /usr/bin
-COPY --from=0 /tmp/build/librai_lib.so /usr/bin
 CMD ["rai_node", "--daemon"]
