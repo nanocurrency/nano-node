@@ -7,8 +7,7 @@
 
 bool rai::work_validate (rai::block_hash const & root_a, uint64_t work_a)
 {
-	auto result (rai::work_value (root_a, work_a) < rai::work_pool::publish_threshold);
-	return result;
+	return rai::work_value (root_a, work_a) < rai::work_pool::publish_threshold;
 }
 
 bool rai::work_validate (rai::block const & block_a)

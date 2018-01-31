@@ -275,28 +275,28 @@ void rai::account_info::serialize (rai::stream & stream_a) const
 
 bool rai::account_info::deserialize (rai::stream & stream_a)
 {
-	auto result (read (stream_a, head.bytes));
-	if (!result)
+	auto error (read (stream_a, head.bytes));
+	if (!error)
 	{
-		result = read (stream_a, rep_block.bytes);
-		if (!result)
+		error = read (stream_a, rep_block.bytes);
+		if (!error)
 		{
-			result = read (stream_a, open_block.bytes);
-			if (!result)
+			error = read (stream_a, open_block.bytes);
+			if (!error)
 			{
-				result = read (stream_a, balance.bytes);
-				if (!result)
+				error = read (stream_a, balance.bytes);
+				if (!error)
 				{
-					result = read (stream_a, modified);
-					if (!result)
+					error = read (stream_a, modified);
+					if (!error)
 					{
-						result = read (stream_a, block_count);
+						error = read (stream_a, block_count);
 					}
 				}
 			}
 		}
 	}
-	return result;
+	return error;
 }
 
 bool rai::account_info::operator== (rai::account_info const & other_a) const
@@ -1024,30 +1024,30 @@ void rai::block_store::block_del (MDB_txn * transaction_a, rai::block_hash const
 
 bool rai::block_store::block_exists (MDB_txn * transaction_a, rai::block_hash const & hash_a)
 {
-	auto result (true);
+	auto exists (true);
 	rai::mdb_val junk;
 	auto status (mdb_get (transaction_a, send_blocks, rai::mdb_val (hash_a), junk));
 	assert (status == 0 || status == MDB_NOTFOUND);
-	result = status == 0;
-	if (!result)
+	exists = status == 0;
+	if (!exists)
 	{
 		auto status (mdb_get (transaction_a, receive_blocks, rai::mdb_val (hash_a), junk));
 		assert (status == 0 || status == MDB_NOTFOUND);
-		result = status == 0;
-		if (!result)
+		exists = status == 0;
+		if (!exists)
 		{
 			auto status (mdb_get (transaction_a, open_blocks, rai::mdb_val (hash_a), junk));
 			assert (status == 0 || status == MDB_NOTFOUND);
-			result = status == 0;
-			if (!result)
+			exists = status == 0;
+			if (!exists)
 			{
 				auto status (mdb_get (transaction_a, change_blocks, rai::mdb_val (hash_a), junk));
 				assert (status == 0 || status == MDB_NOTFOUND);
-				result = status == 0;
+				exists = status == 0;
 			}
 		}
 	}
-	return result;
+	return exists;
 }
 
 rai::block_counts rai::block_store::block_count (MDB_txn * transaction_a)
@@ -1268,12 +1268,12 @@ void rai::pending_key::serialize (rai::stream & stream_a) const
 
 bool rai::pending_key::deserialize (rai::stream & stream_a)
 {
-	auto result (rai::read (stream_a, account.bytes));
-	if (!result)
+	auto error (rai::read (stream_a, account.bytes));
+	if (!error)
 	{
-		result = rai::read (stream_a, hash.bytes);
+		error = rai::read (stream_a, hash.bytes);
 	}
-	return result;
+	return error;
 }
 
 bool rai::pending_key::operator== (rai::pending_key const & other_a) const
@@ -1372,12 +1372,12 @@ void rai::block_info::serialize (rai::stream & stream_a) const
 
 bool rai::block_info::deserialize (rai::stream & stream_a)
 {
-	auto result (rai::read (stream_a, account.bytes));
-	if (!result)
+	auto error (rai::read (stream_a, account.bytes));
+	if (!error)
 	{
-		result = rai::read (stream_a, balance.bytes);
+		error = rai::read (stream_a, balance.bytes);
 	}
-	return result;
+	return error;
 }
 
 bool rai::block_info::operator== (rai::block_info const & other_a) const
