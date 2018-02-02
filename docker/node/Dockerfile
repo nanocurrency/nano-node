@@ -8,18 +8,16 @@ RUN apt-get update && apt-get install -yq \
     build-essential \
     cmake \
     g++ \
-    wget
-
-WORKDIR "/tmp"
-
-RUN wget -O ${BOOST_BASENAME}.tar.gz ${BOOST_URL} && \
+    wget && \
+    wget -O ${BOOST_BASENAME}.tar.gz ${BOOST_URL} && \
     tar xzvf ${BOOST_BASENAME}.tar.gz && \
     cd ${BOOST_BASENAME} && \
     ./bootstrap.sh && \
     ./b2 --prefix=${BOOST_ROOT} link=static install && \
     rm -rf ${BOOST_BASENAME} && \
     rm -f ${BOOST_BASENAME}.tar.gz && \
-    cd ..
+    cd .. && \
+    mkdir /usr/share/raiblocks/
 
 ADD ./ /tmp/src
 
@@ -31,5 +29,7 @@ RUN mkdir /tmp/build && \
 
 FROM ubuntu:16.04
 COPY --from=0 /tmp/build/rai_node /usr/bin
-COPY --from=0 /tmp/build/librai_lib.so /usr/bin
-CMD ["rai_node", "--daemon"]
+COPY docker/node/entry.sh /entry.sh
+COPY docker/node/config.json /usr/share/raiblocks/config.json
+RUN chmod +x /entry.sh
+CMD ["/bin/bash",  "/entry.sh"]
