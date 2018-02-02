@@ -3435,6 +3435,28 @@ void rai::rpc_handler::wallet_destroy ()
 	}
 }
 
+
+void rai::rpc_handler::wallet_list ()
+{
+    if (rpc.config.enable_control)
+    {
+        boost::property_tree::ptree response_l;
+        boost::property_tree::ptree node_wallets;
+        for (auto i : node.wallets.items)
+        {
+            boost::property_tree::ptree entry;
+            entry.put ("", i.first.to_string());
+            node_wallets.push_back (std::make_pair ("", entry));
+        }
+        response_l.add_child ("wallets", node_wallets);
+        response (response_l);
+    }
+    else
+    {
+        error_response (response, "RPC control is disabled");
+    }
+}
+
 void rai::rpc_handler::wallet_export ()
 {
 	std::string wallet_text (request.get<std::string> ("wallet"));
@@ -4503,6 +4525,10 @@ void rai::rpc_handler::process_request ()
 		{
 			wallet_destroy ();
 		}
+        else if (action == "wallet_list")
+        {
+            wallet_list ();
+        }
 		else if (action == "wallet_export")
 		{
 			wallet_export ();
