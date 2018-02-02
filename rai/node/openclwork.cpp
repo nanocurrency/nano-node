@@ -382,12 +382,23 @@ __kernel void raiblocks_work (__global ulong * attempt, __global ulong * result_
 
 void printstate (blake2b_state * S)
 {
-	printf ("%lu %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu\n", S->h[0], S->h[1], S->h[2], S->h[3], S->h[4], S->h[5], S->h[6], S->h[7], S->t[0], S->t[1], S->f[0], S->f[1]);
-	for (int i = 0; i < 256; ++i)
+	std::cout << std::dec;
+	for (uint64_t x : { S->h[0], S->h[1], S->h[2], S->h[3], S->h[4], S->h[5], S->h[6], S->h[7], S->t[0], S->t[1], S->f[0], S->f[1] })
 	{
-		printf ("%02x", S->buf[i]);
+		std::cout << x << " ";
 	}
-	printf (" %lu %02x\n", S->buflen, S->last_node);
+	std::cout << std::endl;
+
+	std::cout << std::hex;
+	for (uint8_t x : S->buf)
+	{
+		// print x as an integer, not as a char
+		std::cout << +x;
+	}
+	std::cout
+	<< std::dec << " " << S->buflen
+	<< std::hex << " " << S->last_node
+	<< std::dec << std::endl;
 }
 
 rai::opencl_environment::opencl_environment (bool & error_a)
