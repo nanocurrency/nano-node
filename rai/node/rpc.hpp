@@ -168,6 +168,7 @@ public:
 	void wallet_contains ();
 	void wallet_create ();
 	void wallet_destroy ();
+	void wallet_list ();
 	void wallet_export ();
 	void wallet_frontiers ();
 	void wallet_key_valid ();
