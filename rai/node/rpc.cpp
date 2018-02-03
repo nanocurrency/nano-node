@@ -2412,8 +2412,9 @@ void rai::rpc_handler::process ()
 					error_response (response, "Bad signature");
 					break;
 				}
-				case rai::process_result::overspend:
+				case rai::process_result::negative_spend:
 				{
+					// TODO once we get RPC versioning, this should be changed to "negative spend"
 					error_response (response, "Overspend");
 					break;
 				}
