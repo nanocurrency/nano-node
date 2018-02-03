@@ -284,24 +284,9 @@ void rai::rpc_handler::account_info ()
 	auto error (account.decode_account (account_text));
 	if (!error)
 	{
-		bool representative (false);
-		boost::optional<bool> representative_optional (request.get_optional<bool> ("representative"));
-		if (representative_optional.is_initialized ())
-		{
-			representative = representative_optional.get ();
-		}
-		bool weight (false);
-		boost::optional<bool> weight_optional (request.get_optional<bool> ("weight"));
-		if (weight_optional.is_initialized ())
-		{
-			weight = weight_optional.get ();
-		}
-		bool pending (false);
-		boost::optional<bool> pending_optional (request.get_optional<bool> ("pending"));
-		if (pending_optional.is_initialized ())
-		{
-			pending = pending_optional.get ();
-		}
+		const bool representative = *(request.get_optional<bool> ("representative"));
+		const bool weight = *(request.get_optional<bool> ("weight"));
+		const bool pending = *(request.get_optional<bool> ("pending"));
 		rai::transaction transaction (node.store.environment, nullptr, false);
 		rai::account_info info;
 		if (!node.store.account_get (transaction, account, info))
@@ -759,7 +744,6 @@ void rai::rpc_handler::accounts_pending ()
 {
 	uint64_t count (std::numeric_limits<uint64_t>::max ());
 	rai::uint128_union threshold (0);
-	bool source (false);
 	boost::optional<std::string> count_text (request.get_optional<std::string> ("count"));
 	if (count_text.is_initialized ())
 	{
@@ -778,11 +762,7 @@ void rai::rpc_handler::accounts_pending ()
 			error_response (response, "Bad threshold number");
 		}
 	}
-	boost::optional<bool> source_optional (request.get_optional<bool> ("source"));
-	if (source_optional.is_initialized ())
-	{
-		source = source_optional.get ();
-	}
+	const bool source = *(request.get_optional<bool> ("source"));
 	boost::property_tree::ptree response_l;
 	boost::property_tree::ptree pending;
 	rai::transaction transaction (node.store.environment, nullptr, false);
@@ -909,18 +889,8 @@ void rai::rpc_handler::blocks ()
 
 void rai::rpc_handler::blocks_info ()
 {
-	bool pending (false);
-	boost::optional<bool> pending_optional (request.get_optional<bool> ("pending"));
-	if (pending_optional.is_initialized ())
-	{
-		pending = pending_optional.get ();
-	}
-	bool source (false);
-	boost::optional<bool> source_optional (request.get_optional<bool> ("source"));
-	if (source_optional.is_initialized ())
-	{
-		source = source_optional.get ();
-	}
+	const bool pending = *(request.get_optional<bool> ("pending"));
+	const bool source = *(request.get_optional<bool> ("source"));
 	std::vector<std::string> hashes;
 	boost::property_tree::ptree response_l;
 	boost::property_tree::ptree blocks;
@@ -1736,7 +1706,6 @@ void rai::rpc_handler::ledger ()
 	{
 		rai::account start (0);
 		uint64_t count (std::numeric_limits<uint64_t>::max ());
-		bool sorting (false);
 		boost::optional<std::string> account_text (request.get_optional<std::string> ("account"));
 		if (account_text.is_initialized ())
 		{
@@ -1755,29 +1724,10 @@ void rai::rpc_handler::ledger ()
 				error_response (response, "Invalid count limit");
 			}
 		}
-		boost::optional<bool> sorting_optional (request.get_optional<bool> ("sorting"));
-		if (sorting_optional.is_initialized ())
-		{
-			sorting = sorting_optional.get ();
-		}
-		bool representative (false);
-		boost::optional<bool> representative_optional (request.get_optional<bool> ("representative"));
-		if (representative_optional.is_initialized ())
-		{
-			representative = representative_optional.get ();
-		}
-		bool weight (false);
-		boost::optional<bool> weight_optional (request.get_optional<bool> ("weight"));
-		if (weight_optional.is_initialized ())
-		{
-			weight = weight_optional.get ();
-		}
-		bool pending (false);
-		boost::optional<bool> pending_optional (request.get_optional<bool> ("pending"));
-		if (pending_optional.is_initialized ())
-		{
-			pending = pending_optional.get ();
-		}
+		const bool sorting = *(request.get_optional<bool> ("sorting"));
+		const bool representative = *(request.get_optional<bool> ("representative"));
+		const bool weight = *(request.get_optional<bool> ("weight"));
+		const bool pending = *(request.get_optional<bool> ("pending"));
 		boost::property_tree::ptree response_a;
 		boost::property_tree::ptree response_l;
 		boost::property_tree::ptree accounts;
@@ -2068,7 +2018,6 @@ void rai::rpc_handler::pending ()
 	{
 		uint64_t count (std::numeric_limits<uint64_t>::max ());
 		rai::uint128_union threshold (0);
-		bool source (false);
 		boost::optional<std::string> count_text (request.get_optional<std::string> ("count"));
 		if (count_text.is_initialized ())
 		{
@@ -2087,11 +2036,7 @@ void rai::rpc_handler::pending ()
 				error_response (response, "Bad threshold number");
 			}
 		}
-		boost::optional<bool> source_optional (request.get_optional<bool> ("source"));
-		if (source_optional.is_initialized ())
-		{
-			source = source_optional.get ();
-		}
+		const bool source = *(request.get_optional<bool> ("source"));
 		boost::property_tree::ptree response_l;
 		boost::property_tree::ptree peers_l;
 		{
@@ -2654,7 +2599,6 @@ void rai::rpc_handler::receive_minimum_set ()
 void rai::rpc_handler::representatives ()
 {
 	uint64_t count (std::numeric_limits<uint64_t>::max ());
-	bool sorting (false);
 	boost::optional<std::string> count_text (request.get_optional<std::string> ("count"));
 	if (count_text.is_initialized ())
 	{
@@ -2664,11 +2608,7 @@ void rai::rpc_handler::representatives ()
 			error_response (response, "Invalid count limit");
 		}
 	}
-	boost::optional<bool> sorting_optional (request.get_optional<bool> ("sorting"));
-	if (sorting_optional.is_initialized ())
-	{
-		sorting = sorting_optional.get ();
-	}
+	const bool sorting = *(request.get_optional<bool> ("sorting"));
 	boost::property_tree::ptree response_l;
 	boost::property_tree::ptree representatives;
 	rai::transaction transaction (node.store.environment, nullptr, false);
@@ -3582,24 +3522,9 @@ void rai::rpc_handler::wallet_key_valid ()
 
 void rai::rpc_handler::wallet_ledger ()
 {
-	bool representative (false);
-	boost::optional<bool> representative_optional (request.get_optional<bool> ("representative"));
-	if (representative_optional.is_initialized ())
-	{
-		representative = representative_optional.get ();
-	}
-	bool weight (false);
-	boost::optional<bool> weight_optional (request.get_optional<bool> ("weight"));
-	if (weight_optional.is_initialized ())
-	{
-		weight = weight_optional.get ();
-	}
-	bool pending (false);
-	boost::optional<bool> pending_optional (request.get_optional<bool> ("pending"));
-	if (pending_optional.is_initialized ())
-	{
-		pending = pending_optional.get ();
-	}
+	const bool representative = *(request.get_optional<bool> ("representative"));
+	const bool weight = *(request.get_optional<bool> ("weight"));
+	const bool pending = *(request.get_optional<bool> ("pending"));
 	uint64_t modified_since (0);
 	boost::optional<std::string> modified_since_text (request.get_optional<std::string> ("modified_since"));
 	if (modified_since_text.is_initialized ())
@@ -3715,7 +3640,6 @@ void rai::rpc_handler::wallet_pending ()
 		{
 			uint64_t count (std::numeric_limits<uint64_t>::max ());
 			rai::uint128_union threshold (0);
-			bool source (false);
 			boost::optional<std::string> count_text (request.get_optional<std::string> ("count"));
 			if (count_text.is_initialized ())
 			{
@@ -3734,11 +3658,7 @@ void rai::rpc_handler::wallet_pending ()
 					error_response (response, "Bad threshold number");
 				}
 			}
-			boost::optional<bool> source_optional (request.get_optional<bool> ("source"));
-			if (source_optional.is_initialized ())
-			{
-				source = source_optional.get ();
-			}
+			const bool source = *(request.get_optional<bool> ("source"));
 			boost::property_tree::ptree response_l;
 			boost::property_tree::ptree pending;
 			rai::transaction transaction (node.store.environment, nullptr, false);
