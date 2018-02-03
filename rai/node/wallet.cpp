@@ -1104,7 +1104,7 @@ public:
 					rai::account_info info;
 					auto error (wallet->node.store.account_get (transaction, pending.source, info));
 					assert (!error);
-					BOOST_LOG (wallet->node.log) << boost::str (boost::format ("Found a pending block %1% from account %2% with head %3%") % pending.source.to_string () % pending.source.to_account () % info.head.to_string ());
+					BOOST_LOG (wallet->node.log) << boost::str (boost::format ("Found a pending block %1% from account %2% with head %3%") % key.hash.to_string () % pending.source.to_account () % info.head.to_string ());
 					auto account (pending.source);
 					if (already_searched.find (account) == already_searched.end ())
 					{
@@ -1123,7 +1123,7 @@ public:
 				}
 				else
 				{
-					BOOST_LOG (wallet->node.log) << boost::str (boost::format ("Not receiving block %1% due to minimum receive threshold") % pending.source.to_string ());
+					BOOST_LOG (wallet->node.log) << boost::str (boost::format ("Not receiving block %1% due to minimum receive threshold") % key.hash.to_string ());
 				}
 			}
 		}
