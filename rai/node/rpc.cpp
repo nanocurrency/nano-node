@@ -1724,6 +1724,12 @@ void rai::rpc_handler::ledger ()
 				error_response (response, "Invalid count limit");
 			}
 		}
+		uint64_t modified_since (0);
+		boost::optional<std::string> modified_since_text (request.get_optional<std::string> ("modified_since"));
+		if (modified_since_text.is_initialized ())
+		{
+			modified_since = strtoul (modified_since_text.get ().c_str (), NULL, 10);
+		}
 		const bool sorting = *(request.get_optional<bool> ("sorting"));
 		const bool representative = *(request.get_optional<bool> ("representative"));
 		const bool weight = *(request.get_optional<bool> ("weight"));
@@ -1737,33 +1743,36 @@ void rai::rpc_handler::ledger ()
 			for (auto i (node.store.latest_begin (transaction, start)), n (node.store.latest_end ()); i != n && accounts.size () < count; ++i)
 			{
 				rai::account_info info (i->second);
-				rai::account account (i->first.uint256 ());
-				boost::property_tree::ptree response_l;
-				response_l.put ("frontier", info.head.to_string ());
-				response_l.put ("open_block", info.open_block.to_string ());
-				response_l.put ("representative_block", info.rep_block.to_string ());
-				std::string balance;
-				rai::uint128_union (info.balance).encode_dec (balance);
-				response_l.put ("balance", balance);
-				response_l.put ("modified_timestamp", std::to_string (info.modified));
-				response_l.put ("block_count", std::to_string (info.block_count));
-				if (representative)
+				if (info.modified >= modified_since)
 				{
-					auto block (node.store.block_get (transaction, info.rep_block));
-					assert (block != nullptr);
-					response_l.put ("representative", block->representative ().to_account ());
+					rai::account account (i->first.uint256 ());
+					boost::property_tree::ptree response_l;
+					response_l.put ("frontier", info.head.to_string ());
+					response_l.put ("open_block", info.open_block.to_string ());
+					response_l.put ("representative_block", info.rep_block.to_string ());
+					std::string balance;
+					rai::uint128_union (info.balance).encode_dec (balance);
+					response_l.put ("balance", balance);
+					response_l.put ("modified_timestamp", std::to_string (info.modified));
+					response_l.put ("block_count", std::to_string (info.block_count));
+					if (representative)
+					{
+						auto block (node.store.block_get (transaction, info.rep_block));
+						assert (block != nullptr);
+						response_l.put ("representative", block->representative ().to_account ());
+					}
+					if (weight)
+					{
+						auto account_weight (node.ledger.weight (transaction, account));
+						response_l.put ("weight", account_weight.convert_to<std::string> ());
+					}
+					if (pending)
+					{
+						auto account_pending (node.ledger.account_pending (transaction, account));
+						response_l.put ("pending", account_pending.convert_to<std::string> ());
+					}
+					accounts.push_back (std::make_pair (account.to_account (), response_l));
 				}
-				if (weight)
-				{
-					auto account_weight (node.ledger.weight (transaction, account));
-					response_l.put ("weight", account_weight.convert_to<std::string> ());
-				}
-				if (pending)
-				{
-					auto account_pending (node.ledger.account_pending (transaction, account));
-					response_l.put ("pending", account_pending.convert_to<std::string> ());
-				}
-				accounts.push_back (std::make_pair (account.to_account (), response_l));
 			}
 		}
 		else // Sorting
@@ -1771,8 +1780,12 @@ void rai::rpc_handler::ledger ()
 			std::vector<std::pair<rai::uint128_union, rai::account>> ledger_l;
 			for (auto i (node.store.latest_begin (transaction, start)), n (node.store.latest_end ()); i != n; ++i)
 			{
-				rai::uint128_union balance (rai::account_info (i->second).balance);
-				ledger_l.push_back (std::make_pair (balance, rai::account (i->first.uint256 ())));
+				rai::account_info info (i->second);
+				rai::uint128_union balance (info.balance);
+				if (info.modified >= modified_since)
+				{
+					ledger_l.push_back (std::make_pair (balance, rai::account (i->first.uint256 ())));
+				}
 			}
 			std::sort (ledger_l.begin (), ledger_l.end ());
 			std::reverse (ledger_l.begin (), ledger_l.end ());
