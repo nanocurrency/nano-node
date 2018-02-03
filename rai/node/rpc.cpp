@@ -3194,6 +3194,60 @@ void rai::rpc_handler::wallet_add ()
 	}
 }
 
+void rai::rpc_handler::wallet_add_watch ()
+{
+	if (rpc.config.enable_control)
+	{
+		std::string wallet_text (request.get<std::string> ("wallet"));
+		rai::uint256_union wallet;
+		auto error (wallet.decode_hex (wallet_text));
+		if (!error)
+		{
+			auto existing (node.wallets.items.find (wallet));
+			if (existing != node.wallets.items.end ())
+			{
+				rai::transaction transaction (node.store.environment, nullptr, true);
+				if (existing->second->store.valid_password (transaction))
+				{
+					for (auto & accounts : request.get_child ("accounts"))
+					{
+						std::string account_text = accounts.second.data ();
+						rai::uint256_union account;
+						auto error (account.decode_account (account_text));
+						if (!error)
+						{
+							existing->second->insert_watch (transaction, account);
+						}
+						else
+						{
+							error_response (response, "Bad account number");
+						}
+					}
+					boost::property_tree::ptree response_l;
+					response_l.put ("success", "");
+					response (response_l);
+				}
+				else
+				{
+					error_response (response, "Wallet locked");
+				}
+			}
+			else
+			{
+				error_response (response, "Wallet not found");
+			}
+		}
+		else
+		{
+			error_response (response, "Bad wallet number");
+		}
+	}
+	else
+	{
+		error_response (response, "RPC control is disabled");
+	}
+}
+
 void rai::rpc_handler::wallet_balance_total ()
 {
 	std::string wallet_text (request.get<std::string> ("wallet"));
@@ -4478,6 +4532,10 @@ void rai::rpc_handler::process_request ()
 		else if (action == "wallet_add")
 		{
 			wallet_add ();
+		}
+		else if (action == "wallet_add_watch")
+		{
+			wallet_add_watch ();
 		}
 		else if (action == "wallet_balance_total")
 		{

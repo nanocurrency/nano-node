@@ -419,6 +419,11 @@ rai::public_key rai::wallet_store::insert_adhoc (MDB_txn * transaction_a, rai::r
 	return pub;
 }
 
+void rai::wallet_store::insert_watch (MDB_txn * transaction_a, rai::public_key const & pub)
+{
+	entry_put_raw (transaction_a, pub, rai::wallet_value (rai::uint256_union (0), 0));
+}
+
 void rai::wallet_store::erase (MDB_txn * transaction_a, rai::public_key const & pub)
 {
 	auto status (mdb_del (transaction_a, handle, rai::mdb_val (pub), nullptr));
@@ -789,6 +794,11 @@ rai::public_key rai::wallet::insert_adhoc (rai::raw_key const & account_a, bool 
 	return result;
 }
 
+void rai::wallet::insert_watch (MDB_txn * transaction_a, rai::public_key const & pub_a)
+{
+	store.insert_watch (transaction_a, pub_a);
+}
+
 bool rai::wallet::exists (rai::public_key const & account_a)
 {
 	rai::transaction transaction (store.environment, nullptr, false);
@@ -1083,7 +1093,11 @@ public:
 	{
 		for (auto i (wallet_a->store.begin (transaction_a)), n (wallet_a->store.end ()); i != n; ++i)
 		{
-			keys.insert (i->first.uint256 ());
+			// Don't search pending for watch-only accounts
+			if (!rai::wallet_value (i->second).key.is_zero ())
+			{
+				keys.insert (i->first.uint256 ());
+			}
 		}
 	}
 	void run ()
