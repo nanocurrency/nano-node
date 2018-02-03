@@ -1,7 +1,7 @@
 FROM ubuntu:16.04
 
 ENV BOOST_BASENAME=boost_1_66_0 \
-    BOOST_URL=http://sourceforge.net/projects/boost/files/boost/1.66.0/boost_1_66_0.tar.gz/download
+    BOOST_URL=https://sourceforge.net/projects/boost/files/boost/1.66.0/boost_1_66_0.tar.gz/download
 
 RUN apt-get update && apt-get install -yq \
     build-essential \
