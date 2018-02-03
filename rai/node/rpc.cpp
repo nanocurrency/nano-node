@@ -3580,6 +3580,94 @@ void rai::rpc_handler::wallet_key_valid ()
 	}
 }
 
+void rai::rpc_handler::wallet_ledger ()
+{
+	bool representative (false);
+	boost::optional<bool> representative_optional (request.get_optional<bool> ("representative"));
+	if (representative_optional.is_initialized ())
+	{
+		representative = representative_optional.get ();
+	}
+	bool weight (false);
+	boost::optional<bool> weight_optional (request.get_optional<bool> ("weight"));
+	if (weight_optional.is_initialized ())
+	{
+		weight = weight_optional.get ();
+	}
+	bool pending (false);
+	boost::optional<bool> pending_optional (request.get_optional<bool> ("pending"));
+	if (pending_optional.is_initialized ())
+	{
+		pending = pending_optional.get ();
+	}
+	uint64_t modified_since (0);
+	boost::optional<std::string> modified_since_text (request.get_optional<std::string> ("modified_since"));
+	if (modified_since_text.is_initialized ())
+	{
+		modified_since = strtoul (modified_since_text.get ().c_str (), NULL, 10);
+	}
+	std::string wallet_text (request.get<std::string> ("wallet"));
+	rai::uint256_union wallet;
+	auto error (wallet.decode_hex (wallet_text));
+	if (!error)
+	{
+		auto existing (node.wallets.items.find (wallet));
+		if (existing != node.wallets.items.end ())
+		{
+			boost::property_tree::ptree response_l;
+			boost::property_tree::ptree accounts;
+			rai::transaction transaction (node.store.environment, nullptr, false);
+			for (auto i (existing->second->store.begin (transaction)), n (existing->second->store.end ()); i != n; ++i)
+			{
+				rai::account account (i->first.uint256 ());
+				rai::account_info info;
+				if (!node.store.account_get (transaction, account, info))
+				{
+					if (info.modified >= modified_since)
+					{
+						boost::property_tree::ptree entry;
+						entry.put ("frontier", info.head.to_string ());
+						entry.put ("open_block", info.open_block.to_string ());
+						entry.put ("representative_block", info.rep_block.to_string ());
+						std::string balance;
+						rai::uint128_union (info.balance).encode_dec (balance);
+						entry.put ("balance", balance);
+						entry.put ("modified_timestamp", std::to_string (info.modified));
+						entry.put ("block_count", std::to_string (info.block_count));
+						if (representative)
+						{
+							auto block (node.store.block_get (transaction, info.rep_block));
+							assert (block != nullptr);
+							entry.put ("representative", block->representative ().to_account ());
+						}
+						if (weight)
+						{
+							auto account_weight (node.ledger.weight (transaction, account));
+							entry.put ("weight", account_weight.convert_to<std::string> ());
+						}
+						if (pending)
+						{
+							auto account_pending (node.ledger.account_pending (transaction, account));
+							entry.put ("pending", account_pending.convert_to<std::string> ());
+						}
+						accounts.push_back (std::make_pair (account.to_account (), entry));
+					}
+				}
+			}
+			response_l.add_child ("accounts", accounts);
+			response (response_l);
+		}
+		else
+		{
+			error_response (response, "Wallet not found");
+		}
+	}
+	else
+	{
+		error_response (response, "Bad wallet number");
+	}
+}
+
 void rai::rpc_handler::wallet_lock ()
 {
 	if (rpc.config.enable_control)
@@ -4572,6 +4660,10 @@ void rai::rpc_handler::process_request ()
 		else if (action == "wallet_key_valid")
 		{
 			wallet_key_valid ();
+		}
+		else if (action == "wallet_ledger")
+		{
+			wallet_ledger ();
 		}
 		else if (action == "wallet_lock")
 		{
