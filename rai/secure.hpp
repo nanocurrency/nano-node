@@ -312,7 +312,7 @@ enum class process_result
 	progress, // Hasn't been seen before, signed correctly
 	bad_signature, // Signature was bad, forged or transmission error
 	old, // Already seen and was valid
-	overspend, // Malicious attempt to overspend
+	negative_spend, // Malicious attempt to spend a negative amount
 	fork, // Malicious fork based on previous
 	unreceivable, // Source block doesn't exist or has already been received
 	gap_previous, // Block marked as previous is unknown
