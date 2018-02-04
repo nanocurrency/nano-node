@@ -235,6 +235,7 @@ public:
 	rai::store_iterator unchecked_end ();
 	size_t unchecked_count (MDB_txn *);
 	std::unordered_multimap<rai::block_hash, std::shared_ptr<rai::block>> unchecked_cache;
+	static size_t const cache_min = 256;
 
 	void unsynced_put (MDB_txn *, rai::block_hash const &);
 	void unsynced_del (MDB_txn *, rai::block_hash const &);

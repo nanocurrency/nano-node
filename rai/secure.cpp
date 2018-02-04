@@ -1585,32 +1585,35 @@ void rai::block_store::checksum_del (MDB_txn * transaction_a, uint64_t prefix, u
 
 void rai::block_store::flush (MDB_txn * transaction_a)
 {
-	std::unordered_map<rai::account, std::shared_ptr<rai::vote>> sequence_cache_l;
-	std::unordered_multimap<rai::block_hash, std::shared_ptr<rai::block>> unchecked_cache_l;
+	if (vote_cache.size () + unchecked_cache.size () >= cache_min)
 	{
-		std::lock_guard<std::mutex> lock (cache_mutex);
-		sequence_cache_l.swap (vote_cache);
-		unchecked_cache_l.swap (unchecked_cache);
-	}
-	for (auto & i : unchecked_cache_l)
-	{
-		std::vector<uint8_t> vector;
+		std::unordered_map<rai::account, std::shared_ptr<rai::vote>> sequence_cache_l;
+		std::unordered_multimap<rai::block_hash, std::shared_ptr<rai::block>> unchecked_cache_l;
 		{
-			rai::vectorstream stream (vector);
-			rai::serialize_block (stream, *i.second);
+			std::lock_guard<std::mutex> lock (cache_mutex);
+			sequence_cache_l.swap (vote_cache);
+			unchecked_cache_l.swap (unchecked_cache);
 		}
-		auto status (mdb_put (transaction_a, unchecked, rai::mdb_val (i.first), rai::mdb_val (vector.size (), vector.data ()), 0));
-		assert (status == 0);
-	}
-	for (auto i (sequence_cache_l.begin ()), n (sequence_cache_l.end ()); i != n; ++i)
-	{
-		std::vector<uint8_t> vector;
+		for (auto & i : unchecked_cache_l)
 		{
-			rai::vectorstream stream (vector);
-			i->second->serialize (stream);
+			std::vector<uint8_t> vector;
+			{
+				rai::vectorstream stream (vector);
+				rai::serialize_block (stream, *i.second);
+			}
+			auto status (mdb_put (transaction_a, unchecked, rai::mdb_val (i.first), rai::mdb_val (vector.size (), vector.data ()), 0));
+			assert (status == 0);
 		}
-		auto status1 (mdb_put (transaction_a, vote, rai::mdb_val (i->first), rai::mdb_val (vector.size (), vector.data ()), 0));
-		assert (status1 == 0);
+		for (auto i (sequence_cache_l.begin ()), n (sequence_cache_l.end ()); i != n; ++i)
+		{
+			std::vector<uint8_t> vector;
+			{
+				rai::vectorstream stream (vector);
+				i->second->serialize (stream);
+			}
+			auto status1 (mdb_put (transaction_a, vote, rai::mdb_val (i->first), rai::mdb_val (vector.size (), vector.data ()), 0));
+			assert (status1 == 0);
+		}
 	}
 }
 
