@@ -43,6 +43,7 @@ script:
   - if [ "$TRAVIS_OS_NAME" = "linux" ]; then docker run -v $TRAVIS_BUILD_DIR:/workspace nanocurrency/nano-ci /bin/bash -c "cd /workspace && ASAN=${ASAN} TSAN=${TSAN} ./ci/build-travis.sh /usr/lib/x86_64-linux-gnu/cmake/Qt5 ${PWD}"; fi
 
 deploy:
+  skip_cleanup: true
   provider: script
   script: travis_wait 80 ci/deploy-docker.sh
   on:
