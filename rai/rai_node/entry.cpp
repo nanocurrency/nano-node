@@ -138,26 +138,18 @@ int main (int argc, char * const * argv)
 	boost::program_options::store (boost::program_options::parse_command_line (argc, argv, description), vm);
 	boost::program_options::notify (vm);
 	int result (0);
+	boost::filesystem::path data_path = vm.count ("data_path") ? boost::filesystem::path (vm["data_path"].as<std::string> ()) : rai::working_path ();
 	if (!rai::handle_node_options (vm))
 	{
 	}
 	else if (vm.count ("daemon") > 0)
 	{
-		boost::filesystem::path data_path;
-		if (vm.count ("data_path"))
-		{
-			data_path = boost::filesystem::path (vm["data_path"].as<std::string> ());
-		}
-		else
-		{
-			data_path = rai::working_path ();
-		}
 		rai_daemon::daemon daemon;
 		daemon.run (data_path);
 	}
 	else if (vm.count ("debug_block_count"))
 	{
-		rai::inactive_node node;
+		rai::inactive_node node (data_path);
 		rai::transaction transaction (node.node->store.environment, nullptr, false);
 		std::cout << boost::str (boost::format ("Block count: %1%\n") % node.node->store.block_count (transaction).sum ());
 	}
@@ -217,7 +209,7 @@ int main (int argc, char * const * argv)
 	}
 	else if (vm.count ("debug_dump_representatives"))
 	{
-		rai::inactive_node node;
+		rai::inactive_node node (data_path);
 		rai::transaction transaction (node.node->store.environment, nullptr, false);
 		rai::uint128_t total;
 		for (auto i (node.node->store.representation_begin (transaction)), n (node.node->store.representation_end ()); i != n; ++i)
@@ -245,7 +237,7 @@ int main (int argc, char * const * argv)
 	}
 	else if (vm.count ("debug_frontier_count"))
 	{
-		rai::inactive_node node;
+		rai::inactive_node node (data_path);
 		rai::transaction transaction (node.node->store.environment, nullptr, false);
 		std::cout << boost::str (boost::format ("Frontier count: %1%\n") % node.node->store.frontier_count (transaction));
 	}
