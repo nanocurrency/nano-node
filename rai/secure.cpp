@@ -1583,9 +1583,9 @@ void rai::block_store::checksum_del (MDB_txn * transaction_a, uint64_t prefix, u
 	assert (status == 0);
 }
 
-void rai::block_store::flush (MDB_txn * transaction_a)
+void rai::block_store::flush (MDB_txn * transaction_a, bool forced)
 {
-	if (vote_cache.size () + unchecked_cache.size () >= cache_min)
+	if (((vote_cache.size () + unchecked_cache.size ()) >= cache_min) || forced)
 	{
 		std::unordered_map<rai::account, std::shared_ptr<rai::vote>> sequence_cache_l;
 		std::unordered_multimap<rai::block_hash, std::shared_ptr<rai::block>> unchecked_cache_l;
