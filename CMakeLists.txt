@@ -1,7 +1,7 @@
 cmake_minimum_required (VERSION 2.8.11)
 project (rai)
 
-set (CPACK_PACKAGE_VERSION_MAJOR "9")
+set (CPACK_PACKAGE_VERSION_MAJOR "10")
 set (CPACK_PACKAGE_VERSION_MINOR "0")
 set (CPACK_PACKAGE_VERSION_PATCH "0")
 
