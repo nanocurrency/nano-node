@@ -486,6 +486,7 @@ checksum (0)
 		error_a |= mdb_dbi_open (transaction, "checksum", MDB_CREATE, &checksum) != 0;
 		error_a |= mdb_dbi_open (transaction, "vote", MDB_CREATE, &vote) != 0;
 		error_a |= mdb_dbi_open (transaction, "meta", MDB_CREATE, &meta) != 0;
+		error_a |= mdb_dbi_open (transaction, "hash2", MDB_CREATE, &hash2) != 0;
 		if (!error_a)
 		{
 			do_upgrades (transaction);
@@ -544,6 +545,9 @@ void rai::block_store::do_upgrades (MDB_txn * transaction_a)
 		case 9:
 			upgrade_v9_to_v10 (transaction_a);
 		case 10:
+			hash2_put (transaction_a, genesis_account, genesis_account);
+			// Version number is changed in background update
+		case 11:
 			break;
 		default:
 			assert (false);
@@ -782,6 +786,59 @@ void rai::block_store::upgrade_v9_to_v10 (MDB_txn * transaction_a)
 	//std::cerr << boost::str (boost::format ("Database upgrade is completed\n"));
 }
 
+void rai::block_store::upgrade_v10_to_v11 ()
+{
+	std::unordered_multimap <rai::block_hash, rai::block_hash> dependencies;
+	{
+		rai::transaction transaction (environment, nullptr, false);
+	 	dependencies = (block_dependencies (transaction));
+	}
+	std::deque <rai::block_hash> remaining;
+	rai::genesis genesis;
+	remaining.push_back (genesis.hash ());
+	auto total (0);
+	while (!remaining.empty ())
+	{
+		auto count (0);
+		//std::cerr << boost::str (boost::format ("Upgraded %1%\n") % total);
+		rai::transaction transaction (environment, nullptr, true);
+		while (!remaining.empty () && count < 16 * 1024)
+		{
+			auto hash1 (remaining.front ());
+			remaining.pop_front ();
+			if (hash2_get (transaction, hash1).is_zero ())
+			{
+				auto range (dependencies.equal_range (hash1));
+				auto block (block_get (transaction, hash1));
+				assert (block != nullptr);
+				auto hash2_new (hash2_calc (transaction, *block));
+				if (!hash2_new.is_zero ())
+				{
+					hash2_put (transaction, hash1, hash2_new);
+					// Save the hash1 in the mapping table and remap block to hash2
+					auto successor (block_successor (transaction, hash1));
+					block_del (transaction, hash1);
+					block_put (transaction, hash2_new, *block, successor);
+					std::for_each (range.first, range.second, [&] (std::pair <rai::block_hash, rai::block_hash> item_a)
+					{
+						remaining.push_front (item_a.second);
+					});
+					++count;
+				}
+				else
+				{
+					remaining.push_back (hash1);
+				}
+			}
+		}
+		total += count;
+	}
+	rai::transaction transaction (environment, nullptr, true);
+	auto count (block_count (transaction));
+	assert (count.hash2 == count.sum () + 1);
+	version_put (transaction, 11);
+}
+
 void rai::block_store::clear (MDB_dbi db_a)
 {
 	rai::transaction transaction (environment, nullptr, true);
@@ -858,7 +915,12 @@ MDB_dbi rai::block_store::block_database (rai::block_type type_a)
 
 void rai::block_store::block_put_raw (MDB_txn * transaction_a, MDB_dbi database_a, rai::block_hash const & hash_a, MDB_val value_a)
 {
-	auto status2 (mdb_put (transaction_a, database_a, rai::mdb_val (hash_a), &value_a, 0));
+	auto hash (hash2_get (transaction_a, hash_a));
+	if (hash.is_zero ())
+	{
+		hash = hash_a;
+	}
+	auto status2 (mdb_put (transaction_a, database_a, rai::mdb_val (hash), &value_a, 0));
 	assert (status2 == 0);
 }
 
@@ -874,25 +936,29 @@ void rai::block_store::block_put (MDB_txn * transaction_a, rai::block_hash const
 	block_put_raw (transaction_a, block_database (block_a.type ()), hash_a, { vector.size (), vector.data () });
 	set_predecessor predecessor (transaction_a, *this);
 	block_a.visit (predecessor);
-	assert (block_a.previous ().is_zero () || block_successor (transaction_a, block_a.previous ()) == hash_a);
 }
 
 MDB_val rai::block_store::block_get_raw (MDB_txn * transaction_a, rai::block_hash const & hash_a, rai::block_type & type_a)
 {
+	auto hash (hash2_get (transaction_a, hash_a));
+	if (hash.is_zero ())
+	{
+		hash = hash_a;
+	}
 	rai::mdb_val result;
-	auto status (mdb_get (transaction_a, send_blocks, rai::mdb_val (hash_a), result));
+	auto status (mdb_get (transaction_a, send_blocks, rai::mdb_val (hash), result));
 	assert (status == 0 || status == MDB_NOTFOUND);
 	if (status != 0)
 	{
-		auto status (mdb_get (transaction_a, receive_blocks, rai::mdb_val (hash_a), result));
+		auto status (mdb_get (transaction_a, receive_blocks, rai::mdb_val (hash), result));
 		assert (status == 0 || status == MDB_NOTFOUND);
 		if (status != 0)
 		{
-			auto status (mdb_get (transaction_a, open_blocks, rai::mdb_val (hash_a), result));
+			auto status (mdb_get (transaction_a, open_blocks, rai::mdb_val (hash), result));
 			assert (status == 0 || status == MDB_NOTFOUND);
 			if (status != 0)
 			{
-				auto status (mdb_get (transaction_a, change_blocks, rai::mdb_val (hash_a), result));
+				auto status (mdb_get (transaction_a, change_blocks, rai::mdb_val (hash), result));
 				assert (status == 0 || status == MDB_NOTFOUND);
 				if (status == 0)
 				{
@@ -913,6 +979,7 @@ MDB_val rai::block_store::block_get_raw (MDB_txn * transaction_a, rai::block_has
 	{
 		type_a = rai::block_type::send;
 	}
+	assert ((hash_a == hash || result != nullptr) && "Missing hash2 mapping");
 	return result;
 }
 
@@ -1025,28 +1092,35 @@ void rai::block_store::block_del (MDB_txn * transaction_a, rai::block_hash const
 bool rai::block_store::block_exists (MDB_txn * transaction_a, rai::block_hash const & hash_a)
 {
 	auto exists (true);
+	auto hash (hash2_get (transaction_a, hash_a));
+	if (hash.is_zero ())
+	{
+		hash = hash_a;
+	}
 	rai::mdb_val junk;
-	auto status (mdb_get (transaction_a, send_blocks, rai::mdb_val (hash_a), junk));
+	auto status (mdb_get (transaction_a, send_blocks, rai::mdb_val (hash), junk));
 	assert (status == 0 || status == MDB_NOTFOUND);
 	exists = status == 0;
 	if (!exists)
 	{
-		auto status (mdb_get (transaction_a, receive_blocks, rai::mdb_val (hash_a), junk));
+		auto status (mdb_get (transaction_a, receive_blocks, rai::mdb_val (hash), junk));
 		assert (status == 0 || status == MDB_NOTFOUND);
 		exists = status == 0;
 		if (!exists)
 		{
-			auto status (mdb_get (transaction_a, open_blocks, rai::mdb_val (hash_a), junk));
+			auto status (mdb_get (transaction_a, open_blocks, rai::mdb_val (hash), junk));
 			assert (status == 0 || status == MDB_NOTFOUND);
 			exists = status == 0;
 			if (!exists)
 			{
-				auto status (mdb_get (transaction_a, change_blocks, rai::mdb_val (hash_a), junk));
+				auto status (mdb_get (transaction_a, change_blocks, rai::mdb_val (hash), junk));
 				assert (status == 0 || status == MDB_NOTFOUND);
 				exists = status == 0;
 			}
 		}
 	}
+	// Mapping in hash2 table implies block exists
+	assert ((hash_a == hash || exists) && "Missing hash2 mapping");
 	return exists;
 }
 
@@ -1065,10 +1139,14 @@ rai::block_counts rai::block_store::block_count (MDB_txn * transaction_a)
 	MDB_stat change_stats;
 	auto status4 (mdb_stat (transaction_a, change_blocks, &change_stats));
 	assert (status4 == 0);
+	MDB_stat hash2_stats;
+	auto status5 (mdb_stat (transaction_a, hash2, &hash2_stats));
+	assert (status5 == 0);
 	result.send = send_stats.ms_entries;
 	result.receive = receive_stats.ms_entries;
 	result.open = open_stats.ms_entries;
 	result.change = change_stats.ms_entries;
+	result.hash2 = hash2_stats.ms_entries;
 	return result;
 }
 
@@ -1612,6 +1690,148 @@ void rai::block_store::checksum_del (MDB_txn * transaction_a, uint64_t prefix, u
 	assert (status == 0);
 }
 
+namespace
+{
+class hash2_visitor : public rai::block_visitor
+{
+public:
+	hash2_visitor (rai::block_store & store_a, MDB_txn * transaction_a) :
+	store (store_a),
+	transaction (transaction_a),
+	result (0)
+	{
+	}
+	void send_block (rai::send_block const & block_a)
+	{
+		blake2b_state hash_l;
+		auto status (blake2b_init (&hash_l, result.bytes.size ()));
+		assert (status == 0);
+		rai::uint256_union preamble (1);
+		blake2b_update (&hash_l, preamble.bytes.data (), preamble.bytes.size ());
+		
+		rai::block_hash previous (store.hash2_get (transaction, block_a.hashables.previous));
+		if (!previous.is_zero ())
+		{
+			status = blake2b_update (&hash_l, previous.bytes.data (), previous.bytes.size ());
+			assert (status == 0);
+			status = blake2b_update (&hash_l, block_a.hashables.destination.bytes.data (), block_a.hashables.destination.bytes.size ());
+			assert (status == 0);
+			status = blake2b_update (&hash_l, block_a.hashables.balance.bytes.data (), block_a.hashables.balance.bytes.size ());
+			assert (status == 0);
+			
+			status = blake2b_final (&hash_l, result.bytes.data (), result.bytes.size ());
+			assert (status == 0);
+		}
+	}
+	void receive_block (rai::receive_block const & block_a)
+	{
+		blake2b_state hash_l;
+		auto status (blake2b_init (&hash_l, result.bytes.size ()));
+		assert (status == 0);
+		rai::uint256_union preamble (2);
+		blake2b_update (&hash_l, preamble.bytes.data (), preamble.bytes.size ());
+		
+		rai::block_hash previous (store.hash2_get (transaction, block_a.hashables.previous));
+		if (!previous.is_zero ())
+		{
+			status = blake2b_update (&hash_l, previous.bytes.data (), previous.bytes.size ());
+			assert (status == 0);
+			rai::block_hash source (store.hash2_get (transaction, block_a.hashables.source));
+			if (!source.is_zero ())
+			{
+				status = blake2b_update (&hash_l, source.bytes.data (), source.bytes.size ());
+				assert (status == 0);
+				
+				status = blake2b_final (&hash_l, result.bytes.data (), result.bytes.size ());
+				assert (status == 0);
+			}
+		}
+	}
+	void open_block (rai::open_block const & block_a)
+	{
+		blake2b_state hash_l;
+		auto status (blake2b_init (&hash_l, result.bytes.size ()));
+		assert (status == 0);
+		rai::uint256_union preamble (3);
+		blake2b_update (&hash_l, preamble.bytes.data (), preamble.bytes.size ());
+		
+		rai::block_hash source (store.hash2_get (transaction, block_a.hashables.source));
+		if (!source.is_zero ())
+		{
+			status = blake2b_update (&hash_l, source.bytes.data (), source.bytes.size ());
+			assert (status == 0);
+			status = blake2b_update (&hash_l, block_a.hashables.representative.bytes.data (), block_a.hashables.representative.bytes.size ());
+			assert (status == 0);
+			status = blake2b_update (&hash_l, block_a.hashables.account.bytes.data (), block_a.hashables.account.bytes.size ());
+			assert (status == 0);
+			
+			status = blake2b_final (&hash_l, result.bytes.data (), result.bytes.size ());
+			assert (status == 0);
+		}
+	}
+	void change_block (rai::change_block const & block_a)
+	{
+		blake2b_state hash_l;
+		auto status (blake2b_init (&hash_l, result.bytes.size ()));
+		assert (status == 0);
+		rai::uint256_union preamble (4);
+		blake2b_update (&hash_l, preamble.bytes.data (), preamble.bytes.size ());
+		
+		rai::block_hash previous (store.hash2_get (transaction, block_a.hashables.previous));
+		if (!previous.is_zero ())
+		{
+			status = blake2b_update (&hash_l, previous.bytes.data (), previous.bytes.size ());
+			assert (status == 0);
+			status = blake2b_update (&hash_l, block_a.hashables.representative.bytes.data (), block_a.hashables.representative.bytes.size ());
+			assert (status == 0);
+			
+			status = blake2b_final (&hash_l, result.bytes.data (), result.bytes.size ());
+			assert (status == 0);
+		}
+	}
+	rai::block_store & store;
+	MDB_txn * transaction;
+	rai::block_hash result;
+};
+}
+
+rai::block_hash rai::block_store::hash2_calc (MDB_txn * transaction_a, rai::block const & block_a)
+{
+	hash2_visitor visitor (*this, transaction_a);
+	block_a.visit (visitor);
+	return visitor.result;
+}
+
+rai::block_hash rai::block_store::hash2_get (MDB_txn * transaction_a, rai::block_hash const & hash_a)
+{
+	rai::block_hash result;
+	for (auto & i: result.qwords)
+	{
+		i = 0;
+	}
+	rai::mdb_val value;
+	auto status (mdb_get (transaction_a, hash2, rai::mdb_val (hash_a), value));
+	assert (status == 0 || status == MDB_NOTFOUND);
+	if (status == 0)
+	{
+		result = value.uint256 ();
+	}
+	return result;
+}
+
+void rai::block_store::hash2_put (MDB_txn * transaction_a, rai::block_hash const & hash_a, rai::block_hash const & hash2_a)
+{
+	assert (!hash2_a.is_zero ());
+	auto status (mdb_put (transaction_a, hash2, rai::mdb_val (hash_a), rai::mdb_val (hash2_a), 0));
+	assert (status == 0);
+}
+
+void rai::block_store::hash2_del (MDB_txn * transaction_a, rai::block_hash const & hash_a)
+{
+	auto status (mdb_del (transaction_a, hash2, mdb_val (hash_a), nullptr));
+	assert (status == 0);
+}
+
 void rai::block_store::flush (MDB_txn * transaction_a)
 {
 	std::unordered_map<rai::account, std::shared_ptr<rai::vote>> sequence_cache_l;
@@ -1683,13 +1903,17 @@ std::shared_ptr<rai::vote> rai::block_store::vote_current (MDB_txn * transaction
 	return result;
 }
 
-std::shared_ptr<rai::vote> rai::block_store::vote_generate (MDB_txn * transaction_a, rai::account const & account_a, rai::raw_key const & key_a, std::shared_ptr<rai::block> block_a)
+std::pair<std::shared_ptr<rai::vote>, std::shared_ptr<rai::vote>> rai::block_store::vote_generate (MDB_txn * transaction_a, rai::account const & account_a, rai::raw_key const & key_a, std::shared_ptr<rai::block> block_a)
 {
 	std::lock_guard<std::mutex> lock (cache_mutex);
-	auto result (vote_current (transaction_a, account_a));
-	uint64_t sequence ((result ? result->sequence : 0) + 1);
-	result = std::make_shared<rai::vote> (account_a, key_a, sequence, block_a);
-	vote_cache[account_a] = result;
+	auto current (vote_current (transaction_a, account_a));
+	uint64_t sequence (current ? current->sequence : 0);
+	std::pair<std::shared_ptr<rai::vote>, std::shared_ptr<rai::vote>> result;
+	result.first = std::make_shared<rai::vote> (account_a, key_a, sequence + 1, block_a);
+	vote_cache[account_a] = result.first;
+	auto hash2 (hash2_calc (transaction_a, *block_a));
+	result.second = std::make_shared<rai::vote> (account_a, key_a, sequence + 2, block_a, hash2);
+	vote_cache[account_a] = result.second;
 	return result;
 }
 
@@ -1713,13 +1937,21 @@ rai::vote_result rai::block_store::vote_validate (MDB_txn * transaction_a, std::
 {
 	rai::vote_result result ({ rai::vote_code::invalid, 0 });
 	// Reject unsigned votes
-	if (!rai::validate_message (vote_a->account, vote_a->hash (), vote_a->signature))
+	bool hash1_error (true);
+	bool hash2_error (true);
+	auto hash2_val (hash2_calc (transaction_a, *vote_a->block));
+	if (!hash2_val.is_zero ())
+	{
+		hash2_error = rai::validate_message (vote_a->account, hash2_val, vote_a->signature);
+	}
+	hash1_error = rai::validate_message (vote_a->account, vote_a->hash (), vote_a->signature);
+	if (!hash1_error || !hash2_error)
 	{
 		result.code = rai::vote_code::replay;
 		result.vote = vote_max (transaction_a, vote_a); // Make sure this sequence number is > any we've seen from this account before
 		if (result.vote == vote_a)
 		{
-			result.code = rai::vote_code::vote;
+			result.code = hash1_error ? rai::vote_code::vote2 : rai::vote_code::vote;
 		}
 	}
 	return result;
@@ -1973,6 +2205,8 @@ public:
 	void send_block (rai::send_block const & block_a) override
 	{
 		auto hash (block_a.hash ());
+		auto hash2 (ledger.store.hash2_get (transaction, hash));
+		assert (!hash2.is_zero ());
 		rai::pending_info pending;
 		rai::pending_key key (block_a.hashables.destination, hash);
 		while (ledger.store.pending_get (transaction, key, pending))
@@ -1985,7 +2219,8 @@ public:
 		ledger.store.pending_del (transaction, key);
 		ledger.store.representation_add (transaction, ledger.representative (transaction, hash), pending.amount.number ());
 		ledger.change_latest (transaction, pending.source, block_a.hashables.previous, info.rep_block, ledger.balance (transaction, block_a.hashables.previous), info.block_count - 1);
-		ledger.store.block_del (transaction, hash);
+		ledger.store.hash2_del (transaction, hash);
+		ledger.store.block_del (transaction, hash2);
 		ledger.store.frontier_del (transaction, hash);
 		ledger.store.frontier_put (transaction, block_a.hashables.previous, pending.source);
 		ledger.store.block_successor_clear (transaction, block_a.hashables.previous);
@@ -1997,6 +2232,8 @@ public:
 	void receive_block (rai::receive_block const & block_a) override
 	{
 		auto hash (block_a.hash ());
+		auto hash2 (ledger.store.hash2_get (transaction, hash));
+		assert (!hash2.is_zero ());
 		auto representative (ledger.representative (transaction, block_a.hashables.previous));
 		auto amount (ledger.amount (transaction, block_a.hashables.source));
 		auto destination_account (ledger.account (transaction, hash));
@@ -2005,7 +2242,8 @@ public:
 		assert (!error);
 		ledger.store.representation_add (transaction, ledger.representative (transaction, hash), 0 - amount);
 		ledger.change_latest (transaction, destination_account, block_a.hashables.previous, representative, ledger.balance (transaction, block_a.hashables.previous), info.block_count - 1);
-		ledger.store.block_del (transaction, hash);
+		ledger.store.block_del (transaction, hash2);
+		ledger.store.hash2_del (transaction, hash);
 		ledger.store.pending_put (transaction, rai::pending_key (destination_account, block_a.hashables.source), { ledger.account (transaction, block_a.hashables.source), amount });
 		ledger.store.frontier_del (transaction, hash);
 		ledger.store.frontier_put (transaction, block_a.hashables.previous, destination_account);
@@ -2018,17 +2256,21 @@ public:
 	void open_block (rai::open_block const & block_a) override
 	{
 		auto hash (block_a.hash ());
+		auto hash2 (ledger.store.hash2_get (transaction, hash));
+		assert (!hash2.is_zero ());
 		auto amount (ledger.amount (transaction, block_a.hashables.source));
 		auto destination_account (ledger.account (transaction, hash));
 		ledger.store.representation_add (transaction, ledger.representative (transaction, hash), 0 - amount);
 		ledger.change_latest (transaction, destination_account, 0, 0, 0, 0);
-		ledger.store.block_del (transaction, hash);
+		ledger.store.block_del (transaction, hash2);
+		ledger.store.hash2_del (transaction, hash);
 		ledger.store.pending_put (transaction, rai::pending_key (destination_account, block_a.hashables.source), { ledger.account (transaction, block_a.hashables.source), amount });
 		ledger.store.frontier_del (transaction, hash);
 	}
 	void change_block (rai::change_block const & block_a) override
 	{
 		auto hash (block_a.hash ());
+		auto hash2 (ledger.store.hash2_get (transaction, hash));
 		auto representative (ledger.representative (transaction, block_a.hashables.previous));
 		auto account (ledger.account (transaction, block_a.hashables.previous));
 		rai::account_info info;
@@ -2037,7 +2279,8 @@ public:
 		auto balance (ledger.balance (transaction, block_a.hashables.previous));
 		ledger.store.representation_add (transaction, representative, balance);
 		ledger.store.representation_add (transaction, hash, 0 - balance);
-		ledger.store.block_del (transaction, hash);
+		ledger.store.block_del (transaction, hash2);
+		ledger.store.hash2_del (transaction, hash);
 		ledger.change_latest (transaction, account, block_a.hashables.previous, representative, info.balance, info.block_count - 1);
 		ledger.store.frontier_del (transaction, hash);
 		ledger.store.frontier_put (transaction, block_a.hashables.previous, account);
@@ -2242,7 +2485,6 @@ void rai::block_store::representation_add (MDB_txn * transaction_a, rai::block_h
 	auto source_block (block_get (transaction_a, source_a));
 	assert (source_block != nullptr);
 	auto source_rep (source_block->representative ());
-	assert (!source_rep.is_zero ());
 	auto source_previous (representation_get (transaction_a, source_rep));
 	representation_put (transaction_a, source_rep, source_previous + amount_a);
 }
@@ -2362,7 +2604,9 @@ std::unique_ptr<rai::block> rai::ledger::successor (MDB_txn * transaction_a, rai
 
 std::unique_ptr<rai::block> rai::ledger::forked_block (MDB_txn * transaction_a, rai::block const & block_a)
 {
-	assert (!store.block_exists (transaction_a, block_a.hash ()));
+	auto hash2 (store.hash2_calc (transaction_a, block_a));
+	assert (!hash2.is_zero ());
+	assert (!store.block_exists (transaction_a, hash2));
 	auto root (block_a.root ());
 	assert (store.block_exists (transaction_a, root) || store.account_exists (transaction_a, root));
 	std::unique_ptr<rai::block> result (store.block_get (transaction_a, store.block_successor (transaction_a, root)));
@@ -2380,7 +2624,8 @@ std::unique_ptr<rai::block> rai::ledger::forked_block (MDB_txn * transaction_a, 
 void ledger_processor::change_block (rai::change_block const & block_a)
 {
 	auto hash (block_a.hash ());
-	auto existing (ledger.store.block_exists (transaction, hash));
+	auto hash2 (ledger.store.hash2_calc (transaction, block_a));
+	auto existing (ledger.store.block_exists (transaction, hash2));
 	result.code = existing ? rai::process_result::old : rai::process_result::progress; // Have we seen this block before? (Harmless)
 	if (result.code == rai::process_result::progress)
 	{
@@ -2399,7 +2644,9 @@ void ledger_processor::change_block (rai::change_block const & block_a)
 				result.code = validate_message (account, hash, block_a.signature) ? rai::process_result::bad_signature : rai::process_result::progress; // Is this block signed correctly (Malformed)
 				if (result.code == rai::process_result::progress)
 				{
-					ledger.store.block_put (transaction, hash, block_a);
+					assert (!hash2.is_zero ());
+					ledger.store.hash2_put (transaction, hash, hash2);
+					ledger.store.block_put (transaction, hash2, block_a);
 					auto balance (ledger.balance (transaction, block_a.hashables.previous));
 					ledger.store.representation_add (transaction, hash, balance);
 					ledger.store.representation_add (transaction, info.rep_block, 0 - balance);
@@ -2417,7 +2664,8 @@ void ledger_processor::change_block (rai::change_block const & block_a)
 void ledger_processor::send_block (rai::send_block const & block_a)
 {
 	auto hash (block_a.hash ());
-	auto existing (ledger.store.block_exists (transaction, hash));
+	auto hash2 (ledger.store.hash2_calc (transaction, block_a));
+	auto existing (ledger.store.block_exists (transaction, hash2));
 	result.code = existing ? rai::process_result::old : rai::process_result::progress; // Have we seen this block before? (Harmless)
 	if (result.code == rai::process_result::progress)
 	{
@@ -2439,6 +2687,8 @@ void ledger_processor::send_block (rai::send_block const & block_a)
 					result.code = info.balance.number () >= block_a.hashables.balance.number () ? rai::process_result::progress : rai::process_result::negative_spend; // Is this trying to spend a negative amount (Malicious)
 					if (result.code == rai::process_result::progress)
 					{
+						assert (!hash2.is_zero ());
+						ledger.store.hash2_put (transaction, hash, hash2);
 						auto amount (info.balance.number () - block_a.hashables.balance.number ());
 						ledger.store.representation_add (transaction, info.rep_block, 0 - amount);
 						ledger.store.block_put (transaction, hash, block_a);
@@ -2459,7 +2709,8 @@ void ledger_processor::send_block (rai::send_block const & block_a)
 void ledger_processor::receive_block (rai::receive_block const & block_a)
 {
 	auto hash (block_a.hash ());
-	auto existing (ledger.store.block_exists (transaction, hash));
+	auto hash2 (ledger.store.hash2_calc (transaction, block_a));
+	auto existing (ledger.store.block_exists (transaction, hash2));
 	result.code = existing ? rai::process_result::old : rai::process_result::progress; // Have we seen this block already?  (Harmless)
 	if (result.code == rai::process_result::progress)
 	{
@@ -2487,6 +2738,8 @@ void ledger_processor::receive_block (rai::receive_block const & block_a)
 							rai::account_info source_info;
 							auto error (ledger.store.account_get (transaction, pending.source, source_info));
 							assert (!error);
+							assert (!hash2.is_zero ());
+							ledger.store.hash2_put (transaction, hash, hash2);
 							ledger.store.pending_del (transaction, key);
 							ledger.store.block_put (transaction, hash, block_a);
 							ledger.change_latest (transaction, account, hash, info.rep_block, new_balance, info.block_count + 1);
@@ -2510,7 +2763,8 @@ void ledger_processor::receive_block (rai::receive_block const & block_a)
 void ledger_processor::open_block (rai::open_block const & block_a)
 {
 	auto hash (block_a.hash ());
-	auto existing (ledger.store.block_exists (transaction, hash));
+	auto hash2 (ledger.store.hash2_calc (transaction, block_a));
+	auto existing (ledger.store.block_exists (transaction, hash2));
 	result.code = existing ? rai::process_result::old : rai::process_result::progress; // Have we seen this block already? (Harmless)
 	if (result.code == rai::process_result::progress)
 	{
@@ -2536,7 +2790,9 @@ void ledger_processor::open_block (rai::open_block const & block_a)
 							rai::account_info source_info;
 							auto error (ledger.store.account_get (transaction, pending.source, source_info));
 							assert (!error);
+							assert (!hash2.is_zero ());
 							ledger.store.pending_del (transaction, key);
+							ledger.store.hash2_put (transaction, hash, hash2);
 							ledger.store.block_put (transaction, hash, block_a);
 							ledger.change_latest (transaction, block_a.hashables.account, hash, hash, pending.amount.number (), info.block_count + 1);
 							ledger.store.representation_add (transaction, hash, pending.amount.number ());
@@ -2615,6 +2871,14 @@ signature (rai::sign_message (prv_a, account_a, hash ()))
 {
 }
 
+rai::vote::vote (rai::account const & account_a, rai::raw_key const & prv_a, uint64_t sequence_a, std::shared_ptr<rai::block> block_a, rai::block_hash const & hash_a) :
+sequence (sequence_a),
+block (block_a),
+account (account_a),
+signature (rai::sign_message (prv_a, account_a, hash_a))
+{
+}
+
 rai::vote::vote (MDB_val const & value_a)
 {
 	rai::bufferstream stream (reinterpret_cast<uint8_t const *> (value_a.mv_data), value_a.mv_size);
@@ -2674,8 +2938,11 @@ rai::genesis::genesis ()
 void rai::genesis::initialize (MDB_txn * transaction_a, rai::block_store & store_a) const
 {
 	auto hash_l (hash ());
+	auto hash2 (store_a.hash2_calc (transaction_a, *open));
+	assert (!hash2.is_zero ());
 	assert (store_a.latest_begin (transaction_a) == store_a.latest_end ());
-	store_a.block_put (transaction_a, hash_l, *open);
+	store_a.hash2_put (transaction_a, hash_l, hash2);
+	store_a.block_put (transaction_a, hash2, *open);
 	store_a.account_put (transaction_a, genesis_account, { hash_l, open->hash (), open->hash (), std::numeric_limits<rai::uint128_t>::max (), rai::seconds_since_epoch (), 1 });
 	store_a.representation_put (transaction_a, genesis_account, std::numeric_limits<rai::uint128_t>::max ());
 	store_a.checksum_put (transaction_a, 0, 0, hash_l);
