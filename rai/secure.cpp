@@ -788,12 +788,12 @@ void rai::block_store::upgrade_v9_to_v10 (MDB_txn * transaction_a)
 
 void rai::block_store::upgrade_v10_to_v11 ()
 {
-	std::unordered_multimap <rai::block_hash, rai::block_hash> dependencies;
+	std::unordered_multimap<rai::block_hash, rai::block_hash> dependencies;
 	{
 		rai::transaction transaction (environment, nullptr, false);
-	 	dependencies = (block_dependencies (transaction));
+		dependencies = (block_dependencies (transaction));
 	}
-	std::deque <rai::block_hash> remaining;
+	std::deque<rai::block_hash> remaining;
 	rai::genesis genesis;
 	remaining.push_back (genesis.hash ());
 	auto total (0);
@@ -819,8 +819,7 @@ void rai::block_store::upgrade_v10_to_v11 ()
 					auto successor (block_successor (transaction, hash1));
 					block_del (transaction, hash1);
 					block_put (transaction, hash2_new, *block, successor);
-					std::for_each (range.first, range.second, [&] (std::pair <rai::block_hash, rai::block_hash> item_a)
-					{
+					std::for_each (range.first, range.second, [&](std::pair<rai::block_hash, rai::block_hash> item_a) {
 						remaining.push_front (item_a.second);
 					});
 					++count;
@@ -1150,9 +1149,9 @@ rai::block_counts rai::block_store::block_count (MDB_txn * transaction_a)
 	return result;
 }
 
-std::unordered_multimap <rai::block_hash, rai::block_hash> rai::block_store::block_dependencies (MDB_txn * transaction_a)
+std::unordered_multimap<rai::block_hash, rai::block_hash> rai::block_store::block_dependencies (MDB_txn * transaction_a)
 {
-	std::unordered_multimap <rai::block_hash, rai::block_hash> result;
+	std::unordered_multimap<rai::block_hash, rai::block_hash> result;
 	// For every block type
 	for (auto type : { rai::block_type::send, rai::block_type::receive, rai::block_type::open, rai::block_type::change })
 	{
@@ -1708,7 +1707,7 @@ public:
 		assert (status == 0);
 		rai::uint256_union preamble (1);
 		blake2b_update (&hash_l, preamble.bytes.data (), preamble.bytes.size ());
-		
+
 		rai::block_hash previous (store.hash2_get (transaction, block_a.hashables.previous));
 		if (!previous.is_zero ())
 		{
@@ -1718,7 +1717,7 @@ public:
 			assert (status == 0);
 			status = blake2b_update (&hash_l, block_a.hashables.balance.bytes.data (), block_a.hashables.balance.bytes.size ());
 			assert (status == 0);
-			
+
 			status = blake2b_final (&hash_l, result.bytes.data (), result.bytes.size ());
 			assert (status == 0);
 		}
@@ -1730,7 +1729,7 @@ public:
 		assert (status == 0);
 		rai::uint256_union preamble (2);
 		blake2b_update (&hash_l, preamble.bytes.data (), preamble.bytes.size ());
-		
+
 		rai::block_hash previous (store.hash2_get (transaction, block_a.hashables.previous));
 		if (!previous.is_zero ())
 		{
@@ -1741,7 +1740,7 @@ public:
 			{
 				status = blake2b_update (&hash_l, source.bytes.data (), source.bytes.size ());
 				assert (status == 0);
-				
+
 				status = blake2b_final (&hash_l, result.bytes.data (), result.bytes.size ());
 				assert (status == 0);
 			}
@@ -1754,7 +1753,7 @@ public:
 		assert (status == 0);
 		rai::uint256_union preamble (3);
 		blake2b_update (&hash_l, preamble.bytes.data (), preamble.bytes.size ());
-		
+
 		rai::block_hash source (store.hash2_get (transaction, block_a.hashables.source));
 		if (!source.is_zero ())
 		{
@@ -1764,7 +1763,7 @@ public:
 			assert (status == 0);
 			status = blake2b_update (&hash_l, block_a.hashables.account.bytes.data (), block_a.hashables.account.bytes.size ());
 			assert (status == 0);
-			
+
 			status = blake2b_final (&hash_l, result.bytes.data (), result.bytes.size ());
 			assert (status == 0);
 		}
@@ -1776,7 +1775,7 @@ public:
 		assert (status == 0);
 		rai::uint256_union preamble (4);
 		blake2b_update (&hash_l, preamble.bytes.data (), preamble.bytes.size ());
-		
+
 		rai::block_hash previous (store.hash2_get (transaction, block_a.hashables.previous));
 		if (!previous.is_zero ())
 		{
@@ -1784,7 +1783,7 @@ public:
 			assert (status == 0);
 			status = blake2b_update (&hash_l, block_a.hashables.representative.bytes.data (), block_a.hashables.representative.bytes.size ());
 			assert (status == 0);
-			
+
 			status = blake2b_final (&hash_l, result.bytes.data (), result.bytes.size ());
 			assert (status == 0);
 		}
@@ -1805,7 +1804,7 @@ rai::block_hash rai::block_store::hash2_calc (MDB_txn * transaction_a, rai::bloc
 rai::block_hash rai::block_store::hash2_get (MDB_txn * transaction_a, rai::block_hash const & hash_a)
 {
 	rai::block_hash result;
-	for (auto & i: result.qwords)
+	for (auto & i : result.qwords)
 	{
 		i = 0;
 	}
