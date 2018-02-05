@@ -193,7 +193,6 @@ bool confirm_block (MDB_txn * transaction_a, rai::node & node_a, rai::endpoint &
 
 void rai::network::republish_block (MDB_txn * transaction, std::shared_ptr<rai::block> block)
 {
-	rebroadcast_reps (block);
 	auto hash (block->hash ());
 	auto list (node.peers.list_sqrt ());
 	// If we're a representative, broadcast a signed confirm, otherwise an unsigned publish
