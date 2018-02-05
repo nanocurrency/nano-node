@@ -136,6 +136,7 @@ public:
 	size_t receive;
 	size_t open;
 	size_t change;
+	size_t hash2;
 };
 class vote
 {
@@ -145,6 +146,7 @@ public:
 	vote (bool &, rai::stream &);
 	vote (bool &, rai::stream &, rai::block_type);
 	vote (rai::account const &, rai::raw_key const &, uint64_t, std::shared_ptr<rai::block>);
+	vote (rai::account const &, rai::raw_key const &, uint64_t, std::shared_ptr<rai::block>, rai::block_hash const &);
 	vote (MDB_val const &);
 	rai::uint256_union hash () const;
 	bool operator== (rai::vote const &) const;
@@ -164,7 +166,8 @@ enum class vote_code
 {
 	invalid, // Vote is not signed correctly
 	replay, // Vote does not have the highest sequence number, it's a replay
-	vote // Vote has the highest sequence number
+	vote, // Vote has the highest sequence number
+	vote2
 };
 class vote_result
 {
@@ -249,11 +252,16 @@ public:
 	bool checksum_get (MDB_txn *, uint64_t, uint8_t, rai::checksum &);
 	void checksum_del (MDB_txn *, uint64_t, uint8_t);
 
+	rai::block_hash hash2_calc (MDB_txn *, rai::block const &);
+	rai::block_hash hash2_get (MDB_txn *, rai::block_hash const &);
+	void hash2_put (MDB_txn *, rai::block_hash const &, rai::block_hash const &);
+	void hash2_del (MDB_txn *, rai::block_hash const &);
+
 	rai::vote_result vote_validate (MDB_txn *, std::shared_ptr<rai::vote>);
 	// Return latest vote for an account from store
 	std::shared_ptr<rai::vote> vote_get (MDB_txn *, rai::account const &);
 	// Populate vote with the next sequence number
-	std::shared_ptr<rai::vote> vote_generate (MDB_txn *, rai::account const &, rai::raw_key const &, std::shared_ptr<rai::block>);
+	std::pair<std::shared_ptr<rai::vote>, std::shared_ptr<rai::vote>> vote_generate (MDB_txn *, rai::account const &, rai::raw_key const &, std::shared_ptr<rai::block>);
 	// Return either vote or the stored vote with a higher sequence number
 	std::shared_ptr<rai::vote> vote_max (MDB_txn *, std::shared_ptr<rai::vote>);
 	// Return latest vote for an account considering the vote cache
@@ -276,6 +284,7 @@ public:
 	void upgrade_v7_to_v8 (MDB_txn *);
 	void upgrade_v8_to_v9 (MDB_txn *);
 	void upgrade_v9_to_v10 (MDB_txn *);
+	void upgrade_v10_to_v11 ();
 
 	void clear (MDB_dbi);
 
@@ -304,10 +313,12 @@ public:
 	MDB_dbi unsynced;
 	// (uint56_t, uint8_t) -> block_hash                            // Mapping of region to checksum
 	MDB_dbi checksum;
-	// account -> uint64_t											// Highest vote observed for account
+	// account -> uint64_t                                          // Highest vote observed for account
 	MDB_dbi vote;
-	// uint256_union -> ?											// Meta information about block store
+	// uint256_union -> ?                                           // Meta information about block store
 	MDB_dbi meta;
+	// uint256_union -> uint256_union                               // Mapping of v1 hash to v2 hash
+	MDB_dbi hash2;
 };
 enum class process_result
 {
