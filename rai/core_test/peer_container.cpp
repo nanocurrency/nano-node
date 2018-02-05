@@ -159,14 +159,3 @@ TEST (peer_container, reachout)
 	peers.purge_list (std::chrono::steady_clock::now () + std::chrono::seconds (10));
 	ASSERT_FALSE (peers.reachout (endpoint1));
 }
-
-TEST (peer_container, hash2_aware)
-{
-	rai::peer_container peers (rai::endpoint{});
-	rai::endpoint endpoint0 (boost::asio::ip::address_v6::loopback (), 24000);
-	rai::endpoint endpoint1 (boost::asio::ip::address_v6::loopback (), 24001);
-	peers.contacted (endpoint0, 5);
-	peers.contacted (endpoint1, 6);
-	ASSERT_FALSE (peers.hash2_aware (endpoint0));
-	ASSERT_TRUE (peers.hash2_aware (endpoint1));
-}

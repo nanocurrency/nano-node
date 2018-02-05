@@ -1195,7 +1195,7 @@ TEST (node, rep_self_vote)
 }
 
 // Bootstrapping shouldn't republish the blocks to the network.
-TEST (node, DISABLED_bootstrap_no_publish)
+TEST (node, bootstrap_no_publish)
 {
 	rai::system system0 (24000, 1);
 	rai::system system1 (24001, 1);
@@ -1225,7 +1225,7 @@ TEST (node, DISABLED_bootstrap_no_publish)
 }
 
 // Bootstrapping a forked open block should succeed.
-TEST (node, DISABLED_bootstrap_fork_open)
+TEST (node, bootstrap_fork_open)
 {
 	rai::system system0 (24000, 2);
 	system0.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
@@ -1401,13 +1401,12 @@ TEST (node, vote_replay)
 {
 	rai::system system (24000, 2);
 	rai::keypair key;
-	rai::genesis genesis;
-	auto send (std::make_shared<rai::send_block> (genesis.hash (), rai::test_genesis_key.pub, rai::genesis_amount, key.prv, key.pub, 0));
-	system.nodes[0]->generate_work (*send);
+	auto open (std::make_shared<rai::open_block> (0, 1, key.pub, key.prv, key.pub, 0));
+	system.nodes[0]->generate_work (*open);
 	for (auto i (0); i < 11000; ++i)
 	{
 		rai::transaction transaction (system.nodes[1]->store.environment, nullptr, false);
-		auto vote (system.nodes[1]->store.vote_generate (transaction, rai::test_genesis_key.pub, rai::test_genesis_key.prv, send));
+		auto vote (system.nodes[1]->store.vote_generate (transaction, rai::test_genesis_key.pub, rai::test_genesis_key.prv, open));
 	}
 	{
 		rai::transaction transaction (system.nodes[0]->store.environment, nullptr, false);
@@ -1480,28 +1479,4 @@ TEST (node, bootstrap_connection_scaling)
 	node1.config.bootstrap_connections_max = 0;
 	ASSERT_EQ (1, attempt->target_connections (0));
 	ASSERT_EQ (1, attempt->target_connections (50000));
-}
-
-TEST (node, hash2_upgrade)
-{
-	rai::system system (24000, 1);
-	auto & node1 (*system.nodes [0]);
-	rai::genesis genesis;
-	{
-		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
-		node1.store.version_put (transaction, 10);
-		auto hash2 (node1.store.hash2_get (transaction, genesis.hash ()));
-		ASSERT_FALSE (hash2.is_zero ());
-		node1.store.hash2_del (transaction, genesis.hash ());
-		node1.store.block_del (transaction, hash2);
-		node1.store.block_put (transaction, genesis.hash (), *genesis.open);
-		auto count (node1.store.block_count (transaction));
-		ASSERT_EQ (1, count.hash2);
-	}
-	ASSERT_EQ (10, node1.store_version ());
-	node1.store_update ();
-	ASSERT_EQ (11, node1.store_version ());
-	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
-	auto count (node1.store.block_count (transaction));
-	ASSERT_EQ (2, count.hash2);
 }
