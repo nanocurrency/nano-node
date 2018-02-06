@@ -462,7 +462,7 @@ public:
 	void process_blocks ();
 
 private:
-	bool stopped;
+	std::atomic<bool> stopped;
 	bool idle;
 	std::deque<rai::block_processor_item> blocks;
 	std::mutex mutex;
