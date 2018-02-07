@@ -981,7 +981,7 @@ TEST (block_store, hash2)
 	rai::transaction transaction (store.environment, nullptr, true);
 	ASSERT_TRUE (store.hash2_get (transaction, rai::block_hash (1)).is_zero ());
 	store.hash2_put (transaction, rai::block_hash (1), rai::block_hash (2));
-	auto value (store.hash2_get(transaction, rai::block_hash (1)));
+	auto value (store.hash2_get (transaction, rai::block_hash (1)));
 	ASSERT_EQ (rai::block_hash (2), value);
 }
 
@@ -1061,13 +1061,13 @@ TEST (block_store, hash2_upgrade_multi)
 		genesis.initialize (transaction, store);
 		ASSERT_EQ (rai::process_result::progress, ledger.process (transaction, send).code);
 		ASSERT_EQ (send.hash (), store.block_successor (transaction, genesis.hash ()));
-		
+
 		auto hash3 (store.hash2_get (transaction, send.hash ()));
 		auto successor2 (store.block_successor (transaction, hash3));
 		store.block_del (transaction, hash3);
 		store.hash2_del (transaction, send.hash ());
 		store.block_put (transaction, send.hash (), send, successor2);
-		
+
 		auto hash2 (store.hash2_get (transaction, genesis.hash ()));
 		auto successor (store.block_successor (transaction, hash2));
 		store.block_del (transaction, hash2);

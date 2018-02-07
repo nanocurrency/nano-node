@@ -192,7 +192,7 @@ public:
 	void block_del (MDB_txn *, rai::block_hash const &);
 	bool block_exists (MDB_txn *, rai::block_hash const &);
 	rai::block_counts block_count (MDB_txn *);
-	std::unordered_multimap <rai::block_hash, rai::block_hash> block_dependencies (MDB_txn *);
+	std::unordered_multimap<rai::block_hash, rai::block_hash> block_dependencies (MDB_txn *);
 
 	void frontier_put (MDB_txn *, rai::block_hash const &, rai::account const &);
 	rai::account frontier_get (MDB_txn *, rai::block_hash const &);

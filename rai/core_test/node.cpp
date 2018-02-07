@@ -1485,10 +1485,10 @@ TEST (node, bootstrap_connection_scaling)
 TEST (node, hash2_upgrade)
 {
 	rai::system system (24000, 1);
-	auto & node1 (*system.nodes [0]);
+	auto & node1 (*system.nodes[0]);
 	rai::genesis genesis;
 	{
-		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
+		rai::transaction transaction (system.nodes[0]->store.environment, nullptr, true);
 		node1.store.version_put (transaction, 10);
 		auto hash2 (node1.store.hash2_get (transaction, genesis.hash ()));
 		ASSERT_FALSE (hash2.is_zero ());
@@ -1501,7 +1501,7 @@ TEST (node, hash2_upgrade)
 	ASSERT_EQ (10, node1.store_version ());
 	node1.store_update ();
 	ASSERT_EQ (11, node1.store_version ());
-	rai::transaction transaction (system.nodes [0]->store.environment, nullptr, false);
+	rai::transaction transaction (system.nodes[0]->store.environment, nullptr, false);
 	auto count (node1.store.block_count (transaction));
 	ASSERT_EQ (2, count.hash2);
 }
