@@ -163,7 +163,7 @@ namespace
 {
 void show_error (std::string const & message_a)
 {
-	QMessageBox message (QMessageBox::Critical, "Error starting RaiBlocks", message_a.c_str ());
+	QMessageBox message (QMessageBox::Critical, "Error starting Nano", message_a.c_str ());
 	message.setModal (true);
 	message.show ();
 	message.exec ();
@@ -196,7 +196,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 	QSplashScreen * splash = new QSplashScreen (pixmap);
 	splash->show ();
 	application.processEvents ();
-	splash->showMessage (QSplashScreen::tr ("Remember—Back Up Your Wallet Seed"), Qt::AlignBottom | Qt::AlignHCenter, Qt::black);
+	splash->showMessage (QSplashScreen::tr ("Remember - Back Up Your Wallet Seed"), Qt::AlignBottom | Qt::AlignHCenter, Qt::darkGray);
 	application.processEvents ();
 	qt_wallet_config config (data_path);
 	auto config_path ((data_path / "config.json"));
