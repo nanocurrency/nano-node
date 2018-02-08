@@ -1184,7 +1184,7 @@ TEST (node, rep_self_vote)
 	auto & active (node0->active);
 	{
 		rai::transaction transaction (node0->store.environment, nullptr, true);
-		active.start (transaction, block0, [](std::shared_ptr<rai::block>) {});
+		active.start (transaction, block0, [](std::shared_ptr<rai::block>, bool) {});
 	}
 	auto existing (active.roots.find (block0->root ()));
 	ASSERT_NE (active.roots.end (), existing);
