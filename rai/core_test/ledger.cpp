@@ -1456,7 +1456,6 @@ TEST (ledger, bootstrap_rep_weight)
 	}
 	{
 		rai::transaction transaction (store.environment, nullptr, true);
-		genesis.initialize (transaction, store);
 		ASSERT_FALSE (store.account_get (transaction, rai::test_genesis_key.pub, info1));
 		rai::send_block send (info1.head, key2.pub, std::numeric_limits<rai::uint128_t>::max () - 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
 		ledger.process (transaction, send);
