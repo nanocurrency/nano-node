@@ -76,8 +76,8 @@ TEST (wallets, wallet_create_max)
 	rai::system system (24000, 1);
 	bool error (false);
 	rai::wallets wallets (error, *system.nodes[0]);
-	// lmdb_max_dbs should be removed once the wallet store is refactored to support more wallets.
-	for (int i = 0; i < 113; i++)
+	const int nonWalletDbs = 16;
+	for (int i = 0; i < system.nodes[0]->config.lmdb_max_dbs - nonWalletDbs; i++)
 	{
 		rai::keypair key;
 		auto wallet = wallets.create (key.pub);
