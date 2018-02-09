@@ -360,7 +360,7 @@ set_target_properties (secure node rai_node PROPERTIES LINK_FLAGS "${PLATFORM_LI
 if (WIN32)
 	set (PLATFORM_LIBS Ws2_32 mswsock iphlpapi ntdll)
 else (WIN32)
-	set (PLATFORM_LIBS pthread dl)
+	set (PLATFORM_LIBS pthread ${CMAKE_DL_LIBS})
 endif (WIN32)
 
 if (WIN32)
