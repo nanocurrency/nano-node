@@ -74,6 +74,7 @@ run_build() {
     cmake --build ${PWD} -- -v
     cmake --build ${PWD} -- install -v
     cpack -G ${CPACK_TYPE} ${PWD}
+    sha1sum *.tar* > SHA1SUMS
 }
 
 run_build
