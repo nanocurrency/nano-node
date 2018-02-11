@@ -2667,7 +2667,7 @@ void ledger_processor::change_block (rai::change_block const & block_a)
 						assert (!hash2.is_zero ());
 					}
 					ledger.store.hash2_put (transaction, hash, hash2);
-					ledger.store.block_put (transaction, hash2, block_a);
+					ledger.store.block_put (transaction, hash, block_a);
 					auto balance (ledger.balance (transaction, block_a.hashables.previous));
 					ledger.store.representation_add (transaction, hash, balance);
 					ledger.store.representation_add (transaction, info.rep_block, 0 - balance);
