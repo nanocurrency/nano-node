@@ -23,7 +23,7 @@ variables:
     - csa_results
 
   script:
-    - ./ci/build.sh
+    - ./ci/build-gitlab.sh
 
 
 Arch Linux:
@@ -36,10 +36,11 @@ Arch Linux:
 
   script:
     - mkdir -p csa_results/
-    - scan-build -o csa_results/ ./ci/build.sh
+    - scan-build -o csa_results/ ./ci/build-gitlab.sh
 
 
-Ubuntu Linux Trusty:
+# Disabled, dependency on newer Qt than avail
+.Ubuntu Linux Trusty:
   <<: *linux_cfg
   stage: build
   image: ubuntu:trusty
@@ -115,7 +116,7 @@ Ubuntu Linux Xenial:
     - osx
 
   script:
-    - ./ci/build.sh
+    - ./ci/build-gitlab.sh
 
 # DISABLED for now
 .Alpine Linux:
@@ -128,5 +129,5 @@ Ubuntu Linux Xenial:
     - apk add --update alpine-sdk autoconf automake libtool clang-dev cmake ninja qt5-qtbase-dev qt5-qttools-dev boost-dev ttf-freefont xvfb
 
   script:
-    - ./ci/build.sh
+    - ./ci/build-gitlab.sh
 
