@@ -40,6 +40,12 @@ else
     SANITIZERS=""
 fi
 
+if [[ ${SKIP_GUI} -eq 1 ]]; then
+    GUI=""
+else
+    GUI="-DRAIBLOCKS_GUI=ON"
+fi
+
 if [[ "${BOOST_ROOT}" -ne "" ]]; then
     BOOST_CFG="-DBOOST_ROOT='${BOOST_ROOT}'"
 else
@@ -59,7 +65,7 @@ run_build() {
     mkdir ${build_dir}
     cd ${build_dir}
     cmake -GNinja \
-       -DRAIBLOCKS_GUI=ON \
+       ${GUI} \
        -DCMAKE_BUILD_TYPE=Release \
        -DCMAKE_VERBOSE_MAKEFILE=ON \
        -DCMAKE_INSTALL_PREFIX="../install" \
