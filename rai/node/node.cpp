@@ -1113,7 +1113,7 @@ void rai::block_processor::stop ()
 void rai::block_processor::flush ()
 {
 	std::unique_lock<std::mutex> lock (mutex);
-	while (!stopped && (!blocks.empty () || !idle))
+	while (!stopped.load () && (!blocks.empty () || !idle))
 	{
 		condition.wait (lock);
 	}
@@ -1129,7 +1129,7 @@ void rai::block_processor::add (rai::block_processor_item const & item_a)
 void rai::block_processor::process_blocks ()
 {
 	std::unique_lock<std::mutex> lock (mutex);
-	while (!stopped)
+	while (!stopped.load ())
 	{
 		if (!blocks.empty ())
 		{
@@ -1160,13 +1160,13 @@ void rai::block_processor::process_receive_many (rai::block_processor_item const
 
 void rai::block_processor::process_receive_many (std::deque<rai::block_processor_item> & blocks_processing)
 {
-	while (!blocks_processing.empty ())
+	while (!stopped.load () && !blocks_processing.empty ())
 	{
 		std::deque<std::pair<std::shared_ptr<rai::block>, rai::process_return>> progress;
 		{
 			rai::transaction transaction (node.store.environment, nullptr, true);
 			auto cutoff (std::chrono::steady_clock::now () + rai::transaction_timeout);
-			while (!blocks_processing.empty () && std::chrono::steady_clock::now () < cutoff)
+			while (!stopped.load () && !blocks_processing.empty () && std::chrono::steady_clock::now () < cutoff)
 			{
 				auto item (blocks_processing.front ());
 				blocks_processing.pop_front ();
@@ -1210,18 +1210,27 @@ void rai::block_processor::process_receive_many (std::deque<rai::block_processor
 				}
 			}
 		}
-		for (auto & i : progress)
+
+		if (!stopped.load ())
 		{
-			node.observers.blocks (i.first, i.second.account, i.second.amount);
-			if (i.second.amount > 0)
+			for (auto & i : progress)
 			{
-				node.observers.account_balance (i.second.account, false);
-				if (!i.second.pending_account.is_zero ())
+				node.observers.blocks (i.first, i.second.account, i.second.amount);
+				if (i.second.amount > 0)
 				{
-					node.observers.account_balance (i.second.pending_account, true);
+					node.observers.account_balance (i.second.account, false);
+					if (!i.second.pending_account.is_zero ())
+					{
+						node.observers.account_balance (i.second.pending_account, true);
+					}
 				}
 			}
 		}
+	}
+
+	if (stopped.load () && blocks_processing.size () > 0)
+	{
+		BOOST_LOG (node.log) << "Stopping node with " << blocks_processing.size () << " blocks still processing";
 	}
 }
 
