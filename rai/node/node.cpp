@@ -257,7 +257,7 @@ void rai::network::broadcast_confirm_req (std::shared_ptr<rai::block> block_a)
 	}
 	if (node.config.logging.network_logging ())
 	{
-		BOOST_LOG (node.log) << boost::str (boost::format ("Broadcasted confirm req to %1% representatives") % list.size ());
+		BOOST_LOG (node.log) << boost::str (boost::format ("Broadcasted confirm req for block %1% to %2% representatives") % block_a->hash ().to_string () % list.size ());
 	}
 }
 
