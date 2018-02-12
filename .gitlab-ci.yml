@@ -21,6 +21,7 @@ variables:
     - build*/*.tar*
     - build*/*_test
     - csa_results
+    - build*/SHA1SUMS
 
   script:
     - ./ci/build-gitlab.sh
@@ -71,6 +72,30 @@ Ubuntu Linux Xenial:
   image: ubuntu:xenial
   variables:
     FLAVOR: xenial
+
+  before_script:
+    - ./ci/ubuntu_prep.sh
+    - ./ci/bootstrap_boost.sh
+
+Xenial OPTIMIZED:
+  <<: *linux_cfg
+  stage: build
+  image: ubuntu:xenial
+  variables:
+    FLAVOR: xenial
+    SIMD: 1
+
+  before_script:
+    - ./ci/ubuntu_prep.sh
+    - ./ci/bootstrap_boost.sh
+
+Artful OPTIMIZED:
+  <<: *linux_cfg
+  stage: build
+  image: ubuntu:artful
+  variables:
+    FLAVOR: artful
+    SIMD: 1
 
   before_script:
     - ./ci/ubuntu_prep.sh
