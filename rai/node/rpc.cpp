@@ -2933,21 +2933,25 @@ void rai::rpc_handler::send ()
 									}
 								}
 							}
+							boost::optional<std::string> send_id (request.get_optional<std::string> ("id"));
 							if (balance >= amount.number ())
 							{
 								auto rpc_l (shared_from_this ());
 								auto response_a (response);
 								existing->second->send_async (source, destination, amount.number (), [response_a](std::shared_ptr<rai::block> block_a) {
-									rai::uint256_union hash (0);
 									if (block_a != nullptr)
 									{
-										hash = block_a->hash ();
+										rai::uint256_union hash (block_a->hash ());
+										boost::property_tree::ptree response_l;
+										response_l.put ("block", hash.to_string ());
+										response_a (response_l);
 									}
-									boost::property_tree::ptree response_l;
-									response_l.put ("block", hash.to_string ());
-									response_a (response_l);
+									else
+									{
+										error_response (response_a, "Error generating block");
+									}
 								},
-								work == 0);
+								work == 0, send_id);
 							}
 							else
 							{
