@@ -1545,8 +1545,23 @@ void rai::block_store::unchecked_clear (MDB_txn * transaction_a)
 
 void rai::block_store::unchecked_put (MDB_txn * transaction_a, rai::block_hash const & hash_a, std::shared_ptr<rai::block> const & block_a)
 {
-	std::lock_guard<std::mutex> lock (cache_mutex);
-	unchecked_cache.insert (std::make_pair (hash_a, block_a));
+	// Checking if same unchecked block is already in database
+	bool exists (false);
+	auto block_hash (block_a->hash ());
+	auto cached (unchecked_get (transaction_a, hash_a));
+	for (auto i (cached.begin ()), n (cached.end ()); i != n && !exists; ++i)
+	{
+		if ((*i)->hash () == block_hash)
+		{
+			exists = true;
+		}
+	}
+	// Insering block if it wasn't found in database
+	if (!exists)
+	{
+		std::lock_guard<std::mutex> lock (cache_mutex);
+		unchecked_cache.insert (std::make_pair (hash_a, block_a));
+	}
 }
 
 std::vector<std::shared_ptr<rai::block>> rai::block_store::unchecked_get (MDB_txn * transaction_a, rai::block_hash const & hash_a)
