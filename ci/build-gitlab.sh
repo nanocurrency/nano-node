@@ -24,10 +24,13 @@ fi
 
 if [[ ${SIMD} -eq 1 ]]; then
     SIMD_CFG="-DRAIBLOCKS_SIMD_OPTIMIZATIONS=ON"
-    CRYPTOPP_CFG="-DCRYPTOPP_CUSTOM=ON"
+    CRYPTOPP_CFG=""
+    echo SIMD and other optimizations enabled
+    echo local CPU:
+    cat /proc/cpuinfo # TBD for macOS
 else
     SIMD_CFG=""
-    CRYPTOPP_CFG=""
+    CRYPTOPP_CFG="-DCRYPTOPP_CUSTOM=ON"
 fi
 
 if [[ ${ASAN_INT} -eq 1 ]]; then
