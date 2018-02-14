@@ -59,6 +59,7 @@ public:
 	virtual void visit (rai::block_visitor &) const = 0;
 	virtual bool operator== (rai::block const &) const = 0;
 	virtual rai::block_type type () const = 0;
+	virtual rai::signature block_signature () const = 0;
 	virtual void signature_set (rai::uint512_union const &) = 0;
 	virtual ~block () = default;
 };
@@ -94,6 +95,7 @@ public:
 	bool deserialize_json (boost::property_tree::ptree const &);
 	void visit (rai::block_visitor &) const override;
 	rai::block_type type () const override;
+	rai::signature block_signature () const override;
 	void signature_set (rai::uint512_union const &) override;
 	bool operator== (rai::block const &) const override;
 	bool operator== (rai::send_block const &) const;
@@ -133,6 +135,7 @@ public:
 	bool deserialize_json (boost::property_tree::ptree const &);
 	void visit (rai::block_visitor &) const override;
 	rai::block_type type () const override;
+	rai::signature block_signature () const override;
 	void signature_set (rai::uint512_union const &) override;
 	bool operator== (rai::block const &) const override;
 	bool operator== (rai::receive_block const &) const;
@@ -174,6 +177,7 @@ public:
 	bool deserialize_json (boost::property_tree::ptree const &);
 	void visit (rai::block_visitor &) const override;
 	rai::block_type type () const override;
+	rai::signature block_signature () const override;
 	void signature_set (rai::uint512_union const &) override;
 	bool operator== (rai::block const &) const override;
 	bool operator== (rai::open_block const &) const;
@@ -213,6 +217,7 @@ public:
 	bool deserialize_json (boost::property_tree::ptree const &);
 	void visit (rai::block_visitor &) const override;
 	rai::block_type type () const override;
+	rai::signature block_signature () const override;
 	void signature_set (rai::uint512_union const &) override;
 	bool operator== (rai::block const &) const override;
 	bool operator== (rai::change_block const &) const;

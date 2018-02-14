@@ -606,7 +606,7 @@ void rai::bulk_pull_client::received_block (boost::system::error_code const & ec
 	{
 		rai::bufferstream stream (connection->receive_buffer.data (), 1 + size_a);
 		std::shared_ptr<rai::block> block (rai::deserialize_block (stream));
-		if (block != nullptr)
+		if (block != nullptr && !rai::work_validate (*block))
 		{
 			auto hash (block->hash ());
 			if (connection->node->config.logging.bulk_pull_logging ())
@@ -2056,7 +2056,7 @@ void rai::bulk_push_server::received_block (boost::system::error_code const & ec
 	{
 		rai::bufferstream stream (receive_buffer.data (), 1 + size_a);
 		auto block (rai::deserialize_block (stream));
-		if (block != nullptr)
+		if (block != nullptr && !rai::work_validate (*block))
 		{
 			if (!connection->node->bootstrap_initiator.in_progress ())
 			{

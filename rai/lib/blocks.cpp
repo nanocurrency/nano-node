@@ -301,6 +301,11 @@ rai::account rai::send_block::representative () const
 	return 0;
 }
 
+rai::signature rai::send_block::block_signature () const
+{
+	return signature;
+}
+
 void rai::send_block::signature_set (rai::uint512_union const & signature_a)
 {
 	signature = signature_a;
@@ -551,6 +556,11 @@ rai::account rai::open_block::representative () const
 	return hashables.representative;
 }
 
+rai::signature rai::open_block::block_signature () const
+{
+	return signature;
+}
+
 void rai::open_block::signature_set (rai::uint512_union const & signature_a)
 {
 	signature = signature_a;
@@ -768,6 +778,11 @@ rai::block_hash rai::change_block::root () const
 rai::account rai::change_block::representative () const
 {
 	return hashables.representative;
+}
+
+rai::signature rai::change_block::block_signature () const
+{
+	return signature;
 }
 
 void rai::change_block::signature_set (rai::uint512_union const & signature_a)
@@ -1062,6 +1077,11 @@ rai::block_hash rai::receive_block::root () const
 rai::account rai::receive_block::representative () const
 {
 	return 0;
+}
+
+rai::signature rai::receive_block::block_signature () const
+{
+	return signature;
 }
 
 void rai::receive_block::signature_set (rai::uint512_union const & signature_a)

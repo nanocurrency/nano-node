@@ -595,23 +595,23 @@ TEST (block_store, sequence_increment)
 	auto block1 (std::make_shared<rai::open_block> (0, 1, 0, rai::keypair ().prv, 0, 0));
 	rai::transaction transaction (store.environment, nullptr, true);
 	auto vote1 (store.vote_generate (transaction, key1.pub, key1.prv, block1));
-	ASSERT_EQ (1, vote1.first->sequence);
+	ASSERT_EQ (1, vote1->sequence);
 	auto vote2 (store.vote_generate (transaction, key1.pub, key1.prv, block1));
-	ASSERT_EQ (3, vote2.first->sequence);
+	ASSERT_EQ (2, vote2->sequence);
 	auto vote3 (store.vote_generate (transaction, key2.pub, key2.prv, block1));
-	ASSERT_EQ (1, vote3.first->sequence);
+	ASSERT_EQ (1, vote3->sequence);
 	auto vote4 (store.vote_generate (transaction, key2.pub, key2.prv, block1));
-	ASSERT_EQ (3, vote4.first->sequence);
-	vote1.first->sequence = 20;
-	auto seq5 (store.vote_max (transaction, vote1.first));
+	ASSERT_EQ (2, vote4->sequence);
+	vote1->sequence = 20;
+	auto seq5 (store.vote_max (transaction, vote1));
 	ASSERT_EQ (20, seq5->sequence);
-	vote3.first->sequence = 30;
-	auto seq6 (store.vote_max (transaction, vote3.first));
+	vote3->sequence = 30;
+	auto seq6 (store.vote_max (transaction, vote3));
 	ASSERT_EQ (30, seq6->sequence);
 	auto vote5 (store.vote_generate (transaction, key1.pub, key1.prv, block1));
-	ASSERT_EQ (21, vote5.first->sequence);
+	ASSERT_EQ (21, vote5->sequence);
 	auto vote6 (store.vote_generate (transaction, key2.pub, key2.prv, block1));
-	ASSERT_EQ (31, vote6.first->sequence);
+	ASSERT_EQ (31, vote6->sequence);
 }
 
 TEST (block_store, upgrade_v2_v3)
@@ -896,11 +896,11 @@ TEST (block_store, sequence_flush)
 	rai::keypair key1;
 	auto send1 (std::make_shared<rai::send_block> (0, 0, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
 	auto vote1 (store.vote_generate (transaction, key1.pub, key1.prv, send1));
-	auto seq2 (store.vote_get (transaction, vote1.first->account));
+	auto seq2 (store.vote_get (transaction, vote1->account));
 	ASSERT_EQ (nullptr, seq2);
 	store.flush (transaction);
-	auto seq3 (store.vote_get (transaction, vote1.first->account));
-	ASSERT_EQ (*seq3, *(vote1.second));
+	auto seq3 (store.vote_get (transaction, vote1->account));
+	ASSERT_EQ (*seq3, *vote1);
 }
 
 // Upgrading tracking block sequence numbers to whole vote.
@@ -970,129 +970,4 @@ TEST (block_store, upgrade_v9_v10)
 	store.block_info_get (transaction, hash, block_info);
 	ASSERT_EQ (block_info.account, rai::test_genesis_key.pub);
 	ASSERT_EQ (block_info.balance.number (), rai::genesis_amount - rai::Gxrb_ratio * 31);
-}
-
-TEST (block_store, hash2)
-{
-	auto path (rai::unique_path ());
-	bool init (false);
-	rai::block_store store (init, path);
-	ASSERT_FALSE (init);
-	rai::transaction transaction (store.environment, nullptr, true);
-	ASSERT_TRUE (store.hash2_get (transaction, rai::block_hash (1)).is_zero ());
-	store.hash2_put (transaction, rai::block_hash (1), rai::block_hash (2));
-	auto value (store.hash2_get (transaction, rai::block_hash (1)));
-	ASSERT_EQ (rai::block_hash (2), value);
-}
-
-TEST (block_store, hash2_calc)
-{
-	auto path (rai::unique_path ());
-	bool init (false);
-	rai::block_store store (init, path);
-	ASSERT_FALSE (init);
-	rai::transaction transaction (store.environment, nullptr, true);
-	store.hash2_put (transaction, 0, 1);
-	rai::send_block block (0, 0, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
-	auto hash2 (store.hash2_calc (transaction, block));
-	ASSERT_FALSE (hash2.is_zero ());
-}
-
-TEST (block_store, hash2_count)
-{
-	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
-	ASSERT_TRUE (!init);
-	rai::transaction transaction (store.environment, nullptr, true);
-	store.hash2_put (transaction, 0, 1);
-	ASSERT_EQ (2, store.block_count (transaction).hash2);
-}
-
-TEST (block_store, hash2_upgrade_genesis)
-{
-	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
-	ASSERT_TRUE (!init);
-	rai::genesis genesis;
-	{
-		rai::transaction transaction (store.environment, nullptr, true);
-		genesis.initialize (transaction, store);
-		store.version_put (transaction, 10);
-		auto hash2 (store.hash2_get (transaction, genesis.hash ()));
-		auto successor (store.block_successor (transaction, hash2));
-		store.block_del (transaction, hash2);
-		store.hash2_del (transaction, genesis.hash ());
-		store.block_put (transaction, genesis.hash (), *genesis.open, successor);
-
-		ASSERT_EQ (1, store.block_count (transaction).hash2);
-		ASSERT_TRUE (store.block_exists (transaction, genesis.hash ()));
-		ASSERT_EQ (10, store.version_get (transaction));
-	}
-
-	store.upgrade_v10_to_v11 ();
-
-	rai::transaction transaction (store.environment, nullptr, false);
-	// One new hash should have been added for `genesis'
-	ASSERT_EQ (2, store.block_count (transaction).hash2);
-	ASSERT_EQ (11, store.version_get (transaction));
-	ASSERT_TRUE (store.block_exists (transaction, genesis.hash ()));
-	auto block1 (store.block_get (transaction, genesis.hash ()));
-	ASSERT_NE (nullptr, block1);
-	ASSERT_EQ (*block1, *genesis.open);
-	auto hash2 (store.hash2_get (transaction, genesis.hash ()));
-	ASSERT_FALSE (hash2.is_zero ());
-	ASSERT_NE (hash2, genesis.hash ());
-	ASSERT_TRUE (store.block_exists (transaction, hash2));
-	auto block2 (store.block_get (transaction, hash2));
-	ASSERT_NE (nullptr, block2);
-	ASSERT_EQ (*block1, *block2);
-}
-
-TEST (block_store, hash2_upgrade_multi)
-{
-	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
-	ASSERT_TRUE (!init);
-	rai::ledger ledger (store);
-	rai::genesis genesis;
-	rai::send_block send (genesis.hash (), rai::genesis_account, rai::genesis_amount - rai::Mxrb_ratio, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
-	{
-		rai::transaction transaction (store.environment, nullptr, true);
-		genesis.initialize (transaction, store);
-		ASSERT_EQ (rai::process_result::progress, ledger.process (transaction, send).code);
-		ASSERT_EQ (send.hash (), store.block_successor (transaction, genesis.hash ()));
-
-		auto hash3 (store.hash2_get (transaction, send.hash ()));
-		auto successor2 (store.block_successor (transaction, hash3));
-		store.block_del (transaction, hash3);
-		store.hash2_del (transaction, send.hash ());
-		store.block_put (transaction, send.hash (), send, successor2);
-
-		auto hash2 (store.hash2_get (transaction, genesis.hash ()));
-		auto successor (store.block_successor (transaction, hash2));
-		store.block_del (transaction, hash2);
-		store.hash2_del (transaction, genesis.hash ());
-		store.block_put (transaction, genesis.hash (), *genesis.open, successor);
-
-		ASSERT_EQ (1, store.block_count (transaction).hash2);
-		ASSERT_TRUE (store.block_exists (transaction, send.hash ()));
-	}
-
-	store.upgrade_v10_to_v11 ();
-
-	rai::transaction transaction (store.environment, nullptr, false);
-	// One new hash should have been added for `send'
-	ASSERT_EQ (3, store.block_count (transaction).hash2);
-	ASSERT_EQ (11, store.version_get (transaction));
-	ASSERT_TRUE (store.block_exists (transaction, send.hash ()));
-	auto block1 (store.block_get (transaction, send.hash ()));
-	ASSERT_NE (nullptr, block1);
-	ASSERT_EQ (*block1, send);
-	auto hash2 (store.hash2_get (transaction, send.hash ()));
-	ASSERT_FALSE (hash2.is_zero ());
-	ASSERT_NE (hash2, send.hash ());
-	ASSERT_TRUE (store.block_exists (transaction, hash2));
-	auto block2 (store.block_get (transaction, hash2));
-	ASSERT_NE (nullptr, block2);
-	ASSERT_EQ (*block1, *block2);
 }
