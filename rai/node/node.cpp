@@ -1263,7 +1263,23 @@ rai::process_return rai::block_processor::process_receive_one (MDB_txn * transac
 		}
 		case rai::process_result::old:
 		{
-            //Existing codeblock will become obesolete with universal blocks and as a result is removed
+			{
+				auto root (block_a->root ());
+				auto hash (block_a->hash ());
+				auto existing (node.store.block_get (transaction_a, hash));
+				if (existing != nullptr)
+				{
+					// Replace block with one that has higher work value
+					if (rai::work_value (root, block_a->block_work ()) > rai::work_value (root, existing->block_work ()))
+					{
+						node.store.block_put (transaction_a, hash, *block_a, node.store.block_successor (transaction_a, hash));
+					}
+				}
+				else
+				{
+					// Could have been rolled back, maybe
+				}
+			}
 			if (node.config.logging.ledger_duplicate_logging ())
 			{
 				BOOST_LOG (node.log) << boost::str (boost::format ("Old for: %1%") % block_a->hash ().to_string ());

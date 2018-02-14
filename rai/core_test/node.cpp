@@ -655,6 +655,50 @@ TEST (node_config, random_rep)
 	ASSERT_NE (config1.preconfigured_representatives.end (), std::find (config1.preconfigured_representatives.begin (), config1.preconfigured_representatives.end (), rep));
 }
 
+TEST (node, block_replace)
+{
+	rai::system system (24000, 2);
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	auto block1 (system.wallet (0)->send_action (rai::test_genesis_key.pub, 0, rai::Gxrb_ratio));
+	auto block3 (system.wallet (0)->send_action (rai::test_genesis_key.pub, 0, rai::Gxrb_ratio));
+	ASSERT_NE (nullptr, block1);
+	auto initial_work (block1->block_work ());
+	while (rai::work_value (block1->root (), block1->block_work ()) <= rai::work_value (block1->root (), initial_work))
+	{
+		system.nodes[1]->generate_work (*block1);
+	}
+	{
+		rai::transaction transaction (system.nodes[0]->store.environment, nullptr, false);
+		ASSERT_EQ (block3->hash (), system.nodes[0]->store.block_successor (transaction, block1->hash ()));
+	}
+	for (auto i (0); i < 1; ++i)
+	{
+		rai::transaction transaction_a (system.nodes[1]->store.environment, nullptr, false);
+		system.nodes[1]->network.republish_block (transaction_a, block1);
+	}
+	auto iterations1 (0);
+	std::unique_ptr<rai::block> block2;
+	while (block2 == nullptr)
+	{
+		system.poll ();
+		++iterations1;
+		ASSERT_LT (iterations1, 200);
+		rai::transaction transaction (system.nodes[0]->store.environment, nullptr, false);
+		auto block (system.nodes[0]->store.block_get (transaction, block1->hash ()));
+		if (block->block_work () != initial_work)
+		{
+			block2 = std::move (block);
+		}
+	}
+	{
+		rai::transaction transaction (system.nodes[0]->store.environment, nullptr, false);
+		ASSERT_EQ (block3->hash (), system.nodes[0]->store.block_successor (transaction, block1->hash ()));
+	}
+	ASSERT_NE (initial_work, block1->block_work ());
+	ASSERT_EQ (block1->block_work (), block2->block_work ());
+	ASSERT_GT (rai::work_value (block2->root (), block2->block_work ()), rai::work_value (block1->root (), initial_work));
+}
+
 TEST (node, fork_publish)
 {
 	std::weak_ptr<rai::node> node0;
