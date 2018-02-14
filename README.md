@@ -22,15 +22,15 @@ For more information, see [Nano.org](https://nano.org/) or read the [whitepaper]
 - [Medium](https://medium.com/@nanocurrency)
 - [Twitter](https://twitter.com/nanocurrency)
 - [Forum](https://forum.raiblocks.net/)
-- [GitHub wiki](https://github.com/clemahieu/raiblocks/wiki)
+- [GitHub wiki](https://github.com/nanocurrency/raiblocks/wiki)
 
 ### Build instructions
-https://github.com/clemahieu/raiblocks/wiki/Build-Instructions
+https://github.com/clemahieu/nanocurrency/wiki/Build-Instructions
 
 ### Want to contribute?
-Please see the [contributors guide](https://github.com/clemahieu/raiblocks/wiki/Contributing).
+Please see the [contributors guide](https://github.com/nanocurrency/raiblocks/wiki/Contributing).
 
 ### Contact us
 
 We want to hear about any trouble, success, delight, or pain you experience when
-using Nano. Let us know by [filing an issue](https://github.com/clemahieu/raiblocks/issues), joining us in [reddit](https://reddit.com/r/nanocurrency), or joining us in [Discord](https://chat.nano.org/).
+using Nano. Let us know by [filing an issue](https://github.com/nanocurrency/raiblocks/issues), joining us in [reddit](https://reddit.com/r/nanocurrency), or joining us in [Discord](https://chat.nano.org/).
