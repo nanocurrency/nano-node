@@ -25,7 +25,7 @@ For more information, see [Nano.org](https://nano.org/) or read the [whitepaper]
 - [GitHub wiki](https://github.com/nanocurrency/raiblocks/wiki)
 
 ### Build instructions
-https://github.com/clemahieu/nanocurrency/wiki/Build-Instructions
+https://github.com/nanocurrency/raiblocks/wiki/Build-Instructions
 
 ### Want to contribute?
 Please see the [contributors guide](https://github.com/nanocurrency/raiblocks/wiki/Contributing).
