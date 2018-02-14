@@ -386,7 +386,8 @@ std::vector<rai::account> rai::wallet_store::accounts (MDB_txn * transaction_a)
 void rai::wallet_store::initialize (MDB_txn * transaction_a, bool & init_a, std::string const & path_a)
 {
 	assert (strlen (path_a.c_str ()) == path_a.size ());
-	auto error (mdb_dbi_open (transaction_a, path_a.c_str (), MDB_CREATE, &handle));
+	auto error (0);
+	error |= mdb_dbi_open (transaction_a, path_a.c_str (), MDB_CREATE, &handle);
 	init_a = error != 0;
 }
 
@@ -925,43 +926,77 @@ std::shared_ptr<rai::block> rai::wallet::change_action (rai::account const & sou
 	return block;
 }
 
-std::shared_ptr<rai::block> rai::wallet::send_action (rai::account const & source_a, rai::account const & account_a, rai::uint128_t const & amount_a, bool generate_work_a)
+std::shared_ptr<rai::block> rai::wallet::send_action (rai::account const & source_a, rai::account const & account_a, rai::uint128_t const & amount_a, bool generate_work_a, boost::optional<std::string> id_a)
 {
 	std::shared_ptr<rai::block> block;
+	boost::optional<rai::mdb_val> id_mdb_val;
+	if (id_a)
 	{
-		rai::transaction transaction (store.environment, nullptr, false);
-		if (store.valid_password (transaction))
+		id_mdb_val = rai::mdb_val (id_a->size (), const_cast<char *> (id_a->data ()));
+	}
+	bool error = false;
+	bool cached_block = false;
+	{
+		rai::transaction transaction (store.environment, nullptr, (bool)id_mdb_val);
+		if (id_mdb_val)
 		{
-			auto existing (store.find (transaction, source_a));
-			if (existing != store.end ())
+			rai::mdb_val result;
+			auto status (mdb_get (transaction, node.wallets.send_action_ids, *id_mdb_val, result));
+			if (status == 0)
 			{
-				auto balance (node.ledger.account_balance (transaction, source_a));
-				if (!balance.is_zero () && balance >= amount_a)
+				auto hash (result.uint256 ());
+				block = node.store.block_get (transaction, hash);
+				if (block != nullptr)
 				{
-					rai::account_info info;
-					auto error1 (node.ledger.store.account_get (transaction, source_a, info));
-					assert (!error1);
-					rai::raw_key prv;
-					auto error2 (store.fetch (transaction, source_a, prv));
-					assert (!error2);
-					block.reset (new rai::send_block (info.head, account_a, balance - amount_a, prv, source_a, generate_work_a ? work_fetch (transaction, source_a, info.head) : 0));
+					cached_block = true;
+					node.network.republish_block (transaction, block);
+				}
+			}
+			else if (status != MDB_NOTFOUND)
+			{
+				error = true;
+			}
+		}
+		if (!error && block == nullptr)
+		{
+			if (store.valid_password (transaction))
+			{
+				auto existing (store.find (transaction, source_a));
+				if (existing != store.end ())
+				{
+					auto balance (node.ledger.account_balance (transaction, source_a));
+					if (!balance.is_zero () && balance >= amount_a)
+					{
+						rai::account_info info;
+						auto error1 (node.ledger.store.account_get (transaction, source_a, info));
+						assert (!error1);
+						rai::raw_key prv;
+						auto error2 (store.fetch (transaction, source_a, prv));
+						assert (!error2);
+						block.reset (new rai::send_block (info.head, account_a, balance - amount_a, prv, source_a, generate_work_a ? work_fetch (transaction, source_a, info.head) : 0));
+						if (id_mdb_val)
+						{
+							auto status (mdb_put (transaction, node.wallets.send_action_ids, *id_mdb_val, rai::mdb_val (block->hash ()), 0));
+							if (status != 0)
+							{
+								block = nullptr;
+								error = true;
+							}
+						}
+					}
 				}
 			}
 		}
 	}
-	if (block != nullptr)
+	if (!error && block != nullptr && !cached_block)
 	{
-		assert (block != nullptr);
 		node.block_arrival.add (block->hash ());
 		node.block_processor.process_receive_many (block);
-		if (generate_work_a)
-		{
-			auto hash (block->hash ());
-			auto this_l (shared_from_this ());
-			node.wallets.queue_wallet_action (rai::wallets::generate_priority, [this_l, source_a, hash] {
-				this_l->work_generate (source_a, hash);
-			});
-		}
+		auto hash (block->hash ());
+		auto this_l (shared_from_this ());
+		node.wallets.queue_wallet_action (rai::wallets::generate_priority, [this_l, source_a, hash] {
+			this_l->work_generate (source_a, hash);
+		});
 	}
 	return block;
 }
@@ -1013,11 +1048,11 @@ rai::block_hash rai::wallet::send_sync (rai::account const & source_a, rai::acco
 	return result.get_future ().get ();
 }
 
-void rai::wallet::send_async (rai::account const & source_a, rai::account const & account_a, rai::uint128_t const & amount_a, std::function<void(std::shared_ptr<rai::block>)> const & action_a, bool generate_work_a)
+void rai::wallet::send_async (rai::account const & source_a, rai::account const & account_a, rai::uint128_t const & amount_a, std::function<void(std::shared_ptr<rai::block>)> const & action_a, bool generate_work_a, boost::optional<std::string> id_a)
 {
-	node.background ([this, source_a, account_a, amount_a, action_a, generate_work_a]() {
-		this->node.wallets.queue_wallet_action (rai::wallets::high_priority, [this, source_a, account_a, amount_a, action_a, generate_work_a]() {
-			auto block (send_action (source_a, account_a, amount_a, generate_work_a));
+	node.background ([this, source_a, account_a, amount_a, action_a, generate_work_a, id_a]() {
+		this->node.wallets.queue_wallet_action (rai::wallets::high_priority, [this, source_a, account_a, amount_a, action_a, generate_work_a, id_a]() {
+			auto block (send_action (source_a, account_a, amount_a, generate_work_a, id_a));
 			action_a (block);
 		});
 	});
@@ -1222,6 +1257,7 @@ thread ([this]() { do_wallet_actions (); })
 	{
 		rai::transaction transaction (node.store.environment, nullptr, true);
 		auto status (mdb_dbi_open (transaction, nullptr, MDB_CREATE, &handle));
+		status |= mdb_dbi_open (transaction, "send_action_ids", MDB_CREATE, &send_action_ids);
 		assert (status == 0);
 		std::string beginning (rai::uint256_union (0).to_string ());
 		std::string end ((rai::uint256_union (rai::uint256_t (0) - rai::uint256_t (1))).to_string ());
