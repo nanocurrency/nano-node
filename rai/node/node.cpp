@@ -565,7 +565,7 @@ void rai::logging::init (boost::filesystem::path const & application_path_a)
 
 void rai::logging::serialize_json (boost::property_tree::ptree & tree_a) const
 {
-	tree_a.put ("version", "2");
+	tree_a.put ("version", "3");
 	tree_a.put ("ledger", ledger_logging_value);
 	tree_a.put ("ledger_duplicate", ledger_duplicate_logging_value);
 	tree_a.put ("vote", vote_logging_value);
@@ -595,6 +595,11 @@ bool rai::logging::upgrade_json (unsigned version_a, boost::property_tree::ptree
 			tree_a.put ("version", "2");
 			result = true;
 		case 2:
+			tree_a.put ("rotation_size", "4194304");
+			tree_a.put ("flush", "true");
+			tree_a.put ("version", "3");
+			result = true;
+		case 3:
 			break;
 		default:
 			throw std::runtime_error ("Unknown logging_config version");
@@ -866,14 +871,12 @@ bool rai::node_config::upgrade_json (unsigned version, boost::property_tree::ptr
 			tree_a.erase ("version");
 			tree_a.put ("version", "4");
 			result = true;
-			break;
 		case 4:
 			tree_a.erase ("receive_minimum");
 			tree_a.put ("receive_minimum", rai::xrb_ratio.convert_to<std::string> ());
 			tree_a.erase ("version");
 			tree_a.put ("version", "5");
 			result = true;
-			break;
 		case 5:
 			tree_a.put ("enable_voting", enable_voting);
 			tree_a.erase ("packet_delay_microseconds");
@@ -882,7 +885,6 @@ bool rai::node_config::upgrade_json (unsigned version, boost::property_tree::ptr
 			tree_a.erase ("version");
 			tree_a.put ("version", "6");
 			result = true;
-			break;
 		case 6:
 			tree_a.put ("bootstrap_connections", 16);
 			tree_a.put ("callback_address", "");
@@ -891,19 +893,16 @@ bool rai::node_config::upgrade_json (unsigned version, boost::property_tree::ptr
 			tree_a.erase ("version");
 			tree_a.put ("version", "7");
 			result = true;
-			break;
 		case 7:
 			tree_a.put ("lmdb_max_dbs", "128");
 			tree_a.erase ("version");
 			tree_a.put ("version", "8");
 			result = true;
-			break;
 		case 8:
 			tree_a.put ("bootstrap_connections_max", "64");
 			tree_a.erase ("version");
 			tree_a.put ("version", "9");
 			result = true;
-			break;
 		case 9:
 			break;
 		default:
