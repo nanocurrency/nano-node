@@ -1,13 +1,13 @@
-import QtQuick 2.9
-import QtQuick.Controls 2.3
-import QtQuick.Layouts 1.3
+import QtQuick 2.5
+import QtQuick.Controls 1.4
+import QtQuick.Layouts 1.2
 
 import net.raiblocks 1.0
 
 Item {
     id: root
 
-    Pane {
+    Column {
         id: balanceHeader
 
         anchors {
@@ -16,27 +16,26 @@ Item {
             right: parent.right
         }
 
-        ColumnLayout {
-            anchors.fill: parent
+        height: childrenRect.height
 
-            Label {
-                Layout.alignment: Qt.AlignHCenter
-                text: qsTr("Balance")
-            }
-            Label {
-                Layout.alignment: Qt.AlignHCenter
-                text: rai_self_pane.balance
-                font.pixelSize: 28
-                color: "#E1F784"
-            }
-            Label {
-                Layout.alignment: Qt.AlignHCenter
-                text: "(pending " + rai_self_pane.pending + ")"
-                color: "#E1F784"
-                visible: rai_self_pane.pending !== ""
-            }
+        Label {
+            anchors.horizontalCenter: parent.horizontalCenter
+            text: qsTr("Balance")
+        }
+        Label {
+            anchors.horizontalCenter: parent.horizontalCenter
+            text: rai_self_pane.balance
+            font.pixelSize: 28
+            color: "#E1F784"
+        }
+        Label {
+            anchors.horizontalCenter: parent.horizontalCenter
+            text: "(pending " + rai_self_pane.pending + ")"
+            color: "#E1F784"
+            visible: rai_self_pane.pending !== ""
         }
     }
+
     ScrollView {
         anchors {
             top: balanceHeader.bottom
@@ -54,15 +53,15 @@ Item {
 
             spacing: 5
 
-            delegate: Pane {
+            delegate: Rectangle {
+                color: Qt.rgba(255, 255, 255, 0.25)
                 width: listView.width
-                background: Rectangle {
-                    color: Qt.rgba(255, 255, 255, 0.25)
-                }
+                height: grid.height
 
                 GridLayout {
-                    anchors.fill: parent
+                    id: grid
                     columns: 3
+                    width: parent.width
                     Label {
                         Layout.minimumWidth: 50
                         text: model.modelData.type
@@ -93,7 +92,7 @@ Item {
                             readOnly: true
                             selectByMouse: true
                             text: model.modelData.account
-                            wrapMode: Text.WrapAnywhere
+//                            wrapMode: Text.WrapAnywhere
                         }
                         Label {
                             id: lblHash
@@ -104,7 +103,7 @@ Item {
                             readOnly: true
                             selectByMouse: true
                             text: model.modelData.hash
-                            wrapMode: Text.WrapAnywhere
+//                            wrapMode: Text.WrapAnywhere
                         }
                     }
                 }

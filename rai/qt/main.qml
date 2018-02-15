@@ -1,6 +1,6 @@
-import QtQuick 2.9
-import QtQuick.Controls 2.3
-import QtQuick.Layouts 1.3
+import QtQuick 2.5
+import QtQuick.Controls 1.4
+import QtQuick.Layouts 1.2
 
 ApplicationWindow {
     id: root
@@ -10,7 +10,8 @@ ApplicationWindow {
     minimumHeight: 480
     title: qsTr("RaiBlocks Wallet")
 
-    palette.window: "#40B299"
+// FIXME: Qt 5.9 doesn't provide palette to customize bg color, find replacement
+//    palette.window: "#40B299"
 
     RowLayout {
         spacing: 0
@@ -21,6 +22,8 @@ ApplicationWindow {
 
             Layout.fillWidth: false
             Layout.fillHeight: true
+            Layout.preferredWidth: parent.width / 3
+            Layout.maximumHeight: parent.height
 
             onSettingsClicked: {
                 btnSettingsEnabled = false

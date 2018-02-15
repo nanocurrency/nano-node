@@ -1,16 +1,16 @@
-import QtQuick 2.9
-import QtQuick.Controls 2.3
+import QtQuick 2.5
+import QtQuick.Controls 1.4
 import QtQuick.Dialogs 1.2
-import QtQuick.Layouts 1.3
+import QtQuick.Layouts 1.2
 
 import net.raiblocks 1.0
 
 import "common" as Common
 
-Pane {
+Rectangle {
   signal goBack()
   ScrollView {
-    ScrollBar.vertical.policy: ScrollBar.AlwaysOn
+//    ScrollBar.vertical.policy: ScrollBar.AlwaysOn
     anchors {
         top: parent.top
         left: parent.left
@@ -442,9 +442,9 @@ Pane {
             ColumnLayout {
                 Label {
                     text: qsTr("Account representative:")
-                    ToolTip {
-                        text: qsTr("In the infrequent case where the network needs to make a global decision,\nyour wallet software performs a balance-weighted vote to determine\nthe outcome. Since not everyone can remain online and perform this duty,\nyour wallet names a representative that can vote with, but cannot spend,\nyour balance.")
-                    }
+//                    ToolTip {
+//                        text: qsTr("In the infrequent case where the network needs to make a global decision,\nyour wallet software performs a balance-weighted vote to determine\nthe outcome. Since not everyone can remain online and perform this duty,\nyour wallet names a representative that can vote with, but cannot spend,\nyour balance.")
+//                    }
                 }
                 Label {
                     Layout.maximumWidth: parent.width
@@ -522,7 +522,8 @@ Pane {
         GroupBox {
             Layout.alignment: Qt.AlignHCenter
             Button {
-                palette.buttonText: "red"
+// FIXME: Qt 5.9 doesn't provide palette to customize color, find replacement
+//                palette.buttonText: "red"
                 text: qsTr("Advanced tools")
                 onClicked: rai_advanced.show()
             }

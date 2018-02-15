@@ -834,7 +834,7 @@ active_status (*this)
 	");
 	refresh ();
 
-	application.setAttribute (Qt::AA_EnableHighDpiScaling);
+//	application.setAttribute (Qt::AA_EnableHighDpiScaling);
 
 	QQmlEngine * engine = new QQmlEngine;
 	engine->rootContext ()->setContextProperty (QString ("RAIBLOCKS_VERSION_MAJOR"), int(RAIBLOCKS_VERSION_MAJOR));
@@ -855,7 +855,12 @@ active_status (*this)
 	qmlRegisterUncreatableType<RenderingRatio> (
 	"net.raiblocks", 1, 0, "RenderingRatio", "RenderingRatio is not instantiable");
 
-	QQmlComponent component (engine, QUrl (QStringLiteral ("qrc:/gui/main.qml")));
+	QQmlComponent component (engine, QUrl (QStringLiteral ("qrc:/gui/main.qml")), QQmlComponent::PreferSynchronous);
+	if (!component.isReady())
+	{
+		if (component.isError())
+			std::cout << "Error: " << component.errorString ().toStdString () << std::endl;
+	}
 	m_qmlgui = std::unique_ptr<QObject> (component.create ());
 }
 

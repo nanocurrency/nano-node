@@ -1,31 +1,31 @@
-import QtQuick 2.9
-import QtQuick.Controls 2.3
-import QtQuick.Layouts 1.3
+import QtQuick 2.5
+import QtQuick.Controls 1.4
+import QtQuick.Layouts 1.2
 
 import net.raiblocks 1.0
 
 import "common" as Common
 
-Pane {
+Item {
     id: root
 
     property alias btnSettingsEnabled: btnSettings.enabled
     signal settingsClicked()
 
-    background: Rectangle {
-        color: "white"
-    }
-
     ColumnLayout {
         anchors.fill: parent
 
-        Column {
+        Item {
             Layout.alignment: Qt.AlignHCenter
             Layout.minimumWidth: (parent.width * 2) / 3
             Layout.maximumWidth: parent.width
+            Layout.minimumHeight: parent.height / 4
+            Layout.maximumHeight: parent.height / 3
             Image {
                 id: logo
                 anchors {
+                   top: parent.top
+                   bottom: lblLogo.top
                    left: parent.left
                    right: parent.right
                 }
@@ -37,14 +37,16 @@ Pane {
                 id: lblLogo
                 anchors {
                    horizontalCenter: parent.horizontalCenter
+                   bottom: parent.bottom
                 }
                 text: "RaiBlocks"
-                font.pixelSize: logo.height / 5
+                font.pixelSize: parent.height / 5
             }
        }
 
         RowLayout {
             Layout.fillWidth: true
+            Layout.minimumHeight: childrenRect.height
             Label {
                 text: rai_settings.locked ? qsTr("Locked") : qsTr("Unlocked")
             }
@@ -58,18 +60,28 @@ Pane {
                     }
                 }
 
-                Popup {
+                Item {
                     id: popupPassword
-                    parent: Overlay.overlay
-                    width: parent.width
-                    height: parent.height
-                    modal: true
+// FIXME: popup is not placed well, because Qt 5.9 doesn't provide Overlay type
+//                    parent: Overlay.overlay
+                    visible: false
 
-                    background: Item {}
+                    signal opened()
+                    signal closed()
+
+                    function open () {
+                        popupPassword.visible = true
+                        opened()
+                    }
+
+                    function close () {
+                        popupPassword.visible = false
+                        closed()
+                    }
 
                     onClosed: tfPassword.clear()
 
-                    Pane {
+                    Rectangle {
                         anchors.centerIn: parent
                         ColumnLayout {
                             Label {
@@ -224,12 +236,12 @@ Pane {
         }
 
         ScrollView {
-            Layout.fillHeight: true
+//            Layout.fillHeight: true
             Layout.fillWidth: true
             ListView {
                 id: listView
                 model: rai_accounts.model
-                delegate: ItemDelegate {
+                delegate: Item {
                     width: listView.width
                     height: childrenRect.height
                     Label {
@@ -241,7 +253,10 @@ Pane {
                             value: "red"
                         }
                     }
-                    onClicked: rai_accounts.useAccount(model.modelData.account)
+                    MouseArea {
+                        anchors.fill: parent
+                        onClicked: rai_accounts.useAccount(model.modelData.account)
+                    }
                 }
             }
         }
@@ -251,9 +266,9 @@ Pane {
             Layout.fillWidth: true
             text: "Settings"
             onClicked: settingsClicked()
-            ToolTip {
-                text: qsTr("Unlock wallet, set password, change representative")
-            }
+//            ToolTip {
+//                text: qsTr("Unlock wallet, set password, change representative")
+//            }
         }
     }
 }

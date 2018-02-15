@@ -1,5 +1,5 @@
-import QtQuick 2.9
-import QtQuick.Controls 2.3
+import QtQuick 2.5
+import QtQuick.Controls 1.4
 
 Item {
     id: root
@@ -11,31 +11,27 @@ Item {
     signal triggered()
 
     function open() {
-        popupImpl.open()
-
+        root.visible = true
     }
     function close() {
-        popupImpl.close()
+        root.visible = false
     }
 
-    Popup {
+    Rectangle {
         id: popupImpl
-        parent: Overlay.overlay
+// FIXME: popup is not placed well, because Qt 5.9 doesn't provide Overlay type
+//        parent: Overlay.overlay
+        anchors.centerIn: parent
         width: parent.width
         height: parent.height
-        modal: true
         visible: root.visible
 
-        background: Item {}
-
-        Pane {
-            anchors.centerIn: parent
-            Label {
-                id: popupLabel
-                anchors.fill: parent
-            }
+        Label {
+            id: popupLabel
+            anchors.fill: parent
         }
     }
+
     Timer {
         id: popupTimer
         repeat: true

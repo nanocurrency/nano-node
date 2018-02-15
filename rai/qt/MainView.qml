@@ -1,51 +1,44 @@
-import QtQuick 2.9
-import QtQuick.Controls 2.3
-import QtQuick.Layouts 1.3
+import QtQuick 2.5
+import QtQuick.Controls 1.4
+import QtQuick.Layouts 1.2
 
 import net.raiblocks 1.0
 
 Item {
-    TabBar {
+    TabView {
         id: bar
         width: parent.width
-
-        TabButton {
-            text: qsTr("Balance")
-        }
-        TabButton {
-            text: qsTr("Receive")
-        }
-        TabButton {
-            text: qsTr("Send")
-        }
-    }
-
-    StackLayout {
-        currentIndex: bar.currentIndex
-        width: parent.width
         anchors {
-            top: bar.bottom
+            top: parent.top
             bottom: footer.top
         }
 
-        PanelBalance {
-            id: tabBalance
-            anchors.fill: parent
+        Tab {
+            title: qsTr("Balance")
+            PanelBalance {
+                id: tabBalance
+                anchors.fill: parent
+            }
         }
-
-        PanelReceive {
-            id: tabReceive
-            anchors.fill: parent
+        Tab {
+            title: qsTr("Receive")
+            PanelReceive {
+                id: tabReceive
+                anchors.fill: parent
+            }
         }
-
-        PanelSend {
-            id: tabSend
-            anchors.fill: parent
+        Tab {
+            title: qsTr("Send")
+            PanelSend {
+                id: tabSend
+                anchors.fill: parent
+            }
         }
     }
 
     StatusBar {
         id: footer
+        width: parent.width
 
         anchors {
             bottom: parent.bottom
