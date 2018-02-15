@@ -1263,7 +1263,7 @@ void rai_qt::wallet::change_rendering_ratio (rai::uint128_t const & rendering_ra
 
 std::string rai_qt::wallet::format_balance (rai::uint128_t const & balance) const
 {
-	auto balance_str = rai::amount (balance).format_balance (rendering_ratio, 2, true, std::locale (""));
+	auto balance_str = rai::amount (balance).format_balance (rendering_ratio, 0, false);
 	auto unit = std::string ("XRB");
 	if (rendering_ratio == rai::kxrb_ratio)
 	{
