@@ -7,7 +7,7 @@
 	<key>NSHighResolutionCapable</key>
 	<string>True</string>
 	<key>CFBundleExecutable</key>
-	<string>rai_wallet</string>
+	<string>nano_wallet</string>
 	<key>CFBundleName</key>
 	<string>RaiBlocks</string>
 	<key>CFBundleInfoDictionaryVersion</key>
