@@ -12,7 +12,6 @@ constexpr double bootstrap_minimum_frontier_blocks_per_sec = 1000.0;
 constexpr unsigned bootstrap_frontier_retry_limit = 16;
 constexpr double bootstrap_minimum_termination_time_sec = 30.0;
 constexpr unsigned bootstrap_max_new_connections = 10;
-constexpr unsigned bootstrap_peer_frontier_minimum_blocks = rai::rai_network == rai::rai_networks::rai_live_network ? 339000 : 0;
 
 rai::block_synchronization::block_synchronization (boost::log::sources::logger_mt & log_a) :
 log (log_a)
@@ -430,7 +429,7 @@ void rai::frontier_req_client::received_frontier (boost::system::error_code cons
 			{
 				try
 				{
-					promise.set_value (count < bootstrap_peer_frontier_minimum_blocks);
+					promise.set_value (false);
 				}
 				catch (std::future_error &)
 				{
