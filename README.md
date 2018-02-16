@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/clemahieu/raiblocks.svg?branch=master)](https://travis-ci.org/clemahieu/raiblocks)
+[![Build Status](https://travis-ci.org/nanocurrency/raiblocks.svg?branch=master)](https://travis-ci.org/nanocurrency/raiblocks)
 
 # What is Nano?
 Nano is designed to be a feeless, instant, high throughput cryptocurrency.
