@@ -213,8 +213,10 @@ void rai_qt::accounts::createAccount ()
 	if (this->wallet.wallet_m->store.valid_password (transaction))
 	{
 		this->wallet.wallet_m->deterministic_insert (transaction);
-		refresh ();
-		Q_EMIT createAccountSuccess ();
+		this->wallet.application.postEvent (&this->wallet.processor, new eventloop_event ([this]() {
+			this->refresh ();
+			Q_EMIT this->createAccountSuccess ();
+		}));
 	}
 	else
 	{
@@ -334,6 +336,7 @@ void rai_qt::import::importSeed (QString seed)
 	}
 	if (successful)
 	{
+		this->wallet.refresh();
 		Q_EMIT importSeedSuccess ();
 	}
 	else
