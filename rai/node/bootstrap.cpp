@@ -430,12 +430,15 @@ void rai::frontier_req_client::received_frontier (boost::system::error_code cons
 			{
 				try
 				{
-					promise.set_value (count < bootstrap_peer_frontier_minimum_blocks);
+					auto failed = count < bootstrap_peer_frontier_minimum_blocks;
+					promise.set_value (failed);
+					if (!failed) {
+						connection->attempt->pool_connection (connection);
+					}
 				}
 				catch (std::future_error &)
 				{
 				}
-				connection->attempt->pool_connection (connection);
 			}
 		}
 	}
