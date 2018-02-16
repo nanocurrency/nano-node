@@ -417,7 +417,7 @@ int main (int argc, char * const * argv)
 	}
 	else if (vm.count ("version"))
 	{
-		std::cout << "Version " << RAIBLOCKS_VERSION_MAJOR << "." << RAIBLOCKS_VERSION_MINOR << std::endl;
+		std::cout << "Version " << RAIBLOCKS_VERSION_MAJOR << "." << RAIBLOCKS_VERSION_MINOR << "." << RAIBLOCKS_VERSION_PATCH << std::endl;
 	}
 #if 0
 	else if (vm.count ("debug_xorshift_profile"))
