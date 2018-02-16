@@ -375,7 +375,7 @@ wallet (wallet_a)
 					rai::transaction transaction (this->wallet.wallet_m->store.environment, nullptr, true);
 					if (this->wallet.wallet_m->store.valid_password (transaction))
 					{
-						this->wallet.wallet_m->store.seed_set (transaction, seed_l);
+						this->wallet.account = this->wallet.wallet_m->change_seed (transaction, seed_l);
 						successful = true;
 					}
 					else
@@ -390,28 +390,6 @@ wallet (wallet_a)
 								import_seed->setText ("Import seed");
 							}));
 						});
-					}
-				}
-				if (successful)
-				{
-					rai::transaction transaction (this->wallet.wallet_m->store.environment, nullptr, true);
-					this->wallet.account = this->wallet.wallet_m->deterministic_insert (transaction);
-					auto count (0);
-					for (uint32_t i (1), n (32); i < n; ++i)
-					{
-						rai::raw_key prv;
-						this->wallet.wallet_m->store.deterministic_key (prv, transaction, i);
-						rai::keypair pair (prv.data.to_string ());
-						auto latest (this->wallet.node.ledger.latest (transaction, pair.pub));
-						if (!latest.is_zero ())
-						{
-							count = i;
-							n = i + 32;
-						}
-					}
-					for (uint32_t i (0); i < count; ++i)
-					{
-						this->wallet.account = this->wallet.wallet_m->deterministic_insert (transaction);
 					}
 				}
 				if (successful)

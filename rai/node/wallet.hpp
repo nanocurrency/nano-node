@@ -148,6 +148,8 @@ public:
 	void work_ensure (MDB_txn *, rai::account const &);
 	bool search_pending ();
 	void init_free_accounts (MDB_txn *);
+	/** Changes the wallet seed and returns the first account */
+	rai::public_key change_seed (MDB_txn * transaction_a, rai::raw_key const & prv_a);
 	std::unordered_set<rai::account> free_accounts;
 	std::function<void(bool, bool)> lock_observer;
 	rai::wallet_store store;
