@@ -9,7 +9,7 @@
 	<key>CFBundleExecutable</key>
 	<string>nano_wallet</string>
 	<key>CFBundleName</key>
-	<string>RaiBlocks</string>
+	<string>Nano</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleIconFile</key>
