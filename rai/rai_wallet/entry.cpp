@@ -266,7 +266,6 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 				gui = std::make_shared<rai_qt::wallet> (application, processor, *node, wallet, config.account);
 				splash->close ();
 				gui->start ();
-				gui->client_window->show ();
 			}));
 			result = application.exec ();
 			runner.join ();

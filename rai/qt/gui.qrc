@@ -1,0 +1,16 @@
+<RCC>
+    <qresource prefix="/gui">
+        <file>main.qml</file>
+        <file>common/PopupMessage.qml</file>
+        <file>SideBar.qml</file>
+        <file>MainView.qml</file>
+        <file>PanelBalance.qml</file>
+        <file>PanelReceive.qml</file>
+        <file>PanelSend.qml</file>
+        <file>StatusBar.qml</file>
+        <file>Settings.qml</file>
+        <file>logo-mini.png</file>
+        <file>qqr/qqr.js</file>
+        <file>qqr/QRCode.qml</file>
+    </qresource>
+</RCC>

@@ -6,8 +6,48 @@
 
 #include <set>
 
+#include <QObject>
+
 #include <QtGui>
 #include <QtWidgets>
+
+class SendResult : public QObject
+{
+	Q_OBJECT
+public:
+	SendResult (QObject * parent = nullptr);
+	enum class Type
+	{
+		WalletIsLocked,
+		NotEnoughBalance,
+		BadDestinationAccount,
+		AmountTooBig,
+		BadAmountNumber,
+		BlockSendFailed,
+		Success
+	};
+	Q_ENUMS (Type)
+};
+Q_DECLARE_METATYPE (SendResult::Type)
+
+class RenderingRatio : public QObject
+{
+	Q_OBJECT
+public:
+	enum class Type
+	{
+		XRB,
+		MilliXRB,
+		MicroXRB
+	};
+	Q_ENUM (Type)
+	static rai::uint128_t to_uint128 (RenderingRatio::Type ratio);
+	Q_INVOKABLE static QString to_string (RenderingRatio::Type ratio);
+
+private:
+	RenderingRatio (QObject * parent = nullptr);
+};
+Q_DECLARE_METATYPE (RenderingRatio::Type)
 
 namespace rai_qt
 {
@@ -23,31 +63,44 @@ public:
 	eventloop_event (std::function<void()> const &);
 	std::function<void()> action;
 };
-class settings
+class settings : public QObject
 {
+	Q_OBJECT
+	Q_PROPERTY (bool locked READ isLocked NOTIFY lockedChanged)
+	Q_PROPERTY (QString representative READ getRepresentative NOTIFY representativeChanged)
 public:
 	settings (rai_qt::wallet &);
 	void refresh_representative ();
-	void activate ();
 	void update_locked (bool, bool);
-	QWidget * window;
-	QVBoxLayout * layout;
-	QLineEdit * password;
-	QPushButton * lock_toggle;
-	QFrame * sep1;
-	QLineEdit * new_password;
-	QLineEdit * retype_password;
-	QPushButton * change;
-	QFrame * sep2;
-	QLabel * representative;
-	QLabel * current_representative;
-	QLineEdit * new_representative;
-	QPushButton * change_rep;
-	QPushButton * back;
 	rai_qt::wallet & wallet;
+
+	bool isLocked () const;
+
+	Q_INVOKABLE void changePassword (QString password);
+	Q_SIGNAL void changePasswordSuccess () const;
+	Q_SIGNAL void changePasswordFailure (QString errorMsg) const;
+
+	QString getRepresentative () const;
+	Q_SIGNAL void representativeChanged (QString representative) const;
+
+	Q_INVOKABLE void changeRepresentative (QString address);
+	Q_SIGNAL void changeRepresentativeSuccess () const;
+	Q_SIGNAL void changeRepresentativeFailure (QString errorMsg) const;
+
+	Q_INVOKABLE void unlock (QString password);
+	Q_INVOKABLE void lock ();
+
+	Q_SIGNAL void unlockSuccess () const;
+	Q_SIGNAL void unlockFailure (QString errorMsg) const;
+
+	Q_SIGNAL void lockedChanged (bool locked) const;
+
+private:
+	QString m_representative;
 };
-class advanced_actions
+class advanced_actions : public QObject
 {
+	Q_OBJECT
 public:
 	advanced_actions (rai_qt::wallet &);
 	QWidget * window;
@@ -61,13 +114,6 @@ public:
 	QPushButton * enter_block;
 	QPushButton * block_viewer;
 	QPushButton * account_viewer;
-	QWidget * scale_window;
-	QHBoxLayout * scale_layout;
-	QLabel * scale_label;
-	QButtonGroup * ratio_group;
-	QRadioButton * mrai;
-	QRadioButton * krai;
-	QRadioButton * rai;
 	QPushButton * back;
 
 	QWidget * ledger_window;
@@ -88,6 +134,8 @@ public:
 	QPushButton * peers_back;
 
 	rai_qt::wallet & wallet;
+
+	Q_INVOKABLE void show ();
 
 private:
 	void refresh_ledger ();
@@ -142,83 +190,156 @@ public:
 	QPushButton * back;
 	rai_qt::wallet & wallet;
 };
-class self_pane
+class self_pane : public QObject
 {
+	Q_OBJECT
+	Q_PROPERTY (QString account READ getAccount NOTIFY accountChanged)
+	Q_PROPERTY (QString balance READ getBalance NOTIFY balanceChanged)
+	Q_PROPERTY (QString pending READ getPending NOTIFY pendingChanged)
 public:
 	self_pane (rai_qt::wallet &, rai::account const &);
 	void refresh_balance ();
-	QWidget * window;
-	QVBoxLayout * layout;
-	QHBoxLayout * self_layout;
-	QWidget * self_window;
-	QLabel * your_account_label;
-	QLabel * version;
-	QWidget * account_window;
-	QHBoxLayout * account_layout;
-	QLineEdit * account_text;
-	QPushButton * copy_button;
-	QWidget * balance_window;
-	QHBoxLayout * balance_layout;
-	QLabel * balance_label;
 	rai_qt::wallet & wallet;
+
+	QString getAccount () const;
+	void setAccount (QString account);
+
+	QString getBalance () const;
+	QString getPending () const;
+
+	Q_SIGNAL void accountChanged (QString account) const;
+	Q_SIGNAL void balanceChanged (QString balance) const;
+	Q_SIGNAL void pendingChanged (QString pending) const;
+
+private:
+	QString m_account;
+	QString m_balance;
+	QString m_pending;
+
+	void setBalance (QString balance);
+	void setPending (QString pending);
 };
-class accounts
+class account_item : public QObject
 {
+	Q_OBJECT
+	Q_PROPERTY (QString balance READ getBalance NOTIFY balanceChanged)
+	Q_PROPERTY (QString account READ getAccount NOTIFY accountChanged)
+	Q_PROPERTY (bool isAdhoc READ isAdhoc NOTIFY isAdhocChanged)
+public:
+	account_item (QString balance, QString account, bool isAdhoc, QObject * parent = nullptr);
+	QString getBalance () const;
+	QString getAccount () const;
+	bool isAdhoc () const;
+
+	Q_SIGNAL void balanceChanged (QString balance) const;
+	Q_SIGNAL void accountChanged (QString account) const;
+	Q_SIGNAL void isAdhocChanged (bool isAdhoc) const;
+
+private:
+	QString m_balance;
+	QString m_account;
+	bool m_isAdhoc;
+};
+class accounts : public QObject
+{
+	Q_OBJECT
+	Q_PROPERTY (QList<QObject *> model READ getModel NOTIFY modelChanged)
+	Q_PROPERTY (QString totalBalance READ getTotalBalance NOTIFY totalBalanceChanged)
+	Q_PROPERTY (QString totalPending READ getTotalPending NOTIFY totalPendingChanged)
 public:
 	accounts (rai_qt::wallet &);
-	void refresh ();
 	void refresh_wallet_balance ();
-	QLabel * wallet_balance_label;
-	QWidget * window;
-	QVBoxLayout * layout;
-	QStandardItemModel * model;
-	QTableView * view;
-	QPushButton * use_account;
-	QPushButton * create_account;
-	QPushButton * import_wallet;
-	QPushButton * backup_seed;
-	QFrame * separator;
-	QLineEdit * account_key_line;
-	QPushButton * account_key_button;
-	QPushButton * back;
+	Q_INVOKABLE void refresh ();
 	rai_qt::wallet & wallet;
+
+	Q_INVOKABLE void backupSeed ();
+	Q_SIGNAL void backupSeedSuccess () const;
+	Q_SIGNAL void backupSeedFailure (QString msg) const;
+
+	Q_INVOKABLE void createAccount ();
+	Q_SIGNAL void createAccountSuccess () const;
+	Q_SIGNAL void createAccountFailure (QString msg) const;
+
+	Q_INVOKABLE void insertAdhocKey (QString key_text_wide);
+	Q_SIGNAL void insertAdhocKeyFinished (bool success);
+
+	Q_INVOKABLE void useAccount (QString account);
+
+	QList<QObject *> getModel () const;
+	QString getTotalBalance () const;
+	QString getTotalPending () const;
+
+	Q_SIGNAL void modelChanged (QList<QObject *> model) const;
+	Q_SIGNAL void totalBalanceChanged (QString totalBalance) const;
+	Q_SIGNAL void totalPendingChanged (QString totalPending) const;
+
+private:
+	QList<QObject *> m_model;
+	QString m_totalBalance = "";
+	QString m_totalPending = "";
+
+	void setTotalBalance (QString totalBalance);
+	void setTotalPending (QString totalPending);
 };
-class import
+class import : public QObject
 {
+	Q_OBJECT
 public:
 	import (rai_qt::wallet &);
-	QWidget * window;
-	QVBoxLayout * layout;
-	QLabel * seed_label;
-	QLineEdit * seed;
-	QLabel * clear_label;
-	QLineEdit * clear_line;
-	QPushButton * import_seed;
-	QFrame * separator;
-	QLabel * filename_label;
-	QLineEdit * filename;
-	QLabel * password_label;
-	QLineEdit * password;
-	QPushButton * perform;
-	QPushButton * back;
 	rai_qt::wallet & wallet;
+
+	Q_INVOKABLE void importSeed (QString seed);
+	Q_SIGNAL void importSeedSuccess ();
+	Q_SIGNAL void importSeedFailure (QString errorMsg);
+
+	Q_INVOKABLE void importFromFile (QString path, QString password);
+	Q_SIGNAL void importFromFileSuccess ();
+	Q_SIGNAL void importFromFileFailure (QString errorMsg);
+
+	Q_INVOKABLE QString convertUrlToNativeFilePath (const QUrl & urlStylePath) const;
 };
-class history
+class history_item : public QObject
 {
+	Q_OBJECT
+	Q_PROPERTY (QString type READ getType NOTIFY typeChanged)
+	Q_PROPERTY (QString account READ getAccount NOTIFY accountChanged)
+	Q_PROPERTY (QString amount READ getAmount NOTIFY amountChanged)
+	Q_PROPERTY (QString hash READ getHash NOTIFY hashChanged)
+public:
+	history_item (QString type, QString account, QString amount, QString hash, QObject * parent = nullptr);
+	QString getType () const;
+	QString getAccount () const;
+	QString getAmount () const;
+	QString getHash () const;
+
+	Q_SIGNAL void typeChanged (QString type) const;
+	Q_SIGNAL void accountChanged (QString account) const;
+	Q_SIGNAL void amountChanged (QString amount) const;
+	Q_SIGNAL void hashChanged (QString hash) const;
+
+private:
+	QString m_type;
+	QString m_account;
+	QString m_amount;
+	QString m_hash;
+};
+class history : public QObject
+{
+	Q_OBJECT
+	Q_PROPERTY (QList<QObject *> model READ getModel NOTIFY modelChanged)
 public:
 	history (rai::ledger &, rai::account const &, rai_qt::wallet &);
 	void refresh ();
-	QWidget * window;
-	QVBoxLayout * layout;
-	QStandardItemModel * model;
-	QTableView * view;
-	QWidget * tx_window;
-	QHBoxLayout * tx_layout;
-	QLabel * tx_label;
-	QSpinBox * tx_count;
 	rai::ledger & ledger;
 	rai::account const & account;
 	rai_qt::wallet & wallet;
+
+	QList<QObject *> getModel () const;
+
+	Q_SIGNAL void modelChanged (QList<QObject *> model) const;
+
+private:
+	QList<QObject *> m_model;
 };
 class block_viewer
 {
@@ -266,27 +387,44 @@ enum class status_types
 	synchronizing,
 	nominal
 };
-class status
+
+class status : public QObject
 {
+	Q_OBJECT
+	Q_PROPERTY (QString text READ getText NOTIFY textChanged)
+	Q_PROPERTY (QColor color READ getColor NOTIFY colorChanged)
 public:
 	status (rai_qt::wallet &);
 	void erase (rai_qt::status_types);
 	void insert (rai_qt::status_types);
-	void set_text ();
-	std::string text ();
-	std::string color ();
 	std::set<rai_qt::status_types> active;
 	rai_qt::wallet & wallet;
+
+	QString getText () const;
+	QColor getColor () const;
+
+	Q_SIGNAL void textChanged (QString text) const;
+	Q_SIGNAL void colorChanged (QColor color) const;
+
+private:
+	QString m_text;
+	QColor m_color;
+
+	QString text () const;
+	QColor color () const;
+	void set_text ();
 };
-class wallet : public std::enable_shared_from_this<rai_qt::wallet>
+class wallet : public QObject, public std::enable_shared_from_this<rai_qt::wallet>
 {
+	Q_OBJECT
+	Q_PROPERTY (bool processingSend READ isProcessingSend NOTIFY processingSendChanged)
+	Q_PROPERTY (RenderingRatio::Type renderingRatio READ getRenderingRatio WRITE setRenderingRatio NOTIFY renderingRatioChanged)
 public:
 	wallet (QApplication &, rai_qt::eventloop_processor &, rai::node &, std::shared_ptr<rai::wallet>, rai::account &);
 	void start ();
 	void refresh ();
 	void update_connected ();
 	void empty_password ();
-	void change_rendering_ratio (rai::uint128_t const &);
 	std::string format_balance (rai::uint128_t const &) const;
 	rai::uint128_t rendering_ratio;
 	rai::node & node;
@@ -305,32 +443,30 @@ public:
 	rai_qt::import import;
 
 	QApplication & application;
-	QLabel * status;
 	QStackedWidget * main_stack;
 
 	QWidget * client_window;
 	QVBoxLayout * client_layout;
 
-	QWidget * entry_window;
-	QVBoxLayout * entry_window_layout;
-	QFrame * separator;
-	QLabel * account_history_label;
-	QPushButton * send_blocks;
-	QPushButton * settings_button;
-	QPushButton * accounts_button;
-	QPushButton * show_advanced;
-
-	QWidget * send_blocks_window;
-	QVBoxLayout * send_blocks_layout;
-	QLabel * send_account_label;
-	QLineEdit * send_account;
-	QLabel * send_count_label;
-	QLineEdit * send_count;
-	QPushButton * send_blocks_send;
-	QPushButton * send_blocks_back;
-
 	rai_qt::status active_status;
 	void pop_main_stack ();
 	void push_main_stack (QWidget *);
+
+	void setRenderingRatio (RenderingRatio::Type renderingRatio);
+	RenderingRatio::Type getRenderingRatio ();
+	Q_SIGNAL void renderingRatioChanged (RenderingRatio::Type renderingRatio) const;
+
+	Q_INVOKABLE void send (QString amount, QString address);
+	bool isProcessingSend () const;
+
+	Q_SIGNAL void sendFinished (SendResult::Type result) const;
+	Q_SIGNAL void processingSendChanged (bool processingSend) const;
+
+private:
+	std::unique_ptr<QObject> m_qmlgui;
+	bool m_processingSend = false;
+	RenderingRatio::Type m_renderingRatio = RenderingRatio::Type::XRB;
+
+	void setProcessingSend (bool processingSend);
 };
 }

@@ -23,8 +23,9 @@ RUN wget -qO ${BOOST_BASENAME}.tar.gz ${BOOST_URL} && \
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-RUN apt-get install -yq \
-    qt5-default \
+RUN apt-get update && \
+    apt-get install -yq \
+    qt5-default qtdeclarative5-dev \
     valgrind \
     xorg xvfb xauth xfonts-100dpi xfonts-75dpi xfonts-scalable xfonts-cyrillic \
     cargo
