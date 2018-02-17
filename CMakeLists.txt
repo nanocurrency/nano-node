@@ -238,11 +238,11 @@ endif ()
 # Embed bootstrap representative weights in executable
 file (READ rep_weights.bin filedata HEX)
 string (REGEX REPLACE "(..)" "0x\\1," filedata ${filedata})
-file (WRITE ${CMAKE_BINARY_DIR}/bootstrap_weights.cpp "#include <cstddef>\n\
-	namespace rai {\n\
-	unsigned char rai_bootstrap_weights[] = {${filedata} 0x00};\n\
-	size_t rai_bootstrap_weights_size = sizeof(rai_bootstrap_weights) - 1;\n\
-	}\n")
+file (WRITE ${CMAKE_BINARY_DIR}/bootstrap_weights.cpp "#include <cstddef>\n"
+	"namespace rai {\n"
+	"	unsigned char rai_bootstrap_weights[] = {${filedata} 0x00};\n"
+	"	size_t rai_bootstrap_weights_size = sizeof(rai_bootstrap_weights) - 1;\n"
+	"}\n")
 	
 add_library (secure
 	${PLATFORM_SECURE_SOURCE}
