@@ -1232,6 +1232,31 @@ void rai::wallet::init_free_accounts (MDB_txn * transaction_a)
 	}
 }
 
+rai::public_key rai::wallet::change_seed (MDB_txn * transaction_a, rai::raw_key const & prv_a)
+{
+	store.seed_set (transaction_a, prv_a);
+	auto account = deterministic_insert (transaction_a);
+	auto count (0);
+	for (uint32_t i (1), n (32); i < n; ++i)
+	{
+		rai::raw_key prv;
+		store.deterministic_key (prv, transaction_a, i);
+		rai::keypair pair (prv.data.to_string ());
+		auto latest (node.ledger.latest (transaction_a, pair.pub));
+		if (!latest.is_zero ())
+		{
+			count = i;
+			n = i + 32;
+		}
+	}
+	for (uint32_t i (0); i < count; ++i)
+	{
+		account = deterministic_insert (transaction_a);
+	}
+
+	return account;
+}
+
 void rai::wallet::work_generate (rai::account const & account_a, rai::block_hash const & root_a)
 {
 	auto begin (std::chrono::steady_clock::now ());

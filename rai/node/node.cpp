@@ -3234,7 +3234,7 @@ bool rai::handle_node_options (boost::program_options::variables_map & vm)
 						if (!key.data.decode_hex (vm["key"].as<std::string> ()))
 						{
 							rai::transaction transaction (wallet->store.environment, nullptr, true);
-							wallet->store.seed_set (transaction, key);
+							wallet->change_seed (transaction, key);
 						}
 						else
 						{
