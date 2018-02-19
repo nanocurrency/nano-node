@@ -833,7 +833,8 @@ void rai::rpc_handler::accounts_pending ()
 	response (response_l);
 }
 
-void rai::rpc_handler::sign_message () {
+void rai::rpc_handler::sign_message ()
+{
 	rai::uint256_union account (0);
 	boost::optional<std::string> account_text (request.get_optional<std::string> ("account"));
 	if (account_text.is_initialized ())
@@ -905,7 +906,7 @@ void rai::rpc_handler::sign_message () {
 		blake2b_final (&hash, message_hash.bytes.data (), message_hash.bytes.size ());
 		rai::uint256_union pub;
 		ed25519_publickey (prv.data.bytes.data (), pub.bytes.data ());
-		rai::uint512_union signature = rai::sign_message(prv, pub, message_hash);
+		rai::uint512_union signature = rai::sign_message (prv, pub, message_hash);
 		std::string signature_l;
 		signature.encode_hex (signature_l);
 		boost::property_tree::ptree response_l;
@@ -918,7 +919,8 @@ void rai::rpc_handler::sign_message () {
 	}
 }
 
-void rai::rpc_handler::verify_message () {
+void rai::rpc_handler::verify_message ()
+{
 	std::string message (request.get<std::string> ("message"));
 	std::string signature_text (request.get<std::string> ("signature"));
 	std::string account_text (request.get<std::string> ("account"));
