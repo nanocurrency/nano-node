@@ -833,6 +833,125 @@ void rai::rpc_handler::accounts_pending ()
 	response (response_l);
 }
 
+void rai::rpc_handler::sign_message () {
+	rai::uint256_union account (0);
+	boost::optional<std::string> account_text (request.get_optional<std::string> ("account"));
+	if (account_text.is_initialized ())
+	{
+		auto error_account (account.decode_account (account_text.get ()));
+		if (error_account)
+		{
+			error_response (response, "Bad account number");
+		}
+	}
+	rai::uint256_union wallet (0);
+	boost::optional<std::string> wallet_text (request.get_optional<std::string> ("wallet"));
+	if (wallet_text.is_initialized ())
+	{
+		auto error (wallet.decode_hex (wallet_text.get ()));
+		if (error)
+		{
+			error_response (response, "Bad wallet number");
+		}
+	}
+	rai::raw_key prv;
+	prv.data.clear ();
+	if (wallet != 0 && account != 0)
+	{
+		auto existing (node.wallets.items.find (wallet));
+		if (existing != node.wallets.items.end ())
+		{
+			rai::transaction transaction (node.store.environment, nullptr, false);
+			auto unlock_check (existing->second->store.valid_password (transaction));
+			if (unlock_check)
+			{
+				auto account_check (existing->second->store.find (transaction, account));
+				if (account_check != existing->second->store.end ())
+				{
+					existing->second->store.fetch (transaction, account, prv);
+				}
+				else
+				{
+					error_response (response, "Account not found in wallet");
+				}
+			}
+			else
+			{
+				error_response (response, "Wallet is locked");
+			}
+		}
+		else
+		{
+			error_response (response, "Wallet not found");
+		}
+	}
+	boost::optional<std::string> key_text (request.get_optional<std::string> ("key"));
+	if (key_text.is_initialized ())
+	{
+		auto error_key (prv.data.decode_hex (key_text.get ()));
+		if (error_key)
+		{
+			error_response (response, "Bad private key");
+		}
+	}
+	std::string message (request.get<std::string> ("message"));
+	if (prv.data != 0)
+	{
+		message.insert (0, "Nano Signed Message:\n");
+		rai::uint256_union message_hash;
+		blake2b_state hash;
+		blake2b_init (&hash, message_hash.bytes.size ());
+		blake2b_update (&hash, message.data (), message.length ());
+		blake2b_final (&hash, message_hash.bytes.data (), message_hash.bytes.size ());
+		rai::uint256_union pub;
+		ed25519_publickey (prv.data.bytes.data (), pub.bytes.data ());
+		rai::uint512_union signature = rai::sign_message(prv, pub, message_hash);
+		std::string signature_l;
+		signature.encode_hex (signature_l);
+		boost::property_tree::ptree response_l;
+		response_l.put ("signature", signature_l);
+		response (response_l);
+	}
+	else
+	{
+		error_response (response, "Private key or local wallet and account required");
+	}
+}
+
+void rai::rpc_handler::verify_message () {
+	std::string message (request.get<std::string> ("message"));
+	std::string signature_text (request.get<std::string> ("signature"));
+	std::string account_text (request.get<std::string> ("account"));
+	rai::account account;
+	auto account_error (account.decode_account (account_text));
+	if (!account_error)
+	{
+		rai::uint512_union signature;
+		auto signature_error = signature.decode_hex(signature_text);
+		if (!signature_error)
+		{
+			message.insert (0, "Nano Signed Message:\n");
+			rai::uint256_union message_hash;
+			blake2b_state hash;
+			blake2b_init (&hash, message_hash.bytes.size ());
+			blake2b_update (&hash, message.data (), message.length ());
+			blake2b_final (&hash, message_hash.bytes.data (), message_hash.bytes.size ());
+			bool valid = !rai::validate_message(account, message_hash, signature);
+			boost::property_tree::ptree response_l;
+			response_l.put ("valid", valid);
+			response (response_l);
+		}
+		else
+		{
+			error_response (response, "Bad signature format");
+		}
+	}
+	else
+	{
+		error_response (response, "Bad account number");
+	}
+}
+
 void rai::rpc_handler::available_supply ()
 {
 	auto genesis_balance (node.balance (rai::genesis_account)); // Cold storage genesis
@@ -4263,6 +4382,14 @@ void rai::rpc_handler::process_request ()
 		else if (action == "accounts_pending")
 		{
 			accounts_pending ();
+		}
+		else if (action == "sign_message")
+		{
+			sign_message ();
+		}
+		else if (action == "verify_message")
+		{
+			verify_message ();
 		}
 		else if (action == "available_supply")
 		{

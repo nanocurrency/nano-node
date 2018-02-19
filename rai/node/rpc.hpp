@@ -107,6 +107,8 @@ public:
 	void accounts_create ();
 	void accounts_frontiers ();
 	void accounts_pending ();
+	void sign_message ();
+	void verify_message ();
 	void available_supply ();
 	void block ();
 	void blocks ();
