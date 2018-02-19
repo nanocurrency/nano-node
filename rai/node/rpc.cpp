@@ -927,7 +927,7 @@ void rai::rpc_handler::verify_message () {
 	if (!account_error)
 	{
 		rai::uint512_union signature;
-		auto signature_error = signature.decode_hex(signature_text);
+		auto signature_error = signature.decode_hex (signature_text);
 		if (!signature_error)
 		{
 			message.insert (0, "Nano Signed Message:\n");
@@ -936,7 +936,7 @@ void rai::rpc_handler::verify_message () {
 			blake2b_init (&hash, message_hash.bytes.size ());
 			blake2b_update (&hash, message.data (), message.length ());
 			blake2b_final (&hash, message_hash.bytes.data (), message_hash.bytes.size ());
-			bool valid = !rai::validate_message(account, message_hash, signature);
+			bool valid = !rai::validate_message (account, message_hash, signature);
 			boost::property_tree::ptree response_l;
 			response_l.put ("valid", valid);
 			response (response_l);
