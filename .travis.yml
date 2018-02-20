@@ -1,32 +1,24 @@
 language: cpp
+dist: trusty
+sudo: required
+services: docker
+
+env:
+  matrix:
+    - TSAN=1
+    - ASAN=1
 
 matrix:
   include:
     - os: linux
-      dist: trusty
-      sudo: required
       env: ONE_TIME_TESTS=true
-      services:
-        - docker
-      addons:
-        apt:
-          packages:
-            - doxygen
-    - os: linux
-      dist: trusty
-      sudo: required
+    - os: osx
+
+matrix:
+  allow_failures:
       env:
         - TSAN=1
-      services:
-        - docker
-    - os: linux
-      dist: trusty
-      sudo: required
-      env:
         - ASAN=1
-      services:
-        - docker
-    - os: osx
 
 compiler:
   - clang
