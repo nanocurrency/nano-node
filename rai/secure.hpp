@@ -212,6 +212,8 @@ public:
 	rai::store_iterator pending_begin (MDB_txn *);
 	rai::store_iterator pending_end ();
 
+	rai::uint128_t pending_total (MDB_txn *);
+
 	void block_info_put (MDB_txn *, rai::block_hash const &, rai::block_info const &);
 	void block_info_del (MDB_txn *, rai::block_hash const &);
 	bool block_info_get (MDB_txn *, rai::block_hash const &, rai::block_info &);
@@ -276,6 +278,7 @@ public:
 	void upgrade_v7_to_v8 (MDB_txn *);
 	void upgrade_v8_to_v9 (MDB_txn *);
 	void upgrade_v9_to_v10 (MDB_txn *);
+	void upgrade_v10_to_v11 (MDB_txn *);
 
 	void clear (MDB_dbi);
 
@@ -370,6 +373,7 @@ public:
 	std::string block_text (char const *);
 	std::string block_text (rai::block_hash const &);
 	rai::uint128_t supply (MDB_txn *);
+	rai::uint128_t total_rep_stake (MDB_txn *);
 	rai::process_return process (MDB_txn *, rai::block const &);
 	void rollback (MDB_txn *, rai::block_hash const &);
 	void change_latest (MDB_txn *, rai::account const &, rai::block_hash const &, rai::account const &, rai::uint128_union const &, uint64_t);

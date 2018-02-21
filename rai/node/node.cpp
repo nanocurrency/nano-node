@@ -2731,13 +2731,13 @@ void rai::election::broadcast_winner ()
 rai::uint128_t rai::election::quorum_threshold (MDB_txn * transaction_a, rai::ledger & ledger_a)
 {
 	// Threshold over which unanimous voting implies confirmation
-	return ledger_a.supply (transaction_a) / 2;
+	return ledger_a.total_rep_stake (transaction_a) / 2;
 }
 
 rai::uint128_t rai::election::minimum_threshold (MDB_txn * transaction_a, rai::ledger & ledger_a)
 {
 	// Minimum number of votes needed to change our ledger, underwhich we're probably disconnected
-	return ledger_a.supply (transaction_a) / 16;
+	return ledger_a.total_rep_stake (transaction_a) / 16;
 }
 
 void rai::election::confirm_once (MDB_txn * transaction_a)

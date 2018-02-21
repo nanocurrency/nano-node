@@ -545,6 +545,8 @@ void rai::block_store::do_upgrades (MDB_txn * transaction_a)
 		case 9:
 			upgrade_v9_to_v10 (transaction_a);
 		case 10:
+			upgrade_v10_to_v11 (transaction_a);
+		case 11:
 			break;
 		default:
 			assert (false);
@@ -781,6 +783,18 @@ void rai::block_store::upgrade_v9_to_v10 (MDB_txn * transaction_a)
 		}
 	}
 	//std::cerr << boost::str (boost::format ("Database upgrade is completed\n"));
+}
+
+void rai::block_store::upgrade_v10_to_v11 (MDB_txn * transaction_a)
+{
+	version_put (transaction_a, 11);
+	rai::uint256_union pending_total_key (2);
+	rai::uint128_t pending_total;
+	for (rai::store_iterator i (transaction_a, pending), n (nullptr); i != n; ++i)
+	{
+		pending_total += rai::pending_info (i->second).amount.number ();
+	}
+	mdb_put (transaction_a, meta, rai::mdb_val (pending_total_key), rai::mdb_val (rai::uint128_union (pending_total)), 0);
 }
 
 void rai::block_store::clear (MDB_dbi db_a)
@@ -1175,13 +1189,31 @@ void rai::block_store::account_put (MDB_txn * transaction_a, rai::account const 
 
 void rai::block_store::pending_put (MDB_txn * transaction_a, rai::pending_key const & key_a, rai::pending_info const & pending_a)
 {
+	rai::uint256_union pending_total_key (2);
 	auto status (mdb_put (transaction_a, pending, key_a.val (), pending_a.val (), 0));
+	assert (status == 0);
+	rai::mdb_val pending_value;
+	status = mdb_get (transaction_a, meta, rai::mdb_val (pending_total_key), pending_value);
+	assert (status == 0);
+	rai::amount current_pending (pending_value.uint128 ());
+	status = mdb_put (transaction_a, meta, rai::mdb_val (pending_total_key), rai::mdb_val (rai::uint128_union (current_pending.number () + pending_a.amount.number ())), 0);
 	assert (status == 0);
 }
 
 void rai::block_store::pending_del (MDB_txn * transaction_a, rai::pending_key const & key_a)
 {
-	auto status (mdb_del (transaction_a, pending, key_a.val (), nullptr));
+	rai::uint256_union pending_total_key (2);
+	rai::mdb_val value;
+	auto status (mdb_del (transaction_a, pending, key_a.val (), value));
+	assert (status == 0);
+	rai::pending_info pending_info (value);
+	rai::mdb_val pending_value;
+	status = mdb_get (transaction_a, meta, rai::mdb_val (pending_total_key), pending_value);
+	assert (status == 0);
+	rai::amount current_pending (pending_value.uint128 ());
+	rai::uint128_t new_pending (current_pending.number () - pending_info.amount.number ());
+	assert (new_pending < current_pending.number ()); // assert that we didn't overflow
+	status = mdb_put (transaction_a, meta, rai::mdb_val (pending_total_key), rai::mdb_val (rai::uint128_union (new_pending)), 0);
 	assert (status == 0);
 }
 
@@ -1230,6 +1262,14 @@ rai::store_iterator rai::block_store::pending_end ()
 {
 	rai::store_iterator result (nullptr);
 	return result;
+}
+
+rai::uint128_t rai::block_store::pending_total (MDB_txn * transaction_a)
+{
+	rai::uint256_union pending_total_key (2);
+	rai::mdb_val value;
+	auto status (mdb_get (transaction_a, meta, rai::mdb_val (pending_total_key), value));
+	return value.uint128 ().number ();
 }
 
 rai::pending_info::pending_info () :
@@ -1729,7 +1769,7 @@ rai::vote_result rai::block_store::vote_validate (MDB_txn * transaction_a, std::
 {
 	rai::vote_result result ({ rai::vote_code::invalid, 0 });
 	// Reject unsigned votes
-	if (!rai::validate_message (vote_a->account, vote_a->hash (), vote_a->signature))
+	if (!vote_a->account.is_zero () && !rai::validate_message (vote_a->account, vote_a->hash (), vote_a->signature))
 	{
 		result.code = rai::vote_code::replay;
 		result.vote = vote_max (transaction_a, vote_a); // Make sure this sequence number is > any we've seen from this account before
@@ -2148,6 +2188,7 @@ rai::process_return rai::ledger::process (MDB_txn * transaction_a, rai::block co
 }
 
 // Money supply for heuristically calculating vote percentages
+// Cannot increase unless inactive_supply is changed
 rai::uint128_t rai::ledger::supply (MDB_txn * transaction_a)
 {
 	auto unallocated (account_balance (transaction_a, rai::genesis_account));
@@ -2155,6 +2196,13 @@ rai::uint128_t rai::ledger::supply (MDB_txn * transaction_a)
 	auto absolute_supply (rai::genesis_amount - unallocated - burned);
 	auto adjusted_supply (absolute_supply - inactive_supply);
 	return adjusted_supply <= absolute_supply ? adjusted_supply : 0;
+}
+
+// Money supply for heuristically calculating vote percentages
+// Can and will increase when transactions are received
+rai::uint128_t rai::ledger::total_rep_stake (MDB_txn * transaction_a)
+{
+	return supply (transaction_a) - store.pending_total (transaction_a) - store.representation_get (transaction_a, rai::account (0));
 }
 
 rai::block_hash rai::ledger::representative (MDB_txn * transaction_a, rai::block_hash const & hash_a)
