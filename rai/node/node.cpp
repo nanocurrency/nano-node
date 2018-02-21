@@ -1375,6 +1375,7 @@ block_processor_thread ([this]() { this->block_processor.process_blocks (); })
 	peers.disconnect_observer = [this]() {
 		observers.disconnect ();
 	};
+	/*
 	observers.blocks.add ([this](std::shared_ptr<rai::block> block_a, rai::account const & account_a, rai::amount const & amount_a) {
 		if (this->block_arrival.recent (block_a->hash ()))
 		{
@@ -1382,6 +1383,7 @@ block_processor_thread ([this]() { this->block_processor.process_blocks (); })
 			active.start (transaction, block_a);
 		}
 	});
+	*/
 	observers.blocks.add ([this](std::shared_ptr<rai::block> block_a, rai::account const & account_a, rai::amount const & amount_a) {
 		if (this->block_arrival.recent (block_a->hash ()))
 		{

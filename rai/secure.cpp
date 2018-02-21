@@ -2019,7 +2019,7 @@ public:
 		rai::account_info info;
 		auto error (ledger.store.account_get (transaction, destination_account, info));
 		assert (!error);
-		ledger.store.representation_add (transaction, ledger.representative (transaction, hash), 0 - amount);
+		ledger.store.representation_add (transaction, representative, 0 - amount);
 		ledger.change_latest (transaction, destination_account, block_a.hashables.previous, representative, ledger.balance (transaction, block_a.hashables.previous), info.block_count - 1);
 		ledger.store.block_del (transaction, hash);
 		ledger.store.pending_put (transaction, rai::pending_key (destination_account, block_a.hashables.source), { ledger.account (transaction, block_a.hashables.source), amount });
