@@ -116,6 +116,7 @@ public:
 	mdb_val (rai::uint256_union const &);
 	void * data () const;
 	size_t size () const;
+	rai::uint128_union uint128 () const;
 	rai::uint256_union uint256 () const;
 	operator MDB_val * () const;
 	operator MDB_val const & () const;
