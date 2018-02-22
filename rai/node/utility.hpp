@@ -98,6 +98,9 @@ bool fetch_object (T & object, boost::filesystem::path const & path_a, std::fstr
 	return error;
 }
 
+/**
+ * RAII wrapper for MDB_env
+ */
 class mdb_env
 {
 public:
@@ -106,6 +109,10 @@ public:
 	operator MDB_env * () const;
 	MDB_env * environment;
 };
+
+/**
+ * Encapsulates MDB_val and provides uint256_union conversion of the data.
+ */
 class mdb_val
 {
 public:
@@ -121,6 +128,11 @@ public:
 	operator MDB_val const & () const;
 	MDB_val value;
 };
+
+/**
+ * RAII wrapper of MDB_txn where the constructor starts the transaction
+ * and the destructor commits it.
+ */
 class transaction
 {
 public:
