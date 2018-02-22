@@ -1,7 +1,8 @@
 #pragma once
 
+#include <rai/blockstore.hpp>
+#include <rai/ledger.hpp>
 #include <rai/node/common.hpp>
-#include <rai/secure.hpp>
 
 #include <atomic>
 #include <future>

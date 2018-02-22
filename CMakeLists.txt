@@ -266,8 +266,12 @@ add_library (secure
 	${PLATFORM_SECURE_SOURCE}
 	${CMAKE_BINARY_DIR}/bootstrap_weights.cpp
 	rai/config.hpp
-	rai/secure.cpp
-	rai/secure.hpp
+	rai/common.cpp
+	rai/common.hpp
+	rai/blockstore.cpp
+	rai/blockstore.hpp
+	rai/ledger.cpp
+	rai/ledger.hpp
 	rai/node/utility.cpp
 	rai/node/utility.hpp
 	rai/versioning.hpp
