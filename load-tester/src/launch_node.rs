@@ -51,7 +51,7 @@ pub fn launch_node(
             "version": "8",
             "peering_port": peering_port.to_string(),
             "bootstrap_fraction_numerator": "1",
-            "receive_minimum": "1000000000000000000000000",
+            "receive_minimum": "0",
             "logging": {
                 "version": "2",
                 "ledger": "false",
