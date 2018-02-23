@@ -24,11 +24,11 @@ ADD ./ /tmp/src
 RUN mkdir /tmp/build && \
     cd /tmp/build && \
     cmake /tmp/src -DBOOST_ROOT=${BOOST_ROOT} && \
-    make bananode && \
+    make rai_node && \
     cd ..
 
 FROM ubuntu:16.04
-COPY --from=0 /tmp/build/bananode /usr/bin
+COPY --from=0 /tmp/build/rai_node /usr/bin
 COPY docker/node/entry.sh /entry.sh
 COPY docker/node/config.json /usr/share/raiblocks/config.json
 RUN chmod +x /entry.sh

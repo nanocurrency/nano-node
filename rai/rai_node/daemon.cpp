@@ -1,4 +1,4 @@
-#include <rai/bananode/daemon.hpp>
+#include <rai/rai_node/daemon.hpp>
 
 #include <boost/property_tree/json_parser.hpp>
 #include <fstream>

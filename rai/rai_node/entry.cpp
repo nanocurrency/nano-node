@@ -1,6 +1,6 @@
 #include <rai/node/node.hpp>
 #include <rai/node/testing.hpp>
-#include <rai/bananode/daemon.hpp>
+#include <rai/rai_node/daemon.hpp>
 
 #include <argon2.h>
 
