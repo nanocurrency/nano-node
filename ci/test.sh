@@ -47,7 +47,7 @@ run_tests() {
     xvfb_run_ ./qt_test
     qt_test_res=${?}
 
-    ${TIMEOUT_CMD} ${TIMEOUT_TIME_ARG} ${TIMEOUT_SEC-420} ./load_test ./rai_node
+    ${TIMEOUT_CMD} ${TIMEOUT_TIME_ARG} ${TIMEOUT_SEC-420} ./load_test ./bananode
     load_test_res=${?}
 
     echo "Core Test return code: ${core_test_res}"

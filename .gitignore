@@ -29,7 +29,7 @@
 *.DS_Store
 core_test
 qt_test
-rai_node
+bananode
 rai_wallet
 slow_test
 

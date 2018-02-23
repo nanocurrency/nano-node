@@ -442,13 +442,13 @@ fn main() {
             Arg::with_name("tmp_dir")
                 .long("tmp-dir")
                 .value_name("PATH")
-                .help("The path to a temporary directory for rai_node data"),
+                .help("The path to a temporary directory for bananode data"),
         )
         .arg(
             Arg::with_name("node_path")
                 .value_name("PATH")
                 .required(true)
-                .help("The path to the rai_node to test"),
+                .help("The path to the bananode to test"),
         )
         .arg(
             Arg::with_name("send_count")
