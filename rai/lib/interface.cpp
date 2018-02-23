@@ -15,64 +15,64 @@
 #include <cstring>
 
 extern "C" {
-void xrb_uint256_to_string (xrb_uint256 source, char * destination)
+void ban_uint256_to_string (ban_uint256 source, char * destination)
 {
 	auto const & number (*reinterpret_cast<rai::uint256_union *> (source));
 	strncpy (destination, number.to_string ().c_str (), 64);
 }
 
-void xrb_uint256_to_address (xrb_uint256 source, char * destination)
+void ban_uint256_to_address (ban_uint256 source, char * destination)
 {
 	auto const & number (*reinterpret_cast<rai::uint256_union *> (source));
 	strncpy (destination, number.to_account ().c_str (), 65);
 }
 
-void xrb_uint512_to_string (xrb_uint512 source, char * destination)
+void ban_uint512_to_string (ban_uint512 source, char * destination)
 {
 	auto const & number (*reinterpret_cast<rai::uint512_union *> (source));
 	strncpy (destination, number.to_string ().c_str (), 128);
 }
 
-int xrb_uint256_from_string (const char * source, xrb_uint256 destination)
+int ban_uint256_from_string (const char * source, ban_uint256 destination)
 {
 	auto & number (*reinterpret_cast<rai::uint256_union *> (destination));
 	auto error (number.decode_hex (source));
 	return error ? 1 : 0;
 }
 
-int xrb_uint512_from_string (const char * source, xrb_uint512 destination)
+int ban_uint512_from_string (const char * source, ban_uint512 destination)
 {
 	auto & number (*reinterpret_cast<rai::uint512_union *> (destination));
 	auto error (number.decode_hex (source));
 	return error ? 1 : 0;
 }
 
-int xrb_valid_address (const char * account_a)
+int ban_valid_address (const char * account_a)
 {
 	rai::uint256_union account;
 	auto error (account.decode_account (account_a));
 	return error ? 1 : 0;
 }
 
-void xrb_generate_random (xrb_uint256 seed)
+void ban_generate_random (ban_uint256 seed)
 {
 	auto & number (*reinterpret_cast<rai::uint256_union *> (seed));
 	rai::random_pool.GenerateBlock (number.bytes.data (), number.bytes.size ());
 }
 
-void xrb_seed_key (xrb_uint256 seed, int index, xrb_uint256 destination)
+void ban_seed_key (ban_uint256 seed, int index, ban_uint256 destination)
 {
 	auto & seed_l (*reinterpret_cast<rai::uint256_union *> (seed));
 	auto & destination_l (*reinterpret_cast<rai::uint256_union *> (destination));
 	rai::deterministic_key (seed_l, index, destination_l);
 }
 
-void xrb_key_account (const xrb_uint256 key, xrb_uint256 pub)
+void ban_key_account (const ban_uint256 key, ban_uint256 pub)
 {
 	ed25519_publickey (key, pub);
 }
 
-char * xrb_sign_transaction (const char * transaction, const xrb_uint256 private_key)
+char * ban_sign_transaction (const char * transaction, const ban_uint256 private_key)
 {
 	char * result (nullptr);
 	try
@@ -100,7 +100,7 @@ char * xrb_sign_transaction (const char * transaction, const xrb_uint256 private
 	return result;
 }
 
-char * xrb_work_transaction (const char * transaction)
+char * ban_work_transaction (const char * transaction)
 {
 	char * result (nullptr);
 	try

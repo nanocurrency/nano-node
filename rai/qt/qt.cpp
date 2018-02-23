@@ -679,7 +679,7 @@ wallet (wallet_a)
 			show_line_ok (*account_line);
 			this->history.refresh ();
 			auto balance (this->wallet.node.balance_pending (account));
-			auto final_text (std::string ("Balance (XRB): ") + wallet.format_balance (balance.first));
+			auto final_text (std::string ("Balance (BAN): ") + wallet.format_balance (balance.first));
 			if (!balance.second.is_zero ())
 			{
 				final_text += "\nPending: " + wallet.format_balance (balance.second);
@@ -809,7 +809,7 @@ std::string rai_qt::status::color ()
 }
 
 rai_qt::wallet::wallet (QApplication & application_a, rai_qt::eventloop_processor & processor_a, rai::node & node_a, std::shared_ptr<rai::wallet> wallet_a, rai::account & account_a) :
-rendering_ratio (rai::Mxrb_ratio),
+rendering_ratio (rai::Mban_ratio),
 node (node_a),
 wallet_m (wallet_a),
 account (account_a),
@@ -1242,14 +1242,14 @@ void rai_qt::wallet::change_rendering_ratio (rai::uint128_t const & rendering_ra
 std::string rai_qt::wallet::format_balance (rai::uint128_t const & balance) const
 {
 	auto balance_str = rai::amount (balance).format_balance (rendering_ratio, 0, false);
-	auto unit = std::string ("XRB");
-	if (rendering_ratio == rai::kxrb_ratio)
+	auto unit = std::string ("BAN");
+	if (rendering_ratio == rai::kban_ratio)
 	{
-		unit = std::string ("kxrb");
+		unit = std::string ("kban");
 	}
-	else if (rendering_ratio == rai::xrb_ratio)
+	else if (rendering_ratio == rai::ban_ratio)
 	{
-		unit = std::string ("xrb");
+		unit = std::string ("ban");
 	}
 	return balance_str + " " + unit;
 }
@@ -1524,9 +1524,9 @@ scale_window (new QWidget),
 scale_layout (new QHBoxLayout),
 scale_label (new QLabel ("Scale:")),
 ratio_group (new QButtonGroup),
-mrai (new QRadioButton ("Mxrb")),
-krai (new QRadioButton ("kxrb")),
-rai (new QRadioButton ("xrb")),
+mrai (new QRadioButton ("Mban")),
+krai (new QRadioButton ("kban")),
+rai (new QRadioButton ("ban")),
 back (new QPushButton ("Back")),
 ledger_window (new QWidget),
 ledger_layout (new QVBoxLayout),
@@ -1604,19 +1604,19 @@ wallet (wallet_a)
 	QObject::connect (mrai, &QRadioButton::toggled, [this]() {
 		if (mrai->isChecked ())
 		{
-			this->wallet.change_rendering_ratio (rai::Mxrb_ratio);
+			this->wallet.change_rendering_ratio (rai::Mban_ratio);
 		}
 	});
 	QObject::connect (krai, &QRadioButton::toggled, [this]() {
 		if (krai->isChecked ())
 		{
-			this->wallet.change_rendering_ratio (rai::kxrb_ratio);
+			this->wallet.change_rendering_ratio (rai::kban_ratio);
 		}
 	});
 	QObject::connect (rai, &QRadioButton::toggled, [this]() {
 		if (rai->isChecked ())
 		{
-			this->wallet.change_rendering_ratio (rai::xrb_ratio);
+			this->wallet.change_rendering_ratio (rai::ban_ratio);
 		}
 	});
 	mrai->click ();

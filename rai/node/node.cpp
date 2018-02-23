@@ -228,7 +228,7 @@ void rai::network::republish_vote (std::chrono::steady_clock::time_point const &
 {
 	if (last_vote < std::chrono::steady_clock::now () - std::chrono::seconds (1))
 	{
-		if (node.weight (vote_a->account) > rai::Mxrb_ratio * 256)
+		if (node.weight (vote_a->account) > rai::Mban_ratio * 256)
 		{
 			rai::confirm_ack confirm (vote_a);
 			std::shared_ptr<std::vector<uint8_t>> bytes (new std::vector<uint8_t>);
@@ -746,7 +746,7 @@ rai::node_config::node_config (uint16_t peering_port_a, rai::logging const & log
 peering_port (peering_port_a),
 logging (logging_a),
 bootstrap_fraction_numerator (1),
-receive_minimum (rai::xrb_ratio),
+receive_minimum (rai::ban_ratio),
 inactive_supply (0),
 password_fanout (1024),
 io_threads (std::max<unsigned> (4, std::thread::hardware_concurrency ())),
@@ -763,14 +763,14 @@ lmdb_max_dbs (128)
 			preconfigured_representatives.push_back (rai::genesis_account);
 			break;
 		case rai::rai_networks::rai_beta_network:
-			preconfigured_peers.push_back ("rai.raiblocks.net");
+			preconfigured_peers.push_back ("peers.banano.co.in");
 			preconfigured_representatives.push_back (rai::account ("59750C057F42806F40C5D9EAA1E0263E9DB48FE385BD0172BFC573BD37EEC4A7"));
 			preconfigured_representatives.push_back (rai::account ("8B05C9B160DE9B006FA27DD6A368D7CA122A2EE7537C308CF22EFD3ABF5B36C3"));
 			preconfigured_representatives.push_back (rai::account ("91D51BF05F02698EBB4649FB06D1BBFD2E4AE2579660E8D784A002D9C0CB1BD2"));
 			preconfigured_representatives.push_back (rai::account ("CB35ED23D47E1A16667EDE415CD4CD05961481D7D23A43958FAE81FC12FA49FF"));
 			break;
 		case rai::rai_networks::rai_live_network:
-			preconfigured_peers.push_back ("rai.raiblocks.net");
+			preconfigured_peers.push_back ("peers.banano.co.in");
 			preconfigured_representatives.push_back (rai::account ("A30E0A32ED41C8607AA9212843392E853FCBCB4E7CB194E35C94F07F91DE59EF"));
 			preconfigured_representatives.push_back (rai::account ("67556D31DDFC2A440BF6147501449B4CB9572278D034EE686A6BEE29851681DF"));
 			preconfigured_representatives.push_back (rai::account ("5C2FBB148E006A8E8BA7A75DD86C9FE00C83F5FFDBFD76EAA09531071436B6AF"));
@@ -867,13 +867,13 @@ bool rai::node_config::upgrade_json (unsigned version, boost::property_tree::ptr
 		}
 		case 3:
 			tree_a.erase ("receive_minimum");
-			tree_a.put ("receive_minimum", rai::xrb_ratio.convert_to<std::string> ());
+			tree_a.put ("receive_minimum", rai::ban_ratio.convert_to<std::string> ());
 			tree_a.erase ("version");
 			tree_a.put ("version", "4");
 			result = true;
 		case 4:
 			tree_a.erase ("receive_minimum");
-			tree_a.put ("receive_minimum", rai::xrb_ratio.convert_to<std::string> ());
+			tree_a.put ("receive_minimum", rai::ban_ratio.convert_to<std::string> ());
 			tree_a.erase ("version");
 			tree_a.put ("version", "5");
 			result = true;
@@ -1544,7 +1544,7 @@ block_processor_thread ([this]() { this->block_processor.process_blocks (); })
 					{
 						break;
 					}
-					BOOST_LOG (log) << "Using bootstrap rep weight: " << account.to_account () << " -> " << weight.format_balance (Mxrb_ratio, 0, true) << " XRB";
+					BOOST_LOG (log) << "Using bootstrap rep weight: " << account.to_account () << " -> " << weight.format_balance (Mban_ratio, 0, true) << " BAN";
 					ledger.bootstrap_weights[account] = weight.number ();
 				}
 			}
@@ -2001,13 +2001,13 @@ void rai::node::backup_wallet ()
 
 int rai::node::price (rai::uint128_t const & balance_a, int amount_a)
 {
-	assert (balance_a >= amount_a * rai::Gxrb_ratio);
+	assert (balance_a >= amount_a * rai::Gban_ratio);
 	auto balance_l (balance_a);
 	double result (0.0);
 	for (auto i (0); i < amount_a; ++i)
 	{
-		balance_l -= rai::Gxrb_ratio;
-		auto balance_scaled ((balance_l / rai::Mxrb_ratio).convert_to<double> ());
+		balance_l -= rai::Gban_ratio;
+		auto balance_scaled ((balance_l / rai::Mban_ratio).convert_to<double> ());
 		auto units (balance_scaled / 1000.0);
 		auto unit_price (((free_cutoff - units) / free_cutoff) * price_max);
 		result += std::min (std::max (0.0, unit_price), price_max);
