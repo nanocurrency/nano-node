@@ -1524,9 +1524,9 @@ scale_window (new QWidget),
 scale_layout (new QHBoxLayout),
 scale_label (new QLabel ("Scale:")),
 ratio_group (new QButtonGroup),
-mrai (new QRadioButton ("Mban")),
-krai (new QRadioButton ("kban")),
-rai (new QRadioButton ("ban")),
+ban (new QRadioButton ("BAN")),
+mban (new QRadioButton ("mBAN")),
+uban (new QRadioButton ("uBAN")),
 back (new QPushButton ("Back")),
 ledger_window (new QWidget),
 ledger_layout (new QVBoxLayout),
@@ -1545,16 +1545,16 @@ peers_refresh (new QPushButton ("Refresh")),
 peers_back (new QPushButton ("Back")),
 wallet (wallet_a)
 {
-	ratio_group->addButton (mrai);
-	ratio_group->addButton (krai);
-	ratio_group->addButton (rai);
-	ratio_group->setId (mrai, 0);
-	ratio_group->setId (krai, 1);
-	ratio_group->setId (rai, 2);
+	ratio_group->addButton (ban);
+	ratio_group->addButton (mban);
+	ratio_group->addButton (uban);
+	ratio_group->setId (ban, 0);
+	ratio_group->setId (mban, 1);
+	ratio_group->setId (uban, 2);
 	scale_layout->addWidget (scale_label);
-	scale_layout->addWidget (mrai);
-	scale_layout->addWidget (krai);
-	scale_layout->addWidget (rai);
+	scale_layout->addWidget (ban);
+	scale_layout->addWidget (mban);
+	scale_layout->addWidget (uban);
 	scale_window->setLayout (scale_layout);
 
 	ledger_model->setHorizontalHeaderItem (0, new QStandardItem ("Account"));
@@ -1601,25 +1601,25 @@ wallet (wallet_a)
 	layout->addWidget (back);
 	window->setLayout (layout);
 
-	QObject::connect (mrai, &QRadioButton::toggled, [this]() {
-		if (mrai->isChecked ())
+	QObject::connect (ban, &QRadioButton::toggled, [this]() {
+		if (ban->isChecked ())
 		{
-			this->wallet.change_rendering_ratio (rai::Mban_ratio);
+			this->wallet.change_rendering_ratio (rai::BAN_ratio);
 		}
 	});
-	QObject::connect (krai, &QRadioButton::toggled, [this]() {
-		if (krai->isChecked ())
+	QObject::connect (mban, &QRadioButton::toggled, [this]() {
+		if (mban->isChecked ())
 		{
-			this->wallet.change_rendering_ratio (rai::kban_ratio);
+			this->wallet.change_rendering_ratio (rai::mBAN_ratio);
 		}
 	});
-	QObject::connect (rai, &QRadioButton::toggled, [this]() {
-		if (rai->isChecked ())
+	QObject::connect (uban, &QRadioButton::toggled, [this]() {
+		if (uban->isChecked ())
 		{
-			this->wallet.change_rendering_ratio (rai::ban_ratio);
+			this->wallet.change_rendering_ratio (rai::uBAN_ratio);
 		}
 	});
-	mrai->click ();
+	ban->click ();
 	QObject::connect (wallet_refresh, &QPushButton::released, [this]() {
 		this->wallet.accounts.refresh ();
 		this->wallet.accounts.refresh_wallet_balance ();
