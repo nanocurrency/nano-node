@@ -150,11 +150,11 @@ public:
 	void keepalive ();
 	void key_create ();
 	void key_expand ();
-	void krai_to_raw ();
-	void krai_from_raw ();
+	void mban_to_raw ();
+	void mban_from_raw ();
 	void ledger ();
-	void mrai_to_raw ();
-	void mrai_from_raw ();
+	void ban_to_raw ();
+	void ban_from_raw ();
 	void password_change ();
 	void password_enter ();
 	void password_valid (bool wallet_locked);
@@ -166,8 +166,8 @@ public:
 	void pending ();
 	void pending_exists ();
 	void process ();
-	void rai_to_raw ();
-	void rai_from_raw ();
+	void uban_to_raw ();
+	void uban_from_raw ();
 	void receive ();
 	void receive_minimum ();
 	void receive_minimum_set ();
