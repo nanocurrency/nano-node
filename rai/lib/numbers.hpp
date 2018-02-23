@@ -13,12 +13,12 @@ using uint128_t = boost::multiprecision::uint128_t;
 using uint256_t = boost::multiprecision::uint256_t;
 using uint512_t = boost::multiprecision::uint512_t;
 // SI dividers
-rai::uint128_t const Gban_ratio = rai::uint128_t ("1000000000000000000000000000000000"); // 10^33
-rai::uint128_t const Mban_ratio = rai::uint128_t ("1000000000000000000000000000000"); // 10^30
-rai::uint128_t const kban_ratio = rai::uint128_t ("1000000000000000000000000000"); // 10^27
-rai::uint128_t const ban_ratio = rai::uint128_t ("1000000000000000000000000"); // 10^24
-rai::uint128_t const mban_ratio = rai::uint128_t ("1000000000000000000000"); // 10^21
-rai::uint128_t const uban_ratio = rai::uint128_t ("1000000000000000000"); // 10^18
+rai::uint128_t const kBAN_ratio = rai::uint128_t ("100000000000000000000000000000000"); // 10^32   was: 10^33 Gxrb_ratio  
+rai::uint128_t const BAN_ratio = rai::uint128_t ("100000000000000000000000000000"); // 10^29   was: Mxrb_ratio 10^30  
+rai::uint128_t const mBAN_ratio = rai::uint128_t ("100000000000000000000000000"); // 10^26  was: kxrb_ratio 10^27
+rai::uint128_t const uBAN_ratio = rai::uint128_t ("100000000000000000000000"); // 10^23  was: xrb_ratio 10^24
+rai::uint128_t const mxrb_ratio = rai::uint128_t ("100000000000000000000"); // 10^20    NOT IN USE 
+rai::uint128_t const uxrb_ratio = rai::uint128_t ("100000000000000000"); // 10^17    NOT IN USE  
 
 union uint128_union
 {
