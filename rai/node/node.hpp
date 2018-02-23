@@ -90,11 +90,11 @@ public:
 	roots;
 	rai::node & node;
 	std::mutex mutex;
+	static unsigned constexpr announce_interval_ms = (rai::rai_network == rai::rai_networks::rai_test_network) ? 10 : 2000;
 	// Maximum number of conflicts to vote on per interval, lowest root hash first
-	static unsigned constexpr announcements_per_interval = 32;
+	static unsigned constexpr announcements_per_interval = (rai::rai_network == rai::rai_networks::rai_test_network) ? 32 : (2 * announce_interval_ms / 1000);
 	// After this many successive vote announcements, block is confirmed
-	static unsigned constexpr contigious_announcements = 4;
-	static unsigned constexpr announce_interval_ms = (rai::rai_network == rai::rai_networks::rai_test_network) ? 10 : 16000;
+	static unsigned constexpr contigious_announcements = (rai::rai_network == rai::rai_networks::rai_test_network) ? 4 : (64000 / announce_interval_ms);
 };
 class operation
 {
