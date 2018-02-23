@@ -1923,13 +1923,13 @@ void rai::rpc_handler::ledger ()
 	}
 }
 
-void rai::rpc_handler::mrai_from_raw ()
+void rai::rpc_handler::ban_from_raw ()
 {
 	std::string amount_text (request.get<std::string> ("amount"));
 	rai::uint128_union amount;
 	if (!amount.decode_dec (amount_text))
 	{
-		auto result (amount.number () / rai::Mban_ratio);
+		auto result (amount.number () / rai::BAN_ratio);
 		boost::property_tree::ptree response_l;
 		response_l.put ("amount", result.convert_to<std::string> ());
 		response (response_l);
@@ -1940,13 +1940,13 @@ void rai::rpc_handler::mrai_from_raw ()
 	}
 }
 
-void rai::rpc_handler::mrai_to_raw ()
+void rai::rpc_handler::ban_to_raw ()
 {
 	std::string amount_text (request.get<std::string> ("amount"));
 	rai::uint128_union amount;
 	if (!amount.decode_dec (amount_text))
 	{
-		auto result (amount.number () * rai::Mban_ratio);
+		auto result (amount.number () * rai::BAN_ratio);
 		if (result > amount.number ())
 		{
 			boost::property_tree::ptree response_l;
@@ -1964,13 +1964,13 @@ void rai::rpc_handler::mrai_to_raw ()
 	}
 }
 
-void rai::rpc_handler::krai_from_raw ()
+void rai::rpc_handler::mban_from_raw ()
 {
 	std::string amount_text (request.get<std::string> ("amount"));
 	rai::uint128_union amount;
 	if (!amount.decode_dec (amount_text))
 	{
-		auto result (amount.number () / rai::kban_ratio);
+		auto result (amount.number () / rai::mBAN_ratio);
 		boost::property_tree::ptree response_l;
 		response_l.put ("amount", result.convert_to<std::string> ());
 		response (response_l);
@@ -1981,13 +1981,13 @@ void rai::rpc_handler::krai_from_raw ()
 	}
 }
 
-void rai::rpc_handler::krai_to_raw ()
+void rai::rpc_handler::mban_to_raw ()
 {
 	std::string amount_text (request.get<std::string> ("amount"));
 	rai::uint128_union amount;
 	if (!amount.decode_dec (amount_text))
 	{
-		auto result (amount.number () * rai::kban_ratio);
+		auto result (amount.number () * rai::mBAN_ratio);
 		if (result > amount.number ())
 		{
 			boost::property_tree::ptree response_l;
@@ -2512,13 +2512,13 @@ void rai::rpc_handler::process ()
 	}
 }
 
-void rai::rpc_handler::rai_from_raw ()
+void rai::rpc_handler::uban_from_raw ()
 {
 	std::string amount_text (request.get<std::string> ("amount"));
 	rai::uint128_union amount;
 	if (!amount.decode_dec (amount_text))
 	{
-		auto result (amount.number () / rai::ban_ratio);
+		auto result (amount.number () / rai::uBAN_ratio);
 		boost::property_tree::ptree response_l;
 		response_l.put ("amount", result.convert_to<std::string> ());
 		response (response_l);
@@ -2529,13 +2529,13 @@ void rai::rpc_handler::rai_from_raw ()
 	}
 }
 
-void rai::rpc_handler::rai_to_raw ()
+void rai::rpc_handler::uban_to_raw ()
 {
 	std::string amount_text (request.get<std::string> ("amount"));
 	rai::uint128_union amount;
 	if (!amount.decode_dec (amount_text))
 	{
-		auto result (amount.number () * rai::ban_ratio);
+		auto result (amount.number () * rai::uBAN_ratio);
 		if (result > amount.number ())
 		{
 			boost::property_tree::ptree response_l;
@@ -4418,25 +4418,25 @@ void rai::rpc_handler::process_request ()
 		{
 			key_expand ();
 		}
-		else if (action == "krai_from_raw")
+		else if (action == "mban_from_raw")
 		{
-			krai_from_raw ();
+			mban_from_raw ();
 		}
-		else if (action == "krai_to_raw")
+		else if (action == "mban_to_raw")
 		{
-			krai_to_raw ();
+			mban_to_raw ();
 		}
 		else if (action == "ledger")
 		{
 			ledger ();
 		}
-		else if (action == "mrai_from_raw")
+		else if (action == "ban_from_raw")
 		{
-			mrai_from_raw ();
+			ban_from_raw ();
 		}
-		else if (action == "mrai_to_raw")
+		else if (action == "ban_to_raw")
 		{
-			mrai_to_raw ();
+			ban_to_raw ();
 		}
 		else if (action == "password_change")
 		{
@@ -4482,13 +4482,13 @@ void rai::rpc_handler::process_request ()
 		{
 			process ();
 		}
-		else if (action == "rai_from_raw")
+		else if (action == "uban_from_raw")
 		{
-			rai_from_raw ();
+			uban_from_raw ();
 		}
-		else if (action == "rai_to_raw")
+		else if (action == "uban_to_raw")
 		{
-			rai_to_raw ();
+			uban_to_raw ();
 		}
 		else if (action == "receive")
 		{
