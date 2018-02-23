@@ -43,7 +43,7 @@ class election : public std::enable_shared_from_this<rai::election>
 
 public:
 	election (MDB_txn *, rai::node &, std::shared_ptr<rai::block>, std::function<void(std::shared_ptr<rai::block>, bool)> const &);
-	void vote (std::shared_ptr<rai::vote>);
+	bool vote (std::shared_ptr<rai::vote>);
 	// Check if we have vote quorum
 	bool have_quorum (MDB_txn *);
 	// Tell the network our view of the winner
@@ -58,7 +58,7 @@ public:
 	rai::uint128_t minimum_threshold (MDB_txn *, rai::ledger &);
 	rai::votes votes;
 	rai::node & node;
-	std::chrono::steady_clock::time_point last_vote;
+	std::unordered_map<rai::account, std::pair<std::chrono::steady_clock::time_point, uint64_t>> last_votes;
 	std::shared_ptr<rai::block> last_winner;
 	std::atomic_flag confirmed;
 };
@@ -79,7 +79,9 @@ public:
 	// Start an election for a block
 	// Call action with confirmed block, may be different than what we started with
 	bool start (MDB_txn *, std::shared_ptr<rai::block>, std::function<void(std::shared_ptr<rai::block>, bool)> const & = [](std::shared_ptr<rai::block>, bool) {});
-	void vote (std::shared_ptr<rai::vote>);
+	// If this returns true, the vote is a replay
+	// If this returns false, the vote may or may not be a replay
+	bool vote (std::shared_ptr<rai::vote>);
 	// Is the root of this block in the roots container
 	bool active (rai::block const &);
 	void announce_votes ();
@@ -303,7 +305,7 @@ public:
 	void receive_action (boost::system::error_code const &, size_t);
 	void rpc_action (boost::system::error_code const &, size_t);
 	void rebroadcast_reps (std::shared_ptr<rai::block>);
-	void republish_vote (std::chrono::steady_clock::time_point const &, std::shared_ptr<rai::vote>);
+	void republish_vote (std::shared_ptr<rai::vote>);
 	void republish_block (MDB_txn *, std::shared_ptr<rai::block>);
 	void republish (rai::block_hash const &, std::shared_ptr<std::vector<uint8_t>>, rai::endpoint);
 	void publish_broadcast (std::vector<rai::peer_information> &, std::unique_ptr<rai::block>);
