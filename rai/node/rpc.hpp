@@ -153,8 +153,8 @@ public:
 	void krai_to_raw ();
 	void krai_from_raw ();
 	void ledger ();
-	void mrai_to_raw ();
-	void mrai_from_raw ();
+	void BAN_to_raw ();
+	void BAN_from_raw ();
 	void password_change ();
 	void password_enter ();
 	void password_valid (bool wallet_locked);
