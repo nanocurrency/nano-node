@@ -65,7 +65,7 @@ public:
 	QHBoxLayout * scale_layout;
 	QLabel * scale_label;
 	QButtonGroup * ratio_group;
-	QRadioButton * BAN;
+	QRadioButton * mrai;
 	QRadioButton * krai;
 	QRadioButton * rai;
 	QPushButton * back;

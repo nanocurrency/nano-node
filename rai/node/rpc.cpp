@@ -1923,13 +1923,13 @@ void rai::rpc_handler::ledger ()
 	}
 }
 
-void rai::rpc_handler::BAN_from_raw ()
+void rai::rpc_handler::mrai_from_raw ()
 {
 	std::string amount_text (request.get<std::string> ("amount"));
 	rai::uint128_union amount;
 	if (!amount.decode_dec (amount_text))
 	{
-		auto result (amount.number () / rai::BAN_ratio);
+		auto result (amount.number () / rai::Mban_ratio);
 		boost::property_tree::ptree response_l;
 		response_l.put ("amount", result.convert_to<std::string> ());
 		response (response_l);
@@ -1940,13 +1940,13 @@ void rai::rpc_handler::BAN_from_raw ()
 	}
 }
 
-void rai::rpc_handler::BAN_to_raw ()
+void rai::rpc_handler::mrai_to_raw ()
 {
 	std::string amount_text (request.get<std::string> ("amount"));
 	rai::uint128_union amount;
 	if (!amount.decode_dec (amount_text))
 	{
-		auto result (amount.number () * rai::BAN_ratio);
+		auto result (amount.number () * rai::Mban_ratio);
 		if (result > amount.number ())
 		{
 			boost::property_tree::ptree response_l;
@@ -1970,7 +1970,7 @@ void rai::rpc_handler::krai_from_raw ()
 	rai::uint128_union amount;
 	if (!amount.decode_dec (amount_text))
 	{
-		auto result (amount.number () / rai::mBAN_ratio);
+		auto result (amount.number () / rai::kban_ratio);
 		boost::property_tree::ptree response_l;
 		response_l.put ("amount", result.convert_to<std::string> ());
 		response (response_l);
@@ -1987,7 +1987,7 @@ void rai::rpc_handler::krai_to_raw ()
 	rai::uint128_union amount;
 	if (!amount.decode_dec (amount_text))
 	{
-		auto result (amount.number () * rai::mBAN_ratio);
+		auto result (amount.number () * rai::kban_ratio);
 		if (result > amount.number ())
 		{
 			boost::property_tree::ptree response_l;
@@ -2518,7 +2518,7 @@ void rai::rpc_handler::rai_from_raw ()
 	rai::uint128_union amount;
 	if (!amount.decode_dec (amount_text))
 	{
-		auto result (amount.number () / rai::BAN_ratio);
+		auto result (amount.number () / rai::ban_ratio);
 		boost::property_tree::ptree response_l;
 		response_l.put ("amount", result.convert_to<std::string> ());
 		response (response_l);
@@ -2535,7 +2535,7 @@ void rai::rpc_handler::rai_to_raw ()
 	rai::uint128_union amount;
 	if (!amount.decode_dec (amount_text))
 	{
-		auto result (amount.number () * rai::BAN_ratio);
+		auto result (amount.number () * rai::ban_ratio);
 		if (result > amount.number ())
 		{
 			boost::property_tree::ptree response_l;
@@ -4430,13 +4430,13 @@ void rai::rpc_handler::process_request ()
 		{
 			ledger ();
 		}
-		else if (action == "BAN_from_raw")
+		else if (action == "mrai_from_raw")
 		{
-			BAN_from_raw ();
+			mrai_from_raw ();
 		}
-		else if (action == "BAN_to_raw")
+		else if (action == "mrai_to_raw")
 		{
-			BAN_to_raw ();
+			mrai_to_raw ();
 		}
 		else if (action == "password_change")
 		{
