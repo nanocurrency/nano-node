@@ -6,9 +6,9 @@ Nano is a **feeless**, **instant**, **high-throughput** cryptocurrency.
 Our philosophy of *do one thing and do it well* has resulted in a state-of-the art currency with **performance** and **scalability** unmatched by any other platform.
 
 ### Key features
-* Nano utilizes a novel **block-lattice** architecture, bypassing many of the drawbacks of conventional blockchains used in many other cryptocurrencies.
+* Nano utilizes a novel **block-lattice** architecture, avoiding the major drawbacks of conventional blockchains used in many other cryptocurrencies.
 * The network requires minimal resources, disincentivizes high-power mining hardware, and enables high transaction throughput.
-* Offers **feeless**, **instantaneous** transactions, as well as **unlimited scalability**, making Nano ideal for peer-to-peer transactions.
+* Offers feeless, instantaneous transactions as well as unlimited scalability, making Nano ideal for peer-to-peer transactions.
 * As of December 2017, the Nano network has processed over four million transactions with an unpruned ledger size of only 1.7GB.
 
 For more information, see [Nano.org](https://nano.org/) or read the [whitepaper](https://nano.org/en/whitepaper).
