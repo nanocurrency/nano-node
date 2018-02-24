@@ -14,33 +14,33 @@
 // Genesis keys for network variants
 namespace
 {
-char const * test_private_key_data = "34F0A37AAD20F4A260F0A5B3CB3D7FB50673212263E58A380BC10474BB039CE4";
-char const * test_public_key_data = "B0311EA55708D6A53C75CDBF88300259C6D018522FE3D4D0A242E431F9E8B6D0"; // ban_3e3j5tkog48pnny9dmfzj1r16pg8t1e76dz5tmac6iq689wyjfpiij4txtdo
-char const * beta_public_key_data = "9D3A5B66B478670455B241D6BAC3D3FE1CBB7E7B7EAA429FA036C2704C3DC0A4"; // ban_39btdfmday591jcu6igpqd3x9ziwqfz9pzocacht1fp4g385ui76a87x6phk
-char const * live_public_key_data = "1099E9B8D424AE1DDCB0A431C75417949D236E3BC545B5CB656A586C1629B55D"; // ban_166sx8wfab7g5qgd3b3jrxc3h76x6fq5qjc7pq7pctkrfid4mfcxq8sjerr8
+char const * test_private_key_data = "5F6C2316A2D3208C752DDF8D154C6F0401E948129BC1B7AB3F146417F064E18C";
+char const * test_public_key_data = "D8887825DA4FC783B35B4C0A28984447813CE7628D8214174453A717C393B3F5"; // ban_3p6ah1kxnmy9igsopm1c74e6ajw39mmp75e44idnanx94z3s9ezogicooigw
+char const * beta_public_key_data = "1EA1F354847B9FABBD1EF16D95797D14C308185EC407D48F5CE93CE39C61A210"; // ban_19o3yfcaaywzogyjxwdfkowqt78531e7xj19tk9ostbwwgg85aiiz6t9xx9h
+char const * live_public_key_data = "713DD022F3D94987F1DBDBC3E98278491EAFCC1309EE48E2248487E4FD60020E"; // ban_1wbxt1jh9pcbizrxqpy5x839ikayoz8384hgb5j4b369wmyp11igg45sjqi7
 char const * test_genesis_data = R"%%%({
 	"type": "open",
-	"source": "B0311EA55708D6A53C75CDBF88300259C6D018522FE3D4D0A242E431F9E8B6D0",
-	"representative": "ban_3e3j5tkog48pnny9dmfzj1r16pg8t1e76dz5tmac6iq689wyjfpiij4txtdo",
-	"account": "ban_3e3j5tkog48pnny9dmfzj1r16pg8t1e76dz5tmac6iq689wyjfpiij4txtdo",
+	"source": "D8887825DA4FC783B35B4C0A28984447813CE7628D8214174453A717C393B3F5",
+	"representative": "ban_3p6ah1kxnmy9igsopm1c74e6ajw39mmp75e44idnanx94z3s9ezogicooigw",
+	"account": "ban_3p6ah1kxnmy9igsopm1c74e6ajw39mmp75e44idnanx94z3s9ezogicooigw",
 	"work": "9680625b39d3363d",
 	"signature": "ECDA914373A2F0CA1296475BAEE40500A7F0A7AD72A5A80C81D7FAB7F6C802B2CC7DB50F5DD0FB25B2EF11761FA7344A158DD5A700B21BD47DE5BD0F63153A02"
 })%%%";
 
 char const * beta_genesis_data = R"%%%({
 	"type": "open",
-	"source": "9D3A5B66B478670455B241D6BAC3D3FE1CBB7E7B7EAA429FA036C2704C3DC0A4",
-	"representative": "ban_39btdfmday591jcu6igpqd3x9ziwqfz9pzocacht1fp4g385ui76a87x6phk",
-	"account": "ban_39btdfmday591jcu6igpqd3x9ziwqfz9pzocacht1fp4g385ui76a87x6phk",
+	"source": "1EA1F354847B9FABBD1EF16D95797D14C308185EC407D48F5CE93CE39C61A210",
+	"representative": "ban_19o3yfcaaywzogyjxwdfkowqt78531e7xj19tk9ostbwwgg85aiiz6t9xx9h",
+	"account": "ban_19o3yfcaaywzogyjxwdfkowqt78531e7xj19tk9ostbwwgg85aiiz6t9xx9h",
 	"work": "6eb12d4c42dba31e",
 	"signature": "BD0D374FCEB33EAABDF728E9B4DCDBF3B226DA97EEAB8EA5B7EDE286B1282C24D6EB544644FE871235E4F58CD94DF66D9C555309895F67A7D1F922AAC12CE907"
 })%%%";
 
 char const * live_genesis_data = R"%%%({
 	"type": "open",
-	"source": "1099E9B8D424AE1DDCB0A431C75417949D236E3BC545B5CB656A586C1629B55D",
-	"representative": "ban_3t6k35gi95xu6tergt6p69ck76ogmitsa8mnijtpxm9fkcm736xtoncuohr3",
-	"account": "ban_166sx8wfab7g5qgd3b3jrxc3h76x6fq5qjc7pq7pctkrfid4mfcxq8sjerr8",
+	"source": "713DD022F3D94987F1DBDBC3E98278491EAFCC1309EE48E2248487E4FD60020E",
+	"representative": "ban_1wbxt1jh9pcbizrxqpy5x839ikayoz8384hgb5j4b369wmyp11igg45sjqi7",
+	"account": "ban_1wbxt1jh9pcbizrxqpy5x839ikayoz8384hgb5j4b369wmyp11igg45sjqi7",
 	"work": "62f05417dd3fb691",
 	"signature": "9F0C933C8ADE004D808EA1985FA746A7E95BA2A38F867640F53EC8F180BDFE9E2C1268DEAD7C2664F356E37ABA362BC58E46DBA03E523A7B5A19E4B6EB12BB02"
 })%%%";
