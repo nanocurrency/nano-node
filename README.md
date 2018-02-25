@@ -17,24 +17,24 @@ We've applied the philosophy of "do one thing and do it well", giving you perfor
 
 
 
-For more information, see [Banano.co.in](https://banano.co.in/) or read the [Yellowpaper](https://banano.co.in/en/whitepaper).
+For more information, see [Banano.co.in](http://banano.co.in/) or read the [Yellowpaper](http://banano.co.in/en/whitepaper).
 
 ### Resources
-- [Banano website](https://banano.co.in)
-- [Yellowpaper](https://Banano.co.in/)
-- [Moonmap](https://banano.co.in/)
-- [Discord chat](https://discord.gg/ZdCmdCB)
-- [Reddit](https://reddit.com/r/bananocoin)
-- [Fritter](https://twitter.com/)
-- [GitHub wiki](https://github.com/bananocoin/banano/wiki)
+- [Banano website](http://banano.co.in)
+- [Yellowpaper](http://Banano.co.in/)
+- [Moonmap](http://banano.co.in/)
+- [Discord chat](http://discord.gg/ZdCmdCB)
+- [Reddit](http://reddit.com/r/bananocoin)
+- [Fritter](http://twitter.com/)
+- [GitHub wiki](http://github.com/bananocoin/banano/wiki)
 
 ### Build instructions
-https://github.com/bananocoin/banano/wiki/Build-Instructions
+http://github.com/bananocoin/banano/wiki/Build-Instructions
 
 ### Want to contribute?
-Please visit us on the [Discord](https://discord.gg/ZdCmdCB).
+Please visit us on the [Discord](http://discord.gg/ZdCmdCB).
 
 ### Contact us
 
 We want to hear about any trouble, success, delight, or pain you experience when
-eating Banano. Let us know by [filing an issue](https://github.com/bananocoin/banano/issues), or joining us on [Discord](https://discord.gg/ZdCmdCB).
+eating Banano. Let us know by [filing an issue](http://github.com/bananocoin/banano/issues), or joining us on [Discord](http://discord.gg/ZdCmdCB).
