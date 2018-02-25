@@ -340,9 +340,24 @@ void rai::rpc_handler::account_info ()
 	auto error (account.decode_account (account_text));
 	if (!error)
 	{
-		const bool representative = *(request.get_optional<bool> ("representative"));
-		const bool weight = *(request.get_optional<bool> ("weight"));
-		const bool pending = *(request.get_optional<bool> ("pending"));
+		bool representative (false);
+		boost::optional<bool> representative_optional (request.get_optional<bool> ("representative"));
+		if (representative_optional.is_initialized ())
+		{
+			representative = representative_optional.get ();
+		}
+		bool weight (false);
+		boost::optional<bool> weight_optional (request.get_optional<bool> ("weight"));
+		if (weight_optional.is_initialized ())
+		{
+			weight = weight_optional.get ();
+		}
+		bool pending (false);
+		boost::optional<bool> pending_optional (request.get_optional<bool> ("pending"));
+		if (pending_optional.is_initialized ())
+		{
+			pending = pending_optional.get ();
+		}
 		rai::transaction transaction (node.store.environment, nullptr, false);
 		rai::account_info info;
 		if (!node.store.account_get (transaction, account, info))
@@ -800,6 +815,7 @@ void rai::rpc_handler::accounts_pending ()
 {
 	uint64_t count (std::numeric_limits<uint64_t>::max ());
 	rai::uint128_union threshold (0);
+	bool source (false);
 	boost::optional<std::string> count_text (request.get_optional<std::string> ("count"));
 	if (count_text.is_initialized ())
 	{
@@ -818,7 +834,11 @@ void rai::rpc_handler::accounts_pending ()
 			error_response (response, "Bad threshold number");
 		}
 	}
-	const bool source = *(request.get_optional<bool> ("source"));
+	boost::optional<bool> source_optional (request.get_optional<bool> ("source"));
+	if (source_optional.is_initialized ())
+	{
+		source = source_optional.get ();
+	}
 	boost::property_tree::ptree response_l;
 	boost::property_tree::ptree pending;
 	rai::transaction transaction (node.store.environment, nullptr, false);
@@ -945,8 +965,18 @@ void rai::rpc_handler::blocks ()
 
 void rai::rpc_handler::blocks_info ()
 {
-	const bool pending = *(request.get_optional<bool> ("pending"));
-	const bool source = *(request.get_optional<bool> ("source"));
+	bool pending (false);
+	boost::optional<bool> pending_optional (request.get_optional<bool> ("pending"));
+	if (pending_optional.is_initialized ())
+	{
+		pending = pending_optional.get ();
+	}
+	bool source (false);
+	boost::optional<bool> source_optional (request.get_optional<bool> ("source"));
+	if (source_optional.is_initialized ())
+	{
+		source = source_optional.get ();
+	}
 	std::vector<std::string> hashes;
 	boost::property_tree::ptree response_l;
 	boost::property_tree::ptree blocks;
@@ -1762,6 +1792,7 @@ void rai::rpc_handler::ledger ()
 	{
 		rai::account start (0);
 		uint64_t count (std::numeric_limits<uint64_t>::max ());
+		bool sorting (false);
 		boost::optional<std::string> account_text (request.get_optional<std::string> ("account"));
 		if (account_text.is_initialized ())
 		{
@@ -1780,16 +1811,29 @@ void rai::rpc_handler::ledger ()
 				error_response (response, "Invalid count limit");
 			}
 		}
-		uint64_t modified_since (0);
-		boost::optional<std::string> modified_since_text (request.get_optional<std::string> ("modified_since"));
-		if (modified_since_text.is_initialized ())
+		boost::optional<bool> sorting_optional (request.get_optional<bool> ("sorting"));
+		if (sorting_optional.is_initialized ())
 		{
-			modified_since = strtoul (modified_since_text.get ().c_str (), NULL, 10);
+			sorting = sorting_optional.get ();
 		}
-		const bool sorting = *(request.get_optional<bool> ("sorting"));
-		const bool representative = *(request.get_optional<bool> ("representative"));
-		const bool weight = *(request.get_optional<bool> ("weight"));
-		const bool pending = *(request.get_optional<bool> ("pending"));
+		bool representative (false);
+		boost::optional<bool> representative_optional (request.get_optional<bool> ("representative"));
+		if (representative_optional.is_initialized ())
+		{
+			representative = representative_optional.get ();
+		}
+		bool weight (false);
+		boost::optional<bool> weight_optional (request.get_optional<bool> ("weight"));
+		if (weight_optional.is_initialized ())
+		{
+			weight = weight_optional.get ();
+		}
+		bool pending (false);
+		boost::optional<bool> pending_optional (request.get_optional<bool> ("pending"));
+		if (pending_optional.is_initialized ())
+		{
+			pending = pending_optional.get ();
+		}
 		boost::property_tree::ptree response_a;
 		boost::property_tree::ptree response_l;
 		boost::property_tree::ptree accounts;
@@ -1799,36 +1843,33 @@ void rai::rpc_handler::ledger ()
 			for (auto i (node.store.latest_begin (transaction, start)), n (node.store.latest_end ()); i != n && accounts.size () < count; ++i)
 			{
 				rai::account_info info (i->second);
-				if (info.modified >= modified_since)
+				rai::account account (i->first.uint256 ());
+				boost::property_tree::ptree response_l;
+				response_l.put ("frontier", info.head.to_string ());
+				response_l.put ("open_block", info.open_block.to_string ());
+				response_l.put ("representative_block", info.rep_block.to_string ());
+				std::string balance;
+				rai::uint128_union (info.balance).encode_dec (balance);
+				response_l.put ("balance", balance);
+				response_l.put ("modified_timestamp", std::to_string (info.modified));
+				response_l.put ("block_count", std::to_string (info.block_count));
+				if (representative)
 				{
-					rai::account account (i->first.uint256 ());
-					boost::property_tree::ptree response_l;
-					response_l.put ("frontier", info.head.to_string ());
-					response_l.put ("open_block", info.open_block.to_string ());
-					response_l.put ("representative_block", info.rep_block.to_string ());
-					std::string balance;
-					rai::uint128_union (info.balance).encode_dec (balance);
-					response_l.put ("balance", balance);
-					response_l.put ("modified_timestamp", std::to_string (info.modified));
-					response_l.put ("block_count", std::to_string (info.block_count));
-					if (representative)
-					{
-						auto block (node.store.block_get (transaction, info.rep_block));
-						assert (block != nullptr);
-						response_l.put ("representative", block->representative ().to_account ());
-					}
-					if (weight)
-					{
-						auto account_weight (node.ledger.weight (transaction, account));
-						response_l.put ("weight", account_weight.convert_to<std::string> ());
-					}
-					if (pending)
-					{
-						auto account_pending (node.ledger.account_pending (transaction, account));
-						response_l.put ("pending", account_pending.convert_to<std::string> ());
-					}
-					accounts.push_back (std::make_pair (account.to_account (), response_l));
+					auto block (node.store.block_get (transaction, info.rep_block));
+					assert (block != nullptr);
+					response_l.put ("representative", block->representative ().to_account ());
 				}
+				if (weight)
+				{
+					auto account_weight (node.ledger.weight (transaction, account));
+					response_l.put ("weight", account_weight.convert_to<std::string> ());
+				}
+				if (pending)
+				{
+					auto account_pending (node.ledger.account_pending (transaction, account));
+					response_l.put ("pending", account_pending.convert_to<std::string> ());
+				}
+				accounts.push_back (std::make_pair (account.to_account (), response_l));
 			}
 		}
 		else // Sorting
@@ -1836,12 +1877,8 @@ void rai::rpc_handler::ledger ()
 			std::vector<std::pair<rai::uint128_union, rai::account>> ledger_l;
 			for (auto i (node.store.latest_begin (transaction, start)), n (node.store.latest_end ()); i != n; ++i)
 			{
-				rai::account_info info (i->second);
-				rai::uint128_union balance (info.balance);
-				if (info.modified >= modified_since)
-				{
-					ledger_l.push_back (std::make_pair (balance, rai::account (i->first.uint256 ())));
-				}
+				rai::uint128_union balance (rai::account_info (i->second).balance);
+				ledger_l.push_back (std::make_pair (balance, rai::account (i->first.uint256 ())));
 			}
 			std::sort (ledger_l.begin (), ledger_l.end ());
 			std::reverse (ledger_l.begin (), ledger_l.end ());
@@ -2087,6 +2124,7 @@ void rai::rpc_handler::pending ()
 	{
 		uint64_t count (std::numeric_limits<uint64_t>::max ());
 		rai::uint128_union threshold (0);
+		bool source (false);
 		boost::optional<std::string> count_text (request.get_optional<std::string> ("count"));
 		if (count_text.is_initialized ())
 		{
@@ -2105,7 +2143,11 @@ void rai::rpc_handler::pending ()
 				error_response (response, "Bad threshold number");
 			}
 		}
-		const bool source = *(request.get_optional<bool> ("source"));
+		boost::optional<bool> source_optional (request.get_optional<bool> ("source"));
+		if (source_optional.is_initialized ())
+		{
+			source = source_optional.get ();
+		}
 		boost::property_tree::ptree response_l;
 		boost::property_tree::ptree peers_l;
 		{
@@ -2669,6 +2711,7 @@ void rai::rpc_handler::receive_minimum_set ()
 void rai::rpc_handler::representatives ()
 {
 	uint64_t count (std::numeric_limits<uint64_t>::max ());
+	bool sorting (false);
 	boost::optional<std::string> count_text (request.get_optional<std::string> ("count"));
 	if (count_text.is_initialized ())
 	{
@@ -2678,7 +2721,11 @@ void rai::rpc_handler::representatives ()
 			error_response (response, "Invalid count limit");
 		}
 	}
-	const bool sorting = *(request.get_optional<bool> ("sorting"));
+	boost::optional<bool> sorting_optional (request.get_optional<bool> ("sorting"));
+	if (sorting_optional.is_initialized ())
+	{
+		sorting = sorting_optional.get ();
+	}
 	boost::property_tree::ptree response_l;
 	boost::property_tree::ptree representatives;
 	rai::transaction transaction (node.store.environment, nullptr, false);
@@ -3208,60 +3255,6 @@ void rai::rpc_handler::wallet_add ()
 	}
 }
 
-void rai::rpc_handler::wallet_add_watch ()
-{
-	if (rpc.config.enable_control)
-	{
-		std::string wallet_text (request.get<std::string> ("wallet"));
-		rai::uint256_union wallet;
-		auto error (wallet.decode_hex (wallet_text));
-		if (!error)
-		{
-			auto existing (node.wallets.items.find (wallet));
-			if (existing != node.wallets.items.end ())
-			{
-				rai::transaction transaction (node.store.environment, nullptr, true);
-				if (existing->second->store.valid_password (transaction))
-				{
-					for (auto & accounts : request.get_child ("accounts"))
-					{
-						std::string account_text = accounts.second.data ();
-						rai::uint256_union account;
-						auto error (account.decode_account (account_text));
-						if (!error)
-						{
-							existing->second->insert_watch (transaction, account);
-						}
-						else
-						{
-							error_response (response, "Bad account number");
-						}
-					}
-					boost::property_tree::ptree response_l;
-					response_l.put ("success", "");
-					response (response_l);
-				}
-				else
-				{
-					error_response (response, "Wallet locked");
-				}
-			}
-			else
-			{
-				error_response (response, "Wallet not found");
-			}
-		}
-		else
-		{
-			error_response (response, "Bad wallet number");
-		}
-	}
-	else
-	{
-		error_response (response, "RPC control is disabled");
-	}
-}
-
 void rai::rpc_handler::wallet_balance_total ()
 {
 	std::string wallet_text (request.get<std::string> ("wallet"));
@@ -3594,79 +3587,6 @@ void rai::rpc_handler::wallet_key_valid ()
 	}
 }
 
-void rai::rpc_handler::wallet_ledger ()
-{
-	const bool representative = *(request.get_optional<bool> ("representative"));
-	const bool weight = *(request.get_optional<bool> ("weight"));
-	const bool pending = *(request.get_optional<bool> ("pending"));
-	uint64_t modified_since (0);
-	boost::optional<std::string> modified_since_text (request.get_optional<std::string> ("modified_since"));
-	if (modified_since_text.is_initialized ())
-	{
-		modified_since = strtoul (modified_since_text.get ().c_str (), NULL, 10);
-	}
-	std::string wallet_text (request.get<std::string> ("wallet"));
-	rai::uint256_union wallet;
-	auto error (wallet.decode_hex (wallet_text));
-	if (!error)
-	{
-		auto existing (node.wallets.items.find (wallet));
-		if (existing != node.wallets.items.end ())
-		{
-			boost::property_tree::ptree response_l;
-			boost::property_tree::ptree accounts;
-			rai::transaction transaction (node.store.environment, nullptr, false);
-			for (auto i (existing->second->store.begin (transaction)), n (existing->second->store.end ()); i != n; ++i)
-			{
-				rai::account account (i->first.uint256 ());
-				rai::account_info info;
-				if (!node.store.account_get (transaction, account, info))
-				{
-					if (info.modified >= modified_since)
-					{
-						boost::property_tree::ptree entry;
-						entry.put ("frontier", info.head.to_string ());
-						entry.put ("open_block", info.open_block.to_string ());
-						entry.put ("representative_block", info.rep_block.to_string ());
-						std::string balance;
-						rai::uint128_union (info.balance).encode_dec (balance);
-						entry.put ("balance", balance);
-						entry.put ("modified_timestamp", std::to_string (info.modified));
-						entry.put ("block_count", std::to_string (info.block_count));
-						if (representative)
-						{
-							auto block (node.store.block_get (transaction, info.rep_block));
-							assert (block != nullptr);
-							entry.put ("representative", block->representative ().to_account ());
-						}
-						if (weight)
-						{
-							auto account_weight (node.ledger.weight (transaction, account));
-							entry.put ("weight", account_weight.convert_to<std::string> ());
-						}
-						if (pending)
-						{
-							auto account_pending (node.ledger.account_pending (transaction, account));
-							entry.put ("pending", account_pending.convert_to<std::string> ());
-						}
-						accounts.push_back (std::make_pair (account.to_account (), entry));
-					}
-				}
-			}
-			response_l.add_child ("accounts", accounts);
-			response (response_l);
-		}
-		else
-		{
-			error_response (response, "Wallet not found");
-		}
-	}
-	else
-	{
-		error_response (response, "Bad wallet number");
-	}
-}
-
 void rai::rpc_handler::wallet_lock ()
 {
 	if (rpc.config.enable_control)
@@ -3714,6 +3634,7 @@ void rai::rpc_handler::wallet_pending ()
 		{
 			uint64_t count (std::numeric_limits<uint64_t>::max ());
 			rai::uint128_union threshold (0);
+			bool source (false);
 			boost::optional<std::string> count_text (request.get_optional<std::string> ("count"));
 			if (count_text.is_initialized ())
 			{
@@ -3732,7 +3653,11 @@ void rai::rpc_handler::wallet_pending ()
 					error_response (response, "Bad threshold number");
 				}
 			}
-			const bool source = *(request.get_optional<bool> ("source"));
+			boost::optional<bool> source_optional (request.get_optional<bool> ("source"));
+			if (source_optional.is_initialized ())
+			{
+				source = source_optional.get ();
+			}
 			boost::property_tree::ptree response_l;
 			boost::property_tree::ptree pending;
 			rai::transaction transaction (node.store.environment, nullptr, false);
@@ -4629,10 +4554,6 @@ void rai::rpc_handler::process_request ()
 		{
 			wallet_add ();
 		}
-		else if (action == "wallet_add_watch")
-		{
-			wallet_add_watch ();
-		}
 		else if (action == "wallet_balance_total")
 		{
 			wallet_balance_total ();
@@ -4668,10 +4589,6 @@ void rai::rpc_handler::process_request ()
 		else if (action == "wallet_key_valid")
 		{
 			wallet_key_valid ();
-		}
-		else if (action == "wallet_ledger")
-		{
-			wallet_ledger ();
 		}
 		else if (action == "wallet_lock")
 		{
