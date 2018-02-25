@@ -1318,6 +1318,8 @@ TEST (rpc, pending)
 		rai::uint128_union amount;
 		amount.decode_dec (i->second.get<std::string> (""));
 		blocks[hash] = amount;
+		boost::optional<std::string> source (i->second.get_optional<std::string> ("source"));
+		ASSERT_FALSE (source.is_initialized ());
 	}
 	ASSERT_EQ (blocks[block1->hash ()], 100);
 	request.put ("threshold", "101");
@@ -2246,6 +2248,8 @@ TEST (rpc, accounts_pending)
 			rai::uint128_union amount;
 			amount.decode_dec (i->second.get<std::string> (""));
 			blocks[hash] = amount;
+			boost::optional<std::string> source (i->second.get_optional<std::string> ("source"));
+			ASSERT_FALSE (source.is_initialized ());
 		}
 	}
 	ASSERT_EQ (blocks[block1->hash ()], 100);
@@ -2446,6 +2450,8 @@ TEST (rpc, wallet_pending)
 			rai::uint128_union amount;
 			amount.decode_dec (i->second.get<std::string> (""));
 			blocks[hash] = amount;
+			boost::optional<std::string> source (i->second.get_optional<std::string> ("source"));
+			ASSERT_FALSE (source.is_initialized ());
 		}
 	}
 	ASSERT_EQ (blocks[block1->hash ()], 100);
@@ -2761,6 +2767,27 @@ TEST (rpc, account_info)
 	ASSERT_TRUE (time - stol (modified_timestamp) < 5);
 	std::string block_count (response.json.get<std::string> ("block_count"));
 	ASSERT_EQ ("2", block_count);
+	boost::optional<std::string> weight (response.json.get_optional<std::string> ("weight"));
+	ASSERT_FALSE (weight.is_initialized ());
+	boost::optional<std::string> pending (response.json.get_optional<std::string> ("pending"));
+	ASSERT_FALSE (pending.is_initialized ());
+	boost::optional<std::string> representative (response.json.get_optional<std::string> ("representative"));
+	ASSERT_FALSE (representative.is_initialized ());
+	// Test for optional values
+	request.put ("weight", "true");
+	request.put ("pending", "1");
+	request.put ("representative", "1");
+	test_response response2 (request, rpc, system.service);
+	while (response2.status == 0)
+	{
+		system.poll ();
+	}
+	std::string weight2 (response2.json.get<std::string> ("weight"));
+	ASSERT_EQ ("100", weight2);
+	std::string pending2 (response2.json.get<std::string> ("pending"));
+	ASSERT_EQ ("0", pending2);
+	std::string representative2 (response2.json.get<std::string> ("representative"));
+	ASSERT_EQ (rai::test_genesis_key.pub.to_account (), representative2);
 }
 
 TEST (rpc, blocks_info)
@@ -2791,6 +2818,26 @@ TEST (rpc, blocks_info)
 		ASSERT_EQ (rai::genesis_amount.convert_to<std::string> (), amount_text);
 		std::string blocks_text (blocks.second.get<std::string> ("contents"));
 		ASSERT_FALSE (blocks_text.empty ());
+		boost::optional<std::string> pending (blocks.second.get_optional<std::string> ("pending"));
+		ASSERT_FALSE (pending.is_initialized ());
+		boost::optional<std::string> source (blocks.second.get_optional<std::string> ("source_account"));
+		ASSERT_FALSE (source.is_initialized ());
+	}
+	// Test for optional values
+	request.put ("source", "true");
+	request.put ("pending", "1");
+	test_response response2 (request, rpc, system.service);
+	while (response2.status == 0)
+	{
+		system.poll ();
+	}
+	ASSERT_EQ (200, response2.status);
+	for (auto & blocks : response2.json.get_child ("blocks"))
+	{
+		std::string source (blocks.second.get<std::string> ("source_account"));
+		ASSERT_EQ ("0", source);
+		std::string pending (blocks.second.get<std::string> ("pending"));
+		ASSERT_EQ ("0", pending);
 	}
 }
 
@@ -2919,6 +2966,33 @@ TEST (rpc, ledger)
 		ASSERT_EQ (std::to_string (time), modified_timestamp);
 		std::string block_count (accounts.second.get<std::string> ("block_count"));
 		ASSERT_EQ ("1", block_count);
+		boost::optional<std::string> weight (accounts.second.get_optional<std::string> ("weight"));
+		ASSERT_FALSE (weight.is_initialized ());
+		boost::optional<std::string> pending (accounts.second.get_optional<std::string> ("pending"));
+		ASSERT_FALSE (pending.is_initialized ());
+		boost::optional<std::string> representative (accounts.second.get_optional<std::string> ("representative"));
+		ASSERT_FALSE (representative.is_initialized ());
+	}
+	// Test for optional values
+	request.put ("weight", "1");
+	request.put ("pending", "1");
+	request.put ("representative", "true");
+	test_response response2 (request, rpc, system.service);
+	while (response2.status == 0)
+	{
+		system.poll ();
+	}
+	for (auto & accounts : response2.json.get_child ("accounts"))
+	{
+		boost::optional<std::string> weight (accounts.second.get_optional<std::string> ("weight"));
+		ASSERT_TRUE (weight.is_initialized ());
+		ASSERT_EQ ("0", weight.get ());
+		boost::optional<std::string> pending (accounts.second.get_optional<std::string> ("pending"));
+		ASSERT_TRUE (pending.is_initialized ());
+		ASSERT_EQ ("0", pending.get ());
+		boost::optional<std::string> representative (accounts.second.get_optional<std::string> ("representative"));
+		ASSERT_TRUE (representative.is_initialized ());
+		ASSERT_EQ (rai::test_genesis_key.pub.to_account (), representative.get ());
 	}
 }
 
