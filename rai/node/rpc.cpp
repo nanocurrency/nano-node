@@ -282,12 +282,7 @@ void rai::rpc_handler::account_create ()
 			auto existing (node.wallets.items.find (wallet));
 			if (existing != node.wallets.items.end ())
 			{
-				bool generate_work (true);
-				boost::optional<bool> work (request.get_optional<bool> ("work"));
-				if (work.is_initialized ())
-				{
-					generate_work = work.get ();
-				}
+				const bool generate_work = request.get<bool> ("work", true);
 				rai::account new_key (existing->second->deterministic_insert (generate_work));
 				if (!new_key.is_zero ())
 				{
@@ -340,9 +335,9 @@ void rai::rpc_handler::account_info ()
 	auto error (account.decode_account (account_text));
 	if (!error)
 	{
-		const bool representative = *(request.get_optional<bool> ("representative"));
-		const bool weight = *(request.get_optional<bool> ("weight"));
-		const bool pending = *(request.get_optional<bool> ("pending"));
+		const bool representative = request.get<bool> ("representative", false);
+		const bool weight = request.get<bool> ("weight", false);
+		const bool pending = request.get<bool> ("pending", false);
 		rai::transaction transaction (node.store.environment, nullptr, false);
 		rai::account_info info;
 		if (!node.store.account_get (transaction, account, info))
@@ -727,12 +722,7 @@ void rai::rpc_handler::accounts_create ()
 				auto existing (node.wallets.items.find (wallet));
 				if (existing != node.wallets.items.end ())
 				{
-					bool generate_work (true);
-					boost::optional<bool> work (request.get_optional<bool> ("work"));
-					if (work.is_initialized ())
-					{
-						generate_work = work.get ();
-					}
+					const bool generate_work = request.get<bool> ("work", true);
 					boost::property_tree::ptree response_l;
 					boost::property_tree::ptree accounts;
 					for (auto i (0); accounts.size () < count; ++i)
@@ -818,7 +808,7 @@ void rai::rpc_handler::accounts_pending ()
 			error_response (response, "Bad threshold number");
 		}
 	}
-	const bool source = *(request.get_optional<bool> ("source"));
+	const bool source = request.get<bool> ("source", false);
 	boost::property_tree::ptree response_l;
 	boost::property_tree::ptree pending;
 	rai::transaction transaction (node.store.environment, nullptr, false);
@@ -945,8 +935,8 @@ void rai::rpc_handler::blocks ()
 
 void rai::rpc_handler::blocks_info ()
 {
-	const bool pending = *(request.get_optional<bool> ("pending"));
-	const bool source = *(request.get_optional<bool> ("source"));
+	const bool pending = request.get<bool> ("pending", false);
+	const bool source = request.get<bool> ("source", false);
 	std::vector<std::string> hashes;
 	boost::property_tree::ptree response_l;
 	boost::property_tree::ptree blocks;
@@ -1786,10 +1776,10 @@ void rai::rpc_handler::ledger ()
 		{
 			modified_since = strtoul (modified_since_text.get ().c_str (), NULL, 10);
 		}
-		const bool sorting = *(request.get_optional<bool> ("sorting"));
-		const bool representative = *(request.get_optional<bool> ("representative"));
-		const bool weight = *(request.get_optional<bool> ("weight"));
-		const bool pending = *(request.get_optional<bool> ("pending"));
+		const bool sorting = request.get<bool> ("sorting", false);
+		const bool representative = request.get<bool> ("representative", false);
+		const bool weight = request.get<bool> ("weight", false);
+		const bool pending = request.get<bool> ("pending", false);
 		boost::property_tree::ptree response_a;
 		boost::property_tree::ptree response_l;
 		boost::property_tree::ptree accounts;
@@ -2105,7 +2095,7 @@ void rai::rpc_handler::pending ()
 				error_response (response, "Bad threshold number");
 			}
 		}
-		const bool source = *(request.get_optional<bool> ("source"));
+		const bool source = request.get<bool> ("source", false);
 		boost::property_tree::ptree response_l;
 		boost::property_tree::ptree peers_l;
 		{
@@ -2678,7 +2668,7 @@ void rai::rpc_handler::representatives ()
 			error_response (response, "Invalid count limit");
 		}
 	}
-	const bool sorting = *(request.get_optional<bool> ("sorting"));
+	const bool sorting = request.get<bool> ("sorting", false);
 	boost::property_tree::ptree response_l;
 	boost::property_tree::ptree representatives;
 	rai::transaction transaction (node.store.environment, nullptr, false);
@@ -3169,12 +3159,7 @@ void rai::rpc_handler::wallet_add ()
 				auto existing (node.wallets.items.find (wallet));
 				if (existing != node.wallets.items.end ())
 				{
-					bool generate_work (true);
-					boost::optional<bool> work (request.get_optional<bool> ("work"));
-					if (work.is_initialized ())
-					{
-						generate_work = work.get ();
-					}
+					const bool generate_work = request.get<bool> ("work", true);
 					auto pub (existing->second->insert_adhoc (key, generate_work));
 					if (!pub.is_zero ())
 					{
@@ -3596,9 +3581,9 @@ void rai::rpc_handler::wallet_key_valid ()
 
 void rai::rpc_handler::wallet_ledger ()
 {
-	const bool representative = *(request.get_optional<bool> ("representative"));
-	const bool weight = *(request.get_optional<bool> ("weight"));
-	const bool pending = *(request.get_optional<bool> ("pending"));
+	const bool representative = request.get<bool> ("representative", false);
+	const bool weight = request.get<bool> ("weight", false);
+	const bool pending = request.get<bool> ("pending", false);
 	uint64_t modified_since (0);
 	boost::optional<std::string> modified_since_text (request.get_optional<std::string> ("modified_since"));
 	if (modified_since_text.is_initialized ())
@@ -3732,7 +3717,7 @@ void rai::rpc_handler::wallet_pending ()
 					error_response (response, "Bad threshold number");
 				}
 			}
-			const bool source = *(request.get_optional<bool> ("source"));
+			const bool source = request.get<bool> ("source", false);
 			boost::property_tree::ptree response_l;
 			boost::property_tree::ptree pending;
 			rai::transaction transaction (node.store.environment, nullptr, false);
