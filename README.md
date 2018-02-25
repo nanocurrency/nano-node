@@ -6,7 +6,7 @@ Banano is designed to be a feeless, instant, high throughput cryptocurrency.
 We've applied the philosophy of "do one thing and do it well", giving you performance and scalability unmatched by any other platform.
 
 ### Key features
-* Banano utilizes a novel block-lettuce architecture, unlike conventional blockchains used in many other cryptocurrencies.
+* Banano utilizes a novel block-lettuce architecture.
 * Instant and Feeless transactions.
 * Fungible (& Edible).
 * Daily potassium airdrops.
