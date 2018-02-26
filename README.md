@@ -14,6 +14,7 @@ We've applied the philosophy of "do one thing and do it well", giving you perfor
 * Literally grows on tree's, no mining required.
 * Not a Shitcoin (until digested).
 * No more confusing prefix, Bananos contain Banoshis.
+* Replay Protection to stop attackers from executing replay attacks from chain X on chain Y and vice versa.
 
 
 
