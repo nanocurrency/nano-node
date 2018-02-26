@@ -379,7 +379,6 @@ TEST (rpc, wallet_add)
 	rai::keypair key1;
 	std::string key_text;
 	key1.prv.data.encode_hex (key_text);
-	system.wallet (0)->insert_adhoc (key1.prv);
 	boost::property_tree::ptree request;
 	std::string wallet;
 	system.nodes[0]->wallets.items.begin ()->first.encode_hex (wallet);
@@ -394,6 +393,7 @@ TEST (rpc, wallet_add)
 	ASSERT_EQ (200, response.status);
 	std::string account_text1 (response.json.get<std::string> ("account"));
 	ASSERT_EQ (account_text1, key1.pub.to_account ());
+	ASSERT_TRUE (system.wallet (0)->exists (key1.pub));
 }
 
 TEST (rpc, wallet_password_valid)
@@ -3208,4 +3208,100 @@ TEST (rpc, wallet_create_fail)
 		system.poll ();
 	}
 	ASSERT_EQ ("Failed to create wallet. Increase lmdb_max_dbs in node config.", response.json.get<std::string> ("error"));
+}
+
+TEST (rpc, wallet_ledger)
+{
+	rai::system system (24000, 1);
+	rai::keypair key;
+	rai::genesis genesis;
+	system.wallet (0)->insert_adhoc (key.prv);
+	auto & node1 (*system.nodes[0]);
+	auto latest (system.nodes[0]->latest (rai::test_genesis_key.pub));
+	rai::send_block send (latest, key.pub, 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, node1.generate_work (latest));
+	system.nodes[0]->process (send);
+	rai::open_block open (send.hash (), rai::test_genesis_key.pub, key.pub, key.prv, key.pub, node1.generate_work (key.pub));
+	ASSERT_EQ (rai::process_result::progress, system.nodes[0]->process (open).code);
+	auto time (rai::seconds_since_epoch ());
+	rai::rpc rpc (system.service, *system.nodes[0], rai::rpc_config (true));
+	rpc.start ();
+	boost::property_tree::ptree request;
+	request.put ("action", "wallet_ledger");
+	request.put ("wallet", system.nodes[0]->wallets.items.begin ()->first.to_string ());
+	request.put ("sorting", "1");
+	request.put ("count", "1");
+	test_response response (request, rpc, system.service);
+	while (response.status == 0)
+	{
+		system.poll ();
+	}
+	for (auto & accounts : response.json.get_child ("accounts"))
+	{
+		std::string account_text (accounts.first);
+		ASSERT_EQ (key.pub.to_account (), account_text);
+		std::string frontier (accounts.second.get<std::string> ("frontier"));
+		ASSERT_EQ (open.hash ().to_string (), frontier);
+		std::string open_block (accounts.second.get<std::string> ("open_block"));
+		ASSERT_EQ (open.hash ().to_string (), open_block);
+		std::string representative_block (accounts.second.get<std::string> ("representative_block"));
+		ASSERT_EQ (open.hash ().to_string (), representative_block);
+		std::string balance_text (accounts.second.get<std::string> ("balance"));
+		ASSERT_EQ ("340282366920938463463374607431768211355", balance_text);
+		std::string modified_timestamp (accounts.second.get<std::string> ("modified_timestamp"));
+		ASSERT_EQ (std::to_string (time), modified_timestamp);
+		std::string block_count (accounts.second.get<std::string> ("block_count"));
+		ASSERT_EQ ("1", block_count);
+		boost::optional<std::string> weight (accounts.second.get_optional<std::string> ("weight"));
+		ASSERT_FALSE (weight.is_initialized ());
+		boost::optional<std::string> pending (accounts.second.get_optional<std::string> ("pending"));
+		ASSERT_FALSE (pending.is_initialized ());
+		boost::optional<std::string> representative (accounts.second.get_optional<std::string> ("representative"));
+		ASSERT_FALSE (representative.is_initialized ());
+	}
+	// Test for optional values
+	request.put ("weight", "true");
+	request.put ("pending", "1");
+	request.put ("representative", "false");
+	test_response response2 (request, rpc, system.service);
+	while (response2.status == 0)
+	{
+		system.poll ();
+	}
+	for (auto & accounts : response2.json.get_child ("accounts"))
+	{
+		boost::optional<std::string> weight (accounts.second.get_optional<std::string> ("weight"));
+		ASSERT_TRUE (weight.is_initialized ());
+		ASSERT_EQ ("0", weight.get ());
+		boost::optional<std::string> pending (accounts.second.get_optional<std::string> ("pending"));
+		ASSERT_TRUE (pending.is_initialized ());
+		ASSERT_EQ ("0", pending.get ());
+		boost::optional<std::string> representative (accounts.second.get_optional<std::string> ("representative"));
+		ASSERT_FALSE (representative.is_initialized ());
+	}
+}
+
+TEST (rpc, wallet_add_watch)
+{
+	rai::system system (24000, 1);
+	rai::rpc rpc (system.service, *system.nodes[0], rai::rpc_config (true));
+	rpc.start ();
+	boost::property_tree::ptree request;
+	std::string wallet;
+	system.nodes[0]->wallets.items.begin ()->first.encode_hex (wallet);
+	request.put ("wallet", wallet);
+	request.put ("action", "wallet_add_watch");
+	boost::property_tree::ptree entry;
+	boost::property_tree::ptree peers_l;
+	entry.put ("", rai::test_genesis_key.pub.to_account ());
+	peers_l.push_back (std::make_pair ("", entry));
+	request.add_child ("accounts", peers_l);
+	test_response response (request, rpc, system.service);
+	while (response.status == 0)
+	{
+		system.poll ();
+	}
+	ASSERT_EQ (200, response.status);
+	std::string success (response.json.get<std::string> ("success"));
+	ASSERT_TRUE (success.empty ());
+	ASSERT_TRUE (system.wallet (0)->exists (rai::test_genesis_key.pub));
 }
