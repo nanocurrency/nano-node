@@ -3106,11 +3106,11 @@ bool rai::handle_node_options (boost::program_options::variables_map & vm)
 			std::cerr << "Vacuum failed" << std::endl;
 		}
 	}
-	else if (vm.count("snapshot"))
+	else if (vm.count ("snapshot"))
 	{
 		try
 		{
-			boost::filesystem::path data_path = vm.count("data_path") ? boost::filesystem::path(vm["data_path"].as<std::string>()) : rai::working_path();
+			boost::filesystem::path data_path = vm.count ("data_path") ? boost::filesystem::path (vm["data_path"].as<std::string> ()) : rai::working_path ();
 
 			auto source_path = data_path / "data.ldb";
 			auto snapshot_path = data_path / "snapshot.ldb";
@@ -3120,8 +3120,8 @@ bool rai::handle_node_options (boost::program_options::variables_map & vm)
 
 			bool success = false;
 			{
-				inactive_node node(data_path);
-				success = node.node->copy_with_compaction(snapshot_path);
+				inactive_node node (data_path);
+				success = node.node->copy_with_compaction (snapshot_path);
 			}
 			if (success)
 			{
@@ -3130,7 +3130,7 @@ bool rai::handle_node_options (boost::program_options::variables_map & vm)
 		}
 		catch (const boost::filesystem::filesystem_error & ex)
 		{
-			std::cerr << "Snapshot failed during a file operation: " << ex.what() << std::endl;
+			std::cerr << "Snapshot failed during a file operation: " << ex.what () << std::endl;
 		}
 		catch (...)
 		{
