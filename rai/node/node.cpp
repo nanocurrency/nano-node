@@ -2966,6 +2966,7 @@ void rai::add_node_options (boost::program_options::options_description & descri
 		("account_get", "Get account number for the <key>")
 		("account_key", "Get the public key for <account>")
 		("vacuum", "Compact database. If data_path is missing, the database in data directory is compacted.")
+		("snapshot", "Compact database and create snapshot, functions similar to vacuum but does not replace the existing database")
 		("data_path", boost::program_options::value<std::string> (), "Use the supplied path as the data directory")
 		("diagnostics", "Run internal diagnostics")
 		("key_create", "Generates a adhoc random keypair and prints it to stdout")
@@ -3103,6 +3104,37 @@ bool rai::handle_node_options (boost::program_options::variables_map & vm)
 		catch (...)
 		{
 			std::cerr << "Vacuum failed" << std::endl;
+		}
+	}
+	else if (vm.count ("snapshot"))
+	{
+		try
+		{
+			boost::filesystem::path data_path = vm.count ("data_path") ? boost::filesystem::path (vm["data_path"].as<std::string> ()) : rai::working_path ();
+
+			auto source_path = data_path / "data.ldb";
+			auto snapshot_path = data_path / "snapshot.ldb";
+
+			std::cout << "Database snapshot of " << source_path << " to " << snapshot_path << " in progress" << std::endl;
+			std::cout << "This may take a while..." << std::endl;
+
+			bool success = false;
+			{
+				inactive_node node (data_path);
+				success = node.node->copy_with_compaction (snapshot_path);
+			}
+			if (success)
+			{
+				std::cout << "Snapshot completed, This can be found at " << snapshot_path << std::endl;
+			}
+		}
+		catch (const boost::filesystem::filesystem_error & ex)
+		{
+			std::cerr << "Snapshot failed during a file operation: " << ex.what () << std::endl;
+		}
+		catch (...)
+		{
+			std::cerr << "Snapshot Failed" << std::endl;
 		}
 	}
 	else if (vm.count ("diagnostics"))
