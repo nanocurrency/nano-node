@@ -1,36 +1,41 @@
-[![Build Status](https://travis-ci.org/nanocurrency/raiblocks.svg?branch=master)](https://travis-ci.org/nanocurrency/raiblocks)
+[![Build Status] RIPE!
 
-# What is Nano?
-Nano is designed to be a feeless, instant, high throughput cryptocurrency.
+# What is Banano?
+Banano is designed to be a feeless, instant, high throughput cryptocurrency.
 
 We've applied the philosophy of "do one thing and do it well", giving you performance and scalability unmatched by any other platform.
 
 ### Key features
-* Nano utilizes a novel block-lattice architecture, unlike conventional blockchains used in many other cryptocurrencies.
-* The network requires minimal resources, no high-power mining hardware, and can process high transaction throughput.
-* Offers feeless, instantaneous transactions, as well as unlimited scalability, making Nano ideal for peer-to-peer transactions.
-* As of December 2017, the Nano network has processed over four million transactions with an unpruned ledger size of only 1.7GB.
+* Banano utilizes a novel block-lettuce architecture.
+* Instant and Feeless transactions.
+* Fungible (& Edible).
+* Daily potassium airdrops.
+* Ripe for memes.
+* Literally grows on tree's, no mining required.
+* Not a Shitcoin (until digested).
+* No more confusing prefix, Bananos contain Banoshis.
+* Replay Protection to stop attackers from executing replay attacks from chain X on chain Y and vice versa.
 
-For more information, see [Nano.org](https://nano.org/) or read the [whitepaper](https://nano.org/en/whitepaper).
+
+
+For more information, see [Banano.co.in](http://banano.co.in/) or read the [Yellowpaper](http://banano.co.in/en/whitepaper).
 
 ### Resources
-- [Nano website](https://nano.org)
-- [Whitepaper](https://nano.org/en/whitepaper)
-- [Roadmap](https://raiblocks.net/media/raiblocks-roadmap-v2-en.png)
-- [Discord chat](https://chat.nano.org/)
-- [Reddit](https://reddit.com/r/nanocurrency)
-- [Medium](https://medium.com/@nanocurrency)
-- [Twitter](https://twitter.com/nanocurrency)
-- [Forum](https://forum.raiblocks.net/)
-- [GitHub wiki](https://github.com/nanocurrency/raiblocks/wiki)
+- [Banano website](http://banano.co.in)
+- [Yellowpaper](http://Banano.co.in/)
+- [Moonmap](http://banano.co.in/)
+- [Discord chat](http://discord.gg/ZdCmdCB)
+- [Reddit](http://reddit.com/r/bananocoin)
+- [Fritter](http://twitter.com/)
+- [GitHub wiki](http://github.com/bananocoin/banano/wiki)
 
 ### Build instructions
-https://github.com/nanocurrency/raiblocks/wiki/Build-Instructions
+http://github.com/bananocoin/banano/wiki/Build-Instructions
 
 ### Want to contribute?
-Please see the [contributors guide](https://github.com/nanocurrency/raiblocks/wiki/Contributing).
+Please visit us on the [Discord](http://discord.gg/ZdCmdCB).
 
 ### Contact us
 
 We want to hear about any trouble, success, delight, or pain you experience when
-using Nano. Let us know by [filing an issue](https://github.com/nanocurrency/raiblocks/issues), joining us in [reddit](https://reddit.com/r/nanocurrency), or joining us in [Discord](https://chat.nano.org/).
+eating Banano. Let us know by [filing an issue](http://github.com/bananocoin/banano/issues), or joining us on [Discord](http://discord.gg/ZdCmdCB).
