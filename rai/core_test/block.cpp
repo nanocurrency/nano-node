@@ -325,3 +325,36 @@ TEST (block, confirm_req_serialization)
 	ASSERT_EQ (req, req2);
 	ASSERT_EQ (*req.block, *req2.block);
 }
+
+TEST (utx, serialization)
+{
+	rai::keypair key1;
+	rai::keypair key2;
+	rai::utx_block block1 (key1.pub, 1, key2.pub, 2, 3, 4, key1.prv, key1.pub, 5);
+	ASSERT_EQ (key1.pub, block1.hashables.account);
+	ASSERT_EQ (rai::block_hash (1), block1.previous ());
+	ASSERT_EQ (key2.pub, block1.hashables.representative);
+	ASSERT_EQ (rai::amount (2), block1.hashables.balance);
+	ASSERT_EQ (rai::amount (3), block1.hashables.amount);
+	ASSERT_EQ (rai::uint256_union (4), block1.hashables.link);
+	std::vector<uint8_t> bytes;
+	{
+		rai::vectorstream stream (bytes);
+		block1.serialize (stream);
+	}
+	ASSERT_EQ (rai::utx_block::size, bytes.size ());
+	bool error1;
+	rai::bufferstream stream (bytes.data (), bytes.size ());
+	rai::utx_block block2 (error1, stream);
+	ASSERT_FALSE (error1);
+	ASSERT_EQ (block1, block2);
+	std::string json;
+	block1.serialize_json (json);
+	std::stringstream body (json);
+	boost::property_tree::ptree tree;
+	boost::property_tree::read_json (body, tree);
+	bool error2;
+	rai::utx_block block3 (error2, tree);
+	ASSERT_FALSE (error2);
+	ASSERT_EQ (block1, block3);
+}

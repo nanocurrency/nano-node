@@ -52,6 +52,10 @@ public:
 	{
 		add_dependency (block_a.hashables.previous);
 	}
+	void utx_block (rai::utx_block const & block_a) override
+	{
+		
+	}
 	void add_dependency (rai::block_hash const & hash_a)
 	{
 		if (!sync.synchronized (transaction, hash_a) && sync.retrieve (transaction, hash_a) != nullptr)

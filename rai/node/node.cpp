@@ -1331,10 +1331,28 @@ rai::process_return rai::block_processor::process_receive_one (MDB_txn * transac
 			{
 				BOOST_LOG (node.log) << boost::str (boost::format ("Account mismatch for: %1%") % block_a->hash ().to_string ());
 			}
+			break;
 		}
 		case rai::process_result::opened_burn_account:
 		{
 			BOOST_LOG (node.log) << boost::str (boost::format ("*** Rejecting open block for burn account ***: %1%") % block_a->hash ().to_string ());
+			break;
+		}
+		case rai::process_result::balance_mismatch:
+		{
+			if (node.config.logging.ledger_logging ())
+			{
+				BOOST_LOG (node.log) << boost::str (boost::format ("Balance mismatch for: %1%") % block_a->hash ().to_string ());
+			}
+			break;
+		}
+		case rai::process_result::block_position:
+		{
+			if (node.config.logging.ledger_logging ())
+			{
+				BOOST_LOG (node.log) << boost::str (boost::format ("Block %1% cannot follow predecessor %2%") % block_a->hash ().to_string () % block_a->previous ().to_string ());
+			}
+			break;
 		}
 	}
 	return result;
@@ -2261,34 +2279,44 @@ public:
 	{
 	}
 	virtual ~confirmed_visitor () = default;
-	void send_block (rai::send_block const & block_a) override
+	void scan_receivable (rai::account const & account_a)
 	{
 		for (auto i (node.wallets.items.begin ()), n (node.wallets.items.end ()); i != n; ++i)
 		{
 			auto wallet (i->second);
-			if (wallet->exists (block_a.hashables.destination))
+			if (wallet->exists (account_a))
 			{
 				rai::account representative;
 				rai::pending_info pending;
 				rai::transaction transaction (node.store.environment, nullptr, false);
 				representative = wallet->store.representative (transaction);
-				auto error (node.store.pending_get (transaction, rai::pending_key (block_a.hashables.destination, block_a.hash ()), pending));
+				auto error (node.store.pending_get (transaction, rai::pending_key (account_a, block->hash ()), pending));
 				if (!error)
 				{
 					auto node_l (node.shared ());
 					auto amount (pending.amount.number ());
-					assert (block.get () == &block_a);
 					wallet->receive_async (block, representative, amount, [](std::shared_ptr<rai::block>) {});
 				}
 				else
 				{
 					if (node.config.logging.ledger_duplicate_logging ())
 					{
-						BOOST_LOG (node.log) << boost::str (boost::format ("Block confirmed before timeout %1%") % block_a.hash ().to_string ());
+						BOOST_LOG (node.log) << boost::str (boost::format ("Block confirmed before timeout %1%") % block->hash ().to_string ());
 					}
 				}
 			}
 		}
+	}
+	void utx_block (rai::utx_block const & block_a) override
+	{
+		if (block_a.hashables.is_send ())
+		{
+			scan_receivable (block_a.hashables.link);
+		}
+	}
+	void send_block (rai::send_block const & block_a) override
+	{
+		scan_receivable (block_a.hashables.destination);
 	}
 	void receive_block (rai::receive_block const &) override
 	{

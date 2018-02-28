@@ -89,6 +89,7 @@ size_t constexpr rai::send_block::size;
 size_t constexpr rai::receive_block::size;
 size_t constexpr rai::open_block::size;
 size_t constexpr rai::change_block::size;
+size_t constexpr rai::utx_block::size;
 
 rai::keypair const & rai::zero_key (globals.zero_key);
 rai::keypair const & rai::test_genesis_key (globals.test_genesis_key);
@@ -489,6 +490,15 @@ void rai::amount_visitor::open_block (rai::open_block const & block_a)
 	}
 }
 
+void rai::amount_visitor::utx_block (rai::utx_block const & block_a)
+{
+	result = block_a.hashables.amount.number ();
+	if (block_a.hashables.is_send ())
+	{
+		result = 0 - result;
+	}
+}
+
 void rai::amount_visitor::change_block (rai::change_block const & block_a)
 {
 	result = 0;
@@ -575,6 +585,12 @@ void rai::balance_visitor::change_block (rai::change_block const & block_a)
 	}
 }
 
+void rai::balance_visitor::utx_block (rai::utx_block const & block_a)
+{
+	result = block_a.hashables.balance.number ();
+	current = 0;
+}
+
 void rai::balance_visitor::compute (rai::block_hash const & block_hash)
 {
 	current = block_hash;
@@ -620,6 +636,11 @@ void rai::representative_visitor::open_block (rai::open_block const & block_a)
 }
 
 void rai::representative_visitor::change_block (rai::change_block const & block_a)
+{
+	result = block_a.hash ();
+}
+
+void rai::representative_visitor::utx_block (rai::utx_block const & block_a)
 {
 	result = block_a.hash ();
 }

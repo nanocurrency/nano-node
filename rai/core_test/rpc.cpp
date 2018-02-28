@@ -2876,6 +2876,8 @@ TEST (rpc, block_count_type)
 	ASSERT_EQ ("1", open_count);
 	std::string change_count (response.json.get<std::string> ("change"));
 	ASSERT_EQ ("0", change_count);
+	std::string utx_count (response.json.get<std::string> ("utx"));
+	ASSERT_EQ ("0", utx_count);
 }
 
 TEST (rpc, ledger)

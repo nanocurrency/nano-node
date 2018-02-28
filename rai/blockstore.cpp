@@ -42,6 +42,13 @@ public:
 	{
 		fill_value (block_a);
 	}
+	void utx_block (rai::utx_block const & block_a) override
+	{
+		if (!block_a.previous ().is_zero ())
+		{
+			fill_value (block_a);
+		}
+	}
 	MDB_txn * transaction;
 	rai::block_store & store;
 };
@@ -256,6 +263,7 @@ checksum (0)
 		error_a |= mdb_dbi_open (transaction, "receive", MDB_CREATE, &receive_blocks) != 0;
 		error_a |= mdb_dbi_open (transaction, "open", MDB_CREATE, &open_blocks) != 0;
 		error_a |= mdb_dbi_open (transaction, "change", MDB_CREATE, &change_blocks) != 0;
+		error_a |= mdb_dbi_open (transaction, "utx", MDB_CREATE, &utx_blocks) != 0;
 		error_a |= mdb_dbi_open (transaction, "pending", MDB_CREATE, &pending) != 0;
 		error_a |= mdb_dbi_open (transaction, "blocks_info", MDB_CREATE, &blocks_info) != 0;
 		error_a |= mdb_dbi_open (transaction, "representation", MDB_CREATE, &representation) != 0;
@@ -558,6 +566,9 @@ MDB_dbi rai::block_store::block_database (rai::block_type type_a)
 		case rai::block_type::change:
 			result = change_blocks;
 			break;
+		case rai::block_type::utx:
+			result = utx_blocks;
+			break;
 		default:
 			assert (false);
 			break;
@@ -603,7 +614,20 @@ MDB_val rai::block_store::block_get_raw (MDB_txn * transaction_a, rai::block_has
 			{
 				auto status (mdb_get (transaction_a, change_blocks, rai::mdb_val (hash_a), result));
 				assert (status == 0 || status == MDB_NOTFOUND);
-				if (status == 0)
+				if (status != 0)
+				{
+					auto status (mdb_get (transaction_a, utx_blocks, rai::mdb_val (hash_a), result));
+					assert (status == 0 || status == MDB_NOTFOUND);
+					if (status != 0)
+					{
+						// Block not found
+					}
+					else
+					{
+						type_a = rai::block_type::utx;
+					}
+				}
+				else
 				{
 					type_a = rai::block_type::change;
 				}
@@ -753,6 +777,12 @@ bool rai::block_store::block_exists (MDB_txn * transaction_a, rai::block_hash co
 				auto status (mdb_get (transaction_a, change_blocks, rai::mdb_val (hash_a), junk));
 				assert (status == 0 || status == MDB_NOTFOUND);
 				exists = status == 0;
+				if (!exists)
+				{
+					auto status (mdb_get (transaction_a, utx_blocks, rai::mdb_val (hash_a), junk));
+					assert (status == 0 || status == MDB_NOTFOUND);
+					exists = status == 0;
+				}
 			}
 		}
 	}
@@ -774,10 +804,14 @@ rai::block_counts rai::block_store::block_count (MDB_txn * transaction_a)
 	MDB_stat change_stats;
 	auto status4 (mdb_stat (transaction_a, change_blocks, &change_stats));
 	assert (status4 == 0);
+	MDB_stat utx_stats;
+	auto status5 (mdb_stat (transaction_a, utx_blocks, &utx_stats));
+	assert (status5 == 0);
 	result.send = send_stats.ms_entries;
 	result.receive = receive_stats.ms_entries;
 	result.open = open_stats.ms_entries;
 	result.change = change_stats.ms_entries;
+	result.utx = utx_stats.ms_entries;
 	return result;
 }
 

@@ -1083,6 +1083,7 @@ void rai::rpc_handler::block_count_type ()
 	response_l.put ("receive", std::to_string (count.receive));
 	response_l.put ("open", std::to_string (count.open));
 	response_l.put ("change", std::to_string (count.change));
+	response_l.put ("utx", std::to_string (count.utx));
 	response (response_l);
 }
 
@@ -1637,6 +1638,12 @@ public:
 	void change_block (rai::change_block const &)
 	{
 		// Don't report change blocks
+	}
+	void utx_block (rai::utx_block const & block_a)
+	{
+		tree.put ("type", "utx");
+		tree.put ("account", block_a.hashables.account.to_account ());
+		tree.put ("amount", block_a.hashables.amount.to_string_dec ()) ;
 	}
 	rai::rpc_handler & handler;
 	rai::transaction & transaction;
