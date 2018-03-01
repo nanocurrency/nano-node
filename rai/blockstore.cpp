@@ -736,20 +736,25 @@ std::unique_ptr<rai::block> rai::block_store::block_get (MDB_txn * transaction_a
 
 void rai::block_store::block_del (MDB_txn * transaction_a, rai::block_hash const & hash_a)
 {
-	auto status (mdb_del (transaction_a, send_blocks, rai::mdb_val (hash_a), nullptr));
+	auto status (mdb_del (transaction_a, utx_blocks, rai::mdb_val (hash_a), nullptr));
 	assert (status == 0 || status == MDB_NOTFOUND);
 	if (status != 0)
 	{
-		auto status (mdb_del (transaction_a, receive_blocks, rai::mdb_val (hash_a), nullptr));
+		auto status (mdb_del (transaction_a, send_blocks, rai::mdb_val (hash_a), nullptr));
 		assert (status == 0 || status == MDB_NOTFOUND);
 		if (status != 0)
 		{
-			auto status (mdb_del (transaction_a, open_blocks, rai::mdb_val (hash_a), nullptr));
+			auto status (mdb_del (transaction_a, receive_blocks, rai::mdb_val (hash_a), nullptr));
 			assert (status == 0 || status == MDB_NOTFOUND);
 			if (status != 0)
 			{
-				auto status (mdb_del (transaction_a, change_blocks, rai::mdb_val (hash_a), nullptr));
-				assert (status == 0);
+				auto status (mdb_del (transaction_a, open_blocks, rai::mdb_val (hash_a), nullptr));
+				assert (status == 0 || status == MDB_NOTFOUND);
+				if (status != 0)
+				{
+					auto status (mdb_del (transaction_a, change_blocks, rai::mdb_val (hash_a), nullptr));
+					assert (status == 0);
+				}
 			}
 		}
 	}

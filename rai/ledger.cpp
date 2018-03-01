@@ -95,7 +95,55 @@ public:
 	}
 	void utx_block (rai::utx_block const & block_a) override
 	{
-		assert (false);
+		auto hash (block_a.hash ());
+		rai::block_hash representative (0);
+		if (!block_a.hashables.previous.is_zero ())
+		{
+			representative = ledger.representative (transaction, block_a.hashables.previous);
+		}
+		auto balance (ledger.balance (transaction, block_a.hashables.previous));
+		auto is_send (block_a.hashables.balance < balance);
+		ledger.store.block_put (transaction, hash, block_a);
+		// Add in amount delta
+		ledger.store.representation_add (transaction, hash, balance - block_a.hashables.balance.number ());
+		if (!representative.is_zero ())
+		{
+			// Move existing representation
+			ledger.store.representation_add (transaction, hash, 0 - block_a.hashables.balance.number ());
+			ledger.store.representation_add (transaction, representative, block_a.hashables.balance.number ());
+		}
+
+		if (is_send)
+		{
+			rai::pending_key key (block_a.hashables.link, hash);
+			ledger.store.pending_del (transaction, key);
+		}
+		else if (!block_a.hashables.link.is_zero ())
+		{
+			rai::pending_info info (ledger.account (transaction, block_a.hashables.link), block_a.hashables.balance.number () - balance);
+			ledger.store.pending_put (transaction, rai::pending_key (block_a.hashables.account, hash), info);
+		}
+
+		rai::account_info info;
+		auto error (ledger.store.account_get (transaction, block_a.hashables.account, info));
+		assert (!error);
+		ledger.change_latest (transaction, block_a.hashables.account, block_a.hashables.previous, representative, balance, info.block_count - 1);
+		
+		auto previous (ledger.store.block_get (transaction, block_a.hashables.previous));
+		switch (previous->type ())
+		{
+		case rai::block_type::send:
+		case rai::block_type::receive:
+		case rai::block_type::open:
+		case rai::block_type::change:
+		{
+			ledger.store.frontier_put (transaction, block_a.hashables.previous, block_a.hashables.account);
+			break;
+		}
+		default:
+			break;
+		}
+		ledger.store.block_del (transaction, hash);
 	}
 	MDB_txn * transaction;
 	rai::ledger & ledger;
@@ -189,6 +237,10 @@ void ledger_processor::utx_block (rai::utx_block const & block_a)
 					rai::pending_key key (block_a.hashables.link, hash);
 					rai::pending_info info (block_a.hashables.account, 0 - result.amount.number ());
 					ledger.store.pending_put (transaction, key, info);
+				}
+				else if (!block_a.hashables.link.is_zero ())
+				{
+					ledger.store.pending_del (transaction, rai::pending_key (block_a.hashables.account, block_a.hashables.link));
 				}
 				
 				ledger.change_latest (transaction, block_a.hashables.account, hash, hash, block_a.hashables.balance, info.block_count + 1);
@@ -582,28 +634,37 @@ void rai::ledger::rollback (MDB_txn * transaction_a, rai::block_hash const & blo
 // Return account containing hash
 rai::account rai::ledger::account (MDB_txn * transaction_a, rai::block_hash const & hash_a)
 {
-	assert (store.block_exists (transaction_a, hash_a));
-	auto hash (hash_a);
-	rai::block_hash successor (1);
-	rai::block_info block_info;
-	while (!successor.is_zero () && store.block_info_get (transaction_a, successor, block_info))
-	{
-		successor = store.block_successor (transaction_a, hash);
-		if (!successor.is_zero ())
-		{
-			hash = successor;
-		}
-	}
 	rai::account result;
-	if (successor.is_zero ())
+	assert (store.block_exists (transaction_a, hash_a));
+	auto block (store.block_get (transaction_a, hash_a));
+	auto utx_block (dynamic_cast <rai::utx_block *> (block.get ()));
+	if (utx_block != nullptr)
 	{
-		result = store.frontier_get (transaction_a, hash);
+		result = utx_block->hashables.account;
 	}
 	else
 	{
-		result = block_info.account;
+		auto hash (hash_a);
+		rai::block_hash successor (1);
+		rai::block_info block_info;
+		while (!successor.is_zero () && store.block_info_get (transaction_a, successor, block_info))
+		{
+			successor = store.block_successor (transaction_a, hash);
+			if (!successor.is_zero ())
+			{
+				hash = successor;
+			}
+		}
+		if (successor.is_zero ())
+		{
+			result = store.frontier_get (transaction_a, hash);
+		}
+		else
+		{
+			result = block_info.account;
+		}
+		assert (!result.is_zero ());
 	}
-	assert (!result.is_zero ());
 	return result;
 }
 

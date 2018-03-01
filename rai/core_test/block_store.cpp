@@ -1005,4 +1005,8 @@ TEST (block_store, utx_block)
 	ASSERT_EQ (block1, *block2);
 	auto count (store.block_count (transaction));
 	ASSERT_EQ (1, count.utx);
+	store.block_del (transaction, block1.hash ());
+	ASSERT_FALSE (store.block_exists (transaction, block1.hash ()));
+	auto count2 (store.block_count (transaction));
+	ASSERT_EQ (0, count2.utx);
 }
