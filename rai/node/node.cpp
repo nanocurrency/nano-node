@@ -2309,10 +2309,7 @@ public:
 	}
 	void utx_block (rai::utx_block const & block_a) override
 	{
-		if (block_a.hashables.is_send ())
-		{
-			scan_receivable (block_a.hashables.link);
-		}
+		scan_receivable (block_a.hashables.link);
 	}
 	void send_block (rai::send_block const & block_a) override
 	{

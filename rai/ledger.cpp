@@ -127,6 +127,8 @@ void ledger_processor::utx_block (rai::utx_block const & block_a)
 		if (result.code == rai::process_result::progress)
 		{
 			rai::account_info info;
+			result.amount = block_a.hashables.balance;
+			bool is_send (false);
 			auto account_error (ledger.store.account_get (transaction, block_a.hashables.account, info));
 			if (!account_error)
 			{
@@ -137,6 +139,8 @@ void ledger_processor::utx_block (rai::utx_block const & block_a)
 					result.code = ledger.store.block_exists (transaction, block_a.hashables.previous) ? rai::process_result::progress : rai::process_result::gap_previous; // Does the previous block exist in the ledger? (Unambigious)
 					if (result.code == rai::process_result::progress)
 					{
+						is_send = block_a.hashables.balance < info.balance;
+						result.amount = result.amount.number () - info.balance.number ();
 						result.code = block_a.hashables.previous == info.head ? rai::process_result::progress : rai::process_result::fork; // Is the previous block the account's head block? (Ambigious)
 					}
 				}
@@ -148,7 +152,7 @@ void ledger_processor::utx_block (rai::utx_block const & block_a)
 			}
 			if (result.code == rai::process_result::progress)
 			{
-				if (block_a.hashables.is_send ())
+				if (is_send)
 				{
 					result.code = block_a.hashables.balance.number () < info.balance.number () ? rai::process_result::progress : rai::process_result::negative_spend; // If the amount is negative the new balance must be less than the old balance or it's underflowed (Unambiguous)
 				}
@@ -161,49 +165,44 @@ void ledger_processor::utx_block (rai::utx_block const & block_a)
 						result.code = ledger.store.pending_get (transaction, key, pending) ? rai::process_result::unreceivable : rai::process_result::progress; // Has this source already been received (Malformed)
 						if (result.code == rai::process_result::progress)
 						{
-							result.code = pending.amount == block_a.hashables.amount ? rai::process_result::progress : rai::process_result::balance_mismatch;
+							result.code = result.amount == pending.amount ? rai::process_result::progress : rai::process_result::balance_mismatch;
 						}
 					}
 					else
 					{
-						result.code = block_a.hashables.amount.is_zero () ? rai::process_result::progress : rai::process_result::balance_mismatch;
+						result.code = result.amount.is_zero () ? rai::process_result::progress : rai::process_result::balance_mismatch;
 					}
 				}
 				
 			}
 			if (result.code == rai::process_result::progress)
+			{
+				ledger.store.block_put (transaction, hash, block_a);
+				
+				if (!info.rep_block.is_zero ())
 				{
-					result.code = (info.balance.number () + block_a.hashables.amount.number ()) == block_a.hashables.balance.number () ? rai::process_result::progress : rai::process_result::balance_mismatch; // Does the amount delta match the actual change in balances to the last transaction (Unambiguous)
-					if (result.code == rai::process_result::progress)
-					{
-						ledger.store.block_put (transaction, hash, block_a);
-						
-						if (!info.rep_block.is_zero ())
-						{
-							// Move existing representation
-							ledger.store.representation_add (transaction, info.rep_block, 0 - info.balance.number ());
-							ledger.store.representation_add (transaction, hash, info.balance.number ());
-						}
-						// Add in amount delta
-						ledger.store.representation_add (transaction, hash, block_a.hashables.amount.number ());
-						
-						if (block_a.hashables.is_send ())
-						{
-							rai::pending_key key (block_a.hashables.link, hash);
-							rai::pending_info info (block_a.hashables.account, 0 - block_a.hashables.amount.number ());
-							ledger.store.pending_put (transaction, key, info);
-						}
-						
-						ledger.change_latest (transaction, block_a.hashables.account, hash, hash, block_a.hashables.balance, info.block_count + 1);
-						if (!ledger.store.frontier_get (transaction, info.head).is_zero ())
-						{
-							ledger.store.frontier_del (transaction, info.head);
-						}
-						// Frontier table is unnecessary for utx blocks and this also prevents old blocks from being inserted on top of utx blocks
-						result.account = block_a.hashables.account;
-						result.amount = block_a.hashables.amount;
-					}
+					// Move existing representation
+					ledger.store.representation_add (transaction, info.rep_block, 0 - info.balance.number ());
+					ledger.store.representation_add (transaction, hash, info.balance.number ());
 				}
+				// Add in amount delta
+				ledger.store.representation_add (transaction, hash, result.amount.number ());
+				
+				if (is_send)
+				{
+					rai::pending_key key (block_a.hashables.link, hash);
+					rai::pending_info info (block_a.hashables.account, 0 - result.amount.number ());
+					ledger.store.pending_put (transaction, key, info);
+				}
+				
+				ledger.change_latest (transaction, block_a.hashables.account, hash, hash, block_a.hashables.balance, info.block_count + 1);
+				if (!ledger.store.frontier_get (transaction, info.head).is_zero ())
+				{
+					ledger.store.frontier_del (transaction, info.head);
+				}
+				// Frontier table is unnecessary for utx blocks and this also prevents old blocks from being inserted on top of utx blocks
+				result.account = block_a.hashables.account;
+			}
 		}
 	}
 }

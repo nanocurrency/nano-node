@@ -492,11 +492,10 @@ void rai::amount_visitor::open_block (rai::open_block const & block_a)
 
 void rai::amount_visitor::utx_block (rai::utx_block const & block_a)
 {
-	result = block_a.hashables.amount.number ();
-	if (block_a.hashables.is_send ())
-	{
-		result = 0 - result;
-	}
+	balance_visitor prev (transaction, store);
+	prev.compute (block_a.hashables.previous);
+	result = block_a.hashables.balance.number ();
+	result = result < prev.result ? prev.result - result : result - prev.result;
 }
 
 void rai::amount_visitor::change_block (rai::change_block const & block_a)

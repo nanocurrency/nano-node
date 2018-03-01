@@ -1643,7 +1643,8 @@ public:
 	{
 		tree.put ("type", "utx");
 		tree.put ("account", block_a.hashables.account.to_account ());
-		tree.put ("amount", block_a.hashables.amount.to_string_dec ()) ;
+		auto amount (handler.node.ledger.amount (transaction, hash).convert_to<std::string> ());
+		tree.put ("amount", amount) ;
 	}
 	rai::rpc_handler & handler;
 	rai::transaction & transaction;

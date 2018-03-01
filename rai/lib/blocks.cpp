@@ -832,12 +832,11 @@ void rai::change_block::signature_set (rai::uint512_union const & signature_a)
 }
 
 
-rai::utx_hashables::utx_hashables (rai::account const & account_a, rai::block_hash const & previous_a, rai::account const & representative_a, rai::amount const & balance_a, rai::amount const & amount_a, rai::uint256_union const & link_a) :
+rai::utx_hashables::utx_hashables (rai::account const & account_a, rai::block_hash const & previous_a, rai::account const & representative_a, rai::amount const & balance_a, rai::uint256_union const & link_a) :
 account (account_a),
 previous (previous_a),
 representative (representative_a),
 balance (balance_a),
-amount (amount_a),
 link (link_a)
 {
 }
@@ -856,11 +855,7 @@ rai::utx_hashables::utx_hashables (bool & error_a, rai::stream & stream_a)
 				error_a = rai::read (stream_a, balance);
 				if (!error_a)
 				{
-					error_a = rai::read (stream_a, amount);
-					if (!error_a)
-					{
-						error_a = rai::read (stream_a, link);
-					}
+					error_a = rai::read (stream_a, link);
 				}
 			}
 		}
@@ -874,7 +869,6 @@ rai::utx_hashables::utx_hashables (bool & error_a, boost::property_tree::ptree c
 		auto account_l (tree_a.get<std::string> ("account"));
 		auto previous_l (tree_a.get<std::string> ("previous"));
 		auto representative_l (tree_a.get<std::string> ("representative"));
-		auto amount_l (tree_a.get<std::string> ("amount"));
 		auto balance_l (tree_a.get<std::string> ("balance"));
 		auto link_l (tree_a.get<std::string> ("link"));
 		error_a = account.decode_account (account_l);
@@ -889,18 +883,7 @@ rai::utx_hashables::utx_hashables (bool & error_a, boost::property_tree::ptree c
 					error_a = balance.decode_dec (balance_l);
 					if (!error_a)
 					{
-						error_a = amount.decode_dec (amount_l);
-						if (!error_a)
-						{
-							if (is_send ())
-							{
-								error_a = link.decode_account (link_l);
-							}
-							else
-							{
-								error_a = link.decode_hex (link_l);
-							}
-						}
+						error_a = link.decode_account (link_l);
 					}
 				}
 			}
@@ -918,17 +901,11 @@ void rai::utx_hashables::hash (blake2b_state & hash_a) const
 	blake2b_update (&hash_a, previous.bytes.data (), sizeof (previous.bytes));
 	blake2b_update (&hash_a, representative.bytes.data (), sizeof (representative.bytes));
 	blake2b_update (&hash_a, balance.bytes.data (), sizeof (balance.bytes));
-	blake2b_update (&hash_a, amount.bytes.data (), sizeof (amount.bytes));
 	blake2b_update (&hash_a, link.bytes.data (), sizeof (link.bytes));
 }
 
-bool rai::utx_hashables::is_send () const
-{
-	return (amount.bytes [0] & 0x80) == 0x80;
-}
-
-rai::utx_block::utx_block (rai::account const & account_a, rai::block_hash const & previous_a, rai::account const & representative_a, rai::amount const & balance_a, rai::amount const & amount_a, rai::uint256_union const & link_a, rai::raw_key const & prv_a, rai::public_key const & pub_a, uint64_t work_a) :
-hashables (account_a, previous_a, representative_a, balance_a, amount_a, link_a),
+rai::utx_block::utx_block (rai::account const & account_a, rai::block_hash const & previous_a, rai::account const & representative_a, rai::amount const & balance_a, rai::uint256_union const & link_a, rai::raw_key const & prv_a, rai::public_key const & pub_a, uint64_t work_a) :
+hashables (account_a, previous_a, representative_a, balance_a, link_a),
 signature (rai::sign_message (prv_a, pub_a, hash ())),
 work (work_a)
 {
@@ -1002,7 +979,6 @@ void rai::utx_block::serialize (rai::stream & stream_a) const
 	write (stream_a, hashables.previous);
 	write (stream_a, hashables.representative);
 	write (stream_a, hashables.balance);
-	write (stream_a, hashables.amount);
 	write (stream_a, hashables.link);
 	write (stream_a, signature);
 	write (stream_a, work);
@@ -1016,15 +992,7 @@ void rai::utx_block::serialize_json (std::string & string_a) const
 	tree.put ("previous", hashables.previous.to_string ());
 	tree.put ("representative", representative ().to_account ());
 	tree.put ("balance", hashables.balance.to_string_dec ());
-	tree.put ("amount", hashables.amount.to_string_dec ());
-	if (hashables.is_send ())
-	{
-		tree.put ("link", hashables.link.to_account ());
-	}
-	else
-	{
-		tree.put ("link", hashables.link.to_string ());
-	}
+	tree.put ("link", hashables.link.to_account ());
 	std::string signature_l;
 	signature.encode_hex (signature_l);
 	tree.put ("signature", signature_l);
@@ -1036,16 +1004,28 @@ void rai::utx_block::serialize_json (std::string & string_a) const
 
 bool rai::utx_block::deserialize (rai::stream & stream_a)
 {
-	auto error (read (stream_a, hashables.previous));
+	auto error (read (stream_a, hashables.account));
 	if (!error)
 	{
-		error = read (stream_a, hashables.representative);
+		error = read (stream_a, hashables.previous);
 		if (!error)
 		{
-			error = read (stream_a, signature);
+			error = read (stream_a, hashables.representative);
 			if (!error)
 			{
-				error = read (stream_a, work);
+				error = read (stream_a, hashables.balance);
+				if (!error)
+				{
+					error = read (stream_a, hashables.link);
+					if (!error)
+					{
+						error = read (stream_a, signature);
+						if (!error)
+						{
+							error = read (stream_a, work);
+						}
+					}
+				}
 			}
 		}
 	}
@@ -1062,7 +1042,6 @@ bool rai::utx_block::deserialize_json (boost::property_tree::ptree const & tree_
 		auto previous_l (tree_a.get<std::string> ("previous"));
 		auto representative_l (tree_a.get<std::string> ("representative"));
 		auto balance_l (tree_a.get<std::string> ("balance"));
-		auto amount_l (tree_a.get<std::string> ("amount"));
 		auto link_l (tree_a.get<std::string> ("link"));
 		auto work_l (tree_a.get<std::string> ("work"));
 		auto signature_l (tree_a.get<std::string> ("signature"));
@@ -1078,24 +1057,13 @@ bool rai::utx_block::deserialize_json (boost::property_tree::ptree const & tree_
 					error = hashables.balance.decode_dec (balance_l);
 					if (!error)
 					{
-						error = hashables.amount.decode_dec (amount_l);
+						error = hashables.link.decode_account (link_l);
 						if (!error)
 						{
-							if (hashables.is_send ())
-							{
-								error = hashables.link.decode_account (link_l);
-							}
-							else
-							{
-								error = hashables.link.decode_hex (link_l);
-							}
+							error = rai::from_string_hex (work_l, work);
 							if (!error)
 							{
-								error = rai::from_string_hex (work_l, work);
-								if (!error)
-								{
-									error = signature.decode_hex (signature_l);
-								}
+								error = signature.decode_hex (signature_l);
 							}
 						}
 					}
@@ -1133,7 +1101,7 @@ bool rai::utx_block::operator== (rai::block const & other_a) const
 
 bool rai::utx_block::operator== (rai::utx_block const & other_a) const
 {
-	return hashables.account == other_a.hashables.account && hashables.previous == other_a.hashables.previous && hashables.representative == other_a.hashables.representative && hashables.balance == other_a.hashables.balance && hashables.amount == other_a.hashables.amount && hashables.link == other_a.hashables.link && signature == other_a.signature && work == other_a.work;
+	return hashables.account == other_a.hashables.account && hashables.previous == other_a.hashables.previous && hashables.representative == other_a.hashables.representative && hashables.balance == other_a.hashables.balance && hashables.link == other_a.hashables.link && signature == other_a.signature && work == other_a.work;
 }
 
 bool rai::utx_block::valid_predecessor (rai::block const & block_a) const

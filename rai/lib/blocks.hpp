@@ -235,11 +235,10 @@ public:
 class utx_hashables
 {
 public:
-	utx_hashables (rai::account const &, rai::block_hash const &, rai::account const &, rai::amount const &, rai::amount const &, rai::uint256_union const &);
+	utx_hashables (rai::account const &, rai::block_hash const &, rai::account const &, rai::amount const &, rai::uint256_union const &);
 	utx_hashables (bool &, rai::stream &);
 	utx_hashables (bool &, boost::property_tree::ptree const &);
 	void hash (blake2b_state &) const;
-	bool is_send () const;
 	// Account# / public key that operates this account
 	// Uses:
 	// Bulk signature validation in advance of further ledger processing
@@ -252,16 +251,13 @@ public:
 	// Current balance of this account
 	// Allows lookup of account balance simply by looking at the head block
 	rai::amount balance;
-	// Balance delta from previous transaction
-	// This provides a fast way to find a transaction amount when receiving and changing balances or moving vote weight
-	rai::amount amount;
 	// Link field contains source block_hash if receiving, destination account if sending
 	rai::uint256_union link;
 };
 class utx_block : public rai::block
 {
 public:
-	utx_block (rai::account const &, rai::block_hash const &, rai::account const &, rai::amount const &, rai::amount const &, rai::uint256_union const &, rai::raw_key const &, rai::public_key const &, uint64_t);
+	utx_block (rai::account const &, rai::block_hash const &, rai::account const &, rai::amount const &, rai::uint256_union const &, rai::raw_key const &, rai::public_key const &, uint64_t);
 	utx_block (bool &, rai::stream &);
 	utx_block (bool &, boost::property_tree::ptree const &);
 	virtual ~utx_block () = default;
@@ -284,7 +280,7 @@ public:
 	bool operator== (rai::block const &) const override;
 	bool operator== (rai::utx_block const &) const;
 	bool valid_predecessor (rai::block const &) const override;
-	static size_t constexpr size = sizeof (rai::account) + sizeof (rai::block_hash) + sizeof (rai::account) + sizeof (rai::amount) + sizeof (rai::amount) + sizeof (rai::uint256_union) + sizeof (rai::signature) + sizeof (uint64_t);
+	static size_t constexpr size = sizeof (rai::account) + sizeof (rai::block_hash) + sizeof (rai::account) + sizeof (rai::amount) + sizeof (rai::uint256_union) + sizeof (rai::signature) + sizeof (uint64_t);
 	rai::utx_hashables hashables;
 	rai::signature signature;
 	uint64_t work; // Only least 48 least significant bits are encoded

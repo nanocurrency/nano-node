@@ -996,7 +996,7 @@ TEST (block_store, utx_block)
 	rai::transaction transaction (store.environment, nullptr, true);
 	genesis.initialize (transaction, store);
 	rai::keypair key1;
-	rai::utx_block block1 (1, genesis.hash (), 3, 4, 5, 6, key1.prv, key1.pub, 7);
+	rai::utx_block block1 (1, genesis.hash (), 3, 4, 6, key1.prv, key1.pub, 7);
 	ASSERT_EQ (rai::block_type::utx, block1.type ());
 	store.block_put (transaction, block1.hash (), block1);
 	ASSERT_TRUE (store.block_exists (transaction, block1.hash ()));

@@ -330,12 +330,11 @@ TEST (utx, serialization)
 {
 	rai::keypair key1;
 	rai::keypair key2;
-	rai::utx_block block1 (key1.pub, 1, key2.pub, 2, 3, 4, key1.prv, key1.pub, 5);
+	rai::utx_block block1 (key1.pub, 1, key2.pub, 2, 4, key1.prv, key1.pub, 5);
 	ASSERT_EQ (key1.pub, block1.hashables.account);
 	ASSERT_EQ (rai::block_hash (1), block1.previous ());
 	ASSERT_EQ (key2.pub, block1.hashables.representative);
 	ASSERT_EQ (rai::amount (2), block1.hashables.balance);
-	ASSERT_EQ (rai::amount (3), block1.hashables.amount);
 	ASSERT_EQ (rai::uint256_union (4), block1.hashables.link);
 	std::vector<uint8_t> bytes;
 	{
@@ -347,6 +346,16 @@ TEST (utx, serialization)
 	rai::bufferstream stream (bytes.data (), bytes.size ());
 	rai::utx_block block2 (error1, stream);
 	ASSERT_FALSE (error1);
+	ASSERT_EQ (block1, block2);
+	block2.hashables.account.clear ();
+	block2.hashables.previous.clear ();
+	block2.hashables.representative.clear ();
+	block2.hashables.balance.clear ();
+	block2.hashables.link.clear ();
+	block2.signature.clear ();
+	block2.work = 0;
+	rai::bufferstream stream2 (bytes.data (), bytes.size ());
+	ASSERT_FALSE (block2.deserialize (stream2));
 	ASSERT_EQ (block1, block2);
 	std::string json;
 	block1.serialize_json (json);
@@ -361,7 +370,6 @@ TEST (utx, serialization)
 	block3.hashables.previous.clear ();
 	block3.hashables.representative.clear ();
 	block3.hashables.balance.clear ();
-	block3.hashables.amount.clear ();
 	block3.hashables.link.clear ();
 	block3.signature.clear ();
 	block3.work = 0;
@@ -372,7 +380,7 @@ TEST (utx, serialization)
 TEST (utx, hashing)
 {
 	rai::keypair key;
-	rai::utx_block block (key.pub, 0, key.pub, 0, 0, 0, key.prv, key.pub, 0);
+	rai::utx_block block (key.pub, 0, key.pub, 0, 0, key.prv, key.pub, 0);
 	auto hash (block.hash ());
 	block.hashables.account.bytes [0] ^= 0x1;
 	ASSERT_NE (hash, block.hash ());
@@ -389,10 +397,6 @@ TEST (utx, hashing)
 	block.hashables.balance.bytes [0] ^= 0x1;
 	ASSERT_NE (hash, block.hash ());
 	block.hashables.balance.bytes [0] ^= 0x1;
-	ASSERT_EQ (hash, block.hash ());
-	block.hashables.amount.bytes [0] ^= 0x1;
-	ASSERT_NE (hash, block.hash ());
-	block.hashables.amount.bytes [0] ^= 0x1;
 	ASSERT_EQ (hash, block.hash ());
 	block.hashables.link.bytes [0] ^= 0x1;
 	ASSERT_NE (hash, block.hash ());

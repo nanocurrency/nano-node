@@ -521,7 +521,7 @@ public:
 	void utx_block (rai::utx_block const & block_a)
 	{
 		type = "Utx";
-		amount = block_a.hashables.amount.number ();
+		amount = ledger.amount (transaction, block_a.hash ());
 		account = block_a.hashables.account;
 	}
 	MDB_txn * transaction;
