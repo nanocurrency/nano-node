@@ -26,7 +26,7 @@ using vectorstream = boost::iostreams::stream_buffer<boost::iostreams::back_inse
 boost::filesystem::path working_path ();
 // Get a unique path within the home directory, used for testing
 boost::filesystem::path unique_path ();
-// C++ stream are absolutely horrible so I need this helper function to do the most basic operation of creating a file if it doesn't exist or truntacing it.
+// C++ stream are absolutely horrible so I need this helper function to do the most basic operation of creating a file if it doesn't exist or truncating it.
 void open_or_create (std::fstream &, std::string const &);
 // Reads a json object from the stream and if was changed, write the object back to the stream
 template <typename T>

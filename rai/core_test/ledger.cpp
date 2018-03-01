@@ -12,7 +12,7 @@ TEST (ledger, store_error)
 	rai::ledger ledger (store);
 }
 
-// Ledger can be initialized and retuns a basic query for an empty account
+// Ledger can be initialized and returns a basic query for an empty account
 TEST (ledger, empty)
 {
 	bool init (false);

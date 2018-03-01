@@ -63,7 +63,7 @@ public:
 	burn_account (0)
 	{
 		CryptoPP::AutoSeededRandomPool random_pool;
-		// Randomly generating these mean no two nodes will ever have the same sentinal values which protects against some insecure algorithms
+		// Randomly generating these mean no two nodes will ever have the same sentinel values which protects against some insecure algorithms
 		random_pool.GenerateBlock (not_a_block.bytes.data (), not_a_block.bytes.size ());
 		random_pool.GenerateBlock (not_an_account.bytes.data (), not_an_account.bytes.size ());
 	}

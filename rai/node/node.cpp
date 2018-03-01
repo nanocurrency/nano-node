@@ -2736,7 +2736,7 @@ rai::uint128_t rai::election::quorum_threshold (MDB_txn * transaction_a, rai::le
 
 rai::uint128_t rai::election::minimum_threshold (MDB_txn * transaction_a, rai::ledger & ledger_a)
 {
-	// Minimum number of votes needed to change our ledger, underwhich we're probably disconnected
+	// Minimum number of votes needed to change our ledger, under which we're probably disconnected
 	return ledger_a.supply (transaction_a) / 16;
 }
 
@@ -2829,7 +2829,7 @@ void rai::active_transactions::announce_votes ()
 		{
 			auto election_l (i->election);
 			node.background ([election_l]() { election_l->broadcast_winner (); });
-			if (i->announcements >= contigious_announcements - 1)
+			if (i->announcements >= contiguous_announcements - 1)
 			{
 				// These blocks have reached the confirmation interval for forks
 				i->election->confirm_cutoff (transaction);
