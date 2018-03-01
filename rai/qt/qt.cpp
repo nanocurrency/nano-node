@@ -518,6 +518,12 @@ public:
 		amount = 0;
 		account = block_a.hashables.representative;
 	}
+	void utx_block (rai::utx_block const & block_a)
+	{
+		type = "Utx";
+		amount = block_a.hashables.amount.number ();
+		account = block_a.hashables.account;
+	}
 	MDB_txn * transaction;
 	rai::ledger & ledger;
 	std::string type;

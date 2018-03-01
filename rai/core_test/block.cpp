@@ -358,3 +358,34 @@ TEST (utx, serialization)
 	ASSERT_FALSE (error2);
 	ASSERT_EQ (block1, block3);
 }
+
+TEST (utx, hashing)
+{
+	rai::keypair key;
+	rai::utx_block block (key.pub, 0, key.pub, 0, 0, 0, key.prv, key.pub, 0);
+	auto hash (block.hash ());
+	block.hashables.account.bytes [0] ^= 0x1;
+	ASSERT_NE (hash, block.hash ());
+	block.hashables.account.bytes [0] ^= 0x1;
+	ASSERT_EQ (hash, block.hash ());
+	block.hashables.previous.bytes [0] ^= 0x1;
+	ASSERT_NE (hash, block.hash ());
+	block.hashables.previous.bytes [0] ^= 0x1;
+	ASSERT_EQ (hash, block.hash ());
+	block.hashables.representative.bytes [0] ^= 0x1;
+	ASSERT_NE (hash, block.hash ());
+	block.hashables.representative.bytes [0] ^= 0x1;
+	ASSERT_EQ (hash, block.hash ());
+	block.hashables.balance.bytes [0] ^= 0x1;
+	ASSERT_NE (hash, block.hash ());
+	block.hashables.balance.bytes [0] ^= 0x1;
+	ASSERT_EQ (hash, block.hash ());
+	block.hashables.amount.bytes [0] ^= 0x1;
+	ASSERT_NE (hash, block.hash ());
+	block.hashables.amount.bytes [0] ^= 0x1;
+	ASSERT_EQ (hash, block.hash ());
+	block.hashables.link.bytes [0] ^= 0x1;
+	ASSERT_NE (hash, block.hash ());
+	block.hashables.link.bytes [0] ^= 0x1;
+	ASSERT_EQ (hash, block.hash ());
+}

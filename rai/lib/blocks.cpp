@@ -914,8 +914,12 @@ rai::utx_hashables::utx_hashables (bool & error_a, boost::property_tree::ptree c
 
 void rai::utx_hashables::hash (blake2b_state & hash_a) const
 {
+	blake2b_update (&hash_a, account.bytes.data (), sizeof (account.bytes));
 	blake2b_update (&hash_a, previous.bytes.data (), sizeof (previous.bytes));
 	blake2b_update (&hash_a, representative.bytes.data (), sizeof (representative.bytes));
+	blake2b_update (&hash_a, balance.bytes.data (), sizeof (balance.bytes));
+	blake2b_update (&hash_a, amount.bytes.data (), sizeof (amount.bytes));
+	blake2b_update (&hash_a, link.bytes.data (), sizeof (link.bytes));
 }
 
 bool rai::utx_hashables::is_send () const
