@@ -152,11 +152,7 @@ void ledger_processor::utx_block (rai::utx_block const & block_a)
 			}
 			if (result.code == rai::process_result::progress)
 			{
-				if (is_send)
-				{
-					result.code = block_a.hashables.balance.number () < info.balance.number () ? rai::process_result::progress : rai::process_result::negative_spend; // If the amount is negative the new balance must be less than the old balance or it's underflowed (Unambiguous)
-				}
-				else
+				if (!is_send)
 				{
 					if (!block_a.hashables.link.is_zero ())
 					{
