@@ -357,6 +357,16 @@ TEST (utx, serialization)
 	rai::utx_block block3 (error2, tree);
 	ASSERT_FALSE (error2);
 	ASSERT_EQ (block1, block3);
+	block3.hashables.account.clear ();
+	block3.hashables.previous.clear ();
+	block3.hashables.representative.clear ();
+	block3.hashables.balance.clear ();
+	block3.hashables.amount.clear ();
+	block3.hashables.link.clear ();
+	block3.signature.clear ();
+	block3.work = 0;
+	ASSERT_FALSE (block3.deserialize_json (tree));
+	ASSERT_EQ (block1, block3);
 }
 
 TEST (utx, hashing)

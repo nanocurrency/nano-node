@@ -954,12 +954,17 @@ hashables (error_a, tree_a)
 	{
 		try
 		{
+			auto type_l (tree_a.get<std::string> ("type"));
 			auto signature_l (tree_a.get<std::string> ("signature"));
 			auto work_l (tree_a.get<std::string> ("work"));
-			error_a = rai::from_string_hex (work_l, work);
+			error_a = type_l != "utx";
 			if (!error_a)
 			{
-				error_a = signature.decode_hex (signature_l);
+				error_a = rai::from_string_hex (work_l, work);
+				if (!error_a)
+				{
+					error_a = signature.decode_hex (signature_l);
+				}
 			}
 		}
 		catch (std::runtime_error const &)
@@ -1006,7 +1011,7 @@ void rai::utx_block::serialize (rai::stream & stream_a) const
 void rai::utx_block::serialize_json (std::string & string_a) const
 {
 	boost::property_tree::ptree tree;
-	tree.put ("type", "change");
+	tree.put ("type", "utx");
 	tree.put ("account", hashables.account.to_account ());
 	tree.put ("previous", hashables.previous.to_string ());
 	tree.put ("representative", representative ().to_account ());
@@ -1053,20 +1058,47 @@ bool rai::utx_block::deserialize_json (boost::property_tree::ptree const & tree_
 	try
 	{
 		assert (tree_a.get<std::string> ("type") == "utx");
+		auto account_l (tree_a.get<std::string> ("account"));
 		auto previous_l (tree_a.get<std::string> ("previous"));
 		auto representative_l (tree_a.get<std::string> ("representative"));
+		auto balance_l (tree_a.get<std::string> ("balance"));
+		auto amount_l (tree_a.get<std::string> ("amount"));
+		auto link_l (tree_a.get<std::string> ("link"));
 		auto work_l (tree_a.get<std::string> ("work"));
 		auto signature_l (tree_a.get<std::string> ("signature"));
-		error = hashables.previous.decode_hex (previous_l);
+		error = hashables.account.decode_account (account_l);
 		if (!error)
 		{
-			error = hashables.representative.decode_hex (representative_l);
+			error = hashables.previous.decode_hex (previous_l);
 			if (!error)
 			{
-				error = rai::from_string_hex (work_l, work);
+				error = hashables.representative.decode_account (representative_l);
 				if (!error)
 				{
-					error = signature.decode_hex (signature_l);
+					error = hashables.balance.decode_dec (balance_l);
+					if (!error)
+					{
+						error = hashables.amount.decode_dec (amount_l);
+						if (!error)
+						{
+							if (hashables.is_send ())
+							{
+								error = hashables.link.decode_account (link_l);
+							}
+							else
+							{
+								error = hashables.link.decode_hex (link_l);
+							}
+							if (!error)
+							{
+								error = rai::from_string_hex (work_l, work);
+								if (!error)
+								{
+									error = signature.decode_hex (signature_l);
+								}
+							}
+						}
+					}
 				}
 			}
 		}
