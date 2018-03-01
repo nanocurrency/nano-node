@@ -206,7 +206,7 @@ TEST (network, send_valid_confirm_ack)
 		++iterations;
 		ASSERT_LT (iterations, 200);
 	}
-	// Make sure the balance has decreased after procssing the block.
+	// Make sure the balance has decreased after processing the block.
 	ASSERT_EQ (50, system.nodes[1]->balance (rai::test_genesis_key.pub));
 }
 

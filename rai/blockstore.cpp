@@ -1028,7 +1028,7 @@ void rai::block_store::unchecked_put (MDB_txn * transaction_a, rai::block_hash c
 			exists = true;
 		}
 	}
-	// Insering block if it wasn't found in database
+	// Inserting block if it wasn't found in database
 	if (!exists)
 	{
 		std::lock_guard<std::mutex> lock (cache_mutex);
