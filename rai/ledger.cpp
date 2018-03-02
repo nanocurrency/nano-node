@@ -104,13 +104,13 @@ public:
 		auto balance (ledger.balance (transaction, block_a.hashables.previous));
 		auto is_send (block_a.hashables.balance < balance);
 		// Add in amount delta
+		ledger.store.representation_add (transaction, hash, 0 - block_a.hashables.balance.number ());
 		if (!representative.is_zero ())
 		{
 			// Move existing representation
-			ledger.store.representation_add (transaction, hash, 0 - block_a.hashables.balance.number ());
 			ledger.store.representation_add (transaction, representative, block_a.hashables.balance.number ());
+			ledger.store.representation_add (transaction, representative, balance - block_a.hashables.balance.number ());
 		}
-		ledger.store.representation_add (transaction, hash, balance - block_a.hashables.balance.number ());
 
 		if (is_send)
 		{
