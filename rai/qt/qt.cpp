@@ -520,9 +520,26 @@ public:
 	}
 	void utx_block (rai::utx_block const & block_a)
 	{
-		type = "Utx";
-		amount = ledger.amount (transaction, block_a.hash ());
+		auto balance (block_a.hashables.balance.number ());
+		auto previous_balance (ledger.balance (transaction, block_a.hashables.previous));
 		account = block_a.hashables.account;
+		if (balance < previous_balance)
+		{
+			type = "Send";
+			amount = previous_balance - balance;
+		}
+		else
+		{
+			if (block_a.hashables.link.is_zero ())
+			{
+				type = "Change";
+			}
+			else
+			{
+				type = "Receive";
+			}
+			amount = balance - previous_balance;
+		}
 	}
 	MDB_txn * transaction;
 	rai::ledger & ledger;
