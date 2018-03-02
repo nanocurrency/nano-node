@@ -54,7 +54,15 @@ public:
 	}
 	void utx_block (rai::utx_block const & block_a) override
 	{
-		
+		if (!block_a.hashables.previous.is_zero ())
+		{
+			add_dependency (block_a.hashables.previous);
+		}
+		if (complete)
+		{
+			// Might not be a dependency block (if this is a send) but that's okay
+			add_dependency (block_a.hashables.link);
+		}
 	}
 	void add_dependency (rai::block_hash const & hash_a)
 	{
@@ -581,6 +589,15 @@ void rai::bulk_pull_client::received_type ()
 		{
 			connection->start_timeout ();
 			boost::asio::async_read (connection->socket, boost::asio::buffer (connection->receive_buffer.data () + 1, rai::change_block::size), [this_l](boost::system::error_code const & ec, size_t size_a) {
+				this_l->connection->stop_timeout ();
+				this_l->received_block (ec, size_a);
+			});
+			break;
+		}
+		case rai::block_type::utx:
+		{
+			connection->start_timeout ();
+			boost::asio::async_read (connection->socket, boost::asio::buffer (connection->receive_buffer.data () + 1, rai::utx_block::size), [this_l](boost::system::error_code const & ec, size_t size_a) {
 				this_l->connection->stop_timeout ();
 				this_l->received_block (ec, size_a);
 			});
@@ -2036,6 +2053,13 @@ void rai::bulk_push_server::received_type ()
 		case rai::block_type::change:
 		{
 			boost::asio::async_read (*connection->socket, boost::asio::buffer (receive_buffer.data () + 1, rai::change_block::size), [this_l](boost::system::error_code const & ec, size_t size_a) {
+				this_l->received_block (ec, size_a);
+			});
+			break;
+		}
+		case rai::block_type::utx:
+		{
+			boost::asio::async_read (*connection->socket, boost::asio::buffer (receive_buffer.data () + 1, rai::utx_block::size), [this_l](boost::system::error_code const & ec, size_t size_a) {
 				this_l->received_block (ec, size_a);
 			});
 			break;
