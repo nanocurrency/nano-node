@@ -142,6 +142,11 @@ else ()
 	set (ARGON_CORE phc-winner-argon2/src/ref.c)
 endif ()
 
+if (WIN32)
+	set (gtest_force_shared_crt ON)
+else ()
+	set (gtest_force_shared_crt OFF)
+endif()
 add_subdirectory (gtest)
 include_directories ("gtest/include")
 
