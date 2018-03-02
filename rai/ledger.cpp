@@ -103,15 +103,14 @@ public:
 		}
 		auto balance (ledger.balance (transaction, block_a.hashables.previous));
 		auto is_send (block_a.hashables.balance < balance);
-		ledger.store.block_put (transaction, hash, block_a);
 		// Add in amount delta
-		ledger.store.representation_add (transaction, hash, balance - block_a.hashables.balance.number ());
 		if (!representative.is_zero ())
 		{
 			// Move existing representation
 			ledger.store.representation_add (transaction, hash, 0 - block_a.hashables.balance.number ());
 			ledger.store.representation_add (transaction, representative, block_a.hashables.balance.number ());
 		}
+		ledger.store.representation_add (transaction, hash, balance - block_a.hashables.balance.number ());
 
 		if (is_send)
 		{
@@ -121,7 +120,7 @@ public:
 		else if (!block_a.hashables.link.is_zero ())
 		{
 			rai::pending_info info (ledger.account (transaction, block_a.hashables.link), block_a.hashables.balance.number () - balance);
-			ledger.store.pending_put (transaction, rai::pending_key (block_a.hashables.account, hash), info);
+			ledger.store.pending_put (transaction, rai::pending_key (block_a.hashables.account, block_a.hashables.link), info);
 		}
 
 		rai::account_info info;
@@ -130,18 +129,21 @@ public:
 		ledger.change_latest (transaction, block_a.hashables.account, block_a.hashables.previous, representative, balance, info.block_count - 1);
 		
 		auto previous (ledger.store.block_get (transaction, block_a.hashables.previous));
-		switch (previous->type ())
+		if (previous != nullptr)
 		{
-		case rai::block_type::send:
-		case rai::block_type::receive:
-		case rai::block_type::open:
-		case rai::block_type::change:
-		{
-			ledger.store.frontier_put (transaction, block_a.hashables.previous, block_a.hashables.account);
-			break;
-		}
-		default:
-			break;
+			switch (previous->type ())
+			{
+			case rai::block_type::send:
+			case rai::block_type::receive:
+			case rai::block_type::open:
+			case rai::block_type::change:
+			{
+				ledger.store.frontier_put (transaction, block_a.hashables.previous, block_a.hashables.account);
+				break;
+			}
+			default:
+				break;
+			}
 		}
 		ledger.store.block_del (transaction, hash);
 	}
