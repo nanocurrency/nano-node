@@ -781,35 +781,6 @@ rai::block_counts rai::block_store::block_count (MDB_txn * transaction_a)
 	return result;
 }
 
-std::unordered_multimap<rai::block_hash, rai::block_hash> rai::block_store::block_dependencies (MDB_txn * transaction_a)
-{
-	std::unordered_multimap<rai::block_hash, rai::block_hash> result;
-	// For every block type
-	for (auto type : { rai::block_type::send, rai::block_type::receive, rai::block_type::open, rai::block_type::change })
-	{
-		auto db (block_database (type));
-		// For every block in that type's table
-		for (auto i (rai::store_iterator (transaction_a, db)), n (rai::store_iterator (nullptr)); i != n; ++i)
-		{
-			rai::block_hash hash (i->first.uint256 ());
-			auto block (block_get (transaction_a, hash));
-			if (type != rai::block_type::open)
-			{
-				auto previous (block->previous ());
-				assert (!previous.is_zero ());
-				result.insert (std::make_pair (previous, hash));
-			}
-			if (type == rai::block_type::open || type == rai::block_type::receive)
-			{
-				auto source (block->source ());
-				assert (!source.is_zero ());
-				result.insert (std::make_pair (source, hash));
-			}
-		}
-	}
-	return result;
-}
-
 void rai::block_store::account_del (MDB_txn * transaction_a, rai::account const & account_a)
 {
 	auto status (mdb_del (transaction_a, accounts, rai::mdb_val (account_a), nullptr));
