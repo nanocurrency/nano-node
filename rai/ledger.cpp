@@ -108,8 +108,7 @@ public:
 		if (!representative.is_zero ())
 		{
 			// Move existing representation
-			ledger.store.representation_add (transaction, representative, block_a.hashables.balance.number ());
-			ledger.store.representation_add (transaction, representative, balance - block_a.hashables.balance.number ());
+			ledger.store.representation_add (transaction, representative, balance);
 		}
 
 		if (is_send)
@@ -224,16 +223,15 @@ void ledger_processor::utx_block (rai::utx_block const & block_a)
 			if (result.code == rai::process_result::progress)
 			{
 				ledger.store.block_put (transaction, hash, block_a);
-				
+
 				if (!info.rep_block.is_zero ())
 				{
 					// Move existing representation
 					ledger.store.representation_add (transaction, info.rep_block, 0 - info.balance.number ());
-					ledger.store.representation_add (transaction, hash, info.balance.number ());
 				}
 				// Add in amount delta
-				ledger.store.representation_add (transaction, hash, result.amount.number ());
-				
+				ledger.store.representation_add (transaction, hash, block_a.hashables.balance.number ());
+
 				if (is_send)
 				{
 					rai::pending_key key (block_a.hashables.link, hash);
@@ -244,7 +242,7 @@ void ledger_processor::utx_block (rai::utx_block const & block_a)
 				{
 					ledger.store.pending_del (transaction, rai::pending_key (block_a.hashables.account, block_a.hashables.link));
 				}
-				
+
 				ledger.change_latest (transaction, block_a.hashables.account, hash, hash, block_a.hashables.balance, info.block_count + 1);
 				if (!ledger.store.frontier_get (transaction, info.head).is_zero ())
 				{
