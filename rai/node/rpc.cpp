@@ -1641,10 +1641,27 @@ public:
 	}
 	void utx_block (rai::utx_block const & block_a)
 	{
-		tree.put ("type", "utx");
-		tree.put ("account", block_a.hashables.account.to_account ());
-		auto amount (handler.node.ledger.amount (transaction, hash).convert_to<std::string> ());
-		tree.put ("amount", amount) ;
+		auto balance (block_a.hashables.balance.number ());
+		auto previous_balance (handler.node.ledger.balance (transaction, block_a.hashables.previous));
+		if (balance < previous_balance)
+		{
+			tree.put ("type", "send");
+			tree.put ("account", block_a.hashables.account.to_account ());
+			tree.put ("amount", (previous_balance - balance).convert_to<std::string> ());
+		}
+		else
+		{
+			if (block_a.hashables.link.is_zero ())
+			{
+				// Don't report change blocks
+			}
+			else
+			{
+				tree.put ("type", "receive");
+				tree.put ("account", block_a.hashables.account.to_account ());
+				tree.put ("amount", (balance - previous_balance).convert_to<std::string> ());
+			}
+		}
 	}
 	rai::rpc_handler & handler;
 	rai::transaction & transaction;
