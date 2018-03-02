@@ -409,56 +409,6 @@ std::string rai::vote::to_json () const
 	return stream.str ();
 }
 
-namespace
-{
-class root_visitor : public rai::block_visitor
-{
-public:
-	root_visitor (rai::block_store & store_a) :
-	store (store_a)
-	{
-	}
-	virtual ~root_visitor () = default;
-	void send_block (rai::send_block const & block_a) override
-	{
-		result = block_a.previous ();
-	}
-	void receive_block (rai::receive_block const & block_a) override
-	{
-		result = block_a.previous ();
-	}
-	// Open blocks have no previous () so we use the account number
-	void open_block (rai::open_block const & block_a) override
-	{
-		rai::transaction transaction (store.environment, nullptr, false);
-		auto hash (block_a.source ());
-		auto source (store.block_get (transaction, hash));
-		if (source != nullptr)
-		{
-			auto send (dynamic_cast<rai::send_block *> (source.get ()));
-			if (send != nullptr)
-			{
-				result = send->hashables.destination;
-			}
-			else
-			{
-				result.clear ();
-			}
-		}
-		else
-		{
-			result.clear ();
-		}
-	}
-	void change_block (rai::change_block const & block_a) override
-	{
-		result = block_a.previous ();
-	}
-	rai::block_store & store;
-	rai::block_hash result;
-};
-} // namespace
-
 rai::amount_visitor::amount_visitor (MDB_txn * transaction_a, rai::block_store & store_a) :
 transaction (transaction_a),
 store (store_a)
