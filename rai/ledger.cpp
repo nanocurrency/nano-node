@@ -130,22 +130,22 @@ public:
 		auto error (ledger.store.account_get (transaction, block_a.hashables.account, info));
 		assert (!error);
 		ledger.change_latest (transaction, block_a.hashables.account, block_a.hashables.previous, representative, balance, info.block_count - 1);
-		
+
 		auto previous (ledger.store.block_get (transaction, block_a.hashables.previous));
 		if (previous != nullptr)
 		{
 			switch (previous->type ())
 			{
-			case rai::block_type::send:
-			case rai::block_type::receive:
-			case rai::block_type::open:
-			case rai::block_type::change:
-			{
-				ledger.store.frontier_put (transaction, block_a.hashables.previous, block_a.hashables.account);
-				break;
-			}
-			default:
-				break;
+				case rai::block_type::send:
+				case rai::block_type::receive:
+				case rai::block_type::open:
+				case rai::block_type::change:
+				{
+					ledger.store.frontier_put (transaction, block_a.hashables.previous, block_a.hashables.account);
+					break;
+				}
+				default:
+					break;
 			}
 		}
 		ledger.store.block_del (transaction, hash);
@@ -222,7 +222,6 @@ void ledger_processor::utx_block (rai::utx_block const & block_a)
 						result.code = result.amount.is_zero () ? rai::process_result::progress : rai::process_result::balance_mismatch;
 					}
 				}
-				
 			}
 			if (result.code == rai::process_result::progress)
 			{
@@ -644,7 +643,7 @@ rai::account rai::ledger::account (MDB_txn * transaction_a, rai::block_hash cons
 	rai::block_info block_info;
 	std::unique_ptr<rai::block> block (store.block_get (transaction_a, hash));
 	while (!successor.is_zero () && block->type () != rai::block_type::utx && store.block_info_get (transaction_a, successor, block_info))
- 	{
+	{
 		successor = store.block_successor (transaction_a, hash);
 		if (!successor.is_zero ())
 		{
@@ -654,9 +653,9 @@ rai::account rai::ledger::account (MDB_txn * transaction_a, rai::block_hash cons
 	}
 	if (block->type () == rai::block_type::utx)
 	{
-		auto utx_block (dynamic_cast <rai::utx_block *> (block.get ()));
- 		result = utx_block->hashables.account;
- 	}
+		auto utx_block (dynamic_cast<rai::utx_block *> (block.get ()));
+		result = utx_block->hashables.account;
+	}
 	else if (successor.is_zero ())
 	{
 		result = store.frontier_get (transaction_a, hash);

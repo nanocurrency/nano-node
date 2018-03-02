@@ -275,15 +275,15 @@ bool rai::send_block::valid_predecessor (rai::block const & block_a) const
 	bool result;
 	switch (block_a.type ())
 	{
-	case rai::block_type::send:
-	case rai::block_type::receive:
-	case rai::block_type::open:
-	case rai::block_type::change:
-		result = true;
-		break;
-	default:
-		result = false;
-		break;
+		case rai::block_type::send:
+		case rai::block_type::receive:
+		case rai::block_type::open:
+		case rai::block_type::change:
+			result = true;
+			break;
+		default:
+			result = false;
+			break;
 	}
 	return result;
 }
@@ -793,15 +793,15 @@ bool rai::change_block::valid_predecessor (rai::block const & block_a) const
 	bool result;
 	switch (block_a.type ())
 	{
-	case rai::block_type::send:
-	case rai::block_type::receive:
-	case rai::block_type::open:
-	case rai::block_type::change:
-		result = true;
-		break;
-	default:
-		result = false;
-		break;
+		case rai::block_type::send:
+		case rai::block_type::receive:
+		case rai::block_type::open:
+		case rai::block_type::change:
+			result = true;
+			break;
+		default:
+			result = false;
+			break;
 	}
 	return result;
 }
@@ -830,7 +830,6 @@ void rai::change_block::signature_set (rai::uint512_union const & signature_a)
 {
 	signature = signature_a;
 }
-
 
 rai::utx_hashables::utx_hashables (rai::account const & account_a, rai::block_hash const & previous_a, rai::account const & representative_a, rai::amount const & balance_a, rai::uint256_union const & link_a) :
 account (account_a),
@@ -953,7 +952,7 @@ hashables (error_a, tree_a)
 
 void rai::utx_block::hash (blake2b_state & hash_a) const
 {
-	rai::uint256_union preamble (static_cast <uint64_t> (rai::block_type::utx));
+	rai::uint256_union preamble (static_cast<uint64_t> (rai::block_type::utx));
 	blake2b_update (&hash_a, preamble.bytes.data (), preamble.bytes.size ());
 	hashables.hash (hash_a);
 }
@@ -1243,7 +1242,7 @@ std::unique_ptr<rai::block> rai::deserialize_block (rai::stream & stream_a, rai:
 		case rai::block_type::utx:
 		{
 			bool error;
-			std::unique_ptr <rai::utx_block> obj (new rai::utx_block (error, stream_a));
+			std::unique_ptr<rai::utx_block> obj (new rai::utx_block (error, stream_a));
 			if (!error)
 			{
 				result = std::move (obj);
@@ -1418,15 +1417,15 @@ bool rai::receive_block::valid_predecessor (rai::block const & block_a) const
 	bool result;
 	switch (block_a.type ())
 	{
-	case rai::block_type::send:
-	case rai::block_type::receive:
-	case rai::block_type::open:
-	case rai::block_type::change:
-		result = true;
-		break;
-	default:
-		result = false;
-		break;
+		case rai::block_type::send:
+		case rai::block_type::receive:
+		case rai::block_type::open:
+		case rai::block_type::change:
+			result = true;
+			break;
+		default:
+			result = false;
+			break;
 	}
 	return result;
 }

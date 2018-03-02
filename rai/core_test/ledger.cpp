@@ -2023,4 +2023,3 @@ TEST (ledger, utx_receive_change_rollback)
 	ASSERT_EQ (rai::genesis_amount - rai::Gxrb_ratio, ledger.weight (transaction, rai::genesis_account));
 	ASSERT_EQ (0, ledger.weight (transaction, rep.pub));
 }
-
