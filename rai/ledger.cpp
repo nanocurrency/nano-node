@@ -115,6 +115,10 @@ public:
 		if (is_send)
 		{
 			rai::pending_key key (block_a.hashables.link, hash);
+			while (!ledger.store.pending_exists (transaction, key))
+			{
+				ledger.rollback (transaction, ledger.latest (transaction, block_a.hashables.link));
+			}
 			ledger.store.pending_del (transaction, key);
 		}
 		else if (!block_a.hashables.link.is_zero ())
