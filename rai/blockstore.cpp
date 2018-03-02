@@ -546,7 +546,6 @@ void rai::block_store::representation_add (MDB_txn * transaction_a, rai::block_h
 	auto source_rep (source_block->representative ());
 	assert (!source_rep.is_zero ());
 	auto source_previous (representation_get (transaction_a, source_rep));
-	std::cerr << boost::str (boost::format ("Adding %1% to %2%\n") % amount_a.convert_to<std::string> () % source_rep.to_account ());
 	representation_put (transaction_a, source_rep, source_previous + amount_a);
 }
 

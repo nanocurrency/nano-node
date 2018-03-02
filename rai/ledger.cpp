@@ -637,36 +637,33 @@ void rai::ledger::rollback (MDB_txn * transaction_a, rai::block_hash const & blo
 rai::account rai::ledger::account (MDB_txn * transaction_a, rai::block_hash const & hash_a)
 {
 	rai::account result;
-	assert (store.block_exists (transaction_a, hash_a));
-	auto block (store.block_get (transaction_a, hash_a));
-	auto utx_block (dynamic_cast <rai::utx_block *> (block.get ()));
-	if (utx_block != nullptr)
+	auto hash (hash_a);
+	rai::block_hash successor (1);
+	rai::block_info block_info;
+	std::unique_ptr<rai::block> block (store.block_get (transaction_a, hash));
+	while (!successor.is_zero () && block->type () != rai::block_type::utx && store.block_info_get (transaction_a, successor, block_info))
+ 	{
+		successor = store.block_successor (transaction_a, hash);
+		if (!successor.is_zero ())
+		{
+			hash = successor;
+			block = store.block_get (transaction_a, hash);
+		}
+	}
+	if (block->type () == rai::block_type::utx)
 	{
-		result = utx_block->hashables.account;
+		auto utx_block (dynamic_cast <rai::utx_block *> (block.get ()));
+ 		result = utx_block->hashables.account;
+ 	}
+	else if (successor.is_zero ())
+	{
+		result = store.frontier_get (transaction_a, hash);
 	}
 	else
 	{
-		auto hash (hash_a);
-		rai::block_hash successor (1);
-		rai::block_info block_info;
-		while (!successor.is_zero () && store.block_info_get (transaction_a, successor, block_info))
-		{
-			successor = store.block_successor (transaction_a, hash);
-			if (!successor.is_zero ())
-			{
-				hash = successor;
-			}
-		}
-		if (successor.is_zero ())
-		{
-			result = store.frontier_get (transaction_a, hash);
-		}
-		else
-		{
-			result = block_info.account;
-		}
-		assert (!result.is_zero ());
+		result = block_info.account;
 	}
+	assert (!result.is_zero ());
 	return result;
 }
 
