@@ -879,11 +879,21 @@ TEST (rpc, history)
 	ASSERT_NE (nullptr, send);
 	auto receive (system.wallet (0)->receive_action (static_cast<rai::send_block &> (*send), rai::test_genesis_key.pub, system.nodes[0]->config.receive_minimum.number ()));
 	ASSERT_NE (nullptr, receive);
-	rai::rpc rpc (system.service, *system.nodes[0], rai::rpc_config (true));
+	auto node0 (system.nodes[0]);
+	rai::utx_block usend (rai::genesis_account, node0->latest (rai::genesis_account), rai::genesis_account, rai::genesis_amount - rai::Gxrb_ratio, rai::genesis_account, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
+	rai::utx_block ureceive (rai::genesis_account, usend.hash (), rai::genesis_account, rai::genesis_amount, usend.hash (), rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
+	rai::utx_block uchange (rai::genesis_account, ureceive.hash (), rai::keypair ().pub, rai::genesis_amount, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
+	{
+		rai::transaction transaction (node0->store.environment, nullptr, true);
+		ASSERT_EQ (rai::process_result::progress, node0->ledger.process (transaction, usend).code);
+		ASSERT_EQ (rai::process_result::progress, node0->ledger.process (transaction, ureceive).code);
+		ASSERT_EQ (rai::process_result::progress, node0->ledger.process (transaction, uchange).code);
+	}
+	rai::rpc rpc (system.service, *node0, rai::rpc_config (true));
 	rpc.start ();
 	boost::property_tree::ptree request;
 	request.put ("action", "history");
-	request.put ("hash", receive->hash ().to_string ());
+	request.put ("hash", uchange.hash ().to_string ());
 	request.put ("count", 100);
 	test_response response (request, rpc, system.service);
 	while (response.status == 0)
@@ -897,20 +907,29 @@ TEST (rpc, history)
 	{
 		history_l.push_back (std::make_tuple (i->second.get<std::string> ("type"), i->second.get<std::string> ("account"), i->second.get<std::string> ("amount"), i->second.get<std::string> ("hash")));
 	}
-	ASSERT_EQ (3, history_l.size ());
+	ASSERT_EQ (5, history_l.size ());
 	ASSERT_EQ ("receive", std::get<0> (history_l[0]));
+	ASSERT_EQ (ureceive.hash ().to_string (), std::get<3> (history_l[0]));
 	ASSERT_EQ (rai::test_genesis_key.pub.to_account (), std::get<1> (history_l[0]));
-	ASSERT_EQ (system.nodes[0]->config.receive_minimum.to_string_dec (), std::get<2> (history_l[0]));
-	ASSERT_EQ (receive->hash ().to_string (), std::get<3> (history_l[0]));
+	ASSERT_EQ (rai::Gxrb_ratio.convert_to<std::string> (), std::get<2> (history_l[0]));
+	ASSERT_EQ (5, history_l.size ());
 	ASSERT_EQ ("send", std::get<0> (history_l[1]));
+	ASSERT_EQ (usend.hash ().to_string (), std::get<3> (history_l[1]));
 	ASSERT_EQ (rai::test_genesis_key.pub.to_account (), std::get<1> (history_l[1]));
-	ASSERT_EQ (system.nodes[0]->config.receive_minimum.to_string_dec (), std::get<2> (history_l[1]));
-	ASSERT_EQ (send->hash ().to_string (), std::get<3> (history_l[1]));
-	rai::genesis genesis;
+	ASSERT_EQ (rai::Gxrb_ratio.convert_to<std::string> (), std::get<2> (history_l[1]));
 	ASSERT_EQ ("receive", std::get<0> (history_l[2]));
 	ASSERT_EQ (rai::test_genesis_key.pub.to_account (), std::get<1> (history_l[2]));
-	ASSERT_EQ (rai::genesis_amount.convert_to<std::string> (), std::get<2> (history_l[2]));
-	ASSERT_EQ (genesis.hash ().to_string (), std::get<3> (history_l[2]));
+	ASSERT_EQ (system.nodes[0]->config.receive_minimum.to_string_dec (), std::get<2> (history_l[2]));
+	ASSERT_EQ (receive->hash ().to_string (), std::get<3> (history_l[2]));
+	ASSERT_EQ ("send", std::get<0> (history_l[3]));
+	ASSERT_EQ (rai::test_genesis_key.pub.to_account (), std::get<1> (history_l[3]));
+	ASSERT_EQ (system.nodes[0]->config.receive_minimum.to_string_dec (), std::get<2> (history_l[3]));
+	ASSERT_EQ (send->hash ().to_string (), std::get<3> (history_l[3]));
+	rai::genesis genesis;
+	ASSERT_EQ ("receive", std::get<0> (history_l[4]));
+	ASSERT_EQ (rai::test_genesis_key.pub.to_account (), std::get<1> (history_l[4]));
+	ASSERT_EQ (rai::genesis_amount.convert_to<std::string> (), std::get<2> (history_l[4]));
+	ASSERT_EQ (genesis.hash ().to_string (), std::get<3> (history_l[4]));
 }
 
 TEST (rpc, history_count)
