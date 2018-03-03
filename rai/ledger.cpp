@@ -134,6 +134,7 @@ public:
 		auto previous (ledger.store.block_get (transaction, block_a.hashables.previous));
 		if (previous != nullptr)
 		{
+			ledger.store.block_successor_clear (transaction, block_a.hashables.previous);
 			switch (previous->type ())
 			{
 				case rai::block_type::send:
@@ -149,7 +150,6 @@ public:
 			}
 		}
 		ledger.store.block_del (transaction, hash);
-		ledger.store.block_successor_clear (transaction, block_a.hashables.previous);
 	}
 	MDB_txn * transaction;
 	rai::ledger & ledger;
