@@ -1890,6 +1890,7 @@ TEST (ledger, utx_rollback_send)
 	ASSERT_EQ (rai::genesis_amount, ledger.account_balance (transaction, rai::genesis_account));
 	ASSERT_EQ (rai::genesis_amount, ledger.weight (transaction, rai::genesis_account));
 	ASSERT_FALSE (store.pending_exists (transaction, rai::pending_key (rai::genesis_account, send1.hash ())));
+	ASSERT_TRUE (store.block_successor (transaction, genesis.hash ()).is_zero ());
 }
 
 TEST (ledger, utx_rollback_receive)

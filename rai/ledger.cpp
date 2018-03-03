@@ -149,6 +149,7 @@ public:
 			}
 		}
 		ledger.store.block_del (transaction, hash);
+		ledger.store.block_successor_clear (transaction, block_a.hashables.previous);
 	}
 	MDB_txn * transaction;
 	rai::ledger & ledger;
