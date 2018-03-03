@@ -322,6 +322,22 @@ TEST (ledger, rollback_representation)
 	ASSERT_EQ (0, ledger.weight (transaction, key3.pub));
 }
 
+TEST (ledger, receive_rollback)
+{
+	bool init (false);
+	rai::block_store store (init, rai::unique_path ());
+	ASSERT_TRUE (!init);
+	rai::ledger ledger (store);
+	rai::genesis genesis;
+	rai::transaction transaction (store.environment, nullptr, true);
+	genesis.initialize (transaction, store);
+	rai::send_block send (genesis.hash (), rai::test_genesis_key.pub, rai::genesis_amount - rai::Gxrb_ratio, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
+	ASSERT_EQ (rai::process_result::progress, ledger.process (transaction, send).code);
+	rai::receive_block receive (send.hash (), send.hash (), rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
+	ASSERT_EQ (rai::process_result::progress, ledger.process (transaction, receive).code);
+	ledger.rollback(transaction, receive.hash ());
+}
+
 TEST (ledger, process_duplicate)
 {
 	bool init (false);
