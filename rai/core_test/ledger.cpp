@@ -1651,7 +1651,7 @@ TEST (ledger, utx_unreceivable_fail)
 	ASSERT_EQ (rai::Gxrb_ratio, ledger.amount (transaction, send1.hash ()));
 	ASSERT_EQ (rai::genesis_amount - rai::Gxrb_ratio, ledger.weight (transaction, rai::genesis_account));
 	rai::utx_block receive1 (rai::genesis_account, send1.hash (), rai::genesis_account, rai::genesis_amount, 1, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
-	ASSERT_EQ (rai::process_result::unreceivable, ledger.process (transaction, receive1).code);
+	ASSERT_EQ (rai::process_result::gap_source, ledger.process (transaction, receive1).code);
 }
 
 TEST (ledger, utx_receive_bad_amount_fail)
