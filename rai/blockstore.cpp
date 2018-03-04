@@ -687,8 +687,15 @@ std::unique_ptr<rai::block> rai::block_store::block_random (MDB_txn * transactio
 			}
 			else
 			{
-				// change
-				result = block_random (transaction_a, change_blocks);
+				region -= count.change;
+				if (region < count.change)
+				{
+					result = block_random (transaction_a, change_blocks);
+				}
+				else
+				{
+					result = block_random (transaction_a, utx_blocks);
+				}
 			}
 		}
 	}

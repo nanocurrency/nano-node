@@ -45,6 +45,7 @@ public:
 	void checksum_update (MDB_txn *, rai::block_hash const &);
 	rai::checksum checksum (MDB_txn *, rai::account const &, rai::account const &);
 	void dump_account_chain (rai::account const &);
+	bool utx_enabled (MDB_txn *);
 	static rai::uint128_t const unit;
 	rai::block_store & store;
 	rai::uint128_t inactive_supply;

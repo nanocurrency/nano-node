@@ -67,10 +67,11 @@ public:
 		auto hash (block_a.hash ());
 		auto amount (ledger.amount (transaction, block_a.hashables.source));
 		auto destination_account (ledger.account (transaction, hash));
+		auto source_account (ledger.account (transaction, block_a.hashables.source));
 		ledger.store.representation_add (transaction, ledger.representative (transaction, hash), 0 - amount);
 		ledger.change_latest (transaction, destination_account, 0, 0, 0, 0);
 		ledger.store.block_del (transaction, hash);
-		ledger.store.pending_put (transaction, rai::pending_key (destination_account, block_a.hashables.source), { ledger.account (transaction, block_a.hashables.source), amount });
+		ledger.store.pending_put (transaction, rai::pending_key (destination_account, block_a.hashables.source), { source_account, amount });
 		ledger.store.frontier_del (transaction, hash);
 	}
 	void change_block (rai::change_block const & block_a) override
@@ -765,6 +766,11 @@ void rai::ledger::dump_account_chain (rai::account const & account_a)
 		std::cerr << hash.to_string () << std::endl;
 		hash = block->previous ();
 	}
+}
+
+bool rai::ledger::utx_enabled (MDB_txn * transaction_a)
+{
+	return false;
 }
 
 void rai::ledger::checksum_update (MDB_txn * transaction_a, rai::block_hash const & hash_a)

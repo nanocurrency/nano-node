@@ -256,7 +256,7 @@ change (0)
 
 size_t rai::block_counts::sum ()
 {
-	return send + receive + open + change;
+	return send + receive + open + change + utx;
 }
 
 rai::pending_info::pending_info () :

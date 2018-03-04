@@ -19,26 +19,19 @@ TEST (system, generate_mass_activity)
 
 TEST (system, generate_mass_activity_long)
 {
-	std::vector<std::thread> threads;
+	rai::system system (24000, 1);
+	rai::thread_runner runner (system.service, system.nodes[0]->config.io_threads);
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	size_t count (1000000000);
+	system.generate_mass_activity (count, *system.nodes[0]);
+	size_t accounts (0);
+	rai::transaction transaction (system.nodes[0]->store.environment, nullptr, false);
+	for (auto i (system.nodes[0]->store.latest_begin (transaction)), n (system.nodes[0]->store.latest_end ()); i != n; ++i)
 	{
-		rai::system system (24000, 1);
-		rai::thread_runner runner (system.service, system.nodes[0]->config.io_threads);
-		system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
-		size_t count (1000000000);
-		system.generate_mass_activity (count, *system.nodes[0]);
-		size_t accounts (0);
-		rai::transaction transaction (system.nodes[0]->store.environment, nullptr, false);
-		for (auto i (system.nodes[0]->store.latest_begin (transaction)), n (system.nodes[0]->store.latest_end ()); i != n; ++i)
-		{
-			++accounts;
-		}
-		system.stop ();
-		runner.join ();
+		++accounts;
 	}
-	for (auto i (threads.begin ()), n (threads.end ()); i != n; ++i)
-	{
-		i->join ();
-	}
+	system.stop ();
+	runner.join ();
 }
 
 TEST (system, receive_while_synchronizing)
