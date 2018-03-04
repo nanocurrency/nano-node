@@ -1001,18 +1001,17 @@ void rai::rpc_handler::blocks_info ()
 				entry.put ("contents", contents);
 				if (pending)
 				{
-					auto block_l (dynamic_cast<rai::send_block *> (block.get ()));
 					bool exists (false);
-					if (block_l != nullptr)
+					auto destination (node.ledger.block_destination (transaction, *block));
+					if (!destination.is_zero ())
 					{
-						auto destination (block_l->hashables.destination);
 						exists = node.store.pending_exists (transaction, rai::pending_key (destination, hash));
 					}
 					entry.put ("pending", exists ? "1" : "0");
 				}
 				if (source)
 				{
-					rai::block_hash source_hash (block->source ());
+					rai::block_hash source_hash (node.ledger.block_source (transaction, *block));
 					std::unique_ptr<rai::block> block_a (node.store.block_get (transaction, source_hash));
 					if (block_a != nullptr)
 					{
@@ -2227,12 +2226,11 @@ void rai::rpc_handler::pending_exists ()
 		auto block (node.store.block_get (transaction, hash));
 		if (block != nullptr)
 		{
-			auto block_l (dynamic_cast<rai::send_block *> (block.get ()));
 			auto exists (false);
-			if (block_l != nullptr)
+			auto destination (node.ledger.block_destination (transaction, *block));
+			if (!destination.is_zero ())
 			{
-				auto account (block_l->hashables.destination);
-				exists = node.store.pending_exists (transaction, rai::pending_key (account, hash));
+				exists = node.store.pending_exists (transaction, rai::pending_key (destination, hash));
 			}
 			boost::property_tree::ptree response_l;
 			response_l.put ("exists", exists ? "1" : "0");
@@ -2831,7 +2829,7 @@ void rai::rpc_handler::republish ()
 				block = node.store.block_get (transaction, hash);
 				if (sources != 0) // Republish source chain
 				{
-					rai::block_hash source (block->source ());
+					rai::block_hash source (node.ledger.block_source (transaction, *block));
 					std::unique_ptr<rai::block> block_a (node.store.block_get (transaction, source));
 					std::vector<rai::block_hash> hashes;
 					while (block_a != nullptr && hashes.size () < sources)
@@ -2857,10 +2855,9 @@ void rai::rpc_handler::republish ()
 				if (destinations != 0) // Republish destination chain
 				{
 					auto block_b (node.store.block_get (transaction, hash));
-					auto block_s (dynamic_cast<rai::send_block *> (block_b.get ()));
-					if (block_s != nullptr)
+					auto destination (node.ledger.block_destination (transaction, *block_b));
+					if (!destination.is_zero ())
 					{
-						auto destination (block_s->hashables.destination);
 						auto exists (node.store.pending_exists (transaction, rai::pending_key (destination, hash)));
 						if (!exists)
 						{
@@ -2871,7 +2868,7 @@ void rai::rpc_handler::republish ()
 							while (block_d != nullptr && hash != source)
 							{
 								hashes.push_back (previous);
-								source = block_d->source ();
+								source = node.ledger.block_source (transaction, *block_d);
 								previous = block_d->previous ();
 								block_d = node.store.block_get (transaction, previous);
 							}

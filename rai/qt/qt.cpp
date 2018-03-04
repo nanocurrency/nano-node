@@ -2016,10 +2016,10 @@ void rai_qt::block_creation::create_receive ()
 		auto block_l (wallet.node.store.block_get (transaction, source_l));
 		if (block_l != nullptr)
 		{
-			auto send_block (dynamic_cast<rai::send_block *> (block_l.get ()));
-			if (send_block != nullptr)
+			auto destination (wallet.node.ledger.block_destination (transaction, *block_l));
+			if (!destination.is_zero ())
 			{
-				rai::pending_key pending_key (send_block->hashables.destination, source_l);
+				rai::pending_key pending_key (destination, source_l);
 				rai::pending_info pending;
 				if (!wallet.node.store.pending_get (transaction, pending_key, pending))
 				{
@@ -2140,10 +2140,10 @@ void rai_qt::block_creation::create_open ()
 			auto block_l (wallet.node.store.block_get (transaction, source_l));
 			if (block_l != nullptr)
 			{
-				auto send_block (dynamic_cast<rai::send_block *> (block_l.get ()));
-				if (send_block != nullptr)
+				auto destination (wallet.node.ledger.block_destination (transaction, *block_l));
+				if (!destination.is_zero ())
 				{
-					rai::pending_key pending_key (send_block->hashables.destination, source_l);
+					rai::pending_key pending_key (destination, source_l);
 					rai::pending_info pending;
 					if (!wallet.node.store.pending_get (transaction, pending_key, pending))
 					{
