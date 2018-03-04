@@ -335,7 +335,7 @@ TEST (ledger, receive_rollback)
 	ASSERT_EQ (rai::process_result::progress, ledger.process (transaction, send).code);
 	rai::receive_block receive (send.hash (), send.hash (), rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
 	ASSERT_EQ (rai::process_result::progress, ledger.process (transaction, receive).code);
-	ledger.rollback(transaction, receive.hash ());
+	ledger.rollback (transaction, receive.hash ());
 }
 
 TEST (ledger, process_duplicate)
