@@ -598,6 +598,49 @@ std::string rai::ledger::block_text (rai::block_hash const & hash_a)
 	return result;
 }
 
+bool rai::ledger::is_utx_send (MDB_txn * transaction_a, rai::utx_block const & block_a)
+{
+	bool result (false);
+	rai::block_hash previous (block_a.hashables.previous);
+	if (!previous.is_zero ())
+	{
+		if (block_a.hashables.balance < balance (transaction_a, previous))
+		{
+			result = true;
+		}
+	}
+	return result;
+}
+
+rai::block_hash rai::ledger::block_destination (MDB_txn * transaction_a, rai::block const & block_a)
+{
+	rai::block_hash result (0);
+	rai::send_block const * send_block (dynamic_cast<rai::send_block const *> (&block_a));
+	rai::utx_block const * utx_block (dynamic_cast<rai::utx_block const *> (&block_a));
+	if (send_block != nullptr)
+	{
+		result = send_block->hashables.destination;
+	}
+	else if (utx_block != nullptr && is_utx_send (transaction_a, *utx_block))
+	{
+		result = utx_block->hashables.link;
+	}
+	return result;
+}
+
+rai::block_hash rai::ledger::block_source (MDB_txn * transaction_a, rai::block const & block_a)
+{
+	// If block_a.source () is nonzero, then we have our source.
+	// However, universal blocks will always return zero.
+	rai::block_hash result (block_a.source ());
+	rai::utx_block const * utx_block (dynamic_cast<rai::utx_block const *> (&block_a));
+	if (utx_block != nullptr && !is_utx_send (transaction_a, *utx_block))
+	{
+		result = utx_block->hashables.link;
+	}
+	return result;
+}
+
 // Vote weight of an account
 rai::uint128_t rai::ledger::weight (MDB_txn * transaction_a, rai::account const & account_a)
 {

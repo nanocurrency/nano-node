@@ -1471,6 +1471,50 @@ TEST (ledger, bootstrap_rep_weight)
 	}
 }
 
+TEST (ledger, block_destination_source)
+{
+	bool init (false);
+	rai::block_store store (init, rai::unique_path ());
+	ASSERT_TRUE (!init);
+	rai::ledger ledger (store);
+	rai::genesis genesis;
+	rai::transaction transaction (store.environment, nullptr, true);
+	genesis.initialize (transaction, store);
+	rai::keypair dest;
+	rai::uint128_t balance (rai::genesis_amount);
+	balance -= rai::Gxrb_ratio;
+    rai::send_block block1 (genesis.hash (), dest.pub, balance, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
+	balance -= rai::Gxrb_ratio;
+    rai::send_block block2 (block1.hash (), rai::genesis_account, balance, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
+	balance += rai::Gxrb_ratio;
+    rai::receive_block block3 (block2.hash (), block2.hash (), rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
+	balance -= rai::Gxrb_ratio;
+	rai::utx_block block4 (rai::genesis_account, block3.hash (), rai::genesis_account, balance, dest.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
+	balance -= rai::Gxrb_ratio;
+	rai::utx_block block5 (rai::genesis_account, block4.hash (), rai::genesis_account, balance, rai::genesis_account, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
+	balance += rai::Gxrb_ratio;
+	rai::utx_block block6 (rai::genesis_account, block5.hash (), rai::genesis_account, balance, block5.hash (), rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
+	ASSERT_EQ (rai::process_result::progress, ledger.process (transaction, block1).code);
+	ASSERT_EQ (rai::process_result::progress, ledger.process (transaction, block2).code);
+	ASSERT_EQ (rai::process_result::progress, ledger.process (transaction, block3).code);
+	ASSERT_EQ (rai::process_result::progress, ledger.process (transaction, block4).code);
+	ASSERT_EQ (rai::process_result::progress, ledger.process (transaction, block5).code);
+	ASSERT_EQ (rai::process_result::progress, ledger.process (transaction, block6).code);
+	ASSERT_EQ (balance, ledger.balance (transaction, block6.hash ()));
+	ASSERT_EQ (dest.pub, ledger.block_destination (transaction, block1));
+	ASSERT_TRUE (ledger.block_source (transaction, block1).is_zero ());
+	ASSERT_EQ (rai::genesis_account, ledger.block_destination (transaction, block2));
+	ASSERT_TRUE (ledger.block_source (transaction, block2).is_zero ());
+	ASSERT_TRUE (ledger.block_destination (transaction, block3).is_zero ());
+	ASSERT_EQ (block2.hash (), ledger.block_source (transaction, block3));
+	ASSERT_EQ (dest.pub, ledger.block_destination (transaction, block4));
+	ASSERT_TRUE (ledger.block_source (transaction, block4).is_zero ());
+	ASSERT_EQ (rai::genesis_account, ledger.block_destination (transaction, block5));
+	ASSERT_TRUE (ledger.block_source (transaction, block5).is_zero ());
+	ASSERT_TRUE (ledger.block_destination (transaction, block6).is_zero ());
+	ASSERT_EQ (block5.hash (), ledger.block_source (transaction, block6));
+}
+
 TEST (ledger, utx_account)
 {
 	bool init (false);

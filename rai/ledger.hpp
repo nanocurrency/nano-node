@@ -35,6 +35,9 @@ public:
 	bool block_exists (rai::block_hash const &);
 	std::string block_text (char const *);
 	std::string block_text (rai::block_hash const &);
+	bool is_utx_send (MDB_txn *, rai::utx_block const &);
+	rai::block_hash block_destination (MDB_txn *, rai::block const &);
+	rai::block_hash block_source (MDB_txn *, rai::block const &);
 	rai::uint128_t supply (MDB_txn *);
 	rai::process_return process (MDB_txn *, rai::block const &);
 	void rollback (MDB_txn *, rai::block_hash const &);

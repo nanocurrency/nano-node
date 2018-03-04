@@ -1246,7 +1246,7 @@ rai::process_return rai::block_processor::process_receive_one (MDB_txn * transac
 			{
 				BOOST_LOG (node.log) << boost::str (boost::format ("Gap source for: %1%") % block_a->hash ().to_string ());
 			}
-			node.store.unchecked_put (transaction_a, block_a->source (), block_a);
+			node.store.unchecked_put (transaction_a, node.ledger.block_source (transaction_a, *block_a), block_a);
 			node.gap_cache.add (transaction_a, block_a);
 			break;
 		}
