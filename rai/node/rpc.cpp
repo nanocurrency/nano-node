@@ -2227,11 +2227,17 @@ void rai::rpc_handler::pending_exists ()
 		auto block (node.store.block_get (transaction, hash));
 		if (block != nullptr)
 		{
-			auto block_l (dynamic_cast<rai::send_block *> (block.get ()));
+			auto send_block_l (dynamic_cast<rai::send_block *> (block.get ()));
+			auto utx_block_l (dynamic_cast<rai::utx_block *> (block.get ()));
 			auto exists (false);
-			if (block_l != nullptr)
+			if (send_block_l != nullptr)
 			{
-				auto account (block_l->hashables.destination);
+				auto account (send_block_l->hashables.destination);
+				exists = node.store.pending_exists (transaction, rai::pending_key (account, hash));
+			}
+			else if (utx_block_l != nullptr)
+			{
+				auto account (utx_block_l->hashables.link);
 				exists = node.store.pending_exists (transaction, rai::pending_key (account, hash));
 			}
 			boost::property_tree::ptree response_l;
