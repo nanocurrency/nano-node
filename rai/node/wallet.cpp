@@ -841,7 +841,7 @@ std::shared_ptr<rai::block> rai::wallet::receive_action (rai::block const & send
 	{
 		rai::transaction transaction (node.ledger.store.environment, nullptr, false);
 		rai::pending_info pending_info;
-		if (node.store.block_exists(transaction, hash))
+		if (node.store.block_exists (transaction, hash))
 		{
 			account = node.ledger.block_destination (transaction, send_a);
 			if (!node.ledger.store.pending_get (transaction, rai::pending_key (account, hash), pending_info))

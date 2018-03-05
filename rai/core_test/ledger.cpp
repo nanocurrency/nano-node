@@ -1483,11 +1483,11 @@ TEST (ledger, block_destination_source)
 	rai::keypair dest;
 	rai::uint128_t balance (rai::genesis_amount);
 	balance -= rai::Gxrb_ratio;
-    rai::send_block block1 (genesis.hash (), dest.pub, balance, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
+	rai::send_block block1 (genesis.hash (), dest.pub, balance, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
 	balance -= rai::Gxrb_ratio;
-    rai::send_block block2 (block1.hash (), rai::genesis_account, balance, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
+	rai::send_block block2 (block1.hash (), rai::genesis_account, balance, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
 	balance += rai::Gxrb_ratio;
-    rai::receive_block block3 (block2.hash (), block2.hash (), rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
+	rai::receive_block block3 (block2.hash (), block2.hash (), rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
 	balance -= rai::Gxrb_ratio;
 	rai::utx_block block4 (rai::genesis_account, block3.hash (), rai::genesis_account, balance, dest.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
 	balance -= rai::Gxrb_ratio;
