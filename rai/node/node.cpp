@@ -419,17 +419,65 @@ void rai::network::receive_action (boost::system::error_code const & error, size
 			network_message_visitor visitor (node, remote);
 			rai::message_parser parser (visitor, node.work);
 			parser.deserialize_buffer (buffer.data (), size_a);
-			if (parser.error)
+			if (parser.status != rai::message_parser::parse_status::success)
 			{
 				++error_count;
-			}
-			else if (parser.insufficient_work)
-			{
-				if (node.config.logging.insufficient_work_logging ())
+
+				if (parser.status == rai::message_parser::parse_status::insufficient_work)
 				{
-					BOOST_LOG (node.log) << "Insufficient work in message";
+					if (node.config.logging.insufficient_work_logging ())
+					{
+						BOOST_LOG (node.log) << "Insufficient work in message";
+					}
+
+					++insufficient_work_count;
 				}
-				++insufficient_work_count;
+				else if (parser.status == rai::message_parser::parse_status::invalid_message_type)
+				{
+					if (node.config.logging.network_logging ())
+					{
+						BOOST_LOG (node.log) << "Invalid message type in message";
+					}
+				}
+				else if (parser.status == rai::message_parser::parse_status::invalid_header)
+				{
+					if (node.config.logging.network_logging ())
+					{
+						BOOST_LOG (node.log) << "Invalid header in message";
+					}
+				}
+				else if (parser.status == rai::message_parser::parse_status::invalid_keepalive_message)
+				{
+					if (node.config.logging.network_logging ())
+					{
+						BOOST_LOG (node.log) << "Invalid keepalive message";
+					}
+				}
+				else if (parser.status == rai::message_parser::parse_status::invalid_publish_message)
+				{
+					if (node.config.logging.network_logging ())
+					{
+						BOOST_LOG (node.log) << "Invalid publish message";
+					}
+				}
+				else if (parser.status == rai::message_parser::parse_status::invalid_confirm_req_message)
+				{
+					if (node.config.logging.network_logging ())
+					{
+						BOOST_LOG (node.log) << "Invalid confirm_req message";
+					}
+				}
+				else if (parser.status == rai::message_parser::parse_status::invalid_confirm_ack_message)
+				{
+					if (node.config.logging.network_logging ())
+					{
+						BOOST_LOG (node.log) << "Invalid confirm_ack message";
+					}
+				}
+				else
+				{
+					BOOST_LOG (node.log) << "Could not deserialize buffer";
+				}
 			}
 		}
 		else
@@ -2509,16 +2557,18 @@ void rai::peer_container::rep_request (rai::endpoint const & endpoint_a)
 
 bool rai::peer_container::reachout (rai::endpoint const & endpoint_a)
 {
-	auto result (false);
 	// Don't contact invalid IPs
-	result |= not_a_peer (endpoint_a);
-	// Don't keepalive to nodes that already sent us something
-	result |= known_peer (endpoint_a);
-	std::lock_guard<std::mutex> lock (mutex);
-	auto existing (attempts.find (endpoint_a));
-	result |= existing != attempts.end ();
-	attempts.insert ({ endpoint_a, std::chrono::steady_clock::now () });
-	return result;
+	bool error = not_a_peer (endpoint_a);
+	if (!error)
+	{
+		// Don't keepalive to nodes that already sent us something
+		error |= known_peer (endpoint_a);
+		std::lock_guard<std::mutex> lock (mutex);
+		auto existing (attempts.find (endpoint_a));
+		error |= existing != attempts.end ();
+		attempts.insert ({ endpoint_a, std::chrono::steady_clock::now () });
+	}
+	return error;
 }
 
 bool rai::peer_container::insert (rai::endpoint const & endpoint_a, unsigned version_a)
