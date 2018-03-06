@@ -1,3 +1,4 @@
+
 #include <rai/node/common.hpp>
 
 #include <rai/lib/work.hpp>
@@ -73,14 +74,13 @@ bool rai::message::read_header (rai::stream & stream_a, uint8_t & version_max_a,
 rai::message_parser::message_parser (rai::message_visitor & visitor_a, rai::work_pool & pool_a) :
 visitor (visitor_a),
 pool (pool_a),
-error (false),
-insufficient_work (false)
+status (parse_status::success)
 {
 }
 
 void rai::message_parser::deserialize_buffer (uint8_t const * buffer_a, size_t size_a)
 {
-	error = false;
+	status = parse_status::success;
 	rai::bufferstream header_stream (buffer_a, size_a);
 	uint8_t version_max;
 	uint8_t version_using;
@@ -113,14 +113,14 @@ void rai::message_parser::deserialize_buffer (uint8_t const * buffer_a, size_t s
 			}
 			default:
 			{
-				error = true;
+				status = parse_status::invalid_message_type;
 				break;
 			}
 		}
 	}
 	else
 	{
-		error = true;
+		status = parse_status::invalid_header;
 	}
 }
 
@@ -135,7 +135,7 @@ void rai::message_parser::deserialize_keepalive (uint8_t const * buffer_a, size_
 	}
 	else
 	{
-		error = true;
+		status = parse_status::invalid_keepalive_message;
 	}
 }
 
@@ -152,12 +152,12 @@ void rai::message_parser::deserialize_publish (uint8_t const * buffer_a, size_t 
 		}
 		else
 		{
-			insufficient_work = true;
+			status = parse_status::insufficient_work;
 		}
 	}
 	else
 	{
-		error = true;
+		status = parse_status::invalid_publish_message;
 	}
 }
 
@@ -174,12 +174,12 @@ void rai::message_parser::deserialize_confirm_req (uint8_t const * buffer_a, siz
 		}
 		else
 		{
-			insufficient_work = true;
+			status = parse_status::insufficient_work;
 		}
 	}
 	else
 	{
-		error = true;
+		status = parse_status::invalid_confirm_req_message;
 	}
 }
 
@@ -196,12 +196,12 @@ void rai::message_parser::deserialize_confirm_ack (uint8_t const * buffer_a, siz
 		}
 		else
 		{
-			insufficient_work = true;
+			status = parse_status::insufficient_work;
 		}
 	}
 	else
 	{
-		error = true;
+		status = parse_status::invalid_confirm_ack_message;
 	}
 }
 
@@ -241,18 +241,23 @@ void rai::keepalive::serialize (rai::stream & stream_a)
 
 bool rai::keepalive::deserialize (rai::stream & stream_a)
 {
-	auto result (read_header (stream_a, version_max, version_using, version_min, type, extensions));
-	assert (!result);
+	auto error (read_header (stream_a, version_max, version_using, version_min, type, extensions));
+	assert (!error);
 	assert (type == rai::message_type::keepalive);
-	for (auto i (peers.begin ()), j (peers.end ()); i != j; ++i)
+	for (auto i (peers.begin ()), j (peers.end ()); i != j && !error; ++i)
 	{
 		std::array<uint8_t, 16> address;
 		uint16_t port;
-		read (stream_a, address);
-		read (stream_a, port);
-		*i = rai::endpoint (boost::asio::ip::address_v6 (address), port);
+		if (!read (stream_a, address) && !read (stream_a, port))
+		{
+			*i = rai::endpoint (boost::asio::ip::address_v6 (address), port);
+		}
+		else
+		{
+			error = true;
+		}
 	}
-	return result;
+	return error;
 }
 
 bool rai::keepalive::operator== (rai::keepalive const & other_a) const

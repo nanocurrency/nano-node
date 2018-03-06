@@ -130,6 +130,17 @@ class work_pool;
 class message_parser
 {
 public:
+	enum class parse_status
+	{
+		success,
+		insufficient_work,
+		invalid_header,
+		invalid_message_type,
+		invalid_keepalive_message,
+		invalid_publish_message,
+		invalid_confirm_req_message,
+		invalid_confirm_ack_message
+	};
 	message_parser (rai::message_visitor &, rai::work_pool &);
 	void deserialize_buffer (uint8_t const *, size_t);
 	void deserialize_keepalive (uint8_t const *, size_t);
@@ -139,8 +150,7 @@ public:
 	bool at_end (rai::bufferstream &);
 	rai::message_visitor & visitor;
 	rai::work_pool & pool;
-	bool error;
-	bool insufficient_work;
+	parse_status status;
 };
 class keepalive : public message
 {
