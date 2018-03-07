@@ -7,15 +7,13 @@ set (CPACK_PACKAGE_VERSION_PATCH "1")
 
 set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
 
-if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-	set(CMAKE_INSTALL_RPATH "@loader_path/../Frameworks")
-else()
-	set(CMAKE_INSTALL_RPATH "\$ORIGIN/../lib:\$ORIGIN/")
-	set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
-endif()
+set(CMAKE_INSTALL_RPATH "\$ORIGIN/../lib:\$ORIGIN/")
+set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
 set (RAIBLOCKS_GUI OFF CACHE BOOL "")
 set (RAIBLOCKS_TEST OFF CACHE BOOL "")
+set (RAIBLOCKS_SECURE_RPC OFF CACHE BOOL "")
+
 option(RAIBLOCKS_ASAN_INT "Enable ASan+UBSan+Integer overflow" OFF)
 option(RAIBLOCKS_ASAN "Enable ASan+UBSan" OFF)
 option(RAIBLOCKS_SIMD_OPTIMIZATIONS "Enable CPU-specific SIMD optimizations (SSE/AVX or NEON, e.g.)" OFF)
@@ -68,7 +66,7 @@ endif (WIN32)
 if (WIN32)
 	set (PLATFORM_CXX_FLAGS "/bigobj")
 else (WIN32)
-	set (PLATFORM_CXX_FLAGS "-std=c++11")
+	set (PLATFORM_CXX_FLAGS "-std=c++14")
 endif (WIN32)
 
 if (WIN32)
@@ -103,6 +101,18 @@ if (RAIBLOCKS_GUI)
 	include_directories (${Qt5Core_INCLUDE_DIRS} ${Qt5Gui_INCLUDE_DIRS} ${Qt5Widgets_INCLUDE_DIRS} ${Qt5Test_INCLUDE_DIRS})
 endif (RAIBLOCKS_GUI)
 
+if (RAIBLOCKS_SECURE_RPC)
+	find_package (OpenSSL 1.0 EXACT REQUIRED)
+	include_directories(${OPENSSL_INCLUDE_DIR})
+	add_definitions (-DRAIBLOCKS_SECURE_RPC)
+	message("OpenSSL include dir: ${OPENSSL_INCLUDE_DIR}")
+	message("OpenSSL libraries: ${OPENSSL_LIBRARIES}")
+	message("OpenSSL lib: ${OPENSSL_SSL_LIBRARY}")
+	message("Crypto lib: ${OPENSSL_CRYPTO_LIBRARY}")
+else ()
+	set (OPENSSL_LIBRARIES "")
+endif (RAIBLOCKS_SECURE_RPC)
+
 include_directories (${CMAKE_SOURCE_DIR})
 
 set(Boost_USE_STATIC_LIBS        ON)
@@ -132,6 +142,11 @@ else ()
 	set (ARGON_CORE phc-winner-argon2/src/ref.c)
 endif ()
 
+if (WIN32)
+	set (gtest_force_shared_crt ON)
+else ()
+	set (gtest_force_shared_crt OFF)
+endif()
 add_subdirectory (gtest)
 include_directories ("gtest/include")
 
@@ -244,12 +259,20 @@ file (WRITE ${CMAKE_BINARY_DIR}/bootstrap_weights.cpp "#include <cstddef>\n"
 	"	size_t rai_bootstrap_weights_size = sizeof(rai_bootstrap_weights) - 1;\n"
 	"}\n")
 	
+if (RAIBLOCKS_SECURE_RPC)
+	set (SECURE_RPC_SOURCE rai/node/rpc_secure.cpp rai/node/rpc_secure.hpp)
+endif ()
+
 add_library (secure
 	${PLATFORM_SECURE_SOURCE}
 	${CMAKE_BINARY_DIR}/bootstrap_weights.cpp
 	rai/config.hpp
-	rai/secure.cpp
-	rai/secure.hpp
+	rai/common.cpp
+	rai/common.hpp
+	rai/blockstore.cpp
+	rai/blockstore.hpp
+	rai/ledger.cpp
+	rai/ledger.hpp
 	rai/node/utility.cpp
 	rai/node/utility.hpp
 	rai/versioning.hpp
@@ -273,6 +296,7 @@ add_library (rai_lib_static STATIC ${RAI_LIB_SOURCES})
 
 add_library (node
 	${PLATFORM_NODE_SOURCE}
+	${SECURE_RPC_SOURCE}
 	rai/node/bootstrap.cpp
 	rai/node/bootstrap.hpp
 	rai/node/common.cpp
@@ -375,23 +399,23 @@ else (WIN32)
 endif (WIN32)
 
 if (RAIBLOCKS_TEST)
-	target_link_libraries (core_test node secure lmdb ed25519 rai_lib_static argon2 ${CRYPTOPP_LIBRARY} gtest_main gtest libminiupnpc-static ${Boost_ATOMIC_LIBRARY} ${Boost_CHRONO_LIBRARY} ${Boost_REGEX_LIBRARY} ${Boost_DATE_TIME_LIBRARY} ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_LOG_LIBRARY} ${Boost_LOG_SETUP_LIBRARY} ${Boost_PROGRAM_OPTIONS_LIBRARY} ${Boost_THREAD_LIBRARY} ${PLATFORM_LIBS})
+	target_link_libraries (core_test node secure lmdb ed25519 rai_lib_static argon2 ${OPENSSL_LIBRARIES} ${CRYPTOPP_LIBRARY} gtest_main gtest libminiupnpc-static ${Boost_ATOMIC_LIBRARY} ${Boost_CHRONO_LIBRARY} ${Boost_REGEX_LIBRARY} ${Boost_DATE_TIME_LIBRARY} ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_LOG_LIBRARY} ${Boost_LOG_SETUP_LIBRARY} ${Boost_PROGRAM_OPTIONS_LIBRARY} ${Boost_THREAD_LIBRARY} ${PLATFORM_LIBS})
 
-	target_link_libraries (slow_test node secure lmdb ed25519 rai_lib_static argon2 ${CRYPTOPP_LIBRARY} gtest_main gtest libminiupnpc-static ${Boost_ATOMIC_LIBRARY} ${Boost_CHRONO_LIBRARY} ${Boost_REGEX_LIBRARY} ${Boost_DATE_TIME_LIBRARY} ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_LOG_LIBRARY} ${Boost_PROGRAM_OPTIONS_LIBRARY} ${Boost_LOG_SETUP_LIBRARY} ${Boost_THREAD_LIBRARY} ${PLATFORM_LIBS})
+	target_link_libraries (slow_test node secure lmdb ed25519 rai_lib_static argon2 ${OPENSSL_LIBRARIES} ${CRYPTOPP_LIBRARY} gtest_main gtest libminiupnpc-static ${Boost_ATOMIC_LIBRARY} ${Boost_CHRONO_LIBRARY} ${Boost_REGEX_LIBRARY} ${Boost_DATE_TIME_LIBRARY} ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_LOG_LIBRARY} ${Boost_PROGRAM_OPTIONS_LIBRARY} ${Boost_LOG_SETUP_LIBRARY} ${Boost_THREAD_LIBRARY} ${PLATFORM_LIBS})
 endif (RAIBLOCKS_TEST)
 
 if (RAIBLOCKS_GUI)
-	target_link_libraries (qt_test node secure lmdb ed25519 rai_lib_static qt argon2 ${CRYPTOPP_LIBRARY} gtest libminiupnpc-static ${Boost_ATOMIC_LIBRARY} ${Boost_CHRONO_LIBRARY} ${Boost_REGEX_LIBRARY} ${Boost_DATE_TIME_LIBRARY} ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_LOG_LIBRARY} ${Boost_PROGRAM_OPTIONS_LIBRARY} ${Boost_LOG_SETUP_LIBRARY} ${Boost_THREAD_LIBRARY} Qt5::Core Qt5::Gui Qt5::Widgets Qt5::Test ${QT_QTGUI_LIBRARY} ${PLATFORM_LIBS})
+	target_link_libraries (qt_test node secure lmdb ed25519 rai_lib_static qt argon2 ${OPENSSL_LIBRARIES} ${CRYPTOPP_LIBRARY} gtest libminiupnpc-static ${Boost_ATOMIC_LIBRARY} ${Boost_CHRONO_LIBRARY} ${Boost_REGEX_LIBRARY} ${Boost_DATE_TIME_LIBRARY} ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_LOG_LIBRARY} ${Boost_PROGRAM_OPTIONS_LIBRARY} ${Boost_LOG_SETUP_LIBRARY} ${Boost_THREAD_LIBRARY} Qt5::Core Qt5::Gui Qt5::Widgets Qt5::Test ${QT_QTGUI_LIBRARY} ${PLATFORM_LIBS})
 
-	target_link_libraries (qt_system node secure lmdb ed25519 rai_lib_static qt argon2 ${CRYPTOPP_LIBRARY} gtest libminiupnpc-static ${Boost_ATOMIC_LIBRARY} ${Boost_CHRONO_LIBRARY} ${Boost_REGEX_LIBRARY} ${Boost_DATE_TIME_LIBRARY} ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_LOG_LIBRARY} ${Boost_PROGRAM_OPTIONS_LIBRARY} ${Boost_LOG_SETUP_LIBRARY} ${Boost_THREAD_LIBRARY} Qt5::Core Qt5::Gui Qt5::Widgets ${QT_QTGUI_LIBRARY} ${PLATFORM_LIBS})
+	target_link_libraries (qt_system node secure lmdb ed25519 rai_lib_static qt argon2 ${OPENSSL_LIBRARIES} ${CRYPTOPP_LIBRARY} gtest libminiupnpc-static ${Boost_ATOMIC_LIBRARY} ${Boost_CHRONO_LIBRARY} ${Boost_REGEX_LIBRARY} ${Boost_DATE_TIME_LIBRARY} ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_LOG_LIBRARY} ${Boost_PROGRAM_OPTIONS_LIBRARY} ${Boost_LOG_SETUP_LIBRARY} ${Boost_THREAD_LIBRARY} Qt5::Core Qt5::Gui Qt5::Widgets ${QT_QTGUI_LIBRARY} ${PLATFORM_LIBS})
 
-	target_link_libraries (nano_wallet node secure lmdb ed25519 rai_lib_static qt argon2 ${CRYPTOPP_LIBRARY} libminiupnpc-static ${Boost_ATOMIC_LIBRARY} ${Boost_CHRONO_LIBRARY} ${Boost_REGEX_LIBRARY} ${Boost_DATE_TIME_LIBRARY} ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_LOG_LIBRARY} ${Boost_PROGRAM_OPTIONS_LIBRARY} ${Boost_LOG_SETUP_LIBRARY} ${Boost_THREAD_LIBRARY} Qt5::Core Qt5::Gui Qt5::Widgets ${QT_QTGUI_LIBRARY} ${PLATFORM_LIBS} ${PLATFORM_WALLET_LIBS})
+	target_link_libraries (nano_wallet node secure lmdb ed25519 rai_lib_static qt argon2 ${OPENSSL_LIBRARIES} ${CRYPTOPP_LIBRARY} libminiupnpc-static ${Boost_ATOMIC_LIBRARY} ${Boost_CHRONO_LIBRARY} ${Boost_REGEX_LIBRARY} ${Boost_DATE_TIME_LIBRARY} ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_LOG_LIBRARY} ${Boost_PROGRAM_OPTIONS_LIBRARY} ${Boost_LOG_SETUP_LIBRARY} ${Boost_THREAD_LIBRARY} Qt5::Core Qt5::Gui Qt5::Widgets ${QT_QTGUI_LIBRARY} ${PLATFORM_LIBS} ${PLATFORM_WALLET_LIBS})
 endif (RAIBLOCKS_GUI)
 
 target_link_libraries (rai_lib ed25519 xxhash blake2 ${CRYPTOPP_LIBRARY})
 target_link_libraries (rai_lib_static ed25519 xxhash blake2 ${CRYPTOPP_LIBRARY})
 
-target_link_libraries (rai_node node secure lmdb ed25519 rai_lib_static argon2 ${CRYPTOPP_LIBRARY} libminiupnpc-static ${Boost_ATOMIC_LIBRARY} ${Boost_CHRONO_LIBRARY} ${Boost_REGEX_LIBRARY} ${Boost_DATE_TIME_LIBRARY} ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_LOG_LIBRARY} ${Boost_PROGRAM_OPTIONS_LIBRARY} ${Boost_LOG_SETUP_LIBRARY} ${Boost_THREAD_LIBRARY} ${PLATFORM_LIBS})
+target_link_libraries (rai_node node secure lmdb ed25519 rai_lib_static argon2 ${OPENSSL_LIBRARIES} ${CRYPTOPP_LIBRARY} libminiupnpc-static ${Boost_ATOMIC_LIBRARY} ${Boost_CHRONO_LIBRARY} ${Boost_REGEX_LIBRARY} ${Boost_DATE_TIME_LIBRARY} ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_LOG_LIBRARY} ${Boost_PROGRAM_OPTIONS_LIBRARY} ${Boost_LOG_SETUP_LIBRARY} ${Boost_THREAD_LIBRARY} ${PLATFORM_LIBS})
 
 set (CPACK_RESOURCE_FILE_LICENSE ${CMAKE_SOURCE_DIR}/LICENSE)
 if (RAIBLOCKS_GUI)

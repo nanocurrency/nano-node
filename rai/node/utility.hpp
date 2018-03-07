@@ -26,7 +26,7 @@ using vectorstream = boost::iostreams::stream_buffer<boost::iostreams::back_inse
 boost::filesystem::path working_path ();
 // Get a unique path within the home directory, used for testing
 boost::filesystem::path unique_path ();
-// C++ stream are absolutely horrible so I need this helper function to do the most basic operation of creating a file if it doesn't exist or truntacing it.
+// C++ stream are absolutely horrible so I need this helper function to do the most basic operation of creating a file if it doesn't exist or truncating it.
 void open_or_create (std::fstream &, std::string const &);
 // Reads a json object from the stream and if was changed, write the object back to the stream
 template <typename T>
@@ -98,6 +98,9 @@ bool fetch_object (T & object, boost::filesystem::path const & path_a, std::fstr
 	return error;
 }
 
+/**
+ * RAII wrapper for MDB_env
+ */
 class mdb_env
 {
 public:
@@ -106,6 +109,10 @@ public:
 	operator MDB_env * () const;
 	MDB_env * environment;
 };
+
+/**
+ * Encapsulates MDB_val and provides uint256_union conversion of the data.
+ */
 class mdb_val
 {
 public:
@@ -121,6 +128,11 @@ public:
 	operator MDB_val const & () const;
 	MDB_val value;
 };
+
+/**
+ * RAII wrapper of MDB_txn where the constructor starts the transaction
+ * and the destructor commits it.
+ */
 class transaction
 {
 public:

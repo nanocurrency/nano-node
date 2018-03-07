@@ -1,11 +1,52 @@
-#include <rai/node/rpc.hpp>
-
 #include <boost/algorithm/string.hpp>
+#include <boost/property_tree/ptree.hpp>
+#include <rai/node/rpc.hpp>
 
 #include <rai/lib/interface.h>
 #include <rai/node/node.hpp>
 
 #include <ed25519-donna/ed25519.h>
+
+#ifdef RAIBLOCKS_SECURE_RPC
+#include <rai/node/rpc_secure.hpp>
+#endif
+
+rai::rpc_secure_config::rpc_secure_config () :
+enable (false),
+verbose_logging (false)
+{
+}
+
+void rai::rpc_secure_config::serialize_json (boost::property_tree::ptree & tree_a) const
+{
+	tree_a.put ("enable", enable);
+	tree_a.put ("verbose_logging", verbose_logging);
+	tree_a.put ("server_key_passphrase", server_key_passphrase);
+	tree_a.put ("server_cert_path", server_cert_path);
+	tree_a.put ("server_key_path", server_key_path);
+	tree_a.put ("server_dh_path", server_dh_path);
+	tree_a.put ("client_certs_path", client_certs_path);
+}
+
+bool rai::rpc_secure_config::deserialize_json (boost::property_tree::ptree const & tree_a)
+{
+	auto error (false);
+	try
+	{
+		enable = tree_a.get<bool> ("enable");
+		verbose_logging = tree_a.get<bool> ("verbose_logging");
+		server_key_passphrase = tree_a.get<std::string> ("server_key_passphrase");
+		server_cert_path = tree_a.get<std::string> ("server_cert_path");
+		server_key_path = tree_a.get<std::string> ("server_key_path");
+		server_dh_path = tree_a.get<std::string> ("server_dh_path");
+		client_certs_path = tree_a.get<std::string> ("client_certs_path");
+	}
+	catch (std::runtime_error const &)
+	{
+		error = true;
+	}
+	return error;
+}
 
 rai::rpc_config::rpc_config () :
 address (boost::asio::ip::address_v6::loopback ()),
@@ -39,27 +80,36 @@ bool rai::rpc_config::deserialize_json (boost::property_tree::ptree const & tree
 	auto result (false);
 	try
 	{
-		auto address_l (tree_a.get<std::string> ("address"));
-		auto port_l (tree_a.get<std::string> ("port"));
-		enable_control = tree_a.get<bool> ("enable_control");
-		auto frontier_request_limit_l (tree_a.get<std::string> ("frontier_request_limit"));
-		auto chain_request_limit_l (tree_a.get<std::string> ("chain_request_limit"));
-		try
+		auto rpc_secure_l (tree_a.get_child_optional ("secure"));
+		if (rpc_secure_l)
 		{
-			port = std::stoul (port_l);
-			result = port > std::numeric_limits<uint16_t>::max ();
-			frontier_request_limit = std::stoull (frontier_request_limit_l);
-			chain_request_limit = std::stoull (chain_request_limit_l);
+			result = secure.deserialize_json (rpc_secure_l.get ());
 		}
-		catch (std::logic_error const &)
+
+		if (!result)
 		{
-			result = true;
-		}
-		boost::system::error_code ec;
-		address = boost::asio::ip::address_v6::from_string (address_l, ec);
-		if (ec)
-		{
-			result = true;
+			auto address_l (tree_a.get<std::string> ("address"));
+			auto port_l (tree_a.get<std::string> ("port"));
+			enable_control = tree_a.get<bool> ("enable_control");
+			auto frontier_request_limit_l (tree_a.get<std::string> ("frontier_request_limit"));
+			auto chain_request_limit_l (tree_a.get<std::string> ("chain_request_limit"));
+			try
+			{
+				port = std::stoul (port_l);
+				result = port > std::numeric_limits<uint16_t>::max ();
+				frontier_request_limit = std::stoull (frontier_request_limit_l);
+				chain_request_limit = std::stoull (chain_request_limit_l);
+			}
+			catch (std::logic_error const &)
+			{
+				result = true;
+			}
+			boost::system::error_code ec;
+			address = boost::asio::ip::address_v6::from_string (address_l, ec);
+			if (ec)
+			{
+				result = true;
+			}
 		}
 	}
 	catch (std::runtime_error const &)
@@ -74,7 +124,11 @@ acceptor (service_a),
 config (config_a),
 node (node_a)
 {
-	auto endpoint (rai::tcp_endpoint (config_a.address, config_a.port));
+}
+
+void rai::rpc::start ()
+{
+	auto endpoint (rai::tcp_endpoint (config.address, config.port));
 	acceptor.open (endpoint.protocol ());
 	acceptor.set_option (boost::asio::ip::tcp::acceptor::reuse_address (true));
 
@@ -87,18 +141,20 @@ node (node_a)
 	}
 
 	acceptor.listen ();
-	node_a.observers.blocks.add ([this](std::shared_ptr<rai::block> block_a, rai::account const & account_a, rai::amount const &) {
+	node.observers.blocks.add ([this](std::shared_ptr<rai::block> block_a, rai::account const & account_a, rai::amount const &) {
 		observer_action (account_a);
 	});
+
+	accept ();
 }
 
-void rai::rpc::start ()
+void rai::rpc::accept ()
 {
 	auto connection (std::make_shared<rai::rpc_connection> (node, *this));
 	acceptor.async_accept (connection->socket, [this, connection](boost::system::error_code const & ec) {
 		if (!ec)
 		{
-			start ();
+			accept ();
 			connection->parse_connection ();
 		}
 		else
@@ -138,15 +194,15 @@ void rai::rpc::observer_action (rai::account const & account_a)
 	}
 }
 
-namespace
-{
-void error_response (std::function<void(boost::property_tree::ptree const &)> response_a, std::string const & message_a)
+void rai::error_response (std::function<void(boost::property_tree::ptree const &)> response_a, std::string const & message_a)
 {
 	boost::property_tree::ptree response_l;
 	response_l.put ("error", message_a);
 	response_a (response_l);
 }
 
+namespace
+{
 bool decode_unsigned (std::string const & text, uint64_t & number)
 {
 	bool result;
@@ -4236,6 +4292,23 @@ socket (node_a.service)
 
 void rai::rpc_connection::parse_connection ()
 {
+	read ();
+}
+
+void rai::rpc_connection::write_result (std::string body, unsigned version)
+{
+	res.set ("Content-Type", "application/json");
+	res.set ("Access-Control-Allow-Origin", "*");
+	res.set ("Access-Control-Allow-Headers", "Accept, Accept-Language, Content-Language, Content-Type");
+	res.set ("Connection", "close");
+	res.result (boost::beast::http::status::ok);
+	res.body () = body;
+	res.version (version);
+	res.prepare_payload ();
+}
+
+void rai::rpc_connection::read ()
+{
 	auto this_l (shared_from_this ());
 	boost::beast::http::async_read (socket, buffer, request, [this_l](boost::system::error_code const & ec, size_t bytes_transferred) {
 		if (!ec)
@@ -4248,17 +4321,10 @@ void rai::rpc_connection::parse_connection ()
 					boost::property_tree::write_json (ostream, tree_a);
 					ostream.flush ();
 					auto body (ostream.str ());
-					this_l->res.set ("Content-Type", "application/json");
-					this_l->res.set ("Access-Control-Allow-Origin", "*");
-					this_l->res.set ("Access-Control-Allow-Headers", "Accept, Accept-Language, Content-Language, Content-Type");
-					this_l->res.set ("Connection", "close");
-					this_l->res.result (boost::beast::http::status::ok);
-					this_l->res.body () = body;
-					this_l->res.version (version);
-					this_l->res.prepare_payload ();
-					//boost::beast::http::prepare (this_l->res);
+					this_l->write_result (body, version);
 					boost::beast::http::async_write (this_l->socket, this_l->res, [this_l](boost::system::error_code const & ec, size_t bytes_transferred) {
 					});
+
 					if (this_l->node->config.logging.log_rpc ())
 					{
 						BOOST_LOG (this_l->node->log) << boost::str (boost::format ("RPC request %2% completed in: %1% microseconds") % std::chrono::duration_cast<std::chrono::microseconds> (std::chrono::steady_clock::now () - start).count () % boost::io::group (std::hex, std::showbase, reinterpret_cast<uintptr_t> (this_l.get ())));
@@ -4274,6 +4340,10 @@ void rai::rpc_connection::parse_connection ()
 					error_response (response_handler, "Can only POST requests");
 				}
 			});
+		}
+		else
+		{
+			BOOST_LOG (this_l->node->log) << "RPC read error: " << ec.message ();
 		}
 	});
 }
@@ -4792,4 +4862,24 @@ void rai::payment_observer::complete (rai::payment_status status)
 		assert (rpc.payment_observers.find (account) != rpc.payment_observers.end ());
 		rpc.payment_observers.erase (account);
 	}
+}
+
+std::unique_ptr<rai::rpc> rai::get_rpc (boost::asio::io_service & service_a, rai::node & node_a, rai::rpc_config const & config_a)
+{
+	std::unique_ptr<rpc> impl;
+
+	if (config_a.secure.enable)
+	{
+#ifdef RAIBLOCKS_SECURE_RPC
+		impl.reset (new rpc_secure (service_a, node_a, config_a));
+#else
+		std::cerr << "RPC configured for TLS, but the node is not compiled with TLS support" << std::endl;
+#endif
+	}
+	else
+	{
+		impl.reset (new rpc (service_a, node_a, config_a));
+	}
+
+	return impl;
 }
