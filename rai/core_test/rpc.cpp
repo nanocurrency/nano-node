@@ -73,6 +73,68 @@ public:
 	int status;
 };
 
+TEST (rpc, sign_verify_message)
+{
+	rai::system system (24000, 1);
+	rai::keypair key;
+	rai::genesis genesis;
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	system.wallet (0)->insert_adhoc (key.prv);
+	auto & node1 (*system.nodes[0]);
+	rai::rpc rpc (system.service, *system.nodes[0], rai::rpc_config (true));
+	rpc.start ();
+	boost::property_tree::ptree request;
+	request.put ("action", "sign_message");
+	request.put ("message", "I am the egg man");
+	request.put ("key", "8906a4f456f345080ffdcca2f3025cafeb7b15f2142d419f36f9c0eee3a64939");
+	test_response response (request, rpc, system.service);
+	while (response.status == 0)
+	{
+		system.poll ();
+	}
+	ASSERT_EQ (200, response.status);
+	auto signature_l (response.json.get<std::string> ("signature"));
+	boost::property_tree::ptree request1;
+	request1.put ("action", "verify_message");
+	request1.put ("message", "I am the egg man");
+	request1.put ("signature", signature_l);
+	request1.put ("account", "xrb_14aepoa643kq3dwnx5b5bqgzbtnaecjjxr171jpofr3ojn6feoq9hjs9xiin");
+	test_response response1 (request1, rpc, system.service);
+	while (response1.status == 0)
+	{
+		system.poll ();
+	}
+	ASSERT_EQ (200, response1.status);
+	auto valid_l (response1.json.get<bool> ("valid"));
+	//message validated by the signature and key
+	ASSERT_EQ (true, valid_l);
+
+	boost::property_tree::ptree request2;
+	request2.put ("action", "sign_message");
+	request2.put ("message", "This cannot change");
+	request2.put ("key", "8906a4f456f345080ffdcca2f3025cafeb7b15f2142d419f36f9c0eee3a64939");
+	test_response response2 (request2, rpc, system.service);
+	while (response2.status == 0)
+	{
+		system.poll ();
+	}
+	ASSERT_EQ (200, response2.status);
+	auto signature2_l (response2.json.get<std::string> ("signature"));
+	boost::property_tree::ptree request3;
+	request3.put ("action", "verify_message");
+	request3.put ("message", "Not the Same As Before");
+	request3.put ("signature", signature2_l);
+	request3.put ("account", "xrb_14aepoa643kq3dwnx5b5bqgzbtnaecjjxr171jpofr3ojn6feoq9hjs9xiin");
+	test_response response3 (request3, rpc, system.service);
+	while (response3.status == 0)
+	{
+		system.poll ();
+	}
+	ASSERT_EQ (200, response3.status);
+	ASSERT_EQ (false, response3.json.get<bool> ("valid"));
+	//message cannot be validated by the signature and key
+};
+
 TEST (rpc, account_balance)
 {
 	rai::system system (24000, 1);
