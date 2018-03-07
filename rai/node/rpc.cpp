@@ -1555,7 +1555,8 @@ namespace
 class history_visitor : public rai::block_visitor
 {
 public:
-	history_visitor (rai::rpc_handler & handler_a, rai::transaction & transaction_a, boost::property_tree::ptree & tree_a, rai::block_hash const & hash_a) :
+	history_visitor (rai::rpc_handler & handler_a, bool raw_a, rai::transaction & transaction_a, boost::property_tree::ptree & tree_a, rai::block_hash const & hash_a) :
+	raw (raw_a),
 	handler (handler_a),
 	transaction (transaction_a),
 	tree (tree_a),
@@ -1570,6 +1571,11 @@ public:
 		tree.put ("account", account);
 		auto amount (handler.node.ledger.amount (transaction, hash).convert_to<std::string> ());
 		tree.put ("amount", amount);
+		if (raw)
+		{
+			tree.put ("destination", account);
+			tree.put ("balance", block_a.hashables.balance.to_string_dec ());
+		}
 	}
 	void receive_block (rai::receive_block const & block_a)
 	{
@@ -1578,11 +1584,25 @@ public:
 		tree.put ("account", account);
 		auto amount (handler.node.ledger.amount (transaction, hash).convert_to<std::string> ());
 		tree.put ("amount", amount);
+		if (raw)
+		{
+			tree.put ("source", block_a.hashables.source.to_string ());
+		}
 	}
 	void open_block (rai::open_block const & block_a)
 	{
-		// Report opens as a receive
-		tree.put ("type", "receive");
+		if (raw)
+		{
+			tree.put ("type", "open");
+			tree.put ("representative", block_a.hashables.representative.to_account ());
+			tree.put ("source", block_a.hashables.source.to_string ());
+			tree.put ("opened", block_a.hashables.account.to_account ());
+		}
+		else
+		{
+			// Report opens as a receive
+			tree.put ("type", "receive");
+		}
 		if (block_a.hashables.source != rai::genesis_account)
 		{
 			tree.put ("account", handler.node.ledger.account (transaction, block_a.hashables.source).to_account ());
@@ -1594,100 +1614,108 @@ public:
 			tree.put ("amount", rai::genesis_amount.convert_to<std::string> ());
 		}
 	}
-	void change_block (rai::change_block const &)
+	void change_block (rai::change_block const & block_a)
 	{
-		// Don't report change blocks
+		if (raw)
+		{
+			tree.put ("type", "change");
+			tree.put ("representative", block_a.hashables.representative.to_account ());
+		}
 	}
 	rai::rpc_handler & handler;
+	bool raw;
 	rai::transaction & transaction;
 	boost::property_tree::ptree & tree;
 	rai::block_hash const & hash;
 };
 }
 
-void rai::rpc_handler::history ()
+void rai::rpc_handler::account_history ()
 {
-	std::string hash_text (request.get<std::string> ("hash"));
 	std::string count_text (request.get<std::string> ("count"));
+	bool output_raw (request.get_optional<bool> ("raw") == true);
+	auto error (false);
 	rai::block_hash hash;
-	if (!hash.decode_hex (hash_text))
+	auto head_str (request.get_optional<std::string> ("head"));
+	rai::transaction transaction (node.store.environment, nullptr, false);
+	if (head_str)
 	{
-		uint64_t count;
-		if (!decode_unsigned (count_text, count))
+		error = hash.decode_hex (*head_str);
+		if (error)
 		{
-			boost::property_tree::ptree response_l;
-			boost::property_tree::ptree history;
-			rai::transaction transaction (node.store.environment, nullptr, false);
-			auto block (node.store.block_get (transaction, hash));
-			while (block != nullptr && count > 0)
-			{
-				boost::property_tree::ptree entry;
-				history_visitor visitor (*this, transaction, entry, hash);
-				block->visit (visitor);
-				if (!entry.empty ())
-				{
-					entry.put ("hash", hash.to_string ());
-					history.push_back (std::make_pair ("", entry));
-				}
-				hash = block->previous ();
-				block = node.store.block_get (transaction, hash);
-				--count;
-			}
-			response_l.add_child ("history", history);
-			response (response_l);
-		}
-		else
-		{
-			error_response (response, "Invalid count limit");
+			error_response (response, "Invalid block hash");
 		}
 	}
 	else
 	{
-		error_response (response, "Invalid block hash");
+		std::string account_text (request.get<std::string> ("account"));
+		rai::uint256_union account;
+		error = account.decode_account (account_text);
+		if (!error)
+		{
+			hash = node.ledger.latest (transaction, account);
+		}
+		else
+		{
+			error_response (response, "Bad account number");
+		}
 	}
-}
-
-void rai::rpc_handler::account_history ()
-{
-	std::string account_text (request.get<std::string> ("account"));
-	std::string count_text (request.get<std::string> ("count"));
-	rai::uint256_union account;
-	auto error (account.decode_account (account_text));
 	if (!error)
 	{
 		uint64_t count;
 		if (!decode_unsigned (count_text, count))
 		{
-			boost::property_tree::ptree response_l;
-			boost::property_tree::ptree history;
-			rai::transaction transaction (node.store.environment, nullptr, false);
-			auto hash (node.ledger.latest (transaction, account));
-			auto block (node.store.block_get (transaction, hash));
-			while (block != nullptr && count > 0)
+			uint64_t offset = 0;
+			auto offset_text (request.get_optional<std::string> ("offset"));
+			if (!offset_text || !decode_unsigned (*offset_text, offset))
 			{
-				boost::property_tree::ptree entry;
-				history_visitor visitor (*this, transaction, entry, hash);
-				block->visit (visitor);
-				if (!entry.empty ())
+				boost::property_tree::ptree response_l;
+				boost::property_tree::ptree history;
+				if (!error)
 				{
-					entry.put ("hash", hash.to_string ());
-					history.push_back (std::make_pair ("", entry));
+					auto block (node.store.block_get (transaction, hash));
+					while (block != nullptr && count > 0)
+					{
+						if (offset > 0)
+						{
+							--offset;
+						}
+						else
+						{
+							boost::property_tree::ptree entry;
+							history_visitor visitor (*this, output_raw, transaction, entry, hash);
+							block->visit (visitor);
+							if (!entry.empty ())
+							{
+								entry.put ("hash", hash.to_string ());
+								history.push_back (std::make_pair ("", entry));
+							}
+							--count;
+						}
+						hash = block->previous ();
+						block = node.store.block_get (transaction, hash);
+					}
+					response_l.add_child ("history", history);
+					if (!hash.is_zero ())
+					{
+						response_l.put ("previous", hash.to_string ());
+					}
+					response (response_l);
 				}
-				hash = block->previous ();
-				block = node.store.block_get (transaction, hash);
-				--count;
+				else
+				{
+					error_response (response, "Failed to decode head block hash");
+				}
 			}
-			response_l.add_child ("history", history);
-			response (response_l);
+			else
+			{
+				error_response (response, "Invalid offset");
+			}
 		}
 		else
 		{
 			error_response (response, "Invalid count limit");
 		}
-	}
-	else
-	{
-		error_response (response, "Bad account number");
 	}
 }
 
@@ -4464,7 +4492,8 @@ void rai::rpc_handler::process_request ()
 		}
 		else if (action == "history")
 		{
-			history ();
+			request.put ("head", request.get<std::string> ("hash"));
+			account_history ();
 		}
 		else if (action == "keepalive")
 		{
