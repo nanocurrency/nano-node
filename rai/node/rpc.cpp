@@ -1651,11 +1651,24 @@ public:
 	}
 	void utx_block (rai::utx_block const & block_a)
 	{
+		if (raw)
+		{
+			tree.put ("type", "utx");
+			tree.put ("representative", block_a.hashables.representative.to_account ());
+			tree.put ("link", block_a.hashables.link.to_string ());
+		}
 		auto balance (block_a.hashables.balance.number ());
 		auto previous_balance (handler.node.ledger.balance (transaction, block_a.hashables.previous));
 		if (balance < previous_balance)
 		{
-			tree.put ("type", "send");
+			if (raw)
+			{
+				tree.put ("subtype", "send");
+			}
+			else
+			{
+				tree.put ("type", "send");
+			}
 			tree.put ("account", block_a.hashables.account.to_account ());
 			tree.put ("amount", (previous_balance - balance).convert_to<std::string> ());
 		}
@@ -1663,11 +1676,21 @@ public:
 		{
 			if (block_a.hashables.link.is_zero ())
 			{
-				// Don't report change blocks
+				if (raw)
+				{
+					tree.put ("subtype", "change");
+				}
 			}
 			else
 			{
-				tree.put ("type", "receive");
+				if (raw)
+				{
+					tree.put ("subtype", "receive");
+				}
+				else
+				{
+					tree.put ("type", "receive");
+				}
 				tree.put ("account", block_a.hashables.account.to_account ());
 				tree.put ("amount", (balance - previous_balance).convert_to<std::string> ());
 			}
