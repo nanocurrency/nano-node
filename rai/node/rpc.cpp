@@ -141,8 +141,8 @@ void rai::rpc::start ()
 	}
 
 	acceptor.listen ();
-	node.observers.blocks.add ([this](std::shared_ptr<rai::block> block_a, rai::account const & account_a, rai::amount const &) {
-		observer_action (account_a);
+	node.observers.blocks.add ([this](std::shared_ptr<rai::block> block_a, rai::process_return const & result_a) {
+		observer_action (result_a.account);
 	});
 
 	accept ();
@@ -2492,7 +2492,7 @@ void rai::rpc_handler::process ()
 			{
 				case rai::process_result::progress:
 				{
-					node.observers.blocks (block_a, result.account, result.amount);
+					node.observers.blocks (block_a, result);
 					boost::property_tree::ptree response_l;
 					response_l.put ("hash", hash.to_string ());
 					response (response_l);

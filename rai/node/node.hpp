@@ -413,7 +413,7 @@ public:
 class node_observers
 {
 public:
-	rai::observer_set<std::shared_ptr<rai::block>, rai::account const &, rai::amount const &> blocks;
+	rai::observer_set<std::shared_ptr<rai::block>, rai::process_return const &> blocks;
 	rai::observer_set<bool> wallet;
 	rai::observer_set<std::shared_ptr<rai::vote>, rai::endpoint const &> vote;
 	rai::observer_set<rai::account const &, bool> account_balance;

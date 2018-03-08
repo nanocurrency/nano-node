@@ -234,6 +234,7 @@ public:
 	rai::account account;
 	rai::amount amount;
 	rai::account pending_account;
+	boost::optional<bool> utx_is_send;
 };
 enum class tally_result
 {
