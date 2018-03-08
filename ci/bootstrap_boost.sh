@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -o unset
+set -o nounset
 set -o xtrace
 
 BOOST_BASENAME=boost_1_66_0
