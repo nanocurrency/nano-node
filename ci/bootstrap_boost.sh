@@ -35,4 +35,3 @@ cd ${BOOST_BASENAME}
 cd ..
 rm -rf ${BOOST_BASENAME}
 rm -f "${BOOST_ARCHIVE}"
-mkdir -p app
