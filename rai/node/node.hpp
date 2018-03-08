@@ -83,6 +83,7 @@ public:
 	// Is the root of this block in the roots container
 	bool active (rai::block const &);
 	void announce_votes ();
+	std::deque <std::shared_ptr<rai::block>> list_blocks ();
 	void stop ();
 	boost::multi_index_container<
 	rai::conflict_info,
