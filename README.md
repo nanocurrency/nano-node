@@ -1,14 +1,14 @@
 [![Build Status](https://travis-ci.org/nanocurrency/raiblocks.svg?branch=master)](https://travis-ci.org/nanocurrency/raiblocks)
 
 # What is Nano?
-Nano is designed to be a feeless, instant, high throughput cryptocurrency.
+Nano is a **feeless**, **instant**, **high-throughput** cryptocurrency.
 
-We've applied the philosophy of "do one thing and do it well", giving you performance and scalability unmatched by any other platform.
+Our philosophy of *do one thing and do it well* has resulted in a state-of-the art currency with **performance** and **scalability** unmatched by any other platform.
 
 ### Key features
-* Nano utilizes a novel block-lattice architecture, unlike conventional blockchains used in many other cryptocurrencies.
-* The network requires minimal resources, no high-power mining hardware, and can process high transaction throughput.
-* Offers feeless, instantaneous transactions, as well as unlimited scalability, making Nano ideal for peer-to-peer transactions.
+* Nano utilizes a novel **block-lattice** architecture, avoiding the major drawbacks of conventional blockchains used in many other cryptocurrencies.
+* The network requires minimal resources, disincentivizes high-power mining hardware, and enables high transaction throughput.
+* Offers feeless, instantaneous transactions as well as unlimited scalability, making Nano ideal for peer-to-peer transactions.
 * As of December 2017, the Nano network has processed over four million transactions with an unpruned ledger size of only 1.7GB.
 
 For more information, see [Nano.org](https://nano.org/) or read the [whitepaper](https://nano.org/en/whitepaper).
