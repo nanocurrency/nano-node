@@ -16,9 +16,9 @@ We've applied the philosophy of _"do one thing and do it well"_, we are focused 
 
 ### Key Features
 
-* Nano utilizes a novel block-lattice architecture, unlike conventional blockchains used in many other cryptocurrencies.
+* Nano utilizes a novel [block-lattice](https://github.com/nanocurrency/raiblocks/wiki/Block-lattice) architecture, unlike conventional blockchains used in many other cryptocurrencies.
 * The network requires minimal resources, no high-power mining hardware, and can process high transaction throughput.
-* Offers feeless, instantaneous transactions, as well as unlimited scalability, making Nano ideal for peer-to-peer transactions.
+* Offers instantaneous transactions with zero fees and unlimited scalability, making Nano an ideal solution for peer-to-peer transactions.
 * As of December 2017, the Nano network has processed over four million transactions with an unpruned ledger size of only 1.7GB.
 
 For more information, see [Nano.org](https://nano.org/) or read the [whitepaper](https://nano.org/en/whitepaper).
