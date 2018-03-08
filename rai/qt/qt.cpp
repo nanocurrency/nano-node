@@ -1394,7 +1394,7 @@ wallet (wallet_a)
 				auto block (this->wallet.wallet_m->change_sync (this->wallet.account, representative_l));
 				change_rep->setEnabled (true);
 				show_button_success (*change_rep);
-				change_rep->setText ("Represenative was changed");
+				change_rep->setText ("Representative was changed");
 				current_representative->setText (QString (representative_l.to_account_split ().c_str ()));
 				new_representative->clear ();
 				this->wallet.node.alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (5), [this]() {

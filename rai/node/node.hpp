@@ -70,7 +70,7 @@ public:
 	// Number of announcements in a row for this fork
 	unsigned announcements;
 };
-// Core class for determining concensus
+// Core class for determining consensus
 // Holds all active blocks i.e. recently added blocks that need confirmation
 class active_transactions
 {
@@ -83,6 +83,7 @@ public:
 	// Is the root of this block in the roots container
 	bool active (rai::block const &);
 	void announce_votes ();
+	std::deque<std::shared_ptr<rai::block>> list_blocks ();
 	void stop ();
 	boost::multi_index_container<
 	rai::conflict_info,
@@ -94,7 +95,7 @@ public:
 	// Maximum number of conflicts to vote on per interval, lowest root hash first
 	static unsigned constexpr announcements_per_interval = 32;
 	// After this many successive vote announcements, block is confirmed
-	static unsigned constexpr contigious_announcements = 4;
+	static unsigned constexpr contiguous_announcements = 4;
 	static unsigned constexpr announce_interval_ms = (rai::rai_network == rai::rai_networks::rai_test_network) ? 10 : 16000;
 };
 class operation
@@ -247,7 +248,7 @@ public:
 	void refresh_devices ();
 	// Refresh when the lease ends
 	void refresh_mapping ();
-	// Refresh ocassionally in case router loses mapping
+	// Refresh occasionally in case router loses mapping
 	void check_mapping_loop ();
 	int check_mapping ();
 	bool has_address ();
@@ -428,7 +429,7 @@ public:
 	rai::vote_result vote (std::shared_ptr<rai::vote>, rai::endpoint);
 	rai::node & node;
 };
-// The network is crawled for representatives by ocassionally sending a unicast confirm_req for a specific block and watching to see if it's acknowledged with a vote.
+// The network is crawled for representatives by occasionally sending a unicast confirm_req for a specific block and watching to see if it's acknowledged with a vote.
 class rep_crawler
 {
 public:

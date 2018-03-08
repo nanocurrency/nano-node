@@ -185,6 +185,7 @@ public:
 	void validate_account_number ();
 	void version ();
 	void wallet_add ();
+	void wallet_add_watch ();
 	void wallet_balance_total ();
 	void wallet_balances ();
 	void wallet_change_seed ();
@@ -194,6 +195,7 @@ public:
 	void wallet_export ();
 	void wallet_frontiers ();
 	void wallet_key_valid ();
+	void wallet_ledger ();
 	void wallet_lock ();
 	void wallet_pending ();
 	void wallet_representative ();
