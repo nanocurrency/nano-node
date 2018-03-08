@@ -6,7 +6,9 @@
 
 [![Build Status](https://travis-ci.org/nanocurrency/raiblocks.svg?branch=master)](https://travis-ci.org/nanocurrency/raiblocks)
 
-# What is Nano?
+### What is Nano?
+
+---
 
 Nano's goal is to become _"a global currency with instantaneous transactions and zero fees over a secure, decentralized network."_
 
