@@ -13,7 +13,7 @@ case "${network}" in
                 dirSuffix='Beta'
                 ;;
         test)
-                dirSuffix='Teta'
+                dirSuffix='Test'
                 ;;
 esac
 
