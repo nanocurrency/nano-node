@@ -13,5 +13,5 @@ shift; shift
 scripts="$(dirname "$0")"
 
 "$scripts"/custom-timeout.sh 20 docker pull "${dockerTag}" || true
-echo "Building $2"
+echo "Building $dockerTag"
 "$scripts"/custom-timeout.sh 30 docker build "$@" -f "${dockerFile}" -t "${dockerTag}" --cache-from "${dockerTag}" .
