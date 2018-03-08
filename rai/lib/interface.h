@@ -29,7 +29,7 @@ int xrb_valid_address (const char * account);
 
 // Create a new random number in to 'destination'
 void xrb_generate_random (xrb_uint256 destination);
-// Retrieve the detereministic private key for 'seed' at 'index'
+// Retrieve the deterministic private key for 'seed' at 'index'
 void xrb_seed_key (const xrb_uint256 seed, int index, xrb_uint256);
 // Derive the public key 'pub' from 'key'
 void xrb_key_account (xrb_uint256 key, xrb_uint256 pub);

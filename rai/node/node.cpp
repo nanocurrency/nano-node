@@ -254,7 +254,7 @@ void rai::network::broadcast_confirm_req (std::shared_ptr<rai::block> block_a)
 	}
 	if (node.config.logging.network_logging ())
 	{
-		BOOST_LOG (node.log) << boost::str (boost::format ("Broadcasted confirm req to %1% representatives") % list.size ());
+		BOOST_LOG (node.log) << boost::str (boost::format ("Broadcasted confirm req for block %1% to %2% representatives") % block_a->hash ().to_string () % list.size ());
 	}
 }
 
@@ -419,17 +419,65 @@ void rai::network::receive_action (boost::system::error_code const & error, size
 			network_message_visitor visitor (node, remote);
 			rai::message_parser parser (visitor, node.work);
 			parser.deserialize_buffer (buffer.data (), size_a);
-			if (parser.error)
+			if (parser.status != rai::message_parser::parse_status::success)
 			{
 				++error_count;
-			}
-			else if (parser.insufficient_work)
-			{
-				if (node.config.logging.insufficient_work_logging ())
+
+				if (parser.status == rai::message_parser::parse_status::insufficient_work)
 				{
-					BOOST_LOG (node.log) << "Insufficient work in message";
+					if (node.config.logging.insufficient_work_logging ())
+					{
+						BOOST_LOG (node.log) << "Insufficient work in message";
+					}
+
+					++insufficient_work_count;
 				}
-				++insufficient_work_count;
+				else if (parser.status == rai::message_parser::parse_status::invalid_message_type)
+				{
+					if (node.config.logging.network_logging ())
+					{
+						BOOST_LOG (node.log) << "Invalid message type in message";
+					}
+				}
+				else if (parser.status == rai::message_parser::parse_status::invalid_header)
+				{
+					if (node.config.logging.network_logging ())
+					{
+						BOOST_LOG (node.log) << "Invalid header in message";
+					}
+				}
+				else if (parser.status == rai::message_parser::parse_status::invalid_keepalive_message)
+				{
+					if (node.config.logging.network_logging ())
+					{
+						BOOST_LOG (node.log) << "Invalid keepalive message";
+					}
+				}
+				else if (parser.status == rai::message_parser::parse_status::invalid_publish_message)
+				{
+					if (node.config.logging.network_logging ())
+					{
+						BOOST_LOG (node.log) << "Invalid publish message";
+					}
+				}
+				else if (parser.status == rai::message_parser::parse_status::invalid_confirm_req_message)
+				{
+					if (node.config.logging.network_logging ())
+					{
+						BOOST_LOG (node.log) << "Invalid confirm_req message";
+					}
+				}
+				else if (parser.status == rai::message_parser::parse_status::invalid_confirm_ack_message)
+				{
+					if (node.config.logging.network_logging ())
+					{
+						BOOST_LOG (node.log) << "Invalid confirm_ack message";
+					}
+				}
+				else
+				{
+					BOOST_LOG (node.log) << "Could not deserialize buffer";
+				}
 			}
 		}
 		else
@@ -763,11 +811,8 @@ lmdb_max_dbs (128)
 			preconfigured_representatives.push_back (rai::genesis_account);
 			break;
 		case rai::rai_networks::rai_beta_network:
-			preconfigured_peers.push_back ("rai.raiblocks.net");
-			preconfigured_representatives.push_back (rai::account ("59750C057F42806F40C5D9EAA1E0263E9DB48FE385BD0172BFC573BD37EEC4A7"));
-			preconfigured_representatives.push_back (rai::account ("8B05C9B160DE9B006FA27DD6A368D7CA122A2EE7537C308CF22EFD3ABF5B36C3"));
-			preconfigured_representatives.push_back (rai::account ("91D51BF05F02698EBB4649FB06D1BBFD2E4AE2579660E8D784A002D9C0CB1BD2"));
-			preconfigured_representatives.push_back (rai::account ("CB35ED23D47E1A16667EDE415CD4CD05961481D7D23A43958FAE81FC12FA49FF"));
+			preconfigured_peers.push_back ("rai-beta.raiblocks.net");
+			preconfigured_representatives.push_back (rai::account ("5DF352F3E7367A17F2ADB52B8123959602F8D94C2F295B23F6BDFFFC5FEFCA5E"));
 			break;
 		case rai::rai_networks::rai_live_network:
 			preconfigured_peers.push_back ("rai.raiblocks.net");
@@ -1518,6 +1563,15 @@ block_processor_thread ([this]() { this->block_processor.process_blocks (); })
 			if (peers.rep_response (endpoint_a, weight_l))
 			{
 				BOOST_LOG (log) << boost::str (boost::format ("Found a representative at %1%") % endpoint_a);
+				// Rebroadcasting all active votes to new representative
+				auto blocks (active.list_blocks ());
+				for (auto i (blocks.begin ()), n (blocks.end ()); i != n; ++i)
+				{
+					if (*i != nullptr)
+					{
+						this->network.send_confirm_req (endpoint_a, *i);
+					}
+				}
 			}
 		}
 	});
@@ -2534,16 +2588,18 @@ void rai::peer_container::rep_request (rai::endpoint const & endpoint_a)
 
 bool rai::peer_container::reachout (rai::endpoint const & endpoint_a)
 {
-	auto result (false);
 	// Don't contact invalid IPs
-	result |= not_a_peer (endpoint_a);
-	// Don't keepalive to nodes that already sent us something
-	result |= known_peer (endpoint_a);
-	std::lock_guard<std::mutex> lock (mutex);
-	auto existing (attempts.find (endpoint_a));
-	result |= existing != attempts.end ();
-	attempts.insert ({ endpoint_a, std::chrono::steady_clock::now () });
-	return result;
+	bool error = not_a_peer (endpoint_a);
+	if (!error)
+	{
+		// Don't keepalive to nodes that already sent us something
+		error |= known_peer (endpoint_a);
+		std::lock_guard<std::mutex> lock (mutex);
+		auto existing (attempts.find (endpoint_a));
+		error |= existing != attempts.end ();
+		attempts.insert ({ endpoint_a, std::chrono::steady_clock::now () });
+	}
+	return error;
 }
 
 bool rai::peer_container::insert (rai::endpoint const & endpoint_a, unsigned version_a)
@@ -2761,7 +2817,7 @@ rai::uint128_t rai::election::quorum_threshold (MDB_txn * transaction_a, rai::le
 
 rai::uint128_t rai::election::minimum_threshold (MDB_txn * transaction_a, rai::ledger & ledger_a)
 {
-	// Minimum number of votes needed to change our ledger, underwhich we're probably disconnected
+	// Minimum number of votes needed to change our ledger, under which we're probably disconnected
 	return ledger_a.supply (transaction_a) / 16;
 }
 
@@ -2854,7 +2910,7 @@ void rai::active_transactions::announce_votes ()
 		{
 			auto election_l (i->election);
 			node.background ([election_l]() { election_l->broadcast_winner (); });
-			if (i->announcements >= contigious_announcements - 1)
+			if (i->announcements >= contiguous_announcements - 1)
 			{
 				// These blocks have reached the confirmation interval for forks
 				i->election->confirm_cutoff (transaction);
@@ -2937,6 +2993,18 @@ bool rai::active_transactions::active (rai::block const & block_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	return roots.find (block_a.root ()) != roots.end ();
+}
+
+// List of active blocks in elections
+std::deque<std::shared_ptr<rai::block>> rai::active_transactions::list_blocks ()
+{
+	std::deque<std::shared_ptr<rai::block>> result;
+	std::lock_guard<std::mutex> lock (mutex);
+	for (auto i (roots.begin ()), n (roots.end ()); i != n; ++i)
+	{
+		result.push_back (i->election->last_winner);
+	}
+	return result;
 }
 
 rai::active_transactions::active_transactions (rai::node & node_a) :

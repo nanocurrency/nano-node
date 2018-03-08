@@ -988,55 +988,58 @@ void rai::bootstrap_attempt::process_fork (MDB_txn * transaction_a, std::shared_
 void rai::bootstrap_attempt::try_resolve_fork (MDB_txn * transaction_a, std::shared_ptr<rai::block> block_a, bool from_processor)
 {
 	std::weak_ptr<rai::bootstrap_attempt> this_w (shared_from_this ());
-	std::shared_ptr<rai::block> ledger_block (node->ledger.forked_block (transaction_a, *block_a));
-	if (ledger_block)
+	if (!node->store.block_exists (transaction_a, block_a->hash ()) && node->store.block_exists (transaction_a, block_a->root ()))
 	{
-		node->active.start (transaction_a, ledger_block, [this_w, block_a](std::shared_ptr<rai::block>, bool resolved) {
-			if (auto this_l = this_w.lock ())
-			{
-				if (resolved)
+		std::shared_ptr<rai::block> ledger_block (node->ledger.forked_block (transaction_a, *block_a));
+		if (ledger_block)
+		{
+			node->active.start (transaction_a, ledger_block, [this_w, block_a](std::shared_ptr<rai::block>, bool resolved) {
+				if (auto this_l = this_w.lock ())
 				{
+					if (resolved)
 					{
-						std::unique_lock<std::mutex> lock (this_l->mutex);
-						this_l->unresolved_forks.erase (block_a->hash ());
-						this_l->condition.notify_all ();
-					}
-					rai::transaction transaction (this_l->node->store.environment, nullptr, false);
-					auto account (this_l->node->ledger.store.frontier_get (transaction, block_a->root ()));
-					if (!account.is_zero ())
-					{
-						this_l->requeue_pull (rai::pull_info (account, block_a->root (), block_a->root ()));
-					}
-					else if (this_l->node->ledger.store.account_exists (transaction, block_a->root ()))
-					{
-						this_l->requeue_pull (rai::pull_info (block_a->root (), rai::block_hash (0), rai::block_hash (0)));
+						{
+							std::unique_lock<std::mutex> lock (this_l->mutex);
+							this_l->unresolved_forks.erase (block_a->hash ());
+							this_l->condition.notify_all ();
+						}
+						rai::transaction transaction (this_l->node->store.environment, nullptr, false);
+						auto account (this_l->node->ledger.store.frontier_get (transaction, block_a->root ()));
+						if (!account.is_zero ())
+						{
+							this_l->requeue_pull (rai::pull_info (account, block_a->root (), block_a->root ()));
+						}
+						else if (this_l->node->ledger.store.account_exists (transaction, block_a->root ()))
+						{
+							this_l->requeue_pull (rai::pull_info (block_a->root (), rai::block_hash (0), rai::block_hash (0)));
+						}
 					}
 				}
-			}
-		});
+			});
 
-		auto hash = block_a->hash ();
-		bool exists = true;
-		if (from_processor)
-		{
-			// Only add the block to the unresolved fork tracker if it's the first time we've seen it (i.e. this call came from the block processor).
-			std::unique_lock<std::mutex> lock (mutex);
-			exists = unresolved_forks.find (hash) != unresolved_forks.end ();
+			auto hash = block_a->hash ();
+			bool exists = true;
+			if (from_processor)
+			{
+				// Only add the block to the unresolved fork tracker if it's the first time we've seen it (i.e. this call came from the block processor).
+				std::unique_lock<std::mutex> lock (mutex);
+				exists = unresolved_forks.find (hash) != unresolved_forks.end ();
+				if (!exists)
+				{
+					unresolved_forks[hash] = block_a;
+				}
+			}
+
 			if (!exists)
 			{
-				unresolved_forks[hash] = block_a;
+				BOOST_LOG (node->log) << boost::str (boost::format ("While bootstrappping, fork between our block: %1% and block %2% both with root %3%") % ledger_block->hash ().to_string () % hash.to_string () % block_a->root ().to_string ());
 			}
-		}
-
-		if (!exists)
-		{
-			BOOST_LOG (node->log) << boost::str (boost::format ("While bootstrappping, fork between our block: %1% and block %2% both with root %3%") % ledger_block->hash ().to_string () % hash.to_string () % block_a->root ().to_string ());
-		}
-		if (!exists || !from_processor)
-		{
-			// Only broadcast if it's a new fork, or if the request is coming from the retry loop.
-			node->network.broadcast_confirm_req (ledger_block);
-			node->network.broadcast_confirm_req (block_a);
+			if (!exists || !from_processor)
+			{
+				// Only broadcast if it's a new fork, or if the request is coming from the retry loop.
+				node->network.broadcast_confirm_req (ledger_block);
+				node->network.broadcast_confirm_req (block_a);
+			}
 		}
 	}
 }
