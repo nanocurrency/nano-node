@@ -206,6 +206,7 @@ void ledger_processor::utx_block (rai::utx_block const & block_a)
 				// Account does not yet exists
 				result.code = block_a.previous ().is_zero () ? rai::process_result::progress : rai::process_result::gap_previous; // Does the first block in an account yield 0 for previous() ? (Unambigious)
 			}
+			result.utx_is_send = is_send;
 			if (result.code == rai::process_result::progress)
 			{
 				if (!is_send)

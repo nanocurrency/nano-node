@@ -1246,7 +1246,7 @@ void rai::block_processor::process_receive_many (std::deque<rai::block_processor
 		}
 		for (auto & i : progress)
 		{
-			node.observers.blocks (i.first, i.second.account, i.second.amount);
+			node.observers.blocks (i.first, i.second);
 			if (i.second.amount > 0)
 			{
 				node.observers.account_balance (i.second.account, false);
@@ -1438,27 +1438,31 @@ block_processor_thread ([this]() { this->block_processor.process_blocks (); })
 	peers.disconnect_observer = [this]() {
 		observers.disconnect ();
 	};
-	observers.blocks.add ([this](std::shared_ptr<rai::block> block_a, rai::account const & account_a, rai::amount const & amount_a) {
+	observers.blocks.add ([this](std::shared_ptr<rai::block> block_a, rai::process_return const & result_a) {
 		if (this->block_arrival.recent (block_a->hash ()))
 		{
 			rai::transaction transaction (store.environment, nullptr, true);
 			active.start (transaction, block_a);
 		}
 	});
-	observers.blocks.add ([this](std::shared_ptr<rai::block> block_a, rai::account const & account_a, rai::amount const & amount_a) {
+	observers.blocks.add ([this](std::shared_ptr<rai::block> block_a, rai::process_return const & result_a) {
 		if (this->block_arrival.recent (block_a->hash ()))
 		{
 			auto node_l (shared_from_this ());
-			background ([node_l, block_a, account_a, amount_a]() {
+			background ([node_l, block_a, result_a]() {
 				if (!node_l->config.callback_address.empty ())
 				{
 					boost::property_tree::ptree event;
-					event.add ("account", account_a.to_account ());
+					event.add ("account", result_a.account.to_account ());
 					event.add ("hash", block_a->hash ().to_string ());
 					std::string block_text;
 					block_a->serialize_json (block_text);
 					event.add ("block", block_text);
-					event.add ("amount", amount_a.to_string_dec ());
+					event.add ("amount", result_a.amount.to_string_dec ());
+					if (result_a.utx_is_send)
+					{
+						event.add ("is_send", *result_a.utx_is_send);
+					}
 					std::stringstream ostream;
 					boost::property_tree::write_json (ostream, event);
 					ostream.flush ();

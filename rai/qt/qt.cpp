@@ -1099,17 +1099,17 @@ void rai_qt::wallet::start ()
 			this_l->push_main_stack (this_l->send_blocks_window);
 		}
 	});
-	node.observers.blocks.add ([this_w](std::shared_ptr<rai::block> block_a, rai::account const & account_a, rai::amount const &) {
+	node.observers.blocks.add ([this_w](std::shared_ptr<rai::block> block_a, rai::process_return const & result_a) {
 		if (auto this_l = this_w.lock ())
 		{
-			this_l->application.postEvent (&this_l->processor, new eventloop_event ([this_w, block_a, account_a]() {
+			this_l->application.postEvent (&this_l->processor, new eventloop_event ([ this_w, block_a, result_a.account ]() {
 				if (auto this_l = this_w.lock ())
 				{
-					if (this_l->wallet_m->exists (account_a))
+					if (this_l->wallet_m->exists (result_a.account))
 					{
 						this_l->accounts.refresh ();
 					}
-					if (account_a == this_l->account)
+					if (result_a.account == this_l->account)
 					{
 						this_l->history.refresh ();
 					}
