@@ -1165,6 +1165,7 @@ void rai::rpc_handler::block_create ()
 		prv.data.clear ();
 		rai::uint256_union previous (0);
 		rai::uint128_union balance (0);
+		rai::uint256_union link (0);
 		if (wallet != 0 && account != 0)
 		{
 			auto existing (node.wallets.items.find (wallet));
@@ -1223,11 +1224,37 @@ void rai::rpc_handler::block_create ()
 				error_response (response, "Bad balance number");
 			}
 		}
+		boost::optional<std::string> link_text (request.get_optional<std::string> ("link"));
+		if (link_text.is_initialized ())
+		{
+			auto error_link (link.decode_account (link_text.get ()));
+			if (error_link)
+			{
+				error_response (response, "Bad link number");
+			}
+		}
 		if (prv.data != 0)
 		{
 			rai::uint256_union pub;
 			ed25519_publickey (prv.data.bytes.data (), pub.bytes.data ());
-			if (type == "open")
+			if (type == "utx")
+			{
+				if (!account.is_zero () && !previous.is_zero () && !representative.is_zero () && !balance.is_zero () && link_text.is_initialized ())
+				{
+					rai::utx_block utx (account, previous, representative, balance, link, prv, pub, work);
+					boost::property_tree::ptree response_l;
+					response_l.put ("hash", utx.hash ().to_string ());
+					std::string contents;
+					utx.serialize_json (contents);
+					response_l.put ("block", contents);
+					response (response_l);
+				}
+				else
+				{
+					error_response (response, "Account, previous, representative, balance, and link are required");
+				}
+			}
+			else if (type == "open")
 			{
 				if (representative != 0 && source != 0)
 				{

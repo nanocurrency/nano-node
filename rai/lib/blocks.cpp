@@ -1175,6 +1175,15 @@ std::unique_ptr<rai::block> rai::deserialize_block_json (boost::property_tree::p
 				result = std::move (obj);
 			}
 		}
+		else if (type == "utx")
+		{
+			bool error;
+			std::unique_ptr<rai::utx_block> obj (new rai::utx_block (error, tree_a));
+			if (!error)
+			{
+				result = std::move (obj);
+			}
+		}
 	}
 	catch (std::runtime_error const &)
 	{
