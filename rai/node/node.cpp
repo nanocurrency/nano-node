@@ -254,7 +254,7 @@ void rai::network::broadcast_confirm_req (std::shared_ptr<rai::block> block_a)
 	}
 	if (node.config.logging.network_logging ())
 	{
-		BOOST_LOG (node.log) << boost::str (boost::format ("Broadcasted confirm req to %1% representatives") % list.size ());
+		BOOST_LOG (node.log) << boost::str (boost::format ("Broadcasted confirm req for block %1% to %2% representatives") % block_a->hash ().to_string () % list.size ());
 	}
 }
 
@@ -1548,6 +1548,15 @@ block_processor_thread ([this]() { this->block_processor.process_blocks (); })
 			if (peers.rep_response (endpoint_a, weight_l))
 			{
 				BOOST_LOG (log) << boost::str (boost::format ("Found a representative at %1%") % endpoint_a);
+				// Rebroadcasting all active votes to new representative
+				auto blocks (active.list_blocks ());
+				for (auto i (blocks.begin ()), n (blocks.end ()); i != n; ++i)
+				{
+					if (*i != nullptr)
+					{
+						this->network.send_confirm_req (endpoint_a, *i);
+					}
+				}
 			}
 		}
 	});
@@ -2962,6 +2971,18 @@ bool rai::active_transactions::active (rai::block const & block_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	return roots.find (block_a.root ()) != roots.end ();
+}
+
+// List of active blocks in elections
+std::deque<std::shared_ptr<rai::block>> rai::active_transactions::list_blocks ()
+{
+	std::deque<std::shared_ptr<rai::block>> result;
+	std::lock_guard<std::mutex> lock (mutex);
+	for (auto i (roots.begin ()), n (roots.end ()); i != n; ++i)
+	{
+		result.push_back (i->election->last_winner);
+	}
+	return result;
 }
 
 rai::active_transactions::active_transactions (rai::node & node_a) :
