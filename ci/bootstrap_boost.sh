@@ -3,6 +3,15 @@
 set -o nounset
 set -o xtrace
 
+bootstrapArgs=()
+while getopts 'm' OPT; do
+	case "${OPT}" in
+		m)
+			bootstrapArgs+=('--with-libraries=atomic,chrono,thread,log,date_time,filesystem,program_options,regex')
+			;;
+	esac
+done
+
 BOOST_BASENAME=boost_1_66_0
 BOOST_ROOT=${BOOST_ROOT-/usr/local/boost}
 BOOST_URL=https://downloads.sourceforge.net/project/boost/boost/1.66.0/${BOOST_BASENAME}.tar.bz2
@@ -20,7 +29,7 @@ mv "${BOOST_ARCHIVE}.new" "${BOOST_ARCHIVE}"
 
 tar xf "${BOOST_ARCHIVE}"
 cd ${BOOST_BASENAME}
-./bootstrap.sh
+./bootstrap.sh "${bootstrapArgs[@]}"
 ./b2 -d0 --prefix=${BOOST_ROOT} link=static install
 cd ..
 rm -rf ${BOOST_BASENAME}
