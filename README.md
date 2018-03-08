@@ -25,6 +25,7 @@ For more information, see [Nano.org](https://nano.org/) or read the [whitepaper]
 
 ### Guides & Documentation
 
+* [White Paper](https://nano.org/en/whitepaper)
 * [Build Instructions](https://github.com/nanocurrency/raiblocks/wiki/Build-Instructions)
 * [Command Line Interface](https://github.com/nanocurrency/raiblocks/wiki/Command-line-interface)
 * [RPC Protocol](https://github.com/nanocurrency/raiblocks/wiki/RPC-protocol)
@@ -35,8 +36,7 @@ For more information, see [Nano.org](https://nano.org/) or read the [whitepaper]
 ### Links & Resources
 
 * [Nano Website](https://nano.org)
-* [Whitepaper](https://nano.org/en/whitepaper)
-* [Roadmap](https://raiblocks.net/media/raiblocks-roadmap-v2-en.png)
+* [Nano Roadmap](https://raiblocks.net/media/raiblocks-roadmap-v2-en.png)
 * [Discord Chat](https://chat.nano.org/)
 * [Reddit](https://reddit.com/r/nanocurrency)
 * [Medium](https://medium.com/@nanocurrency)
