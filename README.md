@@ -1,11 +1,21 @@
+<hr />
+<div align="center">
+    <img src="images/logo.svg" alt="Logo" width='300px' height='auto'/>
+</div>
+<hr />
+
 [![Build Status](https://travis-ci.org/nanocurrency/raiblocks.svg?branch=master)](https://travis-ci.org/nanocurrency/raiblocks)
 
 # What is Nano?
-Nano is designed to be a feeless, instant, high throughput cryptocurrency.
 
-We've applied the philosophy of "do one thing and do it well", giving you performance and scalability unmatched by any other platform.
+Nano's goal is to become _"a global currency with instantaneous transactions and zero fees over a secure, decentralized network."_
 
-### Key features
+We've applied the philosophy of _"do one thing and do it well"_, we are focused on building the best medium for value exchange in the world.
+
+---
+
+### Key Features
+
 * Nano utilizes a novel block-lattice architecture, unlike conventional blockchains used in many other cryptocurrencies.
 * The network requires minimal resources, no high-power mining hardware, and can process high transaction throughput.
 * Offers feeless, instantaneous transactions, as well as unlimited scalability, making Nano ideal for peer-to-peer transactions.
@@ -13,21 +23,29 @@ We've applied the philosophy of "do one thing and do it well", giving you perfor
 
 For more information, see [Nano.org](https://nano.org/) or read the [whitepaper](https://nano.org/en/whitepaper).
 
-### Resources
-- [Nano website](https://nano.org)
-- [Whitepaper](https://nano.org/en/whitepaper)
-- [Roadmap](https://raiblocks.net/media/raiblocks-roadmap-v2-en.png)
-- [Discord chat](https://chat.nano.org/)
-- [Reddit](https://reddit.com/r/nanocurrency)
-- [Medium](https://medium.com/@nanocurrency)
-- [Twitter](https://twitter.com/nanocurrency)
-- [Forum](https://forum.raiblocks.net/)
-- [GitHub wiki](https://github.com/nanocurrency/raiblocks/wiki)
+### Guides & Documentation
 
-### Build instructions
-https://github.com/nanocurrency/raiblocks/wiki/Build-Instructions
+* [Build Instructions](https://github.com/nanocurrency/raiblocks/wiki/Build-Instructions)
+* [Command Line Interface](https://github.com/nanocurrency/raiblocks/wiki/Command-line-interface)
+* [RPC Protocol](https://github.com/nanocurrency/raiblocks/wiki/RPC-protocol)
+* [Wallet Design](https://github.com/nanocurrency/raiblocks/wiki/Wallet-design)
+* [Block Lattice](https://github.com/nanocurrency/raiblocks/wiki/Block-lattice)
+* [Design Features](https://github.com/nanocurrency/raiblocks/wiki/Design-features)
 
-### Want to contribute?
+### Links & Resources
+
+* [Nano Website](https://nano.org)
+* [Whitepaper](https://nano.org/en/whitepaper)
+* [Roadmap](https://raiblocks.net/media/raiblocks-roadmap-v2-en.png)
+* [Discord Chat](https://chat.nano.org/)
+* [Reddit](https://reddit.com/r/nanocurrency)
+* [Medium](https://medium.com/@nanocurrency)
+* [Twitter](https://twitter.com/nanocurrency)
+* [Forum](https://forum.raiblocks.net/)
+* [GitHub wiki](https://github.com/nanocurrency/raiblocks/wiki)
+
+### Want to Contribute?
+
 Please see the [contributors guide](https://github.com/nanocurrency/raiblocks/wiki/Contributing).
 
 ### Contact us
