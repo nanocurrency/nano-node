@@ -3045,6 +3045,7 @@ void rai::add_node_options (boost::program_options::options_description & descri
 		("wallet_decrypt_unsafe", "Decrypts <wallet> using <password>, !!THIS WILL PRINT YOUR PRIVATE KEY TO STDOUT!!")
 		("wallet_destroy", "Destroys <wallet> and all keys it contains")
 		("wallet_import", "Imports keys in <file> using <password> in to <wallet>")
+		("wallet_import_seed", "Imports <key> as seed for a new wallet")
 		("wallet_list", "Dumps wallet IDs and public keys")
 		("wallet_remove", "Remove <account> from <wallet>")
 		("wallet_representative_get", "Prints default representative for <wallet>")
@@ -3521,6 +3522,25 @@ bool rai::handle_node_options (boost::program_options::variables_map & vm)
 		else
 		{
 			std::cerr << "wallet_import requires one <file> option\n";
+			result = true;
+		}
+	}
+	else if (vm.count ("wallet_import_seed"))
+	{
+		rai::raw_key key;
+		if (!key.data.decode_hex (vm["key"].as<std::string> ()))
+		{
+			inactive_node node (data_path);
+			rai::keypair gen_key;
+			auto wallet (node.node->wallets.create (gen_key.pub));
+			wallet->enter_initial_password ();
+			rai::transaction transaction (wallet->store.environment, nullptr, true);
+			wallet->change_seed (transaction, key);
+			std::cout << gen_key.pub.to_string () << std::endl;
+		}
+		else
+		{
+			std::cerr << "Invalid key\n";
 			result = true;
 		}
 	}
