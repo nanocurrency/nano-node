@@ -182,85 +182,90 @@ void ledger_processor::utx_block (rai::utx_block const & block_a)
 		result.code = validate_message (block_a.hashables.account, hash, block_a.signature) ? rai::process_result::bad_signature : rai::process_result::progress; // Is this block signed correctly (Unambiguous)
 		if (result.code == rai::process_result::progress)
 		{
-			rai::account_info info;
-			result.amount = block_a.hashables.balance;
-			bool is_send (false);
-			auto account_error (ledger.store.account_get (transaction, block_a.hashables.account, info));
-			if (!account_error)
+			result.code = block_a.hashables.account.is_zero () ? rai::process_result::opened_burn_account : rai::process_result::progress; // Is this for the burn account? (Unambiguous)
+			if (result.code == rai::process_result::progress)
 			{
-				// Account already exists
-				result.code = block_a.hashables.previous.is_zero () ? rai::process_result::fork : rai::process_result::progress; // Has this account already been opened? (Ambigious)
-				if (result.code == rai::process_result::progress)
+				rai::account_info info;
+				result.amount = block_a.hashables.balance;
+				auto is_send (false);
+				auto account_error (ledger.store.account_get (transaction, block_a.hashables.account, info));
+				if (!account_error)
 				{
-					result.code = ledger.store.block_exists (transaction, block_a.hashables.previous) ? rai::process_result::progress : rai::process_result::gap_previous; // Does the previous block exist in the ledger? (Unambigious)
+					// Account already exists
+					result.code = block_a.hashables.previous.is_zero () ? rai::process_result::fork : rai::process_result::progress; // Has this account already been opened? (Ambigious)
 					if (result.code == rai::process_result::progress)
 					{
-						is_send = block_a.hashables.balance < info.balance;
-						result.amount = result.amount.number () - info.balance.number ();
-						result.code = block_a.hashables.previous == info.head ? rai::process_result::progress : rai::process_result::fork; // Is the previous block the account's head block? (Ambigious)
-					}
-				}
-			}
-			else
-			{
-				// Account does not yet exists
-				result.code = block_a.previous ().is_zero () ? rai::process_result::progress : rai::process_result::gap_previous; // Does the first block in an account yield 0 for previous() ? (Unambigious)
-			}
-			result.utx_is_send = is_send;
-			if (result.code == rai::process_result::progress)
-			{
-				if (!is_send)
-				{
-					if (!block_a.hashables.link.is_zero ())
-					{
-						result.code = ledger.store.block_exists (transaction, block_a.hashables.link) ? rai::process_result::progress : rai::process_result::gap_source; // Have we seen the source block already? (Harmless)
+						result.code = ledger.store.block_exists (transaction, block_a.hashables.previous) ? rai::process_result::progress : rai::process_result::gap_previous; // Does the previous block exist in the ledger? (Unambigious)
 						if (result.code == rai::process_result::progress)
 						{
-							rai::pending_key key (block_a.hashables.account, block_a.hashables.link);
-							rai::pending_info pending;
-							result.code = ledger.store.pending_get (transaction, key, pending) ? rai::process_result::unreceivable : rai::process_result::progress; // Has this source already been received (Malformed)
-							if (result.code == rai::process_result::progress)
-							{
-								result.code = result.amount == pending.amount ? rai::process_result::progress : rai::process_result::balance_mismatch;
-							}
+							is_send = block_a.hashables.balance < info.balance;
+							result.amount = result.amount.number () - info.balance.number ();
+							result.code = block_a.hashables.previous == info.head ? rai::process_result::progress : rai::process_result::fork; // Is the previous block the account's head block? (Ambigious)
 						}
 					}
-					else
+				}
+				else
+				{
+					// Account does not yet exists
+					result.code = block_a.previous ().is_zero () ? rai::process_result::progress : rai::process_result::gap_previous; // Does the first block in an account yield 0 for previous() ? (Unambigious)
+				}
+				if (result.code == rai::process_result::progress)
+				{
+					if (!is_send)
 					{
-						result.code = result.amount.is_zero () ? rai::process_result::progress : rai::process_result::balance_mismatch;
+						if (!block_a.hashables.link.is_zero ())
+						{
+							result.code = ledger.store.block_exists (transaction, block_a.hashables.link) ? rai::process_result::progress : rai::process_result::gap_source; // Have we seen the source block already? (Harmless)
+							if (result.code == rai::process_result::progress)
+							{
+								rai::pending_key key (block_a.hashables.account, block_a.hashables.link);
+								rai::pending_info pending;
+								result.code = ledger.store.pending_get (transaction, key, pending) ? rai::process_result::unreceivable : rai::process_result::progress; // Has this source already been received (Malformed)
+								if (result.code == rai::process_result::progress)
+								{
+									result.code = result.amount == pending.amount ? rai::process_result::progress : rai::process_result::balance_mismatch;
+								}
+							}
+						}
+						else
+						{
+							// If there's no link, the balance must remain the same, only the representative can change
+							result.code = result.amount.is_zero () ? rai::process_result::progress : rai::process_result::balance_mismatch;
+						}
 					}
 				}
-			}
-			if (result.code == rai::process_result::progress)
-			{
-				ledger.store.block_put (transaction, hash, block_a);
+				if (result.code == rai::process_result::progress)
+				{
+					result.utx_is_send = is_send;
+					ledger.store.block_put (transaction, hash, block_a);
 
-				if (!info.rep_block.is_zero ())
-				{
-					// Move existing representation
-					ledger.store.representation_add (transaction, info.rep_block, 0 - info.balance.number ());
-				}
-				// Add in amount delta
-				ledger.store.representation_add (transaction, hash, block_a.hashables.balance.number ());
+					if (!info.rep_block.is_zero ())
+					{
+						// Move existing representation
+						ledger.store.representation_add (transaction, info.rep_block, 0 - info.balance.number ());
+					}
+					// Add in amount delta
+					ledger.store.representation_add (transaction, hash, block_a.hashables.balance.number ());
 
-				if (is_send)
-				{
-					rai::pending_key key (block_a.hashables.link, hash);
-					rai::pending_info info (block_a.hashables.account, 0 - result.amount.number ());
-					ledger.store.pending_put (transaction, key, info);
-				}
-				else if (!block_a.hashables.link.is_zero ())
-				{
-					ledger.store.pending_del (transaction, rai::pending_key (block_a.hashables.account, block_a.hashables.link));
-				}
+					if (is_send)
+					{
+						rai::pending_key key (block_a.hashables.link, hash);
+						rai::pending_info info (block_a.hashables.account, 0 - result.amount.number ());
+						ledger.store.pending_put (transaction, key, info);
+					}
+					else if (!block_a.hashables.link.is_zero ())
+					{
+						ledger.store.pending_del (transaction, rai::pending_key (block_a.hashables.account, block_a.hashables.link));
+					}
 
-				ledger.change_latest (transaction, block_a.hashables.account, hash, hash, block_a.hashables.balance, info.block_count + 1);
-				if (!ledger.store.frontier_get (transaction, info.head).is_zero ())
-				{
-					ledger.store.frontier_del (transaction, info.head);
+					ledger.change_latest (transaction, block_a.hashables.account, hash, hash, block_a.hashables.balance, info.block_count + 1);
+					if (!ledger.store.frontier_get (transaction, info.head).is_zero ())
+					{
+						ledger.store.frontier_del (transaction, info.head);
+					}
+					// Frontier table is unnecessary for utx blocks and this also prevents old blocks from being inserted on top of utx blocks
+					result.account = block_a.hashables.account;
 				}
-				// Frontier table is unnecessary for utx blocks and this also prevents old blocks from being inserted on top of utx blocks
-				result.account = block_a.hashables.account;
 			}
 		}
 	}
