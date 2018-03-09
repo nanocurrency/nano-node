@@ -40,6 +40,7 @@ slow_test
 # Visual Studio
 *.vcxproj
 *.vcxproj.filters
+*.vcxproj.user
 *.sln
 *.qrc.depends
 *.dir
