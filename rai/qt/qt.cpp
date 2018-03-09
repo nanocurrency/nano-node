@@ -1102,14 +1102,15 @@ void rai_qt::wallet::start ()
 	node.observers.blocks.add ([this_w](std::shared_ptr<rai::block> block_a, rai::process_return const & result_a) {
 		if (auto this_l = this_w.lock ())
 		{
-			this_l->application.postEvent (&this_l->processor, new eventloop_event ([ this_w, block_a, result_a.account ]() {
+			auto account (result_a.account);
+			this_l->application.postEvent (&this_l->processor, new eventloop_event ([ this_w, block_a, account ]() {
 				if (auto this_l = this_w.lock ())
 				{
-					if (this_l->wallet_m->exists (result_a.account))
+					if (this_l->wallet_m->exists (account))
 					{
 						this_l->accounts.refresh ();
 					}
-					if (result_a.account == this_l->account)
+					if (account == this_l->account)
 					{
 						this_l->history.refresh ();
 					}
