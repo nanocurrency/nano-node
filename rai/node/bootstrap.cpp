@@ -1301,6 +1301,7 @@ void rai::bootstrap_initiator::bootstrap ()
 	std::unique_lock<std::mutex> lock (mutex);
 	if (!stopped && attempt == nullptr)
 	{
+		node.stats.inc (rai::stat::type::bootstrap, rai::stat::detail::initiate, rai::stat::dir::out);
 		attempt = std::make_shared<rai::bootstrap_attempt> (node.shared ());
 		condition.notify_all ();
 	}
@@ -1317,6 +1318,7 @@ void rai::bootstrap_initiator::bootstrap (rai::endpoint const & endpoint_a)
 			attempt->stop ();
 			condition.wait (lock);
 		}
+		node.stats.inc (rai::stat::type::bootstrap, rai::stat::detail::initiate, rai::stat::dir::out);
 		attempt = std::make_shared<rai::bootstrap_attempt> (node.shared ());
 		attempt->add_connection (endpoint_a);
 		condition.notify_all ();
@@ -1507,6 +1509,7 @@ void rai::bootstrap_server::receive_header_action (boost::system::error_code con
 			{
 				case rai::message_type::bulk_pull:
 				{
+					node->stats.inc (rai::stat::type::bootstrap, rai::stat::detail::bulk_pull, rai::stat::dir::in);
 					auto this_l (shared_from_this ());
 					boost::asio::async_read (*socket, boost::asio::buffer (receive_buffer.data () + 8, sizeof (rai::uint256_union) + sizeof (rai::uint256_union)), [this_l](boost::system::error_code const & ec, size_t size_a) {
 						this_l->receive_bulk_pull_action (ec, size_a);
@@ -1515,6 +1518,7 @@ void rai::bootstrap_server::receive_header_action (boost::system::error_code con
 				}
 				case rai::message_type::bulk_pull_blocks:
 				{
+					node->stats.inc (rai::stat::type::bootstrap, rai::stat::detail::bulk_pull_blocks, rai::stat::dir::in);
 					auto this_l (shared_from_this ());
 					boost::asio::async_read (*socket, boost::asio::buffer (receive_buffer.data () + rai::bootstrap_message_header_size, sizeof (rai::uint256_union) + sizeof (rai::uint256_union) + sizeof (bulk_pull_blocks_mode) + sizeof (uint32_t)), [this_l](boost::system::error_code const & ec, size_t size_a) {
 						this_l->receive_bulk_pull_blocks_action (ec, size_a);
@@ -1523,6 +1527,7 @@ void rai::bootstrap_server::receive_header_action (boost::system::error_code con
 				}
 				case rai::message_type::frontier_req:
 				{
+					node->stats.inc (rai::stat::type::bootstrap, rai::stat::detail::frontier_req, rai::stat::dir::in);
 					auto this_l (shared_from_this ());
 					boost::asio::async_read (*socket, boost::asio::buffer (receive_buffer.data () + 8, sizeof (rai::uint256_union) + sizeof (uint32_t) + sizeof (uint32_t)), [this_l](boost::system::error_code const & ec, size_t size_a) {
 						this_l->receive_frontier_req_action (ec, size_a);
@@ -1531,6 +1536,7 @@ void rai::bootstrap_server::receive_header_action (boost::system::error_code con
 				}
 				case rai::message_type::bulk_push:
 				{
+					node->stats.inc (rai::stat::type::bootstrap, rai::stat::detail::bulk_push, rai::stat::dir::in);
 					add_request (std::unique_ptr<rai::message> (new rai::bulk_push));
 					break;
 				}
@@ -2069,6 +2075,7 @@ void rai::bulk_push_server::received_type ()
 	{
 		case rai::block_type::send:
 		{
+			connection->node->stats.inc (rai::stat::type::bootstrap, rai::stat::detail::send, rai::stat::dir::in);
 			boost::asio::async_read (*connection->socket, boost::asio::buffer (receive_buffer.data () + 1, rai::send_block::size), [this_l](boost::system::error_code const & ec, size_t size_a) {
 				this_l->received_block (ec, size_a);
 			});
@@ -2076,6 +2083,7 @@ void rai::bulk_push_server::received_type ()
 		}
 		case rai::block_type::receive:
 		{
+			connection->node->stats.inc (rai::stat::type::bootstrap, rai::stat::detail::receive, rai::stat::dir::in);
 			boost::asio::async_read (*connection->socket, boost::asio::buffer (receive_buffer.data () + 1, rai::receive_block::size), [this_l](boost::system::error_code const & ec, size_t size_a) {
 				this_l->received_block (ec, size_a);
 			});
@@ -2083,6 +2091,7 @@ void rai::bulk_push_server::received_type ()
 		}
 		case rai::block_type::open:
 		{
+			connection->node->stats.inc (rai::stat::type::bootstrap, rai::stat::detail::open, rai::stat::dir::in);
 			boost::asio::async_read (*connection->socket, boost::asio::buffer (receive_buffer.data () + 1, rai::open_block::size), [this_l](boost::system::error_code const & ec, size_t size_a) {
 				this_l->received_block (ec, size_a);
 			});
@@ -2090,6 +2099,7 @@ void rai::bulk_push_server::received_type ()
 		}
 		case rai::block_type::change:
 		{
+			connection->node->stats.inc (rai::stat::type::bootstrap, rai::stat::detail::change, rai::stat::dir::in);
 			boost::asio::async_read (*connection->socket, boost::asio::buffer (receive_buffer.data () + 1, rai::change_block::size), [this_l](boost::system::error_code const & ec, size_t size_a) {
 				this_l->received_block (ec, size_a);
 			});
@@ -2097,6 +2107,7 @@ void rai::bulk_push_server::received_type ()
 		}
 		case rai::block_type::state:
 		{
+			connection->node->stats.inc (rai::stat::type::bootstrap, rai::stat::detail::state_block, rai::stat::dir::in);
 			boost::asio::async_read (*connection->socket, boost::asio::buffer (receive_buffer.data () + 1, rai::state_block::size), [this_l](boost::system::error_code const & ec, size_t size_a) {
 				this_l->received_block (ec, size_a);
 			});

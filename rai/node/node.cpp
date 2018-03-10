@@ -32,22 +32,11 @@ int constexpr rai::port_mapping::mapping_timeout;
 int constexpr rai::port_mapping::check_timeout;
 unsigned constexpr rai::active_transactions::announce_interval_ms;
 
-rai::message_statistics::message_statistics () :
-keepalive (0),
-publish (0),
-confirm_req (0),
-confirm_ack (0)
-{
-}
-
 rai::network::network (rai::node & node_a, uint16_t port) :
 socket (node_a.service, rai::endpoint (boost::asio::ip::address_v6::any (), port)),
 resolver (node_a.service),
 node (node_a),
-bad_sender_count (0),
-on (true),
-insufficient_work_count (0),
-error_count (0)
+on (true)
 {
 }
 
@@ -84,7 +73,6 @@ void rai::network::send_keepalive (rai::endpoint const & endpoint_a)
 	{
 		BOOST_LOG (node.log) << boost::str (boost::format ("Keepalive req sent to %1%") % endpoint_a);
 	}
-	++outgoing.keepalive;
 	std::weak_ptr<rai::node> node_w (node.shared ());
 	send_buffer (bytes->data (), bytes->size (), endpoint_a, [bytes, node_w, endpoint_a](boost::system::error_code const & ec, size_t) {
 		if (auto node_l = node_w.lock ())
@@ -92,6 +80,10 @@ void rai::network::send_keepalive (rai::endpoint const & endpoint_a)
 			if (ec && node_l->config.logging.network_keepalive_logging ())
 			{
 				BOOST_LOG (node_l->log) << boost::str (boost::format ("Error sending keepalive to %1%: %2%") % endpoint_a % ec.message ());
+			}
+			else
+			{
+				node_l->stats.inc (rai::stat::type::message, rai::stat::detail::keepalive, rai::stat::dir::out);
 			}
 		}
 	});
@@ -122,7 +114,6 @@ void rai::node::keepalive (std::string const & address_a, uint16_t port_a)
 
 void rai::network::republish (rai::block_hash const & hash_a, std::shared_ptr<std::vector<uint8_t>> buffer_a, rai::endpoint endpoint_a)
 {
-	++outgoing.publish;
 	if (node.config.logging.network_publish_logging ())
 	{
 		BOOST_LOG (node.log) << boost::str (boost::format ("Publishing %1% to %2%") % hash_a.to_string () % endpoint_a);
@@ -134,6 +125,10 @@ void rai::network::republish (rai::block_hash const & hash_a, std::shared_ptr<st
 			if (ec && node_l->config.logging.network_logging ())
 			{
 				BOOST_LOG (node_l->log) << boost::str (boost::format ("Error sending publish to %1%: %2%") % endpoint_a % ec.message ());
+			}
+			else
+			{
+				node_l->stats.inc (rai::stat::type::message, rai::stat::detail::publish, rai::stat::dir::out);
 			}
 		}
 	});
@@ -270,7 +265,7 @@ void rai::network::send_confirm_req (rai::endpoint const & endpoint_a, std::shar
 		BOOST_LOG (node.log) << boost::str (boost::format ("Sending confirm req to %1%") % endpoint_a);
 	}
 	std::weak_ptr<rai::node> node_w (node.shared ());
-	++outgoing.confirm_req;
+	node.stats.inc (rai::stat::type::message, rai::stat::detail::confirm_req, rai::stat::dir::out);
 	send_buffer (bytes->data (), bytes->size (), endpoint_a, [bytes, node_w](boost::system::error_code const & ec, size_t size) {
 		if (auto node_l = node_w.lock ())
 		{
@@ -328,7 +323,7 @@ public:
 		{
 			BOOST_LOG (node.log) << boost::str (boost::format ("Received keepalive message from %1%") % sender);
 		}
-		++node.network.incoming.keepalive;
+		node.stats.inc (rai::stat::type::message, rai::stat::detail::keepalive, rai::stat::dir::in);
 		node.peers.contacted (sender, message_a.version_using);
 		node.network.merge_peers (message_a.peers);
 	}
@@ -338,7 +333,7 @@ public:
 		{
 			BOOST_LOG (node.log) << boost::str (boost::format ("Publish message from %1% for %2%") % sender % message_a.block->hash ().to_string ());
 		}
-		++node.network.incoming.publish;
+		node.stats.inc (rai::stat::type::message, rai::stat::detail::publish, rai::stat::dir::in);
 		node.peers.contacted (sender, message_a.version_using);
 		node.peers.insert (sender, message_a.version_using);
 		node.process_active (message_a.block);
@@ -349,7 +344,7 @@ public:
 		{
 			BOOST_LOG (node.log) << boost::str (boost::format ("Confirm_req message from %1% for %2%") % sender % message_a.block->hash ().to_string ());
 		}
-		++node.network.incoming.confirm_req;
+		node.stats.inc (rai::stat::type::message, rai::stat::detail::confirm_req, rai::stat::dir::in);
 		node.peers.contacted (sender, message_a.version_using);
 		node.peers.insert (sender, message_a.version_using);
 		node.process_active (message_a.block);
@@ -366,7 +361,7 @@ public:
 		{
 			BOOST_LOG (node.log) << boost::str (boost::format ("Received confirm_ack message from %1% for %2% sequence %3%") % sender % message_a.vote->block->hash ().to_string () % std::to_string (message_a.vote->sequence));
 		}
-		++node.network.incoming.confirm_ack;
+		node.stats.inc (rai::stat::type::message, rai::stat::detail::confirm_ack, rai::stat::dir::in);
 		node.peers.contacted (sender, message_a.version_using);
 		node.peers.insert (sender, message_a.version_using);
 		node.process_active (message_a.vote->block);
@@ -420,7 +415,7 @@ void rai::network::receive_action (boost::system::error_code const & error, size
 			parser.deserialize_buffer (buffer.data (), size_a);
 			if (parser.status != rai::message_parser::parse_status::success)
 			{
-				++error_count;
+				node.stats.inc (rai::stat::type::error);
 
 				if (parser.status == rai::message_parser::parse_status::insufficient_work)
 				{
@@ -429,7 +424,8 @@ void rai::network::receive_action (boost::system::error_code const & error, size
 						BOOST_LOG (node.log) << "Insufficient work in message";
 					}
 
-					++insufficient_work_count;
+					// We've already increment error count, update detail only
+					node.stats.inc_detail_only (rai::stat::type::error, rai::stat::detail::insufficient_work);
 				}
 				else if (parser.status == rai::message_parser::parse_status::invalid_message_type)
 				{
@@ -478,6 +474,10 @@ void rai::network::receive_action (boost::system::error_code const & error, size
 					BOOST_LOG (node.log) << "Could not deserialize buffer";
 				}
 			}
+			else
+			{
+				node.stats.add (rai::stat::type::traffic, rai::stat::dir::in, size_a);
+			}
 		}
 		else
 		{
@@ -485,7 +485,8 @@ void rai::network::receive_action (boost::system::error_code const & error, size
 			{
 				BOOST_LOG (node.log) << boost::str (boost::format ("Reserved sender %1%") % remote.address ().to_string ());
 			}
-			++bad_sender_count;
+
+			node.stats.inc_detail_only (rai::stat::type::error, rai::stat::detail::bad_sender);
 		}
 		receive ();
 	}
@@ -1023,6 +1024,11 @@ bool rai::node_config::deserialize_json (bool & upgraded_a, boost::property_tree
 		{
 			result = true;
 		}
+		auto stat_config_l (tree_a.get_child_optional ("statistics"));
+		if (stat_config_l)
+		{
+			result |= stat_config.deserialize_json (stat_config_l.get ());
+		}
 		auto inactive_supply_l (tree_a.get<std::string> ("inactive_supply"));
 		auto password_fanout_l (tree_a.get<std::string> ("password_fanout"));
 		auto io_threads_l (tree_a.get<std::string> ("io_threads"));
@@ -1109,12 +1115,15 @@ rai::vote_result rai::vote_processor::vote (std::shared_ptr<rai::vote> vote_a, r
 		{
 			case rai::vote_code::invalid:
 				status = "Invalid";
+				node.stats.inc (rai::stat::type::vote, rai::stat::detail::vote_invalid);
 				break;
 			case rai::vote_code::replay:
 				status = "Replay";
+				node.stats.inc (rai::stat::type::vote, rai::stat::detail::vote_replay);
 				break;
 			case rai::vote_code::vote:
 				status = "Vote";
+				node.stats.inc (rai::stat::type::vote, rai::stat::detail::vote_valid);
 				break;
 		}
 		BOOST_LOG (node.log) << boost::str (boost::format ("Vote from: %1% sequence: %2% block: %3% status: %4%") % vote_a->account.to_account () % std::to_string (vote_a->sequence) % vote_a->block->hash ().to_string () % status);
@@ -1443,7 +1452,7 @@ alarm (alarm_a),
 work (work_a),
 store (init_a.block_store_init, application_path_a / "data.ldb", config_a.lmdb_max_dbs),
 gap_cache (*this),
-ledger (store, config_a.inactive_supply.number (), config.state_block_parse_canary, config.state_block_generate_canary),
+ledger (store, stats, config_a.inactive_supply.number (), config.state_block_parse_canary, config.state_block_generate_canary),
 active (*this),
 network (*this, config.peering_port),
 bootstrap_initiator (*this),
@@ -1456,7 +1465,8 @@ vote_processor (*this),
 warmed_up (0),
 block_processor (*this),
 block_processor_thread ([this]() { this->block_processor.process_blocks (); }),
-online_reps (*this)
+online_reps (*this),
+stats (config.stat_config)
 {
 	wallets.observer = [this](bool active) {
 		observers.wallet (active);
@@ -1772,13 +1782,16 @@ void rai::network::confirm_send (rai::confirm_ack const & confirm_a, std::shared
 		BOOST_LOG (node.log) << boost::str (boost::format ("Sending confirm_ack for block %1% to %2% sequence %3%") % confirm_a.vote->block->hash ().to_string () % endpoint_a % std::to_string (confirm_a.vote->sequence));
 	}
 	std::weak_ptr<rai::node> node_w (node.shared ());
-	++outgoing.confirm_ack;
 	node.network.send_buffer (bytes_a->data (), bytes_a->size (), endpoint_a, [bytes_a, node_w, endpoint_a](boost::system::error_code const & ec, size_t size_a) {
 		if (auto node_l = node_w.lock ())
 		{
 			if (ec && node_l->config.logging.network_logging ())
 			{
 				BOOST_LOG (node_l->log) << boost::str (boost::format ("Error broadcasting confirm_ack to %1%: %2%") % endpoint_a % ec.message ());
+			}
+			else
+			{
+				node_l->stats.inc (rai::stat::type::message, rai::stat::detail::confirm_ack, rai::stat::dir::out);
 			}
 		}
 	});
@@ -2953,6 +2966,7 @@ void rai::network::send_buffer (uint8_t const * data_a, size_t size_a, rai::endp
 	}
 	socket.async_send_to (boost::asio::buffer (data_a, size_a), endpoint_a, [this, callback_a](boost::system::error_code const & ec, size_t size_a) {
 		callback_a (ec, size_a);
+		this->node.stats.add (rai::stat::type::traffic, rai::stat::dir::out, size_a);
 		if (this->node.config.logging.network_packet_logging ())
 		{
 			BOOST_LOG (this->node.log) << "Packet send complete";

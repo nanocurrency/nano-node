@@ -1,6 +1,7 @@
 #include <rai/blockstore.hpp>
 #include <rai/ledger.hpp>
 #include <rai/node/common.hpp>
+#include <rai/node/stats.hpp>
 
 namespace
 {
@@ -39,6 +40,7 @@ public:
 		{
 			ledger.store.block_info_del (transaction, hash);
 		}
+		ledger.stats.inc (rai::stat::type::rollback, rai::stat::detail::send);
 	}
 	void receive_block (rai::receive_block const & block_a) override
 	{
@@ -61,6 +63,7 @@ public:
 		{
 			ledger.store.block_info_del (transaction, hash);
 		}
+		ledger.stats.inc (rai::stat::type::rollback, rai::stat::detail::receive);
 	}
 	void open_block (rai::open_block const & block_a) override
 	{
@@ -73,6 +76,7 @@ public:
 		ledger.store.block_del (transaction, hash);
 		ledger.store.pending_put (transaction, rai::pending_key (destination_account, block_a.hashables.source), { source_account, amount });
 		ledger.store.frontier_del (transaction, hash);
+		ledger.stats.inc (rai::stat::type::rollback, rai::stat::detail::open);
 	}
 	void change_block (rai::change_block const & block_a) override
 	{
@@ -94,6 +98,7 @@ public:
 		{
 			ledger.store.block_info_del (transaction, hash);
 		}
+		ledger.stats.inc (rai::stat::type::rollback, rai::stat::detail::change);
 	}
 	void state_block (rai::state_block const & block_a) override
 	{
@@ -121,11 +126,13 @@ public:
 				ledger.rollback (transaction, ledger.latest (transaction, block_a.hashables.link));
 			}
 			ledger.store.pending_del (transaction, key);
+			ledger.stats.inc (rai::stat::type::rollback, rai::stat::detail::send);
 		}
 		else if (!block_a.hashables.link.is_zero ())
 		{
 			rai::pending_info info (ledger.account (transaction, block_a.hashables.link), block_a.hashables.balance.number () - balance);
 			ledger.store.pending_put (transaction, rai::pending_key (block_a.hashables.account, block_a.hashables.link), info);
+			ledger.stats.inc (rai::stat::type::rollback, rai::stat::detail::receive);
 		}
 
 		rai::account_info info;
@@ -150,6 +157,10 @@ public:
 				default:
 					break;
 			}
+		}
+		else
+		{
+			ledger.stats.inc (rai::stat::type::rollback, rai::stat::detail::open);
 		}
 		ledger.store.block_del (transaction, hash);
 	}
@@ -220,6 +231,7 @@ void ledger_processor::state_block_impl (rai::state_block const & block_a)
 					result.code = block_a.previous ().is_zero () ? rai::process_result::progress : rai::process_result::gap_previous; // Does the first block in an account yield 0 for previous() ? (Unambigious)
 					if (result.code == rai::process_result::progress)
 					{
+						ledger.stats.inc (rai::stat::type::ledger, rai::stat::detail::open);
 						result.code = !block_a.hashables.link.is_zero () ? rai::process_result::progress : rai::process_result::gap_source; // Is the first block receiving from a send ? (Unambigious)
 					}
 				}
@@ -250,6 +262,7 @@ void ledger_processor::state_block_impl (rai::state_block const & block_a)
 				}
 				if (result.code == rai::process_result::progress)
 				{
+					ledger.stats.inc (rai::stat::type::ledger, rai::stat::detail::state_block);
 					result.state_is_send = is_send;
 					ledger.store.block_put (transaction, hash, block_a);
 
@@ -266,10 +279,12 @@ void ledger_processor::state_block_impl (rai::state_block const & block_a)
 						rai::pending_key key (block_a.hashables.link, hash);
 						rai::pending_info info (block_a.hashables.account, result.amount.number ());
 						ledger.store.pending_put (transaction, key, info);
+						ledger.stats.inc (rai::stat::type::ledger, rai::stat::detail::send);
 					}
 					else if (!block_a.hashables.link.is_zero ())
 					{
 						ledger.store.pending_del (transaction, rai::pending_key (block_a.hashables.account, block_a.hashables.link));
+						ledger.stats.inc (rai::stat::type::ledger, rai::stat::detail::receive);
 					}
 
 					ledger.change_latest (transaction, block_a.hashables.account, hash, hash, block_a.hashables.balance, info.block_count + 1, true);
@@ -319,6 +334,7 @@ void ledger_processor::change_block (rai::change_block const & block_a)
 						ledger.store.frontier_put (transaction, hash, account);
 						result.account = account;
 						result.amount = 0;
+						ledger.stats.inc (rai::stat::type::ledger, rai::stat::detail::change);
 					}
 				}
 			}
@@ -364,6 +380,7 @@ void ledger_processor::send_block (rai::send_block const & block_a)
 							result.account = account;
 							result.amount = amount;
 							result.pending_account = block_a.hashables.destination;
+							ledger.stats.inc (rai::stat::type::ledger, rai::stat::detail::send);
 						}
 					}
 				}
@@ -418,6 +435,7 @@ void ledger_processor::receive_block (rai::receive_block const & block_a)
 									ledger.store.frontier_put (transaction, hash, account);
 									result.account = account;
 									result.amount = pending.amount;
+									ledger.stats.inc (rai::stat::type::ledger, rai::stat::detail::receive);
 								}
 							}
 						}
@@ -468,6 +486,7 @@ void ledger_processor::open_block (rai::open_block const & block_a)
 							ledger.store.frontier_put (transaction, hash, block_a.hashables.account);
 							result.account = block_a.hashables.account;
 							result.amount = pending.amount;
+							ledger.stats.inc (rai::stat::type::ledger, rai::stat::detail::open);
 						}
 					}
 				}
@@ -535,8 +554,9 @@ void rai::supply::update_cache ()
 	}
 }
 
-rai::ledger::ledger (rai::block_store & store_a, rai::uint128_t const & inactive_supply_a, rai::block_hash const & state_block_parse_canary_a, rai::block_hash const & state_block_generate_canary_a) :
+rai::ledger::ledger (rai::block_store & store_a, rai::stat & stat_a, rai::uint128_t const & inactive_supply_a, rai::block_hash const & state_block_parse_canary_a, rai::block_hash const & state_block_generate_canary_a) :
 store (store_a),
+stats (stat_a),
 check_bootstrap_weights (true),
 state_block_parse_canary (state_block_parse_canary_a),
 state_block_generate_canary (state_block_generate_canary_a),

@@ -180,6 +180,7 @@ public:
 	void search_pending ();
 	void search_pending_all ();
 	void send ();
+	void stats ();
 	void stop ();
 	void successors ();
 	void unchecked ();

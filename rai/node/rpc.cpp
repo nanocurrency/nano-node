@@ -3207,6 +3207,31 @@ void rai::rpc_handler::send ()
 	}
 }
 
+void rai::rpc_handler::stats ()
+{
+	bool error = false;
+	auto sink = node.stats.log_sink_json ();
+	std::string type (request.get<std::string> ("type", ""));
+	if (type == "counters")
+	{
+		node.stats.log_counters (*sink);
+	}
+	else if (type == "samples")
+	{
+		node.stats.log_samples (*sink);
+	}
+	else
+	{
+		error = true;
+		error_response (response, "Invalid or missing type argument");
+	}
+
+	if (!error)
+	{
+		response (*static_cast<boost::property_tree::ptree *> (sink->to_object ()));
+	}
+}
+
 void rai::rpc_handler::stop ()
 {
 	if (rpc.config.enable_control)
@@ -4824,6 +4849,10 @@ void rai::rpc_handler::process_request ()
 		else if (action == "send")
 		{
 			send ();
+		}
+		else if (action == "stats")
+		{
+			stats ();
 		}
 		else if (action == "stop")
 		{
