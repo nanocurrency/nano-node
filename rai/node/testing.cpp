@@ -303,7 +303,7 @@ void rai::system::generate_mass_activity (uint32_t count_a, rai::node & node_a)
 				count = block_counts.sum ();
 				utx = block_counts.utx;
 			}
-			std::cerr << boost::str (boost::format ("Mass activity iteration %1% us %2% us/t %3% utx: %4% count: %5%\n") % i % us % (us / 256) % utx % count);
+			std::cerr << boost::str (boost::format ("Mass activity iteration %1% us %2% us/t %3% utx: %4% old: %5%\n") % i % us % (us / 256) % utx % (count - utx));
 			previous = now;
 		}
 		generate_activity (node_a, accounts);

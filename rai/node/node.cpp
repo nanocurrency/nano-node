@@ -1295,6 +1295,16 @@ rai::process_return rai::block_processor::process_receive_one (MDB_txn * transac
 			node.gap_cache.add (transaction_a, block_a);
 			break;
 		}
+		case rai::process_result::utx_disabled:
+		{
+			if (node.config.logging.ledger_logging ())
+			{
+				BOOST_LOG (node.log) << boost::str (boost::format ("UTX blocks are disabled: %1%") % block_a->hash ().to_string ());
+			}
+			node.store.unchecked_put (transaction_a, node.ledger.utx_parse_canary, block_a);
+			node.gap_cache.add (transaction_a, block_a);
+			break;
+		}
 		case rai::process_result::old:
 		{
 			{

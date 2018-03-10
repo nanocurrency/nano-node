@@ -167,12 +167,22 @@ public:
 	void open_block (rai::open_block const &) override;
 	void change_block (rai::change_block const &) override;
 	void utx_block (rai::utx_block const &) override;
+	void utx_block_impl (rai::utx_block const &);
 	rai::ledger & ledger;
 	MDB_txn * transaction;
 	rai::process_return result;
 };
 
 void ledger_processor::utx_block (rai::utx_block const & block_a)
+{
+	result.code = ledger.utx_parsing_enabled (transaction) ? rai::process_result::progress : rai::process_result::utx_disabled;
+	if (result.code == rai::process_result::progress)
+	{
+		utx_block_impl (block_a);
+	}
+}
+
+void ledger_processor::utx_block_impl (rai::utx_block const & block_a)
 {
 	auto hash (block_a.hash ());
 	auto existing (ledger.store.block_exists (transaction, hash));
@@ -481,10 +491,12 @@ bool rai::shared_ptr_block_hash::operator() (std::shared_ptr<rai::block> const &
 	return *lhs == *rhs;
 }
 
-rai::ledger::ledger (rai::block_store & store_a, rai::uint128_t const & inactive_supply_a) :
+rai::ledger::ledger (rai::block_store & store_a, rai::uint128_t const & inactive_supply_a, rai::block_hash const & utx_parse_canary_a, rai::block_hash const & utx_generate_canary_a) :
 store (store_a),
 inactive_supply (inactive_supply_a),
-check_bootstrap_weights (true)
+check_bootstrap_weights (true),
+utx_parse_canary (utx_parse_canary_a),
+utx_generate_canary (utx_generate_canary_a)
 {
 }
 
@@ -778,9 +790,14 @@ void rai::ledger::dump_account_chain (rai::account const & account_a)
 	}
 }
 
-bool rai::ledger::utx_enabled (MDB_txn * transaction_a)
+bool rai::ledger::utx_parsing_enabled (MDB_txn * transaction_a)
 {
-	return false;
+	return store.block_exists (transaction_a, utx_parse_canary);
+}
+
+bool rai::ledger::utx_generation_enabled (MDB_txn * transaction_a)
+{
+	return utx_parsing_enabled (transaction_a) && store.block_exists (transaction_a, utx_generate_canary);
 }
 
 void rai::ledger::checksum_update (MDB_txn * transaction_a, rai::block_hash const & hash_a)

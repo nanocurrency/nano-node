@@ -865,7 +865,7 @@ std::shared_ptr<rai::block> rai::wallet::receive_action (rai::block const & send
 					{
 						std::shared_ptr<rai::block> rep_block = node.ledger.store.block_get (transaction, info.rep_block);
 						assert (rep_block != nullptr);
-						if (node.ledger.utx_enabled (transaction))
+						if (node.ledger.utx_generation_enabled (transaction))
 						{
 							block.reset (new rai::utx_block (account, info.head, rep_block->representative (), info.balance.number () + pending_info.amount.number (), hash, prv, account, generate_work_a ? work_fetch (transaction, account, info.head) : 0));
 						}
@@ -876,7 +876,7 @@ std::shared_ptr<rai::block> rai::wallet::receive_action (rai::block const & send
 					}
 					else
 					{
-						if (node.ledger.utx_enabled (transaction))
+						if (node.ledger.utx_generation_enabled (transaction))
 						{
 							block.reset (new rai::utx_block (account, info.head, representative_a, pending_info.amount, hash, prv, account, generate_work_a ? work_fetch (transaction, account, account) : 0));
 						}
@@ -940,7 +940,7 @@ std::shared_ptr<rai::block> rai::wallet::change_action (rai::account const & sou
 				rai::raw_key prv;
 				auto error2 (store.fetch (transaction, source_a, prv));
 				assert (!error2);
-				if (node.ledger.utx_enabled (transaction))
+				if (node.ledger.utx_generation_enabled (transaction))
 				{
 					block.reset (new rai::utx_block (source_a, info.head, representative_a, info.balance, 0, prv, source_a, generate_work_a ? work_fetch (transaction, source_a, info.head) : 0));
 				}
@@ -1017,7 +1017,7 @@ std::shared_ptr<rai::block> rai::wallet::send_action (rai::account const & sourc
 						assert (!error2);
 						std::shared_ptr<rai::block> rep_block = node.ledger.store.block_get (transaction, info.rep_block);
 						assert (rep_block != nullptr);
-						if (node.ledger.utx_enabled (transaction))
+						if (node.ledger.utx_generation_enabled (transaction))
 						{
 							block.reset (new rai::utx_block (source_a, info.head, rep_block->representative (), balance - amount_a, account_a, prv, source_a, generate_work_a ? work_fetch (transaction, source_a, info.head) : 0));
 						}

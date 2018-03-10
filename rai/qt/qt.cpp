@@ -1103,7 +1103,7 @@ void rai_qt::wallet::start ()
 		if (auto this_l = this_w.lock ())
 		{
 			auto account (result_a.account);
-			this_l->application.postEvent (&this_l->processor, new eventloop_event ([ this_w, block_a, account ]() {
+			this_l->application.postEvent (&this_l->processor, new eventloop_event ([this_w, block_a, account]() {
 				if (auto this_l = this_w.lock ())
 				{
 					if (this_l->wallet_m->exists (account))

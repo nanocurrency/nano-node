@@ -1478,6 +1478,7 @@ TEST (ledger, block_destination_source)
 	ASSERT_TRUE (!init);
 	rai::ledger ledger (store);
 	rai::genesis genesis;
+	ledger.utx_parse_canary = genesis.hash ();
 	rai::transaction transaction (store.environment, nullptr, true);
 	genesis.initialize (transaction, store);
 	rai::keypair dest;
@@ -1522,6 +1523,7 @@ TEST (ledger, utx_account)
 	ASSERT_TRUE (!init);
 	rai::ledger ledger (store);
 	rai::genesis genesis;
+	ledger.utx_parse_canary = genesis.hash ();
 	rai::transaction transaction (store.environment, nullptr, true);
 	genesis.initialize (transaction, store);
 	rai::utx_block send1 (rai::genesis_account, genesis.hash (), rai::genesis_account, rai::genesis_amount - rai::Gxrb_ratio, rai::genesis_account, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
@@ -1536,6 +1538,7 @@ TEST (ledger, utx_send_receive)
 	ASSERT_TRUE (!init);
 	rai::ledger ledger (store);
 	rai::genesis genesis;
+	ledger.utx_parse_canary = genesis.hash ();
 	rai::transaction transaction (store.environment, nullptr, true);
 	genesis.initialize (transaction, store);
 	rai::utx_block send1 (rai::genesis_account, genesis.hash (), rai::genesis_account, rai::genesis_amount - rai::Gxrb_ratio, rai::genesis_account, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
@@ -1567,6 +1570,7 @@ TEST (ledger, utx_receive)
 	ASSERT_TRUE (!init);
 	rai::ledger ledger (store);
 	rai::genesis genesis;
+	ledger.utx_parse_canary = genesis.hash ();
 	rai::transaction transaction (store.environment, nullptr, true);
 	genesis.initialize (transaction, store);
 	rai::send_block send1 (genesis.hash (), rai::genesis_account, rai::genesis_amount - rai::Gxrb_ratio, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
@@ -1596,6 +1600,7 @@ TEST (ledger, utx_rep_change)
 	ASSERT_TRUE (!init);
 	rai::ledger ledger (store);
 	rai::genesis genesis;
+	ledger.utx_parse_canary = genesis.hash ();
 	rai::transaction transaction (store.environment, nullptr, true);
 	genesis.initialize (transaction, store);
 	rai::keypair rep;
@@ -1618,6 +1623,7 @@ TEST (ledger, utx_open)
 	ASSERT_TRUE (!init);
 	rai::ledger ledger (store);
 	rai::genesis genesis;
+	ledger.utx_parse_canary = genesis.hash ();
 	rai::transaction transaction (store.environment, nullptr, true);
 	genesis.initialize (transaction, store);
 	rai::keypair destination;
@@ -1651,6 +1657,7 @@ TEST (ledger, send_after_utx_fail)
 	ASSERT_TRUE (!init);
 	rai::ledger ledger (store);
 	rai::genesis genesis;
+	ledger.utx_parse_canary = genesis.hash ();
 	rai::transaction transaction (store.environment, nullptr, true);
 	genesis.initialize (transaction, store);
 	rai::utx_block send1 (rai::genesis_account, genesis.hash (), rai::genesis_account, rai::genesis_amount - rai::Gxrb_ratio, rai::genesis_account, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
@@ -1667,6 +1674,7 @@ TEST (ledger, receive_after_utx_fail)
 	ASSERT_TRUE (!init);
 	rai::ledger ledger (store);
 	rai::genesis genesis;
+	ledger.utx_parse_canary = genesis.hash ();
 	rai::transaction transaction (store.environment, nullptr, true);
 	genesis.initialize (transaction, store);
 	rai::utx_block send1 (rai::genesis_account, genesis.hash (), rai::genesis_account, rai::genesis_amount - rai::Gxrb_ratio, rai::genesis_account, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
@@ -1683,6 +1691,7 @@ TEST (ledger, change_after_utx_fail)
 	ASSERT_TRUE (!init);
 	rai::ledger ledger (store);
 	rai::genesis genesis;
+	ledger.utx_parse_canary = genesis.hash ();
 	rai::transaction transaction (store.environment, nullptr, true);
 	genesis.initialize (transaction, store);
 	rai::utx_block send1 (rai::genesis_account, genesis.hash (), rai::genesis_account, rai::genesis_amount - rai::Gxrb_ratio, rai::genesis_account, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
@@ -1699,6 +1708,7 @@ TEST (ledger, utx_unreceivable_fail)
 	ASSERT_TRUE (!init);
 	rai::ledger ledger (store);
 	rai::genesis genesis;
+	ledger.utx_parse_canary = genesis.hash ();
 	rai::transaction transaction (store.environment, nullptr, true);
 	genesis.initialize (transaction, store);
 	rai::send_block send1 (genesis.hash (), rai::genesis_account, rai::genesis_amount - rai::Gxrb_ratio, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
@@ -1721,6 +1731,7 @@ TEST (ledger, utx_receive_bad_amount_fail)
 	ASSERT_TRUE (!init);
 	rai::ledger ledger (store);
 	rai::genesis genesis;
+	ledger.utx_parse_canary = genesis.hash ();
 	rai::transaction transaction (store.environment, nullptr, true);
 	genesis.initialize (transaction, store);
 	rai::send_block send1 (genesis.hash (), rai::genesis_account, rai::genesis_amount - rai::Gxrb_ratio, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
@@ -1743,6 +1754,7 @@ TEST (ledger, utx_no_link_amount_fail)
 	ASSERT_TRUE (!init);
 	rai::ledger ledger (store);
 	rai::genesis genesis;
+	ledger.utx_parse_canary = genesis.hash ();
 	rai::transaction transaction (store.environment, nullptr, true);
 	genesis.initialize (transaction, store);
 	rai::utx_block send1 (rai::genesis_account, genesis.hash (), rai::genesis_account, rai::genesis_amount - rai::Gxrb_ratio, rai::genesis_account, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
@@ -1759,6 +1771,7 @@ TEST (ledger, utx_receive_wrong_account_fail)
 	ASSERT_TRUE (!init);
 	rai::ledger ledger (store);
 	rai::genesis genesis;
+	ledger.utx_parse_canary = genesis.hash ();
 	rai::transaction transaction (store.environment, nullptr, true);
 	genesis.initialize (transaction, store);
 	rai::utx_block send1 (rai::genesis_account, genesis.hash (), rai::genesis_account, rai::genesis_amount - rai::Gxrb_ratio, rai::genesis_account, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
@@ -1782,6 +1795,7 @@ TEST (ledger, utx_open_utx_fork)
 	ASSERT_TRUE (!init);
 	rai::ledger ledger (store);
 	rai::genesis genesis;
+	ledger.utx_parse_canary = genesis.hash ();
 	rai::transaction transaction (store.environment, nullptr, true);
 	genesis.initialize (transaction, store);
 	rai::keypair destination;
@@ -1801,6 +1815,7 @@ TEST (ledger, utx_utx_open_fork)
 	ASSERT_TRUE (!init);
 	rai::ledger ledger (store);
 	rai::genesis genesis;
+	ledger.utx_parse_canary = genesis.hash ();
 	rai::transaction transaction (store.environment, nullptr, true);
 	genesis.initialize (transaction, store);
 	rai::keypair destination;
@@ -1820,6 +1835,7 @@ TEST (ledger, utx_open_previous_fail)
 	ASSERT_TRUE (!init);
 	rai::ledger ledger (store);
 	rai::genesis genesis;
+	ledger.utx_parse_canary = genesis.hash ();
 	rai::transaction transaction (store.environment, nullptr, true);
 	genesis.initialize (transaction, store);
 	rai::keypair destination;
@@ -1836,6 +1852,7 @@ TEST (ledger, utx_send_change)
 	ASSERT_TRUE (!init);
 	rai::ledger ledger (store);
 	rai::genesis genesis;
+	ledger.utx_parse_canary = genesis.hash ();
 	rai::transaction transaction (store.environment, nullptr, true);
 	genesis.initialize (transaction, store);
 	rai::keypair rep;
@@ -1858,6 +1875,7 @@ TEST (ledger, utx_receive_change)
 	ASSERT_TRUE (!init);
 	rai::ledger ledger (store);
 	rai::genesis genesis;
+	ledger.utx_parse_canary = genesis.hash ();
 	rai::transaction transaction (store.environment, nullptr, true);
 	genesis.initialize (transaction, store);
 	rai::utx_block send1 (rai::genesis_account, genesis.hash (), rai::genesis_account, rai::genesis_amount - rai::Gxrb_ratio, rai::genesis_account, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
@@ -1889,6 +1907,7 @@ TEST (ledger, utx_open_old)
 	ASSERT_TRUE (!init);
 	rai::ledger ledger (store);
 	rai::genesis genesis;
+	ledger.utx_parse_canary = genesis.hash ();
 	rai::transaction transaction (store.environment, nullptr, true);
 	genesis.initialize (transaction, store);
 	rai::keypair destination;
@@ -1908,6 +1927,7 @@ TEST (ledger, utx_receive_old)
 	ASSERT_TRUE (!init);
 	rai::ledger ledger (store);
 	rai::genesis genesis;
+	ledger.utx_parse_canary = genesis.hash ();
 	rai::transaction transaction (store.environment, nullptr, true);
 	genesis.initialize (transaction, store);
 	rai::keypair destination;
@@ -1931,6 +1951,7 @@ TEST (ledger, utx_rollback_send)
 	ASSERT_TRUE (!init);
 	rai::ledger ledger (store);
 	rai::genesis genesis;
+	ledger.utx_parse_canary = genesis.hash ();
 	rai::transaction transaction (store.environment, nullptr, true);
 	genesis.initialize (transaction, store);
 	rai::utx_block send1 (rai::genesis_account, genesis.hash (), rai::genesis_account, rai::genesis_amount - rai::Gxrb_ratio, rai::genesis_account, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
@@ -1960,6 +1981,7 @@ TEST (ledger, utx_rollback_receive)
 	ASSERT_TRUE (!init);
 	rai::ledger ledger (store);
 	rai::genesis genesis;
+	ledger.utx_parse_canary = genesis.hash ();
 	rai::transaction transaction (store.environment, nullptr, true);
 	genesis.initialize (transaction, store);
 	rai::utx_block send1 (rai::genesis_account, genesis.hash (), rai::genesis_account, rai::genesis_amount - rai::Gxrb_ratio, rai::genesis_account, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
@@ -1984,6 +2006,7 @@ TEST (ledger, utx_rollback_received_send)
 	ASSERT_TRUE (!init);
 	rai::ledger ledger (store);
 	rai::genesis genesis;
+	ledger.utx_parse_canary = genesis.hash ();
 	rai::transaction transaction (store.environment, nullptr, true);
 	genesis.initialize (transaction, store);
 	rai::keypair key;
@@ -2009,6 +2032,7 @@ TEST (ledger, utx_rep_change_rollback)
 	ASSERT_TRUE (!init);
 	rai::ledger ledger (store);
 	rai::genesis genesis;
+	ledger.utx_parse_canary = genesis.hash ();
 	rai::transaction transaction (store.environment, nullptr, true);
 	genesis.initialize (transaction, store);
 	rai::keypair rep;
@@ -2028,6 +2052,7 @@ TEST (ledger, utx_open_rollback)
 	ASSERT_TRUE (!init);
 	rai::ledger ledger (store);
 	rai::genesis genesis;
+	ledger.utx_parse_canary = genesis.hash ();
 	rai::transaction transaction (store.environment, nullptr, true);
 	genesis.initialize (transaction, store);
 	rai::keypair destination;
@@ -2052,6 +2077,7 @@ TEST (ledger, utx_send_change_rollback)
 	ASSERT_TRUE (!init);
 	rai::ledger ledger (store);
 	rai::genesis genesis;
+	ledger.utx_parse_canary = genesis.hash ();
 	rai::transaction transaction (store.environment, nullptr, true);
 	genesis.initialize (transaction, store);
 	rai::keypair rep;
@@ -2071,6 +2097,7 @@ TEST (ledger, utx_receive_change_rollback)
 	ASSERT_TRUE (!init);
 	rai::ledger ledger (store);
 	rai::genesis genesis;
+	ledger.utx_parse_canary = genesis.hash ();
 	rai::transaction transaction (store.environment, nullptr, true);
 	genesis.initialize (transaction, store);
 	rai::utx_block send1 (rai::genesis_account, genesis.hash (), rai::genesis_account, rai::genesis_amount - rai::Gxrb_ratio, rai::genesis_account, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
@@ -2083,4 +2110,27 @@ TEST (ledger, utx_receive_change_rollback)
 	ASSERT_EQ (rai::genesis_amount - rai::Gxrb_ratio, ledger.account_balance (transaction, rai::genesis_account));
 	ASSERT_EQ (rai::genesis_amount - rai::Gxrb_ratio, ledger.weight (transaction, rai::genesis_account));
 	ASSERT_EQ (0, ledger.weight (transaction, rep.pub));
+}
+
+TEST (ledger, utx_canary_blocks)
+{
+	bool init (false);
+	rai::block_store store (init, rai::unique_path ());
+	ASSERT_TRUE (!init);
+	rai::genesis genesis;
+	rai::send_block parse_canary (genesis.hash (), rai::test_genesis_key.pub, rai::genesis_amount, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
+	rai::send_block generate_canary (parse_canary.hash (), rai::test_genesis_key.pub, rai::genesis_amount, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
+	rai::ledger ledger (store, 0, parse_canary.hash (), generate_canary.hash ());
+	rai::transaction transaction (store.environment, nullptr, true);
+	genesis.initialize (transaction, store);
+	rai::utx_block utx (rai::test_genesis_key.pub, genesis.hash (), rai::test_genesis_key.pub, rai::genesis_amount - rai::Gxrb_ratio, rai::test_genesis_key.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
+	ASSERT_FALSE (ledger.utx_parsing_enabled (transaction));
+	ASSERT_FALSE (ledger.utx_generation_enabled (transaction));
+	ASSERT_EQ (rai::process_result::utx_disabled, ledger.process (transaction, utx).code);
+	ASSERT_EQ (rai::process_result::progress, ledger.process (transaction, parse_canary).code);
+	ASSERT_TRUE (ledger.utx_parsing_enabled (transaction));
+	ASSERT_FALSE (ledger.utx_generation_enabled (transaction));
+	ASSERT_EQ (rai::process_result::progress, ledger.process (transaction, generate_canary).code);
+	ASSERT_TRUE (ledger.utx_parsing_enabled (transaction));
+	ASSERT_TRUE (ledger.utx_generation_enabled (transaction));
 }
