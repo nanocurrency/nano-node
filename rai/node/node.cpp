@@ -803,7 +803,9 @@ enable_voting (true),
 bootstrap_connections (4),
 bootstrap_connections_max (64),
 callback_port (0),
-lmdb_max_dbs (128)
+lmdb_max_dbs (128),
+utx_parse_canary (0),
+utx_generate_canary (0)
 {
 	switch (rai::rai_network)
 	{
@@ -833,7 +835,7 @@ lmdb_max_dbs (128)
 
 void rai::node_config::serialize_json (boost::property_tree::ptree & tree_a) const
 {
-	tree_a.put ("version", "9");
+	tree_a.put ("version", "10");
 	tree_a.put ("peering_port", std::to_string (peering_port));
 	tree_a.put ("bootstrap_fraction_numerator", std::to_string (bootstrap_fraction_numerator));
 	tree_a.put ("receive_minimum", receive_minimum.to_string_dec ());
@@ -875,6 +877,8 @@ void rai::node_config::serialize_json (boost::property_tree::ptree & tree_a) con
 	tree_a.put ("callback_port", std::to_string (callback_port));
 	tree_a.put ("callback_target", callback_target);
 	tree_a.put ("lmdb_max_dbs", lmdb_max_dbs);
+	tree_a.put ("utx_parse_canary", utx_parse_canary.to_string ());
+	tree_a.put ("utx_generate_canary", utx_generate_canary.to_string ());
 }
 
 bool rai::node_config::upgrade_json (unsigned version, boost::property_tree::ptree & tree_a)
@@ -949,6 +953,12 @@ bool rai::node_config::upgrade_json (unsigned version, boost::property_tree::ptr
 			tree_a.put ("version", "9");
 			result = true;
 		case 9:
+			tree_a.put ("utx_parse_canary", utx_parse_canary.to_string ());
+			tree_a.put ("utx_generate_canary", utx_generate_canary.to_string ());
+			tree_a.erase ("version");
+			tree_a.put ("version", "10");
+			result = true;
+		case 10:
 			break;
 		default:
 			throw std::runtime_error ("Unknown node_config version");
@@ -1022,6 +1032,8 @@ bool rai::node_config::deserialize_json (bool & upgraded_a, boost::property_tree
 		callback_target = tree_a.get<std::string> ("callback_target");
 		auto lmdb_max_dbs_l = tree_a.get<std::string> ("lmdb_max_dbs");
 		result |= parse_port (callback_port_l, callback_port);
+		auto utx_parse_canary_l = tree_a.get<std::string> ("utx_parse_canary");
+		auto utx_generate_canary_l = tree_a.get<std::string> ("utx_generate_canary");
 		try
 		{
 			peering_port = std::stoul (peering_port_l);
@@ -1040,6 +1052,8 @@ bool rai::node_config::deserialize_json (bool & upgraded_a, boost::property_tree
 			result |= password_fanout > 1024 * 1024;
 			result |= io_threads == 0;
 			result |= work_threads == 0;
+			result |= utx_parse_canary.decode_hex (utx_parse_canary_l);
+			result |= utx_generate_canary.decode_hex (utx_generate_canary_l);
 		}
 		catch (std::logic_error const &)
 		{
@@ -1425,7 +1439,7 @@ alarm (alarm_a),
 work (work_a),
 store (init_a.block_store_init, application_path_a / "data.ldb", config_a.lmdb_max_dbs),
 gap_cache (*this),
-ledger (store, config_a.inactive_supply.number ()),
+ledger (store, config_a.inactive_supply.number (), config.utx_parse_canary, config.utx_generate_canary),
 active (*this),
 wallets (init_a.block_store_init, *this),
 network (*this, config.peering_port),
