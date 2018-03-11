@@ -812,7 +812,7 @@ lmdb_max_dbs (128)
 			break;
 		case rai::rai_networks::rai_beta_network:
 			preconfigured_peers.push_back ("rai-beta.raiblocks.net");
-			preconfigured_representatives.push_back (rai::account ("5DF352F3E7367A17F2ADB52B8123959602F8D94C2F295B23F6BDFFFC5FEFCA5E"));
+			preconfigured_representatives.push_back (rai::account ("C93F714298E6061E549E52BB8885085319BE977B3FE8F03A1B726E9BE4BE38DE"));
 			break;
 		case rai::rai_networks::rai_live_network:
 			preconfigured_peers.push_back ("rai.raiblocks.net");
