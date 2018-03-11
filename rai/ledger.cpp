@@ -268,7 +268,7 @@ void ledger_processor::utx_block_impl (rai::utx_block const & block_a)
 						ledger.store.pending_del (transaction, rai::pending_key (block_a.hashables.account, block_a.hashables.link));
 					}
 
-					ledger.change_latest (transaction, block_a.hashables.account, hash, hash, block_a.hashables.balance, info.block_count + 1);
+					ledger.change_latest (transaction, block_a.hashables.account, hash, hash, block_a.hashables.balance, info.block_count + 1, true);
 					if (!ledger.store.frontier_get (transaction, info.head).is_zero ())
 					{
 						ledger.store.frontier_del (transaction, info.head);
@@ -809,7 +809,7 @@ void rai::ledger::checksum_update (MDB_txn * transaction_a, rai::block_hash cons
 	store.checksum_put (transaction_a, 0, 0, value);
 }
 
-void rai::ledger::change_latest (MDB_txn * transaction_a, rai::account const & account_a, rai::block_hash const & hash_a, rai::block_hash const & rep_block_a, rai::amount const & balance_a, uint64_t block_count_a)
+void rai::ledger::change_latest (MDB_txn * transaction_a, rai::account const & account_a, rai::block_hash const & hash_a, rai::block_hash const & rep_block_a, rai::amount const & balance_a, uint64_t block_count_a, bool is_utx)
 {
 	rai::account_info info;
 	auto exists (!store.account_get (transaction_a, account_a, info));
@@ -830,7 +830,7 @@ void rai::ledger::change_latest (MDB_txn * transaction_a, rai::account const & a
 		info.modified = rai::seconds_since_epoch ();
 		info.block_count = block_count_a;
 		store.account_put (transaction_a, account_a, info);
-		if (!(block_count_a % store.block_info_max))
+		if (!(block_count_a % store.block_info_max) && !is_utx)
 		{
 			rai::block_info block_info;
 			block_info.account = account_a;
