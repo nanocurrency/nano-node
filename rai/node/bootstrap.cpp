@@ -2060,10 +2060,7 @@ void rai::bulk_push_server::received_block (boost::system::error_code const & ec
 		auto block (rai::deserialize_block (stream));
 		if (block != nullptr && !rai::work_validate (*block))
 		{
-			if (!connection->node->bootstrap_initiator.in_progress ())
-			{
-				connection->node->process_active (std::move (block));
-			}
+			connection->node->process_active (std::move (block));
 			receive ();
 		}
 		else
