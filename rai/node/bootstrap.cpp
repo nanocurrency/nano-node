@@ -1407,7 +1407,7 @@ void rai::bootstrap_listener::accept_action (boost::system::error_code const & e
 		auto connection (std::make_shared<rai::bootstrap_server> (socket_a, node.shared ()));
 		{
 			std::lock_guard<std::mutex> lock (mutex);
-			if (connections.size() < node.config.bootstrap_connections_max && acceptor.is_open ())
+			if (connections.size () < node.config.bootstrap_connections_max && acceptor.is_open ())
 			{
 				connections[connection.get ()] = connection;
 				connection->receive ();
