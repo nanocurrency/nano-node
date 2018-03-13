@@ -1190,7 +1190,11 @@ void rai::rpc_handler::block_create ()
 			auto error_link (link.decode_account (link_text.get ()));
 			if (error_link)
 			{
-				error_response (response, "Bad link number");
+				auto error_link (link.decode_hex (link_text.get ()));
+				if (error_link)
+				{
+					error_response (response, "Bad link number");
+				}
 			}
 		}
 		if (prv.data != 0)
@@ -1199,7 +1203,7 @@ void rai::rpc_handler::block_create ()
 			ed25519_publickey (prv.data.bytes.data (), pub.bytes.data ());
 			if (type == "utx")
 			{
-				if (!account.is_zero () && !previous.is_zero () && !representative.is_zero () && !balance.is_zero () && link_text.is_initialized ())
+				if (!account.is_zero () && previous_text.is_initialized () && !representative.is_zero () && !balance.is_zero () && link_text.is_initialized ())
 				{
 					rai::utx_block utx (account, previous, representative, balance, link, prv, pub, work);
 					boost::property_tree::ptree response_l;

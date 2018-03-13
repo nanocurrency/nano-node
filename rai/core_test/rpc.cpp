@@ -3205,6 +3205,48 @@ TEST (rpc, block_create_utx)
 	auto process_result (system.nodes[0]->process (*utx_block));
 	ASSERT_EQ (rai::process_result::progress, process_result.code);
 }
+TEST (rpc, block_create_utx_open)
+{
+	rai::system system (24000, 1);
+	rai::keypair key;
+	rai::genesis genesis;
+	system.nodes[0]->ledger.utx_parse_canary = genesis.hash ();
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	system.wallet (0)->insert_adhoc (key.prv);
+	auto send_block (system.wallet (0)->send_action (rai::test_genesis_key.pub, key.pub, rai::Gxrb_ratio));
+	ASSERT_NE (nullptr, send_block);
+	boost::property_tree::ptree request;
+	request.put ("action", "block_create");
+	request.put ("type", "utx");
+	request.put ("wallet", system.nodes[0]->wallets.items.begin ()->first.to_string ());
+	request.put ("account", key.pub.to_account ());
+	request.put ("previous", 0);
+	request.put ("representative", rai::test_genesis_key.pub.to_account ());
+	request.put ("balance", rai::Gxrb_ratio.convert_to<std::string> ());
+	request.put ("link", send_block->hash ().to_string ());
+	request.put ("work", rai::to_string_hex (system.nodes[0]->generate_work (send_block->hash ())));
+	rai::rpc rpc (system.service, *system.nodes[0], rai::rpc_config (true));
+	rpc.start ();
+	test_response response (request, rpc, system.service);
+	while (response.status == 0)
+	{
+		system.poll ();
+	}
+	ASSERT_EQ (200, response.status);
+	std::string utx_hash (response.json.get<std::string> ("hash"));
+	auto utx_text (response.json.get<std::string> ("block"));
+	std::stringstream block_stream (utx_text);
+	boost::property_tree::ptree block_l;
+	boost::property_tree::read_json (block_stream, block_l);
+	auto utx_block (rai::deserialize_block_json (block_l));
+	ASSERT_NE (nullptr, utx_block);
+	ASSERT_EQ (rai::block_type::utx, utx_block->type ());
+	ASSERT_EQ (utx_hash, utx_block->hash ().to_string ());
+	ASSERT_TRUE (system.nodes [0]->latest (key.pub).is_zero ());
+	auto process_result (system.nodes[0]->process (*utx_block));
+	ASSERT_EQ (rai::process_result::progress, process_result.code);
+	ASSERT_FALSE (system.nodes [0]->latest (key.pub).is_zero ());
+}
 
 TEST (rpc, wallet_lock)
 {
