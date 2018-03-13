@@ -3242,10 +3242,10 @@ TEST (rpc, block_create_utx_open)
 	ASSERT_NE (nullptr, utx_block);
 	ASSERT_EQ (rai::block_type::utx, utx_block->type ());
 	ASSERT_EQ (utx_hash, utx_block->hash ().to_string ());
-	ASSERT_TRUE (system.nodes [0]->latest (key.pub).is_zero ());
+	ASSERT_TRUE (system.nodes[0]->latest (key.pub).is_zero ());
 	auto process_result (system.nodes[0]->process (*utx_block));
 	ASSERT_EQ (rai::process_result::progress, process_result.code);
-	ASSERT_FALSE (system.nodes [0]->latest (key.pub).is_zero ());
+	ASSERT_FALSE (system.nodes[0]->latest (key.pub).is_zero ());
 }
 
 TEST (rpc, wallet_lock)

@@ -1845,6 +1845,23 @@ TEST (ledger, utx_open_previous_fail)
 	ASSERT_EQ (rai::process_result::gap_previous, ledger.process (transaction, open1).code);
 }
 
+TEST (ledger, utx_open_source_fail)
+{
+	bool init (false);
+	rai::block_store store (init, rai::unique_path ());
+	ASSERT_TRUE (!init);
+	rai::ledger ledger (store);
+	rai::genesis genesis;
+	ledger.utx_parse_canary = genesis.hash ();
+	rai::transaction transaction (store.environment, nullptr, true);
+	genesis.initialize (transaction, store);
+	rai::keypair destination;
+	rai::utx_block send1 (rai::genesis_account, genesis.hash (), rai::genesis_account, rai::genesis_amount - rai::Gxrb_ratio, destination.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
+	ASSERT_EQ (rai::process_result::progress, ledger.process (transaction, send1).code);
+	rai::utx_block open1 (destination.pub, 0, rai::genesis_account, 0, 0, destination.prv, destination.pub, 0);
+	ASSERT_EQ (rai::process_result::gap_source, ledger.process (transaction, open1).code);
+}
+
 TEST (ledger, utx_send_change)
 {
 	bool init (false);
