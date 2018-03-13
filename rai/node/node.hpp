@@ -470,6 +470,13 @@ private:
 	std::condition_variable condition;
 	rai::node & node;
 };
+class bootstrap_rep_weights
+{
+public:
+	bootstrap_rep_weights ();
+	rai::uint128_union block_height;
+	std::vector<std::pair<rai::account, rai::amount>> weights;
+};
 class node : public std::enable_shared_from_this<rai::node>
 {
 public:
@@ -532,6 +539,7 @@ public:
 	rai::block_processor block_processor;
 	std::thread block_processor_thread;
 	rai::block_arrival block_arrival;
+	rai::bootstrap_rep_weights bootstrap_weights;
 	static double constexpr price_max = 16.0;
 	static double constexpr free_cutoff = 1024.0;
 	static std::chrono::seconds constexpr period = std::chrono::seconds (60);

@@ -118,6 +118,7 @@ int main (int argc, char * const * argv)
 		("version", "Prints out version")
 		("daemon", "Start node daemon")
 		("debug_block_count", "Display the number of block")
+		("debug_dump_bootstrap_weights", "List bootstrap representative weights")
 		("debug_bootstrap_generate", "Generate bootstrap sequence of blocks")
 		("debug_dump_representatives", "List representatives and weights")
 		("debug_frontier_count", "Display the number of accounts")
@@ -207,6 +208,25 @@ int main (int argc, char * const * argv)
 			result = -1;
 		}
 	}
+	else if (vm.count ("debug_dump_bootstrap_weights"))
+	{
+		rai::inactive_node node (data_path);
+		auto max_blocks = (uint64_t)node.node->bootstrap_weights.block_height.number ();
+		rai::transaction transaction (node.node->store.environment, nullptr, false);
+		auto block_count = node.node->ledger.store.block_count (transaction).sum ();
+
+		std::cout << "Block count in ledger: " << block_count << std::endl;
+		std::cout << "Max block count, bootstrap rep weights: " << max_blocks << std::endl;
+		std::cout << "Bootstrap rep weights:" << std::endl;
+
+		for (auto & account_weight : node.node->bootstrap_weights.weights)
+		{
+			rai::account account = account_weight.first;
+			rai::amount weight = account_weight.second;
+			std::cout << account.to_account () << " -> " << weight.format_balance (rai::Mxrb_ratio, 0, true) << " XRB" << std::endl;
+		}
+	}
+
 	else if (vm.count ("debug_dump_representatives"))
 	{
 		rai::inactive_node node (data_path);
