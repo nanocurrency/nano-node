@@ -1124,7 +1124,7 @@ void rai::rpc_handler::block_create ()
 		boost::optional<std::string> account_text (request.get_optional<std::string> ("account"));
 		if (account_text.is_initialized () && !error)
 		{
-			error =account.decode_account (account_text.get ());
+			error = account.decode_account (account_text.get ());
 			if (error)
 			{
 				error_response (response, "Bad account number");
