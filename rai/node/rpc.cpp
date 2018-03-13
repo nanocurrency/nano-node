@@ -4255,6 +4255,7 @@ node (node_a.shared ()),
 rpc (rpc_a),
 socket (node_a.service)
 {
+	responded.clear ();
 }
 
 void rai::rpc_connection::parse_connection ()
@@ -4264,14 +4265,22 @@ void rai::rpc_connection::parse_connection ()
 
 void rai::rpc_connection::write_result (std::string body, unsigned version)
 {
-	res.set ("Content-Type", "application/json");
-	res.set ("Access-Control-Allow-Origin", "*");
-	res.set ("Access-Control-Allow-Headers", "Accept, Accept-Language, Content-Language, Content-Type");
-	res.set ("Connection", "close");
-	res.result (boost::beast::http::status::ok);
-	res.body () = body;
-	res.version (version);
-	res.prepare_payload ();
+	if (!responded.test_and_set ())
+	{
+		res.set ("Content-Type", "application/json");
+		res.set ("Access-Control-Allow-Origin", "*");
+		res.set ("Access-Control-Allow-Headers", "Accept, Accept-Language, Content-Language, Content-Type");
+		res.set ("Connection", "close");
+		res.result (boost::beast::http::status::ok);
+		res.body () = body;
+		res.version (version);
+		res.prepare_payload ();
+	}
+	else
+	{
+		assert ("RPC already responded and should only respond once");
+		// Guards `res' from being clobbered while async_write is being serviced
+	}
 }
 
 void rai::rpc_connection::read ()
@@ -4284,6 +4293,7 @@ void rai::rpc_connection::read ()
 				auto start (std::chrono::steady_clock::now ());
 				auto version (this_l->request.version ());
 				auto response_handler ([this_l, version, start](boost::property_tree::ptree const & tree_a) {
+					
 					std::stringstream ostream;
 					boost::property_tree::write_json (ostream, tree_a);
 					ostream.flush ();
