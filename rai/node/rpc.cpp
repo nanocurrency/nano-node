@@ -4278,7 +4278,7 @@ void rai::rpc_connection::write_result (std::string body, unsigned version)
 	}
 	else
 	{
-		assert ("RPC already responded and should only respond once");
+		assert (false && "RPC already responded and should only respond once");
 		// Guards `res' from being clobbered while async_write is being serviced
 	}
 }
