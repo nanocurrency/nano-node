@@ -882,7 +882,7 @@ rai::utx_hashables::utx_hashables (bool & error_a, boost::property_tree::ptree c
 					error_a = balance.decode_dec (balance_l);
 					if (!error_a)
 					{
-						error_a = link.decode_account (link_l);
+						error_a = link.decode_account (link_l) && link.decode_hex (link_l);
 					}
 				}
 			}
@@ -991,7 +991,8 @@ void rai::utx_block::serialize_json (std::string & string_a) const
 	tree.put ("previous", hashables.previous.to_string ());
 	tree.put ("representative", representative ().to_account ());
 	tree.put ("balance", hashables.balance.to_string_dec ());
-	tree.put ("link", hashables.link.to_account ());
+	tree.put ("link", hashables.link.to_string ());
+	tree.put ("link_as_account", hashables.link.to_account ());
 	std::string signature_l;
 	signature.encode_hex (signature_l);
 	tree.put ("signature", signature_l);
@@ -1056,7 +1057,7 @@ bool rai::utx_block::deserialize_json (boost::property_tree::ptree const & tree_
 					error = hashables.balance.decode_dec (balance_l);
 					if (!error)
 					{
-						error = hashables.link.decode_account (link_l);
+						error = hashables.link.decode_account (link_l) && hashables.link.decode_hex (link_l);
 						if (!error)
 						{
 							error = rai::from_string_hex (work_l, work);
