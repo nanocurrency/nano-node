@@ -1054,7 +1054,7 @@ std::shared_ptr<rai::block> rai::wallet::send_action (rai::account const & sourc
 
 bool rai::wallet::should_generate_utx (MDB_txn * transaction_a, rai::block_hash const & hash_a)
 {
-	auto head (node.store.block_get(transaction_a, hash_a));
+	auto head (node.store.block_get (transaction_a, hash_a));
 	assert (head != nullptr);
 	auto is_utx (dynamic_cast<rai::utx_block *> (head.get ()) != nullptr);
 	return is_utx || node.ledger.utx_generation_enabled (transaction_a);

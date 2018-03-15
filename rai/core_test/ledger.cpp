@@ -750,9 +750,9 @@ TEST (votes, check_signature)
 	auto votes1 (node1.active.roots.find (send1->root ())->election);
 	ASSERT_EQ (1, votes1->votes.rep_votes.size ());
 	auto vote1 (std::make_shared<rai::vote> (rai::test_genesis_key.pub, rai::test_genesis_key.prv, 1, send1));
-	vote1->signature.bytes [0] ^= 1;
+	vote1->signature.bytes[0] ^= 1;
 	ASSERT_EQ (rai::vote_code::invalid, node1.vote_processor.vote (vote1, rai::endpoint ()).code);
-	vote1->signature.bytes [0] ^= 1;
+	vote1->signature.bytes[0] ^= 1;
 	ASSERT_EQ (rai::vote_code::vote, node1.vote_processor.vote (vote1, rai::endpoint ()).code);
 	ASSERT_EQ (rai::vote_code::replay, node1.vote_processor.vote (vote1, rai::endpoint ()).code);
 }
