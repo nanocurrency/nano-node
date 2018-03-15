@@ -90,6 +90,7 @@ public:
 	boost::beast::flat_buffer buffer;
 	boost::beast::http::request<boost::beast::http::string_body> request;
 	boost::beast::http::response<boost::beast::http::string_body> res;
+	std::atomic_flag responded;
 };
 class payment_observer : public std::enable_shared_from_this<rai::payment_observer>
 {

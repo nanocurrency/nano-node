@@ -10,8 +10,8 @@ size_t constexpr rai::message::bootstrap_server_position;
 std::bitset<16> constexpr rai::message::block_type_mask;
 
 rai::message::message (rai::message_type type_a) :
-version_max (0x06),
-version_using (0x06),
+version_max (0x07),
+version_using (0x07),
 version_min (0x01),
 type (type_a)
 {
@@ -389,7 +389,7 @@ bool rai::confirm_ack::deserialize (rai::stream & stream_a)
 
 void rai::confirm_ack::serialize (rai::stream & stream_a)
 {
-	assert (block_type () == rai::block_type::send || block_type () == rai::block_type::receive || block_type () == rai::block_type::open || block_type () == rai::block_type::change);
+	assert (block_type () == rai::block_type::send || block_type () == rai::block_type::receive || block_type () == rai::block_type::open || block_type () == rai::block_type::change || block_type () == rai::block_type::utx);
 	write_header (stream_a);
 	vote->serialize (stream_a, block_type ());
 }

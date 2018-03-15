@@ -803,7 +803,9 @@ enable_voting (true),
 bootstrap_connections (4),
 bootstrap_connections_max (64),
 callback_port (0),
-lmdb_max_dbs (128)
+lmdb_max_dbs (128),
+utx_parse_canary (0),
+utx_generate_canary (0)
 {
 	switch (rai::rai_network)
 	{
@@ -813,6 +815,8 @@ lmdb_max_dbs (128)
 		case rai::rai_networks::rai_beta_network:
 			preconfigured_peers.push_back ("rai-beta.raiblocks.net");
 			preconfigured_representatives.push_back (rai::account ("C93F714298E6061E549E52BB8885085319BE977B3FE8F03A1B726E9BE4BE38DE"));
+			utx_parse_canary = rai::block_hash ("5005F5283DE8D2DAB0DAC41DE9BD23640F962B4F0EA7D3128C2EA3D78D578E27");
+			utx_generate_canary = rai::block_hash ("FC18E2265FB835E8CF60E63531053A768CEDF5194263B01A5C95574944E4660D");
 			break;
 		case rai::rai_networks::rai_live_network:
 			preconfigured_peers.push_back ("rai.raiblocks.net");
@@ -833,7 +837,7 @@ lmdb_max_dbs (128)
 
 void rai::node_config::serialize_json (boost::property_tree::ptree & tree_a) const
 {
-	tree_a.put ("version", "9");
+	tree_a.put ("version", "10");
 	tree_a.put ("peering_port", std::to_string (peering_port));
 	tree_a.put ("bootstrap_fraction_numerator", std::to_string (bootstrap_fraction_numerator));
 	tree_a.put ("receive_minimum", receive_minimum.to_string_dec ());
@@ -875,6 +879,8 @@ void rai::node_config::serialize_json (boost::property_tree::ptree & tree_a) con
 	tree_a.put ("callback_port", std::to_string (callback_port));
 	tree_a.put ("callback_target", callback_target);
 	tree_a.put ("lmdb_max_dbs", lmdb_max_dbs);
+	tree_a.put ("utx_parse_canary", utx_parse_canary.to_string ());
+	tree_a.put ("utx_generate_canary", utx_generate_canary.to_string ());
 }
 
 bool rai::node_config::upgrade_json (unsigned version, boost::property_tree::ptree & tree_a)
@@ -949,6 +955,12 @@ bool rai::node_config::upgrade_json (unsigned version, boost::property_tree::ptr
 			tree_a.put ("version", "9");
 			result = true;
 		case 9:
+			tree_a.put ("utx_parse_canary", utx_parse_canary.to_string ());
+			tree_a.put ("utx_generate_canary", utx_generate_canary.to_string ());
+			tree_a.erase ("version");
+			tree_a.put ("version", "10");
+			result = true;
+		case 10:
 			break;
 		default:
 			throw std::runtime_error ("Unknown node_config version");
@@ -1022,6 +1034,8 @@ bool rai::node_config::deserialize_json (bool & upgraded_a, boost::property_tree
 		callback_target = tree_a.get<std::string> ("callback_target");
 		auto lmdb_max_dbs_l = tree_a.get<std::string> ("lmdb_max_dbs");
 		result |= parse_port (callback_port_l, callback_port);
+		auto utx_parse_canary_l = tree_a.get<std::string> ("utx_parse_canary");
+		auto utx_generate_canary_l = tree_a.get<std::string> ("utx_generate_canary");
 		try
 		{
 			peering_port = std::stoul (peering_port_l);
@@ -1040,6 +1054,8 @@ bool rai::node_config::deserialize_json (bool & upgraded_a, boost::property_tree
 			result |= password_fanout > 1024 * 1024;
 			result |= io_threads == 0;
 			result |= work_threads == 0;
+			result |= utx_parse_canary.decode_hex (utx_parse_canary_l);
+			result |= utx_generate_canary.decode_hex (utx_generate_canary_l);
 		}
 		catch (std::logic_error const &)
 		{
@@ -1246,7 +1262,7 @@ void rai::block_processor::process_receive_many (std::deque<rai::block_processor
 		}
 		for (auto & i : progress)
 		{
-			node.observers.blocks (i.first, i.second.account, i.second.amount);
+			node.observers.blocks (i.first, i.second);
 			if (i.second.amount > 0)
 			{
 				node.observers.account_balance (i.second.account, false);
@@ -1291,34 +1307,22 @@ rai::process_return rai::block_processor::process_receive_one (MDB_txn * transac
 			{
 				BOOST_LOG (node.log) << boost::str (boost::format ("Gap source for: %1%") % block_a->hash ().to_string ());
 			}
-			node.store.unchecked_put (transaction_a, block_a->source (), block_a);
+			node.store.unchecked_put (transaction_a, node.ledger.block_source (transaction_a, *block_a), block_a);
+			node.gap_cache.add (transaction_a, block_a);
+			break;
+		}
+		case rai::process_result::utx_disabled:
+		{
+			if (node.config.logging.ledger_logging ())
+			{
+				BOOST_LOG (node.log) << boost::str (boost::format ("UTX blocks are disabled: %1%") % block_a->hash ().to_string ());
+			}
+			node.store.unchecked_put (transaction_a, node.ledger.utx_parse_canary, block_a);
 			node.gap_cache.add (transaction_a, block_a);
 			break;
 		}
 		case rai::process_result::old:
 		{
-			{
-				auto root (block_a->root ());
-				auto hash (block_a->hash ());
-				auto existing (node.store.block_get (transaction_a, hash));
-				if (existing != nullptr)
-				{
-					// Replace block with one that has higher work value
-					if (rai::work_value (root, block_a->block_work ()) > rai::work_value (root, existing->block_work ()))
-					{
-						auto account (node.ledger.account (transaction_a, hash));
-						if (!rai::validate_message (account, hash, block_a->block_signature ()))
-						{
-							node.store.block_put (transaction_a, hash, *block_a, node.store.block_successor (transaction_a, hash));
-							BOOST_LOG (node.log) << boost::str (boost::format ("Replacing block %1% with one that has higher work value") % hash.to_string ());
-						}
-					}
-				}
-				else
-				{
-					// Could have been rolled back, maybe
-				}
-			}
 			if (node.config.logging.ledger_duplicate_logging ())
 			{
 				BOOST_LOG (node.log) << boost::str (boost::format ("Old for: %1%") % block_a->hash ().to_string ());
@@ -1376,10 +1380,28 @@ rai::process_return rai::block_processor::process_receive_one (MDB_txn * transac
 			{
 				BOOST_LOG (node.log) << boost::str (boost::format ("Account mismatch for: %1%") % block_a->hash ().to_string ());
 			}
+			break;
 		}
 		case rai::process_result::opened_burn_account:
 		{
 			BOOST_LOG (node.log) << boost::str (boost::format ("*** Rejecting open block for burn account ***: %1%") % block_a->hash ().to_string ());
+			break;
+		}
+		case rai::process_result::balance_mismatch:
+		{
+			if (node.config.logging.ledger_logging ())
+			{
+				BOOST_LOG (node.log) << boost::str (boost::format ("Balance mismatch for: %1%") % block_a->hash ().to_string ());
+			}
+			break;
+		}
+		case rai::process_result::block_position:
+		{
+			if (node.config.logging.ledger_logging ())
+			{
+				BOOST_LOG (node.log) << boost::str (boost::format ("Block %1% cannot follow predecessor %2%") % block_a->hash ().to_string () % block_a->previous ().to_string ());
+			}
+			break;
 		}
 	}
 	return result;
@@ -1397,7 +1419,7 @@ alarm (alarm_a),
 work (work_a),
 store (init_a.block_store_init, application_path_a / "data.ldb", config_a.lmdb_max_dbs),
 gap_cache (*this),
-ledger (store, config_a.inactive_supply.number ()),
+ledger (store, config_a.inactive_supply.number (), config.utx_parse_canary, config.utx_generate_canary),
 active (*this),
 wallets (init_a.block_store_init, *this),
 network (*this, config.peering_port),
@@ -1420,27 +1442,31 @@ block_processor_thread ([this]() { this->block_processor.process_blocks (); })
 	peers.disconnect_observer = [this]() {
 		observers.disconnect ();
 	};
-	observers.blocks.add ([this](std::shared_ptr<rai::block> block_a, rai::account const & account_a, rai::amount const & amount_a) {
+	observers.blocks.add ([this](std::shared_ptr<rai::block> block_a, rai::process_return const & result_a) {
 		if (this->block_arrival.recent (block_a->hash ()))
 		{
 			rai::transaction transaction (store.environment, nullptr, true);
 			active.start (transaction, block_a);
 		}
 	});
-	observers.blocks.add ([this](std::shared_ptr<rai::block> block_a, rai::account const & account_a, rai::amount const & amount_a) {
+	observers.blocks.add ([this](std::shared_ptr<rai::block> block_a, rai::process_return const & result_a) {
 		if (this->block_arrival.recent (block_a->hash ()))
 		{
 			auto node_l (shared_from_this ());
-			background ([node_l, block_a, account_a, amount_a]() {
+			background ([node_l, block_a, result_a]() {
 				if (!node_l->config.callback_address.empty ())
 				{
 					boost::property_tree::ptree event;
-					event.add ("account", account_a.to_account ());
+					event.add ("account", result_a.account.to_account ());
 					event.add ("hash", block_a->hash ().to_string ());
 					std::string block_text;
 					block_a->serialize_json (block_text);
 					event.add ("block", block_text);
-					event.add ("amount", amount_a.to_string_dec ());
+					event.add ("amount", result_a.amount.to_string_dec ());
+					if (result_a.utx_is_send)
+					{
+						event.add ("is_send", *result_a.utx_is_send);
+					}
 					std::stringstream ostream;
 					boost::property_tree::write_json (ostream, event);
 					ostream.flush ();
@@ -2315,34 +2341,41 @@ public:
 	{
 	}
 	virtual ~confirmed_visitor () = default;
-	void send_block (rai::send_block const & block_a) override
+	void scan_receivable (rai::account const & account_a)
 	{
 		for (auto i (node.wallets.items.begin ()), n (node.wallets.items.end ()); i != n; ++i)
 		{
 			auto wallet (i->second);
-			if (wallet->exists (block_a.hashables.destination))
+			if (wallet->exists (account_a))
 			{
 				rai::account representative;
 				rai::pending_info pending;
 				rai::transaction transaction (node.store.environment, nullptr, false);
 				representative = wallet->store.representative (transaction);
-				auto error (node.store.pending_get (transaction, rai::pending_key (block_a.hashables.destination, block_a.hash ()), pending));
+				auto error (node.store.pending_get (transaction, rai::pending_key (account_a, block->hash ()), pending));
 				if (!error)
 				{
 					auto node_l (node.shared ());
 					auto amount (pending.amount.number ());
-					assert (block.get () == &block_a);
 					wallet->receive_async (block, representative, amount, [](std::shared_ptr<rai::block>) {});
 				}
 				else
 				{
 					if (node.config.logging.ledger_duplicate_logging ())
 					{
-						BOOST_LOG (node.log) << boost::str (boost::format ("Block confirmed before timeout %1%") % block_a.hash ().to_string ());
+						BOOST_LOG (node.log) << boost::str (boost::format ("Block confirmed before timeout %1%") % block->hash ().to_string ());
 					}
 				}
 			}
 		}
+	}
+	void utx_block (rai::utx_block const & block_a) override
+	{
+		scan_receivable (block_a.hashables.link);
+	}
+	void send_block (rai::send_block const & block_a) override
+	{
+		scan_receivable (block_a.hashables.destination);
 	}
 	void receive_block (rai::receive_block const &) override
 	{

@@ -124,7 +124,7 @@ class wallet : public std::enable_shared_from_this<rai::wallet>
 {
 public:
 	std::shared_ptr<rai::block> change_action (rai::account const &, rai::account const &, bool = true);
-	std::shared_ptr<rai::block> receive_action (rai::send_block const &, rai::account const &, rai::uint128_union const &, bool = true);
+	std::shared_ptr<rai::block> receive_action (rai::block const &, rai::account const &, rai::uint128_union const &, bool = true);
 	std::shared_ptr<rai::block> send_action (rai::account const &, rai::account const &, rai::uint128_t const &, bool = true, boost::optional<std::string> = {});
 	wallet (bool &, rai::transaction &, rai::node &, std::string const &);
 	wallet (bool &, rai::transaction &, rai::node &, std::string const &, std::string const &);
@@ -151,6 +151,7 @@ public:
 	void work_ensure (MDB_txn *, rai::account const &);
 	bool search_pending ();
 	void init_free_accounts (MDB_txn *);
+	bool should_generate_utx (MDB_txn *, rai::block_hash const &);
 	/** Changes the wallet seed and returns the first account */
 	rai::public_key change_seed (MDB_txn * transaction_a, rai::raw_key const & prv_a);
 	std::unordered_set<rai::account> free_accounts;

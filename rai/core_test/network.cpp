@@ -550,6 +550,38 @@ TEST (bootstrap_processor, process_two)
 	node1->stop ();
 }
 
+// Bootstrap can pull universal blocks
+TEST (bootstrap_processor, process_utx)
+{
+	rai::system system (24000, 1);
+	rai::genesis genesis;
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	auto node0 (system.nodes[0]);
+	node0->ledger.utx_parse_canary = genesis.hash ();
+	std::unique_ptr<rai::block> block1 (new rai::utx_block (rai::test_genesis_key.pub, node0->latest (rai::test_genesis_key.pub), rai::test_genesis_key.pub, rai::genesis_amount - 100, rai::test_genesis_key.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
+	std::unique_ptr<rai::block> block2 (new rai::utx_block (rai::test_genesis_key.pub, block1->hash (), rai::test_genesis_key.pub, rai::genesis_amount, block1->hash (), rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
+	node0->generate_work (*block1);
+	node0->generate_work (*block2);
+	node0->process (*block1);
+	node0->process (*block2);
+	rai::node_init init1;
+	auto node1 (std::make_shared<rai::node> (init1, system.service, 24001, rai::unique_path (), system.alarm, system.logging, system.work));
+	node1->ledger.utx_parse_canary = genesis.hash ();
+	ASSERT_EQ (node0->latest (rai::test_genesis_key.pub), block2->hash ());
+	ASSERT_NE (node1->latest (rai::test_genesis_key.pub), block2->hash ());
+	node1->bootstrap_initiator.bootstrap (node0->network.endpoint ());
+	auto iterations (0);
+	ASSERT_NE (node1->latest (rai::test_genesis_key.pub), node0->latest (rai::test_genesis_key.pub));
+	while (node1->latest (rai::test_genesis_key.pub) != node0->latest (rai::test_genesis_key.pub))
+	{
+		system.poll ();
+		++iterations;
+		ASSERT_LT (iterations, 200);
+	}
+	ASSERT_EQ (0, node1->active.roots.size ());
+	node1->stop ();
+}
+
 TEST (bootstrap_processor, process_new)
 {
 	rai::system system (24000, 2);
