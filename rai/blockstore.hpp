@@ -119,7 +119,6 @@ public:
 	bool checksum_get (MDB_txn *, uint64_t, uint8_t, rai::checksum &);
 	void checksum_del (MDB_txn *, uint64_t, uint8_t);
 
-	rai::vote_result vote_validate (MDB_txn *, std::shared_ptr<rai::vote>);
 	// Return latest vote for an account from store
 	std::shared_ptr<rai::vote> vote_get (MDB_txn *, rai::account const &);
 	// Populate vote with the next sequence number
