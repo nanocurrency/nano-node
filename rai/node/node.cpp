@@ -222,26 +222,23 @@ void rai::network::republish_block (MDB_txn * transaction, std::shared_ptr<rai::
 
 // In order to rate limit network traffic we republish:
 // 1) Only if they are a non-replay vote of a block that's actively settling. Settling blocks are limited by block PoW
-// 2) Only if a vote for this block hasn't been received in the previous X second.  This prevents rapid publishing of votes with increasing sequence numbers.
-// 3) The rep has a weight > Y to prevent creating a lot of small-weight accounts to send out votes
-void rai::network::republish_vote (std::chrono::steady_clock::time_point const & last_vote, std::shared_ptr<rai::vote> vote_a)
+// 2) The rep has a weight > Y to prevent creating a lot of small-weight accounts to send out votes
+// 3) Only if a vote for this block from this representative hasn't been received in the previous X second.
+//    This prevents rapid publishing of votes with increasing sequence numbers.
+//
+// These rules are implemented by the caller, not this function.
+void rai::network::republish_vote (std::shared_ptr<rai::vote> vote_a)
 {
-	if (last_vote < std::chrono::steady_clock::now () - std::chrono::seconds (1))
+	rai::confirm_ack confirm (vote_a);
+	std::shared_ptr<std::vector<uint8_t>> bytes (new std::vector<uint8_t>);
 	{
-		if (node.weight (vote_a->account) > rai::Mxrb_ratio * 256)
-		{
-			rai::confirm_ack confirm (vote_a);
-			std::shared_ptr<std::vector<uint8_t>> bytes (new std::vector<uint8_t>);
-			{
-				rai::vectorstream stream (*bytes);
-				confirm.serialize (stream);
-			}
-			auto list (node.peers.list_sqrt ());
-			for (auto j (list.begin ()), m (list.end ()); j != m; ++j)
-			{
-				node.network.confirm_send (confirm, bytes, *j);
-			}
-		}
+		rai::vectorstream stream (*bytes);
+		confirm.serialize (stream);
+	}
+	auto list (node.peers.list_sqrt ());
+	for (auto j (list.begin ()), m (list.end ()); j != m; ++j)
+	{
+		node.network.confirm_send (confirm, bytes, *j);
 	}
 }
 
@@ -373,11 +370,10 @@ public:
 		auto vote (node.vote_processor.vote (message_a.vote, sender));
 		if (vote.code == rai::vote_code::replay)
 		{
-			assert (vote.vote->sequence > message_a.vote->sequence);
 			// This tries to assist rep nodes that have lost track of their highest sequence number by replaying our highest known vote back to them
 			// Only do this if the sequence number is significantly different to account for network reordering
 			// Amplify attack considerations: We're sending out a confirm_ack in response to a confirm_ack for no net traffic increase
-			if (vote.vote->sequence - message_a.vote->sequence > 10000)
+			if (vote.vote->sequence > message_a.vote->sequence + 10000)
 			{
 				rai::confirm_ack confirm (vote.vote);
 				std::shared_ptr<std::vector<uint8_t>> bytes (new std::vector<uint8_t>);
@@ -1084,10 +1080,23 @@ node (node_a)
 
 rai::vote_result rai::vote_processor::vote (std::shared_ptr<rai::vote> vote_a, rai::endpoint endpoint_a)
 {
-	rai::vote_result result;
+	rai::vote_result result = { rai::vote_code::invalid, vote_a };
+	if (!rai::validate_message (vote_a->account, vote_a->hash (), vote_a->signature))
 	{
-		rai::transaction transaction (node.store.environment, nullptr, false);
-		result = node.store.vote_validate (transaction, vote_a);
+		result.code = rai::vote_code::replay;
+		std::shared_ptr<rai::vote> newest_vote;
+		{
+			rai::transaction transaction (node.store.environment, nullptr, false);
+			newest_vote = node.store.vote_max (transaction, vote_a);
+		}
+		if (!node.active.vote (vote_a))
+		{
+			result.code = rai::vote_code::vote;
+		}
+		else
+		{
+			result.vote = newest_vote;
+		}
 	}
 	if (node.config.logging.vote_logging ())
 	{
@@ -1556,9 +1565,6 @@ block_processor_thread ([this]() { this->block_processor.process_blocks (); })
 	observers.endpoint.add ([this](rai::endpoint const & endpoint_a) {
 		this->network.send_keepalive (endpoint_a);
 		rep_query (*this, endpoint_a);
-	});
-	observers.vote.add ([this](std::shared_ptr<rai::vote> vote_a, rai::endpoint const &) {
-		active.vote (vote_a);
 	});
 	observers.vote.add ([this](std::shared_ptr<rai::vote> vote_a, rai::endpoint const &) {
 		this->gap_cache.vote (vote_a);
@@ -2791,7 +2797,6 @@ rai::election::election (MDB_txn * transaction_a, rai::node & node_a, std::share
 confirmation_action (confirmation_action_a),
 votes (block_a),
 node (node_a),
-last_vote (std::chrono::steady_clock::now ()),
 last_winner (block_a)
 {
 	assert (node_a.store.block_exists (transaction_a, block_a->hash ()));
@@ -2893,14 +2898,59 @@ void rai::election::confirm_cutoff (MDB_txn * transaction_a)
 	confirm_once (transaction_a);
 }
 
-void rai::election::vote (std::shared_ptr<rai::vote> vote_a)
+bool rai::election::vote (std::shared_ptr<rai::vote> vote_a)
 {
-	node.network.republish_vote (last_vote, vote_a);
-	last_vote = std::chrono::steady_clock::now ();
+	assert (!rai::validate_message (vote_a->account, vote_a->hash (), vote_a->signature));
+	// see republish_vote documentation for an explanation of these rules
 	rai::transaction transaction (node.store.environment, nullptr, true);
-	assert (node.store.vote_validate (transaction, vote_a).code != rai::vote_code::invalid);
-	votes.vote (vote_a);
-	confirm_if_quorum (transaction);
+	auto replay (false);
+	auto supply (node.ledger.supply (transaction));
+	auto weight (node.ledger.weight (transaction, vote_a->account));
+	if (rai::rai_network == rai::rai_networks::rai_test_network || weight > supply / 1000) // 0.1% or above
+	{
+		unsigned int cooldown;
+		if (weight < supply / 100) // 0.1% to 1%
+		{
+			cooldown = 15;
+		}
+		else if (weight < supply / 20) // 1% to 5%
+		{
+			cooldown = 5;
+		}
+		else // 5% or above
+		{
+			cooldown = 1;
+		}
+		auto should_process (false);
+		auto last_vote_it (last_votes.find (vote_a->account));
+		if (last_vote_it == last_votes.end ())
+		{
+			should_process = true;
+		}
+		else
+		{
+			auto last_vote (last_vote_it->second);
+			if (vote_a->sequence > last_vote.second)
+			{
+				if (last_vote.first <= std::chrono::steady_clock::now () - std::chrono::seconds (cooldown))
+				{
+					should_process = true;
+				}
+			}
+			else
+			{
+				replay = true;
+			}
+		}
+		if (should_process)
+		{
+			last_votes.insert (std::make_pair (vote_a->account, std::make_pair (std::chrono::steady_clock::now (), vote_a->sequence)));
+			node.network.republish_vote (vote_a);
+			votes.vote (vote_a);
+			confirm_if_quorum (transaction);
+		}
+	}
+	return replay;
 }
 
 void rai::active_transactions::announce_votes ()
@@ -2979,7 +3029,7 @@ bool rai::active_transactions::start (MDB_txn * transaction_a, std::shared_ptr<r
 }
 
 // Validate a vote and apply it to the current election if one exists
-void rai::active_transactions::vote (std::shared_ptr<rai::vote> vote_a)
+bool rai::active_transactions::vote (std::shared_ptr<rai::vote> vote_a)
 {
 	std::shared_ptr<rai::election> election;
 	{
@@ -2991,10 +3041,12 @@ void rai::active_transactions::vote (std::shared_ptr<rai::vote> vote_a)
 			election = existing->election;
 		}
 	}
+	auto result (false);
 	if (election)
 	{
-		election->vote (vote_a);
+		result = election->vote (vote_a);
 	}
+	return result;
 }
 
 bool rai::active_transactions::active (rai::block const & block_a)

@@ -755,29 +755,6 @@ TEST (block_store, block_random)
 	ASSERT_EQ (*block, *genesis.open);
 }
 
-TEST (vote, validate)
-{
-	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
-	ASSERT_TRUE (!init);
-	rai::keypair key1;
-	auto send1 (std::make_shared<rai::send_block> (0, key1.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
-	auto vote1 (std::make_shared<rai::vote> (key1.pub, key1.prv, 2, send1));
-	rai::transaction transaction (store.environment, nullptr, true);
-	auto vote_result1 (store.vote_validate (transaction, vote1));
-	ASSERT_EQ (rai::vote_code::vote, vote_result1.code);
-	ASSERT_EQ (*vote1, *vote_result1.vote);
-	vote1->signature.bytes[8] ^= 1;
-	auto vote_result2 (store.vote_validate (transaction, vote1));
-	ASSERT_EQ (rai::vote_code::invalid, vote_result2.code);
-	// If the signature is invalid, we don't need to take the overhead of checking the current sequence value
-	ASSERT_EQ (nullptr, vote_result2.vote);
-	auto vote2 (std::make_shared<rai::vote> (key1.pub, key1.prv, 1, send1));
-	auto vote_result3 (store.vote_validate (transaction, vote2));
-	ASSERT_EQ (rai::vote_code::replay, vote_result3.code);
-	ASSERT_EQ (*vote1, *vote_result3.vote);
-}
-
 TEST (block_store, upgrade_v5_v6)
 {
 	auto path (rai::unique_path ());
