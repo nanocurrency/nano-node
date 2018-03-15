@@ -42,6 +42,23 @@ TEST (node, inactive_supply)
 	node->stop ();
 }
 
+TEST (node, utx_canaries)
+{
+	rai::node_init init;
+	auto service (boost::make_shared<boost::asio::io_service> ());
+	rai::alarm alarm (*service);
+	auto path (rai::unique_path ());
+	rai::node_config config;
+	config.logging.init (path);
+	rai::work_pool work (std::numeric_limits<unsigned>::max (), nullptr);
+	config.utx_parse_canary = 10;
+	config.utx_generate_canary = 20;
+	auto node (std::make_shared<rai::node> (init, *service, path, alarm, config, work));
+	ASSERT_EQ (rai::block_hash (10), node->ledger.utx_parse_canary);
+	ASSERT_EQ (rai::block_hash (20), node->ledger.utx_generate_canary);
+	node->stop ();
+}
+
 TEST (node, password_fanout)
 {
 	rai::node_init init;
@@ -495,6 +512,8 @@ TEST (node_config, serialization)
 	config1.callback_port = 10;
 	config1.callback_target = "test";
 	config1.lmdb_max_dbs = 256;
+	config1.utx_parse_canary = 10;
+	config1.utx_generate_canary = 10;
 	boost::property_tree::ptree tree;
 	config1.serialize_json (tree);
 	rai::logging logging2;
@@ -510,6 +529,9 @@ TEST (node_config, serialization)
 	ASSERT_NE (config2.callback_address, config1.callback_address);
 	ASSERT_NE (config2.callback_port, config1.callback_port);
 	ASSERT_NE (config2.callback_target, config1.callback_target);
+	ASSERT_NE (config2.lmdb_max_dbs, config1.lmdb_max_dbs);
+	ASSERT_NE (config2.utx_parse_canary, config1.utx_parse_canary);
+	ASSERT_NE (config2.utx_generate_canary, config1.utx_generate_canary);
 
 	bool upgraded (false);
 	config2.deserialize_json (upgraded, tree);
@@ -524,6 +546,8 @@ TEST (node_config, serialization)
 	ASSERT_EQ (config2.callback_port, config1.callback_port);
 	ASSERT_EQ (config2.callback_target, config1.callback_target);
 	ASSERT_EQ (config2.lmdb_max_dbs, config1.lmdb_max_dbs);
+	ASSERT_EQ (config2.utx_parse_canary, config1.utx_parse_canary);
+	ASSERT_EQ (config2.utx_generate_canary, config1.utx_generate_canary);
 }
 
 TEST (node_config, v1_v2_upgrade)
@@ -653,50 +677,6 @@ TEST (node_config, random_rep)
 	rai::node_config config1 (100, logging1);
 	auto rep (config1.random_representative ());
 	ASSERT_NE (config1.preconfigured_representatives.end (), std::find (config1.preconfigured_representatives.begin (), config1.preconfigured_representatives.end (), rep));
-}
-
-TEST (node, block_replace)
-{
-	rai::system system (24000, 2);
-	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
-	auto block1 (system.wallet (0)->send_action (rai::test_genesis_key.pub, 0, rai::Gxrb_ratio));
-	auto block3 (system.wallet (0)->send_action (rai::test_genesis_key.pub, 0, rai::Gxrb_ratio));
-	ASSERT_NE (nullptr, block1);
-	auto initial_work (block1->block_work ());
-	while (rai::work_value (block1->root (), block1->block_work ()) <= rai::work_value (block1->root (), initial_work))
-	{
-		system.nodes[1]->generate_work (*block1);
-	}
-	{
-		rai::transaction transaction (system.nodes[0]->store.environment, nullptr, false);
-		ASSERT_EQ (block3->hash (), system.nodes[0]->store.block_successor (transaction, block1->hash ()));
-	}
-	for (auto i (0); i < 1; ++i)
-	{
-		rai::transaction transaction_a (system.nodes[1]->store.environment, nullptr, false);
-		system.nodes[1]->network.republish_block (transaction_a, block1);
-	}
-	auto iterations1 (0);
-	std::unique_ptr<rai::block> block2;
-	while (block2 == nullptr)
-	{
-		system.poll ();
-		++iterations1;
-		ASSERT_LT (iterations1, 200);
-		rai::transaction transaction (system.nodes[0]->store.environment, nullptr, false);
-		auto block (system.nodes[0]->store.block_get (transaction, block1->hash ()));
-		if (block->block_work () != initial_work)
-		{
-			block2 = std::move (block);
-		}
-	}
-	{
-		rai::transaction transaction (system.nodes[0]->store.environment, nullptr, false);
-		ASSERT_EQ (block3->hash (), system.nodes[0]->store.block_successor (transaction, block1->hash ()));
-	}
-	ASSERT_NE (initial_work, block1->block_work ());
-	ASSERT_EQ (block1->block_work (), block2->block_work ());
-	ASSERT_GT (rai::work_value (block2->root (), block2->block_work ()), rai::work_value (block1->root (), initial_work));
 }
 
 TEST (node, fork_publish)
@@ -1032,7 +1012,7 @@ TEST (node, coherent_observer)
 {
 	rai::system system (24000, 1);
 	auto & node1 (*system.nodes[0]);
-	node1.observers.blocks.add ([&node1](std::shared_ptr<rai::block> block_a, rai::account const & account_a, rai::amount const &) {
+	node1.observers.blocks.add ([&node1](std::shared_ptr<rai::block> block_a, rai::process_return const &) {
 		rai::transaction transaction (node1.store.environment, nullptr, false);
 		ASSERT_TRUE (node1.store.block_exists (transaction, block_a->hash ()));
 	});

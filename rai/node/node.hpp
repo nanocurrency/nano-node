@@ -407,6 +407,8 @@ public:
 	uint16_t callback_port;
 	std::string callback_target;
 	int lmdb_max_dbs;
+	rai::block_hash utx_parse_canary;
+	rai::block_hash utx_generate_canary;
 	static std::chrono::seconds constexpr keepalive_period = std::chrono::seconds (60);
 	static std::chrono::seconds constexpr keepalive_cutoff = keepalive_period * 5;
 	static std::chrono::minutes constexpr wallet_backup_interval = std::chrono::minutes (5);
@@ -414,7 +416,7 @@ public:
 class node_observers
 {
 public:
-	rai::observer_set<std::shared_ptr<rai::block>, rai::account const &, rai::amount const &> blocks;
+	rai::observer_set<std::shared_ptr<rai::block>, rai::process_return const &> blocks;
 	rai::observer_set<bool> wallet;
 	rai::observer_set<std::shared_ptr<rai::vote>, rai::endpoint const &> vote;
 	rai::observer_set<rai::account const &, bool> account_balance;

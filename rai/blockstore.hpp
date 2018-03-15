@@ -162,6 +162,8 @@ public:
 	MDB_dbi open_blocks;
 	// block_hash -> change_block
 	MDB_dbi change_blocks;
+	// block_hash -> utx_block
+	MDB_dbi utx_blocks;
 	// block_hash -> sender, amount, destination                    // Pending blocks to sender account, amount, destination account
 	MDB_dbi pending;
 	// block_hash -> account, balance                               // Blocks info

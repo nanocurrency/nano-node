@@ -518,6 +518,29 @@ public:
 		amount = 0;
 		account = block_a.hashables.representative;
 	}
+	void utx_block (rai::utx_block const & block_a)
+	{
+		auto balance (block_a.hashables.balance.number ());
+		auto previous_balance (ledger.balance (transaction, block_a.hashables.previous));
+		account = block_a.hashables.account;
+		if (balance < previous_balance)
+		{
+			type = "Send";
+			amount = previous_balance - balance;
+		}
+		else
+		{
+			if (block_a.hashables.link.is_zero ())
+			{
+				type = "Change";
+			}
+			else
+			{
+				type = "Receive";
+			}
+			amount = balance - previous_balance;
+		}
+	}
 	MDB_txn * transaction;
 	rai::ledger & ledger;
 	std::string type;
@@ -1076,17 +1099,18 @@ void rai_qt::wallet::start ()
 			this_l->push_main_stack (this_l->send_blocks_window);
 		}
 	});
-	node.observers.blocks.add ([this_w](std::shared_ptr<rai::block> block_a, rai::account const & account_a, rai::amount const &) {
+	node.observers.blocks.add ([this_w](std::shared_ptr<rai::block> block_a, rai::process_return const & result_a) {
 		if (auto this_l = this_w.lock ())
 		{
-			this_l->application.postEvent (&this_l->processor, new eventloop_event ([this_w, block_a, account_a]() {
+			auto account (result_a.account);
+			this_l->application.postEvent (&this_l->processor, new eventloop_event ([this_w, block_a, account]() {
 				if (auto this_l = this_w.lock ())
 				{
-					if (this_l->wallet_m->exists (account_a))
+					if (this_l->wallet_m->exists (account))
 					{
 						this_l->accounts.refresh ();
 					}
-					if (account_a == this_l->account)
+					if (account == this_l->account)
 					{
 						this_l->history.refresh ();
 					}
@@ -1993,10 +2017,10 @@ void rai_qt::block_creation::create_receive ()
 		auto block_l (wallet.node.store.block_get (transaction, source_l));
 		if (block_l != nullptr)
 		{
-			auto send_block (dynamic_cast<rai::send_block *> (block_l.get ()));
-			if (send_block != nullptr)
+			auto destination (wallet.node.ledger.block_destination (transaction, *block_l));
+			if (!destination.is_zero ())
 			{
-				rai::pending_key pending_key (send_block->hashables.destination, source_l);
+				rai::pending_key pending_key (destination, source_l);
 				rai::pending_info pending;
 				if (!wallet.node.store.pending_get (transaction, pending_key, pending))
 				{
@@ -2117,10 +2141,10 @@ void rai_qt::block_creation::create_open ()
 			auto block_l (wallet.node.store.block_get (transaction, source_l));
 			if (block_l != nullptr)
 			{
-				auto send_block (dynamic_cast<rai::send_block *> (block_l.get ()));
-				if (send_block != nullptr)
+				auto destination (wallet.node.ledger.block_destination (transaction, *block_l));
+				if (!destination.is_zero ())
 				{
-					rai::pending_key pending_key (send_block->hashables.destination, source_l);
+					rai::pending_key pending_key (destination, source_l);
 					rai::pending_info pending;
 					if (!wallet.node.store.pending_get (transaction, pending_key, pending))
 					{
