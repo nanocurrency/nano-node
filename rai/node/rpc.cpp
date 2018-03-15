@@ -2976,7 +2976,7 @@ void rai::rpc_handler::send ()
 			{
 				auto wallet (existing->second);
 				if (wallet->valid_password ())
- 				{
+				{
 					std::string source_text (request.get<std::string> ("source"));
 					rai::account source;
 					error = source.decode_account (source_text);
