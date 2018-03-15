@@ -814,7 +814,7 @@ utx_generate_canary (0)
 			break;
 		case rai::rai_networks::rai_beta_network:
 			preconfigured_peers.push_back ("rai-beta.raiblocks.net");
-			preconfigured_representatives.push_back (rai::account ("5DF352F3E7367A17F2ADB52B8123959602F8D94C2F295B23F6BDFFFC5FEFCA5E"));
+			preconfigured_representatives.push_back (rai::account ("C93F714298E6061E549E52BB8885085319BE977B3FE8F03A1B726E9BE4BE38DE"));
 			utx_parse_canary = rai::block_hash ("5005F5283DE8D2DAB0DAC41DE9BD23640F962B4F0EA7D3128C2EA3D78D578E27");
 			utx_generate_canary = rai::block_hash ("FC18E2265FB835E8CF60E63531053A768CEDF5194263B01A5C95574944E4660D");
 			break;
