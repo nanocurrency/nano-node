@@ -1763,32 +1763,16 @@ stats (config.stat_config)
 	}
 	if (rai::rai_network == rai::rai_networks::rai_live_network)
 	{
-		extern const char rai_bootstrap_weights[];
-		extern const size_t rai_bootstrap_weights_size;
-		rai::bufferstream weight_stream ((const uint8_t *)rai_bootstrap_weights, rai_bootstrap_weights_size);
-		rai::uint128_union block_height;
-		if (!rai::read (weight_stream, block_height))
+		rai::transaction transaction (store.environment, nullptr, false);
+		uint64_t max_blocks;
+		if (!ledger.store.initial_repweight_maxcount_get (transaction, max_blocks))
 		{
-			auto max_blocks = (uint64_t)block_height.number ();
-			rai::transaction transaction (store.environment, nullptr, false);
 			if (ledger.store.block_count (transaction).sum () < max_blocks)
 			{
-				ledger.bootstrap_weight_max_blocks = max_blocks;
-				while (true)
-				{
-					rai::account account;
-					if (rai::read (weight_stream, account.bytes))
-					{
-						break;
-					}
-					rai::amount weight;
-					if (rai::read (weight_stream, weight.bytes))
-					{
-						break;
-					}
-					BOOST_LOG (log) << "Using bootstrap rep weight: " << account.to_account () << " -> " << weight.format_balance (Mxrb_ratio, 0, true) << " XRB";
-					ledger.bootstrap_weights[account] = weight.number ();
-				}
+				ledger.store.initial_repweight_iterate (transaction, [this](rai::amount weight, rai::account account) {
+					this->ledger.bootstrap_weights[account] = weight.number ();
+					BOOST_LOG (log) << "Using bootstrap rep weight: " << account.to_account () << " -> " << weight.format_balance (rai::Mxrb_ratio, 0, true) << " XRB";
+				});
 			}
 		}
 	}

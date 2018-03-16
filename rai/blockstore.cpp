@@ -228,6 +228,10 @@ rai::store_iterator rai::block_store::vote_end ()
 	return rai::store_iterator (nullptr);
 }
 
+// meta table special keys
+rai::uint256_union const rai::block_store::key_meta_version (1);
+rai::uint256_union const rai::block_store::key_meta_initial_repweights_maxblocks (2);
+
 rai::block_store::block_store (bool & error_a, boost::filesystem::path const & path_a, int lmdb_max_dbs) :
 environment (error_a, path_a, lmdb_max_dbs),
 frontiers (0),
@@ -259,6 +263,7 @@ checksum (0)
 		error_a |= mdb_dbi_open (transaction, "checksum", MDB_CREATE, &checksum) != 0;
 		error_a |= mdb_dbi_open (transaction, "vote", MDB_CREATE, &vote) != 0;
 		error_a |= mdb_dbi_open (transaction, "meta", MDB_CREATE, &meta) != 0;
+		error_a |= mdb_dbi_open (transaction, "initial_bootstrap_weights", MDB_CREATE, &initial_bootstrap_weights) != 0;
 		if (!error_a)
 		{
 			do_upgrades (transaction);
@@ -267,19 +272,110 @@ checksum (0)
 	}
 }
 
+void rai::block_store::initial_repweight_iterate (MDB_txn * transaction_a, std::function<void(rai::amount, rai::account)> callback)
+{
+	rai::store_iterator begin (transaction_a, initial_bootstrap_weights);
+	rai::store_iterator end (nullptr);
+
+	for (auto i (rai::store_iterator (transaction_a, initial_bootstrap_weights)); i != end; ++i)
+	{
+		callback (i->first.uint128 (), i->second.uint256 ());
+	}
+}
+
+bool rai::block_store::initial_repweight_generate (rai::block_store & target, uint64_t limit_a, uint64_t cutoff_a)
+{
+	bool error = false;
+	rai::uint128_t limit (limit_a);
+
+	rai::transaction source_transaction (environment, nullptr, false);
+	auto blockcount = block_count (source_transaction).sum ();
+	auto max_block_height = blockcount;
+	if (max_block_height > cutoff_a)
+	{
+		max_block_height -= cutoff_a;
+	}
+
+	rai::transaction target_transaction (target.environment, nullptr, true);
+	rai::uint256_union value (max_block_height);
+	error = mdb_put (target_transaction, meta, rai::mdb_val (rai::block_store::key_meta_initial_repweights_maxblocks), rai::mdb_val (value), 0);
+	assert (error == 0);
+	std::vector<std::pair<rai::amount, rai::account>> representation;
+	for (auto i (representation_begin (source_transaction)), n (representation_end ()); i != n; ++i)
+	{
+		rai::account account (i->first.uint256 ());
+		auto amount (representation_get (source_transaction, account));
+		representation.push_back (std::make_pair (amount, account));
+	}
+
+	// Sort descending so we can stop inserting when we hit zero-weight reps
+	std::sort (representation.begin (), representation.end ());
+	std::reverse (representation.begin (), representation.end ());
+
+	rai::uint128_t supplymax (0);
+	for (auto i (representation.begin ()), n (representation.end ()); i != n; ++i)
+	{
+		supplymax += (i->first).number ();
+	}
+
+	supplymax = supplymax / 100 * limit;
+
+	// Sort keys by decreasing weight (reverse sort)
+	mdb_set_compare (target_transaction, initial_bootstrap_weights, [](const MDB_val * a, const MDB_val * b) {
+		assert (a->mv_size == 16 && b->mv_size == 16);
+		auto first = static_cast<rai::amount *> (a->mv_data);
+		auto second = static_cast<rai::amount *> (b->mv_data);
+		if (first < second)
+			return 1;
+		if (second > first)
+			return -1;
+		return 0;
+	});
+
+	rai::uint128_t total (0);
+	for (auto i (representation.begin ()), n (representation.end ()); i != n && total < supplymax && (i->first).number () != 0; ++i)
+	{
+		std::cout << i->second.to_account () << " => " << (i->first).number ().convert_to<std::string> () << std::endl;
+
+		auto status (mdb_put (target_transaction, initial_bootstrap_weights, rai::mdb_val (i->first), rai::mdb_val (i->second), 0));
+		assert (status == 0);
+
+		total += (i->first).number ();
+	}
+
+	std::cout << "Max supply:" << supplymax << std::endl;
+	std::cout << "Phasing out initial bootstrap weights after " << max_block_height << " blocks" << std::endl;
+
+	return error;
+}
+
+bool rai::block_store::initial_repweight_maxcount_get (MDB_txn * transaction_a, uint64_t & result)
+{
+	bool error = false;
+	rai::mdb_val data;
+	if (!mdb_get (transaction_a, meta, rai::mdb_val (rai::block_store::key_meta_initial_repweights_maxblocks), data))
+	{
+		result = static_cast<uint64_t> (data.uint256 ());
+	}
+	else
+	{
+		error = true;
+	}
+
+	return error;
+}
+
 void rai::block_store::version_put (MDB_txn * transaction_a, int version_a)
 {
-	rai::uint256_union version_key (1);
 	rai::uint256_union version_value (version_a);
-	auto status (mdb_put (transaction_a, meta, rai::mdb_val (version_key), rai::mdb_val (version_value), 0));
+	auto status (mdb_put (transaction_a, meta, rai::mdb_val (rai::block_store::key_meta_version), rai::mdb_val (version_value), 0));
 	assert (status == 0);
 }
 
 int rai::block_store::version_get (MDB_txn * transaction_a)
 {
-	rai::uint256_union version_key (1);
 	rai::mdb_val data;
-	auto error (mdb_get (transaction_a, meta, rai::mdb_val (version_key), data));
+	auto error (mdb_get (transaction_a, meta, rai::mdb_val (rai::block_store::key_meta_version), data));
 	int result;
 	if (error == MDB_NOTFOUND)
 	{

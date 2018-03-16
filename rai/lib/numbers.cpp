@@ -301,6 +301,12 @@ bool rai::uint512_union::operator== (rai::uint512_union const & other_a) const
 	return bytes == other_a.bytes;
 }
 
+rai::uint256_union::operator uint64_t () const
+{
+	assert (qwords[2] == 0 && qwords[1] == 0 && qwords[0] == 0);
+	return number ().convert_to<uint64_t> ();
+}
+
 rai::uint512_union::uint512_union (rai::uint512_t const & number_a)
 {
 	rai::uint512_t number_l (number_a);

@@ -136,6 +136,14 @@ size_t rai::mdb_val::size () const
 	return value.mv_size;
 }
 
+rai::uint128_union rai::mdb_val::uint128 () const
+{
+	rai::uint128_union result;
+	assert (size () == sizeof (result));
+	std::copy (reinterpret_cast<uint8_t const *> (data ()), reinterpret_cast<uint8_t const *> (data ()) + sizeof (result), result.bytes.data ());
+	return result;
+}
+
 rai::uint256_union rai::mdb_val::uint256 () const
 {
 	rai::uint256_union result;

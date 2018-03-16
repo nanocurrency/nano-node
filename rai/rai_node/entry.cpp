@@ -7,6 +7,7 @@
 
 #include <boost/lexical_cast.hpp>
 #include <boost/program_options.hpp>
+#include <boost/property_tree/json_parser.hpp>
 
 int main (int argc, char * const * argv)
 {
@@ -18,6 +19,7 @@ int main (int argc, char * const * argv)
 		("help", "Print out options")
 		("version", "Prints out version")
 		("daemon", "Start node daemon")
+		("generate_redist_ledger", "Generate redist ledger with initial bootstrap rep weight")
 		("debug_block_count", "Display the number of block")
 		("debug_bootstrap_generate", "Generate bootstrap sequence of blocks")
 		("debug_dump_representatives", "List representatives and weights")
@@ -323,6 +325,62 @@ int main (int argc, char * const * argv)
 				std::cerr << boost::str (boost::format ("%|1$ 12d|\n") % std::chrono::duration_cast<std::chrono::microseconds> (end1 - begin1).count ());
 			}
 		}
+		else if (vm.count ("generate_redist_ledger") > 0)
+		{
+			std::cout << "Generating ledger database..." << std::endl;
+
+			// Defaults
+			uint64_t cutoff = 250000;
+			uint64_t limit = 99;
+
+			// An optional configuration file containing redist generation params. If not specified, defaults will be used.
+			if (vm.count ("file") == 1)
+			{
+				std::string filename (vm["file"].as<std::string> ());
+				boost::property_tree::ptree settings;
+				boost::property_tree::read_json (filename, settings);
+				cutoff = settings.get<int> ("bootstrap_cutoff", cutoff);
+				limit = settings.get<int> ("bootstrap_limit", limit);
+			}
+
+			std::cout << "Adding bootstrap weights with cutoff " << cutoff << " and limit " << limit << "%" << std::endl;
+			auto redist_path = data_path / "ledger-redist";
+			boost::filesystem::remove_all (redist_path);
+			boost::filesystem::create_directory (redist_path);
+
+			bool error;
+			rai::block_store source (error, data_path / "data.ldb", 128);
+			if (!error)
+			{
+				auto redist_db = redist_path / "data.ldb";
+				rai::block_store target (error, redist_db, 128);
+				if (!error)
+				{
+					source.initial_repweight_generate (target, limit, cutoff);
+					std::cout << "Redistributable ledger: " << redist_db << std::endl;
+
+					// Print the SHA256 of the ledger db
+					auto bytes = rai::read_file (redist_db.string (), error);
+					if (!error)
+					{
+						std::string hex = rai::sha256 (bytes);
+						std::cout << "SHA256: " << hex << std::endl;
+					}
+					else
+					{
+						std::cerr << "Could not generate SHA256 hash of ledger" << std::endl;
+					}
+				}
+				else
+				{
+					std::cerr << "Could not open target block store" << std::endl;
+				}
+			}
+			else
+			{
+				std::cerr << "Could not open source block store" << std::endl;
+			}
+		}
 		else if (vm.count ("version"))
 		{
 			std::cout << "Version " << RAIBLOCKS_VERSION_MAJOR << "." << RAIBLOCKS_VERSION_MINOR << std::endl;
@@ -333,5 +391,6 @@ int main (int argc, char * const * argv)
 			result = -1;
 		}
 	}
+
 	return result;
 }

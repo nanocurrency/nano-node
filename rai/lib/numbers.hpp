@@ -80,6 +80,7 @@ union uint256_union
 	bool is_zero () const;
 	std::string to_string () const;
 	rai::uint256_t number () const;
+	explicit operator uint64_t () const;
 };
 // All keys and hashes are 256 bit.
 using block_hash = uint256_union;

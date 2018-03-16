@@ -139,6 +139,26 @@ public:
 
 	void clear (MDB_dbi);
 
+	/** Get maximum number of blocks in the ledger for using initial bootstrap rep weights */
+	bool initial_repweight_maxcount_get (MDB_txn *, uint64_t & result);
+
+	/**
+	 * Populates target block store with initial bootstrap weights. This is used as part of creating a redistributable ledger database.
+	 *
+	 * @param limit Percentage of the active supply represented
+	 * @param cutoff Stop using bootstrap reps this many blocks before the current block height
+	 */
+	bool initial_repweight_generate (rai::block_store & target, uint64_t limit, uint64_t);
+
+	/**
+	 * Iterates the initial bootstrap weights, invoking the callback for each entry with weight and account.
+	 */
+	void initial_repweight_iterate (MDB_txn * transaction_a, std::function<void(rai::amount, rai::account)> callback);
+
+	// Special keys
+	static rai::uint256_union const key_meta_version;
+	static rai::uint256_union const key_meta_initial_repweights_maxblocks;
+
 	rai::mdb_env environment;
 
 	/**
@@ -224,5 +244,7 @@ public:
 	 * rai::uint256_union (arbitrary key) -> blob
 	 */
 	MDB_dbi meta;
+	// weight -> account											// Bootstrap repweights ordered by weight
+	MDB_dbi initial_bootstrap_weights;
 };
 }
