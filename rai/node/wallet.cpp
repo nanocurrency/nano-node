@@ -252,7 +252,7 @@ unsigned const rai::wallet_store::version_3 (3);
 unsigned const rai::wallet_store::version_current (version_3);
 // Wallet version number
 rai::uint256_union const rai::wallet_store::version_special (0);
-// Random number used to salt private key encription
+// Random number used to salt private key encryption
 rai::uint256_union const rai::wallet_store::salt_special (1);
 // Key used to encrypt wallet keys, encrypted itself by the user password
 rai::uint256_union const rai::wallet_store::wallet_key_special (2);

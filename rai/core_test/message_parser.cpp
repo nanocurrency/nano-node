@@ -74,14 +74,14 @@ TEST (message_parser, exact_confirm_ack_size)
 		message.serialize (stream);
 	}
 	ASSERT_EQ (0, visitor.confirm_ack_count);
-	ASSERT_FALSE (parser.error);
+	ASSERT_EQ (parser.status, rai::message_parser::parse_status::success);
 	parser.deserialize_confirm_ack (bytes.data (), bytes.size ());
 	ASSERT_EQ (1, visitor.confirm_ack_count);
-	ASSERT_FALSE (parser.error);
+	ASSERT_EQ (parser.status, rai::message_parser::parse_status::success);
 	bytes.push_back (0);
 	parser.deserialize_confirm_ack (bytes.data (), bytes.size ());
 	ASSERT_EQ (1, visitor.confirm_ack_count);
-	ASSERT_TRUE (parser.error);
+	ASSERT_NE (parser.status, rai::message_parser::parse_status::success);
 }
 
 TEST (message_parser, exact_confirm_req_size)
@@ -97,14 +97,14 @@ TEST (message_parser, exact_confirm_req_size)
 		message.serialize (stream);
 	}
 	ASSERT_EQ (0, visitor.confirm_req_count);
-	ASSERT_FALSE (parser.error);
+	ASSERT_EQ (parser.status, rai::message_parser::parse_status::success);
 	parser.deserialize_confirm_req (bytes.data (), bytes.size ());
 	ASSERT_EQ (1, visitor.confirm_req_count);
-	ASSERT_FALSE (parser.error);
+	ASSERT_EQ (parser.status, rai::message_parser::parse_status::success);
 	bytes.push_back (0);
 	parser.deserialize_confirm_req (bytes.data (), bytes.size ());
 	ASSERT_EQ (1, visitor.confirm_req_count);
-	ASSERT_TRUE (parser.error);
+	ASSERT_NE (parser.status, rai::message_parser::parse_status::success);
 }
 
 TEST (message_parser, exact_publish_size)
@@ -120,14 +120,14 @@ TEST (message_parser, exact_publish_size)
 		message.serialize (stream);
 	}
 	ASSERT_EQ (0, visitor.publish_count);
-	ASSERT_FALSE (parser.error);
+	ASSERT_EQ (parser.status, rai::message_parser::parse_status::success);
 	parser.deserialize_publish (bytes.data (), bytes.size ());
 	ASSERT_EQ (1, visitor.publish_count);
-	ASSERT_FALSE (parser.error);
+	ASSERT_EQ (parser.status, rai::message_parser::parse_status::success);
 	bytes.push_back (0);
 	parser.deserialize_publish (bytes.data (), bytes.size ());
 	ASSERT_EQ (1, visitor.publish_count);
-	ASSERT_TRUE (parser.error);
+	ASSERT_NE (parser.status, rai::message_parser::parse_status::success);
 }
 
 TEST (message_parser, exact_keepalive_size)
@@ -142,12 +142,12 @@ TEST (message_parser, exact_keepalive_size)
 		message.serialize (stream);
 	}
 	ASSERT_EQ (0, visitor.keepalive_count);
-	ASSERT_FALSE (parser.error);
+	ASSERT_EQ (parser.status, rai::message_parser::parse_status::success);
 	parser.deserialize_keepalive (bytes.data (), bytes.size ());
 	ASSERT_EQ (1, visitor.keepalive_count);
-	ASSERT_FALSE (parser.error);
+	ASSERT_EQ (parser.status, rai::message_parser::parse_status::success);
 	bytes.push_back (0);
 	parser.deserialize_keepalive (bytes.data (), bytes.size ());
 	ASSERT_EQ (1, visitor.keepalive_count);
-	ASSERT_TRUE (parser.error);
+	ASSERT_NE (parser.status, rai::message_parser::parse_status::success);
 }

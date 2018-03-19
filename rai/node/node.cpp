@@ -419,17 +419,65 @@ void rai::network::receive_action (boost::system::error_code const & error, size
 			network_message_visitor visitor (node, remote);
 			rai::message_parser parser (visitor, node.work);
 			parser.deserialize_buffer (buffer.data (), size_a);
-			if (parser.error)
+			if (parser.status != rai::message_parser::parse_status::success)
 			{
 				++error_count;
-			}
-			else if (parser.insufficient_work)
-			{
-				if (node.config.logging.insufficient_work_logging ())
+
+				if (parser.status == rai::message_parser::parse_status::insufficient_work)
 				{
-					BOOST_LOG (node.log) << "Insufficient work in message";
+					if (node.config.logging.insufficient_work_logging ())
+					{
+						BOOST_LOG (node.log) << "Insufficient work in message";
+					}
+
+					++insufficient_work_count;
 				}
-				++insufficient_work_count;
+				else if (parser.status == rai::message_parser::parse_status::invalid_message_type)
+				{
+					if (node.config.logging.network_logging ())
+					{
+						BOOST_LOG (node.log) << "Invalid message type in message";
+					}
+				}
+				else if (parser.status == rai::message_parser::parse_status::invalid_header)
+				{
+					if (node.config.logging.network_logging ())
+					{
+						BOOST_LOG (node.log) << "Invalid header in message";
+					}
+				}
+				else if (parser.status == rai::message_parser::parse_status::invalid_keepalive_message)
+				{
+					if (node.config.logging.network_logging ())
+					{
+						BOOST_LOG (node.log) << "Invalid keepalive message";
+					}
+				}
+				else if (parser.status == rai::message_parser::parse_status::invalid_publish_message)
+				{
+					if (node.config.logging.network_logging ())
+					{
+						BOOST_LOG (node.log) << "Invalid publish message";
+					}
+				}
+				else if (parser.status == rai::message_parser::parse_status::invalid_confirm_req_message)
+				{
+					if (node.config.logging.network_logging ())
+					{
+						BOOST_LOG (node.log) << "Invalid confirm_req message";
+					}
+				}
+				else if (parser.status == rai::message_parser::parse_status::invalid_confirm_ack_message)
+				{
+					if (node.config.logging.network_logging ())
+					{
+						BOOST_LOG (node.log) << "Invalid confirm_ack message";
+					}
+				}
+				else
+				{
+					BOOST_LOG (node.log) << "Could not deserialize buffer";
+				}
 			}
 		}
 		else
@@ -2509,16 +2557,18 @@ void rai::peer_container::rep_request (rai::endpoint const & endpoint_a)
 
 bool rai::peer_container::reachout (rai::endpoint const & endpoint_a)
 {
-	auto result (false);
 	// Don't contact invalid IPs
-	result |= not_a_peer (endpoint_a);
-	// Don't keepalive to nodes that already sent us something
-	result |= known_peer (endpoint_a);
-	std::lock_guard<std::mutex> lock (mutex);
-	auto existing (attempts.find (endpoint_a));
-	result |= existing != attempts.end ();
-	attempts.insert ({ endpoint_a, std::chrono::steady_clock::now () });
-	return result;
+	bool error = not_a_peer (endpoint_a);
+	if (!error)
+	{
+		// Don't keepalive to nodes that already sent us something
+		error |= known_peer (endpoint_a);
+		std::lock_guard<std::mutex> lock (mutex);
+		auto existing (attempts.find (endpoint_a));
+		error |= existing != attempts.end ();
+		attempts.insert ({ endpoint_a, std::chrono::steady_clock::now () });
+	}
+	return error;
 }
 
 bool rai::peer_container::insert (rai::endpoint const & endpoint_a, unsigned version_a)
@@ -2736,7 +2786,7 @@ rai::uint128_t rai::election::quorum_threshold (MDB_txn * transaction_a, rai::le
 
 rai::uint128_t rai::election::minimum_threshold (MDB_txn * transaction_a, rai::ledger & ledger_a)
 {
-	// Minimum number of votes needed to change our ledger, underwhich we're probably disconnected
+	// Minimum number of votes needed to change our ledger, under which we're probably disconnected
 	return ledger_a.supply (transaction_a) / 16;
 }
 
@@ -2829,7 +2879,7 @@ void rai::active_transactions::announce_votes ()
 		{
 			auto election_l (i->election);
 			node.background ([election_l]() { election_l->broadcast_winner (); });
-			if (i->announcements >= contigious_announcements - 1)
+			if (i->announcements >= contiguous_announcements - 1)
 			{
 				// These blocks have reached the confirmation interval for forks
 				i->election->confirm_cutoff (transaction);
@@ -2966,6 +3016,7 @@ void rai::add_node_options (boost::program_options::options_description & descri
 		("account_get", "Get account number for the <key>")
 		("account_key", "Get the public key for <account>")
 		("vacuum", "Compact database. If data_path is missing, the database in data directory is compacted.")
+		("snapshot", "Compact database and create snapshot, functions similar to vacuum but does not replace the existing database")
 		("data_path", boost::program_options::value<std::string> (), "Use the supplied path as the data directory")
 		("diagnostics", "Run internal diagnostics")
 		("key_create", "Generates a adhoc random keypair and prints it to stdout")
@@ -3103,6 +3154,37 @@ bool rai::handle_node_options (boost::program_options::variables_map & vm)
 		catch (...)
 		{
 			std::cerr << "Vacuum failed" << std::endl;
+		}
+	}
+	else if (vm.count ("snapshot"))
+	{
+		try
+		{
+			boost::filesystem::path data_path = vm.count ("data_path") ? boost::filesystem::path (vm["data_path"].as<std::string> ()) : rai::working_path ();
+
+			auto source_path = data_path / "data.ldb";
+			auto snapshot_path = data_path / "snapshot.ldb";
+
+			std::cout << "Database snapshot of " << source_path << " to " << snapshot_path << " in progress" << std::endl;
+			std::cout << "This may take a while..." << std::endl;
+
+			bool success = false;
+			{
+				inactive_node node (data_path);
+				success = node.node->copy_with_compaction (snapshot_path);
+			}
+			if (success)
+			{
+				std::cout << "Snapshot completed, This can be found at " << snapshot_path << std::endl;
+			}
+		}
+		catch (const boost::filesystem::filesystem_error & ex)
+		{
+			std::cerr << "Snapshot failed during a file operation: " << ex.what () << std::endl;
+		}
+		catch (...)
+		{
+			std::cerr << "Snapshot Failed" << std::endl;
 		}
 	}
 	else if (vm.count ("diagnostics"))

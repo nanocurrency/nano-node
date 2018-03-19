@@ -42,5 +42,10 @@ script:
   - if [ "$TRAVIS_OS_NAME" = "osx" ]; then ci/build-travis.sh "/usr/local/opt/qt5/lib/cmake/Qt5"; fi
   - if [ "$TRAVIS_OS_NAME" = "linux" ]; then docker run -v $TRAVIS_BUILD_DIR:/workspace nanocurrency/nano-ci /bin/bash -c "cd /workspace && ASAN=${ASAN} TSAN=${TSAN} ./ci/build-travis.sh /usr/lib/x86_64-linux-gnu/cmake/Qt5 ${PWD}"; fi
 
-after_script:
-  - if [ -n "$ONE_TIME_TESTS" ] && [ -n "$DOCKER_PASSWORD" ] && [ "$TRAVIS_BRANCH" = "master" ]; then ci/deploy-docker.sh; fi
+deploy:
+  provider: script
+  skip_cleanup: true
+  script: ci/deploy-docker.sh
+  on:
+    all_branches: true
+    condition: -n "$ONE_TIME_TESTS"

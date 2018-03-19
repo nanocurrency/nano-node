@@ -140,7 +140,7 @@ TEST (node, send_single_observing_peer)
 	}
 }
 
-TEST (node, send_single_many_peers)
+TEST (node, DISABLED_send_single_many_peers)
 {
 	rai::system system (24000, 10);
 	rai::keypair key2;
@@ -449,7 +449,7 @@ TEST (logging, serialization)
 	ASSERT_EQ (logging1.max_size, logging2.max_size);
 }
 
-TEST (logging, upgrade_v1_v2)
+TEST (logging, DISABLED_upgrade_v1_v2)
 {
 	auto path1 (rai::unique_path ());
 	auto path2 (rai::unique_path ());
@@ -903,7 +903,7 @@ TEST (node, fork_multi_flip)
 
 // Blocks that are no longer actively being voted on should be able to be evicted through bootstrapping.
 // This could happen if a fork wasn't resolved before the process previously shut down
-TEST (node, fork_bootstrap_flip)
+TEST (node, DISABLED_fork_bootstrap_flip)
 {
 	rai::system system0 (24000, 1);
 	rai::system system1 (24001, 1);
@@ -1195,7 +1195,7 @@ TEST (node, rep_self_vote)
 }
 
 // Bootstrapping shouldn't republish the blocks to the network.
-TEST (node, bootstrap_no_publish)
+TEST (node, DISABLED_bootstrap_no_publish)
 {
 	rai::system system0 (24000, 1);
 	rai::system system1 (24001, 1);
@@ -1262,7 +1262,7 @@ TEST (node, bootstrap_fork_open)
 }
 
 // Test that if we create a block that isn't confirmed, we sync.
-TEST (node, unconfirmed_send)
+TEST (node, DISABLED_unconfirmed_send)
 {
 	rai::system system (24000, 2);
 	auto & node0 (*system.nodes[0]);

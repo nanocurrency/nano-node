@@ -1,8 +1,9 @@
 #pragma once
 
+#include <rai/blockstore.hpp>
+#include <rai/common.hpp>
 #include <rai/node/common.hpp>
 #include <rai/node/openclwork.hpp>
-#include <rai/secure.hpp>
 
 #include <mutex>
 #include <queue>

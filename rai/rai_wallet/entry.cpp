@@ -252,14 +252,14 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 			assert (wallet->exists (config.account));
 			update_config (config, config_path, config_file);
 			node->start ();
-			rai::rpc rpc (service, *node, config.rpc);
-			if (config.rpc_enable)
+			std::unique_ptr<rai::rpc> rpc = get_rpc (service, *node, config.rpc);
+			if (rpc && config.rpc_enable)
 			{
-				rpc.start ();
+				rpc->start ();
 			}
 			rai::thread_runner runner (service, node->config.io_threads);
 			QObject::connect (&application, &QApplication::aboutToQuit, [&]() {
-				rpc.stop ();
+				rpc->stop ();
 				node->stop ();
 			});
 			application.postEvent (&processor, new rai_qt::eventloop_event ([&]() {
