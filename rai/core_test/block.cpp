@@ -326,11 +326,11 @@ TEST (block, confirm_req_serialization)
 	ASSERT_EQ (*req.block, *req2.block);
 }
 
-TEST (utx, serialization)
+TEST (state_block, serialization)
 {
 	rai::keypair key1;
 	rai::keypair key2;
-	rai::utx_block block1 (key1.pub, 1, key2.pub, 2, 4, key1.prv, key1.pub, 5);
+	rai::state_block block1 (key1.pub, 1, key2.pub, 2, 4, key1.prv, key1.pub, 5);
 	ASSERT_EQ (key1.pub, block1.hashables.account);
 	ASSERT_EQ (rai::block_hash (1), block1.previous ());
 	ASSERT_EQ (key2.pub, block1.hashables.representative);
@@ -341,10 +341,10 @@ TEST (utx, serialization)
 		rai::vectorstream stream (bytes);
 		block1.serialize (stream);
 	}
-	ASSERT_EQ (rai::utx_block::size, bytes.size ());
+	ASSERT_EQ (rai::state_block::size, bytes.size ());
 	bool error1;
 	rai::bufferstream stream (bytes.data (), bytes.size ());
-	rai::utx_block block2 (error1, stream);
+	rai::state_block block2 (error1, stream);
 	ASSERT_FALSE (error1);
 	ASSERT_EQ (block1, block2);
 	block2.hashables.account.clear ();
@@ -363,7 +363,7 @@ TEST (utx, serialization)
 	boost::property_tree::ptree tree;
 	boost::property_tree::read_json (body, tree);
 	bool error2;
-	rai::utx_block block3 (error2, tree);
+	rai::state_block block3 (error2, tree);
 	ASSERT_FALSE (error2);
 	ASSERT_EQ (block1, block3);
 	block3.hashables.account.clear ();
@@ -377,10 +377,10 @@ TEST (utx, serialization)
 	ASSERT_EQ (block1, block3);
 }
 
-TEST (utx, hashing)
+TEST (state_block, hashing)
 {
 	rai::keypair key;
-	rai::utx_block block (key.pub, 0, key.pub, 0, 0, key.prv, key.pub, 0);
+	rai::state_block block (key.pub, 0, key.pub, 0, 0, key.prv, key.pub, 0);
 	auto hash (block.hash ());
 	block.hashables.account.bytes[0] ^= 0x1;
 	ASSERT_NE (hash, block.hash ());

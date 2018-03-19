@@ -37,7 +37,7 @@ public:
 	void receive_block (rai::receive_block const &) override;
 	void open_block (rai::open_block const &) override;
 	void change_block (rai::change_block const &) override;
-	void utx_block (rai::utx_block const &) override;
+	void state_block (rai::state_block const &) override;
 	MDB_txn * transaction;
 	rai::block_store & store;
 	rai::block_hash current;
@@ -57,7 +57,7 @@ public:
 	void receive_block (rai::receive_block const &) override;
 	void open_block (rai::open_block const &) override;
 	void change_block (rai::change_block const &) override;
-	void utx_block (rai::utx_block const &) override;
+	void state_block (rai::state_block const &) override;
 	void from_send (rai::block_hash const &);
 	MDB_txn * transaction;
 	rai::block_store & store;
@@ -77,7 +77,7 @@ public:
 	void receive_block (rai::receive_block const & block_a) override;
 	void open_block (rai::open_block const & block_a) override;
 	void change_block (rai::change_block const & block_a) override;
-	void utx_block (rai::utx_block const & block_a) override;
+	void state_block (rai::state_block const & block_a) override;
 	MDB_txn * transaction;
 	rai::block_store & store;
 	rai::block_hash current;
@@ -173,7 +173,7 @@ public:
 	size_t receive;
 	size_t open;
 	size_t change;
-	size_t utx;
+	size_t state;
 };
 class vote
 {
@@ -221,7 +221,7 @@ enum class process_result
 	unreceivable, // Source block doesn't exist or has already been received
 	gap_previous, // Block marked as previous is unknown
 	gap_source, // Block marked as source is unknown
-	utx_disabled, // Awaiting UTX canary block
+	state_block_disabled, // Awaiting state block canary block
 	not_receive_from_send, // Receive does not have a send source
 	account_mismatch, // Account number in open block doesn't match send destination
 	opened_burn_account, // The impossible happened, someone found the private key associated with the public key '0'.
@@ -235,7 +235,7 @@ public:
 	rai::account account;
 	rai::amount amount;
 	rai::account pending_account;
-	boost::optional<bool> utx_is_send;
+	boost::optional<bool> state_is_send;
 };
 enum class tally_result
 {

@@ -34,26 +34,26 @@ TEST (system, generate_mass_activity_long)
 	runner.join ();
 }
 
-TEST (system, generate_mass_activity_utx_enable)
+TEST (system, generate_mass_activity_state_block_enable)
 {
 	rai::system system (24000, 1);
 	rai::thread_runner runner (system.service, system.nodes[0]->config.io_threads);
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	system.nodes[0]->alarm.add (std::chrono::steady_clock::now () + std::chrono::minutes (1), [&system]() {
-		std::cerr << boost::str (boost::format ("Enabling utx block parsing\n"));
+		std::cerr << boost::str (boost::format ("Enabling state block parsing\n"));
 		rai::transaction transaction (system.nodes[0]->store.environment, nullptr, true);
-		ASSERT_FALSE (system.nodes[0]->ledger.utx_parsing_enabled (transaction));
+		ASSERT_FALSE (system.nodes[0]->ledger.state_block_parsing_enabled (transaction));
 		rai::genesis genesis;
-		system.nodes[0]->ledger.utx_parse_canary = genesis.hash ();
-		ASSERT_TRUE (system.nodes[0]->ledger.utx_parsing_enabled (transaction));
+		system.nodes[0]->ledger.state_block_parse_canary = genesis.hash ();
+		ASSERT_TRUE (system.nodes[0]->ledger.state_block_parsing_enabled (transaction));
 	});
 	system.nodes[0]->alarm.add (std::chrono::steady_clock::now () + std::chrono::minutes (2), [&system]() {
-		std::cerr << boost::str (boost::format ("Enabling utx block generation\n"));
+		std::cerr << boost::str (boost::format ("Enabling state block generation\n"));
 		rai::transaction transaction (system.nodes[0]->store.environment, nullptr, true);
-		ASSERT_FALSE (system.nodes[0]->ledger.utx_generation_enabled (transaction));
+		ASSERT_FALSE (system.nodes[0]->ledger.state_block_generation_enabled (transaction));
 		rai::genesis genesis;
-		system.nodes[0]->ledger.utx_generate_canary = genesis.hash ();
-		ASSERT_TRUE (system.nodes[0]->ledger.utx_generation_enabled (transaction));
+		system.nodes[0]->ledger.state_block_generate_canary = genesis.hash ();
+		ASSERT_TRUE (system.nodes[0]->ledger.state_block_generation_enabled (transaction));
 	});
 	size_t count (1000000000);
 	system.generate_mass_activity (count, *system.nodes[0]);

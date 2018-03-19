@@ -518,7 +518,7 @@ public:
 		amount = 0;
 		account = block_a.hashables.representative;
 	}
-	void utx_block (rai::utx_block const & block_a)
+	void state_block (rai::state_block const & block_a)
 	{
 		auto balance (block_a.hashables.balance.number ());
 		auto previous_balance (ledger.balance (transaction, block_a.hashables.previous));

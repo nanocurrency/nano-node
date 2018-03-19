@@ -409,8 +409,8 @@ public:
 	uint16_t callback_port;
 	std::string callback_target;
 	int lmdb_max_dbs;
-	rai::block_hash utx_parse_canary;
-	rai::block_hash utx_generate_canary;
+	rai::block_hash state_block_parse_canary;
+	rai::block_hash state_block_generate_canary;
 	static std::chrono::seconds constexpr keepalive_period = std::chrono::seconds (60);
 	static std::chrono::seconds constexpr keepalive_cutoff = keepalive_period * 5;
 	static std::chrono::minutes constexpr wallet_backup_interval = std::chrono::minutes (5);

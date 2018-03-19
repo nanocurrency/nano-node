@@ -1042,7 +1042,7 @@ void rai::rpc_handler::block_count_type ()
 	response_l.put ("receive", std::to_string (count.receive));
 	response_l.put ("open", std::to_string (count.open));
 	response_l.put ("change", std::to_string (count.change));
-	response_l.put ("utx", std::to_string (count.utx));
+	response_l.put ("state", std::to_string (count.state));
 	response (response_l);
 }
 
@@ -1201,15 +1201,15 @@ void rai::rpc_handler::block_create ()
 		{
 			rai::uint256_union pub;
 			ed25519_publickey (prv.data.bytes.data (), pub.bytes.data ());
-			if (type == "utx")
+			if (type == "state")
 			{
 				if (!account.is_zero () && previous_text.is_initialized () && !representative.is_zero () && !balance.is_zero () && link_text.is_initialized ())
 				{
-					rai::utx_block utx (account, previous, representative, balance, link, prv, pub, work);
+					rai::state_block state (account, previous, representative, balance, link, prv, pub, work);
 					boost::property_tree::ptree response_l;
-					response_l.put ("hash", utx.hash ().to_string ());
+					response_l.put ("hash", state.hash ().to_string ());
 					std::string contents;
-					utx.serialize_json (contents);
+					state.serialize_json (contents);
 					response_l.put ("block", contents);
 					response (response_l);
 				}
@@ -1653,11 +1653,11 @@ public:
 			tree.put ("representative", block_a.hashables.representative.to_account ());
 		}
 	}
-	void utx_block (rai::utx_block const & block_a)
+	void state_block (rai::state_block const & block_a)
 	{
 		if (raw)
 		{
-			tree.put ("type", "utx");
+			tree.put ("type", "state");
 			tree.put ("representative", block_a.hashables.representative.to_account ());
 			tree.put ("link", block_a.hashables.link.to_string ());
 		}
@@ -2511,9 +2511,9 @@ void rai::rpc_handler::process ()
 					error_response (response, "Gap source block");
 					break;
 				}
-				case rai::process_result::utx_disabled:
+				case rai::process_result::state_block_disabled:
 				{
-					error_response (response, "UTX blocks are disabled");
+					error_response (response, "State blocks are disabled");
 					break;
 				}
 				case rai::process_result::old:

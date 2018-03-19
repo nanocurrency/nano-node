@@ -151,7 +151,7 @@ public:
 	void work_ensure (MDB_txn *, rai::account const &);
 	bool search_pending ();
 	void init_free_accounts (MDB_txn *);
-	bool should_generate_utx (MDB_txn *, rai::block_hash const &);
+	bool should_generate_state_block (MDB_txn *, rai::block_hash const &);
 	/** Changes the wallet seed and returns the first account */
 	rai::public_key change_seed (MDB_txn * transaction_a, rai::raw_key const & prv_a);
 	std::unordered_set<rai::account> free_accounts;

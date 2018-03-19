@@ -881,10 +881,10 @@ TEST (rpc, history)
 	ASSERT_NE (nullptr, receive);
 	auto node0 (system.nodes[0]);
 	rai::genesis genesis;
-	node0->ledger.utx_parse_canary = genesis.hash ();
-	rai::utx_block usend (rai::genesis_account, node0->latest (rai::genesis_account), rai::genesis_account, rai::genesis_amount - rai::Gxrb_ratio, rai::genesis_account, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
-	rai::utx_block ureceive (rai::genesis_account, usend.hash (), rai::genesis_account, rai::genesis_amount, usend.hash (), rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
-	rai::utx_block uchange (rai::genesis_account, ureceive.hash (), rai::keypair ().pub, rai::genesis_amount, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
+	node0->ledger.state_block_parse_canary = genesis.hash ();
+	rai::state_block usend (rai::genesis_account, node0->latest (rai::genesis_account), rai::genesis_account, rai::genesis_amount - rai::Gxrb_ratio, rai::genesis_account, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
+	rai::state_block ureceive (rai::genesis_account, usend.hash (), rai::genesis_account, rai::genesis_amount, usend.hash (), rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
+	rai::state_block uchange (rai::genesis_account, ureceive.hash (), rai::keypair ().pub, rai::genesis_amount, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
 	{
 		rai::transaction transaction (node0->store.environment, nullptr, true);
 		ASSERT_EQ (rai::process_result::progress, node0->ledger.process (transaction, usend).code);
@@ -2943,8 +2943,8 @@ TEST (rpc, block_count_type)
 	ASSERT_EQ ("1", open_count);
 	std::string change_count (response.json.get<std::string> ("change"));
 	ASSERT_EQ ("0", change_count);
-	std::string utx_count (response.json.get<std::string> ("utx"));
-	ASSERT_EQ ("0", utx_count);
+	std::string state_count (response.json.get<std::string> ("state"));
+	ASSERT_EQ ("0", state_count);
 }
 
 TEST (rpc, ledger)
@@ -3168,16 +3168,16 @@ TEST (rpc, block_create)
 	ASSERT_EQ (receive_hash, latest.to_string ());
 }
 
-TEST (rpc, block_create_utx)
+TEST (rpc, block_create_state)
 {
 	rai::system system (24000, 1);
 	rai::keypair key;
 	rai::genesis genesis;
-	system.nodes[0]->ledger.utx_parse_canary = genesis.hash ();
+	system.nodes[0]->ledger.state_block_parse_canary = genesis.hash ();
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	boost::property_tree::ptree request;
 	request.put ("action", "block_create");
-	request.put ("type", "utx");
+	request.put ("type", "state");
 	request.put ("wallet", system.nodes[0]->wallets.items.begin ()->first.to_string ());
 	request.put ("account", rai::test_genesis_key.pub.to_account ());
 	request.put ("previous", genesis.hash ().to_string ());
@@ -3193,31 +3193,32 @@ TEST (rpc, block_create_utx)
 		system.poll ();
 	}
 	ASSERT_EQ (200, response.status);
-	std::string utx_hash (response.json.get<std::string> ("hash"));
-	auto utx_text (response.json.get<std::string> ("block"));
-	std::stringstream block_stream (utx_text);
+	std::string state_hash (response.json.get<std::string> ("hash"));
+	auto state_text (response.json.get<std::string> ("block"));
+	std::stringstream block_stream (state_text);
 	boost::property_tree::ptree block_l;
 	boost::property_tree::read_json (block_stream, block_l);
-	auto utx_block (rai::deserialize_block_json (block_l));
-	ASSERT_NE (nullptr, utx_block);
-	ASSERT_EQ (rai::block_type::utx, utx_block->type ());
-	ASSERT_EQ (utx_hash, utx_block->hash ().to_string ());
-	auto process_result (system.nodes[0]->process (*utx_block));
+	auto state_block (rai::deserialize_block_json (block_l));
+	ASSERT_NE (nullptr, state_block);
+	ASSERT_EQ (rai::block_type::state, state_block->type ());
+	ASSERT_EQ (state_hash, state_block->hash ().to_string ());
+	auto process_result (system.nodes[0]->process (*state_block));
 	ASSERT_EQ (rai::process_result::progress, process_result.code);
 }
-TEST (rpc, block_create_utx_open)
+
+TEST (rpc, block_create_state_open)
 {
 	rai::system system (24000, 1);
 	rai::keypair key;
 	rai::genesis genesis;
-	system.nodes[0]->ledger.utx_parse_canary = genesis.hash ();
+	system.nodes[0]->ledger.state_block_parse_canary = genesis.hash ();
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	system.wallet (0)->insert_adhoc (key.prv);
 	auto send_block (system.wallet (0)->send_action (rai::test_genesis_key.pub, key.pub, rai::Gxrb_ratio));
 	ASSERT_NE (nullptr, send_block);
 	boost::property_tree::ptree request;
 	request.put ("action", "block_create");
-	request.put ("type", "utx");
+	request.put ("type", "state");
 	request.put ("wallet", system.nodes[0]->wallets.items.begin ()->first.to_string ());
 	request.put ("account", key.pub.to_account ());
 	request.put ("previous", 0);
@@ -3233,17 +3234,17 @@ TEST (rpc, block_create_utx_open)
 		system.poll ();
 	}
 	ASSERT_EQ (200, response.status);
-	std::string utx_hash (response.json.get<std::string> ("hash"));
-	auto utx_text (response.json.get<std::string> ("block"));
-	std::stringstream block_stream (utx_text);
+	std::string state_hash (response.json.get<std::string> ("hash"));
+	auto state_text (response.json.get<std::string> ("block"));
+	std::stringstream block_stream (state_text);
 	boost::property_tree::ptree block_l;
 	boost::property_tree::read_json (block_stream, block_l);
-	auto utx_block (rai::deserialize_block_json (block_l));
-	ASSERT_NE (nullptr, utx_block);
-	ASSERT_EQ (rai::block_type::utx, utx_block->type ());
-	ASSERT_EQ (utx_hash, utx_block->hash ().to_string ());
+	auto state_block (rai::deserialize_block_json (block_l));
+	ASSERT_NE (nullptr, state_block);
+	ASSERT_EQ (rai::block_type::state, state_block->type ());
+	ASSERT_EQ (state_hash, state_block->hash ().to_string ());
 	ASSERT_TRUE (system.nodes[0]->latest (key.pub).is_zero ());
-	auto process_result (system.nodes[0]->process (*utx_block));
+	auto process_result (system.nodes[0]->process (*state_block));
 	ASSERT_EQ (rai::process_result::progress, process_result.code);
 	ASSERT_FALSE (system.nodes[0]->latest (key.pub).is_zero ());
 }

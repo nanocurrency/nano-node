@@ -52,7 +52,7 @@ public:
 	{
 		add_dependency (block_a.hashables.previous);
 	}
-	void utx_block (rai::utx_block const & block_a) override
+	void state_block (rai::state_block const & block_a) override
 	{
 		if (!block_a.hashables.previous.is_zero ())
 		{
@@ -594,10 +594,10 @@ void rai::bulk_pull_client::received_type ()
 			});
 			break;
 		}
-		case rai::block_type::utx:
+		case rai::block_type::state:
 		{
 			connection->start_timeout ();
-			boost::asio::async_read (connection->socket, boost::asio::buffer (connection->receive_buffer.data () + 1, rai::utx_block::size), [this_l](boost::system::error_code const & ec, size_t size_a) {
+			boost::asio::async_read (connection->socket, boost::asio::buffer (connection->receive_buffer.data () + 1, rai::state_block::size), [this_l](boost::system::error_code const & ec, size_t size_a) {
 				this_l->connection->stop_timeout ();
 				this_l->received_block (ec, size_a);
 			});
@@ -2060,9 +2060,9 @@ void rai::bulk_push_server::received_type ()
 			});
 			break;
 		}
-		case rai::block_type::utx:
+		case rai::block_type::state:
 		{
-			boost::asio::async_read (*connection->socket, boost::asio::buffer (receive_buffer.data () + 1, rai::utx_block::size), [this_l](boost::system::error_code const & ec, size_t size_a) {
+			boost::asio::async_read (*connection->socket, boost::asio::buffer (receive_buffer.data () + 1, rai::state_block::size), [this_l](boost::system::error_code const & ec, size_t size_a) {
 				this_l->received_block (ec, size_a);
 			});
 			break;

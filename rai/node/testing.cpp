@@ -296,14 +296,14 @@ void rai::system::generate_mass_activity (uint32_t count_a, rai::node & node_a)
 			auto now (std::chrono::steady_clock::now ());
 			auto us (std::chrono::duration_cast<std::chrono::microseconds> (now - previous).count ());
 			uint64_t count (0);
-			uint64_t utx (0);
+			uint64_t state (0);
 			{
 				rai::transaction transaction (node_a.store.environment, nullptr, false);
 				auto block_counts (node_a.store.block_count (transaction));
 				count = block_counts.sum ();
-				utx = block_counts.utx;
+				state = block_counts.state;
 			}
-			std::cerr << boost::str (boost::format ("Mass activity iteration %1% us %2% us/t %3% utx: %4% old: %5%\n") % i % us % (us / 256) % utx % (count - utx));
+			std::cerr << boost::str (boost::format ("Mass activity iteration %1% us %2% us/t %3% state: %4% old: %5%\n") % i % us % (us / 256) % state % (count - state));
 			previous = now;
 		}
 		generate_activity (node_a, accounts);

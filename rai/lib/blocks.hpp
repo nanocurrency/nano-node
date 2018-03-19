@@ -37,7 +37,7 @@ enum class block_type : uint8_t
 	receive = 3,
 	open = 4,
 	change = 5,
-	utx = 6
+	state = 6
 };
 class block
 {
@@ -232,12 +232,12 @@ public:
 	rai::signature signature;
 	uint64_t work;
 };
-class utx_hashables
+class state_hashables
 {
 public:
-	utx_hashables (rai::account const &, rai::block_hash const &, rai::account const &, rai::amount const &, rai::uint256_union const &);
-	utx_hashables (bool &, rai::stream &);
-	utx_hashables (bool &, boost::property_tree::ptree const &);
+	state_hashables (rai::account const &, rai::block_hash const &, rai::account const &, rai::amount const &, rai::uint256_union const &);
+	state_hashables (bool &, rai::stream &);
+	state_hashables (bool &, boost::property_tree::ptree const &);
 	void hash (blake2b_state &) const;
 	// Account# / public key that operates this account
 	// Uses:
@@ -254,13 +254,13 @@ public:
 	// Link field contains source block_hash if receiving, destination account if sending
 	rai::uint256_union link;
 };
-class utx_block : public rai::block
+class state_block : public rai::block
 {
 public:
-	utx_block (rai::account const &, rai::block_hash const &, rai::account const &, rai::amount const &, rai::uint256_union const &, rai::raw_key const &, rai::public_key const &, uint64_t);
-	utx_block (bool &, rai::stream &);
-	utx_block (bool &, boost::property_tree::ptree const &);
-	virtual ~utx_block () = default;
+	state_block (rai::account const &, rai::block_hash const &, rai::account const &, rai::amount const &, rai::uint256_union const &, rai::raw_key const &, rai::public_key const &, uint64_t);
+	state_block (bool &, rai::stream &);
+	state_block (bool &, boost::property_tree::ptree const &);
+	virtual ~state_block () = default;
 	using rai::block::hash;
 	void hash (blake2b_state &) const override;
 	uint64_t block_work () const override;
@@ -278,10 +278,10 @@ public:
 	rai::signature block_signature () const override;
 	void signature_set (rai::uint512_union const &) override;
 	bool operator== (rai::block const &) const override;
-	bool operator== (rai::utx_block const &) const;
+	bool operator== (rai::state_block const &) const;
 	bool valid_predecessor (rai::block const &) const override;
 	static size_t constexpr size = sizeof (rai::account) + sizeof (rai::block_hash) + sizeof (rai::account) + sizeof (rai::amount) + sizeof (rai::uint256_union) + sizeof (rai::signature) + sizeof (uint64_t);
-	rai::utx_hashables hashables;
+	rai::state_hashables hashables;
 	rai::signature signature;
 	uint64_t work; // Only least 48 least significant bits are encoded
 };
@@ -292,7 +292,7 @@ public:
 	virtual void receive_block (rai::receive_block const &) = 0;
 	virtual void open_block (rai::open_block const &) = 0;
 	virtual void change_block (rai::change_block const &) = 0;
-	virtual void utx_block (rai::utx_block const &) = 0;
+	virtual void state_block (rai::state_block const &) = 0;
 	virtual ~block_visitor () = default;
 };
 std::unique_ptr<rai::block> deserialize_block (rai::stream &);

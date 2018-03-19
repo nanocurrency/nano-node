@@ -42,7 +42,7 @@ TEST (node, inactive_supply)
 	node->stop ();
 }
 
-TEST (node, utx_canaries)
+TEST (node, state_canaries)
 {
 	rai::node_init init;
 	auto service (boost::make_shared<boost::asio::io_service> ());
@@ -51,11 +51,11 @@ TEST (node, utx_canaries)
 	rai::node_config config;
 	config.logging.init (path);
 	rai::work_pool work (std::numeric_limits<unsigned>::max (), nullptr);
-	config.utx_parse_canary = 10;
-	config.utx_generate_canary = 20;
+	config.state_block_parse_canary = 10;
+	config.state_block_generate_canary = 20;
 	auto node (std::make_shared<rai::node> (init, *service, path, alarm, config, work));
-	ASSERT_EQ (rai::block_hash (10), node->ledger.utx_parse_canary);
-	ASSERT_EQ (rai::block_hash (20), node->ledger.utx_generate_canary);
+	ASSERT_EQ (rai::block_hash (10), node->ledger.state_block_parse_canary);
+	ASSERT_EQ (rai::block_hash (20), node->ledger.state_block_generate_canary);
 	node->stop ();
 }
 
@@ -512,8 +512,8 @@ TEST (node_config, serialization)
 	config1.callback_port = 10;
 	config1.callback_target = "test";
 	config1.lmdb_max_dbs = 256;
-	config1.utx_parse_canary = 10;
-	config1.utx_generate_canary = 10;
+	config1.state_block_parse_canary = 10;
+	config1.state_block_generate_canary = 10;
 	boost::property_tree::ptree tree;
 	config1.serialize_json (tree);
 	rai::logging logging2;
@@ -530,8 +530,8 @@ TEST (node_config, serialization)
 	ASSERT_NE (config2.callback_port, config1.callback_port);
 	ASSERT_NE (config2.callback_target, config1.callback_target);
 	ASSERT_NE (config2.lmdb_max_dbs, config1.lmdb_max_dbs);
-	ASSERT_NE (config2.utx_parse_canary, config1.utx_parse_canary);
-	ASSERT_NE (config2.utx_generate_canary, config1.utx_generate_canary);
+	ASSERT_NE (config2.state_block_parse_canary, config1.state_block_parse_canary);
+	ASSERT_NE (config2.state_block_generate_canary, config1.state_block_generate_canary);
 
 	bool upgraded (false);
 	config2.deserialize_json (upgraded, tree);
@@ -546,8 +546,8 @@ TEST (node_config, serialization)
 	ASSERT_EQ (config2.callback_port, config1.callback_port);
 	ASSERT_EQ (config2.callback_target, config1.callback_target);
 	ASSERT_EQ (config2.lmdb_max_dbs, config1.lmdb_max_dbs);
-	ASSERT_EQ (config2.utx_parse_canary, config1.utx_parse_canary);
-	ASSERT_EQ (config2.utx_generate_canary, config1.utx_generate_canary);
+	ASSERT_EQ (config2.state_block_parse_canary, config1.state_block_parse_canary);
+	ASSERT_EQ (config2.state_block_generate_canary, config1.state_block_generate_canary);
 }
 
 TEST (node_config, v1_v2_upgrade)

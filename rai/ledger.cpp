@@ -95,7 +95,7 @@ public:
 			ledger.store.block_info_del (transaction, hash);
 		}
 	}
-	void utx_block (rai::utx_block const & block_a) override
+	void state_block (rai::state_block const & block_a) override
 	{
 		auto hash (block_a.hash ());
 		rai::block_hash representative (0);
@@ -166,23 +166,23 @@ public:
 	void receive_block (rai::receive_block const &) override;
 	void open_block (rai::open_block const &) override;
 	void change_block (rai::change_block const &) override;
-	void utx_block (rai::utx_block const &) override;
-	void utx_block_impl (rai::utx_block const &);
+	void state_block (rai::state_block const &) override;
+	void state_block_impl (rai::state_block const &);
 	rai::ledger & ledger;
 	MDB_txn * transaction;
 	rai::process_return result;
 };
 
-void ledger_processor::utx_block (rai::utx_block const & block_a)
+void ledger_processor::state_block (rai::state_block const & block_a)
 {
-	result.code = ledger.utx_parsing_enabled (transaction) ? rai::process_result::progress : rai::process_result::utx_disabled;
+	result.code = ledger.state_block_parsing_enabled (transaction) ? rai::process_result::progress : rai::process_result::state_block_disabled;
 	if (result.code == rai::process_result::progress)
 	{
-		utx_block_impl (block_a);
+		state_block_impl (block_a);
 	}
 }
 
-void ledger_processor::utx_block_impl (rai::utx_block const & block_a)
+void ledger_processor::state_block_impl (rai::state_block const & block_a)
 {
 	auto hash (block_a.hash ());
 	auto existing (ledger.store.block_exists (transaction, hash));
@@ -250,7 +250,7 @@ void ledger_processor::utx_block_impl (rai::utx_block const & block_a)
 				}
 				if (result.code == rai::process_result::progress)
 				{
-					result.utx_is_send = is_send;
+					result.state_is_send = is_send;
 					ledger.store.block_put (transaction, hash, block_a);
 
 					if (!info.rep_block.is_zero ())
@@ -277,7 +277,7 @@ void ledger_processor::utx_block_impl (rai::utx_block const & block_a)
 					{
 						ledger.store.frontier_del (transaction, info.head);
 					}
-					// Frontier table is unnecessary for utx blocks and this also prevents old blocks from being inserted on top of utx blocks
+					// Frontier table is unnecessary for state blocks and this also prevents old blocks from being inserted on top of state blocks
 					result.account = block_a.hashables.account;
 				}
 			}
@@ -495,12 +495,12 @@ bool rai::shared_ptr_block_hash::operator() (std::shared_ptr<rai::block> const &
 	return *lhs == *rhs;
 }
 
-rai::ledger::ledger (rai::block_store & store_a, rai::uint128_t const & inactive_supply_a, rai::block_hash const & utx_parse_canary_a, rai::block_hash const & utx_generate_canary_a) :
+rai::ledger::ledger (rai::block_store & store_a, rai::uint128_t const & inactive_supply_a, rai::block_hash const & state_block_parse_canary_a, rai::block_hash const & state_block_generate_canary_a) :
 store (store_a),
 inactive_supply (inactive_supply_a),
 check_bootstrap_weights (true),
-utx_parse_canary (utx_parse_canary_a),
-utx_generate_canary (utx_generate_canary_a)
+state_block_parse_canary (state_block_parse_canary_a),
+state_block_generate_canary (state_block_generate_canary_a)
 {
 }
 
@@ -625,7 +625,7 @@ std::string rai::ledger::block_text (rai::block_hash const & hash_a)
 	return result;
 }
 
-bool rai::ledger::is_utx_send (MDB_txn * transaction_a, rai::utx_block const & block_a)
+bool rai::ledger::is_send (MDB_txn * transaction_a, rai::state_block const & block_a)
 {
 	bool result (false);
 	rai::block_hash previous (block_a.hashables.previous);
@@ -643,14 +643,14 @@ rai::block_hash rai::ledger::block_destination (MDB_txn * transaction_a, rai::bl
 {
 	rai::block_hash result (0);
 	rai::send_block const * send_block (dynamic_cast<rai::send_block const *> (&block_a));
-	rai::utx_block const * utx_block (dynamic_cast<rai::utx_block const *> (&block_a));
+	rai::state_block const * state_block (dynamic_cast<rai::state_block const *> (&block_a));
 	if (send_block != nullptr)
 	{
 		result = send_block->hashables.destination;
 	}
-	else if (utx_block != nullptr && is_utx_send (transaction_a, *utx_block))
+	else if (state_block != nullptr && is_send (transaction_a, *state_block))
 	{
-		result = utx_block->hashables.link;
+		result = state_block->hashables.link;
 	}
 	return result;
 }
@@ -660,10 +660,10 @@ rai::block_hash rai::ledger::block_source (MDB_txn * transaction_a, rai::block c
 	// If block_a.source () is nonzero, then we have our source.
 	// However, universal blocks will always return zero.
 	rai::block_hash result (block_a.source ());
-	rai::utx_block const * utx_block (dynamic_cast<rai::utx_block const *> (&block_a));
-	if (utx_block != nullptr && !is_utx_send (transaction_a, *utx_block))
+	rai::state_block const * state_block (dynamic_cast<rai::state_block const *> (&block_a));
+	if (state_block != nullptr && !is_send (transaction_a, *state_block))
 	{
-		result = utx_block->hashables.link;
+		result = state_block->hashables.link;
 	}
 	return result;
 }
@@ -714,7 +714,7 @@ rai::account rai::ledger::account (MDB_txn * transaction_a, rai::block_hash cons
 	rai::block_hash successor (1);
 	rai::block_info block_info;
 	std::unique_ptr<rai::block> block (store.block_get (transaction_a, hash));
-	while (!successor.is_zero () && block->type () != rai::block_type::utx && store.block_info_get (transaction_a, successor, block_info))
+	while (!successor.is_zero () && block->type () != rai::block_type::state && store.block_info_get (transaction_a, successor, block_info))
 	{
 		successor = store.block_successor (transaction_a, hash);
 		if (!successor.is_zero ())
@@ -723,10 +723,10 @@ rai::account rai::ledger::account (MDB_txn * transaction_a, rai::block_hash cons
 			block = store.block_get (transaction_a, hash);
 		}
 	}
-	if (block->type () == rai::block_type::utx)
+	if (block->type () == rai::block_type::state)
 	{
-		auto utx_block (dynamic_cast<rai::utx_block *> (block.get ()));
-		result = utx_block->hashables.account;
+		auto state_block (dynamic_cast<rai::state_block *> (block.get ()));
+		result = state_block->hashables.account;
 	}
 	else if (successor.is_zero ())
 	{
@@ -794,14 +794,14 @@ void rai::ledger::dump_account_chain (rai::account const & account_a)
 	}
 }
 
-bool rai::ledger::utx_parsing_enabled (MDB_txn * transaction_a)
+bool rai::ledger::state_block_parsing_enabled (MDB_txn * transaction_a)
 {
-	return store.block_exists (transaction_a, utx_parse_canary);
+	return store.block_exists (transaction_a, state_block_parse_canary);
 }
 
-bool rai::ledger::utx_generation_enabled (MDB_txn * transaction_a)
+bool rai::ledger::state_block_generation_enabled (MDB_txn * transaction_a)
 {
-	return utx_parsing_enabled (transaction_a) && store.block_exists (transaction_a, utx_generate_canary);
+	return state_block_parsing_enabled (transaction_a) && store.block_exists (transaction_a, state_block_generate_canary);
 }
 
 void rai::ledger::checksum_update (MDB_txn * transaction_a, rai::block_hash const & hash_a)
@@ -813,7 +813,7 @@ void rai::ledger::checksum_update (MDB_txn * transaction_a, rai::block_hash cons
 	store.checksum_put (transaction_a, 0, 0, value);
 }
 
-void rai::ledger::change_latest (MDB_txn * transaction_a, rai::account const & account_a, rai::block_hash const & hash_a, rai::block_hash const & rep_block_a, rai::amount const & balance_a, uint64_t block_count_a, bool is_utx)
+void rai::ledger::change_latest (MDB_txn * transaction_a, rai::account const & account_a, rai::block_hash const & hash_a, rai::block_hash const & rep_block_a, rai::amount const & balance_a, uint64_t block_count_a, bool is_state)
 {
 	rai::account_info info;
 	auto exists (!store.account_get (transaction_a, account_a, info));
@@ -834,7 +834,7 @@ void rai::ledger::change_latest (MDB_txn * transaction_a, rai::account const & a
 		info.modified = rai::seconds_since_epoch ();
 		info.block_count = block_count_a;
 		store.account_put (transaction_a, account_a, info);
-		if (!(block_count_a % store.block_info_max) && !is_utx)
+		if (!(block_count_a % store.block_info_max) && !is_state)
 		{
 			rai::block_info block_info;
 			block_info.account = account_a;

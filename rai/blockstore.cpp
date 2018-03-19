@@ -42,7 +42,7 @@ public:
 	{
 		fill_value (block_a);
 	}
-	void utx_block (rai::utx_block const & block_a) override
+	void state_block (rai::state_block const & block_a) override
 	{
 		if (!block_a.previous ().is_zero ())
 		{
@@ -263,7 +263,7 @@ checksum (0)
 		error_a |= mdb_dbi_open (transaction, "receive", MDB_CREATE, &receive_blocks) != 0;
 		error_a |= mdb_dbi_open (transaction, "open", MDB_CREATE, &open_blocks) != 0;
 		error_a |= mdb_dbi_open (transaction, "change", MDB_CREATE, &change_blocks) != 0;
-		error_a |= mdb_dbi_open (transaction, "utx", MDB_CREATE, &utx_blocks) != 0;
+		error_a |= mdb_dbi_open (transaction, "state", MDB_CREATE, &state_blocks) != 0;
 		error_a |= mdb_dbi_open (transaction, "pending", MDB_CREATE, &pending) != 0;
 		error_a |= mdb_dbi_open (transaction, "blocks_info", MDB_CREATE, &blocks_info) != 0;
 		error_a |= mdb_dbi_open (transaction, "representation", MDB_CREATE, &representation) != 0;
@@ -566,8 +566,8 @@ MDB_dbi rai::block_store::block_database (rai::block_type type_a)
 		case rai::block_type::change:
 			result = change_blocks;
 			break;
-		case rai::block_type::utx:
-			result = utx_blocks;
+		case rai::block_type::state:
+			result = state_blocks;
 			break;
 		default:
 			assert (false);
@@ -616,7 +616,7 @@ MDB_val rai::block_store::block_get_raw (MDB_txn * transaction_a, rai::block_has
 				assert (status == 0 || status == MDB_NOTFOUND);
 				if (status != 0)
 				{
-					auto status (mdb_get (transaction_a, utx_blocks, rai::mdb_val (hash_a), result));
+					auto status (mdb_get (transaction_a, state_blocks, rai::mdb_val (hash_a), result));
 					assert (status == 0 || status == MDB_NOTFOUND);
 					if (status != 0)
 					{
@@ -624,7 +624,7 @@ MDB_val rai::block_store::block_get_raw (MDB_txn * transaction_a, rai::block_has
 					}
 					else
 					{
-						type_a = rai::block_type::utx;
+						type_a = rai::block_type::state;
 					}
 				}
 				else
@@ -694,7 +694,7 @@ std::unique_ptr<rai::block> rai::block_store::block_random (MDB_txn * transactio
 				}
 				else
 				{
-					result = block_random (transaction_a, utx_blocks);
+					result = block_random (transaction_a, state_blocks);
 				}
 			}
 		}
@@ -743,7 +743,7 @@ std::unique_ptr<rai::block> rai::block_store::block_get (MDB_txn * transaction_a
 
 void rai::block_store::block_del (MDB_txn * transaction_a, rai::block_hash const & hash_a)
 {
-	auto status (mdb_del (transaction_a, utx_blocks, rai::mdb_val (hash_a), nullptr));
+	auto status (mdb_del (transaction_a, state_blocks, rai::mdb_val (hash_a), nullptr));
 	assert (status == 0 || status == MDB_NOTFOUND);
 	if (status != 0)
 	{
@@ -791,7 +791,7 @@ bool rai::block_store::block_exists (MDB_txn * transaction_a, rai::block_hash co
 				exists = status == 0;
 				if (!exists)
 				{
-					auto status (mdb_get (transaction_a, utx_blocks, rai::mdb_val (hash_a), junk));
+					auto status (mdb_get (transaction_a, state_blocks, rai::mdb_val (hash_a), junk));
 					assert (status == 0 || status == MDB_NOTFOUND);
 					exists = status == 0;
 				}
@@ -816,14 +816,14 @@ rai::block_counts rai::block_store::block_count (MDB_txn * transaction_a)
 	MDB_stat change_stats;
 	auto status4 (mdb_stat (transaction_a, change_blocks, &change_stats));
 	assert (status4 == 0);
-	MDB_stat utx_stats;
-	auto status5 (mdb_stat (transaction_a, utx_blocks, &utx_stats));
+	MDB_stat state_stats;
+	auto status5 (mdb_stat (transaction_a, state_blocks, &state_stats));
 	assert (status5 == 0);
 	result.send = send_stats.ms_entries;
 	result.receive = receive_stats.ms_entries;
 	result.open = open_stats.ms_entries;
 	result.change = change_stats.ms_entries;
-	result.utx = utx_stats.ms_entries;
+	result.state = state_stats.ms_entries;
 	return result;
 }
 

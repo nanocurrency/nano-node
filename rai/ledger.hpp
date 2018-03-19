@@ -35,7 +35,7 @@ public:
 	bool block_exists (rai::block_hash const &);
 	std::string block_text (char const *);
 	std::string block_text (rai::block_hash const &);
-	bool is_utx_send (MDB_txn *, rai::utx_block const &);
+	bool is_send (MDB_txn *, rai::state_block const &);
 	rai::block_hash block_destination (MDB_txn *, rai::block const &);
 	rai::block_hash block_source (MDB_txn *, rai::block const &);
 	rai::uint128_t supply (MDB_txn *);
@@ -45,15 +45,15 @@ public:
 	void checksum_update (MDB_txn *, rai::block_hash const &);
 	rai::checksum checksum (MDB_txn *, rai::account const &, rai::account const &);
 	void dump_account_chain (rai::account const &);
-	bool utx_parsing_enabled (MDB_txn *);
-	bool utx_generation_enabled (MDB_txn *);
+	bool state_block_parsing_enabled (MDB_txn *);
+	bool state_block_generation_enabled (MDB_txn *);
 	static rai::uint128_t const unit;
 	rai::block_store & store;
 	rai::uint128_t inactive_supply;
 	std::unordered_map<rai::account, rai::uint128_t> bootstrap_weights;
 	uint64_t bootstrap_weight_max_blocks;
 	std::atomic<bool> check_bootstrap_weights;
-	rai::block_hash utx_parse_canary;
-	rai::block_hash utx_generate_canary;
+	rai::block_hash state_block_parse_canary;
+	rai::block_hash state_block_generate_canary;
 };
 };

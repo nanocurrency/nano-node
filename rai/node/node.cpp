@@ -800,8 +800,8 @@ bootstrap_connections (4),
 bootstrap_connections_max (64),
 callback_port (0),
 lmdb_max_dbs (128),
-utx_parse_canary (0),
-utx_generate_canary (0)
+state_block_parse_canary (0),
+state_block_generate_canary (0)
 {
 	switch (rai::rai_network)
 	{
@@ -811,8 +811,8 @@ utx_generate_canary (0)
 		case rai::rai_networks::rai_beta_network:
 			preconfigured_peers.push_back ("rai-beta.raiblocks.net");
 			preconfigured_representatives.push_back (rai::account ("C93F714298E6061E549E52BB8885085319BE977B3FE8F03A1B726E9BE4BE38DE"));
-			utx_parse_canary = rai::block_hash ("5005F5283DE8D2DAB0DAC41DE9BD23640F962B4F0EA7D3128C2EA3D78D578E27");
-			utx_generate_canary = rai::block_hash ("FC18E2265FB835E8CF60E63531053A768CEDF5194263B01A5C95574944E4660D");
+			state_block_parse_canary = rai::block_hash ("5005F5283DE8D2DAB0DAC41DE9BD23640F962B4F0EA7D3128C2EA3D78D578E27");
+			state_block_generate_canary = rai::block_hash ("FC18E2265FB835E8CF60E63531053A768CEDF5194263B01A5C95574944E4660D");
 			break;
 		case rai::rai_networks::rai_live_network:
 			preconfigured_peers.push_back ("rai.raiblocks.net");
@@ -824,8 +824,8 @@ utx_generate_canary (0)
 			preconfigured_representatives.push_back (rai::account ("2399A083C600AA0572F5E36247D978FCFC840405F8D4B6D33161C0066A55F431"));
 			preconfigured_representatives.push_back (rai::account ("2298FAB7C61058E77EA554CB93EDEEDA0692CBFCC540AB213B2836B29029E23A"));
 			preconfigured_representatives.push_back (rai::account ("3FE80B4BC842E82C1C18ABFEEC47EA989E63953BC82AC411F304D13833D52A56"));
-			utx_parse_canary = rai::block_hash ("89F1C0AC4C5AD23964AB880571E3EA67FDC41BD11AB20E67F0A29CF94CD4E24A");
-			utx_generate_canary = rai::block_hash ("B6DC4D64801BEC7D81DAA086A5733D251E8CBA0E9226FD6173D97C0569EC2998");
+			state_block_parse_canary = rai::block_hash ("89F1C0AC4C5AD23964AB880571E3EA67FDC41BD11AB20E67F0A29CF94CD4E24A");
+			state_block_generate_canary = rai::block_hash ("B6DC4D64801BEC7D81DAA086A5733D251E8CBA0E9226FD6173D97C0569EC2998");
 			break;
 		default:
 			assert (false);
@@ -877,8 +877,8 @@ void rai::node_config::serialize_json (boost::property_tree::ptree & tree_a) con
 	tree_a.put ("callback_port", std::to_string (callback_port));
 	tree_a.put ("callback_target", callback_target);
 	tree_a.put ("lmdb_max_dbs", lmdb_max_dbs);
-	tree_a.put ("utx_parse_canary", utx_parse_canary.to_string ());
-	tree_a.put ("utx_generate_canary", utx_generate_canary.to_string ());
+	tree_a.put ("state_block_parse_canary", state_block_parse_canary.to_string ());
+	tree_a.put ("state_block_generate_canary", state_block_generate_canary.to_string ());
 }
 
 bool rai::node_config::upgrade_json (unsigned version, boost::property_tree::ptree & tree_a)
@@ -953,8 +953,8 @@ bool rai::node_config::upgrade_json (unsigned version, boost::property_tree::ptr
 			tree_a.put ("version", "9");
 			result = true;
 		case 9:
-			tree_a.put ("utx_parse_canary", utx_parse_canary.to_string ());
-			tree_a.put ("utx_generate_canary", utx_generate_canary.to_string ());
+			tree_a.put ("state_block_parse_canary", state_block_parse_canary.to_string ());
+			tree_a.put ("state_block_generate_canary", state_block_generate_canary.to_string ());
 			tree_a.erase ("version");
 			tree_a.put ("version", "10");
 			result = true;
@@ -1032,8 +1032,8 @@ bool rai::node_config::deserialize_json (bool & upgraded_a, boost::property_tree
 		callback_target = tree_a.get<std::string> ("callback_target");
 		auto lmdb_max_dbs_l = tree_a.get<std::string> ("lmdb_max_dbs");
 		result |= parse_port (callback_port_l, callback_port);
-		auto utx_parse_canary_l = tree_a.get<std::string> ("utx_parse_canary");
-		auto utx_generate_canary_l = tree_a.get<std::string> ("utx_generate_canary");
+		auto state_block_parse_canary_l = tree_a.get<std::string> ("state_block_parse_canary");
+		auto state_block_generate_canary_l = tree_a.get<std::string> ("state_block_generate_canary");
 		try
 		{
 			peering_port = std::stoul (peering_port_l);
@@ -1052,8 +1052,8 @@ bool rai::node_config::deserialize_json (bool & upgraded_a, boost::property_tree
 			result |= password_fanout > 1024 * 1024;
 			result |= io_threads == 0;
 			result |= work_threads == 0;
-			result |= utx_parse_canary.decode_hex (utx_parse_canary_l);
-			result |= utx_generate_canary.decode_hex (utx_generate_canary_l);
+			result |= state_block_parse_canary.decode_hex (state_block_parse_canary_l);
+			result |= state_block_generate_canary.decode_hex (state_block_generate_canary_l);
 		}
 		catch (std::logic_error const &)
 		{
@@ -1322,13 +1322,13 @@ rai::process_return rai::block_processor::process_receive_one (MDB_txn * transac
 			node.gap_cache.add (transaction_a, block_a);
 			break;
 		}
-		case rai::process_result::utx_disabled:
+		case rai::process_result::state_block_disabled:
 		{
 			if (node.config.logging.ledger_logging ())
 			{
-				BOOST_LOG (node.log) << boost::str (boost::format ("UTX blocks are disabled: %1%") % block_a->hash ().to_string ());
+				BOOST_LOG (node.log) << boost::str (boost::format ("State blocks are disabled: %1%") % block_a->hash ().to_string ());
 			}
-			node.store.unchecked_put (transaction_a, node.ledger.utx_parse_canary, block_a);
+			node.store.unchecked_put (transaction_a, node.ledger.state_block_parse_canary, block_a);
 			node.gap_cache.add (transaction_a, block_a);
 			break;
 		}
@@ -1430,7 +1430,7 @@ alarm (alarm_a),
 work (work_a),
 store (init_a.block_store_init, application_path_a / "data.ldb", config_a.lmdb_max_dbs),
 gap_cache (*this),
-ledger (store, config_a.inactive_supply.number (), config.utx_parse_canary, config.utx_generate_canary),
+ledger (store, config_a.inactive_supply.number (), config.state_block_parse_canary, config.state_block_generate_canary),
 active (*this),
 wallets (init_a.block_store_init, *this),
 network (*this, config.peering_port),
@@ -1474,9 +1474,9 @@ block_processor_thread ([this]() { this->block_processor.process_blocks (); })
 					block_a->serialize_json (block_text);
 					event.add ("block", block_text);
 					event.add ("amount", result_a.amount.to_string_dec ());
-					if (result_a.utx_is_send)
+					if (result_a.state_is_send)
 					{
-						event.add ("is_send", *result_a.utx_is_send);
+						event.add ("is_send", *result_a.state_is_send);
 					}
 					std::stringstream ostream;
 					boost::property_tree::write_json (ostream, event);
@@ -2377,7 +2377,7 @@ public:
 			}
 		}
 	}
-	void utx_block (rai::utx_block const & block_a) override
+	void state_block (rai::state_block const & block_a) override
 	{
 		scan_receivable (block_a.hashables.link);
 	}

@@ -964,7 +964,7 @@ TEST (block_store, upgrade_v9_v10)
 	ASSERT_EQ (block_info.balance.number (), rai::genesis_amount - rai::Gxrb_ratio * 31);
 }
 
-TEST (block_store, utx_block)
+TEST (block_store, state_block)
 {
 	bool error (false);
 	rai::block_store store (error, rai::unique_path ());
@@ -973,17 +973,17 @@ TEST (block_store, utx_block)
 	rai::transaction transaction (store.environment, nullptr, true);
 	genesis.initialize (transaction, store);
 	rai::keypair key1;
-	rai::utx_block block1 (1, genesis.hash (), 3, 4, 6, key1.prv, key1.pub, 7);
-	ASSERT_EQ (rai::block_type::utx, block1.type ());
+	rai::state_block block1 (1, genesis.hash (), 3, 4, 6, key1.prv, key1.pub, 7);
+	ASSERT_EQ (rai::block_type::state, block1.type ());
 	store.block_put (transaction, block1.hash (), block1);
 	ASSERT_TRUE (store.block_exists (transaction, block1.hash ()));
 	auto block2 (store.block_get (transaction, block1.hash ()));
 	ASSERT_NE (nullptr, block2);
 	ASSERT_EQ (block1, *block2);
 	auto count (store.block_count (transaction));
-	ASSERT_EQ (1, count.utx);
+	ASSERT_EQ (1, count.state);
 	store.block_del (transaction, block1.hash ());
 	ASSERT_FALSE (store.block_exists (transaction, block1.hash ()));
 	auto count2 (store.block_count (transaction));
-	ASSERT_EQ (0, count2.utx);
+	ASSERT_EQ (0, count2.state);
 }

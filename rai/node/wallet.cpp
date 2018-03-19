@@ -865,9 +865,9 @@ std::shared_ptr<rai::block> rai::wallet::receive_action (rai::block const & send
 					{
 						std::shared_ptr<rai::block> rep_block = node.ledger.store.block_get (transaction, info.rep_block);
 						assert (rep_block != nullptr);
-						if (should_generate_utx (transaction, info.head))
+						if (should_generate_state_block (transaction, info.head))
 						{
-							block.reset (new rai::utx_block (account, info.head, rep_block->representative (), info.balance.number () + pending_info.amount.number (), hash, prv, account, generate_work_a ? work_fetch (transaction, account, info.head) : 0));
+							block.reset (new rai::state_block (account, info.head, rep_block->representative (), info.balance.number () + pending_info.amount.number (), hash, prv, account, generate_work_a ? work_fetch (transaction, account, info.head) : 0));
 						}
 						else
 						{
@@ -876,9 +876,9 @@ std::shared_ptr<rai::block> rai::wallet::receive_action (rai::block const & send
 					}
 					else
 					{
-						if (node.ledger.utx_generation_enabled (transaction))
+						if (node.ledger.state_block_generation_enabled (transaction))
 						{
-							block.reset (new rai::utx_block (account, 0, representative_a, pending_info.amount, hash, prv, account, generate_work_a ? work_fetch (transaction, account, account) : 0));
+							block.reset (new rai::state_block (account, 0, representative_a, pending_info.amount, hash, prv, account, generate_work_a ? work_fetch (transaction, account, account) : 0));
 						}
 						else
 						{
@@ -940,9 +940,9 @@ std::shared_ptr<rai::block> rai::wallet::change_action (rai::account const & sou
 				rai::raw_key prv;
 				auto error2 (store.fetch (transaction, source_a, prv));
 				assert (!error2);
-				if (should_generate_utx (transaction, info.head))
+				if (should_generate_state_block (transaction, info.head))
 				{
-					block.reset (new rai::utx_block (source_a, info.head, representative_a, info.balance, 0, prv, source_a, generate_work_a ? work_fetch (transaction, source_a, info.head) : 0));
+					block.reset (new rai::state_block (source_a, info.head, representative_a, info.balance, 0, prv, source_a, generate_work_a ? work_fetch (transaction, source_a, info.head) : 0));
 				}
 				else
 				{
@@ -1017,9 +1017,9 @@ std::shared_ptr<rai::block> rai::wallet::send_action (rai::account const & sourc
 						assert (!error2);
 						std::shared_ptr<rai::block> rep_block = node.ledger.store.block_get (transaction, info.rep_block);
 						assert (rep_block != nullptr);
-						if (should_generate_utx (transaction, info.head))
+						if (should_generate_state_block (transaction, info.head))
 						{
-							block.reset (new rai::utx_block (source_a, info.head, rep_block->representative (), balance - amount_a, account_a, prv, source_a, generate_work_a ? work_fetch (transaction, source_a, info.head) : 0));
+							block.reset (new rai::state_block (source_a, info.head, rep_block->representative (), balance - amount_a, account_a, prv, source_a, generate_work_a ? work_fetch (transaction, source_a, info.head) : 0));
 						}
 						else
 						{
@@ -1052,12 +1052,12 @@ std::shared_ptr<rai::block> rai::wallet::send_action (rai::account const & sourc
 	return block;
 }
 
-bool rai::wallet::should_generate_utx (MDB_txn * transaction_a, rai::block_hash const & hash_a)
+bool rai::wallet::should_generate_state_block (MDB_txn * transaction_a, rai::block_hash const & hash_a)
 {
 	auto head (node.store.block_get (transaction_a, hash_a));
 	assert (head != nullptr);
-	auto is_utx (dynamic_cast<rai::utx_block *> (head.get ()) != nullptr);
-	return is_utx || node.ledger.utx_generation_enabled (transaction_a);
+	auto is_state (dynamic_cast<rai::state_block *> (head.get ()) != nullptr);
+	return is_state || node.ledger.state_block_generation_enabled (transaction_a);
 }
 
 bool rai::wallet::change_sync (rai::account const & source_a, rai::account const & representative_a)

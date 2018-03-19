@@ -831,7 +831,7 @@ void rai::change_block::signature_set (rai::uint512_union const & signature_a)
 	signature = signature_a;
 }
 
-rai::utx_hashables::utx_hashables (rai::account const & account_a, rai::block_hash const & previous_a, rai::account const & representative_a, rai::amount const & balance_a, rai::uint256_union const & link_a) :
+rai::state_hashables::state_hashables (rai::account const & account_a, rai::block_hash const & previous_a, rai::account const & representative_a, rai::amount const & balance_a, rai::uint256_union const & link_a) :
 account (account_a),
 previous (previous_a),
 representative (representative_a),
@@ -840,7 +840,7 @@ link (link_a)
 {
 }
 
-rai::utx_hashables::utx_hashables (bool & error_a, rai::stream & stream_a)
+rai::state_hashables::state_hashables (bool & error_a, rai::stream & stream_a)
 {
 	error_a = rai::read (stream_a, account);
 	if (!error_a)
@@ -861,7 +861,7 @@ rai::utx_hashables::utx_hashables (bool & error_a, rai::stream & stream_a)
 	}
 }
 
-rai::utx_hashables::utx_hashables (bool & error_a, boost::property_tree::ptree const & tree_a)
+rai::state_hashables::state_hashables (bool & error_a, boost::property_tree::ptree const & tree_a)
 {
 	try
 	{
@@ -894,7 +894,7 @@ rai::utx_hashables::utx_hashables (bool & error_a, boost::property_tree::ptree c
 	}
 }
 
-void rai::utx_hashables::hash (blake2b_state & hash_a) const
+void rai::state_hashables::hash (blake2b_state & hash_a) const
 {
 	blake2b_update (&hash_a, account.bytes.data (), sizeof (account.bytes));
 	blake2b_update (&hash_a, previous.bytes.data (), sizeof (previous.bytes));
@@ -903,14 +903,14 @@ void rai::utx_hashables::hash (blake2b_state & hash_a) const
 	blake2b_update (&hash_a, link.bytes.data (), sizeof (link.bytes));
 }
 
-rai::utx_block::utx_block (rai::account const & account_a, rai::block_hash const & previous_a, rai::account const & representative_a, rai::amount const & balance_a, rai::uint256_union const & link_a, rai::raw_key const & prv_a, rai::public_key const & pub_a, uint64_t work_a) :
+rai::state_block::state_block (rai::account const & account_a, rai::block_hash const & previous_a, rai::account const & representative_a, rai::amount const & balance_a, rai::uint256_union const & link_a, rai::raw_key const & prv_a, rai::public_key const & pub_a, uint64_t work_a) :
 hashables (account_a, previous_a, representative_a, balance_a, link_a),
 signature (rai::sign_message (prv_a, pub_a, hash ())),
 work (work_a)
 {
 }
 
-rai::utx_block::utx_block (bool & error_a, rai::stream & stream_a) :
+rai::state_block::state_block (bool & error_a, rai::stream & stream_a) :
 hashables (error_a, stream_a)
 {
 	if (!error_a)
@@ -923,7 +923,7 @@ hashables (error_a, stream_a)
 	}
 }
 
-rai::utx_block::utx_block (bool & error_a, boost::property_tree::ptree const & tree_a) :
+rai::state_block::state_block (bool & error_a, boost::property_tree::ptree const & tree_a) :
 hashables (error_a, tree_a)
 {
 	if (!error_a)
@@ -933,7 +933,7 @@ hashables (error_a, tree_a)
 			auto type_l (tree_a.get<std::string> ("type"));
 			auto signature_l (tree_a.get<std::string> ("signature"));
 			auto work_l (tree_a.get<std::string> ("work"));
-			error_a = type_l != "utx";
+			error_a = type_l != "state";
 			if (!error_a)
 			{
 				error_a = rai::from_string_hex (work_l, work);
@@ -950,29 +950,29 @@ hashables (error_a, tree_a)
 	}
 }
 
-void rai::utx_block::hash (blake2b_state & hash_a) const
+void rai::state_block::hash (blake2b_state & hash_a) const
 {
-	rai::uint256_union preamble (static_cast<uint64_t> (rai::block_type::utx));
+	rai::uint256_union preamble (static_cast<uint64_t> (rai::block_type::state));
 	blake2b_update (&hash_a, preamble.bytes.data (), preamble.bytes.size ());
 	hashables.hash (hash_a);
 }
 
-uint64_t rai::utx_block::block_work () const
+uint64_t rai::state_block::block_work () const
 {
 	return work;
 }
 
-void rai::utx_block::block_work_set (uint64_t work_a)
+void rai::state_block::block_work_set (uint64_t work_a)
 {
 	work = work_a;
 }
 
-rai::block_hash rai::utx_block::previous () const
+rai::block_hash rai::state_block::previous () const
 {
 	return hashables.previous;
 }
 
-void rai::utx_block::serialize (rai::stream & stream_a) const
+void rai::state_block::serialize (rai::stream & stream_a) const
 {
 	write (stream_a, hashables.account);
 	write (stream_a, hashables.previous);
@@ -983,10 +983,10 @@ void rai::utx_block::serialize (rai::stream & stream_a) const
 	write (stream_a, work);
 }
 
-void rai::utx_block::serialize_json (std::string & string_a) const
+void rai::state_block::serialize_json (std::string & string_a) const
 {
 	boost::property_tree::ptree tree;
-	tree.put ("type", "utx");
+	tree.put ("type", "state");
 	tree.put ("account", hashables.account.to_account ());
 	tree.put ("previous", hashables.previous.to_string ());
 	tree.put ("representative", representative ().to_account ());
@@ -1002,7 +1002,7 @@ void rai::utx_block::serialize_json (std::string & string_a) const
 	string_a = ostream.str ();
 }
 
-bool rai::utx_block::deserialize (rai::stream & stream_a)
+bool rai::state_block::deserialize (rai::stream & stream_a)
 {
 	auto error (read (stream_a, hashables.account));
 	if (!error)
@@ -1032,12 +1032,12 @@ bool rai::utx_block::deserialize (rai::stream & stream_a)
 	return error;
 }
 
-bool rai::utx_block::deserialize_json (boost::property_tree::ptree const & tree_a)
+bool rai::state_block::deserialize_json (boost::property_tree::ptree const & tree_a)
 {
 	auto error (false);
 	try
 	{
-		assert (tree_a.get<std::string> ("type") == "utx");
+		assert (tree_a.get<std::string> ("type") == "state");
 		auto account_l (tree_a.get<std::string> ("account"));
 		auto previous_l (tree_a.get<std::string> ("previous"));
 		auto representative_l (tree_a.get<std::string> ("representative"));
@@ -1078,19 +1078,19 @@ bool rai::utx_block::deserialize_json (boost::property_tree::ptree const & tree_
 	return error;
 }
 
-void rai::utx_block::visit (rai::block_visitor & visitor_a) const
+void rai::state_block::visit (rai::block_visitor & visitor_a) const
 {
-	visitor_a.utx_block (*this);
+	visitor_a.state_block (*this);
 }
 
-rai::block_type rai::utx_block::type () const
+rai::block_type rai::state_block::type () const
 {
-	return rai::block_type::utx;
+	return rai::block_type::state;
 }
 
-bool rai::utx_block::operator== (rai::block const & other_a) const
+bool rai::state_block::operator== (rai::block const & other_a) const
 {
-	auto other_l (dynamic_cast<rai::utx_block const *> (&other_a));
+	auto other_l (dynamic_cast<rai::state_block const *> (&other_a));
 	auto result (other_l != nullptr);
 	if (result)
 	{
@@ -1099,37 +1099,37 @@ bool rai::utx_block::operator== (rai::block const & other_a) const
 	return result;
 }
 
-bool rai::utx_block::operator== (rai::utx_block const & other_a) const
+bool rai::state_block::operator== (rai::state_block const & other_a) const
 {
 	return hashables.account == other_a.hashables.account && hashables.previous == other_a.hashables.previous && hashables.representative == other_a.hashables.representative && hashables.balance == other_a.hashables.balance && hashables.link == other_a.hashables.link && signature == other_a.signature && work == other_a.work;
 }
 
-bool rai::utx_block::valid_predecessor (rai::block const & block_a) const
+bool rai::state_block::valid_predecessor (rai::block const & block_a) const
 {
 	return true;
 }
 
-rai::block_hash rai::utx_block::source () const
+rai::block_hash rai::state_block::source () const
 {
 	return 0;
 }
 
-rai::block_hash rai::utx_block::root () const
+rai::block_hash rai::state_block::root () const
 {
 	return !hashables.previous.is_zero () ? hashables.previous : hashables.account;
 }
 
-rai::account rai::utx_block::representative () const
+rai::account rai::state_block::representative () const
 {
 	return hashables.representative;
 }
 
-rai::signature rai::utx_block::block_signature () const
+rai::signature rai::state_block::block_signature () const
 {
 	return signature;
 }
 
-void rai::utx_block::signature_set (rai::uint512_union const & signature_a)
+void rai::state_block::signature_set (rai::uint512_union const & signature_a)
 {
 	signature = signature_a;
 }
@@ -1176,10 +1176,10 @@ std::unique_ptr<rai::block> rai::deserialize_block_json (boost::property_tree::p
 				result = std::move (obj);
 			}
 		}
-		else if (type == "utx")
+		else if (type == "state")
 		{
 			bool error;
-			std::unique_ptr<rai::utx_block> obj (new rai::utx_block (error, tree_a));
+			std::unique_ptr<rai::state_block> obj (new rai::state_block (error, tree_a));
 			if (!error)
 			{
 				result = std::move (obj);
@@ -1249,10 +1249,10 @@ std::unique_ptr<rai::block> rai::deserialize_block (rai::stream & stream_a, rai:
 			}
 			break;
 		}
-		case rai::block_type::utx:
+		case rai::block_type::state:
 		{
 			bool error;
-			std::unique_ptr<rai::utx_block> obj (new rai::utx_block (error, stream_a));
+			std::unique_ptr<rai::state_block> obj (new rai::state_block (error, stream_a));
 			if (!error)
 			{
 				result = std::move (obj);
