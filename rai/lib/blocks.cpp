@@ -1,5 +1,7 @@
 #include <rai/lib/blocks.hpp>
 
+#include <boost/endian/conversion.hpp>
+
 std::string rai::to_string_hex (uint64_t value_a)
 {
 	std::stringstream stream;
@@ -919,6 +921,7 @@ hashables (error_a, stream_a)
 		if (!error_a)
 		{
 			error_a = rai::read (stream_a, work);
+			boost::endian::big_to_native_inplace (work);
 		}
 	}
 }
@@ -980,7 +983,7 @@ void rai::state_block::serialize (rai::stream & stream_a) const
 	write (stream_a, hashables.balance);
 	write (stream_a, hashables.link);
 	write (stream_a, signature);
-	write (stream_a, work);
+	write (stream_a, boost::endian::native_to_big (work));
 }
 
 void rai::state_block::serialize_json (std::string & string_a) const
@@ -1023,6 +1026,7 @@ bool rai::state_block::deserialize (rai::stream & stream_a)
 						if (!error)
 						{
 							error = read (stream_a, work);
+							boost::endian::big_to_native_inplace (work);
 						}
 					}
 				}

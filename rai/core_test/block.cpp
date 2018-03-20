@@ -341,6 +341,7 @@ TEST (state_block, serialization)
 		rai::vectorstream stream (bytes);
 		block1.serialize (stream);
 	}
+	ASSERT_EQ (0x5, bytes [215]); // Ensure work is serialized big-endian
 	ASSERT_EQ (rai::state_block::size, bytes.size ());
 	bool error1;
 	rai::bufferstream stream (bytes.data (), bytes.size ());
