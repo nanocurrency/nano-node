@@ -135,7 +135,7 @@ class bulk_pull_client : public std::enable_shared_from_this<rai::bulk_pull_clie
 public:
 	bulk_pull_client (std::shared_ptr<rai::bootstrap_client>);
 	~bulk_pull_client ();
-	void request (rai::pull_info const &);
+	void request (rai::pull_info const &, size_t);
 	void receive_block ();
 	void received_type ();
 	void received_block (boost::system::error_code const &, size_t);
@@ -143,6 +143,7 @@ public:
 	std::shared_ptr<rai::bootstrap_client> connection;
 	rai::block_hash expected;
 	rai::pull_info pull;
+	size_t size;
 };
 class bootstrap_client : public std::enable_shared_from_this<bootstrap_client>
 {

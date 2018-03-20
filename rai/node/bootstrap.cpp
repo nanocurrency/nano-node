@@ -474,7 +474,8 @@ void rai::frontier_req_client::next (MDB_txn * transaction_a)
 }
 
 rai::bulk_pull_client::bulk_pull_client (std::shared_ptr<rai::bootstrap_client> connection_a) :
-connection (connection_a)
+connection (connection_a),
+size (0)
 {
 	assert (!connection->attempt->mutex.try_lock ());
 	++connection->attempt->pulling;
@@ -500,9 +501,10 @@ rai::bulk_pull_client::~bulk_pull_client ()
 	}
 }
 
-void rai::bulk_pull_client::request (rai::pull_info const & pull_a)
+void rai::bulk_pull_client::request (rai::pull_info const & pull_a, size_t size_a)
 {
 	pull = pull_a;
+	size = size_a;
 	expected = pull_a.head;
 	rai::bulk_pull req;
 	req.start = pull_a.account;
@@ -514,11 +516,11 @@ void rai::bulk_pull_client::request (rai::pull_info const & pull_a)
 	}
 	if (connection->node->config.logging.bulk_pull_logging ())
 	{
-		BOOST_LOG (connection->node->log) << boost::str (boost::format ("Requesting account %1% from %2%. %3% accounts in queue") % req.start.to_account () % connection->endpoint % connection->attempt->pulls.size ());
+		BOOST_LOG (connection->node->log) << boost::str (boost::format ("Requesting account %1% from %2%. %3% accounts in queue") % req.start.to_account () % connection->endpoint % size_a);
 	}
 	else if (connection->node->config.logging.network_logging () && connection->attempt->account_count++ % 256 == 0)
 	{
-		BOOST_LOG (connection->node->log) << boost::str (boost::format ("Requesting account %1% from %2%. %3% accounts in queue") % req.start.to_account () % connection->endpoint % connection->attempt->pulls.size ());
+		BOOST_LOG (connection->node->log) << boost::str (boost::format ("Requesting account %1% from %2%. %3% accounts in queue") % req.start.to_account () % connection->endpoint % size_a);
 	}
 	auto this_l (shared_from_this ());
 	connection->start_timeout ();
@@ -854,11 +856,12 @@ void rai::bootstrap_attempt::request_pull (std::unique_lock<std::mutex> & lock_a
 	{
 		auto pull (pulls.front ());
 		pulls.pop_front ();
+		auto size (pulls.size ());
 		auto client (std::make_shared<rai::bulk_pull_client> (connection_l));
 		// The bulk_pull_client destructor attempt to requeue_pull which can cause a deadlock if this is the last reference
 		// Dispatch request in an external thread in case it needs to be destroyed
-		node->background ([client, pull]() {
-			client->request (pull);
+		node->background ([client, pull, size]() {
+			client->request (pull, size);
 		});
 	}
 }
@@ -1254,8 +1257,9 @@ void rai::bootstrap_attempt::requeue_pull (rai::pull_info const & pull_a)
 		if (auto connection_shared = connection_frontier_request.lock ())
 		{
 			auto client (std::make_shared<rai::bulk_pull_client> (connection_shared));
-			node->background ([client, pull]() {
-				client->request (pull);
+			auto size (pulls.size ());
+			node->background ([client, pull, size]() {
+				client->request (pull, size);
 			});
 			if (node->config.logging.bulk_pull_logging ())
 			{
