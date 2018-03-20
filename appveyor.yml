@@ -14,6 +14,19 @@ install:
 
     cmake -DRAIBLOCKS_GUI=ON -DQt5_DIR=C:\Qt\5.9.4\msvc2015_64\lib\cmake\Qt5 -DRAIBLOCKS_SIMD_OPTIMIZATIONS=TRUE -DBOOST_INCLUDEDIR=C:/Libraries/boost_1_66_0 -DBOOST_LIBRARYDIR=C:/Libraries/boost_1_66_0/lib64-msvc-14.0 -G "Visual Studio 14 2015 Win64" -DIPHLPAPI_LIBRARY="C:/Program Files (x86)/Windows Kits/10/Lib/10.0.14393.0/um/x64/iphlpapi.lib" -DWINSOCK2_LIBRARY="C:/Program Files (x86)/Windows Kits/10/Lib/10.0.14393.0/um/x64/WS2_32.lib" -DGIT_COMMIT=%APPVEYOR_REPO_COMMIT%
 
+- ps: >-
+    $size_t=select-string -path ".\bootstrap_weights.cpp" -Pattern "rai_bootstrap_weights_size"| foreach {$_.Line}
+    
+    $old_size_t = "extern const size_t rai_bootstrap_weights_size;"
+    
+    $char=select-string -path ".\bootstrap_weights.cpp" -Pattern "char rai_bootstrap_weights"| foreach {$_.Line}
+    
+    $old_char = [regex]::Escape("extern const char rai_bootstrap_weights[];") 
+    
+    select-string -path ".\rai\node\node.cpp" -Pattern $old_size_t -SimpleMatch | %{$curpath=$_.path; (get-content $curpath -Raw) -replace $old_char, $char| Out-File $curpath}
+    
+    select-string -path ".\rai\node\node.cpp" -Pattern $old_size_t -SimpleMatch | %{$curpath=$_.path; (get-content $curpath -Raw) -replace $old_size_t, $size_t| Out-File $curpath}
+
 build:
   parallel: true  
   project: nano_wallet.vcxproj
