@@ -7,6 +7,14 @@
 #include <rai/lib/numbers.hpp>
 #include <rai/lib/work.hpp>
 
+TEST (interface, xrb_uint128_to_dec)
+{
+	rai::uint128_union zero (0);
+	char text[40] = { 0 };
+	xrb_uint128_to_dec (zero.bytes.data (), text);
+	ASSERT_STREQ ("0", text);
+}
+
 TEST (interface, xrb_uint256_to_string)
 {
 	rai::uint256_union zero (0);
@@ -29,6 +37,14 @@ TEST (interface, xrb_uint512_to_string)
 	char text[129] = { 0 };
 	xrb_uint512_to_string (zero.bytes.data (), text);
 	ASSERT_STREQ ("00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000", text);
+}
+
+TEST (interface, xrb_uint128_from_dec)
+{
+	rai::uint128_union zero (0);
+	ASSERT_EQ (0, xrb_uint128_from_dec ("340282366920938463463374607431768211455", zero.bytes.data ()));
+	ASSERT_EQ (1, xrb_uint128_from_dec ("340282366920938463463374607431768211456", zero.bytes.data ()));
+	ASSERT_EQ (1, xrb_uint128_from_dec ("3402823669209384634633%4607431768211455", zero.bytes.data ()));
 }
 
 TEST (interface, xrb_uint256_from_string)

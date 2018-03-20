@@ -37,6 +37,14 @@ TEST (uint128_union, decode_dec_leading_zero)
 	ASSERT_TRUE (error);
 }
 
+TEST (uint128_union, decode_dec_overflow)
+{
+	rai::uint128_union value;
+	std::string text ("340282366920938463463374607431768211456");
+	auto error (value.decode_dec (text));
+	ASSERT_TRUE (error);
+}
+
 struct test_punct : std::moneypunct<char>
 {
 	pattern do_pos_format () const

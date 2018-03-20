@@ -562,11 +562,12 @@ bool rai::uint128_union::decode_dec (std::string const & text)
 	{
 		std::stringstream stream (text);
 		stream << std::dec << std::noshowbase;
-		rai::uint128_t number_l;
+		boost::multiprecision::checked_uint128_t number_l;
 		try
 		{
 			stream >> number_l;
-			*this = number_l;
+			rai::uint128_t unchecked (number_l);
+			*this = unchecked;
 			if (!stream.eof ())
 			{
 				error = true;
