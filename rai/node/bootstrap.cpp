@@ -1121,6 +1121,11 @@ void rai::bootstrap_attempt::populate_connections ()
 				// This is ~1.5kilobits/sec.
 				if (elapsed_sec > bootstrap_minimum_termination_time_sec && blocks_per_sec < bootstrap_minimum_blocks_per_sec)
 				{
+					if (node->config.logging.bulk_pull_logging ())
+					{
+						BOOST_LOG (node->log) << boost::str (boost::format ("Stopping slow peer %1% (elapsed sec %2%s > %3%s and %4% blocks per second < %5%)") % client->endpoint.address ().to_string () % elapsed_sec % bootstrap_minimum_termination_time_sec % blocks_per_sec % bootstrap_minimum_blocks_per_sec);
+					}
+
 					client->stop (true);
 				}
 			}
@@ -1135,9 +1140,21 @@ void rai::bootstrap_attempt::populate_connections ()
 	{
 		// 4 -> 1, 8 -> 2, 16 -> 4, arbitrary, but seems to work well.
 		auto drop = (int)roundf (sqrtf ((float)target - 2.0f));
+
+		if (node->config.logging.bulk_pull_logging ())
+		{
+			BOOST_LOG (node->log) << boost::str (boost::format ("Dropping %1% bulk pull peers, target connections %2%") % drop % target);
+		}
+
 		for (int i = 0; i < drop; i++)
 		{
 			auto client = sorted_connections.top ();
+
+			if (node->config.logging.bulk_pull_logging ())
+			{
+				BOOST_LOG (node->log) << boost::str (boost::format ("Dropping peer with block rate %1%, block count %2% (%3%) ") % client->block_rate () % client->block_count % client->endpoint.address ().to_string ());
+			}
+
 			client->stop (false);
 			sorted_connections.pop ();
 		}
