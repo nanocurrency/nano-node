@@ -2946,7 +2946,7 @@ bool rai::election::vote (std::shared_ptr<rai::vote> vote_a)
 		}
 		if (should_process)
 		{
-			last_votes.insert (std::make_pair (vote_a->account, std::make_pair (std::chrono::steady_clock::now (), vote_a->sequence)));
+			last_votes[vote_a->account] = std::make_pair (std::chrono::steady_clock::now (), vote_a->sequence);
 			node.network.republish_vote (vote_a);
 			votes.vote (vote_a);
 			confirm_if_quorum (transaction);
