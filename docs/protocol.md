@@ -29,10 +29,10 @@ The following different types of values are used in the protocol:
     - The 256-bit hash of a block  
     - The hash is computed from a set of "hashables": fields in a block that are hashed
       with the Blake2b hashing function
-    - Unless noted other the hashables for a block are the block-specific fields
+    - Unless noted otherwise the hashables for a block are the block-specific fields
       listed in the table with each block description. They are to be hashed in the
       order they are listed.
-    - The block hash is used (a.o.) to make references among blocks
+    - The block hash is used (amongst other things) to make references among blocks
     - Encoded as a sequence of 32 bytes
   * Balance / Amount
     - A 128-bit unsigned integer
@@ -44,8 +44,11 @@ The following different types of values are used in the protocol:
       - A 512-bit Ed25519 signature
       - Encoded as a sequence of 64 bytes
   * Work
-      - A 64-bit Proof-of-Work value
-      - Encoded as a *big-endian* unsigned integer
+      - A 64-bit unsigned integer Proof-of-Work value
+      - Encoding depends on the type of block: *big-endian* for a State block,
+        *little-endian* for other types of blocks
+
+In general, integer values of up to 8 bytes are encoded as little-endian.
 
 The Ed25519 implementation in Nano does not use the standard
 SHA-512 hashing algorithm, but Blake2b. See [here](https://github.com/nanocurrency/raiblocks/wiki/Design-features)
@@ -198,10 +201,37 @@ The different block types are denoted by a Type value (see `enum class block_typ
   | Change     | 5     |
   | State      | 6     |
 
+## Transfer of funds
+
+For each block in an account's chain a balance value can be determined, either from
+a value stored in the block itself or by using differences between successive
+blocks in the chain. Differences in balance values between successive blocks
+can be used to compute the amount of funds transferred by blocks to other
+accounts.
+
+Only Send and State blocks contain an explicit Balance value. For other block
+types balances and amounts needs to be deducted recursively:
+
+* The balance of an Open block is equal to the amount being sent by the corresponding
+  Send block. An exception to this is the Open block for the Genesis account, which always
+  receives the maximum supply of 2<sup>128</sup>-1 raw.
+* The balance of a Receive block is the balance of its predecessor in the
+  account chain plus the amount sent by the corresponding Send block.
+* The amount of funds being sent by a Send block is defined implicitly as
+  the difference between the balance at the previous block in the account chain
+  and the balance at the Send block. This amount must be > 0.
+* A Change block has no influence on an account's balance, so its balance is
+  the same as the balance of its predecessor.
+
+All State blocks contain a Balance value, hence determining amounts sent or
+received from one State block to the next is straightforward.
 
 ## Send block
 
 Reference: `rai::send_block` in `rai/lib/blocks.cpp`
+
+A Send block transfers funds from the account the block belongs to to a
+different account.
 
 A Send block contains the following block-specific fields:
 
@@ -214,6 +244,8 @@ A Send block contains the following block-specific fields:
 Note that the Balance value in the block is the balance of the sending
 account *after the amount sent in the block has been deducted*.
 
+XXX is it valid to send to yourself?
+
 ## Receive block
 
 Reference: `rai::receive_block` in `rai/lib/blocks.cpp`
@@ -225,7 +257,7 @@ A Receive block contains the following block-specific fields:
   | Previous      | 32    | Hash of the previous block in the account chain |
   | Source        | 32    | Hash of the corresponding send block from which the funds are sent |
 
-The block referenced by Previous must be a Send block.
+The block referenced by Source must be a Send block.
 
 ## Open block
 
@@ -242,13 +274,18 @@ An Open block contains the following block-specific fields:
   | Representative | 32    | The account representative for the newly opened account |
   | Account        | 32    | The account being opened |
 
-The block referenced by Previous must be a Send block.
+The block referenced by Source must be a Send block.
+
+An exception to the previous remark applies to the Open block of the Genesis
+account: its Source value is the public key of the Genesis account. The Open
+blocks for the 3 different networks are defined by the `..._genesis_data` JSON
+blocks in `rai/common.cpp`.
 
 ## Change block
 
 Reference: `rai::change_block` in `rai/lib/blocks.cpp`
 
-A Change block sets a new representative for an account
+A Change block sets a new representative for an account.
 
 A Change block contains the following block-specific fields:
 
@@ -261,26 +298,36 @@ A Change block contains the following block-specific fields:
 
 Reference: `rai::state_block` in `rai/lib/blocks.cpp`
 
+State blocks are a relatively new addition to the protocol and are set to
+replace all other block types for newly created transactions.
+
+State blocks differ slightly in certain respects to the other block types:
+
+* The Work value is stored as big-endian
+
+State blocks also contain more fields than other block types:
+
   | Field          | Size (bytes) | Description |
   | -------------  | ----- | ----------------------------------------------- |
   | Account        | 32    | The account to which the block belongs |
   | Previous       | 32    | Hash of the previous block in the account chain |
   | Representative | 32    | The account representative for the account |
   | Balance        | 32    | The balance of the account at the block's position in the chain |
-  | Link           | 32    | If receiving: source block *hash*, if sending: destination *account* |
+  | Link           | 32    | If receiving: source *block hash*, if sending: destination *account* |
 
-The difference between two sequential State blocks determines the type of
-state transition from the first block to the next:
+The difference between two sequential State blocks in an account chain
+determines the type of state transition from one block to the next:
 
   - If the Representative value has changed then a new representative is set
     for the account
-  - If the current Balance > previous Balance then the block represent a receive of funds
-  - If the current Balance < previous Balance then the block represent a sending of funds
+  - If the current Balance > previous Balance then the block represents a receive of funds.
+    The Link field holds the hash of the corresponding source block in this case.
+  - If the current Balance < previous Balance then the block represents a sending of funds.
+    The Link field holds the destination account in this case.
 
-XXX how are open blocks replaced by state blocks? By setting Link to the sending
-block of the other account?
+Performing both a transfer of funds and updating the representative in the same block is allowed.
 
-XXX are 0 amount sends allowed?
+The opening a new account is signaled by setting Previous to all-zero. The Link field contains the sending block in this case.
 
-The Work value for a State block only contains the 48 least significant bits? 
-(as mentioned in `class state_block` in `rai/lib/blocks.hpp`).
+Sending a zero amount is not valid, but receiving a zero amount from the Burn
+account (when Link is all-zero) is.
