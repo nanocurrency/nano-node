@@ -32,7 +32,7 @@ The following different types of values are used in the protocol:
     - Unless noted otherwise the hashables for a block are the block-specific fields
       listed in the table with each block description. They are to be hashed in the
       order they are listed.
-    - The block hash is used (amongst other things) to make references among blocks
+    - The block hash is used (amongst other things) to make references between blocks
     - Encoded as a sequence of 32 bytes
   * Balance / Amount
     - A 128-bit unsigned integer
@@ -88,7 +88,7 @@ the message is sent:
   | ----- | ------- | ----------- |
   | `RA`  | Testing | Internal testing network used for development |
   | `RB`  | Beta    | Beta network used for development |
-  | `RC`  | Live    | Live network, where real transaction in Nano are performed |
+  | `RC`  | Live    | Live network, where real transactions in Nano are performed |
 
 Each of these 3 networks has their own genesis account, block and amount. Blocks
 intended for one network will not be accepted on another network, as they will
@@ -212,16 +212,16 @@ accounts.
 Only Send and State blocks contain an explicit Balance value. For other block
 types balances and amounts needs to be deducted recursively:
 
-* The balance of an Open block is equal to the amount being sent by the corresponding
+* The balance for an Open block is equal to the amount being sent by the corresponding
   Send block. An exception to this is the Open block for the Genesis account, which always
   receives the maximum supply of 2<sup>128</sup>-1 raw.
-* The balance of a Receive block is the balance of its predecessor in the
+* The balance for a Receive block is the balance of its predecessor in the
   account chain plus the amount sent by the corresponding Send block.
 * The amount of funds being sent by a Send block is defined implicitly as
   the difference between the balance at the previous block in the account chain
   and the balance at the Send block. This amount must be > 0.
 * A Change block has no influence on an account's balance, so its balance is
-  the same as the balance of its predecessor.
+  equal to the balance of its predecessor.
 
 All State blocks contain a Balance value, hence determining amounts sent or
 received from one State block to the next is straightforward.
