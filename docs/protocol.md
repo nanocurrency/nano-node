@@ -71,14 +71,14 @@ All UDP messages have a fixed-size header (see `rai::message::read_header()` in 
 
   | Field         | Size (bytes)  | Description |
   | ------------- | ------------- | ----------- |
-  | Magic         | 2             | Magic number to indicate this is a Nano packet |
+  | Magic         | 2             | Magic string to indicate this is a Nano packet |
   | VersionMax    | 1             | Maximum protocol version the node that sent the packet can understand |
   | VersionUsing  | 1             | Protocol version the packet uses |
   | VersionMin    | 1             | Minimum protocol version the node that sent the packet can understand |
   | Type          | 1             | Message type |
   | Extensions    | 2             | 16-bit (little-endian) value that indicates possible extensions, optionally contains a block type  |
 
-The 2-byte magic number has a value that depends on the type of Nano network on which
+The 2-byte magic string has a value that depends on the type of Nano network on which
 the message is sent:
 
   | Value | Network | Description |
@@ -183,7 +183,10 @@ the block-specific fields:
 
 The "hashables" of a block are the set of field values that are fed into
 the Blake2b hashing algorithm in order to get a hash value for the block.
-This hash value is then signed with the public key of the account that generated the block.
+This hash value is then signed with the public key of the account that generated the block
+and stored in the Signature field.
+
+XXX Work value
 
 The different block types are denoted by a Type value (see `enum class block_type` in `rai/lib/blocks.hpp`):
 
@@ -193,7 +196,7 @@ The different block types are denoted by a Type value (see `enum class block_typ
   | Receive    | 3     |
   | Open       | 4     |
   | Change     | 5     |
-  | UTX/State  | 6     |
+  | State      | 6     |
 
 
 ## Send block
@@ -222,7 +225,7 @@ A Receive block contains the following block-specific fields:
   | Previous      | 32    | Hash of the previous block in the account chain |
   | Source        | 32    | Hash of the corresponding send block from which the funds are sent |
 
-The block hash denoted by Previous must reference a Send block.
+The block referenced by Previous must be a Send block.
 
 ## Open block
 
@@ -239,7 +242,7 @@ An Open block contains the following block-specific fields:
   | Representative | 32    | The account representative for the newly opened account |
   | Account        | 32    | The account being opened |
 
-The block hash denoted by Previous must reference a Send block.
+The block referenced by Previous must be a Send block.
 
 ## Change block
 
@@ -279,4 +282,5 @@ block of the other account?
 
 XXX are 0 amount sends allowed?
 
-The Work value for a State block only contains the 48 least significant bits?
+The Work value for a State block only contains the 48 least significant bits? 
+(as mentioned in `class state_block` in `rai/lib/blocks.hpp`).
