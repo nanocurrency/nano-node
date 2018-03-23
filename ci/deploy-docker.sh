@@ -1,5 +1,5 @@
 #!/bin/bash
-set -eu
+set -e
 
 scripts="$(dirname "$0")"
 
@@ -9,10 +9,10 @@ docker login -u nanocurrency -p "$DOCKER_PASSWORD"
 "$scripts"/custom-timeout.sh 30 docker push nanocurrency/nano-ci
 
 tags=()
-if [ -n "$TRAVIS_BRANCH" ]; then
-    tags+=("$TRAVIS_BRANCH")
-elif [ -n "$TRAVIS_TAG" ]; then
+if [ -n "$TRAVIS_TAG" ]; then
     tags+=("$TRAVIS_TAG" latest)
+elif [ -n "$TRAVIS_BRANCH" ]; then
+    tags+=("$TRAVIS_BRANCH")
 fi
 
 for network in live beta; do
