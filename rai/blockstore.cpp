@@ -544,7 +544,6 @@ void rai::block_store::representation_add (MDB_txn * transaction_a, rai::block_h
 	auto source_block (block_get (transaction_a, source_a));
 	assert (source_block != nullptr);
 	auto source_rep (source_block->representative ());
-	assert (!source_rep.is_zero ());
 	auto source_previous (representation_get (transaction_a, source_rep));
 	representation_put (transaction_a, source_rep, source_previous + amount_a);
 }
