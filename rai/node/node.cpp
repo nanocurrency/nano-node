@@ -2176,27 +2176,27 @@ public:
 											}
 											else
 											{
-												BOOST_LOG (this_l->node->log) << boost::str (boost::format ("Work peer %1% responded with an error %2%") % connection->address % connection->port);
+												BOOST_LOG (this_l->node->log) << boost::str (boost::format ("Work peer responded with an error %1% %2%: %3%") % connection->address % connection->port % connection->response.result ());
 												this_l->failure (connection->address);
 											}
 										}
 										else
 										{
-											BOOST_LOG (this_l->node->log) << boost::str (boost::format ("Unable to read from work_peer %1% %2%") % connection->address % connection->port);
+											BOOST_LOG (this_l->node->log) << boost::str (boost::format ("Unable to read from work_peer %1% %2%: %3% (%4%)") % connection->address % connection->port % ec.message () % ec.value ());
 											this_l->failure (connection->address);
 										}
 									});
 								}
 								else
 								{
-									BOOST_LOG (this_l->node->log) << boost::str (boost::format ("Unable to write to work_peer %1% %2%") % connection->address % connection->port);
+									BOOST_LOG (this_l->node->log) << boost::str (boost::format ("Unable to write to work_peer %1% %2%: %3% (%4%)") % connection->address % connection->port % ec.message () % ec.value ());
 									this_l->failure (connection->address);
 								}
 							});
 						}
 						else
 						{
-							BOOST_LOG (this_l->node->log) << boost::str (boost::format ("Unable to connect to work_peer %1% %2%") % connection->address % connection->port);
+							BOOST_LOG (this_l->node->log) << boost::str (boost::format ("Unable to connect to work_peer %1% %2%: %3% (%4%)") % connection->address % connection->port % ec.message () % ec.value ());
 							this_l->failure (connection->address);
 						}
 					});
