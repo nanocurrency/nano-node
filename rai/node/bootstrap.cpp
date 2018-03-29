@@ -988,7 +988,7 @@ void rai::bootstrap_attempt::process_fork (MDB_txn * transaction_a, std::shared_
 void rai::bootstrap_attempt::try_resolve_fork (MDB_txn * transaction_a, std::shared_ptr<rai::block> block_a, bool from_processor)
 {
 	std::weak_ptr<rai::bootstrap_attempt> this_w (shared_from_this ());
-	if (!node->store.block_exists (transaction_a, block_a->hash ()) && node->store.block_exists (transaction_a, block_a->root ()))
+	if (!node->store.block_exists(transaction_a, block_a->hash()) && (node->store.block_exists(transaction_a, block_a->root()) || node->store.account_exists(transaction_a, block_a->root())))
 	{
 		std::shared_ptr<rai::block> ledger_block (node->ledger.forked_block (transaction_a, *block_a));
 		if (ledger_block)
