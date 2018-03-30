@@ -1311,7 +1311,7 @@ rai::public_key rai::wallet::change_seed (MDB_txn * transaction_a, rai::raw_key 
 			count = i;
 			// i + 64 - Check additional 64 accounts
 			// i/64 - Check additional accounts for large wallets. I.e. 64000/64 = 1000 accounts to check
-			n = i + 64 + (i/64);
+			n = i + 64 + (i / 64);
 		}
 	}
 	for (uint32_t i (0); i < count; ++i)
