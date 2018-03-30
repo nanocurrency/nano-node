@@ -1316,7 +1316,8 @@ rai::public_key rai::wallet::change_seed (MDB_txn * transaction_a, rai::raw_key 
 	}
 	for (uint32_t i (0); i < count; ++i)
 	{
-		account = deterministic_insert (transaction_a);
+		// Generate work for first 4 accounts only to prevent weak CPU nodes stuck
+		account = deterministic_insert (transaction_a, i < 4);
 	}
 
 	return account;
