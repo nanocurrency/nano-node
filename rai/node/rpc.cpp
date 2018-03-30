@@ -722,7 +722,7 @@ void rai::rpc_handler::accounts_create ()
 				auto existing (node.wallets.items.find (wallet));
 				if (existing != node.wallets.items.end ())
 				{
-					const bool generate_work = request.get<bool> ("work", true);
+					const bool generate_work = request.get<bool> ("work", false);
 					boost::property_tree::ptree response_l;
 					boost::property_tree::ptree accounts;
 					for (auto i (0); accounts.size () < count; ++i)
