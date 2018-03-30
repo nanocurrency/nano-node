@@ -1299,8 +1299,8 @@ rai::public_key rai::wallet::change_seed (MDB_txn * transaction_a, rai::raw_key 
 {
 	store.seed_set (transaction_a, prv_a);
 	auto account = deterministic_insert (transaction_a);
-	auto count (0);
-	for (uint32_t i (1), n (32); i < n; ++i)
+	uint32_t count (0);
+	for (uint32_t i (1), n (64); i < n; ++i)
 	{
 		rai::raw_key prv;
 		store.deterministic_key (prv, transaction_a, i);
@@ -1309,7 +1309,9 @@ rai::public_key rai::wallet::change_seed (MDB_txn * transaction_a, rai::raw_key 
 		if (!latest.is_zero ())
 		{
 			count = i;
-			n = i + 32;
+			// i + 64 - Check additional 64 accounts
+			// i/64 - Check additional accounts for large wallets. I.e. 64000/64 = 1000 accounts to check
+			n = i + 64 + (i/64);
 		}
 	}
 	for (uint32_t i (0); i < count; ++i)
