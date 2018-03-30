@@ -463,7 +463,7 @@ void ledger_processor::open_block (rai::open_block const & block_a)
 							assert (!error);
 							ledger.store.pending_del (transaction, key);
 							ledger.store.block_put (transaction, hash, block_a);
-							ledger.change_latest (transaction, block_a.hashables.account, hash, hash, pending.amount.number (), info.block_count + 1);
+							ledger.change_latest (transaction, block_a.hashables.account, hash, hash, pending.amount.number (), 1);
 							ledger.store.representation_add (transaction, hash, pending.amount.number ());
 							ledger.store.frontier_put (transaction, hash, block_a.hashables.account);
 							result.account = block_a.hashables.account;
