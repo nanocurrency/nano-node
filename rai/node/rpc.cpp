@@ -3646,7 +3646,7 @@ void rai::rpc_handler::wallet_deterministic_check ()
 						// Create new accounts if found existing in ledger deterministic accounts or pending blocks to deterministic accounts
 						for (uint64_t i (0); i < found_count; ++i)
 						{
-							rai::account account (wallet->deterministic_insert (transaction));
+							rai::account account (wallet->deterministic_insert (transaction, false));
 							boost::property_tree::ptree entry;
 							entry.put ("", account.to_account ());
 							accounts.push_back (std::make_pair ("", entry));
