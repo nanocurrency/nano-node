@@ -153,7 +153,9 @@ TEST (wallet, spend_all_one)
 	rai::account_info info2;
 	{
 		rai::transaction transaction (system.nodes[0]->store.environment, nullptr, false);
-		system.nodes[0]->store.account_get (transaction, rai::test_genesis_key.pub, info2);
+		auto info (system.nodes[0]->store.account_get (transaction, rai::test_genesis_key.pub));
+		ASSERT_TRUE (info.has_value ());
+		info2 = *info;
 		ASSERT_NE (latest1, info2.head);
 		auto block (system.nodes[0]->store.block_get (transaction, info2.head));
 		ASSERT_NE (nullptr, block);
@@ -195,7 +197,11 @@ TEST (wallet, spend)
 	rai::account_info info2;
 	{
 		rai::transaction transaction (system.nodes[0]->store.environment, nullptr, false);
-		system.nodes[0]->store.account_get (transaction, rai::test_genesis_key.pub, info2);
+		auto info (system.nodes[0]->store.account_get (transaction, rai::test_genesis_key.pub));
+		if (info)
+		{
+			info2 = *info;
+		}
 		ASSERT_NE (latest1, info2.head);
 		auto block (system.nodes[0]->store.block_get (transaction, info2.head));
 		ASSERT_NE (nullptr, block);
@@ -233,8 +239,8 @@ TEST (wallet, spend_no_previous)
 	{
 		system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 		rai::transaction transaction (system.nodes[0]->store.environment, nullptr, false);
-		rai::account_info info1;
-		ASSERT_FALSE (system.nodes[0]->store.account_get (transaction, rai::test_genesis_key.pub, info1));
+		auto info1 (system.nodes[0]->store.account_get (transaction, rai::test_genesis_key.pub));
+		ASSERT_TRUE (info1.has_value ());
 		for (auto i (0); i < 50; ++i)
 		{
 			rai::keypair key;

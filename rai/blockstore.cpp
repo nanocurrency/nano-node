@@ -52,6 +52,41 @@ public:
 	MDB_txn * transaction;
 	rai::block_store & store;
 };
+
+/** Block store errors */
+struct blockstore_error_category : std::error_category
+{
+	const char * name () const noexcept override
+	{
+		return "block_store";
+	}
+
+	std::string message (int ev) const override
+	{
+		// Typesafe exchaustive switch
+		switch (static_cast<rai::block_store::error> (ev))
+		{
+			case rai::block_store::error::unknown:
+				return "Unknown error";
+			case rai::block_store::error::missing_account:
+				return "Missing account";
+			case rai::block_store::error::account_exists:
+				return "Account already exists";
+			case rai::block_store::error::database:
+				return "Database error";
+			case rai::block_store::error::deserialize:
+				return "Deserialization error";
+				// TODO: more error codes
+		}
+	}
+};
+
+} // anonymous namespace
+
+std::error_code rai::make_error_code (rai::block_store::error er)
+{
+	static blockstore_error_category error_category{};
+	return { static_cast<int> (er), error_category };
 }
 
 rai::store_entry::store_entry () :
@@ -838,23 +873,31 @@ bool rai::block_store::account_exists (MDB_txn * transaction_a, rai::account con
 	return iterator != rai::store_iterator (nullptr) && rai::account (iterator->first.uint256 ()) == account_a;
 }
 
-bool rai::block_store::account_get (MDB_txn * transaction_a, rai::account const & account_a, rai::account_info & info_a)
+auto rai::block_store::account_get (MDB_txn * transaction_a, rai::account const & account_a) -> expected<rai::account_info, std::error_code>
 {
+	expected<rai::account_info, std::error_code> res;
+	rai::account_info info_a;
 	rai::mdb_val value;
 	auto status (mdb_get (transaction_a, accounts, rai::mdb_val (account_a), value));
 	assert (status == 0 || status == MDB_NOTFOUND);
-	bool result;
 	if (status == MDB_NOTFOUND)
 	{
-		result = true;
+		res = make_unexpected (make_error_code (error::missing_account));
 	}
 	else
 	{
 		rai::bufferstream stream (reinterpret_cast<uint8_t const *> (value.data ()), value.size ());
-		result = info_a.deserialize (stream);
-		assert (!result);
+		if (info_a.deserialize (stream))
+		{
+			res = make_unexpected (make_error_code (error::deserialize));
+		}
+		else
+		{
+			res = info_a;
+		}
 	}
-	return result;
+
+	return res;
 }
 
 void rai::block_store::frontier_put (MDB_txn * transaction_a, rai::block_hash const & block_a, rai::account const & account_a)
