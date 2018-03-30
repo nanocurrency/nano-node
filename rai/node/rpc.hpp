@@ -5,12 +5,37 @@
 #include <boost/beast.hpp>
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
+#include <rai/lib/errors.hpp>
 #include <rai/node/utility.hpp>
 #include <unordered_map>
 
 namespace rai
 {
+/**
+ * Respond with the error message
+ * @deprecated Use check_error (ptree, error_code) instead
+ */
 void error_response (std::function<void(boost::property_tree::ptree const &)> response_a, std::string const & message_a);
+
+/**
+ * Checks if there's an error code and, if so, responds with the corresponding error code's message.
+ * @returns true if there was an error
+ */
+bool check_error (std::function<void(boost::property_tree::ptree const &)> response_a, std::error_code ec);
+
+/** RPC handler errors */
+enum class error_rpc
+{
+	generic = 1,
+	bad_threshold_number,
+	control_disabled,
+	invalid_count_limit,
+	invalid_offset,
+	invalid_sources_number,
+	invalid_starting_account,
+	invalid_destinations_number
+};
+
 class node;
 /** Configuration options for RPC TLS */
 class rpc_secure_config
@@ -225,3 +250,5 @@ public:
 /** Returns the correct RPC implementation based on TLS configuration */
 std::unique_ptr<rai::rpc> get_rpc (boost::asio::io_service & service_a, rai::node & node_a, rai::rpc_config const & config_a);
 }
+
+REGISTER_ERROR_CODES (error_rpc)
