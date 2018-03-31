@@ -13,7 +13,9 @@
 #define MDB_RDONLY 0x20000
 #define MDB_NOTLS 0x200000
 
-#define MDB_NOTFOUND -30798
+#define MDB_NOTFOUND 1 // from RocksDB
+#define MDB_BAD_TXN 0x80
+#define MDB_CORRUPTED 0x81
 
 struct MDB_env;
 
