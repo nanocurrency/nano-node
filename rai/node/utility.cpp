@@ -2,7 +2,7 @@
 #include <rai/node/utility.hpp>
 #include <rai/node/working.hpp>
 
-#include <lmdb/libraries/liblmdb/lmdb.h>
+#include <rocksdb-lmdb-wrapper/lmdb.h>
 
 #include <ed25519-donna/ed25519.h>
 
