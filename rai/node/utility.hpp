@@ -12,7 +12,7 @@
 
 #include <cryptopp/osrng.h>
 
-#include <lmdb/libraries/liblmdb/lmdb.h>
+#include <rocksdb-lmdb-wrapper/lmdb.h>
 
 #include <rai/config.hpp>
 #include <rai/lib/interface.h>
