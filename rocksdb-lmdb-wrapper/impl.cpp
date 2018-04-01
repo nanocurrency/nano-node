@@ -1,5 +1,11 @@
 #include <mutex>
 
+#define DEBUG_ROCKSDB_WRAPPER
+
+#ifdef DEBUG_ROCKSDB_WRAPPER
+#include <iostream>
+#endif
+
 #include <boost/endian/conversion.hpp>
 #include <boost/optional.hpp>
 
@@ -207,6 +213,9 @@ int mdb_dbi_open (MDB_txn * txn, const char * name, unsigned int flags, MDB_dbi 
 		dbi_bytes[0] = dbi_buf[0];
 		dbi_bytes[1] = dbi_buf[1];
 	}
+#ifdef DEBUG_ROCKSDB_WRAPPER
+	std::cerr << "Assigning DBI: \"" << name << "\" = " << std::dec << *dbi << std::endl;
+#endif
 	return result;
 }
 
@@ -235,6 +244,19 @@ int mdb_get (MDB_txn * txn, MDB_dbi dbi, MDB_val * key, MDB_val * value)
 
 int mdb_put (MDB_txn * txn, MDB_dbi dbi, MDB_val * key, MDB_val * value, unsigned int flags)
 {
+#ifdef DEBUG_ROCKSDB_WRAPPER
+	std::cerr << "mdb_put (" << std::dec << dbi << ") ";
+	for (size_t i = 0; i < key->mv_size; ++i)
+	{
+		std::cerr << std::hex << (uint16_t)(((const uint8_t *)key->mv_data)[i]);
+	}
+	std::cerr << ": ";
+	for (size_t i = 0; i < value->mv_size; ++i)
+	{
+		std::cerr << std::hex << (uint16_t)(((const uint8_t *)value->mv_data)[i]);
+	}
+	std::cerr << std::dec << std::endl;
+#endif
 	int result (0);
 	if (!txn->write_txn)
 	{
@@ -290,77 +312,71 @@ int mdb_cursor_open (MDB_txn * txn, MDB_dbi dbi, MDB_cursor ** cursor)
 int mdb_cursor_get (MDB_cursor * cursor, MDB_val * key, MDB_val * value, MDB_cursor_op op)
 {
 	int result (0);
-	bool seeked (false);
+	bool args_output (false);
 	switch (op)
 	{
 		case MDB_GET_CURRENT:
-		{
-			if (!cursor->it->Valid ())
-			{
-				result = MDB_NOTFOUND;
-			}
-			else if (!cursor->it->status ().ok ())
-			{
-				result = cursor->it->status ().code ();
-			}
-			else
-			{
-				Slice key_slice (cursor->it->key ());
-				if (key_slice.size () < 2)
-				{
-					result = MDB_CORRUPTED;
-				}
-				else
-				{
-					key->mv_size = key_slice.size () - 2;
-					key->mv_data = malloc (key->mv_size);
-					std::memcpy (key->mv_data, key_slice.data () + 2, key->mv_size);
-					Slice value_slice (cursor->it->value ());
-					value->mv_size = value_slice.size ();
-					value->mv_data = malloc (value->mv_size);
-					std::memcpy (value->mv_data, value_slice.data (), value->mv_size);
-				}
-			}
+			args_output = true;
 			break;
-		}
 		case MDB_FIRST:
 			cursor->it->Seek (Slice ((const char *)&cursor->dbi, sizeof (cursor->dbi)));
-			seeked = true;
+			args_output = true;
 			break;
 		case MDB_SET_RANGE:
 		{
 			std::vector<uint8_t> ns_key (namespace_key (key, cursor->dbi));
 			cursor->it->Seek (Slice ((const char *)ns_key.data (), ns_key.size ()));
-			seeked = true;
 			break;
 		}
 		case MDB_NEXT:
-			if (cursor->it->Valid ())
-			{
-				cursor->it->Next ();
-			}
-			else
+			if (!cursor->it->Valid ())
 			{
 				result = MDB_NOTFOUND;
 			}
-			seeked = true;
+			else
+			{
+				cursor->it->Next ();
+			}
+			args_output = true;
 			break;
 		case MDB_NEXT_DUP:
 			result = MDB_NOTFOUND;
 			break;
 	}
-	if (seeked && !result)
+	if (!result)
 	{
-		Slice key (cursor->it->key ());
-		if (key.size () < 2)
+		if (!cursor->it->Valid ())
 		{
-			result = MDB_CORRUPTED;
+			result = MDB_NOTFOUND;
 		}
 		else
 		{
-			if (*((uint16_t *)key.data ()) != cursor->dbi)
+			Slice key_slice (cursor->it->key ());
+#ifdef DEBUG_ROCKSDB_WRAPPER
+			std::cerr << "Iterator over " << std::dec << cursor->dbi << " at ";
+			for (size_t i = 0; i < key_slice.size (); ++i)
+			{
+				std::cerr << std::hex << (uint16_t)key_slice[i];
+			}
+			std::cerr << std::dec << std::endl;
+#endif
+			if (key_slice.size () < 2)
+			{
+				result = MDB_CORRUPTED;
+			}
+			if (*((uint16_t *)key_slice.data ()) != cursor->dbi)
 			{
 				result = MDB_NOTFOUND;
+			}
+			if (!result && args_output)
+			{
+				key->mv_size = key_slice.size () - 2;
+				key->mv_data = malloc (key->mv_size);
+				std::memcpy (key->mv_data, key_slice.data () + 2, key->mv_size);
+				Slice value_slice (cursor->it->value ());
+				value->mv_size = value_slice.size ();
+				value->mv_data = malloc (value->mv_size);
+				std::memcpy (value->mv_data, value_slice.data (), value->mv_size);
 			}
 		}
 	}
