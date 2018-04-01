@@ -42,6 +42,7 @@ public:
 	explicit operator rai::pending_info () const;
 	explicit operator rai::pending_key () const;
 	explicit operator rai::uint256_union () const;
+	explicit operator rai::vote () const;
 	operator MDB_val * () const;
 	operator MDB_val const & () const;
 	MDB_val value;

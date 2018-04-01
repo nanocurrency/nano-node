@@ -683,12 +683,6 @@ account (account_a)
 	signature = rai::sign_message (prv_a, account_a, hash ());
 }
 
-rai::vote::vote (MDB_val const & value_a)
-{
-	rai::bufferstream stream (reinterpret_cast<uint8_t const *> (value_a.mv_data), value_a.mv_size);
-	assert (!deserialize (stream));
-}
-
 std::string rai::vote::hashes_string () const
 {
 	std::string result;
