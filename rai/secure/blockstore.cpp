@@ -1264,7 +1264,7 @@ void rai::block_store::account_put (MDB_txn * transaction_a, rai::account const 
 			db = accounts_v1;
 			break;
 	}
-	auto status (mdb_put (transaction_a, db, rai::mdb_val (account_a), info_a.val (), 0));
+	auto status (mdb_put (transaction_a, db, rai::mdb_val (account_a), rai::mdb_val (info_a), 0));
 	assert (status == 0);
 }
 
@@ -1283,7 +1283,7 @@ void rai::block_store::pending_put (MDB_txn * transaction_a, rai::pending_key co
 			db = pending_v1;
 			break;
 	}
-	auto status (mdb_put (transaction_a, db, key_a.val (), pending_a.val (), 0));
+	auto status (mdb_put (transaction_a, db, key_a.val (), rai::mdb_val(pending_a), 0));
 	assert (status == 0);
 }
 

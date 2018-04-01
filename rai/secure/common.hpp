@@ -146,7 +146,6 @@ public:
 	void serialize (rai::stream &) const;
 	bool deserialize (rai::stream &);
 	bool operator== (rai::pending_info const &) const;
-	rai::mdb_val val () const;
 	rai::account source;
 	rai::amount amount;
 	rai::epoch epoch;
