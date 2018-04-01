@@ -1,7 +1,5 @@
 #include <mutex>
 
-#define DEBUG_ROCKSDB_WRAPPER
-
 #ifdef DEBUG_ROCKSDB_WRAPPER
 #include <iostream>
 #endif
@@ -364,7 +362,7 @@ int mdb_cursor_get (MDB_cursor * cursor, MDB_val * key, MDB_val * value, MDB_cur
 			{
 				result = MDB_CORRUPTED;
 			}
-			if (*((uint16_t *)key_slice.data ()) != cursor->dbi)
+			else if (*((uint16_t *)key_slice.data ()) != cursor->dbi)
 			{
 				result = MDB_NOTFOUND;
 			}
@@ -408,8 +406,34 @@ void mdb_cursor_close (MDB_cursor * cursor)
 	delete cursor->it;
 }
 
-int mdb_stat (MDB_txn *, MDB_dbi, MDB_stat * stat)
+int mdb_stat (MDB_txn * txn, MDB_dbi dbi, MDB_stat * stat)
 {
-	stat->ms_entries = 1; // TODO
+	// TODO this is slow
+	int result (0);
+	Iterator * it;
+	if (txn->write_txn)
+	{
+		it = txn->write_txn->GetIterator (txn->read_opts);
+	}
+	else
+	{
+		it = txn->db->NewIterator (txn->read_opts);
+	}
+	stat->ms_entries = 0;
+	it->Seek (Slice ((const char *)&dbi, sizeof (dbi)));
+	while (it->Valid ())
+	{
+		Slice key (it->key ());
+		if (key.size () < 2)
+		{
+			result = MDB_CORRUPTED;
+		}
+		else if (*((uint16_t *)key.data ()) != dbi)
+		{
+			break;
+		}
+		++stat->ms_entries;
+		it->Next ();
+	}
 	return 0;
 }
