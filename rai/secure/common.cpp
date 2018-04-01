@@ -230,11 +230,6 @@ size_t rai::account_info::db_size () const
 	return sizeof (head) + sizeof (rep_block) + sizeof (open_block) + sizeof (balance) + sizeof (modified) + sizeof (block_count);
 }
 
-rai::mdb_val rai::account_info::val () const
-{
-	return rai::mdb_val (db_size (), const_cast<rai::account_info *> (this));
-}
-
 rai::block_counts::block_counts () :
 send (0),
 receive (0),
