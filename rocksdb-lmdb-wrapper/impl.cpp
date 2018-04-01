@@ -165,7 +165,7 @@ int mdb_dbi_open (MDB_txn * txn, const char * name, unsigned int flags, MDB_dbi 
 		Slice next_dbi_key (Slice ((const char *)&NEXT_DBI_KEY, sizeof (NEXT_DBI_KEY)));
 		std::string next_dbi_buf;
 		result = txn_get (txn, next_dbi_key, &next_dbi_buf).code ();
-		if (!result && dbi_buf.size () != 2)
+		if (!result && next_dbi_buf.size () != 2)
 		{
 			result = MDB_CORRUPTED;
 		}
@@ -271,9 +271,16 @@ int mdb_cursor_open (MDB_txn * txn, MDB_dbi dbi, MDB_cursor ** cursor)
 	int result = 0;
 	*cursor = new MDB_cursor ();
 	(*cursor)->dbi = dbi;
-	(*cursor)->it = txn->db->NewIterator (txn->read_opts);
+	if (txn->write_txn)
+	{
+		(*cursor)->it = txn->write_txn->GetIterator (txn->read_opts);
+	}
+	else
+	{
+		(*cursor)->it = txn->db->NewIterator (txn->read_opts);
+	}
 	(*cursor)->write_txn = txn->write_txn;
-	return (*cursor)->it != nullptr;
+	return ((*cursor)->it == nullptr) ? MDB_PANIC : 0;
 }
 
 int mdb_cursor_get (MDB_cursor * cursor, MDB_val * key, MDB_val * value, MDB_cursor_op op)
