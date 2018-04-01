@@ -25,11 +25,12 @@ int mdb_env_create (MDB_env ** env)
 	*env = new MDB_env ();
 	(*env)->db = nullptr;
 	(*env)->txn_db = nullptr;
+	return 0;
 }
 
 int mdb_env_set_maxdbs (MDB_env *, unsigned int dbs)
 {
-	return dbs >= (1 >> 15);
+	return dbs >= (1 << 15);
 }
 
 int mdb_env_set_mapsize (MDB_env *, size_t size)
