@@ -134,6 +134,11 @@ mdb_val (val_a.db_size (), const_cast<rai::account_info *> (&val_a))
 {
 }
 
+rai::mdb_val::mdb_val (rai::pending_info const & val_a) :
+rai::mdb_val (sizeof (val_a.source) + sizeof (val_a.amount), const_cast<rai::pending_info *> (&val_a))
+{
+}
+
 void * rai::mdb_val::data () const
 {
 	return value.mv_data;

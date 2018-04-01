@@ -1856,7 +1856,7 @@ void rai_qt::advanced_actions::refresh_ledger ()
 	for (auto i (wallet.node.ledger.store.latest_begin (transaction)), j (wallet.node.ledger.store.latest_end ()); i != j; ++i)
 	{
 		QList<QStandardItem *> items;
-		items.push_back (new QStandardItem (QString (rai::block_hash (i->first.uint256 ()).to_account ().c_str ())));
+		items.push_back (new QStandardItem (QString (rai::block_hash (i->first).to_account ().c_str ())));
 		rai::account_info info (i->second);
 		std::string balance;
 		rai::amount (info.balance.number () / wallet.rendering_ratio).encode_dec (balance);

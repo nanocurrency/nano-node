@@ -114,6 +114,7 @@ public:
 };
 
 class account_info;
+class pending_info;
 /**
  * Tag for which epoch an entry belongs to
  */
@@ -137,6 +138,7 @@ public:
 	mdb_val (rai::uint128_union const &);
 	mdb_val (rai::uint256_union const &);
 	mdb_val (rai::account_info const &);
+	mdb_val (rai::pending_info const &);
 	void * data () const;
 	size_t size () const;
 	explicit operator rai::uint256_union () const;
