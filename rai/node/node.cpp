@@ -31,6 +31,7 @@ std::chrono::minutes constexpr rai::node::backup_interval;
 int constexpr rai::port_mapping::mapping_timeout;
 int constexpr rai::port_mapping::check_timeout;
 unsigned constexpr rai::active_transactions::announce_interval_ms;
+unsigned constexpr rai::active_transactions::election_history_size;
 
 rai::message_statistics::message_statistics () :
 keepalive (0),
@@ -412,67 +413,70 @@ void rai::network::receive_action (boost::system::error_code const & error, size
 	{
 		if (!rai::reserved_address (remote) && remote != endpoint ())
 		{
-			network_message_visitor visitor (node, remote);
-			rai::message_parser parser (visitor, node.work);
-			parser.deserialize_buffer (buffer.data (), size_a);
-			if (parser.status != rai::message_parser::parse_status::success)
+			if (!packet_filter || !packet_filter (buffer.data (), size_a))
 			{
-				++error_count;
+				network_message_visitor visitor (node, remote);
+				rai::message_parser parser (visitor, node.work);
+				parser.deserialize_buffer (buffer.data (), size_a);
+				if (parser.status != rai::message_parser::parse_status::success)
+				{
+					++error_count;
 
-				if (parser.status == rai::message_parser::parse_status::insufficient_work)
-				{
-					if (node.config.logging.insufficient_work_logging ())
+					if (parser.status == rai::message_parser::parse_status::insufficient_work)
 					{
-						BOOST_LOG (node.log) << "Insufficient work in message";
-					}
+						if (node.config.logging.insufficient_work_logging ())
+						{
+							BOOST_LOG (node.log) << "Insufficient work in message";
+						}
 
-					++insufficient_work_count;
-				}
-				else if (parser.status == rai::message_parser::parse_status::invalid_message_type)
-				{
-					if (node.config.logging.network_logging ())
-					{
-						BOOST_LOG (node.log) << "Invalid message type in message";
+						++insufficient_work_count;
 					}
-				}
-				else if (parser.status == rai::message_parser::parse_status::invalid_header)
-				{
-					if (node.config.logging.network_logging ())
+					else if (parser.status == rai::message_parser::parse_status::invalid_message_type)
 					{
-						BOOST_LOG (node.log) << "Invalid header in message";
+						if (node.config.logging.network_logging ())
+						{
+							BOOST_LOG (node.log) << "Invalid message type in message";
+						}
 					}
-				}
-				else if (parser.status == rai::message_parser::parse_status::invalid_keepalive_message)
-				{
-					if (node.config.logging.network_logging ())
+					else if (parser.status == rai::message_parser::parse_status::invalid_header)
 					{
-						BOOST_LOG (node.log) << "Invalid keepalive message";
+						if (node.config.logging.network_logging ())
+						{
+							BOOST_LOG (node.log) << "Invalid header in message";
+						}
 					}
-				}
-				else if (parser.status == rai::message_parser::parse_status::invalid_publish_message)
-				{
-					if (node.config.logging.network_logging ())
+					else if (parser.status == rai::message_parser::parse_status::invalid_keepalive_message)
 					{
-						BOOST_LOG (node.log) << "Invalid publish message";
+						if (node.config.logging.network_logging ())
+						{
+							BOOST_LOG (node.log) << "Invalid keepalive message";
+						}
 					}
-				}
-				else if (parser.status == rai::message_parser::parse_status::invalid_confirm_req_message)
-				{
-					if (node.config.logging.network_logging ())
+					else if (parser.status == rai::message_parser::parse_status::invalid_publish_message)
 					{
-						BOOST_LOG (node.log) << "Invalid confirm_req message";
+						if (node.config.logging.network_logging ())
+						{
+							BOOST_LOG (node.log) << "Invalid publish message";
+						}
 					}
-				}
-				else if (parser.status == rai::message_parser::parse_status::invalid_confirm_ack_message)
-				{
-					if (node.config.logging.network_logging ())
+					else if (parser.status == rai::message_parser::parse_status::invalid_confirm_req_message)
 					{
-						BOOST_LOG (node.log) << "Invalid confirm_ack message";
+						if (node.config.logging.network_logging ())
+						{
+							BOOST_LOG (node.log) << "Invalid confirm_req message";
+						}
 					}
-				}
-				else
-				{
-					BOOST_LOG (node.log) << "Could not deserialize buffer";
+					else if (parser.status == rai::message_parser::parse_status::invalid_confirm_ack_message)
+					{
+						if (node.config.logging.network_logging ())
+						{
+							BOOST_LOG (node.log) << "Invalid confirm_ack message";
+						}
+					}
+					else
+					{
+						BOOST_LOG (node.log) << "Could not deserialize buffer";
+					}
 				}
 			}
 		}
@@ -801,7 +805,9 @@ bootstrap_connections_max (64),
 callback_port (0),
 lmdb_max_dbs (128),
 state_block_parse_canary (0),
-state_block_generate_canary (0)
+state_block_generate_canary (0),
+vote_callback_min_rep_percent (1.0),
+confirmation_rep_percent (60.0)
 {
 	switch (rai::rai_network)
 	{
@@ -835,7 +841,7 @@ state_block_generate_canary (0)
 
 void rai::node_config::serialize_json (boost::property_tree::ptree & tree_a) const
 {
-	tree_a.put ("version", "10");
+	tree_a.put ("version", "11");
 	tree_a.put ("peering_port", std::to_string (peering_port));
 	tree_a.put ("bootstrap_fraction_numerator", std::to_string (bootstrap_fraction_numerator));
 	tree_a.put ("receive_minimum", receive_minimum.to_string_dec ());
@@ -875,10 +881,17 @@ void rai::node_config::serialize_json (boost::property_tree::ptree & tree_a) con
 	tree_a.put ("bootstrap_connections_max", bootstrap_connections_max);
 	tree_a.put ("callback_address", callback_address);
 	tree_a.put ("callback_port", std::to_string (callback_port));
-	tree_a.put ("callback_target", callback_target);
 	tree_a.put ("lmdb_max_dbs", lmdb_max_dbs);
 	tree_a.put ("state_block_parse_canary", state_block_parse_canary.to_string ());
 	tree_a.put ("state_block_generate_canary", state_block_generate_canary.to_string ());
+	boost::property_tree::ptree callback_targets_l;
+	for (auto it : callback_targets)
+	{
+		callback_targets_l.put (it.first, it.second);
+	}
+	tree_a.add_child ("callback_targets", callback_targets_l);
+	tree_a.put ("vote_callback_min_rep_percent", vote_callback_min_rep_percent);
+	tree_a.put ("confirmation_rep_percent", confirmation_rep_percent);
 }
 
 bool rai::node_config::upgrade_json (unsigned version, boost::property_tree::ptree & tree_a)
@@ -959,6 +972,25 @@ bool rai::node_config::upgrade_json (unsigned version, boost::property_tree::ptr
 			tree_a.put ("version", "10");
 			result = true;
 		case 10:
+		{
+			std::string callback_target (tree_a.get<std::string> ("callback_target"));
+			boost::property_tree::ptree callback_target_map = tree_a.get_child ("callback_targets", boost::property_tree::ptree ());
+			if (!callback_target.empty ())
+			{
+				if (callback_target_map.get ("block_confirmed", "").empty ())
+				{
+					callback_target_map.put ("block_confirmed", callback_target);
+				}
+			}
+			tree_a.erase ("callback_target");
+			tree_a.add_child ("callback_targets", callback_target_map);
+			tree_a.put ("vote_callback_min_rep_percent", "1");
+			tree_a.put ("confirmation_rep_percent", "60");
+			tree_a.erase ("version");
+			tree_a.put ("version", "11");
+			result = true;
+		}
+		case 11:
 			break;
 		default:
 			throw std::runtime_error ("Unknown node_config version");
@@ -1029,8 +1061,13 @@ bool rai::node_config::deserialize_json (bool & upgraded_a, boost::property_tree
 		auto bootstrap_connections_max_l (tree_a.get<std::string> ("bootstrap_connections_max"));
 		callback_address = tree_a.get<std::string> ("callback_address");
 		auto callback_port_l (tree_a.get<std::string> ("callback_port"));
-		callback_target = tree_a.get<std::string> ("callback_target");
 		auto lmdb_max_dbs_l = tree_a.get<std::string> ("lmdb_max_dbs");
+		for (auto it : tree_a.get_child ("callback_targets"))
+		{
+			callback_targets.insert (std::make_pair (it.first, it.second.get<std::string> ("")));
+		}
+		vote_callback_min_rep_percent = tree_a.get<double> ("vote_callback_min_rep_percent");
+		confirmation_rep_percent = tree_a.get<double> ("confirmation_rep_percent");
 		result |= parse_port (callback_port_l, callback_port);
 		auto state_block_parse_canary_l = tree_a.get<std::string> ("state_block_parse_canary");
 		auto state_block_generate_canary_l = tree_a.get<std::string> ("state_block_generate_canary");
@@ -1217,14 +1254,20 @@ void rai::block_processor::process_blocks ()
 	}
 }
 
-void rai::block_processor::process_receive_many (rai::block_processor_item const & item_a)
+void rai::block_processor::process_receive_many (rai::block_processor_item const & item_a, std::function<void(rai::account, rai::amount)> const & callback)
 {
 	std::deque<rai::block_processor_item> blocks_processing;
 	blocks_processing.push_back (item_a);
-	process_receive_many (blocks_processing);
+	std::shared_ptr<rai::block> item_block (item_a.block);
+	process_receive_many (blocks_processing, [item_block, callback](std::shared_ptr<rai::block> block, rai::account account, rai::amount amount) {
+		if (item_block == block)
+		{
+			callback (account, amount);
+		}
+	});
 }
 
-void rai::block_processor::process_receive_many (std::deque<rai::block_processor_item> & blocks_processing)
+void rai::block_processor::process_receive_many (std::deque<rai::block_processor_item> & blocks_processing, std::function<void(std::shared_ptr<rai::block>, rai::account, rai::amount)> const & callback)
 {
 	while (!blocks_processing.empty ())
 	{
@@ -1273,6 +1316,7 @@ void rai::block_processor::process_receive_many (std::deque<rai::block_processor
 		}
 		for (auto & i : progress)
 		{
+			callback (i.first, i.second.account, i.second.amount);
 			node.observers.blocks (i.first, i.second);
 			if (i.second.amount > 0)
 			{
@@ -1418,6 +1462,97 @@ rai::process_return rai::block_processor::process_receive_one (MDB_txn * transac
 	return result;
 }
 
+namespace
+{
+void trigger_callback (std::shared_ptr<rai::node> node_a, const char * callback_type_a, const boost::property_tree::ptree event)
+{
+	std::stringstream ostream;
+	boost::property_tree::write_json (ostream, event);
+	ostream.flush ();
+	auto body (std::make_shared<std::string> (ostream.str ()));
+	auto address (node_a->config.callback_address);
+	auto port (node_a->config.callback_port);
+	auto target (std::make_shared<std::string> (node_a->config.callback_targets[callback_type_a]));
+	if (target->empty ())
+		return;
+	auto resolver (std::make_shared<boost::asio::ip::tcp::resolver> (node_a->service));
+	resolver->async_resolve (boost::asio::ip::tcp::resolver::query (address, std::to_string (port)), [node_a, address, port, target, body, resolver](boost::system::error_code const & ec, boost::asio::ip::tcp::resolver::iterator i_a) {
+		if (!ec)
+		{
+			for (auto i (i_a), n (boost::asio::ip::tcp::resolver::iterator{}); i != n; ++i)
+			{
+				auto sock (std::make_shared<boost::asio::ip::tcp::socket> (node_a->service));
+				sock->async_connect (i->endpoint (), [node_a, target, body, sock, address, port](boost::system::error_code const & ec) {
+					if (!ec)
+					{
+						auto req (std::make_shared<boost::beast::http::request<boost::beast::http::string_body>> ());
+						req->method (boost::beast::http::verb::post);
+						req->target (*target);
+						req->version (11);
+						req->insert (boost::beast::http::field::host, address);
+						req->insert (boost::beast::http::field::content_type, "application/json");
+						req->body () = *body;
+						//req->prepare (*req);
+						//boost::beast::http::prepare(req);
+						req->prepare_payload ();
+						boost::beast::http::async_write (*sock, *req, [node_a, sock, address, port, req](boost::system::error_code const & ec, size_t bytes_transferred) {
+							if (!ec)
+							{
+								auto sb (std::make_shared<boost::beast::flat_buffer> ());
+								auto resp (std::make_shared<boost::beast::http::response<boost::beast::http::string_body>> ());
+								boost::beast::http::async_read (*sock, *sb, *resp, [node_a, sb, resp, sock, address, port](boost::system::error_code const & ec, size_t bytes_transferred) {
+									if (!ec)
+									{
+										if (resp->result () == boost::beast::http::status::ok)
+										{
+										}
+										else
+										{
+											if (node_a->config.logging.callback_logging ())
+											{
+												BOOST_LOG (node_a->log) << boost::str (boost::format ("Callback to %1%:%2% failed with status: %3%") % address % port % resp->result ());
+											}
+										}
+									}
+									else
+									{
+										if (node_a->config.logging.callback_logging ())
+										{
+											BOOST_LOG (node_a->log) << boost::str (boost::format ("Unable complete callback: %1%:%2% %3%") % address % port % ec.message ());
+										}
+									};
+								});
+							}
+							else
+							{
+								if (node_a->config.logging.callback_logging ())
+								{
+									BOOST_LOG (node_a->log) << boost::str (boost::format ("Unable to send callback: %1%:%2% %3%") % address % port % ec.message ());
+								}
+							}
+						});
+					}
+					else
+					{
+						if (node_a->config.logging.callback_logging ())
+						{
+							BOOST_LOG (node_a->log) << boost::str (boost::format ("Unable to connect to callback address: %1%:%2%, %3%") % address % port % ec.message ());
+						}
+					}
+				});
+			}
+		}
+		else
+		{
+			if (node_a->config.logging.callback_logging ())
+			{
+				BOOST_LOG (node_a->log) << boost::str (boost::format ("Error resolving callback: %1%:%2%, %3%") % address % port % ec.message ());
+			}
+		}
+	});
+}
+}
+
 rai::node::node (rai::node_init & init_a, boost::asio::io_service & service_a, uint16_t peering_port_a, boost::filesystem::path const & application_path_a, rai::alarm & alarm_a, rai::logging const & logging_a, rai::work_pool & work_a) :
 node (init_a, service_a, application_path_a, alarm_a, rai::node_config (peering_port_a, logging_a), work_a)
 {
@@ -1432,6 +1567,7 @@ store (init_a.block_store_init, application_path_a / "data.ldb", config_a.lmdb_m
 gap_cache (*this),
 ledger (store, config_a.inactive_supply.number (), config.state_block_parse_canary, config.state_block_generate_canary),
 active (*this),
+online_reps (*this),
 wallets (init_a.block_store_init, *this),
 network (*this, config.peering_port),
 bootstrap_initiator (*this),
@@ -1457,7 +1593,7 @@ block_processor_thread ([this]() { this->block_processor.process_blocks (); })
 		if (this->block_arrival.recent (block_a->hash ()))
 		{
 			rai::transaction transaction (store.environment, nullptr, true);
-			active.start (transaction, block_a);
+			active.start (transaction, block_a, std::make_pair (result_a.account, result_a.amount));
 		}
 	});
 	observers.blocks.add ([this](std::shared_ptr<rai::block> block_a, rai::process_return const & result_a) {
@@ -1468,98 +1604,33 @@ block_processor_thread ([this]() { this->block_processor.process_blocks (); })
 				if (!node_l->config.callback_address.empty ())
 				{
 					boost::property_tree::ptree event;
+					event.add ("event", "block_unconfirmed");
 					event.add ("account", result_a.account.to_account ());
 					event.add ("hash", block_a->hash ().to_string ());
 					std::string block_text;
 					block_a->serialize_json (block_text);
 					event.add ("block", block_text);
 					event.add ("amount", result_a.amount.to_string_dec ());
-					if (result_a.state_is_send)
-					{
-						event.add ("is_send", *result_a.state_is_send);
-					}
-					std::stringstream ostream;
-					boost::property_tree::write_json (ostream, event);
-					ostream.flush ();
-					auto body (std::make_shared<std::string> (ostream.str ()));
-					auto address (node_l->config.callback_address);
-					auto port (node_l->config.callback_port);
-					auto target (std::make_shared<std::string> (node_l->config.callback_target));
-					auto resolver (std::make_shared<boost::asio::ip::tcp::resolver> (node_l->service));
-					resolver->async_resolve (boost::asio::ip::tcp::resolver::query (address, std::to_string (port)), [node_l, address, port, target, body, resolver](boost::system::error_code const & ec, boost::asio::ip::tcp::resolver::iterator i_a) {
-						if (!ec)
-						{
-							for (auto i (i_a), n (boost::asio::ip::tcp::resolver::iterator{}); i != n; ++i)
-							{
-								auto sock (std::make_shared<boost::asio::ip::tcp::socket> (node_l->service));
-								sock->async_connect (i->endpoint (), [node_l, target, body, sock, address, port](boost::system::error_code const & ec) {
-									if (!ec)
-									{
-										auto req (std::make_shared<boost::beast::http::request<boost::beast::http::string_body>> ());
-										req->method (boost::beast::http::verb::post);
-										req->target (*target);
-										req->version (11);
-										req->insert (boost::beast::http::field::host, address);
-										req->insert (boost::beast::http::field::content_type, "application/json");
-										req->body () = *body;
-										//req->prepare (*req);
-										//boost::beast::http::prepare(req);
-										req->prepare_payload ();
-										boost::beast::http::async_write (*sock, *req, [node_l, sock, address, port, req](boost::system::error_code const & ec, size_t bytes_transferred) {
-											if (!ec)
-											{
-												auto sb (std::make_shared<boost::beast::flat_buffer> ());
-												auto resp (std::make_shared<boost::beast::http::response<boost::beast::http::string_body>> ());
-												boost::beast::http::async_read (*sock, *sb, *resp, [node_l, sb, resp, sock, address, port](boost::system::error_code const & ec, size_t bytes_transferred) {
-													if (!ec)
-													{
-														if (resp->result () == boost::beast::http::status::ok)
-														{
-														}
-														else
-														{
-															if (node_l->config.logging.callback_logging ())
-															{
-																BOOST_LOG (node_l->log) << boost::str (boost::format ("Callback to %1%:%2% failed with status: %3%") % address % port % resp->result ());
-															}
-														}
-													}
-													else
-													{
-														if (node_l->config.logging.callback_logging ())
-														{
-															BOOST_LOG (node_l->log) << boost::str (boost::format ("Unable complete callback: %1%:%2% %3%") % address % port % ec.message ());
-														}
-													};
-												});
-											}
-											else
-											{
-												if (node_l->config.logging.callback_logging ())
-												{
-													BOOST_LOG (node_l->log) << boost::str (boost::format ("Unable to send callback: %1%:%2% %3%") % address % port % ec.message ());
-												}
-											}
-										});
-									}
-									else
-									{
-										if (node_l->config.logging.callback_logging ())
-										{
-											BOOST_LOG (node_l->log) << boost::str (boost::format ("Unable to connect to callback address: %1%:%2%, %3%") % address % port % ec.message ());
-										}
-									}
-								});
-							}
-						}
-						else
-						{
-							if (node_l->config.logging.callback_logging ())
-							{
-								BOOST_LOG (node_l->log) << boost::str (boost::format ("Error resolving callback: %1%:%2%, %3%") % address % port % ec.message ());
-							}
-						}
-					});
+					trigger_callback (node_l, "block_unconfirmed", event);
+				}
+			});
+		}
+	});
+	observers.blocks.add ([this](std::shared_ptr<rai::block> block_a, rai::process_return const & result_a) {
+		std::lock_guard<std::mutex> confirmed_awaiting_process_lock (active.confirmed_awaiting_process_mutex);
+		if (active.confirmed_awaiting_process.erase (block_a->hash ()))
+		{
+			auto node_l (shared_from_this ());
+			background ([node_l, block_a, result_a]() {
+				if (!node_l->config.callback_address.empty ())
+				{
+					boost::property_tree::ptree info;
+					info.put ("event", "block_confirmed");
+					info.put ("block", block_a->to_json ());
+					info.put ("hash", block_a->hash ().to_string ());
+					info.put ("account", result_a.account.to_string ());
+					info.put ("amount", result_a.amount.to_string_dec ());
+					trigger_callback (node_l, "block_confirmed", info);
 				}
 			});
 		}
@@ -1570,6 +1641,51 @@ block_processor_thread ([this]() { this->block_processor.process_blocks (); })
 	});
 	observers.vote.add ([this](std::shared_ptr<rai::vote> vote_a, rai::endpoint const &) {
 		this->gap_cache.vote (vote_a);
+	});
+	observers.vote.add ([this](std::shared_ptr<rai::vote> vote_a, rai::endpoint const &) {
+		auto node_l (shared_from_this ());
+		background ([node_l, vote_a]() {
+			if (!node_l->config.callback_address.empty ())
+			{
+				rai::transaction transaction (node_l->store.environment, nullptr, false);
+				uint128_t circulating (node_l->ledger.supply (transaction));
+				uint128_t weight (node_l->weight (vote_a->account));
+				double rep_percent = (double)(weight / (circulating / 1000)) / 10.0;
+				if (rep_percent < node_l->config.vote_callback_min_rep_percent)
+					return;
+				boost::property_tree::ptree event;
+				event.add ("event", "vote");
+				std::string account_l;
+				vote_a->account.encode_account (account_l);
+				event.add ("representative", account_l);
+				event.add ("sequence", vote_a->sequence);
+				event.add ("weight", std::string (weight));
+				std::string block_hash_l;
+				vote_a->block->hash ().encode_hex (block_hash_l);
+				event.add ("block", block_hash_l);
+				std::string signature_l;
+				vote_a->signature.encode_hex (signature_l);
+				event.add ("signature", signature_l);
+				election_result result;
+				uint128_t vote_tally;
+				if (!node_l->check_election_results (vote_a->block, result))
+				{
+					event.add ("result_confirmed", result.confirmed);
+					vote_tally = result.tally.number ();
+				}
+				else
+				{
+					event.add ("result_confirmed", false);
+					vote_tally = weight;
+				}
+				event.add ("total_weight_agree", std::string (vote_tally));
+				event.add ("percent_circulating_agree", (double)(vote_tally / (circulating / 1000)) / 10.0);
+				trigger_callback (node_l, "vote", event);
+			}
+		});
+	});
+	observers.vote.add ([this](std::shared_ptr<rai::vote> vote_a, rai::endpoint const &) {
+		this->online_reps.vote (vote_a);
 	});
 	observers.vote.add ([this](std::shared_ptr<rai::vote> vote_a, rai::endpoint const & endpoint_a) {
 		if (this->rep_crawler.exists (vote_a->block->hash ()))
@@ -1923,6 +2039,7 @@ void rai::node::start ()
 	bootstrap.start ();
 	backup_wallet ();
 	active.announce_votes ();
+	online_reps.recalculate_stake (true);
 	port_mapping.start ();
 	add_initial_peers ();
 	observers.started ();
@@ -2405,6 +2522,21 @@ void rai::node::process_confirmed (std::shared_ptr<rai::block> confirmed_a)
 	confirmed_a->visit (visitor);
 }
 
+void rai::node::request_confirmation (std::shared_ptr<rai::block> block_a)
+{
+	{
+		rai::transaction transaction (store.environment, nullptr, true);
+		active.start (transaction, block_a, boost::none);
+	}
+	network.broadcast_confirm_req (block_a);
+}
+
+bool rai::node::check_election_results (std::shared_ptr<rai::block> block_a, election_result & result)
+{
+	rai::transaction transaction (store.environment, nullptr, true);
+	return active.check_election_results (transaction, block_a, result);
+}
+
 void rai::node::process_message (rai::message & message_a, rai::endpoint const & sender_a)
 {
 	network_message_visitor visitor (*this, sender_a);
@@ -2438,6 +2570,69 @@ bool rai::block_arrival::recent (rai::block_hash const & hash_a)
 		arrival.erase (arrival.begin ());
 	}
 	return arrival.get<1> ().find (hash_a) != arrival.get<1> ().end ();
+}
+
+rai::online_reps::online_reps (rai::node & node) :
+node (node)
+{
+}
+
+void rai::online_reps::vote (std::shared_ptr<rai::vote> const & vote_a)
+{
+	auto rep (vote_a->account);
+	std::lock_guard<std::mutex> lock (mutex);
+	auto now (std::chrono::steady_clock::now ());
+	while (!reps.empty () && reps.begin ()->last_heard + std::chrono::seconds (rai::node::cutoff) < now)
+	{
+		auto it (reps.begin ());
+		auto old_stake (online_stake);
+		online_stake -= node.weight (it->representative);
+		if (online_stake > old_stake)
+		{
+			// overflow
+			online_stake = 0;
+		}
+		reps.erase (it);
+	}
+	auto rep_it (reps.get<1> ().find (rep));
+	auto info (rai::rep_last_heard_info{ now, rep });
+	if (rep_it == reps.get<1> ().end ())
+	{
+		auto old_stake (online_stake);
+		online_stake += node.weight (rep);
+		if (online_stake < old_stake)
+		{
+			// overflow
+			online_stake = ~0;
+		}
+		reps.insert (info);
+	}
+	else
+	{
+		reps.get<1> ().replace (rep_it, info);
+	}
+}
+
+void rai::online_reps::recalculate_stake (bool initializing)
+{
+	if (initializing)
+	{
+		// set stake to max until we're sure who's online
+		online_stake = ~0;
+	}
+	else
+	{
+		std::lock_guard<std::mutex> lock (mutex);
+		online_stake = 0;
+		rai::transaction transaction (node.store.environment, nullptr, false);
+		for (auto it : reps)
+		{
+			online_stake += node.ledger.weight (transaction, it.representative);
+		}
+	}
+	auto now (std::chrono::steady_clock::now ());
+	auto node_l (node.shared ());
+	node.alarm.add (now + std::chrono::minutes (5), [node_l]() { node_l->online_reps.recalculate_stake (); });
 }
 
 std::unordered_set<rai::endpoint> rai::peer_container::random_set (size_t count_a)
@@ -2795,14 +2990,15 @@ std::shared_ptr<rai::node> rai::node::shared ()
 	return shared_from_this ();
 }
 
-rai::election::election (MDB_txn * transaction_a, rai::node & node_a, std::shared_ptr<rai::block> block_a, std::function<void(std::shared_ptr<rai::block>, bool)> const & confirmation_action_a) :
+rai::election::election (MDB_txn * transaction_a, rai::node & node_a, std::shared_ptr<rai::block> block_a, boost::optional<std::pair<rai::account, rai::amount>> callback_info, std::function<void(std::shared_ptr<rai::block>, rai::election_result)> const & confirmation_action_a) :
 confirmation_action (confirmation_action_a),
 votes (block_a),
 node (node_a),
-last_winner (block_a)
+last_winner (block_a),
+last_winner_callback_info (callback_info),
+finished (false)
 {
 	assert (node_a.store.block_exists (transaction_a, block_a->hash ()));
-	confirmed.clear ();
 	compute_rep_votes (transaction_a);
 }
 
@@ -2824,34 +3020,55 @@ void rai::election::broadcast_winner ()
 	node.network.republish_block (transaction_a, last_winner);
 }
 
-rai::uint128_t rai::election::quorum_threshold (MDB_txn * transaction_a, rai::ledger & ledger_a)
+rai::uint128_t rai::election::quorum_threshold (MDB_txn * transaction_a)
 {
 	// Threshold over which unanimous voting implies confirmation
-	return ledger_a.supply (transaction_a) / 2;
+	auto supply_cap (node.ledger.supply (transaction_a) / 2); // 50% of stake
+	auto online_cap (node.online_reps.online_stake * 3 / 5);  // 60% of online reps
+	return std::min (online_cap, supply_cap);
 }
 
-rai::uint128_t rai::election::minimum_threshold (MDB_txn * transaction_a, rai::ledger & ledger_a)
+rai::uint128_t rai::election::minimum_threshold ()
 {
 	// Minimum number of votes needed to change our ledger, under which we're probably disconnected
-	return ledger_a.supply (transaction_a) / 16;
+	return node.online_reps.online_stake / 16;
+}
+
+rai::uint128_t rai::election::user_threshold ()
+{
+	// Minimum number of votes needed for the node's user to accept a block as confirmed
+	return ((rai::uint128_t) (node.config.confirmation_rep_percent * 100)) * (node.online_reps.online_stake / (100 * 100));
 }
 
 void rai::election::confirm_once (MDB_txn * transaction_a)
 {
-	if (!confirmed.test_and_set ())
+	if (!finished.exchange (true))
 	{
 		auto tally_l (node.ledger.tally (transaction_a, votes));
 		assert (tally_l.size () > 0);
 		auto winner (tally_l.begin ());
 		auto block_l (winner->second);
-		auto exceeded_min_threshold = winner->first > minimum_threshold (transaction_a, node.ledger);
+		auto node_l (node.shared ());
+		auto supply (node.ledger.supply (transaction_a));
+		auto exceeded_min_threshold = winner->first > minimum_threshold ();
+		auto exceeded_user_threshold = winner->first > user_threshold ();
 		if (!(*block_l == *last_winner))
 		{
 			if (exceeded_min_threshold)
 			{
-				auto node_l (node.shared ());
-				node.background ([node_l, block_l]() {
-					node_l->block_processor.process_receive_many (rai::block_processor_item (block_l, true));
+				node.background ([exceeded_user_threshold, node_l, block_l]() {
+					node_l->block_processor.process_receive_many (rai::block_processor_item (block_l, true), [exceeded_user_threshold, node_l, block_l](rai::account account, rai::amount amount) {
+						if (exceeded_user_threshold && !node_l->config.callback_address.empty ())
+						{
+							boost::property_tree::ptree info;
+							info.put ("event", "block_confirmed");
+							info.put ("block", block_l->to_json ());
+							info.put ("hash", block_l->hash ().to_string ());
+							info.put ("account", account.to_string ());
+							info.put ("amount", amount.to_string_dec ());
+							trigger_callback (node_l, "block_confirmed", info);
+						}
+					});
 				});
 				last_winner = block_l;
 			}
@@ -2860,21 +3077,49 @@ void rai::election::confirm_once (MDB_txn * transaction_a)
 				BOOST_LOG (node.log) << boost::str (boost::format ("Retaining block %1%") % last_winner->hash ().to_string ());
 			}
 		}
+		else if (exceeded_user_threshold && (bool)last_winner_callback_info)
+		{
+			boost::property_tree::ptree info;
+			info.put ("event", "block_confirmed");
+			info.put ("block", last_winner->to_json ());
+			info.put ("hash", last_winner->hash ().to_string ());
+			info.put ("account", last_winner_callback_info->first.to_string ());
+			info.put ("amount", last_winner_callback_info->second.to_string_dec ());
+			trigger_callback (node.shared (), "block_confirmed", info);
+		}
+		rai::election_result result;
+		result.winner = last_winner->hash ();
+		result.tally = winner->first;
+		result.exceeded_min_threshold = exceeded_min_threshold;
+		result.confirmed = exceeded_user_threshold;
 		auto winner_l (last_winner);
-		auto node_l (node.shared ());
 		auto confirmation_action_l (confirmation_action);
-		node.background ([winner_l, confirmation_action_l, node_l, exceeded_min_threshold]() {
+		node.background ([node_l, confirmation_action_l, winner_l, result]() {
 			node_l->process_confirmed (winner_l);
-			confirmation_action_l (winner_l, exceeded_min_threshold);
+			confirmation_action_l (winner_l, result);
 		});
 	}
+}
+
+void rai::election::get_progress (MDB_txn * transaction_a, rai::election_result & result)
+{
+	auto tally_l (node.ledger.tally (transaction_a, votes));
+	assert (tally_l.size () > 0);
+	auto results (tally_l.begin ());
+	result.winner = results->second->hash ();
+	result.tally = rai::amount (results->first);
+	auto supply (node.ledger.supply (transaction_a));
+	result.exceeded_min_threshold = results->first > minimum_threshold ();
+	result.confirmed = finished.load () && results->first > user_threshold ();
 }
 
 bool rai::election::have_quorum (MDB_txn * transaction_a)
 {
 	auto tally_l (node.ledger.tally (transaction_a, votes));
 	assert (tally_l.size () > 0);
-	auto result (tally_l.begin ()->first > quorum_threshold (transaction_a, node.ledger));
+	auto result (tally_l.begin ()->first > quorum_threshold (transaction_a));
+	// We should make sure we get the votes required by the user threshold before ending the election.
+	result = result && (tally_l.begin ()->first > user_threshold ());
 	return result;
 }
 
@@ -2976,6 +3221,9 @@ void rai::active_transactions::announce_votes ()
 				i->election->confirm_cutoff (transaction);
 				auto root_l (i->election->votes.id);
 				inactive.push_back (root_l);
+				election_result result;
+				election_l->get_progress (transaction, result);
+				add_election_history (root_l, result);
 			}
 			else
 			{
@@ -3017,17 +3265,67 @@ void rai::active_transactions::stop ()
 	roots.clear ();
 }
 
-bool rai::active_transactions::start (MDB_txn * transaction_a, std::shared_ptr<rai::block> block_a, std::function<void(std::shared_ptr<rai::block>, bool)> const & confirmation_action_a)
+bool rai::active_transactions::start (MDB_txn * transaction_a, std::shared_ptr<rai::block> block_a, boost::optional<std::pair<rai::account, rai::amount>> callback_info, std::function<void(std::shared_ptr<rai::block>, rai::election_result)> const & confirmation_action_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	auto root (block_a->root ());
 	auto existing (roots.find (root));
 	if (existing == roots.end ())
 	{
-		auto election (std::make_shared<rai::election> (transaction_a, node, block_a, confirmation_action_a));
+		auto election (std::make_shared<rai::election> (transaction_a, node, block_a, callback_info, confirmation_action_a));
 		roots.insert (rai::conflict_info{ root, election, 0 });
 	}
 	return existing != roots.end ();
+}
+
+bool rai::active_transactions::check_election_results (MDB_txn * transaction_a, std::shared_ptr<rai::block> block_a, rai::election_result & result)
+{
+	std::lock_guard<std::mutex> lock (mutex);
+	auto root (block_a->root ());
+	auto existing (roots.find (root));
+	bool failed = true;
+
+	if (existing != roots.end ())
+	{
+		existing->election->get_progress (transaction_a, result);
+		failed = false;
+	}
+	else
+	{
+		auto historical (election_history.get<1> ().find (root));
+		if (historical != election_history.get<1> ().end ())
+		{
+			result = historical->result;
+			failed = false;
+		}
+	}
+
+	if (failed || result.winner != block_a->hash ())
+	{
+		// Just to avoid any possible confusion, if a different block won the election,be very clear that
+		// this particular request was not "confirmed", even though the winning block was confirmed.
+		result.confirmed = false;
+	}
+
+	return failed;
+}
+
+void rai::active_transactions::add_election_history (const rai::block_hash & root, const election_result & result)
+{
+	// The mutex MUST be held by the caller.
+	rai::election_history history;
+	history.root = root;
+	history.result = result;
+	auto existing_history (election_history.get<1> ().find (root));
+	if (existing_history != election_history.get<1> ().end ())
+	{
+		election_history.get<1> ().erase (existing_history);
+	}
+	election_history.insert (election_history.get<0> ().end (), history);
+	if (election_history.size () > election_history_size)
+	{
+		election_history.erase (election_history.get<0> ().begin ());
+	}
 }
 
 // Validate a vote and apply it to the current election if one exists

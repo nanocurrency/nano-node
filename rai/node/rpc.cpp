@@ -2979,6 +2979,67 @@ void rai::rpc_handler::search_pending_all ()
 	}
 }
 
+void rai::rpc_handler::request_confirmation ()
+{
+	std::string hash_text (request.get<std::string> ("hash"));
+	rai::block_hash hash_l;
+	if (!hash_l.decode_hex (hash_text))
+	{
+		rai::transaction transaction (node.store.environment, nullptr, false);
+		auto block_l (node.store.block_get (transaction, hash_l));
+		if (block_l != nullptr)
+		{
+			node.request_confirmation (std::shared_ptr<rai::block> (move (block_l)));
+			boost::property_tree::ptree response_l;
+			response_l.put ("success", "");
+			response (response_l);
+		}
+		else
+		{
+			error_response (response, "Block not found");
+		}
+	}
+	else
+	{
+		error_response (response, "Invalid block hash");
+	}
+}
+
+void rai::rpc_handler::check_election_results ()
+{
+	std::string hash_text (request.get<std::string> ("hash"));
+	rai::block_hash hash_l;
+	if (!hash_l.decode_hex (hash_text))
+	{
+		rai::transaction transaction (node.store.environment, nullptr, false);
+		auto block_l (node.store.block_get (transaction, hash_l));
+		if (block_l != nullptr)
+		{
+			rai::election_result result;
+			if (!node.check_election_results (std::shared_ptr<rai::block> (move (block_l)), result))
+			{
+				boost::property_tree::ptree response_l;
+				response_l.put ("confirmed", result.confirmed);
+				response_l.put ("tally", std::string (result.tally.number ()));
+				response_l.put ("percent_circulating_approved", (double)(result.tally.number () / (node.ledger.supply (transaction) / 1000)) / 10.0);
+				response (response_l);
+			}
+			else
+			{
+				error_response (response, "Election not found");
+			}
+		}
+		else
+		{
+			error_response (response, "Block not found");
+		}
+	}
+	else
+	{
+		error_response (response, "Invalid block hash");
+	}
+}
+
 void rai::rpc_handler::send ()
 {
 	if (rpc.config.enable_control)
@@ -4697,6 +4758,14 @@ void rai::rpc_handler::process_request ()
 		else if (action == "search_pending_all")
 		{
 			search_pending_all ();
+		}
+		else if (action == "request_confirmation")
+		{
+			request_confirmation ();
+		}
+		else if (action == "check_election_results")
+		{
+			check_election_results ();
 		}
 		else if (action == "send")
 		{

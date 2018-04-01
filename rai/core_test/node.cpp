@@ -506,14 +506,16 @@ TEST (node_config, serialization)
 	config1.bootstrap_fraction_numerator = 10;
 	config1.receive_minimum = 10;
 	config1.inactive_supply = 10;
-	config1.password_fanout = 10;
+	config1.password_fanout = 42;
+	config1.io_threads = 10;
+	config1.work_threads = 10;
 	config1.enable_voting = false;
 	config1.callback_address = "test";
 	config1.callback_port = 10;
-	config1.callback_target = "test";
 	config1.lmdb_max_dbs = 256;
 	config1.state_block_parse_canary = 10;
 	config1.state_block_generate_canary = 10;
+	config1.callback_targets.insert (std::make_pair ("block_unconfirmed", "test"));
 	boost::property_tree::ptree tree;
 	config1.serialize_json (tree);
 	rai::logging logging2;
@@ -525,29 +527,33 @@ TEST (node_config, serialization)
 	ASSERT_NE (config2.logging.node_lifetime_tracing_value, config1.logging.node_lifetime_tracing_value);
 	ASSERT_NE (config2.inactive_supply, config1.inactive_supply);
 	ASSERT_NE (config2.password_fanout, config1.password_fanout);
+	ASSERT_NE (config2.io_threads, config1.io_threads);
+	ASSERT_NE (config2.work_threads, config1.work_threads);
 	ASSERT_NE (config2.enable_voting, config1.enable_voting);
 	ASSERT_NE (config2.callback_address, config1.callback_address);
 	ASSERT_NE (config2.callback_port, config1.callback_port);
-	ASSERT_NE (config2.callback_target, config1.callback_target);
 	ASSERT_NE (config2.lmdb_max_dbs, config1.lmdb_max_dbs);
 	ASSERT_NE (config2.state_block_parse_canary, config1.state_block_parse_canary);
 	ASSERT_NE (config2.state_block_generate_canary, config1.state_block_generate_canary);
+	ASSERT_NE (config2.callback_targets, config1.callback_targets);
 
 	bool upgraded (false);
-	config2.deserialize_json (upgraded, tree);
+	ASSERT_FALSE (config2.deserialize_json (upgraded, tree));
 	ASSERT_FALSE (upgraded);
 	ASSERT_EQ (config2.bootstrap_fraction_numerator, config1.bootstrap_fraction_numerator);
 	ASSERT_EQ (config2.peering_port, config1.peering_port);
 	ASSERT_EQ (config2.logging.node_lifetime_tracing_value, config1.logging.node_lifetime_tracing_value);
 	ASSERT_EQ (config2.inactive_supply, config1.inactive_supply);
 	ASSERT_EQ (config2.password_fanout, config1.password_fanout);
+	ASSERT_EQ (config2.io_threads, config1.io_threads);
+	ASSERT_EQ (config2.work_threads, config1.work_threads);
 	ASSERT_EQ (config2.enable_voting, config1.enable_voting);
 	ASSERT_EQ (config2.callback_address, config1.callback_address);
 	ASSERT_EQ (config2.callback_port, config1.callback_port);
-	ASSERT_EQ (config2.callback_target, config1.callback_target);
 	ASSERT_EQ (config2.lmdb_max_dbs, config1.lmdb_max_dbs);
 	ASSERT_EQ (config2.state_block_parse_canary, config1.state_block_parse_canary);
 	ASSERT_EQ (config2.state_block_generate_canary, config1.state_block_generate_canary);
+	ASSERT_EQ (config2.callback_targets, config1.callback_targets);
 }
 
 TEST (node_config, v1_v2_upgrade)
@@ -1164,7 +1170,7 @@ TEST (node, rep_self_vote)
 	auto & active (node0->active);
 	{
 		rai::transaction transaction (node0->store.environment, nullptr, true);
-		active.start (transaction, block0, [](std::shared_ptr<rai::block>, bool) {});
+		active.start (transaction, block0, boost::none, [](std::shared_ptr<rai::block>, rai::election_result) {});
 	}
 	auto existing (active.roots.find (block0->root ()));
 	ASSERT_NE (active.roots.end (), existing);
@@ -1363,7 +1369,7 @@ TEST (node, send_callback)
 	system.wallet (0)->insert_adhoc (key2.prv);
 	system.nodes[0]->config.callback_address = "localhost";
 	system.nodes[0]->config.callback_port = 8010;
-	system.nodes[0]->config.callback_target = "/";
+	system.nodes[0]->config.callback_targets.insert (std::make_pair ("block_unconfirmed", "/"));
 	ASSERT_NE (nullptr, system.wallet (0)->send_action (rai::test_genesis_key.pub, key2.pub, system.nodes[0]->config.receive_minimum.number ()));
 	auto iterations (0);
 	while (system.nodes[0]->balance (key2.pub).is_zero ())
@@ -1438,6 +1444,191 @@ TEST (node, balance_observer)
 		++iterations;
 		ASSERT_GT (200, iterations);
 	}
+}
+
+TEST (node, reconfirm_missing)
+{
+	rai::system system (24000, 3);
+	auto & sender (*system.nodes[0]);
+	auto & receiver (*system.nodes[1]);
+	auto & rep (*system.nodes[2]);
+	auto sender_wallet (system.wallet (0));
+	auto receiver_wallet (system.wallet (1));
+	auto rep_wallet (system.wallet (2));
+	rai::keypair sender_key;
+	rai::keypair receiver_key;
+	sender_wallet->insert_adhoc (sender_key.prv);
+	receiver_wallet->insert_adhoc (receiver_key.prv);
+	rep_wallet->insert_adhoc (rai::test_genesis_key.prv);
+
+	auto block1 = rep_wallet->send_action (rai::test_genesis_key.pub, sender_key.pub, 10 * rai::Mxrb_ratio);
+	int iterations = 0;
+	while (true)
+	{
+		system.poll ();
+		auto balanceOnSender = sender.balance (sender_key.pub);
+		auto balanceOnReceiver = receiver.balance (sender_key.pub);
+		if (balanceOnSender == 10 * rai::Mxrb_ratio && balanceOnReceiver == 10 * rai::Mxrb_ratio)
+		{
+			break;
+		}
+		ASSERT_GT (400, iterations);
+		iterations++;
+	}
+
+	receiver.block_processor.stop ();
+	receiver.network.packet_filter = [](uint8_t * buffer, size_t size) {
+		return true;
+	};
+
+	auto block2 = sender_wallet->send_action (sender_key.pub, rai::test_genesis_key.pub, 10 * rai::Mxrb_ratio);
+	iterations = 0;
+	while (true)
+	{
+		system.poll ();
+		auto balanceOnSender = sender.balance (sender_key.pub);
+		auto balanceOnRep = rep.balance (sender_key.pub);
+		auto balanceOnReceiver = receiver.balance (sender_key.pub);
+		if (balanceOnSender == 0 * rai::Mxrb_ratio && balanceOnRep == 0 * rai::Mxrb_ratio && balanceOnReceiver == 10 * rai::Mxrb_ratio)
+		{
+			break;
+		}
+		ASSERT_GT (400, iterations);
+		iterations++;
+	}
+
+	rai::send_block fork (block2->root (), receiver_key.pub, 0 * rai::Mxrb_ratio, sender_key.prv, sender_key.pub, system.work.generate (block2->root ()));
+	{
+		rai::transaction transaction (receiver.store.environment, nullptr, true);
+		ASSERT_EQ (rai::process_result::progress, receiver.ledger.process (transaction, fork).code);
+	}
+
+	iterations = 0;
+	while (true)
+	{
+		system.poll ();
+		auto balance = receiver.balance_pending (receiver_key.pub);
+		if (balance.second == 10 * rai::Mxrb_ratio)
+		{
+			break;
+		}
+		ASSERT_GT (400, iterations);
+		iterations++;
+	}
+
+	auto fork_block = std::shared_ptr<rai::block> (&fork, [](rai::block *) {});
+	receiver.request_confirmation (fork_block);
+	iterations = 0;
+	while (iterations < 100)
+	{
+		system.poll ();
+		iterations++;
+	}
+
+	rai::election_result result;
+	ASSERT_FALSE (receiver.check_election_results (fork_block, result));
+	ASSERT_EQ (0, result.tally.number ());
+	ASSERT_FALSE (result.confirmed);
+
+	receiver.network.packet_filter = [](uint8_t * buffer, size_t size) {
+		return false;
+	};
+
+	receiver.request_confirmation (fork_block);
+	iterations = 0;
+	while (iterations < 100)
+	{
+		system.poll ();
+		iterations++;
+	}
+
+	ASSERT_FALSE (receiver.check_election_results (fork_block, result));
+	ASSERT_EQ (block2->hash (), result.winner);
+	ASSERT_LT (rai::genesis_amount / 2, result.tally.number ());
+	ASSERT_FALSE (result.confirmed);
+}
+
+TEST (node, reconfirm_honest)
+{
+	rai::system system (24000, 3);
+	auto & sender (*system.nodes[0]);
+	auto & receiver (*system.nodes[1]);
+	auto & rep (*system.nodes[2]);
+	auto sender_wallet (system.wallet (0));
+	auto receiver_wallet (system.wallet (1));
+	auto rep_wallet (system.wallet (2));
+	rai::keypair sender_key;
+	rai::keypair receiver_key;
+	sender_wallet->insert_adhoc (sender_key.prv);
+	receiver_wallet->insert_adhoc (receiver_key.prv);
+	rep_wallet->insert_adhoc (rai::test_genesis_key.prv);
+
+	// Genesis -> Sender
+	auto block1 = rep_wallet->send_action (rai::test_genesis_key.pub, sender_key.pub, 10 * rai::Mxrb_ratio);
+	int iterations = 0;
+	while (true)
+	{
+		system.poll ();
+		auto balance = sender.balance (sender_key.pub);
+		if (balance == 10 * rai::Mxrb_ratio)
+		{
+			break;
+		}
+		ASSERT_GT (100, iterations);
+		iterations++;
+	}
+
+	// Sender -> Receiver
+	auto block2 = sender_wallet->send_action (sender_key.pub, receiver_key.pub, 5 * rai::Mxrb_ratio);
+	iterations = 0;
+	while (true)
+	{
+		system.poll ();
+		auto balance = receiver.balance (sender_key.pub);
+		if (balance == 5 * rai::Mxrb_ratio)
+		{
+			break;
+		}
+		ASSERT_GT (100, iterations);
+		iterations++;
+	}
+
+	// Received OK, but the receiver would like reconfirmation.
+	receiver.request_confirmation (block2);
+	iterations = 0;
+	while (true)
+	{
+		system.poll ();
+		rai::election_result result;
+		ASSERT_FALSE (receiver.check_election_results (block2, result));
+		ASSERT_EQ (block2->hash (), result.winner);
+		if (result.tally.number () > rai::genesis_amount / 2)
+		{
+			break;
+		}
+		ASSERT_GT (100, iterations);
+		iterations++;
+	}
+
+	rai::election_result result;
+	ASSERT_FALSE (receiver.check_election_results (block2, result));
+	ASSERT_TRUE (result.confirmed);
+	ASSERT_LT (rai::genesis_amount / 2, result.tally.number ());
+}
+
+TEST (node, election_history_lru_evict)
+{
+	rai::system system (24000, 1);
+	auto & node (*system.nodes[0]);
+	for (int i = 0; i < rai::active_transactions::election_history_size * 2; i++)
+	{
+		rai::election_result r;
+		r.winner = i;
+		r.tally = i;
+		node.active.add_election_history (rai::uint256_t (i), r);
+	}
+	ASSERT_EQ (rai::active_transactions::election_history_size, node.active.election_history.size ());
+	ASSERT_EQ (rai::uint256_t (rai::active_transactions::election_history_size), node.active.election_history.get<0> ().begin ()->result.winner.number ());
 }
 
 TEST (node, bootstrap_connection_scaling)

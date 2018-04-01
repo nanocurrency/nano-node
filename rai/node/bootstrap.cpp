@@ -990,11 +990,12 @@ void rai::bootstrap_attempt::try_resolve_fork (MDB_txn * transaction_a, std::sha
 	std::weak_ptr<rai::bootstrap_attempt> this_w (shared_from_this ());
 	if (!node->store.block_exists (transaction_a, block_a->hash ()) && (node->store.block_exists (transaction_a, block_a->root ()) || node->store.account_exists (transaction_a, block_a->root ())))
 	{
-		std::shared_ptr<rai::block> ledger_block (node->ledger.forked_block (transaction_a, *block_a));
-		if (ledger_block)
-		{
-			node->active.start (transaction_a, ledger_block, [this_w, block_a](std::shared_ptr<rai::block>, bool resolved) {
-				if (auto this_l = this_w.lock ())
+	std::shared_ptr<rai::block> ledger_block (node->ledger.forked_block (transaction_a, *block_a));
+	if (ledger_block)
+	{
+		node->active.start (transaction_a, ledger_block, boost::none, [this_w, block_a](std::shared_ptr<rai::block>, rai::election_result result) {
+			auto resolved (result.exceeded_min_threshold);
+			if (auto this_l = this_w.lock ())
 				{
 					if (resolved)
 					{

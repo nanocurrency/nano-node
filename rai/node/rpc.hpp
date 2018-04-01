@@ -176,6 +176,8 @@ public:
 	void republish ();
 	void search_pending ();
 	void search_pending_all ();
+	void request_confirmation ();
+	void check_election_results ();
 	void send ();
 	void stop ();
 	void successors ();
