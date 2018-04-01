@@ -1289,11 +1289,11 @@ void rai::block_store::pending_put (MDB_txn * transaction_a, rai::pending_key co
 
 void rai::block_store::pending_del (MDB_txn * transaction_a, rai::pending_key const & key_a)
 {
-	auto status1 (mdb_del (transaction_a, pending_v1, key_a.val (), nullptr));
+	auto status1 (mdb_del (transaction_a, pending_v1, mdb_val (key_a), nullptr));
 	if (status1 != 0)
 	{
 		assert (status1 == MDB_NOTFOUND);
-		auto status2 (mdb_del (transaction_a, pending_v0, key_a.val (), nullptr));
+		auto status2 (mdb_del (transaction_a, pending_v0, mdb_val (key_a), nullptr));
 		assert (status2 == 0);
 	}
 }
@@ -1302,11 +1302,11 @@ bool rai::block_store::pending_exists (MDB_txn * transaction_a, rai::pending_key
 {
 	rai::mdb_val junk;
 	bool result (true);
-	auto status1 (mdb_get (transaction_a, pending_v1, key_a.val (), junk));
+	auto status1 (mdb_get (transaction_a, pending_v1, mdb_val (key_a), junk));
 	if (status1 != 0)
 	{
 		assert (status1 == MDB_NOTFOUND);
-		auto status2 (mdb_get (transaction_a, pending_v0, key_a.val (), junk));
+		auto status2 (mdb_get (transaction_a, pending_v0, mdb_val (key_a), junk));
 		if (status2 != 0)
 		{
 			assert (status2 == MDB_NOTFOUND);
@@ -1319,7 +1319,7 @@ bool rai::block_store::pending_exists (MDB_txn * transaction_a, rai::pending_key
 bool rai::block_store::pending_get (MDB_txn * transaction_a, rai::pending_key const & key_a, rai::pending_info & pending_a)
 {
 	rai::mdb_val value;
-	auto status1 (mdb_get (transaction_a, pending_v1, key_a.val (), value));
+	auto status1 (mdb_get (transaction_a, pending_v1, mdb_val (key_a), value));
 	assert (status1 == 0 || status1 == MDB_NOTFOUND);
 	bool result (false);
 	rai::epoch epoch;
@@ -1329,7 +1329,7 @@ bool rai::block_store::pending_get (MDB_txn * transaction_a, rai::pending_key co
 	}
 	else
 	{
-		auto status2 (mdb_get (transaction_a, pending_v0, key_a.val (), value));
+		auto status2 (mdb_get (transaction_a, pending_v0, mdb_val (key_a), value));
 		assert (status2 == 0 || status2 == MDB_NOTFOUND);
 		if (status2 == 0)
 		{
@@ -1387,7 +1387,7 @@ rai::store_iterator rai::block_store::pending_v1_end ()
 
 rai::store_merge_iterator rai::block_store::pending_begin (MDB_txn * transaction_a, rai::pending_key const & key_a)
 {
-	rai::store_merge_iterator result (transaction_a, pending_v0, pending_v1, key_a.val ());
+	rai::store_merge_iterator result (transaction_a, pending_v0, pending_v1, mdb_val (key_a));
 	return result;
 }
 

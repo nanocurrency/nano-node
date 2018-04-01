@@ -158,7 +158,6 @@ public:
 	void serialize (rai::stream &) const;
 	bool deserialize (rai::stream &);
 	bool operator== (rai::pending_key const &) const;
-	rai::mdb_val val () const;
 	rai::account account;
 	rai::block_hash hash;
 };
