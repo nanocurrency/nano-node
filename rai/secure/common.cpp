@@ -136,12 +136,6 @@ void rai::serialize_block (rai::stream & stream_a, rai::block const & block_a)
 	block_a.serialize (stream_a);
 }
 
-std::unique_ptr<rai::block> rai::deserialize_block (MDB_val const & val_a)
-{
-	rai::bufferstream stream (reinterpret_cast<uint8_t const *> (val_a.mv_data), val_a.mv_size);
-	return deserialize_block (stream);
-}
-
 rai::account_info::account_info () :
 head (0),
 rep_block (0),
