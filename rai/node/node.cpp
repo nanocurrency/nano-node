@@ -2589,7 +2589,7 @@ void rai::online_reps::vote (std::shared_ptr<rai::vote> const & vote_a)
 		online_stake -= node.weight (it->representative);
 		if (online_stake > old_stake)
 		{
-			// overflow
+			// underflow
 			online_stake = 0;
 		}
 		reps.erase (it);
@@ -2603,7 +2603,7 @@ void rai::online_reps::vote (std::shared_ptr<rai::vote> const & vote_a)
 		if (online_stake < old_stake)
 		{
 			// overflow
-			online_stake = ~0;
+			online_stake = std::numeric_limits<rai::uint128_t>::max();
 		}
 		reps.insert (info);
 	}
@@ -2618,7 +2618,7 @@ void rai::online_reps::recalculate_stake (bool initializing)
 	if (initializing)
 	{
 		// set stake to max until we're sure who's online
-		online_stake = ~0;
+		online_stake = std::numeric_limits<rai::uint128_t>::max();
 	}
 	else
 	{
@@ -3024,7 +3024,7 @@ rai::uint128_t rai::election::quorum_threshold (MDB_txn * transaction_a)
 {
 	// Threshold over which unanimous voting implies confirmation
 	auto supply_cap (node.ledger.supply (transaction_a) / 2); // 50% of stake
-	auto online_cap (node.online_reps.online_stake * 3 / 5);  // 60% of online reps
+	auto online_cap (node.online_reps.online_stake * 3 / 5); // 60% of online reps
 	return std::min (online_cap, supply_cap);
 }
 
