@@ -1818,7 +1818,7 @@ void rai::gap_cache::vote (std::shared_ptr<rai::vote> vote_a)
 	{
 		existing->votes->vote (vote_a);
 		auto winner (node.ledger.winner (transaction, *existing->votes));
-		if (winner.first > bootstrap_threshold (transaction))
+		if (winner.first > bootstrap_threshold ())
 		{
 			auto node_l (node.shared ());
 			auto now (std::chrono::steady_clock::now ());
@@ -1837,9 +1837,9 @@ void rai::gap_cache::vote (std::shared_ptr<rai::vote> vote_a)
 	}
 }
 
-rai::uint128_t rai::gap_cache::bootstrap_threshold (MDB_txn * transaction_a)
+rai::uint128_t rai::gap_cache::bootstrap_threshold ()
 {
-	auto result ((node.ledger.supply (transaction_a) / 256) * node.config.bootstrap_fraction_numerator);
+	auto result ((node.online_reps.online_stake / 256) * node.config.bootstrap_fraction_numerator);
 	return result;
 }
 

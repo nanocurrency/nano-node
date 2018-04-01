@@ -163,7 +163,7 @@ public:
 	gap_cache (rai::node &);
 	void add (MDB_txn *, std::shared_ptr<rai::block>);
 	void vote (std::shared_ptr<rai::vote>);
-	rai::uint128_t bootstrap_threshold (MDB_txn *);
+	rai::uint128_t bootstrap_threshold ();
 	void purge_old ();
 	boost::multi_index_container<
 	rai::gap_information,
