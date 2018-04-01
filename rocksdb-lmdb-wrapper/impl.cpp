@@ -114,7 +114,6 @@ int mdb_txn_begin (MDB_env * env, MDB_txn *, unsigned int flags, MDB_txn ** txn)
 	if ((flags & MDB_RDONLY) != MDB_RDONLY)
 	{
 		std::unique_lock<std::mutex> write_guard (env->write_mutex);
-		write_guard.lock ();
 		(*txn)->write_guard = std::move (write_guard);
 		(*txn)->write_txn = env->txn_db->BeginTransaction (WriteOptions ());
 		// we don't need a snapshot since we already have a mutex lock
@@ -152,8 +151,9 @@ int mdb_dbi_open (MDB_txn * txn, const char * name, unsigned int flags, MDB_dbi 
 	prefix_int = DBI_LOOKUP_PREFIX;
 	boost::endian::native_to_little_inplace (prefix_int);
 	std::vector<uint8_t> dbi_lookup_key_bytes (prefix_bytes.begin (), prefix_bytes.end ());
-	dbi_lookup_key_bytes.insert (dbi_lookup_key_bytes.end (), name, name + strlen (name));
-	Slice dbi_lookup_key (Slice ((const char *)dbi_lookup_key.data (), dbi_lookup_key.size ()));
+	std::string name_str (name);
+	std::copy (name_str.begin (), name_str.end (), std::back_inserter (dbi_lookup_key_bytes));
+	Slice dbi_lookup_key (Slice ((const char *)dbi_lookup_key_bytes.data (), dbi_lookup_key_bytes.size ()));
 	std::string dbi_buf;
 	int result = txn_get (txn, dbi_lookup_key, &dbi_buf).code ();
 	if (!result && dbi_buf.size () != 2)
@@ -171,7 +171,9 @@ int mdb_dbi_open (MDB_txn * txn, const char * name, unsigned int flags, MDB_dbi 
 		}
 		else if (result == MDB_NOTFOUND && txn->write_txn)
 		{
-			next_dbi_buf = "\x00\x00";
+			result = 0;
+			const char zero_dbi[] = { 0, 0 };
+			next_dbi_buf = std::string (zero_dbi, sizeof (zero_dbi));
 		}
 		if (!result)
 		{
@@ -364,4 +366,5 @@ void mdb_cursor_close (MDB_cursor * cursor)
 int mdb_stat (MDB_txn *, MDB_dbi, MDB_stat * stat)
 {
 	stat->ms_entries = 1; // TODO
+	return 0;
 }
