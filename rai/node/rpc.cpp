@@ -4406,7 +4406,6 @@ void rai::rpc_connection::read ()
 				auto start (std::chrono::steady_clock::now ());
 				auto version (this_l->request.version ());
 				auto response_handler ([this_l, version, start](boost::property_tree::ptree const & tree_a) {
-
 					std::stringstream ostream;
 					boost::property_tree::write_json (ostream, tree_a);
 					ostream.flush ();
