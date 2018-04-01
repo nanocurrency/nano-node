@@ -159,14 +159,12 @@ void rai::rpc_connection_secure::read ()
 					auto body (ostream.str ());
 					this_l->write_result (body, version);
 					boost::beast::http::async_write (this_l->stream, this_l->res, [this_l](boost::system::error_code const & ec, size_t bytes_transferred) {
-
 						// Perform the SSL shutdown
 						this_l->stream.async_shutdown (
 						std::bind (
 						&rai::rpc_connection_secure::on_shutdown,
 						this_l,
 						std::placeholders::_1));
-
 					});
 
 					if (this_l->node->config.logging.log_rpc ())
