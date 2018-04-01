@@ -1405,7 +1405,7 @@ rai::store_merge_iterator rai::block_store::pending_end ()
 
 void rai::block_store::block_info_put (MDB_txn * transaction_a, rai::block_hash const & hash_a, rai::block_info const & block_info_a)
 {
-	auto status (mdb_put (transaction_a, blocks_info, rai::mdb_val (hash_a), block_info_a.val (), 0));
+	auto status (mdb_put (transaction_a, blocks_info, rai::mdb_val (hash_a), rai::mdb_val (block_info_a), 0));
 	assert (status == 0);
 }
 
