@@ -889,18 +889,6 @@ rai::genesis::genesis ()
 	open.reset (static_cast<rai::open_block *> (block.release ()));
 }
 
-void rai::genesis::initialize (MDB_txn * transaction_a, rai::block_store & store_a) const
-{
-	auto hash_l (hash ());
-	assert (store_a.latest_v0_begin (transaction_a) == store_a.latest_v0_end ());
-	assert (store_a.latest_v1_begin (transaction_a) == store_a.latest_v1_end ());
-	store_a.block_put (transaction_a, hash_l, *open);
-	store_a.account_put (transaction_a, genesis_account, { hash_l, open->hash (), open->hash (), std::numeric_limits<rai::uint128_t>::max (), rai::seconds_since_epoch (), 1, rai::epoch::epoch_0 });
-	store_a.representation_put (transaction_a, genesis_account, std::numeric_limits<rai::uint128_t>::max ());
-	store_a.checksum_put (transaction_a, 0, 0, hash_l);
-	store_a.frontier_put (transaction_a, hash_l, genesis_account);
-}
-
 rai::block_hash rai::genesis::hash () const
 {
 	return open->hash ();

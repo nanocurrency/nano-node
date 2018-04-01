@@ -1,6 +1,7 @@
 #include <queue>
 #include <rai/secure/blockstore.hpp>
 #include <rai/secure/versioning.hpp>
+#include <rai/node/common.hpp>
 
 namespace rai
 {
@@ -501,6 +502,18 @@ meta (0)
 			checksum_put (transaction, 0, 0, 0);
 		}
 	}
+}
+
+void rai::block_store::initialize (MDB_txn * transaction_a, rai::genesis const & genesis_a)
+{
+	auto hash_l (genesis_a.hash ());
+	assert (latest_v0_begin (transaction_a) == latest_v0_end ());
+	assert (latest_v1_begin (transaction_a) == latest_v1_end ());
+	block_put (transaction_a, hash_l, *genesis_a.open);
+	account_put (transaction_a, genesis_account, { hash_l, genesis_a.open->hash (), genesis_a.open->hash (), std::numeric_limits<rai::uint128_t>::max (), rai::seconds_since_epoch (), 1, rai::epoch::epoch_0 });
+	representation_put (transaction_a, genesis_account, std::numeric_limits<rai::uint128_t>::max ());
+	checksum_put (transaction_a, 0, 0, hash_l);
+	frontier_put (transaction_a, hash_l, genesis_account);
 }
 
 void rai::block_store::version_put (MDB_txn * transaction_a, int version_a)
@@ -1283,7 +1296,7 @@ void rai::block_store::pending_put (MDB_txn * transaction_a, rai::pending_key co
 			db = pending_v1;
 			break;
 	}
-	auto status (mdb_put (transaction_a, db, key_a.val (), rai::mdb_val(pending_a), 0));
+	auto status (mdb_put (transaction_a, db, rai::mdb_val (key_a), rai::mdb_val(pending_a), 0));
 	assert (status == 0);
 }
 
@@ -1351,7 +1364,7 @@ bool rai::block_store::pending_get (MDB_txn * transaction_a, rai::pending_key co
 
 rai::store_iterator rai::block_store::pending_v0_begin (MDB_txn * transaction_a, rai::pending_key const & key_a)
 {
-	rai::store_iterator result (transaction_a, pending_v0, key_a.val (), rai::epoch::epoch_0);
+	rai::store_iterator result (transaction_a, pending_v0, rai::mdb_val (key_a), rai::epoch::epoch_0);
 	return result;
 }
 
@@ -1369,7 +1382,7 @@ rai::store_iterator rai::block_store::pending_v0_end ()
 
 rai::store_iterator rai::block_store::pending_v1_begin (MDB_txn * transaction_a, rai::pending_key const & key_a)
 {
-	rai::store_iterator result (transaction_a, pending_v1, key_a.val (), rai::epoch::epoch_1);
+	rai::store_iterator result (transaction_a, pending_v1, rai::mdb_val (key_a), rai::epoch::epoch_1);
 	return result;
 }
 

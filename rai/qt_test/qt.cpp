@@ -468,7 +468,7 @@ TEST (history, short_text)
 	rai::ledger ledger (store, system.nodes[0]->stats);
 	{
 		rai::transaction transaction (store.environment, nullptr, true);
-		genesis.initialize (transaction, store);
+		store.initialize (transaction, genesis);
 		rai::keypair key;
 		rai::send_block send (ledger.latest (transaction, rai::test_genesis_key.pub), rai::test_genesis_key.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
 		ASSERT_EQ (rai::process_result::progress, ledger.process (transaction, send).code);
