@@ -123,7 +123,6 @@ public:
 	bool deserialize (rai::stream &);
 	bool operator== (rai::account_info const &) const;
 	bool operator!= (rai::account_info const &) const;
-	rai::mdb_val val () const;
 	size_t db_size () const;
 	rai::block_hash head;
 	rai::block_hash rep_block;

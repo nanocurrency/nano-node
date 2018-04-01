@@ -129,6 +129,11 @@ mdb_val (sizeof (val_a), const_cast<rai::uint256_union *> (&val_a))
 {
 }
 
+rai::mdb_val::mdb_val (rai::account_info const & val_a) :
+mdb_val (val_a.db_size (), const_cast<rai::account_info *> (&val_a))
+{
+}
+
 void * rai::mdb_val::data () const
 {
 	return value.mv_data;
