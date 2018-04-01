@@ -104,6 +104,15 @@ size_t rai::mdb_val::size () const
 	return value.mv_size;
 }
 
+rai::mdb_val::operator rai::account_info () const
+{
+	rai::account_info result;
+	result.epoch = epoch;
+	assert (value.mv_size == result.db_size ());
+	std::copy (reinterpret_cast<uint8_t const *> (value.mv_data), reinterpret_cast<uint8_t const *> (value.mv_data) + result.db_size (), reinterpret_cast<uint8_t *> (&result));
+	return result;
+}
+
 rai::mdb_val::operator rai::uint256_union () const
 {
 	rai::uint256_union result;
