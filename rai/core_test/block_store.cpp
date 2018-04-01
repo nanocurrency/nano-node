@@ -292,7 +292,9 @@ TEST (block_store, one_bootstrap)
 	ASSERT_NE (end, begin);
 	rai::uint256_union hash1 (begin->first);
 	ASSERT_EQ (block1->hash (), hash1);
-	auto block2 (rai::deserialize_block (begin->second));
+	auto blocks (store.unchecked_get (transaction, rai::block_hash (begin->first)));
+	ASSERT_EQ (1, blocks.size ());
+	auto block2 (blocks[0]);
 	ASSERT_EQ (*block1, *block2);
 	++begin;
 	ASSERT_EQ (end, begin);

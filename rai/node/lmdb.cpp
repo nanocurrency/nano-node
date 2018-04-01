@@ -1,7 +1,6 @@
 
 #include <rai/node/lmdb.hpp>
 
-
 rai::mdb_env::mdb_env (bool & error_a, boost::filesystem::path const & path_a, int max_dbs)
 {
 	boost::system::error_code error;
@@ -85,7 +84,7 @@ mdb_val (sizeof (val_a.source) + sizeof (val_a.amount), const_cast<rai::pending_
 }
 
 rai::mdb_val::mdb_val (rai::pending_key const & val_a) :
-mdb_val (sizeof (val_a), const_cast <rai::pending_key *> (&val_a))
+mdb_val (sizeof (val_a), const_cast<rai::pending_key *> (&val_a))
 {
 }
 

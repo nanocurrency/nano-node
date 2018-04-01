@@ -7,7 +7,8 @@
 #include <rai/lib/numbers.hpp>
 #include <rai/secure/common.hpp>
 
-namespace rai {
+namespace rai
+{
 /**
  * RAII wrapper for MDB_env
  */
@@ -126,4 +127,3 @@ public:
 	rai::block_hash result;
 };
 }
-
