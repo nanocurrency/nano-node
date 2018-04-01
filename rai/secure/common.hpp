@@ -114,7 +114,6 @@ class block_info
 {
 public:
 	block_info ();
-	block_info (MDB_val const &);
 	block_info (rai::account const &, rai::amount const &);
 	void serialize (rai::stream &) const;
 	bool deserialize (rai::stream &);
