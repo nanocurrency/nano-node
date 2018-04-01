@@ -44,7 +44,7 @@ int mdb_env_open (MDB_env * env, const char * path, unsigned int flags, uint32_t
 	options.create_if_missing = true;
 	OptimisticTransactionDB * txn_db;
 
-	int result = OptimisticTransactionDB::Open (options, path, &txn_db).code ();
+	int result (OptimisticTransactionDB::Open (options, path, &txn_db).code ());
 	env->txn_db = txn_db;
 	env->db = txn_db->GetBaseDB ();
 	return result;
@@ -102,7 +102,7 @@ std::vector<uint8_t> namespace_key (MDB_val * val, MDB_dbi dbi)
 void string_to_val (std::string str, MDB_val * val)
 {
 	val->mv_size = str.size ();
-	val->mv_data = malloc (str.size ());
+	val->mv_data = malloc (val->mv_size);
 	std::memcpy (val->mv_data, str.data (), val->mv_size);
 }
 }
@@ -128,7 +128,7 @@ int mdb_txn_begin (MDB_env * env, MDB_txn *, unsigned int flags, MDB_txn ** txn)
 
 int mdb_txn_commit (MDB_txn * txn)
 {
-	int result = 0;
+	int result (0);
 	if (txn->write_txn)
 	{
 		result = txn->write_txn->Commit ().code ();
@@ -151,11 +151,15 @@ int mdb_dbi_open (MDB_txn * txn, const char * name, unsigned int flags, MDB_dbi 
 	prefix_int = DBI_LOOKUP_PREFIX;
 	boost::endian::native_to_little_inplace (prefix_int);
 	std::vector<uint8_t> dbi_lookup_key_bytes (prefix_bytes.begin (), prefix_bytes.end ());
+	if (name == nullptr)
+	{
+		name = "";
+	}
 	std::string name_str (name);
 	std::copy (name_str.begin (), name_str.end (), std::back_inserter (dbi_lookup_key_bytes));
 	Slice dbi_lookup_key (Slice ((const char *)dbi_lookup_key_bytes.data (), dbi_lookup_key_bytes.size ()));
 	std::string dbi_buf;
-	int result = txn_get (txn, dbi_lookup_key, &dbi_buf).code ();
+	int result (txn_get (txn, dbi_lookup_key, &dbi_buf).code ());
 	if (!result && dbi_buf.size () != 2)
 	{
 		result = MDB_CORRUPTED;
@@ -221,7 +225,7 @@ int mdb_get (MDB_txn * txn, MDB_dbi dbi, MDB_val * key, MDB_val * value)
 {
 	std::string out_buf;
 	std::vector<uint8_t> namespaced_key (namespace_key (key, dbi));
-	int result = txn_get (txn, Slice ((const char *)namespaced_key.data (), namespaced_key.size ()), &out_buf).code ();
+	int result (txn_get (txn, Slice ((const char *)namespaced_key.data (), namespaced_key.size ()), &out_buf).code ());
 	if (!result)
 	{
 		string_to_val (out_buf, value);
@@ -231,7 +235,7 @@ int mdb_get (MDB_txn * txn, MDB_dbi dbi, MDB_val * key, MDB_val * value)
 
 int mdb_put (MDB_txn * txn, MDB_dbi dbi, MDB_val * key, MDB_val * value, unsigned int flags)
 {
-	int result = 0;
+	int result (0);
 	if (!txn->write_txn)
 	{
 		result = MDB_BAD_TXN;
@@ -285,62 +289,80 @@ int mdb_cursor_open (MDB_txn * txn, MDB_dbi dbi, MDB_cursor ** cursor)
 
 int mdb_cursor_get (MDB_cursor * cursor, MDB_val * key, MDB_val * value, MDB_cursor_op op)
 {
-	int result = 0;
+	int result (0);
+	bool seeked (false);
 	switch (op)
 	{
 		case MDB_GET_CURRENT:
-			string_to_val (cursor->it->key ().ToString (), key);
-			string_to_val (cursor->it->value ().ToString (), value);
-			break;
-		case MDB_FIRST:
-			cursor->it->Seek (Slice ((const char *)&cursor->dbi, sizeof (cursor->dbi)));
-			if (!cursor->it->Valid ())
-			{
-				result = MDB_NOTFOUND;
-			}
-			break;
-		case MDB_SET_RANGE:
 		{
-			std::vector<uint8_t> ns_key (namespace_key (key, cursor->dbi));
-			cursor->it->Seek (Slice ((const char *)ns_key.data (), ns_key.size ()));
 			if (!cursor->it->Valid ())
 			{
 				result = MDB_NOTFOUND;
 			}
-			break;
-		}
-		case MDB_NEXT:
-			if (!cursor->it->Valid ())
+			else if (!cursor->it->status ().ok ())
 			{
-				result = MDB_NOTFOUND;
+				result = cursor->it->status ().code ();
 			}
 			else
 			{
-				cursor->it->Next ();
-				if (!cursor->it->Valid ())
-				{
-					result = MDB_NOTFOUND;
-				}
-			}
-			if (!result)
-			{
-				Slice key (cursor->it->key ());
-				if (key.size () < 2)
+				Slice key_slice (cursor->it->key ());
+				if (key_slice.size () < 2)
 				{
 					result = MDB_CORRUPTED;
 				}
 				else
 				{
-					if (*((uint16_t *)key.data ()) != cursor->dbi)
-					{
-						result = MDB_NOTFOUND;
-					}
+					key->mv_size = key_slice.size () - 2;
+					key->mv_data = malloc (key->mv_size);
+					std::memcpy (key->mv_data, key_slice.data () + 2, key->mv_size);
+					Slice value_slice (cursor->it->value ());
+					value->mv_size = value_slice.size ();
+					value->mv_data = malloc (value->mv_size);
+					std::memcpy (value->mv_data, value_slice.data (), value->mv_size);
 				}
 			}
+			break;
+		}
+		case MDB_FIRST:
+			cursor->it->Seek (Slice ((const char *)&cursor->dbi, sizeof (cursor->dbi)));
+			seeked = true;
+			break;
+		case MDB_SET_RANGE:
+		{
+			std::vector<uint8_t> ns_key (namespace_key (key, cursor->dbi));
+			cursor->it->Seek (Slice ((const char *)ns_key.data (), ns_key.size ()));
+			seeked = true;
+			break;
+		}
+		case MDB_NEXT:
+			if (cursor->it->Valid ())
+			{
+				cursor->it->Next ();
+			}
+			else
+			{
+				result = MDB_NOTFOUND;
+			}
+			seeked = true;
 			break;
 		case MDB_NEXT_DUP:
 			result = MDB_NOTFOUND;
 			break;
+	}
+	if (seeked && !result)
+	{
+		Slice key (cursor->it->key ());
+		if (key.size () < 2)
+		{
+			result = MDB_CORRUPTED;
+		}
+		else
+		{
+			if (*((uint16_t *)key.data ()) != cursor->dbi)
+			{
+				result = MDB_NOTFOUND;
+			}
+		}
 	}
 	if (!result)
 	{
@@ -351,7 +373,7 @@ int mdb_cursor_get (MDB_cursor * cursor, MDB_val * key, MDB_val * value, MDB_cur
 
 int mdb_cursor_put (MDB_cursor * cursor, MDB_val * key, MDB_val * value, unsigned int flags)
 {
-	int result = 0;
+	int result (0);
 	if (cursor->write_txn)
 	{
 		Slice key_slice ((const char *)key->mv_data, key->mv_size);
