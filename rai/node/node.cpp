@@ -2603,7 +2603,7 @@ void rai::online_reps::vote (std::shared_ptr<rai::vote> const & vote_a)
 		if (online_stake < old_stake)
 		{
 			// overflow
-			online_stake = std::numeric_limits<rai::uint128_t>::max();
+			online_stake = std::numeric_limits<rai::uint128_t>::max ();
 		}
 		reps.insert (info);
 	}
@@ -2618,7 +2618,7 @@ void rai::online_reps::recalculate_stake (bool initializing)
 	if (initializing)
 	{
 		// set stake to max until we're sure who's online
-		online_stake = std::numeric_limits<rai::uint128_t>::max();
+		online_stake = std::numeric_limits<rai::uint128_t>::max ();
 	}
 	else
 	{
