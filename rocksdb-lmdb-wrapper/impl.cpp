@@ -323,7 +323,13 @@ int mdb_del (MDB_txn * txn, MDB_dbi dbi, MDB_val * key, MDB_val * value)
 	else
 	{
 		std::vector<uint8_t> namespaced_key (namespace_key (key, dbi));
-		result = txn->write_txn->Delete (Slice ((const char *)namespaced_key.data (), namespaced_key.size ())).code ();
+		Slice key ((const char *)namespaced_key.data (), namespaced_key.size ());
+		std::string value;
+		result = txn_get (txn, key, &value).code (); // check if exists
+		if (!result)
+		{
+			result = txn->write_txn->Delete (key).code ();
+		}
 	}
 	return result;
 }
