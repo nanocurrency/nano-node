@@ -6,7 +6,7 @@ DISTRO_CFG=""
 if [[ "$OSTYPE" == "linux-gnu" ]]; then
     CPACK_TYPE="TBZ2"
     distro=$(lsb_release -i -c -s|tr '\n' '_')
-    DISTRO_CFG="-DRAIBLOCKS_DISTRO_NAME=${distro}"
+    DISTRO_CFG="-DBANANO_DISTRO_NAME=${distro}"
 elif [[ "$OSTYPE" == "darwin"* ]]; then
     CPACK_TYPE="DragNDrop"
 elif [[ "$OSTYPE" == "cygwin" ]]; then
@@ -17,13 +17,13 @@ elif [[ "$OSTYPE" == "win32" ]]; then
     CPACK_TYPE="NSIS"
 elif [[ "$OSTYPE" == "freebsd"* ]]; then
     CPACK_TYPE="TBZ2"
-    DISTRO_CFG="-DRAIBLOCKS_DISTRO_NAME='freebsd'"
+    DISTRO_CFG="-DBANANO_DISTRO_NAME='freebsd'"
 else
     CPACK_TYPE="TBZ2"
 fi
 
 if [[ ${SIMD} -eq 1 ]]; then
-    SIMD_CFG="-DRAIBLOCKS_SIMD_OPTIMIZATIONS=ON"
+    SIMD_CFG="-DBANANO_SIMD_OPTIMIZATIONS=ON"
     CRYPTOPP_CFG=""
     echo SIMD and other optimizations enabled
     echo local CPU:
@@ -34,11 +34,11 @@ else
 fi
 
 if [[ ${ASAN_INT} -eq 1 ]]; then
-    SANITIZERS="-DRAIBLOCKS_ASAN_INT=ON"
+    SANITIZERS="-DBANANO_ASAN_INT=ON"
 elif [[ ${ASAN} -eq 1 ]]; then
-    SANITIZERS="-DRAIBLOCKS_ASAN=ON"
+    SANITIZERS="-DBANANO_ASAN=ON"
 elif [[ ${TSAN} -eq 1 ]]; then
-    SANITIZERS="-DRAIBLOCKS_TSAN=ON"
+    SANITIZERS="-DBANANO_TSAN=ON"
 else
     SANITIZERS=""
 fi
@@ -62,7 +62,7 @@ run_build() {
     mkdir ${build_dir}
     cd ${build_dir}
     cmake -GNinja \
-       -DRAIBLOCKS_GUI=ON \
+       -DBANANO_GUI=ON \
        -DCMAKE_BUILD_TYPE=Release \
        -DCMAKE_VERBOSE_MAKEFILE=ON \
        -DCMAKE_INSTALL_PREFIX="../install" \

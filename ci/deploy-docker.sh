@@ -6,7 +6,7 @@ scripts="$(dirname "$0")"
 docker login -u nanocurrency -p "$DOCKER_PASSWORD"
 
 # We push this just so it can be a cache next time
-"$scripts"/custom-timeout.sh 30 docker push nanocurrency/nano-ci
+"$scripts"/custom-timeout.sh 30 docker push BananoCoin/banano-ci
 
 tags=()
 if [ -n "$TRAVIS_TAG" ]; then
@@ -22,7 +22,7 @@ for network in live beta; do
         network_tag_suffix="-${network}"
     fi
 
-    docker_image_name="nanocurrency/nano${network_tag_suffix}"
+    docker_image_name="BananoCoin/banano${network_tag_suffix}"
 
     ci/build-docker-image.sh docker/node/Dockerfile "$docker_image_name" --build-arg NETWORK="${network}"
     for tag in "${tags[@]}"; do

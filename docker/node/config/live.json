@@ -3,16 +3,16 @@
     "rpc_enable": "true",
     "rpc": {
         "address": "::ffff:0.0.0.0",
-        "port": "7076",
+        "port": "7072",
         "enable_control": "true",
         "frontier_request_limit": "16384",
         "chain_request_limit": "16384"
     },
     "node": {
         "version": "8",
-        "peering_port": "7075",
+        "peering_port": "7071",
         "bootstrap_fraction_numerator": "1",
-        "receive_minimum": "1000000000000000000000000",
+        "receive_minimum": "100000000000000000000000000000",
         "logging": {
             "version": "2",
             "ledger": "false",
@@ -35,17 +35,17 @@
         },
         "work_peers": "",
         "preconfigured_peers": [
-            "rai.raiblocks.net"
+            "tarzan.banano.co.in"
         ],
         "preconfigured_representatives": [
-            "xrb_3arg3asgtigae3xckabaaewkx3bzsh7nwz7jkmjos79ihyaxwphhm6qgjps4",
-            "xrb_1stofnrxuz3cai7ze75o174bpm7scwj9jn3nxsn8ntzg784jf1gzn1jjdkou",
-            "xrb_1q3hqecaw15cjt7thbtxu3pbzr1eihtzzpzxguoc37bj1wc5ffoh7w74gi6p",
-            "xrb_3dmtrrws3pocycmbqwawk6xs7446qxa36fcncush4s1pejk16ksbmakis78m",
-            "xrb_3hd4ezdgsp15iemx7h81in7xz5tpxi43b6b41zn3qmwiuypankocw3awes5k",
-            "xrb_1awsn43we17c1oshdru4azeqjz9wii41dy8npubm4rg11so7dx3jtqgoeahy",
-            "xrb_1anrzcuwe64rwxzcco8dkhpyxpi8kd7zsjc1oeimpc3ppca4mrjtwnqposrs",
-            "xrb_1hza3f7wiiqa7ig3jczyxj5yo86yegcmqk3criaz838j91sxcckpfhbhhra1"
+            "ban_1cake36ua5aqcq1c5i3dg7k8xtosw7r9r7qbbf5j15sk75csp9okesz87nfn",
+            "ban_1fomoz167m7o38gw4rzt7hz67oq6itejpt4yocrfywujbpatd711cjew8gjj"
+            
+            
+            
+            
+           
+            
         ],
         "inactive_supply": "0",
         "password_fanout": "1024",

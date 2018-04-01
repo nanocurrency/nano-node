@@ -14,16 +14,16 @@ install:
 
     copy /Y FindBoost.cmake "C:/Program Files (x86)/CMake/share/cmake-3.10/Modules/FindBoost.cmake"
 
-    cmake -DRAIBLOCKS_GUI=ON -DQt5_DIR=C:\Qt\5.9.4\msvc2015_64\lib\cmake\Qt5 -DRAIBLOCKS_SIMD_OPTIMIZATIONS=TRUE -DBOOST_INCLUDEDIR=C:/Libraries/boost_1_66_0 -DBOOST_LIBRARYDIR=C:/Libraries/boost_1_66_0/lib64-msvc-14.0 -G "Visual Studio 14 2015 Win64" -DIPHLPAPI_LIBRARY="C:/Program Files (x86)/Windows Kits/10/Lib/10.0.14393.0/um/x64/iphlpapi.lib" -DWINSOCK2_LIBRARY="C:/Program Files (x86)/Windows Kits/10/Lib/10.0.14393.0/um/x64/WS2_32.lib" -DGIT_COMMIT=%GIT_COMMIT%
+    cmake -DBANANO_GUI=ON -DQt5_DIR=C:\Qt\5.9.4\msvc2015_64\lib\cmake\Qt5 -DBANANO_SIMD_OPTIMIZATIONS=TRUE -DBOOST_INCLUDEDIR=C:/Libraries/boost_1_66_0 -DBOOST_LIBRARYDIR=C:/Libraries/boost_1_66_0/lib64-msvc-14.0 -G "Visual Studio 14 2015 Win64" -DIPHLPAPI_LIBRARY="C:/Program Files (x86)/Windows Kits/10/Lib/10.0.14393.0/um/x64/iphlpapi.lib" -DWINSOCK2_LIBRARY="C:/Program Files (x86)/Windows Kits/10/Lib/10.0.14393.0/um/x64/WS2_32.lib" -DGIT_COMMIT=%GIT_COMMIT%
 
 - ps: >-
-    $size_t=select-string -path ".\bootstrap_weights.cpp" -Pattern "rai_bootstrap_weights_size"| foreach {$_.Line}
+    $size_t=select-string -path ".\bootstrap_weights.cpp" -Pattern "banano_bootstrap_weights_size"| foreach {$_.Line}
     
-    $old_size_t = "extern const size_t rai_bootstrap_weights_size;"
+    $old_size_t = "extern const size_t banano_bootstrap_weights_size;"
     
-    $char=select-string -path ".\bootstrap_weights.cpp" -Pattern "char rai_bootstrap_weights"| foreach {$_.Line}
+    $char=select-string -path ".\bootstrap_weights.cpp" -Pattern "char banano_bootstrap_weights"| foreach {$_.Line}
     
-    $old_char = [regex]::Escape("extern const char rai_bootstrap_weights[];") 
+    $old_char = [regex]::Escape("extern const char banano_bootstrap_weights[];") 
     
     select-string -path ".\rai\node\node.cpp" -Pattern $old_size_t -SimpleMatch | %{$curpath=$_.path; (get-content $curpath -Raw) -replace $old_char, $char| Out-File $curpath}
     
@@ -31,7 +31,7 @@ install:
 
 build:
   parallel: true  
-  project: nano_wallet.vcxproj
+  project: banano_wallet.vcxproj
   verbosity: quiet
 after_build:
 - ps: Invoke-WebRequest -Uri https://download.microsoft.com/download/5/7/b/57b2947c-7221-4f33-b35e-2fc78cb10df4/vc_redist.x64.exe -OutFile .\vc_redist.x64.exe
@@ -42,5 +42,5 @@ after_build:
 artifacts:
 - path: nano.zip
   name: nano_release
-- path: Nano_Installer-*.exe
-  name: Nano_installer
+- path: Banano_Installer-*.exe
+  name: Banano_installer
