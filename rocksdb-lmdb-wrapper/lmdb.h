@@ -14,8 +14,9 @@
 #define MDB_NOTLS 0x200000
 
 #define MDB_NOTFOUND 1 // from RocksDB
-#define MDB_BAD_TXN 0x80
-#define MDB_CORRUPTED 0x81
+#define MDB_PANIC 0x80 // we use this when we don't know what the error is
+#define MDB_BAD_TXN 0x81
+#define MDB_CORRUPTED 0x82
 
 struct MDB_env;
 
