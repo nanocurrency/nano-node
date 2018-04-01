@@ -639,15 +639,15 @@ TEST (system, generate_send_new)
 	{
 		rai::transaction transaction (system.nodes[0]->store.environment, nullptr, false);
 		auto iterator2 (system.wallet (0)->store.begin (transaction));
-		if (iterator2->first.uint256 () != rai::test_genesis_key.pub)
+		if (rai::uint256_union (iterator2->first) != rai::test_genesis_key.pub)
 		{
-			new_account = iterator2->first.uint256 ();
+			new_account = rai::uint256_union (iterator2->first);
 		}
 		++iterator2;
 		ASSERT_NE (system.wallet (0)->store.end (), iterator2);
-		if (iterator2->first.uint256 () != rai::test_genesis_key.pub)
+		if (rai::uint256_union (iterator2->first) != rai::test_genesis_key.pub)
 		{
-			new_account = iterator2->first.uint256 ();
+			new_account = rai::uint256_union (iterator2->first);
 		}
 		++iterator2;
 		ASSERT_EQ (system.wallet (0)->store.end (), iterator2);

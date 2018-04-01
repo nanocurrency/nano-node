@@ -370,7 +370,7 @@ void rai::frontier_req_client::next (MDB_txn * transaction_a)
 	auto iterator (connection->node->store.latest_begin (transaction_a, rai::uint256_union (current.number () + 1)));
 	if (iterator != connection->node->store.latest_end ())
 	{
-		current = rai::account (iterator->first.uint256 ());
+		current = rai::account (iterator->first);
 		info = rai::account_info (iterator->second);
 	}
 	else
@@ -2204,7 +2204,7 @@ std::unique_ptr<rai::block> rai::bulk_pull_blocks_server::get_next ()
 	{
 		if (stream->first.size () != 0)
 		{
-			auto current = stream->first.uint256 ();
+			auto current = rai::uint256_union (stream->first);
 			if (current < request->max_hash)
 			{
 				rai::transaction transaction (connection->node->store.environment, nullptr, false);
@@ -2486,7 +2486,7 @@ void rai::frontier_req_server::next ()
 	auto iterator (connection->node->store.latest_begin (transaction, current.number () + 1));
 	if (iterator != connection->node->store.latest_end ())
 	{
-		current = rai::uint256_union (iterator->first.uint256 ());
+		current = rai::uint256_union (iterator->first);
 		info = rai::account_info (iterator->second);
 	}
 	else

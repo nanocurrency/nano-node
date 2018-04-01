@@ -92,7 +92,7 @@ TEST (wallet, one_item_iteration)
 	wallet.insert_adhoc (transaction, key1.prv);
 	for (auto i (wallet.begin (transaction)), j (wallet.end ()); i != j; ++i)
 	{
-		ASSERT_EQ (key1.pub, i->first.uint256 ());
+		ASSERT_EQ (key1.pub, rai::uint256_union (i->first));
 		rai::raw_key password;
 		wallet.wallet_key (password, transaction);
 		rai::raw_key key;
@@ -120,7 +120,7 @@ TEST (wallet, two_item_iteration)
 		wallet.insert_adhoc (transaction, key2.prv);
 		for (auto i (wallet.begin (transaction)), j (wallet.end ()); i != j; ++i)
 		{
-			pubs.insert (i->first.uint256 ());
+			pubs.insert (rai::uint256_union (i->first));
 			rai::raw_key password;
 			wallet.wallet_key (password, transaction);
 			rai::raw_key key;

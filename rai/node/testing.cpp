@@ -94,7 +94,7 @@ rai::account rai::system::account (MDB_txn * transaction_a, size_t index_a)
 	assert (keys != wallet_l->store.end ());
 	auto result (keys->first);
 	assert (++keys == wallet_l->store.end ());
-	return result.uint256 ();
+	return rai::account (result);
 }
 
 void rai::system::deadline_set (const std::chrono::duration<double, std::nano> & delta_a)
@@ -268,7 +268,7 @@ void rai::system::generate_send_existing (rai::node & node_a, std::vector<rai::a
 			entry = node_a.store.latest_begin (transaction);
 		}
 		assert (entry != node_a.store.latest_end ());
-		destination = rai::account (entry->first.uint256 ());
+		destination = rai::account (entry->first);
 		source = get_random_account (accounts_a);
 		amount = get_random_amount (transaction, node_a, source);
 	}

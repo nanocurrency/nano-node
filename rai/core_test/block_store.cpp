@@ -290,7 +290,7 @@ TEST (block_store, one_bootstrap)
 	auto begin (store.unchecked_begin (transaction));
 	auto end (store.unchecked_end ());
 	ASSERT_NE (end, begin);
-	auto hash1 (begin->first.uint256 ());
+	rai::uint256_union hash1 (begin->first);
 	ASSERT_EQ (block1->hash (), hash1);
 	auto block2 (rai::deserialize_block (begin->second));
 	ASSERT_EQ (*block1, *block2);
@@ -334,7 +334,7 @@ TEST (block_store, one_account)
 	auto begin (store.latest_begin (transaction));
 	auto end (store.latest_end ());
 	ASSERT_NE (end, begin);
-	ASSERT_EQ (account, begin->first.uint256 ());
+	ASSERT_EQ (account, rai::account(begin->first));
 	rai::account_info info (begin->second);
 	ASSERT_EQ (hash, info.head);
 	ASSERT_EQ (42, info.balance.number ());
@@ -380,7 +380,7 @@ TEST (block_store, two_account)
 	auto begin (store.latest_begin (transaction));
 	auto end (store.latest_end ());
 	ASSERT_NE (end, begin);
-	ASSERT_EQ (account1, begin->first.uint256 ());
+	ASSERT_EQ (account1, rai::account (begin->first));
 	rai::account_info info1 (begin->second);
 	ASSERT_EQ (hash1, info1.head);
 	ASSERT_EQ (42, info1.balance.number ());
@@ -388,7 +388,7 @@ TEST (block_store, two_account)
 	ASSERT_EQ (300, info1.block_count);
 	++begin;
 	ASSERT_NE (end, begin);
-	ASSERT_EQ (account2, begin->first.uint256 ());
+	ASSERT_EQ (account2, rai::account(begin->first));
 	rai::account_info info2 (begin->second);
 	ASSERT_EQ (hash2, info2.head);
 	ASSERT_EQ (84, info2.balance.number ());
@@ -500,7 +500,7 @@ TEST (block_store, large_iteration)
 	rai::transaction transaction (store.environment, nullptr, false);
 	for (auto i (store.latest_begin (transaction, 0)), n (store.latest_end ()); i != n; ++i)
 	{
-		rai::account current (i->first.uint256 ());
+		rai::account current (i->first);
 		assert (current.number () > previous.number ());
 		accounts2.insert (current);
 		previous = current;

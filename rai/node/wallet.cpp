@@ -106,7 +106,7 @@ void rai::wallet_store::deterministic_clear (MDB_txn * transaction_a)
 		{
 			case rai::key_type::deterministic:
 			{
-				rai::uint256_union key (i->first.uint256 ());
+				rai::uint256_union key (i->first);
 				erase (transaction_a, key);
 				i = begin (transaction_a, key);
 				break;
@@ -378,7 +378,7 @@ std::vector<rai::account> rai::wallet_store::accounts (MDB_txn * transaction_a)
 	std::vector<rai::account> result;
 	for (auto i (begin (transaction_a)), n (end ()); i != n; ++i)
 	{
-		rai::account account (i->first.uint256 ());
+		rai::account account (i->first);
 		result.push_back (account);
 	}
 	return result;
@@ -542,7 +542,7 @@ void rai::wallet_store::serialize_json (MDB_txn * transaction_a, std::string & s
 	boost::property_tree::ptree tree;
 	for (rai::store_iterator i (transaction_a, handle), n (nullptr); i != n; ++i)
 	{
-		tree.put (rai::uint256_union (i->first.uint256 ()).to_string (), rai::wallet_value (i->second).key.to_string ());
+		tree.put (rai::uint256_union (i->first).to_string (), rai::wallet_value (i->second).key.to_string ());
 	}
 	std::stringstream ostream;
 	boost::property_tree::write_json (ostream, tree);
@@ -592,12 +592,12 @@ bool rai::wallet_store::import (MDB_txn * transaction_a, rai::wallet_store & oth
 	for (auto i (other_a.begin (transaction_a)), n (end ()); i != n; ++i)
 	{
 		rai::raw_key prv;
-		auto error (other_a.fetch (transaction_a, i->first.uint256 (), prv));
+		auto error (other_a.fetch (transaction_a, rai::uint256_union (i->first), prv));
 		result = result | error;
 		if (!result)
 		{
 			insert_adhoc (transaction_a, prv);
-			other_a.erase (transaction_a, i->first.uint256 ());
+			other_a.erase (transaction_a, rai::uint256_union (i->first));
 		}
 	}
 	return result;
@@ -654,7 +654,7 @@ void rai::wallet_store::upgrade_v1_v2 ()
 	empty_password.decrypt (value.key, kdf, salt (transaction).owords[0]);
 	for (auto i (begin (transaction)), n (end ()); i != n; ++i)
 	{
-		rai::public_key key (i->first.uint256 ());
+		rai::public_key key (i->first);
 		rai::raw_key prv;
 		if (fetch (transaction, key, prv))
 		{
@@ -971,7 +971,7 @@ std::shared_ptr<rai::block> rai::wallet::send_action (rai::account const & sourc
 			auto status (mdb_get (transaction, node.wallets.send_action_ids, *id_mdb_val, result));
 			if (status == 0)
 			{
-				auto hash (result.uint256 ());
+				rai::uint256_union hash (result);
 				block = node.store.block_get (transaction, hash);
 				if (block != nullptr)
 				{
@@ -1121,10 +1121,10 @@ bool rai::wallet::search_pending ()
 	if (!result)
 	{
 		BOOST_LOG (node.log) << "Beginning pending block search";
-		rai::transaction transaction (node.store.environment, nullptr, false);
 		for (auto i (store.begin (transaction)), n (store.end ()); i != n; ++i)
 		{
-			rai::account account (i->first.uint256 ());
+			rai::transaction transaction (node.store.environment, nullptr, false);
+			rai::account account (i->first);
 			// Don't search pending for watch-only accounts
 			if (!rai::wallet_value (i->second).key.is_zero ())
 			{
@@ -1156,7 +1156,7 @@ void rai::wallet::init_free_accounts (MDB_txn * transaction_a)
 	free_accounts.clear ();
 	for (auto i (store.begin (transaction_a)), n (store.end ()); i != n; ++i)
 	{
-		free_accounts.insert (i->first.uint256 ());
+		free_accounts.insert (rai::uint256_union (i->first));
 	}
 }
 
@@ -1355,15 +1355,15 @@ void rai::wallets::foreach_representative (MDB_txn * transaction_a, std::functio
 		auto & wallet (*i->second);
 		for (auto j (wallet.store.begin (transaction_a)), m (wallet.store.end ()); j != m; ++j)
 		{
-			rai::account account (j->first.uint256 ());
+			rai::account account (j->first);
 			if (!node.ledger.weight (transaction_a, account).is_zero ())
 			{
 				if (wallet.store.valid_password (transaction_a))
 				{
 					rai::raw_key prv;
-					auto error (wallet.store.fetch (transaction_a, j->first.uint256 (), prv));
+					auto error (wallet.store.fetch (transaction_a, rai::uint256_union (j->first), prv));
 					assert (!error);
-					action_a (j->first.uint256 (), prv);
+					action_a (rai::uint256_union (j->first), prv);
 				}
 				else
 				{
@@ -1423,7 +1423,7 @@ rai::store_iterator rai::wallet_store::find (MDB_txn * transaction_a, rai::uint2
 	rai::store_iterator end (nullptr);
 	if (result != end)
 	{
-		if (rai::uint256_union (result->first.uint256 ()) == key)
+		if (rai::uint256_union (result->first) == key)
 		{
 			return result;
 		}
