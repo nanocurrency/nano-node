@@ -153,15 +153,6 @@ epoch (rai::epoch::epoch_0)
 {
 }
 
-rai::account_info::account_info (rai::mdb_val const & val_a) :
-epoch (val_a.epoch)
-{
-	assert (val_a.epoch == rai::epoch::epoch_0 || val_a.epoch == rai::epoch::epoch_1);
-	auto size (db_size ());
-	assert (val_a.value.mv_size == size);
-	std::copy (reinterpret_cast<uint8_t const *> (val_a.value.mv_data), reinterpret_cast<uint8_t const *> (val_a.value.mv_data) + size, reinterpret_cast<uint8_t *> (this));
-}
-
 rai::account_info::account_info (rai::block_hash const & head_a, rai::block_hash const & rep_block_a, rai::block_hash const & open_block_a, rai::amount const & balance_a, uint64_t modified_a, uint64_t block_count_a, rai::epoch epoch_a) :
 head (head_a),
 rep_block (rep_block_a),
