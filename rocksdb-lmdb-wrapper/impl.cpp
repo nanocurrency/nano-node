@@ -2,6 +2,7 @@
 
 #ifdef DEBUG_ROCKSDB_WRAPPER
 #include <iostream>
+#include <iomanip>
 #endif
 
 #include <boost/endian/conversion.hpp>
@@ -115,8 +116,14 @@ int mdb_txn_begin (MDB_env * env, MDB_txn *, unsigned int flags, MDB_txn ** txn)
 {
 	*txn = new MDB_txn ();
 	(*txn)->db = env->db;
+#ifdef DEBUG_ROCKSDB_WRAPPER
+	std::cerr << "mdb_txn_begin " << *txn << " ";
+#endif
 	if ((flags & MDB_RDONLY) != MDB_RDONLY)
 	{
+#ifdef DEBUG_ROCKSDB_WRAPPER
+		std::cerr << "read-write";
+#endif
 		std::unique_lock<std::mutex> write_guard (env->write_mutex);
 		(*txn)->write_guard = std::move (write_guard);
 		(*txn)->write_txn = env->txn_db->BeginTransaction (WriteOptions ());
@@ -124,9 +131,15 @@ int mdb_txn_begin (MDB_env * env, MDB_txn *, unsigned int flags, MDB_txn ** txn)
 	}
 	else
 	{
+#ifdef DEBUG_ROCKSDB_WRAPPER
+		std::cerr << "read only";
+#endif
 		(*txn)->read_opts.snapshot = env->db->GetSnapshot ();
 		(*txn)->write_txn = nullptr;
 	}
+#ifdef DEBUG_ROCKSDB_WRAPPER
+	std::cerr << std::endl;
+#endif
 	return 0;
 }
 
@@ -137,6 +150,9 @@ int mdb_txn_commit (MDB_txn * txn)
 	{
 		result = txn->write_txn->Commit ().code ();
 	}
+	#ifdef DEBUG_ROCKSDB_WRAPPER
+		std::cerr << "mdb_txn_commit " << txn << std::endl;
+	#endif
 	delete txn;
 	return result;
 }
@@ -237,13 +253,34 @@ int mdb_get (MDB_txn * txn, MDB_dbi dbi, MDB_val * key, MDB_val * value)
 	{
 		string_to_val (out_buf, value);
 	}
+#ifdef DEBUG_ROCKSDB_WRAPPER
+	std::cerr << "mdb_get " << txn << " (" << std::dec << dbi << ") ";
+	std::cerr << std::hex << std::setfill('0') << std::setw(0);
+	for (size_t i = 0; i < key->mv_size; ++i)
+	{
+		std::cerr << (uint16_t)(((const uint8_t *)key->mv_data)[i]);
+	}
+	std::cerr << ": ";
+	if (!result)
+	{
+		for (size_t i = 0; i < value->mv_size; ++i)
+		{
+			std::cerr << std::hex << (uint16_t)(((const uint8_t *)value->mv_data)[i]);
+		}
+		std::cerr << std::dec << std::endl;
+	}
+	else
+	{
+		std::cerr << "error " << std::dec << result << std::endl;
+	}
+#endif
 	return result;
 }
 
 int mdb_put (MDB_txn * txn, MDB_dbi dbi, MDB_val * key, MDB_val * value, unsigned int flags)
 {
 #ifdef DEBUG_ROCKSDB_WRAPPER
-	std::cerr << "mdb_put (" << std::dec << dbi << ") ";
+	std::cerr << "mdb_put " << txn << " (" << std::dec << dbi << ") ";
 	for (size_t i = 0; i < key->mv_size; ++i)
 	{
 		std::cerr << std::hex << (uint16_t)(((const uint8_t *)key->mv_data)[i]);
@@ -270,12 +307,20 @@ int mdb_put (MDB_txn * txn, MDB_dbi dbi, MDB_val * key, MDB_val * value, unsigne
 
 int mdb_del (MDB_txn * txn, MDB_dbi dbi, MDB_val * key, MDB_val * value)
 {
+#ifdef DEBUG_ROCKSDB_WRAPPER
+	std::cerr << "mdb_del " << txn << " (" << std::dec << dbi << ") ";
+	for (size_t i = 0; i < key->mv_size; ++i)
+	{
+		std::cerr << std::hex << (uint16_t)(((const uint8_t *)key->mv_data)[i]);
+	}
+	std::cerr << std::endl;
+#endif
 	int result = 0;
 	if (!txn->write_txn)
 	{
 		result = MDB_BAD_TXN;
 	}
-	if (!result)
+	else
 	{
 		std::vector<uint8_t> namespaced_key (namespace_key (key, dbi));
 		result = txn->write_txn->Delete (Slice ((const char *)namespaced_key.data (), namespaced_key.size ())).code ();
@@ -351,7 +396,7 @@ int mdb_cursor_get (MDB_cursor * cursor, MDB_val * key, MDB_val * value, MDB_cur
 		{
 			Slice key_slice (cursor->it->key ());
 #ifdef DEBUG_ROCKSDB_WRAPPER
-			std::cerr << "Iterator over " << std::dec << cursor->dbi << " at ";
+			std::cerr << "Iterator over DBI " << std::dec << cursor->dbi << " at ";
 			for (size_t i = 0; i < key_slice.size (); ++i)
 			{
 				std::cerr << std::hex << (uint16_t)key_slice[i];
