@@ -144,6 +144,11 @@ mdb_val (sizeof (val_a), const_cast <rai::pending_key *> (&val_a))
 {
 }
 
+rai::mdb_val::mdb_val (rai::block_info const & val_a) :
+mdb_val (sizeof (val_a), const_cast<rai::block_info *> (&val_a))
+{
+}
+
 void * rai::mdb_val::data () const
 {
 	return value.mv_data;
