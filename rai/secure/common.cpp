@@ -310,13 +310,6 @@ balance (0)
 {
 }
 
-rai::block_info::block_info (MDB_val const & val_a)
-{
-	assert (val_a.mv_size == sizeof (*this));
-	static_assert (sizeof (account) + sizeof (balance) == sizeof (*this), "Packed class");
-	std::copy (reinterpret_cast<uint8_t const *> (val_a.mv_data), reinterpret_cast<uint8_t const *> (val_a.mv_data) + sizeof (*this), reinterpret_cast<uint8_t *> (this));
-}
-
 rai::block_info::block_info (rai::account const & account_a, rai::amount const & balance_a) :
 account (account_a),
 balance (balance_a)
