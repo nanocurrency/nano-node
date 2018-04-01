@@ -255,7 +255,7 @@ void rai_qt::accounts::refresh_wallet_balance ()
 	rai::uint128_t pending (0);
 	for (auto i (this->wallet.wallet_m->store.begin (transaction)), j (this->wallet.wallet_m->store.end ()); i != j; ++i)
 	{
-		rai::public_key key (i->first.uint256 ());
+		rai::public_key key (i->first);
 		balance = balance + (this->wallet.node.ledger.account_balance (transaction, key));
 		pending = pending + (this->wallet.node.ledger.account_pending (transaction, key));
 	}
@@ -279,7 +279,7 @@ void rai_qt::accounts::refresh ()
 	QBrush brush;
 	for (auto i (wallet.wallet_m->store.begin (transaction)), j (wallet.wallet_m->store.end ()); i != j; ++i)
 	{
-		rai::public_key key (i->first.uint256 ());
+		rai::public_key key (i->first);
 		auto balance_amount (wallet.node.ledger.account_balance (transaction, key));
 		bool display (true);
 		switch (wallet.wallet_m->store.key_type (i->second))

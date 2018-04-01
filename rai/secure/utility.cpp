@@ -139,7 +139,7 @@ size_t rai::mdb_val::size () const
 	return value.mv_size;
 }
 
-rai::uint256_union rai::mdb_val::uint256 () const
+rai::mdb_val::operator rai::uint256_union () const
 {
 	rai::uint256_union result;
 	assert (size () == sizeof (result));

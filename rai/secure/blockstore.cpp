@@ -523,7 +523,7 @@ int rai::block_store::version_get (MDB_txn * transaction_a)
 	}
 	else
 	{
-		rai::uint256_union version_value (data.uint256 ());
+		rai::uint256_union version_value (data);
 		assert (version_value.qwords[2] == 0 && version_value.qwords[1] == 0 && version_value.qwords[0] == 0);
 		result = version_value.number ().convert_to<int> ();
 	}
@@ -599,7 +599,7 @@ void rai::block_store::upgrade_v1_to_v2 (MDB_txn * transaction_a)
 		std::cerr << std::hex;
 		if (i != rai::store_iterator (nullptr))
 		{
-			account = i->first.uint256 ();
+			account = rai::uint256_union (i->first);
 			rai::account_info_v1 v1 (i->second);
 			rai::account_info_v5 v2;
 			v2.balance = v1.balance;
@@ -629,7 +629,7 @@ void rai::block_store::upgrade_v2_to_v3 (MDB_txn * transaction_a)
 	mdb_drop (transaction_a, representation, 0);
 	for (auto i (latest_v0_begin (transaction_a)), n (latest_v0_end ()); i != n; ++i)
 	{
-		rai::account account_l (i->first.uint256 ());
+		rai::account account_l (i->first);
 		rai::account_info_v5 info (i->second);
 		representative_visitor visitor (transaction_a, *this);
 		visitor.compute (info.head);
@@ -646,7 +646,7 @@ void rai::block_store::upgrade_v3_to_v4 (MDB_txn * transaction_a)
 	std::queue<std::pair<rai::pending_key, rai::pending_info>> items;
 	for (auto i (pending_v0_begin (transaction_a)), n (pending_v0_end ()); i != n; ++i)
 	{
-		rai::block_hash hash (i->first.uint256 ());
+		rai::block_hash hash (i->first);
 		rai::pending_info_v3 info (i->second);
 		items.push (std::make_pair (rai::pending_key (info.destination, hash), rai::pending_info (info.source, info.amount, rai::epoch::epoch_0)));
 	}
@@ -686,7 +686,7 @@ void rai::block_store::upgrade_v5_to_v6 (MDB_txn * transaction_a)
 	std::deque<std::pair<rai::account, rai::account_info>> headers;
 	for (auto i (latest_v0_begin (transaction_a)), n (latest_v0_end ()); i != n; ++i)
 	{
-		rai::account account (i->first.uint256 ());
+		rai::account account (i->first);
 		rai::account_info_v5 info_old (i->second);
 		uint64_t block_count (0);
 		auto hash (info_old.head);
@@ -733,7 +733,7 @@ void rai::block_store::upgrade_v8_to_v9 (MDB_txn * transaction_a)
 		uint64_t sequence;
 		auto error (rai::read (stream, sequence));
 		// Create a dummy vote with the same sequence number for easy upgrading.  This won't have a valid signature.
-		auto dummy (std::make_shared<rai::vote> (rai::account (i->first.uint256 ()), junk.prv, sequence, block));
+		auto dummy (std::make_shared<rai::vote> (rai::account (i->first), junk.prv, sequence, block));
 		std::vector<uint8_t> vector;
 		{
 			rai::vectorstream stream (vector);
@@ -755,7 +755,7 @@ void rai::block_store::upgrade_v9_to_v10 (MDB_txn * transaction_a)
 		rai::account_info info (i->second);
 		if (info.block_count >= block_info_max)
 		{
-			rai::account account (i->first.uint256 ());
+			rai::account account (i->first);
 			//std::cerr << boost::str (boost::format ("Upgrading account %1%...\n") % account.to_account ());
 			size_t block_count (1);
 			auto hash (info.open_block);
@@ -953,7 +953,7 @@ std::unique_ptr<rai::block> rai::block_store::block_random (MDB_txn * transactio
 		existing = rai::store_iterator (transaction_a, database);
 	}
 	assert (existing != rai::store_iterator (nullptr));
-	return block_get (transaction_a, rai::block_hash (existing->first.uint256 ()));
+	return block_get (transaction_a, rai::block_hash (existing->first));
 }
 
 std::unique_ptr<rai::block> rai::block_store::block_random (MDB_txn * transaction_a)
@@ -1226,7 +1226,7 @@ rai::account rai::block_store::frontier_get (MDB_txn * transaction_a, rai::block
 	rai::account result (0);
 	if (status == 0)
 	{
-		result = value.uint256 ();
+		result = rai::uint256_union (value);
 	}
 	return result;
 }
@@ -1418,7 +1418,7 @@ void rai::block_store::block_info_del (MDB_txn * transaction_a, rai::block_hash 
 bool rai::block_store::block_info_exists (MDB_txn * transaction_a, rai::block_hash const & hash_a)
 {
 	auto iterator (block_info_begin (transaction_a, hash_a));
-	return iterator != rai::store_iterator (nullptr) && rai::block_hash (iterator->first.uint256 ()) == hash_a;
+	return iterator != rai::store_iterator (nullptr) && rai::block_hash (iterator->first) == hash_a;
 }
 
 bool rai::block_store::block_info_get (MDB_txn * transaction_a, rai::block_hash const & hash_a, rai::block_info & block_info_a)
@@ -1531,7 +1531,7 @@ std::vector<std::shared_ptr<rai::block>> rai::block_store::unchecked_get (MDB_tx
 			result.push_back (i->second);
 		}
 	}
-	for (auto i (unchecked_begin (transaction_a, hash_a)), n (unchecked_end ()); i != n && rai::block_hash (i->first.uint256 ()) == hash_a; i.next_dup ())
+	for (auto i (unchecked_begin (transaction_a, hash_a)), n (unchecked_end ()); i != n && rai::block_hash (i->first) == hash_a; i.next_dup ())
 	{
 		rai::bufferstream stream (reinterpret_cast<uint8_t const *> (i->second.data ()), i->second.size ());
 		result.push_back (rai::deserialize_block (stream));

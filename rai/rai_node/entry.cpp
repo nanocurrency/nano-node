@@ -123,7 +123,7 @@ int main (int argc, char * const * argv)
 			rai::uint128_t total;
 			for (auto i (node.node->store.representation_begin (transaction)), n (node.node->store.representation_end ()); i != n; ++i)
 			{
-				rai::account account (i->first.uint256 ());
+				rai::account account (i->first);
 				auto amount (node.node->store.representation_get (transaction, account));
 				total += amount;
 				std::cout << boost::str (boost::format ("%1% %2% %3%\n") % account.to_account () % amount.convert_to<std::string> () % total.convert_to<std::string> ());
