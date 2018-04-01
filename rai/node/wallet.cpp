@@ -10,6 +10,7 @@
 #include <boost/property_tree/ptree.hpp>
 
 #include <future>
+#include <set>
 
 #include <ed25519-donna/ed25519.h>
 
