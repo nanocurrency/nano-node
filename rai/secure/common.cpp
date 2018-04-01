@@ -271,17 +271,16 @@ bool rai::pending_info::operator== (rai::pending_info const & other_a) const
 	return source == other_a.source && amount == other_a.amount && epoch == other_a.epoch;
 }
 
+rai::pending_key::pending_key () :
+account (0),
+hash (0)
+{
+}
+
 rai::pending_key::pending_key (rai::account const & account_a, rai::block_hash const & hash_a) :
 account (account_a),
 hash (hash_a)
 {
-}
-
-rai::pending_key::pending_key (MDB_val const & val_a)
-{
-	assert (val_a.mv_size == sizeof (*this));
-	static_assert (sizeof (account) + sizeof (hash) == sizeof (*this), "Packed class");
-	std::copy (reinterpret_cast<uint8_t const *> (val_a.mv_data), reinterpret_cast<uint8_t const *> (val_a.mv_data) + sizeof (*this), reinterpret_cast<uint8_t *> (this));
 }
 
 void rai::pending_key::serialize (rai::stream & stream_a) const
