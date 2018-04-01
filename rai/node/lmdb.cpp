@@ -147,6 +147,21 @@ rai::mdb_val::operator rai::uint256_union () const
 	return result;
 }
 
+rai::mdb_val::operator rai::vote () const
+{
+	rai::vote result;
+	rai::bufferstream stream (reinterpret_cast<uint8_t const *> (value.mv_data), value.mv_size);
+	auto error (rai::read (stream, result.account.bytes));
+	assert (!error);
+	error = rai::read (stream, result.signature.bytes);
+	assert (!error);
+	error = rai::read (stream, result.sequence);
+	assert (!error);
+	result.blocks.push_back (rai::deserialize_block (stream));
+	assert (boost::get<std::shared_ptr<rai::block>>(result.blocks[0]) != nullptr);
+	return result;
+}
+
 rai::mdb_val::operator MDB_val * () const
 {
 	// Allow passing a temporary to a non-c++ function which doesn't have constness
