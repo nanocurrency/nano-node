@@ -17,6 +17,7 @@ set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 set (RAIBLOCKS_GUI OFF CACHE BOOL "")
 set (RAIBLOCKS_TEST OFF CACHE BOOL "")
 set (RAIBLOCKS_SECURE_RPC OFF CACHE BOOL "")
+set (DEBUG_ROCKSDB_WRAPPER OFF CACHE BOOL "")
 
 option(RAIBLOCKS_ASAN_INT "Enable ASan+UBSan+Integer overflow" OFF)
 option(RAIBLOCKS_ASAN "Enable ASan+UBSan" OFF)
@@ -329,6 +330,10 @@ add_library (node
 
 SET (ACTIVE_NETWORK rai_live_network CACHE STRING "Selects which network parameters are used")
 set_property (CACHE ACTIVE_NETWORK PROPERTY STRINGS rai_test_network rai_beta_network rai_live_network)
+
+if (DEBUG_ROCKSDB_WRAPPER)
+	add_definitions (-DDEBUG_ROCKSDB_WRAPPER)
+endif ()
 
 if (RAIBLOCKS_TEST)
 	add_executable (core_test
