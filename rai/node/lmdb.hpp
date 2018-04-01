@@ -39,6 +39,7 @@ public:
 	size_t size () const;
 	explicit operator rai::account_info () const;
 	explicit operator rai::pending_info () const;
+	explicit operator rai::pending_key () const;
 	explicit operator rai::uint256_union () const;
 	operator MDB_val * () const;
 	operator MDB_val const & () const;

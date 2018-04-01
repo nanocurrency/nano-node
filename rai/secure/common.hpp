@@ -102,8 +102,8 @@ public:
 class pending_key
 {
 public:
+	pending_key ();
 	pending_key (rai::account const &, rai::block_hash const &);
-	pending_key (MDB_val const &);
 	void serialize (rai::stream &) const;
 	bool deserialize (rai::stream &);
 	bool operator== (rai::pending_key const &) const;
