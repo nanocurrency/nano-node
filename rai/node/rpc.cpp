@@ -3369,7 +3369,7 @@ void rai::rpc_handler::wallet_add_watch ()
 	}
 }
 
-void rai::rpc_handler::wallet_balance_total ()
+void rai::rpc_handler::wallet_info ()
 {
 	std::string wallet_text (request.get<std::string> ("wallet"));
 	rai::uint256_union wallet;
@@ -3379,18 +3379,23 @@ void rai::rpc_handler::wallet_balance_total ()
 		auto existing (node.wallets.items.find (wallet));
 		if (existing != node.wallets.items.end ())
 		{
+			boost::property_tree::ptree response_l;
+			rai::transaction transaction (node.store.environment, nullptr, false);
 			rai::uint128_t balance (0);
 			rai::uint128_t pending (0);
-			rai::transaction transaction (node.store.environment, nullptr, false);
+			uint64_t count (0);
 			for (auto i (existing->second->store.begin (transaction)), n (existing->second->store.end ()); i != n; ++i)
 			{
 				rai::account account (i->first.uint256 ());
 				balance = balance + node.ledger.account_balance (transaction, account);
 				pending = pending + node.ledger.account_pending (transaction, account);
+				count++;
 			}
-			boost::property_tree::ptree response_l;
+			uint32_t deterministic_index (existing->second->store.deterministic_index_get (transaction));
 			response_l.put ("balance", balance.convert_to<std::string> ());
 			response_l.put ("pending", pending.convert_to<std::string> ());
+			response_l.put ("accounts_count", std::to_string (count));
+			response_l.put ("deterministic_index", std::to_string (deterministic_index));
 			response (response_l);
 		}
 		else
@@ -4755,9 +4760,10 @@ void rai::rpc_handler::process_request ()
 		{
 			wallet_add_watch ();
 		}
+		// Obsolete
 		else if (action == "wallet_balance_total")
 		{
-			wallet_balance_total ();
+			wallet_info ();
 		}
 		else if (action == "wallet_balances")
 		{
@@ -4786,6 +4792,10 @@ void rai::rpc_handler::process_request ()
 		else if (action == "wallet_frontiers")
 		{
 			wallet_frontiers ();
+		}
+		else if (action == "wallet_info")
+		{
+			wallet_info ();
 		}
 		else if (action == "wallet_key_valid")
 		{
