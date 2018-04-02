@@ -3479,13 +3479,14 @@ void rai::rpc_handler::wallet_change_seed ()
 			auto error (wallet.decode_hex (wallet_text));
 			if (!error)
 			{
+				uint32_t count (request.get_optional<uint32_t> ("accounts").get_value_or (0));
 				auto existing (node.wallets.items.find (wallet));
 				if (existing != node.wallets.items.end ())
 				{
 					rai::transaction transaction (node.store.environment, nullptr, true);
 					if (existing->second->store.valid_password (transaction))
 					{
-						existing->second->store.seed_set (transaction, seed);
+						existing->second->change_seed (transaction, seed, count);
 						boost::property_tree::ptree response_l;
 						response_l.put ("success", "");
 						response (response_l);

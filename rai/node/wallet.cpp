@@ -1311,34 +1311,36 @@ void rai::wallet::init_free_accounts (MDB_txn * transaction_a)
 	}
 }
 
-rai::public_key rai::wallet::change_seed (MDB_txn * transaction_a, rai::raw_key const & prv_a)
+rai::public_key rai::wallet::change_seed (MDB_txn * transaction_a, rai::raw_key const & prv_a, uint32_t count)
 {
 	store.seed_set (transaction_a, prv_a);
 	auto account = deterministic_insert (transaction_a);
-	uint32_t count (0);
-	for (uint32_t i (1), n (64); i < n; ++i)
+	if (count == 0)
 	{
-		rai::raw_key prv;
-		store.deterministic_key (prv, transaction_a, i);
-		rai::keypair pair (prv.data.to_string ());
-		// Check if account received at least 1 block
-		auto latest (node.ledger.latest (transaction_a, pair.pub));
-		if (!latest.is_zero ())
+		for (uint32_t i (1), n (64); i < n; ++i)
 		{
-			count = i;
-			// i + 64 - Check additional 64 accounts
-			// i/64 - Check additional accounts for large wallets. I.e. 64000/64 = 1000 accounts to check
-			n = i + 64 + (i / 64);
-		}
-		else
-		{
-			// Check if there are pending blocks for account
-			rai::account end (pair.pub.number () + 1);
-			for (auto ii (node.store.pending_begin (transaction_a, rai::pending_key (pair.pub, 0))), nn (node.store.pending_begin (transaction_a, rai::pending_key (end, 0))); ii != nn; ++ii)
+			rai::raw_key prv;
+			store.deterministic_key (prv, transaction_a, i);
+			rai::keypair pair (prv.data.to_string ());
+			// Check if account received at least 1 block
+			auto latest (node.ledger.latest (transaction_a, pair.pub));
+			if (!latest.is_zero ())
 			{
 				count = i;
+				// i + 64 - Check additional 64 accounts
+				// i/64 - Check additional accounts for large wallets. I.e. 64000/64 = 1000 accounts to check
 				n = i + 64 + (i / 64);
-				break;
+			}
+			else
+			{
+				// Check if there are pending blocks for account
+				rai::account end (pair.pub.number () + 1);
+				for (auto ii (node.store.pending_begin (transaction_a, rai::pending_key (pair.pub, 0))), nn (node.store.pending_begin (transaction_a, rai::pending_key (end, 0))); ii != nn; ++ii)
+				{
+					count = i;
+					n = i + 64 + (i / 64);
+					break;
+				}
 			}
 		}
 	}
