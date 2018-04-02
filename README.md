@@ -1,4 +1,6 @@
- <span style="display:block;text-align:center">![banano-logo](https://github.com/BananoCoin/banano/blob/master/logo.png?raw=true)</span>
+
+ <p align="center">
+  <img src="https://github.com/BananoCoin/banano/blob/master/logo.png" width="50%" height="50%"/></p>
 
 
 # What is Banano?
