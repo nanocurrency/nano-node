@@ -2506,10 +2506,10 @@ rai::uint128_t rai::online_reps::online_stake ()
 	return online_stake_total;
 }
 
-std::deque<rai::account> rai::online_reps::list()
+std::deque<rai::account> rai::online_reps::list ()
 {
 	std::deque<rai::account> result;
-	std::lock_guard <std::mutex> lock (mutex);
+	std::lock_guard<std::mutex> lock (mutex);
 	for (auto i (reps.begin ()), n (reps.end ()); i != n; ++i)
 	{
 		result.push_back (i->representative);

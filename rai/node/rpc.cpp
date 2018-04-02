@@ -2811,7 +2811,7 @@ void rai::rpc_handler::representatives ()
 	response (response_l);
 }
 
-void rai::rpc_handler::representatives_online()
+void rai::rpc_handler::representatives_online ()
 {
 	boost::property_tree::ptree response_l;
 	boost::property_tree::ptree representatives;
