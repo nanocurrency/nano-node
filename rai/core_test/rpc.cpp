@@ -3408,3 +3408,48 @@ TEST (rpc, wallet_add_watch)
 	ASSERT_TRUE (success.empty ());
 	ASSERT_TRUE (system.wallet (0)->exists (rai::test_genesis_key.pub));
 }
+
+TEST (rpc, wallet_deterministic_check)
+{
+	rai::system system (24000, 1);
+	rai::raw_key seed;
+	{
+		rai::transaction transaction (system.nodes[0]->store.environment, nullptr, false);
+		system.wallet (0)->store.seed (seed, transaction);
+	}
+	// Generate deperministic key 32
+	rai::raw_key prv;
+	rai::deterministic_key (seed.data, 32, prv.data);
+	rai::keypair key (prv.data.to_string ());
+	// Generate deterministic account 0
+	rai::account account0 (system.wallet (0)->deterministic_insert ());
+	// Send to deterministic account 32
+	auto latest (system.nodes[0]->latest (rai::test_genesis_key.pub));
+	rai::send_block send (latest, key.pub, 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.nodes[0]->generate_work (latest));
+	ASSERT_EQ (rai::process_result::progress, system.nodes[0]->process (send).code);
+	rai::rpc rpc (system.service, *system.nodes[0], rai::rpc_config (true));
+	rpc.start ();
+	boost::property_tree::ptree request;
+	request.put ("action", "wallet_deterministic_check");
+	request.put ("wallet", system.nodes[0]->wallets.items.begin ()->first.to_string ());
+	request.put ("count", "10");
+	// Empty response. No pending or blocks for first 10 accounts
+	test_response response (request, rpc, system.service);
+	while (response.status == 0)
+	{
+		system.poll ();
+	}
+	ASSERT_EQ (200, response.status);
+	std::string accounts (response.json.get<std::string> ("accounts"));
+	ASSERT_TRUE (accounts.empty ());
+	request.put ("count", "100");
+	// Repsonse with 32 accounts
+	test_response response1 (request, rpc, system.service);
+	while (response1.status == 0)
+	{
+		system.poll ();
+	}
+	ASSERT_EQ (200, response1.status);
+	auto & accounts1 (response1.json.get_child ("accounts"));
+	ASSERT_EQ (accounts1.size (), 32);
+}
