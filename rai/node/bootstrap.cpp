@@ -337,7 +337,8 @@ void rai::frontier_req_client::unsynced (MDB_txn * transaction_a, rai::block_has
 	{
 		connection->node->store.unsynced_put (transaction_a, current);
 		auto block (connection->node->store.block_get (transaction_a, current));
-		current = block->previous ();
+		// Can be rolled back before transaction lock, probably
+		current = (block != nullptr) ? block->previous () : 0;
 	}
 }
 
