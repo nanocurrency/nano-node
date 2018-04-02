@@ -2816,9 +2816,11 @@ void rai::rpc_handler::representatives_online ()
 	boost::property_tree::ptree response_l;
 	boost::property_tree::ptree representatives;
 	auto reps (node.online_reps.list ());
+	rai::transaction transaction (node.store.environment, nullptr, false);
 	for (auto & i : reps)
 	{
-		representatives.put (i.to_account (), "");
+		auto sequence (node.store.vote_current (transaction, i)->sequence);
+		representatives.put (i.to_account (), std::to_string (sequence));
 	}
 	response_l.add_child ("representatives", representatives);
 	response (response_l);
