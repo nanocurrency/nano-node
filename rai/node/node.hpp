@@ -297,6 +297,32 @@ public:
 	arrival;
 	std::mutex mutex;
 };
+class rep_last_heard_info
+{
+public:
+	std::chrono::steady_clock::time_point last_heard;
+	rai::account representative;
+};
+class online_reps
+{
+public:
+	online_reps (rai::node &);
+	void vote (std::shared_ptr<rai::vote> const &);
+	void recalculate_stake ();
+	rai::uint128_t online_stake ();
+	std::deque<rai::account> list ();
+	boost::multi_index_container<
+	rai::rep_last_heard_info,
+	boost::multi_index::indexed_by<
+	boost::multi_index::ordered_non_unique<boost::multi_index::member<rai::rep_last_heard_info, std::chrono::steady_clock::time_point, &rai::rep_last_heard_info::last_heard>>,
+	boost::multi_index::hashed_unique<boost::multi_index::member<rai::rep_last_heard_info, rai::account, &rai::rep_last_heard_info::representative>>>>
+	reps;
+
+private:
+	rai::uint128_t online_stake_total;
+	std::mutex mutex;
+	rai::node & node;
+};
 class network
 {
 public:
@@ -536,6 +562,7 @@ public:
 	rai::block_processor block_processor;
 	std::thread block_processor_thread;
 	rai::block_arrival block_arrival;
+	rai::online_reps online_reps;
 	static double constexpr price_max = 16.0;
 	static double constexpr free_cutoff = 1024.0;
 	static std::chrono::seconds constexpr period = std::chrono::seconds (60);

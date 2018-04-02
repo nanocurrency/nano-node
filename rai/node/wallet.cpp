@@ -859,6 +859,8 @@ std::shared_ptr<rai::block> rai::wallet::receive_action (rai::block const & send
 				rai::raw_key prv;
 				if (!store.fetch (transaction, account, prv))
 				{
+					uint64_t cached_work (0);
+					store.work_get (transaction, account, cached_work);
 					rai::account_info info;
 					auto new_account (node.ledger.store.account_get (transaction, account, info));
 					if (!new_account)
@@ -867,22 +869,22 @@ std::shared_ptr<rai::block> rai::wallet::receive_action (rai::block const & send
 						assert (rep_block != nullptr);
 						if (should_generate_state_block (transaction, info.head))
 						{
-							block.reset (new rai::state_block (account, info.head, rep_block->representative (), info.balance.number () + pending_info.amount.number (), hash, prv, account, generate_work_a ? work_fetch (transaction, account, info.head) : 0));
+							block.reset (new rai::state_block (account, info.head, rep_block->representative (), info.balance.number () + pending_info.amount.number (), hash, prv, account, cached_work));
 						}
 						else
 						{
-							block.reset (new rai::receive_block (info.head, hash, prv, account, generate_work_a ? work_fetch (transaction, account, info.head) : 0));
+							block.reset (new rai::receive_block (info.head, hash, prv, account, cached_work));
 						}
 					}
 					else
 					{
 						if (node.ledger.state_block_generation_enabled (transaction))
 						{
-							block.reset (new rai::state_block (account, 0, representative_a, pending_info.amount, hash, prv, account, generate_work_a ? work_fetch (transaction, account, account) : 0));
+							block.reset (new rai::state_block (account, 0, representative_a, pending_info.amount, hash, prv, account, cached_work));
 						}
 						else
 						{
-							block.reset (new rai::open_block (hash, representative_a, account, prv, account, generate_work_a ? work_fetch (transaction, account, account) : 0));
+							block.reset (new rai::open_block (hash, representative_a, account, prv, account, cached_work));
 						}
 					}
 				}
@@ -908,7 +910,10 @@ std::shared_ptr<rai::block> rai::wallet::receive_action (rai::block const & send
 	}
 	if (block != nullptr)
 	{
-		assert (block != nullptr);
+		if (generate_work_a && rai::work_validate (*block))
+		{
+			node.generate_work (*block);
+		}
 		node.block_arrival.add (block->hash ());
 		node.block_processor.process_receive_many (block);
 		if (generate_work_a)
@@ -940,20 +945,25 @@ std::shared_ptr<rai::block> rai::wallet::change_action (rai::account const & sou
 				rai::raw_key prv;
 				auto error2 (store.fetch (transaction, source_a, prv));
 				assert (!error2);
+				uint64_t cached_work (0);
+				store.work_get (transaction, source_a, cached_work);
 				if (should_generate_state_block (transaction, info.head))
 				{
-					block.reset (new rai::state_block (source_a, info.head, representative_a, info.balance, 0, prv, source_a, generate_work_a ? work_fetch (transaction, source_a, info.head) : 0));
+					block.reset (new rai::state_block (source_a, info.head, representative_a, info.balance, 0, prv, source_a, cached_work));
 				}
 				else
 				{
-					block.reset (new rai::change_block (info.head, representative_a, prv, source_a, generate_work_a ? work_fetch (transaction, source_a, info.head) : 0));
+					block.reset (new rai::change_block (info.head, representative_a, prv, source_a, cached_work));
 				}
 			}
 		}
 	}
 	if (block != nullptr)
 	{
-		assert (block != nullptr);
+		if (generate_work_a && rai::work_validate (*block))
+		{
+			node.generate_work (*block);
+		}
 		node.block_arrival.add (block->hash ());
 		node.block_processor.process_receive_many (block);
 		if (generate_work_a)
@@ -1017,13 +1027,15 @@ std::shared_ptr<rai::block> rai::wallet::send_action (rai::account const & sourc
 						assert (!error2);
 						std::shared_ptr<rai::block> rep_block = node.ledger.store.block_get (transaction, info.rep_block);
 						assert (rep_block != nullptr);
+						uint64_t cached_work (0);
+						store.work_get (transaction, source_a, cached_work);
 						if (should_generate_state_block (transaction, info.head))
 						{
-							block.reset (new rai::state_block (source_a, info.head, rep_block->representative (), balance - amount_a, account_a, prv, source_a, generate_work_a ? work_fetch (transaction, source_a, info.head) : 0));
+							block.reset (new rai::state_block (source_a, info.head, rep_block->representative (), balance - amount_a, account_a, prv, source_a, cached_work));
 						}
 						else
 						{
-							block.reset (new rai::send_block (info.head, account_a, balance - amount_a, prv, source_a, generate_work_a ? work_fetch (transaction, source_a, info.head) : 0));
+							block.reset (new rai::send_block (info.head, account_a, balance - amount_a, prv, source_a, cached_work));
 						}
 						if (id_mdb_val)
 						{
@@ -1041,6 +1053,10 @@ std::shared_ptr<rai::block> rai::wallet::send_action (rai::account const & sourc
 	}
 	if (!error && block != nullptr && !cached_block)
 	{
+		if (generate_work_a && rai::work_validate (*block))
+		{
+			node.generate_work (*block);
+		}
 		node.block_arrival.add (block->hash ());
 		node.block_processor.process_receive_many (block);
 		auto hash (block->hash ());
@@ -1299,22 +1315,37 @@ rai::public_key rai::wallet::change_seed (MDB_txn * transaction_a, rai::raw_key 
 {
 	store.seed_set (transaction_a, prv_a);
 	auto account = deterministic_insert (transaction_a);
-	auto count (0);
-	for (uint32_t i (1), n (32); i < n; ++i)
+	uint32_t count (0);
+	for (uint32_t i (1), n (64); i < n; ++i)
 	{
 		rai::raw_key prv;
 		store.deterministic_key (prv, transaction_a, i);
 		rai::keypair pair (prv.data.to_string ());
+		// Check if account received at least 1 block
 		auto latest (node.ledger.latest (transaction_a, pair.pub));
 		if (!latest.is_zero ())
 		{
 			count = i;
-			n = i + 32;
+			// i + 64 - Check additional 64 accounts
+			// i/64 - Check additional accounts for large wallets. I.e. 64000/64 = 1000 accounts to check
+			n = i + 64 + (i / 64);
+		}
+		else
+		{
+			// Check if there are pending blocks for account
+			rai::account end (pair.pub.number () + 1);
+			for (auto ii (node.store.pending_begin (transaction_a, rai::pending_key (pair.pub, 0))), nn (node.store.pending_begin (transaction_a, rai::pending_key (end, 0))); ii != nn; ++ii)
+			{
+				count = i;
+				n = i + 64 + (i / 64);
+				break;
+			}
 		}
 	}
 	for (uint32_t i (0); i < count; ++i)
 	{
-		account = deterministic_insert (transaction_a);
+		// Generate work for first 4 accounts only to prevent weak CPU nodes stuck
+		account = deterministic_insert (transaction_a, i < 4);
 	}
 
 	return account;
