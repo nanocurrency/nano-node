@@ -1432,17 +1432,18 @@ store (init_a.block_store_init, application_path_a / "data.ldb", config_a.lmdb_m
 gap_cache (*this),
 ledger (store, config_a.inactive_supply.number (), config.state_block_parse_canary, config.state_block_generate_canary),
 active (*this),
-wallets (init_a.block_store_init, *this),
 network (*this, config.peering_port),
 bootstrap_initiator (*this),
 bootstrap (service_a, config.peering_port, *this),
 peers (network.endpoint ()),
 application_path (application_path_a),
+wallets (init_a.block_store_init, *this),
 port_mapping (*this),
 vote_processor (*this),
 warmed_up (0),
 block_processor (*this),
-block_processor_thread ([this]() { this->block_processor.process_blocks (); })
+block_processor_thread ([this]() { this->block_processor.process_blocks (); }),
+online_reps (*this)
 {
 	wallets.observer = [this](bool active) {
 		observers.wallet (active);
@@ -1570,6 +1571,9 @@ block_processor_thread ([this]() { this->block_processor.process_blocks (); })
 	});
 	observers.vote.add ([this](std::shared_ptr<rai::vote> vote_a, rai::endpoint const &) {
 		this->gap_cache.vote (vote_a);
+	});
+	observers.vote.add ([this](std::shared_ptr<rai::vote> vote_a, rai::endpoint const &) {
+		this->online_reps.vote (vote_a);
 	});
 	observers.vote.add ([this](std::shared_ptr<rai::vote> vote_a, rai::endpoint const & endpoint_a) {
 		if (this->rep_crawler.exists (vote_a->block->hash ()))
@@ -2438,6 +2442,68 @@ bool rai::block_arrival::recent (rai::block_hash const & hash_a)
 		arrival.erase (arrival.begin ());
 	}
 	return arrival.get<1> ().find (hash_a) != arrival.get<1> ().end ();
+}
+
+rai::online_reps::online_reps (rai::node & node) :
+node (node)
+{
+}
+
+void rai::online_reps::vote (std::shared_ptr<rai::vote> const & vote_a)
+{
+	auto rep (vote_a->account);
+	std::lock_guard<std::mutex> lock (mutex);
+	auto now (std::chrono::steady_clock::now ());
+	rai::transaction transaction (node.store.environment, nullptr, false);
+	auto current (reps.begin ());
+	while (current != reps.end () && current->last_heard + std::chrono::seconds (rai::node::cutoff) < now)
+	{
+		auto old_stake (online_stake_total);
+		online_stake_total -= node.ledger.weight (transaction, current->representative);
+		if (online_stake_total > old_stake)
+		{
+			// underflow
+			online_stake_total = 0;
+		}
+		current = reps.erase (current);
+	}
+	auto rep_it (reps.get<1> ().find (rep));
+	auto info (rai::rep_last_heard_info{ now, rep });
+	if (rep_it == reps.get<1> ().end ())
+	{
+		auto old_stake (online_stake_total);
+		online_stake_total += node.ledger.weight (transaction, rep);
+		if (online_stake_total < old_stake)
+		{
+			// overflow
+			online_stake_total = std::numeric_limits<rai::uint128_t>::max ();
+		}
+		reps.insert (info);
+	}
+	else
+	{
+		reps.get<1> ().replace (rep_it, info);
+	}
+}
+
+void rai::online_reps::recalculate_stake ()
+{
+	std::lock_guard<std::mutex> lock (mutex);
+	online_stake_total = 0;
+	rai::transaction transaction (node.store.environment, nullptr, false);
+	for (auto it : reps)
+	{
+		online_stake_total += node.ledger.weight (transaction, it.representative);
+	}
+	auto now (std::chrono::steady_clock::now ());
+	auto node_l (node.shared ());
+	node.alarm.add (now + std::chrono::minutes (5), [node_l]() { node_l->online_reps.recalculate_stake (); });
+}
+
+rai::uint128_t rai::online_reps::online_stake ()
+{
+	std::lock_guard<std::mutex> lock (mutex);
+	return online_stake_total;
 }
 
 std::unordered_set<rai::endpoint> rai::peer_container::random_set (size_t count_a)

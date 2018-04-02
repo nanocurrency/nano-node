@@ -1460,3 +1460,18 @@ TEST (node, bootstrap_connection_scaling)
 	ASSERT_EQ (1, attempt->target_connections (0));
 	ASSERT_EQ (1, attempt->target_connections (50000));
 }
+
+TEST (node, online_reps)
+{
+	rai::system system (24000, 2);
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	ASSERT_TRUE (system.nodes[1]->online_reps.online_stake ().is_zero ());
+	system.wallet (0)->send_action (rai::test_genesis_key.pub, rai::test_genesis_key.pub, rai::Gxrb_ratio);
+	auto iterations (0);
+	while (system.nodes[1]->online_reps.online_stake ().is_zero ())
+	{
+		system.poll ();
+		++iterations;
+		ASSERT_LT (iterations, 200);
+	}
+}
