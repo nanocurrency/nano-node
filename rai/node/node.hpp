@@ -310,6 +310,7 @@ public:
 	void vote (std::shared_ptr<rai::vote> const &);
 	void recalculate_stake ();
 	rai::uint128_t online_stake ();
+	std::deque<rai::account> list();
 	boost::multi_index_container<
 	rai::rep_last_heard_info,
 	boost::multi_index::indexed_by<

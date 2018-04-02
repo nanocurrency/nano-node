@@ -173,6 +173,7 @@ public:
 	void receive_minimum ();
 	void receive_minimum_set ();
 	void representatives ();
+	void representatives_online ();
 	void republish ();
 	void search_pending ();
 	void search_pending_all ();
