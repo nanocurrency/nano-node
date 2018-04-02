@@ -2782,29 +2782,47 @@ void rai::rpc_handler::representatives ()
 	boost::property_tree::ptree response_l;
 	boost::property_tree::ptree representatives;
 	rai::transaction transaction (node.store.environment, nullptr, false);
+	std::unordered_map<rai::account, uint64_t> vote_sequence;
+	for (auto i (node.store.vote_begin (transaction)), n (node.store.vote_end ()); i != n; ++i)
+	{
+		bool error (false);
+		rai::bufferstream stream (reinterpret_cast<uint8_t const *> (i->second.data ()), i->second.size ());
+		auto vote (std::make_shared<rai::vote> (error, stream));
+		assert (!error);
+		vote_sequence[vote->account] = vote->sequence;
+	}
 	if (!sorting) // Simple
 	{
 		for (auto i (node.store.representation_begin (transaction)), n (node.store.representation_end ()); i != n && representatives.size () < count; ++i)
 		{
 			rai::account account (i->first.uint256 ());
 			auto amount (node.store.representation_get (transaction, account));
-			representatives.put (account.to_account (), amount.convert_to<std::string> ());
+			uint64_t sequence = (vote_sequence.find (account) != vote_sequence.end ()) ? vote_sequence.find (account)->second : 0;
+			boost::property_tree::ptree entry;
+			entry.put ("weight", amount.convert_to<std::string> ());
+			entry.put ("sequence", std::to_string (sequence));
+			representatives.push_back (std::make_pair (account.to_account (), entry));
 		}
 	}
 	else // Sorting
 	{
-		std::vector<std::pair<rai::uint128_union, std::string>> representation;
+		std::vector<std::pair<rai::uint128_union, rai::account>> representation;
 		for (auto i (node.store.representation_begin (transaction)), n (node.store.representation_end ()); i != n; ++i)
 		{
 			rai::account account (i->first.uint256 ());
 			auto amount (node.store.representation_get (transaction, account));
-			representation.push_back (std::make_pair (amount, account.to_account ()));
+			representation.push_back (std::make_pair (amount, account));
 		}
 		std::sort (representation.begin (), representation.end ());
 		std::reverse (representation.begin (), representation.end ());
 		for (auto i (representation.begin ()), n (representation.end ()); i != n && representatives.size () < count; ++i)
 		{
-			representatives.put (i->second, (i->first).number ().convert_to<std::string> ());
+			rai::account account (i->second);
+			uint64_t sequence = (vote_sequence.find (account) != vote_sequence.end ()) ? vote_sequence.find (account)->second : 0;
+			boost::property_tree::ptree entry;
+			entry.put ("weight", (i->first).number ().convert_to<std::string> ());
+			entry.put ("sequence", std::to_string (sequence));
+			representatives.push_back (std::make_pair (account.to_account (), entry));
 		}
 	}
 	response_l.add_child ("representatives", representatives);
