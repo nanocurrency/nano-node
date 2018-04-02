@@ -3436,5 +3436,5 @@ TEST (rpc, online_reps)
 	auto item (representatives.begin ());
 	ASSERT_NE (representatives.end (), item);
 	ASSERT_EQ (rai::test_genesis_key.pub.to_account (), item->first);
-	system.nodes [1]->stop ();
+	system.nodes[1]->stop ();
 }
