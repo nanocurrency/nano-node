@@ -1698,8 +1698,8 @@ void rai::gap_cache::add (MDB_txn * transaction_a, std::shared_ptr<rai::block> b
 
 void rai::gap_cache::vote (std::shared_ptr<rai::vote> vote_a)
 {
-	rai::transaction transaction (node.store.environment, nullptr, false);
 	std::lock_guard<std::mutex> lock (mutex);
+	rai::transaction transaction (node.store.environment, nullptr, false);
 	auto hash (vote_a->block->hash ());
 	auto existing (blocks.get<1> ().find (hash));
 	if (existing != blocks.get<1> ().end ())
@@ -3035,8 +3035,8 @@ bool rai::election::vote (std::shared_ptr<rai::vote> vote_a)
 void rai::active_transactions::announce_votes ()
 {
 	std::vector<rai::block_hash> inactive;
-	rai::transaction transaction (node.store.environment, nullptr, true);
 	std::lock_guard<std::mutex> lock (mutex);
+	rai::transaction transaction (node.store.environment, nullptr, true);
 
 	{
 		size_t announcements (0);
