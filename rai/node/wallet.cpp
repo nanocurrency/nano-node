@@ -10,6 +10,7 @@
 #include <boost/property_tree/ptree.hpp>
 
 #include <future>
+#include <set>
 
 #include <ed25519-donna/ed25519.h>
 
@@ -1226,9 +1227,12 @@ public:
 						std::shared_ptr<rai::block> block_l (wallet->node.store.block_get (transaction, info.head));
 						wallet->node.background ([this_l, account, block_l] {
 							rai::transaction transaction (this_l->wallet->node.store.environment, nullptr, true);
-							this_l->wallet->node.active.start (transaction, block_l, [this_l, account](std::shared_ptr<rai::block>, bool) {
+							this_l->wallet->node.active.start (transaction, block_l, boost::none, [this_l, account](std::shared_ptr<rai::block> confirmed_block, rai::election_result result) {
 								// If there were any forks for this account they've been rolled back and we can receive anything remaining from this account
-								this_l->receive_all (account);
+								if (result.confirmed)
+								{
+									this_l->receive_all (account, confirmed_block->hash ());
+								}
 							});
 							this_l->wallet->node.network.broadcast_confirm_req (block_l);
 						});
@@ -1243,37 +1247,59 @@ public:
 		}
 		BOOST_LOG (wallet->node.log) << "Pending block search phase complete";
 	}
-	void receive_all (rai::account const & account_a)
+	void receive_all (rai::account const & account_a, rai::block_hash const & confirmed_block)
 	{
 		BOOST_LOG (wallet->node.log) << boost::str (boost::format ("Account %1% confirmed, receiving all blocks") % account_a.to_account ());
 		rai::transaction transaction (wallet->node.store.environment, nullptr, false);
-		auto representative (wallet->store.representative (transaction));
-		for (auto i (wallet->node.store.pending_begin (transaction)), n (wallet->node.store.pending_end ()); i != n; ++i)
+		auto error (false);
+		rai::account_info acct_info;
+		error = wallet->node.store.account_get (transaction, account_a, acct_info);
+		std::set<rai::block_hash> ignore_blocks;
+		if (!error)
 		{
-			rai::pending_key key (i->first);
-			rai::pending_info pending (i->second);
-			if (pending.source == account_a)
+			rai::block_hash head_block (acct_info.head);
+			while (head_block != confirmed_block && !head_block.is_zero ())
 			{
-				if (wallet->store.exists (transaction, key.account))
+				ignore_blocks.insert (head_block);
+				auto block (wallet->node.store.block_get (transaction, head_block));
+				head_block = block->previous ();
+			}
+			if (head_block.is_zero ())
+			{
+				// confirmed_block doesn't exist in the account chain
+				error = true;
+			}
+		}
+		if (!error)
+		{
+			auto representative (wallet->store.representative (transaction));
+			for (auto i (wallet->node.store.pending_begin (transaction)), n (wallet->node.store.pending_end ()); i != n; ++i)
+			{
+				rai::pending_key key (i->first);
+				rai::pending_info pending (i->second);
+				if (pending.source == account_a && ignore_blocks.find (key.hash) == ignore_blocks.end ())
 				{
-					if (wallet->store.valid_password (transaction))
+					if (wallet->store.exists (transaction, key.account))
 					{
-						rai::pending_key key (i->first);
-						std::shared_ptr<rai::block> block (wallet->node.store.block_get (transaction, key.hash));
-						auto wallet_l (wallet);
-						auto amount (pending.amount.number ());
-						BOOST_LOG (wallet_l->node.log) << boost::str (boost::format ("Receiving block: %1%") % block->hash ().to_string ());
-						wallet_l->receive_async (block, representative, amount, [wallet_l, block](std::shared_ptr<rai::block> block_a) {
-							if (block_a == nullptr)
-							{
-								BOOST_LOG (wallet_l->node.log) << boost::str (boost::format ("Error receiving block %1%") % block->hash ().to_string ());
-							}
-						},
-						true);
-					}
-					else
-					{
-						BOOST_LOG (wallet->node.log) << boost::str (boost::format ("Unable to fetch key for: %1%, stopping pending search") % key.account.to_account ());
+						if (wallet->store.valid_password (transaction))
+						{
+							rai::pending_key key (i->first);
+							std::shared_ptr<rai::block> block (wallet->node.store.block_get (transaction, key.hash));
+							auto wallet_l (wallet);
+							auto amount (pending.amount.number ());
+							BOOST_LOG (wallet_l->node.log) << boost::str (boost::format ("Receiving block: %1%") % block->hash ().to_string ());
+							wallet_l->receive_async (block, representative, amount, [wallet_l, block](std::shared_ptr<rai::block> block_a) {
+								if (block_a == nullptr)
+								{
+									BOOST_LOG (wallet_l->node.log) << boost::str (boost::format ("Error receiving block %1%") % block->hash ().to_string ());
+								}
+							},
+							true);
+						}
+						else
+						{
+							BOOST_LOG (wallet->node.log) << boost::str (boost::format ("Unable to fetch key for: %1%, stopping pending search") % key.account.to_account ());
+						}
 					}
 				}
 			}
