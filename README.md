@@ -1,5 +1,5 @@
+ <span style="display:block;text-align:center">![banano-logo](https://github.com/BananoCoin/banano/blob/master/logo.png?raw=true)</span>
 
-![banano-logo](https://github.com/BananoCoin/banano/blob/master/logo.png?raw=true)
 
 # What is Banano?
 Banano is designed to be a feeless, instant, high throughput cryptocurrency.
