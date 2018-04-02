@@ -562,7 +562,7 @@ void rai::rpc_handler::account_remove ()
 				}
 				else
 				{
-					error_response (response, "Wallet locked");
+					error_response (response, "Wallet is locked");
 					return;
 				}
 			}
@@ -2487,7 +2487,7 @@ void rai::rpc_handler::payment_begin ()
 			}
 			else
 			{
-				error_response (response, "Wallet locked");
+				error_response (response, "Wallet is locked");
 				return;
 			}
 		}
@@ -3506,7 +3506,7 @@ void rai::rpc_handler::wallet_add ()
 					}
 					else
 					{
-						error_response (response, "Wallet locked");
+						error_response (response, "Wallet is locked");
 						return;
 					}
 				}
@@ -3572,7 +3572,7 @@ void rai::rpc_handler::wallet_add_watch ()
 				}
 				else
 				{
-					error_response (response, "Wallet locked");
+					error_response (response, "Wallet is locked");
 					return;
 				}
 			}
@@ -3726,7 +3726,7 @@ void rai::rpc_handler::wallet_change_seed ()
 					}
 					else
 					{
-						error_response (response, "Wallet locked");
+						error_response (response, "Wallet is locked");
 						return;
 					}
 				}
