@@ -3409,6 +3409,36 @@ TEST (rpc, wallet_add_watch)
 	ASSERT_TRUE (system.wallet (0)->exists (rai::test_genesis_key.pub));
 }
 
+TEST (rpc, online_reps)
+{
+	rai::system system (24000, 2);
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	ASSERT_TRUE (system.nodes[1]->online_reps.online_stake ().is_zero ());
+	system.wallet (0)->send_action (rai::test_genesis_key.pub, rai::test_genesis_key.pub, rai::Gxrb_ratio);
+	auto iterations (0);
+	while (system.nodes[1]->online_reps.online_stake ().is_zero ())
+	{
+		system.poll ();
+		++iterations;
+		ASSERT_LT (iterations, 200);
+	}
+	rai::rpc rpc (system.service, *system.nodes[1], rai::rpc_config (true));
+	rpc.start ();
+	boost::property_tree::ptree request;
+	request.put ("action", "representatives_online");
+	test_response response (request, rpc, system.service);
+	while (response.status == 0)
+	{
+		system.poll ();
+	}
+	ASSERT_EQ (200, response.status);
+	auto representatives (response.json.get_child ("representatives"));
+	auto item (representatives.begin ());
+	ASSERT_NE (representatives.end (), item);
+	ASSERT_EQ (rai::test_genesis_key.pub.to_account (), item->first);
+	system.nodes[1]->stop ();
+}
+
 TEST (rpc, wallet_deterministic_check)
 {
 	rai::system system (24000, 1);
