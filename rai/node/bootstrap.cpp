@@ -332,12 +332,13 @@ void rai::frontier_req_client::receive_frontier ()
 
 void rai::frontier_req_client::unsynced (MDB_txn * transaction_a, rai::block_hash const & ours_a, rai::block_hash const & theirs_a)
 {
-	auto current (ours_a);
-	while (!current.is_zero () && current != theirs_a)
+	auto current_hash (ours_a);
+	while (!current_hash.is_zero () && current_hash != theirs_a)
 	{
-		connection->node->store.unsynced_put (transaction_a, current);
-		auto block (connection->node->store.block_get (transaction_a, current));
-		current = block->previous ();
+		connection->node->store.unsynced_put (transaction_a, current_hash);
+		auto block (connection->node->store.block_get (transaction_a, current_hash));
+		// Can be rolled back before transaction lock, probably
+		current_hash = (block != nullptr) ? block->previous () : 0;
 	}
 }
 
