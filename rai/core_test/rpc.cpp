@@ -3472,6 +3472,8 @@ TEST (rpc, wallet_deterministic_check)
 	ASSERT_EQ (200, response.status);
 	std::string accounts (response.json.get<std::string> ("accounts"));
 	ASSERT_TRUE (accounts.empty ());
+	std::string restored_count (response.json.get<std::string> ("restored_count"));
+	ASSERT_EQ (restored_count, "0");
 	request.put ("count", "100");
 	// Repsonse with 32 accounts
 	test_response response1 (request, rpc, system.service);
@@ -3482,4 +3484,6 @@ TEST (rpc, wallet_deterministic_check)
 	ASSERT_EQ (200, response1.status);
 	auto & accounts1 (response1.json.get_child ("accounts"));
 	ASSERT_EQ (accounts1.size (), 32);
+	std::string restored_count1 (response1.json.get<std::string> ("restored_count"));
+	ASSERT_EQ (restored_count1, "32");
 }

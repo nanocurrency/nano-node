@@ -3665,6 +3665,7 @@ void rai::rpc_handler::wallet_deterministic_check ()
 							accounts.push_back (std::make_pair ("", entry));
 						}
 						response_l.add_child ("accounts", accounts);
+						response_l.put ("restored_count", std::to_string (found_count));
 						response (response_l);
 					}
 					else
