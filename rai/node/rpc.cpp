@@ -2818,7 +2818,9 @@ void rai::rpc_handler::representatives_online ()
 	auto reps (node.online_reps.list ());
 	for (auto & i : reps)
 	{
-		representatives.put (i.to_account (), "");
+		boost::property_tree::ptree entry;
+		entry.put ("", i.to_account ());
+		representatives.push_back (std::make_pair ("", entry));
 	}
 	response_l.add_child ("representatives", representatives);
 	response (response_l);

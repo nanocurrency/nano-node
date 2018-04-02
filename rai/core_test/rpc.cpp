@@ -3435,6 +3435,6 @@ TEST (rpc, online_reps)
 	auto representatives (response.json.get_child ("representatives"));
 	auto item (representatives.begin ());
 	ASSERT_NE (representatives.end (), item);
-	ASSERT_EQ (rai::test_genesis_key.pub.to_account (), item->first);
+	ASSERT_EQ (rai::test_genesis_key.pub.to_account (), item->second.get<std::string> (""));
 	system.nodes[1]->stop ();
 }
