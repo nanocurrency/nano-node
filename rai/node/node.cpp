@@ -1927,6 +1927,7 @@ void rai::node::start ()
 	bootstrap.start ();
 	backup_wallet ();
 	active.announce_votes ();
+	online_reps.recalculate_stake ();
 	port_mapping.start ();
 	add_initial_peers ();
 	observers.started ();
@@ -2496,8 +2497,13 @@ void rai::online_reps::recalculate_stake ()
 		online_stake_total += node.ledger.weight (transaction, it.representative);
 	}
 	auto now (std::chrono::steady_clock::now ());
-	auto node_l (node.shared ());
-	node.alarm.add (now + std::chrono::minutes (5), [node_l]() { node_l->online_reps.recalculate_stake (); });
+	std::weak_ptr<rai::node> node_w (node.shared ());
+	node.alarm.add (now + std::chrono::minutes (5), [node_w]() {
+		if (auto node_l = node_w.lock ())
+		{
+			node_l->online_reps.recalculate_stake ();
+		}
+	});
 }
 
 rai::uint128_t rai::online_reps::online_stake ()
