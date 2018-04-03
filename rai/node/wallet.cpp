@@ -716,8 +716,8 @@ node (node_a)
 
 void rai::wallet::enter_initial_password ()
 {
-	std::lock_guard<std::recursive_mutex> lock (store.mutex);
 	rai::transaction transaction (store.environment, nullptr, true);
+	std::lock_guard<std::recursive_mutex> lock (store.mutex);
 	rai::raw_key password_l;
 	store.password.value (password_l);
 	if (password_l.data.is_zero ())

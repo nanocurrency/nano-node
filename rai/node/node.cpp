@@ -3041,8 +3041,8 @@ bool rai::election::vote (std::shared_ptr<rai::vote> vote_a)
 void rai::active_transactions::announce_votes ()
 {
 	std::vector<rai::block_hash> inactive;
-	std::lock_guard<std::mutex> lock (mutex);
 	rai::transaction transaction (node.store.environment, nullptr, true);
+	std::lock_guard<std::mutex> lock (mutex);
 
 	{
 		size_t announcements (0);
