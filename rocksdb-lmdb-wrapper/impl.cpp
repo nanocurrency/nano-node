@@ -1,8 +1,8 @@
 #include <mutex>
 
 #ifdef DEBUG_ROCKSDB_WRAPPER
-#include <iostream>
 #include <iomanip>
+#include <iostream>
 #endif
 
 #include <boost/endian/conversion.hpp>
@@ -150,9 +150,9 @@ int mdb_txn_commit (MDB_txn * txn)
 	{
 		result = txn->write_txn->Commit ().code ();
 	}
-	#ifdef DEBUG_ROCKSDB_WRAPPER
-		std::cerr << "mdb_txn_commit " << txn << std::endl;
-	#endif
+#ifdef DEBUG_ROCKSDB_WRAPPER
+	std::cerr << "mdb_txn_commit " << txn << std::endl;
+#endif
 	delete txn;
 	return result;
 }
@@ -248,15 +248,15 @@ int mdb_drop (MDB_txn * txn, MDB_dbi dbi, int del)
 	else
 	{
 #ifdef DEBUG_ROCKSDB_WRAPPER
-			std::cerr << "Emptying DBI " << std::dec << dbi;
-			if (del)
-			{
-				std::cerr << " (also deleting ID)";
-			}
-			std::cerr << std::endl;
+		std::cerr << "Emptying DBI " << std::dec << dbi;
+		if (del)
+		{
+			std::cerr << " (also deleting ID)";
+		}
+		std::cerr << std::endl;
 #endif
 		Iterator * it (txn->write_txn->GetIterator (txn->read_opts));
-		Slice dbi_slice (Slice ((const char*)&dbi, sizeof (dbi)));
+		Slice dbi_slice (Slice ((const char *)&dbi, sizeof (dbi)));
 		it->Seek (dbi_slice);
 		// Delete all entries
 		while (!result && it->Valid ())
@@ -282,7 +282,7 @@ int mdb_drop (MDB_txn * txn, MDB_dbi dbi, int del)
 		}
 		if (!result)
 		{
-			it->Seek (Slice ((const char*)&DBI_LOOKUP_PREFIX, sizeof (DBI_LOOKUP_PREFIX)));
+			it->Seek (Slice ((const char *)&DBI_LOOKUP_PREFIX, sizeof (DBI_LOOKUP_PREFIX)));
 		}
 		// Delete ID lookup
 		if (del)
@@ -326,17 +326,17 @@ int mdb_get (MDB_txn * txn, MDB_dbi dbi, MDB_val * key, MDB_val * value)
 	}
 #ifdef DEBUG_ROCKSDB_WRAPPER
 	std::cerr << "mdb_get " << txn << " (" << std::dec << dbi << ") ";
-	std::cerr << std::hex << std::setfill('0') << std::setw(0);
+	std::cerr << std::hex << std::setfill ('0') << std::setw (0);
 	for (size_t i = 0; i < key->mv_size; ++i)
 	{
-		std::cerr << (uint16_t)(((const uint8_t *)key->mv_data)[i]);
+		std::cerr << (uint16_t) (((const uint8_t *)key->mv_data)[i]);
 	}
 	std::cerr << ": ";
 	if (!result)
 	{
 		for (size_t i = 0; i < value->mv_size; ++i)
 		{
-			std::cerr << std::hex << (uint16_t)(((const uint8_t *)value->mv_data)[i]);
+			std::cerr << std::hex << (uint16_t) (((const uint8_t *)value->mv_data)[i]);
 		}
 		std::cerr << std::dec << std::endl;
 	}
@@ -354,12 +354,12 @@ int mdb_put (MDB_txn * txn, MDB_dbi dbi, MDB_val * key, MDB_val * value, unsigne
 	std::cerr << "mdb_put " << txn << " (" << std::dec << dbi << ") ";
 	for (size_t i = 0; i < key->mv_size; ++i)
 	{
-		std::cerr << std::hex << (uint16_t)(((const uint8_t *)key->mv_data)[i]);
+		std::cerr << std::hex << (uint16_t) (((const uint8_t *)key->mv_data)[i]);
 	}
 	std::cerr << ": ";
 	for (size_t i = 0; i < value->mv_size; ++i)
 	{
-		std::cerr << std::hex << (uint16_t)(((const uint8_t *)value->mv_data)[i]);
+		std::cerr << std::hex << (uint16_t) (((const uint8_t *)value->mv_data)[i]);
 	}
 	std::cerr << std::dec << std::endl;
 #endif
@@ -382,7 +382,7 @@ int mdb_del (MDB_txn * txn, MDB_dbi dbi, MDB_val * key, MDB_val * value)
 	std::cerr << "mdb_del " << txn << " (" << std::dec << dbi << ") ";
 	for (size_t i = 0; i < key->mv_size; ++i)
 	{
-		std::cerr << std::hex << (uint16_t)(((const uint8_t *)key->mv_data)[i]);
+		std::cerr << std::hex << (uint16_t) (((const uint8_t *)key->mv_data)[i]);
 	}
 	std::cerr << std::endl;
 #endif
