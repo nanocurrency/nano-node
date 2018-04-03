@@ -409,7 +409,7 @@ struct MDB_cursor
 {
 	MDB_dbi dbi;
 	Iterator * it;
-	Transaction * write_txn;
+	MDB_txn * txn;
 };
 
 int mdb_cursor_open (MDB_txn * txn, MDB_dbi dbi, MDB_cursor ** cursor)
@@ -425,7 +425,7 @@ int mdb_cursor_open (MDB_txn * txn, MDB_dbi dbi, MDB_cursor ** cursor)
 	{
 		(*cursor)->it = txn->db->NewIterator (txn->read_opts);
 	}
-	(*cursor)->write_txn = txn->write_txn;
+	(*cursor)->txn = txn;
 	return ((*cursor)->it == nullptr) ? MDB_PANIC : 0;
 }
 
@@ -509,18 +509,7 @@ int mdb_cursor_get (MDB_cursor * cursor, MDB_val * key, MDB_val * value, MDB_cur
 
 int mdb_cursor_put (MDB_cursor * cursor, MDB_val * key, MDB_val * value, unsigned int flags)
 {
-	int result (0);
-	if (cursor->write_txn)
-	{
-		Slice key_slice ((const char *)key->mv_data, key->mv_size);
-		cursor->write_txn->Put (key_slice, Slice ((const char *)value->mv_data, value->mv_size));
-		cursor->it->Seek (key_slice);
-	}
-	else
-	{
-		result = MDB_BAD_TXN;
-	}
-	return result;
+	return mdb_put (cursor->txn, cursor->dbi, key, value, flags);
 }
 
 void mdb_cursor_close (MDB_cursor * cursor)
