@@ -1457,7 +1457,7 @@ online_reps (*this)
 	observers.blocks.add ([this](std::shared_ptr<rai::block> block_a, rai::process_return const & result_a) {
 		if (this->block_arrival.recent (block_a->hash ()))
 		{
-			rai::transaction transaction (store.environment, nullptr, true);
+			rai::transaction transaction (store.environment, nullptr, false);
 			active.start (transaction, block_a);
 		}
 	});
@@ -2899,12 +2899,9 @@ void rai::election::compute_rep_votes (MDB_txn * transaction_a)
 
 void rai::election::broadcast_winner ()
 {
-	{
-		rai::transaction transaction (node.store.environment, nullptr, true);
-		compute_rep_votes (transaction);
-	}
-	rai::transaction transaction_a (node.store.environment, nullptr, false);
-	node.network.republish_block (transaction_a, last_winner);
+	rai::transaction transaction (node.store.environment, nullptr, false);
+	compute_rep_votes (transaction);
+	node.network.republish_block (transaction, last_winner);
 }
 
 rai::uint128_t rai::election::quorum_threshold (MDB_txn * transaction_a, rai::ledger & ledger_a)
@@ -2987,7 +2984,7 @@ bool rai::election::vote (std::shared_ptr<rai::vote> vote_a)
 {
 	assert (!rai::validate_message (vote_a->account, vote_a->hash (), vote_a->signature));
 	// see republish_vote documentation for an explanation of these rules
-	rai::transaction transaction (node.store.environment, nullptr, true);
+	rai::transaction transaction (node.store.environment, nullptr, false);
 	auto replay (false);
 	auto supply (node.ledger.supply (transaction));
 	auto weight (node.ledger.weight (transaction, vote_a->account));
@@ -3041,7 +3038,7 @@ bool rai::election::vote (std::shared_ptr<rai::vote> vote_a)
 void rai::active_transactions::announce_votes ()
 {
 	std::vector<rai::block_hash> inactive;
-	rai::transaction transaction (node.store.environment, nullptr, true);
+	rai::transaction transaction (node.store.environment, nullptr, false);
 	std::lock_guard<std::mutex> lock (mutex);
 
 	{
