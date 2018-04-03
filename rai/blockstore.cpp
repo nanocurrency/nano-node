@@ -169,10 +169,11 @@ rai::store_iterator & rai::store_iterator::operator= (rai::store_iterator && oth
 
 bool rai::store_iterator::operator== (rai::store_iterator const & other_a) const
 {
-	auto result (current.first.data () == other_a.current.first.data ());
-	assert (!result || (current.first.size () == other_a.current.first.size ()));
-	assert (!result || (current.second.data () == other_a.current.second.data ()));
-	assert (!result || (current.second.size () == other_a.current.second.size ()));
+	auto result (true);
+	result = result && current.first.size () == other_a.current.first.size ();
+	result = result && !std::memcmp (current.first.data (), other_a.current.first.data (), current.first.size ());
+	result = result && current.second.size () == other_a.current.second.size ();
+	result = result && !std::memcmp (current.second.data (), other_a.current.second.data (), current.second.size ());
 	return result;
 }
 
