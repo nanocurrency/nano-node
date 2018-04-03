@@ -61,6 +61,7 @@ public:
 	void from_send (rai::block_hash const &);
 	MDB_txn * transaction;
 	rai::block_store & store;
+	rai::block_hash current;
 	rai::uint128_t result;
 };
 
