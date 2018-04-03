@@ -238,10 +238,81 @@ void mdb_dbi_close (MDB_env *, MDB_dbi)
 	// We don't use true handles, so we have nothing to do here
 }
 
-int mdb_drop (MDB_txn *, MDB_dbi, int del)
+int mdb_drop (MDB_txn * txn, MDB_dbi dbi, int del)
 {
-	// TODO
-	return del;
+	int result (0);
+	if (!txn->write_txn)
+	{
+		result = MDB_BAD_TXN;
+	}
+	else
+	{
+#ifdef DEBUG_ROCKSDB_WRAPPER
+			std::cerr << "Emptying DBI " << std::dec << dbi;
+			if (del)
+			{
+				std::cerr << " (also deleting ID)";
+			}
+			std::cerr << std::endl;
+#endif
+		Iterator * it (txn->write_txn->GetIterator (txn->read_opts));
+		Slice dbi_slice (Slice ((const char*)&dbi, sizeof (dbi)));
+		it->Seek (dbi_slice);
+		// Delete all entries
+		while (!result && it->Valid ())
+		{
+			Slice key_slice (it->key ());
+			if (key_slice.size () < 2)
+			{
+				result = MDB_CORRUPTED;
+				break;
+			}
+			else if (*((uint16_t *)key_slice.data ()) != dbi)
+			{
+				break;
+			}
+			else
+			{
+				result = txn->write_txn->Delete (key_slice).code ();
+			}
+			if (!result)
+			{
+				result = it->status ().code ();
+			}
+		}
+		if (!result)
+		{
+			it->Seek (Slice ((const char*)&DBI_LOOKUP_PREFIX, sizeof (DBI_LOOKUP_PREFIX)));
+		}
+		// Delete ID lookup
+		if (del)
+		{
+			while (!result && it->Valid ())
+			{
+				Slice key_slice (it->key ());
+				if (key_slice.size () < 2)
+				{
+					result = MDB_CORRUPTED;
+					break;
+				}
+				else if (*((uint16_t *)key_slice.data ()) != dbi)
+				{
+					break;
+				}
+				else if (it->value () == dbi_slice)
+				{
+					result = txn->write_txn->Delete (key_slice).code ();
+					break;
+				}
+				if (!result)
+				{
+					result = it->status ().code ();
+				}
+			}
+		}
+		delete it;
+	}
+	return result;
 }
 
 int mdb_get (MDB_txn * txn, MDB_dbi dbi, MDB_val * key, MDB_val * value)
