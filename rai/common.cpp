@@ -500,8 +500,6 @@ void rai::balance_visitor::send_block (rai::send_block const & block_a)
 
 void rai::balance_visitor::receive_block (rai::receive_block const & block_a)
 {
-	amount_visitor source (transaction, store);
-	source.compute (block_a.hashables.source);
 	rai::block_info block_info;
 	if (!store.block_info_get (transaction, block_a.hash (), block_info))
 	{
@@ -510,6 +508,8 @@ void rai::balance_visitor::receive_block (rai::receive_block const & block_a)
 	}
 	else
 	{
+		amount_visitor source (transaction, store);
+		source.compute (block_a.hashables.source);
 		result += source.result;
 		current = block_a.hashables.previous;
 	}
