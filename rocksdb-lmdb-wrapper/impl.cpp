@@ -81,6 +81,10 @@ struct MDB_txn
 	ReadOptions read_opts;
 };
 
+const uint16_t INTERNAL_PREFIX_FLAG = 1 << 15;
+const uint16_t NEXT_DBI_KEY = boost::endian::native_to_little (INTERNAL_PREFIX_FLAG | 0x1);
+const uint16_t ENTRIES_COUNT_PREFIX = boost::endian::native_to_little (INTERNAL_PREFIX_FLAG | 0x2);
+
 namespace
 {
 Status txn_get (MDB_txn * txn, const Slice & key, std::string * value)
@@ -126,6 +130,43 @@ Status txn_key_exists (MDB_txn * txn, const Slice & key, bool * exists)
 		*exists = true;
 	}
 	return result;
+}
+
+int add_dbi_entries (MDB_txn * txn, MDB_dbi dbi, uint64_t delta)
+{
+	assert (txn->write_txn != nullptr);
+	char key_bytes[] = { 0, 0, 0, 0 };
+	uint16_t * key_uint16s = (uint16_t *)&key_bytes;
+	key_uint16s[0] = ENTRIES_COUNT_PREFIX;
+	key_uint16s[1] = dbi;
+	Slice key ((const char *)&key_bytes, sizeof (key_bytes));
+	PinnableSlice value;
+	int result (txn->write_txn->Get (txn->read_opts, key, &value).code ());
+	if (!result)
+	{
+		if (value.size () != sizeof (uint64_t))
+		{
+			result = MDB_CORRUPTED;
+		}
+		else
+		{
+			uint64_t entries = *((const uint64_t *)value.data ());
+			entries += delta;
+			Slice new_value ((const char *)&entries, sizeof (entries));
+			result = txn->write_txn->Put (key, new_value).code ();
+		}
+	}
+	return result;
+}
+
+int increment_dbi_entries (MDB_txn * txn, MDB_dbi dbi)
+{
+	add_dbi_entries (txn, dbi, 1);
+}
+
+int decrement_dbi_entries (MDB_txn * txn, MDB_dbi dbi)
+{
+	add_dbi_entries (txn, dbi, -1);
 }
 
 std::vector<uint8_t> namespace_key (MDB_val * val, MDB_dbi dbi)
@@ -192,10 +233,6 @@ int mdb_txn_commit (MDB_txn * txn)
 	return result;
 }
 
-const uint16_t INTERNAL_PREFIX_FLAG = 1 << 15;
-const uint16_t NEXT_DBI_KEY = boost::endian::native_to_little (INTERNAL_PREFIX_FLAG | 0x1);
-const uint16_t ENTRIES_COUNT_PREFIX = boost::endian::native_to_little (INTERNAL_PREFIX_FLAG | 0x2);
-
 int mdb_dbi_open (MDB_txn * txn, const char * name, unsigned int flags, MDB_dbi * dbi)
 {
 	int result (0);
@@ -252,6 +289,18 @@ int mdb_dbi_open (MDB_txn * txn, const char * name, unsigned int flags, MDB_dbi 
 			if (!result)
 			{
 				result = txn->write_txn->Put (dbi_lookup_key, dbi_buf).code ();
+			}
+			if (!result)
+			{
+				char key_bytes[] = { 0, 0, 0, 0 };
+				key_bytes[2] = dbi_buf[0];
+				key_bytes[3] = dbi_buf[1];
+				uint16_t * key_uint16s = (uint16_t *)&key_bytes;
+				key_uint16s[0] = ENTRIES_COUNT_PREFIX;
+				Slice key_slice ((const char *)&key_bytes, sizeof (key_bytes));
+				uint64_t value (0);
+				Slice value_slice ((const char *)&value, sizeof (value));
+				result = txn->write_txn->Put (key_slice, value_slice).code ();
 			}
 		}
 		if (!result)
@@ -351,6 +400,15 @@ int mdb_drop (MDB_txn * txn, MDB_dbi dbi, int del)
 					assert (it->Valid ());
 				}
 			}
+			if (!result)
+			{
+				char key_bytes[] = { 0, 0, 0, 0 };
+				uint16_t * key_uint16s = (uint16_t *)&key_bytes;
+				key_uint16s[0] = ENTRIES_COUNT_PREFIX;
+				key_uint16s[1] = dbi;
+				Slice key_slice ((const char *)&key_bytes, sizeof (key_bytes));
+				result = txn->write_txn->Delete (key_slice).code ();
+			}
 		}
 		delete it;
 	}
@@ -413,7 +471,17 @@ int mdb_put (MDB_txn * txn, MDB_dbi dbi, MDB_val * key, MDB_val * value, unsigne
 	if (!result)
 	{
 		std::vector<uint8_t> namespaced_key (namespace_key (key, dbi));
-		result = txn->write_txn->Put (Slice ((const char *)namespaced_key.data (), namespaced_key.size ()), Slice ((const char *)value->mv_data, value->mv_size)).code ();
+		Slice key_slice ((const char *)namespaced_key.data (), namespaced_key.size ());
+		bool exists;
+		result = txn_key_exists (txn, key_slice, &exists).code ();
+		if (!result)
+		{
+			result = txn->write_txn->Put (key_slice, Slice ((const char *)value->mv_data, value->mv_size)).code ();
+			if (!result && !exists)
+			{
+				result = increment_dbi_entries (txn, dbi);
+			}
+		}
 	}
 	return result;
 }
@@ -448,6 +516,10 @@ int mdb_del (MDB_txn * txn, MDB_dbi dbi, MDB_val * key, MDB_val * value)
 			else
 			{
 				result = txn->write_txn->Delete (key).code ();
+				if (!result)
+				{
+					result = decrement_dbi_entries (txn, dbi);
+				}
 			}
 		}
 	}
@@ -568,32 +640,24 @@ void mdb_cursor_close (MDB_cursor * cursor)
 
 int mdb_stat (MDB_txn * txn, MDB_dbi dbi, MDB_stat * stat)
 {
-	// TODO this is slow
 	int result (0);
-	Iterator * it;
-	if (txn->write_txn)
+	char key_bytes[] = { 0, 0, 0, 0 };
+	uint16_t * key_uint16s = (uint16_t *)&key_bytes;
+	key_uint16s[0] = ENTRIES_COUNT_PREFIX;
+	key_uint16s[1] = dbi;
+	Slice key ((const char *)&key_bytes, sizeof (key_bytes));
+	PinnableSlice value;
+	result = txn_get (txn, key, &value).code ();
+	if (!result)
 	{
-		it = txn->write_txn->GetIterator (txn->read_opts);
-	}
-	else
-	{
-		it = txn->db->NewIterator (txn->read_opts);
-	}
-	stat->ms_entries = 0;
-	it->Seek (Slice ((const char *)&dbi, sizeof (dbi)));
-	while (it->Valid ())
-	{
-		Slice key (it->key ());
-		if (key.size () < 2)
+		if (value.size () != sizeof (uint64_t))
 		{
 			result = MDB_CORRUPTED;
 		}
-		else if (*((uint16_t *)key.data ()) != dbi)
+		else
 		{
-			break;
+			stat->ms_entries = *((const uint64_t *)value.data ());
 		}
-		++stat->ms_entries;
-		it->Next ();
 	}
-	return 0;
+	return result;
 }
