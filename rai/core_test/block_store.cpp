@@ -194,7 +194,7 @@ TEST (bootstrap, simple)
 	ASSERT_TRUE (block4.empty ());
 }
 
-TEST (unchecked, multiple)
+TEST (unchecked, multiple_dependencies_one_block)
 {
 	bool init (false);
 	rai::block_store store (init, rai::unique_path ());
@@ -206,9 +206,41 @@ TEST (unchecked, multiple)
 	store.unchecked_put (transaction, block1->previous (), block1);
 	store.unchecked_put (transaction, block1->source (), block1);
 	auto block3 (store.unchecked_get (transaction, block1->previous ()));
-	ASSERT_FALSE (block3.empty ());
+	ASSERT_EQ (block3.size (), 1);
+	ASSERT_EQ (*block3[0], *block1);
 	auto block4 (store.unchecked_get (transaction, block1->source ()));
-	ASSERT_FALSE (block4.empty ());
+	ASSERT_EQ (block4.size (), 1);
+	ASSERT_EQ (*block4[0], *block1);
+	store.flush (transaction);
+	block3 = store.unchecked_get (transaction, block1->previous ());
+	ASSERT_EQ (block3.size (), 1);
+	ASSERT_EQ (*block3[0], *block1);
+	block4 = store.unchecked_get (transaction, block1->source ());
+	ASSERT_EQ (block4.size (), 1);
+	ASSERT_EQ (*block4[0], *block1);
+}
+
+TEST (unchecked, multiple_blocks_one_dependency)
+{
+	bool init (false);
+	rai::block_store store (init, rai::unique_path ());
+	ASSERT_TRUE (!init);
+	auto block1 (std::make_shared<rai::send_block> (4, 1, 2, rai::keypair ().prv, 4, 5));
+	auto block2 (std::make_shared<rai::receive_block> (5, 4, rai::keypair ().prv, 4, 5));
+	ASSERT_EQ (block1->previous (), block2->source ());
+	rai::transaction transaction (store.environment, nullptr, true);
+	store.unchecked_put (transaction, block1->previous (), block1);
+	store.unchecked_put (transaction, block2->source (), block2);
+	auto block3 (store.unchecked_get (transaction, block1->previous ()));
+	ASSERT_EQ (block3.size (), 2);
+	std::sort (block3.begin (), block3.end ());
+	ASSERT_EQ (*block3[0], *block1);
+	ASSERT_EQ (*block3[1], *block2);
+	store.flush (transaction);
+	block3 = store.unchecked_get (transaction, block1->previous ());
+	std::sort (block3.begin (), block3.end ());
+	ASSERT_EQ (*block3[0], *block1);
+	ASSERT_EQ (*block3[1], *block2);
 }
 
 TEST (unchecked, double_put)
@@ -289,8 +321,15 @@ TEST (block_store, one_bootstrap)
 	auto begin (store.unchecked_begin (transaction));
 	auto end (store.unchecked_end ());
 	ASSERT_NE (end, begin);
-	auto hash1 (begin->first.uint256 ());
-	ASSERT_EQ (block1->hash (), hash1);
+	rai::uint256_union hash1;
+	rai::uint256_union hash2;
+	{
+		rai::bufferstream stream (reinterpret_cast<uint8_t const *> (begin->first.data ()), begin->first.size ());
+		assert (!rai::read (stream, hash1.bytes));
+		assert (!rai::read (stream, hash2.bytes));
+	}
+	ASSERT_EQ (block1->hash (), hash1); // dependency hash
+	ASSERT_EQ (block1->hash (), hash2); // block hash
 	auto block2 (rai::deserialize_block (begin->second));
 	ASSERT_EQ (*block1, *block2);
 	++begin;

@@ -144,16 +144,6 @@ rai::store_iterator & rai::store_iterator::operator++ ()
 	return *this;
 }
 
-void rai::store_iterator::next_dup ()
-{
-	assert (cursor != nullptr);
-	auto status (mdb_cursor_get (cursor, &current.first.value, &current.second.value, MDB_NEXT_DUP));
-	if (status == MDB_NOTFOUND)
-	{
-		current.clear ();
-	}
-}
-
 rai::store_iterator & rai::store_iterator::operator= (rai::store_iterator && other_a)
 {
 	if (cursor != nullptr)
@@ -268,7 +258,7 @@ checksum (0)
 		error_a |= mdb_dbi_open (transaction, "pending", MDB_CREATE, &pending) != 0;
 		error_a |= mdb_dbi_open (transaction, "blocks_info", MDB_CREATE, &blocks_info) != 0;
 		error_a |= mdb_dbi_open (transaction, "representation", MDB_CREATE, &representation) != 0;
-		error_a |= mdb_dbi_open (transaction, "unchecked", MDB_CREATE | MDB_DUPSORT, &unchecked) != 0;
+		error_a |= mdb_dbi_open (transaction, "unchecked", MDB_CREATE, &unchecked) != 0;
 		error_a |= mdb_dbi_open (transaction, "unsynced", MDB_CREATE, &unsynced) != 0;
 		error_a |= mdb_dbi_open (transaction, "checksum", MDB_CREATE, &checksum) != 0;
 		error_a |= mdb_dbi_open (transaction, "vote", MDB_CREATE, &vote) != 0;
@@ -1032,6 +1022,13 @@ void rai::block_store::unchecked_clear (MDB_txn * transaction_a)
 	assert (status == 0);
 }
 
+rai::unchecked_block::unchecked_block (rai::block_hash dependency, std::shared_ptr<rai::block> block) :
+block (block),
+hash (block->hash ()),
+dependency (dependency)
+{
+}
+
 void rai::block_store::unchecked_put (MDB_txn * transaction_a, rai::block_hash const & hash_a, std::shared_ptr<rai::block> const & block_a)
 {
 	// Checking if same unchecked block is already in database
@@ -1049,7 +1046,12 @@ void rai::block_store::unchecked_put (MDB_txn * transaction_a, rai::block_hash c
 	if (!exists)
 	{
 		std::lock_guard<std::mutex> lock (cache_mutex);
-		unchecked_cache.insert (std::make_pair (hash_a, block_a));
+		auto & by_dependency (unchecked_cache.get<rai::unchecked_by_dependency> ());
+		auto & by_hash (unchecked_cache.get<rai::unchecked_by_hash> ());
+		if (by_dependency.find (hash_a) == by_dependency.end () || by_hash.find (block_hash) == by_hash.end ())
+		{
+			unchecked_cache.insert (unchecked_block (hash_a, block_a));
+		}
 	}
 }
 
@@ -1072,12 +1074,13 @@ std::vector<std::shared_ptr<rai::block>> rai::block_store::unchecked_get (MDB_tx
 	std::vector<std::shared_ptr<rai::block>> result;
 	{
 		std::lock_guard<std::mutex> lock (cache_mutex);
-		for (auto i (unchecked_cache.find (hash_a)), n (unchecked_cache.end ()); i != n && i->first == hash_a; ++i)
+		auto & by_dependency (unchecked_cache.get<rai::unchecked_by_dependency> ());
+		for (auto i (by_dependency.find (hash_a)), n (by_dependency.end ()); i != n && i->dependency == hash_a; ++i)
 		{
-			result.push_back (i->second);
+			result.push_back (i->block);
 		}
 	}
-	for (auto i (unchecked_begin (transaction_a, hash_a)), n (unchecked_end ()); i != n && rai::block_hash (i->first.uint256 ()) == hash_a; i.next_dup ())
+	for (auto i (unchecked_begin (transaction_a, hash_a)), n (unchecked_begin (transaction_a, rai::uint256_union (hash_a.number () + 1))); i != n; ++i)
 	{
 		rai::bufferstream stream (reinterpret_cast<uint8_t const *> (i->second.data ()), i->second.size ());
 		result.push_back (rai::deserialize_block (stream));
@@ -1089,24 +1092,20 @@ void rai::block_store::unchecked_del (MDB_txn * transaction_a, rai::block_hash c
 {
 	{
 		std::lock_guard<std::mutex> lock (cache_mutex);
-		for (auto i (unchecked_cache.find (hash_a)), n (unchecked_cache.end ()); i != n && i->first == hash_a;)
+		auto & by_hash (unchecked_cache.get<rai::unchecked_by_hash> ());
+		auto i (by_hash.find (block_a.hash ()));
+		if (i != by_hash.end ())
 		{
-			if (*i->second == block_a)
-			{
-				i = unchecked_cache.erase (i);
-			}
-			else
-			{
-				++i;
-			}
+			unchecked_cache.erase (i);
 		}
 	}
 	std::vector<uint8_t> vector;
 	{
 		rai::vectorstream stream (vector);
-		rai::serialize_block (stream, block_a);
+		rai::write (stream, hash_a);
+		rai::write (stream, block_a.hash ());
 	}
-	auto status (mdb_del (transaction_a, unchecked, rai::mdb_val (hash_a), rai::mdb_val (vector.size (), vector.data ())));
+	auto status (mdb_del (transaction_a, unchecked, rai::mdb_val (vector.size (), vector.data ()), nullptr));
 	assert (status == 0 || status == MDB_NOTFOUND);
 }
 
@@ -1193,7 +1192,7 @@ void rai::block_store::checksum_del (MDB_txn * transaction_a, uint64_t prefix, u
 void rai::block_store::flush (MDB_txn * transaction_a)
 {
 	std::unordered_map<rai::account, std::shared_ptr<rai::vote>> sequence_cache_l;
-	std::unordered_multimap<rai::block_hash, std::shared_ptr<rai::block>> unchecked_cache_l;
+	unchecked_cache_t unchecked_cache_l;
 	{
 		std::lock_guard<std::mutex> lock (cache_mutex);
 		sequence_cache_l.swap (vote_cache);
@@ -1201,12 +1200,18 @@ void rai::block_store::flush (MDB_txn * transaction_a)
 	}
 	for (auto & i : unchecked_cache_l)
 	{
-		std::vector<uint8_t> vector;
+		std::vector<uint8_t> key_vector;
 		{
-			rai::vectorstream stream (vector);
-			rai::serialize_block (stream, *i.second);
+			rai::vectorstream stream (key_vector);
+			rai::write (stream, i.dependency);
+			rai::write (stream, i.hash);
 		}
-		auto status (mdb_put (transaction_a, unchecked, rai::mdb_val (i.first), rai::mdb_val (vector.size (), vector.data ()), 0));
+		std::vector<uint8_t> block_vector;
+		{
+			rai::vectorstream stream (block_vector);
+			rai::serialize_block (stream, *i.block);
+		}
+		auto status (mdb_put (transaction_a, unchecked, rai::mdb_val (key_vector.size (), key_vector.data ()), rai::mdb_val (block_vector.size (), block_vector.data ()), 0));
 		assert (status == 0);
 	}
 	for (auto i (sequence_cache_l.begin ()), n (sequence_cache_l.end ()); i != n; ++i)
