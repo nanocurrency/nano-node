@@ -158,78 +158,76 @@ int mdb_txn_commit (MDB_txn * txn)
 }
 
 const uint16_t INTERNAL_PREFIX_FLAG = 1 << 15;
-const uint16_t DBI_LOOKUP_PREFIX = INTERNAL_PREFIX_FLAG | 0x1;
-const uint16_t NEXT_DBI_KEY = INTERNAL_PREFIX_FLAG | 0x2;
+const uint16_t NEXT_DBI_KEY = boost::endian::native_to_little (INTERNAL_PREFIX_FLAG | 0x1);
 
 int mdb_dbi_open (MDB_txn * txn, const char * name, unsigned int flags, MDB_dbi * dbi)
 {
-	union
-	{
-		uint16_t prefix_int;
-		std::array<uint8_t, 2> prefix_bytes;
-	};
-	prefix_int = DBI_LOOKUP_PREFIX;
-	boost::endian::native_to_little_inplace (prefix_int);
-	std::vector<uint8_t> dbi_lookup_key_bytes (prefix_bytes.begin (), prefix_bytes.end ());
+	int result (0);
 	if (name == nullptr)
 	{
-		name = "";
+		*dbi = 0;
 	}
-	std::string name_str (name);
-	std::copy (name_str.begin (), name_str.end (), std::back_inserter (dbi_lookup_key_bytes));
-	Slice dbi_lookup_key (Slice ((const char *)dbi_lookup_key_bytes.data (), dbi_lookup_key_bytes.size ()));
-	std::string dbi_buf;
-	int result (txn_get (txn, dbi_lookup_key, &dbi_buf).code ());
-	if (!result && dbi_buf.size () != 2)
+	else
 	{
-		result = MDB_CORRUPTED;
-	}
-	else if (result == MDB_NOTFOUND)
-	{
-		Slice next_dbi_key (Slice ((const char *)&NEXT_DBI_KEY, sizeof (NEXT_DBI_KEY)));
-		std::string next_dbi_buf;
-		result = txn_get (txn, next_dbi_key, &next_dbi_buf).code ();
-		if (!result && next_dbi_buf.size () != 2)
+		union
+		{
+			uint16_t prefix_int;
+			std::array<uint8_t, 2> prefix_bytes;
+		};
+		std::vector<uint8_t> dbi_lookup_key_bytes;
+		dbi_lookup_key_bytes.push_back (0);
+		dbi_lookup_key_bytes.push_back (0);
+		std::string name_str (name);
+		std::copy (name_str.begin (), name_str.end (), std::back_inserter (dbi_lookup_key_bytes));
+		Slice dbi_lookup_key (Slice ((const char *)dbi_lookup_key_bytes.data (), dbi_lookup_key_bytes.size ()));
+		std::string dbi_buf;
+		result = txn_get (txn, dbi_lookup_key, &dbi_buf).code ();
+		if (!result && dbi_buf.size () != 2)
 		{
 			result = MDB_CORRUPTED;
 		}
-		else if (result == MDB_NOTFOUND && txn->write_txn)
+		else if (result == MDB_NOTFOUND)
 		{
-			result = 0;
-			const char zero_dbi[] = { 0, 0 };
-			next_dbi_buf = std::string (zero_dbi, sizeof (zero_dbi));
-		}
-		if (!result)
-		{
-			dbi_buf = std::string (next_dbi_buf);
-			// modifying a string's .data() is not technically allowed,
-			// so we're doing a bit of manual addition here
-#if defined(BOOST_LITTLE_ENDIAN)
-			uint8_t indicies[] = { 0, 1 };
-#elif defined(BOOST_BIG_ENDIAN)
-			uint8_t indicies[] = { 1, 0 };
-#endif
-			next_dbi_buf[indicies[0]] += 1;
-			if (next_dbi_buf[indicies[0]] == 0) // overflow
+			Slice next_dbi_key (Slice ((const char *)&NEXT_DBI_KEY, sizeof (NEXT_DBI_KEY)));
+			std::string next_dbi_buf;
+			result = txn_get (txn, next_dbi_key, &next_dbi_buf).code ();
+			if (!result && next_dbi_buf.size () != 2)
 			{
-				next_dbi_buf[indicies[1]] += 1;
+				result = MDB_CORRUPTED;
 			}
-			result = txn->write_txn->Put (next_dbi_key, next_dbi_buf).code ();
+			else if (result == MDB_NOTFOUND && txn->write_txn)
+			{
+				result = 0;
+				uint16_t first_dbi = 1;
+				next_dbi_buf = std::string ((const char *)&first_dbi, sizeof (first_dbi));
+			}
+			if (!result)
+			{
+				dbi_buf = std::string (next_dbi_buf);
+				// modifying a string's .data() is not technically allowed,
+				// so we're doing a bit of manual addition here
+				next_dbi_buf[0] += 1;
+				if (next_dbi_buf[0] == 0) // overflow
+				{
+					next_dbi_buf[1] += 1;
+				}
+				result = txn->write_txn->Put (next_dbi_key, next_dbi_buf).code ();
+			}
+			if (!result)
+			{
+				result = txn->write_txn->Put (dbi_lookup_key, dbi_buf).code ();
+			}
 		}
 		if (!result)
 		{
-			result = txn->write_txn->Put (dbi_lookup_key, dbi_buf).code ();
+			uint8_t * dbi_bytes = (uint8_t *)dbi;
+			dbi_bytes[0] = dbi_buf[0];
+			dbi_bytes[1] = dbi_buf[1];
 		}
-	}
-	if (!result)
-	{
-		uint8_t * dbi_bytes = (uint8_t *)dbi;
-		dbi_bytes[0] = dbi_buf[0];
-		dbi_bytes[1] = dbi_buf[1];
-	}
 #ifdef DEBUG_ROCKSDB_WRAPPER
-	std::cerr << "Assigning DBI: \"" << name << "\" = " << std::dec << *dbi << std::endl;
+		std::cerr << "Database \"" << name << "\" = DBI " << std::dec << *dbi << std::endl;
 #endif
+	}
 	return result;
 }
 
@@ -283,7 +281,8 @@ int mdb_drop (MDB_txn * txn, MDB_dbi dbi, int del)
 		}
 		if (!result)
 		{
-			it->Seek (Slice ((const char *)&DBI_LOOKUP_PREFIX, sizeof (DBI_LOOKUP_PREFIX)));
+			const char dbi_lookup_prefix[] = {0, 0};
+			it->Seek (Slice ((const char *)&dbi_lookup_prefix, sizeof (dbi_lookup_prefix)));
 		}
 		// Delete ID lookup
 		if (del)
