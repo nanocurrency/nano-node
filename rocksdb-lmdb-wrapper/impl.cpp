@@ -215,10 +215,10 @@ int mdb_dbi_open (MDB_txn * txn, const char * name, unsigned int flags, MDB_dbi 
 				next_dbi_buf[indicies[1]] += 1;
 			}
 			result = txn->write_txn->Put (next_dbi_key, next_dbi_buf).code ();
-			if (!result)
-			{
-				result = txn->write_txn->Put (dbi_lookup_key, next_dbi_buf).code ();
-			}
+		}
+		if (!result)
+		{
+			result = txn->write_txn->Put (dbi_lookup_key, dbi_buf).code ();
 		}
 	}
 	if (!result)
@@ -279,6 +279,7 @@ int mdb_drop (MDB_txn * txn, MDB_dbi dbi, int del)
 			{
 				result = it->status ().code ();
 			}
+			it->Next ();
 		}
 		if (!result)
 		{
@@ -308,6 +309,7 @@ int mdb_drop (MDB_txn * txn, MDB_dbi dbi, int del)
 				{
 					result = it->status ().code ();
 				}
+				it->Next ();
 			}
 		}
 		delete it;
