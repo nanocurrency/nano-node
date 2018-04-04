@@ -276,27 +276,28 @@ int mdb_drop (MDB_txn * txn, MDB_dbi dbi, int del)
 			if (!result)
 			{
 				result = it->status ().code ();
+				it->Next ();
 			}
-			it->Next ();
-		}
-		if (!result)
-		{
-			const char dbi_lookup_prefix[] = {0, 0};
-			it->Seek (Slice ((const char *)&dbi_lookup_prefix, sizeof (dbi_lookup_prefix)));
 		}
 		// Delete ID lookup
 		if (del)
 		{
+			const char dbi_lookup_prefix[] = {0, 0};
+			if (!result)
+			{
+				it->Seek (Slice ((const char *)&dbi_lookup_prefix, sizeof (dbi_lookup_prefix)));
+			}
 			while (!result && it->Valid ())
 			{
 				Slice key_slice (it->key ());
-				if (key_slice.size () < 2)
+				if (key_slice.size () < sizeof (dbi_lookup_prefix))
 				{
 					result = MDB_CORRUPTED;
 					break;
 				}
-				else if (*((uint16_t *)key_slice.data ()) != dbi)
+				else if (std::memcmp (key_slice.data (), dbi_lookup_prefix, sizeof (dbi_lookup_prefix)))
 				{
+					assert (false);
 					break;
 				}
 				else if (it->value () == dbi_slice)
@@ -308,7 +309,11 @@ int mdb_drop (MDB_txn * txn, MDB_dbi dbi, int del)
 				{
 					result = it->status ().code ();
 				}
-				it->Next ();
+				if (!result)
+				{
+					it->Next ();
+					assert (it->Valid ());
+				}
 			}
 		}
 		delete it;
