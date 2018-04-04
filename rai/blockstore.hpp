@@ -2,6 +2,10 @@
 
 #include <rai/common.hpp>
 
+#include <boost/multi_index/hashed_index.hpp>
+#include <boost/multi_index/member.hpp>
+#include <boost/multi_index_container.hpp>
+
 namespace rai
 {
 /**
@@ -30,7 +34,6 @@ public:
 	store_iterator (rai::store_iterator const &) = delete;
 	~store_iterator ();
 	rai::store_iterator & operator++ ();
-	void next_dup ();
 	rai::store_iterator & operator= (rai::store_iterator &&);
 	rai::store_iterator & operator= (rai::store_iterator const &) = delete;
 	rai::store_entry & operator-> ();
@@ -39,6 +42,30 @@ public:
 	MDB_cursor * cursor;
 	rai::store_entry current;
 };
+
+class unchecked_block
+{
+public:
+	unchecked_block (rai::block_hash, std::shared_ptr<rai::block>);
+	std::shared_ptr<rai::block> block;
+	rai::block_hash hash;
+	rai::block_hash dependency;
+};
+
+class unchecked_by_hash
+{
+};
+
+class unchecked_by_dependency
+{
+};
+
+typedef boost::multi_index_container<
+rai::unchecked_block,
+boost::multi_index::indexed_by<
+boost::multi_index::hashed_non_unique<boost::multi_index::tag<rai::unchecked_by_hash>, boost::multi_index::member<rai::unchecked_block, rai::block_hash, &rai::unchecked_block::hash>>,
+boost::multi_index::hashed_non_unique<boost::multi_index::tag<rai::unchecked_by_dependency>, boost::multi_index::member<rai::unchecked_block, rai::block_hash, &rai::unchecked_block::dependency>>>>
+unchecked_cache_t;
 
 /**
  * Manages block storage and iteration
@@ -106,7 +133,7 @@ public:
 	rai::store_iterator unchecked_begin (MDB_txn *, rai::block_hash const &);
 	rai::store_iterator unchecked_end ();
 	size_t unchecked_count (MDB_txn *);
-	std::unordered_multimap<rai::block_hash, std::shared_ptr<rai::block>> unchecked_cache;
+	unchecked_cache_t unchecked_cache;
 
 	void unsynced_put (MDB_txn *, rai::block_hash const &);
 	void unsynced_del (MDB_txn *, rai::block_hash const &);
