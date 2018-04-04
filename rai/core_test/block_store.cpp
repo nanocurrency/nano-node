@@ -805,7 +805,7 @@ TEST (block_store, upgrade_v6_v7)
 }
 
 // Databases need to be dropped in order to convert to dupsort compatible
-TEST (block_store, change_dupsort)
+TEST (block_store, DISABLED_change_dupsort)
 {
 	auto path (rai::unique_path ());
 	bool init (false);
@@ -849,7 +849,7 @@ TEST (block_store, change_dupsort)
 	}
 }
 
-TEST (block_store, upgrade_v7_v8)
+TEST (block_store, DISABLED_upgrade_v7_v8)
 {
 	auto path (rai::unique_path ());
 	{
