@@ -37,7 +37,7 @@ For more information, see [Banano.co.in](http://banano.co.in/) or read the [Yell
 - [Building Banano from source](https://github.com/BananoCoin/banano/wiki/Building-a-Bananode-guide)
 
 ### Running a node
-- [Running a node](https://github.com/BananoCoin/banano/wiki/Building-a-Bananode-guide)
+- [Running a node](https://github.com/BananoCoin/banano/wiki/Running-a-Bananode)
 
 ### Want to contribute?
 Please visit us on the [Discord](https://discord.gg/SBPaSBS).
