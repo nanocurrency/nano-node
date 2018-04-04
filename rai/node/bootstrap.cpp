@@ -1417,8 +1417,12 @@ void rai::bootstrap_listener::start ()
 
 void rai::bootstrap_listener::stop ()
 {
-	on = false;
-	std::lock_guard<std::mutex> lock (mutex);
+	decltype(connections) connections_l;
+	{
+		std::lock_guard<std::mutex> lock (mutex);
+		on = false;
+		connections_l.swap (connections);
+	}
 	acceptor.close ();
 	for (auto & i : connections)
 	{
