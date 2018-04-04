@@ -3610,6 +3610,90 @@ void rai::rpc_handler::wallet_destroy ()
 	}
 }
 
+void rai::rpc_handler::wallet_deterministic_check ()
+{
+	if (rpc.config.enable_control)
+	{
+		std::string wallet_text (request.get<std::string> ("wallet"));
+		std::string count_text (request.get<std::string> ("count"));
+		rai::uint256_union wallet_id;
+		auto error (wallet_id.decode_hex (wallet_text));
+		if (!error)
+		{
+			uint64_t count;
+			if (!decode_unsigned (count_text, count))
+			{
+				auto existing (node.wallets.items.find (wallet_id));
+				if (existing != node.wallets.items.end ())
+				{
+					auto wallet (existing->second);
+					rai::transaction transaction (node.store.environment, nullptr, true);
+					if (wallet->store.valid_password (transaction))
+					{
+						auto index (wallet->store.deterministic_index_get (transaction));
+						uint64_t found_count (0);
+						for (uint64_t i (index), n (index + count); i < n; ++i)
+						{
+							rai::raw_key prv;
+							wallet->store.deterministic_key (prv, transaction, i);
+							rai::keypair pair (prv.data.to_string ());
+							// Check if account has at least 1 block
+							auto latest (node.ledger.latest (transaction, pair.pub));
+							if (!latest.is_zero ())
+							{
+								found_count = i - index + 1;
+							}
+							else
+							{
+								// Check if there are pending blocks for account
+								rai::account end (pair.pub.number () + 1);
+								for (auto ii (node.store.pending_begin (transaction, rai::pending_key (pair.pub, 0))), nn (node.store.pending_begin (transaction, rai::pending_key (end, 0))); ii != nn; ++ii)
+								{
+									found_count = i - index + 1;
+									break;
+								}
+							}
+						}
+						boost::property_tree::ptree response_l;
+						boost::property_tree::ptree accounts;
+						// Create new accounts if found existing in ledger deterministic accounts or pending blocks to deterministic accounts
+						for (uint64_t i (0); i < found_count; ++i)
+						{
+							rai::account account (wallet->deterministic_insert (transaction, false));
+							boost::property_tree::ptree entry;
+							entry.put ("", account.to_account ());
+							accounts.push_back (std::make_pair ("", entry));
+						}
+						response_l.add_child ("accounts", accounts);
+						response_l.put ("restored_count", std::to_string (found_count));
+						response (response_l);
+					}
+					else
+					{
+						error_response (response, "Wallet locked");
+					}
+				}
+				else
+				{
+					error_response (response, "Wallet not found");
+				}
+			}
+			else
+			{
+				error_response (response, "Invalid count limit");
+			}
+		}
+		else
+		{
+			error_response (response, "Bad wallet number");
+		}
+	}
+	else
+	{
+		error_response (response, "RPC control is disabled");
+	}
+}
+
 void rai::rpc_handler::wallet_export ()
 {
 	std::string wallet_text (request.get<std::string> ("wallet"));
@@ -4778,6 +4862,10 @@ void rai::rpc_handler::process_request ()
 		else if (action == "wallet_destroy")
 		{
 			wallet_destroy ();
+		}
+		else if (action == "wallet_deterministic_check")
+		{
+			wallet_deterministic_check ();
 		}
 		else if (action == "wallet_export")
 		{
