@@ -180,11 +180,11 @@ std::vector<uint8_t> namespace_key (MDB_val * val, MDB_dbi dbi)
 	return buf;
 }
 
-void string_to_val (std::string str, MDB_val * val)
+void slice_to_val (Slice & slice, MDB_val * val)
 {
-	val->mv_size = str.size ();
+	val->mv_size = slice.size ();
 	val->mv_data = malloc (val->mv_size);
-	std::memcpy (val->mv_data, str.data (), val->mv_size);
+	std::memcpy (val->mv_data, slice.data (), val->mv_size);
 }
 }
 
@@ -253,8 +253,9 @@ int mdb_dbi_open (MDB_txn * txn, const char * name, unsigned int flags, MDB_dbi 
 		std::string name_str (name);
 		std::copy (name_str.begin (), name_str.end (), std::back_inserter (dbi_lookup_key_bytes));
 		Slice dbi_lookup_key (Slice ((const char *)dbi_lookup_key_bytes.data (), dbi_lookup_key_bytes.size ()));
-		std::string dbi_buf;
+		PinnableSlice dbi_buf;
 		result = txn_get (txn, dbi_lookup_key, &dbi_buf).code ();
+		Slice & dbi_buf_out = dbi_buf;
 		if (!result && dbi_buf.size () != 2)
 		{
 			result = MDB_CORRUPTED;
@@ -276,7 +277,7 @@ int mdb_dbi_open (MDB_txn * txn, const char * name, unsigned int flags, MDB_dbi 
 			}
 			if (!result)
 			{
-				dbi_buf = std::string (next_dbi_buf);
+				dbi_buf_out = Slice (next_dbi_buf);
 				// modifying a string's .data() is not technically allowed,
 				// so we're doing a bit of manual addition here
 				next_dbi_buf[0] += 1;
@@ -306,8 +307,8 @@ int mdb_dbi_open (MDB_txn * txn, const char * name, unsigned int flags, MDB_dbi 
 		if (!result)
 		{
 			uint8_t * dbi_bytes = (uint8_t *)dbi;
-			dbi_bytes[0] = dbi_buf[0];
-			dbi_bytes[1] = dbi_buf[1];
+			dbi_bytes[0] = dbi_buf_out[0];
+			dbi_bytes[1] = dbi_buf_out[1];
 		}
 #ifdef DEBUG_ROCKSDB_WRAPPER
 		std::cerr << "Database \"" << name << "\" = DBI " << std::dec << *dbi << std::endl;
@@ -417,12 +418,12 @@ int mdb_drop (MDB_txn * txn, MDB_dbi dbi, int del)
 
 int mdb_get (MDB_txn * txn, MDB_dbi dbi, MDB_val * key, MDB_val * value)
 {
-	std::string out_buf;
+	PinnableSlice out_buf;
 	std::vector<uint8_t> namespaced_key (namespace_key (key, dbi));
 	int result (txn_get (txn, Slice ((const char *)namespaced_key.data (), namespaced_key.size ()), &out_buf).code ());
 	if (!result)
 	{
-		string_to_val (out_buf, value);
+		slice_to_val (out_buf, value);
 	}
 #ifdef DEBUG_ROCKSDB_WRAPPER
 	std::cerr << "mdb_get " << txn << " (" << std::dec << dbi << ") ";
