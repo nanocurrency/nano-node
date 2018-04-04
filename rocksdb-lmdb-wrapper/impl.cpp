@@ -282,7 +282,7 @@ int mdb_drop (MDB_txn * txn, MDB_dbi dbi, int del)
 		// Delete ID lookup
 		if (del)
 		{
-			const char dbi_lookup_prefix[] = {0, 0};
+			const char dbi_lookup_prefix[] = { 0, 0 };
 			if (!result)
 			{
 				it->Seek (Slice ((const char *)&dbi_lookup_prefix, sizeof (dbi_lookup_prefix)));
