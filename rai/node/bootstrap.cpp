@@ -1417,7 +1417,7 @@ void rai::bootstrap_listener::start ()
 
 void rai::bootstrap_listener::stop ()
 {
-	decltype(connections) connections_l;
+	decltype (connections) connections_l;
 	{
 		std::lock_guard<std::mutex> lock (mutex);
 		on = false;
