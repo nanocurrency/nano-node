@@ -50,8 +50,11 @@ int mdb_env_open (MDB_env * env, const char * path, unsigned int flags, uint32_t
 	OptimisticTransactionDB * txn_db;
 
 	int result (OptimisticTransactionDB::Open (options, path, &txn_db).code ());
-	env->txn_db = txn_db;
-	env->db = txn_db->GetBaseDB ();
+	if (!result)
+	{
+		env->txn_db = txn_db;
+		env->db = txn_db->GetBaseDB ();
+	}
 	return result;
 }
 
