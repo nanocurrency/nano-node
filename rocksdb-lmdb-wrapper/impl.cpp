@@ -1,4 +1,5 @@
 #include <mutex>
+#include <array>
 
 #ifdef DEBUG_ROCKSDB_WRAPPER
 #include <iomanip>
