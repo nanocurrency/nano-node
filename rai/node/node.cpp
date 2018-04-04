@@ -91,7 +91,7 @@ void rai::network::send_keepalive (rai::endpoint const & endpoint_a)
 		{
 			if (ec && node_l->config.logging.network_keepalive_logging ())
 			{
-				BOOST_LOG (node_l->log) << boost::str (boost::format ("Error sending keepalive to %1% %2%") % endpoint_a % ec.message ());
+				BOOST_LOG (node_l->log) << boost::str (boost::format ("Error sending keepalive to %1%: %2%") % endpoint_a % ec.message ());
 			}
 		}
 	});
@@ -115,7 +115,7 @@ void rai::node::keepalive (std::string const & address_a, uint16_t port_a)
 		}
 		else
 		{
-			BOOST_LOG (node_l->log) << boost::str (boost::format ("Error resolving address: %1%:%2%, %3%") % address_a % port_a % ec.message ());
+			BOOST_LOG (node_l->log) << boost::str (boost::format ("Error resolving address: %1%:%2%: %3%") % address_a % port_a % ec.message ());
 		}
 	});
 }
@@ -133,7 +133,7 @@ void rai::network::republish (rai::block_hash const & hash_a, std::shared_ptr<st
 		{
 			if (ec && node_l->config.logging.network_logging ())
 			{
-				BOOST_LOG (node_l->log) << boost::str (boost::format ("Error sending publish: %1% to %2%") % ec.message () % endpoint_a);
+				BOOST_LOG (node_l->log) << boost::str (boost::format ("Error sending publish to %1%: %2%") % endpoint_a % ec.message ());
 			}
 		}
 	});
@@ -1296,7 +1296,7 @@ rai::process_return rai::block_processor::process_receive_one (MDB_txn * transac
 			{
 				std::string block;
 				block_a->serialize_json (block);
-				BOOST_LOG (node.log) << boost::str (boost::format ("Processing block %1% %2%") % block_a->hash ().to_string () % block);
+				BOOST_LOG (node.log) << boost::str (boost::format ("Processing block %1%: %2%") % block_a->hash ().to_string () % block);
 			}
 			break;
 		}
@@ -1527,7 +1527,7 @@ online_reps (*this)
 													{
 														if (node_l->config.logging.callback_logging ())
 														{
-															BOOST_LOG (node_l->log) << boost::str (boost::format ("Unable complete callback: %1%:%2% %3%") % address % port % ec.message ());
+															BOOST_LOG (node_l->log) << boost::str (boost::format ("Unable complete callback: %1%:%2%: %3%") % address % port % ec.message ());
 														}
 													};
 												});
@@ -1536,7 +1536,7 @@ online_reps (*this)
 											{
 												if (node_l->config.logging.callback_logging ())
 												{
-													BOOST_LOG (node_l->log) << boost::str (boost::format ("Unable to send callback: %1%:%2% %3%") % address % port % ec.message ());
+													BOOST_LOG (node_l->log) << boost::str (boost::format ("Unable to send callback: %1%:%2%: %3%") % address % port % ec.message ());
 												}
 											}
 										});
@@ -1545,7 +1545,7 @@ online_reps (*this)
 									{
 										if (node_l->config.logging.callback_logging ())
 										{
-											BOOST_LOG (node_l->log) << boost::str (boost::format ("Unable to connect to callback address: %1%:%2%, %3%") % address % port % ec.message ());
+											BOOST_LOG (node_l->log) << boost::str (boost::format ("Unable to connect to callback address: %1%:%2%: %3%") % address % port % ec.message ());
 										}
 									}
 								});
@@ -1555,7 +1555,7 @@ online_reps (*this)
 						{
 							if (node_l->config.logging.callback_logging ())
 							{
-								BOOST_LOG (node_l->log) << boost::str (boost::format ("Error resolving callback: %1%:%2%, %3%") % address % port % ec.message ());
+								BOOST_LOG (node_l->log) << boost::str (boost::format ("Error resolving callback: %1%:%2%: %3%") % address % port % ec.message ());
 							}
 						}
 					});
@@ -1864,7 +1864,7 @@ bool rai::parse_address_port (std::string const & string, boost::asio::ip::addre
 			{
 				boost::system::error_code ec;
 				auto address (boost::asio::ip::address_v6::from_string (string.substr (0, port_position), ec));
-				if (ec == 0)
+				if (!ec)
 				{
 					address_a = address;
 					port_a = port;
@@ -2258,19 +2258,19 @@ public:
 				}
 				else
 				{
-					BOOST_LOG (node->log) << boost::str (boost::format ("Incorrect work response from %1% for root %2% value %3%") % address % root.to_string () % work_text);
+					BOOST_LOG (node->log) << boost::str (boost::format ("Incorrect work response from %1% for root %2%: %3%") % address % root.to_string () % work_text);
 					handle_failure (last);
 				}
 			}
 			else
 			{
-				BOOST_LOG (node->log) << boost::str (boost::format ("Work response from %1% wasn't a number %2%") % address % work_text);
+				BOOST_LOG (node->log) << boost::str (boost::format ("Work response from %1% wasn't a number: %2%") % address % work_text);
 				handle_failure (last);
 			}
 		}
 		catch (...)
 		{
-			BOOST_LOG (node->log) << boost::str (boost::format ("Work response from %1% wasn't parsable %2%") % address % body_a);
+			BOOST_LOG (node->log) << boost::str (boost::format ("Work response from %1% wasn't parsable: %2%") % address % body_a);
 			handle_failure (last);
 		}
 	}
@@ -3946,7 +3946,7 @@ void rai::port_mapping::refresh_devices ()
 		}
 		if (check_count % 15 == 0)
 		{
-			BOOST_LOG (node.log) << boost::str (boost::format ("UPnP local address: %3%, discovery: %1%, IGD search: %2%") % discover_error % igd_error % local_address.data ());
+			BOOST_LOG (node.log) << boost::str (boost::format ("UPnP local address: %1%, discovery: %2%, IGD search: %3%") % local_address.data () % discover_error % igd_error);
 			for (auto i (devices); i != nullptr; i = i->pNext)
 			{
 				BOOST_LOG (node.log) << boost::str (boost::format ("UPnP device url: %1% st: %2% usn: %3%") % i->descURL % i->st % i->usn);
@@ -3970,7 +3970,7 @@ void rai::port_mapping::refresh_mapping ()
 			auto add_port_mapping_error (UPNP_AddAnyPortMapping (urls.controlURL, data.first.servicetype, node_port.c_str (), node_port.c_str (), address.to_string ().c_str (), nullptr, protocol.name, nullptr, std::to_string (mapping_timeout).c_str (), actual_external_port.data ()));
 			if (check_count % 15 == 0)
 			{
-				BOOST_LOG (node.log) << boost::str (boost::format ("UPnP %1% port mapping response: %2%, actual external port %5%") % protocol.name % add_port_mapping_error % 0 % 0 % actual_external_port.data ());
+				BOOST_LOG (node.log) << boost::str (boost::format ("UPnP %1% port mapping response: %2%, actual external port %3%") % protocol.name % add_port_mapping_error % actual_external_port.data ());
 			}
 			if (add_port_mapping_error == UPNPCOMMAND_SUCCESS)
 			{
@@ -4022,7 +4022,7 @@ int rai::port_mapping::check_mapping ()
 			}
 			if (check_count % 15 == 0)
 			{
-				BOOST_LOG (node.log) << boost::str (boost::format ("UPnP %3% mapping verification response: %1%, external ip response: %6%, external ip: %4%, internal ip: %5%, remaining lease: %2%") % verify_port_mapping_error % remaining_mapping_duration.data () % protocol.name % external_address.data () % address.to_string () % external_ip_error);
+				BOOST_LOG (node.log) << boost::str (boost::format ("UPnP %1% mapping verification response: %2%, external ip response: %3%, external ip: %4%, internal ip: %5%, remaining lease: %6%") % protocol.name % verify_port_mapping_error % external_ip_error % external_address.data () % address.to_string () % remaining_mapping_duration.data ());
 			}
 		}
 	}
