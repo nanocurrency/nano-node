@@ -97,6 +97,37 @@ Status txn_get (MDB_txn * txn, const Slice & key, std::string * value)
 	return result;
 }
 
+Status txn_get (MDB_txn * txn, const Slice & key, PinnableSlice * value)
+{
+	Status result;
+	if (txn->write_txn)
+	{
+		result = txn->write_txn->Get (txn->read_opts, txn->db->DefaultColumnFamily (), key, value);
+	}
+	else
+	{
+		result = txn->db->Get (txn->read_opts, txn->db->DefaultColumnFamily (), key, value);
+	}
+	return result;
+}
+
+Status txn_key_exists (MDB_txn * txn, const Slice & key, bool * exists)
+{
+	assert (exists != nullptr);
+	PinnableSlice value;
+	Status result (txn_get (txn, key, &value));
+	if (result.IsNotFound ())
+	{
+		result = Status ();
+		*exists = false;
+	}
+	else
+	{
+		*exists = true;
+	}
+	return result;
+}
+
 std::vector<uint8_t> namespace_key (MDB_val * val, MDB_dbi dbi)
 {
 	uint8_t * dbi_bytes = (uint8_t *)&dbi;
@@ -163,6 +194,7 @@ int mdb_txn_commit (MDB_txn * txn)
 
 const uint16_t INTERNAL_PREFIX_FLAG = 1 << 15;
 const uint16_t NEXT_DBI_KEY = boost::endian::native_to_little (INTERNAL_PREFIX_FLAG | 0x1);
+const uint16_t ENTRIES_COUNT_PREFIX = boost::endian::native_to_little (INTERNAL_PREFIX_FLAG | 0x2);
 
 int mdb_dbi_open (MDB_txn * txn, const char * name, unsigned int flags, MDB_dbi * dbi)
 {
@@ -405,11 +437,18 @@ int mdb_del (MDB_txn * txn, MDB_dbi dbi, MDB_val * key, MDB_val * value)
 	{
 		std::vector<uint8_t> namespaced_key (namespace_key (key, dbi));
 		Slice key ((const char *)namespaced_key.data (), namespaced_key.size ());
-		std::string value;
-		result = txn_get (txn, key, &value).code (); // check if exists
+		bool exists;
+		result = txn_key_exists (txn, key, &exists).code (); // check if exists
 		if (!result)
 		{
-			result = txn->write_txn->Delete (key).code ();
+			if (!exists)
+			{
+				result = MDB_NOTFOUND;
+			}
+			else
+			{
+				result = txn->write_txn->Delete (key).code ();
+			}
 		}
 	}
 	return result;
