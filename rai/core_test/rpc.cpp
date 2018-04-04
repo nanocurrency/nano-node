@@ -3291,7 +3291,7 @@ TEST (rpc, wallet_locked)
 	ASSERT_EQ (account_text1, "0");
 }
 
-TEST (rpc, wallet_create_fail)
+TEST (rpc, DISABLED_wallet_create_fail)
 {
 	rai::system system (24000, 1);
 	rai::rpc rpc (system.service, *system.nodes[0], rai::rpc_config (true));
