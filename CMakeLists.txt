@@ -225,14 +225,11 @@ add_library (xxhash
 	xxhash/xxhash.c
 	xxhash/xxhash.h)
 
-# add_library (lmdb
-# 	lmdb/libraries/liblmdb/lmdb.h
-# 	lmdb/libraries/liblmdb/mdb.c
-# 	lmdb/libraries/liblmdb/midl.c)
-
 add_library (lmdb
 	rocksdb-lmdb-wrapper/lmdb.h
 	rocksdb-lmdb-wrapper/impl.cpp)
+
+include_directories (${ROCKSDB_INCLUDE_DIRS})
 
 add_library (blake2
 	blake2/blake2-config.h
