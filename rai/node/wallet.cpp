@@ -1406,7 +1406,6 @@ thread ([this]() { do_wallet_actions (); })
 rai::wallets::~wallets ()
 {
 	stop ();
-	thread.join ();
 }
 
 std::shared_ptr<rai::wallet> rai::wallets::open (rai::uint256_union const & id_a)
@@ -1543,9 +1542,15 @@ bool rai::wallets::exists (MDB_txn * transaction_a, rai::public_key const & acco
 
 void rai::wallets::stop ()
 {
-	std::lock_guard<std::mutex> lock (mutex);
-	stopped = true;
-	condition.notify_all ();
+	{
+		std::lock_guard<std::mutex> lock (mutex);
+		stopped = true;
+		condition.notify_all ();
+	}
+	if (thread.joinable ())
+	{
+		thread.join ();
+	}
 }
 
 rai::uint128_t const rai::wallets::generate_priority = std::numeric_limits<rai::uint128_t>::max ();
