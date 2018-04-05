@@ -2882,10 +2882,10 @@ rai::election::election (MDB_txn * transaction_a, rai::node & node_a, std::share
 confirmation_action (confirmation_action_a),
 votes (block_a),
 node (node_a),
-last_winner (block_a)
+last_winner (block_a),
+confirmed (false)
 {
 	assert (node_a.store.block_exists (transaction_a, block_a->hash ()));
-	confirmed.clear ();
 	compute_rep_votes (transaction_a);
 }
 
@@ -2918,7 +2918,7 @@ rai::uint128_t rai::election::minimum_threshold (MDB_txn * transaction_a, rai::l
 
 void rai::election::confirm_once (MDB_txn * transaction_a)
 {
-	if (!confirmed.test_and_set ())
+	if (!confirmed.exchange (true))
 	{
 		auto tally_l (node.ledger.tally (transaction_a, votes));
 		assert (tally_l.size () > 0);

@@ -60,7 +60,7 @@ public:
 	rai::node & node;
 	std::unordered_map<rai::account, std::pair<std::chrono::steady_clock::time_point, uint64_t>> last_votes;
 	std::shared_ptr<rai::block> last_winner;
-	std::atomic_flag confirmed;
+	std::atomic<bool> confirmed;
 };
 class conflict_info
 {
