@@ -3465,7 +3465,7 @@ TEST (rpc, election_history)
 	auto representatives (response.json.get_child ("elections"));
 	auto item (representatives.begin ());
 	ASSERT_NE (representatives.end (), item);
-	auto hash (item->second.get<std::string>("hash"));
+	auto hash (item->second.get<std::string> ("hash"));
 	auto tally (item->second.get<std::string> ("tally"));
 	ASSERT_EQ (block->hash ().to_string (), hash);
 	ASSERT_EQ ((rai::genesis_amount - rai::Gxrb_ratio).convert_to<std::string> (), tally);

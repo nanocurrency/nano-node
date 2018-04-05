@@ -2882,7 +2882,7 @@ rai::election::election (MDB_txn * transaction_a, rai::node & node_a, std::share
 confirmation_action (confirmation_action_a),
 votes (block_a),
 node (node_a),
-status ({block_a, 0}),
+status ({ block_a, 0 }),
 confirmed (false)
 {
 	assert (node_a.store.block_exists (transaction_a, block_a->hash ()));

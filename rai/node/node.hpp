@@ -39,7 +39,7 @@ class node;
 class election_status
 {
 public:
-	std::shared_ptr <rai::block> winner;
+	std::shared_ptr<rai::block> winner;
 	rai::amount tally;
 };
 class election : public std::enable_shared_from_this<rai::election>
