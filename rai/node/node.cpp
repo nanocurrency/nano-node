@@ -2882,7 +2882,7 @@ rai::election::election (MDB_txn * transaction_a, rai::node & node_a, std::share
 confirmation_action (confirmation_action_a),
 votes (block_a),
 node (node_a),
-last_winner (block_a),
+status ({block_a, 0}),
 confirmed (false)
 {
 	assert (node_a.store.block_exists (transaction_a, block_a->hash ()));
@@ -2892,7 +2892,7 @@ confirmed (false)
 void rai::election::compute_rep_votes (MDB_txn * transaction_a)
 {
 	node.wallets.foreach_representative (transaction_a, [this, transaction_a](rai::public_key const & pub_a, rai::raw_key const & prv_a) {
-		auto vote (this->node.store.vote_generate (transaction_a, pub_a, prv_a, last_winner));
+		auto vote (this->node.store.vote_generate (transaction_a, pub_a, prv_a, status.winner));
 		this->votes.vote (vote);
 	});
 }
@@ -2901,7 +2901,7 @@ void rai::election::broadcast_winner ()
 {
 	rai::transaction transaction (node.store.environment, nullptr, false);
 	compute_rep_votes (transaction);
-	node.network.republish_block (transaction, last_winner);
+	node.network.republish_block (transaction, status.winner);
 }
 
 rai::uint128_t rai::election::quorum_threshold (MDB_txn * transaction_a, rai::ledger & ledger_a)
@@ -2925,7 +2925,7 @@ void rai::election::confirm_once (MDB_txn * transaction_a)
 		auto winner (tally_l.begin ());
 		auto block_l (winner->second);
 		auto exceeded_min_threshold = winner->first > minimum_threshold (transaction_a, node.ledger);
-		if (!(*block_l == *last_winner))
+		if (!(*block_l == *status.winner))
 		{
 			if (exceeded_min_threshold)
 			{
@@ -2933,14 +2933,15 @@ void rai::election::confirm_once (MDB_txn * transaction_a)
 				node.background ([node_l, block_l]() {
 					node_l->block_processor.process_receive_many (rai::block_processor_item (block_l, true));
 				});
-				last_winner = block_l;
+				status.winner = block_l;
 			}
 			else
 			{
-				BOOST_LOG (node.log) << boost::str (boost::format ("Retaining block %1%") % last_winner->hash ().to_string ());
+				BOOST_LOG (node.log) << boost::str (boost::format ("Retaining block %1%") % status.winner->hash ().to_string ());
 			}
 		}
-		auto winner_l (last_winner);
+		status.tally = winner->first;
+		auto winner_l (status.winner);
 		auto node_l (node.shared ());
 		auto confirmation_action_l (confirmation_action);
 		node.background ([winner_l, confirmation_action_l, node_l, exceeded_min_threshold]() {
@@ -2971,7 +2972,7 @@ void rai::election::confirm_cutoff (MDB_txn * transaction_a)
 {
 	if (node.config.logging.vote_logging ())
 	{
-		BOOST_LOG (node.log) << boost::str (boost::format ("Vote tally weight %2% for root %1%") % votes.id.to_string () % last_winner->root ().to_string ());
+		BOOST_LOG (node.log) << boost::str (boost::format ("Vote tally weight %2% for root %1%") % votes.id.to_string () % status.winner->root ().to_string ());
 		for (auto i (votes.rep_votes.begin ()), n (votes.rep_votes.end ()); i != n; ++i)
 		{
 			BOOST_LOG (node.log) << boost::str (boost::format ("%1% %2%") % i->first.to_account () % i->second->hash ().to_string ());
@@ -3056,6 +3057,7 @@ void rai::active_transactions::announce_votes ()
 				i->election->confirm_cutoff (transaction);
 				auto root_l (i->election->votes.id);
 				inactive.push_back (root_l);
+				confirmed.push_back (i->election->status);
 			}
 			else
 			{
@@ -3144,7 +3146,7 @@ std::deque<std::shared_ptr<rai::block>> rai::active_transactions::list_blocks ()
 	std::lock_guard<std::mutex> lock (mutex);
 	for (auto i (roots.begin ()), n (roots.end ()); i != n; ++i)
 	{
-		result.push_back (i->election->last_winner);
+		result.push_back (i->election->status.winner);
 	}
 	return result;
 }

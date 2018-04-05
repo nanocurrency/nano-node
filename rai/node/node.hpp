@@ -36,6 +36,12 @@ namespace program_options
 namespace rai
 {
 class node;
+class election_status
+{
+public:
+	std::shared_ptr <rai::block> winner;
+	rai::amount tally;
+};
 class election : public std::enable_shared_from_this<rai::election>
 {
 	std::function<void(std::shared_ptr<rai::block>, bool)> confirmation_action;
@@ -59,7 +65,7 @@ public:
 	rai::votes votes;
 	rai::node & node;
 	std::unordered_map<rai::account, std::pair<std::chrono::steady_clock::time_point, uint64_t>> last_votes;
-	std::shared_ptr<rai::block> last_winner;
+	rai::election_status status;
 	std::atomic<bool> confirmed;
 };
 class conflict_info
@@ -90,8 +96,9 @@ public:
 	boost::multi_index_container<
 	rai::conflict_info,
 	boost::multi_index::indexed_by<
-	boost::multi_index::ordered_unique<boost::multi_index::member<rai::conflict_info, rai::block_hash, &rai::conflict_info::root>>>>
+	boost::multi_index::hashed_unique<boost::multi_index::member<rai::conflict_info, rai::block_hash, &rai::conflict_info::root>>>>
 	roots;
+	std::deque<rai::election_status> confirmed;
 	rai::node & node;
 	std::mutex mutex;
 	// Maximum number of conflicts to vote on per interval, lowest root hash first
