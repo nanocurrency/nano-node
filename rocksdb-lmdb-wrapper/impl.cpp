@@ -78,6 +78,7 @@ struct MDB_txn
 	DB * db;
 	boost::optional<std::unique_lock<std::mutex>> write_guard;
 	Transaction * write_txn;
+	std::vector<void *> mdb_values;
 	ReadOptions read_opts;
 };
 
@@ -180,12 +181,6 @@ std::vector<uint8_t> namespace_key (MDB_val * val, MDB_dbi dbi)
 	return buf;
 }
 
-void slice_to_val (Slice & slice, MDB_val * val)
-{
-	val->mv_size = slice.size ();
-	val->mv_data = malloc (val->mv_size);
-	std::memcpy (val->mv_data, slice.data (), val->mv_size);
-}
 }
 
 int mdb_txn_begin (MDB_env * env, MDB_txn *, unsigned int flags, MDB_txn ** txn)
@@ -225,6 +220,10 @@ int mdb_txn_commit (MDB_txn * txn)
 	if (txn->write_txn)
 	{
 		result = txn->write_txn->Commit ().code ();
+	}
+	for (auto & i : txn->mdb_values)
+	{
+		free (i);
 	}
 #ifdef DEBUG_ROCKSDB_WRAPPER
 	std::cerr << "mdb_txn_commit " << txn << std::endl;
@@ -423,7 +422,10 @@ int mdb_get (MDB_txn * txn, MDB_dbi dbi, MDB_val * key, MDB_val * value)
 	int result (txn_get (txn, Slice ((const char *)namespaced_key.data (), namespaced_key.size ()), &out_buf).code ());
 	if (!result)
 	{
-		slice_to_val (out_buf, value);
+		value->mv_size = out_buf.size ();
+		value->mv_data = malloc (value->mv_size);
+		txn->mdb_values.push_back (value->mv_data);
+		std::memcpy (value->mv_data, out_buf.data (), value->mv_size);
 	}
 #ifdef DEBUG_ROCKSDB_WRAPPER
 	std::cerr << "mdb_get " << txn << " (" << std::dec << dbi << ") ";
@@ -614,10 +616,12 @@ int mdb_cursor_get (MDB_cursor * cursor, MDB_val * key, MDB_val * value, MDB_cur
 			{
 				key->mv_size = key_slice.size () - 2;
 				key->mv_data = malloc (key->mv_size);
+				cursor->txn->mdb_values.push_back (key->mv_data);
 				std::memcpy (key->mv_data, key_slice.data () + 2, key->mv_size);
 				Slice value_slice (cursor->it->value ());
 				value->mv_size = value_slice.size ();
 				value->mv_data = malloc (value->mv_size);
+				cursor->txn->mdb_values.push_back (value->mv_data);
 				std::memcpy (value->mv_data, value_slice.data (), value->mv_size);
 			}
 		}
