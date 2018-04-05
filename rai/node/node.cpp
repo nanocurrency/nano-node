@@ -1947,10 +1947,6 @@ void rai::node::stop ()
 	bootstrap.stop ();
 	port_mapping.stop ();
 	wallets.stop ();
-	if (block_processor_thread.joinable ())
-	{
-		block_processor_thread.join ();
-	}
 }
 
 void rai::node::keepalive_preconfigured (std::vector<std::string> const & peers_a)
