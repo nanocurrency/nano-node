@@ -3058,7 +3058,7 @@ void rai::active_transactions::announce_votes ()
 				auto root_l (i->election->votes.id);
 				inactive.push_back (root_l);
 				confirmed.push_back (i->election->status);
-				if (confirmed.size () > election_history.size ())
+				if (confirmed.size () > election_history_size)
 				{
 					confirmed.pop_front ();
 				}
