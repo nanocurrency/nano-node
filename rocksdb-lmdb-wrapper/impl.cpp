@@ -162,12 +162,12 @@ int add_dbi_entries (MDB_txn * txn, MDB_dbi dbi, uint64_t delta)
 
 int increment_dbi_entries (MDB_txn * txn, MDB_dbi dbi)
 {
-	add_dbi_entries (txn, dbi, 1);
+	return add_dbi_entries (txn, dbi, 1);
 }
 
 int decrement_dbi_entries (MDB_txn * txn, MDB_dbi dbi)
 {
-	add_dbi_entries (txn, dbi, -1);
+	return add_dbi_entries (txn, dbi, -1);
 }
 
 std::vector<uint8_t> namespace_key (MDB_val * val, MDB_dbi dbi)
