@@ -3439,7 +3439,7 @@ TEST (rpc, online_reps)
 	system.nodes[1]->stop ();
 }
 
-TEST (rpc, election_history)
+TEST (rpc, confirmation_history)
 {
 	rai::system system (24000, 1);
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
@@ -3455,14 +3455,14 @@ TEST (rpc, election_history)
 	rai::rpc rpc (system.service, *system.nodes[0], rai::rpc_config (true));
 	rpc.start ();
 	boost::property_tree::ptree request;
-	request.put ("action", "election_history");
+	request.put ("action", "confirmation_history");
 	test_response response (request, rpc, system.service);
 	while (response.status == 0)
 	{
 		system.poll ();
 	}
 	ASSERT_EQ (200, response.status);
-	auto representatives (response.json.get_child ("elections"));
+	auto representatives (response.json.get_child ("confirmations"));
 	auto item (representatives.begin ());
 	ASSERT_NE (representatives.end (), item);
 	auto hash (item->second.get<std::string> ("hash"));

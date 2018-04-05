@@ -142,10 +142,10 @@ public:
 	void bootstrap ();
 	void bootstrap_any ();
 	void chain ();
+	void confirmation_history ();
 	void delegators ();
 	void delegators_count ();
 	void deterministic_key ();
-	void election_history ();
 	void frontiers ();
 	void frontier_count ();
 	void history ();
