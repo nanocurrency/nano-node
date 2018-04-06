@@ -283,7 +283,7 @@ public:
 	static size_t constexpr size = sizeof (rai::account) + sizeof (rai::block_hash) + sizeof (rai::account) + sizeof (rai::amount) + sizeof (rai::uint256_union) + sizeof (rai::signature) + sizeof (uint64_t);
 	rai::state_hashables hashables;
 	rai::signature signature;
-	uint64_t work; // Only least 48 least significant bits are encoded
+	uint64_t work;
 };
 class block_visitor
 {
