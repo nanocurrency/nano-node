@@ -641,6 +641,7 @@ int mdb_cursor_put (MDB_cursor * cursor, MDB_val * key, MDB_val * value, unsigne
 void mdb_cursor_close (MDB_cursor * cursor)
 {
 	delete cursor->it;
+	delete cursor;
 }
 
 int mdb_stat (MDB_txn * txn, MDB_dbi dbi, MDB_stat * stat)
