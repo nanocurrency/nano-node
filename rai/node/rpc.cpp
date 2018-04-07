@@ -1205,6 +1205,11 @@ void rai::rpc_handler::block_create ()
 			{
 				if (!account.is_zero () && previous_text.is_initialized () && !representative.is_zero () && !balance.is_zero () && link_text.is_initialized ())
 				{
+					if (work == 0)
+					{
+						work = node.generate_work (previous.is_zero () ? pub : previous);
+					}
+
 					rai::state_block state (account, previous, representative, balance, link, prv, pub, work);
 					boost::property_tree::ptree response_l;
 					response_l.put ("hash", state.hash ().to_string ());
