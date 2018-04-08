@@ -1565,6 +1565,13 @@ online_reps (*this)
 			});
 		}
 	});
+	observers.blocks.add ([this](std::shared_ptr<rai::block> block_a, rai::process_return const & result_a) {
+		rai::transaction transaction (store.environment, nullptr, false);
+		if ((store.block_count (transaction).sum () + store.unchecked_count (transaction)) >= this->store_compaction_blocks)
+		{
+			mdb_env_configure_compaction (store.environment, true);
+		}
+	});
 	observers.endpoint.add ([this](rai::endpoint const & endpoint_a) {
 		this->network.send_keepalive (endpoint_a);
 		rep_query (*this, endpoint_a);
@@ -1610,6 +1617,7 @@ online_reps (*this)
 			rai::genesis genesis;
 			genesis.initialize (transaction, store);
 		}
+		mdb_env_configure_compaction (store.environment, (store.block_count (transaction).sum () + store.unchecked_count (transaction)) >= store_compaction_blocks);
 	}
 	if (rai::rai_network == rai::rai_networks::rai_live_network)
 	{

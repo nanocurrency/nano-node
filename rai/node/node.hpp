@@ -576,6 +576,7 @@ public:
 	static std::chrono::seconds constexpr period = std::chrono::seconds (60);
 	static std::chrono::seconds constexpr cutoff = period * 5;
 	static std::chrono::minutes constexpr backup_interval = std::chrono::minutes (5);
+	static size_t constexpr store_compaction_blocks = 7500000;
 };
 class thread_runner
 {

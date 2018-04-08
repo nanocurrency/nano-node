@@ -27,6 +27,8 @@ int mdb_env_open (MDB_env *, const char * path, unsigned int flags, uint32_t mod
 int mdb_env_copy2 (MDB_env *, const char * path, unsigned int flags);
 void mdb_env_close (MDB_env *);
 
+void mdb_env_configure_compaction (MDB_env *, bool);
+
 struct MDB_txn;
 
 int mdb_txn_begin (MDB_env *, MDB_txn *, unsigned int flags, MDB_txn **);

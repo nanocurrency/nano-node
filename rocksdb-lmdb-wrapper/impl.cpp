@@ -73,6 +73,24 @@ void mdb_env_close (MDB_env * env)
 	delete env;
 }
 
+void mdb_env_configure_compaction (MDB_env * env, bool enable)
+{
+	if (enable)
+	{
+		Options options = env->db->GetOptions ();
+		if (options.disable_auto_compactions)
+		{
+			env->db->EnableAutoCompaction ({ env->db->DefaultColumnFamily () });
+		}
+	}
+	else
+	{
+		std::unordered_map<std::string, std::string> opts;
+		opts.insert (std::make_pair ("disable_auto_compactions", "true"));
+		env->db->SetOptions (opts);
+	}
+}
+
 struct MDB_txn
 {
 	DB * db;
