@@ -1,5 +1,5 @@
-#include <mutex>
 #include <array>
+#include <mutex>
 
 #ifdef DEBUG_ROCKSDB_WRAPPER
 #include <iomanip>
@@ -198,7 +198,6 @@ std::vector<uint8_t> namespace_key (MDB_val * val, MDB_dbi dbi)
 	std::copy (data_ptr, data_ptr + val->mv_size, std::back_inserter (buf));
 	return buf;
 }
-
 }
 
 int mdb_txn_begin (MDB_env * env, MDB_txn *, unsigned int flags, MDB_txn ** txn)
