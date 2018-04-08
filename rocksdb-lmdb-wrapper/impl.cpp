@@ -81,12 +81,16 @@ void mdb_env_configure_compaction (MDB_env * env, bool enable)
 		if (options.disable_auto_compactions)
 		{
 			env->db->EnableAutoCompaction ({ env->db->DefaultColumnFamily () });
+			std::unordered_map<std::string, std::string> opts;
+			opts.insert (std::make_pair ("max_write_buffer_number", "2"));
+			env->db->SetOptions (opts);
 		}
 	}
 	else
 	{
 		std::unordered_map<std::string, std::string> opts;
 		opts.insert (std::make_pair ("disable_auto_compactions", "true"));
+		opts.insert (std::make_pair ("max_write_buffer_number", "5"));
 		env->db->SetOptions (opts);
 	}
 }
