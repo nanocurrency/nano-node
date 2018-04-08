@@ -889,7 +889,7 @@ TEST (network, ipv6_bind_send_ipv4)
 	std::array<uint8_t, 16> bytes2;
 	auto finish2 (false);
 	rai::endpoint endpoint4;
-	socket2.async_receive_from (boost::asio::buffer (bytes2.data (), bytes2.size ()), endpoint4, [&finish2](boost::system::error_code const & error, size_t size_a) {
+	socket2.async_receive_from (boost::asio::buffer (bytes2.data (), bytes2.size ()), endpoint4, [](boost::system::error_code const & error, size_t size_a) {
 		ASSERT_FALSE (!error);
 		ASSERT_EQ (16, size_a);
 	});

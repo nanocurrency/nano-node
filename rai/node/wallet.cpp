@@ -1079,7 +1079,7 @@ bool rai::wallet::should_generate_state_block (MDB_txn * transaction_a, rai::blo
 bool rai::wallet::change_sync (rai::account const & source_a, rai::account const & representative_a)
 {
 	std::promise<bool> result;
-	change_async (source_a, representative_a, [this, source_a, representative_a, &result](std::shared_ptr<rai::block> block_a) {
+	change_async (source_a, representative_a, [&result](std::shared_ptr<rai::block> block_a) {
 		result.set_value (block_a == nullptr);
 	},
 	true);

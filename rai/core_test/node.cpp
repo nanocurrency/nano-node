@@ -1417,7 +1417,7 @@ TEST (node, balance_observer)
 	auto & node1 (*system.nodes[0]);
 	std::atomic<int> balances (0);
 	rai::keypair key;
-	node1.observers.account_balance.add ([&node1, &key, &balances](rai::account const & account_a, bool is_pending) {
+	node1.observers.account_balance.add ([&key, &balances](rai::account const & account_a, bool is_pending) {
 		if (key.pub == account_a && is_pending)
 		{
 			balances++;

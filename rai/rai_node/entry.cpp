@@ -222,7 +222,6 @@ int main (int argc, char * const * argv)
 		std::map<rai::account, rai::uint128_t> calculated;
 		for (auto i (node.node->store.latest_begin (transaction)), n (node.node->store.latest_end ()); i != n; ++i)
 		{
-			rai::account account (i->first.uint256 ());
 			rai::account_info info (i->second);
 			rai::block_hash rep_block (node.node->ledger.representative_calculated (transaction, info.head));
 			std::unique_ptr<rai::block> block (node.node->store.block_get (transaction, rep_block));
