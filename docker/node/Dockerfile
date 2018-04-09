@@ -4,14 +4,22 @@ ARG NETWORK=live
 
 ENV BOOST_ROOT=/tmp/boost_install
 
-ADD ci /tmp/ci
-
 RUN apt-get update -qq && apt-get install -yqq \
     build-essential \
     cmake \
     g++ \
-    wget && \
-    /tmp/ci/bootstrap_boost.sh -m
+    wget \
+    git
+
+ADD ci /tmp/ci
+
+RUN /tmp/ci/bootstrap_boost.sh -m
+
+RUN git clone https://github.com/facebook/rocksdb.git /tmp/rocksdb && \
+    cd /tmp/rocksdb && \
+    git checkout ca87aef && \
+    PORTABLE=1 make static_lib && \
+    make install
 
 ADD ./ /tmp/src
 

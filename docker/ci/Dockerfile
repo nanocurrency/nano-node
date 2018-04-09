@@ -7,9 +7,16 @@ RUN apt-get update -qq && apt-get install -yqq \
     build-essential \
     cmake \
     g++ \
-    wget
+    wget \
+    git
 
 WORKDIR "/tmp"
+
+RUN git clone https://github.com/facebook/rocksdb.git /tmp/rocksdb && \
+    cd /tmp/rocksdb && \
+    git checkout ca87aef && \
+    PORTABLE=1 make static_lib && \
+    make install
 
 RUN wget -qO ${BOOST_BASENAME}.tar.gz ${BOOST_URL} && \
     tar xzf ${BOOST_BASENAME}.tar.gz && \

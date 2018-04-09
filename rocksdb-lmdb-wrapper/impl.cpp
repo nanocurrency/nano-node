@@ -1,5 +1,5 @@
-#include <mutex>
 #include <array>
+#include <mutex>
 
 #ifdef DEBUG_ROCKSDB_WRAPPER
 #include <iomanip>
@@ -71,6 +71,28 @@ void mdb_env_close (MDB_env * env)
 		delete env->txn_db;
 	}
 	delete env;
+}
+
+void mdb_env_configure_compaction (MDB_env * env, bool enable)
+{
+	if (enable)
+	{
+		Options options = env->db->GetOptions ();
+		if (options.disable_auto_compactions)
+		{
+			env->db->EnableAutoCompaction ({ env->db->DefaultColumnFamily () });
+			std::unordered_map<std::string, std::string> opts;
+			opts.insert (std::make_pair ("max_write_buffer_number", "2"));
+			env->db->SetOptions (opts);
+		}
+	}
+	else
+	{
+		std::unordered_map<std::string, std::string> opts;
+		opts.insert (std::make_pair ("disable_auto_compactions", "true"));
+		opts.insert (std::make_pair ("max_write_buffer_number", "5"));
+		env->db->SetOptions (opts);
+	}
 }
 
 struct MDB_txn
@@ -180,7 +202,6 @@ std::vector<uint8_t> namespace_key (MDB_val * val, MDB_dbi dbi)
 	std::copy (data_ptr, data_ptr + val->mv_size, std::back_inserter (buf));
 	return buf;
 }
-
 }
 
 int mdb_txn_begin (MDB_env * env, MDB_txn *, unsigned int flags, MDB_txn ** txn)
@@ -641,6 +662,7 @@ int mdb_cursor_put (MDB_cursor * cursor, MDB_val * key, MDB_val * value, unsigne
 void mdb_cursor_close (MDB_cursor * cursor)
 {
 	delete cursor->it;
+	delete cursor;
 }
 
 int mdb_stat (MDB_txn * txn, MDB_dbi dbi, MDB_stat * stat)

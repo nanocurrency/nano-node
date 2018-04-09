@@ -3438,3 +3438,36 @@ TEST (rpc, online_reps)
 	ASSERT_EQ (rai::test_genesis_key.pub.to_account (), item->first);
 	system.nodes[1]->stop ();
 }
+
+TEST (rpc, confirmation_history)
+{
+	rai::system system (24000, 1);
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	auto block (system.wallet (0)->send_action (rai::test_genesis_key.pub, rai::test_genesis_key.pub, rai::Gxrb_ratio));
+	auto iterations (0);
+	ASSERT_TRUE (system.nodes[0]->active.confirmed.empty ());
+	while (system.nodes[0]->active.confirmed.empty ())
+	{
+		system.poll ();
+		++iterations;
+		ASSERT_LT (iterations, 200);
+	}
+	rai::rpc rpc (system.service, *system.nodes[0], rai::rpc_config (true));
+	rpc.start ();
+	boost::property_tree::ptree request;
+	request.put ("action", "confirmation_history");
+	test_response response (request, rpc, system.service);
+	while (response.status == 0)
+	{
+		system.poll ();
+	}
+	ASSERT_EQ (200, response.status);
+	auto representatives (response.json.get_child ("confirmations"));
+	auto item (representatives.begin ());
+	ASSERT_NE (representatives.end (), item);
+	auto hash (item->second.get<std::string> ("hash"));
+	auto tally (item->second.get<std::string> ("tally"));
+	ASSERT_EQ (block->hash ().to_string (), hash);
+	ASSERT_EQ ((rai::genesis_amount - rai::Gxrb_ratio).convert_to<std::string> (), tally);
+	system.stop ();
+}

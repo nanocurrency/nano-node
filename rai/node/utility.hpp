@@ -24,8 +24,11 @@ using bufferstream = boost::iostreams::stream_buffer<boost::iostreams::basic_arr
 using vectorstream = boost::iostreams::stream_buffer<boost::iostreams::back_insert_device<std::vector<uint8_t>>>;
 // OS-specific way of finding a path to a home directory.
 boost::filesystem::path working_path ();
-// Get a unique path within the home directory, used for testing
+// Get a unique path within the home directory, used for testing.
+// Any directories created at this location will be removed when a test finishes.
 boost::filesystem::path unique_path ();
+// Remove all unique tmp directories created by the process. The list of unique paths are returned.
+std::vector<boost::filesystem::path> remove_temporary_directories ();
 // C++ stream are absolutely horrible so I need this helper function to do the most basic operation of creating a file if it doesn't exist or truncating it.
 void open_or_create (std::fstream &, std::string const &);
 // Reads a json object from the stream and if was changed, write the object back to the stream

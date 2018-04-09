@@ -1444,6 +1444,25 @@ void rai::rpc_handler::chain ()
 	}
 }
 
+void rai::rpc_handler::confirmation_history ()
+{
+	boost::property_tree::ptree response_l;
+	boost::property_tree::ptree elections;
+	{
+		rai::transaction transaction (node.store.environment, nullptr, false);
+		std::lock_guard<std::mutex> lock (node.active.mutex);
+		for (auto i (node.active.confirmed.begin ()), n (node.active.confirmed.end ()); i != n; ++i)
+		{
+			boost::property_tree::ptree election;
+			election.put ("hash", i->winner->hash ().to_string ());
+			election.put ("tally", i->tally.to_string_dec ());
+			elections.push_back (std::make_pair ("", election));
+		}
+	}
+	response_l.add_child ("confirmations", elections);
+	response (response_l);
+}
+
 void rai::rpc_handler::delegators ()
 {
 	std::string account_text (request.get<std::string> ("account"));
@@ -4584,6 +4603,10 @@ void rai::rpc_handler::process_request ()
 		else if (action == "deterministic_key")
 		{
 			deterministic_key ();
+		}
+		else if (action == "confirmation_history")
+		{
+			confirmation_history ();
 		}
 		else if (action == "frontiers")
 		{
