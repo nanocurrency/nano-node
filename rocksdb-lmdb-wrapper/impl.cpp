@@ -165,6 +165,12 @@ int add_dbi_entries (MDB_txn * txn, MDB_dbi dbi, uint64_t delta)
 	Slice key ((const char *)&key_bytes, sizeof (key_bytes));
 	PinnableSlice value;
 	int result (txn->write_txn->Get (txn->read_opts, key, &value).code ());
+#ifdef DEBUG_ROCKSDB_WRAPPER
+	if (result)
+	{
+		std::cerr << "Error reading entries key " << key.ToString (true) << ": " << result << std::endl;
+	}
+#endif
 	if (!result)
 	{
 		if (value.size () != sizeof (uint64_t))
@@ -262,6 +268,9 @@ int mdb_dbi_open (MDB_txn * txn, const char * name, unsigned int flags, MDB_dbi 
 	}
 	else
 	{
+#ifdef DEBUG_ROCKSDB_WRAPPER
+		std::cerr << "mdb_dbi_open txn " << txn << " name \"" << name << "\"";
+#endif
 		union
 		{
 			uint16_t prefix_int;
@@ -274,6 +283,9 @@ int mdb_dbi_open (MDB_txn * txn, const char * name, unsigned int flags, MDB_dbi 
 		std::copy (name_str.begin (), name_str.end (), std::back_inserter (dbi_lookup_key_bytes));
 		Slice dbi_lookup_key (Slice ((const char *)dbi_lookup_key_bytes.data (), dbi_lookup_key_bytes.size ()));
 		PinnableSlice dbi_buf;
+#ifdef DEBUG_ROCKSDB_WRAPPER
+		std::cerr << " = lookup key " << dbi_lookup_key.ToString (true);
+#endif
 		result = txn_get (txn, dbi_lookup_key, &dbi_buf).code ();
 		Slice & dbi_buf_out = dbi_buf;
 		if (!result && dbi_buf.size () != 2)
@@ -319,6 +331,9 @@ int mdb_dbi_open (MDB_txn * txn, const char * name, unsigned int flags, MDB_dbi 
 				uint16_t * key_uint16s = (uint16_t *)&key_bytes;
 				key_uint16s[0] = ENTRIES_COUNT_PREFIX;
 				Slice key_slice ((const char *)&key_bytes, sizeof (key_bytes));
+#ifdef DEBUG_ROCKSDB_WRAPPER
+				std::cerr << " = entries key " << key_slice.ToString (true);
+#endif
 				uint64_t value (0);
 				Slice value_slice ((const char *)&value, sizeof (value));
 				result = txn->write_txn->Put (key_slice, value_slice).code ();
@@ -331,7 +346,7 @@ int mdb_dbi_open (MDB_txn * txn, const char * name, unsigned int flags, MDB_dbi 
 			dbi_bytes[1] = dbi_buf_out[1];
 		}
 #ifdef DEBUG_ROCKSDB_WRAPPER
-		std::cerr << "Database \"" << name << "\" = DBI " << std::dec << *dbi << std::endl;
+		std::cerr << " = DBI " << *dbi << std::endl;
 #endif
 	}
 	return result;
