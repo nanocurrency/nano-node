@@ -287,6 +287,7 @@ int mdb_dbi_open (MDB_txn * txn, const char * name, unsigned int flags, MDB_dbi 
 		std::cerr << " = lookup key " << dbi_lookup_key.ToString (true);
 #endif
 		result = txn_get (txn, dbi_lookup_key, &dbi_buf).code ();
+		std::string next_dbi_buf;
 		Slice & dbi_buf_out = dbi_buf;
 		if (!result && dbi_buf.size () != 2)
 		{
@@ -295,7 +296,6 @@ int mdb_dbi_open (MDB_txn * txn, const char * name, unsigned int flags, MDB_dbi 
 		else if (result == MDB_NOTFOUND)
 		{
 			Slice next_dbi_key (Slice ((const char *)&NEXT_DBI_KEY, sizeof (NEXT_DBI_KEY)));
-			std::string next_dbi_buf;
 			result = txn_get (txn, next_dbi_key, &next_dbi_buf).code ();
 			if (!result && next_dbi_buf.size () != 2)
 			{
@@ -346,7 +346,7 @@ int mdb_dbi_open (MDB_txn * txn, const char * name, unsigned int flags, MDB_dbi 
 			dbi_bytes[1] = dbi_buf_out[1];
 		}
 #ifdef DEBUG_ROCKSDB_WRAPPER
-		std::cerr << " = DBI " << *dbi << std::endl;
+		std::cerr << " = DBI " << std::dec << *dbi << std::endl;
 #endif
 	}
 	return result;
