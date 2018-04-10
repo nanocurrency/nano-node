@@ -134,6 +134,12 @@ find_package (Boost 1.66.0 REQUIRED COMPONENTS date_time filesystem system log l
 include_directories (${Boost_INCLUDE_DIR})
 find_package (RocksDB REQUIRED)
 include_directories (${ROCKSDB_INCLUDE_DIRS})
+find_package (LZ4 REQUIRED)
+include_directories (${LZ4_LIBRARY})
+find_package (snappy REQUIRED)
+include_directories (${SNAPPY_LIBRARIES})
+find_package (zlib REQUIRED)
+include_directories (${ZLIB_LIBRARIES})
 
 add_library (ed25519
 	ed25519-donna/ed25519-donna-portable.h
@@ -402,7 +408,7 @@ set_target_properties (secure node rai_node rai_lib rai_lib_static PROPERTIES CO
 set_target_properties (secure node rai_node PROPERTIES LINK_FLAGS "${PLATFORM_LINK_FLAGS}")
 
 if (WIN32)
-	set (PLATFORM_LIBS Ws2_32 mswsock iphlpapi ntdll)
+	set (PLATFORM_LIBS Ws2_32 mswsock iphlpapi ntdll shlwapi rpcrt4)
 else (WIN32)
 	set (PLATFORM_LIBS pthread ${CMAKE_DL_LIBS})
 endif (WIN32)
@@ -414,23 +420,23 @@ else (WIN32)
 endif (WIN32)
 
 if (RAIBLOCKS_TEST)
-	target_link_libraries (core_test node secure lmdb ${ROCKSDB_LIBRARIES} ed25519 rai_lib_static argon2 ${OPENSSL_LIBRARIES} ${CRYPTOPP_LIBRARY} gtest_main gtest libminiupnpc-static ${Boost_ATOMIC_LIBRARY} ${Boost_CHRONO_LIBRARY} ${Boost_REGEX_LIBRARY} ${Boost_DATE_TIME_LIBRARY} ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_LOG_LIBRARY} ${Boost_LOG_SETUP_LIBRARY} ${Boost_PROGRAM_OPTIONS_LIBRARY} ${Boost_THREAD_LIBRARY} ${PLATFORM_LIBS})
+	target_link_libraries (core_test node secure lmdb ${ROCKSDB_LIBRARIES} ${LZ4_LIBRARY} ${SNAPPY_LIBRARIES} ${ZLIB_LIBRARIES} ed25519 rai_lib_static argon2 ${OPENSSL_LIBRARIES} ${CRYPTOPP_LIBRARY} gtest_main gtest libminiupnpc-static ${Boost_ATOMIC_LIBRARY} ${Boost_CHRONO_LIBRARY} ${Boost_REGEX_LIBRARY} ${Boost_DATE_TIME_LIBRARY} ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_LOG_LIBRARY} ${Boost_LOG_SETUP_LIBRARY} ${Boost_PROGRAM_OPTIONS_LIBRARY} ${Boost_THREAD_LIBRARY} ${PLATFORM_LIBS})
 
-	target_link_libraries (slow_test node secure lmdb ${ROCKSDB_LIBRARIES} ed25519 rai_lib_static argon2 ${OPENSSL_LIBRARIES} ${CRYPTOPP_LIBRARY} gtest_main gtest libminiupnpc-static ${Boost_ATOMIC_LIBRARY} ${Boost_CHRONO_LIBRARY} ${Boost_REGEX_LIBRARY} ${Boost_DATE_TIME_LIBRARY} ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_LOG_LIBRARY} ${Boost_PROGRAM_OPTIONS_LIBRARY} ${Boost_LOG_SETUP_LIBRARY} ${Boost_THREAD_LIBRARY} ${PLATFORM_LIBS})
+	target_link_libraries (slow_test node secure lmdb ${ROCKSDB_LIBRARIES} ${LZ4_LIBRARY} ${SNAPPY_LIBRARIES} ${ZLIB_LIBRARIES} ed25519 rai_lib_static argon2 ${OPENSSL_LIBRARIES} ${CRYPTOPP_LIBRARY} gtest_main gtest libminiupnpc-static ${Boost_ATOMIC_LIBRARY} ${Boost_CHRONO_LIBRARY} ${Boost_REGEX_LIBRARY} ${Boost_DATE_TIME_LIBRARY} ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_LOG_LIBRARY} ${Boost_PROGRAM_OPTIONS_LIBRARY} ${Boost_LOG_SETUP_LIBRARY} ${Boost_THREAD_LIBRARY} ${PLATFORM_LIBS})
 endif (RAIBLOCKS_TEST)
 
 if (RAIBLOCKS_GUI)
-	target_link_libraries (qt_test node secure lmdb ${ROCKSDB_LIBRARIES} ed25519 rai_lib_static qt argon2 ${OPENSSL_LIBRARIES} ${CRYPTOPP_LIBRARY} gtest libminiupnpc-static ${Boost_ATOMIC_LIBRARY} ${Boost_CHRONO_LIBRARY} ${Boost_REGEX_LIBRARY} ${Boost_DATE_TIME_LIBRARY} ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_LOG_LIBRARY} ${Boost_PROGRAM_OPTIONS_LIBRARY} ${Boost_LOG_SETUP_LIBRARY} ${Boost_THREAD_LIBRARY} Qt5::Core Qt5::Gui Qt5::Widgets Qt5::Test ${QT_QTGUI_LIBRARY} ${PLATFORM_LIBS})
+	target_link_libraries (qt_test node secure lmdb ${ROCKSDB_LIBRARIES} ${LZ4_LIBRARY} ${SNAPPY_LIBRARIES} ${ZLIB_LIBRARIES} ed25519 rai_lib_static qt argon2 ${OPENSSL_LIBRARIES} ${CRYPTOPP_LIBRARY} gtest libminiupnpc-static ${Boost_ATOMIC_LIBRARY} ${Boost_CHRONO_LIBRARY} ${Boost_REGEX_LIBRARY} ${Boost_DATE_TIME_LIBRARY} ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_LOG_LIBRARY} ${Boost_PROGRAM_OPTIONS_LIBRARY} ${Boost_LOG_SETUP_LIBRARY} ${Boost_THREAD_LIBRARY} Qt5::Core Qt5::Gui Qt5::Widgets Qt5::Test ${QT_QTGUI_LIBRARY} ${PLATFORM_LIBS})
 
-	target_link_libraries (qt_system node secure lmdb ${ROCKSDB_LIBRARIES} ed25519 rai_lib_static qt argon2 ${OPENSSL_LIBRARIES} ${CRYPTOPP_LIBRARY} gtest libminiupnpc-static ${Boost_ATOMIC_LIBRARY} ${Boost_CHRONO_LIBRARY} ${Boost_REGEX_LIBRARY} ${Boost_DATE_TIME_LIBRARY} ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_LOG_LIBRARY} ${Boost_PROGRAM_OPTIONS_LIBRARY} ${Boost_LOG_SETUP_LIBRARY} ${Boost_THREAD_LIBRARY} Qt5::Core Qt5::Gui Qt5::Widgets ${QT_QTGUI_LIBRARY} ${PLATFORM_LIBS})
+	target_link_libraries (qt_system node secure lmdb ${ROCKSDB_LIBRARIES} ${LZ4_LIBRARY} ${SNAPPY_LIBRARIES} ${ZLIB_LIBRARIES} ed25519 rai_lib_static qt argon2 ${OPENSSL_LIBRARIES} ${CRYPTOPP_LIBRARY} gtest libminiupnpc-static ${Boost_ATOMIC_LIBRARY} ${Boost_CHRONO_LIBRARY} ${Boost_REGEX_LIBRARY} ${Boost_DATE_TIME_LIBRARY} ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_LOG_LIBRARY} ${Boost_PROGRAM_OPTIONS_LIBRARY} ${Boost_LOG_SETUP_LIBRARY} ${Boost_THREAD_LIBRARY} Qt5::Core Qt5::Gui Qt5::Widgets ${QT_QTGUI_LIBRARY} ${PLATFORM_LIBS})
 
-	target_link_libraries (nano_wallet node secure lmdb ${ROCKSDB_LIBRARIES} ed25519 rai_lib_static qt argon2 ${OPENSSL_LIBRARIES} ${CRYPTOPP_LIBRARY} libminiupnpc-static ${Boost_ATOMIC_LIBRARY} ${Boost_CHRONO_LIBRARY} ${Boost_REGEX_LIBRARY} ${Boost_DATE_TIME_LIBRARY} ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_LOG_LIBRARY} ${Boost_PROGRAM_OPTIONS_LIBRARY} ${Boost_LOG_SETUP_LIBRARY} ${Boost_THREAD_LIBRARY} Qt5::Core Qt5::Gui Qt5::Widgets ${QT_QTGUI_LIBRARY} ${PLATFORM_LIBS} ${PLATFORM_WALLET_LIBS})
+	target_link_libraries (nano_wallet node secure lmdb ${ROCKSDB_LIBRARIES} ${LZ4_LIBRARY} ${SNAPPY_LIBRARIES} ${ZLIB_LIBRARIES} ed25519 rai_lib_static qt argon2 ${OPENSSL_LIBRARIES} ${CRYPTOPP_LIBRARY} libminiupnpc-static ${Boost_ATOMIC_LIBRARY} ${Boost_CHRONO_LIBRARY} ${Boost_REGEX_LIBRARY} ${Boost_DATE_TIME_LIBRARY} ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_LOG_LIBRARY} ${Boost_PROGRAM_OPTIONS_LIBRARY} ${Boost_LOG_SETUP_LIBRARY} ${Boost_THREAD_LIBRARY} Qt5::Core Qt5::Gui Qt5::Widgets ${QT_QTGUI_LIBRARY} ${PLATFORM_LIBS} ${PLATFORM_WALLET_LIBS})
 endif (RAIBLOCKS_GUI)
 
 target_link_libraries (rai_lib ed25519 xxhash blake2 ${CRYPTOPP_LIBRARY})
 target_link_libraries (rai_lib_static ed25519 xxhash blake2 ${CRYPTOPP_LIBRARY})
 
-target_link_libraries (rai_node node secure lmdb ${ROCKSDB_LIBRARIES} ed25519 rai_lib_static argon2 ${OPENSSL_LIBRARIES} ${CRYPTOPP_LIBRARY} libminiupnpc-static ${Boost_ATOMIC_LIBRARY} ${Boost_CHRONO_LIBRARY} ${Boost_REGEX_LIBRARY} ${Boost_DATE_TIME_LIBRARY} ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_LOG_LIBRARY} ${Boost_PROGRAM_OPTIONS_LIBRARY} ${Boost_LOG_SETUP_LIBRARY} ${Boost_THREAD_LIBRARY} ${PLATFORM_LIBS})
+target_link_libraries (rai_node node secure lmdb ${ROCKSDB_LIBRARIES} ${LZ4_LIBRARY} ${SNAPPY_LIBRARIES} ${ZLIB_LIBRARIES} ed25519 rai_lib_static argon2 ${OPENSSL_LIBRARIES} ${CRYPTOPP_LIBRARY} libminiupnpc-static ${Boost_ATOMIC_LIBRARY} ${Boost_CHRONO_LIBRARY} ${Boost_REGEX_LIBRARY} ${Boost_DATE_TIME_LIBRARY} ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_LOG_LIBRARY} ${Boost_PROGRAM_OPTIONS_LIBRARY} ${Boost_LOG_SETUP_LIBRARY} ${Boost_THREAD_LIBRARY} ${PLATFORM_LIBS})
 
 set (CPACK_RESOURCE_FILE_LICENSE ${CMAKE_SOURCE_DIR}/LICENSE)
 if (RAIBLOCKS_GUI)
