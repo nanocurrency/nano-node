@@ -43,7 +43,7 @@ while true; do
 	fi
 
 	if [ -z "${pid}" ]; then
-		/usr/bin/rai_node --daemon &
+		rai_node --daemon &
 		pid="$!"
 	fi
 
@@ -66,6 +66,6 @@ while true; do
 			fi
 		done
 
-		/usr/bin/rai_node --vacuum
+		rai_node --vacuum
 	fi
 done
