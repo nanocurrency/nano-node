@@ -45,7 +45,6 @@ else (WIN32)
 		if (RAIBLOCKS_SIMD_OPTIMIZATIONS)
 			set (PLATFORM_COMPILE_FLAGS "${PLATFORM_COMPILE_FLAGS} -msse4")
 		elseif(CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
-			set (PLATFORM_COMPILE_FLAGS "${PLATFORM_COMPILE_FLAGS} -msse2")
 		endif()
 
 		set (BLAKE2_IMPLEMENTATION "blake2/blake2b.c")
@@ -134,11 +133,11 @@ find_package (Boost 1.66.0 REQUIRED COMPONENTS date_time filesystem system log l
 include_directories (${Boost_INCLUDE_DIR})
 find_package (RocksDB REQUIRED)
 include_directories (${ROCKSDB_INCLUDE_DIRS})
-find_package (LZ4 SILENT)
+find_package (LZ4 QUIET)
 include_directories (${LZ4_LIBRARY})
-find_package (snappy SILENT)
+find_package (snappy QUIET)
 include_directories (${SNAPPY_LIBRARIES})
-find_package (zlib SILENT)
+find_package (zlib QUIET)
 include_directories (${ZLIB_LIBRARIES})
 
 add_library (ed25519
