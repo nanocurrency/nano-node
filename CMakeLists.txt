@@ -134,11 +134,11 @@ find_package (Boost 1.66.0 REQUIRED COMPONENTS date_time filesystem system log l
 include_directories (${Boost_INCLUDE_DIR})
 find_package (RocksDB REQUIRED)
 include_directories (${ROCKSDB_INCLUDE_DIRS})
-find_package (LZ4 REQUIRED)
+find_package (LZ4 SILENT)
 include_directories (${LZ4_LIBRARY})
-find_package (snappy REQUIRED)
+find_package (snappy SILENT)
 include_directories (${SNAPPY_LIBRARIES})
-find_package (zlib REQUIRED)
+find_package (zlib SILENT)
 include_directories (${ZLIB_LIBRARIES})
 
 add_library (ed25519
