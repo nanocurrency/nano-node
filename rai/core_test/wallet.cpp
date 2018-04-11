@@ -953,7 +953,6 @@ TEST (wallet, password_race_corrupt_seed)
 	runner.join ();
 	{
 		rai::transaction transaction (wallet->store.environment, nullptr, true);
-		bool ok = false;
 		if (!wallet->store.attempt_password (transaction, "1234"))
 		{
 			rai::raw_key seed_now;

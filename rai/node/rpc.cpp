@@ -1606,8 +1606,8 @@ class history_visitor : public rai::block_visitor
 {
 public:
 	history_visitor (rai::rpc_handler & handler_a, bool raw_a, rai::transaction & transaction_a, boost::property_tree::ptree & tree_a, rai::block_hash const & hash_a) :
-	raw (raw_a),
 	handler (handler_a),
+	raw (raw_a),
 	transaction (transaction_a),
 	tree (tree_a),
 	hash (hash_a)
