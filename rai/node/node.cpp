@@ -2367,7 +2367,8 @@ namespace
 class confirmed_visitor : public rai::block_visitor
 {
 public:
-	confirmed_visitor (rai::node & node_a, std::shared_ptr<rai::block> block_a) :
+	confirmed_visitor (MDB_txn * transaction_a, rai::node & node_a, std::shared_ptr<rai::block> block_a) :
+	transaction (transaction_a),
 	node (node_a),
 	block (block_a)
 	{
@@ -2378,11 +2379,10 @@ public:
 		for (auto i (node.wallets.items.begin ()), n (node.wallets.items.end ()); i != n; ++i)
 		{
 			auto wallet (i->second);
-			if (wallet->exists (account_a))
+			if (wallet->store.exists (transaction, account_a))
 			{
 				rai::account representative;
 				rai::pending_info pending;
-				rai::transaction transaction (node.store.environment, nullptr, false);
 				representative = wallet->store.representative (transaction);
 				auto error (node.store.pending_get (transaction, rai::pending_key (account_a, block->hash ()), pending));
 				if (!error)
@@ -2393,9 +2393,13 @@ public:
 				}
 				else
 				{
-					if (node.config.logging.ledger_duplicate_logging ())
+					if (!node.store.block_exists (transaction, block->hash ()))
 					{
-						BOOST_LOG (node.log) << boost::str (boost::format ("Block confirmed before timeout %1%") % block->hash ().to_string ());
+						BOOST_LOG (node.log) << boost::str (boost::format ("Block %1% has already been received") % block->hash ().to_string ());
+					}
+					else
+					{
+						assert (false && "Confirmed block is missing");
 					}
 				}
 			}
@@ -2418,15 +2422,17 @@ public:
 	void change_block (rai::change_block const &) override
 	{
 	}
+	MDB_txn * transaction;
 	rai::node & node;
 	std::shared_ptr<rai::block> block;
 };
 }
 
-void rai::node::process_confirmed (std::shared_ptr<rai::block> confirmed_a)
+void rai::node::process_confirmed (std::shared_ptr<rai::block> block_a)
 {
-	confirmed_visitor visitor (*this, confirmed_a);
-	confirmed_a->visit (visitor);
+	rai::transaction transaction (store.environment, nullptr, false);
+	confirmed_visitor visitor (transaction, *this, block_a);
+	block_a->visit (visitor);
 }
 
 void rai::node::process_message (rai::message & message_a, rai::endpoint const & sender_a)
