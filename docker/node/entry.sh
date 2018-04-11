@@ -60,7 +60,7 @@ while true; do
 		echo "ERROR: Database size grew above 20GB (size = ${dbFileSize})" >&2
 
 		while [ -n "${pid}" ]; do
-			kill "${pid}" >/dev/null 2>/dev/null
+			kill "${pid}" >/dev/null 2>/dev/null || :
 			if ! kill -0 "${pid}" >/dev/null 2>/dev/null; then
 				pid=''
 			fi
