@@ -1993,11 +1993,11 @@ rai::uint128_t rai::node::weight (rai::account const & account_a)
 rai::account rai::node::representative (rai::account const & account_a)
 {
 	rai::transaction transaction (store.environment, nullptr, false);
-	rai::account_info info;
 	rai::account result (0);
-	if (!store.account_get (transaction, account_a, info))
+	auto info (store.account_get (transaction, account_a));
+	if (info)
 	{
-		result = info.rep_block;
+		result = info->rep_block;
 	}
 	return result;
 }

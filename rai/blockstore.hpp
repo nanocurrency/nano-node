@@ -1,6 +1,7 @@
 #pragma once
 
 #include <rai/common.hpp>
+#include <rai/lib/errors.hpp>
 
 namespace rai
 {
@@ -46,6 +47,16 @@ public:
 class block_store
 {
 public:
+	/** Block store errors */
+	enum class error
+	{
+		unknown,
+		missing_account,
+		account_exists,
+		deserialize,
+		database,
+	};
+
 	block_store (bool &, boost::filesystem::path const &, int lmdb_max_dbs = 128);
 
 	MDB_dbi block_database (rai::block_type);
@@ -66,8 +77,8 @@ public:
 	void frontier_del (MDB_txn *, rai::block_hash const &);
 	size_t frontier_count (MDB_txn *);
 
+	auto account_get (MDB_txn *, rai::account const &) -> expected<rai::account_info, std::error_code>;
 	void account_put (MDB_txn *, rai::account const &, rai::account_info const &);
-	bool account_get (MDB_txn *, rai::account const &, rai::account_info &);
 	void account_del (MDB_txn *, rai::account const &);
 	bool account_exists (MDB_txn *, rai::account const &);
 	rai::store_iterator latest_begin (MDB_txn *, rai::account const &);
@@ -181,3 +192,5 @@ public:
 	MDB_dbi meta;
 };
 }
+
+ENABLE_ERRORS (rai::block_store::error)

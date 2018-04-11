@@ -1,5 +1,6 @@
 #include <rai/node/wallet.hpp>
 
+#include <rai/lib/errors.hpp>
 #include <rai/lib/interface.h>
 #include <rai/node/node.hpp>
 #include <rai/node/xorshift.hpp>
@@ -861,19 +862,18 @@ std::shared_ptr<rai::block> rai::wallet::receive_action (rai::block const & send
 				{
 					uint64_t cached_work (0);
 					store.work_get (transaction, account, cached_work);
-					rai::account_info info;
-					auto new_account (node.ledger.store.account_get (transaction, account, info));
-					if (!new_account)
+					auto info (node.ledger.store.account_get (transaction, account));
+					if (info)
 					{
-						std::shared_ptr<rai::block> rep_block = node.ledger.store.block_get (transaction, info.rep_block);
+						std::shared_ptr<rai::block> rep_block = node.ledger.store.block_get (transaction, info->rep_block);
 						assert (rep_block != nullptr);
-						if (should_generate_state_block (transaction, info.head))
+						if (should_generate_state_block (transaction, info->head))
 						{
-							block.reset (new rai::state_block (account, info.head, rep_block->representative (), info.balance.number () + pending_info.amount.number (), hash, prv, account, cached_work));
+							block.reset (new rai::state_block (account, info->head, rep_block->representative (), info->balance.number () + pending_info.amount.number (), hash, prv, account, cached_work));
 						}
 						else
 						{
-							block.reset (new rai::receive_block (info.head, hash, prv, account, cached_work));
+							block.reset (new rai::receive_block (info->head, hash, prv, account, cached_work));
 						}
 					}
 					else
@@ -939,21 +939,20 @@ std::shared_ptr<rai::block> rai::wallet::change_action (rai::account const & sou
 			auto existing (store.find (transaction, source_a));
 			if (existing != store.end () && !node.ledger.latest (transaction, source_a).is_zero ())
 			{
-				rai::account_info info;
-				auto error1 (node.ledger.store.account_get (transaction, source_a, info));
-				assert (!error1);
+				auto info (node.ledger.store.account_get (transaction, source_a));
+				assert (info);
 				rai::raw_key prv;
 				auto error2 (store.fetch (transaction, source_a, prv));
 				assert (!error2);
 				uint64_t cached_work (0);
 				store.work_get (transaction, source_a, cached_work);
-				if (should_generate_state_block (transaction, info.head))
+				if (should_generate_state_block (transaction, info->head))
 				{
-					block.reset (new rai::state_block (source_a, info.head, representative_a, info.balance, 0, prv, source_a, cached_work));
+					block.reset (new rai::state_block (source_a, info->head, representative_a, info->balance, 0, prv, source_a, cached_work));
 				}
 				else
 				{
-					block.reset (new rai::change_block (info.head, representative_a, prv, source_a, cached_work));
+					block.reset (new rai::change_block (info->head, representative_a, prv, source_a, cached_work));
 				}
 			}
 		}
@@ -1019,23 +1018,22 @@ std::shared_ptr<rai::block> rai::wallet::send_action (rai::account const & sourc
 					auto balance (node.ledger.account_balance (transaction, source_a));
 					if (!balance.is_zero () && balance >= amount_a)
 					{
-						rai::account_info info;
-						auto error1 (node.ledger.store.account_get (transaction, source_a, info));
-						assert (!error1);
+						auto info (node.ledger.store.account_get (transaction, source_a));
+						assert (info);
 						rai::raw_key prv;
 						auto error2 (store.fetch (transaction, source_a, prv));
 						assert (!error2);
-						std::shared_ptr<rai::block> rep_block = node.ledger.store.block_get (transaction, info.rep_block);
+						std::shared_ptr<rai::block> rep_block = node.ledger.store.block_get (transaction, info->rep_block);
 						assert (rep_block != nullptr);
 						uint64_t cached_work (0);
 						store.work_get (transaction, source_a, cached_work);
-						if (should_generate_state_block (transaction, info.head))
+						if (should_generate_state_block (transaction, info->head))
 						{
-							block.reset (new rai::state_block (source_a, info.head, rep_block->representative (), balance - amount_a, account_a, prv, source_a, cached_work));
+							block.reset (new rai::state_block (source_a, info->head, rep_block->representative (), balance - amount_a, account_a, prv, source_a, cached_work));
 						}
 						else
 						{
-							block.reset (new rai::send_block (info.head, account_a, balance - amount_a, prv, source_a, cached_work));
+							block.reset (new rai::send_block (info->head, account_a, balance - amount_a, prv, source_a, cached_work));
 						}
 						if (id_mdb_val)
 						{
@@ -1215,15 +1213,14 @@ public:
 				auto amount (pending.amount.number ());
 				if (wallet->node.config.receive_minimum.number () <= amount)
 				{
-					rai::account_info info;
-					auto error (wallet->node.store.account_get (transaction, pending.source, info));
-					assert (!error);
-					BOOST_LOG (wallet->node.log) << boost::str (boost::format ("Found a pending block %1% from account %2% with head %3%") % key.hash.to_string () % pending.source.to_account () % info.head.to_string ());
+					auto info (wallet->node.store.account_get (transaction, pending.source));
+					assert (info);
+					BOOST_LOG (wallet->node.log) << boost::str (boost::format ("Found a pending block %1% from account %2% with head %3%") % key.hash.to_string () % pending.source.to_account () % info->head.to_string ());
 					auto account (pending.source);
 					if (already_searched.find (account) == already_searched.end ())
 					{
 						auto this_l (shared_from_this ());
-						std::shared_ptr<rai::block> block_l (wallet->node.store.block_get (transaction, info.head));
+						std::shared_ptr<rai::block> block_l (wallet->node.store.block_get (transaction, info->head));
 						wallet->node.background ([this_l, account, block_l] {
 							rai::transaction transaction (this_l->wallet->node.store.environment, nullptr, true);
 							this_l->wallet->node.active.start (transaction, block_l, [this_l, account](std::shared_ptr<rai::block>, bool) {

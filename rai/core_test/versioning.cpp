@@ -24,12 +24,12 @@ TEST (versioning, account_info_v1)
 		rai::block_store store (error, file);
 		ASSERT_FALSE (error);
 		rai::transaction transaction (store.environment, nullptr, false);
-		rai::account_info v2;
-		ASSERT_FALSE (store.account_get (transaction, account, v2));
-		ASSERT_EQ (open.hash (), v2.open_block);
-		ASSERT_EQ (v1.balance, v2.balance);
-		ASSERT_EQ (v1.head, v2.head);
-		ASSERT_EQ (v1.modified, v2.modified);
-		ASSERT_EQ (v1.rep_block, v2.rep_block);
+		auto v2 (store.account_get (transaction, account));
+		ASSERT_TRUE (v2.has_value ());
+		ASSERT_EQ (open.hash (), v2->open_block);
+		ASSERT_EQ (v1.balance, v2->balance);
+		ASSERT_EQ (v1.head, v2->head);
+		ASSERT_EQ (v1.modified, v2->modified);
+		ASSERT_EQ (v1.rep_block, v2->rep_block);
 	}
 }

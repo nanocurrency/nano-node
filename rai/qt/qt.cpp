@@ -1,3 +1,4 @@
+#include <rai/lib/errors.hpp>
 #include <rai/qt/qt.hpp>
 
 #include <boost/property_tree/json_parser.hpp>
@@ -1493,11 +1494,10 @@ wallet (wallet_a)
 void rai_qt::settings::refresh_representative ()
 {
 	rai::transaction transaction (this->wallet.wallet_m->node.store.environment, nullptr, false);
-	rai::account_info info;
-	auto error (this->wallet.wallet_m->node.store.account_get (transaction, this->wallet.account, info));
-	if (!error)
+	auto info (this->wallet.wallet_m->node.store.account_get (transaction, this->wallet.account));
+	if (info)
 	{
-		auto block (this->wallet.wallet_m->node.store.block_get (transaction, info.rep_block));
+		auto block (this->wallet.wallet_m->node.store.block_get (transaction, info->rep_block));
 		assert (block != nullptr);
 		current_representative->setText (QString (block->representative ().to_account_split ().c_str ()));
 	}
@@ -1966,10 +1966,8 @@ void rai_qt::block_creation::create_send ()
 					auto balance (wallet.node.ledger.account_balance (transaction, account_l));
 					if (amount_l.number () <= balance)
 					{
-						rai::account_info info;
-						auto error (wallet.node.store.account_get (transaction, account_l, info));
-						assert (!error);
-						rai::send_block send (info.head, destination_l, balance - amount_l.number (), key, account_l, wallet.wallet_m->work_fetch (transaction, account_l, info.head));
+						auto info (wallet.node.store.account_get (transaction, account_l));
+						rai::send_block send (info->head, destination_l, balance - amount_l.number (), key, account_l, wallet.wallet_m->work_fetch (transaction, account_l, info->head));
 						std::string block_l;
 						send.serialize_json (block_l);
 						block->setPlainText (QString (block_l.c_str ()));
@@ -2024,15 +2022,14 @@ void rai_qt::block_creation::create_receive ()
 				rai::pending_info pending;
 				if (!wallet.node.store.pending_get (transaction, pending_key, pending))
 				{
-					rai::account_info info;
-					auto error (wallet.node.store.account_get (transaction, pending_key.account, info));
-					if (!error)
+					auto info (wallet.node.store.account_get (transaction, pending_key.account));
+					if (info)
 					{
 						rai::raw_key key;
 						auto error (wallet.wallet_m->store.fetch (transaction, pending_key.account, key));
 						if (!error)
 						{
-							rai::receive_block receive (info.head, source_l, key, pending_key.account, wallet.wallet_m->work_fetch (transaction, pending_key.account, info.head));
+							rai::receive_block receive (info->head, source_l, key, pending_key.account, wallet.wallet_m->work_fetch (transaction, pending_key.account, info->head));
 							std::string block_l;
 							receive.serialize_json (block_l);
 							block->setPlainText (QString (block_l.c_str ()));
@@ -2087,15 +2084,14 @@ void rai_qt::block_creation::create_change ()
 		if (!error)
 		{
 			rai::transaction transaction (wallet.node.store.environment, nullptr, false);
-			rai::account_info info;
-			auto error (wallet.node.store.account_get (transaction, account_l, info));
-			if (!error)
+			auto info (wallet.node.store.account_get (transaction, account_l));
+			if (info)
 			{
 				rai::raw_key key;
 				auto error (wallet.wallet_m->store.fetch (transaction, account_l, key));
 				if (!error)
 				{
-					rai::change_block change (info.head, representative_l, key, account_l, wallet.wallet_m->work_fetch (transaction, account_l, info.head));
+					rai::change_block change (info->head, representative_l, key, account_l, wallet.wallet_m->work_fetch (transaction, account_l, info->head));
 					std::string block_l;
 					change.serialize_json (block_l);
 					block->setPlainText (QString (block_l.c_str ()));
@@ -2148,25 +2144,32 @@ void rai_qt::block_creation::create_open ()
 					rai::pending_info pending;
 					if (!wallet.node.store.pending_get (transaction, pending_key, pending))
 					{
-						rai::account_info info;
-						auto error (wallet.node.store.account_get (transaction, pending_key.account, info));
-						if (error)
+						auto info (wallet.node.store.account_get (transaction, pending_key.account));
+						if (!info)
 						{
-							rai::raw_key key;
-							auto error (wallet.wallet_m->store.fetch (transaction, pending_key.account, key));
-							if (!error)
+							if (info.error () == rai::block_store::error::missing_account)
 							{
-								rai::open_block open (source_l, representative_l, pending_key.account, key, pending_key.account, wallet.wallet_m->work_fetch (transaction, pending_key.account, pending_key.account));
-								std::string block_l;
-								open.serialize_json (block_l);
-								block->setPlainText (QString (block_l.c_str ()));
-								show_label_ok (*status);
-								status->setText ("Created block");
+								rai::raw_key key;
+								auto error (wallet.wallet_m->store.fetch (transaction, pending_key.account, key));
+								if (!error)
+								{
+									rai::open_block open (source_l, representative_l, pending_key.account, key, pending_key.account, wallet.wallet_m->work_fetch (transaction, pending_key.account, pending_key.account));
+									std::string block_l;
+									open.serialize_json (block_l);
+									block->setPlainText (QString (block_l.c_str ()));
+									show_label_ok (*status);
+									status->setText ("Created block");
+								}
+								else
+								{
+									show_label_error (*status);
+									status->setText ("Account is not in wallet");
+								}
 							}
 							else
 							{
 								show_label_error (*status);
-								status->setText ("Account is not in wallet");
+								status->setText (QString::fromStdString (std::string ("Could not query account information: ") + info.error ().message ()));
 							}
 						}
 						else

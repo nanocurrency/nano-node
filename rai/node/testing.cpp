@@ -140,11 +140,10 @@ void rai::system::generate_rollback (rai::node & node_a, std::vector<rai::accoun
 	rai::transaction transaction (node_a.store.environment, nullptr, true);
 	auto index (random_pool.GenerateWord32 (0, accounts_a.size () - 1));
 	auto account (accounts_a[index]);
-	rai::account_info info;
-	auto error (node_a.store.account_get (transaction, account, info));
-	if (!error)
+	auto info (node_a.store.account_get (transaction, account));
+	if (info)
 	{
-		auto hash (info.open_block);
+		auto hash (info->open_block);
 		rai::genesis genesis;
 		if (hash != genesis.hash ())
 		{

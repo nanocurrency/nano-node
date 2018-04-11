@@ -1,9 +1,9 @@
 #include <rai/node/bootstrap.hpp>
 
+#include <boost/log/trivial.hpp>
+#include <rai/lib/errors.hpp>
 #include <rai/node/common.hpp>
 #include <rai/node/node.hpp>
-
-#include <boost/log/trivial.hpp>
 
 constexpr double bootstrap_connection_scale_target_blocks = 50000.0;
 constexpr double bootstrap_connection_warmup_time_sec = 5.0;
@@ -1715,9 +1715,8 @@ void rai::bulk_pull_server::set_current_end ()
 		}
 		request->end.clear ();
 	}
-	rai::account_info info;
-	auto no_address (connection->node->store.account_get (transaction, request->start, info));
-	if (no_address)
+	auto info (connection->node->store.account_get (transaction, request->start));
+	if (!info)
 	{
 		if (connection->node->config.logging.bulk_pull_logging ())
 		{
@@ -1732,7 +1731,7 @@ void rai::bulk_pull_server::set_current_end ()
 			auto account (connection->node->ledger.account (transaction, request->end));
 			if (account == request->start)
 			{
-				current = info.head;
+				current = info->head;
 			}
 			else
 			{
@@ -1741,7 +1740,7 @@ void rai::bulk_pull_server::set_current_end ()
 		}
 		else
 		{
-			current = info.head;
+			current = info->head;
 		}
 	}
 }

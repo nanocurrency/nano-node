@@ -2,6 +2,7 @@
 #include <boost/property_tree/ptree.hpp>
 #include <rai/node/rpc.hpp>
 
+#include <rai/lib/errors.hpp>
 #include <rai/lib/interface.h>
 #include <rai/node/node.hpp>
 
@@ -252,11 +253,11 @@ void rai::rpc_handler::account_block_count ()
 	if (!error)
 	{
 		rai::transaction transaction (node.store.environment, nullptr, false);
-		rai::account_info info;
-		if (!node.store.account_get (transaction, account, info))
+		auto info (node.store.account_get (transaction, account));
+		if (info)
 		{
 			boost::property_tree::ptree response_l;
-			response_l.put ("block_count", std::to_string (info.block_count));
+			response_l.put ("block_count", std::to_string (info->block_count));
 			response (response_l);
 		}
 		else
@@ -339,21 +340,21 @@ void rai::rpc_handler::account_info ()
 		const bool weight = request.get<bool> ("weight", false);
 		const bool pending = request.get<bool> ("pending", false);
 		rai::transaction transaction (node.store.environment, nullptr, false);
-		rai::account_info info;
-		if (!node.store.account_get (transaction, account, info))
+		auto info (node.store.account_get (transaction, account));
+		if (info)
 		{
 			boost::property_tree::ptree response_l;
-			response_l.put ("frontier", info.head.to_string ());
-			response_l.put ("open_block", info.open_block.to_string ());
-			response_l.put ("representative_block", info.rep_block.to_string ());
+			response_l.put ("frontier", info->head.to_string ());
+			response_l.put ("open_block", info->open_block.to_string ());
+			response_l.put ("representative_block", info->rep_block.to_string ());
 			std::string balance;
-			rai::uint128_union (info.balance).encode_dec (balance);
+			rai::uint128_union (info->balance).encode_dec (balance);
 			response_l.put ("balance", balance);
-			response_l.put ("modified_timestamp", std::to_string (info.modified));
-			response_l.put ("block_count", std::to_string (info.block_count));
+			response_l.put ("modified_timestamp", std::to_string (info->modified));
+			response_l.put ("block_count", std::to_string (info->block_count));
 			if (representative)
 			{
-				auto block (node.store.block_get (transaction, info.rep_block));
+				auto block (node.store.block_get (transaction, info->rep_block));
 				assert (block != nullptr);
 				response_l.put ("representative", block->representative ().to_account ());
 			}
@@ -560,11 +561,10 @@ void rai::rpc_handler::account_representative ()
 	if (!error)
 	{
 		rai::transaction transaction (node.store.environment, nullptr, false);
-		rai::account_info info;
-		auto error (node.store.account_get (transaction, account, info));
-		if (!error)
+		auto info (node.store.account_get (transaction, account));
+		if (info)
 		{
-			auto block (node.store.block_get (transaction, info.rep_block));
+			auto block (node.store.block_get (transaction, info->rep_block));
 			assert (block != nullptr);
 			boost::property_tree::ptree response_l;
 			response_l.put ("representative", block->representative ().to_account ());
@@ -617,10 +617,10 @@ void rai::rpc_handler::account_representative_set ()
 						if (work)
 						{
 							rai::transaction transaction (node.store.environment, nullptr, true);
-							rai::account_info info;
-							if (!node.store.account_get (transaction, account, info))
+							auto info (node.store.account_get (transaction, account));
+							if (info)
 							{
-								if (!rai::work_validate (info.head, work))
+								if (!rai::work_validate (info->head, work))
 								{
 									existing->second->store.work_put (transaction, account, work);
 								}
@@ -1965,22 +1965,21 @@ void rai::rpc_handler::ledger ()
 			}
 			std::sort (ledger_l.begin (), ledger_l.end ());
 			std::reverse (ledger_l.begin (), ledger_l.end ());
-			rai::account_info info;
 			for (auto i (ledger_l.begin ()), n (ledger_l.end ()); i != n && accounts.size () < count; ++i)
 			{
-				node.store.account_get (transaction, i->second, info);
+				auto info = node.store.account_get (transaction, i->second);
 				rai::account account (i->second);
-				response_l.put ("frontier", info.head.to_string ());
-				response_l.put ("open_block", info.open_block.to_string ());
-				response_l.put ("representative_block", info.rep_block.to_string ());
+				response_l.put ("frontier", info->head.to_string ());
+				response_l.put ("open_block", info->open_block.to_string ());
+				response_l.put ("representative_block", info->rep_block.to_string ());
 				std::string balance;
 				(i->first).encode_dec (balance);
 				response_l.put ("balance", balance);
-				response_l.put ("modified_timestamp", std::to_string (info.modified));
-				response_l.put ("block_count", std::to_string (info.block_count));
+				response_l.put ("modified_timestamp", std::to_string (info->modified));
+				response_l.put ("block_count", std::to_string (info->block_count));
 				if (representative)
 				{
-					auto block (node.store.block_get (transaction, info.rep_block));
+					auto block (node.store.block_get (transaction, info->rep_block));
 					assert (block != nullptr);
 					response_l.put ("representative", block->representative ().to_account ());
 				}
@@ -2678,11 +2677,11 @@ void rai::rpc_handler::receive ()
 									}
 									if (work)
 									{
-										rai::account_info info;
 										rai::uint256_union head;
-										if (!node.store.account_get (transaction, account, info))
+										auto info (node.store.account_get (transaction, account));
+										if (info)
 										{
-											head = info.head;
+											head = info->head;
 										}
 										else
 										{
@@ -3056,10 +3055,10 @@ void rai::rpc_handler::send ()
 							rai::uint128_t balance (0);
 							{
 								rai::transaction transaction (node.store.environment, nullptr, work != 0); // false if no "work" in request, true if work > 0
-								rai::account_info info;
-								if (!node.store.account_get (transaction, source, info))
+								auto info (node.store.account_get (transaction, source));
+								if (info)
 								{
-									balance = (info.balance).number ();
+									balance = (info->balance).number ();
 								}
 								else
 								{
@@ -3067,7 +3066,7 @@ void rai::rpc_handler::send ()
 								}
 								if (work)
 								{
-									if (!rai::work_validate (info.head, work))
+									if (!rai::work_validate (info->head, work))
 									{
 										existing->second->store.work_put (transaction, source, work);
 									}
@@ -3750,23 +3749,23 @@ void rai::rpc_handler::wallet_ledger ()
 			for (auto i (existing->second->store.begin (transaction)), n (existing->second->store.end ()); i != n; ++i)
 			{
 				rai::account account (i->first.uint256 ());
-				rai::account_info info;
-				if (!node.store.account_get (transaction, account, info))
+				auto info (node.store.account_get (transaction, account));
+				if (info)
 				{
-					if (info.modified >= modified_since)
+					if (info->modified >= modified_since)
 					{
 						boost::property_tree::ptree entry;
-						entry.put ("frontier", info.head.to_string ());
-						entry.put ("open_block", info.open_block.to_string ());
-						entry.put ("representative_block", info.rep_block.to_string ());
+						entry.put ("frontier", info->head.to_string ());
+						entry.put ("open_block", info->open_block.to_string ());
+						entry.put ("representative_block", info->rep_block.to_string ());
 						std::string balance;
-						rai::uint128_union (info.balance).encode_dec (balance);
+						rai::uint128_union (info->balance).encode_dec (balance);
 						entry.put ("balance", balance);
-						entry.put ("modified_timestamp", std::to_string (info.modified));
-						entry.put ("block_count", std::to_string (info.block_count));
+						entry.put ("modified_timestamp", std::to_string (info->modified));
+						entry.put ("block_count", std::to_string (info->block_count));
 						if (representative)
 						{
-							auto block (node.store.block_get (transaction, info.rep_block));
+							auto block (node.store.block_get (transaction, info->rep_block));
 							assert (block != nullptr);
 							entry.put ("representative", block->representative ().to_account ());
 						}
