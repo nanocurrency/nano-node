@@ -2123,7 +2123,7 @@ public:
 class distributed_work : public std::enable_shared_from_this<distributed_work>
 {
 public:
-	distributed_work (std::shared_ptr<rai::node> const & node_a, rai::block_hash const & root_a, std::function<void(uint64_t)> callback_a, uint backoff_a = 1) :
+	distributed_work (std::shared_ptr<rai::node> const & node_a, rai::block_hash const & root_a, std::function<void(uint64_t)> callback_a, unsigned int backoff_a = 1) :
 	callback (callback_a),
 	node (node_a),
 	root (root_a),
@@ -2310,7 +2310,7 @@ public:
 					auto root_l (root);
 					auto callback_l (callback);
 					std::weak_ptr<rai::node> node_w (node);
-					auto next_backoff (std::min (backoff * 2, (uint)60 * 5));
+					auto next_backoff (std::min (backoff * 2, (unsigned int)60 * 5));
 					node->alarm.add (now + std::chrono::seconds (backoff), [node_w, root_l, callback_l, next_backoff] {
 						if (auto node_l = node_w.lock ())
 						{
@@ -2329,7 +2329,7 @@ public:
 		return outstanding.empty ();
 	}
 	std::function<void(uint64_t)> callback;
-	uint backoff; // in seconds
+	unsigned int backoff; // in seconds
 	std::shared_ptr<rai::node> node;
 	rai::block_hash root;
 	std::mutex mutex;
