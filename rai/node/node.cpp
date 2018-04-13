@@ -2943,9 +2943,10 @@ void rai::election::confirm_once (MDB_txn * transaction_a)
 		assert (tally_l.size () > 0);
 		auto winner (tally_l.begin ());
 		auto block_l (winner->second);
+		bool new_winner (!(*block_l == *status.winner));
 		auto exceeded_min_threshold = winner->first > minimum_threshold (transaction_a, node.ledger);
 		// Logging for rollbacks and with config setting
-		if (node.config.logging.vote_logging () || !(*block_l == *status.winner))
+		if (node.config.logging.vote_logging () || new_winner)
 		{
 			BOOST_LOG (node.log) << boost::str (boost::format ("Vote tally weight %2% for root %1%") % votes.id.to_string () % status.winner->root ().to_string ());
 			for (auto i (votes.rep_votes.begin ()), n (votes.rep_votes.end ()); i != n; ++i)
@@ -2953,7 +2954,7 @@ void rai::election::confirm_once (MDB_txn * transaction_a)
 				BOOST_LOG (node.log) << boost::str (boost::format ("%1% %2%") % i->first.to_account () % i->second->hash ().to_string ());
 			}
 		}
-		if (!(*block_l == *status.winner))
+		if (new_winner)
 		{
 			if (exceeded_min_threshold)
 			{
