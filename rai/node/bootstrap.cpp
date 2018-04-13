@@ -174,8 +174,8 @@ endpoint (endpoint_a),
 timeout (node_a->service),
 block_count (0),
 pending_stop (false),
-hard_stop (false),
-start_time (std::chrono::steady_clock::now ())
+start_time (std::chrono::steady_clock::now ()),
+hard_stop (false)
 {
 	++attempt->connections;
 }
@@ -797,8 +797,8 @@ connections (0),
 pulling (0),
 node (node_a),
 account_count (0),
-stopped (false),
-total_blocks (0)
+total_blocks (0),
+stopped (false)
 {
 	BOOST_LOG (node->log) << "Starting bootstrap attempt";
 	node->bootstrap_initiator.notify_listeners (true);
@@ -1417,8 +1417,12 @@ void rai::bootstrap_listener::start ()
 
 void rai::bootstrap_listener::stop ()
 {
-	on = false;
-	std::lock_guard<std::mutex> lock (mutex);
+	decltype (connections) connections_l;
+	{
+		std::lock_guard<std::mutex> lock (mutex);
+		on = false;
+		connections_l.swap (connections);
+	}
 	acceptor.close ();
 	for (auto & i : connections)
 	{

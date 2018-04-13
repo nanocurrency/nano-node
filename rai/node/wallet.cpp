@@ -716,8 +716,8 @@ node (node_a)
 
 void rai::wallet::enter_initial_password ()
 {
-	std::lock_guard<std::recursive_mutex> lock (store.mutex);
 	rai::transaction transaction (store.environment, nullptr, true);
+	std::lock_guard<std::recursive_mutex> lock (store.mutex);
 	rai::raw_key password_l;
 	store.password.value (password_l);
 	if (password_l.data.is_zero ())
@@ -1079,7 +1079,7 @@ bool rai::wallet::should_generate_state_block (MDB_txn * transaction_a, rai::blo
 bool rai::wallet::change_sync (rai::account const & source_a, rai::account const & representative_a)
 {
 	std::promise<bool> result;
-	change_async (source_a, representative_a, [this, source_a, representative_a, &result](std::shared_ptr<rai::block> block_a) {
+	change_async (source_a, representative_a, [&result](std::shared_ptr<rai::block> block_a) {
 		result.set_value (block_a == nullptr);
 	},
 	true);
@@ -1406,7 +1406,6 @@ thread ([this]() { do_wallet_actions (); })
 rai::wallets::~wallets ()
 {
 	stop ();
-	thread.join ();
 }
 
 std::shared_ptr<rai::wallet> rai::wallets::open (rai::uint256_union const & id_a)
@@ -1543,9 +1542,15 @@ bool rai::wallets::exists (MDB_txn * transaction_a, rai::public_key const & acco
 
 void rai::wallets::stop ()
 {
-	std::lock_guard<std::mutex> lock (mutex);
-	stopped = true;
-	condition.notify_all ();
+	{
+		std::lock_guard<std::mutex> lock (mutex);
+		stopped = true;
+		condition.notify_all ();
+	}
+	if (thread.joinable ())
+	{
+		thread.join ();
+	}
 }
 
 rai::uint128_t const rai::wallets::generate_priority = std::numeric_limits<rai::uint128_t>::max ();
