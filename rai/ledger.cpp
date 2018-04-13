@@ -209,7 +209,7 @@ void ledger_processor::state_block_impl (rai::state_block const & block_a)
 						if (result.code == rai::process_result::progress)
 						{
 							is_send = block_a.hashables.balance < info.balance;
-							result.amount = result.amount.number () - info.balance.number ();
+							result.amount = is_send ? (info.balance.number () - result.amount.number ()) : (result.amount.number () - info.balance.number ());
 							result.code = block_a.hashables.previous == info.head ? rai::process_result::progress : rai::process_result::fork; // Is the previous block the account's head block? (Ambigious)
 						}
 					}
@@ -264,7 +264,7 @@ void ledger_processor::state_block_impl (rai::state_block const & block_a)
 					if (is_send)
 					{
 						rai::pending_key key (block_a.hashables.link, hash);
-						rai::pending_info info (block_a.hashables.account, 0 - result.amount.number ());
+						rai::pending_info info (block_a.hashables.account, result.amount.number ());
 						ledger.store.pending_put (transaction, key, info);
 					}
 					else if (!block_a.hashables.link.is_zero ())
