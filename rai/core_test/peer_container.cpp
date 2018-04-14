@@ -133,10 +133,12 @@ TEST (peer_container, rep_weight)
 	peers.insert (endpoint2, rai::protocol_version);
 	peers.insert (endpoint0, rai::protocol_version);
 	peers.insert (endpoint1, rai::protocol_version);
-	peers.rep_response (endpoint0, amount);
+	rai::keypair keypair;
+	peers.rep_response (endpoint0, keypair.pub, amount);
 	auto reps (peers.representatives (1));
 	ASSERT_EQ (1, reps.size ());
 	ASSERT_EQ (100, reps[0].rep_weight.number ());
+	ASSERT_EQ (keypair.pub, reps[0].probable_rep_account);
 	ASSERT_EQ (endpoint0, reps[0].endpoint);
 }
 

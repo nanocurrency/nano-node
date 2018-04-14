@@ -1598,9 +1598,8 @@ online_reps (*this)
 	observers.vote.add ([this](std::shared_ptr<rai::vote> vote_a, rai::endpoint const & endpoint_a) {
 		if (this->rep_crawler.exists (vote_a->block->hash ()))
 		{
-			auto weight_l (weight (vote_a->account));
 			// We see a valid non-replay vote for a block we requested, this node is probably a representative
-			if (peers.rep_response (endpoint_a, weight_l))
+			if (peers.rep_response (endpoint_a, vote_a->account, weight (vote_a->account)))
 			{
 				BOOST_LOG (log) << boost::str (boost::format ("Found a representative at %1%") % endpoint_a);
 				// Rebroadcasting all active votes to new representative
@@ -2700,19 +2699,20 @@ bool rai::peer_container::not_a_peer (rai::endpoint const & endpoint_a)
 	return result;
 }
 
-bool rai::peer_container::rep_response (rai::endpoint const & endpoint_a, rai::amount const & weight_a)
+bool rai::peer_container::rep_response (rai::endpoint const & endpoint_a, rai::account const & rep_account_a, rai::amount const & weight_a)
 {
 	auto updated (false);
 	std::lock_guard<std::mutex> lock (mutex);
 	auto existing (peers.find (endpoint_a));
 	if (existing != peers.end ())
 	{
-		peers.modify (existing, [weight_a, &updated](rai::peer_information & info) {
+		peers.modify (existing, [weight_a, &updated, rep_account_a](rai::peer_information & info) {
 			info.last_rep_response = std::chrono::steady_clock::now ();
 			if (info.rep_weight < weight_a)
 			{
 				updated = true;
 				info.rep_weight = weight_a;
+				info.probable_rep_account = rep_account_a;
 			}
 		});
 	}
@@ -3102,7 +3102,8 @@ void rai::active_transactions::announce_votes ()
 		{
 			auto election_l (i->election);
 			node.background ([election_l]() { election_l->broadcast_winner (); });
-			if (i->announcements >= contiguous_announcements - 1)
+			unsigned announcements;
+			if (rai::rai_network == rai::rai_networks::rai_test_network && i->announcements >= contiguous_announcements - 1)
 			{
 				// These blocks have reached the confirmation interval for forks
 				i->election->confirm_cutoff (transaction);
@@ -3116,7 +3117,6 @@ void rai::active_transactions::announce_votes ()
 			}
 			else
 			{
-				unsigned announcements;
 				roots.modify (i, [&announcements](rai::conflict_info & info_a) {
 					announcements = ++info_a.announcements;
 				});
@@ -3124,6 +3124,20 @@ void rai::active_transactions::announce_votes ()
 				if (announcements > 1 && i->election->votes.rep_votes.size () <= 1)
 				{
 					node.bootstrap_initiator.bootstrap ();
+				}
+				else if (!i->confirm_req_options.empty ())
+				{
+					for (auto rep : node.peers.representatives (10))
+					{
+						auto & rep_votes (i->election->votes.rep_votes);
+						if (rep_votes.find (rep.probable_rep_account) == rep_votes.end ())
+						{
+							for (auto & block : i->confirm_req_options)
+							{
+								node.network.send_confirm_req (rep.endpoint, block);
+							}
+						}
+					}
 				}
 			}
 		}
@@ -3161,13 +3175,26 @@ void rai::active_transactions::stop ()
 
 bool rai::active_transactions::start (MDB_txn * transaction_a, std::shared_ptr<rai::block> block_a, std::function<void(std::shared_ptr<rai::block>, bool)> const & confirmation_action_a)
 {
+	std::vector<std::shared_ptr<rai::block>> blocks;
+	blocks.push_back (block_a);
+	return start (transaction_a, blocks, confirmation_action_a);
+}
+
+bool rai::active_transactions::start (MDB_txn * transaction_a, std::vector<std::shared_ptr<rai::block>> & blocks_a, std::function<void(std::shared_ptr<rai::block>, bool)> const & confirmation_action_a)
+{
 	std::lock_guard<std::mutex> lock (mutex);
-	auto root (block_a->root ());
+	auto primary_block (blocks_a[0]);
+	auto root (primary_block->root ());
 	auto existing (roots.find (root));
 	if (existing == roots.end ())
 	{
-		auto election (std::make_shared<rai::election> (transaction_a, node, block_a, confirmation_action_a));
-		roots.insert (rai::conflict_info{ root, election, 0 });
+		auto election (std::make_shared<rai::election> (transaction_a, node, primary_block, confirmation_action_a));
+		std::vector<std::shared_ptr<rai::block>> confirm_req_options;
+		if (blocks_a.size () > 1)
+		{
+			confirm_req_options = blocks_a;
+		}
+		roots.insert (rai::conflict_info{ root, election, 0, confirm_req_options });
 	}
 	return existing != roots.end ();
 }
