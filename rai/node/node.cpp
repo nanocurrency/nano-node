@@ -245,13 +245,31 @@ void rai::network::republish_vote (std::shared_ptr<rai::vote> vote_a)
 void rai::network::broadcast_confirm_req (std::shared_ptr<rai::block> block_a)
 {
 	auto list (node.peers.representatives (std::numeric_limits<size_t>::max ()));
-	for (auto i (list.begin ()), j (list.end ()); i != j; ++i)
+	auto delay (0);
+	std::vector<rai::endpoint> endpoint_buf;
+	for (auto i (list.begin ()), j (list.end ()); i != j;)
 	{
-		node.network.send_confirm_req (i->endpoint, block_a);
+		endpoint_buf.push_back (i->endpoint);
+		++i;
+		if (i == j || endpoint_buf.size () >= 10)
+		{
+			std::weak_ptr<rai::node> node_w (node.shared ());
+			node.alarm.add (std::chrono::steady_clock::now () + std::chrono::milliseconds (delay), [node_w, endpoint_buf, block_a]() {
+				if (auto node_l = node_w.lock ())
+				{
+					for (auto endpoint : endpoint_buf)
+					{
+						node_l->network.send_confirm_req (endpoint, block_a);
+					}
+				}
+			});
+			delay += 50;
+			endpoint_buf.clear ();
+		}
 	}
 	if (node.config.logging.network_logging ())
 	{
-		BOOST_LOG (node.log) << boost::str (boost::format ("Broadcasted confirm req for block %1% to %2% representatives") % block_a->hash ().to_string () % list.size ());
+		BOOST_LOG (node.log) << boost::str (boost::format ("Broadcasting confirm req for block %1% to %2% representatives") % block_a->hash ().to_string () % list.size ());
 	}
 }
 
