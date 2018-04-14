@@ -2046,7 +2046,7 @@ void rai::node::ongoing_rep_crawl ()
 	if (network.on)
 	{
 		std::weak_ptr<rai::node> node_w (shared_from_this ());
-		alarm.add (now + period, [node_w]() {
+		alarm.add (now + std::chrono::seconds (4), [node_w]() {
 			if (auto node_l = node_w.lock ())
 			{
 				node_l->ongoing_rep_crawl ();
@@ -2654,10 +2654,10 @@ std::vector<rai::peer_information> rai::peer_container::purge_list (std::chrono:
 std::vector<rai::endpoint> rai::peer_container::rep_crawl ()
 {
 	std::vector<rai::endpoint> result;
-	result.reserve (8);
+	result.reserve (40);
 	std::lock_guard<std::mutex> lock (mutex);
 	auto count (0);
-	for (auto i (peers.get<5> ().begin ()), n (peers.get<5> ().end ()); i != n && count < 8; ++i, ++count)
+	for (auto i (peers.get<5> ().begin ()), n (peers.get<5> ().end ()); i != n && count < 40; ++i, ++count)
 	{
 		result.push_back (i->endpoint);
 	};
