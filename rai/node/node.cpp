@@ -251,7 +251,7 @@ void rai::network::broadcast_confirm_req (std::shared_ptr<rai::block> block_a)
 	{
 		endpoint_buf.push_back (i->endpoint);
 		++i;
-		if (i == j || endpoint_buf.size () >= 10)
+		if (i == j || endpoint_buf.size () >= 2)
 		{
 			std::weak_ptr<rai::node> node_w (node.shared ());
 			node.alarm.add (std::chrono::steady_clock::now () + std::chrono::milliseconds (delay), [node_w, endpoint_buf, block_a]() {
@@ -263,7 +263,7 @@ void rai::network::broadcast_confirm_req (std::shared_ptr<rai::block> block_a)
 					}
 				}
 			});
-			delay += 50;
+			delay += 75;
 			endpoint_buf.clear ();
 		}
 	}
@@ -3145,6 +3145,7 @@ void rai::active_transactions::announce_votes ()
 				}
 				else if (!i->confirm_req_options.empty ())
 				{
+					unsigned int n (0);
 					for (auto rep : node.peers.representatives (10))
 					{
 						auto & rep_votes (i->election->votes.rep_votes);
@@ -3152,7 +3153,14 @@ void rai::active_transactions::announce_votes ()
 						{
 							for (auto & block : i->confirm_req_options)
 							{
-								node.network.send_confirm_req (rep.endpoint, block);
+								auto endpoint (rep.endpoint);
+								std::weak_ptr<rai::node> node_w (node.shared ());
+								node.alarm.add (std::chrono::steady_clock::now () + std::chrono::milliseconds (n * 100), [node_w, endpoint, block]() {
+									if (auto node_l = node_w.lock ()) {
+										node_l->network.send_confirm_req (endpoint, block);
+									}
+								});
+								++n;
 							}
 						}
 					}
