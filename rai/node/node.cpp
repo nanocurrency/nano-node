@@ -3894,7 +3894,7 @@ alarm (*service),
 work (1, nullptr)
 {
 	boost::filesystem::create_directories (path);
-	logging.max_size = std::numeric_limits<std::uintmax_t>::max();
+	logging.max_size = std::numeric_limits<std::uintmax_t>::max ();
 	logging.init (path);
 	node = std::make_shared<rai::node> (init, *service, 24000, path, alarm, logging, work);
 }
