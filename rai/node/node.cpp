@@ -356,23 +356,12 @@ public:
 		{
 			confirm_block (transaction_a, node, sender, message_a.block);
 		}
-		else if (node.store.block_exists (transaction_a, message_a.block->root ()))
+		else if (node.store.block_exists (transaction_a, message_a.block->root ()) || node.store.account_exists (transaction_a, message_a.block->root ()))
 		{
-			auto successor (node.store.block_successor (transaction_a, message_a.block->hash ()));
-			auto block_successor (node.store.block_get (transaction_a, successor));
-			if (block_successor != nullptr)
+			auto successor (node.ledger.successor (transaction_a, message_a.block->root ()));
+			if (successor != nullptr)
 			{
-				confirm_block (transaction_a, node, sender, std::move (block_successor));
-			}
-		}
-		else if (node.store.account_exists (transaction_a, message_a.block->root ()))
-		{
-			rai::account_info info;
-			node.store.account_get (transaction_a, message_a.block->root (), info);
-			auto open_block (node.store.block_get (transaction_a, info.open_block));
-			if (open_block != nullptr)
-			{
-				confirm_block (transaction_a, node, sender, std::move (open_block));
+				confirm_block (transaction_a, node, sender, std::move (successor));
 			}
 		}
 	}
