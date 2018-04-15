@@ -356,7 +356,7 @@ public:
 		{
 			confirm_block (transaction_a, node, sender, message_a.block);
 		}
-		else if (node.store.block_exists (transaction_a, message_a.block->root ()) || node.store.account_exists (transaction_a, message_a.block->root ()))
+		else
 		{
 			auto successor (node.ledger.successor (transaction_a, message_a.block->root ()));
 			if (successor != nullptr)
