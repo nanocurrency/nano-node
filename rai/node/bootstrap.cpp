@@ -613,7 +613,10 @@ void rai::bulk_pull_client::received_type ()
 		}
 		default:
 		{
-			BOOST_LOG (connection->node->log) << boost::str (boost::format ("Unknown type received as block type: %1%") % static_cast<int> (type));
+			if (connection->node->config.logging.network_packet_logging ())
+			{
+				BOOST_LOG(connection->node->log) << boost::str(boost::format("Unknown type received as block type: %1%") % static_cast<int> (type));
+			}
 			break;
 		}
 	}
