@@ -3157,7 +3157,8 @@ void rai::active_transactions::announce_votes ()
 								auto endpoint (rep.endpoint);
 								std::weak_ptr<rai::node> node_w (node.shared ());
 								node.alarm.add (std::chrono::steady_clock::now () + std::chrono::milliseconds (n * 100), [node_w, endpoint, block, rep_acct]() {
-									if (auto node_l = node_w.lock ()) {
+									if (auto node_l = node_w.lock ())
+									{
 										BOOST_LOG (node_l->log) << rep_acct.to_account () << " did not respond to confirm_req, retrying";
 										node_l->network.send_confirm_req (endpoint, block);
 									}
