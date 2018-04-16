@@ -1208,16 +1208,23 @@ void rai::rpc_handler::block_create ()
 				previous = node.ledger.latest (transaction, pub);
 				balance = node.ledger.account_balance (transaction, pub);
 			}
+			// Check for incorrect account key
+			if (account_text.is_initialized ())
+			{
+				if (account != pub)
+				{
+					error_response (response, "Incorrect key for given account");
+				}
+			}
 			if (type == "state")
 			{
-				if (!account.is_zero () && previous_text.is_initialized () && !representative.is_zero () && !balance.is_zero () && link_text.is_initialized ())
+				if (previous_text.is_initialized () && !representative.is_zero () && !balance.is_zero () && link_text.is_initialized ())
 				{
 					if (work == 0)
 					{
 						work = node.generate_work (previous.is_zero () ? pub : previous);
 					}
-
-					rai::state_block state (account, previous, representative, balance, link, prv, pub, work);
+					rai::state_block state (pub, previous, representative, balance, link, prv, pub, work);
 					boost::property_tree::ptree response_l;
 					response_l.put ("hash", state.hash ().to_string ());
 					std::string contents;
@@ -1227,7 +1234,7 @@ void rai::rpc_handler::block_create ()
 				}
 				else
 				{
-					error_response (response, "Account, previous, representative, balance, and link are required");
+					error_response (response, "Previous, representative, final balance and link are required");
 				}
 			}
 			else if (type == "open")
