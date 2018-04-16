@@ -84,6 +84,6 @@ TEST (votes, contested)
 	ASSERT_FALSE (*block1 == *block2);
 	rai::votes votes (block1);
 	ASSERT_TRUE (votes.uncontested ());
-	votes.rep_votes [rai::test_genesis_key.pub] = block2;
+	votes.rep_votes[rai::test_genesis_key.pub] = block2;
 	ASSERT_FALSE (votes.uncontested ());
 }

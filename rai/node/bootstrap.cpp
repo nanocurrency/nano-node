@@ -1315,7 +1315,7 @@ void rai::bootstrap_initiator::bootstrap ()
 
 void rai::bootstrap_initiator::bootstrap (rai::endpoint const & endpoint_a)
 {
-	node.peers.insert (endpoint_a, 0x5);
+	node.peers.insert (endpoint_a, rai::protocol_version);
 	std::unique_lock<std::mutex> lock (mutex);
 	if (!stopped)
 	{
