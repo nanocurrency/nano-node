@@ -1213,6 +1213,15 @@ void rai::rpc_handler::block_create ()
 				previous = node.ledger.latest (transaction, pub);
 				balance = node.ledger.account_balance (transaction, pub);
 			}
+			// Double check current balance if previous block is specified
+			else if (previous_text.is_initialized () && balance_text.is_initialized () && type == "send")
+			{
+				rai::transaction transaction (node.store.environment, nullptr, false);
+				if (node.store.block_exists (transaction, previous) && node.store.block_balance (transaction, previous) != balance.number ())
+				{
+					error_response (response, "Balance mismatch for previous block");
+				}
+			}
 			// Check for incorrect account key
 			if (account_text.is_initialized ())
 			{
