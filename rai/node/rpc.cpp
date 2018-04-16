@@ -1201,6 +1201,13 @@ void rai::rpc_handler::block_create ()
 		{
 			rai::uint256_union pub;
 			ed25519_publickey (prv.data.bytes.data (), pub.bytes.data ());
+			// Fetching account balance & previous for send blocks (if aren't given directly)
+			if (!previous_text.is_initialized () && !balance_text.is_initialized ())
+			{
+				rai::transaction transaction (node.store.environment, nullptr, false);
+				previous = node.ledger.latest (transaction, pub);
+				balance = node.ledger.account_balance (transaction, pub);
+			}
 			if (type == "state")
 			{
 				if (!account.is_zero () && previous_text.is_initialized () && !representative.is_zero () && !balance.is_zero () && link_text.is_initialized ())
