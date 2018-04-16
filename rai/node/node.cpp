@@ -356,6 +356,14 @@ public:
 		{
 			confirm_block (transaction_a, node, sender, message_a.block);
 		}
+		else
+		{
+			auto successor (node.ledger.successor (transaction_a, message_a.block->root ()));
+			if (successor != nullptr)
+			{
+				confirm_block (transaction_a, node, sender, std::move (successor));
+			}
+		}
 	}
 	void confirm_ack (rai::confirm_ack const & message_a) override
 	{
