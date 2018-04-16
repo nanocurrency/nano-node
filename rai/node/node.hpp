@@ -497,7 +497,7 @@ public:
 	void add (rai::block_processor_item const &);
 	void process_blocks ();
 	rai::process_return process_receive_one (MDB_txn *, std::shared_ptr<rai::block>);
-	
+
 private:
 	void process_receive_many (rai::block_processor_item const &);
 	void process_receive_many (std::deque<rai::block_processor_item> &);
