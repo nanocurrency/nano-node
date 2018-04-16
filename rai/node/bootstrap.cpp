@@ -325,9 +325,9 @@ void rai::frontier_req_client::receive_frontier ()
 		}
 		else
 		{
-			if (this_l->connection->node->config.logging.network_message_logging())
+			if (this_l->connection->node->config.logging.network_message_logging ())
 			{
-				BOOST_LOG(this_l->connection->node->log) << boost::str(boost::format("Invalid size: expected %1%, got %2%") % size_l % size_a);
+				BOOST_LOG (this_l->connection->node->log) << boost::str (boost::format ("Invalid size: expected %1%, got %2%") % size_l % size_a);
 			}
 		}
 	});
@@ -532,9 +532,9 @@ void rai::bulk_pull_client::request ()
 		}
 		else
 		{
-			if (this_l->connection->node->config.logging.bulk_pull_logging())
+			if (this_l->connection->node->config.logging.bulk_pull_logging ())
 			{
-				BOOST_LOG(this_l->connection->node->log) << boost::str(boost::format("Error sending bulk pull request %1% to %2%") % ec.message() % this_l->connection->endpoint);
+				BOOST_LOG (this_l->connection->node->log) << boost::str (boost::format ("Error sending bulk pull request %1% to %2%") % ec.message () % this_l->connection->endpoint);
 			}
 		}
 	});
@@ -552,9 +552,9 @@ void rai::bulk_pull_client::receive_block ()
 		}
 		else
 		{
-			if (this_l->connection->node->config.logging.bulk_pull_logging())
+			if (this_l->connection->node->config.logging.bulk_pull_logging ())
 			{
-				BOOST_LOG(this_l->connection->node->log) << boost::str(boost::format("Error receiving block type %1%") % ec.message());
+				BOOST_LOG (this_l->connection->node->log) << boost::str (boost::format ("Error receiving block type %1%") % ec.message ());
 			}
 		}
 	});
@@ -624,7 +624,7 @@ void rai::bulk_pull_client::received_type ()
 		{
 			if (connection->node->config.logging.network_packet_logging ())
 			{
-				BOOST_LOG(connection->node->log) << boost::str(boost::format("Unknown type received as block type: %1%") % static_cast<int> (type));
+				BOOST_LOG (connection->node->log) << boost::str (boost::format ("Unknown type received as block type: %1%") % static_cast<int> (type));
 			}
 			break;
 		}
@@ -663,17 +663,17 @@ void rai::bulk_pull_client::received_block (boost::system::error_code const & ec
 		}
 		else
 		{
-			if (connection->node->config.logging.bulk_pull_logging())
+			if (connection->node->config.logging.bulk_pull_logging ())
 			{
-				BOOST_LOG(connection->node->log) << "Error deserializing block received from pull request";
+				BOOST_LOG (connection->node->log) << "Error deserializing block received from pull request";
 			}
 		}
 	}
 	else
 	{
-		if (connection->node->config.logging.bulk_pull_logging())
+		if (connection->node->config.logging.bulk_pull_logging ())
 		{
-			BOOST_LOG(connection->node->log) << boost::str(boost::format("Error bulk receiving block: %1%") % ec.message());
+			BOOST_LOG (connection->node->log) << boost::str (boost::format ("Error bulk receiving block: %1%") % ec.message ());
 		}
 	}
 }
@@ -710,9 +710,9 @@ void rai::bulk_push_client::start ()
 		}
 		else
 		{
-			if (this_l->connection->node->config.logging.bulk_pull_logging())
+			if (this_l->connection->node->config.logging.bulk_pull_logging ())
 			{
-				BOOST_LOG(this_l->connection->node->log) << boost::str(boost::format("Unable to send bulk_push request %1%") % ec.message());
+				BOOST_LOG (this_l->connection->node->log) << boost::str (boost::format ("Unable to send bulk_push request %1%") % ec.message ());
 			}
 		}
 	});
@@ -793,9 +793,9 @@ void rai::bulk_push_client::push_block (rai::block const & block_a)
 		}
 		else
 		{
-			if (this_l->connection->node->config.logging.bulk_pull_logging())
+			if (this_l->connection->node->config.logging.bulk_pull_logging ())
 			{
-				BOOST_LOG(this_l->connection->node->log) << boost::str(boost::format("Error sending block during bulk push %1%") % ec.message());
+				BOOST_LOG (this_l->connection->node->log) << boost::str (boost::format ("Error sending block during bulk push %1%") % ec.message ());
 			}
 		}
 	});
@@ -1830,9 +1830,9 @@ void rai::bulk_pull_server::sent_action (boost::system::error_code const & ec, s
 	}
 	else
 	{
-		if (connection->node->config.logging.bulk_pull_logging())
+		if (connection->node->config.logging.bulk_pull_logging ())
 		{
-			BOOST_LOG(connection->node->log) << boost::str(boost::format("Unable to bulk send block: %1%") % ec.message());
+			BOOST_LOG (connection->node->log) << boost::str (boost::format ("Unable to bulk send block: %1%") % ec.message ());
 		}
 	}
 }
@@ -1860,9 +1860,9 @@ void rai::bulk_pull_server::no_block_sent (boost::system::error_code const & ec,
 	}
 	else
 	{
-		if (connection->node->config.logging.bulk_pull_logging())
+		if (connection->node->config.logging.bulk_pull_logging ())
 		{
-			BOOST_LOG(connection->node->log) << "Unable to send not-a-block";
+			BOOST_LOG (connection->node->log) << "Unable to send not-a-block";
 		}
 	}
 }
@@ -2016,9 +2016,9 @@ void rai::bulk_pull_blocks_server::sent_action (boost::system::error_code const 
 	}
 	else
 	{
-		if (connection->node->config.logging.bulk_pull_logging())
+		if (connection->node->config.logging.bulk_pull_logging ())
 		{
-			BOOST_LOG(connection->node->log) << boost::str(boost::format("Unable to bulk send block: %1%") % ec.message());
+			BOOST_LOG (connection->node->log) << boost::str (boost::format ("Unable to bulk send block: %1%") % ec.message ());
 		}
 	}
 }
@@ -2046,9 +2046,9 @@ void rai::bulk_pull_blocks_server::no_block_sent (boost::system::error_code cons
 	}
 	else
 	{
-		if (connection->node->config.logging.bulk_pull_logging())
+		if (connection->node->config.logging.bulk_pull_logging ())
 		{
-			BOOST_LOG(connection->node->log) << "Unable to send not-a-block";
+			BOOST_LOG (connection->node->log) << "Unable to send not-a-block";
 		}
 	}
 }
@@ -2079,9 +2079,9 @@ void rai::bulk_push_server::receive ()
 		}
 		else
 		{
-			if (this_l->connection->node->config.logging.bulk_pull_logging())
+			if (this_l->connection->node->config.logging.bulk_pull_logging ())
 			{
-				BOOST_LOG(this_l->connection->node->log) << boost::str(boost::format("Error receiving block type %1%") % ec.message());
+				BOOST_LOG (this_l->connection->node->log) << boost::str (boost::format ("Error receiving block type %1%") % ec.message ());
 			}
 		}
 	});
@@ -2137,7 +2137,7 @@ void rai::bulk_push_server::received_type ()
 		{
 			if (connection->node->config.logging.network_packet_logging ())
 			{
-				BOOST_LOG(connection->node->log) << "Unknown type received as block type";
+				BOOST_LOG (connection->node->log) << "Unknown type received as block type";
 			}
 			break;
 		}
@@ -2157,9 +2157,9 @@ void rai::bulk_push_server::received_block (boost::system::error_code const & ec
 		}
 		else
 		{
-			if (connection->node->config.logging.bulk_pull_logging())
+			if (connection->node->config.logging.bulk_pull_logging ())
 			{
-				BOOST_LOG(connection->node->log) << "Error deserializing block received from pull request";
+				BOOST_LOG (connection->node->log) << "Error deserializing block received from pull request";
 			}
 		}
 	}
