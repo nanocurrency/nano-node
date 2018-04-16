@@ -1232,7 +1232,7 @@ void rai::rpc_handler::block_create ()
 			}
 			if (type == "state")
 			{
-				if (previous_text.is_initialized () && !representative.is_zero () && !balance.is_zero () && !link.is_zero ())
+				if (previous_text.is_initialized () && !representative.is_zero () && !balance.is_zero () && (!link.is_zero () || link_text.is_initialized ()))
 				{
 					if (work == 0)
 					{
