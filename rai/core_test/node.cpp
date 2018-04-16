@@ -896,9 +896,9 @@ TEST (node, DISABLED_fork_bootstrap_flip)
 	rai::keypair key2;
 	auto send2 (std::make_shared<rai::send_block> (latest, key2.pub, rai::genesis_amount - rai::Gxrb_ratio, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system0.work.generate (latest)));
 	// Insert but don't rebroadcast, simulating settled blocks
-	node1.block_processor.process_receive_many (rai::block_processor_item (send1));
+	node1.block_processor.add (rai::block_processor_item (send1));
 	node1.block_processor.flush ();
-	node2.block_processor.process_receive_many (rai::block_processor_item (send2));
+	node2.block_processor.add (rai::block_processor_item (send2));
 	node2.block_processor.flush ();
 	{
 		rai::transaction transaction (node2.store.environment, nullptr, false);

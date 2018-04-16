@@ -1159,7 +1159,7 @@ force (force_a)
 
 rai::block_processor::block_processor (rai::node & node_a) :
 stopped (false),
-idle (true),
+active (false),
 node (node_a)
 {
 }
@@ -1179,7 +1179,7 @@ void rai::block_processor::stop ()
 void rai::block_processor::flush ()
 {
 	std::unique_lock<std::mutex> lock (mutex);
-	while (!stopped && (!blocks.empty () || !idle))
+	while (!stopped && (!blocks.empty () || active))
 	{
 		condition.wait (lock);
 	}
@@ -1201,18 +1201,16 @@ void rai::block_processor::process_blocks ()
 		{
 			std::deque<rai::block_processor_item> blocks_processing;
 			std::swap (blocks, blocks_processing);
+			active = true;
 			lock.unlock ();
 			process_receive_many (blocks_processing);
-			// Let other threads get an opportunity to transaction lock
-			std::this_thread::yield ();
 			lock.lock ();
+			active = false;
 		}
 		else
 		{
-			idle = true;
 			condition.notify_all ();
 			condition.wait (lock);
-			idle = false;
 		}
 	}
 }
@@ -2968,9 +2966,7 @@ void rai::election::confirm_once (MDB_txn * transaction_a)
 			if (exceeded_min_threshold)
 			{
 				auto node_l (node.shared ());
-				node.background ([node_l, block_l]() {
-					node_l->block_processor.process_receive_many (rai::block_processor_item (block_l, true));
-				});
+				node_l->block_processor.add (rai::block_processor_item (block_l, true));
 				status.winner = block_l;
 			}
 			else

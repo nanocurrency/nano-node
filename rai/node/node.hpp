@@ -495,18 +495,18 @@ public:
 	void stop ();
 	void flush ();
 	void add (rai::block_processor_item const &);
+	void process_blocks ();
+	rai::process_return process_receive_one (MDB_txn *, std::shared_ptr<rai::block>);
+	
+private:
 	void process_receive_many (rai::block_processor_item const &);
 	void process_receive_many (std::deque<rai::block_processor_item> &);
-	rai::process_return process_receive_one (MDB_txn *, std::shared_ptr<rai::block>);
-	void process_blocks ();
-
-private:
 	bool stopped;
-	bool idle;
+	bool active;
 	std::deque<rai::block_processor_item> blocks;
-	std::mutex mutex;
 	std::condition_variable condition;
 	rai::node & node;
+	std::mutex mutex;
 };
 class node : public std::enable_shared_from_this<rai::node>
 {
