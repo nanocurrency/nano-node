@@ -1125,7 +1125,6 @@ void rai::rpc_handler::block_create ()
 		prv.data.clear ();
 		rai::uint256_union previous (0);
 		rai::uint128_union balance (0);
-		rai::uint256_union link (0);
 		if (wallet != 0 && account != 0)
 		{
 			auto existing (node.wallets.items.find (wallet));
@@ -1184,6 +1183,7 @@ void rai::rpc_handler::block_create ()
 				error_response (response, "Bad balance number");
 			}
 		}
+		rai::uint256_union link (0);
 		boost::optional<std::string> link_text (request.get_optional<std::string> ("link"));
 		if (link_text.is_initialized ())
 		{
@@ -1196,6 +1196,11 @@ void rai::rpc_handler::block_create ()
 					error_response (response, "Bad link number");
 				}
 			}
+		}
+		else
+		{
+			// Retrieve link from source or destination
+			link = source.is_zero () ? destination : source;
 		}
 		if (prv.data != 0)
 		{
@@ -1218,7 +1223,7 @@ void rai::rpc_handler::block_create ()
 			}
 			if (type == "state")
 			{
-				if (previous_text.is_initialized () && !representative.is_zero () && !balance.is_zero () && link_text.is_initialized ())
+				if (previous_text.is_initialized () && !representative.is_zero () && !balance.is_zero () && !link.is_zero ())
 				{
 					if (work == 0)
 					{
@@ -1234,7 +1239,7 @@ void rai::rpc_handler::block_create ()
 				}
 				else
 				{
-					error_response (response, "Previous, representative, final balance and link are required");
+					error_response (response, "Previous, representative, final balance and link (source or destination) are required");
 				}
 			}
 			else if (type == "open")
