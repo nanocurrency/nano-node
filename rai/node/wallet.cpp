@@ -1230,9 +1230,16 @@ public:
 						wallet->node.background ([this_l, account, block_l] {
 							rai::block_hash hash (block_l->hash ());
 							rai::transaction transaction (this_l->wallet->node.store.environment, nullptr, true);
-							this_l->wallet->node.active.start (transaction, block_l, [this_l, account, hash](std::shared_ptr<rai::block>, bool) {
+							this_l->wallet->node.active.start (transaction, block_l, [this_l, account, hash](std::shared_ptr<rai::block> winner_l, bool comfirmed) {
 								// If there were any forks for this account they've been rolled back and we can receive anything remaining from this account
-								this_l->receive_all (account, hash);
+								if (comfirmed && winner_l->hash () == hash)
+								{
+									this_l->receive_all (account, hash);
+								}
+								else
+								{
+									BOOST_LOG (this_l->wallet->node.log) << boost::str (boost::format ("Account %1% with head %2% was not confirmed by voting") % account.to_account () % hash.to_string ());
+								}
 							});
 							this_l->wallet->node.network.broadcast_confirm_req (block_l);
 						});
