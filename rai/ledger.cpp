@@ -849,25 +849,26 @@ void rai::ledger::change_latest (MDB_txn * transaction_a, rai::account const & a
 	}
 }
 
-std::unique_ptr<rai::block> rai::ledger::successor (MDB_txn * transaction_a, rai::block_hash const & block_a)
+std::unique_ptr<rai::block> rai::ledger::successor (MDB_txn * transaction_a, rai::uint256_union const & root_a)
 {
-	assert (store.account_exists (transaction_a, block_a) || store.block_exists (transaction_a, block_a));
-	assert (store.account_exists (transaction_a, block_a) || latest (transaction_a, account (transaction_a, block_a)) != block_a);
-	rai::block_hash successor;
-	if (store.account_exists (transaction_a, block_a))
+	rai::block_hash successor (0);
+	if (store.account_exists (transaction_a, root_a))
 	{
 		rai::account_info info;
-		auto error (store.account_get (transaction_a, block_a, info));
+		auto error (store.account_get (transaction_a, root_a, info));
 		assert (!error);
 		successor = info.open_block;
 	}
 	else
 	{
-		successor = store.block_successor (transaction_a, block_a);
+		successor = store.block_successor (transaction_a, root_a);
 	}
-	assert (!successor.is_zero ());
-	auto result (store.block_get (transaction_a, successor));
-	assert (result != nullptr);
+	std::unique_ptr<rai::block> result;
+	if (!successor.is_zero ())
+	{
+		result = store.block_get (transaction_a, successor);
+	}
+	assert (successor.is_zero () || result != nullptr);
 	return result;
 }
 

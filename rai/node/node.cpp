@@ -352,9 +352,10 @@ public:
 		node.peers.insert (sender, message_a.version_using);
 		node.process_active (message_a.block);
 		rai::transaction transaction_a (node.store.environment, nullptr, false);
-		if (node.store.block_exists (transaction_a, message_a.block->hash ()))
+		auto successor (node.ledger.successor (transaction_a, message_a.block->root ()));
+		if (successor != nullptr)
 		{
-			confirm_block (transaction_a, node, sender, message_a.block);
+			confirm_block (transaction_a, node, sender, std::move (successor));
 		}
 	}
 	void confirm_ack (rai::confirm_ack const & message_a) override
