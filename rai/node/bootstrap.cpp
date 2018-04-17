@@ -301,8 +301,7 @@ std::shared_ptr<rai::bootstrap_client> rai::bootstrap_client::shared ()
 rai::frontier_req_client::frontier_req_client (std::shared_ptr<rai::bootstrap_client> connection_a) :
 connection (connection_a),
 current (0),
-count (0),
-next_report (std::chrono::steady_clock::now () + std::chrono::seconds (15))
+count (0)
 {
 	rai::transaction transaction (connection->node->store.environment, nullptr, false);
 	next (transaction);
@@ -374,10 +373,8 @@ void rai::frontier_req_client::received_frontier (boost::system::error_code cons
 			promise.set_value (true);
 			return;
 		}
-		auto now (std::chrono::steady_clock::now ());
-		if (next_report < now)
+		if (connection->attempt->should_log ())
 		{
-			next_report = now + std::chrono::seconds (15);
 			BOOST_LOG (connection->node->log) << boost::str (boost::format ("Received %1% frontiers from %2%") % std::to_string (count) % connection->socket.remote_endpoint ());
 		}
 		if (!account.is_zero ())
@@ -479,10 +476,9 @@ void rai::frontier_req_client::next (MDB_txn * transaction_a)
 	}
 }
 
-rai::bulk_pull_client::bulk_pull_client (std::shared_ptr<rai::bootstrap_client> connection_a, rai::pull_info const & pull_a, size_t size_a) :
+rai::bulk_pull_client::bulk_pull_client (std::shared_ptr<rai::bootstrap_client> connection_a, rai::pull_info const & pull_a) :
 connection (connection_a),
-pull (pull_a),
-size (size_a)
+pull (pull_a)
 {
 	std::lock_guard<std::mutex> mutex (connection->attempt->mutex);
 	++connection->attempt->pulling;
@@ -519,11 +515,21 @@ void rai::bulk_pull_client::request ()
 	}
 	if (connection->node->config.logging.bulk_pull_logging ())
 	{
-		BOOST_LOG (connection->node->log) << boost::str (boost::format ("Requesting account %1% from %2%. %3% accounts in queue") % req.start.to_account () % connection->endpoint % size);
+		std::unique_lock<std::mutex> lock (connection->attempt->mutex);
+		BOOST_LOG (connection->node->log) << boost::str (boost::format ("Requesting account %1% from %2%. %3% accounts in queue") % req.start.to_account () % connection->endpoint % connection->attempt->pulls.size ());
 	}
-	else if (connection->node->config.logging.network_logging () && connection->attempt->account_count++ % 256 == 0)
+	else if (connection->node->config.logging.network_logging () && connection->attempt->should_log ())
 	{
-		BOOST_LOG (connection->node->log) << boost::str (boost::format ("Requesting account %1% from %2%. %3% accounts in queue") % req.start.to_account () % connection->endpoint % size);
+		std::unique_lock<std::mutex> lock (connection->attempt->mutex);
+		BOOST_LOG (connection->node->log) << boost::str (boost::format ("%1% accounts in pull queue") % connection->attempt->pulls.size ());
+		if (connection->attempt->forks_in_progress.size () > 0)
+		{
+			BOOST_LOG (connection->node->log) << boost::str (boost::format ("Forks being resolved (roots):"));
+			for (auto i (connection->attempt->forks_in_progress.begin ()), n (connection->attempt->forks_in_progress.end ()); i != n; ++i)
+			{
+				BOOST_LOG (connection->node->log) << boost::str (boost::format ("%1%") % i->to_string ());
+			}
+		}
 	}
 	auto this_l (shared_from_this ());
 	connection->start_timeout ();
@@ -820,6 +826,7 @@ attempts (0)
 }
 
 rai::bootstrap_attempt::bootstrap_attempt (std::shared_ptr<rai::node> node_a) :
+next_log (std::chrono::steady_clock::now ()),
 connections (0),
 pulling (0),
 node (node_a),
@@ -835,6 +842,19 @@ rai::bootstrap_attempt::~bootstrap_attempt ()
 {
 	BOOST_LOG (node->log) << "Exiting bootstrap attempt";
 	node->bootstrap_initiator.notify_listeners (false);
+}
+
+bool rai::bootstrap_attempt::should_log ()
+{
+	std::lock_guard<std::mutex> lock (mutex);
+	auto result (false);
+	auto now (std::chrono::steady_clock::now ());
+	if (next_log < now)
+	{
+		result = true;
+		next_log = now + std::chrono::seconds (15);
+	}
+	return result;
 }
 
 bool rai::bootstrap_attempt::request_frontier (std::unique_lock<std::mutex> & lock_a)
@@ -884,7 +904,7 @@ void rai::bootstrap_attempt::request_pull (std::unique_lock<std::mutex> & lock_a
 		// The bulk_pull_client destructor attempt to requeue_pull which can cause a deadlock if this is the last reference
 		// Dispatch request in an external thread in case it needs to be destroyed
 		node->background ([connection_l, pull, size]() {
-			auto client (std::make_shared<rai::bulk_pull_client> (connection_l, pull, size));
+			auto client (std::make_shared<rai::bulk_pull_client> (connection_l, pull));
 			client->request ();
 		});
 	}
@@ -931,7 +951,6 @@ bool rai::bootstrap_attempt::still_pulling ()
 void rai::bootstrap_attempt::run ()
 {
 	populate_connections ();
-	report_fork_progress ();
 	std::unique_lock<std::mutex> lock (mutex);
 	auto frontier_failure (true);
 	while (!stopped && frontier_failure)
@@ -1047,29 +1066,6 @@ void rai::bootstrap_attempt::process_fork (MDB_txn * transaction_a, std::shared_
 				node->network.broadcast_confirm_req (block_a);
 			}
 		}
-	}
-}
-
-void rai::bootstrap_attempt::report_fork_progress ()
-{
-	std::unique_lock<std::mutex> lock (mutex);
-	if (forks_in_progress.size () > 0)
-	{
-		BOOST_LOG (node->log) << boost::str (boost::format ("Forks being resolved (roots):"));
-		for (auto i (forks_in_progress.begin ()), n (forks_in_progress.end ()); i != n; ++i)
-		{
-			BOOST_LOG (node->log) << boost::str (boost::format ("%1%") % i->to_string ());
-		}
-	}
-	if (!stopped)
-	{
-		std::weak_ptr<rai::bootstrap_attempt> this_w (shared_from_this ());
-		node->alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (30), [this_w]() {
-			if (auto this_l = this_w.lock ())
-			{
-				this_l->report_fork_progress ();
-			}
-		});
 	}
 }
 
@@ -1268,7 +1264,7 @@ void rai::bootstrap_attempt::requeue_pull (rai::pull_info const & pull_a)
 		{
 			auto size (pulls.size ());
 			node->background ([connection_shared, pull, size]() {
-				auto client (std::make_shared<rai::bulk_pull_client> (connection_shared, pull, size));
+				auto client (std::make_shared<rai::bulk_pull_client> (connection_shared, pull));
 				client->request ();
 			});
 			if (node->config.logging.bulk_pull_logging ())
