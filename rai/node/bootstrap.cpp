@@ -1042,11 +1042,8 @@ void rai::bootstrap_attempt::process_fork (MDB_txn * transaction_a, std::shared_
 				BOOST_LOG (node->log) << boost::str (boost::format ("Resolving fork between our block: %1% and block %2% both with root %3%") % ledger_block->hash ().to_string () % block_a->hash ().to_string () % block_a->root ().to_string ());
 				forks_in_progress.insert (root);
 				forks_attempted.insert (root);
-				std::vector<std::shared_ptr<rai::block>> block_options;
-				block_options.push_back (ledger_block);
-				block_options.push_back (block_a);
 				std::weak_ptr<rai::bootstrap_attempt> this_w (shared_from_this ());
-				node->active.start (transaction_a, block_options, true, [this_w, root](std::shared_ptr<rai::block>, bool resolved) {
+				node->active.start (transaction_a, std::make_pair (ledger_block, block_a), [this_w, root](std::shared_ptr<rai::block>, bool resolved) {
 					if (auto this_l = this_w.lock ())
 					{
 						if (resolved)

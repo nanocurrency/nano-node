@@ -75,7 +75,7 @@ public:
 	std::shared_ptr<rai::election> election;
 	// Number of announcements in a row for this fork
 	unsigned announcements;
-	std::vector<std::shared_ptr<rai::block>> confirm_req_options;
+	std::pair<std::shared_ptr<rai::block>, std::shared_ptr<rai::block>> confirm_req_options;
 };
 // Core class for determining consensus
 // Holds all active blocks i.e. recently added blocks that need confirmation
@@ -89,7 +89,7 @@ public:
 	// Also supply alternatives to block, to confirm_req reps with if the boolean argument is true
 	// Should only be used for old elections
 	// The first block should be the one in the ledger
-	bool start (MDB_txn *, std::vector<std::shared_ptr<rai::block>> &, bool, std::function<void(std::shared_ptr<rai::block>, bool)> const & = [](std::shared_ptr<rai::block>, bool) {});
+	bool start (MDB_txn *, std::pair<std::shared_ptr<rai::block>, std::shared_ptr<rai::block>>, std::function<void(std::shared_ptr<rai::block>, bool)> const & = [](std::shared_ptr<rai::block>, bool) {});
 	// If this returns true, the vote is a replay
 	// If this returns false, the vote may or may not be a replay
 	bool vote (std::shared_ptr<rai::vote>);
@@ -354,6 +354,7 @@ public:
 	void merge_peers (std::array<rai::endpoint, 8> const &);
 	void send_keepalive (rai::endpoint const &);
 	void broadcast_confirm_req (std::shared_ptr<rai::block>);
+	void broadcast_confirm_req_base (std::shared_ptr<rai::block>, std::shared_ptr<std::vector<rai::peer_information>>, unsigned);
 	void send_confirm_req (rai::endpoint const &, std::shared_ptr<rai::block>);
 	void send_buffer (uint8_t const *, size_t, rai::endpoint const &, std::function<void(boost::system::error_code const &, size_t)>);
 	rai::endpoint endpoint ();

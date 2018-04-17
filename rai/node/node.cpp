@@ -244,32 +244,32 @@ void rai::network::republish_vote (std::shared_ptr<rai::vote> vote_a)
 
 void rai::network::broadcast_confirm_req (std::shared_ptr<rai::block> block_a)
 {
-	auto list (node.peers.representatives (std::numeric_limits<size_t>::max ()));
-	auto delay (0);
-	std::vector<rai::endpoint> endpoint_buf;
-	for (auto i (list.begin ()), j (list.end ()); i != j;)
-	{
-		endpoint_buf.push_back (i->endpoint);
-		++i;
-		if (i == j || endpoint_buf.size () >= 10)
-		{
-			std::weak_ptr<rai::node> node_w (node.shared ());
-			node.alarm.add (std::chrono::steady_clock::now () + std::chrono::milliseconds (delay), [node_w, endpoint_buf, block_a]() {
-				if (auto node_l = node_w.lock ())
-				{
-					for (auto endpoint : endpoint_buf)
-					{
-						node_l->network.send_confirm_req (endpoint, block_a);
-					}
-				}
-			});
-			delay += 50;
-			endpoint_buf.clear ();
-		}
-	}
+	auto list (std::make_shared<std::vector<rai::peer_information>> (node.peers.representatives (std::numeric_limits<size_t>::max ())));
+	broadcast_confirm_req_base (block_a, list, 0);
+}
+
+void rai::network::broadcast_confirm_req_base (std::shared_ptr<rai::block> block_a, std::shared_ptr<std::vector<rai::peer_information>> endpoints_a, unsigned delay_a)
+{
 	if (node.config.logging.network_logging ())
 	{
-		BOOST_LOG (node.log) << boost::str (boost::format ("Broadcasting confirm req for block %1% to %2% representatives") % block_a->hash ().to_string () % list.size ());
+		BOOST_LOG (node.log) << boost::str (boost::format ("Broadcasting confirm req for block %1% to %2% representatives") % block_a->hash ().to_string () % endpoints_a->size ());
+	}
+	auto count (0);
+	while (!endpoints_a->empty () && count < 10)
+	{
+		send_confirm_req (endpoints_a->back ().endpoint, block_a);
+		endpoints_a->pop_back ();
+		count++;
+	}
+	if (!endpoints_a->empty ())
+	{
+		std::weak_ptr<rai::node> node_w (node.shared ());
+		node.alarm.add (std::chrono::steady_clock::now () + std::chrono::milliseconds (delay_a), [node_w, block_a, endpoints_a, delay_a]() {
+			if (auto node_l = node_w.lock ())
+			{
+				node_l->network.broadcast_confirm_req_base (block_a, endpoints_a, delay_a + 50);
+			}
+		});
 	}
 }
 
@@ -3143,24 +3143,30 @@ void rai::active_transactions::announce_votes ()
 				{
 					node.bootstrap_initiator.bootstrap ();
 				}
-				else if (!i->confirm_req_options.empty ())
+				else if (i->confirm_req_options.second != nullptr)
 				{
-					for (auto rep : node.peers.representatives (10))
+					auto reps (std::make_shared<std::vector<rai::peer_information>> (node.peers.representatives (std::numeric_limits<size_t>::max ())));
+					
+					for (auto j (reps->begin ()), m (reps->end ()); j != m; ++j)
 					{
 						auto & rep_votes (i->election->votes.rep_votes);
-						auto rep_acct (rep.probable_rep_account);
-						if (rep_votes.find (rep_acct) == rep_votes.end ())
+						auto rep_acct (j->probable_rep_account);
+						if (rep_votes.find (rep_acct) != rep_votes.end ())
 						{
-							for (auto & block : i->confirm_req_options)
+							std::swap (j, m);
+							reps->pop_back ();
+							m = reps->end ();
+						}
+						else
+						{
+							if (node.config.logging.vote_logging ())
 							{
-								if (node.config.logging.vote_logging ())
-								{
-									BOOST_LOG (node.log) << "Representative did not respond to confirm_req, retrying: " << rep_acct.to_account ();
-								}
-								node.network.send_confirm_req (rep.endpoint, block);
+								BOOST_LOG (node.log) << "Representative did not respond to confirm_req, retrying: " << rep_acct.to_account ();
 							}
 						}
 					}
+					node.network.broadcast_confirm_req_base (i->confirm_req_options.first, reps, 0);
+					node.network.broadcast_confirm_req_base (i->confirm_req_options.second, reps, 0);
 				}
 			}
 		}
@@ -3198,26 +3204,20 @@ void rai::active_transactions::stop ()
 
 bool rai::active_transactions::start (MDB_txn * transaction_a, std::shared_ptr<rai::block> block_a, std::function<void(std::shared_ptr<rai::block>, bool)> const & confirmation_action_a)
 {
-	std::vector<std::shared_ptr<rai::block>> blocks;
-	blocks.push_back (block_a);
-	return start (transaction_a, blocks, false, confirmation_action_a);
+	return start (transaction_a, std::make_pair (block_a, nullptr), confirmation_action_a);
 }
 
-bool rai::active_transactions::start (MDB_txn * transaction_a, std::vector<std::shared_ptr<rai::block>> & blocks_a, bool confirm_req, std::function<void(std::shared_ptr<rai::block>, bool)> const & confirmation_action_a)
+bool rai::active_transactions::start (MDB_txn * transaction_a, std::pair<std::shared_ptr<rai::block>, std::shared_ptr<rai::block>> blocks_a, std::function<void(std::shared_ptr<rai::block>, bool)> const & confirmation_action_a)
 {
+	assert (blocks_a.first != nullptr);
 	std::lock_guard<std::mutex> lock (mutex);
-	auto primary_block (blocks_a[0]);
+	auto primary_block (blocks_a.first);
 	auto root (primary_block->root ());
 	auto existing (roots.find (root));
 	if (existing == roots.end ())
 	{
 		auto election (std::make_shared<rai::election> (transaction_a, node, primary_block, confirmation_action_a));
-		std::vector<std::shared_ptr<rai::block>> confirm_req_options;
-		if (confirm_req)
-		{
-			confirm_req_options = blocks_a;
-		}
-		roots.insert (rai::conflict_info{ root, election, 0, confirm_req_options });
+		roots.insert (rai::conflict_info{ root, election, 0, blocks_a });
 	}
 	return existing != roots.end ();
 }
