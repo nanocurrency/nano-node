@@ -477,15 +477,6 @@ public:
 	std::mutex mutex;
 	std::unordered_set<rai::block_hash> active;
 };
-class block_processor_item
-{
-public:
-	block_processor_item () = default;
-	block_processor_item (std::shared_ptr<rai::block>);
-	block_processor_item (std::shared_ptr<rai::block>, bool);
-	std::shared_ptr<rai::block> block;
-	bool force;
-};
 // Processing blocks is a potentially long IO operation
 // This class isolates block insertion from other operations like servicing network operations
 class block_processor
@@ -495,7 +486,8 @@ public:
 	~block_processor ();
 	void stop ();
 	void flush ();
-	void add (rai::block_processor_item const &);
+	void add (std::shared_ptr<rai::block>);
+	void force (std::shared_ptr<rai::block>);
 	bool should_log ();
 	bool have_blocks ();
 	void process_blocks ();
@@ -506,8 +498,8 @@ private:
 	bool stopped;
 	bool active;
 	std::chrono::steady_clock::time_point next_log;
-	std::deque<rai::block_processor_item> blocks;
-	std::deque<rai::block_processor_item> forced;
+	std::deque<std::shared_ptr<rai::block>> blocks;
+	std::deque<std::shared_ptr<rai::block>> forced;
 	std::condition_variable condition;
 	rai::node & node;
 	std::mutex mutex;
