@@ -1228,13 +1228,6 @@ bool rai::block_processor::should_log ()
 	return result;
 }
 
-void rai::block_processor::process_receive_many (rai::block_processor_item const & item_a)
-{
-	std::deque<rai::block_processor_item> blocks_processing;
-	blocks_processing.push_back (item_a);
-	process_receive_many (blocks_processing);
-}
-
 void rai::block_processor::process_receive_many (std::deque<rai::block_processor_item> & blocks_processing)
 {
 	while (!blocks_processing.empty ())
