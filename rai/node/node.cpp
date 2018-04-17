@@ -2672,10 +2672,10 @@ std::vector<rai::peer_information> rai::peer_container::purge_list (std::chrono:
 std::vector<rai::endpoint> rai::peer_container::rep_crawl ()
 {
 	std::vector<rai::endpoint> result;
-	result.reserve (40);
+	result.reserve (10);
 	std::lock_guard<std::mutex> lock (mutex);
 	auto count (0);
-	for (auto i (peers.get<5> ().begin ()), n (peers.get<5> ().end ()); i != n && count < 40; ++i, ++count)
+	for (auto i (peers.get<5> ().begin ()), n (peers.get<5> ().end ()); i != n && count < 10; ++i, ++count)
 	{
 		result.push_back (i->endpoint);
 	};
