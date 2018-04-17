@@ -2731,19 +2731,22 @@ bool rai::peer_container::insert (rai::endpoint const & endpoint_a, unsigned ver
 	auto result (not_a_peer (endpoint_a));
 	if (!result)
 	{
-		std::lock_guard<std::mutex> lock (mutex);
-		auto existing (peers.find (endpoint_a));
-		if (existing != peers.end ())
+		if (version_a >= rai::protocol_version_min)
 		{
-			peers.modify (existing, [](rai::peer_information & info) {
-				info.last_contact = std::chrono::steady_clock::now ();
-			});
-			result = true;
-		}
-		else
-		{
-			peers.insert (rai::peer_information (endpoint_a, version_a));
-			unknown = true;
+			std::lock_guard<std::mutex> lock (mutex);
+			auto existing (peers.find (endpoint_a));
+			if (existing != peers.end ())
+			{
+				peers.modify (existing, [](rai::peer_information & info) {
+					info.last_contact = std::chrono::steady_clock::now ();
+				});
+				result = true;
+			}
+			else
+			{
+				peers.insert (rai::peer_information (endpoint_a, version_a));
+				unknown = true;
+			}
 		}
 	}
 	if (unknown && !result)
