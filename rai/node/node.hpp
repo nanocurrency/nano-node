@@ -495,6 +495,7 @@ public:
 	void stop ();
 	void flush ();
 	void add (rai::block_processor_item const &);
+	bool should_log ();
 	void process_blocks ();
 	rai::process_return process_receive_one (MDB_txn *, std::shared_ptr<rai::block>);
 
@@ -503,6 +504,7 @@ private:
 	void process_receive_many (std::deque<rai::block_processor_item> &);
 	bool stopped;
 	bool active;
+	std::chrono::steady_clock::time_point next_log;
 	std::deque<rai::block_processor_item> blocks;
 	std::condition_variable condition;
 	rai::node & node;

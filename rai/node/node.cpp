@@ -1160,7 +1160,8 @@ force (force_a)
 rai::block_processor::block_processor (rai::node & node_a) :
 stopped (false),
 active (false),
-node (node_a)
+node (node_a),
+next_log (std::chrono::steady_clock::now ())
 {
 }
 
@@ -1215,6 +1216,18 @@ void rai::block_processor::process_blocks ()
 	}
 }
 
+bool rai::block_processor::should_log ()
+{
+	auto result (false);
+	auto now (std::chrono::steady_clock::now ());
+	if (next_log < now)
+	{
+		next_log = now + std::chrono::seconds (15);
+		result = true;
+	}
+	return result;
+}
+
 void rai::block_processor::process_receive_many (rai::block_processor_item const & item_a)
 {
 	std::deque<rai::block_processor_item> blocks_processing;
@@ -1232,6 +1245,10 @@ void rai::block_processor::process_receive_many (std::deque<rai::block_processor
 			auto cutoff (std::chrono::steady_clock::now () + rai::transaction_timeout);
 			while (!blocks_processing.empty () && std::chrono::steady_clock::now () < cutoff)
 			{
+				if (blocks_processing.size () > 64 && should_log ())
+				{
+					BOOST_LOG (node.log) << boost::str (boost::format ("%1% blocks in processing queue") % blocks_processing.size ());
+				}
 				auto item (blocks_processing.front ());
 				blocks_processing.pop_front ();
 				auto hash (item.block->hash ());
