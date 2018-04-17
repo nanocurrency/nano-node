@@ -1188,7 +1188,7 @@ void rai::block_processor::flush ()
 void rai::block_processor::add (rai::block_processor_item const & item_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
-	blocks.push_back (item_a);
+	blocks.push_front (item_a);
 	condition.notify_all ();
 }
 
