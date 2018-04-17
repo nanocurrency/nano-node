@@ -3120,8 +3120,7 @@ void rai::active_transactions::announce_votes ()
 		{
 			auto election_l (i->election);
 			node.background ([election_l]() { election_l->broadcast_winner (); });
-			unsigned announcements;
-			if (rai::rai_network == rai::rai_networks::rai_test_network && i->announcements >= contiguous_announcements - 1)
+			if (i->announcements >= contiguous_announcements - 1)
 			{
 				// These blocks have reached the confirmation interval for forks
 				i->election->confirm_cutoff (transaction);
@@ -3135,6 +3134,7 @@ void rai::active_transactions::announce_votes ()
 			}
 			else
 			{
+				unsigned announcements;
 				roots.modify (i, [&announcements](rai::conflict_info & info_a) {
 					announcements = ++info_a.announcements;
 				});
