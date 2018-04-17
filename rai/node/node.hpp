@@ -86,10 +86,10 @@ public:
 	// Start an election for a block
 	// Call action with confirmed block, may be different than what we started with
 	bool start (MDB_txn *, std::shared_ptr<rai::block>, std::function<void(std::shared_ptr<rai::block>, bool)> const & = [](std::shared_ptr<rai::block>, bool) {});
-	// Also supply alternatives to block, to confirm_req reps with
+	// Also supply alternatives to block, to confirm_req reps with if the boolean argument is true
 	// Should only be used for old elections
 	// The first block should be the one in the ledger
-	bool start (MDB_txn *, std::vector<std::shared_ptr<rai::block>> &, std::function<void(std::shared_ptr<rai::block>, bool)> const & = [](std::shared_ptr<rai::block>, bool) {});
+	bool start (MDB_txn *, std::vector<std::shared_ptr<rai::block>> &, bool, std::function<void(std::shared_ptr<rai::block>, bool)> const & = [](std::shared_ptr<rai::block>, bool) {});
 	// If this returns true, the vote is a replay
 	// If this returns false, the vote may or may not be a replay
 	bool vote (std::shared_ptr<rai::vote>);

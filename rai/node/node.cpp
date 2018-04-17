@@ -3200,10 +3200,10 @@ bool rai::active_transactions::start (MDB_txn * transaction_a, std::shared_ptr<r
 {
 	std::vector<std::shared_ptr<rai::block>> blocks;
 	blocks.push_back (block_a);
-	return start (transaction_a, blocks, confirmation_action_a);
+	return start (transaction_a, blocks, false, confirmation_action_a);
 }
 
-bool rai::active_transactions::start (MDB_txn * transaction_a, std::vector<std::shared_ptr<rai::block>> & blocks_a, std::function<void(std::shared_ptr<rai::block>, bool)> const & confirmation_action_a)
+bool rai::active_transactions::start (MDB_txn * transaction_a, std::vector<std::shared_ptr<rai::block>> & blocks_a, bool confirm_req, std::function<void(std::shared_ptr<rai::block>, bool)> const & confirmation_action_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	auto primary_block (blocks_a[0]);
@@ -3213,7 +3213,7 @@ bool rai::active_transactions::start (MDB_txn * transaction_a, std::vector<std::
 	{
 		auto election (std::make_shared<rai::election> (transaction_a, node, primary_block, confirmation_action_a));
 		std::vector<std::shared_ptr<rai::block>> confirm_req_options;
-		if (blocks_a.size () > 1)
+		if (confirm_req)
 		{
 			confirm_req_options = blocks_a;
 		}
