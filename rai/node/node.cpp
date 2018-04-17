@@ -3155,7 +3155,7 @@ void rai::active_transactions::announce_votes ()
 							{
 								if (node.config.logging.vote_logging ())
 								{
-									BOOST_LOG (node.log) << rep_acct.to_account () << " did not respond to confirm_req, retrying";
+									BOOST_LOG (node.log) << "Representative did not respond to confirm_req, retrying: " << rep_acct.to_account ();
 								}
 								node.network.send_confirm_req (rep.endpoint, block);
 							}
