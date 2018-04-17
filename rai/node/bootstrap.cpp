@@ -897,14 +897,14 @@ bool rai::bootstrap_attempt::still_pulling ()
 	auto running (!stopped);
 	auto more_pulls (!pulls.empty ());
 	auto still_pulling (pulling > 0);
-	auto more_forks (!unresolved_forks.empty ());
+	auto more_forks (!forks_in_progress.empty ());
 	return running && (more_pulls || still_pulling || more_forks);
 }
 
 void rai::bootstrap_attempt::run ()
 {
 	populate_connections ();
-	resolve_forks ();
+	report_fork_progress ();
 	std::unique_lock<std::mutex> lock (mutex);
 	auto frontier_failure (true);
 	while (!stopped && frontier_failure)
@@ -982,61 +982,40 @@ bool rai::bootstrap_attempt::consume_future (std::future<bool> & future_a)
 
 void rai::bootstrap_attempt::process_fork (MDB_txn * transaction_a, std::shared_ptr<rai::block> block_a)
 {
-	try_resolve_fork (transaction_a, block_a, true);
-}
-
-void rai::bootstrap_attempt::try_resolve_fork (MDB_txn * transaction_a, std::shared_ptr<rai::block> block_a, bool from_processor)
-{
-	std::weak_ptr<rai::bootstrap_attempt> this_w (shared_from_this ());
-	if (!node->store.block_exists (transaction_a, block_a->hash ()) && (node->store.block_exists (transaction_a, block_a->root ()) || node->store.account_exists (transaction_a, block_a->root ())))
+	std::lock_guard<std::mutex> lock (mutex);
+	auto root (block_a->root ());
+	if (forks_attempted.find (root) == forks_attempted.end ())
 	{
-		std::shared_ptr<rai::block> ledger_block (node->ledger.forked_block (transaction_a, *block_a));
-		if (ledger_block)
+		if (!node->store.block_exists (transaction_a, block_a->hash ()) && (node->store.block_exists (transaction_a, root) || node->store.account_exists (transaction_a, root)))
 		{
-			node->active.start (transaction_a, ledger_block, [this_w, block_a](std::shared_ptr<rai::block>, bool resolved) {
-				if (auto this_l = this_w.lock ())
-				{
-					if (resolved)
+			std::shared_ptr<rai::block> ledger_block (node->ledger.forked_block (transaction_a, *block_a));
+			if (ledger_block)
+			{
+				BOOST_LOG (node->log) << boost::str (boost::format ("Resolving fork between our block: %1% and block %2% both with root %3%") % ledger_block->hash ().to_string () % block_a->hash ().to_string () % block_a->root ().to_string ());
+				forks_in_progress.insert (root);
+				forks_attempted.insert (root);
+				std::weak_ptr<rai::bootstrap_attempt> this_w (shared_from_this ());
+				node->active.start (transaction_a, ledger_block, [this_w, root](std::shared_ptr<rai::block>, bool resolved) {
+					if (auto this_l = this_w.lock ())
 					{
+						if (resolved)
 						{
-							std::unique_lock<std::mutex> lock (this_l->mutex);
-							this_l->unresolved_forks.erase (block_a->hash ());
-							this_l->condition.notify_all ();
+							rai::transaction transaction (this_l->node->store.environment, nullptr, false);
+							auto account (this_l->node->ledger.store.frontier_get (transaction, root));
+							if (!account.is_zero ())
+							{
+								this_l->requeue_pull (rai::pull_info (account, root, root));
+							}
+							else if (this_l->node->ledger.store.account_exists (transaction, root))
+							{
+								this_l->requeue_pull (rai::pull_info (root, rai::block_hash (0), rai::block_hash (0)));
+							}
 						}
-						rai::transaction transaction (this_l->node->store.environment, nullptr, false);
-						auto account (this_l->node->ledger.store.frontier_get (transaction, block_a->root ()));
-						if (!account.is_zero ())
-						{
-							this_l->requeue_pull (rai::pull_info (account, block_a->root (), block_a->root ()));
-						}
-						else if (this_l->node->ledger.store.account_exists (transaction, block_a->root ()))
-						{
-							this_l->requeue_pull (rai::pull_info (block_a->root (), rai::block_hash (0), rai::block_hash (0)));
-						}
+						std::lock_guard<std::mutex> lock (this_l->mutex);
+						this_l->forks_in_progress.erase (root);
+						this_l->condition.notify_all ();
 					}
-				}
-			});
-
-			auto hash = block_a->hash ();
-			bool exists = true;
-			if (from_processor)
-			{
-				// Only add the block to the unresolved fork tracker if it's the first time we've seen it (i.e. this call came from the block processor).
-				std::unique_lock<std::mutex> lock (mutex);
-				exists = unresolved_forks.find (hash) != unresolved_forks.end ();
-				if (!exists)
-				{
-					unresolved_forks[hash] = block_a;
-				}
-			}
-
-			if (!exists)
-			{
-				BOOST_LOG (node->log) << boost::str (boost::format ("While bootstrappping, fork between our block: %1% and block %2% both with root %3%") % ledger_block->hash ().to_string () % hash.to_string () % block_a->root ().to_string ());
-			}
-			if (!exists || !from_processor)
-			{
-				// Only broadcast if it's a new fork, or if the request is coming from the retry loop.
+				});
 				node->network.broadcast_confirm_req (ledger_block);
 				node->network.broadcast_confirm_req (block_a);
 			}
@@ -1044,36 +1023,26 @@ void rai::bootstrap_attempt::try_resolve_fork (MDB_txn * transaction_a, std::sha
 	}
 }
 
-void rai::bootstrap_attempt::resolve_forks ()
+void rai::bootstrap_attempt::report_fork_progress ()
 {
-	std::unordered_map<rai::block_hash, std::shared_ptr<rai::block>> forks_to_resolve;
+	std::unique_lock<std::mutex> lock (mutex);
+	if (forks_in_progress.size () > 0)
 	{
-		std::unique_lock<std::mutex> lock (mutex);
-		forks_to_resolve = unresolved_forks;
-	}
-
-	if (forks_to_resolve.size () > 0)
-	{
-		BOOST_LOG (node->log) << boost::str (boost::format ("%1% unresolved forks while bootstrapping") % forks_to_resolve.size ());
-		rai::transaction transaction (node->store.environment, nullptr, false);
-		for (auto & it : forks_to_resolve)
+		BOOST_LOG (node->log) << boost::str (boost::format ("Forks being resolved (roots):"));
+		for (auto i (forks_in_progress.begin ()), n (forks_in_progress.end ()); i != n; ++i)
 		{
-			try_resolve_fork (transaction, it.second, false);
+			BOOST_LOG (node->log) << boost::str (boost::format ("%1%") % i->to_string ());
 		}
 	}
-
+	if (!stopped)
 	{
-		std::unique_lock<std::mutex> lock (mutex);
-		if (!stopped)
-		{
-			std::weak_ptr<rai::bootstrap_attempt> this_w (shared_from_this ());
-			node->alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (30), [this_w]() {
-				if (auto this_l = this_w.lock ())
-				{
-					this_l->resolve_forks ();
-				}
-			});
-		}
+		std::weak_ptr<rai::bootstrap_attempt> this_w (shared_from_this ());
+		node->alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (30), [this_w]() {
+			if (auto this_l = this_w.lock ())
+			{
+				this_l->report_fork_progress ();
+			}
+		});
 	}
 }
 

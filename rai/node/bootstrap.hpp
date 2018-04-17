@@ -89,9 +89,10 @@ public:
 	void add_pull (rai::pull_info const &);
 	bool still_pulling ();
 	void process_fork (MDB_txn *, std::shared_ptr<rai::block>);
-	void try_resolve_fork (MDB_txn *, std::shared_ptr<rai::block>, bool);
-	void resolve_forks ();
+	void report_fork_progress ();
 	unsigned target_connections (size_t pulls_remaining);
+	std::unordered_set<rai::block_hash> forks_attempted;
+	std::unordered_set<rai::block_hash> forks_in_progress;
 	std::deque<std::weak_ptr<rai::bootstrap_client>> clients;
 	std::weak_ptr<rai::bootstrap_client> connection_frontier_request;
 	std::weak_ptr<rai::frontier_req_client> frontiers;
@@ -103,7 +104,6 @@ public:
 	std::shared_ptr<rai::node> node;
 	std::atomic<unsigned> account_count;
 	std::atomic<uint64_t> total_blocks;
-	std::unordered_map<rai::block_hash, std::shared_ptr<rai::block>> unresolved_forks;
 	bool stopped;
 	std::mutex mutex;
 	std::condition_variable condition;
