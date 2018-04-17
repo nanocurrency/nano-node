@@ -3119,8 +3119,13 @@ void rai::active_transactions::announce_votes ()
 		roots.erase (*i);
 	}
 	auto now (std::chrono::steady_clock::now ());
-	auto node_l (node.shared ());
-	node.alarm.add (now + std::chrono::milliseconds (announce_interval_ms), [node_l]() { node_l->active.announce_votes (); });
+	std::weak_ptr<rai::node> node_w (node.shared ());
+	node.alarm.add (now + std::chrono::milliseconds (announce_interval_ms), [node_w]() {
+		if (auto node_l = node_w.lock ())
+		{
+			node_l->active.announce_votes ();
+		}
+	});
 }
 
 void rai::active_transactions::stop ()
