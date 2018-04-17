@@ -1232,9 +1232,9 @@ public:
 							rai::transaction transaction (this_l->wallet->node.store.environment, nullptr, true);
 							this_l->wallet->node.active.start (transaction, block_l, [this_l, account, hash](std::shared_ptr<rai::block> winner_l, bool confirmed) {
 								// If there were any forks for this account they've been rolled back and we can receive anything remaining from this account
-								if (confirmed && winner_l->hash () == hash)
+								if (confirmed && this_l->wallet->node.ledger.block_exists (winner_l->hash ()))
 								{
-									this_l->receive_all (account, hash);
+									this_l->receive_all (account, winner_l->hash ());
 								}
 								else
 								{
