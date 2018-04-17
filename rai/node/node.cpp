@@ -1189,7 +1189,14 @@ void rai::block_processor::flush ()
 void rai::block_processor::add (rai::block_processor_item const & item_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
-	blocks.push_front (item_a);
+	if (!item_a.force)
+	{
+		blocks.push_front (item_a);
+	}
+	else
+	{
+		forced.push_front (item_a);
+	}
 	condition.notify_all ();
 }
 
@@ -1198,13 +1205,11 @@ void rai::block_processor::process_blocks ()
 	std::unique_lock<std::mutex> lock (mutex);
 	while (!stopped)
 	{
-		if (!blocks.empty ())
+		if (have_blocks ())
 		{
-			std::deque<rai::block_processor_item> blocks_processing;
-			std::swap (blocks, blocks_processing);
 			active = true;
 			lock.unlock ();
-			process_receive_many (blocks_processing);
+			process_receive_many (lock);
 			lock.lock ();
 			active = false;
 		}
@@ -1228,67 +1233,83 @@ bool rai::block_processor::should_log ()
 	return result;
 }
 
-void rai::block_processor::process_receive_many (std::deque<rai::block_processor_item> & blocks_processing)
+bool rai::block_processor::have_blocks ()
 {
-	while (!blocks_processing.empty ())
+	assert (!mutex.try_lock ());
+	return !blocks.empty () || !forced.empty ();
+}
+
+void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & lock_a)
+{
+	std::deque<std::pair<std::shared_ptr<rai::block>, rai::process_return>> progress;
 	{
-		std::deque<std::pair<std::shared_ptr<rai::block>, rai::process_return>> progress;
+		rai::transaction transaction (node.store.environment, nullptr, true);
+		auto cutoff (std::chrono::steady_clock::now () + rai::transaction_timeout);
+		lock_a.lock ();
+		while (have_blocks () && std::chrono::steady_clock::now () < cutoff)
 		{
-			rai::transaction transaction (node.store.environment, nullptr, true);
-			auto cutoff (std::chrono::steady_clock::now () + rai::transaction_timeout);
-			while (!blocks_processing.empty () && std::chrono::steady_clock::now () < cutoff)
+			if (blocks.size () > 64 && should_log ())
 			{
-				if (blocks_processing.size () > 64 && should_log ())
+				BOOST_LOG (node.log) << boost::str (boost::format ("%1% blocks in processing queue") % blocks.size ());
+			}
+			rai::block_processor_item item;
+			if (forced.empty ())
+			{
+				item = blocks.front ();
+				blocks.pop_front ();
+			}
+			else
+			{
+				item = forced.front ();
+				forced.pop_front ();
+			}
+			lock_a.unlock ();
+			auto hash (item.block->hash ());
+			if (item.force)
+			{
+				auto successor (node.ledger.successor (transaction, item.block->root ()));
+				if (successor != nullptr && successor->hash () != hash)
 				{
-					BOOST_LOG (node.log) << boost::str (boost::format ("%1% blocks in processing queue") % blocks_processing.size ());
-				}
-				auto item (blocks_processing.front ());
-				blocks_processing.pop_front ();
-				auto hash (item.block->hash ());
-				if (item.force)
-				{
-					auto successor (node.ledger.successor (transaction, item.block->root ()));
-					if (successor != nullptr && successor->hash () != hash)
-					{
-						// Replace our block with the winner and roll back any dependent blocks
-						BOOST_LOG (node.log) << boost::str (boost::format ("Rolling back %1% and replacing with %2%") % successor->hash ().to_string () % hash.to_string ());
-						node.ledger.rollback (transaction, successor->hash ());
-					}
-				}
-				auto process_result (process_receive_one (transaction, item.block));
-				switch (process_result.code)
-				{
-					case rai::process_result::progress:
-					{
-						progress.push_back (std::make_pair (item.block, process_result));
-					}
-					case rai::process_result::old:
-					{
-						auto cached (node.store.unchecked_get (transaction, hash));
-						for (auto i (cached.begin ()), n (cached.end ()); i != n; ++i)
-						{
-							node.store.unchecked_del (transaction, hash, **i);
-							blocks_processing.push_front (rai::block_processor_item (*i));
-						}
-						std::lock_guard<std::mutex> lock (node.gap_cache.mutex);
-						node.gap_cache.blocks.get<1> ().erase (hash);
-						break;
-					}
-					default:
-						break;
+					// Replace our block with the winner and roll back any dependent blocks
+					BOOST_LOG (node.log) << boost::str (boost::format ("Rolling back %1% and replacing with %2%") % successor->hash ().to_string () % hash.to_string ());
+					node.ledger.rollback (transaction, successor->hash ());
 				}
 			}
-		}
-		for (auto & i : progress)
-		{
-			node.observers.blocks (i.first, i.second);
-			if (i.second.amount > 0)
+			auto process_result (process_receive_one (transaction, item.block));
+			switch (process_result.code)
 			{
-				node.observers.account_balance (i.second.account, false);
-				if (!i.second.pending_account.is_zero ())
+				case rai::process_result::progress:
 				{
-					node.observers.account_balance (i.second.pending_account, true);
+					progress.push_back (std::make_pair (item.block, process_result));
 				}
+				case rai::process_result::old:
+				{
+					auto cached (node.store.unchecked_get (transaction, hash));
+					for (auto i (cached.begin ()), n (cached.end ()); i != n; ++i)
+					{
+						node.store.unchecked_del (transaction, hash, **i);
+						add (rai::block_processor_item (*i));
+					}
+					std::lock_guard<std::mutex> lock (node.gap_cache.mutex);
+					node.gap_cache.blocks.get<1> ().erase (hash);
+					break;
+				}
+				default:
+					break;
+			}
+			lock_a.lock ();
+		}
+	}
+	lock_a.unlock ();
+	for (auto & i : progress)
+	{
+		node.observers.blocks (i.first, i.second);
+		if (i.second.amount > 0)
+		{
+			node.observers.account_balance (i.second.account, false);
+			if (!i.second.pending_account.is_zero ())
+			{
+				node.observers.account_balance (i.second.pending_account, true);
 			}
 		}
 	}

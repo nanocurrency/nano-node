@@ -480,6 +480,7 @@ public:
 class block_processor_item
 {
 public:
+	block_processor_item () = default;
 	block_processor_item (std::shared_ptr<rai::block>);
 	block_processor_item (std::shared_ptr<rai::block>, bool);
 	std::shared_ptr<rai::block> block;
@@ -496,15 +497,17 @@ public:
 	void flush ();
 	void add (rai::block_processor_item const &);
 	bool should_log ();
+	bool have_blocks ();
 	void process_blocks ();
 	rai::process_return process_receive_one (MDB_txn *, std::shared_ptr<rai::block>);
 
 private:
-	void process_receive_many (std::deque<rai::block_processor_item> &);
+	void process_receive_many (std::unique_lock<std::mutex> &);
 	bool stopped;
 	bool active;
 	std::chrono::steady_clock::time_point next_log;
 	std::deque<rai::block_processor_item> blocks;
+	std::deque<rai::block_processor_item> forced;
 	std::condition_variable condition;
 	rai::node & node;
 	std::mutex mutex;
