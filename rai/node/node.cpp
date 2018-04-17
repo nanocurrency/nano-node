@@ -251,7 +251,7 @@ void rai::network::broadcast_confirm_req (std::shared_ptr<rai::block> block_a)
 	{
 		endpoint_buf.push_back (i->endpoint);
 		++i;
-		if (i == j || endpoint_buf.size () >= 2)
+		if (i == j || endpoint_buf.size () >= 10)
 		{
 			std::weak_ptr<rai::node> node_w (node.shared ());
 			node.alarm.add (std::chrono::steady_clock::now () + std::chrono::milliseconds (delay), [node_w, endpoint_buf, block_a]() {
@@ -263,7 +263,7 @@ void rai::network::broadcast_confirm_req (std::shared_ptr<rai::block> block_a)
 					}
 				}
 			});
-			delay += 75;
+			delay += 50;
 			endpoint_buf.clear ();
 		}
 	}
@@ -3145,7 +3145,6 @@ void rai::active_transactions::announce_votes ()
 				}
 				else if (!i->confirm_req_options.empty ())
 				{
-					unsigned int n (0);
 					for (auto rep : node.peers.representatives (10))
 					{
 						auto & rep_votes (i->election->votes.rep_votes);
@@ -3154,16 +3153,11 @@ void rai::active_transactions::announce_votes ()
 						{
 							for (auto & block : i->confirm_req_options)
 							{
-								auto endpoint (rep.endpoint);
-								std::weak_ptr<rai::node> node_w (node.shared ());
-								node.alarm.add (std::chrono::steady_clock::now () + std::chrono::milliseconds (n * 100), [node_w, endpoint, block, rep_acct]() {
-									if (auto node_l = node_w.lock ())
-									{
-										BOOST_LOG (node_l->log) << rep_acct.to_account () << " did not respond to confirm_req, retrying";
-										node_l->network.send_confirm_req (endpoint, block);
-									}
-								});
-								++n;
+								if (node.config.logging.vote_logging ())
+								{
+									BOOST_LOG (node.log) << rep_acct.to_account () << " did not respond to confirm_req, retrying";
+								}
+								node.network.send_confirm_req (rep.endpoint, block);
 							}
 						}
 					}
