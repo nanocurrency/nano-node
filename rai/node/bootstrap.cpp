@@ -239,7 +239,10 @@ void rai::bootstrap_client::run ()
 		this_l->stop_timeout ();
 		if (!ec)
 		{
-			BOOST_LOG (this_l->node->log) << boost::str (boost::format ("Connection established to %1%") % this_l->endpoint);
+			if (this_l->node->config.logging.bulk_pull_logging ())
+			{
+				BOOST_LOG (this_l->node->log) << boost::str (boost::format ("Connection established to %1%") % this_l->endpoint);
+			}
 			this_l->attempt->pool_connection (this_l->shared_from_this ());
 		}
 		else
