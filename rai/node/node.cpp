@@ -1614,19 +1614,29 @@ online_reps (*this)
 		this->online_reps.vote (vote_a);
 	});
 	observers.vote.add ([this](std::shared_ptr<rai::vote> vote_a, rai::endpoint const & endpoint_a) {
-		if (this->rep_crawler.exists (vote_a->block->hash ()))
+		rai::uint128_t rep_weight;
+		rai::uint128_t min_rep_weight;
 		{
-			// We see a valid non-replay vote for a block we requested, this node is probably a representative
-			if (peers.rep_response (endpoint_a, vote_a->account, weight (vote_a->account)))
+			rai::transaction transaction (store.environment, nullptr, false);
+			rep_weight = ledger.weight (transaction, vote_a->account);
+			min_rep_weight = ledger.supply (transaction) / 1000;
+		}
+		if (rep_weight > min_rep_weight)
+		{
+			if (this->rep_crawler.exists (vote_a->block->hash ()))
 			{
-				BOOST_LOG (log) << boost::str (boost::format ("Found a representative at %1%") % endpoint_a);
-				// Rebroadcasting all active votes to new representative
-				auto blocks (active.list_blocks ());
-				for (auto i (blocks.begin ()), n (blocks.end ()); i != n; ++i)
+				// We see a valid non-replay vote for a block we requested, this node is probably a representative
+				if (peers.rep_response (endpoint_a, vote_a->account, rep_weight))
 				{
-					if (*i != nullptr)
+					BOOST_LOG (log) << boost::str (boost::format ("Found a representative at %1%") % endpoint_a);
+					// Rebroadcasting all active votes to new representative
+					auto blocks (active.list_blocks ());
+					for (auto i (blocks.begin ()), n (blocks.end ()); i != n; ++i)
 					{
-						this->network.send_confirm_req (endpoint_a, *i);
+						if (*i != nullptr)
+						{
+							this->network.send_confirm_req (endpoint_a, *i);
+						}
 					}
 				}
 			}
