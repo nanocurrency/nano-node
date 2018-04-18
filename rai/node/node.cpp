@@ -3176,9 +3176,12 @@ void rai::active_transactions::announce_votes ()
 							}
 						}
 					}
-					// broadcast_confirm_req_base modifies reps, so we clone it once to avoid aliasing
-					node.network.broadcast_confirm_req_base (i->confirm_req_options.first, std::make_shared<std::vector<rai::peer_information>> (*reps), 0);
-					node.network.broadcast_confirm_req_base (i->confirm_req_options.second, reps, 0);
+					if (!reps->empty ())
+					{
+						// broadcast_confirm_req_base modifies reps, so we clone it once to avoid aliasing
+						node.network.broadcast_confirm_req_base (i->confirm_req_options.first, std::make_shared<std::vector<rai::peer_information>> (*reps), 0);
+						node.network.broadcast_confirm_req_base (i->confirm_req_options.second, reps, 0);
+					}
 				}
 			}
 		}
