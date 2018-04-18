@@ -3163,9 +3163,18 @@ void rai::active_transactions::announce_votes ()
 						auto rep_acct (j->probable_rep_account);
 						if (rep_votes.find (rep_acct) != rep_votes.end ())
 						{
-							std::swap (*j, reps->back ());
-							reps->pop_back ();
-							m = reps->end ();
+							auto back (--reps->end ());
+							if (j != back)
+							{
+								std::iter_swap (j, back);
+								reps->pop_back ();
+								m = reps->end ();
+							}
+							else
+							{
+								reps->pop_back ();
+								break;
+							}
 						}
 						else
 						{
