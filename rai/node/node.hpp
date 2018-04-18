@@ -75,6 +75,7 @@ public:
 	std::shared_ptr<rai::election> election;
 	// Number of announcements in a row for this fork
 	unsigned announcements;
+	std::pair<std::shared_ptr<rai::block>, std::shared_ptr<rai::block>> confirm_req_options;
 };
 // Core class for determining consensus
 // Holds all active blocks i.e. recently added blocks that need confirmation
@@ -85,6 +86,10 @@ public:
 	// Start an election for a block
 	// Call action with confirmed block, may be different than what we started with
 	bool start (MDB_txn *, std::shared_ptr<rai::block>, std::function<void(std::shared_ptr<rai::block>, bool)> const & = [](std::shared_ptr<rai::block>, bool) {});
+	// Also supply alternatives to block, to confirm_req reps with if the boolean argument is true
+	// Should only be used for old elections
+	// The first block should be the one in the ledger
+	bool start (MDB_txn *, std::pair<std::shared_ptr<rai::block>, std::shared_ptr<rai::block>>, std::function<void(std::shared_ptr<rai::block>, bool)> const & = [](std::shared_ptr<rai::block>, bool) {});
 	// If this returns true, the vote is a replay
 	// If this returns false, the vote may or may not be a replay
 	bool vote (std::shared_ptr<rai::vote>);
@@ -166,6 +171,7 @@ public:
 	std::chrono::steady_clock::time_point last_rep_request;
 	std::chrono::steady_clock::time_point last_rep_response;
 	rai::amount rep_weight;
+	rai::account probable_rep_account;
 	unsigned network_version;
 };
 class peer_attempt
@@ -200,7 +206,7 @@ public:
 	// Purge any peer where last_contact < time_point and return what was left
 	std::vector<rai::peer_information> purge_list (std::chrono::steady_clock::time_point const &);
 	std::vector<rai::endpoint> rep_crawl ();
-	bool rep_response (rai::endpoint const &, rai::amount const &);
+	bool rep_response (rai::endpoint const &, rai::account const &, rai::amount const &);
 	void rep_request (rai::endpoint const &);
 	// Should we reach out to this endpoint with a keepalive message
 	bool reachout (rai::endpoint const &);
@@ -348,6 +354,7 @@ public:
 	void merge_peers (std::array<rai::endpoint, 8> const &);
 	void send_keepalive (rai::endpoint const &);
 	void broadcast_confirm_req (std::shared_ptr<rai::block>);
+	void broadcast_confirm_req_base (std::shared_ptr<rai::block>, std::shared_ptr<std::vector<rai::peer_information>>, unsigned);
 	void send_confirm_req (rai::endpoint const &, std::shared_ptr<rai::block>);
 	void send_buffer (uint8_t const *, size_t, rai::endpoint const &, std::function<void(boost::system::error_code const &, size_t)>);
 	rai::endpoint endpoint ();

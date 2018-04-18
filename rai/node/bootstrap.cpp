@@ -1043,7 +1043,7 @@ void rai::bootstrap_attempt::process_fork (MDB_txn * transaction_a, std::shared_
 				forks_in_progress.insert (root);
 				forks_attempted.insert (root);
 				std::weak_ptr<rai::bootstrap_attempt> this_w (shared_from_this ());
-				node->active.start (transaction_a, ledger_block, [this_w, root](std::shared_ptr<rai::block>, bool resolved) {
+				node->active.start (transaction_a, std::make_pair (ledger_block, block_a), [this_w, root](std::shared_ptr<rai::block>, bool resolved) {
 					if (auto this_l = this_w.lock ())
 					{
 						if (resolved)
