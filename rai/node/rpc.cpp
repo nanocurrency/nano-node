@@ -1790,6 +1790,11 @@ void rai::rpc_handler::account_history ()
 							if (!entry.empty ())
 							{
 								entry.put ("hash", hash.to_string ());
+								if (output_raw)
+								{
+									entry.put ("work", rai::to_string_hex (block->block_work ()));
+									entry.put ("signature", block->block_signature ().to_string ());
+								}
 								history.push_back (std::make_pair ("", entry));
 							}
 							--count;
