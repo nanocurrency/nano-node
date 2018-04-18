@@ -3157,27 +3157,19 @@ void rai::active_transactions::announce_votes ()
 				{
 					auto reps (std::make_shared<std::vector<rai::peer_information>> (node.peers.representatives (std::numeric_limits<size_t>::max ())));
 
-					for (auto j (reps->begin ()), m (reps->end ()); j != m; ++j)
+					for (auto j (reps->begin ()), m (reps->end ()); j != m;)
 					{
 						auto & rep_votes (i->election->votes.rep_votes);
 						auto rep_acct (j->probable_rep_account);
 						if (rep_votes.find (rep_acct) != rep_votes.end ())
 						{
-							auto back (--reps->end ());
-							if (j != back)
-							{
-								std::iter_swap (j, back);
-								reps->pop_back ();
-								m = reps->end ();
-							}
-							else
-							{
-								reps->pop_back ();
-								break;
-							}
+							std::swap (*j, reps->back ());
+							reps->pop_back ();
+							m = reps->end ();
 						}
 						else
 						{
+							++j;
 							if (node.config.logging.vote_logging ())
 							{
 								BOOST_LOG (node.log) << "Representative did not respond to confirm_req, retrying: " << rep_acct.to_account ();
