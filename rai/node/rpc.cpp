@@ -1131,7 +1131,6 @@ void rai::rpc_handler::block_create ()
 		prv.data.clear ();
 		rai::uint256_union previous (0);
 		rai::uint128_union balance (0);
-		rai::uint256_union link (0);
 		if (wallet != 0 && account != 0)
 		{
 			auto existing (node.wallets.items.find (wallet));
@@ -1190,6 +1189,7 @@ void rai::rpc_handler::block_create ()
 				error_response (response, "Bad balance number");
 			}
 		}
+		rai::uint256_union link (0);
 		boost::optional<std::string> link_text (request.get_optional<std::string> ("link"));
 		if (link_text.is_initialized ())
 		{
@@ -1203,20 +1203,48 @@ void rai::rpc_handler::block_create ()
 				}
 			}
 		}
+		else
+		{
+			// Retrieve link from source or destination
+			link = source.is_zero () ? destination : source;
+		}
 		if (prv.data != 0)
 		{
 			rai::uint256_union pub;
 			ed25519_publickey (prv.data.bytes.data (), pub.bytes.data ());
+			// Fetching account balance & previous for send blocks (if aren't given directly)
+			if (!previous_text.is_initialized () && !balance_text.is_initialized ())
+			{
+				rai::transaction transaction (node.store.environment, nullptr, false);
+				previous = node.ledger.latest (transaction, pub);
+				balance = node.ledger.account_balance (transaction, pub);
+			}
+			// Double check current balance if previous block is specified
+			else if (previous_text.is_initialized () && balance_text.is_initialized () && type == "send")
+			{
+				rai::transaction transaction (node.store.environment, nullptr, false);
+				if (node.store.block_exists (transaction, previous) && node.store.block_balance (transaction, previous) != balance.number ())
+				{
+					error_response (response, "Balance mismatch for previous block");
+				}
+			}
+			// Check for incorrect account key
+			if (account_text.is_initialized ())
+			{
+				if (account != pub)
+				{
+					error_response (response, "Incorrect key for given account");
+				}
+			}
 			if (type == "state")
 			{
-				if (!account.is_zero () && previous_text.is_initialized () && !representative.is_zero () && !balance.is_zero () && link_text.is_initialized ())
+				if (previous_text.is_initialized () && !representative.is_zero () && !balance.is_zero () && (!link.is_zero () || link_text.is_initialized ()))
 				{
 					if (work == 0)
 					{
 						work = node.generate_work (previous.is_zero () ? pub : previous);
 					}
-
-					rai::state_block state (account, previous, representative, balance, link, prv, pub, work);
+					rai::state_block state (pub, previous, representative, balance, link, prv, pub, work);
 					boost::property_tree::ptree response_l;
 					response_l.put ("hash", state.hash ().to_string ());
 					std::string contents;
@@ -1226,7 +1254,7 @@ void rai::rpc_handler::block_create ()
 				}
 				else
 				{
-					error_response (response, "Account, previous, representative, balance, and link are required");
+					error_response (response, "Previous, representative, final balance and link (source or destination) are required");
 				}
 			}
 			else if (type == "open")
