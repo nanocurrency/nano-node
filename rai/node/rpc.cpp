@@ -937,6 +937,7 @@ void rai::rpc_handler::blocks_info ()
 {
 	const bool pending = request.get<bool> ("pending", false);
 	const bool source = request.get<bool> ("source", false);
+	const bool balance = request.get<bool> ("balance", false);
 	std::vector<std::string> hashes;
 	boost::property_tree::ptree response_l;
 	boost::property_tree::ptree blocks;
@@ -982,6 +983,11 @@ void rai::rpc_handler::blocks_info ()
 					{
 						entry.put ("source_account", "0");
 					}
+				}
+				if (balance)
+				{
+					auto balance (node.ledger.balance (transaction, hash));
+					entry.put ("balance", balance.convert_to<std::string> ());
 				}
 				blocks.push_back (std::make_pair (hash_text, entry));
 			}

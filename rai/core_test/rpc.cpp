@@ -2842,10 +2842,13 @@ TEST (rpc, blocks_info)
 		ASSERT_FALSE (pending.is_initialized ());
 		boost::optional<std::string> source (blocks.second.get_optional<std::string> ("source_account"));
 		ASSERT_FALSE (source.is_initialized ());
+		boost::optional<std::string> balance (blocks.second.get_optional<std::string> ("balance"));
+		ASSERT_FALSE (balance.is_initialized ());
 	}
 	// Test for optional values
 	request.put ("source", "true");
 	request.put ("pending", "1");
+	request.put ("balance", "true");
 	test_response response2 (request, rpc, system.service);
 	while (response2.status == 0)
 	{
@@ -2858,6 +2861,8 @@ TEST (rpc, blocks_info)
 		ASSERT_EQ ("0", source);
 		std::string pending (blocks.second.get<std::string> ("pending"));
 		ASSERT_EQ ("0", pending);
+		std::string balance_text (blocks.second.get<std::string> ("balance"));
+		ASSERT_EQ (rai::genesis_amount.convert_to<std::string> (), balance_text);
 	}
 }
 
