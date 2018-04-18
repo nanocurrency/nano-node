@@ -3146,14 +3146,14 @@ void rai::active_transactions::announce_votes ()
 				else if (i->confirm_req_options.second != nullptr)
 				{
 					auto reps (std::make_shared<std::vector<rai::peer_information>> (node.peers.representatives (std::numeric_limits<size_t>::max ())));
-					
+
 					for (auto j (reps->begin ()), m (reps->end ()); j != m; ++j)
 					{
 						auto & rep_votes (i->election->votes.rep_votes);
 						auto rep_acct (j->probable_rep_account);
 						if (rep_votes.find (rep_acct) != rep_votes.end ())
 						{
-							std::swap (j, m);
+							std::swap (*j, reps->back ());
 							reps->pop_back ();
 							m = reps->end ();
 						}
