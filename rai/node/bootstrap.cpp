@@ -252,7 +252,7 @@ void rai::bootstrap_client::run ()
 				switch (ec.value ())
 				{
 					default:
-						BOOST_LOG (this_l->node->log) << boost::str (boost::format ("Error initiating bootstrap connection to %2%: %1%") % ec.message () % this_l->endpoint);
+						BOOST_LOG (this_l->node->log) << boost::str (boost::format ("Error initiating bootstrap connection to %1%: %2%") % this_l->endpoint % ec.message ());
 						break;
 					case boost::system::errc::connection_refused:
 					case boost::system::errc::operation_canceled:
@@ -545,7 +545,7 @@ void rai::bulk_pull_client::request ()
 		{
 			if (this_l->connection->node->config.logging.bulk_pull_logging ())
 			{
-				BOOST_LOG (this_l->connection->node->log) << boost::str (boost::format ("Error sending bulk pull request %1% to %2%") % ec.message () % this_l->connection->endpoint);
+				BOOST_LOG (this_l->connection->node->log) << boost::str (boost::format ("Error sending bulk pull request to %1%: to %2%") % ec.message () % this_l->connection->endpoint);
 			}
 		}
 	});
@@ -565,7 +565,7 @@ void rai::bulk_pull_client::receive_block ()
 		{
 			if (this_l->connection->node->config.logging.bulk_pull_logging ())
 			{
-				BOOST_LOG (this_l->connection->node->log) << boost::str (boost::format ("Error receiving block type %1%") % ec.message ());
+				BOOST_LOG (this_l->connection->node->log) << boost::str (boost::format ("Error receiving block type: %1%") % ec.message ());
 			}
 		}
 	});
@@ -723,7 +723,7 @@ void rai::bulk_push_client::start ()
 		{
 			if (this_l->connection->node->config.logging.bulk_pull_logging ())
 			{
-				BOOST_LOG (this_l->connection->node->log) << boost::str (boost::format ("Unable to send bulk_push request %1%") % ec.message ());
+				BOOST_LOG (this_l->connection->node->log) << boost::str (boost::format ("Unable to send bulk_push request: %1%") % ec.message ());
 			}
 		}
 	});
@@ -806,7 +806,7 @@ void rai::bulk_push_client::push_block (rai::block const & block_a)
 		{
 			if (this_l->connection->node->config.logging.bulk_pull_logging ())
 			{
-				BOOST_LOG (this_l->connection->node->log) << boost::str (boost::format ("Error sending block during bulk push %1%") % ec.message ());
+				BOOST_LOG (this_l->connection->node->log) << boost::str (boost::format ("Error sending block during bulk push: %1%") % ec.message ());
 			}
 		}
 	});
@@ -1545,7 +1545,7 @@ void rai::bootstrap_server::receive_header_action (boost::system::error_code con
 	{
 		if (node->config.logging.bulk_pull_logging ())
 		{
-			BOOST_LOG (node->log) << boost::str (boost::format ("Error while receiving type %1%") % ec.message ());
+			BOOST_LOG (node->log) << boost::str (boost::format ("Error while receiving type: %1%") % ec.message ());
 		}
 	}
 }
@@ -1609,7 +1609,7 @@ void rai::bootstrap_server::receive_frontier_req_action (boost::system::error_co
 	{
 		if (node->config.logging.network_logging ())
 		{
-			BOOST_LOG (node->log) << boost::str (boost::format ("Error sending receiving frontier request %1%") % ec.message ());
+			BOOST_LOG (node->log) << boost::str (boost::format ("Error sending receiving frontier request: %1%") % ec.message ());
 		}
 	}
 }
@@ -2051,7 +2051,7 @@ void rai::bulk_push_server::receive ()
 		{
 			if (this_l->connection->node->config.logging.bulk_pull_logging ())
 			{
-				BOOST_LOG (this_l->connection->node->log) << boost::str (boost::format ("Error receiving block type %1%") % ec.message ());
+				BOOST_LOG (this_l->connection->node->log) << boost::str (boost::format ("Error receiving block type: %1%") % ec.message ());
 			}
 		}
 	});
@@ -2212,7 +2212,7 @@ void rai::frontier_req_server::no_block_sent (boost::system::error_code const & 
 	{
 		if (connection->node->config.logging.network_logging ())
 		{
-			BOOST_LOG (connection->node->log) << boost::str (boost::format ("Error sending frontier finish %1%") % ec.message ());
+			BOOST_LOG (connection->node->log) << boost::str (boost::format ("Error sending frontier finish: %1%") % ec.message ());
 		}
 	}
 }
@@ -2227,7 +2227,7 @@ void rai::frontier_req_server::sent_action (boost::system::error_code const & ec
 	{
 		if (connection->node->config.logging.network_logging ())
 		{
-			BOOST_LOG (connection->node->log) << boost::str (boost::format ("Error sending frontier pair %1%") % ec.message ());
+			BOOST_LOG (connection->node->log) << boost::str (boost::format ("Error sending frontier pair: %1%") % ec.message ());
 		}
 	}
 }
