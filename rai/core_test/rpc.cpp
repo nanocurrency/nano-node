@@ -3124,14 +3124,6 @@ TEST (rpc, block_create)
 	rai::change_block change (open.hash (), key.pub, key.prv, key.pub, change_work);
 	request1.put ("type", "change");
 	request1.put ("work", rai::to_string_hex (change_work));
-	test_response response3 (request1, rpc, system.service);
-	while (response3.status == 0)
-	{
-		system.poll ();
-	}
-	ASSERT_EQ (200, response3.status);
-	ASSERT_FALSE (response3.json.get<std::string> ("error").empty ()); // error with missing previous block
-	request1.put ("previous", open.hash ().to_string ());
 	test_response response4 (request1, rpc, system.service);
 	while (response4.status == 0)
 	{
