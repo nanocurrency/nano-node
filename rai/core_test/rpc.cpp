@@ -1005,7 +1005,7 @@ TEST (rpc, process_block_no_work)
 		system.poll ();
 	}
 	ASSERT_EQ (200, response.status);
-	ASSERT_FALSE (response.json.get<std::string> ("error").empty ());
+	ASSERT_FALSE (response.json.get<std::string> ("error", "").empty ());
 }
 
 TEST (rpc, keepalive)
@@ -1134,7 +1134,7 @@ TEST (rpc, payment_end_nonempty)
 		system.poll ();
 	}
 	ASSERT_EQ (200, response1.status);
-	ASSERT_FALSE (response1.json.get<std::string> ("error").empty ());
+	ASSERT_FALSE (response1.json.get<std::string> ("error", "").empty ());
 }
 
 TEST (rpc, payment_zero_balance)
@@ -1234,7 +1234,7 @@ TEST (rpc, payment_begin_locked)
 		system.poll ();
 	}
 	ASSERT_EQ (200, response1.status);
-	ASSERT_FALSE (response1.json.get<std::string> ("error").empty ());
+	ASSERT_FALSE (response1.json.get<std::string> ("error", "").empty ());
 }
 
 TEST (rpc, payment_wait)
@@ -2884,7 +2884,7 @@ TEST (rpc, work_peers_all)
 		system.poll ();
 	}
 	ASSERT_EQ (200, response.status);
-	std::string success (response.json.get<std::string> ("success"));
+	std::string success (response.json.get<std::string> ("success", ""));
 	ASSERT_TRUE (success.empty ());
 	boost::property_tree::ptree request1;
 	request1.put ("action", "work_peers");
@@ -2910,7 +2910,7 @@ TEST (rpc, work_peers_all)
 		system.poll ();
 	}
 	ASSERT_EQ (200, response2.status);
-	success = response2.json.get<std::string> ("success");
+	success = response2.json.get<std::string> ("success", "");
 	ASSERT_TRUE (success.empty ());
 	test_response response3 (request1, rpc, system.service);
 	while (response3.status == 0)
