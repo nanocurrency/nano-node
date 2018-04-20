@@ -896,9 +896,9 @@ TEST (node, DISABLED_fork_bootstrap_flip)
 	rai::keypair key2;
 	auto send2 (std::make_shared<rai::send_block> (latest, key2.pub, rai::genesis_amount - rai::kBAN_ratio, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system0.work.generate (latest)));
 	// Insert but don't rebroadcast, simulating settled blocks
-	node1.block_processor.process_receive_many (rai::block_processor_item (send1));
+	node1.block_processor.add (send1);
 	node1.block_processor.flush ();
-	node2.block_processor.process_receive_many (rai::block_processor_item (send2));
+	node2.block_processor.add (send2);
 	node2.block_processor.flush ();
 	{
 		rai::transaction transaction (node2.store.environment, nullptr, false);
@@ -1417,7 +1417,7 @@ TEST (node, balance_observer)
 	auto & node1 (*system.nodes[0]);
 	std::atomic<int> balances (0);
 	rai::keypair key;
-	node1.observers.account_balance.add ([&node1, &key, &balances](rai::account const & account_a, bool is_pending) {
+	node1.observers.account_balance.add ([&key, &balances](rai::account const & account_a, bool is_pending) {
 		if (key.pub == account_a && is_pending)
 		{
 			balances++;
@@ -1459,4 +1459,19 @@ TEST (node, bootstrap_connection_scaling)
 	node1.config.bootstrap_connections_max = 0;
 	ASSERT_EQ (1, attempt->target_connections (0));
 	ASSERT_EQ (1, attempt->target_connections (50000));
+}
+
+TEST (node, online_reps)
+{
+	rai::system system (24000, 2);
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	ASSERT_TRUE (system.nodes[1]->online_reps.online_stake ().is_zero ());
+	system.wallet (0)->send_action (rai::test_genesis_key.pub, rai::test_genesis_key.pub, rai::Gxrb_ratio);
+	auto iterations (0);
+	while (system.nodes[1]->online_reps.online_stake ().is_zero ())
+	{
+		system.poll ();
+		++iterations;
+		ASSERT_LT (iterations, 200);
+	}
 }

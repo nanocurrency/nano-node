@@ -869,17 +869,10 @@ TEST (wallet, send_race)
 	rai::system system (24000, 1);
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	rai::keypair key2;
-	system.nodes[0]->block_processor.stop ();
+	for (auto i (1); i < 60; ++i)
 	{
 		ASSERT_NE (nullptr, system.wallet (0)->send_action (rai::test_genesis_key.pub, key2.pub, rai::kBAN_ratio));
-		ASSERT_NE (nullptr, system.wallet (0)->send_action (rai::test_genesis_key.pub, key2.pub, rai::kBAN_ratio));
-	}
-	auto iterations (0);
-	while (system.nodes[0]->balance (rai::test_genesis_key.pub) != rai::genesis_amount - rai::kBAN_ratio * 2)
-	{
-		system.poll ();
-		++iterations;
-		ASSERT_LT (iterations, 200);
+		ASSERT_EQ (rai::genesis_amount - rai::kBAN_ratio * i, system.nodes[0]->balance (rai::test_genesis_key.pub));
 	}
 }
 
@@ -953,7 +946,6 @@ TEST (wallet, password_race_corrupt_seed)
 	runner.join ();
 	{
 		rai::transaction transaction (wallet->store.environment, nullptr, true);
-		bool ok = false;
 		if (!wallet->store.attempt_password (transaction, "1234"))
 		{
 			rai::raw_key seed_now;

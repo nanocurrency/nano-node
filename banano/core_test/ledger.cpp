@@ -985,6 +985,7 @@ TEST (ledger, successor)
 	ASSERT_EQ (rai::process_result::progress, system.nodes[0]->ledger.process (transaction, send1).code);
 	ASSERT_EQ (send1, *system.nodes[0]->ledger.successor (transaction, genesis.hash ()));
 	ASSERT_EQ (*genesis.open, *system.nodes[0]->ledger.successor (transaction, genesis.open->root ()));
+	ASSERT_EQ (nullptr, system.nodes[0]->ledger.successor (transaction, 0));
 }
 
 TEST (ledger, fail_change_old)

@@ -54,9 +54,9 @@ TEST (message, publish_serialization)
 	ASSERT_EQ (8, bytes.size ());
 	ASSERT_EQ (0x52, bytes[0]);
 	ASSERT_EQ (0x41, bytes[1]);
-	ASSERT_EQ (0x07, bytes[2]);
-	ASSERT_EQ (0x07, bytes[3]);
-	ASSERT_EQ (0x01, bytes[4]);
+	ASSERT_EQ (rai::protocol_version, bytes[2]);
+	ASSERT_EQ (rai::protocol_version, bytes[3]);
+	ASSERT_EQ (rai::protocol_version_min, bytes[4]);
 	ASSERT_EQ (static_cast<uint8_t> (rai::message_type::publish), bytes[5]);
 	ASSERT_EQ (0x02, bytes[6]);
 	ASSERT_EQ (static_cast<uint8_t> (rai::block_type::send), bytes[7]);
@@ -67,9 +67,9 @@ TEST (message, publish_serialization)
 	rai::message_type type;
 	std::bitset<16> extensions;
 	ASSERT_FALSE (rai::message::read_header (stream, version_max, version_using, version_min, type, extensions));
-	ASSERT_EQ (0x01, version_min);
-	ASSERT_EQ (0x07, version_using);
-	ASSERT_EQ (0x07, version_max);
+	ASSERT_EQ (rai::protocol_version_min, version_min);
+	ASSERT_EQ (rai::protocol_version, version_using);
+	ASSERT_EQ (rai::protocol_version, version_max);
 	ASSERT_EQ (rai::message_type::publish, type);
 }
 

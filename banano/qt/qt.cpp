@@ -116,8 +116,8 @@ void banano_qt::self_pane::refresh_balance ()
 
 banano_qt::accounts::accounts (banano_qt::wallet & wallet_a) :
 window (new QWidget),
-layout (new QVBoxLayout),
 wallet_balance_label (new QLabel),
+layout (new QVBoxLayout),
 model (new QStandardItemModel),
 view (new QTableView),
 use_account (new QPushButton ("Use account")),

@@ -142,6 +142,7 @@ public:
 	void bootstrap ();
 	void bootstrap_any ();
 	void chain ();
+	void confirmation_history ();
 	void delegators ();
 	void delegators_count ();
 	void deterministic_key ();
@@ -173,6 +174,7 @@ public:
 	void receive_minimum ();
 	void receive_minimum_set ();
 	void representatives ();
+	void representatives_online ();
 	void republish ();
 	void search_pending ();
 	void search_pending_all ();
