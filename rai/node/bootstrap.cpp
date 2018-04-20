@@ -13,6 +13,36 @@ constexpr unsigned bootstrap_frontier_retry_limit = 16;
 constexpr double bootstrap_minimum_termination_time_sec = 30.0;
 constexpr unsigned bootstrap_max_new_connections = 10;
 
+rai::socket_timeout::socket_timeout (rai::bootstrap_client & client_a) :
+ticket (0),
+client (client_a)
+{
+}
+
+void rai::socket_timeout::start (std::chrono::steady_clock::time_point timeout_a)
+{
+	auto ticket_l (++ticket);
+	std::weak_ptr<rai::bootstrap_client> client_w (client.shared ());
+	client.node->alarm.add (timeout_a, [client_w, ticket_l] () {
+		if (auto client_l = client_w.lock ())
+		{
+			if (client_l->timeout.ticket == ticket_l)
+			{
+				client_l->socket.close ();
+				if (client_l->node->config.logging.bulk_pull_logging ())
+				{
+					BOOST_LOG (client_l->node->log) << boost::str (boost::format ("Disconnecting from %1% due to timeout") % client_l->socket.remote_endpoint ());
+				}
+			}
+		}
+	});
+}
+
+void rai::socket_timeout::stop ()
+{
+	++ticket;
+}
+
 rai::block_synchronization::block_synchronization (boost::log::sources::logger_mt & log_a) :
 log (log_a)
 {
@@ -170,11 +200,11 @@ rai::bootstrap_client::bootstrap_client (std::shared_ptr<rai::node> node_a, std:
 node (node_a),
 attempt (attempt_a),
 socket (node_a->service),
+timeout (*this),
 endpoint (endpoint_a),
-timeout (node_a->service),
+start_time (std::chrono::steady_clock::now ()),
 block_count (0),
 pending_stop (false),
-start_time (std::chrono::steady_clock::now ()),
 hard_stop (false)
 {
 	++attempt->connections;
@@ -207,28 +237,12 @@ void rai::bootstrap_client::stop (bool force)
 
 void rai::bootstrap_client::start_timeout ()
 {
-	timeout.expires_from_now (boost::posix_time::seconds (5));
-	std::weak_ptr<rai::bootstrap_client> this_w (shared ());
-	timeout.async_wait ([this_w](boost::system::error_code const & ec) {
-		if (ec != boost::asio::error::operation_aborted)
-		{
-			auto this_l (this_w.lock ());
-			if (this_l != nullptr)
-			{
-				this_l->socket.close ();
-				if (this_l->node->config.logging.bulk_pull_logging ())
-				{
-					BOOST_LOG (this_l->node->log) << boost::str (boost::format ("Disconnecting from %1% due to timeout") % this_l->endpoint);
-				}
-			}
-		}
-	});
+	timeout.start (std::chrono::steady_clock::now () + std::chrono::seconds (5));
 }
 
 void rai::bootstrap_client::stop_timeout ()
 {
-	size_t killed (timeout.cancel ());
-	(void)killed;
+	timeout.stop ();
 }
 
 void rai::bootstrap_client::run ()

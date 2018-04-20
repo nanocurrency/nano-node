@@ -15,12 +15,23 @@
 namespace rai
 {
 class bootstrap_attempt;
+class bootstrap_client;
 class node;
 enum class sync_result
 {
 	success,
 	error,
 	fork
+};
+class socket_timeout
+{
+public:
+	socket_timeout (rai::bootstrap_client &);
+	void start (std::chrono::steady_clock::time_point);
+	void stop ();
+private:
+	std::atomic<unsigned> ticket;
+	rai::bootstrap_client & client;
 };
 
 /**
@@ -157,9 +168,9 @@ public:
 	std::shared_ptr<rai::node> node;
 	std::shared_ptr<rai::bootstrap_attempt> attempt;
 	boost::asio::ip::tcp::socket socket;
+	rai::socket_timeout timeout;
 	std::array<uint8_t, 200> receive_buffer;
 	rai::tcp_endpoint endpoint;
-	boost::asio::deadline_timer timeout;
 	std::chrono::steady_clock::time_point start_time;
 	std::atomic<uint64_t> block_count;
 	std::atomic<bool> pending_stop;
