@@ -1352,8 +1352,13 @@ void rai::bootstrap_initiator::add_observer (std::function<void(bool)> const & o
 
 bool rai::bootstrap_initiator::in_progress ()
 {
+	return current_attempt () != nullptr;
+}
+
+std::shared_ptr<rai::bootstrap_attempt> rai::bootstrap_initiator::current_attempt ()
+{
 	std::lock_guard<std::mutex> lock (mutex);
-	return attempt != nullptr;
+	return attempt;
 }
 
 void rai::bootstrap_initiator::stop ()

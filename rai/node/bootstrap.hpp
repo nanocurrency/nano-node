@@ -191,13 +191,14 @@ public:
 	void notify_listeners (bool);
 	void add_observer (std::function<void(bool)> const &);
 	bool in_progress ();
+	std::shared_ptr<rai::bootstrap_attempt> current_attempt ();
 	void process_fork (MDB_txn *, std::shared_ptr<rai::block>);
 	void stop ();
+
+private:
 	rai::node & node;
 	std::shared_ptr<rai::bootstrap_attempt> attempt;
 	bool stopped;
-
-private:
 	std::mutex mutex;
 	std::condition_variable condition;
 	std::vector<std::function<void(bool)>> observers;
