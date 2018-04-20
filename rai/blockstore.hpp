@@ -149,35 +149,95 @@ public:
 	void clear (MDB_dbi);
 
 	rai::mdb_env environment;
-	// block_hash -> account                                        // Maps head blocks to owning account
+
+	/**
+	 * Maps head block to owning account
+	 * rai::block_hash -> rai::account
+	 */
 	MDB_dbi frontiers;
-	// account -> block_hash, representative, balance, timestamp    // Account to head block, representative, balance, last_change
+
+	/**
+	 * Maps account to account information, head, rep, open, balance, timestamp and block count.
+	 * rai::account -> rai::block_hash, rai::block_hash, rai::block_hash, rai::amount, uint64_t, uint64_t
+	 */
 	MDB_dbi accounts;
-	// block_hash -> send_block
+
+	/**
+	 * Maps block hash to send block.
+	 * rai::block_hash -> rai::send_block
+	 */
 	MDB_dbi send_blocks;
-	// block_hash -> receive_block
+
+	/**
+	 * Maps block hash to receive block.
+	 * rai::block_hash -> rai::receive_block
+	 */
 	MDB_dbi receive_blocks;
-	// block_hash -> open_block
+
+	/**
+	 * Maps block hash to open block.
+	 * rai::block_hash -> rai::open_block
+	 */
 	MDB_dbi open_blocks;
-	// block_hash -> change_block
+
+	/**
+	 * Maps block hash to change block.
+	 * rai::block_hash -> rai::change_block
+	 */
 	MDB_dbi change_blocks;
-	// block_hash -> state_block
+
+	/**
+	 * Maps block hash to state block.
+	 * rai::block_hash -> rai::state_block
+	 */
 	MDB_dbi state_blocks;
-	// block_hash -> sender, amount, destination                    // Pending blocks to sender account, amount, destination account
+
+	/**
+	 * Maps (destination account, pending block) to (source account, amount).
+	 * rai::account, rai::block_hash -> rai::account, rai::amount
+	 */
 	MDB_dbi pending;
-	// block_hash -> account, balance                               // Blocks info
+
+	/**
+	 * Maps block hash to account and balance.
+	 * block_hash -> rai::account, rai::amount
+	 */
 	MDB_dbi blocks_info;
-	// account -> weight                                            // Representation
+
+	/**
+	 * Representative weights.
+	 * rai::account -> rai::uint128_t
+	 */
 	MDB_dbi representation;
-	// block_hash -> block                                          // Unchecked bootstrap blocks
+
+	/**
+	 * Unchecked bootstrap blocks.
+	 * rai::block_hash -> rai::block
+	 */
 	MDB_dbi unchecked;
-	// block_hash ->                                                // Blocks that haven't been broadcast
+
+	/**
+	 * Blocks that haven't been broadcast.
+	 * rai::block_hash -> (no value)
+	 */
 	MDB_dbi unsynced;
-	// (uint56_t, uint8_t) -> block_hash                            // Mapping of region to checksum
+
+	/**
+	 * Mapping of region to checksum.
+	 * (uint56_t, uint8_t) -> rai::block_hash
+	 */
 	MDB_dbi checksum;
-	// account -> uint64_t											// Highest vote observed for account
+
+	/**
+	 * Highest vote observed for account.
+	 * rai::account -> uint64_t
+	 */
 	MDB_dbi vote;
-	// uint256_union -> ?											// Meta information about block store
+
+	/**
+	 * Meta information about block store, such as versions.
+	 * rai::uint256_union (arbitrary key) -> blob
+	 */
 	MDB_dbi meta;
 };
 }
