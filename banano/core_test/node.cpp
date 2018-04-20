@@ -1466,7 +1466,7 @@ TEST (node, online_reps)
 	rai::system system (24000, 2);
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	ASSERT_TRUE (system.nodes[1]->online_reps.online_stake ().is_zero ());
-	system.wallet (0)->send_action (rai::test_genesis_key.pub, rai::test_genesis_key.pub, rai::Gxrb_ratio);
+	system.wallet (0)->send_action (rai::test_genesis_key.pub, rai::test_genesis_key.pub, rai::kBAN_ratio);
 	auto iterations (0);
 	while (system.nodes[1]->online_reps.online_stake ().is_zero ())
 	{
