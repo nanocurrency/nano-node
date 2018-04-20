@@ -29,6 +29,7 @@ public:
 	socket_timeout (rai::bootstrap_client &);
 	void start (std::chrono::steady_clock::time_point);
 	void stop ();
+
 private:
 	std::atomic<unsigned> ticket;
 	rai::bootstrap_client & client;

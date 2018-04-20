@@ -23,7 +23,7 @@ void rai::socket_timeout::start (std::chrono::steady_clock::time_point timeout_a
 {
 	auto ticket_l (++ticket);
 	std::weak_ptr<rai::bootstrap_client> client_w (client.shared ());
-	client.node->alarm.add (timeout_a, [client_w, ticket_l] () {
+	client.node->alarm.add (timeout_a, [client_w, ticket_l]() {
 		if (auto client_l = client_w.lock ())
 		{
 			if (client_l->timeout.ticket == ticket_l)
@@ -1044,23 +1044,23 @@ void rai::bootstrap_attempt::process_fork (MDB_txn * transaction_a, std::shared_
 		{
 			std::weak_ptr<rai::bootstrap_attempt> this_w (shared_from_this ());
 			if (!node->active.start (transaction_a, std::make_pair (ledger_block, block_a), [this_w, root](std::shared_ptr<rai::block>, bool resolved) {
-				if (auto this_l = this_w.lock ())
-				{
-					if (resolved)
-					{
-						rai::transaction transaction (this_l->node->store.environment, nullptr, false);
-						auto account (this_l->node->ledger.store.frontier_get (transaction, root));
-						if (!account.is_zero ())
-						{
-							this_l->requeue_pull (rai::pull_info (account, root, root));
-						}
-						else if (this_l->node->ledger.store.account_exists (transaction, root))
-						{
-							this_l->requeue_pull (rai::pull_info (root, rai::block_hash (0), rai::block_hash (0)));
-						}
-					}
-				}
-			}))
+				    if (auto this_l = this_w.lock ())
+				    {
+					    if (resolved)
+					    {
+						    rai::transaction transaction (this_l->node->store.environment, nullptr, false);
+						    auto account (this_l->node->ledger.store.frontier_get (transaction, root));
+						    if (!account.is_zero ())
+						    {
+							    this_l->requeue_pull (rai::pull_info (account, root, root));
+						    }
+						    else if (this_l->node->ledger.store.account_exists (transaction, root))
+						    {
+							    this_l->requeue_pull (rai::pull_info (root, rai::block_hash (0), rai::block_hash (0)));
+						    }
+					    }
+				    }
+			    }))
 			{
 				BOOST_LOG (node->log) << boost::str (boost::format ("Resolving fork between our block: %1% and block %2% both with root %3%") % ledger_block->hash ().to_string () % block_a->hash ().to_string () % block_a->root ().to_string ());
 				node->network.broadcast_confirm_req (ledger_block);
