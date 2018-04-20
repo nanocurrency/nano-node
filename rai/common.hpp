@@ -128,7 +128,7 @@ public:
 };
 
 /**
- * Information on an uncollected send, source account, amount, target account.
+ * Information on an uncollected send
  */
 class pending_info
 {
