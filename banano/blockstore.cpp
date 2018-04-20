@@ -410,7 +410,6 @@ void rai::block_store::upgrade_v4_to_v5 (MDB_txn * transaction_a)
 	version_put (transaction_a, 5);
 	for (auto i (latest_begin (transaction_a)), n (latest_end ()); i != n; ++i)
 	{
-		rai::account account (i->first.uint256 ());
 		rai::account_info_v5 info (i->second);
 		rai::block_hash successor (0);
 		auto block (block_get (transaction_a, info.head));

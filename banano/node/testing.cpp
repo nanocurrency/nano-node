@@ -1,5 +1,6 @@
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
+#include <cstdlib>
 #include <banano/node/common.hpp>
 #include <banano/node/testing.hpp>
 
@@ -49,6 +50,14 @@ rai::system::~system ()
 	for (auto & i : nodes)
 	{
 		i->stop ();
+	}
+
+	// Clean up tmp directories created by the tests. Since it's sometimes useful to
+	// see log files after test failures, an environment variable is supported to
+	// retain the files.
+	if (std::getenv ("TEST_KEEP_TMPDIRS") == nullptr)
+	{
+		rai::remove_temporary_directories ();
 	}
 }
 

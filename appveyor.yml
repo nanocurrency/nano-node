@@ -10,9 +10,7 @@ clone_script:
 - cmd: "git clone -q --branch=%APPVEYOR_REPO_BRANCH% https://github.com/%APPVEYOR_REPO_NAME%.git %APPVEYOR_BUILD_FOLDER% \ncd %APPVEYOR_BUILD_FOLDER%\ngit checkout -q %APPVEYOR_REPO_COMMIT%\ngit submodule update --init --recursive"
 install:
 - cmd: >-
-    SET GIT_COMMIT=%APPVEYOR_REPO_COMMIT:~0,7%
-
-    copy /Y FindBoost.cmake "C:/Program Files (x86)/CMake/share/cmake-3.10/Modules/FindBoost.cmake"
+    SET GIT_COMMIT=%APPVEYOR_REPO_COMMIT:~0,3%
 
     cmake -DBANANO_GUI=ON -DQt5_DIR=C:\Qt\5.9.4\msvc2015_64\lib\cmake\Qt5 -DBANANO_SIMD_OPTIMIZATIONS=TRUE -DBOOST_INCLUDEDIR=C:/Libraries/boost_1_66_0 -DBOOST_LIBRARYDIR=C:/Libraries/boost_1_66_0/lib64-msvc-14.0 -G "Visual Studio 14 2015 Win64" -DIPHLPAPI_LIBRARY="C:/Program Files (x86)/Windows Kits/10/Lib/10.0.14393.0/um/x64/iphlpapi.lib" -DWINSOCK2_LIBRARY="C:/Program Files (x86)/Windows Kits/10/Lib/10.0.14393.0/um/x64/WS2_32.lib" -DGIT_COMMIT=%GIT_COMMIT%
 

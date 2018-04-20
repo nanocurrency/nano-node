@@ -209,7 +209,7 @@ void ledger_processor::state_block_impl (rai::state_block const & block_a)
 						if (result.code == rai::process_result::progress)
 						{
 							is_send = block_a.hashables.balance < info.balance;
-							result.amount = result.amount.number () - info.balance.number ();
+							result.amount = is_send ? (info.balance.number () - result.amount.number ()) : (result.amount.number () - info.balance.number ());
 							result.code = block_a.hashables.previous == info.head ? rai::process_result::progress : rai::process_result::fork; // Is the previous block the account's head block? (Ambigious)
 						}
 					}
@@ -264,7 +264,7 @@ void ledger_processor::state_block_impl (rai::state_block const & block_a)
 					if (is_send)
 					{
 						rai::pending_key key (block_a.hashables.link, hash);
-						rai::pending_info info (block_a.hashables.account, 0 - result.amount.number ());
+						rai::pending_info info (block_a.hashables.account, result.amount.number ());
 						ledger.store.pending_put (transaction, key, info);
 					}
 					else if (!block_a.hashables.link.is_zero ())
@@ -849,25 +849,26 @@ void rai::ledger::change_latest (MDB_txn * transaction_a, rai::account const & a
 	}
 }
 
-std::unique_ptr<rai::block> rai::ledger::successor (MDB_txn * transaction_a, rai::block_hash const & block_a)
+std::unique_ptr<rai::block> rai::ledger::successor (MDB_txn * transaction_a, rai::uint256_union const & root_a)
 {
-	assert (store.account_exists (transaction_a, block_a) || store.block_exists (transaction_a, block_a));
-	assert (store.account_exists (transaction_a, block_a) || latest (transaction_a, account (transaction_a, block_a)) != block_a);
-	rai::block_hash successor;
-	if (store.account_exists (transaction_a, block_a))
+	rai::block_hash successor (0);
+	if (store.account_exists (transaction_a, root_a))
 	{
 		rai::account_info info;
-		auto error (store.account_get (transaction_a, block_a, info));
+		auto error (store.account_get (transaction_a, root_a, info));
 		assert (!error);
 		successor = info.open_block;
 	}
 	else
 	{
-		successor = store.block_successor (transaction_a, block_a);
+		successor = store.block_successor (transaction_a, root_a);
 	}
-	assert (!successor.is_zero ());
-	auto result (store.block_get (transaction_a, successor));
-	assert (result != nullptr);
+	std::unique_ptr<rai::block> result;
+	if (!successor.is_zero ())
+	{
+		result = store.block_get (transaction_a, successor);
+	}
+	assert (successor.is_zero () || result != nullptr);
 	return result;
 }
 

@@ -140,6 +140,20 @@ rai::tally_result rai::votes::vote (std::shared_ptr<rai::vote> vote_a)
 	return result;
 }
 
+bool rai::votes::uncontested ()
+{
+	bool result (true);
+	if (!rep_votes.empty ())
+	{
+		auto block (rep_votes.begin ()->second);
+		for (auto i (rep_votes.begin ()), n (rep_votes.end ()); result && i != n; ++i)
+		{
+			result = *i->second == *block;
+		}
+	}
+	return result;
+}
+
 // Create a new random keypair
 rai::keypair::keypair ()
 {
@@ -421,22 +435,24 @@ void rai::amount_visitor::send_block (rai::send_block const & block_a)
 	balance_visitor prev (transaction, store);
 	prev.compute (block_a.hashables.previous);
 	result = prev.result - block_a.hashables.balance.number ();
+	current = 0;
 }
 
 void rai::amount_visitor::receive_block (rai::receive_block const & block_a)
 {
-	from_send (block_a.hashables.source);
+	current = block_a.hashables.source;
 }
 
 void rai::amount_visitor::open_block (rai::open_block const & block_a)
 {
 	if (block_a.hashables.source != rai::genesis_account)
 	{
-		from_send (block_a.hashables.source);
+		current = block_a.hashables.source;
 	}
 	else
 	{
 		result = rai::genesis_amount;
+		current = 0;
 	}
 }
 
@@ -446,37 +462,38 @@ void rai::amount_visitor::state_block (rai::state_block const & block_a)
 	prev.compute (block_a.hashables.previous);
 	result = block_a.hashables.balance.number ();
 	result = result < prev.result ? prev.result - result : result - prev.result;
+	current = 0;
 }
 
 void rai::amount_visitor::change_block (rai::change_block const & block_a)
 {
 	result = 0;
-}
-
-void rai::amount_visitor::from_send (rai::block_hash const & hash_a)
-{
-	auto source_block (store.block_get (transaction, hash_a));
-	assert (source_block != nullptr);
-	source_block->visit (*this);
+	current = 0;
 }
 
 void rai::amount_visitor::compute (rai::block_hash const & block_hash)
 {
-	auto block (store.block_get (transaction, block_hash));
-	if (block != nullptr)
+	current = block_hash;
+	while (!current.is_zero ())
 	{
-		block->visit (*this);
-	}
-	else
-	{
-		if (block_hash == rai::genesis_account)
+		auto block (store.block_get (transaction, current));
+		if (block != nullptr)
 		{
-			result = std::numeric_limits<rai::uint128_t>::max ();
+			block->visit (*this);
 		}
 		else
 		{
-			assert (false);
-			result = 0;
+			if (block_hash == rai::genesis_account)
+			{
+				result = std::numeric_limits<rai::uint128_t>::max ();
+				current = 0;
+			}
+			else
+			{
+				assert (false);
+				result = 0;
+				current = 0;
+			}
 		}
 	}
 }
@@ -497,8 +514,6 @@ void rai::balance_visitor::send_block (rai::send_block const & block_a)
 
 void rai::balance_visitor::receive_block (rai::receive_block const & block_a)
 {
-	amount_visitor source (transaction, store);
-	source.compute (block_a.hashables.source);
 	rai::block_info block_info;
 	if (!store.block_info_get (transaction, block_a.hash (), block_info))
 	{
@@ -507,6 +522,8 @@ void rai::balance_visitor::receive_block (rai::receive_block const & block_a)
 	}
 	else
 	{
+		amount_visitor source (transaction, store);
+		source.compute (block_a.hashables.source);
 		result += source.result;
 		current = block_a.hashables.previous;
 	}

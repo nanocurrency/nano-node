@@ -36,6 +36,12 @@ namespace program_options
 namespace rai
 {
 class node;
+class election_status
+{
+public:
+	std::shared_ptr<rai::block> winner;
+	rai::amount tally;
+};
 class election : public std::enable_shared_from_this<rai::election>
 {
 	std::function<void(std::shared_ptr<rai::block>, bool)> confirmation_action;
@@ -59,8 +65,8 @@ public:
 	rai::votes votes;
 	rai::node & node;
 	std::unordered_map<rai::account, std::pair<std::chrono::steady_clock::time_point, uint64_t>> last_votes;
-	std::shared_ptr<rai::block> last_winner;
-	std::atomic_flag confirmed;
+	rai::election_status status;
+	std::atomic<bool> confirmed;
 };
 class conflict_info
 {
@@ -69,6 +75,7 @@ public:
 	std::shared_ptr<rai::election> election;
 	// Number of announcements in a row for this fork
 	unsigned announcements;
+	std::pair<std::shared_ptr<rai::block>, std::shared_ptr<rai::block>> confirm_req_options;
 };
 // Core class for determining consensus
 // Holds all active blocks i.e. recently added blocks that need confirmation
@@ -79,6 +86,10 @@ public:
 	// Start an election for a block
 	// Call action with confirmed block, may be different than what we started with
 	bool start (MDB_txn *, std::shared_ptr<rai::block>, std::function<void(std::shared_ptr<rai::block>, bool)> const & = [](std::shared_ptr<rai::block>, bool) {});
+	// Also supply alternatives to block, to confirm_req reps with if the boolean argument is true
+	// Should only be used for old elections
+	// The first block should be the one in the ledger
+	bool start (MDB_txn *, std::pair<std::shared_ptr<rai::block>, std::shared_ptr<rai::block>>, std::function<void(std::shared_ptr<rai::block>, bool)> const & = [](std::shared_ptr<rai::block>, bool) {});
 	// If this returns true, the vote is a replay
 	// If this returns false, the vote may or may not be a replay
 	bool vote (std::shared_ptr<rai::vote>);
@@ -90,8 +101,9 @@ public:
 	boost::multi_index_container<
 	rai::conflict_info,
 	boost::multi_index::indexed_by<
-	boost::multi_index::ordered_unique<boost::multi_index::member<rai::conflict_info, rai::block_hash, &rai::conflict_info::root>>>>
+	boost::multi_index::hashed_unique<boost::multi_index::member<rai::conflict_info, rai::block_hash, &rai::conflict_info::root>>>>
 	roots;
+	std::deque<rai::election_status> confirmed;
 	rai::node & node;
 	std::mutex mutex;
 	// Maximum number of conflicts to vote on per interval, lowest root hash first
@@ -99,6 +111,7 @@ public:
 	// After this many successive vote announcements, block is confirmed
 	static unsigned constexpr contiguous_announcements = 4;
 	static unsigned constexpr announce_interval_ms = (rai::banano_network == rai::banano_networks::banano_test_network) ? 10 : 16000;
+	static size_t constexpr election_history_size = 2048;
 };
 class operation
 {
@@ -158,6 +171,7 @@ public:
 	std::chrono::steady_clock::time_point last_rep_request;
 	std::chrono::steady_clock::time_point last_rep_response;
 	rai::amount rep_weight;
+	rai::account probable_rep_account;
 	unsigned network_version;
 };
 class peer_attempt
@@ -192,7 +206,7 @@ public:
 	// Purge any peer where last_contact < time_point and return what was left
 	std::vector<rai::peer_information> purge_list (std::chrono::steady_clock::time_point const &);
 	std::vector<rai::endpoint> rep_crawl ();
-	bool rep_response (rai::endpoint const &, rai::amount const &);
+	bool rep_response (rai::endpoint const &, rai::account const &, rai::amount const &);
 	void rep_request (rai::endpoint const &);
 	// Should we reach out to this endpoint with a keepalive message
 	bool reachout (rai::endpoint const &);
@@ -297,6 +311,32 @@ public:
 	arrival;
 	std::mutex mutex;
 };
+class rep_last_heard_info
+{
+public:
+	std::chrono::steady_clock::time_point last_heard;
+	rai::account representative;
+};
+class online_reps
+{
+public:
+	online_reps (rai::node &);
+	void vote (std::shared_ptr<rai::vote> const &);
+	void recalculate_stake ();
+	rai::uint128_t online_stake ();
+	std::deque<rai::account> list ();
+	boost::multi_index_container<
+	rai::rep_last_heard_info,
+	boost::multi_index::indexed_by<
+	boost::multi_index::ordered_non_unique<boost::multi_index::member<rai::rep_last_heard_info, std::chrono::steady_clock::time_point, &rai::rep_last_heard_info::last_heard>>,
+	boost::multi_index::hashed_unique<boost::multi_index::member<rai::rep_last_heard_info, rai::account, &rai::rep_last_heard_info::representative>>>>
+	reps;
+
+private:
+	rai::uint128_t online_stake_total;
+	std::mutex mutex;
+	rai::node & node;
+};
 class network
 {
 public:
@@ -314,6 +354,7 @@ public:
 	void merge_peers (std::array<rai::endpoint, 8> const &);
 	void send_keepalive (rai::endpoint const &);
 	void broadcast_confirm_req (std::shared_ptr<rai::block>);
+	void broadcast_confirm_req_base (std::shared_ptr<rai::block>, std::shared_ptr<std::vector<rai::peer_information>>, unsigned);
 	void send_confirm_req (rai::endpoint const &, std::shared_ptr<rai::block>);
 	void send_buffer (uint8_t const *, size_t, rai::endpoint const &, std::function<void(boost::system::error_code const &, size_t)>);
 	rai::endpoint endpoint ();
@@ -443,14 +484,6 @@ public:
 	std::mutex mutex;
 	std::unordered_set<rai::block_hash> active;
 };
-class block_processor_item
-{
-public:
-	block_processor_item (std::shared_ptr<rai::block>);
-	block_processor_item (std::shared_ptr<rai::block>, bool);
-	std::shared_ptr<rai::block> block;
-	bool force;
-};
 // Processing blocks is a potentially long IO operation
 // This class isolates block insertion from other operations like servicing network operations
 class block_processor
@@ -460,19 +493,23 @@ public:
 	~block_processor ();
 	void stop ();
 	void flush ();
-	void add (rai::block_processor_item const &);
-	void process_receive_many (rai::block_processor_item const &);
-	void process_receive_many (std::deque<rai::block_processor_item> &);
-	rai::process_return process_receive_one (MDB_txn *, std::shared_ptr<rai::block>);
+	void add (std::shared_ptr<rai::block>);
+	void force (std::shared_ptr<rai::block>);
+	bool should_log ();
+	bool have_blocks ();
 	void process_blocks ();
+	rai::process_return process_receive_one (MDB_txn *, std::shared_ptr<rai::block>);
 
 private:
+	void process_receive_many (std::unique_lock<std::mutex> &);
 	bool stopped;
-	bool idle;
-	std::deque<rai::block_processor_item> blocks;
-	std::mutex mutex;
+	bool active;
+	std::chrono::steady_clock::time_point next_log;
+	std::deque<std::shared_ptr<rai::block>> blocks;
+	std::deque<std::shared_ptr<rai::block>> forced;
 	std::condition_variable condition;
 	rai::node & node;
+	std::mutex mutex;
 };
 class node : public std::enable_shared_from_this<rai::node>
 {
@@ -536,6 +573,7 @@ public:
 	rai::block_processor block_processor;
 	std::thread block_processor_thread;
 	rai::block_arrival block_arrival;
+	rai::online_reps online_reps;
 	static double constexpr price_max = 16.0;
 	static double constexpr free_cutoff = 1024.0;
 	static std::chrono::seconds constexpr period = std::chrono::seconds (60);
