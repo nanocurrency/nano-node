@@ -3275,7 +3275,7 @@ TEST (rpc, block_create_state_request_work)
 		request.put ("wallet", system.nodes[0]->wallets.items.begin ()->first.to_string ());
 		request.put ("account", rai::test_genesis_key.pub.to_account ());
 		request.put ("representative", rai::test_genesis_key.pub.to_account ());
-		request.put ("balance", (rai::genesis_amount - rai::Gxrb_ratio).convert_to<std::string> ());
+		request.put ("balance", (rai::genesis_amount - rai::kBAN_ratio).convert_to<std::string> ());
 		request.put ("link", key.pub.to_account ());
 		request.put ("previous", previous);
 		rai::rpc rpc (system.service, *system.nodes[0], rai::rpc_config (true));
@@ -3460,7 +3460,7 @@ TEST (rpc, online_reps)
 	rai::system system (24000, 2);
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	ASSERT_TRUE (system.nodes[1]->online_reps.online_stake ().is_zero ());
-	system.wallet (0)->send_action (rai::test_genesis_key.pub, rai::test_genesis_key.pub, rai::Gxrb_ratio);
+	system.wallet (0)->send_action (rai::test_genesis_key.pub, rai::test_genesis_key.pub, rai::kBAN_ratio);
 	auto iterations (0);
 	while (system.nodes[1]->online_reps.online_stake ().is_zero ())
 	{
@@ -3489,7 +3489,7 @@ TEST (rpc, confirmation_history)
 {
 	rai::system system (24000, 1);
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
-	auto block (system.wallet (0)->send_action (rai::test_genesis_key.pub, rai::test_genesis_key.pub, rai::Gxrb_ratio));
+	auto block (system.wallet (0)->send_action (rai::test_genesis_key.pub, rai::test_genesis_key.pub, rai::kBAN_ratio));
 	auto iterations (0);
 	ASSERT_TRUE (system.nodes[0]->active.confirmed.empty ());
 	while (system.nodes[0]->active.confirmed.empty ())
@@ -3514,6 +3514,6 @@ TEST (rpc, confirmation_history)
 	auto hash (item->second.get<std::string> ("hash"));
 	auto tally (item->second.get<std::string> ("tally"));
 	ASSERT_EQ (block->hash ().to_string (), hash);
-	ASSERT_EQ ((rai::genesis_amount - rai::Gxrb_ratio).convert_to<std::string> (), tally);
+	ASSERT_EQ ((rai::genesis_amount - rai::kBAN_ratio).convert_to<std::string> (), tally);
 	system.stop ();
 }
