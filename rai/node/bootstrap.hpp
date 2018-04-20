@@ -92,8 +92,6 @@ public:
 	unsigned target_connections (size_t pulls_remaining);
 	bool should_log ();
 	std::chrono::steady_clock::time_point next_log;
-	std::unordered_set<rai::block_hash> forks_attempted;
-	std::unordered_set<rai::block_hash> forks_in_progress;
 	std::deque<std::weak_ptr<rai::bootstrap_client>> clients;
 	std::weak_ptr<rai::bootstrap_client> connection_frontier_request;
 	std::weak_ptr<rai::frontier_req_client> frontiers;
