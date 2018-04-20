@@ -64,3 +64,4 @@ CTestTestfile.cmake
 install_manifest.txt
 Makefile
 Testing
+runbananobatch.bat

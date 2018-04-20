@@ -1,4 +1,3 @@
-
  <p align="center">
   <img src="https://github.com/BananoCoin/banano/blob/master/logo.png" width="50%" height="50%"/></p>
 
@@ -25,7 +24,7 @@ For more information, see [Banano.co.in](http://banano.co.in/) or read the [Yell
 
 ### Resources
 - [Banano website](http://banano.co.in)
-- [Yellowpaper](http://Banano.co.in/)
+- [Yellowpaper](http://banano.co.in/)
 - [Moonmap](http://banano.co.in/)
 - [Discord chat](https://discord.gg/SBPaSBS)
 - [Reddit](http://reddit.com/r/bananocoin)
@@ -34,10 +33,10 @@ For more information, see [Banano.co.in](http://banano.co.in/) or read the [Yell
 - [BananoVault](https://vault.banano.co.in)
 
 ### Build instructions
-- [Building Banano from source](https://github.com/BananoCoin/banano/wiki/Building-a-Bananode-guide)
+- [Building Banano from source](https://github.com/BananoCoin/banano/wiki/Building-a-Bananode-from-sources)
 
-### Running a node
-- [Running a node](https://github.com/BananoCoin/banano/wiki/Running-a-Bananode)
+### Running a Docker node
+- [Running a Docker node](https://github.com/BananoCoin/banano/wiki/Running-a-Docker-Bananode)
 
 ### Want to contribute?
 Please visit us on the [Discord](https://discord.gg/SBPaSBS).

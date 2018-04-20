@@ -48,7 +48,7 @@ while true; do
 				fi
 			done
 
-			/usr/bin/bananode --vacuum
+			bananode --vacuum
 		fi
 	fi
 
@@ -59,7 +59,7 @@ while true; do
 	fi
 
 	if [ -z "${pid}" ]; then
-		/usr/bin/bananode --daemon &
+		bananode --daemon &
 		pid="$!"
 	fi
 done

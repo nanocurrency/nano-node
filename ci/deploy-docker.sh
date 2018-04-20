@@ -6,7 +6,9 @@ scripts="$(dirname "$0")"
 docker login -u nanocurrency -p "$DOCKER_PASSWORD"
 
 # We push this just so it can be a cache next time
-"$scripts"/custom-timeout.sh 30 docker push BananoCoin/banano-ci
+if [ "$TRAVIS_BRANCH" = "master" ]; then
+    "$scripts"/custom-timeout.sh 30 docker push BananoCoin/banano-ci
+fi
 
 tags=()
 if [ -n "$TRAVIS_TAG" ]; then

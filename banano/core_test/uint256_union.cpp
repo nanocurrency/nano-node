@@ -319,19 +319,19 @@ TEST (uint256_union, decode_account_variations)
 	for (int i = 0; i < 100; i++)
 	{
 		rai::raw_key key;
-		xrb_generate_random (key.data.bytes.data ());
+		ban_generate_random (key.data.bytes.data ());
 		rai::uint256_union pub;
-		xrb_key_account (key.data.bytes.data (), pub.bytes.data ());
+		ban_key_account (key.data.bytes.data (), pub.bytes.data ());
 
 		char account[65] = { 0 };
-		xrb_uint256_to_address (pub.bytes.data (), account);
+		ban_uint256_to_address (pub.bytes.data (), account);
 
-		// Replace first digit after xrb_ with '0'..'9', make sure only one of them is valid
+		// Replace first digit after ban_ with '0'..'9', make sure only one of them is valid
 		int errors = 0;
 		for (int variation = 0; variation < 10; variation++)
 		{
 			account[4] = static_cast<char> (variation + 48);
-			errors += xrb_valid_address (account);
+			errors += ban_valid_address (account);
 		}
 
 		ASSERT_EQ (errors, 9);
