@@ -1731,7 +1731,7 @@ public:
 			{
 				tree.put ("type", "send");
 			}
-			tree.put ("account", block_a.hashables.account.to_account ());
+			tree.put ("account", block_a.hashables.link.to_account ());
 			tree.put ("amount", (previous_balance - balance).convert_to<std::string> ());
 		}
 		else
