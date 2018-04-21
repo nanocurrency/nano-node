@@ -92,8 +92,6 @@ public:
 	unsigned target_connections (size_t pulls_remaining);
 	bool should_log ();
 	std::chrono::steady_clock::time_point next_log;
-	std::unordered_set<rai::block_hash> forks_attempted;
-	std::unordered_set<rai::block_hash> forks_in_progress;
 	std::deque<std::weak_ptr<rai::bootstrap_client>> clients;
 	std::weak_ptr<rai::bootstrap_client> connection_frontier_request;
 	std::weak_ptr<rai::frontier_req_client> frontiers;
@@ -191,13 +189,14 @@ public:
 	void notify_listeners (bool);
 	void add_observer (std::function<void(bool)> const &);
 	bool in_progress ();
+	std::shared_ptr<rai::bootstrap_attempt> current_attempt ();
 	void process_fork (MDB_txn *, std::shared_ptr<rai::block>);
 	void stop ();
+
+private:
 	rai::node & node;
 	std::shared_ptr<rai::bootstrap_attempt> attempt;
 	bool stopped;
-
-private:
 	std::mutex mutex;
 	std::condition_variable condition;
 	std::vector<std::function<void(bool)>> observers;
