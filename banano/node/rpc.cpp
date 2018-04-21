@@ -1238,7 +1238,7 @@ void rai::rpc_handler::block_create ()
 			}
 			if (type == "state")
 			{
-				if (previous_text.is_initialized () && !representative.is_zero () && !balance.is_zero () && (!link.is_zero () || link_text.is_initialized ()))
+				if (previous_text.is_initialized () && !representative.is_zero () && (!link.is_zero () || link_text.is_initialized ()))
 				{
 					if (work == 0)
 					{
@@ -1731,7 +1731,7 @@ public:
 			{
 				tree.put ("type", "send");
 			}
-			tree.put ("account", block_a.hashables.account.to_account ());
+			tree.put ("account", block_a.hashables.link.to_account ());
 			tree.put ("amount", (previous_balance - balance).convert_to<std::string> ());
 		}
 		else

@@ -524,14 +524,6 @@ void rai::bulk_pull_client::request ()
 	{
 		std::unique_lock<std::mutex> lock (connection->attempt->mutex);
 		BOOST_LOG (connection->node->log) << boost::str (boost::format ("%1% accounts in pull queue") % connection->attempt->pulls.size ());
-		if (connection->attempt->forks_in_progress.size () > 0)
-		{
-			BOOST_LOG (connection->node->log) << boost::str (boost::format ("Forks being resolved (roots):"));
-			for (auto i (connection->attempt->forks_in_progress.begin ()), n (connection->attempt->forks_in_progress.end ()); i != n; ++i)
-			{
-				BOOST_LOG (connection->node->log) << boost::str (boost::format ("%1%") % i->to_string ());
-			}
-		}
 	}
 	auto this_l (shared_from_this ());
 	connection->start_timeout ();
@@ -946,8 +938,7 @@ bool rai::bootstrap_attempt::still_pulling ()
 	auto running (!stopped);
 	auto more_pulls (!pulls.empty ());
 	auto still_pulling (pulling > 0);
-	auto more_forks (!forks_in_progress.empty ());
-	return running && (more_pulls || still_pulling || more_forks);
+	return running && (more_pulls || still_pulling);
 }
 
 void rai::bootstrap_attempt::run ()
@@ -1032,38 +1023,32 @@ void rai::bootstrap_attempt::process_fork (MDB_txn * transaction_a, std::shared_
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	auto root (block_a->root ());
-	if (forks_attempted.find (root) == forks_attempted.end ())
+	if (!node->store.block_exists (transaction_a, block_a->hash ()) && (node->store.block_exists (transaction_a, root) || node->store.account_exists (transaction_a, root)))
 	{
-		if (!node->store.block_exists (transaction_a, block_a->hash ()) && (node->store.block_exists (transaction_a, root) || node->store.account_exists (transaction_a, root)))
+		std::shared_ptr<rai::block> ledger_block (node->ledger.forked_block (transaction_a, *block_a));
+		if (ledger_block)
 		{
-			std::shared_ptr<rai::block> ledger_block (node->ledger.forked_block (transaction_a, *block_a));
-			if (ledger_block)
+			std::weak_ptr<rai::bootstrap_attempt> this_w (shared_from_this ());
+			if (!node->active.start (transaction_a, std::make_pair (ledger_block, block_a), [this_w, root](std::shared_ptr<rai::block>, bool resolved) {
+				    if (auto this_l = this_w.lock ())
+				    {
+					    if (resolved)
+					    {
+						    rai::transaction transaction (this_l->node->store.environment, nullptr, false);
+						    auto account (this_l->node->ledger.store.frontier_get (transaction, root));
+						    if (!account.is_zero ())
+						    {
+							    this_l->requeue_pull (rai::pull_info (account, root, root));
+						    }
+						    else if (this_l->node->ledger.store.account_exists (transaction, root))
+						    {
+							    this_l->requeue_pull (rai::pull_info (root, rai::block_hash (0), rai::block_hash (0)));
+						    }
+					    }
+				    }
+			    }))
 			{
 				BOOST_LOG (node->log) << boost::str (boost::format ("Resolving fork between our block: %1% and block %2% both with root %3%") % ledger_block->hash ().to_string () % block_a->hash ().to_string () % block_a->root ().to_string ());
-				forks_in_progress.insert (root);
-				forks_attempted.insert (root);
-				std::weak_ptr<rai::bootstrap_attempt> this_w (shared_from_this ());
-				node->active.start (transaction_a, std::make_pair (ledger_block, block_a), [this_w, root](std::shared_ptr<rai::block>, bool resolved) {
-					if (auto this_l = this_w.lock ())
-					{
-						if (resolved)
-						{
-							rai::transaction transaction (this_l->node->store.environment, nullptr, false);
-							auto account (this_l->node->ledger.store.frontier_get (transaction, root));
-							if (!account.is_zero ())
-							{
-								this_l->requeue_pull (rai::pull_info (account, root, root));
-							}
-							else if (this_l->node->ledger.store.account_exists (transaction, root))
-							{
-								this_l->requeue_pull (rai::pull_info (root, rai::block_hash (0), rai::block_hash (0)));
-							}
-						}
-						std::lock_guard<std::mutex> lock (this_l->mutex);
-						this_l->forks_in_progress.erase (root);
-						this_l->condition.notify_all ();
-					}
-				});
 				node->network.broadcast_confirm_req (ledger_block);
 				node->network.broadcast_confirm_req (block_a);
 			}
@@ -1352,8 +1337,13 @@ void rai::bootstrap_initiator::add_observer (std::function<void(bool)> const & o
 
 bool rai::bootstrap_initiator::in_progress ()
 {
+	return current_attempt () != nullptr;
+}
+
+std::shared_ptr<rai::bootstrap_attempt> rai::bootstrap_initiator::current_attempt ()
+{
 	std::lock_guard<std::mutex> lock (mutex);
-	return attempt != nullptr;
+	return attempt;
 }
 
 void rai::bootstrap_initiator::stop ()

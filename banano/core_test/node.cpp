@@ -1445,7 +1445,7 @@ TEST (node, bootstrap_connection_scaling)
 	rai::system system (24000, 1);
 	auto & node1 (*system.nodes[0]);
 	node1.bootstrap_initiator.bootstrap ();
-	auto & attempt = node1.bootstrap_initiator.attempt;
+	auto attempt (node1.bootstrap_initiator.current_attempt ());
 	ASSERT_EQ (34, attempt->target_connections (25000));
 	ASSERT_EQ (4, attempt->target_connections (0));
 	ASSERT_EQ (64, attempt->target_connections (50000));
