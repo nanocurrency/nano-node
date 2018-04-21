@@ -1753,7 +1753,7 @@ public:
 				{
 					tree.put ("type", "receive");
 				}
-				tree.put ("account", block_a.hashables.account.to_account ());
+				tree.put ("account", handler.node.ledger.account (transaction, block_a.hashables.link).to_account ());
 				tree.put ("amount", (balance - previous_balance).convert_to<std::string> ());
 			}
 		}
