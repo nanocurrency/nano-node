@@ -345,7 +345,6 @@ public:
 	void stop ();
 	void receive_action (boost::system::error_code const &, size_t);
 	void rpc_action (boost::system::error_code const &, size_t);
-	void rebroadcast_reps (std::shared_ptr<rai::block>);
 	void republish_vote (std::shared_ptr<rai::vote>);
 	void republish_block (MDB_txn *, std::shared_ptr<rai::block>);
 	void republish (rai::block_hash const &, std::shared_ptr<std::vector<uint8_t>>, rai::endpoint);
