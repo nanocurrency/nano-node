@@ -139,22 +139,6 @@ void rai::network::republish (rai::block_hash const & hash_a, std::shared_ptr<st
 	});
 }
 
-void rai::network::rebroadcast_reps (std::shared_ptr<rai::block> block_a)
-{
-	auto hash (block_a->hash ());
-	rai::publish message (block_a);
-	std::shared_ptr<std::vector<uint8_t>> bytes (new std::vector<uint8_t>);
-	{
-		rai::vectorstream stream (*bytes);
-		message.serialize (stream);
-	}
-	auto representatives (node.peers.representatives (2 * node.peers.size_sqrt ()));
-	for (auto i : representatives)
-	{
-		republish (hash, bytes, i.endpoint);
-	}
-}
-
 template <typename T>
 bool confirm_block (MDB_txn * transaction_a, rai::node & node_a, T & list_a, std::shared_ptr<rai::block> block_a)
 {
