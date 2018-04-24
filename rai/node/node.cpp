@@ -1619,7 +1619,7 @@ online_reps (*this)
 		{
 			rai::transaction transaction (store.environment, nullptr, false);
 			rep_weight = ledger.weight (transaction, vote_a->account);
-			min_rep_weight = ledger.supply (transaction) / 1000;
+			min_rep_weight = ledger.supply.circulating_get () / 1000;
 		}
 		if (rep_weight > min_rep_weight)
 		{
@@ -1774,7 +1774,7 @@ void rai::gap_cache::vote (std::shared_ptr<rai::vote> vote_a)
 
 rai::uint128_t rai::gap_cache::bootstrap_threshold (MDB_txn * transaction_a)
 {
-	auto result ((node.ledger.supply (transaction_a) / 256) * node.config.bootstrap_fraction_numerator);
+	auto result ((node.ledger.supply.circulating_get () / 256) * node.config.bootstrap_fraction_numerator);
 	return result;
 }
 
@@ -1971,6 +1971,7 @@ void rai::node::start ()
 	ongoing_bootstrap ();
 	ongoing_store_flush ();
 	ongoing_rep_crawl ();
+	ongoing_supply_update ();
 	bootstrap.start ();
 	backup_wallet ();
 	active.announce_votes ();
@@ -2062,6 +2063,18 @@ void rai::node::ongoing_keepalive ()
 		if (auto node_l = node_w.lock ())
 		{
 			node_l->ongoing_keepalive ();
+		}
+	});
+}
+
+void rai::node::ongoing_supply_update ()
+{
+	ledger.supply.circulating_update ();
+	std::weak_ptr<rai::node> node_w (shared_from_this ());
+	alarm.add (std::chrono::steady_clock::now () + std::chrono::minutes (5), [node_w]() {
+		if (auto node_l = node_w.lock ())
+		{
+			node_l->ongoing_supply_update ();
 		}
 	});
 }
@@ -2984,13 +2997,13 @@ void rai::election::broadcast_winner ()
 rai::uint128_t rai::election::quorum_threshold (MDB_txn * transaction_a, rai::ledger & ledger_a)
 {
 	// Threshold over which unanimous voting implies confirmation
-	return ledger_a.supply (transaction_a) / 2;
+	return ledger_a.supply.circulating_get () / 2;
 }
 
 rai::uint128_t rai::election::minimum_threshold (MDB_txn * transaction_a, rai::ledger & ledger_a)
 {
 	// Minimum number of votes needed to change our ledger, under which we're probably disconnected
-	return ledger_a.supply (transaction_a) / 16;
+	return ledger_a.supply.circulating_get () / 16;
 }
 
 void rai::election::confirm_once (MDB_txn * transaction_a)
@@ -3066,7 +3079,7 @@ bool rai::election::vote (std::shared_ptr<rai::vote> vote_a)
 	// see republish_vote documentation for an explanation of these rules
 	rai::transaction transaction (node.store.environment, nullptr, false);
 	auto replay (false);
-	auto supply (node.ledger.supply (transaction));
+	auto supply (node.ledger.supply.circulating_get ());
 	auto weight (node.ledger.weight (transaction, vote_a->account));
 	if (rai::rai_network == rai::rai_networks::rai_test_network || weight > supply / 1000) // 0.1% or above
 	{

@@ -12,7 +12,29 @@ public:
 	size_t operator() (std::shared_ptr<rai::block> const &) const;
 	bool operator() (std::shared_ptr<rai::block> const &, std::shared_ptr<rai::block> const &) const;
 };
+class ledger;
+class supply
+{
+public:
+	supply (rai::ledger & ledger_a, rai::uint128_t const & inactive_supply_a);
+	rai::uint128_t circulating_get (bool force_update = false);
+	void circulating_update ();
+	inline rai::uint128_t inactive_get () const
+	{
+		return inactive_supply;
+	};
+	inline void inactive_set (rai::uint128_t const & inactive_supply_a)
+	{
+		inactive_supply = inactive_supply_a;
+	};
 
+private:
+	void update_cache ();
+	rai::ledger & ledger;
+	rai::uint128_t inactive_supply;
+	rai::uint128_t cached_supply;
+	std::mutex mutex;
+};
 class ledger
 {
 public:
@@ -38,7 +60,6 @@ public:
 	bool is_send (MDB_txn *, rai::state_block const &);
 	rai::block_hash block_destination (MDB_txn *, rai::block const &);
 	rai::block_hash block_source (MDB_txn *, rai::block const &);
-	rai::uint128_t supply (MDB_txn *);
 	rai::process_return process (MDB_txn *, rai::block const &);
 	void rollback (MDB_txn *, rai::block_hash const &);
 	void change_latest (MDB_txn *, rai::account const &, rai::block_hash const &, rai::account const &, rai::uint128_union const &, uint64_t, bool = false);
@@ -49,11 +70,11 @@ public:
 	bool state_block_generation_enabled (MDB_txn *);
 	static rai::uint128_t const unit;
 	rai::block_store & store;
-	rai::uint128_t inactive_supply;
 	std::unordered_map<rai::account, rai::uint128_t> bootstrap_weights;
 	uint64_t bootstrap_weight_max_blocks;
 	std::atomic<bool> check_bootstrap_weights;
 	rai::block_hash state_block_parse_canary;
 	rai::block_hash state_block_generate_canary;
+	rai::supply supply;
 };
 };

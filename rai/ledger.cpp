@@ -495,12 +495,52 @@ bool rai::shared_ptr_block_hash::operator() (std::shared_ptr<rai::block> const &
 	return *lhs == *rhs;
 }
 
+rai::supply::supply (rai::ledger & ledger_a, rai::uint128_t const & inactive_supply_a) :
+ledger (ledger_a),
+inactive_supply (inactive_supply_a)
+{
+	circulating_update ();
+}
+
+rai::uint128_t rai::supply::circulating_get (bool force_update)
+{
+	rai::uint128_t supply;
+	{
+		std::unique_lock<std::mutex> lock (mutex);
+		if (force_update)
+		{
+			update_cache ();
+		}
+		supply = cached_supply;
+	}
+	return supply;
+}
+
+void rai::supply::circulating_update ()
+{
+	std::unique_lock<std::mutex> lock (mutex);
+	update_cache ();
+}
+
+void rai::supply::update_cache ()
+{
+	if (ledger.store.environment)
+	{
+		rai::transaction transaction (ledger.store.environment, nullptr, false);
+		auto unallocated (ledger.account_balance (transaction, rai::genesis_account));
+		auto burned (ledger.account_pending (transaction, 0));
+		auto absolute_supply (rai::genesis_amount - unallocated - burned);
+		auto adjusted_supply (absolute_supply - inactive_supply);
+		cached_supply = adjusted_supply <= absolute_supply ? adjusted_supply : 0;
+	}
+}
+
 rai::ledger::ledger (rai::block_store & store_a, rai::uint128_t const & inactive_supply_a, rai::block_hash const & state_block_parse_canary_a, rai::block_hash const & state_block_generate_canary_a) :
 store (store_a),
-inactive_supply (inactive_supply_a),
 check_bootstrap_weights (true),
 state_block_parse_canary (state_block_parse_canary_a),
-state_block_generate_canary (state_block_generate_canary_a)
+state_block_generate_canary (state_block_generate_canary_a),
+supply (*this, inactive_supply_a)
 {
 }
 
@@ -575,16 +615,6 @@ rai::process_return rai::ledger::process (MDB_txn * transaction_a, rai::block co
 	ledger_processor processor (*this, transaction_a);
 	block_a.visit (processor);
 	return processor.result;
-}
-
-// Money supply for heuristically calculating vote percentages
-rai::uint128_t rai::ledger::supply (MDB_txn * transaction_a)
-{
-	auto unallocated (account_balance (transaction_a, rai::genesis_account));
-	auto burned (account_pending (transaction_a, 0));
-	auto absolute_supply (rai::genesis_amount - unallocated - burned);
-	auto adjusted_supply (absolute_supply - inactive_supply);
-	return adjusted_supply <= absolute_supply ? adjusted_supply : 0;
 }
 
 rai::block_hash rai::ledger::representative (MDB_txn * transaction_a, rai::block_hash const & hash_a)

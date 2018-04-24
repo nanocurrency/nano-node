@@ -38,7 +38,7 @@ TEST (node, inactive_supply)
 	rai::work_pool work (std::numeric_limits<unsigned>::max (), nullptr);
 	config.inactive_supply = 10;
 	auto node (std::make_shared<rai::node> (init, *service, path, alarm, config, work));
-	ASSERT_EQ (10, node->ledger.inactive_supply);
+	ASSERT_EQ (10, node->ledger.supply.inactive_get ());
 	node->stop ();
 }
 
