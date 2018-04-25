@@ -141,8 +141,8 @@ void rai::rpc::start ()
 	}
 
 	acceptor.listen ();
-	node.observers.blocks.add ([this](std::shared_ptr<rai::block> block_a, rai::process_return const & result_a) {
-		observer_action (result_a.account);
+	node.observers.blocks.add ([this](std::shared_ptr<rai::block> block_a, rai::account const & account_a, rai::uint128_t const &, bool) {
+		observer_action (account_a);
 	});
 
 	accept ();
@@ -2584,7 +2584,16 @@ void rai::rpc_handler::process ()
 			{
 				case rai::process_result::progress:
 				{
-					node.observers.blocks (block_a, result);
+					rai::transaction transaction (node.store.environment, nullptr, false);
+					auto account (node.ledger.account (transaction, hash));
+					auto amount (node.ledger.amount (transaction, hash));
+					bool is_state_send (false);
+					if (auto state = dynamic_cast <rai::state_block *> (block_a.get ()))
+					{
+						rai::transaction transaction (node.store.environment, nullptr, false);
+						is_state_send = node.ledger.is_send (transaction, *state);
+					}
+					node.observers.blocks (block_a, account, amount, is_state_send);
 					boost::property_tree::ptree response_l;
 					response_l.put ("hash", hash.to_string ());
 					response (response_l);

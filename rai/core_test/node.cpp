@@ -1012,7 +1012,7 @@ TEST (node, coherent_observer)
 {
 	rai::system system (24000, 1);
 	auto & node1 (*system.nodes[0]);
-	node1.observers.blocks.add ([&node1](std::shared_ptr<rai::block> block_a, rai::process_return const &) {
+	node1.observers.blocks.add ([&node1](std::shared_ptr<rai::block> block_a, rai::account const &, rai::uint128_t const &, bool) {
 		rai::transaction transaction (node1.store.environment, nullptr, false);
 		ASSERT_TRUE (node1.store.block_exists (transaction, block_a->hash ()));
 	});
