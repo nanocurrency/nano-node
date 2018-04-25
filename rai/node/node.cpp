@@ -2391,7 +2391,7 @@ void rai::node::add_initial_peers ()
 {
 }
 
-void rai::node::block_confirm (std::shared_ptr <rai::block> block_a)
+void rai::node::block_confirm (std::shared_ptr<rai::block> block_a)
 {
 	rai::transaction transaction (store.environment, nullptr, false);
 	active.start (transaction, block_a);
@@ -2462,7 +2462,7 @@ public:
 	MDB_txn * transaction;
 	rai::node & node;
 	std::shared_ptr<rai::block> block;
-	rai::block_hash const &hash;
+	rai::block_hash const & hash;
 };
 }
 
@@ -2478,13 +2478,13 @@ void rai::node::process_confirmed (std::shared_ptr<rai::block> block_a)
 		auto amount (ledger.amount (transaction, hash));
 		bool is_state_send (false);
 		rai::account pending_account (0);
-		if (auto state = dynamic_cast <rai::state_block *> (block_a.get ()))
+		if (auto state = dynamic_cast<rai::state_block *> (block_a.get ()))
 		{
 			rai::transaction transaction (store.environment, nullptr, false);
 			is_state_send = ledger.is_send (transaction, *state);
 			pending_account = state->hashables.link;
 		}
-		if (auto send = dynamic_cast <rai::send_block *> (block_a.get ()))
+		if (auto send = dynamic_cast<rai::send_block *> (block_a.get ()))
 		{
 			pending_account = send->hashables.destination;
 		}

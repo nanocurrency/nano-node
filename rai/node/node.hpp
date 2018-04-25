@@ -550,7 +550,7 @@ public:
 	uint64_t generate_work (rai::uint256_union const &);
 	void generate_work (rai::uint256_union const &, std::function<void(uint64_t)>);
 	void add_initial_peers ();
-	void block_confirm (std::shared_ptr <rai::block>);
+	void block_confirm (std::shared_ptr<rai::block>);
 	boost::asio::io_service & service;
 	rai::node_config config;
 	rai::alarm & alarm;

@@ -3515,12 +3515,12 @@ TEST (rpc, block_confirm)
 	rai::system system (24000, 1);
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	rai::genesis genesis;
-	system.nodes [0]->ledger.state_block_parse_canary = genesis.hash ();
+	system.nodes[0]->ledger.state_block_parse_canary = genesis.hash ();
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
-	auto send1 (std::make_shared <rai::state_block> (rai::test_genesis_key.pub, genesis.hash (), rai::test_genesis_key.pub, rai::genesis_amount - rai::Gxrb_ratio, rai::test_genesis_key.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.nodes [0]->generate_work (genesis.hash ())));
+	auto send1 (std::make_shared<rai::state_block> (rai::test_genesis_key.pub, genesis.hash (), rai::test_genesis_key.pub, rai::genesis_amount - rai::Gxrb_ratio, rai::test_genesis_key.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.nodes[0]->generate_work (genesis.hash ())));
 	{
-		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
-		ASSERT_EQ (rai::process_result::progress, system.nodes [0]->ledger.process (transaction, *send1).code);
+		rai::transaction transaction (system.nodes[0]->store.environment, nullptr, true);
+		ASSERT_EQ (rai::process_result::progress, system.nodes[0]->ledger.process (transaction, *send1).code);
 	}
 	rai::rpc rpc (system.service, *system.nodes[0], rai::rpc_config (true));
 	rpc.start ();
@@ -3533,13 +3533,14 @@ TEST (rpc, block_confirm)
 		system.poll ();
 	}
 	ASSERT_EQ (200, response.status);
-	ASSERT_EQ ("1", response.json.get <std::string> ("started"));
+	ASSERT_EQ ("1", response.json.get<std::string> ("started"));
 }
 
 TEST (rpc, block_confirm_absent)
 {
 	rai::system system (24000, 1);
-	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);	rai::rpc rpc (system.service, *system.nodes[0], rai::rpc_config (true));
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	rai::rpc rpc (system.service, *system.nodes[0], rai::rpc_config (true));
 	rpc.start ();
 	boost::property_tree::ptree request;
 	request.put ("action", "block_confirm");
@@ -3550,5 +3551,5 @@ TEST (rpc, block_confirm_absent)
 		system.poll ();
 	}
 	ASSERT_EQ (200, response.status);
-	ASSERT_EQ ("Block not found", response.json.get <std::string> ("error"));
+	ASSERT_EQ ("Block not found", response.json.get<std::string> ("error"));
 }

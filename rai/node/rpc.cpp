@@ -2588,7 +2588,7 @@ void rai::rpc_handler::process ()
 					auto account (node.ledger.account (transaction, hash));
 					auto amount (node.ledger.amount (transaction, hash));
 					bool is_state_send (false);
-					if (auto state = dynamic_cast <rai::state_block *> (block_a.get ()))
+					if (auto state = dynamic_cast<rai::state_block *> (block_a.get ()))
 					{
 						rai::transaction transaction (node.store.environment, nullptr, false);
 						is_state_send = node.ledger.is_send (transaction, *state);
