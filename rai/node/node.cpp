@@ -2394,6 +2394,13 @@ void rai::node::add_initial_peers ()
 {
 }
 
+void rai::node::block_confirm (std::shared_ptr <rai::block> block_a)
+{
+	rai::transaction transaction (store.environment, nullptr, false);
+	active.start (transaction, block_a);
+	network.broadcast_confirm_req (block_a);
+}
+
 namespace
 {
 class confirmed_visitor : public rai::block_visitor
