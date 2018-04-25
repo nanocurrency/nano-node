@@ -133,6 +133,7 @@ public:
 	void accounts_pending ();
 	void available_supply ();
 	void block ();
+	void block_confirm ();
 	void blocks ();
 	void blocks_info ();
 	void block_account ();

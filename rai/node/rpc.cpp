@@ -899,6 +899,32 @@ void rai::rpc_handler::block ()
 	}
 }
 
+void rai::rpc_handler::block_confirm ()
+{
+	std::string hash_text (request.get<std::string> ("hash"));
+	rai::block_hash hash_l;
+	if (!hash_l.decode_hex (hash_text))
+	{
+		rai::transaction transaction (node.store.environment, nullptr, false);
+		auto block_l (node.store.block_get (transaction, hash_l));
+		if (block_l != nullptr)
+		{
+			node.block_confirm (std::move (block_l));
+			boost::property_tree::ptree response_l;
+			response_l.put ("started", "1");
+			response (response_l);
+		}
+		else
+		{
+			error_response (response, "Block not found");
+		}
+	}
+	else
+	{
+		error_response (response, "Invalid block hash");
+	}
+}
+
 void rai::rpc_handler::blocks ()
 {
 	std::vector<std::string> hashes;
@@ -4596,6 +4622,10 @@ void rai::rpc_handler::process_request ()
 		else if (action == "block")
 		{
 			block ();
+		}
+		else if (action == "block_confirm")
+		{
+			block_confirm ();
 		}
 		else if (action == "blocks")
 		{
