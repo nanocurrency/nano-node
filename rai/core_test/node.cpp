@@ -1012,7 +1012,7 @@ TEST (node, coherent_observer)
 {
 	rai::system system (24000, 1);
 	auto & node1 (*system.nodes[0]);
-	node1.observers.blocks.add ([&node1](std::shared_ptr<rai::block> block_a, rai::process_return const &) {
+	node1.observers.blocks.add ([&node1](std::shared_ptr<rai::block> block_a, rai::account const &, rai::uint128_t const &, bool) {
 		rai::transaction transaction (node1.store.environment, nullptr, false);
 		ASSERT_TRUE (node1.store.block_exists (transaction, block_a->hash ()));
 	});
@@ -1469,6 +1469,28 @@ TEST (node, online_reps)
 	system.wallet (0)->send_action (rai::test_genesis_key.pub, rai::test_genesis_key.pub, rai::Gxrb_ratio);
 	auto iterations (0);
 	while (system.nodes[1]->online_reps.online_stake ().is_zero ())
+	{
+		system.poll ();
+		++iterations;
+		ASSERT_LT (iterations, 200);
+	}
+}
+
+TEST (node, block_confirm)
+{
+	rai::system system (24000, 1);
+	rai::genesis genesis;
+	system.nodes [0]->ledger.state_block_parse_canary = genesis.hash ();
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	auto send1 (std::make_shared <rai::state_block> (rai::test_genesis_key.pub, genesis.hash (), rai::test_genesis_key.pub, rai::genesis_amount - rai::Gxrb_ratio, rai::test_genesis_key.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.nodes [0]->generate_work (genesis.hash ())));
+	{
+		rai::transaction transaction (system.nodes [0]->store.environment, nullptr, true);
+		ASSERT_EQ (rai::process_result::progress, system.nodes [0]->ledger.process (transaction, *send1).code);
+	}
+	system.nodes [0]->block_confirm (send1);
+	ASSERT_TRUE (system.nodes [0]->active.confirmed.empty ());
+	auto iterations (0);
+	while (system.nodes [0]->active.confirmed.empty ())
 	{
 		system.poll ();
 		++iterations;

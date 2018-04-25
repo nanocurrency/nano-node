@@ -141,8 +141,8 @@ void rai::rpc::start ()
 	}
 
 	acceptor.listen ();
-	node.observers.blocks.add ([this](std::shared_ptr<rai::block> block_a, rai::process_return const & result_a) {
-		observer_action (result_a.account);
+	node.observers.blocks.add ([this](std::shared_ptr<rai::block> block_a, rai::account const & account_a, rai::uint128_t const &, bool) {
+		observer_action (account_a);
 	});
 
 	accept ();
@@ -896,6 +896,32 @@ void rai::rpc_handler::block ()
 	else
 	{
 		error_response (response, "Bad hash number");
+	}
+}
+
+void rai::rpc_handler::block_confirm ()
+{
+	std::string hash_text (request.get<std::string> ("hash"));
+	rai::block_hash hash_l;
+	if (!hash_l.decode_hex (hash_text))
+	{
+		rai::transaction transaction (node.store.environment, nullptr, false);
+		auto block_l (node.store.block_get (transaction, hash_l));
+		if (block_l != nullptr)
+		{
+			node.block_confirm (std::move (block_l));
+			boost::property_tree::ptree response_l;
+			response_l.put ("started", "1");
+			response (response_l);
+		}
+		else
+		{
+			error_response (response, "Block not found");
+		}
+	}
+	else
+	{
+		error_response (response, "Invalid block hash");
 	}
 }
 
@@ -2558,7 +2584,16 @@ void rai::rpc_handler::process ()
 			{
 				case rai::process_result::progress:
 				{
-					node.observers.blocks (block_a, result);
+					rai::transaction transaction (node.store.environment, nullptr, false);
+					auto account (node.ledger.account (transaction, hash));
+					auto amount (node.ledger.amount (transaction, hash));
+					bool is_state_send (false);
+					if (auto state = dynamic_cast <rai::state_block *> (block_a.get ()))
+					{
+						rai::transaction transaction (node.store.environment, nullptr, false);
+						is_state_send = node.ledger.is_send (transaction, *state);
+					}
+					node.observers.blocks (block_a, account, amount, is_state_send);
 					boost::property_tree::ptree response_l;
 					response_l.put ("hash", hash.to_string ());
 					response (response_l);
@@ -4596,6 +4631,10 @@ void rai::rpc_handler::process_request ()
 		else if (action == "block")
 		{
 			block ();
+		}
+		else if (action == "block_confirm")
+		{
+			block_confirm ();
 		}
 		else if (action == "blocks")
 		{

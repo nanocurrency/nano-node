@@ -458,7 +458,7 @@ public:
 class node_observers
 {
 public:
-	rai::observer_set<std::shared_ptr<rai::block>, rai::process_return const &> blocks;
+	rai::observer_set<std::shared_ptr<rai::block>, rai::account const &, rai::uint128_t const &, bool> blocks;
 	rai::observer_set<bool> wallet;
 	rai::observer_set<std::shared_ptr<rai::vote>, rai::endpoint const &> vote;
 	rai::observer_set<rai::account const &, bool> account_balance;
@@ -550,6 +550,7 @@ public:
 	uint64_t generate_work (rai::uint256_union const &);
 	void generate_work (rai::uint256_union const &, std::function<void(uint64_t)>);
 	void add_initial_peers ();
+	void block_confirm (std::shared_ptr <rai::block>);
 	boost::asio::io_service & service;
 	rai::node_config config;
 	rai::alarm & alarm;
