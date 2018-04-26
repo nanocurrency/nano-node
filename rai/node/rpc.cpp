@@ -1809,6 +1809,8 @@ void rai::rpc_handler::account_history ()
 				boost::property_tree::ptree history;
 				if (!error)
 				{
+					auto account (node.ledger.account (transaction, hash));
+					response_l.put ("account", account.to_account ());
 					auto block (node.store.block_get (transaction, hash));
 					while (block != nullptr && count > 0)
 					{
