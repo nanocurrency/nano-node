@@ -60,8 +60,6 @@ public:
 	void confirm_if_quorum (MDB_txn *);
 	// Confirmation method 2, settling time
 	void confirm_cutoff (MDB_txn *);
-	rai::uint128_t quorum_threshold (MDB_txn *, rai::ledger &);
-	rai::uint128_t minimum_threshold (MDB_txn *, rai::ledger &);
 	rai::votes votes;
 	rai::node & node;
 	std::unordered_map<rai::account, std::pair<std::chrono::steady_clock::time_point, uint64_t>> last_votes;
@@ -438,7 +436,8 @@ public:
 	std::vector<rai::account> preconfigured_representatives;
 	unsigned bootstrap_fraction_numerator;
 	rai::amount receive_minimum;
-	rai::amount inactive_supply;
+	rai::amount online_weight_minimum;
+	unsigned online_weight_quorom;
 	unsigned password_fanout;
 	unsigned io_threads;
 	unsigned work_threads;
@@ -543,7 +542,6 @@ public:
 	void ongoing_rep_crawl ();
 	void ongoing_bootstrap ();
 	void ongoing_store_flush ();
-	void ongoing_supply_update ();
 	void backup_wallet ();
 	int price (rai::uint128_t const &, int);
 	void generate_work (rai::block &);

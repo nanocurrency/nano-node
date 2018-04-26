@@ -27,21 +27,6 @@ TEST (node, block_store_path_failure)
 	node->stop ();
 }
 
-TEST (node, inactive_supply)
-{
-	rai::node_init init;
-	auto service (boost::make_shared<boost::asio::io_service> ());
-	rai::alarm alarm (*service);
-	auto path (rai::unique_path ());
-	rai::node_config config;
-	config.logging.init (path);
-	rai::work_pool work (std::numeric_limits<unsigned>::max (), nullptr);
-	config.inactive_supply = 10;
-	auto node (std::make_shared<rai::node> (init, *service, path, alarm, config, work));
-	ASSERT_EQ (10, node->ledger.supply.inactive_get ());
-	node->stop ();
-}
-
 TEST (node, state_canaries)
 {
 	rai::node_init init;
@@ -199,9 +184,42 @@ TEST (node, quick_confirm)
 	rai::keypair key;
 	rai::block_hash previous (system.nodes[0]->latest (rai::test_genesis_key.pub));
 	system.wallet (0)->insert_adhoc (key.prv);
-	auto send (std::make_shared<rai::send_block> (previous, key.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (previous)));
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	auto send (std::make_shared<rai::send_block> (previous, key.pub, rai::genesis_amount - rai::Gxrb_ratio, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (previous)));
 	system.nodes[0]->process_active (send);
 	auto iterations (0);
+	while (system.nodes[0]->balance (key.pub).is_zero ())
+	{
+		system.poll ();
+		++iterations;
+		ASSERT_LT (iterations, 200);
+	}
+}
+
+TEST (node, node_receive_quorom)
+{
+	rai::system system (24000, 1);
+	rai::keypair key;
+	rai::block_hash previous (system.nodes[0]->latest (rai::test_genesis_key.pub));
+	system.wallet (0)->insert_adhoc (key.prv);
+	auto send (std::make_shared<rai::send_block> (previous, key.pub, rai::genesis_amount - rai::Gxrb_ratio, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (previous)));
+	system.nodes[0]->process_active (send);
+	auto iterations (0);
+	while (!system.nodes[0]->ledger.block_exists (send->hash ()))
+	{
+		system.poll ();
+		++iterations;
+		ASSERT_LT (iterations, 200);
+	}
+	while (!system.nodes[0]->active.roots.empty ())
+	{
+		system.poll ();
+		++iterations;
+		ASSERT_LT (iterations, 200);
+	}
+	ASSERT_TRUE (system.nodes[0]->balance (key.pub).is_zero ());
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	system.nodes [0]->block_confirm (send);
 	while (system.nodes[0]->balance (key.pub).is_zero ())
 	{
 		system.poll ();
@@ -505,7 +523,8 @@ TEST (node_config, serialization)
 	rai::node_config config1 (100, logging1);
 	config1.bootstrap_fraction_numerator = 10;
 	config1.receive_minimum = 10;
-	config1.inactive_supply = 10;
+	config1.online_weight_minimum = 10;
+	config1.online_weight_quorom = 10;
 	config1.password_fanout = 10;
 	config1.enable_voting = false;
 	config1.callback_address = "test";
@@ -523,7 +542,8 @@ TEST (node_config, serialization)
 	ASSERT_NE (config2.bootstrap_fraction_numerator, config1.bootstrap_fraction_numerator);
 	ASSERT_NE (config2.peering_port, config1.peering_port);
 	ASSERT_NE (config2.logging.node_lifetime_tracing_value, config1.logging.node_lifetime_tracing_value);
-	ASSERT_NE (config2.inactive_supply, config1.inactive_supply);
+	ASSERT_NE (config2.online_weight_minimum, config1.online_weight_minimum);
+	ASSERT_NE (config2.online_weight_quorom, config1.online_weight_quorom);
 	ASSERT_NE (config2.password_fanout, config1.password_fanout);
 	ASSERT_NE (config2.enable_voting, config1.enable_voting);
 	ASSERT_NE (config2.callback_address, config1.callback_address);
@@ -539,7 +559,8 @@ TEST (node_config, serialization)
 	ASSERT_EQ (config2.bootstrap_fraction_numerator, config1.bootstrap_fraction_numerator);
 	ASSERT_EQ (config2.peering_port, config1.peering_port);
 	ASSERT_EQ (config2.logging.node_lifetime_tracing_value, config1.logging.node_lifetime_tracing_value);
-	ASSERT_EQ (config2.inactive_supply, config1.inactive_supply);
+	ASSERT_EQ (config2.online_weight_minimum, config1.online_weight_minimum);
+	ASSERT_EQ (config2.online_weight_quorom, config1.online_weight_quorom);
 	ASSERT_EQ (config2.password_fanout, config1.password_fanout);
 	ASSERT_EQ (config2.enable_voting, config1.enable_voting);
 	ASSERT_EQ (config2.callback_address, config1.callback_address);
@@ -650,7 +671,7 @@ TEST (node_config, v2_v3_upgrade)
 	ASSERT_FALSE (tree.get_optional<std::string> ("io_threads"));
 	ASSERT_FALSE (tree.get_optional<std::string> ("work_threads"));
 	config1.deserialize_json (upgraded, tree);
-	ASSERT_EQ (rai::uint128_union (0).to_string_dec (), tree.get<std::string> ("inactive_supply"));
+	//ASSERT_EQ (rai::uint128_union (0).to_string_dec (), tree.get<std::string> ("inactive_supply"));
 	ASSERT_EQ ("1024", tree.get<std::string> ("password_fanout"));
 	ASSERT_NE (0, std::stoul (tree.get<std::string> ("password_fanout")));
 	ASSERT_NE (0, std::stoul (tree.get<std::string> ("password_fanout")));
@@ -1327,7 +1348,7 @@ TEST (node, no_voting)
 	// Broadcast a confirm so others should know this is a rep node
 	wallet0->send_action (rai::test_genesis_key.pub, key1.pub, rai::Mxrb_ratio);
 	auto iterations (0);
-	while (node1.balance (key1.pub).is_zero ())
+	while (!node1.active.roots.empty ())
 	{
 		system.poll ();
 		++iterations;
@@ -1465,10 +1486,10 @@ TEST (node, online_reps)
 {
 	rai::system system (24000, 2);
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
-	ASSERT_TRUE (system.nodes[1]->online_reps.online_stake ().is_zero ());
+	ASSERT_EQ (system.nodes [1]->config.online_weight_minimum.number (), system.nodes[1]->online_reps.online_stake ());
 	system.wallet (0)->send_action (rai::test_genesis_key.pub, rai::test_genesis_key.pub, rai::Gxrb_ratio);
 	auto iterations (0);
-	while (system.nodes[1]->online_reps.online_stake ().is_zero ())
+	while (system.nodes[1]->online_reps.online_stake () == system.nodes [1]->config.online_weight_minimum.number ())
 	{
 		system.poll ();
 		++iterations;
@@ -1496,4 +1517,35 @@ TEST (node, block_confirm)
 		++iterations;
 		ASSERT_LT (iterations, 200);
 	}
+}
+
+TEST (node, confirm_quorom)
+{
+	rai::system system (24000, 1);
+	rai::genesis genesis;
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	system.nodes [0]->ledger.state_block_parse_canary = genesis.hash ();
+	// Put greater than online_weight_minimum in pending so quorom can't be reached
+	auto send1 (std::make_shared<rai::state_block> (rai::test_genesis_key.pub, genesis.hash (), rai::test_genesis_key.pub, rai::Gxrb_ratio, rai::test_genesis_key.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.nodes[0]->generate_work (genesis.hash ())));
+	{
+		rai::transaction transaction (system.nodes[0]->store.environment, nullptr, true);
+		ASSERT_EQ (rai::process_result::progress, system.nodes[0]->ledger.process (transaction, *send1).code);
+	}
+	system.wallet (0)->send_action (rai::test_genesis_key.pub, rai::test_genesis_key.pub, rai::Gxrb_ratio);
+	auto iterations (0);
+	while (system.nodes[0]->active.roots.empty ())
+	{
+		system.poll ();
+		++iterations;
+		ASSERT_LT (iterations, 200);
+	}
+	ASSERT_FALSE (system.nodes[0]->active.roots.empty ());
+	while (!system.nodes[0]->active.roots.empty ())
+	{
+		system.poll ();
+		++iterations;
+		ASSERT_LT (iterations, 200);
+	}
+	ASSERT_TRUE (system.nodes[0]->active.roots.empty ());
+	ASSERT_EQ (0, system.nodes[0]->balance (rai::test_genesis_key.pub));
 }

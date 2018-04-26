@@ -794,7 +794,8 @@ peering_port (peering_port_a),
 logging (logging_a),
 bootstrap_fraction_numerator (1),
 receive_minimum (rai::xrb_ratio),
-inactive_supply (0),
+online_weight_minimum (60 * rai::Gxrb_ratio),
+online_weight_quorom (50),
 password_fanout (1024),
 io_threads (std::max<unsigned> (4, std::thread::hardware_concurrency ())),
 work_threads (std::max<unsigned> (4, std::thread::hardware_concurrency ())),
@@ -838,7 +839,7 @@ state_block_generate_canary (0)
 
 void rai::node_config::serialize_json (boost::property_tree::ptree & tree_a) const
 {
-	tree_a.put ("version", "10");
+	tree_a.put ("version", "11");
 	tree_a.put ("peering_port", std::to_string (peering_port));
 	tree_a.put ("bootstrap_fraction_numerator", std::to_string (bootstrap_fraction_numerator));
 	tree_a.put ("receive_minimum", receive_minimum.to_string_dec ());
@@ -869,7 +870,8 @@ void rai::node_config::serialize_json (boost::property_tree::ptree & tree_a) con
 		preconfigured_representatives_l.push_back (std::make_pair ("", entry));
 	}
 	tree_a.add_child ("preconfigured_representatives", preconfigured_representatives_l);
-	tree_a.put ("inactive_supply", inactive_supply.to_string_dec ());
+	tree_a.put ("online_weight_minimum", online_weight_minimum.to_string_dec ());
+	tree_a.put ("online_weight_quorom", std::to_string (online_weight_quorom));
 	tree_a.put ("password_fanout", std::to_string (password_fanout));
 	tree_a.put ("io_threads", std::to_string (io_threads));
 	tree_a.put ("work_threads", std::to_string (work_threads));
@@ -962,6 +964,13 @@ bool rai::node_config::upgrade_json (unsigned version, boost::property_tree::ptr
 			tree_a.put ("version", "10");
 			result = true;
 		case 10:
+			tree_a.put ("online_weight_minimum", online_weight_minimum.to_string_dec ());
+			tree_a.put ("online_weight_quorom", std::to_string (online_weight_quorom));
+			tree_a.erase ("inactive_supply");
+			tree_a.erase ("version");
+			tree_a.put ("version", "11");
+			result = true;
+		case 11:
 			break;
 		default:
 			throw std::runtime_error ("Unknown node_config version");
@@ -1023,7 +1032,8 @@ bool rai::node_config::deserialize_json (bool & upgraded_a, boost::property_tree
 		{
 			result = true;
 		}
-		auto inactive_supply_l (tree_a.get<std::string> ("inactive_supply"));
+		auto online_weight_minimum_l (tree_a.get<std::string> ("online_weight_minimum"));
+		auto online_weight_quorom_l (tree_a.get<std::string> ("online_weight_quorom"));
 		auto password_fanout_l (tree_a.get<std::string> ("password_fanout"));
 		auto io_threads_l (tree_a.get<std::string> ("io_threads"));
 		auto work_threads_l (tree_a.get<std::string> ("work_threads"));
@@ -1047,10 +1057,12 @@ bool rai::node_config::deserialize_json (bool & upgraded_a, boost::property_tree
 			bootstrap_connections = std::stoul (bootstrap_connections_l);
 			bootstrap_connections_max = std::stoul (bootstrap_connections_max_l);
 			lmdb_max_dbs = std::stoi (lmdb_max_dbs_l);
+			online_weight_quorom = std::stoul (online_weight_quorom_l);
 			result |= peering_port > std::numeric_limits<uint16_t>::max ();
 			result |= logging.deserialize_json (upgraded_a, logging_l);
 			result |= receive_minimum.decode_dec (receive_minimum_l);
-			result |= inactive_supply.decode_dec (inactive_supply_l);
+			result |= online_weight_minimum.decode_dec (online_weight_minimum_l);
+			result |= online_weight_quorom > 100;
 			result |= password_fanout < 16;
 			result |= password_fanout > 1024 * 1024;
 			result |= io_threads == 0;
@@ -1232,7 +1244,6 @@ bool rai::block_processor::have_blocks ()
 
 void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & lock_a)
 {
-	std::deque<std::pair<std::shared_ptr<rai::block>, rai::process_return>> progress;
 	{
 		rai::transaction transaction (node.store.environment, nullptr, true);
 		auto cutoff (std::chrono::steady_clock::now () + rai::transaction_timeout);
@@ -1443,7 +1454,7 @@ alarm (alarm_a),
 work (work_a),
 store (init_a.block_store_init, application_path_a / "data.ldb", config_a.lmdb_max_dbs),
 gap_cache (*this),
-ledger (store, config_a.inactive_supply.number (), config.state_block_parse_canary, config.state_block_generate_canary),
+ledger (store, config.state_block_parse_canary, config.state_block_generate_canary),
 active (*this),
 network (*this, config.peering_port),
 bootstrap_initiator (*this),
@@ -1587,7 +1598,7 @@ online_reps (*this)
 		{
 			rai::transaction transaction (store.environment, nullptr, false);
 			rep_weight = ledger.weight (transaction, vote_a->account);
-			min_rep_weight = ledger.supply.circulating_get () / 1000;
+			min_rep_weight = online_reps.online_stake () / 1000;
 		}
 		if (rep_weight > min_rep_weight)
 		{
@@ -1742,7 +1753,7 @@ void rai::gap_cache::vote (std::shared_ptr<rai::vote> vote_a)
 
 rai::uint128_t rai::gap_cache::bootstrap_threshold (MDB_txn * transaction_a)
 {
-	auto result ((node.ledger.supply.circulating_get () / 256) * node.config.bootstrap_fraction_numerator);
+	auto result ((node.online_reps.online_stake () / 256) * node.config.bootstrap_fraction_numerator);
 	return result;
 }
 
@@ -1939,7 +1950,6 @@ void rai::node::start ()
 	ongoing_bootstrap ();
 	ongoing_store_flush ();
 	ongoing_rep_crawl ();
-	ongoing_supply_update ();
 	bootstrap.start ();
 	backup_wallet ();
 	active.announce_votes ();
@@ -2031,18 +2041,6 @@ void rai::node::ongoing_keepalive ()
 		if (auto node_l = node_w.lock ())
 		{
 			node_l->ongoing_keepalive ();
-		}
-	});
-}
-
-void rai::node::ongoing_supply_update ()
-{
-	ledger.supply.circulating_update ();
-	std::weak_ptr<rai::node> node_w (shared_from_this ());
-	alarm.add (std::chrono::steady_clock::now () + std::chrono::minutes (5), [node_w]() {
-		if (auto node_l = node_w.lock ())
-		{
-			node_l->ongoing_supply_update ();
 		}
 	});
 }
@@ -2599,7 +2597,7 @@ void rai::online_reps::recalculate_stake ()
 rai::uint128_t rai::online_reps::online_stake ()
 {
 	std::lock_guard<std::mutex> lock (mutex);
-	return online_stake_total;
+	return std::max (online_stake_total, node.config.online_weight_minimum.number ());
 }
 
 std::deque<rai::account> rai::online_reps::list ()
@@ -2998,18 +2996,6 @@ void rai::election::broadcast_winner ()
 	node.network.republish_block (transaction, status.winner);
 }
 
-rai::uint128_t rai::election::quorum_threshold (MDB_txn * transaction_a, rai::ledger & ledger_a)
-{
-	// Threshold over which unanimous voting implies confirmation
-	return ledger_a.supply.circulating_get () / 2;
-}
-
-rai::uint128_t rai::election::minimum_threshold (MDB_txn * transaction_a, rai::ledger & ledger_a)
-{
-	// Minimum number of votes needed to change our ledger, under which we're probably disconnected
-	return ledger_a.supply.circulating_get () / 16;
-}
-
 void rai::election::confirm_once (MDB_txn * transaction_a)
 {
 	if (!confirmed.exchange (true))
@@ -3018,7 +3004,13 @@ void rai::election::confirm_once (MDB_txn * transaction_a)
 		assert (tally_l.size () > 0);
 		auto winner (tally_l.begin ());
 		auto block_l (winner->second);
-		auto exceeded_min_threshold = winner->first > minimum_threshold (transaction_a, node.ledger);
+		rai::uint128_t total (0);
+		for (auto & i : tally_l)
+		{
+			total += i.first;
+		}
+		auto quorom_minimum ((total / 100) * node.config.online_weight_quorom);
+		auto exceeded_min_threshold = total > node.config.online_weight_minimum.number () && winner->first > quorom_minimum;
 		if (node.config.logging.vote_logging () || !votes.uncontested ())
 		{
 			BOOST_LOG (node.log) << boost::str (boost::format ("Vote tally for root %1%") % status.winner->root ().to_string ());
@@ -3048,8 +3040,11 @@ void rai::election::confirm_once (MDB_txn * transaction_a)
 		auto winner_l (status.winner);
 		auto node_l (node.shared ());
 		auto confirmation_action_l (confirmation_action);
-		node.background ([winner_l, confirmation_action_l, node_l, exceeded_min_threshold]() {
-			node_l->process_confirmed (winner_l);
+		node.background ([node_l, winner_l, confirmation_action_l, exceeded_min_threshold]() {
+			if (exceeded_min_threshold)
+			{
+				node_l->process_confirmed (winner_l);
+			}
 			confirmation_action_l (winner_l, exceeded_min_threshold);
 		});
 	}
@@ -3059,7 +3054,12 @@ bool rai::election::have_quorum (MDB_txn * transaction_a)
 {
 	auto tally_l (node.ledger.tally (transaction_a, votes));
 	assert (tally_l.size () > 0);
-	auto result (tally_l.begin ()->first > quorum_threshold (transaction_a, node.ledger));
+	auto i (tally_l.begin ());
+	auto first (i->first);
+	++i;
+	auto second (i != tally_l.end () ? i->first : 0);
+	auto delta ((node.online_reps.online_stake () / 100) * node.config.online_weight_quorom);
+	auto result (tally_l.begin ()->first > (second + delta));
 	return result;
 }
 
@@ -3083,7 +3083,7 @@ bool rai::election::vote (std::shared_ptr<rai::vote> vote_a)
 	// see republish_vote documentation for an explanation of these rules
 	rai::transaction transaction (node.store.environment, nullptr, false);
 	auto replay (false);
-	auto supply (node.ledger.supply.circulating_get ());
+	auto supply (node.online_reps.online_stake ());
 	auto weight (node.ledger.weight (transaction, vote_a->account));
 	if (rai::rai_network == rai::rai_networks::rai_test_network || weight > supply / 1000) // 0.1% or above
 	{
