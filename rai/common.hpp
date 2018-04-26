@@ -23,6 +23,9 @@ struct hash<rai::uint256_union>
 }
 namespace rai
 {
+const uint8_t protocol_version = 0x09;
+const uint8_t protocol_version_min = 0x07;
+
 class block_store;
 /**
  * Determine the balance as of this block
@@ -125,7 +128,7 @@ public:
 };
 
 /**
- * Information on an uncollected send, source account, amount, target account.
+ * Information on an uncollected send
  */
 class pending_info
 {
@@ -249,6 +252,7 @@ class votes
 public:
 	votes (std::shared_ptr<rai::block>);
 	rai::tally_result vote (std::shared_ptr<rai::vote>);
+	bool uncontested ();
 	// Root block of fork
 	rai::block_hash id;
 	// All votes received by account

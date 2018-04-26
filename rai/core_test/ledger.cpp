@@ -985,6 +985,7 @@ TEST (ledger, successor)
 	ASSERT_EQ (rai::process_result::progress, system.nodes[0]->ledger.process (transaction, send1).code);
 	ASSERT_EQ (send1, *system.nodes[0]->ledger.successor (transaction, genesis.hash ()));
 	ASSERT_EQ (*genesis.open, *system.nodes[0]->ledger.successor (transaction, genesis.open->root ()));
+	ASSERT_EQ (nullptr, system.nodes[0]->ledger.successor (transaction, 0));
 }
 
 TEST (ledger, fail_change_old)
@@ -1444,30 +1445,6 @@ TEST (ledger, latest_root)
 	rai::send_block send (hash1, 0, 1, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
 	ASSERT_EQ (rai::process_result::progress, ledger.process (transaction, send).code);
 	ASSERT_EQ (send.hash (), ledger.latest_root (transaction, rai::test_genesis_key.pub));
-}
-
-TEST (ledger, inactive_supply)
-{
-	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
-	ASSERT_TRUE (!init);
-	rai::ledger ledger (store, 40);
-	{
-		rai::transaction transaction (store.environment, nullptr, true);
-		rai::genesis genesis;
-		genesis.initialize (transaction, store);
-		rai::keypair key2;
-		rai::account_info info1;
-		ASSERT_FALSE (store.account_get (transaction, rai::test_genesis_key.pub, info1));
-		rai::send_block send (info1.head, key2.pub, std::numeric_limits<rai::uint128_t>::max () - 50, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
-		ledger.process (transaction, send);
-	}
-	rai::transaction transaction (store.environment, nullptr, false);
-	ASSERT_EQ (10, ledger.supply (transaction));
-	ledger.inactive_supply = 60;
-	ASSERT_EQ (0, ledger.supply (transaction));
-	ledger.inactive_supply = 0;
-	ASSERT_EQ (50, ledger.supply (transaction));
 }
 
 TEST (ledger, change_representative_move_representation)
@@ -2251,7 +2228,7 @@ TEST (ledger, state_canary_blocks)
 	rai::genesis genesis;
 	rai::send_block parse_canary (genesis.hash (), rai::test_genesis_key.pub, rai::genesis_amount, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
 	rai::send_block generate_canary (parse_canary.hash (), rai::test_genesis_key.pub, rai::genesis_amount, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
-	rai::ledger ledger (store, 0, parse_canary.hash (), generate_canary.hash ());
+	rai::ledger ledger (store, parse_canary.hash (), generate_canary.hash ());
 	rai::transaction transaction (store.environment, nullptr, true);
 	genesis.initialize (transaction, store);
 	rai::state_block state (rai::test_genesis_key.pub, genesis.hash (), rai::test_genesis_key.pub, rai::genesis_amount - rai::Gxrb_ratio, rai::test_genesis_key.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);

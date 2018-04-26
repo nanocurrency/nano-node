@@ -141,8 +141,8 @@ void rai::rpc::start ()
 	}
 
 	acceptor.listen ();
-	node.observers.blocks.add ([this](std::shared_ptr<rai::block> block_a, rai::process_return const & result_a) {
-		observer_action (result_a.account);
+	node.observers.blocks.add ([this](std::shared_ptr<rai::block> block_a, rai::account const & account_a, rai::uint128_t const &, bool) {
+		observer_action (account_a);
 	});
 
 	accept ();
@@ -899,6 +899,32 @@ void rai::rpc_handler::block ()
 	}
 }
 
+void rai::rpc_handler::block_confirm ()
+{
+	std::string hash_text (request.get<std::string> ("hash"));
+	rai::block_hash hash_l;
+	if (!hash_l.decode_hex (hash_text))
+	{
+		rai::transaction transaction (node.store.environment, nullptr, false);
+		auto block_l (node.store.block_get (transaction, hash_l));
+		if (block_l != nullptr)
+		{
+			node.block_confirm (std::move (block_l));
+			boost::property_tree::ptree response_l;
+			response_l.put ("started", "1");
+			response (response_l);
+		}
+		else
+		{
+			error_response (response, "Block not found");
+		}
+	}
+	else
+	{
+		error_response (response, "Invalid block hash");
+	}
+}
+
 void rai::rpc_handler::blocks ()
 {
 	std::vector<std::string> hashes;
@@ -937,6 +963,7 @@ void rai::rpc_handler::blocks_info ()
 {
 	const bool pending = request.get<bool> ("pending", false);
 	const bool source = request.get<bool> ("source", false);
+	const bool balance = request.get<bool> ("balance", false);
 	std::vector<std::string> hashes;
 	boost::property_tree::ptree response_l;
 	boost::property_tree::ptree blocks;
@@ -982,6 +1009,11 @@ void rai::rpc_handler::blocks_info ()
 					{
 						entry.put ("source_account", "0");
 					}
+				}
+				if (balance)
+				{
+					auto balance (node.ledger.balance (transaction, hash));
+					entry.put ("balance", balance.convert_to<std::string> ());
 				}
 				blocks.push_back (std::make_pair (hash_text, entry));
 			}
@@ -1125,7 +1157,6 @@ void rai::rpc_handler::block_create ()
 		prv.data.clear ();
 		rai::uint256_union previous (0);
 		rai::uint128_union balance (0);
-		rai::uint256_union link (0);
 		if (wallet != 0 && account != 0)
 		{
 			auto existing (node.wallets.items.find (wallet));
@@ -1184,6 +1215,7 @@ void rai::rpc_handler::block_create ()
 				error_response (response, "Bad balance number");
 			}
 		}
+		rai::uint256_union link (0);
 		boost::optional<std::string> link_text (request.get_optional<std::string> ("link"));
 		if (link_text.is_initialized ())
 		{
@@ -1197,20 +1229,48 @@ void rai::rpc_handler::block_create ()
 				}
 			}
 		}
+		else
+		{
+			// Retrieve link from source or destination
+			link = source.is_zero () ? destination : source;
+		}
 		if (prv.data != 0)
 		{
 			rai::uint256_union pub;
 			ed25519_publickey (prv.data.bytes.data (), pub.bytes.data ());
+			// Fetching account balance & previous for send blocks (if aren't given directly)
+			if (!previous_text.is_initialized () && !balance_text.is_initialized ())
+			{
+				rai::transaction transaction (node.store.environment, nullptr, false);
+				previous = node.ledger.latest (transaction, pub);
+				balance = node.ledger.account_balance (transaction, pub);
+			}
+			// Double check current balance if previous block is specified
+			else if (previous_text.is_initialized () && balance_text.is_initialized () && type == "send")
+			{
+				rai::transaction transaction (node.store.environment, nullptr, false);
+				if (node.store.block_exists (transaction, previous) && node.store.block_balance (transaction, previous) != balance.number ())
+				{
+					error_response (response, "Balance mismatch for previous block");
+				}
+			}
+			// Check for incorrect account key
+			if (account_text.is_initialized ())
+			{
+				if (account != pub)
+				{
+					error_response (response, "Incorrect key for given account");
+				}
+			}
 			if (type == "state")
 			{
-				if (!account.is_zero () && previous_text.is_initialized () && !representative.is_zero () && !balance.is_zero () && link_text.is_initialized ())
+				if (previous_text.is_initialized () && !representative.is_zero () && (!link.is_zero () || link_text.is_initialized ()))
 				{
 					if (work == 0)
 					{
 						work = node.generate_work (previous.is_zero () ? pub : previous);
 					}
-
-					rai::state_block state (account, previous, representative, balance, link, prv, pub, work);
+					rai::state_block state (pub, previous, representative, balance, link, prv, pub, work);
 					boost::property_tree::ptree response_l;
 					response_l.put ("hash", state.hash ().to_string ());
 					std::string contents;
@@ -1220,7 +1280,7 @@ void rai::rpc_handler::block_create ()
 				}
 				else
 				{
-					error_response (response, "Account, previous, representative, balance, and link are required");
+					error_response (response, "Previous, representative, final balance and link (source or destination) are required");
 				}
 			}
 			else if (type == "open")
@@ -1697,7 +1757,7 @@ public:
 			{
 				tree.put ("type", "send");
 			}
-			tree.put ("account", block_a.hashables.account.to_account ());
+			tree.put ("account", block_a.hashables.link.to_account ());
 			tree.put ("amount", (previous_balance - balance).convert_to<std::string> ());
 		}
 		else
@@ -1790,6 +1850,11 @@ void rai::rpc_handler::account_history ()
 							if (!entry.empty ())
 							{
 								entry.put ("hash", hash.to_string ());
+								if (output_raw)
+								{
+									entry.put ("work", rai::to_string_hex (block->block_work ()));
+									entry.put ("signature", block->block_signature ().to_string ());
+								}
 								history.push_back (std::make_pair ("", entry));
 							}
 							--count;
@@ -2324,14 +2389,14 @@ void rai::rpc_handler::payment_begin ()
 						wallet->free_accounts.erase (existing);
 						if (wallet->store.find (transaction, account) == wallet->store.end ())
 						{
-							BOOST_LOG (node.log) << boost::str (boost::format ("Transaction wallet %1% externally modified listing account %1% as free but no longer exists") % id.to_string () % account.to_account ());
+							BOOST_LOG (node.log) << boost::str (boost::format ("Transaction wallet %1% externally modified listing account %2% as free but no longer exists") % id.to_string () % account.to_account ());
 							account.clear ();
 						}
 						else
 						{
 							if (!node.ledger.account_balance (transaction, account).is_zero ())
 							{
-								BOOST_LOG (node.log) << boost::str (boost::format ("Skipping account %1% for use as a transaction account since it's balance isn't zero") % account.to_account ());
+								BOOST_LOG (node.log) << boost::str (boost::format ("Skipping account %1% for use as a transaction account: non-zero balance") % account.to_account ());
 								account.clear ();
 							}
 						}
@@ -2519,7 +2584,16 @@ void rai::rpc_handler::process ()
 			{
 				case rai::process_result::progress:
 				{
-					node.observers.blocks (block_a, result);
+					rai::transaction transaction (node.store.environment, nullptr, false);
+					auto account (node.ledger.account (transaction, hash));
+					auto amount (node.ledger.amount (transaction, hash));
+					bool is_state_send (false);
+					if (auto state = dynamic_cast<rai::state_block *> (block_a.get ()))
+					{
+						rai::transaction transaction (node.store.environment, nullptr, false);
+						is_state_send = node.ledger.is_send (transaction, *state);
+					}
+					node.observers.blocks (block_a, account, amount, is_state_send);
 					boost::property_tree::ptree response_l;
 					response_l.put ("hash", hash.to_string ());
 					response (response_l);
@@ -4557,6 +4631,10 @@ void rai::rpc_handler::process_request ()
 		else if (action == "block")
 		{
 			block ();
+		}
+		else if (action == "block_confirm")
+		{
+			block_confirm ();
 		}
 		else if (action == "blocks")
 		{

@@ -17,9 +17,9 @@ TEST (peer_container, no_recontact)
 	ASSERT_EQ (0, peers.size ());
 	peers.peer_observer = [&observed_peer](rai::endpoint const &) { ++observed_peer; };
 	peers.disconnect_observer = [&observed_disconnect]() { observed_disconnect = true; };
-	ASSERT_FALSE (peers.insert (endpoint1, 0));
+	ASSERT_FALSE (peers.insert (endpoint1, rai::protocol_version));
 	ASSERT_EQ (1, peers.size ());
-	ASSERT_TRUE (peers.insert (endpoint1, 0));
+	ASSERT_TRUE (peers.insert (endpoint1, rai::protocol_version));
 	auto remaining (peers.purge_list (std::chrono::steady_clock::now () + std::chrono::seconds (5)));
 	ASSERT_TRUE (remaining.empty ());
 	ASSERT_EQ (1, observed_peer);
@@ -115,7 +115,7 @@ TEST (peer_container, list_sqrt)
 	ASSERT_TRUE (list1.empty ());
 	for (auto i (0); i < 1000; ++i)
 	{
-		ASSERT_FALSE (peers.insert (rai::endpoint (boost::asio::ip::address_v6::loopback (), 10000 + i), 0));
+		ASSERT_FALSE (peers.insert (rai::endpoint (boost::asio::ip::address_v6::loopback (), 10000 + i), rai::protocol_version));
 	}
 	auto list2 (peers.list_sqrt ());
 	ASSERT_EQ (64, list2.size ());
@@ -130,13 +130,15 @@ TEST (peer_container, rep_weight)
 	rai::endpoint endpoint1 (boost::asio::ip::address_v6::loopback (), 24002);
 	rai::endpoint endpoint2 (boost::asio::ip::address_v6::loopback (), 24003);
 	rai::amount amount (100);
-	peers.insert (endpoint2, 0);
-	peers.insert (endpoint0, 0);
-	peers.insert (endpoint1, 0);
-	peers.rep_response (endpoint0, amount);
+	peers.insert (endpoint2, rai::protocol_version);
+	peers.insert (endpoint0, rai::protocol_version);
+	peers.insert (endpoint1, rai::protocol_version);
+	rai::keypair keypair;
+	peers.rep_response (endpoint0, keypair.pub, amount);
 	auto reps (peers.representatives (1));
 	ASSERT_EQ (1, reps.size ());
 	ASSERT_EQ (100, reps[0].rep_weight.number ());
+	ASSERT_EQ (keypair.pub, reps[0].probable_rep_account);
 	ASSERT_EQ (endpoint0, reps[0].endpoint);
 }
 
@@ -146,7 +148,7 @@ TEST (peer_container, reachout)
 	rai::peer_container peers (rai::endpoint{});
 	rai::endpoint endpoint0 (boost::asio::ip::address_v6::loopback (), 24000);
 	// Make sure having been contacted by them already indicates we shouldn't reach out
-	peers.contacted (endpoint0, 0);
+	peers.contacted (endpoint0, rai::protocol_version);
 	ASSERT_TRUE (peers.reachout (endpoint0));
 	rai::endpoint endpoint1 (boost::asio::ip::address_v6::loopback (), 24001);
 	ASSERT_FALSE (peers.reachout (endpoint1));
@@ -158,4 +160,12 @@ TEST (peer_container, reachout)
 	// Make sure we purge old items
 	peers.purge_list (std::chrono::steady_clock::now () + std::chrono::seconds (10));
 	ASSERT_FALSE (peers.reachout (endpoint1));
+}
+
+TEST (peer_container, depeer)
+{
+	rai::peer_container peers (rai::endpoint{});
+	rai::endpoint endpoint0 (boost::asio::ip::address_v6::loopback (), 24000);
+	peers.contacted (endpoint0, rai::protocol_version_min - 1);
+	ASSERT_EQ (0, peers.size ());
 }

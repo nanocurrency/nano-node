@@ -1005,7 +1005,7 @@ TEST (rpc, process_block_no_work)
 		system.poll ();
 	}
 	ASSERT_EQ (200, response.status);
-	ASSERT_FALSE (response.json.get<std::string> ("error").empty ());
+	ASSERT_FALSE (response.json.get<std::string> ("error", "").empty ());
 }
 
 TEST (rpc, keepalive)
@@ -1134,7 +1134,7 @@ TEST (rpc, payment_end_nonempty)
 		system.poll ();
 	}
 	ASSERT_EQ (200, response1.status);
-	ASSERT_FALSE (response1.json.get<std::string> ("error").empty ());
+	ASSERT_FALSE (response1.json.get<std::string> ("error", "").empty ());
 }
 
 TEST (rpc, payment_zero_balance)
@@ -1234,7 +1234,7 @@ TEST (rpc, payment_begin_locked)
 		system.poll ();
 	}
 	ASSERT_EQ (200, response1.status);
-	ASSERT_FALSE (response1.json.get<std::string> ("error").empty ());
+	ASSERT_FALSE (response1.json.get<std::string> ("error", "").empty ());
 }
 
 TEST (rpc, payment_wait)
@@ -1284,7 +1284,7 @@ TEST (rpc, payment_wait)
 TEST (rpc, peers)
 {
 	rai::system system (24000, 2);
-	system.nodes[0]->peers.insert (rai::endpoint (boost::asio::ip::address_v6::from_string ("::ffff:80.80.80.80"), 4000), 1);
+	system.nodes[0]->peers.insert (rai::endpoint (boost::asio::ip::address_v6::from_string ("::ffff:80.80.80.80"), 4000), rai::protocol_version);
 	rai::rpc rpc (system.service, *system.nodes[0], rai::rpc_config (true));
 	rpc.start ();
 	boost::property_tree::ptree request;
@@ -2842,10 +2842,13 @@ TEST (rpc, blocks_info)
 		ASSERT_FALSE (pending.is_initialized ());
 		boost::optional<std::string> source (blocks.second.get_optional<std::string> ("source_account"));
 		ASSERT_FALSE (source.is_initialized ());
+		boost::optional<std::string> balance (blocks.second.get_optional<std::string> ("balance"));
+		ASSERT_FALSE (balance.is_initialized ());
 	}
 	// Test for optional values
 	request.put ("source", "true");
 	request.put ("pending", "1");
+	request.put ("balance", "true");
 	test_response response2 (request, rpc, system.service);
 	while (response2.status == 0)
 	{
@@ -2858,6 +2861,8 @@ TEST (rpc, blocks_info)
 		ASSERT_EQ ("0", source);
 		std::string pending (blocks.second.get<std::string> ("pending"));
 		ASSERT_EQ ("0", pending);
+		std::string balance_text (blocks.second.get<std::string> ("balance"));
+		ASSERT_EQ (rai::genesis_amount.convert_to<std::string> (), balance_text);
 	}
 }
 
@@ -2879,7 +2884,7 @@ TEST (rpc, work_peers_all)
 		system.poll ();
 	}
 	ASSERT_EQ (200, response.status);
-	std::string success (response.json.get<std::string> ("success"));
+	std::string success (response.json.get<std::string> ("success", ""));
 	ASSERT_TRUE (success.empty ());
 	boost::property_tree::ptree request1;
 	request1.put ("action", "work_peers");
@@ -2905,7 +2910,7 @@ TEST (rpc, work_peers_all)
 		system.poll ();
 	}
 	ASSERT_EQ (200, response2.status);
-	success = response2.json.get<std::string> ("success");
+	success = response2.json.get<std::string> ("success", "");
 	ASSERT_TRUE (success.empty ());
 	test_response response3 (request1, rpc, system.service);
 	while (response3.status == 0)
@@ -3119,14 +3124,6 @@ TEST (rpc, block_create)
 	rai::change_block change (open.hash (), key.pub, key.prv, key.pub, change_work);
 	request1.put ("type", "change");
 	request1.put ("work", rai::to_string_hex (change_work));
-	test_response response3 (request1, rpc, system.service);
-	while (response3.status == 0)
-	{
-		system.poll ();
-	}
-	ASSERT_EQ (200, response3.status);
-	ASSERT_FALSE (response3.json.get<std::string> ("error").empty ()); // error with missing previous block
-	request1.put ("previous", open.hash ().to_string ());
 	test_response response4 (request1, rpc, system.service);
 	while (response4.status == 0)
 	{
@@ -3511,4 +3508,48 @@ TEST (rpc, confirmation_history)
 	ASSERT_EQ (block->hash ().to_string (), hash);
 	ASSERT_EQ ((rai::genesis_amount - rai::Gxrb_ratio).convert_to<std::string> (), tally);
 	system.stop ();
+}
+
+TEST (rpc, block_confirm)
+{
+	rai::system system (24000, 1);
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	rai::genesis genesis;
+	system.nodes[0]->ledger.state_block_parse_canary = genesis.hash ();
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	auto send1 (std::make_shared<rai::state_block> (rai::test_genesis_key.pub, genesis.hash (), rai::test_genesis_key.pub, rai::genesis_amount - rai::Gxrb_ratio, rai::test_genesis_key.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.nodes[0]->generate_work (genesis.hash ())));
+	{
+		rai::transaction transaction (system.nodes[0]->store.environment, nullptr, true);
+		ASSERT_EQ (rai::process_result::progress, system.nodes[0]->ledger.process (transaction, *send1).code);
+	}
+	rai::rpc rpc (system.service, *system.nodes[0], rai::rpc_config (true));
+	rpc.start ();
+	boost::property_tree::ptree request;
+	request.put ("action", "block_confirm");
+	request.put ("hash", send1->hash ().to_string ());
+	test_response response (request, rpc, system.service);
+	while (response.status == 0)
+	{
+		system.poll ();
+	}
+	ASSERT_EQ (200, response.status);
+	ASSERT_EQ ("1", response.json.get<std::string> ("started"));
+}
+
+TEST (rpc, block_confirm_absent)
+{
+	rai::system system (24000, 1);
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	rai::rpc rpc (system.service, *system.nodes[0], rai::rpc_config (true));
+	rpc.start ();
+	boost::property_tree::ptree request;
+	request.put ("action", "block_confirm");
+	request.put ("hash", "0");
+	test_response response (request, rpc, system.service);
+	while (response.status == 0)
+	{
+		system.poll ();
+	}
+	ASSERT_EQ (200, response.status);
+	ASSERT_EQ ("Block not found", response.json.get<std::string> ("error"));
 }

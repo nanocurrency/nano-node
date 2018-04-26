@@ -15,12 +15,24 @@
 namespace rai
 {
 class bootstrap_attempt;
+class bootstrap_client;
 class node;
 enum class sync_result
 {
 	success,
 	error,
 	fork
+};
+class socket_timeout
+{
+public:
+	socket_timeout (rai::bootstrap_client &);
+	void start (std::chrono::steady_clock::time_point);
+	void stop ();
+
+private:
+	std::atomic<unsigned> ticket;
+	rai::bootstrap_client & client;
 };
 
 /**
@@ -89,9 +101,9 @@ public:
 	void add_pull (rai::pull_info const &);
 	bool still_pulling ();
 	void process_fork (MDB_txn *, std::shared_ptr<rai::block>);
-	void try_resolve_fork (MDB_txn *, std::shared_ptr<rai::block>, bool);
-	void resolve_forks ();
 	unsigned target_connections (size_t pulls_remaining);
+	bool should_log ();
+	std::chrono::steady_clock::time_point next_log;
 	std::deque<std::weak_ptr<rai::bootstrap_client>> clients;
 	std::weak_ptr<rai::bootstrap_client> connection_frontier_request;
 	std::weak_ptr<rai::frontier_req_client> frontiers;
@@ -103,7 +115,6 @@ public:
 	std::shared_ptr<rai::node> node;
 	std::atomic<unsigned> account_count;
 	std::atomic<uint64_t> total_blocks;
-	std::unordered_map<rai::block_hash, std::shared_ptr<rai::block>> unresolved_forks;
 	bool stopped;
 	std::mutex mutex;
 	std::condition_variable condition;
@@ -127,13 +138,12 @@ public:
 	rai::account landing;
 	rai::account faucet;
 	std::chrono::steady_clock::time_point start_time;
-	std::chrono::steady_clock::time_point next_report;
 	std::promise<bool> promise;
 };
 class bulk_pull_client : public std::enable_shared_from_this<rai::bulk_pull_client>
 {
 public:
-	bulk_pull_client (std::shared_ptr<rai::bootstrap_client>, rai::pull_info const &, size_t);
+	bulk_pull_client (std::shared_ptr<rai::bootstrap_client>, rai::pull_info const &);
 	~bulk_pull_client ();
 	void request ();
 	void receive_block ();
@@ -143,7 +153,6 @@ public:
 	std::shared_ptr<rai::bootstrap_client> connection;
 	rai::block_hash expected;
 	rai::pull_info pull;
-	size_t size;
 };
 class bootstrap_client : public std::enable_shared_from_this<bootstrap_client>
 {
@@ -160,9 +169,9 @@ public:
 	std::shared_ptr<rai::node> node;
 	std::shared_ptr<rai::bootstrap_attempt> attempt;
 	boost::asio::ip::tcp::socket socket;
+	rai::socket_timeout timeout;
 	std::array<uint8_t, 200> receive_buffer;
 	rai::tcp_endpoint endpoint;
-	boost::asio::deadline_timer timeout;
 	std::chrono::steady_clock::time_point start_time;
 	std::atomic<uint64_t> block_count;
 	std::atomic<bool> pending_stop;
@@ -192,13 +201,14 @@ public:
 	void notify_listeners (bool);
 	void add_observer (std::function<void(bool)> const &);
 	bool in_progress ();
+	std::shared_ptr<rai::bootstrap_attempt> current_attempt ();
 	void process_fork (MDB_txn *, std::shared_ptr<rai::block>);
 	void stop ();
+
+private:
 	rai::node & node;
 	std::shared_ptr<rai::bootstrap_attempt> attempt;
 	bool stopped;
-
-private:
 	std::mutex mutex;
 	std::condition_variable condition;
 	std::vector<std::function<void(bool)>> observers;

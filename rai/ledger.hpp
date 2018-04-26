@@ -16,7 +16,7 @@ public:
 class ledger
 {
 public:
-	ledger (rai::block_store &, rai::uint128_t const & = 0, rai::block_hash const & = 0, rai::block_hash const & = 0);
+	ledger (rai::block_store &, rai::block_hash const & = 0, rai::block_hash const & = 0);
 	std::pair<rai::uint128_t, std::shared_ptr<rai::block>> winner (MDB_txn *, rai::votes const & votes_a);
 	// Map of weight -> associated block, ordered greatest to least
 	std::map<rai::uint128_t, std::shared_ptr<rai::block>, std::greater<rai::uint128_t>> tally (MDB_txn *, rai::votes const &);
@@ -49,7 +49,6 @@ public:
 	bool state_block_generation_enabled (MDB_txn *);
 	static rai::uint128_t const unit;
 	rai::block_store & store;
-	rai::uint128_t inactive_supply;
 	std::unordered_map<rai::account, rai::uint128_t> bootstrap_weights;
 	uint64_t bootstrap_weight_max_blocks;
 	std::atomic<bool> check_bootstrap_weights;
