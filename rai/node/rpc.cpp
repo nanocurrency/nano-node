@@ -1768,6 +1768,7 @@ public:
 
 void rai::rpc_handler::account_history ()
 {
+	std::string account_text;
 	std::string count_text (request.get<std::string> ("count"));
 	bool output_raw (request.get_optional<bool> ("raw") == true);
 	auto error (false);
@@ -1777,14 +1778,18 @@ void rai::rpc_handler::account_history ()
 	if (head_str)
 	{
 		error = hash.decode_hex (*head_str);
-		if (error)
+		if (!error)
+		{
+			account_text = node.ledger.account (transaction, hash).to_account ();
+		}
+		else
 		{
 			error_response (response, "Invalid block hash");
 		}
 	}
 	else
 	{
-		std::string account_text (request.get<std::string> ("account"));
+		account_text = request.get<std::string> ("account");
 		rai::uint256_union account;
 		error = account.decode_account (account_text);
 		if (!error)
@@ -1809,8 +1814,7 @@ void rai::rpc_handler::account_history ()
 				boost::property_tree::ptree history;
 				if (!error)
 				{
-					auto account (node.ledger.account (transaction, hash));
-					response_l.put ("account", account.to_account ());
+					response_l.put ("account", account_text);
 					auto block (node.store.block_get (transaction, hash));
 					while (block != nullptr && count > 0)
 					{
