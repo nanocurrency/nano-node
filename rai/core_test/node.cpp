@@ -277,7 +277,8 @@ TEST (node, receive_gap)
 	rai::system system (24000, 1);
 	auto & node1 (*system.nodes[0]);
 	ASSERT_EQ (0, node1.gap_cache.blocks.size ());
-	auto block (std::make_shared<rai::send_block> (0, 1, 2, rai::keypair ().prv, 4, 5));
+	auto block (std::make_shared<rai::send_block> (0, 1, 2, rai::keypair ().prv, 4, 0));
+	node1.generate_work (*block);
 	rai::confirm_req message;
 	message.block = block;
 	node1.process_message (message, node1.network.endpoint ());

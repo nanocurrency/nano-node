@@ -270,6 +270,7 @@ TEST (rpc, send)
 	rai::block_hash block;
 	ASSERT_FALSE (block.decode_hex (block_text));
 	ASSERT_TRUE (system.nodes[0]->ledger.block_exists (block));
+	ASSERT_EQ (system.nodes[0]->latest (rai::test_genesis_key.pub), block);
 	thread2.join ();
 }
 
@@ -304,6 +305,46 @@ TEST (rpc, send_fail)
 	done = true;
 	ASSERT_EQ (response.json.get<std::string> ("error"), "Error generating block");
 	thread2.join ();
+}
+
+TEST (rpc, send_work)
+{
+	rai::system system (24000, 1);
+	rai::rpc rpc (system.service, *system.nodes[0], rai::rpc_config (true));
+	rpc.start ();
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	boost::property_tree::ptree request;
+	std::string wallet;
+	system.nodes[0]->wallets.items.begin ()->first.encode_hex (wallet);
+	request.put ("wallet", wallet);
+	request.put ("action", "send");
+	request.put ("source", rai::test_genesis_key.pub.to_account ());
+	request.put ("destination", rai::test_genesis_key.pub.to_account ());
+	request.put ("amount", "100");
+	request.put ("work", "1");
+	test_response response (request, rpc, system.service);
+	auto iterations1 (0);
+	while (response.status == 0)
+	{
+		system.poll ();
+		ASSERT_LT (++iterations1, 200);
+	}
+	ASSERT_EQ (response.json.get<std::string> ("error"), "Invalid work");
+	request.erase ("work");
+	request.put ("work", rai::to_string_hex (system.nodes[0]->generate_work (system.nodes[0]->latest (rai::test_genesis_key.pub))));
+	test_response response2 (request, rpc, system.service);
+	auto iterations2 (0);
+	while (response2.status == 0)
+	{
+		system.poll ();
+		ASSERT_LT (++iterations2, 200);
+	}
+	ASSERT_EQ (200, response2.status);
+	std::string block_text (response2.json.get<std::string> ("block"));
+	rai::block_hash block;
+	ASSERT_FALSE (block.decode_hex (block_text));
+	ASSERT_TRUE (system.nodes[0]->ledger.block_exists (block));
+	ASSERT_EQ (system.nodes[0]->latest (rai::test_genesis_key.pub), block);
 }
 
 TEST (rpc, send_idempotent)
