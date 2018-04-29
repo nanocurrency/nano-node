@@ -3,6 +3,7 @@
 #include <rai/ledger.hpp>
 #include <rai/lib/work.hpp>
 #include <rai/node/bootstrap.hpp>
+#include <rai/node/stats.hpp>
 #include <rai/node/wallet.hpp>
 
 #include <condition_variable>
@@ -13,7 +14,6 @@
 #include <unordered_set>
 
 #include <boost/asio.hpp>
-#include <boost/circular_buffer.hpp>
 #include <boost/iostreams/device/array.hpp>
 #include <boost/log/trivial.hpp>
 #include <boost/multi_index/hashed_index.hpp>
@@ -281,15 +281,6 @@ public:
 	uint64_t check_count;
 	bool on;
 };
-class message_statistics
-{
-public:
-	message_statistics ();
-	std::atomic<uint64_t> keepalive;
-	std::atomic<uint64_t> publish;
-	std::atomic<uint64_t> confirm_req;
-	std::atomic<uint64_t> confirm_ack;
-};
 class block_arrival_info
 {
 public:
@@ -363,12 +354,7 @@ public:
 	std::mutex socket_mutex;
 	boost::asio::ip::udp::resolver resolver;
 	rai::node & node;
-	uint64_t bad_sender_count;
 	bool on;
-	uint64_t insufficient_work_count;
-	uint64_t error_count;
-	rai::message_statistics incoming;
-	rai::message_statistics outgoing;
 	static uint16_t const node_port = rai::rai_network == rai::rai_networks::rai_live_network ? 7075 : 54000;
 };
 class logging
@@ -449,6 +435,7 @@ public:
 	uint16_t callback_port;
 	std::string callback_target;
 	int lmdb_max_dbs;
+	rai::stat_config stat_config;
 	rai::block_hash state_block_parse_canary;
 	rai::block_hash state_block_generate_canary;
 	static std::chrono::seconds constexpr keepalive_period = std::chrono::seconds (60);
@@ -575,6 +562,7 @@ public:
 	std::thread block_processor_thread;
 	rai::block_arrival block_arrival;
 	rai::online_reps online_reps;
+	rai::stat stats;
 	static double constexpr price_max = 16.0;
 	static double constexpr free_cutoff = 1024.0;
 	static std::chrono::seconds constexpr period = std::chrono::seconds (60);

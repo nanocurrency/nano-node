@@ -643,7 +643,8 @@ TEST (block_store, upgrade_v2_v3)
 		rai::genesis genesis;
 		auto hash (genesis.hash ());
 		genesis.initialize (transaction, store);
-		rai::ledger ledger (store);
+		rai::stat stats;
+		rai::ledger ledger (store, stats);
 		rai::change_block change (hash, key1.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
 		change_hash = change.hash ();
 		ASSERT_EQ (rai::process_result::progress, ledger.process (transaction, change).code);
@@ -664,7 +665,8 @@ TEST (block_store, upgrade_v2_v3)
 	}
 	bool init (false);
 	rai::block_store store (init, path);
-	rai::ledger ledger (store);
+	rai::stat stats;
+	rai::ledger ledger (store, stats);
 	rai::transaction transaction (store.environment, nullptr, true);
 	ASSERT_TRUE (!init);
 	ASSERT_LT (2, store.version_get (transaction));
@@ -693,7 +695,8 @@ TEST (block_store, upgrade_v3_v4)
 	}
 	bool init (false);
 	rai::block_store store (init, path);
-	rai::ledger ledger (store);
+	rai::stat stats;
+	rai::ledger ledger (store, stats);
 	rai::transaction transaction (store.environment, nullptr, true);
 	ASSERT_FALSE (init);
 	ASSERT_LT (3, store.version_get (transaction));
@@ -717,7 +720,8 @@ TEST (block_store, upgrade_v4_v5)
 		rai::transaction transaction (store.environment, nullptr, true);
 		rai::genesis genesis;
 		genesis.initialize (transaction, store);
-		rai::ledger ledger (store);
+		rai::stat stats;
+		rai::ledger ledger (store, stats);
 		store.version_put (transaction, 4);
 		rai::account_info info;
 		store.account_get (transaction, rai::test_genesis_key.pub, info);
@@ -931,7 +935,8 @@ TEST (block_store, upgrade_v9_v10)
 		rai::transaction transaction (store.environment, nullptr, true);
 		rai::genesis genesis;
 		genesis.initialize (transaction, store);
-		rai::ledger ledger (store);
+		rai::stat stats;
+		rai::ledger ledger (store, stats);
 		store.version_put (transaction, 9);
 		rai::account_info info;
 		store.account_get (transaction, rai::test_genesis_key.pub, info);

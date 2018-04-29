@@ -400,7 +400,7 @@ TEST (node, connect_after_junk)
 	uint64_t junk (0);
 	node1->network.socket.async_send_to (boost::asio::buffer (&junk, sizeof (junk)), system.nodes[0]->network.endpoint (), [](boost::system::error_code const &, size_t) {});
 	auto iterations1 (0);
-	while (system.nodes[0]->network.error_count == 0)
+	while (system.nodes[0]->stats.count (rai::stat::type::error) == 0)
 	{
 		system.poll ();
 		++iterations1;
@@ -1060,7 +1060,7 @@ TEST (node, fork_no_vote_quorum)
 		confirm.serialize (stream);
 	}
 	node2.network.confirm_send (confirm, bytes, node3.network.endpoint ());
-	while (node3.network.incoming.confirm_ack < 3)
+	while (node3.stats.count (rai::stat::type::message, rai::stat::detail::confirm_ack, rai::stat::dir::in) < 3)
 	{
 		system.poll ();
 	}
@@ -1333,7 +1333,7 @@ TEST (node, no_voting)
 		++iterations;
 		ASSERT_GT (200, iterations);
 	}
-	ASSERT_EQ (0, node1.network.incoming.confirm_ack);
+	ASSERT_EQ (0, node1.stats.count (rai::stat::type::message, rai::stat::detail::confirm_ack, rai::stat::dir::in));
 }
 
 TEST (node, start_observer)
@@ -1459,6 +1459,22 @@ TEST (node, bootstrap_connection_scaling)
 	node1.config.bootstrap_connections_max = 0;
 	ASSERT_EQ (1, attempt->target_connections (0));
 	ASSERT_EQ (1, attempt->target_connections (50000));
+}
+
+// Test stat counting at both type and detail levels
+TEST (node, stat_counting)
+{
+	rai::system system (24000, 1);
+	auto & node1 (*system.nodes[0]);
+	node1.stats.add (rai::stat::type::ledger, rai::stat::dir::in, 1);
+	node1.stats.add (rai::stat::type::ledger, rai::stat::dir::in, 5);
+	node1.stats.inc (rai::stat::type::ledger, rai::stat::dir::in);
+	node1.stats.inc (rai::stat::type::ledger, rai::stat::detail::send, rai::stat::dir::in);
+	node1.stats.inc (rai::stat::type::ledger, rai::stat::detail::send, rai::stat::dir::in);
+	node1.stats.inc (rai::stat::type::ledger, rai::stat::detail::receive, rai::stat::dir::in);
+	ASSERT_EQ (10, node1.stats.count (rai::stat::type::ledger, rai::stat::dir::in));
+	ASSERT_EQ (2, node1.stats.count (rai::stat::type::ledger, rai::stat::detail::send, rai::stat::dir::in));
+	ASSERT_EQ (1, node1.stats.count (rai::stat::type::ledger, rai::stat::detail::receive, rai::stat::dir::in));
 }
 
 TEST (node, online_reps)
