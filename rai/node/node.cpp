@@ -2976,7 +2976,7 @@ std::shared_ptr<rai::node> rai::node::shared ()
 	return shared_from_this ();
 }
 
-rai::election::election (MDB_txn * transaction_a, rai::node & node_a, std::shared_ptr<rai::block> block_a, std::function<void(std::shared_ptr<rai::block>, bool)> const & confirmation_action_a) :
+rai::election::election (MDB_txn * transaction_a, rai::node & node_a, std::shared_ptr<rai::block> block_a, std::function<void(std::shared_ptr<rai::block>)> const & confirmation_action_a) :
 confirmation_action (confirmation_action_a),
 votes (block_a),
 node (node_a),
@@ -3008,7 +3008,7 @@ void rai::election::confirm_once (MDB_txn * transaction_a)
 	{
 		auto tally_l (node.ledger.tally (transaction_a, votes));
 		assert (tally_l.size () > 0);
-		auto exceeded_min_threshold = have_quorum (tally_l);
+		auto have_quorum_l = have_quorum (tally_l);
 		auto winner (tally_l.begin ());
 		auto block_l (winner->second);
 		if (node.config.logging.vote_logging () || !votes.uncontested ())
@@ -3025,7 +3025,7 @@ void rai::election::confirm_once (MDB_txn * transaction_a)
 		}
 		if (!(*block_l == *status.winner))
 		{
-			if (exceeded_min_threshold)
+			if (have_quorum_l)
 			{
 				auto node_l (node.shared ());
 				node_l->block_processor.force (block_l);
@@ -3037,16 +3037,20 @@ void rai::election::confirm_once (MDB_txn * transaction_a)
 			}
 		}
 		status.tally = winner->first;
-		auto winner_l (status.winner);
-		auto node_l (node.shared ());
-		auto confirmation_action_l (confirmation_action);
-		node.background ([node_l, winner_l, confirmation_action_l, exceeded_min_threshold]() {
-			if (exceeded_min_threshold)
-			{
+		if (have_quorum_l)
+		{
+			auto winner_l (status.winner);
+			auto node_l (node.shared ());
+			auto confirmation_action_l (confirmation_action);
+			node.background ([node_l, winner_l, confirmation_action_l]() {
 				node_l->process_confirmed (winner_l);
-			}
-			confirmation_action_l (winner_l, exceeded_min_threshold);
-		});
+				confirmation_action_l (winner_l);
+			});
+		}
+		else
+		{
+			BOOST_LOG (node.log) << boost::str (boost::format ("Insufficient quorum for block %1%") % status.winner->hash ().to_string ());
+		}
 	}
 }
 
@@ -3233,12 +3237,12 @@ void rai::active_transactions::stop ()
 	roots.clear ();
 }
 
-bool rai::active_transactions::start (MDB_txn * transaction_a, std::shared_ptr<rai::block> block_a, std::function<void(std::shared_ptr<rai::block>, bool)> const & confirmation_action_a)
+bool rai::active_transactions::start (MDB_txn * transaction_a, std::shared_ptr<rai::block> block_a, std::function<void(std::shared_ptr<rai::block>)> const & confirmation_action_a)
 {
 	return start (transaction_a, std::make_pair (block_a, nullptr), confirmation_action_a);
 }
 
-bool rai::active_transactions::start (MDB_txn * transaction_a, std::pair<std::shared_ptr<rai::block>, std::shared_ptr<rai::block>> blocks_a, std::function<void(std::shared_ptr<rai::block>, bool)> const & confirmation_action_a)
+bool rai::active_transactions::start (MDB_txn * transaction_a, std::pair<std::shared_ptr<rai::block>, std::shared_ptr<rai::block>> blocks_a, std::function<void(std::shared_ptr<rai::block>)> const & confirmation_action_a)
 {
 	assert (blocks_a.first != nullptr);
 	std::lock_guard<std::mutex> lock (mutex);

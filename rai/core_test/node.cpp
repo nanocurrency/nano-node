@@ -1185,7 +1185,7 @@ TEST (node, rep_self_vote)
 	auto & active (node0->active);
 	{
 		rai::transaction transaction (node0->store.environment, nullptr, true);
-		active.start (transaction, block0, [](std::shared_ptr<rai::block>, bool) {});
+		active.start (transaction, block0);
 	}
 	auto existing (active.roots.find (block0->root ()));
 	ASSERT_NE (active.roots.end (), existing);
@@ -1467,6 +1467,7 @@ TEST (node, bootstrap_connection_scaling)
 	auto & node1 (*system.nodes[0]);
 	node1.bootstrap_initiator.bootstrap ();
 	auto attempt (node1.bootstrap_initiator.current_attempt ());
+	ASSERT_NE (nullptr, attempt);
 	ASSERT_EQ (34, attempt->target_connections (25000));
 	ASSERT_EQ (4, attempt->target_connections (0));
 	ASSERT_EQ (64, attempt->target_connections (50000));
