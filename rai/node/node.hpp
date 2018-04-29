@@ -51,7 +51,7 @@ public:
 	election (MDB_txn *, rai::node &, std::shared_ptr<rai::block>, std::function<void(std::shared_ptr<rai::block>, bool)> const &);
 	bool vote (std::shared_ptr<rai::vote>);
 	// Check if we have vote quorum
-	bool have_quorum (MDB_txn *);
+	bool have_quorum (rai::tally_t const &);
 	// Tell the network our view of the winner
 	void broadcast_winner ();
 	// Change our winner to agree with the network
@@ -549,6 +549,7 @@ public:
 	void generate_work (rai::uint256_union const &, std::function<void(uint64_t)>);
 	void add_initial_peers ();
 	void block_confirm (std::shared_ptr<rai::block>);
+	rai::uint128_t delta ();
 	boost::asio::io_service & service;
 	rai::node_config config;
 	rai::alarm & alarm;

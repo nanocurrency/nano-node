@@ -185,7 +185,7 @@ TEST (node, quick_confirm)
 	rai::block_hash previous (system.nodes[0]->latest (rai::test_genesis_key.pub));
 	system.wallet (0)->insert_adhoc (key.prv);
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
-	auto send (std::make_shared<rai::send_block> (previous, key.pub, rai::genesis_amount - rai::Gxrb_ratio, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (previous)));
+	auto send (std::make_shared<rai::send_block> (previous, key.pub, system.nodes[0]->delta () + 1, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (previous)));
 	system.nodes[0]->process_active (send);
 	auto iterations (0);
 	while (system.nodes[0]->balance (key.pub).is_zero ())
@@ -196,7 +196,7 @@ TEST (node, quick_confirm)
 	}
 }
 
-TEST (node, node_receive_quorom)
+TEST (node, node_receive_quorum)
 {
 	rai::system system (24000, 1);
 	rai::keypair key;
@@ -219,7 +219,7 @@ TEST (node, node_receive_quorom)
 	}
 	ASSERT_TRUE (system.nodes[0]->balance (key.pub).is_zero ());
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
-	system.nodes [0]->block_confirm (send);
+	system.nodes[0]->block_confirm (send);
 	while (system.nodes[0]->balance (key.pub).is_zero ())
 	{
 		system.poll ();
@@ -1486,10 +1486,10 @@ TEST (node, online_reps)
 {
 	rai::system system (24000, 2);
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
-	ASSERT_EQ (system.nodes [1]->config.online_weight_minimum.number (), system.nodes[1]->online_reps.online_stake ());
+	ASSERT_EQ (system.nodes[1]->config.online_weight_minimum.number (), system.nodes[1]->online_reps.online_stake ());
 	system.wallet (0)->send_action (rai::test_genesis_key.pub, rai::test_genesis_key.pub, rai::Gxrb_ratio);
 	auto iterations (0);
-	while (system.nodes[1]->online_reps.online_stake () == system.nodes [1]->config.online_weight_minimum.number ())
+	while (system.nodes[1]->online_reps.online_stake () == system.nodes[1]->config.online_weight_minimum.number ())
 	{
 		system.poll ();
 		++iterations;
@@ -1524,7 +1524,7 @@ TEST (node, confirm_quorom)
 	rai::system system (24000, 1);
 	rai::genesis genesis;
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
-	system.nodes [0]->ledger.state_block_parse_canary = genesis.hash ();
+	system.nodes[0]->ledger.state_block_parse_canary = genesis.hash ();
 	// Put greater than online_weight_minimum in pending so quorom can't be reached
 	auto send1 (std::make_shared<rai::state_block> (rai::test_genesis_key.pub, genesis.hash (), rai::test_genesis_key.pub, rai::Gxrb_ratio, rai::test_genesis_key.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.nodes[0]->generate_work (genesis.hash ())));
 	{

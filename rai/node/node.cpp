@@ -794,7 +794,7 @@ peering_port (peering_port_a),
 logging (logging_a),
 bootstrap_fraction_numerator (1),
 receive_minimum (rai::xrb_ratio),
-online_weight_minimum (60 * rai::Gxrb_ratio),
+online_weight_minimum (60000 * rai::Gxrb_ratio),
 online_weight_quorom (50),
 password_fanout (1024),
 io_threads (std::max<unsigned> (4, std::thread::hardware_concurrency ())),
@@ -2396,6 +2396,12 @@ void rai::node::block_confirm (std::shared_ptr<rai::block> block_a)
 	network.broadcast_confirm_req (block_a);
 }
 
+rai::uint128_t rai::node::delta ()
+{
+	auto result ((online_reps.online_stake () / 100) * config.online_weight_quorom);
+	return result;
+}
+
 namespace
 {
 class confirmed_visitor : public rai::block_visitor
@@ -3002,15 +3008,9 @@ void rai::election::confirm_once (MDB_txn * transaction_a)
 	{
 		auto tally_l (node.ledger.tally (transaction_a, votes));
 		assert (tally_l.size () > 0);
+		auto exceeded_min_threshold = have_quorum (tally_l);
 		auto winner (tally_l.begin ());
 		auto block_l (winner->second);
-		rai::uint128_t total (0);
-		for (auto & i : tally_l)
-		{
-			total += i.first;
-		}
-		auto quorom_minimum ((total / 100) * node.config.online_weight_quorom);
-		auto exceeded_min_threshold = total > node.config.online_weight_minimum.number () && winner->first > quorom_minimum;
 		if (node.config.logging.vote_logging () || !votes.uncontested ())
 		{
 			BOOST_LOG (node.log) << boost::str (boost::format ("Vote tally for root %1%") % status.winner->root ().to_string ());
@@ -3050,22 +3050,21 @@ void rai::election::confirm_once (MDB_txn * transaction_a)
 	}
 }
 
-bool rai::election::have_quorum (MDB_txn * transaction_a)
+bool rai::election::have_quorum (rai::tally_t const & tally_a)
 {
-	auto tally_l (node.ledger.tally (transaction_a, votes));
-	assert (tally_l.size () > 0);
-	auto i (tally_l.begin ());
+	auto i (tally_a.begin ());
 	auto first (i->first);
 	++i;
-	auto second (i != tally_l.end () ? i->first : 0);
-	auto delta ((node.online_reps.online_stake () / 100) * node.config.online_weight_quorom);
-	auto result (tally_l.begin ()->first > (second + delta));
+	auto second (i != tally_a.end () ? i->first : 0);
+	auto delta_l (node.delta ());
+	auto result (tally_a.begin ()->first > (second + delta_l));
 	return result;
 }
 
 void rai::election::confirm_if_quorum (MDB_txn * transaction_a)
 {
-	auto quorum (have_quorum (transaction_a));
+	auto tally_l (node.ledger.tally (transaction_a, votes));
+	auto quorum (have_quorum (tally_l));
 	if (quorum)
 	{
 		confirm_once (transaction_a);
