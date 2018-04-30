@@ -1390,6 +1390,27 @@ void rai::rpc_handler::block_create ()
 	}
 }
 
+void rai::rpc_handler::block_hash ()
+{
+	std::string block_text (request.get<std::string> ("block"));
+	boost::property_tree::ptree block_l;
+	std::stringstream block_stream (block_text);
+	boost::property_tree::read_json (block_stream, block_l);
+	block_l.put ("signature", "0");
+	block_l.put ("work", "0");
+	auto block (rai::deserialize_block_json (block_l));
+	if (block != nullptr)
+	{
+		boost::property_tree::ptree response_l;
+		response_l.put ("hash", block->hash ().to_string ());
+		response (response_l);
+	}
+	else
+	{
+		error_response (response, "Block is invalid");
+	}
+}
+
 void rai::rpc_handler::successors ()
 {
 	std::string block_text (request.get<std::string> ("block"));
@@ -4695,6 +4716,10 @@ void rai::rpc_handler::process_request ()
 		else if (action == "block_create")
 		{
 			block_create ();
+		}
+		else if (action == "block_hash")
+		{
+			block_hash ();
 		}
 		else if (action == "successors")
 		{

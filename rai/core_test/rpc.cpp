@@ -3328,6 +3328,30 @@ TEST (rpc, block_create_state_request_work)
 	}
 }
 
+TEST (rpc, block_hash)
+{
+	rai::system system (24000, 1);
+	rai::keypair key;
+	auto latest (system.nodes[0]->latest (rai::test_genesis_key.pub));
+	auto & node1 (*system.nodes[0]);
+	rai::send_block send (latest, key.pub, 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, node1.generate_work (latest));
+	rai::rpc rpc (system.service, node1, rai::rpc_config (true));
+	rpc.start ();
+	boost::property_tree::ptree request;
+	request.put ("action", "block_hash");
+	std::string json;
+	send.serialize_json (json);
+	request.put ("block", json);
+	test_response response (request, rpc, system.service);
+	while (response.status == 0)
+	{
+		system.poll ();
+	}
+	ASSERT_EQ (200, response.status);
+	std::string send_hash (response.json.get<std::string> ("hash"));
+	ASSERT_EQ (send.hash ().to_string (), send_hash);
+}
+
 TEST (rpc, wallet_lock)
 {
 	rai::system system (24000, 1);
