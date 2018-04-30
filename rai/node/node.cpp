@@ -3049,7 +3049,7 @@ void rai::election::confirm_once (MDB_txn * transaction_a)
 		}
 		else
 		{
-			BOOST_LOG (node.log) << boost::str (boost::format ("Insufficient quorum for block %1%") % status.winner->hash ().to_string ());
+			BOOST_LOG (node.log) << boost::str (boost::format ("Insufficient quorum for block %1% %2%") % status.winner->hash ().to_string () % status.tally.number ().convert_to<std::string> ());
 		}
 	}
 }
