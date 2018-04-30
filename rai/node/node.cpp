@@ -1188,9 +1188,17 @@ void rai::block_processor::flush ()
 
 void rai::block_processor::add (std::shared_ptr<rai::block> block_a)
 {
-	std::lock_guard<std::mutex> lock (mutex);
-	blocks.push_front (block_a);
-	condition.notify_all ();
+	if (!rai::work_validate (block_a->root (), block_a->block_work ()))
+	{
+		std::lock_guard<std::mutex> lock (mutex);
+		blocks.push_front (block_a);
+		condition.notify_all ();
+	}
+	else
+	{
+		BOOST_LOG (node.log) << "rai::block_processor::add called for hash " << block_a->hash ().to_string () << " with invalid work " << rai::to_string_hex (block_a->block_work ());
+		assert (false && "rai::block_processor::add called with invalid work");
+	}
 }
 
 void rai::block_processor::force (std::shared_ptr<rai::block> block_a)

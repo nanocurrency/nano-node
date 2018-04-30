@@ -2742,10 +2742,11 @@ void rai::rpc_handler::receive ()
 								{
 									uint64_t work (0);
 									boost::optional<std::string> work_text (request.get_optional<std::string> ("work"));
+									auto error (false);
 									if (work_text.is_initialized ())
 									{
-										auto work_error (rai::from_string_hex (work_text.get (), work));
-										if (work_error)
+										error = rai::from_string_hex (work_text.get (), work);
+										if (error)
 										{
 											error_response (response, "Bad work");
 										}
@@ -2769,21 +2770,25 @@ void rai::rpc_handler::receive ()
 										}
 										else
 										{
+											error = true;
 											error_response (response, "Invalid work");
 										}
 									}
-									auto response_a (response);
-									existing->second->receive_async (std::move (block), account, rai::genesis_amount, [response_a](std::shared_ptr<rai::block> block_a) {
-										rai::uint256_union hash_a (0);
-										if (block_a != nullptr)
-										{
-											hash_a = block_a->hash ();
-										}
-										boost::property_tree::ptree response_l;
-										response_l.put ("block", hash_a.to_string ());
-										response_a (response_l);
-									},
-									work == 0);
+									if (!error)
+									{
+										auto response_a (response);
+										existing->second->receive_async (std::move (block), account, rai::genesis_amount, [response_a](std::shared_ptr<rai::block> block_a) {
+											rai::uint256_union hash_a (0);
+											if (block_a != nullptr)
+											{
+												hash_a = block_a->hash ();
+											}
+											boost::property_tree::ptree response_l;
+											response_l.put ("block", hash_a.to_string ());
+											response_a (response_l);
+										},
+										work == 0);
+									}
 								}
 								else
 								{
@@ -3121,13 +3126,14 @@ void rai::rpc_handler::send ()
 							boost::optional<std::string> work_text (request.get_optional<std::string> ("work"));
 							if (work_text.is_initialized ())
 							{
-								auto work_error (rai::from_string_hex (work_text.get (), work));
-								if (work_error)
+								error = rai::from_string_hex (work_text.get (), work);
+								if (error)
 								{
 									error_response (response, "Bad work");
 								}
 							}
 							rai::uint128_t balance (0);
+							if (!error)
 							{
 								rai::transaction transaction (node.store.environment, nullptr, work != 0); // false if no "work" in request, true if work > 0
 								rai::account_info info;
@@ -3137,9 +3143,10 @@ void rai::rpc_handler::send ()
 								}
 								else
 								{
+									error = true;
 									error_response (response, "Account not found");
 								}
-								if (work)
+								if (!error && work)
 								{
 									if (!rai::work_validate (info.head, work))
 									{
@@ -3147,33 +3154,37 @@ void rai::rpc_handler::send ()
 									}
 									else
 									{
+										error = true;
 										error_response (response, "Invalid work");
 									}
 								}
 							}
-							boost::optional<std::string> send_id (request.get_optional<std::string> ("id"));
-							if (balance >= amount.number ())
+							if (!error)
 							{
-								auto rpc_l (shared_from_this ());
-								auto response_a (response);
-								existing->second->send_async (source, destination, amount.number (), [response_a](std::shared_ptr<rai::block> block_a) {
-									if (block_a != nullptr)
-									{
-										rai::uint256_union hash (block_a->hash ());
-										boost::property_tree::ptree response_l;
-										response_l.put ("block", hash.to_string ());
-										response_a (response_l);
-									}
-									else
-									{
-										error_response (response_a, "Error generating block");
-									}
-								},
-								work == 0, send_id);
-							}
-							else
-							{
-								error_response (response, "Insufficient balance");
+								boost::optional<std::string> send_id (request.get_optional<std::string> ("id"));
+								if (balance >= amount.number ())
+								{
+									auto rpc_l (shared_from_this ());
+									auto response_a (response);
+									existing->second->send_async (source, destination, amount.number (), [response_a](std::shared_ptr<rai::block> block_a) {
+										if (block_a != nullptr)
+										{
+											rai::uint256_union hash (block_a->hash ());
+											boost::property_tree::ptree response_l;
+											response_l.put ("block", hash.to_string ());
+											response_a (response_l);
+										}
+										else
+										{
+											error_response (response_a, "Error generating block");
+										}
+									},
+									work == 0, send_id);
+								}
+								else
+								{
+									error_response (response, "Insufficient balance");
+								}
 							}
 						}
 						else
