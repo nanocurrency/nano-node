@@ -49,6 +49,7 @@ public:
 	rai::uint128_t account_balance (MDB_txn *, rai::account const &);
 	rai::uint128_t account_pending (MDB_txn *, rai::account const &);
 	rai::uint128_t weight (MDB_txn *, rai::account const &);
+	bool is_successor (MDB_txn *, rai::block_hash const &, rai::block_hash const &);
 	std::unique_ptr<rai::block> successor (MDB_txn *, rai::block_hash const &);
 	std::unique_ptr<rai::block> forked_block (MDB_txn *, rai::block const &);
 	rai::block_hash latest (MDB_txn *, rai::account const &);

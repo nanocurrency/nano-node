@@ -899,6 +899,16 @@ void rai::ledger::change_latest (MDB_txn * transaction_a, rai::account const & a
 	}
 }
 
+bool rai::ledger::is_successor (MDB_txn * transaction_a, rai::uint256_union const & start_a, rai::uint256_union const & end_a)
+{
+	rai::block_hash hash (start_a);
+	while (!hash.is_zero () && hash != end_a)
+	{
+		hash = store.block_successor (transaction_a, hash);
+	}
+	return hash == end_a;
+}
+
 std::unique_ptr<rai::block> rai::ledger::successor (MDB_txn * transaction_a, rai::uint256_union const & root_a)
 {
 	rai::block_hash successor (0);

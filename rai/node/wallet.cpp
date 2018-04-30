@@ -1228,10 +1228,18 @@ public:
 						auto this_l (shared_from_this ());
 						std::shared_ptr<rai::block> block_l (wallet->node.store.block_get (transaction, info.head));
 						wallet->node.background ([this_l, account, block_l] {
+							rai::block_hash hash (block_l->hash ());
 							rai::transaction transaction (this_l->wallet->node.store.environment, nullptr, true);
-							this_l->wallet->node.active.start (transaction, block_l, [this_l, account](std::shared_ptr<rai::block>, bool) {
+							this_l->wallet->node.active.start (transaction, block_l, [this_l, account, hash](std::shared_ptr<rai::block> winner_l, bool confirmed) {
 								// If there were any forks for this account they've been rolled back and we can receive anything remaining from this account
-								this_l->receive_all (account);
+								if (confirmed && this_l->wallet->node.ledger.block_exists (winner_l->hash ()))
+								{
+									this_l->receive_all (account, winner_l->hash ());
+								}
+								else
+								{
+									BOOST_LOG (this_l->wallet->node.log) << boost::str (boost::format ("Account %1% with head %2% was not confirmed by voting") % account.to_account () % hash.to_string ());
+								}
 							});
 							this_l->wallet->node.network.broadcast_confirm_req (block_l);
 						});
@@ -1246,16 +1254,16 @@ public:
 		}
 		BOOST_LOG (wallet->node.log) << "Pending block search phase complete";
 	}
-	void receive_all (rai::account const & account_a)
+	void receive_all (rai::account const & account_a, rai::block_hash const & head_a)
 	{
-		BOOST_LOG (wallet->node.log) << boost::str (boost::format ("Account %1% confirmed, receiving all blocks") % account_a.to_account ());
+		BOOST_LOG (wallet->node.log) << boost::str (boost::format ("Account %1% confirmed, receiving all blocks before %2%") % account_a.to_account () % head_a.to_string ());
 		rai::transaction transaction (wallet->node.store.environment, nullptr, false);
 		auto representative (wallet->store.representative (transaction));
 		for (auto i (wallet->node.store.pending_begin (transaction)), n (wallet->node.store.pending_end ()); i != n; ++i)
 		{
 			rai::pending_key key (i->first);
 			rai::pending_info pending (i->second);
-			if (pending.source == account_a)
+			if (pending.source == account_a && !wallet->node.ledger.is_successor (transaction, head_a, key.hash))
 			{
 				if (wallet->store.exists (transaction, key.account))
 				{
