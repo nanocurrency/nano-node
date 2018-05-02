@@ -50,7 +50,7 @@ void rai::uint256_union::encode_account (std::string & destination_a) const
 	number_l |= rai::uint512_t (check);
 	for (auto i (0); i < 60; ++i)
 	{
-		auto r (number_l.convert_to<uint8_t> () & 0x1f);
+		uint8_t r (number_l & static_cast<uint8_t> (0x1f));
 		number_l >>= 5;
 		destination_a.push_back (account_encode (r));
 	}
@@ -97,14 +97,14 @@ bool rai::uint256_union::decode_account_v1 (std::string const & source_a)
 		if (!error)
 		{
 			*this = number_l.convert_to<rai::uint256_t> ();
-			uint32_t check ((number_l >> 256).convert_to<uint32_t> ());
 			error = (number_l >> (256 + 32)) != 13;
 			if (!error)
 			{
-				uint32_t validation;
+				uint32_t check (number_l >> static_cast<uint32_t> (256));
+				uint32_t validation (0);
 				blake2b_state hash;
 				blake2b_init (&hash, sizeof (validation));
-				blake2b_update (&hash, bytes.data (), sizeof (bytes));
+				blake2b_update (&hash, bytes.data (), bytes.size ());
 				blake2b_final (&hash, reinterpret_cast<uint8_t *> (&validation), sizeof (validation));
 				error = check != validation;
 			}
@@ -139,8 +139,7 @@ bool rai::uint256_union::decode_account (std::string const & source_a)
 			if (!error)
 			{
 				*this = (number_l >> 40).convert_to<rai::uint256_t> ();
-				uint64_t check (number_l.convert_to<uint64_t> ());
-				check &= 0xffffffffff;
+				uint64_t check (number_l & static_cast<uint64_t> (0xffffffffff));
 				uint64_t validation (0);
 				blake2b_state hash;
 				blake2b_init (&hash, 5);
@@ -166,7 +165,7 @@ rai::uint256_union::uint256_union (rai::uint256_t const & number_a)
 	rai::uint256_t number_l (number_a);
 	for (auto i (bytes.rbegin ()), n (bytes.rend ()); i != n; ++i)
 	{
-		*i = ((number_l)&0xff).convert_to<uint8_t> ();
+		*i = static_cast<uint8_t> (number_l & static_cast<uint8_t> (0xff));
 		number_l >>= 8;
 	}
 }
@@ -337,7 +336,7 @@ rai::uint512_union::uint512_union (rai::uint512_t const & number_a)
 	rai::uint512_t number_l (number_a);
 	for (auto i (bytes.rbegin ()), n (bytes.rend ()); i != n; ++i)
 	{
-		*i = ((number_l)&0xff).convert_to<uint8_t> ();
+		*i = static_cast<uint8_t> (number_l & static_cast<uint8_t> (0xff));
 		number_l >>= 8;
 	}
 }
@@ -474,7 +473,7 @@ rai::uint128_union::uint128_union (rai::uint128_t const & value_a)
 	rai::uint128_t number_l (value_a);
 	for (auto i (bytes.rbegin ()), n (bytes.rend ()); i != n; ++i)
 	{
-		*i = ((number_l)&0xff).convert_to<uint8_t> ();
+		*i = static_cast<uint8_t> (number_l & static_cast<uint8_t> (0xff));
 		number_l >>= 8;
 	}
 }
