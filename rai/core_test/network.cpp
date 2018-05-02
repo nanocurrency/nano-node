@@ -263,6 +263,7 @@ TEST (receivable_processor, confirm_insufficient_pos)
 	auto & node1 (*system.nodes[0]);
 	rai::genesis genesis;
 	auto block1 (std::make_shared<rai::send_block> (genesis.hash (), 0, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
+	node1.generate_work (*block1);
 	ASSERT_EQ (rai::process_result::progress, node1.process (*block1).code);
 	auto node_l (system.nodes[0]);
 	{
@@ -281,6 +282,7 @@ TEST (receivable_processor, confirm_sufficient_pos)
 	auto & node1 (*system.nodes[0]);
 	rai::genesis genesis;
 	auto block1 (std::make_shared<rai::send_block> (genesis.hash (), 0, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
+	node1.generate_work (*block1);
 	ASSERT_EQ (rai::process_result::progress, node1.process (*block1).code);
 	auto node_l (system.nodes[0]);
 	{

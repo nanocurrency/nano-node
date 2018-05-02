@@ -31,6 +31,8 @@ std::chrono::minutes constexpr rai::node::backup_interval;
 int constexpr rai::port_mapping::mapping_timeout;
 int constexpr rai::port_mapping::check_timeout;
 unsigned constexpr rai::active_transactions::announce_interval_ms;
+size_t constexpr rai::block_arrival::arrival_size_min;
+std::chrono::seconds constexpr rai::block_arrival::arrival_time_min;
 
 rai::network::network (rai::node & node_a, uint16_t port) :
 socket (node_a.service, rai::endpoint (boost::asio::ip::address_v6::any (), port)),
@@ -2550,7 +2552,7 @@ bool rai::block_arrival::recent (rai::block_hash const & hash_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	auto now (std::chrono::steady_clock::now ());
-	while (!arrival.empty () && arrival.begin ()->arrival + std::chrono::seconds (60) < now)
+	while (arrival.size () > arrival_size_min && arrival.begin ()->arrival + arrival_time_min < now)
 	{
 		arrival.erase (arrival.begin ());
 	}

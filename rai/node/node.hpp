@@ -301,6 +301,8 @@ public:
 	boost::multi_index::hashed_unique<boost::multi_index::member<rai::block_arrival_info, rai::block_hash, &rai::block_arrival_info::hash>>>>
 	arrival;
 	std::mutex mutex;
+	static size_t constexpr arrival_size_min = 8 * 1024;
+	static std::chrono::seconds constexpr arrival_time_min = std::chrono::seconds (300);
 };
 class rep_last_heard_info
 {

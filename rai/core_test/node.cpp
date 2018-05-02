@@ -277,7 +277,7 @@ TEST (node, receive_gap)
 	rai::system system (24000, 1);
 	auto & node1 (*system.nodes[0]);
 	ASSERT_EQ (0, node1.gap_cache.blocks.size ());
-	auto block (std::make_shared<rai::send_block> (0, 1, 2, rai::keypair ().prv, 4, 0));
+	auto block (std::make_shared<rai::send_block> (5, 1, 2, rai::keypair ().prv, 4, 0));
 	node1.generate_work (*block);
 	rai::confirm_req message;
 	message.block = block;
@@ -691,8 +691,10 @@ TEST (node, fork_publish)
 		rai::keypair key1;
 		rai::genesis genesis;
 		auto send1 (std::make_shared<rai::send_block> (genesis.hash (), key1.pub, rai::genesis_amount - 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
+		node1.generate_work (*send1);
 		rai::keypair key2;
 		auto send2 (std::make_shared<rai::send_block> (genesis.hash (), key2.pub, rai::genesis_amount - 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
+		node1.generate_work (*send2);
 		node1.process_active (send1);
 		node1.block_processor.flush ();
 		ASSERT_EQ (1, node1.active.roots.size ());
@@ -1513,4 +1515,51 @@ TEST (node, block_confirm)
 		++iterations;
 		ASSERT_LT (iterations, 200);
 	}
+}
+
+TEST (node, block_arrival)
+{
+	rai::system system (24000, 1);
+	auto & node (*system.nodes[0]);
+	ASSERT_EQ (0, node.block_arrival.arrival.size ());
+	rai::block_hash hash1 (1);
+	node.block_arrival.add (hash1);
+	ASSERT_EQ (1, node.block_arrival.arrival.size ());
+	node.block_arrival.add (hash1);
+	ASSERT_EQ (1, node.block_arrival.arrival.size ());
+	rai::block_hash hash2 (2);
+	node.block_arrival.add (hash2);
+	ASSERT_EQ (2, node.block_arrival.arrival.size ());
+}
+
+TEST (node, block_arrival_size)
+{
+	rai::system system (24000, 1);
+	auto & node (*system.nodes[0]);
+	auto time (std::chrono::steady_clock::now () - rai::block_arrival::arrival_time_min - std::chrono::seconds (5));
+	rai::block_hash hash (0);
+	for (auto i (0); i < rai::block_arrival::arrival_size_min * 2; ++i)
+	{
+		node.block_arrival.arrival.insert (rai::block_arrival_info{ time, hash });
+		++hash.qwords[0];
+	}
+	ASSERT_EQ (rai::block_arrival::arrival_size_min * 2, node.block_arrival.arrival.size ());
+	node.block_arrival.recent (0);
+	ASSERT_EQ (rai::block_arrival::arrival_size_min, node.block_arrival.arrival.size ());
+}
+
+TEST (node, block_arrival_time)
+{
+	rai::system system (24000, 1);
+	auto & node (*system.nodes[0]);
+	auto time (std::chrono::steady_clock::now ());
+	rai::block_hash hash (0);
+	for (auto i (0); i < rai::block_arrival::arrival_size_min * 2; ++i)
+	{
+		node.block_arrival.arrival.insert (rai::block_arrival_info{ time, hash });
+		++hash.qwords[0];
+	}
+	ASSERT_EQ (rai::block_arrival::arrival_size_min * 2, node.block_arrival.arrival.size ());
+	node.block_arrival.recent (0);
+	ASSERT_EQ (rai::block_arrival::arrival_size_min * 2, node.block_arrival.arrival.size ());
 }
