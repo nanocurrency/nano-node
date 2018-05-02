@@ -480,45 +480,6 @@ TEST (block_store, latest_exists)
 	ASSERT_FALSE (store.account_exists (transaction, one));
 }
 
-TEST (block_store, unsynced)
-{
-	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
-	ASSERT_TRUE (!init);
-	rai::transaction transaction (store.environment, nullptr, true);
-	ASSERT_EQ (store.unsynced_end (), store.unsynced_begin (transaction));
-	rai::block_hash hash1 (0);
-	ASSERT_FALSE (store.unsynced_exists (transaction, hash1));
-	store.unsynced_put (transaction, hash1);
-	ASSERT_TRUE (store.unsynced_exists (transaction, hash1));
-	ASSERT_NE (store.unsynced_end (), store.unsynced_begin (transaction));
-	ASSERT_EQ (hash1, rai::uint256_union (store.unsynced_begin (transaction)->first.uint256 ()));
-	store.unsynced_del (transaction, hash1);
-	ASSERT_FALSE (store.unsynced_exists (transaction, hash1));
-	ASSERT_EQ (store.unsynced_end (), store.unsynced_begin (transaction));
-}
-
-TEST (block_store, unsynced_iteration)
-{
-	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
-	ASSERT_TRUE (!init);
-	rai::transaction transaction (store.environment, nullptr, true);
-	ASSERT_EQ (store.unsynced_end (), store.unsynced_begin (transaction));
-	rai::block_hash hash1 (1);
-	store.unsynced_put (transaction, hash1);
-	rai::block_hash hash2 (2);
-	store.unsynced_put (transaction, hash2);
-	std::unordered_set<rai::block_hash> hashes;
-	for (auto i (store.unsynced_begin (transaction)), n (store.unsynced_end ()); i != n; ++i)
-	{
-		hashes.insert (rai::uint256_union (i->first.uint256 ()));
-	}
-	ASSERT_EQ (2, hashes.size ());
-	ASSERT_TRUE (hashes.find (hash1) != hashes.end ());
-	ASSERT_TRUE (hashes.find (hash2) != hashes.end ());
-}
-
 TEST (block_store, large_iteration)
 {
 	bool init (false);
