@@ -2457,6 +2457,7 @@ public:
 					}
 					else
 					{
+						BOOST_LOG (node.log) << boost::str (boost::format ("Confirmed block is missing:  %1%") % hash.to_string ());
 						assert (false && "Confirmed block is missing");
 					}
 				}
