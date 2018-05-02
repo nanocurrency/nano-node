@@ -144,18 +144,9 @@ public:
 		if (previous != nullptr)
 		{
 			ledger.store.block_successor_clear (transaction, block_a.hashables.previous);
-			switch (previous->type ())
+			if (previous->type () < rai::block_type::state)
 			{
-				case rai::block_type::send:
-				case rai::block_type::receive:
-				case rai::block_type::open:
-				case rai::block_type::change:
-				{
-					ledger.store.frontier_put (transaction, block_a.hashables.previous, block_a.hashables.account);
-					break;
-				}
-				default:
-					break;
+				ledger.store.frontier_put (transaction, block_a.hashables.previous, block_a.hashables.account);
 			}
 		}
 		else
