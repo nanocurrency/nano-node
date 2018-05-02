@@ -2864,6 +2864,14 @@ bool rai::reserved_address (rai::endpoint const & endpoint_a)
 	static auto const rfc1700_max (mapped_from_v4_bytes (0x00fffffful));
 	static auto const ipv4_loopback_min (mapped_from_v4_bytes (0x7f000000ul));
 	static auto const ipv4_loopback_max (mapped_from_v4_bytes (0x7ffffffful));
+	static auto const rfc1918_1_min (mapped_from_v4_bytes (0x0a000000ul));
+	static auto const rfc1918_1_max (mapped_from_v4_bytes (0x0afffffful));
+	static auto const rfc1918_2_min (mapped_from_v4_bytes (0xac100000ul));
+	static auto const rfc1918_2_max (mapped_from_v4_bytes (0xac1ffffful));
+	static auto const rfc1918_3_min (mapped_from_v4_bytes (0xc0a80000ul));
+	static auto const rfc1918_3_max (mapped_from_v4_bytes (0xc0a8fffful));
+	static auto const rfc6598_min (mapped_from_v4_bytes (0x64400000ul));
+	static auto const rfc6598_max (mapped_from_v4_bytes (0x647ffffful));
 	static auto const rfc5737_1_min (mapped_from_v4_bytes (0xc0000200ul));
 	static auto const rfc5737_1_max (mapped_from_v4_bytes (0xc00002fful));
 	static auto const rfc5737_2_min (mapped_from_v4_bytes (0xc6336400ul));
@@ -2878,6 +2886,8 @@ bool rai::reserved_address (rai::endpoint const & endpoint_a)
 	static auto const rfc6666_max (boost::asio::ip::address_v6::from_string ("100::ffff:ffff:ffff:ffff"));
 	static auto const rfc3849_min (boost::asio::ip::address_v6::from_string ("2001:db8::"));
 	static auto const rfc3849_max (boost::asio::ip::address_v6::from_string ("2001:db8:ffff:ffff:ffff:ffff:ffff:ffff"));
+	static auto const rfc4193_min (boost::asio::ip::address_v6::from_string ("fc00::"));
+	static auto const rfc4193_max (boost::asio::ip::address_v6::from_string ("fd00:ffff:ffff:ffff:ffff:ffff:ffff:ffff"));
 	static auto const ipv6_multicast_min (boost::asio::ip::address_v6::from_string ("ff00::"));
 	static auto const ipv6_multicast_max (boost::asio::ip::address_v6::from_string ("ff00:ffff:ffff:ffff:ffff:ffff:ffff:ffff"));
 	if (bytes >= rfc1700_min && bytes <= rfc1700_max)
@@ -2916,13 +2926,36 @@ bool rai::reserved_address (rai::endpoint const & endpoint_a)
 	{
 		result = true;
 	}
-	else if (bytes.is_loopback () && rai::rai_network != rai::rai_networks::rai_test_network)
+	else if (rai::rai_network == rai::rai_networks::rai_live_network)
 	{
-		result = true;
-	}
-	else if (bytes >= ipv4_loopback_min && bytes <= ipv4_loopback_max && rai::rai_network != rai::rai_networks::rai_test_network)
-	{
-		result = true;
+		if (bytes.is_loopback ())
+		{
+			result = true;
+		}
+		else if (bytes >= ipv4_loopback_min && bytes <= ipv4_loopback_max)
+		{
+			result = true;
+		}
+		else if (bytes >= rfc1918_1_min && bytes <= rfc1918_1_max)
+		{
+			result = true;
+		}
+		else if (bytes >= rfc1918_2_min && bytes <= rfc1918_2_max)
+		{
+			result = true;
+		}
+		else if (bytes >= rfc1918_3_min && bytes <= rfc1918_3_max)
+		{
+			result = true;
+		}
+		else if (bytes >= rfc6598_min && bytes <= rfc6598_max)
+		{
+			result = true;
+		}
+		else if (bytes >= rfc4193_min && bytes <= rfc4193_max)
+		{
+			result = true;
+		}
 	}
 	return result;
 }
