@@ -13,7 +13,7 @@ while getopts 'm' OPT; do
 done
 
 BOOST_BASENAME=boost_1_66_0
-BOOST_ROOT=${BOOST_ROOT-/usr/local/boost}
+BOOST_ROOT=${BOOST_ROOT-../[boost]/}
 BOOST_URL=https://downloads.sourceforge.net/project/boost/boost/1.66.0/${BOOST_BASENAME}.tar.bz2
 BOOST_ARCHIVE="${BOOST_BASENAME}.tar.bz2"
 BOOST_ARCHIVE_SHA256='5721818253e6a0989583192f96782c4a98eb6204965316df9f5ad75819225ca9'
