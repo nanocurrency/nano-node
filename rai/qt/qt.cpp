@@ -245,7 +245,7 @@ wallet (wallet_a)
 void rai_qt::accounts::refresh_wallet_balance ()
 {
 	rai::transaction transaction (this->wallet.wallet_m->store.environment, nullptr, false);
-	rai::transaction block_transaction(this->wallet.node.store.environment, nullptr, false);
+	rai::transaction block_transaction (this->wallet.node.store.environment, nullptr, false);
 	rai::uint128_t balance (0);
 	rai::uint128_t pending (0);
 	for (auto i (this->wallet.wallet_m->store.begin (transaction)), j (this->wallet.wallet_m->store.end ()); i != j; ++i)
@@ -271,7 +271,7 @@ void rai_qt::accounts::refresh ()
 {
 	model->removeRows (0, model->rowCount ());
 	rai::transaction transaction (wallet.wallet_m->store.environment, nullptr, false);
-	rai::transaction block_transaction(wallet.node.store.environment, nullptr, false);
+	rai::transaction block_transaction (wallet.node.store.environment, nullptr, false);
 	QBrush brush;
 	for (auto i (wallet.wallet_m->store.begin (transaction)), j (wallet.wallet_m->store.end ()); i != j; ++i)
 	{
@@ -1961,7 +1961,7 @@ void rai_qt::block_creation::create_send ()
 			if (!error)
 			{
 				rai::transaction transaction (wallet.wallet_m->store.environment, nullptr, false);
-				rai::transaction block_transaction(wallet.node.store.environment, nullptr, false);
+				rai::transaction block_transaction (wallet.node.store.environment, nullptr, false);
 				rai::raw_key key;
 				if (!wallet.wallet_m->store.fetch (transaction, account_l, key))
 				{
@@ -2015,8 +2015,8 @@ void rai_qt::block_creation::create_receive ()
 	auto error (source_l.decode_hex (source->text ().toStdString ()));
 	if (!error)
 	{
-		rai::transaction transaction(wallet.wallet_m->store.environment, nullptr, false);
-		rai::transaction block_transaction(wallet.node.store.environment, nullptr, false);
+		rai::transaction transaction (wallet.wallet_m->store.environment, nullptr, false);
+		rai::transaction block_transaction (wallet.node.store.environment, nullptr, false);
 		auto block_l (wallet.node.store.block_get (block_transaction, source_l));
 		if (block_l != nullptr)
 		{
@@ -2089,8 +2089,8 @@ void rai_qt::block_creation::create_change ()
 		error = representative_l.decode_account (representative->text ().toStdString ());
 		if (!error)
 		{
-			rai::transaction transaction(wallet.wallet_m->store.environment, nullptr, false);
-			rai::transaction block_transaction(wallet.node.store.environment, nullptr, false);
+			rai::transaction transaction (wallet.wallet_m->store.environment, nullptr, false);
+			rai::transaction block_transaction (wallet.node.store.environment, nullptr, false);
 			rai::account_info info;
 			auto error (wallet.node.store.account_get (block_transaction, account_l, info));
 			if (!error)
@@ -2141,8 +2141,8 @@ void rai_qt::block_creation::create_open ()
 		error = representative_l.decode_account (representative->text ().toStdString ());
 		if (!error)
 		{
-			rai::transaction transaction(wallet.wallet_m->store.environment, nullptr, false);
-			rai::transaction block_transaction(wallet.node.store.environment, nullptr, false);
+			rai::transaction transaction (wallet.wallet_m->store.environment, nullptr, false);
+			rai::transaction block_transaction (wallet.node.store.environment, nullptr, false);
 			auto block_l (wallet.node.store.block_get (block_transaction, source_l));
 			if (block_l != nullptr)
 			{

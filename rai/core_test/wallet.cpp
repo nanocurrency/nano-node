@@ -6,7 +6,7 @@
 TEST (wallet, no_key)
 {
 	bool init;
-	rai::mdb_env environment (init, rai::unique_path (),false);
+	rai::mdb_env environment (init, rai::unique_path (), false);
 	ASSERT_FALSE (init);
 	rai::transaction transaction (environment, nullptr, true);
 	rai::kdf kdf;

@@ -1335,7 +1335,7 @@ rai::public_key rai::wallet::change_seed (MDB_txn * transaction_a, rai::raw_key 
 		store.deterministic_key (prv, transaction_a, i);
 		rai::keypair pair (prv.data.to_string ());
 		// Check if account received at least 1 block
-		rai::transaction block_transaction(node.store.environment, nullptr ,false);
+		rai::transaction block_transaction (node.store.environment, nullptr, false);
 		auto latest (node.ledger.latest (block_transaction, pair.pub));
 		if (!latest.is_zero ())
 		{
@@ -1611,6 +1611,6 @@ rai::store_iterator rai::wallet_store::end ()
 }
 
 rai::wallets_store::wallets_store (bool & error_a, boost::filesystem::path const & path_a, int lmdb_max_dbs) :
-environment (error_a, path_a, false , lmdb_max_dbs)
+environment (error_a, path_a, false, lmdb_max_dbs)
 {
 }
