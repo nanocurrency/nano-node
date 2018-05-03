@@ -108,13 +108,6 @@ public:
 	size_t unchecked_count (MDB_txn *);
 	std::unordered_multimap<rai::block_hash, std::shared_ptr<rai::block>> unchecked_cache;
 
-	void unsynced_put (MDB_txn *, rai::block_hash const &);
-	void unsynced_del (MDB_txn *, rai::block_hash const &);
-	bool unsynced_exists (MDB_txn *, rai::block_hash const &);
-	rai::store_iterator unsynced_begin (MDB_txn *, rai::block_hash const &);
-	rai::store_iterator unsynced_begin (MDB_txn *);
-	rai::store_iterator unsynced_end ();
-
 	void checksum_put (MDB_txn *, uint64_t, uint8_t, rai::checksum const &);
 	bool checksum_get (MDB_txn *, uint64_t, uint8_t, rai::checksum &);
 	void checksum_del (MDB_txn *, uint64_t, uint8_t);
@@ -145,6 +138,7 @@ public:
 	void upgrade_v7_to_v8 (MDB_txn *);
 	void upgrade_v8_to_v9 (MDB_txn *);
 	void upgrade_v9_to_v10 (MDB_txn *);
+	void upgrade_v10_to_v11 (MDB_txn *);
 
 	void clear (MDB_dbi);
 
@@ -215,12 +209,6 @@ public:
 	 * rai::block_hash -> rai::block
 	 */
 	MDB_dbi unchecked;
-
-	/**
-	 * Blocks that haven't been broadcast.
-	 * rai::block_hash -> (no value)
-	 */
-	MDB_dbi unsynced;
 
 	/**
 	 * Mapping of region to checksum.

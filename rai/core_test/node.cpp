@@ -1207,6 +1207,37 @@ TEST (node, DISABLED_bootstrap_no_publish)
 	}
 }
 
+// Check that an outgoing bootstrap request can push blocks
+TEST (node, bootstrap_bulk_push)
+{
+	rai::system system0 (24000, 1);
+	rai::system system1 (24001, 1);
+	auto node0 (system0.nodes[0]);
+	auto node1 (system1.nodes[0]);
+	rai::keypair key0;
+	// node0 knows about send0 but node1 doesn't.
+	rai::send_block send0 (system0.nodes[0]->latest (rai::test_genesis_key.pub), key0.pub, 500, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
+	node0->generate_work (send0);
+	{
+		rai::transaction transaction (node0->store.environment, nullptr, true);
+		ASSERT_EQ (rai::process_result::progress, system0.nodes[0]->ledger.process (transaction, send0).code);
+	}
+	ASSERT_FALSE (node0->bootstrap_initiator.in_progress ());
+	ASSERT_FALSE (node1->bootstrap_initiator.in_progress ());
+	ASSERT_TRUE (node1->active.roots.empty ());
+	node0->bootstrap_initiator.bootstrap (node1->network.endpoint (), false);
+	auto iterations1 (0);
+	while (node1->block (send0.hash ()) == nullptr)
+	{
+		system0.poll ();
+		system1.poll ();
+		++iterations1;
+		ASSERT_GT (200, iterations1);
+	}
+	// since this uses bulk_push, the new block should be republished
+	ASSERT_FALSE (node1->active.roots.empty ());
+}
+
 // Bootstrapping a forked open block should succeed.
 TEST (node, bootstrap_fork_open)
 {
