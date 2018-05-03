@@ -1287,7 +1287,7 @@ void rai::bootstrap_listener::stop ()
 		connections_l.swap (connections);
 	}
 	acceptor.close ();
-	for (auto & i : connections)
+	for (auto & i : connections_l)
 	{
 		auto connection (i.second.lock ());
 		if (connection)
