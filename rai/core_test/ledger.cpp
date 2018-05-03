@@ -2306,6 +2306,7 @@ TEST (ledger, state_canary_blocks)
 	rai::genesis genesis;
 	rai::send_block parse_canary (genesis.hash (), rai::test_genesis_key.pub, rai::genesis_amount, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
 	rai::send_block generate_canary (parse_canary.hash (), rai::test_genesis_key.pub, rai::genesis_amount, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
+	rai::stat stats;
 	rai::ledger ledger (store, stats, parse_canary.hash (), generate_canary.hash ());
 	rai::transaction transaction (store.environment, nullptr, true);
 	genesis.initialize (transaction, store);
