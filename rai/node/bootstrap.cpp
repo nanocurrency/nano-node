@@ -614,7 +614,7 @@ void rai::bulk_push_client::push (MDB_txn * transaction_a)
 			}
 			else
 			{
-				if (connection->node->config.logging.bulk_pull_logging ())
+				if (true || connection->node->config.logging.bulk_pull_logging ())
 				{
 					BOOST_LOG (connection->node->log) << "Bulk pushing range " << current_target.first.to_string () << " down to " << current_target.second.to_string ();
 				}
@@ -636,7 +636,7 @@ void rai::bulk_push_client::send_finished ()
 {
 	auto buffer (std::make_shared<std::vector<uint8_t>> ());
 	buffer->push_back (static_cast<uint8_t> (rai::block_type::not_a_block));
-	if (connection->node->config.logging.network_logging ())
+	if (true || connection->node->config.logging.network_logging ())
 	{
 		BOOST_LOG (connection->node->log) << "Bulk push finished";
 	}
