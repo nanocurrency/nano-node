@@ -240,7 +240,7 @@ rai::store_iterator rai::block_store::vote_end ()
 }
 
 rai::block_store::block_store (bool & error_a, boost::filesystem::path const & path_a, int lmdb_max_dbs) :
-environment (error_a, path_a, lmdb_max_dbs),
+environment (error_a, path_a, true, lmdb_max_dbs),
 frontiers (0),
 accounts (0),
 send_blocks (0),

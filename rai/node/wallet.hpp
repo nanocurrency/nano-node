@@ -189,4 +189,10 @@ public:
 	static rai::uint128_t const generate_priority;
 	static rai::uint128_t const high_priority;
 };
+class wallets_store
+{
+public:
+	wallets_store (bool &, boost::filesystem::path const &, int lmdb_max_dbs = 128);
+	rai::mdb_env environment;
+};
 }

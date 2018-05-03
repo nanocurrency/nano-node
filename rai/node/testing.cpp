@@ -232,16 +232,17 @@ void rai::system::generate_send_existing (rai::node & node_a, std::vector<rai::a
 	{
 		rai::account account;
 		random_pool.GenerateBlock (account.bytes.data (), sizeof (account.bytes));
-		rai::transaction transaction (node_a.store.environment, nullptr, false);
-		rai::store_iterator entry (node_a.store.latest_begin (transaction, account));
+		rai::transaction transaction (node_a.wallets_store.environment, nullptr, false);
+		rai::transaction block_transaction (node_a.store.environment, nullptr, false);
+		rai::store_iterator entry (node_a.store.latest_begin (block_transaction, account));
 		if (entry == node_a.store.latest_end ())
 		{
-			entry = node_a.store.latest_begin (transaction);
+			entry = node_a.store.latest_begin (block_transaction);
 		}
 		assert (entry != node_a.store.latest_end ());
 		destination = rai::account (entry->first.uint256 ());
 		source = get_random_account (accounts_a);
-		amount = get_random_amount (transaction, node_a, source);
+		amount = get_random_amount (block_transaction, node_a, source);
 	}
 	if (!amount.is_zero ())
 	{

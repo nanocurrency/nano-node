@@ -778,13 +778,14 @@ bool rai::logging::log_to_cerr () const
 
 rai::node_init::node_init () :
 block_store_init (false),
+wallets_store_init (false),
 wallet_init (false)
 {
 }
 
 bool rai::node_init::error ()
 {
-	return block_store_init || wallet_init;
+	return block_store_init || wallets_store_init || wallet_init;
 }
 
 rai::node_config::node_config () :
@@ -1480,6 +1481,7 @@ bootstrap_initiator (*this),
 bootstrap (service_a, config.peering_port, *this),
 peers (network.endpoint ()),
 application_path (application_path_a),
+wallets_store (init_a.wallets_store_init, application_path_a / "wallets.ldb", config_a.lmdb_max_dbs),
 wallets (init_a.block_store_init, *this),
 port_mapping (*this),
 vote_processor (*this),
@@ -2124,7 +2126,7 @@ void rai::node::ongoing_store_flush ()
 
 void rai::node::backup_wallet ()
 {
-	rai::transaction transaction (store.environment, nullptr, false);
+	rai::transaction transaction (wallets_store.environment, nullptr, false);
 	for (auto i (wallets.items.begin ()), n (wallets.items.end ()); i != n; ++i)
 	{
 		auto backup_path (application_path / "backup");

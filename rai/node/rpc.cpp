@@ -409,7 +409,7 @@ void rai::rpc_handler::account_list ()
 		{
 			boost::property_tree::ptree response_l;
 			boost::property_tree::ptree accounts;
-			rai::transaction transaction (node.store.environment, nullptr, false);
+			rai::transaction transaction (node.wallets_store.environment, nullptr, false);
 			for (auto i (existing->second->store.begin (transaction)), j (existing->second->store.end ()); i != j; ++i)
 			{
 				boost::property_tree::ptree entry;
@@ -506,7 +506,7 @@ void rai::rpc_handler::account_remove ()
 			if (existing != node.wallets.items.end ())
 			{
 				auto wallet (existing->second);
-				rai::transaction transaction (node.store.environment, nullptr, true);
+				rai::transaction transaction (node.wallets_store.environment, nullptr, true);
 				if (existing->second->store.valid_password (transaction))
 				{
 					rai::account account_id;
@@ -2186,7 +2186,7 @@ void rai::rpc_handler::password_change ()
 			auto existing (node.wallets.items.find (wallet));
 			if (existing != node.wallets.items.end ())
 			{
-				rai::transaction transaction (node.store.environment, nullptr, true);
+				rai::transaction transaction (node.wallets_store.environment, nullptr, true);
 				boost::property_tree::ptree response_l;
 				std::string password_text (request.get<std::string> ("password"));
 				auto error (existing->second->store.rekey (transaction, password_text));
@@ -2246,7 +2246,7 @@ void rai::rpc_handler::password_valid (bool wallet_locked = false)
 		auto existing (node.wallets.items.find (wallet));
 		if (existing != node.wallets.items.end ())
 		{
-			rai::transaction transaction (node.store.environment, nullptr, false);
+			rai::transaction transaction (node.wallets_store.environment, nullptr, false);
 			boost::property_tree::ptree response_l;
 			auto valid (existing->second->store.valid_password (transaction));
 			if (!wallet_locked)
@@ -3581,15 +3581,16 @@ void rai::rpc_handler::wallet_balances ()
 		{
 			boost::property_tree::ptree response_l;
 			boost::property_tree::ptree balances;
-			rai::transaction transaction (node.store.environment, nullptr, false);
+			rai::transaction transaction (node.wallets_store.environment, nullptr, false);
+			rai::transaction block_transaction (node.store.environment, nullptr, false);
 			for (auto i (existing->second->store.begin (transaction)), n (existing->second->store.end ()); i != n; ++i)
 			{
 				rai::account account (i->first.uint256 ());
-				rai::uint128_t balance = node.ledger.account_balance (transaction, account);
+				rai::uint128_t balance = node.ledger.account_balance (block_transaction, account);
 				if (threshold.is_zero ())
 				{
 					boost::property_tree::ptree entry;
-					rai::uint128_t pending = node.ledger.account_pending (transaction, account);
+					rai::uint128_t pending = node.ledger.account_pending (block_transaction, account);
 					entry.put ("balance", balance.convert_to<std::string> ());
 					entry.put ("pending", pending.convert_to<std::string> ());
 					balances.push_back (std::make_pair (account.to_account (), entry));
@@ -3637,7 +3638,7 @@ void rai::rpc_handler::wallet_change_seed ()
 				auto existing (node.wallets.items.find (wallet));
 				if (existing != node.wallets.items.end ())
 				{
-					rai::transaction transaction (node.store.environment, nullptr, true);
+					rai::transaction transaction (node.wallets_store.environment, nullptr, true);
 					if (existing->second->store.valid_password (transaction))
 					{
 						existing->second->store.seed_set (transaction, seed);
@@ -3686,7 +3687,7 @@ void rai::rpc_handler::wallet_contains ()
 			auto existing (node.wallets.items.find (wallet));
 			if (existing != node.wallets.items.end ())
 			{
-				rai::transaction transaction (node.store.environment, nullptr, false);
+				rai::transaction transaction (node.wallets_store.environment, nullptr, false);
 				auto exists (existing->second->store.find (transaction, account) != existing->second->store.end ());
 				boost::property_tree::ptree response_l;
 				response_l.put ("exists", exists ? "1" : "0");
@@ -3775,7 +3776,7 @@ void rai::rpc_handler::wallet_export ()
 		auto existing (node.wallets.items.find (wallet));
 		if (existing != node.wallets.items.end ())
 		{
-			rai::transaction transaction (node.store.environment, nullptr, false);
+			rai::transaction transaction (node.wallets_store.environment, nullptr, false);
 			std::string json;
 			existing->second->store.serialize_json (transaction, json);
 			boost::property_tree::ptree response_l;
@@ -4060,7 +4061,7 @@ void rai::rpc_handler::wallet_representative ()
 		auto existing (node.wallets.items.find (wallet));
 		if (existing != node.wallets.items.end ())
 		{
-			rai::transaction transaction (node.store.environment, nullptr, false);
+			rai::transaction transaction (node.wallets_store.environment, nullptr, false);
 			boost::property_tree::ptree response_l;
 			response_l.put ("representative", existing->second->store.representative (transaction).to_account ());
 			response (response_l);
@@ -4093,7 +4094,7 @@ void rai::rpc_handler::wallet_representative_set ()
 				auto error (representative.decode_account (representative_text));
 				if (!error)
 				{
-					rai::transaction transaction (node.store.environment, nullptr, true);
+					rai::transaction transaction (node.wallets_store.environment, nullptr, true);
 					existing->second->store.representative_set (transaction, representative);
 					boost::property_tree::ptree response_l;
 					response_l.put ("set", "1");
@@ -4139,6 +4140,7 @@ void rai::rpc_handler::wallet_republish ()
 				{
 					boost::property_tree::ptree response_l;
 					boost::property_tree::ptree blocks;
+					rai::transaction block_transaction (node.store.environment, nullptr, false);
 					rai::transaction transaction (node.store.environment, nullptr, false);
 					for (auto i (existing->second->store.begin (transaction)), n (existing->second->store.end ()); i != n; ++i)
 					{
@@ -4201,7 +4203,7 @@ void rai::rpc_handler::wallet_work_get ()
 			{
 				boost::property_tree::ptree response_l;
 				boost::property_tree::ptree works;
-				rai::transaction transaction (node.store.environment, nullptr, false);
+				rai::transaction transaction (node.wallets_store.environment, nullptr, false);
 				for (auto i (existing->second->store.begin (transaction)), n (existing->second->store.end ()); i != n; ++i)
 				{
 					rai::account account (i->first.uint256 ());
