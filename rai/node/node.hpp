@@ -44,14 +44,14 @@ public:
 };
 class election : public std::enable_shared_from_this<rai::election>
 {
-	std::function<void(std::shared_ptr<rai::block>, bool)> confirmation_action;
+	std::function<void(std::shared_ptr<rai::block>)> confirmation_action;
 	void confirm_once (MDB_txn *);
 
 public:
-	election (MDB_txn *, rai::node &, std::shared_ptr<rai::block>, std::function<void(std::shared_ptr<rai::block>, bool)> const &);
+	election (MDB_txn *, rai::node &, std::shared_ptr<rai::block>, std::function<void(std::shared_ptr<rai::block>)> const &);
 	bool vote (std::shared_ptr<rai::vote>);
 	// Check if we have vote quorum
-	bool have_quorum (MDB_txn *);
+	bool have_quorum (rai::tally_t const &);
 	// Tell the network our view of the winner
 	void broadcast_winner ();
 	// Change our winner to agree with the network
@@ -60,8 +60,6 @@ public:
 	void confirm_if_quorum (MDB_txn *);
 	// Confirmation method 2, settling time
 	void confirm_cutoff (MDB_txn *);
-	rai::uint128_t quorum_threshold (MDB_txn *, rai::ledger &);
-	rai::uint128_t minimum_threshold (MDB_txn *, rai::ledger &);
 	rai::votes votes;
 	rai::node & node;
 	std::unordered_map<rai::account, std::pair<std::chrono::steady_clock::time_point, uint64_t>> last_votes;
@@ -85,11 +83,11 @@ public:
 	active_transactions (rai::node &);
 	// Start an election for a block
 	// Call action with confirmed block, may be different than what we started with
-	bool start (MDB_txn *, std::shared_ptr<rai::block>, std::function<void(std::shared_ptr<rai::block>, bool)> const & = [](std::shared_ptr<rai::block>, bool) {});
+	bool start (MDB_txn *, std::shared_ptr<rai::block>, std::function<void(std::shared_ptr<rai::block>)> const & = [](std::shared_ptr<rai::block>) {});
 	// Also supply alternatives to block, to confirm_req reps with if the boolean argument is true
 	// Should only be used for old elections
 	// The first block should be the one in the ledger
-	bool start (MDB_txn *, std::pair<std::shared_ptr<rai::block>, std::shared_ptr<rai::block>>, std::function<void(std::shared_ptr<rai::block>, bool)> const & = [](std::shared_ptr<rai::block>, bool) {});
+	bool start (MDB_txn *, std::pair<std::shared_ptr<rai::block>, std::shared_ptr<rai::block>>, std::function<void(std::shared_ptr<rai::block>)> const & = [](std::shared_ptr<rai::block>) {});
 	// If this returns true, the vote is a replay
 	// If this returns false, the vote may or may not be a replay
 	bool vote (std::shared_ptr<rai::vote>);
@@ -426,7 +424,8 @@ public:
 	std::vector<rai::account> preconfigured_representatives;
 	unsigned bootstrap_fraction_numerator;
 	rai::amount receive_minimum;
-	rai::amount inactive_supply;
+	rai::amount online_weight_minimum;
+	unsigned online_weight_quorom;
 	unsigned password_fanout;
 	unsigned io_threads;
 	unsigned work_threads;
@@ -532,7 +531,6 @@ public:
 	void ongoing_rep_crawl ();
 	void ongoing_bootstrap ();
 	void ongoing_store_flush ();
-	void ongoing_supply_update ();
 	void backup_wallet ();
 	int price (rai::uint128_t const &, int);
 	void generate_work (rai::block &);
@@ -540,6 +538,7 @@ public:
 	void generate_work (rai::uint256_union const &, std::function<void(uint64_t)>);
 	void add_initial_peers ();
 	void block_confirm (std::shared_ptr<rai::block>);
+	rai::uint128_t delta ();
 	boost::asio::io_service & service;
 	rai::node_config config;
 	rai::alarm & alarm;

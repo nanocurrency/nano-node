@@ -13,36 +13,14 @@ public:
 	size_t operator() (std::shared_ptr<rai::block> const &) const;
 	bool operator() (std::shared_ptr<rai::block> const &, std::shared_ptr<rai::block> const &) const;
 };
-class ledger;
-class supply
-{
-public:
-	supply (rai::ledger & ledger_a, rai::uint128_t const & inactive_supply_a);
-	rai::uint128_t circulating_get (bool force_update = false);
-	void circulating_update ();
-	inline rai::uint128_t inactive_get () const
-	{
-		return inactive_supply;
-	};
-	inline void inactive_set (rai::uint128_t const & inactive_supply_a)
-	{
-		inactive_supply = inactive_supply_a;
-	};
-
-private:
-	void update_cache ();
-	rai::ledger & ledger;
-	rai::uint128_t inactive_supply;
-	rai::uint128_t cached_supply;
-	std::mutex mutex;
-};
+using tally_t = std::map<rai::uint128_t, std::shared_ptr<rai::block>, std::greater<rai::uint128_t>>;
 class ledger
 {
 public:
-	ledger (rai::block_store &, rai::stat &, rai::uint128_t const & = 0, rai::block_hash const & = 0, rai::block_hash const & = 0);
+	ledger (rai::block_store &, rai::stat &, rai::block_hash const & = 0, rai::block_hash const & = 0);
 	std::pair<rai::uint128_t, std::shared_ptr<rai::block>> winner (MDB_txn *, rai::votes const & votes_a);
 	// Map of weight -> associated block, ordered greatest to least
-	std::map<rai::uint128_t, std::shared_ptr<rai::block>, std::greater<rai::uint128_t>> tally (MDB_txn *, rai::votes const &);
+	rai::tally_t tally (MDB_txn *, rai::votes const &);
 	rai::account account (MDB_txn *, rai::block_hash const &);
 	rai::uint128_t amount (MDB_txn *, rai::block_hash const &);
 	rai::uint128_t balance (MDB_txn *, rai::block_hash const &);
@@ -77,6 +55,5 @@ public:
 	std::atomic<bool> check_bootstrap_weights;
 	rai::block_hash state_block_parse_canary;
 	rai::block_hash state_block_generate_canary;
-	rai::supply supply;
 };
 };
