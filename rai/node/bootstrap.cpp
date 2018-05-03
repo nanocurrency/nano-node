@@ -308,6 +308,10 @@ void rai::frontier_req_client::received_frontier (boost::system::error_code cons
 					next (transaction);
 				}
 			}
+			if (connection->node->config.logging.bulk_pull_logging ())
+			{
+				BOOST_LOG (connection->node->log) << "Bulk push cost: " << bulk_push_cost;
+			}
 			{
 				try
 				{
@@ -607,6 +611,13 @@ void rai::bulk_push_client::push (MDB_txn * transaction_a)
 			if (block == nullptr)
 			{
 				current_target.first = rai::block_hash (0);
+			}
+			else
+			{
+				if (connection->node->config.logging.bulk_pull_logging ())
+				{
+					BOOST_LOG (connection->node->log) << "Bulk pushing range " << current_target.first.to_string () << " down to " << current_target.second.to_string ();
+				}
 			}
 		}
 	}
