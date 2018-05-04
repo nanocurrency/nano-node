@@ -775,32 +775,27 @@ void rai::bootstrap_attempt::request_pull (std::unique_lock<std::mutex> & lock_a
 	}
 }
 
-bool rai::bootstrap_attempt::request_push (std::unique_lock<std::mutex> & lock_a)
+void rai::bootstrap_attempt::request_push (std::unique_lock<std::mutex> & lock_a)
 {
-	auto result (true);
-	auto connection_l (connection (lock_a));
-	if (connection_l)
+	bool error (false);
+	if (auto connection_shared = connection_frontier_request.lock ())
 	{
-		std::future<bool> future;
-		{
-			auto client (std::make_shared<rai::bulk_push_client> (connection_l));
-			client->start ();
-			push = client;
-			future = client->promise.get_future ();
-		}
+		auto client (std::make_shared<rai::bulk_push_client> (connection_shared));
+		client->start ();
+		push = client;
+		auto future (client->promise.get_future ());
 		lock_a.unlock ();
-		result = consume_future (future);
+		error = consume_future (future);
 		lock_a.lock ();
-		if (node->config.logging.network_logging ())
+	}
+	if (node->config.logging.network_logging ())
+	{
+		BOOST_LOG (node->log) << "Exiting bulk push client";
+		if (error)
 		{
-			BOOST_LOG (node->log) << "Exiting bulk push client";
-			if (result)
-			{
-				BOOST_LOG (node->log) << "Bulk push client failed";
-			}
+			BOOST_LOG (node->log) << "Bulk push client failed";
 		}
 	}
-	return result;
 }
 
 bool rai::bootstrap_attempt::still_pulling ()
@@ -851,11 +846,7 @@ void rai::bootstrap_attempt::run ()
 	{
 		BOOST_LOG (node->log) << "Completed pulls";
 	}
-	auto push_failure (true);
-	while (!stopped && push_failure)
-	{
-		push_failure = request_push (lock);
-	}
+	request_push (lock);
 	stopped = true;
 	condition.notify_all ();
 	idle.clear ();
@@ -1117,7 +1108,6 @@ void rai::bootstrap_attempt::requeue_pull (rai::pull_info const & pull_a)
 		std::lock_guard<std::mutex> lock (mutex);
 		if (auto connection_shared = connection_frontier_request.lock ())
 		{
-			auto size (pulls.size ());
 			node->background ([connection_shared, pull]() {
 				auto client (std::make_shared<rai::bulk_pull_client> (connection_shared, pull));
 				client->request ();
