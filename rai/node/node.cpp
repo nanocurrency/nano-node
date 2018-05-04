@@ -2459,12 +2459,12 @@ public:
 				{
 					if (!node.store.block_exists (transaction, hash))
 					{
-						BOOST_LOG (node.log) << boost::str (boost::format ("Block %1% has already been received") % hash.to_string ());
+						BOOST_LOG (node.log) << boost::str (boost::format ("Confirmed block is missing:  %1%") % hash.to_string ());
+						assert (false && "Confirmed block is missing");
 					}
 					else
 					{
-						BOOST_LOG (node.log) << boost::str (boost::format ("Confirmed block is missing:  %1%") % hash.to_string ());
-						assert (false && "Confirmed block is missing");
+						BOOST_LOG (node.log) << boost::str (boost::format ("Block %1% has already been received") % hash.to_string ());
 					}
 				}
 			}
