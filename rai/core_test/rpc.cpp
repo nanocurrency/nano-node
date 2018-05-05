@@ -3286,13 +3286,12 @@ TEST (rpc, block_create_state_open)
 	rai::genesis genesis;
 	system.nodes[0]->ledger.state_block_parse_canary = genesis.hash ();
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
-	system.wallet (0)->insert_adhoc (key.prv);
 	auto send_block (system.wallet (0)->send_action (rai::test_genesis_key.pub, key.pub, rai::Gxrb_ratio));
 	ASSERT_NE (nullptr, send_block);
 	boost::property_tree::ptree request;
 	request.put ("action", "block_create");
 	request.put ("type", "state");
-	request.put ("wallet", system.nodes[0]->wallets.items.begin ()->first.to_string ());
+	request.put ("key", key.prv.data.to_string ());
 	request.put ("account", key.pub.to_account ());
 	request.put ("previous", 0);
 	request.put ("representative", rai::test_genesis_key.pub.to_account ());
