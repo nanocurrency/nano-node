@@ -266,10 +266,7 @@ TEST (receivable_processor, confirm_insufficient_pos)
 	node1.generate_work (*block1);
 	ASSERT_EQ (rai::process_result::progress, node1.process (*block1).code);
 	auto node_l (system.nodes[0]);
-	{
-		rai::transaction transaction (node1.store.environment, nullptr, true);
-		node1.active.start (transaction, block1);
-	}
+	node1.active.start (block1);
 	rai::keypair key1;
 	auto vote (std::make_shared<rai::vote> (key1.pub, key1.prv, 0, block1));
 	rai::confirm_ack con1 (vote);
@@ -285,10 +282,7 @@ TEST (receivable_processor, confirm_sufficient_pos)
 	node1.generate_work (*block1);
 	ASSERT_EQ (rai::process_result::progress, node1.process (*block1).code);
 	auto node_l (system.nodes[0]);
-	{
-		rai::transaction transaction (node1.store.environment, nullptr, true);
-		node1.active.start (transaction, block1);
-	}
+	node1.active.start (block1);
 	auto vote (std::make_shared<rai::vote> (rai::test_genesis_key.pub, rai::test_genesis_key.prv, 0, block1));
 	rai::confirm_ack con1 (vote);
 	node1.process_message (con1, node1.network.endpoint ());
