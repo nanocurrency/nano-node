@@ -53,7 +53,7 @@ public:
 	// Check if we have vote quorum
 	bool have_quorum (rai::tally_t const &);
 	// Tell the network our view of the winner
-	void broadcast_winner ();
+	void broadcast_winner (std::shared_ptr<std::vector<rai::endpoint>>);
 	// Change our winner to agree with the network
 	void compute_rep_votes (MDB_txn *);
 	// Confirmation method 1, uncontested quorum
@@ -338,6 +338,7 @@ public:
 	void rpc_action (boost::system::error_code const &, size_t);
 	void republish_vote (std::shared_ptr<rai::vote>);
 	void republish_block (MDB_txn *, std::shared_ptr<rai::block>);
+	void republish_block (MDB_txn *, std::shared_ptr<rai::block>, std::vector<rai::endpoint> const &);
 	void republish (rai::block_hash const &, std::shared_ptr<std::vector<uint8_t>>, rai::endpoint);
 	void publish_broadcast (std::vector<rai::peer_information> &, std::unique_ptr<rai::block>);
 	void confirm_send (rai::confirm_ack const &, std::shared_ptr<std::vector<uint8_t>>, rai::endpoint const &);

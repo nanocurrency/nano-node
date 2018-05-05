@@ -171,10 +171,14 @@ bool confirm_block (MDB_txn * transaction_a, rai::node & node_a, rai::endpoint &
 
 void rai::network::republish_block (MDB_txn * transaction, std::shared_ptr<rai::block> block)
 {
+	republish_block (transaction, block, node.peers.list_sqrt ());
+}
+
+void rai::network::republish_block (MDB_txn * transaction, std::shared_ptr<rai::block> block, std::vector<rai::endpoint> const & endpoints_a)
+{
 	auto hash (block->hash ());
-	auto list (node.peers.list_sqrt ());
 	// If we're a representative, broadcast a signed confirm, otherwise an unsigned publish
-	if (!confirm_block (transaction, node, list, block))
+	if (!confirm_block (transaction, node, endpoints_a, block))
 	{
 		rai::publish message (block);
 		std::shared_ptr<std::vector<uint8_t>> bytes (new std::vector<uint8_t>);
@@ -183,7 +187,7 @@ void rai::network::republish_block (MDB_txn * transaction, std::shared_ptr<rai::
 			message.serialize (stream);
 		}
 		auto hash (block->hash ());
-		for (auto i (list.begin ()), n (list.end ()); i != n; ++i)
+		for (auto i (endpoints_a.begin ()), n (endpoints_a.end ()); i != n; ++i)
 		{
 			republish (hash, bytes, *i);
 		}
@@ -3053,11 +3057,11 @@ void rai::election::compute_rep_votes (MDB_txn * transaction_a)
 	});
 }
 
-void rai::election::broadcast_winner ()
+void rai::election::broadcast_winner (std::shared_ptr<std::vector<rai::endpoint>> endpoints_a)
 {
 	rai::transaction transaction (node.store.environment, nullptr, false);
 	compute_rep_votes (transaction);
-	node.network.republish_block (transaction, status.winner);
+	node.network.republish_block (transaction, status.winner, *endpoints_a);
 }
 
 void rai::election::confirm_once (MDB_txn * transaction_a)
@@ -3200,6 +3204,7 @@ void rai::active_transactions::announce_votes ()
 	std::lock_guard<std::mutex> lock (mutex);
 
 	{
+		auto peers (std::make_shared <std::vector<rai::endpoint>> (node.peers.list_sqrt ()));
 		size_t announcements (0);
 		auto i (roots.begin ());
 		auto n (roots.end ());
@@ -3207,7 +3212,7 @@ void rai::active_transactions::announce_votes ()
 		for (; i != n && announcements < announcements_per_interval; ++i)
 		{
 			auto election_l (i->election);
-			node.background ([election_l]() { election_l->broadcast_winner (); });
+			node.background ([election_l, peers]() { election_l->broadcast_winner (peers); });
 			if (i->announcements >= contiguous_announcements - 1)
 			{
 				// These blocks have reached the confirmation interval for forks
