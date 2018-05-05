@@ -1305,7 +1305,7 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 				{
 					if (node.block_arrival.recent (hash))
 					{
-						node.active.start (transaction, block);
+						node.active.start (block);
 					}
 				}
 				case rai::process_result::old:
@@ -2414,8 +2414,7 @@ void rai::node::add_initial_peers ()
 
 void rai::node::block_confirm (std::shared_ptr<rai::block> block_a)
 {
-	rai::transaction transaction (store.environment, nullptr, false);
-	active.start (transaction, block_a);
+	active.start (block_a);
 	network.broadcast_confirm_req (block_a);
 }
 
@@ -3034,15 +3033,13 @@ std::shared_ptr<rai::node> rai::node::shared ()
 	return shared_from_this ();
 }
 
-rai::election::election (MDB_txn * transaction_a, rai::node & node_a, std::shared_ptr<rai::block> block_a, std::function<void(std::shared_ptr<rai::block>)> const & confirmation_action_a) :
+rai::election::election (rai::node & node_a, std::shared_ptr<rai::block> block_a, std::function<void(std::shared_ptr<rai::block>)> const & confirmation_action_a) :
 confirmation_action (confirmation_action_a),
 votes (block_a),
 node (node_a),
 status ({ block_a, 0 }),
 confirmed (false)
 {
-	assert (node_a.store.block_exists (transaction_a, block_a->hash ()));
-	compute_rep_votes (transaction_a);
 }
 
 void rai::election::compute_rep_votes (MDB_txn * transaction_a)
@@ -3295,12 +3292,12 @@ void rai::active_transactions::stop ()
 	roots.clear ();
 }
 
-bool rai::active_transactions::start (MDB_txn * transaction_a, std::shared_ptr<rai::block> block_a, std::function<void(std::shared_ptr<rai::block>)> const & confirmation_action_a)
+bool rai::active_transactions::start (std::shared_ptr<rai::block> block_a, std::function<void(std::shared_ptr<rai::block>)> const & confirmation_action_a)
 {
-	return start (transaction_a, std::make_pair (block_a, nullptr), confirmation_action_a);
+	return start (std::make_pair (block_a, nullptr), confirmation_action_a);
 }
 
-bool rai::active_transactions::start (MDB_txn * transaction_a, std::pair<std::shared_ptr<rai::block>, std::shared_ptr<rai::block>> blocks_a, std::function<void(std::shared_ptr<rai::block>)> const & confirmation_action_a)
+bool rai::active_transactions::start (std::pair<std::shared_ptr<rai::block>, std::shared_ptr<rai::block>> blocks_a, std::function<void(std::shared_ptr<rai::block>)> const & confirmation_action_a)
 {
 	assert (blocks_a.first != nullptr);
 	std::lock_guard<std::mutex> lock (mutex);
@@ -3309,7 +3306,7 @@ bool rai::active_transactions::start (MDB_txn * transaction_a, std::pair<std::sh
 	auto existing (roots.find (root));
 	if (existing == roots.end ())
 	{
-		auto election (std::make_shared<rai::election> (transaction_a, node, primary_block, confirmation_action_a));
+		auto election (std::make_shared<rai::election> (node, primary_block, confirmation_action_a));
 		roots.insert (rai::conflict_info{ root, election, 0, blocks_a });
 	}
 	return existing != roots.end ();
