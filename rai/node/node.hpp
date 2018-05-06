@@ -64,10 +64,8 @@ public:
 	void broadcast_winner ();
 	// Change our winner to agree with the network
 	void compute_rep_votes (MDB_txn *);
-	// Confirmation method 1, uncontested quorum
+	// Confirm this block if quorum is met
 	void confirm_if_quorum (MDB_txn *);
-	// Confirmation method 2, settling time
-	void confirm_cutoff (MDB_txn *);
 	rai::votes votes;
 	rai::node & node;
 	std::unordered_map<rai::account, rai::vote_info> last_votes;

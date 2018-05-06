@@ -211,15 +211,18 @@ TEST (node, node_receive_quorum)
 		++iterations;
 		ASSERT_LT (iterations, 200);
 	}
-	while (!system.nodes[0]->active.roots.empty ())
+	auto done (false);
+	while (!done)
 	{
+		auto info (system.nodes[0]->active.roots.find (previous));
+		ASSERT_NE (system.nodes[0]->active.roots.end (), info);
+		done = info->announcements > rai::active_transactions::contiguous_announcements;
 		system.poll ();
 		++iterations;
 		ASSERT_LT (iterations, 200);
 	}
 	ASSERT_TRUE (system.nodes[0]->balance (key.pub).is_zero ());
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
-	system.nodes[0]->block_confirm (send);
 	while (system.nodes[0]->balance (key.pub).is_zero ())
 	{
 		system.poll ();
@@ -1578,7 +1581,7 @@ TEST (node, block_arrival_time)
 	ASSERT_EQ (rai::block_arrival::arrival_size_min * 2, node.block_arrival.arrival.size ());
 }
 
-TEST (node, confirm_quorom)
+TEST (node, confirm_quorum)
 {
 	rai::system system (24000, 1);
 	rai::genesis genesis;
@@ -1598,13 +1601,16 @@ TEST (node, confirm_quorom)
 		++iterations;
 		ASSERT_LT (iterations, 200);
 	}
-	ASSERT_FALSE (system.nodes[0]->active.roots.empty ());
-	while (!system.nodes[0]->active.roots.empty ())
+	auto done (false);
+	while (!done)
 	{
+		ASSERT_FALSE (system.nodes[0]->active.roots.empty ());
+		auto info (system.nodes[0]->active.roots.find (send1->hash ()));
+		ASSERT_NE (system.nodes[0]->active.roots.end (), info);
+		done = info->announcements > rai::active_transactions::contiguous_announcements;
 		system.poll ();
 		++iterations;
 		ASSERT_LT (iterations, 200);
 	}
-	ASSERT_TRUE (system.nodes[0]->active.roots.empty ());
 	ASSERT_EQ (0, system.nodes[0]->balance (rai::test_genesis_key.pub));
 }

@@ -586,14 +586,14 @@ TEST (system, generate_send_existing)
 	{
 		system.poll ();
 		++iterations1;
-		ASSERT_LT (iterations1, 20);
+		ASSERT_LT (iterations1, 200);
 	}
 	auto iterations2 (0);
 	while (system.nodes[0]->balance (rai::test_genesis_key.pub) != rai::genesis_amount)
 	{
 		system.poll ();
 		++iterations2;
-		ASSERT_LT (iterations2, 20);
+		ASSERT_LT (iterations2, 200);
 	}
 	system.stop ();
 	runner.join ();

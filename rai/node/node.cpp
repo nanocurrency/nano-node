@@ -3038,7 +3038,7 @@ void rai::election::compute_rep_votes (MDB_txn * transaction_a)
 {
 	node.wallets.foreach_representative (transaction_a, [this, transaction_a](rai::public_key const & pub_a, rai::raw_key const & prv_a) {
 		auto vote (this->node.store.vote_generate (transaction_a, pub_a, prv_a, status.winner));
-		this->votes.vote (vote);
+		this->node.vote_processor.vote (vote, this->node.network.endpoint ());
 	});
 }
 
@@ -3122,11 +3122,6 @@ void rai::election::confirm_if_quorum (MDB_txn * transaction_a)
 	}
 }
 
-void rai::election::confirm_cutoff (MDB_txn * transaction_a)
-{
-	confirm_once (transaction_a);
-}
-
 bool rai::election::vote (std::shared_ptr<rai::vote> vote_a)
 {
 	assert (!rai::validate_message (vote_a->account, vote_a->hash (), vote_a->signature));
@@ -3188,80 +3183,61 @@ void rai::active_transactions::announce_votes ()
 	rai::transaction transaction (node.store.environment, nullptr, false);
 	std::lock_guard<std::mutex> lock (mutex);
 
+	for (auto i (roots.begin ()), n (roots.end ()); i != n; ++i)
 	{
-		size_t announcements (0);
-		auto i (roots.begin ());
-		auto n (roots.end ());
-		// Announce our decision for up to `announcements_per_interval' conflicts
-		for (; i != n && announcements < announcements_per_interval; ++i)
+		auto election_l (i->election);
+		if (!node.store.root_exists (transaction, election_l->votes.id) || (election_l->confirmed && i->announcements >= contiguous_announcements - 1))
 		{
-			auto election_l (i->election);
-			node.background ([election_l]() { election_l->broadcast_winner (); });
-			if (i->announcements >= contiguous_announcements - 1)
+			if (election_l->confirmed)
 			{
-				// These blocks have reached the confirmation interval for forks
-				i->election->confirm_cutoff (transaction);
-				auto root_l (i->election->votes.id);
-				inactive.push_back (root_l);
 				confirmed.push_back (i->election->status);
 				if (confirmed.size () > election_history_size)
 				{
 					confirmed.pop_front ();
 				}
 			}
-			else
+			inactive.push_back (election_l->votes.id);
+		}
+		else
+		{
+			node.background ([election_l]() { election_l->broadcast_winner (); });
+			if (i->announcements % contiguous_announcements == 2)
 			{
-				unsigned announcements;
-				roots.modify (i, [&announcements](rai::conflict_info & info_a) {
-					announcements = ++info_a.announcements;
-				});
-				// If more than one full announcement interval has passed and no one has voted on this block, we need to synchronize
-				if (announcements > 1 && i->election->votes.rep_votes.size () <= 1)
+				auto reps (std::make_shared<std::vector<rai::peer_information>> (node.peers.representatives (std::numeric_limits<size_t>::max ())));
+				
+				for (auto j (reps->begin ()), m (reps->end ()); j != m;)
 				{
-					node.bootstrap_initiator.bootstrap ();
-				}
-				else if (i->confirm_req_options.second != nullptr)
-				{
-					auto reps (std::make_shared<std::vector<rai::peer_information>> (node.peers.representatives (std::numeric_limits<size_t>::max ())));
-
-					for (auto j (reps->begin ()), m (reps->end ()); j != m;)
+					auto & rep_votes (i->election->votes.rep_votes);
+					auto rep_acct (j->probable_rep_account);
+					if (rep_votes.find (rep_acct) != rep_votes.end ())
 					{
-						auto & rep_votes (i->election->votes.rep_votes);
-						auto rep_acct (j->probable_rep_account);
-						if (rep_votes.find (rep_acct) != rep_votes.end ())
+						std::swap (*j, reps->back ());
+						reps->pop_back ();
+						m = reps->end ();
+					}
+					else
+					{
+						++j;
+						if (node.config.logging.vote_logging ())
 						{
-							std::swap (*j, reps->back ());
-							reps->pop_back ();
-							m = reps->end ();
-						}
-						else
-						{
-							++j;
-							if (node.config.logging.vote_logging ())
-							{
-								BOOST_LOG (node.log) << "Representative did not respond to confirm_req, retrying: " << rep_acct.to_account ();
-							}
+							BOOST_LOG (node.log) << "Representative did not respond to confirm_req, retrying: " << rep_acct.to_account ();
 						}
 					}
-					if (!reps->empty ())
+				}
+				if (!reps->empty ())
+				{
+					// broadcast_confirm_req_base modifies reps, so we clone it once to avoid aliasing
+					node.network.broadcast_confirm_req_base (i->confirm_req_options.first, std::make_shared<std::vector<rai::peer_information>> (*reps), 0);
+					if (i->confirm_req_options.second)
 					{
-						// broadcast_confirm_req_base modifies reps, so we clone it once to avoid aliasing
-						node.network.broadcast_confirm_req_base (i->confirm_req_options.first, std::make_shared<std::vector<rai::peer_information>> (*reps), 0);
 						node.network.broadcast_confirm_req_base (i->confirm_req_options.second, reps, 0);
 					}
 				}
 			}
 		}
-		// Mark remainder as 0 announcements sent
-		// This could happen if there's a flood of forks, the network will resolve them in increasing root hash order
-		// This is a DoS protection mechanism to rate-limit the amount of traffic for solving forks.
-		for (; i != n; ++i)
-		{
-			// Reset announcement count for conflicts above announcement cutoff
-			roots.modify (i, [](rai::conflict_info & info_a) {
-				info_a.announcements = 0;
-			});
-		}
+		roots.modify (i, [](rai::conflict_info & info_a) {
+			++info_a.announcements;
+		});
 	}
 	for (auto i (inactive.begin ()), n (inactive.end ()); i != n; ++i)
 	{
