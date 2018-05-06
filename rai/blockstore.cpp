@@ -832,6 +832,11 @@ rai::block_counts rai::block_store::block_count (MDB_txn * transaction_a)
 	return result;
 }
 
+bool rai::block_store::root_exists (MDB_txn * transaction_a, rai::uint256_union const & root_a)
+{
+	return block_exists (transaction_a, root_a) || account_exists (transaction_a, root_a);
+}
+
 void rai::block_store::account_del (MDB_txn * transaction_a, rai::account const & account_a)
 {
 	auto status (mdb_del (transaction_a, accounts, rai::mdb_val (account_a), nullptr));

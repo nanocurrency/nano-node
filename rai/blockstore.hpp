@@ -60,6 +60,7 @@ public:
 	void block_del (MDB_txn *, rai::block_hash const &);
 	bool block_exists (MDB_txn *, rai::block_hash const &);
 	rai::block_counts block_count (MDB_txn *);
+	bool root_exists (MDB_txn *, rai::uint256_union const &);
 
 	void frontier_put (MDB_txn *, rai::block_hash const &, rai::account const &);
 	rai::account frontier_get (MDB_txn *, rai::block_hash const &);

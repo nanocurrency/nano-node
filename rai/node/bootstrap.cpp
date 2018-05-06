@@ -885,7 +885,7 @@ void rai::bootstrap_attempt::process_fork (MDB_txn * transaction_a, std::shared_
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	auto root (block_a->root ());
-	if (!node->store.block_exists (transaction_a, block_a->hash ()) && (node->store.block_exists (transaction_a, root) || node->store.account_exists (transaction_a, root)))
+	if (!node->store.block_exists (transaction_a, block_a->hash ()) && node->store.root_exists (transaction_a, block_a->root ()))
 	{
 		std::shared_ptr<rai::block> ledger_block (node->ledger.forked_block (transaction_a, *block_a));
 		if (ledger_block)
