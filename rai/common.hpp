@@ -208,12 +208,6 @@ enum class vote_code
 	replay, // Vote does not have the highest sequence number, it's a replay
 	vote // Vote has the highest sequence number
 };
-class vote_result
-{
-public:
-	rai::vote_code code;
-	std::shared_ptr<rai::vote> vote;
-};
 
 enum class process_result
 {

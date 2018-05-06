@@ -367,23 +367,7 @@ public:
 		node.peers.contacted (sender, message_a.version_using);
 		node.peers.insert (sender, message_a.version_using);
 		node.process_active (message_a.vote->block);
-		auto vote (node.vote_processor.vote (message_a.vote, sender));
-		if (vote.code == rai::vote_code::replay)
-		{
-			// This tries to assist rep nodes that have lost track of their highest sequence number by replaying our highest known vote back to them
-			// Only do this if the sequence number is significantly different to account for network reordering
-			// Amplify attack considerations: We're sending out a confirm_ack in response to a confirm_ack for no net traffic increase
-			if (vote.vote->sequence > message_a.vote->sequence + 10000)
-			{
-				rai::confirm_ack confirm (vote.vote);
-				std::shared_ptr<std::vector<uint8_t>> bytes (new std::vector<uint8_t>);
-				{
-					rai::vectorstream stream (*bytes);
-					confirm.serialize (stream);
-				}
-				node.network.confirm_send (confirm, bytes, sender);
-			}
-		}
+		node.vote_processor.vote (message_a.vote, sender);
 	}
 	void bulk_pull (rai::bulk_pull const &) override
 	{
@@ -1102,30 +1086,47 @@ node (node_a)
 {
 }
 
-rai::vote_result rai::vote_processor::vote (std::shared_ptr<rai::vote> vote_a, rai::endpoint endpoint_a)
+rai::vote_code rai::vote_processor::vote (std::shared_ptr<rai::vote> vote_a, rai::endpoint endpoint_a)
 {
-	rai::vote_result result = { rai::vote_code::invalid, vote_a };
+	auto result (rai::vote_code::invalid);
 	if (!rai::validate_message (vote_a->account, vote_a->hash (), vote_a->signature))
 	{
-		result.code = rai::vote_code::replay;
-		std::shared_ptr<rai::vote> newest_vote;
+		result = rai::vote_code::replay;
+		std::shared_ptr<rai::vote> max_vote;
 		{
 			rai::transaction transaction (node.store.environment, nullptr, false);
-			newest_vote = node.store.vote_max (transaction, vote_a);
+			max_vote = node.store.vote_max (transaction, vote_a);
 		}
-		if (!node.active.vote (vote_a))
+		if (!node.active.vote (vote_a) || max_vote->sequence > vote_a->sequence)
 		{
-			result.code = rai::vote_code::vote;
+			result = rai::vote_code::vote;
 		}
-		else
+		switch (result)
 		{
-			result.vote = newest_vote;
+			case rai::vote_code::vote:
+				node.observers.vote (vote_a, endpoint_a);
+			case rai::vote_code::replay:
+				// This tries to assist rep nodes that have lost track of their highest sequence number by replaying our highest known vote back to them
+				// Only do this if the sequence number is significantly different to account for network reordering
+				// Amplify attack considerations: We're sending out a confirm_ack in response to a confirm_ack for no net traffic increase
+				if (max_vote->sequence > vote_a->sequence + 10000)
+				{
+					rai::confirm_ack confirm (max_vote);
+					std::shared_ptr<std::vector<uint8_t>> bytes (new std::vector<uint8_t>);
+					{
+						rai::vectorstream stream (*bytes);
+						confirm.serialize (stream);
+					}
+					node.network.confirm_send (confirm, bytes, endpoint_a);
+				}
+			case rai::vote_code::invalid:
+				break;
 		}
 	}
 	if (node.config.logging.vote_logging ())
 	{
 		char const * status;
-		switch (result.code)
+		switch (result)
 		{
 			case rai::vote_code::invalid:
 				status = "Invalid";
@@ -1141,14 +1142,6 @@ rai::vote_result rai::vote_processor::vote (std::shared_ptr<rai::vote> vote_a, r
 				break;
 		}
 		BOOST_LOG (node.log) << boost::str (boost::format ("Vote from: %1% sequence: %2% block: %3% status: %4%") % vote_a->account.to_account () % std::to_string (vote_a->sequence) % vote_a->block->hash ().to_string () % status);
-	}
-	switch (result.code)
-	{
-		case rai::vote_code::vote:
-			node.observers.vote (vote_a, endpoint_a);
-		case rai::vote_code::replay:
-		case rai::vote_code::invalid:
-			break;
 	}
 	return result;
 }

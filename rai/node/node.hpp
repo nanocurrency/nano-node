@@ -466,7 +466,7 @@ class vote_processor
 {
 public:
 	vote_processor (rai::node &);
-	rai::vote_result vote (std::shared_ptr<rai::vote>, rai::endpoint);
+	rai::vote_code vote (std::shared_ptr<rai::vote>, rai::endpoint);
 	rai::node & node;
 };
 // The network is crawled for representatives by occasionally sending a unicast confirm_req for a specific block and watching to see if it's acknowledged with a vote.
