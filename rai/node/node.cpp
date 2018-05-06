@@ -3027,6 +3027,11 @@ std::shared_ptr<rai::node> rai::node::shared ()
 	return shared_from_this ();
 }
 
+bool rai::vote_info::operator < (rai::vote const & vote_a) const
+{
+	return sequence < vote_a.sequence || (sequence == vote_a.sequence && hash < vote_a.block->hash ());
+}
+
 rai::election::election (rai::node & node_a, std::shared_ptr<rai::block> block_a, std::function<void(std::shared_ptr<rai::block>)> const & confirmation_action_a) :
 confirmation_action (confirmation_action_a),
 votes (block_a),
@@ -3161,9 +3166,9 @@ bool rai::election::vote (std::shared_ptr<rai::vote> vote_a)
 		else
 		{
 			auto last_vote (last_vote_it->second);
-			if (vote_a->sequence > last_vote.second)
+			if (last_vote < *vote_a)
 			{
-				if (last_vote.first <= std::chrono::steady_clock::now () - std::chrono::seconds (cooldown))
+				if (last_vote.time <= std::chrono::steady_clock::now () - std::chrono::seconds (cooldown))
 				{
 					should_process = true;
 				}
@@ -3175,7 +3180,7 @@ bool rai::election::vote (std::shared_ptr<rai::vote> vote_a)
 		}
 		if (should_process)
 		{
-			last_votes[vote_a->account] = std::make_pair (std::chrono::steady_clock::now (), vote_a->sequence);
+			last_votes[vote_a->account] = { std::chrono::steady_clock::now (), vote_a->sequence, vote_a->block->hash () };
 			node.network.republish_vote (vote_a);
 			votes.vote (vote_a);
 			confirm_if_quorum (transaction);

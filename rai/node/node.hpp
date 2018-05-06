@@ -42,6 +42,14 @@ public:
 	std::shared_ptr<rai::block> winner;
 	rai::amount tally;
 };
+class vote_info
+{
+public:
+	std::chrono::steady_clock::time_point time;
+	uint64_t sequence;
+	rai::block_hash hash;
+	bool operator < (rai::vote const &) const;
+};
 class election : public std::enable_shared_from_this<rai::election>
 {
 	std::function<void(std::shared_ptr<rai::block>)> confirmation_action;
@@ -62,7 +70,7 @@ public:
 	void confirm_cutoff (MDB_txn *);
 	rai::votes votes;
 	rai::node & node;
-	std::unordered_map<rai::account, std::pair<std::chrono::steady_clock::time_point, uint64_t>> last_votes;
+	std::unordered_map<rai::account, rai::vote_info> last_votes;
 	rai::election_status status;
 	std::atomic<bool> confirmed;
 };
