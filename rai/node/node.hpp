@@ -488,6 +488,7 @@ public:
 	rai::process_return process_receive_one (MDB_txn *, std::shared_ptr<rai::block>);
 
 private:
+	void queue_unchecked (MDB_txn *, rai::block_hash const &);
 	void process_receive_many (std::unique_lock<std::mutex> &);
 	bool stopped;
 	bool active;
