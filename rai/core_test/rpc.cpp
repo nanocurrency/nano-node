@@ -1020,7 +1020,13 @@ TEST (rpc, process_block)
 		system.poll ();
 	}
 	ASSERT_EQ (200, response.status);
-	ASSERT_EQ (send.hash (), system.nodes[0]->latest (rai::test_genesis_key.pub));
+	auto iterations (0);
+	while (system.nodes[0]->latest (rai::test_genesis_key.pub) != send.hash ())
+	{
+		system.poll ();
+		++iterations;
+		ASSERT_LT (iterations, 200);
+	}
 	std::string send_hash (response.json.get<std::string> ("hash"));
 	ASSERT_EQ (send.hash ().to_string (), send_hash);
 }
@@ -1047,6 +1053,35 @@ TEST (rpc, process_block_no_work)
 	}
 	ASSERT_EQ (200, response.status);
 	ASSERT_FALSE (response.json.get<std::string> ("error", "").empty ());
+}
+
+TEST (rpc, process_republish)
+{
+	rai::system system (24000, 2);
+	rai::keypair key;
+	auto latest (system.nodes[0]->latest (rai::test_genesis_key.pub));
+	auto & node1 (*system.nodes[0]);
+	rai::send_block send (latest, key.pub, 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, node1.generate_work (latest));
+	rai::rpc rpc (system.service, node1, rai::rpc_config (true));
+	rpc.start ();
+	boost::property_tree::ptree request;
+	request.put ("action", "process");
+	std::string json;
+	send.serialize_json (json);
+	request.put ("block", json);
+	test_response response (request, rpc, system.service);
+	while (response.status == 0)
+	{
+		system.poll ();
+	}
+	ASSERT_EQ (200, response.status);
+	auto iterations (0);
+	while (system.nodes[1]->latest (rai::test_genesis_key.pub) != send.hash ())
+	{
+		system.poll ();
+		++iterations;
+		ASSERT_LT (iterations, 200);
+	}
 }
 
 TEST (rpc, keepalive)
