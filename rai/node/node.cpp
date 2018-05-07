@@ -1299,7 +1299,7 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 				}
 			}
 			auto process_result (process_receive_one (transaction, block));
-			(void) process_result;
+			(void)process_result;
 			lock_a.lock ();
 		}
 	}
