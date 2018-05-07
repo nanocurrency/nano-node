@@ -115,48 +115,37 @@ bool rai::uint256_union::decode_account_v1 (std::string const & source_a)
 
 bool rai::uint256_union::decode_account (std::string const & source_a)
 {
-	auto error (source_a.size () != 64 && source_a.size () != 65);
+	auto error (source_a.size () != 64);
 	if (!error)
 	{
-		auto xrb_prefix (source_a[0] == 'x' && source_a[1] == 'r' && source_a[2] == 'b' && (source_a[3] == '_' || source_a[3] == '-'));
-		auto nano_prefix (source_a[0] == 'n' && source_a[1] == 'a' && source_a[2] == 'n' && source_a[3] == 'o' && (source_a[4] == '_' || source_a[4] == '-'));
-		if (xrb_prefix || nano_prefix)
+		if (source_a[0] == 'x' && source_a[1] == 'r' && source_a[2] == 'b' && (source_a[3] == '_' || source_a[3] == '-') && (source_a[4] == '1' || source_a[4] == '3'))
 		{
-			auto i (source_a.begin () + (xrb_prefix ? 4 : 5));
-			if (*i == '1' || *i == '3')
+			rai::uint512_t number_l;
+			for (auto i (source_a.begin () + 4), j (source_a.end ()); !error && i != j; ++i)
 			{
-				rai::uint512_t number_l;
-				++i;
-				for (auto j (source_a.end ()); !error && i != j; ++i)
-				{
-					uint8_t character (*i);
-					error = character < 0x30 || character >= 0x80;
-					if (!error)
-					{
-						uint8_t byte (account_decode (character));
-						error = byte == '~';
-						if (!error)
-						{
-							number_l <<= 5;
-							number_l += byte;
-						}
-					}
-				}
+				uint8_t character (*i);
+				error = character < 0x30 || character >= 0x80;
 				if (!error)
 				{
-					*this = (number_l >> 40).convert_to<rai::uint256_t> ();
-					uint64_t check (number_l & static_cast<uint64_t> (0xffffffffff));
-					uint64_t validation (0);
-					blake2b_state hash;
-					blake2b_init (&hash, 5);
-					blake2b_update (&hash, bytes.data (), bytes.size ());
-					blake2b_final (&hash, reinterpret_cast<uint8_t *> (&validation), 5);
-					error = check != validation;
+					uint8_t byte (account_decode (character));
+					error = byte == '~';
+					if (!error)
+					{
+						number_l <<= 5;
+						number_l += byte;
+					}
 				}
 			}
-			else
+			if (!error)
 			{
-				error = true;
+				*this = (number_l >> 40).convert_to<rai::uint256_t> ();
+				uint64_t check (number_l & static_cast<uint64_t> (0xffffffffff));
+				uint64_t validation (0);
+				blake2b_state hash;
+				blake2b_init (&hash, 5);
+				blake2b_update (&hash, bytes.data (), bytes.size ());
+				blake2b_final (&hash, reinterpret_cast<uint8_t *> (&validation), 5);
+				error = check != validation;
 			}
 		}
 		else

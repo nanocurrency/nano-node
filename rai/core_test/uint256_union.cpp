@@ -314,13 +314,6 @@ TEST (uint256_union, decode_account_v1)
 	ASSERT_EQ (rai::rai_test_account, key);
 }
 
-TEST (uint256_union, decode_nano_variant)
-{
-	rai::uint256_union key;
-	ASSERT_FALSE (key.decode_account ("xrb_1111111111111111111111111111111111111111111111111111hifc8npp"));
-	ASSERT_FALSE (key.decode_account ("nano_1111111111111111111111111111111111111111111111111111hifc8npp"));
-}
-
 TEST (uint256_union, decode_account_variations)
 {
 	for (int i = 0; i < 100; i++)
