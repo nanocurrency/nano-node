@@ -81,8 +81,8 @@ TEST (network, send_keepalive)
 	auto peers2 (node1->peers.list ());
 	ASSERT_EQ (1, peers1.size ());
 	ASSERT_EQ (1, peers2.size ());
-	ASSERT_EQ (node1->network.endpoint (), peers1 [0]);
-	ASSERT_EQ (system.nodes[0]->network.endpoint (), peers2 [0]);
+	ASSERT_EQ (node1->network.endpoint (), peers1[0]);
+	ASSERT_EQ (system.nodes[0]->network.endpoint (), peers2[0]);
 	node1->stop ();
 }
 
