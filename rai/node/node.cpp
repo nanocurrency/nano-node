@@ -1830,7 +1830,7 @@ rai::process_return rai::node::process (rai::block const & block_a)
 // Simulating with sqrt_broadcast_simulate shows we only need to broadcast to sqrt(total_peers) random peers in order to successfully publish to everyone with high probability
 std::deque<rai::endpoint> rai::peer_container::list_fanout ()
 {
-	auto peers (random_set (2 * size_sqrt ()));
+	auto peers (random_set (size_sqrt ()));
 	std::deque<rai::endpoint> result;
 	for (auto i (peers.begin ()), n (peers.end ()); i != n; ++i)
 	{
