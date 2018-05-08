@@ -172,7 +172,7 @@ bool confirm_block (MDB_txn * transaction_a, rai::node & node_a, rai::endpoint &
 void rai::network::republish_block (MDB_txn * transaction, std::shared_ptr<rai::block> block)
 {
 	auto hash (block->hash ());
-	auto list (node.peers.list_sqrt ());
+	auto list (node.peers.list_fanout ());
 	// If we're a representative, broadcast a signed confirm, otherwise an unsigned publish
 	if (!confirm_block (transaction, node, list, block))
 	{
@@ -216,7 +216,7 @@ void rai::network::republish_vote (std::shared_ptr<rai::vote> vote_a)
 		rai::vectorstream stream (*bytes);
 		confirm.serialize (stream);
 	}
-	auto list (node.peers.list_sqrt ());
+	auto list (node.peers.list_fanout ());
 	for (auto j (list.begin ()), m (list.end ()); j != m; ++j)
 	{
 		node.network.confirm_send (confirm, bytes, *j);
@@ -1828,11 +1828,10 @@ rai::process_return rai::node::process (rai::block const & block_a)
 }
 
 // Simulating with sqrt_broadcast_simulate shows we only need to broadcast to sqrt(total_peers) random peers in order to successfully publish to everyone with high probability
-std::vector<rai::endpoint> rai::peer_container::list_sqrt ()
+std::deque<rai::endpoint> rai::peer_container::list_fanout ()
 {
 	auto peers (random_set (2 * size_sqrt ()));
-	std::vector<rai::endpoint> result;
-	result.reserve (peers.size ());
+	std::deque<rai::endpoint> result;
 	for (auto i (peers.begin ()), n (peers.end ()); i != n; ++i)
 	{
 		result.push_back (*i);
@@ -1840,11 +1839,10 @@ std::vector<rai::endpoint> rai::peer_container::list_sqrt ()
 	return result;
 }
 
-std::vector<rai::endpoint> rai::peer_container::list ()
+std::deque<rai::endpoint> rai::peer_container::list ()
 {
-	std::vector<rai::endpoint> result;
+	std::deque<rai::endpoint> result;
 	std::lock_guard<std::mutex> lock (mutex);
-	result.reserve (peers.size ());
 	for (auto i (peers.begin ()), j (peers.end ()); i != j; ++i)
 	{
 		result.push_back (i->endpoint);

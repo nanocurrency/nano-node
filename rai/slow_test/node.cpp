@@ -392,7 +392,7 @@ TEST (peer_container, random_set)
 	auto old (std::chrono::steady_clock::now ());
 	for (auto i (0); i < 10000; ++i)
 	{
-		auto list (container.list_sqrt ());
+		auto list (container.list_fanout ());
 	}
 	auto current (std::chrono::steady_clock::now ());
 	for (auto i (0); i < 10000; ++i)

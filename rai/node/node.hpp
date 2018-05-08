@@ -195,10 +195,10 @@ public:
 	// Request a list of the top known representatives
 	std::vector<peer_information> representatives (size_t);
 	// List of all peers
-	std::vector<rai::endpoint> list ();
+	std::deque<rai::endpoint> list ();
 	std::map<rai::endpoint, unsigned> list_version ();
-	// A list of random peers with size the square root of total peer count
-	std::vector<rai::endpoint> list_sqrt ();
+	// A list of random peers sized for the configured rebroadcast fanout
+	std::deque<rai::endpoint> list_fanout ();
 	// Get the next peer for attempting bootstrap
 	rai::endpoint bootstrap_peer ();
 	// Purge any peer where last_contact < time_point and return what was left
