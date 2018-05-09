@@ -112,8 +112,10 @@ public:
 	std::mutex mutex;
 	// Maximum number of conflicts to vote on per interval, lowest root hash first
 	static unsigned constexpr announcements_per_interval = 32;
-	// After this many successive vote announcements, block is confirmed
-	static unsigned constexpr contiguous_announcements = 4;
+	// Minimum number of block announcements
+	static unsigned constexpr announcement_min = 4;
+	// Threshold to start logging blocks haven't yet been confirmed
+	static unsigned constexpr announcement_long = 20;
 	static unsigned constexpr announce_interval_ms = (rai::rai_network == rai::rai_networks::rai_test_network) ? 10 : 16000;
 	static size_t constexpr election_history_size = 2048;
 };

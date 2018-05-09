@@ -3182,11 +3182,13 @@ void rai::active_transactions::announce_votes ()
 	std::vector<rai::block_hash> inactive;
 	rai::transaction transaction (node.store.environment, nullptr, false);
 	std::lock_guard<std::mutex> lock (mutex);
+	unsigned unconfirmed_count (0);
+	unsigned unconfirmed_announcements (0);
 
 	for (auto i (roots.begin ()), n (roots.end ()); i != n; ++i)
 	{
 		auto election_l (i->election);
-		if (!node.store.root_exists (transaction, election_l->votes.id) || (election_l->confirmed && i->announcements >= contiguous_announcements - 1))
+		if (!node.store.root_exists (transaction, election_l->votes.id) || (election_l->confirmed && i->announcements >= announcement_min - 1))
 		{
 			if (election_l->confirmed)
 			{
@@ -3200,8 +3202,13 @@ void rai::active_transactions::announce_votes ()
 		}
 		else
 		{
+			if (i->announcements > announcement_long)
+			{
+				++unconfirmed_count;
+				unconfirmed_announcements += i->announcements;
+			}
 			node.background ([election_l]() { election_l->broadcast_winner (); });
-			if (i->announcements % contiguous_announcements == 2)
+			if (i->announcements % announcement_min == 2)
 			{
 				auto reps (std::make_shared<std::vector<rai::peer_information>> (node.peers.representatives (std::numeric_limits<size_t>::max ())));
 				
@@ -3243,6 +3250,10 @@ void rai::active_transactions::announce_votes ()
 	{
 		assert (roots.find (*i) != roots.end ());
 		roots.erase (*i);
+	}
+	if (unconfirmed_count > 0)
+	{
+		BOOST_LOG (node.log) << boost::str (boost::format ("%1% blocks have been unconfirmed averaging %2% announcements") % unconfirmed_count % (unconfirmed_announcements / unconfirmed_count));
 	}
 	auto now (std::chrono::steady_clock::now ());
 	std::weak_ptr<rai::node> node_w (node.shared ());
