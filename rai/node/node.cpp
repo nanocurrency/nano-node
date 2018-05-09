@@ -3020,7 +3020,7 @@ std::shared_ptr<rai::node> rai::node::shared ()
 	return shared_from_this ();
 }
 
-bool rai::vote_info::operator < (rai::vote const & vote_a) const
+bool rai::vote_info::operator< (rai::vote const & vote_a) const
 {
 	return sequence < vote_a.sequence || (sequence == vote_a.sequence && hash < vote_a.block->hash ());
 }
@@ -3211,7 +3211,7 @@ void rai::active_transactions::announce_votes ()
 			if (i->announcements % announcement_min == 2)
 			{
 				auto reps (std::make_shared<std::vector<rai::peer_information>> (node.peers.representatives (std::numeric_limits<size_t>::max ())));
-				
+
 				for (auto j (reps->begin ()), m (reps->end ()); j != m;)
 				{
 					auto & rep_votes (i->election->votes.rep_votes);

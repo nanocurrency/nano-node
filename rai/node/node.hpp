@@ -48,7 +48,7 @@ public:
 	std::chrono::steady_clock::time_point time;
 	uint64_t sequence;
 	rai::block_hash hash;
-	bool operator < (rai::vote const &) const;
+	bool operator< (rai::vote const &) const;
 };
 class election : public std::enable_shared_from_this<rai::election>
 {
