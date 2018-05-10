@@ -952,12 +952,19 @@ bool rai::node_config::upgrade_json (unsigned version, boost::property_tree::ptr
 			result = true;
 		case 10:
 			tree_a.put ("online_weight_minimum", online_weight_minimum.to_string_dec ());
-			tree_a.put ("online_weight_quorum", std::to_string (online_weight_quorum));
+			tree_a.put ("online_weight_quorom", std::to_string (online_weight_quorum));
 			tree_a.erase ("inactive_supply");
 			tree_a.erase ("version");
 			tree_a.put ("version", "11");
 			result = true;
 		case 11:
+			auto online_weight_quorum_l (tree_a.get<std::string> ("online_weight_quorom"));
+			tree_a.erase ("online_weight_quorom");
+			tree_a.put ("online_weight_quorum", online_weight_quorum_l);
+			tree_a.erase ("version");
+			tree_a.put ("version", "12");
+			result = true;
+		case 12:
 			break;
 		default:
 			throw std::runtime_error ("Unknown node_config version");
