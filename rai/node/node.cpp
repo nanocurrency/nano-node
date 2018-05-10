@@ -958,12 +958,14 @@ bool rai::node_config::upgrade_json (unsigned version, boost::property_tree::ptr
 			tree_a.put ("version", "11");
 			result = true;
 		case 11:
-			auto online_weight_quorum_l (tree_a.get<std::string> ("online_weight_quorom"));
-			tree_a.erase ("online_weight_quorom");
-			tree_a.put ("online_weight_quorum", online_weight_quorum_l);
-			tree_a.erase ("version");
-			tree_a.put ("version", "12");
-			result = true;
+			{
+				auto online_weight_quorum_l (tree_a.get<std::string> ("online_weight_quorom"));
+				tree_a.erase ("online_weight_quorom");
+				tree_a.put ("online_weight_quorum", online_weight_quorum_l);
+				tree_a.erase ("version");
+				tree_a.put ("version", "12");
+				result = true;
+			}
 		case 12:
 			break;
 		default:
