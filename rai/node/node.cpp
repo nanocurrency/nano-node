@@ -782,7 +782,7 @@ logging (logging_a),
 bootstrap_fraction_numerator (1),
 receive_minimum (rai::xrb_ratio),
 online_weight_minimum (60000 * rai::Gxrb_ratio),
-online_weight_quorom (50),
+online_weight_quorum (50),
 password_fanout (1024),
 io_threads (std::max<unsigned> (4, std::thread::hardware_concurrency ())),
 work_threads (std::max<unsigned> (4, std::thread::hardware_concurrency ())),
@@ -858,7 +858,7 @@ void rai::node_config::serialize_json (boost::property_tree::ptree & tree_a) con
 	}
 	tree_a.add_child ("preconfigured_representatives", preconfigured_representatives_l);
 	tree_a.put ("online_weight_minimum", online_weight_minimum.to_string_dec ());
-	tree_a.put ("online_weight_quorom", std::to_string (online_weight_quorom));
+	tree_a.put ("online_weight_quorum", std::to_string (online_weight_quorum));
 	tree_a.put ("password_fanout", std::to_string (password_fanout));
 	tree_a.put ("io_threads", std::to_string (io_threads));
 	tree_a.put ("work_threads", std::to_string (work_threads));
@@ -952,7 +952,7 @@ bool rai::node_config::upgrade_json (unsigned version, boost::property_tree::ptr
 			result = true;
 		case 10:
 			tree_a.put ("online_weight_minimum", online_weight_minimum.to_string_dec ());
-			tree_a.put ("online_weight_quorom", std::to_string (online_weight_quorom));
+			tree_a.put ("online_weight_quorum", std::to_string (online_weight_quorum));
 			tree_a.erase ("inactive_supply");
 			tree_a.erase ("version");
 			tree_a.put ("version", "11");
@@ -1025,7 +1025,7 @@ bool rai::node_config::deserialize_json (bool & upgraded_a, boost::property_tree
 			result |= stat_config.deserialize_json (stat_config_l.get ());
 		}
 		auto online_weight_minimum_l (tree_a.get<std::string> ("online_weight_minimum"));
-		auto online_weight_quorom_l (tree_a.get<std::string> ("online_weight_quorom"));
+		auto online_weight_quorum_l (tree_a.get<std::string> ("online_weight_quorum"));
 		auto password_fanout_l (tree_a.get<std::string> ("password_fanout"));
 		auto io_threads_l (tree_a.get<std::string> ("io_threads"));
 		auto work_threads_l (tree_a.get<std::string> ("work_threads"));
@@ -1049,12 +1049,12 @@ bool rai::node_config::deserialize_json (bool & upgraded_a, boost::property_tree
 			bootstrap_connections = std::stoul (bootstrap_connections_l);
 			bootstrap_connections_max = std::stoul (bootstrap_connections_max_l);
 			lmdb_max_dbs = std::stoi (lmdb_max_dbs_l);
-			online_weight_quorom = std::stoul (online_weight_quorom_l);
+			online_weight_quorum = std::stoul (online_weight_quorum_l);
 			result |= peering_port > std::numeric_limits<uint16_t>::max ();
 			result |= logging.deserialize_json (upgraded_a, logging_l);
 			result |= receive_minimum.decode_dec (receive_minimum_l);
 			result |= online_weight_minimum.decode_dec (online_weight_minimum_l);
-			result |= online_weight_quorom > 100;
+			result |= online_weight_quorum > 100;
 			result |= password_fanout < 16;
 			result |= password_fanout > 1024 * 1024;
 			result |= io_threads == 0;
@@ -2407,7 +2407,7 @@ void rai::node::block_confirm (std::shared_ptr<rai::block> block_a)
 
 rai::uint128_t rai::node::delta ()
 {
-	auto result ((online_reps.online_stake () / 100) * config.online_weight_quorom);
+	auto result ((online_reps.online_stake () / 100) * config.online_weight_quorum);
 	return result;
 }
 

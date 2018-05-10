@@ -528,7 +528,7 @@ TEST (node_config, serialization)
 	config1.bootstrap_fraction_numerator = 10;
 	config1.receive_minimum = 10;
 	config1.online_weight_minimum = 10;
-	config1.online_weight_quorom = 10;
+	config1.online_weight_quorum = 10;
 	config1.password_fanout = 10;
 	config1.enable_voting = false;
 	config1.callback_address = "test";
@@ -547,7 +547,7 @@ TEST (node_config, serialization)
 	ASSERT_NE (config2.peering_port, config1.peering_port);
 	ASSERT_NE (config2.logging.node_lifetime_tracing_value, config1.logging.node_lifetime_tracing_value);
 	ASSERT_NE (config2.online_weight_minimum, config1.online_weight_minimum);
-	ASSERT_NE (config2.online_weight_quorom, config1.online_weight_quorom);
+	ASSERT_NE (config2.online_weight_quorum, config1.online_weight_quorum);
 	ASSERT_NE (config2.password_fanout, config1.password_fanout);
 	ASSERT_NE (config2.enable_voting, config1.enable_voting);
 	ASSERT_NE (config2.callback_address, config1.callback_address);
@@ -564,7 +564,7 @@ TEST (node_config, serialization)
 	ASSERT_EQ (config2.peering_port, config1.peering_port);
 	ASSERT_EQ (config2.logging.node_lifetime_tracing_value, config1.logging.node_lifetime_tracing_value);
 	ASSERT_EQ (config2.online_weight_minimum, config1.online_weight_minimum);
-	ASSERT_EQ (config2.online_weight_quorom, config1.online_weight_quorom);
+	ASSERT_EQ (config2.online_weight_quorum, config1.online_weight_quorum);
 	ASSERT_EQ (config2.password_fanout, config1.password_fanout);
 	ASSERT_EQ (config2.enable_voting, config1.enable_voting);
 	ASSERT_EQ (config2.callback_address, config1.callback_address);
@@ -1587,7 +1587,7 @@ TEST (node, confirm_quorum)
 	rai::genesis genesis;
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	system.nodes[0]->ledger.state_block_parse_canary = genesis.hash ();
-	// Put greater than online_weight_minimum in pending so quorom can't be reached
+	// Put greater than online_weight_minimum in pending so quorum can't be reached
 	auto send1 (std::make_shared<rai::state_block> (rai::test_genesis_key.pub, genesis.hash (), rai::test_genesis_key.pub, rai::Gxrb_ratio, rai::test_genesis_key.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.nodes[0]->generate_work (genesis.hash ())));
 	{
 		rai::transaction transaction (system.nodes[0]->store.environment, nullptr, true);
