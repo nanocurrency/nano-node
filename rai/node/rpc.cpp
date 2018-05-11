@@ -4228,23 +4228,40 @@ void rai::rpc_handler::work_generate ()
 	if (rpc.config.enable_control)
 	{
 		std::string hash_text (request.get<std::string> ("hash"));
+	    bool use_peers (request.get_optional<bool> ("use_peers") == true);
 		rai::block_hash hash;
 		auto error (hash.decode_hex (hash_text));
 		if (!error)
 		{
 			auto rpc_l (shared_from_this ());
-			node.work.generate (hash, [rpc_l](boost::optional<uint64_t> const & work_a) {
-				if (work_a)
-				{
-					boost::property_tree::ptree response_l;
-					response_l.put ("work", rai::to_string_hex (work_a.value ()));
-					rpc_l->response (response_l);
-				}
-				else
-				{
-					error_response (rpc_l->response, "Cancelled");
-				}
-			});
+			if (!use_peers) {
+				node.work.generate (hash, [rpc_l](boost::optional<uint64_t> const & work_a) {
+					if (work_a)
+					{
+						boost::property_tree::ptree response_l;
+						response_l.put ("work", rai::to_string_hex (work_a.value ()));
+						rpc_l->response (response_l);
+					}
+					else
+					{
+						error_response (rpc_l->response, "Cancelled");
+					}
+				});
+			} else {
+				node.generate_work (hash, [rpc_l](boost::optional<uint64_t> const & work_a) {
+					if (work_a)
+					{
+						boost::property_tree::ptree response_l;
+						response_l.put ("work", rai::to_string_hex (work_a.value ()));
+						rpc_l->response (response_l);
+					}
+					else
+					{
+						error_response (rpc_l->response, "Cancelled");
+					}
+				});
+			}
+
 		}
 		else
 		{
