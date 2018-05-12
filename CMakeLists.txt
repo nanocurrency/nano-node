@@ -1,7 +1,7 @@
 cmake_minimum_required (VERSION 2.8.11)
 project (rai)
 
-set (CPACK_PACKAGE_VERSION_MAJOR "13")
+set (CPACK_PACKAGE_VERSION_MAJOR "14")
 set (CPACK_PACKAGE_VERSION_MINOR "0")
 set (CPACK_PACKAGE_VERSION_PATCH "0")
 if (DEFINED GIT_COMMIT)
@@ -9,10 +9,7 @@ set (CPACK_PACKAGE_VERSION_PATCH "GIT-${GIT_COMMIT}")
 endif (DEFINED GIT_COMMIT)
 set (CPACK_PACKAGE_VENDOR "Banano Currency")
 
-set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
-
-set(CMAKE_INSTALL_RPATH "\$ORIGIN/../lib:\$ORIGIN/")
-set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+set(CMAKE_INSTALL_RPATH "@executable_path/../Frameworks")
 
 set (BANANO_GUI OFF CACHE BOOL "")
 set (BANANO_TEST OFF CACHE BOOL "")
@@ -262,7 +259,7 @@ file (WRITE ${CMAKE_BINARY_DIR}/bootstrap_weights.cpp "#include <cstddef>\n"
 	"	unsigned char banano_bootstrap_weights[] = {${filedata} 0x00};\n"
 	"	size_t banano_bootstrap_weights_size = sizeof(banano_bootstrap_weights) - 1;\n"
 	"}\n")
-	
+
 if (BANANO_SECURE_RPC)
 	set (SECURE_RPC_SOURCE banano/node/rpc_secure.cpp banano/node/rpc_secure.hpp)
 endif ()
@@ -315,6 +312,8 @@ add_library (node
 	banano/node/testing.cpp
 	banano/node/wallet.hpp
 	banano/node/wallet.cpp
+	banano/node/stats.hpp
+	banano/node/stats.cpp
 	banano/node/working.hpp
 	banano/node/xorshift.hpp)
 
@@ -347,7 +346,7 @@ if (BANANO_TEST)
 
 	add_executable (slow_test
 		banano/slow_test/node.cpp)
-	
+
 	set_target_properties (core_test slow_test PROPERTIES COMPILE_FLAGS "${PLATFORM_CXX_FLAGS} ${PLATFORM_COMPILE_FLAGS} -DQT_NO_KEYWORDS -DACTIVE_NETWORK=${ACTIVE_NETWORK} -DBANANO_VERSION_MAJOR=${CPACK_PACKAGE_VERSION_MAJOR} -DBANANO_VERSION_MINOR=${CPACK_PACKAGE_VERSION_MINOR} -DBOOST_ASIO_HAS_STD_ARRAY=1")
 	set_target_properties (core_test slow_test PROPERTIES LINK_FLAGS "${PLATFORM_LINK_FLAGS}")
 endif (BANANO_TEST)
@@ -374,7 +373,7 @@ if (BANANO_GUI)
 		banano/qt_system/entry.cpp)
 
 	set_target_properties (banano_wallet qt_test PROPERTIES LINK_FLAGS "${PLATFORM_LINK_FLAGS}")
-	
+
 	set_target_properties (qt_test qt banano_wallet qt_system PROPERTIES COMPILE_FLAGS "${PLATFORM_CXX_FLAGS} ${PLATFORM_COMPILE_FLAGS} -DQT_NO_KEYWORDS -DACTIVE_NETWORK=${ACTIVE_NETWORK} -DBANANO_VERSION_MAJOR=${CPACK_PACKAGE_VERSION_MAJOR} -DBANANO_VERSION_MINOR=${CPACK_PACKAGE_VERSION_MINOR} -DBOOST_ASIO_HAS_STD_ARRAY=1")
 	set_target_properties (qt qt_system PROPERTIES LINK_FLAGS "${PLATFORM_LINK_FLAGS}")
 endif (BANANO_GUI)
@@ -424,56 +423,16 @@ target_link_libraries (bananode node secure lmdb ed25519 banano_lib_static argon
 set (CPACK_RESOURCE_FILE_LICENSE ${CMAKE_SOURCE_DIR}/LICENSE)
 if (BANANO_GUI)
 	if (APPLE)
-		get_filename_component (Qt5Core_framework_DIR ${Qt5_DIR}/../../QtCore.framework ABSOLUTE)
-		get_filename_component (Qt5Gui_framework_DIR ${Qt5_DIR}/../../QtGui.framework ABSOLUTE)
-		get_filename_component (Qt5PrintSupport_framework_DIR ${Qt5_DIR}/../../QtPrintSupport.framework ABSOLUTE)
-		get_filename_component (Qt5Test_framework_DIR ${Qt5_DIR}/../../QtTest.framework ABSOLUTE)
-		get_filename_component (Qt5Widgets_framework_DIR ${Qt5_DIR}/../../QtWidgets.framework ABSOLUTE)
-		get_filename_component (Qt5_platforms_DIR ${Qt5_DIR}/../../../plugins/platforms ABSOLUTE)
-
-		file (COPY ${Qt5Core_framework_DIR} DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/packaging)
-		add_custom_command (TARGET banano_wallet POST_BUILD COMMAND "install_name_tool" "-id" "@executable_path/../Frameworks/QtCore.framework/Versions/5/QtCore" "${CMAKE_CURRENT_BINARY_DIR}/packaging/QtCore.framework/Versions/5/QtCore")
-
-		file (COPY ${Qt5Gui_framework_DIR} DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/packaging)
-		add_custom_command (TARGET banano_wallet POST_BUILD COMMAND "install_name_tool" "-id" "@executable_path/../Frameworks/QtGui.framework/Versions/5/QtGui" "${CMAKE_CURRENT_BINARY_DIR}/packaging/QtGui.framework/Versions/5/QtGui")
-		add_custom_command (TARGET banano_wallet POST_BUILD COMMAND "install_name_tool" "-change" "${Qt5Core_framework_DIR}/Versions/5/QtCore" "@executable_path/../Frameworks/QtCore.framework/Versions/5/QtCore" "${CMAKE_CURRENT_BINARY_DIR}/packaging/QtGui.framework/Versions/5/QtGui")
-
-		file (COPY ${Qt5PrintSupport_framework_DIR} DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/packaging)
-		add_custom_command (TARGET banano_wallet POST_BUILD COMMAND "install_name_tool" "-id" "@executable_path/../Frameworks/QtPrintSupport.framework/Versions/5/QtPrintSupport" "${CMAKE_CURRENT_BINARY_DIR}/packaging/QtPrintSupport.framework/Versions/5/QtPrintSupport")
-		add_custom_command (TARGET banano_wallet POST_BUILD COMMAND "install_name_tool" "-change" "${Qt5Core_framework_DIR}/Versions/5/QtCore" "@executable_path/../Frameworks/QtCore.framework/Versions/5/QtCore" "${CMAKE_CURRENT_BINARY_DIR}/packaging/QtPrintSupport.framework/Versions/5/QtPrintSupport")
-		add_custom_command (TARGET banano_wallet POST_BUILD COMMAND "install_name_tool" "-change" "${Qt5Gui_framework_DIR}/Versions/5/QtGui" "@executable_path/../Frameworks/QtGui.framework/Versions/5/QtGui" "${CMAKE_CURRENT_BINARY_DIR}/packaging/QtPrintSupport.framework/Versions/5/QtPrintSupport")
-		add_custom_command (TARGET banano_wallet POST_BUILD COMMAND "install_name_tool" "-change" "${Qt5Widgets_framework_DIR}/Versions/5/QtWidgets" "@executable_path/../Frameworks/QtWidgets.framework/Versions/5/QtWidgets" "${CMAKE_CURRENT_BINARY_DIR}/packaging/QtPrintSupport.framework/Versions/5/QtPrintSupport")
-
-		file (COPY ${Qt5Test_framework_DIR} DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/packaging)
-		add_custom_command (TARGET banano_wallet POST_BUILD COMMAND "install_name_tool" "-id" "@executable_path/../Frameworks/QtTest.framework/Versions/5/QtTest" "${CMAKE_CURRENT_BINARY_DIR}/packaging/QtTest.framework/Versions/5/QtTest")
-		add_custom_command (TARGET banano_wallet POST_BUILD COMMAND "install_name_tool" "-change" "${Qt5Core_framework_DIR}/Versions/5/QtCore" "@executable_path/../Frameworks/QtCore.framework/Versions/5/QtCore" "${CMAKE_CURRENT_BINARY_DIR}/packaging/QtTest.framework/Versions/5/QtTest")
-
-		file (COPY ${Qt5Widgets_framework_DIR} DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/packaging)
-		add_custom_command (TARGET banano_wallet POST_BUILD COMMAND "install_name_tool" "-id" "@executable_path/../Frameworks/QtWidgets.framework/Versions/5/QtWidgets" "${CMAKE_CURRENT_BINARY_DIR}/packaging/QtWidgets.framework/Versions/5/QtWidgets")
-		add_custom_command (TARGET banano_wallet POST_BUILD COMMAND "install_name_tool" "-change" "${Qt5Core_framework_DIR}/Versions/5/QtCore" "@executable_path/../Frameworks/QtCore.framework/Versions/5/QtCore" "${CMAKE_CURRENT_BINARY_DIR}/packaging/QtWidgets.framework/Versions/5/QtWidgets")
-		add_custom_command (TARGET banano_wallet POST_BUILD COMMAND "install_name_tool" "-change" "${Qt5Gui_framework_DIR}/Versions/5/QtGui" "@executable_path/../Frameworks/QtGui.framework/Versions/5/QtGui" "${CMAKE_CURRENT_BINARY_DIR}/packaging/QtWidgets.framework/Versions/5/QtWidgets")
-
-		file (COPY ${Qt5_DIR}/../../../plugins/platforms/libqcocoa.dylib DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/packaging)
-		add_custom_command (TARGET banano_wallet POST_BUILD COMMAND "install_name_tool" "-change" "${Qt5Core_framework_DIR}/Versions/5/QtCore" "@executable_path/../Frameworks/QtCore.framework/Versions/5/QtCore" "${CMAKE_CURRENT_BINARY_DIR}/packaging/libqcocoa.dylib")
-		add_custom_command (TARGET banano_wallet POST_BUILD COMMAND "install_name_tool" "-change" "${Qt5Gui_framework_DIR}/Versions/5/QtGui" "@executable_path/../Frameworks/QtGui.framework/Versions/5/QtGui" "${CMAKE_CURRENT_BINARY_DIR}/packaging/libqcocoa.dylib")
-		add_custom_command (TARGET banano_wallet POST_BUILD COMMAND "install_name_tool" "-change" "${Qt5PrintSupport_framework_DIR}/Versions/5/QtPrintSupport" "@executable_path/../Frameworks/QtPrintSupport.framework/Versions/5/QtPrintSupport" "${CMAKE_CURRENT_BINARY_DIR}/packaging/libqcocoa.dylib")
-		add_custom_command (TARGET banano_wallet POST_BUILD COMMAND "install_name_tool" "-change" "${Qt5Widgets_framework_DIR}/Versions/5/QtWidgets" "@executable_path/../Frameworks/QtWidgets.framework/Versions/5/QtWidgets" "${CMAKE_CURRENT_BINARY_DIR}/packaging/libqcocoa.dylib")
-
-		add_custom_command (TARGET banano_wallet POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:banano_wallet> ${CMAKE_CURRENT_BINARY_DIR}/packaging)
-		add_custom_command (TARGET banano_wallet POST_BUILD COMMAND "install_name_tool" "-change" "${Qt5Core_framework_DIR}/Versions/5/QtCore" "@executable_path/../Frameworks/QtCore.framework/Versions/5/QtCore" "${CMAKE_CURRENT_BINARY_DIR}/packaging/banano_wallet")
-		add_custom_command (TARGET banano_wallet POST_BUILD COMMAND "install_name_tool" "-change" "${Qt5Gui_framework_DIR}/Versions/5/QtGui" "@executable_path/../Frameworks/QtGui.framework/Versions/5/QtGui" "${CMAKE_CURRENT_BINARY_DIR}/packaging/banano_wallet")
-		add_custom_command (TARGET banano_wallet POST_BUILD COMMAND "install_name_tool" "-change" "${Qt5Widgets_framework_DIR}/Versions/5/QtWidgets" "@executable_path/../Frameworks/QtWidgets.framework/Versions/5/QtWidgets" "${CMAKE_CURRENT_BINARY_DIR}/packaging/banano_wallet")
-
-		install (FILES ${CMAKE_CURRENT_BINARY_DIR}/packaging/banano_wallet DESTINATION Banano.app/Contents/MacOS PERMISSIONS OWNER_EXECUTE OWNER_READ)
+		install (TARGETS banano_wallet DESTINATION Banano.app/Contents/MacOS)
 		install (FILES Info.plist DESTINATION Banano.app/Contents)
 		install (FILES qt.conf DESTINATION Banano.app/Contents/Resources)
-		install (DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/packaging/QtCore.framework" DESTINATION Banano.app/Contents/Frameworks USE_SOURCE_PERMISSIONS)
-		install (DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/packaging/QtGui.framework" DESTINATION Banano.app/Contents/Frameworks USE_SOURCE_PERMISSIONS)
-		install (DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/packaging/QtPrintSupport.framework" DESTINATION Banano.app/Contents/Frameworks USE_SOURCE_PERMISSIONS)
-		install (DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/packaging/QtTest.framework" DESTINATION Banano.app/Contents/Frameworks USE_SOURCE_PERMISSIONS)
-		install (DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/packaging/QtWidgets.framework" DESTINATION Banano.app/Contents/Frameworks USE_SOURCE_PERMISSIONS)
-		install (FILES "${CMAKE_CURRENT_BINARY_DIR}/packaging/libqcocoa.dylib" DESTINATION Banano.app/Contents/PlugIns/platforms PERMISSIONS OWNER_EXECUTE OWNER_READ)
-		install (FILES Banano.icns DESTINATION Banano.app/Contents/Resources)
+		install (DIRECTORY ${Qt5_DIR}/../../QtCore.framework DESTINATION Banano.app/Contents/Frameworks)
+		install (DIRECTORY ${Qt5_DIR}/../../QtGui.framework DESTINATION Banano.app/Contents/Frameworks)
+		install (DIRECTORY ${Qt5_DIR}/../../QtPrintSupport.framework DESTINATION Banano.app/Contents/Frameworks)
+		install (DIRECTORY ${Qt5_DIR}/../../QtTest.framework DESTINATION Banano.app/Contents/Frameworks)
+		install (DIRECTORY ${Qt5_DIR}/../../QtWidgets.framework DESTINATION Banano.app/Contents/Frameworks)
+		install (FILES "${Qt5_DIR}/../../../plugins/platforms/libqcocoa.dylib" DESTINATION Banano.app/Contents/PlugIns/platforms)
+		install (FILES banano.icns DESTINATION Banano.app/Contents/Resources)
 	elseif (WIN32)
 		if ("${CMAKE_SIZEOF_VOID_P}" EQUAL "8")
 			set (WIN_REDIST vc_redist.x64.exe)

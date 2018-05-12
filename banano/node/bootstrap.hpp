@@ -15,12 +15,24 @@
 namespace rai
 {
 class bootstrap_attempt;
+class bootstrap_client;
 class node;
 enum class sync_result
 {
 	success,
 	error,
 	fork
+};
+class socket_timeout
+{
+public:
+	socket_timeout (rai::bootstrap_client &);
+	void start (std::chrono::steady_clock::time_point);
+	void stop ();
+
+private:
+	std::atomic<unsigned> ticket;
+	rai::bootstrap_client & client;
 };
 
 /**
@@ -29,34 +41,6 @@ enum class sync_result
  */
 static const int bootstrap_message_header_size = sizeof (rai::message::magic_number) + sizeof (uint8_t) + sizeof (uint8_t) + sizeof (uint8_t) + sizeof (rai::message_type) + 2;
 
-class block_synchronization
-{
-public:
-	block_synchronization (boost::log::sources::logger_mt &);
-	virtual ~block_synchronization () = default;
-	// Return true if target already has block
-	virtual bool synchronized (MDB_txn *, rai::block_hash const &) = 0;
-	virtual std::unique_ptr<rai::block> retrieve (MDB_txn *, rai::block_hash const &) = 0;
-	virtual rai::sync_result target (MDB_txn *, rai::block const &) = 0;
-	// return true if all dependencies are synchronized
-	bool add_dependency (MDB_txn *, rai::block const &);
-	void fill_dependencies (MDB_txn *);
-	rai::sync_result synchronize_one (MDB_txn *);
-	rai::sync_result synchronize (MDB_txn *, rai::block_hash const &);
-	boost::log::sources::logger_mt & log;
-	std::deque<rai::block_hash> blocks;
-};
-class push_synchronization : public rai::block_synchronization
-{
-public:
-	push_synchronization (rai::node &, std::function<rai::sync_result (MDB_txn *, rai::block const &)> const &);
-	virtual ~push_synchronization () = default;
-	bool synchronized (MDB_txn *, rai::block_hash const &) override;
-	std::unique_ptr<rai::block> retrieve (MDB_txn *, rai::block_hash const &) override;
-	rai::sync_result target (MDB_txn *, rai::block const &) override;
-	std::function<rai::sync_result (MDB_txn *, rai::block const &)> target_m;
-	rai::node & node;
-};
 class bootstrap_client;
 class pull_info
 {
@@ -81,7 +65,7 @@ public:
 	void populate_connections ();
 	bool request_frontier (std::unique_lock<std::mutex> &);
 	void request_pull (std::unique_lock<std::mutex> &);
-	bool request_push (std::unique_lock<std::mutex> &);
+	void request_push (std::unique_lock<std::mutex> &);
 	void add_connection (rai::endpoint const &);
 	void pool_connection (std::shared_ptr<rai::bootstrap_client>);
 	void stop ();
@@ -91,6 +75,7 @@ public:
 	void process_fork (MDB_txn *, std::shared_ptr<rai::block>);
 	unsigned target_connections (size_t pulls_remaining);
 	bool should_log ();
+	void add_bulk_push_target (rai::block_hash const &, rai::block_hash const &);
 	std::chrono::steady_clock::time_point next_log;
 	std::deque<std::weak_ptr<rai::bootstrap_client>> clients;
 	std::weak_ptr<rai::bootstrap_client> connection_frontier_request;
@@ -103,6 +88,7 @@ public:
 	std::shared_ptr<rai::node> node;
 	std::atomic<unsigned> account_count;
 	std::atomic<uint64_t> total_blocks;
+	std::vector<std::pair<rai::block_hash, rai::block_hash>> bulk_push_targets;
 	bool stopped;
 	std::mutex mutex;
 	std::condition_variable condition;
@@ -116,7 +102,7 @@ public:
 	void receive_frontier ();
 	void received_frontier (boost::system::error_code const &, size_t);
 	void request_account (rai::account const &, rai::block_hash const &);
-	void unsynced (MDB_txn *, rai::account const &, rai::block_hash const &);
+	void unsynced (MDB_txn *, rai::block_hash const &, rai::block_hash const &);
 	void next (MDB_txn *);
 	void insert_pull (rai::pull_info const &);
 	std::shared_ptr<rai::bootstrap_client> connection;
@@ -127,6 +113,8 @@ public:
 	rai::account faucet;
 	std::chrono::steady_clock::time_point start_time;
 	std::promise<bool> promise;
+	/** A very rough estimate of the cost of `bulk_push`ing missing blocks */
+	uint64_t bulk_push_cost;
 };
 class bulk_pull_client : public std::enable_shared_from_this<rai::bulk_pull_client>
 {
@@ -157,9 +145,9 @@ public:
 	std::shared_ptr<rai::node> node;
 	std::shared_ptr<rai::bootstrap_attempt> attempt;
 	boost::asio::ip::tcp::socket socket;
+	rai::socket_timeout timeout;
 	std::array<uint8_t, 200> receive_buffer;
 	rai::tcp_endpoint endpoint;
-	boost::asio::deadline_timer timeout;
 	std::chrono::steady_clock::time_point start_time;
 	std::atomic<uint64_t> block_count;
 	std::atomic<bool> pending_stop;
@@ -175,15 +163,15 @@ public:
 	void push_block (rai::block const &);
 	void send_finished ();
 	std::shared_ptr<rai::bootstrap_client> connection;
-	rai::push_synchronization synchronization;
 	std::promise<bool> promise;
+	std::pair<rai::block_hash, rai::block_hash> current_target;
 };
 class bootstrap_initiator
 {
 public:
 	bootstrap_initiator (rai::node &);
 	~bootstrap_initiator ();
-	void bootstrap (rai::endpoint const &);
+	void bootstrap (rai::endpoint const &, bool add_to_peers = true);
 	void bootstrap ();
 	void run_bootstrap ();
 	void notify_listeners (bool);

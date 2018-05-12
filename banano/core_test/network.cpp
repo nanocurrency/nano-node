@@ -53,9 +53,9 @@ TEST (network, self_discard)
 {
 	rai::system system (24000, 1);
 	system.nodes[0]->network.remote = system.nodes[0]->network.endpoint ();
-	ASSERT_EQ (0, system.nodes[0]->network.bad_sender_count);
+	ASSERT_EQ (0, system.nodes[0]->stats.count (rai::stat::type::error, rai::stat::detail::bad_sender));
 	system.nodes[0]->network.receive_action (boost::system::error_code{}, 0);
-	ASSERT_EQ (1, system.nodes[0]->network.bad_sender_count);
+	ASSERT_EQ (1, system.nodes[0]->stats.count (rai::stat::type::error, rai::stat::detail::bad_sender));
 }
 
 TEST (network, send_keepalive)
@@ -67,11 +67,11 @@ TEST (network, send_keepalive)
 	auto node1 (std::make_shared<rai::node> (init1, system.service, 24001, rai::unique_path (), system.alarm, system.logging, system.work));
 	node1->start ();
 	system.nodes[0]->network.send_keepalive (node1->network.endpoint ());
-	auto initial (system.nodes[0]->network.incoming.keepalive.load ());
+	auto initial (system.nodes[0]->stats.count (rai::stat::type::message, rai::stat::detail::keepalive, rai::stat::dir::in));
 	ASSERT_EQ (0, system.nodes[0]->peers.list ().size ());
 	ASSERT_EQ (0, node1->peers.list ().size ());
 	auto iterations (0);
-	while (system.nodes[0]->network.incoming.keepalive == initial)
+	while (system.nodes[0]->stats.count (rai::stat::type::message, rai::stat::detail::keepalive, rai::stat::dir::in) == initial)
 	{
 		system.poll ();
 		++iterations;
@@ -81,8 +81,8 @@ TEST (network, send_keepalive)
 	auto peers2 (node1->peers.list ());
 	ASSERT_EQ (1, peers1.size ());
 	ASSERT_EQ (1, peers2.size ());
-	ASSERT_NE (peers1.end (), std::find_if (peers1.begin (), peers1.end (), [&node1](rai::endpoint const & information_a) { return information_a == node1->network.endpoint (); }));
-	ASSERT_NE (peers2.end (), std::find_if (peers2.begin (), peers2.end (), [&system](rai::endpoint const & information_a) { return information_a == system.nodes[0]->network.endpoint (); }));
+	ASSERT_EQ (node1->network.endpoint (), peers1[0]);
+	ASSERT_EQ (system.nodes[0]->network.endpoint (), peers2[0]);
 	node1->stop ();
 }
 
@@ -95,9 +95,9 @@ TEST (network, keepalive_ipv4)
 	auto node1 (std::make_shared<rai::node> (init1, system.service, 24001, rai::unique_path (), system.alarm, system.logging, system.work));
 	node1->start ();
 	node1->send_keepalive (rai::endpoint (boost::asio::ip::address_v4::loopback (), 24000));
-	auto initial (system.nodes[0]->network.incoming.keepalive.load ());
+	auto initial (system.nodes[0]->stats.count (rai::stat::type::message, rai::stat::detail::keepalive, rai::stat::dir::in));
 	auto iterations (0);
-	while (system.nodes[0]->network.incoming.keepalive == initial)
+	while (system.nodes[0]->stats.count (rai::stat::type::message, rai::stat::detail::keepalive, rai::stat::dir::in) == initial)
 	{
 		system.poll ();
 		++iterations;
@@ -154,7 +154,7 @@ TEST (network, send_discarded_publish)
 		ASSERT_EQ (genesis.hash (), system.nodes[1]->latest (rai::test_genesis_key.pub));
 	}
 	auto iterations (0);
-	while (system.nodes[1]->network.incoming.publish == 0)
+	while (system.nodes[1]->stats.count (rai::stat::type::message, rai::stat::detail::publish, rai::stat::dir::in) == 0)
 	{
 		system.poll ();
 		++iterations;
@@ -177,7 +177,7 @@ TEST (network, send_invalid_publish)
 		ASSERT_EQ (genesis.hash (), system.nodes[1]->latest (rai::test_genesis_key.pub));
 	}
 	auto iterations (0);
-	while (system.nodes[1]->network.incoming.publish == 0)
+	while (system.nodes[1]->stats.count (rai::stat::type::message, rai::stat::detail::publish, rai::stat::dir::in) == 0)
 	{
 		system.poll ();
 		++iterations;
@@ -222,7 +222,7 @@ TEST (network, send_valid_publish)
 	rai::block_hash latest2 (system.nodes[1]->latest (rai::test_genesis_key.pub));
 	system.nodes[1]->process_active (std::unique_ptr<rai::block> (new rai::send_block (block2)));
 	auto iterations (0);
-	while (system.nodes[0]->network.incoming.publish == 0)
+	while (system.nodes[0]->stats.count (rai::stat::type::message, rai::stat::detail::publish, rai::stat::dir::in) == 0)
 	{
 		system.poll ();
 		++iterations;
@@ -246,15 +246,15 @@ TEST (network, send_insufficient_work)
 	}
 	auto node1 (system.nodes[1]->shared ());
 	system.nodes[0]->network.send_buffer (bytes->data (), bytes->size (), system.nodes[1]->network.endpoint (), [bytes, node1](boost::system::error_code const & ec, size_t size) {});
-	ASSERT_EQ (0, system.nodes[0]->network.insufficient_work_count);
+	ASSERT_EQ (0, system.nodes[0]->stats.count (rai::stat::type::error, rai::stat::detail::insufficient_work));
 	auto iterations (0);
-	while (system.nodes[1]->network.insufficient_work_count == 0)
+	while (system.nodes[1]->stats.count (rai::stat::type::error, rai::stat::detail::insufficient_work) == 0)
 	{
 		system.poll ();
 		++iterations;
 		ASSERT_LT (iterations, 200);
 	}
-	ASSERT_EQ (1, system.nodes[1]->network.insufficient_work_count);
+	ASSERT_EQ (1, system.nodes[1]->stats.count (rai::stat::type::error, rai::stat::detail::insufficient_work));
 }
 
 TEST (receivable_processor, confirm_insufficient_pos)
@@ -263,12 +263,10 @@ TEST (receivable_processor, confirm_insufficient_pos)
 	auto & node1 (*system.nodes[0]);
 	rai::genesis genesis;
 	auto block1 (std::make_shared<rai::send_block> (genesis.hash (), 0, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
+	node1.generate_work (*block1);
 	ASSERT_EQ (rai::process_result::progress, node1.process (*block1).code);
 	auto node_l (system.nodes[0]);
-	{
-		rai::transaction transaction (node1.store.environment, nullptr, true);
-		node1.active.start (transaction, block1);
-	}
+	node1.active.start (block1);
 	rai::keypair key1;
 	auto vote (std::make_shared<rai::vote> (key1.pub, key1.prv, 0, block1));
 	rai::confirm_ack con1 (vote);
@@ -281,12 +279,10 @@ TEST (receivable_processor, confirm_sufficient_pos)
 	auto & node1 (*system.nodes[0]);
 	rai::genesis genesis;
 	auto block1 (std::make_shared<rai::send_block> (genesis.hash (), 0, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
+	node1.generate_work (*block1);
 	ASSERT_EQ (rai::process_result::progress, node1.process (*block1).code);
 	auto node_l (system.nodes[0]);
-	{
-		rai::transaction transaction (node1.store.environment, nullptr, true);
-		node1.active.start (transaction, block1);
-	}
+	node1.active.start (block1);
 	auto vote (std::make_shared<rai::vote> (rai::test_genesis_key.pub, rai::test_genesis_key.prv, 0, block1));
 	rai::confirm_ack con1 (vote);
 	node1.process_message (con1, node1.network.endpoint ());

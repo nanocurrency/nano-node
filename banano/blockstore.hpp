@@ -60,6 +60,7 @@ public:
 	void block_del (MDB_txn *, rai::block_hash const &);
 	bool block_exists (MDB_txn *, rai::block_hash const &);
 	rai::block_counts block_count (MDB_txn *);
+	bool root_exists (MDB_txn *, rai::uint256_union const &);
 
 	void frontier_put (MDB_txn *, rai::block_hash const &, rai::account const &);
 	rai::account frontier_get (MDB_txn *, rai::block_hash const &);
@@ -108,13 +109,6 @@ public:
 	size_t unchecked_count (MDB_txn *);
 	std::unordered_multimap<rai::block_hash, std::shared_ptr<rai::block>> unchecked_cache;
 
-	void unsynced_put (MDB_txn *, rai::block_hash const &);
-	void unsynced_del (MDB_txn *, rai::block_hash const &);
-	bool unsynced_exists (MDB_txn *, rai::block_hash const &);
-	rai::store_iterator unsynced_begin (MDB_txn *, rai::block_hash const &);
-	rai::store_iterator unsynced_begin (MDB_txn *);
-	rai::store_iterator unsynced_end ();
-
 	void checksum_put (MDB_txn *, uint64_t, uint8_t, rai::checksum const &);
 	bool checksum_get (MDB_txn *, uint64_t, uint8_t, rai::checksum &);
 	void checksum_del (MDB_txn *, uint64_t, uint8_t);
@@ -145,39 +139,94 @@ public:
 	void upgrade_v7_to_v8 (MDB_txn *);
 	void upgrade_v8_to_v9 (MDB_txn *);
 	void upgrade_v9_to_v10 (MDB_txn *);
+	void upgrade_v10_to_v11 (MDB_txn *);
 
 	void clear (MDB_dbi);
 
 	rai::mdb_env environment;
-	// block_hash -> account                                        // Maps head blocks to owning account
+
+	/**
+	 * Maps head block to owning account
+	 * rai::block_hash -> rai::account
+	 */
 	MDB_dbi frontiers;
-	// account -> block_hash, representative, balance, timestamp    // Account to head block, representative, balance, last_change
+
+	/**
+	 * Maps account to account information, head, rep, open, balance, timestamp and block count.
+	 * rai::account -> rai::block_hash, rai::block_hash, rai::block_hash, rai::amount, uint64_t, uint64_t
+	 */
 	MDB_dbi accounts;
-	// block_hash -> send_block
+
+	/**
+	 * Maps block hash to send block.
+	 * rai::block_hash -> rai::send_block
+	 */
 	MDB_dbi send_blocks;
-	// block_hash -> receive_block
+
+	/**
+	 * Maps block hash to receive block.
+	 * rai::block_hash -> rai::receive_block
+	 */
 	MDB_dbi receive_blocks;
-	// block_hash -> open_block
+
+	/**
+	 * Maps block hash to open block.
+	 * rai::block_hash -> rai::open_block
+	 */
 	MDB_dbi open_blocks;
-	// block_hash -> change_block
+
+	/**
+	 * Maps block hash to change block.
+	 * rai::block_hash -> rai::change_block
+	 */
 	MDB_dbi change_blocks;
-	// block_hash -> state_block
+
+	/**
+	 * Maps block hash to state block.
+	 * rai::block_hash -> rai::state_block
+	 */
 	MDB_dbi state_blocks;
-	// block_hash -> sender, amount, destination                    // Pending blocks to sender account, amount, destination account
+
+	/**
+	 * Maps (destination account, pending block) to (source account, amount).
+	 * rai::account, rai::block_hash -> rai::account, rai::amount
+	 */
 	MDB_dbi pending;
-	// block_hash -> account, balance                               // Blocks info
+
+	/**
+	 * Maps block hash to account and balance.
+	 * block_hash -> rai::account, rai::amount
+	 */
 	MDB_dbi blocks_info;
-	// account -> weight                                            // Representation
+
+	/**
+	 * Representative weights.
+	 * rai::account -> rai::uint128_t
+	 */
 	MDB_dbi representation;
-	// block_hash -> block                                          // Unchecked bootstrap blocks
+
+	/**
+	 * Unchecked bootstrap blocks.
+	 * rai::block_hash -> rai::block
+	 */
 	MDB_dbi unchecked;
-	// block_hash ->                                                // Blocks that haven't been broadcast
-	MDB_dbi unsynced;
-	// (uint56_t, uint8_t) -> block_hash                            // Mapping of region to checksum
+
+	/**
+	 * Mapping of region to checksum.
+	 * (uint56_t, uint8_t) -> rai::block_hash
+	 */
 	MDB_dbi checksum;
-	// account -> uint64_t											// Highest vote observed for account
+
+	/**
+	 * Highest vote observed for account.
+	 * rai::account -> uint64_t
+	 */
 	MDB_dbi vote;
-	// uint256_union -> ?											// Meta information about block store
+
+	/**
+	 * Meta information about block store, such as versions.
+	 * rai::uint256_union (arbitrary key) -> blob
+	 */
 	MDB_dbi meta;
 };
 }

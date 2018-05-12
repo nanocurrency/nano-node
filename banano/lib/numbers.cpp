@@ -50,7 +50,7 @@ void rai::uint256_union::encode_account (std::string & destination_a) const
 	number_l |= rai::uint512_t (check);
 	for (auto i (0); i < 60; ++i)
 	{
-		auto r (number_l.convert_to<uint8_t> () & 0x1f);
+		uint8_t r (number_l & static_cast<uint8_t> (0x1f));
 		number_l >>= 5;
 		destination_a.push_back (account_encode (r));
 	}
@@ -73,90 +73,59 @@ std::string rai::uint256_union::to_account () const
 	return result;
 }
 
-bool rai::uint256_union::decode_account_v1 (std::string const & source_a)
-{
-	auto error (source_a.size () != 50);
-	if (!error)
-	{
-		rai::uint512_t number_l;
-		for (auto i (source_a.begin ()), j (source_a.end ()); !error && i != j; ++i)
-		{
-			uint8_t character (*i);
-			error = character < 0x30 || character >= 0x80;
-			if (!error)
-			{
-				uint8_t byte (base58_decode (character));
-				error = byte == '~';
-				if (!error)
-				{
-					number_l *= 58;
-					number_l += byte;
-				}
-			}
-		}
-		if (!error)
-		{
-			*this = number_l.convert_to<rai::uint256_t> ();
-			uint32_t check ((number_l >> 256).convert_to<uint32_t> ());
-			error = (number_l >> (256 + 32)) != 13;
-			if (!error)
-			{
-				uint32_t validation;
-				blake2b_state hash;
-				blake2b_init (&hash, sizeof (validation));
-				blake2b_update (&hash, bytes.data (), sizeof (bytes));
-				blake2b_final (&hash, reinterpret_cast<uint8_t *> (&validation), sizeof (validation));
-				error = check != validation;
-			}
-		}
-	}
-	return error;
-}
-
 bool rai::uint256_union::decode_account (std::string const & source_a)
 {
-	auto error (source_a.size () != 64);
+	auto error (source_a.size () < 5);
 	if (!error)
 	{
-		if (source_a[0] == 'b' && source_a[1] == 'a' && source_a[2] == 'n' && (source_a[3] == '_' || source_a[3] == '-') && (source_a[4] == '1' || source_a[4] == '3'))
+		auto ban_prefix (source_a[0] == 'b' && source_a[1] == 'a' && source_a[2] == 'n' && (source_a[3] == '_' || source_a[3] == '-'));
+		auto banano_prefix (source_a[0] == 'b' && source_a[1] == 'a' && source_a[2] == 'n' && source_a[3] == 'a' && (source_a[4] == 'n' || source_a[4] == 'o'));
+		error = (ban_prefix && source_a.size () != 64) || (banano_prefix && source_a.size () != 67);
+		if (!error)
 		{
-			rai::uint512_t number_l;
-			for (auto i (source_a.begin () + 4), j (source_a.end ()); !error && i != j; ++i)
+			if (ban_prefix || banano_prefix)
 			{
-				uint8_t character (*i);
-				error = character < 0x30 || character >= 0x80;
-				if (!error)
+				auto i (source_a.begin () + (ban_prefix ? 4 : 5));
+				if (*i == '1' || *i == '3')
 				{
-					uint8_t byte (account_decode (character));
-					error = byte == '~';
+					rai::uint512_t number_l;
+					for (auto j (source_a.end ()); !error && i != j; ++i)
+					{
+						uint8_t character (*i);
+						error = character < 0x30 || character >= 0x80;
+						if (!error)
+						{
+							uint8_t byte (account_decode (character));
+							error = byte == '~';
+							if (!error)
+							{
+								number_l <<= 5;
+								number_l += byte;
+							}
+						}
+					}
 					if (!error)
 					{
-						number_l <<= 5;
-						number_l += byte;
+						*this = (number_l >> 40).convert_to<rai::uint256_t> ();
+						uint64_t check (number_l & static_cast<uint64_t> (0xffffffffff));
+						uint64_t validation (0);
+						blake2b_state hash;
+						blake2b_init (&hash, 5);
+						blake2b_update (&hash, bytes.data (), bytes.size ());
+						blake2b_final (&hash, reinterpret_cast<uint8_t *> (&validation), 5);
+						error = check != validation;
 					}
 				}
+				else
+				{
+					error = true;
+				}
 			}
-			if (!error)
+			else
 			{
-				*this = (number_l >> 40).convert_to<rai::uint256_t> ();
-				uint64_t check (number_l.convert_to<uint64_t> ());
-				check &= 0xffffffffff;
-				uint64_t validation (0);
-				blake2b_state hash;
-				blake2b_init (&hash, 5);
-				blake2b_update (&hash, bytes.data (), bytes.size ());
-				blake2b_final (&hash, reinterpret_cast<uint8_t *> (&validation), 5);
-				error = check != validation;
+				error = true;
 			}
 		}
-		else
-		{
-			error = true;
-		}
-	}
-	else
-	{
-		error = decode_account_v1 (source_a);
 	}
 	return error;
 }
@@ -166,7 +135,7 @@ rai::uint256_union::uint256_union (rai::uint256_t const & number_a)
 	rai::uint256_t number_l (number_a);
 	for (auto i (bytes.rbegin ()), n (bytes.rend ()); i != n; ++i)
 	{
-		*i = ((number_l)&0xff).convert_to<uint8_t> ();
+		*i = static_cast<uint8_t> (number_l & static_cast<uint8_t> (0xff));
 		number_l >>= 8;
 	}
 }
@@ -337,7 +306,7 @@ rai::uint512_union::uint512_union (rai::uint512_t const & number_a)
 	rai::uint512_t number_l (number_a);
 	for (auto i (bytes.rbegin ()), n (bytes.rend ()); i != n; ++i)
 	{
-		*i = ((number_l)&0xff).convert_to<uint8_t> ();
+		*i = static_cast<uint8_t> (number_l & static_cast<uint8_t> (0xff));
 		number_l >>= 8;
 	}
 }
@@ -474,7 +443,7 @@ rai::uint128_union::uint128_union (rai::uint128_t const & value_a)
 	rai::uint128_t number_l (value_a);
 	for (auto i (bytes.rbegin ()), n (bytes.rend ()); i != n; ++i)
 	{
-		*i = ((number_l)&0xff).convert_to<uint8_t> ();
+		*i = static_cast<uint8_t> (number_l & static_cast<uint8_t> (0xff));
 		number_l >>= 8;
 	}
 }

@@ -3,6 +3,7 @@
 #include <banano/ledger.hpp>
 #include <banano/lib/work.hpp>
 #include <banano/node/bootstrap.hpp>
+#include <banano/node/stats.hpp>
 #include <banano/node/wallet.hpp>
 
 #include <condition_variable>
@@ -13,7 +14,6 @@
 #include <unordered_set>
 
 #include <boost/asio.hpp>
-#include <boost/circular_buffer.hpp>
 #include <boost/iostreams/device/array.hpp>
 #include <boost/log/trivial.hpp>
 #include <boost/multi_index/hashed_index.hpp>
@@ -42,29 +42,33 @@ public:
 	std::shared_ptr<rai::block> winner;
 	rai::amount tally;
 };
+class vote_info
+{
+public:
+	std::chrono::steady_clock::time_point time;
+	uint64_t sequence;
+	rai::block_hash hash;
+	bool operator< (rai::vote const &) const;
+};
 class election : public std::enable_shared_from_this<rai::election>
 {
-	std::function<void(std::shared_ptr<rai::block>, bool)> confirmation_action;
+	std::function<void(std::shared_ptr<rai::block>)> confirmation_action;
 	void confirm_once (MDB_txn *);
 
 public:
-	election (MDB_txn *, rai::node &, std::shared_ptr<rai::block>, std::function<void(std::shared_ptr<rai::block>, bool)> const &);
+	election (rai::node &, std::shared_ptr<rai::block>, std::function<void(std::shared_ptr<rai::block>)> const &);
 	bool vote (std::shared_ptr<rai::vote>);
 	// Check if we have vote quorum
-	bool have_quorum (MDB_txn *);
+	bool have_quorum (rai::tally_t const &);
 	// Tell the network our view of the winner
 	void broadcast_winner ();
 	// Change our winner to agree with the network
 	void compute_rep_votes (MDB_txn *);
-	// Confirmation method 1, uncontested quorum
+	// Confirm this block if quorum is met
 	void confirm_if_quorum (MDB_txn *);
-	// Confirmation method 2, settling time
-	void confirm_cutoff (MDB_txn *);
-	rai::uint128_t quorum_threshold (MDB_txn *, rai::ledger &);
-	rai::uint128_t minimum_threshold (MDB_txn *, rai::ledger &);
 	rai::votes votes;
 	rai::node & node;
-	std::unordered_map<rai::account, std::pair<std::chrono::steady_clock::time_point, uint64_t>> last_votes;
+	std::unordered_map<rai::account, rai::vote_info> last_votes;
 	rai::election_status status;
 	std::atomic<bool> confirmed;
 };
@@ -85,11 +89,11 @@ public:
 	active_transactions (rai::node &);
 	// Start an election for a block
 	// Call action with confirmed block, may be different than what we started with
-	bool start (MDB_txn *, std::shared_ptr<rai::block>, std::function<void(std::shared_ptr<rai::block>, bool)> const & = [](std::shared_ptr<rai::block>, bool) {});
+	bool start (std::shared_ptr<rai::block>, std::function<void(std::shared_ptr<rai::block>)> const & = [](std::shared_ptr<rai::block>) {});
 	// Also supply alternatives to block, to confirm_req reps with if the boolean argument is true
 	// Should only be used for old elections
 	// The first block should be the one in the ledger
-	bool start (MDB_txn *, std::pair<std::shared_ptr<rai::block>, std::shared_ptr<rai::block>>, std::function<void(std::shared_ptr<rai::block>, bool)> const & = [](std::shared_ptr<rai::block>, bool) {});
+	bool start (std::pair<std::shared_ptr<rai::block>, std::shared_ptr<rai::block>>, std::function<void(std::shared_ptr<rai::block>)> const & = [](std::shared_ptr<rai::block>) {});
 	// If this returns true, the vote is a replay
 	// If this returns false, the vote may or may not be a replay
 	bool vote (std::shared_ptr<rai::vote>);
@@ -108,8 +112,10 @@ public:
 	std::mutex mutex;
 	// Maximum number of conflicts to vote on per interval, lowest root hash first
 	static unsigned constexpr announcements_per_interval = 32;
-	// After this many successive vote announcements, block is confirmed
-	static unsigned constexpr contiguous_announcements = 4;
+	// Minimum number of block announcements
+	static unsigned constexpr announcement_min = 4;
+	// Threshold to start logging blocks haven't yet been confirmed
+	static unsigned constexpr announcement_long = 20;
 	static unsigned constexpr announce_interval_ms = (rai::banano_network == rai::banano_networks::banano_test_network) ? 10 : 16000;
 	static size_t constexpr election_history_size = 2048;
 };
@@ -197,10 +203,10 @@ public:
 	// Request a list of the top known representatives
 	std::vector<peer_information> representatives (size_t);
 	// List of all peers
-	std::vector<rai::endpoint> list ();
+	std::deque<rai::endpoint> list ();
 	std::map<rai::endpoint, unsigned> list_version ();
-	// A list of random peers with size the square root of total peer count
-	std::vector<rai::endpoint> list_sqrt ();
+	// A list of random peers sized for the configured rebroadcast fanout
+	std::deque<rai::endpoint> list_fanout ();
 	// Get the next peer for attempting bootstrap
 	rai::endpoint bootstrap_peer ();
 	// Purge any peer where last_contact < time_point and return what was left
@@ -281,15 +287,6 @@ public:
 	uint64_t check_count;
 	bool on;
 };
-class message_statistics
-{
-public:
-	message_statistics ();
-	std::atomic<uint64_t> keepalive;
-	std::atomic<uint64_t> publish;
-	std::atomic<uint64_t> confirm_req;
-	std::atomic<uint64_t> confirm_ack;
-};
 class block_arrival_info
 {
 public:
@@ -310,6 +307,8 @@ public:
 	boost::multi_index::hashed_unique<boost::multi_index::member<rai::block_arrival_info, rai::block_hash, &rai::block_arrival_info::hash>>>>
 	arrival;
 	std::mutex mutex;
+	static size_t constexpr arrival_size_min = 8 * 1024;
+	static std::chrono::seconds constexpr arrival_time_min = std::chrono::seconds (300);
 };
 class rep_last_heard_info
 {
@@ -345,7 +344,6 @@ public:
 	void stop ();
 	void receive_action (boost::system::error_code const &, size_t);
 	void rpc_action (boost::system::error_code const &, size_t);
-	void rebroadcast_reps (std::shared_ptr<rai::block>);
 	void republish_vote (std::shared_ptr<rai::vote>);
 	void republish_block (MDB_txn *, std::shared_ptr<rai::block>);
 	void republish (rai::block_hash const &, std::shared_ptr<std::vector<uint8_t>>, rai::endpoint);
@@ -364,12 +362,7 @@ public:
 	std::mutex socket_mutex;
 	boost::asio::ip::udp::resolver resolver;
 	rai::node & node;
-	uint64_t bad_sender_count;
 	bool on;
-	uint64_t insufficient_work_count;
-	uint64_t error_count;
-	rai::message_statistics incoming;
-	rai::message_statistics outgoing;
 	static uint16_t const node_port = rai::banano_network == rai::banano_networks::banano_live_network ? 7071 : 54000;
 };
 class logging
@@ -439,7 +432,8 @@ public:
 	std::vector<rai::account> preconfigured_representatives;
 	unsigned bootstrap_fraction_numerator;
 	rai::amount receive_minimum;
-	rai::amount inactive_supply;
+	rai::amount online_weight_minimum;
+	unsigned online_weight_quorom;
 	unsigned password_fanout;
 	unsigned io_threads;
 	unsigned work_threads;
@@ -450,6 +444,7 @@ public:
 	uint16_t callback_port;
 	std::string callback_target;
 	int lmdb_max_dbs;
+	rai::stat_config stat_config;
 	rai::block_hash state_block_parse_canary;
 	rai::block_hash state_block_generate_canary;
 	static std::chrono::seconds constexpr keepalive_period = std::chrono::seconds (60);
@@ -459,7 +454,7 @@ public:
 class node_observers
 {
 public:
-	rai::observer_set<std::shared_ptr<rai::block>, rai::process_return const &> blocks;
+	rai::observer_set<std::shared_ptr<rai::block>, rai::account const &, rai::uint128_t const &, bool> blocks;
 	rai::observer_set<bool> wallet;
 	rai::observer_set<std::shared_ptr<rai::vote>, rai::endpoint const &> vote;
 	rai::observer_set<rai::account const &, bool> account_balance;
@@ -471,7 +466,7 @@ class vote_processor
 {
 public:
 	vote_processor (rai::node &);
-	rai::vote_result vote (std::shared_ptr<rai::vote>, rai::endpoint);
+	rai::vote_code vote (std::shared_ptr<rai::vote>, rai::endpoint);
 	rai::node & node;
 };
 // The network is crawled for representatives by occasionally sending a unicast confirm_req for a specific block and watching to see if it's acknowledged with a vote.
@@ -501,6 +496,7 @@ public:
 	rai::process_return process_receive_one (MDB_txn *, std::shared_ptr<rai::block>);
 
 private:
+	void queue_unchecked (MDB_txn *, rai::block_hash const &);
 	void process_receive_many (std::unique_lock<std::mutex> &);
 	bool stopped;
 	bool active;
@@ -550,6 +546,8 @@ public:
 	uint64_t generate_work (rai::uint256_union const &);
 	void generate_work (rai::uint256_union const &, std::function<void(uint64_t)>);
 	void add_initial_peers ();
+	void block_confirm (std::shared_ptr<rai::block>);
+	rai::uint128_t delta ();
 	boost::asio::io_service & service;
 	rai::node_config config;
 	rai::alarm & alarm;
@@ -574,6 +572,7 @@ public:
 	std::thread block_processor_thread;
 	rai::block_arrival block_arrival;
 	rai::online_reps online_reps;
+	rai::stat stats;
 	static double constexpr price_max = 16.0;
 	static double constexpr free_cutoff = 1024.0;
 	static std::chrono::seconds constexpr period = std::chrono::seconds (60);

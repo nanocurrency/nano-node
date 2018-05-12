@@ -910,7 +910,7 @@ std::shared_ptr<rai::block> rai::wallet::receive_action (rai::block const & send
 	}
 	if (block != nullptr)
 	{
-		if (generate_work_a && rai::work_validate (*block))
+		if (rai::work_validate (*block))
 		{
 			node.generate_work (*block);
 		}
@@ -961,7 +961,7 @@ std::shared_ptr<rai::block> rai::wallet::change_action (rai::account const & sou
 	}
 	if (block != nullptr)
 	{
-		if (generate_work_a && rai::work_validate (*block))
+		if (rai::work_validate (*block))
 		{
 			node.generate_work (*block);
 		}
@@ -1055,7 +1055,7 @@ std::shared_ptr<rai::block> rai::wallet::send_action (rai::account const & sourc
 	}
 	if (!error && block != nullptr && !cached_block)
 	{
-		if (generate_work_a && rai::work_validate (*block))
+		if (rai::work_validate (*block))
 		{
 			node.generate_work (*block);
 		}
@@ -1228,8 +1228,7 @@ public:
 						auto this_l (shared_from_this ());
 						std::shared_ptr<rai::block> block_l (wallet->node.store.block_get (transaction, info.head));
 						wallet->node.background ([this_l, account, block_l] {
-							rai::transaction transaction (this_l->wallet->node.store.environment, nullptr, true);
-							this_l->wallet->node.active.start (transaction, block_l, [this_l, account](std::shared_ptr<rai::block>, bool) {
+							this_l->wallet->node.active.start (block_l, [this_l, account](std::shared_ptr<rai::block>) {
 								// If there were any forks for this account they've been rolled back and we can receive anything remaining from this account
 								this_l->receive_all (account);
 							});

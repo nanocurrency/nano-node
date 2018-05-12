@@ -109,7 +109,8 @@ TEST (ledger, deep_account_compute)
 	bool init (false);
 	rai::block_store store (init, rai::unique_path ());
 	ASSERT_FALSE (init);
-	rai::ledger ledger (store);
+	rai::stat stats;
+	rai::ledger ledger (store, stats);
 	rai::genesis genesis;
 	rai::transaction transaction (store.environment, nullptr, true);
 	genesis.initialize (transaction, store);
@@ -391,7 +392,7 @@ TEST (peer_container, random_set)
 	auto old (std::chrono::steady_clock::now ());
 	for (auto i (0); i < 10000; ++i)
 	{
-		auto list (container.list_sqrt ());
+		auto list (container.list_fanout ());
 	}
 	auto current (std::chrono::steady_clock::now ());
 	for (auto i (0); i < 10000; ++i)

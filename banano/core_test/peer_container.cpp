@@ -108,17 +108,17 @@ TEST (peer_container, fill_random_part)
 	ASSERT_TRUE (std::all_of (target.begin () + half, target.end (), [](rai::endpoint const & endpoint_a) { return endpoint_a == rai::endpoint (boost::asio::ip::address_v6::any (), 0); }));
 }
 
-TEST (peer_container, list_sqrt)
+TEST (peer_container, list_fanout)
 {
 	rai::peer_container peers (rai::endpoint{});
-	auto list1 (peers.list_sqrt ());
+	auto list1 (peers.list_fanout ());
 	ASSERT_TRUE (list1.empty ());
 	for (auto i (0); i < 1000; ++i)
 	{
 		ASSERT_FALSE (peers.insert (rai::endpoint (boost::asio::ip::address_v6::loopback (), 10000 + i), rai::protocol_version));
 	}
-	auto list2 (peers.list_sqrt ());
-	ASSERT_EQ (64, list2.size ());
+	auto list2 (peers.list_fanout ());
+	ASSERT_EQ (32, list2.size ());
 }
 
 TEST (peer_container, rep_weight)

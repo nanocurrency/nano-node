@@ -23,7 +23,7 @@ struct hash<rai::uint256_union>
 }
 namespace rai
 {
-const uint8_t protocol_version = 0x09;
+const uint8_t protocol_version = 0x0a;
 const uint8_t protocol_version_min = 0x07;
 
 class block_store;
@@ -128,7 +128,7 @@ public:
 };
 
 /**
- * Information on an uncollected send, source account, amount, target account.
+ * Information on an uncollected send
  */
 class pending_info
 {
@@ -207,12 +207,6 @@ enum class vote_code
 	invalid, // Vote is not signed correctly
 	replay, // Vote does not have the highest sequence number, it's a replay
 	vote // Vote has the highest sequence number
-};
-class vote_result
-{
-public:
-	rai::vote_code code;
-	std::shared_ptr<rai::vote> vote;
 };
 
 enum class process_result

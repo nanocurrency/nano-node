@@ -1099,18 +1099,17 @@ void banano_qt::wallet::start ()
 			this_l->push_main_stack (this_l->send_blocks_window);
 		}
 	});
-	node.observers.blocks.add ([this_w](std::shared_ptr<rai::block> block_a, rai::process_return const & result_a) {
+	node.observers.blocks.add ([this_w](std::shared_ptr<rai::block> block_a, rai::account const & account_a, rai::uint128_t const & amount_a, bool) {
 		if (auto this_l = this_w.lock ())
 		{
-			auto account (result_a.account);
-			this_l->application.postEvent (&this_l->processor, new eventloop_event ([this_w, block_a, account]() {
+			this_l->application.postEvent (&this_l->processor, new eventloop_event ([this_w, block_a, account_a]() {
 				if (auto this_l = this_w.lock ())
 				{
-					if (this_l->wallet_m->exists (account))
+					if (this_l->wallet_m->exists (account_a))
 					{
 						this_l->accounts.refresh ();
 					}
-					if (account == this_l->account)
+					if (account_a == this_l->account)
 					{
 						this_l->history.refresh ();
 					}

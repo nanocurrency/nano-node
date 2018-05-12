@@ -12,169 +12,47 @@ constexpr double bootstrap_minimum_frontier_blocks_per_sec = 1000.0;
 constexpr unsigned bootstrap_frontier_retry_limit = 16;
 constexpr double bootstrap_minimum_termination_time_sec = 30.0;
 constexpr unsigned bootstrap_max_new_connections = 10;
+constexpr unsigned bulk_push_cost_limit = 200;
 
-rai::block_synchronization::block_synchronization (boost::log::sources::logger_mt & log_a) :
-log (log_a)
+rai::socket_timeout::socket_timeout (rai::bootstrap_client & client_a) :
+ticket (0),
+client (client_a)
 {
 }
 
-namespace
+void rai::socket_timeout::start (std::chrono::steady_clock::time_point timeout_a)
 {
-class add_dependency_visitor : public rai::block_visitor
-{
-public:
-	add_dependency_visitor (MDB_txn * transaction_a, rai::block_synchronization & sync_a) :
-	transaction (transaction_a),
-	sync (sync_a),
-	complete (true)
-	{
-	}
-	virtual ~add_dependency_visitor ()
-	{
-	}
-	void send_block (rai::send_block const & block_a) override
-	{
-		add_dependency (block_a.hashables.previous);
-	}
-	void receive_block (rai::receive_block const & block_a) override
-	{
-		add_dependency (block_a.hashables.previous);
-		if (complete)
+	auto ticket_l (++ticket);
+	std::weak_ptr<rai::bootstrap_client> client_w (client.shared ());
+	client.node->alarm.add (timeout_a, [client_w, ticket_l]() {
+		if (auto client_l = client_w.lock ())
 		{
-			add_dependency (block_a.hashables.source);
+			if (client_l->timeout.ticket == ticket_l)
+			{
+				client_l->socket.close ();
+				if (client_l->node->config.logging.bulk_pull_logging ())
+				{
+					BOOST_LOG (client_l->node->log) << boost::str (boost::format ("Disconnecting from %1% due to timeout") % client_l->socket.remote_endpoint ());
+				}
+			}
 		}
-	}
-	void open_block (rai::open_block const & block_a) override
-	{
-		add_dependency (block_a.hashables.source);
-	}
-	void change_block (rai::change_block const & block_a) override
-	{
-		add_dependency (block_a.hashables.previous);
-	}
-	void state_block (rai::state_block const & block_a) override
-	{
-		if (!block_a.hashables.previous.is_zero ())
-		{
-			add_dependency (block_a.hashables.previous);
-		}
-		if (complete)
-		{
-			// Might not be a dependency block (if this is a send) but that's okay
-			add_dependency (block_a.hashables.link);
-		}
-	}
-	void add_dependency (rai::block_hash const & hash_a)
-	{
-		if (!sync.synchronized (transaction, hash_a) && sync.retrieve (transaction, hash_a) != nullptr)
-		{
-			complete = false;
-			sync.blocks.push_back (hash_a);
-		}
-		else
-		{
-			// Block is already synchronized, normal
-		}
-	}
-	MDB_txn * transaction;
-	rai::block_synchronization & sync;
-	bool complete;
-};
+	});
 }
 
-bool rai::block_synchronization::add_dependency (MDB_txn * transaction_a, rai::block const & block_a)
+void rai::socket_timeout::stop ()
 {
-	add_dependency_visitor visitor (transaction_a, *this);
-	block_a.visit (visitor);
-	return visitor.complete;
-}
-
-void rai::block_synchronization::fill_dependencies (MDB_txn * transaction_a)
-{
-	auto done (false);
-	while (!done)
-	{
-		auto hash (blocks.back ());
-		auto block (retrieve (transaction_a, hash));
-		if (block != nullptr)
-		{
-			done = add_dependency (transaction_a, *block);
-		}
-		else
-		{
-			done = true;
-		}
-	}
-}
-
-rai::sync_result rai::block_synchronization::synchronize_one (MDB_txn * transaction_a)
-{
-	// Blocks that depend on multiple paths e.g. receive_blocks, need to have their dependencies recalculated each time
-	fill_dependencies (transaction_a);
-	rai::sync_result result (rai::sync_result::success);
-	auto hash (blocks.back ());
-	blocks.pop_back ();
-	auto block (retrieve (transaction_a, hash));
-	if (block != nullptr)
-	{
-		result = target (transaction_a, *block);
-	}
-	else
-	{
-		// A block that can be the dependency of more than one other block, e.g. send blocks, can be added to the dependency list more than once.  Subsequent retrievals won't find the block but this isn't an error
-	}
-	return result;
-}
-
-rai::sync_result rai::block_synchronization::synchronize (MDB_txn * transaction_a, rai::block_hash const & hash_a)
-{
-	auto result (rai::sync_result::success);
-	blocks.clear ();
-	blocks.push_back (hash_a);
-	auto cutoff (std::chrono::steady_clock::now () + rai::transaction_timeout);
-	while (std::chrono::steady_clock::now () < cutoff && result != rai::sync_result::fork && !blocks.empty ())
-	{
-		result = synchronize_one (transaction_a);
-	}
-	return result;
-}
-
-rai::push_synchronization::push_synchronization (rai::node & node_a, std::function<rai::sync_result (MDB_txn *, rai::block const &)> const & target_a) :
-block_synchronization (node_a.log),
-target_m (target_a),
-node (node_a)
-{
-}
-
-bool rai::push_synchronization::synchronized (MDB_txn * transaction_a, rai::block_hash const & hash_a)
-{
-	auto result (!node.store.unsynced_exists (transaction_a, hash_a));
-	if (!result)
-	{
-		node.store.unsynced_del (transaction_a, hash_a);
-	}
-	return result;
-}
-
-std::unique_ptr<rai::block> rai::push_synchronization::retrieve (MDB_txn * transaction_a, rai::block_hash const & hash_a)
-{
-	return node.store.block_get (transaction_a, hash_a);
-}
-
-rai::sync_result rai::push_synchronization::target (MDB_txn * transaction_a, rai::block const & block_a)
-{
-	return target_m (transaction_a, block_a);
+	++ticket;
 }
 
 rai::bootstrap_client::bootstrap_client (std::shared_ptr<rai::node> node_a, std::shared_ptr<rai::bootstrap_attempt> attempt_a, rai::tcp_endpoint const & endpoint_a) :
 node (node_a),
 attempt (attempt_a),
 socket (node_a->service),
+timeout (*this),
 endpoint (endpoint_a),
-timeout (node_a->service),
+start_time (std::chrono::steady_clock::now ()),
 block_count (0),
 pending_stop (false),
-start_time (std::chrono::steady_clock::now ()),
 hard_stop (false)
 {
 	++attempt->connections;
@@ -207,28 +85,12 @@ void rai::bootstrap_client::stop (bool force)
 
 void rai::bootstrap_client::start_timeout ()
 {
-	timeout.expires_from_now (boost::posix_time::seconds (5));
-	std::weak_ptr<rai::bootstrap_client> this_w (shared ());
-	timeout.async_wait ([this_w](boost::system::error_code const & ec) {
-		if (ec != boost::asio::error::operation_aborted)
-		{
-			auto this_l (this_w.lock ());
-			if (this_l != nullptr)
-			{
-				this_l->socket.close ();
-				if (this_l->node->config.logging.bulk_pull_logging ())
-				{
-					BOOST_LOG (this_l->node->log) << boost::str (boost::format ("Disconnecting from %1% due to timeout") % this_l->endpoint);
-				}
-			}
-		}
-	});
+	timeout.start (std::chrono::steady_clock::now () + std::chrono::seconds (5));
 }
 
 void rai::bootstrap_client::stop_timeout ()
 {
-	size_t killed (timeout.cancel ());
-	(void)killed;
+	timeout.stop ();
 }
 
 void rai::bootstrap_client::run ()
@@ -303,7 +165,8 @@ std::shared_ptr<rai::bootstrap_client> rai::bootstrap_client::shared ()
 rai::frontier_req_client::frontier_req_client (std::shared_ptr<rai::bootstrap_client> connection_a) :
 connection (connection_a),
 current (0),
-count (0)
+count (0),
+bulk_push_cost (0)
 {
 	rai::transaction transaction (connection->node->store.environment, nullptr, false);
 	next (transaction);
@@ -337,14 +200,19 @@ void rai::frontier_req_client::receive_frontier ()
 	});
 }
 
-void rai::frontier_req_client::unsynced (MDB_txn * transaction_a, rai::block_hash const & ours_a, rai::block_hash const & theirs_a)
+void rai::frontier_req_client::unsynced (MDB_txn * transaction_a, rai::block_hash const & head, rai::block_hash const & end)
 {
-	auto current (ours_a);
-	while (!current.is_zero () && current != theirs_a)
+	if (bulk_push_cost < bulk_push_cost_limit)
 	{
-		connection->node->store.unsynced_put (transaction_a, current);
-		auto block (connection->node->store.block_get (transaction_a, current));
-		current = block->previous ();
+		connection->attempt->add_bulk_push_target (head, end);
+		if (end.is_zero ())
+		{
+			bulk_push_cost += 2;
+		}
+		else
+		{
+			bulk_push_cost += 1;
+		}
 	}
 }
 
@@ -385,10 +253,7 @@ void rai::frontier_req_client::received_frontier (boost::system::error_code cons
 			{
 				// We know about an account they don't.
 				rai::transaction transaction (connection->node->store.environment, nullptr, true);
-				if (connection->node->wallets.exists (transaction, current))
-				{
-					unsynced (transaction, info.head, 0);
-				}
+				unsynced (transaction, info.head, 0);
 				next (transaction);
 			}
 			if (!current.is_zero ())
@@ -405,14 +270,14 @@ void rai::frontier_req_client::received_frontier (boost::system::error_code cons
 						if (connection->node->store.block_exists (transaction, latest))
 						{
 							// We know about a block they don't.
-							if (connection->node->wallets.exists (transaction, current))
-							{
-								unsynced (transaction, info.head, latest);
-							}
+							unsynced (transaction, info.head, latest);
 						}
 						else
 						{
 							connection->attempt->add_pull (rai::pull_info (account, latest, info.head));
+							// Either we're behind or there's a fork we differ on
+							// Either way, bulk pushing will probably not be effective
+							bulk_push_cost += 5;
 						}
 					}
 					next (transaction);
@@ -436,12 +301,13 @@ void rai::frontier_req_client::received_frontier (boost::system::error_code cons
 				while (!current.is_zero ())
 				{
 					// We know about an account they don't.
-					if (connection->node->wallets.exists (transaction, current))
-					{
-						unsynced (transaction, info.head, 0);
-					}
+					unsynced (transaction, info.head, 0);
 					next (transaction);
 				}
+			}
+			if (connection->node->config.logging.bulk_pull_logging ())
+			{
+				BOOST_LOG (connection->node->log) << "Bulk push cost: " << bulk_push_cost;
 			}
 			{
 				try
@@ -682,11 +548,7 @@ void rai::bulk_pull_client::received_block (boost::system::error_code const & ec
 }
 
 rai::bulk_push_client::bulk_push_client (std::shared_ptr<rai::bootstrap_client> const & connection_a) :
-connection (connection_a),
-synchronization (*connection->node, [this](MDB_txn * transaction_a, rai::block const & block_a) {
-	push_block (block_a);
-	return rai::sync_result::success;
-})
+connection (connection_a)
 {
 }
 
@@ -706,7 +568,7 @@ void rai::bulk_push_client::start ()
 	connection->start_timeout ();
 	boost::asio::async_write (connection->socket, boost::asio::buffer (buffer->data (), buffer->size ()), [this_l, buffer](boost::system::error_code const & ec, size_t size_a) {
 		this_l->connection->stop_timeout ();
-		rai::transaction transaction (this_l->connection->node->store.environment, nullptr, true);
+		rai::transaction transaction (this_l->connection->node->store.environment, nullptr, false);
 		if (!ec)
 		{
 			this_l->push (transaction);
@@ -723,31 +585,47 @@ void rai::bulk_push_client::start ()
 
 void rai::bulk_push_client::push (MDB_txn * transaction_a)
 {
-	auto finished (false);
+	std::unique_ptr<rai::block> block;
+	bool finished (false);
+	while (block == nullptr && !finished)
 	{
-		auto first (connection->node->store.unsynced_begin (transaction_a));
-		if (first != rai::store_iterator (nullptr))
+		if (current_target.first.is_zero () || current_target.first == current_target.second)
 		{
-			rai::block_hash hash (first->first.uint256 ());
-			if (!hash.is_zero ())
+			std::lock_guard<std::mutex> guard (connection->attempt->mutex);
+			if (!connection->attempt->bulk_push_targets.empty ())
 			{
-				connection->node->store.unsynced_del (transaction_a, hash);
-				synchronization.blocks.push_back (hash);
-				synchronization.synchronize_one (transaction_a);
+				current_target = connection->attempt->bulk_push_targets.back ();
+				connection->attempt->bulk_push_targets.pop_back ();
 			}
 			else
 			{
 				finished = true;
 			}
 		}
-		else
+		if (!finished)
 		{
-			finished = true;
+			block = connection->node->store.block_get (transaction_a, current_target.first);
+			if (block == nullptr)
+			{
+				current_target.first = rai::block_hash (0);
+			}
+			else
+			{
+				if (connection->node->config.logging.bulk_pull_logging ())
+				{
+					BOOST_LOG (connection->node->log) << "Bulk pushing range " << current_target.first.to_string () << " down to " << current_target.second.to_string ();
+				}
+			}
 		}
 	}
 	if (finished)
 	{
 		send_finished ();
+	}
+	else
+	{
+		current_target.first = block->previous ();
+		push_block (*block);
 	}
 }
 
@@ -784,15 +662,8 @@ void rai::bulk_push_client::push_block (rai::block const & block_a)
 		this_l->connection->stop_timeout ();
 		if (!ec)
 		{
-			rai::transaction transaction (this_l->connection->node->store.environment, nullptr, true);
-			if (!this_l->synchronization.blocks.empty ())
-			{
-				this_l->synchronization.synchronize_one (transaction);
-			}
-			else
-			{
-				this_l->push (transaction);
-			}
+			rai::transaction transaction (this_l->connection->node->store.environment, nullptr, false);
+			this_l->push (transaction);
 		}
 		else
 		{
@@ -897,39 +768,34 @@ void rai::bootstrap_attempt::request_pull (std::unique_lock<std::mutex> & lock_a
 		auto size (pulls.size ());
 		// The bulk_pull_client destructor attempt to requeue_pull which can cause a deadlock if this is the last reference
 		// Dispatch request in an external thread in case it needs to be destroyed
-		node->background ([connection_l, pull, size]() {
+		node->background ([connection_l, pull]() {
 			auto client (std::make_shared<rai::bulk_pull_client> (connection_l, pull));
 			client->request ();
 		});
 	}
 }
 
-bool rai::bootstrap_attempt::request_push (std::unique_lock<std::mutex> & lock_a)
+void rai::bootstrap_attempt::request_push (std::unique_lock<std::mutex> & lock_a)
 {
-	auto result (true);
-	auto connection_l (connection (lock_a));
-	if (connection_l)
+	bool error (false);
+	if (auto connection_shared = connection_frontier_request.lock ())
 	{
-		std::future<bool> future;
-		{
-			auto client (std::make_shared<rai::bulk_push_client> (connection_l));
-			client->start ();
-			push = client;
-			future = client->promise.get_future ();
-		}
+		auto client (std::make_shared<rai::bulk_push_client> (connection_shared));
+		client->start ();
+		push = client;
+		auto future (client->promise.get_future ());
 		lock_a.unlock ();
-		result = consume_future (future);
+		error = consume_future (future);
 		lock_a.lock ();
-		if (node->config.logging.network_logging ())
+	}
+	if (node->config.logging.network_logging ())
+	{
+		BOOST_LOG (node->log) << "Exiting bulk push client";
+		if (error)
 		{
-			BOOST_LOG (node->log) << "Exiting bulk push client";
-			if (result)
-			{
-				BOOST_LOG (node->log) << "Bulk push client failed";
-			}
+			BOOST_LOG (node->log) << "Bulk push client failed";
 		}
 	}
-	return result;
 }
 
 bool rai::bootstrap_attempt::still_pulling ()
@@ -980,11 +846,7 @@ void rai::bootstrap_attempt::run ()
 	{
 		BOOST_LOG (node->log) << "Completed pulls";
 	}
-	auto push_failure (true);
-	while (!stopped && push_failure)
-	{
-		push_failure = request_push (lock);
-	}
+	request_push (lock);
 	stopped = true;
 	condition.notify_all ();
 	idle.clear ();
@@ -1023,27 +885,24 @@ void rai::bootstrap_attempt::process_fork (MDB_txn * transaction_a, std::shared_
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	auto root (block_a->root ());
-	if (!node->store.block_exists (transaction_a, block_a->hash ()) && (node->store.block_exists (transaction_a, root) || node->store.account_exists (transaction_a, root)))
+	if (!node->store.block_exists (transaction_a, block_a->hash ()) && node->store.root_exists (transaction_a, block_a->root ()))
 	{
 		std::shared_ptr<rai::block> ledger_block (node->ledger.forked_block (transaction_a, *block_a));
 		if (ledger_block)
 		{
 			std::weak_ptr<rai::bootstrap_attempt> this_w (shared_from_this ());
-			if (!node->active.start (transaction_a, std::make_pair (ledger_block, block_a), [this_w, root](std::shared_ptr<rai::block>, bool resolved) {
+			if (!node->active.start (std::make_pair (ledger_block, block_a), [this_w, root](std::shared_ptr<rai::block>) {
 				    if (auto this_l = this_w.lock ())
 				    {
-					    if (resolved)
+					    rai::transaction transaction (this_l->node->store.environment, nullptr, false);
+					    auto account (this_l->node->ledger.store.frontier_get (transaction, root));
+					    if (!account.is_zero ())
 					    {
-						    rai::transaction transaction (this_l->node->store.environment, nullptr, false);
-						    auto account (this_l->node->ledger.store.frontier_get (transaction, root));
-						    if (!account.is_zero ())
-						    {
-							    this_l->requeue_pull (rai::pull_info (account, root, root));
-						    }
-						    else if (this_l->node->ledger.store.account_exists (transaction, root))
-						    {
-							    this_l->requeue_pull (rai::pull_info (root, rai::block_hash (0), rai::block_hash (0)));
-						    }
+						    this_l->requeue_pull (rai::pull_info (account, root, root));
+					    }
+					    else if (this_l->node->ledger.store.account_exists (transaction, root))
+					    {
+						    this_l->requeue_pull (rai::pull_info (root, rai::block_hash (0), rai::block_hash (0)));
 					    }
 				    }
 			    }))
@@ -1160,7 +1019,7 @@ void rai::bootstrap_attempt::populate_connections ()
 				std::lock_guard<std::mutex> lock (mutex);
 				clients.push_back (client);
 			}
-			else
+			else if (connections == 0)
 			{
 				BOOST_LOG (node->log) << boost::str (boost::format ("Bootstrap stopped because there are no peers"));
 				stopped = true;
@@ -1249,8 +1108,7 @@ void rai::bootstrap_attempt::requeue_pull (rai::pull_info const & pull_a)
 		std::lock_guard<std::mutex> lock (mutex);
 		if (auto connection_shared = connection_frontier_request.lock ())
 		{
-			auto size (pulls.size ());
-			node->background ([connection_shared, pull, size]() {
+			node->background ([connection_shared, pull]() {
 				auto client (std::make_shared<rai::bulk_pull_client> (connection_shared, pull));
 				client->request ();
 			});
@@ -1267,6 +1125,12 @@ void rai::bootstrap_attempt::requeue_pull (rai::pull_info const & pull_a)
 			BOOST_LOG (node->log) << boost::str (boost::format ("Failed to pull account %1% down to %2% after %3% attempts") % pull.account.to_account () % pull.end.to_string () % pull.attempts);
 		}
 	}
+}
+
+void rai::bootstrap_attempt::add_bulk_push_target (rai::block_hash const & head, rai::block_hash const & end)
+{
+	std::lock_guard<std::mutex> lock (mutex);
+	bulk_push_targets.push_back (std::make_pair (head, end));
 }
 
 rai::bootstrap_initiator::bootstrap_initiator (rai::node & node_a) :
@@ -1287,14 +1151,18 @@ void rai::bootstrap_initiator::bootstrap ()
 	std::unique_lock<std::mutex> lock (mutex);
 	if (!stopped && attempt == nullptr)
 	{
+		node.stats.inc (rai::stat::type::bootstrap, rai::stat::detail::initiate, rai::stat::dir::out);
 		attempt = std::make_shared<rai::bootstrap_attempt> (node.shared ());
 		condition.notify_all ();
 	}
 }
 
-void rai::bootstrap_initiator::bootstrap (rai::endpoint const & endpoint_a)
+void rai::bootstrap_initiator::bootstrap (rai::endpoint const & endpoint_a, bool add_to_peers)
 {
-	node.peers.insert (endpoint_a, rai::protocol_version);
+	if (add_to_peers)
+	{
+		node.peers.insert (endpoint_a, rai::protocol_version);
+	}
 	std::unique_lock<std::mutex> lock (mutex);
 	if (!stopped)
 	{
@@ -1303,6 +1171,7 @@ void rai::bootstrap_initiator::bootstrap (rai::endpoint const & endpoint_a)
 			attempt->stop ();
 			condition.wait (lock);
 		}
+		node.stats.inc (rai::stat::type::bootstrap, rai::stat::detail::initiate, rai::stat::dir::out);
 		attempt = std::make_shared<rai::bootstrap_attempt> (node.shared ());
 		attempt->add_connection (endpoint_a);
 		condition.notify_all ();
@@ -1408,7 +1277,7 @@ void rai::bootstrap_listener::stop ()
 		connections_l.swap (connections);
 	}
 	acceptor.close ();
-	for (auto & i : connections)
+	for (auto & i : connections_l)
 	{
 		auto connection (i.second.lock ());
 		if (connection)
@@ -1493,6 +1362,7 @@ void rai::bootstrap_server::receive_header_action (boost::system::error_code con
 			{
 				case rai::message_type::bulk_pull:
 				{
+					node->stats.inc (rai::stat::type::bootstrap, rai::stat::detail::bulk_pull, rai::stat::dir::in);
 					auto this_l (shared_from_this ());
 					boost::asio::async_read (*socket, boost::asio::buffer (receive_buffer.data () + 8, sizeof (rai::uint256_union) + sizeof (rai::uint256_union)), [this_l](boost::system::error_code const & ec, size_t size_a) {
 						this_l->receive_bulk_pull_action (ec, size_a);
@@ -1501,6 +1371,7 @@ void rai::bootstrap_server::receive_header_action (boost::system::error_code con
 				}
 				case rai::message_type::bulk_pull_blocks:
 				{
+					node->stats.inc (rai::stat::type::bootstrap, rai::stat::detail::bulk_pull_blocks, rai::stat::dir::in);
 					auto this_l (shared_from_this ());
 					boost::asio::async_read (*socket, boost::asio::buffer (receive_buffer.data () + rai::bootstrap_message_header_size, sizeof (rai::uint256_union) + sizeof (rai::uint256_union) + sizeof (bulk_pull_blocks_mode) + sizeof (uint32_t)), [this_l](boost::system::error_code const & ec, size_t size_a) {
 						this_l->receive_bulk_pull_blocks_action (ec, size_a);
@@ -1509,6 +1380,7 @@ void rai::bootstrap_server::receive_header_action (boost::system::error_code con
 				}
 				case rai::message_type::frontier_req:
 				{
+					node->stats.inc (rai::stat::type::bootstrap, rai::stat::detail::frontier_req, rai::stat::dir::in);
 					auto this_l (shared_from_this ());
 					boost::asio::async_read (*socket, boost::asio::buffer (receive_buffer.data () + 8, sizeof (rai::uint256_union) + sizeof (uint32_t) + sizeof (uint32_t)), [this_l](boost::system::error_code const & ec, size_t size_a) {
 						this_l->receive_frontier_req_action (ec, size_a);
@@ -1517,6 +1389,7 @@ void rai::bootstrap_server::receive_header_action (boost::system::error_code con
 				}
 				case rai::message_type::bulk_push:
 				{
+					node->stats.inc (rai::stat::type::bootstrap, rai::stat::detail::bulk_push, rai::stat::dir::in);
 					add_request (std::unique_ptr<rai::message> (new rai::bulk_push));
 					break;
 				}
@@ -2055,6 +1928,7 @@ void rai::bulk_push_server::received_type ()
 	{
 		case rai::block_type::send:
 		{
+			connection->node->stats.inc (rai::stat::type::bootstrap, rai::stat::detail::send, rai::stat::dir::in);
 			boost::asio::async_read (*connection->socket, boost::asio::buffer (receive_buffer.data () + 1, rai::send_block::size), [this_l](boost::system::error_code const & ec, size_t size_a) {
 				this_l->received_block (ec, size_a);
 			});
@@ -2062,6 +1936,7 @@ void rai::bulk_push_server::received_type ()
 		}
 		case rai::block_type::receive:
 		{
+			connection->node->stats.inc (rai::stat::type::bootstrap, rai::stat::detail::receive, rai::stat::dir::in);
 			boost::asio::async_read (*connection->socket, boost::asio::buffer (receive_buffer.data () + 1, rai::receive_block::size), [this_l](boost::system::error_code const & ec, size_t size_a) {
 				this_l->received_block (ec, size_a);
 			});
@@ -2069,6 +1944,7 @@ void rai::bulk_push_server::received_type ()
 		}
 		case rai::block_type::open:
 		{
+			connection->node->stats.inc (rai::stat::type::bootstrap, rai::stat::detail::open, rai::stat::dir::in);
 			boost::asio::async_read (*connection->socket, boost::asio::buffer (receive_buffer.data () + 1, rai::open_block::size), [this_l](boost::system::error_code const & ec, size_t size_a) {
 				this_l->received_block (ec, size_a);
 			});
@@ -2076,6 +1952,7 @@ void rai::bulk_push_server::received_type ()
 		}
 		case rai::block_type::change:
 		{
+			connection->node->stats.inc (rai::stat::type::bootstrap, rai::stat::detail::change, rai::stat::dir::in);
 			boost::asio::async_read (*connection->socket, boost::asio::buffer (receive_buffer.data () + 1, rai::change_block::size), [this_l](boost::system::error_code const & ec, size_t size_a) {
 				this_l->received_block (ec, size_a);
 			});
@@ -2083,6 +1960,7 @@ void rai::bulk_push_server::received_type ()
 		}
 		case rai::block_type::state:
 		{
+			connection->node->stats.inc (rai::stat::type::bootstrap, rai::stat::detail::state_block, rai::stat::dir::in);
 			boost::asio::async_read (*connection->socket, boost::asio::buffer (receive_buffer.data () + 1, rai::state_block::size), [this_l](boost::system::error_code const & ec, size_t size_a) {
 				this_l->received_block (ec, size_a);
 			});

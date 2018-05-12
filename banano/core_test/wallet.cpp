@@ -861,7 +861,12 @@ TEST (wallet, no_work)
 	rai::keypair key2;
 	auto block (system.wallet (0)->send_action (rai::test_genesis_key.pub, key2.pub, std::numeric_limits<rai::uint128_t>::max (), false));
 	ASSERT_NE (nullptr, block);
-	ASSERT_EQ (0, block->block_work ());
+	ASSERT_NE (0, block->block_work ());
+	ASSERT_FALSE (rai::work_validate (block->root (), block->block_work ()));
+	rai::transaction transaction (system.nodes[0]->store.environment, nullptr, false);
+	uint64_t cached_work (0);
+	system.wallet (0)->store.work_get (transaction, rai::test_genesis_key.pub, cached_work);
+	ASSERT_EQ (0, cached_work);
 }
 
 TEST (wallet, send_race)

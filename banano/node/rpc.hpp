@@ -133,12 +133,14 @@ public:
 	void accounts_pending ();
 	void available_supply ();
 	void block ();
+	void block_confirm ();
 	void blocks ();
 	void blocks_info ();
 	void block_account ();
 	void block_count ();
 	void block_count_type ();
 	void block_create ();
+	void block_hash ();
 	void bootstrap ();
 	void bootstrap_any ();
 	void chain ();
@@ -179,6 +181,7 @@ public:
 	void search_pending ();
 	void search_pending_all ();
 	void send ();
+	void stats ();
 	void stop ();
 	void successors ();
 	void unchecked ();

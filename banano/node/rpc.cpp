@@ -141,8 +141,8 @@ void rai::rpc::start ()
 	}
 
 	acceptor.listen ();
-	node.observers.blocks.add ([this](std::shared_ptr<rai::block> block_a, rai::process_return const & result_a) {
-		observer_action (result_a.account);
+	node.observers.blocks.add ([this](std::shared_ptr<rai::block> block_a, rai::account const & account_a, rai::uint128_t const &, bool) {
+		observer_action (account_a);
 	});
 
 	accept ();
@@ -899,6 +899,32 @@ void rai::rpc_handler::block ()
 	}
 }
 
+void rai::rpc_handler::block_confirm ()
+{
+	std::string hash_text (request.get<std::string> ("hash"));
+	rai::block_hash hash_l;
+	if (!hash_l.decode_hex (hash_text))
+	{
+		rai::transaction transaction (node.store.environment, nullptr, false);
+		auto block_l (node.store.block_get (transaction, hash_l));
+		if (block_l != nullptr)
+		{
+			node.block_confirm (std::move (block_l));
+			boost::property_tree::ptree response_l;
+			response_l.put ("started", "1");
+			response (response_l);
+		}
+		else
+		{
+			error_response (response, "Block not found");
+		}
+	}
+	else
+	{
+		error_response (response, "Invalid block hash");
+	}
+}
+
 void rai::rpc_handler::blocks ()
 {
 	std::vector<std::string> hashes;
@@ -1364,6 +1390,27 @@ void rai::rpc_handler::block_create ()
 	}
 }
 
+void rai::rpc_handler::block_hash ()
+{
+	std::string block_text (request.get<std::string> ("block"));
+	boost::property_tree::ptree block_l;
+	std::stringstream block_stream (block_text);
+	boost::property_tree::read_json (block_stream, block_l);
+	block_l.put ("signature", "0");
+	block_l.put ("work", "0");
+	auto block (rai::deserialize_block_json (block_l));
+	if (block != nullptr)
+	{
+		boost::property_tree::ptree response_l;
+		response_l.put ("hash", block->hash ().to_string ());
+		response (response_l);
+	}
+	else
+	{
+		error_response (response, "Block is invalid");
+	}
+}
+
 void rai::rpc_handler::successors ()
 {
 	std::string block_text (request.get<std::string> ("block"));
@@ -1753,7 +1800,7 @@ public:
 				{
 					tree.put ("type", "receive");
 				}
-				tree.put ("account", block_a.hashables.account.to_account ());
+				tree.put ("account", handler.node.ledger.account (transaction, block_a.hashables.link).to_account ());
 				tree.put ("amount", (balance - previous_balance).convert_to<std::string> ());
 			}
 		}
@@ -1768,6 +1815,7 @@ public:
 
 void rai::rpc_handler::account_history ()
 {
+	std::string account_text;
 	std::string count_text (request.get<std::string> ("count"));
 	bool output_raw (request.get_optional<bool> ("raw") == true);
 	auto error (false);
@@ -1777,14 +1825,18 @@ void rai::rpc_handler::account_history ()
 	if (head_str)
 	{
 		error = hash.decode_hex (*head_str);
-		if (error)
+		if (!error)
+		{
+			account_text = node.ledger.account (transaction, hash).to_account ();
+		}
+		else
 		{
 			error_response (response, "Invalid block hash");
 		}
 	}
 	else
 	{
-		std::string account_text (request.get<std::string> ("account"));
+		account_text = request.get<std::string> ("account");
 		rai::uint256_union account;
 		error = account.decode_account (account_text);
 		if (!error)
@@ -1809,6 +1861,7 @@ void rai::rpc_handler::account_history ()
 				boost::property_tree::ptree history;
 				if (!error)
 				{
+					response_l.put ("account", account_text);
 					auto block (node.store.block_get (transaction, hash));
 					while (block != nullptr && count > 0)
 					{
@@ -2549,16 +2602,14 @@ void rai::rpc_handler::process ()
 			auto hash (block->hash ());
 			node.block_arrival.add (hash);
 			rai::process_return result;
-			std::shared_ptr<rai::block> block_a (std::move (block));
 			{
 				rai::transaction transaction (node.store.environment, nullptr, true);
-				result = node.block_processor.process_receive_one (transaction, block_a);
+				result = node.block_processor.process_receive_one (transaction, std::move (block));
 			}
 			switch (result.code)
 			{
 				case rai::process_result::progress:
 				{
-					node.observers.blocks (block_a, result);
 					boost::property_tree::ptree response_l;
 					response_l.put ("hash", hash.to_string ());
 					response (response_l);
@@ -2707,10 +2758,11 @@ void rai::rpc_handler::receive ()
 								{
 									uint64_t work (0);
 									boost::optional<std::string> work_text (request.get_optional<std::string> ("work"));
+									auto error (false);
 									if (work_text.is_initialized ())
 									{
-										auto work_error (rai::from_string_hex (work_text.get (), work));
-										if (work_error)
+										error = rai::from_string_hex (work_text.get (), work);
+										if (error)
 										{
 											error_response (response, "Bad work");
 										}
@@ -2734,21 +2786,25 @@ void rai::rpc_handler::receive ()
 										}
 										else
 										{
+											error = true;
 											error_response (response, "Invalid work");
 										}
 									}
-									auto response_a (response);
-									existing->second->receive_async (std::move (block), account, rai::genesis_amount, [response_a](std::shared_ptr<rai::block> block_a) {
-										rai::uint256_union hash_a (0);
-										if (block_a != nullptr)
-										{
-											hash_a = block_a->hash ();
-										}
-										boost::property_tree::ptree response_l;
-										response_l.put ("block", hash_a.to_string ());
-										response_a (response_l);
-									},
-									work == 0);
+									if (!error)
+									{
+										auto response_a (response);
+										existing->second->receive_async (std::move (block), account, rai::genesis_amount, [response_a](std::shared_ptr<rai::block> block_a) {
+											rai::uint256_union hash_a (0);
+											if (block_a != nullptr)
+											{
+												hash_a = block_a->hash ();
+											}
+											boost::property_tree::ptree response_l;
+											response_l.put ("block", hash_a.to_string ());
+											response_a (response_l);
+										},
+										work == 0);
+									}
 								}
 								else
 								{
@@ -3086,13 +3142,14 @@ void rai::rpc_handler::send ()
 							boost::optional<std::string> work_text (request.get_optional<std::string> ("work"));
 							if (work_text.is_initialized ())
 							{
-								auto work_error (rai::from_string_hex (work_text.get (), work));
-								if (work_error)
+								error = rai::from_string_hex (work_text.get (), work);
+								if (error)
 								{
 									error_response (response, "Bad work");
 								}
 							}
 							rai::uint128_t balance (0);
+							if (!error)
 							{
 								rai::transaction transaction (node.store.environment, nullptr, work != 0); // false if no "work" in request, true if work > 0
 								rai::account_info info;
@@ -3102,9 +3159,10 @@ void rai::rpc_handler::send ()
 								}
 								else
 								{
+									error = true;
 									error_response (response, "Account not found");
 								}
-								if (work)
+								if (!error && work)
 								{
 									if (!rai::work_validate (info.head, work))
 									{
@@ -3112,33 +3170,37 @@ void rai::rpc_handler::send ()
 									}
 									else
 									{
+										error = true;
 										error_response (response, "Invalid work");
 									}
 								}
 							}
-							boost::optional<std::string> send_id (request.get_optional<std::string> ("id"));
-							if (balance >= amount.number ())
+							if (!error)
 							{
-								auto rpc_l (shared_from_this ());
-								auto response_a (response);
-								existing->second->send_async (source, destination, amount.number (), [response_a](std::shared_ptr<rai::block> block_a) {
-									if (block_a != nullptr)
-									{
-										rai::uint256_union hash (block_a->hash ());
-										boost::property_tree::ptree response_l;
-										response_l.put ("block", hash.to_string ());
-										response_a (response_l);
-									}
-									else
-									{
-										error_response (response_a, "Error generating block");
-									}
-								},
-								work == 0, send_id);
-							}
-							else
-							{
-								error_response (response, "Insufficient balance");
+								boost::optional<std::string> send_id (request.get_optional<std::string> ("id"));
+								if (balance >= amount.number ())
+								{
+									auto rpc_l (shared_from_this ());
+									auto response_a (response);
+									existing->second->send_async (source, destination, amount.number (), [response_a](std::shared_ptr<rai::block> block_a) {
+										if (block_a != nullptr)
+										{
+											rai::uint256_union hash (block_a->hash ());
+											boost::property_tree::ptree response_l;
+											response_l.put ("block", hash.to_string ());
+											response_a (response_l);
+										}
+										else
+										{
+											error_response (response_a, "Error generating block");
+										}
+									},
+									work == 0, send_id);
+								}
+								else
+								{
+									error_response (response, "Insufficient balance");
+								}
 							}
 						}
 						else
@@ -3169,6 +3231,31 @@ void rai::rpc_handler::send ()
 	else
 	{
 		error_response (response, "RPC control is disabled");
+	}
+}
+
+void rai::rpc_handler::stats ()
+{
+	bool error = false;
+	auto sink = node.stats.log_sink_json ();
+	std::string type (request.get<std::string> ("type", ""));
+	if (type == "counters")
+	{
+		node.stats.log_counters (*sink);
+	}
+	else if (type == "samples")
+	{
+		node.stats.log_samples (*sink);
+	}
+	else
+	{
+		error = true;
+		error_response (response, "Invalid or missing type argument");
+	}
+
+	if (!error)
+	{
+		response (*static_cast<boost::property_tree::ptree *> (sink->to_object ()));
 	}
 }
 
@@ -4597,6 +4684,10 @@ void rai::rpc_handler::process_request ()
 		{
 			block ();
 		}
+		else if (action == "block_confirm")
+		{
+			block_confirm ();
+		}
 		else if (action == "blocks")
 		{
 			blocks ();
@@ -4620,6 +4711,10 @@ void rai::rpc_handler::process_request ()
 		else if (action == "block_create")
 		{
 			block_create ();
+		}
+		else if (action == "block_hash")
+		{
+			block_hash ();
 		}
 		else if (action == "successors")
 		{
@@ -4785,6 +4880,10 @@ void rai::rpc_handler::process_request ()
 		else if (action == "send")
 		{
 			send ();
+		}
+		else if (action == "stats")
+		{
+			stats ();
 		}
 		else if (action == "stop")
 		{
