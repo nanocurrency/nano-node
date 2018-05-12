@@ -23,9 +23,9 @@ install:
 
     $old_char = [regex]::Escape("extern const char banano_bootstrap_weights[];")
 
-    select-string -path ".\rai\node\node.cpp" -Pattern $old_size_t -SimpleMatch | %{$curpath=$_.path; (get-content $curpath -Raw) -replace $old_char, $char| Out-File $curpath}
+    select-string -path ".\banano\node\node.cpp" -Pattern $old_size_t -SimpleMatch | %{$curpath=$_.path; (get-content $curpath -Raw) -replace $old_char, $char| Out-File $curpath}
 
-    select-string -path ".\rai\node\node.cpp" -Pattern $old_size_t -SimpleMatch | %{$curpath=$_.path; (get-content $curpath -Raw) -replace $old_size_t, $size_t| Out-File $curpath}
+    select-string -path ".\banano\node\node.cpp" -Pattern $old_size_t -SimpleMatch | %{$curpath=$_.path; (get-content $curpath -Raw) -replace $old_size_t, $size_t| Out-File $curpath}
 
 build:
   parallel: true
