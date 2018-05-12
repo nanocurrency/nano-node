@@ -992,12 +992,18 @@ bool rai::node_config::deserialize_json (bool & upgraded_a, boost::property_tree
 		for (auto i (work_peers_l.begin ()), n (work_peers_l.end ()); i != n; ++i)
 		{
 			auto work_peer (i->second.get<std::string> (""));
-			boost::asio::ip::address address;
-			uint16_t port;
-			result |= rai::parse_address_port (work_peer, address, port);
+			auto port_position (work_peer.rfind (':'));
+			result |= port_position == -1;
 			if (!result)
 			{
-				work_peers.push_back (std::make_pair (address, port));
+				auto port_str (work_peer.substr (port_position + 1));
+				uint16_t port;
+				result |= parse_port (port_str, port);
+				if (!result)
+				{
+					auto address (work_peer.substr (0, port_position));
+					work_peers.push_back (std::make_pair (address, port));
+				}
 			}
 		}
 		auto preconfigured_peers_l (tree_a.get_child ("preconfigured_peers"));
@@ -1882,8 +1888,15 @@ bool rai::parse_port (std::string const & string_a, uint16_t & port_a)
 {
 	bool result;
 	size_t converted;
-	port_a = std::stoul (string_a, &converted);
-	result = converted != string_a.size () || converted > std::numeric_limits<uint16_t>::max ();
+	try
+	{
+		port_a = std::stoul (string_a, &converted);
+		result = converted != string_a.size () || converted > std::numeric_limits<uint16_t>::max ();
+	}
+	catch (...)
+	{
+		result = true;
+	}
 	return result;
 }
 
@@ -2164,15 +2177,50 @@ public:
 	callback (callback_a),
 	node (node_a),
 	root (root_a),
-	backoff (backoff_a)
+	backoff (backoff_a),
+	need_resolve (node_a->config.work_peers)
 	{
 		completed.clear ();
-		for (auto & i : node_a->config.work_peers)
-		{
-			outstanding[i.first] = i.second;
-		}
 	}
 	void start ()
+	{
+		if (need_resolve.empty ())
+		{
+			start_work ();
+		}
+		else
+		{
+			auto current (need_resolve.back ());
+			need_resolve.pop_back ();
+			auto this_l (shared_from_this ());
+			boost::system::error_code ec;
+			auto parsed_address (boost::asio::ip::address_v6::from_string (current.first, ec));
+			if (!ec)
+			{
+				outstanding[parsed_address] = current.second;
+				start ();
+			}
+			else
+			{
+				node->network.resolver.async_resolve (boost::asio::ip::udp::resolver::query (current.first, std::to_string (current.second)), [current, this_l](boost::system::error_code const & ec, boost::asio::ip::udp::resolver::iterator i_a) {
+					if (!ec)
+					{
+						for (auto i (i_a), n (boost::asio::ip::udp::resolver::iterator{}); i != n; ++i)
+						{
+							auto endpoint (i->endpoint ());
+							this_l->outstanding[endpoint.address ()] = endpoint.port ();
+						}
+					}
+					else
+					{
+						BOOST_LOG (this_l->node->log) << boost::str (boost::format ("Error resolving work peer: %1%:%2%: %3%") % current.first % current.second % ec.message ());
+					}
+					this_l->start ();
+				});
+			}
+		}
+	}
+	void start_work ()
 	{
 		if (!outstanding.empty ())
 		{
@@ -2371,6 +2419,7 @@ public:
 	rai::block_hash root;
 	std::mutex mutex;
 	std::map<boost::asio::ip::address, uint16_t> outstanding;
+	std::vector<std::pair<std::string, uint16_t>> need_resolve;
 	std::atomic_flag completed;
 };
 }

@@ -427,7 +427,7 @@ public:
 	rai::account random_representative ();
 	uint16_t peering_port;
 	rai::logging logging;
-	std::vector<std::pair<boost::asio::ip::address, uint16_t>> work_peers;
+	std::vector<std::pair<std::string, uint16_t>> work_peers;
 	std::vector<std::string> preconfigured_peers;
 	std::vector<rai::account> preconfigured_representatives;
 	unsigned bootstrap_fraction_numerator;
