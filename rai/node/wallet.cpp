@@ -1062,11 +1062,14 @@ std::shared_ptr<rai::block> rai::wallet::send_action (rai::account const & sourc
 		node.block_arrival.add (block->hash ());
 		node.block_processor.add (block);
 		node.block_processor.flush ();
-		auto hash (block->hash ());
-		auto this_l (shared_from_this ());
-		node.wallets.queue_wallet_action (rai::wallets::generate_priority, [this_l, source_a, hash] {
-			this_l->work_generate (source_a, hash);
-		});
+		if (generate_work_a)
+		{
+			auto hash (block->hash ());
+			auto this_l (shared_from_this ());
+			node.wallets.queue_wallet_action (rai::wallets::generate_priority, [this_l, source_a, hash] {
+				this_l->work_generate (source_a, hash);
+			});
+		}
 	}
 	return block;
 }
