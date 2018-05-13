@@ -1186,116 +1186,41 @@ void rai::wallet::work_ensure (MDB_txn * transaction_a, rai::account const & acc
 	}
 }
 
-namespace
-{
-class search_action : public std::enable_shared_from_this<search_action>
-{
-public:
-	search_action (std::shared_ptr<rai::wallet> const & wallet_a, MDB_txn * transaction_a) :
-	wallet (wallet_a)
-	{
-		for (auto i (wallet_a->store.begin (transaction_a)), n (wallet_a->store.end ()); i != n; ++i)
-		{
-			// Don't search pending for watch-only accounts
-			if (!rai::wallet_value (i->second).key.is_zero ())
-			{
-				keys.insert (i->first.uint256 ());
-			}
-		}
-	}
-	void run ()
-	{
-		BOOST_LOG (wallet->node.log) << "Beginning pending block search";
-		rai::transaction transaction (wallet->node.store.environment, nullptr, false);
-		std::unordered_set<rai::account> already_searched;
-		for (auto i (wallet->node.store.pending_begin (transaction)), n (wallet->node.store.pending_end ()); i != n; ++i)
-		{
-			rai::pending_key key (i->first);
-			rai::pending_info pending (i->second);
-			auto existing (keys.find (key.account));
-			if (existing != keys.end ())
-			{
-				auto amount (pending.amount.number ());
-				if (wallet->node.config.receive_minimum.number () <= amount)
-				{
-					rai::account_info info;
-					auto error (wallet->node.store.account_get (transaction, pending.source, info));
-					assert (!error);
-					BOOST_LOG (wallet->node.log) << boost::str (boost::format ("Found a pending block %1% from account %2% with head %3%") % key.hash.to_string () % pending.source.to_account () % info.head.to_string ());
-					auto account (pending.source);
-					if (already_searched.find (account) == already_searched.end ())
-					{
-						auto this_l (shared_from_this ());
-						std::shared_ptr<rai::block> block_l (wallet->node.store.block_get (transaction, info.head));
-						wallet->node.background ([this_l, account, block_l] {
-							this_l->wallet->node.active.start (block_l, [this_l, account](std::shared_ptr<rai::block>) {
-								// If there were any forks for this account they've been rolled back and we can receive anything remaining from this account
-								this_l->receive_all (account);
-							});
-							this_l->wallet->node.network.broadcast_confirm_req (block_l);
-						});
-						already_searched.insert (account);
-					}
-				}
-				else
-				{
-					BOOST_LOG (wallet->node.log) << boost::str (boost::format ("Not receiving block %1% due to minimum receive threshold") % key.hash.to_string ());
-				}
-			}
-		}
-		BOOST_LOG (wallet->node.log) << "Pending block search phase complete";
-	}
-	void receive_all (rai::account const & account_a)
-	{
-		BOOST_LOG (wallet->node.log) << boost::str (boost::format ("Account %1% confirmed, receiving all blocks") % account_a.to_account ());
-		rai::transaction transaction (wallet->node.store.environment, nullptr, false);
-		auto representative (wallet->store.representative (transaction));
-		for (auto i (wallet->node.store.pending_begin (transaction)), n (wallet->node.store.pending_end ()); i != n; ++i)
-		{
-			rai::pending_key key (i->first);
-			rai::pending_info pending (i->second);
-			if (pending.source == account_a)
-			{
-				if (wallet->store.exists (transaction, key.account))
-				{
-					if (wallet->store.valid_password (transaction))
-					{
-						rai::pending_key key (i->first);
-						std::shared_ptr<rai::block> block (wallet->node.store.block_get (transaction, key.hash));
-						auto wallet_l (wallet);
-						auto amount (pending.amount.number ());
-						BOOST_LOG (wallet_l->node.log) << boost::str (boost::format ("Receiving block: %1%") % block->hash ().to_string ());
-						wallet_l->receive_async (block, representative, amount, [wallet_l, block](std::shared_ptr<rai::block> block_a) {
-							if (block_a == nullptr)
-							{
-								BOOST_LOG (wallet_l->node.log) << boost::str (boost::format ("Error receiving block %1%") % block->hash ().to_string ());
-							}
-						},
-						true);
-					}
-					else
-					{
-						BOOST_LOG (wallet->node.log) << boost::str (boost::format ("Unable to fetch key for: %1%, stopping pending search") % key.account.to_account ());
-					}
-				}
-			}
-		}
-	}
-	std::unordered_set<rai::uint256_union> keys;
-	std::shared_ptr<rai::wallet> wallet;
-};
-}
-
 bool rai::wallet::search_pending ()
 {
 	rai::transaction transaction (store.environment, nullptr, false);
 	auto result (!store.valid_password (transaction));
 	if (!result)
 	{
-		auto search (std::make_shared<search_action> (shared_from_this (), transaction));
-		node.background ([search]() {
-			search->run ();
-		});
+		BOOST_LOG (node.log) << "Beginning pending block search";
+		rai::transaction transaction (node.store.environment, nullptr, false);
+		for (auto i (store.begin (transaction)), n (store.end ()); i != n; ++i)
+		{
+			rai::account account (i->first.uint256 ());
+			// Don't search pending for watch-only accounts
+			if (!rai::wallet_value (i->second).key.is_zero ())
+			{
+				for (auto j (node.store.pending_begin (transaction, rai::pending_key (account, 0))), m (node.store.pending_begin (transaction, rai::pending_key (account.number () + 1, 0))); j != m; ++j)
+				{
+					rai::pending_key key (j->first);
+					auto hash (key.hash);
+					rai::pending_info pending (j->second);
+					auto amount (pending.amount.number ());
+					if (node.config.receive_minimum.number () <= amount)
+					{
+						BOOST_LOG (node.log) << boost::str (boost::format ("Found a pending block %1% for account %2%") % hash.to_string () % pending.source.to_account ());
+						auto this_l (shared_from_this ());
+						rai::account_info info;
+						auto error (node.store.account_get (transaction, pending.source, info));
+						assert (!error);
+						std::shared_ptr<rai::block> block_l (node.store.block_get (transaction, info.head));
+						node.active.start (block_l);
+						node.network.broadcast_confirm_req (block_l);
+					}
+				}
+			}
+		}
+		BOOST_LOG (node.log) << "Pending block search phase complete";
 	}
 	else
 	{
