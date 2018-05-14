@@ -4228,12 +4228,13 @@ void rai::rpc_handler::work_generate ()
 	if (rpc.config.enable_control)
 	{
 		std::string hash_text (request.get<std::string> ("hash"));
+		bool use_peers (request.get_optional<bool> ("use_peers") == true);
 		rai::block_hash hash;
 		auto error (hash.decode_hex (hash_text));
 		if (!error)
 		{
 			auto rpc_l (shared_from_this ());
-			node.work.generate (hash, [rpc_l](boost::optional<uint64_t> const & work_a) {
+			auto callback = [rpc_l](boost::optional<uint64_t> const & work_a) {
 				if (work_a)
 				{
 					boost::property_tree::ptree response_l;
@@ -4244,7 +4245,15 @@ void rai::rpc_handler::work_generate ()
 				{
 					error_response (rpc_l->response, "Cancelled");
 				}
-			});
+			};
+			if (!use_peers)
+			{
+				node.work.generate (hash, callback);
+			}
+			else
+			{
+				node.generate_work (hash, callback);
+			}
 		}
 		else
 		{
