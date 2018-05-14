@@ -148,7 +148,7 @@ public:
 	void work_generate (rai::account const &, rai::block_hash const &);
 	void work_update (MDB_txn *, rai::account const &, rai::block_hash const &, uint64_t);
 	uint64_t work_fetch (MDB_txn *, rai::account const &, rai::block_hash const &);
-	void work_ensure (MDB_txn *, rai::account const &);
+	void work_ensure (rai::account const &, rai::block_hash const &);
 	bool search_pending ();
 	void init_free_accounts (MDB_txn *);
 	bool should_generate_state_block (MDB_txn *, rai::block_hash const &);
