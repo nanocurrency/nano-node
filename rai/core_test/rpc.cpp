@@ -1570,17 +1570,22 @@ TEST (rpc, work_cancel)
 	boost::property_tree::ptree request1;
 	request1.put ("action", "work_cancel");
 	request1.put ("hash", hash1.to_string ());
-	boost::optional<uint64_t> work;
-	std::thread thread ([&]() {
-		work = system.work.generate (hash1);
-	});
-	test_response response1 (request1, rpc, system.service);
-	while (response1.status == 0)
+	auto done (false);
+	auto iterations (0);
+	while (!done)
 	{
-		system.poll ();
+		system.work.generate (hash1, [&done] (boost::optional<uint64_t> work_a) {
+			done = !work_a;
+		});
+		test_response response1 (request1, rpc, system.service);
+		while (response1.status == 0)
+		{
+			system.poll ();
+		}
+		ASSERT_EQ (200, response1.status);
+		++iterations;
+		ASSERT_LT (iterations, 200);
 	}
-	ASSERT_EQ (200, response1.status);
-	thread.join ();
 }
 
 TEST (rpc, work_peer_bad)
