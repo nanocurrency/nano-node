@@ -433,7 +433,7 @@ public:
 	unsigned bootstrap_fraction_numerator;
 	rai::amount receive_minimum;
 	rai::amount online_weight_minimum;
-	unsigned online_weight_quorom;
+	unsigned online_weight_quorum;
 	unsigned password_fanout;
 	unsigned io_threads;
 	unsigned work_threads;
