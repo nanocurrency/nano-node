@@ -761,7 +761,7 @@ rai::public_key rai::wallet::deterministic_insert (MDB_txn * transaction_a, bool
 		key = store.deterministic_insert (transaction_a);
 		if (generate_work_a)
 		{
-			work_ensure (transaction_a, key);
+			work_ensure (key, key);
 		}
 	}
 	return key;
@@ -782,7 +782,7 @@ rai::public_key rai::wallet::insert_adhoc (MDB_txn * transaction_a, rai::raw_key
 		key = store.insert_adhoc (transaction_a, key_a);
 		if (generate_work_a)
 		{
-			work_ensure (transaction_a, key);
+			work_ensure (key, node.ledger.latest_root (transaction_a, key));
 		}
 	}
 	return key;
@@ -919,12 +919,7 @@ std::shared_ptr<rai::block> rai::wallet::receive_action (rai::block const & send
 		node.block_processor.flush ();
 		if (generate_work_a)
 		{
-			auto hash (block->hash ());
-			auto this_l (shared_from_this ());
-			auto source (account);
-			node.wallets.queue_wallet_action (rai::wallets::generate_priority, [this_l, source, hash] {
-				this_l->work_generate (source, hash);
-			});
+			work_ensure (account, block->hash ());
 		}
 	}
 	return block;
@@ -970,11 +965,7 @@ std::shared_ptr<rai::block> rai::wallet::change_action (rai::account const & sou
 		node.block_processor.flush ();
 		if (generate_work_a)
 		{
-			auto hash (block->hash ());
-			auto this_l (shared_from_this ());
-			node.wallets.queue_wallet_action (rai::wallets::generate_priority, [this_l, source_a, hash] {
-				this_l->work_generate (source_a, hash);
-			});
+			work_ensure (source_a, block->hash ());
 		}
 	}
 	return block;
@@ -1064,11 +1055,7 @@ std::shared_ptr<rai::block> rai::wallet::send_action (rai::account const & sourc
 		node.block_processor.flush ();
 		if (generate_work_a)
 		{
-			auto hash (block->hash ());
-			auto this_l (shared_from_this ());
-			node.wallets.queue_wallet_action (rai::wallets::generate_priority, [this_l, source_a, hash] {
-				this_l->work_generate (source_a, hash);
-			});
+			work_ensure (source_a, block->hash ());
 		}
 	}
 	return block;
@@ -1171,20 +1158,12 @@ uint64_t rai::wallet::work_fetch (MDB_txn * transaction_a, rai::account const & 
 	return result;
 }
 
-void rai::wallet::work_ensure (MDB_txn * transaction_a, rai::account const & account_a)
+void rai::wallet::work_ensure (rai::account const & account_a, rai::block_hash const & hash_a)
 {
-	assert (store.exists (transaction_a, account_a));
-	auto root (node.ledger.latest_root (transaction_a, account_a));
-	uint64_t work;
-	auto error (store.work_get (transaction_a, account_a, work));
-	assert (!error);
-	if (rai::work_validate (root, work))
-	{
-		auto this_l (shared_from_this ());
-		node.background ([this_l, account_a, root]() {
-			this_l->work_generate (account_a, root);
-		});
-	}
+	auto this_l (shared_from_this ());
+	node.wallets.queue_wallet_action (rai::wallets::generate_priority, [this_l, account_a, hash_a] {
+		this_l->work_generate (account_a, hash_a);
+	});
 }
 
 bool rai::wallet::search_pending ()
