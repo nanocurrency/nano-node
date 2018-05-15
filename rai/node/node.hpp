@@ -414,6 +414,7 @@ public:
 	node_init ();
 	bool error ();
 	bool block_store_init;
+	bool wallets_store_init;
 	bool wallet_init;
 };
 class node_config
@@ -554,6 +555,7 @@ public:
 	rai::work_pool & work;
 	boost::log::sources::logger_mt log;
 	rai::block_store store;
+	rai::wallets_store wallets_store;
 	rai::gap_cache gap_cache;
 	rai::ledger ledger;
 	rai::active_transactions active;

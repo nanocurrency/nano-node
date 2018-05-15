@@ -248,13 +248,14 @@ wallet (wallet_a)
 void rai_qt::accounts::refresh_wallet_balance ()
 {
 	rai::transaction transaction (this->wallet.wallet_m->store.environment, nullptr, false);
+	rai::transaction block_transaction (this->wallet.node.store.environment, nullptr, false);
 	rai::uint128_t balance (0);
 	rai::uint128_t pending (0);
 	for (auto i (this->wallet.wallet_m->store.begin (transaction)), j (this->wallet.wallet_m->store.end ()); i != j; ++i)
 	{
 		rai::public_key key (i->first.uint256 ());
-		balance = balance + (this->wallet.node.ledger.account_balance (transaction, key));
-		pending = pending + (this->wallet.node.ledger.account_pending (transaction, key));
+		balance = balance + (this->wallet.node.ledger.account_balance (block_transaction, key));
+		pending = pending + (this->wallet.node.ledger.account_pending (block_transaction, key));
 	}
 	auto final_text (std::string ("Balance: ") + wallet.format_balance (balance));
 	if (!pending.is_zero ())
@@ -273,11 +274,12 @@ void rai_qt::accounts::refresh ()
 {
 	model->removeRows (0, model->rowCount ());
 	rai::transaction transaction (wallet.wallet_m->store.environment, nullptr, false);
+	rai::transaction block_transaction (wallet.node.store.environment, nullptr, false);
 	QBrush brush;
 	for (auto i (wallet.wallet_m->store.begin (transaction)), j (wallet.wallet_m->store.end ()); i != j; ++i)
 	{
 		rai::public_key key (i->first.uint256 ());
-		auto balance_amount (wallet.node.ledger.account_balance (transaction, key));
+		auto balance_amount (wallet.node.ledger.account_balance (block_transaction, key));
 		bool display (true);
 		switch (wallet.wallet_m->store.key_type (i->second))
 		{
@@ -2056,15 +2058,16 @@ void rai_qt::block_creation::create_send ()
 			error = destination_l.decode_account (destination->text ().toStdString ());
 			if (!error)
 			{
-				rai::transaction transaction (wallet.node.store.environment, nullptr, false);
+				rai::transaction transaction (wallet.wallet_m->store.environment, nullptr, false);
+				rai::transaction block_transaction (wallet.node.store.environment, nullptr, false);
 				rai::raw_key key;
 				if (!wallet.wallet_m->store.fetch (transaction, account_l, key))
 				{
-					auto balance (wallet.node.ledger.account_balance (transaction, account_l));
+					auto balance (wallet.node.ledger.account_balance (block_transaction, account_l));
 					if (amount_l.number () <= balance)
 					{
 						rai::account_info info;
-						auto error (wallet.node.store.account_get (transaction, account_l, info));
+						auto error (wallet.node.store.account_get (block_transaction, account_l, info));
 						assert (!error);
 						rai::send_block send (info.head, destination_l, balance - amount_l.number (), key, account_l, wallet.wallet_m->work_fetch (transaction, account_l, info.head));
 						std::string block_l;
@@ -2110,19 +2113,20 @@ void rai_qt::block_creation::create_receive ()
 	auto error (source_l.decode_hex (source->text ().toStdString ()));
 	if (!error)
 	{
-		rai::transaction transaction (wallet.node.store.environment, nullptr, false);
-		auto block_l (wallet.node.store.block_get (transaction, source_l));
+		rai::transaction transaction (wallet.wallet_m->store.environment, nullptr, false);
+		rai::transaction block_transaction (wallet.node.store.environment, nullptr, false);
+		auto block_l (wallet.node.store.block_get (block_transaction, source_l));
 		if (block_l != nullptr)
 		{
-			auto destination (wallet.node.ledger.block_destination (transaction, *block_l));
+			auto destination (wallet.node.ledger.block_destination (block_transaction, *block_l));
 			if (!destination.is_zero ())
 			{
 				rai::pending_key pending_key (destination, source_l);
 				rai::pending_info pending;
-				if (!wallet.node.store.pending_get (transaction, pending_key, pending))
+				if (!wallet.node.store.pending_get (block_transaction, pending_key, pending))
 				{
 					rai::account_info info;
-					auto error (wallet.node.store.account_get (transaction, pending_key.account, info));
+					auto error (wallet.node.store.account_get (block_transaction, pending_key.account, info));
 					if (!error)
 					{
 						rai::raw_key key;
@@ -2183,9 +2187,10 @@ void rai_qt::block_creation::create_change ()
 		error = representative_l.decode_account (representative->text ().toStdString ());
 		if (!error)
 		{
-			rai::transaction transaction (wallet.node.store.environment, nullptr, false);
+			rai::transaction transaction (wallet.wallet_m->store.environment, nullptr, false);
+			rai::transaction block_transaction (wallet.node.store.environment, nullptr, false);
 			rai::account_info info;
-			auto error (wallet.node.store.account_get (transaction, account_l, info));
+			auto error (wallet.node.store.account_get (block_transaction, account_l, info));
 			if (!error)
 			{
 				rai::raw_key key;
@@ -2234,19 +2239,20 @@ void rai_qt::block_creation::create_open ()
 		error = representative_l.decode_account (representative->text ().toStdString ());
 		if (!error)
 		{
-			rai::transaction transaction (wallet.node.store.environment, nullptr, false);
-			auto block_l (wallet.node.store.block_get (transaction, source_l));
+			rai::transaction transaction (wallet.wallet_m->store.environment, nullptr, false);
+			rai::transaction block_transaction (wallet.node.store.environment, nullptr, false);
+			auto block_l (wallet.node.store.block_get (block_transaction, source_l));
 			if (block_l != nullptr)
 			{
-				auto destination (wallet.node.ledger.block_destination (transaction, *block_l));
+				auto destination (wallet.node.ledger.block_destination (block_transaction, *block_l));
 				if (!destination.is_zero ())
 				{
 					rai::pending_key pending_key (destination, source_l);
 					rai::pending_info pending;
-					if (!wallet.node.store.pending_get (transaction, pending_key, pending))
+					if (!wallet.node.store.pending_get (block_transaction, pending_key, pending))
 					{
 						rai::account_info info;
-						auto error (wallet.node.store.account_get (transaction, pending_key.account, info));
+						auto error (wallet.node.store.account_get (block_transaction, pending_key.account, info));
 						if (error)
 						{
 							rai::raw_key key;

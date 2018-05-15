@@ -24,7 +24,7 @@ using bufferstream = boost::iostreams::stream_buffer<boost::iostreams::basic_arr
 using vectorstream = boost::iostreams::stream_buffer<boost::iostreams::back_insert_device<std::vector<uint8_t>>>;
 // OS-specific way of finding a path to a home directory.
 boost::filesystem::path working_path ();
-// Get a unique path within the home directory, used for testing.
+// Get a unique path within the home directory, used for testing
 // Any directories created at this location will be removed when a test finishes.
 boost::filesystem::path unique_path ();
 // Remove all unique tmp directories created by the process. The list of unique paths are returned.
@@ -102,20 +102,20 @@ bool fetch_object (T & object, boost::filesystem::path const & path_a, std::fstr
 }
 
 /**
- * RAII wrapper for MDB_env
- */
+	* RAII wrapper for MDB_env
+	*/
 class mdb_env
 {
 public:
-	mdb_env (bool &, boost::filesystem::path const &, int max_dbs = 128);
+	mdb_env (bool &, boost::filesystem::path const &, bool, int max_dbs = 128);
 	~mdb_env ();
 	operator MDB_env * () const;
 	MDB_env * environment;
 };
 
 /**
- * Encapsulates MDB_val and provides uint256_union conversion of the data.
- */
+	* Encapsulates MDB_val and provides uint256_union conversion of the data.
+	*/
 class mdb_val
 {
 public:
@@ -133,9 +133,9 @@ public:
 };
 
 /**
- * RAII wrapper of MDB_txn where the constructor starts the transaction
- * and the destructor commits it.
- */
+	* RAII wrapper of MDB_txn where the constructor starts the transaction
+	* and the destructor commits it.
+	*/
 class transaction
 {
 public:
