@@ -1213,9 +1213,7 @@ bool rai::wallet::search_pending ()
 						rai::account_info info;
 						auto error (node.store.account_get (transaction, pending.source, info));
 						assert (!error);
-						std::shared_ptr<rai::block> block_l (node.store.block_get (transaction, info.head));
-						node.active.start (block_l);
-						node.network.broadcast_confirm_req (block_l);
+						node.block_confirm (node.store.block_get (transaction, info.head));
 					}
 				}
 			}
