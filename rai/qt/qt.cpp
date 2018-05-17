@@ -2066,7 +2066,8 @@ void rai_qt::block_creation::create_send ()
 						rai::account_info info;
 						auto error (wallet.node.store.account_get (transaction, account_l, info));
 						assert (!error);
-						rai::send_block send (info.head, destination_l, balance - amount_l.number (), key, account_l, wallet.wallet_m->work_fetch (transaction, account_l, info.head));
+						rai::send_block send (info.head, destination_l, balance - amount_l.number (), key, account_l, 0);
+						wallet.node.work_generate_blocking (send);
 						std::string block_l;
 						send.serialize_json (block_l);
 						block->setPlainText (QString (block_l.c_str ()));
@@ -2129,7 +2130,8 @@ void rai_qt::block_creation::create_receive ()
 						auto error (wallet.wallet_m->store.fetch (transaction, pending_key.account, key));
 						if (!error)
 						{
-							rai::receive_block receive (info.head, source_l, key, pending_key.account, wallet.wallet_m->work_fetch (transaction, pending_key.account, info.head));
+							rai::receive_block receive (info.head, source_l, key, pending_key.account, 0);
+							wallet.node.work_generate_blocking (receive);
 							std::string block_l;
 							receive.serialize_json (block_l);
 							block->setPlainText (QString (block_l.c_str ()));
@@ -2192,7 +2194,8 @@ void rai_qt::block_creation::create_change ()
 				auto error (wallet.wallet_m->store.fetch (transaction, account_l, key));
 				if (!error)
 				{
-					rai::change_block change (info.head, representative_l, key, account_l, wallet.wallet_m->work_fetch (transaction, account_l, info.head));
+					rai::change_block change (info.head, representative_l, key, account_l, 0);
+					wallet.node.work_generate_blocking (change);
 					std::string block_l;
 					change.serialize_json (block_l);
 					block->setPlainText (QString (block_l.c_str ()));
@@ -2253,7 +2256,8 @@ void rai_qt::block_creation::create_open ()
 							auto error (wallet.wallet_m->store.fetch (transaction, pending_key.account, key));
 							if (!error)
 							{
-								rai::open_block open (source_l, representative_l, pending_key.account, key, pending_key.account, wallet.wallet_m->work_fetch (transaction, pending_key.account, pending_key.account));
+								rai::open_block open (source_l, representative_l, pending_key.account, key, pending_key.account, 0);
+								wallet.node.work_generate_blocking (open);
 								std::string block_l;
 								open.serialize_json (block_l);
 								block->setPlainText (QString (block_l.c_str ()));

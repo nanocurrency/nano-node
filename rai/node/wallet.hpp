@@ -148,7 +148,6 @@ public:
 	void work_apply (rai::account const &, std::function <void (uint64_t)>);
 	void work_cache_blocking (rai::account const &, rai::block_hash const &);
 	void work_update (MDB_txn *, rai::account const &, rai::block_hash const &, uint64_t);
-	uint64_t work_fetch (MDB_txn *, rai::account const &, rai::block_hash const &);
 	void work_ensure (rai::account const &, rai::block_hash const &);
 	bool search_pending ();
 	void init_free_accounts (MDB_txn *);

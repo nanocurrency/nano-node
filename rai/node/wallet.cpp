@@ -1142,24 +1142,6 @@ void rai::wallet::work_update (MDB_txn * transaction_a, rai::account const & acc
 	}
 }
 
-// Fetch work for root_a, use cached value if possible
-uint64_t rai::wallet::work_fetch (MDB_txn * transaction_a, rai::account const & account_a, rai::block_hash const & root_a)
-{
-	uint64_t result;
-	auto error (store.work_get (transaction_a, account_a, result));
-	if (error)
-	{
-		result = node.work_generate_blocking (root_a);
-	}
-	else if (rai::work_validate (root_a, result))
-	{
-		BOOST_LOG (node.log) << "Cached work invalid, regenerating";
-		result = node.work_generate_blocking (root_a);
-	}
-
-	return result;
-}
-
 void rai::wallet::work_ensure (rai::account const & account_a, rai::block_hash const & hash_a)
 {
 	auto this_l (shared_from_this ());
