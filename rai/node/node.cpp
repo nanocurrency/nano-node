@@ -2375,21 +2375,21 @@ public:
 };
 }
 
-void rai::node::generate_work (rai::block & block_a)
+void rai::node::work_generate_blocking (rai::block & block_a)
 {
-	block_a.block_work_set (generate_work (block_a.root ()));
+	block_a.block_work_set (work_generate_blocking (block_a.root ()));
 }
 
-void rai::node::generate_work (rai::uint256_union const & hash_a, std::function<void(uint64_t)> callback_a)
+void rai::node::work_generate (rai::uint256_union const & hash_a, std::function<void(uint64_t)> callback_a)
 {
 	auto work_generation (std::make_shared<distributed_work> (shared (), hash_a, callback_a));
 	work_generation->start ();
 }
 
-uint64_t rai::node::generate_work (rai::uint256_union const & hash_a)
+uint64_t rai::node::work_generate_blocking (rai::uint256_union const & hash_a)
 {
 	std::promise<uint64_t> promise;
-	generate_work (hash_a, [&promise](uint64_t work_a) {
+	work_generate (hash_a, [&promise](uint64_t work_a) {
 		promise.set_value (work_a);
 	});
 	return promise.get_future ().get ();

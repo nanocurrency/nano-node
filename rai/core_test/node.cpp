@@ -299,7 +299,7 @@ TEST (node, receive_gap)
 	auto & node1 (*system.nodes[0]);
 	ASSERT_EQ (0, node1.gap_cache.blocks.size ());
 	auto block (std::make_shared<rai::send_block> (5, 1, 2, rai::keypair ().prv, 4, 0));
-	node1.generate_work (*block);
+	node1.work_generate_blocking (*block);
 	rai::confirm_req message;
 	message.block = block;
 	node1.process_message (message, node1.network.endpoint ());
@@ -676,10 +676,10 @@ TEST (node, fork_publish)
 		rai::keypair key1;
 		rai::genesis genesis;
 		auto send1 (std::make_shared<rai::send_block> (genesis.hash (), key1.pub, rai::genesis_amount - 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
-		node1.generate_work (*send1);
+		node1.work_generate_blocking (*send1);
 		rai::keypair key2;
 		auto send2 (std::make_shared<rai::send_block> (genesis.hash (), key2.pub, rai::genesis_amount - 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
-		node1.generate_work (*send2);
+		node1.work_generate_blocking (*send2);
 		node1.process_active (send1);
 		node1.block_processor.flush ();
 		ASSERT_EQ (1, node1.active.roots.size ());
@@ -1080,10 +1080,10 @@ TEST (node, broadcast_elected)
 		rai::open_block open_small (fund_small.hash (), rep_small.pub, rep_small.pub, rep_small.prv, rep_small.pub, 0);
 		rai::send_block fund_other (fund_small.hash (), rep_other.pub, rai::Gxrb_ratio * 1, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
 		rai::open_block open_other (fund_other.hash (), rep_other.pub, rep_other.pub, rep_other.prv, rep_other.pub, 0);
-		node0->generate_work (fund_big);
-		node0->generate_work (open_big);
-		node0->generate_work (fund_small);
-		node0->generate_work (open_small);
+		node0->work_generate_blocking (fund_big);
+		node0->work_generate_blocking (open_big);
+		node0->work_generate_blocking (fund_small);
+		node0->work_generate_blocking (open_small);
 		ASSERT_EQ (rai::process_result::progress, node0->ledger.process (transaction0, fund_big).code);
 		ASSERT_EQ (rai::process_result::progress, node1->ledger.process (transaction1, fund_big).code);
 		ASSERT_EQ (rai::process_result::progress, node2->ledger.process (transaction2, fund_big).code);
@@ -1107,11 +1107,11 @@ TEST (node, broadcast_elected)
 	system.wallet (1)->insert_adhoc (rep_small.prv);
 	system.wallet (2)->insert_adhoc (rep_other.prv);
 	auto fork0 (std::make_shared<rai::send_block> (node2->latest (rai::test_genesis_key.pub), rep_small.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
-	node0->generate_work (*fork0);
+	node0->work_generate_blocking (*fork0);
 	node0->process_active (fork0);
 	node1->process_active (fork0);
 	auto fork1 (std::make_shared<rai::send_block> (node2->latest (rai::test_genesis_key.pub), rep_big.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
-	node0->generate_work (*fork1);
+	node0->work_generate_blocking (*fork1);
 	system.wallet (2)->insert_adhoc (rep_small.prv);
 	node2->process_active (fork1);
 	//std::cerr << "fork0: " << fork_hash.to_string () << std::endl;
@@ -1140,15 +1140,15 @@ TEST (node, rep_self_vote)
 		rai::transaction transaction0 (node0->store.environment, nullptr, true);
 		rai::send_block fund_big (node0->ledger.latest (transaction0, rai::test_genesis_key.pub), rep_big.pub, rai::uint128_t ("0xb0000000000000000000000000000000"), rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
 		rai::open_block open_big (fund_big.hash (), rep_big.pub, rep_big.pub, rep_big.prv, rep_big.pub, 0);
-		node0->generate_work (fund_big);
-		node0->generate_work (open_big);
+		node0->work_generate_blocking (fund_big);
+		node0->work_generate_blocking (open_big);
 		ASSERT_EQ (rai::process_result::progress, node0->ledger.process (transaction0, fund_big).code);
 		ASSERT_EQ (rai::process_result::progress, node0->ledger.process (transaction0, open_big).code);
 	}
 	system.wallet (0)->insert_adhoc (rep_big.prv);
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	auto block0 (std::make_shared<rai::send_block> (node0->latest (rai::test_genesis_key.pub), rep_big.pub, rai::uint128_t ("0x60000000000000000000000000000000"), rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
-	node0->generate_work (*block0);
+	node0->work_generate_blocking (*block0);
 	ASSERT_EQ (rai::process_result::progress, node0->process (*block0).code);
 	auto & active (node0->active);
 	active.start (block0);
@@ -1202,7 +1202,7 @@ TEST (node, bootstrap_bulk_push)
 	rai::keypair key0;
 	// node0 knows about send0 but node1 doesn't.
 	rai::send_block send0 (system0.nodes[0]->latest (rai::test_genesis_key.pub), key0.pub, 500, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
-	node0->generate_work (send0);
+	node0->work_generate_blocking (send0);
 	{
 		rai::transaction transaction (node0->store.environment, nullptr, true);
 		ASSERT_EQ (rai::process_result::progress, system0.nodes[0]->ledger.process (transaction, send0).code);
@@ -1234,9 +1234,9 @@ TEST (node, bootstrap_fork_open)
 	rai::send_block send0 (system0.nodes[0]->latest (rai::test_genesis_key.pub), key0.pub, rai::genesis_amount - 500, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
 	rai::open_block open0 (send0.hash (), 1, key0.pub, key0.prv, key0.pub, 0);
 	rai::open_block open1 (send0.hash (), 2, key0.pub, key0.prv, key0.pub, 0);
-	node0->generate_work (send0);
-	node0->generate_work (open0);
-	node0->generate_work (open1);
+	node0->work_generate_blocking (send0);
+	node0->work_generate_blocking (open0);
+	node0->work_generate_blocking (open1);
 	{
 		rai::transaction transaction0 (node0->store.environment, nullptr, true);
 		rai::transaction transaction1 (node1->store.environment, nullptr, true);
@@ -1280,7 +1280,7 @@ TEST (node, DISABLED_unconfirmed_send)
 		ASSERT_GT (200, iterations0);
 	}
 	auto latest (node1.latest (key0.pub));
-	rai::send_block send2 (latest, rai::genesis_account, rai::Mxrb_ratio, key0.prv, key0.pub, node0.generate_work (latest));
+	rai::send_block send2 (latest, rai::genesis_account, rai::Mxrb_ratio, key0.prv, key0.pub, node0.work_generate_blocking (latest));
 	{
 		rai::transaction transaction (node1.store.environment, nullptr, true);
 		ASSERT_EQ (rai::process_result::progress, node1.ledger.process (transaction, send2).code);
@@ -1401,7 +1401,7 @@ TEST (node, vote_replay)
 	rai::system system (24000, 2);
 	rai::keypair key;
 	auto open (std::make_shared<rai::open_block> (0, 1, key.pub, key.prv, key.pub, 0));
-	system.nodes[0]->generate_work (*open);
+	system.nodes[0]->work_generate_blocking (*open);
 	for (auto i (0); i < 11000; ++i)
 	{
 		rai::transaction transaction (system.nodes[1]->store.environment, nullptr, false);
@@ -1518,7 +1518,7 @@ TEST (node, block_confirm)
 	rai::genesis genesis;
 	system.nodes[0]->ledger.state_block_parse_canary = genesis.hash ();
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
-	auto send1 (std::make_shared<rai::state_block> (rai::test_genesis_key.pub, genesis.hash (), rai::test_genesis_key.pub, rai::genesis_amount - rai::Gxrb_ratio, rai::test_genesis_key.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.nodes[0]->generate_work (genesis.hash ())));
+	auto send1 (std::make_shared<rai::state_block> (rai::test_genesis_key.pub, genesis.hash (), rai::test_genesis_key.pub, rai::genesis_amount - rai::Gxrb_ratio, rai::test_genesis_key.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.nodes[0]->work_generate_blocking (genesis.hash ())));
 	{
 		rai::transaction transaction (system.nodes[0]->store.environment, nullptr, true);
 		ASSERT_EQ (rai::process_result::progress, system.nodes[0]->ledger.process (transaction, *send1).code);
@@ -1588,7 +1588,7 @@ TEST (node, confirm_quorum)
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	system.nodes[0]->ledger.state_block_parse_canary = genesis.hash ();
 	// Put greater than online_weight_minimum in pending so quorom can't be reached
-	auto send1 (std::make_shared<rai::state_block> (rai::test_genesis_key.pub, genesis.hash (), rai::test_genesis_key.pub, rai::Gxrb_ratio, rai::test_genesis_key.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.nodes[0]->generate_work (genesis.hash ())));
+	auto send1 (std::make_shared<rai::state_block> (rai::test_genesis_key.pub, genesis.hash (), rai::test_genesis_key.pub, rai::Gxrb_ratio, rai::test_genesis_key.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.nodes[0]->work_generate_blocking (genesis.hash ())));
 	{
 		rai::transaction transaction (system.nodes[0]->store.environment, nullptr, true);
 		ASSERT_EQ (rai::process_result::progress, system.nodes[0]->ledger.process (transaction, *send1).code);

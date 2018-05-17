@@ -137,7 +137,7 @@ TEST (rpc, account_weight)
 	rai::system system (24000, 1);
 	rai::block_hash latest (system.nodes[0]->latest (rai::test_genesis_key.pub));
 	auto & node1 (*system.nodes[0]);
-	rai::change_block block (latest, key.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, node1.generate_work (latest));
+	rai::change_block block (latest, key.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, node1.work_generate_blocking (latest));
 	ASSERT_EQ (rai::process_result::progress, node1.process (block).code);
 	rai::rpc rpc (system.service, node1, rai::rpc_config (true));
 	rpc.start ();
@@ -331,7 +331,7 @@ TEST (rpc, send_work)
 	}
 	ASSERT_EQ (response.json.get<std::string> ("error"), "Invalid work");
 	request.erase ("work");
-	request.put ("work", rai::to_string_hex (system.nodes[0]->generate_work (system.nodes[0]->latest (rai::test_genesis_key.pub))));
+	request.put ("work", rai::to_string_hex (system.nodes[0]->work_generate_blocking (system.nodes[0]->latest (rai::test_genesis_key.pub))));
 	test_response response2 (request, rpc, system.service);
 	auto iterations2 (0);
 	while (response2.status == 0)
@@ -1006,7 +1006,7 @@ TEST (rpc, process_block)
 	rai::keypair key;
 	auto latest (system.nodes[0]->latest (rai::test_genesis_key.pub));
 	auto & node1 (*system.nodes[0]);
-	rai::send_block send (latest, key.pub, 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, node1.generate_work (latest));
+	rai::send_block send (latest, key.pub, 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, node1.work_generate_blocking (latest));
 	rai::rpc rpc (system.service, node1, rai::rpc_config (true));
 	rpc.start ();
 	boost::property_tree::ptree request;
@@ -1037,7 +1037,7 @@ TEST (rpc, process_block_no_work)
 	rai::keypair key;
 	auto latest (system.nodes[0]->latest (rai::test_genesis_key.pub));
 	auto & node1 (*system.nodes[0]);
-	rai::send_block send (latest, key.pub, 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, node1.generate_work (latest));
+	rai::send_block send (latest, key.pub, 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, node1.work_generate_blocking (latest));
 	send.block_work_set (0);
 	rai::rpc rpc (system.service, node1, rai::rpc_config (true));
 	rpc.start ();
@@ -1061,7 +1061,7 @@ TEST (rpc, process_republish)
 	rai::keypair key;
 	auto latest (system.nodes[0]->latest (rai::test_genesis_key.pub));
 	auto & node1 (*system.nodes[0]);
-	rai::send_block send (latest, key.pub, 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, node1.generate_work (latest));
+	rai::send_block send (latest, key.pub, 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, node1.work_generate_blocking (latest));
 	rai::rpc rpc (system.service, node1, rai::rpc_config (true));
 	rpc.start ();
 	boost::property_tree::ptree request;
@@ -1602,7 +1602,7 @@ TEST (rpc, work_peer_bad)
 	node2.config.work_peers.push_back (std::make_pair (boost::asio::ip::address_v6::any (), 0));
 	rai::block_hash hash1 (1);
 	std::atomic<uint64_t> work (0);
-	node2.generate_work (hash1, [&work](uint64_t work_a) {
+	node2.work_generate (hash1, [&work](uint64_t work_a) {
 		work = work_a;
 	});
 	while (rai::work_validate (hash1, work))
@@ -1625,7 +1625,7 @@ TEST (rpc, work_peer_one)
 	node2.config.work_peers.push_back (std::make_pair (node1.network.endpoint ().address (), rpc.config.port));
 	rai::keypair key1;
 	uint64_t work (0);
-	node2.generate_work (key1.pub, [&work](uint64_t work_a) {
+	node2.work_generate (key1.pub, [&work](uint64_t work_a) {
 		work = work_a;
 	});
 	while (rai::work_validate (key1.pub, work))
@@ -1665,7 +1665,7 @@ TEST (rpc, work_peer_many)
 	{
 		rai::keypair key1;
 		uint64_t work (0);
-		node1.generate_work (key1.pub, [&work](uint64_t work_a) {
+		node1.work_generate (key1.pub, [&work](uint64_t work_a) {
 			work = work_a;
 		});
 		while (rai::work_validate (key1.pub, work))
@@ -1934,7 +1934,7 @@ TEST (rpc, bootstrap)
 	rai::system system0 (24000, 1);
 	rai::system system1 (24001, 1);
 	auto latest (system1.nodes[0]->latest (rai::test_genesis_key.pub));
-	rai::send_block send (latest, rai::genesis_account, 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system1.nodes[0]->generate_work (latest));
+	rai::send_block send (latest, rai::genesis_account, 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system1.nodes[0]->work_generate_blocking (latest));
 	{
 		rai::transaction transaction (system1.nodes[0]->store.environment, nullptr, true);
 		ASSERT_EQ (rai::process_result::progress, system1.nodes[0]->ledger.process (transaction, send).code);
@@ -2070,7 +2070,7 @@ TEST (rpc, work_validate)
 	rai::rpc rpc (system.service, node1, rai::rpc_config (true));
 	rpc.start ();
 	rai::block_hash hash (1);
-	uint64_t work1 (node1.generate_work (hash));
+	uint64_t work1 (node1.work_generate_blocking (hash));
 	boost::property_tree::ptree request;
 	request.put ("action", "work_validate");
 	request.put ("hash", hash.to_string ());
@@ -2132,7 +2132,7 @@ TEST (rpc, bootstrap_any)
 	rai::system system0 (24000, 1);
 	rai::system system1 (24001, 1);
 	auto latest (system1.nodes[0]->latest (rai::test_genesis_key.pub));
-	rai::send_block send (latest, rai::genesis_account, 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system1.nodes[0]->generate_work (latest));
+	rai::send_block send (latest, rai::genesis_account, 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system1.nodes[0]->work_generate_blocking (latest));
 	{
 		rai::transaction transaction (system1.nodes[0]->store.environment, nullptr, true);
 		ASSERT_EQ (rai::process_result::progress, system1.nodes[0]->ledger.process (transaction, send).code);
@@ -2157,9 +2157,9 @@ TEST (rpc, republish)
 	rai::genesis genesis;
 	auto latest (system.nodes[0]->latest (rai::test_genesis_key.pub));
 	auto & node1 (*system.nodes[0]);
-	rai::send_block send (latest, key.pub, 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, node1.generate_work (latest));
+	rai::send_block send (latest, key.pub, 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, node1.work_generate_blocking (latest));
 	system.nodes[0]->process (send);
-	rai::open_block open (send.hash (), key.pub, key.pub, key.prv, key.pub, node1.generate_work (key.pub));
+	rai::open_block open (send.hash (), key.pub, key.pub, key.prv, key.pub, node1.work_generate_blocking (key.pub));
 	ASSERT_EQ (rai::process_result::progress, system.nodes[0]->process (open).code);
 	rai::rpc rpc (system.service, node1, rai::rpc_config (true));
 	rpc.start ();
@@ -2762,9 +2762,9 @@ TEST (rpc, wallet_republish)
 	system.wallet (0)->insert_adhoc (key.prv);
 	auto & node1 (*system.nodes[0]);
 	auto latest (system.nodes[0]->latest (rai::test_genesis_key.pub));
-	rai::send_block send (latest, key.pub, 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, node1.generate_work (latest));
+	rai::send_block send (latest, key.pub, 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, node1.work_generate_blocking (latest));
 	system.nodes[0]->process (send);
-	rai::open_block open (send.hash (), key.pub, key.pub, key.prv, key.pub, node1.generate_work (key.pub));
+	rai::open_block open (send.hash (), key.pub, key.pub, key.prv, key.pub, node1.work_generate_blocking (key.pub));
 	ASSERT_EQ (rai::process_result::progress, system.nodes[0]->process (open).code);
 	rai::rpc rpc (system.service, *system.nodes[0], rai::rpc_config (true));
 	rpc.start ();
@@ -2797,9 +2797,9 @@ TEST (rpc, delegators)
 	system.wallet (0)->insert_adhoc (key.prv);
 	auto & node1 (*system.nodes[0]);
 	auto latest (system.nodes[0]->latest (rai::test_genesis_key.pub));
-	rai::send_block send (latest, key.pub, 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, node1.generate_work (latest));
+	rai::send_block send (latest, key.pub, 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, node1.work_generate_blocking (latest));
 	system.nodes[0]->process (send);
-	rai::open_block open (send.hash (), rai::test_genesis_key.pub, key.pub, key.prv, key.pub, node1.generate_work (key.pub));
+	rai::open_block open (send.hash (), rai::test_genesis_key.pub, key.pub, key.prv, key.pub, node1.work_generate_blocking (key.pub));
 	ASSERT_EQ (rai::process_result::progress, system.nodes[0]->process (open).code);
 	rai::rpc rpc (system.service, *system.nodes[0], rai::rpc_config (true));
 	rpc.start ();
@@ -2831,9 +2831,9 @@ TEST (rpc, delegators_count)
 	system.wallet (0)->insert_adhoc (key.prv);
 	auto & node1 (*system.nodes[0]);
 	auto latest (system.nodes[0]->latest (rai::test_genesis_key.pub));
-	rai::send_block send (latest, key.pub, 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, node1.generate_work (latest));
+	rai::send_block send (latest, key.pub, 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, node1.work_generate_blocking (latest));
 	system.nodes[0]->process (send);
-	rai::open_block open (send.hash (), rai::test_genesis_key.pub, key.pub, key.prv, key.pub, node1.generate_work (key.pub));
+	rai::open_block open (send.hash (), rai::test_genesis_key.pub, key.pub, key.prv, key.pub, node1.work_generate_blocking (key.pub));
 	ASSERT_EQ (rai::process_result::progress, system.nodes[0]->process (open).code);
 	rai::rpc rpc (system.service, *system.nodes[0], rai::rpc_config (true));
 	rpc.start ();
@@ -2859,7 +2859,7 @@ TEST (rpc, account_info)
 	system.wallet (0)->insert_adhoc (key.prv);
 	auto & node1 (*system.nodes[0]);
 	auto latest (system.nodes[0]->latest (rai::test_genesis_key.pub));
-	rai::send_block send (latest, key.pub, 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, node1.generate_work (latest));
+	rai::send_block send (latest, key.pub, 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, node1.work_generate_blocking (latest));
 	system.nodes[0]->process (send);
 	auto time (rai::seconds_since_epoch ());
 
@@ -3060,9 +3060,9 @@ TEST (rpc, ledger)
 	system.wallet (0)->insert_adhoc (key.prv);
 	auto & node1 (*system.nodes[0]);
 	auto latest (system.nodes[0]->latest (rai::test_genesis_key.pub));
-	rai::send_block send (latest, key.pub, 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, node1.generate_work (latest));
+	rai::send_block send (latest, key.pub, 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, node1.work_generate_blocking (latest));
 	system.nodes[0]->process (send);
-	rai::open_block open (send.hash (), rai::test_genesis_key.pub, key.pub, key.prv, key.pub, node1.generate_work (key.pub));
+	rai::open_block open (send.hash (), rai::test_genesis_key.pub, key.pub, key.prv, key.pub, node1.work_generate_blocking (key.pub));
 	ASSERT_EQ (rai::process_result::progress, system.nodes[0]->process (open).code);
 	auto time (rai::seconds_since_epoch ());
 	rai::rpc rpc (system.service, *system.nodes[0], rai::rpc_config (true));
@@ -3157,9 +3157,9 @@ TEST (rpc, block_create)
 	system.wallet (0)->insert_adhoc (key.prv);
 	auto & node1 (*system.nodes[0]);
 	auto latest (system.nodes[0]->latest (rai::test_genesis_key.pub));
-	auto send_work = node1.generate_work (latest);
+	auto send_work = node1.work_generate_blocking (latest);
 	rai::send_block send (latest, key.pub, 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, send_work);
-	auto open_work = node1.generate_work (key.pub);
+	auto open_work = node1.work_generate_blocking (key.pub);
 	rai::open_block open (send.hash (), rai::test_genesis_key.pub, key.pub, key.prv, key.pub, open_work);
 	rai::rpc rpc (system.service, *system.nodes[0], rai::rpc_config (true));
 	rpc.start ();
@@ -3219,7 +3219,7 @@ TEST (rpc, block_create)
 	ASSERT_EQ (200, response2.status);
 	std::string open2_hash (response2.json.get<std::string> ("hash"));
 	ASSERT_NE (open.hash ().to_string (), open2_hash); // different blocks with wrong representative
-	auto change_work = node1.generate_work (open.hash ());
+	auto change_work = node1.work_generate_blocking (open.hash ());
 	rai::change_block change (open.hash (), key.pub, key.prv, key.pub, change_work);
 	request1.put ("type", "change");
 	request1.put ("work", rai::to_string_hex (change_work));
@@ -3237,7 +3237,7 @@ TEST (rpc, block_create)
 	auto change_block (rai::deserialize_block_json (block_l));
 	ASSERT_EQ (change.hash (), change_block->hash ());
 	ASSERT_EQ (rai::process_result::progress, node1.process (change).code);
-	rai::send_block send2 (send.hash (), key.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, node1.generate_work (send.hash ()));
+	rai::send_block send2 (send.hash (), key.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, node1.work_generate_blocking (send.hash ()));
 	ASSERT_EQ (rai::process_result::progress, system.nodes[0]->process (send2).code);
 	boost::property_tree::ptree request2;
 	request2.put ("action", "block_create");
@@ -3246,7 +3246,7 @@ TEST (rpc, block_create)
 	request2.put ("account", key.pub.to_account ());
 	request2.put ("source", send2.hash ().to_string ());
 	request2.put ("previous", change.hash ().to_string ());
-	request2.put ("work", rai::to_string_hex (node1.generate_work (change.hash ())));
+	request2.put ("work", rai::to_string_hex (node1.work_generate_blocking (change.hash ())));
 	test_response response5 (request2, rpc, system.service);
 	while (response5.status == 0)
 	{
@@ -3280,7 +3280,7 @@ TEST (rpc, block_create_state)
 	request.put ("representative", rai::test_genesis_key.pub.to_account ());
 	request.put ("balance", (rai::genesis_amount - rai::Gxrb_ratio).convert_to<std::string> ());
 	request.put ("link", key.pub.to_account ());
-	request.put ("work", rai::to_string_hex (system.nodes[0]->generate_work (genesis.hash ())));
+	request.put ("work", rai::to_string_hex (system.nodes[0]->work_generate_blocking (genesis.hash ())));
 	rai::rpc rpc (system.service, *system.nodes[0], rai::rpc_config (true));
 	rpc.start ();
 	test_response response (request, rpc, system.service);
@@ -3320,7 +3320,7 @@ TEST (rpc, block_create_state_open)
 	request.put ("representative", rai::test_genesis_key.pub.to_account ());
 	request.put ("balance", rai::Gxrb_ratio.convert_to<std::string> ());
 	request.put ("link", send_block->hash ().to_string ());
-	request.put ("work", rai::to_string_hex (system.nodes[0]->generate_work (send_block->hash ())));
+	request.put ("work", rai::to_string_hex (system.nodes[0]->work_generate_blocking (send_block->hash ())));
 	rai::rpc rpc (system.service, *system.nodes[0], rai::rpc_config (true));
 	rpc.start ();
 	test_response response (request, rpc, system.service);
@@ -3391,7 +3391,7 @@ TEST (rpc, block_hash)
 	rai::keypair key;
 	auto latest (system.nodes[0]->latest (rai::test_genesis_key.pub));
 	auto & node1 (*system.nodes[0]);
-	rai::send_block send (latest, key.pub, 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, node1.generate_work (latest));
+	rai::send_block send (latest, key.pub, 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, node1.work_generate_blocking (latest));
 	rai::rpc rpc (system.service, node1, rai::rpc_config (true));
 	rpc.start ();
 	boost::property_tree::ptree request;
@@ -3481,9 +3481,9 @@ TEST (rpc, wallet_ledger)
 	system.wallet (0)->insert_adhoc (key.prv);
 	auto & node1 (*system.nodes[0]);
 	auto latest (system.nodes[0]->latest (rai::test_genesis_key.pub));
-	rai::send_block send (latest, key.pub, 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, node1.generate_work (latest));
+	rai::send_block send (latest, key.pub, 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, node1.work_generate_blocking (latest));
 	system.nodes[0]->process (send);
-	rai::open_block open (send.hash (), rai::test_genesis_key.pub, key.pub, key.prv, key.pub, node1.generate_work (key.pub));
+	rai::open_block open (send.hash (), rai::test_genesis_key.pub, key.pub, key.prv, key.pub, node1.work_generate_blocking (key.pub));
 	ASSERT_EQ (rai::process_result::progress, system.nodes[0]->process (open).code);
 	auto time (rai::seconds_since_epoch ());
 	rai::rpc rpc (system.service, *system.nodes[0], rai::rpc_config (true));
@@ -3639,7 +3639,7 @@ TEST (rpc, block_confirm)
 	rai::genesis genesis;
 	system.nodes[0]->ledger.state_block_parse_canary = genesis.hash ();
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
-	auto send1 (std::make_shared<rai::state_block> (rai::test_genesis_key.pub, genesis.hash (), rai::test_genesis_key.pub, rai::genesis_amount - rai::Gxrb_ratio, rai::test_genesis_key.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.nodes[0]->generate_work (genesis.hash ())));
+	auto send1 (std::make_shared<rai::state_block> (rai::test_genesis_key.pub, genesis.hash (), rai::test_genesis_key.pub, rai::genesis_amount - rai::Gxrb_ratio, rai::test_genesis_key.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.nodes[0]->work_generate_blocking (genesis.hash ())));
 	{
 		rai::transaction transaction (system.nodes[0]->store.environment, nullptr, true);
 		ASSERT_EQ (rai::process_result::progress, system.nodes[0]->ledger.process (transaction, *send1).code);

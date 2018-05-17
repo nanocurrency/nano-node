@@ -912,7 +912,7 @@ std::shared_ptr<rai::block> rai::wallet::receive_action (rai::block const & send
 	{
 		if (rai::work_validate (*block))
 		{
-			node.generate_work (*block);
+			node.work_generate_blocking (*block);
 		}
 		node.block_arrival.add (block->hash ());
 		node.block_processor.add (block);
@@ -958,7 +958,7 @@ std::shared_ptr<rai::block> rai::wallet::change_action (rai::account const & sou
 	{
 		if (rai::work_validate (*block))
 		{
-			node.generate_work (*block);
+			node.work_generate_blocking (*block);
 		}
 		node.block_arrival.add (block->hash ());
 		node.block_processor.add (block);
@@ -1048,7 +1048,7 @@ std::shared_ptr<rai::block> rai::wallet::send_action (rai::account const & sourc
 	{
 		if (rai::work_validate (*block))
 		{
-			node.generate_work (*block);
+			node.work_generate_blocking (*block);
 		}
 		node.block_arrival.add (block->hash ());
 		node.block_processor.add (block);
@@ -1147,12 +1147,12 @@ uint64_t rai::wallet::work_fetch (MDB_txn * transaction_a, rai::account const & 
 	auto error (store.work_get (transaction_a, account_a, result));
 	if (error)
 	{
-		result = node.generate_work (root_a);
+		result = node.work_generate_blocking (root_a);
 	}
 	else if (rai::work_validate (root_a, result))
 	{
 		BOOST_LOG (node.log) << "Cached work invalid, regenerating";
-		result = node.generate_work (root_a);
+		result = node.work_generate_blocking (root_a);
 	}
 
 	return result;
@@ -1162,7 +1162,7 @@ void rai::wallet::work_ensure (rai::account const & account_a, rai::block_hash c
 {
 	auto this_l (shared_from_this ());
 	node.wallets.queue_wallet_action (rai::wallets::generate_priority, [this_l, account_a, hash_a] {
-		this_l->work_generate (account_a, hash_a);
+		this_l->work_cache_blocking (account_a, hash_a);
 	});
 }
 
@@ -1256,10 +1256,10 @@ rai::public_key rai::wallet::change_seed (MDB_txn * transaction_a, rai::raw_key 
 	return account;
 }
 
-void rai::wallet::work_generate (rai::account const & account_a, rai::block_hash const & root_a)
+void rai::wallet::work_cache_blocking (rai::account const & account_a, rai::block_hash const & root_a)
 {
 	auto begin (std::chrono::steady_clock::now ());
-	auto work (node.generate_work (root_a));
+	auto work (node.work_generate_blocking (root_a));
 	if (node.config.logging.work_generation_time ())
 	{
 		BOOST_LOG (node.log) << "Work generation complete: " << (std::chrono::duration_cast<std::chrono::microseconds> (std::chrono::steady_clock::now () - begin).count ()) << " us";
