@@ -596,41 +596,26 @@ TEST (wallet_store, fail_import_corrupt)
 	ASSERT_TRUE (error);
 }
 
-// Test arbitrary work can be generated
-TEST (wallet, empty_work)
-{
-	rai::system system (24000, 1);
-	auto wallet (system.wallet (0));
-	rai::transaction transaction (system.nodes[0]->store.environment, nullptr, true);
-	ASSERT_FALSE (rai::work_validate (1, wallet->work_fetch (transaction, 0, 1)));
-}
-
 // Test work is precached when a key is inserted
 TEST (wallet, work)
 {
 	rai::system system (24000, 1);
 	auto wallet (system.wallet (0));
 	wallet->insert_adhoc (rai::test_genesis_key.prv);
-	uint64_t work4;
-	rai::uint256_union root1;
-	rai::account account1;
+	rai::genesis genesis;
+	auto done (false);
+	auto iterations (0);
+	while (!done)
 	{
 		rai::transaction transaction (system.nodes[0]->store.environment, nullptr, false);
-		account1 = system.account (transaction, 0);
-		root1 = system.nodes[0]->ledger.latest_root (transaction, account1);
-		work4 = wallet->work_fetch (transaction, account1, root1);
-	}
-	ASSERT_FALSE (rai::work_validate (root1, work4));
-	uint64_t work3 (0);
-	auto iteration (0);
-	while (rai::work_validate (root1, work3))
-	{
+		uint64_t work (0);
+		if (!wallet->store.work_get (transaction, rai::test_genesis_key.pub, work))
+		{
+			done = !rai::work_validate (genesis.hash (), work);
+		}
 		system.poll ();
-		rai::transaction transaction (system.nodes[0]->store.environment, nullptr, false);
-		// Make sure work_get and work_fetch retrieve the same thing
-		ASSERT_FALSE (wallet->store.work_get (transaction, account1, work3));
-		++iteration;
-		ASSERT_LT (iteration, 200);
+		++iterations;
+		ASSERT_LT (iterations, 200);
 	}
 }
 
@@ -665,16 +650,6 @@ TEST (wallet, work_generate)
 		rai::transaction transaction (system.nodes[0]->store.environment, nullptr, false);
 		again = wallet->store.work_get (transaction, account1, work1) || rai::work_validate (system.nodes[0]->ledger.latest_root (transaction, account1), work1);
 	}
-}
-
-TEST (wallet, unsynced_work)
-{
-	rai::system system (24000, 1);
-	auto wallet (system.wallet (0));
-	rai::transaction transaction (system.nodes[0]->store.environment, nullptr, true);
-	wallet->store.work_put (transaction, 0, 0);
-	auto work1 (wallet->work_fetch (transaction, 0, 1));
-	ASSERT_FALSE (rai::work_validate (1, work1));
 }
 
 TEST (wallet, insert_locked)
