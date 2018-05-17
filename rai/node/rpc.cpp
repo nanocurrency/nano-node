@@ -1268,7 +1268,7 @@ void rai::rpc_handler::block_create ()
 				{
 					if (work == 0)
 					{
-						work = node.generate_work (previous.is_zero () ? pub : previous);
+						work = node.work_generate_blocking (previous.is_zero () ? pub : previous);
 					}
 					rai::state_block state (pub, previous, representative, balance, link, prv, pub, work);
 					boost::property_tree::ptree response_l;
@@ -1289,7 +1289,7 @@ void rai::rpc_handler::block_create ()
 				{
 					if (work == 0)
 					{
-						work = node.generate_work (pub);
+						work = node.work_generate_blocking (pub);
 					}
 					rai::open_block open (source, representative, pub, prv, pub, work);
 					boost::property_tree::ptree response_l;
@@ -1310,7 +1310,7 @@ void rai::rpc_handler::block_create ()
 				{
 					if (work == 0)
 					{
-						work = node.generate_work (previous);
+						work = node.work_generate_blocking (previous);
 					}
 					rai::receive_block receive (previous, source, prv, pub, work);
 					boost::property_tree::ptree response_l;
@@ -1331,7 +1331,7 @@ void rai::rpc_handler::block_create ()
 				{
 					if (work == 0)
 					{
-						work = node.generate_work (previous);
+						work = node.work_generate_blocking (previous);
 					}
 					rai::change_block change (previous, representative, prv, pub, work);
 					boost::property_tree::ptree response_l;
@@ -1354,7 +1354,7 @@ void rai::rpc_handler::block_create ()
 					{
 						if (work == 0)
 						{
-							work = node.generate_work (previous);
+							work = node.work_generate_blocking (previous);
 						}
 						rai::send_block send (previous, destination, balance.number () - amount.number (), prv, pub, work);
 						boost::property_tree::ptree response_l;

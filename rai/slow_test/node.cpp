@@ -214,7 +214,7 @@ TEST (node, fork_storm)
 			ASSERT_EQ (rai::process_result::progress, send_result.code);
 			rai::keypair rep;
 			auto open (std::make_shared<rai::open_block> (previous, rep.pub, key.pub, key.prv, key.pub, 0));
-			system.nodes[i]->generate_work (*open);
+			system.nodes[i]->work_generate_blocking (*open);
 			auto open_result (system.nodes[i]->process (*open));
 			ASSERT_EQ (rai::process_result::progress, open_result.code);
 			rai::transaction transaction (system.nodes[i]->store.environment, nullptr, false);

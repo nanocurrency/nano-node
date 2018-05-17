@@ -542,9 +542,9 @@ public:
 	void ongoing_store_flush ();
 	void backup_wallet ();
 	int price (rai::uint128_t const &, int);
-	void generate_work (rai::block &);
-	uint64_t generate_work (rai::uint256_union const &);
-	void generate_work (rai::uint256_union const &, std::function<void(uint64_t)>);
+	void work_generate_blocking (rai::block &);
+	uint64_t work_generate_blocking (rai::uint256_union const &);
+	void work_generate (rai::uint256_union const &, std::function<void(uint64_t)>);
 	void add_initial_peers ();
 	void block_confirm (std::shared_ptr<rai::block>);
 	rai::uint128_t delta ();
