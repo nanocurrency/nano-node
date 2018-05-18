@@ -4252,7 +4252,7 @@ void rai::rpc_handler::work_generate ()
 			}
 			else
 			{
-				node.generate_work (hash, callback);
+				node.work_generate (hash, callback);
 			}
 		}
 		else
