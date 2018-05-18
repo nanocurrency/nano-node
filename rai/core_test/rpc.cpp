@@ -1574,7 +1574,7 @@ TEST (rpc, work_cancel)
 	auto iterations (0);
 	while (!done)
 	{
-		system.work.generate (hash1, [&done] (boost::optional<uint64_t> work_a) {
+		system.work.generate (hash1, [&done](boost::optional<uint64_t> work_a) {
 			done = !work_a;
 		});
 		test_response response1 (request1, rpc, system.service);
