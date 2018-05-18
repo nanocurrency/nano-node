@@ -20,7 +20,7 @@ int main (int argc, char * const * argv)
 		("debug_block_count", "Display the number of block")
 		("debug_bootstrap_generate", "Generate bootstrap sequence of blocks")
 		("debug_dump_representatives", "List representatives and weights")
-		("debug_frontier_count", "Display the number of accounts")
+		("debug_account_count", "Display the number of accounts")
 		("debug_mass_activity", "Generates fake debug activity")
 		("debug_profile_generate", "Profile work generation")
 		("debug_opencl", "OpenCL work generation")
@@ -133,11 +133,11 @@ int main (int argc, char * const * argv)
 			std::cout << boost::str (boost::format ("%1% %2% %3%\n") % i->first.to_account () % i->second.convert_to<std::string> () % total.convert_to<std::string> ());
 		}
 	}
-	else if (vm.count ("debug_frontier_count"))
+	else if (vm.count ("debug_account_count"))
 	{
 		rai::inactive_node node (data_path);
 		rai::transaction transaction (node.node->store.environment, nullptr, false);
-		std::cout << boost::str (boost::format ("Frontier count: %1%\n") % node.node->store.frontier_count (transaction));
+		std::cout << boost::str (boost::format ("Frontier count: %1%\n") % node.node->store.account_count (transaction));
 	}
 	else if (vm.count ("debug_mass_activity"))
 	{

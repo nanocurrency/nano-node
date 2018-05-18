@@ -893,7 +893,7 @@ void rai::block_store::frontier_del (MDB_txn * transaction_a, rai::block_hash co
 	assert (status == 0);
 }
 
-size_t rai::block_store::frontier_count (MDB_txn * transaction_a)
+size_t rai::block_store::account_count (MDB_txn * transaction_a)
 {
 	MDB_stat frontier_stats;
 	auto status (mdb_stat (transaction_a, accounts, &frontier_stats));

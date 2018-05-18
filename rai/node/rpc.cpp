@@ -1677,10 +1677,10 @@ void rai::rpc_handler::frontiers ()
 	}
 }
 
-void rai::rpc_handler::frontier_count ()
+void rai::rpc_handler::account_count ()
 {
 	rai::transaction transaction (node.store.environment, nullptr, false);
-	auto size (node.store.frontier_count (transaction));
+	auto size (node.store.account_count (transaction));
 	boost::property_tree::ptree response_l;
 	response_l.put ("count", std::to_string (size));
 	response (response_l);
@@ -4625,6 +4625,10 @@ void rai::rpc_handler::process_request ()
 		{
 			account_block_count ();
 		}
+		else if (action == "account_count")
+		{
+			account_count ();
+		}
 		else if (action == "account_create")
 		{
 			account_create ();
@@ -4763,7 +4767,7 @@ void rai::rpc_handler::process_request ()
 		}
 		else if (action == "frontier_count")
 		{
-			frontier_count ();
+			account_count ();
 		}
 		else if (action == "history")
 		{
