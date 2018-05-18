@@ -1710,6 +1710,24 @@ TEST (rpc, frontier_count)
 	ASSERT_EQ ("1", response1.json.get<std::string> ("count"));
 }
 
+TEST (rpc, account_count)
+{
+	rai::system system (24000, 1);
+	rai::node_init init1;
+	auto & node1 (*system.nodes[0]);
+	rai::rpc rpc (system.service, node1, rai::rpc_config (true));
+	rpc.start ();
+	boost::property_tree::ptree request1;
+	request1.put ("action", "account_count");
+	test_response response1 (request1, rpc, system.service);
+	while (response1.status == 0)
+	{
+		system.poll ();
+	}
+	ASSERT_EQ (200, response1.status);
+	ASSERT_EQ ("1", response1.json.get<std::string> ("count"));
+}
+
 TEST (rpc, available_supply)
 {
 	rai::system system (24000, 1);

@@ -65,12 +65,12 @@ public:
 	void frontier_put (MDB_txn *, rai::block_hash const &, rai::account const &);
 	rai::account frontier_get (MDB_txn *, rai::block_hash const &);
 	void frontier_del (MDB_txn *, rai::block_hash const &);
-	size_t frontier_count (MDB_txn *);
 
 	void account_put (MDB_txn *, rai::account const &, rai::account_info const &);
 	bool account_get (MDB_txn *, rai::account const &, rai::account_info &);
 	void account_del (MDB_txn *, rai::account const &);
 	bool account_exists (MDB_txn *, rai::account const &);
+	size_t account_count (MDB_txn *);
 	rai::store_iterator latest_begin (MDB_txn *, rai::account const &);
 	rai::store_iterator latest_begin (MDB_txn *);
 	rai::store_iterator latest_end ();
