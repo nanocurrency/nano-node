@@ -1599,7 +1599,7 @@ TEST (rpc, work_peer_bad)
 	system.wallet (0)->insert_adhoc (key.prv);
 	rai::rpc rpc (system.service, node1, rai::rpc_config (true));
 	rpc.start ();
-	node2.config.work_peers.push_back (std::make_pair (boost::asio::ip::address_v6::any (), 0));
+	node2.config.work_peers.push_back (std::make_pair (boost::asio::ip::address_v6::any ().to_string (), 0));
 	rai::block_hash hash1 (1);
 	std::atomic<uint64_t> work (0);
 	node2.work_generate (hash1, [&work](uint64_t work_a) {
@@ -1622,7 +1622,7 @@ TEST (rpc, work_peer_one)
 	system.wallet (0)->insert_adhoc (key.prv);
 	rai::rpc rpc (system.service, node1, rai::rpc_config (true));
 	rpc.start ();
-	node2.config.work_peers.push_back (std::make_pair (node1.network.endpoint ().address (), rpc.config.port));
+	node2.config.work_peers.push_back (std::make_pair (node1.network.endpoint ().address ().to_string (), rpc.config.port));
 	rai::keypair key1;
 	uint64_t work (0);
 	node2.work_generate (key1.pub, [&work](uint64_t work_a) {
@@ -1658,9 +1658,9 @@ TEST (rpc, work_peer_many)
 	config4.port += 2;
 	rai::rpc rpc4 (system4.service, node4, config4);
 	rpc4.start ();
-	node1.config.work_peers.push_back (std::make_pair (node2.network.endpoint ().address (), rpc2.config.port));
-	node1.config.work_peers.push_back (std::make_pair (node3.network.endpoint ().address (), rpc3.config.port));
-	node1.config.work_peers.push_back (std::make_pair (node4.network.endpoint ().address (), rpc4.config.port));
+	node1.config.work_peers.push_back (std::make_pair (node2.network.endpoint ().address ().to_string (), rpc2.config.port));
+	node1.config.work_peers.push_back (std::make_pair (node3.network.endpoint ().address ().to_string (), rpc3.config.port));
+	node1.config.work_peers.push_back (std::make_pair (node4.network.endpoint ().address ().to_string (), rpc4.config.port));
 	for (auto i (0); i < 10; ++i)
 	{
 		rai::keypair key1;

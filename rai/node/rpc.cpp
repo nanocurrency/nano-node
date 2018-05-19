@@ -4439,26 +4439,17 @@ void rai::rpc_handler::work_peer_add ()
 	{
 		std::string address_text = request.get<std::string> ("address");
 		std::string port_text = request.get<std::string> ("port");
-		boost::system::error_code ec;
-		auto address (boost::asio::ip::address_v6::from_string (address_text, ec));
-		if (!ec)
+		uint16_t port;
+		if (!rai::parse_port (port_text, port))
 		{
-			uint16_t port;
-			if (!rai::parse_port (port_text, port))
-			{
-				node.config.work_peers.push_back (std::make_pair (address, port));
-				boost::property_tree::ptree response_l;
-				response_l.put ("success", "");
-				response (response_l);
-			}
-			else
-			{
-				error_response (response, "Invalid port");
-			}
+			node.config.work_peers.push_back (std::make_pair (address_text, port));
+			boost::property_tree::ptree response_l;
+			response_l.put ("success", "");
+			response (response_l);
 		}
 		else
 		{
-			error_response (response, "Invalid address");
+			error_response (response, "Invalid port");
 		}
 	}
 	else
