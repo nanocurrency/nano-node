@@ -1824,8 +1824,10 @@ void rai::network::confirm_send (rai::confirm_ack const & confirm_a, std::shared
 
 void rai::node::process_active (std::shared_ptr<rai::block> incoming)
 {
-	block_arrival.add (incoming->hash ());
-	block_processor.add (incoming);
+	if (!block_arrival.add (incoming->hash ()))
+	{
+		block_processor.add (incoming);
+	}
 }
 
 rai::process_return rai::node::process (rai::block const & block_a)
@@ -2589,11 +2591,13 @@ rai::endpoint rai::network::endpoint ()
 	return rai::endpoint (boost::asio::ip::address_v6::loopback (), port);
 }
 
-void rai::block_arrival::add (rai::block_hash const & hash_a)
+bool rai::block_arrival::add (rai::block_hash const & hash_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	auto now (std::chrono::steady_clock::now ());
-	arrival.insert (rai::block_arrival_info{ now, hash_a });
+	auto inserted (arrival.insert (rai::block_arrival_info{ now, hash_a }));
+	auto result (!inserted.second);
+	return result;
 }
 
 bool rai::block_arrival::recent (rai::block_hash const & hash_a)

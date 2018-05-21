@@ -2594,7 +2594,7 @@ void rai::rpc_handler::process ()
 	boost::property_tree::ptree block_l;
 	std::stringstream block_stream (block_text);
 	boost::property_tree::read_json (block_stream, block_l);
-	auto block (rai::deserialize_block_json (block_l));
+	std::shared_ptr<rai::block> block (rai::deserialize_block_json (block_l));
 	if (block != nullptr)
 	{
 		if (!rai::work_validate (*block))
@@ -2604,7 +2604,7 @@ void rai::rpc_handler::process ()
 			rai::process_return result;
 			{
 				rai::transaction transaction (node.store.environment, nullptr, true);
-				result = node.block_processor.process_receive_one (transaction, std::move (block));
+				result = node.block_processor.process_receive_one (transaction, block);
 			}
 			switch (result.code)
 			{
