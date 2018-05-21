@@ -298,7 +298,8 @@ public:
 class block_arrival
 {
 public:
-	void add (rai::block_hash const &);
+	// Return `true' to indicated an error if the block has already been inserted
+	bool add (rai::block_hash const &);
 	bool recent (rai::block_hash const &);
 	boost::multi_index_container<
 	rai::block_arrival_info,
