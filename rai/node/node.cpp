@@ -1412,7 +1412,7 @@ rai::process_return rai::block_processor::process_receive_one (MDB_txn * transac
 			if (!node.block_arrival.recent (hash))
 			{
 				// Only let the bootstrap attempt know about forked blocks that did not arrive via UDP.
-				node.bootstrap_initiator.process_fork (transaction_a, block_a);
+				node.process_fork (transaction_a, block_a);
 			}
 			if (node.config.logging.ledger_logging ())
 			{
@@ -1718,6 +1718,42 @@ void rai::node::send_keepalive (rai::endpoint const & endpoint_a)
 	}
 	assert (endpoint_l.address ().is_v6 ());
 	network.send_keepalive (endpoint_l);
+}
+
+void rai::node::process_fork (MDB_txn * transaction_a, std::shared_ptr<rai::block> block_a)
+{
+	auto root (block_a->root ());
+	if (!store.block_exists (transaction_a, block_a->hash ()) && store.root_exists (transaction_a, block_a->root ()))
+	{
+		std::shared_ptr<rai::block> ledger_block (ledger.forked_block (transaction_a, *block_a));
+		if (ledger_block)
+		{
+			std::weak_ptr<rai::node> this_w (shared_from_this ());
+			if (!active.start (std::make_pair (ledger_block, block_a), [this_w, root](std::shared_ptr<rai::block>) {
+				    if (auto this_l = this_w.lock ())
+				    {
+				    	auto attempt (this_l->bootstrap_initiator.current_attempt ());
+				    	if (attempt)
+				    	{
+							rai::transaction transaction (this_l->store.environment, nullptr, false);
+							auto account (this_l->ledger.store.frontier_get (transaction, root));
+							if (!account.is_zero ())
+							{
+								attempt->requeue_pull (rai::pull_info (account, root, root));
+							}
+							else if (this_l->ledger.store.account_exists (transaction, root))
+							{
+								attempt->requeue_pull (rai::pull_info (root, rai::block_hash (0), rai::block_hash (0)));
+							}
+						}
+				    }
+			    }))
+			{
+				BOOST_LOG (log) << boost::str (boost::format ("Resolving fork between our block: %1% and block %2% both with root %3%") % ledger_block->hash ().to_string () % block_a->hash ().to_string () % block_a->root ().to_string ());
+				network.broadcast_confirm_req (ledger_block);
+			}
+		}
+	}
 }
 
 rai::gap_cache::gap_cache (rai::node & node_a) :
