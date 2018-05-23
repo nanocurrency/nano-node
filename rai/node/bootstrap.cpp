@@ -882,39 +882,6 @@ bool rai::bootstrap_attempt::consume_future (std::future<bool> & future_a)
 	return result;
 }
 
-void rai::bootstrap_attempt::process_fork (MDB_txn * transaction_a, std::shared_ptr<rai::block> block_a)
-{
-	std::lock_guard<std::mutex> lock (mutex);
-	auto root (block_a->root ());
-	if (!node->store.block_exists (transaction_a, block_a->hash ()) && node->store.root_exists (transaction_a, block_a->root ()))
-	{
-		std::shared_ptr<rai::block> ledger_block (node->ledger.forked_block (transaction_a, *block_a));
-		if (ledger_block)
-		{
-			std::weak_ptr<rai::bootstrap_attempt> this_w (shared_from_this ());
-			if (!node->active.start (std::make_pair (ledger_block, block_a), [this_w, root](std::shared_ptr<rai::block>) {
-				    if (auto this_l = this_w.lock ())
-				    {
-					    rai::transaction transaction (this_l->node->store.environment, nullptr, false);
-					    auto account (this_l->node->ledger.store.frontier_get (transaction, root));
-					    if (!account.is_zero ())
-					    {
-						    this_l->requeue_pull (rai::pull_info (account, root, root));
-					    }
-					    else if (this_l->node->ledger.store.account_exists (transaction, root))
-					    {
-						    this_l->requeue_pull (rai::pull_info (root, rai::block_hash (0), rai::block_hash (0)));
-					    }
-				    }
-			    }))
-			{
-				BOOST_LOG (node->log) << boost::str (boost::format ("Resolving fork between our block: %1% and block %2% both with root %3%") % ledger_block->hash ().to_string () % block_a->hash ().to_string () % block_a->root ().to_string ());
-				node->network.broadcast_confirm_req (ledger_block);
-			}
-		}
-	}
-}
-
 struct block_rate_cmp
 {
 	bool operator() (const std::shared_ptr<rai::bootstrap_client> & lhs, const std::shared_ptr<rai::bootstrap_client> & rhs) const
@@ -1231,15 +1198,6 @@ void rai::bootstrap_initiator::notify_listeners (bool in_progress_a)
 	for (auto & i : observers)
 	{
 		i (in_progress_a);
-	}
-}
-
-void rai::bootstrap_initiator::process_fork (MDB_txn * transaction, std::shared_ptr<rai::block> block_a)
-{
-	std::unique_lock<std::mutex> lock (mutex);
-	if (attempt != nullptr)
-	{
-		attempt->process_fork (transaction, block_a);
 	}
 }
 

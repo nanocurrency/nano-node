@@ -72,7 +72,6 @@ public:
 	void requeue_pull (rai::pull_info const &);
 	void add_pull (rai::pull_info const &);
 	bool still_pulling ();
-	void process_fork (MDB_txn *, std::shared_ptr<rai::block>);
 	unsigned target_connections (size_t pulls_remaining);
 	bool should_log ();
 	void add_bulk_push_target (rai::block_hash const &, rai::block_hash const &);
@@ -178,7 +177,6 @@ public:
 	void add_observer (std::function<void(bool)> const &);
 	bool in_progress ();
 	std::shared_ptr<rai::bootstrap_attempt> current_attempt ();
-	void process_fork (MDB_txn *, std::shared_ptr<rai::block>);
 	void stop ();
 
 private:
