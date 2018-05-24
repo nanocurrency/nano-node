@@ -1732,20 +1732,20 @@ void rai::node::process_fork (MDB_txn * transaction_a, std::shared_ptr<rai::bloc
 			if (!active.start (std::make_pair (ledger_block, block_a), [this_w, root](std::shared_ptr<rai::block>) {
 				    if (auto this_l = this_w.lock ())
 				    {
-				    	auto attempt (this_l->bootstrap_initiator.current_attempt ());
-				    	if (attempt)
-				    	{
-							rai::transaction transaction (this_l->store.environment, nullptr, false);
-							auto account (this_l->ledger.store.frontier_get (transaction, root));
-							if (!account.is_zero ())
-							{
-								attempt->requeue_pull (rai::pull_info (account, root, root));
-							}
-							else if (this_l->ledger.store.account_exists (transaction, root))
-							{
-								attempt->requeue_pull (rai::pull_info (root, rai::block_hash (0), rai::block_hash (0)));
-							}
-						}
+					    auto attempt (this_l->bootstrap_initiator.current_attempt ());
+					    if (attempt)
+					    {
+						    rai::transaction transaction (this_l->store.environment, nullptr, false);
+						    auto account (this_l->ledger.store.frontier_get (transaction, root));
+						    if (!account.is_zero ())
+						    {
+							    attempt->requeue_pull (rai::pull_info (account, root, root));
+						    }
+						    else if (this_l->ledger.store.account_exists (transaction, root))
+						    {
+							    attempt->requeue_pull (rai::pull_info (root, rai::block_hash (0), rai::block_hash (0)));
+						    }
+					    }
 				    }
 			    }))
 			{
