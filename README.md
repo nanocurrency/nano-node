@@ -18,7 +18,10 @@ We've applied the philosophy of "do one thing and do it well", giving you perfor
 * No more confusing prefix, Bananos contain Banoshis.
 * Replay Protection to stop attackers from executing replay attacks from chain X on chain Y and vice versa.
 
-
+### Key facts
+* Forked from NANO (raiblocks)
+* Total Supply: something
+* Born in Feb. 2018
 
 For more information, see [Banano.co.in](http://banano.co.in/) or read the [Yellowpaper](http://banano.co.in/en/whitepaper).
 
@@ -39,7 +42,7 @@ For more information, see [Banano.co.in](http://banano.co.in/) or read the [Yell
 - [Running a Docker node](https://github.com/BananoCoin/banano/wiki/Running-a-Docker-Bananode)
 
 ### Want to contribute?
-Please visit us on the [Discord](https://discord.gg/SBPaSBS).
+Please visit us on the [Discord](https://discord.gg/SBPaSBS) or our [Reddit](http://reddit.com/r/bananocoin).
 
 ### Contact us
 
