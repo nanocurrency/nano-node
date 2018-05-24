@@ -39,7 +39,7 @@ For more information, see [Banano.co.in](http://banano.co.in/) or read the [Yell
 - [Running a Docker node](https://github.com/BananoCoin/banano/wiki/Running-a-Docker-Bananode)
 
 ### Want to contribute?
-Please visit us on the [Discord](https://discord.gg/SBPaSBS).
+Please visit us on the [Discord](https://discord.gg/SBPaSBS) or our [Reddit](http://reddit.com/r/bananocoin).
 
 ### Contact us
 
