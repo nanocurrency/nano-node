@@ -2659,7 +2659,7 @@ void rai::rpc_handler::process ()
 				case rai::process_result::fork:
 				{
 					const bool force = request.get<bool> ("force", false);
-					if (force)
+					if (force && rpc.config.enable_control)
 					{
 						node.block_processor.force (block);
 						boost::property_tree::ptree response_l;
