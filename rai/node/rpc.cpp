@@ -2658,7 +2658,18 @@ void rai::rpc_handler::process ()
 				}
 				case rai::process_result::fork:
 				{
-					error_response (response, "Fork");
+					const bool force = request.get<bool> ("force", false);
+					if (force)
+					{
+						node.block_processor.force (block);
+						boost::property_tree::ptree response_l;
+						response_l.put ("hash", hash.to_string ());
+						response (response_l);
+					}
+					else
+					{
+						error_response (response, "Fork");
+					}
 					break;
 				}
 				case rai::process_result::account_mismatch:
