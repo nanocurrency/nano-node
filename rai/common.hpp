@@ -193,6 +193,7 @@ public:
 	bool operator!= (rai::vote const &) const;
 	void serialize (rai::stream &, rai::block_type);
 	void serialize (rai::stream &);
+	bool deserialize (rai::stream &);
 	std::string to_json () const;
 	// Vote round sequence number
 	uint64_t sequence;

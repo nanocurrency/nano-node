@@ -715,6 +715,25 @@ void rai::vote::serialize (rai::stream & stream_a)
 	rai::serialize_block (stream_a, *block);
 }
 
+bool rai::vote::deserialize (rai::stream & stream_a)
+{
+	auto result (read (stream_a, account));
+	if (!result)
+	{
+		result = read (stream_a, signature);
+		if (!result)
+		{
+			result = read (stream_a, sequence);
+			if (!result)
+			{
+				block = rai::deserialize_block (stream_a, block_type ());
+				result = block == nullptr;
+			}
+		}
+	}
+	return result;
+}
+
 rai::genesis::genesis ()
 {
 	boost::property_tree::ptree tree;

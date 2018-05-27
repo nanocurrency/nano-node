@@ -369,20 +369,7 @@ bool rai::confirm_ack::deserialize (rai::stream & stream_a)
 	assert (type == rai::message_type::confirm_ack);
 	if (!result)
 	{
-		result = read (stream_a, vote->account);
-		if (!result)
-		{
-			result = read (stream_a, vote->signature);
-			if (!result)
-			{
-				result = read (stream_a, vote->sequence);
-				if (!result)
-				{
-					vote->block = rai::deserialize_block (stream_a, block_type ());
-					result = vote->block == nullptr;
-				}
-			}
-		}
+		result = vote->deserialize (stream_a);
 	}
 	return result;
 }
