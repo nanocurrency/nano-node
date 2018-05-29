@@ -1104,7 +1104,7 @@ node (node_a)
 rai::vote_code rai::vote_processor::vote (std::shared_ptr<rai::vote> vote_a, rai::endpoint endpoint_a)
 {
 	auto result (rai::vote_code::invalid);
-	if (!rai::validate_message (vote_a->account, vote_a->hash (), vote_a->signature))
+	if (!vote_a->validate ())
 	{
 		result = rai::vote_code::replay;
 		std::shared_ptr<rai::vote> max_vote;
@@ -3186,7 +3186,7 @@ void rai::election::confirm_if_quorum (MDB_txn * transaction_a)
 
 bool rai::election::vote (std::shared_ptr<rai::vote> vote_a)
 {
-	assert (!rai::validate_message (vote_a->account, vote_a->hash (), vote_a->signature));
+	assert (!vote_a->validate ());
 	// see republish_vote documentation for an explanation of these rules
 	rai::transaction transaction (node.store.environment, nullptr, false);
 	auto replay (false);

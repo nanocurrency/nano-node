@@ -194,6 +194,7 @@ public:
 	void serialize (rai::stream &, rai::block_type);
 	void serialize (rai::stream &);
 	bool deserialize (rai::stream &);
+	bool validate ();
 	std::string to_json () const;
 	// Vote round sequence number
 	uint64_t sequence;

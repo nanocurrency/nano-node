@@ -735,6 +735,12 @@ bool rai::vote::deserialize (rai::stream & stream_a)
 	return result;
 }
 
+bool rai::vote::validate ()
+{
+	auto result (rai::validate_message (account, hash (), signature));
+	return result;
+}
+
 rai::genesis::genesis ()
 {
 	boost::property_tree::ptree tree;
