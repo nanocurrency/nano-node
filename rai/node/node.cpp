@@ -3134,10 +3134,13 @@ confirmed (false)
 
 void rai::election::compute_rep_votes (MDB_txn * transaction_a)
 {
-	node.wallets.foreach_representative (transaction_a, [this, transaction_a](rai::public_key const & pub_a, rai::raw_key const & prv_a) {
-		auto vote (this->node.store.vote_generate (transaction_a, pub_a, prv_a, status.winner));
-		this->node.vote_processor.vote (vote, this->node.network.endpoint ());
-	});
+	if (node.config.enable_voting)
+	{
+		node.wallets.foreach_representative (transaction_a, [this, transaction_a](rai::public_key const & pub_a, rai::raw_key const & prv_a) {
+			auto vote (this->node.store.vote_generate (transaction_a, pub_a, prv_a, status.winner));
+			this->node.vote_processor.vote (vote, this->node.network.endpoint ());
+		});
+	}
 }
 
 void rai::election::broadcast_winner ()
