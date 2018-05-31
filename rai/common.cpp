@@ -264,7 +264,8 @@ rai::block_counts::block_counts () :
 send (0),
 receive (0),
 open (0),
-change (0)
+change (0),
+state (0)
 {
 }
 
