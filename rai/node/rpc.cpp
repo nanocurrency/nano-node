@@ -2661,6 +2661,7 @@ void rai::rpc_handler::process ()
 					const bool force = request.get<bool> ("force", false);
 					if (force && rpc.config.enable_control)
 					{
+						node.active.erase (*block);
 						node.block_processor.force (block);
 						boost::property_tree::ptree response_l;
 						response_l.put ("hash", hash.to_string ());

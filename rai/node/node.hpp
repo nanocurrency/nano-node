@@ -101,6 +101,7 @@ public:
 	bool active (rai::block const &);
 	void announce_votes ();
 	std::deque<std::shared_ptr<rai::block>> list_blocks ();
+	void erase (rai::block const &);
 	void stop ();
 	boost::multi_index_container<
 	rai::conflict_info,
