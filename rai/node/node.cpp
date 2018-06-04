@@ -3392,6 +3392,16 @@ std::deque<std::shared_ptr<rai::block>> rai::active_transactions::list_blocks ()
 	return result;
 }
 
+void rai::active_transactions::erase (rai::block const & block_a)
+{
+	std::lock_guard<std::mutex> lock (mutex);
+	if (roots.find (block_a.root ()) != roots.end ())
+	{
+		roots.erase (block_a.root ());
+		BOOST_LOG (node.log) << boost::str (boost::format ("Election erased for block block %1% root %2%") % block_a.hash ().to_string () % block_a.root ().to_string ());
+	}
+}
+
 rai::active_transactions::active_transactions (rai::node & node_a) :
 node (node_a)
 {
