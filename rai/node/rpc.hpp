@@ -145,7 +145,9 @@ public:
 	void bootstrap ();
 	void bootstrap_any ();
 	void chain ();
+	void confirmation_active ();
 	void confirmation_history ();
+	void confirmation_info ();
 	void delegators ();
 	void delegators_count ();
 	void deterministic_key ();

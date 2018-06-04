@@ -1530,6 +1530,23 @@ void rai::rpc_handler::chain ()
 	}
 }
 
+void rai::rpc_handler::confirmation_active ()
+{
+	boost::property_tree::ptree response_l;
+	boost::property_tree::ptree elections;
+	{
+		std::lock_guard<std::mutex> lock (node.active.mutex);
+		for (auto i (node.active.roots.begin ()), n (node.active.roots.end ()); i != n; ++i)
+		{
+			boost::property_tree::ptree entry;
+			entry.put ("", i->root.to_string ());
+			elections.push_back (std::make_pair ("", entry));
+		}
+	}
+	response_l.add_child ("confirmations", elections);
+	response (response_l);
+}
+
 void rai::rpc_handler::confirmation_history ()
 {
 	boost::property_tree::ptree response_l;
@@ -1546,6 +1563,74 @@ void rai::rpc_handler::confirmation_history ()
 	}
 	response_l.add_child ("confirmations", elections);
 	response (response_l);
+}
+
+void rai::rpc_handler::confirmation_info ()
+{
+	const bool representatives = request.get<bool> ("representatives", false);
+	const bool contents = request.get<bool> ("contents", true);
+	std::string root_text (request.get<std::string> ("root"));
+	rai::block_hash root;
+	if (!root.decode_hex (root_text))
+	{
+		std::lock_guard<std::mutex> lock (node.active.mutex);
+		auto conflict_info (node.active.roots.find (root));
+		if (conflict_info != node.active.roots.end ())
+		{
+			boost::property_tree::ptree response_l;
+			response_l.put ("announcements", std::to_string (conflict_info->announcements));
+			auto election (conflict_info->election);
+			rai::uint128_t total (0);
+			response_l.put ("last_winner", election->status.winner->hash ().to_string ());
+			rai::transaction transaction (node.store.environment, nullptr, false);
+			auto tally_l (node.ledger.tally (transaction, election->votes));
+			boost::property_tree::ptree blocks;
+			for (auto i (tally_l.begin ()), n (tally_l.end ()); i != n; ++i)
+			{
+				boost::property_tree::ptree entry;
+				auto tally (i->first);
+				entry.put ("tally", tally.convert_to<std::string> ());
+				total += tally;
+				if (contents)
+				{
+					std::string contents;
+					i->second->serialize_json (contents);
+					entry.put ("contents", contents);
+				}
+				if (representatives)
+				{
+					std::multimap<rai::uint128_t, rai::account, std::greater<rai::uint128_t>> representatives;
+					for (auto ii (election->votes.rep_votes.begin ()), nn (election->votes.rep_votes.end ()); ii != nn; ++ii)
+					{
+						if (i->second->hash () == ii->second->hash ())
+						{
+							rai::account representative (ii->first);
+							auto amount (node.store.representation_get (transaction, representative));
+							representatives.insert (std::make_pair (amount, representative));
+						}
+					}
+					boost::property_tree::ptree representatives_list;
+					for (auto ii (representatives.begin ()), nn (representatives.end ()); ii != nn; ++ii)
+					{
+						representatives_list.put (ii->second.to_account (), ii->first.convert_to<std::string> ());
+					}
+					entry.add_child ("representatives", representatives_list);
+				}
+				blocks.add_child ((i->second->hash ()).to_string (), entry);
+			}
+			response_l.put ("total_tally", total.convert_to<std::string> ());
+			response_l.add_child ("blocks", blocks);
+			response (response_l);
+		}
+		else
+		{
+			error_response (response, "Active confirmation not found by root");
+		}
+	}
+	else
+	{
+		error_response (response, "Invalid root hash");
+	}
 }
 
 void rai::rpc_handler::delegators ()
@@ -4747,9 +4832,17 @@ void rai::rpc_handler::process_request ()
 		{
 			deterministic_key ();
 		}
+		else if (action == "confirmation_active")
+		{
+			confirmation_active ();
+		}
 		else if (action == "confirmation_history")
 		{
 			confirmation_history ();
+		}
+		else if (action == "confirmation_info")
+		{
+			confirmation_info ();
 		}
 		else if (action == "frontiers")
 		{
