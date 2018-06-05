@@ -552,7 +552,7 @@ rai::uint128_t rai::ledger::balance (MDB_txn * transaction_a, rai::block_hash co
 {
 	balance_visitor visitor (transaction_a, store);
 	visitor.compute (hash_a);
-	return visitor.result;
+	return visitor.balance;
 }
 
 // Balance for an account by account number
@@ -745,7 +745,7 @@ rai::uint128_t rai::ledger::amount (MDB_txn * transaction_a, rai::block_hash con
 {
 	amount_visitor amount (transaction_a, store);
 	amount.compute (hash_a);
-	return amount.result;
+	return amount.amount;
 }
 
 // Return latest block for account

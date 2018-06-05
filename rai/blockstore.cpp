@@ -542,7 +542,7 @@ rai::uint128_t rai::block_store::block_balance (MDB_txn * transaction_a, rai::bl
 {
 	balance_visitor visitor (transaction_a, *this);
 	visitor.compute (hash_a);
-	return visitor.result;
+	return visitor.balance;
 }
 
 void rai::block_store::representation_add (MDB_txn * transaction_a, rai::block_hash const & source_a, rai::uint128_t const & amount_a)

@@ -43,8 +43,9 @@ public:
 	void state_block (rai::state_block const &) override;
 	MDB_txn * transaction;
 	rai::block_store & store;
-	rai::block_hash current;
-	rai::uint128_t result;
+	rai::block_hash current_balance;
+	rai::block_hash current_amount;
+	rai::uint128_t balance;
 };
 
 /**
@@ -64,8 +65,9 @@ public:
 	void from_send (rai::block_hash const &);
 	MDB_txn * transaction;
 	rai::block_store & store;
-	rai::block_hash current;
-	rai::uint128_t result;
+	rai::block_hash current_amount;
+	rai::block_hash current_balance;
+	rai::uint128_t amount;
 };
 
 /**
