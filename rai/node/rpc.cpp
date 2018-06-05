@@ -2624,11 +2624,6 @@ void rai::rpc_handler::process ()
 					error_response (response, "Gap source block");
 					break;
 				}
-				case rai::process_result::state_block_disabled:
-				{
-					error_response (response, "State blocks are disabled");
-					break;
-				}
 				case rai::process_result::old:
 				{
 					error_response (response, "Old block");
