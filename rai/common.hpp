@@ -223,7 +223,6 @@ enum class process_result
 	unreceivable, // Source block doesn't exist or has already been received
 	gap_previous, // Block marked as previous is unknown
 	gap_source, // Block marked as source is unknown
-	state_block_disabled, // Awaiting state block canary block
 	not_receive_from_send, // Receive does not have a send source
 	account_mismatch, // Account number in open block doesn't match send destination
 	opened_burn_account, // The impossible happened, someone found the private key associated with the public key '0'.
