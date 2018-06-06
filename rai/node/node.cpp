@@ -3111,55 +3111,24 @@ void rai::election::broadcast_winner ()
 	node.network.republish_block (transaction, status.winner);
 }
 
-void rai::election::confirm_once (MDB_txn * transaction_a)
+void rai::election::confirm_once (MDB_txn * transaction_a, rai::amount amount_a, std::shared_ptr<rai::block> block_a)
 {
 	if (!confirmed.exchange (true))
 	{
-		auto tally_l (node.ledger.tally (transaction_a, votes));
-		assert (tally_l.size () > 0);
-		auto have_quorum_l = have_quorum (tally_l);
-		auto winner (tally_l.begin ());
-		auto block_l (winner->second);
-		if (node.config.logging.vote_logging () || !votes.uncontested ())
+		if (!(*block_a == *status.winner))
 		{
-			BOOST_LOG (node.log) << boost::str (boost::format ("Vote tally for root %1%") % status.winner->root ().to_string ());
-			for (auto i (tally_l.begin ()), n (tally_l.end ()); i != n; ++i)
-			{
-				BOOST_LOG (node.log) << boost::str (boost::format ("Block %1% weight %2%") % i->second->hash ().to_string () % i->first.convert_to<std::string> ());
-			}
-			for (auto i (votes.rep_votes.begin ()), n (votes.rep_votes.end ()); i != n; ++i)
-			{
-				BOOST_LOG (node.log) << boost::str (boost::format ("%1% %2%") % i->first.to_account () % i->second->hash ().to_string ());
-			}
-		}
-		if (!(*block_l == *status.winner))
-		{
-			if (have_quorum_l)
-			{
-				auto node_l (node.shared ());
-				node_l->block_processor.force (block_l);
-				status.winner = block_l;
-			}
-			else
-			{
-				BOOST_LOG (node.log) << boost::str (boost::format ("Retaining block %1%") % status.winner->hash ().to_string ());
-			}
-		}
-		status.tally = winner->first;
-		if (have_quorum_l)
-		{
-			auto winner_l (status.winner);
 			auto node_l (node.shared ());
-			auto confirmation_action_l (confirmation_action);
-			node.background ([node_l, winner_l, confirmation_action_l]() {
-				node_l->process_confirmed (winner_l);
-				confirmation_action_l (winner_l);
-			});
+			node_l->block_processor.force (block_a);
+			status.winner = block_a;
 		}
-		else
-		{
-			BOOST_LOG (node.log) << boost::str (boost::format ("Insufficient quorum for block %1% %2%") % status.winner->hash ().to_string () % status.tally.number ().convert_to<std::string> ());
-		}
+		status.tally = amount_a;
+		auto winner_l (status.winner);
+		auto node_l (node.shared ());
+		auto confirmation_action_l (confirmation_action);
+		node.background ([node_l, winner_l, confirmation_action_l]() {
+			node_l->process_confirmed (winner_l);
+			confirmation_action_l (winner_l);
+		});
 	}
 }
 
@@ -3177,10 +3146,24 @@ bool rai::election::have_quorum (rai::tally_t const & tally_a)
 void rai::election::confirm_if_quorum (MDB_txn * transaction_a)
 {
 	auto tally_l (node.ledger.tally (transaction_a, votes));
-	auto quorum (have_quorum (tally_l));
-	if (quorum)
+	assert (tally_l.size () > 0);
+	if (have_quorum (tally_l))
 	{
-		confirm_once (transaction_a);
+		auto winner (tally_l.begin ());
+		auto block_l (winner->second);
+		if (node.config.logging.vote_logging () || !votes.uncontested ())
+		{
+			BOOST_LOG (node.log) << boost::str (boost::format ("Vote tally for root %1%") % status.winner->root ().to_string ());
+			for (auto i (tally_l.begin ()), n (tally_l.end ()); i != n; ++i)
+			{
+				BOOST_LOG (node.log) << boost::str (boost::format ("Block %1% weight %2%") % i->second->hash ().to_string () % i->first.convert_to<std::string> ());
+			}
+			for (auto i (votes.rep_votes.begin ()), n (votes.rep_votes.end ()); i != n; ++i)
+			{
+				BOOST_LOG (node.log) << boost::str (boost::format ("%1% %2%") % i->first.to_account () % i->second->hash ().to_string ());
+			}
+		}
+		confirm_once (transaction_a, winner->first, block_l);
 	}
 }
 
