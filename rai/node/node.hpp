@@ -53,7 +53,7 @@ public:
 class election : public std::enable_shared_from_this<rai::election>
 {
 	std::function<void(std::shared_ptr<rai::block>)> confirmation_action;
-	void confirm_once (MDB_txn *);
+	void confirm_once (MDB_txn *, rai::amount, std::shared_ptr<rai::block>);
 
 public:
 	election (rai::node &, std::shared_ptr<rai::block>, std::function<void(std::shared_ptr<rai::block>)> const &);
