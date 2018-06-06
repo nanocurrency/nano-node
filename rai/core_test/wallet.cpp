@@ -950,26 +950,3 @@ TEST (wallet, password_race_corrupt_seed)
 		}
 	}
 }
-
-TEST (wallet, state_implicit_generate)
-{
-	rai::system system (24000, 1);
-	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
-	rai::genesis genesis;
-	system.nodes[0]->ledger.state_block_parse_canary = genesis.hash ();
-	{
-		rai::transaction transaction (system.nodes[0]->store.environment, nullptr, true);
-		ASSERT_FALSE (system.wallet (0)->should_generate_state_block (transaction, genesis.hash ()));
-		rai::state_block block (rai::test_genesis_key.pub, genesis.hash (), rai::test_genesis_key.pub, rai::genesis_amount - rai::Gxrb_ratio, rai::test_genesis_key.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
-		ASSERT_EQ (rai::process_result::progress, system.nodes[0]->ledger.process (transaction, block).code);
-		ASSERT_TRUE (system.wallet (0)->should_generate_state_block (transaction, block.hash ()));
-	}
-	ASSERT_FALSE (system.wallet (0)->search_pending ());
-	auto iterations (0);
-	while (system.nodes[0]->balance (rai::test_genesis_key.pub) != rai::genesis_amount)
-	{
-		system.poll ();
-		++iterations;
-		ASSERT_LT (iterations, 200);
-	}
-}

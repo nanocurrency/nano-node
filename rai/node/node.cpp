@@ -1356,16 +1356,6 @@ rai::process_return rai::block_processor::process_receive_one (MDB_txn * transac
 			node.gap_cache.add (transaction_a, block_a);
 			break;
 		}
-		case rai::process_result::state_block_disabled:
-		{
-			if (node.config.logging.ledger_logging ())
-			{
-				BOOST_LOG (node.log) << boost::str (boost::format ("State blocks are disabled: %1%") % hash.to_string ());
-			}
-			node.store.unchecked_put (transaction_a, node.ledger.state_block_parse_canary, block_a);
-			node.gap_cache.add (transaction_a, block_a);
-			break;
-		}
 		case rai::process_result::old:
 		{
 			if (node.config.logging.ledger_duplicate_logging ())
@@ -1477,7 +1467,7 @@ alarm (alarm_a),
 work (work_a),
 store (init_a.block_store_init, application_path_a / "data.ldb", config_a.lmdb_max_dbs),
 gap_cache (*this),
-ledger (store, stats, config.state_block_parse_canary, config.state_block_generate_canary),
+ledger (store, stats),
 active (*this),
 network (*this, config.peering_port),
 bootstrap_initiator (*this),

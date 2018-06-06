@@ -1502,7 +1502,7 @@ TEST (ledger, send_open_receive_rollback)
 	rai::block_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
 	rai::stat stats;
-	rai::ledger ledger (store, stats, 0);
+	rai::ledger ledger (store, stats);
 	rai::transaction transaction (store.environment, nullptr, true);
 	rai::genesis genesis;
 	genesis.initialize (transaction, store);
@@ -1560,7 +1560,7 @@ TEST (ledger, bootstrap_rep_weight)
 	rai::block_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
 	rai::stat stats;
-	rai::ledger ledger (store, stats, 40);
+	rai::ledger ledger (store, stats);
 	rai::account_info info1;
 	rai::keypair key2;
 	rai::genesis genesis;
@@ -2275,26 +2275,3 @@ TEST (ledger, state_receive_change_rollback)
 	ASSERT_EQ (0, ledger.weight (transaction, rep.pub));
 }
 
-TEST (ledger, state_canary_blocks)
-{
-	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
-	ASSERT_TRUE (!init);
-	rai::genesis genesis;
-	rai::send_block parse_canary (genesis.hash (), rai::test_genesis_key.pub, rai::genesis_amount, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
-	rai::send_block generate_canary (parse_canary.hash (), rai::test_genesis_key.pub, rai::genesis_amount, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
-	rai::stat stats;
-	rai::ledger ledger (store, stats, parse_canary.hash (), generate_canary.hash ());
-	rai::transaction transaction (store.environment, nullptr, true);
-	genesis.initialize (transaction, store);
-	rai::state_block state (rai::test_genesis_key.pub, genesis.hash (), rai::test_genesis_key.pub, rai::genesis_amount - rai::Gxrb_ratio, rai::test_genesis_key.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
-	ASSERT_FALSE (ledger.state_block_parsing_enabled (transaction));
-	ASSERT_FALSE (ledger.state_block_generation_enabled (transaction));
-	ASSERT_EQ (rai::process_result::state_block_disabled, ledger.process (transaction, state).code);
-	ASSERT_EQ (rai::process_result::progress, ledger.process (transaction, parse_canary).code);
-	ASSERT_TRUE (ledger.state_block_parsing_enabled (transaction));
-	ASSERT_FALSE (ledger.state_block_generation_enabled (transaction));
-	ASSERT_EQ (rai::process_result::progress, ledger.process (transaction, generate_canary).code);
-	ASSERT_TRUE (ledger.state_block_parsing_enabled (transaction));
-	ASSERT_TRUE (ledger.state_block_generation_enabled (transaction));
-}

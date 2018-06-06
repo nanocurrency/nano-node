@@ -27,23 +27,6 @@ TEST (node, block_store_path_failure)
 	node->stop ();
 }
 
-TEST (node, state_canaries)
-{
-	rai::node_init init;
-	auto service (boost::make_shared<boost::asio::io_service> ());
-	rai::alarm alarm (*service);
-	auto path (rai::unique_path ());
-	rai::node_config config;
-	config.logging.init (path);
-	rai::work_pool work (std::numeric_limits<unsigned>::max (), nullptr);
-	config.state_block_parse_canary = 10;
-	config.state_block_generate_canary = 20;
-	auto node (std::make_shared<rai::node> (init, *service, path, alarm, config, work));
-	ASSERT_EQ (rai::block_hash (10), node->ledger.state_block_parse_canary);
-	ASSERT_EQ (rai::block_hash (20), node->ledger.state_block_generate_canary);
-	node->stop ();
-}
-
 TEST (node, password_fanout)
 {
 	rai::node_init init;
