@@ -568,7 +568,7 @@ void rai::balance_visitor::state_block (rai::state_block const & block_a)
 void rai::balance_visitor::compute (rai::block_hash const & block_hash)
 {
 	current_balance = block_hash;
-	while (!current_balance.is_zero () || ! current_amount.is_zero ())
+	while (!current_balance.is_zero () || !current_amount.is_zero ())
 	{
 		if (!current_amount.is_zero ())
 		{
