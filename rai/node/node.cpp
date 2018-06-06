@@ -3111,7 +3111,7 @@ void rai::election::broadcast_winner ()
 	node.network.republish_block (transaction, status.winner);
 }
 
-void rai::election::confirm_once (MDB_txn * transaction_a, rai::amount amount_a, std::shared_ptr<rai::block> block_a)
+void rai::election::confirm_once (MDB_txn * transaction_a)
 {
 	if (!confirmed.exchange (true))
 	{
@@ -3168,7 +3168,7 @@ void rai::election::confirm_if_quorum (MDB_txn * transaction_a)
 				BOOST_LOG (node.log) << boost::str (boost::format ("%1% %2%") % i->first.to_account () % i->second->hash ().to_string ());
 			}
 		}
-		confirm_once (transaction_a, winner->first, block_l);
+		confirm_once (transaction_a);
 	}
 }
 
