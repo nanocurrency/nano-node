@@ -3115,13 +3115,6 @@ void rai::election::confirm_once (MDB_txn * transaction_a, rai::amount amount_a,
 {
 	if (!confirmed.exchange (true))
 	{
-		if (!(*block_a == *status.winner))
-		{
-			auto node_l (node.shared ());
-			node_l->block_processor.force (block_a);
-			status.winner = block_a;
-		}
-		status.tally = amount_a;
 		auto winner_l (status.winner);
 		auto node_l (node.shared ());
 		auto confirmation_action_l (confirmation_action);
@@ -3147,10 +3140,22 @@ void rai::election::confirm_if_quorum (MDB_txn * transaction_a)
 {
 	auto tally_l (node.ledger.tally (transaction_a, votes));
 	assert (tally_l.size () > 0);
+	auto winner (tally_l.begin ());
+	auto block_l (winner->second);
+	status.tally = winner->first;
+	rai::uint128_t sum (0);
+	for (auto & i : tally_l)
+	{
+		sum += i.first;
+	}
+	if (sum >= node.config.online_weight_minimum.number () && !(*block_l == *status.winner))
+	{
+		auto node_l (node.shared ());
+		node_l->block_processor.force (block_l);
+		status.winner = block_l;
+	}
 	if (have_quorum (tally_l))
 	{
-		auto winner (tally_l.begin ());
-		auto block_l (winner->second);
 		if (node.config.logging.vote_logging () || !votes.uncontested ())
 		{
 			BOOST_LOG (node.log) << boost::str (boost::format ("Vote tally for root %1%") % status.winner->root ().to_string ());
