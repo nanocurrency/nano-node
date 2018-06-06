@@ -1058,6 +1058,66 @@ TEST (node, fork_no_vote_quorum)
 	ASSERT_TRUE (node3.latest (rai::test_genesis_key.pub) == send1.hash ());
 }
 
+TEST (node, fork_pre_confirm)
+{
+	rai::system system (24000, 3);
+	auto & node0 (*system.nodes[0]);
+	auto & node1 (*system.nodes[1]);
+	auto & node2 (*system.nodes[2]);
+	rai::genesis genesis;
+	node0.ledger.state_block_parse_canary = genesis.hash ();
+	node1.ledger.state_block_parse_canary = genesis.hash ();
+	node2.ledger.state_block_parse_canary = genesis.hash ();
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	rai::keypair key1;
+	system.wallet (1)->insert_adhoc(key1.prv);
+	{
+		rai::transaction transaction (system.wallet(1)->store.environment, nullptr, true);
+		system.wallet (1)->store.representative_set (transaction, key1.pub);
+	}
+	rai::keypair key2;
+	system.wallet (2)->insert_adhoc(key2.prv);
+	{
+		rai::transaction transaction (system.wallet(2)->store.environment, nullptr, true);
+		system.wallet (2)->store.representative_set (transaction, key2.pub);
+	}
+	auto iterations (0);
+	auto block0 (system.wallet (0)->send_action (rai::test_genesis_key.pub, key1.pub, rai::genesis_amount / 3));
+	ASSERT_NE (nullptr, block0);
+	while (node0.balance(key1.pub) == 0)
+	{
+		system.poll ();
+		++iterations;
+		ASSERT_LT (iterations, 400);
+	}
+	auto block1 (system.wallet (0)->send_action (rai::test_genesis_key.pub, key2.pub, rai::genesis_amount / 3));
+	ASSERT_NE (nullptr, block1);
+	while (node0.balance(key2.pub) == 0)
+	{
+		system.poll ();
+		++iterations;
+		ASSERT_LT (iterations, 400);
+	}
+	rai::keypair key3;
+	rai::keypair key4;
+	auto block2 (std::make_shared<rai::state_block> (rai::test_genesis_key.pub, node0.latest(rai::test_genesis_key.pub), key3.pub, node0.balance(rai::test_genesis_key.pub), 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
+	auto block3 (std::make_shared<rai::state_block> (rai::test_genesis_key.pub, node0.latest(rai::test_genesis_key.pub), key4.pub, node0.balance(rai::test_genesis_key.pub), 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
+	node0.work_generate_blocking(*block2);
+	node0.work_generate_blocking(*block3);
+	node0.process_active(block2);
+	node1.process_active(block2);
+	node2.process_active(block3);
+	auto done (false);
+	while (!done)
+	{
+		done |= node0.latest(rai::test_genesis_key.pub) == block2->hash () && node1.latest(rai::test_genesis_key.pub) == block2->hash () && node2.latest(rai::test_genesis_key.pub) == block2->hash ();
+		done |= node0.latest(rai::test_genesis_key.pub) == block3->hash () && node1.latest(rai::test_genesis_key.pub) == block3->hash () && node2.latest(rai::test_genesis_key.pub) == block3->hash ();
+		system.poll ();
+		++iterations;
+		ASSERT_LT (iterations, 600);
+	}
+}
+
 TEST (node, broadcast_elected)
 {
 	rai::system system (24000, 3);
