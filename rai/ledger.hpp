@@ -51,7 +51,5 @@ public:
 	std::unordered_map<rai::account, rai::uint128_t> bootstrap_weights;
 	uint64_t bootstrap_weight_max_blocks;
 	std::atomic<bool> check_bootstrap_weights;
-	rai::block_hash state_block_parse_canary;
-	rai::block_hash state_block_generate_canary;
 };
 };

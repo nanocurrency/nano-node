@@ -790,9 +790,7 @@ enable_voting (true),
 bootstrap_connections (4),
 bootstrap_connections_max (64),
 callback_port (0),
-lmdb_max_dbs (128),
-state_block_parse_canary (0),
-state_block_generate_canary (0)
+lmdb_max_dbs (128)
 {
 	switch (rai::rai_network)
 	{

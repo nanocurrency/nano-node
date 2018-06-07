@@ -922,7 +922,6 @@ TEST (rpc, history)
 	ASSERT_NE (nullptr, receive);
 	auto node0 (system.nodes[0]);
 	rai::genesis genesis;
-	node0->ledger.state_block_parse_canary = genesis.hash ();
 	rai::state_block usend (rai::genesis_account, node0->latest (rai::genesis_account), rai::genesis_account, rai::genesis_amount - rai::Gxrb_ratio, rai::genesis_account, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
 	rai::state_block ureceive (rai::genesis_account, usend.hash (), rai::genesis_account, rai::genesis_amount, usend.hash (), rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
 	rai::state_block uchange (rai::genesis_account, ureceive.hash (), rai::keypair ().pub, rai::genesis_amount, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
@@ -3040,15 +3039,15 @@ TEST (rpc, block_count_type)
 	}
 	ASSERT_EQ (200, response.status);
 	std::string send_count (response.json.get<std::string> ("send"));
-	ASSERT_EQ ("1", send_count);
+	ASSERT_EQ ("0", send_count);
 	std::string receive_count (response.json.get<std::string> ("receive"));
-	ASSERT_EQ ("1", receive_count);
+	ASSERT_EQ ("0", receive_count);
 	std::string open_count (response.json.get<std::string> ("open"));
 	ASSERT_EQ ("1", open_count);
 	std::string change_count (response.json.get<std::string> ("change"));
 	ASSERT_EQ ("0", change_count);
 	std::string state_count (response.json.get<std::string> ("state"));
-	ASSERT_EQ ("0", state_count);
+	ASSERT_EQ ("2", state_count);
 }
 
 TEST (rpc, ledger)
@@ -3269,7 +3268,6 @@ TEST (rpc, block_create_state)
 	rai::system system (24000, 1);
 	rai::keypair key;
 	rai::genesis genesis;
-	system.nodes[0]->ledger.state_block_parse_canary = genesis.hash ();
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	boost::property_tree::ptree request;
 	request.put ("action", "block_create");
@@ -3307,7 +3305,6 @@ TEST (rpc, block_create_state_open)
 	rai::system system (24000, 1);
 	rai::keypair key;
 	rai::genesis genesis;
-	system.nodes[0]->ledger.state_block_parse_canary = genesis.hash ();
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	auto send_block (system.wallet (0)->send_action (rai::test_genesis_key.pub, key.pub, rai::Gxrb_ratio));
 	ASSERT_NE (nullptr, send_block);
@@ -3357,7 +3354,6 @@ TEST (rpc, block_create_state_request_work)
 		rai::system system (24000, 1);
 		rai::keypair key;
 		rai::genesis genesis;
-		system.nodes[0]->ledger.state_block_parse_canary = genesis.hash ();
 		system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 		boost::property_tree::ptree request;
 		request.put ("action", "block_create");
@@ -3637,7 +3633,6 @@ TEST (rpc, block_confirm)
 	rai::system system (24000, 1);
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	rai::genesis genesis;
-	system.nodes[0]->ledger.state_block_parse_canary = genesis.hash ();
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	auto send1 (std::make_shared<rai::state_block> (rai::test_genesis_key.pub, genesis.hash (), rai::test_genesis_key.pub, rai::genesis_amount - rai::Gxrb_ratio, rai::test_genesis_key.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.nodes[0]->work_generate_blocking (genesis.hash ())));
 	{

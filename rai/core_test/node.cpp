@@ -1016,7 +1016,7 @@ TEST (node, fork_no_vote_quorum)
 	ASSERT_EQ (node1.config.receive_minimum.number (), node1.weight (key1));
 	ASSERT_EQ (node1.config.receive_minimum.number (), node2.weight (key1));
 	ASSERT_EQ (node1.config.receive_minimum.number (), node3.weight (key1));
-	rai::send_block send1 (block->hash (), key1, (rai::genesis_amount / 4) - (node1.config.receive_minimum.number () * 2), rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (block->hash ()));
+	rai::state_block send1 (rai::test_genesis_key.pub, block->hash (), rai::test_genesis_key.pub, (rai::genesis_amount / 4) - (node1.config.receive_minimum.number () * 2), key1, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (block->hash ()));
 	ASSERT_EQ (rai::process_result::progress, node1.process (send1).code);
 	ASSERT_EQ (rai::process_result::progress, node2.process (send1).code);
 	ASSERT_EQ (rai::process_result::progress, node3.process (send1).code);
@@ -1048,9 +1048,6 @@ TEST (node, fork_pre_confirm)
 	auto & node1 (*system.nodes[1]);
 	auto & node2 (*system.nodes[2]);
 	rai::genesis genesis;
-	node0.ledger.state_block_parse_canary = genesis.hash ();
-	node1.ledger.state_block_parse_canary = genesis.hash ();
-	node2.ledger.state_block_parse_canary = genesis.hash ();
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	rai::keypair key1;
 	system.wallet (1)->insert_adhoc (key1.prv);
@@ -1559,7 +1556,6 @@ TEST (node, block_confirm)
 {
 	rai::system system (24000, 1);
 	rai::genesis genesis;
-	system.nodes[0]->ledger.state_block_parse_canary = genesis.hash ();
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	auto send1 (std::make_shared<rai::state_block> (rai::test_genesis_key.pub, genesis.hash (), rai::test_genesis_key.pub, rai::genesis_amount - rai::Gxrb_ratio, rai::test_genesis_key.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.nodes[0]->work_generate_blocking (genesis.hash ())));
 	{
@@ -1629,7 +1625,6 @@ TEST (node, confirm_quorum)
 	rai::system system (24000, 1);
 	rai::genesis genesis;
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
-	system.nodes[0]->ledger.state_block_parse_canary = genesis.hash ();
 	// Put greater than online_weight_minimum in pending so quorum can't be reached
 	auto send1 (std::make_shared<rai::state_block> (rai::test_genesis_key.pub, genesis.hash (), rai::test_genesis_key.pub, rai::Gxrb_ratio, rai::test_genesis_key.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.nodes[0]->work_generate_blocking (genesis.hash ())));
 	{
