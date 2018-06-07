@@ -1114,7 +1114,7 @@ TEST (node, fork_pre_confirm)
 		done |= node0.latest (rai::test_genesis_key.pub) == block3->hash () && node1.latest (rai::test_genesis_key.pub) == block3->hash () && node2.latest (rai::test_genesis_key.pub) == block3->hash ();
 		system.poll ();
 		++iterations;
-		ASSERT_LT (iterations, 600);
+		ASSERT_LT (iterations, 2000);
 	}
 }
 
