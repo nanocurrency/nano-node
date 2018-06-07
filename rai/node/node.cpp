@@ -1387,14 +1387,6 @@ rai::process_return rai::block_processor::process_receive_one (MDB_txn * transac
 			}
 			break;
 		}
-		case rai::process_result::not_receive_from_send:
-		{
-			if (node.config.logging.ledger_logging ())
-			{
-				BOOST_LOG (node.log) << boost::str (boost::format ("Not receive from send for: %1%") % hash.to_string ());
-			}
-			break;
-		}
 		case rai::process_result::fork:
 		{
 			if (!node.block_arrival.recent (hash))
@@ -1405,14 +1397,6 @@ rai::process_return rai::block_processor::process_receive_one (MDB_txn * transac
 			if (node.config.logging.ledger_logging ())
 			{
 				BOOST_LOG (node.log) << boost::str (boost::format ("Fork for: %1% root: %2%") % hash.to_string () % block_a->root ().to_string ());
-			}
-			break;
-		}
-		case rai::process_result::account_mismatch:
-		{
-			if (node.config.logging.ledger_logging ())
-			{
-				BOOST_LOG (node.log) << boost::str (boost::format ("Account mismatch for: %1%") % hash.to_string ());
 			}
 			break;
 		}
