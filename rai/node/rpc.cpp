@@ -2645,11 +2645,6 @@ void rai::rpc_handler::process ()
 					error_response (response, "Unreceivable");
 					break;
 				}
-				case rai::process_result::not_receive_from_send:
-				{
-					error_response (response, "Not receive from send");
-					break;
-				}
 				case rai::process_result::fork:
 				{
 					const bool force = request.get<bool> ("force", false);
@@ -2665,11 +2660,6 @@ void rai::rpc_handler::process ()
 					{
 						error_response (response, "Fork");
 					}
-					break;
-				}
-				case rai::process_result::account_mismatch:
-				{
-					error_response (response, "Account mismatch");
 					break;
 				}
 				default:
