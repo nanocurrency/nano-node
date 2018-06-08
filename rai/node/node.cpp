@@ -1316,7 +1316,6 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 			lock_a.lock ();
 			++count;
 		}
-		BOOST_LOG (node.log) << boost::str (boost::format ("Processed %1% blocks in an iteration %2% %3% %4%") % count % blocks.size () % forced.size () % (std::chrono::steady_clock::now () < cutoff));
 	}
 	lock_a.unlock ();
 }
