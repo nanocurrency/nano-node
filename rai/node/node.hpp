@@ -490,6 +490,7 @@ public:
 	~block_processor ();
 	void stop ();
 	void flush ();
+	bool full ();
 	void add (std::shared_ptr<rai::block>);
 	void force (std::shared_ptr<rai::block>);
 	bool should_log ();

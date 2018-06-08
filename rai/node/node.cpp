@@ -1206,6 +1206,12 @@ void rai::block_processor::flush ()
 	}
 }
 
+bool rai::block_processor::full ()
+{
+	std::unique_lock<std::mutex> lock (mutex);
+	return blocks.size () > 16384;
+}
+
 void rai::block_processor::add (std::shared_ptr<rai::block> block_a)
 {
 	if (!rai::work_validate (block_a->root (), block_a->block_work ()))
@@ -1273,7 +1279,8 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 		rai::transaction transaction (node.store.environment, nullptr, true);
 		auto cutoff (std::chrono::steady_clock::now () + rai::transaction_timeout);
 		lock_a.lock ();
-		while (have_blocks () && std::chrono::steady_clock::now () < cutoff)
+		auto count (0);
+		while (have_blocks () && count < 16384)
 		{
 			if (blocks.size () > 64 && should_log ())
 			{
@@ -1307,7 +1314,9 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 			auto process_result (process_receive_one (transaction, block));
 			(void)process_result;
 			lock_a.lock ();
+			++count;
 		}
+		BOOST_LOG (node.log) << boost::str (boost::format ("Processed %1% blocks in an iteration %2% %3% %4%") % count % blocks.size () % forced.size () % (std::chrono::steady_clock::now () < cutoff));
 	}
 	lock_a.unlock ();
 }

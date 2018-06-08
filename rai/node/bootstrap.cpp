@@ -829,7 +829,14 @@ void rai::bootstrap_attempt::run ()
 		{
 			if (!pulls.empty ())
 			{
-				request_pull (lock);
+				if (!node->block_processor.full ())
+				{
+					request_pull (lock);
+				}
+				else
+				{
+					condition.wait_for (lock, std::chrono::seconds (15));
+				}
 			}
 			else
 			{
