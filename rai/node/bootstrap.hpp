@@ -123,7 +123,7 @@ public:
 	void request ();
 	void receive_block ();
 	void received_type ();
-	void received_block (boost::system::error_code const &, size_t);
+	void received_block (boost::system::error_code const &, size_t, rai::block_type);
 	rai::block_hash first ();
 	std::shared_ptr<rai::bootstrap_client> connection;
 	rai::block_hash expected;
@@ -269,7 +269,7 @@ public:
 	void receive ();
 	void receive_block ();
 	void received_type ();
-	void received_block (boost::system::error_code const &, size_t);
+	void received_block (boost::system::error_code const &, size_t, rai::block_type);
 	std::array<uint8_t, 256> receive_buffer;
 	std::shared_ptr<rai::bootstrap_server> connection;
 };

@@ -438,45 +438,45 @@ void rai::bulk_pull_client::received_type ()
 		case rai::block_type::send:
 		{
 			connection->start_timeout ();
-			boost::asio::async_read (connection->socket, boost::asio::buffer (connection->receive_buffer.data () + 1, rai::send_block::size), [this_l](boost::system::error_code const & ec, size_t size_a) {
+			boost::asio::async_read (connection->socket, boost::asio::buffer (connection->receive_buffer.data (), rai::send_block::size), [this_l, type](boost::system::error_code const & ec, size_t size_a) {
 				this_l->connection->stop_timeout ();
-				this_l->received_block (ec, size_a);
+				this_l->received_block (ec, size_a, type);
 			});
 			break;
 		}
 		case rai::block_type::receive:
 		{
 			connection->start_timeout ();
-			boost::asio::async_read (connection->socket, boost::asio::buffer (connection->receive_buffer.data () + 1, rai::receive_block::size), [this_l](boost::system::error_code const & ec, size_t size_a) {
+			boost::asio::async_read (connection->socket, boost::asio::buffer (connection->receive_buffer.data (), rai::receive_block::size), [this_l, type](boost::system::error_code const & ec, size_t size_a) {
 				this_l->connection->stop_timeout ();
-				this_l->received_block (ec, size_a);
+				this_l->received_block (ec, size_a, type);
 			});
 			break;
 		}
 		case rai::block_type::open:
 		{
 			connection->start_timeout ();
-			boost::asio::async_read (connection->socket, boost::asio::buffer (connection->receive_buffer.data () + 1, rai::open_block::size), [this_l](boost::system::error_code const & ec, size_t size_a) {
+			boost::asio::async_read (connection->socket, boost::asio::buffer (connection->receive_buffer.data (), rai::open_block::size), [this_l, type](boost::system::error_code const & ec, size_t size_a) {
 				this_l->connection->stop_timeout ();
-				this_l->received_block (ec, size_a);
+				this_l->received_block (ec, size_a, type);
 			});
 			break;
 		}
 		case rai::block_type::change:
 		{
 			connection->start_timeout ();
-			boost::asio::async_read (connection->socket, boost::asio::buffer (connection->receive_buffer.data () + 1, rai::change_block::size), [this_l](boost::system::error_code const & ec, size_t size_a) {
+			boost::asio::async_read (connection->socket, boost::asio::buffer (connection->receive_buffer.data (), rai::change_block::size), [this_l, type](boost::system::error_code const & ec, size_t size_a) {
 				this_l->connection->stop_timeout ();
-				this_l->received_block (ec, size_a);
+				this_l->received_block (ec, size_a, type);
 			});
 			break;
 		}
 		case rai::block_type::state:
 		{
 			connection->start_timeout ();
-			boost::asio::async_read (connection->socket, boost::asio::buffer (connection->receive_buffer.data () + 1, rai::state_block::size), [this_l](boost::system::error_code const & ec, size_t size_a) {
+			boost::asio::async_read (connection->socket, boost::asio::buffer (connection->receive_buffer.data (), rai::state_block::size), [this_l, type](boost::system::error_code const & ec, size_t size_a) {
 				this_l->connection->stop_timeout ();
-				this_l->received_block (ec, size_a);
+				this_l->received_block (ec, size_a, type);
 			});
 			break;
 		}
@@ -500,12 +500,12 @@ void rai::bulk_pull_client::received_type ()
 	}
 }
 
-void rai::bulk_pull_client::received_block (boost::system::error_code const & ec, size_t size_a)
+void rai::bulk_pull_client::received_block (boost::system::error_code const & ec, size_t size_a, rai::block_type type_a)
 {
 	if (!ec)
 	{
-		rai::bufferstream stream (connection->receive_buffer.data (), 1 + size_a);
-		std::shared_ptr<rai::block> block (rai::deserialize_block (stream));
+		rai::bufferstream stream (connection->receive_buffer.data (), size_a);
+		std::shared_ptr<rai::block> block (rai::deserialize_block (stream, type_a));
 		if (block != nullptr && !rai::work_validate (*block))
 		{
 			auto hash (block->hash ());
@@ -1894,40 +1894,40 @@ void rai::bulk_push_server::received_type ()
 		case rai::block_type::send:
 		{
 			connection->node->stats.inc (rai::stat::type::bootstrap, rai::stat::detail::send, rai::stat::dir::in);
-			boost::asio::async_read (*connection->socket, boost::asio::buffer (receive_buffer.data () + 1, rai::send_block::size), [this_l](boost::system::error_code const & ec, size_t size_a) {
-				this_l->received_block (ec, size_a);
+			boost::asio::async_read (*connection->socket, boost::asio::buffer (receive_buffer.data (), rai::send_block::size), [this_l, type](boost::system::error_code const & ec, size_t size_a) {
+				this_l->received_block (ec, size_a, type);
 			});
 			break;
 		}
 		case rai::block_type::receive:
 		{
 			connection->node->stats.inc (rai::stat::type::bootstrap, rai::stat::detail::receive, rai::stat::dir::in);
-			boost::asio::async_read (*connection->socket, boost::asio::buffer (receive_buffer.data () + 1, rai::receive_block::size), [this_l](boost::system::error_code const & ec, size_t size_a) {
-				this_l->received_block (ec, size_a);
+			boost::asio::async_read (*connection->socket, boost::asio::buffer (receive_buffer.data (), rai::receive_block::size), [this_l, type](boost::system::error_code const & ec, size_t size_a) {
+				this_l->received_block (ec, size_a, type);
 			});
 			break;
 		}
 		case rai::block_type::open:
 		{
 			connection->node->stats.inc (rai::stat::type::bootstrap, rai::stat::detail::open, rai::stat::dir::in);
-			boost::asio::async_read (*connection->socket, boost::asio::buffer (receive_buffer.data () + 1, rai::open_block::size), [this_l](boost::system::error_code const & ec, size_t size_a) {
-				this_l->received_block (ec, size_a);
+			boost::asio::async_read (*connection->socket, boost::asio::buffer (receive_buffer.data (), rai::open_block::size), [this_l, type](boost::system::error_code const & ec, size_t size_a) {
+				this_l->received_block (ec, size_a, type);
 			});
 			break;
 		}
 		case rai::block_type::change:
 		{
 			connection->node->stats.inc (rai::stat::type::bootstrap, rai::stat::detail::change, rai::stat::dir::in);
-			boost::asio::async_read (*connection->socket, boost::asio::buffer (receive_buffer.data () + 1, rai::change_block::size), [this_l](boost::system::error_code const & ec, size_t size_a) {
-				this_l->received_block (ec, size_a);
+			boost::asio::async_read (*connection->socket, boost::asio::buffer (receive_buffer.data (), rai::change_block::size), [this_l, type](boost::system::error_code const & ec, size_t size_a) {
+				this_l->received_block (ec, size_a, type);
 			});
 			break;
 		}
 		case rai::block_type::state:
 		{
 			connection->node->stats.inc (rai::stat::type::bootstrap, rai::stat::detail::state_block, rai::stat::dir::in);
-			boost::asio::async_read (*connection->socket, boost::asio::buffer (receive_buffer.data () + 1, rai::state_block::size), [this_l](boost::system::error_code const & ec, size_t size_a) {
-				this_l->received_block (ec, size_a);
+			boost::asio::async_read (*connection->socket, boost::asio::buffer (receive_buffer.data (), rai::state_block::size), [this_l, type](boost::system::error_code const & ec, size_t size_a) {
+				this_l->received_block (ec, size_a, type);
 			});
 			break;
 		}
@@ -1947,12 +1947,12 @@ void rai::bulk_push_server::received_type ()
 	}
 }
 
-void rai::bulk_push_server::received_block (boost::system::error_code const & ec, size_t size_a)
+void rai::bulk_push_server::received_block (boost::system::error_code const & ec, size_t size_a, rai::block_type type_a)
 {
 	if (!ec)
 	{
-		rai::bufferstream stream (receive_buffer.data (), 1 + size_a);
-		auto block (rai::deserialize_block (stream));
+		rai::bufferstream stream (receive_buffer.data (), size_a);
+		auto block (rai::deserialize_block (stream, type_a));
 		if (block != nullptr && !rai::work_validate (*block))
 		{
 			connection->node->process_active (std::move (block));
