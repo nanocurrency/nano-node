@@ -23,16 +23,22 @@ enum class sync_result
 	error,
 	fork
 };
-class socket_timeout
+class socket : public std::enable_shared_from_this<rai::socket>
 {
 public:
-	socket_timeout (rai::bootstrap_client &);
-	void start (std::chrono::steady_clock::time_point);
+	socket (std::shared_ptr<rai::node>);
+	void async_connect (rai::tcp_endpoint const &, std::function<void(boost::system::error_code const &)>);
+	void async_read (std::shared_ptr<std::vector<uint8_t>>, size_t, std::function<void(boost::system::error_code const &, size_t)>);
+	void async_write (std::shared_ptr<std::vector<uint8_t>>, std::function<void(boost::system::error_code const &, size_t)>);
+	void start (std::chrono::steady_clock::time_point = std::chrono::steady_clock::now () + std::chrono::seconds (5));
 	void stop ();
+	void close ();
+	rai::tcp_endpoint remote_endpoint ();
 
 private:
 	std::atomic<unsigned> ticket;
-	rai::bootstrap_client & client;
+	boost::asio::ip::tcp::socket socket_m;
+	std::shared_ptr<rai::node> node;
 };
 
 /**
@@ -136,16 +142,13 @@ public:
 	~bootstrap_client ();
 	void run ();
 	std::shared_ptr<rai::bootstrap_client> shared ();
-	void start_timeout ();
-	void stop_timeout ();
 	void stop (bool force);
 	double block_rate () const;
 	double elapsed_seconds () const;
 	std::shared_ptr<rai::node> node;
 	std::shared_ptr<rai::bootstrap_attempt> attempt;
-	boost::asio::ip::tcp::socket socket;
-	rai::socket_timeout timeout;
-	std::array<uint8_t, 200> receive_buffer;
+	std::shared_ptr<rai::socket> socket;
+	std::shared_ptr<std::vector<uint8_t>> receive_buffer;
 	rai::tcp_endpoint endpoint;
 	std::chrono::steady_clock::time_point start_time;
 	std::atomic<uint64_t> block_count;
