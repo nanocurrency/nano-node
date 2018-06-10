@@ -34,10 +34,10 @@ public:
 	void stop ();
 	void close ();
 	rai::tcp_endpoint remote_endpoint ();
+	boost::asio::ip::tcp::socket socket_m;
 
 private:
 	std::atomic<unsigned> ticket;
-	boost::asio::ip::tcp::socket socket_m;
 	std::shared_ptr<rai::node> node;
 };
 
@@ -199,7 +199,7 @@ public:
 	void start ();
 	void stop ();
 	void accept_connection ();
-	void accept_action (boost::system::error_code const &, std::shared_ptr<boost::asio::ip::tcp::socket>);
+	void accept_action (boost::system::error_code const &, std::shared_ptr<rai::socket>);
 	std::mutex mutex;
 	std::unordered_map<rai::bootstrap_server *, std::weak_ptr<rai::bootstrap_server>> connections;
 	rai::tcp_endpoint endpoint ();
@@ -213,7 +213,7 @@ class message;
 class bootstrap_server : public std::enable_shared_from_this<rai::bootstrap_server>
 {
 public:
-	bootstrap_server (std::shared_ptr<boost::asio::ip::tcp::socket>, std::shared_ptr<rai::node>);
+	bootstrap_server (std::shared_ptr<rai::socket>, std::shared_ptr<rai::node>);
 	~bootstrap_server ();
 	void receive ();
 	void receive_header_action (boost::system::error_code const &, size_t);
@@ -224,8 +224,8 @@ public:
 	void add_request (std::unique_ptr<rai::message>);
 	void finish_request ();
 	void run_next ();
-	std::array<uint8_t, 128> receive_buffer;
-	std::shared_ptr<boost::asio::ip::tcp::socket> socket;
+	std::shared_ptr<std::vector<uint8_t>> receive_buffer;
+	std::shared_ptr<rai::socket> socket;
 	std::shared_ptr<rai::node> node;
 	std::mutex mutex;
 	std::queue<std::unique_ptr<rai::message>> requests;
@@ -243,7 +243,7 @@ public:
 	void no_block_sent (boost::system::error_code const &, size_t);
 	std::shared_ptr<rai::bootstrap_server> connection;
 	std::unique_ptr<rai::bulk_pull> request;
-	std::vector<uint8_t> send_buffer;
+	std::shared_ptr<std::vector<uint8_t>> send_buffer;
 	rai::block_hash current;
 };
 class bulk_pull_blocks;
@@ -259,7 +259,7 @@ public:
 	void no_block_sent (boost::system::error_code const &, size_t);
 	std::shared_ptr<rai::bootstrap_server> connection;
 	std::unique_ptr<rai::bulk_pull_blocks> request;
-	std::vector<uint8_t> send_buffer;
+	std::shared_ptr<std::vector<uint8_t>> send_buffer;
 	rai::store_iterator stream;
 	rai::transaction stream_transaction;
 	uint32_t sent_count;
@@ -273,7 +273,7 @@ public:
 	void receive_block ();
 	void received_type ();
 	void received_block (boost::system::error_code const &, size_t, rai::block_type);
-	std::array<uint8_t, 256> receive_buffer;
+	std::shared_ptr<std::vector<uint8_t>> receive_buffer;
 	std::shared_ptr<rai::bootstrap_server> connection;
 };
 class frontier_req;
@@ -291,7 +291,7 @@ public:
 	rai::account current;
 	rai::account_info info;
 	std::unique_ptr<rai::frontier_req> request;
-	std::vector<uint8_t> send_buffer;
+	std::shared_ptr<std::vector<uint8_t>> send_buffer;
 	size_t count;
 };
 }
