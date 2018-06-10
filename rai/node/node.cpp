@@ -326,7 +326,7 @@ public:
 			BOOST_LOG (node.log) << boost::str (boost::format ("Received keepalive message from %1%") % sender);
 		}
 		node.stats.inc (rai::stat::type::message, rai::stat::detail::keepalive, rai::stat::dir::in);
-		node.peers.contacted (sender, message_a.version_using);
+		node.peers.contacted (sender, message_a.header.version_using);
 		node.network.merge_peers (message_a.peers);
 	}
 	void publish (rai::publish const & message_a) override
@@ -336,8 +336,8 @@ public:
 			BOOST_LOG (node.log) << boost::str (boost::format ("Publish message from %1% for %2%") % sender % message_a.block->hash ().to_string ());
 		}
 		node.stats.inc (rai::stat::type::message, rai::stat::detail::publish, rai::stat::dir::in);
-		node.peers.contacted (sender, message_a.version_using);
-		node.peers.insert (sender, message_a.version_using);
+		node.peers.contacted (sender, message_a.header.version_using);
+		node.peers.insert (sender, message_a.header.version_using);
 		node.process_active (message_a.block);
 	}
 	void confirm_req (rai::confirm_req const & message_a) override
@@ -347,8 +347,8 @@ public:
 			BOOST_LOG (node.log) << boost::str (boost::format ("Confirm_req message from %1% for %2%") % sender % message_a.block->hash ().to_string ());
 		}
 		node.stats.inc (rai::stat::type::message, rai::stat::detail::confirm_req, rai::stat::dir::in);
-		node.peers.contacted (sender, message_a.version_using);
-		node.peers.insert (sender, message_a.version_using);
+		node.peers.contacted (sender, message_a.header.version_using);
+		node.peers.insert (sender, message_a.header.version_using);
 		node.process_active (message_a.block);
 		rai::transaction transaction_a (node.store.environment, nullptr, false);
 		auto successor (node.ledger.successor (transaction_a, message_a.block->root ()));
@@ -364,8 +364,8 @@ public:
 			BOOST_LOG (node.log) << boost::str (boost::format ("Received confirm_ack message from %1% for %2% sequence %3%") % sender % message_a.vote->block->hash ().to_string () % std::to_string (message_a.vote->sequence));
 		}
 		node.stats.inc (rai::stat::type::message, rai::stat::detail::confirm_ack, rai::stat::dir::in);
-		node.peers.contacted (sender, message_a.version_using);
-		node.peers.insert (sender, message_a.version_using);
+		node.peers.contacted (sender, message_a.header.version_using);
+		node.peers.insert (sender, message_a.header.version_using);
 		node.process_active (message_a.vote->block);
 		node.vote_processor.vote (message_a.vote, sender);
 	}

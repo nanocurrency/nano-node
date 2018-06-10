@@ -45,7 +45,7 @@ private:
  * The length of every message header, parsed by rai::message::read_header ()
  * The 2 here represents the size of a std::bitset<16>, which is 2 chars long normally
  */
-static const int bootstrap_message_header_size = sizeof (rai::message::magic_number) + sizeof (uint8_t) + sizeof (uint8_t) + sizeof (uint8_t) + sizeof (rai::message_type) + 2;
+static const int bootstrap_message_header_size = sizeof (rai::message_header::magic_number) + sizeof (uint8_t) + sizeof (uint8_t) + sizeof (uint8_t) + sizeof (rai::message_type) + 2;
 
 class bootstrap_client;
 class pull_info
@@ -217,9 +217,9 @@ public:
 	~bootstrap_server ();
 	void receive ();
 	void receive_header_action (boost::system::error_code const &, size_t);
-	void receive_bulk_pull_action (boost::system::error_code const &, size_t);
-	void receive_bulk_pull_blocks_action (boost::system::error_code const &, size_t);
-	void receive_frontier_req_action (boost::system::error_code const &, size_t);
+	void receive_bulk_pull_action (boost::system::error_code const &, size_t, rai::message_header const &);
+	void receive_bulk_pull_blocks_action (boost::system::error_code const &, size_t, rai::message_header const &);
+	void receive_frontier_req_action (boost::system::error_code const &, size_t, rai::message_header const &);
 	void receive_bulk_push_action ();
 	void add_request (std::unique_ptr<rai::message>);
 	void finish_request ();

@@ -23,9 +23,9 @@ node (node_a)
 
 void rai::socket::async_connect (rai::tcp_endpoint const & endpoint_a, std::function<void(boost::system::error_code const &)> callback_a)
 {
-	auto this_l (shared_from_this());
+	auto this_l (shared_from_this ());
 	start ();
-	socket_m.async_connect (endpoint_a, [this_l, callback_a] (boost::system::error_code const & ec) {
+	socket_m.async_connect (endpoint_a, [this_l, callback_a](boost::system::error_code const & ec) {
 		this_l->stop ();
 		callback_a (ec);
 	});
@@ -34,9 +34,9 @@ void rai::socket::async_connect (rai::tcp_endpoint const & endpoint_a, std::func
 void rai::socket::async_read (std::shared_ptr<std::vector<uint8_t>> buffer_a, size_t size_a, std::function<void(boost::system::error_code const &, size_t)> callback_a)
 {
 	assert (size_a <= buffer_a->size ());
-	auto this_l (shared_from_this());
+	auto this_l (shared_from_this ());
 	start ();
-	boost::asio::async_read (socket_m, boost::asio::buffer (buffer_a->data (), size_a), [this_l, callback_a] (boost::system::error_code const & ec, size_t size_a) {
+	boost::asio::async_read (socket_m, boost::asio::buffer (buffer_a->data (), size_a), [this_l, callback_a](boost::system::error_code const & ec, size_t size_a) {
 		this_l->stop ();
 		callback_a (ec, size_a);
 	});
@@ -44,9 +44,9 @@ void rai::socket::async_read (std::shared_ptr<std::vector<uint8_t>> buffer_a, si
 
 void rai::socket::async_write (std::shared_ptr<std::vector<uint8_t>> buffer_a, std::function<void(boost::system::error_code const &, size_t)> callback_a)
 {
-	auto this_l (shared_from_this());
+	auto this_l (shared_from_this ());
 	start ();
-	boost::asio::async_write (socket_m, boost::asio::buffer (buffer_a->data (), buffer_a->size ()), [this_l, callback_a] (boost::system::error_code const & ec, size_t size_a) {
+	boost::asio::async_write (socket_m, boost::asio::buffer (buffer_a->data (), buffer_a->size ()), [this_l, callback_a](boost::system::error_code const & ec, size_t size_a) {
 		this_l->stop ();
 		callback_a (ec, size_a);
 	});
@@ -89,8 +89,8 @@ rai::tcp_endpoint rai::socket::remote_endpoint ()
 rai::bootstrap_client::bootstrap_client (std::shared_ptr<rai::node> node_a, std::shared_ptr<rai::bootstrap_attempt> attempt_a, rai::tcp_endpoint const & endpoint_a) :
 node (node_a),
 attempt (attempt_a),
-socket (std::make_shared<rai::socket>(node_a)),
-receive_buffer (std::make_shared<std::vector<uint8_t>>()),
+socket (std::make_shared<rai::socket> (node_a)),
+receive_buffer (std::make_shared<std::vector<uint8_t>> ()),
 endpoint (endpoint_a),
 start_time (std::chrono::steady_clock::now ()),
 block_count (0),
@@ -649,7 +649,7 @@ void rai::bulk_push_client::send_finished ()
 		BOOST_LOG (connection->node->log) << "Bulk push finished";
 	}
 	auto this_l (shared_from_this ());
-	connection->socket->async_write(buffer, [this_l](boost::system::error_code const & ec, size_t size_a) {
+	connection->socket->async_write (buffer, [this_l](boost::system::error_code const & ec, size_t size_a) {
 		try
 		{
 			this_l->promise.set_value (false);
@@ -668,7 +668,7 @@ void rai::bulk_push_client::push_block (rai::block const & block_a)
 		rai::serialize_block (stream, block_a);
 	}
 	auto this_l (shared_from_this ());
-	connection->socket->async_write(buffer, [this_l, buffer](boost::system::error_code const & ec, size_t size_a) {
+	connection->socket->async_write (buffer, [this_l, buffer](boost::system::error_code const & ec, size_t size_a) {
 		if (!ec)
 		{
 			rai::transaction transaction (this_l->connection->node->store.environment, nullptr, false);
@@ -1323,21 +1323,18 @@ void rai::bootstrap_server::receive_header_action (boost::system::error_code con
 	{
 		assert (size_a == 8);
 		rai::bufferstream type_stream (receive_buffer.data (), size_a);
-		uint8_t version_max;
-		uint8_t version_using;
-		uint8_t version_min;
-		rai::message_type type;
-		std::bitset<16> extensions;
-		if (!rai::message::read_header (type_stream, version_max, version_using, version_min, type, extensions))
+		auto error (false);
+		rai::message_header header (error, type_stream);
+		if (!error)
 		{
-			switch (type)
+			switch (header.type)
 			{
 				case rai::message_type::bulk_pull:
 				{
 					node->stats.inc (rai::stat::type::bootstrap, rai::stat::detail::bulk_pull, rai::stat::dir::in);
 					auto this_l (shared_from_this ());
-					boost::asio::async_read (*socket, boost::asio::buffer (receive_buffer.data () + 8, sizeof (rai::uint256_union) + sizeof (rai::uint256_union)), [this_l](boost::system::error_code const & ec, size_t size_a) {
-						this_l->receive_bulk_pull_action (ec, size_a);
+					boost::asio::async_read (*socket, boost::asio::buffer (receive_buffer.data (), sizeof (rai::uint256_union) + sizeof (rai::uint256_union)), [this_l, header](boost::system::error_code const & ec, size_t size_a) {
+						this_l->receive_bulk_pull_action (ec, size_a, header);
 					});
 					break;
 				}
@@ -1345,8 +1342,8 @@ void rai::bootstrap_server::receive_header_action (boost::system::error_code con
 				{
 					node->stats.inc (rai::stat::type::bootstrap, rai::stat::detail::bulk_pull_blocks, rai::stat::dir::in);
 					auto this_l (shared_from_this ());
-					boost::asio::async_read (*socket, boost::asio::buffer (receive_buffer.data () + rai::bootstrap_message_header_size, sizeof (rai::uint256_union) + sizeof (rai::uint256_union) + sizeof (bulk_pull_blocks_mode) + sizeof (uint32_t)), [this_l](boost::system::error_code const & ec, size_t size_a) {
-						this_l->receive_bulk_pull_blocks_action (ec, size_a);
+					boost::asio::async_read (*socket, boost::asio::buffer (receive_buffer.data (), sizeof (rai::uint256_union) + sizeof (rai::uint256_union) + sizeof (bulk_pull_blocks_mode) + sizeof (uint32_t)), [this_l, header](boost::system::error_code const & ec, size_t size_a) {
+						this_l->receive_bulk_pull_blocks_action (ec, size_a, header);
 					});
 					break;
 				}
@@ -1354,22 +1351,22 @@ void rai::bootstrap_server::receive_header_action (boost::system::error_code con
 				{
 					node->stats.inc (rai::stat::type::bootstrap, rai::stat::detail::frontier_req, rai::stat::dir::in);
 					auto this_l (shared_from_this ());
-					boost::asio::async_read (*socket, boost::asio::buffer (receive_buffer.data () + 8, sizeof (rai::uint256_union) + sizeof (uint32_t) + sizeof (uint32_t)), [this_l](boost::system::error_code const & ec, size_t size_a) {
-						this_l->receive_frontier_req_action (ec, size_a);
+					boost::asio::async_read (*socket, boost::asio::buffer (receive_buffer.data (), sizeof (rai::uint256_union) + sizeof (uint32_t) + sizeof (uint32_t)), [this_l, header](boost::system::error_code const & ec, size_t size_a) {
+						this_l->receive_frontier_req_action (ec, size_a, header);
 					});
 					break;
 				}
 				case rai::message_type::bulk_push:
 				{
 					node->stats.inc (rai::stat::type::bootstrap, rai::stat::detail::bulk_push, rai::stat::dir::in);
-					add_request (std::unique_ptr<rai::message> (new rai::bulk_push));
+					add_request (std::unique_ptr<rai::message> (new rai::bulk_push (header)));
 					break;
 				}
 				default:
 				{
 					if (node->config.logging.network_logging ())
 					{
-						BOOST_LOG (node->log) << boost::str (boost::format ("Received invalid type from bootstrap connection %1%") % static_cast<uint8_t> (type));
+						BOOST_LOG (node->log) << boost::str (boost::format ("Received invalid type from bootstrap connection %1%") % static_cast<uint8_t> (header.type));
 					}
 					break;
 				}
@@ -1385,13 +1382,13 @@ void rai::bootstrap_server::receive_header_action (boost::system::error_code con
 	}
 }
 
-void rai::bootstrap_server::receive_bulk_pull_action (boost::system::error_code const & ec, size_t size_a)
+void rai::bootstrap_server::receive_bulk_pull_action (boost::system::error_code const & ec, size_t size_a, rai::message_header const & header_a)
 {
 	if (!ec)
 	{
-		std::unique_ptr<rai::bulk_pull> request (new rai::bulk_pull);
-		rai::bufferstream stream (receive_buffer.data (), 8 + sizeof (rai::uint256_union) + sizeof (rai::uint256_union));
-		auto error (request->deserialize (stream));
+		auto error (false);
+		rai::bufferstream stream (receive_buffer.data (), sizeof (rai::uint256_union) + sizeof (rai::uint256_union));
+		std::unique_ptr<rai::bulk_pull> request (new rai::bulk_pull (error, stream, header_a));
 		if (!error)
 		{
 			if (node->config.logging.bulk_pull_logging ())
@@ -1404,13 +1401,13 @@ void rai::bootstrap_server::receive_bulk_pull_action (boost::system::error_code 
 	}
 }
 
-void rai::bootstrap_server::receive_bulk_pull_blocks_action (boost::system::error_code const & ec, size_t size_a)
+void rai::bootstrap_server::receive_bulk_pull_blocks_action (boost::system::error_code const & ec, size_t size_a, rai::message_header const & header_a)
 {
 	if (!ec)
 	{
-		std::unique_ptr<rai::bulk_pull_blocks> request (new rai::bulk_pull_blocks);
-		rai::bufferstream stream (receive_buffer.data (), 8 + sizeof (rai::uint256_union) + sizeof (rai::uint256_union) + sizeof (bulk_pull_blocks_mode) + sizeof (uint32_t));
-		auto error (request->deserialize (stream));
+		auto error (false);
+		rai::bufferstream stream (receive_buffer.data (), sizeof (rai::uint256_union) + sizeof (rai::uint256_union) + sizeof (bulk_pull_blocks_mode) + sizeof (uint32_t));
+		std::unique_ptr<rai::bulk_pull_blocks> request (new rai::bulk_pull_blocks (error, stream, header_a));
 		if (!error)
 		{
 			if (node->config.logging.bulk_pull_logging ())
@@ -1423,13 +1420,13 @@ void rai::bootstrap_server::receive_bulk_pull_blocks_action (boost::system::erro
 	}
 }
 
-void rai::bootstrap_server::receive_frontier_req_action (boost::system::error_code const & ec, size_t size_a)
+void rai::bootstrap_server::receive_frontier_req_action (boost::system::error_code const & ec, size_t size_a, rai::message_header const & header_a)
 {
 	if (!ec)
 	{
-		std::unique_ptr<rai::frontier_req> request (new rai::frontier_req);
-		rai::bufferstream stream (receive_buffer.data (), 8 + sizeof (rai::uint256_union) + sizeof (uint32_t) + sizeof (uint32_t));
-		auto error (request->deserialize (stream));
+		auto error (false);
+		rai::bufferstream stream (receive_buffer.data (), sizeof (rai::uint256_union) + sizeof (uint32_t) + sizeof (uint32_t));
+		std::unique_ptr<rai::frontier_req> request (new rai::frontier_req (error, stream, header_a));
 		if (!error)
 		{
 			if (node->config.logging.bulk_pull_logging ())
