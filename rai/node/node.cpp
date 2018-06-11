@@ -3112,7 +3112,7 @@ confirmed (false)
 {
 }
 
-void rai::election::compute_rep_votes (MDB_txn * transaction_a)
+void rai::election::compute_rep_votes (MDB_txn * transaction_a, std::shared_ptr<rai::block> block_a)
 {
 	if (node.config.enable_voting)
 	{
