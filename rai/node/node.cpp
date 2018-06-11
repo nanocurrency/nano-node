@@ -3462,6 +3462,7 @@ void rai::add_node_options (boost::program_options::options_description & descri
 		("account_key", "Get the public key for <account>")
 		("vacuum", "Compact database. If data_path is missing, the database in data directory is compacted.")
 		("snapshot", "Compact database and create snapshot, functions similar to vacuum but does not replace the existing database")
+		("unchecked_clear", "Clear unchecked blocks")
 		("data_path", boost::program_options::value<std::string> (), "Use the supplied path as the data directory")
 		("diagnostics", "Run internal diagnostics")
 		("key_create", "Generates a adhoc random keypair and prints it to stdout")
@@ -3579,6 +3580,11 @@ bool rai::handle_node_options (boost::program_options::variables_map & vm)
 			bool success = false;
 			{
 				inactive_node node (data_path);
+				if (vm.count ("unchecked_clear"))
+				{
+					rai::transaction transaction (node.node->store.environment, nullptr, true);
+					node.node->store.unchecked_clear (transaction);
+				}
 				success = node.node->copy_with_compaction (vacuum_path);
 			}
 
@@ -3616,6 +3622,11 @@ bool rai::handle_node_options (boost::program_options::variables_map & vm)
 			bool success = false;
 			{
 				inactive_node node (data_path);
+				if (vm.count ("unchecked_clear"))
+				{
+					rai::transaction transaction (node.node->store.environment, nullptr, true);
+					node.node->store.unchecked_clear (transaction);
+				}
 				success = node.node->copy_with_compaction (snapshot_path);
 			}
 			if (success)
@@ -3631,6 +3642,14 @@ bool rai::handle_node_options (boost::program_options::variables_map & vm)
 		{
 			std::cerr << "Snapshot Failed" << std::endl;
 		}
+	}
+	else if (vm.count ("unchecked_clear"))
+	{
+		boost::filesystem::path data_path = vm.count ("data_path") ? boost::filesystem::path (vm["data_path"].as<std::string> ()) : rai::working_path ();
+		inactive_node node (data_path);
+		rai::transaction transaction (node.node->store.environment, nullptr, true);
+		node.node->store.unchecked_clear (transaction);
+		std::cerr << "Unchecked blocks deleted" << std::endl;
 	}
 	else if (vm.count ("diagnostics"))
 	{
