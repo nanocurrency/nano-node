@@ -534,21 +534,23 @@ public:
 	{
 		auto balance (block_a.hashables.balance.number ());
 		auto previous_balance (ledger.balance (transaction, block_a.hashables.previous));
-		account = block_a.hashables.account;
 		if (balance < previous_balance)
 		{
 			type = "Send";
 			amount = previous_balance - balance;
+			account = block_a.hashables.link;
 		}
 		else
 		{
 			if (block_a.hashables.link.is_zero ())
 			{
 				type = "Change";
+				account = block_a.hashables.representative;
 			}
 			else
 			{
 				type = "Receive";
+				account = ledger.account (transaction, block_a.hashables.link);
 			}
 			amount = balance - previous_balance;
 		}
