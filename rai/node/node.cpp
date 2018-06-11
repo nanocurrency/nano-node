@@ -3116,8 +3116,8 @@ void rai::election::compute_rep_votes (MDB_txn * transaction_a)
 {
 	if (node.config.enable_voting)
 	{
-		node.wallets.foreach_representative (transaction_a, [this, transaction_a](rai::public_key const & pub_a, rai::raw_key const & prv_a) {
-			auto vote (this->node.store.vote_generate (transaction_a, pub_a, prv_a, status.winner));
+		node.wallets.foreach_representative (transaction_a, [this, transaction_a, block_a](rai::public_key const & pub_a, rai::raw_key const & prv_a) {
+			auto vote (this->node.store.vote_generate (transaction_a, pub_a, prv_a, block_a));
 			this->node.vote_processor.vote (vote, this->node.network.endpoint ());
 		});
 	}
@@ -3126,8 +3126,15 @@ void rai::election::compute_rep_votes (MDB_txn * transaction_a)
 void rai::election::broadcast_winner ()
 {
 	rai::transaction transaction (node.store.environment, nullptr, false);
-	compute_rep_votes (transaction);
-	node.network.republish_block (transaction, status.winner);
+	auto tally_l (node.ledger.tally (transaction, votes));
+	auto winner_l (tally_l.begin ());
+	auto block_l (status.winner);
+	if (winner_l != tally_l.end ())
+	{
+		block_l = winner_l->second;
+	}
+	compute_rep_votes (transaction, block_l);
+	node.network.republish_block (transaction, block_l);
 }
 
 void rai::election::confirm_once (MDB_txn * transaction_a)
