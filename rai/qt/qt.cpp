@@ -242,6 +242,9 @@ wallet (wallet_a)
 			});
 		}
 	});
+	QObject::connect (account_key_line, &QLineEdit::textChanged, [this](const QString & value) {
+		account_key_line->setText (value.trimmed ());
+	});
 	refresh_wallet_balance ();
 }
 
@@ -444,6 +447,12 @@ wallet (wallet_a)
 			});
 		}
 	});
+	QObject::connect (seed, &QLineEdit::textChanged, [this](const QString & value) {
+		seed->setText (value.trimmed ());
+	});
+	QObject::connect (filename, &QLineEdit::textChanged, [this](const QString & value) {
+		filename->setText (value.trimmed ());
+	});
 }
 
 rai_qt::history::history (rai::ledger & ledger_a, rai::account const & account_a, rai_qt::wallet & wallet_a) :
@@ -642,6 +651,9 @@ wallet (wallet_a)
 			}
 		}
 	});
+	QObject::connect (hash, &QLineEdit::textChanged, [this](const QString & value) {
+		hash->setText (value.trimmed ());
+	});
 	rebroadcast->setToolTip ("Rebroadcast block into the network");
 }
 
@@ -717,6 +729,9 @@ wallet (wallet_a)
 			show_line_error (*account_line);
 			balance_label->clear ();
 		}
+	});
+	QObject::connect (account_line, &QLineEdit::textChanged, [this](const QString & value) {
+		account_line->setText (value.trimmed ());
 	});
 }
 
@@ -998,6 +1013,12 @@ active_status (*this)
 	client_window->setStyleSheet ("\
 		QLineEdit { padding: 3px; } \
 	");
+	QObject::connect (send_account, &QLineEdit::textChanged, [this](const QString & value) {
+		send_account->setText (value.trimmed ());
+	});
+	QObject::connect (send_count, &QLineEdit::textChanged, [this](const QString & value) {
+		send_count->setText (value.trimmed ());
+	});
 	refresh ();
 }
 
@@ -1562,6 +1583,9 @@ wallet (wallet_a)
 			}
 		}
 	});
+	QObject::connect (new_representative, &QLineEdit::textChanged, [this](const QString & value) {
+		new_representative->setText (value.trimmed ());
+	});
 
 	// initial state for lock toggle button
 	rai::transaction transaction (this->wallet.wallet_m->store.environment, nullptr, true);
@@ -1993,6 +2017,22 @@ wallet (wallet_a)
 	QObject::connect (back, &QPushButton::released, [this]() {
 		this->wallet.pop_main_stack ();
 	});
+	QObject::connect (account, &QLineEdit::textChanged, [this](const QString & value) {
+		account->setText (value.trimmed ());
+	});
+	QObject::connect (destination, &QLineEdit::textChanged, [this](const QString & value) {
+		destination->setText (value.trimmed ());
+	});
+	QObject::connect (amount, &QLineEdit::textChanged, [this](const QString & value) {
+		amount->setText (value.trimmed ());
+	});
+	QObject::connect (source, &QLineEdit::textChanged, [this](const QString & value) {
+		source->setText (value.trimmed ());
+	});
+	QObject::connect (representative, &QLineEdit::textChanged, [this](const QString & value) {
+		representative->setText (value.trimmed ());
+	});
+
 	send->click ();
 }
 
