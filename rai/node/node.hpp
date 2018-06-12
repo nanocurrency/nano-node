@@ -63,7 +63,7 @@ public:
 	// Tell the network our view of the winner
 	void broadcast_winner ();
 	// Change our winner to agree with the network
-	void compute_rep_votes (MDB_txn *);
+	void compute_rep_votes (MDB_txn *, std::shared_ptr<rai::block>);
 	// Confirm this block if quorum is met
 	void confirm_if_quorum (MDB_txn *);
 	rai::votes votes;
