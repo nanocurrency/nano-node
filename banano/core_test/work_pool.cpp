@@ -23,13 +23,18 @@ TEST (work, validate)
 TEST (work, cancel)
 {
 	rai::work_pool pool (std::numeric_limits<unsigned>::max (), nullptr);
-	rai::uint256_union key (1);
-	boost::optional<uint64_t> work (0);
-	pool.generate (key, [&work](boost::optional<uint64_t> work_a) {
-		work = work_a;
-	});
-	pool.cancel (key);
-	ASSERT_FALSE (work);
+	auto iterations (0);
+	auto done (false);
+	while (!done)
+	{
+		rai::uint256_union key (1);
+		pool.generate (key, [&done](boost::optional<uint64_t> work_a) {
+			done = !work_a;
+		});
+		pool.cancel (key);
+		++iterations;
+		ASSERT_LT (iterations, 200);
+	}
 }
 
 TEST (work, cancel_many)

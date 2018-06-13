@@ -145,13 +145,12 @@ public:
 	void receive_async (std::shared_ptr<rai::block>, rai::account const &, rai::uint128_t const &, std::function<void(std::shared_ptr<rai::block>)> const &, bool = true);
 	rai::block_hash send_sync (rai::account const &, rai::account const &, rai::uint128_t const &);
 	void send_async (rai::account const &, rai::account const &, rai::uint128_t const &, std::function<void(std::shared_ptr<rai::block>)> const &, bool = true, boost::optional<std::string> = {});
-	void work_generate (rai::account const &, rai::block_hash const &);
+	void work_apply (rai::account const &, std::function<void(uint64_t)>);
+	void work_cache_blocking (rai::account const &, rai::block_hash const &);
 	void work_update (MDB_txn *, rai::account const &, rai::block_hash const &, uint64_t);
-	uint64_t work_fetch (MDB_txn *, rai::account const &, rai::block_hash const &);
-	void work_ensure (MDB_txn *, rai::account const &);
+	void work_ensure (rai::account const &, rai::block_hash const &);
 	bool search_pending ();
 	void init_free_accounts (MDB_txn *);
-	bool should_generate_state_block (MDB_txn *, rai::block_hash const &);
 	/** Changes the wallet seed and returns the first account */
 	rai::public_key change_seed (MDB_txn * transaction_a, rai::raw_key const & prv_a);
 	std::unordered_set<rai::account> free_accounts;

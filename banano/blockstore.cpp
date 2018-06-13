@@ -542,7 +542,7 @@ rai::uint128_t rai::block_store::block_balance (MDB_txn * transaction_a, rai::bl
 {
 	balance_visitor visitor (transaction_a, *this);
 	visitor.compute (hash_a);
-	return visitor.result;
+	return visitor.balance;
 }
 
 void rai::block_store::representation_add (MDB_txn * transaction_a, rai::block_hash const & source_a, rai::uint128_t const & amount_a)
@@ -893,10 +893,10 @@ void rai::block_store::frontier_del (MDB_txn * transaction_a, rai::block_hash co
 	assert (status == 0);
 }
 
-size_t rai::block_store::frontier_count (MDB_txn * transaction_a)
+size_t rai::block_store::account_count (MDB_txn * transaction_a)
 {
 	MDB_stat frontier_stats;
-	auto status (mdb_stat (transaction_a, frontiers, &frontier_stats));
+	auto status (mdb_stat (transaction_a, accounts, &frontier_stats));
 	assert (status == 0);
 	auto result (frontier_stats.ms_entries);
 	return result;

@@ -23,23 +23,29 @@ enum class sync_result
 	error,
 	fork
 };
-class socket_timeout
+class socket : public std::enable_shared_from_this<rai::socket>
 {
 public:
-	socket_timeout (rai::bootstrap_client &);
-	void start (std::chrono::steady_clock::time_point);
+	socket (std::shared_ptr<rai::node>);
+	void async_connect (rai::tcp_endpoint const &, std::function<void(boost::system::error_code const &)>);
+	void async_read (std::shared_ptr<std::vector<uint8_t>>, size_t, std::function<void(boost::system::error_code const &, size_t)>);
+	void async_write (std::shared_ptr<std::vector<uint8_t>>, std::function<void(boost::system::error_code const &, size_t)>);
+	void start (std::chrono::steady_clock::time_point = std::chrono::steady_clock::now () + std::chrono::seconds (5));
 	void stop ();
+	void close ();
+	rai::tcp_endpoint remote_endpoint ();
+	boost::asio::ip::tcp::socket socket_m;
 
 private:
 	std::atomic<unsigned> ticket;
-	rai::bootstrap_client & client;
+	std::shared_ptr<rai::node> node;
 };
 
 /**
  * The length of every message header, parsed by rai::message::read_header ()
  * The 2 here represents the size of a std::bitset<16>, which is 2 chars long normally
  */
-static const int bootstrap_message_header_size = sizeof (rai::message::magic_number) + sizeof (uint8_t) + sizeof (uint8_t) + sizeof (uint8_t) + sizeof (rai::message_type) + 2;
+static const int bootstrap_message_header_size = sizeof (rai::message_header::magic_number) + sizeof (uint8_t) + sizeof (uint8_t) + sizeof (uint8_t) + sizeof (rai::message_type) + 2;
 
 class bootstrap_client;
 class pull_info
@@ -72,7 +78,6 @@ public:
 	void requeue_pull (rai::pull_info const &);
 	void add_pull (rai::pull_info const &);
 	bool still_pulling ();
-	void process_fork (MDB_txn *, std::shared_ptr<rai::block>);
 	unsigned target_connections (size_t pulls_remaining);
 	bool should_log ();
 	void add_bulk_push_target (rai::block_hash const &, rai::block_hash const &);
@@ -124,7 +129,7 @@ public:
 	void request ();
 	void receive_block ();
 	void received_type ();
-	void received_block (boost::system::error_code const &, size_t);
+	void received_block (boost::system::error_code const &, size_t, rai::block_type);
 	rai::block_hash first ();
 	std::shared_ptr<rai::bootstrap_client> connection;
 	rai::block_hash expected;
@@ -137,16 +142,13 @@ public:
 	~bootstrap_client ();
 	void run ();
 	std::shared_ptr<rai::bootstrap_client> shared ();
-	void start_timeout ();
-	void stop_timeout ();
 	void stop (bool force);
 	double block_rate () const;
 	double elapsed_seconds () const;
 	std::shared_ptr<rai::node> node;
 	std::shared_ptr<rai::bootstrap_attempt> attempt;
-	boost::asio::ip::tcp::socket socket;
-	rai::socket_timeout timeout;
-	std::array<uint8_t, 200> receive_buffer;
+	std::shared_ptr<rai::socket> socket;
+	std::shared_ptr<std::vector<uint8_t>> receive_buffer;
 	rai::tcp_endpoint endpoint;
 	std::chrono::steady_clock::time_point start_time;
 	std::atomic<uint64_t> block_count;
@@ -178,7 +180,6 @@ public:
 	void add_observer (std::function<void(bool)> const &);
 	bool in_progress ();
 	std::shared_ptr<rai::bootstrap_attempt> current_attempt ();
-	void process_fork (MDB_txn *, std::shared_ptr<rai::block>);
 	void stop ();
 
 private:
@@ -198,7 +199,7 @@ public:
 	void start ();
 	void stop ();
 	void accept_connection ();
-	void accept_action (boost::system::error_code const &, std::shared_ptr<boost::asio::ip::tcp::socket>);
+	void accept_action (boost::system::error_code const &, std::shared_ptr<rai::socket>);
 	std::mutex mutex;
 	std::unordered_map<rai::bootstrap_server *, std::weak_ptr<rai::bootstrap_server>> connections;
 	rai::tcp_endpoint endpoint ();
@@ -212,19 +213,19 @@ class message;
 class bootstrap_server : public std::enable_shared_from_this<rai::bootstrap_server>
 {
 public:
-	bootstrap_server (std::shared_ptr<boost::asio::ip::tcp::socket>, std::shared_ptr<rai::node>);
+	bootstrap_server (std::shared_ptr<rai::socket>, std::shared_ptr<rai::node>);
 	~bootstrap_server ();
 	void receive ();
 	void receive_header_action (boost::system::error_code const &, size_t);
-	void receive_bulk_pull_action (boost::system::error_code const &, size_t);
-	void receive_bulk_pull_blocks_action (boost::system::error_code const &, size_t);
-	void receive_frontier_req_action (boost::system::error_code const &, size_t);
+	void receive_bulk_pull_action (boost::system::error_code const &, size_t, rai::message_header const &);
+	void receive_bulk_pull_blocks_action (boost::system::error_code const &, size_t, rai::message_header const &);
+	void receive_frontier_req_action (boost::system::error_code const &, size_t, rai::message_header const &);
 	void receive_bulk_push_action ();
 	void add_request (std::unique_ptr<rai::message>);
 	void finish_request ();
 	void run_next ();
-	std::array<uint8_t, 128> receive_buffer;
-	std::shared_ptr<boost::asio::ip::tcp::socket> socket;
+	std::shared_ptr<std::vector<uint8_t>> receive_buffer;
+	std::shared_ptr<rai::socket> socket;
 	std::shared_ptr<rai::node> node;
 	std::mutex mutex;
 	std::queue<std::unique_ptr<rai::message>> requests;
@@ -242,7 +243,7 @@ public:
 	void no_block_sent (boost::system::error_code const &, size_t);
 	std::shared_ptr<rai::bootstrap_server> connection;
 	std::unique_ptr<rai::bulk_pull> request;
-	std::vector<uint8_t> send_buffer;
+	std::shared_ptr<std::vector<uint8_t>> send_buffer;
 	rai::block_hash current;
 };
 class bulk_pull_blocks;
@@ -258,7 +259,7 @@ public:
 	void no_block_sent (boost::system::error_code const &, size_t);
 	std::shared_ptr<rai::bootstrap_server> connection;
 	std::unique_ptr<rai::bulk_pull_blocks> request;
-	std::vector<uint8_t> send_buffer;
+	std::shared_ptr<std::vector<uint8_t>> send_buffer;
 	rai::store_iterator stream;
 	rai::transaction stream_transaction;
 	uint32_t sent_count;
@@ -271,8 +272,8 @@ public:
 	void receive ();
 	void receive_block ();
 	void received_type ();
-	void received_block (boost::system::error_code const &, size_t);
-	std::array<uint8_t, 256> receive_buffer;
+	void received_block (boost::system::error_code const &, size_t, rai::block_type);
+	std::shared_ptr<std::vector<uint8_t>> receive_buffer;
 	std::shared_ptr<rai::bootstrap_server> connection;
 };
 class frontier_req;
@@ -290,7 +291,7 @@ public:
 	rai::account current;
 	rai::account_info info;
 	std::unique_ptr<rai::frontier_req> request;
-	std::vector<uint8_t> send_buffer;
+	std::shared_ptr<std::vector<uint8_t>> send_buffer;
 	size_t count;
 };
 }

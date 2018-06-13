@@ -34,39 +34,6 @@ TEST (system, generate_mass_activity_long)
 	runner.join ();
 }
 
-TEST (system, generate_mass_activity_state_block_enable)
-{
-	rai::system system (24000, 1);
-	rai::thread_runner runner (system.service, system.nodes[0]->config.io_threads);
-	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
-	system.nodes[0]->alarm.add (std::chrono::steady_clock::now () + std::chrono::minutes (1), [&system]() {
-		std::cerr << boost::str (boost::format ("Enabling state block parsing\n"));
-		rai::transaction transaction (system.nodes[0]->store.environment, nullptr, true);
-		ASSERT_FALSE (system.nodes[0]->ledger.state_block_parsing_enabled (transaction));
-		rai::genesis genesis;
-		system.nodes[0]->ledger.state_block_parse_canary = genesis.hash ();
-		ASSERT_TRUE (system.nodes[0]->ledger.state_block_parsing_enabled (transaction));
-	});
-	system.nodes[0]->alarm.add (std::chrono::steady_clock::now () + std::chrono::minutes (2), [&system]() {
-		std::cerr << boost::str (boost::format ("Enabling state block generation\n"));
-		rai::transaction transaction (system.nodes[0]->store.environment, nullptr, true);
-		ASSERT_FALSE (system.nodes[0]->ledger.state_block_generation_enabled (transaction));
-		rai::genesis genesis;
-		system.nodes[0]->ledger.state_block_generate_canary = genesis.hash ();
-		ASSERT_TRUE (system.nodes[0]->ledger.state_block_generation_enabled (transaction));
-	});
-	size_t count (1000000000);
-	system.generate_mass_activity (count, *system.nodes[0]);
-	size_t accounts (0);
-	rai::transaction transaction (system.nodes[0]->store.environment, nullptr, false);
-	for (auto i (system.nodes[0]->store.latest_begin (transaction)), n (system.nodes[0]->store.latest_end ()); i != n; ++i)
-	{
-		++accounts;
-	}
-	system.stop ();
-	runner.join ();
-}
-
 TEST (system, receive_while_synchronizing)
 {
 	std::vector<std::thread> threads;
@@ -214,7 +181,7 @@ TEST (node, fork_storm)
 			ASSERT_EQ (rai::process_result::progress, send_result.code);
 			rai::keypair rep;
 			auto open (std::make_shared<rai::open_block> (previous, rep.pub, key.pub, key.prv, key.pub, 0));
-			system.nodes[i]->generate_work (*open);
+			system.nodes[i]->work_generate_blocking (*open);
 			auto open_result (system.nodes[i]->process (*open));
 			ASSERT_EQ (rai::process_result::progress, open_result.code);
 			rai::transaction transaction (system.nodes[i]->store.environment, nullptr, false);
