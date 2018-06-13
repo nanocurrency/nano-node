@@ -23,7 +23,7 @@ We've applied the philosophy of "do one thing and do it well", giving you perfor
 * Total Supply: 3.4 Billion
 * Born in Feb. 2018, Mainnet launch April 1st, 2018
 
-For more information, see [Banano.co.in](http://banano.co.in/) or read the [Yellowpaper](http://banano.co.in/en/whitepaper).
+For more information, see [Banano.co.in](http://banano.co.in/).
 
 ### Resources
 - [Banano website](http://banano.co.in)
@@ -47,4 +47,4 @@ Please visit us on the [Discord](https://discord.gg/SBPaSBS) or our [Reddit](htt
 ### Contact us
 
 We want to hear about any trouble, success, delight, or pain you experience when
-eating Banano. Let us know by [filing an issue](http://github.com/bananocoin/banano/issues), or joining us on [Discord](https://discord.gg/SBPaSBS).
+eating Banano. Let us know by [filing an issue](http://github.com/bananocoin/banano/issues), or joining us on [Discord](http://chat.banano.co.in).
