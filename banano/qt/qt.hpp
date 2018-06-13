@@ -260,14 +260,14 @@ public:
 class stats_viewer
 {
 public:
-	stats_viewer (rai_qt::wallet &);
+	stats_viewer (banano_qt::wallet &);
 	QWidget * window;
 	QVBoxLayout * layout;
 	QPushButton * refresh;
 	QStandardItemModel * model;
 	QTableView * view;
 	QPushButton * back;
-	rai_qt::wallet & wallet;
+	banano_qt::wallet & wallet;
 	void refresh_stats ();
 };
 enum class status_types
