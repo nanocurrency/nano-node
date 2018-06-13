@@ -1268,7 +1268,7 @@ void rai::rpc_handler::block_create ()
 				{
 					if (work == 0)
 					{
-						work = node.generate_work (previous.is_zero () ? pub : previous);
+						work = node.work_generate_blocking (previous.is_zero () ? pub : previous);
 					}
 					rai::state_block state (pub, previous, representative, balance, link, prv, pub, work);
 					boost::property_tree::ptree response_l;
@@ -1289,7 +1289,7 @@ void rai::rpc_handler::block_create ()
 				{
 					if (work == 0)
 					{
-						work = node.generate_work (pub);
+						work = node.work_generate_blocking (pub);
 					}
 					rai::open_block open (source, representative, pub, prv, pub, work);
 					boost::property_tree::ptree response_l;
@@ -1310,7 +1310,7 @@ void rai::rpc_handler::block_create ()
 				{
 					if (work == 0)
 					{
-						work = node.generate_work (previous);
+						work = node.work_generate_blocking (previous);
 					}
 					rai::receive_block receive (previous, source, prv, pub, work);
 					boost::property_tree::ptree response_l;
@@ -1331,7 +1331,7 @@ void rai::rpc_handler::block_create ()
 				{
 					if (work == 0)
 					{
-						work = node.generate_work (previous);
+						work = node.work_generate_blocking (previous);
 					}
 					rai::change_block change (previous, representative, prv, pub, work);
 					boost::property_tree::ptree response_l;
@@ -1354,7 +1354,7 @@ void rai::rpc_handler::block_create ()
 					{
 						if (work == 0)
 						{
-							work = node.generate_work (previous);
+							work = node.work_generate_blocking (previous);
 						}
 						rai::send_block send (previous, destination, balance.number () - amount.number (), prv, pub, work);
 						boost::property_tree::ptree response_l;
@@ -1535,7 +1535,6 @@ void rai::rpc_handler::confirmation_history ()
 	boost::property_tree::ptree response_l;
 	boost::property_tree::ptree elections;
 	{
-		rai::transaction transaction (node.store.environment, nullptr, false);
 		std::lock_guard<std::mutex> lock (node.active.mutex);
 		for (auto i (node.active.confirmed.begin ()), n (node.active.confirmed.end ()); i != n; ++i)
 		{
@@ -1677,10 +1676,10 @@ void rai::rpc_handler::frontiers ()
 	}
 }
 
-void rai::rpc_handler::frontier_count ()
+void rai::rpc_handler::account_count ()
 {
 	rai::transaction transaction (node.store.environment, nullptr, false);
-	auto size (node.store.frontier_count (transaction));
+	auto size (node.store.account_count (transaction));
 	boost::property_tree::ptree response_l;
 	response_l.put ("count", std::to_string (size));
 	response (response_l);
@@ -2594,7 +2593,7 @@ void rai::rpc_handler::process ()
 	boost::property_tree::ptree block_l;
 	std::stringstream block_stream (block_text);
 	boost::property_tree::read_json (block_stream, block_l);
-	auto block (rai::deserialize_block_json (block_l));
+	std::shared_ptr<rai::block> block (rai::deserialize_block_json (block_l));
 	if (block != nullptr)
 	{
 		if (!rai::work_validate (*block))
@@ -2604,7 +2603,7 @@ void rai::rpc_handler::process ()
 			rai::process_return result;
 			{
 				rai::transaction transaction (node.store.environment, nullptr, true);
-				result = node.block_processor.process_receive_one (transaction, std::move (block));
+				result = node.block_processor.process_receive_one (transaction, block);
 			}
 			switch (result.code)
 			{
@@ -2623,11 +2622,6 @@ void rai::rpc_handler::process ()
 				case rai::process_result::gap_source:
 				{
 					error_response (response, "Gap source block");
-					break;
-				}
-				case rai::process_result::state_block_disabled:
-				{
-					error_response (response, "State blocks are disabled");
 					break;
 				}
 				case rai::process_result::old:
@@ -2651,19 +2645,21 @@ void rai::rpc_handler::process ()
 					error_response (response, "Unreceivable");
 					break;
 				}
-				case rai::process_result::not_receive_from_send:
-				{
-					error_response (response, "Not receive from send");
-					break;
-				}
 				case rai::process_result::fork:
 				{
-					error_response (response, "Fork");
-					break;
-				}
-				case rai::process_result::account_mismatch:
-				{
-					error_response (response, "Account mismatch");
+					const bool force = request.get<bool> ("force", false);
+					if (force && rpc.config.enable_control)
+					{
+						node.active.erase (*block);
+						node.block_processor.force (block);
+						boost::property_tree::ptree response_l;
+						response_l.put ("hash", hash.to_string ());
+						response (response_l);
+					}
+					else
+					{
+						error_response (response, "Fork");
+					}
 					break;
 				}
 				default:
@@ -4228,12 +4224,13 @@ void rai::rpc_handler::work_generate ()
 	if (rpc.config.enable_control)
 	{
 		std::string hash_text (request.get<std::string> ("hash"));
+		bool use_peers (request.get_optional<bool> ("use_peers") == true);
 		rai::block_hash hash;
 		auto error (hash.decode_hex (hash_text));
 		if (!error)
 		{
 			auto rpc_l (shared_from_this ());
-			node.work.generate (hash, [rpc_l](boost::optional<uint64_t> const & work_a) {
+			auto callback = [rpc_l](boost::optional<uint64_t> const & work_a) {
 				if (work_a)
 				{
 					boost::property_tree::ptree response_l;
@@ -4244,7 +4241,15 @@ void rai::rpc_handler::work_generate ()
 				{
 					error_response (rpc_l->response, "Cancelled");
 				}
-			});
+			};
+			if (!use_peers)
+			{
+				node.work.generate (hash, callback);
+			}
+			else
+			{
+				node.work_generate (hash, callback);
+			}
 		}
 		else
 		{
@@ -4430,26 +4435,17 @@ void rai::rpc_handler::work_peer_add ()
 	{
 		std::string address_text = request.get<std::string> ("address");
 		std::string port_text = request.get<std::string> ("port");
-		boost::system::error_code ec;
-		auto address (boost::asio::ip::address_v6::from_string (address_text, ec));
-		if (!ec)
+		uint16_t port;
+		if (!rai::parse_port (port_text, port))
 		{
-			uint16_t port;
-			if (!rai::parse_port (port_text, port))
-			{
-				node.config.work_peers.push_back (std::make_pair (address, port));
-				boost::property_tree::ptree response_l;
-				response_l.put ("success", "");
-				response (response_l);
-			}
-			else
-			{
-				error_response (response, "Invalid port");
-			}
+			node.config.work_peers.push_back (std::make_pair (address_text, port));
+			boost::property_tree::ptree response_l;
+			response_l.put ("success", "");
+			response (response_l);
 		}
 		else
 		{
-			error_response (response, "Invalid address");
+			error_response (response, "Invalid port");
 		}
 	}
 	else
@@ -4616,6 +4612,10 @@ void rai::rpc_handler::process_request ()
 		{
 			account_block_count ();
 		}
+		else if (action == "account_count")
+		{
+			account_count ();
+		}
 		else if (action == "account_create")
 		{
 			account_create ();
@@ -4754,7 +4754,7 @@ void rai::rpc_handler::process_request ()
 		}
 		else if (action == "frontier_count")
 		{
-			frontier_count ();
+			account_count ();
 		}
 		else if (action == "history")
 		{

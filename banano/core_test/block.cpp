@@ -282,9 +282,12 @@ TEST (frontier_req, serialization)
 		rai::vectorstream stream (bytes);
 		request1.serialize (stream);
 	}
-	rai::bufferstream buffer (bytes.data (), bytes.size ());
-	rai::frontier_req request2;
-	ASSERT_FALSE (request2.deserialize (buffer));
+	auto error (false);
+	rai::bufferstream stream (bytes.data (), bytes.size ());
+	rai::message_header header (error, stream);
+	ASSERT_FALSE (error);
+	rai::frontier_req request2 (error, stream, header);
+	ASSERT_FALSE (error);
 	ASSERT_EQ (request1, request2);
 }
 
@@ -299,9 +302,11 @@ TEST (block, publish_req_serialization)
 		rai::vectorstream stream (bytes);
 		req.serialize (stream);
 	}
-	rai::publish req2;
+	auto error (false);
 	rai::bufferstream stream2 (bytes.data (), bytes.size ());
-	auto error (req2.deserialize (stream2));
+	rai::message_header header (error, stream2);
+	ASSERT_FALSE (error);
+	rai::publish req2 (error, stream2, header);
 	ASSERT_FALSE (error);
 	ASSERT_EQ (req, req2);
 	ASSERT_EQ (*req.block, *req2.block);
@@ -318,9 +323,10 @@ TEST (block, confirm_req_serialization)
 		rai::vectorstream stream (bytes);
 		req.serialize (stream);
 	}
-	rai::confirm_req req2;
+	auto error (false);
 	rai::bufferstream stream2 (bytes.data (), bytes.size ());
-	auto error (req2.deserialize (stream2));
+	rai::message_header header (error, stream2);
+	rai::confirm_req req2 (error, stream2, header);
 	ASSERT_FALSE (error);
 	ASSERT_EQ (req, req2);
 	ASSERT_EQ (*req.block, *req2.block);

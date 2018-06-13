@@ -79,11 +79,10 @@ bool rai::uint256_union::decode_account (std::string const & source_a)
 	if (!error)
 	{
 		auto ban_prefix (source_a[0] == 'b' && source_a[1] == 'a' && source_a[2] == 'n' && (source_a[3] == '_' || source_a[3] == '-'));
-		auto banano_prefix (source_a[0] == 'b' && source_a[1] == 'a' && source_a[2] == 'n' && source_a[3] == 'a' && (source_a[4] == 'n' || source_a[4] == 'o'));
-		error = (ban_prefix && source_a.size () != 64) || (banano_prefix && source_a.size () != 67);
+		error = (ban_prefix && source_a.size () != 64);
 		if (!error)
 		{
-			if (ban_prefix || banano_prefix)
+			if (ban_prefix)
 			{
 				auto i (source_a.begin () + (ban_prefix ? 4 : 5));
 				if (*i == '1' || *i == '3')

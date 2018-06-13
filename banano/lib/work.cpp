@@ -101,8 +101,10 @@ void rai::work_pool::loop (uint64_t thread)
 				assert (work_value (current_l.first, work) == output);
 				// Signal other threads to stop their work next time they check ticket
 				++ticket;
-				current_l.second (work);
 				pending.pop_front ();
+				lock.unlock ();
+				current_l.second (work);
+				lock.lock ();
 			}
 			else
 			{

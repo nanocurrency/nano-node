@@ -1,7 +1,10 @@
 #include <banano/qt/qt.hpp>
 
+#include <boost/foreach.hpp>
 #include <boost/property_tree/json_parser.hpp>
-
+#include <boost/property_tree/ptree.hpp>
+#include <cmath>
+#include <iomanip>
 #include <sstream>
 
 namespace
@@ -717,6 +720,88 @@ wallet (wallet_a)
 	});
 }
 
+banano_qt::stats_viewer::stats_viewer (banano_qt::wallet & wallet_a) :
+window (new QWidget),
+layout (new QVBoxLayout),
+model (new QStandardItemModel),
+view (new QTableView),
+refresh (new QPushButton ("Refresh")),
+back (new QPushButton ("Back")),
+wallet (wallet_a)
+{
+	model->setHorizontalHeaderItem (0, new QStandardItem ("Last updated"));
+	model->setHorizontalHeaderItem (1, new QStandardItem ("Type"));
+	model->setHorizontalHeaderItem (2, new QStandardItem ("Detail"));
+	model->setHorizontalHeaderItem (3, new QStandardItem ("Direction"));
+	model->setHorizontalHeaderItem (4, new QStandardItem ("Value"));
+	view->setModel (model);
+	view->setEditTriggers (QAbstractItemView::NoEditTriggers);
+	view->verticalHeader ()->hide ();
+	view->horizontalHeader ()->setStretchLastSection (true);
+	layout->setContentsMargins (0, 0, 0, 0);
+	layout->addWidget (view);
+	layout->addWidget (refresh);
+	layout->addWidget (back);
+	window->setLayout (layout);
+
+	QObject::connect (back, &QPushButton::released, [this]() {
+		this->wallet.pop_main_stack ();
+	});
+	QObject::connect (refresh, &QPushButton::released, [this]() {
+		refresh_stats ();
+	});
+
+	refresh_stats ();
+}
+
+void banano_qt::stats_viewer::refresh_stats ()
+{
+	model->removeRows (0, model->rowCount ());
+
+	auto sink = wallet.node.stats.log_sink_json ();
+	wallet.node.stats.log_counters (*sink);
+	auto json = static_cast<boost::property_tree::ptree *> (sink->to_object ());
+	if (json)
+	{
+		// Format the stat data to make totals and values easier to read
+		BOOST_FOREACH (const boost::property_tree::ptree::value_type & child, json->get_child ("entries"))
+		{
+			auto time = child.second.get<std::string> ("time");
+			auto type = child.second.get<std::string> ("type");
+			auto detail = child.second.get<std::string> ("detail");
+			auto dir = child.second.get<std::string> ("dir");
+			auto value = child.second.get<std::string> ("value", "0");
+
+			if (detail == "all")
+			{
+				detail = "total";
+			}
+
+			if (type == "traffic")
+			{
+				const std::vector<std::string> units = { " bytes", " KB", " MB", " GB", " TB", " PB" };
+				double bytes = std::stod (value);
+				auto index = std::min (units.size () - 1, static_cast<size_t> (std::floor (std::log2 (bytes) / 10)));
+				std::string unit = units[index];
+				bytes /= std::pow (1024, index);
+
+				std::stringstream numstream;
+				numstream << std::fixed << std::setprecision (2) << bytes;
+				value = numstream.str () + unit;
+			}
+
+			QList<QStandardItem *> items;
+			items.push_back (new QStandardItem (QString (time.c_str ())));
+			items.push_back (new QStandardItem (QString (type.c_str ())));
+			items.push_back (new QStandardItem (QString (detail.c_str ())));
+			items.push_back (new QStandardItem (QString (dir.c_str ())));
+			items.push_back (new QStandardItem (QString (value.c_str ())));
+
+			model->appendRow (items);
+		}
+	}
+}
+
 banano_qt::status::status (banano_qt::wallet & wallet_a) :
 wallet (wallet_a)
 {
@@ -846,6 +931,7 @@ block_creation (*this),
 block_entry (*this),
 block_viewer (*this),
 account_viewer (*this),
+stats_viewer (*this),
 import (*this),
 application (application_a),
 status (new QLabel),
@@ -908,7 +994,7 @@ active_status (*this)
 	client_layout->setSpacing (0);
 	client_layout->setContentsMargins (0, 0, 0, 0);
 	client_window->setLayout (client_layout);
-	client_window->resize (320, 480);
+	client_window->resize (500, 620);
 	client_window->setStyleSheet ("\
 		QLineEdit { padding: 3px; } \
 	");
@@ -1543,6 +1629,7 @@ create_block (new QPushButton ("Create Block")),
 enter_block (new QPushButton ("Enter Block")),
 block_viewer (new QPushButton ("Block Viewer")),
 account_viewer (new QPushButton ("Account Viewer")),
+stats_viewer (new QPushButton ("Node Statistics")),
 scale_window (new QWidget),
 scale_layout (new QHBoxLayout),
 scale_label (new QLabel ("Scale:")),
@@ -1619,6 +1706,7 @@ wallet (wallet_a)
 	layout->addWidget (enter_block);
 	layout->addWidget (block_viewer);
 	layout->addWidget (account_viewer);
+	layout->addWidget (stats_viewer);
 	layout->addWidget (scale_window);
 	layout->addStretch ();
 	layout->addWidget (back);
@@ -1701,6 +1789,11 @@ wallet (wallet_a)
 	QObject::connect (account_viewer, &QPushButton::released, [this]() {
 		this->wallet.push_main_stack (this->wallet.account_viewer.window);
 	});
+	QObject::connect (stats_viewer, &QPushButton::released, [this]() {
+		this->wallet.push_main_stack (this->wallet.stats_viewer.window);
+		this->wallet.stats_viewer.refresh_stats ();
+	});
+
 	bootstrap->setToolTip ("Multi-connection bootstrap to random peers");
 	search_for_receivables->setToolTip ("Search for pending blocks");
 	create_block->setToolTip ("Create block in JSON format");
@@ -1742,6 +1835,11 @@ void banano_qt::advanced_actions::refresh_ledger ()
 		items.push_back (new QStandardItem (QString (block_hash.c_str ())));
 		ledger_model->appendRow (items);
 	}
+}
+
+void banano_qt::advanced_actions::refresh_stats ()
+{
+	wallet.stats_viewer.refresh_stats ();
 }
 
 banano_qt::block_entry::block_entry (banano_qt::wallet & wallet_a) :
@@ -1968,7 +2066,8 @@ void banano_qt::block_creation::create_send ()
 						rai::account_info info;
 						auto error (wallet.node.store.account_get (transaction, account_l, info));
 						assert (!error);
-						rai::send_block send (info.head, destination_l, balance - amount_l.number (), key, account_l, wallet.wallet_m->work_fetch (transaction, account_l, info.head));
+						rai::send_block send (info.head, destination_l, balance - amount_l.number (), key, account_l, 0);
+						wallet.node.work_generate_blocking (send);
 						std::string block_l;
 						send.serialize_json (block_l);
 						block->setPlainText (QString (block_l.c_str ()));
@@ -2031,7 +2130,8 @@ void banano_qt::block_creation::create_receive ()
 						auto error (wallet.wallet_m->store.fetch (transaction, pending_key.account, key));
 						if (!error)
 						{
-							rai::receive_block receive (info.head, source_l, key, pending_key.account, wallet.wallet_m->work_fetch (transaction, pending_key.account, info.head));
+							rai::receive_block receive (info.head, source_l, key, pending_key.account, 0);
+							wallet.node.work_generate_blocking (receive);
 							std::string block_l;
 							receive.serialize_json (block_l);
 							block->setPlainText (QString (block_l.c_str ()));
@@ -2094,7 +2194,8 @@ void banano_qt::block_creation::create_change ()
 				auto error (wallet.wallet_m->store.fetch (transaction, account_l, key));
 				if (!error)
 				{
-					rai::change_block change (info.head, representative_l, key, account_l, wallet.wallet_m->work_fetch (transaction, account_l, info.head));
+					rai::change_block change (info.head, representative_l, key, account_l, 0);
+					wallet.node.work_generate_blocking (change);
 					std::string block_l;
 					change.serialize_json (block_l);
 					block->setPlainText (QString (block_l.c_str ()));
@@ -2155,7 +2256,8 @@ void banano_qt::block_creation::create_open ()
 							auto error (wallet.wallet_m->store.fetch (transaction, pending_key.account, key));
 							if (!error)
 							{
-								rai::open_block open (source_l, representative_l, pending_key.account, key, pending_key.account, wallet.wallet_m->work_fetch (transaction, pending_key.account, pending_key.account));
+								rai::open_block open (source_l, representative_l, pending_key.account, key, pending_key.account, 0);
+								wallet.node.work_generate_blocking (open);
 								std::string block_l;
 								open.serialize_json (block_l);
 								block->setPlainText (QString (block_l.c_str ()));

@@ -43,8 +43,9 @@ public:
 	void state_block (rai::state_block const &) override;
 	MDB_txn * transaction;
 	rai::block_store & store;
-	rai::block_hash current;
-	rai::uint128_t result;
+	rai::block_hash current_balance;
+	rai::block_hash current_amount;
+	rai::uint128_t balance;
 };
 
 /**
@@ -64,8 +65,9 @@ public:
 	void from_send (rai::block_hash const &);
 	MDB_txn * transaction;
 	rai::block_store & store;
-	rai::block_hash current;
-	rai::uint128_t result;
+	rai::block_hash current_amount;
+	rai::block_hash current_balance;
+	rai::uint128_t amount;
 };
 
 /**
@@ -193,6 +195,8 @@ public:
 	bool operator!= (rai::vote const &) const;
 	void serialize (rai::stream &, rai::block_type);
 	void serialize (rai::stream &);
+	bool deserialize (rai::stream &);
+	bool validate ();
 	std::string to_json () const;
 	// Vote round sequence number
 	uint64_t sequence;
@@ -219,9 +223,6 @@ enum class process_result
 	unreceivable, // Source block doesn't exist or has already been received
 	gap_previous, // Block marked as previous is unknown
 	gap_source, // Block marked as source is unknown
-	state_block_disabled, // Awaiting state block canary block
-	not_receive_from_send, // Receive does not have a send source
-	account_mismatch, // Account number in open block doesn't match send destination
 	opened_burn_account, // The impossible happened, someone found the private key associated with the public key '0'.
 	balance_mismatch, // Balance and amount delta don't match
 	block_position // This block cannot follow the previous block

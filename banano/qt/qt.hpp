@@ -61,6 +61,7 @@ public:
 	QPushButton * enter_block;
 	QPushButton * block_viewer;
 	QPushButton * account_viewer;
+	QPushButton * stats_viewer;
 	QWidget * scale_window;
 	QHBoxLayout * scale_layout;
 	QLabel * scale_label;
@@ -92,6 +93,7 @@ public:
 private:
 	void refresh_ledger ();
 	void refresh_peers ();
+	void refresh_stats ();
 };
 class block_entry
 {
@@ -255,6 +257,19 @@ public:
 	rai::account account;
 	banano_qt::wallet & wallet;
 };
+class stats_viewer
+{
+public:
+	stats_viewer (rai_qt::wallet &);
+	QWidget * window;
+	QVBoxLayout * layout;
+	QPushButton * refresh;
+	QStandardItemModel * model;
+	QTableView * view;
+	QPushButton * back;
+	rai_qt::wallet & wallet;
+	void refresh_stats ();
+};
 enum class status_types
 {
 	not_a_status,
@@ -302,6 +317,7 @@ public:
 	banano_qt::block_entry block_entry;
 	banano_qt::block_viewer block_viewer;
 	banano_qt::account_viewer account_viewer;
+	banano_qt::stats_viewer stats_viewer;
 	banano_qt::import import;
 
 	QApplication & application;
