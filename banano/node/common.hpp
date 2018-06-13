@@ -112,7 +112,7 @@ public:
 	void block_type_set (rai::block_type);
 	bool ipv4_only ();
 	void ipv4_only_set (bool);
-	static std::array<uint8_t, 2> constexpr magic_number = rai::banano_network == rai::banano_networks::banano_test_network ? std::array<uint8_t, 2>{ { 'R', 'A' } } : rai::banano_network == rai::banano_networks::banano_beta_network ? std::array<uint8_t, 2>{ { 'R', 'B' } } : std::array<uint8_t, 2>{ { 'R', 'C' } };
+	static std::array<uint8_t, 2> constexpr magic_number = rai::banano_network == rai::banano_networks::banano_test_network ? std::array<uint8_t, 2> ({ 'B', 'Z' }) : rai::banano_network == rai::banano_networks::banano_beta_network ? std::array<uint8_t, 2> ({ 'B', 'Y' }) : std::array<uint8_t, 2> ({ 'B', 'X' });
 	uint8_t version_max;
 	uint8_t version_using;
 	uint8_t version_min;
