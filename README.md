@@ -20,7 +20,7 @@ We've applied the philosophy of "do one thing and do it well", giving you perfor
 
 ### Key facts
 * Forked from NANO (raiblocks)
-* Total Supply: 3.4 Billion
+* Total Supply: 3,402,823,669.20
 * Born in Feb. 2018, Mainnet launch April 1st, 2018
 
 For more information, see [Banano.co.in](http://banano.co.in/).
