@@ -498,7 +498,7 @@ size_t rai::shared_ptr_block_hash::operator() (std::shared_ptr<rai::block> const
 
 bool rai::shared_ptr_block_hash::operator() (std::shared_ptr<rai::block> const & lhs, std::shared_ptr<rai::block> const & rhs) const
 {
-	return *lhs == *rhs;
+	return lhs->hash () == rhs->hash ();
 }
 
 rai::ledger::ledger (rai::block_store & store_a, rai::stat & stat_a) :
