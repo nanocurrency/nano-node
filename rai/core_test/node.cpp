@@ -669,7 +669,7 @@ TEST (node, fork_publish)
 		ASSERT_NE (node1.active.roots.end (), existing);
 		auto election (existing->election);
 		rai::transaction transaction (node1.store.environment, nullptr, false);
-		election->compute_rep_votes (transaction, election->status.winner);
+		election->compute_rep_votes (transaction);
 		ASSERT_EQ (2, election->votes.rep_votes.size ());
 		node1.process_active (send2);
 		node1.block_processor.flush ();
@@ -1186,7 +1186,7 @@ TEST (node, rep_self_vote)
 	auto existing (active.roots.find (block0->root ()));
 	ASSERT_NE (active.roots.end (), existing);
 	rai::transaction transaction (node0->store.environment, nullptr, false);
-	existing->election->compute_rep_votes (transaction, existing->election->status.winner);
+	existing->election->compute_rep_votes (transaction);
 	auto & rep_votes (existing->election->votes.rep_votes);
 	ASSERT_EQ (3, rep_votes.size ());
 	ASSERT_NE (rep_votes.end (), rep_votes.find (rai::test_genesis_key.pub));
