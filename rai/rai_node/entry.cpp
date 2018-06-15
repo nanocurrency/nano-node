@@ -336,7 +336,7 @@ int main (int argc, char * const * argv)
 				// Retrieving block data
 				auto block (node.node->store.block_get (transaction, hash));
 				// Check for state & open blocks if account field is correct
-				if ((block->type () == rai::block_type::open && block->root () != account) || (block->type () == rai::block_type::state && static_cast <rai::state_block const &> (*block.get ()).hashables.account != account))
+				if ((block->type () == rai::block_type::open && block->root () != account) || (block->type () == rai::block_type::state && static_cast<rai::state_block const &> (*block.get ()).hashables.account != account))
 				{
 					std::cerr << boost::str (boost::format ("Incorrect account field for block %1%\n") % hash.to_string ());
 				}
