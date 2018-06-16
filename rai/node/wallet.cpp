@@ -1132,11 +1132,7 @@ bool rai::wallet::search_pending ()
 					if (node.config.receive_minimum.number () <= amount)
 					{
 						BOOST_LOG (node.log) << boost::str (boost::format ("Found a pending block %1% for account %2%") % hash.to_string () % pending.source.to_account ());
-						auto this_l (shared_from_this ());
-						rai::account_info info;
-						auto error (node.store.account_get (transaction, pending.source, info));
-						assert (!error);
-						node.block_confirm (node.store.block_get (transaction, info.head));
+						node.block_confirm (node.store.block_get (transaction, hash));
 					}
 				}
 			}
