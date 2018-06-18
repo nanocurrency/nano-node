@@ -68,7 +68,7 @@ rai::mdb_env::mdb_env (bool & error_a, boost::filesystem::path const & path_a, i
 			assert (status1 == 0);
 			auto status2 (mdb_env_set_maxdbs (environment, max_dbs));
 			assert (status2 == 0);
-			auto status3 (mdb_env_set_mapsize (environment, 1ULL * 1024 * 1024 * 1024 * 1024)); // 1 Terabyte
+			auto status3 (mdb_env_set_mapsize (environment, 1ULL * 1024 * 1024 * 1024 * 128)); // 128 Gigabyte
 			assert (status3 == 0);
 			// It seems if there's ever more threads than mdb_env_set_maxreaders has read slots available, we get failures on transaction creation unless MDB_NOTLS is specified
 			// This can happen if something like 256 io_threads are specified in the node config
