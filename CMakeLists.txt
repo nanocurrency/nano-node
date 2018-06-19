@@ -237,19 +237,15 @@ add_library (blake2
 	${BLAKE2_IMPLEMENTATION})
 
 if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-	set (PLATFORM_LIB_SOURCE rai/plat/default/priority.cpp)
 	set (PLATFORM_SECURE_SOURCE rai/plat/osx/working.mm)
 	set (PLATFORM_WALLET_SOURCE rai/plat/default/icon.cpp)
 elseif (${CMAKE_SYSTEM_NAME} MATCHES "Windows")
-	set (PLATFORM_LIB_SOURCE rai/plat/windows/priority.cpp)
 	set (PLATFORM_SECURE_SOURCE rai/plat/windows/working.cpp)
 	set (PLATFORM_WALLET_SOURCE rai/plat/windows/icon.cpp RaiBlocks.rc)
 elseif (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-	set (PLATFORM_LIB_SOURCE rai/plat/linux/priority.cpp)
 	set (PLATFORM_SECURE_SOURCE rai/plat/posix/working.cpp)
 	set (PLATFORM_WALLET_SOURCE rai/plat/default/icon.cpp)
 elseif (${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
-	set (PLATFORM_LIB_SOURCE rai/plat/default/priority.cpp)
 	set (PLATFORM_SECURE_SOURCE rai/plat/posix/working.cpp)
 	set (PLATFORM_WALLET_SOURCE rai/plat/default/icon.cpp)
 else ()
@@ -280,25 +276,7 @@ add_library (secure
 	rai/versioning.hpp
 	rai/versioning.cpp)
 
-SET (RAI_LIB_SOURCES
-	${PLATFORM_LIB_SOURCE}
-	rai/lib/errors.hpp
-	rai/lib/errors.cpp
-	rai/lib/expected.hpp
-	rai/lib/blocks.cpp
-	rai/lib/blocks.hpp
-	rai/lib/interface.cpp
-	rai/lib/interface.h
-	rai/lib/numbers.cpp
-	rai/lib/numbers.hpp
-	rai/lib/utility.cpp
-	rai/lib/utility.hpp
-	rai/lib/work.hpp
-	rai/lib/work.cpp)
-
-add_library (rai_lib SHARED ${RAI_LIB_SOURCES})
-add_library (rai_lib_static STATIC ${RAI_LIB_SOURCES})
-
+add_subdirectory(rai/lib)
 add_subdirectory(rai/node)
 
 SET (ACTIVE_NETWORK rai_live_network CACHE STRING "Selects which network parameters are used")
@@ -397,9 +375,6 @@ if (RAIBLOCKS_GUI)
 
 	target_link_libraries (nano_wallet node secure lmdb ed25519 rai_lib_static qt argon2 ${OPENSSL_LIBRARIES} ${CRYPTOPP_LIBRARY} libminiupnpc-static ${Boost_ATOMIC_LIBRARY} ${Boost_CHRONO_LIBRARY} ${Boost_LOG_SETUP_LIBRARY} ${Boost_REGEX_LIBRARY} ${Boost_DATE_TIME_LIBRARY} ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_LOG_LIBRARY} ${Boost_PROGRAM_OPTIONS_LIBRARY} ${Boost_THREAD_LIBRARY} Qt5::Core Qt5::Gui Qt5::Widgets ${QT_QTGUI_LIBRARY} ${PLATFORM_LIBS} ${PLATFORM_WALLET_LIBS})
 endif (RAIBLOCKS_GUI)
-
-target_link_libraries (rai_lib ed25519 xxhash blake2 ${CRYPTOPP_LIBRARY})
-target_link_libraries (rai_lib_static ed25519 xxhash blake2 ${CRYPTOPP_LIBRARY})
 
 target_link_libraries (rai_node node secure lmdb ed25519 rai_lib_static argon2 ${OPENSSL_LIBRARIES} ${CRYPTOPP_LIBRARY} libminiupnpc-static ${Boost_ATOMIC_LIBRARY} ${Boost_CHRONO_LIBRARY} ${Boost_LOG_SETUP_LIBRARY} ${Boost_REGEX_LIBRARY} ${Boost_DATE_TIME_LIBRARY} ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_LOG_LIBRARY} ${Boost_PROGRAM_OPTIONS_LIBRARY} ${Boost_THREAD_LIBRARY} ${PLATFORM_LIBS})
 
