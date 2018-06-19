@@ -243,17 +243,14 @@ if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 elseif (${CMAKE_SYSTEM_NAME} MATCHES "Windows")
 	set (PLATFORM_LIB_SOURCE rai/plat/windows/priority.cpp)
 	set (PLATFORM_SECURE_SOURCE rai/plat/windows/working.cpp)
-	set (PLATFORM_NODE_SOURCE rai/plat/windows/openclapi.cpp)
 	set (PLATFORM_WALLET_SOURCE rai/plat/windows/icon.cpp RaiBlocks.rc)
 elseif (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 	set (PLATFORM_LIB_SOURCE rai/plat/linux/priority.cpp)
 	set (PLATFORM_SECURE_SOURCE rai/plat/posix/working.cpp)
-	set (PLATFORM_NODE_SOURCE rai/plat/posix/openclapi.cpp)
 	set (PLATFORM_WALLET_SOURCE rai/plat/default/icon.cpp)
 elseif (${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
 	set (PLATFORM_LIB_SOURCE rai/plat/default/priority.cpp)
 	set (PLATFORM_SECURE_SOURCE rai/plat/posix/working.cpp)
-	set (PLATFORM_NODE_SOURCE rai/plat/posix/openclapi.cpp)
 	set (PLATFORM_WALLET_SOURCE rai/plat/default/icon.cpp)
 else ()
 	error ("Unknown platform: ${CMAKE_SYSTEM_NAME}")
@@ -268,10 +265,6 @@ file (WRITE ${CMAKE_BINARY_DIR}/bootstrap_weights.cpp "#include <cstddef>\n"
 	"	size_t rai_bootstrap_weights_size = sizeof(rai_bootstrap_weights) - 1;\n"
 	"}\n")
 	
-if (RAIBLOCKS_SECURE_RPC)
-	set (SECURE_RPC_SOURCE rai/node/rpc_secure.cpp rai/node/rpc_secure.hpp)
-endif ()
-
 add_library (secure
 	${PLATFORM_SECURE_SOURCE}
 	${CMAKE_BINARY_DIR}/bootstrap_weights.cpp
@@ -306,30 +299,7 @@ SET (RAI_LIB_SOURCES
 add_library (rai_lib SHARED ${RAI_LIB_SOURCES})
 add_library (rai_lib_static STATIC ${RAI_LIB_SOURCES})
 
-add_library (node
-	${PLATFORM_NODE_SOURCE}
-	${SECURE_RPC_SOURCE}
-	rai/node/bootstrap.cpp
-	rai/node/bootstrap.hpp
-	rai/node/cli.hpp
-	rai/node/cli.cpp
-	rai/node/common.cpp
-	rai/node/common.hpp
-	rai/node/node.hpp
-	rai/node/node.cpp
-	rai/node/openclwork.cpp
-	rai/node/openclwork.hpp
-	rai/node/rpc.hpp
-	rai/node/rpc.cpp
-	rai/node/testing.hpp
-	rai/node/testing.cpp
-	rai/node/wallet.hpp
-	rai/node/wallet.cpp
-	rai/node/stats.hpp
-	rai/node/stats.cpp
-	rai/node/working.hpp
-	rai/node/xorshift.hpp)
-
+add_subdirectory(rai/node)
 
 SET (ACTIVE_NETWORK rai_live_network CACHE STRING "Selects which network parameters are used")
 set_property (CACHE ACTIVE_NETWORK PROPERTY STRINGS rai_test_network rai_beta_network rai_live_network)
