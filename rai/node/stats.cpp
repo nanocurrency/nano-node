@@ -372,6 +372,9 @@ std::string rai::stat::detail_to_string (uint32_t key)
 		case rai::stat::detail::confirm_ack:
 			res = "confirm_ack";
 			break;
+		case rai::stat::detail::node_id_handshake:
+			res = "node_id_handshake";
+			break;
 		case rai::stat::detail::confirm_req:
 			res = "confirm_req";
 			break;
