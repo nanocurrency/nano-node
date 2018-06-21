@@ -666,7 +666,7 @@ insufficient_work_logging_value (true),
 log_rpc_value (true),
 bulk_pull_logging_value (false),
 work_generation_time_value (true),
-log_to_cerr_value (false),
+log_to_cerr_value (true),
 max_size (16 * 1024 * 1024),
 rotation_size (4 * 1024 * 1024),
 flush (true)
@@ -1309,12 +1309,12 @@ bool rai::block_processor::full ()
 	return blocks.size () > 16384;
 }
 
-void rai::block_processor::add (std::shared_ptr<rai::block> block_a)
+void rai::block_processor::add (std::shared_ptr<rai::block> block_a, std::chrono::steady_clock::time_point origination)
 {
 	if (!rai::work_validate (block_a->root (), block_a->block_work ()))
 	{
 		std::lock_guard<std::mutex> lock (mutex);
-		blocks.push_front (block_a);
+		blocks.push_front (std::make_pair (block_a, origination));
 		condition.notify_all ();
 	}
 	else
@@ -1383,7 +1383,7 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 			{
 				BOOST_LOG (node.log) << boost::str (boost::format ("%1% blocks in processing queue") % blocks.size ());
 			}
-			std::shared_ptr<rai::block> block;
+			std::pair<std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point> block;
 			bool force (false);
 			if (forced.empty ())
 			{
@@ -1392,15 +1392,15 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 			}
 			else
 			{
-				block = forced.front ();
+				block = std::make_pair (forced.front (), std::chrono::steady_clock::now ());
 				forced.pop_front ();
 				force = true;
 			}
 			lock_a.unlock ();
-			auto hash (block->hash ());
+			auto hash (block.first->hash ());
 			if (force)
 			{
-				auto successor (node.ledger.successor (transaction, block->root ()));
+				auto successor (node.ledger.successor (transaction, block.first->root ()));
 				if (successor != nullptr && successor->hash () != hash)
 				{
 					// Replace our block with the winner and roll back any dependent blocks
@@ -1408,7 +1408,7 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 					node.ledger.rollback (transaction, successor->hash ());
 				}
 			}
-			auto process_result (process_receive_one (transaction, block));
+			auto process_result (process_receive_one (transaction, block.first, block.second));
 			(void)process_result;
 			lock_a.lock ();
 			++count;
@@ -1417,7 +1417,7 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 	lock_a.unlock ();
 }
 
-rai::process_return rai::block_processor::process_receive_one (MDB_txn * transaction_a, std::shared_ptr<rai::block> block_a)
+rai::process_return rai::block_processor::process_receive_one (MDB_txn * transaction_a, std::shared_ptr<rai::block> block_a, std::chrono::steady_clock::time_point origination)
 {
 	rai::process_return result;
 	auto hash (block_a->hash ());
@@ -1494,9 +1494,9 @@ rai::process_return rai::block_processor::process_receive_one (MDB_txn * transac
 		}
 		case rai::process_result::fork:
 		{
-			if (!node.block_arrival.recent (hash))
+			if (origination < std::chrono::steady_clock::now () - std::chrono::seconds (15))
 			{
-				// Only let the bootstrap attempt know about forked blocks that did not arrive via UDP.
+				// Only let the bootstrap attempt know about forked blocks that not originate recently.
 				node.process_fork (transaction_a, block_a);
 			}
 			if (node.config.logging.ledger_logging ())
@@ -1536,7 +1536,7 @@ void rai::block_processor::queue_unchecked (MDB_txn * transaction_a, rai::block_
 	for (auto i (cached.begin ()), n (cached.end ()); i != n; ++i)
 	{
 		node.store.unchecked_del (transaction_a, hash_a, **i);
-		add (*i);
+		add (*i, std::chrono::steady_clock::time_point ());
 	}
 	std::lock_guard<std::mutex> lock (node.gap_cache.mutex);
 	node.gap_cache.blocks.get<1> ().erase (hash_a);
@@ -1935,7 +1935,7 @@ void rai::node::process_active (std::shared_ptr<rai::block> incoming)
 {
 	if (!block_arrival.add (incoming->hash ()))
 	{
-		block_processor.add (incoming);
+		block_processor.add (incoming, std::chrono::steady_clock::now ());
 	}
 }
 
