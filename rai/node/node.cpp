@@ -725,6 +725,10 @@ bool rai::logging::upgrade_json (unsigned version_a, boost::property_tree::ptree
 			tree_a.put ("version", "3");
 			result = true;
 		case 3:
+			tree_a.put ("network_node_id_handshake", "false");
+			tree_a.put ("version", "4");
+			result = true;
+		case 4:
 			break;
 		default:
 			throw std::runtime_error ("Unknown logging_config version");
