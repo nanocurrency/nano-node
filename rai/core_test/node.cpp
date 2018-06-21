@@ -440,6 +440,7 @@ TEST (logging, serialization)
 	logging1.network_publish_logging_value = !logging1.network_publish_logging_value;
 	logging1.network_packet_logging_value = !logging1.network_packet_logging_value;
 	logging1.network_keepalive_logging_value = !logging1.network_keepalive_logging_value;
+	logging1.network_node_id_handshake_logging_value = !logging1.network_node_id_handshake_logging_value;
 	logging1.node_lifetime_tracing_value = !logging1.node_lifetime_tracing_value;
 	logging1.insufficient_work_logging_value = !logging1.insufficient_work_logging_value;
 	logging1.log_rpc_value = !logging1.log_rpc_value;
@@ -461,6 +462,7 @@ TEST (logging, serialization)
 	ASSERT_EQ (logging1.network_publish_logging_value, logging2.network_publish_logging_value);
 	ASSERT_EQ (logging1.network_packet_logging_value, logging2.network_packet_logging_value);
 	ASSERT_EQ (logging1.network_keepalive_logging_value, logging2.network_keepalive_logging_value);
+	ASSERT_EQ (logging1.network_node_id_handshake_logging_value, logging2.network_node_id_handshake_logging_value);
 	ASSERT_EQ (logging1.node_lifetime_tracing_value, logging2.node_lifetime_tracing_value);
 	ASSERT_EQ (logging1.insufficient_work_logging_value, logging2.insufficient_work_logging_value);
 	ASSERT_EQ (logging1.log_rpc_value, logging2.log_rpc_value);

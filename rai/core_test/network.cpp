@@ -58,7 +58,7 @@ TEST (network, self_discard)
 	ASSERT_EQ (1, system.nodes[0]->stats.count (rai::stat::type::error, rai::stat::detail::bad_sender));
 }
 
-TEST (network, send_keepalive)
+TEST (network, send_node_id_handshake)
 {
 	rai::system system (24000, 1);
 	auto list1 (system.nodes[0]->peers.list ());
@@ -66,12 +66,22 @@ TEST (network, send_keepalive)
 	rai::node_init init1;
 	auto node1 (std::make_shared<rai::node> (init1, system.service, 24001, rai::unique_path (), system.alarm, system.logging, system.work));
 	node1->start ();
+	auto initial (system.nodes[0]->stats.count (rai::stat::type::message, rai::stat::detail::node_id_handshake, rai::stat::dir::in));
+	auto initial_node1 (node1->stats.count (rai::stat::type::message, rai::stat::detail::node_id_handshake, rai::stat::dir::in));
 	system.nodes[0]->network.send_keepalive (node1->network.endpoint ());
-	auto initial (system.nodes[0]->stats.count (rai::stat::type::message, rai::stat::detail::keepalive, rai::stat::dir::in));
 	ASSERT_EQ (0, system.nodes[0]->peers.list ().size ());
 	ASSERT_EQ (0, node1->peers.list ().size ());
 	auto iterations (0);
-	while (system.nodes[0]->stats.count (rai::stat::type::message, rai::stat::detail::keepalive, rai::stat::dir::in) == initial)
+	while (node1->stats.count (rai::stat::type::message, rai::stat::detail::node_id_handshake, rai::stat::dir::in) == initial_node1)
+	{
+		system.poll ();
+		++iterations;
+		ASSERT_LT (iterations, 200);
+	}
+	ASSERT_EQ (0, system.nodes[0]->peers.list ().size ());
+	ASSERT_EQ (1, node1->peers.list ().size ());
+	iterations = 0;
+	while (system.nodes[0]->stats.count (rai::stat::type::message, rai::stat::detail::node_id_handshake, rai::stat::dir::in) < initial + 2)
 	{
 		system.poll ();
 		++iterations;
@@ -904,7 +914,10 @@ TEST (network, endpoint_bad_fd)
 
 TEST (network, reserved_address)
 {
-	ASSERT_FALSE (rai::reserved_address (rai::endpoint (boost::asio::ip::address_v6::from_string ("2001::"), 0)));
+	ASSERT_FALSE (rai::reserved_address (rai::endpoint (boost::asio::ip::address_v6::from_string ("2001::"), 0), true));
+	rai::endpoint loopback (boost::asio::ip::address_v6::from_string ("::1"), 1);
+	ASSERT_FALSE (rai::reserved_address (loopback, false));
+	ASSERT_TRUE (rai::reserved_address (loopback, true));
 }
 
 TEST (node, port_mapping)

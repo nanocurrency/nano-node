@@ -23,8 +23,9 @@ struct hash<rai::uint256_union>
 }
 namespace rai
 {
-const uint8_t protocol_version = 0x0a;
+const uint8_t protocol_version = 0x0b;
 const uint8_t protocol_version_min = 0x07;
+const uint8_t node_id_version = 0x0b;
 
 class block_store;
 /**
@@ -99,6 +100,7 @@ class keypair
 public:
 	keypair ();
 	keypair (std::string const &);
+	keypair (rai::raw_key &&);
 	rai::public_key pub;
 	rai::raw_key prv;
 };

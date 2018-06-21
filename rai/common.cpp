@@ -161,6 +161,13 @@ rai::keypair::keypair ()
 	ed25519_publickey (prv.data.bytes.data (), pub.bytes.data ());
 }
 
+// Create a keypair given a private key
+rai::keypair::keypair (rai::raw_key && prv_a) :
+prv (std::move (prv_a))
+{
+	ed25519_publickey (prv.data.bytes.data (), pub.bytes.data ());
+}
+
 // Create a keypair given a hex string of the private key
 rai::keypair::keypair (std::string const & prv_a)
 {

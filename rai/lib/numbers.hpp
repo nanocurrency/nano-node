@@ -94,9 +94,6 @@ public:
 	raw_key () = default;
 	~raw_key ();
 	void decrypt (rai::uint256_union const &, rai::raw_key const &, uint128_union const &);
-	raw_key (rai::raw_key const &) = delete;
-	raw_key (rai::raw_key const &&) = delete;
-	rai::raw_key & operator= (rai::raw_key const &) = delete;
 	bool operator== (rai::raw_key const &) const;
 	bool operator!= (rai::raw_key const &) const;
 	rai::uint256_union data;

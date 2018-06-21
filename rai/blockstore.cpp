@@ -305,6 +305,34 @@ int rai::block_store::version_get (MDB_txn * transaction_a)
 	return result;
 }
 
+rai::raw_key rai::block_store::get_node_id (MDB_txn * transaction_a)
+{
+	rai::uint256_union node_id_mdb_key (3);
+	rai::raw_key node_id;
+	rai::mdb_val value;
+	auto error (mdb_get (transaction_a, meta, rai::mdb_val (node_id_mdb_key), value));
+	if (!error)
+	{
+		rai::bufferstream stream (reinterpret_cast<uint8_t const *> (value.data ()), value.size ());
+		error = rai::read (stream, node_id.data);
+		assert (!error);
+	}
+	if (error)
+	{
+		rai::random_pool.GenerateBlock (node_id.data.bytes.data (), node_id.data.bytes.size ());
+		error = mdb_put (transaction_a, meta, rai::mdb_val (node_id_mdb_key), rai::mdb_val (node_id.data), 0);
+	}
+	assert (!error);
+	return node_id;
+}
+
+void rai::block_store::delete_node_id (MDB_txn * transaction_a)
+{
+	rai::uint256_union node_id_mdb_key (3);
+	auto error (mdb_del (transaction_a, meta, rai::mdb_val (node_id_mdb_key), nullptr));
+	assert (!error || error == MDB_NOTFOUND);
+}
+
 void rai::block_store::do_upgrades (MDB_txn * transaction_a)
 {
 	switch (version_get (transaction_a))

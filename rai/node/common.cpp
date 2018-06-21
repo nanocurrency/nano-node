@@ -121,6 +121,11 @@ void rai::message_parser::deserialize_buffer (uint8_t const * buffer_a, size_t s
 				deserialize_confirm_ack (stream, header);
 				break;
 			}
+			case rai::message_type::node_id_handshake:
+			{
+				deserialize_node_id_handshake (stream, header);
+				break;
+			}
 			default:
 			{
 				status = parse_status::invalid_message_type;
@@ -208,6 +213,20 @@ void rai::message_parser::deserialize_confirm_ack (rai::stream & stream_a, rai::
 	else
 	{
 		status = parse_status::invalid_confirm_ack_message;
+	}
+}
+
+void rai::message_parser::deserialize_node_id_handshake (rai::stream & stream_a, rai::message_header const & header_a)
+{
+	bool error_l;
+	rai::node_id_handshake incoming (error_l, stream_a, header_a);
+	if (!error_l && at_end (stream_a))
+	{
+		visitor.node_id_handshake (incoming);
+	}
+	else
+	{
+		status = parse_status::invalid_node_id_handshake_message;
 	}
 }
 
@@ -554,6 +573,87 @@ void rai::bulk_push::serialize (rai::stream & stream_a)
 void rai::bulk_push::visit (rai::message_visitor & visitor_a) const
 {
 	visitor_a.bulk_push (*this);
+}
+
+size_t constexpr rai::node_id_handshake::query_flag;
+size_t constexpr rai::node_id_handshake::response_flag;
+
+rai::node_id_handshake::node_id_handshake (bool & error_a, rai::stream & stream_a, rai::message_header const & header_a) :
+message (header_a),
+query (boost::none),
+response (boost::none)
+{
+	error_a = deserialize (stream_a);
+}
+
+rai::node_id_handshake::node_id_handshake (boost::optional<rai::uint256_union> query, boost::optional<std::pair<rai::account, rai::signature>> response) :
+message (rai::message_type::node_id_handshake),
+query (query),
+response (response)
+{
+	if (query)
+	{
+		header.extensions.set (query_flag);
+	}
+	if (response)
+	{
+		header.extensions.set (response_flag);
+	}
+}
+
+bool rai::node_id_handshake::deserialize (rai::stream & stream_a)
+{
+	auto result (false);
+	assert (header.type == rai::message_type::node_id_handshake);
+	if (!result && header.extensions.test (query_flag))
+	{
+		rai::uint256_union query_hash;
+		result = read (stream_a, query_hash);
+		if (!result)
+		{
+			query = query_hash;
+		}
+	}
+	if (!result && header.extensions.test (response_flag))
+	{
+		rai::account response_account;
+		result = read (stream_a, response_account);
+		if (!result)
+		{
+			rai::signature response_signature;
+			result = read (stream_a, response_signature);
+			if (!result)
+			{
+				response = std::make_pair (response_account, response_signature);
+			}
+		}
+	}
+	return result;
+}
+
+void rai::node_id_handshake::serialize (rai::stream & stream_a)
+{
+	header.serialize (stream_a);
+	if (query)
+	{
+		write (stream_a, *query);
+	}
+	if (response)
+	{
+		write (stream_a, response->first);
+		write (stream_a, response->second);
+	}
+}
+
+bool rai::node_id_handshake::operator== (rai::node_id_handshake const & other_a) const
+{
+	auto result (*query == *other_a.query && *response == *other_a.response);
+	return result;
+}
+
+void rai::node_id_handshake::visit (rai::message_visitor & visitor_a) const
+{
+	visitor_a.node_id_handshake (*this);
 }
 
 rai::message_visitor::~message_visitor ()

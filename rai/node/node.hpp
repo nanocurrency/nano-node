@@ -35,6 +35,7 @@ namespace program_options
 
 namespace rai
 {
+rai::endpoint map_endpoint_to_v6 (rai::endpoint const &);
 class node;
 class election_status
 {
@@ -172,6 +173,7 @@ public:
 	peer_information (rai::endpoint const &, unsigned);
 	peer_information (rai::endpoint const &, std::chrono::steady_clock::time_point const &, std::chrono::steady_clock::time_point const &);
 	rai::endpoint endpoint;
+	boost::asio::ip::address ip_address;
 	std::chrono::steady_clock::time_point last_contact;
 	std::chrono::steady_clock::time_point last_attempt;
 	std::chrono::steady_clock::time_point last_bootstrap_attempt;
@@ -180,6 +182,7 @@ public:
 	rai::amount rep_weight;
 	rai::account probable_rep_account;
 	unsigned network_version;
+	boost::optional<rai::account> node_id;
 };
 class peer_attempt
 {
@@ -187,14 +190,24 @@ public:
 	rai::endpoint endpoint;
 	std::chrono::steady_clock::time_point last_attempt;
 };
+class syn_cookie_info
+{
+public:
+	rai::uint256_union cookie;
+	std::chrono::steady_clock::time_point created_at;
+};
+class peer_by_ip_addr
+{
+};
 class peer_container
 {
 public:
 	peer_container (rai::endpoint const &);
 	// We were contacted by endpoint, update peers
-	void contacted (rai::endpoint const &, unsigned);
+	// Returns true if a Node ID handshake should begin
+	bool contacted (rai::endpoint const &, unsigned);
 	// Unassigned, reserved, self
-	bool not_a_peer (rai::endpoint const &);
+	bool not_a_peer (rai::endpoint const &, bool);
 	// Returns true if peer was already known
 	bool known_peer (rai::endpoint const &);
 	// Notify of peer we received from
@@ -212,11 +225,18 @@ public:
 	rai::endpoint bootstrap_peer ();
 	// Purge any peer where last_contact < time_point and return what was left
 	std::vector<rai::peer_information> purge_list (std::chrono::steady_clock::time_point const &);
+	void purge_syn_cookies (std::chrono::steady_clock::time_point const &);
 	std::vector<rai::endpoint> rep_crawl ();
 	bool rep_response (rai::endpoint const &, rai::account const &, rai::amount const &);
 	void rep_request (rai::endpoint const &);
 	// Should we reach out to this endpoint with a keepalive message
 	bool reachout (rai::endpoint const &);
+	// Returns boost::none if the IP is rate capped on syn cookie requests,
+	// or if the endpoint already has a syn cookie query
+	boost::optional<rai::uint256_union> assign_syn_cookie (rai::endpoint const &);
+	// Returns false if valid, true if invalid (true on error convention)
+	// Also removes the syn cookie from the store if valid
+	bool validate_syn_cookie (rai::endpoint const &, rai::account, rai::signature);
 	size_t size ();
 	size_t size_sqrt ();
 	bool empty ();
@@ -231,7 +251,8 @@ public:
 	boost::multi_index::random_access<>,
 	boost::multi_index::ordered_non_unique<boost::multi_index::member<peer_information, std::chrono::steady_clock::time_point, &peer_information::last_bootstrap_attempt>>,
 	boost::multi_index::ordered_non_unique<boost::multi_index::member<peer_information, std::chrono::steady_clock::time_point, &peer_information::last_rep_request>>,
-	boost::multi_index::ordered_non_unique<boost::multi_index::member<peer_information, rai::amount, &peer_information::rep_weight>, std::greater<rai::amount>>>>
+	boost::multi_index::ordered_non_unique<boost::multi_index::member<peer_information, rai::amount, &peer_information::rep_weight>, std::greater<rai::amount>>,
+	boost::multi_index::ordered_non_unique<boost::multi_index::tag<peer_by_ip_addr>, boost::multi_index::member<peer_information, boost::asio::ip::address, &peer_information::ip_address>>>>
 	peers;
 	boost::multi_index_container<
 	peer_attempt,
@@ -239,11 +260,22 @@ public:
 	boost::multi_index::hashed_unique<boost::multi_index::member<peer_attempt, rai::endpoint, &peer_attempt::endpoint>>,
 	boost::multi_index::ordered_non_unique<boost::multi_index::member<peer_attempt, std::chrono::steady_clock::time_point, &peer_attempt::last_attempt>>>>
 	attempts;
+	std::mutex syn_cookie_mutex;
+	std::unordered_map<rai::endpoint, syn_cookie_info> syn_cookies;
+	std::unordered_map<boost::asio::ip::address, unsigned> syn_cookies_per_ip;
+	// Number of peers that don't support node ID
+	size_t legacy_peers;
 	// Called when a new peer is observed
 	std::function<void(rai::endpoint const &)> peer_observer;
 	std::function<void()> disconnect_observer;
 	// Number of peers to crawl for being a rep every period
 	static size_t constexpr peers_per_crawl = 8;
+	// Maximum number of peers per IP (includes legacy peers)
+	static size_t constexpr max_peers_per_ip = 10;
+	// Maximum number of legacy peers per IP
+	static size_t constexpr max_legacy_peers_per_ip = 5;
+	// Maximum number of peers that don't support node ID
+	static size_t constexpr max_legacy_peers = 500;
 };
 class send_info
 {
@@ -353,6 +385,7 @@ public:
 	void confirm_send (rai::confirm_ack const &, std::shared_ptr<std::vector<uint8_t>>, rai::endpoint const &);
 	void merge_peers (std::array<rai::endpoint, 8> const &);
 	void send_keepalive (rai::endpoint const &);
+	void send_node_id_handshake (rai::endpoint const &, boost::optional<rai::uint256_union> const & query, boost::optional<rai::uint256_union> const & respond_to);
 	void broadcast_confirm_req (std::shared_ptr<rai::block>);
 	void broadcast_confirm_req_base (std::shared_ptr<rai::block>, std::shared_ptr<std::vector<rai::peer_information>>, unsigned);
 	void send_confirm_req (rai::endpoint const &, std::shared_ptr<rai::block>);
@@ -382,6 +415,7 @@ public:
 	bool network_publish_logging () const;
 	bool network_packet_logging () const;
 	bool network_keepalive_logging () const;
+	bool network_node_id_handshake_logging () const;
 	bool node_lifetime_tracing () const;
 	bool insufficient_work_logging () const;
 	bool log_rpc () const;
@@ -399,6 +433,7 @@ public:
 	bool network_publish_logging_value;
 	bool network_packet_logging_value;
 	bool network_keepalive_logging_value;
+	bool network_node_id_handshake_logging_value;
 	bool node_lifetime_tracing_value;
 	bool insufficient_work_logging_value;
 	bool log_rpc_value;
@@ -540,6 +575,7 @@ public:
 	rai::uint128_t weight (rai::account const &);
 	rai::account representative (rai::account const &);
 	void ongoing_keepalive ();
+	void ongoing_syn_cookie_cleanup ();
 	void ongoing_rep_crawl ();
 	void ongoing_bootstrap ();
 	void ongoing_store_flush ();
@@ -577,10 +613,12 @@ public:
 	rai::block_arrival block_arrival;
 	rai::online_reps online_reps;
 	rai::stat stats;
+	rai::keypair node_id;
 	static double constexpr price_max = 16.0;
 	static double constexpr free_cutoff = 1024.0;
 	static std::chrono::seconds constexpr period = std::chrono::seconds (60);
 	static std::chrono::seconds constexpr cutoff = period * 5;
+	static std::chrono::seconds constexpr syn_cookie_cutoff = std::chrono::seconds (5);
 	static std::chrono::minutes constexpr backup_interval = std::chrono::minutes (5);
 };
 class thread_runner

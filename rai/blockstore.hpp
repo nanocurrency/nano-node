@@ -141,6 +141,12 @@ public:
 	void upgrade_v9_to_v10 (MDB_txn *);
 	void upgrade_v10_to_v11 (MDB_txn *);
 
+	// Requires a write transaction
+	rai::raw_key get_node_id (MDB_txn *);
+
+	/** Deletes the node ID from the store */
+	void delete_node_id (MDB_txn *);
+
 	void clear (MDB_dbi);
 
 	rai::mdb_env environment;
