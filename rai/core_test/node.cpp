@@ -851,7 +851,7 @@ TEST (node, fork_multi_flip)
 
 // Blocks that are no longer actively being voted on should be able to be evicted through bootstrapping.
 // This could happen if a fork wasn't resolved before the process previously shut down
-TEST (node, DISABLED_fork_bootstrap_flip)
+TEST (node, fork_bootstrap_flip)
 {
 	rai::system system0 (24000, 1);
 	rai::system system1 (24001, 1);
@@ -864,9 +864,9 @@ TEST (node, DISABLED_fork_bootstrap_flip)
 	rai::keypair key2;
 	auto send2 (std::make_shared<rai::send_block> (latest, key2.pub, rai::genesis_amount - rai::Gxrb_ratio, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system0.work.generate (latest)));
 	// Insert but don't rebroadcast, simulating settled blocks
-	node1.block_processor.add (send1);
+	node1.block_processor.add (send1, std::chrono::steady_clock::now ());
 	node1.block_processor.flush ();
-	node2.block_processor.add (send2);
+	node2.block_processor.add (send2, std::chrono::steady_clock::now ());
 	node2.block_processor.flush ();
 	{
 		rai::transaction transaction (node2.store.environment, nullptr, false);
@@ -1088,6 +1088,53 @@ TEST (node, fork_pre_confirm)
 		system.poll ();
 		++iterations;
 		ASSERT_LT (iterations, 2000);
+	}
+}
+
+TEST (node, fork_stale)
+{
+	rai::system system1 (24000, 1);
+	system1.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	rai::system system2 (24001, 1);
+	auto & node1 (*system1.nodes[0]);
+	auto & node2 (*system2.nodes[0]);
+	node2.bootstrap_initiator.bootstrap (node1.network.endpoint ());
+	node2.peers.rep_response (node1.network.endpoint (), rai::test_genesis_key.pub, rai::genesis_amount);
+	rai::genesis genesis;
+	rai::keypair key1;
+	rai::keypair key2;
+	auto send3 (std::make_shared<rai::state_block> (rai::test_genesis_key.pub, genesis.hash (), rai::test_genesis_key.pub, rai::genesis_amount - rai::Mxrb_ratio, key1.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
+	node1.work_generate_blocking (*send3);
+	node1.process_active (send3);
+	auto iterations (0);
+	while (node2.block (send3->hash ()) == nullptr)
+	{
+		system1.poll ();
+		system2.poll ();
+		++iterations;
+		ASSERT_LT (iterations, 200);
+	}
+	auto send1 (std::make_shared<rai::state_block> (rai::test_genesis_key.pub, send3->hash (), rai::test_genesis_key.pub, rai::genesis_amount - 2 * rai::Mxrb_ratio, key1.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
+	node1.work_generate_blocking (*send1);
+	auto send2 (std::make_shared<rai::state_block> (rai::test_genesis_key.pub, send3->hash (), rai::test_genesis_key.pub, rai::genesis_amount - 2 * rai::Mxrb_ratio, key2.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
+	node1.work_generate_blocking (*send2);
+	{
+		rai::transaction transaction1 (node1.store.environment, nullptr, true);
+		ASSERT_EQ (rai::process_result::progress, node1.ledger.process (transaction1, *send1).code);
+		rai::transaction transaction2 (node2.store.environment, nullptr, true);
+		ASSERT_EQ (rai::process_result::progress, node2.ledger.process (transaction2, *send2).code);
+	}
+	node1.process_active (send1);
+	node1.process_active (send2);
+	node2.process_active (send1);
+	node2.process_active (send2);
+	node2.bootstrap_initiator.bootstrap (node1.network.endpoint ());
+	while (node2.block (send1->hash ()) == nullptr)
+	{
+		system1.poll ();
+		system2.poll ();
+		++iterations;
+		ASSERT_LT (iterations, 200);
 	}
 }
 

@@ -85,13 +85,13 @@ TEST (gap_cache, two_dependencies)
 	auto send2 (std::make_shared<rai::send_block> (send1->hash (), key.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (send1->hash ())));
 	auto open (std::make_shared<rai::open_block> (send1->hash (), key.pub, key.pub, key.prv, key.pub, system.work.generate (key.pub)));
 	ASSERT_EQ (0, system.nodes[0]->gap_cache.blocks.size ());
-	system.nodes[0]->block_processor.add (send2);
+	system.nodes[0]->block_processor.add (send2, std::chrono::steady_clock::now ());
 	system.nodes[0]->block_processor.flush ();
 	ASSERT_EQ (1, system.nodes[0]->gap_cache.blocks.size ());
-	system.nodes[0]->block_processor.add (open);
+	system.nodes[0]->block_processor.add (open, std::chrono::steady_clock::now ());
 	system.nodes[0]->block_processor.flush ();
 	ASSERT_EQ (2, system.nodes[0]->gap_cache.blocks.size ());
-	system.nodes[0]->block_processor.add (send1);
+	system.nodes[0]->block_processor.add (send1, std::chrono::steady_clock::now ());
 	system.nodes[0]->block_processor.flush ();
 	ASSERT_EQ (0, system.nodes[0]->gap_cache.blocks.size ());
 	rai::transaction transaction (system.nodes[0]->store.environment, nullptr, false);

@@ -526,12 +526,12 @@ public:
 	void stop ();
 	void flush ();
 	bool full ();
-	void add (std::shared_ptr<rai::block>);
+	void add (std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point);
 	void force (std::shared_ptr<rai::block>);
 	bool should_log ();
 	bool have_blocks ();
 	void process_blocks ();
-	rai::process_return process_receive_one (MDB_txn *, std::shared_ptr<rai::block>);
+	rai::process_return process_receive_one (MDB_txn *, std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point = std::chrono::steady_clock::now ());
 
 private:
 	void queue_unchecked (MDB_txn *, rai::block_hash const &);
@@ -539,7 +539,7 @@ private:
 	bool stopped;
 	bool active;
 	std::chrono::steady_clock::time_point next_log;
-	std::deque<std::shared_ptr<rai::block>> blocks;
+	std::deque<std::pair<std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point>> blocks;
 	std::deque<std::shared_ptr<rai::block>> forced;
 	std::condition_variable condition;
 	rai::node & node;

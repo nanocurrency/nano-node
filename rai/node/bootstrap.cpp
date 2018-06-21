@@ -536,7 +536,7 @@ void rai::bulk_pull_client::received_block (boost::system::error_code const & ec
 				connection->start_time = std::chrono::steady_clock::now ();
 			}
 			connection->attempt->total_blocks++;
-			connection->attempt->node->block_processor.add (block);
+			connection->attempt->node->block_processor.add (block, std::chrono::steady_clock::time_point ());
 			if (!connection->hard_stop.load ())
 			{
 				receive_block ();
