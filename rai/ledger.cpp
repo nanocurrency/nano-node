@@ -218,7 +218,6 @@ void ledger_processor::state_block_impl (rai::state_block const & block_a)
 					result.code = block_a.previous ().is_zero () ? rai::process_result::progress : rai::process_result::gap_previous; // Does the first block in an account yield 0 for previous() ? (Unambigious)
 					if (result.code == rai::process_result::progress)
 					{
-						ledger.stats.inc (rai::stat::type::ledger, rai::stat::detail::open);
 						result.code = !block_a.hashables.link.is_zero () ? rai::process_result::progress : rai::process_result::gap_source; // Is the first block receiving from a send ? (Unambigious)
 					}
 				}
@@ -266,12 +265,10 @@ void ledger_processor::state_block_impl (rai::state_block const & block_a)
 						rai::pending_key key (block_a.hashables.link, hash);
 						rai::pending_info info (block_a.hashables.account, result.amount.number ());
 						ledger.store.pending_put (transaction, key, info);
-						ledger.stats.inc (rai::stat::type::ledger, rai::stat::detail::send);
 					}
 					else if (!block_a.hashables.link.is_zero ())
 					{
 						ledger.store.pending_del (transaction, rai::pending_key (block_a.hashables.account, block_a.hashables.link));
-						ledger.stats.inc (rai::stat::type::ledger, rai::stat::detail::receive);
 					}
 
 					ledger.change_latest (transaction, block_a.hashables.account, hash, hash, block_a.hashables.balance, info.block_count + 1, true);
