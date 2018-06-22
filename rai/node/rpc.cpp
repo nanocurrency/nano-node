@@ -3631,7 +3631,7 @@ void rai::rpc_handler::wallet_change_seed ()
 					rai::transaction transaction (node.store.environment, nullptr, true);
 					if (existing->second->store.valid_password (transaction))
 					{
-						existing->second->store.seed_set (transaction, seed);
+						existing->second->change_seed (transaction, seed);
 						boost::property_tree::ptree response_l;
 						response_l.put ("success", "");
 						response (response_l);
