@@ -269,12 +269,13 @@ void rai::network::broadcast_confirm_req (std::shared_ptr<rai::block> block_a)
 
 void rai::network::broadcast_confirm_req_base (std::shared_ptr<rai::block> block_a, std::shared_ptr<std::vector<rai::peer_information>> endpoints_a, unsigned delay_a)
 {
+	const size_t max_reps = 10;
 	if (node.config.logging.network_logging ())
 	{
-		BOOST_LOG (node.log) << boost::str (boost::format ("Broadcasting confirm req for block %1% to %2% representatives") % block_a->hash ().to_string () % endpoints_a->size ());
+		BOOST_LOG (node.log) << boost::str (boost::format ("Broadcasting confirm req for block %1% to %2% representatives") % block_a->hash ().to_string () % std::min (endpoints_a->size (), max_reps));
 	}
 	auto count (0);
-	while (!endpoints_a->empty () && count < 10)
+	while (!endpoints_a->empty () && count < max_reps)
 	{
 		send_confirm_req (endpoints_a->back ().endpoint, block_a);
 		endpoints_a->pop_back ();
