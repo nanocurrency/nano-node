@@ -31,6 +31,7 @@ add_library (rai_lib SHARED ${sources})
 add_library (rai_lib_static STATIC ${sources})
 
 target_link_libraries (rai_lib
+	secure
 	ed25519
 	xxhash
 	blake2
@@ -38,6 +39,7 @@ target_link_libraries (rai_lib
 	Boost::boost)
 
 target_link_libraries (rai_lib_static
+	secure
 	ed25519
 	xxhash
 	blake2

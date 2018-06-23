@@ -1,9 +1,9 @@
-#include <rai/common.hpp>
+#include <rai/secure/common.hpp>
 
-#include <rai/blockstore.hpp>
+#include <rai/secure/blockstore.hpp>
 #include <rai/lib/interface.h>
 #include <rai/node/common.hpp>
-#include <rai/versioning.hpp>
+#include <rai/secure/versioning.hpp>
 
 #include <boost/property_tree/json_parser.hpp>
 

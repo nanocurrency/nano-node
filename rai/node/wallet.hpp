@@ -1,7 +1,7 @@
 #pragma once
 
-#include <rai/blockstore.hpp>
-#include <rai/common.hpp>
+#include <rai/secure/blockstore.hpp>
+#include <rai/secure/common.hpp>
 #include <rai/node/common.hpp>
 #include <rai/node/openclwork.hpp>
 

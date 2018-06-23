@@ -1,6 +1,6 @@
 #include <queue>
-#include <rai/blockstore.hpp>
-#include <rai/versioning.hpp>
+#include <rai/secure/blockstore.hpp>
+#include <rai/secure/versioning.hpp>
 
 namespace
 {

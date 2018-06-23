@@ -233,44 +233,7 @@ add_library (blake2
 	blake2/blake2.h
 	${BLAKE2_IMPLEMENTATION})
 
-if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-	set (PLATFORM_SECURE_SOURCE rai/plat/osx/working.mm)
-elseif (${CMAKE_SYSTEM_NAME} MATCHES "Windows")
-	set (PLATFORM_SECURE_SOURCE rai/plat/windows/working.cpp)
-elseif (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-	set (PLATFORM_SECURE_SOURCE rai/plat/posix/working.cpp)
-elseif (${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
-	set (PLATFORM_SECURE_SOURCE rai/plat/posix/working.cpp)
-else ()
-	error ("Unknown platform: ${CMAKE_SYSTEM_NAME}")
-endif ()
-
-# Embed bootstrap representative weights in executable
-file (READ rep_weights.bin filedata HEX)
-string (REGEX REPLACE "(..)" "0x\\1," filedata ${filedata})
-file (WRITE ${CMAKE_BINARY_DIR}/bootstrap_weights.cpp "#include <cstddef>\n"
-	"namespace rai {\n"
-	"	unsigned char rai_bootstrap_weights[] = {${filedata} 0x00};\n"
-	"	size_t rai_bootstrap_weights_size = sizeof(rai_bootstrap_weights) - 1;\n"
-	"}\n")
-
-add_library (secure
-	${PLATFORM_SECURE_SOURCE}
-	${CMAKE_BINARY_DIR}/bootstrap_weights.cpp
-	rai/config.hpp
-	rai/common.cpp
-	rai/common.hpp
-	rai/blockstore.cpp
-	rai/blockstore.hpp
-	rai/ledger.cpp
-	rai/ledger.hpp
-	rai/node/utility.cpp
-	rai/node/utility.hpp
-	rai/versioning.hpp
-	rai/versioning.cpp)
-
-target_link_libraries(secure Boost::boost)
-
+add_subdirectory(rai/secure)
 add_subdirectory(rai/lib)
 add_subdirectory(rai/node)
 
@@ -414,9 +377,9 @@ add_subdirectory(rai/rai_node)
 set_target_properties (argon2 PROPERTIES COMPILE_FLAGS "${PLATFORM_C_FLAGS} ${PLATFORM_COMPILE_FLAGS}")
 set_target_properties (blake2 PROPERTIES COMPILE_FLAGS "${PLATFORM_C_FLAGS} ${PLATFORM_COMPILE_FLAGS} -D__SSE2__")
 set_target_properties (ed25519 PROPERTIES COMPILE_FLAGS "${PLATFORM_C_FLAGS} ${PLATFORM_COMPILE_FLAGS} -DED25519_CUSTOMHASH -DED25519_CUSTOMRNG")
-set_target_properties (secure node rai_lib rai_lib_static PROPERTIES COMPILE_FLAGS "${PLATFORM_CXX_FLAGS} ${PLATFORM_COMPILE_FLAGS} -DQT_NO_KEYWORDS -DACTIVE_NETWORK=${ACTIVE_NETWORK} -DRAIBLOCKS_VERSION_MAJOR=${CPACK_PACKAGE_VERSION_MAJOR} -DRAIBLOCKS_VERSION_MINOR=${CPACK_PACKAGE_VERSION_MINOR} -DBOOST_ASIO_HAS_STD_ARRAY=1")
+set_target_properties (node rai_lib rai_lib_static PROPERTIES COMPILE_FLAGS "${PLATFORM_CXX_FLAGS} ${PLATFORM_COMPILE_FLAGS} -DQT_NO_KEYWORDS -DACTIVE_NETWORK=${ACTIVE_NETWORK} -DRAIBLOCKS_VERSION_MAJOR=${CPACK_PACKAGE_VERSION_MAJOR} -DRAIBLOCKS_VERSION_MINOR=${CPACK_PACKAGE_VERSION_MINOR} -DBOOST_ASIO_HAS_STD_ARRAY=1")
 # TODO: Do globally
-set_target_properties (secure node PROPERTIES LINK_FLAGS "${PLATFORM_LINK_FLAGS}")
+set_target_properties (node PROPERTIES LINK_FLAGS "${PLATFORM_LINK_FLAGS}")
 
 if (WIN32)
 	set (PLATFORM_LIBS Ws2_32 mswsock iphlpapi ntdll)

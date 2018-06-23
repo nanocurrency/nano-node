@@ -1,6 +1,6 @@
 #pragma once
 
-#include <rai/ledger.hpp>
+#include <rai/secure/ledger.hpp>
 #include <rai/lib/work.hpp>
 #include <rai/node/bootstrap.hpp>
 #include <rai/node/stats.hpp>
