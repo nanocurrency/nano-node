@@ -6,6 +6,7 @@
 
 #include <argon2.h>
 
+#include <boost/filesystem.hpp>
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
 
@@ -554,6 +555,10 @@ void rai::wallet_store::write_backup (MDB_txn * transaction_a, boost::filesystem
 	backup_file.open (path_a.string ());
 	if (!backup_file.fail ())
 	{
+		// Set permissions to 600
+		boost::system::error_code ec;
+		boost::filesystem::permissions (path_a, boost::filesystem::perms::owner_read | boost::filesystem::perms::owner_write, ec);
+
 		std::string json;
 		serialize_json (transaction_a, json);
 		backup_file << json;
