@@ -27,8 +27,7 @@ SET (sources
 	work.hpp
 	work.cpp)
 
-add_library (rai_lib SHARED ${sources})
-add_library (rai_lib_static STATIC ${sources})
+add_library (rai_lib ${sources})
 
 target_link_libraries (rai_lib
 	secure
@@ -38,10 +37,3 @@ target_link_libraries (rai_lib
 	${CRYPTOPP_LIBRARY}
 	Boost::boost)
 
-target_link_libraries (rai_lib_static
-	secure
-	ed25519
-	xxhash
-	blake2
-	${CRYPTOPP_LIBRARY}
-	Boost::boost)
