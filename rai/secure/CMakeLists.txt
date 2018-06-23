@@ -34,10 +34,12 @@ add_library (secure
 	versioning.hpp
 	versioning.cpp)
 
-target_link_libraries(secure Boost::boost)
+target_link_libraries(secure rai_lib Boost::boost)
 
-set_target_properties (secure
-	PROPERTIES
-		COMPILE_FLAGS "-DQT_NO_KEYWORDS -DACTIVE_NETWORK=${ACTIVE_NETWORK} -DRAIBLOCKS_VERSION_MAJOR=${CPACK_PACKAGE_VERSION_MAJOR} -DRAIBLOCKS_VERSION_MINOR=${CPACK_PACKAGE_VERSION_MINOR} -DBOOST_ASIO_HAS_STD_ARRAY=1")
+target_compile_definitions(secure PUBLIC
+	-DQT_NO_KEYWORDS -DACTIVE_NETWORK=${ACTIVE_NETWORK}
+	-DRAIBLOCKS_VERSION_MAJOR=${CPACK_PACKAGE_VERSION_MAJOR}
+	-DRAIBLOCKS_VERSION_MINOR=${CPACK_PACKAGE_VERSION_MINOR}
+	-DBOOST_ASIO_HAS_STD_ARRAY=1)
 # TODO: Do globally
 set_target_properties (secure PROPERTIES LINK_FLAGS "${PLATFORM_LINK_FLAGS}")
