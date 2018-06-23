@@ -129,14 +129,7 @@ find_package (Boost 1.66.0 REQUIRED COMPONENTS date_time filesystem system log l
 # TODO: remove when boost is referenced through cmake targets
 include_directories(${Boost_INCLUDE_DIR})
 
-add_library (ed25519
-	ed25519-donna/ed25519-donna-portable.h
-	ed25519-donna/ed25519-hash-custom.h
-	ed25519-donna/ed25519-randombytes-custom.h
-	ed25519-donna/ed25519.h
-	ed25519-donna/ed25519.c)
-
-#target_link_libraries(ed25519 rai_lib)
+add_subdirectory(ed25519-donna)
 
 if (CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
 	set (ARGON_CORE phc-winner-argon2/src/opt.c)
@@ -376,7 +369,6 @@ add_subdirectory(rai/rai_node)
 
 set_target_properties (argon2 PROPERTIES COMPILE_FLAGS "${PLATFORM_C_FLAGS} ${PLATFORM_COMPILE_FLAGS}")
 set_target_properties (blake2 PROPERTIES COMPILE_FLAGS "${PLATFORM_C_FLAGS} ${PLATFORM_COMPILE_FLAGS} -D__SSE2__")
-set_target_properties (ed25519 PROPERTIES COMPILE_FLAGS "${PLATFORM_C_FLAGS} ${PLATFORM_COMPILE_FLAGS} -DED25519_CUSTOMHASH -DED25519_CUSTOMRNG")
 set_target_properties (node rai_lib rai_lib_static PROPERTIES COMPILE_FLAGS "${PLATFORM_CXX_FLAGS} ${PLATFORM_COMPILE_FLAGS} -DQT_NO_KEYWORDS -DACTIVE_NETWORK=${ACTIVE_NETWORK} -DRAIBLOCKS_VERSION_MAJOR=${CPACK_PACKAGE_VERSION_MAJOR} -DRAIBLOCKS_VERSION_MINOR=${CPACK_PACKAGE_VERSION_MINOR} -DBOOST_ASIO_HAS_STD_ARRAY=1")
 # TODO: Do globally
 set_target_properties (node PROPERTIES LINK_FLAGS "${PLATFORM_LINK_FLAGS}")
