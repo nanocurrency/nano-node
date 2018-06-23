@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include <rai/common.hpp>
+#include <rai/secure/common.hpp>
 #include <rai/lib/interface.h>
 
 #include <ed25519-donna/ed25519.h>

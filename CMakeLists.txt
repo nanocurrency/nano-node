@@ -151,7 +151,6 @@ else ()
 	set (gtest_force_shared_crt OFF)
 endif()
 add_subdirectory (gtest)
-#include_directories ("gtest/include")
 
 #include_directories (beast/include)
 
@@ -269,6 +268,9 @@ if (RAIBLOCKS_TEST)
 	set_target_properties (core_test slow_test PROPERTIES COMPILE_FLAGS "-DQT_NO_KEYWORDS -DACTIVE_NETWORK=${ACTIVE_NETWORK} -DRAIBLOCKS_VERSION_MAJOR=${CPACK_PACKAGE_VERSION_MAJOR} -DRAIBLOCKS_VERSION_MINOR=${CPACK_PACKAGE_VERSION_MINOR} -DBOOST_ASIO_HAS_STD_ARRAY=1")
 	# TODO: Do globally
 	set_target_properties (core_test slow_test PROPERTIES LINK_FLAGS "${PLATFORM_LINK_FLAGS}")
+	target_link_libraries (core_test node secure gtest_main gtest libminiupnpc-static Boost::boost)
+	target_include_directories (core_test PRIVATE gtest/include)
+	#target_link_libraries (core_test node secure lmdb ed25519 rai_lib_static argon2 ${OPENSSL_LIBRARIES} ${CRYPTOPP_LIBRARY} gtest_main gtest libminiupnpc-static ${Boost_ATOMIC_LIBRARY} ${Boost_CHRONO_LIBRARY} ${Boost_REGEX_LIBRARY} ${Boost_DATE_TIME_LIBRARY} ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_LOG_LIBRARY} ${Boost_LOG_SETUP_LIBRARY} ${Boost_PROGRAM_OPTIONS_LIBRARY} ${Boost_THREAD_LIBRARY} ${PLATFORM_LIBS})
 endif (RAIBLOCKS_TEST)
 
 if (RAIBLOCKS_GUI)
@@ -375,7 +377,7 @@ endif (RAIBLOCKS_GUI)
 add_subdirectory(rai/rai_node)
 
 target_compile_definitions(blake2 PRIVATE -D__SSE2__)
-set_target_properties (node rai_lib rai_lib_static PROPERTIES COMPILE_FLAGS "-DQT_NO_KEYWORDS -DACTIVE_NETWORK=${ACTIVE_NETWORK} -DRAIBLOCKS_VERSION_MAJOR=${CPACK_PACKAGE_VERSION_MAJOR} -DRAIBLOCKS_VERSION_MINOR=${CPACK_PACKAGE_VERSION_MINOR} -DBOOST_ASIO_HAS_STD_ARRAY=1")
+#set_target_properties (node rai_lib rai_lib_static PROPERTIES COMPILE_FLAGS "-DQT_NO_KEYWORDS -DACTIVE_NETWORK=${ACTIVE_NETWORK} -DRAIBLOCKS_VERSION_MAJOR=${CPACK_PACKAGE_VERSION_MAJOR} -DRAIBLOCKS_VERSION_MINOR=${CPACK_PACKAGE_VERSION_MINOR} -DBOOST_ASIO_HAS_STD_ARRAY=1")
 # TODO: Do globally
 set_target_properties (node PROPERTIES LINK_FLAGS "${PLATFORM_LINK_FLAGS}")
 
