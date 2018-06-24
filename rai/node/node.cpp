@@ -3714,6 +3714,7 @@ void rai::add_node_options (boost::program_options::options_description & descri
 		("diagnostics", "Run internal diagnostics")
 		("key_create", "Generates a adhoc random keypair and prints it to stdout")
 		("key_expand", "Derive public key and account number from <key>")
+		("ledger_export", "Export ledger to stdout or <file> using optional <format> flags")
 		("wallet_add_adhoc", "Insert <key> in to <wallet>")
 		("wallet_create", "Creates a new wallet and prints the ID")
 		("wallet_change_seed", "Changes seed for <wallet> to <key>")
@@ -3727,6 +3728,7 @@ void rai::add_node_options (boost::program_options::options_description & descri
 		("vote_dump", "Dump most recent votes from representatives")
 		("account", boost::program_options::value<std::string> (), "Defines <account> for other commands")
 		("file", boost::program_options::value<std::string> (), "Defines <file> for other commands")
+		("format", boost::program_options::value<std::string> (), "Defines the <format> for other commands")
 		("key", boost::program_options::value<std::string> (), "Defines the <key> for other commands, hex")
 		("password", boost::program_options::value<std::string> (), "Defines <password> for other commands")
 		("wallet", boost::program_options::value<std::string> (), "Defines <wallet> for other commands");
@@ -4021,6 +4023,60 @@ bool rai::handle_node_options (boost::program_options::variables_map & vm)
 		{
 			std::cerr << "wallet_add command requires one <wallet> option and one <key> option and optionally one <password> option\n";
 			result = true;
+		}
+	}
+	else if (vm.count ("ledger_export") == 1)
+	{
+		std::ostream * ostream = nullptr;
+		std::ofstream fstream;
+		if (vm.count ("file") == 1)
+		{
+			std::string filename (vm["file"].as<std::string> ());
+			fstream.open (filename.c_str ());
+			if (fstream.fail ())
+			{
+				std::cerr << "Could not open " << filename << std::endl;
+			}
+			else
+			{
+				ostream = &fstream;
+			}
+		}
+		else
+		{
+			ostream = &std::cout;
+		}
+
+		if (ostream)
+		{
+			bool header = true;
+			if (vm.count ("format") == 1)
+			{
+				std::string format (vm["format"].as<std::string> ());
+				if (format.find ("noheader") != std::string::npos)
+				{
+					header = false;
+				}
+			}
+
+			if (header)
+			{
+				*ostream << "account;balance;headblock" << std::endl;
+			}
+
+			inactive_node node (data_path);
+			rai::transaction transaction (node.node->store.environment, nullptr, true);
+			for (auto i (node.node->store.latest_begin (transaction)), j (node.node->store.latest_end ()); i != j; ++i)
+			{
+				std::string account = rai::block_hash (i->first.uint256 ()).to_account ();
+				rai::account_info info (i->second);
+				std::string balance;
+				rai::amount (info.balance.number ()).encode_dec (balance);
+				std::string block_hash;
+				info.head.encode_hex (block_hash);
+
+				*ostream << account << ";" << balance << ";" << block_hash << std::endl;
+			}
 		}
 	}
 	else if (vm.count ("wallet_change_seed"))
