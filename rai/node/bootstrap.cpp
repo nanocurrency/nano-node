@@ -164,7 +164,7 @@ void rai::frontier_req_client::run ()
 	std::unique_ptr<rai::frontier_req> request (new rai::frontier_req);
 	request->start.clear ();
 	request->age = std::numeric_limits<decltype (request->age)>::max ();
-	request->count = std::numeric_limits<decltype (request->age)>::max ();
+	request->count = std::numeric_limits<decltype (request->count)>::max ();
 	auto send_buffer (std::make_shared<std::vector<uint8_t>> ());
 	{
 		rai::vectorstream stream (*send_buffer);
