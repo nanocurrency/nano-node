@@ -554,6 +554,7 @@ void rai::block_store::upgrade_v9_to_v10 (MDB_txn * transaction_a)
 
 void rai::block_store::upgrade_v10_to_v11 (MDB_txn * transaction_a)
 {
+	version_put (transaction_a, 11);
 	MDB_dbi unsynced;
 	mdb_dbi_open (transaction_a, "unsynced", MDB_CREATE | MDB_DUPSORT, &unsynced);
 	mdb_drop (transaction_a, unsynced, 1);
