@@ -3,7 +3,7 @@
     "rpc_enable": "true",
     "rpc": {
         "address": "::ffff:0.0.0.0",
-        "port": "7076",
+        "port": "55000",
         "enable_control": "true",
         "frontier_request_limit": "16384",
         "chain_request_limit": "16384"
