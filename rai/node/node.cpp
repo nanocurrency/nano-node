@@ -1223,7 +1223,7 @@ rai::vote_code rai::vote_processor::vote (std::shared_ptr<rai::vote> vote_a, rai
 		switch (result)
 		{
 			case rai::vote_code::vote:
-				node.observers.vote (vote_a, endpoint_a);
+				node.observers.vote.notify (vote_a, endpoint_a);
 			case rai::vote_code::replay:
 				// This tries to assist rep nodes that have lost track of their highest sequence number by replaying our highest known vote back to them
 				// Only do this if the sequence number is significantly different to account for network reordering
@@ -1580,13 +1580,13 @@ online_reps (*this),
 stats (config.stat_config)
 {
 	wallets.observer = [this](bool active) {
-		observers.wallet (active);
+		observers.wallet.notify (active);
 	};
 	peers.peer_observer = [this](rai::endpoint const & endpoint_a) {
-		observers.endpoint (endpoint_a);
+		observers.endpoint.notify (endpoint_a);
 	};
 	peers.disconnect_observer = [this]() {
-		observers.disconnect ();
+		observers.disconnect.notify ();
 	};
 	observers.blocks.add ([this](std::shared_ptr<rai::block> block_a, rai::account const & account_a, rai::amount const & amount_a, bool is_state_send_a) {
 		if (this->block_arrival.recent (block_a->hash ()))
@@ -2155,7 +2155,7 @@ void rai::node::start ()
 	online_reps.recalculate_stake ();
 	port_mapping.start ();
 	add_initial_peers ();
-	observers.started ();
+	observers.started.notify ();
 }
 
 void rai::node::stop ()
@@ -2739,13 +2739,13 @@ void rai::node::process_confirmed (std::shared_ptr<rai::block> block_a)
 		{
 			pending_account = send->hashables.destination;
 		}
-		observers.blocks (block_a, account, amount, is_state_send);
+		observers.blocks.notify (block_a, account, amount, is_state_send);
 		if (amount > 0)
 		{
-			observers.account_balance (account, false);
+			observers.account_balance.notify (account, false);
 			if (!pending_account.is_zero ())
 			{
-				observers.account_balance (pending_account, true);
+				observers.account_balance.notify (pending_account, true);
 			}
 		}
 	}
