@@ -22,7 +22,6 @@ file (WRITE ${CMAKE_BINARY_DIR}/bootstrap_weights.cpp "#include <cstddef>\n"
 add_library (secure
 	${PLATFORM_SECURE_SOURCE}
 	${CMAKE_BINARY_DIR}/bootstrap_weights.cpp
-	config.hpp
 	common.cpp
 	common.hpp
 	blockstore.cpp
@@ -35,15 +34,15 @@ add_library (secure
 	versioning.cpp)
 
 target_link_libraries(secure
-	rai_lib
 	ed25519
+	rai_lib
 	lmdb
 	Boost::boost
 	Boost::system
 	Boost::filesystem)
 
 target_compile_definitions(secure PUBLIC
-	-DQT_NO_KEYWORDS -DACTIVE_NETWORK=${ACTIVE_NETWORK}
+	-DQT_NO_KEYWORDS
 	-DRAIBLOCKS_VERSION_MAJOR=${CPACK_PACKAGE_VERSION_MAJOR}
 	-DRAIBLOCKS_VERSION_MINOR=${CPACK_PACKAGE_VERSION_MINOR}
 	-DBOOST_ASIO_HAS_STD_ARRAY=1)

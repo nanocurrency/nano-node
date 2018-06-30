@@ -14,7 +14,7 @@
 
 #include <lmdb/libraries/liblmdb/lmdb.h>
 
-#include <rai/secure/config.hpp>
+#include <rai/lib/config.hpp>
 #include <rai/lib/interface.h>
 #include <rai/lib/numbers.hpp>
 

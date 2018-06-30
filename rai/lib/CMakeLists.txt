@@ -18,6 +18,7 @@ SET (sources
 	expected.hpp
 	blocks.cpp
 	blocks.hpp
+	config.hpp
 	interface.cpp
 	interface.h
 	numbers.cpp
@@ -30,12 +31,15 @@ SET (sources
 add_library (rai_lib ${sources})
 
 target_link_libraries (rai_lib
-	secure
-	ed25519
 	xxhash
 	blake2
 	${CRYPTOPP_LIBRARY}
 	Boost::boost)
+
+target_compile_definitions(rai_lib
+	PUBLIC
+		-DACTIVE_NETWORK=${ACTIVE_NETWORK}
+)
 
 if (RAIBLOCKS_GUI AND NOT APPLE)
 	install(TARGETS rai_lib
