@@ -37,3 +37,10 @@ target_link_libraries (rai_lib
 	${CRYPTOPP_LIBRARY}
 	Boost::boost)
 
+if (RAIBLOCKS_GUI AND NOT APPLE)
+	install(TARGETS rai_lib
+			RUNTIME DESTINATION bin
+			LIBRARY DESTINATION lib
+			ARCHIVE DESTINATION lib
+	)
+endif()

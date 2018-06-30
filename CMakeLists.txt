@@ -274,7 +274,9 @@ if (RAIBLOCKS_TEST)
 	# TODO: Do globally
 	set_target_properties (core_test slow_test PROPERTIES LINK_FLAGS "${PLATFORM_LINK_FLAGS}")
 	target_link_libraries (core_test node secure gtest_main gtest libminiupnpc-static Boost::boost)
+	target_link_libraries (slow_test node secure gtest_main gtest libminiupnpc-static Boost::boost)
 	target_include_directories (core_test PRIVATE gtest/include)
+	target_include_directories (slow_test PRIVATE gtest/include)
 	#target_link_libraries (core_test node secure lmdb ed25519 rai_lib_static argon2 ${OPENSSL_LIBRARIES} ${CRYPTOPP_LIBRARY} gtest_main gtest libminiupnpc-static ${Boost_ATOMIC_LIBRARY} ${Boost_CHRONO_LIBRARY} ${Boost_REGEX_LIBRARY} ${Boost_DATE_TIME_LIBRARY} ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_LOG_LIBRARY} ${Boost_LOG_SETUP_LIBRARY} ${Boost_PROGRAM_OPTIONS_LIBRARY} ${Boost_THREAD_LIBRARY} ${PLATFORM_LIBS})
 endif (RAIBLOCKS_TEST)
 
@@ -286,13 +288,13 @@ if (RAIBLOCKS_GUI)
 	endif (WIN32)
 
 	if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-		set (PLATFORM_WALLET_SOURCE rai/plat/default/icon.cpp)
+		set (PLATFORM_WALLET_SOURCE rai/rai_wallet/plat/default/icon.cpp)
 	elseif (${CMAKE_SYSTEM_NAME} MATCHES "Windows")
-		set (PLATFORM_WALLET_SOURCE rai/plat/windows/icon.cpp RaiBlocks.rc)
+		set (PLATFORM_WALLET_SOURCE rai/rai_wallet/plat/windows/icon.cpp RaiBlocks.rc)
 	elseif (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-		set (PLATFORM_WALLET_SOURCE rai/plat/default/icon.cpp)
+		set (PLATFORM_WALLET_SOURCE rai/rai_wallet/plat/default/icon.cpp)
 	elseif (${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
-		set (PLATFORM_WALLET_SOURCE rai/plat/default/icon.cpp)
+		set (PLATFORM_WALLET_SOURCE rai/rai_wallet/plat/default/icon.cpp)
 	else ()
 		error ("Unknown platform: ${CMAKE_SYSTEM_NAME}")
 	endif ()
@@ -309,17 +311,27 @@ if (RAIBLOCKS_GUI)
 		rai/qt/qt.cpp
 		rai/qt/qt.hpp)
 
+	target_link_libraries(qt rai_lib libminiupnpc-static Qt5::Gui Qt5::Widgets)
+
 	add_executable (nano_wallet ${PLATFORM_GUI_TARGET_PROPERTIES}
 		${PLATFORM_WALLET_SOURCE}
 		rai/rai_wallet/entry.cpp
+		rai/rai_wallet/icon.hpp
 		${RES})
+
+	target_link_libraries (nano_wallet node qt)
 
 	add_executable (qt_test
 		rai/qt_test/entry.cpp
 		rai/qt_test/qt.cpp)
 
+	target_include_directories (qt_test PRIVATE gtest/include)
+	target_link_libraries(qt_test qt Qt5::Test)
+
 	add_executable (qt_system
 		rai/qt_system/entry.cpp)
+
+	target_link_libraries (qt_system rai_lib node Qt5::Gui Qt5::Widgets)
 
 	# TODO: Do globally
 	set_target_properties (nano_wallet qt_test PROPERTIES LINK_FLAGS "${PLATFORM_LINK_FLAGS}")
@@ -327,12 +339,6 @@ if (RAIBLOCKS_GUI)
 	set_target_properties (qt_test qt nano_wallet qt_system PROPERTIES COMPILE_FLAGS "-DQT_NO_KEYWORDS -DACTIVE_NETWORK=${ACTIVE_NETWORK} -DRAIBLOCKS_VERSION_MAJOR=${CPACK_PACKAGE_VERSION_MAJOR} -DRAIBLOCKS_VERSION_MINOR=${CPACK_PACKAGE_VERSION_MINOR} -DBOOST_ASIO_HAS_STD_ARRAY=1")
 	# TODO: Do globally
 	set_target_properties (qt qt_system PROPERTIES LINK_FLAGS "${PLATFORM_LINK_FLAGS}")
-
-	#target_link_libraries (qt_test node secure lmdb ed25519 rai_lib_static qt argon2 ${OPENSSL_LIBRARIES} ${CRYPTOPP_LIBRARY} gtest libminiupnpc-static ${Boost_ATOMIC_LIBRARY} ${Boost_CHRONO_LIBRARY} ${Boost_REGEX_LIBRARY} ${Boost_DATE_TIME_LIBRARY} ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_LOG_LIBRARY} ${Boost_PROGRAM_OPTIONS_LIBRARY} ${Boost_LOG_SETUP_LIBRARY} ${Boost_THREAD_LIBRARY} Qt5::Core Qt5::Gui Qt5::Widgets Qt5::Test ${QT_QTGUI_LIBRARY} ${PLATFORM_LIBS})
-
-	#target_link_libraries (qt_system node secure lmdb ed25519 rai_lib_static qt argon2 ${OPENSSL_LIBRARIES} ${CRYPTOPP_LIBRARY} gtest libminiupnpc-static ${Boost_ATOMIC_LIBRARY} ${Boost_CHRONO_LIBRARY} ${Boost_REGEX_LIBRARY} ${Boost_DATE_TIME_LIBRARY} ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_LOG_LIBRARY} ${Boost_PROGRAM_OPTIONS_LIBRARY} ${Boost_LOG_SETUP_LIBRARY} ${Boost_THREAD_LIBRARY} Qt5::Core Qt5::Gui Qt5::Widgets ${QT_QTGUI_LIBRARY} ${PLATFORM_LIBS})
-
-	#target_link_libraries (nano_wallet node secure lmdb ed25519 rai_lib_static qt argon2 ${OPENSSL_LIBRARIES} ${CRYPTOPP_LIBRARY} libminiupnpc-static ${Boost_ATOMIC_LIBRARY} ${Boost_CHRONO_LIBRARY} ${Boost_REGEX_LIBRARY} ${Boost_DATE_TIME_LIBRARY} ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_LOG_LIBRARY} ${Boost_PROGRAM_OPTIONS_LIBRARY} ${Boost_LOG_SETUP_LIBRARY} ${Boost_THREAD_LIBRARY} Qt5::Core Qt5::Gui Qt5::Widgets ${QT_QTGUI_LIBRARY} ${PLATFORM_LIBS} ${PLATFORM_WALLET_LIBS})
 
 	if (APPLE)
 		install (TARGETS nano_wallet DESTINATION Nano.app/Contents/MacOS)
@@ -371,7 +377,7 @@ if (RAIBLOCKS_GUI)
 		install (FILES ${Qt5_bin_DIR}/Qt5WinExtras.dll DESTINATION .)
 		install (FILES ${Qt5WindowsPlugin} DESTINATION platforms)
 	else ()
-		install(TARGETS nano_wallet rai_node rai_lib
+		install(TARGETS nano_wallet
 				RUNTIME DESTINATION bin
 				LIBRARY DESTINATION lib
 				ARCHIVE DESTINATION lib
