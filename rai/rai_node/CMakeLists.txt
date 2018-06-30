@@ -8,6 +8,7 @@ target_link_libraries (rai_node
 	secure
 	argon2
 	Boost::boost
+	${PLATFORM_LIBS}
 )
 
 set_target_properties (rai_node

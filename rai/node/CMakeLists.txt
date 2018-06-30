@@ -52,4 +52,5 @@ target_link_libraries (node
 	Boost::system
 	Boost::thread
 	Boost::boost
+	${CMAKE_DL_LIBS}
 	)
