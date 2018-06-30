@@ -101,6 +101,9 @@ else ()
 	endif()
 endif (APPLE)
 
+SET( CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${PLATFORM_LINK_FLAGS}" )
+
+
 if (RAIBLOCKS_GUI)
 	if (WIN32)
 		set (PLATFORM_QT_PACKAGES WinExtras)
@@ -269,8 +272,6 @@ if (RAIBLOCKS_TEST)
 		rai/slow_test/node.cpp)
 	
 	set_target_properties (core_test slow_test PROPERTIES COMPILE_FLAGS "-DQT_NO_KEYWORDS -DRAIBLOCKS_VERSION_MAJOR=${CPACK_PACKAGE_VERSION_MAJOR} -DRAIBLOCKS_VERSION_MINOR=${CPACK_PACKAGE_VERSION_MINOR} -DBOOST_ASIO_HAS_STD_ARRAY=1")
-	# TODO: Do globally
-	set_target_properties (core_test slow_test PROPERTIES LINK_FLAGS "${PLATFORM_LINK_FLAGS}")
 	target_link_libraries (core_test node secure gtest_main gtest libminiupnpc-static Boost::boost)
 	target_link_libraries (slow_test node secure gtest_main gtest libminiupnpc-static Boost::boost)
 	target_include_directories (core_test PRIVATE gtest/include)
@@ -331,12 +332,7 @@ if (RAIBLOCKS_GUI)
 
 	target_link_libraries (qt_system qt node Qt5::Gui Qt5::Widgets)
 
-	# TODO: Do globally
-	set_target_properties (nano_wallet qt_test PROPERTIES LINK_FLAGS "${PLATFORM_LINK_FLAGS}")
-
 	set_target_properties (qt_test qt nano_wallet qt_system PROPERTIES COMPILE_FLAGS "-DQT_NO_KEYWORDS -DRAIBLOCKS_VERSION_MAJOR=${CPACK_PACKAGE_VERSION_MAJOR} -DRAIBLOCKS_VERSION_MINOR=${CPACK_PACKAGE_VERSION_MINOR} -DBOOST_ASIO_HAS_STD_ARRAY=1")
-	# TODO: Do globally
-	set_target_properties (qt qt_system PROPERTIES LINK_FLAGS "${PLATFORM_LINK_FLAGS}")
 
 	if (APPLE)
 		install (TARGETS nano_wallet DESTINATION Nano.app/Contents/MacOS)
@@ -386,8 +382,6 @@ endif (RAIBLOCKS_GUI)
 add_subdirectory(rai/rai_node)
 
 target_compile_definitions(blake2 PRIVATE -D__SSE2__)
-# TODO: Do globally
-set_target_properties (node PROPERTIES LINK_FLAGS "${PLATFORM_LINK_FLAGS}")
 
 if (WIN32)
 	set (PLATFORM_LIBS Ws2_32 mswsock iphlpapi ntdll)
