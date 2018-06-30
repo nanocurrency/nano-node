@@ -109,7 +109,6 @@ if (RAIBLOCKS_GUI)
 	endif (WIN32)
 
 	find_package (Qt5 COMPONENTS Core Gui Widgets Test ${PLATFORM_QT_PACKAGES})
-	#include_directories (${Qt5Core_INCLUDE_DIRS} ${Qt5Gui_INCLUDE_DIRS} ${Qt5Widgets_INCLUDE_DIRS} ${Qt5Test_INCLUDE_DIRS})
 endif (RAIBLOCKS_GUI)
 
 if (RAIBLOCKS_SECURE_RPC)
@@ -158,7 +157,6 @@ set (UPNPC_BUILD_SHARED OFF CACHE BOOL "")
 add_subdirectory (miniupnp/miniupnpc)
 # FIXME: This fixes miniupnpc include directories without modifying miniupnpc's
 # CMakeLists.txt but should be set there
-#${CMAKE_SOURCE_DIR}/miniupnpc/miniupnpc)
 set_target_properties(libminiupnpc-static PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
 	"${CMAKE_SOURCE_DIR}/miniupnp/miniupnpc")
 
@@ -388,7 +386,6 @@ endif (RAIBLOCKS_GUI)
 add_subdirectory(rai/rai_node)
 
 target_compile_definitions(blake2 PRIVATE -D__SSE2__)
-#set_target_properties (node rai_lib rai_lib_static PROPERTIES COMPILE_FLAGS "-DQT_NO_KEYWORDS -DRAIBLOCKS_VERSION_MAJOR=${CPACK_PACKAGE_VERSION_MAJOR} -DRAIBLOCKS_VERSION_MINOR=${CPACK_PACKAGE_VERSION_MINOR} -DBOOST_ASIO_HAS_STD_ARRAY=1")
 # TODO: Do globally
 set_target_properties (node PROPERTIES LINK_FLAGS "${PLATFORM_LINK_FLAGS}")
 
