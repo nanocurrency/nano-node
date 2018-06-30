@@ -41,6 +41,7 @@ add_library (node
 target_link_libraries (node
 	lmdb
 	ed25519
+	secure
 	rai_lib
 	libminiupnpc-static
 	argon2

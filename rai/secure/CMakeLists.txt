@@ -34,7 +34,7 @@ add_library (secure
 	versioning.hpp
 	versioning.cpp)
 
-target_link_libraries(secure rai_lib Boost::boost)
+target_link_libraries(secure rai_lib ed25519 Boost::boost)
 
 target_compile_definitions(secure PUBLIC
 	-DQT_NO_KEYWORDS -DACTIVE_NETWORK=${ACTIVE_NETWORK}
