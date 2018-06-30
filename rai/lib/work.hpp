@@ -1,7 +1,7 @@
 #pragma once
 
 #include <boost/optional.hpp>
-#include <rai/secure/config.hpp>
+#include <rai/lib/config.hpp>
 #include <rai/lib/numbers.hpp>
 #include <rai/lib/utility.hpp>
 
