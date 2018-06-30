@@ -34,6 +34,13 @@ endif()
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
+find_package(Threads REQUIRED)
+set (PLATFORM_LIBS ${CMAKE_THREAD_LIBS_INIT} ${CMAKE_DL_LIBS})
+
+if (WIN32)
+	set (PLATFORM_LIBS "${PLATFORM_LIBS} Ws2_32 mswsock iphlpapi ntdll")
+endif (WIN32)
+
 if (WIN32)
 	add_definitions(-D_WIN32_WINNT=0x0600
 					-DWINVER=0x0600
@@ -238,9 +245,12 @@ add_library (blake2
 	blake2/blake2.h
 	${BLAKE2_IMPLEMENTATION})
 
+target_compile_definitions(blake2 PRIVATE -D__SSE2__)
+
 add_subdirectory(rai/secure)
 add_subdirectory(rai/lib)
 add_subdirectory(rai/node)
+add_subdirectory(rai/rai_node)
 
 SET (ACTIVE_NETWORK rai_live_network CACHE STRING "Selects which network parameters are used")
 set_property (CACHE ACTIVE_NETWORK PROPERTY STRINGS rai_test_network rai_beta_network rai_live_network)
@@ -272,8 +282,8 @@ if (RAIBLOCKS_TEST)
 		rai/slow_test/node.cpp)
 	
 	set_target_properties (core_test slow_test PROPERTIES COMPILE_FLAGS "-DQT_NO_KEYWORDS -DRAIBLOCKS_VERSION_MAJOR=${CPACK_PACKAGE_VERSION_MAJOR} -DRAIBLOCKS_VERSION_MINOR=${CPACK_PACKAGE_VERSION_MINOR} -DBOOST_ASIO_HAS_STD_ARRAY=1")
-	target_link_libraries (core_test node secure gtest_main gtest libminiupnpc-static Boost::boost)
-	target_link_libraries (slow_test node secure gtest_main gtest libminiupnpc-static Boost::boost)
+	target_link_libraries (core_test node secure gtest_main gtest libminiupnpc-static Boost::boost ${PLATFORM_LIBS})
+	target_link_libraries (slow_test node secure gtest_main gtest libminiupnpc-static Boost::boost ${PLATFORM_LIBS})
 	target_include_directories (core_test PRIVATE gtest/include)
 	target_include_directories (slow_test PRIVATE gtest/include)
 endif (RAIBLOCKS_TEST)
@@ -318,19 +328,19 @@ if (RAIBLOCKS_GUI)
 		rai/rai_wallet/icon.hpp
 		${RES})
 
-	target_link_libraries (nano_wallet node qt)
+	target_link_libraries (nano_wallet node qt ${PLATFORM_LIBS})
 
 	add_executable (qt_test
 		rai/qt_test/entry.cpp
 		rai/qt_test/qt.cpp)
 
 	target_include_directories (qt_test PRIVATE gtest/include)
-	target_link_libraries(qt_test gtest gtest_main qt Qt5::Test)
+	target_link_libraries(qt_test gtest gtest_main qt Qt5::Test ${PLATFORM_LIBS})
 
 	add_executable (qt_system
 		rai/qt_system/entry.cpp)
 
-	target_link_libraries (qt_system qt node Qt5::Gui Qt5::Widgets)
+	target_link_libraries (qt_system qt node Qt5::Gui Qt5::Widgets ${PLATFORM_LIBS})
 
 	set_target_properties (qt_test qt nano_wallet qt_system PROPERTIES COMPILE_FLAGS "-DQT_NO_KEYWORDS -DRAIBLOCKS_VERSION_MAJOR=${CPACK_PACKAGE_VERSION_MAJOR} -DRAIBLOCKS_VERSION_MINOR=${CPACK_PACKAGE_VERSION_MINOR} -DBOOST_ASIO_HAS_STD_ARRAY=1")
 
@@ -378,16 +388,6 @@ if (RAIBLOCKS_GUI)
 		)
 	endif ()
 endif (RAIBLOCKS_GUI)
-
-add_subdirectory(rai/rai_node)
-
-target_compile_definitions(blake2 PRIVATE -D__SSE2__)
-
-if (WIN32)
-	set (PLATFORM_LIBS Ws2_32 mswsock iphlpapi ntdll)
-else (WIN32)
-	set (PLATFORM_LIBS pthread ${CMAKE_DL_LIBS})
-endif (WIN32)
 
 set (CPACK_RESOURCE_FILE_LICENSE ${CMAKE_SOURCE_DIR}/LICENSE)
 
