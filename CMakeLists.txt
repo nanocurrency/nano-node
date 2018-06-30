@@ -156,6 +156,11 @@ add_subdirectory (gtest)
 
 set (UPNPC_BUILD_SHARED OFF CACHE BOOL "")
 add_subdirectory (miniupnp/miniupnpc)
+# FIXME: This fixes miniupnpc include directories without modifying miniupnpc's
+# CMakeLists.txt but should be set there
+#${CMAKE_SOURCE_DIR}/miniupnpc/miniupnpc)
+set_target_properties(libminiupnpc-static PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
+	"${CMAKE_SOURCE_DIR}/miniupnp/miniupnpc")
 
 set (BUILD_SHARED OFF CACHE BOOL "")
 set (BUILD_TESTING OFF CACHE BOOL "")
