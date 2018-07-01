@@ -9,7 +9,7 @@
 	url = https://github.com/weidai11/cryptopp.git
 [submodule "lmdb"]
 	path = lmdb
-	url = https://github.com/clemahieu/lmdb.git
+	url = https://github.com/arugulaBowl/lmdb.git
 	branch = mdb.RE/0.9
 [submodule "phc-winner-argon2"]
 	path = phc-winner-argon2
