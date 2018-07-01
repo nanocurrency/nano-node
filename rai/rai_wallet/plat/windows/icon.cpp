@@ -2,7 +2,7 @@
 
 #include <QApplication>
 #include <QtGui>
-#include <qwinfunctions.h>
+#include <QtWin>
 
 void rai::set_application_icon (QApplication & application_a)
 {

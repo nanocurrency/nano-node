@@ -325,7 +325,11 @@ if (RAIBLOCKS_GUI)
 		rai/rai_wallet/icon.hpp
 		${RES})
 
-	target_link_libraries (nano_wallet node qt ${PLATFORM_LIBS})
+	target_link_libraries (nano_wallet
+		node
+		qt
+		${PLATFORM_LIBS}
+		${PLATFORM_WALLET_LIBS})
 
 	add_executable (qt_test
 		rai/qt_test/entry.cpp
