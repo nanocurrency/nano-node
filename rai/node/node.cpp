@@ -1532,6 +1532,14 @@ rai::process_return rai::block_processor::process_receive_one (MDB_txn * transac
 			}
 			break;
 		}
+		case rai::process_result::representative_mismatch:
+		{
+			if (node.config.logging.ledger_logging ())
+			{
+				BOOST_LOG (node.log) << boost::str (boost::format ("Representative mismatch for: %1%") % hash.to_string ());
+			}
+			break;
+		}
 		case rai::process_result::block_position:
 		{
 			if (node.config.logging.ledger_logging ())

@@ -411,6 +411,9 @@ std::string rai::stat::detail_to_string (uint32_t key)
 		case rai::stat::detail::state_block:
 			res = "state_block";
 			break;
+		case rai::stat::detail::epoch_block:
+			res = "epoch_block";
+			break;
 		case rai::stat::detail::vote_valid:
 			res = "vote_valid";
 			break;

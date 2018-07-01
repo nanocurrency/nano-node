@@ -233,6 +233,7 @@ enum class process_result
 	gap_source, // Block marked as source is unknown
 	opened_burn_account, // The impossible happened, someone found the private key associated with the public key '0'.
 	balance_mismatch, // Balance and amount delta don't match
+	representative_mismatch, // Representative is changed when it is not allowed
 	block_position // This block cannot follow the previous block
 };
 class process_return

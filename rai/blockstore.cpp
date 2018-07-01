@@ -580,6 +580,13 @@ void rai::block_store::upgrade_v11_to_v12 (MDB_txn * transaction_a)
 		bytes.push_back (0); // min_version field
 		mdb_cursor_put (i.cursor, i->first, rai::mdb_val (bytes.size (), bytes.data ()), MDB_CURRENT);
 	}
+	for (rai::store_iterator i (transaction_a, state_blocks), n (nullptr); i != n; ++i)
+	{
+		assert (i->second.size () == rai::state_block::size + sizeof (rai::block_hash));
+		std::vector<uint8_t> bytes ((uint8_t *)i->second.data (), (uint8_t *)i->second.data () + i->second.size ());
+		bytes.insert (bytes.begin () + rai::state_block::size, 0); // version field
+		mdb_cursor_put (i.cursor, i->first, rai::mdb_val (bytes.size (), bytes.data ()), MDB_CURRENT);
+	}
 }
 
 void rai::block_store::clear (MDB_dbi db_a)
@@ -594,6 +601,21 @@ rai::uint128_t rai::block_store::block_balance (MDB_txn * transaction_a, rai::bl
 	balance_visitor visitor (transaction_a, *this);
 	visitor.compute (hash_a);
 	return visitor.balance;
+}
+
+uint8_t rai::block_store::block_version (MDB_txn * transaction_a, rai::block_hash const & hash_a)
+{
+	rai::block_type type;
+	rai::mdb_val value;
+	auto status (mdb_get (transaction_a, state_blocks, rai::mdb_val (hash_a), value));
+	assert (status == 0 || (status == MDB_NOTFOUND && block_exists (transaction_a, hash_a)));
+	uint8_t result (0);
+	if (status == 0)
+	{
+		assert (value.size () > rai::state_block::size);
+		result = *(reinterpret_cast<uint8_t const *> (value.data ()) + rai::state_block::size);
+	}
+	return result;
 }
 
 void rai::block_store::representation_add (MDB_txn * transaction_a, rai::block_hash const & source_a, rai::uint128_t const & amount_a)
@@ -638,13 +660,21 @@ void rai::block_store::block_put_raw (MDB_txn * transaction_a, MDB_dbi database_
 	assert (status2 == 0);
 }
 
-void rai::block_store::block_put (MDB_txn * transaction_a, rai::block_hash const & hash_a, rai::block const & block_a, rai::block_hash const & successor_a)
+void rai::block_store::block_put (MDB_txn * transaction_a, rai::block_hash const & hash_a, rai::block const & block_a, rai::block_hash const & successor_a, uint8_t version_a)
 {
 	assert (successor_a.is_zero () || block_exists (transaction_a, successor_a));
+	if (block_a.type () != rai::block_type::state)
+	{
+		assert (version_a == 0);
+	}
 	std::vector<uint8_t> vector;
 	{
 		rai::vectorstream stream (vector);
 		block_a.serialize (stream);
+		if (block_a.type () == rai::block_type::state)
+		{
+			rai::write (stream, version_a);
+		}
 		rai::write (stream, successor_a.bytes);
 	}
 	block_put_raw (transaction_a, block_database (block_a.type ()), hash_a, { vector.size (), vector.data () });
@@ -780,7 +810,8 @@ rai::block_hash rai::block_store::block_successor (MDB_txn * transaction_a, rai:
 void rai::block_store::block_successor_clear (MDB_txn * transaction_a, rai::block_hash const & hash_a)
 {
 	auto block (block_get (transaction_a, hash_a));
-	block_put (transaction_a, hash_a, *block);
+	auto version (block_version (transaction_a, hash_a));
+	block_put (transaction_a, hash_a, *block, version);
 }
 
 std::unique_ptr<rai::block> rai::block_store::block_get (MDB_txn * transaction_a, rai::block_hash const & hash_a)

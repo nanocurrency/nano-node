@@ -17,7 +17,7 @@ using tally_t = std::map<rai::uint128_t, std::shared_ptr<rai::block>, std::great
 class ledger
 {
 public:
-	ledger (rai::block_store &, rai::stat &);
+	ledger (rai::block_store &, rai::stat &, rai::uint256_union const & = 1, rai::account const & = 0);
 	std::pair<rai::uint128_t, std::shared_ptr<rai::block>> winner (MDB_txn *, rai::votes const & votes_a);
 	// Map of weight -> associated block, ordered greatest to least
 	rai::tally_t tally (MDB_txn *, rai::votes const &);
@@ -51,5 +51,7 @@ public:
 	std::unordered_map<rai::account, rai::uint128_t> bootstrap_weights;
 	uint64_t bootstrap_weight_max_blocks;
 	std::atomic<bool> check_bootstrap_weights;
+	rai::uint256_union epoch_link;
+	rai::account epoch_signer;
 };
 };

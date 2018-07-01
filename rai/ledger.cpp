@@ -131,15 +131,17 @@ public:
 			ledger.store.pending_del (transaction, key);
 			ledger.stats.inc (rai::stat::type::rollback, rai::stat::detail::send);
 		}
-		else if (!block_a.hashables.link.is_zero ())
+		else if (!block_a.hashables.link.is_zero () && block_a.hashables.link != ledger.epoch_link)
 		{
-			rai::pending_info pending_info (ledger.account (transaction, block_a.hashables.link), block_a.hashables.balance.number () - balance, info.version);
+			auto source_version (ledger.store.block_version (transaction, block_a.hashables.link));
+			rai::pending_info pending_info (ledger.account (transaction, block_a.hashables.link), block_a.hashables.balance.number () - balance, source_version);
 			ledger.store.pending_put (transaction, rai::pending_key (block_a.hashables.account, block_a.hashables.link), pending_info);
 			ledger.stats.inc (rai::stat::type::rollback, rai::stat::detail::receive);
 		}
 
 		assert (!error);
-		ledger.change_latest (transaction, block_a.hashables.account, block_a.hashables.previous, representative, balance, info.block_count - 1, info.version);
+		auto previous_version (ledger.store.block_version (transaction, block_a.hashables.previous));
+		ledger.change_latest (transaction, block_a.hashables.account, block_a.hashables.previous, representative, balance, info.block_count - 1, false, previous_version);
 
 		auto previous (ledger.store.block_get (transaction, block_a.hashables.previous));
 		if (previous != nullptr)
@@ -171,6 +173,7 @@ public:
 	void change_block (rai::change_block const &) override;
 	void state_block (rai::state_block const &) override;
 	void state_block_impl (rai::state_block const &);
+	void epoch_block_impl (rai::state_block const &);
 	rai::ledger & ledger;
 	MDB_txn * transaction;
 	rai::process_return result;
@@ -178,7 +181,17 @@ public:
 
 void ledger_processor::state_block (rai::state_block const & block_a)
 {
-	state_block_impl (block_a);
+	// Check if this is an epoch block
+	rai::account_info info;
+	ledger.store.account_get (transaction, block_a.hashables.account, info);
+	if (block_a.hashables.balance == info.balance && !ledger.epoch_link.is_zero () && block_a.hashables.link == ledger.epoch_link)
+	{
+		epoch_block_impl (block_a);
+	}
+	else
+	{
+		state_block_impl (block_a);
+	}
 }
 
 void ledger_processor::state_block_impl (rai::state_block const & block_a)
@@ -239,6 +252,7 @@ void ledger_processor::state_block_impl (rai::state_block const & block_a)
 								if (result.code == rai::process_result::progress)
 								{
 									result.code = result.amount == pending.amount ? rai::process_result::progress : rai::process_result::balance_mismatch;
+									account_version = std::max (account_version, pending.min_version);
 								}
 							}
 						}
@@ -253,7 +267,7 @@ void ledger_processor::state_block_impl (rai::state_block const & block_a)
 				{
 					ledger.stats.inc (rai::stat::type::ledger, rai::stat::detail::state_block);
 					result.state_is_send = is_send;
-					ledger.store.block_put (transaction, hash, block_a);
+					ledger.store.block_put (transaction, hash, block_a, account_version);
 
 					if (!info.rep_block.is_zero ())
 					{
@@ -281,6 +295,69 @@ void ledger_processor::state_block_impl (rai::state_block const & block_a)
 					}
 					// Frontier table is unnecessary for state blocks and this also prevents old blocks from being inserted on top of state blocks
 					result.account = block_a.hashables.account;
+				}
+			}
+		}
+	}
+}
+
+void ledger_processor::epoch_block_impl (rai::state_block const & block_a)
+{
+	auto hash (block_a.hash ());
+	auto existing (ledger.store.block_exists (transaction, hash));
+	result.code = existing ? rai::process_result::old : rai::process_result::progress; // Have we seen this block before? (Unambiguous)
+	if (result.code == rai::process_result::progress)
+	{
+		result.code = validate_message (ledger.epoch_signer, hash, block_a.signature) ? rai::process_result::bad_signature : rai::process_result::progress; // Is this block signed correctly (Unambiguous)
+		if (result.code == rai::process_result::progress)
+		{
+			result.code = block_a.hashables.account.is_zero () ? rai::process_result::opened_burn_account : rai::process_result::progress; // Is this for the burn account? (Unambiguous)
+			if (result.code == rai::process_result::progress)
+			{
+				rai::account_info info;
+				auto account_error (ledger.store.account_get (transaction, block_a.hashables.account, info));
+				if (!account_error)
+				{
+					// Account already exists
+					result.code = block_a.hashables.previous.is_zero () ? rai::process_result::fork : rai::process_result::progress; // Has this account already been opened? (Ambigious)
+					if (result.code == rai::process_result::progress)
+					{
+						result.code = ledger.store.block_exists (transaction, block_a.hashables.previous) ? rai::process_result::progress : rai::process_result::gap_previous; // Does the previous block exist in the ledger? (Unambigious)
+						if (result.code == rai::process_result::progress)
+						{
+							result.code = block_a.hashables.previous == info.head ? rai::process_result::progress : rai::process_result::fork; // Is the previous block the account's head block? (Ambigious)
+							if (result.code == rai::process_result::progress)
+							{
+								auto last_rep_block (ledger.store.block_get (transaction, info.rep_block));
+								assert (last_rep_block != nullptr);
+								result.code = block_a.hashables.representative == last_rep_block->representative () ? rai::process_result::progress : rai::process_result::representative_mismatch;
+							}
+						}
+					}
+				}
+				else
+				{
+					result.code = block_a.hashables.representative.is_zero () ? rai::process_result::progress : rai::process_result::representative_mismatch;
+				}
+				if (result.code == rai::process_result::progress)
+				{
+					result.code = info.version == 0 ? rai::process_result::progress : rai::process_result::block_position;
+					if (result.code == rai::process_result::progress)
+					{
+						result.code = block_a.hashables.balance == info.balance ? rai::process_result::progress : rai::process_result::balance_mismatch;
+						if (result.code == rai::process_result::progress)
+						{
+							ledger.stats.inc (rai::stat::type::ledger, rai::stat::detail::epoch_block);
+							result.account = block_a.hashables.account;
+							result.amount = 0;
+							ledger.store.block_put (transaction, hash, block_a, 1);
+							ledger.change_latest (transaction, block_a.hashables.account, hash, hash, info.balance, info.block_count + 1, true, 1);
+							if (!ledger.store.frontier_get (transaction, info.head).is_zero ())
+							{
+								ledger.store.frontier_del (transaction, info.head);
+							}
+						}
+					}
 				}
 			}
 		}
@@ -410,19 +487,23 @@ void ledger_processor::receive_block (rai::receive_block const & block_a)
 								result.code = ledger.store.pending_get (transaction, key, pending) ? rai::process_result::unreceivable : rai::process_result::progress; // Has this source already been received (Malformed)
 								if (result.code == rai::process_result::progress)
 								{
-									auto new_balance (info.balance.number () + pending.amount.number ());
-									rai::account_info source_info;
-									auto error (ledger.store.account_get (transaction, pending.source, source_info));
-									assert (!error);
-									ledger.store.pending_del (transaction, key);
-									ledger.store.block_put (transaction, hash, block_a);
-									ledger.change_latest (transaction, account, hash, info.rep_block, new_balance, info.block_count + 1);
-									ledger.store.representation_add (transaction, info.rep_block, pending.amount.number ());
-									ledger.store.frontier_del (transaction, block_a.hashables.previous);
-									ledger.store.frontier_put (transaction, hash, account);
-									result.account = account;
-									result.amount = pending.amount;
-									ledger.stats.inc (rai::stat::type::ledger, rai::stat::detail::receive);
+									result.code = pending.min_version == 0 ? rai::process_result::progress : rai::process_result::unreceivable; // Are we receiving a state-only send? (Malformed)
+									if (result.code == rai::process_result::progress)
+									{
+										auto new_balance (info.balance.number () + pending.amount.number ());
+										rai::account_info source_info;
+										auto error (ledger.store.account_get (transaction, pending.source, source_info));
+										assert (!error);
+										ledger.store.pending_del (transaction, key);
+										ledger.store.block_put (transaction, hash, block_a);
+										ledger.change_latest (transaction, account, hash, info.rep_block, new_balance, info.block_count + 1);
+										ledger.store.representation_add (transaction, info.rep_block, pending.amount.number ());
+										ledger.store.frontier_del (transaction, block_a.hashables.previous);
+										ledger.store.frontier_put (transaction, hash, account);
+										result.account = account;
+										result.amount = pending.amount;
+										ledger.stats.inc (rai::stat::type::ledger, rai::stat::detail::receive);
+									}
 								}
 							}
 						}
@@ -463,17 +544,21 @@ void ledger_processor::open_block (rai::open_block const & block_a)
 						result.code = block_a.hashables.account == rai::burn_account ? rai::process_result::opened_burn_account : rai::process_result::progress; // Is it burning 0 account? (Malicious)
 						if (result.code == rai::process_result::progress)
 						{
-							rai::account_info source_info;
-							auto error (ledger.store.account_get (transaction, pending.source, source_info));
-							assert (!error);
-							ledger.store.pending_del (transaction, key);
-							ledger.store.block_put (transaction, hash, block_a);
-							ledger.change_latest (transaction, block_a.hashables.account, hash, hash, pending.amount.number (), info.block_count + 1);
-							ledger.store.representation_add (transaction, hash, pending.amount.number ());
-							ledger.store.frontier_put (transaction, hash, block_a.hashables.account);
-							result.account = block_a.hashables.account;
-							result.amount = pending.amount;
-							ledger.stats.inc (rai::stat::type::ledger, rai::stat::detail::open);
+							result.code = pending.min_version == 0 ? rai::process_result::progress : rai::process_result::unreceivable; // Are we receiving a state-only send? (Malformed)
+							if (result.code == rai::process_result::progress)
+							{
+								rai::account_info source_info;
+								auto error (ledger.store.account_get (transaction, pending.source, source_info));
+								assert (!error);
+								ledger.store.pending_del (transaction, key);
+								ledger.store.block_put (transaction, hash, block_a);
+								ledger.change_latest (transaction, block_a.hashables.account, hash, hash, pending.amount.number (), info.block_count + 1);
+								ledger.store.representation_add (transaction, hash, pending.amount.number ());
+								ledger.store.frontier_put (transaction, hash, block_a.hashables.account);
+								result.account = block_a.hashables.account;
+								result.amount = pending.amount;
+								ledger.stats.inc (rai::stat::type::ledger, rai::stat::detail::open);
+							}
 						}
 					}
 				}
@@ -501,10 +586,12 @@ bool rai::shared_ptr_block_hash::operator() (std::shared_ptr<rai::block> const &
 	return lhs->hash () == rhs->hash ();
 }
 
-rai::ledger::ledger (rai::block_store & store_a, rai::stat & stat_a) :
+rai::ledger::ledger (rai::block_store & store_a, rai::stat & stat_a, rai::uint256_union const & epoch_link_a, rai::account const & epoch_signer_a) :
 store (store_a),
 stats (stat_a),
-check_bootstrap_weights (true)
+check_bootstrap_weights (true),
+epoch_link (epoch_link_a),
+epoch_signer (epoch_signer_a)
 {
 }
 
