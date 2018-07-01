@@ -19,6 +19,9 @@ option(RAIBLOCKS_ASAN_INT "Enable ASan+UBSan+Integer overflow" OFF)
 option(RAIBLOCKS_ASAN "Enable ASan+UBSan" OFF)
 option(RAIBLOCKS_SIMD_OPTIMIZATIONS "Enable CPU-specific SIMD optimizations (SSE/AVX or NEON, e.g.)" OFF)
 
+SET (ACTIVE_NETWORK rai_live_network CACHE STRING "Selects which network parameters are used")
+set_property (CACHE ACTIVE_NETWORK PROPERTY STRINGS rai_test_network rai_beta_network rai_live_network)
+
 if(NOT CMAKE_BUILD_TYPE)
 	set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose the type of build, options are: Debug Release RelWithDebInfo MinSizeRel." FORCE)
 endif(NOT CMAKE_BUILD_TYPE)
@@ -240,9 +243,6 @@ add_subdirectory(rai/secure)
 add_subdirectory(rai/lib)
 add_subdirectory(rai/node)
 add_subdirectory(rai/rai_node)
-
-SET (ACTIVE_NETWORK rai_live_network CACHE STRING "Selects which network parameters are used")
-set_property (CACHE ACTIVE_NETWORK PROPERTY STRINGS rai_test_network rai_beta_network rai_live_network)
 
 if (RAIBLOCKS_TEST)
 	add_executable (core_test
