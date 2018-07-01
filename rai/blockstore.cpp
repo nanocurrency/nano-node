@@ -358,6 +358,8 @@ void rai::block_store::do_upgrades (MDB_txn * transaction_a)
 		case 10:
 			upgrade_v10_to_v11 (transaction_a);
 		case 11:
+			upgrade_v11_to_v12 (transaction_a);
+		case 12:
 			break;
 		default:
 			assert (false);
@@ -423,7 +425,7 @@ void rai::block_store::upgrade_v3_to_v4 (MDB_txn * transaction_a)
 	{
 		rai::block_hash hash (i->first.uint256 ());
 		rai::pending_info_v3 info (i->second);
-		items.push (std::make_pair (rai::pending_key (info.destination, hash), rai::pending_info (info.source, info.amount)));
+		items.push (std::make_pair (rai::pending_key (info.destination, hash), rai::pending_info (info.source, info.amount, 0)));
 	}
 	mdb_drop (transaction_a, pending, 0);
 	while (!items.empty ())
@@ -472,7 +474,7 @@ void rai::block_store::upgrade_v5_to_v6 (MDB_txn * transaction_a)
 			assert (block != nullptr);
 			hash = block->previous ();
 		}
-		rai::account_info info (info_old.head, info_old.rep_block, info_old.open_block, info_old.balance, info_old.modified, block_count);
+		rai::account_info info (info_old.head, info_old.rep_block, info_old.open_block, info_old.balance, info_old.modified, block_count, 0);
 		headers.push_back (std::make_pair (account, info));
 	}
 	for (auto i (headers.begin ()), n (headers.end ()); i != n; ++i)
@@ -558,6 +560,26 @@ void rai::block_store::upgrade_v10_to_v11 (MDB_txn * transaction_a)
 	MDB_dbi unsynced;
 	mdb_dbi_open (transaction_a, "unsynced", MDB_CREATE | MDB_DUPSORT, &unsynced);
 	mdb_drop (transaction_a, unsynced, 1);
+}
+
+
+void rai::block_store::upgrade_v11_to_v12 (MDB_txn * transaction_a)
+{
+	version_put (transaction_a, 12);
+	for (rai::store_iterator i (transaction_a, accounts), n (nullptr); i != n; ++i)
+	{
+		assert (i->second.size () + 1 == sizeof (account_info));
+		std::vector<uint8_t> bytes ((uint8_t *)i->second.data (), (uint8_t *)i->second.data () + i->second.size ());
+		bytes.push_back (0); // version field
+		mdb_cursor_put (i.cursor, i->first, rai::mdb_val (bytes.size (), bytes.data ()), MDB_CURRENT);
+	}
+	for (rai::store_iterator i (transaction_a, pending), n (nullptr); i != n; ++i)
+	{
+		assert (i->second.size () + 1 == sizeof (pending_info));
+		std::vector<uint8_t> bytes ((uint8_t *)i->second.data (), (uint8_t *)i->second.data () + i->second.size ());
+		bytes.push_back (0); // min_version field
+		mdb_cursor_put (i.cursor, i->first, rai::mdb_val (bytes.size (), bytes.data ()), MDB_CURRENT);
+	}
 }
 
 void rai::block_store::clear (MDB_dbi db_a)
