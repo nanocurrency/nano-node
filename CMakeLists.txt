@@ -110,17 +110,6 @@ endif (APPLE)
 
 SET( CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${PLATFORM_LINK_FLAGS}" )
 
-
-if (RAIBLOCKS_GUI)
-	if (WIN32)
-		set (PLATFORM_QT_PACKAGES WinExtras)
-	else (WIN32)
-		set (PLATFORM_QT_PACKAGES)
-	endif (WIN32)
-
-	find_package (Qt5 COMPONENTS Core Gui Widgets Test ${PLATFORM_QT_PACKAGES})
-endif (RAIBLOCKS_GUI)
-
 if (RAIBLOCKS_SECURE_RPC)
 	find_package (OpenSSL 1.0 EXACT REQUIRED)
 	#include_directories(${OPENSSL_INCLUDE_DIR})
@@ -289,6 +278,14 @@ if (RAIBLOCKS_TEST)
 endif (RAIBLOCKS_TEST)
 
 if (RAIBLOCKS_GUI)
+	if (WIN32)
+		set (PLATFORM_QT_PACKAGES WinExtras)
+	else (WIN32)
+		set (PLATFORM_QT_PACKAGES)
+	endif (WIN32)
+
+	find_package (Qt5 COMPONENTS Core Gui Widgets Test ${PLATFORM_QT_PACKAGES})
+
 	if (WIN32)
 		set (PLATFORM_GUI_TARGET_PROPERTIES WIN32)
 	else (WIN32)
