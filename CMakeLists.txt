@@ -41,10 +41,6 @@ find_package(Threads REQUIRED)
 set (PLATFORM_LIBS ${CMAKE_THREAD_LIBS_INIT} ${CMAKE_DL_LIBS})
 
 if (WIN32)
-	set (PLATFORM_LIBS "${PLATFORM_LIBS} Ws2_32 mswsock iphlpapi ntdll")
-endif (WIN32)
-
-if (WIN32)
 	add_definitions(-D_WIN32_WINNT=0x0600
 					-DWINVER=0x0600
 					-DWIN32_LEAN_AND_MEAN
@@ -230,6 +226,10 @@ add_library (lmdb
 	lmdb/libraries/liblmdb/lmdb.h
 	lmdb/libraries/liblmdb/mdb.c
 	lmdb/libraries/liblmdb/midl.c)
+
+if (WIN32)
+	target_link_libraries(lmdb ntdll)
+endif()
 
 add_library (blake2
 	blake2/blake2-config.h
