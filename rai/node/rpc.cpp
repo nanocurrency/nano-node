@@ -1879,6 +1879,7 @@ void rai::rpc_handler::account_history ()
 								entry.put ("hash", hash.to_string ());
 								if (output_raw)
 								{
+									entry.put ("previous", block->previous ().to_string ());
 									entry.put ("work", rai::to_string_hex (block->block_work ()));
 									entry.put ("signature", block->block_signature ().to_string ());
 								}
