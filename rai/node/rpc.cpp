@@ -1764,6 +1764,7 @@ public:
 			tree.put ("type", "state");
 			tree.put ("representative", block_a.hashables.representative.to_account ());
 			tree.put ("link", block_a.hashables.link.to_string ());
+			tree.put ("balance", block_a.hashables.balance.to_string_dec ());
 		}
 		auto balance (block_a.hashables.balance.number ());
 		auto previous_balance (handler.node.ledger.balance (transaction, block_a.hashables.previous));
