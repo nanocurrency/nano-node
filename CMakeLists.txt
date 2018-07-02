@@ -290,6 +290,9 @@ add_library (secure
 
 SET (RAI_LIB_SOURCES
 	${PLATFORM_LIB_SOURCE}
+	rai/lib/errors.hpp
+	rai/lib/errors.cpp
+	rai/lib/expected.hpp
 	rai/lib/blocks.cpp
 	rai/lib/blocks.hpp
 	rai/lib/interface.cpp
