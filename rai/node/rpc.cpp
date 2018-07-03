@@ -2279,12 +2279,23 @@ void rai::rpc_handler::peers ()
 {
 	boost::property_tree::ptree response_l;
 	boost::property_tree::ptree peers_l;
-	auto peers_list (node.peers.list_version ());
+	auto peers_list (node.peers.list_vector ());
+	std::sort (peers_list.begin (), peers_list.end ());
 	for (auto i (peers_list.begin ()), n (peers_list.end ()); i != n; ++i)
 	{
 		std::stringstream text;
-		text << i->first;
-		peers_l.push_back (boost::property_tree::ptree::value_type (text.str (), boost::property_tree::ptree (std::to_string (i->second))));
+		text << i->endpoint;
+		boost::property_tree::ptree pending_tree;
+		pending_tree.put ("version", std::to_string (i->network_version));
+		if (i->node_id.is_initialized ())
+		{
+			pending_tree.put ("node_id", i->node_id.get ().to_account ());
+		}
+		else
+		{
+			pending_tree.put ("node_id", "");
+		}
+		peers_l.push_back (boost::property_tree::ptree::value_type (text.str (), pending_tree));
 	}
 	response_l.add_child ("peers", peers_l);
 	response (response_l);

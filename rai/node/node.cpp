@@ -1984,17 +1984,6 @@ std::deque<rai::endpoint> rai::peer_container::list ()
 	return result;
 }
 
-std::map<rai::endpoint, unsigned> rai::peer_container::list_version ()
-{
-	std::map<rai::endpoint, unsigned> result;
-	std::lock_guard<std::mutex> lock (mutex);
-	for (auto i (peers.begin ()), j (peers.end ()); i != j; ++i)
-	{
-		result.insert (std::pair<rai::endpoint, unsigned> (i->endpoint, i->network_version));
-	}
-	return result;
-}
-
 std::vector<rai::peer_information> rai::peer_container::list_vector ()
 {
 	std::vector<peer_information> result;
@@ -3312,6 +3301,11 @@ last_rep_response (std::chrono::steady_clock::time_point ()),
 rep_weight (0),
 node_id ()
 {
+}
+
+bool rai::peer_information::operator< (rai::peer_information const & peer_information_a) const
+{
+	return endpoint < peer_information_a.endpoint;
 }
 
 rai::peer_container::peer_container (rai::endpoint const & self_a) :

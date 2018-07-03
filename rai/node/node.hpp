@@ -183,6 +183,7 @@ public:
 	rai::account probable_rep_account;
 	unsigned network_version;
 	boost::optional<rai::account> node_id;
+	bool operator< (rai::peer_information const &) const;
 };
 class peer_attempt
 {
@@ -218,7 +219,6 @@ public:
 	std::vector<peer_information> representatives (size_t);
 	// List of all peers
 	std::deque<rai::endpoint> list ();
-	std::map<rai::endpoint, unsigned> list_version ();
 	std::vector<peer_information> list_vector ();
 	// A list of random peers sized for the configured rebroadcast fanout
 	std::deque<rai::endpoint> list_fanout ();
