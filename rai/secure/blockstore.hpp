@@ -28,6 +28,7 @@ public:
 	std::pair<rai::mdb_val, rai::mdb_val> current;
 };
 
+class block_predecessor_set;
 /**
  * A specialized std::pair which also indicates if it is from the secondary store
  */
@@ -70,18 +71,15 @@ public:
  */
 class block_store
 {
+	friend class rai::block_predecessor_set;
 public:
 	block_store (bool &, boost::filesystem::path const &, int lmdb_max_dbs = 128);
 
-	MDB_dbi block_database (rai::block_type, rai::epoch);
-	void block_put_raw (MDB_txn *, MDB_dbi, rai::block_hash const &, MDB_val);
-	void block_put (MDB_txn *, rai::block_hash const &, rai::block const &, rai::block_hash const & = rai::block_hash (0), rai::epoch = rai::epoch::epoch_0);
-	MDB_val block_get_raw (MDB_txn *, rai::block_hash const &, rai::block_type &);
+	void block_put (MDB_txn *, rai::block_hash const &, rai::block const &, rai::block_hash const & = rai::block_hash (0), uint8_t version = 0);
 	rai::block_hash block_successor (MDB_txn *, rai::block_hash const &);
 	void block_successor_clear (MDB_txn *, rai::block_hash const &);
 	std::unique_ptr<rai::block> block_get (MDB_txn *, rai::block_hash const &);
 	std::unique_ptr<rai::block> block_random (MDB_txn *);
-	std::unique_ptr<rai::block> block_random (MDB_txn *, MDB_dbi);
 	void block_del (MDB_txn *, rai::block_hash const &);
 	bool block_exists (MDB_txn *, rai::block_hash const &);
 	rai::block_counts block_count (MDB_txn *);
@@ -187,8 +185,6 @@ public:
 	/** Deletes the node ID from the store */
 	void delete_node_id (MDB_txn *);
 
-	void clear (MDB_dbi);
-
 	rai::mdb_env environment;
 
 	/**
@@ -292,5 +288,11 @@ public:
 	 * rai::uint256_union (arbitrary key) -> blob
 	 */
 	MDB_dbi meta;
+private:
+	MDB_dbi block_database (rai::block_type, uint8_t);
+	std::unique_ptr<rai::block> block_random (MDB_txn *, MDB_dbi);
+	MDB_val block_raw_get (MDB_txn *, rai::block_hash const &, rai::block_type &);
+	void block_raw_put (MDB_txn *, MDB_dbi, rai::block_hash const &, MDB_val);
+	void clear (MDB_dbi);
 };
 }
