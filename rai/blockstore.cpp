@@ -54,26 +54,9 @@ public:
 };
 }
 
-rai::store_entry::store_entry () :
-first (0, nullptr),
-second (0, nullptr)
+std::pair<rai::mdb_val, rai::mdb_val> * rai::store_iterator::operator-> ()
 {
-}
-
-void rai::store_entry::clear ()
-{
-	first = { 0, nullptr };
-	second = { 0, nullptr };
-}
-
-rai::store_entry * rai::store_entry::operator-> ()
-{
-	return this;
-}
-
-rai::store_entry & rai::store_iterator::operator-> ()
-{
-	return current;
+	return &current;
 }
 
 rai::store_iterator::store_iterator (MDB_txn * transaction_a, MDB_dbi db_a) :
@@ -90,7 +73,7 @@ cursor (nullptr)
 	}
 	else
 	{
-		current.clear ();
+		clear ();
 	}
 }
 
@@ -114,7 +97,7 @@ cursor (nullptr)
 	}
 	else
 	{
-		current.clear ();
+		clear ();
 	}
 }
 
@@ -139,7 +122,7 @@ rai::store_iterator & rai::store_iterator::operator++ ()
 	auto status (mdb_cursor_get (cursor, &current.first.value, &current.second.value, MDB_NEXT));
 	if (status == MDB_NOTFOUND)
 	{
-		current.clear ();
+		clear ();
 	}
 	return *this;
 }
@@ -150,7 +133,7 @@ void rai::store_iterator::next_dup ()
 	auto status (mdb_cursor_get (cursor, &current.first.value, &current.second.value, MDB_NEXT_DUP));
 	if (status == MDB_NOTFOUND)
 	{
-		current.clear ();
+		clear ();
 	}
 }
 
@@ -163,7 +146,7 @@ rai::store_iterator & rai::store_iterator::operator= (rai::store_iterator && oth
 	cursor = other_a.cursor;
 	other_a.cursor = nullptr;
 	current = other_a.current;
-	other_a.current.clear ();
+	other_a.clear ();
 	return *this;
 }
 
@@ -179,6 +162,12 @@ bool rai::store_iterator::operator== (rai::store_iterator const & other_a) const
 bool rai::store_iterator::operator!= (rai::store_iterator const & other_a) const
 {
 	return !(*this == other_a);
+}
+
+void rai::store_iterator::clear ()
+{
+	current.first = rai::mdb_val ();
+	current.second = rai::mdb_val ();
 }
 
 rai::store_iterator rai::block_store::block_info_begin (MDB_txn * transaction_a, rai::block_hash const & hash_a)
