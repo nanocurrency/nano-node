@@ -5,19 +5,6 @@
 namespace rai
 {
 /**
- * The value produced when iterating with \ref store_iterator
- */
-class store_entry
-{
-public:
-	store_entry ();
-	void clear ();
-	store_entry * operator-> ();
-	rai::mdb_val first;
-	rai::mdb_val second;
-};
-
-/**
  * Iterates the key/value pairs of a transaction
  */
 class store_iterator
@@ -33,11 +20,12 @@ public:
 	void next_dup ();
 	rai::store_iterator & operator= (rai::store_iterator &&);
 	rai::store_iterator & operator= (rai::store_iterator const &) = delete;
-	rai::store_entry & operator-> ();
+	std::pair<rai::mdb_val, rai::mdb_val> * operator-> ();
 	bool operator== (rai::store_iterator const &) const;
 	bool operator!= (rai::store_iterator const &) const;
+	void clear ();
 	MDB_cursor * cursor;
-	rai::store_entry current;
+	std::pair<rai::mdb_val, rai::mdb_val> current;
 };
 
 /**
