@@ -5,28 +5,45 @@
 
 namespace rai
 {
+class block_store;
+class store_iterator_impl
+{
+public:
+	store_iterator_impl (MDB_txn * transaction_a, MDB_dbi db_a, rai::epoch = rai::epoch::unspecified);
+	store_iterator_impl (std::nullptr_t);
+	store_iterator_impl (MDB_txn * transaction_a, MDB_dbi db_a, MDB_val const & val_a, rai::epoch = rai::epoch::unspecified);
+	store_iterator_impl (rai::store_iterator_impl && other_a);
+	store_iterator_impl (rai::store_iterator_impl const &) = delete;
+	~store_iterator_impl ();
+	rai::store_iterator_impl & operator++ ();
+	rai::store_iterator_impl & operator= (rai::store_iterator_impl && other_a);
+	rai::store_iterator_impl & operator= (rai::store_iterator_impl const &) = delete;
+	std::pair<rai::mdb_val, rai::mdb_val> * operator-> ();
+	bool operator== (rai::store_iterator_impl const & other_a) const;
+	bool operator!= (rai::store_iterator_impl const & other_a) const;
+	void next_dup ();
+	void clear ();
+	MDB_cursor * cursor;
+	std::pair<rai::mdb_val, rai::mdb_val> current;
+};
 /**
  * Iterates the key/value pairs of a transaction
  */
 class store_iterator
 {
+	friend class rai::block_store;
 public:
-	store_iterator (MDB_txn *, MDB_dbi, rai::epoch = rai::epoch::unspecified);
 	store_iterator (std::nullptr_t);
-	store_iterator (MDB_txn *, MDB_dbi, MDB_val const &, rai::epoch = rai::epoch::unspecified);
+	store_iterator (std::unique_ptr<rai::store_iterator_impl>);
 	store_iterator (rai::store_iterator &&);
-	store_iterator (rai::store_iterator const &) = delete;
-	~store_iterator ();
 	rai::store_iterator & operator++ ();
-	void next_dup ();
 	rai::store_iterator & operator= (rai::store_iterator &&);
 	rai::store_iterator & operator= (rai::store_iterator const &) = delete;
 	std::pair<rai::mdb_val, rai::mdb_val> * operator-> ();
 	bool operator== (rai::store_iterator const &) const;
 	bool operator!= (rai::store_iterator const &) const;
-	void clear ();
-	MDB_cursor * cursor;
-	std::pair<rai::mdb_val, rai::mdb_val> current;
+private:
+	std::unique_ptr<rai::store_iterator_impl> impl;
 };
 
 class block_predecessor_set;
