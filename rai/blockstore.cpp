@@ -2,29 +2,29 @@
 #include <rai/blockstore.hpp>
 #include <rai/versioning.hpp>
 
-namespace
+namespace rai
 {
 /**
  * Fill in our predecessors
  */
-class set_predecessor : public rai::block_visitor
+class block_predecessor_set : public rai::block_visitor
 {
 public:
-	set_predecessor (MDB_txn * transaction_a, rai::block_store & store_a) :
+	block_predecessor_set (MDB_txn * transaction_a, rai::block_store & store_a) :
 	transaction (transaction_a),
 	store (store_a)
 	{
 	}
-	virtual ~set_predecessor () = default;
+	virtual ~block_predecessor_set () = default;
 	void fill_value (rai::block const & block_a)
 	{
 		auto hash (block_a.hash ());
 		rai::block_type type;
-		auto value (store.block_get_raw (transaction, block_a.previous (), type));
+		auto value (store.block_raw_get (transaction, block_a.previous (), type));
 		assert (value.mv_size != 0);
 		std::vector<uint8_t> data (static_cast<uint8_t *> (value.mv_data), static_cast<uint8_t *> (value.mv_data) + value.mv_size);
 		std::copy (hash.bytes.begin (), hash.bytes.end (), data.end () - hash.bytes.size ());
-		store.block_put_raw (transaction, store.block_database (type), block_a.previous (), rai::mdb_val (data.size (), data.data ()));
+		store.block_raw_put (transaction, store.block_database (type), block_a.previous (), rai::mdb_val (data.size (), data.data ()));
 	}
 	void send_block (rai::send_block const & block_a) override
 	{
@@ -599,7 +599,7 @@ MDB_dbi rai::block_store::block_database (rai::block_type type_a)
 	return result;
 }
 
-void rai::block_store::block_put_raw (MDB_txn * transaction_a, MDB_dbi database_a, rai::block_hash const & hash_a, MDB_val value_a)
+void rai::block_store::block_raw_put (MDB_txn * transaction_a, MDB_dbi database_a, rai::block_hash const & hash_a, MDB_val value_a)
 {
 	auto status2 (mdb_put (transaction_a, database_a, rai::mdb_val (hash_a), &value_a, 0));
 	assert (status2 == 0);
@@ -614,13 +614,13 @@ void rai::block_store::block_put (MDB_txn * transaction_a, rai::block_hash const
 		block_a.serialize (stream);
 		rai::write (stream, successor_a.bytes);
 	}
-	block_put_raw (transaction_a, block_database (block_a.type ()), hash_a, { vector.size (), vector.data () });
-	set_predecessor predecessor (transaction_a, *this);
+	block_raw_put (transaction_a, block_database (block_a.type ()), hash_a, { vector.size (), vector.data () });
+	rai::block_predecessor_set predecessor (transaction_a, *this);
 	block_a.visit (predecessor);
 	assert (block_a.previous ().is_zero () || block_successor (transaction_a, block_a.previous ()) == hash_a);
 }
 
-MDB_val rai::block_store::block_get_raw (MDB_txn * transaction_a, rai::block_hash const & hash_a, rai::block_type & type_a)
+MDB_val rai::block_store::block_raw_get (MDB_txn * transaction_a, rai::block_hash const & hash_a, rai::block_type & type_a)
 {
 	rai::mdb_val result;
 	auto status (mdb_get (transaction_a, send_blocks, rai::mdb_val (hash_a), result));
@@ -728,7 +728,7 @@ std::unique_ptr<rai::block> rai::block_store::block_random (MDB_txn * transactio
 rai::block_hash rai::block_store::block_successor (MDB_txn * transaction_a, rai::block_hash const & hash_a)
 {
 	rai::block_type type;
-	auto value (block_get_raw (transaction_a, hash_a, type));
+	auto value (block_raw_get (transaction_a, hash_a, type));
 	rai::block_hash result;
 	if (value.mv_size != 0)
 	{
@@ -753,7 +753,7 @@ void rai::block_store::block_successor_clear (MDB_txn * transaction_a, rai::bloc
 std::unique_ptr<rai::block> rai::block_store::block_get (MDB_txn * transaction_a, rai::block_hash const & hash_a)
 {
 	rai::block_type type;
-	auto value (block_get_raw (transaction_a, hash_a, type));
+	auto value (block_raw_get (transaction_a, hash_a, type));
 	std::unique_ptr<rai::block> result;
 	if (value.mv_size != 0)
 	{
