@@ -18,7 +18,7 @@ public:
 		std::lock_guard<std::mutex> lock (mutex);
 		observers.push_back (observer_a);
 	}
-	void operator() (T... args)
+	void notify (T... args)
 	{
 		std::lock_guard<std::mutex> lock (mutex);
 		for (auto & i : observers)

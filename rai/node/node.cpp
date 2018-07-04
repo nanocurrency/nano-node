@@ -264,6 +264,11 @@ void rai::network::republish_vote (std::shared_ptr<rai::vote> vote_a)
 void rai::network::broadcast_confirm_req (std::shared_ptr<rai::block> block_a)
 {
 	auto list (std::make_shared<std::vector<rai::peer_information>> (node.peers.representatives (std::numeric_limits<size_t>::max ())));
+	if (list->empty () || node.online_reps.online_stake () == node.config.online_weight_minimum.number ())
+	{
+		// broadcast request to all peers
+		list = std::make_shared<std::vector<rai::peer_information>> (node.peers.list_vector ());
+	}
 	broadcast_confirm_req_base (block_a, list, 0);
 }
 
@@ -901,7 +906,11 @@ lmdb_max_dbs (128)
 			break;
 		case rai::rai_networks::rai_beta_network:
 			preconfigured_peers.push_back ("rai-beta.raiblocks.net");
-			preconfigured_representatives.push_back (rai::account ("C93F714298E6061E549E52BB8885085319BE977B3FE8F03A1B726E9BE4BE38DE"));
+			preconfigured_representatives.push_back (rai::account ("A59A47CC4F593E75AE9AD653FDA9358E2F7898D9ACC8C60E80D0495CE20FBA9F"));
+			preconfigured_representatives.push_back (rai::account ("259A4011E6CAD1069A97C02C3C1F2AAA32BC093C8D82EE1334F937A4BE803071"));
+			preconfigured_representatives.push_back (rai::account ("259A40656144FAA16D2A8516F7BE9C74A63C6CA399960EDB747D144ABB0F7ABD"));
+			preconfigured_representatives.push_back (rai::account ("259A40A92FA42E2240805DE8618EC4627F0BA41937160B4CFF7F5335FD1933DF"));
+			preconfigured_representatives.push_back (rai::account ("259A40FF3262E273EC451E873C4CDF8513330425B38860D882A16BCC74DA9B73"));
 			state_block_parse_canary = rai::block_hash ("5005F5283DE8D2DAB0DAC41DE9BD23640F962B4F0EA7D3128C2EA3D78D578E27");
 			state_block_generate_canary = rai::block_hash ("FC18E2265FB835E8CF60E63531053A768CEDF5194263B01A5C95574944E4660D");
 			break;
@@ -1219,7 +1228,7 @@ rai::vote_code rai::vote_processor::vote (std::shared_ptr<rai::vote> vote_a, rai
 		switch (result)
 		{
 			case rai::vote_code::vote:
-				node.observers.vote (vote_a, endpoint_a);
+				node.observers.vote.notify (vote_a, endpoint_a);
 			case rai::vote_code::replay:
 				// This tries to assist rep nodes that have lost track of their highest sequence number by replaying our highest known vote back to them
 				// Only do this if the sequence number is significantly different to account for network reordering
@@ -1576,13 +1585,13 @@ online_reps (*this),
 stats (config.stat_config)
 {
 	wallets.observer = [this](bool active) {
-		observers.wallet (active);
+		observers.wallet.notify (active);
 	};
 	peers.peer_observer = [this](rai::endpoint const & endpoint_a) {
-		observers.endpoint (endpoint_a);
+		observers.endpoint.notify (endpoint_a);
 	};
 	peers.disconnect_observer = [this]() {
-		observers.disconnect ();
+		observers.disconnect.notify ();
 	};
 	observers.blocks.add ([this](std::shared_ptr<rai::block> block_a, rai::account const & account_a, rai::amount const & amount_a, bool is_state_send_a) {
 		if (this->block_arrival.recent (block_a->hash ()))
@@ -1986,6 +1995,18 @@ std::map<rai::endpoint, unsigned> rai::peer_container::list_version ()
 	return result;
 }
 
+std::vector<rai::peer_information> rai::peer_container::list_vector ()
+{
+	std::vector<peer_information> result;
+	std::lock_guard<std::mutex> lock (mutex);
+	for (auto i (peers.begin ()), j (peers.end ()); i != j; ++i)
+	{
+		result.push_back (*i);
+	}
+	std::random_shuffle (result.begin (), result.end ());
+	return result;
+}
+
 rai::endpoint rai::peer_container::bootstrap_peer ()
 {
 	rai::endpoint result (boost::asio::ip::address_v6::any (), 0);
@@ -2151,7 +2172,7 @@ void rai::node::start ()
 	online_reps.recalculate_stake ();
 	port_mapping.start ();
 	add_initial_peers ();
-	observers.started ();
+	observers.started.notify ();
 }
 
 void rai::node::stop ()
@@ -2735,13 +2756,13 @@ void rai::node::process_confirmed (std::shared_ptr<rai::block> block_a)
 		{
 			pending_account = send->hashables.destination;
 		}
-		observers.blocks (block_a, account, amount, is_state_send);
+		observers.blocks.notify (block_a, account, amount, is_state_send);
 		if (amount > 0)
 		{
-			observers.account_balance (account, false);
+			observers.account_balance.notify (account, false);
 			if (!pending_account.is_zero ())
 			{
-				observers.account_balance (pending_account, true);
+				observers.account_balance.notify (pending_account, true);
 			}
 		}
 	}
@@ -3547,7 +3568,7 @@ void rai::active_transactions::announce_votes ()
 						}
 					}
 				}
-				if (!reps->empty ())
+				if (!reps->empty () && node.online_reps.online_stake () != node.config.online_weight_minimum.number ())
 				{
 					// broadcast_confirm_req_base modifies reps, so we clone it once to avoid aliasing
 					node.network.broadcast_confirm_req_base (i->confirm_req_options.first, std::make_shared<std::vector<rai::peer_information>> (*reps), 0);
@@ -3555,6 +3576,11 @@ void rai::active_transactions::announce_votes ()
 					{
 						node.network.broadcast_confirm_req_base (i->confirm_req_options.second, reps, 0);
 					}
+				}
+				else
+				{
+					// broadcast request to all peers
+					node.network.broadcast_confirm_req_base (i->confirm_req_options.first, std::make_shared<std::vector<rai::peer_information>> (node.peers.list_vector ()), 0);
 				}
 			}
 		}

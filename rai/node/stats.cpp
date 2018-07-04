@@ -267,7 +267,7 @@ void rai::stat::update (uint32_t key_a, uint64_t value)
 	// Counters
 	auto old (entry->counter.value);
 	entry->counter.add (value);
-	entry->count_observers (old, entry->counter.value);
+	entry->count_observers.notify (old, entry->counter.value);
 
 	std::chrono::duration<double, std::milli> duration = now - log_last_count_writeout;
 	if (config.log_interval_counters > 0 && duration.count () > config.log_interval_counters)
@@ -294,7 +294,7 @@ void rai::stat::update (uint32_t key_a, uint64_t value)
 			if (entry->sample_observers.observers.size () > 0)
 			{
 				auto snapshot (entry->samples);
-				entry->sample_observers (snapshot);
+				entry->sample_observers.notify (snapshot);
 			}
 
 			// Log sink
