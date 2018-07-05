@@ -116,7 +116,7 @@ class rpc_handler : public std::enable_shared_from_this<nano::rpc_handler>
 {
 public:
 	rpc_handler (nano::node &, nano::rpc &, std::string const &, std::string const &, std::function<void(boost::property_tree::ptree const &)> const &);
-	void process_request ();
+	void process_request (bool = false);
 	void account_balance ();
 	void account_block_count ();
 	void account_count ();

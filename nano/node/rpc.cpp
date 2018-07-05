@@ -3824,7 +3824,7 @@ std::string filter_request (boost::property_tree::ptree tree_a)
 }
 }
 
-void nano::rpc_handler::process_request ()
+void nano::rpc_handler::process_request (bool tls_mode)
 {
 	try
 	{
