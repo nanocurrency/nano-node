@@ -207,11 +207,13 @@ public:
 	void wallet_info ();
 	void wallet_key_valid ();
 	void wallet_ledger ();
+	void wallet_list ();
 	void wallet_lock ();
 	void wallet_pending ();
 	void wallet_representative ();
 	void wallet_representative_set ();
 	void wallet_republish ();
+	void wallet_seed ();
 	void wallet_work_get ();
 	void work_generate ();
 	void work_cancel ();

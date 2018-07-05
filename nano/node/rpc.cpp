@@ -3386,6 +3386,27 @@ void nano::rpc_handler::wallet_ledger ()
 	response_errors ();
 }
 
+void nano::rpc_handler::wallet_list ()
+{
+	if (rpc.config.enable_control)
+	{
+		boost::property_tree::ptree response_l;
+		boost::property_tree::ptree wallets;
+		for (auto i (node.wallets.items.begin ()), n (node.wallets.items.end ()); i != n; ++i)
+		{
+			boost::property_tree::ptree entry;
+			entry.put ("", i->first.to_string ());
+			wallets.push_back (std::make_pair ("", entry));
+		}
+		response_l.add_child ("wallets", wallets);
+		response (response_l);
+	}
+	else
+	{
+		error_response (response, "RPC control is disabled");
+	}
+}
+
 void nano::rpc_handler::wallet_lock ()
 {
 	rpc_control_impl ();
@@ -3534,6 +3555,48 @@ void nano::rpc_handler::wallet_republish ()
 		response_l.add_child ("blocks", blocks);
 	}
 	response_errors ();
+}
+
+void nano::rpc_handler::wallet_seed ()
+{
+	if (rpc.config.enable_control)
+	{
+		std::string wallet_text (request.get<std::string> ("wallet"));
+		nano::uint256_union wallet;
+		auto error (wallet.decode_hex (wallet_text));
+		if (!error)
+		{
+			auto existing (node.wallets.items.find (wallet));
+			if (existing != node.wallets.items.end ())
+			{
+				nano::transaction transaction (node.store.environment, nullptr, false);
+				if (existing->second->store.valid_password (transaction))
+				{
+					nano::raw_key seed;
+					existing->second->store.seed (seed, transaction);
+					boost::property_tree::ptree response_l;
+					response_l.put ("seed", seed.data.to_string ());
+					response (response_l);
+				}
+				else
+				{
+					error_response (response, "Wallet locked");
+				}
+			}
+			else
+			{
+				error_response (response, "Wallet not found");
+			}
+		}
+		else
+		{
+			error_response (response, "Bad wallet number");
+		}
+	}
+	else
+	{
+		error_response (response, "RPC control is disabled");
+	}
 }
 
 void nano::rpc_handler::wallet_work_get ()
@@ -4308,6 +4371,22 @@ void nano::rpc_handler::process_request (bool tls_mode)
 			else if (action == "work_peers_clear")
 			{
 				work_peers_clear ();
+			}
+			else if (tls_mode)
+			{
+				// Commands available only with TLS connection
+				if (action == "wallet_list")
+				{
+					wallet_list ();
+				}
+				else if (action == "wallet_seed")
+				{
+					wallet_seed ();
+				}
+				else
+				{
+					error_response (response, "Unknown command");
+				}
 			}
 			else
 			{
