@@ -138,6 +138,14 @@ rai::mdb_val::operator rai::pending_key () const
 	return result;
 }
 
+rai::mdb_val::operator rai::uint128_union () const
+{
+	rai::uint128_union result;
+	assert (size () == sizeof (result));
+	std::copy (reinterpret_cast<uint8_t const *> (data ()), reinterpret_cast<uint8_t const *> (data ()) + sizeof (result), result.bytes.data ());
+	return result;
+}
+
 rai::mdb_val::operator rai::uint256_union () const
 {
 	rai::uint256_union result;
