@@ -2179,6 +2179,40 @@ void rai::rpc_handler::krai_to_raw ()
 	}
 }
 
+void rai::rpc_handler::node_id ()
+{
+	if (rpc.config.enable_control)
+	{
+		rai::transaction transaction (node.store.environment, nullptr, false);
+		rai::keypair node_id (node.store.get_node_id (transaction));
+		boost::property_tree::ptree response_l;
+		response_l.put ("private", node_id.prv.data.to_string ());
+		response_l.put ("public", node_id.pub.to_string ());
+		response_l.put ("as_account", node_id.pub.to_account ());
+		response (response_l);
+	}
+	else
+	{
+		error_response (response, "RPC control is disabled");
+	}
+}
+
+void rai::rpc_handler::node_id_delete ()
+{
+	if (rpc.config.enable_control)
+	{
+		rai::transaction transaction (node.store.environment, nullptr, true);
+		boost::property_tree::ptree response_l;
+		node.store.delete_node_id (transaction);
+		response_l.put ("deleted", "1");
+		response (response_l);
+	}
+	else
+	{
+		error_response (response, "RPC control is disabled");
+	}
+}
+
 void rai::rpc_handler::password_change ()
 {
 	if (rpc.config.enable_control)
@@ -4792,6 +4826,14 @@ void rai::rpc_handler::process_request ()
 		else if (action == "mrai_to_raw")
 		{
 			mrai_to_raw ();
+		}
+		else if (action == "node_id")
+		{
+			node_id ();
+		}
+		else if (action == "node_id_delete")
+		{
+			node_id_delete ();
 		}
 		else if (action == "password_change")
 		{

@@ -159,6 +159,8 @@ public:
 	void ledger ();
 	void mrai_to_raw ();
 	void mrai_from_raw ();
+	void node_id ();
+	void node_id_delete ();
 	void password_change ();
 	void password_enter ();
 	void password_valid (bool wallet_locked);
