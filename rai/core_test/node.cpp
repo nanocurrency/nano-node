@@ -519,8 +519,8 @@ TEST (node_config, serialization)
 	config1.callback_port = 10;
 	config1.callback_target = "test";
 	config1.lmdb_max_dbs = 256;
-	config1.state_block_parse_canary = 10;
-	config1.state_block_generate_canary = 10;
+	config1.epoch_block_link = 10;
+	config1.epoch_block_signer = 12;
 	boost::property_tree::ptree tree;
 	config1.serialize_json (tree);
 	rai::logging logging2;
@@ -538,8 +538,8 @@ TEST (node_config, serialization)
 	ASSERT_NE (config2.callback_port, config1.callback_port);
 	ASSERT_NE (config2.callback_target, config1.callback_target);
 	ASSERT_NE (config2.lmdb_max_dbs, config1.lmdb_max_dbs);
-	ASSERT_NE (config2.state_block_parse_canary, config1.state_block_parse_canary);
-	ASSERT_NE (config2.state_block_generate_canary, config1.state_block_generate_canary);
+	ASSERT_NE (config2.epoch_block_link, config1.epoch_block_link);
+	ASSERT_NE (config2.epoch_block_signer, config1.epoch_block_signer);
 
 	bool upgraded (false);
 	config2.deserialize_json (upgraded, tree);
@@ -555,8 +555,8 @@ TEST (node_config, serialization)
 	ASSERT_EQ (config2.callback_port, config1.callback_port);
 	ASSERT_EQ (config2.callback_target, config1.callback_target);
 	ASSERT_EQ (config2.lmdb_max_dbs, config1.lmdb_max_dbs);
-	ASSERT_EQ (config2.state_block_parse_canary, config1.state_block_parse_canary);
-	ASSERT_EQ (config2.state_block_generate_canary, config1.state_block_generate_canary);
+	ASSERT_EQ (config2.epoch_block_link, config1.epoch_block_link);
+	ASSERT_EQ (config2.epoch_block_signer, config1.epoch_block_signer);
 }
 
 TEST (node_config, v1_v2_upgrade)
