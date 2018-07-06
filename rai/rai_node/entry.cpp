@@ -332,9 +332,9 @@ int main (int argc, char * const * argv)
 			rai::block_hash genesis_latest (node->latest (rai::test_genesis_key.pub));
 			rai::uint128_t genesis_balance (std::numeric_limits<rai::uint128_t>::max ());
 			// Generating keys
-			std::vector <rai::keypair> keys (num_accounts);
-			std::vector <rai::block_hash> frontiers (num_accounts);
-			std::vector <rai::uint128_t> balances (num_accounts, 1000000000);
+			std::vector<rai::keypair> keys (num_accounts);
+			std::vector<rai::block_hash> frontiers (num_accounts);
+			std::vector<rai::uint128_t> balances (num_accounts, 1000000000);
 			// Generating blocks
 			std::deque<std::shared_ptr<rai::block>> blocks;
 			for (auto i (0); i != num_accounts; ++i)
