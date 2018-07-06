@@ -28,6 +28,7 @@ int main (int argc, char * const * argv)
 		("debug_profile_kdf", "Profile kdf function")
 		("debug_verify_profile", "Profile signature verification")
 		("debug_profile_sign", "Profile signature generation")
+		("debug_profile_process", "Profile active blocks processing (only for rai_test_network)")
 		("platform", boost::program_options::value<std::string> (), "Defines the <platform> for OpenCL commands")
 		("device", boost::program_options::value<std::string> (), "Defines <device> for OpenCL command")
 		("threads", boost::program_options::value<std::string> (), "Defines <threads> count for OpenCL command");
@@ -311,6 +312,82 @@ int main (int argc, char * const * argv)
 			}
 			auto end1 (std::chrono::high_resolution_clock::now ());
 			std::cerr << boost::str (boost::format ("%|1$ 12d|\n") % std::chrono::duration_cast<std::chrono::microseconds> (end1 - begin1).count ());
+		}
+	}
+	else if (vm.count ("debug_profile_process"))
+	{
+		if (rai::rai_network == rai::rai_networks::rai_test_network)
+		{
+			size_t num_accounts (100000);
+			size_t num_interations (5); // 100,000 * 5 * 2 = 1,000,000 blocks
+			size_t max_blocks (2 * num_accounts * num_interations + num_accounts * 2); //  1,000,000 + 2* 100,000 = 1,200,000 blocks
+			std::cerr << boost::str (boost::format ("Starting pregenerating %1% blocks\n") % max_blocks);
+			rai::system system (24000, 1);
+			rai::node_init init;
+			rai::work_pool work (std::numeric_limits <unsigned>::max (), nullptr);
+			rai::logging logging;
+			auto path (rai::unique_path ());
+			logging.init (path);
+			auto node (std::make_shared <rai::node> (init, system.service, 24001, path, system.alarm, logging, work));
+			rai::block_hash genesis_latest (node->latest (rai::test_genesis_key.pub));
+			rai::uint128_t genesis_balance (std::numeric_limits <rai::uint128_t>::max ());
+			// Generating keys
+			std::vector <rai::keypair> keys (num_accounts);
+			std::vector <rai::block_hash> frontiers (num_accounts);
+			std::vector <rai::uint128_t> balances (num_accounts, 1000000000);
+			// Generating blocks
+			std::deque <std::shared_ptr <rai::block>> blocks;
+			for (auto i (0); i != num_accounts; ++i)
+			{
+				genesis_balance = genesis_balance - 1000000000;
+				auto send (std::make_shared <rai::state_block> (rai::test_genesis_key.pub, genesis_latest, rai::test_genesis_key.pub, genesis_balance, keys[i].pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, work.generate (genesis_latest)));
+				genesis_latest = send->hash ();
+				blocks.push_back (std::move (send));
+				auto open (std::make_shared <rai::state_block> (keys[i].pub, 0, keys[i].pub, balances[i], genesis_latest, keys[i].prv, keys[i].pub, work.generate (keys[i].pub)));
+				frontiers[i] = open->hash ();
+				blocks.push_back (std::move (open));
+			}
+			for (auto i (0); i != num_interations; ++i)
+			{
+				for (auto j (0); j != num_accounts; ++j)
+				{
+					size_t other (num_accounts - j - 1);
+					// Sending to other account
+					--balances[j];
+					auto send (std::make_shared <rai::state_block> (keys[j].pub, frontiers[j], keys[j].pub, balances[j], keys[other].pub, keys[j].prv, keys[j].pub, work.generate (frontiers[j])));
+					frontiers[j] = send->hash ();
+					blocks.push_back (std::move (send));
+					// Receiving
+					++balances[other];
+					auto receive (std::make_shared <rai::state_block> (keys[other].pub, frontiers[other], keys[other].pub, balances[other], frontiers[j], keys[other].prv, keys[other].pub, work.generate (frontiers[other])));
+					frontiers[other] = receive->hash ();
+					blocks.push_back (std::move (receive));
+				}
+			}
+			// Processing blocks
+			std::cerr << boost::str (boost::format ("Starting processing %1% active blocks\n") % max_blocks);
+			auto begin (std::chrono::high_resolution_clock::now ());
+			while (!blocks.empty ())
+			{
+				auto block (blocks.front ());
+				node->process_active (block);
+				blocks.pop_front ();
+			}
+			uint64_t block_count (0);
+			while (block_count < max_blocks + 1)
+			{
+				std::this_thread::sleep_for (std::chrono::milliseconds (100));
+				rai::transaction transaction (node->store.environment, nullptr, false);
+				block_count = node->store.block_count (transaction).sum ();
+			}
+			auto end (std::chrono::high_resolution_clock::now ());
+			auto time (std::chrono::duration_cast <std::chrono::microseconds> (end - begin).count ());
+			node->stop ();
+			std::cerr << boost::str (boost::format ("%|1$ 12d| us \n%2% blocks per second\n") % time  % (max_blocks * 1000000 / time));
+		}
+		else
+		{
+			std::cerr << "For this test ACTIVE_NETWORK should be rai_test_network" << std::endl;
 		}
 	}
 	else if (vm.count ("version"))
