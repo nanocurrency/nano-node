@@ -180,7 +180,7 @@ void nano::rpc_connection_secure::read ()
 				if (this_l->request.method () == boost::beast::http::verb::post)
 				{
 					auto handler (std::make_shared<nano::rpc_handler> (*this_l->node, this_l->rpc, this_l->request.body (), request_id, response_handler));
-					handler->process_request (true);
+					handler->process_request (this_l->rpc_a.config.secure.client_certs_path.size () > 0);
 				}
 				else
 				{
