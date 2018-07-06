@@ -899,11 +899,8 @@ bootstrap_connections_max (64),
 callback_port (0),
 lmdb_max_dbs (128)
 {
-	std::string epoch_str ("epoch v1 block");
-	blake2b_state hash;
-	blake2b_init (&hash, sizeof (epoch_block_link.bytes));
-	blake2b_update (&hash, epoch_str.data (), epoch_str.size ());
-	blake2b_final (&hash, epoch_block_link.bytes.data (), sizeof (epoch_block_link.bytes));
+	const char * epoch_message ("epoch v1 block");
+	strncpy ((char *)epoch_block_link.bytes.data (), epoch_message, epoch_block_link.bytes.size ());
 	epoch_block_signer = rai::genesis_account;
 	switch (rai::rai_network)
 	{

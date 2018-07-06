@@ -267,7 +267,7 @@ void ledger_processor::state_block_impl (rai::state_block const & block_a)
 				{
 					ledger.stats.inc (rai::stat::type::ledger, rai::stat::detail::state_block);
 					result.state_is_send = is_send;
-					ledger.store.block_put (transaction, hash, block_a, account_version);
+					ledger.store.block_put (transaction, hash, block_a, 0, account_version);
 
 					if (!info.rep_block.is_zero ())
 					{
@@ -350,7 +350,7 @@ void ledger_processor::epoch_block_impl (rai::state_block const & block_a)
 							ledger.stats.inc (rai::stat::type::ledger, rai::stat::detail::epoch_block);
 							result.account = block_a.hashables.account;
 							result.amount = 0;
-							ledger.store.block_put (transaction, hash, block_a, 1);
+							ledger.store.block_put (transaction, hash, block_a, 0, 1);
 							ledger.change_latest (transaction, block_a.hashables.account, hash, hash, info.balance, info.block_count + 1, true, 1);
 							if (!ledger.store.frontier_get (transaction, info.head).is_zero ())
 							{

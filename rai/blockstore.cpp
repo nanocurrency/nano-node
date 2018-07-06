@@ -1021,7 +1021,7 @@ bool rai::block_store::pending_get (MDB_txn * transaction_a, rai::pending_key co
 	else
 	{
 		result = false;
-		assert (value.size () == sizeof (pending_a.source.bytes) + sizeof (pending_a.amount.bytes));
+		assert (value.size () == sizeof (pending_a.source.bytes) + sizeof (pending_a.amount.bytes) + sizeof (pending_a.min_version));
 		rai::bufferstream stream (reinterpret_cast<uint8_t const *> (value.data ()), value.size ());
 		auto error1 (rai::read (stream, pending_a.source));
 		assert (!error1);
