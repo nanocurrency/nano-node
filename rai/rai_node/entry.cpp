@@ -324,26 +324,26 @@ int main (int argc, char * const * argv)
 			std::cerr << boost::str (boost::format ("Starting pregenerating %1% blocks\n") % max_blocks);
 			rai::system system (24000, 1);
 			rai::node_init init;
-			rai::work_pool work (std::numeric_limits <unsigned>::max (), nullptr);
+			rai::work_pool work (std::numeric_limits<unsigned>::max (), nullptr);
 			rai::logging logging;
 			auto path (rai::unique_path ());
 			logging.init (path);
-			auto node (std::make_shared <rai::node> (init, system.service, 24001, path, system.alarm, logging, work));
+			auto node (std::make_shared<rai::node> (init, system.service, 24001, path, system.alarm, logging, work));
 			rai::block_hash genesis_latest (node->latest (rai::test_genesis_key.pub));
-			rai::uint128_t genesis_balance (std::numeric_limits <rai::uint128_t>::max ());
+			rai::uint128_t genesis_balance (std::numeric_limits<rai::uint128_t>::max ());
 			// Generating keys
 			std::vector <rai::keypair> keys (num_accounts);
 			std::vector <rai::block_hash> frontiers (num_accounts);
 			std::vector <rai::uint128_t> balances (num_accounts, 1000000000);
 			// Generating blocks
-			std::deque <std::shared_ptr <rai::block>> blocks;
+			std::deque<std::shared_ptr<rai::block>> blocks;
 			for (auto i (0); i != num_accounts; ++i)
 			{
 				genesis_balance = genesis_balance - 1000000000;
-				auto send (std::make_shared <rai::state_block> (rai::test_genesis_key.pub, genesis_latest, rai::test_genesis_key.pub, genesis_balance, keys[i].pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, work.generate (genesis_latest)));
+				auto send (std::make_shared<rai::state_block> (rai::test_genesis_key.pub, genesis_latest, rai::test_genesis_key.pub, genesis_balance, keys[i].pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, work.generate (genesis_latest)));
 				genesis_latest = send->hash ();
 				blocks.push_back (std::move (send));
-				auto open (std::make_shared <rai::state_block> (keys[i].pub, 0, keys[i].pub, balances[i], genesis_latest, keys[i].prv, keys[i].pub, work.generate (keys[i].pub)));
+				auto open (std::make_shared<rai::state_block> (keys[i].pub, 0, keys[i].pub, balances[i], genesis_latest, keys[i].prv, keys[i].pub, work.generate (keys[i].pub)));
 				frontiers[i] = open->hash ();
 				blocks.push_back (std::move (open));
 			}
@@ -354,12 +354,12 @@ int main (int argc, char * const * argv)
 					size_t other (num_accounts - j - 1);
 					// Sending to other account
 					--balances[j];
-					auto send (std::make_shared <rai::state_block> (keys[j].pub, frontiers[j], keys[j].pub, balances[j], keys[other].pub, keys[j].prv, keys[j].pub, work.generate (frontiers[j])));
+					auto send (std::make_shared<rai::state_block> (keys[j].pub, frontiers[j], keys[j].pub, balances[j], keys[other].pub, keys[j].prv, keys[j].pub, work.generate (frontiers[j])));
 					frontiers[j] = send->hash ();
 					blocks.push_back (std::move (send));
 					// Receiving
 					++balances[other];
-					auto receive (std::make_shared <rai::state_block> (keys[other].pub, frontiers[other], keys[other].pub, balances[other], frontiers[j], keys[other].prv, keys[other].pub, work.generate (frontiers[other])));
+					auto receive (std::make_shared<rai::state_block> (keys[other].pub, frontiers[other], keys[other].pub, balances[other], frontiers[j], keys[other].prv, keys[other].pub, work.generate (frontiers[other])));
 					frontiers[other] = receive->hash ();
 					blocks.push_back (std::move (receive));
 				}
@@ -381,9 +381,9 @@ int main (int argc, char * const * argv)
 				block_count = node->store.block_count (transaction).sum ();
 			}
 			auto end (std::chrono::high_resolution_clock::now ());
-			auto time (std::chrono::duration_cast <std::chrono::microseconds> (end - begin).count ());
+			auto time (std::chrono::duration_cast<std::chrono::microseconds> (end - begin).count ());
 			node->stop ();
-			std::cerr << boost::str (boost::format ("%|1$ 12d| us \n%2% blocks per second\n") % time  % (max_blocks * 1000000 / time));
+			std::cerr << boost::str (boost::format ("%|1$ 12d| us \n%2% blocks per second\n") % time % (max_blocks * 1000000 / time));
 		}
 		else
 		{
