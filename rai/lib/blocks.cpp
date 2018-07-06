@@ -1,5 +1,7 @@
 #include <rai/lib/blocks.hpp>
 
+#include <ed25519-donna/ed25519.h>
+
 #include <boost/endian/conversion.hpp>
 
 /** Compare blocks, first by type, then content. This is an optimization over dynamic_cast, which is very slow on some platforms. */
@@ -1497,4 +1499,30 @@ void rai::receive_hashables::hash (blake2b_state & hash_a) const
 {
 	blake2b_update (&hash_a, previous.bytes.data (), sizeof (previous.bytes));
 	blake2b_update (&hash_a, source.bytes.data (), sizeof (source.bytes));
+}
+
+bool rai::validate_blocks (std::vector<rai::state_block> const & blocks, int *valid)
+{
+	auto batch_count (blocks.size ());
+	if (batch_count != 0)
+	{
+		size_t messages_lengths[batch_count];
+		const unsigned char *messages_pointers[batch_count];
+		const unsigned char *public_keys_pointers[batch_count];
+		const unsigned char *signatures_pointers[batch_count];
+		auto message_size (sizeof (blocks[0].hash ()));
+		for (auto i (0); i < batch_count; i++)
+		{
+			messages_pointers[i] = blocks[i].hash ().bytes.data ();
+			messages_lengths[i] = message_size;
+			public_keys_pointers[i] = blocks[i].hashables.account.bytes.data ();
+			signatures_pointers[i] = blocks[i].signature.bytes.data ();
+		}
+		auto result (0 != ed25519_sign_open_batch (messages_pointers, messages_lengths, public_keys_pointers, signatures_pointers, batch_count, valid));
+		return result;
+	}
+	else
+	{
+		return 1;
+	}
 }
