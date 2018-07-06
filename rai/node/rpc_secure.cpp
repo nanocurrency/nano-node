@@ -4,8 +4,8 @@
 bool rai::rpc_secure::on_verify_certificate (bool preverified, boost::asio::ssl::verify_context & ctx)
 {
 	X509_STORE_CTX * cts = ctx.native_handle ();
-
-	switch (cts->error)
+	auto error (X509_STORE_CTX_get_error (cts));
+	switch (error)
 	{
 		case X509_V_ERR_UNABLE_TO_GET_ISSUER_CERT:
 			BOOST_LOG (node.log) << "TLS: Unable to get issuer";
@@ -36,9 +36,9 @@ bool rai::rpc_secure::on_verify_certificate (bool preverified, boost::asio::ssl:
 
 	if (config.secure.verbose_logging)
 	{
-		if (cts->error != 0)
+		if (error != 0)
 		{
-			BOOST_LOG (node.log) << "TLS: Error: " << cts->error;
+			BOOST_LOG (node.log) << "TLS: Error: " << X509_verify_cert_error_string (error);
 			BOOST_LOG (node.log) << "TLS: Error chain depth : " << X509_STORE_CTX_get_error_depth (cts);
 		}
 
