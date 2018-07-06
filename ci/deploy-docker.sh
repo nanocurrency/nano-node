@@ -3,7 +3,7 @@ set -e
 
 scripts="$(dirname "$0")"
 
-docker login -u nanocurrency -p "$DOCKER_PASSWORD"
+echo "$DOCKER_PASSWORD" | docker login -u nanocurrency --password-stdin
 
 # We push this just so it can be a cache next time
 if [ "$TRAVIS_BRANCH" = "master" ]; then
