@@ -3887,7 +3887,7 @@ std::string filter_request (boost::property_tree::ptree tree_a)
 }
 }
 
-void nano::rpc_handler::process_request (bool tls_mode)
+void nano::rpc_handler::process_request (bool tls_auth)
 {
 	try
 	{
@@ -4372,7 +4372,7 @@ void nano::rpc_handler::process_request (bool tls_mode)
 			{
 				work_peers_clear ();
 			}
-			else if (tls_mode)
+			else if (tls_auth)
 			{
 				// Commands available only with TLS connection
 				if (action == "wallet_list")
