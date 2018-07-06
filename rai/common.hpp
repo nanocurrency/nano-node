@@ -228,7 +228,7 @@ enum class process_result
 	old, // Already seen and was valid
 	negative_spend, // Malicious attempt to spend a negative amount
 	fork, // Malicious fork based on previous
-	unreceivable, // Source block doesn't exist or has already been received
+	unreceivable, // Source block doesn't exist, has already been received, or requires an account upgrade (epoch blocks)
 	gap_previous, // Block marked as previous is unknown
 	gap_source, // Block marked as source is unknown
 	opened_burn_account, // The impossible happened, someone found the private key associated with the public key '0'.

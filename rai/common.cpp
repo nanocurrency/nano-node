@@ -290,7 +290,8 @@ size_t rai::block_counts::sum ()
 
 rai::pending_info::pending_info () :
 source (0),
-amount (0)
+amount (0),
+min_version (0)
 {
 }
 

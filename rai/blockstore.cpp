@@ -608,7 +608,7 @@ uint8_t rai::block_store::block_version (MDB_txn * transaction_a, rai::block_has
 	rai::block_type type;
 	rai::mdb_val value;
 	auto status (mdb_get (transaction_a, state_blocks, rai::mdb_val (hash_a), value));
-	assert (status == 0 || (status == MDB_NOTFOUND && block_exists (transaction_a, hash_a)));
+	assert (status == 0 || status == MDB_NOTFOUND);
 	uint8_t result (0);
 	if (status == 0)
 	{
@@ -1027,6 +1027,8 @@ bool rai::block_store::pending_get (MDB_txn * transaction_a, rai::pending_key co
 		assert (!error1);
 		auto error2 (rai::read (stream, pending_a.amount));
 		assert (!error2);
+		auto error3 (rai::read (stream, pending_a.min_version));
+		assert (!error3);
 	}
 	return result;
 }

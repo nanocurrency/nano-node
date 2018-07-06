@@ -205,16 +205,16 @@ void ledger_processor::state_block_impl (rai::state_block const & block_a)
 		if (result.code == rai::process_result::progress)
 		{
 			result.code = block_a.hashables.account.is_zero () ? rai::process_result::opened_burn_account : rai::process_result::progress; // Is this for the burn account? (Unambiguous)
-			uint8_t account_version (0);
 			if (result.code == rai::process_result::progress)
 			{
+				uint8_t account_version (0);
 				rai::account_info info;
-				account_version = info.version;
 				result.amount = block_a.hashables.balance;
 				auto is_send (false);
 				auto account_error (ledger.store.account_get (transaction, block_a.hashables.account, info));
 				if (!account_error)
 				{
+					account_version = info.version;
 					// Account already exists
 					result.code = block_a.hashables.previous.is_zero () ? rai::process_result::fork : rai::process_result::progress; // Has this account already been opened? (Ambigious)
 					if (result.code == rai::process_result::progress)
