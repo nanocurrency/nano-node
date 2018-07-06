@@ -155,7 +155,6 @@ public:
 	void add (MDB_txn *, std::shared_ptr<rai::block>);
 	void vote (std::shared_ptr<rai::vote>);
 	rai::uint128_t bootstrap_threshold (MDB_txn *);
-	void purge_old ();
 	boost::multi_index_container<
 	rai::gap_information,
 	boost::multi_index::indexed_by<
