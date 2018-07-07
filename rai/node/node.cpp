@@ -1435,7 +1435,7 @@ rai::process_return rai::block_processor::process_receive_one (MDB_txn * transac
 {
 	rai::process_return result;
 	auto hash (block_a->hash ());
-	result = node.ledger.process (transaction_a, *block_a);
+	result = node.ledger.process (transaction_a, *block_a, valid_signature);
 	switch (result.code)
 	{
 		case rai::process_result::progress:
