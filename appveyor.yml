@@ -28,14 +28,14 @@ install:
     
     select-string -path ".\rai\node\node.cpp" -Pattern $old_size_t -SimpleMatch | %{$curpath=$_.path; (get-content $curpath -Raw) -replace $old_size_t, $size_t| Out-File $curpath}
 
-build:
-  parallel: true  
-  project: nano_wallet.vcxproj
-  verbosity: quiet
-after_build:
 - ps: Invoke-WebRequest -Uri https://download.microsoft.com/download/5/7/b/57b2947c-7221-4f33-b35e-2fc78cb10df4/vc_redist.x64.exe -OutFile .\vc_redist.x64.exe
+
+build:
+  parallel: true
+  project: INSTALL.vcxproj
+after_build:
 - cmd: >-
-    cpack -NSIS
+    cpack -NSIS --verbose
 
     7z a nano.zip %APPVEYOR_BUILD_FOLDER%\Release\*.exe
 artifacts:
