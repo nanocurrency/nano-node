@@ -2893,6 +2893,7 @@ TEST (rpc, account_info)
 	ASSERT_TRUE (time - stol (modified_timestamp) < 5);
 	std::string block_count (response.json.get<std::string> ("block_count"));
 	ASSERT_EQ ("2", block_count);
+	ASSERT_EQ (0, response.json.get<uint8_t> ("account_version"));
 	boost::optional<std::string> weight (response.json.get_optional<std::string> ("weight"));
 	ASSERT_FALSE (weight.is_initialized ());
 	boost::optional<std::string> pending (response.json.get_optional<std::string> ("pending"));

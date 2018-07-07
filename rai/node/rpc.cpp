@@ -351,6 +351,7 @@ void rai::rpc_handler::account_info ()
 			response_l.put ("balance", balance);
 			response_l.put ("modified_timestamp", std::to_string (info.modified));
 			response_l.put ("block_count", std::to_string (info.block_count));
+			response_l.put ("account_version", std::to_string (info.version));
 			if (representative)
 			{
 				auto block (node.store.block_get (transaction, info.rep_block));
