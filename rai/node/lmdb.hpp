@@ -36,6 +36,7 @@ public:
 	mdb_val (size_t, void *);
 	mdb_val (rai::uint128_union const &);
 	mdb_val (rai::uint256_union const &);
+	mdb_val (rai::block const &);
 	void * data () const;
 	size_t size () const;
 	explicit operator rai::account_info () const;
@@ -45,9 +46,11 @@ public:
 	explicit operator rai::uint128_union () const;
 	explicit operator rai::uint256_union () const;
 	explicit operator rai::vote () const;
+	explicit operator std::shared_ptr<rai::block> () const;
 	operator MDB_val * () const;
 	operator MDB_val const & () const;
 	MDB_val value;
+	std::shared_ptr<std::vector <uint8_t>> buffer;
 	rai::epoch epoch;
 };
 

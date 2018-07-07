@@ -93,6 +93,16 @@ mdb_val (sizeof (val_a), const_cast<rai::block_info *> (&val_a))
 {
 }
 
+rai::mdb_val::mdb_val (rai::block const & val_a) :
+buffer (std::make_shared <std::vector <uint8_t>> ())
+{
+	{
+		rai::vectorstream stream (*buffer);
+		rai::serialize_block (stream, val_a);
+	}
+	value = { buffer->size (), const_cast<uint8_t *>(buffer->data ()) };
+}
+
 void * rai::mdb_val::data () const
 {
 	return value.mv_data;

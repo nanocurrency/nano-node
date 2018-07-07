@@ -1610,12 +1610,8 @@ void rai::block_store::unchecked_del (MDB_txn * transaction_a, rai::block_hash c
 			}
 		}
 	}
-	std::vector<uint8_t> vector;
-	{
-		rai::vectorstream stream (vector);
-		rai::serialize_block (stream, block_a);
-	}
-	auto status (mdb_del (transaction_a, unchecked, rai::mdb_val (hash_a), rai::mdb_val (vector.size (), vector.data ())));
+	rai::mdb_val block (block_a);
+	auto status (mdb_del (transaction_a, unchecked, rai::mdb_val (hash_a), block));
 	assert (status == 0 || status == MDB_NOTFOUND);
 }
 
@@ -1677,12 +1673,8 @@ void rai::block_store::flush (MDB_txn * transaction_a)
 	}
 	for (auto & i : unchecked_cache_l)
 	{
-		std::vector<uint8_t> vector;
-		{
-			rai::vectorstream stream (vector);
-			rai::serialize_block (stream, *i.second);
-		}
-		auto status (mdb_put (transaction_a, unchecked, rai::mdb_val (i.first), rai::mdb_val (vector.size (), vector.data ()), 0));
+		mdb_val block (*i.second);
+		auto status (mdb_put (transaction_a, unchecked, rai::mdb_val (i.first), block, 0));
 		assert (status == 0);
 	}
 	for (auto i (sequence_cache_l.begin ()), n (sequence_cache_l.end ()); i != n; ++i)
