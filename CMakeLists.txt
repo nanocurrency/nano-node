@@ -312,6 +312,8 @@ add_library (node
 	${SECURE_RPC_SOURCE}
 	rai/node/bootstrap.cpp
 	rai/node/bootstrap.hpp
+	rai/node/cli.hpp
+	rai/node/cli.cpp
 	rai/node/common.cpp
 	rai/node/common.hpp
 	rai/node/node.hpp
