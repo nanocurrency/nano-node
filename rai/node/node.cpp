@@ -1474,7 +1474,6 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 					validated_hashes.clear ();
 				}
 			}
-			
 			lock_a.lock ();
 			++count;
 		}
