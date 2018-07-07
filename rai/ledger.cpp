@@ -162,7 +162,7 @@ public:
 class ledger_processor : public rai::block_visitor
 {
 public:
-	ledger_processor (rai::ledger &, MDB_txn *);
+	ledger_processor (rai::ledger &, MDB_txn *, bool = false);
 	virtual ~ledger_processor () = default;
 	void send_block (rai::send_block const &) override;
 	void receive_block (rai::receive_block const &) override;
@@ -172,6 +172,7 @@ public:
 	void state_block_impl (rai::state_block const &);
 	rai::ledger & ledger;
 	MDB_txn * transaction;
+	bool valid_signature;
 	rai::process_return result;
 };
 
@@ -187,7 +188,10 @@ void ledger_processor::state_block_impl (rai::state_block const & block_a)
 	result.code = existing ? rai::process_result::old : rai::process_result::progress; // Have we seen this block before? (Unambiguous)
 	if (result.code == rai::process_result::progress)
 	{
-		result.code = validate_message (block_a.hashables.account, hash, block_a.signature) ? rai::process_result::bad_signature : rai::process_result::progress; // Is this block signed correctly (Unambiguous)
+		if (!valid_signature)
+		{
+			result.code = validate_message (block_a.hashables.account, hash, block_a.signature) ? rai::process_result::bad_signature : rai::process_result::progress; // Is this block signed correctly (Unambiguous)
+		}
 		if (result.code == rai::process_result::progress)
 		{
 			result.code = block_a.hashables.account.is_zero () ? rai::process_result::opened_burn_account : rai::process_result::progress; // Is this for the burn account? (Unambiguous)
@@ -479,9 +483,10 @@ void ledger_processor::open_block (rai::open_block const & block_a)
 	}
 }
 
-ledger_processor::ledger_processor (rai::ledger & ledger_a, MDB_txn * transaction_a) :
+ledger_processor::ledger_processor (rai::ledger & ledger_a, MDB_txn * transaction_a, bool valid_signature_a) :
 ledger (ledger_a),
-transaction (transaction_a)
+transaction (transaction_a),
+valid_signature (valid_signature_a)
 {
 }
 } // namespace
@@ -571,9 +576,9 @@ rai::uint128_t rai::ledger::account_pending (MDB_txn * transaction_a, rai::accou
 	return result;
 }
 
-rai::process_return rai::ledger::process (MDB_txn * transaction_a, rai::block const & block_a)
+rai::process_return rai::ledger::process (MDB_txn * transaction_a, rai::block const & block_a, bool valid_signature)
 {
-	ledger_processor processor (*this, transaction_a);
+	ledger_processor processor (*this, transaction_a, valid_signature);
 	block_a.visit (processor);
 	return processor.result;
 }
