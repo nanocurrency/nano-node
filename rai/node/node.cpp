@@ -1278,7 +1278,8 @@ block_processor_thread ([this]() {
 	this->block_processor.process_blocks ();
 }),
 online_reps (*this),
-stats (config.stat_config)
+stats (config.stat_config),
+ipc_server (*this)
 {
 	wallets.observer = [this](bool active) {
 		observers.wallet.notify (active);
@@ -1687,6 +1688,7 @@ void rai::node::stop ()
 	{
 		block_processor_thread.join ();
 	}
+	ipc_server.stop ();
 	active.stop ();
 	network.stop ();
 	bootstrap_initiator.stop ();

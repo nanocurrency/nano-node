@@ -348,6 +348,9 @@ std::string rai::stat::type_to_string (uint32_t key)
 		case rai::stat::type::message:
 			res = "message";
 			break;
+		case rai::stat::type::api:
+			res = "api";
+			break;
 	}
 	return res;
 }
@@ -396,6 +399,9 @@ std::string rai::stat::detail_to_string (uint32_t key)
 			break;
 		case rai::stat::detail::initiate:
 			res = "initiate";
+			break;
+		case rai::stat::detail::invocations:
+			res = "invocations";
 			break;
 		case rai::stat::detail::insufficient_work:
 			res = "insufficient_work";

@@ -14,3 +14,6 @@
 [submodule "phc-winner-argon2"]
 	path = phc-winner-argon2
 	url = https://github.com/clemahieu/phc-winner-argon2.git
+[submodule "protobuf-lib"]
+	path = protobuf-lib
+	url = https://github.com/google/protobuf.git

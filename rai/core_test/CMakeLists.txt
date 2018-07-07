@@ -1,5 +1,6 @@
 add_executable (core_test
 	testutil.hpp
+	api.cpp
 	block.cpp
 	block_store.cpp
 	interface.cpp
@@ -25,4 +26,4 @@ target_compile_definitions(core_test
 		PRIVATE
 			-DRAIBLOCKS_VERSION_MAJOR=${CPACK_PACKAGE_VERSION_MAJOR}
 			-DRAIBLOCKS_VERSION_MINOR=${CPACK_PACKAGE_VERSION_MINOR})
-target_link_libraries (core_test node secure gtest_main gtest libminiupnpc-static Boost::boost)
+target_link_libraries (core_test node secure gtest_main gtest libminiupnpc-static Boost::boost ${PROTOBUF_LIBRARY})

@@ -2,6 +2,7 @@
 
 #include <rai/lib/work.hpp>
 #include <rai/node/bootstrap.hpp>
+#include <rai/node/ipc.hpp>
 #include <rai/node/logging.hpp>
 #include <rai/node/nodeconfig.hpp>
 #include <rai/node/peers.hpp>
@@ -471,6 +472,7 @@ public:
 	rai::block_arrival block_arrival;
 	rai::online_reps online_reps;
 	rai::stat stats;
+	nano::ipc::ipc_server ipc_server;
 	rai::keypair node_id;
 	static double constexpr price_max = 16.0;
 	static double constexpr free_cutoff = 1024.0;

@@ -23,6 +23,7 @@ fi
 
 cmake \
     -G'Unix Makefiles' \
+    -Dprotobuf_BUILD_TESTS=OFF \
     -DACTIVE_NETWORK=rai_test_network \
     -DRAIBLOCKS_TEST=ON \
     -DRAIBLOCKS_GUI=ON \

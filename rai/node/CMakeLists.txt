@@ -18,10 +18,15 @@ add_library (node
 	${platform_sources}
 	${secure_rpc_sources}
 	bootstrap.cpp
-	bootstrap.hpp
+	bootstrap.hpp	
 	cli.hpp
 	cli.cpp
 	common.cpp
+	common.hpp
+	ipc.hpp
+	ipc.cpp
+	api.cpp
+	api.hpp
 	lmdb.cpp
 	lmdb.hpp
 	logging.cpp
@@ -48,10 +53,12 @@ add_library (node
 	voting.cpp
 	working.hpp
 	xorshift.hpp)
+add_dependencies(node rai_protobuf)
 
 target_link_libraries (node
 	secure
 	rai_lib
+	rai_protobuf
 	libminiupnpc-static
 	argon2
 	lmdb
@@ -62,6 +69,7 @@ target_link_libraries (node
 	Boost::system
 	Boost::thread
 	Boost::boost
+	${PROTOBUF_LIBRARY}
 	${CMAKE_DL_LIBS}
 	)
 

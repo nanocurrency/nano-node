@@ -292,6 +292,11 @@ bool rai::node_config::deserialize_json (bool & upgraded_a, boost::property_tree
 		{
 			result |= stat_config.deserialize_json (stat_config_l.get ());
 		}
+		auto ipc_config_l (tree_a.get_child_optional ("ipc"));
+		if (ipc_config_l)
+		{
+			result |= ipc_config.deserialize_json (ipc_config_l.get ());
+		}
 		auto online_weight_minimum_l (tree_a.get<std::string> ("online_weight_minimum"));
 		auto online_weight_quorum_l (tree_a.get<std::string> ("online_weight_quorum"));
 		auto password_fanout_l (tree_a.get<std::string> ("password_fanout"));

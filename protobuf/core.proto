@@ -1,0 +1,100 @@
+// Core messages and enums
+
+syntax = "proto3";
+import "google/protobuf/wrappers.proto";
+
+package nano.api;
+
+// option optimize_for = CODE_SIZE;
+// option cc_enable_arenas = true;
+
+/*
+    Nano Node API protobuf definition
+
+    An up-to-date node will respond with a preamble matching the API
+    version numbers. See https://nanoapi.github.io/PROTOCOL.html for more information.
+*/
+
+/**
+ * API version numbers. As proto3 doesn't have constants, so we use an enum
+ * which allows aliases. VERSION_INVALID is a 0-value placeholder, which
+ * protobuf requires.
+ */
+enum APIVersion
+{
+    option allow_alias = true;
+    VERSION_INVALID = 0;
+    VERSION_MAJOR = 1;
+    VERSION_MINOR = 0;
+}
+
+/**
+ * The enum values must NOT change. The name of the enum must match the
+ * request message name, uppercased, and without the req_ prefix. This naming
+ * standard facilitates dynamic lookup and generic frameworks.
+ */
+enum RequestType
+{
+    INVALID = 0;
+    REGISTER_CALLBACK = 1;
+
+    // core.proto message types
+    PING = 2;
+
+    // accounts.proto message types
+    ACCOUNT_PENDING = 100;
+
+    // util.proto message types
+    ADDRESS_VALID = 1000;
+}
+
+/**
+ * Request header.
+ * This is serialized before the actual request to tell the node what message to expect next.
+ * Other request meta data may be added in the future.
+ */
+message request
+{
+    /** Request type */
+    RequestType type = 1;
+}
+
+/**
+ * Response header.
+ * This is serialized before the actual response.
+ */
+message response
+{
+    /**
+     * For which request type is this a response? This flag allows future support for clients
+     * issuing multiple concurrent requests, as well as callback messages.
+     *
+     * This may not be set if error_code is non-zero.
+     */
+    RequestType type = 1;
+
+    /**
+     * If non-zero, an error has occurred.
+     */
+    sint32 error_code = 2;
+
+    /** Error message. Only set if error_code is non-zero. */
+    string error_message = 3;
+
+    /** Error category name. Only set if error_code is non-zero. */
+    string error_category = 4;
+}
+
+/** Send ping to the node */
+message req_ping
+{
+    /** Ping ID. The node will respond with the same ID. */
+    uint32 id = 1;
+}
+
+/** Ping response */
+message res_ping
+{
+    /** The same ID as sent in the ping request */
+    uint32 id = 1;
+}

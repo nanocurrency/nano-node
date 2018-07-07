@@ -132,7 +132,7 @@ def main():
       'mm',  # ObjC++
       'cc', 'cp', 'cpp', 'c++', 'cxx', 'hpp',  # C++
       # Other languages that clang-format supports
-      'proto', 'protodevel',  # Protocol Buffers
+      #'proto', 'protodevel',  # Protocol Buffers
       'java',  # Java
       'js',  # JavaScript
       'ts',  # TypeScript

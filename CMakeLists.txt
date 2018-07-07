@@ -124,8 +124,20 @@ find_package (Boost 1.66.0 REQUIRED COMPONENTS filesystem log thread program_opt
 
 add_subdirectory(ed25519-donna)
 
+# Protobuf definitions
+if (WIN32)
+	set (protobuf_BUILD_SHARED_LIBS ON CACHE BOOL "")
+	add_definitions(-DPROTOBUF_USE_DLLS)
+endif ()
+ # Build protobuf
+set (protobuf_BUILD_TESTS OFF)
+add_subdirectory("protobuf-lib/cmake" EXCLUDE_FROM_ALL)
+set (PROTOBUF_LIBRARY "libprotobuf")
+include_directories("protobuf-lib/src")
+
 set (UPNPC_BUILD_SHARED OFF CACHE BOOL "")
 add_subdirectory (miniupnp/miniupnpc)
+
 # FIXME: This fixes miniupnpc include directories without modifying miniupnpc's
 # CMakeLists.txt but should be set there
 set_target_properties(libminiupnpc-static PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
@@ -227,6 +239,27 @@ add_library (blake2
 
 target_compile_definitions(blake2 PRIVATE -D__SSE2__)
 
+# Protobuf library with generated files
+add_library (rai_protobuf api-c/core.pb.cc api-c/core.pb.h api-c/accounts.pb.cc api-c/accounts.pb.h api-c/util.pb.cc api-c/util.pb.h)
+
+# Generate protobuf files into the rai_protobuf library, which will be rebuilt
+# whenever any of the proto files change.
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/api-c)
+
+file(GLOB files "protobuf/*.proto")
+file(REMOVE "${CMAKE_CURRENT_SOURCE_DIR}/protobuf/protofiles.txt")
+foreach(file ${files})
+	get_filename_component(protofilename ${file} NAME_WE)
+	file(APPEND "${CMAKE_CURRENT_SOURCE_DIR}/protobuf/protofiles.txt" "${protofilename}\n")
+	# message("Generating protobuf code for: ${protofilename} into ${CMAKE_CURRENT_SOURCE_DIR}")
+
+	add_custom_command(
+		OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/api-c/${protofilename}.pb.cc ${CMAKE_CURRENT_SOURCE_DIR}/api-c/${protofilename}.pb.h
+		COMMAND "$<TARGET_FILE:protoc>" --proto_path=${CMAKE_CURRENT_SOURCE_DIR}/protobuf --cpp_out=${CMAKE_CURRENT_SOURCE_DIR}/api-c ${CMAKE_CURRENT_SOURCE_DIR}/protobuf/${protofilename}.proto
+		DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/protobuf/${protofilename}.proto
+		WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+endforeach()
+
 add_subdirectory(rai/secure)
 add_subdirectory(rai/lib)
 add_subdirectory(rai/node)
@@ -268,6 +301,8 @@ if (RAIBLOCKS_GUI)
 	add_library (qt
 		rai/qt/qt.cpp
 		rai/qt/qt.hpp)
+
+	add_dependencies(qt rai_protobuf)
 
 	target_link_libraries(qt
 		secure rai_lib node libminiupnpc-static Qt5::Gui Qt5::Widgets)
@@ -357,6 +392,7 @@ if (RAIBLOCKS_GUI)
 		get_target_property (Qt5WindowsPlugin Qt5::QWindowsIntegrationPlugin LOCATION)
 		get_filename_component (Qt5_bin_DIR ${Qt5_DIR}/../../../bin ABSOLUTE)
 		install (TARGETS nano_wallet DESTINATION .)
+		install (FILES $<TARGET_FILE:${PROTOBUF_LIBRARY}> DESTINATION .)
 		install (FILES ${CMAKE_CURRENT_BINARY_DIR}/${WIN_REDIST} DESTINATION .)
 		install (FILES ${Qt5_bin_DIR}/libGLESv2.dll DESTINATION .)
 		install (FILES ${Qt5_bin_DIR}/Qt5Core.dll DESTINATION .)

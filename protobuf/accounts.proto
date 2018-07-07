@@ -1,0 +1,48 @@
+// Account related messages
+
+syntax = "proto3";
+import "google/protobuf/wrappers.proto";
+
+package nano.api;
+
+
+/** Returns a list of block hashes which have not yet been received by these accounts */
+message req_account_pending
+{
+    /** List of accounts to query */
+    repeated string accounts = 1;
+
+    /** Maximum number of blocks to return */
+    uint64 count = 2;
+
+    /** If true, include source account */
+    bool source = 3;
+
+    /** Optional threshold. Returns a list of pending block hashes with amount more or equal to the threshold. */
+    google.protobuf.StringValue threshold = 4;
+}
+
+/** account_pending result */
+message res_account_pending
+{
+    /** List of accounts, each with a list of pending blocks */
+    repeated account_pending pending = 1;
+}
+
+/** Blocks per account */
+message account_pending
+{
+    /** The account */
+    string account = 1;
+
+    /** List of blocks with details */
+    repeated account_pending_block_info block_info = 2;
+}
+
+/** Information supplied for each account in req_account_pending */
+message account_pending_block_info
+{
+    string hash = 1;
+    string amount = 2;
+    string source = 3;
+}

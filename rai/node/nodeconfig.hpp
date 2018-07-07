@@ -3,6 +3,7 @@
 #include <boost/property_tree/ptree.hpp>
 #include <chrono>
 #include <rai/lib/numbers.hpp>
+#include <rai/node/ipc.hpp>
 #include <rai/node/logging.hpp>
 #include <rai/node/stats.hpp>
 #include <vector>
@@ -42,6 +43,7 @@ public:
 	std::string callback_target;
 	int lmdb_max_dbs;
 	rai::stat_config stat_config;
+	nano::ipc::ipc_config ipc_config;
 	rai::uint256_union epoch_block_link;
 	rai::account epoch_block_signer;
 	std::chrono::milliseconds block_processor_batch_max_time;

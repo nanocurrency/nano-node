@@ -184,6 +184,7 @@ public:
 		bootstrap,
 		vote,
 		http_callback,
+		api,
 		peering,
 		udp
 	};
@@ -244,6 +245,9 @@ public:
 
 		// peering
 		handshake,
+
+		// api
+		invocations,
 	};
 
 	/** Direction of the stat. If the direction is irrelevant, use in */

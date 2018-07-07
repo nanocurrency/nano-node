@@ -1,0 +1,19 @@
+// Utilities, such as address verification, signing and conversion
+
+syntax = "proto3";
+
+package nano.api;
+
+/** Check if the supplied address is correct */
+message req_address_valid {
+    /** Address to check, such as xrb_... and nano_...  */
+    string address = 1;
+}
+
+/** Result of address validation */
+message res_address_valid {
+    /** True if the address is valid */
+    bool valid = 1;
+    /** The reason the address is invalid. May be empty. */
+    string reason = 2;
+}
