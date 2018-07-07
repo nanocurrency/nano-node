@@ -19,6 +19,8 @@ compiler:
 
 cache:
   - ccache: true
+  - directories:
+      - $HOME/Library/Caches/Homebrew
 
 before_install:
   - if [ "$TRAVIS_OS_NAME" = "osx" ]; then brew update && brew install qt5 && brew cask install xquartz && brew upgrade boost && brew install rust; fi
