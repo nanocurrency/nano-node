@@ -1392,6 +1392,7 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 		lock_a.lock ();
 		auto count (0);
 		std::vector<std::pair<std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point>> validated_blocks;
+		std::vector<rai::block_hash> validated_hashes;
 		while (have_blocks () && count < 16384)
 		{
 			if (blocks.size () > 64 && should_log ())
@@ -1428,7 +1429,11 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 			{
 				if (!node.ledger.store.block_exists (transaction, hash))
 				{
-					validated_blocks.push_back (block);
+					if (std::find (validated_hashes.begin(), validated_hashes.end(), hash) == validated_hashes.end ())
+					{
+						validated_blocks.push_back (block);
+						validated_hashes.push_back (hash);
+					}
 				}
 				else if (node.config.logging.ledger_duplicate_logging ())
 				{
@@ -1445,7 +1450,7 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 			{
 				if (!validated_blocks.empty ())
 				{
-					std::reverse(validated_blocks.begin(), validated_blocks.end());
+					std::reverse (validated_blocks.begin (), validated_blocks.end ());
 					std::vector<rai::state_block> state_blocks;
 					for (auto i (0); i != validated_blocks.size (); ++i)
 					{
@@ -1466,6 +1471,7 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 						}
 					}
 					validated_blocks.clear ();
+					validated_hashes.clear ();
 				}
 			}
 			
