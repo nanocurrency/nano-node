@@ -562,7 +562,6 @@ void rai::block_store::upgrade_v10_to_v11 (MDB_txn * transaction_a)
 	mdb_drop (transaction_a, unsynced, 1);
 }
 
-
 void rai::block_store::upgrade_v11_to_v12 (MDB_txn * transaction_a)
 {
 	version_put (transaction_a, 12);
