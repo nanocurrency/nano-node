@@ -25,6 +25,38 @@ TEST (ed25519, signing)
 	ASSERT_NE (0, valid2);
 }
 
+TEST (ed25519, signing_batch)
+{
+	std::vector<rai::state_block> blocks;
+	rai::keypair key1;
+	rai::state_block block1 (key1.pub, 0, key1.pub, 2, 13, key1.prv, key1.pub, 2);
+	blocks.push_back (block1);
+	rai::keypair key2;
+	rai::state_block block2 (key2.pub, 0, key2.pub, 2, 14, key2.prv, key2.pub, 2);
+	blocks.push_back (block2);
+	auto valid1 (ed25519_sign_open (block1.hash ().bytes.data (), sizeof (block1.hash ().bytes), block1.hashables.account.bytes.data (), block1.signature.bytes.data ()));
+	ASSERT_EQ (0, valid1);
+	auto valid2 (ed25519_sign_open (block2.hash ().bytes.data (), sizeof (block2.hash ().bytes), block2.hashables.account.bytes.data (), block2.signature.bytes.data ()));
+	ASSERT_EQ (0, valid2);
+	rai::uint512_union signature (block1.signature);
+	signature.bytes[32] ^= 0x1;
+	block1.signature_set (signature);
+	blocks.push_back (block1);
+	block2.hashables.account = key1.pub;
+	blocks.push_back (block2);
+	auto valid3 (ed25519_sign_open (block1.hash ().bytes.data (), sizeof (block1.hash ().bytes), block1.hashables.account.bytes.data (), block1.signature.bytes.data ()));
+	ASSERT_NE (0, valid3);
+	auto valid4 (ed25519_sign_open (block2.hash ().bytes.data (), sizeof (block2.hash ().bytes), block2.hashables.account.bytes.data (), block2.signature.bytes.data ()));
+	ASSERT_NE (0, valid4);
+	int valid[blocks.size ()];
+	auto all_invalid (validate_blocks (blocks, valid));
+	ASSERT_EQ (1, valid[0]);
+	ASSERT_EQ (1, valid[1]);
+	ASSERT_EQ (0, valid[2]);
+	ASSERT_EQ (0, valid[3]);
+	ASSERT_NE (0, all_invalid);
+}
+
 TEST (transaction_block, empty)
 {
 	rai::keypair key1;
