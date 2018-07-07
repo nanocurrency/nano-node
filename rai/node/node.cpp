@@ -903,9 +903,10 @@ lmdb_max_dbs (128)
 	{
 		case rai::rai_networks::rai_test_network:
 			preconfigured_representatives.push_back (rai::genesis_account);
+			preconfigured_peers.push_back ("54.91.161.185");
 			break;
 		case rai::rai_networks::rai_beta_network:
-			preconfigured_peers.push_back ("ec2-54-91-161-185.compute-1.amazonaws.com");
+			preconfigured_peers.push_back ("54.91.161.185");
 			// preconfigured_representatives.push_back (rai::genesis_account);
 			preconfigured_representatives.push_back (rai::account ("E4C895DC0B5CB696510A8DA06968C66A151C78660448044A4E01F66B70ABB51A"));
 			// preconfigured_representatives.push_back (rai::account ("259A4011E6CAD1069A97C02C3C1F2AAA32BC093C8D82EE1334F937A4BE803071"));
