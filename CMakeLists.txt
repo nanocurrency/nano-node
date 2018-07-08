@@ -331,19 +331,23 @@ if (RAIBLOCKS_GUI)
 		${PLATFORM_LIBS}
 		${PLATFORM_WALLET_LIBS})
 
-	add_executable (qt_test
-		rai/qt_test/entry.cpp
-		rai/qt_test/qt.cpp)
-
-	target_include_directories (qt_test PRIVATE gtest/include)
-	target_link_libraries(qt_test gtest gtest_main qt Qt5::Test ${PLATFORM_LIBS})
-
 	add_executable (qt_system
 		rai/qt_system/entry.cpp)
 
 	target_link_libraries (qt_system qt node Qt5::Gui Qt5::Widgets ${PLATFORM_LIBS})
 
-	set_target_properties (qt_test qt nano_wallet qt_system PROPERTIES COMPILE_FLAGS "-DQT_NO_KEYWORDS -DRAIBLOCKS_VERSION_MAJOR=${CPACK_PACKAGE_VERSION_MAJOR} -DRAIBLOCKS_VERSION_MINOR=${CPACK_PACKAGE_VERSION_MINOR} -DBOOST_ASIO_HAS_STD_ARRAY=1")
+	set_target_properties (qt nano_wallet qt_system PROPERTIES COMPILE_FLAGS "-DQT_NO_KEYWORDS -DRAIBLOCKS_VERSION_MAJOR=${CPACK_PACKAGE_VERSION_MAJOR} -DRAIBLOCKS_VERSION_MINOR=${CPACK_PACKAGE_VERSION_MINOR} -DBOOST_ASIO_HAS_STD_ARRAY=1")
+
+	if (RAIBLOCKS_TEST)
+		add_executable (qt_test
+			rai/qt_test/entry.cpp
+			rai/qt_test/qt.cpp)
+
+		target_include_directories (qt_test PRIVATE gtest/include)
+		target_link_libraries(qt_test gtest gtest_main qt Qt5::Test ${PLATFORM_LIBS})
+
+		set_target_properties (qt_test PROPERTIES COMPILE_FLAGS "-DQT_NO_KEYWORDS -DRAIBLOCKS_VERSION_MAJOR=${CPACK_PACKAGE_VERSION_MAJOR} -DRAIBLOCKS_VERSION_MINOR=${CPACK_PACKAGE_VERSION_MINOR} -DBOOST_ASIO_HAS_STD_ARRAY=1")
+	endif ()
 
 	if (APPLE)
 		install (TARGETS nano_wallet DESTINATION Nano.app/Contents/MacOS)
