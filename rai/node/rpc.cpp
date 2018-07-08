@@ -1710,6 +1710,7 @@ public:
 		{
 			tree.put ("destination", account);
 			tree.put ("balance", block_a.hashables.balance.to_string_dec ());
+			tree.put ("previous", block_a.hashables.previous.to_string ());
 		}
 	}
 	void receive_block (rai::receive_block const & block_a)
@@ -1722,6 +1723,7 @@ public:
 		if (raw)
 		{
 			tree.put ("source", block_a.hashables.source.to_string ());
+			tree.put ("previous", block_a.hashables.previous.to_string ());
 		}
 	}
 	void open_block (rai::open_block const & block_a)
@@ -1755,6 +1757,7 @@ public:
 		{
 			tree.put ("type", "change");
 			tree.put ("representative", block_a.hashables.representative.to_account ());
+			tree.put ("previous", block_a.hashables.previous.to_string ());
 		}
 	}
 	void state_block (rai::state_block const & block_a)
@@ -1764,6 +1767,8 @@ public:
 			tree.put ("type", "state");
 			tree.put ("representative", block_a.hashables.representative.to_account ());
 			tree.put ("link", block_a.hashables.link.to_string ());
+			tree.put ("balance", block_a.hashables.balance.to_string_dec ());
+			tree.put ("previous", block_a.hashables.previous.to_string ());
 		}
 		auto balance (block_a.hashables.balance.number ());
 		auto previous_balance (handler.node.ledger.balance (transaction, block_a.hashables.previous));
