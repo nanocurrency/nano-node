@@ -1429,7 +1429,7 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 			{
 				if (!node.ledger.store.block_exists (transaction, hash))
 				{
-					if (std::find (validated_hashes.begin(), validated_hashes.end(), hash) == validated_hashes.end ())
+					if (std::find (validated_hashes.begin (), validated_hashes.end (), hash) == validated_hashes.end ())
 					{
 						validated_blocks.push_back (block);
 						validated_hashes.push_back (hash);
@@ -1454,7 +1454,7 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 					std::vector<rai::state_block> state_blocks;
 					for (auto i (0); i != validated_blocks.size (); ++i)
 					{
-						state_blocks.push_back (static_cast <rai::state_block const &> (*validated_blocks[i].first));
+						state_blocks.push_back (static_cast<rai::state_block const &> (*validated_blocks[i].first));
 					}
 					int valid[validated_blocks.size ()];
 					validate_blocks (state_blocks, valid);

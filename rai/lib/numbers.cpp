@@ -428,12 +428,12 @@ bool rai::validate_message (rai::public_key const & public_key, rai::uint256_uni
 	return result;
 }
 
-bool rai::validate_messages (std::vector<rai::public_key> const & public_keys, std::vector<rai::uint256_union> const & messages, std::vector<rai::uint512_union> const & signatures, size_t batch_count, int *valid)
+bool rai::validate_messages (std::vector<rai::public_key> const & public_keys, std::vector<rai::uint256_union> const & messages, std::vector<rai::uint512_union> const & signatures, size_t batch_count, int * valid)
 {
 	size_t messages_lengths[batch_count];
-	const unsigned char *messages_pointers[batch_count];
-	const unsigned char *public_keys_pointers[batch_count];
-	const unsigned char *signatures_pointers[batch_count];
+	const unsigned char * messages_pointers[batch_count];
+	const unsigned char * public_keys_pointers[batch_count];
+	const unsigned char * signatures_pointers[batch_count];
 	for (auto i (0); i < batch_count; i++)
 	{
 		messages_pointers[i] = messages[i].bytes.data ();

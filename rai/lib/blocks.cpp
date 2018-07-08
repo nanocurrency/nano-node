@@ -1499,14 +1499,14 @@ void rai::receive_hashables::hash (blake2b_state & hash_a) const
 	blake2b_update (&hash_a, source.bytes.data (), sizeof (source.bytes));
 }
 
-bool rai::validate_blocks (std::vector<rai::state_block> const & blocks, int *valid)
+bool rai::validate_blocks (std::vector<rai::state_block> const & blocks, int * valid)
 {
 	size_t batch_count (blocks.size ());
 	if (batch_count != 0)
 	{
-		std::vector <rai::public_key> public_keys (batch_count);
-		std::vector <rai::uint256_union> messages (batch_count);
-		std::vector <rai::uint512_union> signatures (batch_count);
+		std::vector<rai::public_key> public_keys (batch_count);
+		std::vector<rai::uint256_union> messages (batch_count);
+		std::vector<rai::uint512_union> signatures (batch_count);
 		for (auto i (0); i < batch_count; i++)
 		{
 			messages[i] = blocks[i].hash ();
