@@ -411,11 +411,17 @@ public:
 	{
 		if (node.config.logging.network_message_logging ())
 		{
-			BOOST_LOG (node.log) << boost::str (boost::format ("Received confirm_ack message from %1% for %2% sequence %3%") % sender % message_a.vote->block->hash ().to_string () % std::to_string (message_a.vote->sequence));
+			BOOST_LOG (node.log) << boost::str (boost::format ("Received confirm_ack message from %1% for %2% sequence %3%") % sender % message_a.vote->hashes_string () % std::to_string (message_a.vote->sequence));
 		}
 		node.stats.inc (rai::stat::type::message, rai::stat::detail::confirm_ack, rai::stat::dir::in);
 		node.peers.contacted (sender, message_a.header.version_using);
-		node.process_active (message_a.vote->block);
+		for (auto & vote_block : message_a.vote->blocks)
+		{
+			if (!vote_block.which ())
+			{
+				node.process_active (boost::get<std::shared_ptr<rai::block>> (vote_block));
+			}
+		}
 		node.vote_processor.vote (message_a.vote, sender);
 	}
 	void bulk_pull (rai::bulk_pull const &) override
@@ -1314,7 +1320,7 @@ rai::vote_code rai::vote_processor::vote_blocking (MDB_txn * transaction_a, std:
 				node.stats.inc (rai::stat::type::vote, rai::stat::detail::vote_valid);
 				break;
 		}
-		BOOST_LOG (node.log) << boost::str (boost::format ("Vote from: %1% sequence: %2% block: %3% status: %4%") % vote_a->account.to_account () % std::to_string (vote_a->sequence) % vote_a->block->hash ().to_string () % status);
+		BOOST_LOG (node.log) << boost::str (boost::format ("Vote from: %1% sequence: %2% block(s): %3% status: %4%") % vote_a->account.to_account () % std::to_string (vote_a->sequence) % vote_a->hashes_string () % status);
 	}
 	return result;
 }
@@ -1797,7 +1803,16 @@ stats (config.stat_config)
 		}
 		if (rep_weight > min_rep_weight)
 		{
-			if (this->rep_crawler.exists (vote_a->block->hash ()))
+			bool rep_crawler_exists;
+			for (auto hash : *vote_a)
+			{
+				if (rep_crawler.exists (hash))
+				{
+					rep_crawler_exists = true;
+					break;
+				}
+			}
+			if (rep_crawler_exists)
 			{
 				// We see a valid non-replay vote for a block we requested, this node is probably a representative
 				if (peers.rep_response (endpoint_a, vote_a->account, rep_weight))
@@ -1942,7 +1957,7 @@ void rai::gap_cache::add (MDB_txn * transaction_a, std::shared_ptr<rai::block> b
 	}
 	else
 	{
-		blocks.insert ({ std::chrono::steady_clock::now (), hash, std::unique_ptr<rai::votes> (new rai::votes (block_a)) });
+		blocks.insert ({ std::chrono::steady_clock::now (), hash, std::unordered_set<rai::account> () });
 		if (blocks.size () > max)
 		{
 			blocks.get<0> ().erase (blocks.get<0> ().begin ());
@@ -1954,27 +1969,37 @@ void rai::gap_cache::vote (std::shared_ptr<rai::vote> vote_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	rai::transaction transaction (node.store.environment, nullptr, false);
-	auto hash (vote_a->block->hash ());
-	auto existing (blocks.get<1> ().find (hash));
-	if (existing != blocks.get<1> ().end ())
+	for (auto hash : *vote_a)
 	{
-		existing->votes->vote (vote_a);
-		auto winner (node.ledger.winner (transaction, *existing->votes));
-		if (winner.first > bootstrap_threshold (transaction))
+		auto existing (blocks.get<1> ().find (hash));
+		if (existing != blocks.get<1> ().end ())
 		{
-			auto node_l (node.shared ());
-			auto now (std::chrono::steady_clock::now ());
-			node.alarm.add (rai::rai_network == rai::rai_networks::rai_test_network ? now + std::chrono::milliseconds (5) : now + std::chrono::seconds (5), [node_l, hash]() {
-				rai::transaction transaction (node_l->store.environment, nullptr, false);
-				if (!node_l->store.block_exists (transaction, hash))
+			auto is_new (false);
+			blocks.get<1> ().modify(existing, [&](rai::gap_information & info) { is_new = info.voters.insert(vote_a->account).second; });
+			if (is_new)
+			{
+				uint128_t tally;
+				for (auto voter : existing->voters)
 				{
-					if (!node_l->bootstrap_initiator.in_progress ())
-					{
-						BOOST_LOG (node_l->log) << boost::str (boost::format ("Missing confirmed block %1%") % hash.to_string ());
-					}
-					node_l->bootstrap_initiator.bootstrap ();
+					tally += node.ledger.weight (transaction, voter);
 				}
-			});
+				if (tally > bootstrap_threshold (transaction))
+				{
+					auto node_l (node.shared ());
+					auto now (std::chrono::steady_clock::now ());
+					node.alarm.add (rai::rai_network == rai::rai_networks::rai_test_network ? now + std::chrono::milliseconds (5) : now + std::chrono::seconds (5), [node_l, hash]() {
+						rai::transaction transaction (node_l->store.environment, nullptr, false);
+						if (!node_l->store.block_exists (transaction, hash))
+						{
+							if (!node_l->bootstrap_initiator.in_progress ())
+							{
+								BOOST_LOG (node_l->log) << boost::str (boost::format ("Missing confirmed block %1%") % hash.to_string ());
+							}
+							node_l->bootstrap_initiator.bootstrap ();
+						}
+					});
+				}
+			}
 		}
 	}
 }
@@ -2008,7 +2033,7 @@ void rai::network::confirm_send (rai::confirm_ack const & confirm_a, std::shared
 {
 	if (node.config.logging.network_publish_logging ())
 	{
-		BOOST_LOG (node.log) << boost::str (boost::format ("Sending confirm_ack for block %1% to %2% sequence %3%") % confirm_a.vote->block->hash ().to_string () % endpoint_a % std::to_string (confirm_a.vote->sequence));
+		BOOST_LOG (node.log) << boost::str (boost::format ("Sending confirm_ack for block(s) %1% to %2% sequence %3%") % confirm_a.vote->hashes_string () % endpoint_a % std::to_string (confirm_a.vote->sequence));
 	}
 	std::weak_ptr<rai::node> node_w (node.shared ());
 	node.network.send_buffer (bytes_a->data (), bytes_a->size (), endpoint_a, [bytes_a, node_w, endpoint_a](boost::system::error_code const & ec, size_t size_a) {
@@ -3474,14 +3499,9 @@ std::shared_ptr<rai::node> rai::node::shared ()
 	return shared_from_this ();
 }
 
-bool rai::vote_info::operator< (rai::vote const & vote_a) const
-{
-	return sequence < vote_a.sequence || (sequence == vote_a.sequence && hash < vote_a.block->hash ());
-}
-
 rai::election::election (rai::node & node_a, std::shared_ptr<rai::block> block_a, std::function<void(std::shared_ptr<rai::block>)> const & confirmation_action_a) :
 confirmation_action (confirmation_action_a),
-votes (block_a),
+root (block_a->root ()),
 node (node_a),
 status ({ block_a, 0 }),
 confirmed (false),
@@ -3543,9 +3563,28 @@ bool rai::election::have_quorum (rai::tally_t const & tally_a)
 	return result;
 }
 
+rai::tally_t rai::election::tally (MDB_txn * transaction_a)
+{
+	std::unordered_map<rai::block_hash, rai::uint128_t> block_weights;
+	for (auto vote_info : last_votes)
+	{
+		block_weights[vote_info.second.hash] += node.ledger.weight (transaction_a, vote_info.first);
+	}
+	rai::tally_t result;
+	for (auto item : block_weights)
+	{
+		auto block (blocks[item.first]);
+		if (block != nullptr)
+		{
+			result.insert (std::make_pair (item.second, block));
+		}
+	}
+	return result;
+}
+
 void rai::election::confirm_if_quorum (MDB_txn * transaction_a)
 {
-	auto tally_l (node.ledger.tally (transaction_a, votes));
+	auto tally_l (tally (transaction_a));
 	assert (tally_l.size () > 0);
 	auto winner (tally_l.begin ());
 	auto block_l (winner->second);
@@ -3563,7 +3602,7 @@ void rai::election::confirm_if_quorum (MDB_txn * transaction_a)
 	}
 	if (have_quorum (tally_l))
 	{
-		if (node.config.logging.vote_logging () || !votes.uncontested ())
+		if (node.config.logging.vote_logging () || blocks.size () > 1)
 		{
 			log_votes (tally_l);
 		}
@@ -3578,20 +3617,20 @@ void rai::election::log_votes (rai::tally_t const & tally_a)
 	{
 		BOOST_LOG (node.log) << boost::str (boost::format ("Block %1% weight %2%") % i->second->hash ().to_string () % i->first.convert_to<std::string> ());
 	}
-	for (auto i (votes.rep_votes.begin ()), n (votes.rep_votes.end ()); i != n; ++i)
+	for (auto i (last_votes.begin ()), n (last_votes.end ()); i != n; ++i)
 	{
-		BOOST_LOG (node.log) << boost::str (boost::format ("%1% %2%") % i->first.to_account () % i->second->hash ().to_string ());
+		BOOST_LOG (node.log) << boost::str (boost::format ("%1% %2%") % i->first.to_account () % i->second.hash.to_string ());
 	}
 }
 
-bool rai::election::vote (std::shared_ptr<rai::vote> vote_a)
+rai::election_vote_result rai::election::vote (rai::account rep, uint64_t sequence, rai::block_hash block_hash)
 {
-	assert (!vote_a->validate ());
 	// see republish_vote documentation for an explanation of these rules
 	rai::transaction transaction (node.store.environment, nullptr, false);
 	auto replay (false);
 	auto supply (node.online_reps.online_stake ());
-	auto weight (node.ledger.weight (transaction, vote_a->account));
+	auto weight (node.ledger.weight (transaction, rep));
+	auto should_process (false);
 	if (rai::rai_network == rai::rai_networks::rai_test_network || weight > supply / 1000) // 0.1% or above
 	{
 		unsigned int cooldown;
@@ -3608,7 +3647,7 @@ bool rai::election::vote (std::shared_ptr<rai::vote> vote_a)
 			cooldown = 1;
 		}
 		auto should_process (false);
-		auto last_vote_it (last_votes.find (vote_a->account));
+		auto last_vote_it (last_votes.find (rep));
 		if (last_vote_it == last_votes.end ())
 		{
 			should_process = true;
@@ -3616,7 +3655,7 @@ bool rai::election::vote (std::shared_ptr<rai::vote> vote_a)
 		else
 		{
 			auto last_vote (last_vote_it->second);
-			if (last_vote < *vote_a)
+			if (last_vote.sequence < sequence || last_vote.hash < block_hash)
 			{
 				if (last_vote.time <= std::chrono::steady_clock::now () - std::chrono::seconds (cooldown))
 				{
@@ -3630,16 +3669,14 @@ bool rai::election::vote (std::shared_ptr<rai::vote> vote_a)
 		}
 		if (should_process)
 		{
-			last_votes[vote_a->account] = { std::chrono::steady_clock::now (), vote_a->sequence, vote_a->block->hash () };
-			node.network.republish_vote (vote_a);
-			votes.vote (vote_a);
+			last_votes[rep] = { std::chrono::steady_clock::now (), sequence, block_hash };
 			if (!confirmed)
 			{
 				confirm_if_quorum (transaction);
 			}
 		}
 	}
-	return replay;
+	return { replay, should_process };
 }
 
 void rai::active_transactions::announce_votes ()
@@ -3663,7 +3700,7 @@ void rai::active_transactions::announce_votes ()
 					confirmed.pop_front ();
 				}
 			}
-			inactive.push_back (election_l->votes.id);
+			inactive.push_back (election_l->root);
 		}
 		else
 		{
@@ -3674,7 +3711,7 @@ void rai::active_transactions::announce_votes ()
 				// Log votes for very long unconfirmed elections
 				if (i->announcements % 50 == 1)
 				{
-					auto tally_l (node.ledger.tally (transaction, election_l->votes));
+					auto tally_l (election_l->tally (transaction));
 					election_l->log_votes (tally_l);
 				}
 			}
@@ -3689,7 +3726,7 @@ void rai::active_transactions::announce_votes ()
 				rai::uint128_t total_weight (0);
 				for (auto j (reps->begin ()), m (reps->end ()); j != m;)
 				{
-					auto & rep_votes (i->election->votes.rep_votes);
+					auto & rep_votes (i->election->last_votes);
 					auto rep_acct (j->probable_rep_account);
 					// Calculate if representative isn't recorded for several IP addresses
 					if (probable_reps.find (rep_acct) == probable_reps.end ())
@@ -3799,21 +3836,40 @@ bool rai::active_transactions::start (std::pair<std::shared_ptr<rai::block>, std
 bool rai::active_transactions::vote (std::shared_ptr<rai::vote> vote_a)
 {
 	std::shared_ptr<rai::election> election;
+	bool replay (true);
+	bool processed (false);
 	{
 		std::lock_guard<std::mutex> lock (mutex);
-		auto root (vote_a->block->root ());
-		auto existing (roots.find (root));
-		if (existing != roots.end ())
+		for (auto vote_block : vote_a->blocks)
 		{
-			election = existing->election;
+			rai::election_vote_result result;
+			if (vote_block.which ())
+			{
+				auto block_hash (boost::get<rai::block_hash> (vote_block));
+				auto existing (successors.find (block_hash));
+				if (existing != successors.end ())
+				{
+					result = existing->second->vote (vote_a->account, vote_a->sequence, block_hash);
+				}
+			}
+			else
+			{
+				auto block (boost::get<std::shared_ptr<rai::block>> (vote_block));
+				auto existing (roots.find (block->root ()));
+				if (existing != roots.end ())
+				{
+					result = existing->election->vote (vote_a->account, vote_a->sequence, block->hash ());
+				}
+			}
+			replay = replay || result.replay;
+			processed = processed || result.processed;
 		}
 	}
-	auto result (false);
-	if (election)
+	if (processed)
 	{
-		result = election->vote (vote_a);
+		node.network.republish_vote (vote_a);
 	}
-	return result;
+	return replay;
 }
 
 bool rai::active_transactions::active (rai::block const & block_a)

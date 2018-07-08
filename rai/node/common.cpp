@@ -208,13 +208,21 @@ void rai::message_parser::deserialize_confirm_ack (rai::stream & stream_a, rai::
 	rai::confirm_ack incoming (error, stream_a, header_a);
 	if (!error && at_end (stream_a))
 	{
-		if (!rai::work_validate (*incoming.vote->block))
+		for (auto & vote_block : incoming.vote->blocks)
+		{
+			if (!vote_block.which ())
+			{
+				auto block (boost::get<std::shared_ptr<rai::block>> (vote_block));
+				if (rai::work_validate (*block))
+				{
+					status = parse_status::insufficient_work;
+					break;
+				}
+			}
+		}
+		if (status == parse_status::success)
 		{
 			visitor.confirm_ack (incoming);
-		}
-		else
-		{
-			status = parse_status::insufficient_work;
 		}
 	}
 	else
@@ -397,7 +405,15 @@ rai::confirm_ack::confirm_ack (std::shared_ptr<rai::vote> vote_a) :
 message (rai::message_type::confirm_ack),
 vote (vote_a)
 {
-	header.block_type_set (vote->block->type ());
+	auto & first_vote_block (vote_a->blocks[0]);
+	if (first_vote_block.which ())
+	{
+		header.block_type_set (rai::block_type::not_a_block);
+	}
+	else
+	{
+		header.block_type_set (boost::get<std::shared_ptr<rai::block>> (first_vote_block)->type ());
+	}
 }
 
 bool rai::confirm_ack::deserialize (rai::stream & stream_a)
@@ -409,7 +425,7 @@ bool rai::confirm_ack::deserialize (rai::stream & stream_a)
 
 void rai::confirm_ack::serialize (rai::stream & stream_a)
 {
-	assert (header.block_type () == rai::block_type::send || header.block_type () == rai::block_type::receive || header.block_type () == rai::block_type::open || header.block_type () == rai::block_type::change || header.block_type () == rai::block_type::state);
+	assert (header.block_type () == rai::block_type::not_a_block || header.block_type () == rai::block_type::send || header.block_type () == rai::block_type::receive || header.block_type () == rai::block_type::open || header.block_type () == rai::block_type::change || header.block_type () == rai::block_type::state);
 	header.serialize (stream_a);
 	vote->serialize (stream_a, header.block_type ());
 }

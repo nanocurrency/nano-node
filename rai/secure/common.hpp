@@ -4,6 +4,7 @@
 #include <rai/secure/utility.hpp>
 
 #include <boost/property_tree/ptree.hpp>
+#include <boost/variant.hpp>
 
 #include <unordered_map>
 
@@ -187,6 +188,15 @@ public:
 	size_t state_v0;
 	size_t state_v1;
 };
+typedef std::vector<boost::variant<std::shared_ptr<rai::block>, rai::block_hash>>::const_iterator vote_vec_iter;
+class vote_hashes_iterator : public rai::vote_vec_iter
+{
+public:
+	vote_hashes_iterator (rai::vote_vec_iter self) : rai::vote_vec_iter (self) {}
+	rai::block_hash const * operator-> ();
+	rai::block_hash const & operator* ();
+	boost::optional<rai::block_hash> block_hash_store;
+};
 class vote
 {
 public:
@@ -195,7 +205,9 @@ public:
 	vote (bool &, rai::stream &);
 	vote (bool &, rai::stream &, rai::block_type);
 	vote (rai::account const &, rai::raw_key const &, uint64_t, std::shared_ptr<rai::block>);
+	vote (rai::account const &, rai::raw_key const &, uint64_t, std::vector<rai::block_hash>);
 	vote (MDB_val const &);
+	std::string hashes_string () const;
 	rai::uint256_union hash () const;
 	bool operator== (rai::vote const &) const;
 	bool operator!= (rai::vote const &) const;
@@ -203,14 +215,18 @@ public:
 	void serialize (rai::stream &);
 	bool deserialize (rai::stream &);
 	bool validate ();
+	rai::vote_hashes_iterator begin () const { return rai::vote_hashes_iterator (blocks.begin ()); }
+	rai::vote_hashes_iterator end () const { return rai::vote_hashes_iterator (blocks.end ()); }
 	std::string to_json () const;
 	// Vote round sequence number
 	uint64_t sequence;
-	std::shared_ptr<rai::block> block;
+	// The blocks, or block hashes, that this vote is for
+	std::vector<boost::variant<std::shared_ptr<rai::block>, rai::block_hash>> blocks;
 	// Account that's voting
 	rai::account account;
-	// Signature of sequence + block hash
+	// Signature of sequence + block hashes
 	rai::signature signature;
+	static const std::string hash_prefix;
 };
 enum class vote_code
 {
@@ -248,17 +264,6 @@ enum class tally_result
 	vote,
 	changed,
 	confirm
-};
-class votes
-{
-public:
-	votes (std::shared_ptr<rai::block>);
-	rai::tally_result vote (std::shared_ptr<rai::vote>);
-	bool uncontested ();
-	// Root block of fork
-	rai::block_hash id;
-	// All votes received by account
-	std::unordered_map<rai::account, std::shared_ptr<rai::block>> rep_votes;
 };
 extern rai::keypair const & zero_key;
 extern rai::keypair const & test_genesis_key;
