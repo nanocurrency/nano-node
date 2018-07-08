@@ -977,8 +977,6 @@ void rai::node_config::serialize_json (boost::property_tree::ptree & tree_a) con
 	tree_a.put ("callback_port", std::to_string (callback_port));
 	tree_a.put ("callback_target", callback_target);
 	tree_a.put ("lmdb_max_dbs", lmdb_max_dbs);
-	tree_a.put ("epoch_block_link", epoch_block_link.to_string ());
-	tree_a.put ("epoch_block_signer", epoch_block_signer.to_account ());
 }
 
 bool rai::node_config::upgrade_json (unsigned version, boost::property_tree::ptree & tree_a)
@@ -1077,8 +1075,6 @@ bool rai::node_config::upgrade_json (unsigned version, boost::property_tree::ptr
 		case 12:
 			tree_a.erase ("state_block_parse_canary");
 			tree_a.erase ("state_block_generate_canary");
-			tree_a.put ("epoch_block_link", epoch_block_link.to_string ());
-			tree_a.put ("epoch_block_signer", epoch_block_link.to_account ());
 			tree_a.erase ("version");
 			tree_a.put ("version", "13");
 			result = true;
@@ -1168,8 +1164,6 @@ bool rai::node_config::deserialize_json (bool & upgraded_a, boost::property_tree
 		callback_target = tree_a.get<std::string> ("callback_target");
 		auto lmdb_max_dbs_l = tree_a.get<std::string> ("lmdb_max_dbs");
 		result |= parse_port (callback_port_l, callback_port);
-		auto epoch_block_link_l = tree_a.get<std::string> ("epoch_block_link");
-		auto epoch_block_signer_l = tree_a.get<std::string> ("epoch_block_signer");
 		try
 		{
 			peering_port = std::stoul (peering_port_l);
@@ -1189,8 +1183,6 @@ bool rai::node_config::deserialize_json (bool & upgraded_a, boost::property_tree
 			result |= password_fanout < 16;
 			result |= password_fanout > 1024 * 1024;
 			result |= io_threads == 0;
-			result |= epoch_block_link.decode_hex (epoch_block_link_l);
-			result |= epoch_block_signer.decode_hex (epoch_block_signer_l);
 		}
 		catch (std::logic_error const &)
 		{

@@ -513,14 +513,12 @@ TEST (node_config, serialization)
 	config1.receive_minimum = 10;
 	config1.online_weight_minimum = 10;
 	config1.online_weight_quorum = 10;
-	config1.password_fanout = 10;
+	config1.password_fanout = 20;
 	config1.enable_voting = false;
 	config1.callback_address = "test";
 	config1.callback_port = 10;
 	config1.callback_target = "test";
 	config1.lmdb_max_dbs = 256;
-	config1.epoch_block_link = 10;
-	config1.epoch_block_signer = 12;
 	boost::property_tree::ptree tree;
 	config1.serialize_json (tree);
 	rai::logging logging2;
@@ -538,11 +536,12 @@ TEST (node_config, serialization)
 	ASSERT_NE (config2.callback_port, config1.callback_port);
 	ASSERT_NE (config2.callback_target, config1.callback_target);
 	ASSERT_NE (config2.lmdb_max_dbs, config1.lmdb_max_dbs);
-	ASSERT_NE (config2.epoch_block_link, config1.epoch_block_link);
-	ASSERT_NE (config2.epoch_block_signer, config1.epoch_block_signer);
+
+	ASSERT_FALSE (tree.get_optional<std::string> ("epoch_block_link"));
+	ASSERT_FALSE (tree.get_optional<std::string> ("epoch_block_signer"));
 
 	bool upgraded (false);
-	config2.deserialize_json (upgraded, tree);
+	ASSERT_FALSE (config2.deserialize_json (upgraded, tree));
 	ASSERT_FALSE (upgraded);
 	ASSERT_EQ (config2.bootstrap_fraction_numerator, config1.bootstrap_fraction_numerator);
 	ASSERT_EQ (config2.peering_port, config1.peering_port);
@@ -555,8 +554,6 @@ TEST (node_config, serialization)
 	ASSERT_EQ (config2.callback_port, config1.callback_port);
 	ASSERT_EQ (config2.callback_target, config1.callback_target);
 	ASSERT_EQ (config2.lmdb_max_dbs, config1.lmdb_max_dbs);
-	ASSERT_EQ (config2.epoch_block_link, config1.epoch_block_link);
-	ASSERT_EQ (config2.epoch_block_signer, config1.epoch_block_signer);
 }
 
 TEST (node_config, v1_v2_upgrade)
