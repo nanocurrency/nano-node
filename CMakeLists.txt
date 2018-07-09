@@ -264,7 +264,10 @@ if (RAIBLOCKS_TEST)
 	add_executable (slow_test
 		rai/slow_test/node.cpp)
 
-	set_target_properties (core_test slow_test PROPERTIES COMPILE_FLAGS "-DQT_NO_KEYWORDS -DRAIBLOCKS_VERSION_MAJOR=${CPACK_PACKAGE_VERSION_MAJOR} -DRAIBLOCKS_VERSION_MINOR=${CPACK_PACKAGE_VERSION_MINOR} -DBOOST_ASIO_HAS_STD_ARRAY=1")
+	target_compile_definitions(core_test
+		PRIVATE
+			-DRAIBLOCKS_VERSION_MAJOR=${CPACK_PACKAGE_VERSION_MAJOR}
+			-DRAIBLOCKS_VERSION_MINOR=${CPACK_PACKAGE_VERSION_MINOR})
 	target_link_libraries (core_test node secure gtest_main gtest libminiupnpc-static Boost::boost)
 	target_link_libraries (slow_test node secure gtest_main gtest libminiupnpc-static Boost::boost)
 	target_include_directories (core_test PRIVATE gtest/include)
@@ -307,6 +310,11 @@ if (RAIBLOCKS_GUI)
 	target_link_libraries(qt
 		secure rai_lib node libminiupnpc-static Qt5::Gui Qt5::Widgets)
 
+	target_compile_definitions(qt
+		PRIVATE
+		-DRAIBLOCKS_VERSION_MAJOR=${CPACK_PACKAGE_VERSION_MAJOR}
+		-DRAIBLOCKS_VERSION_MINOR=${CPACK_PACKAGE_VERSION_MINOR})
+
 	add_executable (nano_wallet ${PLATFORM_GUI_TARGET_PROPERTIES}
 		${PLATFORM_WALLET_SOURCE}
 		rai/rai_wallet/entry.cpp
@@ -326,7 +334,7 @@ if (RAIBLOCKS_GUI)
 
 	target_link_libraries (qt_system qt node Qt5::Gui Qt5::Widgets)
 
-	set_target_properties (qt nano_wallet qt_system PROPERTIES COMPILE_FLAGS "-DQT_NO_KEYWORDS -DRAIBLOCKS_VERSION_MAJOR=${CPACK_PACKAGE_VERSION_MAJOR} -DRAIBLOCKS_VERSION_MINOR=${CPACK_PACKAGE_VERSION_MINOR} -DBOOST_ASIO_HAS_STD_ARRAY=1")
+	set_target_properties (qt nano_wallet qt_system PROPERTIES COMPILE_FLAGS "-DQT_NO_KEYWORDS -DBOOST_ASIO_HAS_STD_ARRAY=1")
 
 	if (RAIBLOCKS_TEST)
 		add_executable (qt_test
@@ -336,7 +344,7 @@ if (RAIBLOCKS_GUI)
 		target_include_directories (qt_test PRIVATE gtest/include)
 		target_link_libraries(qt_test gtest gtest_main qt Qt5::Test)
 
-		set_target_properties (qt_test PROPERTIES COMPILE_FLAGS "-DQT_NO_KEYWORDS -DRAIBLOCKS_VERSION_MAJOR=${CPACK_PACKAGE_VERSION_MAJOR} -DRAIBLOCKS_VERSION_MINOR=${CPACK_PACKAGE_VERSION_MINOR} -DBOOST_ASIO_HAS_STD_ARRAY=1")
+		set_target_properties (qt_test PROPERTIES COMPILE_FLAGS "-DQT_NO_KEYWORDS -DBOOST_ASIO_HAS_STD_ARRAY=1")
 	endif ()
 
 	if (APPLE)

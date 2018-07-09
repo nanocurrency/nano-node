@@ -54,3 +54,8 @@ target_link_libraries (node
 	Boost::boost
 	${CMAKE_DL_LIBS}
 	)
+
+target_compile_definitions(node
+	PRIVATE
+		-DRAIBLOCKS_VERSION_MAJOR=${CPACK_PACKAGE_VERSION_MAJOR}
+		-DRAIBLOCKS_VERSION_MINOR=${CPACK_PACKAGE_VERSION_MINOR})
