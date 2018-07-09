@@ -75,7 +75,7 @@ int main (int argc, char * const * argv)
 					          << "Public: " << rep.pub.to_string () << std::endl
 					          << "Account: " << rep.pub.to_account () << std::endl;
 				}
-				rai::uint128_t balance (80000000);
+				rai::uint128_t balance (std::numeric_limits<rai::uint128_t>::max ());
 				rai::open_block genesis_block (genesis.pub, genesis.pub, genesis.pub, genesis.prv, genesis.pub, work.generate (genesis.pub));
 				std::cout << genesis_block.to_json ();
 				std::cout << "sarmad: " << balance <<std::endl;
