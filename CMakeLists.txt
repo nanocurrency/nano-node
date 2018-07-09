@@ -26,15 +26,6 @@ if(NOT CMAKE_BUILD_TYPE)
 	set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose the type of build, options are: Debug Release RelWithDebInfo MinSizeRel." FORCE)
 endif(NOT CMAKE_BUILD_TYPE)
 
-if(WIN32)
-   if(MSVC_VERSION)
-       if(MSVC_VERSION GREATER_EQUAL 1910)
-        add_definitions(-DGTEST_LANG_CXX11=1)
-        add_definitions(-DGTEST_HAS_TR1_TUPLE=0)
-       endif()
-   endif()
-endif()
-
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 find_package(Threads REQUIRED)
@@ -131,8 +122,6 @@ if (BOOST_ROOT)
 endif ()
 
 find_package (Boost 1.66.0 REQUIRED COMPONENTS date_time filesystem system log log_setup thread program_options regex chrono atomic)
-# TODO: remove when boost is referenced through cmake targets
-include_directories(${Boost_INCLUDE_DIR})
 
 add_subdirectory(ed25519-donna)
 
@@ -141,13 +130,6 @@ if (CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
 else ()
 	set (ARGON_CORE phc-winner-argon2/src/ref.c)
 endif ()
-
-if (WIN32)
-	set (gtest_force_shared_crt ON)
-else ()
-	set (gtest_force_shared_crt OFF)
-endif()
-add_subdirectory (gtest)
 
 #include_directories (beast/include)
 
@@ -245,6 +227,20 @@ add_subdirectory(rai/node)
 add_subdirectory(rai/rai_node)
 
 if (RAIBLOCKS_TEST)
+    if(WIN32)
+        if(MSVC_VERSION)
+            if(MSVC_VERSION GREATER_EQUAL 1910)
+                add_definitions(-DGTEST_LANG_CXX11=1)
+                add_definitions(-DGTEST_HAS_TR1_TUPLE=0)
+            endif()
+        endif()
+        set (gtest_force_shared_crt ON)
+    else ()
+        set (gtest_force_shared_crt OFF)
+    endif()
+
+    add_subdirectory (gtest)
+
 	add_executable (core_test
 		rai/core_test/block.cpp
 		rai/core_test/block_store.cpp
@@ -269,7 +265,7 @@ if (RAIBLOCKS_TEST)
 
 	add_executable (slow_test
 		rai/slow_test/node.cpp)
-	
+
 	set_target_properties (core_test slow_test PROPERTIES COMPILE_FLAGS "-DQT_NO_KEYWORDS -DRAIBLOCKS_VERSION_MAJOR=${CPACK_PACKAGE_VERSION_MAJOR} -DRAIBLOCKS_VERSION_MINOR=${CPACK_PACKAGE_VERSION_MINOR} -DBOOST_ASIO_HAS_STD_ARRAY=1")
 	target_link_libraries (core_test node secure gtest_main gtest libminiupnpc-static Boost::boost ${PLATFORM_LIBS})
 	target_link_libraries (slow_test node secure gtest_main gtest libminiupnpc-static Boost::boost ${PLATFORM_LIBS})
