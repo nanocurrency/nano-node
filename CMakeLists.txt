@@ -28,8 +28,9 @@ endif(NOT CMAKE_BUILD_TYPE)
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-find_package(Threads REQUIRED)
-set (PLATFORM_LIBS ${CMAKE_THREAD_LIBS_INIT} ${CMAKE_DL_LIBS})
+# TODO check if any library requires these
+#find_package(Threads REQUIRED)
+#set (PLATFORM_LIBS ${CMAKE_THREAD_LIBS_INIT} ${CMAKE_DL_LIBS})
 
 if (WIN32)
 	add_definitions(-D_WIN32_WINNT=0x0600
@@ -264,8 +265,8 @@ if (RAIBLOCKS_TEST)
 		rai/slow_test/node.cpp)
 
 	set_target_properties (core_test slow_test PROPERTIES COMPILE_FLAGS "-DQT_NO_KEYWORDS -DRAIBLOCKS_VERSION_MAJOR=${CPACK_PACKAGE_VERSION_MAJOR} -DRAIBLOCKS_VERSION_MINOR=${CPACK_PACKAGE_VERSION_MINOR} -DBOOST_ASIO_HAS_STD_ARRAY=1")
-	target_link_libraries (core_test node secure gtest_main gtest libminiupnpc-static Boost::boost ${PLATFORM_LIBS})
-	target_link_libraries (slow_test node secure gtest_main gtest libminiupnpc-static Boost::boost ${PLATFORM_LIBS})
+	target_link_libraries (core_test node secure gtest_main gtest libminiupnpc-static Boost::boost)
+	target_link_libraries (slow_test node secure gtest_main gtest libminiupnpc-static Boost::boost)
 	target_include_directories (core_test PRIVATE gtest/include)
 	target_include_directories (slow_test PRIVATE gtest/include)
 endif (RAIBLOCKS_TEST)
@@ -297,12 +298,6 @@ if (RAIBLOCKS_GUI)
 		error ("Unknown platform: ${CMAKE_SYSTEM_NAME}")
 	endif ()
 
-	if (WIN32)
-		set (PLATFORM_WALLET_LIBS Qt5::WinExtras)
-	else (WIN32)
-		set (PLATFORM_WALLET_LIBS)
-	endif (WIN32)
-
 	qt5_add_resources(RES resources.qrc)
 
 	add_library (qt
@@ -320,14 +315,16 @@ if (RAIBLOCKS_GUI)
 
 	target_link_libraries (nano_wallet
 		node
-		qt
-		${PLATFORM_LIBS}
-		${PLATFORM_WALLET_LIBS})
+		qt)
+
+	if (WIN32)
+		target_link_libraries (nano_wallet Qt5::WinExtras)
+	endif()
 
 	add_executable (qt_system
 		rai/qt_system/entry.cpp)
 
-	target_link_libraries (qt_system qt node Qt5::Gui Qt5::Widgets ${PLATFORM_LIBS})
+	target_link_libraries (qt_system qt node Qt5::Gui Qt5::Widgets)
 
 	set_target_properties (qt nano_wallet qt_system PROPERTIES COMPILE_FLAGS "-DQT_NO_KEYWORDS -DRAIBLOCKS_VERSION_MAJOR=${CPACK_PACKAGE_VERSION_MAJOR} -DRAIBLOCKS_VERSION_MINOR=${CPACK_PACKAGE_VERSION_MINOR} -DBOOST_ASIO_HAS_STD_ARRAY=1")
 
@@ -337,7 +334,7 @@ if (RAIBLOCKS_GUI)
 			rai/qt_test/qt.cpp)
 
 		target_include_directories (qt_test PRIVATE gtest/include)
-		target_link_libraries(qt_test gtest gtest_main qt Qt5::Test ${PLATFORM_LIBS})
+		target_link_libraries(qt_test gtest gtest_main qt Qt5::Test)
 
 		set_target_properties (qt_test PROPERTIES COMPILE_FLAGS "-DQT_NO_KEYWORDS -DRAIBLOCKS_VERSION_MAJOR=${CPACK_PACKAGE_VERSION_MAJOR} -DRAIBLOCKS_VERSION_MINOR=${CPACK_PACKAGE_VERSION_MINOR} -DBOOST_ASIO_HAS_STD_ARRAY=1")
 	endif ()
