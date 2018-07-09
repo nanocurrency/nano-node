@@ -1,11 +1,10 @@
-#include <rai/qt/qt.hpp>
-
 #include <rai/icon.hpp>
+#include <rai/node/cli.hpp>
 #include <rai/node/rpc.hpp>
 #include <rai/node/working.hpp>
+#include <rai/qt/qt.hpp>
 
 #include <boost/make_shared.hpp>
-
 #include <boost/program_options.hpp>
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
@@ -296,36 +295,37 @@ int main (int argc, char * const * argv)
 		boost::program_options::store (boost::program_options::command_line_parser (argc, argv).options (description).allow_unregistered ().run (), vm);
 		boost::program_options::notify (vm);
 		int result (0);
-		if (!rai::handle_node_options (vm))
+		auto ec = rai::handle_node_options (vm);
+		if (ec == rai::error_cli::unknown_command)
 		{
-		}
-		else if (vm.count ("help") != 0)
-		{
-			std::cout << description << std::endl;
-		}
-		else
-		{
-			try
+			if (vm.count ("help") != 0)
 			{
-				boost::filesystem::path data_path;
-				if (vm.count ("data_path"))
-				{
-					auto name (vm["data_path"].as<std::string> ());
-					data_path = boost::filesystem::path (name);
-				}
-				else
-				{
-					data_path = rai::working_path ();
-				}
-				result = run_wallet (application, argc, argv, data_path);
+				std::cout << description << std::endl;
 			}
-			catch (std::exception const & e)
+			else
 			{
-				show_error (boost::str (boost::format ("Exception while running wallet: %1%") % e.what ()));
-			}
-			catch (...)
-			{
-				show_error ("Unknown exception while running wallet");
+				try
+				{
+					boost::filesystem::path data_path;
+					if (vm.count ("data_path"))
+					{
+						auto name (vm["data_path"].as<std::string> ());
+						data_path = boost::filesystem::path (name);
+					}
+					else
+					{
+						data_path = rai::working_path ();
+					}
+					result = run_wallet (application, argc, argv, data_path);
+				}
+				catch (std::exception const & e)
+				{
+					show_error (boost::str (boost::format ("Exception while running wallet: %1%") % e.what ()));
+				}
+				catch (...)
+				{
+					show_error ("Unknown exception while running wallet");
+				}
 			}
 		}
 		return result;

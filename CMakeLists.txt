@@ -1,4 +1,4 @@
-cmake_minimum_required (VERSION 2.8.11)
+cmake_minimum_required (VERSION 3.4)
 project (rai)
 
 set (CPACK_PACKAGE_VERSION_MAJOR "15")
@@ -312,6 +312,8 @@ add_library (node
 	${SECURE_RPC_SOURCE}
 	rai/node/bootstrap.cpp
 	rai/node/bootstrap.hpp
+	rai/node/cli.hpp
+	rai/node/cli.cpp
 	rai/node/common.cpp
 	rai/node/common.hpp
 	rai/node/node.hpp

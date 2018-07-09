@@ -3,6 +3,7 @@
 #include <rai/lib/expected.hpp>
 #include <string>
 #include <system_error>
+#include <type_traits>
 
 using tl::expected;
 using tl::make_unexpected;
@@ -11,7 +12,7 @@ namespace nano
 {
 /** Returns the error code if non-zero, otherwise the value */
 template <class T>
-auto either (T && value, std::error_code ec) -> expected<std::remove_reference_t<T>, std::error_code>
+auto either (T && value, std::error_code ec) -> expected<typename std::remove_reference<T>::type, std::error_code>
 {
 	if (ec)
 	{

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 build_dir=${1-${PWD}}
+TIMEOUT_DEFAULT=120
 
 BUSYBOX_BASH=${BUSYBOX_BASH-0}
 
@@ -25,7 +26,7 @@ xvfb_run_() {
     Xvfb :2 -screen 0 1024x768x24 &
     xvfb_pid=$!
     sleep ${INIT_DELAY_SEC}
-    DISPLAY=:2 ${TIMEOUT_CMD} ${TIMEOUT_TIME_ARG} ${TIMEOUT_SEC-420} $@
+    DISPLAY=:2 ${TIMEOUT_CMD} ${TIMEOUT_TIME_ARG} ${TIMEOUT_SEC-${TIMEOUT_DEFAULT}} $@
     res=${?}
     kill ${xvfb_pid}
 
@@ -41,13 +42,13 @@ run_tests() {
         TIMEOUT_TIME_ARG=""
     fi
 
-    ${TIMEOUT_CMD} ${TIMEOUT_TIME_ARG} ${TIMEOUT_SEC-420} ./core_test
+    ${TIMEOUT_CMD} ${TIMEOUT_TIME_ARG} ${TIMEOUT_SEC-${TIMEOUT_DEFAULT}} ./core_test
     core_test_res=${?}
 
     xvfb_run_ ./qt_test
     qt_test_res=${?}
 
-    ${TIMEOUT_CMD} ${TIMEOUT_TIME_ARG} ${TIMEOUT_SEC-420} ./load_test ./rai_node -s 150
+    ${TIMEOUT_CMD} ${TIMEOUT_TIME_ARG} ${TIMEOUT_SEC-${TIMEOUT_DEFAULT}} ./load_test ./rai_node -s 150
     load_test_res=${?}
 
     echo "Core Test return code: ${core_test_res}"
