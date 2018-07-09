@@ -17,7 +17,7 @@ namespace
 char const * test_private_key_data = "34F0A37AAD20F4A260F0A5B3CB3D7FB50673212263E58A380BC10474BB039CE4";
 char const * test_public_key_data = "F51DC6662342670AFEAC7480EE1366AD9D421F96DE8CDC00E784ABBFD52E9388"; // xrb_1mfhnf6qw3kejz96aiqpwccmcy5x4ms9b3hz8bnijbf1hcxc93c3y67ig179
 char const * beta_public_key_data = "00683F9D5C2CB75A1560D1E4CB7836AA68F4520283A2D3B9060583168EA30861"; // xrb_1mfhnf6qw3kejz96aiqpwccmcy5x4ms9b3hz8bnijbf1hcxc93c3y67ig179
-char const * live_public_key_data = "6D241FCC8E6F840A89BA03E7AAFC92ECBE5380A81E31CEDAE4485D2393DE89DD"; // xrb_3t6k35gi95xu6tergt6p69ck76ogmitsa8mnijtpxm9fkcm736xtoncuohr3
+char const * live_public_key_data = "B1F530FA8841A7720E22777F6C924930FB91C478A06943B16EC8A0906FDD4082"; // xrb_3t6k35gi95xu6tergt6p69ck76ogmitsa8mnijtpxm9fkcm736xtoncuohr3
 char const * test_genesis_data = R"%%%({
 	"type": "open",
 	"source": "F51DC6662342670AFEAC7480EE1366AD9D421F96DE8CDC00E784ABBFD52E9388",
@@ -38,11 +38,11 @@ char const * beta_genesis_data = R"%%%({
 
 char const * live_genesis_data = R"%%%({
     "type": "open",
-    "source": "6D241FCC8E6F840A89BA03E7AAFC92ECBE5380A81E31CEDAE4485D2393DE89DD",
-    "representative": "cec_1ub65z8awuw63c6un1z9odyb7u7ycg1ci9jjsufgak4x6gbxx4gxynxswky6",
-    "account": "cec_1ub65z8awuw63c6un1z9odyb7u7ycg1ci9jjsufgak4x6gbxx4gxynxswky6",
-    "work": "00c28a7778df1874",
-    "signature": "222341EFB58D0CD8CF0F680D49D0D846D15AE6DD6E9854C6FB71C0FEBC1A9C7EBBB7C27B9AF4220AA6025B913B8B783AFEFDFC5A8B84EEFE28396FB373F43104"
+    "source": "B1F530FA8841A7720E22777F6C924930FB91C478A06943B16EC8A0906FDD4082",
+    "representative": "cec_3eho85xaiif9ga946xuzfkb6ke9uk949ja5bagrpxk71k3qxti64a3su4s9d",
+    "account": "cec_3eho85xaiif9ga946xuzfkb6ke9uk949ja5bagrpxk71k3qxti64a3su4s9d",
+    "work": "96b38591e0a1f58d",
+    "signature": "F176F84D43B11A71F9A1595DABDE06686E2EB9F086EFEA512DA4C06F41AEF632DA56BA96EBEF14CA182F097B9A5A33318FF10E039B4B4BB2E80D657F21397C00"
 })%%%";
 
 class ledger_constants

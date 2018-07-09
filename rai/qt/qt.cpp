@@ -1374,7 +1374,7 @@ void rai_qt::wallet::change_rendering_ratio (rai::uint128_t const & rendering_ra
 std::string rai_qt::wallet::format_balance (rai::uint128_t const & balance) const
 {
 	auto balance_str = rai::amount (balance).format_balance (rendering_ratio, 0, false);
-	auto unit = std::string ("CRC");
+	auto unit = std::string ("CEC");
 	if (rendering_ratio == rai::kxrb_ratio)
 	{
 		unit = std::string ("kcec");
