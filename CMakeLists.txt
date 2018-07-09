@@ -269,6 +269,8 @@ add_library (secure
 	rai/versioning.hpp
 	rai/versioning.cpp)
 
+target_link_libraries(secure Boost::boost)
+
 add_subdirectory(rai/lib)
 add_subdirectory(rai/node)
 
