@@ -6,6 +6,7 @@
 
 #include <argon2.h>
 
+#include <boost/filesystem.hpp>
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
 
@@ -554,6 +555,10 @@ void rai::wallet_store::write_backup (MDB_txn * transaction_a, boost::filesystem
 	backup_file.open (path_a.string ());
 	if (!backup_file.fail ())
 	{
+		// Set permissions to 600
+		boost::system::error_code ec;
+		boost::filesystem::permissions (path_a, boost::filesystem::perms::owner_read | boost::filesystem::perms::owner_write, ec);
+
 		std::string json;
 		serialize_json (transaction_a, json);
 		backup_file << json;
@@ -1132,11 +1137,7 @@ bool rai::wallet::search_pending ()
 					if (node.config.receive_minimum.number () <= amount)
 					{
 						BOOST_LOG (node.log) << boost::str (boost::format ("Found a pending block %1% for account %2%") % hash.to_string () % pending.source.to_account ());
-						auto this_l (shared_from_this ());
-						rai::account_info info;
-						auto error (node.store.account_get (transaction, pending.source, info));
-						assert (!error);
-						node.block_confirm (node.store.block_get (transaction, info.head));
+						node.block_confirm (node.store.block_get (transaction, hash));
 					}
 				}
 			}

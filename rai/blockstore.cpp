@@ -54,26 +54,9 @@ public:
 };
 }
 
-rai::store_entry::store_entry () :
-first (0, nullptr),
-second (0, nullptr)
+std::pair<rai::mdb_val, rai::mdb_val> * rai::store_iterator::operator-> ()
 {
-}
-
-void rai::store_entry::clear ()
-{
-	first = { 0, nullptr };
-	second = { 0, nullptr };
-}
-
-rai::store_entry * rai::store_entry::operator-> ()
-{
-	return this;
-}
-
-rai::store_entry & rai::store_iterator::operator-> ()
-{
-	return current;
+	return &current;
 }
 
 rai::store_iterator::store_iterator (MDB_txn * transaction_a, MDB_dbi db_a) :
@@ -90,7 +73,7 @@ cursor (nullptr)
 	}
 	else
 	{
-		current.clear ();
+		clear ();
 	}
 }
 
@@ -114,7 +97,7 @@ cursor (nullptr)
 	}
 	else
 	{
-		current.clear ();
+		clear ();
 	}
 }
 
@@ -139,7 +122,7 @@ rai::store_iterator & rai::store_iterator::operator++ ()
 	auto status (mdb_cursor_get (cursor, &current.first.value, &current.second.value, MDB_NEXT));
 	if (status == MDB_NOTFOUND)
 	{
-		current.clear ();
+		clear ();
 	}
 	return *this;
 }
@@ -150,7 +133,7 @@ void rai::store_iterator::next_dup ()
 	auto status (mdb_cursor_get (cursor, &current.first.value, &current.second.value, MDB_NEXT_DUP));
 	if (status == MDB_NOTFOUND)
 	{
-		current.clear ();
+		clear ();
 	}
 }
 
@@ -163,7 +146,7 @@ rai::store_iterator & rai::store_iterator::operator= (rai::store_iterator && oth
 	cursor = other_a.cursor;
 	other_a.cursor = nullptr;
 	current = other_a.current;
-	other_a.current.clear ();
+	other_a.clear ();
 	return *this;
 }
 
@@ -179,6 +162,12 @@ bool rai::store_iterator::operator== (rai::store_iterator const & other_a) const
 bool rai::store_iterator::operator!= (rai::store_iterator const & other_a) const
 {
 	return !(*this == other_a);
+}
+
+void rai::store_iterator::clear ()
+{
+	current.first = rai::mdb_val ();
+	current.second = rai::mdb_val ();
 }
 
 rai::store_iterator rai::block_store::block_info_begin (MDB_txn * transaction_a, rai::block_hash const & hash_a)
@@ -303,6 +292,34 @@ int rai::block_store::version_get (MDB_txn * transaction_a)
 		result = version_value.number ().convert_to<int> ();
 	}
 	return result;
+}
+
+rai::raw_key rai::block_store::get_node_id (MDB_txn * transaction_a)
+{
+	rai::uint256_union node_id_mdb_key (3);
+	rai::raw_key node_id;
+	rai::mdb_val value;
+	auto error (mdb_get (transaction_a, meta, rai::mdb_val (node_id_mdb_key), value));
+	if (!error)
+	{
+		rai::bufferstream stream (reinterpret_cast<uint8_t const *> (value.data ()), value.size ());
+		error = rai::read (stream, node_id.data);
+		assert (!error);
+	}
+	if (error)
+	{
+		rai::random_pool.GenerateBlock (node_id.data.bytes.data (), node_id.data.bytes.size ());
+		error = mdb_put (transaction_a, meta, rai::mdb_val (node_id_mdb_key), rai::mdb_val (node_id.data), 0);
+	}
+	assert (!error);
+	return node_id;
+}
+
+void rai::block_store::delete_node_id (MDB_txn * transaction_a)
+{
+	rai::uint256_union node_id_mdb_key (3);
+	auto error (mdb_del (transaction_a, meta, rai::mdb_val (node_id_mdb_key), nullptr));
+	assert (!error || error == MDB_NOTFOUND);
 }
 
 void rai::block_store::do_upgrades (MDB_txn * transaction_a)
@@ -526,6 +543,7 @@ void rai::block_store::upgrade_v9_to_v10 (MDB_txn * transaction_a)
 
 void rai::block_store::upgrade_v10_to_v11 (MDB_txn * transaction_a)
 {
+	version_put (transaction_a, 11);
 	MDB_dbi unsynced;
 	mdb_dbi_open (transaction_a, "unsynced", MDB_CREATE | MDB_DUPSORT, &unsynced);
 	mdb_drop (transaction_a, unsynced, 1);

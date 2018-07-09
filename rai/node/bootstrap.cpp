@@ -536,7 +536,7 @@ void rai::bulk_pull_client::received_block (boost::system::error_code const & ec
 				connection->start_time = std::chrono::steady_clock::now ();
 			}
 			connection->attempt->total_blocks++;
-			connection->attempt->node->block_processor.add (block);
+			connection->attempt->node->block_processor.add (block, std::chrono::steady_clock::time_point ());
 			if (!connection->hard_stop.load ())
 			{
 				receive_block ();
@@ -1142,7 +1142,7 @@ void rai::bootstrap_initiator::bootstrap (rai::endpoint const & endpoint_a, bool
 {
 	if (add_to_peers)
 	{
-		node.peers.insert (endpoint_a, rai::protocol_version);
+		node.peers.insert (rai::map_endpoint_to_v6 (endpoint_a), rai::protocol_version);
 	}
 	std::unique_lock<std::mutex> lock (mutex);
 	if (!stopped)
@@ -1514,6 +1514,10 @@ public:
 	{
 		auto response (std::make_shared<rai::frontier_req_server> (connection, std::unique_ptr<rai::frontier_req> (static_cast<rai::frontier_req *> (connection->requests.front ().release ()))));
 		response->send_next ();
+	}
+	void node_id_handshake (rai::node_id_handshake const &) override
+	{
+		assert (false);
 	}
 	std::shared_ptr<rai::bootstrap_server> connection;
 };

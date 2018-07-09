@@ -17,7 +17,7 @@ bool parse_address_port (std::string const &, boost::asio::ip::address &, uint16
 using tcp_endpoint = boost::asio::ip::tcp::endpoint;
 bool parse_endpoint (std::string const &, rai::endpoint &);
 bool parse_tcp_endpoint (std::string const &, rai::tcp_endpoint &);
-bool reserved_address (rai::endpoint const &);
+bool reserved_address (rai::endpoint const &, bool);
 }
 static uint64_t endpoint_hash_raw (rai::endpoint const & endpoint_a)
 {
@@ -29,6 +29,17 @@ static uint64_t endpoint_hash_raw (rai::endpoint const & endpoint_a)
 	XXH64_update (&hash, address.bytes.data (), address.bytes.size ());
 	auto port (endpoint_a.port ());
 	XXH64_update (&hash, &port, sizeof (port));
+	auto result (XXH64_digest (&hash));
+	return result;
+}
+static uint64_t ip_address_hash_raw (boost::asio::ip::address const & ip_a)
+{
+	assert (ip_a.is_v6 ());
+	rai::uint128_union bytes;
+	bytes.bytes = ip_a.to_v6 ().to_bytes ();
+	XXH64_state_t hash;
+	XXH64_reset (&hash, 0);
+	XXH64_update (&hash, bytes.bytes.data (), bytes.bytes.size ());
 	auto result (XXH64_digest (&hash));
 	return result;
 }
@@ -66,6 +77,37 @@ struct hash<rai::endpoint>
 		return ehash (endpoint_a);
 	}
 };
+template <size_t size>
+struct ip_address_hash
+{
+};
+template <>
+struct ip_address_hash<8>
+{
+	size_t operator() (boost::asio::ip::address const & ip_address_a) const
+	{
+		return ip_address_hash_raw (ip_address_a);
+	}
+};
+template <>
+struct ip_address_hash<4>
+{
+	size_t operator() (boost::asio::ip::address const & ip_address_a) const
+	{
+		uint64_t big (ip_address_hash_raw (ip_address_a));
+		uint32_t result (static_cast<uint32_t> (big) ^ static_cast<uint32_t> (big >> 32));
+		return result;
+	}
+};
+template <>
+struct hash<boost::asio::ip::address>
+{
+	size_t operator() (boost::asio::ip::address const & ip_a) const
+	{
+		ip_address_hash<sizeof (size_t)> ihash;
+		return ihash (ip_a);
+	}
+};
 }
 namespace boost
 {
@@ -93,7 +135,8 @@ enum class message_type : uint8_t
 	bulk_pull,
 	bulk_push,
 	frontier_req,
-	bulk_pull_blocks
+	bulk_pull_blocks,
+	node_id_handshake
 };
 enum class bulk_pull_blocks_mode : uint8_t
 {
@@ -146,7 +189,8 @@ public:
 		invalid_keepalive_message,
 		invalid_publish_message,
 		invalid_confirm_req_message,
-		invalid_confirm_ack_message
+		invalid_confirm_ack_message,
+		invalid_node_id_handshake_message
 	};
 	message_parser (rai::message_visitor &, rai::work_pool &);
 	void deserialize_buffer (uint8_t const *, size_t);
@@ -154,6 +198,7 @@ public:
 	void deserialize_publish (rai::stream &, rai::message_header const &);
 	void deserialize_confirm_req (rai::stream &, rai::message_header const &);
 	void deserialize_confirm_ack (rai::stream &, rai::message_header const &);
+	void deserialize_node_id_handshake (rai::stream &, rai::message_header const &);
 	bool at_end (rai::stream &);
 	rai::message_visitor & visitor;
 	rai::work_pool & pool;
@@ -249,6 +294,20 @@ public:
 	void serialize (rai::stream &) override;
 	void visit (rai::message_visitor &) const override;
 };
+class node_id_handshake : public message
+{
+public:
+	node_id_handshake (bool &, rai::stream &, rai::message_header const &);
+	node_id_handshake (boost::optional<rai::block_hash>, boost::optional<std::pair<rai::account, rai::signature>>);
+	bool deserialize (rai::stream &) override;
+	void serialize (rai::stream &) override;
+	void visit (rai::message_visitor &) const override;
+	bool operator== (rai::node_id_handshake const &) const;
+	boost::optional<rai::uint256_union> query;
+	boost::optional<std::pair<rai::account, rai::signature>> response;
+	static size_t constexpr query_flag = 0;
+	static size_t constexpr response_flag = 1;
+};
 class message_visitor
 {
 public:
@@ -260,6 +319,7 @@ public:
 	virtual void bulk_pull_blocks (rai::bulk_pull_blocks const &) = 0;
 	virtual void bulk_push (rai::bulk_push const &) = 0;
 	virtual void frontier_req (rai::frontier_req const &) = 0;
+	virtual void node_id_handshake (rai::node_id_handshake const &) = 0;
 	virtual ~message_visitor ();
 };
 

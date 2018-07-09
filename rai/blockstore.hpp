@@ -5,19 +5,6 @@
 namespace rai
 {
 /**
- * The value produced when iterating with \ref store_iterator
- */
-class store_entry
-{
-public:
-	store_entry ();
-	void clear ();
-	store_entry * operator-> ();
-	rai::mdb_val first;
-	rai::mdb_val second;
-};
-
-/**
  * Iterates the key/value pairs of a transaction
  */
 class store_iterator
@@ -33,11 +20,12 @@ public:
 	void next_dup ();
 	rai::store_iterator & operator= (rai::store_iterator &&);
 	rai::store_iterator & operator= (rai::store_iterator const &) = delete;
-	rai::store_entry & operator-> ();
+	std::pair<rai::mdb_val, rai::mdb_val> * operator-> ();
 	bool operator== (rai::store_iterator const &) const;
 	bool operator!= (rai::store_iterator const &) const;
+	void clear ();
 	MDB_cursor * cursor;
-	rai::store_entry current;
+	std::pair<rai::mdb_val, rai::mdb_val> current;
 };
 
 /**
@@ -140,6 +128,12 @@ public:
 	void upgrade_v8_to_v9 (MDB_txn *);
 	void upgrade_v9_to_v10 (MDB_txn *);
 	void upgrade_v10_to_v11 (MDB_txn *);
+
+	// Requires a write transaction
+	rai::raw_key get_node_id (MDB_txn *);
+
+	/** Deletes the node ID from the store */
+	void delete_node_id (MDB_txn *);
 
 	void clear (MDB_dbi);
 
