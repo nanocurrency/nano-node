@@ -131,8 +131,6 @@ else ()
 	set (ARGON_CORE phc-winner-argon2/src/ref.c)
 endif ()
 
-#include_directories (beast/include)
-
 set (UPNPC_BUILD_SHARED OFF CACHE BOOL "")
 add_subdirectory (miniupnp/miniupnpc)
 # FIXME: This fixes miniupnpc include directories without modifying miniupnpc's
@@ -198,7 +196,6 @@ add_library (argon2
 target_include_directories(argon2 PUBLIC phc-winner-argon2/include)
 target_include_directories(argon2 PUBLIC phc-winner-argon2/src)
 target_include_directories(argon2 PUBLIC blake2)
-
 
 add_library (xxhash
 	xxhash/xxhash.c
