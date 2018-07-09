@@ -17,7 +17,7 @@ namespace
 char const * test_private_key_data = "34F0A37AAD20F4A260F0A5B3CB3D7FB50673212263E58A380BC10474BB039CE4";
 char const * test_public_key_data = "F51DC6662342670AFEAC7480EE1366AD9D421F96DE8CDC00E784ABBFD52E9388"; // xrb_1mfhnf6qw3kejz96aiqpwccmcy5x4ms9b3hz8bnijbf1hcxc93c3y67ig179
 char const * beta_public_key_data = "00683F9D5C2CB75A1560D1E4CB7836AA68F4520283A2D3B9060583168EA30861"; // xrb_1mfhnf6qw3kejz96aiqpwccmcy5x4ms9b3hz8bnijbf1hcxc93c3y67ig179
-char const * live_public_key_data = "B1F530FA8841A7720E22777F6C924930FB91C478A06943B16EC8A0906FDD4082"; // xrb_3t6k35gi95xu6tergt6p69ck76ogmitsa8mnijtpxm9fkcm736xtoncuohr3
+char const * live_public_key_data = "BD4AA7142DEAE48903763B62E7117125FAFEC08A9C2861C02CEC3FA6C61B881C"; // xrb_3t6k35gi95xu6tergt6p69ck76ogmitsa8mnijtpxm9fkcm736xtoncuohr3
 char const * test_genesis_data = R"%%%({
 	"type": "open",
 	"source": "F51DC6662342670AFEAC7480EE1366AD9D421F96DE8CDC00E784ABBFD52E9388",
@@ -37,12 +37,12 @@ char const * beta_genesis_data = R"%%%({
 })%%%";
 
 char const * live_genesis_data = R"%%%({
-    "type": "open",
-    "source": "B1F530FA8841A7720E22777F6C924930FB91C478A06943B16EC8A0906FDD4082",
-    "representative": "cec_3eho85xaiif9ga946xuzfkb6ke9uk949ja5bagrpxk71k3qxti64a3su4s9d",
-    "account": "cec_3eho85xaiif9ga946xuzfkb6ke9uk949ja5bagrpxk71k3qxti64a3su4s9d",
-    "work": "96b38591e0a1f58d",
-    "signature": "F176F84D43B11A71F9A1595DABDE06686E2EB9F086EFEA512DA4C06F41AEF632DA56BA96EBEF14CA182F097B9A5A33318FF10E039B4B4BB2E80D657F21397C00"
+   "type": "open",
+    "source": "BD4AA7142DEAE48903763B62E7117125FAFEC08A9C2861C02CEC3FA6C61B881C",
+    "representative": "cec_3hccnwc4utq6j63qegu4wwaq4bhtzu1ao93ae914su3znu53q41wh5ehdmp9",
+    "account": "cec_3hccnwc4utq6j63qegu4wwaq4bhtzu1ao93ae914su3znu53q41wh5ehdmp9",
+    "work": "150605c31aa08135",
+    "signature": "4E7635C16A32CD7C2BDC5C4A01177B4C465D28C8BA607A285845D5CDE37BC75FBB569499A7DA95A338247D666B4136E161820C17630F5653B67DFD26DA998602"
 })%%%";
 
 class ledger_constants
@@ -495,7 +495,7 @@ void rai::amount_visitor::compute (rai::block_hash const & block_hash)
 			{
 				if (block_hash == rai::genesis_account)
 				{
-					amount = std::numeric_limits<rai::uint128_t>::max ();
+					amount = 80000000; //std::numeric_limits<rai::uint128_t>::max ();
 					current_amount = 0;
 				}
 				else
@@ -780,8 +780,11 @@ void rai::genesis::initialize (MDB_txn * transaction_a, rai::block_store & store
 	auto hash_l (hash ());
 	assert (store_a.latest_begin (transaction_a) == store_a.latest_end ());
 	store_a.block_put (transaction_a, hash_l, *open);
-	store_a.account_put (transaction_a, genesis_account, { hash_l, open->hash (), open->hash (), std::numeric_limits<rai::uint128_t>::max (), rai::seconds_since_epoch (), 1 });
-	store_a.representation_put (transaction_a, genesis_account, std::numeric_limits<rai::uint128_t>::max ());
+	rai::uint128_t const total_supply = std::numeric_limits<rai::uint128_t>::max ();
+	store_a.account_put (transaction_a, genesis_account, { hash_l, open->hash (), open->hash (), total_supply, rai::seconds_since_epoch (), 1 });
+	store_a.representation_put (transaction_a, genesis_account, total_supply);
+	// store_a.account_put (transaction_a, genesis_account, { hash_l, open->hash (), open->hash (), std::numeric_limits<rai::uint128_t>::max (), rai::seconds_since_epoch (), 1 });
+	// store_a.representation_put (transaction_a, genesis_account, std::numeric_limits<rai::uint128_t>::max ());
 	store_a.checksum_put (transaction_a, 0, 0, hash_l);
 	store_a.frontier_put (transaction_a, hash_l, genesis_account);
 }

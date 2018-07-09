@@ -78,6 +78,7 @@ int main (int argc, char * const * argv)
 				rai::uint128_t balance (80000000);
 				rai::open_block genesis_block (genesis.pub, genesis.pub, genesis.pub, genesis.prv, genesis.pub, work.generate (genesis.pub));
 				std::cout << genesis_block.to_json ();
+				std::cout << "sarmad: " << balance <<std::endl;
 				rai::block_hash previous (genesis_block.hash ());
 				for (auto i (0); i != 8; ++i)
 				{
