@@ -78,12 +78,6 @@ else (WIN32)
 	set (PLATFORM_CXX_FLAGS "-std=c++14")
 endif (WIN32)
 
-if (WIN32)
-	set (PLATFORM_GUI_TARGET_PROPERTIES WIN32)
-else (WIN32)
-	set (PLATFORM_GUI_TARGET_PROPERTIES "")
-endif (WIN32)
-
 if (APPLE)
 	set (PLATFORM_LINK_FLAGS "-framework Foundation -framework OpenCL")
 elseif (WIN32)
@@ -241,16 +235,12 @@ add_library (blake2
 
 if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 	set (PLATFORM_SECURE_SOURCE rai/plat/osx/working.mm)
-	set (PLATFORM_WALLET_SOURCE rai/plat/default/icon.cpp)
 elseif (${CMAKE_SYSTEM_NAME} MATCHES "Windows")
 	set (PLATFORM_SECURE_SOURCE rai/plat/windows/working.cpp)
-	set (PLATFORM_WALLET_SOURCE rai/plat/windows/icon.cpp RaiBlocks.rc)
 elseif (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 	set (PLATFORM_SECURE_SOURCE rai/plat/posix/working.cpp)
-	set (PLATFORM_WALLET_SOURCE rai/plat/default/icon.cpp)
 elseif (${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
 	set (PLATFORM_SECURE_SOURCE rai/plat/posix/working.cpp)
-	set (PLATFORM_WALLET_SOURCE rai/plat/default/icon.cpp)
 else ()
 	error ("Unknown platform: ${CMAKE_SYSTEM_NAME}")
 endif ()
@@ -317,9 +307,31 @@ if (RAIBLOCKS_TEST)
 endif (RAIBLOCKS_TEST)
 
 if (RAIBLOCKS_GUI)
+	if (WIN32)
+		set (PLATFORM_GUI_TARGET_PROPERTIES WIN32)
+	else (WIN32)
+		set (PLATFORM_GUI_TARGET_PROPERTIES "")
+	endif (WIN32)
+
+	if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+		set (PLATFORM_WALLET_SOURCE rai/plat/default/icon.cpp)
+	elseif (${CMAKE_SYSTEM_NAME} MATCHES "Windows")
+		set (PLATFORM_WALLET_SOURCE rai/plat/windows/icon.cpp RaiBlocks.rc)
+	elseif (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+		set (PLATFORM_WALLET_SOURCE rai/plat/default/icon.cpp)
+	elseif (${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
+		set (PLATFORM_WALLET_SOURCE rai/plat/default/icon.cpp)
+	else ()
+		error ("Unknown platform: ${CMAKE_SYSTEM_NAME}")
+	endif ()
+
+	if (WIN32)
+		set (PLATFORM_WALLET_LIBS Qt5::WinExtras)
+	else (WIN32)
+		set (PLATFORM_WALLET_LIBS)
+	endif (WIN32)
 
 	qt5_add_resources(RES resources.qrc)
-
 
 	add_library (qt
 		rai/qt/qt.cpp
