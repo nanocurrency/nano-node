@@ -795,6 +795,6 @@ TEST (wallet, synchronizing)
 		system1.poll ();
 		test_application->processEvents ();
 		++iterations1;
-		ASSERT_GT (200, iterations1);
+		ASSERT_GT (500, iterations1);
 	}
 }
