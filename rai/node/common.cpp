@@ -1,50 +1,33 @@
+
 #include <rai/node/common.hpp>
 
 #include <rai/lib/work.hpp>
 #include <rai/node/wallet.hpp>
 
-std::array<uint8_t, 2> constexpr rai::message::magic_number;
-size_t constexpr rai::message::ipv4_only_position;
-size_t constexpr rai::message::bootstrap_server_position;
-std::bitset<16> constexpr rai::message::block_type_mask;
+std::array<uint8_t, 2> constexpr rai::message_header::magic_number;
+size_t constexpr rai::message_header::ipv4_only_position;
+size_t constexpr rai::message_header::bootstrap_server_position;
+std::bitset<16> constexpr rai::message_header::block_type_mask;
 
-rai::message::message (rai::message_type type_a) :
-version_max (0x06),
-version_using (0x06),
-version_min (0x01),
+rai::message_header::message_header (rai::message_type type_a) :
+version_max (rai::protocol_version),
+version_using (rai::protocol_version),
+version_min (rai::protocol_version_min),
 type (type_a)
 {
 }
 
-rai::message::message (bool & error_a, rai::stream & stream_a)
+rai::message_header::message_header (bool & error_a, rai::stream & stream_a)
 {
-	error_a = read_header (stream_a, version_max, version_using, version_min, type, extensions);
+	if (!error_a)
+	{
+		error_a = deserialize (stream_a);
+	}
 }
 
-rai::block_type rai::message::block_type () const
+void rai::message_header::serialize (rai::stream & stream_a)
 {
-	return static_cast<rai::block_type> (((extensions & block_type_mask) >> 8).to_ullong ());
-}
-
-void rai::message::block_type_set (rai::block_type type_a)
-{
-	extensions &= ~rai::message::block_type_mask;
-	extensions |= std::bitset<16> (static_cast<unsigned long long> (type_a) << 8);
-}
-
-bool rai::message::ipv4_only ()
-{
-	return extensions.test (ipv4_only_position);
-}
-
-void rai::message::ipv4_only_set (bool value_a)
-{
-	extensions.set (ipv4_only_position, value_a);
-}
-
-void rai::message::write_header (rai::stream & stream_a)
-{
-	rai::write (stream_a, rai::message::magic_number);
+	rai::write (stream_a, rai::message_header::magic_number);
 	rai::write (stream_a, version_max);
 	rai::write (stream_a, version_using);
 	rai::write (stream_a, version_min);
@@ -52,99 +35,129 @@ void rai::message::write_header (rai::stream & stream_a)
 	rai::write (stream_a, static_cast<uint16_t> (extensions.to_ullong ()));
 }
 
-bool rai::message::read_header (rai::stream & stream_a, uint8_t & version_max_a, uint8_t & version_using_a, uint8_t & version_min_a, rai::message_type & type_a, std::bitset<16> & extensions_a)
+bool rai::message_header::deserialize (rai::stream & stream_a)
 {
 	uint16_t extensions_l;
 	std::array<uint8_t, 2> magic_number_l;
 	auto result (rai::read (stream_a, magic_number_l));
 	result = result || magic_number_l != magic_number;
-	result = result || rai::read (stream_a, version_max_a);
-	result = result || rai::read (stream_a, version_using_a);
-	result = result || rai::read (stream_a, version_min_a);
-	result = result || rai::read (stream_a, type_a);
+	result = result || rai::read (stream_a, version_max);
+	result = result || rai::read (stream_a, version_using);
+	result = result || rai::read (stream_a, version_min);
+	result = result || rai::read (stream_a, type);
 	result = result || rai::read (stream_a, extensions_l);
 	if (!result)
 	{
-		extensions_a = extensions_l;
+		extensions = extensions_l;
 	}
 	return result;
+}
+
+rai::message::message (rai::message_type type_a) :
+header (type_a)
+{
+}
+
+rai::message::message (rai::message_header const & header_a) :
+header (header_a)
+{
+}
+
+rai::block_type rai::message_header::block_type () const
+{
+	return static_cast<rai::block_type> (((extensions & block_type_mask) >> 8).to_ullong ());
+}
+
+void rai::message_header::block_type_set (rai::block_type type_a)
+{
+	extensions &= ~block_type_mask;
+	extensions |= std::bitset<16> (static_cast<unsigned long long> (type_a) << 8);
+}
+
+bool rai::message_header::ipv4_only ()
+{
+	return extensions.test (ipv4_only_position);
+}
+
+void rai::message_header::ipv4_only_set (bool value_a)
+{
+	extensions.set (ipv4_only_position, value_a);
 }
 
 rai::message_parser::message_parser (rai::message_visitor & visitor_a, rai::work_pool & pool_a) :
 visitor (visitor_a),
 pool (pool_a),
-error (false),
-insufficient_work (false)
+status (parse_status::success)
 {
 }
 
 void rai::message_parser::deserialize_buffer (uint8_t const * buffer_a, size_t size_a)
 {
-	error = false;
-	rai::bufferstream header_stream (buffer_a, size_a);
-	uint8_t version_max;
-	uint8_t version_using;
-	uint8_t version_min;
-	rai::message_type type;
-	std::bitset<16> extensions;
-	if (!rai::message::read_header (header_stream, version_max, version_using, version_min, type, extensions))
+	status = parse_status::success;
+	rai::bufferstream stream (buffer_a, size_a);
+	auto error (false);
+	rai::message_header header (error, stream);
+	if (!error)
 	{
-		switch (type)
+		switch (header.type)
 		{
 			case rai::message_type::keepalive:
 			{
-				deserialize_keepalive (buffer_a, size_a);
+				deserialize_keepalive (stream, header);
 				break;
 			}
 			case rai::message_type::publish:
 			{
-				deserialize_publish (buffer_a, size_a);
+				deserialize_publish (stream, header);
 				break;
 			}
 			case rai::message_type::confirm_req:
 			{
-				deserialize_confirm_req (buffer_a, size_a);
+				deserialize_confirm_req (stream, header);
 				break;
 			}
 			case rai::message_type::confirm_ack:
 			{
-				deserialize_confirm_ack (buffer_a, size_a);
+				deserialize_confirm_ack (stream, header);
+				break;
+			}
+			case rai::message_type::node_id_handshake:
+			{
+				deserialize_node_id_handshake (stream, header);
 				break;
 			}
 			default:
 			{
-				error = true;
+				status = parse_status::invalid_message_type;
 				break;
 			}
 		}
 	}
 	else
 	{
-		error = true;
+		status = parse_status::invalid_header;
 	}
 }
 
-void rai::message_parser::deserialize_keepalive (uint8_t const * buffer_a, size_t size_a)
+void rai::message_parser::deserialize_keepalive (rai::stream & stream_a, rai::message_header const & header_a)
 {
-	rai::keepalive incoming;
-	rai::bufferstream stream (buffer_a, size_a);
-	auto error_l (incoming.deserialize (stream));
-	if (!error_l && at_end (stream))
+	auto error (false);
+	rai::keepalive incoming (error, stream_a, header_a);
+	if (!error && at_end (stream_a))
 	{
 		visitor.keepalive (incoming);
 	}
 	else
 	{
-		error = true;
+		status = parse_status::invalid_keepalive_message;
 	}
 }
 
-void rai::message_parser::deserialize_publish (uint8_t const * buffer_a, size_t size_a)
+void rai::message_parser::deserialize_publish (rai::stream & stream_a, rai::message_header const & header_a)
 {
-	rai::publish incoming;
-	rai::bufferstream stream (buffer_a, size_a);
-	auto error_l (incoming.deserialize (stream));
-	if (!error_l && at_end (stream))
+	auto error (false);
+	rai::publish incoming (error, stream_a, header_a);
+	if (!error && at_end (stream_a))
 	{
 		if (!rai::work_validate (*incoming.block))
 		{
@@ -152,21 +165,20 @@ void rai::message_parser::deserialize_publish (uint8_t const * buffer_a, size_t 
 		}
 		else
 		{
-			insufficient_work = true;
+			status = parse_status::insufficient_work;
 		}
 	}
 	else
 	{
-		error = true;
+		status = parse_status::invalid_publish_message;
 	}
 }
 
-void rai::message_parser::deserialize_confirm_req (uint8_t const * buffer_a, size_t size_a)
+void rai::message_parser::deserialize_confirm_req (rai::stream & stream_a, rai::message_header const & header_a)
 {
-	rai::confirm_req incoming;
-	rai::bufferstream stream (buffer_a, size_a);
-	auto error_l (incoming.deserialize (stream));
-	if (!error_l && at_end (stream))
+	auto error (false);
+	rai::confirm_req incoming (error, stream_a, header_a);
+	if (!error && at_end (stream_a))
 	{
 		if (!rai::work_validate (*incoming.block))
 		{
@@ -174,21 +186,20 @@ void rai::message_parser::deserialize_confirm_req (uint8_t const * buffer_a, siz
 		}
 		else
 		{
-			insufficient_work = true;
+			status = parse_status::insufficient_work;
 		}
 	}
 	else
 	{
-		error = true;
+		status = parse_status::invalid_confirm_req_message;
 	}
 }
 
-void rai::message_parser::deserialize_confirm_ack (uint8_t const * buffer_a, size_t size_a)
+void rai::message_parser::deserialize_confirm_ack (rai::stream & stream_a, rai::message_header const & header_a)
 {
-	bool error_l;
-	rai::bufferstream stream (buffer_a, size_a);
-	rai::confirm_ack incoming (error_l, stream);
-	if (!error_l && at_end (stream))
+	auto error (false);
+	rai::confirm_ack incoming (error, stream_a, header_a);
+	if (!error && at_end (stream_a))
 	{
 		if (!rai::work_validate (*incoming.vote->block))
 		{
@@ -196,16 +207,30 @@ void rai::message_parser::deserialize_confirm_ack (uint8_t const * buffer_a, siz
 		}
 		else
 		{
-			insufficient_work = true;
+			status = parse_status::insufficient_work;
 		}
 	}
 	else
 	{
-		error = true;
+		status = parse_status::invalid_confirm_ack_message;
 	}
 }
 
-bool rai::message_parser::at_end (rai::bufferstream & stream_a)
+void rai::message_parser::deserialize_node_id_handshake (rai::stream & stream_a, rai::message_header const & header_a)
+{
+	bool error_l;
+	rai::node_id_handshake incoming (error_l, stream_a, header_a);
+	if (!error_l && at_end (stream_a))
+	{
+		visitor.node_id_handshake (incoming);
+	}
+	else
+	{
+		status = parse_status::invalid_node_id_handshake_message;
+	}
+}
+
+bool rai::message_parser::at_end (rai::stream & stream_a)
 {
 	uint8_t junk;
 	auto end (rai::read (stream_a, junk));
@@ -222,6 +247,15 @@ message (rai::message_type::keepalive)
 	}
 }
 
+rai::keepalive::keepalive (bool & error_a, rai::stream & stream_a, rai::message_header const & header_a) :
+message (header_a)
+{
+	if (!error_a)
+	{
+		error_a = deserialize (stream_a);
+	}
+}
+
 void rai::keepalive::visit (rai::message_visitor & visitor_a) const
 {
 	visitor_a.keepalive (*this);
@@ -229,7 +263,7 @@ void rai::keepalive::visit (rai::message_visitor & visitor_a) const
 
 void rai::keepalive::serialize (rai::stream & stream_a)
 {
-	write_header (stream_a);
+	header.serialize (stream_a);
 	for (auto i (peers.begin ()), j (peers.end ()); i != j; ++i)
 	{
 		assert (i->address ().is_v6 ());
@@ -241,18 +275,22 @@ void rai::keepalive::serialize (rai::stream & stream_a)
 
 bool rai::keepalive::deserialize (rai::stream & stream_a)
 {
-	auto result (read_header (stream_a, version_max, version_using, version_min, type, extensions));
-	assert (!result);
-	assert (type == rai::message_type::keepalive);
-	for (auto i (peers.begin ()), j (peers.end ()); i != j; ++i)
+	assert (header.type == rai::message_type::keepalive);
+	auto error (false);
+	for (auto i (peers.begin ()), j (peers.end ()); i != j && !error; ++i)
 	{
 		std::array<uint8_t, 16> address;
 		uint16_t port;
-		read (stream_a, address);
-		read (stream_a, port);
-		*i = rai::endpoint (boost::asio::ip::address_v6 (address), port);
+		if (!read (stream_a, address) && !read (stream_a, port))
+		{
+			*i = rai::endpoint (boost::asio::ip::address_v6 (address), port);
+		}
+		else
+		{
+			error = true;
+		}
 	}
-	return result;
+	return error;
 }
 
 bool rai::keepalive::operator== (rai::keepalive const & other_a) const
@@ -260,35 +298,34 @@ bool rai::keepalive::operator== (rai::keepalive const & other_a) const
 	return peers == other_a.peers;
 }
 
-rai::publish::publish () :
-message (rai::message_type::publish)
+rai::publish::publish (bool & error_a, rai::stream & stream_a, rai::message_header const & header_a) :
+message (header_a)
 {
+	if (!error_a)
+	{
+		error_a = deserialize (stream_a);
+	}
 }
 
 rai::publish::publish (std::shared_ptr<rai::block> block_a) :
 message (rai::message_type::publish),
 block (block_a)
 {
-	block_type_set (block->type ());
+	header.block_type_set (block->type ());
 }
 
 bool rai::publish::deserialize (rai::stream & stream_a)
 {
-	auto result (read_header (stream_a, version_max, version_using, version_min, type, extensions));
-	assert (!result);
-	assert (type == rai::message_type::publish);
-	if (!result)
-	{
-		block = rai::deserialize_block (stream_a, block_type ());
-		result = block == nullptr;
-	}
+	assert (header.type == rai::message_type::publish);
+	block = rai::deserialize_block (stream_a, header.block_type ());
+	auto result (block == nullptr);
 	return result;
 }
 
 void rai::publish::serialize (rai::stream & stream_a)
 {
 	assert (block != nullptr);
-	write_header (stream_a);
+	header.serialize (stream_a);
 	block->serialize (stream_a);
 }
 
@@ -302,28 +339,27 @@ bool rai::publish::operator== (rai::publish const & other_a) const
 	return *block == *other_a.block;
 }
 
-rai::confirm_req::confirm_req () :
-message (rai::message_type::confirm_req)
+rai::confirm_req::confirm_req (bool & error_a, rai::stream & stream_a, rai::message_header const & header_a) :
+message (header_a)
 {
+	if (!error_a)
+	{
+		error_a = deserialize (stream_a);
+	}
 }
 
 rai::confirm_req::confirm_req (std::shared_ptr<rai::block> block_a) :
 message (rai::message_type::confirm_req),
 block (block_a)
 {
-	block_type_set (block->type ());
+	header.block_type_set (block->type ());
 }
 
 bool rai::confirm_req::deserialize (rai::stream & stream_a)
 {
-	auto result (read_header (stream_a, version_max, version_using, version_min, type, extensions));
-	assert (!result);
-	assert (type == rai::message_type::confirm_req);
-	if (!result)
-	{
-		block = rai::deserialize_block (stream_a, block_type ());
-		result = block == nullptr;
-	}
+	assert (header.type == rai::message_type::confirm_req);
+	block = rai::deserialize_block (stream_a, header.block_type ());
+	auto result (block == nullptr);
 	return result;
 }
 
@@ -335,7 +371,7 @@ void rai::confirm_req::visit (rai::message_visitor & visitor_a) const
 void rai::confirm_req::serialize (rai::stream & stream_a)
 {
 	assert (block != nullptr);
-	write_header (stream_a);
+	header.serialize (stream_a);
 	block->serialize (stream_a);
 }
 
@@ -344,9 +380,9 @@ bool rai::confirm_req::operator== (rai::confirm_req const & other_a) const
 	return *block == *other_a.block;
 }
 
-rai::confirm_ack::confirm_ack (bool & error_a, rai::stream & stream_a) :
-message (error_a, stream_a),
-vote (std::make_shared<rai::vote> (error_a, stream_a, block_type ()))
+rai::confirm_ack::confirm_ack (bool & error_a, rai::stream & stream_a, rai::message_header const & header_a) :
+message (header_a),
+vote (std::make_shared<rai::vote> (error_a, stream_a, header.block_type ()))
 {
 }
 
@@ -354,39 +390,21 @@ rai::confirm_ack::confirm_ack (std::shared_ptr<rai::vote> vote_a) :
 message (rai::message_type::confirm_ack),
 vote (vote_a)
 {
-	block_type_set (vote->block->type ());
+	header.block_type_set (vote->block->type ());
 }
 
 bool rai::confirm_ack::deserialize (rai::stream & stream_a)
 {
-	auto result (read_header (stream_a, version_max, version_using, version_min, type, extensions));
-	assert (!result);
-	assert (type == rai::message_type::confirm_ack);
-	if (!result)
-	{
-		result = read (stream_a, vote->account);
-		if (!result)
-		{
-			result = read (stream_a, vote->signature);
-			if (!result)
-			{
-				result = read (stream_a, vote->sequence);
-				if (!result)
-				{
-					vote->block = rai::deserialize_block (stream_a, block_type ());
-					result = vote->block == nullptr;
-				}
-			}
-		}
-	}
+	assert (header.type == rai::message_type::confirm_ack);
+	auto result (vote->deserialize (stream_a));
 	return result;
 }
 
 void rai::confirm_ack::serialize (rai::stream & stream_a)
 {
-	assert (block_type () == rai::block_type::send || block_type () == rai::block_type::receive || block_type () == rai::block_type::open || block_type () == rai::block_type::change);
-	write_header (stream_a);
-	vote->serialize (stream_a, block_type ());
+	assert (header.block_type () == rai::block_type::send || header.block_type () == rai::block_type::receive || header.block_type () == rai::block_type::open || header.block_type () == rai::block_type::change || header.block_type () == rai::block_type::state);
+	header.serialize (stream_a);
+	vote->serialize (stream_a, header.block_type ());
 }
 
 bool rai::confirm_ack::operator== (rai::confirm_ack const & other_a) const
@@ -405,22 +423,25 @@ message (rai::message_type::frontier_req)
 {
 }
 
+rai::frontier_req::frontier_req (bool & error_a, rai::stream & stream_a, rai::message_header const & header_a) :
+message (header_a)
+{
+	if (!error_a)
+	{
+		error_a = deserialize (stream_a);
+	}
+}
+
 bool rai::frontier_req::deserialize (rai::stream & stream_a)
 {
-	auto result (read_header (stream_a, version_max, version_using, version_min, type, extensions));
-	assert (!result);
-	assert (rai::message_type::frontier_req == type);
+	assert (header.type == rai::message_type::frontier_req);
+	auto result (read (stream_a, start.bytes));
 	if (!result)
 	{
-		assert (type == rai::message_type::frontier_req);
-		result = read (stream_a, start.bytes);
+		result = read (stream_a, age);
 		if (!result)
 		{
-			result = read (stream_a, age);
-			if (!result)
-			{
-				result = read (stream_a, count);
-			}
+			result = read (stream_a, count);
 		}
 	}
 	return result;
@@ -428,7 +449,7 @@ bool rai::frontier_req::deserialize (rai::stream & stream_a)
 
 void rai::frontier_req::serialize (rai::stream & stream_a)
 {
-	write_header (stream_a);
+	header.serialize (stream_a);
 	write (stream_a, start.bytes);
 	write (stream_a, age);
 	write (stream_a, count);
@@ -449,6 +470,15 @@ message (rai::message_type::bulk_pull)
 {
 }
 
+rai::bulk_pull::bulk_pull (bool & error_a, rai::stream & stream_a, rai::message_header const & header_a) :
+message (header_a)
+{
+	if (!error_a)
+	{
+		error_a = deserialize (stream_a);
+	}
+}
+
 void rai::bulk_pull::visit (rai::message_visitor & visitor_a) const
 {
 	visitor_a.bulk_pull (*this);
@@ -456,24 +486,18 @@ void rai::bulk_pull::visit (rai::message_visitor & visitor_a) const
 
 bool rai::bulk_pull::deserialize (rai::stream & stream_a)
 {
-	auto result (read_header (stream_a, version_max, version_using, version_min, type, extensions));
-	assert (!result);
-	assert (rai::message_type::bulk_pull == type);
+	assert (header.type == rai::message_type::bulk_pull);
+	auto result (read (stream_a, start));
 	if (!result)
 	{
-		assert (type == rai::message_type::bulk_pull);
-		result = read (stream_a, start);
-		if (!result)
-		{
-			result = read (stream_a, end);
-		}
+		result = read (stream_a, end);
 	}
 	return result;
 }
 
 void rai::bulk_pull::serialize (rai::stream & stream_a)
 {
-	write_header (stream_a);
+	header.serialize (stream_a);
 	write (stream_a, start);
 	write (stream_a, end);
 }
@@ -483,6 +507,15 @@ message (rai::message_type::bulk_pull_blocks)
 {
 }
 
+rai::bulk_pull_blocks::bulk_pull_blocks (bool & error_a, rai::stream & stream_a, rai::message_header const & header_a) :
+message (header_a)
+{
+	if (!error_a)
+	{
+		error_a = deserialize (stream_a);
+	}
+}
+
 void rai::bulk_pull_blocks::visit (rai::message_visitor & visitor_a) const
 {
 	visitor_a.bulk_pull_blocks (*this);
@@ -490,26 +523,18 @@ void rai::bulk_pull_blocks::visit (rai::message_visitor & visitor_a) const
 
 bool rai::bulk_pull_blocks::deserialize (rai::stream & stream_a)
 {
-	auto result (read_header (stream_a, version_max, version_using, version_min, type, extensions));
-	assert (!result);
-	assert (rai::message_type::bulk_pull_blocks == type);
+	assert (header.type == rai::message_type::bulk_pull_blocks);
+	auto result (read (stream_a, min_hash));
 	if (!result)
 	{
-		assert (type == rai::message_type::bulk_pull_blocks);
-		result = read (stream_a, min_hash);
-		if (!result)
-		{
-			result = read (stream_a, max_hash);
-		}
-
+		result = read (stream_a, max_hash);
 		if (!result)
 		{
 			result = read (stream_a, mode);
-		}
-
-		if (!result)
-		{
-			result = read (stream_a, max_count);
+			if (!result)
+			{
+				result = read (stream_a, max_count);
+			}
 		}
 	}
 	return result;
@@ -517,7 +542,7 @@ bool rai::bulk_pull_blocks::deserialize (rai::stream & stream_a)
 
 void rai::bulk_pull_blocks::serialize (rai::stream & stream_a)
 {
-	write_header (stream_a);
+	header.serialize (stream_a);
 	write (stream_a, min_hash);
 	write (stream_a, max_hash);
 	write (stream_a, mode);
@@ -529,22 +554,106 @@ message (rai::message_type::bulk_push)
 {
 }
 
+rai::bulk_push::bulk_push (rai::message_header const & header_a) :
+message (header_a)
+{
+}
+
 bool rai::bulk_push::deserialize (rai::stream & stream_a)
 {
-	auto result (read_header (stream_a, version_max, version_using, version_min, type, extensions));
-	assert (!result);
-	assert (rai::message_type::bulk_push == type);
-	return result;
+	assert (header.type == rai::message_type::bulk_push);
+	return false;
 }
 
 void rai::bulk_push::serialize (rai::stream & stream_a)
 {
-	write_header (stream_a);
+	header.serialize (stream_a);
 }
 
 void rai::bulk_push::visit (rai::message_visitor & visitor_a) const
 {
 	visitor_a.bulk_push (*this);
+}
+
+size_t constexpr rai::node_id_handshake::query_flag;
+size_t constexpr rai::node_id_handshake::response_flag;
+
+rai::node_id_handshake::node_id_handshake (bool & error_a, rai::stream & stream_a, rai::message_header const & header_a) :
+message (header_a),
+query (boost::none),
+response (boost::none)
+{
+	error_a = deserialize (stream_a);
+}
+
+rai::node_id_handshake::node_id_handshake (boost::optional<rai::uint256_union> query, boost::optional<std::pair<rai::account, rai::signature>> response) :
+message (rai::message_type::node_id_handshake),
+query (query),
+response (response)
+{
+	if (query)
+	{
+		header.extensions.set (query_flag);
+	}
+	if (response)
+	{
+		header.extensions.set (response_flag);
+	}
+}
+
+bool rai::node_id_handshake::deserialize (rai::stream & stream_a)
+{
+	auto result (false);
+	assert (header.type == rai::message_type::node_id_handshake);
+	if (!result && header.extensions.test (query_flag))
+	{
+		rai::uint256_union query_hash;
+		result = read (stream_a, query_hash);
+		if (!result)
+		{
+			query = query_hash;
+		}
+	}
+	if (!result && header.extensions.test (response_flag))
+	{
+		rai::account response_account;
+		result = read (stream_a, response_account);
+		if (!result)
+		{
+			rai::signature response_signature;
+			result = read (stream_a, response_signature);
+			if (!result)
+			{
+				response = std::make_pair (response_account, response_signature);
+			}
+		}
+	}
+	return result;
+}
+
+void rai::node_id_handshake::serialize (rai::stream & stream_a)
+{
+	header.serialize (stream_a);
+	if (query)
+	{
+		write (stream_a, *query);
+	}
+	if (response)
+	{
+		write (stream_a, response->first);
+		write (stream_a, response->second);
+	}
+}
+
+bool rai::node_id_handshake::operator== (rai::node_id_handshake const & other_a) const
+{
+	auto result (*query == *other_a.query && *response == *other_a.response);
+	return result;
+}
+
+void rai::node_id_handshake::visit (rai::message_visitor & visitor_a) const
+{
+	visitor_a.node_id_handshake (*this);
 }
 
 rai::message_visitor::~message_visitor ()

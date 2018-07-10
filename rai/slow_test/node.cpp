@@ -19,26 +19,19 @@ TEST (system, generate_mass_activity)
 
 TEST (system, generate_mass_activity_long)
 {
-	std::vector<std::thread> threads;
+	rai::system system (24000, 1);
+	rai::thread_runner runner (system.service, system.nodes[0]->config.io_threads);
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	size_t count (1000000000);
+	system.generate_mass_activity (count, *system.nodes[0]);
+	size_t accounts (0);
+	rai::transaction transaction (system.nodes[0]->store.environment, nullptr, false);
+	for (auto i (system.nodes[0]->store.latest_begin (transaction)), n (system.nodes[0]->store.latest_end ()); i != n; ++i)
 	{
-		rai::system system (24000, 1);
-		rai::thread_runner runner (system.service, system.nodes[0]->config.io_threads);
-		system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
-		size_t count (1000000000);
-		system.generate_mass_activity (count, *system.nodes[0]);
-		size_t accounts (0);
-		rai::transaction transaction (system.nodes[0]->store.environment, nullptr, false);
-		for (auto i (system.nodes[0]->store.latest_begin (transaction)), n (system.nodes[0]->store.latest_end ()); i != n; ++i)
-		{
-			++accounts;
-		}
-		system.stop ();
-		runner.join ();
+		++accounts;
 	}
-	for (auto i (threads.begin ()), n (threads.end ()); i != n; ++i)
-	{
-		i->join ();
-	}
+	system.stop ();
+	runner.join ();
 }
 
 TEST (system, receive_while_synchronizing)
@@ -83,7 +76,8 @@ TEST (ledger, deep_account_compute)
 	bool init (false);
 	rai::block_store store (init, rai::unique_path ());
 	ASSERT_FALSE (init);
-	rai::ledger ledger (store);
+	rai::stat stats;
+	rai::ledger ledger (store, stats);
 	rai::genesis genesis;
 	rai::transaction transaction (store.environment, nullptr, true);
 	genesis.initialize (transaction, store);
@@ -187,7 +181,7 @@ TEST (node, fork_storm)
 			ASSERT_EQ (rai::process_result::progress, send_result.code);
 			rai::keypair rep;
 			auto open (std::make_shared<rai::open_block> (previous, rep.pub, key.pub, key.prv, key.pub, 0));
-			system.nodes[i]->generate_work (*open);
+			system.nodes[i]->work_generate_blocking (*open);
 			auto open_result (system.nodes[i]->process (*open));
 			ASSERT_EQ (rai::process_result::progress, open_result.code);
 			rai::transaction transaction (system.nodes[i]->store.environment, nullptr, false);
@@ -365,7 +359,7 @@ TEST (peer_container, random_set)
 	auto old (std::chrono::steady_clock::now ());
 	for (auto i (0); i < 10000; ++i)
 	{
-		auto list (container.list_sqrt ());
+		auto list (container.list_fanout ());
 	}
 	auto current (std::chrono::steady_clock::now ());
 	for (auto i (0); i < 10000; ++i)
@@ -398,8 +392,7 @@ TEST (store, vote_load)
 	auto block (std::make_shared<rai::send_block> (0, 0, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
 	for (auto i (0); i < 1000000; ++i)
 	{
-		rai::transaction transaction (node.store.environment, nullptr, true);
 		auto vote (std::make_shared<rai::vote> (rai::test_genesis_key.pub, rai::test_genesis_key.prv, i, block));
-		node.store.vote_validate (transaction, vote);
+		node.vote_processor.vote (vote, system.nodes[0]->network.endpoint ());
 	}
 }

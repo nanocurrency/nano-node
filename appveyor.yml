@@ -1,0 +1,44 @@
+version: 1.0.{build}
+pull_requests:
+  do_not_increment_build_number: true
+configuration: Release
+platform: x64
+clone_folder: C:\projects\myproject
+init:
+- cmd: git config --global core.autocrlf input
+clone_script:
+- cmd: "git clone -q --branch=%APPVEYOR_REPO_BRANCH% https://github.com/%APPVEYOR_REPO_NAME%.git %APPVEYOR_BUILD_FOLDER% \ncd %APPVEYOR_BUILD_FOLDER%\ngit checkout -q %APPVEYOR_REPO_COMMIT%\ngit submodule update --init --recursive"
+install:
+- cmd: >-
+    SET GIT_COMMIT=%APPVEYOR_REPO_COMMIT:~0,3%
+
+    cmake -DRAIBLOCKS_GUI=ON -DQt5_DIR=C:\Qt\5.9\msvc2015_64\lib\cmake\Qt5 -DRAIBLOCKS_SIMD_OPTIMIZATIONS=TRUE -DBOOST_INCLUDEDIR=C:/Libraries/boost_1_66_0 -DBOOST_LIBRARYDIR=C:/Libraries/boost_1_66_0/lib64-msvc-14.0 -G "Visual Studio 14 2015 Win64" -DIPHLPAPI_LIBRARY="C:/Program Files (x86)/Windows Kits/10/Lib/10.0.14393.0/um/x64/iphlpapi.lib" -DWINSOCK2_LIBRARY="C:/Program Files (x86)/Windows Kits/10/Lib/10.0.14393.0/um/x64/WS2_32.lib" -DGIT_COMMIT=%GIT_COMMIT%
+
+- ps: >-
+    $size_t=select-string -path ".\bootstrap_weights.cpp" -Pattern "rai_bootstrap_weights_size"| foreach {$_.Line}
+    
+    $old_size_t = "extern const size_t rai_bootstrap_weights_size;"
+    
+    $char=select-string -path ".\bootstrap_weights.cpp" -Pattern "char rai_bootstrap_weights"| foreach {$_.Line}
+    
+    $old_char = [regex]::Escape("extern const char rai_bootstrap_weights[];") 
+    
+    select-string -path ".\rai\node\node.cpp" -Pattern $old_size_t -SimpleMatch | %{$curpath=$_.path; (get-content $curpath -Raw) -replace $old_char, $char| Out-File $curpath}
+    
+    select-string -path ".\rai\node\node.cpp" -Pattern $old_size_t -SimpleMatch | %{$curpath=$_.path; (get-content $curpath -Raw) -replace $old_size_t, $size_t| Out-File $curpath}
+
+build:
+  parallel: true  
+  project: nano_wallet.vcxproj
+  verbosity: quiet
+after_build:
+- ps: Invoke-WebRequest -Uri https://download.microsoft.com/download/5/7/b/57b2947c-7221-4f33-b35e-2fc78cb10df4/vc_redist.x64.exe -OutFile .\vc_redist.x64.exe
+- cmd: >-
+    cpack -NSIS
+
+    7z a nano.zip %APPVEYOR_BUILD_FOLDER%\Release\*.exe
+artifacts:
+- path: nano.zip
+  name: nano_release
+- path: Nano_Installer-*.exe
+  name: Nano_installer

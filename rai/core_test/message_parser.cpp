@@ -17,37 +17,41 @@ public:
 	frontier_req_count (0)
 	{
 	}
-	void keepalive (rai::keepalive const &)
+	void keepalive (rai::keepalive const &) override
 	{
 		++keepalive_count;
 	}
-	void publish (rai::publish const &)
+	void publish (rai::publish const &) override
 	{
 		++publish_count;
 	}
-	void confirm_req (rai::confirm_req const &)
+	void confirm_req (rai::confirm_req const &) override
 	{
 		++confirm_req_count;
 	}
-	void confirm_ack (rai::confirm_ack const &)
+	void confirm_ack (rai::confirm_ack const &) override
 	{
 		++confirm_ack_count;
 	}
-	void bulk_pull (rai::bulk_pull const &)
+	void bulk_pull (rai::bulk_pull const &) override
 	{
 		++bulk_pull_count;
 	}
-	void bulk_pull_blocks (rai::bulk_pull_blocks const &)
+	void bulk_pull_blocks (rai::bulk_pull_blocks const &) override
 	{
 		++bulk_pull_blocks_count;
 	}
-	void bulk_push (rai::bulk_push const &)
+	void bulk_push (rai::bulk_push const &) override
 	{
 		++bulk_push_count;
 	}
-	void frontier_req (rai::frontier_req const &)
+	void frontier_req (rai::frontier_req const &) override
 	{
 		++frontier_req_count;
+	}
+	void node_id_handshake (rai::node_id_handshake const &) override
+	{
+		++node_id_handshake_count;
 	}
 	uint64_t keepalive_count;
 	uint64_t publish_count;
@@ -57,6 +61,7 @@ public:
 	uint64_t bulk_pull_blocks_count;
 	uint64_t bulk_push_count;
 	uint64_t frontier_req_count;
+	uint64_t node_id_handshake_count;
 };
 }
 
@@ -74,14 +79,21 @@ TEST (message_parser, exact_confirm_ack_size)
 		message.serialize (stream);
 	}
 	ASSERT_EQ (0, visitor.confirm_ack_count);
-	ASSERT_FALSE (parser.error);
-	parser.deserialize_confirm_ack (bytes.data (), bytes.size ());
+	ASSERT_EQ (parser.status, rai::message_parser::parse_status::success);
+	auto error (false);
+	rai::bufferstream stream1 (bytes.data (), bytes.size ());
+	rai::message_header header1 (error, stream1);
+	ASSERT_FALSE (error);
+	parser.deserialize_confirm_ack (stream1, header1);
 	ASSERT_EQ (1, visitor.confirm_ack_count);
-	ASSERT_FALSE (parser.error);
+	ASSERT_EQ (parser.status, rai::message_parser::parse_status::success);
 	bytes.push_back (0);
-	parser.deserialize_confirm_ack (bytes.data (), bytes.size ());
+	rai::bufferstream stream2 (bytes.data (), bytes.size ());
+	rai::message_header header2 (error, stream2);
+	ASSERT_FALSE (error);
+	parser.deserialize_confirm_ack (stream2, header2);
 	ASSERT_EQ (1, visitor.confirm_ack_count);
-	ASSERT_TRUE (parser.error);
+	ASSERT_NE (parser.status, rai::message_parser::parse_status::success);
 }
 
 TEST (message_parser, exact_confirm_req_size)
@@ -97,14 +109,21 @@ TEST (message_parser, exact_confirm_req_size)
 		message.serialize (stream);
 	}
 	ASSERT_EQ (0, visitor.confirm_req_count);
-	ASSERT_FALSE (parser.error);
-	parser.deserialize_confirm_req (bytes.data (), bytes.size ());
+	ASSERT_EQ (parser.status, rai::message_parser::parse_status::success);
+	auto error (false);
+	rai::bufferstream stream1 (bytes.data (), bytes.size ());
+	rai::message_header header1 (error, stream1);
+	ASSERT_FALSE (error);
+	parser.deserialize_confirm_req (stream1, header1);
 	ASSERT_EQ (1, visitor.confirm_req_count);
-	ASSERT_FALSE (parser.error);
+	ASSERT_EQ (parser.status, rai::message_parser::parse_status::success);
 	bytes.push_back (0);
-	parser.deserialize_confirm_req (bytes.data (), bytes.size ());
+	rai::bufferstream stream2 (bytes.data (), bytes.size ());
+	rai::message_header header2 (error, stream2);
+	ASSERT_FALSE (error);
+	parser.deserialize_confirm_req (stream2, header2);
 	ASSERT_EQ (1, visitor.confirm_req_count);
-	ASSERT_TRUE (parser.error);
+	ASSERT_NE (parser.status, rai::message_parser::parse_status::success);
 }
 
 TEST (message_parser, exact_publish_size)
@@ -120,14 +139,21 @@ TEST (message_parser, exact_publish_size)
 		message.serialize (stream);
 	}
 	ASSERT_EQ (0, visitor.publish_count);
-	ASSERT_FALSE (parser.error);
-	parser.deserialize_publish (bytes.data (), bytes.size ());
+	ASSERT_EQ (parser.status, rai::message_parser::parse_status::success);
+	auto error (false);
+	rai::bufferstream stream1 (bytes.data (), bytes.size ());
+	rai::message_header header1 (error, stream1);
+	ASSERT_FALSE (error);
+	parser.deserialize_publish (stream1, header1);
 	ASSERT_EQ (1, visitor.publish_count);
-	ASSERT_FALSE (parser.error);
+	ASSERT_EQ (parser.status, rai::message_parser::parse_status::success);
 	bytes.push_back (0);
-	parser.deserialize_publish (bytes.data (), bytes.size ());
+	rai::bufferstream stream2 (bytes.data (), bytes.size ());
+	rai::message_header header2 (error, stream2);
+	ASSERT_FALSE (error);
+	parser.deserialize_publish (stream2, header2);
 	ASSERT_EQ (1, visitor.publish_count);
-	ASSERT_TRUE (parser.error);
+	ASSERT_NE (parser.status, rai::message_parser::parse_status::success);
 }
 
 TEST (message_parser, exact_keepalive_size)
@@ -142,12 +168,19 @@ TEST (message_parser, exact_keepalive_size)
 		message.serialize (stream);
 	}
 	ASSERT_EQ (0, visitor.keepalive_count);
-	ASSERT_FALSE (parser.error);
-	parser.deserialize_keepalive (bytes.data (), bytes.size ());
+	ASSERT_EQ (parser.status, rai::message_parser::parse_status::success);
+	auto error (false);
+	rai::bufferstream stream1 (bytes.data (), bytes.size ());
+	rai::message_header header1 (error, stream1);
+	ASSERT_FALSE (error);
+	parser.deserialize_keepalive (stream1, header1);
 	ASSERT_EQ (1, visitor.keepalive_count);
-	ASSERT_FALSE (parser.error);
+	ASSERT_EQ (parser.status, rai::message_parser::parse_status::success);
 	bytes.push_back (0);
-	parser.deserialize_keepalive (bytes.data (), bytes.size ());
+	rai::bufferstream stream2 (bytes.data (), bytes.size ());
+	rai::message_header header2 (error, stream2);
+	ASSERT_FALSE (error);
+	parser.deserialize_keepalive (stream2, header2);
 	ASSERT_EQ (1, visitor.keepalive_count);
-	ASSERT_TRUE (parser.error);
+	ASSERT_NE (parser.status, rai::message_parser::parse_status::success);
 }

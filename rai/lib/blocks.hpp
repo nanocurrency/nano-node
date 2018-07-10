@@ -31,12 +31,13 @@ void write (rai::stream & stream_a, T const & value)
 class block_visitor;
 enum class block_type : uint8_t
 {
-	invalid,
-	not_a_block,
-	send,
-	receive,
-	open,
-	change
+	invalid = 0,
+	not_a_block = 1,
+	send = 2,
+	receive = 3,
+	open = 4,
+	change = 5,
+	state = 6
 };
 class block
 {
@@ -62,6 +63,7 @@ public:
 	virtual rai::signature block_signature () const = 0;
 	virtual void signature_set (rai::uint512_union const &) = 0;
 	virtual ~block () = default;
+	virtual bool valid_predecessor (rai::block const &) const = 0;
 };
 class send_hashables
 {
@@ -99,6 +101,7 @@ public:
 	void signature_set (rai::uint512_union const &) override;
 	bool operator== (rai::block const &) const override;
 	bool operator== (rai::send_block const &) const;
+	bool valid_predecessor (rai::block const &) const override;
 	static size_t constexpr size = sizeof (rai::account) + sizeof (rai::block_hash) + sizeof (rai::amount) + sizeof (rai::signature) + sizeof (uint64_t);
 	send_hashables hashables;
 	rai::signature signature;
@@ -139,6 +142,7 @@ public:
 	void signature_set (rai::uint512_union const &) override;
 	bool operator== (rai::block const &) const override;
 	bool operator== (rai::receive_block const &) const;
+	bool valid_predecessor (rai::block const &) const override;
 	static size_t constexpr size = sizeof (rai::block_hash) + sizeof (rai::block_hash) + sizeof (rai::signature) + sizeof (uint64_t);
 	receive_hashables hashables;
 	rai::signature signature;
@@ -181,6 +185,7 @@ public:
 	void signature_set (rai::uint512_union const &) override;
 	bool operator== (rai::block const &) const override;
 	bool operator== (rai::open_block const &) const;
+	bool valid_predecessor (rai::block const &) const override;
 	static size_t constexpr size = sizeof (rai::block_hash) + sizeof (rai::account) + sizeof (rai::account) + sizeof (rai::signature) + sizeof (uint64_t);
 	rai::open_hashables hashables;
 	rai::signature signature;
@@ -221,8 +226,62 @@ public:
 	void signature_set (rai::uint512_union const &) override;
 	bool operator== (rai::block const &) const override;
 	bool operator== (rai::change_block const &) const;
+	bool valid_predecessor (rai::block const &) const override;
 	static size_t constexpr size = sizeof (rai::block_hash) + sizeof (rai::account) + sizeof (rai::signature) + sizeof (uint64_t);
 	rai::change_hashables hashables;
+	rai::signature signature;
+	uint64_t work;
+};
+class state_hashables
+{
+public:
+	state_hashables (rai::account const &, rai::block_hash const &, rai::account const &, rai::amount const &, rai::uint256_union const &);
+	state_hashables (bool &, rai::stream &);
+	state_hashables (bool &, boost::property_tree::ptree const &);
+	void hash (blake2b_state &) const;
+	// Account# / public key that operates this account
+	// Uses:
+	// Bulk signature validation in advance of further ledger processing
+	// Arranging uncomitted transactions by account
+	rai::account account;
+	// Previous transaction in this chain
+	rai::block_hash previous;
+	// Representative of this account
+	rai::account representative;
+	// Current balance of this account
+	// Allows lookup of account balance simply by looking at the head block
+	rai::amount balance;
+	// Link field contains source block_hash if receiving, destination account if sending
+	rai::uint256_union link;
+};
+class state_block : public rai::block
+{
+public:
+	state_block (rai::account const &, rai::block_hash const &, rai::account const &, rai::amount const &, rai::uint256_union const &, rai::raw_key const &, rai::public_key const &, uint64_t);
+	state_block (bool &, rai::stream &);
+	state_block (bool &, boost::property_tree::ptree const &);
+	virtual ~state_block () = default;
+	using rai::block::hash;
+	void hash (blake2b_state &) const override;
+	uint64_t block_work () const override;
+	void block_work_set (uint64_t) override;
+	rai::block_hash previous () const override;
+	rai::block_hash source () const override;
+	rai::block_hash root () const override;
+	rai::account representative () const override;
+	void serialize (rai::stream &) const override;
+	void serialize_json (std::string &) const override;
+	bool deserialize (rai::stream &);
+	bool deserialize_json (boost::property_tree::ptree const &);
+	void visit (rai::block_visitor &) const override;
+	rai::block_type type () const override;
+	rai::signature block_signature () const override;
+	void signature_set (rai::uint512_union const &) override;
+	bool operator== (rai::block const &) const override;
+	bool operator== (rai::state_block const &) const;
+	bool valid_predecessor (rai::block const &) const override;
+	static size_t constexpr size = sizeof (rai::account) + sizeof (rai::block_hash) + sizeof (rai::account) + sizeof (rai::amount) + sizeof (rai::uint256_union) + sizeof (rai::signature) + sizeof (uint64_t);
+	rai::state_hashables hashables;
 	rai::signature signature;
 	uint64_t work;
 };
@@ -233,6 +292,7 @@ public:
 	virtual void receive_block (rai::receive_block const &) = 0;
 	virtual void open_block (rai::open_block const &) = 0;
 	virtual void change_block (rai::change_block const &) = 0;
+	virtual void state_block (rai::state_block const &) = 0;
 	virtual ~block_visitor () = default;
 };
 std::unique_ptr<rai::block> deserialize_block (rai::stream &);

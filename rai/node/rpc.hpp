@@ -90,6 +90,7 @@ public:
 	boost::beast::flat_buffer buffer;
 	boost::beast::http::request<boost::beast::http::string_body> request;
 	boost::beast::http::response<boost::beast::http::string_body> res;
+	std::atomic_flag responded;
 };
 class payment_observer : public std::enable_shared_from_this<rai::payment_observer>
 {
@@ -115,6 +116,7 @@ public:
 	void process_request ();
 	void account_balance ();
 	void account_block_count ();
+	void account_count ();
 	void account_create ();
 	void account_get ();
 	void account_history ();
@@ -132,20 +134,22 @@ public:
 	void accounts_pending ();
 	void available_supply ();
 	void block ();
+	void block_confirm ();
 	void blocks ();
 	void blocks_info ();
 	void block_account ();
 	void block_count ();
 	void block_count_type ();
 	void block_create ();
+	void block_hash ();
 	void bootstrap ();
 	void bootstrap_any ();
 	void chain ();
+	void confirmation_history ();
 	void delegators ();
 	void delegators_count ();
 	void deterministic_key ();
 	void frontiers ();
-	void frontier_count ();
 	void history ();
 	void keepalive ();
 	void key_create ();
@@ -172,10 +176,12 @@ public:
 	void receive_minimum ();
 	void receive_minimum_set ();
 	void representatives ();
+	void representatives_online ();
 	void republish ();
 	void search_pending ();
 	void search_pending_all ();
 	void send ();
+	void stats ();
 	void stop ();
 	void successors ();
 	void unchecked ();
@@ -185,6 +191,7 @@ public:
 	void validate_account_number ();
 	void version ();
 	void wallet_add ();
+	void wallet_add_watch ();
 	void wallet_balance_total ();
 	void wallet_balances ();
 	void wallet_change_seed ();
@@ -194,6 +201,7 @@ public:
 	void wallet_export ();
 	void wallet_frontiers ();
 	void wallet_key_valid ();
+	void wallet_ledger ();
 	void wallet_lock ();
 	void wallet_pending ();
 	void wallet_representative ();

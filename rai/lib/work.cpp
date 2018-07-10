@@ -32,7 +32,7 @@ done (false),
 opencl (opencl_a)
 {
 	static_assert (ATOMIC_INT_LOCK_FREE == 2, "Atomic int needed");
-	auto count (rai::rai_network == rai::rai_networks::rai_test_network ? 1 : std::max (1u, std::min (max_threads_a, std::thread::hardware_concurrency ())));
+	auto count (rai::rai_network == rai::rai_networks::rai_test_network ? 1 : std::min (max_threads_a, std::max (1u, std::thread::hardware_concurrency ())));
 	for (auto i (0); i < count; ++i)
 	{
 		auto thread (std::thread ([this, i]() {
@@ -68,7 +68,7 @@ void rai::work_pool::loop (uint64_t thread)
 		if (thread == 0)
 		{
 			// Only work thread 0 notifies work observers
-			work_observers (!empty);
+			work_observers.notify (!empty);
 		}
 		if (!empty)
 		{
@@ -101,8 +101,10 @@ void rai::work_pool::loop (uint64_t thread)
 				assert (work_value (current_l.first, work) == output);
 				// Signal other threads to stop their work next time they check ticket
 				++ticket;
-				current_l.second (work);
 				pending.pop_front ();
+				lock.unlock ();
+				current_l.second (work);
+				lock.lock ();
 			}
 			else
 			{

@@ -70,7 +70,6 @@ union uint256_union
 	void encode_account (std::string &) const;
 	std::string to_account () const;
 	std::string to_account_split () const;
-	bool decode_account_v1 (std::string const &);
 	bool decode_account (std::string const &);
 	std::array<uint8_t, 32> bytes;
 	std::array<char, 32> chars;
@@ -95,9 +94,6 @@ public:
 	raw_key () = default;
 	~raw_key ();
 	void decrypt (rai::uint256_union const &, rai::raw_key const &, uint128_union const &);
-	raw_key (rai::raw_key const &) = delete;
-	raw_key (rai::raw_key const &&) = delete;
-	rai::raw_key & operator= (rai::raw_key const &) = delete;
 	bool operator== (rai::raw_key const &) const;
 	bool operator!= (rai::raw_key const &) const;
 	rai::uint256_union data;

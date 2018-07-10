@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 
+#include <rai/common.hpp>
 #include <rai/lib/interface.h>
-#include <rai/secure.hpp>
 
 #include <ed25519-donna/ed25519.h>
 
@@ -33,6 +33,14 @@ TEST (uint128_union, decode_dec_leading_zero)
 {
 	rai::uint128_union value;
 	std::string text ("010");
+	auto error (value.decode_dec (text));
+	ASSERT_TRUE (error);
+}
+
+TEST (uint128_union, decode_dec_overflow)
+{
+	rai::uint128_union value;
+	std::string text ("340282366920938463463374607431768211456");
 	auto error (value.decode_dec (text));
 	ASSERT_TRUE (error);
 }
@@ -299,11 +307,35 @@ TEST (uint256_union, big_endian_union_function)
 	ASSERT_EQ (rai::uint512_t (1), bytes2.number ());
 }
 
-TEST (uint256_union, decode_account_v1)
+TEST (uint256_union, decode_nano_variant)
 {
 	rai::uint256_union key;
-	ASSERT_FALSE (key.decode_account ("TR6ZJ4pdp6HC76xMRpVDny5x2s8AEbrhFue3NKVxYYdmKuTEib"));
-	ASSERT_EQ (rai::rai_test_account, key);
+	ASSERT_FALSE (key.decode_account ("xrb_1111111111111111111111111111111111111111111111111111hifc8npp"));
+	ASSERT_FALSE (key.decode_account ("nano_1111111111111111111111111111111111111111111111111111hifc8npp"));
+}
+
+TEST (uint256_union, decode_account_variations)
+{
+	for (int i = 0; i < 100; i++)
+	{
+		rai::raw_key key;
+		xrb_generate_random (key.data.bytes.data ());
+		rai::uint256_union pub;
+		xrb_key_account (key.data.bytes.data (), pub.bytes.data ());
+
+		char account[65] = { 0 };
+		xrb_uint256_to_address (pub.bytes.data (), account);
+
+		// Replace first digit after xrb_ with '0'..'9', make sure only one of them is valid
+		int errors = 0;
+		for (int variation = 0; variation < 10; variation++)
+		{
+			account[4] = static_cast<char> (variation + 48);
+			errors += xrb_valid_address (account);
+		}
+
+		ASSERT_EQ (errors, 9);
+	}
 }
 
 TEST (uint256_union, account_transcode)

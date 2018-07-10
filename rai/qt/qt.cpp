@@ -1,7 +1,10 @@
 #include <rai/qt/qt.hpp>
 
+#include <boost/foreach.hpp>
 #include <boost/property_tree/json_parser.hpp>
-
+#include <boost/property_tree/ptree.hpp>
+#include <cmath>
+#include <iomanip>
 #include <sstream>
 
 namespace
@@ -116,8 +119,8 @@ void rai_qt::self_pane::refresh_balance ()
 
 rai_qt::accounts::accounts (rai_qt::wallet & wallet_a) :
 window (new QWidget),
-layout (new QVBoxLayout),
 wallet_balance_label (new QLabel),
+layout (new QVBoxLayout),
 model (new QStandardItemModel),
 view (new QTableView),
 use_account (new QPushButton ("Use account")),
@@ -238,6 +241,9 @@ wallet (wallet_a)
 				}));
 			});
 		}
+	});
+	QObject::connect (account_key_line, &QLineEdit::textChanged, [this](const QString & value) {
+		account_key_line->setText (value.trimmed ());
 	});
 	refresh_wallet_balance ();
 }
@@ -441,6 +447,12 @@ wallet (wallet_a)
 			});
 		}
 	});
+	QObject::connect (seed, &QLineEdit::textChanged, [this](const QString & value) {
+		seed->setText (value.trimmed ());
+	});
+	QObject::connect (filename, &QLineEdit::textChanged, [this](const QString & value) {
+		filename->setText (value.trimmed ());
+	});
 }
 
 rai_qt::history::history (rai::ledger & ledger_a, rai::account const & account_a, rai_qt::wallet & wallet_a) :
@@ -517,6 +529,31 @@ public:
 		type = "Change";
 		amount = 0;
 		account = block_a.hashables.representative;
+	}
+	void state_block (rai::state_block const & block_a)
+	{
+		auto balance (block_a.hashables.balance.number ());
+		auto previous_balance (ledger.balance (transaction, block_a.hashables.previous));
+		if (balance < previous_balance)
+		{
+			type = "Send";
+			amount = previous_balance - balance;
+			account = block_a.hashables.link;
+		}
+		else
+		{
+			if (block_a.hashables.link.is_zero ())
+			{
+				type = "Change";
+				account = block_a.hashables.representative;
+			}
+			else
+			{
+				type = "Receive";
+				account = ledger.account (transaction, block_a.hashables.link);
+			}
+			amount = balance - previous_balance;
+		}
 	}
 	MDB_txn * transaction;
 	rai::ledger & ledger;
@@ -616,6 +653,9 @@ wallet (wallet_a)
 			}
 		}
 	});
+	QObject::connect (hash, &QLineEdit::textChanged, [this](const QString & value) {
+		hash->setText (value.trimmed ());
+	});
 	rebroadcast->setToolTip ("Rebroadcast block into the network");
 }
 
@@ -692,6 +732,91 @@ wallet (wallet_a)
 			balance_label->clear ();
 		}
 	});
+	QObject::connect (account_line, &QLineEdit::textChanged, [this](const QString & value) {
+		account_line->setText (value.trimmed ());
+	});
+}
+
+rai_qt::stats_viewer::stats_viewer (rai_qt::wallet & wallet_a) :
+window (new QWidget),
+layout (new QVBoxLayout),
+model (new QStandardItemModel),
+view (new QTableView),
+refresh (new QPushButton ("Refresh")),
+back (new QPushButton ("Back")),
+wallet (wallet_a)
+{
+	model->setHorizontalHeaderItem (0, new QStandardItem ("Last updated"));
+	model->setHorizontalHeaderItem (1, new QStandardItem ("Type"));
+	model->setHorizontalHeaderItem (2, new QStandardItem ("Detail"));
+	model->setHorizontalHeaderItem (3, new QStandardItem ("Direction"));
+	model->setHorizontalHeaderItem (4, new QStandardItem ("Value"));
+	view->setModel (model);
+	view->setEditTriggers (QAbstractItemView::NoEditTriggers);
+	view->verticalHeader ()->hide ();
+	view->horizontalHeader ()->setStretchLastSection (true);
+	layout->setContentsMargins (0, 0, 0, 0);
+	layout->addWidget (view);
+	layout->addWidget (refresh);
+	layout->addWidget (back);
+	window->setLayout (layout);
+
+	QObject::connect (back, &QPushButton::released, [this]() {
+		this->wallet.pop_main_stack ();
+	});
+	QObject::connect (refresh, &QPushButton::released, [this]() {
+		refresh_stats ();
+	});
+
+	refresh_stats ();
+}
+
+void rai_qt::stats_viewer::refresh_stats ()
+{
+	model->removeRows (0, model->rowCount ());
+
+	auto sink = wallet.node.stats.log_sink_json ();
+	wallet.node.stats.log_counters (*sink);
+	auto json = static_cast<boost::property_tree::ptree *> (sink->to_object ());
+	if (json)
+	{
+		// Format the stat data to make totals and values easier to read
+		BOOST_FOREACH (const boost::property_tree::ptree::value_type & child, json->get_child ("entries"))
+		{
+			auto time = child.second.get<std::string> ("time");
+			auto type = child.second.get<std::string> ("type");
+			auto detail = child.second.get<std::string> ("detail");
+			auto dir = child.second.get<std::string> ("dir");
+			auto value = child.second.get<std::string> ("value", "0");
+
+			if (detail == "all")
+			{
+				detail = "total";
+			}
+
+			if (type == "traffic")
+			{
+				const std::vector<std::string> units = { " bytes", " KB", " MB", " GB", " TB", " PB" };
+				double bytes = std::stod (value);
+				auto index = std::min (units.size () - 1, static_cast<size_t> (std::floor (std::log2 (bytes) / 10)));
+				std::string unit = units[index];
+				bytes /= std::pow (1024, index);
+
+				std::stringstream numstream;
+				numstream << std::fixed << std::setprecision (2) << bytes;
+				value = numstream.str () + unit;
+			}
+
+			QList<QStandardItem *> items;
+			items.push_back (new QStandardItem (QString (time.c_str ())));
+			items.push_back (new QStandardItem (QString (type.c_str ())));
+			items.push_back (new QStandardItem (QString (detail.c_str ())));
+			items.push_back (new QStandardItem (QString (dir.c_str ())));
+			items.push_back (new QStandardItem (QString (value.c_str ())));
+
+			model->appendRow (items);
+		}
+	}
 }
 
 rai_qt::status::status (rai_qt::wallet & wallet_a) :
@@ -823,6 +948,7 @@ block_creation (*this),
 block_entry (*this),
 block_viewer (*this),
 account_viewer (*this),
+stats_viewer (*this),
 import (*this),
 application (application_a),
 status (new QLabel),
@@ -885,10 +1011,16 @@ active_status (*this)
 	client_layout->setSpacing (0);
 	client_layout->setContentsMargins (0, 0, 0, 0);
 	client_window->setLayout (client_layout);
-	client_window->resize (320, 480);
+	client_window->resize (500, 620);
 	client_window->setStyleSheet ("\
 		QLineEdit { padding: 3px; } \
 	");
+	QObject::connect (send_account, &QLineEdit::textChanged, [this](const QString & value) {
+		send_account->setText (value.trimmed ());
+	});
+	QObject::connect (send_count, &QLineEdit::textChanged, [this](const QString & value) {
+		send_count->setText (value.trimmed ());
+	});
 	refresh ();
 }
 
@@ -1076,7 +1208,7 @@ void rai_qt::wallet::start ()
 			this_l->push_main_stack (this_l->send_blocks_window);
 		}
 	});
-	node.observers.blocks.add ([this_w](std::shared_ptr<rai::block> block_a, rai::account const & account_a, rai::amount const &) {
+	node.observers.blocks.add ([this_w](std::shared_ptr<rai::block> block_a, rai::account const & account_a, rai::uint128_t const & amount_a, bool) {
 		if (auto this_l = this_w.lock ())
 		{
 			this_l->application.postEvent (&this_l->processor, new eventloop_event ([this_w, block_a, account_a]() {
@@ -1371,7 +1503,7 @@ wallet (wallet_a)
 				auto block (this->wallet.wallet_m->change_sync (this->wallet.account, representative_l));
 				change_rep->setEnabled (true);
 				show_button_success (*change_rep);
-				change_rep->setText ("Represenative was changed");
+				change_rep->setText ("Representative was changed");
 				current_representative->setText (QString (representative_l.to_account_split ().c_str ()));
 				new_representative->clear ();
 				this->wallet.node.alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (5), [this]() {
@@ -1453,6 +1585,9 @@ wallet (wallet_a)
 			}
 		}
 	});
+	QObject::connect (new_representative, &QLineEdit::textChanged, [this](const QString & value) {
+		new_representative->setText (value.trimmed ());
+	});
 
 	// initial state for lock toggle button
 	rai::transaction transaction (this->wallet.wallet_m->store.environment, nullptr, true);
@@ -1520,6 +1655,7 @@ create_block (new QPushButton ("Create Block")),
 enter_block (new QPushButton ("Enter Block")),
 block_viewer (new QPushButton ("Block Viewer")),
 account_viewer (new QPushButton ("Account Viewer")),
+stats_viewer (new QPushButton ("Node Statistics")),
 scale_window (new QWidget),
 scale_layout (new QHBoxLayout),
 scale_label (new QLabel ("Scale:")),
@@ -1596,6 +1732,7 @@ wallet (wallet_a)
 	layout->addWidget (enter_block);
 	layout->addWidget (block_viewer);
 	layout->addWidget (account_viewer);
+	layout->addWidget (stats_viewer);
 	layout->addWidget (scale_window);
 	layout->addStretch ();
 	layout->addWidget (back);
@@ -1678,6 +1815,11 @@ wallet (wallet_a)
 	QObject::connect (account_viewer, &QPushButton::released, [this]() {
 		this->wallet.push_main_stack (this->wallet.account_viewer.window);
 	});
+	QObject::connect (stats_viewer, &QPushButton::released, [this]() {
+		this->wallet.push_main_stack (this->wallet.stats_viewer.window);
+		this->wallet.stats_viewer.refresh_stats ();
+	});
+
 	bootstrap->setToolTip ("Multi-connection bootstrap to random peers");
 	search_for_receivables->setToolTip ("Search for pending blocks");
 	create_block->setToolTip ("Create block in JSON format");
@@ -1719,6 +1861,11 @@ void rai_qt::advanced_actions::refresh_ledger ()
 		items.push_back (new QStandardItem (QString (block_hash.c_str ())));
 		ledger_model->appendRow (items);
 	}
+}
+
+void rai_qt::advanced_actions::refresh_stats ()
+{
+	wallet.stats_viewer.refresh_stats ();
 }
 
 rai_qt::block_entry::block_entry (rai_qt::wallet & wallet_a) :
@@ -1872,6 +2019,22 @@ wallet (wallet_a)
 	QObject::connect (back, &QPushButton::released, [this]() {
 		this->wallet.pop_main_stack ();
 	});
+	QObject::connect (account, &QLineEdit::textChanged, [this](const QString & value) {
+		account->setText (value.trimmed ());
+	});
+	QObject::connect (destination, &QLineEdit::textChanged, [this](const QString & value) {
+		destination->setText (value.trimmed ());
+	});
+	QObject::connect (amount, &QLineEdit::textChanged, [this](const QString & value) {
+		amount->setText (value.trimmed ());
+	});
+	QObject::connect (source, &QLineEdit::textChanged, [this](const QString & value) {
+		source->setText (value.trimmed ());
+	});
+	QObject::connect (representative, &QLineEdit::textChanged, [this](const QString & value) {
+		representative->setText (value.trimmed ());
+	});
+
 	send->click ();
 }
 
@@ -1945,7 +2108,10 @@ void rai_qt::block_creation::create_send ()
 						rai::account_info info;
 						auto error (wallet.node.store.account_get (transaction, account_l, info));
 						assert (!error);
-						rai::send_block send (info.head, destination_l, balance - amount_l.number (), key, account_l, wallet.wallet_m->work_fetch (transaction, account_l, info.head));
+						auto rep_block (wallet.node.store.block_get (transaction, info.rep_block));
+						assert (rep_block != nullptr);
+						rai::state_block send (account_l, info.head, rep_block->representative (), balance - amount_l.number (), destination_l, key, account_l, 0);
+						wallet.node.work_generate_blocking (send);
 						std::string block_l;
 						send.serialize_json (block_l);
 						block->setPlainText (QString (block_l.c_str ()));
@@ -1993,10 +2159,10 @@ void rai_qt::block_creation::create_receive ()
 		auto block_l (wallet.node.store.block_get (transaction, source_l));
 		if (block_l != nullptr)
 		{
-			auto send_block (dynamic_cast<rai::send_block *> (block_l.get ()));
-			if (send_block != nullptr)
+			auto destination (wallet.node.ledger.block_destination (transaction, *block_l));
+			if (!destination.is_zero ())
 			{
-				rai::pending_key pending_key (send_block->hashables.destination, source_l);
+				rai::pending_key pending_key (destination, source_l);
 				rai::pending_info pending;
 				if (!wallet.node.store.pending_get (transaction, pending_key, pending))
 				{
@@ -2008,7 +2174,10 @@ void rai_qt::block_creation::create_receive ()
 						auto error (wallet.wallet_m->store.fetch (transaction, pending_key.account, key));
 						if (!error)
 						{
-							rai::receive_block receive (info.head, source_l, key, pending_key.account, wallet.wallet_m->work_fetch (transaction, pending_key.account, info.head));
+							auto rep_block (wallet.node.store.block_get (transaction, info.rep_block));
+							assert (rep_block != nullptr);
+							rai::state_block receive (pending_key.account, info.head, rep_block->representative (), info.balance.number () + pending.amount.number (), source_l, key, pending_key.account, 0);
+							wallet.node.work_generate_blocking (receive);
 							std::string block_l;
 							receive.serialize_json (block_l);
 							block->setPlainText (QString (block_l.c_str ()));
@@ -2071,7 +2240,8 @@ void rai_qt::block_creation::create_change ()
 				auto error (wallet.wallet_m->store.fetch (transaction, account_l, key));
 				if (!error)
 				{
-					rai::change_block change (info.head, representative_l, key, account_l, wallet.wallet_m->work_fetch (transaction, account_l, info.head));
+					rai::state_block change (account_l, info.head, representative_l, info.balance, 0, key, account_l, 0);
+					wallet.node.work_generate_blocking (change);
 					std::string block_l;
 					change.serialize_json (block_l);
 					block->setPlainText (QString (block_l.c_str ()));
@@ -2117,10 +2287,10 @@ void rai_qt::block_creation::create_open ()
 			auto block_l (wallet.node.store.block_get (transaction, source_l));
 			if (block_l != nullptr)
 			{
-				auto send_block (dynamic_cast<rai::send_block *> (block_l.get ()));
-				if (send_block != nullptr)
+				auto destination (wallet.node.ledger.block_destination (transaction, *block_l));
+				if (!destination.is_zero ())
 				{
-					rai::pending_key pending_key (send_block->hashables.destination, source_l);
+					rai::pending_key pending_key (destination, source_l);
 					rai::pending_info pending;
 					if (!wallet.node.store.pending_get (transaction, pending_key, pending))
 					{
@@ -2132,7 +2302,8 @@ void rai_qt::block_creation::create_open ()
 							auto error (wallet.wallet_m->store.fetch (transaction, pending_key.account, key));
 							if (!error)
 							{
-								rai::open_block open (source_l, representative_l, pending_key.account, key, pending_key.account, wallet.wallet_m->work_fetch (transaction, pending_key.account, pending_key.account));
+								rai::state_block open (pending_key.account, 0, representative_l, pending.amount, source_l, key, pending_key.account, 0);
+								wallet.node.work_generate_blocking (open);
 								std::string block_l;
 								open.serialize_json (block_l);
 								block->setPlainText (QString (block_l.c_str ()));

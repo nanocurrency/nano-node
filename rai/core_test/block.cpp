@@ -282,9 +282,12 @@ TEST (frontier_req, serialization)
 		rai::vectorstream stream (bytes);
 		request1.serialize (stream);
 	}
-	rai::bufferstream buffer (bytes.data (), bytes.size ());
-	rai::frontier_req request2;
-	ASSERT_FALSE (request2.deserialize (buffer));
+	auto error (false);
+	rai::bufferstream stream (bytes.data (), bytes.size ());
+	rai::message_header header (error, stream);
+	ASSERT_FALSE (error);
+	rai::frontier_req request2 (error, stream, header);
+	ASSERT_FALSE (error);
 	ASSERT_EQ (request1, request2);
 }
 
@@ -299,9 +302,11 @@ TEST (block, publish_req_serialization)
 		rai::vectorstream stream (bytes);
 		req.serialize (stream);
 	}
-	rai::publish req2;
+	auto error (false);
 	rai::bufferstream stream2 (bytes.data (), bytes.size ());
-	auto error (req2.deserialize (stream2));
+	rai::message_header header (error, stream2);
+	ASSERT_FALSE (error);
+	rai::publish req2 (error, stream2, header);
 	ASSERT_FALSE (error);
 	ASSERT_EQ (req, req2);
 	ASSERT_EQ (*req.block, *req2.block);
@@ -318,10 +323,90 @@ TEST (block, confirm_req_serialization)
 		rai::vectorstream stream (bytes);
 		req.serialize (stream);
 	}
-	rai::confirm_req req2;
+	auto error (false);
 	rai::bufferstream stream2 (bytes.data (), bytes.size ());
-	auto error (req2.deserialize (stream2));
+	rai::message_header header (error, stream2);
+	rai::confirm_req req2 (error, stream2, header);
 	ASSERT_FALSE (error);
 	ASSERT_EQ (req, req2);
 	ASSERT_EQ (*req.block, *req2.block);
+}
+
+TEST (state_block, serialization)
+{
+	rai::keypair key1;
+	rai::keypair key2;
+	rai::state_block block1 (key1.pub, 1, key2.pub, 2, 4, key1.prv, key1.pub, 5);
+	ASSERT_EQ (key1.pub, block1.hashables.account);
+	ASSERT_EQ (rai::block_hash (1), block1.previous ());
+	ASSERT_EQ (key2.pub, block1.hashables.representative);
+	ASSERT_EQ (rai::amount (2), block1.hashables.balance);
+	ASSERT_EQ (rai::uint256_union (4), block1.hashables.link);
+	std::vector<uint8_t> bytes;
+	{
+		rai::vectorstream stream (bytes);
+		block1.serialize (stream);
+	}
+	ASSERT_EQ (0x5, bytes[215]); // Ensure work is serialized big-endian
+	ASSERT_EQ (rai::state_block::size, bytes.size ());
+	bool error1;
+	rai::bufferstream stream (bytes.data (), bytes.size ());
+	rai::state_block block2 (error1, stream);
+	ASSERT_FALSE (error1);
+	ASSERT_EQ (block1, block2);
+	block2.hashables.account.clear ();
+	block2.hashables.previous.clear ();
+	block2.hashables.representative.clear ();
+	block2.hashables.balance.clear ();
+	block2.hashables.link.clear ();
+	block2.signature.clear ();
+	block2.work = 0;
+	rai::bufferstream stream2 (bytes.data (), bytes.size ());
+	ASSERT_FALSE (block2.deserialize (stream2));
+	ASSERT_EQ (block1, block2);
+	std::string json;
+	block1.serialize_json (json);
+	std::stringstream body (json);
+	boost::property_tree::ptree tree;
+	boost::property_tree::read_json (body, tree);
+	bool error2;
+	rai::state_block block3 (error2, tree);
+	ASSERT_FALSE (error2);
+	ASSERT_EQ (block1, block3);
+	block3.hashables.account.clear ();
+	block3.hashables.previous.clear ();
+	block3.hashables.representative.clear ();
+	block3.hashables.balance.clear ();
+	block3.hashables.link.clear ();
+	block3.signature.clear ();
+	block3.work = 0;
+	ASSERT_FALSE (block3.deserialize_json (tree));
+	ASSERT_EQ (block1, block3);
+}
+
+TEST (state_block, hashing)
+{
+	rai::keypair key;
+	rai::state_block block (key.pub, 0, key.pub, 0, 0, key.prv, key.pub, 0);
+	auto hash (block.hash ());
+	block.hashables.account.bytes[0] ^= 0x1;
+	ASSERT_NE (hash, block.hash ());
+	block.hashables.account.bytes[0] ^= 0x1;
+	ASSERT_EQ (hash, block.hash ());
+	block.hashables.previous.bytes[0] ^= 0x1;
+	ASSERT_NE (hash, block.hash ());
+	block.hashables.previous.bytes[0] ^= 0x1;
+	ASSERT_EQ (hash, block.hash ());
+	block.hashables.representative.bytes[0] ^= 0x1;
+	ASSERT_NE (hash, block.hash ());
+	block.hashables.representative.bytes[0] ^= 0x1;
+	ASSERT_EQ (hash, block.hash ());
+	block.hashables.balance.bytes[0] ^= 0x1;
+	ASSERT_NE (hash, block.hash ());
+	block.hashables.balance.bytes[0] ^= 0x1;
+	ASSERT_EQ (hash, block.hash ());
+	block.hashables.link.bytes[0] ^= 0x1;
+	ASSERT_NE (hash, block.hash ());
+	block.hashables.link.bytes[0] ^= 0x1;
+	ASSERT_EQ (hash, block.hash ());
 }

@@ -1,5 +1,6 @@
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
+#include <cstdlib>
 #include <rai/node/common.hpp>
 #include <rai/node/testing.hpp>
 
@@ -49,6 +50,14 @@ rai::system::~system ()
 	for (auto & i : nodes)
 	{
 		i->stop ();
+	}
+
+	// Clean up tmp directories created by the tests. Since it's sometimes useful to
+	// see log files after test failures, an environment variable is supported to
+	// retain the files.
+	if (std::getenv ("TEST_KEEP_TMPDIRS") == nullptr)
+	{
+		rai::remove_temporary_directories ();
 	}
 }
 
@@ -128,40 +137,27 @@ void rai::system::generate_usage_traffic (uint32_t count_a, uint32_t wait_a, siz
 
 void rai::system::generate_rollback (rai::node & node_a, std::vector<rai::account> & accounts_a)
 {
-	rai::block_hash current (node_a.latest (get_random_account (accounts_a)));
-	rai::block_hash target (current);
 	rai::transaction transaction (node_a.store.environment, nullptr, true);
-	while (!current.is_zero ())
+	auto index (random_pool.GenerateWord32 (0, accounts_a.size () - 1));
+	auto account (accounts_a[index]);
+	rai::account_info info;
+	auto error (node_a.store.account_get (transaction, account, info));
+	if (!error)
 	{
-		auto block1 (node_a.store.block_get (transaction, current));
-		assert (block1 != nullptr);
-		current = block1->previous ();
-		auto block2 (node_a.store.block_get (transaction, target));
-		assert (block2 != nullptr);
-		target = block2->previous ();
-		if (!current.is_zero ())
+		auto hash (info.open_block);
+		rai::genesis genesis;
+		if (hash != genesis.hash ())
 		{
-			auto block2 (node_a.store.block_get (transaction, current));
-			current = block2->previous ();
+			accounts_a[index] = accounts_a[accounts_a.size () - 1];
+			accounts_a.pop_back ();
+			node_a.ledger.rollback (transaction, hash);
 		}
-		auto open (dynamic_cast<rai::open_block *> (block2.get ()));
-		if (open != nullptr)
-		{
-			if (!node_a.ledger.block_exists (open->hashables.source))
-			{
-				target = 0;
-			}
-		}
-	}
-	if (!target.is_zero ())
-	{
-		node_a.ledger.rollback (transaction, target);
 	}
 }
 
 void rai::system::generate_receive (rai::node & node_a)
 {
-	std::shared_ptr<rai::send_block> send_block;
+	std::shared_ptr<rai::block> send_block;
 	{
 		rai::transaction transaction (node_a.store.environment, nullptr, false);
 		rai::uint256_union random_block;
@@ -171,14 +167,12 @@ void rai::system::generate_receive (rai::node & node_a)
 		{
 			rai::pending_key send_hash (i->first);
 			rai::pending_info info (i->second);
-			auto block (node_a.store.block_get (transaction, send_hash.hash));
-			assert (dynamic_cast<rai::send_block *> (block.get ()) != nullptr);
-			send_block.reset (static_cast<rai::send_block *> (block.release ()));
+			send_block = node_a.store.block_get (transaction, send_hash.hash);
 		}
 	}
 	if (send_block != nullptr)
 	{
-		auto receive_error (wallet (0)->receive_sync (std::move (send_block), rai::genesis_account, std::numeric_limits<rai::uint128_t>::max ()));
+		auto receive_error (wallet (0)->receive_sync (send_block, rai::genesis_account, std::numeric_limits<rai::uint128_t>::max ()));
 		(void)receive_error;
 	}
 }
@@ -186,11 +180,11 @@ void rai::system::generate_receive (rai::node & node_a)
 void rai::system::generate_activity (rai::node & node_a, std::vector<rai::account> & accounts_a)
 {
 	auto what (random_pool.GenerateByte ());
-	if (what < 0x10)
+	if (what < 0x1)
 	{
 		generate_rollback (node_a, accounts_a);
 	}
-	else if (what < 0x1)
+	else if (what < 0x10)
 	{
 		generate_change_known (node_a, accounts_a);
 	}
@@ -306,11 +300,19 @@ void rai::system::generate_mass_activity (uint32_t count_a, rai::node & node_a)
 	auto previous (std::chrono::steady_clock::now ());
 	for (uint32_t i (0); i < count_a; ++i)
 	{
-		if ((i & 0xfff) == 0)
+		if ((i & 0xff) == 0)
 		{
 			auto now (std::chrono::steady_clock::now ());
 			auto us (std::chrono::duration_cast<std::chrono::microseconds> (now - previous).count ());
-			std::cerr << boost::str (boost::format ("Mass activity iteration %1% us %2% us/t %3%\n") % i % us % (us / 256));
+			uint64_t count (0);
+			uint64_t state (0);
+			{
+				rai::transaction transaction (node_a.store.environment, nullptr, false);
+				auto block_counts (node_a.store.block_count (transaction));
+				count = block_counts.sum ();
+				state = block_counts.state;
+			}
+			std::cerr << boost::str (boost::format ("Mass activity iteration %1% us %2% us/t %3% state: %4% old: %5%\n") % i % us % (us / 256) % state % (count - state));
 			previous = now;
 		}
 		generate_activity (node_a, accounts);
@@ -417,13 +419,13 @@ void rai::landing::write_store ()
 
 rai::uint128_t rai::landing::distribution_amount (uint64_t interval)
 {
-	// Halfing period ~= Exponent of 2 in secounds approixmately 1 year = 2^25 = 33554432
+	// Halving period ~= Exponent of 2 in seconds approximately 1 year = 2^25 = 33554432
 	// Interval = Exponent of 2 in seconds approximately 1 minute = 2^10 = 64
 	uint64_t intervals_per_period (1 << (25 - interval_exponent));
 	rai::uint128_t result;
 	if (interval < intervals_per_period * 1)
 	{
-		// Total supply / 2^halfing period / intervals per period
+		// Total supply / 2^halving period / intervals per period
 		// 2^128 / 2^1 / (2^25 / 2^10)
 		result = rai::uint128_t (1) << (127 - (25 - interval_exponent)); // 50%
 	}

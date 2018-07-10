@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include <rai/secure.hpp>
+#include <rai/blockstore.hpp>
 #include <rai/versioning.hpp>
 
 TEST (versioning, account_info_v1)

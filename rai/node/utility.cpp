@@ -1,15 +1,59 @@
-#include <rai/node/utility.hpp>
-
 #include <rai/lib/interface.h>
+#include <rai/node/utility.hpp>
+#include <rai/node/working.hpp>
 
 #include <lmdb/libraries/liblmdb/lmdb.h>
 
 #include <ed25519-donna/ed25519.h>
 
+static std::vector<boost::filesystem::path> all_unique_paths;
+
+boost::filesystem::path rai::working_path ()
+{
+	auto result (rai::app_path ());
+	switch (rai::rai_network)
+	{
+		case rai::rai_networks::rai_test_network:
+			result /= "RaiBlocksTest";
+			break;
+		case rai::rai_networks::rai_beta_network:
+			result /= "RaiBlocksBeta";
+			break;
+		case rai::rai_networks::rai_live_network:
+			result /= "RaiBlocks";
+			break;
+	}
+	return result;
+}
+
 boost::filesystem::path rai::unique_path ()
 {
 	auto result (working_path () / boost::filesystem::unique_path ());
+	all_unique_paths.push_back (result);
 	return result;
+}
+
+std::vector<boost::filesystem::path> rai::remove_temporary_directories ()
+{
+	for (auto & path : all_unique_paths)
+	{
+		boost::system::error_code ec;
+		boost::filesystem::remove_all (path, ec);
+		if (ec)
+		{
+			std::cerr << "Could not remove temporary directory: " << ec.message () << std::endl;
+		}
+
+		// lmdb creates a -lock suffixed file for its MDB_NOSUBDIR databases
+		auto lockfile = path;
+		lockfile += "-lock";
+		boost::filesystem::remove (lockfile, ec);
+		if (ec)
+		{
+			std::cerr << "Could not remove temporary lock file: " << ec.message () << std::endl;
+		}
+	}
+	return all_unique_paths;
 }
 
 rai::mdb_env::mdb_env (bool & error_a, boost::filesystem::path const & path_a, int max_dbs)
@@ -24,7 +68,7 @@ rai::mdb_env::mdb_env (bool & error_a, boost::filesystem::path const & path_a, i
 			assert (status1 == 0);
 			auto status2 (mdb_env_set_maxdbs (environment, max_dbs));
 			assert (status2 == 0);
-			auto status3 (mdb_env_set_mapsize (environment, 1ULL * 1024 * 1024 * 1024 * 1024)); // 1 Terabyte
+			auto status3 (mdb_env_set_mapsize (environment, 1ULL * 1024 * 1024 * 1024 * 128)); // 128 Gigabyte
 			assert (status3 == 0);
 			// It seems if there's ever more threads than mdb_env_set_maxreaders has read slots available, we get failures on transaction creation unless MDB_NOTLS is specified
 			// This can happen if something like 256 io_threads are specified in the node config

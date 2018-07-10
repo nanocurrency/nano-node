@@ -24,9 +24,12 @@ using bufferstream = boost::iostreams::stream_buffer<boost::iostreams::basic_arr
 using vectorstream = boost::iostreams::stream_buffer<boost::iostreams::back_insert_device<std::vector<uint8_t>>>;
 // OS-specific way of finding a path to a home directory.
 boost::filesystem::path working_path ();
-// Get a unique path within the home directory, used for testing
+// Get a unique path within the home directory, used for testing.
+// Any directories created at this location will be removed when a test finishes.
 boost::filesystem::path unique_path ();
-// C++ stream are absolutely horrible so I need this helper function to do the most basic operation of creating a file if it doesn't exist or truntacing it.
+// Remove all unique tmp directories created by the process. The list of unique paths are returned.
+std::vector<boost::filesystem::path> remove_temporary_directories ();
+// C++ stream are absolutely horrible so I need this helper function to do the most basic operation of creating a file if it doesn't exist or truncating it.
 void open_or_create (std::fstream &, std::string const &);
 // Reads a json object from the stream and if was changed, write the object back to the stream
 template <typename T>
@@ -98,6 +101,9 @@ bool fetch_object (T & object, boost::filesystem::path const & path_a, std::fstr
 	return error;
 }
 
+/**
+ * RAII wrapper for MDB_env
+ */
 class mdb_env
 {
 public:
@@ -106,6 +112,10 @@ public:
 	operator MDB_env * () const;
 	MDB_env * environment;
 };
+
+/**
+ * Encapsulates MDB_val and provides uint256_union conversion of the data.
+ */
 class mdb_val
 {
 public:
@@ -121,6 +131,11 @@ public:
 	operator MDB_val const & () const;
 	MDB_val value;
 };
+
+/**
+ * RAII wrapper of MDB_txn where the constructor starts the transaction
+ * and the destructor commits it.
+ */
 class transaction
 {
 public:

@@ -1,8 +1,9 @@
 #pragma once
 
+#include <rai/blockstore.hpp>
+#include <rai/common.hpp>
 #include <rai/node/common.hpp>
 #include <rai/node/openclwork.hpp>
-#include <rai/secure.hpp>
 
 #include <mutex>
 #include <queue>
@@ -73,6 +74,7 @@ public:
 	rai::account representative (MDB_txn *);
 	void representative_set (MDB_txn *, rai::account const &);
 	rai::public_key insert_adhoc (MDB_txn *, rai::raw_key const &);
+	void insert_watch (MDB_txn *, rai::public_key const &);
 	void erase (MDB_txn *, rai::public_key const &);
 	rai::wallet_value entry_get_raw (MDB_txn *, rai::public_key const &);
 	void entry_put_raw (MDB_txn *, rai::public_key const &, rai::wallet_value const &);
@@ -122,7 +124,7 @@ class wallet : public std::enable_shared_from_this<rai::wallet>
 {
 public:
 	std::shared_ptr<rai::block> change_action (rai::account const &, rai::account const &, bool = true);
-	std::shared_ptr<rai::block> receive_action (rai::send_block const &, rai::account const &, rai::uint128_union const &, bool = true);
+	std::shared_ptr<rai::block> receive_action (rai::block const &, rai::account const &, rai::uint128_union const &, bool = true);
 	std::shared_ptr<rai::block> send_action (rai::account const &, rai::account const &, rai::uint128_t const &, bool = true, boost::optional<std::string> = {});
 	wallet (bool &, rai::transaction &, rai::node &, std::string const &);
 	wallet (bool &, rai::transaction &, rai::node &, std::string const &, std::string const &);
@@ -131,6 +133,7 @@ public:
 	bool enter_password (std::string const &);
 	rai::public_key insert_adhoc (rai::raw_key const &, bool = true);
 	rai::public_key insert_adhoc (MDB_txn *, rai::raw_key const &, bool = true);
+	void insert_watch (MDB_txn *, rai::public_key const &);
 	rai::public_key deterministic_insert (MDB_txn *, bool = true);
 	rai::public_key deterministic_insert (bool = true);
 	bool exists (rai::public_key const &);
@@ -142,10 +145,10 @@ public:
 	void receive_async (std::shared_ptr<rai::block>, rai::account const &, rai::uint128_t const &, std::function<void(std::shared_ptr<rai::block>)> const &, bool = true);
 	rai::block_hash send_sync (rai::account const &, rai::account const &, rai::uint128_t const &);
 	void send_async (rai::account const &, rai::account const &, rai::uint128_t const &, std::function<void(std::shared_ptr<rai::block>)> const &, bool = true, boost::optional<std::string> = {});
-	void work_generate (rai::account const &, rai::block_hash const &);
+	void work_apply (rai::account const &, std::function<void(uint64_t)>);
+	void work_cache_blocking (rai::account const &, rai::block_hash const &);
 	void work_update (MDB_txn *, rai::account const &, rai::block_hash const &, uint64_t);
-	uint64_t work_fetch (MDB_txn *, rai::account const &, rai::block_hash const &);
-	void work_ensure (MDB_txn *, rai::account const &);
+	void work_ensure (rai::account const &, rai::block_hash const &);
 	bool search_pending ();
 	void init_free_accounts (MDB_txn *);
 	/** Changes the wallet seed and returns the first account */
