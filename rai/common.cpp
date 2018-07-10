@@ -59,7 +59,7 @@ public:
 	rai_live_genesis (live_genesis_data),
 	genesis_account (rai::rai_network == rai::rai_networks::rai_test_network ? rai_test_account : rai::rai_network == rai::rai_networks::rai_beta_network ? rai_beta_account : rai_live_account),
 	genesis_block (rai::rai_network == rai::rai_networks::rai_test_network ? rai_test_genesis : rai::rai_network == rai::rai_networks::rai_beta_network ? rai_beta_genesis : rai_live_genesis),
-	genesis_amount (80000000),
+	genesis_amount (std::numeric_limits<rai::uint128_t>::max),
 	burn_account (0)
 	{
 		CryptoPP::AutoSeededRandomPool random_pool;
