@@ -1221,7 +1221,7 @@ rai::vote_code rai::vote_processor::vote (std::shared_ptr<rai::vote> vote_a, rai
 			rai::transaction transaction (node.store.environment, nullptr, false);
 			max_vote = node.store.vote_max (transaction, vote_a);
 		}
-		if (!node.active.vote (vote_a) || max_vote->sequence > vote_a->sequence)
+		if (!node.active.vote (vote_a) || max_vote->sequence < vote_a->sequence)
 		{
 			result = rai::vote_code::vote;
 		}
