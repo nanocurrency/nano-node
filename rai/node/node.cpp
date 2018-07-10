@@ -3514,8 +3514,11 @@ bool rai::election::vote (std::shared_ptr<rai::vote> vote_a)
 		{
 			last_votes[vote_a->account] = { std::chrono::steady_clock::now (), vote_a->sequence, vote_a->block->hash () };
 			node.network.republish_vote (vote_a);
-			votes.vote (vote_a);
-			confirm_if_quorum (transaction);
+			if (!confirmed)
+			{
+				votes.vote (vote_a);
+				confirm_if_quorum (transaction);
+			}
 		}
 	}
 	return replay;
