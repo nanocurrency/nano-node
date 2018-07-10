@@ -1061,7 +1061,7 @@ TEST (node, fork_pre_confirm)
 	{
 		system.poll ();
 		++iterations;
-		ASSERT_LT (iterations, 400);
+		ASSERT_LT (iterations, 600);
 	}
 	auto block1 (system.wallet (0)->send_action (rai::test_genesis_key.pub, key2.pub, rai::genesis_amount / 3));
 	ASSERT_NE (nullptr, block1);
@@ -1069,7 +1069,7 @@ TEST (node, fork_pre_confirm)
 	{
 		system.poll ();
 		++iterations;
-		ASSERT_LT (iterations, 400);
+		ASSERT_LT (iterations, 600);
 	}
 	rai::keypair key3;
 	rai::keypair key4;
