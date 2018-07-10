@@ -397,7 +397,7 @@ int main (int argc, char * const * argv)
 			}
 			else
 			{
-			std::cerr << "For this test ACTIVE_NETWORK should be rai_test_network" << std::endl;
+				std::cerr << "For this test ACTIVE_NETWORK should be rai_test_network" << std::endl;
 			}
 		}
 		else if (vm.count ("version"))
