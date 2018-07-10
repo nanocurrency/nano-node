@@ -487,7 +487,7 @@ TEST (logging, upgrade_v1_v2)
 	bool upgraded (false);
 	ASSERT_FALSE (logging2.deserialize_json (upgraded, tree));
 	ASSERT_LE (2, tree.get<int> ("version"));
-	ASSERT_EQ (false, tree.get<bool> ("vote"));
+	ASSERT_FALSE (tree.get<bool> ("vote"));
 }
 
 TEST (node, price)
