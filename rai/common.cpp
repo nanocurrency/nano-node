@@ -17,7 +17,7 @@ namespace
 char const * test_private_key_data = "34F0A37AAD20F4A260F0A5B3CB3D7FB50673212263E58A380BC10474BB039CE4";
 char const * test_public_key_data = "F51DC6662342670AFEAC7480EE1366AD9D421F96DE8CDC00E784ABBFD52E9388"; // xrb_1mfhnf6qw3kejz96aiqpwccmcy5x4ms9b3hz8bnijbf1hcxc93c3y67ig179
 char const * beta_public_key_data = "00683F9D5C2CB75A1560D1E4CB7836AA68F4520283A2D3B9060583168EA30861"; // xrb_1mfhnf6qw3kejz96aiqpwccmcy5x4ms9b3hz8bnijbf1hcxc93c3y67ig179
-char const * live_public_key_data = "F51DC6662342670AFEAC7480EE1366AD9D421F96DE8CDC00E784ABBFD52E9388"; // xrb_3t6k35gi95xu6tergt6p69ck76ogmitsa8mnijtpxm9fkcm736xtoncuohr3
+char const * live_public_key_data = "F5D210EF0BB1FB33ED90A0BBDFE4EF35DDCD090E20AEA6D42F873619B097163B"; // xrb_3t6k35gi95xu6tergt6p69ck76ogmitsa8mnijtpxm9fkcm736xtoncuohr3
 char const * test_genesis_data = R"%%%({
 	"type": "open",
 	"source": "F51DC6662342670AFEAC7480EE1366AD9D421F96DE8CDC00E784ABBFD52E9388",
@@ -37,12 +37,12 @@ char const * beta_genesis_data = R"%%%({
 })%%%";
 
 char const * live_genesis_data = R"%%%({
-	"type": "open",
-	"source": "F51DC6662342670AFEAC7480EE1366AD9D421F96DE8CDC00E784ABBFD52E9388",
-	"representative": "xrb_3xaxrsm48im93dzcrx61xrbpfdexaahsfqneui1gh37dqzckx6wam43k6ich",
-	"account": "xrb_3xaxrsm48im93dzcrx61xrbpfdexaahsfqneui1gh37dqzckx6wam43k6ich",
-	"work": "661e33441b9ffa79",
-	"signature": "B334B56AD89FDFA46CA5644833B9481587181E037A5FA487606202B4802E139305049EB496AD2E66CEF041E041ABD7450F899B0838E4A48674C840B0DFBD8B03"
+    "type": "open",
+    "source": "F5D210EF0BB1FB33ED90A0BBDFE4EF35DDCD090E20AEA6D42F873619B097163B",
+    "representative": "cec_3xgk45qiqehu8hps3a7uuzkgyfgxsn6iwa7gnuc4z3sp58rbg7jus38jpn7z",
+    "account": "cec_3xgk45qiqehu8hps3a7uuzkgyfgxsn6iwa7gnuc4z3sp58rbg7jus38jpn7z",
+    "work": "4641d7e18186410b",
+    "signature": "7EA4070B1EC9FE32EA5DECF8F349A6620CD766205FD7A677C2E05E768F35C8F7F965C7CB6B253838A2A22ACBDC6319C9266AAA04A1960BAFF8F6EF8A81183A0D"
 })%%%";
 
 class ledger_constants
