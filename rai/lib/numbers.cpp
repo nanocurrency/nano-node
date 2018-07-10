@@ -54,7 +54,7 @@ void rai::uint256_union::encode_account (std::string & destination_a) const
 		number_l >>= 5;
 		destination_a.push_back (account_encode (r));
 	}
-	destination_a.append ("_brx"); // xrb_
+	destination_a.append ("_cec"); // xrb_
 	std::reverse (destination_a.begin (), destination_a.end ());
 }
 
@@ -78,7 +78,7 @@ bool rai::uint256_union::decode_account (std::string const & source_a)
 	auto error (source_a.size () < 5);
 	if (!error)
 	{
-		auto xrb_prefix (source_a[0] == 'x' && source_a[1] == 'r' && source_a[2] == 'b' && (source_a[3] == '_' || source_a[3] == '-'));
+		auto xrb_prefix (source_a[0] == 'c' && source_a[1] == 'e' && source_a[2] == 'c' && (source_a[3] == '_' || source_a[3] == '-'));
 		auto nano_prefix (source_a[0] == 'n' && source_a[1] == 'a' && source_a[2] == 'n' && source_a[3] == 'o' && (source_a[4] == '_' || source_a[4] == '-'));
 		error = (xrb_prefix && source_a.size () != 64) || (nano_prefix && source_a.size () != 65);
 		if (!error)
