@@ -1790,10 +1790,13 @@ public:
 					tree.put ("subtype", "change");
 				}
 			}
-			else if (raw && balance == previous_balance && !handler.node.ledger.epoch_link.is_zero () && block_a.hashables.link == handler.node.ledger.epoch_link)
+			else if (balance == previous_balance && !handler.node.ledger.epoch_link.is_zero () && block_a.hashables.link == handler.node.ledger.epoch_link)
 			{
-				tree.put ("subtype", "epoch");
-				tree.put ("account", handler.node.ledger.epoch_signer.to_account ());
+				if (raw)
+				{
+					tree.put ("subtype", "epoch");
+					tree.put ("account", handler.node.ledger.epoch_signer.to_account ());
+				}
 			}
 			else
 			{
