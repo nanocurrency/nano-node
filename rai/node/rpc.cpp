@@ -1790,6 +1790,11 @@ public:
 					tree.put ("subtype", "change");
 				}
 			}
+			else if (balance == previous_balance && !handler.node.ledger.epoch_link.is_zero () && block_a.hashables.link == handler.node.ledger.epoch_link)
+			{
+				tree.put ("type", "epoch");
+				tree.put ("account", handler.node.ledger.epoch_signer.to_account ());
+			}
 			else
 			{
 				if (raw)
