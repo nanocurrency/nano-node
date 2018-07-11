@@ -492,7 +492,7 @@ bool rai::wallet_store::fetch (MDB_txn * transaction_a, rai::public_key const & 
 				{
 					rai::raw_key seed_l;
 					seed (seed_l, transaction_a);
-					uint32_t index (value.key.number ().convert_to<uint32_t> ());
+					uint32_t index ((value.key.number () & (uint32_t)-1).convert_to<uint32_t> ());
 					deterministic_key (prv, transaction_a, index);
 					break;
 				}
