@@ -28,6 +28,7 @@ int main (int argc, char * const * argv)
 		("debug_profile_verify", "Profile work verification")
 		("debug_profile_kdf", "Profile kdf function")
 		("debug_verify_profile", "Profile signature verification")
+		("debug_verify_profile_batch", "Profile batch signature verification")
 		("debug_profile_sign", "Profile signature generation")
 		("platform", boost::program_options::value<std::string> (), "Defines the <platform> for OpenCL commands")
 		("device", boost::program_options::value<std::string> (), "Defines <device> for OpenCL command")
@@ -305,6 +306,22 @@ int main (int argc, char * const * argv)
 			}
 			auto end (std::chrono::high_resolution_clock::now ());
 			std::cerr << "Signature verifications " << std::chrono::duration_cast<std::chrono::microseconds> (end - begin).count () << std::endl;
+		}
+		else if (vm.count ("debug_verify_profile_batch"))
+		{
+			rai::keypair key;
+			rai::uint256_union message;
+			rai::uint512_union signature;
+			signature = rai::sign_message (key.prv, key.pub, message);
+			size_t batch_count (1000);
+			std::vector<rai::public_key> public_keys (batch_count, key.pub);
+			std::vector<rai::uint256_union> messages (batch_count, message);
+			std::vector<rai::uint512_union> signatures (batch_count, signature);
+			int valid[batch_count];
+			auto begin (std::chrono::high_resolution_clock::now ());
+			auto result (rai::validate_messages (public_keys, messages, signatures, batch_count, valid));
+			auto end (std::chrono::high_resolution_clock::now ());
+			std::cerr << "Batch signature verifications " << std::chrono::duration_cast<std::chrono::microseconds> (end - begin).count () << std::endl;
 		}
 		else if (vm.count ("debug_profile_sign"))
 		{
