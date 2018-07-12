@@ -54,7 +54,7 @@ run_tests() {
     echo "Core Test return code: ${core_test_res}"
     echo "QT Test return code: ${qt_test_res}"
     echo "Load Test return code: ${load_test_res}"
-    return $((${core_test_res} + ${qt_test_res} + ${load_test_res}))
+    return ${core_test_res}
 }
 
 cd ${build_dir}
