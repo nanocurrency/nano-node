@@ -2736,10 +2736,18 @@ public:
 
 void rai::node::process_confirmed (std::shared_ptr<rai::block> block_a)
 {
-	rai::transaction transaction (store.environment, nullptr, false);
 	auto hash (block_a->hash ());
-	if (store.block_exists (transaction, hash))
+	bool exists (ledger.block_exists (hash));
+	// Attempt to process confirmed block if it's not in ledger yet
+	if (!exists)
 	{
+		rai::transaction transaction (store.environment, nullptr, true);
+		block_processor.process_receive_one (transaction, block_a);
+		exists = store.block_exists (transaction, hash);
+	}
+	if (exists)
+	{
+		rai::transaction transaction (store.environment, nullptr, false);
 		confirmed_visitor visitor (transaction, *this, block_a, hash);
 		block_a->visit (visitor);
 		auto account (ledger.account (transaction, hash));
@@ -2748,7 +2756,6 @@ void rai::node::process_confirmed (std::shared_ptr<rai::block> block_a)
 		rai::account pending_account (0);
 		if (auto state = dynamic_cast<rai::state_block *> (block_a.get ()))
 		{
-			rai::transaction transaction (store.environment, nullptr, false);
 			is_state_send = ledger.is_send (transaction, *state);
 			pending_account = state->hashables.link;
 		}
@@ -3508,7 +3515,10 @@ bool rai::election::vote (std::shared_ptr<rai::vote> vote_a)
 			last_votes[vote_a->account] = { std::chrono::steady_clock::now (), vote_a->sequence, vote_a->block->hash () };
 			node.network.republish_vote (vote_a);
 			votes.vote (vote_a);
-			confirm_if_quorum (transaction);
+			if (!confirmed)
+			{
+				confirm_if_quorum (transaction);
+			}
 		}
 	}
 	return replay;
@@ -3525,7 +3535,7 @@ void rai::active_transactions::announce_votes ()
 	for (auto i (roots.begin ()), n (roots.end ()); i != n; ++i)
 	{
 		auto election_l (i->election);
-		if (!node.store.root_exists (transaction, election_l->votes.id) || (election_l->confirmed && i->announcements >= announcement_min - 1))
+		if ((!node.store.root_exists (transaction, election_l->votes.id) || election_l->confirmed) && i->announcements >= announcement_min - 1)
 		{
 			if (election_l->confirmed)
 			{

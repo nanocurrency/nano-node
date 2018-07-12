@@ -534,7 +534,7 @@ bool rai::wallet_store::fetch (MDB_txn * transaction_a, rai::public_key const & 
 
 bool rai::wallet_store::exists (MDB_txn * transaction_a, rai::public_key const & pub)
 {
-	return find (transaction_a, pub) != end ();
+	return !pub.is_zero () && find (transaction_a, pub) != end ();
 }
 
 void rai::wallet_store::serialize_json (MDB_txn * transaction_a, std::string & string_a)

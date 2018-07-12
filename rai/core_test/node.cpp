@@ -125,7 +125,7 @@ TEST (node, send_single_observing_peer)
 	}
 }
 
-TEST (node, DISABLED_send_single_many_peers)
+TEST (node, send_single_many_peers)
 {
 	rai::system system (24000, 10);
 	rai::keypair key2;
@@ -472,7 +472,7 @@ TEST (logging, serialization)
 	ASSERT_EQ (logging1.max_size, logging2.max_size);
 }
 
-TEST (logging, DISABLED_upgrade_v1_v2)
+TEST (logging, upgrade_v1_v2)
 {
 	auto path1 (rai::unique_path ());
 	auto path2 (rai::unique_path ());
@@ -486,8 +486,8 @@ TEST (logging, DISABLED_upgrade_v1_v2)
 	tree.erase ("vote");
 	bool upgraded (false);
 	ASSERT_FALSE (logging2.deserialize_json (upgraded, tree));
-	ASSERT_EQ ("2", tree.get<std::string> ("version"));
-	ASSERT_EQ (false, tree.get<bool> ("vote"));
+	ASSERT_LE (2, tree.get<int> ("version"));
+	ASSERT_FALSE (tree.get<bool> ("vote"));
 }
 
 TEST (node, price)
@@ -1061,7 +1061,7 @@ TEST (node, fork_pre_confirm)
 	{
 		system.poll ();
 		++iterations;
-		ASSERT_LT (iterations, 400);
+		ASSERT_LT (iterations, 600);
 	}
 	auto block1 (system.wallet (0)->send_action (rai::test_genesis_key.pub, key2.pub, rai::genesis_amount / 3));
 	ASSERT_NE (nullptr, block1);
@@ -1069,7 +1069,7 @@ TEST (node, fork_pre_confirm)
 	{
 		system.poll ();
 		++iterations;
-		ASSERT_LT (iterations, 400);
+		ASSERT_LT (iterations, 600);
 	}
 	rai::keypair key3;
 	rai::keypair key4;
@@ -1360,7 +1360,7 @@ TEST (node, DISABLED_unconfirmed_send)
 		ASSERT_GT (200, iterations0);
 	}
 	auto latest (node1.latest (key0.pub));
-	rai::send_block send2 (latest, rai::genesis_account, rai::Mxrb_ratio, key0.prv, key0.pub, node0.work_generate_blocking (latest));
+	rai::state_block send2 (key0.pub, latest, rai::genesis_account, rai::Mxrb_ratio, rai::genesis_account, key0.prv, key0.pub, node0.work_generate_blocking (latest));
 	{
 		rai::transaction transaction (node1.store.environment, nullptr, true);
 		ASSERT_EQ (rai::process_result::progress, node1.ledger.process (transaction, send2).code);
