@@ -87,7 +87,7 @@ void rai::wallet_store::deterministic_key (rai::raw_key & prv_a, MDB_txn * trans
 uint32_t rai::wallet_store::deterministic_index_get (MDB_txn * transaction_a)
 {
 	rai::wallet_value value (entry_get_raw (transaction_a, rai::wallet_store::deterministic_index_special));
-	return value.key.number ().convert_to<uint32_t> ();
+	return static_cast<uint32_t> (value.key.number () & static_cast<uint32_t> (-1));
 }
 
 void rai::wallet_store::deterministic_index_set (MDB_txn * transaction_a, uint32_t index_a)
@@ -492,7 +492,7 @@ bool rai::wallet_store::fetch (MDB_txn * transaction_a, rai::public_key const & 
 				{
 					rai::raw_key seed_l;
 					seed (seed_l, transaction_a);
-					uint32_t index (value.key.number ().convert_to<uint32_t> ());
+					uint32_t index (static_cast<uint32_t> (value.key.number () & static_cast<uint32_t> (-1)));
 					deterministic_key (prv, transaction_a, index);
 					break;
 				}
