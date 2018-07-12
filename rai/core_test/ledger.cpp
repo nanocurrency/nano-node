@@ -567,6 +567,8 @@ TEST (system, generate_send_existing)
 	rai::system system (24000, 1);
 	rai::thread_runner runner (system.service, system.nodes[0]->config.io_threads);
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	rai::keypair stake_preserver;
+	auto send_block (system.wallet (0)->send_action (rai::genesis_account, stake_preserver.pub, rai::genesis_amount / 3 * 2, true));
 	rai::account_info info1;
 	{
 		rai::transaction transaction (system.wallet (0)->store.environment, nullptr, false);
@@ -575,6 +577,14 @@ TEST (system, generate_send_existing)
 	std::vector<rai::account> accounts;
 	accounts.push_back (rai::test_genesis_key.pub);
 	system.generate_send_existing (*system.nodes[0], accounts);
+	// Have stake_preserver receive funds after generate_send_existing so it isn't chosen as the destination
+	{
+		rai::transaction transaction (system.nodes[0]->store.environment, nullptr, true);
+		auto open_block (std::make_shared<rai::open_block> (send_block->hash (), rai::genesis_account, stake_preserver.pub, stake_preserver.prv, stake_preserver.pub, 0));
+		system.nodes[0]->work_generate_blocking (*open_block);
+		ASSERT_EQ (rai::process_result::progress, system.nodes[0]->ledger.process (transaction, *open_block).code);
+	}
+	ASSERT_GT (system.nodes[0]->balance (stake_preserver.pub), system.nodes[0]->balance (rai::genesis_account));
 	rai::account_info info2;
 	{
 		rai::transaction transaction (system.wallet (0)->store.environment, nullptr, false);
@@ -582,14 +592,14 @@ TEST (system, generate_send_existing)
 	}
 	ASSERT_NE (info1.head, info2.head);
 	auto iterations1 (0);
-	while (system.nodes[0]->balance (rai::test_genesis_key.pub) == rai::genesis_amount)
+	while (system.nodes[0]->balance (rai::test_genesis_key.pub) == rai::genesis_amount / 3)
 	{
 		system.poll ();
 		++iterations1;
 		ASSERT_LT (iterations1, 200);
 	}
 	auto iterations2 (0);
-	while (system.nodes[0]->balance (rai::test_genesis_key.pub) != rai::genesis_amount)
+	while (system.nodes[0]->balance (rai::test_genesis_key.pub) != rai::genesis_amount / 3)
 	{
 		system.poll ();
 		++iterations2;
@@ -611,6 +621,15 @@ TEST (system, generate_send_new)
 		++iterator1;
 		ASSERT_EQ (system.nodes[0]->store.latest_end (), iterator1);
 	}
+	rai::keypair stake_preserver;
+	auto send_block (system.wallet (0)->send_action (rai::genesis_account, stake_preserver.pub, rai::genesis_amount / 3 * 2, true));
+	{
+		rai::transaction transaction (system.nodes[0]->store.environment, nullptr, true);
+		auto open_block (std::make_shared<rai::open_block> (send_block->hash (), rai::genesis_account, stake_preserver.pub, stake_preserver.prv, stake_preserver.pub, 0));
+		system.nodes[0]->work_generate_blocking (*open_block);
+		ASSERT_EQ (rai::process_result::progress, system.nodes[0]->ledger.process (transaction, *open_block).code);
+	}
+	ASSERT_GT (system.nodes[0]->balance (stake_preserver.pub), system.nodes[0]->balance (rai::genesis_account));
 	std::vector<rai::account> accounts;
 	accounts.push_back (rai::test_genesis_key.pub);
 	system.generate_send_new (*system.nodes[0], accounts);

@@ -223,6 +223,8 @@ TEST (network, send_valid_confirm_ack)
 TEST (network, send_valid_publish)
 {
 	rai::system system (24000, 2);
+	system.nodes[0]->bootstrap_initiator.stop ();
+	system.nodes[1]->bootstrap_initiator.stop ();
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	rai::keypair key2;
 	system.wallet (1)->insert_adhoc (key2.prv);
@@ -238,9 +240,14 @@ TEST (network, send_valid_publish)
 		++iterations;
 		ASSERT_LT (iterations, 200);
 	}
-	rai::block_hash latest3 (system.nodes[1]->latest (rai::test_genesis_key.pub));
-	ASSERT_NE (latest2, latest3);
-	ASSERT_EQ (hash2, latest3);
+	ASSERT_NE (hash2, latest2);
+	auto iterations2 (0);
+	while (system.nodes[1]->latest (rai::test_genesis_key.pub) == latest2)
+	{
+		system.poll ();
+		++iterations2;
+		ASSERT_LT (iterations2, 200);
+	}
 	ASSERT_EQ (50, system.nodes[1]->balance (rai::test_genesis_key.pub));
 }
 

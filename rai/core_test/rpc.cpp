@@ -1164,7 +1164,11 @@ TEST (rpc, payment_begin_end)
 	auto root1 (system.nodes[0]->ledger.latest_root (rai::transaction (wallet->store.environment, nullptr, false), account));
 	uint64_t work (0);
 	auto iteration (0);
-	ASSERT_TRUE (rai::work_validate (root1, work));
+	while (!rai::work_validate (root1, work))
+	{
+		++work;
+		ASSERT_LT (work, 50);
+	}
 	while (rai::work_validate (root1, work))
 	{
 		system.poll ();

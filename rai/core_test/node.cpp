@@ -1034,7 +1034,8 @@ TEST (node, fork_no_vote_quorum)
 	ASSERT_TRUE (node3.latest (rai::test_genesis_key.pub) == send1.hash ());
 }
 
-TEST (node, fork_pre_confirm)
+// Disabled because it sometimes takes way too long (but still eventually finishes)
+TEST (node, DISABLED_fork_pre_confirm)
 {
 	rai::system system (24000, 3);
 	auto & node0 (*system.nodes[0]);
@@ -1091,7 +1092,8 @@ TEST (node, fork_pre_confirm)
 	}
 }
 
-TEST (node, fork_stale)
+// Sometimes hangs on the bootstrap_initiator.bootstrap call
+TEST (node, DISABLED_fork_stale)
 {
 	rai::system system1 (24000, 1);
 	system1.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
