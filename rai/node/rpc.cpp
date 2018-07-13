@@ -1892,17 +1892,15 @@ void rai::rpc_handler::ledger ()
 		boost::optional<std::string> account_text (request.get_optional<std::string> ("account"));
 		if (account_text.is_initialized ())
 		{
-			auto error (start.decode_account (account_text.get ()));
-			if (error)
+			if (start.decode_account (account_text.get ()))
 			{
-				error_response (response, "Invalid starting account");
+				ec = nano::error_common::bad_account_number;
 			}
 		}
 		boost::optional<std::string> count_text (request.get_optional<std::string> ("count"));
-		if (count_text.is_initialized ())
+		if (!ec && count_text.is_initialized ())
 		{
-			auto error_count (decode_unsigned (count_text.get (), count));
-			if (error_count)
+			if (decode_unsigned (count_text.get (), count))
 			{
 				ec = nano::error_common::invalid_count;
 			}
@@ -1919,7 +1917,7 @@ void rai::rpc_handler::ledger ()
 		const bool pending = request.get<bool> ("pending", false);
 		boost::property_tree::ptree accounts;
 		rai::transaction transaction (node.store.environment, nullptr, false);
-		if (!sorting) // Simple
+		if (!ec && !sorting) // Simple
 		{
 			for (auto i (node.store.latest_begin (transaction, start)), n (node.store.latest_end ()); i != n && accounts.size () < count; ++i)
 			{
@@ -1956,7 +1954,7 @@ void rai::rpc_handler::ledger ()
 				}
 			}
 		}
-		else // Sorting
+		else if (!ec) // Sorting
 		{
 			std::vector<std::pair<rai::uint128_union, rai::account>> ledger_l;
 			for (auto i (node.store.latest_begin (transaction, start)), n (node.store.latest_end ()); i != n; ++i)
@@ -2562,8 +2560,7 @@ void rai::rpc_handler::receive ()
 				if (!account.decode_account (account_text))
 				{
 					rai::transaction transaction (node.store.environment, nullptr, false);
-					auto account_check (existing->second->store.find (transaction, account));
-					if (account_check != existing->second->store.end ())
+					if (existing->second->store.find (transaction, account) != existing->second->store.end ())
 					{
 						std::string hash_text (request.get<std::string> ("block"));
 						rai::uint256_union hash;
@@ -2833,8 +2830,7 @@ void rai::rpc_handler::republish ()
 					auto destination (node.ledger.block_destination (transaction, *block_b));
 					if (!destination.is_zero ())
 					{
-						auto exists (node.store.pending_exists (transaction, rai::pending_key (destination, hash)));
-						if (!exists)
+						if (!node.store.pending_exists (transaction, rai::pending_key (destination, hash)))
 						{
 							rai::block_hash previous (node.ledger.latest (transaction, destination));
 							std::unique_ptr<rai::block> block_d (node.store.block_get (transaction, previous));
@@ -2934,13 +2930,11 @@ void rai::rpc_handler::send ()
 			{
 				std::string source_text (request.get<std::string> ("source"));
 				rai::account source;
-				auto error (source.decode_account (source_text));
-				if (!error)
+				if (!source.decode_account (source_text))
 				{
 					std::string destination_text (request.get<std::string> ("destination"));
 					rai::account destination;
-					auto error (destination.decode_account (destination_text));
-					if (!error)
+					if (!destination.decode_account (destination_text))
 					{
 						std::string amount_text (request.get<std::string> ("amount"));
 						rai::amount amount;
