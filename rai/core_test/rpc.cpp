@@ -3511,7 +3511,7 @@ TEST (rpc, wallet_ledger)
 		std::string balance_text (accounts.second.get<std::string> ("balance"));
 		ASSERT_EQ ("340282366920938463463374607431768211355", balance_text);
 		std::string modified_timestamp (accounts.second.get<std::string> ("modified_timestamp"));
-		ASSERT_EQ (std::to_string (time), modified_timestamp);
+		ASSERT_LT (std::abs ((long)time - stol (modified_timestamp)), 5);
 		std::string block_count (accounts.second.get<std::string> ("block_count"));
 		ASSERT_EQ ("1", block_count);
 		boost::optional<std::string> weight (accounts.second.get_optional<std::string> ("weight"));
