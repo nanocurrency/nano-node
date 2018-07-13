@@ -1,7 +1,7 @@
 #pragma once
 
-#include <rai/secure/common.hpp>
 #include <rai/lib/interface.h>
+#include <rai/secure/common.hpp>
 
 #include <boost/asio.hpp>
 
