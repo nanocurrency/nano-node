@@ -1483,10 +1483,9 @@ void rai::rpc_handler::deterministic_key ()
 
 void rai::rpc_handler::frontiers ()
 {
-	std::string account_text (request.get<std::string> ("account"));
 	std::string count_text (request.get<std::string> ("count"));
-	rai::account start;
-	if (!start.decode_account (account_text))
+	auto start (account_impl ());
+	if (!ec)
 	{
 		uint64_t count;
 		if (!decode_unsigned (count_text, count))
@@ -1503,10 +1502,6 @@ void rai::rpc_handler::frontiers ()
 		{
 			ec = nano::error_common::invalid_count;
 		}
-	}
-	else
-	{
-		ec = nano::error_common::bad_account_number;
 	}
 	response_errors ();
 }
@@ -2218,61 +2213,38 @@ void rai::rpc_handler::payment_init ()
 
 void rai::rpc_handler::payment_end ()
 {
-	std::string id_text (request.get<std::string> ("wallet"));
-	std::string account_text (request.get<std::string> ("account"));
-	rai::uint256_union id;
-	if (!id.decode_hex (id_text))
+	auto account (account_impl ());
+	auto wallet (wallet_impl ());
+	if (!ec)
 	{
 		rai::transaction transaction (node.store.environment, nullptr, false);
-		auto existing (node.wallets.items.find (id));
-		if (existing != node.wallets.items.end ())
+		auto existing (wallet->store.find (transaction, account));
+		if (existing != wallet->store.end ())
 		{
-			auto wallet (existing->second);
-			rai::account account;
-			if (!account.decode_account (account_text))
+			if (node.ledger.account_balance (transaction, account).is_zero ())
 			{
-				auto existing (wallet->store.find (transaction, account));
-				if (existing != wallet->store.end ())
-				{
-					if (node.ledger.account_balance (transaction, account).is_zero ())
-					{
-						wallet->free_accounts.insert (account);
-						response_l.put ("ended", "1");
-					}
-					else
-					{
-						ec = nano::error_rpc::payment_account_balance;
-					}
-				}
-				else
-				{
-					ec = nano::error_common::account_not_found_wallet;
-				}
+				wallet->free_accounts.insert (account);
+				response_l.put ("ended", "1");
 			}
 			else
 			{
-				ec = nano::error_common::bad_account_number;
+				ec = nano::error_rpc::payment_account_balance;
 			}
 		}
 		else
 		{
-			ec = nano::error_common::wallet_not_found;
+			ec = nano::error_common::account_not_found_wallet;
 		}
-	}
-	else
-	{
-		ec = nano::error_common::bad_wallet_number;
 	}
 	response_errors ();
 }
 
 void rai::rpc_handler::payment_wait ()
 {
-	std::string account_text (request.get<std::string> ("account"));
 	std::string amount_text (request.get<std::string> ("amount"));
 	std::string timeout_text (request.get<std::string> ("timeout"));
-	rai::uint256_union account;
-	if (!account.decode_account (account_text))
+	auto account (account_impl ());
+	if (!ec)
 	{
 		rai::uint128_union amount;
 		if (!amount.decode_dec (amount_text))
@@ -2298,10 +2270,6 @@ void rai::rpc_handler::payment_wait ()
 		{
 			ec = nano::error_common::invalid_amount;
 		}
-	}
-	else
-	{
-		ec = nano::error_common::bad_account_number;
 	}
 	if (ec)
 	{
