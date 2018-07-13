@@ -258,6 +258,20 @@ rai::account rai::rpc_handler::account_impl ()
 	return result;
 }
 
+uint64_t rai::rpc_handler::count_impl ()
+{
+	uint64_t result (0);
+	if (!ec)
+	{
+		std::string count_text (request.get<std::string> ("count"));
+		if (decode_unsigned (count_text, result) || result == 0)
+		{
+			ec = nano::error_common::invalid_count;
+		}
+	}
+	return result;
+}
+
 namespace
 {
 bool decode_unsigned (std::string const & text, uint64_t & number)
@@ -648,30 +662,22 @@ void rai::rpc_handler::accounts_create ()
 	if (rpc.config.enable_control)
 	{
 		auto wallet (wallet_impl ());
+		auto count (count_impl ());
 		if (!ec)
 		{
-			uint64_t count;
-			std::string count_text (request.get<std::string> ("count"));
-			if (!decode_unsigned (count_text, count) && count != 0)
+			const bool generate_work = request.get<bool> ("work", false);
+			boost::property_tree::ptree accounts;
+			for (auto i (0); accounts.size () < count; ++i)
 			{
-				const bool generate_work = request.get<bool> ("work", false);
-				boost::property_tree::ptree accounts;
-				for (auto i (0); accounts.size () < count; ++i)
+				rai::account new_key (wallet->deterministic_insert (generate_work));
+				if (!new_key.is_zero ())
 				{
-					rai::account new_key (wallet->deterministic_insert (generate_work));
-					if (!new_key.is_zero ())
-					{
-						boost::property_tree::ptree entry;
-						entry.put ("", new_key.to_account ());
-						accounts.push_back (std::make_pair ("", entry));
-					}
+					boost::property_tree::ptree entry;
+					entry.put ("", new_key.to_account ());
+					accounts.push_back (std::make_pair ("", entry));
 				}
-				response_l.add_child ("accounts", accounts);
 			}
-			else
-			{
-				ec = nano::error_common::invalid_count;
-			}
+			response_l.add_child ("accounts", accounts);
 		}
 	}
 	else
@@ -1344,12 +1350,11 @@ void rai::rpc_handler::bootstrap_any ()
 void rai::rpc_handler::chain (bool successors)
 {
 	std::string block_text (request.get<std::string> ("block"));
-	std::string count_text (request.get<std::string> ("count"));
 	rai::block_hash block;
 	if (!block.decode_hex (block_text))
 	{
-		uint64_t count;
-		if (!decode_unsigned (count_text, count))
+		auto count (count_impl ());
+		if (!ec)
 		{
 			boost::property_tree::ptree blocks;
 			rai::transaction transaction (node.store.environment, nullptr, false);
@@ -1369,10 +1374,6 @@ void rai::rpc_handler::chain (bool successors)
 				}
 			}
 			response_l.add_child ("blocks", blocks);
-		}
-		else
-		{
-			ec = nano::error_common::invalid_count;
 		}
 	}
 	else
@@ -1483,25 +1484,17 @@ void rai::rpc_handler::deterministic_key ()
 
 void rai::rpc_handler::frontiers ()
 {
-	std::string count_text (request.get<std::string> ("count"));
 	auto start (account_impl ());
+	auto count (count_impl ());
 	if (!ec)
 	{
-		uint64_t count;
-		if (!decode_unsigned (count_text, count))
+		boost::property_tree::ptree frontiers;
+		rai::transaction transaction (node.store.environment, nullptr, false);
+		for (auto i (node.store.latest_begin (transaction, start)), n (node.store.latest_end ()); i != n && frontiers.size () < count; ++i)
 		{
-			boost::property_tree::ptree frontiers;
-			rai::transaction transaction (node.store.environment, nullptr, false);
-			for (auto i (node.store.latest_begin (transaction, start)), n (node.store.latest_end ()); i != n && frontiers.size () < count; ++i)
-			{
-				frontiers.put (rai::account (i->first.uint256 ()).to_account (), rai::account_info (i->second).head.to_string ());
-			}
-			response_l.add_child ("frontiers", frontiers);
+			frontiers.put (rai::account (i->first.uint256 ()).to_account (), rai::account_info (i->second).head.to_string ());
 		}
-		else
-		{
-			ec = nano::error_common::invalid_count;
-		}
+		response_l.add_child ("frontiers", frontiers);
 	}
 	response_errors ();
 }
@@ -1649,7 +1642,6 @@ public:
 void rai::rpc_handler::account_history ()
 {
 	std::string account_text;
-	std::string count_text (request.get<std::string> ("count"));
 	bool output_raw (request.get_optional<bool> ("raw") == true);
 	rai::block_hash hash;
 	auto head_str (request.get_optional<std::string> ("head"));
@@ -1678,58 +1670,51 @@ void rai::rpc_handler::account_history ()
 			ec = nano::error_common::bad_account_number;
 		}
 	}
+	auto count (count_impl ());
 	if (!ec)
 	{
-		uint64_t count;
-		if (!decode_unsigned (count_text, count))
+		uint64_t offset = 0;
+		auto offset_text (request.get_optional<std::string> ("offset"));
+		if (!offset_text || !decode_unsigned (*offset_text, offset))
 		{
-			uint64_t offset = 0;
-			auto offset_text (request.get_optional<std::string> ("offset"));
-			if (!offset_text || !decode_unsigned (*offset_text, offset))
+			boost::property_tree::ptree history;
+			response_l.put ("account", account_text);
+			auto block (node.store.block_get (transaction, hash));
+			while (block != nullptr && count > 0)
 			{
-				boost::property_tree::ptree history;
-				response_l.put ("account", account_text);
-				auto block (node.store.block_get (transaction, hash));
-				while (block != nullptr && count > 0)
+				if (offset > 0)
 				{
-					if (offset > 0)
+					--offset;
+				}
+				else
+				{
+					boost::property_tree::ptree entry;
+					history_visitor visitor (*this, output_raw, transaction, entry, hash);
+					block->visit (visitor);
+					if (!entry.empty ())
 					{
-						--offset;
-					}
-					else
-					{
-						boost::property_tree::ptree entry;
-						history_visitor visitor (*this, output_raw, transaction, entry, hash);
-						block->visit (visitor);
-						if (!entry.empty ())
+						entry.put ("hash", hash.to_string ());
+						if (output_raw)
 						{
-							entry.put ("hash", hash.to_string ());
-							if (output_raw)
-							{
-								entry.put ("work", rai::to_string_hex (block->block_work ()));
-								entry.put ("signature", block->block_signature ().to_string ());
-							}
-							history.push_back (std::make_pair ("", entry));
+							entry.put ("work", rai::to_string_hex (block->block_work ()));
+							entry.put ("signature", block->block_signature ().to_string ());
 						}
-						--count;
+						history.push_back (std::make_pair ("", entry));
 					}
-					hash = block->previous ();
-					block = node.store.block_get (transaction, hash);
+					--count;
 				}
-				response_l.add_child ("history", history);
-				if (!hash.is_zero ())
-				{
-					response_l.put ("previous", hash.to_string ());
-				}
+				hash = block->previous ();
+				block = node.store.block_get (transaction, hash);
 			}
-			else
+			response_l.add_child ("history", history);
+			if (!hash.is_zero ())
 			{
-				ec = nano::error_rpc::invalid_offset;
+				response_l.put ("previous", hash.to_string ());
 			}
 		}
 		else
 		{
-			ec = nano::error_common::invalid_count;
+			ec = nano::error_rpc::invalid_offset;
 		}
 	}
 	response_errors ();
@@ -3498,42 +3483,34 @@ void rai::rpc_handler::wallet_republish ()
 	if (rpc.config.enable_control)
 	{
 		auto wallet (wallet_impl ());
+		auto count (count_impl ());
 		if (!ec)
 		{
-			uint64_t count;
-			std::string count_text (request.get<std::string> ("count"));
-			if (!decode_unsigned (count_text, count))
+			boost::property_tree::ptree blocks;
+			rai::transaction transaction (node.store.environment, nullptr, false);
+			for (auto i (wallet->store.begin (transaction)), n (wallet->store.end ()); i != n; ++i)
 			{
-				boost::property_tree::ptree blocks;
-				rai::transaction transaction (node.store.environment, nullptr, false);
-				for (auto i (wallet->store.begin (transaction)), n (wallet->store.end ()); i != n; ++i)
+				rai::account account (i->first.uint256 ());
+				auto latest (node.ledger.latest (transaction, account));
+				std::unique_ptr<rai::block> block;
+				std::vector<rai::block_hash> hashes;
+				while (!latest.is_zero () && hashes.size () < count)
 				{
-					rai::account account (i->first.uint256 ());
-					auto latest (node.ledger.latest (transaction, account));
-					std::unique_ptr<rai::block> block;
-					std::vector<rai::block_hash> hashes;
-					while (!latest.is_zero () && hashes.size () < count)
-					{
-						hashes.push_back (latest);
-						block = node.store.block_get (transaction, latest);
-						latest = block->previous ();
-					}
-					std::reverse (hashes.begin (), hashes.end ());
-					for (auto & hash : hashes)
-					{
-						block = node.store.block_get (transaction, hash);
-						node.network.republish_block (transaction, std::move (block));
-						boost::property_tree::ptree entry;
-						entry.put ("", hash.to_string ());
-						blocks.push_back (std::make_pair ("", entry));
-					}
+					hashes.push_back (latest);
+					block = node.store.block_get (transaction, latest);
+					latest = block->previous ();
 				}
-				response_l.add_child ("blocks", blocks);
+				std::reverse (hashes.begin (), hashes.end ());
+				for (auto & hash : hashes)
+				{
+					block = node.store.block_get (transaction, hash);
+					node.network.republish_block (transaction, std::move (block));
+					boost::property_tree::ptree entry;
+					entry.put ("", hash.to_string ());
+					blocks.push_back (std::make_pair ("", entry));
+				}
 			}
-			else
-			{
-				ec = nano::error_common::invalid_count;
-			}
+			response_l.add_child ("blocks", blocks);
 		}
 	}
 	else

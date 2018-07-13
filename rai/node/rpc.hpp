@@ -222,6 +222,7 @@ public:
 	boost::property_tree::ptree response_l;
 	std::shared_ptr<rai::wallet> wallet_impl ();
 	rai::account account_impl ();
+	uint64_t count_impl ();
 };
 /** Returns the correct RPC implementation based on TLS configuration */
 std::unique_ptr<rai::rpc> get_rpc (boost::asio::io_service & service_a, rai::node & node_a, rai::rpc_config const & config_a);
