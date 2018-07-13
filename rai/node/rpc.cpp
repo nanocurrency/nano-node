@@ -2012,13 +2012,13 @@ void rai::rpc_handler::ledger ()
 	response_errors ();
 }
 
-void rai::rpc_handler::mrai_from_raw ()
+void rai::rpc_handler::mrai_from_raw (rai::uint128_t ratio)
 {
 	std::string amount_text (request.get<std::string> ("amount"));
 	rai::uint128_union amount;
 	if (!amount.decode_dec (amount_text))
 	{
-		auto result (amount.number () / rai::Mxrb_ratio);
+		auto result (amount.number () / ratio);
 		response_l.put ("amount", result.convert_to<std::string> ());
 	}
 	else
@@ -2028,52 +2028,13 @@ void rai::rpc_handler::mrai_from_raw ()
 	response_errors ();
 }
 
-void rai::rpc_handler::mrai_to_raw ()
+void rai::rpc_handler::mrai_to_raw (rai::uint128_t ratio)
 {
 	std::string amount_text (request.get<std::string> ("amount"));
 	rai::uint128_union amount;
 	if (!amount.decode_dec (amount_text))
 	{
-		auto result (amount.number () * rai::Mxrb_ratio);
-		if (result > amount.number ())
-		{
-			response_l.put ("amount", result.convert_to<std::string> ());
-		}
-		else
-		{
-			ec = nano::error_common::invalid_amount_big;
-		}
-	}
-	else
-	{
-		ec = nano::error_common::invalid_amount;
-	}
-	response_errors ();
-}
-
-void rai::rpc_handler::krai_from_raw ()
-{
-	std::string amount_text (request.get<std::string> ("amount"));
-	rai::uint128_union amount;
-	if (!amount.decode_dec (amount_text))
-	{
-		auto result (amount.number () / rai::kxrb_ratio);
-		response_l.put ("amount", result.convert_to<std::string> ());
-	}
-	else
-	{
-		ec = nano::error_common::invalid_amount;
-	}
-	response_errors ();
-}
-
-void rai::rpc_handler::krai_to_raw ()
-{
-	std::string amount_text (request.get<std::string> ("amount"));
-	rai::uint128_union amount;
-	if (!amount.decode_dec (amount_text))
-	{
-		auto result (amount.number () * rai::kxrb_ratio);
+		auto result (amount.number () * ratio);
 		if (result > amount.number ())
 		{
 			response_l.put ("amount", result.convert_to<std::string> ());
@@ -2581,45 +2542,6 @@ void rai::rpc_handler::process ()
 	else
 	{
 		ec = nano::error_blocks::invalid_block;
-	}
-	response_errors ();
-}
-
-void rai::rpc_handler::rai_from_raw ()
-{
-	std::string amount_text (request.get<std::string> ("amount"));
-	rai::uint128_union amount;
-	if (!amount.decode_dec (amount_text))
-	{
-		auto result (amount.number () / rai::xrb_ratio);
-		response_l.put ("amount", result.convert_to<std::string> ());
-	}
-	else
-	{
-		ec = nano::error_common::invalid_amount;
-	}
-	response_errors ();
-}
-
-void rai::rpc_handler::rai_to_raw ()
-{
-	std::string amount_text (request.get<std::string> ("amount"));
-	rai::uint128_union amount;
-	if (!amount.decode_dec (amount_text))
-	{
-		auto result (amount.number () * rai::xrb_ratio);
-		if (result > amount.number ())
-		{
-			response_l.put ("amount", result.convert_to<std::string> ());
-		}
-		else
-		{
-			ec = nano::error_common::invalid_amount_big;
-		}
-	}
-	else
-	{
-		ec = nano::error_common::invalid_amount;
 	}
 	response_errors ();
 }
@@ -4624,11 +4546,11 @@ void rai::rpc_handler::process_request ()
 		}
 		else if (action == "krai_from_raw")
 		{
-			krai_from_raw ();
+			mrai_from_raw (rai::kxrb_ratio);
 		}
 		else if (action == "krai_to_raw")
 		{
-			krai_to_raw ();
+			mrai_to_raw (rai::kxrb_ratio);
 		}
 		else if (action == "ledger")
 		{
@@ -4688,11 +4610,11 @@ void rai::rpc_handler::process_request ()
 		}
 		else if (action == "rai_from_raw")
 		{
-			rai_from_raw ();
+			mrai_from_raw (rai::xrb_ratio);
 		}
 		else if (action == "rai_to_raw")
 		{
-			rai_to_raw ();
+			mrai_to_raw (rai::xrb_ratio);
 		}
 		else if (action == "receive")
 		{

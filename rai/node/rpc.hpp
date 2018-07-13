@@ -154,11 +154,9 @@ public:
 	void keepalive ();
 	void key_create ();
 	void key_expand ();
-	void krai_to_raw ();
-	void krai_from_raw ();
 	void ledger ();
-	void mrai_to_raw ();
-	void mrai_from_raw ();
+	void mrai_to_raw (rai::uint128_t = rai::Mxrb_ratio);
+	void mrai_from_raw (rai::uint128_t = rai::Mxrb_ratio);
 	void password_change ();
 	void password_enter ();
 	void password_valid (bool = false);
@@ -170,8 +168,6 @@ public:
 	void pending ();
 	void pending_exists ();
 	void process ();
-	void rai_to_raw ();
-	void rai_from_raw ();
 	void receive ();
 	void receive_minimum ();
 	void receive_minimum_set ();
