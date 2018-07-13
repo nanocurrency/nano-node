@@ -4540,7 +4540,6 @@ void rai::rpc_connection::read ()
 				auto version (this_l->request.version ());
 				std::string request_id (boost::str (boost::format ("%1%") % boost::io::group (std::hex, std::showbase, reinterpret_cast<uintptr_t> (this_l.get ()))));
 				auto response_handler ([this_l, version, start, request_id](boost::property_tree::ptree const & tree_a) {
-
 					std::stringstream ostream;
 					boost::property_tree::write_json (ostream, tree_a);
 					ostream.flush ();

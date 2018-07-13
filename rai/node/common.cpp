@@ -218,7 +218,7 @@ void rai::message_parser::deserialize_confirm_ack (rai::stream & stream_a, rai::
 
 void rai::message_parser::deserialize_node_id_handshake (rai::stream & stream_a, rai::message_header const & header_a)
 {
-	bool error_l;
+	bool error_l (false);
 	rai::node_id_handshake incoming (error_l, stream_a, header_a);
 	if (!error_l && at_end (stream_a))
 	{
