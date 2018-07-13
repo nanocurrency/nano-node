@@ -222,6 +222,9 @@ public:
 	rai::rpc & rpc;
 	boost::property_tree::ptree request;
 	std::function<void(boost::property_tree::ptree const &)> response;
+	void response_errors ();
+	std::error_code ec;
+	boost::property_tree::ptree response_l;
 };
 /** Returns the correct RPC implementation based on TLS configuration */
 std::unique_ptr<rai::rpc> get_rpc (boost::asio::io_service & service_a, rai::node & node_a, rai::rpc_config const & config_a);
