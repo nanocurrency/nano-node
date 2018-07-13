@@ -1886,7 +1886,7 @@ void rai::rpc_handler::keepalive ()
 		}
 		else
 		{
-			ec =  nano::error_common::invalid_port;
+			ec = nano::error_common::invalid_port;
 		}
 	}
 	else
@@ -3994,7 +3994,7 @@ void rai::rpc_handler::wallet_representative_set ()
 				}
 				else
 				{
-					ec =  nano::error_rpc::bad_representative_number;
+					ec = nano::error_rpc::bad_representative_number;
 				}
 			}
 			else
