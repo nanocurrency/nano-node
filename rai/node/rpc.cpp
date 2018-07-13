@@ -258,19 +258,6 @@ rai::account rai::rpc_handler::account_impl ()
 	return result;
 }
 
-uint64_t rai::rpc_handler::count_impl ()
-{
-	uint64_t result (0);
-	if (!ec)
-	{
-		std::string count_text (request.get<std::string> ("count"));
-		if (decode_unsigned (count_text, result) || result == 0)
-		{
-			ec = nano::error_common::invalid_count;
-		}
-	}
-	return result;
-}
 
 namespace
 {
@@ -294,6 +281,36 @@ bool decode_unsigned (std::string const & text, uint64_t & number)
 	result = result || end != text.size ();
 	return result;
 }
+}
+
+uint64_t rai::rpc_handler::count_impl ()
+{
+	uint64_t result (0);
+	if (!ec)
+	{
+		std::string count_text (request.get<std::string> ("count"));
+		if (decode_unsigned (count_text, result) || result == 0)
+		{
+			ec = nano::error_common::invalid_count;
+		}
+	}
+	return result;
+}
+
+uint64_t rai::rpc_handler::count_optional_impl (uint64_t result)
+{
+	if (!ec)
+	{
+		boost::optional<std::string> count_text (request.get_optional<std::string> ("count"));
+		if (count_text.is_initialized ())
+		{
+			if (decode_unsigned (count_text.get (), result))
+			{
+				ec = nano::error_common::invalid_count;
+			}
+		}
+	}
+	return result;
 }
 
 void rai::rpc_handler::account_balance ()
@@ -717,16 +734,8 @@ void rai::rpc_handler::accounts_frontiers ()
 
 void rai::rpc_handler::accounts_pending ()
 {
-	uint64_t count (std::numeric_limits<uint64_t>::max ());
+	auto count (count_optional_impl ());
 	rai::uint128_union threshold (0);
-	boost::optional<std::string> count_text (request.get_optional<std::string> ("count"));
-	if (count_text.is_initialized ())
-	{
-		if (decode_unsigned (count_text.get (), count))
-		{
-			ec = nano::error_common::invalid_count;
-		}
-	}
 	boost::optional<std::string> threshold_text (request.get_optional<std::string> ("threshold"));
 	if (!ec && threshold_text.is_initialized ())
 	{
@@ -1659,15 +1668,10 @@ void rai::rpc_handler::account_history ()
 	}
 	else
 	{
-		account_text = request.get<std::string> ("account");
-		rai::uint256_union account;
-		if (!account.decode_account (account_text))
+		auto account (account_impl ());
+		if (!ec)
 		{
 			hash = node.ledger.latest (transaction, account);
-		}
-		else
-		{
-			ec = nano::error_common::bad_account_number;
 		}
 	}
 	auto count (count_impl ());
@@ -1777,21 +1781,13 @@ void rai::rpc_handler::ledger ()
 	if (rpc.config.enable_control)
 	{
 		rai::account start (0);
-		uint64_t count (std::numeric_limits<uint64_t>::max ());
+		auto count (count_optional_impl ());
 		boost::optional<std::string> account_text (request.get_optional<std::string> ("account"));
 		if (account_text.is_initialized ())
 		{
 			if (start.decode_account (account_text.get ()))
 			{
 				ec = nano::error_common::bad_account_number;
-			}
-		}
-		boost::optional<std::string> count_text (request.get_optional<std::string> ("count"));
-		if (!ec && count_text.is_initialized ())
-		{
-			if (decode_unsigned (count_text.get (), count))
-			{
-				ec = nano::error_common::invalid_count;
 			}
 		}
 		uint64_t modified_since (0);
@@ -2008,16 +2004,8 @@ void rai::rpc_handler::pending ()
 	auto account (account_impl ());
 	if (!ec)
 	{
-		uint64_t count (std::numeric_limits<uint64_t>::max ());
+		auto count (count_optional_impl ());
 		rai::uint128_union threshold (0);
-		boost::optional<std::string> count_text (request.get_optional<std::string> ("count"));
-		if (count_text.is_initialized ())
-		{
-			if (decode_unsigned (count_text.get (), count))
-			{
-				ec = nano::error_common::invalid_count;
-			}
-		}
 		boost::optional<std::string> threshold_text (request.get_optional<std::string> ("threshold"));
 		if (!ec && threshold_text.is_initialized ())
 		{
@@ -2499,15 +2487,7 @@ void rai::rpc_handler::receive_minimum_set ()
 
 void rai::rpc_handler::representatives ()
 {
-	uint64_t count (std::numeric_limits<uint64_t>::max ());
-	boost::optional<std::string> count_text (request.get_optional<std::string> ("count"));
-	if (count_text.is_initialized ())
-	{
-		if (decode_unsigned (count_text.get (), count))
-		{
-			ec = nano::error_common::invalid_count;
-		}
-	}
+	auto count (count_optional_impl ());
 	if (!ec)
 	{
 		const bool sorting = request.get<bool> ("sorting", false);
@@ -2557,17 +2537,9 @@ void rai::rpc_handler::representatives_online ()
 
 void rai::rpc_handler::republish ()
 {
-	uint64_t count (1024U);
+	auto count (count_optional_impl (1024U));
 	uint64_t sources (0);
 	uint64_t destinations (0);
-	boost::optional<std::string> count_text (request.get_optional<std::string> ("count"));
-	if (count_text.is_initialized ())
-	{
-		if (decode_unsigned (count_text.get (), count))
-		{
-			ec = nano::error_common::invalid_count;
-		}
-	}
 	boost::optional<std::string> sources_text (request.get_optional<std::string> ("sources"));
 	if (!ec && sources_text.is_initialized ())
 	{
@@ -2859,15 +2831,7 @@ void rai::rpc_handler::stop ()
 
 void rai::rpc_handler::unchecked ()
 {
-	uint64_t count (std::numeric_limits<uint64_t>::max ());
-	boost::optional<std::string> count_text (request.get_optional<std::string> ("count"));
-	if (count_text.is_initialized ())
-	{
-		if (decode_unsigned (count_text.get (), count))
-		{
-			ec = nano::error_common::invalid_count;
-		}
-	}
+	auto count (count_optional_impl ());
 	if (!ec)
 	{
 		boost::property_tree::ptree unchecked;
@@ -2904,8 +2868,7 @@ void rai::rpc_handler::unchecked_get ()
 {
 	std::string hash_text (request.get<std::string> ("hash"));
 	rai::uint256_union hash;
-	auto error (hash.decode_hex (hash_text));
-	if (!error)
+	if (!hash.decode_hex (hash_text))
 	{
 		boost::property_tree::ptree response_l;
 		rai::transaction transaction (node.store.environment, nullptr, false);
@@ -2935,16 +2898,8 @@ void rai::rpc_handler::unchecked_get ()
 
 void rai::rpc_handler::unchecked_keys ()
 {
-	uint64_t count (std::numeric_limits<uint64_t>::max ());
+	auto count (count_optional_impl ());
 	rai::uint256_union key (0);
-	boost::optional<std::string> count_text (request.get_optional<std::string> ("count"));
-	if (count_text.is_initialized ())
-	{
-		if (decode_unsigned (count_text.get (), count))
-		{
-			ec = nano::error_common::invalid_count;
-		}
-	}
 	boost::optional<std::string> hash_text (request.get_optional<std::string> ("key"));
 	if (!ec && hash_text.is_initialized ())
 	{
@@ -3372,16 +3327,8 @@ void rai::rpc_handler::wallet_pending ()
 	auto wallet (wallet_impl ());
 	if (!ec)
 	{
-		uint64_t count (std::numeric_limits<uint64_t>::max ());
+		auto count (count_optional_impl ());
 		rai::uint128_union threshold (0);
-		boost::optional<std::string> count_text (request.get_optional<std::string> ("count"));
-		if (count_text.is_initialized ())
-		{
-			if (decode_unsigned (count_text.get (), count))
-			{
-				ec = nano::error_common::invalid_count;
-			}
-		}
 		boost::optional<std::string> threshold_text (request.get_optional<std::string> ("threshold"));
 		if (!ec && threshold_text.is_initialized ())
 		{
