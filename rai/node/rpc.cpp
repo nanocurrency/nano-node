@@ -258,7 +258,6 @@ rai::account rai::rpc_handler::account_impl ()
 	return result;
 }
 
-
 namespace
 {
 bool decode_unsigned (std::string const & text, uint64_t & number)
