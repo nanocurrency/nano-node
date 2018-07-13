@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 
-#include <rai/secure/common.hpp>
 #include <rai/lib/interface.h>
+#include <rai/secure/common.hpp>
 
 #include <ed25519-donna/ed25519.h>
 
