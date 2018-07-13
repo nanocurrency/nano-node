@@ -1787,9 +1787,8 @@ void rai::bulk_pull_blocks_server::send_next ()
 std::unique_ptr<rai::block> rai::bulk_pull_blocks_server::get_next ()
 {
 	std::unique_ptr<rai::block> result;
-	bool out_of_bounds;
+	bool out_of_bounds (false);
 
-	out_of_bounds = false;
 	if (request->max_count != 0)
 	{
 		if (sent_count >= request->max_count)
