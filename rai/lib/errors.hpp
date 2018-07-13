@@ -94,7 +94,6 @@ enum class error_rpc
 	source_not_found
 };
 
-
 /** process_result related errors */
 enum class error_process
 {
