@@ -654,19 +654,19 @@ void rai::rpc_handler::accounts_create ()
 			std::string count_text (request.get<std::string> ("count"));
 			if (!decode_unsigned (count_text, count) && count != 0)
 			{
-					const bool generate_work = request.get<bool> ("work", false);
-					boost::property_tree::ptree accounts;
-					for (auto i (0); accounts.size () < count; ++i)
+				const bool generate_work = request.get<bool> ("work", false);
+				boost::property_tree::ptree accounts;
+				for (auto i (0); accounts.size () < count; ++i)
+				{
+					rai::account new_key (wallet->deterministic_insert (generate_work));
+					if (!new_key.is_zero ())
 					{
-						rai::account new_key (wallet->deterministic_insert (generate_work));
-						if (!new_key.is_zero ())
-						{
-							boost::property_tree::ptree entry;
-							entry.put ("", new_key.to_account ());
-							accounts.push_back (std::make_pair ("", entry));
-						}
+						boost::property_tree::ptree entry;
+						entry.put ("", new_key.to_account ());
+						accounts.push_back (std::make_pair ("", entry));
 					}
-					response_l.add_child ("accounts", accounts);
+				}
+				response_l.add_child ("accounts", accounts);
 			}
 			else
 			{
