@@ -144,7 +144,7 @@ public:
 	void block_hash ();
 	void bootstrap ();
 	void bootstrap_any ();
-	void chain ();
+	void chain (bool = false);
 	void confirmation_history ();
 	void delegators ();
 	void delegators_count ();
@@ -161,7 +161,7 @@ public:
 	void mrai_from_raw ();
 	void password_change ();
 	void password_enter ();
-	void password_valid (bool wallet_locked);
+	void password_valid (bool = false);
 	void payment_begin ();
 	void payment_init ();
 	void payment_end ();
@@ -183,7 +183,6 @@ public:
 	void send ();
 	void stats ();
 	void stop ();
-	void successors ();
 	void unchecked ();
 	void unchecked_clear ();
 	void unchecked_get ();
