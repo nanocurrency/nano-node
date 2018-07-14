@@ -591,19 +591,20 @@ TEST (system, generate_send_existing)
 		ASSERT_FALSE (system.nodes[0]->store.account_get (transaction, rai::test_genesis_key.pub, info2));
 	}
 	ASSERT_NE (info1.head, info2.head);
-	auto iterations1 (0);
-	while (system.nodes[0]->balance (rai::test_genesis_key.pub) == rai::genesis_amount / 3)
+	auto iterations (0);
+	while (info2.block_count < info1.block_count + 2)
 	{
 		system.poll ();
-		++iterations1;
-		ASSERT_LT (iterations1, 200);
+		++iterations;
+		ASSERT_LT (iterations, 300);
+		rai::transaction transaction (system.wallet (0)->store.environment, nullptr, false);
+		ASSERT_FALSE (system.nodes[0]->store.account_get (transaction, rai::test_genesis_key.pub, info2));
 	}
-	auto iterations2 (0);
-	while (system.nodes[0]->balance (rai::test_genesis_key.pub) != rai::genesis_amount / 3)
+	ASSERT_EQ (info1.block_count + 2, info2.block_count);
+	ASSERT_EQ (info2.balance, rai::genesis_amount / 3);
 	{
-		system.poll ();
-		++iterations2;
-		ASSERT_LT (iterations2, 200);
+		rai::transaction transaction (system.wallet (0)->store.environment, nullptr, false);
+		ASSERT_NE (system.nodes[0]->ledger.amount (transaction, info2.head), 0);
 	}
 	system.stop ();
 	runner.join ();
