@@ -1,8 +1,10 @@
+#include <boost/make_shared.hpp>
 #include <gtest/gtest.h>
+#include <rai/core_test/testutil.hpp>
 #include <rai/node/testing.hpp>
 #include <rai/node/working.hpp>
 
-#include <boost/make_shared.hpp>
+using namespace std::chrono_literals;
 
 TEST (node, stop)
 {
@@ -187,12 +189,11 @@ TEST (node, node_receive_quorum)
 	system.wallet (0)->insert_adhoc (key.prv);
 	auto send (std::make_shared<rai::send_block> (previous, key.pub, rai::genesis_amount - rai::Gxrb_ratio, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (previous)));
 	system.nodes[0]->process_active (send);
-	auto iterations (0);
+
+	system.deadline_set (10s);
 	while (!system.nodes[0]->ledger.block_exists (send->hash ()))
 	{
-		system.poll ();
-		++iterations;
-		ASSERT_LT (iterations, 200);
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	auto done (false);
 	while (!done)
@@ -200,17 +201,13 @@ TEST (node, node_receive_quorum)
 		auto info (system.nodes[0]->active.roots.find (previous));
 		ASSERT_NE (system.nodes[0]->active.roots.end (), info);
 		done = info->announcements > rai::active_transactions::announcement_min;
-		system.poll ();
-		++iterations;
-		ASSERT_LT (iterations, 200);
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_TRUE (system.nodes[0]->balance (key.pub).is_zero ());
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	while (system.nodes[0]->balance (key.pub).is_zero ())
 	{
-		system.poll ();
-		++iterations;
-		ASSERT_LT (iterations, 200);
+		ASSERT_NO_ERROR (system.poll ());
 	}
 }
 
