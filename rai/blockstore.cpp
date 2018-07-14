@@ -556,24 +556,42 @@ void rai::block_store::upgrade_v11_to_v12 (MDB_txn * transaction_a)
 	version_put (transaction_a, 12);
 	for (rai::store_iterator i (transaction_a, accounts), n (nullptr); i != n; ++i)
 	{
-		assert (i->second.size () + 1 == sizeof (account_info));
-		std::vector<uint8_t> bytes ((uint8_t *)i->second.data (), (uint8_t *)i->second.data () + i->second.size ());
-		bytes.push_back (0); // version field
-		mdb_cursor_put (i.cursor, i->first, rai::mdb_val (bytes.size (), bytes.data ()), MDB_CURRENT);
+		if (i->second.size () + 1 == sizeof (account_info))
+		{
+			std::vector<uint8_t> bytes ((uint8_t *)i->second.data (), (uint8_t *)i->second.data () + i->second.size ());
+			bytes.push_back (0); // version field
+			mdb_cursor_put (i.cursor, i->first, rai::mdb_val (bytes.size (), bytes.data ()), MDB_CURRENT);
+		}
+		else
+		{
+			assert (i->second.size () == sizeof (account_info));
+		}
 	}
 	for (rai::store_iterator i (transaction_a, pending), n (nullptr); i != n; ++i)
 	{
-		assert (i->second.size () + 1 == sizeof (pending_info));
-		std::vector<uint8_t> bytes ((uint8_t *)i->second.data (), (uint8_t *)i->second.data () + i->second.size ());
-		bytes.push_back (0); // min_version field
-		mdb_cursor_put (i.cursor, i->first, rai::mdb_val (bytes.size (), bytes.data ()), MDB_CURRENT);
+		if (i->second.size () + 1 == sizeof (pending_info))
+		{
+			std::vector<uint8_t> bytes ((uint8_t *)i->second.data (), (uint8_t *)i->second.data () + i->second.size ());
+			bytes.push_back (0); // min_version field
+			mdb_cursor_put (i.cursor, i->first, rai::mdb_val (bytes.size (), bytes.data ()), MDB_CURRENT);
+		}
+		else
+		{
+			assert (i->second.size () == sizeof (pending_info));
+		}
 	}
 	for (rai::store_iterator i (transaction_a, state_blocks), n (nullptr); i != n; ++i)
 	{
-		assert (i->second.size () == rai::state_block::size + sizeof (rai::block_hash));
-		std::vector<uint8_t> bytes ((uint8_t *)i->second.data (), (uint8_t *)i->second.data () + i->second.size ());
-		bytes.insert (bytes.begin () + rai::state_block::size, 0); // version field
-		mdb_cursor_put (i.cursor, i->first, rai::mdb_val (bytes.size (), bytes.data ()), MDB_CURRENT);
+		if (i->second.size () == rai::state_block::size + sizeof (rai::block_hash))
+		{
+			std::vector<uint8_t> bytes ((uint8_t *)i->second.data (), (uint8_t *)i->second.data () + i->second.size ());
+			bytes.insert (bytes.begin () + rai::state_block::size, 0); // version field
+			mdb_cursor_put (i.cursor, i->first, rai::mdb_val (bytes.size (), bytes.data ()), MDB_CURRENT);
+		}
+		else
+		{
+			assert (i->second.size () == rai::state_block::size + 1 + sizeof (rai::block_hash));
+		}
 	}
 }
 
