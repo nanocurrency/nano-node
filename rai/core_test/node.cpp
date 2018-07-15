@@ -125,7 +125,7 @@ TEST (node, send_single_observing_peer)
 	}
 }
 
-TEST (node, DISABLED_send_single_many_peers)
+TEST (node, send_single_many_peers)
 {
 	rai::system system (24000, 10);
 	rai::keypair key2;
@@ -472,7 +472,7 @@ TEST (logging, serialization)
 	ASSERT_EQ (logging1.max_size, logging2.max_size);
 }
 
-TEST (logging, DISABLED_upgrade_v1_v2)
+TEST (logging, upgrade_v1_v2)
 {
 	auto path1 (rai::unique_path ());
 	auto path2 (rai::unique_path ());
@@ -486,8 +486,8 @@ TEST (logging, DISABLED_upgrade_v1_v2)
 	tree.erase ("vote");
 	bool upgraded (false);
 	ASSERT_FALSE (logging2.deserialize_json (upgraded, tree));
-	ASSERT_EQ ("2", tree.get<std::string> ("version"));
-	ASSERT_EQ (false, tree.get<bool> ("vote"));
+	ASSERT_LE (2, tree.get<int> ("version"));
+	ASSERT_FALSE (tree.get<bool> ("vote"));
 }
 
 TEST (node, price)
@@ -513,14 +513,12 @@ TEST (node_config, serialization)
 	config1.receive_minimum = 10;
 	config1.online_weight_minimum = 10;
 	config1.online_weight_quorum = 10;
-	config1.password_fanout = 10;
+	config1.password_fanout = 20;
 	config1.enable_voting = false;
 	config1.callback_address = "test";
 	config1.callback_port = 10;
 	config1.callback_target = "test";
 	config1.lmdb_max_dbs = 256;
-	config1.state_block_parse_canary = 10;
-	config1.state_block_generate_canary = 10;
 	boost::property_tree::ptree tree;
 	config1.serialize_json (tree);
 	rai::logging logging2;
@@ -538,11 +536,12 @@ TEST (node_config, serialization)
 	ASSERT_NE (config2.callback_port, config1.callback_port);
 	ASSERT_NE (config2.callback_target, config1.callback_target);
 	ASSERT_NE (config2.lmdb_max_dbs, config1.lmdb_max_dbs);
-	ASSERT_NE (config2.state_block_parse_canary, config1.state_block_parse_canary);
-	ASSERT_NE (config2.state_block_generate_canary, config1.state_block_generate_canary);
+
+	ASSERT_FALSE (tree.get_optional<std::string> ("epoch_block_link"));
+	ASSERT_FALSE (tree.get_optional<std::string> ("epoch_block_signer"));
 
 	bool upgraded (false);
-	config2.deserialize_json (upgraded, tree);
+	ASSERT_FALSE (config2.deserialize_json (upgraded, tree));
 	ASSERT_FALSE (upgraded);
 	ASSERT_EQ (config2.bootstrap_fraction_numerator, config1.bootstrap_fraction_numerator);
 	ASSERT_EQ (config2.peering_port, config1.peering_port);
@@ -555,8 +554,6 @@ TEST (node_config, serialization)
 	ASSERT_EQ (config2.callback_port, config1.callback_port);
 	ASSERT_EQ (config2.callback_target, config1.callback_target);
 	ASSERT_EQ (config2.lmdb_max_dbs, config1.lmdb_max_dbs);
-	ASSERT_EQ (config2.state_block_parse_canary, config1.state_block_parse_canary);
-	ASSERT_EQ (config2.state_block_generate_canary, config1.state_block_generate_canary);
 }
 
 TEST (node_config, v1_v2_upgrade)
@@ -1034,7 +1031,8 @@ TEST (node, fork_no_vote_quorum)
 	ASSERT_TRUE (node3.latest (rai::test_genesis_key.pub) == send1.hash ());
 }
 
-TEST (node, fork_pre_confirm)
+// Disabled because it sometimes takes way too long (but still eventually finishes)
+TEST (node, DISABLED_fork_pre_confirm)
 {
 	rai::system system (24000, 3);
 	auto & node0 (*system.nodes[0]);
@@ -1061,7 +1059,7 @@ TEST (node, fork_pre_confirm)
 	{
 		system.poll ();
 		++iterations;
-		ASSERT_LT (iterations, 400);
+		ASSERT_LT (iterations, 600);
 	}
 	auto block1 (system.wallet (0)->send_action (rai::test_genesis_key.pub, key2.pub, rai::genesis_amount / 3));
 	ASSERT_NE (nullptr, block1);
@@ -1069,7 +1067,7 @@ TEST (node, fork_pre_confirm)
 	{
 		system.poll ();
 		++iterations;
-		ASSERT_LT (iterations, 400);
+		ASSERT_LT (iterations, 600);
 	}
 	rai::keypair key3;
 	rai::keypair key4;
@@ -1091,7 +1089,8 @@ TEST (node, fork_pre_confirm)
 	}
 }
 
-TEST (node, fork_stale)
+// Sometimes hangs on the bootstrap_initiator.bootstrap call
+TEST (node, DISABLED_fork_stale)
 {
 	rai::system system1 (24000, 1);
 	system1.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
@@ -1360,7 +1359,7 @@ TEST (node, DISABLED_unconfirmed_send)
 		ASSERT_GT (200, iterations0);
 	}
 	auto latest (node1.latest (key0.pub));
-	rai::send_block send2 (latest, rai::genesis_account, rai::Mxrb_ratio, key0.prv, key0.pub, node0.work_generate_blocking (latest));
+	rai::state_block send2 (key0.pub, latest, rai::genesis_account, rai::Mxrb_ratio, rai::genesis_account, key0.prv, key0.pub, node0.work_generate_blocking (latest));
 	{
 		rai::transaction transaction (node1.store.environment, nullptr, true);
 		ASSERT_EQ (rai::process_result::progress, node1.ledger.process (transaction, send2).code);
@@ -1539,7 +1538,8 @@ TEST (node, balance_observer)
 	}
 }
 
-TEST (node, bootstrap_connection_scaling)
+// ASSERT_NE (nullptr, attempt) sometimes fails
+TEST (node, DISABLED_bootstrap_connection_scaling)
 {
 	rai::system system (24000, 1);
 	auto & node1 (*system.nodes[0]);

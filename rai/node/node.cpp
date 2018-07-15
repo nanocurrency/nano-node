@@ -899,6 +899,9 @@ bootstrap_connections_max (64),
 callback_port (0),
 lmdb_max_dbs (128)
 {
+	const char * epoch_message ("epoch v1 block");
+	strncpy ((char *)epoch_block_link.bytes.data (), epoch_message, epoch_block_link.bytes.size ());
+	epoch_block_signer = rai::genesis_account;
 	switch (rai::rai_network)
 	{
 		case rai::rai_networks::rai_test_network:
@@ -911,8 +914,6 @@ lmdb_max_dbs (128)
 			preconfigured_representatives.push_back (rai::account ("259A40656144FAA16D2A8516F7BE9C74A63C6CA399960EDB747D144ABB0F7ABD"));
 			preconfigured_representatives.push_back (rai::account ("259A40A92FA42E2240805DE8618EC4627F0BA41937160B4CFF7F5335FD1933DF"));
 			preconfigured_representatives.push_back (rai::account ("259A40FF3262E273EC451E873C4CDF8513330425B38860D882A16BCC74DA9B73"));
-			state_block_parse_canary = rai::block_hash ("5005F5283DE8D2DAB0DAC41DE9BD23640F962B4F0EA7D3128C2EA3D78D578E27");
-			state_block_generate_canary = rai::block_hash ("FC18E2265FB835E8CF60E63531053A768CEDF5194263B01A5C95574944E4660D");
 			break;
 		case rai::rai_networks::rai_live_network:
 			preconfigured_peers.push_back ("rai.raiblocks.net");
@@ -924,8 +925,6 @@ lmdb_max_dbs (128)
 			preconfigured_representatives.push_back (rai::account ("2399A083C600AA0572F5E36247D978FCFC840405F8D4B6D33161C0066A55F431"));
 			preconfigured_representatives.push_back (rai::account ("2298FAB7C61058E77EA554CB93EDEEDA0692CBFCC540AB213B2836B29029E23A"));
 			preconfigured_representatives.push_back (rai::account ("3FE80B4BC842E82C1C18ABFEEC47EA989E63953BC82AC411F304D13833D52A56"));
-			state_block_parse_canary = rai::block_hash ("89F1C0AC4C5AD23964AB880571E3EA67FDC41BD11AB20E67F0A29CF94CD4E24A");
-			state_block_generate_canary = rai::block_hash ("B6DC4D64801BEC7D81DAA086A5733D251E8CBA0E9226FD6173D97C0569EC2998");
 			break;
 		default:
 			assert (false);
@@ -935,7 +934,7 @@ lmdb_max_dbs (128)
 
 void rai::node_config::serialize_json (boost::property_tree::ptree & tree_a) const
 {
-	tree_a.put ("version", "12");
+	tree_a.put ("version", "13");
 	tree_a.put ("peering_port", std::to_string (peering_port));
 	tree_a.put ("bootstrap_fraction_numerator", std::to_string (bootstrap_fraction_numerator));
 	tree_a.put ("receive_minimum", receive_minimum.to_string_dec ());
@@ -978,8 +977,6 @@ void rai::node_config::serialize_json (boost::property_tree::ptree & tree_a) con
 	tree_a.put ("callback_port", std::to_string (callback_port));
 	tree_a.put ("callback_target", callback_target);
 	tree_a.put ("lmdb_max_dbs", lmdb_max_dbs);
-	tree_a.put ("state_block_parse_canary", state_block_parse_canary.to_string ());
-	tree_a.put ("state_block_generate_canary", state_block_generate_canary.to_string ());
 }
 
 bool rai::node_config::upgrade_json (unsigned version, boost::property_tree::ptree & tree_a)
@@ -1054,8 +1051,8 @@ bool rai::node_config::upgrade_json (unsigned version, boost::property_tree::ptr
 			tree_a.put ("version", "9");
 			result = true;
 		case 9:
-			tree_a.put ("state_block_parse_canary", state_block_parse_canary.to_string ());
-			tree_a.put ("state_block_generate_canary", state_block_generate_canary.to_string ());
+			tree_a.put ("state_block_parse_canary", rai::block_hash (0).to_string ());
+			tree_a.put ("state_block_generate_canary", rai::block_hash (0).to_string ());
 			tree_a.erase ("version");
 			tree_a.put ("version", "10");
 			result = true;
@@ -1076,6 +1073,12 @@ bool rai::node_config::upgrade_json (unsigned version, boost::property_tree::ptr
 			result = true;
 		}
 		case 12:
+			tree_a.erase ("state_block_parse_canary");
+			tree_a.erase ("state_block_generate_canary");
+			tree_a.erase ("version");
+			tree_a.put ("version", "13");
+			result = true;
+		case 13:
 			break;
 		default:
 			throw std::runtime_error ("Unknown node_config version");
@@ -1161,8 +1164,6 @@ bool rai::node_config::deserialize_json (bool & upgraded_a, boost::property_tree
 		callback_target = tree_a.get<std::string> ("callback_target");
 		auto lmdb_max_dbs_l = tree_a.get<std::string> ("lmdb_max_dbs");
 		result |= parse_port (callback_port_l, callback_port);
-		auto state_block_parse_canary_l = tree_a.get<std::string> ("state_block_parse_canary");
-		auto state_block_generate_canary_l = tree_a.get<std::string> ("state_block_generate_canary");
 		try
 		{
 			peering_port = std::stoul (peering_port_l);
@@ -1182,8 +1183,6 @@ bool rai::node_config::deserialize_json (bool & upgraded_a, boost::property_tree
 			result |= password_fanout < 16;
 			result |= password_fanout > 1024 * 1024;
 			result |= io_threads == 0;
-			result |= state_block_parse_canary.decode_hex (state_block_parse_canary_l);
-			result |= state_block_generate_canary.decode_hex (state_block_generate_canary_l);
 		}
 		catch (std::logic_error const &)
 		{
@@ -1582,6 +1581,14 @@ rai::process_return rai::block_processor::process_receive_one (MDB_txn * transac
 			}
 			break;
 		}
+		case rai::process_result::representative_mismatch:
+		{
+			if (node.config.logging.ledger_logging ())
+			{
+				BOOST_LOG (node.log) << boost::str (boost::format ("Representative mismatch for: %1%") % hash.to_string ());
+			}
+			break;
+		}
 		case rai::process_result::block_position:
 		{
 			if (node.config.logging.ledger_logging ())
@@ -1618,7 +1625,7 @@ alarm (alarm_a),
 work (work_a),
 store (init_a.block_store_init, application_path_a / "data.ldb", config_a.lmdb_max_dbs),
 gap_cache (*this),
-ledger (store, stats),
+ledger (store, stats, config.epoch_block_link, config.epoch_block_signer),
 active (*this),
 network (*this, config.peering_port),
 bootstrap_initiator (*this),
@@ -2786,10 +2793,18 @@ public:
 
 void rai::node::process_confirmed (std::shared_ptr<rai::block> block_a)
 {
-	rai::transaction transaction (store.environment, nullptr, false);
 	auto hash (block_a->hash ());
-	if (store.block_exists (transaction, hash))
+	bool exists (ledger.block_exists (hash));
+	// Attempt to process confirmed block if it's not in ledger yet
+	if (!exists)
 	{
+		rai::transaction transaction (store.environment, nullptr, true);
+		block_processor.process_receive_one (transaction, block_a);
+		exists = store.block_exists (transaction, hash);
+	}
+	if (exists)
+	{
+		rai::transaction transaction (store.environment, nullptr, false);
 		confirmed_visitor visitor (transaction, *this, block_a, hash);
 		block_a->visit (visitor);
 		auto account (ledger.account (transaction, hash));
@@ -2798,7 +2813,6 @@ void rai::node::process_confirmed (std::shared_ptr<rai::block> block_a)
 		rai::account pending_account (0);
 		if (auto state = dynamic_cast<rai::state_block *> (block_a.get ()))
 		{
-			rai::transaction transaction (store.environment, nullptr, false);
 			is_state_send = ledger.is_send (transaction, *state);
 			pending_account = state->hashables.link;
 		}
@@ -3558,7 +3572,10 @@ bool rai::election::vote (std::shared_ptr<rai::vote> vote_a)
 			last_votes[vote_a->account] = { std::chrono::steady_clock::now (), vote_a->sequence, vote_a->block->hash () };
 			node.network.republish_vote (vote_a);
 			votes.vote (vote_a);
-			confirm_if_quorum (transaction);
+			if (!confirmed)
+			{
+				confirm_if_quorum (transaction);
+			}
 		}
 	}
 	return replay;
@@ -3575,7 +3592,7 @@ void rai::active_transactions::announce_votes ()
 	for (auto i (roots.begin ()), n (roots.end ()); i != n; ++i)
 	{
 		auto election_l (i->election);
-		if (!node.store.root_exists (transaction, election_l->votes.id) || (election_l->confirmed && i->announcements >= announcement_min - 1))
+		if ((!node.store.root_exists (transaction, election_l->votes.id) || election_l->confirmed) && i->announcements >= announcement_min - 1)
 		{
 			if (election_l->confirmed)
 			{

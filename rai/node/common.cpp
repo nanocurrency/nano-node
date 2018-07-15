@@ -99,37 +99,44 @@ void rai::message_parser::deserialize_buffer (uint8_t const * buffer_a, size_t s
 	rai::message_header header (error, stream);
 	if (!error)
 	{
-		switch (header.type)
+		if (rai::rai_network == rai::rai_networks::rai_beta_network && header.version_using < rai::protocol_version)
 		{
-			case rai::message_type::keepalive:
+			status = parse_status::outdated_version;
+		}
+		else
+		{
+			switch (header.type)
 			{
-				deserialize_keepalive (stream, header);
-				break;
-			}
-			case rai::message_type::publish:
-			{
-				deserialize_publish (stream, header);
-				break;
-			}
-			case rai::message_type::confirm_req:
-			{
-				deserialize_confirm_req (stream, header);
-				break;
-			}
-			case rai::message_type::confirm_ack:
-			{
-				deserialize_confirm_ack (stream, header);
-				break;
-			}
-			case rai::message_type::node_id_handshake:
-			{
-				deserialize_node_id_handshake (stream, header);
-				break;
-			}
-			default:
-			{
-				status = parse_status::invalid_message_type;
-				break;
+				case rai::message_type::keepalive:
+				{
+					deserialize_keepalive (stream, header);
+					break;
+				}
+				case rai::message_type::publish:
+				{
+					deserialize_publish (stream, header);
+					break;
+				}
+				case rai::message_type::confirm_req:
+				{
+					deserialize_confirm_req (stream, header);
+					break;
+				}
+				case rai::message_type::confirm_ack:
+				{
+					deserialize_confirm_ack (stream, header);
+					break;
+				}
+				case rai::message_type::node_id_handshake:
+				{
+					deserialize_node_id_handshake (stream, header);
+					break;
+				}
+				default:
+				{
+					status = parse_status::invalid_message_type;
+					break;
+				}
 			}
 		}
 	}
@@ -218,7 +225,7 @@ void rai::message_parser::deserialize_confirm_ack (rai::stream & stream_a, rai::
 
 void rai::message_parser::deserialize_node_id_handshake (rai::stream & stream_a, rai::message_header const & header_a)
 {
-	bool error_l;
+	bool error_l (false);
 	rai::node_id_handshake incoming (error_l, stream_a, header_a);
 	if (!error_l && at_end (stream_a))
 	{

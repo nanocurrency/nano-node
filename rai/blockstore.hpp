@@ -38,7 +38,7 @@ public:
 
 	MDB_dbi block_database (rai::block_type);
 	void block_put_raw (MDB_txn *, MDB_dbi, rai::block_hash const &, MDB_val);
-	void block_put (MDB_txn *, rai::block_hash const &, rai::block const &, rai::block_hash const & = rai::block_hash (0));
+	void block_put (MDB_txn *, rai::block_hash const &, rai::block const &, rai::block_hash const & = rai::block_hash (0), uint8_t version = 0);
 	MDB_val block_get_raw (MDB_txn *, rai::block_hash const &, rai::block_type &);
 	rai::block_hash block_successor (MDB_txn *, rai::block_hash const &);
 	void block_successor_clear (MDB_txn *, rai::block_hash const &);
@@ -79,6 +79,7 @@ public:
 	rai::store_iterator block_info_begin (MDB_txn *);
 	rai::store_iterator block_info_end ();
 	rai::uint128_t block_balance (MDB_txn *, rai::block_hash const &);
+	uint8_t block_version (MDB_txn *, rai::block_hash const &);
 	static size_t const block_info_max = 32;
 
 	rai::uint128_t representation_get (MDB_txn *, rai::account const &);
@@ -128,6 +129,7 @@ public:
 	void upgrade_v8_to_v9 (MDB_txn *);
 	void upgrade_v9_to_v10 (MDB_txn *);
 	void upgrade_v10_to_v11 (MDB_txn *);
+	void upgrade_v11_to_v12 (MDB_txn *);
 
 	// Requires a write transaction
 	rai::raw_key get_node_id (MDB_txn *);

@@ -190,7 +190,8 @@ public:
 		invalid_publish_message,
 		invalid_confirm_req_message,
 		invalid_confirm_ack_message,
-		invalid_node_id_handshake_message
+		invalid_node_id_handshake_message,
+		outdated_version
 	};
 	message_parser (rai::message_visitor &, rai::work_pool &);
 	void deserialize_buffer (uint8_t const *, size_t);

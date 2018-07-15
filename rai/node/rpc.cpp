@@ -169,11 +169,12 @@ void rai::rpc::stop ()
 	acceptor.close ();
 }
 
-rai::rpc_handler::rpc_handler (rai::node & node_a, rai::rpc & rpc_a, std::string const & body_a, std::function<void(boost::property_tree::ptree const &)> const & response_a) :
+rai::rpc_handler::rpc_handler (rai::node & node_a, rai::rpc & rpc_a, std::string const & body_a, std::string const & request_id_a, std::function<void(boost::property_tree::ptree const &)> const & response_a) :
 body (body_a),
 node (node_a),
 rpc (rpc_a),
-response (response_a)
+response (response_a),
+request_id (request_id_a)
 {
 }
 
@@ -351,6 +352,7 @@ void rai::rpc_handler::account_info ()
 			response_l.put ("balance", balance);
 			response_l.put ("modified_timestamp", std::to_string (info.modified));
 			response_l.put ("block_count", std::to_string (info.block_count));
+			response_l.put ("account_version", std::to_string (info.version));
 			if (representative)
 			{
 				auto block (node.store.block_get (transaction, info.rep_block));
@@ -1794,6 +1796,14 @@ public:
 					tree.put ("subtype", "change");
 				}
 			}
+			else if (balance == previous_balance && !handler.node.ledger.epoch_link.is_zero () && block_a.hashables.link == handler.node.ledger.epoch_link)
+			{
+				if (raw)
+				{
+					tree.put ("subtype", "epoch");
+					tree.put ("account", handler.node.ledger.epoch_signer.to_account ());
+				}
+			}
 			else
 			{
 				if (raw)
@@ -2322,6 +2332,7 @@ void rai::rpc_handler::pending ()
 			}
 		}
 		const bool source = request.get<bool> ("source", false);
+		const bool min_version = request.get<bool> ("min_version", false);
 		boost::property_tree::ptree response_l;
 		boost::property_tree::ptree peers_l;
 		{
@@ -2330,7 +2341,7 @@ void rai::rpc_handler::pending ()
 			for (auto i (node.store.pending_begin (transaction, rai::pending_key (account, 0))), n (node.store.pending_begin (transaction, rai::pending_key (end, 0))); i != n && peers_l.size () < count; ++i)
 			{
 				rai::pending_key key (i->first);
-				if (threshold.is_zero () && !source)
+				if (threshold.is_zero () && !source && !min_version)
 				{
 					boost::property_tree::ptree entry;
 					entry.put ("", key.hash.to_string ());
@@ -2341,11 +2352,18 @@ void rai::rpc_handler::pending ()
 					rai::pending_info info (i->second);
 					if (info.amount.number () >= threshold.number ())
 					{
-						if (source)
+						if (source || min_version)
 						{
 							boost::property_tree::ptree pending_tree;
 							pending_tree.put ("amount", info.amount.number ().convert_to<std::string> ());
-							pending_tree.put ("source", info.source.to_account ());
+							if (source)
+							{
+								pending_tree.put ("source", info.source.to_account ());
+							}
+							if (min_version)
+							{
+								pending_tree.put ("min_version", std::to_string (info.min_version));
+							}
 							peers_l.add_child (key.hash.to_string (), pending_tree);
 						}
 						else
@@ -3991,6 +4009,7 @@ void rai::rpc_handler::wallet_pending ()
 				}
 			}
 			const bool source = request.get<bool> ("source", false);
+			const bool min_version = request.get<bool> ("min_version", false);
 			boost::property_tree::ptree response_l;
 			boost::property_tree::ptree pending;
 			rai::transaction transaction (node.store.environment, nullptr, false);
@@ -4013,11 +4032,18 @@ void rai::rpc_handler::wallet_pending ()
 						rai::pending_info info (ii->second);
 						if (info.amount.number () >= threshold.number ())
 						{
-							if (source)
+							if (source || min_version)
 							{
 								boost::property_tree::ptree pending_tree;
 								pending_tree.put ("amount", info.amount.number ().convert_to<std::string> ());
-								pending_tree.put ("source", info.source.to_account ());
+								if (source)
+								{
+									pending_tree.put ("source", info.source.to_account ());
+								}
+								if (min_version)
+								{
+									pending_tree.put ("min_version", std::to_string (info.min_version));
+								}
 								peers_l.add_child (key.hash.to_string (), pending_tree);
 							}
 							else
@@ -4537,8 +4563,8 @@ void rai::rpc_connection::read ()
 			this_l->node->background ([this_l]() {
 				auto start (std::chrono::steady_clock::now ());
 				auto version (this_l->request.version ());
-				auto response_handler ([this_l, version, start](boost::property_tree::ptree const & tree_a) {
-
+				std::string request_id (boost::str (boost::format ("%1%") % boost::io::group (std::hex, std::showbase, reinterpret_cast<uintptr_t> (this_l.get ()))));
+				auto response_handler ([this_l, version, start, request_id](boost::property_tree::ptree const & tree_a) {
 					std::stringstream ostream;
 					boost::property_tree::write_json (ostream, tree_a);
 					ostream.flush ();
@@ -4549,12 +4575,12 @@ void rai::rpc_connection::read ()
 
 					if (this_l->node->config.logging.log_rpc ())
 					{
-						BOOST_LOG (this_l->node->log) << boost::str (boost::format ("RPC request %2% completed in: %1% microseconds") % std::chrono::duration_cast<std::chrono::microseconds> (std::chrono::steady_clock::now () - start).count () % boost::io::group (std::hex, std::showbase, reinterpret_cast<uintptr_t> (this_l.get ())));
+						BOOST_LOG (this_l->node->log) << boost::str (boost::format ("RPC request %2% completed in: %1% microseconds") % std::chrono::duration_cast<std::chrono::microseconds> (std::chrono::steady_clock::now () - start).count () % request_id);
 					}
 				});
 				if (this_l->request.method () == boost::beast::http::verb::post)
 				{
-					auto handler (std::make_shared<rai::rpc_handler> (*this_l->node, this_l->rpc, this_l->request.body (), response_handler));
+					auto handler (std::make_shared<rai::rpc_handler> (*this_l->node, this_l->rpc, this_l->request.body (), request_id, response_handler));
 					handler->process_request ();
 				}
 				else
@@ -4607,7 +4633,7 @@ void rai::rpc_handler::process_request ()
 		}
 		if (node.config.logging.log_rpc ())
 		{
-			BOOST_LOG (node.log) << body;
+			BOOST_LOG (node.log) << boost::str (boost::format ("%1% ") % request_id) << body;
 		}
 		if (action == "account_balance")
 		{
