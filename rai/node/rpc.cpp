@@ -2023,7 +2023,7 @@ void rai::rpc_handler::pending ()
 			}
 		}
 		const bool source = request.get<bool> ("source", false);
-    const bool min_version = request.get<bool> ("min_version", false);
+		const bool min_version = request.get<bool> ("min_version", false);
 		if (!ec)
 		{
 			boost::property_tree::ptree peers_l;
@@ -3354,7 +3354,7 @@ void rai::rpc_handler::wallet_pending ()
 			}
 		}
 		const bool source = request.get<bool> ("source", false);
-    const bool min_version = request.get<bool> ("min_version", false);
+		const bool min_version = request.get<bool> ("min_version", false);
 		if (!ec)
 		{
 			boost::property_tree::ptree pending;
