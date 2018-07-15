@@ -347,6 +347,8 @@ void rai::block_store::do_upgrades (MDB_txn * transaction_a)
 		case 10:
 			upgrade_v10_to_v11 (transaction_a);
 		case 11:
+			upgrade_v11_to_v12 (transaction_a);
+		case 12:
 			break;
 		default:
 			assert (false);
@@ -412,7 +414,7 @@ void rai::block_store::upgrade_v3_to_v4 (MDB_txn * transaction_a)
 	{
 		rai::block_hash hash (i->first.uint256 ());
 		rai::pending_info_v3 info (i->second);
-		items.push (std::make_pair (rai::pending_key (info.destination, hash), rai::pending_info (info.source, info.amount)));
+		items.push (std::make_pair (rai::pending_key (info.destination, hash), rai::pending_info (info.source, info.amount, 0)));
 	}
 	mdb_drop (transaction_a, pending, 0);
 	while (!items.empty ())
@@ -461,7 +463,7 @@ void rai::block_store::upgrade_v5_to_v6 (MDB_txn * transaction_a)
 			assert (block != nullptr);
 			hash = block->previous ();
 		}
-		rai::account_info info (info_old.head, info_old.rep_block, info_old.open_block, info_old.balance, info_old.modified, block_count);
+		rai::account_info info (info_old.head, info_old.rep_block, info_old.open_block, info_old.balance, info_old.modified, block_count, 0);
 		headers.push_back (std::make_pair (account, info));
 	}
 	for (auto i (headers.begin ()), n (headers.end ()); i != n; ++i)
@@ -549,6 +551,50 @@ void rai::block_store::upgrade_v10_to_v11 (MDB_txn * transaction_a)
 	mdb_drop (transaction_a, unsynced, 1);
 }
 
+void rai::block_store::upgrade_v11_to_v12 (MDB_txn * transaction_a)
+{
+	version_put (transaction_a, 12);
+	for (rai::store_iterator i (transaction_a, accounts), n (nullptr); i != n; ++i)
+	{
+		if (i->second.size () + 1 == sizeof (account_info))
+		{
+			std::vector<uint8_t> bytes ((uint8_t *)i->second.data (), (uint8_t *)i->second.data () + i->second.size ());
+			bytes.push_back (0); // version field
+			mdb_cursor_put (i.cursor, i->first, rai::mdb_val (bytes.size (), bytes.data ()), MDB_CURRENT);
+		}
+		else
+		{
+			assert (i->second.size () == sizeof (account_info));
+		}
+	}
+	for (rai::store_iterator i (transaction_a, pending), n (nullptr); i != n; ++i)
+	{
+		if (i->second.size () + 1 == sizeof (pending_info))
+		{
+			std::vector<uint8_t> bytes ((uint8_t *)i->second.data (), (uint8_t *)i->second.data () + i->second.size ());
+			bytes.push_back (0); // min_version field
+			mdb_cursor_put (i.cursor, i->first, rai::mdb_val (bytes.size (), bytes.data ()), MDB_CURRENT);
+		}
+		else
+		{
+			assert (i->second.size () == sizeof (pending_info));
+		}
+	}
+	for (rai::store_iterator i (transaction_a, state_blocks), n (nullptr); i != n; ++i)
+	{
+		if (i->second.size () == rai::state_block::size + sizeof (rai::block_hash))
+		{
+			std::vector<uint8_t> bytes ((uint8_t *)i->second.data (), (uint8_t *)i->second.data () + i->second.size ());
+			bytes.insert (bytes.begin () + rai::state_block::size, 0); // version field
+			mdb_cursor_put (i.cursor, i->first, rai::mdb_val (bytes.size (), bytes.data ()), MDB_CURRENT);
+		}
+		else
+		{
+			assert (i->second.size () == rai::state_block::size + 1 + sizeof (rai::block_hash));
+		}
+	}
+}
+
 void rai::block_store::clear (MDB_dbi db_a)
 {
 	rai::transaction transaction (environment, nullptr, true);
@@ -561,6 +607,21 @@ rai::uint128_t rai::block_store::block_balance (MDB_txn * transaction_a, rai::bl
 	balance_visitor visitor (transaction_a, *this);
 	visitor.compute (hash_a);
 	return visitor.balance;
+}
+
+uint8_t rai::block_store::block_version (MDB_txn * transaction_a, rai::block_hash const & hash_a)
+{
+	rai::block_type type;
+	rai::mdb_val value;
+	auto status (mdb_get (transaction_a, state_blocks, rai::mdb_val (hash_a), value));
+	assert (status == 0 || status == MDB_NOTFOUND);
+	uint8_t result (0);
+	if (status == 0)
+	{
+		assert (value.size () > rai::state_block::size);
+		result = *(reinterpret_cast<uint8_t const *> (value.data ()) + rai::state_block::size);
+	}
+	return result;
 }
 
 void rai::block_store::representation_add (MDB_txn * transaction_a, rai::block_hash const & source_a, rai::uint128_t const & amount_a)
@@ -605,13 +666,21 @@ void rai::block_store::block_put_raw (MDB_txn * transaction_a, MDB_dbi database_
 	assert (status2 == 0);
 }
 
-void rai::block_store::block_put (MDB_txn * transaction_a, rai::block_hash const & hash_a, rai::block const & block_a, rai::block_hash const & successor_a)
+void rai::block_store::block_put (MDB_txn * transaction_a, rai::block_hash const & hash_a, rai::block const & block_a, rai::block_hash const & successor_a, uint8_t version_a)
 {
 	assert (successor_a.is_zero () || block_exists (transaction_a, successor_a));
+	if (block_a.type () != rai::block_type::state)
+	{
+		assert (version_a == 0);
+	}
 	std::vector<uint8_t> vector;
 	{
 		rai::vectorstream stream (vector);
 		block_a.serialize (stream);
+		if (block_a.type () == rai::block_type::state)
+		{
+			rai::write (stream, version_a);
+		}
 		rai::write (stream, successor_a.bytes);
 	}
 	block_put_raw (transaction_a, block_database (block_a.type ()), hash_a, { vector.size (), vector.data () });
@@ -747,7 +816,8 @@ rai::block_hash rai::block_store::block_successor (MDB_txn * transaction_a, rai:
 void rai::block_store::block_successor_clear (MDB_txn * transaction_a, rai::block_hash const & hash_a)
 {
 	auto block (block_get (transaction_a, hash_a));
-	block_put (transaction_a, hash_a, *block);
+	auto version (block_version (transaction_a, hash_a));
+	block_put (transaction_a, hash_a, *block, version);
 }
 
 std::unique_ptr<rai::block> rai::block_store::block_get (MDB_txn * transaction_a, rai::block_hash const & hash_a)
@@ -957,12 +1027,14 @@ bool rai::block_store::pending_get (MDB_txn * transaction_a, rai::pending_key co
 	else
 	{
 		result = false;
-		assert (value.size () == sizeof (pending_a.source.bytes) + sizeof (pending_a.amount.bytes));
+		assert (value.size () == sizeof (pending_a.source.bytes) + sizeof (pending_a.amount.bytes) + sizeof (pending_a.min_version));
 		rai::bufferstream stream (reinterpret_cast<uint8_t const *> (value.data ()), value.size ());
 		auto error1 (rai::read (stream, pending_a.source));
 		assert (!error1);
 		auto error2 (rai::read (stream, pending_a.amount));
 		assert (!error2);
+		auto error3 (rai::read (stream, pending_a.min_version));
+		assert (!error3);
 	}
 	return result;
 }
