@@ -1424,7 +1424,7 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 				}
 			}
 			// Batch signatures verification for state blocks
-			if (block.first->type () == rai::block_type::state)
+			if (block.first->type () == rai::block_type::state && block.first->link () != node.ledger.epoch_link)
 			{
 				if (!node.ledger.store.block_exists (transaction, hash))
 				{
