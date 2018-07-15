@@ -1445,7 +1445,7 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 				auto process_result (process_receive_one (transaction, block.first, block.second));
 				(void)process_result;
 			}
-			if (!have_blocks () || validated_blocks.size () == 64 || count == (16384 - 1))
+			if ((blocks.empty () && forced.empty ()) || validated_blocks.size () == 64 || count == (16384 - 1))
 			{
 				if (!validated_blocks.empty ())
 				{
