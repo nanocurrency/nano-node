@@ -640,10 +640,6 @@ void rai::rpc_handler::account_representative_set ()
 				},
 				work == 0);
 			}
-			else
-			{
-				response_errors ();
-			}
 		}
 		else
 		{
