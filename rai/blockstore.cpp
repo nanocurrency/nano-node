@@ -554,43 +554,68 @@ void rai::block_store::upgrade_v10_to_v11 (MDB_txn * transaction_a)
 void rai::block_store::upgrade_v11_to_v12 (MDB_txn * transaction_a)
 {
 	version_put (transaction_a, 12);
-	for (rai::store_iterator i (transaction_a, accounts), n (nullptr); i != n; ++i)
 	{
-		if (i->second.size () + 1 == sizeof (account_info))
+		std::vector<std::pair<rai::uint256_union, std::vector<uint8_t>>> new_accounts;
+		for (rai::store_iterator i (transaction_a, accounts), n (nullptr); i != n; ++i)
 		{
-			std::vector<uint8_t> bytes ((uint8_t *)i->second.data (), (uint8_t *)i->second.data () + i->second.size ());
-			bytes.push_back (0); // version field
-			mdb_cursor_put (i.cursor, i->first, rai::mdb_val (bytes.size (), bytes.data ()), MDB_CURRENT);
+			if (i->second.size () + 1 == sizeof (account_info))
+			{
+				std::vector<uint8_t> bytes ((uint8_t *)i->second.data (), (uint8_t *)i->second.data () + i->second.size ());
+				bytes.push_back (0); // version field
+				new_accounts.push_back (std::make_pair (i->first.uint256 (), bytes));
+			}
+			else
+			{
+				assert (i->second.size () == sizeof (account_info));
+			}
 		}
-		else
+		for (auto new_account : new_accounts)
 		{
-			assert (i->second.size () == sizeof (account_info));
+			auto status (mdb_put (transaction_a, accounts, rai::mdb_val (new_account.first), rai::mdb_val (new_account.second.size (), new_account.second.data ()), 0));
+			assert (status == 0);
 		}
 	}
-	for (rai::store_iterator i (transaction_a, pending), n (nullptr); i != n; ++i)
 	{
-		if (i->second.size () + 1 == sizeof (pending_info))
+		std::vector<std::pair<std::vector<uint8_t>, std::vector<uint8_t>>> new_pendings;
+		for (rai::store_iterator i (transaction_a, pending), n (nullptr); i != n; ++i)
 		{
-			std::vector<uint8_t> bytes ((uint8_t *)i->second.data (), (uint8_t *)i->second.data () + i->second.size ());
-			bytes.push_back (0); // min_version field
-			mdb_cursor_put (i.cursor, i->first, rai::mdb_val (bytes.size (), bytes.data ()), MDB_CURRENT);
+			if (i->second.size () + 1 == sizeof (pending_info))
+			{
+				std::vector<uint8_t> key ((uint8_t *)i->first.data (), (uint8_t *)i->first.data () + i->first.size ());
+				std::vector<uint8_t> bytes ((uint8_t *)i->second.data (), (uint8_t *)i->second.data () + i->second.size ());
+				bytes.push_back (0); // min_version field
+				new_pendings.push_back (std::make_pair (key, bytes));
+			}
+			else
+			{
+				assert (i->second.size () == sizeof (pending_info));
+			}
 		}
-		else
+		for (auto new_pending : new_pendings)
 		{
-			assert (i->second.size () == sizeof (pending_info));
+			auto status (mdb_put (transaction_a, pending, rai::mdb_val (new_pending.first.size (), new_pending.first.data ()), rai::mdb_val (new_pending.second.size (), new_pending.second.data ()), 0));
+			assert (status == 0);
 		}
 	}
-	for (rai::store_iterator i (transaction_a, state_blocks), n (nullptr); i != n; ++i)
 	{
-		if (i->second.size () == rai::state_block::size + sizeof (rai::block_hash))
+		std::vector<std::pair<rai::uint256_union, std::vector<uint8_t>>> new_state_blocks;
+		for (rai::store_iterator i (transaction_a, state_blocks), n (nullptr); i != n; ++i)
 		{
-			std::vector<uint8_t> bytes ((uint8_t *)i->second.data (), (uint8_t *)i->second.data () + i->second.size ());
-			bytes.insert (bytes.begin () + rai::state_block::size, 0); // version field
-			mdb_cursor_put (i.cursor, i->first, rai::mdb_val (bytes.size (), bytes.data ()), MDB_CURRENT);
+			if (i->second.size () == rai::state_block::size + sizeof (rai::block_hash))
+			{
+				std::vector<uint8_t> bytes ((uint8_t *)i->second.data (), (uint8_t *)i->second.data () + i->second.size ());
+				bytes.insert (bytes.begin () + rai::state_block::size, 0); // version field
+				new_state_blocks.push_back (std::make_pair (i->first.uint256 (), bytes));
+			}
+			else
+			{
+				assert (i->second.size () == rai::state_block::size + 1 + sizeof (rai::block_hash));
+			}
 		}
-		else
+		for (auto new_state_block : new_state_blocks)
 		{
-			assert (i->second.size () == rai::state_block::size + 1 + sizeof (rai::block_hash));
+			auto status (mdb_put (transaction_a, state_blocks, rai::mdb_val (new_state_block.first), rai::mdb_val (new_state_block.second.size (), new_state_block.second.data ()), 0));
+			assert (status == 0);
 		}
 	}
 }
