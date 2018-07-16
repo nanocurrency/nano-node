@@ -222,6 +222,7 @@ public:
 	boost::property_tree::ptree response_l;
 	std::shared_ptr<rai::wallet> wallet_impl ();
 	rai::account account_impl ();
+	rai::block_hash hash_impl ();
 	uint64_t count_impl ();
 	uint64_t count_optional_impl (uint64_t = std::numeric_limits<uint64_t>::max ());
 };

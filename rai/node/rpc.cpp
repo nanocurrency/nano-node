@@ -258,6 +258,20 @@ rai::account rai::rpc_handler::account_impl ()
 	return result;
 }
 
+rai::block_hash rai::rpc_handler::hash_impl ()
+{
+	rai::block_hash result (0);
+	if (!ec)
+	{
+		std::string hash_text (request.get<std::string> ("hash"));
+		if (result.decode_hex (hash_text))
+		{
+			ec = nano::error_blocks::invalid_block_hash;
+		}
+	}
+	return result;
+}
+
 namespace
 {
 bool decode_unsigned (std::string const & text, uint64_t & number)
@@ -810,9 +824,8 @@ void rai::rpc_handler::available_supply ()
 
 void rai::rpc_handler::block ()
 {
-	std::string hash_text (request.get<std::string> ("hash"));
-	rai::uint256_union hash;
-	if (!hash.decode_hex (hash_text))
+	auto hash (hash_impl ());
+	if (!ec)
 	{
 		rai::transaction transaction (node.store.environment, nullptr, false);
 		auto block (node.store.block_get (transaction, hash));
@@ -827,21 +840,16 @@ void rai::rpc_handler::block ()
 			ec = nano::error_blocks::not_found;
 		}
 	}
-	else
-	{
-		ec = nano::error_blocks::bad_hash_number;
-	}
 	response_errors ();
 }
 
 void rai::rpc_handler::block_confirm ()
 {
-	std::string hash_text (request.get<std::string> ("hash"));
-	rai::block_hash hash_l;
-	if (!hash_l.decode_hex (hash_text))
+	auto hash (hash_impl ());
+	if (!ec)
 	{
 		rai::transaction transaction (node.store.environment, nullptr, false);
-		auto block_l (node.store.block_get (transaction, hash_l));
+		auto block_l (node.store.block_get (transaction, hash));
 		if (block_l != nullptr)
 		{
 			node.block_confirm (std::move (block_l));
@@ -851,10 +859,6 @@ void rai::rpc_handler::block_confirm ()
 		{
 			ec = nano::error_blocks::not_found;
 		}
-	}
-	else
-	{
-		ec = nano::error_blocks::bad_hash_number;
 	}
 	response_errors ();
 }
@@ -969,9 +973,8 @@ void rai::rpc_handler::blocks_info ()
 
 void rai::rpc_handler::block_account ()
 {
-	std::string hash_text (request.get<std::string> ("hash"));
-	rai::block_hash hash;
-	if (!hash.decode_hex (hash_text))
+	auto hash (hash_impl ());
+	if (!ec)
 	{
 		rai::transaction transaction (node.store.environment, nullptr, false);
 		if (node.store.block_exists (transaction, hash))
@@ -983,10 +986,6 @@ void rai::rpc_handler::block_account ()
 		{
 			ec = nano::error_blocks::not_found;
 		}
-	}
-	else
-	{
-		ec = nano::error_blocks::bad_hash_number;
 	}
 	response_errors ();
 }
@@ -2072,9 +2071,8 @@ void rai::rpc_handler::pending ()
 
 void rai::rpc_handler::pending_exists ()
 {
-	std::string hash_text (request.get<std::string> ("hash"));
-	rai::uint256_union hash;
-	if (!hash.decode_hex (hash_text))
+	auto hash (hash_impl ());
+	if (!ec)
 	{
 		rai::transaction transaction (node.store.environment, nullptr, false);
 		auto block (node.store.block_get (transaction, hash));
@@ -2092,10 +2090,6 @@ void rai::rpc_handler::pending_exists ()
 		{
 			ec = nano::error_blocks::not_found;
 		}
-	}
-	else
-	{
-		ec = nano::error_blocks::bad_hash_number;
 	}
 	response_errors ();
 }
@@ -2572,9 +2566,8 @@ void rai::rpc_handler::republish ()
 			ec = nano::error_rpc::invalid_destinations;
 		}
 	}
-	std::string hash_text (request.get<std::string> ("hash"));
-	rai::uint256_union hash;
-	if (!ec && !hash.decode_hex (hash_text))
+	auto hash (hash_impl ());
+	if (!ec)
 	{
 		boost::property_tree::ptree blocks;
 		rai::transaction transaction (node.store.environment, nullptr, false);
@@ -2653,10 +2646,6 @@ void rai::rpc_handler::republish ()
 		{
 			ec = nano::error_blocks::not_found;
 		}
-	}
-	else
-	{
-		ec = nano::error_blocks::bad_hash_number;
 	}
 	response_errors ();
 }
@@ -2882,11 +2871,9 @@ void rai::rpc_handler::unchecked_clear ()
 
 void rai::rpc_handler::unchecked_get ()
 {
-	std::string hash_text (request.get<std::string> ("hash"));
-	rai::uint256_union hash;
-	if (!hash.decode_hex (hash_text))
+	auto hash (hash_impl ());
+	if (!ec)
 	{
-		boost::property_tree::ptree response_l;
 		rai::transaction transaction (node.store.environment, nullptr, false);
 		for (auto i (node.store.unchecked_begin (transaction)), n (node.store.unchecked_end ()); i != n; ++i)
 		{
@@ -2904,10 +2891,6 @@ void rai::rpc_handler::unchecked_get ()
 		{
 			ec = nano::error_blocks::not_found;
 		}
-	}
-	else
-	{
-		ec = nano::error_blocks::bad_hash_number;
 	}
 	response_errors ();
 }
@@ -3521,11 +3504,9 @@ void rai::rpc_handler::work_generate ()
 {
 	if (rpc.config.enable_control)
 	{
-		std::string hash_text (request.get<std::string> ("hash"));
 		bool use_peers (request.get_optional<bool> ("use_peers") == true);
-		rai::block_hash hash;
-		auto error (hash.decode_hex (hash_text));
-		if (!error)
+		auto hash (hash_impl ());
+		if (!ec)
 		{
 			auto rpc_l (shared_from_this ());
 			auto callback = [rpc_l](boost::optional<uint64_t> const & work_a) {
@@ -3549,10 +3530,6 @@ void rai::rpc_handler::work_generate ()
 				node.work_generate (hash, callback);
 			}
 		}
-		else
-		{
-			ec = nano::error_blocks::invalid_block_hash;
-		}
 	}
 	else
 	{
@@ -3569,15 +3546,10 @@ void rai::rpc_handler::work_cancel ()
 {
 	if (rpc.config.enable_control)
 	{
-		std::string hash_text (request.get<std::string> ("hash"));
-		rai::block_hash hash;
-		if (!hash.decode_hex (hash_text))
+		auto hash (hash_impl ());
+		if (!ec)
 		{
 			node.work.cancel (hash);
-		}
-		else
-		{
-			ec = nano::error_blocks::invalid_block_hash;
 		}
 	}
 	else
@@ -3653,9 +3625,8 @@ void rai::rpc_handler::work_set ()
 
 void rai::rpc_handler::work_validate ()
 {
-	std::string hash_text (request.get<std::string> ("hash"));
-	rai::block_hash hash;
-	if (!hash.decode_hex (hash_text))
+	auto hash (hash_impl ());
+	if (!ec)
 	{
 		std::string work_text (request.get<std::string> ("work"));
 		uint64_t work;
@@ -3669,10 +3640,6 @@ void rai::rpc_handler::work_validate ()
 		{
 			ec = nano::error_common::bad_work_format;
 		}
-	}
-	else
-	{
-		ec = nano::error_blocks::invalid_block_hash;
 	}
 	response_errors ();
 }
