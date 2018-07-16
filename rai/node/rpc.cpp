@@ -1351,7 +1351,7 @@ void rai::rpc_handler::bootstrap_any ()
 
 void rai::rpc_handler::chain (bool successors)
 {
-	auto hash (hash_impl ("block")); 
+	auto hash (hash_impl ("block"));
 	auto count (count_impl ());
 	if (!ec)
 	{
