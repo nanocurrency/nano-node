@@ -258,6 +258,20 @@ rai::account rai::rpc_handler::account_impl ()
 	return result;
 }
 
+rai::amount rai::rpc_handler::amount_impl ()
+{
+	rai::amount result (0);
+	if (!ec)
+	{
+		std::string amount_text (request.get<std::string> ("amount"));
+		if (result.decode_dec (amount_text))
+		{
+			ec = nano::error_common::invalid_amount;
+		}
+	}
+	return result;
+}
+
 rai::block_hash rai::rpc_handler::hash_impl (std::string search_text)
 {
 	rai::block_hash result (0);
@@ -1874,25 +1888,19 @@ void rai::rpc_handler::ledger ()
 
 void rai::rpc_handler::mrai_from_raw (rai::uint128_t ratio)
 {
-	std::string amount_text (request.get<std::string> ("amount"));
-	rai::uint128_union amount;
-	if (!amount.decode_dec (amount_text))
+	auto amount (amount_impl ());
+	if (!ec)
 	{
 		auto result (amount.number () / ratio);
 		response_l.put ("amount", result.convert_to<std::string> ());
-	}
-	else
-	{
-		ec = nano::error_common::invalid_amount;
 	}
 	response_errors ();
 }
 
 void rai::rpc_handler::mrai_to_raw (rai::uint128_t ratio)
 {
-	std::string amount_text (request.get<std::string> ("amount"));
-	rai::uint128_union amount;
-	if (!amount.decode_dec (amount_text))
+	auto amount (amount_impl ());
+	if (!ec)
 	{
 		auto result (amount.number () * ratio);
 		if (result > amount.number ())
@@ -1903,10 +1911,6 @@ void rai::rpc_handler::mrai_to_raw (rai::uint128_t ratio)
 		{
 			ec = nano::error_common::invalid_amount_big;
 		}
-	}
-	else
-	{
-		ec = nano::error_common::invalid_amount;
 	}
 	response_errors ();
 }
@@ -2188,34 +2192,26 @@ void rai::rpc_handler::payment_end ()
 
 void rai::rpc_handler::payment_wait ()
 {
-	std::string amount_text (request.get<std::string> ("amount"));
 	std::string timeout_text (request.get<std::string> ("timeout"));
 	auto account (account_impl ());
+	auto amount (amount_impl ());
 	if (!ec)
 	{
-		rai::uint128_union amount;
-		if (!amount.decode_dec (amount_text))
+		uint64_t timeout;
+		if (!decode_unsigned (timeout_text, timeout))
 		{
-			uint64_t timeout;
-			if (!decode_unsigned (timeout_text, timeout))
 			{
-				{
-					auto observer (std::make_shared<rai::payment_observer> (response, rpc, account, amount));
-					observer->start (timeout);
-					std::lock_guard<std::mutex> lock (rpc.mutex);
-					assert (rpc.payment_observers.find (account) == rpc.payment_observers.end ());
-					rpc.payment_observers[account] = observer;
-				}
-				rpc.observer_action (account);
+				auto observer (std::make_shared<rai::payment_observer> (response, rpc, account, amount));
+				observer->start (timeout);
+				std::lock_guard<std::mutex> lock (rpc.mutex);
+				assert (rpc.payment_observers.find (account) == rpc.payment_observers.end ());
+				rpc.payment_observers[account] = observer;
 			}
-			else
-			{
-				ec = nano::error_rpc::bad_timeout;
-			}
+			rpc.observer_action (account);
 		}
 		else
 		{
-			ec = nano::error_common::invalid_amount;
+			ec = nano::error_rpc::bad_timeout;
 		}
 	}
 	if (ec)
@@ -2422,19 +2418,11 @@ void rai::rpc_handler::receive_minimum ()
 void rai::rpc_handler::receive_minimum_set ()
 {
 	rpc_control_impl ();
+	auto amount (amount_impl ());
 	if (!ec)
 	{
-		std::string amount_text (request.get<std::string> ("amount"));
-		rai::uint128_union amount;
-		if (!amount.decode_dec (amount_text))
-		{
-			node.config.receive_minimum = amount;
-			response_l.put ("success", "");
-		}
-		else
-		{
-			ec = nano::error_common::invalid_amount;
-		}
+		node.config.receive_minimum = amount;
+		response_l.put ("success", "");
 	}
 	response_errors ();
 }
@@ -2621,6 +2609,7 @@ void rai::rpc_handler::send ()
 {
 	rpc_control_impl ();
 	auto wallet (wallet_impl ());
+	auto amount (amount_impl ());
 	if (!ec)
 	{
 		std::string source_text (request.get<std::string> ("source"));
@@ -2631,75 +2620,66 @@ void rai::rpc_handler::send ()
 			rai::account destination;
 			if (!destination.decode_account (destination_text))
 			{
-				std::string amount_text (request.get<std::string> ("amount"));
-				rai::amount amount;
-				if (!amount.decode_dec (amount_text))
+				uint64_t work (0);
+				boost::optional<std::string> work_text (request.get_optional<std::string> ("work"));
+				if (work_text.is_initialized ())
 				{
-					uint64_t work (0);
-					boost::optional<std::string> work_text (request.get_optional<std::string> ("work"));
-					if (work_text.is_initialized ())
+					if (rai::from_string_hex (work_text.get (), work))
 					{
-						if (rai::from_string_hex (work_text.get (), work))
-						{
-							ec = nano::error_common::bad_work_format;
-						}
+						ec = nano::error_common::bad_work_format;
 					}
-					rai::uint128_t balance (0);
-					if (!ec)
+				}
+				rai::uint128_t balance (0);
+				if (!ec)
+				{
+					rai::transaction transaction (node.store.environment, nullptr, work != 0); // false if no "work" in request, true if work > 0
+					rai::account_info info;
+					if (!node.store.account_get (transaction, source, info))
 					{
-						rai::transaction transaction (node.store.environment, nullptr, work != 0); // false if no "work" in request, true if work > 0
-						rai::account_info info;
-						if (!node.store.account_get (transaction, source, info))
+						balance = (info.balance).number ();
+					}
+					else
+					{
+						ec = nano::error_common::account_not_found;
+					}
+					if (!ec && work)
+					{
+						if (!rai::work_validate (info.head, work))
 						{
-							balance = (info.balance).number ();
+							wallet->store.work_put (transaction, source, work);
 						}
 						else
 						{
-							ec = nano::error_common::account_not_found;
-						}
-						if (!ec && work)
-						{
-							if (!rai::work_validate (info.head, work))
-							{
-								wallet->store.work_put (transaction, source, work);
-							}
-							else
-							{
-								ec = nano::error_common::invalid_work;
-							}
-						}
-					}
-					if (!ec)
-					{
-						boost::optional<std::string> send_id (request.get_optional<std::string> ("id"));
-						if (balance >= amount.number ())
-						{
-							auto rpc_l (shared_from_this ());
-							auto response_a (response);
-							wallet->send_async (source, destination, amount.number (), [response_a](std::shared_ptr<rai::block> block_a) {
-								if (block_a != nullptr)
-								{
-									rai::uint256_union hash (block_a->hash ());
-									boost::property_tree::ptree response_l;
-									response_l.put ("block", hash.to_string ());
-									response_a (response_l);
-								}
-								else
-								{
-									error_response (response_a, "Error generating block");
-								}
-							},
-							work == 0, send_id);
-						}
-						else
-						{
-							ec = nano::error_common::insufficient_balance;
+							ec = nano::error_common::invalid_work;
 						}
 					}
 				}
-				else
+				if (!ec)
 				{
-					ec = nano::error_common::invalid_amount;
+					boost::optional<std::string> send_id (request.get_optional<std::string> ("id"));
+					if (balance >= amount.number ())
+					{
+						auto rpc_l (shared_from_this ());
+						auto response_a (response);
+						wallet->send_async (source, destination, amount.number (), [response_a](std::shared_ptr<rai::block> block_a) {
+							if (block_a != nullptr)
+							{
+								rai::uint256_union hash (block_a->hash ());
+								boost::property_tree::ptree response_l;
+								response_l.put ("block", hash.to_string ());
+								response_a (response_l);
+							}
+							else
+							{
+								error_response (response_a, "Error generating block");
+							}
+						},
+						work == 0, send_id);
+					}
+					else
+					{
+						ec = nano::error_common::insufficient_balance;
+					}
 				}
 			}
 			else
