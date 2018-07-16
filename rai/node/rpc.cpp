@@ -258,12 +258,12 @@ rai::account rai::rpc_handler::account_impl ()
 	return result;
 }
 
-rai::block_hash rai::rpc_handler::hash_impl ()
+rai::block_hash rai::rpc_handler::hash_impl (std::string search_text)
 {
 	rai::block_hash result (0);
 	if (!ec)
 	{
-		std::string hash_text (request.get<std::string> ("hash"));
+		std::string hash_text (request.get<std::string> (search_text));
 		if (result.decode_hex (hash_text))
 		{
 			ec = nano::error_blocks::invalid_block_hash;
@@ -1357,36 +1357,28 @@ void rai::rpc_handler::bootstrap_any ()
 
 void rai::rpc_handler::chain (bool successors)
 {
-	std::string block_text (request.get<std::string> ("block"));
-	rai::block_hash block;
-	if (!block.decode_hex (block_text))
+	auto hash (hash_impl ("block")); 
+	auto count (count_impl ());
+	if (!ec)
 	{
-		auto count (count_impl ());
-		if (!ec)
+		boost::property_tree::ptree blocks;
+		rai::transaction transaction (node.store.environment, nullptr, false);
+		while (!hash.is_zero () && blocks.size () < count)
 		{
-			boost::property_tree::ptree blocks;
-			rai::transaction transaction (node.store.environment, nullptr, false);
-			while (!block.is_zero () && blocks.size () < count)
+			auto block_l (node.store.block_get (transaction, hash));
+			if (block_l != nullptr)
 			{
-				auto block_l (node.store.block_get (transaction, block));
-				if (block_l != nullptr)
-				{
-					boost::property_tree::ptree entry;
-					entry.put ("", block.to_string ());
-					blocks.push_back (std::make_pair ("", entry));
-					block = successors ? node.store.block_successor (transaction, block) : block_l->previous ();
-				}
-				else
-				{
-					block.clear ();
-				}
+				boost::property_tree::ptree entry;
+				entry.put ("", hash.to_string ());
+				blocks.push_back (std::make_pair ("", entry));
+				hash = successors ? node.store.block_successor (transaction, hash) : block_l->previous ();
 			}
-			response_l.add_child ("blocks", blocks);
+			else
+			{
+				hash.clear ();
+			}
 		}
-	}
-	else
-	{
-		ec = nano::error_blocks::bad_hash_number;
+		response_l.add_child ("blocks", blocks);
 	}
 	response_errors ();
 }
@@ -2366,80 +2358,72 @@ void rai::rpc_handler::receive ()
 	{
 		auto wallet (wallet_impl ());
 		auto account (account_impl ());
+		auto hash (hash_impl ("block"));
 		if (!ec)
 		{
 			rai::transaction transaction (node.store.environment, nullptr, false);
 			if (wallet->store.find (transaction, account) != wallet->store.end ())
 			{
-				std::string hash_text (request.get<std::string> ("block"));
-				rai::uint256_union hash;
-				if (!hash.decode_hex (hash_text))
+				auto block (node.store.block_get (transaction, hash));
+				if (block != nullptr)
 				{
-					auto block (node.store.block_get (transaction, hash));
-					if (block != nullptr)
+					if (node.store.pending_exists (transaction, rai::pending_key (account, hash)))
 					{
-						if (node.store.pending_exists (transaction, rai::pending_key (account, hash)))
+						uint64_t work (0);
+						boost::optional<std::string> work_text (request.get_optional<std::string> ("work"));
+						if (work_text.is_initialized ())
 						{
-							uint64_t work (0);
-							boost::optional<std::string> work_text (request.get_optional<std::string> ("work"));
-							if (work_text.is_initialized ())
+							if (rai::from_string_hex (work_text.get (), work))
 							{
-								if (rai::from_string_hex (work_text.get (), work))
-								{
-									ec = nano::error_common::bad_work_format;
-								}
-							}
-							if (!ec && work)
-							{
-								rai::account_info info;
-								rai::uint256_union head;
-								if (!node.store.account_get (transaction, account, info))
-								{
-									head = info.head;
-								}
-								else
-								{
-									head = account;
-								}
-								if (!rai::work_validate (head, work))
-								{
-									rai::transaction transaction_a (node.store.environment, nullptr, true);
-									wallet->store.work_put (transaction_a, account, work);
-								}
-								else
-								{
-									ec = nano::error_common::invalid_work;
-								}
-							}
-							if (!ec)
-							{
-								auto response_a (response);
-								wallet->receive_async (std::move (block), account, rai::genesis_amount, [response_a](std::shared_ptr<rai::block> block_a) {
-									rai::uint256_union hash_a (0);
-									if (block_a != nullptr)
-									{
-										hash_a = block_a->hash ();
-									}
-									boost::property_tree::ptree response_l;
-									response_l.put ("block", hash_a.to_string ());
-									response_a (response_l);
-								},
-								work == 0);
+								ec = nano::error_common::bad_work_format;
 							}
 						}
-						else
+						if (!ec && work)
 						{
-							ec = nano::error_process::unreceivable;
+							rai::account_info info;
+							rai::uint256_union head;
+							if (!node.store.account_get (transaction, account, info))
+							{
+								head = info.head;
+							}
+							else
+							{
+								head = account;
+							}
+							if (!rai::work_validate (head, work))
+							{
+								rai::transaction transaction_a (node.store.environment, nullptr, true);
+								wallet->store.work_put (transaction_a, account, work);
+							}
+							else
+							{
+								ec = nano::error_common::invalid_work;
+							}
+						}
+						if (!ec)
+						{
+							auto response_a (response);
+							wallet->receive_async (std::move (block), account, rai::genesis_amount, [response_a](std::shared_ptr<rai::block> block_a) {
+								rai::uint256_union hash_a (0);
+								if (block_a != nullptr)
+								{
+									hash_a = block_a->hash ();
+								}
+								boost::property_tree::ptree response_l;
+								response_l.put ("block", hash_a.to_string ());
+								response_a (response_l);
+							},
+							work == 0);
 						}
 					}
 					else
 					{
-						ec = nano::error_blocks::not_found;
+						ec = nano::error_process::unreceivable;
 					}
 				}
 				else
 				{
-					ec = nano::error_blocks::bad_hash_number;
+					ec = nano::error_blocks::not_found;
 				}
 			}
 			else
