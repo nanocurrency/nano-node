@@ -286,6 +286,20 @@ rai::block_hash rai::rpc_handler::hash_impl (std::string search_text)
 	return result;
 }
 
+rai::amount threshold_optional_impl ()
+{
+	rai::amount result (0);
+	boost::optional<std::string> threshold_text (request.get_optional<std::string> ("threshold"));
+	if (!ec && threshold_text.is_initialized ())
+	{
+		if (result.decode_dec (threshold_text.get ()))
+		{
+			ec = nano::error_common::bad_threshold;
+		}
+	}
+	return result;
+}
+
 namespace
 {
 bool decode_unsigned (std::string const & text, uint64_t & number)
@@ -326,15 +340,12 @@ uint64_t rai::rpc_handler::count_impl ()
 
 uint64_t rai::rpc_handler::count_optional_impl (uint64_t result)
 {
-	if (!ec)
+	boost::optional<std::string> count_text (request.get_optional<std::string> ("count"));
+	if (!ec && count_text.is_initialized ())
 	{
-		boost::optional<std::string> count_text (request.get_optional<std::string> ("count"));
-		if (count_text.is_initialized ())
+		if (decode_unsigned (count_text.get (), result))
 		{
-			if (decode_unsigned (count_text.get (), result))
-			{
-				ec = nano::error_common::invalid_count;
-			}
+			ec = nano::error_common::invalid_count;
 		}
 	}
 	return result;
@@ -746,15 +757,7 @@ void rai::rpc_handler::accounts_frontiers ()
 void rai::rpc_handler::accounts_pending ()
 {
 	auto count (count_optional_impl ());
-	rai::uint128_union threshold (0);
-	boost::optional<std::string> threshold_text (request.get_optional<std::string> ("threshold"));
-	if (!ec && threshold_text.is_initialized ())
-	{
-		if (threshold.decode_dec (threshold_text.get ()))
-		{
-			ec = nano::error_common::bad_threshold;
-		}
-	}
+	auto threshold (threshold_optional_impl ());
 	const bool source = request.get<bool> ("source", false);
 	boost::property_tree::ptree pending;
 	rai::transaction transaction (node.store.environment, nullptr, false);
@@ -1769,10 +1772,10 @@ void rai::rpc_handler::key_expand ()
 void rai::rpc_handler::ledger ()
 {
 	rpc_control_impl ();
+	auto count (count_optional_impl ());
 	if (!ec)
 	{
 		rai::account start (0);
-		auto count (count_optional_impl ());
 		boost::optional<std::string> account_text (request.get_optional<std::string> ("account"));
 		if (account_text.is_initialized ())
 		{
@@ -1973,62 +1976,51 @@ void rai::rpc_handler::peers ()
 void rai::rpc_handler::pending ()
 {
 	auto account (account_impl ());
+	auto count (count_optional_impl ());
+	auto threshold (threshold_optional_impl ());
+	const bool source = request.get<bool> ("source", false);
+	const bool min_version = request.get<bool> ("min_version", false);
 	if (!ec)
 	{
-		auto count (count_optional_impl ());
-		rai::uint128_union threshold (0);
-		boost::optional<std::string> threshold_text (request.get_optional<std::string> ("threshold"));
-		if (!ec && threshold_text.is_initialized ())
+		boost::property_tree::ptree peers_l;
+		rai::transaction transaction (node.store.environment, nullptr, false);
+		rai::account end (account.number () + 1);
+		for (auto i (node.store.pending_begin (transaction, rai::pending_key (account, 0))), n (node.store.pending_begin (transaction, rai::pending_key (end, 0))); i != n && peers_l.size () < count; ++i)
 		{
-			if (threshold.decode_dec (threshold_text.get ()))
+			rai::pending_key key (i->first);
+			if (threshold.is_zero () && !source && !min_version)
 			{
-				ec = nano::error_common::bad_threshold;
+				boost::property_tree::ptree entry;
+				entry.put ("", key.hash.to_string ());
+				peers_l.push_back (std::make_pair ("", entry));
 			}
-		}
-		const bool source = request.get<bool> ("source", false);
-		const bool min_version = request.get<bool> ("min_version", false);
-		if (!ec)
-		{
-			boost::property_tree::ptree peers_l;
-			rai::transaction transaction (node.store.environment, nullptr, false);
-			rai::account end (account.number () + 1);
-			for (auto i (node.store.pending_begin (transaction, rai::pending_key (account, 0))), n (node.store.pending_begin (transaction, rai::pending_key (end, 0))); i != n && peers_l.size () < count; ++i)
+			else
 			{
-				rai::pending_key key (i->first);
-				if (threshold.is_zero () && !source && !min_version)
+				rai::pending_info info (i->second);
+				if (info.amount.number () >= threshold.number ())
 				{
-					boost::property_tree::ptree entry;
-					entry.put ("", key.hash.to_string ());
-					peers_l.push_back (std::make_pair ("", entry));
-				}
-				else
-				{
-					rai::pending_info info (i->second);
-					if (info.amount.number () >= threshold.number ())
+					if (source || min_version)
 					{
-						if (source || min_version)
+						boost::property_tree::ptree pending_tree;
+						pending_tree.put ("amount", info.amount.number ().convert_to<std::string> ());
+						if (source)
 						{
-							boost::property_tree::ptree pending_tree;
-							pending_tree.put ("amount", info.amount.number ().convert_to<std::string> ());
-							if (source)
-							{
-								pending_tree.put ("source", info.source.to_account ());
-							}
-							if (min_version)
-							{
-								pending_tree.put ("min_version", std::to_string (info.min_version));
-							}
-							peers_l.add_child (key.hash.to_string (), pending_tree);
+							pending_tree.put ("source", info.source.to_account ());
 						}
-						else
+						if (min_version)
 						{
-							peers_l.put (key.hash.to_string (), info.amount.number ().convert_to<std::string> ());
+							pending_tree.put ("min_version", std::to_string (info.min_version));
 						}
+						peers_l.add_child (key.hash.to_string (), pending_tree);
+					}
+					else
+					{
+						peers_l.put (key.hash.to_string (), info.amount.number ().convert_to<std::string> ());
 					}
 				}
 			}
-			response_l.add_child ("blocks", peers_l);
 		}
+		response_l.add_child ("blocks", peers_l);
 	}
 	response_errors ();
 }
@@ -2931,26 +2923,26 @@ void rai::rpc_handler::wallet_balance_total ()
 void rai::rpc_handler::wallet_balances ()
 {
 	auto wallet (wallet_impl ());
+	auto threshold (threshold_optional_impl ());
 	if (!ec)
 	{
-		rai::uint128_union threshold (0);
-		boost::optional<std::string> threshold_text (request.get_optional<std::string> ("threshold"));
-		if (threshold_text.is_initialized ())
+		boost::property_tree::ptree balances;
+		rai::transaction transaction (node.store.environment, nullptr, false);
+		for (auto i (wallet->store.begin (transaction)), n (wallet->store.end ()); i != n; ++i)
 		{
-			if (threshold.decode_dec (threshold_text.get ()))
+			rai::account account (i->first.uint256 ());
+			rai::uint128_t balance = node.ledger.account_balance (transaction, account);
+			if (threshold.is_zero ())
 			{
-				ec = nano::error_common::bad_threshold;
+				boost::property_tree::ptree entry;
+				rai::uint128_t pending = node.ledger.account_pending (transaction, account);
+				entry.put ("balance", balance.convert_to<std::string> ());
+				entry.put ("pending", pending.convert_to<std::string> ());
+				balances.push_back (std::make_pair (account.to_account (), entry));
 			}
-		}
-		if (!ec)
-		{
-			boost::property_tree::ptree balances;
-			rai::transaction transaction (node.store.environment, nullptr, false);
-			for (auto i (wallet->store.begin (transaction)), n (wallet->store.end ()); i != n; ++i)
+			else
 			{
-				rai::account account (i->first.uint256 ());
-				rai::uint128_t balance = node.ledger.account_balance (transaction, account);
-				if (threshold.is_zero ())
+				if (balance >= threshold.number ())
 				{
 					boost::property_tree::ptree entry;
 					rai::uint128_t pending = node.ledger.account_pending (transaction, account);
@@ -2958,24 +2950,9 @@ void rai::rpc_handler::wallet_balances ()
 					entry.put ("pending", pending.convert_to<std::string> ());
 					balances.push_back (std::make_pair (account.to_account (), entry));
 				}
-				else
-				{
-					if (balance >= threshold.number ())
-					{
-						boost::property_tree::ptree entry;
-						rai::uint128_t pending = node.ledger.account_pending (transaction, account);
-						entry.put ("balance", balance.convert_to<std::string> ());
-						entry.put ("pending", pending.convert_to<std::string> ());
-						balances.push_back (std::make_pair (account.to_account (), entry));
-					}
-				}
 			}
-			response_l.add_child ("balances", balances);
 		}
-	}
-	else
-	{
-		ec = nano::error_common::bad_wallet_number;
+		response_l.add_child ("balances", balances);
 	}
 	response_errors ();
 }
@@ -3193,71 +3170,60 @@ void rai::rpc_handler::wallet_lock ()
 void rai::rpc_handler::wallet_pending ()
 {
 	auto wallet (wallet_impl ());
+	auto count (count_optional_impl ());
+	auto threshold (threshold_optional_impl ());
+	const bool source = request.get<bool> ("source", false);
+	const bool min_version = request.get<bool> ("min_version", false);
 	if (!ec)
 	{
-		auto count (count_optional_impl ());
-		rai::uint128_union threshold (0);
-		boost::optional<std::string> threshold_text (request.get_optional<std::string> ("threshold"));
-		if (!ec && threshold_text.is_initialized ())
+		boost::property_tree::ptree pending;
+		rai::transaction transaction (node.store.environment, nullptr, false);
+		for (auto i (wallet->store.begin (transaction)), n (wallet->store.end ()); i != n; ++i)
 		{
-			if (threshold.decode_dec (threshold_text.get ()))
+			rai::account account (i->first.uint256 ());
+			boost::property_tree::ptree peers_l;
+			rai::account end (account.number () + 1);
+			for (auto ii (node.store.pending_begin (transaction, rai::pending_key (account, 0))), nn (node.store.pending_begin (transaction, rai::pending_key (end, 0))); ii != nn && peers_l.size () < count; ++ii)
 			{
-				ec = nano::error_common::bad_threshold;
-			}
-		}
-		const bool source = request.get<bool> ("source", false);
-		const bool min_version = request.get<bool> ("min_version", false);
-		if (!ec)
-		{
-			boost::property_tree::ptree pending;
-			rai::transaction transaction (node.store.environment, nullptr, false);
-			for (auto i (wallet->store.begin (transaction)), n (wallet->store.end ()); i != n; ++i)
-			{
-				rai::account account (i->first.uint256 ());
-				boost::property_tree::ptree peers_l;
-				rai::account end (account.number () + 1);
-				for (auto ii (node.store.pending_begin (transaction, rai::pending_key (account, 0))), nn (node.store.pending_begin (transaction, rai::pending_key (end, 0))); ii != nn && peers_l.size () < count; ++ii)
+				rai::pending_key key (ii->first);
+				if (threshold.is_zero () && !source)
 				{
-					rai::pending_key key (ii->first);
-					if (threshold.is_zero () && !source)
+					boost::property_tree::ptree entry;
+					entry.put ("", key.hash.to_string ());
+					peers_l.push_back (std::make_pair ("", entry));
+				}
+				else
+				{
+					rai::pending_info info (ii->second);
+					if (info.amount.number () >= threshold.number ())
 					{
-						boost::property_tree::ptree entry;
-						entry.put ("", key.hash.to_string ());
-						peers_l.push_back (std::make_pair ("", entry));
-					}
-					else
-					{
-						rai::pending_info info (ii->second);
-						if (info.amount.number () >= threshold.number ())
+						if (source || min_version)
 						{
-							if (source || min_version)
+							boost::property_tree::ptree pending_tree;
+							pending_tree.put ("amount", info.amount.number ().convert_to<std::string> ());
+							if (source)
 							{
-								boost::property_tree::ptree pending_tree;
-								pending_tree.put ("amount", info.amount.number ().convert_to<std::string> ());
-								if (source)
-								{
-									pending_tree.put ("source", info.source.to_account ());
-								}
-								if (min_version)
-								{
-									pending_tree.put ("min_version", std::to_string (info.min_version));
-								}
-								peers_l.add_child (key.hash.to_string (), pending_tree);
+								pending_tree.put ("source", info.source.to_account ());
 							}
-							else
+							if (min_version)
 							{
-								peers_l.put (key.hash.to_string (), info.amount.number ().convert_to<std::string> ());
+								pending_tree.put ("min_version", std::to_string (info.min_version));
 							}
+							peers_l.add_child (key.hash.to_string (), pending_tree);
+						}
+						else
+						{
+							peers_l.put (key.hash.to_string (), info.amount.number ().convert_to<std::string> ());
 						}
 					}
 				}
-				if (!peers_l.empty ())
-				{
-					pending.add_child (account.to_account (), peers_l);
-				}
 			}
-			response_l.add_child ("blocks", pending);
+			if (!peers_l.empty ())
+			{
+				pending.add_child (account.to_account (), peers_l);
+			}
 		}
+		response_l.add_child ("blocks", pending);
 	}
 	response_errors ();
 }
