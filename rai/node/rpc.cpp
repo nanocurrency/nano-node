@@ -1443,8 +1443,7 @@ void rai::rpc_handler::deterministic_key ()
 	std::string seed_text (request.get<std::string> ("seed"));
 	std::string index_text (request.get<std::string> ("index"));
 	rai::raw_key seed;
-	auto error (seed.data.decode_hex (seed_text));
-	if (!error)
+	if (!seed.data.decode_hex (seed_text))
 	{
 		uint64_t index_a;
 		if (!decode_unsigned (index_text, index_a))
