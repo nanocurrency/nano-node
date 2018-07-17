@@ -225,6 +225,7 @@ public:
 	rai::amount amount_impl ();
 	rai::block_hash hash_impl (std::string = "hash");
 	rai::amount threshold_optional_impl ();
+	uint64_t work_optional_impl ();
 	uint64_t count_impl ();
 	uint64_t count_optional_impl (uint64_t = std::numeric_limits<uint64_t>::max ());
 	bool rpc_control_impl ();

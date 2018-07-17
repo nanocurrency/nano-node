@@ -300,6 +300,20 @@ rai::amount rai::rpc_handler::threshold_optional_impl ()
 	return result;
 }
 
+uint64_t rai::rpc_handler::work_optional_impl ()
+{
+	uint64_t result (0);
+	boost::optional<std::string> work_text (request.get_optional<std::string> ("work"));
+	if (!ec && work_text.is_initialized ())
+	{
+		if (rai::from_string_hex (work_text.get (), result))
+		{
+			ec = nano::error_common::bad_work_format;
+		}
+	}
+	return result;
+}
+
 namespace
 {
 bool decode_unsigned (std::string const & text, uint64_t & number)
@@ -601,21 +615,14 @@ void rai::rpc_handler::account_representative_set ()
 	rpc_control_impl ();
 	auto wallet (wallet_impl ());
 	auto account (account_impl ());
+	auto work (work_optional_impl ());
 	if (!ec)
 	{
 		std::string representative_text (request.get<std::string> ("representative"));
 		rai::account representative;
 		if (!representative.decode_account (representative_text))
 		{
-			uint64_t work (0);
-			boost::optional<std::string> work_text (request.get_optional<std::string> ("work"));
-			if (work_text.is_initialized ())
-			{
-				if (rai::from_string_hex (work_text.get (), work))
-				{
-					ec = nano::error_common::bad_work_format;
-				}
-			}
+			auto work (work_optional_impl ());
 			if (!ec && work)
 			{
 				rai::transaction transaction (node.store.environment, nullptr, true);
@@ -1070,16 +1077,7 @@ void rai::rpc_handler::block_create ()
 				ec = nano::error_common::invalid_amount;
 			}
 		}
-		uint64_t work (0);
-		boost::optional<std::string> work_text (request.get_optional<std::string> ("work"));
-		if (!ec && work_text.is_initialized ())
-		{
-			auto work_error (rai::from_string_hex (work_text.get (), work));
-			if (work_error)
-			{
-				ec = nano::error_common::bad_work_format;
-			}
-		}
+		auto work (work_optional_impl ());
 		rai::raw_key prv;
 		prv.data.clear ();
 		rai::uint256_union previous (0);
@@ -2117,33 +2115,19 @@ void rai::rpc_handler::payment_begin ()
 
 void rai::rpc_handler::payment_init ()
 {
-	std::string id_text (request.get<std::string> ("wallet"));
-	rai::uint256_union id;
-	if (!id.decode_hex (id_text))
+	auto wallet (wallet_impl ());
+	if (!ec)
 	{
 		rai::transaction transaction (node.store.environment, nullptr, true);
-		auto existing (node.wallets.items.find (id));
-		if (existing != node.wallets.items.end ())
+		if (wallet->store.valid_password (transaction))
 		{
-			auto wallet (existing->second);
-			if (wallet->store.valid_password (transaction))
-			{
-				wallet->init_free_accounts (transaction);
-				response_l.put ("status", "Ready");
-			}
-			else
-			{
-				ec = nano::error_common::wallet_locked;
-			}
+			wallet->init_free_accounts (transaction);
+			response_l.put ("status", "Ready");
 		}
 		else
 		{
-			ec = nano::error_common::wallet_not_found;
+			ec = nano::error_common::wallet_locked;
 		}
-	}
-	else
-	{
-		ec = nano::error_common::bad_wallet_number;
 	}
 	response_errors ();
 }
@@ -2312,6 +2296,7 @@ void rai::rpc_handler::receive ()
 	auto wallet (wallet_impl ());
 	auto account (account_impl ());
 	auto hash (hash_impl ("block"));
+	auto work (work_optional_impl ());
 	if (!ec)
 	{
 		rai::transaction transaction (node.store.environment, nullptr, false);
@@ -2322,15 +2307,7 @@ void rai::rpc_handler::receive ()
 			{
 				if (node.store.pending_exists (transaction, rai::pending_key (account, hash)))
 				{
-					uint64_t work (0);
-					boost::optional<std::string> work_text (request.get_optional<std::string> ("work"));
-					if (work_text.is_initialized ())
-					{
-						if (rai::from_string_hex (work_text.get (), work))
-						{
-							ec = nano::error_common::bad_work_format;
-						}
-					}
+					auto work (work_optional_impl ());
 					if (!ec && work)
 					{
 						rai::account_info info;
@@ -2606,15 +2583,7 @@ void rai::rpc_handler::send ()
 			rai::account destination;
 			if (!destination.decode_account (destination_text))
 			{
-				uint64_t work (0);
-				boost::optional<std::string> work_text (request.get_optional<std::string> ("work"));
-				if (work_text.is_initialized ())
-				{
-					if (rai::from_string_hex (work_text.get (), work))
-					{
-						ec = nano::error_common::bad_work_format;
-					}
-				}
+				auto work (work_optional_impl ());
 				rai::uint128_t balance (0);
 				if (!ec)
 				{
@@ -3389,22 +3358,14 @@ void rai::rpc_handler::work_set ()
 	rpc_control_impl ();
 	auto wallet (wallet_impl ());
 	auto account (account_impl ());
+	auto work (work_optional_impl ());
 	if (!ec)
 	{
 		rai::transaction transaction (node.store.environment, nullptr, true);
 		if (wallet->store.find (transaction, account) != wallet->store.end ())
 		{
-			std::string work_text (request.get<std::string> ("work"));
-			uint64_t work;
-			if (!rai::from_string_hex (work_text, work))
-			{
-				wallet->store.work_put (transaction, account, work);
-				response_l.put ("success", "");
-			}
-			else
-			{
-				ec = nano::error_common::bad_work_format;
-			}
+			wallet->store.work_put (transaction, account, work);
+			response_l.put ("success", "");
 		}
 		else
 		{
@@ -3417,19 +3378,11 @@ void rai::rpc_handler::work_set ()
 void rai::rpc_handler::work_validate ()
 {
 	auto hash (hash_impl ());
+	auto work (work_optional_impl ());
 	if (!ec)
 	{
-		std::string work_text (request.get<std::string> ("work"));
-		uint64_t work;
-		if (!rai::from_string_hex (work_text, work))
-		{
-			auto validate (rai::work_validate (hash, work));
-			response_l.put ("valid", validate ? "0" : "1");
-		}
-		else
-		{
-			ec = nano::error_common::bad_work_format;
-		}
+		auto validate (rai::work_validate (hash, work));
+		response_l.put ("valid", validate ? "0" : "1");
 	}
 	response_errors ();
 }
