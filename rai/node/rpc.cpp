@@ -615,7 +615,6 @@ void rai::rpc_handler::account_representative_set ()
 	rpc_control_impl ();
 	auto wallet (wallet_impl ());
 	auto account (account_impl ());
-	auto work (work_optional_impl ());
 	if (!ec)
 	{
 		std::string representative_text (request.get<std::string> ("representative"));
@@ -2296,7 +2295,6 @@ void rai::rpc_handler::receive ()
 	auto wallet (wallet_impl ());
 	auto account (account_impl ());
 	auto hash (hash_impl ("block"));
-	auto work (work_optional_impl ());
 	if (!ec)
 	{
 		rai::transaction transaction (node.store.environment, nullptr, false);
