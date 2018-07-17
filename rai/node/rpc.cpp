@@ -286,7 +286,7 @@ rai::block_hash rai::rpc_handler::hash_impl (std::string search_text)
 	return result;
 }
 
-rai::amount threshold_optional_impl ()
+rai::amount rai::rpc_handler::threshold_optional_impl ()
 {
 	rai::amount result (0);
 	boost::optional<std::string> threshold_text (request.get_optional<std::string> ("threshold"));
