@@ -1640,7 +1640,7 @@ public:
 
 void rai::rpc_handler::account_history ()
 {
-	std::string account_text;
+	rai::account account;
 	bool output_raw (request.get_optional<bool> ("raw") == true);
 	rai::block_hash hash;
 	auto head_str (request.get_optional<std::string> ("head"));
@@ -1649,7 +1649,7 @@ void rai::rpc_handler::account_history ()
 	{
 		if (!hash.decode_hex (*head_str))
 		{
-			account_text = node.ledger.account (transaction, hash).to_account ();
+			account = node.ledger.account (transaction, hash);
 		}
 		else
 		{
@@ -1658,7 +1658,7 @@ void rai::rpc_handler::account_history ()
 	}
 	else
 	{
-		auto account (account_impl ());
+		account = account_impl ();
 		if (!ec)
 		{
 			hash = node.ledger.latest (transaction, account);
@@ -1672,7 +1672,7 @@ void rai::rpc_handler::account_history ()
 		if (!offset_text || !decode_unsigned (*offset_text, offset))
 		{
 			boost::property_tree::ptree history;
-			response_l.put ("account", account_text);
+			response_l.put ("account", account.to_account ());
 			auto block (node.store.block_get (transaction, hash));
 			while (block != nullptr && count > 0)
 			{
