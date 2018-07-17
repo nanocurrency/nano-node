@@ -3423,8 +3423,7 @@ void rai::rpc_handler::work_validate ()
 	{
 		std::string work_text (request.get<std::string> ("work"));
 		uint64_t work;
-		auto work_error (rai::from_string_hex (work_text, work));
-		if (!work_error)
+		if (!rai::from_string_hex (work_text, work))
 		{
 			auto validate (rai::work_validate (hash, work));
 			response_l.put ("valid", validate ? "0" : "1");
