@@ -1090,11 +1090,9 @@ void rai::rpc_handler::block_create ()
 			if (existing != node.wallets.items.end ())
 			{
 				rai::transaction transaction (node.store.environment, nullptr, false);
-				auto unlock_check (existing->second->store.valid_password (transaction));
-				if (unlock_check)
+				if (existing->second->store.valid_password (transaction))
 				{
-					auto account_check (existing->second->store.find (transaction, account));
-					if (account_check != existing->second->store.end ())
+					if (existing->second->store.find (transaction, account) != existing->second->store.end ())
 					{
 						existing->second->store.fetch (transaction, account, prv);
 						previous = node.ledger.latest (transaction, account);
