@@ -1575,21 +1575,14 @@ void rai::bulk_pull_server::set_current_end ()
 		}
 		else
 		{
+			current = info.head;
 			if (!request->end.is_zero ())
 			{
 				auto account (connection->node->ledger.account (transaction, request->end));
-				if (account == request->start)
-				{
-					current = info.head;
-				}
-				else
+				if (account != request->start)
 				{
 					current = request->end;
 				}
-			}
-			else
-			{
-				current = info.head;
 			}
 		}
 	}
