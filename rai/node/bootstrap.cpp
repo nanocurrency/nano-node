@@ -1552,14 +1552,17 @@ void rai::bulk_pull_server::set_current_end ()
 		request->end.clear ();
 	}
 
-	if (connection->node->store.block_exists (transaction, request->start)) {
+	if (connection->node->store.block_exists (transaction, request->start))
+	{
 		if (connection->node->config.logging.bulk_pull_logging ())
 		{
 			BOOST_LOG (connection->node->log) << boost::str (boost::format ("Bulk pull request for block hash: %1%") % request->start.to_string ());
 		}
 
 		current = request->start;
-	} else {
+	}
+	else
+	{
 		rai::account_info info;
 		auto no_address (connection->node->store.account_get (transaction, request->start, info));
 		if (no_address)
