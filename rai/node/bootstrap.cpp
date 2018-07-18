@@ -1581,6 +1581,10 @@ void rai::bulk_pull_server::set_current_end ()
 				auto account (connection->node->ledger.account (transaction, request->end));
 				if (account != request->start)
 				{
+					if (connection->node->config.logging.bulk_pull_logging ())
+					{
+						BOOST_LOG (connection->node->log) << boost::str (boost::format ("Request for block that is not on account chain: %1% not on %2%") % request->end.to_string () % request->start.to_account ());
+					}
 					current = request->end;
 				}
 			}
