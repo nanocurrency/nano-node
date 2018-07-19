@@ -183,7 +183,7 @@ bool confirm_block (MDB_txn * transaction_a, rai::node & node_a, T & list_a, std
 		node_a.wallets.foreach_representative (transaction_a, [&result, &block_a, &list_a, &node_a, &transaction_a](rai::public_key const & pub_a, rai::raw_key const & prv_a) {
 			result = true;
 			auto vote (node_a.vote_processor.search_cache (pub_a, block_a->hash ()));
-			if (vote == nullptr)
+			if (!vote)
 			{
 				vote = node_a.store.vote_generate (transaction_a, pub_a, prv_a, block_a);
 				node_a.vote_processor.add_cache (vote);
@@ -1289,7 +1289,7 @@ void rai::vote_processor::add_cache (std::shared_ptr<rai::vote> vote_a)
 std::shared_ptr<rai::vote> rai::vote_processor::search_cache (rai::account const & account_a, rai::block_hash const & hash_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
-	std::shared_ptr<rai::vote> result (nullptr);
+	std::shared_ptr<rai::vote> result;
 	rai::checksum checksum (account_a);
 	checksum ^= hash_a;
 	auto existing (votes_cache.find (checksum));
@@ -3431,7 +3431,7 @@ void rai::election::compute_rep_votes (MDB_txn * transaction_a)
 	{
 		node.wallets.foreach_representative (transaction_a, [this, transaction_a](rai::public_key const & pub_a, rai::raw_key const & prv_a) {
 			auto vote (this->node.vote_processor.search_cache (pub_a, status.winner->hash ()));
-			if (vote == nullptr)
+			if (!vote)
 			{
 				vote = this->node.store.vote_generate (transaction_a, pub_a, prv_a, status.winner);
 				this->node.vote_processor.add_cache (vote);
