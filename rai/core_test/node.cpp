@@ -1692,3 +1692,28 @@ TEST (node, confirm_quorum)
 	}
 	ASSERT_EQ (0, system.nodes[0]->balance (rai::test_genesis_key.pub));
 }
+
+TEST (node, local_votes_cache)
+{
+	rai::system system (24000, 1);
+	auto & node (*system.nodes[0]);
+	rai::genesis genesis;
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	auto send1 (std::make_shared<rai::state_block> (rai::test_genesis_key.pub, genesis.hash (), rai::test_genesis_key.pub, rai::genesis_amount - rai::Gxrb_ratio, rai::test_genesis_key.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, node.work_generate_blocking (genesis.hash ())));
+	auto send2 (std::make_shared<rai::state_block> (rai::test_genesis_key.pub, send1->hash (), rai::test_genesis_key.pub, rai::genesis_amount - 2 * rai::Gxrb_ratio, rai::test_genesis_key.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, node.work_generate_blocking (send1->hash ())));
+	{
+		rai::transaction transaction (node.store.environment, nullptr, true);
+		ASSERT_EQ (rai::process_result::progress, node.ledger.process (transaction, *send1).code);
+		ASSERT_EQ (rai::process_result::progress, node.ledger.process (transaction, *send2).code);
+	}
+	rai::confirm_req message1 (send1);
+	rai::confirm_req message2 (send2);
+	for (auto i (0); i < 1000; ++i)
+	{
+		node.process_message (message1, node.network.endpoint ());
+		node.process_message (message2, node.network.endpoint ());
+	}
+	rai::transaction transaction (node.store.environment, nullptr, false);
+	auto current_vote (node.store.vote_current (transaction, rai::test_genesis_key.pub));
+	ASSERT_EQ (current_vote->sequence, 2);
+}

@@ -506,6 +506,12 @@ public:
 	vote_processor (rai::node &);
 	rai::vote_code vote (std::shared_ptr<rai::vote>, rai::endpoint);
 	rai::node & node;
+	void add_cache (std::shared_ptr<rai::vote>);
+	std::shared_ptr<rai::vote> search_cache (rai::account, rai::block_hash const &);
+
+private:
+	std::unordered_map<rai::checksum, rai::vote> votes_cache;
+	std::mutex mutex;
 };
 // The network is crawled for representatives by occasionally sending a unicast confirm_req for a specific block and watching to see if it's acknowledged with a vote.
 class rep_crawler

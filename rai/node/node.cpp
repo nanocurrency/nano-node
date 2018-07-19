@@ -182,7 +182,12 @@ bool confirm_block (MDB_txn * transaction_a, rai::node & node_a, T & list_a, std
 	{
 		node_a.wallets.foreach_representative (transaction_a, [&result, &block_a, &list_a, &node_a, &transaction_a](rai::public_key const & pub_a, rai::raw_key const & prv_a) {
 			result = true;
-			auto vote (node_a.store.vote_generate (transaction_a, pub_a, prv_a, block_a));
+			auto vote (node_a.vote_processor.search_cache (pub_a, block_a->hash ()));
+			if (vote == nullptr)
+			{
+				vote = node_a.store.vote_generate (transaction_a, pub_a, prv_a, block_a);
+				node_a.vote_processor.add_cache (vote);
+			}
 			rai::confirm_ack confirm (vote);
 			std::shared_ptr<std::vector<uint8_t>> bytes (new std::vector<uint8_t>);
 			{
@@ -1265,6 +1270,31 @@ rai::vote_code rai::vote_processor::vote (std::shared_ptr<rai::vote> vote_a, rai
 				break;
 		}
 		BOOST_LOG (node.log) << boost::str (boost::format ("Vote from: %1% sequence: %2% block: %3% status: %4%") % vote_a->account.to_account () % std::to_string (vote_a->sequence) % vote_a->block->hash ().to_string () % status);
+	}
+	return result;
+}
+
+void rai::vote_processor::add_cache (std::shared_ptr<rai::vote> vote_a)
+{
+	std::lock_guard<std::mutex> lock (mutex);
+	if (votes_cache.size () >= 10000)
+	{
+		votes_cache.clear ();
+	}
+	rai::checksum checksum (vote_a->account);
+	checksum ^= vote_a->block->hash ();
+	votes_cache.insert (std::make_pair (checksum, *vote_a));
+}
+
+std::shared_ptr<rai::vote> rai::vote_processor::search_cache (rai::account account_a, rai::block_hash const & hash_a)
+{
+	std::lock_guard<std::mutex> lock (mutex);
+	std::shared_ptr<rai::vote> result (nullptr);
+	account_a ^= hash_a;
+	auto existing (votes_cache.find (account_a));
+	if (existing != votes_cache.end ())
+	{
+		result = std::make_shared<rai::vote> (existing->second);
 	}
 	return result;
 }
@@ -3399,7 +3429,12 @@ void rai::election::compute_rep_votes (MDB_txn * transaction_a)
 	if (node.config.enable_voting)
 	{
 		node.wallets.foreach_representative (transaction_a, [this, transaction_a](rai::public_key const & pub_a, rai::raw_key const & prv_a) {
-			auto vote (this->node.store.vote_generate (transaction_a, pub_a, prv_a, status.winner));
+			auto vote (this->node.vote_processor.search_cache (pub_a, status.winner->hash ()));
+			if (vote == nullptr)
+			{
+				this->node.store.vote_generate (transaction_a, pub_a, prv_a, status.winner);
+				this->node.vote_processor.add_cache (vote);
+			}
 			this->node.vote_processor.vote (vote, this->node.network.endpoint ());
 		});
 	}
