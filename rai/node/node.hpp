@@ -507,7 +507,7 @@ public:
 	rai::vote_code vote (std::shared_ptr<rai::vote>, rai::endpoint);
 	rai::node & node;
 	void add_cache (std::shared_ptr<rai::vote>);
-	std::shared_ptr<rai::vote> search_cache (rai::account, rai::block_hash const &);
+	std::shared_ptr<rai::vote> search_cache (rai::account const &, rai::block_hash const &);
 
 private:
 	std::unordered_map<rai::checksum, rai::vote> votes_cache;

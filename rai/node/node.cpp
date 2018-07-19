@@ -1286,12 +1286,13 @@ void rai::vote_processor::add_cache (std::shared_ptr<rai::vote> vote_a)
 	votes_cache.insert (std::make_pair (checksum, *vote_a));
 }
 
-std::shared_ptr<rai::vote> rai::vote_processor::search_cache (rai::account account_a, rai::block_hash const & hash_a)
+std::shared_ptr<rai::vote> rai::vote_processor::search_cache (rai::account const & account_a, rai::block_hash const & hash_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	std::shared_ptr<rai::vote> result (nullptr);
-	account_a ^= hash_a;
-	auto existing (votes_cache.find (account_a));
+	rai::checksum checksum (account_a);
+	checksum ^= hash_a;
+	auto existing (votes_cache.find (checksum));
 	if (existing != votes_cache.end ())
 	{
 		result = std::make_shared<rai::vote> (existing->second);
