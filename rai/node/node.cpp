@@ -3432,7 +3432,7 @@ void rai::election::compute_rep_votes (MDB_txn * transaction_a)
 			auto vote (this->node.vote_processor.search_cache (pub_a, status.winner->hash ()));
 			if (vote == nullptr)
 			{
-				this->node.store.vote_generate (transaction_a, pub_a, prv_a, status.winner);
+				vote = this->node.store.vote_generate (transaction_a, pub_a, prv_a, status.winner);
 				this->node.vote_processor.add_cache (vote);
 			}
 			this->node.vote_processor.vote (vote, this->node.network.endpoint ());

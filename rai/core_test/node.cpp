@@ -1708,11 +1708,12 @@ TEST (node, local_votes_cache)
 	}
 	rai::confirm_req message1 (send1);
 	rai::confirm_req message2 (send2);
-	for (auto i (0); i < 1000; ++i)
+	for (auto i (0); i < 100; ++i)
 	{
 		node.process_message (message1, node.network.endpoint ());
 		node.process_message (message2, node.network.endpoint ());
 	}
+	std::lock_guard<std::mutex> lock (node.store.cache_mutex);
 	rai::transaction transaction (node.store.environment, nullptr, false);
 	auto current_vote (node.store.vote_current (transaction, rai::test_genesis_key.pub));
 	ASSERT_EQ (current_vote->sequence, 2);
