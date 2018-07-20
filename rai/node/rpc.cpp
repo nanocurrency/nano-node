@@ -2867,24 +2867,13 @@ void rai::rpc_handler::wallet_balances ()
 		{
 			rai::account account (i->first.uint256 ());
 			rai::uint128_t balance = node.ledger.account_balance (transaction, account);
-			if (threshold.is_zero ())
+			if (balance >= threshold.number ())
 			{
 				boost::property_tree::ptree entry;
 				rai::uint128_t pending = node.ledger.account_pending (transaction, account);
 				entry.put ("balance", balance.convert_to<std::string> ());
 				entry.put ("pending", pending.convert_to<std::string> ());
 				balances.push_back (std::make_pair (account.to_account (), entry));
-			}
-			else
-			{
-				if (balance >= threshold.number ())
-				{
-					boost::property_tree::ptree entry;
-					rai::uint128_t pending = node.ledger.account_pending (transaction, account);
-					entry.put ("balance", balance.convert_to<std::string> ());
-					entry.put ("pending", pending.convert_to<std::string> ());
-					balances.push_back (std::make_pair (account.to_account (), entry));
-				}
 			}
 		}
 		response_l.add_child ("balances", balances);
