@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 #include <rai/node/common.hpp>
 #include <rai/node/node.hpp>
-#include <rai/versioning.hpp>
+#include <rai/secure/versioning.hpp>
 
 #include <fstream>
 
