@@ -110,12 +110,11 @@ std::unique_ptr<rai::block> deserialize_block (MDB_val const &);
 /**
  * Latest information about an account
  */
-#pragma pack(push, 1)
 class account_info
 {
 public:
 	account_info ();
-	account_info (MDB_val const &);
+	account_info (MDB_val const &, uint8_t);
 	account_info (rai::account_info const &) = default;
 	account_info (rai::block_hash const &, rai::block_hash const &, rai::block_hash const &, rai::amount const &, uint64_t, uint64_t, uint8_t);
 	void serialize (rai::stream &) const;
@@ -123,6 +122,7 @@ public:
 	bool operator== (rai::account_info const &) const;
 	bool operator!= (rai::account_info const &) const;
 	rai::mdb_val val () const;
+	size_t db_size () const;
 	rai::block_hash head;
 	rai::block_hash rep_block;
 	rai::block_hash open_block;
@@ -132,17 +132,15 @@ public:
 	uint64_t block_count;
 	uint8_t version;
 };
-#pragma pack(pop)
 
 /**
  * Information on an uncollected send
  */
-#pragma pack(push, 1)
 class pending_info
 {
 public:
 	pending_info ();
-	pending_info (MDB_val const &);
+	pending_info (MDB_val const &, uint8_t);
 	pending_info (rai::account const &, rai::amount const &, uint8_t);
 	void serialize (rai::stream &) const;
 	bool deserialize (rai::stream &);
@@ -152,7 +150,6 @@ public:
 	rai::amount amount;
 	uint8_t min_version;
 };
-#pragma pack(pop)
 class pending_key
 {
 public:
@@ -187,7 +184,8 @@ public:
 	size_t receive;
 	size_t open;
 	size_t change;
-	size_t state;
+	size_t state_v0;
+	size_t state_v1;
 };
 class vote
 {
