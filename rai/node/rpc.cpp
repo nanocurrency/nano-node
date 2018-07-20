@@ -620,7 +620,7 @@ void rai::rpc_handler::account_representative_set ()
 	auto account (account_impl ());
 	if (!ec)
 	{
-		if (wallet->password_valid ())
+		if (wallet->valid_password ())
 		{
 			std::string representative_text (request.get<std::string> ("representative"));
 			rai::account representative;
@@ -2283,7 +2283,7 @@ void rai::rpc_handler::receive ()
 	if (!ec)
 	{
 		rai::transaction transaction (node.store.environment, nullptr, false);
-		if (wallet->store.password_valid (transaction))
+		if (wallet->store.valid_password (transaction))
 		{
 			if (wallet->store.find (transaction, account) != wallet->store.end ())
 			{
