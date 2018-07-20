@@ -966,7 +966,7 @@ TEST (votes, add_old_different_account)
 }
 
 // The voting cooldown is respected
-TEST (votes, add_cooldown)
+TEST (votes, DISABLED_add_cooldown)
 {
 	rai::system system (24000, 1);
 	auto & node1 (*system.nodes[0]);
