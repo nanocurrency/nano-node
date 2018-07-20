@@ -3324,7 +3324,8 @@ last_bootstrap_attempt (std::chrono::steady_clock::time_point ()),
 last_rep_request (std::chrono::steady_clock::time_point ()),
 last_rep_response (std::chrono::steady_clock::time_point ()),
 rep_weight (0),
-node_id ()
+node_id (),
+network_version (rai::protocol_version)
 {
 }
 
