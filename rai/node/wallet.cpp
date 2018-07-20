@@ -1005,7 +1005,7 @@ std::shared_ptr<rai::block> rai::wallet::send_action (rai::account const & sourc
 						uint64_t cached_work (0);
 						store.work_get (transaction, source_a, cached_work);
 						block.reset (new rai::state_block (source_a, info.head, rep_block->representative (), balance - amount_a, account_a, prv, source_a, cached_work));
-						if (id_mdb_val)
+						if (id_mdb_val && block != nullptr)
 						{
 							auto status (mdb_put (transaction, node.wallets.send_action_ids, *id_mdb_val, rai::mdb_val (block->hash ()), 0));
 							if (status != 0)
