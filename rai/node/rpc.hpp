@@ -222,7 +222,7 @@ public:
 	boost::property_tree::ptree response_l;
 	std::shared_ptr<rai::wallet> wallet_impl ();
 	rai::account account_impl ();
-	rai::amount amount_impl ();
+	rai::amount amount_impl (std::string = "");
 	rai::block_hash hash_impl (std::string = "hash");
 	rai::amount threshold_optional_impl ();
 	uint64_t work_optional_impl ();

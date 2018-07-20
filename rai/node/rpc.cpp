@@ -244,12 +244,15 @@ std::shared_ptr<rai::wallet> rai::rpc_handler::wallet_impl ()
 	return nullptr;
 }
 
-rai::account rai::rpc_handler::account_impl ()
+rai::account rai::rpc_handler::account_impl (std::string account_text)
 {
 	rai::account result (0);
 	if (!ec)
 	{
-		std::string account_text (request.get<std::string> ("account"));
+		if (account_text.empty ())
+		{
+			account_text = request.get<std::string> ("account");
+		}
 		if (result.decode_account (account_text))
 		{
 			ec = nano::error_common::bad_account_number;
@@ -688,19 +691,14 @@ void rai::rpc_handler::accounts_balances ()
 	{
 		if (!ec)
 		{
-			std::string account_text = accounts.second.data ();
-			rai::uint256_union account;
-			if (!account.decode_account (account_text))
+			auto account (account_impl (accounts.second.data ()));
+			if (!ec)
 			{
 				boost::property_tree::ptree entry;
 				auto balance (node.balance_pending (account));
 				entry.put ("balance", balance.first.convert_to<std::string> ());
 				entry.put ("pending", balance.second.convert_to<std::string> ());
 				balances.push_back (std::make_pair (account.to_account (), entry));
-			}
-			else
-			{
-				ec = nano::error_common::bad_account_number;
 			}
 		}
 	}
@@ -740,19 +738,14 @@ void rai::rpc_handler::accounts_frontiers ()
 	{
 		if (!ec)
 		{
-			std::string account_text = accounts.second.data ();
-			rai::uint256_union account;
-			if (!account.decode_account (account_text))
+			auto account (account_impl (accounts.second.data ()));
+			if (!ec)
 			{
 				auto latest (node.ledger.latest (transaction, account));
 				if (!latest.is_zero ())
 				{
 					frontiers.put (account.to_account (), latest.to_string ());
 				}
-			}
-			else
-			{
-				ec = nano::error_common::bad_account_number;
 			}
 		}
 	}
@@ -771,9 +764,8 @@ void rai::rpc_handler::accounts_pending ()
 	{
 		if (!ec)
 		{
-			std::string account_text = accounts.second.data ();
-			rai::uint256_union account;
-			if (!account.decode_account (account_text))
+			auto account (account_impl (accounts.second.data ()));
+			if (!ec)
 			{
 				boost::property_tree::ptree peers_l;
 				rai::account end (account.number () + 1);
@@ -806,10 +798,6 @@ void rai::rpc_handler::accounts_pending ()
 					}
 				}
 				pending.add_child (account.to_account (), peers_l);
-			}
-			else
-			{
-				ec = nano::error_common::bad_account_number;
 			}
 		}
 	}
@@ -2842,15 +2830,10 @@ void rai::rpc_handler::wallet_add_watch ()
 			{
 				if (!ec)
 				{
-					std::string account_text = accounts.second.data ();
-					rai::uint256_union account;
-					if (!account.decode_account (account_text))
+					auto account (account_impl (accounts.second.data ()));
+					if (!ec)
 					{
 						wallet->insert_watch (transaction, account);
-					}
-					else
-					{
-						ec = nano::error_common::bad_account_number;
 					}
 				}
 			}
