@@ -653,9 +653,14 @@ rai::uint128_t rai::ledger::account_pending (MDB_txn * transaction_a, rai::accou
 {
 	rai::uint128_t result (0);
 	rai::account end (account_a.number () + 1);
-	for (auto i (store.pending_begin (transaction_a, rai::pending_key (account_a, 0))), n (store.pending_begin (transaction_a, rai::pending_key (end, 0))); i != n; ++i)
+	for (auto i (store.pending_v0_begin (transaction_a, rai::pending_key (account_a, 0))), n (store.pending_v0_begin (transaction_a, rai::pending_key (end, 0))); i != n; ++i)
 	{
-		rai::pending_info info (i->second);
+		rai::pending_info info (i->second, 0);
+		result += info.amount.number ();
+	}
+	for (auto i (store.pending_v1_begin (transaction_a, rai::pending_key (account_a, 0))), n (store.pending_v1_begin (transaction_a, rai::pending_key (end, 0))); i != n; ++i)
+	{
+		rai::pending_info info (i->second, 1);
 		result += info.amount.number ();
 	}
 	return result;
@@ -904,6 +909,11 @@ void rai::ledger::change_latest (MDB_txn * transaction_a, rai::account const & a
 		info.balance = balance_a;
 		info.modified = rai::seconds_since_epoch ();
 		info.block_count = block_count_a;
+		if (exists && info.version != version_a)
+		{
+			// otherwise we'd end up with a duplicate
+			store.account_del (transaction_a, account_a);
+		}
 		info.version = version_a;
 		store.account_put (transaction_a, account_a, info);
 		if (!(block_count_a % store.block_info_max) && !is_state)

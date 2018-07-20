@@ -1132,7 +1132,7 @@ bool rai::wallet::search_pending ()
 				{
 					rai::pending_key key (j->first);
 					auto hash (key.hash);
-					rai::pending_info pending (j->second);
+					rai::pending_info pending (j->second, j->from_secondary_store);
 					auto amount (pending.amount.number ());
 					if (node.config.receive_minimum.number () <= amount)
 					{

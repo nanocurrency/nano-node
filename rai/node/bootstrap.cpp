@@ -362,7 +362,7 @@ void rai::frontier_req_client::next (MDB_txn * transaction_a)
 	if (iterator != connection->node->store.latest_end ())
 	{
 		current = rai::account (iterator->first.uint256 ());
-		info = rai::account_info (iterator->second);
+		info = rai::account_info (iterator->second, iterator->from_secondary_store);
 	}
 	else
 	{
@@ -2086,7 +2086,7 @@ void rai::frontier_req_server::next ()
 	if (iterator != connection->node->store.latest_end ())
 	{
 		current = rai::uint256_union (iterator->first.uint256 ());
-		info = rai::account_info (iterator->second);
+		info = rai::account_info (iterator->second, iterator->from_secondary_store);
 	}
 	else
 	{
