@@ -3557,11 +3557,11 @@ bool rai::election::vote (std::shared_ptr<rai::vote> vote_a)
 		{
 			last_votes[vote_a->account] = { std::chrono::steady_clock::now (), vote_a->sequence, vote_a->block->hash () };
 			node.network.republish_vote (vote_a);
-			votes.vote (vote_a);
-			if (!confirmed)
-			{
-				confirm_if_quorum (transaction);
-			}
+		}
+		auto tally_result (votes.vote (vote_a, replay));
+		if (!confirmed && tally_result != rai::tally_result::confirm)
+		{
+			confirm_if_quorum (transaction);
 		}
 	}
 	return replay;

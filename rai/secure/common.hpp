@@ -255,7 +255,7 @@ class votes
 {
 public:
 	votes (std::shared_ptr<rai::block>);
-	rai::tally_result vote (std::shared_ptr<rai::vote>);
+	rai::tally_result vote (std::shared_ptr<rai::vote>, bool = false);
 	bool uncontested ();
 	// Root block of fork
 	rai::block_hash id;

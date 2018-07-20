@@ -113,7 +113,7 @@ id (block_a->root ())
 	rep_votes.insert (std::make_pair (rai::not_an_account, block_a));
 }
 
-rai::tally_result rai::votes::vote (std::shared_ptr<rai::vote> vote_a)
+rai::tally_result rai::votes::vote (std::shared_ptr<rai::vote> vote_a, bool replay)
 {
 	rai::tally_result result;
 	auto existing (rep_votes.find (vote_a->account));
@@ -125,7 +125,7 @@ rai::tally_result rai::votes::vote (std::shared_ptr<rai::vote> vote_a)
 	}
 	else
 	{
-		if (!(*existing->second == *vote_a->block))
+		if (!(*existing->second == *vote_a->block) && !replay)
 		{
 			// Rep changed their vote
 			result = rai::tally_result::changed;
