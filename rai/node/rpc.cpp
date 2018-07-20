@@ -689,17 +689,14 @@ void rai::rpc_handler::accounts_balances ()
 	boost::property_tree::ptree balances;
 	for (auto & accounts : request.get_child ("accounts"))
 	{
+		auto account (account_impl (accounts.second.data ()));
 		if (!ec)
 		{
-			auto account (account_impl (accounts.second.data ()));
-			if (!ec)
-			{
-				boost::property_tree::ptree entry;
-				auto balance (node.balance_pending (account));
-				entry.put ("balance", balance.first.convert_to<std::string> ());
-				entry.put ("pending", balance.second.convert_to<std::string> ());
-				balances.push_back (std::make_pair (account.to_account (), entry));
-			}
+			boost::property_tree::ptree entry;
+			auto balance (node.balance_pending (account));
+			entry.put ("balance", balance.first.convert_to<std::string> ());
+			entry.put ("pending", balance.second.convert_to<std::string> ());
+			balances.push_back (std::make_pair (account.to_account (), entry));
 		}
 	}
 	response_l.add_child ("balances", balances);
@@ -736,16 +733,13 @@ void rai::rpc_handler::accounts_frontiers ()
 	rai::transaction transaction (node.store.environment, nullptr, false);
 	for (auto & accounts : request.get_child ("accounts"))
 	{
+		auto account (account_impl (accounts.second.data ()));
 		if (!ec)
 		{
-			auto account (account_impl (accounts.second.data ()));
-			if (!ec)
+			auto latest (node.ledger.latest (transaction, account));
+			if (!latest.is_zero ())
 			{
-				auto latest (node.ledger.latest (transaction, account));
-				if (!latest.is_zero ())
-				{
-					frontiers.put (account.to_account (), latest.to_string ());
-				}
+				frontiers.put (account.to_account (), latest.to_string ());
 			}
 		}
 	}
@@ -762,43 +756,40 @@ void rai::rpc_handler::accounts_pending ()
 	rai::transaction transaction (node.store.environment, nullptr, false);
 	for (auto & accounts : request.get_child ("accounts"))
 	{
+		auto account (account_impl (accounts.second.data ()));
 		if (!ec)
 		{
-			auto account (account_impl (accounts.second.data ()));
-			if (!ec)
+			boost::property_tree::ptree peers_l;
+			rai::account end (account.number () + 1);
+			for (auto i (node.store.pending_begin (transaction, rai::pending_key (account, 0))), n (node.store.pending_begin (transaction, rai::pending_key (end, 0))); i != n && peers_l.size () < count; ++i)
 			{
-				boost::property_tree::ptree peers_l;
-				rai::account end (account.number () + 1);
-				for (auto i (node.store.pending_begin (transaction, rai::pending_key (account, 0))), n (node.store.pending_begin (transaction, rai::pending_key (end, 0))); i != n && peers_l.size () < count; ++i)
+				rai::pending_key key (i->first);
+				if (threshold.is_zero () && !source)
 				{
-					rai::pending_key key (i->first);
-					if (threshold.is_zero () && !source)
+					boost::property_tree::ptree entry;
+					entry.put ("", key.hash.to_string ());
+					peers_l.push_back (std::make_pair ("", entry));
+				}
+				else
+				{
+					rai::pending_info info (i->second);
+					if (info.amount.number () >= threshold.number ())
 					{
-						boost::property_tree::ptree entry;
-						entry.put ("", key.hash.to_string ());
-						peers_l.push_back (std::make_pair ("", entry));
-					}
-					else
-					{
-						rai::pending_info info (i->second);
-						if (info.amount.number () >= threshold.number ())
+						if (source)
 						{
-							if (source)
-							{
-								boost::property_tree::ptree pending_tree;
-								pending_tree.put ("amount", info.amount.number ().convert_to<std::string> ());
-								pending_tree.put ("source", info.source.to_account ());
-								peers_l.add_child (key.hash.to_string (), pending_tree);
-							}
-							else
-							{
-								peers_l.put (key.hash.to_string (), info.amount.number ().convert_to<std::string> ());
-							}
+							boost::property_tree::ptree pending_tree;
+							pending_tree.put ("amount", info.amount.number ().convert_to<std::string> ());
+							pending_tree.put ("source", info.source.to_account ());
+							peers_l.add_child (key.hash.to_string (), pending_tree);
+						}
+						else
+						{
+							peers_l.put (key.hash.to_string (), info.amount.number ().convert_to<std::string> ());
 						}
 					}
 				}
-				pending.add_child (account.to_account (), peers_l);
 			}
+			pending.add_child (account.to_account (), peers_l);
 		}
 	}
 	response_l.add_child ("blocks", pending);
@@ -2828,13 +2819,10 @@ void rai::rpc_handler::wallet_add_watch ()
 		{
 			for (auto & accounts : request.get_child ("accounts"))
 			{
+				auto account (account_impl (accounts.second.data ()));
 				if (!ec)
 				{
-					auto account (account_impl (accounts.second.data ()));
-					if (!ec)
-					{
-						wallet->insert_watch (transaction, account);
-					}
+					wallet->insert_watch (transaction, account);
 				}
 			}
 			response_l.put ("success", "");
