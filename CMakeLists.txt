@@ -247,39 +247,8 @@ if (RAIBLOCKS_TEST)
 
     add_subdirectory (gtest)
 
-	add_executable (core_test
-		rai/core_test/block.cpp
-		rai/core_test/block_store.cpp
-		rai/core_test/interface.cpp
-		rai/core_test/conflicts.cpp
-		rai/core_test/daemon.cpp
-		rai/core_test/entry.cpp
-		rai/core_test/gap_cache.cpp
-		rai/core_test/ledger.cpp
-		rai/core_test/network.cpp
-		rai/core_test/node.cpp
-		rai/core_test/message.cpp
-		rai/core_test/message_parser.cpp
-		rai/core_test/processor_service.cpp
-		rai/core_test/peer_container.cpp
-		rai/core_test/rpc.cpp
-		rai/core_test/uint256_union.cpp
-		rai/core_test/versioning.cpp
-		rai/core_test/wallet.cpp
-		rai/core_test/wallets.cpp
-		rai/core_test/work_pool.cpp)
-
-	add_executable (slow_test
-		rai/slow_test/node.cpp)
-
-	target_compile_definitions(core_test
-		PRIVATE
-			-DRAIBLOCKS_VERSION_MAJOR=${CPACK_PACKAGE_VERSION_MAJOR}
-			-DRAIBLOCKS_VERSION_MINOR=${CPACK_PACKAGE_VERSION_MINOR})
-	target_link_libraries (core_test node secure gtest_main gtest libminiupnpc-static Boost::boost)
-	target_link_libraries (slow_test node secure gtest_main gtest libminiupnpc-static Boost::boost)
-	target_include_directories (core_test PRIVATE gtest/include)
-	target_include_directories (slow_test PRIVATE gtest/include)
+	add_subdirectory(rai/core_test)
+	add_subdirectory(rai/slow_test)
 endif ()
 
 if (RAIBLOCKS_GUI)
