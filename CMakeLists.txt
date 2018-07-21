@@ -6,7 +6,7 @@ set (CPACK_PACKAGE_VERSION_MINOR "0")
 set (CPACK_PACKAGE_VERSION_PATCH "0")
 if (DEFINED GIT_COMMIT)
 	set (CPACK_PACKAGE_VERSION_PATCH "GIT-${GIT_COMMIT}")
-endif (DEFINED GIT_COMMIT)
+endif ()
 set (CPACK_PACKAGE_VENDOR "Nano Currency")
 
 set(CMAKE_INSTALL_RPATH "@executable_path/../Frameworks")
@@ -26,7 +26,7 @@ set_property (CACHE ACTIVE_NETWORK PROPERTY STRINGS rai_test_network rai_beta_ne
 
 if(NOT CMAKE_BUILD_TYPE)
 	set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose the type of build, options are: Debug Release RelWithDebInfo MinSizeRel." FORCE)
-endif(NOT CMAKE_BUILD_TYPE)
+endif()
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
@@ -40,7 +40,7 @@ if (WIN32)
 					-DWIN32_LEAN_AND_MEAN
 					-DMINIUPNP_STATICLIB)
 	set (BLAKE2_IMPLEMENTATION "blake2/blake2b.c")
-else (WIN32)
+else ()
 	add_compile_options(-Werror=switch)
 	if (RAIBLOCKS_ASAN)
 		add_compile_options(-fsanitize=address,undefined)
@@ -72,7 +72,7 @@ else (WIN32)
 	else()
 		set (BLAKE2_IMPLEMENTATION "blake2/blake2b-ref.c")
 	endif()
-endif (WIN32)
+endif ()
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -84,7 +84,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 if (WIN32)
 	add_definitions(/bigobj)
-endif (WIN32)
+endif ()
 
 if (APPLE)
 	set (PLATFORM_LINK_FLAGS "-framework Foundation -framework OpenCL")
@@ -99,7 +99,7 @@ else ()
 	elseif (RAIBLOCKS_TSAN)
 		set (PLATFORM_LINK_FLAGS "${PLATFORM_LINK_FLAGS} -fsanitize=thread")
 	endif()
-endif (APPLE)
+endif ()
 
 SET( CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${PLATFORM_LINK_FLAGS}" )
 
@@ -113,7 +113,7 @@ if (RAIBLOCKS_SECURE_RPC)
 	message("Crypto lib: ${OPENSSL_CRYPTO_LIBRARY}")
 else ()
 	set (OPENSSL_LIBRARIES "")
-endif (RAIBLOCKS_SECURE_RPC)
+endif ()
 
 include_directories (${CMAKE_SOURCE_DIR})
 
@@ -274,22 +274,22 @@ if (RAIBLOCKS_TEST)
 	target_link_libraries (slow_test node secure gtest_main gtest libminiupnpc-static Boost::boost)
 	target_include_directories (core_test PRIVATE gtest/include)
 	target_include_directories (slow_test PRIVATE gtest/include)
-endif (RAIBLOCKS_TEST)
+endif ()
 
 if (RAIBLOCKS_GUI)
 	if (WIN32)
 		set (PLATFORM_QT_PACKAGES WinExtras)
-	else (WIN32)
+	else ()
 		set (PLATFORM_QT_PACKAGES)
-	endif (WIN32)
+	endif ()
 
 	find_package (Qt5 COMPONENTS Core Gui Widgets Test ${PLATFORM_QT_PACKAGES})
 
 	if (WIN32)
 		set (PLATFORM_GUI_TARGET_PROPERTIES WIN32)
-	else (WIN32)
+	else ()
 		set (PLATFORM_GUI_TARGET_PROPERTIES "")
-	endif (WIN32)
+	endif ()
 
 	if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 		set (PLATFORM_WALLET_SOURCE rai/rai_wallet/plat/default/icon.cpp)
@@ -392,7 +392,7 @@ if (RAIBLOCKS_GUI)
 				ARCHIVE DESTINATION lib
 		)
 	endif ()
-endif (RAIBLOCKS_GUI)
+endif ()
 
 set (CPACK_RESOURCE_FILE_LICENSE ${CMAKE_SOURCE_DIR}/LICENSE)
 
