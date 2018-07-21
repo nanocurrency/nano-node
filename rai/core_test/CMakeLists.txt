@@ -25,5 +25,3 @@ target_compile_definitions(core_test
 			-DRAIBLOCKS_VERSION_MAJOR=${CPACK_PACKAGE_VERSION_MAJOR}
 			-DRAIBLOCKS_VERSION_MINOR=${CPACK_PACKAGE_VERSION_MINOR})
 target_link_libraries (core_test node secure gtest_main gtest libminiupnpc-static Boost::boost)
-
-target_include_directories (core_test PRIVATE ${CMAKE_SOURCE_DIR}/gtest/include)

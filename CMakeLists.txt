@@ -246,6 +246,11 @@ if (RAIBLOCKS_TEST)
     endif()
 
     add_subdirectory (gtest)
+	# FIXME: This fixes gtest include directories without modifying gtest's
+	# CMakeLists.txt. Ideally we should use GTest::GTest and GTest::Main as
+	# dependencies but it requires building gtest differently
+	set_target_properties(gtest PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
+		"${CMAKE_SOURCE_DIR}/gtest/include")
 
 	add_subdirectory(rai/core_test)
 	add_subdirectory(rai/slow_test)
@@ -318,7 +323,6 @@ if (RAIBLOCKS_GUI)
 			rai/qt_test/entry.cpp
 			rai/qt_test/qt.cpp)
 
-		target_include_directories (qt_test PRIVATE gtest/include)
 		target_link_libraries(qt_test gtest gtest_main qt Qt5::Test)
 
 		set_target_properties (qt_test PROPERTIES COMPILE_FLAGS "-DQT_NO_KEYWORDS -DBOOST_ASIO_HAS_STD_ARRAY=1")
