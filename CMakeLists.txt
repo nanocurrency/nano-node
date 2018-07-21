@@ -39,7 +39,6 @@ if (WIN32)
 					-DWINVER=0x0600
 					-DWIN32_LEAN_AND_MEAN
 					-DMINIUPNP_STATICLIB)
-	set (BLAKE2_IMPLEMENTATION "blake2/blake2b.c")
 else ()
 	add_compile_options(-Werror=switch)
 	if (RAIBLOCKS_ASAN)
@@ -60,7 +59,6 @@ else ()
 			add_compile_options(-msse2)
 		endif()
 
-		set (BLAKE2_IMPLEMENTATION "blake2/blake2b.c")
 		if (ENABLE_AVX2)
 			add_compile_options(-mavx2 -mbmi -mbmi2)
 			if (PERMUTE_WITH_GATHER)
@@ -69,8 +67,6 @@ else ()
 				add_definitions(-DPERMUTE_WITH_SHUFFLES)
 			endif()
 		endif()
-	else()
-		set (BLAKE2_IMPLEMENTATION "blake2/blake2b-ref.c")
 	endif()
 endif ()
 
@@ -212,6 +208,16 @@ add_library (lmdb
 if (WIN32)
 	target_link_libraries(lmdb ntdll)
 endif()
+
+if (WIN32)
+	set (BLAKE2_IMPLEMENTATION "blake2/blake2b.c")
+else ()
+	IF (CMAKE_SYSTEM_PROCESSOR MATCHES "^(i.86|x86(_64)?)$")
+		set (BLAKE2_IMPLEMENTATION "blake2/blake2b.c")
+	else()
+		set (BLAKE2_IMPLEMENTATION "blake2/blake2b-ref.c")
+	endif()
+endif ()
 
 add_library (blake2
 	blake2/blake2-config.h
