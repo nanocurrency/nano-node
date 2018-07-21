@@ -128,12 +128,6 @@ find_package (Boost 1.66.0 REQUIRED COMPONENTS date_time filesystem system log l
 
 add_subdirectory(ed25519-donna)
 
-if (CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
-	set (ARGON_CORE phc-winner-argon2/src/opt.c)
-else ()
-	set (ARGON_CORE phc-winner-argon2/src/ref.c)
-endif ()
-
 set (UPNPC_BUILD_SHARED OFF CACHE BOOL "")
 add_subdirectory (miniupnp/miniupnpc)
 # FIXME: This fixes miniupnpc include directories without modifying miniupnpc's
@@ -186,6 +180,12 @@ if (CRYPTOPP_CUSTOM OR NOT RAIBLOCKS_SIMD_OPTIMIZATIONS)
 else ()
 	set (CRYPTOPP_LIBRARY cryptopp-static)
 	add_subdirectory (cryptopp)
+endif ()
+
+if (CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
+	set (ARGON_CORE phc-winner-argon2/src/opt.c)
+else ()
+	set (ARGON_CORE phc-winner-argon2/src/ref.c)
 endif ()
 
 add_library (argon2
