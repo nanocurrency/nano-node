@@ -265,6 +265,18 @@ if (RAIBLOCKS_GUI)
 
 	find_package (Qt5 COMPONENTS Core Gui Widgets Test ${PLATFORM_QT_PACKAGES})
 
+	add_library (qt
+		rai/qt/qt.cpp
+		rai/qt/qt.hpp)
+
+	target_link_libraries(qt
+		secure rai_lib node libminiupnpc-static Qt5::Gui Qt5::Widgets)
+
+	target_compile_definitions(qt
+		PRIVATE
+		-DRAIBLOCKS_VERSION_MAJOR=${CPACK_PACKAGE_VERSION_MAJOR}
+		-DRAIBLOCKS_VERSION_MINOR=${CPACK_PACKAGE_VERSION_MINOR})
+
 	if (WIN32)
 		set (PLATFORM_GUI_TARGET_PROPERTIES WIN32)
 	else ()
@@ -284,18 +296,6 @@ if (RAIBLOCKS_GUI)
 	endif ()
 
 	qt5_add_resources(RES resources.qrc)
-
-	add_library (qt
-		rai/qt/qt.cpp
-		rai/qt/qt.hpp)
-
-	target_link_libraries(qt
-		secure rai_lib node libminiupnpc-static Qt5::Gui Qt5::Widgets)
-
-	target_compile_definitions(qt
-		PRIVATE
-		-DRAIBLOCKS_VERSION_MAJOR=${CPACK_PACKAGE_VERSION_MAJOR}
-		-DRAIBLOCKS_VERSION_MINOR=${CPACK_PACKAGE_VERSION_MINOR})
 
 	add_executable (nano_wallet ${PLATFORM_GUI_TARGET_PROPERTIES}
 		${PLATFORM_WALLET_SOURCE}
