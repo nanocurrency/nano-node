@@ -1343,12 +1343,9 @@ std::shared_ptr<rai::vote> rai::block_store::vote_max (MDB_txn * transaction_a, 
 	std::lock_guard<std::mutex> lock (cache_mutex);
 	auto current (vote_current (transaction_a, vote_a->account));
 	auto result (vote_a);
-	if (current != nullptr)
+	if (current != nullptr && current->sequence > result->sequence)
 	{
-		if (current->sequence > result->sequence)
-		{
-			result = current;
-		}
+		result = current;
 	}
 	vote_cache[vote_a->account] = result;
 	return result;

@@ -214,28 +214,48 @@ public:
 	// Signature of sequence + block hash
 	rai::signature signature;
 };
-enum class vote_code
+
+/** Vote processing result */
+enum class vote_processor_result
 {
-	invalid, // Vote is not signed correctly
-	replay, // Vote does not have the highest sequence number, it's a replay
-	vote // Vote has the highest sequence number
+	/** Vote is not signed correctly */
+	invalid_signature,
+	/** Vote does not have the highest sequence number; it's a replay */
+	replay,
+	/** Vote has the highest sequence number */
+	vote
 };
 
+/** Result of ledger processing a block */
 enum class process_result
 {
-	progress, // Hasn't been seen before, signed correctly
-	bad_signature, // Signature was bad, forged or transmission error
-	old, // Already seen and was valid
-	negative_spend, // Malicious attempt to spend a negative amount
-	fork, // Malicious fork based on previous
-	unreceivable, // Source block doesn't exist, has already been received, or requires an account upgrade (epoch blocks)
-	gap_previous, // Block marked as previous is unknown
-	gap_source, // Block marked as source is unknown
-	opened_burn_account, // The impossible happened, someone found the private key associated with the public key '0'.
-	balance_mismatch, // Balance and amount delta don't match
-	representative_mismatch, // Representative is changed when it is not allowed
-	block_position // This block cannot follow the previous block
+	/** Hasn't been seen before, signed correctly */
+	progress,
+	/** Signature was bad, forged or transmission error */
+	bad_signature,
+	/** Already seen and was valid */
+	old,
+	/** Malicious attempt to spend a negative amount */
+	negative_spend,
+	/** Malicious fork based on previous */
+	fork,
+	/** Source block doesn't exist, has already been received, or requires an account upgrade (epoch blocks) */
+	unreceivable,
+	/** Block marked as previous is unknown */
+	gap_previous,
+	/** Block marked as source is unknown */
+	gap_source,
+	/** The impossible happened, someone found the private key associated with the public key '0'. */
+	opened_burn_account,
+	/** Balance and amount delta don't match */
+	balance_mismatch,
+	/** Representative is changed when it is not allowed */
+	representative_mismatch,
+	/** This block cannot follow the previous block */
+	block_position
 };
+
+/** The information returned from the ledger after processing a block */
 class process_return
 {
 public:
@@ -245,23 +265,33 @@ public:
 	rai::account pending_account;
 	boost::optional<bool> state_is_send;
 };
+
+/** Result of tallying a representive vote */
 enum class tally_result
 {
+	/** Vote on this block hasn't been seen from rep before */
 	vote,
+	/** Rep changed their vote */
 	changed,
+	/** Rep vote remained the same */
 	confirm
 };
+
+/** Tracks which rep has voted on what block */
 class votes
 {
 public:
 	votes (std::shared_ptr<rai::block>);
+	/** Update the representative->vote mapping */
 	rai::tally_result vote (std::shared_ptr<rai::vote>);
+	/** Returns true if all reps have voted on the same block */
 	bool uncontested ();
-	// Root block of fork
+	/** Root block of fork */
 	rai::block_hash id;
-	// All votes received by account
+	/** All votes received, by account */
 	std::unordered_map<rai::account, std::shared_ptr<rai::block>> rep_votes;
 };
+
 extern rai::keypair const & zero_key;
 extern rai::keypair const & test_genesis_key;
 extern rai::account const & rai_test_account;
