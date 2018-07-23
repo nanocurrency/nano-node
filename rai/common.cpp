@@ -22,7 +22,7 @@ char const * test_genesis_data = R"%%%({
 	"type": "open",
 	"source": "F51DC6662342670AFEAC7480EE1366AD9D421F96DE8CDC00E784ABBFD52E9388",
 	"representative": "xrb_3xaxrsm48im93dzcrx61xrbpfdexaahsfqneui1gh37dqzckx6wam43k6ich",
-	"account": "xrb_3xaxrsm48im93dzcrx61xrbpfdexaahsfqneui1gh37dqzckx6wam43k6ich",
+	"account": "cec_3xaxrsm48im93dzcrx61xrbpfdexaahsfqneui1gh37dqzckx6wam43k6ich",
 	"work": "661e33441b9ffa79",
 	"signature": "B334B56AD89FDFA46CA5644833B9481587181E037A5FA487606202B4802E139305049EB496AD2E66CEF041E041ABD7450F899B0838E4A48674C840B0DFBD8B03"
 })%%%";
@@ -31,7 +31,7 @@ char const * beta_genesis_data = R"%%%({
         "type": "open",
 		"source": "00683F9D5C2CB75A1560D1E4CB7836AA68F4520283A2D3B9060583168EA30861",
 		"representative": "xrb_115a9ygord7qdacp3nh6sfw5fcmayjb171x4tgwie3e54t9c845314e9erwh",
-		"account": "xrb_115a9ygord7qdacp3nh6sfw5fcmayjb171x4tgwie3e54t9c845314e9erwh",
+		"account": "cec_115a9ygord7qdacp3nh6sfw5fcmayjb171x4tgwie3e54t9c845314e9erwh",
 		"work": "f40b9f4dbbab7736",
 		"signature": "A1E1B3BCF5E69865CFE87A9EECF32308E3CAE5F7A0E9FEAB48B1797EB6B0A86CA2E0818439FCC667394135B377E6F6A074BF98DB121562778E52D271BD8FC406"
 })%%%";
@@ -495,7 +495,7 @@ void rai::amount_visitor::compute (rai::block_hash const & block_hash)
 			{
 				if (block_hash == rai::genesis_account)
 				{
-					amount = std::numeric_limits<rai::uint128_t>::max ();
+					amount = 80000000; //std::numeric_limits<rai::uint128_t>::max ();
 					current_amount = 0;
 				}
 				else
@@ -780,8 +780,11 @@ void rai::genesis::initialize (MDB_txn * transaction_a, rai::block_store & store
 	auto hash_l (hash ());
 	assert (store_a.latest_begin (transaction_a) == store_a.latest_end ());
 	store_a.block_put (transaction_a, hash_l, *open);
-	store_a.account_put (transaction_a, genesis_account, { hash_l, open->hash (), open->hash (), std::numeric_limits<rai::uint128_t>::max (), rai::seconds_since_epoch (), 1 });
-	store_a.representation_put (transaction_a, genesis_account, std::numeric_limits<rai::uint128_t>::max ());
+	rai::uint128_t const total_supply = std::numeric_limits<rai::uint128_t>::max ();
+	store_a.account_put (transaction_a, genesis_account, { hash_l, open->hash (), open->hash (), total_supply, rai::seconds_since_epoch (), 1 });
+	store_a.representation_put (transaction_a, genesis_account, total_supply);
+	// store_a.account_put (transaction_a, genesis_account, { hash_l, open->hash (), open->hash (), std::numeric_limits<rai::uint128_t>::max (), rai::seconds_since_epoch (), 1 });
+	// store_a.representation_put (transaction_a, genesis_account, std::numeric_limits<rai::uint128_t>::max ());
 	store_a.checksum_put (transaction_a, 0, 0, hash_l);
 	store_a.frontier_put (transaction_a, hash_l, genesis_account);
 }

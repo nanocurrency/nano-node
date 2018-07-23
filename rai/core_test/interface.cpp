@@ -28,7 +28,7 @@ TEST (interface, xrb_uint256_to_address)
 	rai::uint256_union zero (0);
 	char text[65] = { 0 };
 	xrb_uint256_to_address (zero.bytes.data (), text);
-	ASSERT_STREQ ("xrb_1111111111111111111111111111111111111111111111111111hifc8npp", text);
+	ASSERT_STREQ ("cec_1111111111111111111111111111111111111111111111111111hifc8npp", text);
 }
 
 TEST (interface, xrb_uint512_to_string)
