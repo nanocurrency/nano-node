@@ -917,7 +917,7 @@ lmdb_max_dbs (128)
 			// state_block_generate_canary = rai::block_hash ("FC18E2265FB835E8CF60E63531053A768CEDF5194263B01A5C95574944E4660D");
 			break;
 		case rai::rai_networks::rai_live_network:
-			preconfigured_peers.push_back ("54.91.161.185");
+			preconfigured_peers.push_back ("network.cellcoin.cc");
 			preconfigured_representatives.push_back (rai::account ("63DAF583385D5DC78FBD4EA00479CD390A606E8029B4F86F261CCE85BFBD5E80"));
 			// preconfigured_representatives.push_back (rai::account ("67556D31DDFC2A440BF6147501449B4CB9572278D034EE686A6BEE29851681DF"));
 			// preconfigured_representatives.push_back (rai::account ("5C2FBB148E006A8E8BA7A75DD86C9FE00C83F5FFDBFD76EAA09531071436B6AF"));
