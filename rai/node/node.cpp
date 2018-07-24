@@ -197,14 +197,14 @@ void rai::network::send_musig_stage0_res (rai::endpoint const & endpoint_a, rai:
 	});
 }
 
-void rai::network::send_musig_stage1_req (rai::endpoint const & endpoint_a, rai::uint256_union rb_total, rai::account rep_requested, rai::public_key agg_pubkey)
+void rai::network::send_musig_stage1_req (rai::endpoint const & endpoint_a, rai::uint256_union rb_total, rai::account rep_requested, rai::public_key agg_pubkey, rai::uint256_union l_value)
 {
 	assert (endpoint_a.address ().is_v6 ());
 	if (node.config.logging.network_musig_logging ())
 	{
 		BOOST_LOG (node.log) << boost::str (boost::format ("MuSig stage1 request sent to %1% with rB total %2% and agg pubkey %3% requesting rep %4% (with Node ID %5%)") % rb_total.to_string () % rb_total.to_string () % agg_pubkey.to_account () % node.node_id.pub.to_account ());
 	}
-	rai::musig_stage1_req message (rb_total, rep_requested, agg_pubkey, node.node_id);
+	rai::musig_stage1_req message (rb_total, rep_requested, agg_pubkey, l_value, node.node_id);
 	std::shared_ptr<std::vector<uint8_t>> bytes (new std::vector<uint8_t>);
 	{
 		rai::vectorstream stream (*bytes);
@@ -635,7 +635,7 @@ public:
 		{
 			if (!rai::validate_message (*node_id, message_a.hash (), message_a.node_id_signature))
 			{
-				auto s_value (node.vote_stapler.stage1 (*node_id, message_a.request_id, message_a.agg_pubkey, message_a.rb_total));
+				auto s_value (node.vote_stapler.stage1 (*node_id, message_a.request_id, message_a.agg_pubkey, message_a.l_value, message_a.rb_total));
 				if (!s_value.is_zero ())
 				{
 					node.network.send_musig_stage1_res (sender, s_value);
@@ -760,15 +760,24 @@ static void ed25519_hram (hash_512bits hram, const ed25519_signature RS, const e
 }
 }
 
-#error TODO cache these results for a bit to make replays work. Maybe (node_id, request_id, rb_total) => (agg_pubkey, s_value)
-rai::uint256_union rai::vote_stapler::stage1 (rai::public_key node_id, rai::uint256_union request_id, rai::public_key agg_pubkey, rai::uint256_union rb_total)
+rai::uint256_union rai::vote_stapler::stage1 (rai::public_key node_id, rai::uint256_union request_id, rai::public_key agg_pubkey, rai::uint256_union l_value, rai::uint256_union rb_total)
 {
 	auto result (false);
 	auto session_id (std::make_pair (node_id, request_id));
 	auto musig_stage0_it (stage0_info.get<0> ().find (session_id));
+	rai::stapler_s_value_cache_key s_value_cache_key = { node_id, request_id, rb_total };
+	rai::uint256_union s_value;
 	if (musig_stage0_it == stage0_info.get<0> ().end ())
 	{
 		result = true;
+		auto s_value_cache_it (s_value_cache.get<0> ().find (s_value_cache_key));
+		if (s_value_cache_it != s_value_cache.get<0> ().end ())
+		{
+			if (s_value_cache_it->agg_pubkey == agg_pubkey && s_value_cache_it->l_value == l_value)
+			{
+				s_value = s_value_cache_it->s_value;
+			}
+		}
 	}
 	else
 	{
@@ -798,26 +807,45 @@ rai::uint256_union rai::vote_stapler::stage1 (rai::public_key node_id, rai::uint
 		}
 		result = rep_key.data.is_zero ();
 	}
-	rai::uint256_union s_value;
 	if (!result)
 	{
 		auto block_hash (musig_stage0_it->block->hash ());
 		hash_512bits extsk, hram;
 		ed25519_extsk (extsk, rep_key.data.bytes.data ());
-		bignum256modm s, a;
+		bignum256modm s, a, l;
 		expand256_modm (a, extsk, 32);
+		expand256_modm (l, l_value.bytes.data (), 32);
 		// s = H(R,A,m)
 		ed25519_hram (hram, rb_total.bytes.data (), agg_pubkey.bytes.data (), block_hash.bytes.data (), sizeof (block_hash));
 		expand256_modm (s, hram, 64);
-		// s = H(R,A,m)a
+		// s = H(R,A,m)*a*l
 		mul256_modm (s, s, a);
-		// s = (r + H(R,A,m)a)
+		mul256_modm (s, s, l);
+		// s = (r + H(R,A,m)*a*l)
 		add256_modm (s, s, musig_stage0_it->r_value);
-		// s = (r + H(R,A,m)a) mod L
+		// s = (r + H(R,A,m)*a*l) mod L
 		contract256_modm (s_value.bytes.data (), s);
+		rai::stapler_s_value_cache_value s_value_cache_value = { s_value_cache_key, std::chrono::steady_clock::now (), l_value, agg_pubkey, s_value };
 		stage0_info.erase (musig_stage0_it);
 	}
 	return s_value;
+}
+
+bool rai::operator== (rai::stapler_s_value_cache_key const & lhs, rai::stapler_s_value_cache_key const & rhs)
+{
+	return (lhs.node_id == rhs.node_id && lhs.request_id == rhs.request_id && lhs.rb_total == rhs.rb_total);
+}
+
+size_t rai::hash_value (rai::stapler_s_value_cache_key const & value_a)
+{
+	blake2b_state state;
+	blake2b_init (&state, sizeof (size_t));
+	blake2b_update (&state, value_a.node_id.bytes.data (), sizeof (value_a.node_id));
+	blake2b_update (&state, value_a.request_id.bytes.data (), sizeof (value_a.request_id));
+	blake2b_update (&state, value_a.rb_total.bytes.data (), sizeof (value_a.rb_total));
+	size_t output;
+	blake2b_final (&state, reinterpret_cast<uint8_t *> (&output), sizeof (size_t));
+	return output;
 }
 
 void rai::network::receive_action (boost::system::error_code const & error, size_t size_a)

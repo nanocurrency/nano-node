@@ -409,7 +409,7 @@ public:
 	void send_node_id_handshake (rai::endpoint const &, boost::optional<rai::uint256_union> const & query, boost::optional<rai::uint256_union> const & respond_to);
 	void send_musig_stage0_req (rai::endpoint const &, std::shared_ptr<rai::state_block>, rai::account);
 	void send_musig_stage0_res (rai::endpoint const &, rai::uint256_union, rai::uint256_union, rai::keypair);
-	void send_musig_stage1_req (rai::endpoint const &, rai::uint256_union, rai::account, rai::public_key);
+	void send_musig_stage1_req (rai::endpoint const &, rai::uint256_union, rai::account, rai::public_key, rai::uint256_union);
 	void send_musig_stage1_res (rai::endpoint const &, rai::uint256_union);
 	void broadcast_confirm_req (std::shared_ptr<rai::block>);
 	void broadcast_confirm_req_base (std::shared_ptr<rai::block>, std::shared_ptr<std::vector<rai::peer_information>>, unsigned);
@@ -606,12 +606,30 @@ public:
 	std::shared_ptr<rai::state_block> successor;
 	rai::block_hash successor_hash;
 };
+class stapler_s_value_cache_key
+{
+public:
+	rai::public_key node_id;
+	rai::uint256_union request_id;
+	rai::uint256_union rb_total;
+};
+bool operator== (rai::stapler_s_value_cache_key const &, rai::stapler_s_value_cache_key const &);
+size_t hash_value (rai::stapler_s_value_cache_key const &);
+class stapler_s_value_cache_value
+{
+public:
+	rai::stapler_s_value_cache_key key;
+	std::chrono::steady_clock::time_point created;
+	rai::uint256_union l_value;
+	rai::uint256_union agg_pubkey;
+	rai::uint256_union s_value;
+};
 class vote_stapler
 {
 public:
 	vote_stapler (rai::node &);
 	rai::uint256_union stage0 (rai::transaction, rai::public_key, rai::account, rai::uint256_union, std::shared_ptr<rai::state_block>);
-	rai::uint256_union stage1 (rai::public_key, rai::uint256_union, rai::public_key, rai::uint256_union);
+	rai::uint256_union stage1 (rai::public_key, rai::uint256_union, rai::public_key, rai::uint256_union, rai::uint256_union);
 	std::mutex mutex;
 	boost::multi_index_container<
 	rai::stapled_vote_info,
@@ -625,6 +643,12 @@ public:
 	boost::multi_index::hashed_unique<boost::multi_index::member<rai::musig_stage0_info, std::pair<rai::public_key, rai::uint256_union>, &rai::musig_stage0_info::session_id>>,
 	boost::multi_index::hashed_unique<boost::multi_index::member<rai::musig_stage0_info, rai::block_hash, &rai::musig_stage0_info::root>>>>
 	stage0_info;
+	boost::multi_index_container<
+	rai::stapler_s_value_cache_value,
+	boost::multi_index::indexed_by<
+	boost::multi_index::hashed_unique<boost::multi_index::member<rai::stapler_s_value_cache_value, rai::stapler_s_value_cache_key, &rai::stapler_s_value_cache_value::key>>,
+	boost::multi_index::ordered_non_unique<boost::multi_index::member<rai::stapler_s_value_cache_value, std::chrono::steady_clock::time_point, &rai::stapler_s_value_cache_value::created>>>>
+	s_value_cache;
 	rai::node & node;
 };
 class node : public std::enable_shared_from_this<rai::node>
