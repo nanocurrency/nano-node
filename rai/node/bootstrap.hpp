@@ -245,6 +245,7 @@ public:
 	std::unique_ptr<rai::bulk_pull> request;
 	std::shared_ptr<std::vector<uint8_t>> send_buffer;
 	rai::block_hash current;
+	bool include_start;
 };
 class bulk_pull_blocks;
 class bulk_pull_blocks_server : public std::enable_shared_from_this<rai::bulk_pull_blocks_server>
