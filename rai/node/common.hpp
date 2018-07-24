@@ -141,7 +141,11 @@ enum class message_type : uint8_t
 	frontier_req = 0x8,
 	bulk_pull_blocks = 0x9,
 	node_id_handshake = 0x0a,
-	bulk_pull_account = 0x0b
+	bulk_pull_account = 0x0b,
+	musig_stage0_req = 0x0c,
+	musig_stage0_res = 0x0d,
+	musig_stage1_req = 0x0e,
+	musig_stage1_res = 0x0f
 };
 enum class bulk_pull_blocks_mode : uint8_t
 {
@@ -201,6 +205,10 @@ public:
 		invalid_confirm_req_message,
 		invalid_confirm_ack_message,
 		invalid_node_id_handshake_message,
+		invalid_musig_stage0_req_message,
+		invalid_musig_stage0_res_message,
+		invalid_musig_stage1_req_message,
+		invalid_musig_stage1_res_message,
 		outdated_version
 	};
 	message_parser (rai::message_visitor &, rai::work_pool &);
@@ -210,6 +218,10 @@ public:
 	void deserialize_confirm_req (rai::stream &, rai::message_header const &);
 	void deserialize_confirm_ack (rai::stream &, rai::message_header const &);
 	void deserialize_node_id_handshake (rai::stream &, rai::message_header const &);
+	void deserialize_musig_stage0_req (rai::stream &, rai::message_header const &);
+	void deserialize_musig_stage0_res (rai::stream &, rai::message_header const &);
+	void deserialize_musig_stage1_req (rai::stream &, rai::message_header const &);
+	void deserialize_musig_stage1_res (rai::stream &, rai::message_header const &);
 	bool at_end (rai::stream &);
 	rai::message_visitor & visitor;
 	rai::work_pool & pool;
@@ -332,6 +344,63 @@ public:
 	static size_t constexpr query_flag = 0;
 	static size_t constexpr response_flag = 1;
 };
+class musig_stage0_req : public message
+{
+public:
+	musig_stage0_req (bool &, rai::stream &, rai::message_header const &);
+	musig_stage0_req (std::shared_ptr<rai::state_block>, rai::account rep_requested, rai::keypair);
+	bool deserialize (rai::stream &) override;
+	void serialize (rai::stream &) override;
+	void visit (rai::message_visitor &) const override;
+	bool operator== (rai::musig_stage0_req const &) const;
+	rai::uint256_union hash () const;
+	std::shared_ptr<rai::state_block> block;
+	rai::account rep_requested;
+	rai::signature node_id_signature;
+	static const std::string hash_prefix;
+};
+class musig_stage0_res : public message
+{
+public:
+	musig_stage0_res (bool &, rai::stream &, rai::message_header const &);
+	musig_stage0_res (rai::uint256_union, rai::uint256_union, rai::keypair);
+	rai::uint256_union hash () const;
+	bool deserialize (rai::stream &) override;
+	void serialize (rai::stream &) override;
+	void visit (rai::message_visitor &) const override;
+	bool operator== (rai::musig_stage0_res const &) const;
+	rai::uint256_union rb_value;
+	rai::uint256_union request_id;
+	rai::signature rb_signature;
+	static const std::string hash_prefix;
+};
+class musig_stage1_req : public message
+{
+public:
+	musig_stage1_req (bool &, rai::stream &, rai::message_header const &);
+	musig_stage1_req (rai::uint256_union, rai::uint256_union, rai::public_key, rai::keypair);
+	rai::uint256_union hash () const;
+	bool deserialize (rai::stream &) override;
+	void serialize (rai::stream &) override;
+	void visit (rai::message_visitor &) const override;
+	bool operator== (rai::musig_stage1_req const &) const;
+	rai::uint256_union rb_total;
+	rai::uint256_union request_id;
+	rai::public_key agg_pubkey;
+	rai::signature node_id_signature;
+	static const std::string hash_prefix;
+};
+class musig_stage1_res : public message
+{
+public:
+	musig_stage1_res (bool &, rai::stream &, rai::message_header const &);
+	musig_stage1_res (rai::uint256_union);
+	bool deserialize (rai::stream &) override;
+	void serialize (rai::stream &) override;
+	void visit (rai::message_visitor &) const override;
+	bool operator== (rai::musig_stage1_res const &) const;
+	rai::uint256_union s_value;
+};
 class message_visitor
 {
 public:
@@ -345,6 +414,10 @@ public:
 	virtual void bulk_push (rai::bulk_push const &) = 0;
 	virtual void frontier_req (rai::frontier_req const &) = 0;
 	virtual void node_id_handshake (rai::node_id_handshake const &) = 0;
+	virtual void musig_stage0_req (rai::musig_stage0_req const &) = 0;
+	virtual void musig_stage0_res (rai::musig_stage0_res const &) = 0;
+	virtual void musig_stage1_req (rai::musig_stage1_req const &) = 0;
+	virtual void musig_stage1_res (rai::musig_stage1_res const &) = 0;
 	virtual ~message_visitor ();
 };
 

@@ -1562,6 +1562,22 @@ public:
 	{
 		assert (false);
 	}
+	void musig_stage0_req (rai::musig_stage0_req const &) override
+	{
+		assert (false);
+	}
+	void musig_stage0_res (rai::musig_stage0_res const &) override
+	{
+		assert (false);
+	}
+	void musig_stage1_req (rai::musig_stage1_req const &) override
+	{
+		assert (false);
+	}
+	void musig_stage1_res (rai::musig_stage1_res const &) override
+	{
+		assert (false);
+	}
 	std::shared_ptr<rai::bootstrap_server> connection;
 };
 }

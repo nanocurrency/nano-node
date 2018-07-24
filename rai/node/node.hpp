@@ -18,6 +18,8 @@
 
 #include <miniupnpc.h>
 
+#include <ed25519-donna/ed25519-donna.h>
+
 namespace boost
 {
 namespace program_options
@@ -185,7 +187,7 @@ class work_pool;
 class peer_information
 {
 public:
-	peer_information (rai::endpoint const &, unsigned);
+	peer_information (rai::endpoint const &, unsigned, boost::optional<rai::account> = boost::none);
 	peer_information (rai::endpoint const &, std::chrono::steady_clock::time_point const &, std::chrono::steady_clock::time_point const &);
 	rai::endpoint endpoint;
 	boost::asio::ip::address ip_address;
@@ -226,7 +228,7 @@ public:
 	// Returns true if peer was already known
 	bool known_peer (rai::endpoint const &);
 	// Notify of peer we received from
-	bool insert (rai::endpoint const &, unsigned);
+	bool insert (rai::endpoint const &, unsigned, boost::optional<rai::account> = boost::none);
 	std::unordered_set<rai::endpoint> random_set (size_t);
 	void random_fill (std::array<rai::endpoint, 8> &);
 	// Request a list of the top known representatives
@@ -253,6 +255,7 @@ public:
 	// Returns false if valid, true if invalid (true on error convention)
 	// Also removes the syn cookie from the store if valid
 	bool validate_syn_cookie (rai::endpoint const &, rai::account, rai::signature);
+	boost::optional<rai::public_key> node_id (rai::endpoint const &);
 	size_t size ();
 	size_t size_sqrt ();
 	rai::uint128_t total_weight ();
@@ -404,6 +407,10 @@ public:
 	void merge_peers (std::array<rai::endpoint, 8> const &);
 	void send_keepalive (rai::endpoint const &);
 	void send_node_id_handshake (rai::endpoint const &, boost::optional<rai::uint256_union> const & query, boost::optional<rai::uint256_union> const & respond_to);
+	void send_musig_stage0_req (rai::endpoint const &, std::shared_ptr<rai::state_block>, rai::account);
+	void send_musig_stage0_res (rai::endpoint const &, rai::uint256_union, rai::uint256_union, rai::keypair);
+	void send_musig_stage1_req (rai::endpoint const &, rai::uint256_union, rai::account, rai::public_key);
+	void send_musig_stage1_res (rai::endpoint const &, rai::uint256_union);
 	void broadcast_confirm_req (std::shared_ptr<rai::block>);
 	void broadcast_confirm_req_base (std::shared_ptr<rai::block>, std::shared_ptr<std::vector<rai::peer_information>>, unsigned);
 	void send_confirm_req (rai::endpoint const &, std::shared_ptr<rai::block>);
@@ -434,6 +441,7 @@ public:
 	bool network_packet_logging () const;
 	bool network_keepalive_logging () const;
 	bool network_node_id_handshake_logging () const;
+	bool network_musig_logging () const;
 	bool node_lifetime_tracing () const;
 	bool insufficient_work_logging () const;
 	bool log_rpc () const;
@@ -452,6 +460,7 @@ public:
 	bool network_packet_logging_value;
 	bool network_keepalive_logging_value;
 	bool network_node_id_handshake_logging_value;
+	bool network_musig_logging_value;
 	bool node_lifetime_tracing_value;
 	bool insufficient_work_logging_value;
 	bool log_rpc_value;
@@ -578,6 +587,46 @@ private:
 	rai::node & node;
 	std::mutex mutex;
 };
+class musig_stage0_info
+{
+public:
+	musig_stage0_info (std::pair<rai::public_key, rai::uint256_union>, rai::account, std::shared_ptr<rai::state_block>, bignum256modm);
+	// pair of opposing node id, request id
+	std::pair<rai::public_key, rai::uint256_union> session_id;
+	rai::account representative;
+	rai::uint256_union root;
+	std::shared_ptr<rai::state_block> block;
+	bignum256modm r_value;
+};
+class stapled_vote_info
+{
+public:
+	stapled_vote_info (std::shared_ptr<rai::state_block>);
+	rai::uint256_union root;
+	std::shared_ptr<rai::state_block> successor;
+	rai::block_hash successor_hash;
+};
+class vote_stapler
+{
+public:
+	vote_stapler (rai::node &);
+	rai::uint256_union stage0 (rai::transaction, rai::public_key, rai::account, rai::uint256_union, std::shared_ptr<rai::state_block>);
+	rai::uint256_union stage1 (rai::public_key, rai::uint256_union, rai::public_key, rai::uint256_union);
+	std::mutex mutex;
+	boost::multi_index_container<
+	rai::stapled_vote_info,
+	boost::multi_index::indexed_by<
+	boost::multi_index::hashed_unique<boost::multi_index::member<rai::stapled_vote_info, rai::uint256_union, &rai::stapled_vote_info::root>>,
+	boost::multi_index::hashed_unique<boost::multi_index::member<rai::stapled_vote_info, rai::block_hash, &rai::stapled_vote_info::successor_hash>>>>
+	stapled_votes;
+	boost::multi_index_container<
+	rai::musig_stage0_info,
+	boost::multi_index::indexed_by<
+	boost::multi_index::hashed_unique<boost::multi_index::member<rai::musig_stage0_info, std::pair<rai::public_key, rai::uint256_union>, &rai::musig_stage0_info::session_id>>,
+	boost::multi_index::hashed_unique<boost::multi_index::member<rai::musig_stage0_info, rai::block_hash, &rai::musig_stage0_info::root>>>>
+	stage0_info;
+	rai::node & node;
+};
 class node : public std::enable_shared_from_this<rai::node>
 {
 public:
@@ -647,6 +696,7 @@ public:
 	rai::online_reps online_reps;
 	rai::stat stats;
 	rai::keypair node_id;
+	rai::vote_stapler vote_stapler;
 	static double constexpr price_max = 16.0;
 	static double constexpr free_cutoff = 1024.0;
 	static std::chrono::seconds constexpr period = std::chrono::seconds (60);

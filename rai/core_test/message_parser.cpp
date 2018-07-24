@@ -58,6 +58,22 @@ public:
 	{
 		++node_id_handshake_count;
 	}
+	void musig_stage0_req (rai::musig_stage0_req const &) override
+	{
+		++musig_stage0_req_count;
+	}
+	void musig_stage0_res (rai::musig_stage0_res const &) override
+	{
+		++musig_stage0_res_count;
+	}
+	void musig_stage1_req (rai::musig_stage1_req const &) override
+	{
+		++musig_stage1_req_count;
+	}
+	void musig_stage1_res (rai::musig_stage1_res const &) override
+	{
+		++musig_stage1_res_count;
+	}
 	uint64_t keepalive_count;
 	uint64_t publish_count;
 	uint64_t confirm_req_count;
@@ -68,6 +84,10 @@ public:
 	uint64_t bulk_push_count;
 	uint64_t frontier_req_count;
 	uint64_t node_id_handshake_count;
+	uint64_t musig_stage0_req_count;
+	uint64_t musig_stage0_res_count;
+	uint64_t musig_stage1_req_count;
+	uint64_t musig_stage1_res_count;
 };
 }
 

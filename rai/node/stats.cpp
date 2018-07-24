@@ -382,6 +382,18 @@ std::string rai::stat::detail_to_string (uint32_t key)
 		case rai::stat::detail::node_id_handshake:
 			res = "node_id_handshake";
 			break;
+		case rai::stat::detail::musig_stage0_req:
+			res = "musig_stage0_req";
+			break;
+		case rai::stat::detail::musig_stage0_res:
+			res = "musig_stage0_req";
+			break;
+		case rai::stat::detail::musig_stage1_req:
+			res = "musig_stage0_req";
+			break;
+		case rai::stat::detail::musig_stage1_res:
+			res = "musig_stage0_req";
+			break;
 		case rai::stat::detail::confirm_req:
 			res = "confirm_req";
 			break;

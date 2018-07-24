@@ -145,6 +145,110 @@ void rai::network::send_node_id_handshake (rai::endpoint const & endpoint_a, boo
 	});
 }
 
+void rai::network::send_musig_stage0_req (rai::endpoint const & endpoint_a, std::shared_ptr<rai::state_block> block_a, rai::account representative)
+{
+	assert (endpoint_a.address ().is_v6 ());
+	if (node.config.logging.network_musig_logging ())
+	{
+		BOOST_LOG (node.log) << boost::str (boost::format ("MuSig stage0 request sent to %1% for block %2% requesting rep %3% (with Node ID %4%)") % endpoint_a % block_a->hash ().to_string () % representative.to_account () % node.node_id.pub.to_account ());
+	}
+	rai::musig_stage0_req message (block_a, representative, node.node_id);
+	std::shared_ptr<std::vector<uint8_t>> bytes (new std::vector<uint8_t>);
+	{
+		rai::vectorstream stream (*bytes);
+		message.serialize (stream);
+	}
+	node.stats.inc (rai::stat::type::message, rai::stat::detail::musig_stage0_req, rai::stat::dir::out);
+	std::weak_ptr<rai::node> node_w (node.shared ());
+	send_buffer (bytes->data (), bytes->size (), endpoint_a, [bytes, node_w, endpoint_a](boost::system::error_code const & ec, size_t) {
+		if (auto node_l = node_w.lock ())
+		{
+			if (ec && node_l->config.logging.network_musig_logging ())
+			{
+				BOOST_LOG (node_l->log) << boost::str (boost::format ("Error sending MuSig stage0 request to %1% %2%") % endpoint_a % ec.message ());
+			}
+		}
+	});
+}
+
+void rai::network::send_musig_stage0_res (rai::endpoint const & endpoint_a, rai::uint256_union rb_value, rai::uint256_union request_id, rai::keypair rep_keypair)
+{
+	assert (endpoint_a.address ().is_v6 ());
+	if (node.config.logging.network_musig_logging ())
+	{
+		BOOST_LOG (node.log) << boost::str (boost::format ("MuSig stage0 response sent to %1% with rB value %2% (as representative %3%)") % endpoint_a % rb_value.to_string () % rep_keypair.pub.to_account ());
+	}
+	rai::musig_stage0_res message (rb_value, request_id, rep_keypair);
+	std::shared_ptr<std::vector<uint8_t>> bytes (new std::vector<uint8_t>);
+	{
+		rai::vectorstream stream (*bytes);
+		message.serialize (stream);
+	}
+	node.stats.inc (rai::stat::type::message, rai::stat::detail::musig_stage0_res, rai::stat::dir::out);
+	std::weak_ptr<rai::node> node_w (node.shared ());
+	send_buffer (bytes->data (), bytes->size (), endpoint_a, [bytes, node_w, endpoint_a](boost::system::error_code const & ec, size_t) {
+		if (auto node_l = node_w.lock ())
+		{
+			if (ec && node_l->config.logging.network_musig_logging ())
+			{
+				BOOST_LOG (node_l->log) << boost::str (boost::format ("Error sending MuSig stage0 response to %1% %2%") % endpoint_a % ec.message ());
+			}
+		}
+	});
+}
+
+void rai::network::send_musig_stage1_req (rai::endpoint const & endpoint_a, rai::uint256_union rb_total, rai::account rep_requested, rai::public_key agg_pubkey)
+{
+	assert (endpoint_a.address ().is_v6 ());
+	if (node.config.logging.network_musig_logging ())
+	{
+		BOOST_LOG (node.log) << boost::str (boost::format ("MuSig stage1 request sent to %1% with rB total %2% and agg pubkey %3% requesting rep %4% (with Node ID %5%)") % rb_total.to_string () % rb_total.to_string () % agg_pubkey.to_account () % node.node_id.pub.to_account ());
+	}
+	rai::musig_stage1_req message (rb_total, rep_requested, agg_pubkey, node.node_id);
+	std::shared_ptr<std::vector<uint8_t>> bytes (new std::vector<uint8_t>);
+	{
+		rai::vectorstream stream (*bytes);
+		message.serialize (stream);
+	}
+	node.stats.inc (rai::stat::type::message, rai::stat::detail::musig_stage1_req, rai::stat::dir::out);
+	std::weak_ptr<rai::node> node_w (node.shared ());
+	send_buffer (bytes->data (), bytes->size (), endpoint_a, [bytes, node_w, endpoint_a](boost::system::error_code const & ec, size_t) {
+		if (auto node_l = node_w.lock ())
+		{
+			if (ec && node_l->config.logging.network_musig_logging ())
+			{
+				BOOST_LOG (node_l->log) << boost::str (boost::format ("Error sending MuSig stage1 request to %1% %2%") % endpoint_a % ec.message ());
+			}
+		}
+	});
+}
+
+void rai::network::send_musig_stage1_res (rai::endpoint const & endpoint_a, rai::uint256_union s_value)
+{
+	assert (endpoint_a.address ().is_v6 ());
+	if (node.config.logging.network_musig_logging ())
+	{
+		BOOST_LOG (node.log) << boost::str (boost::format ("MuSig stage1 response sent to %1% with s value %2%") % endpoint_a % s_value.to_string ());
+	}
+	rai::musig_stage1_res message (s_value);
+	std::shared_ptr<std::vector<uint8_t>> bytes (new std::vector<uint8_t>);
+	{
+		rai::vectorstream stream (*bytes);
+		message.serialize (stream);
+	}
+	node.stats.inc (rai::stat::type::message, rai::stat::detail::musig_stage1_res, rai::stat::dir::out);
+	std::weak_ptr<rai::node> node_w (node.shared ());
+	send_buffer (bytes->data (), bytes->size (), endpoint_a, [bytes, node_w, endpoint_a](boost::system::error_code const & ec, size_t) {
+		if (auto node_l = node_w.lock ())
+		{
+			if (ec && node_l->config.logging.network_musig_logging ())
+			{
+				BOOST_LOG (node_l->log) << boost::str (boost::format ("Error sending MuSig stage1 response to %1% %2%") % endpoint_a % ec.message ());
+			}
+		}
+	});
+}
+
 void rai::network::republish (rai::block_hash const & hash_a, std::shared_ptr<std::vector<uint8_t>> buffer_a, rai::endpoint endpoint_a)
 {
 	if (node.config.logging.network_publish_logging ())
@@ -463,7 +567,7 @@ public:
 				validated_response = true;
 				if (message_a.response->first != node.node_id.pub)
 				{
-					node.peers.insert (endpoint_l, message_a.header.version_using);
+					node.peers.insert (endpoint_l, message_a.header.version_using, message_a.response->first);
 				}
 			}
 			else if (node.config.logging.network_node_id_handshake_logging ())
@@ -480,9 +584,240 @@ public:
 			node.network.send_node_id_handshake (sender, out_query, out_respond_to);
 		}
 	}
+	void musig_stage0_req (rai::musig_stage0_req const & message_a) override
+	{
+		if (node.config.logging.network_musig_logging ())
+		{
+			BOOST_LOG (node.log) << boost::str (boost::format ("Musig stage0 request from %1% for %2%") % sender % message_a.block->hash ().to_string ());
+		}
+		if (node.config.enable_voting)
+		{
+			auto node_id (node.peers.node_id (sender));
+			if (node_id)
+			{
+				if (!rai::validate_message (*node_id, message_a.hash (), message_a.node_id_signature))
+				{
+					rai::transaction transaction (node.store.environment, nullptr, false);
+					for (auto i (node.wallets.items.begin ()), n (node.wallets.items.end ()); i != n; ++i)
+					{
+						auto & wallet (*i->second);
+						rai::raw_key rep_key;
+						if (!wallet.store.fetch (transaction, message_a.rep_requested, rep_key))
+						{
+							if (!node.ledger.weight (transaction, message_a.rep_requested).is_zero ())
+							{
+								rai::uint256_union request_id (message_a.block->hash ().number () ^ message_a.rep_requested.number ());
+								auto rb_value (node.vote_stapler.stage0 (transaction, *node_id, message_a.rep_requested, request_id, message_a.block));
+								if (!rb_value.is_zero ())
+								{
+									node.network.send_musig_stage0_res (sender, rb_value, request_id, rai::keypair (rai::raw_key (rep_key)));
+								}
+								break;
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	void musig_stage0_res (rai::musig_stage0_res const &) override
+	{
+		assert (false);
+	}
+	void musig_stage1_req (rai::musig_stage1_req const & message_a) override
+	{
+		if (node.config.logging.network_musig_logging ())
+		{
+			BOOST_LOG (node.log) << boost::str (boost::format ("Musig stage1 request from %1% with rB total %2%") % sender % message_a.rb_total.to_string ());
+		}
+		auto node_id (node.peers.node_id (sender));
+		if (node_id)
+		{
+			if (!rai::validate_message (*node_id, message_a.hash (), message_a.node_id_signature))
+			{
+				auto s_value (node.vote_stapler.stage1 (*node_id, message_a.request_id, message_a.agg_pubkey, message_a.rb_total));
+				if (!s_value.is_zero ())
+				{
+					node.network.send_musig_stage1_res (sender, s_value);
+				}
+			}
+		}
+	}
+	void musig_stage1_res (rai::musig_stage1_res const &) override
+	{
+		assert (false);
+	}
 	rai::node & node;
 	rai::endpoint sender;
 };
+}
+
+rai::musig_stage0_info::musig_stage0_info (std::pair<rai::public_key, rai::uint256_union> session_id_a, rai::account representative_a, std::shared_ptr<rai::state_block> block_a, bignum256modm r_value_a) :
+session_id (session_id_a),
+representative (representative_a),
+root (block_a->root ()),
+block (block_a)
+{
+	std::copy (r_value_a, r_value_a + sizeof (bignum256modm), r_value);
+}
+
+rai::stapled_vote_info::stapled_vote_info (std::shared_ptr<rai::state_block> block_a) :
+root (block_a->root ()),
+successor (block_a),
+successor_hash (block_a->hash ())
+{
+}
+
+rai::vote_stapler::vote_stapler (rai::node & node_a) :
+node (node_a)
+{
+}
+
+rai::uint256_union rai::vote_stapler::stage0 (rai::transaction transaction_a, rai::public_key node_id, rai::account representative, rai::uint256_union request_id, std::shared_ptr<rai::state_block> block)
+{
+	auto result (false);
+	bignum256modm r_value;
+	auto have_r_value (false);
+	auto session_id (std::make_pair (node_id, request_id));
+	{
+		std::lock_guard<std::mutex> lock (mutex);
+		auto stage0_info_it (stage0_info.get<0> ().find (session_id));
+		if (stage0_info_it != stage0_info.get<0> ().end ())
+		{
+			if (stage0_info_it->block == block)
+			{
+				assert (representative == stage0_info_it->representative);
+				std::copy (stage0_info_it->r_value, stage0_info_it->r_value + sizeof (bignum256modm), r_value);
+				have_r_value = true;
+			}
+		}
+		auto stapled_vote_it (stapled_votes.get<0> ().find (block->root ()));
+		if (stapled_vote_it != stapled_votes.get<0> ().end ())
+		{
+			if (stapled_vote_it->successor != block)
+			{
+				result = true;
+			}
+		}
+		if (!have_r_value && !result)
+		{
+			rai::account_info acct_info;
+			// It's fine if the account doesn't exist
+			node.store.account_get (transaction_a, block->hashables.account, acct_info);
+			if (acct_info.head != block->previous ())
+			{
+				if (stapled_votes.get<1> ().find (block->root ()) == stapled_votes.get<1> ().end ())
+				{
+					result = true;
+				}
+			}
+			if (!result)
+			{
+				stage0_info.erase (stage0_info_it);
+				rai::musig_stage0_info new_stage0_info (session_id, representative, block, r_value);
+				stage0_info.insert (new_stage0_info);
+				rai::stapled_vote_info new_stapled_vote (block);
+				stapled_votes.insert (new_stapled_vote);
+			}
+		}
+	}
+	rai::uint256_union rb_value;
+	if (!result)
+	{
+		if (!have_r_value)
+		{
+			rai::uint256_union r_value_unexpanded;
+			random_pool.GenerateBlock (r_value_unexpanded.bytes.data (), r_value_unexpanded.bytes.size ());
+			expand256_modm (r_value, r_value_unexpanded.bytes.data (), 32);
+		}
+		ge25519 ALIGN (16) rb_value_unpacked;
+		ge25519_scalarmult_base_niels (&rb_value_unpacked, ge25519_niels_base_multiples, r_value);
+		ge25519_pack (rb_value.bytes.data (), &rb_value_unpacked);
+	}
+	return rb_value;
+}
+
+namespace
+{
+// Re-define some internal ed25519-donna functions for our use
+// Unfortunately using ed25519_hash* fails to link, so we hardcode blake2b
+static void ed25519_extsk (hash_512bits extsk, const ed25519_secret_key sk) {
+	blake2b_state state;
+	blake2b_init (&state, 64);
+	blake2b_update (&state, sk, 32);
+	blake2b_final (&state, extsk, 64);
+	extsk[0] &= 248;
+	extsk[31] &= 127;
+	extsk[31] |= 64;
+}
+static void ed25519_hram (hash_512bits hram, const ed25519_signature RS, const ed25519_public_key pk, const unsigned char *m, size_t mlen) {
+	blake2b_state state;
+	blake2b_init (&state, 64);
+	blake2b_update (&state, RS, 32);
+	blake2b_update (&state, pk, 32);
+	blake2b_update (&state, m, mlen);
+	blake2b_final (&state, hram, 64);
+}
+}
+
+#error TODO cache these results for a bit to make replays work. Maybe (node_id, request_id, rb_total) => (agg_pubkey, s_value)
+rai::uint256_union rai::vote_stapler::stage1 (rai::public_key node_id, rai::uint256_union request_id, rai::public_key agg_pubkey, rai::uint256_union rb_total)
+{
+	auto result (false);
+	auto session_id (std::make_pair (node_id, request_id));
+	auto musig_stage0_it (stage0_info.get<0> ().find (session_id));
+	if (musig_stage0_it == stage0_info.get<0> ().end ())
+	{
+		result = true;
+	}
+	else
+	{
+		auto stapled_vote_it (stapled_votes.get<0> ().find (musig_stage0_it->root));
+		if (stapled_vote_it == stapled_votes.get<0> ().end ())
+		{
+			result = true;
+			assert (false);
+		}
+		else if (musig_stage0_it->block != stapled_vote_it->successor)
+		{
+			result = true;
+			assert (false);
+		}
+	}
+	rai::raw_key rep_key;
+	if (!result)
+	{
+		rai::transaction transaction (node.store.environment, nullptr, false);
+		for (auto i (node.wallets.items.begin ()), n (node.wallets.items.end ()); i != n; ++i)
+		{
+			auto & wallet (*i->second);
+			if (!wallet.store.fetch (transaction, musig_stage0_it->representative, rep_key))
+			{
+				break;
+			}
+		}
+		result = rep_key.data.is_zero ();
+	}
+	rai::uint256_union s_value;
+	if (!result)
+	{
+		auto block_hash (musig_stage0_it->block->hash ());
+		hash_512bits extsk, hram;
+		ed25519_extsk (extsk, rep_key.data.bytes.data ());
+		bignum256modm s, a;
+		expand256_modm (a, extsk, 32);
+		// s = H(R,A,m)
+		ed25519_hram (hram, rb_total.bytes.data (), agg_pubkey.bytes.data (), block_hash.bytes.data (), sizeof (block_hash));
+		expand256_modm (s, hram, 64);
+		// s = H(R,A,m)a
+		mul256_modm (s, s, a);
+		// s = (r + H(R,A,m)a)
+		add256_modm (s, s, musig_stage0_it->r_value);
+		// s = (r + H(R,A,m)a) mod L
+		contract256_modm (s_value.bytes.data (), s);
+		stage0_info.erase (musig_stage0_it);
+	}
+	return s_value;
 }
 
 void rai::network::receive_action (boost::system::error_code const & error, size_t size_a)
@@ -555,6 +890,34 @@ void rai::network::receive_action (boost::system::error_code const & error, size
 					if (node.config.logging.network_logging ())
 					{
 						BOOST_LOG (node.log) << "Invalid node_id_handshake message";
+					}
+				}
+				else if (parser.status == rai::message_parser::parse_status::invalid_musig_stage0_req_message)
+				{
+					if (node.config.logging.network_logging ())
+					{
+						BOOST_LOG (node.log) << "Invalid musig_stage0_req message";
+					}
+				}
+				else if (parser.status == rai::message_parser::parse_status::invalid_musig_stage0_res_message)
+				{
+					if (node.config.logging.network_logging ())
+					{
+						BOOST_LOG (node.log) << "Invalid musig_stage0_res message";
+					}
+				}
+				else if (parser.status == rai::message_parser::parse_status::invalid_musig_stage1_req_message)
+				{
+					if (node.config.logging.network_logging ())
+					{
+						BOOST_LOG (node.log) << "Invalid musig_stage1_req message";
+					}
+				}
+				else if (parser.status == rai::message_parser::parse_status::invalid_musig_stage1_res_message)
+				{
+					if (node.config.logging.network_logging ())
+					{
+						BOOST_LOG (node.log) << "Invalid musig_stage1_res message";
 					}
 				}
 				else
@@ -674,6 +1037,7 @@ network_publish_logging_value (false),
 network_packet_logging_value (false),
 network_keepalive_logging_value (false),
 network_node_id_handshake_logging_value (false),
+network_musig_logging_value (false),
 node_lifetime_tracing_value (false),
 insufficient_work_logging_value (true),
 log_rpc_value (true),
@@ -702,7 +1066,7 @@ void rai::logging::init (boost::filesystem::path const & application_path_a)
 
 void rai::logging::serialize_json (boost::property_tree::ptree & tree_a) const
 {
-	tree_a.put ("version", "4");
+	tree_a.put ("version", "5");
 	tree_a.put ("ledger", ledger_logging_value);
 	tree_a.put ("ledger_duplicate", ledger_duplicate_logging_value);
 	tree_a.put ("vote", vote_logging_value);
@@ -712,6 +1076,7 @@ void rai::logging::serialize_json (boost::property_tree::ptree & tree_a) const
 	tree_a.put ("network_packet", network_packet_logging_value);
 	tree_a.put ("network_keepalive", network_keepalive_logging_value);
 	tree_a.put ("network_node_id_handshake", network_node_id_handshake_logging_value);
+	tree_a.put ("network_musig", network_musig_logging_value);
 	tree_a.put ("node_lifetime_tracing", node_lifetime_tracing_value);
 	tree_a.put ("insufficient_work", insufficient_work_logging_value);
 	tree_a.put ("log_rpc", log_rpc_value);
@@ -742,6 +1107,10 @@ bool rai::logging::upgrade_json (unsigned version_a, boost::property_tree::ptree
 			tree_a.put ("version", "4");
 			result = true;
 		case 4:
+			tree_a.put ("network_musig", "false");
+			tree_a.put ("version", "5");
+			result = true;
+		case 5:
 			break;
 		default:
 			throw std::runtime_error ("Unknown logging_config version");
@@ -837,6 +1206,11 @@ bool rai::logging::network_keepalive_logging () const
 bool rai::logging::network_node_id_handshake_logging () const
 {
 	return network_logging () && network_node_id_handshake_logging_value;
+}
+
+bool rai::logging::network_musig_logging () const
+{
+	return network_logging () && network_musig_logging_value;
 }
 
 bool rai::logging::node_lifetime_tracing () const
@@ -1681,6 +2055,7 @@ warmed_up (0),
 block_processor (*this),
 block_processor_thread ([this]() { this->block_processor.process_blocks (); }),
 online_reps (*this),
+vote_stapler (*this),
 stats (config.stat_config)
 {
 	wallets.observer = [this](bool active) {
@@ -2175,6 +2550,17 @@ bool rai::peer_container::validate_syn_cookie (rai::endpoint const & endpoint, r
 		{
 			assert (false && "More SYN cookies deleted than created for IP");
 		}
+	}
+	return result;
+}
+
+boost::optional<rai::public_key> rai::peer_container::node_id (rai::endpoint const & endpoint)
+{
+	auto peer_info (peers.get<0> ().find (endpoint));
+	boost::optional<rai::public_key> result (boost::none);
+	if (peer_info != peers.get<0> ().end ())
+	{
+		result = peer_info->node_id;
 	}
 	return result;
 }
@@ -3234,11 +3620,11 @@ bool rai::peer_container::reachout (rai::endpoint const & endpoint_a)
 	return error;
 }
 
-bool rai::peer_container::insert (rai::endpoint const & endpoint_a, unsigned version_a)
+bool rai::peer_container::insert (rai::endpoint const & endpoint_a, unsigned version_a, boost::optional<rai::account> node_id_a)
 {
 	assert (endpoint_a.address ().is_v6 ());
 	auto unknown (false);
-	auto is_legacy (version_a < rai::node_id_version);
+	auto is_legacy (!node_id_a);
 	auto result (not_a_peer (endpoint_a, false));
 	if (!result)
 	{
@@ -3292,7 +3678,7 @@ bool rai::peer_container::insert (rai::endpoint const & endpoint_a, unsigned ver
 				}
 				if (!result)
 				{
-					peers.insert (rai::peer_information (endpoint_a, version_a));
+					peers.insert (rai::peer_information (endpoint_a, version_a, node_id_a));
 				}
 			}
 		}
@@ -3417,7 +3803,7 @@ bool rai::reserved_address (rai::endpoint const & endpoint_a, bool blacklist_loo
 	return result;
 }
 
-rai::peer_information::peer_information (rai::endpoint const & endpoint_a, unsigned network_version_a) :
+rai::peer_information::peer_information (rai::endpoint const & endpoint_a, unsigned network_version_a, boost::optional<rai::account> node_id_a) :
 endpoint (endpoint_a),
 ip_address (endpoint_a.address ()),
 last_contact (std::chrono::steady_clock::now ()),
@@ -3427,7 +3813,7 @@ last_rep_request (std::chrono::steady_clock::time_point ()),
 last_rep_response (std::chrono::steady_clock::time_point ()),
 rep_weight (0),
 network_version (network_version_a),
-node_id ()
+node_id (node_id_a)
 {
 }
 

@@ -138,6 +138,26 @@ void rai::message_parser::deserialize_buffer (uint8_t const * buffer_a, size_t s
 						deserialize_node_id_handshake (stream, header);
 						break;
 					}
+					case rai::message_type::musig_stage0_req:
+					{
+						deserialize_musig_stage0_req (stream, header);
+						break;
+					}
+					case rai::message_type::musig_stage0_res:
+					{
+						deserialize_musig_stage0_res (stream, header);
+						break;
+					}
+					case rai::message_type::musig_stage1_req:
+					{
+						deserialize_musig_stage1_req (stream, header);
+						break;
+					}
+					case rai::message_type::musig_stage1_res:
+					{
+						deserialize_musig_stage1_res (stream, header);
+						break;
+					}
 					default:
 					{
 						status = parse_status::invalid_message_type;
@@ -249,6 +269,69 @@ void rai::message_parser::deserialize_node_id_handshake (rai::stream & stream_a,
 	else
 	{
 		status = parse_status::invalid_node_id_handshake_message;
+	}
+}
+
+void rai::message_parser::deserialize_musig_stage0_req (rai::stream & stream_a, rai::message_header const & header_a)
+{
+	bool error_l (false);
+	rai::musig_stage0_req incoming (error_l, stream_a, header_a);
+	if (!error_l && at_end (stream_a))
+	{
+		if (!rai::work_validate (*incoming.block))
+		{
+			visitor.musig_stage0_req (incoming);
+		}
+		else
+		{
+			status = parse_status::insufficient_work;
+		}
+	}
+	else
+	{
+		status = parse_status::invalid_musig_stage0_req_message;
+	}
+}
+
+void rai::message_parser::deserialize_musig_stage0_res (rai::stream & stream_a, rai::message_header const & header_a)
+{
+	bool error_l (false);
+	rai::musig_stage0_res incoming (error_l, stream_a, header_a);
+	if (!error_l && at_end (stream_a))
+	{
+		visitor.musig_stage0_res (incoming);
+	}
+	else
+	{
+		status = parse_status::invalid_musig_stage0_res_message;
+	}
+}
+
+void rai::message_parser::deserialize_musig_stage1_req (rai::stream & stream_a, rai::message_header const & header_a)
+{
+	bool error_l (false);
+	rai::musig_stage1_req incoming (error_l, stream_a, header_a);
+	if (!error_l && at_end (stream_a))
+	{
+		visitor.musig_stage1_req (incoming);
+	}
+	else
+	{
+		status = parse_status::invalid_musig_stage1_req_message;
+	}
+}
+
+void rai::message_parser::deserialize_musig_stage1_res (rai::stream & stream_a, rai::message_header const & header_a)
+{
+	bool error_l (false);
+	rai::musig_stage1_res incoming (error_l, stream_a, header_a);
+	if (!error_l && at_end (stream_a))
+	{
+		visitor.musig_stage1_res (incoming);
+	}
+	else
+	{
+		status = parse_status::invalid_musig_stage1_res_message;
 	}
 }
 
@@ -726,6 +809,237 @@ bool rai::node_id_handshake::operator== (rai::node_id_handshake const & other_a)
 void rai::node_id_handshake::visit (rai::message_visitor & visitor_a) const
 {
 	visitor_a.node_id_handshake (*this);
+}
+
+const std::string rai::musig_stage0_req::hash_prefix = "musig_stage0_req";
+const std::string rai::musig_stage0_res::hash_prefix = "musig_stage0_res";
+const std::string rai::musig_stage1_req::hash_prefix = "musig_stage1_req";
+
+rai::musig_stage0_req::musig_stage0_req (bool & error_a, rai::stream & stream_a, rai::message_header const & header_a) :
+message (header_a)
+{
+	error_a = deserialize (stream_a);
+}
+
+rai::musig_stage0_req::musig_stage0_req (std::shared_ptr<rai::state_block> block_a, rai::account rep_req_a, rai::keypair keypair_a) :
+message (rai::message_type::musig_stage0_req),
+block (block_a),
+rep_requested (rep_req_a)
+{
+	header.block_type_set (block->type ());
+	node_id_signature = rai::sign_message (keypair_a.prv, keypair_a.pub, hash ());
+}
+
+rai::uint256_union rai::musig_stage0_req::hash () const
+{
+	rai::uint256_union result;
+	blake2b_state hash_l;
+	auto status (blake2b_init (&hash_l, sizeof (result.bytes)));
+	assert (status == 0);
+	status = blake2b_update (&hash_l, hash_prefix.data (), hash_prefix.size ());
+	assert (status == 0);
+	auto block_hash (block->hash ());
+	status = blake2b_update (&hash_l, block_hash.bytes.data (), sizeof (block_hash));
+	assert (status == 0);
+	status = blake2b_update (&hash_l, rep_requested.bytes.data (), sizeof (rep_requested));
+	assert (status == 0);
+	status = blake2b_final (&hash_l, result.bytes.data (), sizeof (result.bytes));
+	assert (status == 0);
+	return result;
+}
+bool rai::musig_stage0_req::deserialize (rai::stream & stream_a)
+{
+	auto result (header.block_type () != rai::block_type::state);
+	if (!result)
+	{
+		block = std::make_shared<rai::state_block> (result, stream_a);
+		if (!result)
+		{
+			result = rai::read (stream_a, node_id_signature);
+		}
+	}
+	return result;
+}
+
+void rai::musig_stage0_req::serialize (rai::stream & stream_a)
+{
+	header.serialize (stream_a);
+	block->serialize (stream_a);
+	rai::write (stream_a, node_id_signature);
+}
+
+bool rai::musig_stage0_req::operator== (rai::musig_stage0_req const & other_a) const
+{
+	auto result (*block == *other_a.block && node_id_signature == other_a.node_id_signature);
+	return result;
+}
+
+void rai::musig_stage0_req::visit (rai::message_visitor & visitor_a) const
+{
+	visitor_a.musig_stage0_req (*this);
+}
+
+rai::musig_stage0_res::musig_stage0_res (bool & error_a, rai::stream & stream_a, rai::message_header const & header_a) :
+message (header_a)
+{
+	error_a = deserialize (stream_a);
+}
+
+rai::musig_stage0_res::musig_stage0_res (rai::uint256_union rb_value_a, rai::uint256_union req_id_a, rai::keypair keypair_a) :
+message (rai::message_type::musig_stage0_res),
+request_id (req_id_a),
+rb_value (rb_value_a)
+{
+	rb_signature = rai::sign_message (keypair_a.prv, keypair_a.pub, hash ());
+}
+
+rai::uint256_union rai::musig_stage0_res::hash () const
+{
+	rai::uint256_union result;
+	blake2b_state hash_l;
+	auto status (blake2b_init (&hash_l, sizeof (result.bytes)));
+	assert (status == 0);
+	status = blake2b_update (&hash_l, hash_prefix.data (), hash_prefix.size ());
+	assert (status == 0);
+	status = blake2b_update (&hash_l, request_id.bytes.data (), sizeof (request_id));
+	assert (status == 0);
+	status = blake2b_update (&hash_l, rb_value.bytes.data (), sizeof (rb_value));
+	assert (status == 0);
+	status = blake2b_final (&hash_l, result.bytes.data (), sizeof (result.bytes));
+	assert (status == 0);
+	return result;
+}
+
+bool rai::musig_stage0_res::deserialize (rai::stream & stream_a)
+{
+	auto result (false);
+	result = rai::read (stream_a, rb_value);
+	if (!result)
+	{
+		result = rai::read (stream_a, rb_signature);
+		if (!result)
+		{
+			result = rai::read (stream_a, request_id);
+		}
+	}
+	return result;
+}
+
+void rai::musig_stage0_res::serialize (rai::stream & stream_a)
+{
+	rai::write (stream_a, rb_value);
+	rai::write (stream_a, rb_signature);
+}
+
+bool rai::musig_stage0_res::operator== (rai::musig_stage0_res const & other_a) const
+{
+	auto result (rb_value == other_a.rb_value && rb_signature == other_a.rb_signature);
+	return result;
+}
+
+void rai::musig_stage0_res::visit (rai::message_visitor & visitor_a) const
+{
+	visitor_a.musig_stage0_res (*this);
+}
+
+rai::musig_stage1_req::musig_stage1_req (bool & error_a, rai::stream & stream_a, rai::message_header const & header_a) :
+message (header_a)
+{
+	error_a = deserialize (stream_a);
+}
+
+rai::musig_stage1_req::musig_stage1_req (rai::uint256_union rb_total_a, rai::uint256_union req_id_a, rai::public_key agg_pubkey_a, rai::keypair keypair_a) :
+message (rai::message_type::musig_stage1_req),
+rb_total (rb_total_a),
+request_id (req_id_a),
+agg_pubkey (agg_pubkey_a)
+{
+	node_id_signature = rai::sign_message (keypair_a.prv, keypair_a.pub, hash ());
+}
+
+rai::uint256_union rai::musig_stage1_req::hash () const
+{
+	rai::uint256_union result;
+	blake2b_state hash_l;
+	auto status (blake2b_init (&hash_l, sizeof (result.bytes)));
+	assert (status == 0);
+	status = blake2b_update (&hash_l, hash_prefix.data (), hash_prefix.size ());
+	assert (status == 0);
+	status = blake2b_update (&hash_l, request_id.bytes.data (), sizeof (request_id));
+	assert (status == 0);
+	status = blake2b_update (&hash_l, rb_total.bytes.data (), sizeof (rb_total));
+	assert (status == 0);
+	status = blake2b_update (&hash_l, agg_pubkey.bytes.data (), sizeof (agg_pubkey));
+	assert (status == 0);
+	status = blake2b_final (&hash_l, result.bytes.data (), sizeof (result.bytes));
+	assert (status == 0);
+	return result;
+}
+
+bool rai::musig_stage1_req::deserialize (rai::stream & stream_a)
+{
+	auto result (false);
+	result = rai::read (stream_a, rb_total);
+	if (!result)
+	{
+		result = rai::read (stream_a, agg_pubkey);
+		if (!result)
+		{
+			result = rai::read (stream_a, node_id_signature);
+		}
+	}
+	return result;
+}
+
+void rai::musig_stage1_req::serialize (rai::stream & stream_a)
+{
+	header.serialize (stream_a);
+	rai::write (stream_a, rb_total);
+	rai::write (stream_a, agg_pubkey);
+	rai::write (stream_a, node_id_signature);
+}
+
+bool rai::musig_stage1_req::operator== (rai::musig_stage1_req const & other_a) const
+{
+	auto result (rb_total == other_a.rb_total && agg_pubkey == other_a.agg_pubkey && node_id_signature == other_a.node_id_signature);
+	return result;
+}
+
+void rai::musig_stage1_req::visit (rai::message_visitor & visitor_a) const
+{
+	visitor_a.musig_stage1_req (*this);
+}
+
+rai::musig_stage1_res::musig_stage1_res (bool & error_a, rai::stream & stream_a, rai::message_header const & header_a) :
+message (header_a)
+{
+	error_a = deserialize (stream_a);
+}
+
+rai::musig_stage1_res::musig_stage1_res (rai::uint256_union s_value_a) :
+message (rai::message_type::musig_stage1_res),
+s_value (s_value_a)
+{
+}
+
+bool rai::musig_stage1_res::deserialize (rai::stream & stream_a)
+{
+	return rai::read (stream_a, s_value);
+}
+
+void rai::musig_stage1_res::serialize (rai::stream & stream_a)
+{
+	rai::write (stream_a, s_value);
+}
+
+bool rai::musig_stage1_res::operator== (rai::musig_stage1_res const & other_a) const
+{
+	return s_value == other_a.s_value;
+}
+
+void rai::musig_stage1_res::visit (rai::message_visitor & visitor_a) const
+{
+	visitor_a.musig_stage1_res (*this);
 }
 
 rai::message_visitor::~message_visitor ()

@@ -212,6 +212,10 @@ public:
 		confirm_req,
 		confirm_ack,
 		node_id_handshake,
+		musig_stage0_req,
+		musig_stage0_res,
+		musig_stage1_req,
+		musig_stage1_res,
 
 		// bootstrap, callback
 		initiate,
