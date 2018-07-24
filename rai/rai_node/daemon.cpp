@@ -93,7 +93,7 @@ bool rai_daemon::daemon_config::upgrade_json (unsigned version_a, boost::propert
 	return result;
 }
 
-void rai_daemon::daemon::run (boost::filesystem::path const & data_path)
+void rai_daemon::daemon::run (boost::filesystem::path const & data_path, bool backup_enable)
 {
 	boost::filesystem::create_directories (data_path);
 	rai_daemon::daemon_config config (data_path);
@@ -115,7 +115,7 @@ void rai_daemon::daemon::run (boost::filesystem::path const & data_path)
 		rai::node_init init;
 		try
 		{
-			auto node (std::make_shared<rai::node> (init, service, data_path, alarm, config.node, opencl_work));
+			auto node (std::make_shared<rai::node> (init, service, data_path, alarm, config.node, opencl_work, backup_enable));
 			if (!init.error ())
 			{
 				node->start ();

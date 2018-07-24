@@ -187,7 +187,7 @@ bool update_config (qt_wallet_config & config_a, boost::filesystem::path const &
 }
 }
 
-int run_wallet (QApplication & application, int argc, char * const * argv, boost::filesystem::path const & data_path)
+int run_wallet (QApplication & application, int argc, char * const * argv, boost::filesystem::path const & data_path, bool backup_enable = true)
 {
 	rai_qt::eventloop_processor processor;
 	boost::filesystem::create_directories (data_path);
@@ -316,7 +316,7 @@ int main (int argc, char * const * argv)
 					{
 						data_path = rai::working_path ();
 					}
-					result = run_wallet (application, argc, argv, data_path);
+					result = run_wallet (application, argc, argv, data_path, vm.count ("backup_disable") == 0);
 				}
 				catch (std::exception const & e)
 				{

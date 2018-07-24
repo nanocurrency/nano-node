@@ -1563,17 +1563,18 @@ void rai::block_processor::queue_unchecked (MDB_txn * transaction_a, rai::block_
 	node.gap_cache.blocks.get<1> ().erase (hash_a);
 }
 
-rai::node::node (rai::node_init & init_a, boost::asio::io_service & service_a, uint16_t peering_port_a, boost::filesystem::path const & application_path_a, rai::alarm & alarm_a, rai::logging const & logging_a, rai::work_pool & work_a) :
-node (init_a, service_a, application_path_a, alarm_a, rai::node_config (peering_port_a, logging_a), work_a)
+rai::node::node (rai::node_init & init_a, boost::asio::io_service & service_a, uint16_t peering_port_a, boost::filesystem::path const & application_path_a, rai::alarm & alarm_a, rai::logging const & logging_a, rai::work_pool & work_a, bool backup_a) :
+node (init_a, service_a, application_path_a, alarm_a, rai::node_config (peering_port_a, logging_a), work_a, backup_a)
 {
 }
 
-rai::node::node (rai::node_init & init_a, boost::asio::io_service & service_a, boost::filesystem::path const & application_path_a, rai::alarm & alarm_a, rai::node_config const & config_a, rai::work_pool & work_a) :
+rai::node::node (rai::node_init & init_a, boost::asio::io_service & service_a, boost::filesystem::path const & application_path_a, rai::alarm & alarm_a, rai::node_config const & config_a, rai::work_pool & work_a, bool backup_a) :
 service (service_a),
 config (config_a),
 alarm (alarm_a),
 work (work_a),
 store (init_a.block_store_init, application_path_a / "data.ldb", config_a.lmdb_max_dbs),
+backup_enable (backup_a),
 gap_cache (*this),
 ledger (store, stats, config.epoch_block_link, config.epoch_block_signer),
 active (*this),
@@ -2332,17 +2333,20 @@ void rai::node::ongoing_store_flush ()
 
 void rai::node::backup_wallet ()
 {
-	rai::transaction transaction (store.environment, nullptr, false);
-	for (auto i (wallets.items.begin ()), n (wallets.items.end ()); i != n; ++i)
+	if (backup_enable)
 	{
-		auto backup_path (application_path / "backup");
-		boost::filesystem::create_directories (backup_path);
-		i->second->store.write_backup (transaction, backup_path / (i->first.to_string () + ".json"));
+		rai::transaction transaction (store.environment, nullptr, false);
+		for (auto i (wallets.items.begin ()), n (wallets.items.end ()); i != n; ++i)
+		{
+			auto backup_path (application_path / "backup");
+			boost::filesystem::create_directories (backup_path);
+			i->second->store.write_backup (transaction, backup_path / (i->first.to_string () + ".json"));
+		}
+		auto this_l (shared ());
+		alarm.add (std::chrono::steady_clock::now () + backup_interval, [this_l]() {
+			this_l->backup_wallet ();
+		});
 	}
-	auto this_l (shared ());
-	alarm.add (std::chrono::steady_clock::now () + backup_interval, [this_l]() {
-		this_l->backup_wallet ();
-	});
 }
 
 int rai::node::price (rai::uint128_t const & balance_a, int amount_a)
