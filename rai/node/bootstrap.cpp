@@ -1533,7 +1533,11 @@ void rai::bootstrap_server::run_next ()
 /**
  * Handle a request for the pull of all blocks associated with an account
  * The account is supplied as the "start" member, and the final block to
- * send is the "end" member
+ * send is the "end" member.  The "start" member may also be a block
+ * hash, in which case the that hash is used as the start of a chain
+ * to send.  To determine if "start" is interpretted as an account or
+ * hash, the ledger is checked to see if the block specified exists,
+ * if not then it is interpretted as an account.
  */
 void rai::bulk_pull_server::set_current_end ()
 {
@@ -1547,33 +1551,43 @@ void rai::bulk_pull_server::set_current_end ()
 		}
 		request->end.clear ();
 	}
-	rai::account_info info;
-	auto no_address (connection->node->store.account_get (transaction, request->start, info));
-	if (no_address)
+
+	if (connection->node->store.block_exists (transaction, request->start))
 	{
 		if (connection->node->config.logging.bulk_pull_logging ())
 		{
-			BOOST_LOG (connection->node->log) << boost::str (boost::format ("Request for unknown account: %1%") % request->start.to_account ());
+			BOOST_LOG (connection->node->log) << boost::str (boost::format ("Bulk pull request for block hash: %1%") % request->start.to_string ());
 		}
-		current = request->end;
+
+		current = request->start;
 	}
 	else
 	{
-		if (!request->end.is_zero ())
+		rai::account_info info;
+		auto no_address (connection->node->store.account_get (transaction, request->start, info));
+		if (no_address)
 		{
-			auto account (connection->node->ledger.account (transaction, request->end));
-			if (account == request->start)
+			if (connection->node->config.logging.bulk_pull_logging ())
 			{
-				current = info.head;
+				BOOST_LOG (connection->node->log) << boost::str (boost::format ("Request for unknown account: %1%") % request->start.to_account ());
 			}
-			else
-			{
-				current = request->end;
-			}
+			current = request->end;
 		}
 		else
 		{
 			current = info.head;
+			if (!request->end.is_zero ())
+			{
+				auto account (connection->node->ledger.account (transaction, request->end));
+				if (account != request->start)
+				{
+					if (connection->node->config.logging.bulk_pull_logging ())
+					{
+						BOOST_LOG (connection->node->log) << boost::str (boost::format ("Request for block that is not on account chain: %1% not on %2%") % request->end.to_string () % request->start.to_account ());
+					}
+					current = request->end;
+				}
+			}
 		}
 	}
 }
