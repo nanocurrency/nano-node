@@ -80,6 +80,7 @@ public:
 	std::atomic<bool> confirmed;
 	bool aborted;
 	std::unordered_map<rai::block_hash, rai::uint128_t> last_tally;
+	bool should_update_winner;
 };
 class conflict_info
 {
@@ -591,6 +592,7 @@ class musig_stage0_info
 {
 public:
 	musig_stage0_info (std::pair<rai::public_key, rai::uint256_union>, rai::account, std::shared_ptr<rai::state_block>, bignum256modm);
+	std::chrono::steady_clock::time_point created;
 	// pair of opposing node id, request id
 	std::pair<rai::public_key, rai::uint256_union> session_id;
 	rai::account representative;
@@ -602,6 +604,7 @@ class stapled_vote_info
 {
 public:
 	stapled_vote_info (std::shared_ptr<rai::state_block>);
+	std::chrono::steady_clock::time_point created;
 	rai::uint256_union root;
 	std::shared_ptr<rai::state_block> successor;
 	rai::block_hash successor_hash;
@@ -630,6 +633,7 @@ public:
 	vote_stapler (rai::node &);
 	rai::uint256_union stage0 (rai::transaction, rai::public_key, rai::account, rai::uint256_union, std::shared_ptr<rai::state_block>);
 	rai::uint256_union stage1 (rai::public_key, rai::uint256_union, rai::public_key, rai::uint256_union, rai::uint256_union);
+	std::shared_ptr<rai::block> remove_root (rai::uint256_union);
 	std::mutex mutex;
 	boost::multi_index_container<
 	rai::stapled_vote_info,
