@@ -1654,7 +1654,8 @@ std::unique_ptr<rai::block> rai::bulk_pull_server::get_next ()
 		set_current_to_end = true;
 	}
 
-	if (send_current) {
+	if (send_current)
+	{
 		rai::transaction transaction (connection->node->store.environment, nullptr, false);
 		result = connection->node->store.block_get (transaction, current);
 		if (result != nullptr && set_current_to_end == false)
