@@ -473,7 +473,7 @@ TEST (bulk_pull, none)
 	auto connection (std::make_shared<rai::bootstrap_server> (nullptr, system.nodes[0]));
 	rai::genesis genesis;
 	std::unique_ptr<rai::bulk_pull> req (new rai::bulk_pull{});
-	req->start = genesis.hash ();
+	req->start = rai::test_genesis_key.pub;
 	req->end = genesis.hash ();
 	connection->requests.push (std::unique_ptr<rai::message>{});
 	auto request (std::make_shared<rai::bulk_pull_server> (connection, std::move (req)));
