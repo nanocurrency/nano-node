@@ -1960,10 +1960,10 @@ bool rai::node::process_local (std::shared_ptr<rai::block> incoming)
 	bool result (false);
 	auto hash (incoming->hash ());
 	block_arrival.add (hash);
-	rai::transaction transaction (node.store.environment, nullptr, true);
-	block_processor.process_receive_one (transaction, incoming, std::chrono::steady_clock::now ())
+	rai::transaction transaction (store.environment, nullptr, true);
+	block_processor.process_receive_one (transaction, incoming, std::chrono::steady_clock::now ());
 	result = store.block_exists (transaction, hash);
-	// Immediately republish block
+	// Immediately republish valid block
 	if (result)
 	{
 		network.republish_block (transaction, incoming);
