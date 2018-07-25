@@ -165,6 +165,10 @@ public:
 	std::mutex cache_mutex;
 	std::unordered_map<rai::account, std::shared_ptr<rai::vote>> vote_cache;
 
+	void timestamp_put (MDB_txn *, rai::block_hash const &, uint64_t const &);
+	uint64_t timestamp_get (MDB_txn *, rai::block_hash const &);
+	void timestamp_del (MDB_txn *, rai::block_hash const &);
+
 	void version_put (MDB_txn *, int);
 	int version_get (MDB_txn *);
 	void do_upgrades (MDB_txn *);
@@ -285,6 +289,12 @@ public:
 	 * rai::account -> uint64_t
 	 */
 	MDB_dbi vote;
+
+	/**
+	 * Seconds since posix epoch for block.
+	 * rai::block_hash -> uint64_t
+	 */
+	MDB_dbi timestamps;
 
 	/**
 	 * Meta information about block store, such as versions.

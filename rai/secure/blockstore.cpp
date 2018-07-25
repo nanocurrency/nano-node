@@ -463,6 +463,7 @@ representation (0),
 unchecked (0),
 checksum (0),
 vote (0),
+timestamps (0),
 meta (0)
 {
 	if (!error_a)
@@ -484,6 +485,7 @@ meta (0)
 		error_a |= mdb_dbi_open (transaction, "unchecked", MDB_CREATE | MDB_DUPSORT, &unchecked) != 0;
 		error_a |= mdb_dbi_open (transaction, "checksum", MDB_CREATE, &checksum) != 0;
 		error_a |= mdb_dbi_open (transaction, "vote", MDB_CREATE, &vote) != 0;
+		error_a |= mdb_dbi_open (transaction, "timestamps", MDB_CREATE, &timestamps) != 0;
 		error_a |= mdb_dbi_open (transaction, "meta", MDB_CREATE, &meta) != 0;
 		if (!error_a)
 		{
@@ -1631,6 +1633,34 @@ std::shared_ptr<rai::vote> rai::block_store::vote_max (MDB_txn * transaction_a, 
 	}
 	vote_cache[vote_a->account] = result;
 	return result;
+}
+
+
+void rai::block_store::timestamp_put (MDB_txn * transaction_a, rai::block_hash const & block_a, uint64_t const & timestamp_a)
+{
+	auto status (mdb_put (transaction_a, timestamps, rai::mdb_val (block_a), rai::mdb_val (sizeof (timestamp_a), const_cast<uint64_t *> (&timestamp_a)), 0));
+	assert (status == 0);
+}
+
+uint64_t rai::block_store::timestamp_get (MDB_txn * transaction_a, rai::block_hash const & block_a)
+{
+	rai::mdb_val value;
+	auto status (mdb_get (transaction_a, timestamps, rai::mdb_val (block_a), value));
+	assert (status == 0 || status == MDB_NOTFOUND);
+	uint64_t result (0);
+	if (status == 0 || status == MDB_NOTFOUND);
+	{
+		rai::bufferstream stream (reinterpret_cast<uint8_t const *> (value.data ()), value.size ());
+		auto error (rai::read (stream, result));
+		assert (!error);
+	}
+	return result;
+}
+
+void rai::block_store::timestamp_del (MDB_txn * transaction_a, rai::block_hash const & block_a)
+{
+	auto status (mdb_del (transaction_a, timestamps, rai::mdb_val (block_a), nullptr));
+	assert (status == 0);
 }
 
 rai::store_iterator rai::block_store::latest_v0_begin (MDB_txn * transaction_a, rai::account const & account_a)
