@@ -624,7 +624,7 @@ class stapler_s_value_cache_value
 public:
 	rai::stapler_s_value_cache_key key;
 	std::chrono::steady_clock::time_point created;
-	rai::uint256_union l_value;
+	rai::uint256_union l_base;
 	rai::uint256_union agg_pubkey;
 	rai::uint256_union s_value;
 };
@@ -656,15 +656,23 @@ public:
 	s_value_cache;
 	rai::node & node;
 };
-class request_info
+class musig_request_info
 {
 public:
-	request_info (std::shared_ptr<rai::block>, std::unordered_set<rai::account>, std::promise<rai::signature> &&);
+	musig_request_info (std::shared_ptr<rai::block>, std::unordered_set<rai::account>, std::promise<std::pair<uint256_union, rai::signature>> &&);
 	std::shared_ptr<rai::block> block;
 	rai::uint256_union block_hash;
 	std::unordered_set<rai::account> reps_requested;
 	std::promise<std::pair<rai::uint256_union, rai::signature>> promise;
 	std::chrono::steady_clock::time_point created;
+};
+class musig_stage0_status
+{
+public:
+	musig_stage0_status (std::unordered_map<rai::account, std::vector<rai::endpoint>>);
+	std::unordered_map<rai::account, rai::uint256_union> rb_values;
+	rai::uint128_t vote_weight_collected;
+	std::unordered_map<rai::account, std::vector<rai::endpoint>> rep_endpoints;
 };
 class vote_staple_requester
 {
@@ -676,10 +684,11 @@ public:
 	void calculate_weight_cutoff ();
 	// Maps request IDs to block hashes
 	std::unordered_map<rai::uint256_union, rai::block_hash> request_ids;
-	std::unordered_map<rai::uint256_union, rai::request_info> block_request_info;
-	std::unordered_map<rai::block_hash, std::unordered_map<rai::account, rai::uint256_union>> stage0_results;
+	std::unordered_map<rai::uint256_union, rai::musig_request_info> block_request_info;
+	std::unordered_map<rai::block_hash, rai::musig_stage0_status> stage0_statuses;
 	std::unordered_map<rai::block_hash, std::unordered_set<rai::uint256_union>> stage1_expected_sb;
 	std::unordered_map<rai::block_hash, bignum256modm> stage1_running_total;
+	std::unordered_set<rai::account> blacklisted_reps;
 	rai::uint128_t weight_cutoff;
 	std::mutex mutex;
 	rai::node & node;

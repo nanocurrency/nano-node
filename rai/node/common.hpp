@@ -388,7 +388,7 @@ public:
 	rai::uint256_union request_id;
 	rai::public_key agg_pubkey;
 	rai::signature node_id_signature;
-	rai::uint256_union l_value;
+	rai::uint256_union l_base;
 	static const std::string hash_prefix;
 };
 class musig_stage1_res : public message

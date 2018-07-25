@@ -197,14 +197,14 @@ void rai::network::send_musig_stage0_res (rai::endpoint const & endpoint_a, rai:
 	});
 }
 
-void rai::network::send_musig_stage1_req (rai::endpoint const & endpoint_a, rai::uint256_union rb_total, rai::account rep_requested, rai::public_key agg_pubkey, rai::uint256_union l_value)
+void rai::network::send_musig_stage1_req (rai::endpoint const & endpoint_a, rai::uint256_union request_id, rai::uint256_union rb_total, rai::public_key agg_pubkey, rai::uint256_union l_base)
 {
 	assert (endpoint_a.address ().is_v6 ());
 	if (node.config.logging.network_musig_logging ())
 	{
 		BOOST_LOG (node.log) << boost::str (boost::format ("MuSig stage1 request sent to %1% with rB total %2% and agg pubkey %3% requesting rep %4% (with Node ID %5%)") % rb_total.to_string () % rb_total.to_string () % agg_pubkey.to_account () % node.node_id.pub.to_account ());
 	}
-	rai::musig_stage1_req message (rb_total, rep_requested, agg_pubkey, l_value, node.node_id);
+	rai::musig_stage1_req message (request_id, rb_total, agg_pubkey, l_base, node.node_id);
 	std::shared_ptr<std::vector<uint8_t>> bytes (new std::vector<uint8_t>);
 	{
 		rai::vectorstream stream (*bytes);
@@ -635,7 +635,7 @@ public:
 		{
 			if (!rai::validate_message (*node_id, message_a.hash (), message_a.node_id_signature))
 			{
-				auto s_value (node.vote_stapler.stage1 (*node_id, message_a.request_id, message_a.agg_pubkey, message_a.l_value, message_a.rb_total));
+				auto s_value (node.vote_stapler.stage1 (*node_id, message_a.request_id, message_a.agg_pubkey, message_a.l_base, message_a.rb_total));
 				if (!s_value.is_zero ())
 				{
 					node.network.send_musig_stage1_res (sender, s_value);
@@ -762,7 +762,7 @@ static void ed25519_hram (hash_512bits hram, const ed25519_signature RS, const e
 }
 }
 
-rai::uint256_union rai::vote_stapler::stage1 (rai::public_key node_id, rai::uint256_union request_id, rai::public_key agg_pubkey, rai::uint256_union l_value, rai::uint256_union rb_total)
+rai::uint256_union rai::vote_stapler::stage1 (rai::public_key node_id, rai::uint256_union request_id, rai::public_key agg_pubkey, rai::uint256_union l_base, rai::uint256_union rb_total)
 {
 	auto result (false);
 	auto session_id (std::make_pair (node_id, request_id));
@@ -776,7 +776,7 @@ rai::uint256_union rai::vote_stapler::stage1 (rai::public_key node_id, rai::uint
 		auto s_value_cache_it (s_value_cache.get<0> ().find (s_value_cache_key));
 		if (s_value_cache_it != s_value_cache.get<0> ().end ())
 		{
-			if (s_value_cache_it->agg_pubkey == agg_pubkey && s_value_cache_it->l_value == l_value)
+			if (s_value_cache_it->agg_pubkey == agg_pubkey && s_value_cache_it->l_base == l_base)
 			{
 				s_value = s_value_cache_it->s_value;
 			}
@@ -812,6 +812,12 @@ rai::uint256_union rai::vote_stapler::stage1 (rai::public_key node_id, rai::uint
 	}
 	if (!result)
 	{
+		rai::uint256_union l_value;
+		blake2b_state hasher;
+		blake2b_init (&hasher, sizeof (l_value));
+		blake2b_update (&hasher, l_base.bytes.data (), sizeof (l_base));
+		blake2b_update (&hasher, musig_stage0_it->representative.bytes.data (), sizeof (musig_stage0_it->representative));
+		blake2b_final (&hasher, l_value.bytes.data (), sizeof (l_value));
 		auto block_hash (musig_stage0_it->block->hash ());
 		hash_512bits extsk, hram;
 		ed25519_extsk (extsk, rep_key.data.bytes.data ());
@@ -828,7 +834,7 @@ rai::uint256_union rai::vote_stapler::stage1 (rai::public_key node_id, rai::uint
 		add256_modm (s, s, musig_stage0_it->r_value);
 		// s = (r + H(R,A,m)*a*l) mod L
 		contract256_modm (s_value.bytes.data (), s);
-		rai::stapler_s_value_cache_value s_value_cache_value = { s_value_cache_key, std::chrono::steady_clock::now (), l_value, agg_pubkey, s_value };
+		rai::stapler_s_value_cache_value s_value_cache_value = { s_value_cache_key, std::chrono::steady_clock::now (), l_base, agg_pubkey, s_value };
 		stage0_info.erase (musig_stage0_it);
 	}
 	return s_value;
@@ -855,31 +861,27 @@ std::shared_ptr<rai::block> rai::vote_stapler::remove_root (rai::uint256_union r
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	std::shared_ptr<rai::block> result;
-	rai::block_hash successor (root);
-	while (!successor.is_zero ())
+	stage0_info.get<1> ().erase (stage0_info.get<1> ().find (root));
+	auto stapled_vote_it (stapled_votes.get<0> ().find (root));
+	if (stapled_vote_it != stapled_votes.get<0> ().end ())
 	{
-		stage0_info.get<1> ().erase (stage0_info.get<1> ().find (successor));
-		auto stapled_vote_it (stapled_votes.get<0> ().find (successor));
-		successor = 0;
-		if (stapled_vote_it != stapled_votes.get<0> ().end ())
-		{
-			if (successor == root)
-			{
-				result = stapled_vote_it->successor;
-			}
-			successor = result->hash ();
-			stapled_votes.get<0> ().erase (stapled_vote_it);
-		}
+		result = stapled_vote_it->successor;
+		stapled_votes.get<0> ().erase (stapled_vote_it);
 	}
 	return result;
 }
 
-rai::request_info::request_info (std::shared_ptr<rai::block> block_a, std::unordered_set<rai::account> req_reps_a, std::promise<rai::signature> && promise_a) :
+rai::musig_request_info::musig_request_info (std::shared_ptr<rai::block> block_a, std::unordered_set<rai::account> req_reps_a, std::promise<std::pair<rai::uint256_union, rai::signature>> && promise_a) :
 block (block_a),
 block_hash (block_a->hash ()),
 reps_requested (req_reps_a),
 promise (std::move (promise_a)),
 created (std::chrono::steady_clock::now ())
+{
+}
+
+rai::musig_stage0_status::musig_stage0_status (std::unordered_map<rai::account, std::vector<rai::endpoint>> endpoints_a) :
+rep_endpoints (endpoints_a)
 {
 }
 
@@ -892,12 +894,13 @@ node (node_a)
 void rai::vote_staple_requester::calculate_weight_cutoff ()
 {
 	std::vector<rai::uint128_t> representation;
+	rai::transaction transaction (node.store.environment, nullptr, false);
 	for (auto i (node.store.representation_begin (transaction)), n (node.store.representation_end ()); i != n; ++i)
 	{
-		representation.push_back (rai::uint128_union (i->second).number ());
+		representation.push_back (i->second.uint128 ().number ());
 	}
 	std::sort (representation.begin (), representation.end (), std::greater<> ());
-	if (representation.len () > node.top_reps_generation_cutoff)
+	if (representation.size () > node.top_reps_generation_cutoff)
 	{
 		weight_cutoff = representation[node.top_reps_generation_cutoff];
 	}
@@ -907,20 +910,26 @@ void rai::vote_staple_requester::calculate_weight_cutoff ()
 	}
 }
 
-std::future<rai::signature> rai::vote_staple_requester::request_staple (std::shared_ptr<rai::state_block> block)
+std::future<std::pair<rai::uint256_union, rai::signature>> rai::vote_staple_requester::request_staple (std::shared_ptr<rai::state_block> block)
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	std::unordered_set<rai::account> requested_reps;
+	std::unordered_map<rai::account, std::vector<rai::endpoint>> rep_endpoints;
 	rai::uint128_t total_weight;
-	std::promise<rai::signature> promise;
+	std::promise<std::pair<rai::uint256_union, rai::signature>> promise;
 	for (auto peer : node.peers.representatives (50))
 	{
 		auto rep (peer.probable_rep_account);
+		if (blacklisted_reps.find (rep) != blacklisted_reps.end ())
+		{
+			continue;
+		}
 		auto rep_weight (peer.rep_weight.number ());
 		if (rep_weight < weight_cutoff)
 		{
 			break;
 		}
+		rep_endpoints[rep].push_back (peer.endpoint);
 		requested_reps.insert (rep);
 		node.network.send_musig_stage0_req (peer.endpoint, block, rep);
 		rai::uint128_t last_total_weight (total_weight);
@@ -942,19 +951,152 @@ std::future<rai::signature> rai::vote_staple_requester::request_staple (std::sha
 	}
 	else
 	{
-		rai::request_info req_info (block, requested_reps, std::move (promise));
-		block_request_info.insert (std::make_pair<rai::block_hash, rai::request_info> (block->hash (), std::move (req_info)));
+		rai::musig_request_info req_info (block, requested_reps, std::move (promise));
+		block_request_info.insert (std::make_pair<rai::block_hash, rai::musig_request_info> (block->hash (), std::move (req_info)));
 		auto block_hash (block->hash ());
 		for (auto rep : requested_reps)
 		{
 			request_ids.insert (std::make_pair (rai::uint256_union (block_hash.number () ^ rep.number ()), block->hash ()));
 		}
+		rai::musig_stage0_status stage0_status (rep_endpoints);
+		stage0_statuses.insert (std::make_pair (block->hash (), stage0_status));
 	}
 	return future;
 }
 
+namespace {
+// from https://github.com/forthy42/ed25519-donna/blob/master/ed25519-donna-impl-base.h
+void ge25519_set_neutral(ge25519 *r)
+{
+	memset(r, 0, sizeof(ge25519));
+	r->y[0] = 1;
+	r->z[0] = 1;
+}
+
+void ge25519_scalarmult_vartime(ge25519 *r, const ge25519 *p1, const bignum256modm s1) {
+	signed char slide1[256];
+	ge25519_pniels pre1[S1_TABLE_SIZE];
+	ge25519 d1;
+	ge25519_p1p1 t;
+	int32_t i;
+
+	contract256_slidingwindow_modm(slide1, s1, S1_SWINDOWSIZE);
+
+	ge25519_double(&d1, p1);
+	ge25519_full_to_pniels(pre1, p1);
+	for (i = 0; i < S1_TABLE_SIZE - 1; i++)
+		ge25519_pnielsadd(&pre1[i+1], &d1, &pre1[i]);
+
+	/* set neutral */
+	ge25519_set_neutral(r);
+
+	i = 255;
+	while ((i >= 0) && !slide1[i])
+		i--;
+
+	for (; i >= 0; i--) {
+		ge25519_double_p1p1(&t, r);
+
+		if (slide1[i]) {
+			ge25519_p1p1_to_full(r, &t);
+			ge25519_pnielsadd_p1p1(&t, r, &pre1[abs(slide1[i]) / 2], (unsigned char)slide1[i] >> 7);
+		}
+
+		ge25519_p1p1_to_partial(r, &t);
+	}
+}
+}
+
 void rai::vote_staple_requester::musig_stage0_res (rai::musig_stage0_res const & message_a)
 {
+	std::lock_guard<std::mutex> lock (mutex);
+	auto request_id_it (request_ids.find (message_a.request_id));
+	if (request_id_it != request_ids.end ())
+	{
+		auto block_hash (request_id_it->second);
+		rai::uint256_union rep (message_a.request_id.number () ^ block_hash.number ());
+		if (!rai::validate_message (rep, message_a.hash (), message_a.rb_signature))
+		{
+			auto stage0_status_it (stage0_statuses.find (block_hash));
+			if (stage0_status_it != stage0_statuses.end ())
+			{
+				auto stage0_status (stage0_status_it->second);
+				if (stage0_status.rb_values.insert (std::make_pair (rep, message_a.rb_value)).second)
+				{
+					rai::transaction transaction (node.store.environment, nullptr, false);
+					auto last_vote_weight (stage0_status.vote_weight_collected);
+					stage0_status.vote_weight_collected += node.ledger.weight (transaction, rep);
+					if (stage0_status.vote_weight_collected < last_vote_weight)
+					{
+						stage0_status.vote_weight_collected = std::numeric_limits<rai::uint128_t>::max ();
+					}
+					if (stage0_status.vote_weight_collected >= node.online_reps.online_stake () / 3 * 2)
+					{
+						rai::uint256_union l_base;
+						blake2b_state l_base_hasher;
+						blake2b_init (&l_base_hasher, sizeof (l_base));
+						for (auto rb_values_it : stage0_status.rb_values)
+						{
+							blake2b_update (&l_base_hasher, rb_values_it.first.bytes.data (), sizeof (rb_values_it.first));
+						}
+						blake2b_final (&l_base_hasher, l_base.bytes.data (), sizeof (l_base));
+						bool first_rep (true);
+						ge25519 ALIGN (16) agg_pubkey_expanded;
+						ge25519 ALIGN (16) rb_total_expanded;
+						for (auto rb_values_it : stage0_status.rb_values)
+						{
+							rai::uint256_union l_value;
+							blake2b_state l_value_hasher;
+							blake2b_init (&l_value_hasher, sizeof (l_value));
+							blake2b_update (&l_value_hasher, l_base.bytes.data (), sizeof (l_base));
+							blake2b_update (&l_value_hasher, rb_values_it.first.bytes.data (), sizeof (rb_values_it.first));
+							blake2b_final (&l_value_hasher, l_value.bytes.data (), sizeof (l_value));
+							bignum256modm l_value_expanded;
+							expand256_modm (l_value_expanded, l_value.bytes.data (), 32);
+							ge25519 ALIGN (16) pubkey;
+							if (first_rep)
+							{
+								pubkey = agg_pubkey_expanded;
+							}
+							ge25519_unpack_negative_vartime (&pubkey, rb_values_it.first.bytes.data ());
+							ge25519_scalarmult_vartime (&pubkey, &pubkey, l_value_expanded);
+							if (!first_rep)
+							{
+								ge25519_add (&agg_pubkey_expanded, &agg_pubkey_expanded, &pubkey);
+							}
+							ge25519 ALIGN(16) rb_value_expanded;
+							if (first_rep)
+							{
+								rb_value_expanded = rb_total_expanded;
+							}
+							ge25519_unpack_negative_vartime (&rb_value_expanded, rb_values_it.second.bytes.data ());
+							if (!first_rep)
+							{
+								ge25519_add (&rb_total_expanded, &rb_total_expanded, &rb_value_expanded);
+							}
+							if (first_rep)
+							{
+								first_rep = false;
+							}
+						}
+						assert (!first_rep);
+						rai::uint256_union agg_pubkey;
+						rai::uint256_union rb_total;
+						ge25519_pack (agg_pubkey.bytes.data (), &agg_pubkey_expanded);
+						ge25519_pack (rb_total.bytes.data (), &rb_total_expanded);
+						for (auto rb_values_it : stage0_status.rb_values)
+						{
+							rai::uint256_union req_id (block_hash.number () ^ rb_values_it.first.number ());
+							for (auto endpoint : stage0_status.rep_endpoints[rb_values_it.first])
+							{
+								node.network.send_musig_stage1_req (endpoint, req_id, rb_total, agg_pubkey, l_base);
+							}
+						}
+					}
+				}
+			}
+		}
+	}
 }
 
 void rai::vote_staple_requester::musig_stage1_res (rai::musig_stage1_res const & message_a)

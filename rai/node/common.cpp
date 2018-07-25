@@ -948,12 +948,12 @@ message (header_a)
 	error_a = deserialize (stream_a);
 }
 
-rai::musig_stage1_req::musig_stage1_req (rai::uint256_union rb_total_a, rai::uint256_union req_id_a, rai::public_key agg_pubkey_a, rai::uint256_union l_value_a, rai::keypair keypair_a) :
+rai::musig_stage1_req::musig_stage1_req (rai::uint256_union req_id_a, rai::uint256_union rb_total_a, rai::public_key agg_pubkey_a, rai::uint256_union l_base_a, rai::keypair keypair_a) :
 message (rai::message_type::musig_stage1_req),
 rb_total (rb_total_a),
 request_id (req_id_a),
 agg_pubkey (agg_pubkey_a),
-l_value (l_value_a)
+l_base (l_base_a)
 {
 	node_id_signature = rai::sign_message (keypair_a.prv, keypair_a.pub, hash ());
 }
@@ -972,7 +972,7 @@ rai::uint256_union rai::musig_stage1_req::hash () const
 	assert (status == 0);
 	status = blake2b_update (&hash_l, agg_pubkey.bytes.data (), sizeof (agg_pubkey));
 	assert (status == 0);
-	status = blake2b_update (&hash_l, l_value.bytes.data (), sizeof (l_value));
+	status = blake2b_update (&hash_l, l_base.bytes.data (), sizeof (l_base));
 	assert (status == 0);
 	status = blake2b_final (&hash_l, result.bytes.data (), sizeof (result.bytes));
 	assert (status == 0);
@@ -991,7 +991,7 @@ bool rai::musig_stage1_req::deserialize (rai::stream & stream_a)
 			result = rai::read (stream_a, agg_pubkey);
 			if (!result)
 			{
-				result = rai::read (stream_a, l_value);
+				result = rai::read (stream_a, l_base);
 				if (!result)
 				{
 					result = rai::read (stream_a, node_id_signature);
@@ -1008,13 +1008,13 @@ void rai::musig_stage1_req::serialize (rai::stream & stream_a)
 	rai::write (stream_a, request_id);
 	rai::write (stream_a, rb_total);
 	rai::write (stream_a, agg_pubkey);
-	rai::write (stream_a, l_value);
+	rai::write (stream_a, l_base);
 	rai::write (stream_a, node_id_signature);
 }
 
 bool rai::musig_stage1_req::operator== (rai::musig_stage1_req const & other_a) const
 {
-	auto result (request_id == other_a.request_id && rb_total == other_a.rb_total && agg_pubkey == other_a.agg_pubkey && l_value == other_a.l_value && node_id_signature == other_a.node_id_signature);
+	auto result (request_id == other_a.request_id && rb_total == other_a.rb_total && agg_pubkey == other_a.agg_pubkey && l_base == other_a.l_base && node_id_signature == other_a.node_id_signature);
 	return result;
 }
 
