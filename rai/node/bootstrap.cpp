@@ -1538,9 +1538,16 @@ void rai::bootstrap_server::run_next ()
  * to send.  To determine if "start" is interpretted as an account or
  * hash, the ledger is checked to see if the block specified exists,
  * if not then it is interpretted as an account.
+ *
+ * Additionally, if "start" is specified as a block hash the range
+ * is inclusive of that block hash, that is the range will be:
+ * [start, end); In the case that a block hash is not specified the
+ * range will be exclusive of the frontier for that account with
+ * a range of (frontier, end)
  */
 void rai::bulk_pull_server::set_current_end ()
 {
+	include_start = false;
 	assert (request != nullptr);
 	rai::transaction transaction (connection->node->store.environment, nullptr, false);
 	if (!connection->node->store.block_exists (transaction, request->end))
@@ -1560,6 +1567,7 @@ void rai::bulk_pull_server::set_current_end ()
 		}
 
 		current = request->start;
+		include_start = true;
 	}
 	else
 	{
@@ -1620,11 +1628,37 @@ void rai::bulk_pull_server::send_next ()
 std::unique_ptr<rai::block> rai::bulk_pull_server::get_next ()
 {
 	std::unique_ptr<rai::block> result;
+	bool send_current = false, set_current_to_end = false;
+
+	/*
+	 * Determine if we should reply with a block
+	 *
+	 * If our cursor is on the final block, we should signal that we
+	 * are done by returning a null result.
+	 *
+	 * Unless we are including the "start" member and this is the
+	 * start member, then include it anyway.
+	 */
 	if (current != request->end)
+	{
+		send_current = true;
+	}
+	else if (current == request->end && include_start == true)
+	{
+		send_current = true;
+
+		/*
+		 * We also need to ensure that the next time
+		 * are invoked that we return a null result
+		 */
+		set_current_to_end = true;
+	}
+
+	if (send_current)
 	{
 		rai::transaction transaction (connection->node->store.environment, nullptr, false);
 		result = connection->node->store.block_get (transaction, current);
-		if (result != nullptr)
+		if (result != nullptr && set_current_to_end == false)
 		{
 			auto previous (result->previous ());
 			if (!previous.is_zero ())
@@ -1641,6 +1675,13 @@ std::unique_ptr<rai::block> rai::bulk_pull_server::get_next ()
 			current = request->end;
 		}
 	}
+
+	/*
+	 * Once we have processed "get_next()" once our cursor is no longer on
+	 * the "start" member, so this flag is not relevant is always false.
+	 */
+	include_start = false;
+
 	return result;
 }
 
