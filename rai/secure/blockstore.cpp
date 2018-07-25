@@ -1648,7 +1648,7 @@ uint64_t rai::block_store::timestamp_get (MDB_txn * transaction_a, rai::block_ha
 	auto status (mdb_get (transaction_a, timestamps, rai::mdb_val (block_a), value));
 	assert (status == 0 || status == MDB_NOTFOUND);
 	uint64_t result (0);
-	if (status == 0 || status == MDB_NOTFOUND);
+	if (status == 0)
 	{
 		rai::bufferstream stream (reinterpret_cast<uint8_t const *> (value.data ()), value.size ());
 		auto error (rai::read (stream, result));
