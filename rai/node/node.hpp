@@ -659,7 +659,7 @@ public:
 class musig_request_info
 {
 public:
-	musig_request_info (std::shared_ptr<rai::block>, std::unordered_set<rai::account>, std::promise<std::pair<uint256_union, rai::signature>> &&);
+	musig_request_info (std::shared_ptr<rai::block>, std::unordered_set<rai::account>, std::promise<std::pair<rai::uint256_union, rai::signature>> &&);
 	std::shared_ptr<rai::block> block;
 	rai::uint256_union block_hash;
 	std::unordered_set<rai::account> reps_requested;
@@ -686,8 +686,10 @@ public:
 	std::unordered_map<rai::uint256_union, rai::block_hash> request_ids;
 	std::unordered_map<rai::uint256_union, rai::musig_request_info> block_request_info;
 	std::unordered_map<rai::block_hash, rai::musig_stage0_status> stage0_statuses;
-	std::unordered_map<rai::block_hash, std::unordered_set<rai::uint256_union>> stage1_expected_sb;
-	std::unordered_map<rai::block_hash, bignum256modm> stage1_running_total;
+	std::unordered_map<rai::uint256_union, rai::block_hash> stage1_sb_needed;
+	std::unordered_map<rai::block_hash, rai::uint256_union> stage0_rb_totals;
+	// Maps block hashes to a pair of the number of remaining s elements and the running total
+	std::unordered_map<rai::block_hash, std::pair<size_t, std::array<bignum256modm_element_t, 5>>> stage1_running_s_total;
 	std::unordered_set<rai::account> blacklisted_reps;
 	rai::uint128_t weight_cutoff;
 	std::mutex mutex;
@@ -770,8 +772,8 @@ public:
 	static std::chrono::seconds constexpr cutoff = period * 5;
 	static std::chrono::seconds constexpr syn_cookie_cutoff = std::chrono::seconds (5);
 	static std::chrono::minutes constexpr backup_interval = std::chrono::minutes (5);
-	static size_t constexpr top_reps_hard_cutoff = 32;
-	static size_t constexpr top_reps_generation_cutoff = 20;
+	static size_t constexpr top_reps_hard_cutoff = 128;
+	static size_t constexpr top_reps_generation_cutoff = 64;
 };
 class thread_runner
 {

@@ -622,6 +622,10 @@ public:
 	}
 	void musig_stage0_res (rai::musig_stage0_res const & message_a) override
 	{
+		if (node.config.logging.network_musig_logging ())
+		{
+			BOOST_LOG (node.log) << boost::str (boost::format ("Musig stage0 response from %1% for request ID %2% with rB value %3%") % sender % message_a.request_id.to_string () % message_a.rb_value.to_string ());
+		}
 		node.vote_staple_requester.musig_stage0_res (message_a);
 	}
 	void musig_stage1_req (rai::musig_stage1_req const & message_a) override
@@ -645,6 +649,10 @@ public:
 	}
 	void musig_stage1_res (rai::musig_stage1_res const & message_a) override
 	{
+		if (node.config.logging.network_musig_logging ())
+		{
+			BOOST_LOG (node.log) << boost::str (boost::format ("Musig stage1 response from %1% with s value %2%") % sender % message_a.s_value.to_string ());
+		}
 		node.vote_staple_requester.musig_stage1_res (message_a);
 	}
 	rai::node & node;
@@ -1043,6 +1051,7 @@ void rai::vote_staple_requester::musig_stage0_res (rai::musig_stage0_res const &
 						bool first_rep (true);
 						ge25519 ALIGN (16) agg_pubkey_expanded;
 						ge25519 ALIGN (16) rb_total_expanded;
+						std::queue<ge25519> new_pubkeys;
 						for (auto rb_values_it : stage0_status.rb_values)
 						{
 							rai::uint256_union l_value;
@@ -1064,6 +1073,7 @@ void rai::vote_staple_requester::musig_stage0_res (rai::musig_stage0_res const &
 							{
 								ge25519_add (&agg_pubkey_expanded, &agg_pubkey_expanded, &pubkey);
 							}
+							new_pubkeys.push (pubkey);
 							ge25519 ALIGN(16) rb_value_expanded;
 							if (first_rep)
 							{
@@ -1084,14 +1094,36 @@ void rai::vote_staple_requester::musig_stage0_res (rai::musig_stage0_res const &
 						rai::uint256_union rb_total;
 						ge25519_pack (agg_pubkey.bytes.data (), &agg_pubkey_expanded);
 						ge25519_pack (rb_total.bytes.data (), &rb_total_expanded);
+						stage0_rb_totals.insert (std::make_pair (block_hash, rb_total));
+						hash_512bits hram;
+						ed25519_hram (hram, rb_total.bytes.data (), agg_pubkey.bytes.data (), block_hash.bytes.data (), sizeof (block_hash));
+						bignum256modm s_base;
+						expand256_modm (s_base, hram, 64);
 						for (auto rb_values_it : stage0_status.rb_values)
 						{
+							// sB = A*l
+							ge25519 ALIGN(16) sb_value (new_pubkeys.front ());
+							new_pubkeys.pop ();
+							// sB = H(R_total || A_agg || M) * A * l
+							ge25519_scalarmult_vartime (&sb_value, &sb_value, s_base);
+							ge25519 ALIGN(16) rb_value_expanded;
+							ge25519_unpack_negative_vartime (&rb_value_expanded, rb_values_it.second.bytes.data ());
+							// sB = R + H(R_total || A_agg || M) * A * l
+							ge25519_add (&sb_value, &sb_value, &rb_value_expanded);
+							rai::uint256_union sb_value_packed;
+							ge25519_pack (sb_value_packed.bytes.data (), &sb_value);
+							stage1_sb_needed.insert (std::make_pair (sb_value_packed, block_hash));
 							rai::uint256_union req_id (block_hash.number () ^ rb_values_it.first.number ());
+							request_ids.erase (request_ids.find (req_id));
 							for (auto endpoint : stage0_status.rep_endpoints[rb_values_it.first])
 							{
 								node.network.send_musig_stage1_req (endpoint, req_id, rb_total, agg_pubkey, l_base);
 							}
 						}
+						std::array<bignum256modm_element_t, 5> running_total;
+						running_total.fill (0);
+						stage1_running_s_total.insert (std::make_pair (block_hash, std::make_pair (stage0_status.rb_values.size (), running_total)));
+						stage0_statuses.erase (stage0_status_it);
 					}
 				}
 			}
@@ -1101,6 +1133,69 @@ void rai::vote_staple_requester::musig_stage0_res (rai::musig_stage0_res const &
 
 void rai::vote_staple_requester::musig_stage1_res (rai::musig_stage1_res const & message_a)
 {
+	std::lock_guard<std::mutex> lock (mutex);
+	bignum256modm s_value;
+	expand256_modm (s_value, message_a.s_value.bytes.data (), 32);
+	ge25519 ALIGN (16) sb_value;
+	ge25519_scalarmult_base_niels (&sb_value, ge25519_niels_base_multiples, s_value);
+	rai::uint256_union sb_value_packed;
+	ge25519_pack (sb_value_packed.bytes.data (), &sb_value);
+	auto sb_needed_it (stage1_sb_needed.find (sb_value_packed));
+	if (sb_needed_it != stage1_sb_needed.end ())
+	{
+		rai::uint256_union block_hash (sb_needed_it->second);
+		stage1_sb_needed.erase (sb_needed_it);
+		auto running_total_it (stage1_running_s_total.find (block_hash));
+		if (running_total_it != stage1_running_s_total.end ())
+		{
+			auto s_values_needed (running_total_it->second.first);
+			assert (s_values_needed != 0);
+			--s_values_needed;
+			auto s_total (running_total_it->second.second);
+			add256_modm (s_total.data (), s_total.data (), s_value);
+			if (s_values_needed > 0)
+			{
+				running_total_it->second = std::make_pair (s_values_needed, s_total);
+			}
+			else
+			{
+				auto request_info_it (block_request_info.find (block_hash));
+				if (request_info_it != block_request_info.end ())
+				{
+					auto rb_total_it (stage0_rb_totals.find (block_hash));
+					if (rb_total_it != stage0_rb_totals.end ())
+					{
+						rai::uint256_t xor_reps;
+						for (auto rep : request_info_it->second.reps_requested)
+						{
+							xor_reps ^= rep.number ();
+						}
+						rai::uint256_union s_total_contracted;
+						contract256_modm (s_total_contracted.bytes.data (), s_total.data ());
+						rai::uint512_union signature;
+						signature.uint256s[0] = rb_total_it->second;
+						signature.uint256s[1] = s_total_contracted;
+						request_info_it->second.promise.set_value (std::make_pair (rai::uint256_union (xor_reps), signature));
+						block_request_info.erase (request_info_it);
+						stage0_rb_totals.erase (rb_total_it);
+						stage1_running_s_total.erase (running_total_it);
+					}
+					else
+					{
+						assert (false);
+					}
+				}
+				else
+				{
+					assert (false);
+				}
+			}
+		}
+		else
+		{
+			assert (false);
+		}
+	}
 }
 
 void rai::network::receive_action (boost::system::error_code const & error, size_t size_a)
