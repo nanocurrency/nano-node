@@ -3900,7 +3900,7 @@ void rai::rpc_handler::wallet_history ()
 		if (existing != node.wallets.items.end ())
 		{
 			boost::property_tree::ptree response_l;
-			std::multimap<uint64_t, boost::property_tree::ptree> entries;
+			std::multimap<uint64_t, boost::property_tree::ptree, std::greater<uint64_t>> entries;
 			rai::transaction transaction (node.store.environment, nullptr, false);
 			for (auto i (existing->second->store.begin (transaction)), n (existing->second->store.end ()); i != n; ++i)
 			{
