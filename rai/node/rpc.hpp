@@ -200,6 +200,7 @@ public:
 	void wallet_destroy ();
 	void wallet_export ();
 	void wallet_frontiers ();
+	void wallet_history ();
 	void wallet_key_valid ();
 	void wallet_ledger ();
 	void wallet_lock ();

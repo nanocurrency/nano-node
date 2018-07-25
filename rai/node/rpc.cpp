@@ -3884,6 +3884,73 @@ void rai::rpc_handler::wallet_frontiers ()
 	}
 }
 
+void rai::rpc_handler::wallet_history ()
+{
+	uint64_t modified_since (1);
+	boost::optional<std::string> modified_since_text (request.get_optional<std::string> ("modified_since"));
+	if (modified_since_text.is_initialized ())
+	{
+		modified_since = strtoul (modified_since_text.get ().c_str (), NULL, 10);
+	}
+	std::string wallet_text (request.get<std::string> ("wallet"));
+	rai::uint256_union wallet;
+	if (!wallet.decode_hex (wallet_text))
+	{
+		auto existing (node.wallets.items.find (wallet));
+		if (existing != node.wallets.items.end ())
+		{
+			boost::property_tree::ptree response_l;
+			std::multimap<uint64_t, boost::property_tree::ptree> entries;
+			rai::transaction transaction (node.store.environment, nullptr, false);
+			for (auto i (existing->second->store.begin (transaction)), n (existing->second->store.end ()); i != n; ++i)
+			{
+				rai::account account (i->first.uint256 ());
+				rai::account_info info;
+				if (!node.store.account_get (transaction, account, info))
+				{
+					auto timestamp (info.modified);
+					auto hash (info.head);
+					while (timestamp >= modified_since && !hash.is_zero ())
+					{
+						auto block (node.store.block_get (transaction, hash));
+						if (block != nullptr)
+						{
+							boost::property_tree::ptree entry;
+							entry.put ("wallet_account", account.to_account ());
+							entry.put ("hash", hash.to_string ());
+							history_visitor visitor (*this, false, transaction, entry, hash);
+							block->visit (visitor);
+							entry.put ("timestamp", std::to_string (timestamp));
+							entries.insert (std::make_pair (timestamp, entry));
+							hash = block->previous ();
+							timestamp = node.store.timestamp_get (transaction, hash);
+						}
+						else
+						{
+							hash.clear ();
+						}
+					}
+				}
+			}
+			boost::property_tree::ptree history;
+			for (auto i (entries.begin()), n (entries.end()); i != n; ++i)
+			{
+				history.push_back (std::make_pair ("", i->second));
+			}
+			response_l.add_child ("history", history);
+			response (response_l);
+		}
+		else
+		{
+			error_response (response, "Wallet not found");
+		}
+	}
+	else
+	{
+		error_response (response, "Bad wallet number");
+	}
+}
+
 void rai::rpc_handler::wallet_key_valid ()
 {
 	std::string wallet_text (request.get<std::string> ("wallet"));
@@ -5024,6 +5091,10 @@ void rai::rpc_handler::process_request ()
 		else if (action == "wallet_frontiers")
 		{
 			wallet_frontiers ();
+		}
+		else if (action == "wallet_history")
+		{
+			wallet_history ();
 		}
 		else if (action == "wallet_key_valid")
 		{
