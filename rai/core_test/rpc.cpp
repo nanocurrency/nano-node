@@ -963,12 +963,10 @@ TEST (rpc, history)
 	ASSERT_EQ (rai::test_genesis_key.pub.to_account (), std::get<1> (history_l[2]));
 	ASSERT_EQ (system.nodes[0]->config.receive_minimum.to_string_dec (), std::get<2> (history_l[2]));
 	ASSERT_EQ (receive->hash ().to_string (), std::get<3> (history_l[2]));
-	ASSERT_NE ("0", std::get<3> (history_l[2]));
 	ASSERT_EQ ("send", std::get<0> (history_l[3]));
 	ASSERT_EQ (rai::test_genesis_key.pub.to_account (), std::get<1> (history_l[3]));
 	ASSERT_EQ (system.nodes[0]->config.receive_minimum.to_string_dec (), std::get<2> (history_l[3]));
 	ASSERT_EQ (send->hash ().to_string (), std::get<3> (history_l[3]));
-	ASSERT_NE ("0", std::get<3> (history_l[3]));
 	ASSERT_EQ ("receive", std::get<0> (history_l[4]));
 	ASSERT_EQ (rai::test_genesis_key.pub.to_account (), std::get<1> (history_l[4]));
 	ASSERT_EQ (rai::genesis_amount.convert_to<std::string> (), std::get<2> (history_l[4]));
@@ -3689,4 +3687,62 @@ TEST (rpc, block_confirm_absent)
 	}
 	ASSERT_EQ (200, response.status);
 	ASSERT_EQ ("Block not found", response.json.get<std::string> ("error"));
+}
+
+TEST (rpc, wallet_history)
+{
+	rai::system system (24000, 1);
+	auto node0 (system.nodes[0]);
+	rai::genesis genesis;
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	auto timestamp1 (rai::seconds_since_epoch ());
+	auto send (system.wallet (0)->send_action (rai::test_genesis_key.pub, rai::test_genesis_key.pub, system.nodes[0]->config.receive_minimum.number ()));
+	ASSERT_NE (nullptr, send);
+	std::this_thread::sleep_for (std::chrono::milliseconds (1000));
+	auto timestamp2 (rai::seconds_since_epoch ());
+	auto receive (system.wallet (0)->receive_action (static_cast<rai::send_block &> (*send), rai::test_genesis_key.pub, system.nodes[0]->config.receive_minimum.number ()));
+	ASSERT_NE (nullptr, receive);
+	rai::keypair key;
+	std::this_thread::sleep_for (std::chrono::milliseconds (1000));
+	auto timestamp3 (rai::seconds_since_epoch ());
+	auto send2 (system.wallet (0)->send_action (rai::test_genesis_key.pub, key.pub, system.nodes[0]->config.receive_minimum.number ()));
+	ASSERT_NE (nullptr, send2);
+	rai::rpc rpc (system.service, *node0, rai::rpc_config (true));
+	rpc.start ();
+	boost::property_tree::ptree request;
+	request.put ("action", "wallet_history");
+	request.put ("wallet", system.nodes[0]->wallets.items.begin ()->first.to_string ());
+	test_response response (request, rpc, system.service);
+	while (response.status == 0)
+	{
+		system.poll ();
+	}
+	ASSERT_EQ (200, response.status);
+	std::vector<std::tuple<std::string, std::string, std::string, std::string, std::string, std::string>> history_l;
+	auto & history_node (response.json.get_child ("history"));
+	for (auto i (history_node.begin ()), n (history_node.end ()); i != n; ++i)
+	{
+		history_l.push_back (std::make_tuple (i->second.get<std::string> ("type"), i->second.get<std::string> ("account"), i->second.get<std::string> ("amount"), i->second.get<std::string> ("hash"), i->second.get<std::string> ("wallet_account"), i->second.get<std::string> ("timestamp")));
+	}
+	ASSERT_EQ (3, history_l.size ());
+	ASSERT_EQ ("send", std::get<0> (history_l[0]));
+	ASSERT_EQ (key.pub.to_account (), std::get<1> (history_l[0]));
+	ASSERT_EQ (system.nodes[0]->config.receive_minimum.to_string_dec (), std::get<2> (history_l[0]));
+	ASSERT_EQ (send2->hash ().to_string (), std::get<3> (history_l[0]));
+	ASSERT_EQ (rai::test_genesis_key.pub.to_account (), std::get<4> (history_l[0]));
+	ASSERT_EQ (std::to_string (timestamp3), std::get<5> (history_l[0]));
+	
+	ASSERT_EQ ("receive", std::get<0> (history_l[1]));
+	ASSERT_EQ (rai::test_genesis_key.pub.to_account (), std::get<1> (history_l[1]));
+	ASSERT_EQ (system.nodes[0]->config.receive_minimum.to_string_dec (), std::get<2> (history_l[1]));
+	ASSERT_EQ (receive->hash ().to_string (), std::get<3> (history_l[1]));
+	ASSERT_EQ (rai::test_genesis_key.pub.to_account (), std::get<4> (history_l[1]));
+	ASSERT_EQ (std::to_string (timestamp2), std::get<5> (history_l[1]));
+	
+	ASSERT_EQ ("send", std::get<0> (history_l[2]));
+	ASSERT_EQ (rai::test_genesis_key.pub.to_account (), std::get<1> (history_l[2]));
+	ASSERT_EQ (system.nodes[0]->config.receive_minimum.to_string_dec (), std::get<2> (history_l[2]));
+	ASSERT_EQ (send->hash ().to_string (), std::get<3> (history_l[2]));
+	ASSERT_EQ (rai::test_genesis_key.pub.to_account (), std::get<4> (history_l[2]));
+	ASSERT_EQ (std::to_string (timestamp1), std::get<5> (history_l[2]));
 }
