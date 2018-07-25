@@ -567,6 +567,7 @@ public:
 	void process_confirmed (std::shared_ptr<rai::block>);
 	void process_message (rai::message &, rai::endpoint const &);
 	void process_active (std::shared_ptr<rai::block>);
+	bool process_local (std::shared_ptr<rai::block>);
 	rai::process_return process (rai::block const &);
 	void keepalive_preconfigured (std::vector<std::string> const &);
 	rai::block_hash latest (rai::account const &);
