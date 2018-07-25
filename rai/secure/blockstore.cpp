@@ -1635,7 +1635,6 @@ std::shared_ptr<rai::vote> rai::block_store::vote_max (MDB_txn * transaction_a, 
 	return result;
 }
 
-
 void rai::block_store::timestamp_put (MDB_txn * transaction_a, rai::block_hash const & block_a, uint64_t const & timestamp_a)
 {
 	auto status (mdb_put (transaction_a, timestamps, rai::mdb_val (block_a), rai::mdb_val (sizeof (timestamp_a), const_cast<uint64_t *> (&timestamp_a)), 0));

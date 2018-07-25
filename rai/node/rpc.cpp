@@ -3933,7 +3933,7 @@ void rai::rpc_handler::wallet_history ()
 				}
 			}
 			boost::property_tree::ptree history;
-			for (auto i (entries.begin()), n (entries.end()); i != n; ++i)
+			for (auto i (entries.begin ()), n (entries.end ()); i != n; ++i)
 			{
 				history.push_back (std::make_pair ("", i->second));
 			}
