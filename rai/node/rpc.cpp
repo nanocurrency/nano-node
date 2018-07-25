@@ -1032,6 +1032,11 @@ void rai::rpc_handler::blocks_info ()
 					auto balance (node.ledger.balance (transaction, hash));
 					entry.put ("balance", balance.convert_to<std::string> ());
 				}
+				auto timestamp (node.store.timestamp_get (transaction, hash));
+				if (timestamp != 0)
+				{
+					entry.put ("timestamp", std::to_string (timestamp));
+				}
 				blocks.push_back (std::make_pair (hash_text, entry));
 			}
 			else
@@ -1912,6 +1917,11 @@ void rai::rpc_handler::account_history ()
 								{
 									entry.put ("work", rai::to_string_hex (block->block_work ()));
 									entry.put ("signature", block->block_signature ().to_string ());
+								}
+								auto timestamp (node.store.timestamp_get (transaction, hash));
+								if (timestamp != 0)
+								{
+									entry.put ("timestamp", std::to_string (timestamp));
 								}
 								history.push_back (std::make_pair ("", entry));
 							}
