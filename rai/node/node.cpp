@@ -1963,9 +1963,10 @@ bool rai::node::process_local (std::shared_ptr<rai::block> incoming)
 	rai::transaction transaction (store.environment, nullptr, true);
 	block_processor.process_receive_one (transaction, incoming, std::chrono::steady_clock::now ());
 	result = store.block_exists (transaction, hash);
-	// Immediately republish valid block
+	// Immediately put timestamp & republish valid block
 	if (result)
 	{
+		store.timestamp_put (transaction, hash, rai::seconds_since_epoch ());
 		network.republish_block (transaction, incoming);
 	}
 	return result;
