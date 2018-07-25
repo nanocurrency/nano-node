@@ -274,7 +274,8 @@ public:
 	boost::multi_index::ordered_non_unique<boost::multi_index::member<peer_information, std::chrono::steady_clock::time_point, &peer_information::last_bootstrap_attempt>>,
 	boost::multi_index::ordered_non_unique<boost::multi_index::member<peer_information, std::chrono::steady_clock::time_point, &peer_information::last_rep_request>>,
 	boost::multi_index::ordered_non_unique<boost::multi_index::member<peer_information, rai::amount, &peer_information::rep_weight>, std::greater<rai::amount>>,
-	boost::multi_index::ordered_non_unique<boost::multi_index::tag<peer_by_ip_addr>, boost::multi_index::member<peer_information, boost::asio::ip::address, &peer_information::ip_address>>>>
+	boost::multi_index::ordered_non_unique<boost::multi_index::tag<peer_by_ip_addr>, boost::multi_index::member<peer_information, boost::asio::ip::address, &peer_information::ip_address>>,
+	boost::multi_index::hashed_non_unique<boost::multi_index::member<peer_information, rai::account, &peer_information::probable_rep_account>>>>
 	peers;
 	boost::multi_index_container<
 	peer_attempt,
@@ -291,13 +292,13 @@ public:
 	std::function<void(rai::endpoint const &)> peer_observer;
 	std::function<void()> disconnect_observer;
 	// Number of peers to crawl for being a rep every period
-	static size_t constexpr peers_per_crawl = 8;
+	static size_t constexpr peers_per_crawl = 12;
 	// Maximum number of peers per IP (includes legacy peers)
-	static size_t constexpr max_peers_per_ip = 10;
+	static size_t constexpr max_peers_per_ip = 4;
 	// Maximum number of legacy peers per IP
-	static size_t constexpr max_legacy_peers_per_ip = 5;
+	static size_t constexpr max_legacy_peers_per_ip = 2;
 	// Maximum number of peers that don't support node ID
-	static size_t constexpr max_legacy_peers = 500;
+	static size_t constexpr max_legacy_peers = 250;
 };
 class send_info
 {
@@ -655,6 +656,34 @@ public:
 	s_value_cache;
 	rai::node & node;
 };
+class request_info
+{
+public:
+	request_info (std::shared_ptr<rai::block>, std::unordered_set<rai::account>, std::promise<rai::signature> &&);
+	std::shared_ptr<rai::block> block;
+	rai::uint256_union block_hash;
+	std::unordered_set<rai::account> reps_requested;
+	std::promise<std::pair<rai::uint256_union, rai::signature>> promise;
+	std::chrono::steady_clock::time_point created;
+};
+class vote_staple_requester
+{
+public:
+	vote_staple_requester (rai::node &);
+	std::future<std::pair<rai::uint256_union, rai::signature>> request_staple (std::shared_ptr<rai::state_block>);
+	void musig_stage0_res (rai::musig_stage0_res const &);
+	void musig_stage1_res (rai::musig_stage1_res const &);
+	void calculate_weight_cutoff ();
+	// Maps request IDs to block hashes
+	std::unordered_map<rai::uint256_union, rai::block_hash> request_ids;
+	std::unordered_map<rai::uint256_union, rai::request_info> block_request_info;
+	std::unordered_map<rai::block_hash, std::unordered_map<rai::account, rai::uint256_union>> stage0_results;
+	std::unordered_map<rai::block_hash, std::unordered_set<rai::uint256_union>> stage1_expected_sb;
+	std::unordered_map<rai::block_hash, bignum256modm> stage1_running_total;
+	rai::uint128_t weight_cutoff;
+	std::mutex mutex;
+	rai::node & node;
+};
 class node : public std::enable_shared_from_this<rai::node>
 {
 public:
@@ -725,12 +754,15 @@ public:
 	rai::stat stats;
 	rai::keypair node_id;
 	rai::vote_stapler vote_stapler;
+	rai::vote_staple_requester vote_staple_requester;
 	static double constexpr price_max = 16.0;
 	static double constexpr free_cutoff = 1024.0;
 	static std::chrono::seconds constexpr period = std::chrono::seconds (60);
 	static std::chrono::seconds constexpr cutoff = period * 5;
 	static std::chrono::seconds constexpr syn_cookie_cutoff = std::chrono::seconds (5);
 	static std::chrono::minutes constexpr backup_interval = std::chrono::minutes (5);
+	static size_t constexpr top_reps_hard_cutoff = 32;
+	static size_t constexpr top_reps_generation_cutoff = 20;
 };
 class thread_runner
 {
