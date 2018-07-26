@@ -3557,6 +3557,8 @@ void rai::active_transactions::announce_votes ()
 			{
 				++unconfirmed_count;
 				unconfirmed_announcements += i->announcements;
+				// broadcast request to all peers
+				node.network.broadcast_confirm_req_base (i->confirm_req_options.first, std::make_shared<std::vector<rai::peer_information>> (node.peers.list_vector ()), 0);
 			}
 			node.background ([election_l]() { election_l->broadcast_winner (); });
 			if (i->announcements % announcement_min == 2)
