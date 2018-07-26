@@ -1327,8 +1327,12 @@ void rai::block_processor::add (std::shared_ptr<rai::block> block_a, std::chrono
 	if (!rai::work_validate (block_a->root (), block_a->block_work ()))
 	{
 		std::lock_guard<std::mutex> lock (mutex);
-		blocks.push_front (std::make_pair (block_a, origination));
-		condition.notify_all ();
+		if (std::find (blocks_hashes.begin (), blocks_hashes.end (), block_a->hash ()) == blocks_hashes.end ())
+		{
+			blocks.push_front (std::make_pair (block_a, origination));
+			blocks_hashes.push_front (block_a->hash ());
+			condition.notify_all ();
+		}
 	}
 	else
 	{
@@ -1402,6 +1406,7 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 			{
 				block = blocks.front ();
 				blocks.pop_front ();
+				blocks_hashes.pop_front ();
 			}
 			else
 			{
