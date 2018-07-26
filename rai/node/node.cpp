@@ -3581,7 +3581,7 @@ void rai::active_transactions::announce_votes ()
 							BOOST_LOG (node.log) << "Representative did not respond to confirm_req, retrying: " << rep_acct.to_account ();
 						}
 					}
-					total_weight = total_weight + i->rep_weight.number ();
+					total_weight = total_weight + j->rep_weight.number ();
 				}
 				if (!reps->empty () && node.config.online_weight_minimum.number () < total_weight)
 				{
