@@ -3583,7 +3583,7 @@ void rai::active_transactions::announce_votes ()
 						}
 					}
 				}
-				if (!reps->empty () && node.config.online_weight_minimum.number () < total_weight)
+				if (!reps->empty () && total_weight > node.config.online_weight_minimum.number ())
 				{
 					// broadcast_confirm_req_base modifies reps, so we clone it once to avoid aliasing
 					node.network.broadcast_confirm_req_base (i->confirm_req_options.first, std::make_shared<std::vector<rai::peer_information>> (*reps), 0);
