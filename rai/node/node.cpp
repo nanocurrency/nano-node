@@ -3562,7 +3562,7 @@ void rai::active_transactions::announce_votes ()
 			if (i->announcements % announcement_min == 2)
 			{
 				auto reps (std::make_shared<std::vector<rai::peer_information>> (node.peers.representatives (std::numeric_limits<size_t>::max ())));
-
+				rai::uint128_t total_weight (0);
 				for (auto j (reps->begin ()), m (reps->end ()); j != m;)
 				{
 					auto & rep_votes (i->election->votes.rep_votes);
@@ -3581,8 +3581,9 @@ void rai::active_transactions::announce_votes ()
 							BOOST_LOG (node.log) << "Representative did not respond to confirm_req, retrying: " << rep_acct.to_account ();
 						}
 					}
+					total_weight = total_weight + i->rep_weight.number ();
 				}
-				if (!reps->empty () && node.online_reps.online_stake () != node.config.online_weight_minimum.number ())
+				if (!reps->empty () && node.config.online_weight_minimum.number () < total_weight)
 				{
 					// broadcast_confirm_req_base modifies reps, so we clone it once to avoid aliasing
 					node.network.broadcast_confirm_req_base (i->confirm_req_options.first, std::make_shared<std::vector<rai::peer_information>> (*reps), 0);
