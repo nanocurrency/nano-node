@@ -140,7 +140,8 @@ enum class message_type : uint8_t
 	bulk_push = 0x7,
 	frontier_req = 0x8,
 	bulk_pull_blocks = 0x9,
-	node_id_handshake = 0x0a
+	node_id_handshake = 0x0a,
+	bulk_pull_account = 0x0b
 };
 enum class bulk_pull_blocks_mode : uint8_t
 {
@@ -277,6 +278,18 @@ public:
 	rai::uint256_union start;
 	rai::block_hash end;
 };
+class bulk_pull_account : public message
+{
+public:
+	bulk_pull_account ();
+	bulk_pull_account (bool &, rai::stream &, rai::message_header const &);
+	bool deserialize (rai::stream &) override;
+	void serialize (rai::stream &) override;
+	void visit (rai::message_visitor &) const override;
+	rai::uint256_union account;
+	rai::uint128_union minimum_amount;
+	uint8_t flags;
+};
 class bulk_pull_blocks : public message
 {
 public:
@@ -321,6 +334,7 @@ public:
 	virtual void confirm_req (rai::confirm_req const &) = 0;
 	virtual void confirm_ack (rai::confirm_ack const &) = 0;
 	virtual void bulk_pull (rai::bulk_pull const &) = 0;
+	virtual void bulk_pull_account (rai::bulk_pull_account const &) = 0;
 	virtual void bulk_pull_blocks (rai::bulk_pull_blocks const &) = 0;
 	virtual void bulk_push (rai::bulk_push const &) = 0;
 	virtual void frontier_req (rai::frontier_req const &) = 0;
