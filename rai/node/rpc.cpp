@@ -169,11 +169,12 @@ void rai::rpc::stop ()
 	acceptor.close ();
 }
 
-rai::rpc_handler::rpc_handler (rai::node & node_a, rai::rpc & rpc_a, std::string const & body_a, std::function<void(boost::property_tree::ptree const &)> const & response_a) :
+rai::rpc_handler::rpc_handler (rai::node & node_a, rai::rpc & rpc_a, std::string const & body_a, std::string const & request_id_a, std::function<void(boost::property_tree::ptree const &)> const & response_a) :
 body (body_a),
 node (node_a),
 rpc (rpc_a),
-response (response_a)
+response (response_a),
+request_id (request_id_a)
 {
 }
 
@@ -351,6 +352,7 @@ void rai::rpc_handler::account_info ()
 			response_l.put ("balance", balance);
 			response_l.put ("modified_timestamp", std::to_string (info.modified));
 			response_l.put ("block_count", std::to_string (info.block_count));
+			response_l.put ("account_version", std::to_string (info.version));
 			if (representative)
 			{
 				auto block (node.store.block_get (transaction, info.rep_block));
@@ -594,65 +596,80 @@ void rai::rpc_handler::account_representative_set ()
 			if (existing != node.wallets.items.end ())
 			{
 				auto wallet (existing->second);
-				std::string account_text (request.get<std::string> ("account"));
-				rai::account account;
-				auto error (account.decode_account (account_text));
-				if (!error)
+				if (wallet->valid_password ())
 				{
-					std::string representative_text (request.get<std::string> ("representative"));
-					rai::account representative;
-					auto error (representative.decode_account (representative_text));
+					std::string account_text (request.get<std::string> ("account"));
+					rai::account account;
+					auto error (account.decode_account (account_text));
 					if (!error)
 					{
-						uint64_t work (0);
-						boost::optional<std::string> work_text (request.get_optional<std::string> ("work"));
-						if (work_text.is_initialized ())
+						std::string representative_text (request.get<std::string> ("representative"));
+						rai::account representative;
+						auto error (representative.decode_account (representative_text));
+						if (!error)
 						{
-							auto work_error (rai::from_string_hex (work_text.get (), work));
-							if (work_error)
+							uint64_t work (0);
+							boost::optional<std::string> work_text (request.get_optional<std::string> ("work"));
+							if (work_text.is_initialized ())
 							{
-								error_response (response, "Bad work");
-							}
-						}
-						if (work)
-						{
-							rai::transaction transaction (node.store.environment, nullptr, true);
-							rai::account_info info;
-							if (!node.store.account_get (transaction, account, info))
-							{
-								if (!rai::work_validate (info.head, work))
+								auto work_error (rai::from_string_hex (work_text.get (), work));
+								if (work_error)
 								{
-									existing->second->store.work_put (transaction, account, work);
+									error_response (response, "Bad work");
+								}
+							}
+							if (work)
+							{
+								rai::transaction transaction (node.store.environment, nullptr, true);
+								rai::account_info info;
+								if (!node.store.account_get (transaction, account, info))
+								{
+									if (!rai::work_validate (info.head, work))
+									{
+										existing->second->store.work_put (transaction, account, work);
+									}
+									else
+									{
+										error_response (response, "Invalid work");
+									}
 								}
 								else
 								{
-									error_response (response, "Invalid work");
+									error_response (response, "Account not found");
 								}
 							}
-							else
-							{
-								error_response (response, "Account not found");
-							}
+							auto response_a (response);
+							wallet->change_async (account, representative, [response_a](std::shared_ptr<rai::block> block) {
+								rai::block_hash hash (0);
+								if (block != nullptr)
+								{
+									hash = block->hash ();
+								}
+								boost::property_tree::ptree response_l;
+								response_l.put ("block", hash.to_string ());
+								response_a (response_l);
+							},
+							work == 0);
 						}
-						auto response_a (response);
-						wallet->change_async (account, representative, [response_a](std::shared_ptr<rai::block> block) {
-							rai::block_hash hash (0);
-							if (block != nullptr)
-							{
-								hash = block->hash ();
-							}
-							boost::property_tree::ptree response_l;
-							response_l.put ("block", hash.to_string ());
-							response_a (response_l);
-						},
-						work == 0);
+					}
+					else
+					{
+						error_response (response, "Bad account number");
 					}
 				}
 				else
 				{
-					error_response (response, "Bad account number");
+					error_response (response, "Wallet locked");
 				}
 			}
+			else
+			{
+				error_response (response, "Wallet not found");
+			}
+		}
+		else
+		{
+			error_response (response, "Bad wallet number");
 		}
 	}
 	else
@@ -831,7 +848,7 @@ void rai::rpc_handler::accounts_pending ()
 				}
 				else
 				{
-					rai::pending_info info (i->second);
+					rai::pending_info info (i->second, i->from_secondary_store);
 					if (info.amount.number () >= threshold.number ())
 					{
 						if (source)
@@ -1074,7 +1091,9 @@ void rai::rpc_handler::block_count_type ()
 	response_l.put ("receive", std::to_string (count.receive));
 	response_l.put ("open", std::to_string (count.open));
 	response_l.put ("change", std::to_string (count.change));
-	response_l.put ("state", std::to_string (count.state));
+	response_l.put ("state_v0", std::to_string (count.state_v0));
+	response_l.put ("state_v1", std::to_string (count.state_v1));
+	response_l.put ("state", std::to_string (count.state_v0 + count.state_v1));
 	response (response_l);
 }
 
@@ -1560,7 +1579,7 @@ void rai::rpc_handler::delegators ()
 		rai::transaction transaction (node.store.environment, nullptr, false);
 		for (auto i (node.store.latest_begin (transaction)), n (node.store.latest_end ()); i != n; ++i)
 		{
-			rai::account_info info (i->second);
+			rai::account_info info (i->second, i->from_secondary_store);
 			auto block (node.store.block_get (transaction, info.rep_block));
 			assert (block != nullptr);
 			if (block->representative () == account)
@@ -1590,7 +1609,7 @@ void rai::rpc_handler::delegators_count ()
 		rai::transaction transaction (node.store.environment, nullptr, false);
 		for (auto i (node.store.latest_begin (transaction)), n (node.store.latest_end ()); i != n; ++i)
 		{
-			rai::account_info info (i->second);
+			rai::account_info info (i->second, i->from_secondary_store);
 			auto block (node.store.block_get (transaction, info.rep_block));
 			assert (block != nullptr);
 			if (block->representative () == account)
@@ -1660,7 +1679,7 @@ void rai::rpc_handler::frontiers ()
 			rai::transaction transaction (node.store.environment, nullptr, false);
 			for (auto i (node.store.latest_begin (transaction, start)), n (node.store.latest_end ()); i != n && frontiers.size () < count; ++i)
 			{
-				frontiers.put (rai::account (i->first.uint256 ()).to_account (), rai::account_info (i->second).head.to_string ());
+				frontiers.put (rai::account (i->first.uint256 ()).to_account (), rai::account_info (i->second, i->from_secondary_store).head.to_string ());
 			}
 			response_l.add_child ("frontiers", frontiers);
 			response (response_l);
@@ -1792,6 +1811,14 @@ public:
 				if (raw)
 				{
 					tree.put ("subtype", "change");
+				}
+			}
+			else if (balance == previous_balance && !handler.node.ledger.epoch_link.is_zero () && block_a.hashables.link == handler.node.ledger.epoch_link)
+			{
+				if (raw)
+				{
+					tree.put ("subtype", "epoch");
+					tree.put ("account", handler.node.ledger.epoch_signer.to_account ());
 				}
 			}
 			else
@@ -2014,7 +2041,7 @@ void rai::rpc_handler::ledger ()
 		{
 			for (auto i (node.store.latest_begin (transaction, start)), n (node.store.latest_end ()); i != n && accounts.size () < count; ++i)
 			{
-				rai::account_info info (i->second);
+				rai::account_info info (i->second, i->from_secondary_store);
 				if (info.modified >= modified_since)
 				{
 					rai::account account (i->first.uint256 ());
@@ -2052,7 +2079,7 @@ void rai::rpc_handler::ledger ()
 			std::vector<std::pair<rai::uint128_union, rai::account>> ledger_l;
 			for (auto i (node.store.latest_begin (transaction, start)), n (node.store.latest_end ()); i != n; ++i)
 			{
-				rai::account_info info (i->second);
+				rai::account_info info (i->second, i->from_secondary_store);
 				rai::uint128_union balance (info.balance);
 				if (info.modified >= modified_since)
 				{
@@ -2322,6 +2349,7 @@ void rai::rpc_handler::pending ()
 			}
 		}
 		const bool source = request.get<bool> ("source", false);
+		const bool min_version = request.get<bool> ("min_version", false);
 		boost::property_tree::ptree response_l;
 		boost::property_tree::ptree peers_l;
 		{
@@ -2330,7 +2358,7 @@ void rai::rpc_handler::pending ()
 			for (auto i (node.store.pending_begin (transaction, rai::pending_key (account, 0))), n (node.store.pending_begin (transaction, rai::pending_key (end, 0))); i != n && peers_l.size () < count; ++i)
 			{
 				rai::pending_key key (i->first);
-				if (threshold.is_zero () && !source)
+				if (threshold.is_zero () && !source && !min_version)
 				{
 					boost::property_tree::ptree entry;
 					entry.put ("", key.hash.to_string ());
@@ -2338,14 +2366,21 @@ void rai::rpc_handler::pending ()
 				}
 				else
 				{
-					rai::pending_info info (i->second);
+					rai::pending_info info (i->second, i->from_secondary_store);
 					if (info.amount.number () >= threshold.number ())
 					{
-						if (source)
+						if (source || min_version)
 						{
 							boost::property_tree::ptree pending_tree;
 							pending_tree.put ("amount", info.amount.number ().convert_to<std::string> ());
-							pending_tree.put ("source", info.source.to_account ());
+							if (source)
+							{
+								pending_tree.put ("source", info.source.to_account ());
+							}
+							if (min_version)
+							{
+								pending_tree.put ("min_version", std::to_string (info.min_version));
+							}
 							peers_l.add_child (key.hash.to_string (), pending_tree);
 						}
 						else
@@ -2738,98 +2773,105 @@ void rai::rpc_handler::receive ()
 			auto existing (node.wallets.items.find (wallet));
 			if (existing != node.wallets.items.end ())
 			{
-				std::string account_text (request.get<std::string> ("account"));
-				rai::account account;
-				auto error (account.decode_account (account_text));
-				if (!error)
+				if (existing->second->valid_password ())
 				{
-					rai::transaction transaction (node.store.environment, nullptr, false);
-					auto account_check (existing->second->store.find (transaction, account));
-					if (account_check != existing->second->store.end ())
+					std::string account_text (request.get<std::string> ("account"));
+					rai::account account;
+					auto error (account.decode_account (account_text));
+					if (!error)
 					{
-						std::string hash_text (request.get<std::string> ("block"));
-						rai::uint256_union hash;
-						auto error (hash.decode_hex (hash_text));
-						if (!error)
+						rai::transaction transaction (node.store.environment, nullptr, false);
+						auto account_check (existing->second->store.find (transaction, account));
+						if (account_check != existing->second->store.end ())
 						{
-							auto block (node.store.block_get (transaction, hash));
-							if (block != nullptr)
+							std::string hash_text (request.get<std::string> ("block"));
+							rai::uint256_union hash;
+							auto error (hash.decode_hex (hash_text));
+							if (!error)
 							{
-								if (node.store.pending_exists (transaction, rai::pending_key (account, hash)))
+								auto block (node.store.block_get (transaction, hash));
+								if (block != nullptr)
 								{
-									uint64_t work (0);
-									boost::optional<std::string> work_text (request.get_optional<std::string> ("work"));
-									auto error (false);
-									if (work_text.is_initialized ())
+									if (node.store.pending_exists (transaction, rai::pending_key (account, hash)))
 									{
-										error = rai::from_string_hex (work_text.get (), work);
-										if (error)
+										uint64_t work (0);
+										boost::optional<std::string> work_text (request.get_optional<std::string> ("work"));
+										auto error (false);
+										if (work_text.is_initialized ())
 										{
-											error_response (response, "Bad work");
-										}
-									}
-									if (work)
-									{
-										rai::account_info info;
-										rai::uint256_union head;
-										if (!node.store.account_get (transaction, account, info))
-										{
-											head = info.head;
-										}
-										else
-										{
-											head = account;
-										}
-										if (!rai::work_validate (head, work))
-										{
-											rai::transaction transaction_a (node.store.environment, nullptr, true);
-											existing->second->store.work_put (transaction_a, account, work);
-										}
-										else
-										{
-											error = true;
-											error_response (response, "Invalid work");
-										}
-									}
-									if (!error)
-									{
-										auto response_a (response);
-										existing->second->receive_async (std::move (block), account, rai::genesis_amount, [response_a](std::shared_ptr<rai::block> block_a) {
-											rai::uint256_union hash_a (0);
-											if (block_a != nullptr)
+											error = rai::from_string_hex (work_text.get (), work);
+											if (error)
 											{
-												hash_a = block_a->hash ();
+												error_response (response, "Bad work");
 											}
-											boost::property_tree::ptree response_l;
-											response_l.put ("block", hash_a.to_string ());
-											response_a (response_l);
-										},
-										work == 0);
+										}
+										if (work)
+										{
+											rai::account_info info;
+											rai::uint256_union head;
+											if (!node.store.account_get (transaction, account, info))
+											{
+												head = info.head;
+											}
+											else
+											{
+												head = account;
+											}
+											if (!rai::work_validate (head, work))
+											{
+												rai::transaction transaction_a (node.store.environment, nullptr, true);
+												existing->second->store.work_put (transaction_a, account, work);
+											}
+											else
+											{
+												error = true;
+												error_response (response, "Invalid work");
+											}
+										}
+										if (!error)
+										{
+											auto response_a (response);
+											existing->second->receive_async (std::move (block), account, rai::genesis_amount, [response_a](std::shared_ptr<rai::block> block_a) {
+												rai::uint256_union hash_a (0);
+												if (block_a != nullptr)
+												{
+													hash_a = block_a->hash ();
+												}
+												boost::property_tree::ptree response_l;
+												response_l.put ("block", hash_a.to_string ());
+												response_a (response_l);
+											},
+											work == 0);
+										}
+									}
+									else
+									{
+										error_response (response, "Block is not available to receive");
 									}
 								}
 								else
 								{
-									error_response (response, "Block is not available to receive");
+									error_response (response, "Block not found");
 								}
 							}
 							else
 							{
-								error_response (response, "Block not found");
+								error_response (response, "Bad block number");
 							}
 						}
 						else
 						{
-							error_response (response, "Bad block number");
+							error_response (response, "Account not found in wallet");
 						}
 					}
 					else
 					{
-						error_response (response, "Account not found in wallet");
+						error_response (response, "Bad account number");
 					}
 				}
 				else
 				{
-					error_response (response, "Bad account number");
+					error_response (response, "Wallet locked");
 				}
 			}
 			else
@@ -3124,99 +3166,106 @@ void rai::rpc_handler::send ()
 			auto existing (node.wallets.items.find (wallet));
 			if (existing != node.wallets.items.end ())
 			{
-				std::string source_text (request.get<std::string> ("source"));
-				rai::account source;
-				auto error (source.decode_account (source_text));
-				if (!error)
+				if (existing->second->valid_password ())
 				{
-					std::string destination_text (request.get<std::string> ("destination"));
-					rai::account destination;
-					auto error (destination.decode_account (destination_text));
+					std::string source_text (request.get<std::string> ("source"));
+					rai::account source;
+					auto error (source.decode_account (source_text));
 					if (!error)
 					{
-						std::string amount_text (request.get<std::string> ("amount"));
-						rai::amount amount;
-						auto error (amount.decode_dec (amount_text));
+						std::string destination_text (request.get<std::string> ("destination"));
+						rai::account destination;
+						auto error (destination.decode_account (destination_text));
 						if (!error)
 						{
-							uint64_t work (0);
-							boost::optional<std::string> work_text (request.get_optional<std::string> ("work"));
-							if (work_text.is_initialized ())
-							{
-								error = rai::from_string_hex (work_text.get (), work);
-								if (error)
-								{
-									error_response (response, "Bad work");
-								}
-							}
-							rai::uint128_t balance (0);
+							std::string amount_text (request.get<std::string> ("amount"));
+							rai::amount amount;
+							auto error (amount.decode_dec (amount_text));
 							if (!error)
 							{
-								rai::transaction transaction (node.store.environment, nullptr, work != 0); // false if no "work" in request, true if work > 0
-								rai::account_info info;
-								if (!node.store.account_get (transaction, source, info))
+								uint64_t work (0);
+								boost::optional<std::string> work_text (request.get_optional<std::string> ("work"));
+								if (work_text.is_initialized ())
 								{
-									balance = (info.balance).number ();
-								}
-								else
-								{
-									error = true;
-									error_response (response, "Account not found");
-								}
-								if (!error && work)
-								{
-									if (!rai::work_validate (info.head, work))
+									error = rai::from_string_hex (work_text.get (), work);
+									if (error)
 									{
-										existing->second->store.work_put (transaction, source, work);
+										error_response (response, "Bad work");
+									}
+								}
+								rai::uint128_t balance (0);
+								if (!error)
+								{
+									rai::transaction transaction (node.store.environment, nullptr, work != 0); // false if no "work" in request, true if work > 0
+									rai::account_info info;
+									if (!node.store.account_get (transaction, source, info))
+									{
+										balance = (info.balance).number ();
 									}
 									else
 									{
 										error = true;
-										error_response (response, "Invalid work");
+										error_response (response, "Account not found");
 									}
-								}
-							}
-							if (!error)
-							{
-								boost::optional<std::string> send_id (request.get_optional<std::string> ("id"));
-								if (balance >= amount.number ())
-								{
-									auto rpc_l (shared_from_this ());
-									auto response_a (response);
-									existing->second->send_async (source, destination, amount.number (), [response_a](std::shared_ptr<rai::block> block_a) {
-										if (block_a != nullptr)
+									if (!error && work)
+									{
+										if (!rai::work_validate (info.head, work))
 										{
-											rai::uint256_union hash (block_a->hash ());
-											boost::property_tree::ptree response_l;
-											response_l.put ("block", hash.to_string ());
-											response_a (response_l);
+											existing->second->store.work_put (transaction, source, work);
 										}
 										else
 										{
-											error_response (response_a, "Error generating block");
+											error = true;
+											error_response (response, "Invalid work");
 										}
-									},
-									work == 0, send_id);
+									}
 								}
-								else
+								if (!error)
 								{
-									error_response (response, "Insufficient balance");
+									boost::optional<std::string> send_id (request.get_optional<std::string> ("id"));
+									if (balance >= amount.number ())
+									{
+										auto rpc_l (shared_from_this ());
+										auto response_a (response);
+										existing->second->send_async (source, destination, amount.number (), [response_a](std::shared_ptr<rai::block> block_a) {
+											if (block_a != nullptr)
+											{
+												rai::uint256_union hash (block_a->hash ());
+												boost::property_tree::ptree response_l;
+												response_l.put ("block", hash.to_string ());
+												response_a (response_l);
+											}
+											else
+											{
+												error_response (response_a, "Error generating block");
+											}
+										},
+										work == 0, send_id);
+									}
+									else
+									{
+										error_response (response, "Insufficient balance");
+									}
 								}
+							}
+							else
+							{
+								error_response (response, "Bad amount format");
 							}
 						}
 						else
 						{
-							error_response (response, "Bad amount format");
+							error_response (response, "Bad destination account");
 						}
 					}
 					else
 					{
-						error_response (response, "Bad destination account");
+						error_response (response, "Bad source account");
 					}
 				}
 				else
 				{
-					error_response (response, "Bad source account");
+					error_response (response, "Wallet locked");
 				}
 			}
 			else
@@ -3991,6 +4040,7 @@ void rai::rpc_handler::wallet_pending ()
 				}
 			}
 			const bool source = request.get<bool> ("source", false);
+			const bool min_version = request.get<bool> ("min_version", false);
 			boost::property_tree::ptree response_l;
 			boost::property_tree::ptree pending;
 			rai::transaction transaction (node.store.environment, nullptr, false);
@@ -4010,14 +4060,21 @@ void rai::rpc_handler::wallet_pending ()
 					}
 					else
 					{
-						rai::pending_info info (ii->second);
+						rai::pending_info info (ii->second, ii->from_secondary_store);
 						if (info.amount.number () >= threshold.number ())
 						{
-							if (source)
+							if (source || min_version)
 							{
 								boost::property_tree::ptree pending_tree;
 								pending_tree.put ("amount", info.amount.number ().convert_to<std::string> ());
-								pending_tree.put ("source", info.source.to_account ());
+								if (source)
+								{
+									pending_tree.put ("source", info.source.to_account ());
+								}
+								if (min_version)
+								{
+									pending_tree.put ("min_version", std::to_string (info.min_version));
+								}
 								peers_l.add_child (key.hash.to_string (), pending_tree);
 							}
 							else
@@ -4537,8 +4594,8 @@ void rai::rpc_connection::read ()
 			this_l->node->background ([this_l]() {
 				auto start (std::chrono::steady_clock::now ());
 				auto version (this_l->request.version ());
-				auto response_handler ([this_l, version, start](boost::property_tree::ptree const & tree_a) {
-
+				std::string request_id (boost::str (boost::format ("%1%") % boost::io::group (std::hex, std::showbase, reinterpret_cast<uintptr_t> (this_l.get ()))));
+				auto response_handler ([this_l, version, start, request_id](boost::property_tree::ptree const & tree_a) {
 					std::stringstream ostream;
 					boost::property_tree::write_json (ostream, tree_a);
 					ostream.flush ();
@@ -4549,12 +4606,12 @@ void rai::rpc_connection::read ()
 
 					if (this_l->node->config.logging.log_rpc ())
 					{
-						BOOST_LOG (this_l->node->log) << boost::str (boost::format ("RPC request %2% completed in: %1% microseconds") % std::chrono::duration_cast<std::chrono::microseconds> (std::chrono::steady_clock::now () - start).count () % boost::io::group (std::hex, std::showbase, reinterpret_cast<uintptr_t> (this_l.get ())));
+						BOOST_LOG (this_l->node->log) << boost::str (boost::format ("RPC request %2% completed in: %1% microseconds") % std::chrono::duration_cast<std::chrono::microseconds> (std::chrono::steady_clock::now () - start).count () % request_id);
 					}
 				});
 				if (this_l->request.method () == boost::beast::http::verb::post)
 				{
-					auto handler (std::make_shared<rai::rpc_handler> (*this_l->node, this_l->rpc, this_l->request.body (), response_handler));
+					auto handler (std::make_shared<rai::rpc_handler> (*this_l->node, this_l->rpc, this_l->request.body (), request_id, response_handler));
 					handler->process_request ();
 				}
 				else
@@ -4607,7 +4664,7 @@ void rai::rpc_handler::process_request ()
 		}
 		if (node.config.logging.log_rpc ())
 		{
-			BOOST_LOG (node.log) << body;
+			BOOST_LOG (node.log) << boost::str (boost::format ("%1% ") % request_id) << body;
 		}
 		if (action == "account_balance")
 		{

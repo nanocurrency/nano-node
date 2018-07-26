@@ -5,7 +5,7 @@
 #include <boost/beast.hpp>
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
-#include <rai/node/utility.hpp>
+#include <rai/secure/utility.hpp>
 #include <unordered_map>
 
 namespace rai
@@ -112,7 +112,7 @@ public:
 class rpc_handler : public std::enable_shared_from_this<rai::rpc_handler>
 {
 public:
-	rpc_handler (rai::node &, rai::rpc &, std::string const &, std::function<void(boost::property_tree::ptree const &)> const &);
+	rpc_handler (rai::node &, rai::rpc &, std::string const &, std::string const &, std::function<void(boost::property_tree::ptree const &)> const &);
 	void process_request ();
 	void account_balance ();
 	void account_block_count ();
@@ -217,6 +217,7 @@ public:
 	void work_peers ();
 	void work_peers_clear ();
 	std::string body;
+	std::string request_id;
 	rai::node & node;
 	rai::rpc & rpc;
 	boost::property_tree::ptree request;

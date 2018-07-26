@@ -1,7 +1,7 @@
 #pragma once
 
 #include <rai/lib/blocks.hpp>
-#include <rai/node/utility.hpp>
+#include <rai/secure/utility.hpp>
 
 #include <boost/property_tree/ptree.hpp>
 
@@ -114,14 +114,15 @@ class account_info
 {
 public:
 	account_info ();
-	account_info (MDB_val const &);
+	account_info (MDB_val const &, uint8_t);
 	account_info (rai::account_info const &) = default;
-	account_info (rai::block_hash const &, rai::block_hash const &, rai::block_hash const &, rai::amount const &, uint64_t, uint64_t);
+	account_info (rai::block_hash const &, rai::block_hash const &, rai::block_hash const &, rai::amount const &, uint64_t, uint64_t, uint8_t);
 	void serialize (rai::stream &) const;
 	bool deserialize (rai::stream &);
 	bool operator== (rai::account_info const &) const;
 	bool operator!= (rai::account_info const &) const;
 	rai::mdb_val val () const;
+	size_t db_size () const;
 	rai::block_hash head;
 	rai::block_hash rep_block;
 	rai::block_hash open_block;
@@ -129,6 +130,7 @@ public:
 	/** Seconds since posix epoch */
 	uint64_t modified;
 	uint64_t block_count;
+	uint8_t version;
 };
 
 /**
@@ -138,14 +140,15 @@ class pending_info
 {
 public:
 	pending_info ();
-	pending_info (MDB_val const &);
-	pending_info (rai::account const &, rai::amount const &);
+	pending_info (MDB_val const &, uint8_t);
+	pending_info (rai::account const &, rai::amount const &, uint8_t);
 	void serialize (rai::stream &) const;
 	bool deserialize (rai::stream &);
 	bool operator== (rai::pending_info const &) const;
 	rai::mdb_val val () const;
 	rai::account source;
 	rai::amount amount;
+	uint8_t min_version;
 };
 class pending_key
 {
@@ -181,7 +184,8 @@ public:
 	size_t receive;
 	size_t open;
 	size_t change;
-	size_t state;
+	size_t state_v0;
+	size_t state_v1;
 };
 class vote
 {
@@ -222,11 +226,12 @@ enum class process_result
 	old, // Already seen and was valid
 	negative_spend, // Malicious attempt to spend a negative amount
 	fork, // Malicious fork based on previous
-	unreceivable, // Source block doesn't exist or has already been received
+	unreceivable, // Source block doesn't exist, has already been received, or requires an account upgrade (epoch blocks)
 	gap_previous, // Block marked as previous is unknown
 	gap_source, // Block marked as source is unknown
 	opened_burn_account, // The impossible happened, someone found the private key associated with the public key '0'.
 	balance_mismatch, // Balance and amount delta don't match
+	representative_mismatch, // Representative is changed when it is not allowed
 	block_position // This block cannot follow the previous block
 };
 class process_return
