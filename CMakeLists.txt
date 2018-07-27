@@ -124,7 +124,7 @@ if (BOOST_ROOT)
     list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/Modules")
 endif ()
 
-find_package (Boost 1.66.0 REQUIRED COMPONENTS date_time filesystem system log log_setup thread program_options regex chrono atomic)
+find_package (Boost 1.66.0 REQUIRED COMPONENTS filesystem log thread program_options)
 
 add_subdirectory(ed25519-donna)
 
