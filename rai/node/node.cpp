@@ -3569,10 +3569,10 @@ void rai::active_transactions::announce_votes ()
 					auto & rep_votes (i->election->votes.rep_votes);
 					auto rep_acct (j->probable_rep_account);
 					// Calculate if representative isn't recorded for several IP addresses
-					if (probable_reps.find (j->probable_rep_account) == probable_reps.end ())
+					if (probable_reps.find (rep_acct) == probable_reps.end ())
 					{
 						total_weight = total_weight + j->rep_weight.number ();
-						probable_reps.insert (j->probable_rep_account);
+						probable_reps.insert (rep_acct);
 					}
 					if (rep_votes.find (rep_acct) != rep_votes.end ())
 					{
