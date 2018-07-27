@@ -3021,10 +3021,10 @@ std::vector<rai::endpoint> rai::peer_container::rep_crawl ()
 {
 	std::vector<rai::endpoint> result;
 	// If there is enough observed peers weight, crawl 10 peers. Otherwise - 40
-	uint64_t max_count = (total_weight () > node.config.online_weight_minimum.number ()) ? 10 : 40;
+	uint16_t max_count = (total_weight () > node.config.online_weight_minimum.number ()) ? 10 : 40;
 	result.reserve (max_count);
 	std::lock_guard<std::mutex> lock (mutex);
-	auto count (0);
+	uint16_t count (0);
 	for (auto i (peers.get<5> ().begin ()), n (peers.get<5> ().end ()); i != n && count < max_count; ++i, ++count)
 	{
 		result.push_back (i->endpoint);
