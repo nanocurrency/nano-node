@@ -1344,7 +1344,7 @@ void rai::block_processor::add (std::shared_ptr<rai::block> block_a, std::chrono
 void rai::block_processor::force (std::shared_ptr<rai::block> block_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
-	forced.push_front (block_a);
+	forced.push_back (block_a);
 	condition.notify_all ();
 }
 
