@@ -26,6 +26,10 @@ work (1, nullptr)
 	{
 		deadline_scaling_factor = std::stod (scale_str);
 	}
+	logging.network_logging_value = true;
+	logging.network_message_logging_value = true;
+	logging.network_musig_logging_value = true;
+	logging.log_to_cerr_value = true;
 	logging.init (rai::unique_path ());
 	nodes.reserve (count_a);
 	for (size_t i (0); i < count_a; ++i)

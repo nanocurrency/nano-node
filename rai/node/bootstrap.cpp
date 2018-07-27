@@ -1578,6 +1578,10 @@ public:
 	{
 		assert (false);
 	}
+	void publish_vote_staple (rai::publish_vote_staple const &) override
+	{
+		assert (false);
+	}
 	std::shared_ptr<rai::bootstrap_server> connection;
 };
 }

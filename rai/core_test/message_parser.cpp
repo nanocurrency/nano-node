@@ -74,6 +74,10 @@ public:
 	{
 		++musig_stage1_res_count;
 	}
+	void publish_vote_staple (rai::publish_vote_staple const &) override
+	{
+		++publish_vote_staple_count;
+	}
 	uint64_t keepalive_count;
 	uint64_t publish_count;
 	uint64_t confirm_req_count;
@@ -88,6 +92,7 @@ public:
 	uint64_t musig_stage0_res_count;
 	uint64_t musig_stage1_req_count;
 	uint64_t musig_stage1_res_count;
+	uint64_t publish_vote_staple_count;
 };
 }
 

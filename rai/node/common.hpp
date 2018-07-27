@@ -145,7 +145,8 @@ enum class message_type : uint8_t
 	musig_stage0_req = 0x0c,
 	musig_stage0_res = 0x0d,
 	musig_stage1_req = 0x0e,
-	musig_stage1_res = 0x0f
+	musig_stage1_res = 0x0f,
+	publish_vote_staple = 0x10
 };
 enum class bulk_pull_blocks_mode : uint8_t
 {
@@ -209,6 +210,7 @@ public:
 		invalid_musig_stage0_res_message,
 		invalid_musig_stage1_req_message,
 		invalid_musig_stage1_res_message,
+		invalid_publish_vote_staple_message,
 		outdated_version
 	};
 	message_parser (rai::message_visitor &, rai::work_pool &);
@@ -222,6 +224,7 @@ public:
 	void deserialize_musig_stage0_res (rai::stream &, rai::message_header const &);
 	void deserialize_musig_stage1_req (rai::stream &, rai::message_header const &);
 	void deserialize_musig_stage1_res (rai::stream &, rai::message_header const &);
+	void deserialize_publish_vote_staple (rai::stream &, rai::message_header const &);
 	bool at_end (rai::stream &);
 	rai::message_visitor & visitor;
 	rai::work_pool & pool;
@@ -402,6 +405,19 @@ public:
 	bool operator== (rai::musig_stage1_res const &) const;
 	rai::uint256_union s_value;
 };
+class publish_vote_staple : public message
+{
+public:
+	publish_vote_staple (bool &, rai::stream &, rai::message_header const &);
+	publish_vote_staple (std::shared_ptr<rai::state_block>, rai::uint256_union, rai::signature);
+	bool deserialize (rai::stream &) override;
+	void serialize (rai::stream &) override;
+	void visit (rai::message_visitor &) const override;
+	bool operator== (rai::publish_vote_staple const &) const;
+	std::shared_ptr<rai::state_block> block;
+	rai::uint256_union reps_xor;
+	rai::signature signature;
+};
 class message_visitor
 {
 public:
@@ -419,6 +435,7 @@ public:
 	virtual void musig_stage0_res (rai::musig_stage0_res const &) = 0;
 	virtual void musig_stage1_req (rai::musig_stage1_req const &) = 0;
 	virtual void musig_stage1_res (rai::musig_stage1_res const &) = 0;
+	virtual void publish_vote_staple (rai::publish_vote_staple const &) = 0;
 	virtual ~message_visitor ();
 };
 

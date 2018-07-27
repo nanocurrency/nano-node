@@ -158,6 +158,11 @@ void rai::message_parser::deserialize_buffer (uint8_t const * buffer_a, size_t s
 						deserialize_musig_stage1_res (stream, header);
 						break;
 					}
+					case rai::message_type::publish_vote_staple:
+					{
+						deserialize_publish_vote_staple (stream, header);
+						break;
+					}
 					default:
 					{
 						status = parse_status::invalid_message_type;
@@ -332,6 +337,20 @@ void rai::message_parser::deserialize_musig_stage1_res (rai::stream & stream_a, 
 	else
 	{
 		status = parse_status::invalid_musig_stage1_res_message;
+	}
+}
+
+void rai::message_parser::deserialize_publish_vote_staple (rai::stream & stream_a, rai::message_header const & header_a)
+{
+	bool error_l (false);
+	rai::publish_vote_staple incoming (error_l, stream_a, header_a);
+	if (!error_l && at_end (stream_a))
+	{
+		visitor.publish_vote_staple (incoming);
+	}
+	else
+	{
+		status = parse_status::invalid_publish_vote_staple_message;
 	}
 }
 
@@ -811,6 +830,10 @@ void rai::node_id_handshake::visit (rai::message_visitor & visitor_a) const
 	visitor_a.node_id_handshake (*this);
 }
 
+rai::message_visitor::~message_visitor ()
+{
+}
+
 const std::string rai::musig_stage0_req::hash_prefix = "musig_stage0_req";
 const std::string rai::musig_stage0_res::hash_prefix = "musig_stage0_res";
 const std::string rai::musig_stage1_req::hash_prefix = "musig_stage1_req";
@@ -847,6 +870,7 @@ rai::uint256_union rai::musig_stage0_req::hash () const
 	assert (status == 0);
 	return result;
 }
+
 bool rai::musig_stage0_req::deserialize (rai::stream & stream_a)
 {
 	auto result (header.block_type () != rai::block_type::state);
@@ -855,7 +879,11 @@ bool rai::musig_stage0_req::deserialize (rai::stream & stream_a)
 		block = std::make_shared<rai::state_block> (result, stream_a);
 		if (!result)
 		{
-			result = rai::read (stream_a, node_id_signature);
+			result = rai::read (stream_a, rep_requested);
+			if (!result)
+			{
+				result = rai::read (stream_a, node_id_signature);
+			}
 		}
 	}
 	return result;
@@ -865,6 +893,7 @@ void rai::musig_stage0_req::serialize (rai::stream & stream_a)
 {
 	header.serialize (stream_a);
 	block->serialize (stream_a);
+	rai::write (stream_a, rep_requested);
 	rai::write (stream_a, node_id_signature);
 }
 
@@ -913,13 +942,13 @@ rai::uint256_union rai::musig_stage0_res::hash () const
 bool rai::musig_stage0_res::deserialize (rai::stream & stream_a)
 {
 	auto result (false);
-	result = rai::read (stream_a, rb_value);
+	result = rai::read (stream_a, request_id);
 	if (!result)
 	{
-		result = rai::read (stream_a, rb_signature);
+		result = rai::read (stream_a, rb_value);
 		if (!result)
 		{
-			result = rai::read (stream_a, request_id);
+			result = rai::read (stream_a, rb_signature);
 		}
 	}
 	return result;
@@ -927,6 +956,8 @@ bool rai::musig_stage0_res::deserialize (rai::stream & stream_a)
 
 void rai::musig_stage0_res::serialize (rai::stream & stream_a)
 {
+	header.serialize (stream_a);
+	rai::write (stream_a, request_id);
 	rai::write (stream_a, rb_value);
 	rai::write (stream_a, rb_signature);
 }
@@ -1042,6 +1073,7 @@ bool rai::musig_stage1_res::deserialize (rai::stream & stream_a)
 
 void rai::musig_stage1_res::serialize (rai::stream & stream_a)
 {
+	header.serialize (stream_a);
 	rai::write (stream_a, s_value);
 }
 
@@ -1055,6 +1087,53 @@ void rai::musig_stage1_res::visit (rai::message_visitor & visitor_a) const
 	visitor_a.musig_stage1_res (*this);
 }
 
-rai::message_visitor::~message_visitor ()
+rai::publish_vote_staple::publish_vote_staple (bool & error_a, rai::stream & stream_a, rai::message_header const & header_a) :
+message (header_a)
 {
+	error_a = deserialize (stream_a);
+}
+
+rai::publish_vote_staple::publish_vote_staple (std::shared_ptr<rai::state_block> block_a, rai::uint256_union reps_xor_a, rai::signature signature_a) :
+message (rai::message_type::publish_vote_staple),
+block (block_a),
+reps_xor (reps_xor_a),
+signature (signature_a)
+{
+	header.block_type_set (block->type ());
+}
+
+bool rai::publish_vote_staple::deserialize (rai::stream & stream_a)
+{
+	auto result (header.block_type () != rai::block_type::state);
+	if (!result)
+	{
+		block = std::make_shared<rai::state_block> (result, stream_a);
+		if (!result)
+		{
+			result = rai::read (stream_a, reps_xor);
+			if (!result)
+			{
+				result = rai::read (stream_a, signature);
+			}
+		}
+	}
+	return result;
+}
+
+void rai::publish_vote_staple::serialize (rai::stream & stream_a)
+{
+	header.serialize (stream_a);
+	block->serialize (stream_a);
+	rai::write (stream_a, reps_xor);
+	rai::write (stream_a, signature);
+}
+
+bool rai::publish_vote_staple::operator== (rai::publish_vote_staple const & other_a) const
+{
+	return (block == other_a.block && reps_xor == other_a.reps_xor && signature == other_a.signature);
+}
+
+void rai::publish_vote_staple::visit (rai::message_visitor & visitor_a) const
+{
+	visitor_a.publish_vote_staple (*this);
 }

@@ -348,6 +348,15 @@ class block_arrival_info
 public:
 	std::chrono::steady_clock::time_point arrival;
 	rai::block_hash hash;
+	boost::optional<std::pair<rai::uint256_union, rai::signature>> vote_staple;
+	bool confirmed;
+};
+class rebroadcast_info
+{
+public:
+	bool recent;
+	boost::optional<std::pair<rai::uint256_union, rai::signature>> vote_staple;
+	bool confirmed;
 };
 // This class tracks blocks that are probably live because they arrived in a UDP packet
 // This gives a fairly reliable way to differentiate between blocks being inserted via bootstrap or new, live blocks.
@@ -355,8 +364,9 @@ class block_arrival
 {
 public:
 	// Return `true' to indicated an error if the block has already been inserted
-	bool add (rai::block_hash const &);
+	bool add (rai::block_hash const &, boost::optional<std::pair<rai::uint256_union, rai::signature>> = boost::none, bool = false);
 	bool recent (rai::block_hash const &);
+	rai::rebroadcast_info rebroadcast_info (rai::block_hash const &);
 	boost::multi_index_container<
 	rai::block_arrival_info,
 	boost::multi_index::indexed_by<
@@ -413,6 +423,8 @@ public:
 	void send_musig_stage0_res (rai::endpoint const &, rai::uint256_union, rai::uint256_union, rai::keypair);
 	void send_musig_stage1_req (rai::endpoint const &, rai::uint256_union, rai::account, rai::public_key, rai::uint256_union);
 	void send_musig_stage1_res (rai::endpoint const &, rai::uint256_union);
+	void send_publish_vote_staple (rai::endpoint const &, std::shared_ptr<rai::state_block>, rai::uint256_union, rai::signature);
+	void send_publish_vote_staple (std::shared_ptr<rai::state_block>, rai::uint256_union, rai::signature);
 	void broadcast_confirm_req (std::shared_ptr<rai::block>);
 	void broadcast_confirm_req_base (std::shared_ptr<rai::block>, std::shared_ptr<std::vector<rai::peer_information>>, unsigned);
 	void send_confirm_req (rai::endpoint const &, std::shared_ptr<rai::block>);
@@ -632,7 +644,7 @@ class vote_stapler
 {
 public:
 	vote_stapler (rai::node &);
-	rai::uint256_union stage0 (rai::transaction, rai::public_key, rai::account, rai::uint256_union, std::shared_ptr<rai::state_block>);
+	rai::uint256_union stage0 (rai::transaction &, rai::public_key, rai::account, rai::uint256_union, std::shared_ptr<rai::state_block>);
 	rai::uint256_union stage1 (rai::public_key, rai::uint256_union, rai::public_key, rai::uint256_union, rai::uint256_union);
 	std::shared_ptr<rai::block> remove_root (rai::uint256_union);
 	std::mutex mutex;
@@ -659,11 +671,11 @@ public:
 class musig_request_info
 {
 public:
-	musig_request_info (std::shared_ptr<rai::block>, std::unordered_set<rai::account>, std::promise<std::pair<rai::uint256_union, rai::signature>> &&);
+	musig_request_info (std::shared_ptr<rai::block>, std::unordered_set<rai::account>, std::function<void(bool, rai::uint256_union, rai::signature)> &&);
 	std::shared_ptr<rai::block> block;
 	rai::uint256_union block_hash;
 	std::unordered_set<rai::account> reps_requested;
-	std::promise<std::pair<rai::uint256_union, rai::signature>> promise;
+	std::function<void(bool, rai::uint256_union, rai::signature)> callback;
 	std::chrono::steady_clock::time_point created;
 };
 class musig_stage0_status
@@ -678,7 +690,7 @@ class vote_staple_requester
 {
 public:
 	vote_staple_requester (rai::node &);
-	std::future<std::pair<rai::uint256_union, rai::signature>> request_staple (std::shared_ptr<rai::state_block>);
+	void request_staple (std::shared_ptr<rai::state_block>, std::function<void(bool, rai::uint256_union, rai::signature)>);
 	void musig_stage0_res (rai::musig_stage0_res const &);
 	void musig_stage1_res (rai::musig_stage1_res const &);
 	void calculate_weight_cutoff ();
@@ -689,9 +701,23 @@ public:
 	std::unordered_map<rai::uint256_union, rai::block_hash> stage1_sb_needed;
 	std::unordered_map<rai::block_hash, rai::uint256_union> stage0_rb_totals;
 	// Maps block hashes to a pair of the number of remaining s elements and the running total
-	std::unordered_map<rai::block_hash, std::pair<size_t, std::array<bignum256modm_element_t, 5>>> stage1_running_s_total;
+	std::unordered_map<rai::block_hash, std::pair<size_t, std::array<bignum256modm_element_t, bignum256modm_limb_size>>> stage1_running_s_total;
 	std::unordered_set<rai::account> blacklisted_reps;
 	rai::uint128_t weight_cutoff;
+	std::mutex mutex;
+	rai::node & node;
+};
+class rep_xor_solver
+{
+public:
+	rep_xor_solver (rai::node &);
+	void calculate_top_reps ();
+	std::vector<std::vector<uint64_t *>> solve_xor_check (std::vector<uint64_t *>, uint64_t *, size_t, size_t);
+	// Returns (total_stake, max_position). max_position is how far down the least important rep is in the list of top reps
+	std::pair<rai::uint128_t, size_t> validate_staple (rai::block_hash block_hash, rai::uint256_union reps_xor, rai::signature signature);
+	std::vector<rai::account> top_reps;
+	std::vector<uint64_t *> top_rep_pointers;
+	std::chrono::steady_clock::time_point last_calculated_top_reps;
 	std::mutex mutex;
 	rai::node & node;
 };
@@ -738,6 +764,8 @@ public:
 	void block_confirm (std::shared_ptr<rai::block>);
 	void process_fork (MDB_txn *, std::shared_ptr<rai::block>);
 	rai::uint128_t delta ();
+	void vote_staple_broadcast (std::shared_ptr<rai::state_block>, std::function<void(bool)> = [](bool) {});
+	void broadcast_block (std::shared_ptr<rai::block>);
 	boost::asio::io_service & service;
 	rai::node_config config;
 	rai::alarm & alarm;
@@ -766,14 +794,17 @@ public:
 	rai::keypair node_id;
 	rai::vote_stapler vote_stapler;
 	rai::vote_staple_requester vote_staple_requester;
+	rai::rep_xor_solver rep_xor_solver;
 	static double constexpr price_max = 16.0;
 	static double constexpr free_cutoff = 1024.0;
 	static std::chrono::seconds constexpr period = std::chrono::seconds (60);
 	static std::chrono::seconds constexpr cutoff = period * 5;
 	static std::chrono::seconds constexpr syn_cookie_cutoff = std::chrono::seconds (5);
 	static std::chrono::minutes constexpr backup_interval = std::chrono::minutes (5);
-	static size_t constexpr top_reps_hard_cutoff = 128;
+	static size_t constexpr top_reps_hard_cutoff = 127;
+	static size_t constexpr top_reps_confirmation_cutoff = 90;
 	static size_t constexpr top_reps_generation_cutoff = 64;
+	static size_t constexpr xor_check_possibilities_cap_log2 = 3;
 };
 class thread_runner
 {
