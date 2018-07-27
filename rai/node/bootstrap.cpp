@@ -273,12 +273,12 @@ void rai::frontier_req_client::received_frontier (boost::system::error_code cons
 		{
 			BOOST_LOG (connection->node->log) << boost::str (boost::format ("Received %1% frontiers from %2%") % std::to_string (count) % connection->socket->remote_endpoint ());
 		}
+		rai::transaction transaction (connection->node->store.environment, nullptr, false);
 		if (!account.is_zero ())
 		{
 			while (!current.is_zero () && current < account)
 			{
 				// We know about an account they don't.
-				rai::transaction transaction (connection->node->store.environment, nullptr, false);
 				unsynced (info.head, 0);
 				next (transaction);
 			}
@@ -286,7 +286,6 @@ void rai::frontier_req_client::received_frontier (boost::system::error_code cons
 			{
 				if (account == current)
 				{
-					rai::transaction transaction (connection->node->store.environment, nullptr, false);
 					if (latest == info.head)
 					{
 						// In sync
@@ -322,14 +321,11 @@ void rai::frontier_req_client::received_frontier (boost::system::error_code cons
 		}
 		else
 		{
+			while (!current.is_zero ())
 			{
-				rai::transaction transaction (connection->node->store.environment, nullptr, false);
-				while (!current.is_zero ())
-				{
-					// We know about an account they don't.
-					unsynced (info.head, 0);
-					next (transaction);
-				}
+				// We know about an account they don't.
+				unsynced (info.head, 0);
+				next (transaction);
 			}
 			if (connection->node->config.logging.bulk_pull_logging ())
 			{
