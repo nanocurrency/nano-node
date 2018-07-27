@@ -1329,7 +1329,7 @@ void rai::block_processor::add (std::shared_ptr<rai::block> block_a, std::chrono
 		std::lock_guard<std::mutex> lock (mutex);
 		if (blocks_hashes.find (block_a->hash ()) == blocks_hashes.end ())
 		{
-			blocks.push_front (std::make_pair (block_a, origination));
+			blocks.push_back (std::make_pair (block_a, origination));
 			blocks_hashes.insert (block_a->hash ());
 			condition.notify_all ();
 		}
