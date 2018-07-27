@@ -1757,6 +1757,7 @@ stats (config.stat_config)
 		node_id = rai::keypair (store.get_node_id (transaction));
 		BOOST_LOG (log) << "Node ID: " << node_id.pub.to_account ();
 	}
+	peers.online_weight_minimum = config.online_weight_minimum.number ();
 	if (rai::rai_network == rai::rai_networks::rai_live_network)
 	{
 		extern const char rai_bootstrap_weights[];
@@ -3021,7 +3022,7 @@ std::vector<rai::endpoint> rai::peer_container::rep_crawl ()
 {
 	std::vector<rai::endpoint> result;
 	// If there is enough observed peers weight, crawl 10 peers. Otherwise - 40
-	uint16_t max_count = (total_weight () > node.config.online_weight_minimum.number ()) ? 10 : 40;
+	uint16_t max_count = (total_weight () > online_weight_minimum) ? 10 : 40;
 	result.reserve (max_count);
 	std::lock_guard<std::mutex> lock (mutex);
 	uint16_t count (0);

@@ -241,6 +241,7 @@ public:
 	size_t size ();
 	size_t size_sqrt ();
 	rai::uint128_t total_weight ();
+	rai::uint128_t online_weight_minimum;
 	bool empty ();
 	std::mutex mutex;
 	rai::endpoint self;
