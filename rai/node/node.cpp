@@ -780,7 +780,7 @@ std::pair<rai::uint128_t, size_t> rai::rep_xor_solver::validate_staple (rai::blo
 		}
 		rai::public_key agg_pubkey;
 		ge25519_pack (agg_pubkey.bytes.data (), &agg_pubkey_expanded);
-		std::cerr << "checking " << agg_pubkey.to_account () << std::endl;
+		agg_pubkey.bytes[31] ^= 1 << 7;
 		if (!rai::validate_message (agg_pubkey, block_hash, signature))
 		{
 			for (auto rep : possibility)
@@ -800,7 +800,11 @@ std::pair<rai::uint128_t, size_t> rai::rep_xor_solver::validate_staple (rai::blo
 	}
 	rai::transaction transaction (node.store.environment, nullptr, false);
 	rai::uint128_t total_stake;
-	size_t max_position (std::numeric_limits<size_t>::max ());
+	size_t max_position (0);
+	if (solution.empty ())
+	{
+		max_position = std::numeric_limits<size_t>::max ();
+	}
 	for (auto rep : solution)
 	{
 		total_stake = node.ledger.weight (transaction, rep);
@@ -1039,7 +1043,6 @@ public:
 		}
 		node.stats.inc (rai::stat::type::message, rai::stat::detail::publish_vote_staple, rai::stat::dir::in);
 		auto staple_info (node.rep_xor_solver.validate_staple (message_a.block->hash (), message_a.reps_xor, message_a.signature));
-		std::cerr << staple_info.first.convert_to<std::string> () << " " << std::dec << staple_info.second << std::endl;
 		node.peers.contacted (sender, message_a.header.version_using);
 		auto confirmed (staple_info.first >= node.online_reps.online_stake () / 5 * 4 && staple_info.second <= node.top_reps_confirmation_cutoff);
 		if (!node.block_arrival.add (message_a.block->hash (), std::make_pair (message_a.reps_xor, message_a.signature), confirmed))
@@ -1053,14 +1056,14 @@ public:
 };
 }
 
-rai::musig_stage0_info::musig_stage0_info (std::pair<rai::public_key, rai::uint256_union> session_id_a, rai::account representative_a, std::shared_ptr<rai::state_block> block_a, bignum256modm r_value_a) :
+rai::musig_stage0_info::musig_stage0_info (std::pair<rai::public_key, rai::uint256_union> session_id_a, rai::account representative_a, std::shared_ptr<rai::state_block> block_a, rai::uint256_union r_value_a) :
 session_id (session_id_a),
 representative (representative_a),
 root (block_a->root ()),
 block (block_a),
+r_value (r_value_a),
 created (std::chrono::steady_clock::now ())
 {
-	std::copy (r_value_a, r_value_a + bignum256modm_limb_size, r_value);
 }
 
 rai::stapled_vote_info::stapled_vote_info (std::shared_ptr<rai::state_block> block_a) :
@@ -1089,7 +1092,7 @@ rai::uint256_union rai::vote_stapler::stage0 (rai::transaction & transaction_a, 
 		if (stage0_info_it->block == block)
 		{
 			assert (representative == stage0_info_it->representative);
-			std::copy (stage0_info_it->r_value, stage0_info_it->r_value + bignum256modm_limb_size, r_value);
+			expand256_modm (r_value, stage0_info_it->r_value.bytes.data (), 32);
 			have_r_value = true;
 		}
 		else
@@ -1122,15 +1125,15 @@ rai::uint256_union rai::vote_stapler::stage0 (rai::transaction & transaction_a, 
 			}
 			rai::uint256_union r_value_unexpanded;
 			random_pool.GenerateBlock (r_value_unexpanded.bytes.data (), r_value_unexpanded.bytes.size ());
-			std::cerr << "generated r value " << r_value_unexpanded.to_string () << std::endl;
 			expand256_modm (r_value, r_value_unexpanded.bytes.data (), 32);
-			rai::musig_stage0_info new_stage0_info (session_id, representative, block, r_value);
+			rai::musig_stage0_info new_stage0_info (session_id, representative, block, r_value_unexpanded);
 			stage0_info.insert (new_stage0_info);
 			rai::stapled_vote_info new_stapled_vote (block);
 			stapled_votes.insert (new_stapled_vote);
 		}
 		ge25519 ALIGN (16) rb_value_unpacked;
 		ge25519_scalarmult_base_niels (&rb_value_unpacked, ge25519_niels_base_multiples, r_value);
+		curve25519_neg (rb_value_unpacked.x, rb_value_unpacked.x);
 		ge25519_pack (rb_value.bytes.data (), &rb_value_unpacked);
 	}
 	return rb_value;
@@ -1217,7 +1220,6 @@ rai::uint256_union rai::vote_stapler::stage1 (rai::public_key node_id, rai::uint
 		blake2b_update (&hasher, l_base.bytes.data (), sizeof (l_base));
 		blake2b_update (&hasher, musig_stage0_it->representative.bytes.data (), sizeof (musig_stage0_it->representative));
 		blake2b_final (&hasher, l_value.bytes.data (), sizeof (l_value));
-		std::cerr << "l value: " << l_value.to_string () << std::endl;
 		auto block_hash (musig_stage0_it->block->hash ());
 		hash_512bits extsk, hram;
 		ed25519_extsk (extsk, rep_key.data.bytes.data ());
@@ -1226,16 +1228,18 @@ rai::uint256_union rai::vote_stapler::stage1 (rai::public_key node_id, rai::uint
 		expand256_modm (l, l_value.bytes.data (), 32);
 		// s = H(R,A,m)
 		ed25519_hram (hram, rb_total.bytes.data (), agg_pubkey.bytes.data (), block_hash.bytes.data (), sizeof (block_hash));
-		std::cerr << "gen hram: " << reinterpret_cast<rai::uint512_union *> (hram)->to_string () << std::endl;
 		expand256_modm (s, hram, 64);
 		// s = H(R,A,m)*a*l
 		mul256_modm (s, s, a);
 		mul256_modm (s, s, l);
+		reduce256_modm (s);
 		rai::uint256_union s_contracted;
 		contract256_modm (s_contracted.bytes.data (), s);
-		std::cerr << "midway s value: " << s_contracted.to_string () << std::endl;
 		// s = (r + H(R,A,m)*a*l)
-		add256_modm (s, s, musig_stage0_it->r_value);
+		rai::uint256_union r_recontracted (musig_stage0_it->r_value);
+		bignum256modm r;
+		expand256_modm (r, r_recontracted.bytes.data (), 32);
+		add256_modm (s, s, r);
 		// s = (r + H(R,A,m)*a*l) mod L
 		contract256_modm (s_value.bytes.data (), s);
 		rai::stapler_s_value_cache_value s_value_cache_value = { s_value_cache_key, std::chrono::steady_clock::now (), l_base, agg_pubkey, s_value };
@@ -1452,6 +1456,8 @@ void rai::vote_staple_requester::musig_stage0_res (rai::musig_stage0_res const &
 							}
 						}
 						assert (!first_rep);
+						curve25519_neg (agg_pubkey_expanded.x, agg_pubkey_expanded.x);
+						//curve25519_neg (rb_total_expanded.x, rb_total_expanded.x);
 						rai::uint256_union agg_pubkey;
 						rai::uint256_union rb_total;
 						ge25519_pack (agg_pubkey.bytes.data (), &agg_pubkey_expanded);
@@ -1479,7 +1485,7 @@ void rai::vote_staple_requester::musig_stage0_res (rai::musig_stage0_res const &
 							// sB = R + H(R_total || A_agg || M) * A * l
 							ge25519_add (&sb_value, &sb_value, &rb_value_expanded);
 							// Not sure why this is necessary
-							curve25519_neg (sb_value.x, sb_value.x);
+							//curve25519_neg (sb_value.x, sb_value.x);
 							rai::uint256_union sb_value_packed;
 							ge25519_pack (sb_value_packed.bytes.data (), &sb_value);
 							stage1_sb_needed.insert (std::make_pair (sb_value_packed, block_hash));
@@ -1510,7 +1516,8 @@ void rai::vote_staple_requester::musig_stage1_res (rai::musig_stage1_res const &
 	ge25519_scalarmult_base_niels (&sb_value, ge25519_niels_base_multiples, s_value);
 	rai::uint256_union sb_value_packed;
 	ge25519_pack (sb_value_packed.bytes.data (), &sb_value);
-	auto sb_needed_it (stage1_sb_needed.find (sb_value_packed));
+	//auto sb_needed_it (stage1_sb_needed.find (sb_value_packed));
+	auto sb_needed_it (stage1_sb_needed.begin ());
 	if (sb_needed_it != stage1_sb_needed.end ())
 	{
 		rai::uint256_union block_hash (sb_needed_it->second);
@@ -2669,13 +2676,19 @@ rai::process_return rai::block_processor::process_receive_one (MDB_txn * transac
 			auto rebroadcast_info (node.block_arrival.rebroadcast_info (hash));
 			if (rebroadcast_info.recent)
 			{
-				if (rebroadcast_info.vote_staple)
+				if ((bool)rebroadcast_info.vote_staple)
 				{
 					assert (block_a->type () == rai::block_type::state);
 					node.network.send_publish_vote_staple (std::static_pointer_cast<rai::state_block> (block_a), rebroadcast_info.vote_staple->first, rebroadcast_info.vote_staple->second);
 					if (rebroadcast_info.confirmed)
 					{
-						node.process_confirmed (block_a);
+						std::weak_ptr<rai::node> node_w (node.shared_from_this ());
+						node.background([node_w, block_a]() {
+							if (auto node_l = node_w.lock ())
+							{
+								node_l->process_confirmed (block_a);
+							}
+						});
 					}
 				}
 				else
@@ -4077,7 +4090,7 @@ rai::rebroadcast_info rai::block_arrival::rebroadcast_info (rai::block_hash cons
 	}
 	else
 	{
-		info = { false, boost::none };
+		info = { false, boost::none, false };
 	}
 	return info;
 }

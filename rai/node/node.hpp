@@ -604,14 +604,14 @@ private:
 class musig_stage0_info
 {
 public:
-	musig_stage0_info (std::pair<rai::public_key, rai::uint256_union>, rai::account, std::shared_ptr<rai::state_block>, bignum256modm);
+	musig_stage0_info (std::pair<rai::public_key, rai::uint256_union>, rai::account, std::shared_ptr<rai::state_block>, rai::uint256_union);
 	std::chrono::steady_clock::time_point created;
 	// pair of opposing node id, request id
 	std::pair<rai::public_key, rai::uint256_union> session_id;
 	rai::account representative;
 	rai::uint256_union root;
 	std::shared_ptr<rai::state_block> block;
-	bignum256modm r_value;
+	rai::uint256_union r_value;
 };
 class stapled_vote_info
 {
