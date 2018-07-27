@@ -226,7 +226,7 @@ void rai::frontier_req_client::receive_frontier ()
 	});
 }
 
-void rai::frontier_req_client::unsynced (MDB_txn * transaction_a, rai::block_hash const & head, rai::block_hash const & end)
+void rai::frontier_req_client::unsynced (rai::block_hash const & head, rai::block_hash const & end)
 {
 	if (bulk_push_cost < bulk_push_cost_limit)
 	{
@@ -278,15 +278,15 @@ void rai::frontier_req_client::received_frontier (boost::system::error_code cons
 			while (!current.is_zero () && current < account)
 			{
 				// We know about an account they don't.
-				rai::transaction transaction (connection->node->store.environment, nullptr, true);
-				unsynced (transaction, info.head, 0);
+				rai::transaction transaction (connection->node->store.environment, nullptr, false);
+				unsynced (info.head, 0);
 				next (transaction);
 			}
 			if (!current.is_zero ())
 			{
 				if (account == current)
 				{
-					rai::transaction transaction (connection->node->store.environment, nullptr, true);
+					rai::transaction transaction (connection->node->store.environment, nullptr, false);
 					if (latest == info.head)
 					{
 						// In sync
@@ -296,7 +296,7 @@ void rai::frontier_req_client::received_frontier (boost::system::error_code cons
 						if (connection->node->store.block_exists (transaction, latest))
 						{
 							// We know about a block they don't.
-							unsynced (transaction, info.head, latest);
+							unsynced (info.head, latest);
 						}
 						else
 						{
@@ -323,11 +323,11 @@ void rai::frontier_req_client::received_frontier (boost::system::error_code cons
 		else
 		{
 			{
-				rai::transaction transaction (connection->node->store.environment, nullptr, true);
+				rai::transaction transaction (connection->node->store.environment, nullptr, false);
 				while (!current.is_zero ())
 				{
 					// We know about an account they don't.
-					unsynced (transaction, info.head, 0);
+					unsynced (info.head, 0);
 					next (transaction);
 				}
 			}
