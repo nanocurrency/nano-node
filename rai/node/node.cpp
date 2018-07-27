@@ -3535,6 +3535,7 @@ void rai::active_transactions::announce_votes ()
 	std::lock_guard<std::mutex> lock (mutex);
 	unsigned unconfirmed_count (0);
 	unsigned unconfirmed_announcements (0);
+	unsigned mass_request_count (0);
 
 	for (auto i (roots.begin ()), n (roots.end ()); i != n; ++i)
 	{
@@ -3589,7 +3590,7 @@ void rai::active_transactions::announce_votes ()
 						}
 					}
 				}
-				if (!reps->empty () && total_weight > node.config.online_weight_minimum.number ())
+				if (!reps->empty () && (total_weight > node.config.online_weight_minimum.number () || mass_request_count > 20))
 				{
 					// broadcast_confirm_req_base modifies reps, so we clone it once to avoid aliasing
 					node.network.broadcast_confirm_req_base (i->confirm_req_options.first, std::make_shared<std::vector<rai::peer_information>> (*reps), 0);
@@ -3602,6 +3603,7 @@ void rai::active_transactions::announce_votes ()
 				{
 					// broadcast request to all peers
 					node.network.broadcast_confirm_req_base (i->confirm_req_options.first, std::make_shared<std::vector<rai::peer_information>> (node.peers.list_vector ()), 0);
+					++mass_request_count;
 				}
 			}
 		}
