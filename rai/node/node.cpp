@@ -3048,10 +3048,16 @@ size_t rai::peer_container::size_sqrt ()
 rai::uint128_t rai::peer_container::total_weight ()
 {
 	rai::uint128_t result (0);
+	std::unordered_set<rai::account> probable_reps;
 	std::lock_guard<std::mutex> lock (mutex);
 	for (auto i (peers.get<6> ().begin ()), n (peers.get<6> ().end ()); i != n; ++i)
 	{
-		result = result + i->rep_weight.number ();
+		// Calculate if representative isn't recorded for several IP addresses
+		if (probable_reps.find (i->probable_rep_account) == probable_reps.end ())
+		{
+			result = result + i->rep_weight.number ();
+			probable_reps.insert (i->probable_rep_account);
+		}
 	}
 	return result;
 }
