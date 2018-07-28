@@ -1323,6 +1323,29 @@ std::shared_ptr<rai::block> rai::vote_stapler::remove_root (rai::uint256_union r
 	return result;
 }
 
+void rai::vote_stapler::remove_root_recursive (rai::uint256_union root)
+{
+	std::lock_guard<std::mutex> lock (mutex);
+	while (!root.is_zero ())
+	{
+		auto stage0_info_it (stage0_info.get<1> ().find (root));
+		if (stage0_info_it != stage0_info.get<1> ().end ())
+		{
+			stage0_info.get<1> ().erase (stage0_info_it);
+		}
+		auto stapled_vote_it (stapled_votes.get<0> ().find (root));
+		if (stapled_vote_it != stapled_votes.get<0> ().end ())
+		{
+			root = stapled_vote_it->successor->hash ();
+			stapled_votes.get<0> ().erase (stapled_vote_it);
+		}
+		else
+		{
+			root = 0;
+		}
+	}
+}
+
 rai::musig_request_info::musig_request_info (std::shared_ptr<rai::block> block_a, std::function<void(bool, rai::uint256_union, rai::signature)> && callback_a) :
 block (block_a),
 block_hash (block_a->hash ()),
@@ -2741,6 +2764,7 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 					// Replace our block with the winner and roll back any dependent blocks
 					BOOST_LOG (node.log) << boost::str (boost::format ("Rolling back %1% and replacing with %2%") % successor->hash ().to_string () % hash.to_string ());
 					node.ledger.rollback (transaction, successor->hash ());
+					node.vote_stapler.remove_root_recursive (successor->hash ());
 				}
 			}
 			auto process_result (process_receive_one (transaction, block.first, block.second));
