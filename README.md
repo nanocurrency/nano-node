@@ -54,3 +54,4 @@ Please see the [contributors guide](https://github.com/nanocurrency/raiblocks/wi
 
 We want to hear about any trouble, success, delight, or pain you experience when
 using Nano. Let us know by [filing an issue](https://github.com/nanocurrency/raiblocks/issues), joining us in [reddit](https://reddit.com/r/nanocurrency), or joining us in [Discord](https://chat.nano.org/).
+testing a change
