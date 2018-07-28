@@ -52,15 +52,6 @@ TEST (network, construction)
 	ASSERT_EQ (24000, system.nodes[0]->network.socket.local_endpoint ().port ());
 }
 
-TEST (network, self_discard)
-{
-	rai::system system (24000, 1);
-	system.nodes[0]->network.remote = system.nodes[0]->network.endpoint ();
-	ASSERT_EQ (0, system.nodes[0]->stats.count (rai::stat::type::error, rai::stat::detail::bad_sender));
-	system.nodes[0]->network.receive_action (boost::system::error_code{}, 0);
-	ASSERT_EQ (1, system.nodes[0]->stats.count (rai::stat::type::error, rai::stat::detail::bad_sender));
-}
-
 TEST (network, send_node_id_handshake)
 {
 	rai::system system (24000, 1);

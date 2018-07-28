@@ -484,7 +484,8 @@ void rai::node::vote_staple_broadcast (std::shared_ptr<rai::state_block> block, 
 		{
 			if (auto node_l = node_w.lock ())
 			{
-				node_l->network.send_publish_vote_staple (node_l->network.endpoint (), block, rep_xor, signature);
+				node_l->process_confirmed (block);
+				node_l->network.send_publish_vote_staple (block, rep_xor, signature);
 				callback (false);
 			}
 		}

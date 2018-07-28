@@ -111,7 +111,7 @@ TEST (peer_container, fill_random_part)
 TEST (peer_container, cap_max_legacy_peers)
 {
 	rai::peer_container peers (rai::endpoint{});
-	for (auto i (0); i < 500; ++i)
+	for (auto i (0); i < peers.max_legacy_peers; ++i)
 	{
 		ASSERT_FALSE (peers.insert (rai::endpoint (boost::asio::ip::address_v6::loopback (), 10000 + i), 0x07));
 	}
@@ -125,7 +125,7 @@ TEST (peer_container, list_fanout)
 	ASSERT_TRUE (list1.empty ());
 	for (auto i (0); i < 1000; ++i)
 	{
-		ASSERT_FALSE (peers.insert (rai::endpoint (boost::asio::ip::address_v6::loopback (), 10000 + i), rai::protocol_version));
+		ASSERT_FALSE (peers.insert (rai::endpoint (boost::asio::ip::address_v6::loopback (), 10000 + i), rai::protocol_version, rai::public_key (0)));
 	}
 	auto list2 (peers.list_fanout ());
 	ASSERT_EQ (32, list2.size ());
