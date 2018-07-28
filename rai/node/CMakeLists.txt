@@ -39,7 +39,6 @@ add_library (node
 	xorshift.hpp)
 
 target_link_libraries (node
-	lmdb
 	secure
 	rai_lib
 	libminiupnpc-static
