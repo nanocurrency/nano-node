@@ -671,7 +671,7 @@ public:
 class musig_request_info
 {
 public:
-	musig_request_info (std::shared_ptr<rai::block>, std::unordered_set<rai::account>, std::function<void(bool, rai::uint256_union, rai::signature)> &&);
+	musig_request_info (std::shared_ptr<rai::block>, std::function<void(bool, rai::uint256_union, rai::signature)> &&);
 	std::shared_ptr<rai::block> block;
 	rai::uint256_union block_hash;
 	std::unordered_set<rai::account> reps_requested;
@@ -691,7 +691,7 @@ class vote_staple_requester
 public:
 	vote_staple_requester (rai::node &);
 	void request_staple (std::shared_ptr<rai::state_block>, std::function<void(bool, rai::uint256_union, rai::signature)>);
-	void musig_stage0_res (rai::musig_stage0_res const &);
+	void musig_stage0_res (rai::endpoint const &, rai::musig_stage0_res const &);
 	void musig_stage1_res (rai::musig_stage1_res const &);
 	void calculate_weight_cutoff ();
 	// Maps request IDs to block hashes
@@ -703,6 +703,8 @@ public:
 	// Maps block hashes to a pair of the number of remaining s elements and the running total
 	std::unordered_map<rai::block_hash, std::pair<size_t, std::array<bignum256modm_element_t, bignum256modm_limb_size>>> stage1_running_s_total;
 	std::unordered_set<rai::account> blacklisted_reps;
+	std::unordered_set<rai::block_hash> full_broadcast_blocks;
+	static const size_t max_full_broadcast_blocks = 3;
 	rai::uint128_t weight_cutoff;
 	std::mutex mutex;
 	rai::node & node;

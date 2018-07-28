@@ -93,8 +93,6 @@ TEST (node, send_single)
 {
 	rai::system system (24000, 2);
 	rai::keypair key2;
-	system.nodes[0]->peers.rep_response (system.nodes[0]->network.endpoint (), rai::genesis_account, rai::genesis_amount);
-	system.nodes[1]->peers.rep_response (system.nodes[0]->network.endpoint (), rai::genesis_account, rai::genesis_amount);
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	system.wallet (1)->insert_adhoc (key2.prv);
 	ASSERT_NE (nullptr, system.wallet (0)->send_action (rai::test_genesis_key.pub, key2.pub, system.nodes[0]->config.receive_minimum.number ()));

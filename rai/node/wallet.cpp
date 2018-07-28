@@ -786,12 +786,22 @@ bool rai::wallet::enter_password (MDB_txn * transaction_a, std::string const & p
 	return result;
 }
 
+void rai::wallet::check_self_weight (MDB_txn * transaction_a, rai::public_key const & public_key)
+{
+	auto weight (node.ledger.weight (transaction_a, public_key));
+	if (!weight.is_zero ())
+	{
+		node.peers.rep_response (node.network.endpoint (), public_key, weight);
+	}
+}
+
 rai::public_key rai::wallet::deterministic_insert (MDB_txn * transaction_a, bool generate_work_a)
 {
 	rai::public_key key (0);
 	if (store.valid_password (transaction_a))
 	{
 		key = store.deterministic_insert (transaction_a);
+		check_self_weight (transaction_a, key);
 		if (generate_work_a)
 		{
 			work_ensure (key, key);
@@ -813,6 +823,7 @@ rai::public_key rai::wallet::insert_adhoc (MDB_txn * transaction_a, rai::raw_key
 	if (store.valid_password (transaction_a))
 	{
 		key = store.insert_adhoc (transaction_a, key_a);
+		check_self_weight (transaction_a, key);
 		if (generate_work_a)
 		{
 			work_ensure (key, wallets.node.ledger.latest_root (transaction_a, key));
