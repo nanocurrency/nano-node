@@ -1549,6 +1549,7 @@ void rai::vote_staple_requester::musig_stage0_res (rai::endpoint const & source,
 					rai::uint256_union agg_pubkey;
 					rai::uint256_union rb_total;
 					ge25519_pack (agg_pubkey.bytes.data (), &agg_pubkey_expanded);
+					agg_pubkey.bytes[31] ^= 1 << 7;
 					ge25519_pack (rb_total.bytes.data (), &rb_total_expanded);
 					stage0_rb_totals.insert (std::make_pair (block_hash, rb_total));
 					hash_512bits hram;
@@ -2766,6 +2767,7 @@ rai::process_return rai::block_processor::process_receive_one (MDB_txn * transac
 				BOOST_LOG (node.log) << boost::str (boost::format ("Processing block %1%: %2%") % hash.to_string () % block);
 			}
 			auto rebroadcast_info (node.block_arrival.rebroadcast_info (hash));
+			auto will_be_confirmed (false);
 			if (rebroadcast_info.recent)
 			{
 				if ((bool)rebroadcast_info.vote_staple)
@@ -2774,6 +2776,7 @@ rai::process_return rai::block_processor::process_receive_one (MDB_txn * transac
 					node.network.send_publish_vote_staple (std::static_pointer_cast<rai::state_block> (block_a), rebroadcast_info.vote_staple->first, rebroadcast_info.vote_staple->second);
 					if (rebroadcast_info.confirmed)
 					{
+						will_be_confirmed = true;
 						std::weak_ptr<rai::node> node_w (node.shared_from_this ());
 						node.background([node_w, block_a]() {
 							if (auto node_l = node_w.lock ())
@@ -2785,7 +2788,36 @@ rai::process_return rai::block_processor::process_receive_one (MDB_txn * transac
 				}
 				else
 				{
+					will_be_confirmed = true;
 					node.active.start (block_a);
+				}
+			}
+			if (!will_be_confirmed)
+			{
+				rai::uint256_union destination;
+				if (block_a->type () == rai::block_type::send)
+				{
+					destination = std::static_pointer_cast<rai::send_block> (block_a)->hashables.destination;
+				}
+				else if (block_a->type () == rai::block_type::state)
+				{
+					destination = std::static_pointer_cast<rai::state_block> (block_a)->hashables.link;
+				}
+				if (!destination.is_zero ())
+				{
+					if (node.ledger.amount (transaction_a, block_a->hash ()) >= node.config.receive_minimum.number ())
+					{
+						if (node.wallets.exists (transaction_a, destination))
+						{
+							std::weak_ptr<rai::node> node_w (node.shared_from_this ());
+							node.background([node_w, block_a]() {
+								if (auto node_l = node_w.lock ())
+								{
+									node_l->block_confirm (block_a);
+								}
+							});
+						}
+					}
 				}
 			}
 			queue_unchecked (transaction_a, hash);
