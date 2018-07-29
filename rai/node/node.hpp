@@ -59,7 +59,7 @@ class election : public std::enable_shared_from_this<rai::election>
 public:
 	election (rai::node &, std::shared_ptr<rai::block>, std::function<void(std::shared_ptr<rai::block>)> const &);
 
-	/** */
+	/** If the voting account has sufficient weight, reublish vote and confirm if quorum is reached */
 	bool vote (std::shared_ptr<rai::vote>);
 
 	/** Tell the network our view of the winner */
@@ -75,14 +75,20 @@ public:
 
 private:
 	std::function<void(std::shared_ptr<rai::block>)> confirmation_action;
+
 	/**
 	 * Mark as confirmed in the election and ask the node to process the block.
 	 * If the block is on the ledger, this will scan for receivables and notify
 	 * block and balance observers.
 	 */
 	void confirm_once (MDB_txn *);
-	/** Returns true if we have vote quorum */
+
+	/**
+	 * Check if we have vote quorum based on the current tally. If the election is contested,
+	 * the winner must have at least online_weight_quorum% more stake than the runner-up.
+	 */
 	bool have_quorum (rai::tally_t const &);
+
 	/** Confirm this block if quorum is met */
 	void confirm_if_quorum (MDB_txn *);
 };

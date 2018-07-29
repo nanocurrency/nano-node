@@ -3426,11 +3426,11 @@ void rai::election::confirm_once (MDB_txn * transaction_a)
 bool rai::election::have_quorum (rai::tally_t const & tally_a)
 {
 	auto i (tally_a.begin ());
-	auto first (i->first);
+	auto first_amount (i->first);
 	++i;
-	auto second (i != tally_a.end () ? i->first : 0);
+	auto second_amount (i != tally_a.end () ? i->first : 0);
 	auto delta_l (node.delta ());
-	auto result (tally_a.begin ()->first > (second + delta_l));
+	auto result (first_amount > (second_amount + delta_l));
 	return result;
 }
 
