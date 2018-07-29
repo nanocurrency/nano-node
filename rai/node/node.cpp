@@ -1962,6 +1962,23 @@ void rai::node::process_active (std::shared_ptr<rai::block> incoming)
 	}
 }
 
+bool rai::node::process_local (std::shared_ptr<rai::block> incoming)
+{
+	bool result (false);
+	auto hash (incoming->hash ());
+	block_arrival.add (hash);
+	std::lock_guard<std::mutex> lock (block_processor.mutex);
+	rai::transaction transaction (store.environment, nullptr, true);
+	block_processor.process_receive_one (transaction, incoming, std::chrono::steady_clock::now ());
+	result = store.block_exists (transaction, hash);
+	// Immediately republish valid block
+	if (result)
+	{
+		network.republish_block (transaction, incoming);
+	}
+	return result;
+}
+
 rai::process_return rai::node::process (rai::block const & block_a)
 {
 	rai::transaction transaction (store.environment, nullptr, true);
