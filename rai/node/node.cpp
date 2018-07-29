@@ -1322,13 +1322,13 @@ void rai::block_processor::flush ()
 bool rai::block_processor::full ()
 {
 	std::unique_lock<std::mutex> lock (mutex);
-	return blocks.size () > 65536;
+	return blocks.size () > 32768;
 }
 
 bool rai::block_processor::udp_full ()
 {
 	std::unique_lock<std::mutex> lock (mutex);
-	return flushing || blocks.size () > 32768;
+	return flushing || blocks.size () > 16384;
 }
 
 void rai::block_processor::add (std::shared_ptr<rai::block> block_a, std::chrono::steady_clock::time_point origination)
