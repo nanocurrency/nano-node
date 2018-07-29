@@ -10,8 +10,7 @@ else ()
 	error ("Unknown platform: ${CMAKE_SYSTEM_NAME}")
 endif ()
 
-
-SET (sources
+add_library (rai_lib
 	${platform_sources}
 	errors.hpp
 	errors.cpp
@@ -27,8 +26,6 @@ SET (sources
 	utility.hpp
 	work.hpp
 	work.cpp)
-
-add_library (rai_lib ${sources})
 
 target_link_libraries (rai_lib
 	xxhash
