@@ -527,7 +527,7 @@ public:
 	void stop ();
 	void flush ();
 	bool full ();
-	bool half_full ();
+	bool udp_full ();
 	void add (std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point);
 	void force (std::shared_ptr<rai::block>);
 	bool should_log ();
@@ -541,6 +541,7 @@ private:
 	void process_receive_many (std::unique_lock<std::mutex> &);
 	bool stopped;
 	bool active;
+	bool flushing;
 	std::chrono::steady_clock::time_point next_log;
 	std::deque<std::pair<std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point>> blocks;
 	std::deque<std::shared_ptr<rai::block>> forced;
