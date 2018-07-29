@@ -1,6 +1,10 @@
 #!/bin/bash
 set -e
 
+if [ "$TRAVIS_REPO_SLUG" != "nanocurrency/raiblocks"]
+    return 0
+
+
 scripts="$(dirname "$0")"
 
 echo "$DOCKER_PASSWORD" | docker login -u nanocurrency --password-stdin
