@@ -1,9 +1,9 @@
 #!/bin/bash
 set -e
 
-if [ "$TRAVIS_REPO_SLUG" != "nanocurrency/raiblocks"]
+if [ "$TRAVIS_REPO_SLUG" != "nanocurrency/raiblocks"]; then
     return 0
-
+fi
 
 scripts="$(dirname "$0")"
 
