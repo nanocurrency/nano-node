@@ -1319,7 +1319,13 @@ void rai::block_processor::flush ()
 bool rai::block_processor::full ()
 {
 	std::unique_lock<std::mutex> lock (mutex);
-	return blocks.size () > 16384;
+	return blocks.size () > 65536;
+}
+
+bool rai::block_processor::half_full ()
+{
+	std::unique_lock<std::mutex> lock (mutex);
+	return blocks.size () > 32768;
 }
 
 void rai::block_processor::add (std::shared_ptr<rai::block> block_a, std::chrono::steady_clock::time_point origination)
@@ -1950,7 +1956,7 @@ void rai::network::confirm_send (rai::confirm_ack const & confirm_a, std::shared
 
 void rai::node::process_active (std::shared_ptr<rai::block> incoming)
 {
-	if (!block_arrival.add (incoming->hash ()))
+	if (!block_processor.half_full () && !block_arrival.add (incoming->hash ()))
 	{
 		block_processor.add (incoming, std::chrono::steady_clock::now ());
 	}
