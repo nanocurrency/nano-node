@@ -142,16 +142,7 @@ rai::tally_result rai::votes::vote (std::shared_ptr<rai::vote> vote_a)
 
 bool rai::votes::uncontested ()
 {
-	bool result (true);
-	if (!rep_votes.empty ())
-	{
-		auto block (rep_votes.begin ()->second);
-		for (auto i (rep_votes.begin ()), n (rep_votes.end ()); result && i != n; ++i)
-		{
-			result = *i->second == *block;
-		}
-	}
-	return result;
+	return rep_votes.empty () || std::all_of (rep_votes.begin (), rep_votes.end (), [this](auto && block) { return block == *rep_votes.begin (); });
 }
 
 // Create a new random keypair

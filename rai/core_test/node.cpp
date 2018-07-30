@@ -199,7 +199,7 @@ TEST (node, node_receive_quorum)
 	{
 		auto info (system.nodes[0]->active.roots.find (previous));
 		ASSERT_NE (system.nodes[0]->active.roots.end (), info);
-		done = info->announcements > rai::active_transactions::announcement_min;
+		done = info->announcements > rai::active_transactions::announcement_min_get ();
 		system.poll ();
 		++iterations;
 		ASSERT_LT (iterations, 200);
@@ -1685,7 +1685,7 @@ TEST (node, confirm_quorum)
 		ASSERT_FALSE (system.nodes[0]->active.roots.empty ());
 		auto info (system.nodes[0]->active.roots.find (send1->hash ()));
 		ASSERT_NE (system.nodes[0]->active.roots.end (), info);
-		done = info->announcements > rai::active_transactions::announcement_min;
+		done = info->announcements > rai::active_transactions::announcement_min_get ();
 		system.poll ();
 		++iterations;
 		ASSERT_LT (iterations, 200);

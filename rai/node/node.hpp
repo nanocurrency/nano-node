@@ -37,6 +37,8 @@ namespace rai
 {
 rai::endpoint map_endpoint_to_v6 (rai::endpoint const &);
 class node;
+
+/** Keeps a tally for the block this node thinks is the winner */
 class election_status
 {
 public:
@@ -51,74 +53,142 @@ public:
 	rai::block_hash hash;
 	bool operator< (rai::vote const &) const;
 };
+/** An election is used to confirm blocks by keeping track of a tally of votes */
 class election : public std::enable_shared_from_this<rai::election>
 {
-	std::function<void(std::shared_ptr<rai::block>)> confirmation_action;
-	void confirm_once (MDB_txn *);
-
 public:
 	election (rai::node &, std::shared_ptr<rai::block>, std::function<void(std::shared_ptr<rai::block>)> const &);
+
+	/** If the voting account has sufficient weight, reublish vote and confirm if quorum is reached */
 	bool vote (std::shared_ptr<rai::vote>);
-	// Check if we have vote quorum
-	bool have_quorum (rai::tally_t const &);
-	// Tell the network our view of the winner
+
+	/** Tell the network our view of the winner */
 	void broadcast_winner ();
-	// Change our winner to agree with the network
+	/** Change our winner to agree with the network */
 	void compute_rep_votes (MDB_txn *);
-	// Confirm this block if quorum is met
-	void confirm_if_quorum (MDB_txn *);
+
 	rai::votes votes;
 	rai::node & node;
 	std::unordered_map<rai::account, rai::vote_info> last_votes;
 	rai::election_status status;
 	std::atomic<bool> confirmed;
+
+private:
+	std::function<void(std::shared_ptr<rai::block>)> confirmation_action;
+
+	/**
+	 * Mark as confirmed in the election and ask the node to process the block.
+	 * If the block is on the ledger, this will scan for receivables and notify
+	 * block and balance observers.
+	 */
+	void confirm_once (MDB_txn *);
+
+	/**
+	 * Check if we have vote quorum based on the current tally. If the election is contested,
+	 * the winner must have at least online_weight_quorum% more stake than the runner-up.
+	 */
+	bool have_quorum (rai::tally_t const &);
+
+	/** Confirm this block if quorum is met */
+	void confirm_if_quorum (MDB_txn *);
 };
+
+/**
+ * Conflict information for roots in active_transactions
+ */
 class conflict_info
 {
 public:
+	/** Block hash of root */
 	rai::block_hash root;
+
+	/** The election for this root */
 	std::shared_ptr<rai::election> election;
-	// Number of announcements in a row for this fork
+
+	/** Number of announcements in a row for this fork */
 	unsigned announcements;
+
+	/** Alternatives for confirmation requests. The second element may be nullptr. */
 	std::pair<std::shared_ptr<rai::block>, std::shared_ptr<rai::block>> confirm_req_options;
 };
-// Core class for determining consensus
-// Holds all active blocks i.e. recently added blocks that need confirmation
+
+/**
+ * Core class for determining consensus
+ * Holds all active blocks i.e. recently added blocks that need confirmation
+ */
 class active_transactions
 {
 public:
 	active_transactions (rai::node &);
-	// Start an election for a block
-	// Call action with confirmed block, may be different than what we started with
+	/**
+	 * Start an election for a block.
+	 * Call action with confirmed block; may be different than what we started with.
+	 */
 	bool start (std::shared_ptr<rai::block>, std::function<void(std::shared_ptr<rai::block>)> const & = [](std::shared_ptr<rai::block>) {});
-	// Also supply alternatives to block, to confirm_req reps with if the boolean argument is true
-	// Should only be used for old elections
-	// The first block should be the one in the ledger
+
+	/**
+	 * Also supply alternatives to block, to confirm_req reps with if the boolean argument is true.
+	 * Should only be used for old elections.
+	 * The first block should be the one in the ledger.
+	*/
 	bool start (std::pair<std::shared_ptr<rai::block>, std::shared_ptr<rai::block>>, std::function<void(std::shared_ptr<rai::block>)> const & = [](std::shared_ptr<rai::block>) {});
-	// If this returns true, the vote is a replay
-	// If this returns false, the vote may or may not be a replay
+
+	/**
+	 * Validate a vote and apply it to the current election if one exists
+	 * @returns If true, the vote is a replay, otherwise it may or may not be a replay
+	 */
 	bool vote (std::shared_ptr<rai::vote>);
-	// Is the root of this block in the roots container
+
+	/**
+	 * Returns true if the root of this block is enlisted for confirmation
+	 */
 	bool active (rai::block const &);
+
+	/**
+	 * Start ongoing announcement of votes
+	 */
 	void announce_votes ();
+
+	/**
+	 * List of active blocks in elections
+	 */
 	std::deque<std::shared_ptr<rai::block>> list_blocks ();
-	void erase (rai::block const &);
+
+	/**
+	 * Erase root of block
+	 */
+	void erase_root (rai::block const &);
+
+	/**
+	 * Remove all roots, effectively stopping all future confirmations.
+	 */
 	void stop ();
+
+	/**
+	 * Roots to be confirmed
+	 */
 	boost::multi_index_container<
 	rai::conflict_info,
 	boost::multi_index::indexed_by<
 	boost::multi_index::hashed_unique<boost::multi_index::member<rai::conflict_info, rai::block_hash, &rai::conflict_info::root>>>>
 	roots;
 	std::deque<rai::election_status> confirmed;
-	rai::node & node;
 	std::mutex mutex;
+
+	static unsigned announcement_min_get ()
+	{
+		return announcement_min;
+	}
+
+private:
+	rai::node & node;
 	// Maximum number of conflicts to vote on per interval, lowest root hash first
 	static unsigned constexpr announcements_per_interval = 32;
 	// Minimum number of block announcements
 	static unsigned constexpr announcement_min = 4;
 	// Threshold to start logging blocks haven't yet been confirmed
 	static unsigned constexpr announcement_long = 20;
-	static unsigned constexpr announce_interval_ms = (rai::rai_network == rai::rai_networks::rai_test_network) ? 10 : 16000;
+	static std::chrono::milliseconds constexpr announce_interval = (rai::rai_network == rai::rai_networks::rai_test_network) ? std::chrono::milliseconds (10) : std::chrono::seconds (16);
 	static size_t constexpr election_history_size = 2048;
 };
 class operation
@@ -504,7 +574,7 @@ class vote_processor
 {
 public:
 	vote_processor (rai::node &);
-	rai::vote_code vote (std::shared_ptr<rai::vote>, rai::endpoint);
+	rai::vote_processor_result vote (std::shared_ptr<rai::vote>, rai::endpoint);
 	rai::node & node;
 };
 // The network is crawled for representatives by occasionally sending a unicast confirm_req for a specific block and watching to see if it's acknowledged with a vote.

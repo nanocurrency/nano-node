@@ -31,7 +31,7 @@ std::chrono::seconds constexpr rai::node::syn_cookie_cutoff;
 std::chrono::minutes constexpr rai::node::backup_interval;
 int constexpr rai::port_mapping::mapping_timeout;
 int constexpr rai::port_mapping::check_timeout;
-unsigned constexpr rai::active_transactions::announce_interval_ms;
+std::chrono::milliseconds constexpr rai::active_transactions::announce_interval;
 size_t constexpr rai::block_arrival::arrival_size_min;
 std::chrono::seconds constexpr rai::block_arrival::arrival_time_min;
 
@@ -1209,12 +1209,12 @@ node (node_a)
 {
 }
 
-rai::vote_code rai::vote_processor::vote (std::shared_ptr<rai::vote> vote_a, rai::endpoint endpoint_a)
+rai::vote_processor_result rai::vote_processor::vote (std::shared_ptr<rai::vote> vote_a, rai::endpoint endpoint_a)
 {
-	auto result (rai::vote_code::invalid);
+	auto result (rai::vote_processor_result::invalid_signature);
 	if (!vote_a->validate ())
 	{
-		result = rai::vote_code::replay;
+		result = rai::vote_processor_result::replay;
 		std::shared_ptr<rai::vote> max_vote;
 		{
 			rai::transaction transaction (node.store.environment, nullptr, false);
@@ -1222,13 +1222,13 @@ rai::vote_code rai::vote_processor::vote (std::shared_ptr<rai::vote> vote_a, rai
 		}
 		if (!node.active.vote (vote_a) || max_vote->sequence > vote_a->sequence)
 		{
-			result = rai::vote_code::vote;
+			result = rai::vote_processor_result::vote;
 		}
 		switch (result)
 		{
-			case rai::vote_code::vote:
+			case rai::vote_processor_result::vote:
 				node.observers.vote.notify (vote_a, endpoint_a);
-			case rai::vote_code::replay:
+			case rai::vote_processor_result::replay:
 				// This tries to assist rep nodes that have lost track of their highest sequence number by replaying our highest known vote back to them
 				// Only do this if the sequence number is significantly different to account for network reordering
 				// Amplify attack considerations: We're sending out a confirm_ack in response to a confirm_ack for no net traffic increase
@@ -1242,7 +1242,7 @@ rai::vote_code rai::vote_processor::vote (std::shared_ptr<rai::vote> vote_a, rai
 					}
 					node.network.confirm_send (confirm, bytes, endpoint_a);
 				}
-			case rai::vote_code::invalid:
+			case rai::vote_processor_result::invalid_signature:
 				break;
 		}
 	}
@@ -1251,15 +1251,15 @@ rai::vote_code rai::vote_processor::vote (std::shared_ptr<rai::vote> vote_a, rai
 		char const * status;
 		switch (result)
 		{
-			case rai::vote_code::invalid:
+			case rai::vote_processor_result::invalid_signature:
 				status = "Invalid";
 				node.stats.inc (rai::stat::type::vote, rai::stat::detail::vote_invalid);
 				break;
-			case rai::vote_code::replay:
+			case rai::vote_processor_result::replay:
 				status = "Replay";
 				node.stats.inc (rai::stat::type::vote, rai::stat::detail::vote_replay);
 				break;
-			case rai::vote_code::vote:
+			case rai::vote_processor_result::vote:
 				status = "Vote";
 				node.stats.inc (rai::stat::type::vote, rai::stat::detail::vote_valid);
 				break;
@@ -3426,11 +3426,11 @@ void rai::election::confirm_once (MDB_txn * transaction_a)
 bool rai::election::have_quorum (rai::tally_t const & tally_a)
 {
 	auto i (tally_a.begin ());
-	auto first (i->first);
+	auto first_amount (i->first);
 	++i;
-	auto second (i != tally_a.end () ? i->first : 0);
+	auto second_amount (i != tally_a.end () ? i->first : 0);
 	auto delta_l (node.delta ());
-	auto result (tally_a.begin ()->first > (second + delta_l));
+	auto result (first_amount > (second_amount + delta_l));
 	return result;
 }
 
@@ -3472,6 +3472,7 @@ void rai::election::confirm_if_quorum (MDB_txn * transaction_a)
 
 bool rai::election::vote (std::shared_ptr<rai::vote> vote_a)
 {
+	using namespace std::chrono_literals;
 	assert (!vote_a->validate ());
 	// see republish_vote documentation for an explanation of these rules
 	rai::transaction transaction (node.store.environment, nullptr, false);
@@ -3480,18 +3481,18 @@ bool rai::election::vote (std::shared_ptr<rai::vote> vote_a)
 	auto weight (node.ledger.weight (transaction, vote_a->account));
 	if (rai::rai_network == rai::rai_networks::rai_test_network || weight > supply / 1000) // 0.1% or above
 	{
-		unsigned int cooldown;
+		std::chrono::seconds cooldown;
 		if (weight < supply / 100) // 0.1% to 1%
 		{
-			cooldown = 15;
+			cooldown = 15s;
 		}
 		else if (weight < supply / 20) // 1% to 5%
 		{
-			cooldown = 5;
+			cooldown = 5s;
 		}
 		else // 5% or above
 		{
-			cooldown = 1;
+			cooldown = 1s;
 		}
 		auto should_process (false);
 		auto last_vote_it (last_votes.find (vote_a->account));
@@ -3504,7 +3505,7 @@ bool rai::election::vote (std::shared_ptr<rai::vote> vote_a)
 			auto last_vote (last_vote_it->second);
 			if (last_vote < *vote_a)
 			{
-				if (last_vote.time <= std::chrono::steady_clock::now () - std::chrono::seconds (cooldown))
+				if (last_vote.time <= std::chrono::steady_clock::now () - cooldown)
 				{
 					should_process = true;
 				}
@@ -3613,7 +3614,7 @@ void rai::active_transactions::announce_votes ()
 	}
 	auto now (std::chrono::steady_clock::now ());
 	std::weak_ptr<rai::node> node_w (node.shared ());
-	node.alarm.add (now + std::chrono::milliseconds (announce_interval_ms), [node_w]() {
+	node.alarm.add (now + announce_interval, [node_w]() {
 		if (auto node_l = node_w.lock ())
 		{
 			node_l->active.announce_votes ();
@@ -3647,7 +3648,6 @@ bool rai::active_transactions::start (std::pair<std::shared_ptr<rai::block>, std
 	return existing != roots.end ();
 }
 
-// Validate a vote and apply it to the current election if one exists
 bool rai::active_transactions::vote (std::shared_ptr<rai::vote> vote_a)
 {
 	std::shared_ptr<rai::election> election;
@@ -3674,7 +3674,6 @@ bool rai::active_transactions::active (rai::block const & block_a)
 	return roots.find (block_a.root ()) != roots.end ();
 }
 
-// List of active blocks in elections
 std::deque<std::shared_ptr<rai::block>> rai::active_transactions::list_blocks ()
 {
 	std::deque<std::shared_ptr<rai::block>> result;
@@ -3686,7 +3685,7 @@ std::deque<std::shared_ptr<rai::block>> rai::active_transactions::list_blocks ()
 	return result;
 }
 
-void rai::active_transactions::erase (rai::block const & block_a)
+void rai::active_transactions::erase_root (rai::block const & block_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	if (roots.find (block_a.root ()) != roots.end ())

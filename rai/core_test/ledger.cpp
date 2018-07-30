@@ -791,10 +791,10 @@ TEST (votes, check_signature)
 	ASSERT_EQ (1, votes1->votes.rep_votes.size ());
 	auto vote1 (std::make_shared<rai::vote> (rai::test_genesis_key.pub, rai::test_genesis_key.prv, 1, send1));
 	vote1->signature.bytes[0] ^= 1;
-	ASSERT_EQ (rai::vote_code::invalid, node1.vote_processor.vote (vote1, rai::endpoint ()));
+	ASSERT_EQ (rai::vote_processor_result::invalid_signature, node1.vote_processor.vote (vote1, rai::endpoint ()));
 	vote1->signature.bytes[0] ^= 1;
-	ASSERT_EQ (rai::vote_code::vote, node1.vote_processor.vote (vote1, rai::endpoint ()));
-	ASSERT_EQ (rai::vote_code::replay, node1.vote_processor.vote (vote1, rai::endpoint ()));
+	ASSERT_EQ (rai::vote_processor_result::vote, node1.vote_processor.vote (vote1, rai::endpoint ()));
+	ASSERT_EQ (rai::vote_processor_result::replay, node1.vote_processor.vote (vote1, rai::endpoint ()));
 }
 
 TEST (votes, add_one)
@@ -946,12 +946,12 @@ TEST (votes, add_old_different_account)
 	ASSERT_EQ (1, votes2->votes.rep_votes.size ());
 	auto vote1 (std::make_shared<rai::vote> (rai::test_genesis_key.pub, rai::test_genesis_key.prv, 2, send1));
 	auto vote_result1 (node1.vote_processor.vote (vote1, rai::endpoint ()));
-	ASSERT_EQ (rai::vote_code::vote, vote_result1);
+	ASSERT_EQ (rai::vote_processor_result::vote, vote_result1);
 	ASSERT_EQ (2, votes1->votes.rep_votes.size ());
 	ASSERT_EQ (1, votes2->votes.rep_votes.size ());
 	auto vote2 (std::make_shared<rai::vote> (rai::test_genesis_key.pub, rai::test_genesis_key.prv, 1, send2));
 	auto vote_result2 (node1.vote_processor.vote (vote2, rai::endpoint ()));
-	ASSERT_EQ (rai::vote_code::vote, vote_result2);
+	ASSERT_EQ (rai::vote_processor_result::vote, vote_result2);
 	ASSERT_EQ (2, votes1->votes.rep_votes.size ());
 	ASSERT_EQ (2, votes2->votes.rep_votes.size ());
 	ASSERT_NE (votes1->votes.rep_votes.end (), votes1->votes.rep_votes.find (rai::test_genesis_key.pub));
