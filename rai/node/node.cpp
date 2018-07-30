@@ -1322,7 +1322,7 @@ void rai::block_processor::flush ()
 bool rai::block_processor::full ()
 {
 	std::unique_lock<std::mutex> lock (mutex);
-	return blocks.size () > 32768;
+	return flushing || blocks.size () > 32768;
 }
 
 bool rai::block_processor::udp_full ()
