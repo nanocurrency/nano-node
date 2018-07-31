@@ -1246,7 +1246,7 @@ void rai::block_store::account_put (MDB_txn * transaction_a, rai::account const 
 	{
 		case rai::epoch::invalid:
 		case rai::epoch::unspecified:
-			assert(false);
+			assert (false);
 		case rai::epoch::epoch_0:
 			db = accounts_v0;
 			break;
@@ -1265,7 +1265,7 @@ void rai::block_store::pending_put (MDB_txn * transaction_a, rai::pending_key co
 	{
 		case rai::epoch::invalid:
 		case rai::epoch::unspecified:
-			assert(false);
+			assert (false);
 		case rai::epoch::epoch_0:
 			db = pending_v0;
 			break;
