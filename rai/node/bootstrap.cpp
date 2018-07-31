@@ -362,7 +362,7 @@ void rai::frontier_req_client::next (MDB_txn * transaction_a)
 	if (iterator != connection->node->store.latest_end ())
 	{
 		current = rai::account (iterator->first.uint256 ());
-		info = rai::account_info (iterator->second, iterator->from_secondary_store);
+		info = rai::account_info (iterator->second, iterator->from_secondary_store ? rai::epoch::epoch_1 : rai::epoch::epoch_0);
 	}
 	else
 	{
@@ -2039,7 +2039,7 @@ void rai::bulk_push_server::received_block (boost::system::error_code const & ec
 rai::frontier_req_server::frontier_req_server (std::shared_ptr<rai::bootstrap_server> const & connection_a, std::unique_ptr<rai::frontier_req> request_a) :
 connection (connection_a),
 current (request_a->start.number () - 1),
-info (0, 0, 0, 0, 0, 0, 0),
+info (0, 0, 0, 0, 0, 0, rai::epoch::epoch_0),
 request (std::move (request_a)),
 send_buffer (std::make_shared<std::vector<uint8_t>> ())
 {
@@ -2141,7 +2141,7 @@ void rai::frontier_req_server::next ()
 	if (iterator != connection->node->store.latest_end ())
 	{
 		current = rai::uint256_union (iterator->first.uint256 ());
-		info = rai::account_info (iterator->second, iterator->from_secondary_store);
+		info = rai::account_info (iterator->second, iterator->from_secondary_store ? rai::epoch::epoch_1 : rai::epoch::epoch_0);
 	}
 	else
 	{
