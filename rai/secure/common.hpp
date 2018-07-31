@@ -141,7 +141,7 @@ public:
 	/** Seconds since posix epoch */
 	uint64_t modified;
 	uint64_t block_count;
-	epoch epoch;
+	rai::epoch epoch;
 };
 
 /**
@@ -159,7 +159,7 @@ public:
 	rai::mdb_val val () const;
 	rai::account source;
 	rai::amount amount;
-	epoch epoch;
+	rai::epoch epoch;
 };
 class pending_key
 {
