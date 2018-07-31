@@ -1379,6 +1379,7 @@ void rai::rpc_handler::confirmation_history ()
 			boost::property_tree::ptree election;
 			election.put ("hash", i->winner->hash ().to_string ());
 			election.put ("tally", i->tally.to_string_dec ());
+			election.put ("stapled", i->stapled);
 			elections.push_back (std::make_pair ("", election));
 		}
 	}

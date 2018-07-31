@@ -21,11 +21,18 @@ rai::system::system (uint16_t port_a, size_t count_a) :
 alarm (service),
 work (1, nullptr)
 {
+<<<<<<< HEAD
 	auto scale_str = std::getenv ("DEADLINE_SCALE_FACTOR");
 	if (scale_str)
 	{
 		deadline_scaling_factor = std::stod (scale_str);
 	}
+=======
+	logging.log_to_cerr_value = true;
+	logging.network_logging_value = true;
+	logging.network_musig_logging_value = true;
+	logging.ledger_logging_value = true;
+>>>>>>> Add queueing system
 	logging.init (rai::unique_path ());
 	nodes.reserve (count_a);
 	for (size_t i (0); i < count_a; ++i)

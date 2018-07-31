@@ -459,7 +459,15 @@ template <typename T>
 void rep_query (rai::node & node_a, T const & peers_a)
 {
 	rai::transaction transaction (node_a.store.environment, false);
-	std::shared_ptr<rai::block> block (node_a.store.block_random (transaction));
+	std::shared_ptr<rai::block> block;
+	if (rai::rai_network == rai::rai_networks::rai_test_network)
+	{
+		block = rai::genesis ().open;
+	}
+	else
+	{
+		block = node_a.store.block_random (transaction);
+	}
 	auto hash (block->hash ());
 	node_a.rep_crawler.add (hash);
 	for (auto i (peers_a.begin ()), n (peers_a.end ()); i != n; ++i)
@@ -1100,7 +1108,7 @@ public:
 		auto staple_info (node.rep_xor_solver.validate_staple (message_a.block->hash (), message_a.reps_xor, message_a.signature));
 		node.peers.contacted (sender, message_a.header.version_using);
 		auto confirmed (staple_info.first >= node.online_reps.online_stake () / 5 * 3 && staple_info.second <= node.top_reps_confirmation_cutoff);
-		if (!node.block_arrival.add (message_a.block->hash (), std::make_pair (message_a.reps_xor, message_a.signature), confirmed))
+		if (!node.block_arrival.add (message_a.block->hash (), std::make_pair (message_a.reps_xor, message_a.signature), confirmed, staple_info.first))
 		{
 			auto block_l (std::static_pointer_cast<rai::block> (message_a.block));
 			node.block_processor.add (block_l, std::chrono::steady_clock::now ());
@@ -1338,7 +1346,7 @@ std::shared_ptr<rai::block> rai::vote_stapler::remove_root (rai::uint256_union r
 	return result;
 }
 
-rai::musig_request_info::musig_request_info (std::shared_ptr<rai::block> block_a, std::function<void(bool, rai::uint256_union, rai::signature)> && callback_a) :
+rai::musig_request_info::musig_request_info (std::shared_ptr<rai::state_block> block_a, std::function<void(bool, rai::uint256_union, rai::signature)> && callback_a) :
 block (block_a),
 block_hash (block_a->hash ()),
 callback (std::move (callback_a)),
@@ -1386,6 +1394,42 @@ void rai::vote_staple_requester::calculate_weight_cutoff ()
 }
 
 void rai::vote_staple_requester::request_staple (std::shared_ptr<rai::state_block> block, std::function<void(bool, rai::uint256_union, rai::signature)> callback)
+{
+	{
+		std::lock_guard<std::mutex> lock (mutex);
+		auto acct_queue_it (accounts_queue.find (block->hashables.account));
+		if (acct_queue_it != accounts_queue.end ())
+		{
+			// A staple is already in progress for this account
+			acct_queue_it->second.push (std::make_pair (std::move (block), std::move (callback)));
+			return;
+		}
+		acct_queue_it = accounts_queue.insert (std::make_pair (block->hashables.account, std::queue<std::pair<std::shared_ptr<rai::state_block>, std::function<void (bool, rai::uint256_union, rai::signature)>>> ())).first;
+	}
+	request_staple_inner (block, [this, block, callback](bool error, rai::uint256_union reps_xor, rai::signature signature) {
+		callback (error, reps_xor, signature);
+		std::unique_lock<std::mutex> lock (mutex);
+		auto acct_queue_it (accounts_queue.find (block->hashables.account));
+		assert (acct_queue_it != accounts_queue.end ());
+		if (!acct_queue_it->second.empty ())
+		{
+			auto queue_item (acct_queue_it->second.front ());
+			std::shared_ptr<rai::state_block> new_block;
+			std::function<void (bool, rai::uint256_union, rai::signature)> new_callback ([](bool, rai::uint256_union, rai::signature) {});
+			std::swap (queue_item.first, new_block);
+			std::swap (queue_item.second, new_callback);
+			acct_queue_it->second.pop ();
+			lock.unlock ();
+			request_staple_inner (std::move (new_block), std::move (new_callback));
+		}
+		else
+		{
+			accounts_queue.erase (acct_queue_it);
+		}
+	});
+}
+
+void rai::vote_staple_requester::request_staple_inner (std::shared_ptr<rai::state_block> block, std::function<void(bool, rai::uint256_union, rai::signature)> callback)
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	std::unordered_set<rai::account> requested_reps;
@@ -1501,12 +1545,14 @@ void rai::vote_staple_requester::musig_stage0_res (rai::endpoint const & source,
 			}
 			if (stage0_status.rb_values.insert (std::make_pair (rep, message_a.rb_value)).second)
 			{
-				rai::transaction transaction (node.store.environment, nullptr, false);
-				auto last_vote_weight (stage0_status.vote_weight_collected);
-				stage0_status.vote_weight_collected += node.ledger.weight (transaction, rep);
-				if (stage0_status.vote_weight_collected < last_vote_weight)
 				{
-					stage0_status.vote_weight_collected = std::numeric_limits<rai::uint128_t>::max ();
+					rai::transaction transaction (node.store.environment, nullptr, false);
+					auto last_vote_weight (stage0_status.vote_weight_collected);
+					stage0_status.vote_weight_collected += node.ledger.weight (transaction, rep);
+					if (stage0_status.vote_weight_collected < last_vote_weight)
+					{
+						stage0_status.vote_weight_collected = std::numeric_limits<rai::uint128_t>::max ();
+					}
 				}
 				if (stage0_status.vote_weight_collected >= node.online_reps.online_stake () / 10 * 7)
 				{
@@ -1619,7 +1665,7 @@ void rai::vote_staple_requester::musig_stage0_res (rai::endpoint const & source,
 
 void rai::vote_staple_requester::musig_stage1_res (rai::musig_stage1_res const & message_a)
 {
-	std::lock_guard<std::mutex> lock (mutex);
+	std::unique_lock<std::mutex> lock (mutex);
 	bignum256modm s_value;
 	expand256_modm (s_value, message_a.s_value.bytes.data (), 32);
 	ge25519 ALIGN (16) sb_value;
@@ -1661,10 +1707,13 @@ void rai::vote_staple_requester::musig_stage1_res (rai::musig_stage1_res const &
 						rai::uint512_union signature;
 						signature.uint256s[0] = rb_total_it->second;
 						signature.uint256s[1] = s_total_contracted;
-						request_info_it->second.callback (false, rai::uint256_union (xor_reps), signature);
+						std::function<void (bool, rai::uint256_union, rai::signature)> callback ([](bool, rai::uint256_union, rai::signature) {});
+						std::swap (callback, request_info_it->second.callback);
 						block_request_info.erase (request_info_it);
 						stage0_rb_totals.erase (rb_total_it);
 						stage1_running_s_total.erase (running_total_it);
+						lock.unlock ();
+						callback (false, rai::uint256_union (xor_reps), signature);
 					}
 					else
 					{
@@ -2794,10 +2843,11 @@ rai::process_return rai::block_processor::process_receive_one (MDB_txn * transac
 					{
 						will_be_confirmed = true;
 						std::weak_ptr<rai::node> node_w (node.shared_from_this ());
-						node.background([node_w, block_a]() {
+						node.background([node_w, block_a, rebroadcast_info]() {
 							if (auto node_l = node_w.lock ())
 							{
 								node_l->process_confirmed (block_a);
+								node_l->active.confirmed.push_back (rai::election_status { block_a, rebroadcast_info.staple_tally, true });
 							}
 						});
 					}
@@ -3694,7 +3744,12 @@ void rai::node::ongoing_rep_crawl ()
 	if (network.on)
 	{
 		std::weak_ptr<rai::node> node_w (shared_from_this ());
-		alarm.add (now + std::chrono::seconds (4), [node_w]() {
+		auto delay (std::chrono::milliseconds (4000));
+		if (rai::rai_network == rai::rai_networks::rai_test_network)
+		{
+			delay = std::chrono::milliseconds (50);
+		}
+		alarm.add (now + delay, [node_w]() {
 			if (auto node_l = node_w.lock ())
 			{
 				node_l->ongoing_rep_crawl ();
@@ -4205,11 +4260,11 @@ rai::endpoint rai::network::endpoint ()
 	return rai::endpoint (boost::asio::ip::address_v6::loopback (), port);
 }
 
-bool rai::block_arrival::add (rai::block_hash const & hash_a, boost::optional<std::pair<rai::uint256_union, rai::signature>> vote_staple, bool confirmed)
+bool rai::block_arrival::add (rai::block_hash const & hash_a, boost::optional<std::pair<rai::uint256_union, rai::signature>> vote_staple, bool confirmed, rai::amount tally)
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	auto now (std::chrono::steady_clock::now ());
-	auto inserted (arrival.insert (rai::block_arrival_info{ now, hash_a, vote_staple, confirmed }));
+	auto inserted (arrival.insert (rai::block_arrival_info{ now, hash_a, vote_staple, confirmed, tally }));
 	auto result (!inserted.second);
 	return result;
 }
@@ -4226,11 +4281,11 @@ rai::rebroadcast_info rai::block_arrival::rebroadcast_info (rai::block_hash cons
 	rai::rebroadcast_info info;
 	if (arrival_it != arrival.get<1> ().end ())
 	{
-		info = { true, arrival_it->vote_staple, arrival_it->confirmed };
+		info = { true, arrival_it->vote_staple, arrival_it->confirmed, arrival_it->staple_tally };
 	}
 	else
 	{
-		info = { false, boost::none, false };
+		info = { false, boost::none, false, rai::amount (0) };
 	}
 	return info;
 }
@@ -4838,7 +4893,7 @@ rai::election::election (rai::node & node_a, std::shared_ptr<rai::block> block_a
 confirmation_action (confirmation_action_a),
 root (block_a->root ()),
 node (node_a),
-status ({ block_a, 0 }),
+status ({ block_a, 0, false }),
 confirmed (false),
 aborted (false),
 should_update_winner (true)
