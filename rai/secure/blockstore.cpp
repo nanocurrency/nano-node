@@ -1244,14 +1244,15 @@ void rai::block_store::account_put (MDB_txn * transaction_a, rai::account const 
 	MDB_dbi db;
 	switch (info_a.epoch)
 	{
+		case rai::epoch::invalid:
+		case rai::epoch::unspecified:
+			assert(false);
 		case rai::epoch::epoch_0:
 			db = accounts_v0;
 			break;
 		case rai::epoch::epoch_1:
 			db = accounts_v1;
 			break;
-		default:
-			assert (false);
 	}
 	auto status (mdb_put (transaction_a, db, rai::mdb_val (account_a), info_a.val (), 0));
 	assert (status == 0);
@@ -1262,14 +1263,15 @@ void rai::block_store::pending_put (MDB_txn * transaction_a, rai::pending_key co
 	MDB_dbi db;
 	switch (pending_a.epoch)
 	{
+		case rai::epoch::invalid:
+		case rai::epoch::unspecified:
+			assert(false);
 		case rai::epoch::epoch_0:
 			db = pending_v0;
 			break;
 		case rai::epoch::epoch_1:
 			db = pending_v1;
 			break;
-		default:
-			assert (false);
 	}
 	auto status (mdb_put (transaction_a, db, key_a.val (), pending_a.val (), 0));
 	assert (status == 0);
