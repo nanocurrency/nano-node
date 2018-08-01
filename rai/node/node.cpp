@@ -1414,7 +1414,7 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 				}
 			}
 			int valid[state_vector.size ()];
-			validate_blocks (state_vector, valid);
+			validate_blocks (state_vector, valid, node.ledger.epoch_link, node.ledger.epoch_link);
 			for (auto i (0); i != state_vector.size (); ++i)
 			{
 				if (valid[i] == 1)
