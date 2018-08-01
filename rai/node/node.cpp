@@ -1419,7 +1419,7 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 			{
 				if (valid[i] == 1)
 				{
-					blocks.push_back (std::make_pair (std::make_shared<rai::block> (state_vector[i]), time_points[i]));
+					blocks.push_back (std::make_pair (std::make_shared<rai::state_block> (state_vector[i]), time_points[i]));
 				}
 			}
 		}
