@@ -400,8 +400,6 @@ public:
 	boost::multi_index::ordered_non_unique<boost::multi_index::member<rai::rep_last_heard_info, std::chrono::steady_clock::time_point, &rai::rep_last_heard_info::last_heard>>,
 	boost::multi_index::hashed_unique<boost::multi_index::member<rai::rep_last_heard_info, rai::account, &rai::rep_last_heard_info::representative>>>>
 	reps;
-
-private:
 	rai::uint128_t online_stake_total;
 	std::mutex mutex;
 	rai::node & node;
@@ -568,12 +566,10 @@ private:
 class rep_crawler
 {
 public:
-	rep_crawler ();
 	void add (rai::block_hash const &);
 	void remove (rai::block_hash const &);
 	bool exists (rai::block_hash const &);
 	std::mutex mutex;
-	bool disabled;
 	std::unordered_set<rai::block_hash> active;
 };
 // Processing blocks is a potentially long IO operation
@@ -687,7 +683,7 @@ class musig_stage0_status
 {
 public:
 	musig_stage0_status (std::unordered_map<rai::account, std::vector<rai::endpoint>>);
-	std::unordered_map<rai::account, rai::uint256_union> rb_values;
+	std::map<rai::account, rai::uint256_union> rb_values;
 	rai::uint128_t vote_weight_collected;
 	std::unordered_map<rai::account, std::vector<rai::endpoint>> rep_endpoints;
 };
@@ -710,10 +706,10 @@ public:
 	std::unordered_map<rai::block_hash, std::pair<size_t, std::array<bignum256modm_element_t, bignum256modm_limb_size>>> stage1_running_s_total;
 	std::unordered_set<rai::account> blacklisted_reps;
 	std::unordered_set<rai::block_hash> full_broadcast_blocks;
-	static const size_t max_full_broadcast_blocks = 3;
 	rai::uint128_t weight_cutoff;
 	std::unordered_map<rai::account, std::queue<std::pair<std::shared_ptr<rai::state_block>, std::function<void (bool, rai::uint256_union, rai::signature)>>>> accounts_queue;
 	std::mutex mutex;
+	bool force_full_broadcast;
 	rai::node & node;
 };
 class rep_xor_solver

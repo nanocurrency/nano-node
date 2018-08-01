@@ -1619,8 +1619,8 @@ TEST (node, vote_stapling)
 	rai::keypair rep2;
 	rai::keypair rep3;
 	rai::keypair rep4;
-	// Rep weights will be changing a lot in this first part, so caching them like rep_crawler does is a bad idea
-	system.nodes[0]->rep_crawler.disabled = true;
+	// Rep weights will be changing a lot in this first part, so we need to do a full broadcast for this to work
+	system.nodes[0]->vote_staple_requester.force_full_broadcast = true;
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	{
 		rai::transaction transaction (system.nodes[1]->store.environment, nullptr, true);
@@ -1675,10 +1675,23 @@ TEST (node, vote_stapling)
 		ASSERT_LT (iterations, 1000);
 	}
 	system.nodes[0]->config.enable_voting = false;
+	system.nodes[0]->vote_staple_requester.force_full_broadcast = false;
+	// clear out old peer rep info
+	for (auto node : system.nodes)
+	{
+		node->online_reps.online_stake_total = 0;
+		node->online_reps.reps.clear ();
+		for (auto i (node->peers.peers.get<0> ().begin ()), n (node->peers.peers.get<0> ().end ()); i != n; ++i)
+		{
+			node->peers.peers.modify (i, [](rai::peer_information & peer) { peer.rep_weight = 0; });
+		}
+		node->rep_xor_solver.calculate_top_reps ();
+	}
 	// generate some activity so online_reps picks up
-	ASSERT_NE (nullptr, system.wallet (0)->send_action (rai::genesis_account, rai::account (0), system.nodes[0]->config.receive_minimum.number ()));
+	auto activity_send (std::make_shared<rai::state_block> (rai::genesis_account, system.nodes[0]->latest (rai::genesis_account), rai::genesis_account, system.nodes[0]->balance (rai::genesis_account) - 1, rai::account (0), rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
+	system.nodes[0]->work_generate_blocking (*activity_send);
+	system.nodes[0]->process_active (activity_send);
 	iterations = 0;
-	system.nodes[0]->rep_crawler.disabled = false;
 	while (std::any_of (system.nodes.begin (), system.nodes.end (), [&](std::shared_ptr<rai::node> const & node_a) { return node_a->online_reps.online_stake () < rai::genesis_amount / 10 * 9; }))
 	{
 		system.poll ();
@@ -1686,39 +1699,39 @@ TEST (node, vote_stapling)
 		ASSERT_LT (iterations, 1000);
 	}
 	iterations = 0;
-	while (std::any_of (system.nodes.begin (), system.nodes.end (), [&](std::shared_ptr<rai::node> const & node_a) { return node_a->peers.representatives (-1).size () < 4; }))
+	while (std::any_of (system.nodes.begin (), system.nodes.end (), [&](std::shared_ptr<rai::node> const & node_a) { return node_a->peers.representatives (-1).size () < 3; }))
 	{
 		system.poll ();
 		++iterations;
-		ASSERT_LT (iterations, 500);
+		ASSERT_LT (iterations, 1000);
 	}
 	system.nodes[4]->stop ();
 	// Setup is finished; test that vote stapling works
-	auto previous_count (system.nodes[0]->stats.count (rai::stat::type::message, rai::stat::detail::publish_vote_staple, rai::stat::dir::out));
-	auto send_block (system.wallet (0)->send_action (rep1.pub, rep2.pub, system.nodes[0]->config.receive_minimum.number ()));
+	auto previous_count (system.nodes[1]->stats.count (rai::stat::type::message, rai::stat::detail::publish_vote_staple, rai::stat::dir::out));
+	auto send_block (system.wallet (1)->send_action (rep1.pub, rep2.pub, system.nodes[0]->config.receive_minimum.number ()));
 	ASSERT_NE (nullptr, send_block);
 	iterations = 0;
 	while (system.nodes[1]->stats.count (rai::stat::type::message, rai::stat::detail::publish_vote_staple, rai::stat::dir::out) == previous_count)
 	{
 		system.poll ();
 		++iterations;
-		ASSERT_LT (iterations, 200);
+		ASSERT_LT (iterations, 600);
 	}
 	iterations = 0;
 	while (!system.nodes[2]->block (send_block->hash ()))
 	{
-		ASSERT_FALSE (std::any_of (system.nodes.begin (), system.nodes.end (), [&](std::shared_ptr<rai::node> const & node_a) { return node_a->active.active (*send_block); }));
 		system.poll ();
+		ASSERT_FALSE (std::any_of (system.nodes.begin (), system.nodes.end (), [&](std::shared_ptr<rai::node> const & node_a) { return node_a->active.active (*send_block); }));
 		++iterations;
 		ASSERT_LT (iterations, 200);
 	}
 	auto & node2_confirmed (system.nodes[2]->active.confirmed);
-	ASSERT_TRUE (std::any_of (node2_confirmed.begin (), node2_confirmed.end (), [&](rai::election_status const & status_a) { return status_a.winner == send_block && status_a.stapled; }));
+	ASSERT_TRUE (std::any_of (node2_confirmed.begin (), node2_confirmed.end (), [&](rai::election_status const & status_a) { return *status_a.winner == *send_block && status_a.stapled; }));
 	while (std::any_of (system.nodes.begin (), system.nodes.end (), [&](std::shared_ptr<rai::node> const & node_a) { return node_a->balance (rep2.pub) <= rai::genesis_amount / 10 * 3; }))
 	{
 		ASSERT_FALSE (std::any_of (system.nodes.begin (), system.nodes.end (), [&](std::shared_ptr<rai::node> const & node_a) { return node_a->active.active (*send_block); }));
 		system.poll ();
 		++iterations;
-		ASSERT_LT (iterations, 200);
+		ASSERT_LT (iterations, 600);
 	}
 }

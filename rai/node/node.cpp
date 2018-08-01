@@ -773,9 +773,12 @@ std::pair<rai::uint128_t, size_t> rai::rep_xor_solver::validate_staple (rai::blo
 		rai::uint256_union l_base;
 		blake2b_state l_base_hasher;
 		blake2b_init (&l_base_hasher, sizeof (l_base));
+		std::sort (possibility.begin (), possibility.end (), [](uint64_t * a, uint64_t * b) {
+			return *reinterpret_cast<rai::account *> (a) < *reinterpret_cast<rai::account *> (b);
+		});
 		for (auto rep : possibility)
 		{
-			blake2b_update (&l_base_hasher, reinterpret_cast<uint8_t *> (rep), sizeof (rai::account));
+			blake2b_update (&l_base_hasher, rep, sizeof (rai::account));
 		}
 		blake2b_final (&l_base_hasher, l_base.bytes.data (), sizeof (l_base));
 		bool first_rep (true);
@@ -796,12 +799,14 @@ std::pair<rai::uint128_t, size_t> rai::rep_xor_solver::validate_staple (rai::blo
 			if (first_rep)
 			{
 				agg_pubkey_expanded = pubkey;
+				first_rep = false;
 			}
 			else
 			{
 				ge25519_add (&agg_pubkey_expanded, &agg_pubkey_expanded, &pubkey);
 			}
 		}
+		assert (!first_rep);
 		rai::public_key agg_pubkey;
 		ge25519_pack (agg_pubkey.bytes.data (), &agg_pubkey_expanded);
 		agg_pubkey.bytes[31] ^= 1 << 7;
@@ -811,6 +816,7 @@ std::pair<rai::uint128_t, size_t> rai::rep_xor_solver::validate_staple (rai::blo
 			{
 				solution.push_back (*reinterpret_cast<rai::account *> (rep));
 			}
+			break;
 		}
 	}
 	if (solution.empty ())
@@ -985,7 +991,7 @@ public:
 	{
 		if (node.config.logging.network_musig_logging ())
 		{
-			BOOST_LOG (node.log) << boost::str (boost::format ("Musig stage0 request from %1% for %2%") % sender % message_a.block->hash ().to_string ());
+			BOOST_LOG (node.log) << boost::str (boost::format ("MuSig stage0 request from %1% for %2% requesting rep %3%") % sender % message_a.block->hash ().to_string () % message_a.rep_requested.to_account ());
 		}
 		node.stats.inc (rai::stat::type::message, rai::stat::detail::musig_stage0_req, rai::stat::dir::in);
 		if (node.config.enable_voting)
@@ -1105,7 +1111,11 @@ public:
 			BOOST_LOG (node.log) << boost::str (boost::format ("Publish vote staple for block %1% from %2% with reps xor %3% and signature %4%") % message_a.block->hash ().to_string () % sender % message_a.reps_xor.to_string () % message_a.signature.to_string ());
 		}
 		node.stats.inc (rai::stat::type::message, rai::stat::detail::publish_vote_staple, rai::stat::dir::in);
-		auto staple_info (node.rep_xor_solver.validate_staple (message_a.block->hash (), message_a.reps_xor, message_a.signature));
+		std::pair<rai::uint128_t, size_t> staple_info (0, std::numeric_limits<size_t>::max ());
+		if (!message_a.reps_xor.is_zero ())
+		{
+			staple_info = node.rep_xor_solver.validate_staple (message_a.block->hash (), message_a.reps_xor, message_a.signature);
+		}
 		node.peers.contacted (sender, message_a.header.version_using);
 		auto confirmed (staple_info.first >= node.online_reps.online_stake () / 5 * 3 && staple_info.second <= node.top_reps_confirmation_cutoff);
 		if (!node.block_arrival.add (message_a.block->hash (), std::make_pair (message_a.reps_xor, message_a.signature), confirmed, staple_info.first))
@@ -1360,7 +1370,8 @@ rep_endpoints (endpoints_a)
 }
 
 rai::vote_staple_requester::vote_staple_requester (rai::node & node_a) :
-node (node_a)
+node (node_a),
+force_full_broadcast (false)
 {
 	node.observers.started.add ([this]() {
 		calculate_weight_cutoff ();
@@ -1435,21 +1446,18 @@ void rai::vote_staple_requester::request_staple_inner (std::shared_ptr<rai::stat
 	std::unordered_set<rai::account> requested_reps;
 	std::unordered_map<rai::account, std::vector<rai::endpoint>> rep_endpoints;
 	rai::uint128_t total_weight;
-	for (auto peer : node.peers.representatives (50))
-	{
-		auto rep (peer.probable_rep_account);
+	auto add_rep ([&](rai::endpoint endpoint, rai::account rep, rai::uint128_t rep_weight) {
 		if (blacklisted_reps.find (rep) != blacklisted_reps.end ())
 		{
-			continue;
+			return false;
 		}
-		auto rep_weight (peer.rep_weight.number ());
 		if (rep_weight < weight_cutoff)
 		{
-			break;
+			return true;
 		}
-		rep_endpoints[rep].push_back (peer.endpoint);
+		rep_endpoints[rep].push_back (endpoint);
 		requested_reps.insert (rep);
-		node.network.send_musig_stage0_req (peer.endpoint, block, rep);
+		node.network.send_musig_stage0_req (endpoint, block, rep);
 		rai::uint128_t last_total_weight (total_weight);
 		total_weight += rep_weight;
 		if (total_weight < last_total_weight)
@@ -1459,26 +1467,33 @@ void rai::vote_staple_requester::request_staple_inner (std::shared_ptr<rai::stat
 		}
 		if (requested_reps.size () > 16)
 		{
+			return true;
+		}
+		return false;
+	});
+	for (auto peer : node.peers.representatives (50))
+	{
+		if (add_rep (peer.endpoint, peer.probable_rep_account, peer.rep_weight.number ()))
+		{
 			break;
 		}
+	}
+	if (node.config.enable_voting)
+	{
+		rai::transaction transaction (node.store.environment, nullptr, false);
+		node.wallets.foreach_representative (transaction, [&](rai::public_key const & pub, rai::raw_key const & prv) {
+			add_rep (node.network.endpoint (), pub, node.ledger.weight (transaction, pub));
+		});
 	}
 	auto result (false);
 	if (total_weight < node.online_reps.online_stake () / 10 * 7)
 	{
-		if (full_broadcast_blocks.size () < max_full_broadcast_blocks)
+		full_broadcast_blocks.insert (block->hash ());
+		for (auto peer : node.peers.peers)
 		{
-			full_broadcast_blocks.insert (block->hash ());
-			for (auto peer : node.peers.peers)
-			{
-				node.network.send_musig_stage0_req (peer.endpoint, block, rai::account (0));
-			}
-			node.network.send_musig_stage0_req (node.network.endpoint (), block, rai::account (0));
+			node.network.send_musig_stage0_req (peer.endpoint, block, rai::account (0));
 		}
-		else
-		{
-			result = true;
-			callback (true, rai::uint256_union (), rai::signature ());
-		}
+		node.network.send_musig_stage0_req (node.network.endpoint (), block, rai::account (0));
 	}
 	if (!result)
 	{
@@ -1561,7 +1576,7 @@ void rai::vote_staple_requester::musig_stage0_res (rai::endpoint const & source,
 					blake2b_init (&l_base_hasher, sizeof (l_base));
 					for (auto rb_values_it : stage0_status.rb_values)
 					{
-						blake2b_update (&l_base_hasher, rb_values_it.first.bytes.data (), sizeof (rb_values_it.first));
+						blake2b_update (&l_base_hasher, rb_values_it.first.bytes.data (), rb_values_it.first.bytes.size ());
 					}
 					blake2b_final (&l_base_hasher, l_base.bytes.data (), sizeof (l_base));
 					bool first_rep (true);
@@ -2651,11 +2666,6 @@ void rai::vote_processor::flush ()
 	}
 }
 
-rai::rep_crawler::rep_crawler () :
-disabled (false)
-{
-}
-
 void rai::rep_crawler::add (rai::block_hash const & hash_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
@@ -2671,7 +2681,7 @@ void rai::rep_crawler::remove (rai::block_hash const & hash_a)
 bool rai::rep_crawler::exists (rai::block_hash const & hash_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
-	return !disabled && active.count (hash_a) != 0;
+	return active.count (hash_a) != 0;
 }
 
 rai::block_processor::block_processor (rai::node & node_a) :
@@ -3639,7 +3649,6 @@ void rai::node::start ()
 	port_mapping.start ();
 	add_initial_peers ();
 	observers.started.notify ();
-	rep_query (*this, network.endpoint ());
 }
 
 void rai::node::stop ()
