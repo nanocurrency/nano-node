@@ -1,10 +1,12 @@
+#include <rai/node/stats.hpp>
+
 #include <boost/asio.hpp>
 #include <boost/format.hpp>
 #include <boost/property_tree/json_parser.hpp>
 #include <ctime>
 #include <fstream>
 #include <iostream>
-#include <rai/node/stats.hpp>
+#include <memory>
 #include <sstream>
 #include <tuple>
 

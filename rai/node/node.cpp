@@ -1758,13 +1758,9 @@ stats (config.stat_config)
 		this->network.send_keepalive (endpoint_a);
 		rep_query (*this, endpoint_a);
 	});
-	observers.vote.add ([this](std::shared_ptr<rai::vote> vote_a, rai::endpoint const &) {
-		this->gap_cache.vote (vote_a);
-	});
-	observers.vote.add ([this](std::shared_ptr<rai::vote> vote_a, rai::endpoint const &) {
-		this->online_reps.vote (vote_a);
-	});
 	observers.vote.add ([this](std::shared_ptr<rai::vote> vote_a, rai::endpoint const & endpoint_a) {
+		this->gap_cache.vote (vote_a);
+		this->online_reps.vote (vote_a);
 		rai::uint128_t rep_weight;
 		rai::uint128_t min_rep_weight;
 		{
@@ -3374,7 +3370,8 @@ last_bootstrap_attempt (std::chrono::steady_clock::time_point ()),
 last_rep_request (std::chrono::steady_clock::time_point ()),
 last_rep_response (std::chrono::steady_clock::time_point ()),
 rep_weight (0),
-node_id ()
+node_id (),
+network_version (rai::protocol_version)
 {
 }
 
