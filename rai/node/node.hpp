@@ -568,10 +568,12 @@ private:
 class rep_crawler
 {
 public:
+	rep_crawler ();
 	void add (rai::block_hash const &);
 	void remove (rai::block_hash const &);
 	bool exists (rai::block_hash const &);
 	std::mutex mutex;
+	bool disabled;
 	std::unordered_set<rai::block_hash> active;
 };
 // Processing blocks is a potentially long IO operation

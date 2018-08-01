@@ -1537,7 +1537,7 @@ void rai::vote_staple_requester::musig_stage0_res (rai::endpoint const & source,
 		auto stage0_status_it (stage0_statuses.find (block_hash));
 		if (stage0_status_it != stage0_statuses.end ())
 		{
-			auto stage0_status (stage0_status_it->second);
+			auto & stage0_status (stage0_status_it->second);
 			if (request_id_it == request_ids.end ())
 			{
 				// This was a full broadcast block
@@ -2651,6 +2651,11 @@ void rai::vote_processor::flush ()
 	}
 }
 
+rai::rep_crawler::rep_crawler () :
+disabled (false)
+{
+}
+
 void rai::rep_crawler::add (rai::block_hash const & hash_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
@@ -2666,7 +2671,7 @@ void rai::rep_crawler::remove (rai::block_hash const & hash_a)
 bool rai::rep_crawler::exists (rai::block_hash const & hash_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
-	return active.count (hash_a) != 0;
+	return !disabled && active.count (hash_a) != 0;
 }
 
 rai::block_processor::block_processor (rai::node & node_a) :
@@ -4520,7 +4525,7 @@ size_t rai::peer_container::size ()
 
 size_t rai::peer_container::size_sqrt ()
 {
-	auto result (std::ceil (std::sqrt (size ())));
+	auto result (std::max ((size_t) 4, (size_t) std::ceil (std::sqrt (size ()))));
 	return result;
 }
 

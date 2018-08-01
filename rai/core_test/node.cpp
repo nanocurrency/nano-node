@@ -1619,6 +1619,8 @@ TEST (node, vote_stapling)
 	rai::keypair rep2;
 	rai::keypair rep3;
 	rai::keypair rep4;
+	// Rep weights will be changing a lot in this first part, so caching them like rep_crawler does is a bad idea
+	system.nodes[0]->rep_crawler.disabled = true;
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	{
 		rai::transaction transaction (system.nodes[1]->store.environment, nullptr, true);
@@ -1646,7 +1648,7 @@ TEST (node, vote_stapling)
 	{
 		system.poll ();
 		++iterations;
-		ASSERT_LT (iterations, 600);
+		ASSERT_LT (iterations, 1000);
 	}
 	ASSERT_NE (nullptr, system.wallet (0)->send_action (rai::genesis_account, rep2.pub, rai::genesis_amount / 10 * 3));
 	iterations = 0;
@@ -1654,7 +1656,7 @@ TEST (node, vote_stapling)
 	{
 		system.poll ();
 		++iterations;
-		ASSERT_LT (iterations, 600);
+		ASSERT_LT (iterations, 1000);
 	}
 	ASSERT_NE (nullptr, system.wallet (0)->send_action (rai::genesis_account, rep3.pub, rai::genesis_amount / 10 * 2));
 	iterations = 0;
@@ -1662,7 +1664,7 @@ TEST (node, vote_stapling)
 	{
 		system.poll ();
 		++iterations;
-		ASSERT_LT (iterations, 600);
+		ASSERT_LT (iterations, 1000);
 	}
 	ASSERT_NE (nullptr, system.wallet (0)->send_action (rai::genesis_account, rep4.pub, rai::genesis_amount / 10 * 1));
 	iterations = 0;
@@ -1670,24 +1672,25 @@ TEST (node, vote_stapling)
 	{
 		system.poll ();
 		++iterations;
-		ASSERT_LT (iterations, 600);
+		ASSERT_LT (iterations, 1000);
 	}
 	system.nodes[0]->config.enable_voting = false;
 	// generate some activity so online_reps picks up
 	ASSERT_NE (nullptr, system.wallet (0)->send_action (rai::genesis_account, rai::account (0), system.nodes[0]->config.receive_minimum.number ()));
 	iterations = 0;
+	system.nodes[0]->rep_crawler.disabled = false;
 	while (std::any_of (system.nodes.begin (), system.nodes.end (), [&](std::shared_ptr<rai::node> const & node_a) { return node_a->online_reps.online_stake () < rai::genesis_amount / 10 * 9; }))
 	{
 		system.poll ();
 		++iterations;
-		ASSERT_LT (iterations, 300);
+		ASSERT_LT (iterations, 1000);
 	}
 	iterations = 0;
 	while (std::any_of (system.nodes.begin (), system.nodes.end (), [&](std::shared_ptr<rai::node> const & node_a) { return node_a->peers.representatives (-1).size () < 4; }))
 	{
 		system.poll ();
 		++iterations;
-		ASSERT_LT (iterations, 300);
+		ASSERT_LT (iterations, 500);
 	}
 	system.nodes[4]->stop ();
 	// Setup is finished; test that vote stapling works
