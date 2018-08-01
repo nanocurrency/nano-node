@@ -1524,7 +1524,7 @@ void rai::receive_hashables::hash (blake2b_state & hash_a) const
 	blake2b_update (&hash_a, source.bytes.data (), sizeof (source.bytes));
 }
 
-bool rai::validate_blocks (std::vector<rai::state_block> const & blocks, int * valid)
+bool rai::validate_blocks (std::vector<rai::state_block> const & blocks, int * valid, rai::uint256_union epoch_link, rai::account epoch_signer)
 {
 	size_t batch_count (blocks.size ());
 	if (batch_count != 0)
@@ -1535,7 +1535,15 @@ bool rai::validate_blocks (std::vector<rai::state_block> const & blocks, int * v
 		for (auto i (0); i < batch_count; i++)
 		{
 			messages[i] = blocks[i].hash ();
-			public_keys[i] = blocks[i].hashables.account;
+			if (!epoch_link.is_zero () && blocks[i].hashables.link == epoch_link)
+			{
+				// Epoch blocks
+				public_keys[i] = epoch_signer;
+			}
+			else
+			{
+				public_keys[i] = blocks[i].hashables.account;
+			}
 			signatures[i] = blocks[i].signature;
 		}
 		auto result (rai::validate_messages (public_keys, messages, signatures, batch_count, valid));

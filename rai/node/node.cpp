@@ -1327,7 +1327,14 @@ void rai::block_processor::add (std::shared_ptr<rai::block> block_a, std::chrono
 	if (!rai::work_validate (block_a->root (), block_a->block_work ()))
 	{
 		std::lock_guard<std::mutex> lock (mutex);
-		blocks.push_front (std::make_pair (block_a, origination));
+		if (block_a->type () == rai::block_type::state)
+		{
+			state_blocks.push_back (std::make_pair (block_a, origination));
+		}
+		else
+		{
+			blocks.push_front (std::make_pair (block_a, origination));
+		}
 		condition.notify_all ();
 	}
 	else
@@ -1390,8 +1397,33 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 		auto cutoff (std::chrono::steady_clock::now () + rai::transaction_timeout);
 		lock_a.lock ();
 		auto count (0);
-		std::vector<std::pair<std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point>> validated_blocks;
-		std::vector<rai::block_hash> validated_hashes;
+		// Batch signatures verification for state blocks
+		if (!state_blocks.empty ())
+		{
+			std::pair<std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point> block;
+			std::vector<rai::state_block> state_vector;
+			std::vector<std::chrono::steady_clock::time_point> time_points;
+			while (state_blocks.empty ())
+			{
+				block = state_blocks.front ();
+				state_blocks.pop_front ();
+				if (!node.ledger.store.block_exists (transaction, block.first->hash ()))
+				{
+					state_vector.push_back (static_cast<rai::state_block const &> (*block.first));
+					time_points.push_back (block.second);
+				}
+			}
+			int valid[state_vector.size ()];
+			validate_blocks (state_vector, valid);
+			for (auto i (0); i != state_vector.size (); ++i)
+			{
+				if (valid[i] == 1)
+				{
+					blocks.push_back (std::make_pair (std::make_shared<rai::block> (state_vector[i]), time_points[i]));
+				}
+			}
+		}
+		// Processing blocks
 		while (have_blocks () && count < 16384)
 		{
 			if (blocks.size () > 64 && should_log ())
@@ -1423,56 +1455,8 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 					node.ledger.rollback (transaction, successor->hash ());
 				}
 			}
-			// Batch signatures verification for state blocks
-			if (block.first->type () == rai::block_type::state && block.first->link () != node.ledger.epoch_link)
-			{
-				if (!node.ledger.store.block_exists (transaction, hash))
-				{
-					if (std::find (validated_hashes.begin (), validated_hashes.end (), hash) == validated_hashes.end ())
-					{
-						validated_blocks.push_back (block);
-						validated_hashes.push_back (hash);
-					}
-				}
-				else if (node.config.logging.ledger_duplicate_logging ())
-				{
-					BOOST_LOG (node.log) << boost::str (boost::format ("Old for: %1%") % hash.to_string ());
-					queue_unchecked (transaction, hash);
-				}
-			}
-			else
-			{
-				auto process_result (process_receive_one (transaction, block.first, block.second));
-				(void)process_result;
-			}
-			if ((blocks.empty () && forced.empty ()) || validated_blocks.size () == 64 || count == (16384 - 1))
-			{
-				if (!validated_blocks.empty ())
-				{
-					std::reverse (validated_blocks.begin (), validated_blocks.end ());
-					std::vector<rai::state_block> state_blocks;
-					for (auto i (0); i != validated_blocks.size (); ++i)
-					{
-						state_blocks.push_back (static_cast<rai::state_block const &> (*validated_blocks[i].first));
-					}
-					int valid[validated_blocks.size ()];
-					validate_blocks (state_blocks, valid);
-					for (auto i (0); i != validated_blocks.size (); ++i)
-					{
-						if (valid[i] == 1)
-						{
-							auto process_result (process_receive_one (transaction, validated_blocks[i].first, validated_blocks[i].second, true));
-							(void)process_result;
-						}
-						else if (node.config.logging.ledger_logging ())
-						{
-							BOOST_LOG (node.log) << boost::str (boost::format ("Bad signature for: %1%") % state_blocks[i].hash ().to_string ());
-						}
-					}
-					validated_blocks.clear ();
-					validated_hashes.clear ();
-				}
-			}
+			auto process_result (process_receive_one (transaction, block.first, block.second, !force));
+			(void)process_result;
 			lock_a.lock ();
 			++count;
 		}
@@ -1480,11 +1464,11 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 	lock_a.unlock ();
 }
 
-rai::process_return rai::block_processor::process_receive_one (MDB_txn * transaction_a, std::shared_ptr<rai::block> block_a, std::chrono::steady_clock::time_point origination, bool valid_signature)
+rai::process_return rai::block_processor::process_receive_one (MDB_txn * transaction_a, std::shared_ptr<rai::block> block_a, std::chrono::steady_clock::time_point origination, bool validated_state_block)
 {
 	rai::process_return result;
 	auto hash (block_a->hash ());
-	result = node.ledger.process (transaction_a, *block_a, valid_signature);
+	result = node.ledger.process (transaction_a, *block_a, validated_state_block);
 	switch (result.code)
 	{
 		case rai::process_result::progress:

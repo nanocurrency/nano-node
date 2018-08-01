@@ -306,5 +306,5 @@ std::unique_ptr<rai::block> deserialize_block (rai::stream &);
 std::unique_ptr<rai::block> deserialize_block (rai::stream &, rai::block_type);
 std::unique_ptr<rai::block> deserialize_block_json (boost::property_tree::ptree const &);
 void serialize_block (rai::stream &, rai::block const &);
-bool validate_blocks (std::vector<rai::state_block> const &, int *);
+bool validate_blocks (std::vector<rai::state_block> const &, int *, rai::uint256_union = 0, rai::account = 0);
 }
