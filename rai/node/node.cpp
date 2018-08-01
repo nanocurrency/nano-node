@@ -3624,6 +3624,7 @@ void rai::active_transactions::announce_votes ()
 void rai::active_transactions::stop ()
 {
 	std::lock_guard<std::mutex> lock (mutex);
+	stopped = true;
 	roots.clear ();
 }
 
@@ -3635,16 +3636,21 @@ bool rai::active_transactions::start (std::shared_ptr<rai::block> block_a, std::
 bool rai::active_transactions::start (std::pair<std::shared_ptr<rai::block>, std::shared_ptr<rai::block>> blocks_a, std::function<void(std::shared_ptr<rai::block>)> const & confirmation_action_a)
 {
 	assert (blocks_a.first != nullptr);
+	auto error (true);
 	std::lock_guard<std::mutex> lock (mutex);
-	auto primary_block (blocks_a.first);
-	auto root (primary_block->root ());
-	auto existing (roots.find (root));
-	if (existing == roots.end ())
+	if (!stopped)
 	{
-		auto election (std::make_shared<rai::election> (node, primary_block, confirmation_action_a));
-		roots.insert (rai::conflict_info{ root, election, 0, blocks_a });
+		auto primary_block (blocks_a.first);
+		auto root (primary_block->root ());
+		auto existing (roots.find (root));
+		if (existing == roots.end ())
+		{
+			auto election (std::make_shared<rai::election> (node, primary_block, confirmation_action_a));
+			roots.insert (rai::conflict_info{ root, election, 0, blocks_a });
+		}
+		error = existing != roots.end ();
 	}
-	return existing != roots.end ();
+	return error;
 }
 
 // Validate a vote and apply it to the current election if one exists
@@ -3697,7 +3703,8 @@ void rai::active_transactions::erase (rai::block const & block_a)
 }
 
 rai::active_transactions::active_transactions (rai::node & node_a) :
-node (node_a)
+node (node_a),
+stopped (false)
 {
 }
 
