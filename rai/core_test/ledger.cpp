@@ -2352,3 +2352,21 @@ TEST (ledger, epoch_blocks_receive_upgrade)
 	rai::open_block open2 (send3.hash (), destination2.pub, destination2.pub, destination2.prv, destination2.pub, 0);
 	ASSERT_EQ (rai::process_result::unreceivable, ledger.process (transaction, open2).code);
 }
+
+TEST (ledger, epoch_blocks_fork)
+{
+	bool init (false);
+	rai::block_store store (init, rai::unique_path ());
+	ASSERT_TRUE (!init);
+	rai::stat stats;
+	rai::keypair epoch_key;
+	rai::ledger ledger (store, stats, 123, epoch_key.pub);
+	rai::genesis genesis;
+	rai::transaction transaction (store.environment, nullptr, true);
+	genesis.initialize (transaction, store);
+	rai::keypair destination;
+	rai::send_block send1 (genesis.hash (), rai::account (0), rai::genesis_amount, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
+	ASSERT_EQ (rai::process_result::progress, ledger.process (transaction, send1).code);
+	rai::state_block epoch1 (rai::genesis_account, genesis.hash (), rai::genesis_account, rai::genesis_amount, 123, epoch_key.prv, epoch_key.pub, 0);
+	ASSERT_EQ (rai::process_result::fork, ledger.process (transaction, epoch1).code);
+}

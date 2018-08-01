@@ -181,16 +181,27 @@ public:
 
 void ledger_processor::state_block (rai::state_block const & block_a)
 {
+	result.code = rai::process_result::progress;
 	// Check if this is an epoch block
-	rai::account_info info;
-	ledger.store.account_get (transaction, block_a.hashables.account, info);
-	if (block_a.hashables.balance == info.balance && !ledger.epoch_link.is_zero () && block_a.hashables.link == ledger.epoch_link)
+	rai::amount prev_balance (0);
+	if (!block_a.hashables.previous.is_zero ())
 	{
-		epoch_block_impl (block_a);
+		result.code = ledger.store.block_exists (transaction, block_a.hashables.previous) ? rai::process_result::progress : rai::process_result::gap_previous;
+		if (result.code == rai::process_result::progress)
+		{
+			prev_balance = ledger.balance (transaction, block_a.hashables.previous);
+		}
 	}
-	else
+	if (result.code == rai::process_result::progress)
 	{
-		state_block_impl (block_a);
+		if (block_a.hashables.balance == prev_balance && !ledger.epoch_link.is_zero () && block_a.hashables.link == ledger.epoch_link)
+		{
+			epoch_block_impl (block_a);
+		}
+		else
+		{
+			state_block_impl (block_a);
+		}
 	}
 }
 
