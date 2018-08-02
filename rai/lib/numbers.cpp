@@ -430,7 +430,7 @@ bool rai::validate_message (rai::public_key const & public_key, rai::uint256_uni
 
 bool rai::validate_messages (std::vector<rai::public_key> const & public_keys, std::vector<rai::uint256_union> const & messages, std::vector<rai::uint512_union> const & signatures, size_t batch_count, int * valid)
 {
-#ifdef MSVC
+#ifdef _MSC_VER
 	// MSVC workaround
 	bool result (true);
 	for (auto i (0); i < batch_count; i++)
