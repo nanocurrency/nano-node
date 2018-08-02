@@ -119,6 +119,7 @@ public:
 	static unsigned constexpr announcement_long = 20;
 	static unsigned constexpr announce_interval_ms = (rai::rai_network == rai::rai_networks::rai_test_network) ? 10 : 16000;
 	static size_t constexpr election_history_size = 2048;
+
 private:
 	void announce_loop ();
 	void announce_votes ();

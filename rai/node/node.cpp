@@ -3719,8 +3719,8 @@ rai::active_transactions::active_transactions (rai::node & node_a) :
 node (node_a),
 started (false),
 stopped (false),
-thread ([this] () {announce_loop ();})
-{	
+thread ([this]() { announce_loop (); })
+{
 	std::unique_lock<std::mutex> lock (mutex);
 	while (!started)
 	{
