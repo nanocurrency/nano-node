@@ -25,6 +25,7 @@ TEST (ed25519, signing)
 	ASSERT_NE (0, valid2);
 }
 
+#ifndef _MSC_VER
 TEST (ed25519, signing_batch)
 {
 	std::vector<rai::state_block> blocks;
@@ -56,6 +57,7 @@ TEST (ed25519, signing_batch)
 	ASSERT_EQ (0, valid[3]);
 	ASSERT_FALSE (all_invalid);
 }
+#endif
 
 TEST (transaction_block, empty)
 {

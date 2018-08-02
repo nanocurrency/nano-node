@@ -428,20 +428,9 @@ bool rai::validate_message (rai::public_key const & public_key, rai::uint256_uni
 	return result;
 }
 
+#ifndef _MSC_VER
 bool rai::validate_messages (std::vector<rai::public_key> const & public_keys, std::vector<rai::uint256_union> const & messages, std::vector<rai::uint512_union> const & signatures, size_t batch_count, int * valid)
 {
-#ifdef _MSC_VER
-	// MSVC workaround
-	bool result (true);
-	for (auto i (0); i < batch_count; i++)
-	{
-		valid[i] = !validate_message (public_keys[i], messages[i], signatures[i]);
-		if (result && valid[i])
-		{
-			result = false;
-		}
-	}
-#else
 	size_t messages_lengths[batch_count];
 	const unsigned char * messages_pointers[batch_count];
 	const unsigned char * public_keys_pointers[batch_count];
@@ -454,9 +443,9 @@ bool rai::validate_messages (std::vector<rai::public_key> const & public_keys, s
 		signatures_pointers[i] = signatures[i].bytes.data ();
 	}
 	bool result (0 != ed25519_sign_open_batch (messages_pointers, messages_lengths, public_keys_pointers, signatures_pointers, batch_count, valid));
-#endif
 	return result;
 }
+#endif
 
 rai::uint128_union::uint128_union (std::string const & string_a)
 {

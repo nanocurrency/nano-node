@@ -1524,6 +1524,7 @@ void rai::receive_hashables::hash (blake2b_state & hash_a) const
 	blake2b_update (&hash_a, source.bytes.data (), sizeof (source.bytes));
 }
 
+#ifndef _MSC_VER
 bool rai::validate_blocks (std::vector<rai::state_block> const & blocks, int * valid, rai::uint256_union epoch_link, rai::account epoch_signer)
 {
 	size_t batch_count (blocks.size ());
@@ -1554,3 +1555,4 @@ bool rai::validate_blocks (std::vector<rai::state_block> const & blocks, int * v
 		return 1;
 	}
 }
+#endif

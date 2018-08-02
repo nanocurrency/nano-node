@@ -1327,6 +1327,7 @@ void rai::block_processor::add (std::shared_ptr<rai::block> block_a, std::chrono
 	if (!rai::work_validate (block_a->root (), block_a->block_work ()))
 	{
 		std::lock_guard<std::mutex> lock (mutex);
+#ifndef _MSC_VER
 		if (block_a->type () == rai::block_type::state)
 		{
 			state_blocks.push_back (std::make_pair (block_a, origination));
@@ -1335,6 +1336,9 @@ void rai::block_processor::add (std::shared_ptr<rai::block> block_a, std::chrono
 		{
 			blocks.push_front (std::make_pair (block_a, origination));
 		}
+#else
+		blocks.push_back (std::make_pair (block_a, origination));
+#endif
 		condition.notify_all ();
 	}
 	else
@@ -1397,6 +1401,7 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 		auto cutoff (std::chrono::steady_clock::now () + rai::transaction_timeout);
 		lock_a.lock ();
 		auto count (0);
+#ifndef _MSC_VER
 		// Batch signatures verification for state blocks
 		if (!state_blocks.empty ())
 		{
@@ -1423,6 +1428,7 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 				}
 			}
 		}
+#endif
 		// Processing blocks
 		while ((!blocks.empty () || !forced.empty ()) && count < 16384)
 		{
@@ -1455,7 +1461,11 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 					node.ledger.rollback (transaction, successor->hash ());
 				}
 			}
+#ifndef _MSC_VER
 			auto process_result (process_receive_one (transaction, block.first, block.second, !force));
+#else
+			auto process_result (process_receive_one (transaction, block.first, block.second, false));
+#endif
 			(void)process_result;
 			lock_a.lock ();
 			++count;
