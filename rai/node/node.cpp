@@ -2171,7 +2171,6 @@ void rai::node::start ()
 	ongoing_rep_crawl ();
 	bootstrap.start ();
 	backup_wallet ();
-	active.announce_votes ();
 	online_reps.recalculate_stake ();
 	port_mapping.start ();
 	add_initial_peers ();
@@ -3532,7 +3531,6 @@ void rai::active_transactions::announce_votes ()
 {
 	std::vector<rai::block_hash> inactive;
 	rai::transaction transaction (node.store.environment, nullptr, false);
-	std::lock_guard<std::mutex> lock (mutex);
 	unsigned unconfirmed_count (0);
 	unsigned unconfirmed_announcements (0);
 
@@ -3611,21 +3609,36 @@ void rai::active_transactions::announce_votes ()
 	{
 		BOOST_LOG (node.log) << boost::str (boost::format ("%1% blocks have been unconfirmed averaging %2% announcements") % unconfirmed_count % (unconfirmed_announcements / unconfirmed_count));
 	}
-	auto now (std::chrono::steady_clock::now ());
-	std::weak_ptr<rai::node> node_w (node.shared ());
-	node.alarm.add (now + std::chrono::milliseconds (announce_interval_ms), [node_w]() {
-		if (auto node_l = node_w.lock ())
-		{
-			node_l->active.announce_votes ();
-		}
-	});
+}
+
+void rai::active_transactions::announce_loop ()
+{
+	std::unique_lock<std::mutex> lock (mutex);
+	started = true;
+	condition.notify_all ();
+	while (!stopped)
+	{
+		announce_votes ();
+		condition.wait_for (lock, std::chrono::milliseconds (announce_interval_ms));
+	}
 }
 
 void rai::active_transactions::stop ()
 {
-	std::lock_guard<std::mutex> lock (mutex);
-	stopped = true;
-	roots.clear ();
+	{
+		std::unique_lock<std::mutex> lock (mutex);
+		while (!started)
+		{
+			condition.wait (lock);
+		}
+		stopped = true;
+		roots.clear ();
+		condition.notify_all ();
+	}
+	if (thread.joinable ())
+	{
+		thread.join ();
+	}
 }
 
 bool rai::active_transactions::start (std::shared_ptr<rai::block> block_a, std::function<void(std::shared_ptr<rai::block>)> const & confirmation_action_a)
@@ -3704,8 +3717,15 @@ void rai::active_transactions::erase (rai::block const & block_a)
 
 rai::active_transactions::active_transactions (rai::node & node_a) :
 node (node_a),
-stopped (false)
-{
+started (false),
+stopped (false),
+thread ([this] () {announce_loop ();})
+{	
+	std::unique_lock<std::mutex> lock (mutex);
+	while (!started)
+	{
+		condition.wait (lock);
+	}
 }
 
 int rai::node::store_version ()
