@@ -435,7 +435,7 @@ bool rai::validate_messages (std::vector<rai::public_key> const & public_keys, s
 	bool result (true);
 	for (auto i (0); i < batch_count; i++)
 	{
-		valid[i] = !validate_message(public_keys[i], messages[i], signatures[i]);
+		valid[i] = !validate_message (public_keys[i], messages[i], signatures[i]);
 		if (result && valid[i])
 		{
 			result = false;
