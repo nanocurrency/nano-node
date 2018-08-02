@@ -442,7 +442,7 @@ bool rai::validate_messages (std::vector<rai::public_key> const & public_keys, s
 		public_keys_pointers[i] = public_keys[i].bytes.data ();
 		signatures_pointers[i] = signatures[i].bytes.data ();
 	}
-	bool result (0 != ed25519_sign_open_batch (messages_pointers, messages_lengths, public_keys_pointers, signatures_pointers, batch_count, valid));
+	bool result (0 == ed25519_sign_open_batch (messages_pointers, messages_lengths, public_keys_pointers, signatures_pointers, batch_count, valid));
 	return result;
 }
 #endif

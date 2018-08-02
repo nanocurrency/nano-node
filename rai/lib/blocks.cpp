@@ -1547,7 +1547,7 @@ bool rai::validate_blocks (std::vector<rai::state_block> const & blocks, int * v
 			}
 			signatures[i] = blocks[i].signature;
 		}
-		auto result (rai::validate_messages (public_keys, messages, signatures, batch_count, valid));
+		bool result (rai::validate_messages (public_keys, messages, signatures, batch_count, valid));
 		return result;
 	}
 	else

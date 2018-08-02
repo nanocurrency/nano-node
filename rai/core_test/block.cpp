@@ -39,6 +39,9 @@ TEST (ed25519, signing_batch)
 	ASSERT_EQ (0, valid1);
 	auto valid2 (ed25519_sign_open (block2.hash ().bytes.data (), sizeof (block2.hash ().bytes), block2.hashables.account.bytes.data (), block2.signature.bytes.data ()));
 	ASSERT_EQ (0, valid2);
+	int valid0[blocks.size ()];
+	bool all_valid0 (validate_blocks (blocks, valid0));
+	ASSERT_TRUE (all_valid0);
 	rai::uint512_union signature (block1.signature);
 	signature.bytes[32] ^= 0x1;
 	block1.signature_set (signature);
@@ -50,12 +53,12 @@ TEST (ed25519, signing_batch)
 	auto valid4 (ed25519_sign_open (block2.hash ().bytes.data (), sizeof (block2.hash ().bytes), block2.hashables.account.bytes.data (), block2.signature.bytes.data ()));
 	ASSERT_NE (0, valid4);
 	int valid[blocks.size ()];
-	bool all_invalid (validate_blocks (blocks, valid));
+	bool all_valid (validate_blocks (blocks, valid));
 	ASSERT_EQ (1, valid[0]);
 	ASSERT_EQ (1, valid[1]);
 	ASSERT_EQ (0, valid[2]);
 	ASSERT_EQ (0, valid[3]);
-	ASSERT_FALSE (all_invalid);
+	ASSERT_FALSE (all_valid);
 }
 #endif
 
