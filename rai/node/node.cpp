@@ -1310,7 +1310,7 @@ void rai::block_processor::stop ()
 void rai::block_processor::flush ()
 {
 	std::unique_lock<std::mutex> lock (mutex);
-	while (!stopped && (!blocks.empty () || active))
+	while (!stopped && (have_blocks () || active))
 	{
 		condition.wait (lock);
 	}
@@ -1387,7 +1387,7 @@ bool rai::block_processor::should_log ()
 bool rai::block_processor::have_blocks ()
 {
 	assert (!mutex.try_lock ());
-	return !blocks.empty () || !forced.empty ();
+	return !blocks.empty () || !forced.empty () || !state_blocks.empty ();
 }
 
 void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & lock_a)
@@ -1403,7 +1403,7 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 			std::pair<std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point> block;
 			std::vector<rai::state_block> state_vector;
 			std::vector<std::chrono::steady_clock::time_point> time_points;
-			while (state_blocks.empty ())
+			while (!state_blocks.empty ())
 			{
 				block = state_blocks.front ();
 				state_blocks.pop_front ();
@@ -1424,7 +1424,7 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 			}
 		}
 		// Processing blocks
-		while (have_blocks () && count < 16384)
+		while ((!blocks.empty () || !forced.empty ()) && count < 16384)
 		{
 			if (blocks.size () > 64 && should_log ())
 			{
