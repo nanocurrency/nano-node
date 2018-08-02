@@ -1692,3 +1692,40 @@ TEST (node, confirm_quorum)
 	}
 	ASSERT_EQ (0, system.nodes[0]->balance (rai::test_genesis_key.pub));
 }
+
+TEST (node, block_processor_signatures)
+{
+	rai::system system0 (24000, 1);
+	auto & node1 (*system0.nodes[0]);
+	system0.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	rai::block_hash latest (system0.nodes[0]->latest (rai::test_genesis_key.pub));
+	rai::keypair key1;
+	auto send1 (std::make_shared<rai::state_block> (rai::test_genesis_key.pub, latest, rai::test_genesis_key.pub, rai::genesis_amount - rai::Gxrb_ratio, key1.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
+	node1.work_generate_blocking (*send1);
+	rai::keypair key2;
+	auto send2 (std::make_shared<rai::state_block> (rai::test_genesis_key.pub, send1->hash (), rai::test_genesis_key.pub, rai::genesis_amount - 2 * rai::Gxrb_ratio, key2.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
+	node1.work_generate_blocking (*send2);
+	rai::keypair key3;
+	auto send3 (std::make_shared<rai::state_block> (rai::test_genesis_key.pub, send2->hash (), rai::test_genesis_key.pub, rai::genesis_amount - 3 * rai::Gxrb_ratio, key3.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
+	node1.work_generate_blocking (*send3);
+	auto receive1 (std::make_shared<rai::state_block> (key1.pub, 0, rai::test_genesis_key.pub, rai::Gxrb_ratio, send1->hash (), key1.prv, key1.pub, 0));
+	node1.work_generate_blocking (*receive1);
+	auto receive2 (std::make_shared<rai::state_block> (key2.pub, 0, rai::test_genesis_key.pub, rai::Gxrb_ratio, send2->hash (), key2.prv, key2.pub, 0));
+	node1.work_generate_blocking (*receive2);
+	auto receive3 (std::make_shared<rai::state_block> (key3.pub, 0, rai::test_genesis_key.pub, rai::Gxrb_ratio, send3->hash (), key2.prv, key3.pub, 0));
+	node1.work_generate_blocking (*receive3);
+	node1.process_active (send1);
+	node1.process_active (send2);
+	node1.process_active (send3);
+	node1.process_active (receive1);
+	node1.process_active (receive2);
+	node1.process_active (receive3);
+	node1.block_processor.flush ();
+	rai::transaction transaction (node1.store.environment, nullptr, false);
+	ASSERT_TRUE (node1.store.block_exists (transaction, send1->hash ()));
+	ASSERT_TRUE (node1.store.block_exists (transaction, send2->hash ()));
+	ASSERT_TRUE (node1.store.block_exists (transaction, send3->hash ()));
+	ASSERT_TRUE (node1.store.block_exists (transaction, receive1->hash ()));
+	ASSERT_TRUE (node1.store.block_exists (transaction, receive2->hash ()));
+	ASSERT_FALSE (node1.store.block_exists (transaction, receive3->hash ()));
+}
