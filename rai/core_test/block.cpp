@@ -49,12 +49,12 @@ TEST (ed25519, signing_batch)
 	auto valid4 (ed25519_sign_open (block2.hash ().bytes.data (), sizeof (block2.hash ().bytes), block2.hashables.account.bytes.data (), block2.signature.bytes.data ()));
 	ASSERT_NE (0, valid4);
 	int valid[blocks.size ()];
-	auto all_invalid (validate_blocks (blocks, valid));
+	bool all_invalid (validate_blocks (blocks, valid));
 	ASSERT_EQ (1, valid[0]);
 	ASSERT_EQ (1, valid[1]);
 	ASSERT_EQ (0, valid[2]);
 	ASSERT_EQ (0, valid[3]);
-	ASSERT_NE (0, all_invalid);
+	ASSERT_FALSE (all_invalid);
 }
 
 TEST (transaction_block, empty)
