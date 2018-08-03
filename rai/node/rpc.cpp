@@ -204,7 +204,7 @@ void rai::error_response (std::function<void(boost::property_tree::ptree const &
 
 void rai::rpc_handler::response_errors ()
 {
-	if (ec)
+	if (ec || response_l.empty ())
 	{
 		boost::property_tree::ptree response_error;
 		response_error.put ("error", ec.message ());
