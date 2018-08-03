@@ -511,8 +511,21 @@ class vote_processor
 {
 public:
 	vote_processor (rai::node &);
-	rai::vote_code vote (std::shared_ptr<rai::vote>, rai::endpoint);
+	void vote (std::shared_ptr<rai::vote>, rai::endpoint);
+	rai::vote_code vote_blocking (std::shared_ptr<rai::vote> vote_a, rai::endpoint endpoint_a);
+	void flush ();
 	rai::node & node;
+	void stop ();
+
+private:
+	void process_loop ();
+	std::deque<std::pair<std::shared_ptr<rai::vote>, rai::endpoint>> votes;
+	std::condition_variable condition;
+	std::mutex mutex;
+	bool started;
+	bool stopped;
+	bool active;
+	std::thread thread;
 };
 // The network is crawled for representatives by occasionally sending a unicast confirm_req for a specific block and watching to see if it's acknowledged with a vote.
 class rep_crawler
