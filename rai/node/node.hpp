@@ -512,7 +512,7 @@ class vote_processor
 public:
 	vote_processor (rai::node &);
 	void vote (std::shared_ptr<rai::vote>, rai::endpoint);
-	rai::vote_code vote_blocking (std::shared_ptr<rai::vote> vote_a, rai::endpoint endpoint_a);
+	rai::vote_code vote_blocking (MDB_txn *, std::shared_ptr<rai::vote>, rai::endpoint);
 	void flush ();
 	rai::node & node;
 	void stop ();
