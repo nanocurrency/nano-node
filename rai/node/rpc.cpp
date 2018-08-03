@@ -5,8 +5,6 @@
 #include <rai/lib/interface.h>
 #include <rai/node/node.hpp>
 
-#include <ed25519-donna/ed25519.h>
-
 #ifdef RAIBLOCKS_SECURE_RPC
 #include <rai/node/rpc_secure.hpp>
 #endif
@@ -1141,8 +1139,7 @@ void rai::rpc_handler::block_create ()
 		}
 		if (prv.data != 0)
 		{
-			rai::uint256_union pub;
-			ed25519_publickey (prv.data.bytes.data (), pub.bytes.data ());
+			rai::uint256_union pub (rai::pub_key (prv.data));
 			// Fetching account balance & previous for send blocks (if aren't given directly)
 			if (!previous_text.is_initialized () && !balance_text.is_initialized ())
 			{
@@ -1438,8 +1435,7 @@ void rai::rpc_handler::deterministic_key ()
 			uint32_t index (std::stoul (index_text));
 			rai::uint256_union prv;
 			rai::deterministic_key (seed.data, index, prv);
-			rai::uint256_union pub;
-			ed25519_publickey (prv.bytes.data (), pub.bytes.data ());
+			rai::uint256_union pub (rai::pub_key (prv));
 			response_l.put ("private", prv.to_string ());
 			response_l.put ("public", pub.to_string ());
 			response_l.put ("account", pub.to_account ());
@@ -1733,8 +1729,7 @@ void rai::rpc_handler::key_expand ()
 	rai::uint256_union prv;
 	if (!prv.decode_hex (key_text))
 	{
-		rai::uint256_union pub;
-		ed25519_publickey (prv.bytes.data (), pub.bytes.data ());
+		rai::uint256_union pub (rai::pub_key (prv));
 		response_l.put ("private", prv.to_string ());
 		response_l.put ("public", pub.to_string ());
 		response_l.put ("account", pub.to_account ());
