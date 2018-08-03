@@ -1471,7 +1471,7 @@ void rai::rpc_handler::frontiers ()
 		rai::transaction transaction (node.store.environment, nullptr, false);
 		for (auto i (node.store.latest_begin (transaction, start)), n (node.store.latest_end ()); i != n && frontiers.size () < count; ++i)
 		{
-			frontiers.put (rai::account (i->first.uint256 ()).to_account (), rai::account_info (i->second).head.to_string ());
+			frontiers.put (rai::account (i->first.uint256 ()).to_account (), rai::account_info (i->second, i->from_secondary_store ? rai::epoch::epoch_1 : rai::epoch::epoch_0).head.to_string ());
 		}
 		response_l.add_child ("frontiers", frontiers);
 	}
