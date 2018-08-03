@@ -1205,11 +1205,58 @@ rai::account rai::node_config::random_representative ()
 }
 
 rai::vote_processor::vote_processor (rai::node & node_a) :
-node (node_a)
+node (node_a),
+started (false),
+stopped (false),
+active (false),
+thread ([this]() { process_loop (); })
 {
+	std::unique_lock<std::mutex> lock (mutex);
+	while (!started)
+	{
+		condition.wait (lock);
+	}
 }
 
-rai::vote_code rai::vote_processor::vote (std::shared_ptr<rai::vote> vote_a, rai::endpoint endpoint_a)
+void rai::vote_processor::process_loop ()
+{
+	std::unique_lock<std::mutex> lock (mutex);
+	started = true;
+	condition.notify_all ();
+	while (!stopped)
+	{
+		if (!votes.empty ())
+		{
+			std::deque<std::pair<std::shared_ptr<rai::vote>, rai::endpoint>> votes_l;
+			votes_l.swap (votes);
+			active = true;
+			lock.unlock ();
+			for (auto & i : votes_l)
+			{
+				vote_blocking (i.first, i.second);
+			}
+			lock.lock ();
+			active = false;
+			condition.notify_all ();
+		}
+		else
+		{
+			condition.wait (lock);
+		}
+	}
+}
+
+void rai::vote_processor::vote (std::shared_ptr<rai::vote> vote_a, rai::endpoint endpoint_a)
+{
+	std::lock_guard<std::mutex> lock (mutex);
+	if (!stopped)
+	{
+		votes.push_back (std::make_pair (vote_a, endpoint_a));
+		condition.notify_all ();
+	}
+}
+
+rai::vote_code rai::vote_processor::vote_blocking (std::shared_ptr<rai::vote> vote_a, rai::endpoint endpoint_a)
 {
 	auto result (rai::vote_code::invalid);
 	if (!vote_a->validate ())
@@ -1267,6 +1314,28 @@ rai::vote_code rai::vote_processor::vote (std::shared_ptr<rai::vote> vote_a, rai
 		BOOST_LOG (node.log) << boost::str (boost::format ("Vote from: %1% sequence: %2% block: %3% status: %4%") % vote_a->account.to_account () % std::to_string (vote_a->sequence) % vote_a->block->hash ().to_string () % status);
 	}
 	return result;
+}
+
+void rai::vote_processor::stop ()
+{
+	{
+		std::lock_guard<std::mutex> lock (mutex);
+		stopped = true;
+		condition.notify_all ();
+	}
+	if (thread.joinable ())
+	{
+		thread.join ();
+	}
+}
+
+void rai::vote_processor::flush ()
+{
+	std::unique_lock<std::mutex> lock (mutex);
+	while (active || !votes.empty ())
+	{
+		condition.wait (lock);
+	}
 }
 
 void rai::rep_crawler::add (rai::block_hash const & hash_a)
@@ -2191,6 +2260,7 @@ void rai::node::stop ()
 	bootstrap_initiator.stop ();
 	bootstrap.stop ();
 	port_mapping.stop ();
+	vote_processor.stop ();
 	wallets.stop ();
 }
 
