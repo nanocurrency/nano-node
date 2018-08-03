@@ -1231,9 +1231,12 @@ void rai::vote_processor::process_loop ()
 			votes_l.swap (votes);
 			active = true;
 			lock.unlock ();
-			for (auto & i : votes_l)
 			{
-				vote_blocking (i.first, i.second);
+				rai::transaction transaction (node.store.environment, nullptr, false);
+				for (auto & i : votes_l)
+				{
+					vote_blocking (transaction, i.first, i.second);
+				}
 			}
 			lock.lock ();
 			active = false;
@@ -1256,17 +1259,13 @@ void rai::vote_processor::vote (std::shared_ptr<rai::vote> vote_a, rai::endpoint
 	}
 }
 
-rai::vote_code rai::vote_processor::vote_blocking (std::shared_ptr<rai::vote> vote_a, rai::endpoint endpoint_a)
+rai::vote_code rai::vote_processor::vote_blocking (MDB_txn * transaction_a, std::shared_ptr<rai::vote> vote_a, rai::endpoint endpoint_a)
 {
 	auto result (rai::vote_code::invalid);
 	if (!vote_a->validate ())
 	{
 		result = rai::vote_code::replay;
-		std::shared_ptr<rai::vote> max_vote;
-		{
-			rai::transaction transaction (node.store.environment, nullptr, false);
-			max_vote = node.store.vote_max (transaction, vote_a);
-		}
+		auto max_vote (node.store.vote_max (transaction_a, vote_a));
 		if (!node.active.vote (vote_a) || max_vote->sequence > vote_a->sequence)
 		{
 			result = rai::vote_code::vote;
