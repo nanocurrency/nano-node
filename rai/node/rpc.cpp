@@ -1433,23 +1433,18 @@ void rai::rpc_handler::deterministic_key ()
 	rai::raw_key seed;
 	if (!seed.data.decode_hex (seed_text))
 	{
-		uint64_t index_a;
-		if (!decode_unsigned (index_text, index_a))
+		try
 		{
-			rai::uint256_union index (index_a);
+			uint32_t index (std::stoul (index_text));
 			rai::uint256_union prv;
-			blake2b_state hash;
-			blake2b_init (&hash, prv.bytes.size ());
-			blake2b_update (&hash, seed.data.bytes.data (), seed.data.bytes.size ());
-			blake2b_update (&hash, reinterpret_cast<uint8_t *> (&index.dwords[7]), sizeof (uint32_t));
-			blake2b_final (&hash, prv.bytes.data (), prv.bytes.size ());
+			rai::deterministic_key (seed.data, index, prv);
 			rai::uint256_union pub;
 			ed25519_publickey (prv.bytes.data (), pub.bytes.data ());
 			response_l.put ("private", prv.to_string ());
 			response_l.put ("public", pub.to_string ());
 			response_l.put ("account", pub.to_account ());
 		}
-		else
+		catch (std::logic_error const &)
 		{
 			ec = nano::error_common::invalid_index;
 		}
