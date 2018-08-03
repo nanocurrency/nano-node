@@ -3470,9 +3470,8 @@ void rai::election::compute_rep_votes (MDB_txn * transaction_a)
 	}
 }
 
-void rai::election::broadcast_winner ()
+void rai::election::broadcast_winner (MDB_txn * transaction_a)
 {
-	rai::transaction transaction (node.store.environment, nullptr, false);
 	compute_rep_votes (transaction);
 	node.network.republish_block (transaction, status.winner);
 }
@@ -3625,7 +3624,7 @@ void rai::active_transactions::announce_votes ()
 				++unconfirmed_count;
 				unconfirmed_announcements += i->announcements;
 			}
-			node.background ([election_l]() { election_l->broadcast_winner (); });
+			election_l->broadcast_winner (transaction);
 			if (i->announcements % announcement_min == 2)
 			{
 				auto reps (std::make_shared<std::vector<rai::peer_information>> (node.peers.representatives (std::numeric_limits<size_t>::max ())));
