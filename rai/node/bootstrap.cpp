@@ -362,7 +362,7 @@ void rai::frontier_req_client::next (MDB_txn * transaction_a)
 	if (iterator != connection->node->store.latest_end ())
 	{
 		current = rai::account (iterator->first.uint256 ());
-		info = rai::account_info (iterator->second);
+		info = rai::account_info (iterator->second, iterator->from_secondary_store ? rai::epoch::epoch_1 : rai::epoch::epoch_0);
 	}
 	else
 	{
@@ -1533,10 +1533,21 @@ void rai::bootstrap_server::run_next ()
 /**
  * Handle a request for the pull of all blocks associated with an account
  * The account is supplied as the "start" member, and the final block to
- * send is the "end" member
+ * send is the "end" member.  The "start" member may also be a block
+ * hash, in which case the that hash is used as the start of a chain
+ * to send.  To determine if "start" is interpretted as an account or
+ * hash, the ledger is checked to see if the block specified exists,
+ * if not then it is interpretted as an account.
+ *
+ * Additionally, if "start" is specified as a block hash the range
+ * is inclusive of that block hash, that is the range will be:
+ * [start, end); In the case that a block hash is not specified the
+ * range will be exclusive of the frontier for that account with
+ * a range of (frontier, end)
  */
 void rai::bulk_pull_server::set_current_end ()
 {
+	include_start = false;
 	assert (request != nullptr);
 	rai::transaction transaction (connection->node->store.environment, nullptr, false);
 	if (!connection->node->store.block_exists (transaction, request->end))
@@ -1547,33 +1558,44 @@ void rai::bulk_pull_server::set_current_end ()
 		}
 		request->end.clear ();
 	}
-	rai::account_info info;
-	auto no_address (connection->node->store.account_get (transaction, request->start, info));
-	if (no_address)
+
+	if (connection->node->store.block_exists (transaction, request->start))
 	{
 		if (connection->node->config.logging.bulk_pull_logging ())
 		{
-			BOOST_LOG (connection->node->log) << boost::str (boost::format ("Request for unknown account: %1%") % request->start.to_account ());
+			BOOST_LOG (connection->node->log) << boost::str (boost::format ("Bulk pull request for block hash: %1%") % request->start.to_string ());
 		}
-		current = request->end;
+
+		current = request->start;
+		include_start = true;
 	}
 	else
 	{
-		if (!request->end.is_zero ())
+		rai::account_info info;
+		auto no_address (connection->node->store.account_get (transaction, request->start, info));
+		if (no_address)
 		{
-			auto account (connection->node->ledger.account (transaction, request->end));
-			if (account == request->start)
+			if (connection->node->config.logging.bulk_pull_logging ())
 			{
-				current = info.head;
+				BOOST_LOG (connection->node->log) << boost::str (boost::format ("Request for unknown account: %1%") % request->start.to_account ());
 			}
-			else
-			{
-				current = request->end;
-			}
+			current = request->end;
 		}
 		else
 		{
 			current = info.head;
+			if (!request->end.is_zero ())
+			{
+				auto account (connection->node->ledger.account (transaction, request->end));
+				if (account != request->start)
+				{
+					if (connection->node->config.logging.bulk_pull_logging ())
+					{
+						BOOST_LOG (connection->node->log) << boost::str (boost::format ("Request for block that is not on account chain: %1% not on %2%") % request->end.to_string () % request->start.to_account ());
+					}
+					current = request->end;
+				}
+			}
 		}
 	}
 }
@@ -1606,11 +1628,37 @@ void rai::bulk_pull_server::send_next ()
 std::unique_ptr<rai::block> rai::bulk_pull_server::get_next ()
 {
 	std::unique_ptr<rai::block> result;
+	bool send_current = false, set_current_to_end = false;
+
+	/*
+	 * Determine if we should reply with a block
+	 *
+	 * If our cursor is on the final block, we should signal that we
+	 * are done by returning a null result.
+	 *
+	 * Unless we are including the "start" member and this is the
+	 * start member, then include it anyway.
+	 */
 	if (current != request->end)
+	{
+		send_current = true;
+	}
+	else if (current == request->end && include_start == true)
+	{
+		send_current = true;
+
+		/*
+		 * We also need to ensure that the next time
+		 * are invoked that we return a null result
+		 */
+		set_current_to_end = true;
+	}
+
+	if (send_current)
 	{
 		rai::transaction transaction (connection->node->store.environment, nullptr, false);
 		result = connection->node->store.block_get (transaction, current);
-		if (result != nullptr)
+		if (result != nullptr && set_current_to_end == false)
 		{
 			auto previous (result->previous ());
 			if (!previous.is_zero ())
@@ -1627,6 +1675,13 @@ std::unique_ptr<rai::block> rai::bulk_pull_server::get_next ()
 			current = request->end;
 		}
 	}
+
+	/*
+	 * Once we have processed "get_next()" once our cursor is no longer on
+	 * the "start" member, so this flag is not relevant is always false.
+	 */
+	include_start = false;
+
 	return result;
 }
 
@@ -1984,7 +2039,7 @@ void rai::bulk_push_server::received_block (boost::system::error_code const & ec
 rai::frontier_req_server::frontier_req_server (std::shared_ptr<rai::bootstrap_server> const & connection_a, std::unique_ptr<rai::frontier_req> request_a) :
 connection (connection_a),
 current (request_a->start.number () - 1),
-info (0, 0, 0, 0, 0, 0, 0),
+info (0, 0, 0, 0, 0, 0, rai::epoch::epoch_0),
 request (std::move (request_a)),
 send_buffer (std::make_shared<std::vector<uint8_t>> ())
 {
@@ -2086,7 +2141,7 @@ void rai::frontier_req_server::next ()
 	if (iterator != connection->node->store.latest_end ())
 	{
 		current = rai::uint256_union (iterator->first.uint256 ());
-		info = rai::account_info (iterator->second);
+		info = rai::account_info (iterator->second, iterator->from_secondary_store ? rai::epoch::epoch_1 : rai::epoch::epoch_0);
 	}
 	else
 	{

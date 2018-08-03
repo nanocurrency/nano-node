@@ -471,7 +471,7 @@ void rai::rpc_handler::account_info ()
 			response_l.put ("balance", balance);
 			response_l.put ("modified_timestamp", std::to_string (info.modified));
 			response_l.put ("block_count", std::to_string (info.block_count));
-			response_l.put ("account_version", std::to_string (info.version));
+			response_l.put ("account_version", info.epoch == rai::epoch::epoch_1 ? "1" : "0");
 			if (representative)
 			{
 				auto block (node.store.block_get (transaction, info.rep_block));
@@ -779,7 +779,7 @@ void rai::rpc_handler::accounts_pending ()
 				}
 				else
 				{
-					rai::pending_info info (i->second);
+					rai::pending_info info (i->second, i->from_secondary_store ? rai::epoch::epoch_1 : rai::epoch::epoch_0);
 					if (info.amount.number () >= threshold.number ())
 					{
 						if (source)
@@ -998,7 +998,9 @@ void rai::rpc_handler::block_count_type ()
 	response_l.put ("receive", std::to_string (count.receive));
 	response_l.put ("open", std::to_string (count.open));
 	response_l.put ("change", std::to_string (count.change));
-	response_l.put ("state", std::to_string (count.state));
+	response_l.put ("state_v0", std::to_string (count.state_v0));
+	response_l.put ("state_v1", std::to_string (count.state_v1));
+	response_l.put ("state", std::to_string (count.state_v0 + count.state_v1));
 	response_errors ();
 }
 
@@ -1387,7 +1389,7 @@ void rai::rpc_handler::delegators ()
 		rai::transaction transaction (node.store.environment, nullptr, false);
 		for (auto i (node.store.latest_begin (transaction)), n (node.store.latest_end ()); i != n; ++i)
 		{
-			rai::account_info info (i->second);
+			rai::account_info info (i->second, i->from_secondary_store ? rai::epoch::epoch_1 : rai::epoch::epoch_0);
 			auto block (node.store.block_get (transaction, info.rep_block));
 			assert (block != nullptr);
 			if (block->representative () == account)
@@ -1411,7 +1413,7 @@ void rai::rpc_handler::delegators_count ()
 		rai::transaction transaction (node.store.environment, nullptr, false);
 		for (auto i (node.store.latest_begin (transaction)), n (node.store.latest_end ()); i != n; ++i)
 		{
-			rai::account_info info (i->second);
+			rai::account_info info (i->second, i->from_secondary_store ? rai::epoch::epoch_1 : rai::epoch::epoch_0);
 			auto block (node.store.block_get (transaction, info.rep_block));
 			assert (block != nullptr);
 			if (block->representative () == account)
@@ -1780,7 +1782,7 @@ void rai::rpc_handler::ledger ()
 		{
 			for (auto i (node.store.latest_begin (transaction, start)), n (node.store.latest_end ()); i != n && accounts.size () < count; ++i)
 			{
-				rai::account_info info (i->second);
+				rai::account_info info (i->second, i->from_secondary_store ? rai::epoch::epoch_1 : rai::epoch::epoch_0);
 				if (info.modified >= modified_since)
 				{
 					rai::account account (i->first.uint256 ());
@@ -1818,7 +1820,7 @@ void rai::rpc_handler::ledger ()
 			std::vector<std::pair<rai::uint128_union, rai::account>> ledger_l;
 			for (auto i (node.store.latest_begin (transaction, start)), n (node.store.latest_end ()); i != n; ++i)
 			{
-				rai::account_info info (i->second);
+				rai::account_info info (i->second, i->from_secondary_store ? rai::epoch::epoch_1 : rai::epoch::epoch_0);
 				rai::uint128_union balance (info.balance);
 				if (info.modified >= modified_since)
 				{
@@ -1976,7 +1978,7 @@ void rai::rpc_handler::pending ()
 			}
 			else
 			{
-				rai::pending_info info (i->second);
+				rai::pending_info info (i->second, i->from_secondary_store ? rai::epoch::epoch_1 : rai::epoch::epoch_0);
 				if (info.amount.number () >= threshold.number ())
 				{
 					if (source || min_version)
@@ -1989,7 +1991,7 @@ void rai::rpc_handler::pending ()
 						}
 						if (min_version)
 						{
-							pending_tree.put ("min_version", std::to_string (info.min_version));
+							pending_tree.put ("min_version", info.epoch == rai::epoch::epoch_1 ? "1" : "0");
 						}
 						peers_l.add_child (key.hash.to_string (), pending_tree);
 					}
@@ -3139,7 +3141,7 @@ void rai::rpc_handler::wallet_pending ()
 				}
 				else
 				{
-					rai::pending_info info (ii->second);
+					rai::pending_info info (ii->second, ii->from_secondary_store ? rai::epoch::epoch_1 : rai::epoch::epoch_0);
 					if (info.amount.number () >= threshold.number ())
 					{
 						if (source || min_version)
@@ -3152,7 +3154,7 @@ void rai::rpc_handler::wallet_pending ()
 							}
 							if (min_version)
 							{
-								pending_tree.put ("min_version", std::to_string (info.min_version));
+								pending_tree.put ("min_version", info.epoch == rai::epoch::epoch_1 ? "1" : "0");
 							}
 							peers_l.add_child (key.hash.to_string (), pending_tree);
 						}

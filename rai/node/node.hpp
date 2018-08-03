@@ -100,7 +100,6 @@ public:
 	bool vote (std::shared_ptr<rai::vote>);
 	// Is the root of this block in the roots container
 	bool active (rai::block const &);
-	void announce_votes ();
 	std::deque<std::shared_ptr<rai::block>> list_blocks ();
 	void erase (rai::block const &);
 	void stop ();
@@ -120,6 +119,14 @@ public:
 	static unsigned constexpr announcement_long = 20;
 	static unsigned constexpr announce_interval_ms = (rai::rai_network == rai::rai_networks::rai_test_network) ? 10 : 16000;
 	static size_t constexpr election_history_size = 2048;
+
+private:
+	void announce_loop ();
+	void announce_votes ();
+	std::condition_variable condition;
+	bool started;
+	bool stopped;
+	std::thread thread;
 };
 class operation
 {
