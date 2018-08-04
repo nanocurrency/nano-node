@@ -861,7 +861,7 @@ bool rai::vote::deserialize (rai::stream & stream_a)
 						}
 						else
 						{
-							std::shared_ptr<rai::block> block (rai::deserialize_block (stream_a));
+							std::shared_ptr<rai::block> block (rai::deserialize_block (stream_a, type));
 							result = block == nullptr;
 							if (!result)
 							{

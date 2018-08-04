@@ -632,13 +632,13 @@ TEST (node, fork_publish)
 		rai::transaction transaction (node1.store.environment, nullptr, false);
 		election->compute_rep_votes (transaction);
 		node1.vote_processor.flush ();
-		ASSERT_EQ (2, election->votes.rep_votes.size ());
+		ASSERT_EQ (2, election->last_votes.size ());
 		node1.process_active (send2);
 		node1.block_processor.flush ();
-		auto existing1 (election->votes.rep_votes.find (rai::test_genesis_key.pub));
-		ASSERT_NE (election->votes.rep_votes.end (), existing1);
-		ASSERT_EQ (*send1, *existing1->second);
-		auto winner (node1.ledger.winner (transaction, election->votes));
+		auto existing1 (election->last_votes.find (rai::test_genesis_key.pub));
+		ASSERT_NE (election->last_votes.end (), existing1);
+		ASSERT_EQ (send1->hash (), existing1->second.hash);
+		auto winner (*election->tally (transaction).begin ());
 		ASSERT_EQ (*send1, *winner.second);
 		ASSERT_EQ (rai::genesis_amount - 100, winner.first);
 	}
@@ -672,7 +672,7 @@ TEST (node, fork_keep)
 	ASSERT_NE (node2.active.roots.end (), conflict);
 	auto votes1 (conflict->election);
 	ASSERT_NE (nullptr, votes1);
-	ASSERT_EQ (1, votes1->votes.rep_votes.size ());
+	ASSERT_EQ (1, votes1->last_votes.size ());
 	{
 		rai::transaction transaction0 (system.nodes[0]->store.environment, nullptr, false);
 		rai::transaction transaction1 (system.nodes[1]->store.environment, nullptr, false);
@@ -681,14 +681,14 @@ TEST (node, fork_keep)
 	}
 	system.deadline_set (1.5min);
 	// Wait until the genesis rep makes a vote
-	while (votes1->votes.rep_votes.size () == 1)
+	while (votes1->last_votes.size () == 1)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	rai::transaction transaction0 (system.nodes[0]->store.environment, nullptr, false);
 	rai::transaction transaction1 (system.nodes[1]->store.environment, nullptr, false);
 	// The vote should be in agreement with what we already have.
-	auto winner (node1.ledger.winner (transaction0, votes1->votes));
+	auto winner (*votes1->tally (transaction0).begin ());
 	ASSERT_EQ (*send1, *winner.second);
 	ASSERT_EQ (rai::genesis_amount - 100, winner.first);
 	ASSERT_TRUE (system.nodes[0]->store.block_exists (transaction0, send1->hash ()));
@@ -723,7 +723,7 @@ TEST (node, fork_flip)
 	ASSERT_NE (node2.active.roots.end (), conflict);
 	auto votes1 (conflict->election);
 	ASSERT_NE (nullptr, votes1);
-	ASSERT_EQ (1, votes1->votes.rep_votes.size ());
+	ASSERT_EQ (1, votes1->last_votes.size ());
 	{
 		rai::transaction transaction (system.nodes[0]->store.environment, nullptr, false);
 		ASSERT_TRUE (node1.store.block_exists (transaction, publish1.block->hash ()));
@@ -733,12 +733,12 @@ TEST (node, fork_flip)
 		ASSERT_TRUE (node2.store.block_exists (transaction, publish2.block->hash ()));
 	}
 	system.deadline_set (10s);
-	while (votes1->votes.rep_votes.size () == 1)
+	while (votes1->last_votes.size () == 1)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	rai::transaction transaction (system.nodes[0]->store.environment, nullptr, false);
-	auto winner (node2.ledger.winner (transaction, votes1->votes));
+	auto winner (*votes1->tally (transaction).begin ());
 	ASSERT_EQ (*publish1.block, *winner.second);
 	ASSERT_EQ (rai::genesis_amount - 100, winner.first);
 	ASSERT_TRUE (node1.store.block_exists (transaction, publish1.block->hash ()));
@@ -778,7 +778,7 @@ TEST (node, fork_multi_flip)
 	ASSERT_NE (node2.active.roots.end (), conflict);
 	auto votes1 (conflict->election);
 	ASSERT_NE (nullptr, votes1);
-	ASSERT_EQ (1, votes1->votes.rep_votes.size ());
+	ASSERT_EQ (1, votes1->last_votes.size ());
 	{
 		rai::transaction transaction (system.nodes[0]->store.environment, nullptr, false);
 		ASSERT_TRUE (node1.store.block_exists (transaction, publish1.block->hash ()));
@@ -789,12 +789,12 @@ TEST (node, fork_multi_flip)
 		ASSERT_TRUE (node2.store.block_exists (transaction, publish3.block->hash ()));
 	}
 	system.deadline_set (10s);
-	while (votes1->votes.rep_votes.size () == 1)
+	while (votes1->last_votes.size () == 1)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	rai::transaction transaction (system.nodes[0]->store.environment, nullptr, false);
-	auto winner (node1.ledger.winner (transaction, votes1->votes));
+	auto winner (*votes1->tally (transaction).begin ());
 	ASSERT_EQ (*publish1.block, *winner.second);
 	ASSERT_EQ (rai::genesis_amount - 100, winner.first);
 	ASSERT_TRUE (node1.store.block_exists (transaction, publish1.block->hash ()));
@@ -903,7 +903,7 @@ TEST (node, fork_open_flip)
 	ASSERT_NE (node2.active.roots.end (), conflict);
 	auto votes1 (conflict->election);
 	ASSERT_NE (nullptr, votes1);
-	ASSERT_EQ (1, votes1->votes.rep_votes.size ());
+	ASSERT_EQ (1, votes1->last_votes.size ());
 	ASSERT_TRUE (node1.block (open1->hash ()) != nullptr);
 	ASSERT_TRUE (node2.block (open2->hash ()) != nullptr);
 	system.deadline_set (10s);
@@ -913,7 +913,7 @@ TEST (node, fork_open_flip)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	rai::transaction transaction (system.nodes[0]->store.environment, nullptr, false);
-	auto winner (node2.ledger.winner (transaction, votes1->votes));
+	auto winner (*votes1->tally (transaction).begin ());
 	ASSERT_EQ (*open1, *winner.second);
 	ASSERT_EQ (rai::genesis_amount - 1, winner.first);
 	ASSERT_TRUE (node1.store.block_exists (transaction, open1->hash ()));
@@ -1176,7 +1176,7 @@ TEST (node, rep_self_vote)
 	rai::transaction transaction (node0->store.environment, nullptr, false);
 	existing->election->compute_rep_votes (transaction);
 	node0->vote_processor.flush ();
-	auto & rep_votes (existing->election->votes.rep_votes);
+	auto & rep_votes (existing->election->last_votes);
 	ASSERT_EQ (3, rep_votes.size ());
 	ASSERT_NE (rep_votes.end (), rep_votes.find (rai::test_genesis_key.pub));
 	ASSERT_NE (rep_votes.end (), rep_votes.find (rep_big.pub));
