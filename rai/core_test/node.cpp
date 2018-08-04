@@ -139,7 +139,7 @@ TEST (node, send_single_many_peers)
 	{
 		system.poll ();
 		++iterations;
-		ASSERT_LT (iterations, 2000);
+		ASSERT_LT (iterations, 4000);
 	}
 }
 
