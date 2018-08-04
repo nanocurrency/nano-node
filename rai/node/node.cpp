@@ -1979,7 +1979,7 @@ void rai::gap_cache::vote (std::shared_ptr<rai::vote> vote_a)
 			if (is_new)
 			{
 				uint128_t tally;
-				for (auto voter : existing->voters)
+				for (auto & voter : existing->voters)
 				{
 					tally += node.ledger.weight (transaction, voter);
 				}
