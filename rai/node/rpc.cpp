@@ -769,27 +769,32 @@ void rai::rpc_handler::accounts_pending ()
 			for (auto i (node.store.pending_begin (transaction, rai::pending_key (account, 0))), n (node.store.pending_begin (transaction, rai::pending_key (end, 0))); i != n && peers_l.size () < count; ++i)
 			{
 				rai::pending_key key (i->first);
-				if (threshold.is_zero () && !source)
+				std::shared_ptr<rai::block> block (node.store.block_get (transaction, key.hash));
+				assert (block);
+				if (block && !node.active.active (*block))
 				{
-					boost::property_tree::ptree entry;
-					entry.put ("", key.hash.to_string ());
-					peers_l.push_back (std::make_pair ("", entry));
-				}
-				else
-				{
-					rai::pending_info info (i->second, i->from_secondary_store ? rai::epoch::epoch_1 : rai::epoch::epoch_0);
-					if (info.amount.number () >= threshold.number ())
+					if (threshold.is_zero () && !source)
 					{
-						if (source)
+						boost::property_tree::ptree entry;
+						entry.put ("", key.hash.to_string ());
+						peers_l.push_back (std::make_pair ("", entry));
+					}
+					else
+					{
+						rai::pending_info info (i->second, i->from_secondary_store ? rai::epoch::epoch_1 : rai::epoch::epoch_0);
+						if (info.amount.number () >= threshold.number ())
 						{
-							boost::property_tree::ptree pending_tree;
-							pending_tree.put ("amount", info.amount.number ().convert_to<std::string> ());
-							pending_tree.put ("source", info.source.to_account ());
-							peers_l.add_child (key.hash.to_string (), pending_tree);
-						}
-						else
-						{
-							peers_l.put (key.hash.to_string (), info.amount.number ().convert_to<std::string> ());
+							if (source)
+							{
+								boost::property_tree::ptree pending_tree;
+								pending_tree.put ("amount", info.amount.number ().convert_to<std::string> ());
+								pending_tree.put ("source", info.source.to_account ());
+								peers_l.add_child (key.hash.to_string (), pending_tree);
+							}
+							else
+							{
+								peers_l.put (key.hash.to_string (), info.amount.number ().convert_to<std::string> ());
+							}
 						}
 					}
 				}
@@ -3123,34 +3128,39 @@ void rai::rpc_handler::wallet_pending ()
 			for (auto ii (node.store.pending_begin (transaction, rai::pending_key (account, 0))), nn (node.store.pending_begin (transaction, rai::pending_key (end, 0))); ii != nn && peers_l.size () < count; ++ii)
 			{
 				rai::pending_key key (ii->first);
-				if (threshold.is_zero () && !source)
+				std::shared_ptr<rai::block> block (node.store.block_get (transaction, key.hash));
+				assert (block);
+				if (block && !node.active.active (*block))
 				{
-					boost::property_tree::ptree entry;
-					entry.put ("", key.hash.to_string ());
-					peers_l.push_back (std::make_pair ("", entry));
-				}
-				else
-				{
-					rai::pending_info info (ii->second, ii->from_secondary_store ? rai::epoch::epoch_1 : rai::epoch::epoch_0);
-					if (info.amount.number () >= threshold.number ())
+					if (threshold.is_zero () && !source)
 					{
-						if (source || min_version)
+						boost::property_tree::ptree entry;
+						entry.put ("", key.hash.to_string ());
+						peers_l.push_back (std::make_pair ("", entry));
+					}
+					else
+					{
+						rai::pending_info info (ii->second, ii->from_secondary_store ? rai::epoch::epoch_1 : rai::epoch::epoch_0);
+						if (info.amount.number () >= threshold.number ())
 						{
-							boost::property_tree::ptree pending_tree;
-							pending_tree.put ("amount", info.amount.number ().convert_to<std::string> ());
-							if (source)
+							if (source || min_version)
 							{
-								pending_tree.put ("source", info.source.to_account ());
+								boost::property_tree::ptree pending_tree;
+								pending_tree.put ("amount", info.amount.number ().convert_to<std::string> ());
+								if (source)
+								{
+									pending_tree.put ("source", info.source.to_account ());
+								}
+								if (min_version)
+								{
+									pending_tree.put ("min_version", info.epoch == rai::epoch::epoch_1 ? "1" : "0");
+								}
+								peers_l.add_child (key.hash.to_string (), pending_tree);
 							}
-							if (min_version)
+							else
 							{
-								pending_tree.put ("min_version", info.epoch == rai::epoch::epoch_1 ? "1" : "0");
+								peers_l.put (key.hash.to_string (), info.amount.number ().convert_to<std::string> ());
 							}
-							peers_l.add_child (key.hash.to_string (), pending_tree);
-						}
-						else
-						{
-							peers_l.put (key.hash.to_string (), info.amount.number ().convert_to<std::string> ());
 						}
 					}
 				}
