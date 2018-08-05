@@ -3507,6 +3507,7 @@ status ({ block_a, 0 }),
 confirmed (false),
 aborted (false)
 {
+	last_votes.insert (std::make_pair (rai::not_an_account, rai::vote_info { std::chrono::steady_clock::now (), 0, block_a->hash () }));
 }
 
 void rai::election::compute_rep_votes (MDB_txn * transaction_a)
@@ -3585,28 +3586,30 @@ rai::tally_t rai::election::tally (MDB_txn * transaction_a)
 void rai::election::confirm_if_quorum (MDB_txn * transaction_a)
 {
 	auto tally_l (tally (transaction_a));
-	assert (tally_l.size () > 0);
 	auto winner (tally_l.begin ());
-	auto block_l (winner->second);
-	status.tally = winner->first;
-	rai::uint128_t sum (0);
-	for (auto & i : tally_l)
+	if (winner != tally_l.end ())
 	{
-		sum += i.first;
-	}
-	if (sum >= node.config.online_weight_minimum.number () && !(*block_l == *status.winner))
-	{
-		auto node_l (node.shared ());
-		node_l->block_processor.force (block_l);
-		status.winner = block_l;
-	}
-	if (have_quorum (tally_l))
-	{
-		if (node.config.logging.vote_logging () || blocks.size () > 1)
+		auto block_l (winner->second);
+		status.tally = winner->first;
+		rai::uint128_t sum (0);
+		for (auto & i : tally_l)
 		{
-			log_votes (tally_l);
+			sum += i.first;
 		}
-		confirm_once (transaction_a);
+		if (sum >= node.config.online_weight_minimum.number () && !(*block_l == *status.winner))
+		{
+			auto node_l (node.shared ());
+			node_l->block_processor.force (block_l);
+			status.winner = block_l;
+		}
+		if (have_quorum (tally_l))
+		{
+			if (node.config.logging.vote_logging () || blocks.size () > 1)
+			{
+				log_votes (tally_l);
+			}
+			confirm_once (transaction_a);
+		}
 	}
 }
 
@@ -3836,7 +3839,7 @@ bool rai::active_transactions::start (std::pair<std::shared_ptr<rai::block>, std
 bool rai::active_transactions::vote (std::shared_ptr<rai::vote> vote_a)
 {
 	std::shared_ptr<rai::election> election;
-	bool replay (true);
+	bool replay (false);
 	bool processed (false);
 	{
 		std::lock_guard<std::mutex> lock (mutex);

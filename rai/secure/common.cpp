@@ -389,7 +389,38 @@ rai::mdb_val rai::block_info::val () const
 
 bool rai::vote::operator== (rai::vote const & other_a) const
 {
-	return sequence == other_a.sequence && blocks == other_a.blocks && account == other_a.account && signature == other_a.signature;
+	auto blocks_equal (true);
+	if (blocks.size () != other_a.blocks.size ())
+	{
+		blocks_equal = false;
+	}
+	else
+	{
+		for (auto i (0); blocks_equal && i < blocks.size (); ++i)
+		{
+			auto block (blocks[i]);
+			auto other_block (other_a.blocks[i]);
+			if (block.which () != other_block.which ())
+			{
+				blocks_equal = false;
+			}
+			else if (block.which ())
+			{
+				if (boost::get<rai::block_hash> (block) != boost::get<rai::block_hash> (other_block))
+				{
+					blocks_equal = false;
+				}
+			}
+			else
+			{
+				if (!(*boost::get<std::shared_ptr<rai::block>> (block) == *boost::get<std::shared_ptr<rai::block>> (other_block)))
+				{
+					blocks_equal = false;
+				}
+			}
+		}
+	}
+	return sequence == other_a.sequence && blocks_equal && account == other_a.account && signature == other_a.signature;
 }
 
 bool rai::vote::operator!= (rai::vote const & other_a) const
@@ -757,17 +788,8 @@ rai::uint256_union rai::vote::hash () const
 	{
 		blake2b_update (&hash, hash_prefix.data (), hash_prefix.size ());
 	}
-	for (auto block : blocks)
+	for (auto block_hash : *this)
 	{
-		rai::block_hash block_hash;
-		if (block.which ())
-		{
-			block_hash = boost::get<rai::block_hash> (block);
-		}
-		else
-		{
-			block_hash = boost::get<std::shared_ptr<rai::block>> (block)->hash ();
-		}
 		blake2b_update (&hash, block_hash.bytes.data (), sizeof (block_hash.bytes));
 	}
 	union
