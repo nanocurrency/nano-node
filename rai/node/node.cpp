@@ -3508,6 +3508,7 @@ confirmed (false),
 aborted (false)
 {
 	last_votes.insert (std::make_pair (rai::not_an_account, rai::vote_info { std::chrono::steady_clock::now (), 0, block_a->hash () }));
+	blocks.insert (std::make_pair (block_a->hash (), block_a));
 }
 
 void rai::election::compute_rep_votes (MDB_txn * transaction_a)
@@ -3586,30 +3587,28 @@ rai::tally_t rai::election::tally (MDB_txn * transaction_a)
 void rai::election::confirm_if_quorum (MDB_txn * transaction_a)
 {
 	auto tally_l (tally (transaction_a));
+	assert (tally_l.size () > 0);
 	auto winner (tally_l.begin ());
-	if (winner != tally_l.end ())
+	auto block_l (winner->second);
+	status.tally = winner->first;
+	rai::uint128_t sum (0);
+	for (auto & i : tally_l)
 	{
-		auto block_l (winner->second);
-		status.tally = winner->first;
-		rai::uint128_t sum (0);
-		for (auto & i : tally_l)
+		sum += i.first;
+	}
+	if (sum >= node.config.online_weight_minimum.number () && !(*block_l == *status.winner))
+	{
+		auto node_l (node.shared ());
+		node_l->block_processor.force (block_l);
+		status.winner = block_l;
+	}
+	if (have_quorum (tally_l))
+	{
+		if (node.config.logging.vote_logging () || blocks.size () > 1)
 		{
-			sum += i.first;
+			log_votes (tally_l);
 		}
-		if (sum >= node.config.online_weight_minimum.number () && !(*block_l == *status.winner))
-		{
-			auto node_l (node.shared ());
-			node_l->block_processor.force (block_l);
-			status.winner = block_l;
-		}
-		if (have_quorum (tally_l))
-		{
-			if (node.config.logging.vote_logging () || blocks.size () > 1)
-			{
-				log_votes (tally_l);
-			}
-			confirm_once (transaction_a);
-		}
+		confirm_once (transaction_a);
 	}
 }
 
@@ -3658,7 +3657,7 @@ rai::election_vote_result rai::election::vote (rai::account rep, uint64_t sequen
 		else
 		{
 			auto last_vote (last_vote_it->second);
-			if (last_vote.sequence < sequence || last_vote.hash < block_hash)
+			if (last_vote.sequence < sequence || (last_vote.sequence == sequence && last_vote.hash < block_hash))
 			{
 				if (last_vote.time <= std::chrono::steady_clock::now () - std::chrono::seconds (cooldown))
 				{
