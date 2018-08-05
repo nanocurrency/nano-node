@@ -3472,8 +3472,15 @@ void rai::election::compute_rep_votes (MDB_txn * transaction_a)
 
 void rai::election::broadcast_winner (MDB_txn * transaction_a)
 {
-	compute_rep_votes (transaction_a);
-	node.network.republish_block (transaction_a, status.winner);
+	if (node.ledger.could_fit (transaction_a, *status.winner))
+	{
+		compute_rep_votes (transaction);
+		node.network.republish_block (transaction, status.winner);
+	}
+	else
+	{
+		abort ();
+	}
 }
 
 void rai::election::confirm_once (MDB_txn * transaction_a)
@@ -3488,6 +3495,11 @@ void rai::election::confirm_once (MDB_txn * transaction_a)
 			confirmation_action_l (winner_l);
 		});
 	}
+}
+
+void rai::election::abort ()
+{
+	confirmed = true;
 }
 
 bool rai::election::have_quorum (rai::tally_t const & tally_a)
@@ -3605,7 +3617,7 @@ void rai::active_transactions::announce_votes ()
 	for (auto i (roots.begin ()), n (roots.end ()); i != n; ++i)
 	{
 		auto election_l (i->election);
-		if ((!node.store.root_exists (transaction, election_l->votes.id) || election_l->confirmed) && i->announcements >= announcement_min - 1)
+		if (election_l->confirmed && i->announcements >= announcement_min - 1)
 		{
 			if (election_l->confirmed)
 			{
