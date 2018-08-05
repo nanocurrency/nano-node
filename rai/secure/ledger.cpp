@@ -891,6 +891,52 @@ void rai::ledger::dump_account_chain (rai::account const & account_a)
 	}
 }
 
+class block_fit_visitor : public rai::block_visitor
+{
+public:
+	block_fit_visitor(rai::ledger & ledger_a, MDB_txn * transaction_a) :
+	ledger (ledger_a),
+	transaction (transaction_a),
+	result (false)
+	{
+	}
+	void send_block (rai::send_block const & block_a) override
+	{
+		result = ledger.store.block_exists(transaction, block_a.previous());
+	}
+	void receive_block (rai::receive_block const & block_a) override
+	{
+		result = ledger.store.block_exists(transaction, block_a.previous());
+		result &= ledger.store.block_exists(transaction, block_a.source());
+	}
+	void open_block (rai::open_block const & block_a) override
+	{
+		result = ledger.store.block_exists(transaction, block_a.source ());
+	}
+	void change_block (rai::change_block const & block_a) override
+	{
+		result = ledger.store.block_exists(transaction, block_a.previous());
+	}
+	void state_block (rai::state_block const & block_a) override
+	{
+		result = block_a.previous().is_zero() || ledger.store.block_exists (transaction, block_a.previous());
+		if (result && !ledger.is_send (transaction, block_a))
+		{
+			result &= ledger.store.block_exists(transaction, block_a.hashables.link);
+		}
+	}
+	rai::ledger & ledger;
+	MDB_txn * transaction;
+	bool result;
+};
+
+bool rai::ledger::could_fit (MDB_txn * transaction_a, rai::block const & block_a)
+{
+	block_fit_visitor visitor (*this, transaction_a);
+	block_a.visit (visitor);
+	return visitor.result;
+}
+
 void rai::ledger::checksum_update (MDB_txn * transaction_a, rai::block_hash const & hash_a)
 {
 	rai::checksum value;
