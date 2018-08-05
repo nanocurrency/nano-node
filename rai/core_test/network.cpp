@@ -819,7 +819,7 @@ TEST (bulk, offline_send)
 	ASSERT_NE (nullptr, system.wallet (0)->send_action (rai::test_genesis_key.pub, key2.pub, system.nodes[0]->config.receive_minimum.number ()));
 	ASSERT_NE (std::numeric_limits<rai::uint256_t>::max (), system.nodes[0]->balance (rai::test_genesis_key.pub));
 	node1->bootstrap_initiator.bootstrap (system.nodes[0]->network.endpoint ());
-	system.deadline_set (10s);
+	system.deadline_set (20s);
 	while (node1->balance (key2.pub) != system.nodes[0]->config.receive_minimum.number ())
 	{
 		ASSERT_NO_ERROR (system.poll ());
