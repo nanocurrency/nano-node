@@ -757,6 +757,7 @@ void rai::rpc_handler::accounts_pending ()
 	auto count (count_optional_impl ());
 	auto threshold (threshold_optional_impl ());
 	const bool source = request.get<bool> ("source", false);
+	const bool include_active = request.get<bool> ("include_active", false);
 	boost::property_tree::ptree pending;
 	rai::transaction transaction (node.store.environment, nullptr, false);
 	for (auto & accounts : request.get_child ("accounts"))
@@ -771,7 +772,7 @@ void rai::rpc_handler::accounts_pending ()
 				rai::pending_key key (i->first);
 				std::shared_ptr<rai::block> block (node.store.block_get (transaction, key.hash));
 				assert (block);
-				if (block && !node.active.active (*block))
+				if (include_active || (block && !node.active.active (*block)))
 				{
 					if (threshold.is_zero () && !source)
 					{
@@ -3116,6 +3117,7 @@ void rai::rpc_handler::wallet_pending ()
 	auto threshold (threshold_optional_impl ());
 	const bool source = request.get<bool> ("source", false);
 	const bool min_version = request.get<bool> ("min_version", false);
+	const bool include_active = request.get<bool> ("include_active", false);
 	if (!ec)
 	{
 		boost::property_tree::ptree pending;
@@ -3130,7 +3132,7 @@ void rai::rpc_handler::wallet_pending ()
 				rai::pending_key key (ii->first);
 				std::shared_ptr<rai::block> block (node.store.block_get (transaction, key.hash));
 				assert (block);
-				if (block && !node.active.active (*block))
+				if (include_active || (block && !node.active.active (*block)))
 				{
 					if (threshold.is_zero () && !source)
 					{
