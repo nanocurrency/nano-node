@@ -3535,16 +3535,16 @@ void rai::election::confirm_if_quorum (MDB_txn * transaction_a)
 	{
 		if (node.config.logging.vote_logging () || !votes.uncontested ())
 		{
-			log_votes ();
+			log_votes (tally_l);
 		}
 		confirm_once (transaction_a);
 	}
 }
 
-void rai::election::log_votes ()
+void rai::election::log_votes (rai::tally_t const & tally_a)
 {
 	BOOST_LOG (node.log) << boost::str (boost::format ("Vote tally for root %1%") % status.winner->root ().to_string ());
-	for (auto i (tally_l.begin ()), n (tally_l.end ()); i != n; ++i)
+	for (auto i (tally_a.begin ()), n (tally_a.end ()); i != n; ++i)
 	{
 		BOOST_LOG (node.log) << boost::str (boost::format ("Block %1% weight %2%") % i->second->hash ().to_string () % i->first.convert_to<std::string> ());
 	}
@@ -3643,7 +3643,8 @@ void rai::active_transactions::announce_votes ()
 				// Log votes for very long unconfirmed elections
 				if (i->announcements % 50 == 1)
 				{
-					i->log_votes ();
+					auto tally_l (node.ledger.tally (transaction_a, i->votes));
+					i->log_votes (tally_l);
 				}
 			}
 			election_l->broadcast_winner (transaction);

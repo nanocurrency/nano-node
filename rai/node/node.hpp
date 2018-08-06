@@ -68,7 +68,7 @@ public:
 	void compute_rep_votes (MDB_txn *);
 	// Confirm this block if quorum is met
 	void confirm_if_quorum (MDB_txn *);
-	void log_votes ();
+	void log_votes (rai::tally_t const &);
 	rai::votes votes;
 	rai::node & node;
 	std::unordered_map<rai::account, rai::vote_info> last_votes;
