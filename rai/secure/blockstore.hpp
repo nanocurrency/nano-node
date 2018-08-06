@@ -73,9 +73,9 @@ class block_store
 public:
 	block_store (bool &, boost::filesystem::path const &, int lmdb_max_dbs = 128);
 
-	MDB_dbi block_database (rai::block_type, uint8_t);
+	MDB_dbi block_database (rai::block_type, rai::epoch);
 	void block_put_raw (MDB_txn *, MDB_dbi, rai::block_hash const &, MDB_val);
-	void block_put (MDB_txn *, rai::block_hash const &, rai::block const &, rai::block_hash const & = rai::block_hash (0), uint8_t version = 0);
+	void block_put (MDB_txn *, rai::block_hash const &, rai::block const &, rai::block_hash const & = rai::block_hash (0), rai::epoch = rai::epoch::epoch_0);
 	MDB_val block_get_raw (MDB_txn *, rai::block_hash const &, rai::block_type &);
 	rai::block_hash block_successor (MDB_txn *, rai::block_hash const &);
 	void block_successor_clear (MDB_txn *, rai::block_hash const &);
@@ -128,7 +128,7 @@ public:
 	rai::store_iterator block_info_begin (MDB_txn *);
 	rai::store_iterator block_info_end ();
 	rai::uint128_t block_balance (MDB_txn *, rai::block_hash const &);
-	uint8_t block_version (MDB_txn *, rai::block_hash const &);
+	rai::epoch block_version (MDB_txn *, rai::block_hash const &);
 	static size_t const block_info_max = 32;
 
 	rai::uint128_t representation_get (MDB_txn *, rai::account const &);

@@ -41,10 +41,11 @@ public:
 	rai::block_hash block_source (MDB_txn *, rai::block const &);
 	rai::process_return process (MDB_txn *, rai::block const &);
 	void rollback (MDB_txn *, rai::block_hash const &);
-	void change_latest (MDB_txn *, rai::account const &, rai::block_hash const &, rai::account const &, rai::uint128_union const &, uint64_t, bool = false, uint8_t = 0);
+	void change_latest (MDB_txn *, rai::account const &, rai::block_hash const &, rai::account const &, rai::uint128_union const &, uint64_t, bool = false, rai::epoch = rai::epoch::epoch_0);
 	void checksum_update (MDB_txn *, rai::block_hash const &);
 	rai::checksum checksum (MDB_txn *, rai::account const &, rai::account const &);
 	void dump_account_chain (rai::account const &);
+	bool could_fit (MDB_txn *, rai::block const &);
 	static rai::uint128_t const unit;
 	rai::block_store & store;
 	rai::stat & stats;
