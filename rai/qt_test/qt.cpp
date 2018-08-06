@@ -371,8 +371,8 @@ TEST (wallet, create_send)
 	boost::property_tree::ptree tree1;
 	std::stringstream istream (json);
 	boost::property_tree::read_json (istream, tree1);
-	bool error;
-	rai::send_block send (error, tree1);
+	bool error (false);
+	rai::state_block send (error, tree1);
 	ASSERT_FALSE (error);
 	ASSERT_EQ (rai::process_result::progress, system.nodes[0]->process (send).code);
 	ASSERT_EQ (rai::process_result::old, system.nodes[0]->process (send).code);
@@ -405,8 +405,8 @@ TEST (wallet, create_open_receive)
 	boost::property_tree::ptree tree1;
 	std::stringstream istream1 (json1);
 	boost::property_tree::read_json (istream1, tree1);
-	bool error;
-	rai::open_block open (error, tree1);
+	bool error (false);
+	rai::state_block open (error, tree1);
 	ASSERT_FALSE (error);
 	ASSERT_EQ (rai::process_result::progress, system.nodes[0]->process (open).code);
 	ASSERT_EQ (rai::process_result::old, system.nodes[0]->process (open).code);
@@ -420,8 +420,8 @@ TEST (wallet, create_open_receive)
 	boost::property_tree::ptree tree2;
 	std::stringstream istream2 (json2);
 	boost::property_tree::read_json (istream2, tree2);
-	bool error2;
-	rai::receive_block receive (error2, tree2);
+	bool error2 (false);
+	rai::state_block receive (error2, tree2);
 	ASSERT_FALSE (error2);
 	ASSERT_EQ (rai::process_result::progress, system.nodes[0]->process (receive).code);
 	ASSERT_EQ (rai::process_result::old, system.nodes[0]->process (receive).code);
@@ -449,7 +449,7 @@ TEST (wallet, create_change)
 	std::stringstream istream (json);
 	boost::property_tree::read_json (istream, tree1);
 	bool error (false);
-	rai::change_block change (error, tree1);
+	rai::state_block change (error, tree1);
 	ASSERT_FALSE (error);
 	ASSERT_EQ (rai::process_result::progress, system.nodes[0]->process (change).code);
 	ASSERT_EQ (rai::process_result::old, system.nodes[0]->process (change).code);
@@ -457,7 +457,7 @@ TEST (wallet, create_change)
 
 TEST (history, short_text)
 {
-	bool init;
+	bool init (false);
 	rai_qt::eventloop_processor processor;
 	rai::keypair key;
 	rai::system system (24000, 1);
@@ -471,7 +471,7 @@ TEST (history, short_text)
 	rai::block_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
 	rai::genesis genesis;
-	rai::ledger ledger (store);
+	rai::ledger ledger (store, system.nodes[0]->stats);
 	{
 		rai::transaction transaction (store.environment, nullptr, true);
 		genesis.initialize (transaction, store);
@@ -703,11 +703,11 @@ TEST (wallet, seed_work_generation)
 	seed.data.clear ();
 	QTest::keyClicks (wallet->import.seed, seed.data.to_string ().c_str ());
 	QTest::keyClicks (wallet->import.clear_line, "clear keys");
-	QTest::mouseClick (wallet->import.import_seed, Qt::LeftButton);
 	auto iterations (0);
 	uint64_t work_start;
 	system.wallet (0)->store.work_get (rai::transaction (system.wallet (0)->store.environment, nullptr, false), key1, work_start);
 	uint64_t work (work_start);
+	QTest::mouseClick (wallet->import.import_seed, Qt::LeftButton);
 	while (work == work_start)
 	{
 		system.poll ();
@@ -795,6 +795,6 @@ TEST (wallet, synchronizing)
 		system1.poll ();
 		test_application->processEvents ();
 		++iterations1;
-		ASSERT_GT (200, iterations1);
+		ASSERT_GT (500, iterations1);
 	}
 }

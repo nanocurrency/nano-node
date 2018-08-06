@@ -2,6 +2,17 @@
 
 #include <boost/endian/conversion.hpp>
 
+/** Compare blocks, first by type, then content. This is an optimization over dynamic_cast, which is very slow on some platforms. */
+namespace
+{
+template <typename T>
+bool blocks_equal (T const & first, rai::block const & second)
+{
+	static_assert (std::is_base_of<rai::block, T>::value, "Input parameter is not a block type");
+	return (first.type () == second.type ()) && (static_cast<T const &> (second)) == first;
+}
+}
+
 std::string rai::to_string_hex (uint64_t value_a)
 {
 	std::stringstream stream;
@@ -263,13 +274,7 @@ hashables (error_a, tree_a)
 
 bool rai::send_block::operator== (rai::block const & other_a) const
 {
-	auto other_l (dynamic_cast<rai::send_block const *> (&other_a));
-	auto result (other_l != nullptr);
-	if (result)
-	{
-		result = *this == *other_l;
-	}
-	return result;
+	return blocks_equal (*this, other_a);
 }
 
 bool rai::send_block::valid_predecessor (rai::block const & block_a) const
@@ -547,13 +552,7 @@ rai::block_type rai::open_block::type () const
 
 bool rai::open_block::operator== (rai::block const & other_a) const
 {
-	auto other_l (dynamic_cast<rai::open_block const *> (&other_a));
-	auto result (other_l != nullptr);
-	if (result)
-	{
-		result = *this == *other_l;
-	}
-	return result;
+	return blocks_equal (*this, other_a);
 }
 
 bool rai::open_block::operator== (rai::open_block const & other_a) const
@@ -776,13 +775,7 @@ rai::block_type rai::change_block::type () const
 
 bool rai::change_block::operator== (rai::block const & other_a) const
 {
-	auto other_l (dynamic_cast<rai::change_block const *> (&other_a));
-	auto result (other_l != nullptr);
-	if (result)
-	{
-		result = *this == *other_l;
-	}
-	return result;
+	return blocks_equal (*this, other_a);
 }
 
 bool rai::change_block::operator== (rai::change_block const & other_a) const
@@ -1094,13 +1087,7 @@ rai::block_type rai::state_block::type () const
 
 bool rai::state_block::operator== (rai::block const & other_a) const
 {
-	auto other_l (dynamic_cast<rai::state_block const *> (&other_a));
-	auto result (other_l != nullptr);
-	if (result)
-	{
-		result = *this == *other_l;
-	}
-	return result;
+	return blocks_equal (*this, other_a);
 }
 
 bool rai::state_block::operator== (rai::state_block const & other_a) const
@@ -1146,7 +1133,7 @@ std::unique_ptr<rai::block> rai::deserialize_block_json (boost::property_tree::p
 		auto type (tree_a.get<std::string> ("type"));
 		if (type == "receive")
 		{
-			bool error;
+			bool error (false);
 			std::unique_ptr<rai::receive_block> obj (new rai::receive_block (error, tree_a));
 			if (!error)
 			{
@@ -1155,7 +1142,7 @@ std::unique_ptr<rai::block> rai::deserialize_block_json (boost::property_tree::p
 		}
 		else if (type == "send")
 		{
-			bool error;
+			bool error (false);
 			std::unique_ptr<rai::send_block> obj (new rai::send_block (error, tree_a));
 			if (!error)
 			{
@@ -1164,7 +1151,7 @@ std::unique_ptr<rai::block> rai::deserialize_block_json (boost::property_tree::p
 		}
 		else if (type == "open")
 		{
-			bool error;
+			bool error (false);
 			std::unique_ptr<rai::open_block> obj (new rai::open_block (error, tree_a));
 			if (!error)
 			{
@@ -1173,7 +1160,7 @@ std::unique_ptr<rai::block> rai::deserialize_block_json (boost::property_tree::p
 		}
 		else if (type == "change")
 		{
-			bool error;
+			bool error (false);
 			std::unique_ptr<rai::change_block> obj (new rai::change_block (error, tree_a));
 			if (!error)
 			{
@@ -1182,7 +1169,7 @@ std::unique_ptr<rai::block> rai::deserialize_block_json (boost::property_tree::p
 		}
 		else if (type == "state")
 		{
-			bool error;
+			bool error (false);
 			std::unique_ptr<rai::state_block> obj (new rai::state_block (error, tree_a));
 			if (!error)
 			{
@@ -1215,7 +1202,7 @@ std::unique_ptr<rai::block> rai::deserialize_block (rai::stream & stream_a, rai:
 	{
 		case rai::block_type::receive:
 		{
-			bool error;
+			bool error (false);
 			std::unique_ptr<rai::receive_block> obj (new rai::receive_block (error, stream_a));
 			if (!error)
 			{
@@ -1225,7 +1212,7 @@ std::unique_ptr<rai::block> rai::deserialize_block (rai::stream & stream_a, rai:
 		}
 		case rai::block_type::send:
 		{
-			bool error;
+			bool error (false);
 			std::unique_ptr<rai::send_block> obj (new rai::send_block (error, stream_a));
 			if (!error)
 			{
@@ -1235,7 +1222,7 @@ std::unique_ptr<rai::block> rai::deserialize_block (rai::stream & stream_a, rai:
 		}
 		case rai::block_type::open:
 		{
-			bool error;
+			bool error (false);
 			std::unique_ptr<rai::open_block> obj (new rai::open_block (error, stream_a));
 			if (!error)
 			{
@@ -1245,7 +1232,7 @@ std::unique_ptr<rai::block> rai::deserialize_block (rai::stream & stream_a, rai:
 		}
 		case rai::block_type::change:
 		{
-			bool error;
+			bool error (false);
 			std::unique_ptr<rai::change_block> obj (new rai::change_block (error, stream_a));
 			if (!error)
 			{
@@ -1255,7 +1242,7 @@ std::unique_ptr<rai::block> rai::deserialize_block (rai::stream & stream_a, rai:
 		}
 		case rai::block_type::state:
 		{
-			bool error;
+			bool error (false);
 			std::unique_ptr<rai::state_block> obj (new rai::state_block (error, stream_a));
 			if (!error)
 			{
@@ -1417,13 +1404,7 @@ void rai::receive_block::block_work_set (uint64_t work_a)
 
 bool rai::receive_block::operator== (rai::block const & other_a) const
 {
-	auto other_l (dynamic_cast<rai::receive_block const *> (&other_a));
-	auto result (other_l != nullptr);
-	if (result)
-	{
-		result = *this == *other_l;
-	}
-	return result;
+	return blocks_equal (*this, other_a);
 }
 
 bool rai::receive_block::valid_predecessor (rai::block const & block_a) const

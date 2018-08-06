@@ -21,7 +21,7 @@ We've applied the philosophy of _"do one thing and do it well"_, we are focused 
 * Nano utilizes a novel [block-lattice](https://github.com/nanocurrency/raiblocks/wiki/Block-lattice) architecture, unlike conventional blockchains used in many other cryptocurrencies.
 * The network requires minimal resources, no high-power mining hardware, and can process high transaction throughput.
 * Offers instantaneous transactions with zero fees and unlimited scalability, making Nano an ideal solution for peer-to-peer transactions.
-* As of December 2017, the Nano network has processed over four million transactions with an unpruned ledger size of only 1.7GB.
+* As of May 2018, the Nano network has processed over ten million transactions with an unpruned ledger size of only 3.8GB.
 
 For more information, see [Nano.org](https://nano.org/) or read the [whitepaper](https://nano.org/en/whitepaper).
 
@@ -38,11 +38,11 @@ For more information, see [Nano.org](https://nano.org/) or read the [whitepaper]
 ### Links & Resources
 
 * [Nano Website](https://nano.org)
-* [Nano Roadmap](https://raiblocks.net/media/raiblocks-roadmap-v2-en.png)
+* [Nano Roadmap](https://developers.nano.org/roadmap)
 * [Discord Chat](https://chat.nano.org/)
 * [Reddit](https://reddit.com/r/nanocurrency)
-* [Medium](https://medium.com/@nanocurrency)
-* [Twitter](https://twitter.com/nanocurrency)
+* [Medium](https://medium.com/nanocurrency)
+* [Twitter](https://twitter.com/nano)
 * [Forum](https://forum.raiblocks.net/)
 * [GitHub wiki](https://github.com/nanocurrency/raiblocks/wiki)
 

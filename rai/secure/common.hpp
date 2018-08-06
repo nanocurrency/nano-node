@@ -1,7 +1,7 @@
 #pragma once
 
 #include <rai/lib/blocks.hpp>
-#include <rai/node/utility.hpp>
+#include <rai/secure/utility.hpp>
 
 #include <boost/property_tree/ptree.hpp>
 
@@ -23,6 +23,10 @@ struct hash<rai::uint256_union>
 }
 namespace rai
 {
+const uint8_t protocol_version = 0x0c;
+const uint8_t protocol_version_min = 0x07;
+const uint8_t node_id_version = 0x0c;
+
 class block_store;
 /**
  * Determine the balance as of this block
@@ -40,8 +44,9 @@ public:
 	void state_block (rai::state_block const &) override;
 	MDB_txn * transaction;
 	rai::block_store & store;
-	rai::block_hash current;
-	rai::uint128_t result;
+	rai::block_hash current_balance;
+	rai::block_hash current_amount;
+	rai::uint128_t balance;
 };
 
 /**
@@ -61,7 +66,9 @@ public:
 	void from_send (rai::block_hash const &);
 	MDB_txn * transaction;
 	rai::block_store & store;
-	rai::uint128_t result;
+	rai::block_hash current_amount;
+	rai::block_hash current_balance;
+	rai::uint128_t amount;
 };
 
 /**
@@ -93,11 +100,23 @@ class keypair
 public:
 	keypair ();
 	keypair (std::string const &);
+	keypair (rai::raw_key &&);
 	rai::public_key pub;
 	rai::raw_key prv;
 };
 
 std::unique_ptr<rai::block> deserialize_block (MDB_val const &);
+
+/**
+ * Tag for which epoch an entry belongs to
+ */
+enum class epoch : uint8_t
+{
+	invalid = 0,
+	unspecified = 1,
+	epoch_0 = 2,
+	epoch_1 = 3
+};
 
 /**
  * Latest information about an account
@@ -106,14 +125,15 @@ class account_info
 {
 public:
 	account_info ();
-	account_info (MDB_val const &);
+	account_info (MDB_val const &, epoch);
 	account_info (rai::account_info const &) = default;
-	account_info (rai::block_hash const &, rai::block_hash const &, rai::block_hash const &, rai::amount const &, uint64_t, uint64_t);
+	account_info (rai::block_hash const &, rai::block_hash const &, rai::block_hash const &, rai::amount const &, uint64_t, uint64_t, epoch);
 	void serialize (rai::stream &) const;
 	bool deserialize (rai::stream &);
 	bool operator== (rai::account_info const &) const;
 	bool operator!= (rai::account_info const &) const;
 	rai::mdb_val val () const;
+	size_t db_size () const;
 	rai::block_hash head;
 	rai::block_hash rep_block;
 	rai::block_hash open_block;
@@ -121,23 +141,25 @@ public:
 	/** Seconds since posix epoch */
 	uint64_t modified;
 	uint64_t block_count;
+	rai::epoch epoch;
 };
 
 /**
- * Information on an uncollected send, source account, amount, target account.
+ * Information on an uncollected send
  */
 class pending_info
 {
 public:
 	pending_info ();
-	pending_info (MDB_val const &);
-	pending_info (rai::account const &, rai::amount const &);
+	pending_info (MDB_val const &, epoch);
+	pending_info (rai::account const &, rai::amount const &, epoch);
 	void serialize (rai::stream &) const;
 	bool deserialize (rai::stream &);
 	bool operator== (rai::pending_info const &) const;
 	rai::mdb_val val () const;
 	rai::account source;
 	rai::amount amount;
+	rai::epoch epoch;
 };
 class pending_key
 {
@@ -173,7 +195,8 @@ public:
 	size_t receive;
 	size_t open;
 	size_t change;
-	size_t state;
+	size_t state_v0;
+	size_t state_v1;
 };
 class vote
 {
@@ -189,6 +212,8 @@ public:
 	bool operator!= (rai::vote const &) const;
 	void serialize (rai::stream &, rai::block_type);
 	void serialize (rai::stream &);
+	bool deserialize (rai::stream &);
+	bool validate ();
 	std::string to_json () const;
 	// Vote round sequence number
 	uint64_t sequence;
@@ -204,12 +229,6 @@ enum class vote_code
 	replay, // Vote does not have the highest sequence number, it's a replay
 	vote // Vote has the highest sequence number
 };
-class vote_result
-{
-public:
-	rai::vote_code code;
-	std::shared_ptr<rai::vote> vote;
-};
 
 enum class process_result
 {
@@ -218,14 +237,12 @@ enum class process_result
 	old, // Already seen and was valid
 	negative_spend, // Malicious attempt to spend a negative amount
 	fork, // Malicious fork based on previous
-	unreceivable, // Source block doesn't exist or has already been received
+	unreceivable, // Source block doesn't exist, has already been received, or requires an account upgrade (epoch blocks)
 	gap_previous, // Block marked as previous is unknown
 	gap_source, // Block marked as source is unknown
-	state_block_disabled, // Awaiting state block canary block
-	not_receive_from_send, // Receive does not have a send source
-	account_mismatch, // Account number in open block doesn't match send destination
 	opened_burn_account, // The impossible happened, someone found the private key associated with the public key '0'.
 	balance_mismatch, // Balance and amount delta don't match
+	representative_mismatch, // Representative is changed when it is not allowed
 	block_position // This block cannot follow the previous block
 };
 class process_return
@@ -248,6 +265,7 @@ class votes
 public:
 	votes (std::shared_ptr<rai::block>);
 	rai::tally_result vote (std::shared_ptr<rai::vote>);
+	bool uncontested ();
 	// Root block of fork
 	rai::block_hash id;
 	// All votes received by account

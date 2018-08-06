@@ -1,5 +1,6 @@
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
+#include <cstdlib>
 #include <rai/node/common.hpp>
 #include <rai/node/testing.hpp>
 
@@ -49,6 +50,14 @@ rai::system::~system ()
 	for (auto & i : nodes)
 	{
 		i->stop ();
+	}
+
+	// Clean up tmp directories created by the tests. Since it's sometimes useful to
+	// see log files after test failures, an environment variable is supported to
+	// retain the files.
+	if (std::getenv ("TEST_KEEP_TMPDIRS") == nullptr)
+	{
+		rai::remove_temporary_directories ();
 	}
 }
 
@@ -157,7 +166,7 @@ void rai::system::generate_receive (rai::node & node_a)
 		if (i != node_a.store.pending_end ())
 		{
 			rai::pending_key send_hash (i->first);
-			rai::pending_info info (i->second);
+			rai::pending_info info (i->second, i->from_secondary_store ? rai::epoch::epoch_1 : rai::epoch::epoch_0);
 			send_block = node_a.store.block_get (transaction, send_hash.hash);
 		}
 	}
@@ -224,7 +233,7 @@ void rai::system::generate_send_existing (rai::node & node_a, std::vector<rai::a
 		rai::account account;
 		random_pool.GenerateBlock (account.bytes.data (), sizeof (account.bytes));
 		rai::transaction transaction (node_a.store.environment, nullptr, false);
-		rai::store_iterator entry (node_a.store.latest_begin (transaction, account));
+		rai::store_merge_iterator entry (node_a.store.latest_begin (transaction, account));
 		if (entry == node_a.store.latest_end ())
 		{
 			entry = node_a.store.latest_begin (transaction);
@@ -301,7 +310,7 @@ void rai::system::generate_mass_activity (uint32_t count_a, rai::node & node_a)
 				rai::transaction transaction (node_a.store.environment, nullptr, false);
 				auto block_counts (node_a.store.block_count (transaction));
 				count = block_counts.sum ();
-				state = block_counts.state;
+				state = block_counts.state_v0 + block_counts.state_v1;
 			}
 			std::cerr << boost::str (boost::format ("Mass activity iteration %1% us %2% us/t %3% state: %4% old: %5%\n") % i % us % (us / 256) % state % (count - state));
 			previous = now;
