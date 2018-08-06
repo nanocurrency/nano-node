@@ -1909,6 +1909,7 @@ void rai::rpc_handler::node_id_delete ()
 		node.store.delete_node_id (transaction);
 		response_l.put ("deleted", "1");
 	}
+	response_errors ();
 }
 
 void rai::rpc_handler::password_change ()
