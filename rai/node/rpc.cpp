@@ -207,7 +207,7 @@ void rai::rpc_handler::response_errors ()
 	if (ec || response_l.empty ())
 	{
 		boost::property_tree::ptree response_error;
-		response_error.put ("error", ec.message ());
+		response_error.put ("error", ec ? ec.message () : "Empty response");
 		response (response_error);
 	}
 	else
