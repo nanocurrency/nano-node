@@ -52,6 +52,7 @@
         "work_threads": "4",
         "enable_voting": "true",
         "bootstrap_connections": "16",
+        "bootstrap_connections_max": "64",
         "callback_address": "",
         "callback_port": "0",
         "callback_target": "",

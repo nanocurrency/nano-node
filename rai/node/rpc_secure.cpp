@@ -152,32 +152,31 @@ void rai::rpc_connection_secure::read ()
 			this_l->node->background ([this_l]() {
 				auto start (std::chrono::steady_clock::now ());
 				auto version (this_l->request.version ());
-				auto response_handler ([this_l, version, start](boost::property_tree::ptree const & tree_a) {
+				std::string request_id (boost::str (boost::format ("%1%") % boost::io::group (std::hex, std::showbase, reinterpret_cast<uintptr_t> (this_l.get ()))));
+				auto response_handler ([this_l, version, start, request_id](boost::property_tree::ptree const & tree_a) {
 					std::stringstream ostream;
 					boost::property_tree::write_json (ostream, tree_a);
 					ostream.flush ();
 					auto body (ostream.str ());
 					this_l->write_result (body, version);
 					boost::beast::http::async_write (this_l->stream, this_l->res, [this_l](boost::system::error_code const & ec, size_t bytes_transferred) {
-
 						// Perform the SSL shutdown
 						this_l->stream.async_shutdown (
 						std::bind (
 						&rai::rpc_connection_secure::on_shutdown,
 						this_l,
 						std::placeholders::_1));
-
 					});
 
 					if (this_l->node->config.logging.log_rpc ())
 					{
-						BOOST_LOG (this_l->node->log) << boost::str (boost::format ("TLS: RPC request %2% completed in: %1% microseconds") % std::chrono::duration_cast<std::chrono::microseconds> (std::chrono::steady_clock::now () - start).count () % boost::io::group (std::hex, std::showbase, reinterpret_cast<uintptr_t> (this_l.get ())));
+						BOOST_LOG (this_l->node->log) << boost::str (boost::format ("TLS: RPC request %2% completed in: %1% microseconds") % std::chrono::duration_cast<std::chrono::microseconds> (std::chrono::steady_clock::now () - start).count () % request_id);
 					}
 				});
 
 				if (this_l->request.method () == boost::beast::http::verb::post)
 				{
-					auto handler (std::make_shared<rai::rpc_handler> (*this_l->node, this_l->rpc, this_l->request.body (), response_handler));
+					auto handler (std::make_shared<rai::rpc_handler> (*this_l->node, this_l->rpc, this_l->request.body (), request_id, response_handler));
 					handler->process_request ();
 				}
 				else

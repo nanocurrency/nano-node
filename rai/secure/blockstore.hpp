@@ -1,6 +1,6 @@
 #pragma once
 
-#include <rai/common.hpp>
+#include <rai/secure/common.hpp>
 
 namespace rai
 {
@@ -29,6 +29,43 @@ public:
 };
 
 /**
+ * A specialized std::pair which also indicates if it is from the secondary store
+ */
+class merged_store_kv
+{
+public:
+	rai::mdb_val first;
+	rai::mdb_val second;
+	bool from_secondary_store;
+};
+
+/**
+ * Iterates the key/value pairs of two stores merged together
+ */
+class store_merge_iterator
+{
+public:
+	store_merge_iterator (MDB_txn *, MDB_dbi, MDB_dbi);
+	store_merge_iterator (std::nullptr_t);
+	store_merge_iterator (MDB_txn *, MDB_dbi, MDB_dbi, MDB_val const &);
+	store_merge_iterator (rai::store_merge_iterator &&);
+	store_merge_iterator (rai::store_merge_iterator const &) = delete;
+	~store_merge_iterator ();
+	rai::store_merge_iterator & operator++ ();
+	void next_dup ();
+	std::pair<MDB_cursor **, rai::merged_store_kv *> cursor_current ();
+	rai::store_merge_iterator & operator= (rai::store_merge_iterator &&);
+	rai::store_merge_iterator & operator= (rai::store_merge_iterator const &) = delete;
+	rai::merged_store_kv * operator-> ();
+	bool operator== (rai::store_merge_iterator const &) const;
+	bool operator!= (rai::store_merge_iterator const &) const;
+	MDB_cursor * cursor1;
+	MDB_cursor * cursor2;
+	rai::merged_store_kv current1;
+	rai::merged_store_kv current2;
+};
+
+/**
  * Manages block storage and iteration
  */
 class block_store
@@ -36,9 +73,9 @@ class block_store
 public:
 	block_store (bool &, boost::filesystem::path const &, int lmdb_max_dbs = 128);
 
-	MDB_dbi block_database (rai::block_type);
+	MDB_dbi block_database (rai::block_type, rai::epoch);
 	void block_put_raw (MDB_txn *, MDB_dbi, rai::block_hash const &, MDB_val);
-	void block_put (MDB_txn *, rai::block_hash const &, rai::block const &, rai::block_hash const & = rai::block_hash (0));
+	void block_put (MDB_txn *, rai::block_hash const &, rai::block const &, rai::block_hash const & = rai::block_hash (0), rai::epoch = rai::epoch::epoch_0);
 	MDB_val block_get_raw (MDB_txn *, rai::block_hash const &, rai::block_type &);
 	rai::block_hash block_successor (MDB_txn *, rai::block_hash const &);
 	void block_successor_clear (MDB_txn *, rai::block_hash const &);
@@ -59,17 +96,29 @@ public:
 	void account_del (MDB_txn *, rai::account const &);
 	bool account_exists (MDB_txn *, rai::account const &);
 	size_t account_count (MDB_txn *);
-	rai::store_iterator latest_begin (MDB_txn *, rai::account const &);
-	rai::store_iterator latest_begin (MDB_txn *);
-	rai::store_iterator latest_end ();
+	rai::store_iterator latest_v0_begin (MDB_txn *, rai::account const &);
+	rai::store_iterator latest_v0_begin (MDB_txn *);
+	rai::store_iterator latest_v0_end ();
+	rai::store_iterator latest_v1_begin (MDB_txn *, rai::account const &);
+	rai::store_iterator latest_v1_begin (MDB_txn *);
+	rai::store_iterator latest_v1_end ();
+	rai::store_merge_iterator latest_begin (MDB_txn *, rai::account const &);
+	rai::store_merge_iterator latest_begin (MDB_txn *);
+	rai::store_merge_iterator latest_end ();
 
 	void pending_put (MDB_txn *, rai::pending_key const &, rai::pending_info const &);
 	void pending_del (MDB_txn *, rai::pending_key const &);
 	bool pending_get (MDB_txn *, rai::pending_key const &, rai::pending_info &);
 	bool pending_exists (MDB_txn *, rai::pending_key const &);
-	rai::store_iterator pending_begin (MDB_txn *, rai::pending_key const &);
-	rai::store_iterator pending_begin (MDB_txn *);
-	rai::store_iterator pending_end ();
+	rai::store_iterator pending_v0_begin (MDB_txn *, rai::pending_key const &);
+	rai::store_iterator pending_v0_begin (MDB_txn *);
+	rai::store_iterator pending_v0_end ();
+	rai::store_iterator pending_v1_begin (MDB_txn *, rai::pending_key const &);
+	rai::store_iterator pending_v1_begin (MDB_txn *);
+	rai::store_iterator pending_v1_end ();
+	rai::store_merge_iterator pending_begin (MDB_txn *, rai::pending_key const &);
+	rai::store_merge_iterator pending_begin (MDB_txn *);
+	rai::store_merge_iterator pending_end ();
 
 	void block_info_put (MDB_txn *, rai::block_hash const &, rai::block_info const &);
 	void block_info_del (MDB_txn *, rai::block_hash const &);
@@ -79,6 +128,7 @@ public:
 	rai::store_iterator block_info_begin (MDB_txn *);
 	rai::store_iterator block_info_end ();
 	rai::uint128_t block_balance (MDB_txn *, rai::block_hash const &);
+	rai::epoch block_version (MDB_txn *, rai::block_hash const &);
 	static size_t const block_info_max = 32;
 
 	rai::uint128_t representation_get (MDB_txn *, rai::account const &);
@@ -128,6 +178,7 @@ public:
 	void upgrade_v8_to_v9 (MDB_txn *);
 	void upgrade_v9_to_v10 (MDB_txn *);
 	void upgrade_v10_to_v11 (MDB_txn *);
+	void upgrade_v11_to_v12 (MDB_txn *);
 
 	// Requires a write transaction
 	rai::raw_key get_node_id (MDB_txn *);
@@ -146,10 +197,16 @@ public:
 	MDB_dbi frontiers;
 
 	/**
-	 * Maps account to account information, head, rep, open, balance, timestamp and block count.
+	 * Maps account v1 to account information, head, rep, open, balance, timestamp and block count.
 	 * rai::account -> rai::block_hash, rai::block_hash, rai::block_hash, rai::amount, uint64_t, uint64_t
 	 */
-	MDB_dbi accounts;
+	MDB_dbi accounts_v0;
+
+	/**
+	 * Maps account v0 to account information, head, rep, open, balance, timestamp and block count.
+	 * rai::account -> rai::block_hash, rai::block_hash, rai::block_hash, rai::amount, uint64_t, uint64_t
+	 */
+	MDB_dbi accounts_v1;
 
 	/**
 	 * Maps block hash to send block.
@@ -176,16 +233,28 @@ public:
 	MDB_dbi change_blocks;
 
 	/**
-	 * Maps block hash to state block.
+	 * Maps block hash to v0 state block.
 	 * rai::block_hash -> rai::state_block
 	 */
-	MDB_dbi state_blocks;
+	MDB_dbi state_blocks_v0;
 
 	/**
-	 * Maps (destination account, pending block) to (source account, amount).
+	 * Maps block hash to v1 state block.
+	 * rai::block_hash -> rai::state_block
+	 */
+	MDB_dbi state_blocks_v1;
+
+	/**
+	 * Maps min_version 0 (destination account, pending block) to (source account, amount).
 	 * rai::account, rai::block_hash -> rai::account, rai::amount
 	 */
-	MDB_dbi pending;
+	MDB_dbi pending_v0;
+
+	/**
+	 * Maps min_version 1 (destination account, pending block) to (source account, amount).
+	 * rai::account, rai::block_hash -> rai::account, rai::amount
+	 */
+	MDB_dbi pending_v1;
 
 	/**
 	 * Maps block hash to account and balance.

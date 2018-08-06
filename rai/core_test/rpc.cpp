@@ -819,7 +819,7 @@ TEST (rpc, frontier)
 		{
 			rai::keypair key;
 			source[key.pub] = key.prv.data;
-			system.nodes[0]->store.account_put (transaction, key.pub, rai::account_info (key.prv.data, 0, 0, 0, 0, 0));
+			system.nodes[0]->store.account_put (transaction, key.pub, rai::account_info (key.prv.data, 0, 0, 0, 0, 0, rai::epoch::epoch_0));
 		}
 	}
 	rai::keypair key;
@@ -859,7 +859,7 @@ TEST (rpc, frontier_limited)
 		{
 			rai::keypair key;
 			source[key.pub] = key.prv.data;
-			system.nodes[0]->store.account_put (transaction, key.pub, rai::account_info (key.prv.data, 0, 0, 0, 0, 0));
+			system.nodes[0]->store.account_put (transaction, key.pub, rai::account_info (key.prv.data, 0, 0, 0, 0, 0, rai::epoch::epoch_0));
 		}
 	}
 	rai::keypair key;
@@ -889,7 +889,7 @@ TEST (rpc, frontier_startpoint)
 		{
 			rai::keypair key;
 			source[key.pub] = key.prv.data;
-			system.nodes[0]->store.account_put (transaction, key.pub, rai::account_info (key.prv.data, 0, 0, 0, 0, 0));
+			system.nodes[0]->store.account_put (transaction, key.pub, rai::account_info (key.prv.data, 0, 0, 0, 0, 0, rai::epoch::epoch_0));
 		}
 	}
 	rai::keypair key;
@@ -1164,7 +1164,11 @@ TEST (rpc, payment_begin_end)
 	auto root1 (system.nodes[0]->ledger.latest_root (rai::transaction (wallet->store.environment, nullptr, false), account));
 	uint64_t work (0);
 	auto iteration (0);
-	ASSERT_TRUE (rai::work_validate (root1, work));
+	while (!rai::work_validate (root1, work))
+	{
+		++work;
+		ASSERT_LT (work, 50);
+	}
 	while (rai::work_validate (root1, work))
 	{
 		system.poll ();
@@ -1415,6 +1419,8 @@ TEST (rpc, pending)
 		blocks[hash] = amount;
 		boost::optional<std::string> source (i->second.get_optional<std::string> ("source"));
 		ASSERT_FALSE (source.is_initialized ());
+		boost::optional<uint8_t> min_version (i->second.get_optional<uint8_t> ("min_version"));
+		ASSERT_FALSE (min_version.is_initialized ());
 	}
 	ASSERT_EQ (blocks[block1->hash ()], 100);
 	request.put ("threshold", "101");
@@ -1428,6 +1434,7 @@ TEST (rpc, pending)
 	ASSERT_EQ (0, blocks_node.size ());
 	request.put ("threshold", "0");
 	request.put ("source", "true");
+	request.put ("min_version", "true");
 	test_response response2 (request, rpc, system.service);
 	while (response2.status == 0)
 	{
@@ -1444,6 +1451,7 @@ TEST (rpc, pending)
 		hash.decode_hex (i->first);
 		amounts[hash].decode_dec (i->second.get<std::string> ("amount"));
 		sources[hash].decode_account (i->second.get<std::string> ("source"));
+		ASSERT_EQ (i->second.get<uint8_t> ("min_version"), 0);
 	}
 	ASSERT_EQ (amounts[block1->hash ()], 100);
 	ASSERT_EQ (sources[block1->hash ()], rai::test_genesis_key.pub);
@@ -1520,7 +1528,10 @@ TEST (rpc, version)
 	ASSERT_EQ (200, response1.status);
 	ASSERT_EQ ("1", response1.json.get<std::string> ("rpc_version"));
 	ASSERT_EQ (200, response1.status);
-	ASSERT_EQ ("10", response1.json.get<std::string> ("store_version"));
+	{
+		rai::transaction transaction (system.nodes[0]->store.environment, nullptr, false);
+		ASSERT_EQ (std::to_string (node1->store.version_get (transaction)), response1.json.get<std::string> ("store_version"));
+	}
 	ASSERT_EQ (boost::str (boost::format ("RaiBlocks %1%.%2%") % RAIBLOCKS_VERSION_MAJOR % RAIBLOCKS_VERSION_MINOR), response1.json.get<std::string> ("node_vendor"));
 	auto headers (response1.resp.base ());
 	auto allowed_origin (headers.at ("Access-Control-Allow-Origin"));
@@ -2570,6 +2581,8 @@ TEST (rpc, wallet_pending)
 			blocks[hash] = amount;
 			boost::optional<std::string> source (i->second.get_optional<std::string> ("source"));
 			ASSERT_FALSE (source.is_initialized ());
+			boost::optional<uint8_t> min_version (i->second.get_optional<uint8_t> ("min_version"));
+			ASSERT_FALSE (min_version.is_initialized ());
 		}
 	}
 	ASSERT_EQ (blocks[block1->hash ()], 100);
@@ -2584,6 +2597,7 @@ TEST (rpc, wallet_pending)
 	ASSERT_EQ (0, pending1.size ());
 	request.put ("threshold", "0");
 	request.put ("source", "true");
+	request.put ("min_version", "true");
 	test_response response2 (request, rpc, system0.service);
 	while (response2.status == 0)
 	{
@@ -2602,6 +2616,7 @@ TEST (rpc, wallet_pending)
 			hash.decode_hex (i->first);
 			amounts[hash].decode_dec (i->second.get<std::string> ("amount"));
 			sources[hash].decode_account (i->second.get<std::string> ("source"));
+			ASSERT_EQ (i->second.get<uint8_t> ("min_version"), 0);
 		}
 	}
 	ASSERT_EQ (amounts[block1->hash ()], 100);
@@ -2649,6 +2664,7 @@ TEST (rpc, work_get)
 {
 	rai::system system (24000, 1);
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	system.wallet (0)->work_cache_blocking (rai::test_genesis_key.pub, system.nodes[0]->latest (rai::test_genesis_key.pub));
 	rai::rpc rpc (system.service, *system.nodes[0], rai::rpc_config (true));
 	rpc.start ();
 	boost::property_tree::ptree request;
@@ -2672,6 +2688,7 @@ TEST (rpc, wallet_work_get)
 {
 	rai::system system (24000, 1);
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	system.wallet (0)->work_cache_blocking (rai::test_genesis_key.pub, system.nodes[0]->latest (rai::test_genesis_key.pub));
 	rai::rpc rpc (system.service, *system.nodes[0], rai::rpc_config (true));
 	rpc.start ();
 	boost::property_tree::ptree request;
@@ -2882,9 +2899,10 @@ TEST (rpc, account_info)
 	std::string balance (response.json.get<std::string> ("balance"));
 	ASSERT_EQ ("100", balance);
 	std::string modified_timestamp (response.json.get<std::string> ("modified_timestamp"));
-	ASSERT_TRUE (time - stol (modified_timestamp) < 5);
+	ASSERT_LT (std::abs ((long)time - stol (modified_timestamp)), 5);
 	std::string block_count (response.json.get<std::string> ("block_count"));
 	ASSERT_EQ ("2", block_count);
+	ASSERT_EQ (0, response.json.get<uint8_t> ("account_version"));
 	boost::optional<std::string> weight (response.json.get_optional<std::string> ("weight"));
 	ASSERT_FALSE (weight.is_initialized ());
 	boost::optional<std::string> pending (response.json.get_optional<std::string> ("pending"));
@@ -3088,7 +3106,7 @@ TEST (rpc, ledger)
 		std::string balance_text (accounts.second.get<std::string> ("balance"));
 		ASSERT_EQ ("340282366920938463463374607431768211355", balance_text);
 		std::string modified_timestamp (accounts.second.get<std::string> ("modified_timestamp"));
-		ASSERT_EQ (std::to_string (time), modified_timestamp);
+		ASSERT_LT (std::abs ((long)time - stol (modified_timestamp)), 5);
 		std::string block_count (accounts.second.get<std::string> ("block_count"));
 		ASSERT_EQ ("1", block_count);
 		boost::optional<std::string> weight (accounts.second.get_optional<std::string> ("weight"));
@@ -3466,7 +3484,7 @@ TEST (rpc, wallet_create_fail)
 	{
 		system.poll ();
 	}
-	ASSERT_EQ ("Failed to create wallet. Increase lmdb_max_dbs in node config.", response.json.get<std::string> ("error"));
+	ASSERT_EQ ("Failed to create wallet. Increase lmdb_max_dbs in node config", response.json.get<std::string> ("error"));
 }
 
 TEST (rpc, wallet_ledger)
@@ -3507,7 +3525,7 @@ TEST (rpc, wallet_ledger)
 		std::string balance_text (accounts.second.get<std::string> ("balance"));
 		ASSERT_EQ ("340282366920938463463374607431768211355", balance_text);
 		std::string modified_timestamp (accounts.second.get<std::string> ("modified_timestamp"));
-		ASSERT_EQ (std::to_string (time), modified_timestamp);
+		ASSERT_LT (std::abs ((long)time - stol (modified_timestamp)), 5);
 		std::string block_count (accounts.second.get<std::string> ("block_count"));
 		ASSERT_EQ ("1", block_count);
 		boost::optional<std::string> weight (accounts.second.get_optional<std::string> ("weight"));
@@ -3624,7 +3642,9 @@ TEST (rpc, confirmation_history)
 	auto hash (item->second.get<std::string> ("hash"));
 	auto tally (item->second.get<std::string> ("tally"));
 	ASSERT_EQ (block->hash ().to_string (), hash);
-	ASSERT_EQ ((rai::genesis_amount - rai::Gxrb_ratio).convert_to<std::string> (), tally);
+	rai::amount tally_num;
+	tally_num.decode_dec (tally);
+	assert (tally_num == rai::genesis_amount || tally_num == (rai::genesis_amount - rai::Gxrb_ratio));
 	system.stop ();
 }
 

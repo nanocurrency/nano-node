@@ -1,10 +1,10 @@
 #pragma once
 
-#include <rai/ledger.hpp>
 #include <rai/lib/work.hpp>
 #include <rai/node/bootstrap.hpp>
 #include <rai/node/stats.hpp>
 #include <rai/node/wallet.hpp>
+#include <rai/secure/ledger.hpp>
 
 #include <condition_variable>
 #include <memory>
@@ -55,6 +55,7 @@ class election : public std::enable_shared_from_this<rai::election>
 {
 	std::function<void(std::shared_ptr<rai::block>)> confirmation_action;
 	void confirm_once (MDB_txn *);
+	void abort ();
 
 public:
 	election (rai::node &, std::shared_ptr<rai::block>, std::function<void(std::shared_ptr<rai::block>)> const &);
@@ -62,7 +63,7 @@ public:
 	// Check if we have vote quorum
 	bool have_quorum (rai::tally_t const &);
 	// Tell the network our view of the winner
-	void broadcast_winner ();
+	void broadcast_winner (MDB_txn *);
 	// Change our winner to agree with the network
 	void compute_rep_votes (MDB_txn *);
 	// Confirm this block if quorum is met
@@ -100,7 +101,6 @@ public:
 	bool vote (std::shared_ptr<rai::vote>);
 	// Is the root of this block in the roots container
 	bool active (rai::block const &);
-	void announce_votes ();
 	std::deque<std::shared_ptr<rai::block>> list_blocks ();
 	void erase (rai::block const &);
 	void stop ();
@@ -120,6 +120,14 @@ public:
 	static unsigned constexpr announcement_long = 20;
 	static unsigned constexpr announce_interval_ms = (rai::rai_network == rai::rai_networks::rai_test_network) ? 10 : 16000;
 	static size_t constexpr election_history_size = 2048;
+
+private:
+	void announce_loop ();
+	void announce_votes ();
+	std::condition_variable condition;
+	bool started;
+	bool stopped;
+	std::thread thread;
 };
 class operation
 {
@@ -483,8 +491,8 @@ public:
 	std::string callback_target;
 	int lmdb_max_dbs;
 	rai::stat_config stat_config;
-	rai::block_hash state_block_parse_canary;
-	rai::block_hash state_block_generate_canary;
+	rai::uint256_union epoch_block_link;
+	rai::account epoch_block_signer;
 	static std::chrono::seconds constexpr keepalive_period = std::chrono::seconds (60);
 	static std::chrono::seconds constexpr keepalive_cutoff = keepalive_period * 5;
 	static std::chrono::minutes constexpr wallet_backup_interval = std::chrono::minutes (5);
@@ -504,8 +512,21 @@ class vote_processor
 {
 public:
 	vote_processor (rai::node &);
-	rai::vote_code vote (std::shared_ptr<rai::vote>, rai::endpoint);
+	void vote (std::shared_ptr<rai::vote>, rai::endpoint);
+	rai::vote_code vote_blocking (MDB_txn *, std::shared_ptr<rai::vote>, rai::endpoint);
+	void flush ();
 	rai::node & node;
+	void stop ();
+
+private:
+	void process_loop ();
+	std::deque<std::pair<std::shared_ptr<rai::vote>, rai::endpoint>> votes;
+	std::condition_variable condition;
+	std::mutex mutex;
+	bool started;
+	bool stopped;
+	bool active;
+	std::thread thread;
 };
 // The network is crawled for representatives by occasionally sending a unicast confirm_req for a specific block and watching to see if it's acknowledged with a vote.
 class rep_crawler
@@ -630,8 +651,6 @@ public:
 	void join ();
 	std::vector<std::thread> threads;
 };
-void add_node_options (boost::program_options::options_description &);
-bool handle_node_options (boost::program_options::variables_map &);
 class inactive_node
 {
 public:
