@@ -323,7 +323,10 @@ void ledger_processor::epoch_block_impl (rai::state_block const & block_a)
 	result.code = existing ? rai::process_result::old : rai::process_result::progress; // Have we seen this block before? (Unambiguous)
 	if (result.code == rai::process_result::progress)
 	{
-		result.code = validate_message (ledger.epoch_signer, hash, block_a.signature) ? rai::process_result::bad_signature : rai::process_result::progress; // Is this block signed correctly (Unambiguous)
+		if (!valid_signature)
+		{
+			result.code = validate_message (ledger.epoch_signer, hash, block_a.signature) ? rai::process_result::bad_signature : rai::process_result::progress; // Is this block signed correctly (Unambiguous)
+		}
 		if (result.code == rai::process_result::progress)
 		{
 			result.code = block_a.hashables.account.is_zero () ? rai::process_result::opened_burn_account : rai::process_result::progress; // Is this for the burn account? (Unambiguous)
