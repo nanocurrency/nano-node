@@ -17,16 +17,27 @@ matrix:
 compiler:
   - clang
 
+cache:
+  - ccache: true
+  - directories:
+      - $HOME/Library/Caches/Homebrew
+      - $HOME/.cargo
+      - $TRAVIS_BUILD_DIR/load-tester/target
+
 before_install:
+  - if [ "$TRAVIS_OS_NAME" = "osx" ]; then brew update && brew install qt5 && brew cask install xquartz && brew install rust; fi
   - if [ "$TRAVIS_OS_NAME" = "linux" ]; then sudo mkdir -p /etc/docker && echo '{"ipv6":true,"fixed-cidr-v6":"2001:db8:1::/64"}' | sudo tee /etc/docker/daemon.json && sudo service docker restart; fi
-  - if [ "$TRAVIS_OS_NAME" = "osx" ]; then brew update && brew install qt5 && brew cask install xquartz && brew upgrade boost && brew install rust; fi
   - if [ "$TRAVIS_OS_NAME" = "linux" ]; then ci/build-docker-image.sh docker/ci/Dockerfile nanocurrency/nano-ci; fi
+
+install:
+  - if [ "$TRAVIS_OS_NAME" = "osx" ]; then brew install ccache; fi
+  - if [ "$TRAVIS_OS_NAME" = "osx" ]; then export PATH="/usr/local/opt/ccache/libexec:$PATH"; fi
 
 script:
   - if [ -n "$ONE_TIME_TESTS" ]; then ci/check-commit-format.sh; fi
   - if [ -n "$ONE_TIME_TESTS" ]; then doxygen doxygen.config; fi # TODO also deploy the built HTML
   - if [ "$TRAVIS_OS_NAME" = "osx" ]; then ci/build-travis.sh "/usr/local/opt/qt5/lib/cmake/Qt5"; fi
-  - if [ "$TRAVIS_OS_NAME" = "linux" ]; then docker run -v $TRAVIS_BUILD_DIR:/workspace nanocurrency/nano-ci /bin/bash -c "cd /workspace && ASAN=${ASAN} TSAN=${TSAN} ./ci/build-travis.sh /usr/lib/x86_64-linux-gnu/cmake/Qt5 ${PWD}"; fi
+  - if [ "$TRAVIS_OS_NAME" = "linux" ]; then docker run -v $TRAVIS_BUILD_DIR:/workspace -v $HOME/.ccache:/ccache -v $HOME/.cargo:/cargo nanocurrency/nano-ci /bin/bash -c "apt install ccache; cd /workspace && ASAN=${ASAN} TSAN=${TSAN} CCACHE_DIR=/ccache CARGO_HOME=/cargo ./ci/build-travis.sh /usr/lib/x86_64-linux-gnu/cmake/Qt5 ${PWD}"; fi
 
 deploy:
   provider: script

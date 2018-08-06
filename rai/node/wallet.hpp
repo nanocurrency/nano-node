@@ -1,9 +1,9 @@
 #pragma once
 
-#include <rai/blockstore.hpp>
-#include <rai/common.hpp>
 #include <rai/node/common.hpp>
 #include <rai/node/openclwork.hpp>
+#include <rai/secure/blockstore.hpp>
+#include <rai/secure/common.hpp>
 
 #include <mutex>
 #include <queue>
@@ -151,7 +151,6 @@ public:
 	void work_ensure (rai::account const &, rai::block_hash const &);
 	bool search_pending ();
 	void init_free_accounts (MDB_txn *);
-	bool should_generate_state_block (MDB_txn *, rai::block_hash const &);
 	/** Changes the wallet seed and returns the first account */
 	rai::public_key change_seed (MDB_txn * transaction_a, rai::raw_key const & prv_a);
 	std::unordered_set<rai::account> free_accounts;

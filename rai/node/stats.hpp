@@ -202,6 +202,7 @@ public:
 		open,
 		change,
 		state_block,
+		epoch_block,
 
 		// message specific
 		keepalive,
@@ -209,6 +210,7 @@ public:
 		republish_vote,
 		confirm_req,
 		confirm_ack,
+		node_id_handshake,
 
 		// bootstrap specific
 		initiate,

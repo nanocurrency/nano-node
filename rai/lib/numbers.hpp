@@ -94,9 +94,6 @@ public:
 	raw_key () = default;
 	~raw_key ();
 	void decrypt (rai::uint256_union const &, rai::raw_key const &, uint128_union const &);
-	raw_key (rai::raw_key const &) = delete;
-	raw_key (rai::raw_key const &&) = delete;
-	rai::raw_key & operator= (rai::raw_key const &) = delete;
 	bool operator== (rai::raw_key const &) const;
 	bool operator!= (rai::raw_key const &) const;
 	rai::uint256_union data;
@@ -124,6 +121,7 @@ using signature = uint512_union;
 rai::uint512_union sign_message (rai::raw_key const &, rai::public_key const &, rai::uint256_union const &);
 bool validate_message (rai::public_key const &, rai::uint256_union const &, rai::uint512_union const &);
 void deterministic_key (rai::uint256_union const &, uint32_t, rai::uint256_union &);
+rai::public_key pub_key (rai::private_key const &);
 }
 
 namespace std

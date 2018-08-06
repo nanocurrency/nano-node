@@ -6,6 +6,7 @@
 
 #include <argon2.h>
 
+#include <boost/filesystem.hpp>
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
 
@@ -86,7 +87,7 @@ void rai::wallet_store::deterministic_key (rai::raw_key & prv_a, MDB_txn * trans
 uint32_t rai::wallet_store::deterministic_index_get (MDB_txn * transaction_a)
 {
 	rai::wallet_value value (entry_get_raw (transaction_a, rai::wallet_store::deterministic_index_special));
-	return value.key.number ().convert_to<uint32_t> ();
+	return static_cast<uint32_t> (value.key.number () & static_cast<uint32_t> (-1));
 }
 
 void rai::wallet_store::deterministic_index_set (MDB_txn * transaction_a, uint32_t index_a)
@@ -491,7 +492,7 @@ bool rai::wallet_store::fetch (MDB_txn * transaction_a, rai::public_key const & 
 				{
 					rai::raw_key seed_l;
 					seed (seed_l, transaction_a);
-					uint32_t index (value.key.number ().convert_to<uint32_t> ());
+					uint32_t index (static_cast<uint32_t> (value.key.number () & static_cast<uint32_t> (-1)));
 					deterministic_key (prv, transaction_a, index);
 					break;
 				}
@@ -533,7 +534,7 @@ bool rai::wallet_store::fetch (MDB_txn * transaction_a, rai::public_key const & 
 
 bool rai::wallet_store::exists (MDB_txn * transaction_a, rai::public_key const & pub)
 {
-	return find (transaction_a, pub) != end ();
+	return !pub.is_zero () && find (transaction_a, pub) != end ();
 }
 
 void rai::wallet_store::serialize_json (MDB_txn * transaction_a, std::string & string_a)
@@ -554,6 +555,10 @@ void rai::wallet_store::write_backup (MDB_txn * transaction_a, boost::filesystem
 	backup_file.open (path_a.string ());
 	if (!backup_file.fail ())
 	{
+		// Set permissions to 600
+		boost::system::error_code ec;
+		boost::filesystem::permissions (path_a, boost::filesystem::perms::owner_read | boost::filesystem::perms::owner_write, ec);
+
 		std::string json;
 		serialize_json (transaction_a, json);
 		backup_file << json;
@@ -867,25 +872,11 @@ std::shared_ptr<rai::block> rai::wallet::receive_action (rai::block const & send
 					{
 						std::shared_ptr<rai::block> rep_block = node.ledger.store.block_get (transaction, info.rep_block);
 						assert (rep_block != nullptr);
-						if (should_generate_state_block (transaction, info.head))
-						{
-							block.reset (new rai::state_block (account, info.head, rep_block->representative (), info.balance.number () + pending_info.amount.number (), hash, prv, account, cached_work));
-						}
-						else
-						{
-							block.reset (new rai::receive_block (info.head, hash, prv, account, cached_work));
-						}
+						block.reset (new rai::state_block (account, info.head, rep_block->representative (), info.balance.number () + pending_info.amount.number (), hash, prv, account, cached_work));
 					}
 					else
 					{
-						if (node.ledger.state_block_generation_enabled (transaction))
-						{
-							block.reset (new rai::state_block (account, 0, representative_a, pending_info.amount, hash, prv, account, cached_work));
-						}
-						else
-						{
-							block.reset (new rai::open_block (hash, representative_a, account, prv, account, cached_work));
-						}
+						block.reset (new rai::state_block (account, 0, representative_a, pending_info.amount, hash, prv, account, cached_work));
 					}
 				}
 				else
@@ -942,14 +933,7 @@ std::shared_ptr<rai::block> rai::wallet::change_action (rai::account const & sou
 				assert (!error2);
 				uint64_t cached_work (0);
 				store.work_get (transaction, source_a, cached_work);
-				if (should_generate_state_block (transaction, info.head))
-				{
-					block.reset (new rai::state_block (source_a, info.head, representative_a, info.balance, 0, prv, source_a, cached_work));
-				}
-				else
-				{
-					block.reset (new rai::change_block (info.head, representative_a, prv, source_a, cached_work));
-				}
+				block.reset (new rai::state_block (source_a, info.head, representative_a, info.balance, 0, prv, source_a, cached_work));
 			}
 		}
 	}
@@ -1020,15 +1004,8 @@ std::shared_ptr<rai::block> rai::wallet::send_action (rai::account const & sourc
 						assert (rep_block != nullptr);
 						uint64_t cached_work (0);
 						store.work_get (transaction, source_a, cached_work);
-						if (should_generate_state_block (transaction, info.head))
-						{
-							block.reset (new rai::state_block (source_a, info.head, rep_block->representative (), balance - amount_a, account_a, prv, source_a, cached_work));
-						}
-						else
-						{
-							block.reset (new rai::send_block (info.head, account_a, balance - amount_a, prv, source_a, cached_work));
-						}
-						if (id_mdb_val)
+						block.reset (new rai::state_block (source_a, info.head, rep_block->representative (), balance - amount_a, account_a, prv, source_a, cached_work));
+						if (id_mdb_val && block != nullptr)
 						{
 							auto status (mdb_put (transaction, node.wallets.send_action_ids, *id_mdb_val, rai::mdb_val (block->hash ()), 0));
 							if (status != 0)
@@ -1056,14 +1033,6 @@ std::shared_ptr<rai::block> rai::wallet::send_action (rai::account const & sourc
 		}
 	}
 	return block;
-}
-
-bool rai::wallet::should_generate_state_block (MDB_txn * transaction_a, rai::block_hash const & hash_a)
-{
-	auto head (node.store.block_get (transaction_a, hash_a));
-	assert (head != nullptr);
-	auto is_state (dynamic_cast<rai::state_block *> (head.get ()) != nullptr);
-	return is_state || node.ledger.state_block_generation_enabled (transaction_a);
 }
 
 bool rai::wallet::change_sync (rai::account const & source_a, rai::account const & representative_a)
@@ -1163,16 +1132,12 @@ bool rai::wallet::search_pending ()
 				{
 					rai::pending_key key (j->first);
 					auto hash (key.hash);
-					rai::pending_info pending (j->second);
+					rai::pending_info pending (j->second, j->from_secondary_store ? rai::epoch::epoch_1 : rai::epoch::epoch_0);
 					auto amount (pending.amount.number ());
 					if (node.config.receive_minimum.number () <= amount)
 					{
 						BOOST_LOG (node.log) << boost::str (boost::format ("Found a pending block %1% for account %2%") % hash.to_string () % pending.source.to_account ());
-						auto this_l (shared_from_this ());
-						rai::account_info info;
-						auto error (node.store.account_get (transaction, pending.source, info));
-						assert (!error);
-						node.block_confirm (node.store.block_get (transaction, info.head));
+						node.block_confirm (node.store.block_get (transaction, hash));
 					}
 				}
 			}

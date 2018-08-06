@@ -1,10 +1,12 @@
+#include <rai/node/stats.hpp>
+
 #include <boost/asio.hpp>
 #include <boost/format.hpp>
 #include <boost/property_tree/json_parser.hpp>
 #include <ctime>
 #include <fstream>
 #include <iostream>
-#include <rai/node/stats.hpp>
+#include <memory>
 #include <sstream>
 #include <tuple>
 
@@ -267,7 +269,7 @@ void rai::stat::update (uint32_t key_a, uint64_t value)
 	// Counters
 	auto old (entry->counter.value);
 	entry->counter.add (value);
-	entry->count_observers (old, entry->counter.value);
+	entry->count_observers.notify (old, entry->counter.value);
 
 	std::chrono::duration<double, std::milli> duration = now - log_last_count_writeout;
 	if (config.log_interval_counters > 0 && duration.count () > config.log_interval_counters)
@@ -294,7 +296,7 @@ void rai::stat::update (uint32_t key_a, uint64_t value)
 			if (entry->sample_observers.observers.size () > 0)
 			{
 				auto snapshot (entry->samples);
-				entry->sample_observers (snapshot);
+				entry->sample_observers.notify (snapshot);
 			}
 
 			// Log sink
@@ -372,6 +374,9 @@ std::string rai::stat::detail_to_string (uint32_t key)
 		case rai::stat::detail::confirm_ack:
 			res = "confirm_ack";
 			break;
+		case rai::stat::detail::node_id_handshake:
+			res = "node_id_handshake";
+			break;
 		case rai::stat::detail::confirm_req:
 			res = "confirm_req";
 			break;
@@ -407,6 +412,9 @@ std::string rai::stat::detail_to_string (uint32_t key)
 			break;
 		case rai::stat::detail::state_block:
 			res = "state_block";
+			break;
+		case rai::stat::detail::epoch_block:
+			res = "epoch_block";
 			break;
 		case rai::stat::detail::vote_valid:
 			res = "vote_valid";

@@ -58,7 +58,7 @@ TEST (network, self_discard)
 	ASSERT_EQ (1, system.nodes[0]->stats.count (rai::stat::type::error, rai::stat::detail::bad_sender));
 }
 
-TEST (network, send_keepalive)
+TEST (network, send_node_id_handshake)
 {
 	rai::system system (24000, 1);
 	auto list1 (system.nodes[0]->peers.list ());
@@ -66,12 +66,22 @@ TEST (network, send_keepalive)
 	rai::node_init init1;
 	auto node1 (std::make_shared<rai::node> (init1, system.service, 24001, rai::unique_path (), system.alarm, system.logging, system.work));
 	node1->start ();
+	auto initial (system.nodes[0]->stats.count (rai::stat::type::message, rai::stat::detail::node_id_handshake, rai::stat::dir::in));
+	auto initial_node1 (node1->stats.count (rai::stat::type::message, rai::stat::detail::node_id_handshake, rai::stat::dir::in));
 	system.nodes[0]->network.send_keepalive (node1->network.endpoint ());
-	auto initial (system.nodes[0]->stats.count (rai::stat::type::message, rai::stat::detail::keepalive, rai::stat::dir::in));
 	ASSERT_EQ (0, system.nodes[0]->peers.list ().size ());
 	ASSERT_EQ (0, node1->peers.list ().size ());
 	auto iterations (0);
-	while (system.nodes[0]->stats.count (rai::stat::type::message, rai::stat::detail::keepalive, rai::stat::dir::in) == initial)
+	while (node1->stats.count (rai::stat::type::message, rai::stat::detail::node_id_handshake, rai::stat::dir::in) == initial_node1)
+	{
+		system.poll ();
+		++iterations;
+		ASSERT_LT (iterations, 200);
+	}
+	ASSERT_EQ (0, system.nodes[0]->peers.list ().size ());
+	ASSERT_EQ (1, node1->peers.list ().size ());
+	iterations = 0;
+	while (system.nodes[0]->stats.count (rai::stat::type::message, rai::stat::detail::node_id_handshake, rai::stat::dir::in) < initial + 2)
 	{
 		system.poll ();
 		++iterations;
@@ -213,6 +223,8 @@ TEST (network, send_valid_confirm_ack)
 TEST (network, send_valid_publish)
 {
 	rai::system system (24000, 2);
+	system.nodes[0]->bootstrap_initiator.stop ();
+	system.nodes[1]->bootstrap_initiator.stop ();
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	rai::keypair key2;
 	system.wallet (1)->insert_adhoc (key2.prv);
@@ -228,9 +240,14 @@ TEST (network, send_valid_publish)
 		++iterations;
 		ASSERT_LT (iterations, 200);
 	}
-	rai::block_hash latest3 (system.nodes[1]->latest (rai::test_genesis_key.pub));
-	ASSERT_NE (latest2, latest3);
-	ASSERT_EQ (hash2, latest3);
+	ASSERT_NE (hash2, latest2);
+	auto iterations2 (0);
+	while (system.nodes[1]->latest (rai::test_genesis_key.pub) == latest2)
+	{
+		system.poll ();
+		++iterations2;
+		ASSERT_LT (iterations2, 200);
+	}
 	ASSERT_EQ (50, system.nodes[1]->balance (rai::test_genesis_key.pub));
 }
 
@@ -456,7 +473,7 @@ TEST (bulk_pull, none)
 	auto connection (std::make_shared<rai::bootstrap_server> (nullptr, system.nodes[0]));
 	rai::genesis genesis;
 	std::unique_ptr<rai::bulk_pull> req (new rai::bulk_pull{});
-	req->start = genesis.hash ();
+	req->start = rai::test_genesis_key.pub;
 	req->end = genesis.hash ();
 	connection->requests.push (std::unique_ptr<rai::message>{});
 	auto request (std::make_shared<rai::bulk_pull_server> (connection, std::move (req)));
@@ -478,6 +495,42 @@ TEST (bulk_pull, get_next_on_open)
 	ASSERT_TRUE (block->previous ().is_zero ());
 	ASSERT_FALSE (connection->requests.empty ());
 	ASSERT_EQ (request->current, request->request->end);
+}
+
+TEST (bulk_pull, by_block)
+{
+	rai::system system (24000, 1);
+	auto connection (std::make_shared<rai::bootstrap_server> (nullptr, system.nodes[0]));
+	rai::genesis genesis;
+	std::unique_ptr<rai::bulk_pull> req (new rai::bulk_pull{});
+	req->start = genesis.hash ();
+	req->end.clear ();
+	connection->requests.push (std::unique_ptr<rai::message>{});
+	auto request (std::make_shared<rai::bulk_pull_server> (connection, std::move (req)));
+	auto block (request->get_next ());
+	ASSERT_NE (nullptr, block);
+	ASSERT_EQ (block->hash (), genesis.hash ());
+
+	block = request->get_next ();
+	ASSERT_EQ (nullptr, block);
+}
+
+TEST (bulk_pull, by_block_single)
+{
+	rai::system system (24000, 1);
+	auto connection (std::make_shared<rai::bootstrap_server> (nullptr, system.nodes[0]));
+	rai::genesis genesis;
+	std::unique_ptr<rai::bulk_pull> req (new rai::bulk_pull{});
+	req->start = genesis.hash ();
+	req->end = genesis.hash ();
+	connection->requests.push (std::unique_ptr<rai::message>{});
+	auto request (std::make_shared<rai::bulk_pull_server> (connection, std::move (req)));
+	auto block (request->get_next ());
+	ASSERT_NE (nullptr, block);
+	ASSERT_EQ (block->hash (), genesis.hash ());
+
+	block = request->get_next ();
+	ASSERT_EQ (nullptr, block);
 }
 
 TEST (bootstrap_processor, DISABLED_process_none)
@@ -553,7 +606,6 @@ TEST (bootstrap_processor, process_state)
 	rai::genesis genesis;
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	auto node0 (system.nodes[0]);
-	node0->ledger.state_block_parse_canary = genesis.hash ();
 	std::unique_ptr<rai::block> block1 (new rai::state_block (rai::test_genesis_key.pub, node0->latest (rai::test_genesis_key.pub), rai::test_genesis_key.pub, rai::genesis_amount - 100, rai::test_genesis_key.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
 	std::unique_ptr<rai::block> block2 (new rai::state_block (rai::test_genesis_key.pub, block1->hash (), rai::test_genesis_key.pub, rai::genesis_amount, block1->hash (), rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
 	node0->work_generate_blocking (*block1);
@@ -562,7 +614,6 @@ TEST (bootstrap_processor, process_state)
 	node0->process (*block2);
 	rai::node_init init1;
 	auto node1 (std::make_shared<rai::node> (init1, system.service, 24001, rai::unique_path (), system.alarm, system.logging, system.work));
-	node1->ledger.state_block_parse_canary = genesis.hash ();
 	ASSERT_EQ (node0->latest (rai::test_genesis_key.pub), block2->hash ());
 	ASSERT_NE (node1->latest (rai::test_genesis_key.pub), block2->hash ());
 	node1->bootstrap_initiator.bootstrap (node0->network.endpoint ());
@@ -906,7 +957,10 @@ TEST (network, endpoint_bad_fd)
 
 TEST (network, reserved_address)
 {
-	ASSERT_FALSE (rai::reserved_address (rai::endpoint (boost::asio::ip::address_v6::from_string ("2001::"), 0)));
+	ASSERT_FALSE (rai::reserved_address (rai::endpoint (boost::asio::ip::address_v6::from_string ("2001::"), 0), true));
+	rai::endpoint loopback (boost::asio::ip::address_v6::from_string ("::1"), 1);
+	ASSERT_FALSE (rai::reserved_address (loopback, false));
+	ASSERT_TRUE (rai::reserved_address (loopback, true));
 }
 
 TEST (node, port_mapping)

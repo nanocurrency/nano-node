@@ -38,11 +38,11 @@ For more information, see [Nano.org](https://nano.org/) or read the [whitepaper]
 ### Links & Resources
 
 * [Nano Website](https://nano.org)
-* [Nano Roadmap](https://raiblocks.net/media/raiblocks-roadmap-v2-en.png)
+* [Nano Roadmap](https://developers.nano.org/roadmap)
 * [Discord Chat](https://chat.nano.org/)
 * [Reddit](https://reddit.com/r/nanocurrency)
-* [Medium](https://medium.com/@nanocurrency)
-* [Twitter](https://twitter.com/nanocurrency)
+* [Medium](https://medium.com/nanocurrency)
+* [Twitter](https://twitter.com/nano)
 * [Forum](https://forum.raiblocks.net/)
 * [GitHub wiki](https://github.com/nanocurrency/raiblocks/wiki)
 

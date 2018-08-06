@@ -1,9 +1,9 @@
-#include <rai/common.hpp>
+#include <rai/secure/common.hpp>
 
-#include <rai/blockstore.hpp>
 #include <rai/lib/interface.h>
 #include <rai/node/common.hpp>
-#include <rai/versioning.hpp>
+#include <rai/secure/blockstore.hpp>
+#include <rai/secure/versioning.hpp>
 
 #include <boost/property_tree/json_parser.hpp>
 
@@ -16,7 +16,7 @@ namespace
 {
 char const * test_private_key_data = "34F0A37AAD20F4A260F0A5B3CB3D7FB50673212263E58A380BC10474BB039CE4";
 char const * test_public_key_data = "B0311EA55708D6A53C75CDBF88300259C6D018522FE3D4D0A242E431F9E8B6D0"; // xrb_3e3j5tkog48pnny9dmfzj1r16pg8t1e76dz5tmac6iq689wyjfpiij4txtdo
-char const * beta_public_key_data = "0311B25E0D1E1D7724BBA5BD523954F1DBCFC01CB8671D55ED2D32C7549FB252"; // xrb_11rjpbh1t9ixgwkdqbfxcawobwgusz13sg595ocytdbkrxcbzekkcqkc3dn1
+char const * beta_public_key_data = "A59A47CC4F593E75AE9AD653FDA9358E2F7898D9ACC8C60E80D0495CE20FBA9F"; // xrb_3betaz86ypbygpqbookmzpnmd5jhh4efmd8arr9a3n4bdmj1zgnzad7xpmfp
 char const * live_public_key_data = "E89208DD038FBB269987689621D52292AE9C35941A7484756ECCED92A65093BA"; // xrb_3t6k35gi95xu6tergt6p69ck76ogmitsa8mnijtpxm9fkcm736xtoncuohr3
 char const * test_genesis_data = R"%%%({
 	"type": "open",
@@ -28,12 +28,12 @@ char const * test_genesis_data = R"%%%({
 })%%%";
 
 char const * beta_genesis_data = R"%%%({
-	"type": "open",
-	"source": "0311B25E0D1E1D7724BBA5BD523954F1DBCFC01CB8671D55ED2D32C7549FB252",
-	"representative": "xrb_11rjpbh1t9ixgwkdqbfxcawobwgusz13sg595ocytdbkrxcbzekkcqkc3dn1",
-	"account": "xrb_11rjpbh1t9ixgwkdqbfxcawobwgusz13sg595ocytdbkrxcbzekkcqkc3dn1",
-	"work": "869e17b2bfa36639",
-	"signature": "34DF447C7F185673128C3516A657DFEC7906F16C68FB5A8879432E2E4FB908C8ED0DD24BBECFAB3C7852898231544A421DC8CB636EF66C82E1245083EB08EA0F"
+        "type": "open",
+        "source": "A59A47CC4F593E75AE9AD653FDA9358E2F7898D9ACC8C60E80D0495CE20FBA9F",
+        "representative": "xrb_3betaz86ypbygpqbookmzpnmd5jhh4efmd8arr9a3n4bdmj1zgnzad7xpmfp",
+        "account": "xrb_3betaz86ypbygpqbookmzpnmd5jhh4efmd8arr9a3n4bdmj1zgnzad7xpmfp",
+        "work": "000000000f0aaeeb",
+        "signature": "A726490E3325E4FA59C1C900D5B6EEBB15FE13D99F49D475B93F0AACC5635929A0614CF3892764A04D1C6732A0D716FFEB254D4154C6F544D11E6630F201450B"
 })%%%";
 
 char const * live_genesis_data = R"%%%({
@@ -161,6 +161,13 @@ rai::keypair::keypair ()
 	ed25519_publickey (prv.data.bytes.data (), pub.bytes.data ());
 }
 
+// Create a keypair given a private key
+rai::keypair::keypair (rai::raw_key && prv_a) :
+prv (std::move (prv_a))
+{
+	ed25519_publickey (prv.data.bytes.data (), pub.bytes.data ());
+}
+
 // Create a keypair given a hex string of the private key
 rai::keypair::keypair (std::string const & prv_a)
 {
@@ -188,24 +195,27 @@ rep_block (0),
 open_block (0),
 balance (0),
 modified (0),
-block_count (0)
+block_count (0),
+epoch (rai::epoch::epoch_0)
 {
 }
 
-rai::account_info::account_info (MDB_val const & val_a)
+rai::account_info::account_info (MDB_val const & val_a, rai::epoch epoch_a) :
+epoch (epoch_a)
 {
-	assert (val_a.mv_size == sizeof (*this));
-	static_assert (sizeof (head) + sizeof (rep_block) + sizeof (open_block) + sizeof (balance) + sizeof (modified) + sizeof (block_count) == sizeof (*this), "Class not packed");
-	std::copy (reinterpret_cast<uint8_t const *> (val_a.mv_data), reinterpret_cast<uint8_t const *> (val_a.mv_data) + sizeof (*this), reinterpret_cast<uint8_t *> (this));
+	auto size (db_size ());
+	assert (val_a.mv_size == size);
+	std::copy (reinterpret_cast<uint8_t const *> (val_a.mv_data), reinterpret_cast<uint8_t const *> (val_a.mv_data) + size, reinterpret_cast<uint8_t *> (this));
 }
 
-rai::account_info::account_info (rai::block_hash const & head_a, rai::block_hash const & rep_block_a, rai::block_hash const & open_block_a, rai::amount const & balance_a, uint64_t modified_a, uint64_t block_count_a) :
+rai::account_info::account_info (rai::block_hash const & head_a, rai::block_hash const & rep_block_a, rai::block_hash const & open_block_a, rai::amount const & balance_a, uint64_t modified_a, uint64_t block_count_a, rai::epoch epoch_a) :
 head (head_a),
 rep_block (rep_block_a),
 open_block (open_block_a),
 balance (balance_a),
 modified (modified_a),
-block_count (block_count_a)
+block_count (block_count_a),
+epoch (epoch_a)
 {
 }
 
@@ -247,7 +257,7 @@ bool rai::account_info::deserialize (rai::stream & stream_a)
 
 bool rai::account_info::operator== (rai::account_info const & other_a) const
 {
-	return head == other_a.head && rep_block == other_a.rep_block && open_block == other_a.open_block && balance == other_a.balance && modified == other_a.modified && block_count == other_a.block_count;
+	return head == other_a.head && rep_block == other_a.rep_block && open_block == other_a.open_block && balance == other_a.balance && modified == other_a.modified && block_count == other_a.block_count && epoch == other_a.epoch;
 }
 
 bool rai::account_info::operator!= (rai::account_info const & other_a) const
@@ -255,9 +265,20 @@ bool rai::account_info::operator!= (rai::account_info const & other_a) const
 	return !(*this == other_a);
 }
 
+size_t rai::account_info::db_size () const
+{
+	assert (reinterpret_cast<const uint8_t *> (this) == reinterpret_cast<const uint8_t *> (&head));
+	assert (reinterpret_cast<const uint8_t *> (&head) + sizeof (head) == reinterpret_cast<const uint8_t *> (&rep_block));
+	assert (reinterpret_cast<const uint8_t *> (&rep_block) + sizeof (rep_block) == reinterpret_cast<const uint8_t *> (&open_block));
+	assert (reinterpret_cast<const uint8_t *> (&open_block) + sizeof (open_block) == reinterpret_cast<const uint8_t *> (&balance));
+	assert (reinterpret_cast<const uint8_t *> (&balance) + sizeof (balance) == reinterpret_cast<const uint8_t *> (&modified));
+	assert (reinterpret_cast<const uint8_t *> (&modified) + sizeof (modified) == reinterpret_cast<const uint8_t *> (&block_count));
+	return sizeof (head) + sizeof (rep_block) + sizeof (open_block) + sizeof (balance) + sizeof (modified) + sizeof (block_count);
+}
+
 rai::mdb_val rai::account_info::val () const
 {
-	return rai::mdb_val (sizeof (*this), const_cast<rai::account_info *> (this));
+	return rai::mdb_val (db_size (), const_cast<rai::account_info *> (this));
 }
 
 rai::block_counts::block_counts () :
@@ -265,31 +286,37 @@ send (0),
 receive (0),
 open (0),
 change (0),
-state (0)
+state_v0 (0),
+state_v1 (0)
 {
 }
 
 size_t rai::block_counts::sum ()
 {
-	return send + receive + open + change + state;
+	return send + receive + open + change + state_v0 + state_v1;
 }
 
 rai::pending_info::pending_info () :
 source (0),
-amount (0)
+amount (0),
+epoch (rai::epoch::epoch_0)
 {
 }
 
-rai::pending_info::pending_info (MDB_val const & val_a)
+rai::pending_info::pending_info (MDB_val const & val_a, rai::epoch epoch_a) :
+epoch (epoch_a)
 {
-	assert (val_a.mv_size == sizeof (*this));
-	static_assert (sizeof (source) + sizeof (amount) == sizeof (*this), "Packed class");
-	std::copy (reinterpret_cast<uint8_t const *> (val_a.mv_data), reinterpret_cast<uint8_t const *> (val_a.mv_data) + sizeof (*this), reinterpret_cast<uint8_t *> (this));
+	auto db_size (sizeof (source) + sizeof (amount));
+	assert (val_a.mv_size == db_size);
+	assert (reinterpret_cast<const uint8_t *> (this) == reinterpret_cast<const uint8_t *> (&source));
+	assert (reinterpret_cast<const uint8_t *> (&source) + sizeof (source) == reinterpret_cast<const uint8_t *> (&amount));
+	std::copy (reinterpret_cast<uint8_t const *> (val_a.mv_data), reinterpret_cast<uint8_t const *> (val_a.mv_data) + db_size, reinterpret_cast<uint8_t *> (this));
 }
 
-rai::pending_info::pending_info (rai::account const & source_a, rai::amount const & amount_a) :
+rai::pending_info::pending_info (rai::account const & source_a, rai::amount const & amount_a, rai::epoch epoch_a) :
 source (source_a),
-amount (amount_a)
+amount (amount_a),
+epoch (epoch_a)
 {
 }
 
@@ -311,12 +338,14 @@ bool rai::pending_info::deserialize (rai::stream & stream_a)
 
 bool rai::pending_info::operator== (rai::pending_info const & other_a) const
 {
-	return source == other_a.source && amount == other_a.amount;
+	return source == other_a.source && amount == other_a.amount && epoch == other_a.epoch;
 }
 
 rai::mdb_val rai::pending_info::val () const
 {
-	return rai::mdb_val (sizeof (*this), const_cast<rai::pending_info *> (this));
+	assert (reinterpret_cast<const uint8_t *> (this) == reinterpret_cast<const uint8_t *> (&source));
+	assert (reinterpret_cast<const uint8_t *> (this) + sizeof (source) == reinterpret_cast<const uint8_t *> (&amount));
+	return rai::mdb_val (sizeof (source) + sizeof (amount), const_cast<rai::pending_info *> (this));
 }
 
 rai::pending_key::pending_key (rai::account const & account_a, rai::block_hash const & hash_a) :
@@ -427,74 +456,84 @@ std::string rai::vote::to_json () const
 
 rai::amount_visitor::amount_visitor (MDB_txn * transaction_a, rai::block_store & store_a) :
 transaction (transaction_a),
-store (store_a)
+store (store_a),
+current_amount (0),
+current_balance (0),
+amount (0)
 {
 }
 
 void rai::amount_visitor::send_block (rai::send_block const & block_a)
 {
-	balance_visitor prev (transaction, store);
-	prev.compute (block_a.hashables.previous);
-	result = prev.result - block_a.hashables.balance.number ();
-	current = 0;
+	current_balance = block_a.hashables.previous;
+	amount = block_a.hashables.balance.number ();
+	current_amount = 0;
 }
 
 void rai::amount_visitor::receive_block (rai::receive_block const & block_a)
 {
-	current = block_a.hashables.source;
+	current_amount = block_a.hashables.source;
 }
 
 void rai::amount_visitor::open_block (rai::open_block const & block_a)
 {
 	if (block_a.hashables.source != rai::genesis_account)
 	{
-		current = block_a.hashables.source;
+		current_amount = block_a.hashables.source;
 	}
 	else
 	{
-		result = rai::genesis_amount;
-		current = 0;
+		amount = rai::genesis_amount;
+		current_amount = 0;
 	}
 }
 
 void rai::amount_visitor::state_block (rai::state_block const & block_a)
 {
-	balance_visitor prev (transaction, store);
-	prev.compute (block_a.hashables.previous);
-	result = block_a.hashables.balance.number ();
-	result = result < prev.result ? prev.result - result : result - prev.result;
-	current = 0;
+	current_balance = block_a.hashables.previous;
+	amount = block_a.hashables.balance.number ();
+	current_amount = 0;
 }
 
 void rai::amount_visitor::change_block (rai::change_block const & block_a)
 {
-	result = 0;
-	current = 0;
+	amount = 0;
+	current_amount = 0;
 }
 
 void rai::amount_visitor::compute (rai::block_hash const & block_hash)
 {
-	current = block_hash;
-	while (!current.is_zero ())
+	current_amount = block_hash;
+	while (!current_amount.is_zero () || !current_balance.is_zero ())
 	{
-		auto block (store.block_get (transaction, current));
-		if (block != nullptr)
+		if (!current_amount.is_zero ())
 		{
-			block->visit (*this);
-		}
-		else
-		{
-			if (block_hash == rai::genesis_account)
+			auto block (store.block_get (transaction, current_amount));
+			if (block != nullptr)
 			{
-				result = std::numeric_limits<rai::uint128_t>::max ();
-				current = 0;
+				block->visit (*this);
 			}
 			else
 			{
-				assert (false);
-				result = 0;
-				current = 0;
+				if (block_hash == rai::genesis_account)
+				{
+					amount = std::numeric_limits<rai::uint128_t>::max ();
+					current_amount = 0;
+				}
+				else
+				{
+					assert (false);
+					amount = 0;
+					current_amount = 0;
+				}
 			}
+		}
+		else
+		{
+			balance_visitor prev (transaction, store);
+			prev.compute (current_balance);
+			amount = amount < prev.balance ? prev.balance - amount : amount - prev.balance;
+			current_balance = 0;
 		}
 	}
 }
@@ -502,15 +541,16 @@ void rai::amount_visitor::compute (rai::block_hash const & block_hash)
 rai::balance_visitor::balance_visitor (MDB_txn * transaction_a, rai::block_store & store_a) :
 transaction (transaction_a),
 store (store_a),
-current (0),
-result (0)
+current_balance (0),
+current_amount (0),
+balance (0)
 {
 }
 
 void rai::balance_visitor::send_block (rai::send_block const & block_a)
 {
-	result += block_a.hashables.balance.number ();
-	current = 0;
+	balance += block_a.hashables.balance.number ();
+	current_balance = 0;
 }
 
 void rai::balance_visitor::receive_block (rai::receive_block const & block_a)
@@ -518,24 +558,20 @@ void rai::balance_visitor::receive_block (rai::receive_block const & block_a)
 	rai::block_info block_info;
 	if (!store.block_info_get (transaction, block_a.hash (), block_info))
 	{
-		result += block_info.balance.number ();
-		current = 0;
+		balance += block_info.balance.number ();
+		current_balance = 0;
 	}
 	else
 	{
-		amount_visitor source (transaction, store);
-		source.compute (block_a.hashables.source);
-		result += source.result;
-		current = block_a.hashables.previous;
+		current_amount = block_a.hashables.source;
+		current_balance = block_a.hashables.previous;
 	}
 }
 
 void rai::balance_visitor::open_block (rai::open_block const & block_a)
 {
-	amount_visitor source (transaction, store);
-	source.compute (block_a.hashables.source);
-	result += source.result;
-	current = 0;
+	current_amount = block_a.hashables.source;
+	current_balance = 0;
 }
 
 void rai::balance_visitor::change_block (rai::change_block const & block_a)
@@ -543,29 +579,39 @@ void rai::balance_visitor::change_block (rai::change_block const & block_a)
 	rai::block_info block_info;
 	if (!store.block_info_get (transaction, block_a.hash (), block_info))
 	{
-		result += block_info.balance.number ();
-		current = 0;
+		balance += block_info.balance.number ();
+		current_balance = 0;
 	}
 	else
 	{
-		current = block_a.hashables.previous;
+		current_balance = block_a.hashables.previous;
 	}
 }
 
 void rai::balance_visitor::state_block (rai::state_block const & block_a)
 {
-	result = block_a.hashables.balance.number ();
-	current = 0;
+	balance = block_a.hashables.balance.number ();
+	current_balance = 0;
 }
 
 void rai::balance_visitor::compute (rai::block_hash const & block_hash)
 {
-	current = block_hash;
-	while (!current.is_zero ())
+	current_balance = block_hash;
+	while (!current_balance.is_zero () || !current_amount.is_zero ())
 	{
-		auto block (store.block_get (transaction, current));
-		assert (block != nullptr);
-		block->visit (*this);
+		if (!current_amount.is_zero ())
+		{
+			amount_visitor source (transaction, store);
+			source.compute (current_amount);
+			balance += source.amount;
+			current_amount = 0;
+		}
+		else
+		{
+			auto block (store.block_get (transaction, current_balance));
+			assert (block != nullptr);
+			block->visit (*this);
+		}
 	}
 }
 
@@ -735,6 +781,12 @@ bool rai::vote::deserialize (rai::stream & stream_a)
 	return result;
 }
 
+bool rai::vote::validate ()
+{
+	auto result (rai::validate_message (account, hash (), signature));
+	return result;
+}
+
 rai::genesis::genesis ()
 {
 	boost::property_tree::ptree tree;
@@ -748,9 +800,10 @@ rai::genesis::genesis ()
 void rai::genesis::initialize (MDB_txn * transaction_a, rai::block_store & store_a) const
 {
 	auto hash_l (hash ());
-	assert (store_a.latest_begin (transaction_a) == store_a.latest_end ());
+	assert (store_a.latest_v0_begin (transaction_a) == store_a.latest_v0_end ());
+	assert (store_a.latest_v1_begin (transaction_a) == store_a.latest_v1_end ());
 	store_a.block_put (transaction_a, hash_l, *open);
-	store_a.account_put (transaction_a, genesis_account, { hash_l, open->hash (), open->hash (), std::numeric_limits<rai::uint128_t>::max (), rai::seconds_since_epoch (), 1 });
+	store_a.account_put (transaction_a, genesis_account, { hash_l, open->hash (), open->hash (), std::numeric_limits<rai::uint128_t>::max (), rai::seconds_since_epoch (), 1, rai::epoch::epoch_0 });
 	store_a.representation_put (transaction_a, genesis_account, std::numeric_limits<rai::uint128_t>::max ());
 	store_a.checksum_put (transaction_a, 0, 0, hash_l);
 	store_a.frontier_put (transaction_a, hash_l, genesis_account);
