@@ -1362,7 +1362,6 @@ void rai::rpc_handler::chain (bool successors)
 
 void rai::rpc_handler::confirmation_active ()
 {
-	boost::property_tree::ptree response_l;
 	boost::property_tree::ptree elections;
 	{
 		std::lock_guard<std::mutex> lock (node.active.mutex);
@@ -1374,7 +1373,7 @@ void rai::rpc_handler::confirmation_active ()
 		}
 	}
 	response_l.add_child ("confirmations", elections);
-	response (response_l);
+	response_errors ();
 }
 
 void rai::rpc_handler::confirmation_history ()
@@ -1406,7 +1405,6 @@ void rai::rpc_handler::confirmation_info ()
 		auto conflict_info (node.active.roots.find (root));
 		if (conflict_info != node.active.roots.end ())
 		{
-			boost::property_tree::ptree response_l;
 			response_l.put ("announcements", std::to_string (conflict_info->announcements));
 			auto election (conflict_info->election);
 			rai::uint128_t total (0);
@@ -1449,17 +1447,17 @@ void rai::rpc_handler::confirmation_info ()
 			}
 			response_l.put ("total_tally", total.convert_to<std::string> ());
 			response_l.add_child ("blocks", blocks);
-			response (response_l);
 		}
 		else
 		{
-			error_response (response, "Active confirmation not found by root");
+			ec = nano::error_rpc::confirmation_not_found;
 		}
 	}
 	else
 	{
-		error_response (response, "Invalid root hash");
+		ec = nano::error_rpc::invalid_root;
 	}
+	response_errors ();
 }
 
 void rai::rpc_handler::delegators ()

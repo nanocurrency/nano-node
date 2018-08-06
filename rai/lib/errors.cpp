@@ -114,6 +114,8 @@ std::string nano::error_rpc_messages::message (int ev) const
 			return "Representative account and previous hash required";
 		case nano::error_rpc::block_create_requirements_send:
 			return "Destination account, previous hash, current balance and amount required";
+		case nano::error_rpc::confirmation_not_found:
+			return "Active confirmation not found";
 		case nano::error_rpc::invalid_balance:
 			return "Invalid balance number";
 		case nano::error_rpc::invalid_destinations:
@@ -122,6 +124,8 @@ std::string nano::error_rpc_messages::message (int ev) const
 			return "Invalid offset";
 		case nano::error_rpc::invalid_missing_type:
 			return "Invalid or missing type argument";
+		case nano::error_rpc::invalid_root:
+			return "Invalid root hash";
 		case nano::error_rpc::invalid_sources:
 			return "Invalid sources number";
 		case nano::error_rpc::payment_account_balance:
