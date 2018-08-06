@@ -422,6 +422,13 @@ void rai::deterministic_key (rai::uint256_union const & seed_a, uint32_t index_a
 	blake2b_final (&hash, prv_a.bytes.data (), prv_a.bytes.size ());
 }
 
+rai::public_key rai::pub_key (rai::private_key const & privatekey_a)
+{
+	rai::uint256_union result;
+	ed25519_publickey (privatekey_a.bytes.data (), result.bytes.data ());
+	return result;
+}
+
 bool rai::validate_message (rai::public_key const & public_key, rai::uint256_union const & message, rai::uint512_union const & signature)
 {
 	auto result (0 != ed25519_sign_open (message.bytes.data (), sizeof (message.bytes), public_key.bytes.data (), signature.bytes.data ()));

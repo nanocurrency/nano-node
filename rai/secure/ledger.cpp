@@ -182,16 +182,27 @@ public:
 
 void ledger_processor::state_block (rai::state_block const & block_a)
 {
+	result.code = rai::process_result::progress;
 	// Check if this is an epoch block
-	rai::account_info info;
-	ledger.store.account_get (transaction, block_a.hashables.account, info);
-	if (block_a.hashables.balance == info.balance && !ledger.epoch_link.is_zero () && block_a.hashables.link == ledger.epoch_link)
+	rai::amount prev_balance (0);
+	if (!block_a.hashables.previous.is_zero ())
 	{
-		epoch_block_impl (block_a);
+		result.code = ledger.store.block_exists (transaction, block_a.hashables.previous) ? rai::process_result::progress : rai::process_result::gap_previous;
+		if (result.code == rai::process_result::progress)
+		{
+			prev_balance = ledger.balance (transaction, block_a.hashables.previous);
+		}
 	}
-	else
+	if (result.code == rai::process_result::progress)
 	{
-		state_block_impl (block_a);
+		if (block_a.hashables.balance == prev_balance && !ledger.epoch_link.is_zero () && block_a.hashables.link == ledger.epoch_link)
+		{
+			epoch_block_impl (block_a);
+		}
+		else
+		{
+			state_block_impl (block_a);
+		}
 	}
 }
 
@@ -883,6 +894,52 @@ void rai::ledger::dump_account_chain (rai::account const & account_a)
 		std::cerr << hash.to_string () << std::endl;
 		hash = block->previous ();
 	}
+}
+
+class block_fit_visitor : public rai::block_visitor
+{
+public:
+	block_fit_visitor (rai::ledger & ledger_a, MDB_txn * transaction_a) :
+	ledger (ledger_a),
+	transaction (transaction_a),
+	result (false)
+	{
+	}
+	void send_block (rai::send_block const & block_a) override
+	{
+		result = ledger.store.block_exists (transaction, block_a.previous ());
+	}
+	void receive_block (rai::receive_block const & block_a) override
+	{
+		result = ledger.store.block_exists (transaction, block_a.previous ());
+		result &= ledger.store.block_exists (transaction, block_a.source ());
+	}
+	void open_block (rai::open_block const & block_a) override
+	{
+		result = ledger.store.block_exists (transaction, block_a.source ());
+	}
+	void change_block (rai::change_block const & block_a) override
+	{
+		result = ledger.store.block_exists (transaction, block_a.previous ());
+	}
+	void state_block (rai::state_block const & block_a) override
+	{
+		result = block_a.previous ().is_zero () || ledger.store.block_exists (transaction, block_a.previous ());
+		if (result && !ledger.is_send (transaction, block_a))
+		{
+			result &= ledger.store.block_exists (transaction, block_a.hashables.link);
+		}
+	}
+	rai::ledger & ledger;
+	MDB_txn * transaction;
+	bool result;
+};
+
+bool rai::ledger::could_fit (MDB_txn * transaction_a, rai::block const & block_a)
+{
+	block_fit_visitor visitor (*this, transaction_a);
+	block_a.visit (visitor);
+	return visitor.result;
 }
 
 void rai::ledger::checksum_update (MDB_txn * transaction_a, rai::block_hash const & hash_a)
