@@ -3474,8 +3474,8 @@ void rai::election::broadcast_winner (MDB_txn * transaction_a)
 {
 	if (node.ledger.could_fit (transaction_a, *status.winner))
 	{
-		compute_rep_votes (transaction);
-		node.network.republish_block (transaction, status.winner);
+		compute_rep_votes (transaction_a);
+		node.network.republish_block (transaction_a, status.winner);
 	}
 	else
 	{

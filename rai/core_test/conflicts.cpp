@@ -98,12 +98,17 @@ TEST (conflicts, rollback_source)
 	auto send5 (std::make_shared<rai::state_block> (rai::test_genesis_key.pub, send1->hash (), rai::test_genesis_key.pub, rai::genesis_amount - 3 * rai::Gxrb_ratio, key1.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate(send1->hash ())));
 	ASSERT_EQ (rai::process_result::progress, node1.process(*send5).code);
 	ASSERT_FALSE (node1.active.start (send5));
+	auto iterations (0);
 	while (!node2.active.active(*send4))
 	{
 		system.poll ();
+		++iterations;
+		ASSERT_LT (iterations, 200);
 	}
 	while (node2.active.active(*send4))
 	{
 		system.poll ();
+		++iterations;
+		ASSERT_LT (iterations, 200);
 	}
 }
