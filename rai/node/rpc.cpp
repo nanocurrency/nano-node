@@ -1369,9 +1369,10 @@ void rai::rpc_handler::confirmation_history ()
 	{
 		if (hash.decode_hex (hash_text.get ()))
 		{
-			error_response (response, "Invalid block hash");
+			ec = nano::error_blocks::invalid_block_hash;
 		}
 	}
+	if (!ec)
 	{
 		std::lock_guard<std::mutex> lock (node.active.mutex);
 		for (auto i (node.active.confirmed.begin ()), n (node.active.confirmed.end ()); i != n; ++i)
