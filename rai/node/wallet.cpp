@@ -87,7 +87,7 @@ void rai::wallet_store::deterministic_key (rai::raw_key & prv_a, MDB_txn * trans
 uint32_t rai::wallet_store::deterministic_index_get (MDB_txn * transaction_a)
 {
 	rai::wallet_value value (entry_get_raw (transaction_a, rai::wallet_store::deterministic_index_special));
-	return value.key.number ().convert_to<uint32_t> ();
+	return static_cast<uint32_t> (value.key.number () & static_cast<uint32_t> (-1));
 }
 
 void rai::wallet_store::deterministic_index_set (MDB_txn * transaction_a, uint32_t index_a)
@@ -492,7 +492,7 @@ bool rai::wallet_store::fetch (MDB_txn * transaction_a, rai::public_key const & 
 				{
 					rai::raw_key seed_l;
 					seed (seed_l, transaction_a);
-					uint32_t index (value.key.number ().convert_to<uint32_t> ());
+					uint32_t index (static_cast<uint32_t> (value.key.number () & static_cast<uint32_t> (-1)));
 					deterministic_key (prv, transaction_a, index);
 					break;
 				}
@@ -534,7 +534,7 @@ bool rai::wallet_store::fetch (MDB_txn * transaction_a, rai::public_key const & 
 
 bool rai::wallet_store::exists (MDB_txn * transaction_a, rai::public_key const & pub)
 {
-	return find (transaction_a, pub) != end ();
+	return !pub.is_zero () && find (transaction_a, pub) != end ();
 }
 
 void rai::wallet_store::serialize_json (MDB_txn * transaction_a, std::string & string_a)
@@ -1005,7 +1005,7 @@ std::shared_ptr<rai::block> rai::wallet::send_action (rai::account const & sourc
 						uint64_t cached_work (0);
 						store.work_get (transaction, source_a, cached_work);
 						block.reset (new rai::state_block (source_a, info.head, rep_block->representative (), balance - amount_a, account_a, prv, source_a, cached_work));
-						if (id_mdb_val)
+						if (id_mdb_val && block != nullptr)
 						{
 							auto status (mdb_put (transaction, node.wallets.send_action_ids, *id_mdb_val, rai::mdb_val (block->hash ()), 0));
 							if (status != 0)
@@ -1132,7 +1132,7 @@ bool rai::wallet::search_pending ()
 				{
 					rai::pending_key key (j->first);
 					auto hash (key.hash);
-					rai::pending_info pending (j->second);
+					rai::pending_info pending (j->second, j->from_secondary_store ? rai::epoch::epoch_1 : rai::epoch::epoch_0);
 					auto amount (pending.amount.number ());
 					if (node.config.receive_minimum.number () <= amount)
 					{

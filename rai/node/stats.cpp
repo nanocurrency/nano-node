@@ -1,10 +1,12 @@
+#include <rai/node/stats.hpp>
+
 #include <boost/asio.hpp>
 #include <boost/format.hpp>
 #include <boost/property_tree/json_parser.hpp>
 #include <ctime>
 #include <fstream>
 #include <iostream>
-#include <rai/node/stats.hpp>
+#include <memory>
 #include <sstream>
 #include <tuple>
 
@@ -410,6 +412,9 @@ std::string rai::stat::detail_to_string (uint32_t key)
 			break;
 		case rai::stat::detail::state_block:
 			res = "state_block";
+			break;
+		case rai::stat::detail::epoch_block:
+			res = "epoch_block";
 			break;
 		case rai::stat::detail::vote_valid:
 			res = "vote_valid";

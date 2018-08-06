@@ -1,8 +1,8 @@
 #pragma once
 
-#include <rai/blockstore.hpp>
-#include <rai/ledger.hpp>
 #include <rai/node/common.hpp>
+#include <rai/secure/blockstore.hpp>
+#include <rai/secure/ledger.hpp>
 
 #include <atomic>
 #include <future>
@@ -107,7 +107,7 @@ public:
 	void receive_frontier ();
 	void received_frontier (boost::system::error_code const &, size_t);
 	void request_account (rai::account const &, rai::block_hash const &);
-	void unsynced (MDB_txn *, rai::block_hash const &, rai::block_hash const &);
+	void unsynced (rai::block_hash const &, rai::block_hash const &);
 	void next (MDB_txn *);
 	void insert_pull (rai::pull_info const &);
 	std::shared_ptr<rai::bootstrap_client> connection;
@@ -245,6 +245,7 @@ public:
 	std::unique_ptr<rai::bulk_pull> request;
 	std::shared_ptr<std::vector<uint8_t>> send_buffer;
 	rai::block_hash current;
+	bool include_start;
 };
 class bulk_pull_blocks;
 class bulk_pull_blocks_server : public std::enable_shared_from_this<rai::bulk_pull_blocks_server>
