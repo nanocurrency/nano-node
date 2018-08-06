@@ -3643,7 +3643,7 @@ void rai::active_transactions::announce_votes ()
 				// Log votes for very long unconfirmed elections
 				if (i->announcements % 50 == 1)
 				{
-					auto tally_l (node.ledger.tally (transaction_a, i->votes));
+					auto tally_l (node.ledger.tally (transaction, i->votes));
 					i->log_votes (tally_l);
 				}
 			}
