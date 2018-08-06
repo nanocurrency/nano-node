@@ -819,7 +819,7 @@ TEST (rpc, frontier)
 		{
 			rai::keypair key;
 			source[key.pub] = key.prv.data;
-			system.nodes[0]->store.account_put (transaction, key.pub, rai::account_info (key.prv.data, 0, 0, 0, 0, 0, 0));
+			system.nodes[0]->store.account_put (transaction, key.pub, rai::account_info (key.prv.data, 0, 0, 0, 0, 0, rai::epoch::epoch_0));
 		}
 	}
 	rai::keypair key;
@@ -859,7 +859,7 @@ TEST (rpc, frontier_limited)
 		{
 			rai::keypair key;
 			source[key.pub] = key.prv.data;
-			system.nodes[0]->store.account_put (transaction, key.pub, rai::account_info (key.prv.data, 0, 0, 0, 0, 0, 0));
+			system.nodes[0]->store.account_put (transaction, key.pub, rai::account_info (key.prv.data, 0, 0, 0, 0, 0, rai::epoch::epoch_0));
 		}
 	}
 	rai::keypair key;
@@ -889,7 +889,7 @@ TEST (rpc, frontier_startpoint)
 		{
 			rai::keypair key;
 			source[key.pub] = key.prv.data;
-			system.nodes[0]->store.account_put (transaction, key.pub, rai::account_info (key.prv.data, 0, 0, 0, 0, 0, 0));
+			system.nodes[0]->store.account_put (transaction, key.pub, rai::account_info (key.prv.data, 0, 0, 0, 0, 0, rai::epoch::epoch_0));
 		}
 	}
 	rai::keypair key;
@@ -2688,6 +2688,7 @@ TEST (rpc, wallet_work_get)
 {
 	rai::system system (24000, 1);
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	system.wallet (0)->work_cache_blocking (rai::test_genesis_key.pub, system.nodes[0]->latest (rai::test_genesis_key.pub));
 	rai::rpc rpc (system.service, *system.nodes[0], rai::rpc_config (true));
 	rpc.start ();
 	boost::property_tree::ptree request;
@@ -3483,7 +3484,7 @@ TEST (rpc, wallet_create_fail)
 	{
 		system.poll ();
 	}
-	ASSERT_EQ ("Failed to create wallet. Increase lmdb_max_dbs in node config.", response.json.get<std::string> ("error"));
+	ASSERT_EQ ("Failed to create wallet. Increase lmdb_max_dbs in node config", response.json.get<std::string> ("error"));
 }
 
 TEST (rpc, wallet_ledger)
@@ -3641,7 +3642,9 @@ TEST (rpc, confirmation_history)
 	auto hash (item->second.get<std::string> ("hash"));
 	auto tally (item->second.get<std::string> ("tally"));
 	ASSERT_EQ (block->hash ().to_string (), hash);
-	ASSERT_EQ ((rai::genesis_amount - rai::Gxrb_ratio).convert_to<std::string> (), tally);
+	rai::amount tally_num;
+	tally_num.decode_dec (tally);
+	assert (tally_num == rai::genesis_amount || tally_num == (rai::genesis_amount - rai::Gxrb_ratio));
 	system.stop ();
 }
 

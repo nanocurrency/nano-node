@@ -1,5 +1,6 @@
+#include <rai/secure/utility.hpp>
+
 #include <rai/lib/interface.h>
-#include <rai/node/utility.hpp>
 #include <rai/node/working.hpp>
 
 #include <lmdb/libraries/liblmdb/lmdb.h>

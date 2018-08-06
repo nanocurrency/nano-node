@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 
-#include <rai/blockstore.hpp>
-#include <rai/versioning.hpp>
+#include <rai/secure/blockstore.hpp>
+#include <rai/secure/versioning.hpp>
 
 TEST (versioning, account_info_v1)
 {
@@ -15,7 +15,7 @@ TEST (versioning, account_info_v1)
 		ASSERT_FALSE (error);
 		rai::transaction transaction (store.environment, nullptr, true);
 		store.block_put (transaction, open.hash (), open);
-		auto status (mdb_put (transaction, store.accounts, rai::mdb_val (account), v1.val (), 0));
+		auto status (mdb_put (transaction, store.accounts_v0, rai::mdb_val (account), v1.val (), 0));
 		ASSERT_EQ (0, status);
 		store.version_put (transaction, 1);
 	}

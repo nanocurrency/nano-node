@@ -703,11 +703,11 @@ TEST (wallet, seed_work_generation)
 	seed.data.clear ();
 	QTest::keyClicks (wallet->import.seed, seed.data.to_string ().c_str ());
 	QTest::keyClicks (wallet->import.clear_line, "clear keys");
-	QTest::mouseClick (wallet->import.import_seed, Qt::LeftButton);
 	auto iterations (0);
 	uint64_t work_start;
 	system.wallet (0)->store.work_get (rai::transaction (system.wallet (0)->store.environment, nullptr, false), key1, work_start);
 	uint64_t work (work_start);
+	QTest::mouseClick (wallet->import.import_seed, Qt::LeftButton);
 	while (work == work_start)
 	{
 		system.poll ();
