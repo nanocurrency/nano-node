@@ -2864,7 +2864,7 @@ void rai::rpc_handler::wallet_info ()
 			pending = pending + node.ledger.account_pending (transaction, account);
 			count++;
 		}
-		uint32_t deterministic_index (existing->second->store.deterministic_index_get (transaction));
+		uint32_t deterministic_index (wallet->store.deterministic_index_get (transaction));
 		response_l.put ("balance", balance.convert_to<std::string> ());
 		response_l.put ("pending", pending.convert_to<std::string> ());
 		response_l.put ("accounts_count", std::to_string (count));
