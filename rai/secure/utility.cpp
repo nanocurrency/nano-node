@@ -102,13 +102,15 @@ rai::mdb_env::operator MDB_env * () const
 	return environment;
 }
 
-rai::mdb_val::mdb_val () :
-value ({ 0, nullptr })
+rai::mdb_val::mdb_val (rai::epoch epoch_a) :
+value ({ 0, nullptr }),
+epoch (epoch_a)
 {
 }
 
-rai::mdb_val::mdb_val (MDB_val const & value_a) :
-value (value_a)
+rai::mdb_val::mdb_val (MDB_val const & value_a, rai::epoch epoch_a) :
+value (value_a),
+epoch (epoch_a)
 {
 }
 

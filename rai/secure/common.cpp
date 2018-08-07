@@ -200,12 +200,13 @@ epoch (rai::epoch::epoch_0)
 {
 }
 
-rai::account_info::account_info (MDB_val const & val_a, rai::epoch epoch_a) :
-epoch (epoch_a)
+rai::account_info::account_info (rai::mdb_val const & val_a) :
+epoch (val_a.epoch)
 {
+	assert (val_a.epoch == rai::epoch::epoch_0 || val_a.epoch == rai::epoch::epoch_1);
 	auto size (db_size ());
-	assert (val_a.mv_size == size);
-	std::copy (reinterpret_cast<uint8_t const *> (val_a.mv_data), reinterpret_cast<uint8_t const *> (val_a.mv_data) + size, reinterpret_cast<uint8_t *> (this));
+	assert (val_a.value.mv_size == size);
+	std::copy (reinterpret_cast<uint8_t const *> (val_a.value.mv_data), reinterpret_cast<uint8_t const *> (val_a.value.mv_data) + size, reinterpret_cast<uint8_t *> (this));
 }
 
 rai::account_info::account_info (rai::block_hash const & head_a, rai::block_hash const & rep_block_a, rai::block_hash const & open_block_a, rai::amount const & balance_a, uint64_t modified_a, uint64_t block_count_a, rai::epoch epoch_a) :
@@ -303,14 +304,15 @@ epoch (rai::epoch::epoch_0)
 {
 }
 
-rai::pending_info::pending_info (MDB_val const & val_a, rai::epoch epoch_a) :
-epoch (epoch_a)
+rai::pending_info::pending_info (rai::mdb_val const & val_a) :
+epoch (val_a.epoch)
 {
+	assert (val_a.epoch == rai::epoch::epoch_0 || val_a.epoch == rai::epoch::epoch_1);
 	auto db_size (sizeof (source) + sizeof (amount));
-	assert (val_a.mv_size == db_size);
+	assert (val_a.value.mv_size == db_size);
 	assert (reinterpret_cast<const uint8_t *> (this) == reinterpret_cast<const uint8_t *> (&source));
 	assert (reinterpret_cast<const uint8_t *> (&source) + sizeof (source) == reinterpret_cast<const uint8_t *> (&amount));
-	std::copy (reinterpret_cast<uint8_t const *> (val_a.mv_data), reinterpret_cast<uint8_t const *> (val_a.mv_data) + db_size, reinterpret_cast<uint8_t *> (this));
+	std::copy (reinterpret_cast<uint8_t const *> (val_a.value.mv_data), reinterpret_cast<uint8_t const *> (val_a.value.mv_data) + db_size, reinterpret_cast<uint8_t *> (this));
 }
 
 rai::pending_info::pending_info (rai::account const & source_a, rai::amount const & amount_a, rai::epoch epoch_a) :
