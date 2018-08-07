@@ -204,7 +204,7 @@ TEST (node, fork_storm)
 			}
 			else
 			{
-				if (node_a->active.roots.begin ()->election->votes.rep_votes.size () == 1)
+				if (node_a->active.roots.begin ()->election->last_votes.size () == 1)
 				{
 					++single;
 				}
