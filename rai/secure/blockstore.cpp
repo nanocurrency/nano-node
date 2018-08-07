@@ -60,9 +60,11 @@ std::pair<rai::mdb_val, rai::mdb_val> * rai::store_iterator::operator-> ()
 	return &current;
 }
 
-rai::store_iterator::store_iterator (MDB_txn * transaction_a, MDB_dbi db_a) :
+rai::store_iterator::store_iterator (MDB_txn * transaction_a, MDB_dbi db_a, rai::epoch epoch_a) :
 cursor (nullptr)
 {
+	current.first.epoch = epoch_a;
+	current.second.epoch = epoch_a;
 	auto status (mdb_cursor_open (transaction_a, db_a, &cursor));
 	assert (status == 0);
 	auto status2 (mdb_cursor_get (cursor, &current.first.value, &current.second.value, MDB_FIRST));
@@ -83,9 +85,11 @@ cursor (nullptr)
 {
 }
 
-rai::store_iterator::store_iterator (MDB_txn * transaction_a, MDB_dbi db_a, MDB_val const & val_a) :
+rai::store_iterator::store_iterator (MDB_txn * transaction_a, MDB_dbi db_a, MDB_val const & val_a, rai::epoch epoch_a) :
 cursor (nullptr)
 {
+	current.first.epoch = epoch_a;
+	current.second.epoch = epoch_a;
 	auto status (mdb_cursor_open (transaction_a, db_a, &cursor));
 	assert (status == 0);
 	current.first.value = val_a;
@@ -167,8 +171,8 @@ bool rai::store_iterator::operator!= (rai::store_iterator const & other_a) const
 
 void rai::store_iterator::clear ()
 {
-	current.first = rai::mdb_val ();
-	current.second = rai::mdb_val ();
+	current.first = rai::mdb_val (current.first.epoch);
+	current.second = rai::mdb_val (current.second.epoch);
 }
 
 std::pair<MDB_cursor **, rai::merged_store_kv *> rai::store_merge_iterator::cursor_current ()
@@ -217,12 +221,18 @@ rai::merged_store_kv * rai::store_merge_iterator::operator-> ()
 	return cursor_current ().second;
 }
 
+rai::merged_store_kv::merged_store_kv (rai::epoch epoch_a) :
+first (epoch_a),
+second (epoch_a)
+{
+}
+
 rai::store_merge_iterator::store_merge_iterator (MDB_txn * transaction_a, MDB_dbi db1_a, MDB_dbi db2_a) :
 cursor1 (nullptr),
-cursor2 (nullptr)
+cursor2 (nullptr),
+current1 (rai::epoch::epoch_0),
+current2 (rai::epoch::epoch_1)
 {
-	current1.from_secondary_store = false;
-	current2.from_secondary_store = true;
 	auto status (mdb_cursor_open (transaction_a, db1_a, &cursor1));
 	assert (status == 0);
 	status = mdb_cursor_get (cursor1, &current1.first.value, &current1.second.value, MDB_FIRST);
@@ -234,8 +244,8 @@ cursor2 (nullptr)
 	}
 	else
 	{
-		current1.first = rai::mdb_val ();
-		current1.second = rai::mdb_val ();
+		current1.first = rai::mdb_val (rai::epoch::epoch_0);
+		current1.second = rai::mdb_val (rai::epoch::epoch_1);
 	}
 	status = mdb_cursor_open (transaction_a, db2_a, &cursor2);
 	assert (status == 0);
@@ -248,25 +258,25 @@ cursor2 (nullptr)
 	}
 	else
 	{
-		current2.first = rai::mdb_val ();
-		current2.second = rai::mdb_val ();
+		current2.first = rai::mdb_val (rai::epoch::epoch_0);
+		current2.second = rai::mdb_val (rai::epoch::epoch_1);
 	}
 }
 
 rai::store_merge_iterator::store_merge_iterator (std::nullptr_t) :
 cursor1 (nullptr),
-cursor2 (nullptr)
+cursor2 (nullptr),
+current1 (rai::epoch::epoch_0),
+current2 (rai::epoch::epoch_1)
 {
-	current1.from_secondary_store = false;
-	current2.from_secondary_store = true;
 }
 
 rai::store_merge_iterator::store_merge_iterator (MDB_txn * transaction_a, MDB_dbi db1_a, MDB_dbi db2_a, MDB_val const & val_a) :
 cursor1 (nullptr),
-cursor2 (nullptr)
+cursor2 (nullptr),
+current1 (rai::epoch::epoch_0),
+current2 (rai::epoch::epoch_1)
 {
-	current1.from_secondary_store = false;
-	current2.from_secondary_store = true;
 	auto status (mdb_cursor_open (transaction_a, db1_a, &cursor1));
 	assert (status == 0);
 	current1.first.value = val_a;
@@ -279,8 +289,8 @@ cursor2 (nullptr)
 	}
 	else
 	{
-		current1.first = rai::mdb_val ();
-		current1.second = rai::mdb_val ();
+		current1.first = rai::mdb_val (rai::epoch::epoch_0);
+		current1.second = rai::mdb_val (rai::epoch::epoch_1);
 	}
 	status = mdb_cursor_open (transaction_a, db2_a, &cursor2);
 	assert (status == 0);
@@ -294,8 +304,8 @@ cursor2 (nullptr)
 	}
 	else
 	{
-		current2.first = rai::mdb_val ();
-		current2.second = rai::mdb_val ();
+		current2.first = rai::mdb_val (rai::epoch::epoch_0);
+		current2.second = rai::mdb_val (rai::epoch::epoch_1);
 	}
 }
 
@@ -742,7 +752,7 @@ void rai::block_store::upgrade_v9_to_v10 (MDB_txn * transaction_a)
 	version_put (transaction_a, 10);
 	for (auto i (latest_v0_begin (transaction_a)), n (latest_v0_end ()); i != n; ++i)
 	{
-		rai::account_info info (i->second, rai::epoch::epoch_0);
+		rai::account_info info (i->second);
 		if (info.block_count >= block_info_max)
 		{
 			rai::account account (i->first.uint256 ());
@@ -1341,13 +1351,13 @@ bool rai::block_store::pending_get (MDB_txn * transaction_a, rai::pending_key co
 
 rai::store_iterator rai::block_store::pending_v0_begin (MDB_txn * transaction_a, rai::pending_key const & key_a)
 {
-	rai::store_iterator result (transaction_a, pending_v0, key_a.val ());
+	rai::store_iterator result (transaction_a, pending_v0, key_a.val (), rai::epoch::epoch_0);
 	return result;
 }
 
 rai::store_iterator rai::block_store::pending_v0_begin (MDB_txn * transaction_a)
 {
-	rai::store_iterator result (transaction_a, pending_v0);
+	rai::store_iterator result (transaction_a, pending_v0, rai::epoch::epoch_0);
 	return result;
 }
 
@@ -1359,13 +1369,13 @@ rai::store_iterator rai::block_store::pending_v0_end ()
 
 rai::store_iterator rai::block_store::pending_v1_begin (MDB_txn * transaction_a, rai::pending_key const & key_a)
 {
-	rai::store_iterator result (transaction_a, pending_v1, key_a.val ());
+	rai::store_iterator result (transaction_a, pending_v1, key_a.val (), rai::epoch::epoch_1);
 	return result;
 }
 
 rai::store_iterator rai::block_store::pending_v1_begin (MDB_txn * transaction_a)
 {
-	rai::store_iterator result (transaction_a, pending_v1);
+	rai::store_iterator result (transaction_a, pending_v1, rai::epoch::epoch_1);
 	return result;
 }
 
@@ -1667,13 +1677,13 @@ std::shared_ptr<rai::vote> rai::block_store::vote_max (MDB_txn * transaction_a, 
 
 rai::store_iterator rai::block_store::latest_v0_begin (MDB_txn * transaction_a, rai::account const & account_a)
 {
-	rai::store_iterator result (transaction_a, accounts_v0, rai::mdb_val (account_a));
+	rai::store_iterator result (transaction_a, accounts_v0, rai::mdb_val (account_a), rai::epoch::epoch_0);
 	return result;
 }
 
 rai::store_iterator rai::block_store::latest_v0_begin (MDB_txn * transaction_a)
 {
-	rai::store_iterator result (transaction_a, accounts_v0);
+	rai::store_iterator result (transaction_a, accounts_v0, rai::epoch::epoch_0);
 	return result;
 }
 
@@ -1685,13 +1695,13 @@ rai::store_iterator rai::block_store::latest_v0_end ()
 
 rai::store_iterator rai::block_store::latest_v1_begin (MDB_txn * transaction_a, rai::account const & account_a)
 {
-	rai::store_iterator result (transaction_a, accounts_v1, rai::mdb_val (account_a));
+	rai::store_iterator result (transaction_a, accounts_v1, rai::mdb_val (account_a), rai::epoch::epoch_1);
 	return result;
 }
 
 rai::store_iterator rai::block_store::latest_v1_begin (MDB_txn * transaction_a)
 {
-	rai::store_iterator result (transaction_a, accounts_v1);
+	rai::store_iterator result (transaction_a, accounts_v1, rai::epoch::epoch_1);
 	return result;
 }
 

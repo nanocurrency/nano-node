@@ -666,12 +666,12 @@ rai::uint128_t rai::ledger::account_pending (MDB_txn * transaction_a, rai::accou
 	rai::account end (account_a.number () + 1);
 	for (auto i (store.pending_v0_begin (transaction_a, rai::pending_key (account_a, 0))), n (store.pending_v0_begin (transaction_a, rai::pending_key (end, 0))); i != n; ++i)
 	{
-		rai::pending_info info (i->second, rai::epoch::epoch_0);
+		rai::pending_info info (i->second);
 		result += info.amount.number ();
 	}
 	for (auto i (store.pending_v1_begin (transaction_a, rai::pending_key (account_a, 0))), n (store.pending_v1_begin (transaction_a, rai::pending_key (end, 0))); i != n; ++i)
 	{
-		rai::pending_info info (i->second, rai::epoch::epoch_1);
+		rai::pending_info info (i->second);
 		result += info.amount.number ();
 	}
 	return result;
