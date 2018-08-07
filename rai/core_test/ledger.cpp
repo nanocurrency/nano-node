@@ -860,7 +860,7 @@ TEST (votes, add_existing)
 	auto & node1 (*system.nodes[0]);
 	rai::genesis genesis;
 	rai::keypair key1;
-	auto send1 (std::make_shared<rai::send_block> (genesis.hash (), key1.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
+	auto send1 (std::make_shared<rai::send_block> (genesis.hash (), key1.pub, rai::genesis_amount - rai::Gxrb_ratio, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
 	{
 		rai::transaction transaction (node1.store.environment, nullptr, true);
 		ASSERT_EQ (rai::process_result::progress, node1.ledger.process (transaction, *send1).code);
@@ -870,13 +870,15 @@ TEST (votes, add_existing)
 	auto votes1 (node1.active.roots.find (send1->root ())->election);
 	auto vote1 (std::make_shared<rai::vote> (rai::test_genesis_key.pub, rai::test_genesis_key.prv, 1, send1));
 	ASSERT_FALSE (node1.active.vote (vote1));
+	ASSERT_FALSE (node1.active.publish (send1));
 	ASSERT_EQ (1, votes1->last_votes[rai::test_genesis_key.pub].sequence);
 	rai::keypair key2;
-	auto send2 (std::make_shared<rai::send_block> (genesis.hash (), key2.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
+	auto send2 (std::make_shared<rai::send_block> (genesis.hash (), key2.pub, rai::genesis_amount - rai::Gxrb_ratio, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
 	auto vote2 (std::make_shared<rai::vote> (rai::test_genesis_key.pub, rai::test_genesis_key.prv, 2, send2));
 	// Pretend we've waited the timeout
 	votes1->last_votes[rai::test_genesis_key.pub].time = std::chrono::steady_clock::now () - std::chrono::seconds (20);
 	ASSERT_FALSE (node1.active.vote (vote2));
+	ASSERT_FALSE (node1.active.publish (send2));
 	ASSERT_EQ (2, votes1->last_votes[rai::test_genesis_key.pub].sequence);
 	// Also resend the old vote, and see if we respect the sequence number
 	votes1->last_votes[rai::test_genesis_key.pub].time = std::chrono::steady_clock::now () - std::chrono::seconds (20);

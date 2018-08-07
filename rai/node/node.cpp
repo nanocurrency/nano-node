@@ -390,6 +390,7 @@ public:
 		node.stats.inc (rai::stat::type::message, rai::stat::detail::publish, rai::stat::dir::in);
 		node.peers.contacted (sender, message_a.header.version_using);
 		node.process_active (message_a.block);
+		node.active.publish (message_a.block);
 	}
 	void confirm_req (rai::confirm_req const & message_a) override
 	{
@@ -400,6 +401,7 @@ public:
 		node.stats.inc (rai::stat::type::message, rai::stat::detail::confirm_req, rai::stat::dir::in);
 		node.peers.contacted (sender, message_a.header.version_using);
 		node.process_active (message_a.block);
+		node.active.publish (message_a.block);
 		rai::transaction transaction_a (node.store.environment, nullptr, false);
 		auto successor (node.ledger.successor (transaction_a, message_a.block->root ()));
 		if (successor != nullptr)
@@ -419,7 +421,9 @@ public:
 		{
 			if (!vote_block.which ())
 			{
-				node.process_active (boost::get<std::shared_ptr<rai::block>> (vote_block));
+				auto block (boost::get<std::shared_ptr<rai::block>> (vote_block));
+				node.process_active (block);
+				node.active.publish (block);
 			}
 		}
 		node.vote_processor.vote (message_a.vote, sender);
@@ -3572,13 +3576,14 @@ rai::tally_t rai::election::tally (MDB_txn * transaction_a)
 	{
 		block_weights[vote_info.second.hash] += node.ledger.weight (transaction_a, vote_info.first);
 	}
+	last_tally = block_weights;
 	rai::tally_t result;
 	for (auto item : block_weights)
 	{
-		auto block (blocks[item.first]);
-		if (block != nullptr)
+		auto block (blocks.find (item.first));
+		if (block != blocks.end ())
 		{
-			result.insert (std::make_pair (item.second, block));
+			result.insert (std::make_pair (item.second, block->second));
 		}
 	}
 	return result;
@@ -3679,6 +3684,23 @@ rai::election_vote_result rai::election::vote (rai::account rep, uint64_t sequen
 		}
 	}
 	return { replay, should_process };
+}
+
+bool rai::election::publish (std::shared_ptr<rai::block> block_a)
+{
+	auto result (false);
+	if (blocks.size () >= 10)
+	{
+		if (last_tally[block_a->hash ()] < node.online_reps.online_stake () / 10)
+		{
+			result = true;
+		}
+	}
+	if (!result)
+	{
+		blocks.insert (std::make_pair (block_a->hash (), block_a));
+	}
+	return result;
 }
 
 void rai::active_transactions::announce_votes ()
@@ -3913,6 +3935,18 @@ thread ([this]() { announce_loop (); })
 	{
 		condition.wait (lock);
 	}
+}
+
+bool rai::active_transactions::publish (std::shared_ptr<rai::block> block_a)
+{
+	std::lock_guard<std::mutex> lock (mutex);
+	auto existing (roots.find (block_a->root ()));
+	auto result (true);
+	if (existing != roots.end ())
+	{
+		result = existing->election->publish (block_a);
+	}
+	return result;
 }
 
 int rai::node::store_version ()
