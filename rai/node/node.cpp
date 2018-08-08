@@ -3648,7 +3648,7 @@ void rai::active_transactions::announce_votes ()
 				}
 			}
 			election_l->broadcast_winner (transaction);
-			if (i->announcements % announcement_min == 2)
+			if (i->announcements % 4 == 1)
 			{
 				auto reps (std::make_shared<std::vector<rai::peer_information>> (node.peers.representatives (std::numeric_limits<size_t>::max ())));
 
