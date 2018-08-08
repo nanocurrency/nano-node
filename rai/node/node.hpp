@@ -2,6 +2,7 @@
 
 #include <rai/lib/work.hpp>
 #include <rai/node/bootstrap.hpp>
+#include <rai/node/portmapping.hpp>
 #include <rai/node/stats.hpp>
 #include <rai/node/wallet.hpp>
 #include <rai/secure/ledger.hpp>
@@ -15,8 +16,6 @@
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index/random_access_index.hpp>
 #include <boost/multi_index_container.hpp>
-
-#include <miniupnpc.h>
 
 namespace boost
 {
@@ -302,41 +301,6 @@ public:
 	size_t size;
 	rai::endpoint endpoint;
 	std::function<void(boost::system::error_code const &, size_t)> callback;
-};
-class mapping_protocol
-{
-public:
-	char const * name;
-	int remaining;
-	boost::asio::ip::address_v4 external_address;
-	uint16_t external_port;
-};
-// These APIs aren't easy to understand so comments are verbose
-class port_mapping
-{
-public:
-	port_mapping (rai::node &);
-	void start ();
-	void stop ();
-	void refresh_devices ();
-	// Refresh when the lease ends
-	void refresh_mapping ();
-	// Refresh occasionally in case router loses mapping
-	void check_mapping_loop ();
-	int check_mapping ();
-	bool has_address ();
-	std::mutex mutex;
-	rai::node & node;
-	UPNPDev * devices; // List of all UPnP devices
-	UPNPUrls urls; // Something for UPnP
-	IGDdatas data; // Some other UPnP thing
-	// Primes so they infrequently happen at the same time
-	static int constexpr mapping_timeout = rai::rai_network == rai::rai_networks::rai_test_network ? 53 : 3593;
-	static int constexpr check_timeout = rai::rai_network == rai::rai_networks::rai_test_network ? 17 : 53;
-	boost::asio::ip::address_v4 address;
-	std::array<mapping_protocol, 2> protocols;
-	uint64_t check_count;
-	bool on;
 };
 class block_arrival_info
 {
