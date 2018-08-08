@@ -94,55 +94,59 @@ status (parse_status::success)
 void rai::message_parser::deserialize_buffer (uint8_t const * buffer_a, size_t size_a)
 {
 	status = parse_status::success;
-	rai::bufferstream stream (buffer_a, size_a);
 	auto error (false);
-	rai::message_header header (error, stream);
-	if (!error)
+	if (size_a <= 508)
 	{
-		if (rai::rai_network == rai::rai_networks::rai_beta_network && header.version_using < rai::protocol_version)
+		// Guaranteed to be deliverable
+		rai::bufferstream stream (buffer_a, size_a);
+		rai::message_header header (error, stream);
+		if (!error)
 		{
-			status = parse_status::outdated_version;
-		}
-		else
-		{
-			switch (header.type)
+			if (rai::rai_network == rai::rai_networks::rai_beta_network && header.version_using < rai::protocol_version)
 			{
-				case rai::message_type::keepalive:
+				status = parse_status::outdated_version;
+			}
+			else
+			{
+				switch (header.type)
 				{
-					deserialize_keepalive (stream, header);
-					break;
-				}
-				case rai::message_type::publish:
-				{
-					deserialize_publish (stream, header);
-					break;
-				}
-				case rai::message_type::confirm_req:
-				{
-					deserialize_confirm_req (stream, header);
-					break;
-				}
-				case rai::message_type::confirm_ack:
-				{
-					deserialize_confirm_ack (stream, header);
-					break;
-				}
-				case rai::message_type::node_id_handshake:
-				{
-					deserialize_node_id_handshake (stream, header);
-					break;
-				}
-				default:
-				{
-					status = parse_status::invalid_message_type;
-					break;
+					case rai::message_type::keepalive:
+					{
+						deserialize_keepalive (stream, header);
+						break;
+					}
+					case rai::message_type::publish:
+					{
+						deserialize_publish (stream, header);
+						break;
+					}
+					case rai::message_type::confirm_req:
+					{
+						deserialize_confirm_req (stream, header);
+						break;
+					}
+					case rai::message_type::confirm_ack:
+					{
+						deserialize_confirm_ack (stream, header);
+						break;
+					}
+					case rai::message_type::node_id_handshake:
+					{
+						deserialize_node_id_handshake (stream, header);
+						break;
+					}
+					default:
+					{
+						status = parse_status::invalid_message_type;
+						break;
+					}
 				}
 			}
 		}
-	}
-	else
-	{
-		status = parse_status::invalid_header;
+		else
+		{
+			status = parse_status::invalid_header;
+		}
 	}
 }
 

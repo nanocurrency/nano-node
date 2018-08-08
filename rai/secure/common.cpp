@@ -751,13 +751,14 @@ signature (rai::sign_message (prv_a, account_a, hash ()))
 
 rai::vote::vote (rai::account const & account_a, rai::raw_key const & prv_a, uint64_t sequence_a, std::vector<rai::block_hash> blocks_a) :
 sequence (sequence_a),
-account (account_a),
-signature (rai::sign_message (prv_a, account_a, hash ()))
+account (account_a)
 {
+	assert (blocks_a.size () > 0);
 	for (auto hash : blocks_a)
 	{
 		blocks.push_back (hash);
 	}
+	signature = rai::sign_message (prv_a, account_a, hash ());
 }
 
 rai::vote::vote (MDB_val const & value_a)
@@ -784,7 +785,7 @@ rai::uint256_union rai::vote::hash () const
 	rai::uint256_union result;
 	blake2b_state hash;
 	blake2b_init (&hash, sizeof (result.bytes));
-	if (blocks.size () > 1)
+	if (blocks.size () > 1 || (blocks.size () > 0 && blocks[0].which ()))
 	{
 		blake2b_update (&hash, hash_prefix.data (), hash_prefix.size ());
 	}

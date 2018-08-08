@@ -207,12 +207,12 @@ bool confirm_block (MDB_txn * transaction_a, rai::node & node_a, rai::endpoint &
 	return result;
 }
 
-void rai::network::republish_block (MDB_txn * transaction, std::shared_ptr<rai::block> block)
+void rai::network::republish_block (MDB_txn * transaction, std::shared_ptr<rai::block> block, bool enable_voting)
 {
 	auto hash (block->hash ());
 	auto list (node.peers.list_fanout ());
 	// If we're a representative, broadcast a signed confirm, otherwise an unsigned publish
-	if (!confirm_block (transaction, node, list, block))
+	if (!enable_voting || !confirm_block (transaction, node, list, block))
 	{
 		rai::publish message (block);
 		std::shared_ptr<std::vector<uint8_t>> bytes (new std::vector<uint8_t>);
@@ -413,7 +413,7 @@ public:
 	{
 		if (node.config.logging.network_message_logging ())
 		{
-			BOOST_LOG (node.log) << boost::str (boost::format ("Received confirm_ack message from %1% for %2% sequence %3%") % sender % message_a.vote->hashes_string () % std::to_string (message_a.vote->sequence));
+			BOOST_LOG (node.log) << boost::str (boost::format ("Received confirm_ack message from %1% for %2%sequence %3%") % sender % message_a.vote->hashes_string () % std::to_string (message_a.vote->sequence));
 		}
 		node.stats.inc (rai::stat::type::message, rai::stat::detail::confirm_ack, rai::stat::dir::in);
 		node.peers.contacted (sender, message_a.header.version_using);
@@ -939,6 +939,9 @@ lmdb_max_dbs (128)
 			preconfigured_representatives.push_back (rai::account ("2399A083C600AA0572F5E36247D978FCFC840405F8D4B6D33161C0066A55F431"));
 			preconfigured_representatives.push_back (rai::account ("2298FAB7C61058E77EA554CB93EDEEDA0692CBFCC540AB213B2836B29029E23A"));
 			preconfigured_representatives.push_back (rai::account ("3FE80B4BC842E82C1C18ABFEEC47EA989E63953BC82AC411F304D13833D52A56"));
+			// 2018-08-28 UTC 00:00 in unix time
+			// Technically, time_t is never defined to be unix time, but compilers implement it as such
+			generate_hash_votes_at = std::chrono::system_clock::from_time_t (1535414400);
 			break;
 		default:
 			assert (false);
@@ -948,7 +951,7 @@ lmdb_max_dbs (128)
 
 void rai::node_config::serialize_json (boost::property_tree::ptree & tree_a) const
 {
-	tree_a.put ("version", "13");
+	tree_a.put ("version", "14");
 	tree_a.put ("peering_port", std::to_string (peering_port));
 	tree_a.put ("bootstrap_fraction_numerator", std::to_string (bootstrap_fraction_numerator));
 	tree_a.put ("receive_minimum", receive_minimum.to_string_dec ());
@@ -991,6 +994,7 @@ void rai::node_config::serialize_json (boost::property_tree::ptree & tree_a) con
 	tree_a.put ("callback_port", std::to_string (callback_port));
 	tree_a.put ("callback_target", callback_target);
 	tree_a.put ("lmdb_max_dbs", lmdb_max_dbs);
+	tree_a.put ("generate_hash_votes_at", std::chrono::system_clock::to_time_t (generate_hash_votes_at));
 }
 
 bool rai::node_config::upgrade_json (unsigned version, boost::property_tree::ptree & tree_a)
@@ -1093,6 +1097,11 @@ bool rai::node_config::upgrade_json (unsigned version, boost::property_tree::ptr
 			tree_a.put ("version", "13");
 			result = true;
 		case 13:
+			tree_a.put ("generate_hash_votes_at", std::chrono::system_clock::to_time_t (generate_hash_votes_at));
+			tree_a.erase ("version");
+			tree_a.put ("version", "14");
+			result = true;
+		case 14:
 			break;
 		default:
 			throw std::runtime_error ("Unknown node_config version");
@@ -1178,6 +1187,8 @@ bool rai::node_config::deserialize_json (bool & upgraded_a, boost::property_tree
 		callback_target = tree_a.get<std::string> ("callback_target");
 		auto lmdb_max_dbs_l = tree_a.get<std::string> ("lmdb_max_dbs");
 		result |= parse_port (callback_port_l, callback_port);
+		auto generate_hash_votes_at_l = tree_a.get<time_t> ("generate_hash_votes_at");
+		generate_hash_votes_at = std::chrono::system_clock::from_time_t (generate_hash_votes_at_l);
 		try
 		{
 			peering_port = std::stoul (peering_port_l);
@@ -1324,7 +1335,7 @@ rai::vote_code rai::vote_processor::vote_blocking (MDB_txn * transaction_a, std:
 				node.stats.inc (rai::stat::type::vote, rai::stat::detail::vote_valid);
 				break;
 		}
-		BOOST_LOG (node.log) << boost::str (boost::format ("Vote from: %1% sequence: %2% block(s): %3% status: %4%") % vote_a->account.to_account () % std::to_string (vote_a->sequence) % vote_a->hashes_string () % status);
+		BOOST_LOG (node.log) << boost::str (boost::format ("Vote from: %1% sequence: %2% block(s): %3%status: %4%") % vote_a->account.to_account () % std::to_string (vote_a->sequence) % vote_a->hashes_string () % status);
 	}
 	return result;
 }
@@ -2037,7 +2048,7 @@ void rai::network::confirm_send (rai::confirm_ack const & confirm_a, std::shared
 {
 	if (node.config.logging.network_publish_logging ())
 	{
-		BOOST_LOG (node.log) << boost::str (boost::format ("Sending confirm_ack for block(s) %1% to %2% sequence %3%") % confirm_a.vote->hashes_string () % endpoint_a % std::to_string (confirm_a.vote->sequence));
+		BOOST_LOG (node.log) << boost::str (boost::format ("Sending confirm_ack for block(s) %1%to %2% sequence %3%") % confirm_a.vote->hashes_string () % endpoint_a % std::to_string (confirm_a.vote->sequence));
 	}
 	std::weak_ptr<rai::node> node_w (node.shared ());
 	node.network.send_buffer (bytes_a->data (), bytes_a->size (), endpoint_a, [bytes_a, node_w, endpoint_a](boost::system::error_code const & ec, size_t size_a) {
@@ -3526,19 +3537,6 @@ void rai::election::compute_rep_votes (MDB_txn * transaction_a)
 	}
 }
 
-void rai::election::broadcast_winner (MDB_txn * transaction_a, bool abort_allow)
-{
-	if (node.ledger.could_fit (transaction_a, *status.winner))
-	{
-		compute_rep_votes (transaction_a);
-		node.network.republish_block (transaction_a, status.winner);
-	}
-	else if (abort_allow)
-	{
-		abort ();
-	}
-}
-
 void rai::election::confirm_once (MDB_txn * transaction_a)
 {
 	if (!confirmed.exchange (true))
@@ -3705,11 +3703,12 @@ bool rai::election::publish (std::shared_ptr<rai::block> block_a)
 
 void rai::active_transactions::announce_votes ()
 {
-	std::vector<rai::block_hash> inactive;
+	std::unordered_set<rai::block_hash> inactive;
 	rai::transaction transaction (node.store.environment, nullptr, false);
 	unsigned unconfirmed_count (0);
 	unsigned unconfirmed_announcements (0);
 	unsigned mass_request_count (0);
+	std::vector<rai::block_hash> blocks_bundle;
 
 	for (auto i (roots.begin ()), n (roots.end ()); i != n; ++i)
 	{
@@ -3724,7 +3723,7 @@ void rai::active_transactions::announce_votes ()
 					confirmed.pop_front ();
 				}
 			}
-			inactive.push_back (election_l->root);
+			inactive.insert (election_l->root);
 		}
 		else
 		{
@@ -3741,7 +3740,32 @@ void rai::active_transactions::announce_votes ()
 			}
 			if (i->announcements < announcement_long || i->announcements % announcement_long == 1)
 			{
-				election_l->broadcast_winner (transaction, i->announcements > 3);
+				// Broadcast winner
+				if (node.ledger.could_fit (transaction, *election_l->status.winner))
+				{
+					if (std::chrono::system_clock::now () >= node.config.generate_hash_votes_at)
+					{
+						node.network.republish_block (transaction, election_l->status.winner, false);
+						blocks_bundle.push_back (election_l->status.winner->hash ());
+						if (blocks_bundle.size () >= 12)
+						{
+							node.wallets.foreach_representative (transaction, [&](rai::public_key const & pub_a, rai::raw_key const & prv_a) {
+								auto vote (this->node.store.vote_generate (transaction, pub_a, prv_a, blocks_bundle));
+								this->node.vote_processor.vote (vote, this->node.network.endpoint ());
+							});
+							blocks_bundle.clear ();
+						}
+					}
+					else
+					{
+						election_l->compute_rep_votes (transaction);
+						node.network.republish_block (transaction, election_l->status.winner);
+					}
+				}
+				else if (i->announcements > 3)
+				{
+					election_l->abort ();
+				}
 			}
 			if (i->announcements % 4 == 1)
 			{
@@ -3790,10 +3814,31 @@ void rai::active_transactions::announce_votes ()
 			++info_a.announcements;
 		});
 	}
+	if (blocks_bundle.size () > 0)
+	{
+		node.wallets.foreach_representative (transaction, [&](rai::public_key const & pub_a, rai::raw_key const & prv_a) {
+			auto vote (this->node.store.vote_generate (transaction, pub_a, prv_a, blocks_bundle));
+			this->node.vote_processor.vote (vote, this->node.network.endpoint ());
+		});
+	}
 	for (auto i (inactive.begin ()), n (inactive.end ()); i != n; ++i)
 	{
-		assert (roots.find (*i) != roots.end ());
-		roots.erase (*i);
+		auto root_it (roots.find (*i));
+		assert (root_it != roots.end ());
+		for (auto successor : root_it->election->blocks)
+		{
+			auto successor_it (successors.find (successor.first));
+			if (successor_it != successors.end ())
+			{
+				assert (successor_it->second == root_it->election);
+				successors.erase (successor_it);
+			}
+			else
+			{
+				assert (false && "election successor not in active_transactions blocks table");
+			}
+		}
+		roots.erase (root_it);
 	}
 	if (unconfirmed_count > 0)
 	{
@@ -3850,6 +3895,7 @@ bool rai::active_transactions::start (std::pair<std::shared_ptr<rai::block>, std
 		{
 			auto election (std::make_shared<rai::election> (node, primary_block, confirmation_action_a));
 			roots.insert (rai::conflict_info{ root, election, 0, blocks_a });
+			successors.insert (std::make_pair (primary_block->hash (), election));
 		}
 		error = existing != roots.end ();
 	}
@@ -3945,6 +3991,10 @@ bool rai::active_transactions::publish (std::shared_ptr<rai::block> block_a)
 	if (existing != roots.end ())
 	{
 		result = existing->election->publish (block_a);
+		if (!result)
+		{
+			successors.insert (std::make_pair (block_a->hash (), existing->election));
+		}
 	}
 	return result;
 }
