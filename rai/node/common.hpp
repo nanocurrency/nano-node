@@ -148,6 +148,11 @@ enum class bulk_pull_blocks_mode : uint8_t
 	list_blocks,
 	checksum_blocks
 };
+enum class bulk_pull_account_flags : uint8_t
+{
+	pending_hash_and_amount = 0x0,
+	pending_address_only = 0x1
+};
 class message_visitor;
 class message_header
 {
@@ -288,7 +293,7 @@ public:
 	void visit (rai::message_visitor &) const override;
 	rai::uint256_union account;
 	rai::uint128_union minimum_amount;
-	uint8_t flags;
+	bulk_pull_account_flags flags;
 };
 class bulk_pull_blocks : public message
 {

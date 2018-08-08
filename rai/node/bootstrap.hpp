@@ -253,16 +253,20 @@ class bulk_pull_account_server : public std::enable_shared_from_this<rai::bulk_p
 public:
 	bulk_pull_account_server (std::shared_ptr<rai::bootstrap_server> const &, std::unique_ptr<rai::bulk_pull_account>);
 	void set_params ();
-	std::unique_ptr<rai::block> get_next ();
-	void send_next ();
+	std::unique_ptr<rai::pending_key> get_next ();
+	void send_frontier ();
+	void send_next_block ();
 	void sent_action (boost::system::error_code const &, size_t);
 	void send_finished ();
-	void no_block_sent (boost::system::error_code const &, size_t);
+	void complete (boost::system::error_code const &, size_t);
 	std::shared_ptr<rai::bootstrap_server> connection;
 	std::unique_ptr<rai::bulk_pull_account> request;
 	std::shared_ptr<std::vector<uint8_t>> send_buffer;
 	rai::store_iterator stream;
 	rai::transaction stream_transaction;
+	std::unordered_map<rai::uint256_union, bool> deduplication;
+	bool pending_address_only;
+	bool invalid_request;
 };
 class bulk_pull_blocks;
 class bulk_pull_blocks_server : public std::enable_shared_from_this<rai::bulk_pull_blocks_server>

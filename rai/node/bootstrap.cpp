@@ -1425,7 +1425,7 @@ void rai::bootstrap_server::receive_bulk_pull_account_action (boost::system::err
 			if (node->config.logging.bulk_pull_logging ())
 			{
 				BOOST_LOG (node->log) << boost::str (boost::format ("Received bulk pull account for %1% with a minimum amount of %2%") % \
-				    request->account.to_string () % \
+				    request->account.to_account () % \
 				    rai::amount (request->minimum_amount).format_balance (rai::Mxrb_ratio, 10, true));
 			}
 			add_request (std::unique_ptr<rai::message> (request.release ()));
@@ -1534,7 +1534,7 @@ public:
 	void bulk_pull_account (rai::bulk_pull_account const &) override
 	{
 		auto response (std::make_shared<rai::bulk_pull_account_server> (connection, std::unique_ptr<rai::bulk_pull_account> (static_cast<rai::bulk_pull_account *> (connection->requests.front ().release ()))));
-		response->send_next ();
+		response->send_frontier ();
 	}
 	void bulk_pull_blocks (rai::bulk_pull_blocks const &) override
 	{
@@ -1739,22 +1739,103 @@ send_buffer (std::make_shared<std::vector<uint8_t>> ())
 void rai::bulk_pull_account_server::set_params ()
 {
 	assert (request != nullptr);
-	/* XXX:TODO */
-}
 
-void rai::bulk_pull_account_server::send_next ()
-{
-	std::unique_ptr<rai::block> block (get_next ());
-	if (block != nullptr)
+	invalid_request = false;
+	if (request->flags == rai::bulk_pull_account_flags::pending_address_only)
+	{
+		pending_address_only = true;
+	}
+	else if (request->flags == rai::bulk_pull_account_flags::pending_hash_and_amount)
+	{
+		pending_address_only = false;
+	}
+	else
 	{
 		if (connection->node->config.logging.bulk_pull_logging ())
 		{
-			BOOST_LOG (connection->node->log) << boost::str (boost::format ("Sending block: %1%") % block->hash ().to_string ());
+			BOOST_LOG (connection->node->log) << boost::str (boost::format ("Invalid bulk_pull_account flags supplied %1%") % static_cast<uint8_t> (request->flags));
 		}
 
-		send_buffer->clear ();
-		auto this_l (shared_from_this ());
+		invalid_request = true;
 
+		return;
+	}
+
+	stream = connection->node->store.pending_begin (stream_transaction, rai::pending_key (request->account, 0));
+}
+
+void rai::bulk_pull_account_server::send_frontier ()
+{
+	/*
+	 * This function is really the entry point into this class,
+	 * so handle the invalid_request case by terminating the
+	 * request without any response
+	 */
+	if (invalid_request)
+	{
+		connection->finish_request ();
+
+		return;
+	}
+
+	/*
+	 * Supply the account frontier
+	 */
+	auto this_l (shared_from_this ());
+	auto account_frontier_hash (connection->node->ledger.latest (stream_transaction, request->account));
+	auto account_frontier_balance_int (connection->node->ledger.account_balance (stream_transaction, request->account));
+	rai::uint128_union account_frontier_balance (account_frontier_balance_int);
+
+	send_buffer->clear ();
+
+	{
+		rai::vectorstream output_stream (*send_buffer);
+
+		write (output_stream, account_frontier_hash.bytes);
+		write (output_stream, account_frontier_balance.bytes);
+	}
+
+	connection->socket->async_write (send_buffer, [this_l](boost::system::error_code const & ec, size_t size_a) {
+		this_l->sent_action (ec, size_a);
+	});
+}
+
+void rai::bulk_pull_account_server::send_next_block ()
+{
+	auto block_info_key (get_next ());
+	if (block_info_key != nullptr)
+	{
+		rai::pending_info block_info;
+		auto get_info_error (connection->node->store.pending_get (stream_transaction, *block_info_key, block_info));
+		assert (!get_info_error);
+
+		send_buffer->clear ();
+
+		if (pending_address_only)
+		{
+			rai::vectorstream output_stream (*send_buffer);
+
+			if (connection->node->config.logging.bulk_pull_logging ())
+			{
+				BOOST_LOG (connection->node->log) << boost::str (boost::format ("Sending address: %1%") % block_info.source.to_string ());
+			}
+
+			write (output_stream, block_info.source.bytes);
+		}
+		else
+		{
+			rai::vectorstream output_stream (*send_buffer);
+
+			if (connection->node->config.logging.bulk_pull_logging ())
+			{
+				BOOST_LOG (connection->node->log) << boost::str (boost::format ("Sending block: %1%") % block_info_key->hash.to_string ());
+			}
+
+			write (output_stream, block_info_key->hash.bytes);
+			write (output_stream, block_info.amount.bytes);
+		}
+
+		auto this_l (shared_from_this ());
 		connection->socket->async_write (send_buffer, [this_l](boost::system::error_code const & ec, size_t size_a) {
 			this_l->sent_action (ec, size_a);
 		});
@@ -1770,9 +1851,42 @@ void rai::bulk_pull_account_server::send_next ()
 	}
 }
 
-std::unique_ptr<rai::block> rai::bulk_pull_account_server::get_next ()
+std::unique_ptr<rai::pending_key> rai::bulk_pull_account_server::get_next ()
 {
-	std::unique_ptr<rai::block> result;
+	std::unique_ptr<rai::pending_key> result;
+
+	while (true)
+	{
+		rai::pending_key key (stream->first);
+		rai::pending_info info (stream->second);
+
+		++stream;
+
+		if (key.account != request->account)
+		{
+			break;
+		}
+
+		if (info.amount < request->minimum_amount)
+		{
+			continue;
+		}
+
+		if (pending_address_only)
+		{
+			if (deduplication.count (info.source) != 0)
+			{
+				continue;
+			}
+
+			deduplication.insert ({info.source, true});
+		}
+
+		result = std::unique_ptr<rai::pending_key> (new rai::pending_key (key));
+
+		break;
+	}
+
 	return result;
 }
 
@@ -1780,7 +1894,7 @@ void rai::bulk_pull_account_server::sent_action (boost::system::error_code const
 {
 	if (!ec)
 	{
-		send_next ();
+		send_next_block ();
 	}
 	else
 	{
@@ -1794,29 +1908,52 @@ void rai::bulk_pull_account_server::sent_action (boost::system::error_code const
 void rai::bulk_pull_account_server::send_finished ()
 {
 	send_buffer->clear ();
-	send_buffer->push_back (static_cast<uint8_t> (rai::block_type::not_a_block));
+
+	{
+		rai::vectorstream output_stream (*send_buffer);
+		rai::uint256_union account_zero (0);
+		rai::uint128_union balance_zero (0);
+
+		write (output_stream, account_zero.bytes);
+
+		if (!pending_address_only)
+		{
+			write (output_stream, balance_zero.bytes);
+		}
+	}
+
 	auto this_l (shared_from_this ());
+
 	if (connection->node->config.logging.bulk_pull_logging ())
 	{
 		BOOST_LOG (connection->node->log) << "Bulk sending for an account finished";
 	}
+
 	connection->socket->async_write (send_buffer, [this_l](boost::system::error_code const & ec, size_t size_a) {
-		this_l->no_block_sent (ec, size_a);
+		this_l->complete (ec, size_a);
 	});
 }
 
-void rai::bulk_pull_account_server::no_block_sent (boost::system::error_code const & ec, size_t size_a)
+void rai::bulk_pull_account_server::complete (boost::system::error_code const & ec, size_t size_a)
 {
 	if (!ec)
 	{
-		assert (size_a == 1);
+		if (pending_address_only)
+		{
+			assert (size_a == 32);
+		}
+		else
+		{
+			assert (size_a == 48);
+		}
+
 		connection->finish_request ();
 	}
 	else
 	{
 		if (connection->node->config.logging.bulk_pull_logging ())
 		{
-			BOOST_LOG (connection->node->log) << "Unable to send not-a-block";
+			BOOST_LOG (connection->node->log) << "Unable to pending-as-zero";
 		}
 	}
 }
@@ -1828,6 +1965,9 @@ send_buffer (std::make_shared<std::vector<uint8_t>> ()),
 stream (nullptr),
 stream_transaction (connection_a->node->store.environment, nullptr, false)
 {
+	/*
+	 * Setup the streaming response for the first call to "send_frontier" and  "send_next_block"
+	 */
 	set_params ();
 }
 
