@@ -3535,17 +3535,22 @@ void rai::election::confirm_if_quorum (MDB_txn * transaction_a)
 	{
 		if (node.config.logging.vote_logging () || !votes.uncontested ())
 		{
-			BOOST_LOG (node.log) << boost::str (boost::format ("Vote tally for root %1%") % status.winner->root ().to_string ());
-			for (auto i (tally_l.begin ()), n (tally_l.end ()); i != n; ++i)
-			{
-				BOOST_LOG (node.log) << boost::str (boost::format ("Block %1% weight %2%") % i->second->hash ().to_string () % i->first.convert_to<std::string> ());
-			}
-			for (auto i (votes.rep_votes.begin ()), n (votes.rep_votes.end ()); i != n; ++i)
-			{
-				BOOST_LOG (node.log) << boost::str (boost::format ("%1% %2%") % i->first.to_account () % i->second->hash ().to_string ());
-			}
+			log_votes (tally_l);
 		}
 		confirm_once (transaction_a);
+	}
+}
+
+void rai::election::log_votes (rai::tally_t const & tally_a)
+{
+	BOOST_LOG (node.log) << boost::str (boost::format ("Vote tally for root %1%") % status.winner->root ().to_string ());
+	for (auto i (tally_a.begin ()), n (tally_a.end ()); i != n; ++i)
+	{
+		BOOST_LOG (node.log) << boost::str (boost::format ("Block %1% weight %2%") % i->second->hash ().to_string () % i->first.convert_to<std::string> ());
+	}
+	for (auto i (votes.rep_votes.begin ()), n (votes.rep_votes.end ()); i != n; ++i)
+	{
+		BOOST_LOG (node.log) << boost::str (boost::format ("%1% %2%") % i->first.to_account () % i->second->hash ().to_string ());
 	}
 }
 
@@ -3635,6 +3640,12 @@ void rai::active_transactions::announce_votes ()
 			{
 				++unconfirmed_count;
 				unconfirmed_announcements += i->announcements;
+				// Log votes for very long unconfirmed elections
+				if (i->announcements % 50 == 1)
+				{
+					auto tally_l (node.ledger.tally (transaction, election_l->votes));
+					election_l->log_votes (tally_l);
+				}
 			}
 			election_l->broadcast_winner (transaction);
 			if (i->announcements % announcement_min == 2)
