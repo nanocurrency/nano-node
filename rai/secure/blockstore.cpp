@@ -516,12 +516,8 @@ int rai::block_store::version_get (MDB_txn * transaction_a)
 	rai::uint256_union version_key (1);
 	rai::mdb_val data;
 	auto error (mdb_get (transaction_a, meta, rai::mdb_val (version_key), data));
-	int result;
-	if (error == MDB_NOTFOUND)
-	{
-		result = 1;
-	}
-	else
+	int result (1);
+	if (error != MDB_NOTFOUND)
 	{
 		rai::uint256_union version_value (data.uint256 ());
 		assert (version_value.qwords[2] == 0 && version_value.qwords[1] == 0 && version_value.qwords[0] == 0);
@@ -671,7 +667,6 @@ void rai::block_store::upgrade_v4_to_v5 (MDB_txn * transaction_a)
 			auto hash (block->hash ());
 			if (block_successor (transaction_a, hash).is_zero () && !successor.is_zero ())
 			{
-				//std::cerr << boost::str (boost::format ("Adding successor for account %1%, block %2%, successor %3%\n") % account.to_account () % hash.to_string () % successor.to_string ());
 				block_put (transaction_a, hash, *block, successor);
 			}
 			successor = hash;
@@ -756,7 +751,6 @@ void rai::block_store::upgrade_v9_to_v10 (MDB_txn * transaction_a)
 		if (info.block_count >= block_info_max)
 		{
 			rai::account account (i->first.uint256 ());
-			//std::cerr << boost::str (boost::format ("Upgrading account %1%...\n") % account.to_account ());
 			size_t block_count (1);
 			auto hash (info.open_block);
 			while (!hash.is_zero ())
@@ -774,7 +768,6 @@ void rai::block_store::upgrade_v9_to_v10 (MDB_txn * transaction_a)
 			}
 		}
 	}
-	//std::cerr << boost::str (boost::format ("Database upgrade is completed\n"));
 }
 
 void rai::block_store::upgrade_v10_to_v11 (MDB_txn * transaction_a)
@@ -1426,12 +1419,8 @@ bool rai::block_store::block_info_get (MDB_txn * transaction_a, rai::block_hash 
 	rai::mdb_val value;
 	auto status (mdb_get (transaction_a, blocks_info, rai::mdb_val (hash_a), value));
 	assert (status == 0 || status == MDB_NOTFOUND);
-	bool result;
-	if (status == MDB_NOTFOUND)
-	{
-		result = true;
-	}
-	else
+	bool result (true);
+	if (status != MDB_NOTFOUND)
 	{
 		result = false;
 		assert (value.size () == sizeof (block_info_a.account.bytes) + sizeof (block_info_a.balance.bytes));
@@ -1449,7 +1438,7 @@ rai::uint128_t rai::block_store::representation_get (MDB_txn * transaction_a, ra
 	rai::mdb_val value;
 	auto status (mdb_get (transaction_a, representation, rai::mdb_val (account_a), value));
 	assert (status == 0 || status == MDB_NOTFOUND);
-	rai::uint128_t result;
+	rai::uint128_t result = 0;
 	if (status == 0)
 	{
 		rai::uint128_union rep;
@@ -1457,10 +1446,6 @@ rai::uint128_t rai::block_store::representation_get (MDB_txn * transaction_a, ra
 		auto error (rai::read (stream, rep));
 		assert (!error);
 		result = rep.number ();
-	}
-	else
-	{
-		result = 0;
 	}
 	return result;
 }
@@ -1580,17 +1565,13 @@ bool rai::block_store::checksum_get (MDB_txn * transaction_a, uint64_t prefix, u
 	rai::mdb_val value;
 	auto status (mdb_get (transaction_a, checksum, rai::mdb_val (sizeof (key), &key), value));
 	assert (status == 0 || status == MDB_NOTFOUND);
-	bool result;
+	bool result (true);
 	if (status == 0)
 	{
 		result = false;
 		rai::bufferstream stream (reinterpret_cast<uint8_t const *> (value.data ()), value.size ());
 		auto error (rai::read (stream, hash_a));
 		assert (!error);
-	}
-	else
-	{
-		result = true;
 	}
 	return result;
 }
@@ -1664,12 +1645,9 @@ std::shared_ptr<rai::vote> rai::block_store::vote_max (MDB_txn * transaction_a, 
 	std::lock_guard<std::mutex> lock (cache_mutex);
 	auto current (vote_current (transaction_a, vote_a->account));
 	auto result (vote_a);
-	if (current != nullptr)
+	if (current != nullptr && current->sequence > result->sequence)
 	{
-		if (current->sequence > result->sequence)
-		{
-			result = current;
-		}
+		result = current;
 	}
 	vote_cache[vote_a->account] = result;
 	return result;
