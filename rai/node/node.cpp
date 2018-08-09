@@ -1821,7 +1821,7 @@ stats (config.stat_config)
 			bool rep_crawler_exists;
 			for (auto hash : *vote_a)
 			{
-				if (rep_crawler.exists (hash))
+				if (this->rep_crawler.exists (hash))
 				{
 					rep_crawler_exists = true;
 					break;
@@ -1830,11 +1830,11 @@ stats (config.stat_config)
 			if (rep_crawler_exists)
 			{
 				// We see a valid non-replay vote for a block we requested, this node is probably a representative
-				if (peers.rep_response (endpoint_a, vote_a->account, rep_weight))
+				if (this->peers.rep_response (endpoint_a, vote_a->account, rep_weight))
 				{
 					BOOST_LOG (log) << boost::str (boost::format ("Found a representative at %1%") % endpoint_a);
 					// Rebroadcasting all active votes to new representative
-					auto blocks (active.list_blocks ());
+					auto blocks (this->active.list_blocks ());
 					for (auto i (blocks.begin ()), n (blocks.end ()); i != n; ++i)
 					{
 						if (*i != nullptr)
