@@ -3481,12 +3481,11 @@ bool rai::election::have_quorum (rai::tally_t const & tally_a, rai::uint128_t ta
 	bool result = false;
 	if (tally_sum >= node.config.online_weight_minimum.number ())
 	{
-		auto i (tally_a.begin ());
-		auto first (i->first);
-		++i;
-		auto second (i != tally_a.end () ? i->first : 0);
-		auto delta_l (node.delta ());
-		result = tally_a.begin ()->first > (second + delta_l);
+		auto block_tallies (tally_a.begin ());
+		auto winner_amount (block_tallies->first);
+		++block_tallies;
+		auto runner_up_amount (block_tallies != tally_a.end () ? block_tallies->first : 0);
+		result = (winner_amount > (runner_up_amount + node.delta ()));
 	}
 	return result;
 }
