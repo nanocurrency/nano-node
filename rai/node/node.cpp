@@ -3623,6 +3623,7 @@ void rai::active_transactions::announce_votes ()
 	rai::transaction transaction (node.store.environment, nullptr, false);
 	unsigned unconfirmed_count (0);
 	unsigned unconfirmed_announcements (0);
+	unsigned mass_request_count (0);
 
 	for (auto i (roots.begin ()), n (roots.end ()); i != n; ++i)
 	{
@@ -3656,11 +3657,18 @@ void rai::active_transactions::announce_votes ()
 			if (i->announcements % 4 == 1)
 			{
 				auto reps (std::make_shared<std::vector<rai::peer_information>> (node.peers.representatives (std::numeric_limits<size_t>::max ())));
-
+				std::unordered_set<rai::account> probable_reps;
+				rai::uint128_t total_weight (0);
 				for (auto j (reps->begin ()), m (reps->end ()); j != m;)
 				{
 					auto & rep_votes (i->election->votes.rep_votes);
 					auto rep_acct (j->probable_rep_account);
+					// Calculate if representative isn't recorded for several IP addresses
+					if (probable_reps.find (rep_acct) == probable_reps.end ())
+					{
+						total_weight = total_weight + j->rep_weight.number ();
+						probable_reps.insert (rep_acct);
+					}
 					if (rep_votes.find (rep_acct) != rep_votes.end ())
 					{
 						std::swap (*j, reps->back ());
@@ -3676,7 +3684,7 @@ void rai::active_transactions::announce_votes ()
 						}
 					}
 				}
-				if (!reps->empty () && node.online_reps.online_stake () != node.config.online_weight_minimum.number ())
+				if (!reps->empty () && (total_weight > node.config.online_weight_minimum.number () || mass_request_count > 20))
 				{
 					// broadcast_confirm_req_base modifies reps, so we clone it once to avoid aliasing
 					node.network.broadcast_confirm_req_base (i->confirm_req_options.first, std::make_shared<std::vector<rai::peer_information>> (*reps), 0);
@@ -3685,6 +3693,7 @@ void rai::active_transactions::announce_votes ()
 				{
 					// broadcast request to all peers
 					node.network.broadcast_confirm_req_base (i->confirm_req_options.first, std::make_shared<std::vector<rai::peer_information>> (node.peers.list_vector ()), 0);
+					++mass_request_count;
 				}
 			}
 		}
