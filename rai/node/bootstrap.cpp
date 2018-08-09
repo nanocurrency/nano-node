@@ -1740,6 +1740,9 @@ void rai::bulk_pull_account_server::set_params ()
 {
 	assert (request != nullptr);
 
+	/*
+	 * Parse the flags
+	 */
 	invalid_request = false;
 	if (request->flags == rai::bulk_pull_account_flags::pending_address_only)
 	{
@@ -1761,7 +1764,11 @@ void rai::bulk_pull_account_server::set_params ()
 		return;
 	}
 
-	stream = connection->node->store.pending_begin (stream_transaction, rai::pending_key (request->account, 0));
+	/*
+	 * Initialize the current item from the requested account
+	 */
+	current_key.account = request->account;
+	current_key.hash = 0;
 }
 
 void rai::bulk_pull_account_server::send_frontier ()
@@ -1781,13 +1788,22 @@ void rai::bulk_pull_account_server::send_frontier ()
 	/*
 	 * Supply the account frontier
 	 */
-	auto this_l (shared_from_this ());
+	/**
+	 ** Establish a database transaction
+	 **/
+	rai::transaction stream_transaction (connection->node->store.environment, nullptr, false);
+
+	/**
+	 ** Get account balance and frontier block hash
+	 **/
 	auto account_frontier_hash (connection->node->ledger.latest (stream_transaction, request->account));
 	auto account_frontier_balance_int (connection->node->ledger.account_balance (stream_transaction, request->account));
 	rai::uint128_union account_frontier_balance (account_frontier_balance_int);
 
+	/**
+	 ** Write the frontier block hash and balance into a buffer
+	 **/
 	send_buffer->clear ();
-
 	{
 		rai::vectorstream output_stream (*send_buffer);
 
@@ -1795,6 +1811,10 @@ void rai::bulk_pull_account_server::send_frontier ()
 		write (output_stream, account_frontier_balance.bytes);
 	}
 
+	/**
+	 ** Send the buffer to the requestor
+	 **/
+	auto this_l (shared_from_this ());
 	connection->socket->async_write (send_buffer, [this_l](boost::system::error_code const & ec, size_t size_a) {
 		this_l->sent_action (ec, size_a);
 	});
@@ -1802,13 +1822,19 @@ void rai::bulk_pull_account_server::send_frontier ()
 
 void rai::bulk_pull_account_server::send_next_block ()
 {
-	auto block_info_key (get_next ());
+	/*
+	 * Get the next item from the queue, it is a tuple with the key (which
+	 * contains the account and hash) and data (which contains the amount)
+	 */
+	auto block_data (get_next ());
+	auto block_info_key (block_data.first.get ());
+	auto block_info (block_data.second.get ());
+
 	if (block_info_key != nullptr)
 	{
-		rai::pending_info block_info;
-		auto get_info_error (connection->node->store.pending_get (stream_transaction, *block_info_key, block_info));
-		assert (!get_info_error);
-
+		/*
+		 * If we have a new item, emit it to the socket
+		 */
 		send_buffer->clear ();
 
 		if (pending_address_only)
@@ -1817,10 +1843,10 @@ void rai::bulk_pull_account_server::send_next_block ()
 
 			if (connection->node->config.logging.bulk_pull_logging ())
 			{
-				BOOST_LOG (connection->node->log) << boost::str (boost::format ("Sending address: %1%") % block_info.source.to_string ());
+				BOOST_LOG (connection->node->log) << boost::str (boost::format ("Sending address: %1%") % block_info->source.to_string ());
 			}
 
-			write (output_stream, block_info.source.bytes);
+			write (output_stream, block_info->source.bytes);
 		}
 		else
 		{
@@ -1832,7 +1858,7 @@ void rai::bulk_pull_account_server::send_next_block ()
 			}
 
 			write (output_stream, block_info_key->hash.bytes);
-			write (output_stream, block_info.amount.bytes);
+			write (output_stream, block_info->amount.bytes);
 		}
 
 		auto this_l (shared_from_this ());
@@ -1842,6 +1868,9 @@ void rai::bulk_pull_account_server::send_next_block ()
 	}
 	else
 	{
+		/*
+		 * Otherwise, finalize the connection
+		 */
 		if (connection->node->config.logging.bulk_pull_logging ())
 		{
 			BOOST_LOG (connection->node->log) << boost::str (boost::format ("Done sending blocks"));
@@ -1851,27 +1880,56 @@ void rai::bulk_pull_account_server::send_next_block ()
 	}
 }
 
-std::unique_ptr<rai::pending_key> rai::bulk_pull_account_server::get_next ()
+std::pair<std::unique_ptr<rai::pending_key>, std::unique_ptr<rai::pending_info>> rai::bulk_pull_account_server::get_next ()
 {
-	std::unique_ptr<rai::pending_key> result;
+	std::pair<std::unique_ptr<rai::pending_key>, std::unique_ptr<rai::pending_info>> result;
 
 	while (true)
 	{
+		/*
+		 * For each iteration of this loop, establish and then
+		 * destroy a database transaction, to avoid locking the
+		 * database for a prolonged period.
+		 */
+		rai::transaction stream_transaction (connection->node->store.environment, nullptr, false);
+		auto stream (connection->node->store.pending_begin (stream_transaction, current_key));
+
+		if (stream->first == nullptr) {
+			break;
+		}
+
 		rai::pending_key key (stream->first);
 		rai::pending_info info (stream->second);
 
-		++stream;
+		/*
+		 * Get the key for the next value, to use in the next call or iteration
+		 */
+		current_key.account = key.account;
+		current_key.hash = key.hash.number () + 1;
 
+		/*
+		 * Finish up if the response is for a different account
+		 */
 		if (key.account != request->account)
 		{
 			break;
 		}
 
+		/*
+		 * Skip entries where the amount is less than the requested
+		 * minimum
+		 */
 		if (info.amount < request->minimum_amount)
 		{
 			continue;
 		}
 
+		/*
+		 * If the pending_address_only flag is set, de-duplicate the
+		 * responses.  The responses are the address of the sender,
+		 * so they are are part of the pending table's information
+		 * and not key, so we have to de-duplicate them manually.
+		 */
 		if (pending_address_only)
 		{
 			if (deduplication.count (info.source) != 0)
@@ -1882,7 +1940,8 @@ std::unique_ptr<rai::pending_key> rai::bulk_pull_account_server::get_next ()
 			deduplication.insert ({info.source, true});
 		}
 
-		result = std::unique_ptr<rai::pending_key> (new rai::pending_key (key));
+		result.first = std::unique_ptr<rai::pending_key> (new rai::pending_key (key));
+		result.second = std::unique_ptr<rai::pending_info> (new rai::pending_info (info));
 
 		break;
 	}
@@ -1907,6 +1966,12 @@ void rai::bulk_pull_account_server::sent_action (boost::system::error_code const
 
 void rai::bulk_pull_account_server::send_finished ()
 {
+	/*
+	 * The "bulk_pull_account" final sequence is a final block of all
+	 * zeros.  If we are sending only account public keys (with the
+	 * "pending_address_only" flag) then it will be 256-bits of zeros,
+	 * otherwise it will be 384-bits of zeros.
+	 */
 	send_buffer->clear ();
 
 	{
@@ -1962,8 +2027,7 @@ rai::bulk_pull_account_server::bulk_pull_account_server (std::shared_ptr<rai::bo
 connection (connection_a),
 request (std::move (request_a)),
 send_buffer (std::make_shared<std::vector<uint8_t>> ()),
-stream (nullptr),
-stream_transaction (connection_a->node->store.environment, nullptr, false)
+current_key (0, 0)
 {
 	/*
 	 * Setup the streaming response for the first call to "send_frontier" and  "send_next_block"
