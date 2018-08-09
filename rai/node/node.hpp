@@ -249,6 +249,8 @@ public:
 	bool validate_syn_cookie (rai::endpoint const &, rai::account, rai::signature);
 	size_t size ();
 	size_t size_sqrt ();
+	rai::uint128_t total_weight ();
+	rai::uint128_t online_weight_minimum;
 	bool empty ();
 	std::mutex mutex;
 	rai::endpoint self;
