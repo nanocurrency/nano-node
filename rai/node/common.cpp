@@ -450,7 +450,6 @@ bool rai::confirm_req_hash::operator== (rai::confirm_req_hash const & other_a) c
 	return (hash == other_a.hash) && (root == other_a.root);
 }
 
-
 rai::confirm_ack::confirm_ack (bool & error_a, rai::stream & stream_a, rai::message_header const & header_a) :
 message (header_a),
 vote (std::make_shared<rai::vote> (error_a, stream_a, header.block_type ()))
