@@ -3484,7 +3484,8 @@ confirmation_action (confirmation_action_a),
 votes (block_a),
 node (node_a),
 status ({ block_a, 0 }),
-confirmed (false)
+confirmed (false),
+aborted (false)
 {
 }
 
@@ -3528,7 +3529,7 @@ void rai::election::confirm_once (MDB_txn * transaction_a)
 
 void rai::election::abort ()
 {
-	confirmed = true;
+	aborted = true;
 }
 
 bool rai::election::have_quorum (rai::tally_t const & tally_a)
@@ -3652,7 +3653,7 @@ void rai::active_transactions::announce_votes ()
 	for (auto i (roots.begin ()), n (roots.end ()); i != n; ++i)
 	{
 		auto election_l (i->election);
-		if (election_l->confirmed && i->announcements >= announcement_min - 1)
+		if ((election_l->confirmed || election_l->aborted) && i->announcements >= announcement_min - 1)
 		{
 			if (election_l->confirmed)
 			{

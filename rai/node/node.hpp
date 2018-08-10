@@ -74,6 +74,7 @@ public:
 	std::unordered_map<rai::account, rai::vote_info> last_votes;
 	rai::election_status status;
 	std::atomic<bool> confirmed;
+	bool aborted;
 };
 class conflict_info
 {
