@@ -1424,9 +1424,7 @@ void rai::bootstrap_server::receive_bulk_pull_account_action (boost::system::err
 		{
 			if (node->config.logging.bulk_pull_logging ())
 			{
-				BOOST_LOG (node->log) << boost::str (boost::format ("Received bulk pull account for %1% with a minimum amount of %2%") % \
-				    request->account.to_account () % \
-				    rai::amount (request->minimum_amount).format_balance (rai::Mxrb_ratio, 10, true));
+				BOOST_LOG (node->log) << boost::str (boost::format ("Received bulk pull account for %1% with a minimum amount of %2%") % request->account.to_account () % rai::amount (request->minimum_amount).format_balance (rai::Mxrb_ratio, 10, true));
 			}
 			add_request (std::unique_ptr<rai::message> (request.release ()));
 			receive ();
@@ -1894,7 +1892,8 @@ std::pair<std::unique_ptr<rai::pending_key>, std::unique_ptr<rai::pending_info>>
 		rai::transaction stream_transaction (connection->node->store.environment, nullptr, false);
 		auto stream (connection->node->store.pending_begin (stream_transaction, current_key));
 
-		if (stream->first == nullptr) {
+		if (stream->first == nullptr)
+		{
 			break;
 		}
 
@@ -1937,7 +1936,7 @@ std::pair<std::unique_ptr<rai::pending_key>, std::unique_ptr<rai::pending_info>>
 				continue;
 			}
 
-			deduplication.insert ({info.source, true});
+			deduplication.insert ({ info.source, true });
 		}
 
 		result.first = std::unique_ptr<rai::pending_key> (new rai::pending_key (key));
