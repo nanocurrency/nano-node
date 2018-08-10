@@ -422,6 +422,10 @@ public:
 	{
 		assert (false);
 	}
+	void bulk_pull_account (rai::bulk_pull_account const &) override
+	{
+		assert (false);
+	}
 	void bulk_pull_blocks (rai::bulk_pull_blocks const &) override
 	{
 		assert (false);
