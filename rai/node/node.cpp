@@ -407,6 +407,21 @@ public:
 			confirm_block (transaction_a, node, sender, std::move (successor));
 		}
 	}
+	void confirm_req_hash (rai::confirm_req_hash const & message_a) override
+	{
+		if (node.config.logging.network_message_logging ())
+		{
+			BOOST_LOG (node.log) << boost::str (boost::format ("Confirm_req_hash message from %1% for %2%") % sender % message_a.hash.to_string ());
+		}
+		node.stats.inc (rai::stat::type::message, rai::stat::detail::confirm_req_hash, rai::stat::dir::in);
+		node.peers.contacted (sender, message_a.header.version_using);
+		rai::transaction transaction_a (node.store.environment, nullptr, false);
+		auto successor (node.ledger.successor (transaction_a, message_a.root));
+		if (successor != nullptr)
+		{
+			confirm_block (transaction_a, node, sender, std::move (successor));
+		}
+	}
 	void confirm_ack (rai::confirm_ack const & message_a) override
 	{
 		if (node.config.logging.network_message_logging ())

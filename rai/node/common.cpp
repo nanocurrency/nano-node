@@ -122,6 +122,11 @@ void rai::message_parser::deserialize_buffer (uint8_t const * buffer_a, size_t s
 					deserialize_confirm_req (stream, header);
 					break;
 				}
+				case rai::message_type::confirm_req_hash:
+				{
+					deserialize_confirm_req_hash (stream, header);
+					break;
+				}
 				case rai::message_type::confirm_ack:
 				{
 					deserialize_confirm_ack (stream, header);
@@ -199,6 +204,20 @@ void rai::message_parser::deserialize_confirm_req (rai::stream & stream_a, rai::
 	else
 	{
 		status = parse_status::invalid_confirm_req_message;
+	}
+}
+
+void rai::message_parser::deserialize_confirm_req_hash (rai::stream & stream_a, rai::message_header const & header_a)
+{
+	auto error (false);
+	rai::confirm_req_hash incoming (error, stream_a, header_a);
+	if (!error && at_end (stream_a))
+	{
+		visitor.confirm_req (incoming);
+	}
+	else
+	{
+		status = parse_status::invalid_confirm_req_hash_message;
 	}
 }
 
@@ -386,6 +405,40 @@ bool rai::confirm_req::operator== (rai::confirm_req const & other_a) const
 {
 	return *block == *other_a.block;
 }
+
+rai::confirm_req_hash::confirm_req_hash (std::shared_ptr<rai::block> block_a) :
+message (rai::message_type::confirm_req_hash),
+hash (block_a->hash ()),
+root (block_a->root ())
+
+bool rai::confirm_req_hash::deserialize (rai::stream & stream_a)
+{
+	assert (header.type == rai::message_type::confirm_req_hash);
+	auto result (read (stream_a, hash));
+	if (!result)
+	{
+		result = read (stream_a, root);
+	}
+	return result;
+}
+
+void rai::confirm_req_hash::visit (rai::message_visitor & visitor_a) const
+{
+	visitor_a.confirm_req_hash (*this);
+}
+
+void rai::confirm_req_hash::serialize (rai::stream & stream_a)
+{
+	header.serialize (stream_a);
+	write (stream_a, hash);
+	write (stream_a, root);
+}
+
+bool rai::confirm_req_hash::operator== (rai::confirm_req_hash const & other_a) const
+{
+	return (*hash == *other_a.hash) && (*root == *other_a.root);
+}
+
 
 rai::confirm_ack::confirm_ack (bool & error_a, rai::stream & stream_a, rai::message_header const & header_a) :
 message (header_a),

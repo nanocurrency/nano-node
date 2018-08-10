@@ -209,6 +209,7 @@ public:
 		publish,
 		republish_vote,
 		confirm_req,
+		confirm_req_hash,
 		confirm_ack,
 		node_id_handshake,
 
