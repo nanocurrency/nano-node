@@ -2862,18 +2862,31 @@ void rai::rpc_handler::wallet_info ()
 		rai::uint128_t balance (0);
 		rai::uint128_t pending (0);
 		uint64_t count (0);
+		uint64_t deterministic_count (0);
+		uint64_t adhoc_count (0);
 		rai::transaction transaction (node.store.environment, nullptr, false);
 		for (auto i (wallet->store.begin (transaction)), n (wallet->store.end ()); i != n; ++i)
 		{
 			rai::account account (i->first.uint256 ());
 			balance = balance + node.ledger.account_balance (transaction, account);
 			pending = pending + node.ledger.account_pending (transaction, account);
+			rai::key_type key_type (wallet->store.key_type (i->second));
+			if (key_type == rai::key_type::deterministic)
+			{
+				deterministic_count++;
+			}
+			else if (key_type == rai::key_type::adhoc)
+			{
+				adhoc_count++;
+			}
 			count++;
 		}
 		uint32_t deterministic_index (wallet->store.deterministic_index_get (transaction));
 		response_l.put ("balance", balance.convert_to<std::string> ());
 		response_l.put ("pending", pending.convert_to<std::string> ());
 		response_l.put ("accounts_count", std::to_string (count));
+		response_l.put ("deterministic_count", std::to_string (deterministic_count));
+		response_l.put ("adhoc_count", std::to_string (adhoc_count));
 		response_l.put ("deterministic_index", std::to_string (deterministic_index));
 	}
 	response_errors ();

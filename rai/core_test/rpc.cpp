@@ -2449,6 +2449,11 @@ TEST (rpc, wallet_info)
 	system.wallet (0)->insert_adhoc (key.prv);
 	auto send (system.wallet (0)->send_action (rai::test_genesis_key.pub, key.pub, 1));
 	rai::account account (system.wallet (0)->deterministic_insert ());
+	{
+		rai::transaction transaction (system.nodes[0]->store.environment, nullptr, true);
+		system.wallet (0)->store.erase (transaction, account);
+	}
+	account = system.wallet (0)->deterministic_insert ();
 	rai::rpc rpc (system.service, *system.nodes[0], rai::rpc_config (true));
 	rpc.start ();
 	boost::property_tree::ptree request;
@@ -2466,8 +2471,12 @@ TEST (rpc, wallet_info)
 	ASSERT_EQ ("1", pending_text);
 	std::string count_text (response.json.get<std::string> ("accounts_count"));
 	ASSERT_EQ ("3", count_text);
+	std::string adhoc_count (response.json.get<std::string> ("adhoc_count"));
+	ASSERT_EQ ("2", adhoc_count);
+	std::string deterministic_count (response.json.get<std::string> ("deterministic_count"));
+	ASSERT_EQ ("1", deterministic_count);
 	std::string index_text (response.json.get<std::string> ("deterministic_index"));
-	ASSERT_EQ ("1", index_text);
+	ASSERT_EQ ("2", index_text);
 }
 
 TEST (rpc, wallet_balances)
