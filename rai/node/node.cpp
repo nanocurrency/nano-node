@@ -323,6 +323,31 @@ void rai::network::send_confirm_req (rai::endpoint const & endpoint_a, std::shar
 	});
 }
 
+void rai::network::send_confirm_req_hash (rai::endpoint const & endpoint_a, std::shared_ptr<rai::block> block)
+{
+	rai::confirm_req_hash message (block);
+	std::shared_ptr<std::vector<uint8_t>> bytes (new std::vector<uint8_t>);
+	{
+		rai::vectorstream stream (*bytes);
+		message.serialize (stream);
+	}
+	if (node.config.logging.network_message_logging ())
+	{
+		BOOST_LOG (node.log) << boost::str (boost::format ("Sending confirm req hash to %1%") % endpoint_a);
+	}
+	std::weak_ptr<rai::node> node_w (node.shared ());
+	node.stats.inc (rai::stat::type::message, rai::stat::detail::confirm_req_hash, rai::stat::dir::out);
+	send_buffer (bytes->data (), bytes->size (), endpoint_a, [bytes, node_w](boost::system::error_code const & ec, size_t size) {
+		if (auto node_l = node_w.lock ())
+		{
+			if (ec && node_l->config.logging.network_logging ())
+			{
+				BOOST_LOG (node_l->log) << boost::str (boost::format ("Error sending confirm request: %1%") % ec.message ());
+			}
+		}
+	});
+}
+
 template <typename T>
 void rep_query (rai::node & node_a, T const & peers_a)
 {
@@ -553,6 +578,13 @@ void rai::network::receive_action (boost::system::error_code const & error, size
 					if (node.config.logging.network_logging ())
 					{
 						BOOST_LOG (node.log) << "Invalid confirm_req message";
+					}
+				}
+				else if (parser.status == rai::message_parser::parse_status::invalid_confirm_req_hash_message)
+				{
+					if (node.config.logging.network_logging ())
+					{
+						BOOST_LOG (node.log) << "Invalid confirm_req_hash message";
 					}
 				}
 				else if (parser.status == rai::message_parser::parse_status::invalid_confirm_ack_message)
