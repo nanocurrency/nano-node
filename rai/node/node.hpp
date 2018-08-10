@@ -68,6 +68,7 @@ public:
 	void compute_rep_votes (MDB_txn *);
 	// Confirm this block if quorum is met
 	void confirm_if_quorum (MDB_txn *);
+	void log_votes (rai::tally_t const &);
 	rai::votes votes;
 	rai::node & node;
 	std::unordered_map<rai::account, rai::vote_info> last_votes;
@@ -115,7 +116,7 @@ public:
 	// Maximum number of conflicts to vote on per interval, lowest root hash first
 	static unsigned constexpr announcements_per_interval = 32;
 	// Minimum number of block announcements
-	static unsigned constexpr announcement_min = 4;
+	static unsigned constexpr announcement_min = 2;
 	// Threshold to start logging blocks haven't yet been confirmed
 	static unsigned constexpr announcement_long = 20;
 	static unsigned constexpr announce_interval_ms = (rai::rai_network == rai::rai_networks::rai_test_network) ? 10 : 16000;
@@ -248,6 +249,8 @@ public:
 	bool validate_syn_cookie (rai::endpoint const &, rai::account, rai::signature);
 	size_t size ();
 	size_t size_sqrt ();
+	rai::uint128_t total_weight ();
+	rai::uint128_t online_weight_minimum;
 	bool empty ();
 	std::mutex mutex;
 	rai::endpoint self;
@@ -562,6 +565,7 @@ private:
 	bool active;
 	std::chrono::steady_clock::time_point next_log;
 	std::deque<std::pair<std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point>> blocks;
+	std::unordered_set<rai::block_hash> blocks_hashes;
 	std::deque<std::shared_ptr<rai::block>> forced;
 	std::condition_variable condition;
 	rai::node & node;

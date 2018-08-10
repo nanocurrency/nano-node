@@ -134,7 +134,7 @@ TEST (block_store, pending_iterator)
 	rai::pending_key key1 (current->first);
 	ASSERT_EQ (rai::account (1), key1.account);
 	ASSERT_EQ (rai::block_hash (2), key1.hash);
-	rai::pending_info pending (current->second, current->from_secondary_store ? rai::epoch::epoch_1 : rai::epoch::epoch_0);
+	rai::pending_info pending (current->second);
 	ASSERT_EQ (rai::account (2), pending.source);
 	ASSERT_EQ (rai::amount (3), pending.amount);
 	ASSERT_EQ (rai::epoch::epoch_1, pending.epoch);
@@ -335,7 +335,7 @@ TEST (block_store, one_account)
 	auto end (store.latest_end ());
 	ASSERT_NE (end, begin);
 	ASSERT_EQ (account, begin->first.uint256 ());
-	rai::account_info info (begin->second, begin->from_secondary_store ? rai::epoch::epoch_1 : rai::epoch::epoch_0);
+	rai::account_info info (begin->second);
 	ASSERT_EQ (hash, info.head);
 	ASSERT_EQ (42, info.balance.number ());
 	ASSERT_EQ (100, info.modified);
@@ -381,7 +381,7 @@ TEST (block_store, two_account)
 	auto end (store.latest_end ());
 	ASSERT_NE (end, begin);
 	ASSERT_EQ (account1, begin->first.uint256 ());
-	rai::account_info info1 (begin->second, begin->from_secondary_store ? rai::epoch::epoch_1 : rai::epoch::epoch_0);
+	rai::account_info info1 (begin->second);
 	ASSERT_EQ (hash1, info1.head);
 	ASSERT_EQ (42, info1.balance.number ());
 	ASSERT_EQ (100, info1.modified);
@@ -389,7 +389,7 @@ TEST (block_store, two_account)
 	++begin;
 	ASSERT_NE (end, begin);
 	ASSERT_EQ (account2, begin->first.uint256 ());
-	rai::account_info info2 (begin->second, begin->from_secondary_store ? rai::epoch::epoch_1 : rai::epoch::epoch_0);
+	rai::account_info info2 (begin->second);
 	ASSERT_EQ (hash2, info2.head);
 	ASSERT_EQ (84, info2.balance.number ());
 	ASSERT_EQ (200, info2.modified);

@@ -10,9 +10,9 @@ namespace rai
 class store_iterator
 {
 public:
-	store_iterator (MDB_txn *, MDB_dbi);
+	store_iterator (MDB_txn *, MDB_dbi, rai::epoch = rai::epoch::unspecified);
 	store_iterator (std::nullptr_t);
-	store_iterator (MDB_txn *, MDB_dbi, MDB_val const &);
+	store_iterator (MDB_txn *, MDB_dbi, MDB_val const &, rai::epoch = rai::epoch::unspecified);
 	store_iterator (rai::store_iterator &&);
 	store_iterator (rai::store_iterator const &) = delete;
 	~store_iterator ();
@@ -34,9 +34,9 @@ public:
 class merged_store_kv
 {
 public:
+	merged_store_kv (rai::epoch = rai::epoch::unspecified);
 	rai::mdb_val first;
 	rai::mdb_val second;
-	bool from_secondary_store;
 };
 
 /**

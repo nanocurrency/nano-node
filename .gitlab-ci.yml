@@ -77,6 +77,18 @@ Ubuntu Linux Xenial:
     - ./ci/ubuntu_prep.sh
     - ./ci/bootstrap_boost.sh
 
+Ubuntu Linux Xenial Beta:
+  <<: *linux_cfg
+  stage: build
+  image: ubuntu:xenial
+  variables:
+    FLAVOR: xenial
+    BETA: 1
+
+  before_script:
+    - ./ci/ubuntu_prep.sh
+    - ./ci/bootstrap_boost.sh
+
 Xenial OPTIMIZED:
   <<: *linux_cfg
   stage: build

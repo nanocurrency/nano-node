@@ -2335,6 +2335,13 @@ TEST (rpc, accounts_pending)
 	rai::keypair key1;
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	auto block1 (system.wallet (0)->send_action (rai::test_genesis_key.pub, key1.pub, 100));
+	auto iterations (0);
+	while (system.nodes[0]->active.active (*block1))
+	{
+		system.poll ();
+		++iterations;
+		ASSERT_LT (iterations, 200);
+	}
 	rai::rpc rpc (system.service, *system.nodes[0], rai::rpc_config (true));
 	rpc.start ();
 	boost::property_tree::ptree request;
@@ -2546,6 +2553,13 @@ TEST (rpc, wallet_pending)
 	system0.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	system0.wallet (0)->insert_adhoc (key1.prv);
 	auto block1 (system0.wallet (0)->send_action (rai::test_genesis_key.pub, key1.pub, 100));
+	auto iterations (0);
+	while (system0.nodes[0]->active.active (*block1))
+	{
+		system0.poll ();
+		++iterations;
+		ASSERT_LT (iterations, 200);
+	}
 	rai::rpc rpc (system0.service, *system0.nodes[0], rai::rpc_config (true));
 	rpc.start ();
 	boost::property_tree::ptree request;
@@ -2558,6 +2572,7 @@ TEST (rpc, wallet_pending)
 		system0.poll ();
 	}
 	ASSERT_EQ (200, response.status);
+	ASSERT_EQ (1, response.json.get_child ("blocks").size ());
 	for (auto & pending : response.json.get_child ("blocks"))
 	{
 		std::string account_text (pending.first);
@@ -2573,6 +2588,7 @@ TEST (rpc, wallet_pending)
 	}
 	ASSERT_EQ (200, response0.status);
 	std::unordered_map<rai::block_hash, rai::uint128_union> blocks;
+	ASSERT_EQ (1, response0.json.get_child ("blocks").size ());
 	for (auto & pending : response0.json.get_child ("blocks"))
 	{
 		std::string account_text (pending.first);
@@ -2611,6 +2627,7 @@ TEST (rpc, wallet_pending)
 	ASSERT_EQ (200, response2.status);
 	std::unordered_map<rai::block_hash, rai::uint128_union> amounts;
 	std::unordered_map<rai::block_hash, rai::account> sources;
+	ASSERT_EQ (1, response0.json.get_child ("blocks").size ());
 	for (auto & pending : response2.json.get_child ("blocks"))
 	{
 		std::string account_text (pending.first);
