@@ -923,7 +923,6 @@ TEST (node, fork_open_flip)
 	auto & node1 (*system.nodes[0]);
 	auto & node2 (*system.nodes[1]);
 	ASSERT_EQ (1, node1.peers.size ());
-	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	rai::keypair key1;
 	rai::genesis genesis;
 	rai::keypair rep1;
@@ -944,6 +943,7 @@ TEST (node, fork_open_flip)
 	node2.block_processor.flush ();
 	ASSERT_EQ (2, node1.active.roots.size ());
 	ASSERT_EQ (2, node2.active.roots.size ());
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	// Notify both nodes that a fork exists
 	node1.process_active (open2);
 	node1.block_processor.flush ();
