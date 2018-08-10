@@ -192,7 +192,10 @@ typedef std::vector<boost::variant<std::shared_ptr<rai::block>, rai::block_hash>
 class vote_hashes_iterator : public rai::vote_vec_iter
 {
 public:
-	vote_hashes_iterator (rai::vote_vec_iter self) : rai::vote_vec_iter (self) {}
+	vote_hashes_iterator (rai::vote_vec_iter self) :
+	rai::vote_vec_iter (self)
+	{
+	}
 	rai::block_hash const * operator-> ();
 	rai::block_hash const & operator* ();
 	boost::optional<rai::block_hash> block_hash_store;
@@ -215,8 +218,14 @@ public:
 	void serialize (rai::stream &);
 	bool deserialize (rai::stream &);
 	bool validate ();
-	rai::vote_hashes_iterator begin () const { return rai::vote_hashes_iterator (blocks.begin ()); }
-	rai::vote_hashes_iterator end () const { return rai::vote_hashes_iterator (blocks.end ()); }
+	rai::vote_hashes_iterator begin () const
+	{
+		return rai::vote_hashes_iterator (blocks.begin ());
+	}
+	rai::vote_hashes_iterator end () const
+	{
+		return rai::vote_hashes_iterator (blocks.end ());
+	}
 	std::string to_json () const;
 	// Vote round sequence number
 	uint64_t sequence;

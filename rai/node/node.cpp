@@ -1990,7 +1990,7 @@ void rai::gap_cache::vote (std::shared_ptr<rai::vote> vote_a)
 		if (existing != blocks.get<1> ().end ())
 		{
 			auto is_new (false);
-			blocks.get<1> ().modify(existing, [&](rai::gap_information & info) { is_new = info.voters.insert(vote_a->account).second; });
+			blocks.get<1> ().modify (existing, [&](rai::gap_information & info) { is_new = info.voters.insert (vote_a->account).second; });
 			if (is_new)
 			{
 				uint128_t tally;
@@ -3522,7 +3522,7 @@ status ({ block_a, 0 }),
 confirmed (false),
 aborted (false)
 {
-	last_votes.insert (std::make_pair (rai::not_an_account, rai::vote_info { std::chrono::steady_clock::now (), 0, block_a->hash () }));
+	last_votes.insert (std::make_pair (rai::not_an_account, rai::vote_info{ std::chrono::steady_clock::now (), 0, block_a->hash () }));
 	blocks.insert (std::make_pair (block_a->hash (), block_a));
 }
 
