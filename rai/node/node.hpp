@@ -7,13 +7,7 @@
 #include <rai/secure/ledger.hpp>
 
 #include <condition_variable>
-#include <memory>
-#include <mutex>
-#include <queue>
-#include <thread>
-#include <unordered_set>
 
-#include <boost/asio.hpp>
 #include <boost/iostreams/device/array.hpp>
 #include <boost/log/trivial.hpp>
 #include <boost/multi_index/hashed_index.hpp>

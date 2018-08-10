@@ -6,22 +6,15 @@
 
 #include <algorithm>
 #include <future>
-#include <memory>
 #include <sstream>
-#include <thread>
-#include <unordered_set>
 
 #include <boost/log/expressions.hpp>
 #include <boost/log/utility/setup/common_attributes.hpp>
 #include <boost/log/utility/setup/console.hpp>
 #include <boost/log/utility/setup/file.hpp>
-#include <boost/program_options.hpp>
 #include <boost/property_tree/json_parser.hpp>
-#include <boost/property_tree/ptree.hpp>
 
 #include <upnpcommands.h>
-
-#include <ed25519-donna/ed25519.h>
 
 double constexpr rai::node::price_max;
 double constexpr rai::node::free_cutoff;
