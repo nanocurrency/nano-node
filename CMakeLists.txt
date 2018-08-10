@@ -100,7 +100,7 @@ endif ()
 SET( CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${PLATFORM_LINK_FLAGS}" )
 
 if (RAIBLOCKS_SECURE_RPC)
-	find_package (OpenSSL 1.0 EXACT REQUIRED)
+	find_package (OpenSSL 1.0 REQUIRED)
 	#include_directories(${OPENSSL_INCLUDE_DIR})
 	add_definitions (-DRAIBLOCKS_SECURE_RPC)
 	message("OpenSSL include dir: ${OPENSSL_INCLUDE_DIR}")

@@ -264,7 +264,7 @@ void rai::network::republish_vote (std::shared_ptr<rai::vote> vote_a)
 void rai::network::broadcast_confirm_req (std::shared_ptr<rai::block> block_a)
 {
 	auto list (std::make_shared<std::vector<rai::peer_information>> (node.peers.representatives (std::numeric_limits<size_t>::max ())));
-	if (list->empty () || node.online_reps.online_stake () == node.config.online_weight_minimum.number ())
+	if (list->empty () || node.peers.total_weight () < node.config.online_weight_minimum.number ())
 	{
 		// broadcast request to all peers
 		list = std::make_shared<std::vector<rai::peer_information>> (node.peers.list_vector ());
@@ -419,6 +419,10 @@ public:
 		node.vote_processor.vote (message_a.vote, sender);
 	}
 	void bulk_pull (rai::bulk_pull const &) override
+	{
+		assert (false);
+	}
+	void bulk_pull_account (rai::bulk_pull_account const &) override
 	{
 		assert (false);
 	}
@@ -1395,8 +1399,12 @@ void rai::block_processor::add (std::shared_ptr<rai::block> block_a, std::chrono
 	if (!rai::work_validate (block_a->root (), block_a->block_work ()))
 	{
 		std::lock_guard<std::mutex> lock (mutex);
-		blocks.push_front (std::make_pair (block_a, origination));
-		condition.notify_all ();
+		if (blocks_hashes.find (block_a->hash ()) == blocks_hashes.end ())
+		{
+			blocks.push_back (std::make_pair (block_a, origination));
+			blocks_hashes.insert (block_a->hash ());
+			condition.notify_all ();
+		}
 	}
 	else
 	{
@@ -1408,7 +1416,7 @@ void rai::block_processor::add (std::shared_ptr<rai::block> block_a, std::chrono
 void rai::block_processor::force (std::shared_ptr<rai::block> block_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
-	forced.push_front (block_a);
+	forced.push_back (block_a);
 	condition.notify_all ();
 }
 
@@ -1470,6 +1478,7 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 			{
 				block = blocks.front ();
 				blocks.pop_front ();
+				blocks_hashes.erase (block.first->hash ());
 			}
 			else
 			{
@@ -1825,6 +1834,7 @@ stats (config.stat_config)
 		node_id = rai::keypair (store.get_node_id (transaction));
 		BOOST_LOG (log) << "Node ID: " << node_id.pub.to_account ();
 	}
+	peers.online_weight_minimum = config.online_weight_minimum.number ();
 	if (rai::rai_network == rai::rai_networks::rai_live_network)
 	{
 		extern const char rai_bootstrap_weights[];
@@ -3088,10 +3098,12 @@ std::vector<rai::peer_information> rai::peer_container::purge_list (std::chrono:
 std::vector<rai::endpoint> rai::peer_container::rep_crawl ()
 {
 	std::vector<rai::endpoint> result;
-	result.reserve (10);
+	// If there is enough observed peers weight, crawl 10 peers. Otherwise - 40
+	uint16_t max_count = (total_weight () > online_weight_minimum) ? 10 : 40;
+	result.reserve (max_count);
 	std::lock_guard<std::mutex> lock (mutex);
-	auto count (0);
-	for (auto i (peers.get<5> ().begin ()), n (peers.get<5> ().end ()); i != n && count < 10; ++i, ++count)
+	uint16_t count (0);
+	for (auto i (peers.get<5> ().begin ()), n (peers.get<5> ().end ()); i != n && count < max_count; ++i, ++count)
 	{
 		result.push_back (i->endpoint);
 	};
@@ -3107,6 +3119,23 @@ size_t rai::peer_container::size ()
 size_t rai::peer_container::size_sqrt ()
 {
 	auto result (std::ceil (std::sqrt (size ())));
+	return result;
+}
+
+rai::uint128_t rai::peer_container::total_weight ()
+{
+	rai::uint128_t result (0);
+	std::unordered_set<rai::account> probable_reps;
+	std::lock_guard<std::mutex> lock (mutex);
+	for (auto i (peers.get<6> ().begin ()), n (peers.get<6> ().end ()); i != n; ++i)
+	{
+		// Calculate if representative isn't recorded for several IP addresses
+		if (probable_reps.find (i->probable_rep_account) == probable_reps.end ())
+		{
+			result = result + i->rep_weight.number ();
+			probable_reps.insert (i->probable_rep_account);
+		}
+	}
 	return result;
 }
 
@@ -3535,17 +3564,22 @@ void rai::election::confirm_if_quorum (MDB_txn * transaction_a)
 	{
 		if (node.config.logging.vote_logging () || !votes.uncontested ())
 		{
-			BOOST_LOG (node.log) << boost::str (boost::format ("Vote tally for root %1%") % status.winner->root ().to_string ());
-			for (auto i (tally_l.begin ()), n (tally_l.end ()); i != n; ++i)
-			{
-				BOOST_LOG (node.log) << boost::str (boost::format ("Block %1% weight %2%") % i->second->hash ().to_string () % i->first.convert_to<std::string> ());
-			}
-			for (auto i (votes.rep_votes.begin ()), n (votes.rep_votes.end ()); i != n; ++i)
-			{
-				BOOST_LOG (node.log) << boost::str (boost::format ("%1% %2%") % i->first.to_account () % i->second->hash ().to_string ());
-			}
+			log_votes (tally_l);
 		}
 		confirm_once (transaction_a);
+	}
+}
+
+void rai::election::log_votes (rai::tally_t const & tally_a)
+{
+	BOOST_LOG (node.log) << boost::str (boost::format ("Vote tally for root %1%") % status.winner->root ().to_string ());
+	for (auto i (tally_a.begin ()), n (tally_a.end ()); i != n; ++i)
+	{
+		BOOST_LOG (node.log) << boost::str (boost::format ("Block %1% weight %2%") % i->second->hash ().to_string () % i->first.convert_to<std::string> ());
+	}
+	for (auto i (votes.rep_votes.begin ()), n (votes.rep_votes.end ()); i != n; ++i)
+	{
+		BOOST_LOG (node.log) << boost::str (boost::format ("%1% %2%") % i->first.to_account () % i->second->hash ().to_string ());
 	}
 }
 
@@ -3613,6 +3647,7 @@ void rai::active_transactions::announce_votes ()
 	rai::transaction transaction (node.store.environment, nullptr, false);
 	unsigned unconfirmed_count (0);
 	unsigned unconfirmed_announcements (0);
+	unsigned mass_request_count (0);
 
 	for (auto i (roots.begin ()), n (roots.end ()); i != n; ++i)
 	{
@@ -3635,19 +3670,32 @@ void rai::active_transactions::announce_votes ()
 			{
 				++unconfirmed_count;
 				unconfirmed_announcements += i->announcements;
+				// Log votes for very long unconfirmed elections
+				if (i->announcements % 50 == 1)
+				{
+					auto tally_l (node.ledger.tally (transaction, election_l->votes));
+					election_l->log_votes (tally_l);
+				}
 			}
 			if (i->announcements < announcement_long || i->announcements % announcement_long == 1)
 			{
 				election_l->broadcast_winner (transaction);
 			}
-			if (i->announcements % announcement_min == 2)
+			if (i->announcements % 4 == 1)
 			{
 				auto reps (std::make_shared<std::vector<rai::peer_information>> (node.peers.representatives (std::numeric_limits<size_t>::max ())));
-
+				std::unordered_set<rai::account> probable_reps;
+				rai::uint128_t total_weight (0);
 				for (auto j (reps->begin ()), m (reps->end ()); j != m;)
 				{
 					auto & rep_votes (i->election->votes.rep_votes);
 					auto rep_acct (j->probable_rep_account);
+					// Calculate if representative isn't recorded for several IP addresses
+					if (probable_reps.find (rep_acct) == probable_reps.end ())
+					{
+						total_weight = total_weight + j->rep_weight.number ();
+						probable_reps.insert (rep_acct);
+					}
 					if (rep_votes.find (rep_acct) != rep_votes.end ())
 					{
 						std::swap (*j, reps->back ());
@@ -3663,7 +3711,7 @@ void rai::active_transactions::announce_votes ()
 						}
 					}
 				}
-				if (!reps->empty () && node.online_reps.online_stake () != node.config.online_weight_minimum.number ())
+				if (!reps->empty () && (total_weight > node.config.online_weight_minimum.number () || mass_request_count > 20))
 				{
 					// broadcast_confirm_req_base modifies reps, so we clone it once to avoid aliasing
 					node.network.broadcast_confirm_req_base (i->confirm_req_options.first, std::make_shared<std::vector<rai::peer_information>> (*reps), 0);
@@ -3672,6 +3720,7 @@ void rai::active_transactions::announce_votes ()
 				{
 					// broadcast request to all peers
 					node.network.broadcast_confirm_req_base (i->confirm_req_options.first, std::make_shared<std::vector<rai::peer_information>> (node.peers.list_vector ()), 0);
+					++mass_request_count;
 				}
 			}
 		}
