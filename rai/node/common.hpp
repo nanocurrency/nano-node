@@ -260,8 +260,8 @@ public:
 	void serialize (rai::stream &) override;
 	void visit (rai::message_visitor &) const override;
 	bool operator== (rai::confirm_req_hash const &) const;
-	std::shared_ptr<rai::block_hash> hash;
-	std::shared_ptr<rai::block_hash> root;
+	rai::block_hash hash;
+	rai::block_hash root;
 };
 class confirm_ack : public message
 {

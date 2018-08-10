@@ -213,7 +213,7 @@ void rai::message_parser::deserialize_confirm_req_hash (rai::stream & stream_a, 
 	rai::confirm_req_hash incoming (error, stream_a, header_a);
 	if (!error && at_end (stream_a))
 	{
-		visitor.confirm_req (incoming);
+		visitor.confirm_req_hash (incoming);
 	}
 	else
 	{
@@ -406,10 +406,21 @@ bool rai::confirm_req::operator== (rai::confirm_req const & other_a) const
 	return *block == *other_a.block;
 }
 
+rai::confirm_req_hash::confirm_req_hash (bool & error_a, rai::stream & stream_a, rai::message_header const & header_a) :
+message (header_a)
+{
+	if (!error_a)
+	{
+		error_a = deserialize (stream_a);
+	}
+}
+
 rai::confirm_req_hash::confirm_req_hash (std::shared_ptr<rai::block> block_a) :
 message (rai::message_type::confirm_req_hash),
 hash (block_a->hash ()),
 root (block_a->root ())
+{
+}
 
 bool rai::confirm_req_hash::deserialize (rai::stream & stream_a)
 {
@@ -436,7 +447,7 @@ void rai::confirm_req_hash::serialize (rai::stream & stream_a)
 
 bool rai::confirm_req_hash::operator== (rai::confirm_req_hash const & other_a) const
 {
-	return (*hash == *other_a.hash) && (*root == *other_a.root);
+	return (hash == other_a.hash) && (root == other_a.root);
 }
 
 
