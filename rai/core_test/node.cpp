@@ -150,14 +150,16 @@ TEST (node, send_out_of_order)
 	rai::genesis genesis;
 	rai::send_block send1 (genesis.hash (), key2.pub, std::numeric_limits<rai::uint128_t>::max () - system.nodes[0]->config.receive_minimum.number (), rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (genesis.hash ()));
 	rai::send_block send2 (send1.hash (), key2.pub, std::numeric_limits<rai::uint128_t>::max () - system.nodes[0]->config.receive_minimum.number () * 2, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (send1.hash ()));
+	rai::send_block send3 (send2.hash (), key2.pub, std::numeric_limits<rai::uint128_t>::max () - system.nodes[0]->config.receive_minimum.number () * 3, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (send2.hash ()));
+	system.nodes[0]->process_active (std::unique_ptr<rai::block> (new rai::send_block (send3)));
 	system.nodes[0]->process_active (std::unique_ptr<rai::block> (new rai::send_block (send2)));
 	system.nodes[0]->process_active (std::unique_ptr<rai::block> (new rai::send_block (send1)));
 	auto iterations (0);
-	while (std::any_of (system.nodes.begin (), system.nodes.end (), [&](std::shared_ptr<rai::node> const & node_a) { return node_a->balance (rai::test_genesis_key.pub) != rai::genesis_amount - system.nodes[0]->config.receive_minimum.number () * 2; }))
+	while (std::any_of (system.nodes.begin (), system.nodes.end (), [&](std::shared_ptr<rai::node> const & node_a) { return node_a->balance (rai::test_genesis_key.pub) != rai::genesis_amount - system.nodes[0]->config.receive_minimum.number () * 3; }))
 	{
 		system.poll ();
 		++iterations;
-		ASSERT_LT (iterations, 200);
+		ASSERT_LT (iterations, 300);
 	}
 }
 

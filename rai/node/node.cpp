@@ -3500,14 +3500,14 @@ void rai::election::compute_rep_votes (MDB_txn * transaction_a)
 	}
 }
 
-void rai::election::broadcast_winner (MDB_txn * transaction_a)
+void rai::election::broadcast_winner (MDB_txn * transaction_a, bool abort_allow)
 {
 	if (node.ledger.could_fit (transaction_a, *status.winner))
 	{
 		compute_rep_votes (transaction_a);
 		node.network.republish_block (transaction_a, status.winner);
 	}
-	else
+	else if (abort_allow)
 	{
 		abort ();
 	}
@@ -3678,7 +3678,7 @@ void rai::active_transactions::announce_votes ()
 					election_l->log_votes (tally_l);
 				}
 			}
-			election_l->broadcast_winner (transaction);
+			election_l->broadcast_winner (transaction, i->announcements > 3);
 			if (i->announcements % 4 == 1)
 			{
 				auto reps (std::make_shared<std::vector<rai::peer_information>> (node.peers.representatives (std::numeric_limits<size_t>::max ())));
