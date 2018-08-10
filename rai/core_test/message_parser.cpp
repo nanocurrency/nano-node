@@ -10,6 +10,7 @@ public:
 	keepalive_count (0),
 	publish_count (0),
 	confirm_req_count (0),
+	confirm_req_hash_count (0),
 	confirm_ack_count (0),
 	bulk_pull_count (0),
 	bulk_pull_account_count (0),
@@ -29,6 +30,10 @@ public:
 	void confirm_req (rai::confirm_req const &) override
 	{
 		++confirm_req_count;
+	}
+	void confirm_req_hash (rai::confirm_req_hash const &) override
+	{
+		++confirm_req_hash_count;
 	}
 	void confirm_ack (rai::confirm_ack const &) override
 	{
@@ -61,6 +66,7 @@ public:
 	uint64_t keepalive_count;
 	uint64_t publish_count;
 	uint64_t confirm_req_count;
+	uint64_t confirm_req_hash_count;
 	uint64_t confirm_ack_count;
 	uint64_t bulk_pull_count;
 	uint64_t bulk_pull_account_count;
@@ -129,6 +135,36 @@ TEST (message_parser, exact_confirm_req_size)
 	ASSERT_FALSE (error);
 	parser.deserialize_confirm_req (stream2, header2);
 	ASSERT_EQ (1, visitor.confirm_req_count);
+	ASSERT_NE (parser.status, rai::message_parser::parse_status::success);
+}
+
+TEST (message_parser, exact_confirm_req_hash_size)
+{
+	rai::system system (24000, 1);
+	test_visitor visitor;
+	rai::message_parser parser (visitor, system.work);
+	auto block (std::unique_ptr<rai::send_block> (new rai::send_block (1, 1, 2, rai::keypair ().prv, 4, system.work.generate (1))));
+	rai::confirm_req_hash message (std::move (block));
+	std::vector<uint8_t> bytes;
+	{
+		rai::vectorstream stream (bytes);
+		message.serialize (stream);
+	}
+	ASSERT_EQ (0, visitor.confirm_req_hash_count);
+	ASSERT_EQ (parser.status, rai::message_parser::parse_status::success);
+	auto error (false);
+	rai::bufferstream stream1 (bytes.data (), bytes.size ());
+	rai::message_header header1 (error, stream1);
+	ASSERT_FALSE (error);
+	parser.deserialize_confirm_req_hash (stream1, header1);
+	ASSERT_EQ (1, visitor.confirm_req_hash_count);
+	ASSERT_EQ (parser.status, rai::message_parser::parse_status::success);
+	bytes.push_back (0);
+	rai::bufferstream stream2 (bytes.data (), bytes.size ());
+	rai::message_header header2 (error, stream2);
+	ASSERT_FALSE (error);
+	parser.deserialize_confirm_req_hash (stream2, header2);
+	ASSERT_EQ (1, visitor.confirm_req_hash_count);
 	ASSERT_NE (parser.status, rai::message_parser::parse_status::success);
 }
 
