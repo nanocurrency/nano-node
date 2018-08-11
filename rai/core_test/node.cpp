@@ -144,10 +144,12 @@ TEST (node, send_out_of_order)
 	rai::genesis genesis;
 	rai::send_block send1 (genesis.hash (), key2.pub, std::numeric_limits<rai::uint128_t>::max () - system.nodes[0]->config.receive_minimum.number (), rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (genesis.hash ()));
 	rai::send_block send2 (send1.hash (), key2.pub, std::numeric_limits<rai::uint128_t>::max () - system.nodes[0]->config.receive_minimum.number () * 2, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (send1.hash ()));
+	rai::send_block send3 (send2.hash (), key2.pub, std::numeric_limits<rai::uint128_t>::max () - system.nodes[0]->config.receive_minimum.number () * 3, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (send2.hash ()));
+	system.nodes[0]->process_active (std::unique_ptr<rai::block> (new rai::send_block (send3)));
 	system.nodes[0]->process_active (std::unique_ptr<rai::block> (new rai::send_block (send2)));
 	system.nodes[0]->process_active (std::unique_ptr<rai::block> (new rai::send_block (send1)));
 	system.deadline_set (10s);
-	while (std::any_of (system.nodes.begin (), system.nodes.end (), [&](std::shared_ptr<rai::node> const & node_a) { return node_a->balance (rai::test_genesis_key.pub) != rai::genesis_amount - system.nodes[0]->config.receive_minimum.number () * 2; }))
+	while (std::any_of (system.nodes.begin (), system.nodes.end (), [&](std::shared_ptr<rai::node> const & node_a) { return node_a->balance (rai::test_genesis_key.pub) != rai::genesis_amount - system.nodes[0]->config.receive_minimum.number () * 3; }))
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
@@ -649,7 +651,6 @@ TEST (node, fork_keep)
 	auto & node1 (*system.nodes[0]);
 	auto & node2 (*system.nodes[1]);
 	ASSERT_EQ (1, node1.peers.size ());
-	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	rai::keypair key1;
 	rai::keypair key2;
 	rai::genesis genesis;
@@ -662,6 +663,7 @@ TEST (node, fork_keep)
 	node2.block_processor.flush ();
 	ASSERT_EQ (1, node1.active.roots.size ());
 	ASSERT_EQ (1, node2.active.roots.size ());
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	node1.process_active (send2);
 	node1.block_processor.flush ();
 	node2.process_active (send2);
@@ -699,7 +701,6 @@ TEST (node, fork_flip)
 	auto & node1 (*system.nodes[0]);
 	auto & node2 (*system.nodes[1]);
 	ASSERT_EQ (1, node1.peers.size ());
-	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	rai::keypair key1;
 	rai::genesis genesis;
 	auto send1 (std::make_shared<rai::send_block> (genesis.hash (), key1.pub, rai::genesis_amount - 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (genesis.hash ())));
@@ -713,6 +714,7 @@ TEST (node, fork_flip)
 	node2.block_processor.flush ();
 	ASSERT_EQ (1, node1.active.roots.size ());
 	ASSERT_EQ (1, node2.active.roots.size ());
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	node1.process_message (publish2, node1.network.endpoint ());
 	node1.block_processor.flush ();
 	node2.process_message (publish1, node2.network.endpoint ());
@@ -750,7 +752,6 @@ TEST (node, fork_multi_flip)
 	auto & node1 (*system.nodes[0]);
 	auto & node2 (*system.nodes[1]);
 	ASSERT_EQ (1, node1.peers.size ());
-	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	rai::keypair key1;
 	rai::genesis genesis;
 	auto send1 (std::make_shared<rai::send_block> (genesis.hash (), key1.pub, rai::genesis_amount - 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (genesis.hash ())));
@@ -767,6 +768,7 @@ TEST (node, fork_multi_flip)
 	node2.block_processor.flush ();
 	ASSERT_EQ (1, node1.active.roots.size ());
 	ASSERT_EQ (2, node2.active.roots.size ());
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	node1.process_message (publish2, node1.network.endpoint ());
 	node1.process_message (publish3, node1.network.endpoint ());
 	node1.block_processor.flush ();
@@ -847,7 +849,6 @@ TEST (node, fork_open)
 {
 	rai::system system (24000, 1);
 	auto & node1 (*system.nodes[0]);
-	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	rai::keypair key1;
 	rai::genesis genesis;
 	auto send1 (std::make_shared<rai::send_block> (genesis.hash (), key1.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (genesis.hash ())));
@@ -861,6 +862,7 @@ TEST (node, fork_open)
 	auto open2 (std::make_shared<rai::open_block> (publish1.block->hash (), 2, key1.pub, key1.prv, key1.pub, system.work.generate (key1.pub)));
 	rai::publish publish3 (open2);
 	ASSERT_EQ (2, node1.active.roots.size ());
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	node1.process_message (publish3, node1.network.endpoint ());
 	node1.block_processor.flush ();
 }
@@ -871,7 +873,6 @@ TEST (node, fork_open_flip)
 	auto & node1 (*system.nodes[0]);
 	auto & node2 (*system.nodes[1]);
 	ASSERT_EQ (1, node1.peers.size ());
-	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	rai::keypair key1;
 	rai::genesis genesis;
 	rai::keypair rep1;
@@ -892,6 +893,7 @@ TEST (node, fork_open_flip)
 	node2.block_processor.flush ();
 	ASSERT_EQ (2, node1.active.roots.size ());
 	ASSERT_EQ (2, node2.active.roots.size ());
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	// Notify both nodes that a fork exists
 	node1.process_active (open2);
 	node1.block_processor.flush ();

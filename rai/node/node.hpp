@@ -63,7 +63,7 @@ public:
 	// Check if we have vote quorum
 	bool have_quorum (rai::tally_t const &);
 	// Tell the network our view of the winner
-	void broadcast_winner (MDB_txn *);
+	void broadcast_winner (MDB_txn *, bool = true);
 	// Change our winner to agree with the network
 	void compute_rep_votes (MDB_txn *);
 	// Confirm this block if quorum is met
@@ -74,6 +74,7 @@ public:
 	std::unordered_map<rai::account, rai::vote_info> last_votes;
 	rai::election_status status;
 	std::atomic<bool> confirmed;
+	bool aborted;
 };
 class conflict_info
 {
