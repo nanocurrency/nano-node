@@ -1508,7 +1508,10 @@ std::shared_ptr<rai::vote> rai::block_store::vote_get (MDB_txn * transaction_a, 
 	if (status == 0)
 	{
 		result = std::make_shared<rai::vote> ();
-		rai::bufferstream stream (reinterpret_cast<uint8_t const *> (value.data ()), value.size ());
+		// This bytes copy seems to fix a bug on Windows, and maybe sometimes Linux.
+		// However, I have no idea why it does, or even the exact details of the bug.
+		std::vector<uint8_t> bytes ((uint8_t *)value.data (), (uint8_t *)value.data () + value.size ());
+		rai::bufferstream stream (bytes.data (), bytes.size ());
 		if (result->deserialize (stream))
 		{
 			assert (false && "DB vote deserialization failed");
