@@ -1507,8 +1507,19 @@ std::shared_ptr<rai::vote> rai::block_store::vote_get (MDB_txn * transaction_a, 
 	assert (status == 0 || status == MDB_NOTFOUND);
 	if (status == 0)
 	{
-		result = std::make_shared<rai::vote> (value);
-		assert (result != nullptr);
+		std::vector<uint8_t> bytes ((uint8_t *)value.data (), (uint8_t *)value.data () + value.size ());
+		rai::bufferstream stream (bytes.data (), bytes.size ());
+		result = std::make_shared<rai::vote> ();
+		if (result->deserialize (stream))
+		{
+			std::cerr << "Failed to deserialize bytes: ";
+			for (auto byte : bytes)
+			{
+				std::cerr << std::hex << std::setfill ('0') << std::setw (2) << byte;
+			}
+			std::cerr << std::endl;
+			result = nullptr;
+		}
 	}
 	return result;
 }
