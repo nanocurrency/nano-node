@@ -3874,7 +3874,14 @@ rai::thread_runner::thread_runner (boost::asio::io_service & service_a, unsigned
 			}
 			catch (...)
 			{
-				assert (false && "Unhandled service exception");
+#ifndef NDEBUG
+				/*
+				 * In a release build, catch and swallow the
+				 * service exception, in debug mode pass it
+				 * on
+				 */
+				throw;
+#endif
 			}
 		}));
 	}
