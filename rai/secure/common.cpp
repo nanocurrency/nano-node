@@ -656,34 +656,6 @@ void rai::representative_visitor::state_block (rai::state_block const & block_a)
 	result = block_a.hash ();
 }
 
-rai::block_hash const * rai::vote_hashes_iterator::operator-> ()
-{
-	rai::block_hash const * result;
-	if (block_hash_store)
-	{
-		result = &*block_hash_store;
-	}
-	else
-	{
-		auto item (rai::vote_vec_iter::operator* ());
-		if (item.which ())
-		{
-			result = &boost::get<rai::block_hash> (item);
-		}
-		else
-		{
-			block_hash_store = boost::get<std::shared_ptr<rai::block>> (item)->hash ();
-			result = &*block_hash_store;
-		}
-	}
-	return result;
-}
-
-rai::block_hash const & rai::vote_hashes_iterator::operator* ()
-{
-	return *operator-> ();
-}
-
 rai::vote::vote (rai::vote const & other_a) :
 sequence (other_a.sequence),
 blocks (other_a.blocks),
@@ -903,6 +875,30 @@ bool rai::vote::validate ()
 {
 	auto result (rai::validate_message (account, hash (), signature));
 	return result;
+}
+
+rai::block_hash rai::iterate_vote_blocks_as_hash::operator() (boost::variant<std::shared_ptr<rai::block>, rai::block_hash> const & item) const
+{
+	rai::block_hash result;
+	if (item.which ())
+	{
+		result = boost::get<rai::block_hash> (item);
+	}
+	else
+	{
+		result = boost::get<std::shared_ptr<rai::block>> (item)->hash ();
+	}
+	return result;
+}
+
+boost::transform_iterator<rai::iterate_vote_blocks_as_hash, rai::vote_blocks_vec_iter> rai::vote::begin () const
+{
+	return boost::transform_iterator<rai::iterate_vote_blocks_as_hash, rai::vote_blocks_vec_iter> (blocks.begin (), rai::iterate_vote_blocks_as_hash ());
+}
+
+boost::transform_iterator<rai::iterate_vote_blocks_as_hash, rai::vote_blocks_vec_iter> rai::vote::end () const
+{
+	return boost::transform_iterator<rai::iterate_vote_blocks_as_hash, rai::vote_blocks_vec_iter> (blocks.end (), rai::iterate_vote_blocks_as_hash ());
 }
 
 rai::genesis::genesis ()

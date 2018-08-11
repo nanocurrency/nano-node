@@ -5,6 +5,7 @@
 
 #include <boost/property_tree/ptree.hpp>
 #include <boost/variant.hpp>
+#include <boost/iterator/transform_iterator.hpp>
 
 #include <unordered_map>
 
@@ -188,17 +189,12 @@ public:
 	size_t state_v0;
 	size_t state_v1;
 };
-typedef std::vector<boost::variant<std::shared_ptr<rai::block>, rai::block_hash>>::const_iterator vote_vec_iter;
-class vote_hashes_iterator : public rai::vote_vec_iter
+typedef std::vector<boost::variant<std::shared_ptr<rai::block>, rai::block_hash>>::const_iterator vote_blocks_vec_iter;
+class iterate_vote_blocks_as_hash
 {
 public:
-	vote_hashes_iterator (rai::vote_vec_iter self) :
-	rai::vote_vec_iter (self)
-	{
-	}
-	rai::block_hash const * operator-> ();
-	rai::block_hash const & operator* ();
-	boost::optional<rai::block_hash> block_hash_store;
+	iterate_vote_blocks_as_hash () = default;
+	rai::block_hash operator() (boost::variant<std::shared_ptr<rai::block>, rai::block_hash> const & item) const;
 };
 class vote
 {
@@ -218,14 +214,8 @@ public:
 	void serialize (rai::stream &);
 	bool deserialize (rai::stream &);
 	bool validate ();
-	rai::vote_hashes_iterator begin () const
-	{
-		return rai::vote_hashes_iterator (blocks.begin ());
-	}
-	rai::vote_hashes_iterator end () const
-	{
-		return rai::vote_hashes_iterator (blocks.end ());
-	}
+	boost::transform_iterator<rai::iterate_vote_blocks_as_hash, rai::vote_blocks_vec_iter> begin () const;
+	boost::transform_iterator<rai::iterate_vote_blocks_as_hash, rai::vote_blocks_vec_iter> end () const;
 	std::string to_json () const;
 	// Vote round sequence number
 	uint64_t sequence;
