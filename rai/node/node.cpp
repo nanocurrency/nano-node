@@ -3678,7 +3678,10 @@ void rai::active_transactions::announce_votes ()
 					election_l->log_votes (tally_l);
 				}
 			}
-			election_l->broadcast_winner (transaction, i->announcements > 3);
+			if (i->announcements < announcement_long || i->announcements % announcement_long == 1)
+			{
+				election_l->broadcast_winner (transaction, i->announcements > 3);
+			}
 			if (i->announcements % 4 == 1)
 			{
 				auto reps (std::make_shared<std::vector<rai::peer_information>> (node.peers.representatives (std::numeric_limits<size_t>::max ())));
