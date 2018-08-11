@@ -1,5 +1,8 @@
 #include <gtest/gtest.h>
+#include <rai/core_test/testutil.hpp>
 #include <rai/node/testing.hpp>
+
+using namespace std::chrono_literals;
 
 TEST (gap_cache, add_new)
 {
@@ -67,12 +70,10 @@ TEST (gap_cache, gap_bootstrap)
 	system.wallet (0)->send_action (rai::test_genesis_key.pub, key.pub, 100);
 	ASSERT_EQ (rai::genesis_amount - 200, system.nodes[0]->balance (rai::genesis_account));
 	ASSERT_EQ (rai::genesis_amount, system.nodes[1]->balance (rai::genesis_account));
-	auto iterations2 (0);
+	system.deadline_set (10s);
 	while (system.nodes[1]->balance (rai::genesis_account) != rai::genesis_amount - 200)
 	{
-		system.poll ();
-		++iterations2;
-		ASSERT_LT (iterations2, 200);
+		ASSERT_NO_ERROR (system.poll ());
 	}
 }
 
