@@ -2422,17 +2422,23 @@ TEST (rpc, blocks)
 	}
 }
 
-TEST (rpc, wallet_balance_total)
+TEST (rpc, wallet_info)
 {
 	rai::system system (24000, 1);
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	rai::keypair key;
 	system.wallet (0)->insert_adhoc (key.prv);
 	auto send (system.wallet (0)->send_action (rai::test_genesis_key.pub, key.pub, 1));
+	rai::account account (system.wallet (0)->deterministic_insert ());
+	{
+		rai::transaction transaction (system.nodes[0]->store.environment, nullptr, true);
+		system.wallet (0)->store.erase (transaction, account);
+	}
+	account = system.wallet (0)->deterministic_insert ();
 	rai::rpc rpc (system.service, *system.nodes[0], rai::rpc_config (true));
 	rpc.start ();
 	boost::property_tree::ptree request;
-	request.put ("action", "wallet_balance_total");
+	request.put ("action", "wallet_info");
 	request.put ("wallet", system.nodes[0]->wallets.items.begin ()->first.to_string ());
 	test_response response (request, rpc, system.service);
 	while (response.status == 0)
@@ -2444,6 +2450,14 @@ TEST (rpc, wallet_balance_total)
 	ASSERT_EQ ("340282366920938463463374607431768211454", balance_text);
 	std::string pending_text (response.json.get<std::string> ("pending"));
 	ASSERT_EQ ("1", pending_text);
+	std::string count_text (response.json.get<std::string> ("accounts_count"));
+	ASSERT_EQ ("3", count_text);
+	std::string adhoc_count (response.json.get<std::string> ("adhoc_count"));
+	ASSERT_EQ ("2", adhoc_count);
+	std::string deterministic_count (response.json.get<std::string> ("deterministic_count"));
+	ASSERT_EQ ("1", deterministic_count);
+	std::string index_text (response.json.get<std::string> ("deterministic_index"));
+	ASSERT_EQ ("2", index_text);
 }
 
 TEST (rpc, wallet_balances)
