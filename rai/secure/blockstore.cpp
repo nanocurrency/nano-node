@@ -1507,13 +1507,8 @@ std::shared_ptr<rai::vote> rai::block_store::vote_get (MDB_txn * transaction_a, 
 	assert (status == 0 || status == MDB_NOTFOUND);
 	if (status == 0)
 	{
-		result = std::make_shared<rai::vote> ();
-		rai::bufferstream stream (reinterpret_cast<uint8_t const *> (value.data ()), value.size ());
-		if (result->deserialize (stream))
-		{
-			assert (false && "DB vote deserialization failed");
-			result = nullptr;
-		}
+		result = std::make_shared<rai::vote> (value);
+		assert (result != nullptr);
 	}
 	return result;
 }
