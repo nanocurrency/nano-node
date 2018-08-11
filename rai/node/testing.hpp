@@ -7,7 +7,7 @@
 namespace rai
 {
 /** Test-system related error codes */
-enum error_system
+enum class error_system
 {
 	generic = 1,
 	deadline_expired

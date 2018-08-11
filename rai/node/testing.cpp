@@ -13,6 +13,8 @@ std::string rai::error_system_messages::message (int ev) const
 		case rai::error_system::deadline_expired:
 			return "Deadline expired";
 	}
+
+	return "Invalid error code";
 }
 
 rai::system::system (uint16_t port_a, size_t count_a) :
