@@ -3725,8 +3725,6 @@ rai::thread_runner::thread_runner (boost::asio::io_service & service_a, unsigned
 				 * on
 				 */
 				throw;
-
-				assert (false && "Unhandled service exception");
 #endif
 			}
 		}));
