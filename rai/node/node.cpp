@@ -3912,7 +3912,7 @@ bool rai::active_transactions::vote (std::shared_ptr<rai::vote> vote_a)
 		std::lock_guard<std::mutex> lock (mutex);
 		for (auto vote_block : vote_a->blocks)
 		{
-			rai::election_vote_result result;
+			rai::election_vote_result result { false, false };
 			if (vote_block.which ())
 			{
 				auto block_hash (boost::get<rai::block_hash> (vote_block));
