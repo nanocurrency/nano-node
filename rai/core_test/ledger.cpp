@@ -1,8 +1,11 @@
 #include <cryptopp/filters.h>
 #include <cryptopp/randpool.h>
 #include <gtest/gtest.h>
+#include <rai/core_test/testutil.hpp>
 #include <rai/node/stats.hpp>
 #include <rai/node/testing.hpp>
+
+using namespace std::chrono_literals;
 
 // Init returns an error if it can't open files at the path
 TEST (ledger, store_error)
@@ -591,12 +594,10 @@ TEST (system, generate_send_existing)
 		ASSERT_FALSE (system.nodes[0]->store.account_get (transaction, rai::test_genesis_key.pub, info2));
 	}
 	ASSERT_NE (info1.head, info2.head);
-	auto iterations (0);
+	system.deadline_set (15s);
 	while (info2.block_count < info1.block_count + 2)
 	{
-		system.poll ();
-		++iterations;
-		ASSERT_LT (iterations, 300);
+		ASSERT_NO_ERROR (system.poll ());
 		rai::transaction transaction (system.wallet (0)->store.environment, nullptr, false);
 		ASSERT_FALSE (system.nodes[0]->store.account_get (transaction, rai::test_genesis_key.pub, info2));
 	}
@@ -652,12 +653,10 @@ TEST (system, generate_send_new)
 		ASSERT_EQ (system.wallet (0)->store.end (), iterator2);
 		ASSERT_FALSE (new_account.is_zero ());
 	}
-	auto iterations (0);
+	system.deadline_set (10s);
 	while (system.nodes[0]->balance (new_account) == 0)
 	{
-		system.poll ();
-		++iterations;
-		ASSERT_LT (iterations, 200);
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	system.stop ();
 	runner.join ();
