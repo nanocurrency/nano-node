@@ -53,6 +53,8 @@ public:
 class election_vote_result
 {
 public:
+	election_vote_result ();
+	election_vote_result (bool, bool);
 	bool replay;
 	bool processed;
 };

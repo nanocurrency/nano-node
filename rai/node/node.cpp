@@ -3514,6 +3514,18 @@ std::shared_ptr<rai::node> rai::node::shared ()
 	return shared_from_this ();
 }
 
+rai::election_vote_result::election_vote_result () :
+replay (false),
+processed (false)
+{
+}
+
+rai::election_vote_result::election_vote_result (bool replay_a, bool processed_a)
+{
+	replay = replay_a;
+	processed = processed_a;
+}
+
 rai::election::election (rai::node & node_a, std::shared_ptr<rai::block> block_a, std::function<void(std::shared_ptr<rai::block>)> const & confirmation_action_a) :
 confirmation_action (confirmation_action_a),
 root (block_a->root ()),
@@ -3681,7 +3693,7 @@ rai::election_vote_result rai::election::vote (rai::account rep, uint64_t sequen
 			}
 		}
 	}
-	return { replay, should_process };
+	return rai::election_vote_result (replay, should_process);
 }
 
 bool rai::election::publish (std::shared_ptr<rai::block> block_a)
@@ -3912,7 +3924,7 @@ bool rai::active_transactions::vote (std::shared_ptr<rai::vote> vote_a)
 		std::lock_guard<std::mutex> lock (mutex);
 		for (auto vote_block : vote_a->blocks)
 		{
-			rai::election_vote_result result { false, false };
+			rai::election_vote_result result;
 			if (vote_block.which ())
 			{
 				auto block_hash (boost::get<rai::block_hash> (vote_block));
