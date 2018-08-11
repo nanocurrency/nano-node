@@ -61,11 +61,12 @@ void rai::socket::start (std::chrono::steady_clock::time_point timeout_a)
 		{
 			if (this_l->ticket == ticket_l)
 			{
-				this_l->socket_m.close ();
 				if (this_l->node->config.logging.bulk_pull_logging ())
 				{
-					BOOST_LOG (this_l->node->log) << boost::str (boost::format ("Disconnecting from %1% due to timeout") % this_l->socket_m.remote_endpoint ());
+					BOOST_LOG (this_l->node->log) << boost::str (boost::format ("Disconnecting from %1% due to timeout") % this_l->remote_endpoint ());
 				}
+
+				this_l->close ();
 			}
 		}
 	});
@@ -78,12 +79,24 @@ void rai::socket::stop ()
 
 void rai::socket::close ()
 {
-	socket_m.close ();
+	if (socket_m.is_open ())
+	{
+		socket_m.close ();
+	}
 }
 
 rai::tcp_endpoint rai::socket::remote_endpoint ()
 {
-	return socket_m.remote_endpoint ();
+	rai::tcp_endpoint endpoint;
+
+	if (socket_m.is_open ())
+	{
+		boost::system::error_code remote_endpoint_error;
+
+		endpoint = socket_m.remote_endpoint (remote_endpoint_error);
+	}
+
+	return endpoint;
 }
 
 rai::bootstrap_client::bootstrap_client (std::shared_ptr<rai::node> node_a, std::shared_ptr<rai::bootstrap_attempt> attempt_a, rai::tcp_endpoint const & endpoint_a) :
