@@ -84,6 +84,9 @@ void rai::message_header::ipv4_only_set (bool value_a)
 	extensions.set (ipv4_only_position, value_a);
 }
 
+// MTU - IP header - UDP header
+const size_t rai::message_parser::max_safe_udp_message_size = 508;
+
 rai::message_parser::message_parser (rai::message_visitor & visitor_a, rai::work_pool & pool_a) :
 visitor (visitor_a),
 pool (pool_a),
@@ -95,7 +98,7 @@ void rai::message_parser::deserialize_buffer (uint8_t const * buffer_a, size_t s
 {
 	status = parse_status::success;
 	auto error (false);
-	if (size_a <= 508)
+	if (size_a <= max_safe_udp_message_size)
 	{
 		// Guaranteed to be deliverable
 		rai::bufferstream stream (buffer_a, size_a);
