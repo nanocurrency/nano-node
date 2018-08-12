@@ -975,7 +975,7 @@ TEST (votes, add_cooldown)
 	node1.active.start (send1);
 	auto votes1 (node1.active.roots.find (send1->root ())->election);
 	auto vote1 (std::make_shared<rai::vote> (rai::test_genesis_key.pub, rai::test_genesis_key.prv, 1, send1));
-	node1.vote_processor.vote (vote1, node1.network.endpoint ());
+	node1.vote_processor.vote_blocking (transaction, vote1, node1.network.endpoint ());
 	rai::keypair key2;
 	auto send2 (std::make_shared<rai::send_block> (genesis.hash (), key2.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
 	auto vote2 (std::make_shared<rai::vote> (rai::test_genesis_key.pub, rai::test_genesis_key.prv, 2, send2));
