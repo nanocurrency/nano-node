@@ -67,10 +67,17 @@ TEST (gap_cache, gap_bootstrap)
 	ASSERT_EQ (rai::genesis_amount, system.nodes[1]->balance (rai::genesis_account));
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	system.wallet (0)->insert_adhoc (key.prv);
-	system.wallet (0)->send_action (rai::test_genesis_key.pub, key.pub, 100);
+	auto latest_block (system.wallet (0)->send_action (rai::test_genesis_key.pub, key.pub, 100));
+	ASSERT_NE (nullptr, latest_block);
 	ASSERT_EQ (rai::genesis_amount - 200, system.nodes[0]->balance (rai::genesis_account));
 	ASSERT_EQ (rai::genesis_amount, system.nodes[1]->balance (rai::genesis_account));
 	system.deadline_set (10s);
+	{
+		// The separate publish and vote system doesn't work very well here because it's instantly confirmed.
+		// We help it get the block and vote out here.
+		rai::transaction transaction (system.nodes[0]->store.environment, nullptr, false);
+		system.nodes[0]->network.republish_block (transaction, latest_block);
+	}
 	while (system.nodes[1]->balance (rai::genesis_account) != rai::genesis_amount - 200)
 	{
 		ASSERT_NO_ERROR (system.poll ());

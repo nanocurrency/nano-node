@@ -1507,8 +1507,16 @@ std::shared_ptr<rai::vote> rai::block_store::vote_get (MDB_txn * transaction_a, 
 	assert (status == 0 || status == MDB_NOTFOUND);
 	if (status == 0)
 	{
-		result = std::make_shared<rai::vote> (value);
-		assert (result != nullptr);
+		result = std::make_shared<rai::vote> ();
+		// This bytes copy seems to fix a bug on Windows, and maybe sometimes Linux.
+		// However, I have no idea why it does, or even the exact details of the bug.
+		std::vector<uint8_t> bytes ((uint8_t *)value.data (), (uint8_t *)value.data () + value.size ());
+		rai::bufferstream stream (bytes.data (), bytes.size ());
+		if (result->deserialize (stream))
+		{
+			assert (false && "DB vote deserialization failed");
+			result = nullptr;
+		}
 	}
 	return result;
 }
@@ -1655,6 +1663,16 @@ std::shared_ptr<rai::vote> rai::block_store::vote_generate (MDB_txn * transactio
 	auto result (vote_current (transaction_a, account_a));
 	uint64_t sequence ((result ? result->sequence : 0) + 1);
 	result = std::make_shared<rai::vote> (account_a, key_a, sequence, block_a);
+	vote_cache[account_a] = result;
+	return result;
+}
+
+std::shared_ptr<rai::vote> rai::block_store::vote_generate (MDB_txn * transaction_a, rai::account const & account_a, rai::raw_key const & key_a, std::vector<rai::block_hash> blocks_a)
+{
+	std::lock_guard<std::mutex> lock (cache_mutex);
+	auto result (vote_current (transaction_a, account_a));
+	uint64_t sequence ((result ? result->sequence : 0) + 1);
+	result = std::make_shared<rai::vote> (account_a, key_a, sequence, blocks_a);
 	vote_cache[account_a] = result;
 	return result;
 }

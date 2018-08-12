@@ -107,53 +107,6 @@ rai::block_hash const & rai::not_a_block (globals.not_a_block);
 rai::block_hash const & rai::not_an_account (globals.not_an_account);
 rai::account const & rai::burn_account (globals.burn_account);
 
-rai::votes::votes (std::shared_ptr<rai::block> block_a) :
-id (block_a->root ())
-{
-	rep_votes.insert (std::make_pair (rai::not_an_account, block_a));
-}
-
-rai::tally_result rai::votes::vote (std::shared_ptr<rai::vote> vote_a)
-{
-	rai::tally_result result;
-	auto existing (rep_votes.find (vote_a->account));
-	if (existing == rep_votes.end ())
-	{
-		// Vote on this block hasn't been seen from rep before
-		result = rai::tally_result::vote;
-		rep_votes.insert (std::make_pair (vote_a->account, vote_a->block));
-	}
-	else
-	{
-		if (!(*existing->second == *vote_a->block))
-		{
-			// Rep changed their vote
-			result = rai::tally_result::changed;
-			existing->second = vote_a->block;
-		}
-		else
-		{
-			// Rep vote remained the same
-			result = rai::tally_result::confirm;
-		}
-	}
-	return result;
-}
-
-bool rai::votes::uncontested ()
-{
-	bool result (true);
-	if (!rep_votes.empty ())
-	{
-		auto block (rep_votes.begin ()->second);
-		for (auto i (rep_votes.begin ()), n (rep_votes.end ()); result && i != n; ++i)
-		{
-			result = *i->second == *block;
-		}
-	}
-	return result;
-}
-
 // Create a new random keypair
 rai::keypair::keypair ()
 {
@@ -436,7 +389,38 @@ rai::mdb_val rai::block_info::val () const
 
 bool rai::vote::operator== (rai::vote const & other_a) const
 {
-	return sequence == other_a.sequence && *block == *other_a.block && account == other_a.account && signature == other_a.signature;
+	auto blocks_equal (true);
+	if (blocks.size () != other_a.blocks.size ())
+	{
+		blocks_equal = false;
+	}
+	else
+	{
+		for (auto i (0); blocks_equal && i < blocks.size (); ++i)
+		{
+			auto block (blocks[i]);
+			auto other_block (other_a.blocks[i]);
+			if (block.which () != other_block.which ())
+			{
+				blocks_equal = false;
+			}
+			else if (block.which ())
+			{
+				if (boost::get<rai::block_hash> (block) != boost::get<rai::block_hash> (other_block))
+				{
+					blocks_equal = false;
+				}
+			}
+			else
+			{
+				if (!(*boost::get<std::shared_ptr<rai::block>> (block) == *boost::get<std::shared_ptr<rai::block>> (other_block)))
+				{
+					blocks_equal = false;
+				}
+			}
+		}
+	}
+	return sequence == other_a.sequence && blocks_equal && account == other_a.account && signature == other_a.signature;
 }
 
 bool rai::vote::operator!= (rai::vote const & other_a) const
@@ -451,7 +435,19 @@ std::string rai::vote::to_json () const
 	tree.put ("account", account.to_account ());
 	tree.put ("signature", signature.number ());
 	tree.put ("sequence", std::to_string (sequence));
-	tree.put ("block", block->to_json ());
+	boost::property_tree::ptree blocks_tree;
+	for (auto block : blocks)
+	{
+		if (block.which ())
+		{
+			blocks_tree.put ("", boost::get<std::shared_ptr<rai::block>> (block)->to_json ());
+		}
+		else
+		{
+			blocks_tree.put ("", boost::get<std::shared_ptr<rai::block>> (block)->hash ().to_string ());
+		}
+	}
+	tree.add_child ("blocks", blocks_tree);
 	boost::property_tree::write_json (stream, tree);
 	return stream.str ();
 }
@@ -662,7 +658,7 @@ void rai::representative_visitor::state_block (rai::state_block const & block_a)
 
 rai::vote::vote (rai::vote const & other_a) :
 sequence (other_a.sequence),
-block (other_a.block),
+blocks (other_a.blocks),
 account (other_a.account),
 signature (other_a.signature)
 {
@@ -670,23 +666,7 @@ signature (other_a.signature)
 
 rai::vote::vote (bool & error_a, rai::stream & stream_a)
 {
-	if (!error_a)
-	{
-		error_a = rai::read (stream_a, account.bytes);
-		if (!error_a)
-		{
-			error_a = rai::read (stream_a, signature.bytes);
-			if (!error_a)
-			{
-				error_a = rai::read (stream_a, sequence);
-				if (!error_a)
-				{
-					block = rai::deserialize_block (stream_a);
-					error_a = block == nullptr;
-				}
-			}
-		}
-	}
+	error_a = deserialize (stream_a);
 }
 
 rai::vote::vote (bool & error_a, rai::stream & stream_a, rai::block_type type_a)
@@ -702,8 +682,31 @@ rai::vote::vote (bool & error_a, rai::stream & stream_a, rai::block_type type_a)
 				error_a = rai::read (stream_a, sequence);
 				if (!error_a)
 				{
-					block = rai::deserialize_block (stream_a, type_a);
-					error_a = block == nullptr;
+					while (!error_a && stream_a.in_avail () > 0)
+					{
+						if (type_a == rai::block_type::not_a_block)
+						{
+							rai::block_hash block_hash;
+							error_a = rai::read (stream_a, block_hash);
+							if (!error_a)
+							{
+								blocks.push_back (block_hash);
+							}
+						}
+						else
+						{
+							std::shared_ptr<rai::block> block (rai::deserialize_block (stream_a, type_a));
+							error_a = block == nullptr;
+							if (!error_a)
+							{
+								blocks.push_back (block);
+							}
+						}
+					}
+					if (blocks.empty ())
+					{
+						error_a = true;
+					}
 				}
 			}
 		}
@@ -712,31 +715,56 @@ rai::vote::vote (bool & error_a, rai::stream & stream_a, rai::block_type type_a)
 
 rai::vote::vote (rai::account const & account_a, rai::raw_key const & prv_a, uint64_t sequence_a, std::shared_ptr<rai::block> block_a) :
 sequence (sequence_a),
-block (block_a),
+blocks (1, block_a),
 account (account_a),
 signature (rai::sign_message (prv_a, account_a, hash ()))
 {
 }
 
+rai::vote::vote (rai::account const & account_a, rai::raw_key const & prv_a, uint64_t sequence_a, std::vector<rai::block_hash> blocks_a) :
+sequence (sequence_a),
+account (account_a)
+{
+	assert (blocks_a.size () > 0);
+	for (auto hash : blocks_a)
+	{
+		blocks.push_back (hash);
+	}
+	signature = rai::sign_message (prv_a, account_a, hash ());
+}
+
 rai::vote::vote (MDB_val const & value_a)
 {
 	rai::bufferstream stream (reinterpret_cast<uint8_t const *> (value_a.mv_data), value_a.mv_size);
-	auto error (rai::read (stream, account.bytes));
-	assert (!error);
-	error = rai::read (stream, signature.bytes);
-	assert (!error);
-	error = rai::read (stream, sequence);
-	assert (!error);
-	block = rai::deserialize_block (stream);
-	assert (block != nullptr);
+	assert (!deserialize (stream));
 }
+
+std::string rai::vote::hashes_string () const
+{
+	std::string result;
+	for (auto hash : *this)
+	{
+		result += hash.to_string ();
+		result += ", ";
+	}
+	return result;
+}
+
+const std::string rai::vote::hash_prefix = "vote ";
 
 rai::uint256_union rai::vote::hash () const
 {
 	rai::uint256_union result;
 	blake2b_state hash;
 	blake2b_init (&hash, sizeof (result.bytes));
-	blake2b_update (&hash, block->hash ().bytes.data (), sizeof (result.bytes));
+	if (blocks.size () > 1 || (blocks.size () > 0 && blocks[0].which ()))
+	{
+		blake2b_update (&hash, hash_prefix.data (), hash_prefix.size ());
+	}
+	for (auto block_hash : *this)
+	{
+		blake2b_update (&hash, block_hash.bytes.data (), sizeof (block_hash.bytes));
+	}
 	union
 	{
 		uint64_t qword;
@@ -748,12 +776,30 @@ rai::uint256_union rai::vote::hash () const
 	return result;
 }
 
-void rai::vote::serialize (rai::stream & stream_a, rai::block_type)
+void rai::vote::serialize (rai::stream & stream_a, rai::block_type type)
 {
 	write (stream_a, account);
 	write (stream_a, signature);
 	write (stream_a, sequence);
-	block->serialize (stream_a);
+	for (auto block : blocks)
+	{
+		if (block.which ())
+		{
+			assert (type == rai::block_type::not_a_block);
+			write (stream_a, boost::get<rai::block_hash> (block));
+		}
+		else
+		{
+			if (type == rai::block_type::not_a_block)
+			{
+				write (stream_a, boost::get<std::shared_ptr<rai::block>> (block)->hash ());
+			}
+			else
+			{
+				boost::get<std::shared_ptr<rai::block>> (block)->serialize (stream_a);
+			}
+		}
+	}
 }
 
 void rai::vote::serialize (rai::stream & stream_a)
@@ -761,7 +807,18 @@ void rai::vote::serialize (rai::stream & stream_a)
 	write (stream_a, account);
 	write (stream_a, signature);
 	write (stream_a, sequence);
-	rai::serialize_block (stream_a, *block);
+	for (auto block : blocks)
+	{
+		if (block.which ())
+		{
+			write (stream_a, rai::block_type::not_a_block);
+			write (stream_a, boost::get<rai::block_hash> (block));
+		}
+		else
+		{
+			rai::serialize_block (stream_a, *boost::get<std::shared_ptr<rai::block>> (block));
+		}
+	}
 }
 
 bool rai::vote::deserialize (rai::stream & stream_a)
@@ -775,8 +832,39 @@ bool rai::vote::deserialize (rai::stream & stream_a)
 			result = read (stream_a, sequence);
 			if (!result)
 			{
-				block = rai::deserialize_block (stream_a, block_type ());
-				result = block == nullptr;
+				rai::block_type type;
+				while (!result)
+				{
+					if (rai::read (stream_a, type))
+					{
+						if (blocks.empty ())
+						{
+							result = true;
+						}
+						break;
+					}
+					if (!result)
+					{
+						if (type == rai::block_type::not_a_block)
+						{
+							rai::block_hash block_hash;
+							result = rai::read (stream_a, block_hash);
+							if (!result)
+							{
+								blocks.push_back (block_hash);
+							}
+						}
+						else
+						{
+							std::shared_ptr<rai::block> block (rai::deserialize_block (stream_a, type));
+							result = block == nullptr;
+							if (!result)
+							{
+								blocks.push_back (block);
+							}
+						}
+					}
+				}
 			}
 		}
 	}
@@ -787,6 +875,30 @@ bool rai::vote::validate ()
 {
 	auto result (rai::validate_message (account, hash (), signature));
 	return result;
+}
+
+rai::block_hash rai::iterate_vote_blocks_as_hash::operator() (boost::variant<std::shared_ptr<rai::block>, rai::block_hash> const & item) const
+{
+	rai::block_hash result;
+	if (item.which ())
+	{
+		result = boost::get<rai::block_hash> (item);
+	}
+	else
+	{
+		result = boost::get<std::shared_ptr<rai::block>> (item)->hash ();
+	}
+	return result;
+}
+
+boost::transform_iterator<rai::iterate_vote_blocks_as_hash, rai::vote_blocks_vec_iter> rai::vote::begin () const
+{
+	return boost::transform_iterator<rai::iterate_vote_blocks_as_hash, rai::vote_blocks_vec_iter> (blocks.begin (), rai::iterate_vote_blocks_as_hash ());
+}
+
+boost::transform_iterator<rai::iterate_vote_blocks_as_hash, rai::vote_blocks_vec_iter> rai::vote::end () const
+{
+	return boost::transform_iterator<rai::iterate_vote_blocks_as_hash, rai::vote_blocks_vec_iter> (blocks.end (), rai::iterate_vote_blocks_as_hash ());
 }
 
 rai::genesis::genesis ()

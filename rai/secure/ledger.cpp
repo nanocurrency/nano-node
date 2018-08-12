@@ -606,39 +606,6 @@ epoch_signer (epoch_signer_a)
 {
 }
 
-// Sum the weights for each vote and return the winning block with its vote tally
-std::pair<rai::uint128_t, std::shared_ptr<rai::block>> rai::ledger::winner (MDB_txn * transaction_a, rai::votes const & votes_a)
-{
-	auto tally_l (tally (transaction_a, votes_a));
-	auto existing (tally_l.begin ());
-	return std::make_pair (existing->first, existing->second);
-}
-
-std::map<rai::uint128_t, std::shared_ptr<rai::block>, std::greater<rai::uint128_t>> rai::ledger::tally (MDB_txn * transaction_a, rai::votes const & votes_a)
-{
-	std::unordered_map<std::shared_ptr<block>, rai::uint128_t, rai::shared_ptr_block_hash, rai::shared_ptr_block_hash> totals;
-	// Construct a map of blocks -> vote total.
-	for (auto & i : votes_a.rep_votes)
-	{
-		auto existing (totals.find (i.second));
-		if (existing == totals.end ())
-		{
-			totals.insert (std::make_pair (i.second, 0));
-			existing = totals.find (i.second);
-			assert (existing != totals.end ());
-		}
-		auto weight_l (weight (transaction_a, i.first));
-		existing->second += weight_l;
-	}
-	// Construction a map of vote total -> block in decreasing order.
-	std::map<rai::uint128_t, std::shared_ptr<rai::block>, std::greater<rai::uint128_t>> result;
-	for (auto & i : totals)
-	{
-		result[i.second] = i.first;
-	}
-	return result;
-}
-
 // Balance for account containing hash
 rai::uint128_t rai::ledger::balance (MDB_txn * transaction_a, rai::block_hash const & hash_a)
 {
