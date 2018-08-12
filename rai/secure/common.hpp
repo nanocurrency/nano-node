@@ -3,9 +3,9 @@
 #include <rai/lib/blocks.hpp>
 #include <rai/secure/utility.hpp>
 
+#include <boost/iterator/transform_iterator.hpp>
 #include <boost/property_tree/ptree.hpp>
 #include <boost/variant.hpp>
-#include <boost/iterator/transform_iterator.hpp>
 
 #include <unordered_map>
 
