@@ -1276,6 +1276,7 @@ void rai::vote_processor::process_loop ()
 
 void rai::vote_processor::vote (std::shared_ptr<rai::vote> vote_a, rai::endpoint endpoint_a)
 {
+	assert (endpoint_a.address ().is_v6 ());
 	std::lock_guard<std::mutex> lock (mutex);
 	if (!stopped)
 	{
@@ -1286,6 +1287,7 @@ void rai::vote_processor::vote (std::shared_ptr<rai::vote> vote_a, rai::endpoint
 
 rai::vote_code rai::vote_processor::vote_blocking (MDB_txn * transaction_a, std::shared_ptr<rai::vote> vote_a, rai::endpoint endpoint_a)
 {
+	assert (endpoint_a.address ().is_v6 ());
 	auto result (rai::vote_code::invalid);
 	if (!vote_a->validate ())
 	{
@@ -1807,6 +1809,7 @@ stats (config.stat_config)
 		rep_query (*this, endpoint_a);
 	});
 	observers.vote.add ([this](std::shared_ptr<rai::vote> vote_a, rai::endpoint const & endpoint_a) {
+		assert (endpoint_a.address ().is_v6 ());
 		this->gap_cache.vote (vote_a);
 		this->online_reps.vote (vote_a);
 		rai::uint128_t rep_weight;
@@ -3204,6 +3207,7 @@ bool rai::peer_container::not_a_peer (rai::endpoint const & endpoint_a, bool bla
 
 bool rai::peer_container::rep_response (rai::endpoint const & endpoint_a, rai::account const & rep_account_a, rai::amount const & weight_a)
 {
+	assert (endpoint_a.address ().is_v6 ());
 	auto updated (false);
 	std::lock_guard<std::mutex> lock (mutex);
 	auto existing (peers.find (endpoint_a));
