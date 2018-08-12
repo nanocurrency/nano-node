@@ -32,6 +32,7 @@ public:
 class store_iterator
 {
 	friend class rai::block_store;
+
 public:
 	store_iterator (std::nullptr_t);
 	store_iterator (std::unique_ptr<rai::store_iterator_impl>);
@@ -42,6 +43,7 @@ public:
 	std::pair<rai::mdb_val, rai::mdb_val> * operator-> ();
 	bool operator== (rai::store_iterator const &) const;
 	bool operator!= (rai::store_iterator const &) const;
+
 private:
 	std::unique_ptr<rai::store_iterator_impl> impl;
 };
@@ -90,6 +92,7 @@ public:
 class block_store
 {
 	friend class rai::block_predecessor_set;
+
 public:
 	block_store (bool &, boost::filesystem::path const &, int lmdb_max_dbs = 128);
 
@@ -307,6 +310,7 @@ public:
 	 * rai::uint256_union (arbitrary key) -> blob
 	 */
 	MDB_dbi meta;
+
 private:
 	MDB_dbi block_database (rai::block_type, rai::epoch);
 	std::unique_ptr<rai::block> block_random (MDB_txn *, MDB_dbi);
