@@ -94,13 +94,13 @@ mdb_val (sizeof (val_a), const_cast<rai::block_info *> (&val_a))
 }
 
 rai::mdb_val::mdb_val (rai::block const & val_a) :
-buffer (std::make_shared <std::vector <uint8_t>> ())
+buffer (std::make_shared<std::vector<uint8_t>> ())
 {
 	{
 		rai::vectorstream stream (*buffer);
 		rai::serialize_block (stream, val_a);
 	}
-	value = { buffer->size (), const_cast<uint8_t *>(buffer->data ()) };
+	value = { buffer->size (), const_cast<uint8_t *> (buffer->data ()) };
 }
 
 void * rai::mdb_val::data () const
@@ -175,7 +175,7 @@ rai::mdb_val::operator rai::vote () const
 	error = rai::read (stream, result.sequence);
 	assert (!error);
 	result.blocks.push_back (rai::deserialize_block (stream));
-	assert (boost::get<std::shared_ptr<rai::block>>(result.blocks[0]) != nullptr);
+	assert (boost::get<std::shared_ptr<rai::block>> (result.blocks[0]) != nullptr);
 	return result;
 }
 

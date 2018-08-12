@@ -336,7 +336,7 @@ TEST (block_store, one_account)
 	auto begin (store.latest_begin (transaction));
 	auto end (store.latest_end ());
 	ASSERT_NE (end, begin);
-	ASSERT_EQ (account, rai::account(begin->first));
+	ASSERT_EQ (account, rai::account (begin->first));
 	rai::account_info info (begin->second);
 	ASSERT_EQ (hash, info.head);
 	ASSERT_EQ (42, info.balance.number ());
@@ -390,7 +390,7 @@ TEST (block_store, two_account)
 	ASSERT_EQ (300, info1.block_count);
 	++begin;
 	ASSERT_NE (end, begin);
-	ASSERT_EQ (account2, rai::account(begin->first));
+	ASSERT_EQ (account2, rai::account (begin->first));
 	rai::account_info info2 (begin->second);
 	ASSERT_EQ (hash2, info2.head);
 	ASSERT_EQ (84, info2.balance.number ());

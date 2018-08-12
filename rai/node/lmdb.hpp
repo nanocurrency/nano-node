@@ -50,7 +50,7 @@ public:
 	operator MDB_val * () const;
 	operator MDB_val const & () const;
 	MDB_val value;
-	std::shared_ptr<std::vector <uint8_t>> buffer;
+	std::shared_ptr<std::vector<uint8_t>> buffer;
 	rai::epoch epoch;
 };
 
