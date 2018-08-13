@@ -1624,15 +1624,21 @@ TEST (node, block_processor_signatures)
 	rai::keypair key3;
 	auto send3 (std::make_shared<rai::state_block> (rai::test_genesis_key.pub, send2->hash (), rai::test_genesis_key.pub, rai::genesis_amount - 3 * rai::Gxrb_ratio, key3.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
 	node1.work_generate_blocking (*send3);
+	// Invalid signature bit
+	auto send4 (std::make_shared<rai::state_block> (rai::test_genesis_key.pub, send3->hash (), rai::test_genesis_key.pub, rai::genesis_amount - 4 * rai::Gxrb_ratio, key3.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
+	node1.work_generate_blocking (*send4);
+	send4->signature.bytes[32] ^= 0x1;
 	auto receive1 (std::make_shared<rai::state_block> (key1.pub, 0, rai::test_genesis_key.pub, rai::Gxrb_ratio, send1->hash (), key1.prv, key1.pub, 0));
 	node1.work_generate_blocking (*receive1);
 	auto receive2 (std::make_shared<rai::state_block> (key2.pub, 0, rai::test_genesis_key.pub, rai::Gxrb_ratio, send2->hash (), key2.prv, key2.pub, 0));
 	node1.work_generate_blocking (*receive2);
+	// Invalid private key
 	auto receive3 (std::make_shared<rai::state_block> (key3.pub, 0, rai::test_genesis_key.pub, rai::Gxrb_ratio, send3->hash (), key2.prv, key3.pub, 0));
 	node1.work_generate_blocking (*receive3);
 	node1.process_active (send1);
 	node1.process_active (send2);
 	node1.process_active (send3);
+	node1.process_active (send4);
 	node1.process_active (receive1);
 	node1.process_active (receive2);
 	node1.process_active (receive3);
@@ -1641,6 +1647,7 @@ TEST (node, block_processor_signatures)
 	ASSERT_TRUE (node1.store.block_exists (transaction, send1->hash ()));
 	ASSERT_TRUE (node1.store.block_exists (transaction, send2->hash ()));
 	ASSERT_TRUE (node1.store.block_exists (transaction, send3->hash ()));
+	ASSERT_FALSE (node1.store.block_exists (transaction, send4->hash ()));
 	ASSERT_TRUE (node1.store.block_exists (transaction, receive1->hash ()));
 	ASSERT_TRUE (node1.store.block_exists (transaction, receive2->hash ()));
 	ASSERT_FALSE (node1.store.block_exists (transaction, receive3->hash ()));
