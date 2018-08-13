@@ -49,16 +49,6 @@ private:
 };
 
 class block_predecessor_set;
-/**
- * A specialized std::pair which also indicates if it is from the secondary store
- */
-class merged_store_kv
-{
-public:
-	merged_store_kv (rai::epoch = rai::epoch::unspecified);
-	rai::mdb_val first;
-	rai::mdb_val second;
-};
 
 /**
  * Iterates the key/value pairs of two stores merged together
@@ -74,16 +64,16 @@ public:
 	~store_merge_iterator ();
 	rai::store_merge_iterator & operator++ ();
 	void next_dup ();
-	std::pair<MDB_cursor **, rai::merged_store_kv *> cursor_current ();
+	std::pair<MDB_cursor **, std::pair<rai::mdb_val, rai::mdb_val> *> cursor_current ();
 	rai::store_merge_iterator & operator= (rai::store_merge_iterator &&);
 	rai::store_merge_iterator & operator= (rai::store_merge_iterator const &) = delete;
-	rai::merged_store_kv * operator-> ();
+	std::pair<rai::mdb_val, rai::mdb_val> * operator-> ();
 	bool operator== (rai::store_merge_iterator const &) const;
 	bool operator!= (rai::store_merge_iterator const &) const;
 	MDB_cursor * cursor1;
 	MDB_cursor * cursor2;
-	rai::merged_store_kv current1;
-	rai::merged_store_kv current2;
+	std::pair<rai::mdb_val, rai::mdb_val> current1;
+	std::pair<rai::mdb_val, rai::mdb_val> current2;
 };
 
 /**
