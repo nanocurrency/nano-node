@@ -64,7 +64,7 @@ public:
 	~store_merge_iterator ();
 	rai::store_merge_iterator & operator++ ();
 	void next_dup ();
-	std::pair<MDB_cursor **, std::pair<rai::mdb_val, rai::mdb_val> *> cursor_current ();
+	std::pair<MDB_cursor *, std::pair<rai::mdb_val, rai::mdb_val> *> cursor_current ();
 	rai::store_merge_iterator & operator= (rai::store_merge_iterator &&);
 	rai::store_merge_iterator & operator= (rai::store_merge_iterator const &) = delete;
 	std::pair<rai::mdb_val, rai::mdb_val> * operator-> ();
