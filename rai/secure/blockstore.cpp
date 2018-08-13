@@ -176,9 +176,9 @@ void rai::store_iterator_impl::clear ()
 	current.second = rai::mdb_val (current.second.epoch);
 }
 
-std::pair<MDB_cursor **, rai::merged_store_kv *> rai::store_merge_iterator::cursor_current ()
+std::pair<MDB_cursor **, std::pair<rai::mdb_val, rai::mdb_val> *> rai::store_merge_iterator::cursor_current ()
 {
-	std::pair<MDB_cursor **, rai::merged_store_kv *> result;
+	std::pair<MDB_cursor **, std::pair<rai::mdb_val, rai::mdb_val> *> result;
 	if (current1.first.data () && current2.first.data ())
 	{
 		if (current1.first < current2.first)
@@ -217,22 +217,16 @@ std::pair<MDB_cursor **, rai::merged_store_kv *> rai::store_merge_iterator::curs
 	return result;
 }
 
-rai::merged_store_kv * rai::store_merge_iterator::operator-> ()
+std::pair<rai::mdb_val, rai::mdb_val> * rai::store_merge_iterator::operator-> ()
 {
 	return cursor_current ().second;
-}
-
-rai::merged_store_kv::merged_store_kv (rai::epoch epoch_a) :
-first (epoch_a),
-second (epoch_a)
-{
 }
 
 rai::store_merge_iterator::store_merge_iterator (MDB_txn * transaction_a, MDB_dbi db1_a, MDB_dbi db2_a) :
 cursor1 (nullptr),
 cursor2 (nullptr),
-current1 (rai::epoch::epoch_0),
-current2 (rai::epoch::epoch_1)
+current1 (std::make_pair (rai::mdb_val (rai::epoch::epoch_0), rai::mdb_val (rai::epoch::epoch_0))),
+current2 (std::make_pair (rai::mdb_val (rai::epoch::epoch_1), rai::mdb_val (rai::epoch::epoch_1)))
 {
 	auto status (mdb_cursor_open (transaction_a, db1_a, &cursor1));
 	assert (status == 0);
@@ -267,16 +261,16 @@ current2 (rai::epoch::epoch_1)
 rai::store_merge_iterator::store_merge_iterator (std::nullptr_t) :
 cursor1 (nullptr),
 cursor2 (nullptr),
-current1 (rai::epoch::epoch_0),
-current2 (rai::epoch::epoch_1)
+current1 (std::make_pair (rai::mdb_val (rai::epoch::epoch_0), rai::mdb_val (rai::epoch::epoch_0))),
+current2 (std::make_pair (rai::mdb_val (rai::epoch::epoch_1), rai::mdb_val (rai::epoch::epoch_1)))
 {
 }
 
 rai::store_merge_iterator::store_merge_iterator (MDB_txn * transaction_a, MDB_dbi db1_a, MDB_dbi db2_a, MDB_val const & val_a) :
 cursor1 (nullptr),
 cursor2 (nullptr),
-current1 (rai::epoch::epoch_0),
-current2 (rai::epoch::epoch_1)
+current1 (std::make_pair (rai::mdb_val (rai::epoch::epoch_0), rai::mdb_val (rai::epoch::epoch_0))),
+current2 (std::make_pair (rai::mdb_val (rai::epoch::epoch_1), rai::mdb_val (rai::epoch::epoch_1)))
 {
 	auto status (mdb_cursor_open (transaction_a, db1_a, &cursor1));
 	assert (status == 0);
