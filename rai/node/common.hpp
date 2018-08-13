@@ -217,6 +217,7 @@ public:
 	rai::message_visitor & visitor;
 	rai::work_pool & pool;
 	parse_status status;
+	static const size_t max_safe_udp_message_size;
 };
 class keepalive : public message
 {

@@ -49,31 +49,41 @@ public:
 	std::chrono::steady_clock::time_point time;
 	uint64_t sequence;
 	rai::block_hash hash;
-	bool operator< (rai::vote const &) const;
+};
+class election_vote_result
+{
+public:
+	election_vote_result ();
+	election_vote_result (bool, bool);
+	bool replay;
+	bool processed;
 };
 class election : public std::enable_shared_from_this<rai::election>
 {
 	std::function<void(std::shared_ptr<rai::block>)> confirmation_action;
 	void confirm_once (MDB_txn *);
-	void abort ();
 
 public:
 	election (rai::node &, std::shared_ptr<rai::block>, std::function<void(std::shared_ptr<rai::block>)> const &);
-	bool vote (std::shared_ptr<rai::vote>);
+	rai::election_vote_result vote (rai::account, uint64_t, rai::block_hash);
+	rai::tally_t tally (MDB_txn *);
 	// Check if we have vote quorum
 	bool have_quorum (rai::tally_t const &);
-	// Tell the network our view of the winner
-	void broadcast_winner (MDB_txn *);
 	// Change our winner to agree with the network
 	void compute_rep_votes (MDB_txn *);
 	// Confirm this block if quorum is met
 	void confirm_if_quorum (MDB_txn *);
 	void log_votes (rai::tally_t const &);
-	rai::votes votes;
+	bool publish (std::shared_ptr<rai::block> block_a);
+	void abort ();
 	rai::node & node;
 	std::unordered_map<rai::account, rai::vote_info> last_votes;
+	std::unordered_map<rai::block_hash, std::shared_ptr<rai::block>> blocks;
+	rai::block_hash root;
 	rai::election_status status;
 	std::atomic<bool> confirmed;
+	bool aborted;
+	std::unordered_map<rai::block_hash, rai::uint128_t> last_tally;
 };
 class conflict_info
 {
@@ -105,11 +115,13 @@ public:
 	std::deque<std::shared_ptr<rai::block>> list_blocks ();
 	void erase (rai::block const &);
 	void stop ();
+	bool publish (std::shared_ptr<rai::block> block_a);
 	boost::multi_index_container<
 	rai::conflict_info,
 	boost::multi_index::indexed_by<
 	boost::multi_index::hashed_unique<boost::multi_index::member<rai::conflict_info, rai::block_hash, &rai::conflict_info::root>>>>
 	roots;
+	std::unordered_map<rai::block_hash, std::shared_ptr<rai::election>> successors;
 	std::deque<rai::election_status> confirmed;
 	rai::node & node;
 	std::mutex mutex;
@@ -155,7 +167,7 @@ class gap_information
 public:
 	std::chrono::steady_clock::time_point arrival;
 	rai::block_hash hash;
-	std::unique_ptr<rai::votes> votes;
+	std::unordered_set<rai::account> voters;
 };
 class gap_cache
 {
@@ -391,7 +403,7 @@ public:
 	void receive_action (boost::system::error_code const &, size_t);
 	void rpc_action (boost::system::error_code const &, size_t);
 	void republish_vote (std::shared_ptr<rai::vote>);
-	void republish_block (MDB_txn *, std::shared_ptr<rai::block>);
+	void republish_block (MDB_txn *, std::shared_ptr<rai::block>, bool = true);
 	void republish (rai::block_hash const &, std::shared_ptr<std::vector<uint8_t>>, rai::endpoint);
 	void publish_broadcast (std::vector<rai::peer_information> &, std::unique_ptr<rai::block>);
 	void confirm_send (rai::confirm_ack const &, std::shared_ptr<std::vector<uint8_t>>, rai::endpoint const &);
@@ -497,6 +509,7 @@ public:
 	rai::stat_config stat_config;
 	rai::uint256_union epoch_block_link;
 	rai::account epoch_block_signer;
+	std::chrono::system_clock::time_point generate_hash_votes_at;
 	static std::chrono::seconds constexpr keepalive_period = std::chrono::seconds (60);
 	static std::chrono::seconds constexpr keepalive_cutoff = keepalive_period * 5;
 	static std::chrono::minutes constexpr wallet_backup_interval = std::chrono::minutes (5);

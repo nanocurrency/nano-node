@@ -148,7 +148,7 @@ TEST (block_store, genesis)
 	rai::genesis genesis;
 	auto hash (genesis.hash ());
 	rai::transaction transaction (store.environment, nullptr, true);
-	genesis.initialize (transaction, store);
+	store.initialize (transaction, genesis);
 	rai::account_info info;
 	ASSERT_FALSE (store.account_get (transaction, rai::genesis_account, info));
 	ASSERT_EQ (hash, info.head);
@@ -290,9 +290,11 @@ TEST (block_store, one_bootstrap)
 	auto begin (store.unchecked_begin (transaction));
 	auto end (store.unchecked_end ());
 	ASSERT_NE (end, begin);
-	auto hash1 (begin->first.uint256 ());
+	rai::uint256_union hash1 (begin->first);
 	ASSERT_EQ (block1->hash (), hash1);
-	auto block2 (rai::deserialize_block (begin->second));
+	auto blocks (store.unchecked_get (transaction, rai::block_hash (begin->first)));
+	ASSERT_EQ (1, blocks.size ());
+	auto block2 (blocks[0]);
 	ASSERT_EQ (*block1, *block2);
 	++begin;
 	ASSERT_EQ (end, begin);
@@ -334,7 +336,7 @@ TEST (block_store, one_account)
 	auto begin (store.latest_begin (transaction));
 	auto end (store.latest_end ());
 	ASSERT_NE (end, begin);
-	ASSERT_EQ (account, begin->first.uint256 ());
+	ASSERT_EQ (account, rai::account (begin->first));
 	rai::account_info info (begin->second);
 	ASSERT_EQ (hash, info.head);
 	ASSERT_EQ (42, info.balance.number ());
@@ -380,7 +382,7 @@ TEST (block_store, two_account)
 	auto begin (store.latest_begin (transaction));
 	auto end (store.latest_end ());
 	ASSERT_NE (end, begin);
-	ASSERT_EQ (account1, begin->first.uint256 ());
+	ASSERT_EQ (account1, rai::account (begin->first));
 	rai::account_info info1 (begin->second);
 	ASSERT_EQ (hash1, info1.head);
 	ASSERT_EQ (42, info1.balance.number ());
@@ -388,7 +390,7 @@ TEST (block_store, two_account)
 	ASSERT_EQ (300, info1.block_count);
 	++begin;
 	ASSERT_NE (end, begin);
-	ASSERT_EQ (account2, begin->first.uint256 ());
+	ASSERT_EQ (account2, rai::account (begin->first));
 	rai::account_info info2 (begin->second);
 	ASSERT_EQ (hash2, info2.head);
 	ASSERT_EQ (84, info2.balance.number ());
@@ -500,7 +502,7 @@ TEST (block_store, large_iteration)
 	rai::transaction transaction (store.environment, nullptr, false);
 	for (auto i (store.latest_begin (transaction, 0)), n (store.latest_end ()); i != n; ++i)
 	{
-		rai::account current (i->first.uint256 ());
+		rai::account current (i->first);
 		assert (current.number () > previous.number ());
 		accounts2.insert (current);
 		previous = current;
@@ -603,7 +605,7 @@ TEST (block_store, upgrade_v2_v3)
 		rai::transaction transaction (store.environment, nullptr, true);
 		rai::genesis genesis;
 		auto hash (genesis.hash ());
-		genesis.initialize (transaction, store);
+		store.initialize (transaction, genesis);
 		rai::stat stats;
 		rai::ledger ledger (store, stats);
 		rai::change_block change (hash, key1.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
@@ -681,9 +683,9 @@ TEST (block_store, upgrade_v4_v5)
 		ASSERT_FALSE (init);
 		rai::transaction transaction (store.environment, nullptr, true);
 		rai::genesis genesis;
-		genesis.initialize (transaction, store);
 		rai::stat stats;
 		rai::ledger ledger (store, stats);
+		store.initialize (transaction, genesis);
 		store.version_put (transaction, 4);
 		rai::account_info info;
 		store.account_get (transaction, rai::test_genesis_key.pub, info);
@@ -715,7 +717,7 @@ TEST (block_store, block_random)
 	ASSERT_TRUE (!init);
 	rai::genesis genesis;
 	rai::transaction transaction (store.environment, nullptr, true);
-	genesis.initialize (transaction, store);
+	store.initialize (transaction, genesis);
 	auto block (store.block_random (transaction));
 	ASSERT_NE (nullptr, block);
 	ASSERT_EQ (*block, *genesis.open);
@@ -730,7 +732,7 @@ TEST (block_store, upgrade_v5_v6)
 		ASSERT_FALSE (init);
 		rai::transaction transaction (store.environment, nullptr, true);
 		rai::genesis genesis;
-		genesis.initialize (transaction, store);
+		store.initialize (transaction, genesis);
 		store.version_put (transaction, 5);
 		rai::account_info info;
 		store.account_get (transaction, rai::test_genesis_key.pub, info);
@@ -756,7 +758,7 @@ TEST (block_store, upgrade_v6_v7)
 		ASSERT_FALSE (init);
 		rai::transaction transaction (store.environment, nullptr, true);
 		rai::genesis genesis;
-		genesis.initialize (transaction, store);
+		store.initialize (transaction, genesis);
 		store.version_put (transaction, 6);
 		auto send1 (std::make_shared<rai::send_block> (0, 0, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
 		store.unchecked_put (transaction, send1->hash (), send1);
@@ -896,9 +898,9 @@ TEST (block_store, upgrade_v9_v10)
 		ASSERT_FALSE (init);
 		rai::transaction transaction (store.environment, nullptr, true);
 		rai::genesis genesis;
-		genesis.initialize (transaction, store);
 		rai::stat stats;
 		rai::ledger ledger (store, stats);
+		store.initialize (transaction, genesis);
 		store.version_put (transaction, 9);
 		rai::account_info info;
 		store.account_get (transaction, rai::test_genesis_key.pub, info);
@@ -938,7 +940,7 @@ TEST (block_store, state_block)
 	ASSERT_FALSE (error);
 	rai::genesis genesis;
 	rai::transaction transaction (store.environment, nullptr, true);
-	genesis.initialize (transaction, store);
+	store.initialize (transaction, genesis);
 	rai::keypair key1;
 	rai::state_block block1 (1, genesis.hash (), 3, 4, 6, key1.prv, key1.pub, 7);
 	ASSERT_EQ (rai::block_type::state, block1.type ());

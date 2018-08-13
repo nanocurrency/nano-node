@@ -61,11 +61,12 @@ void rai::socket::start (std::chrono::steady_clock::time_point timeout_a)
 		{
 			if (this_l->ticket == ticket_l)
 			{
-				this_l->socket_m.close ();
 				if (this_l->node->config.logging.bulk_pull_logging ())
 				{
-					BOOST_LOG (this_l->node->log) << boost::str (boost::format ("Disconnecting from %1% due to timeout") % this_l->socket_m.remote_endpoint ());
+					BOOST_LOG (this_l->node->log) << boost::str (boost::format ("Disconnecting from %1% due to timeout") % this_l->remote_endpoint ());
 				}
+
+				this_l->close ();
 			}
 		}
 	});
@@ -78,12 +79,24 @@ void rai::socket::stop ()
 
 void rai::socket::close ()
 {
-	socket_m.close ();
+	if (socket_m.is_open ())
+	{
+		socket_m.close ();
+	}
 }
 
 rai::tcp_endpoint rai::socket::remote_endpoint ()
 {
-	return socket_m.remote_endpoint ();
+	rai::tcp_endpoint endpoint;
+
+	if (socket_m.is_open ())
+	{
+		boost::system::error_code remote_endpoint_error;
+
+		endpoint = socket_m.remote_endpoint (remote_endpoint_error);
+	}
+
+	return endpoint;
 }
 
 rai::bootstrap_client::bootstrap_client (std::shared_ptr<rai::node> node_a, std::shared_ptr<rai::bootstrap_attempt> attempt_a, rai::tcp_endpoint const & endpoint_a) :
@@ -357,7 +370,7 @@ void rai::frontier_req_client::next (MDB_txn * transaction_a)
 	auto iterator (connection->node->store.latest_begin (transaction_a, rai::uint256_union (current.number () + 1)));
 	if (iterator != connection->node->store.latest_end ())
 	{
-		current = rai::account (iterator->first.uint256 ());
+		current = rai::account (iterator->first);
 		info = rai::account_info (iterator->second);
 	}
 	else
@@ -2195,7 +2208,7 @@ std::unique_ptr<rai::block> rai::bulk_pull_blocks_server::get_next ()
 	{
 		if (stream->first.size () != 0)
 		{
-			auto current = stream->first.uint256 ();
+			auto current = rai::uint256_union (stream->first);
 			if (current < request->max_hash)
 			{
 				rai::transaction transaction (connection->node->store.environment, nullptr, false);
@@ -2477,7 +2490,7 @@ void rai::frontier_req_server::next ()
 	auto iterator (connection->node->store.latest_begin (transaction, current.number () + 1));
 	if (iterator != connection->node->store.latest_end ())
 	{
-		current = rai::uint256_union (iterator->first.uint256 ());
+		current = rai::uint256_union (iterator->first);
 		info = rai::account_info (iterator->second);
 	}
 	else

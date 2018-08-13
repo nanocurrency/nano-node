@@ -12,8 +12,6 @@
 
 #include <cryptopp/osrng.h>
 
-#include <lmdb/libraries/liblmdb/lmdb.h>
-
 #include <rai/lib/config.hpp>
 #include <rai/lib/interface.h>
 #include <rai/lib/numbers.hpp>
@@ -100,61 +98,4 @@ bool fetch_object (T & object, boost::filesystem::path const & path_a, std::fstr
 	}
 	return error;
 }
-
-/**
- * RAII wrapper for MDB_env
- */
-class mdb_env
-{
-public:
-	mdb_env (bool &, boost::filesystem::path const &, int max_dbs = 128);
-	~mdb_env ();
-	operator MDB_env * () const;
-	MDB_env * environment;
-};
-
-/**
- * Tag for which epoch an entry belongs to
- */
-enum class epoch : uint8_t
-{
-	invalid = 0,
-	unspecified = 1,
-	epoch_0 = 2,
-	epoch_1 = 3
-};
-
-/**
- * Encapsulates MDB_val and provides uint256_union conversion of the data.
- */
-class mdb_val
-{
-public:
-	mdb_val (rai::epoch = rai::epoch::unspecified);
-	mdb_val (MDB_val const &, rai::epoch = rai::epoch::unspecified);
-	mdb_val (size_t, void *);
-	mdb_val (rai::uint128_union const &);
-	mdb_val (rai::uint256_union const &);
-	void * data () const;
-	size_t size () const;
-	rai::uint256_union uint256 () const;
-	operator MDB_val * () const;
-	operator MDB_val const & () const;
-	MDB_val value;
-	rai::epoch epoch;
-};
-
-/**
- * RAII wrapper of MDB_txn where the constructor starts the transaction
- * and the destructor commits it.
- */
-class transaction
-{
-public:
-	transaction (rai::mdb_env &, MDB_txn *, bool);
-	~transaction ();
-	operator MDB_txn * () const;
-	MDB_txn * handle;
-	rai::mdb_env & environment;
-};
 }

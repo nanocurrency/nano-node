@@ -1,6 +1,9 @@
 #include <boost/thread.hpp>
 #include <gtest/gtest.h>
+#include <rai/core_test/testutil.hpp>
 #include <rai/node/testing.hpp>
+
+using namespace std::chrono_literals;
 
 TEST (network, tcp_connection)
 {
@@ -71,21 +74,17 @@ TEST (network, send_node_id_handshake)
 	system.nodes[0]->network.send_keepalive (node1->network.endpoint ());
 	ASSERT_EQ (0, system.nodes[0]->peers.list ().size ());
 	ASSERT_EQ (0, node1->peers.list ().size ());
-	auto iterations (0);
+	system.deadline_set (10s);
 	while (node1->stats.count (rai::stat::type::message, rai::stat::detail::node_id_handshake, rai::stat::dir::in) == initial_node1)
 	{
-		system.poll ();
-		++iterations;
-		ASSERT_LT (iterations, 200);
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (0, system.nodes[0]->peers.list ().size ());
 	ASSERT_EQ (1, node1->peers.list ().size ());
-	iterations = 0;
+	system.deadline_set (10s);
 	while (system.nodes[0]->stats.count (rai::stat::type::message, rai::stat::detail::node_id_handshake, rai::stat::dir::in) < initial + 2)
 	{
-		system.poll ();
-		++iterations;
-		ASSERT_LT (iterations, 200);
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	auto peers1 (system.nodes[0]->peers.list ());
 	auto peers2 (node1->peers.list ());
@@ -106,12 +105,10 @@ TEST (network, keepalive_ipv4)
 	node1->start ();
 	node1->send_keepalive (rai::endpoint (boost::asio::ip::address_v4::loopback (), 24000));
 	auto initial (system.nodes[0]->stats.count (rai::stat::type::message, rai::stat::detail::keepalive, rai::stat::dir::in));
-	auto iterations (0);
+	system.deadline_set (10s);
 	while (system.nodes[0]->stats.count (rai::stat::type::message, rai::stat::detail::keepalive, rai::stat::dir::in) == initial)
 	{
-		system.poll ();
-		++iterations;
-		ASSERT_LT (iterations, 200);
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	node1->stop ();
 }
@@ -129,24 +126,20 @@ TEST (network, multi_keepalive)
 	node1->network.send_keepalive (system.nodes[0]->network.endpoint ());
 	ASSERT_EQ (0, node1->peers.size ());
 	ASSERT_EQ (0, system.nodes[0]->peers.size ());
-	auto iterations1 (0);
+	system.deadline_set (10s);
 	while (system.nodes[0]->peers.size () != 1)
 	{
-		system.poll ();
-		++iterations1;
-		ASSERT_LT (iterations1, 200);
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	rai::node_init init2;
 	auto node2 (std::make_shared<rai::node> (init2, system.service, 24002, rai::unique_path (), system.alarm, system.logging, system.work));
 	ASSERT_FALSE (init2.error ());
 	node2->start ();
 	node2->network.send_keepalive (system.nodes[0]->network.endpoint ());
-	auto iterations2 (0);
+	system.deadline_set (10s);
 	while (node1->peers.size () != 2 || system.nodes[0]->peers.size () != 2 || node2->peers.size () != 2)
 	{
-		system.poll ();
-		++iterations2;
-		ASSERT_LT (iterations2, 200);
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	node1->stop ();
 	node2->stop ();
@@ -163,12 +156,10 @@ TEST (network, send_discarded_publish)
 		ASSERT_EQ (genesis.hash (), system.nodes[0]->ledger.latest (transaction, rai::test_genesis_key.pub));
 		ASSERT_EQ (genesis.hash (), system.nodes[1]->latest (rai::test_genesis_key.pub));
 	}
-	auto iterations (0);
+	system.deadline_set (10s);
 	while (system.nodes[1]->stats.count (rai::stat::type::message, rai::stat::detail::publish, rai::stat::dir::in) == 0)
 	{
-		system.poll ();
-		++iterations;
-		ASSERT_LT (iterations, 200);
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	rai::transaction transaction (system.nodes[0]->store.environment, nullptr, false);
 	ASSERT_EQ (genesis.hash (), system.nodes[0]->ledger.latest (transaction, rai::test_genesis_key.pub));
@@ -186,12 +177,10 @@ TEST (network, send_invalid_publish)
 		ASSERT_EQ (genesis.hash (), system.nodes[0]->ledger.latest (transaction, rai::test_genesis_key.pub));
 		ASSERT_EQ (genesis.hash (), system.nodes[1]->latest (rai::test_genesis_key.pub));
 	}
-	auto iterations (0);
+	system.deadline_set (10s);
 	while (system.nodes[1]->stats.count (rai::stat::type::message, rai::stat::detail::publish, rai::stat::dir::in) == 0)
 	{
-		system.poll ();
-		++iterations;
-		ASSERT_LT (iterations, 200);
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	rai::transaction transaction (system.nodes[0]->store.environment, nullptr, false);
 	ASSERT_EQ (genesis.hash (), system.nodes[0]->ledger.latest (transaction, rai::test_genesis_key.pub));
@@ -208,13 +197,11 @@ TEST (network, send_valid_confirm_ack)
 	rai::send_block block2 (latest1, key2.pub, 50, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (latest1));
 	rai::block_hash latest2 (system.nodes[1]->latest (rai::test_genesis_key.pub));
 	system.nodes[0]->process_active (std::unique_ptr<rai::block> (new rai::send_block (block2)));
-	auto iterations (0);
+	system.deadline_set (10s);
 	// Keep polling until latest block changes
 	while (system.nodes[1]->latest (rai::test_genesis_key.pub) == latest2)
 	{
-		system.poll ();
-		++iterations;
-		ASSERT_LT (iterations, 200);
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	// Make sure the balance has decreased after processing the block.
 	ASSERT_EQ (50, system.nodes[1]->balance (rai::test_genesis_key.pub));
@@ -233,20 +220,16 @@ TEST (network, send_valid_publish)
 	auto hash2 (block2.hash ());
 	rai::block_hash latest2 (system.nodes[1]->latest (rai::test_genesis_key.pub));
 	system.nodes[1]->process_active (std::unique_ptr<rai::block> (new rai::send_block (block2)));
-	auto iterations (0);
+	system.deadline_set (10s);
 	while (system.nodes[0]->stats.count (rai::stat::type::message, rai::stat::detail::publish, rai::stat::dir::in) == 0)
 	{
-		system.poll ();
-		++iterations;
-		ASSERT_LT (iterations, 200);
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_NE (hash2, latest2);
-	auto iterations2 (0);
+	system.deadline_set (10s);
 	while (system.nodes[1]->latest (rai::test_genesis_key.pub) == latest2)
 	{
-		system.poll ();
-		++iterations2;
-		ASSERT_LT (iterations2, 200);
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (50, system.nodes[1]->balance (rai::test_genesis_key.pub));
 }
@@ -264,12 +247,10 @@ TEST (network, send_insufficient_work)
 	auto node1 (system.nodes[1]->shared ());
 	system.nodes[0]->network.send_buffer (bytes->data (), bytes->size (), system.nodes[1]->network.endpoint (), [bytes, node1](boost::system::error_code const & ec, size_t size) {});
 	ASSERT_EQ (0, system.nodes[0]->stats.count (rai::stat::type::error, rai::stat::detail::insufficient_work));
-	auto iterations (0);
+	system.deadline_set (10s);
 	while (system.nodes[1]->stats.count (rai::stat::type::error, rai::stat::detail::insufficient_work) == 0)
 	{
-		system.poll ();
-		++iterations;
-		ASSERT_LT (iterations, 200);
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (1, system.nodes[1]->stats.count (rai::stat::type::error, rai::stat::detail::insufficient_work));
 }
@@ -326,12 +307,10 @@ TEST (receivable_processor, send_with_receive)
 	ASSERT_EQ (0, system.nodes[0]->balance (key2.pub));
 	ASSERT_EQ (amount - system.nodes[0]->config.receive_minimum.number (), system.nodes[1]->balance (rai::test_genesis_key.pub));
 	ASSERT_EQ (0, system.nodes[1]->balance (key2.pub));
-	auto iterations (0);
+	system.deadline_set (10s);
 	while (system.nodes[0]->balance (key2.pub) != system.nodes[0]->config.receive_minimum.number ())
 	{
-		system.poll ();
-		++iterations;
-		ASSERT_LT (iterations, 200);
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (amount - system.nodes[0]->config.receive_minimum.number (), system.nodes[0]->balance (rai::test_genesis_key.pub));
 	ASSERT_EQ (system.nodes[0]->config.receive_minimum.number (), system.nodes[0]->balance (key2.pub));
@@ -350,12 +329,10 @@ TEST (network, receive_weight_change)
 		system.wallet (1)->store.representative_set (transaction, key2.pub);
 	}
 	ASSERT_NE (nullptr, system.wallet (0)->send_action (rai::test_genesis_key.pub, key2.pub, system.nodes[0]->config.receive_minimum.number ()));
-	auto iterations (0);
+	system.deadline_set (10s);
 	while (std::any_of (system.nodes.begin (), system.nodes.end (), [&](std::shared_ptr<rai::node> const & node_a) { return node_a->weight (key2.pub) != system.nodes[0]->config.receive_minimum.number (); }))
 	{
-		system.poll ();
-		++iterations;
-		ASSERT_LT (iterations, 200);
+		ASSERT_NO_ERROR (system.poll ());
 	}
 }
 
@@ -560,13 +537,11 @@ TEST (bootstrap_processor, process_one)
 	rai::block_hash hash2 (node1->latest (rai::test_genesis_key.pub));
 	ASSERT_NE (hash1, hash2);
 	node1->bootstrap_initiator.bootstrap (system.nodes[0]->network.endpoint ());
-	auto iterations (0);
 	ASSERT_NE (node1->latest (rai::test_genesis_key.pub), system.nodes[0]->latest (rai::test_genesis_key.pub));
+	system.deadline_set (10s);
 	while (node1->latest (rai::test_genesis_key.pub) != system.nodes[0]->latest (rai::test_genesis_key.pub))
 	{
-		system.poll ();
-		++iterations;
-		ASSERT_LT (iterations, 200);
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (0, node1->active.roots.size ());
 	node1->stop ();
@@ -588,13 +563,11 @@ TEST (bootstrap_processor, process_two)
 	auto node1 (std::make_shared<rai::node> (init1, system.service, 24001, rai::unique_path (), system.alarm, system.logging, system.work));
 	ASSERT_FALSE (init1.error ());
 	node1->bootstrap_initiator.bootstrap (system.nodes[0]->network.endpoint ());
-	auto iterations (0);
 	ASSERT_NE (node1->latest (rai::test_genesis_key.pub), system.nodes[0]->latest (rai::test_genesis_key.pub));
+	system.deadline_set (10s);
 	while (node1->latest (rai::test_genesis_key.pub) != system.nodes[0]->latest (rai::test_genesis_key.pub))
 	{
-		system.poll ();
-		++iterations;
-		ASSERT_LT (iterations, 200);
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	node1->stop ();
 }
@@ -617,13 +590,11 @@ TEST (bootstrap_processor, process_state)
 	ASSERT_EQ (node0->latest (rai::test_genesis_key.pub), block2->hash ());
 	ASSERT_NE (node1->latest (rai::test_genesis_key.pub), block2->hash ());
 	node1->bootstrap_initiator.bootstrap (node0->network.endpoint ());
-	auto iterations (0);
 	ASSERT_NE (node1->latest (rai::test_genesis_key.pub), node0->latest (rai::test_genesis_key.pub));
+	system.deadline_set (10s);
 	while (node1->latest (rai::test_genesis_key.pub) != node0->latest (rai::test_genesis_key.pub))
 	{
-		system.poll ();
-		++iterations;
-		ASSERT_LT (iterations, 200);
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (0, node1->active.roots.size ());
 	node1->stop ();
@@ -636,12 +607,10 @@ TEST (bootstrap_processor, process_new)
 	rai::keypair key2;
 	system.wallet (1)->insert_adhoc (key2.prv);
 	ASSERT_NE (nullptr, system.wallet (0)->send_action (rai::test_genesis_key.pub, key2.pub, system.nodes[0]->config.receive_minimum.number ()));
-	auto iterations1 (0);
+	system.deadline_set (10s);
 	while (system.nodes[0]->balance (key2.pub).is_zero ())
 	{
-		system.poll ();
-		++iterations1;
-		ASSERT_LT (iterations1, 200);
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	rai::uint128_t balance1 (system.nodes[0]->balance (rai::test_genesis_key.pub));
 	rai::uint128_t balance2 (system.nodes[0]->balance (key2.pub));
@@ -649,12 +618,10 @@ TEST (bootstrap_processor, process_new)
 	auto node1 (std::make_shared<rai::node> (init1, system.service, 24002, rai::unique_path (), system.alarm, system.logging, system.work));
 	ASSERT_FALSE (init1.error ());
 	node1->bootstrap_initiator.bootstrap (system.nodes[0]->network.endpoint ());
-	auto iterations2 (0);
+	system.deadline_set (10s);
 	while (node1->balance (key2.pub) != balance2)
 	{
-		system.poll ();
-		++iterations2;
-		ASSERT_LT (iterations2, 200);
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (balance1, node1->balance (rai::test_genesis_key.pub));
 	node1->stop ();
@@ -676,12 +643,10 @@ TEST (bootstrap_processor, pull_diamond)
 	auto node1 (std::make_shared<rai::node> (init1, system.service, 24002, rai::unique_path (), system.alarm, system.logging, system.work));
 	ASSERT_FALSE (init1.error ());
 	node1->bootstrap_initiator.bootstrap (system.nodes[0]->network.endpoint ());
-	auto iterations (0);
+	system.deadline_set (10s);
 	while (node1->balance (rai::test_genesis_key.pub) != 100)
 	{
-		system.poll ();
-		++iterations;
-		ASSERT_LT (iterations, 200);
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (100, node1->balance (rai::test_genesis_key.pub));
 	node1->stop ();
@@ -706,12 +671,10 @@ TEST (bootstrap_processor, push_diamond)
 	std::unique_ptr<rai::receive_block> receive (new rai::receive_block (send1->hash (), send2->hash (), rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (send1->hash ())));
 	ASSERT_EQ (rai::process_result::progress, node1->process (*receive).code);
 	node1->bootstrap_initiator.bootstrap (system.nodes[0]->network.endpoint ());
-	auto iterations (0);
+	system.deadline_set (10s);
 	while (system.nodes[0]->balance (rai::test_genesis_key.pub) != 100)
 	{
-		system.poll ();
-		++iterations;
-		ASSERT_LT (iterations, 200);
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (100, system.nodes[0]->balance (rai::test_genesis_key.pub));
 	node1->stop ();
@@ -730,12 +693,10 @@ TEST (bootstrap_processor, push_one)
 	ASSERT_NE (nullptr, wallet->send_action (rai::test_genesis_key.pub, key1.pub, 100));
 	ASSERT_NE (balance1, node1->balance (rai::test_genesis_key.pub));
 	node1->bootstrap_initiator.bootstrap (system.nodes[0]->network.endpoint ());
-	auto iterations (0);
+	system.deadline_set (10s);
 	while (system.nodes[0]->balance (rai::test_genesis_key.pub) == balance1)
 	{
-		system.poll ();
-		++iterations;
-		ASSERT_LT (iterations, 200);
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	node1->stop ();
 }
@@ -829,12 +790,10 @@ TEST (bulk, genesis)
 	rai::block_hash latest3 (system.nodes[0]->latest (rai::test_genesis_key.pub));
 	ASSERT_NE (latest1, latest3);
 	node1->bootstrap_initiator.bootstrap (system.nodes[0]->network.endpoint ());
-	auto iterations (0);
+	system.deadline_set (10s);
 	while (node1->latest (rai::test_genesis_key.pub) != system.nodes[0]->latest (rai::test_genesis_key.pub))
 	{
-		system.poll ();
-		++iterations;
-		ASSERT_LT (iterations, 200);
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (node1->latest (rai::test_genesis_key.pub), system.nodes[0]->latest (rai::test_genesis_key.pub));
 	node1->stop ();
@@ -849,12 +808,10 @@ TEST (bulk, offline_send)
 	ASSERT_FALSE (init1.error ());
 	node1->network.send_keepalive (system.nodes[0]->network.endpoint ());
 	node1->start ();
-	auto iterations (0);
+	system.deadline_set (10s);
 	do
 	{
-		system.poll ();
-		++iterations;
-		ASSERT_LT (iterations, 200);
+		ASSERT_NO_ERROR (system.poll ());
 	} while (system.nodes[0]->peers.empty () || node1->peers.empty ());
 	rai::keypair key2;
 	auto wallet (node1->wallets.create (rai::uint256_union ()));
@@ -862,12 +819,10 @@ TEST (bulk, offline_send)
 	ASSERT_NE (nullptr, system.wallet (0)->send_action (rai::test_genesis_key.pub, key2.pub, system.nodes[0]->config.receive_minimum.number ()));
 	ASSERT_NE (std::numeric_limits<rai::uint256_t>::max (), system.nodes[0]->balance (rai::test_genesis_key.pub));
 	node1->bootstrap_initiator.bootstrap (system.nodes[0]->network.endpoint ());
-	auto iterations2 (0);
+	system.deadline_set (20s);
 	while (node1->balance (key2.pub) != system.nodes[0]->config.receive_minimum.number ())
 	{
-		system.poll ();
-		++iterations2;
-		ASSERT_LT (iterations2, 200);
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	node1->stop ();
 }

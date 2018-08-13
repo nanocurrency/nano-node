@@ -3,7 +3,9 @@
 #include <rai/lib/blocks.hpp>
 #include <rai/secure/utility.hpp>
 
+#include <boost/iterator/transform_iterator.hpp>
 #include <boost/property_tree/ptree.hpp>
+#include <boost/variant.hpp>
 
 #include <unordered_map>
 
@@ -23,73 +25,9 @@ struct hash<rai::uint256_union>
 }
 namespace rai
 {
-const uint8_t protocol_version = 0x0c;
+const uint8_t protocol_version = 0x0d;
 const uint8_t protocol_version_min = 0x07;
 const uint8_t node_id_version = 0x0c;
-
-class block_store;
-/**
- * Determine the balance as of this block
- */
-class balance_visitor : public rai::block_visitor
-{
-public:
-	balance_visitor (MDB_txn *, rai::block_store &);
-	virtual ~balance_visitor () = default;
-	void compute (rai::block_hash const &);
-	void send_block (rai::send_block const &) override;
-	void receive_block (rai::receive_block const &) override;
-	void open_block (rai::open_block const &) override;
-	void change_block (rai::change_block const &) override;
-	void state_block (rai::state_block const &) override;
-	MDB_txn * transaction;
-	rai::block_store & store;
-	rai::block_hash current_balance;
-	rai::block_hash current_amount;
-	rai::uint128_t balance;
-};
-
-/**
- * Determine the amount delta resultant from this block
- */
-class amount_visitor : public rai::block_visitor
-{
-public:
-	amount_visitor (MDB_txn *, rai::block_store &);
-	virtual ~amount_visitor () = default;
-	void compute (rai::block_hash const &);
-	void send_block (rai::send_block const &) override;
-	void receive_block (rai::receive_block const &) override;
-	void open_block (rai::open_block const &) override;
-	void change_block (rai::change_block const &) override;
-	void state_block (rai::state_block const &) override;
-	void from_send (rai::block_hash const &);
-	MDB_txn * transaction;
-	rai::block_store & store;
-	rai::block_hash current_amount;
-	rai::block_hash current_balance;
-	rai::uint128_t amount;
-};
-
-/**
- * Determine the representative for this block
- */
-class representative_visitor : public rai::block_visitor
-{
-public:
-	representative_visitor (MDB_txn * transaction_a, rai::block_store & store_a);
-	virtual ~representative_visitor () = default;
-	void compute (rai::block_hash const & hash_a);
-	void send_block (rai::send_block const & block_a) override;
-	void receive_block (rai::receive_block const & block_a) override;
-	void open_block (rai::open_block const & block_a) override;
-	void change_block (rai::change_block const & block_a) override;
-	void state_block (rai::state_block const & block_a) override;
-	MDB_txn * transaction;
-	rai::block_store & store;
-	rai::block_hash current;
-	rai::block_hash result;
-};
 
 /**
  * A key pair. The private key is generated from the random pool, or passed in
@@ -105,7 +43,16 @@ public:
 	rai::raw_key prv;
 };
 
-std::unique_ptr<rai::block> deserialize_block (MDB_val const &);
+/**
+ * Tag for which epoch an entry belongs to
+ */
+enum class epoch : uint8_t
+{
+	invalid = 0,
+	unspecified = 1,
+	epoch_0 = 2,
+	epoch_1 = 3
+};
 
 /**
  * Latest information about an account
@@ -114,14 +61,12 @@ class account_info
 {
 public:
 	account_info ();
-	account_info (rai::mdb_val const &);
 	account_info (rai::account_info const &) = default;
 	account_info (rai::block_hash const &, rai::block_hash const &, rai::block_hash const &, rai::amount const &, uint64_t, uint64_t, epoch);
 	void serialize (rai::stream &) const;
 	bool deserialize (rai::stream &);
 	bool operator== (rai::account_info const &) const;
 	bool operator!= (rai::account_info const &) const;
-	rai::mdb_val val () const;
 	size_t db_size () const;
 	rai::block_hash head;
 	rai::block_hash rep_block;
@@ -140,12 +85,10 @@ class pending_info
 {
 public:
 	pending_info ();
-	pending_info (rai::mdb_val const &);
 	pending_info (rai::account const &, rai::amount const &, epoch);
 	void serialize (rai::stream &) const;
 	bool deserialize (rai::stream &);
 	bool operator== (rai::pending_info const &) const;
-	rai::mdb_val val () const;
 	rai::account source;
 	rai::amount amount;
 	rai::epoch epoch;
@@ -153,12 +96,11 @@ public:
 class pending_key
 {
 public:
+	pending_key ();
 	pending_key (rai::account const &, rai::block_hash const &);
-	pending_key (MDB_val const &);
 	void serialize (rai::stream &) const;
 	bool deserialize (rai::stream &);
 	bool operator== (rai::pending_key const &) const;
-	rai::mdb_val val () const;
 	rai::account account;
 	rai::block_hash hash;
 };
@@ -166,12 +108,10 @@ class block_info
 {
 public:
 	block_info ();
-	block_info (MDB_val const &);
 	block_info (rai::account const &, rai::amount const &);
 	void serialize (rai::stream &) const;
 	bool deserialize (rai::stream &);
 	bool operator== (rai::block_info const &) const;
-	rai::mdb_val val () const;
 	rai::account account;
 	rai::amount balance;
 };
@@ -187,6 +127,13 @@ public:
 	size_t state_v0;
 	size_t state_v1;
 };
+typedef std::vector<boost::variant<std::shared_ptr<rai::block>, rai::block_hash>>::const_iterator vote_blocks_vec_iter;
+class iterate_vote_blocks_as_hash
+{
+public:
+	iterate_vote_blocks_as_hash () = default;
+	rai::block_hash operator() (boost::variant<std::shared_ptr<rai::block>, rai::block_hash> const & item) const;
+};
 class vote
 {
 public:
@@ -195,7 +142,8 @@ public:
 	vote (bool &, rai::stream &);
 	vote (bool &, rai::stream &, rai::block_type);
 	vote (rai::account const &, rai::raw_key const &, uint64_t, std::shared_ptr<rai::block>);
-	vote (MDB_val const &);
+	vote (rai::account const &, rai::raw_key const &, uint64_t, std::vector<rai::block_hash>);
+	std::string hashes_string () const;
 	rai::uint256_union hash () const;
 	bool operator== (rai::vote const &) const;
 	bool operator!= (rai::vote const &) const;
@@ -203,14 +151,18 @@ public:
 	void serialize (rai::stream &);
 	bool deserialize (rai::stream &);
 	bool validate ();
+	boost::transform_iterator<rai::iterate_vote_blocks_as_hash, rai::vote_blocks_vec_iter> begin () const;
+	boost::transform_iterator<rai::iterate_vote_blocks_as_hash, rai::vote_blocks_vec_iter> end () const;
 	std::string to_json () const;
 	// Vote round sequence number
 	uint64_t sequence;
-	std::shared_ptr<rai::block> block;
+	// The blocks, or block hashes, that this vote is for
+	std::vector<boost::variant<std::shared_ptr<rai::block>, rai::block_hash>> blocks;
 	// Account that's voting
 	rai::account account;
-	// Signature of sequence + block hash
+	// Signature of sequence + block hashes
 	rai::signature signature;
+	static const std::string hash_prefix;
 };
 enum class vote_code
 {
@@ -249,17 +201,6 @@ enum class tally_result
 	changed,
 	confirm
 };
-class votes
-{
-public:
-	votes (std::shared_ptr<rai::block>);
-	rai::tally_result vote (std::shared_ptr<rai::vote>);
-	bool uncontested ();
-	// Root block of fork
-	rai::block_hash id;
-	// All votes received by account
-	std::unordered_map<rai::account, std::shared_ptr<rai::block>> rep_votes;
-};
 extern rai::keypair const & zero_key;
 extern rai::keypair const & test_genesis_key;
 extern rai::account const & rai_test_account;
@@ -280,7 +221,6 @@ class genesis
 {
 public:
 	explicit genesis ();
-	void initialize (MDB_txn *, rai::block_store &) const;
 	rai::block_hash hash () const;
 	std::unique_ptr<rai::open_block> open;
 };
