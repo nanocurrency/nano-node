@@ -1,7 +1,10 @@
 #include <gtest/gtest.h>
 
 #include <fstream>
+#include <rai/core_test/testutil.hpp>
 #include <rai/node/testing.hpp>
+
+using namespace std::chrono_literals;
 
 TEST (wallet, no_key)
 {
@@ -89,7 +92,7 @@ TEST (wallet, one_item_iteration)
 	wallet.insert_adhoc (transaction, key1.prv);
 	for (auto i (wallet.begin (transaction)), j (wallet.end ()); i != j; ++i)
 	{
-		ASSERT_EQ (key1.pub, i->first.uint256 ());
+		ASSERT_EQ (key1.pub, rai::uint256_union (i->first));
 		rai::raw_key password;
 		wallet.wallet_key (password, transaction);
 		rai::raw_key key;
@@ -117,7 +120,7 @@ TEST (wallet, two_item_iteration)
 		wallet.insert_adhoc (transaction, key2.prv);
 		for (auto i (wallet.begin (transaction)), j (wallet.end ()); i != j; ++i)
 		{
-			pubs.insert (i->first.uint256 ());
+			pubs.insert (rai::uint256_union (i->first));
 			rai::raw_key password;
 			wallet.wallet_key (password, transaction);
 			rai::raw_key key;
@@ -169,12 +172,10 @@ TEST (wallet, send_async)
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	rai::keypair key2;
 	std::thread thread ([&system]() {
-		auto iterations (0);
+		system.deadline_set (10s);
 		while (!system.nodes[0]->balance (rai::test_genesis_key.pub).is_zero ())
 		{
-			system.poll ();
-			++iterations;
-			ASSERT_LT (iterations, 200);
+			ASSERT_NO_ERROR (system.poll ());
 		}
 	});
 	bool success (false);
@@ -604,7 +605,7 @@ TEST (wallet, work)
 	wallet->insert_adhoc (rai::test_genesis_key.prv);
 	rai::genesis genesis;
 	auto done (false);
-	auto iterations (0);
+	system.deadline_set (10s);
 	while (!done)
 	{
 		rai::transaction transaction (system.nodes[0]->store.environment, nullptr, false);
@@ -613,9 +614,7 @@ TEST (wallet, work)
 		{
 			done = !rai::work_validate (genesis.hash (), work);
 		}
-		system.poll ();
-		++iterations;
-		ASSERT_LT (iterations, 200);
+		ASSERT_NO_ERROR (system.poll ());
 	}
 }
 
@@ -633,20 +632,16 @@ TEST (wallet, work_generate)
 	}
 	rai::keypair key;
 	wallet->send_action (rai::test_genesis_key.pub, key.pub, 100);
-	auto iterations1 (0);
+	system.deadline_set (10s);
 	while (system.nodes[0]->ledger.account_balance (rai::transaction (system.nodes[0]->store.environment, nullptr, false), rai::test_genesis_key.pub) == amount1)
 	{
-		system.poll ();
-		++iterations1;
-		ASSERT_LT (iterations1, 200);
+		ASSERT_NO_ERROR (system.poll ());
 	}
-	auto iterations2 (0);
+	system.deadline_set (10s);
 	auto again (true);
 	while (again)
 	{
-		system.poll ();
-		++iterations2;
-		ASSERT_LT (iterations2, 200);
+		ASSERT_NO_ERROR (system.poll ());
 		rai::transaction transaction (system.nodes[0]->store.environment, nullptr, false);
 		again = wallet->store.work_get (transaction, account1, work1) || rai::work_validate (system.nodes[0]->ledger.latest_root (transaction, account1), work1);
 	}

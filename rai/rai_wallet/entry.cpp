@@ -240,7 +240,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 				auto existing (wallet->store.begin (transaction));
 				if (existing != wallet->store.end ())
 				{
-					rai::uint256_union account (existing->first.uint256 ());
+					rai::uint256_union account (existing->first);
 					config.account = account;
 				}
 				else

@@ -362,6 +362,9 @@ std::string rai::stat::detail_to_string (uint32_t key)
 		case rai::stat::detail::bulk_pull:
 			res = "bulk_pull";
 			break;
+		case rai::stat::detail::bulk_pull_account:
+			res = "bulk_pull_account";
+			break;
 		case rai::stat::detail::bulk_pull_blocks:
 			res = "bulk_pull_blocks";
 			break;
