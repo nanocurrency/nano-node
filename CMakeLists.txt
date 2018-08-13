@@ -6,7 +6,7 @@ set (CPACK_PACKAGE_VERSION_MINOR "0")
 set (CPACK_PACKAGE_VERSION_PATCH "0")
 if (DEFINED GIT_COMMIT)
 	set (CPACK_PACKAGE_VERSION_PATCH "GIT-${GIT_COMMIT}")
-endif (DEFINED GIT_COMMIT)
+endif ()
 set (CPACK_PACKAGE_VENDOR "Nano Currency")
 
 set(CMAKE_INSTALL_RPATH "@executable_path/../Frameworks")
@@ -26,7 +26,7 @@ set_property (CACHE ACTIVE_NETWORK PROPERTY STRINGS rai_test_network rai_beta_ne
 
 if(NOT CMAKE_BUILD_TYPE)
 	set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose the type of build, options are: Debug Release RelWithDebInfo MinSizeRel." FORCE)
-endif(NOT CMAKE_BUILD_TYPE)
+endif()
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
@@ -39,8 +39,7 @@ if (WIN32)
 					-DWINVER=0x0600
 					-DWIN32_LEAN_AND_MEAN
 					-DMINIUPNP_STATICLIB)
-	set (BLAKE2_IMPLEMENTATION "blake2/blake2b.c")
-else (WIN32)
+else ()
 	add_compile_options(-Werror=switch)
 	if (RAIBLOCKS_ASAN)
 		add_compile_options(-fsanitize=address,undefined)
@@ -60,7 +59,6 @@ else (WIN32)
 			add_compile_options(-msse2)
 		endif()
 
-		set (BLAKE2_IMPLEMENTATION "blake2/blake2b.c")
 		if (ENABLE_AVX2)
 			add_compile_options(-mavx2 -mbmi -mbmi2)
 			if (PERMUTE_WITH_GATHER)
@@ -69,10 +67,8 @@ else (WIN32)
 				add_definitions(-DPERMUTE_WITH_SHUFFLES)
 			endif()
 		endif()
-	else()
-		set (BLAKE2_IMPLEMENTATION "blake2/blake2b-ref.c")
 	endif()
-endif (WIN32)
+endif ()
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -84,7 +80,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 if (WIN32)
 	add_definitions(/bigobj)
-endif (WIN32)
+endif ()
 
 if (APPLE)
 	set (PLATFORM_LINK_FLAGS "-framework Foundation -framework OpenCL")
@@ -99,12 +95,12 @@ else ()
 	elseif (RAIBLOCKS_TSAN)
 		set (PLATFORM_LINK_FLAGS "${PLATFORM_LINK_FLAGS} -fsanitize=thread")
 	endif()
-endif (APPLE)
+endif ()
 
 SET( CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${PLATFORM_LINK_FLAGS}" )
 
 if (RAIBLOCKS_SECURE_RPC)
-	find_package (OpenSSL 1.0 EXACT REQUIRED)
+	find_package (OpenSSL 1.0 REQUIRED)
 	#include_directories(${OPENSSL_INCLUDE_DIR})
 	add_definitions (-DRAIBLOCKS_SECURE_RPC)
 	message("OpenSSL include dir: ${OPENSSL_INCLUDE_DIR}")
@@ -113,7 +109,7 @@ if (RAIBLOCKS_SECURE_RPC)
 	message("Crypto lib: ${OPENSSL_CRYPTO_LIBRARY}")
 else ()
 	set (OPENSSL_LIBRARIES "")
-endif (RAIBLOCKS_SECURE_RPC)
+endif ()
 
 include_directories (${CMAKE_SOURCE_DIR})
 
@@ -127,12 +123,6 @@ endif ()
 find_package (Boost 1.66.0 REQUIRED COMPONENTS date_time filesystem system log log_setup thread program_options regex chrono atomic)
 
 add_subdirectory(ed25519-donna)
-
-if (CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
-	set (ARGON_CORE phc-winner-argon2/src/opt.c)
-else ()
-	set (ARGON_CORE phc-winner-argon2/src/ref.c)
-endif ()
 
 set (UPNPC_BUILD_SHARED OFF CACHE BOOL "")
 add_subdirectory (miniupnp/miniupnpc)
@@ -188,6 +178,12 @@ else ()
 	add_subdirectory (cryptopp)
 endif ()
 
+if (CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
+	set (ARGON_CORE phc-winner-argon2/src/opt.c)
+else ()
+	set (ARGON_CORE phc-winner-argon2/src/ref.c)
+endif ()
+
 add_library (argon2
 	phc-winner-argon2/src/argon2.c
 	phc-winner-argon2/include/argon2.h
@@ -212,6 +208,16 @@ add_library (lmdb
 if (WIN32)
 	target_link_libraries(lmdb ntdll)
 endif()
+
+if (WIN32)
+	set (BLAKE2_IMPLEMENTATION "blake2/blake2b.c")
+else ()
+	IF (CMAKE_SYSTEM_PROCESSOR MATCHES "^(i.86|x86(_64)?)$")
+		set (BLAKE2_IMPLEMENTATION "blake2/blake2b.c")
+	else()
+		set (BLAKE2_IMPLEMENTATION "blake2/blake2b-ref.c")
+	endif()
+endif ()
 
 add_library (blake2
 	blake2/blake2-config.h
@@ -240,56 +246,42 @@ if (RAIBLOCKS_TEST)
     endif()
 
     add_subdirectory (gtest)
+	# FIXME: This fixes gtest include directories without modifying gtest's
+	# CMakeLists.txt. Ideally we should use GTest::GTest and GTest::Main as
+	# dependencies but it requires building gtest differently
+	set_target_properties(gtest PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
+		"${CMAKE_SOURCE_DIR}/gtest/include")
 
-	add_executable (core_test
-		rai/core_test/block.cpp
-		rai/core_test/block_store.cpp
-		rai/core_test/interface.cpp
-		rai/core_test/conflicts.cpp
-		rai/core_test/daemon.cpp
-		rai/core_test/entry.cpp
-		rai/core_test/gap_cache.cpp
-		rai/core_test/ledger.cpp
-		rai/core_test/network.cpp
-		rai/core_test/node.cpp
-		rai/core_test/message.cpp
-		rai/core_test/message_parser.cpp
-		rai/core_test/processor_service.cpp
-		rai/core_test/peer_container.cpp
-		rai/core_test/rpc.cpp
-		rai/core_test/uint256_union.cpp
-		rai/core_test/versioning.cpp
-		rai/core_test/wallet.cpp
-		rai/core_test/wallets.cpp
-		rai/core_test/work_pool.cpp)
-
-	add_executable (slow_test
-		rai/slow_test/node.cpp)
-
-	target_compile_definitions(core_test
-		PRIVATE
-			-DRAIBLOCKS_VERSION_MAJOR=${CPACK_PACKAGE_VERSION_MAJOR}
-			-DRAIBLOCKS_VERSION_MINOR=${CPACK_PACKAGE_VERSION_MINOR})
-	target_link_libraries (core_test node secure gtest_main gtest libminiupnpc-static Boost::boost)
-	target_link_libraries (slow_test node secure gtest_main gtest libminiupnpc-static Boost::boost)
-	target_include_directories (core_test PRIVATE gtest/include)
-	target_include_directories (slow_test PRIVATE gtest/include)
-endif (RAIBLOCKS_TEST)
+	add_subdirectory(rai/core_test)
+	add_subdirectory(rai/slow_test)
+endif ()
 
 if (RAIBLOCKS_GUI)
 	if (WIN32)
 		set (PLATFORM_QT_PACKAGES WinExtras)
-	else (WIN32)
+	else ()
 		set (PLATFORM_QT_PACKAGES)
-	endif (WIN32)
+	endif ()
 
 	find_package (Qt5 COMPONENTS Core Gui Widgets Test ${PLATFORM_QT_PACKAGES})
 
+	add_library (qt
+		rai/qt/qt.cpp
+		rai/qt/qt.hpp)
+
+	target_link_libraries(qt
+		secure rai_lib node libminiupnpc-static Qt5::Gui Qt5::Widgets)
+
+	target_compile_definitions(qt
+		PRIVATE
+		-DRAIBLOCKS_VERSION_MAJOR=${CPACK_PACKAGE_VERSION_MAJOR}
+		-DRAIBLOCKS_VERSION_MINOR=${CPACK_PACKAGE_VERSION_MINOR})
+
 	if (WIN32)
 		set (PLATFORM_GUI_TARGET_PROPERTIES WIN32)
-	else (WIN32)
+	else ()
 		set (PLATFORM_GUI_TARGET_PROPERTIES "")
-	endif (WIN32)
+	endif ()
 
 	if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 		set (PLATFORM_WALLET_SOURCE rai/rai_wallet/plat/default/icon.cpp)
@@ -304,18 +296,6 @@ if (RAIBLOCKS_GUI)
 	endif ()
 
 	qt5_add_resources(RES resources.qrc)
-
-	add_library (qt
-		rai/qt/qt.cpp
-		rai/qt/qt.hpp)
-
-	target_link_libraries(qt
-		secure rai_lib node libminiupnpc-static Qt5::Gui Qt5::Widgets)
-
-	target_compile_definitions(qt
-		PRIVATE
-		-DRAIBLOCKS_VERSION_MAJOR=${CPACK_PACKAGE_VERSION_MAJOR}
-		-DRAIBLOCKS_VERSION_MINOR=${CPACK_PACKAGE_VERSION_MINOR})
 
 	add_executable (nano_wallet ${PLATFORM_GUI_TARGET_PROPERTIES}
 		${PLATFORM_WALLET_SOURCE}
@@ -343,7 +323,6 @@ if (RAIBLOCKS_GUI)
 			rai/qt_test/entry.cpp
 			rai/qt_test/qt.cpp)
 
-		target_include_directories (qt_test PRIVATE gtest/include)
 		target_link_libraries(qt_test gtest gtest_main qt Qt5::Test)
 
 		set_target_properties (qt_test PROPERTIES COMPILE_FLAGS "-DQT_NO_KEYWORDS -DBOOST_ASIO_HAS_STD_ARRAY=1")
@@ -392,7 +371,7 @@ if (RAIBLOCKS_GUI)
 				ARCHIVE DESTINATION lib
 		)
 	endif ()
-endif (RAIBLOCKS_GUI)
+endif ()
 
 set (CPACK_RESOURCE_FILE_LICENSE ${CMAKE_SOURCE_DIR}/LICENSE)
 

@@ -144,7 +144,7 @@ public:
 	void block_hash ();
 	void bootstrap ();
 	void bootstrap_any ();
-	void chain ();
+	void chain (bool = false);
 	void confirmation_history ();
 	void delegators ();
 	void delegators_count ();
@@ -154,14 +154,12 @@ public:
 	void keepalive ();
 	void key_create ();
 	void key_expand ();
-	void krai_to_raw ();
-	void krai_from_raw ();
 	void ledger ();
-	void mrai_to_raw ();
-	void mrai_from_raw ();
+	void mrai_to_raw (rai::uint128_t = rai::Mxrb_ratio);
+	void mrai_from_raw (rai::uint128_t = rai::Mxrb_ratio);
 	void password_change ();
 	void password_enter ();
-	void password_valid (bool wallet_locked);
+	void password_valid (bool = false);
 	void payment_begin ();
 	void payment_init ();
 	void payment_end ();
@@ -170,8 +168,6 @@ public:
 	void pending ();
 	void pending_exists ();
 	void process ();
-	void rai_to_raw ();
-	void rai_from_raw ();
 	void receive ();
 	void receive_minimum ();
 	void receive_minimum_set ();
@@ -183,7 +179,6 @@ public:
 	void send ();
 	void stats ();
 	void stop ();
-	void successors ();
 	void unchecked ();
 	void unchecked_clear ();
 	void unchecked_get ();
@@ -192,7 +187,6 @@ public:
 	void version ();
 	void wallet_add ();
 	void wallet_add_watch ();
-	void wallet_balance_total ();
 	void wallet_balances ();
 	void wallet_change_seed ();
 	void wallet_contains ();
@@ -201,6 +195,7 @@ public:
 	void wallet_export ();
 	void wallet_frontiers ();
 	void wallet_history ();
+	void wallet_info ();
 	void wallet_key_valid ();
 	void wallet_ledger ();
 	void wallet_lock ();
@@ -223,6 +218,18 @@ public:
 	rai::rpc & rpc;
 	boost::property_tree::ptree request;
 	std::function<void(boost::property_tree::ptree const &)> response;
+	void response_errors ();
+	std::error_code ec;
+	boost::property_tree::ptree response_l;
+	std::shared_ptr<rai::wallet> wallet_impl ();
+	rai::account account_impl (std::string = "");
+	rai::amount amount_impl ();
+	rai::block_hash hash_impl (std::string = "hash");
+	rai::amount threshold_optional_impl ();
+	uint64_t work_optional_impl ();
+	uint64_t count_impl ();
+	uint64_t count_optional_impl (uint64_t = std::numeric_limits<uint64_t>::max ());
+	bool rpc_control_impl ();
 };
 /** Returns the correct RPC implementation based on TLS configuration */
 std::unique_ptr<rai::rpc> get_rpc (boost::asio::io_service & service_a, rai::node & node_a, rai::rpc_config const & config_a);

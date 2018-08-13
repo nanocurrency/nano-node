@@ -54,6 +54,12 @@ if [[ ${FLAVOR-_} == "_" ]]; then
     FLAVOR=""
 fi
 
+if [[ "${BETA}" -eq 1 ]]; then
+    NETWORK_CFG="-DACTIVE_NETWORK=rai_beta_network"
+else
+    NETWORK_CFG="-DACTIVE_NETWORK=rai_live_network"
+fi
+
 set -o nounset
 
 run_build() {
@@ -66,6 +72,7 @@ run_build() {
        -DCMAKE_BUILD_TYPE=Release \
        -DCMAKE_VERBOSE_MAKEFILE=ON \
        -DCMAKE_INSTALL_PREFIX="../install" \
+       ${NETWORK_CFG} \
        ${CRYPTOPP_CFG} \
        ${DISTRO_CFG} \
        ${SIMD_CFG} \
