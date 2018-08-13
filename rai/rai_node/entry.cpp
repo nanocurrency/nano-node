@@ -308,7 +308,7 @@ int main (int argc, char * const * argv)
 			std::cerr << "Signature verifications " << std::chrono::duration_cast<std::chrono::microseconds> (end - begin).count () << std::endl;
 		}
 		else if (vm.count ("debug_verify_profile_batch"))
-		{/*
+		{ /*
 			rai::keypair key;
 			rai::uint256_union message;
 			rai::uint512_union signature;

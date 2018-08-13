@@ -1495,38 +1495,38 @@ bool rai::block_processor::have_blocks ()
 void rai::block_processor::verify_state_blocks (std::unique_lock<std::mutex> & lock_a)
 {
 	lock_a.lock ();
-	std::deque <std::pair<std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point>> items;
+	std::deque<std::pair<std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point>> items;
 	items.swap (state_blocks);
 	lock_a.unlock ();
 	auto size (items.size ());
-	std::vector <rai::uint256_union> hashes;
+	std::vector<rai::uint256_union> hashes;
 	hashes.reserve (size);
-	std::vector <unsigned char const *> messages;
+	std::vector<unsigned char const *> messages;
 	messages.reserve (size);
-	std::vector <size_t> lengths;
+	std::vector<size_t> lengths;
 	lengths.reserve (size);
-	std::vector <unsigned char const *> pub_keys;
+	std::vector<unsigned char const *> pub_keys;
 	pub_keys.reserve (size);
-	std::vector <unsigned char const *> signatures;
+	std::vector<unsigned char const *> signatures;
 	signatures.reserve (size);
-	std::vector <int> verifications;
+	std::vector<int> verifications;
 	verifications.resize (size);
 	for (auto i (0); i < size; ++i)
 	{
-		auto & block (static_cast<rai::state_block &> (*items [i].first));
+		auto & block (static_cast<rai::state_block &> (*items[i].first));
 		hashes.push_back (block.hash ());
 		messages.push_back (hashes.back ().bytes.data ());
-		lengths.push_back (sizeof(decltype(hashes)::value_type));
+		lengths.push_back (sizeof (decltype (hashes)::value_type));
 		pub_keys.push_back (block.link () == node.ledger.epoch_link ? node.ledger.epoch_signer.bytes.data () : block.hashables.account.bytes.data ());
 		signatures.push_back (block.signature.bytes.data ());
 	}
 	auto code (ed25519_sign_open_batch (messages.data (), lengths.data (), pub_keys.data (), signatures.data (), size, verifications.data ()));
-	(void) code;
+	(void)code;
 	lock_a.lock ();
 	for (auto i (0); i < size; ++i)
 	{
-		assert (verifications [i] == 1 || verifications [i] == 0);
-		if (verifications [i] == 1)
+		assert (verifications[i] == 1 || verifications[i] == 0);
+		if (verifications[i] == 1)
 		{
 			blocks.push_back (items.front ());
 		}
