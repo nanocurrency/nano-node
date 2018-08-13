@@ -321,6 +321,11 @@ rai::block_hash rai::send_block::root () const
 	return hashables.previous;
 }
 
+rai::block_hash rai::send_block::link () const
+{
+	return 0;
+}
+
 rai::account rai::send_block::representative () const
 {
 	return 0;
@@ -575,6 +580,11 @@ rai::block_hash rai::open_block::root () const
 	return hashables.account;
 }
 
+rai::block_hash rai::open_block::link () const
+{
+	return 0;
+}
+
 rai::account rai::open_block::representative () const
 {
 	return hashables.representative;
@@ -809,6 +819,11 @@ rai::block_hash rai::change_block::source () const
 rai::block_hash rai::change_block::root () const
 {
 	return hashables.previous;
+}
+
+rai::block_hash rai::change_block::link () const
+{
+	return 0;
 }
 
 rai::account rai::change_block::representative () const
@@ -1108,6 +1123,11 @@ rai::block_hash rai::state_block::source () const
 rai::block_hash rai::state_block::root () const
 {
 	return !hashables.previous.is_zero () ? hashables.previous : hashables.account;
+}
+
+rai::block_hash rai::state_block::link () const
+{
+	return hashables.link;
 }
 
 rai::account rai::state_block::representative () const
@@ -1440,6 +1460,11 @@ rai::block_hash rai::receive_block::root () const
 	return hashables.previous;
 }
 
+rai::block_hash rai::receive_block::link () const
+{
+	return 0;
+}
+
 rai::account rai::receive_block::representative () const
 {
 	return 0;
@@ -1498,3 +1523,36 @@ void rai::receive_hashables::hash (blake2b_state & hash_a) const
 	blake2b_update (&hash_a, previous.bytes.data (), sizeof (previous.bytes));
 	blake2b_update (&hash_a, source.bytes.data (), sizeof (source.bytes));
 }
+
+#ifndef _MSC_VER
+bool rai::validate_blocks (std::vector<rai::state_block> const & blocks, int * valid, rai::uint256_union epoch_link, rai::account epoch_signer)
+{
+	size_t batch_count (blocks.size ());
+	if (batch_count != 0)
+	{
+		std::vector<rai::public_key> public_keys (batch_count);
+		std::vector<rai::uint256_union> messages (batch_count);
+		std::vector<rai::uint512_union> signatures (batch_count);
+		for (auto i (0); i < batch_count; i++)
+		{
+			messages[i] = blocks[i].hash ();
+			if (!epoch_link.is_zero () && blocks[i].hashables.link == epoch_link)
+			{
+				// Epoch blocks
+				public_keys[i] = epoch_signer;
+			}
+			else
+			{
+				public_keys[i] = blocks[i].hashables.account;
+			}
+			signatures[i] = blocks[i].signature;
+		}
+		bool result (rai::validate_messages (public_keys, messages, signatures, batch_count, valid));
+		return result;
+	}
+	else
+	{
+		return 1;
+	}
+}
+#endif

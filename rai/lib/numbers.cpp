@@ -435,6 +435,25 @@ bool rai::validate_message (rai::public_key const & public_key, rai::uint256_uni
 	return result;
 }
 
+#ifndef _MSC_VER
+bool rai::validate_messages (std::vector<rai::public_key> const & public_keys, std::vector<rai::uint256_union> const & messages, std::vector<rai::uint512_union> const & signatures, size_t batch_count, int * valid)
+{
+	size_t messages_lengths[batch_count];
+	const unsigned char * messages_pointers[batch_count];
+	const unsigned char * public_keys_pointers[batch_count];
+	const unsigned char * signatures_pointers[batch_count];
+	for (auto i (0); i < batch_count; i++)
+	{
+		messages_pointers[i] = messages[i].bytes.data ();
+		messages_lengths[i] = sizeof (messages[i].bytes);
+		public_keys_pointers[i] = public_keys[i].bytes.data ();
+		signatures_pointers[i] = signatures[i].bytes.data ();
+	}
+	bool result (0 == ed25519_sign_open_batch (messages_pointers, messages_lengths, public_keys_pointers, signatures_pointers, batch_count, valid));
+	return result;
+}
+#endif
+
 rai::uint128_union::uint128_union (std::string const & string_a)
 {
 	decode_hex (string_a);
