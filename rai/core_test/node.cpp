@@ -1652,3 +1652,25 @@ TEST (node, block_processor_signatures)
 	ASSERT_TRUE (node1.store.block_exists (transaction, receive2->hash ()));
 	ASSERT_FALSE (node1.store.block_exists (transaction, receive3->hash ()));
 }
+
+/*
+ *  State blocks go through a different signature path, ensure invalidly signed state blocks are rejected
+ */
+TEST (node, block_processor_reject_state)
+{
+	rai::system system (24000, 1);
+	auto & node (*system.nodes [0]);
+	rai::genesis genesis;
+	auto send1 (std::make_shared<rai::state_block> (rai::test_genesis_key.pub, genesis.hash (), rai::test_genesis_key.pub, rai::genesis_amount - rai::Gxrb_ratio, rai::test_genesis_key.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
+	node.work_generate_blocking (*send1);
+	send1->signature.bytes[0] ^= 1;
+	ASSERT_FALSE (node.ledger.block_exists(send1->hash ()));
+	node.process_active(send1);
+	node.block_processor.flush ();
+	ASSERT_FALSE (node.ledger.block_exists(send1->hash ()));
+	auto send2 (std::make_shared<rai::state_block> (rai::test_genesis_key.pub, genesis.hash (), rai::test_genesis_key.pub, rai::genesis_amount - 2 * rai::Gxrb_ratio, rai::test_genesis_key.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
+	node.work_generate_blocking (*send2);
+	node.process_active(send2);
+	node.block_processor.flush ();
+	ASSERT_TRUE (node.ledger.block_exists(send2->hash ()));
+}

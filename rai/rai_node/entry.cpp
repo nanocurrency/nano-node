@@ -308,8 +308,7 @@ int main (int argc, char * const * argv)
 			std::cerr << "Signature verifications " << std::chrono::duration_cast<std::chrono::microseconds> (end - begin).count () << std::endl;
 		}
 		else if (vm.count ("debug_verify_profile_batch"))
-		{
-#ifndef _MSC_VER
+		{/*
 			rai::keypair key;
 			rai::uint256_union message;
 			rai::uint512_union signature;
@@ -322,10 +321,7 @@ int main (int argc, char * const * argv)
 			auto begin (std::chrono::high_resolution_clock::now ());
 			auto result (rai::validate_messages (public_keys, messages, signatures, batch_count, valid));
 			auto end (std::chrono::high_resolution_clock::now ());
-			std::cerr << "Batch signature verifications " << std::chrono::duration_cast<std::chrono::microseconds> (end - begin).count () << std::endl;
-#else
-			std::cerr << "Disabled for MSVC" << std::endl;
-#endif
+			std::cerr << "Batch signature verifications " << std::chrono::duration_cast<std::chrono::microseconds> (end - begin).count () << std::endl;*/
 		}
 		else if (vm.count ("debug_profile_sign"))
 		{

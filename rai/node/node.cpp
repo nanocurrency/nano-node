@@ -1385,8 +1385,8 @@ bool rai::rep_crawler::exists (rai::block_hash const & hash_a)
 rai::block_processor::block_processor (rai::node & node_a) :
 stopped (false),
 active (false),
-node (node_a),
-next_log (std::chrono::steady_clock::now ())
+next_log (std::chrono::steady_clock::now ()),
+node (node_a)
 {
 }
 
@@ -1492,41 +1492,56 @@ bool rai::block_processor::have_blocks ()
 	return !blocks.empty () || !forced.empty () || !state_blocks.empty ();
 }
 
+void rai::block_processor::verify_state_blocks (std::unique_lock<std::mutex> & lock_a)
+{
+	lock_a.lock ();
+	std::deque <std::pair<std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point>> items;
+	items.swap (state_blocks);
+	lock_a.unlock ();
+	auto size (items.size ());
+	std::vector <rai::uint256_union> hashes;
+	hashes.reserve (size);
+	std::vector <unsigned char const *> messages;
+	messages.reserve (size);
+	std::vector <size_t> lengths;
+	lengths.reserve (size);
+	std::vector <unsigned char const *> pub_keys;
+	pub_keys.reserve (size);
+	std::vector <unsigned char const *> signatures;
+	signatures.reserve (size);
+	std::vector <int> verifications;
+	verifications.resize (size);
+	for (auto i (0); i < size; ++i)
+	{
+		auto & block (static_cast<rai::state_block &> (*items [i].first));
+		hashes.push_back (block.hash ());
+		messages.push_back (hashes.back ().bytes.data ());
+		lengths.push_back (sizeof(decltype(hashes)::value_type));
+		pub_keys.push_back (block.link () == node.ledger.epoch_link ? node.ledger.epoch_signer.bytes.data () : block.hashables.account.bytes.data ());
+		signatures.push_back (block.signature.bytes.data ());
+	}
+	auto code (ed25519_sign_open_batch (messages.data (), lengths.data (), pub_keys.data (), signatures.data (), size, verifications.data ()));
+	(void) code;
+	lock_a.lock ();
+	for (auto i (0); i < size; ++i)
+	{
+		assert (verifications [i] == 1 || verifications [i] == 0);
+		if (verifications [i] == 1)
+		{
+			blocks.push_back (items.front ());
+		}
+		items.pop_front ();
+	}
+	lock_a.unlock ();
+}
+
 void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & lock_a)
 {
+	verify_state_blocks (lock_a);
 	{
 		rai::transaction transaction (node.store.environment, nullptr, true);
-		auto cutoff (std::chrono::steady_clock::now () + rai::transaction_timeout);
 		lock_a.lock ();
 		auto count (0);
-#ifndef _MSC_VER
-		// Batch signatures verification for state blocks
-		if (!state_blocks.empty ())
-		{
-			std::pair<std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point> block;
-			std::vector<rai::state_block> state_vector;
-			std::vector<std::chrono::steady_clock::time_point> time_points;
-			while (!state_blocks.empty ())
-			{
-				block = state_blocks.front ();
-				state_blocks.pop_front ();
-				if (!node.ledger.store.block_exists (transaction, block.first->hash ()))
-				{
-					state_vector.push_back (static_cast<rai::state_block const &> (*block.first));
-					time_points.push_back (block.second);
-				}
-			}
-			int valid[state_vector.size ()];
-			validate_blocks (state_vector, valid, node.ledger.epoch_link, node.ledger.epoch_link);
-			for (auto i (0); i != state_vector.size (); ++i)
-			{
-				if (valid[i] == 1)
-				{
-					blocks.push_back (std::make_pair (std::make_shared<rai::state_block> (state_vector[i]), time_points[i]));
-				}
-			}
-		}
-#endif
 		// Processing blocks
 		while ((!blocks.empty () || !forced.empty ()) && count < 16384)
 		{
