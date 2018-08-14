@@ -39,6 +39,19 @@ add_library (node
 	working.hpp
 	xorshift.hpp)
 
+include(${CMAKE_ROOT}/Modules/ExternalProject.cmake)
+
+ExternalProject_Add(
+	curve25519_dalek_c
+	DOWNLOAD_COMMAND ""
+	CONFIGURE_COMMAND ""
+	BUILD_COMMAND cargo build COMMAND cargo build --release
+	BINARY_DIR "${CMAKE_SOURCE_DIR}/curve25519_dalek_c"
+	INSTALL_COMMAND ""
+	LOG_BUILD ON)
+
+add_dependencies (node curve25519_dalek_c)
+
 target_link_libraries (node
 	secure
 	rai_lib
@@ -52,6 +65,8 @@ target_link_libraries (node
 	Boost::system
 	Boost::thread
 	Boost::boost
+	debug "${CMAKE_SOURCE_DIR}/curve25519_dalek_c/target/debug/libcurve25519_dalek_c.a"
+    optimized "${CMAKE_SOURCE_DIR}/curve25519_dalek_c/target/release/libcurve25519_dalek_c.a"
 	${CMAKE_DL_LIBS}
 	)
 
