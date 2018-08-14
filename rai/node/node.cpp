@@ -21,8 +21,6 @@
 
 #include <upnpcommands.h>
 
-#include <ed25519-donna/ed25519.h>
-
 double constexpr rai::node::price_max;
 double constexpr rai::node::free_cutoff;
 std::chrono::seconds constexpr rai::node::period;
@@ -1520,7 +1518,7 @@ void rai::block_processor::verify_state_blocks (std::unique_lock<std::mutex> & l
 		pub_keys.push_back (block.link () == node.ledger.epoch_link ? node.ledger.epoch_signer.bytes.data () : block.hashables.account.bytes.data ());
 		signatures.push_back (block.signature.bytes.data ());
 	}
-	auto code (ed25519_sign_open_batch (messages.data (), lengths.data (), pub_keys.data (), signatures.data (), size, verifications.data ()));
+	auto code (rai::validate_message_batch (messages.data (), lengths.data (), pub_keys.data (), signatures.data (), size, verifications.data ()));
 	(void)code;
 	lock_a.lock ();
 	for (auto i (0); i < size; ++i)

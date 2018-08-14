@@ -8,8 +8,6 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/program_options.hpp>
 
-#include <ed25519-donna/ed25519.h>
-
 int main (int argc, char * const * argv)
 {
 	boost::program_options::options_description description ("Command line options");
@@ -322,8 +320,7 @@ int main (int argc, char * const * argv)
 			std::vector<int> verifications;
 			verifications.resize (batch_count);
 			auto begin (std::chrono::high_resolution_clock::now ());
-			auto code (ed25519_sign_open_batch (messages.data (), lengths.data (), pub_keys.data (), signatures.data (), batch_count, verifications.data ()));
-			(void)code;
+			rai::validate_message_batch (messages.data (), lengths.data (), pub_keys.data (), signatures.data (), batch_count, verifications.data ());
 			auto end (std::chrono::high_resolution_clock::now ());
 			std::cerr << "Batch signature verifications " << std::chrono::duration_cast<std::chrono::microseconds> (end - begin).count () << std::endl;
 		}
