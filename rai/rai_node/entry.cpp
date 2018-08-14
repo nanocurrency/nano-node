@@ -8,6 +8,8 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/program_options.hpp>
 
+#include <ed25519-donna/ed25519.h>
+
 int main (int argc, char * const * argv)
 {
 	boost::program_options::options_description description ("Command line options");
@@ -308,20 +310,22 @@ int main (int argc, char * const * argv)
 			std::cerr << "Signature verifications " << std::chrono::duration_cast<std::chrono::microseconds> (end - begin).count () << std::endl;
 		}
 		else if (vm.count ("debug_verify_profile_batch"))
-		{ /*
+		{
 			rai::keypair key;
-			rai::uint256_union message;
-			rai::uint512_union signature;
-			signature = rai::sign_message (key.prv, key.pub, message);
 			size_t batch_count (1000);
-			std::vector<rai::public_key> public_keys (batch_count, key.pub);
-			std::vector<rai::uint256_union> messages (batch_count, message);
-			std::vector<rai::uint512_union> signatures (batch_count, signature);
-			int valid[batch_count];
+			rai::uint256_union message;
+			rai::uint512_union signature (rai::sign_message (key.prv, key.pub, message));
+			std::vector<unsigned char const *> messages (batch_count, message.bytes.data ());
+			std::vector<size_t> lengths (batch_count, sizeof (message));;
+			std::vector<unsigned char const *> pub_keys (batch_count, key.pub.bytes.data ());
+			std::vector<unsigned char const *> signatures (batch_count, signature.bytes.data ());
+			std::vector<int> verifications;
+			verifications.resize (batch_count);
 			auto begin (std::chrono::high_resolution_clock::now ());
-			auto result (rai::validate_messages (public_keys, messages, signatures, batch_count, valid));
+			auto code (ed25519_sign_open_batch (messages.data (), lengths.data (), pub_keys.data (), signatures.data (), batch_count, verifications.data ()));
+			(void)code;
 			auto end (std::chrono::high_resolution_clock::now ());
-			std::cerr << "Batch signature verifications " << std::chrono::duration_cast<std::chrono::microseconds> (end - begin).count () << std::endl;*/
+			std::cerr << "Batch signature verifications " << std::chrono::duration_cast<std::chrono::microseconds> (end - begin).count () << std::endl;
 		}
 		else if (vm.count ("debug_profile_sign"))
 		{
