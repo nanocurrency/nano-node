@@ -21,8 +21,6 @@
 
 #include <upnpcommands.h>
 
-#include <ed25519-donna/ed25519.h>
-
 double constexpr rai::node::price_max;
 double constexpr rai::node::free_cutoff;
 std::chrono::seconds constexpr rai::node::period;
