@@ -19,6 +19,7 @@ public:
 	rai::store_iterator_impl & operator= (rai::store_iterator_impl && other_a);
 	rai::store_iterator_impl & operator= (rai::store_iterator_impl const &) = delete;
 	std::pair<rai::mdb_val, rai::mdb_val> * operator-> ();
+	bool operator== (rai::store_iterator_impl const * other_a) const;
 	bool operator== (rai::store_iterator_impl const & other_a) const;
 	bool operator!= (rai::store_iterator_impl const & other_a) const;
 	void next_dup ();
