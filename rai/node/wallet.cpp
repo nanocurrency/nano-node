@@ -12,8 +12,6 @@
 
 #include <future>
 
-#include <ed25519-donna/ed25519.h>
-
 rai::uint256_union rai::wallet_store::check (MDB_txn * transaction_a)
 {
 	rai::wallet_value value (entry_get_raw (transaction_a, rai::wallet_store::check_special));
@@ -59,13 +57,12 @@ rai::public_key rai::wallet_store::deterministic_insert (MDB_txn * transaction_a
 	auto index (deterministic_index_get (transaction_a));
 	rai::raw_key prv;
 	deterministic_key (prv, transaction_a, index);
-	rai::public_key result;
-	ed25519_publickey (prv.data.bytes.data (), result.bytes.data ());
+	rai::public_key result (rai::pub_key (prv.data));
 	while (exists (transaction_a, result))
 	{
 		++index;
 		deterministic_key (prv, transaction_a, index);
-		ed25519_publickey (prv.data.bytes.data (), result.bytes.data ());
+		result = rai::pub_key (prv.data);
 	}
 	uint64_t marker (1);
 	marker <<= 32;
@@ -411,8 +408,7 @@ rai::account rai::wallet_store::representative (MDB_txn * transaction_a)
 rai::public_key rai::wallet_store::insert_adhoc (MDB_txn * transaction_a, rai::raw_key const & prv)
 {
 	assert (valid_password (transaction_a));
-	rai::public_key pub;
-	ed25519_publickey (prv.data.bytes.data (), pub.bytes.data ());
+	rai::public_key pub (rai::pub_key (prv.data));
 	rai::raw_key password_l;
 	wallet_key (password_l, transaction_a);
 	rai::uint256_union ciphertext;
@@ -522,8 +518,7 @@ bool rai::wallet_store::fetch (MDB_txn * transaction_a, rai::public_key const & 
 	}
 	if (!result)
 	{
-		rai::public_key compare;
-		ed25519_publickey (prv.data.bytes.data (), compare.bytes.data ());
+		rai::public_key compare (rai::pub_key (prv.data));
 		if (!(pub == compare))
 		{
 			result = true;
@@ -661,8 +656,7 @@ void rai::wallet_store::upgrade_v1_v2 ()
 			// Key failed to decrypt despite valid password
 			rai::wallet_value data (entry_get_raw (transaction, key));
 			prv.decrypt (data.key, zero_password, salt (transaction).owords[0]);
-			rai::public_key compare;
-			ed25519_publickey (prv.data.bytes.data (), compare.bytes.data ());
+			rai::public_key compare (rai::pub_key (prv.data));
 			if (compare == key)
 			{
 				// If we successfully decrypted it, rewrite the key back with the correct wallet key
@@ -673,8 +667,7 @@ void rai::wallet_store::upgrade_v1_v2 ()
 				// Also try the empty password
 				rai::wallet_value data (entry_get_raw (transaction, key));
 				prv.decrypt (data.key, empty_password, salt (transaction).owords[0]);
-				rai::public_key compare;
-				ed25519_publickey (prv.data.bytes.data (), compare.bytes.data ());
+				rai::public_key compare (rai::pub_key (prv.data));
 				if (compare == key)
 				{
 					// If we successfully decrypted it, rewrite the key back with the correct wallet key

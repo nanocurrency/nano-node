@@ -3,8 +3,6 @@
 #include <rai/lib/interface.h>
 #include <rai/secure/common.hpp>
 
-#include <ed25519-donna/ed25519.h>
-
 TEST (uint128_union, decode_dec)
 {
 	rai::uint128_union value;
@@ -115,8 +113,7 @@ TEST (uint256_union, key_encryption)
 	rai::raw_key key4;
 	key4.decrypt (encrypted, secret_key, key1.pub.owords[0]);
 	ASSERT_EQ (key1.prv, key4);
-	rai::public_key pub;
-	ed25519_publickey (key4.data.bytes.data (), pub.bytes.data ());
+	rai::public_key pub (rai::pub_key (key4.data));
 	ASSERT_EQ (key1.pub, pub);
 }
 
