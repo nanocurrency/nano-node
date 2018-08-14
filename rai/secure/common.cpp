@@ -9,8 +9,6 @@
 
 #include <queue>
 
-#include <ed25519-donna/ed25519.h>
-
 // Genesis keys for network variants
 namespace
 {
@@ -111,14 +109,14 @@ rai::account const & rai::burn_account (globals.burn_account);
 rai::keypair::keypair ()
 {
 	random_pool.GenerateBlock (prv.data.bytes.data (), prv.data.bytes.size ());
-	ed25519_publickey (prv.data.bytes.data (), pub.bytes.data ());
+	pub = rai::pub_key (prv.data);
 }
 
 // Create a keypair given a private key
 rai::keypair::keypair (rai::raw_key && prv_a) :
 prv (std::move (prv_a))
 {
-	ed25519_publickey (prv.data.bytes.data (), pub.bytes.data ());
+	pub = rai::pub_key (prv.data);
 }
 
 // Create a keypair given a hex string of the private key
@@ -126,7 +124,7 @@ rai::keypair::keypair (std::string const & prv_a)
 {
 	auto error (prv.data.decode_hex (prv_a));
 	assert (!error);
-	ed25519_publickey (prv.data.bytes.data (), pub.bytes.data ());
+	pub = rai::pub_key (prv.data);
 }
 
 // Serialize a block prefixed with an 8-bit typecode

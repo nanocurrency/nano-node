@@ -1,4 +1,3 @@
-#include <ed25519-donna/ed25519.h>
 #include <rai/lib/interface.h>
 #include <rai/node/cli.hpp>
 #include <rai/node/common.hpp>
@@ -280,8 +279,7 @@ std::error_code rai::handle_node_options (boost::program_options::variables_map 
 		{
 			rai::uint256_union prv;
 			prv.decode_hex (vm["key"].as<std::string> ());
-			rai::uint256_union pub;
-			ed25519_publickey (prv.bytes.data (), pub.bytes.data ());
+			rai::uint256_union pub (rai::pub_key (prv));
 			std::cout << "Private: " << prv.to_string () << std::endl
 			          << "Public: " << pub.to_string () << std::endl
 			          << "Account: " << pub.to_account () << std::endl;
