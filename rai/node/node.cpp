@@ -3759,6 +3759,7 @@ void rai::active_transactions::announce_votes ()
 				// Broadcast winner
 				if (node.ledger.could_fit (transaction, *election_l->status.winner))
 				{
+					election_l->compute_rep_votes (transaction);
 					if (std::chrono::system_clock::now () >= node.config.generate_hash_votes_at)
 					{
 						node.network.republish_block (transaction, election_l->status.winner, false);
@@ -3774,7 +3775,6 @@ void rai::active_transactions::announce_votes ()
 					}
 					else
 					{
-						election_l->compute_rep_votes (transaction);
 						node.network.republish_block (transaction, election_l->status.winner);
 					}
 				}
