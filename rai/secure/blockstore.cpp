@@ -155,6 +155,11 @@ bool rai::store_iterator_impl::operator== (rai::store_iterator_impl const & othe
 	return result;
 }
 
+bool rai::store_iterator_impl::operator== (rai::store_iterator_impl const * other_a) const
+{
+	return (other_a != nullptr && *this == *other_a) || (other_a == nullptr && current.first.size() == 0);
+}
+
 bool rai::store_iterator_impl::operator!= (rai::store_iterator_impl const & other_a) const
 {
 	return !(*this == other_a);
@@ -398,14 +403,13 @@ std::pair<rai::mdb_val, rai::mdb_val> * rai::store_iterator::operator-> ()
 }
 
 rai::store_iterator::store_iterator (std::nullptr_t) :
-impl (std::make_unique<rai::store_iterator_impl> (nullptr))
+impl (nullptr)
 {
 }
 
 rai::store_iterator::store_iterator (std::unique_ptr<rai::store_iterator_impl> impl_a) :
 impl (std::move (impl_a))
 {
-	assert (impl != nullptr);
 }
 
 rai::store_iterator::store_iterator (rai::store_iterator && other_a) :
@@ -427,7 +431,7 @@ rai::store_iterator & rai::store_iterator::operator= (rai::store_iterator && oth
 
 bool rai::store_iterator::operator== (rai::store_iterator const & other_a) const
 {
-	return *impl == *other_a.impl;
+	return (impl == nullptr && other_a.impl == nullptr) || (impl != nullptr && *impl == other_a.impl.get ()) || (other_a.impl != nullptr && *other_a.impl == impl.get ());
 }
 
 bool rai::store_iterator::operator!= (rai::store_iterator const & other_a) const
