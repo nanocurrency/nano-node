@@ -157,7 +157,7 @@ bool rai::store_iterator_impl::operator== (rai::store_iterator_impl const & othe
 
 bool rai::store_iterator_impl::operator== (rai::store_iterator_impl const * other_a) const
 {
-	return (other_a != nullptr && *this == *other_a) || (other_a == nullptr && current.first.size() == 0);
+	return (other_a != nullptr && *this == *other_a) || (other_a == nullptr && current.first.size () == 0);
 }
 
 bool rai::store_iterator_impl::operator!= (rai::store_iterator_impl const & other_a) const
