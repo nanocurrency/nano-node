@@ -314,7 +314,7 @@ int main (int argc, char * const * argv)
 			rai::uint256_union message;
 			rai::uint512_union signature (rai::sign_message (key.prv, key.pub, message));
 			std::vector<unsigned char const *> messages (batch_count, message.bytes.data ());
-			std::vector<size_t> lengths (batch_count, sizeof (message));;
+			std::vector<size_t> lengths (batch_count, sizeof (message));
 			std::vector<unsigned char const *> pub_keys (batch_count, key.pub.bytes.data ());
 			std::vector<unsigned char const *> signatures (batch_count, signature.bytes.data ());
 			std::vector<int> verifications;

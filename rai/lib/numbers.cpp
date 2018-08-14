@@ -435,7 +435,7 @@ bool rai::validate_message (rai::public_key const & public_key, rai::uint256_uni
 	return result;
 }
 
-bool rai::validate_message_batch (const unsigned char **m, size_t *mlen, const unsigned char **pk, const unsigned char **RS, size_t num, int *valid)
+bool rai::validate_message_batch (const unsigned char ** m, size_t * mlen, const unsigned char ** pk, const unsigned char ** RS, size_t num, int * valid)
 {
 	bool result (0 == ed25519_sign_open_batch (m, mlen, pk, RS, num, valid));
 	return result;
