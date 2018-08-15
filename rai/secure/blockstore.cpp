@@ -181,7 +181,7 @@ std::pair<MDB_cursor *, std::pair<rai::mdb_val, rai::mdb_val> *> rai::store_merg
 	std::pair<MDB_cursor *, std::pair<rai::mdb_val, rai::mdb_val> *> result;
 	if (current1.first.data () && current2.first.data ())
 	{
-		auto first_cmp (std::memcmp (current1.first.data (), current2.first.data (), std::min (current1.first.size (), current2.first.size ())));
+		auto first_cmp (mdb_cmp (mdb_cursor_txn (cursor1), mdb_cursor_dbi (cursor1), current1.first, current2.first));
 		if (first_cmp < 0 || (first_cmp == 0 && current1.first.size () < current2.first.size ()))
 		{
 			result = std::make_pair (cursor1, &current1);
@@ -192,7 +192,7 @@ std::pair<MDB_cursor *, std::pair<rai::mdb_val, rai::mdb_val> *> rai::store_merg
 		}
 		else
 		{
-			auto second_cmp (std::memcmp (current1.second.data (), current2.second.data (), std::min (current1.second.size (), current2.second.size ())));
+			auto second_cmp (mdb_cmp (mdb_cursor_txn (cursor1), mdb_cursor_dbi (cursor1), current1.second, current2.second));
 			if (second_cmp < 0 || (second_cmp == 0 && current1.second.size () < current2.second.size ()))
 			{
 				result = std::make_pair (cursor1, &current1);
