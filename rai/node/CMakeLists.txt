@@ -58,6 +58,12 @@ ExternalProject_Add_Step(curve25519_dalek_c forcebuild
 
 add_dependencies (node curve25519_dalek_c)
 
+if (WIN32)
+	set (STATIC_LIB_POSTFIX .lib)
+else ()
+	set (STATIC_LIB_POSTFIX .a)
+endif ()
+
 target_link_libraries (node
 	secure
 	rai_lib
@@ -71,8 +77,8 @@ target_link_libraries (node
 	Boost::system
 	Boost::thread
 	Boost::boost
-	debug "${CMAKE_SOURCE_DIR}/curve25519_dalek_c/target/debug/libcurve25519_dalek_c.a"
-    optimized "${CMAKE_SOURCE_DIR}/curve25519_dalek_c/target/release/libcurve25519_dalek_c.a"
+	debug "${CMAKE_SOURCE_DIR}/curve25519_dalek_c/target/debug/libcurve25519_dalek_c${STATIC_LIB_POSTFIX}"
+	optimized "${CMAKE_SOURCE_DIR}/curve25519_dalek_c/target/release/libcurve25519_dalek_c${STATIC_LIB_POSTFIX}"
 	${CMAKE_DL_LIBS}
 	)
 
