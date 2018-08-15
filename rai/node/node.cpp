@@ -554,7 +554,7 @@ void rai::rep_xor_solver::calculate_top_reps ()
 		rai::transaction transaction (node.store.environment, nullptr, false);
 		for (auto i (node.store.representation_begin (transaction)), n (node.store.representation_end ()); i != n; ++i)
 		{
-			representatives.push_back (std::make_pair (i->second.uint128 ().number (), i->first.uint256 ()));
+			representatives.push_back (std::make_pair (rai::uint128_union (i->second).number (), rai::uint256_union (i->first)));
 		}
 	}
 	std::sort (representatives.begin (), representatives.end (), std::greater<> ());
@@ -1361,7 +1361,7 @@ void rai::vote_staple_requester::calculate_weight_cutoff ()
 	rai::transaction transaction (node.store.environment, nullptr, false);
 	for (auto i (node.store.representation_begin (transaction)), n (node.store.representation_end ()); i != n; ++i)
 	{
-		representation.push_back (i->second.uint128 ().number ());
+		representation.push_back (rai::uint128_union (i->second).number ());
 	}
 	std::sort (representation.begin (), representation.end (), std::greater<> ());
 	if (representation.size () > node.top_reps_generation_cutoff)
