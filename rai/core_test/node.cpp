@@ -1736,7 +1736,7 @@ TEST (node, vote_stapling)
 	system.nodes[4]->stop ();
 	// Setup is finished; test that vote stapling works
 	auto previous_count (system.nodes[1]->stats.count (rai::stat::type::message, rai::stat::detail::publish_vote_staple, rai::stat::dir::out));
-	auto send_block (system.wallet (1)->send_action (rep4.pub, rep2.pub, system.nodes[0]->config.receive_minimum.number ()));
+	auto send_block (system.wallet (1)->send_action (rep1.pub, rep2.pub, system.nodes[0]->config.receive_minimum.number ()));
 	ASSERT_NE (nullptr, send_block);
 	system.deadline_set (5s);
 	while (system.nodes[1]->stats.count (rai::stat::type::message, rai::stat::detail::publish_vote_staple, rai::stat::dir::out) == previous_count)
