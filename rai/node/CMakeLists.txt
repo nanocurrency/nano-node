@@ -48,8 +48,7 @@ ExternalProject_Add(
 	CONFIGURE_COMMAND ""
 	BUILD_COMMAND cargo build COMMAND cargo build --release
 	BINARY_DIR "${CMAKE_SOURCE_DIR}/curve25519_dalek_c"
-	INSTALL_COMMAND ""
-	LOG_BUILD ON)
+	INSTALL_COMMAND "")
 
 ExternalProject_Add_Step(curve25519_dalek_c forcebuild
     COMMAND ${CMAKE_COMMAND} -E echo "Force build of curve25519_dalek_c"
