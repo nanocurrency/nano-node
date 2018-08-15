@@ -1612,6 +1612,51 @@ TEST (node, confirm_quorum)
 	ASSERT_EQ (0, system.nodes[0]->balance (rai::test_genesis_key.pub));
 }
 
+TEST (node, vote_staple_requester)
+{
+	rai::system system (24000, 2);
+	rai::keypair other_rep;
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	system.wallet (1)->insert_adhoc (other_rep.prv);
+	// Since we're dealing in extremely large amounts, vote stapling won't work here
+	// the stake would change too much from the send
+	auto stake_send (std::make_shared<rai::send_block> (system.nodes[0]->latest (rai::genesis_account), other_rep.pub, rai::genesis_amount / 2, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
+	system.nodes[0]->work_generate_blocking (*stake_send);
+	system.nodes[0]->process_active (stake_send);
+	auto stake_recv (std::make_shared<rai::open_block> (stake_send->hash (), other_rep.pub, other_rep.pub, other_rep.prv, other_rep.pub, 0));
+	system.nodes[0]->work_generate_blocking (*stake_recv);
+	system.nodes[0]->process_active (stake_recv);
+	auto iterations (0);
+	while (std::any_of (system.nodes.begin (), system.nodes.end (), [&](std::shared_ptr<rai::node> const & node_a) { return node_a->balance (other_rep.pub).is_zero (); }))
+	{
+		system.poll ();
+		++iterations;
+		ASSERT_LT (iterations, 200);
+	}
+	system.nodes[0]->online_reps.online_stake_total = std::numeric_limits<rai::uint128_t>::max();
+	std::atomic<bool> completed (false);
+	auto new_block (std::make_shared<rai::state_block> (rai::genesis_account, stake_send->hash (), rai::genesis_account, system.nodes[0]->balance (rai::genesis_account) - 1, rai::account (0), rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
+	system.nodes[0]->work_generate_blocking (*new_block);
+	system.nodes[0]->vote_staple_requester.force_full_broadcast = true;
+	system.nodes[0]->vote_staple_requester.request_staple (new_block, [&](bool err, rai::uint256_union reps_xor, rai::signature signature) {
+		ASSERT_FALSE (err);
+		ASSERT_EQ (rai::genesis_account ^ other_rep.pub, reps_xor);
+		system.nodes[0]->rep_xor_solver.calculate_top_reps ();
+		auto validation (system.nodes[0]->rep_xor_solver.validate_staple (new_block->hash (), reps_xor, signature));
+		ASSERT_EQ (rai::genesis_amount, validation.first);
+		ASSERT_EQ (1, validation.second);
+		ASSERT_FALSE (system.nodes[1]->block (new_block->hash ()));
+		completed.store (true);
+	});
+	iterations = 0;
+	while (!completed.load ())
+	{
+		system.poll ();
+		++iterations;
+		ASSERT_LT (iterations, 500);
+	}
+}
+
 TEST (node, vote_stapling)
 {
 	rai::system system (24000, 5);

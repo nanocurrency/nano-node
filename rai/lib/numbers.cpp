@@ -132,6 +132,11 @@ rai::uint256_union::uint256_union (rai::uint256_t const & number_a)
 	}
 }
 
+rai::uint256_union::uint256_union (std::array<uint8_t, 32> bytes_a)
+{
+	bytes = bytes_a;
+}
+
 bool rai::uint256_union::operator== (rai::uint256_union const & other_a) const
 {
 	return bytes == other_a.bytes;

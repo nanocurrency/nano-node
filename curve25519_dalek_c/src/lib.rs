@@ -6,8 +6,18 @@ use curve25519_dalek::constants::ED25519_BASEPOINT_TABLE;
 use std::ptr;
 
 #[no_mangle]
+pub unsafe extern "C" fn curve25519_dalek_scalar_zero() -> *mut Scalar {
+    Box::into_raw(Box::new(Scalar::zero()))
+}
+
+#[no_mangle]
 pub unsafe extern "C" fn curve25519_dalek_expand_scalar(bytes: *const [u8; 32]) -> *mut Scalar {
     Box::into_raw(Box::new(Scalar::from_bytes_mod_order(*bytes)))
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn curve25519_dalek_expand_scalar_wide(bytes: *const [u8; 64]) -> *mut Scalar {
+    Box::into_raw(Box::new(Scalar::from_bytes_mod_order_wide(&*bytes)))
 }
 
 #[no_mangle]
@@ -21,13 +31,21 @@ pub unsafe extern "C" fn curve25519_dalek_multiply_scalars(scalar1: *const Scala
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn curve25519_destroy_scalar(scalar: *mut Scalar) {
-    Box::from_raw(scalar);
+pub unsafe extern "C" fn curve25519_dalek_clone_scalar(scalar: *const Scalar) -> *mut Scalar {
+    if scalar.is_null () {
+        return ptr::null_mut ();
+    }
+    Box::into_raw(Box::new((&*scalar).clone()))
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn curve25519_dalek_compress_scalar(out_bytes: *mut [u8; 32], scalar: *const Scalar) {
     (&mut *out_bytes).copy_from_slice((&*scalar).as_bytes())
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn curve25519_dalek_destroy_scalar(scalar: *mut Scalar) {
+    Box::from_raw(scalar);
 }
 
 #[no_mangle]
@@ -49,11 +67,24 @@ pub unsafe extern "C" fn curve25519_dalek_add_curve_points(curve_point1: *const 
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn curve25519_destroy_curve_point(curve_point: *mut EdwardsPoint) {
-    Box::from_raw(curve_point);
+pub unsafe extern "C" fn curve25519_dalek_multiply_curve_point_by_scalar(curve_point: *const EdwardsPoint, scalar: *const Scalar) -> *mut EdwardsPoint {
+    Box::into_raw(Box::new(&*curve_point * &*scalar))
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn curve25519_dalek_clone_curve_point(curve_point: *const EdwardsPoint) -> *mut EdwardsPoint {
+    if curve_point.is_null () {
+        return ptr::null_mut ();
+    }
+    Box::into_raw(Box::new((&*curve_point).clone()))
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn curve25519_dalek_compress_curve_point(out_bytes: *mut [u8; 32], curve_point: *const EdwardsPoint) {
     *out_bytes = (&*curve_point).compress().to_bytes();
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn curve25519_dalek_destroy_curve_point(curve_point: *mut EdwardsPoint) {
+    Box::from_raw(curve_point);
 }

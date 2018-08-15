@@ -2,6 +2,7 @@
 
 #include <rai/lib/work.hpp>
 #include <rai/node/bootstrap.hpp>
+#include <rai/node/curve25519_dalek.hpp>
 #include <rai/node/stats.hpp>
 #include <rai/node/wallet.hpp>
 #include <rai/secure/ledger.hpp>
@@ -682,10 +683,10 @@ public:
 class musig_stage0_status
 {
 public:
-	musig_stage0_status (std::unordered_map<rai::account, std::vector<rai::endpoint>>);
+	musig_stage0_status (std::unordered_map<rai::account, std::unordered_set<rai::endpoint>>);
 	std::map<rai::account, rai::uint256_union> rb_values;
 	rai::uint128_t vote_weight_collected;
-	std::unordered_map<rai::account, std::vector<rai::endpoint>> rep_endpoints;
+	std::unordered_map<rai::account, std::unordered_set<rai::endpoint>> rep_endpoints;
 };
 class vote_staple_requester
 {
@@ -703,11 +704,11 @@ public:
 	std::unordered_map<rai::uint256_union, rai::block_hash> stage1_sb_needed;
 	std::unordered_map<rai::block_hash, rai::uint256_union> stage0_rb_totals;
 	// Maps block hashes to a pair of the number of remaining s elements and the running total
-	std::unordered_map<rai::block_hash, std::pair<size_t, std::array<bignum256modm_element_t, bignum256modm_limb_size>>> stage1_running_s_total;
+	std::unordered_map<rai::block_hash, std::pair<size_t, rai::curve25519_scalar>> stage1_running_s_total;
 	std::unordered_set<rai::account> blacklisted_reps;
 	std::unordered_set<rai::block_hash> full_broadcast_blocks;
 	rai::uint128_t weight_cutoff;
-	std::unordered_map<rai::account, std::queue<std::pair<std::shared_ptr<rai::state_block>, std::function<void (bool, rai::uint256_union, rai::signature)>>>> accounts_queue;
+	std::unordered_map<rai::account, std::queue<std::pair<std::shared_ptr<rai::state_block>, std::function<void(bool, rai::uint256_union, rai::signature)>>>> accounts_queue;
 	std::mutex mutex;
 	bool force_full_broadcast;
 	rai::node & node;

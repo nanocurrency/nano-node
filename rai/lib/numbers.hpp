@@ -57,6 +57,7 @@ union uint256_union
 	uint256_union (std::string const &);
 	uint256_union (uint64_t);
 	uint256_union (rai::uint256_t const &);
+	uint256_union (std::array<uint8_t, 32>);
 	void encrypt (rai::raw_key const &, rai::raw_key const &, uint128_union const &);
 	uint256_union & operator^= (rai::uint256_union const &);
 	uint256_union operator^ (rai::uint256_union const &) const;
