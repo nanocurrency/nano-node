@@ -23,7 +23,6 @@ cache:
       - $HOME/Library/Caches/Homebrew
       - $HOME/.cargo
       - $TRAVIS_BUILD_DIR/load-tester/target
-      - $TRAVIS_BUILD_DIR/curve25519_dalek_c/target
 
 before_install:
   - if [ "$TRAVIS_OS_NAME" = "osx" ]; then brew update && brew install qt5 && brew cask install xquartz && brew install rust; fi
