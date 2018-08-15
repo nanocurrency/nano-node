@@ -24,6 +24,7 @@ public:
 	bool operator!= (rai::store_iterator_impl const & other_a) const;
 	void next_dup ();
 	void clear ();
+	bool is_end_sentinal () const;
 	MDB_cursor * cursor;
 	std::pair<rai::mdb_val, rai::mdb_val> current;
 };

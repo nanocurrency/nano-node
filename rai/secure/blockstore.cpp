@@ -159,7 +159,7 @@ bool rai::store_iterator_impl::operator== (rai::store_iterator_impl const & othe
 
 bool rai::store_iterator_impl::operator== (rai::store_iterator_impl const * other_a) const
 {
-	return (other_a != nullptr && *this == *other_a) || (other_a == nullptr && current.first.size () == 0);
+	return (other_a != nullptr && *this == *other_a) || (other_a == nullptr && is_end_sentinal ());
 }
 
 bool rai::store_iterator_impl::operator!= (rai::store_iterator_impl const & other_a) const
@@ -181,6 +181,12 @@ void rai::store_iterator_impl::clear ()
 {
 	current.first = rai::mdb_val (current.first.epoch);
 	current.second = rai::mdb_val (current.second.epoch);
+	assert (is_end_sentinal ());
+}
+
+bool rai::store_iterator_impl::is_end_sentinal () const
+{
+	return current.first.size () == 0;
 }
 
 rai::store_iterator_impl & rai::store_merge_iterator::operator-> ()
