@@ -26,13 +26,15 @@ class curve25519_curve_point;
 
 class curve25519_scalar
 {
-friend curve25519_curve_point;
+	friend curve25519_curve_point;
+
 protected:
 	curve25519_dalek_scalar * inner;
 	curve25519_scalar (curve25519_dalek_scalar * inner_a) :
 	inner (inner_a)
 	{
 	}
+
 public:
 	curve25519_scalar () :
 	inner (curve25519_dalek_scalar_zero ())
@@ -71,12 +73,12 @@ public:
 	{
 		return curve25519_scalar (curve25519_dalek_multiply_scalars (inner, other.inner));
 	}
-    std::array<uint8_t, 32> to_bytes () const
-    {
-        std::array<uint8_t, 32> result;
-        curve25519_dalek_compress_scalar (result.data (), inner);
-        return result;
-    }
+	std::array<uint8_t, 32> to_bytes () const
+	{
+		std::array<uint8_t, 32> result;
+		curve25519_dalek_compress_scalar (result.data (), inner);
+		return result;
+	}
 };
 
 class curve25519_curve_point
@@ -87,12 +89,13 @@ protected:
 	inner (inner_a)
 	{
 	}
-    // Warning: inner may be null after this function.
-    // Use the builder from_bytes instead
+	// Warning: inner may be null after this function.
+	// Use the builder from_bytes instead
 	curve25519_curve_point (uint8_t const * bytes) :
 	inner (curve25519_dalek_expand_curve_point (bytes))
 	{
 	}
+
 public:
 	curve25519_curve_point (const curve25519_curve_point & other) :
 	inner (curve25519_dalek_clone_curve_point (other.inner))
@@ -118,16 +121,16 @@ public:
 		}
 		return *this;
 	}
-    static boost::optional<curve25519_curve_point> from_bytes (uint8_t const * bytes)
-    {
-        boost::optional<curve25519_curve_point> result;
-        curve25519_curve_point obj (bytes);
-        if (obj.inner)
-        {
-            result = obj;
-        }
-        return result;
-    }
+	static boost::optional<curve25519_curve_point> from_bytes (uint8_t const * bytes)
+	{
+		boost::optional<curve25519_curve_point> result;
+		curve25519_curve_point obj (bytes);
+		if (obj.inner)
+		{
+			result = obj;
+		}
+		return result;
+	}
 	curve25519_curve_point operator+ (const curve25519_curve_point & other) const
 	{
 		return curve25519_curve_point (curve25519_dalek_add_curve_points (inner, other.inner));
@@ -136,11 +139,11 @@ public:
 	{
 		return curve25519_curve_point (curve25519_dalek_multiply_curve_point_by_scalar (inner, other.inner));
 	}
-    std::array<uint8_t, 32> to_bytes () const
-    {
-        std::array<uint8_t, 32> result;
-        curve25519_dalek_compress_curve_point (result.data (), inner);
-        return result;
-    }
+	std::array<uint8_t, 32> to_bytes () const
+	{
+		std::array<uint8_t, 32> result;
+		curve25519_dalek_compress_curve_point (result.data (), inner);
+		return result;
+	}
 };
 }

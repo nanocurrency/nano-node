@@ -1633,7 +1633,7 @@ TEST (node, vote_staple_requester)
 		++iterations;
 		ASSERT_LT (iterations, 200);
 	}
-	system.nodes[0]->online_reps.online_stake_total = std::numeric_limits<rai::uint128_t>::max();
+	system.nodes[0]->online_reps.online_stake_total = std::numeric_limits<rai::uint128_t>::max ();
 	std::atomic<bool> completed (false);
 	auto new_block (std::make_shared<rai::state_block> (rai::genesis_account, stake_send->hash (), rai::genesis_account, system.nodes[0]->balance (rai::genesis_account) - 1, rai::account (0), rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
 	system.nodes[0]->work_generate_blocking (*new_block);
