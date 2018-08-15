@@ -3,8 +3,8 @@ name = "curve25519_dalek_c"
 version = "0.1.0"
 authors = ["Lee Bousfield <ljbousfield@gmail.com>"]
 
-[dependencies.curve25519-dalek]
-version = "0.15.0"
+[dependencies]
+curve25519-dalek = "0.15.0"
 
 [lib]
 crate-type = ["staticlib"]
