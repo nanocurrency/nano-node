@@ -1102,11 +1102,14 @@ public:
 			staple_info = node.rep_xor_solver.validate_staple (message_a.block->hash (), message_a.reps_xor, message_a.signature);
 		}
 		node.peers.contacted (sender, message_a.header.version_using);
-		auto confirmed (staple_info.first >= node.online_reps.online_stake () / 5 * 3 && staple_info.second <= node.top_reps_confirmation_cutoff);
-		if (!node.block_arrival.add (message_a.block->hash (), std::make_pair (message_a.reps_xor, message_a.signature), confirmed, staple_info.first))
+		if (staple_info.first >= node.online_reps.online_stake () / 100 * 55)
 		{
-			auto block_l (std::static_pointer_cast<rai::block> (message_a.block));
-			node.block_processor.add (block_l, std::chrono::steady_clock::now ());
+			auto confirmed (staple_info.first >= node.online_reps.online_stake () / 5 * 3 && staple_info.second <= node.top_reps_confirmation_cutoff);
+			if (!node.block_arrival.add (message_a.block->hash (), std::make_pair (message_a.reps_xor, message_a.signature), confirmed, staple_info.first))
+			{
+				auto block_l (std::static_pointer_cast<rai::block> (message_a.block));
+				node.block_processor.add (block_l, std::chrono::steady_clock::now ());
+			}
 		}
 	}
 	rai::node & node;
