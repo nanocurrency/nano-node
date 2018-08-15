@@ -578,6 +578,7 @@ void rai::rep_xor_solver::calculate_top_reps ()
 namespace
 {
 #ifdef _MSC_VER
+#include <intrin.h>
 bool parity_odd (uint64_t input)
 {
 	return __popcnt64 (input) % 2;
@@ -752,66 +753,77 @@ std::pair<rai::uint128_t, size_t> rai::rep_xor_solver::validate_staple (rai::blo
 	std::unique_lock<std::mutex> lock (mutex);
 	auto possibilities (solve_xor_check (top_rep_pointers, reps_xor.qwords.data (), sizeof (rai::account) / sizeof (uint64_t), node.xor_check_possibilities_cap_log2));
 	std::vector<rai::account> solution;
-	for (auto possibility : possibilities)
+	auto recalculated_top_reps (false);
+	while (solution.empty ())
 	{
-		rai::uint256_union l_base;
-		blake2b_state l_base_hasher;
-		blake2b_init (&l_base_hasher, sizeof (l_base));
-		std::sort (possibility.begin (), possibility.end (), [](uint64_t * a, uint64_t * b) {
-			return *reinterpret_cast<rai::account *> (a) < *reinterpret_cast<rai::account *> (b);
-		});
-		for (auto rep : possibility)
+		for (auto possibility : possibilities)
 		{
-			blake2b_update (&l_base_hasher, rep, sizeof (rai::account));
-		}
-		blake2b_final (&l_base_hasher, l_base.bytes.data (), sizeof (l_base));
-		boost::optional<rai::curve25519_curve_point> agg_pubkey_expanded;
-		for (auto rep : possibility)
-		{
-			rai::uint256_union l_value;
-			blake2b_state l_value_hasher;
-			blake2b_init (&l_value_hasher, sizeof (l_value));
-			blake2b_update (&l_value_hasher, l_base.bytes.data (), sizeof (l_base));
-			blake2b_update (&l_value_hasher, rep, sizeof (rai::account));
-			blake2b_final (&l_value_hasher, l_value.bytes.data (), sizeof (l_value));
-			rai::curve25519_scalar l_value_scalar (l_value.bytes.data ());
-			auto pubkey (rai::curve25519_curve_point::from_bytes (reinterpret_cast<uint8_t *> (rep)));
-			if (!pubkey)
+			rai::uint256_union l_base;
+			blake2b_state l_base_hasher;
+			blake2b_init (&l_base_hasher, sizeof (l_base));
+			std::sort (possibility.begin (), possibility.end (), [](uint64_t * a, uint64_t * b) {
+				return *reinterpret_cast<rai::account *> (a) < *reinterpret_cast<rai::account *> (b);
+			});
+			for (auto rep : possibility)
 			{
-				agg_pubkey_expanded = boost::none;
-				break;
+				blake2b_update (&l_base_hasher, rep, sizeof (rai::account));
 			}
-			*pubkey = *pubkey * l_value_scalar;
+			blake2b_final (&l_base_hasher, l_base.bytes.data (), sizeof (l_base));
+			boost::optional<rai::curve25519_curve_point> agg_pubkey_expanded;
+			for (auto rep : possibility)
+			{
+				rai::uint256_union l_value;
+				blake2b_state l_value_hasher;
+				blake2b_init (&l_value_hasher, sizeof (l_value));
+				blake2b_update (&l_value_hasher, l_base.bytes.data (), sizeof (l_base));
+				blake2b_update (&l_value_hasher, rep, sizeof (rai::account));
+				blake2b_final (&l_value_hasher, l_value.bytes.data (), sizeof (l_value));
+				rai::curve25519_scalar l_value_scalar (l_value.bytes.data ());
+				auto pubkey (rai::curve25519_curve_point::from_bytes (reinterpret_cast<uint8_t *> (rep)));
+				if (!pubkey)
+				{
+					agg_pubkey_expanded = boost::none;
+					break;
+				}
+				*pubkey = *pubkey * l_value_scalar;
+				if (agg_pubkey_expanded)
+				{
+					*agg_pubkey_expanded = *agg_pubkey_expanded + *pubkey;
+				}
+				else
+				{
+					agg_pubkey_expanded = *pubkey;
+				}
+			}
 			if (agg_pubkey_expanded)
 			{
-				*agg_pubkey_expanded = *agg_pubkey_expanded + *pubkey;
-			}
-			else
-			{
-				agg_pubkey_expanded = *pubkey;
-			}
-		}
-		if (agg_pubkey_expanded)
-		{
-			rai::public_key agg_pubkey (agg_pubkey_expanded->to_bytes ());
-			if (!rai::validate_message (agg_pubkey, block_hash, signature))
-			{
-				for (auto rep : possibility)
+				rai::public_key agg_pubkey (agg_pubkey_expanded->to_bytes ());
+				if (!rai::validate_message (agg_pubkey, block_hash, signature))
 				{
-					solution.push_back (*reinterpret_cast<rai::account *> (rep));
+					for (auto rep : possibility)
+					{
+						solution.push_back (*reinterpret_cast<rai::account *> (rep));
+					}
+					break;
 				}
-				break;
+				else
+				{
+					assert (false);
+				}
 			}
 		}
-	}
-	if (solution.empty ())
-	{
-		if (std::chrono::steady_clock::now () - last_calculated_top_reps >= std::chrono::seconds (30))
+		if (rai::rai_network != rai::rai_networks::rai_test_network && std::chrono::steady_clock::now () - last_calculated_top_reps < std::chrono::seconds (30))
 		{
-			lock.unlock ();
-			calculate_top_reps ();
-			return validate_staple (block_hash, reps_xor, signature);
+			break;
 		}
+		if (recalculated_top_reps)
+		{
+			break;
+		}
+		recalculated_top_reps = true;
+		lock.unlock ();
+		calculate_top_reps ();
+		lock.lock ();
 	}
 	rai::transaction transaction (node.store.environment, nullptr, false);
 	rai::uint128_t total_stake (0);
@@ -1091,15 +1103,15 @@ public:
 	}
 	void publish_vote_staple (rai::publish_vote_staple const & message_a) override
 	{
-		if (node.config.logging.network_musig_logging ())
-		{
-			BOOST_LOG (node.log) << boost::str (boost::format ("Publish vote staple for block %1% from %2% with reps xor %3% and signature %4%") % message_a.block->hash ().to_string () % sender % message_a.reps_xor.to_string () % message_a.signature.to_string ());
-		}
 		node.stats.inc (rai::stat::type::message, rai::stat::detail::publish_vote_staple, rai::stat::dir::in);
 		std::pair<rai::uint128_t, size_t> staple_info (0, std::numeric_limits<size_t>::max ());
 		if (!message_a.reps_xor.is_zero ())
 		{
 			staple_info = node.rep_xor_solver.validate_staple (message_a.block->hash (), message_a.reps_xor, message_a.signature);
+		}
+		if (node.config.logging.network_musig_logging ())
+		{
+			BOOST_LOG (node.log) << boost::str (boost::format ("Publish vote staple for block %1% from %2% with reps xor %3% and signature %4%; solved to weight total %5% with max rep position %6%") % message_a.block->hash ().to_string () % sender % message_a.reps_xor.to_string () % message_a.signature.to_string () % staple_info.first % staple_info.second);
 		}
 		node.peers.contacted (sender, message_a.header.version_using);
 		if (staple_info.first >= node.online_reps.online_stake () / 100 * 55)
