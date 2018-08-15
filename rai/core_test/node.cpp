@@ -1747,7 +1747,7 @@ TEST (node, vote_stapling)
 	while (!system.nodes[2]->block (send_block->hash ()))
 	{
 		ASSERT_NO_ERROR (system.poll ());
-		ASSERT_FALSE (std::any_of (system.nodes.begin (), system.nodes.end (), [&](std::shared_ptr<rai::node> const & node_a) { return node_a->active.active (*send_block); }));
+		ASSERT_FALSE (std::any_of (system.nodes.begin (), system.nodes.end () - 1, [&](std::shared_ptr<rai::node> const & node_a) { return node_a->active.active (*send_block); }));
 	}
 	auto & node2_confirmed (system.nodes[2]->active.confirmed);
 	while (!std::any_of (node2_confirmed.begin (), node2_confirmed.end (), [&](rai::election_status const & status_a) { return *status_a.winner == *send_block && status_a.stapled; }))
@@ -1755,7 +1755,7 @@ TEST (node, vote_stapling)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	system.deadline_set (5s);
-	while (std::any_of (system.nodes.begin (), system.nodes.end (), [&](std::shared_ptr<rai::node> const & node_a) { return node_a->balance (rep2.pub) <= rai::genesis_amount / 10 * 3; }))
+	while (std::any_of (system.nodes.begin (), system.nodes.end () - 1, [&](std::shared_ptr<rai::node> const & node_a) { return node_a->balance (rep2.pub) <= rai::genesis_amount / 10 * 3; }))
 	{
 		ASSERT_FALSE (std::any_of (system.nodes.begin (), system.nodes.end (), [&](std::shared_ptr<rai::node> const & node_a) { return node_a->active.active (*send_block); }));
 		ASSERT_NO_ERROR (system.poll ());
