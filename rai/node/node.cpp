@@ -1447,7 +1447,7 @@ void rai::vote_staple_requester::request_staple_inner (std::shared_ptr<rai::stat
 		}
 		rep_endpoints[rep].insert (endpoint);
 		requested_reps.insert (rep);
-		node.network.send_musig_stage0_req (endpoint, block, rep);
+		this->node.network.send_musig_stage0_req (endpoint, block, rep);
 		rai::uint128_t last_total_weight (total_weight);
 		total_weight += rep_weight;
 		if (total_weight < last_total_weight)
