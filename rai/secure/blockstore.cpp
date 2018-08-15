@@ -181,25 +181,30 @@ std::pair<MDB_cursor *, std::pair<rai::mdb_val, rai::mdb_val> *> rai::store_merg
 	std::pair<MDB_cursor *, std::pair<rai::mdb_val, rai::mdb_val> *> result;
 	if (current1.first.data () && current2.first.data ())
 	{
-		if (current1.first < current2.first)
+		auto first_cmp (std::memcmp (current1.first.data (), current2.first.data (), std::min (current1.first.size (), current2.first.size ())));
+		if (first_cmp < 0 || (first_cmp == 0 && current1.first.size () < current2.first.size ()))
 		{
 			result = std::make_pair (cursor1, &current1);
 		}
-		else if (current1.first > current2.first)
-		{
-			result = std::make_pair (cursor2, &current2);
-		}
-		else if (current1.second < current2.second)
-		{
-			result = std::make_pair (cursor1, &current1);
-		}
-		else if (current1.second > current2.second)
+		else if (first_cmp > 0 || (first_cmp == 0 && current1.first.size () > current2.first.size ()))
 		{
 			result = std::make_pair (cursor2, &current2);
 		}
 		else
 		{
-			result = std::make_pair (cursor1, &current1);
+			auto second_cmp (std::memcmp (current1.second.data (), current2.second.data (), std::min (current1.second.size (), current2.second.size ())));
+			if (second_cmp < 0 || (second_cmp == 0 && current1.second.size () < current2.second.size ()))
+			{
+				result = std::make_pair (cursor1, &current1);
+			}
+			else if (second_cmp > 0 || (second_cmp == 0 && current1.second.size () > current2.second.size ()))
+			{
+				result = std::make_pair (cursor2, &current2);
+			}
+			else
+			{
+				result = std::make_pair (cursor1, &current1);
+			}
 		}
 	}
 	else if (current1.first.data ())
