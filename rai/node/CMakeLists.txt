@@ -60,8 +60,10 @@ add_dependencies (node curve25519_dalek_c)
 
 if (WIN32)
 	set (CURVE25519_DALEK_LIB_NAME curve25519_dalek_c.lib)
+	set (RUST_DEPS userenv)
 else ()
 	set (CURVE25519_DALEK_LIB_NAME libcurve25519_dalek_c.a)
+	set (RUST_DEPS)
 endif ()
 
 target_link_libraries (node
@@ -79,6 +81,7 @@ target_link_libraries (node
 	Boost::boost
 	debug "${CMAKE_SOURCE_DIR}/curve25519_dalek_c/target/debug/${CURVE25519_DALEK_LIB_NAME}"
 	optimized "${CMAKE_SOURCE_DIR}/curve25519_dalek_c/target/release/${CURVE25519_DALEK_LIB_NAME}"
+	${RUST_DEPS}
 	${CMAKE_DL_LIBS}
 	)
 
