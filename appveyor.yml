@@ -17,6 +17,12 @@ install:
 
     git submodule update --init --recursive
 
+    appveyor DownloadFile https://win.rustup.rs/ -FileName rustup-init.exe
+
+    rustup-init.exe -yv --default-host i686-pc-windows-msvc
+
+    set PATH=%PATH%;%USERPROFILE%\.cargo\bin
+
     cmake -DRAIBLOCKS_GUI=ON -DACTIVE_NETWORK=%NETWORK% -DQt5_DIR="C:\Qt\5.9\msvc2017_64\lib\cmake\Qt5" -DRAIBLOCKS_SIMD_OPTIMIZATIONS=TRUE -DBoost_COMPILER="-vc141" -DBOOST_ROOT="C:/Libraries/boost_1_66_0" -DBOOST_LIBRARYDIR="C:/Libraries/boost_1_66_0/lib64-msvc-14.1" -G "Visual Studio 15 2017 Win64" -DIPHLPAPI_LIBRARY="C:/Program Files (x86)/Windows Kits/10/Lib/10.0.14393.0/um/x64/iphlpapi.lib" -DWINSOCK2_LIBRARY="C:/Program Files (x86)/Windows Kits/10/Lib/10.0.14393.0/um/x64/WS2_32.lib" -DGIT_COMMIT=%GIT_COMMIT%
 
 - ps: >-
