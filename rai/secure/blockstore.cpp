@@ -76,9 +76,11 @@ cursor (nullptr)
 	}
 }
 
-rai::store_iterator_impl::store_iterator_impl (std::nullptr_t) :
+rai::store_iterator_impl::store_iterator_impl (std::nullptr_t, rai::epoch epoch_a) :
 cursor (nullptr)
 {
+	current.first.epoch = epoch_a;
+	current.second.epoch = epoch_a;
 }
 
 rai::store_iterator_impl::store_iterator_impl (MDB_txn * transaction_a, MDB_dbi db_a, MDB_val const & val_a, rai::epoch epoch_a) :
@@ -181,225 +183,78 @@ void rai::store_iterator_impl::clear ()
 	current.second = rai::mdb_val (current.second.epoch);
 }
 
-std::pair<MDB_cursor *, std::pair<rai::mdb_val, rai::mdb_val> *> rai::store_merge_iterator::cursor_current ()
+rai::store_iterator_impl & rai::store_merge_iterator::operator-> ()
 {
-	std::pair<MDB_cursor *, std::pair<rai::mdb_val, rai::mdb_val> *> result;
-	if (current1.first.data () && current2.first.data ())
-	{
-		auto first_cmp (mdb_cmp (mdb_cursor_txn (cursor1), mdb_cursor_dbi (cursor1), current1.first, current2.first));
-		if (first_cmp < 0 || (first_cmp == 0 && current1.first.size () < current2.first.size ()))
-		{
-			result = std::make_pair (cursor1, &current1);
-		}
-		else if (first_cmp > 0 || (first_cmp == 0 && current1.first.size () > current2.first.size ()))
-		{
-			result = std::make_pair (cursor2, &current2);
-		}
-		else
-		{
-			auto second_cmp (mdb_cmp (mdb_cursor_txn (cursor1), mdb_cursor_dbi (cursor1), current1.second, current2.second));
-			if (second_cmp < 0 || (second_cmp == 0 && current1.second.size () < current2.second.size ()))
-			{
-				result = std::make_pair (cursor1, &current1);
-			}
-			else if (second_cmp > 0 || (second_cmp == 0 && current1.second.size () > current2.second.size ()))
-			{
-				result = std::make_pair (cursor2, &current2);
-			}
-			else
-			{
-				result = std::make_pair (cursor1, &current1);
-			}
-		}
-	}
-	else if (current1.first.data ())
-	{
-		result = std::make_pair (cursor1, &current1);
-	}
-	else if (current2.first.data ())
-	{
-		result = std::make_pair (cursor2, &current2);
-	}
-	else
-	{
-		result = std::make_pair (cursor1, &current1);
-	}
-	return result;
-}
-
-std::pair<rai::mdb_val, rai::mdb_val> * rai::store_merge_iterator::operator-> ()
-{
-	return cursor_current ().second;
+	return least_iterator ();
 }
 
 rai::store_merge_iterator::store_merge_iterator (MDB_txn * transaction_a, MDB_dbi db1_a, MDB_dbi db2_a) :
-cursor1 (nullptr),
-cursor2 (nullptr),
-current1 (std::make_pair (rai::mdb_val (rai::epoch::epoch_0), rai::mdb_val (rai::epoch::epoch_0))),
-current2 (std::make_pair (rai::mdb_val (rai::epoch::epoch_1), rai::mdb_val (rai::epoch::epoch_1)))
+impl1 (std::make_unique<rai::store_iterator_impl> (transaction_a, db1_a, rai::epoch::epoch_0)),
+impl2 (std::make_unique<rai::store_iterator_impl> (transaction_a, db2_a, rai::epoch::epoch_1))
 {
-	auto status (mdb_cursor_open (transaction_a, db1_a, &cursor1));
-	assert (status == 0);
-	status = mdb_cursor_get (cursor1, &current1.first.value, &current1.second.value, MDB_FIRST);
-	assert (status == 0 || status == MDB_NOTFOUND);
-	if (status != MDB_NOTFOUND)
-	{
-		status = mdb_cursor_get (cursor1, &current1.first.value, &current1.second.value, MDB_GET_CURRENT);
-		assert (status == 0 || status == MDB_NOTFOUND);
-	}
-	else
-	{
-		current1.first = rai::mdb_val (rai::epoch::epoch_0);
-		current1.second = rai::mdb_val (rai::epoch::epoch_1);
-	}
-	status = mdb_cursor_open (transaction_a, db2_a, &cursor2);
-	assert (status == 0);
-	status = mdb_cursor_get (cursor2, &current2.first.value, &current2.second.value, MDB_FIRST);
-	assert (status == 0 || status == MDB_NOTFOUND);
-	if (status != MDB_NOTFOUND)
-	{
-		status = mdb_cursor_get (cursor2, &current2.first.value, &current2.second.value, MDB_GET_CURRENT);
-		assert (status == 0 || status == MDB_NOTFOUND);
-	}
-	else
-	{
-		current2.first = rai::mdb_val (rai::epoch::epoch_0);
-		current2.second = rai::mdb_val (rai::epoch::epoch_1);
-	}
 }
 
 rai::store_merge_iterator::store_merge_iterator (std::nullptr_t) :
-cursor1 (nullptr),
-cursor2 (nullptr),
-current1 (std::make_pair (rai::mdb_val (rai::epoch::epoch_0), rai::mdb_val (rai::epoch::epoch_0))),
-current2 (std::make_pair (rai::mdb_val (rai::epoch::epoch_1), rai::mdb_val (rai::epoch::epoch_1)))
+impl1 (std::make_unique<rai::store_iterator_impl> (nullptr, rai::epoch::epoch_0)),
+impl2 (std::make_unique<rai::store_iterator_impl> (nullptr, rai::epoch::epoch_1))
 {
 }
 
 rai::store_merge_iterator::store_merge_iterator (MDB_txn * transaction_a, MDB_dbi db1_a, MDB_dbi db2_a, MDB_val const & val_a) :
-cursor1 (nullptr),
-cursor2 (nullptr),
-current1 (std::make_pair (rai::mdb_val (rai::epoch::epoch_0), rai::mdb_val (rai::epoch::epoch_0))),
-current2 (std::make_pair (rai::mdb_val (rai::epoch::epoch_1), rai::mdb_val (rai::epoch::epoch_1)))
+impl1 (std::make_unique<rai::store_iterator_impl> (transaction_a, db1_a, val_a, rai::epoch::epoch_0)),
+impl2 (std::make_unique<rai::store_iterator_impl> (transaction_a, db2_a, val_a, rai::epoch::epoch_1))
 {
-	auto status (mdb_cursor_open (transaction_a, db1_a, &cursor1));
-	assert (status == 0);
-	current1.first.value = val_a;
-	status = mdb_cursor_get (cursor1, &current1.first.value, &current1.second.value, MDB_SET_RANGE);
-	assert (status == 0 || status == MDB_NOTFOUND);
-	if (status != MDB_NOTFOUND)
-	{
-		status = mdb_cursor_get (cursor1, &current1.first.value, &current1.second.value, MDB_GET_CURRENT);
-		assert (status == 0 || status == MDB_NOTFOUND);
-	}
-	else
-	{
-		current1.first = rai::mdb_val (rai::epoch::epoch_0);
-		current1.second = rai::mdb_val (rai::epoch::epoch_1);
-	}
-	status = mdb_cursor_open (transaction_a, db2_a, &cursor2);
-	assert (status == 0);
-	current2.first.value = val_a;
-	status = mdb_cursor_get (cursor2, &current2.first.value, &current2.second.value, MDB_SET_RANGE);
-	assert (status == 0 || status == MDB_NOTFOUND);
-	if (status != MDB_NOTFOUND)
-	{
-		status = mdb_cursor_get (cursor2, &current2.first.value, &current2.second.value, MDB_GET_CURRENT);
-		assert (status == 0 || status == MDB_NOTFOUND);
-	}
-	else
-	{
-		current2.first = rai::mdb_val (rai::epoch::epoch_0);
-		current2.second = rai::mdb_val (rai::epoch::epoch_1);
-	}
 }
 
 rai::store_merge_iterator::store_merge_iterator (rai::store_merge_iterator && other_a)
 {
-	cursor1 = other_a.cursor1;
-	other_a.cursor1 = nullptr;
-	current1 = other_a.current1;
-	cursor2 = other_a.cursor2;
-	other_a.cursor2 = nullptr;
-	current2 = other_a.current2;
+	impl1 = std::move (other_a.impl1);
+	impl2 = std::move (other_a.impl2);
 }
 
 rai::store_merge_iterator::~store_merge_iterator ()
 {
-	if (cursor1 != nullptr)
-	{
-		mdb_cursor_close (cursor1);
-	}
-	if (cursor2 != nullptr)
-	{
-		mdb_cursor_close (cursor2);
-	}
 }
 
 rai::store_merge_iterator & rai::store_merge_iterator::operator++ ()
 {
-	auto cursor_and_current (cursor_current ());
-	assert (cursor_and_current.first != nullptr);
-	auto status (mdb_cursor_get (cursor_and_current.first, &cursor_and_current.second->first.value, &cursor_and_current.second->second.value, MDB_NEXT));
-	if (status == MDB_NOTFOUND)
-	{
-		cursor_and_current.second->first = rai::mdb_val ();
-		cursor_and_current.second->second = rai::mdb_val ();
-	}
+	++least_iterator ();
 	return *this;
 }
 
 void rai::store_merge_iterator::next_dup ()
 {
-	auto cursor_and_current (cursor_current ());
-	assert (cursor_and_current.first != nullptr);
-	auto status (mdb_cursor_get (cursor_and_current.first, &cursor_and_current.second->first.value, &cursor_and_current.second->second.value, MDB_NEXT_DUP));
-	if (status == MDB_NOTFOUND)
-	{
-		cursor_and_current.second->first = rai::mdb_val ();
-		cursor_and_current.second->second = rai::mdb_val ();
-	}
-}
-
-rai::store_merge_iterator & rai::store_merge_iterator::operator= (rai::store_merge_iterator && other_a)
-{
-	if (cursor1 != nullptr)
-	{
-		mdb_cursor_close (cursor1);
-	}
-	if (cursor2 != nullptr)
-	{
-		mdb_cursor_close (cursor2);
-	}
-	cursor1 = other_a.cursor1;
-	other_a.cursor1 = nullptr;
-	current1 = other_a.current1;
-	other_a.current1.first = rai::mdb_val ();
-	other_a.current1.second = rai::mdb_val ();
-	cursor2 = other_a.cursor2;
-	other_a.cursor2 = nullptr;
-	current2 = other_a.current2;
-	other_a.current2.first = rai::mdb_val ();
-	other_a.current2.second = rai::mdb_val ();
-	return *this;
+	least_iterator ().next_dup ();
 }
 
 bool rai::store_merge_iterator::operator== (rai::store_merge_iterator const & other_a) const
 {
-	auto result1 (current1.first.data () == other_a.current1.first.data ());
-	assert (!result1 || (current1.first.size () == other_a.current1.first.size ()));
-	assert (!result1 || (current1.second.data () == other_a.current1.second.data ()));
-	assert (!result1 || (current1.second.size () == other_a.current1.second.size ()));
-	auto result2 (current2.first.data () == other_a.current2.first.data ());
-	assert (!result2 || (current2.first.size () == other_a.current2.first.size ()));
-	assert (!result2 || (current2.second.data () == other_a.current2.second.data ()));
-	assert (!result2 || (current2.second.size () == other_a.current2.second.size ()));
-	return result1 && result2;
+	return *impl1 == *other_a.impl1 && *impl2 == *other_a.impl2;
 }
 
 bool rai::store_merge_iterator::operator!= (rai::store_merge_iterator const & other_a) const
 {
 	return !(*this == other_a);
+}
+
+rai::store_iterator_impl & rai::store_merge_iterator::least_iterator () const
+{
+	rai::store_iterator_impl * result;
+	if (impl1->current.first.size () == 0)
+	{
+		result = impl2.get ();
+	}
+	else if (impl2->current.first.size () == 0)
+	{
+		result = impl1.get ();
+	}
+	else
+	{
+		auto key_cmp (mdb_cmp (mdb_cursor_txn (impl1->cursor), mdb_cursor_dbi (impl1->cursor), impl1->current.first, impl2->current.first));
+		auto val_cmp (mdb_cmp (mdb_cursor_txn (impl1->cursor), mdb_cursor_dbi (impl1->cursor), impl1->current.second, impl2->current.second));
+		result = key_cmp < 0 ? impl1.get () : val_cmp < 0 ? impl1.get () : impl2.get ();
+	}
+	return *result;
 }
 
 std::pair<rai::mdb_val, rai::mdb_val> * rai::store_iterator::operator-> ()

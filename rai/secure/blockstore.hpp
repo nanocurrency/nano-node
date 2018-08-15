@@ -10,7 +10,7 @@ class store_iterator_impl
 {
 public:
 	store_iterator_impl (MDB_txn * transaction_a, MDB_dbi db_a, rai::epoch = rai::epoch::unspecified);
-	store_iterator_impl (std::nullptr_t);
+	store_iterator_impl (std::nullptr_t, rai::epoch = rai::epoch::unspecified);
 	store_iterator_impl (MDB_txn * transaction_a, MDB_dbi db_a, MDB_val const & val_a, rai::epoch = rai::epoch::unspecified);
 	store_iterator_impl (rai::store_iterator_impl && other_a);
 	store_iterator_impl (rai::store_iterator_impl const &) = delete;
@@ -27,12 +27,14 @@ public:
 	MDB_cursor * cursor;
 	std::pair<rai::mdb_val, rai::mdb_val> current;
 };
+class store_merge_iterator;
 /**
  * Iterates the key/value pairs of a transaction
  */
 class store_iterator
 {
 	friend class rai::block_store;
+	friend class rai::store_merge_iterator;
 
 public:
 	store_iterator (std::nullptr_t);
@@ -65,16 +67,16 @@ public:
 	~store_merge_iterator ();
 	rai::store_merge_iterator & operator++ ();
 	void next_dup ();
-	std::pair<MDB_cursor *, std::pair<rai::mdb_val, rai::mdb_val> *> cursor_current ();
-	rai::store_merge_iterator & operator= (rai::store_merge_iterator &&);
+	rai::store_merge_iterator & operator= (rai::store_merge_iterator &&) = default;
 	rai::store_merge_iterator & operator= (rai::store_merge_iterator const &) = delete;
-	std::pair<rai::mdb_val, rai::mdb_val> * operator-> ();
+	rai::store_iterator_impl & operator-> ();
 	bool operator== (rai::store_merge_iterator const &) const;
 	bool operator!= (rai::store_merge_iterator const &) const;
-	MDB_cursor * cursor1;
-	MDB_cursor * cursor2;
-	std::pair<rai::mdb_val, rai::mdb_val> current1;
-	std::pair<rai::mdb_val, rai::mdb_val> current2;
+
+private:
+	rai::store_iterator_impl & least_iterator () const;
+	std::unique_ptr<rai::store_iterator_impl> impl1;
+	std::unique_ptr<rai::store_iterator_impl> impl2;
 };
 
 /**
