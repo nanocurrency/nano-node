@@ -19,8 +19,6 @@
 
 #include <miniupnpc.h>
 
-#include <ed25519-donna/ed25519-donna.h>
-
 namespace boost
 {
 namespace program_options

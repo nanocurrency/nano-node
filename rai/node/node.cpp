@@ -1212,7 +1212,7 @@ namespace
 {
 // Re-define some internal ed25519-donna functions for our use
 // Unfortunately using ed25519_hash* fails to link, so we hardcode blake2b
-static void ed25519_extsk (hash_512bits extsk, const ed25519_secret_key sk)
+static void ed25519_extsk (uint8_t * extsk, uint8_t const * sk)
 {
 	blake2b_state state;
 	blake2b_init (&state, 64);
@@ -1222,7 +1222,7 @@ static void ed25519_extsk (hash_512bits extsk, const ed25519_secret_key sk)
 	extsk[31] &= 127;
 	extsk[31] |= 64;
 }
-static void ed25519_hram (hash_512bits hram, const ed25519_signature RS, const ed25519_public_key pk, const unsigned char * m, size_t mlen)
+static void ed25519_hram (uint8_t * hram, uint8_t const * RS, uint8_t const * pk, const unsigned char * m, size_t mlen)
 {
 	blake2b_state state;
 	blake2b_init (&state, 64);
@@ -1290,7 +1290,8 @@ rai::uint256_union rai::vote_stapler::stage1 (rai::public_key node_id, rai::uint
 		blake2b_update (&hasher, musig_stage0_it->representative.bytes.data (), sizeof (musig_stage0_it->representative));
 		blake2b_final (&hasher, l_value.bytes.data (), sizeof (l_value));
 		auto block_hash (musig_stage0_it->block->hash ());
-		hash_512bits extsk, hram;
+		uint8_t extsk[64];
+		uint8_t hram[64];
 		ed25519_extsk (extsk, rep_key.data.bytes.data ());
 		rai::curve25519_scalar a (extsk);
 		rai::curve25519_scalar l (l_value.bytes.data ());
@@ -1612,7 +1613,7 @@ void rai::vote_staple_requester::musig_stage0_res (rai::endpoint const & source,
 						rai::uint256_union agg_pubkey (agg_pubkey_expanded->to_bytes ());
 						rai::uint256_union rb_total (rb_total_expanded->to_bytes ());
 						stage0_rb_totals.insert (std::make_pair (block_hash, rb_total));
-						hash_512bits hram;
+						uint8_t hram[64];
 						ed25519_hram (hram, rb_total.bytes.data (), agg_pubkey.bytes.data (), block_hash.bytes.data (), sizeof (block_hash));
 						rai::curve25519_scalar s_base (hram, 64);
 						for (auto rb_values_it : stage0_status.rb_values)
