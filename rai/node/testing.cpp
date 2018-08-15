@@ -4,10 +4,28 @@
 #include <rai/node/common.hpp>
 #include <rai/node/testing.hpp>
 
+std::string rai::error_system_messages::message (int ev) const
+{
+	switch (static_cast<rai::error_system> (ev))
+	{
+		case rai::error_system::generic:
+			return "Unknown error";
+		case rai::error_system::deadline_expired:
+			return "Deadline expired";
+	}
+
+	return "Invalid error code";
+}
+
 rai::system::system (uint16_t port_a, size_t count_a) :
 alarm (service),
 work (1, nullptr)
 {
+	auto scale_str = std::getenv ("DEADLINE_SCALE_FACTOR");
+	if (scale_str)
+	{
+		deadline_scaling_factor = std::stod (scale_str);
+	}
 	logging.init (rai::unique_path ());
 	nodes.reserve (count_a);
 	for (size_t i (0); i < count_a; ++i)
@@ -76,16 +94,27 @@ rai::account rai::system::account (MDB_txn * transaction_a, size_t index_a)
 	assert (keys != wallet_l->store.end ());
 	auto result (keys->first);
 	assert (++keys == wallet_l->store.end ());
-	return result.uint256 ();
+	return rai::account (result);
 }
 
-void rai::system::poll ()
+void rai::system::deadline_set (const std::chrono::duration<double, std::nano> & delta_a)
 {
-	auto polled1 (service.poll_one ());
-	if (polled1 == 0)
+	deadline = std::chrono::steady_clock::now () + delta_a * deadline_scaling_factor;
+}
+
+std::error_code rai::system::poll (const std::chrono::nanoseconds & sleep_time)
+{
+	std::error_code ec;
+	if (service.poll_one () == 0)
 	{
-		std::this_thread::sleep_for (std::chrono::milliseconds (50));
+		std::this_thread::sleep_for (sleep_time);
 	}
+
+	if (std::chrono::steady_clock::now () > deadline)
+	{
+		ec = rai::error_system::deadline_expired;
+	}
+	return ec;
 }
 
 namespace
@@ -239,7 +268,7 @@ void rai::system::generate_send_existing (rai::node & node_a, std::vector<rai::a
 			entry = node_a.store.latest_begin (transaction);
 		}
 		assert (entry != node_a.store.latest_end ());
-		destination = rai::account (entry->first.uint256 ());
+		destination = rai::account (entry->first);
 		source = get_random_account (accounts_a);
 		amount = get_random_amount (transaction, node_a, source);
 	}

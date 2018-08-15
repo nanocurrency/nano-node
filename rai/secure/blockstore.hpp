@@ -1,43 +1,57 @@
 #pragma once
 
+#include <rai/node/lmdb.hpp>
 #include <rai/secure/common.hpp>
 
 namespace rai
 {
+class block_store;
+class store_iterator_impl
+{
+public:
+	store_iterator_impl (MDB_txn * transaction_a, MDB_dbi db_a, rai::epoch = rai::epoch::unspecified);
+	store_iterator_impl (std::nullptr_t, rai::epoch = rai::epoch::unspecified);
+	store_iterator_impl (MDB_txn * transaction_a, MDB_dbi db_a, MDB_val const & val_a, rai::epoch = rai::epoch::unspecified);
+	store_iterator_impl (rai::store_iterator_impl && other_a);
+	store_iterator_impl (rai::store_iterator_impl const &) = delete;
+	~store_iterator_impl ();
+	rai::store_iterator_impl & operator++ ();
+	rai::store_iterator_impl & operator= (rai::store_iterator_impl && other_a);
+	rai::store_iterator_impl & operator= (rai::store_iterator_impl const &) = delete;
+	std::pair<rai::mdb_val, rai::mdb_val> * operator-> ();
+	bool operator== (rai::store_iterator_impl const * other_a) const;
+	bool operator== (rai::store_iterator_impl const & other_a) const;
+	bool operator!= (rai::store_iterator_impl const & other_a) const;
+	void next_dup ();
+	void clear ();
+	MDB_cursor * cursor;
+	std::pair<rai::mdb_val, rai::mdb_val> current;
+};
+class store_merge_iterator;
 /**
  * Iterates the key/value pairs of a transaction
  */
 class store_iterator
 {
+	friend class rai::block_store;
+	friend class rai::store_merge_iterator;
+
 public:
-	store_iterator (MDB_txn *, MDB_dbi, rai::epoch = rai::epoch::unspecified);
 	store_iterator (std::nullptr_t);
-	store_iterator (MDB_txn *, MDB_dbi, MDB_val const &, rai::epoch = rai::epoch::unspecified);
+	store_iterator (std::unique_ptr<rai::store_iterator_impl>);
 	store_iterator (rai::store_iterator &&);
-	store_iterator (rai::store_iterator const &) = delete;
-	~store_iterator ();
 	rai::store_iterator & operator++ ();
-	void next_dup ();
 	rai::store_iterator & operator= (rai::store_iterator &&);
 	rai::store_iterator & operator= (rai::store_iterator const &) = delete;
 	std::pair<rai::mdb_val, rai::mdb_val> * operator-> ();
 	bool operator== (rai::store_iterator const &) const;
 	bool operator!= (rai::store_iterator const &) const;
-	void clear ();
-	MDB_cursor * cursor;
-	std::pair<rai::mdb_val, rai::mdb_val> current;
+
+private:
+	std::unique_ptr<rai::store_iterator_impl> impl;
 };
 
-/**
- * A specialized std::pair which also indicates if it is from the secondary store
- */
-class merged_store_kv
-{
-public:
-	merged_store_kv (rai::epoch = rai::epoch::unspecified);
-	rai::mdb_val first;
-	rai::mdb_val second;
-};
+class block_predecessor_set;
 
 /**
  * Iterates the key/value pairs of two stores merged together
@@ -53,16 +67,16 @@ public:
 	~store_merge_iterator ();
 	rai::store_merge_iterator & operator++ ();
 	void next_dup ();
-	std::pair<MDB_cursor **, rai::merged_store_kv *> cursor_current ();
-	rai::store_merge_iterator & operator= (rai::store_merge_iterator &&);
+	rai::store_merge_iterator & operator= (rai::store_merge_iterator &&) = default;
 	rai::store_merge_iterator & operator= (rai::store_merge_iterator const &) = delete;
-	rai::merged_store_kv * operator-> ();
+	rai::store_iterator_impl & operator-> ();
 	bool operator== (rai::store_merge_iterator const &) const;
 	bool operator!= (rai::store_merge_iterator const &) const;
-	MDB_cursor * cursor1;
-	MDB_cursor * cursor2;
-	rai::merged_store_kv current1;
-	rai::merged_store_kv current2;
+
+private:
+	rai::store_iterator_impl & least_iterator () const;
+	std::unique_ptr<rai::store_iterator_impl> impl1;
+	std::unique_ptr<rai::store_iterator_impl> impl2;
 };
 
 /**
@@ -70,18 +84,17 @@ public:
  */
 class block_store
 {
+	friend class rai::block_predecessor_set;
+
 public:
 	block_store (bool &, boost::filesystem::path const &, int lmdb_max_dbs = 128);
 
-	MDB_dbi block_database (rai::block_type, rai::epoch);
-	void block_put_raw (MDB_txn *, MDB_dbi, rai::block_hash const &, MDB_val);
-	void block_put (MDB_txn *, rai::block_hash const &, rai::block const &, rai::block_hash const & = rai::block_hash (0), rai::epoch = rai::epoch::epoch_0);
-	MDB_val block_get_raw (MDB_txn *, rai::block_hash const &, rai::block_type &);
+	void initialize (MDB_txn *, rai::genesis const &);
+	void block_put (MDB_txn *, rai::block_hash const &, rai::block const &, rai::block_hash const & = rai::block_hash (0), rai::epoch version = rai::epoch::epoch_0);
 	rai::block_hash block_successor (MDB_txn *, rai::block_hash const &);
 	void block_successor_clear (MDB_txn *, rai::block_hash const &);
 	std::unique_ptr<rai::block> block_get (MDB_txn *, rai::block_hash const &);
 	std::unique_ptr<rai::block> block_random (MDB_txn *);
-	std::unique_ptr<rai::block> block_random (MDB_txn *, MDB_dbi);
 	void block_del (MDB_txn *, rai::block_hash const &);
 	bool block_exists (MDB_txn *, rai::block_hash const &);
 	rai::block_counts block_count (MDB_txn *);
@@ -155,6 +168,7 @@ public:
 	std::shared_ptr<rai::vote> vote_get (MDB_txn *, rai::account const &);
 	// Populate vote with the next sequence number
 	std::shared_ptr<rai::vote> vote_generate (MDB_txn *, rai::account const &, rai::raw_key const &, std::shared_ptr<rai::block>);
+	std::shared_ptr<rai::vote> vote_generate (MDB_txn *, rai::account const &, rai::raw_key const &, std::vector<rai::block_hash>);
 	// Return either vote or the stored vote with a higher sequence number
 	std::shared_ptr<rai::vote> vote_max (MDB_txn *, std::shared_ptr<rai::vote>);
 	// Return latest vote for an account considering the vote cache
@@ -185,8 +199,6 @@ public:
 
 	/** Deletes the node ID from the store */
 	void delete_node_id (MDB_txn *);
-
-	void clear (MDB_dbi);
 
 	rai::mdb_env environment;
 
@@ -291,5 +303,12 @@ public:
 	 * rai::uint256_union (arbitrary key) -> blob
 	 */
 	MDB_dbi meta;
+
+private:
+	MDB_dbi block_database (rai::block_type, rai::epoch);
+	std::unique_ptr<rai::block> block_random (MDB_txn *, MDB_dbi);
+	MDB_val block_raw_get (MDB_txn *, rai::block_hash const &, rai::block_type &);
+	void block_raw_put (MDB_txn *, MDB_dbi, rai::block_hash const &, MDB_val);
+	void clear (MDB_dbi);
 };
 }
