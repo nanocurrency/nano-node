@@ -54,13 +54,15 @@ else ()
 
 	IF (CMAKE_SYSTEM_PROCESSOR MATCHES "^(i.86|x86(_64)?)$")
 		if (RAIBLOCKS_SIMD_OPTIMIZATIONS)
-			add_compile_options(-msse4)
+			add_compile_options(-msse4 -maes)
 		elseif(CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
 			add_compile_options(-msse2)
+			add_definitions(-DCRYPTOPP_DISABLE_SSSE3
+							-DCRYPTOPP_DISABLE_AESNI)
 		endif()
 
 		if (ENABLE_AVX2)
-			add_compile_options(-mavx2 -mbmi -mbmi2)
+			add_compile_options(-mavx2 -mbmi -mbmi2 -maes)
 			if (PERMUTE_WITH_GATHER)
 				add_definitions(-DPERMUTE_WITH_GATHER)
 			elseif (PERMUTE_WITH_SHUFFLES)
@@ -134,51 +136,50 @@ set_target_properties(libminiupnpc-static PROPERTIES INTERFACE_INCLUDE_DIRECTORI
 set (BUILD_SHARED OFF CACHE BOOL "")
 set (BUILD_TESTING OFF CACHE BOOL "")
 set (USE_INTERMEDIATE_OBJECTS_TARGET OFF CACHE BOOL "")
-if (CRYPTOPP_CUSTOM OR NOT RAIBLOCKS_SIMD_OPTIMIZATIONS)
-	set (CRYPTOPP_LIBRARY cryptopp)
-	add_library (cryptopp
-		crypto/cryptopp/algparam.cpp
-		crypto/cryptopp/asn.cpp
-		crypto/cryptopp/basecode.cpp
-		crypto/cryptopp/cpu.cpp
-		crypto/cryptopp/cryptlib.cpp
-		crypto/cryptopp/default.cpp
-		crypto/cryptopp/des.cpp
-		crypto/cryptopp/dessp.cpp
-		crypto/cryptopp/dll.cpp
-		crypto/cryptopp/ec2n.cpp
-		crypto/cryptopp/ecp.cpp
-		crypto/cryptopp/filters.cpp
-		crypto/cryptopp/fips140.cpp
-		crypto/cryptopp/gcm.cpp
-		crypto/cryptopp/gf2n.cpp
-		crypto/cryptopp/gfpcrypt.cpp
-		crypto/cryptopp/hex.cpp
-		crypto/cryptopp/hmac.cpp
-		crypto/cryptopp/hrtimer.cpp
-		crypto/cryptopp/integer.cpp
-		crypto/cryptopp/iterhash.cpp
-		crypto/cryptopp/misc.cpp
-		crypto/cryptopp/modes.cpp
-		crypto/cryptopp/mqueue.cpp
-		crypto/cryptopp/nbtheory.cpp
-		crypto/cryptopp/oaep.cpp
-		crypto/cryptopp/osrng.cpp
-		crypto/cryptopp/pubkey.cpp
-		crypto/cryptopp/queue.cpp
-		crypto/cryptopp/randpool.cpp
-		crypto/cryptopp/rdtables.cpp
-		crypto/cryptopp/rijndael.cpp
-		crypto/cryptopp/rng.cpp
-		crypto/cryptopp/sha.cpp
-		crypto/cryptopp/simple.cpp
-		crypto/cryptopp/winpipes.cpp)
-else ()
-	set (CRYPTOPP_LIBRARY cryptopp-static)
-	add_subdirectory (crypto/cryptopp)
-endif ()
+set (CRYPTOPP_LIBRARY cryptopp)
+add_library (cryptopp
+	crypto/cryptopp/algparam.cpp
+	crypto/cryptopp/asn.cpp
+	crypto/cryptopp/basecode.cpp
+	crypto/cryptopp/cpu.cpp
+	crypto/cryptopp/cryptlib.cpp
+	crypto/cryptopp/default.cpp
+	crypto/cryptopp/des.cpp
+	crypto/cryptopp/dessp.cpp
+	crypto/cryptopp/dll.cpp
+	crypto/cryptopp/ec2n.cpp
+	crypto/cryptopp/ecp.cpp
+	crypto/cryptopp/filters.cpp
+	crypto/cryptopp/fips140.cpp
+	crypto/cryptopp/gcm.cpp
+	crypto/cryptopp/gf2n.cpp
+	crypto/cryptopp/gfpcrypt.cpp
+	crypto/cryptopp/hex.cpp
+	crypto/cryptopp/hmac.cpp
+	crypto/cryptopp/hrtimer.cpp
+	crypto/cryptopp/integer.cpp
+	crypto/cryptopp/iterhash.cpp
+	crypto/cryptopp/misc.cpp
+	crypto/cryptopp/modes.cpp
+	crypto/cryptopp/mqueue.cpp
+	crypto/cryptopp/nbtheory.cpp
+	crypto/cryptopp/oaep.cpp
+	crypto/cryptopp/osrng.cpp
+	crypto/cryptopp/pubkey.cpp
+	crypto/cryptopp/queue.cpp
+	crypto/cryptopp/randpool.cpp
+	crypto/cryptopp/rdtables.cpp
+	crypto/cryptopp/rijndael.cpp
+	crypto/cryptopp/rijndael-simd.cpp
+	crypto/cryptopp/rng.cpp
+	crypto/cryptopp/sha.cpp
+	crypto/cryptopp/sha-simd.cpp
+	crypto/cryptopp/simple.cpp
+	crypto/cryptopp/sse-simd.cpp
+	crypto/cryptopp/winpipes.cpp)
+add_definitions(-DCRYPTOPP_DISABLE_SHANI)
 
-if (CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
+if (RAIBLOCKS_SIMD_OPTIMIZATIONS)
 	set (ARGON_CORE crypto/phc-winner-argon2/src/opt.c)
 else ()
 	set (ARGON_CORE crypto/phc-winner-argon2/src/ref.c)
@@ -190,11 +191,12 @@ add_library (argon2
 	crypto/phc-winner-argon2/src/core.c
 	crypto/phc-winner-argon2/src/thread.c
 	crypto/phc-winner-argon2/src/encoding.c
-	${ARGON_CORE})
+	${ARGON_CORE}
+	crypto/phc-winner-argon2/src/blake2/blake2b.c)
 
 target_include_directories(argon2 PUBLIC crypto/phc-winner-argon2/include)
 target_include_directories(argon2 PUBLIC crypto/phc-winner-argon2/src)
-target_include_directories(argon2 PUBLIC crypto/blake2)
+target_include_directories(argon2 PUBLIC crypto/phc-winner-argon2/src/blake2)
 
 add_library (xxhash
 	crypto/xxhash/xxhash.c
