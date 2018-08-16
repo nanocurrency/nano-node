@@ -24,12 +24,13 @@ static uint64_t endpoint_hash_raw (rai::endpoint const & endpoint_a)
 	assert (endpoint_a.address ().is_v6 ());
 	rai::uint128_union address;
 	address.bytes = endpoint_a.address ().to_v6 ().to_bytes ();
-	XXH64_state_t hash;
-	XXH64_reset (&hash, 0);
-	XXH64_update (&hash, address.bytes.data (), address.bytes.size ());
+	XXH64_state_t* const state = XXH64_createState();
+	XXH64_reset (state, 0);
+	XXH64_update (state, address.bytes.data (), address.bytes.size ());
 	auto port (endpoint_a.port ());
-	XXH64_update (&hash, &port, sizeof (port));
-	auto result (XXH64_digest (&hash));
+	XXH64_update (state, &port, sizeof (port));
+	auto result (XXH64_digest (state));
+	XXH64_freeState (state);
 	return result;
 }
 static uint64_t ip_address_hash_raw (boost::asio::ip::address const & ip_a)
@@ -37,10 +38,7 @@ static uint64_t ip_address_hash_raw (boost::asio::ip::address const & ip_a)
 	assert (ip_a.is_v6 ());
 	rai::uint128_union bytes;
 	bytes.bytes = ip_a.to_v6 ().to_bytes ();
-	XXH64_state_t hash;
-	XXH64_reset (&hash, 0);
-	XXH64_update (&hash, bytes.bytes.data (), bytes.bytes.size ());
-	auto result (XXH64_digest (&hash));
+	auto result (XXH64 (bytes.bytes.data (), bytes.bytes.size (), 0));
 	return result;
 }
 
