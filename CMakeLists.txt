@@ -138,8 +138,7 @@ set (BUILD_TESTING OFF CACHE BOOL "")
 set (USE_INTERMEDIATE_OBJECTS_TARGET OFF CACHE BOOL "")
 set (CRYPTOPP_WIN "")
 if (WIN32)
-	set (CRYPTOPP_WIN crypto/cryptopp/rdrand.asm
-		crypto/cryptopp/x64dll.asm
+	set (CRYPTOPP_WIN crypto/cryptopp/x64dll.asm
 		crypto/cryptopp/x64masm.asm)
 	enable_language(ASM)
 	enable_language(ASM_MASM)
