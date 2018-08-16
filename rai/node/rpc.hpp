@@ -146,6 +146,7 @@ public:
 	void bootstrap_any ();
 	void chain (bool = false);
 	void confirmation_history ();
+	void confirmation_quorum ();
 	void delegators ();
 	void delegators_count ();
 	void deterministic_key ();
