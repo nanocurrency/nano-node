@@ -14,3 +14,9 @@
 [submodule "phc-winner-argon2"]
 	path = crypto/phc-winner-argon2
 	url = https://github.com/clemahieu/phc-winner-argon2.git
+[submodule "crypto/cryptopp"]
+	path = crypto/cryptopp
+	url = https://github.com/weidai11/cryptopp.git
+[submodule "crypto/phc-winner-argon2"]
+	path = crypto/phc-winner-argon2
+	url = https://github.com/P-H-C/phc-winner-argon2.git
