@@ -10,4 +10,4 @@
 	url = https://github.com/weidai11/cryptopp.git
 [submodule "crypto/phc-winner-argon2"]
 	path = crypto/phc-winner-argon2
-	url = https://github.com/P-H-C/phc-winner-argon2.git
+	url = https://github.com/nanocurrency/phc-winner-argon2.git

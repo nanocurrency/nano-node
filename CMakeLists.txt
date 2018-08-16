@@ -199,12 +199,11 @@ add_library (argon2
 	crypto/phc-winner-argon2/src/core.c
 	crypto/phc-winner-argon2/src/thread.c
 	crypto/phc-winner-argon2/src/encoding.c
-	${ARGON_CORE}
-	crypto/phc-winner-argon2/src/blake2/blake2b.c)
+	${ARGON_CORE})
 
 target_include_directories(argon2 PUBLIC crypto/phc-winner-argon2/include)
 target_include_directories(argon2 PUBLIC crypto/phc-winner-argon2/src)
-target_include_directories(argon2 PUBLIC crypto/phc-winner-argon2/src/blake2)
+target_link_libraries(argon2 blake2)
 
 add_library (xxhash
 	crypto/xxhash/xxhash.c
