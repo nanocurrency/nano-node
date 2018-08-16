@@ -100,6 +100,7 @@ class active_transactions
 {
 public:
 	active_transactions (rai::node &);
+	~active_transactions ();
 	// Start an election for a block
 	// Call action with confirmed block, may be different than what we started with
 	bool start (std::shared_ptr<rai::block>, std::function<void(std::shared_ptr<rai::block>)> const & = [](std::shared_ptr<rai::block>) {});

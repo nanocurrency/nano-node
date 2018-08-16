@@ -3997,6 +3997,11 @@ thread ([this]() { announce_loop (); })
 	}
 }
 
+rai::active_transactions::~active_transactions ()
+{
+	stop ();
+}
+
 bool rai::active_transactions::publish (std::shared_ptr<rai::block> block_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
