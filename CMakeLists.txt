@@ -138,8 +138,9 @@ set (BUILD_TESTING OFF CACHE BOOL "")
 set (USE_INTERMEDIATE_OBJECTS_TARGET OFF CACHE BOOL "")
 set (CRYPTOPP_WIN "")
 if (WIN32)
-	set (CRYPTOPP_WIN crypto/cryptopp/x64dll.asm
-		crypto/cryptopp/x64masm.asm)
+	set (CRYPTOPP_WIN crypto/cryptopp/winpipes.cpp
+					crypto/cryptopp/x64dll.asm
+					crypto/cryptopp/x64masm.asm)
 	enable_language(ASM)
 	enable_language(ASM_MASM)
 endif ()
@@ -183,7 +184,6 @@ add_library (cryptopp
 	crypto/cryptopp/sha-simd.cpp
 	crypto/cryptopp/simple.cpp
 	crypto/cryptopp/sse-simd.cpp
-	crypto/cryptopp/winpipes.cpp
 	${CRYPTOPP_WIN})
 add_definitions(-DCRYPTOPP_DISABLE_SHANI)
 
