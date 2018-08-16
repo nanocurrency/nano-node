@@ -7,7 +7,7 @@
 
 #include <bitset>
 
-#include <xxhash/xxhash.h>
+#include <crypto/xxhash/xxhash.h>
 
 namespace rai
 {

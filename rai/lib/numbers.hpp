@@ -2,7 +2,7 @@
 
 #include <boost/multiprecision/cpp_int.hpp>
 
-#include <cryptopp/osrng.h>
+#include <crypto/cryptopp/osrng.h>
 
 namespace rai
 {

@@ -2,10 +2,10 @@
 
 #include <ed25519-donna/ed25519.h>
 
-#include <blake2/blake2.h>
+#include <crypto/blake2/blake2.h>
 
-#include <cryptopp/aes.h>
-#include <cryptopp/modes.h>
+#include <crypto/cryptopp/aes.h>
+#include <crypto/cryptopp/modes.h>
 
 thread_local CryptoPP::AutoSeededRandomPool rai::random_pool;
 

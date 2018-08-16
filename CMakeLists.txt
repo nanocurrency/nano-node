@@ -122,7 +122,7 @@ endif ()
 
 find_package (Boost 1.66.0 REQUIRED COMPONENTS date_time filesystem system log log_setup thread program_options regex chrono atomic)
 
-add_subdirectory(ed25519-donna)
+add_subdirectory(crypto/ed25519-donna)
 
 set (UPNPC_BUILD_SHARED OFF CACHE BOOL "")
 add_subdirectory (miniupnp/miniupnpc)
@@ -137,68 +137,68 @@ set (USE_INTERMEDIATE_OBJECTS_TARGET OFF CACHE BOOL "")
 if (CRYPTOPP_CUSTOM OR NOT RAIBLOCKS_SIMD_OPTIMIZATIONS)
 	set (CRYPTOPP_LIBRARY cryptopp)
 	add_library (cryptopp
-		cryptopp/algparam.cpp
-		cryptopp/asn.cpp
-		cryptopp/basecode.cpp
-		cryptopp/cpu.cpp
-		cryptopp/cryptlib.cpp
-		cryptopp/default.cpp
-		cryptopp/des.cpp
-		cryptopp/dessp.cpp
-		cryptopp/dll.cpp
-		cryptopp/ec2n.cpp
-		cryptopp/ecp.cpp
-		cryptopp/filters.cpp
-		cryptopp/fips140.cpp
-		cryptopp/gcm.cpp
-		cryptopp/gf2n.cpp
-		cryptopp/gfpcrypt.cpp
-		cryptopp/hex.cpp
-		cryptopp/hmac.cpp
-		cryptopp/hrtimer.cpp
-		cryptopp/integer.cpp
-		cryptopp/iterhash.cpp
-		cryptopp/misc.cpp
-		cryptopp/modes.cpp
-		cryptopp/mqueue.cpp
-		cryptopp/nbtheory.cpp
-		cryptopp/oaep.cpp
-		cryptopp/osrng.cpp
-		cryptopp/pubkey.cpp
-		cryptopp/queue.cpp
-		cryptopp/randpool.cpp
-		cryptopp/rdtables.cpp
-		cryptopp/rijndael.cpp
-		cryptopp/rng.cpp
-		cryptopp/sha.cpp
-		cryptopp/simple.cpp
-		cryptopp/winpipes.cpp)
+		crypto/cryptopp/algparam.cpp
+		crypto/cryptopp/asn.cpp
+		crypto/cryptopp/basecode.cpp
+		crypto/cryptopp/cpu.cpp
+		crypto/cryptopp/cryptlib.cpp
+		crypto/cryptopp/default.cpp
+		crypto/cryptopp/des.cpp
+		crypto/cryptopp/dessp.cpp
+		crypto/cryptopp/dll.cpp
+		crypto/cryptopp/ec2n.cpp
+		crypto/cryptopp/ecp.cpp
+		crypto/cryptopp/filters.cpp
+		crypto/cryptopp/fips140.cpp
+		crypto/cryptopp/gcm.cpp
+		crypto/cryptopp/gf2n.cpp
+		crypto/cryptopp/gfpcrypt.cpp
+		crypto/cryptopp/hex.cpp
+		crypto/cryptopp/hmac.cpp
+		crypto/cryptopp/hrtimer.cpp
+		crypto/cryptopp/integer.cpp
+		crypto/cryptopp/iterhash.cpp
+		crypto/cryptopp/misc.cpp
+		crypto/cryptopp/modes.cpp
+		crypto/cryptopp/mqueue.cpp
+		crypto/cryptopp/nbtheory.cpp
+		crypto/cryptopp/oaep.cpp
+		crypto/cryptopp/osrng.cpp
+		crypto/cryptopp/pubkey.cpp
+		crypto/cryptopp/queue.cpp
+		crypto/cryptopp/randpool.cpp
+		crypto/cryptopp/rdtables.cpp
+		crypto/cryptopp/rijndael.cpp
+		crypto/cryptopp/rng.cpp
+		crypto/cryptopp/sha.cpp
+		crypto/cryptopp/simple.cpp
+		crypto/cryptopp/winpipes.cpp)
 else ()
 	set (CRYPTOPP_LIBRARY cryptopp-static)
-	add_subdirectory (cryptopp)
+	add_subdirectory (crypto/cryptopp)
 endif ()
 
 if (CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
-	set (ARGON_CORE phc-winner-argon2/src/opt.c)
+	set (ARGON_CORE crypto/phc-winner-argon2/src/opt.c)
 else ()
-	set (ARGON_CORE phc-winner-argon2/src/ref.c)
+	set (ARGON_CORE crypto/phc-winner-argon2/src/ref.c)
 endif ()
 
 add_library (argon2
-	phc-winner-argon2/src/argon2.c
-	phc-winner-argon2/include/argon2.h
-	phc-winner-argon2/src/core.c
-	phc-winner-argon2/src/thread.c
-	phc-winner-argon2/src/encoding.c
+	crypto/phc-winner-argon2/src/argon2.c
+	crypto/phc-winner-argon2/include/argon2.h
+	crypto/phc-winner-argon2/src/core.c
+	crypto/phc-winner-argon2/src/thread.c
+	crypto/phc-winner-argon2/src/encoding.c
 	${ARGON_CORE})
 
-target_include_directories(argon2 PUBLIC phc-winner-argon2/include)
-target_include_directories(argon2 PUBLIC phc-winner-argon2/src)
-target_include_directories(argon2 PUBLIC blake2)
+target_include_directories(argon2 PUBLIC crypto/phc-winner-argon2/include)
+target_include_directories(argon2 PUBLIC crypto/phc-winner-argon2/src)
+target_include_directories(argon2 PUBLIC crypto/blake2)
 
 add_library (xxhash
-	xxhash/xxhash.c
-	xxhash/xxhash.h)
+	crypto/xxhash/xxhash.c
+	crypto/xxhash/xxhash.h)
 
 add_library (lmdb
 	lmdb/libraries/liblmdb/lmdb.h
@@ -210,19 +210,19 @@ if (WIN32)
 endif()
 
 if (WIN32)
-	set (BLAKE2_IMPLEMENTATION "blake2/blake2b.c")
+	set (BLAKE2_IMPLEMENTATION "crypto/blake2/blake2b.c")
 else ()
 	IF (CMAKE_SYSTEM_PROCESSOR MATCHES "^(i.86|x86(_64)?)$")
-		set (BLAKE2_IMPLEMENTATION "blake2/blake2b.c")
+		set (BLAKE2_IMPLEMENTATION "crypto/blake2/blake2b.c")
 	else()
-		set (BLAKE2_IMPLEMENTATION "blake2/blake2b-ref.c")
+		set (BLAKE2_IMPLEMENTATION "crypto/blake2/blake2b-ref.c")
 	endif()
 endif ()
 
 add_library (blake2
-	blake2/blake2-config.h
-	blake2/blake2-impl.h
-	blake2/blake2.h
+	crypto/blake2/blake2-config.h
+	crypto/blake2/blake2-impl.h
+	crypto/blake2/blake2.h
 	${BLAKE2_IMPLEMENTATION})
 
 target_compile_definitions(blake2 PRIVATE -D__SSE2__)

@@ -1,5 +1,5 @@
-#include <cryptopp/filters.h>
-#include <cryptopp/randpool.h>
+#include <crypto/cryptopp/filters.h>
+#include <crypto/cryptopp/randpool.h>
 #include <gtest/gtest.h>
 #include <rai/core_test/testutil.hpp>
 #include <rai/node/stats.hpp>

@@ -5,12 +5,12 @@
 	path = miniupnp
 	url = https://github.com/miniupnp/miniupnp.git
 [submodule "cryptopp"]
-	path = cryptopp
+	path = crypto/cryptopp
 	url = https://github.com/weidai11/cryptopp.git
 [submodule "lmdb"]
 	path = lmdb
 	url = https://github.com/nanocurrency/lmdb.git
 	branch = lmdb_0_9_21
 [submodule "phc-winner-argon2"]
-	path = phc-winner-argon2
+	path = crypto/phc-winner-argon2
 	url = https://github.com/clemahieu/phc-winner-argon2.git
