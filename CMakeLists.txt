@@ -203,7 +203,7 @@ add_library (argon2
 
 target_include_directories(argon2 PUBLIC crypto/phc-winner-argon2/include)
 target_include_directories(argon2 PUBLIC crypto/phc-winner-argon2/src)
-target_link_libraries(argon2 blake2)
+target_include_directories(argon2 PUBLIC crypto/blake2)
 
 add_library (xxhash
 	crypto/xxhash/xxhash.c
