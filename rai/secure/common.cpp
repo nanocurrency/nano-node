@@ -9,7 +9,7 @@
 
 #include <queue>
 
-#include <ed25519-donna/ed25519.h>
+#include <crypto/ed25519-donna/ed25519.h>
 
 // Genesis keys for network variants
 namespace
