@@ -119,7 +119,7 @@ set(Boost_USE_STATIC_LIBS        ON)
 set(Boost_USE_MULTITHREADED      ON)
 
 if (BOOST_ROOT)
-    list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/Modules")
+	list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/Modules")
 endif ()
 
 find_package (Boost 1.66.0 REQUIRED COMPONENTS date_time filesystem system log log_setup thread program_options regex chrono atomic)
@@ -136,6 +136,12 @@ set_target_properties(libminiupnpc-static PROPERTIES INTERFACE_INCLUDE_DIRECTORI
 set (BUILD_SHARED OFF CACHE BOOL "")
 set (BUILD_TESTING OFF CACHE BOOL "")
 set (USE_INTERMEDIATE_OBJECTS_TARGET OFF CACHE BOOL "")
+set (CRYPTOPP_WIN "")
+if (WIN32)
+	set (CRYPTOPP_WIN crypto/cryptopp/rdrand.asm
+		crypto/cryptopp/x64dll.asm
+		crypto/cryptopp/x64masm.asm)
+endif ()
 set (CRYPTOPP_LIBRARY cryptopp)
 add_library (cryptopp
 	crypto/cryptopp/algparam.cpp
@@ -176,7 +182,8 @@ add_library (cryptopp
 	crypto/cryptopp/sha-simd.cpp
 	crypto/cryptopp/simple.cpp
 	crypto/cryptopp/sse-simd.cpp
-	crypto/cryptopp/winpipes.cpp)
+	crypto/cryptopp/winpipes.cpp
+	${CRYPTOPP_WIN})
 add_definitions(-DCRYPTOPP_DISABLE_SHANI)
 
 if (RAIBLOCKS_SIMD_OPTIMIZATIONS)
