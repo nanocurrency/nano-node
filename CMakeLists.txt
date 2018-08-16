@@ -141,6 +141,8 @@ if (WIN32)
 	set (CRYPTOPP_WIN crypto/cryptopp/rdrand.asm
 		crypto/cryptopp/x64dll.asm
 		crypto/cryptopp/x64masm.asm)
+	enable_language(ASM)
+	enable_language(ASM_MASM)
 endif ()
 set (CRYPTOPP_LIBRARY cryptopp)
 add_library (cryptopp
