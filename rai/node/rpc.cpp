@@ -1368,14 +1368,23 @@ void rai::rpc_handler::chain (bool successors)
 
 void rai::rpc_handler::confirmation_active ()
 {
+	uint64_t annoucements (0);
+	boost::optional<std::string> annoucements_text (request.get_optional<std::string> ("annoucements"));
+	if (annoucements_text.is_initialized ())
+	{
+		annoucements = strtoul (annoucements_text.get ().c_str (), NULL, 10);
+	}
 	boost::property_tree::ptree elections;
 	{
 		std::lock_guard<std::mutex> lock (node.active.mutex);
 		for (auto i (node.active.roots.begin ()), n (node.active.roots.end ()); i != n; ++i)
 		{
-			boost::property_tree::ptree entry;
-			entry.put ("", i->root.to_string ());
-			elections.push_back (std::make_pair ("", entry));
+			if (i->annoucements >= annoucements)
+			{
+				boost::property_tree::ptree entry;
+				entry.put ("", i->root.to_string ());
+				elections.push_back (std::make_pair ("", entry));
+			}
 		}
 	}
 	response_l.add_child ("confirmations", elections);
