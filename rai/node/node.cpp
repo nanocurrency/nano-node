@@ -1755,6 +1755,7 @@ stats (config.stat_config)
 													{
 														if (resp->result () == boost::beast::http::status::ok)
 														{
+															node_l->stats.inc (rai::stat::type::http_callback, rai::stat::detail::initiate, rai::stat::dir::out);
 														}
 														else
 														{
@@ -1762,6 +1763,7 @@ stats (config.stat_config)
 															{
 																BOOST_LOG (node_l->log) << boost::str (boost::format ("Callback to %1%:%2% failed with status: %3%") % address % port % resp->result ());
 															}
+															node_l->stats.inc (rai::stat::type::error, rai::stat::detail::http_callback, rai::stat::dir::out);
 														}
 													}
 													else
@@ -1770,6 +1772,7 @@ stats (config.stat_config)
 														{
 															BOOST_LOG (node_l->log) << boost::str (boost::format ("Unable complete callback: %1%:%2%: %3%") % address % port % ec.message ());
 														}
+														node_l->stats.inc (rai::stat::type::error, rai::stat::detail::http_callback, rai::stat::dir::out);
 													};
 												});
 											}
@@ -1779,6 +1782,7 @@ stats (config.stat_config)
 												{
 													BOOST_LOG (node_l->log) << boost::str (boost::format ("Unable to send callback: %1%:%2%: %3%") % address % port % ec.message ());
 												}
+												node_l->stats.inc (rai::stat::type::error, rai::stat::detail::http_callback, rai::stat::dir::out);
 											}
 										});
 									}
@@ -1788,6 +1792,7 @@ stats (config.stat_config)
 										{
 											BOOST_LOG (node_l->log) << boost::str (boost::format ("Unable to connect to callback address: %1%:%2%: %3%") % address % port % ec.message ());
 										}
+										node_l->stats.inc (rai::stat::type::error, rai::stat::detail::http_callback, rai::stat::dir::out);
 									}
 								});
 							}
@@ -1798,6 +1803,7 @@ stats (config.stat_config)
 							{
 								BOOST_LOG (node_l->log) << boost::str (boost::format ("Error resolving callback: %1%:%2%: %3%") % address % port % ec.message ());
 							}
+							node_l->stats.inc (rai::stat::type::error, rai::stat::detail::http_callback, rai::stat::dir::out);
 						}
 					});
 				}

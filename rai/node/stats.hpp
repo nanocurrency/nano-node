@@ -184,7 +184,8 @@ public:
 		rollback,
 		bootstrap,
 		vote,
-		peering
+		http_callback,
+		peering,
 	};
 
 	/** Optional detail type */
@@ -195,6 +196,7 @@ public:
 		// error specific
 		bad_sender,
 		insufficient_work,
+		http_callback,
 
 		// ledger, block, bootstrap
 		send,
@@ -212,8 +214,10 @@ public:
 		confirm_ack,
 		node_id_handshake,
 
-		// bootstrap specific
+		// bootstrap, callback
 		initiate,
+
+		// bootstrap specific
 		bulk_pull,
 		bulk_push,
 		bulk_pull_account,
