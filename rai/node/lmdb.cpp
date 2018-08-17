@@ -171,6 +171,51 @@ rai::mdb_val::operator std::shared_ptr<rai::block> () const
 	return result;
 }
 
+rai::mdb_val::operator std::shared_ptr<rai::send_block> () const
+{
+	rai::bufferstream stream (reinterpret_cast<uint8_t const *> (value.mv_data), value.mv_size);
+	auto error (false);
+	std::shared_ptr<rai::send_block> result (std::make_shared<rai::send_block> (error, stream));
+	assert (!error);
+	return result;
+}
+
+rai::mdb_val::operator std::shared_ptr<rai::receive_block> () const
+{
+	rai::bufferstream stream (reinterpret_cast<uint8_t const *> (value.mv_data), value.mv_size);
+	auto error (false);
+	std::shared_ptr<rai::receive_block> result (std::make_shared<rai::receive_block> (error, stream));
+	assert (!error);
+	return result;
+}
+
+rai::mdb_val::operator std::shared_ptr<rai::open_block> () const
+{
+	rai::bufferstream stream (reinterpret_cast<uint8_t const *> (value.mv_data), value.mv_size);
+	auto error (false);
+	std::shared_ptr<rai::open_block> result (std::make_shared<rai::open_block> (error, stream));
+	assert (!error);
+	return result;
+}
+
+rai::mdb_val::operator std::shared_ptr<rai::change_block> () const
+{
+	rai::bufferstream stream (reinterpret_cast<uint8_t const *> (value.mv_data), value.mv_size);
+	auto error (false);
+	std::shared_ptr<rai::change_block> result (std::make_shared<rai::change_block> (error, stream));
+	assert (!error);
+	return result;
+}
+
+rai::mdb_val::operator std::shared_ptr<rai::state_block> () const
+{
+	rai::bufferstream stream (reinterpret_cast<uint8_t const *> (value.mv_data), value.mv_size);
+	auto error (false);
+	std::shared_ptr<rai::state_block> result (std::make_shared<rai::state_block> (error, stream));
+	assert (!error);
+	return result;
+}
+
 rai::mdb_val::operator std::shared_ptr<rai::vote> () const
 {
 	auto result (std::make_shared<rai::vote> ());

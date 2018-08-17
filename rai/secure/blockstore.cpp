@@ -892,16 +892,17 @@ MDB_val rai::block_store::block_raw_get (MDB_txn * transaction_a, rai::block_has
 	return result;
 }
 
+template <typename T>
 std::unique_ptr<rai::block> rai::block_store::block_random (MDB_txn * transaction_a, MDB_dbi database)
 {
 	rai::block_hash hash;
 	rai::random_pool.GenerateBlock (hash.bytes.data (), hash.bytes.size ());
-	rai::store_iterator<rai::block_hash, std::shared_ptr<rai::block>> existing (std::make_unique<rai::mdb_iterator<rai::block_hash, std::shared_ptr<rai::block>>> (transaction_a, database, rai::mdb_val (hash)));
-	if (existing == rai::store_iterator<rai::block_hash, std::shared_ptr<rai::block>> (nullptr))
+	rai::store_iterator<rai::block_hash, std::shared_ptr<T>> existing (std::make_unique<rai::mdb_iterator<rai::block_hash, std::shared_ptr<T>>> (transaction_a, database, rai::mdb_val (hash)));
+	if (existing == rai::store_iterator<rai::block_hash, std::shared_ptr<T>> (nullptr))
 	{
-		existing = rai::store_iterator<rai::block_hash, std::shared_ptr<rai::block>> (std::make_unique<rai::mdb_iterator<rai::block_hash, std::shared_ptr<rai::block>>> (transaction_a, database));
+		existing = rai::store_iterator<rai::block_hash, std::shared_ptr<T>> (std::make_unique<rai::mdb_iterator<rai::block_hash, std::shared_ptr<T>>> (transaction_a, database));
 	}
-	auto end (rai::store_iterator<rai::block_hash, std::shared_ptr<rai::block>> (nullptr));
+	auto end (rai::store_iterator<rai::block_hash, std::shared_ptr<T>> (nullptr));
 	assert (existing != end);
 	return block_get (transaction_a, rai::block_hash (existing->first));
 }
@@ -913,39 +914,39 @@ std::unique_ptr<rai::block> rai::block_store::block_random (MDB_txn * transactio
 	std::unique_ptr<rai::block> result;
 	if (region < count.send)
 	{
-		result = block_random (transaction_a, send_blocks);
+		result = block_random<rai::send_block> (transaction_a, send_blocks);
 	}
 	else
 	{
 		region -= count.send;
 		if (region < count.receive)
 		{
-			result = block_random (transaction_a, receive_blocks);
+			result = block_random<rai::receive_block> (transaction_a, receive_blocks);
 		}
 		else
 		{
 			region -= count.receive;
 			if (region < count.open)
 			{
-				result = block_random (transaction_a, open_blocks);
+				result = block_random<rai::open_block> (transaction_a, open_blocks);
 			}
 			else
 			{
 				region -= count.open;
 				if (region < count.change)
 				{
-					result = block_random (transaction_a, change_blocks);
+					result = block_random<rai::change_block> (transaction_a, change_blocks);
 				}
 				else
 				{
 					region -= count.change;
 					if (region < count.state_v0)
 					{
-						result = block_random (transaction_a, state_blocks_v0);
+						result = block_random<rai::state_block> (transaction_a, state_blocks_v0);
 					}
 					else
 					{
-						result = block_random (transaction_a, state_blocks_v1);
+						result = block_random<rai::state_block> (transaction_a, state_blocks_v1);
 					}
 				}
 			}
