@@ -363,6 +363,7 @@ public:
 
 private:
 	MDB_dbi block_database (rai::block_type, rai::epoch);
+	template <typename T>
 	std::unique_ptr<rai::block> block_random (MDB_txn *, MDB_dbi);
 	MDB_val block_raw_get (MDB_txn *, rai::block_hash const &, rai::block_type &);
 	void block_raw_put (MDB_txn *, MDB_dbi, rai::block_hash const &, MDB_val);

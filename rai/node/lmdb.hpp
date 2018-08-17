@@ -47,6 +47,11 @@ public:
 	explicit operator rai::uint128_union () const;
 	explicit operator rai::uint256_union () const;
 	explicit operator std::shared_ptr<rai::block> () const;
+	explicit operator std::shared_ptr<rai::send_block> () const;
+	explicit operator std::shared_ptr<rai::receive_block> () const;
+	explicit operator std::shared_ptr<rai::open_block> () const;
+	explicit operator std::shared_ptr<rai::change_block> () const;
+	explicit operator std::shared_ptr<rai::state_block> () const;
 	explicit operator std::shared_ptr<rai::vote> () const;
 	explicit operator uint64_t () const;
 	operator MDB_val * () const;
