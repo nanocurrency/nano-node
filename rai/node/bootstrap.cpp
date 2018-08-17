@@ -210,7 +210,7 @@ current (0),
 count (0),
 bulk_push_cost (0)
 {
-	rai::transaction transaction (connection->node->store.environment, nullptr, false);
+	rai::transaction transaction (connection->node->store.environment, false);
 	next (transaction);
 }
 
@@ -286,7 +286,7 @@ void rai::frontier_req_client::received_frontier (boost::system::error_code cons
 		{
 			BOOST_LOG (connection->node->log) << boost::str (boost::format ("Received %1% frontiers from %2%") % std::to_string (count) % connection->socket->remote_endpoint ());
 		}
-		rai::transaction transaction (connection->node->store.environment, nullptr, false);
+		rai::transaction transaction (connection->node->store.environment, false);
 		if (!account.is_zero ())
 		{
 			while (!current.is_zero () && current < account)
@@ -587,7 +587,7 @@ void rai::bulk_push_client::start ()
 	}
 	auto this_l (shared_from_this ());
 	connection->socket->async_write (buffer, [this_l, buffer](boost::system::error_code const & ec, size_t size_a) {
-		rai::transaction transaction (this_l->connection->node->store.environment, nullptr, false);
+		rai::transaction transaction (this_l->connection->node->store.environment, false);
 		if (!ec)
 		{
 			this_l->push (transaction);
@@ -680,7 +680,7 @@ void rai::bulk_push_client::push_block (rai::block const & block_a)
 	connection->socket->async_write (buffer, [this_l, buffer](boost::system::error_code const & ec, size_t size_a) {
 		if (!ec)
 		{
-			rai::transaction transaction (this_l->connection->node->store.environment, nullptr, false);
+			rai::transaction transaction (this_l->connection->node->store.environment, false);
 			this_l->push (transaction);
 		}
 		else
@@ -1592,7 +1592,7 @@ void rai::bulk_pull_server::set_current_end ()
 {
 	include_start = false;
 	assert (request != nullptr);
-	rai::transaction transaction (connection->node->store.environment, nullptr, false);
+	rai::transaction transaction (connection->node->store.environment, false);
 	if (!connection->node->store.block_exists (transaction, request->end))
 	{
 		if (connection->node->config.logging.bulk_pull_logging ())
@@ -1699,7 +1699,7 @@ std::unique_ptr<rai::block> rai::bulk_pull_server::get_next ()
 
 	if (send_current)
 	{
-		rai::transaction transaction (connection->node->store.environment, nullptr, false);
+		rai::transaction transaction (connection->node->store.environment, false);
 		result = connection->node->store.block_get (transaction, current);
 		if (result != nullptr && set_current_to_end == false)
 		{
@@ -1839,7 +1839,7 @@ void rai::bulk_pull_account_server::send_frontier ()
 	/**
 	 ** Establish a database transaction
 	 **/
-	rai::transaction stream_transaction (connection->node->store.environment, nullptr, false);
+	rai::transaction stream_transaction (connection->node->store.environment, false);
 
 	/**
 	 ** Get account balance and frontier block hash
@@ -1939,7 +1939,7 @@ std::pair<std::unique_ptr<rai::pending_key>, std::unique_ptr<rai::pending_info>>
 		 * destroy a database transaction, to avoid locking the
 		 * database for a prolonged period.
 		 */
-		rai::transaction stream_transaction (connection->node->store.environment, nullptr, false);
+		rai::transaction stream_transaction (connection->node->store.environment, false);
 		auto stream (connection->node->store.pending_begin (stream_transaction, current_key));
 
 		if (stream == rai::store_iterator<rai::pending_key, rai::pending_info> (nullptr))
@@ -2207,7 +2207,7 @@ std::unique_ptr<rai::block> rai::bulk_pull_blocks_server::get_next ()
 			auto current = rai::uint256_union (stream->first);
 			if (current < request->max_hash)
 			{
-				rai::transaction transaction (connection->node->store.environment, nullptr, false);
+				rai::transaction transaction (connection->node->store.environment, false);
 				result = connection->node->store.block_get (transaction, current);
 
 				++stream;
@@ -2267,7 +2267,7 @@ connection (connection_a),
 request (std::move (request_a)),
 send_buffer (std::make_shared<std::vector<uint8_t>> ()),
 stream (nullptr),
-stream_transaction (connection_a->node->store.environment, nullptr, false),
+stream_transaction (connection_a->node->store.environment, false),
 sent_count (0),
 checksum (0)
 {
@@ -2482,7 +2482,7 @@ void rai::frontier_req_server::sent_action (boost::system::error_code const & ec
 
 void rai::frontier_req_server::next ()
 {
-	rai::transaction transaction (connection->node->store.environment, nullptr, false);
+	rai::transaction transaction (connection->node->store.environment, false);
 	auto iterator (connection->node->store.latest_begin (transaction, current.number () + 1));
 	if (iterator != connection->node->store.latest_end ())
 	{

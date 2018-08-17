@@ -403,7 +403,7 @@ void rai::rpc_handler::account_block_count ()
 	auto account (account_impl ());
 	if (!ec)
 	{
-		rai::transaction transaction (node.store.environment, nullptr, false);
+		rai::transaction transaction (node.store.environment, false);
 		rai::account_info info;
 		if (!node.store.account_get (transaction, account, info))
 		{
@@ -460,7 +460,7 @@ void rai::rpc_handler::account_info ()
 		const bool representative = request.get<bool> ("representative", false);
 		const bool weight = request.get<bool> ("weight", false);
 		const bool pending = request.get<bool> ("pending", false);
-		rai::transaction transaction (node.store.environment, nullptr, false);
+		rai::transaction transaction (node.store.environment, false);
 		rai::account_info info;
 		if (!node.store.account_get (transaction, account, info))
 		{
@@ -514,7 +514,7 @@ void rai::rpc_handler::account_list ()
 	if (!ec)
 	{
 		boost::property_tree::ptree accounts;
-		rai::transaction transaction (node.store.environment, nullptr, false);
+		rai::transaction transaction (node.store.environment, false);
 		for (auto i (wallet->store.begin (transaction)), j (wallet->store.end ()); i != j; ++i)
 		{
 			boost::property_tree::ptree entry;
@@ -548,7 +548,7 @@ void rai::rpc_handler::account_move ()
 					account.decode_hex (i->second.get<std::string> (""));
 					accounts.push_back (account);
 				}
-				rai::transaction transaction (node.store.environment, nullptr, true);
+				rai::transaction transaction (node.store.environment, true);
 				auto error (wallet->store.move (transaction, source->store, accounts));
 				response_l.put ("moved", error ? "0" : "1");
 			}
@@ -572,7 +572,7 @@ void rai::rpc_handler::account_remove ()
 	auto account (account_impl ());
 	if (!ec)
 	{
-		rai::transaction transaction (node.store.environment, nullptr, true);
+		rai::transaction transaction (node.store.environment, true);
 		if (wallet->store.valid_password (transaction))
 		{
 			if (wallet->store.find (transaction, account) != wallet->store.end ())
@@ -598,7 +598,7 @@ void rai::rpc_handler::account_representative ()
 	auto account (account_impl ());
 	if (!ec)
 	{
-		rai::transaction transaction (node.store.environment, nullptr, false);
+		rai::transaction transaction (node.store.environment, false);
 		rai::account_info info;
 		if (!node.store.account_get (transaction, account, info))
 		{
@@ -630,7 +630,7 @@ void rai::rpc_handler::account_representative_set ()
 				auto work (work_optional_impl ());
 				if (!ec && work)
 				{
-					rai::transaction transaction (node.store.environment, nullptr, true);
+					rai::transaction transaction (node.store.environment, true);
 					rai::account_info info;
 					if (!node.store.account_get (transaction, account, info))
 					{
@@ -738,7 +738,7 @@ void rai::rpc_handler::accounts_create ()
 void rai::rpc_handler::accounts_frontiers ()
 {
 	boost::property_tree::ptree frontiers;
-	rai::transaction transaction (node.store.environment, nullptr, false);
+	rai::transaction transaction (node.store.environment, false);
 	for (auto & accounts : request.get_child ("accounts"))
 	{
 		auto account (account_impl (accounts.second.data ()));
@@ -762,7 +762,7 @@ void rai::rpc_handler::accounts_pending ()
 	const bool source = request.get<bool> ("source", false);
 	const bool include_active = request.get<bool> ("include_active", false);
 	boost::property_tree::ptree pending;
-	rai::transaction transaction (node.store.environment, nullptr, false);
+	rai::transaction transaction (node.store.environment, false);
 	for (auto & accounts : request.get_child ("accounts"))
 	{
 		auto account (account_impl (accounts.second.data ()));
@@ -826,7 +826,7 @@ void rai::rpc_handler::block ()
 	auto hash (hash_impl ());
 	if (!ec)
 	{
-		rai::transaction transaction (node.store.environment, nullptr, false);
+		rai::transaction transaction (node.store.environment, false);
 		auto block (node.store.block_get (transaction, hash));
 		if (block != nullptr)
 		{
@@ -847,7 +847,7 @@ void rai::rpc_handler::block_confirm ()
 	auto hash (hash_impl ());
 	if (!ec)
 	{
-		rai::transaction transaction (node.store.environment, nullptr, false);
+		rai::transaction transaction (node.store.environment, false);
 		auto block_l (node.store.block_get (transaction, hash));
 		if (block_l != nullptr)
 		{
@@ -866,7 +866,7 @@ void rai::rpc_handler::blocks ()
 {
 	std::vector<std::string> hashes;
 	boost::property_tree::ptree blocks;
-	rai::transaction transaction (node.store.environment, nullptr, false);
+	rai::transaction transaction (node.store.environment, false);
 	for (boost::property_tree::ptree::value_type & hashes : request.get_child ("hashes"))
 	{
 		if (!ec)
@@ -904,7 +904,7 @@ void rai::rpc_handler::blocks_info ()
 	const bool balance = request.get<bool> ("balance", false);
 	std::vector<std::string> hashes;
 	boost::property_tree::ptree blocks;
-	rai::transaction transaction (node.store.environment, nullptr, false);
+	rai::transaction transaction (node.store.environment, false);
 	for (boost::property_tree::ptree::value_type & hashes : request.get_child ("hashes"))
 	{
 		if (!ec)
@@ -975,7 +975,7 @@ void rai::rpc_handler::block_account ()
 	auto hash (hash_impl ());
 	if (!ec)
 	{
-		rai::transaction transaction (node.store.environment, nullptr, false);
+		rai::transaction transaction (node.store.environment, false);
 		if (node.store.block_exists (transaction, hash))
 		{
 			auto account (node.ledger.account (transaction, hash));
@@ -991,7 +991,7 @@ void rai::rpc_handler::block_account ()
 
 void rai::rpc_handler::block_count ()
 {
-	rai::transaction transaction (node.store.environment, nullptr, false);
+	rai::transaction transaction (node.store.environment, false);
 	response_l.put ("count", std::to_string (node.store.block_count (transaction).sum ()));
 	response_l.put ("unchecked", std::to_string (node.store.unchecked_count (transaction)));
 	response_errors ();
@@ -999,7 +999,7 @@ void rai::rpc_handler::block_count ()
 
 void rai::rpc_handler::block_count_type ()
 {
-	rai::transaction transaction (node.store.environment, nullptr, false);
+	rai::transaction transaction (node.store.environment, false);
 	rai::block_counts count (node.store.block_count (transaction));
 	response_l.put ("send", std::to_string (count.send));
 	response_l.put ("receive", std::to_string (count.receive));
@@ -1081,7 +1081,7 @@ void rai::rpc_handler::block_create ()
 			auto existing (node.wallets.items.find (wallet));
 			if (existing != node.wallets.items.end ())
 			{
-				rai::transaction transaction (node.store.environment, nullptr, false);
+				rai::transaction transaction (node.store.environment, false);
 				if (existing->second->store.valid_password (transaction))
 				{
 					if (existing->second->store.find (transaction, account) != existing->second->store.end ())
@@ -1152,14 +1152,14 @@ void rai::rpc_handler::block_create ()
 			// Fetching account balance & previous for send blocks (if aren't given directly)
 			if (!previous_text.is_initialized () && !balance_text.is_initialized ())
 			{
-				rai::transaction transaction (node.store.environment, nullptr, false);
+				rai::transaction transaction (node.store.environment, false);
 				previous = node.ledger.latest (transaction, pub);
 				balance = node.ledger.account_balance (transaction, pub);
 			}
 			// Double check current balance if previous block is specified
 			else if (previous_text.is_initialized () && balance_text.is_initialized () && type == "send")
 			{
-				rai::transaction transaction (node.store.environment, nullptr, false);
+				rai::transaction transaction (node.store.environment, false);
 				if (node.store.block_exists (transaction, previous) && node.store.block_balance (transaction, previous) != balance.number ())
 				{
 					ec = nano::error_rpc::block_create_balance_mismatch;
@@ -1348,7 +1348,7 @@ void rai::rpc_handler::chain (bool successors)
 	if (!ec)
 	{
 		boost::property_tree::ptree blocks;
-		rai::transaction transaction (node.store.environment, nullptr, false);
+		rai::transaction transaction (node.store.environment, false);
 		while (!hash.is_zero () && blocks.size () < count)
 		{
 			auto block_l (node.store.block_get (transaction, hash));
@@ -1392,7 +1392,7 @@ void rai::rpc_handler::delegators ()
 	if (!ec)
 	{
 		boost::property_tree::ptree delegators;
-		rai::transaction transaction (node.store.environment, nullptr, false);
+		rai::transaction transaction (node.store.environment, false);
 		for (auto i (node.store.latest_begin (transaction)), n (node.store.latest_end ()); i != n; ++i)
 		{
 			rai::account_info info (i->second);
@@ -1416,7 +1416,7 @@ void rai::rpc_handler::delegators_count ()
 	if (!ec)
 	{
 		uint64_t count (0);
-		rai::transaction transaction (node.store.environment, nullptr, false);
+		rai::transaction transaction (node.store.environment, false);
 		for (auto i (node.store.latest_begin (transaction)), n (node.store.latest_end ()); i != n; ++i)
 		{
 			rai::account_info info (i->second);
@@ -1468,7 +1468,7 @@ void rai::rpc_handler::frontiers ()
 	if (!ec)
 	{
 		boost::property_tree::ptree frontiers;
-		rai::transaction transaction (node.store.environment, nullptr, false);
+		rai::transaction transaction (node.store.environment, false);
 		for (auto i (node.store.latest_begin (transaction, start)), n (node.store.latest_end ()); i != n && frontiers.size () < count; ++i)
 		{
 			frontiers.put (rai::account (i->first).to_account (), rai::account_info (i->second).head.to_string ());
@@ -1480,7 +1480,7 @@ void rai::rpc_handler::frontiers ()
 
 void rai::rpc_handler::account_count ()
 {
-	rai::transaction transaction (node.store.environment, nullptr, false);
+	rai::transaction transaction (node.store.environment, false);
 	auto size (node.store.account_count (transaction));
 	response_l.put ("count", std::to_string (size));
 	response_errors ();
@@ -1632,7 +1632,7 @@ void rai::rpc_handler::account_history ()
 	bool output_raw (request.get_optional<bool> ("raw") == true);
 	rai::block_hash hash;
 	auto head_str (request.get_optional<std::string> ("head"));
-	rai::transaction transaction (node.store.environment, nullptr, false);
+	rai::transaction transaction (node.store.environment, false);
 	if (head_str)
 	{
 		if (!hash.decode_hex (*head_str))
@@ -1776,7 +1776,7 @@ void rai::rpc_handler::ledger ()
 		const bool weight = request.get<bool> ("weight", false);
 		const bool pending = request.get<bool> ("pending", false);
 		boost::property_tree::ptree accounts;
-		rai::transaction transaction (node.store.environment, nullptr, false);
+		rai::transaction transaction (node.store.environment, false);
 		if (!ec && !sorting) // Simple
 		{
 			for (auto i (node.store.latest_begin (transaction, start)), n (node.store.latest_end ()); i != n && accounts.size () < count; ++i)
@@ -1901,7 +1901,7 @@ void rai::rpc_handler::password_change ()
 	auto wallet (wallet_impl ());
 	if (!ec)
 	{
-		rai::transaction transaction (node.store.environment, nullptr, true);
+		rai::transaction transaction (node.store.environment, true);
 		std::string password_text (request.get<std::string> ("password"));
 		auto error (wallet->store.rekey (transaction, password_text));
 		response_l.put ("changed", error ? "0" : "1");
@@ -1926,7 +1926,7 @@ void rai::rpc_handler::password_valid (bool wallet_locked)
 	auto wallet (wallet_impl ());
 	if (!ec)
 	{
-		rai::transaction transaction (node.store.environment, nullptr, false);
+		rai::transaction transaction (node.store.environment, false);
 		auto valid (wallet->store.valid_password (transaction));
 		if (!wallet_locked)
 		{
@@ -1964,7 +1964,7 @@ void rai::rpc_handler::pending ()
 	if (!ec)
 	{
 		boost::property_tree::ptree peers_l;
-		rai::transaction transaction (node.store.environment, nullptr, false);
+		rai::transaction transaction (node.store.environment, false);
 		rai::account end (account.number () + 1);
 		for (auto i (node.store.pending_begin (transaction, rai::pending_key (account, 0))), n (node.store.pending_begin (transaction, rai::pending_key (end, 0))); i != n && peers_l.size () < count; ++i)
 		{
@@ -2011,7 +2011,7 @@ void rai::rpc_handler::pending_exists ()
 	auto hash (hash_impl ());
 	if (!ec)
 	{
-		rai::transaction transaction (node.store.environment, nullptr, false);
+		rai::transaction transaction (node.store.environment, false);
 		auto block (node.store.block_get (transaction, hash));
 		if (block != nullptr)
 		{
@@ -2040,7 +2040,7 @@ void rai::rpc_handler::payment_begin ()
 		auto existing (node.wallets.items.find (id));
 		if (existing != node.wallets.items.end ())
 		{
-			rai::transaction transaction (node.store.environment, nullptr, true);
+			rai::transaction transaction (node.store.environment, true);
 			std::shared_ptr<rai::wallet> wallet (existing->second);
 			if (wallet->store.valid_password (transaction))
 			{
@@ -2103,7 +2103,7 @@ void rai::rpc_handler::payment_init ()
 	auto wallet (wallet_impl ());
 	if (!ec)
 	{
-		rai::transaction transaction (node.store.environment, nullptr, true);
+		rai::transaction transaction (node.store.environment, true);
 		if (wallet->store.valid_password (transaction))
 		{
 			wallet->init_free_accounts (transaction);
@@ -2123,7 +2123,7 @@ void rai::rpc_handler::payment_end ()
 	auto wallet (wallet_impl ());
 	if (!ec)
 	{
-		rai::transaction transaction (node.store.environment, nullptr, false);
+		rai::transaction transaction (node.store.environment, false);
 		auto existing (wallet->store.find (transaction, account));
 		if (existing != wallet->store.end ())
 		{
@@ -2190,7 +2190,7 @@ void rai::rpc_handler::process ()
 			node.block_arrival.add (hash);
 			rai::process_return result;
 			{
-				rai::transaction transaction (node.store.environment, nullptr, true);
+				rai::transaction transaction (node.store.environment, true);
 				result = node.block_processor.process_receive_one (transaction, block, std::chrono::steady_clock::time_point ());
 			}
 			switch (result.code)
@@ -2283,7 +2283,7 @@ void rai::rpc_handler::receive ()
 	auto hash (hash_impl ("block"));
 	if (!ec)
 	{
-		rai::transaction transaction (node.store.environment, nullptr, false);
+		rai::transaction transaction (node.store.environment, false);
 		if (wallet->store.valid_password (transaction))
 		{
 			if (wallet->store.find (transaction, account) != wallet->store.end ())
@@ -2308,7 +2308,7 @@ void rai::rpc_handler::receive ()
 							}
 							if (!rai::work_validate (head, work))
 							{
-								rai::transaction transaction_a (node.store.environment, nullptr, true);
+								rai::transaction transaction_a (node.store.environment, true);
 								wallet->store.work_put (transaction_a, account, work);
 							}
 							else
@@ -2388,7 +2388,7 @@ void rai::rpc_handler::representatives ()
 	{
 		const bool sorting = request.get<bool> ("sorting", false);
 		boost::property_tree::ptree representatives;
-		rai::transaction transaction (node.store.environment, nullptr, false);
+		rai::transaction transaction (node.store.environment, false);
 		if (!sorting) // Simple
 		{
 			for (auto i (node.store.representation_begin (transaction)), n (node.store.representation_end ()); i != n && representatives.size () < count; ++i)
@@ -2456,7 +2456,7 @@ void rai::rpc_handler::republish ()
 	if (!ec)
 	{
 		boost::property_tree::ptree blocks;
-		rai::transaction transaction (node.store.environment, nullptr, false);
+		rai::transaction transaction (node.store.environment, false);
 		auto block (node.store.block_get (transaction, hash));
 		if (block != nullptr)
 		{
@@ -2580,7 +2580,7 @@ void rai::rpc_handler::send ()
 					rai::uint128_t balance (0);
 					if (!ec)
 					{
-						rai::transaction transaction (node.store.environment, nullptr, work != 0); // false if no "work" in request, true if work > 0
+						rai::transaction transaction (node.store.environment, work != 0); // false if no "work" in request, true if work > 0
 						rai::account_info info;
 						if (!node.store.account_get (transaction, source, info))
 						{
@@ -2700,7 +2700,7 @@ void rai::rpc_handler::unchecked ()
 	if (!ec)
 	{
 		boost::property_tree::ptree unchecked;
-		rai::transaction transaction (node.store.environment, nullptr, false);
+		rai::transaction transaction (node.store.environment, false);
 		for (auto i (node.store.unchecked_begin (transaction)), n (node.store.unchecked_end ()); i != n && unchecked.size () < count; ++i)
 		{
 			auto block (i->second);
@@ -2718,7 +2718,7 @@ void rai::rpc_handler::unchecked_clear ()
 	rpc_control_impl ();
 	if (!ec)
 	{
-		rai::transaction transaction (node.store.environment, nullptr, true);
+		rai::transaction transaction (node.store.environment, true);
 		node.store.unchecked_clear (transaction);
 		response_l.put ("success", "");
 	}
@@ -2730,7 +2730,7 @@ void rai::rpc_handler::unchecked_get ()
 	auto hash (hash_impl ());
 	if (!ec)
 	{
-		rai::transaction transaction (node.store.environment, nullptr, false);
+		rai::transaction transaction (node.store.environment, false);
 		for (auto i (node.store.unchecked_begin (transaction)), n (node.store.unchecked_end ()); i != n; ++i)
 		{
 			std::shared_ptr<rai::block> block (i->second);
@@ -2765,7 +2765,7 @@ void rai::rpc_handler::unchecked_keys ()
 	if (!ec)
 	{
 		boost::property_tree::ptree unchecked;
-		rai::transaction transaction (node.store.environment, nullptr, false);
+		rai::transaction transaction (node.store.environment, false);
 		for (auto i (node.store.unchecked_begin (transaction, key)), n (node.store.unchecked_end ()); i != n && unchecked.size () < count; ++i)
 		{
 			boost::property_tree::ptree entry;
@@ -2834,7 +2834,7 @@ void rai::rpc_handler::wallet_add_watch ()
 	auto wallet (wallet_impl ());
 	if (!ec)
 	{
-		rai::transaction transaction (node.store.environment, nullptr, true);
+		rai::transaction transaction (node.store.environment, true);
 		if (wallet->store.valid_password (transaction))
 		{
 			for (auto & accounts : request.get_child ("accounts"))
@@ -2865,7 +2865,7 @@ void rai::rpc_handler::wallet_info ()
 		uint64_t count (0);
 		uint64_t deterministic_count (0);
 		uint64_t adhoc_count (0);
-		rai::transaction transaction (node.store.environment, nullptr, false);
+		rai::transaction transaction (node.store.environment, false);
 		for (auto i (wallet->store.begin (transaction)), n (wallet->store.end ()); i != n; ++i)
 		{
 			rai::account account (i->first);
@@ -2900,7 +2900,7 @@ void rai::rpc_handler::wallet_balances ()
 	if (!ec)
 	{
 		boost::property_tree::ptree balances;
-		rai::transaction transaction (node.store.environment, nullptr, false);
+		rai::transaction transaction (node.store.environment, false);
 		for (auto i (wallet->store.begin (transaction)), n (wallet->store.end ()); i != n; ++i)
 		{
 			rai::account account (i->first);
@@ -2929,7 +2929,7 @@ void rai::rpc_handler::wallet_change_seed ()
 		rai::raw_key seed;
 		if (!seed.data.decode_hex (seed_text))
 		{
-			rai::transaction transaction (node.store.environment, nullptr, true);
+			rai::transaction transaction (node.store.environment, true);
 			if (wallet->store.valid_password (transaction))
 			{
 				wallet->change_seed (transaction, seed);
@@ -2954,7 +2954,7 @@ void rai::rpc_handler::wallet_contains ()
 	auto wallet (wallet_impl ());
 	if (!ec)
 	{
-		rai::transaction transaction (node.store.environment, nullptr, false);
+		rai::transaction transaction (node.store.environment, false);
 		auto exists (wallet->store.find (transaction, account) != wallet->store.end ());
 		response_l.put ("exists", exists ? "1" : "0");
 	}
@@ -2968,7 +2968,7 @@ void rai::rpc_handler::wallet_create ()
 	{
 		rai::keypair wallet_id;
 		node.wallets.create (wallet_id.pub);
-		rai::transaction transaction (node.store.environment, nullptr, false);
+		rai::transaction transaction (node.store.environment, false);
 		auto existing (node.wallets.items.find (wallet_id.pub));
 		if (existing != node.wallets.items.end ())
 		{
@@ -3016,7 +3016,7 @@ void rai::rpc_handler::wallet_export ()
 	auto wallet (wallet_impl ());
 	if (!ec)
 	{
-		rai::transaction transaction (node.store.environment, nullptr, false);
+		rai::transaction transaction (node.store.environment, false);
 		std::string json;
 		wallet->store.serialize_json (transaction, json);
 		response_l.put ("json", json);
@@ -3030,7 +3030,7 @@ void rai::rpc_handler::wallet_frontiers ()
 	if (!ec)
 	{
 		boost::property_tree::ptree frontiers;
-		rai::transaction transaction (node.store.environment, nullptr, false);
+		rai::transaction transaction (node.store.environment, false);
 		for (auto i (wallet->store.begin (transaction)), n (wallet->store.end ()); i != n; ++i)
 		{
 			rai::account account (i->first);
@@ -3050,7 +3050,7 @@ void rai::rpc_handler::wallet_key_valid ()
 	auto wallet (wallet_impl ());
 	if (!ec)
 	{
-		rai::transaction transaction (node.store.environment, nullptr, false);
+		rai::transaction transaction (node.store.environment, false);
 		auto valid (wallet->store.valid_password (transaction));
 		response_l.put ("valid", valid ? "1" : "0");
 	}
@@ -3072,7 +3072,7 @@ void rai::rpc_handler::wallet_ledger ()
 	if (!ec)
 	{
 		boost::property_tree::ptree accounts;
-		rai::transaction transaction (node.store.environment, nullptr, false);
+		rai::transaction transaction (node.store.environment, false);
 		for (auto i (wallet->store.begin (transaction)), n (wallet->store.end ()); i != n; ++i)
 		{
 			rai::account account (i->first);
@@ -3140,7 +3140,7 @@ void rai::rpc_handler::wallet_pending ()
 	if (!ec)
 	{
 		boost::property_tree::ptree pending;
-		rai::transaction transaction (node.store.environment, nullptr, false);
+		rai::transaction transaction (node.store.environment, false);
 		for (auto i (wallet->store.begin (transaction)), n (wallet->store.end ()); i != n; ++i)
 		{
 			rai::account account (i->first);
@@ -3201,7 +3201,7 @@ void rai::rpc_handler::wallet_representative ()
 	auto wallet (wallet_impl ());
 	if (!ec)
 	{
-		rai::transaction transaction (node.store.environment, nullptr, false);
+		rai::transaction transaction (node.store.environment, false);
 		response_l.put ("representative", wallet->store.representative (transaction).to_account ());
 	}
 	response_errors ();
@@ -3217,7 +3217,7 @@ void rai::rpc_handler::wallet_representative_set ()
 		rai::account representative;
 		if (!representative.decode_account (representative_text))
 		{
-			rai::transaction transaction (node.store.environment, nullptr, true);
+			rai::transaction transaction (node.store.environment, true);
 			wallet->store.representative_set (transaction, representative);
 			response_l.put ("set", "1");
 		}
@@ -3237,7 +3237,7 @@ void rai::rpc_handler::wallet_republish ()
 	if (!ec)
 	{
 		boost::property_tree::ptree blocks;
-		rai::transaction transaction (node.store.environment, nullptr, false);
+		rai::transaction transaction (node.store.environment, false);
 		for (auto i (wallet->store.begin (transaction)), n (wallet->store.end ()); i != n; ++i)
 		{
 			rai::account account (i->first);
@@ -3272,7 +3272,7 @@ void rai::rpc_handler::wallet_work_get ()
 	if (!ec)
 	{
 		boost::property_tree::ptree works;
-		rai::transaction transaction (node.store.environment, nullptr, false);
+		rai::transaction transaction (node.store.environment, false);
 		for (auto i (wallet->store.begin (transaction)), n (wallet->store.end ()); i != n; ++i)
 		{
 			rai::account account (i->first);
@@ -3339,7 +3339,7 @@ void rai::rpc_handler::work_get ()
 	auto account (account_impl ());
 	if (!ec)
 	{
-		rai::transaction transaction (node.store.environment, nullptr, false);
+		rai::transaction transaction (node.store.environment, false);
 		if (wallet->store.find (transaction, account) != wallet->store.end ())
 		{
 			uint64_t work (0);
@@ -3362,7 +3362,7 @@ void rai::rpc_handler::work_set ()
 	auto work (work_optional_impl ());
 	if (!ec)
 	{
-		rai::transaction transaction (node.store.environment, nullptr, true);
+		rai::transaction transaction (node.store.environment, true);
 		if (wallet->store.find (transaction, account) != wallet->store.end ())
 		{
 			wallet->store.work_put (transaction, account, work);

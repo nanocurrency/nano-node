@@ -74,7 +74,7 @@ public:
 class transaction
 {
 public:
-	transaction (rai::mdb_env &, MDB_txn *, bool);
+	transaction (rai::mdb_env &, bool, MDB_txn * = nullptr);
 	~transaction ();
 	operator MDB_txn * () const;
 	MDB_txn * handle;

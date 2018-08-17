@@ -667,7 +667,7 @@ rai::block_hash rai::ledger::representative_calculated (MDB_txn * transaction_a,
 
 bool rai::ledger::block_exists (rai::block_hash const & hash_a)
 {
-	rai::transaction transaction (store.environment, nullptr, false);
+	rai::transaction transaction (store.environment, false);
 	auto result (store.block_exists (transaction, hash_a));
 	return result;
 }
@@ -680,7 +680,7 @@ std::string rai::ledger::block_text (char const * hash_a)
 std::string rai::ledger::block_text (rai::block_hash const & hash_a)
 {
 	std::string result;
-	rai::transaction transaction (store.environment, nullptr, false);
+	rai::transaction transaction (store.environment, false);
 	auto block (store.block_get (transaction, hash_a));
 	if (block != nullptr)
 	{
@@ -847,7 +847,7 @@ rai::checksum rai::ledger::checksum (MDB_txn * transaction_a, rai::account const
 
 void rai::ledger::dump_account_chain (rai::account const & account_a)
 {
-	rai::transaction transaction (store.environment, nullptr, false);
+	rai::transaction transaction (store.environment, false);
 	auto hash (latest (transaction, account_a));
 	while (!hash.is_zero ())
 	{

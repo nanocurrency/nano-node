@@ -10,7 +10,7 @@ TEST (system, generate_mass_activity)
 	size_t count (20);
 	system.generate_mass_activity (count, *system.nodes[0]);
 	size_t accounts (0);
-	rai::transaction transaction (system.nodes[0]->store.environment, nullptr, false);
+	rai::transaction transaction (system.nodes[0]->store.environment, false);
 	for (auto i (system.nodes[0]->store.latest_begin (transaction)), n (system.nodes[0]->store.latest_end ()); i != n; ++i)
 	{
 		++accounts;
@@ -25,7 +25,7 @@ TEST (system, generate_mass_activity_long)
 	size_t count (1000000000);
 	system.generate_mass_activity (count, *system.nodes[0]);
 	size_t accounts (0);
-	rai::transaction transaction (system.nodes[0]->store.environment, nullptr, false);
+	rai::transaction transaction (system.nodes[0]->store.environment, false);
 	for (auto i (system.nodes[0]->store.latest_begin (transaction)), n (system.nodes[0]->store.latest_end ()); i != n; ++i)
 	{
 		++accounts;
@@ -53,7 +53,7 @@ TEST (system, receive_while_synchronizing)
 		node1->start ();
 		system.alarm.add (std::chrono::steady_clock::now () + std::chrono::milliseconds (200), ([&system, &key]() {
 			auto hash (system.wallet (0)->send_sync (rai::test_genesis_key.pub, key.pub, system.nodes[0]->config.receive_minimum.number ()));
-			auto block (system.nodes[0]->store.block_get (rai::transaction (system.nodes[0]->store.environment, nullptr, false), hash));
+			auto block (system.nodes[0]->store.block_get (rai::transaction (system.nodes[0]->store.environment, false), hash));
 			std::string block_text;
 			block->serialize_json (block_text);
 		}));
@@ -79,7 +79,7 @@ TEST (ledger, deep_account_compute)
 	rai::stat stats;
 	rai::ledger ledger (store, stats);
 	rai::genesis genesis;
-	rai::transaction transaction (store.environment, nullptr, true);
+	rai::transaction transaction (store.environment, true);
 	store.initialize (transaction, genesis);
 	rai::keypair key;
 	auto balance (rai::genesis_amount - 1);
@@ -146,7 +146,7 @@ TEST (store, load)
 		threads.push_back (std::thread ([&system]() {
 			for (auto i (0); i != 1000; ++i)
 			{
-				rai::transaction transaction (system.nodes[0]->store.environment, nullptr, true);
+				rai::transaction transaction (system.nodes[0]->store.environment, true);
 				for (auto j (0); j != 10; ++j)
 				{
 					rai::block_hash hash;
@@ -184,7 +184,7 @@ TEST (node, fork_storm)
 			system.nodes[i]->work_generate_blocking (*open);
 			auto open_result (system.nodes[i]->process (*open));
 			ASSERT_EQ (rai::process_result::progress, open_result.code);
-			rai::transaction transaction (system.nodes[i]->store.environment, nullptr, false);
+			rai::transaction transaction (system.nodes[i]->store.environment, false);
 			system.nodes[i]->network.republish_block (transaction, open);
 		}
 	}
@@ -378,10 +378,10 @@ TEST (store, unchecked_load)
 	auto block (std::make_shared<rai::send_block> (0, 0, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
 	for (auto i (0); i < 1000000; ++i)
 	{
-		rai::transaction transaction (node.store.environment, nullptr, true);
+		rai::transaction transaction (node.store.environment, true);
 		node.store.unchecked_put (transaction, i, block);
 	}
-	rai::transaction transaction (node.store.environment, nullptr, false);
+	rai::transaction transaction (node.store.environment, false);
 	auto count (node.store.unchecked_count (transaction));
 }
 

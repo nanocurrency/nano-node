@@ -426,7 +426,7 @@ meta (0)
 {
 	if (!error_a)
 	{
-		rai::transaction transaction (environment, nullptr, true);
+		rai::transaction transaction (environment, true);
 		error_a |= mdb_dbi_open (transaction, "frontiers", MDB_CREATE, &frontiers) != 0;
 		error_a |= mdb_dbi_open (transaction, "accounts", MDB_CREATE, &accounts_v0) != 0;
 		error_a |= mdb_dbi_open (transaction, "accounts_v1", MDB_CREATE, &accounts_v1) != 0;
@@ -743,7 +743,7 @@ void rai::block_store::upgrade_v10_to_v11 (MDB_txn * transaction_a)
 
 void rai::block_store::clear (MDB_dbi db_a)
 {
-	rai::transaction transaction (environment, nullptr, true);
+	rai::transaction transaction (environment, true);
 	auto status (mdb_drop (transaction, db_a, 0));
 	assert (status == 0);
 }
