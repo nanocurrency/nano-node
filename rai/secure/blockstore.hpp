@@ -12,7 +12,6 @@ class store_iterator_impl
 public:
 	virtual ~store_iterator_impl () = default;
 	virtual rai::store_iterator_impl<T, U> & operator++ () = 0;
-	virtual std::pair<rai::mdb_val, rai::mdb_val> * operator-> () = 0;
 	virtual bool operator== (rai::store_iterator_impl<T, U> const & other_a) const = 0;
 	virtual void next_dup () = 0;
 	virtual bool is_end_sentinal () const = 0;
@@ -38,7 +37,7 @@ public:
 	mdb_iterator (rai::mdb_iterator<T, U> const &) = delete;
 	~mdb_iterator ();
 	rai::store_iterator_impl<T, U> & operator++ () override;
-	std::pair<rai::mdb_val, rai::mdb_val> * operator-> () override;
+	std::pair<rai::mdb_val, rai::mdb_val> * operator-> ();
 	bool operator== (rai::store_iterator_impl<T, U> const & other_a) const override;
 	void next_dup () override;
 	bool is_end_sentinal () const override;
@@ -121,7 +120,7 @@ public:
 	mdb_merge_iterator (rai::mdb_merge_iterator<T, U> const &) = delete;
 	~mdb_merge_iterator ();
 	rai::store_iterator_impl<T, U> & operator++ () override;
-	std::pair<rai::mdb_val, rai::mdb_val> * operator-> () override;
+	std::pair<rai::mdb_val, rai::mdb_val> * operator-> ();
 	bool operator== (rai::store_iterator_impl<T, U> const &) const override;
 	void next_dup () override;
 	bool is_end_sentinal () const override;
