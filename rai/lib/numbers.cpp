@@ -58,14 +58,6 @@ void rai::uint256_union::encode_account (std::string & destination_a) const
 	std::reverse (destination_a.begin (), destination_a.end ());
 }
 
-std::string rai::uint256_union::to_account_split () const
-{
-	auto result (to_account ());
-	assert (result.size () == 64);
-	result.insert (32, "\n");
-	return result;
-}
-
 std::string rai::uint256_union::to_account () const
 {
 	std::string result;

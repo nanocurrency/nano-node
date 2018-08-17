@@ -81,10 +81,10 @@ public:
 	bool fetch (MDB_txn *, rai::public_key const &, rai::raw_key &);
 	bool exists (MDB_txn *, rai::public_key const &);
 	void destroy (MDB_txn *);
-	rai::store_iterator find (MDB_txn *, rai::uint256_union const &);
-	rai::store_iterator begin (MDB_txn *, rai::uint256_union const &);
-	rai::store_iterator begin (MDB_txn *);
-	rai::store_iterator end ();
+	rai::store_iterator<rai::uint256_union, rai::wallet_value> find (MDB_txn *, rai::uint256_union const &);
+	rai::store_iterator<rai::uint256_union, rai::wallet_value> begin (MDB_txn *, rai::uint256_union const &);
+	rai::store_iterator<rai::uint256_union, rai::wallet_value> begin (MDB_txn *);
+	rai::store_iterator<rai::uint256_union, rai::wallet_value> end ();
 	void derive_key (rai::raw_key &, MDB_txn *, std::string const &);
 	void serialize_json (MDB_txn *, std::string &);
 	void write_backup (MDB_txn *, boost::filesystem::path const &);

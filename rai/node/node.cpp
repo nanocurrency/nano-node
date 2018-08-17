@@ -1712,7 +1712,7 @@ void rai::block_processor::queue_unchecked (MDB_txn * transaction_a, rai::block_
 	auto cached (node.store.unchecked_get (transaction_a, hash_a));
 	for (auto i (cached.begin ()), n (cached.end ()); i != n; ++i)
 	{
-		node.store.unchecked_del (transaction_a, hash_a, **i);
+		node.store.unchecked_del (transaction_a, hash_a, *i);
 		add (*i, std::chrono::steady_clock::time_point ());
 	}
 	std::lock_guard<std::mutex> lock (node.gap_cache.mutex);
@@ -4053,6 +4053,11 @@ thread ([this]() { announce_loop (); })
 	{
 		condition.wait (lock);
 	}
+}
+
+rai::active_transactions::~active_transactions ()
+{
+	stop ();
 }
 
 bool rai::active_transactions::publish (std::shared_ptr<rai::block> block_a)
