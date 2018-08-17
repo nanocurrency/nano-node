@@ -27,6 +27,10 @@ public:
 class mdb_val
 {
 public:
+	enum class no_value
+	{
+		dummy
+	};
 	mdb_val (rai::epoch = rai::epoch::unspecified);
 	mdb_val (rai::account_info const &);
 	mdb_val (rai::block_info const &);
@@ -46,6 +50,8 @@ public:
 	explicit operator rai::pending_key () const;
 	explicit operator rai::uint128_union () const;
 	explicit operator rai::uint256_union () const;
+	explicit operator std::array<char, 64> () const;
+	explicit operator no_value () const;
 	explicit operator std::shared_ptr<rai::block> () const;
 	explicit operator std::shared_ptr<rai::send_block> () const;
 	explicit operator std::shared_ptr<rai::receive_block> () const;

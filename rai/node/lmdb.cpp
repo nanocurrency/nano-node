@@ -164,6 +164,19 @@ rai::mdb_val::operator rai::uint256_union () const
 	return result;
 }
 
+rai::mdb_val::operator std::array<char, 64> () const
+{
+	rai::bufferstream stream (reinterpret_cast<uint8_t const *> (value.mv_data), value.mv_size);
+	std::array<char, 64> result;
+	rai::read (stream, result);
+	return result;
+}
+
+rai::mdb_val::operator no_value () const
+{
+	return no_value::dummy;
+}
+
 rai::mdb_val::operator std::shared_ptr<rai::block> () const
 {
 	rai::bufferstream stream (reinterpret_cast<uint8_t const *> (value.mv_data), value.mv_size);
