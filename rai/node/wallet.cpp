@@ -536,9 +536,9 @@ bool rai::wallet_store::exists (MDB_txn * transaction_a, rai::public_key const &
 void rai::wallet_store::serialize_json (MDB_txn * transaction_a, std::string & string_a)
 {
 	boost::property_tree::ptree tree;
-	for (rai::store_iterator<rai::uint256_union, rai::uint256_union> i (std::make_unique<rai::mdb_iterator<rai::uint256_union, rai::uint256_union>> (transaction_a, handle)), n (nullptr); i != n; ++i)
+	for (rai::store_iterator<rai::uint256_union, rai::wallet_value> i (std::make_unique<rai::mdb_iterator<rai::uint256_union, rai::wallet_value>> (transaction_a, handle)), n (nullptr); i != n; ++i)
 	{
-		tree.put (rai::uint256_union (i->first).to_string (), rai::wallet_value (i->second).key.to_string ());
+		tree.put (i->first.to_string (), i->second.key.to_string ());
 	}
 	std::stringstream ostream;
 	boost::property_tree::write_json (ostream, tree);
@@ -1223,10 +1223,12 @@ thread ([this]() { do_wallet_actions (); })
 		assert (status == 0);
 		std::string beginning (rai::uint256_union (0).to_string ());
 		std::string end ((rai::uint256_union (rai::uint256_t (0) - rai::uint256_t (1))).to_string ());
-		for (rai::store_iterator<rai::uint256_union, rai::uint256_union> i (std::make_unique<rai::mdb_iterator<rai::uint256_union, rai::uint256_union>> (transaction, handle, rai::mdb_val (beginning.size (), const_cast<char *> (beginning.c_str ())))), n (std::make_unique<rai::mdb_iterator<rai::uint256_union, rai::uint256_union>> (transaction, handle, rai::mdb_val (end.size (), const_cast<char *> (end.c_str ())))); i != n; ++i)
+		rai::store_iterator<std::array<char, 64>, rai::mdb_val::no_value> i (std::make_unique<rai::mdb_iterator<std::array<char, 64>, rai::mdb_val::no_value>> (transaction, handle, rai::mdb_val (beginning.size (), const_cast<char *> (beginning.c_str ()))));
+		rai::store_iterator<std::array<char, 64>, rai::mdb_val::no_value> n (std::make_unique<rai::mdb_iterator<std::array<char, 64>, rai::mdb_val::no_value>> (transaction, handle, rai::mdb_val (end.size (), const_cast<char *> (end.c_str ()))));
+		for (; i != n; ++i)
 		{
 			rai::uint256_union id;
-			std::string text (i->first.chars.data (), i->first.chars.size ());
+			std::string text (i->first.data (), i->first.size ());
 			auto error (id.decode_hex (text));
 			assert (!error);
 			assert (items.find (id) == items.end ());
