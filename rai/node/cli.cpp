@@ -703,10 +703,7 @@ std::error_code rai::handle_node_options (boost::program_options::variables_map 
 		rai::transaction transaction (node.node->store.environment, nullptr, false);
 		for (auto i (node.node->store.vote_begin (transaction)), n (node.node->store.vote_end ()); i != n; ++i)
 		{
-			bool error (false);
-			rai::bufferstream stream (reinterpret_cast<uint8_t const *> (i->second.data ()), i->second.size ());
-			auto vote (std::make_shared<rai::vote> (error, stream));
-			assert (!error);
+			auto vote (i->second);
 			std::cerr << boost::str (boost::format ("%1%\n") % vote->to_json ());
 		}
 	}

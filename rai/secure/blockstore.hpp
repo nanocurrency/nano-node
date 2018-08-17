@@ -6,61 +6,103 @@
 namespace rai
 {
 class block_store;
+template <typename T, typename U>
 class store_iterator_impl
 {
 public:
 	virtual ~store_iterator_impl () = default;
-	virtual rai::store_iterator_impl & operator++ () = 0;
+	virtual rai::store_iterator_impl<T, U> & operator++ () = 0;
 	virtual std::pair<rai::mdb_val, rai::mdb_val> * operator-> () = 0;
-	virtual bool operator== (rai::store_iterator_impl const & other_a) const = 0;
+	virtual bool operator== (rai::store_iterator_impl<T, U> const & other_a) const = 0;
 	virtual void next_dup () = 0;
 	virtual bool is_end_sentinal () const = 0;
-	rai::store_iterator_impl & operator= (rai::store_iterator_impl const &) = delete;
-	bool operator== (rai::store_iterator_impl const * other_a) const;
-	bool operator!= (rai::store_iterator_impl const & other_a) const;
+	virtual void fill (std::pair<T, U> &) const = 0;
+	rai::store_iterator_impl<T, U> & operator= (rai::store_iterator_impl<T, U> const &) = delete;
+	bool operator== (rai::store_iterator_impl<T, U> const * other_a) const
+	{
+		return (other_a != nullptr && *this == *other_a) || (other_a == nullptr && is_end_sentinal ());
+	}
+	bool operator!= (rai::store_iterator_impl<T, U> const & other_a) const
+	{
+		return !(*this == other_a);
+	}
 };
-class mdb_iterator : public store_iterator_impl
+template <typename T, typename U>
+class mdb_iterator : public store_iterator_impl<T, U>
 {
 public:
 	mdb_iterator (MDB_txn * transaction_a, MDB_dbi db_a, rai::epoch = rai::epoch::unspecified);
 	mdb_iterator (std::nullptr_t, rai::epoch = rai::epoch::unspecified);
 	mdb_iterator (MDB_txn * transaction_a, MDB_dbi db_a, MDB_val const & val_a, rai::epoch = rai::epoch::unspecified);
-	mdb_iterator (rai::mdb_iterator && other_a);
-	mdb_iterator (rai::mdb_iterator const &) = delete;
+	mdb_iterator (rai::mdb_iterator<T, U> && other_a);
+	mdb_iterator (rai::mdb_iterator<T, U> const &) = delete;
 	~mdb_iterator ();
-	rai::store_iterator_impl & operator++ () override;
+	rai::store_iterator_impl<T, U> & operator++ () override;
 	std::pair<rai::mdb_val, rai::mdb_val> * operator-> () override;
-	bool operator== (rai::store_iterator_impl const & other_a) const override;
+	bool operator== (rai::store_iterator_impl<T, U> const & other_a) const override;
 	void next_dup () override;
 	bool is_end_sentinal () const override;
+	void fill (std::pair<T, U> &) const override;
 	void clear ();
-	rai::mdb_iterator & operator= (rai::mdb_iterator && other_a);
-	rai::store_iterator_impl & operator= (rai::store_iterator_impl const &) = delete;
+	rai::mdb_iterator<T, U> & operator= (rai::mdb_iterator<T, U> && other_a);
+	rai::store_iterator_impl<T, U> & operator= (rai::store_iterator_impl<T, U> const &) = delete;
 	MDB_cursor * cursor;
 	std::pair<rai::mdb_val, rai::mdb_val> current;
 };
+template <typename T, typename U>
 class mdb_merge_iterator;
 /**
  * Iterates the key/value pairs of a transaction
  */
+template <typename T, typename U>
 class store_iterator
 {
 	friend class rai::block_store;
-	friend class rai::mdb_merge_iterator;
+	friend class rai::mdb_merge_iterator<T, U>;
 
 public:
-	store_iterator (std::nullptr_t);
-	store_iterator (std::unique_ptr<rai::store_iterator_impl>);
-	store_iterator (rai::store_iterator &&);
-	rai::store_iterator & operator++ ();
-	rai::store_iterator & operator= (rai::store_iterator &&);
-	rai::store_iterator & operator= (rai::store_iterator const &) = delete;
-	std::pair<rai::mdb_val, rai::mdb_val> * operator-> ();
-	bool operator== (rai::store_iterator const &) const;
-	bool operator!= (rai::store_iterator const &) const;
+	store_iterator (std::nullptr_t)
+	{
+	}
+	store_iterator (std::unique_ptr<rai::store_iterator_impl<T, U>> impl_a) :
+	impl (std::move (impl_a))
+	{
+		impl->fill (current);
+	}
+	store_iterator (rai::store_iterator<T, U> && other_a) :
+	current (std::move (other_a.current)),
+	impl (std::move (other_a.impl))
+	{
+	}
+	rai::store_iterator<T, U> & operator++ ()
+	{
+		++*impl;
+		impl->fill (current);
+		return *this;
+	}
+	rai::store_iterator<T, U> & operator= (rai::store_iterator<T, U> && other_a)
+	{
+		impl = std::move (other_a.impl);
+		current = std::move (other_a.current);
+		return *this;
+	}
+	rai::store_iterator<T, U> & operator= (rai::store_iterator<T, U> const &) = delete;
+	std::pair<T, U> * operator-> ()
+	{
+		return &current;
+	}
+	bool operator== (rai::store_iterator<T, U> const & other_a) const
+	{
+		return (impl == nullptr && other_a.impl == nullptr) || (impl != nullptr && *impl == other_a.impl.get ()) || (other_a.impl != nullptr && *other_a.impl == impl.get ());
+	}
+	bool operator!= (rai::store_iterator<T, U> const & other_a) const
+	{
+		return !(*this == other_a);
+	}
 
 private:
-	std::unique_ptr<rai::store_iterator_impl> impl;
+	std::pair<T, U> current;
+	std::unique_ptr<rai::store_iterator_impl<T, U>> impl;
 };
 
 class block_predecessor_set;
@@ -68,28 +110,30 @@ class block_predecessor_set;
 /**
  * Iterates the key/value pairs of two stores merged together
  */
-class mdb_merge_iterator : public store_iterator_impl
+template <typename T, typename U>
+class mdb_merge_iterator : public store_iterator_impl<T, U>
 {
 public:
 	mdb_merge_iterator (MDB_txn *, MDB_dbi, MDB_dbi);
 	mdb_merge_iterator (std::nullptr_t);
 	mdb_merge_iterator (MDB_txn *, MDB_dbi, MDB_dbi, MDB_val const &);
-	mdb_merge_iterator (rai::mdb_merge_iterator &&);
-	mdb_merge_iterator (rai::mdb_merge_iterator const &) = delete;
+	mdb_merge_iterator (rai::mdb_merge_iterator<T, U> &&);
+	mdb_merge_iterator (rai::mdb_merge_iterator<T, U> const &) = delete;
 	~mdb_merge_iterator ();
-	rai::store_iterator_impl & operator++ () override;
+	rai::store_iterator_impl<T, U> & operator++ () override;
 	std::pair<rai::mdb_val, rai::mdb_val> * operator-> () override;
-	bool operator== (rai::store_iterator_impl const &) const override;
+	bool operator== (rai::store_iterator_impl<T, U> const &) const override;
 	void next_dup () override;
 	bool is_end_sentinal () const override;
+	void fill (std::pair<T, U> &) const override;
 	void clear ();
-	rai::mdb_merge_iterator & operator= (rai::mdb_merge_iterator &&) = default;
-	rai::mdb_merge_iterator & operator= (rai::mdb_merge_iterator const &) = delete;
+	rai::mdb_merge_iterator<T, U> & operator= (rai::mdb_merge_iterator<T, U> &&) = default;
+	rai::mdb_merge_iterator<T, U> & operator= (rai::mdb_merge_iterator<T, U> const &) = delete;
 
 private:
-	rai::mdb_iterator & least_iterator () const;
-	std::unique_ptr<rai::mdb_iterator> impl1;
-	std::unique_ptr<rai::mdb_iterator> impl2;
+	rai::mdb_iterator<T, U> & least_iterator () const;
+	std::unique_ptr<rai::mdb_iterator<T, U>> impl1;
+	std::unique_ptr<rai::mdb_iterator<T, U>> impl2;
 };
 
 /**
@@ -122,37 +166,37 @@ public:
 	void account_del (MDB_txn *, rai::account const &);
 	bool account_exists (MDB_txn *, rai::account const &);
 	size_t account_count (MDB_txn *);
-	rai::store_iterator latest_v0_begin (MDB_txn *, rai::account const &);
-	rai::store_iterator latest_v0_begin (MDB_txn *);
-	rai::store_iterator latest_v0_end ();
-	rai::store_iterator latest_v1_begin (MDB_txn *, rai::account const &);
-	rai::store_iterator latest_v1_begin (MDB_txn *);
-	rai::store_iterator latest_v1_end ();
-	rai::store_iterator latest_begin (MDB_txn *, rai::account const &);
-	rai::store_iterator latest_begin (MDB_txn *);
-	rai::store_iterator latest_end ();
+	rai::store_iterator<rai::account, rai::account_info> latest_v0_begin (MDB_txn *, rai::account const &);
+	rai::store_iterator<rai::account, rai::account_info> latest_v0_begin (MDB_txn *);
+	rai::store_iterator<rai::account, rai::account_info> latest_v0_end ();
+	rai::store_iterator<rai::account, rai::account_info> latest_v1_begin (MDB_txn *, rai::account const &);
+	rai::store_iterator<rai::account, rai::account_info> latest_v1_begin (MDB_txn *);
+	rai::store_iterator<rai::account, rai::account_info> latest_v1_end ();
+	rai::store_iterator<rai::account, rai::account_info> latest_begin (MDB_txn *, rai::account const &);
+	rai::store_iterator<rai::account, rai::account_info> latest_begin (MDB_txn *);
+	rai::store_iterator<rai::account, rai::account_info> latest_end ();
 
 	void pending_put (MDB_txn *, rai::pending_key const &, rai::pending_info const &);
 	void pending_del (MDB_txn *, rai::pending_key const &);
 	bool pending_get (MDB_txn *, rai::pending_key const &, rai::pending_info &);
 	bool pending_exists (MDB_txn *, rai::pending_key const &);
-	rai::store_iterator pending_v0_begin (MDB_txn *, rai::pending_key const &);
-	rai::store_iterator pending_v0_begin (MDB_txn *);
-	rai::store_iterator pending_v0_end ();
-	rai::store_iterator pending_v1_begin (MDB_txn *, rai::pending_key const &);
-	rai::store_iterator pending_v1_begin (MDB_txn *);
-	rai::store_iterator pending_v1_end ();
-	rai::store_iterator pending_begin (MDB_txn *, rai::pending_key const &);
-	rai::store_iterator pending_begin (MDB_txn *);
-	rai::store_iterator pending_end ();
+	rai::store_iterator<rai::pending_key, rai::pending_info> pending_v0_begin (MDB_txn *, rai::pending_key const &);
+	rai::store_iterator<rai::pending_key, rai::pending_info> pending_v0_begin (MDB_txn *);
+	rai::store_iterator<rai::pending_key, rai::pending_info> pending_v0_end ();
+	rai::store_iterator<rai::pending_key, rai::pending_info> pending_v1_begin (MDB_txn *, rai::pending_key const &);
+	rai::store_iterator<rai::pending_key, rai::pending_info> pending_v1_begin (MDB_txn *);
+	rai::store_iterator<rai::pending_key, rai::pending_info> pending_v1_end ();
+	rai::store_iterator<rai::pending_key, rai::pending_info> pending_begin (MDB_txn *, rai::pending_key const &);
+	rai::store_iterator<rai::pending_key, rai::pending_info> pending_begin (MDB_txn *);
+	rai::store_iterator<rai::pending_key, rai::pending_info> pending_end ();
 
 	void block_info_put (MDB_txn *, rai::block_hash const &, rai::block_info const &);
 	void block_info_del (MDB_txn *, rai::block_hash const &);
 	bool block_info_get (MDB_txn *, rai::block_hash const &, rai::block_info &);
 	bool block_info_exists (MDB_txn *, rai::block_hash const &);
-	rai::store_iterator block_info_begin (MDB_txn *, rai::block_hash const &);
-	rai::store_iterator block_info_begin (MDB_txn *);
-	rai::store_iterator block_info_end ();
+	rai::store_iterator<rai::block_hash, rai::block_info> block_info_begin (MDB_txn *, rai::block_hash const &);
+	rai::store_iterator<rai::block_hash, rai::block_info> block_info_begin (MDB_txn *);
+	rai::store_iterator<rai::block_hash, rai::block_info> block_info_end ();
 	rai::uint128_t block_balance (MDB_txn *, rai::block_hash const &);
 	rai::epoch block_version (MDB_txn *, rai::block_hash const &);
 	static size_t const block_info_max = 32;
@@ -160,16 +204,16 @@ public:
 	rai::uint128_t representation_get (MDB_txn *, rai::account const &);
 	void representation_put (MDB_txn *, rai::account const &, rai::uint128_t const &);
 	void representation_add (MDB_txn *, rai::account const &, rai::uint128_t const &);
-	rai::store_iterator representation_begin (MDB_txn *);
-	rai::store_iterator representation_end ();
+	rai::store_iterator<rai::account, rai::uint128_union> representation_begin (MDB_txn *);
+	rai::store_iterator<rai::account, rai::uint128_union> representation_end ();
 
 	void unchecked_clear (MDB_txn *);
 	void unchecked_put (MDB_txn *, rai::block_hash const &, std::shared_ptr<rai::block> const &);
 	std::vector<std::shared_ptr<rai::block>> unchecked_get (MDB_txn *, rai::block_hash const &);
-	void unchecked_del (MDB_txn *, rai::block_hash const &, rai::block const &);
-	rai::store_iterator unchecked_begin (MDB_txn *);
-	rai::store_iterator unchecked_begin (MDB_txn *, rai::block_hash const &);
-	rai::store_iterator unchecked_end ();
+	void unchecked_del (MDB_txn *, rai::block_hash const &, std::shared_ptr<rai::block>);
+	rai::store_iterator<rai::block_hash, std::shared_ptr<rai::block>> unchecked_begin (MDB_txn *);
+	rai::store_iterator<rai::block_hash, std::shared_ptr<rai::block>> unchecked_begin (MDB_txn *, rai::block_hash const &);
+	rai::store_iterator<rai::block_hash, std::shared_ptr<rai::block>> unchecked_end ();
 	size_t unchecked_count (MDB_txn *);
 	std::unordered_multimap<rai::block_hash, std::shared_ptr<rai::block>> unchecked_cache;
 
@@ -187,8 +231,8 @@ public:
 	// Return latest vote for an account considering the vote cache
 	std::shared_ptr<rai::vote> vote_current (MDB_txn *, rai::account const &);
 	void flush (MDB_txn *);
-	rai::store_iterator vote_begin (MDB_txn *);
-	rai::store_iterator vote_end ();
+	rai::store_iterator<rai::account, std::shared_ptr<rai::vote>> vote_begin (MDB_txn *);
+	rai::store_iterator<rai::account, std::shared_ptr<rai::vote>> vote_end ();
 	std::mutex cache_mutex;
 	std::unordered_map<rai::account, std::shared_ptr<rai::vote>> vote_cache;
 
