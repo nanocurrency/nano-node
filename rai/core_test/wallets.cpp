@@ -87,7 +87,7 @@ TEST (wallets, DISABLED_wallet_create_max)
 		ASSERT_TRUE (existing != wallets.items.end ());
 		rai::raw_key seed;
 		seed.data = 0;
-		rai::transaction transaction (system.nodes[0]->store.environment, nullptr, true);
+		rai::transaction transaction (system.nodes[0]->store.environment, true);
 		existing->second->store.seed_set (transaction, seed);
 	}
 	rai::keypair key;

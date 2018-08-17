@@ -319,7 +319,7 @@ void rai::network::send_confirm_req (rai::endpoint const & endpoint_a, std::shar
 template <typename T>
 void rep_query (rai::node & node_a, T const & peers_a)
 {
-	rai::transaction transaction (node_a.store.environment, nullptr, false);
+	rai::transaction transaction (node_a.store.environment, false);
 	std::shared_ptr<rai::block> block (node_a.store.block_random (transaction));
 	auto hash (block->hash ());
 	node_a.rep_crawler.add (hash);
@@ -395,7 +395,7 @@ public:
 		node.peers.contacted (sender, message_a.header.version_using);
 		node.process_active (message_a.block);
 		node.active.publish (message_a.block);
-		rai::transaction transaction_a (node.store.environment, nullptr, false);
+		rai::transaction transaction_a (node.store.environment, false);
 		auto successor (node.ledger.successor (transaction_a, message_a.block->root ()));
 		if (successor != nullptr)
 		{
@@ -1250,7 +1250,7 @@ void rai::vote_processor::process_loop ()
 			active = true;
 			lock.unlock ();
 			{
-				rai::transaction transaction (node.store.environment, nullptr, false);
+				rai::transaction transaction (node.store.environment, false);
 				for (auto & i : votes_l)
 				{
 					vote_blocking (transaction, i.first, i.second);
@@ -1478,7 +1478,7 @@ bool rai::block_processor::have_blocks ()
 void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & lock_a)
 {
 	{
-		rai::transaction transaction (node.store.environment, nullptr, true);
+		rai::transaction transaction (node.store.environment, true);
 		lock_a.lock ();
 		auto count (0);
 		while (have_blocks () && count < 16384)
@@ -1813,7 +1813,7 @@ stats (config.stat_config)
 		rai::uint128_t rep_weight;
 		rai::uint128_t min_rep_weight;
 		{
-			rai::transaction transaction (store.environment, nullptr, false);
+			rai::transaction transaction (store.environment, false);
 			rep_weight = ledger.weight (transaction, vote_a->account);
 			min_rep_weight = online_reps.online_stake () / 1000;
 		}
@@ -1855,7 +1855,7 @@ stats (config.stat_config)
 		{
 			BOOST_LOG (log) << "Constructing node";
 		}
-		rai::transaction transaction (store.environment, nullptr, true);
+		rai::transaction transaction (store.environment, true);
 		if (store.latest_begin (transaction) == store.latest_end ())
 		{
 			// Store was empty meaning we just created it, add the genesis block
@@ -1875,7 +1875,7 @@ stats (config.stat_config)
 		if (!rai::read (weight_stream, block_height))
 		{
 			auto max_blocks = (uint64_t)block_height.number ();
-			rai::transaction transaction (store.environment, nullptr, false);
+			rai::transaction transaction (store.environment, false);
 			if (ledger.store.block_count (transaction).sum () < max_blocks)
 			{
 				ledger.bootstrap_weight_max_blocks = max_blocks;
@@ -1934,7 +1934,7 @@ void rai::node::process_fork (MDB_txn * transaction_a, std::shared_ptr<rai::bloc
 					    auto attempt (this_l->bootstrap_initiator.current_attempt ());
 					    if (attempt)
 					    {
-						    rai::transaction transaction (this_l->store.environment, nullptr, false);
+						    rai::transaction transaction (this_l->store.environment, false);
 						    auto account (this_l->ledger.store.frontier_get (transaction, root));
 						    if (!account.is_zero ())
 						    {
@@ -1984,7 +1984,7 @@ void rai::gap_cache::add (MDB_txn * transaction_a, std::shared_ptr<rai::block> b
 void rai::gap_cache::vote (std::shared_ptr<rai::vote> vote_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
-	rai::transaction transaction (node.store.environment, nullptr, false);
+	rai::transaction transaction (node.store.environment, false);
 	for (auto hash : *vote_a)
 	{
 		auto existing (blocks.get<1> ().find (hash));
@@ -2004,7 +2004,7 @@ void rai::gap_cache::vote (std::shared_ptr<rai::vote> vote_a)
 					auto node_l (node.shared ());
 					auto now (std::chrono::steady_clock::now ());
 					node.alarm.add (rai::rai_network == rai::rai_networks::rai_test_network ? now + std::chrono::milliseconds (5) : now + std::chrono::seconds (5), [node_l, hash]() {
-						rai::transaction transaction (node_l->store.environment, nullptr, false);
+						rai::transaction transaction (node_l->store.environment, false);
 						if (!node_l->store.block_exists (transaction, hash))
 						{
 							if (!node_l->bootstrap_initiator.in_progress ())
@@ -2058,7 +2058,7 @@ void rai::node::process_active (std::shared_ptr<rai::block> incoming)
 
 rai::process_return rai::node::process (rai::block const & block_a)
 {
-	rai::transaction transaction (store.environment, nullptr, true);
+	rai::transaction transaction (store.environment, true);
 	auto result (ledger.process (transaction, block_a));
 	return result;
 }
@@ -2304,26 +2304,26 @@ void rai::node::keepalive_preconfigured (std::vector<std::string> const & peers_
 
 rai::block_hash rai::node::latest (rai::account const & account_a)
 {
-	rai::transaction transaction (store.environment, nullptr, false);
+	rai::transaction transaction (store.environment, false);
 	return ledger.latest (transaction, account_a);
 }
 
 rai::uint128_t rai::node::balance (rai::account const & account_a)
 {
-	rai::transaction transaction (store.environment, nullptr, false);
+	rai::transaction transaction (store.environment, false);
 	return ledger.account_balance (transaction, account_a);
 }
 
 std::unique_ptr<rai::block> rai::node::block (rai::block_hash const & hash_a)
 {
-	rai::transaction transaction (store.environment, nullptr, false);
+	rai::transaction transaction (store.environment, false);
 	return store.block_get (transaction, hash_a);
 }
 
 std::pair<rai::uint128_t, rai::uint128_t> rai::node::balance_pending (rai::account const & account_a)
 {
 	std::pair<rai::uint128_t, rai::uint128_t> result;
-	rai::transaction transaction (store.environment, nullptr, false);
+	rai::transaction transaction (store.environment, false);
 	result.first = ledger.account_balance (transaction, account_a);
 	result.second = ledger.account_pending (transaction, account_a);
 	return result;
@@ -2331,13 +2331,13 @@ std::pair<rai::uint128_t, rai::uint128_t> rai::node::balance_pending (rai::accou
 
 rai::uint128_t rai::node::weight (rai::account const & account_a)
 {
-	rai::transaction transaction (store.environment, nullptr, false);
+	rai::transaction transaction (store.environment, false);
 	return ledger.weight (transaction, account_a);
 }
 
 rai::account rai::node::representative (rai::account const & account_a)
 {
-	rai::transaction transaction (store.environment, nullptr, false);
+	rai::transaction transaction (store.environment, false);
 	rai::account_info info;
 	rai::account result (0);
 	if (!store.account_get (transaction, account_a, info))
@@ -2418,7 +2418,7 @@ void rai::node::ongoing_bootstrap ()
 void rai::node::ongoing_store_flush ()
 {
 	{
-		rai::transaction transaction (store.environment, nullptr, true);
+		rai::transaction transaction (store.environment, true);
 		store.flush (transaction);
 	}
 	std::weak_ptr<rai::node> node_w (shared_from_this ());
@@ -2432,7 +2432,7 @@ void rai::node::ongoing_store_flush ()
 
 void rai::node::backup_wallet ()
 {
-	rai::transaction transaction (store.environment, nullptr, false);
+	rai::transaction transaction (store.environment, false);
 	for (auto i (wallets.items.begin ()), n (wallets.items.end ()); i != n; ++i)
 	{
 		auto backup_path (application_path / "backup");
@@ -2844,13 +2844,13 @@ void rai::node::process_confirmed (std::shared_ptr<rai::block> block_a)
 	// Attempt to process confirmed block if it's not in ledger yet
 	if (!exists)
 	{
-		rai::transaction transaction (store.environment, nullptr, true);
+		rai::transaction transaction (store.environment, true);
 		block_processor.process_receive_one (transaction, block_a);
 		exists = store.block_exists (transaction, hash);
 	}
 	if (exists)
 	{
-		rai::transaction transaction (store.environment, nullptr, false);
+		rai::transaction transaction (store.environment, false);
 		confirmed_visitor visitor (transaction, *this, block_a, hash);
 		block_a->visit (visitor);
 		auto account (ledger.account (transaction, hash));
@@ -2925,7 +2925,7 @@ void rai::online_reps::vote (std::shared_ptr<rai::vote> const & vote_a)
 	auto rep (vote_a->account);
 	std::lock_guard<std::mutex> lock (mutex);
 	auto now (std::chrono::steady_clock::now ());
-	rai::transaction transaction (node.store.environment, nullptr, false);
+	rai::transaction transaction (node.store.environment, false);
 	auto current (reps.begin ());
 	while (current != reps.end () && current->last_heard + std::chrono::seconds (rai::node::cutoff) < now)
 	{
@@ -2961,7 +2961,7 @@ void rai::online_reps::recalculate_stake ()
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	online_stake_total = 0;
-	rai::transaction transaction (node.store.environment, nullptr, false);
+	rai::transaction transaction (node.store.environment, false);
 	for (auto it : reps)
 	{
 		online_stake_total += node.ledger.weight (transaction, it.representative);
@@ -3626,7 +3626,7 @@ void rai::election::log_votes (rai::tally_t const & tally_a)
 rai::election_vote_result rai::election::vote (rai::account rep, uint64_t sequence, rai::block_hash block_hash)
 {
 	// see republish_vote documentation for an explanation of these rules
-	rai::transaction transaction (node.store.environment, nullptr, false);
+	rai::transaction transaction (node.store.environment, false);
 	auto replay (false);
 	auto supply (node.online_reps.online_stake ());
 	auto weight (node.ledger.weight (transaction, rep));
@@ -3699,7 +3699,7 @@ bool rai::election::publish (std::shared_ptr<rai::block> block_a)
 void rai::active_transactions::announce_votes ()
 {
 	std::unordered_set<rai::block_hash> inactive;
-	rai::transaction transaction (node.store.environment, nullptr, false);
+	rai::transaction transaction (node.store.environment, false);
 	unsigned unconfirmed_count (0);
 	unsigned unconfirmed_announcements (0);
 	unsigned mass_request_count (0);
@@ -4001,7 +4001,7 @@ bool rai::active_transactions::publish (std::shared_ptr<rai::block> block_a)
 
 int rai::node::store_version ()
 {
-	rai::transaction transaction (store.environment, nullptr, false);
+	rai::transaction transaction (store.environment, false);
 	return store.version_get (transaction);
 }
 

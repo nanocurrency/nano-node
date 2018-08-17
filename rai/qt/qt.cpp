@@ -184,7 +184,7 @@ wallet (wallet_a)
 		this->wallet.pop_main_stack ();
 	});
 	QObject::connect (create_account, &QPushButton::released, [this]() {
-		rai::transaction transaction (this->wallet.wallet_m->store.environment, nullptr, true);
+		rai::transaction transaction (this->wallet.wallet_m->store.environment, true);
 		if (this->wallet.wallet_m->store.valid_password (transaction))
 		{
 			this->wallet.wallet_m->deterministic_insert (transaction);
@@ -215,7 +215,7 @@ wallet (wallet_a)
 	});
 	QObject::connect (backup_seed, &QPushButton::released, [this]() {
 		rai::raw_key seed;
-		rai::transaction transaction (this->wallet.wallet_m->store.environment, nullptr, false);
+		rai::transaction transaction (this->wallet.wallet_m->store.environment, false);
 		if (this->wallet.wallet_m->store.valid_password (transaction))
 		{
 			this->wallet.wallet_m->store.seed (seed, transaction);
@@ -252,7 +252,7 @@ wallet (wallet_a)
 
 void rai_qt::accounts::refresh_wallet_balance ()
 {
-	rai::transaction transaction (this->wallet.wallet_m->store.environment, nullptr, false);
+	rai::transaction transaction (this->wallet.wallet_m->store.environment, false);
 	rai::uint128_t balance (0);
 	rai::uint128_t pending (0);
 	for (auto i (this->wallet.wallet_m->store.begin (transaction)), j (this->wallet.wallet_m->store.end ()); i != j; ++i)
@@ -277,7 +277,7 @@ void rai_qt::accounts::refresh_wallet_balance ()
 void rai_qt::accounts::refresh ()
 {
 	model->removeRows (0, model->rowCount ());
-	rai::transaction transaction (wallet.wallet_m->store.environment, nullptr, false);
+	rai::transaction transaction (wallet.wallet_m->store.environment, false);
 	QBrush brush;
 	for (auto i (wallet.wallet_m->store.begin (transaction)), j (wallet.wallet_m->store.end ()); i != j; ++i)
 	{
@@ -380,7 +380,7 @@ wallet (wallet_a)
 			{
 				bool successful (false);
 				{
-					rai::transaction transaction (this->wallet.wallet_m->store.environment, nullptr, true);
+					rai::transaction transaction (this->wallet.wallet_m->store.environment, true);
 					if (this->wallet.wallet_m->store.valid_password (transaction))
 					{
 						this->wallet.account = this->wallet.wallet_m->change_seed (transaction, seed_l);
@@ -576,7 +576,7 @@ public:
 
 void rai_qt::history::refresh ()
 {
-	rai::transaction transaction (ledger.store.environment, nullptr, false);
+	rai::transaction transaction (ledger.store.environment, false);
 	model->removeRows (0, model->rowCount ());
 	auto hash (ledger.latest (transaction, account));
 	short_text_visitor visitor (transaction, ledger);
@@ -629,7 +629,7 @@ wallet (wallet_a)
 		rai::block_hash hash_l;
 		if (!hash_l.decode_hex (hash->text ().toStdString ()))
 		{
-			rai::transaction transaction (this->wallet.node.store.environment, nullptr, false);
+			rai::transaction transaction (this->wallet.node.store.environment, false);
 			auto block_l (this->wallet.node.store.block_get (transaction, hash_l));
 			if (block_l != nullptr)
 			{
@@ -654,7 +654,7 @@ wallet (wallet_a)
 		auto error (block.decode_hex (hash->text ().toStdString ()));
 		if (!error)
 		{
-			rai::transaction transaction (this->wallet.node.store.environment, nullptr, false);
+			rai::transaction transaction (this->wallet.node.store.environment, false);
 			if (this->wallet.node.store.block_exists (transaction, block))
 			{
 				rebroadcast->setEnabled (false);
@@ -675,7 +675,7 @@ wallet (wallet_a)
 void rai_qt::block_viewer::rebroadcast_action (rai::uint256_union const & hash_a)
 {
 	auto done (true);
-	rai::transaction transaction (wallet.node.ledger.store.environment, nullptr, false);
+	rai::transaction transaction (wallet.node.ledger.store.environment, false);
 	auto block (wallet.node.store.block_get (transaction, hash_a));
 	if (block != nullptr)
 	{
@@ -870,7 +870,7 @@ std::string rai_qt::status::text ()
 	size_t unchecked (0);
 	std::string count_string;
 	{
-		rai::transaction transaction (wallet.wallet_m->node.store.environment, nullptr, false);
+		rai::transaction transaction (wallet.wallet_m->node.store.environment, false);
 		auto size (wallet.wallet_m->node.store.block_count (transaction));
 		unchecked = wallet.wallet_m->node.store.unchecked_count (transaction);
 		count_string = std::to_string (size.sum ());
@@ -1084,7 +1084,7 @@ void rai_qt::wallet::start ()
 						auto balance (this_l->node.balance (this_l->account));
 						if (actual <= balance)
 						{
-							rai::transaction transaction (this_l->wallet_m->store.environment, nullptr, false);
+							rai::transaction transaction (this_l->wallet_m->store.environment, false);
 							if (this_l->wallet_m->store.valid_password (transaction))
 							{
 								this_l->send_blocks_send->setEnabled (false);
@@ -1352,7 +1352,7 @@ void rai_qt::wallet::start ()
 void rai_qt::wallet::refresh ()
 {
 	{
-		rai::transaction transaction (wallet_m->store.environment, nullptr, false);
+		rai::transaction transaction (wallet_m->store.environment, false);
 		assert (wallet_m->store.exists (transaction, account));
 	}
 	self.account_text->setText (QString (account.to_account ().c_str ()));
@@ -1460,7 +1460,7 @@ wallet (wallet_a)
 	layout->addWidget (back);
 	window->setLayout (layout);
 	QObject::connect (change, &QPushButton::released, [this]() {
-		rai::transaction transaction (this->wallet.wallet_m->store.environment, nullptr, true);
+		rai::transaction transaction (this->wallet.wallet_m->store.environment, true);
 		if (this->wallet.wallet_m->store.valid_password (transaction))
 		{
 			if (new_password->text ().isEmpty ())
@@ -1511,12 +1511,12 @@ wallet (wallet_a)
 		rai::account representative_l;
 		if (!representative_l.decode_account (new_representative->text ().toStdString ()))
 		{
-			rai::transaction transaction (this->wallet.wallet_m->store.environment, nullptr, false);
+			rai::transaction transaction (this->wallet.wallet_m->store.environment, false);
 			if (this->wallet.wallet_m->store.valid_password (transaction))
 			{
 				change_rep->setEnabled (false);
 				{
-					rai::transaction transaction_l (this->wallet.wallet_m->store.environment, nullptr, true);
+					rai::transaction transaction_l (this->wallet.wallet_m->store.environment, true);
 					this->wallet.wallet_m->store.representative_set (transaction_l, representative_l);
 				}
 				auto block (this->wallet.wallet_m->change_sync (this->wallet.account, representative_l));
@@ -1563,7 +1563,7 @@ wallet (wallet_a)
 		this->wallet.pop_main_stack ();
 	});
 	QObject::connect (lock_toggle, &QPushButton::released, [this]() {
-		rai::transaction transaction (this->wallet.wallet_m->store.environment, nullptr, true);
+		rai::transaction transaction (this->wallet.wallet_m->store.environment, true);
 		if (this->wallet.wallet_m->store.valid_password (transaction))
 		{
 			// lock wallet
@@ -1594,7 +1594,7 @@ wallet (wallet_a)
 						show_button_ok (*lock_toggle);
 
 						// if wallet is still not unlocked by now, change button text
-						rai::transaction transaction (this->wallet.wallet_m->store.environment, nullptr, true);
+						rai::transaction transaction (this->wallet.wallet_m->store.environment, true);
 						if (!this->wallet.wallet_m->store.valid_password (transaction))
 						{
 							lock_toggle->setText ("Unlock");
@@ -1611,7 +1611,7 @@ wallet (wallet_a)
 	});
 
 	// initial state for lock toggle button
-	rai::transaction transaction (this->wallet.wallet_m->store.environment, nullptr, true);
+	rai::transaction transaction (this->wallet.wallet_m->store.environment, true);
 	if (this->wallet.wallet_m->store.valid_password (transaction))
 	{
 		lock_toggle->setText ("Lock");
@@ -1624,7 +1624,7 @@ wallet (wallet_a)
 
 void rai_qt::settings::refresh_representative ()
 {
-	rai::transaction transaction (this->wallet.wallet_m->node.store.environment, nullptr, false);
+	rai::transaction transaction (this->wallet.wallet_m->node.store.environment, false);
 	rai::account_info info;
 	auto error (this->wallet.wallet_m->node.store.account_get (transaction, this->wallet.account, info));
 	if (!error)
@@ -1876,7 +1876,7 @@ void rai_qt::advanced_actions::refresh_peers ()
 void rai_qt::advanced_actions::refresh_ledger ()
 {
 	ledger_model->removeRows (0, ledger_model->rowCount ());
-	rai::transaction transaction (wallet.node.store.environment, nullptr, false);
+	rai::transaction transaction (wallet.node.store.environment, false);
 	for (auto i (wallet.node.ledger.store.latest_begin (transaction)), j (wallet.node.ledger.store.latest_end ()); i != j; ++i)
 	{
 		QList<QStandardItem *> items;
@@ -2137,7 +2137,7 @@ void rai_qt::block_creation::create_send ()
 			error = destination_l.decode_account (destination->text ().toStdString ());
 			if (!error)
 			{
-				rai::transaction transaction (wallet.node.store.environment, nullptr, false);
+				rai::transaction transaction (wallet.node.store.environment, false);
 				rai::raw_key key;
 				if (!wallet.wallet_m->store.fetch (transaction, account_l, key))
 				{
@@ -2194,7 +2194,7 @@ void rai_qt::block_creation::create_receive ()
 	auto error (source_l.decode_hex (source->text ().toStdString ()));
 	if (!error)
 	{
-		rai::transaction transaction (wallet.node.store.environment, nullptr, false);
+		rai::transaction transaction (wallet.node.store.environment, false);
 		auto block_l (wallet.node.store.block_get (transaction, source_l));
 		if (block_l != nullptr)
 		{
@@ -2270,7 +2270,7 @@ void rai_qt::block_creation::create_change ()
 		error = representative_l.decode_account (representative->text ().toStdString ());
 		if (!error)
 		{
-			rai::transaction transaction (wallet.node.store.environment, nullptr, false);
+			rai::transaction transaction (wallet.node.store.environment, false);
 			rai::account_info info;
 			auto error (wallet.node.store.account_get (transaction, account_l, info));
 			if (!error)
@@ -2322,7 +2322,7 @@ void rai_qt::block_creation::create_open ()
 		error = representative_l.decode_account (representative->text ().toStdString ());
 		if (!error)
 		{
-			rai::transaction transaction (wallet.node.store.environment, nullptr, false);
+			rai::transaction transaction (wallet.node.store.environment, false);
 			auto block_l (wallet.node.store.block_get (transaction, source_l));
 			if (block_l != nullptr)
 			{
