@@ -2699,8 +2699,7 @@ void rai::rpc_handler::unchecked ()
 		rai::transaction transaction (node.store.environment, nullptr, false);
 		for (auto i (node.store.unchecked_begin (transaction)), n (node.store.unchecked_end ()); i != n && unchecked.size () < count; ++i)
 		{
-			rai::bufferstream stream (reinterpret_cast<uint8_t const *> (i->second.data ()), i->second.size ());
-			auto block (rai::deserialize_block (stream));
+			auto block (i->second);
 			std::string contents;
 			block->serialize_json (contents);
 			unchecked.put (block->hash ().to_string (), contents);
@@ -2730,8 +2729,7 @@ void rai::rpc_handler::unchecked_get ()
 		rai::transaction transaction (node.store.environment, nullptr, false);
 		for (auto i (node.store.unchecked_begin (transaction)), n (node.store.unchecked_end ()); i != n; ++i)
 		{
-			rai::bufferstream stream (reinterpret_cast<uint8_t const *> (i->second.data ()), i->second.size ());
-			auto block (rai::deserialize_block (stream));
+			std::shared_ptr<rai::block> block (i->second);
 			if (block->hash () == hash)
 			{
 				std::string contents;
@@ -2767,8 +2765,7 @@ void rai::rpc_handler::unchecked_keys ()
 		for (auto i (node.store.unchecked_begin (transaction, key)), n (node.store.unchecked_end ()); i != n && unchecked.size () < count; ++i)
 		{
 			boost::property_tree::ptree entry;
-			rai::bufferstream stream (reinterpret_cast<uint8_t const *> (i->second.data ()), i->second.size ());
-			auto block (rai::deserialize_block (stream));
+			auto block (i->second);
 			std::string contents;
 			block->serialize_json (contents);
 			entry.put ("key", rai::block_hash (i->first).to_string ());

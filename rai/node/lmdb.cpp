@@ -93,12 +93,12 @@ mdb_val (sizeof (val_a), const_cast<rai::block_info *> (&val_a))
 {
 }
 
-rai::mdb_val::mdb_val (rai::block const & val_a) :
+rai::mdb_val::mdb_val (std::shared_ptr<rai::block> const & val_a) :
 buffer (std::make_shared<std::vector<uint8_t>> ())
 {
 	{
 		rai::vectorstream stream (*buffer);
-		rai::serialize_block (stream, val_a);
+		rai::serialize_block (stream, *val_a);
 	}
 	value = { buffer->size (), const_cast<uint8_t *> (buffer->data ()) };
 }
@@ -164,18 +164,34 @@ rai::mdb_val::operator rai::uint256_union () const
 	return result;
 }
 
-rai::mdb_val::operator rai::vote () const
+rai::mdb_val::operator std::shared_ptr<rai::block> () const
 {
-	rai::vote result;
 	rai::bufferstream stream (reinterpret_cast<uint8_t const *> (value.mv_data), value.mv_size);
-	auto error (rai::read (stream, result.account.bytes));
+	std::shared_ptr<rai::block> result (rai::deserialize_block (stream));
+	return result;
+}
+
+rai::mdb_val::operator std::shared_ptr<rai::vote> () const
+{
+	auto result (std::make_shared<rai::vote> ());
+	rai::bufferstream stream (reinterpret_cast<uint8_t const *> (value.mv_data), value.mv_size);
+	auto error (rai::read (stream, result->account.bytes));
 	assert (!error);
-	error = rai::read (stream, result.signature.bytes);
+	error = rai::read (stream, result->signature.bytes);
 	assert (!error);
-	error = rai::read (stream, result.sequence);
+	error = rai::read (stream, result->sequence);
 	assert (!error);
-	result.blocks.push_back (rai::deserialize_block (stream));
-	assert (boost::get<std::shared_ptr<rai::block>> (result.blocks[0]) != nullptr);
+	result->blocks.push_back (rai::deserialize_block (stream));
+	assert (boost::get<std::shared_ptr<rai::block>> (result->blocks[0]) != nullptr);
+	return result;
+}
+
+rai::mdb_val::operator uint64_t () const
+{
+	uint64_t result;
+	rai::bufferstream stream (reinterpret_cast<uint8_t const *> (value.mv_data), value.mv_size);
+	auto error (rai::read (stream, result));
+	assert (!error);
 	return result;
 }
 

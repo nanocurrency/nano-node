@@ -2,6 +2,7 @@
 
 #include <rai/lib/interface.h>
 #include <rai/node/node.hpp>
+#include <rai/node/wallet.hpp>
 #include <rai/node/xorshift.hpp>
 
 #include <argon2.h>
@@ -535,7 +536,7 @@ bool rai::wallet_store::exists (MDB_txn * transaction_a, rai::public_key const &
 void rai::wallet_store::serialize_json (MDB_txn * transaction_a, std::string & string_a)
 {
 	boost::property_tree::ptree tree;
-	for (rai::store_iterator i (std::make_unique<rai::mdb_iterator> (transaction_a, handle)), n (nullptr); i != n; ++i)
+	for (rai::store_iterator<rai::uint256_union, rai::uint256_union> i (std::make_unique<rai::mdb_iterator<rai::uint256_union, rai::uint256_union>> (transaction_a, handle)), n (nullptr); i != n; ++i)
 	{
 		tree.put (rai::uint256_union (i->first).to_string (), rai::wallet_value (i->second).key.to_string ());
 	}
@@ -1222,10 +1223,10 @@ thread ([this]() { do_wallet_actions (); })
 		assert (status == 0);
 		std::string beginning (rai::uint256_union (0).to_string ());
 		std::string end ((rai::uint256_union (rai::uint256_t (0) - rai::uint256_t (1))).to_string ());
-		for (rai::store_iterator i (std::make_unique<rai::mdb_iterator> (transaction, handle, rai::mdb_val (beginning.size (), const_cast<char *> (beginning.c_str ())))), n (std::make_unique<rai::mdb_iterator> (transaction, handle, rai::mdb_val (end.size (), const_cast<char *> (end.c_str ())))); i != n; ++i)
+		for (rai::store_iterator<rai::uint256_union, rai::uint256_union> i (std::make_unique<rai::mdb_iterator<rai::uint256_union, rai::uint256_union>> (transaction, handle, rai::mdb_val (beginning.size (), const_cast<char *> (beginning.c_str ())))), n (std::make_unique<rai::mdb_iterator<rai::uint256_union, rai::uint256_union>> (transaction, handle, rai::mdb_val (end.size (), const_cast<char *> (end.c_str ())))); i != n; ++i)
 		{
 			rai::uint256_union id;
-			std::string text (reinterpret_cast<char const *> (i->first.data ()), i->first.size ());
+			std::string text (i->first.chars.data (), i->first.chars.size ());
 			auto error (id.decode_hex (text));
 			assert (!error);
 			assert (items.find (id) == items.end ());
@@ -1398,22 +1399,22 @@ void rai::wallets::stop ()
 rai::uint128_t const rai::wallets::generate_priority = std::numeric_limits<rai::uint128_t>::max ();
 rai::uint128_t const rai::wallets::high_priority = std::numeric_limits<rai::uint128_t>::max () - 1;
 
-rai::store_iterator rai::wallet_store::begin (MDB_txn * transaction_a)
+rai::store_iterator<rai::uint256_union, rai::wallet_value> rai::wallet_store::begin (MDB_txn * transaction_a)
 {
-	rai::store_iterator result (std::make_unique<rai::mdb_iterator> (transaction_a, handle, rai::mdb_val (rai::uint256_union (special_count))));
+	rai::store_iterator<rai::uint256_union, rai::wallet_value> result (std::make_unique<rai::mdb_iterator<rai::uint256_union, rai::wallet_value>> (transaction_a, handle, rai::mdb_val (rai::uint256_union (special_count))));
 	return result;
 }
 
-rai::store_iterator rai::wallet_store::begin (MDB_txn * transaction_a, rai::uint256_union const & key)
+rai::store_iterator<rai::uint256_union, rai::wallet_value> rai::wallet_store::begin (MDB_txn * transaction_a, rai::uint256_union const & key)
 {
-	rai::store_iterator result (std::make_unique<rai::mdb_iterator> (transaction_a, handle, rai::mdb_val (key)));
+	rai::store_iterator<rai::uint256_union, rai::wallet_value> result (std::make_unique<rai::mdb_iterator<rai::uint256_union, rai::wallet_value>> (transaction_a, handle, rai::mdb_val (key)));
 	return result;
 }
 
-rai::store_iterator rai::wallet_store::find (MDB_txn * transaction_a, rai::uint256_union const & key)
+rai::store_iterator<rai::uint256_union, rai::wallet_value> rai::wallet_store::find (MDB_txn * transaction_a, rai::uint256_union const & key)
 {
 	auto result (begin (transaction_a, key));
-	rai::store_iterator end (nullptr);
+	rai::store_iterator<rai::uint256_union, rai::wallet_value> end (nullptr);
 	if (result != end)
 	{
 		if (rai::uint256_union (result->first) == key)
@@ -1432,7 +1433,7 @@ rai::store_iterator rai::wallet_store::find (MDB_txn * transaction_a, rai::uint2
 	return result;
 }
 
-rai::store_iterator rai::wallet_store::end ()
+rai::store_iterator<rai::uint256_union, rai::wallet_value> rai::wallet_store::end ()
 {
-	return rai::store_iterator (nullptr);
+	return rai::store_iterator<rai::uint256_union, rai::wallet_value> (nullptr);
 }

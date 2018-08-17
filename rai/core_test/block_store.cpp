@@ -190,7 +190,7 @@ TEST (bootstrap, simple)
 	auto block3 (store.unchecked_get (transaction, block1->previous ()));
 	ASSERT_FALSE (block3.empty ());
 	ASSERT_EQ (*block1, *block3[0]);
-	store.unchecked_del (transaction, block1->previous (), *block1);
+	store.unchecked_del (transaction, block1->previous (), block1);
 	auto block4 (store.unchecked_get (transaction, block1->previous ()));
 	ASSERT_TRUE (block4.empty ());
 }
