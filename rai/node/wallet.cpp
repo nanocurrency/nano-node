@@ -718,14 +718,15 @@ void rai::wallet_store::upgrade_v3_v4 ()
 				case rai::key_type::adhoc:
 				{
 					rai::raw_key key;
-					if (fetch (transaction, i->first.uint256 (), key))
+					if (fetch (transaction, rai::public_key (i->first), key))
 					{
 						// Key failed to decrypt despite valid password
 						key.decrypt (value.key, password_l, salt (transaction).owords[0]);
 						rai::uint256_union new_key_ciphertext;
-						new_key_ciphertext.encrypt (key, password_l, i->first.uint256 ().owords[0].number ());
+						new_key_ciphertext.encrypt (key, password_l, (rai::uint256_union (i->first)).owords[0].number ());
 						rai::wallet_value new_value (new_key_ciphertext, value.work);
-						mdb_cursor_put (i.cursor, i->first, new_value.val (), MDB_CURRENT);
+						erase (transaction, rai::public_key (i->first));
+						entry_put_raw (transaction, rai::public_key (i->first), new_value);
 					}
 				}
 				case rai::key_type::deterministic:
