@@ -96,7 +96,7 @@ TEST (wallet, one_item_iteration)
 		rai::raw_key password;
 		wallet.wallet_key (password, transaction);
 		rai::raw_key key;
-		key.decrypt (rai::wallet_value (i->second).key, password, i->first.uint256 ().owords[0]);
+		key.decrypt (rai::wallet_value (i->second).key, password, (rai::uint256_union (i->first)).owords[0].number());
 		ASSERT_EQ (key1.prv, key);
 	}
 }
@@ -124,7 +124,7 @@ TEST (wallet, two_item_iteration)
 			rai::raw_key password;
 			wallet.wallet_key (password, transaction);
 			rai::raw_key key;
-			key.decrypt (rai::wallet_value (i->second).key, password, i->first.uint256 ().owords[0]);
+			key.decrypt (rai::wallet_value (i->second).key, password, (rai::uint256_union (i->first)).owords[0].number ());
 			prvs.insert (key.data);
 		}
 	}
