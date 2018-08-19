@@ -565,7 +565,7 @@ public:
 	void stop ();
 	void flush ();
 	bool full ();
-	void add (std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point);
+	void add (std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point, bool = false);
 	void force (std::shared_ptr<rai::block>);
 	bool should_log ();
 	bool have_blocks ();
