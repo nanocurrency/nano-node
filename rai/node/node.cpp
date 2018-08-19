@@ -937,9 +937,9 @@ lmdb_max_dbs (128)
 			preconfigured_representatives.push_back (rai::account ("2399A083C600AA0572F5E36247D978FCFC840405F8D4B6D33161C0066A55F431"));
 			preconfigured_representatives.push_back (rai::account ("2298FAB7C61058E77EA554CB93EDEEDA0692CBFCC540AB213B2836B29029E23A"));
 			preconfigured_representatives.push_back (rai::account ("3FE80B4BC842E82C1C18ABFEEC47EA989E63953BC82AC411F304D13833D52A56"));
-			// 2018-08-28 UTC 00:00 in unix time
+			// 2018-09-01 UTC 00:00 in unix time
 			// Technically, time_t is never defined to be unix time, but compilers implement it as such
-			generate_hash_votes_at = std::chrono::system_clock::from_time_t (1535414400);
+			generate_hash_votes_at = std::chrono::system_clock::from_time_t (1535760000);
 			break;
 		default:
 			assert (false);
