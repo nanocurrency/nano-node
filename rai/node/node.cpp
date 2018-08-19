@@ -993,7 +993,12 @@ public:
 		node.stats.inc (rai::stat::type::message, rai::stat::detail::musig_stage0_req, rai::stat::dir::in);
 		if (node.config.enable_voting)
 		{
-			if (!rai::validate_message (message_a.block->hashables.account, message_a.block->hash (), message_a.block->block_signature ()))
+			bool could_fit;
+			{
+				rai::transaction transaction (node.store.environment, nullptr, false);
+				could_fit = node.ledger.could_fit (transaction, *message_a.block);
+			}
+			if (could_fit)
 			{
 				boost::optional<rai::public_key> node_id;
 				if (sender == node.network.endpoint ())
