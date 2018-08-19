@@ -165,7 +165,7 @@ public:
 class ledger_processor : public rai::block_visitor
 {
 public:
-	ledger_processor (rai::ledger &, MDB_txn *);
+	ledger_processor (rai::ledger &, MDB_txn *, bool);
 	virtual ~ledger_processor () = default;
 	void send_block (rai::send_block const &) override;
 	void receive_block (rai::receive_block const &) override;
@@ -176,6 +176,7 @@ public:
 	void epoch_block_impl (rai::state_block const &);
 	rai::ledger & ledger;
 	MDB_txn * transaction;
+	bool test_run;
 	rai::process_return result;
 };
 
@@ -274,7 +275,7 @@ void ledger_processor::state_block_impl (rai::state_block const & block_a)
 						}
 					}
 				}
-				if (result.code == rai::process_result::progress)
+				if (result.code == rai::process_result::progress && !test_run)
 				{
 					ledger.stats.inc (rai::stat::type::ledger, rai::stat::detail::state_block);
 					result.state_is_send = is_send;
@@ -356,7 +357,7 @@ void ledger_processor::epoch_block_impl (rai::state_block const & block_a)
 					if (result.code == rai::process_result::progress)
 					{
 						result.code = block_a.hashables.balance == info.balance ? rai::process_result::progress : rai::process_result::balance_mismatch;
-						if (result.code == rai::process_result::progress)
+						if (result.code == rai::process_result::progress && !test_run)
 						{
 							ledger.stats.inc (rai::stat::type::ledger, rai::stat::detail::epoch_block);
 							result.account = block_a.hashables.account;
@@ -398,7 +399,7 @@ void ledger_processor::change_block (rai::change_block const & block_a)
 					assert (!latest_error);
 					assert (info.head == block_a.hashables.previous);
 					result.code = validate_message (account, hash, block_a.signature) ? rai::process_result::bad_signature : rai::process_result::progress; // Is this block signed correctly (Malformed)
-					if (result.code == rai::process_result::progress)
+					if (result.code == rai::process_result::progress && !test_run)
 					{
 						ledger.store.block_put (transaction, hash, block_a);
 						auto balance (ledger.balance (transaction, block_a.hashables.previous));
@@ -443,7 +444,7 @@ void ledger_processor::send_block (rai::send_block const & block_a)
 						assert (!latest_error);
 						assert (info.head == block_a.hashables.previous);
 						result.code = info.balance.number () >= block_a.hashables.balance.number () ? rai::process_result::progress : rai::process_result::negative_spend; // Is this trying to spend a negative amount (Malicious)
-						if (result.code == rai::process_result::progress)
+						if (result.code == rai::process_result::progress && !test_run)
 						{
 							auto amount (info.balance.number () - block_a.hashables.balance.number ());
 							ledger.store.representation_add (transaction, info.rep_block, 0 - amount);
@@ -499,7 +500,7 @@ void ledger_processor::receive_block (rai::receive_block const & block_a)
 								if (result.code == rai::process_result::progress)
 								{
 									result.code = pending.epoch == rai::epoch::epoch_0 ? rai::process_result::progress : rai::process_result::unreceivable; // Are we receiving a state-only send? (Malformed)
-									if (result.code == rai::process_result::progress)
+									if (result.code == rai::process_result::progress && !test_run)
 									{
 										auto new_balance (info.balance.number () + pending.amount.number ());
 										rai::account_info source_info;
@@ -556,7 +557,7 @@ void ledger_processor::open_block (rai::open_block const & block_a)
 						if (result.code == rai::process_result::progress)
 						{
 							result.code = pending.epoch == rai::epoch::epoch_0 ? rai::process_result::progress : rai::process_result::unreceivable; // Are we receiving a state-only send? (Malformed)
-							if (result.code == rai::process_result::progress)
+							if (result.code == rai::process_result::progress && !test_run)
 							{
 								rai::account_info source_info;
 								auto error (ledger.store.account_get (transaction, pending.source, source_info));
@@ -578,9 +579,10 @@ void ledger_processor::open_block (rai::open_block const & block_a)
 	}
 }
 
-ledger_processor::ledger_processor (rai::ledger & ledger_a, MDB_txn * transaction_a) :
+ledger_processor::ledger_processor (rai::ledger & ledger_a, MDB_txn * transaction_a, bool test_run_a) :
 ledger (ledger_a),
-transaction (transaction_a)
+transaction (transaction_a),
+test_run (test_run_a)
 {
 }
 } // namespace
@@ -646,7 +648,7 @@ rai::uint128_t rai::ledger::account_pending (MDB_txn * transaction_a, rai::accou
 
 rai::process_return rai::ledger::process (MDB_txn * transaction_a, rai::block const & block_a)
 {
-	ledger_processor processor (*this, transaction_a);
+	ledger_processor processor (*this, transaction_a, false);
 	block_a.visit (processor);
 	return processor.result;
 }
@@ -858,50 +860,11 @@ void rai::ledger::dump_account_chain (rai::account const & account_a)
 	}
 }
 
-class block_fit_visitor : public rai::block_visitor
-{
-public:
-	block_fit_visitor (rai::ledger & ledger_a, MDB_txn * transaction_a) :
-	ledger (ledger_a),
-	transaction (transaction_a),
-	result (false)
-	{
-	}
-	void send_block (rai::send_block const & block_a) override
-	{
-		result = ledger.store.block_exists (transaction, block_a.previous ());
-	}
-	void receive_block (rai::receive_block const & block_a) override
-	{
-		result = ledger.store.block_exists (transaction, block_a.previous ());
-		result &= ledger.store.block_exists (transaction, block_a.source ());
-	}
-	void open_block (rai::open_block const & block_a) override
-	{
-		result = ledger.store.block_exists (transaction, block_a.source ());
-	}
-	void change_block (rai::change_block const & block_a) override
-	{
-		result = ledger.store.block_exists (transaction, block_a.previous ());
-	}
-	void state_block (rai::state_block const & block_a) override
-	{
-		result = block_a.previous ().is_zero () || ledger.store.block_exists (transaction, block_a.previous ());
-		if (result && !ledger.is_send (transaction, block_a))
-		{
-			result &= ledger.store.block_exists (transaction, block_a.hashables.link);
-		}
-	}
-	rai::ledger & ledger;
-	MDB_txn * transaction;
-	bool result;
-};
-
 bool rai::ledger::could_fit (MDB_txn * transaction_a, rai::block const & block_a)
 {
-	block_fit_visitor visitor (*this, transaction_a);
-	block_a.visit (visitor);
-	return visitor.result;
+	ledger_processor processor (*this, transaction_a, true);
+	block_a.visit (processor);
+	return processor.result.code == rai::process_result::progress;
 }
 
 void rai::ledger::checksum_update (MDB_txn * transaction_a, rai::block_hash const & hash_a)
