@@ -78,7 +78,6 @@ public:
 	~transaction ();
 	operator MDB_txn * () const;
 	MDB_txn * handle;
-	rai::mdb_env & environment;
 };
 class block_store;
 /**

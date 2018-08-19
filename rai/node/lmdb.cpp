@@ -264,8 +264,7 @@ rai::mdb_val::operator MDB_val const & () const
 	return value;
 }
 
-rai::transaction::transaction (rai::mdb_env & environment_a, bool write, MDB_txn * parent_a) :
-environment (environment_a)
+rai::transaction::transaction (rai::mdb_env & environment_a, bool write, MDB_txn * parent_a)
 {
 	auto status (mdb_txn_begin (environment_a, parent_a, write ? 0 : MDB_RDONLY, &handle));
 	assert (status == 0);

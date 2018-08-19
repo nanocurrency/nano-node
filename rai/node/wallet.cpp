@@ -265,11 +265,11 @@ int const rai::wallet_store::special_count (7);
 size_t const rai::wallet_store::check_iv_index (0);
 size_t const rai::wallet_store::seed_iv_index (1);
 
-rai::wallet_store::wallet_store (bool & init_a, rai::kdf & kdf_a, rai::transaction & transaction_a, rai::account representative_a, unsigned fanout_a, std::string const & wallet_a, std::string const & json_a) :
+rai::wallet_store::wallet_store (bool & init_a, rai::kdf & kdf_a, rai::mdb_env & environment_a, rai::transaction & transaction_a, rai::account representative_a, unsigned fanout_a, std::string const & wallet_a, std::string const & json_a) :
 password (0, fanout_a),
 wallet_key_mem (0, fanout_a),
 kdf (kdf_a),
-environment (transaction_a.environment)
+environment (environment_a)
 {
 	init_a = false;
 	initialize (transaction_a, init_a, wallet_a);
@@ -322,11 +322,11 @@ environment (transaction_a.environment)
 	}
 }
 
-rai::wallet_store::wallet_store (bool & init_a, rai::kdf & kdf_a, rai::transaction & transaction_a, rai::account representative_a, unsigned fanout_a, std::string const & wallet_a) :
+rai::wallet_store::wallet_store (bool & init_a, rai::kdf & kdf_a, rai::mdb_env & environment_a, rai::transaction & transaction_a, rai::account representative_a, unsigned fanout_a, std::string const & wallet_a) :
 password (0, fanout_a),
 wallet_key_mem (0, fanout_a),
 kdf (kdf_a),
-environment (transaction_a.environment)
+environment (environment_a)
 {
 	init_a = false;
 	initialize (transaction_a, init_a, wallet_a);
@@ -743,16 +743,16 @@ void rai::kdf::phs (rai::raw_key & result_a, std::string const & password_a, rai
 	(void)success;
 }
 
-rai::wallet::wallet (bool & init_a, rai::transaction & transaction_a, rai::node & node_a, std::string const & wallet_a) :
+rai::wallet::wallet (bool & init_a, rai::mdb_env & environment_a, rai::transaction & transaction_a, rai::node & node_a, std::string const & wallet_a) :
 lock_observer ([](bool, bool) {}),
-store (init_a, node_a.wallets.kdf, transaction_a, node_a.config.random_representative (), node_a.config.password_fanout, wallet_a),
+store (init_a, node_a.wallets.kdf, environment_a, transaction_a, node_a.config.random_representative (), node_a.config.password_fanout, wallet_a),
 node (node_a)
 {
 }
 
-rai::wallet::wallet (bool & init_a, rai::transaction & transaction_a, rai::node & node_a, std::string const & wallet_a, std::string const & json) :
+rai::wallet::wallet (bool & init_a, rai::mdb_env & environment_a, rai::transaction & transaction_a, rai::node & node_a, std::string const & wallet_a, std::string const & json) :
 lock_observer ([](bool, bool) {}),
-store (init_a, node_a.wallets.kdf, transaction_a, node_a.config.random_representative (), node_a.config.password_fanout, wallet_a, json),
+store (init_a, node_a.wallets.kdf, environment_a, transaction_a, node_a.config.random_representative (), node_a.config.password_fanout, wallet_a, json),
 node (node_a)
 {
 }
@@ -857,7 +857,7 @@ bool rai::wallet::import (std::string const & json_a, std::string const & passwo
 		rai::transaction transaction (store.environment, true);
 		rai::uint256_union id;
 		random_pool.GenerateBlock (id.bytes.data (), id.bytes.size ());
-		temp.reset (new rai::wallet_store (error, node.wallets.kdf, transaction, 0, 1, id.to_string (), json_a));
+		temp.reset (new rai::wallet_store (error, node.wallets.kdf, store.environment, transaction, 0, 1, id.to_string (), json_a));
 	}
 	if (!error)
 	{
@@ -1276,7 +1276,7 @@ thread ([this]() { do_wallet_actions (); })
 			auto error (id.decode_hex (text));
 			assert (!error);
 			assert (items.find (id) == items.end ());
-			auto wallet (std::make_shared<rai::wallet> (error, transaction, node_a, text));
+			auto wallet (std::make_shared<rai::wallet> (error, node.store.environment, transaction, node_a, text));
 			if (!error)
 			{
 				items[id] = wallet;
@@ -1316,7 +1316,7 @@ std::shared_ptr<rai::wallet> rai::wallets::create (rai::uint256_union const & id
 	bool error;
 	{
 		rai::transaction transaction (node.store.environment, true);
-		result = std::make_shared<rai::wallet> (error, transaction, node, id_a.to_string ());
+		result = std::make_shared<rai::wallet> (error, node.store.environment, transaction, node, id_a.to_string ());
 	}
 	if (!error)
 	{
