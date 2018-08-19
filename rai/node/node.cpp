@@ -993,25 +993,22 @@ public:
 		node.stats.inc (rai::stat::type::message, rai::stat::detail::musig_stage0_req, rai::stat::dir::in);
 		if (node.config.enable_voting)
 		{
-			bool could_fit;
+			boost::optional<rai::public_key> node_id;
+			if (sender == node.network.endpoint ())
 			{
-				rai::transaction transaction (node.store.environment, nullptr, false);
-				could_fit = node.ledger.could_fit (transaction, *message_a.block);
+				node_id = node.node_id.pub;
 			}
-			if (could_fit)
+			else
 			{
-				boost::optional<rai::public_key> node_id;
-				if (sender == node.network.endpoint ())
+				node_id = node.peers.node_id (sender);
+			}
+			if (node_id)
+			{
+				if (!rai::validate_message (*node_id, message_a.hash (), message_a.node_id_signature))
 				{
-					node_id = node.node_id.pub;
-				}
-				else
-				{
-					node_id = node.peers.node_id (sender);
-				}
-				if (node_id)
-				{
-					if (!rai::validate_message (*node_id, message_a.hash (), message_a.node_id_signature))
+					rai::transaction transaction (node.store.environment, nullptr, false);
+					bool could_fit = node.ledger.could_fit (transaction, *message_a.block);
+					if (could_fit)
 					{
 						rai::transaction transaction (node.store.environment, nullptr, false);
 						auto rep_requested (message_a.rep_requested);
@@ -1025,7 +1022,7 @@ public:
 									if (!node.ledger.weight (transaction, rep_requested).is_zero ())
 									{
 										rai::uint256_union request_id (message_a.block->hash ().number () ^ rep_requested.number ());
-										auto rb_value (node.vote_stapler.stage0 (transaction, *node_id, rep_requested, request_id, message_a.block));
+										auto rb_value (node.vote_stapler.stage0 (*node_id, rep_requested, request_id, message_a.block));
 										if (!rb_value.is_zero ())
 										{
 											node.network.send_musig_stage0_res (sender, rb_value, request_id, rai::keypair (rai::raw_key (rep_key)));
@@ -1044,7 +1041,7 @@ public:
 								if (weight != 0 && weight >= node_l.vote_staple_requester.weight_cutoff)
 								{
 									rai::uint256_union request_id (message_a.block->hash ().number () ^ pub_a.number ());
-									auto rb_value (node_l.vote_stapler.stage0 (transaction, *node_id, pub_a, request_id, message_a.block));
+									auto rb_value (node_l.vote_stapler.stage0 (*node_id, pub_a, request_id, message_a.block));
 									if (!rb_value.is_zero ())
 									{
 										node_l.network.send_musig_stage0_res (sender_l, rb_value, request_id, rai::keypair (rai::raw_key (prv_a)));
@@ -1157,7 +1154,7 @@ node (node_a)
 {
 }
 
-rai::uint256_union rai::vote_stapler::stage0 (rai::transaction & transaction_a, rai::public_key node_id, rai::account representative, rai::uint256_union request_id, std::shared_ptr<rai::state_block> block)
+rai::uint256_union rai::vote_stapler::stage0 (rai::public_key node_id, rai::account representative, rai::uint256_union request_id, std::shared_ptr<rai::state_block> block)
 {
 	auto result (false);
 	boost::optional<rai::curve25519_scalar> r_value;
@@ -1190,15 +1187,6 @@ rai::uint256_union rai::vote_stapler::stage0 (rai::transaction & transaction_a, 
 		if (!r_value)
 		{
 			rai::account_info acct_info;
-			// It's fine if the account doesn't exist
-			node.store.account_get (transaction_a, block->hashables.account, acct_info);
-			if (acct_info.head != block->previous ())
-			{
-				if (stapled_votes.get<1> ().find (block->root ()) == stapled_votes.get<1> ().end ())
-				{
-					result = true;
-				}
-			}
 			rai::uint256_union r_value_unexpanded;
 			random_pool.GenerateBlock (r_value_unexpanded.bytes.data (), r_value_unexpanded.bytes.size ());
 			r_value = rai::curve25519_scalar (r_value_unexpanded.bytes.data ());

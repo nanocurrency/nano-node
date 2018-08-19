@@ -644,7 +644,7 @@ class vote_stapler
 {
 public:
 	vote_stapler (rai::node &);
-	rai::uint256_union stage0 (rai::transaction &, rai::public_key, rai::account, rai::uint256_union, std::shared_ptr<rai::state_block>);
+	rai::uint256_union stage0 (rai::public_key, rai::account, rai::uint256_union, std::shared_ptr<rai::state_block>);
 	rai::uint256_union stage1 (rai::public_key, rai::uint256_union, rai::public_key, rai::uint256_union, rai::uint256_union);
 	std::shared_ptr<rai::block> remove_root (rai::uint256_union);
 	std::mutex mutex;
