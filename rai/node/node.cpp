@@ -1569,11 +1569,7 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 					node.ledger.rollback (transaction, successor->hash ());
 				}
 			}
-#ifndef _MSC_VER
 			auto process_result (process_receive_one (transaction, block.first, block.second, !force));
-#else
-			auto process_result (process_receive_one (transaction, block.first, block.second, false));
-#endif
 			(void)process_result;
 			lock_a.lock ();
 			++count;
