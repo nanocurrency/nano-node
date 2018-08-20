@@ -243,7 +243,9 @@ wallet (wallet_a)
 		}
 	});
 	QObject::connect (account_key_line, &QLineEdit::textChanged, [this](const QString & value) {
+		auto pos = account_key_line->cursorPosition ();
 		account_key_line->setText (value.trimmed ());
+		account_key_line->setCursorPosition (pos);
 	});
 	refresh_wallet_balance ();
 }
@@ -448,10 +450,14 @@ wallet (wallet_a)
 		}
 	});
 	QObject::connect (seed, &QLineEdit::textChanged, [this](const QString & value) {
+		auto pos = seed->cursorPosition ();
 		seed->setText (value.trimmed ());
+		seed->setCursorPosition (pos);
 	});
 	QObject::connect (filename, &QLineEdit::textChanged, [this](const QString & value) {
+		auto pos = filename->cursorPosition ();
 		filename->setText (value.trimmed ());
+		filename->setCursorPosition (pos);
 	});
 }
 
@@ -659,7 +665,9 @@ wallet (wallet_a)
 		}
 	});
 	QObject::connect (hash, &QLineEdit::textChanged, [this](const QString & value) {
+		auto pos = hash->cursorPosition ();
 		hash->setText (value.trimmed ());
+		hash->setCursorPosition (pos);
 	});
 	rebroadcast->setToolTip ("Rebroadcast block into the network");
 }
@@ -738,7 +746,9 @@ wallet (wallet_a)
 		}
 	});
 	QObject::connect (account_line, &QLineEdit::textChanged, [this](const QString & value) {
+		auto pos = account_line->cursorPosition ();
 		account_line->setText (value.trimmed ());
+		account_line->setCursorPosition (pos);
 	});
 }
 
@@ -1021,10 +1031,14 @@ active_status (*this)
 		QLineEdit { padding: 3px; } \
 	");
 	QObject::connect (send_account, &QLineEdit::textChanged, [this](const QString & value) {
+		auto pos = send_account->cursorPosition ();
 		send_account->setText (value.trimmed ());
+		send_account->setCursorPosition (pos);
 	});
 	QObject::connect (send_count, &QLineEdit::textChanged, [this](const QString & value) {
+		auto pos = send_count->cursorPosition ();
 		send_count->setText (value.trimmed ());
+		send_count->setCursorPosition (pos);
 	});
 	refresh ();
 }
@@ -1591,7 +1605,9 @@ wallet (wallet_a)
 		}
 	});
 	QObject::connect (new_representative, &QLineEdit::textChanged, [this](const QString & value) {
+		auto pos = new_representative->cursorPosition ();
 		new_representative->setText (value.trimmed ());
+		new_representative->setCursorPosition (pos);
 	});
 
 	// initial state for lock toggle button
@@ -2025,19 +2041,29 @@ wallet (wallet_a)
 		this->wallet.pop_main_stack ();
 	});
 	QObject::connect (account, &QLineEdit::textChanged, [this](const QString & value) {
+		auto pos = account->cursorPosition ();
 		account->setText (value.trimmed ());
+		account->setCursorPosition (pos);
 	});
 	QObject::connect (destination, &QLineEdit::textChanged, [this](const QString & value) {
+		auto pos = destination->cursorPosition ();
 		destination->setText (value.trimmed ());
+		destination->setCursorPosition (pos);
 	});
 	QObject::connect (amount, &QLineEdit::textChanged, [this](const QString & value) {
+		auto pos = amount->cursorPosition ();
 		amount->setText (value.trimmed ());
+		amount->setCursorPosition (pos);
 	});
 	QObject::connect (source, &QLineEdit::textChanged, [this](const QString & value) {
+		auto pos = source->cursorPosition ();
 		source->setText (value.trimmed ());
+		source->setCursorPosition (pos);
 	});
 	QObject::connect (representative, &QLineEdit::textChanged, [this](const QString & value) {
+		auto pos = representative->cursorPosition ();
 		representative->setText (value.trimmed ());
+		representative->setCursorPosition (pos);
 	});
 
 	send->click ();
