@@ -762,7 +762,6 @@ node (node_a)
 
 void rai::wallet::enter_initial_password ()
 {
-	rai::transaction transaction (store.environment, nullptr, true);
 	std::lock_guard<std::recursive_mutex> lock (store.mutex);
 	rai::raw_key password_l;
 	store.password.value (password_l);
@@ -771,6 +770,7 @@ void rai::wallet::enter_initial_password ()
 		if (valid_password ())
 		{
 			// Newly created wallets have a zero key
+			rai::transaction transaction (store.environment, nullptr, true);
 			store.rekey (transaction, "");
 		}
 		enter_password ("");
