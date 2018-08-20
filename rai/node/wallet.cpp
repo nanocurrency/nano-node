@@ -728,13 +728,11 @@ void rai::wallet_store::upgrade_v3_v4 ()
 						erase (transaction, rai::public_key (i->first));
 						entry_put_raw (transaction, rai::public_key (i->first), new_value);
 					}
-					break;
 				}
 				case rai::key_type::deterministic:
 					break;
 				default:
 					assert (false);
-					break;
 			}
 		}
 	}
