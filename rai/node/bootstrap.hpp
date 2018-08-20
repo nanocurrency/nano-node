@@ -282,7 +282,7 @@ public:
 	std::shared_ptr<rai::bootstrap_server> connection;
 	std::unique_ptr<rai::bulk_pull_blocks> request;
 	std::shared_ptr<std::vector<uint8_t>> send_buffer;
-	rai::store_iterator stream;
+	rai::store_iterator<rai::block_hash, rai::block_info> stream;
 	rai::transaction stream_transaction;
 	uint32_t sent_count;
 	rai::block_hash checksum;

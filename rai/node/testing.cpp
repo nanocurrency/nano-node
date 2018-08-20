@@ -262,7 +262,7 @@ void rai::system::generate_send_existing (rai::node & node_a, std::vector<rai::a
 		rai::account account;
 		random_pool.GenerateBlock (account.bytes.data (), sizeof (account.bytes));
 		rai::transaction transaction (node_a.store.environment, nullptr, false);
-		rai::store_merge_iterator entry (node_a.store.latest_begin (transaction, account));
+		rai::store_iterator<rai::account, rai::account_info> entry (node_a.store.latest_begin (transaction, account));
 		if (entry == node_a.store.latest_end ())
 		{
 			entry = node_a.store.latest_begin (transaction);

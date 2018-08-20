@@ -13,8 +13,7 @@
 TEST (ed25519, signing)
 {
 	rai::uint256_union prv (0);
-	rai::uint256_union pub;
-	ed25519_publickey (prv.bytes.data (), pub.bytes.data ());
+	rai::uint256_union pub (rai::pub_key (prv));
 	rai::uint256_union message (0);
 	rai::uint512_union signature;
 	ed25519_sign (message.bytes.data (), sizeof (message.bytes), prv.bytes.data (), pub.bytes.data (), signature.bytes.data ());
