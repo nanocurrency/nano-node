@@ -205,6 +205,24 @@ bool confirm_block (MDB_txn * transaction_a, rai::node & node_a, rai::endpoint &
 	return result;
 }
 
+void rai::network::confirm_hash (MDB_txn * transaction_a, rai::endpoint const & peer_a, rai::block_hash const & hash_a)
+{
+	if (node.config.enable_voting)
+	{
+		std::vector<rai::block_hash> blocks_bundle (1, hash_a);
+		node.wallets.foreach_representative (transaction_a, [this, &blocks_bundle, &peer_a, &transaction_a](rai::public_key const & pub_a, rai::raw_key const & prv_a) {
+			auto vote (this->node.store.vote_generate (transaction_a, pub_a, prv_a, blocks_bundle));
+			rai::confirm_ack confirm (vote);
+			std::shared_ptr<std::vector<uint8_t>> bytes (new std::vector<uint8_t>);
+			{
+				rai::vectorstream stream (*bytes);
+				confirm.serialize (stream);
+			}
+			this->node.network.confirm_send (confirm, bytes, peer_a);
+		});
+	}
+}
+
 void rai::network::republish_block (MDB_txn * transaction, std::shared_ptr<rai::block> block, bool enable_voting)
 {
 	auto hash (block->hash ());
@@ -444,7 +462,14 @@ public:
 		auto successor (node.ledger.successor (transaction_a, message_a.root));
 		if (successor != nullptr)
 		{
-			confirm_block (transaction_a, node, sender, std::move (successor));
+			if (message_a.hash == successor->hash ())
+			{
+				node.network.confirm_hash (transaction_a, sender, successor->hash ());
+			}
+			else
+			{
+				confirm_block (transaction_a, node, sender, std::move (successor));
+			}
 		}
 	}
 	void confirm_ack (rai::confirm_ack const & message_a) override

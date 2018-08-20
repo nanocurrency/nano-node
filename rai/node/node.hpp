@@ -415,6 +415,7 @@ public:
 	void broadcast_confirm_req_base (std::shared_ptr<rai::block>, std::shared_ptr<std::vector<rai::peer_information>>, unsigned);
 	void send_confirm_req (rai::endpoint const &, std::shared_ptr<rai::block>);
 	void send_confirm_req_hash (rai::endpoint const &, std::shared_ptr<rai::block>);
+	void confirm_hash (MDB_txn *, rai::endpoint const &, rai::block_hash const &);
 	void send_buffer (uint8_t const *, size_t, rai::endpoint const &, std::function<void(boost::system::error_code const &, size_t)>);
 	rai::endpoint endpoint ();
 	rai::endpoint remote;
