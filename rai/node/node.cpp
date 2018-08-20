@@ -3828,7 +3828,7 @@ void rai::active_transactions::announce_votes ()
 			++info_a.announcements;
 		});
 	}
-	if (node.config.enable_voting && blocks_bundle.size () > 0)
+	if (node.config.enable_voting && !blocks_bundle.empty ())
 	{
 		node.wallets.foreach_representative (transaction, [&](rai::public_key const & pub_a, rai::raw_key const & prv_a) {
 			auto vote (this->node.store.vote_generate (transaction, pub_a, prv_a, blocks_bundle));
