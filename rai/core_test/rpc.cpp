@@ -1286,7 +1286,7 @@ TEST (rpc, payment_begin_locked)
 	{
 		rai::transaction transaction (wallet->store.environment, nullptr, true);
 		wallet->store.rekey (transaction, "1");
-		ASSERT_TRUE (wallet->store.attempt_password (transaction, ""));
+		ASSERT_TRUE (wallet->store.attempt_password (&transaction, ""));
 	}
 	ASSERT_TRUE (node1->wallets.items.find (wallet_id.pub) != node1->wallets.items.end ());
 	rai::rpc rpc (system.service, *system.nodes[0], rai::rpc_config (true));
