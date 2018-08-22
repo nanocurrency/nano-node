@@ -133,17 +133,20 @@ bool rai::wallet_store::valid_password (MDB_txn * transaction_a)
 	return ok;
 }
 
-bool rai::wallet_store::attempt_password (rai::transaction * transaction_p, std::string const & password_a)
+bool rai::wallet_store::attempt_password (rai::transaction & transaction, std::string const & password_a)
 {
-	std::unique_ptr<rai::transaction> writeTransaction;
+	std::shared_ptr<rai::transaction> write_transaction;
 
-	if (!transaction_p->open_for_write)
+	if (!transaction.open_for_write)
 	{
-		writeTransaction = std::make_unique<rai::transaction> (environment, nullptr, true);
-		transaction_p = writeTransaction.get ();
+		write_transaction = std::make_shared<rai::transaction> (environment, nullptr, true);
+	}
+	else
+	{
+		write_transaction = std::make_shared<rai::transaction> (environment, transaction, true);
 	}
 
-	MDB_txn *transaction_a = *transaction_p;
+	MDB_txn * transaction_a = * write_transaction;
 
 	bool result = false;
 	{
@@ -785,7 +788,7 @@ void rai::wallet::enter_initial_password ()
 			// Newly created wallets have a zero key
 			store.rekey (transaction, "");
 		}
-		enter_password (&transaction, "");
+		enter_password (transaction, "");
 	}
 }
 
@@ -796,7 +799,7 @@ bool rai::wallet::valid_password ()
 	return result;
 }
 
-bool rai::wallet::enter_password (rai::transaction *transaction, std::string const & password_a)
+bool rai::wallet::enter_password (rai::transaction & transaction, std::string const & password_a)
 {
 	auto result (store.attempt_password (transaction, password_a));
 	if (!result)
@@ -814,7 +817,7 @@ bool rai::wallet::enter_password (std::string const & password_a)
 {
 	rai::transaction transaction (store.environment, nullptr, true);
 	std::lock_guard<std::recursive_mutex> lock (store.mutex);
-	return(enter_password(&transaction, password_a));
+	return(enter_password(transaction, password_a));
 }
 
 rai::public_key rai::wallet::deterministic_insert (MDB_txn * transaction_a, bool generate_work_a)
@@ -883,7 +886,7 @@ bool rai::wallet::import (std::string const & json_a, std::string const & passwo
 	if (!error)
 	{
 		rai::transaction transaction (store.environment, nullptr, false);
-		error = temp->attempt_password (&transaction, password_a);
+		error = temp->attempt_password (transaction, password_a);
 	}
 	rai::transaction transaction (store.environment, nullptr, true);
 	if (!error)

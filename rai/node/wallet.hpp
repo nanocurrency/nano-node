@@ -59,7 +59,7 @@ public:
 	rai::uint256_union check (MDB_txn *);
 	bool rekey (MDB_txn *, std::string const &);
 	bool valid_password (MDB_txn *);
-	bool attempt_password (rai::transaction *, std::string const &);
+	bool attempt_password (rai::transaction &, std::string const &);
 	void wallet_key (rai::raw_key &, MDB_txn *);
 	void seed (rai::raw_key &, MDB_txn *);
 	void seed_set (MDB_txn *, rai::raw_key const &);
@@ -135,7 +135,7 @@ public:
 	void enter_initial_password ();
 	bool valid_password ();
 	bool enter_password (std::string const &);
-	bool enter_password (rai::transaction *, std::string const &);
+	bool enter_password (rai::transaction &, std::string const &);
 	rai::public_key insert_adhoc (rai::raw_key const &, bool = true);
 	rai::public_key insert_adhoc (MDB_txn *, rai::raw_key const &, bool = true);
 	void insert_watch (MDB_txn *, rai::public_key const &);
