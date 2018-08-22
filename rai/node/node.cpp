@@ -1819,7 +1819,7 @@ stats (config.stat_config)
 		}
 		if (rep_weight > min_rep_weight)
 		{
-			bool rep_crawler_exists;
+			bool rep_crawler_exists (false);
 			for (auto hash : *vote_a)
 			{
 				if (this->rep_crawler.exists (hash))
