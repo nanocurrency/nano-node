@@ -163,6 +163,7 @@ environment (environment_a)
 {
 	auto status (mdb_txn_begin (environment_a, parent_a, write ? 0 : MDB_RDONLY, &handle));
 	assert (status == 0);
+	open_for_write = write;
 }
 
 rai::transaction::~transaction ()
