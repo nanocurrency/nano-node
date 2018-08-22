@@ -762,7 +762,6 @@ node (node_a)
 
 void rai::wallet::enter_initial_password ()
 {
-	rai::transaction transaction (store.environment, nullptr, true);
 	std::lock_guard<std::recursive_mutex> lock (store.mutex);
 	rai::raw_key password_l;
 	store.password.value (password_l);
@@ -771,6 +770,7 @@ void rai::wallet::enter_initial_password ()
 		if (valid_password ())
 		{
 			// Newly created wallets have a zero key
+			rai::transaction transaction (store.environment, nullptr, true);
 			store.rekey (transaction, "");
 		}
 		enter_password ("");
@@ -1282,9 +1282,6 @@ thread ([this]() { do_wallet_actions (); })
 			auto wallet (std::make_shared<rai::wallet> (error, transaction, node_a, text));
 			if (!error)
 			{
-				node_a.background ([wallet]() {
-					wallet->enter_initial_password ();
-				});
 				items[id] = wallet;
 			}
 			else
@@ -1292,6 +1289,10 @@ thread ([this]() { do_wallet_actions (); })
 				// Couldn't open wallet
 			}
 		}
+	}
+	for (auto i (items.begin ()), n (items.end ()); i != n; ++i)
+	{
+		i->second->enter_initial_password ();
 	}
 }
 
@@ -1323,9 +1324,7 @@ std::shared_ptr<rai::wallet> rai::wallets::create (rai::uint256_union const & id
 	if (!error)
 	{
 		items[id_a] = result;
-		node.background ([result]() {
-			result->enter_initial_password ();
-		});
+		result->enter_initial_password ();
 	}
 	return result;
 }

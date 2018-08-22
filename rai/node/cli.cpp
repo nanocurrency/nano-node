@@ -404,7 +404,6 @@ std::error_code rai::handle_node_options (boost::program_options::variables_map 
 		rai::keypair key;
 		std::cout << key.pub.to_string () << std::endl;
 		auto wallet (node.node->wallets.create (key.pub));
-		wallet->enter_initial_password ();
 	}
 	else if (vm.count ("wallet_decrypt_unsafe"))
 	{
