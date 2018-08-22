@@ -3759,8 +3759,7 @@ void rai::active_transactions::announce_votes ()
 				// Broadcast winner
 				if (node.ledger.could_fit (transaction, *election_l->status.winner))
 				{
-					election_l->compute_rep_votes (transaction);
-					if (std::chrono::system_clock::now () >= node.config.generate_hash_votes_at)
+					if (node.config.enable_voting && std::chrono::system_clock::now () >= node.config.generate_hash_votes_at)
 					{
 						node.network.republish_block (transaction, election_l->status.winner, false);
 						blocks_bundle.push_back (election_l->status.winner->hash ());
@@ -3830,7 +3829,7 @@ void rai::active_transactions::announce_votes ()
 			++info_a.announcements;
 		});
 	}
-	if (blocks_bundle.size () > 0)
+	if (node.config.enable_voting && !blocks_bundle.empty ())
 	{
 		node.wallets.foreach_representative (transaction, [&](rai::public_key const & pub_a, rai::raw_key const & prv_a) {
 			auto vote (this->node.store.vote_generate (transaction, pub_a, prv_a, blocks_bundle));
