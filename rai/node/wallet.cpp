@@ -1302,9 +1302,6 @@ thread ([this]() { do_wallet_actions (); })
 			auto wallet (std::make_shared<rai::wallet> (error, transaction, node_a, text));
 			if (!error)
 			{
-				node_a.background ([wallet]() {
-					wallet->enter_initial_password ();
-				});
 				items[id] = wallet;
 			}
 			else
@@ -1312,6 +1309,10 @@ thread ([this]() { do_wallet_actions (); })
 				// Couldn't open wallet
 			}
 		}
+	}
+	for (auto i (items.begin ()), n (items.end ()); i != n; ++i)
+	{
+		i->second->enter_initial_password ();
 	}
 }
 
@@ -1343,9 +1344,7 @@ std::shared_ptr<rai::wallet> rai::wallets::create (rai::uint256_union const & id
 	if (!error)
 	{
 		items[id_a] = result;
-		node.background ([result]() {
-			result->enter_initial_password ();
-		});
+		result->enter_initial_password ();
 	}
 	return result;
 }
