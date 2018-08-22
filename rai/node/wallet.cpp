@@ -136,17 +136,18 @@ bool rai::wallet_store::valid_password (MDB_txn * transaction_a)
 bool rai::wallet_store::attempt_password (rai::transaction & transaction, std::string const & password_a)
 {
 	std::shared_ptr<rai::transaction> write_transaction;
+	MDB_txn * transaction_a;
 
 	if (!transaction.open_for_write)
 	{
 		write_transaction = std::make_shared<rai::transaction> (environment, nullptr, true);
+		transaction_a = *write_transaction;
 	}
 	else
 	{
-		write_transaction = std::make_shared<rai::transaction> (environment, transaction, true);
+		transaction_a = transaction;
 	}
 
-	MDB_txn * transaction_a = *write_transaction;
 
 	bool result = false;
 	{
