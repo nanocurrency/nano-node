@@ -3774,6 +3774,7 @@ void rai::active_transactions::announce_votes ()
 					}
 					else
 					{
+						election_l->compute_rep_votes (transaction);
 						node.network.republish_block (transaction, election_l->status.winner);
 					}
 				}
