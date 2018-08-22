@@ -653,7 +653,7 @@ void rai::wallet_store::version_put (MDB_txn * transaction_a, unsigned version_a
 	entry_put_raw (transaction_a, rai::wallet_store::version_special, rai::wallet_value (entry, 0));
 }
 
-void rai::wallet_store::upgrade_v1_v2 (MDB_txn *transaction)
+void rai::wallet_store::upgrade_v1_v2 (MDB_txn * transaction)
 {
 	assert (version (transaction) == 1);
 	rai::raw_key zero_password;
@@ -698,7 +698,7 @@ void rai::wallet_store::upgrade_v1_v2 (MDB_txn *transaction)
 	version_put (transaction, 2);
 }
 
-void rai::wallet_store::upgrade_v2_v3 (MDB_txn *transaction)
+void rai::wallet_store::upgrade_v2_v3 (MDB_txn * transaction)
 {
 	assert (version (transaction) == 2);
 	rai::raw_key seed;
@@ -708,7 +708,7 @@ void rai::wallet_store::upgrade_v2_v3 (MDB_txn *transaction)
 	version_put (transaction, 3);
 }
 
-void rai::wallet_store::upgrade_v3_v4 (MDB_txn *transaction)
+void rai::wallet_store::upgrade_v3_v4 (MDB_txn * transaction)
 {
 	assert (version (transaction) == 3);
 	version_put (transaction, 4);
@@ -816,7 +816,6 @@ bool rai::wallet::enter_password (std::string const & password_a)
 	std::lock_guard<std::recursive_mutex> lock (store.mutex);
 	return(enter_password(&transaction, password_a));
 }
-
 
 rai::public_key rai::wallet::deterministic_insert (MDB_txn * transaction_a, bool generate_work_a)
 {
