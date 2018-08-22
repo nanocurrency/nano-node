@@ -817,7 +817,7 @@ bool rai::wallet::enter_password (std::string const & password_a)
 {
 	rai::transaction transaction (store.environment, nullptr, true);
 	std::lock_guard<std::recursive_mutex> lock (store.mutex);
-	return enter_password(transaction, password_a);
+	return enter_password (transaction, password_a);
 }
 
 rai::public_key rai::wallet::deterministic_insert (MDB_txn * transaction_a, bool generate_work_a)
