@@ -146,7 +146,7 @@ bool rai::wallet_store::attempt_password (rai::transaction & transaction, std::s
 		write_transaction = std::make_shared<rai::transaction> (environment, transaction, true);
 	}
 
-	MDB_txn * transaction_a = * write_transaction;
+	MDB_txn * transaction_a = *write_transaction;
 
 	bool result = false;
 	{
@@ -817,7 +817,7 @@ bool rai::wallet::enter_password (std::string const & password_a)
 {
 	rai::transaction transaction (store.environment, nullptr, true);
 	std::lock_guard<std::recursive_mutex> lock (store.mutex);
-	return(enter_password(transaction, password_a));
+	return enter_password(transaction, password_a);
 }
 
 rai::public_key rai::wallet::deterministic_insert (MDB_txn * transaction_a, bool generate_work_a)
