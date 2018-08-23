@@ -651,10 +651,14 @@ TEST (wallet, insert_locked)
 {
 	rai::system system (24000, 1);
 	auto wallet (system.wallet (0));
-	wallet->store.rekey (rai::transaction (wallet->store.environment, true), "1");
-	ASSERT_TRUE (wallet->valid_password ());
+	{
+		rai::transaction transaction (wallet->store.environment, true);
+		wallet->store.rekey (transaction, "1");
+		ASSERT_TRUE (wallet->store.valid_password (transaction));
+	}
 	wallet->enter_password ("");
-	ASSERT_FALSE (wallet->valid_password ());
+	rai::transaction transaction (wallet->store.environment, false);
+	ASSERT_FALSE (wallet->store.valid_password (transaction));
 	ASSERT_TRUE (wallet->insert_adhoc (rai::keypair ().prv).is_zero ());
 }
 
@@ -663,13 +667,16 @@ TEST (wallet, version_1_upgrade)
 	rai::system system (24000, 1);
 	auto wallet (system.wallet (0));
 	wallet->enter_initial_password ();
-	ASSERT_TRUE (wallet->valid_password ());
 	rai::keypair key;
-	wallet->store.rekey (rai::transaction (wallet->store.environment, true), "1");
-	wallet->enter_password ("");
-	ASSERT_FALSE (wallet->valid_password ());
 	{
 		rai::transaction transaction (wallet->store.environment, true);
+		ASSERT_TRUE (wallet->store.valid_password (transaction));
+		wallet->store.rekey (transaction, "1");
+	}
+	wallet->enter_password ("");
+	{
+		rai::transaction transaction (wallet->store.environment, true);
+		ASSERT_FALSE (wallet->store.valid_password (transaction));
 		rai::raw_key password_l;
 		rai::wallet_value value (wallet->store.entry_get_raw (transaction, rai::wallet_store::wallet_key_special));
 		rai::raw_key kdf;
@@ -682,14 +689,14 @@ TEST (wallet, version_1_upgrade)
 	}
 
 	wallet->enter_password ("1");
-	ASSERT_TRUE (wallet->valid_password ());
-	ASSERT_EQ (wallet->store.version_current, wallet->store.version (rai::transaction (wallet->store.environment, false)));
-	rai::raw_key prv;
-	ASSERT_FALSE (wallet->store.fetch (rai::transaction (wallet->store.environment, false), key.pub, prv));
-	ASSERT_EQ (key.prv, prv);
 
 	{
 		rai::transaction transaction (wallet->store.environment, true);
+		ASSERT_TRUE (wallet->store.valid_password (transaction));
+		ASSERT_EQ (wallet->store.version_current, wallet->store.version (transaction));
+		rai::raw_key prv;
+		ASSERT_FALSE (wallet->store.fetch (transaction, key.pub, prv));
+		ASSERT_EQ (key.prv, prv);
 		rai::raw_key password_l;
 		rai::wallet_value value (wallet->store.entry_get_raw (transaction, rai::wallet_store::wallet_key_special));
 		rai::raw_key kdf;
@@ -701,10 +708,11 @@ TEST (wallet, version_1_upgrade)
 		wallet->store.version_put (transaction, 1);
 	}
 	wallet->enter_password ("1");
-	ASSERT_TRUE (wallet->valid_password ());
-	ASSERT_EQ (wallet->store.version_current, wallet->store.version (rai::transaction (wallet->store.environment, false)));
+	rai::transaction transaction (wallet->store.environment, true);
+	ASSERT_TRUE (wallet->store.valid_password (transaction));
+	ASSERT_EQ (wallet->store.version_current, wallet->store.version (transaction));
 	rai::raw_key prv2;
-	ASSERT_FALSE (wallet->store.fetch (rai::transaction (wallet->store.environment, false), key.pub, prv2));
+	ASSERT_FALSE (wallet->store.fetch (transaction, key.pub, prv2));
 	ASSERT_EQ (key.prv, prv2);
 }
 
@@ -791,11 +799,15 @@ TEST (wallet, insert_deterministic_locked)
 {
 	rai::system system (24000, 1);
 	auto wallet (system.wallet (0));
-	wallet->store.rekey (rai::transaction (wallet->store.environment, true), "1");
-	ASSERT_TRUE (wallet->valid_password ());
+	{
+		rai::transaction transaction (wallet->store.environment, true);
+		wallet->store.rekey (transaction, "1");
+		ASSERT_TRUE (wallet->store.valid_password (transaction));
+	}
 	wallet->enter_password ("");
-	ASSERT_FALSE (wallet->valid_password ());
-	ASSERT_TRUE (wallet->deterministic_insert ().is_zero ());
+	rai::transaction transaction (wallet->store.environment, true);
+	ASSERT_FALSE (wallet->store.valid_password (transaction));
+	ASSERT_TRUE (wallet->deterministic_insert (transaction).is_zero ());
 }
 
 TEST (wallet, version_2_upgrade)
@@ -828,10 +840,16 @@ TEST (wallet, version_3_upgrade)
 {
 	rai::system system (24000, 1);
 	auto wallet (system.wallet (0));
-	wallet->store.rekey (rai::transaction (wallet->store.environment, true), "1");
+	{
+		rai::transaction transaction (wallet->store.environment, true);
+		wallet->store.rekey (transaction, "1");
+	}
 	wallet->enter_password ("1");
-	ASSERT_TRUE (wallet->valid_password ());
-	ASSERT_EQ (wallet->store.version_current, wallet->store.version (rai::transaction (wallet->store.environment, false)));
+	{
+		rai::transaction transaction (wallet->store.environment, false);
+		ASSERT_TRUE (wallet->store.valid_password (transaction));
+		ASSERT_EQ (wallet->store.version_current, wallet->store.version (transaction));
+	}
 	rai::keypair key;
 	rai::raw_key seed;
 	rai::uint256_union seed_ciphertext;
@@ -851,18 +869,16 @@ TEST (wallet, version_3_upgrade)
 		wallet->store.version_put (transaction, 3);
 	}
 	wallet->enter_password ("1");
-	ASSERT_TRUE (wallet->valid_password ());
-	ASSERT_EQ (wallet->store.version_current, wallet->store.version (rai::transaction (wallet->store.environment, false)));
+	rai::transaction transaction (wallet->store.environment, false);
+	ASSERT_TRUE (wallet->store.valid_password (transaction));
+	ASSERT_EQ (wallet->store.version_current, wallet->store.version (transaction));
 	rai::raw_key prv;
-	ASSERT_FALSE (wallet->store.fetch (rai::transaction (wallet->store.environment, false), key.pub, prv));
+	ASSERT_FALSE (wallet->store.fetch (transaction, key.pub, prv));
 	ASSERT_EQ (key.prv, prv);
-	{
-		rai::transaction transaction (wallet->store.environment, false);
-		rai::raw_key seed_compare;
-		wallet->store.seed (seed_compare, transaction);
-		ASSERT_EQ (seed, seed_compare);
-		ASSERT_NE (seed_ciphertext, wallet->store.entry_get_raw (transaction, rai::wallet_store::seed_special).key);
-	}
+	rai::raw_key seed_compare;
+	wallet->store.seed (seed_compare, transaction);
+	ASSERT_EQ (seed, seed_compare);
+	ASSERT_NE (seed_ciphertext, wallet->store.entry_get_raw (transaction, rai::wallet_store::seed_special).key);
 }
 
 TEST (wallet, no_work)

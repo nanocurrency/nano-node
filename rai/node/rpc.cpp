@@ -621,16 +621,16 @@ void rai::rpc_handler::account_representative_set ()
 	auto account (account_impl ());
 	if (!ec)
 	{
-		if (wallet->valid_password ())
+		std::string representative_text (request.get<std::string> ("representative"));
+		rai::account representative;
+		if (!representative.decode_account (representative_text))
 		{
-			std::string representative_text (request.get<std::string> ("representative"));
-			rai::account representative;
-			if (!representative.decode_account (representative_text))
+			auto work (work_optional_impl ());
+			if (!ec && work)
 			{
-				auto work (work_optional_impl ());
-				if (!ec && work)
+				rai::transaction transaction (node.store.environment, true);
+				if (wallet->store.valid_password (transaction))
 				{
-					rai::transaction transaction (node.store.environment, true);
 					rai::account_info info;
 					if (!node.store.account_get (transaction, account, info))
 					{
@@ -648,30 +648,30 @@ void rai::rpc_handler::account_representative_set ()
 						ec = nano::error_common::account_not_found;
 					}
 				}
-				if (!ec)
+				else
 				{
-					auto response_a (response);
-					wallet->change_async (account, representative, [response_a](std::shared_ptr<rai::block> block) {
-						rai::block_hash hash (0);
-						if (block != nullptr)
-						{
-							hash = block->hash ();
-						}
-						boost::property_tree::ptree response_l;
-						response_l.put ("block", hash.to_string ());
-						response_a (response_l);
-					},
-					work == 0);
+					ec = nano::error_common::wallet_locked;
 				}
 			}
-			else
+			if (!ec)
 			{
-				ec = nano::error_rpc::bad_representative_number;
+				auto response_a (response);
+				wallet->change_async (account, representative, [response_a](std::shared_ptr<rai::block> block) {
+					rai::block_hash hash (0);
+					if (block != nullptr)
+					{
+						hash = block->hash ();
+					}
+					boost::property_tree::ptree response_l;
+					response_l.put ("block", hash.to_string ());
+					response_a (response_l);
+				},
+				work == 0);
 			}
 		}
 		else
 		{
-			ec = nano::error_common::wallet_locked;
+			ec = nano::error_rpc::bad_representative_number;
 		}
 	}
 	// Because of change_async
@@ -2566,21 +2566,21 @@ void rai::rpc_handler::send ()
 	auto amount (amount_impl ());
 	if (!ec)
 	{
-		if (wallet->valid_password ())
+		std::string source_text (request.get<std::string> ("source"));
+		rai::account source;
+		if (!source.decode_account (source_text))
 		{
-			std::string source_text (request.get<std::string> ("source"));
-			rai::account source;
-			if (!source.decode_account (source_text))
+			std::string destination_text (request.get<std::string> ("destination"));
+			rai::account destination;
+			if (!destination.decode_account (destination_text))
 			{
-				std::string destination_text (request.get<std::string> ("destination"));
-				rai::account destination;
-				if (!destination.decode_account (destination_text))
+				auto work (work_optional_impl ());
+				rai::uint128_t balance (0);
+				if (!ec)
 				{
-					auto work (work_optional_impl ());
-					rai::uint128_t balance (0);
-					if (!ec)
+					rai::transaction transaction (node.store.environment, work != 0); // false if no "work" in request, true if work > 0
+					if (wallet->store.valid_password (transaction))
 					{
-						rai::transaction transaction (node.store.environment, work != 0); // false if no "work" in request, true if work > 0
 						rai::account_info info;
 						if (!node.store.account_get (transaction, source, info))
 						{
@@ -2602,12 +2602,19 @@ void rai::rpc_handler::send ()
 							}
 						}
 					}
-					if (!ec)
+					else
 					{
-						boost::optional<std::string> send_id (request.get_optional<std::string> ("id"));
+						ec = nano::error_common::wallet_locked;
+					}
+				}
+				if (!ec)
+				{
+					boost::optional<std::string> send_id (request.get_optional<std::string> ("id"));
+					if (balance >= amount.number ())
+					{
 						auto rpc_l (shared_from_this ());
 						auto response_a (response);
-						wallet->send_async (source, destination, amount.number (), [balance, amount, response_a](std::shared_ptr<rai::block> block_a) {
+						wallet->send_async (source, destination, amount.number (), [response_a](std::shared_ptr<rai::block> block_a) {
 							if (block_a != nullptr)
 							{
 								rai::uint256_union hash (block_a->hash ());
@@ -2617,33 +2624,25 @@ void rai::rpc_handler::send ()
 							}
 							else
 							{
-								if (balance >= amount.number ())
-								{
-									error_response (response_a, "Error generating block");
-								}
-								else
-								{
-									std::error_code ec (nano::error_common::insufficient_balance);
-									error_response (response_a, ec.message ());
-								}
+								error_response (response_a, "Error generating block");
 							}
 						},
 						work == 0, send_id);
 					}
-				}
-				else
-				{
-					ec = nano::error_rpc::bad_destination;
+					else
+					{
+						ec = nano::error_common::insufficient_balance;
+					}
 				}
 			}
 			else
 			{
-				ec = nano::error_rpc::bad_source;
+				ec = nano::error_rpc::bad_destination;
 			}
 		}
 		else
 		{
-			ec = nano::error_common::wallet_locked;
+			ec = nano::error_rpc::bad_source;
 		}
 	}
 	// Because of send_async
