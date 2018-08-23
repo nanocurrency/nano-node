@@ -467,11 +467,18 @@ TEST (rpc, wallet_password_change)
 	ASSERT_EQ (200, response.status);
 	std::string account_text1 (response.json.get<std::string> ("changed"));
 	ASSERT_EQ (account_text1, "1");
-	ASSERT_TRUE (system.wallet (0)->valid_password ());
+	{
+		rai::transaction transaction (system.wallet (0)->store.environment, false);
+		ASSERT_TRUE (system.wallet (0)->store.valid_password (transaction));
+	}
 	ASSERT_TRUE (system.wallet (0)->enter_password (""));
-	ASSERT_FALSE (system.wallet (0)->valid_password ());
+	{
+		rai::transaction transaction (system.wallet (0)->store.environment, false);
+		ASSERT_FALSE (system.wallet (0)->store.valid_password (transaction));
+	}
 	ASSERT_FALSE (system.wallet (0)->enter_password ("test"));
-	ASSERT_TRUE (system.wallet (0)->valid_password ());
+	rai::transaction transaction (system.wallet (0)->store.environment, false);
+	ASSERT_TRUE (system.wallet (0)->store.valid_password (transaction));
 }
 
 TEST (rpc, wallet_password_enter)
@@ -3436,7 +3443,10 @@ TEST (rpc, wallet_lock)
 	boost::property_tree::ptree request;
 	std::string wallet;
 	system.nodes[0]->wallets.items.begin ()->first.encode_hex (wallet);
-	ASSERT_TRUE (system.wallet (0)->valid_password ());
+	{
+		rai::transaction transaction (system.wallet (0)->store.environment, false);
+		ASSERT_TRUE (system.wallet (0)->store.valid_password (transaction));
+	}
 	request.put ("wallet", wallet);
 	request.put ("action", "wallet_lock");
 	test_response response (request, rpc, system.service);
@@ -3447,7 +3457,8 @@ TEST (rpc, wallet_lock)
 	ASSERT_EQ (200, response.status);
 	std::string account_text1 (response.json.get<std::string> ("locked"));
 	ASSERT_EQ (account_text1, "1");
-	ASSERT_FALSE (system.wallet (0)->valid_password ());
+	rai::transaction transaction (system.wallet (0)->store.environment, false);
+	ASSERT_FALSE (system.wallet (0)->store.valid_password (transaction));
 }
 
 TEST (rpc, wallet_locked)

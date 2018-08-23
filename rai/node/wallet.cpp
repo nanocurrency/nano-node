@@ -764,21 +764,14 @@ void rai::wallet::enter_initial_password ()
 	store.password.value (password_l);
 	if (password_l.data.is_zero ())
 	{
-		if (valid_password ())
+		rai::transaction transaction (store.environment, true);
+		if (store.valid_password (transaction))
 		{
 			// Newly created wallets have a zero key
-			rai::transaction transaction (store.environment, true);
 			store.rekey (transaction, "");
 		}
 		enter_password ("");
 	}
-}
-
-bool rai::wallet::valid_password ()
-{
-	rai::transaction transaction (store.environment, false);
-	auto result (store.valid_password (transaction));
-	return result;
 }
 
 bool rai::wallet::enter_password (std::string const & password_a)
