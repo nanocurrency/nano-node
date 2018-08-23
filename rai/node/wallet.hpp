@@ -94,9 +94,9 @@ public:
 	void work_put (MDB_txn *, rai::public_key const &, uint64_t);
 	unsigned version (MDB_txn *);
 	void version_put (MDB_txn *, unsigned);
-	void upgrade_v1_v2 ();
-	void upgrade_v2_v3 ();
-	void upgrade_v3_v4 ();
+	void upgrade_v1_v2 (MDB_txn *);
+	void upgrade_v2_v3 (MDB_txn *);
+	void upgrade_v3_v4 (MDB_txn *);
 	rai::fan password;
 	rai::fan wallet_key_mem;
 	static unsigned const version_1 = 1;
