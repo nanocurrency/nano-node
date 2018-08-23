@@ -467,7 +467,7 @@ TEST (rpc, wallet_password_change)
 	ASSERT_EQ (200, response.status);
 	std::string account_text1 (response.json.get<std::string> ("changed"));
 	ASSERT_EQ (account_text1, "1");
-	rai::transaction transaction (system.wallet (0)->store.environment, true);
+	rai::transaction transaction (system.wallet (0)->wallets.environment, true);
 	ASSERT_TRUE (system.wallet (0)->store.valid_password (transaction));
 	ASSERT_TRUE (system.wallet (0)->enter_password (transaction, ""));
 	ASSERT_FALSE (system.wallet (0)->store.valid_password (transaction));
@@ -640,7 +640,7 @@ TEST (rpc, wallet_export)
 	bool error (false);
 	rai::transaction transaction (system.nodes[0]->store.environment, true);
 	rai::kdf kdf;
-	rai::wallet_store store (error, kdf, system.nodes[0]->store.environment, transaction, rai::genesis_account, 1, "0", wallet_json);
+	rai::wallet_store store (error, kdf, transaction, rai::genesis_account, 1, "0", wallet_json);
 	ASSERT_FALSE (error);
 	ASSERT_TRUE (store.exists (transaction, rai::test_genesis_key.pub));
 }
@@ -1145,7 +1145,7 @@ TEST (rpc, payment_begin_end)
 	rai::uint256_union account;
 	ASSERT_FALSE (account.decode_account (account_text));
 	ASSERT_TRUE (wallet->exists (account));
-	auto root1 (system.nodes[0]->ledger.latest_root (rai::transaction (wallet->store.environment, false), account));
+	auto root1 (system.nodes[0]->ledger.latest_root (rai::transaction (wallet->wallets.environment, false), account));
 	uint64_t work (0);
 	while (!rai::work_validate (root1, work))
 	{
@@ -1156,7 +1156,7 @@ TEST (rpc, payment_begin_end)
 	while (rai::work_validate (root1, work))
 	{
 		auto ec = system.poll ();
-		ASSERT_FALSE (wallet->store.work_get (rai::transaction (wallet->store.environment, false), account, work));
+		ASSERT_FALSE (wallet->store.work_get (rai::transaction (wallet->wallets.environment, false), account, work));
 		ASSERT_NO_ERROR (ec);
 	}
 	ASSERT_EQ (wallet->free_accounts.end (), wallet->free_accounts.find (account));
@@ -1280,7 +1280,7 @@ TEST (rpc, payment_begin_locked)
 	rai::keypair wallet_id;
 	auto wallet (node1->wallets.create (wallet_id.pub));
 	{
-		rai::transaction transaction (wallet->store.environment, true);
+		rai::transaction transaction (wallet->wallets.environment, true);
 		wallet->store.rekey (transaction, "1");
 		ASSERT_TRUE (wallet->store.attempt_password (transaction, ""));
 	}
@@ -3438,7 +3438,7 @@ TEST (rpc, wallet_lock)
 	std::string wallet;
 	system.nodes[0]->wallets.items.begin ()->first.encode_hex (wallet);
 	{
-		rai::transaction transaction (system.wallet (0)->store.environment, false);
+		rai::transaction transaction (system.wallet (0)->wallets.environment, false);
 		ASSERT_TRUE (system.wallet (0)->store.valid_password (transaction));
 	}
 	request.put ("wallet", wallet);
@@ -3451,7 +3451,7 @@ TEST (rpc, wallet_lock)
 	ASSERT_EQ (200, response.status);
 	std::string account_text1 (response.json.get<std::string> ("locked"));
 	ASSERT_EQ (account_text1, "1");
-	rai::transaction transaction (system.wallet (0)->store.environment, false);
+	rai::transaction transaction (system.wallet (0)->wallets.environment, false);
 	ASSERT_FALSE (system.wallet (0)->store.valid_password (transaction));
 }
 

@@ -282,7 +282,7 @@ TEST (wallet, send_locked)
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	rai::keypair key1;
 	{
-		rai::transaction transaction (system.wallet (0)->store.environment, true);
+		rai::transaction transaction (system.wallet (0)->wallets.environment, true);
 		system.wallet (0)->enter_password (transaction, "0");
 	}
 	auto account (rai::test_genesis_key.pub);
@@ -639,7 +639,7 @@ TEST (wallet, change_seed)
 	auto key1 (system.wallet (0)->deterministic_insert ());
 	auto key3 (system.wallet (0)->deterministic_insert ());
 	rai::raw_key seed3;
-	system.wallet (0)->store.seed (seed3, rai::transaction (system.wallet (0)->store.environment, false));
+	system.wallet (0)->store.seed (seed3, rai::transaction (system.wallet (0)->wallets.environment, false));
 	auto wallet_key (key1);
 	auto wallet (std::make_shared<rai_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), wallet_key));
 	wallet->start ();
@@ -653,7 +653,7 @@ TEST (wallet, change_seed)
 	seed.data.clear ();
 	QTest::keyClicks (wallet->import.seed, seed.data.to_string ().c_str ());
 	rai::raw_key seed1;
-	system.wallet (0)->store.seed (seed1, rai::transaction (system.wallet (0)->store.environment, false));
+	system.wallet (0)->store.seed (seed1, rai::transaction (system.wallet (0)->wallets.environment, false));
 	ASSERT_NE (seed, seed1);
 	ASSERT_TRUE (system.wallet (0)->exists (key1));
 	ASSERT_EQ (2, wallet->accounts.model->rowCount ());
@@ -664,7 +664,7 @@ TEST (wallet, change_seed)
 	ASSERT_EQ (1, wallet->accounts.model->rowCount ());
 	ASSERT_TRUE (wallet->import.clear_line->text ().toStdString ().empty ());
 	rai::raw_key seed2;
-	system.wallet (0)->store.seed (seed2, rai::transaction (system.wallet (0)->store.environment, false));
+	system.wallet (0)->store.seed (seed2, rai::transaction (system.wallet (0)->wallets.environment, false));
 	ASSERT_EQ (seed, seed2);
 	ASSERT_FALSE (system.wallet (0)->exists (key1));
 	ASSERT_NE (key1, wallet->account);
@@ -696,17 +696,17 @@ TEST (wallet, seed_work_generation)
 	QTest::keyClicks (wallet->import.seed, seed.data.to_string ().c_str ());
 	QTest::keyClicks (wallet->import.clear_line, "clear keys");
 	uint64_t work_start;
-	system.wallet (0)->store.work_get (rai::transaction (system.wallet (0)->store.environment, false), key1, work_start);
+	system.wallet (0)->store.work_get (rai::transaction (system.wallet (0)->wallets.environment, false), key1, work_start);
 	uint64_t work (work_start);
 	QTest::mouseClick (wallet->import.import_seed, Qt::LeftButton);
 	system.deadline_set (10s);
 	while (work == work_start)
 	{
 		auto ec = system.poll ();
-		system.wallet (0)->store.work_get (rai::transaction (system.wallet (0)->store.environment, false), key1, work);
+		system.wallet (0)->store.work_get (rai::transaction (system.wallet (0)->wallets.environment, false), key1, work);
 		ASSERT_NO_ERROR (ec);
 	}
-	ASSERT_FALSE (rai::work_validate (system.nodes[0]->ledger.latest_root (rai::transaction (system.wallet (0)->store.environment, false), key1), work));
+	ASSERT_FALSE (rai::work_validate (system.nodes[0]->ledger.latest_root (rai::transaction (system.wallet (0)->wallets.environment, false), key1), work));
 }
 
 TEST (wallet, backup_seed)
@@ -722,7 +722,7 @@ TEST (wallet, backup_seed)
 	ASSERT_EQ (wallet->accounts.window, wallet->main_stack->currentWidget ());
 	QTest::mouseClick (wallet->accounts.backup_seed, Qt::LeftButton);
 	rai::raw_key seed;
-	system.wallet (0)->store.seed (seed, rai::transaction (system.wallet (0)->store.environment, false));
+	system.wallet (0)->store.seed (seed, rai::transaction (system.wallet (0)->wallets.environment, false));
 	ASSERT_EQ (seed.data.to_string (), test_application->clipboard ()->text ().toStdString ());
 }
 
@@ -732,7 +732,7 @@ TEST (wallet, import_locked)
 	rai::system system (24000, 1);
 	auto key1 (system.wallet (0)->deterministic_insert ());
 	{
-		rai::transaction transaction (system.wallet (0)->store.environment, true);
+		rai::transaction transaction (system.wallet (0)->wallets.environment, true);
 		system.wallet (0)->store.rekey (transaction, "1");
 	}
 	auto wallet (std::make_shared<rai_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), key1));
@@ -746,20 +746,20 @@ TEST (wallet, import_locked)
 	QTest::keyClicks (wallet->import.seed, seed1.data.to_string ().c_str ());
 	QTest::keyClicks (wallet->import.clear_line, "clear keys");
 	{
-		rai::transaction transaction (system.wallet (0)->store.environment, true);
+		rai::transaction transaction (system.wallet (0)->wallets.environment, true);
 		system.wallet (0)->enter_password (transaction, "");
 	}
 	QTest::mouseClick (wallet->import.import_seed, Qt::LeftButton);
 	rai::raw_key seed2;
 	{
-		rai::transaction transaction (system.wallet (0)->store.environment, true);
+		rai::transaction transaction (system.wallet (0)->wallets.environment, true);
 		system.wallet (0)->store.seed (seed2, transaction);
 		ASSERT_NE (seed1, seed2);
 		system.wallet (0)->enter_password (transaction, "1");
 	}
 	QTest::mouseClick (wallet->import.import_seed, Qt::LeftButton);
 	rai::raw_key seed3;
-	rai::transaction transaction (system.wallet (0)->store.environment, false);
+	rai::transaction transaction (system.wallet (0)->wallets.environment, false);
 	system.wallet (0)->store.seed (seed3, transaction);
 	ASSERT_EQ (seed1, seed3);
 }

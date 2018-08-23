@@ -236,7 +236,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 			}
 			if (config.account.is_zero () || !wallet->exists (config.account))
 			{
-				rai::transaction transaction (wallet->store.environment, true);
+				rai::transaction transaction (wallet->wallets.environment, true);
 				auto existing (wallet->store.begin (transaction));
 				if (existing != wallet->store.end ())
 				{
