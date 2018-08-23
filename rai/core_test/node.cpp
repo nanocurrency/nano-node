@@ -341,7 +341,7 @@ TEST (node, unlock_search)
 	rai::keypair key2;
 	rai::uint128_t balance (system.nodes[0]->balance (rai::test_genesis_key.pub));
 	{
-		rai::transaction transaction (system.wallet (0)->store.environment, true);
+		rai::transaction transaction (system.wallet (0)->wallets.environment, true);
 		system.wallet (0)->store.rekey (transaction, "");
 	}
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
@@ -355,7 +355,7 @@ TEST (node, unlock_search)
 	system.wallet (0)->store.password.value_set (rai::keypair ().prv);
 	auto node (system.nodes[0]);
 	{
-		rai::transaction transaction (system.wallet (0)->store.environment, true);
+		rai::transaction transaction (system.wallet (0)->wallets.environment, true);
 		ASSERT_FALSE (system.wallet (0)->enter_password (transaction, ""));
 	}
 	system.deadline_set (10s);
@@ -947,7 +947,7 @@ TEST (node, fork_no_vote_quorum)
 	auto key4 (system.wallet (0)->deterministic_insert ());
 	system.wallet (0)->send_action (rai::test_genesis_key.pub, key4, rai::genesis_amount / 4);
 	auto key1 (system.wallet (1)->deterministic_insert ());
-	system.wallet (1)->store.representative_set (rai::transaction (system.wallet (1)->store.environment, true), key1);
+	system.wallet (1)->store.representative_set (rai::transaction (system.wallet (1)->wallets.environment, true), key1);
 	auto block (system.wallet (0)->send_action (rai::test_genesis_key.pub, key1, node1.config.receive_minimum.number ()));
 	ASSERT_NE (nullptr, block);
 	system.deadline_set (30s);
@@ -965,7 +965,7 @@ TEST (node, fork_no_vote_quorum)
 	auto key2 (system.wallet (2)->deterministic_insert ());
 	auto send2 (std::make_shared<rai::send_block> (block->hash (), key2, (rai::genesis_amount / 4) - (node1.config.receive_minimum.number () * 2), rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (block->hash ())));
 	rai::raw_key key3;
-	ASSERT_FALSE (system.wallet (1)->store.fetch (rai::transaction (system.wallet (1)->store.environment, false), key1, key3));
+	ASSERT_FALSE (system.wallet (1)->store.fetch (rai::transaction (system.wallet (1)->wallets.environment, false), key1, key3));
 	auto vote (std::make_shared<rai::vote> (key1, key3, 0, send2));
 	rai::confirm_ack confirm (vote);
 	std::shared_ptr<std::vector<uint8_t>> bytes (new std::vector<uint8_t>);
@@ -995,13 +995,13 @@ TEST (node, DISABLED_fork_pre_confirm)
 	rai::keypair key1;
 	system.wallet (1)->insert_adhoc (key1.prv);
 	{
-		rai::transaction transaction (system.wallet (1)->store.environment, true);
+		rai::transaction transaction (system.wallet (1)->wallets.environment, true);
 		system.wallet (1)->store.representative_set (transaction, key1.pub);
 	}
 	rai::keypair key2;
 	system.wallet (2)->insert_adhoc (key2.prv);
 	{
-		rai::transaction transaction (system.wallet (2)->store.environment, true);
+		rai::transaction transaction (system.wallet (2)->wallets.environment, true);
 		system.wallet (2)->store.representative_set (transaction, key2.pub);
 	}
 	system.deadline_set (30s);

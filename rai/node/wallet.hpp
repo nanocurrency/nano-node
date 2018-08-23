@@ -52,8 +52,8 @@ enum class key_type
 class wallet_store
 {
 public:
-	wallet_store (bool &, rai::kdf &, rai::mdb_env &, rai::transaction &, rai::account, unsigned, std::string const &);
-	wallet_store (bool &, rai::kdf &, rai::mdb_env &, rai::transaction &, rai::account, unsigned, std::string const &, std::string const &);
+	wallet_store (bool &, rai::kdf &, rai::transaction &, rai::account, unsigned, std::string const &);
+	wallet_store (bool &, rai::kdf &, rai::transaction &, rai::account, unsigned, std::string const &, std::string const &);
 	std::vector<rai::account> accounts (MDB_txn *);
 	void initialize (MDB_txn *, bool &, std::string const &);
 	rai::uint256_union check (MDB_txn *);
@@ -118,7 +118,6 @@ public:
 	static unsigned const kdf_test_work = 8;
 	static unsigned const kdf_work = rai::rai_network == rai::rai_networks::rai_test_network ? kdf_test_work : kdf_full_work;
 	rai::kdf & kdf;
-	rai::mdb_env & environment;
 	MDB_dbi handle;
 	std::recursive_mutex mutex;
 };
@@ -130,8 +129,8 @@ public:
 	std::shared_ptr<rai::block> change_action (rai::account const &, rai::account const &, bool = true);
 	std::shared_ptr<rai::block> receive_action (rai::block const &, rai::account const &, rai::uint128_union const &, bool = true);
 	std::shared_ptr<rai::block> send_action (rai::account const &, rai::account const &, rai::uint128_t const &, bool = true, boost::optional<std::string> = {});
-	wallet (bool &, rai::mdb_env &, rai::transaction &, rai::wallets &, std::string const &);
-	wallet (bool &, rai::mdb_env &, rai::transaction &, rai::wallets &, std::string const &, std::string const &);
+	wallet (bool &, rai::transaction &, rai::wallets &, std::string const &);
+	wallet (bool &, rai::transaction &, rai::wallets &, std::string const &, std::string const &);
 	void enter_initial_password ();
 	bool enter_password (MDB_txn *, std::string const &);
 	rai::public_key insert_adhoc (rai::raw_key const &, bool = true);
@@ -187,6 +186,7 @@ public:
 	MDB_dbi handle;
 	MDB_dbi send_action_ids;
 	rai::node & node;
+	rai::mdb_env & environment;
 	bool stopped;
 	std::thread thread;
 	static rai::uint128_t const generate_priority;

@@ -574,7 +574,7 @@ TEST (system, generate_send_existing)
 	auto send_block (system.wallet (0)->send_action (rai::genesis_account, stake_preserver.pub, rai::genesis_amount / 3 * 2, true));
 	rai::account_info info1;
 	{
-		rai::transaction transaction (system.wallet (0)->store.environment, false);
+		rai::transaction transaction (system.wallet (0)->wallets.environment, false);
 		ASSERT_FALSE (system.nodes[0]->store.account_get (transaction, rai::test_genesis_key.pub, info1));
 	}
 	std::vector<rai::account> accounts;
@@ -590,7 +590,7 @@ TEST (system, generate_send_existing)
 	ASSERT_GT (system.nodes[0]->balance (stake_preserver.pub), system.nodes[0]->balance (rai::genesis_account));
 	rai::account_info info2;
 	{
-		rai::transaction transaction (system.wallet (0)->store.environment, false);
+		rai::transaction transaction (system.wallet (0)->wallets.environment, false);
 		ASSERT_FALSE (system.nodes[0]->store.account_get (transaction, rai::test_genesis_key.pub, info2));
 	}
 	ASSERT_NE (info1.head, info2.head);
@@ -598,13 +598,13 @@ TEST (system, generate_send_existing)
 	while (info2.block_count < info1.block_count + 2)
 	{
 		ASSERT_NO_ERROR (system.poll ());
-		rai::transaction transaction (system.wallet (0)->store.environment, false);
+		rai::transaction transaction (system.wallet (0)->wallets.environment, false);
 		ASSERT_FALSE (system.nodes[0]->store.account_get (transaction, rai::test_genesis_key.pub, info2));
 	}
 	ASSERT_EQ (info1.block_count + 2, info2.block_count);
 	ASSERT_EQ (info2.balance, rai::genesis_amount / 3);
 	{
-		rai::transaction transaction (system.wallet (0)->store.environment, false);
+		rai::transaction transaction (system.wallet (0)->wallets.environment, false);
 		ASSERT_NE (system.nodes[0]->ledger.amount (transaction, info2.head), 0);
 	}
 	system.stop ();
