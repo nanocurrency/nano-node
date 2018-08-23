@@ -467,17 +467,11 @@ TEST (rpc, wallet_password_change)
 	ASSERT_EQ (200, response.status);
 	std::string account_text1 (response.json.get<std::string> ("changed"));
 	ASSERT_EQ (account_text1, "1");
-	{
-		rai::transaction transaction (system.wallet (0)->store.environment, false);
-		ASSERT_TRUE (system.wallet (0)->store.valid_password (transaction));
-	}
-	ASSERT_TRUE (system.wallet (0)->enter_password (""));
-	{
-		rai::transaction transaction (system.wallet (0)->store.environment, false);
-		ASSERT_FALSE (system.wallet (0)->store.valid_password (transaction));
-	}
-	ASSERT_FALSE (system.wallet (0)->enter_password ("test"));
-	rai::transaction transaction (system.wallet (0)->store.environment, false);
+	rai::transaction transaction (system.wallet (0)->store.environment, true);
+	ASSERT_TRUE (system.wallet (0)->store.valid_password (transaction));
+	ASSERT_TRUE (system.wallet (0)->enter_password (transaction, ""));
+	ASSERT_FALSE (system.wallet (0)->store.valid_password (transaction));
+	ASSERT_FALSE (system.wallet (0)->enter_password (transaction, "test"));
 	ASSERT_TRUE (system.wallet (0)->store.valid_password (transaction));
 }
 

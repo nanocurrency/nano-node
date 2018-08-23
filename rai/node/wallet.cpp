@@ -759,7 +759,6 @@ void rai::wallet::enter_initial_password ()
 	std::lock_guard<std::recursive_mutex> lock (store.mutex);
 	rai::raw_key password_l;
 	store.password.value (password_l);
-	auto enter_empty (false);
 	if (password_l.data.is_zero ())
 	{
 		rai::transaction transaction (store.environment, true);
@@ -770,19 +769,14 @@ void rai::wallet::enter_initial_password ()
 		}
 		else
 		{
-			enter_empty = true;
+			enter_password (transaction, "");
 		}
-	}
-	if (enter_empty)
-	{
-		enter_password ("");
 	}
 }
 
-bool rai::wallet::enter_password (std::string const & password_a)
+bool rai::wallet::enter_password (MDB_txn * transaction_a, std::string const & password_a)
 {
-	rai::transaction transaction (store.environment, true);
-	auto result (store.attempt_password (transaction, password_a));
+	auto result (store.attempt_password (transaction_a, password_a));
 	if (!result)
 	{
 		auto this_l (shared_from_this ());

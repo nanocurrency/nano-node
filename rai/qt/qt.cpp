@@ -1378,7 +1378,8 @@ void rai_qt::wallet::update_connected ()
 void rai_qt::wallet::empty_password ()
 {
 	this->node.alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (3), [this]() {
-		wallet_m->enter_password (std::string (""));
+		rai::transaction transaction (wallet_m->store.environment, true);
+		wallet_m->enter_password (transaction, std::string (""));
 	});
 }
 
@@ -1577,7 +1578,7 @@ wallet (wallet_a)
 		else
 		{
 			// try to unlock wallet
-			if (!this->wallet.wallet_m->enter_password (std::string (password->text ().toLocal8Bit ())))
+			if (!this->wallet.wallet_m->enter_password (transaction, std::string (password->text ().toLocal8Bit ())))
 			{
 				password->clear ();
 				lock_toggle->setText ("Lock");

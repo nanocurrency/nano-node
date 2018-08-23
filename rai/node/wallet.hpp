@@ -133,7 +133,7 @@ public:
 	wallet (bool &, rai::mdb_env &, rai::transaction &, rai::wallets &, std::string const &);
 	wallet (bool &, rai::mdb_env &, rai::transaction &, rai::wallets &, std::string const &, std::string const &);
 	void enter_initial_password ();
-	bool enter_password (std::string const &);
+	bool enter_password (MDB_txn *, std::string const &);
 	rai::public_key insert_adhoc (rai::raw_key const &, bool = true);
 	rai::public_key insert_adhoc (MDB_txn *, rai::raw_key const &, bool = true);
 	void insert_watch (MDB_txn *, rai::public_key const &);
