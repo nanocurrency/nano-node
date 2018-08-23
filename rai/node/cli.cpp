@@ -75,9 +75,9 @@ std::error_code rai::handle_node_options (boost::program_options::variables_map 
 				auto wallet (node.node->wallets.open (wallet_id));
 				if (wallet != nullptr)
 				{
-					if (!wallet->enter_password (password))
+					rai::transaction transaction (wallet->store.environment, true);
+					if (!wallet->enter_password (transaction, password))
 					{
-						rai::transaction transaction (wallet->store.environment, true);
 						auto pub (wallet->store.deterministic_insert (transaction));
 						std::cout << boost::str (boost::format ("Account: %1%\n") % pub.to_account ());
 					}
@@ -306,12 +306,12 @@ std::error_code rai::handle_node_options (boost::program_options::variables_map 
 				auto wallet (node.node->wallets.open (wallet_id));
 				if (wallet != nullptr)
 				{
-					if (!wallet->enter_password (password))
+					rai::transaction transaction (wallet->store.environment, true);
+					if (!wallet->enter_password (transaction, password))
 					{
 						rai::raw_key key;
 						if (!key.data.decode_hex (vm["key"].as<std::string> ()))
 						{
-							rai::transaction transaction (wallet->store.environment, true);
 							wallet->store.insert_adhoc (transaction, key);
 						}
 						else
@@ -360,12 +360,12 @@ std::error_code rai::handle_node_options (boost::program_options::variables_map 
 				auto wallet (node.node->wallets.open (wallet_id));
 				if (wallet != nullptr)
 				{
-					if (!wallet->enter_password (password))
+					rai::transaction transaction (wallet->store.environment, true);
+					if (!wallet->enter_password (transaction, password))
 					{
 						rai::raw_key key;
 						if (!key.data.decode_hex (vm["key"].as<std::string> ()))
 						{
-							rai::transaction transaction (wallet->store.environment, true);
 							wallet->change_seed (transaction, key);
 						}
 						else
@@ -421,9 +421,9 @@ std::error_code rai::handle_node_options (boost::program_options::variables_map 
 				auto existing (node.node->wallets.items.find (wallet_id));
 				if (existing != node.node->wallets.items.end ())
 				{
-					if (!existing->second->enter_password (password))
+					rai::transaction transaction (existing->second->store.environment, true);
+					if (!existing->second->enter_password (transaction, password))
 					{
-						rai::transaction transaction (existing->second->store.environment, false);
 						rai::raw_key seed;
 						existing->second->store.seed (seed, transaction);
 						std::cout << boost::str (boost::format ("Seed: %1%\n") % seed.data.to_string ());

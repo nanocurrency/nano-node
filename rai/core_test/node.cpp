@@ -354,7 +354,10 @@ TEST (node, unlock_search)
 	system.wallet (0)->insert_adhoc (key2.prv);
 	system.wallet (0)->store.password.value_set (rai::keypair ().prv);
 	auto node (system.nodes[0]);
-	ASSERT_FALSE (system.wallet (0)->enter_password (""));
+	{
+		rai::transaction transaction (system.wallet (0)->store.environment, true);
+		ASSERT_FALSE (system.wallet (0)->enter_password (transaction, ""));
+	}
 	system.deadline_set (10s);
 	while (system.nodes[0]->balance (key2.pub).is_zero ())
 	{
@@ -592,9 +595,9 @@ TEST (node, confirm_locked)
 {
 	rai::system system (24000, 1);
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
-	system.wallet (0)->enter_password ("1");
+	rai::transaction transaction (system.nodes[0]->store.environment, true);
+	system.wallet (0)->enter_password (transaction, "1");
 	auto block (std::make_shared<rai::send_block> (0, 0, 0, rai::keypair ().prv, 0, 0));
-	rai::transaction transaction (system.nodes[0]->store.environment, false);
 	system.nodes[0]->network.republish_block (transaction, block);
 }
 

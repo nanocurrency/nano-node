@@ -1915,7 +1915,8 @@ void rai::rpc_handler::password_enter ()
 	if (!ec)
 	{
 		std::string password_text (request.get<std::string> ("password"));
-		auto error (wallet->enter_password (password_text));
+		rai::transaction transaction (wallet->store.environment, true);
+		auto error (wallet->enter_password (transaction, password_text));
 		response_l.put ("valid", error ? "0" : "1");
 	}
 	response_errors ();
