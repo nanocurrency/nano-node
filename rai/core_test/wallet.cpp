@@ -689,7 +689,6 @@ TEST (wallet, version_1_upgrade)
 	}
 
 	wallet->enter_password ("1");
-
 	{
 		rai::transaction transaction (wallet->store.environment, true);
 		ASSERT_TRUE (wallet->store.valid_password (transaction));
@@ -823,17 +822,17 @@ TEST (wallet, version_2_upgrade)
 		wallet->store.version_put (transaction, 2);
 	}
 	{
-		rai::transaction transaction (wallet->store.environment, false);
+		rai::transaction transaction (wallet->store.environment, true);
 		ASSERT_EQ (2, wallet->store.version (transaction));
 		ASSERT_FALSE (wallet->store.exists (transaction, rai::wallet_store::deterministic_index_special));
 		ASSERT_FALSE (wallet->store.exists (transaction, rai::wallet_store::seed_special));
 		wallet->store.attempt_password (transaction, "1");
 	}
-	rai::transaction transaction (wallet->store.environment, false);
+	rai::transaction transaction (wallet->store.environment, true);
 	ASSERT_EQ (wallet->store.version_current, wallet->store.version (transaction));
 	ASSERT_TRUE (wallet->store.exists (transaction, rai::wallet_store::deterministic_index_special));
 	ASSERT_TRUE (wallet->store.exists (transaction, rai::wallet_store::seed_special));
-	ASSERT_FALSE (wallet->deterministic_insert ().is_zero ());
+	ASSERT_FALSE (wallet->deterministic_insert (transaction).is_zero ());
 }
 
 TEST (wallet, version_3_upgrade)
