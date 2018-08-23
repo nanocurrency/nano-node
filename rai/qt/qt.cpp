@@ -706,7 +706,7 @@ refresh (new QPushButton ("Refresh")),
 balance_window (new QWidget),
 balance_layout (new QHBoxLayout),
 balance_label (new QLabel),
-history (wallet_a.wallet_m->node.ledger, account, wallet_a),
+history (wallet_a.node.ledger, account, wallet_a),
 back (new QPushButton ("Back")),
 account (wallet_a.account),
 wallet (wallet_a)
@@ -870,9 +870,9 @@ std::string rai_qt::status::text ()
 	size_t unchecked (0);
 	std::string count_string;
 	{
-		rai::transaction transaction (wallet.wallet_m->node.store.environment, false);
-		auto size (wallet.wallet_m->node.store.block_count (transaction));
-		unchecked = wallet.wallet_m->node.store.unchecked_count (transaction);
+		rai::transaction transaction (wallet.node.store.environment, false);
+		auto size (wallet.node.store.block_count (transaction));
+		unchecked = wallet.node.store.unchecked_count (transaction);
 		count_string = std::to_string (size.sum ());
 	}
 
@@ -905,7 +905,7 @@ std::string rai_qt::status::text ()
 	}
 
 	result += ", Block: ";
-	if (unchecked != 0 && wallet.wallet_m->node.bootstrap_initiator.in_progress ())
+	if (unchecked != 0 && wallet.node.bootstrap_initiator.in_progress ())
 	{
 		count_string += " (" + std::to_string (unchecked) + ")";
 	}
@@ -1624,12 +1624,12 @@ wallet (wallet_a)
 
 void rai_qt::settings::refresh_representative ()
 {
-	rai::transaction transaction (this->wallet.wallet_m->node.store.environment, false);
+	rai::transaction transaction (wallet.node.store.environment, false);
 	rai::account_info info;
-	auto error (this->wallet.wallet_m->node.store.account_get (transaction, this->wallet.account, info));
+	auto error (wallet.node.store.account_get (transaction, this->wallet.account, info));
 	if (!error)
 	{
-		auto block (this->wallet.wallet_m->node.store.block_get (transaction, info.rep_block));
+		auto block (wallet.node.store.block_get (transaction, info.rep_block));
 		assert (block != nullptr);
 		current_representative->setText (QString (block->representative ().to_account ().c_str ()));
 	}
