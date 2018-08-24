@@ -1176,7 +1176,7 @@ rai::uint256_union rai::vote_stapler::stage0 (rai::public_key node_id, rai::acco
 	auto stapled_vote_it (stapled_votes.get<0> ().find (block->root ()));
 	if (stapled_vote_it != stapled_votes.get<0> ().end ())
 	{
-		if (stapled_vote_it->successor != block)
+		if (!(*stapled_vote_it->successor == *block))
 		{
 			result = true;
 		}
