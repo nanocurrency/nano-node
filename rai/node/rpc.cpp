@@ -1,5 +1,4 @@
 #include <boost/algorithm/string.hpp>
-#include <boost/property_tree/ptree.hpp>
 #include <rai/node/rpc.hpp>
 
 #include <rai/lib/interface.h>

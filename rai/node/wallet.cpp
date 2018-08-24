@@ -1,6 +1,5 @@
 #include <rai/node/wallet.hpp>
 
-#include <rai/lib/interface.h>
 #include <rai/node/node.hpp>
 #include <rai/node/wallet.hpp>
 #include <rai/node/xorshift.hpp>
@@ -8,8 +7,6 @@
 #include <argon2.h>
 
 #include <boost/filesystem.hpp>
-#include <boost/property_tree/json_parser.hpp>
-#include <boost/property_tree/ptree.hpp>
 
 #include <future>
 
