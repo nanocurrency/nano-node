@@ -1,4 +1,4 @@
-#include <banano/versioning.hpp>
+#include <banano/secure/versioning.hpp>
 
 rai::account_info_v1::account_info_v1 () :
 head (0),

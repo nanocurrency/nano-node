@@ -68,7 +68,7 @@ void rai::work_pool::loop (uint64_t thread)
 		if (thread == 0)
 		{
 			// Only work thread 0 notifies work observers
-			work_observers (!empty);
+			work_observers.notify (!empty);
 		}
 		if (!empty)
 		{

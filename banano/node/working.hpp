@@ -1,6 +1,6 @@
 #pragma once
 
-#include <banano/common.hpp>
+#include <banano/secure/common.hpp>
 
 namespace rai
 {

@@ -1,7 +1,7 @@
 #pragma once
 
 #include <boost/optional.hpp>
-#include <banano/config.hpp>
+#include <banano/lib/config.hpp>
 #include <banano/lib/numbers.hpp>
 #include <banano/lib/utility.hpp>
 

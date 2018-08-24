@@ -1,9 +1,9 @@
 #pragma once
 
-#include <banano/blockstore.hpp>
-#include <banano/common.hpp>
 #include <banano/node/common.hpp>
 #include <banano/node/openclwork.hpp>
+#include <banano/secure/blockstore.hpp>
+#include <banano/secure/common.hpp>
 
 #include <mutex>
 #include <queue>
@@ -81,10 +81,10 @@ public:
 	bool fetch (MDB_txn *, rai::public_key const &, rai::raw_key &);
 	bool exists (MDB_txn *, rai::public_key const &);
 	void destroy (MDB_txn *);
-	rai::store_iterator find (MDB_txn *, rai::uint256_union const &);
-	rai::store_iterator begin (MDB_txn *, rai::uint256_union const &);
-	rai::store_iterator begin (MDB_txn *);
-	rai::store_iterator end ();
+	rai::store_iterator<rai::uint256_union, rai::wallet_value> find (MDB_txn *, rai::uint256_union const &);
+	rai::store_iterator<rai::uint256_union, rai::wallet_value> begin (MDB_txn *, rai::uint256_union const &);
+	rai::store_iterator<rai::uint256_union, rai::wallet_value> begin (MDB_txn *);
+	rai::store_iterator<rai::uint256_union, rai::wallet_value> end ();
 	void derive_key (rai::raw_key &, MDB_txn *, std::string const &);
 	void serialize_json (MDB_txn *, std::string &);
 	void write_backup (MDB_txn *, boost::filesystem::path const &);
@@ -96,12 +96,14 @@ public:
 	void version_put (MDB_txn *, unsigned);
 	void upgrade_v1_v2 ();
 	void upgrade_v2_v3 ();
+	void upgrade_v3_v4 ();
 	rai::fan password;
 	rai::fan wallet_key_mem;
-	static unsigned const version_1;
-	static unsigned const version_2;
-	static unsigned const version_3;
-	static unsigned const version_current;
+	static unsigned const version_1 = 1;
+	static unsigned const version_2 = 2;
+	static unsigned const version_3 = 3;
+	static unsigned const version_4 = 4;
+	unsigned const version_current = version_4;
 	static rai::uint256_union const version_special;
 	static rai::uint256_union const wallet_key_special;
 	static rai::uint256_union const salt_special;
@@ -109,6 +111,8 @@ public:
 	static rai::uint256_union const representative_special;
 	static rai::uint256_union const seed_special;
 	static rai::uint256_union const deterministic_index_special;
+	static size_t const check_iv_index;
+	static size_t const seed_iv_index;
 	static int const special_count;
 	static unsigned const kdf_full_work = 64 * 1024;
 	static unsigned const kdf_test_work = 8;

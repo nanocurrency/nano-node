@@ -3,7 +3,7 @@ set -e
 
 scripts="$(dirname "$0")"
 
-docker login -u nanocurrency -p "$DOCKER_PASSWORD"
+echo "$DOCKER_PASSWORD" | docker login -u nanocurrency --password-stdin
 
 # We push this just so it can be a cache next time
 if [ "$TRAVIS_BRANCH" = "master" ]; then
@@ -11,7 +11,9 @@ if [ "$TRAVIS_BRANCH" = "master" ]; then
 fi
 
 tags=()
-if [ -n "$TRAVIS_TAG" ]; then
+if [[ "${TRAVIS_TAG}" =~ 'RC' ]]; then
+    tags+=("$TRAVIS_TAG")
+elif [ -n "$TRAVIS_TAG" ]; then
     tags+=("$TRAVIS_TAG" latest)
 elif [ -n "$TRAVIS_BRANCH" ]; then
     tags+=("$TRAVIS_BRANCH")

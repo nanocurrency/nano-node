@@ -82,7 +82,9 @@ public:
 	QVBoxLayout * peers_layout;
 	QStandardItemModel * peers_model;
 	QTableView * peers_view;
+	QHBoxLayout * peer_summary_layout;
 	QLabel * bootstrap_label;
+	QLabel * peer_count_label;
 	QLineEdit * bootstrap_line;
 	QPushButton * peers_bootstrap;
 	QPushButton * peers_refresh;
@@ -268,6 +270,19 @@ public:
 	QTableView * view;
 	QPushButton * back;
 	banano_qt::wallet & wallet;
+	void refresh_stats ();
+};
+class stats_viewer
+{
+public:
+	stats_viewer (rai_qt::wallet &);
+	QWidget * window;
+	QVBoxLayout * layout;
+	QPushButton * refresh;
+	QStandardItemModel * model;
+	QTableView * view;
+	QPushButton * back;
+	rai_qt::wallet & wallet;
 	void refresh_stats ();
 };
 enum class status_types

@@ -1,5 +1,8 @@
 #include <gtest/gtest.h>
 #include <banano/node/testing.hpp>
+#include <banano/core_test/testutil.hpp>
+
+using namespace std::chrono_literals;
 
 TEST (gap_cache, add_new)
 {
@@ -64,15 +67,20 @@ TEST (gap_cache, gap_bootstrap)
 	ASSERT_EQ (rai::genesis_amount, system.nodes[1]->balance (rai::genesis_account));
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	system.wallet (0)->insert_adhoc (key.prv);
-	system.wallet (0)->send_action (rai::test_genesis_key.pub, key.pub, 100);
+	auto latest_block (system.wallet (0)->send_action (rai::test_genesis_key.pub, key.pub, 100));
+	ASSERT_NE (nullptr, latest_block);
 	ASSERT_EQ (rai::genesis_amount - 200, system.nodes[0]->balance (rai::genesis_account));
 	ASSERT_EQ (rai::genesis_amount, system.nodes[1]->balance (rai::genesis_account));
-	auto iterations2 (0);
+	system.deadline_set (10s);
+	{
+		// The separate publish and vote system doesn't work very well here because it's instantly confirmed.
+		// We help it get the block and vote out here.
+		rai::transaction transaction (system.nodes[0]->store.environment, nullptr, false);
+		system.nodes[0]->network.republish_block (transaction, latest_block);
+	}
 	while (system.nodes[1]->balance (rai::genesis_account) != rai::genesis_amount - 200)
 	{
-		system.poll ();
-		++iterations2;
-		ASSERT_LT (iterations2, 200);
+		ASSERT_NO_ERROR (system.poll ());
 	}
 }
 
@@ -85,13 +93,13 @@ TEST (gap_cache, two_dependencies)
 	auto send2 (std::make_shared<rai::send_block> (send1->hash (), key.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (send1->hash ())));
 	auto open (std::make_shared<rai::open_block> (send1->hash (), key.pub, key.pub, key.prv, key.pub, system.work.generate (key.pub)));
 	ASSERT_EQ (0, system.nodes[0]->gap_cache.blocks.size ());
-	system.nodes[0]->block_processor.add (send2);
+	system.nodes[0]->block_processor.add (send2, std::chrono::steady_clock::now ());
 	system.nodes[0]->block_processor.flush ();
 	ASSERT_EQ (1, system.nodes[0]->gap_cache.blocks.size ());
-	system.nodes[0]->block_processor.add (open);
+	system.nodes[0]->block_processor.add (open, std::chrono::steady_clock::now ());
 	system.nodes[0]->block_processor.flush ();
 	ASSERT_EQ (2, system.nodes[0]->gap_cache.blocks.size ());
-	system.nodes[0]->block_processor.add (send1);
+	system.nodes[0]->block_processor.add (send1, std::chrono::steady_clock::now ());
 	system.nodes[0]->block_processor.flush ();
 	ASSERT_EQ (0, system.nodes[0]->gap_cache.blocks.size ());
 	rai::transaction transaction (system.nodes[0]->store.environment, nullptr, false);

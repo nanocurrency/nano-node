@@ -2,6 +2,9 @@
 
 #include <fstream>
 #include <banano/node/testing.hpp>
+#include <banano/core_test/testutil.hpp>
+
+using namespace std::chrono_literals;
 
 TEST (wallet, no_key)
 {
@@ -89,11 +92,11 @@ TEST (wallet, one_item_iteration)
 	wallet.insert_adhoc (transaction, key1.prv);
 	for (auto i (wallet.begin (transaction)), j (wallet.end ()); i != j; ++i)
 	{
-		ASSERT_EQ (key1.pub, i->first.uint256 ());
+		ASSERT_EQ (key1.pub, rai::uint256_union (i->first));
 		rai::raw_key password;
 		wallet.wallet_key (password, transaction);
 		rai::raw_key key;
-		key.decrypt (rai::wallet_value (i->second).key, password, wallet.salt (transaction).owords[0]);
+		key.decrypt (rai::wallet_value (i->second).key, password, i->first.uint256 ().owords[0]);
 		ASSERT_EQ (key1.prv, key);
 	}
 }
@@ -117,11 +120,11 @@ TEST (wallet, two_item_iteration)
 		wallet.insert_adhoc (transaction, key2.prv);
 		for (auto i (wallet.begin (transaction)), j (wallet.end ()); i != j; ++i)
 		{
-			pubs.insert (i->first.uint256 ());
+			pubs.insert (rai::uint256_union (i->first));
 			rai::raw_key password;
 			wallet.wallet_key (password, transaction);
 			rai::raw_key key;
-			key.decrypt (rai::wallet_value (i->second).key, password, wallet.salt (transaction).owords[0]);
+			key.decrypt (rai::wallet_value (i->second).key, password, i->first.uint256 ().owords[0]);
 			prvs.insert (key.data);
 		}
 	}
@@ -169,12 +172,10 @@ TEST (wallet, send_async)
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	rai::keypair key2;
 	std::thread thread ([&system]() {
-		auto iterations (0);
+		system.deadline_set (10s);
 		while (!system.nodes[0]->balance (rai::test_genesis_key.pub).is_zero ())
 		{
-			system.poll ();
-			++iterations;
-			ASSERT_LT (iterations, 200);
+			ASSERT_NO_ERROR (system.poll ());
 		}
 	});
 	bool success (false);
@@ -604,7 +605,7 @@ TEST (wallet, work)
 	wallet->insert_adhoc (rai::test_genesis_key.prv);
 	rai::genesis genesis;
 	auto done (false);
-	auto iterations (0);
+	system.deadline_set (10s);
 	while (!done)
 	{
 		rai::transaction transaction (system.nodes[0]->store.environment, nullptr, false);
@@ -613,9 +614,7 @@ TEST (wallet, work)
 		{
 			done = !rai::work_validate (genesis.hash (), work);
 		}
-		system.poll ();
-		++iterations;
-		ASSERT_LT (iterations, 200);
+		ASSERT_NO_ERROR (system.poll ());
 	}
 }
 
@@ -633,20 +632,16 @@ TEST (wallet, work_generate)
 	}
 	rai::keypair key;
 	wallet->send_action (rai::test_genesis_key.pub, key.pub, 100);
-	auto iterations1 (0);
+	system.deadline_set (10s);
 	while (system.nodes[0]->ledger.account_balance (rai::transaction (system.nodes[0]->store.environment, nullptr, false), rai::test_genesis_key.pub) == amount1)
 	{
-		system.poll ();
-		++iterations1;
-		ASSERT_LT (iterations1, 200);
+		ASSERT_NO_ERROR (system.poll ());
 	}
-	auto iterations2 (0);
+	system.deadline_set (10s);
 	auto again (true);
 	while (again)
 	{
-		system.poll ();
-		++iterations2;
-		ASSERT_LT (iterations2, 200);
+		ASSERT_NO_ERROR (system.poll ());
 		rai::transaction transaction (system.nodes[0]->store.environment, nullptr, false);
 		again = wallet->store.work_get (transaction, account1, work1) || rai::work_validate (system.nodes[0]->ledger.latest_root (transaction, account1), work1);
 	}
@@ -657,22 +652,22 @@ TEST (wallet, insert_locked)
 	rai::system system (24000, 1);
 	auto wallet (system.wallet (0));
 	wallet->store.rekey (rai::transaction (wallet->store.environment, nullptr, true), "1");
-	ASSERT_EQ (true, wallet->valid_password ());
+	ASSERT_TRUE (wallet->valid_password ());
 	wallet->enter_password ("");
-	ASSERT_EQ (false, wallet->valid_password ());
+	ASSERT_FALSE (wallet->valid_password ());
 	ASSERT_TRUE (wallet->insert_adhoc (rai::keypair ().prv).is_zero ());
 }
 
-TEST (wallet, version_1_2_upgrade)
+TEST (wallet, version_1_upgrade)
 {
 	rai::system system (24000, 1);
 	auto wallet (system.wallet (0));
 	wallet->enter_initial_password ();
-	ASSERT_EQ (true, wallet->valid_password ());
+	ASSERT_TRUE (wallet->valid_password ());
 	rai::keypair key;
 	wallet->store.rekey (rai::transaction (wallet->store.environment, nullptr, true), "1");
 	wallet->enter_password ("");
-	ASSERT_EQ (false, wallet->valid_password ());
+	ASSERT_FALSE (wallet->valid_password ());
 	{
 		rai::transaction transaction (wallet->store.environment, nullptr, true);
 		rai::raw_key password_l;
@@ -687,8 +682,8 @@ TEST (wallet, version_1_2_upgrade)
 	}
 
 	wallet->enter_password ("1");
-	ASSERT_EQ (true, wallet->valid_password ());
-	ASSERT_EQ (2, wallet->store.version (rai::transaction (wallet->store.environment, nullptr, false)));
+	ASSERT_TRUE (wallet->valid_password ());
+	ASSERT_EQ (wallet->store.version_current, wallet->store.version (rai::transaction (wallet->store.environment, nullptr, false)));
 	rai::raw_key prv;
 	ASSERT_FALSE (wallet->store.fetch (rai::transaction (wallet->store.environment, nullptr, false), key.pub, prv));
 	ASSERT_EQ (key.prv, prv);
@@ -706,8 +701,8 @@ TEST (wallet, version_1_2_upgrade)
 		wallet->store.version_put (transaction, 1);
 	}
 	wallet->enter_password ("1");
-	ASSERT_EQ (true, wallet->valid_password ());
-	ASSERT_EQ (2, wallet->store.version (rai::transaction (wallet->store.environment, nullptr, false)));
+	ASSERT_TRUE (wallet->valid_password ());
+	ASSERT_EQ (wallet->store.version_current, wallet->store.version (rai::transaction (wallet->store.environment, nullptr, false)));
 	rai::raw_key prv2;
 	ASSERT_FALSE (wallet->store.fetch (rai::transaction (wallet->store.environment, nullptr, false), key.pub, prv2));
 	ASSERT_EQ (key.prv, prv2);
@@ -797,13 +792,13 @@ TEST (wallet, insert_deterministic_locked)
 	rai::system system (24000, 1);
 	auto wallet (system.wallet (0));
 	wallet->store.rekey (rai::transaction (wallet->store.environment, nullptr, true), "1");
-	ASSERT_EQ (true, wallet->valid_password ());
+	ASSERT_TRUE (wallet->valid_password ());
 	wallet->enter_password ("");
-	ASSERT_EQ (false, wallet->valid_password ());
+	ASSERT_FALSE (wallet->valid_password ());
 	ASSERT_TRUE (wallet->deterministic_insert ().is_zero ());
 }
 
-TEST (wallet, version_2_3_upgrade)
+TEST (wallet, version_2_upgrade)
 {
 	rai::system system (24000, 1);
 	auto wallet (system.wallet (0));
@@ -823,10 +818,51 @@ TEST (wallet, version_2_3_upgrade)
 		wallet->store.attempt_password (transaction, "1");
 	}
 	rai::transaction transaction (wallet->store.environment, nullptr, false);
-	ASSERT_EQ (3, wallet->store.version (transaction));
+	ASSERT_EQ (wallet->store.version_current, wallet->store.version (transaction));
 	ASSERT_TRUE (wallet->store.exists (transaction, rai::wallet_store::deterministic_index_special));
 	ASSERT_TRUE (wallet->store.exists (transaction, rai::wallet_store::seed_special));
 	ASSERT_FALSE (wallet->deterministic_insert ().is_zero ());
+}
+
+TEST (wallet, version_3_upgrade)
+{
+	rai::system system (24000, 1);
+	auto wallet (system.wallet (0));
+	wallet->store.rekey (rai::transaction (wallet->store.environment, nullptr, true), "1");
+	wallet->enter_password ("1");
+	ASSERT_TRUE (wallet->valid_password ());
+	ASSERT_EQ (wallet->store.version_current, wallet->store.version (rai::transaction (wallet->store.environment, nullptr, false)));
+	rai::keypair key;
+	rai::raw_key seed;
+	rai::uint256_union seed_ciphertext;
+	rai::random_pool.GenerateBlock (seed.data.bytes.data (), seed.data.bytes.size ());
+	{
+		rai::transaction transaction (wallet->store.environment, nullptr, true);
+		rai::raw_key password_l;
+		rai::wallet_value value (wallet->store.entry_get_raw (transaction, rai::wallet_store::wallet_key_special));
+		rai::raw_key kdf;
+		wallet->store.derive_key (kdf, transaction, "1");
+		password_l.decrypt (value.key, kdf, wallet->store.salt (transaction).owords[0]);
+		rai::uint256_union ciphertext;
+		ciphertext.encrypt (key.prv, password_l, wallet->store.salt (transaction).owords[0]);
+		wallet->store.entry_put_raw (transaction, key.pub, rai::wallet_value (ciphertext, 0));
+		seed_ciphertext.encrypt (seed, password_l, wallet->store.salt (transaction).owords[0]);
+		wallet->store.entry_put_raw (transaction, rai::wallet_store::seed_special, rai::wallet_value (seed_ciphertext, 0));
+		wallet->store.version_put (transaction, 3);
+	}
+	wallet->enter_password ("1");
+	ASSERT_TRUE (wallet->valid_password ());
+	ASSERT_EQ (wallet->store.version_current, wallet->store.version (rai::transaction (wallet->store.environment, nullptr, false)));
+	rai::raw_key prv;
+	ASSERT_FALSE (wallet->store.fetch (rai::transaction (wallet->store.environment, nullptr, false), key.pub, prv));
+	ASSERT_EQ (key.prv, prv);
+	{
+		rai::transaction transaction (wallet->store.environment, nullptr, false);
+		rai::raw_key seed_compare;
+		wallet->store.seed (seed_compare, transaction);
+		ASSERT_EQ (seed, seed_compare);
+		ASSERT_NE (seed_ciphertext, wallet->store.entry_get_raw (transaction, rai::wallet_store::seed_special).key);
+	}
 }
 
 TEST (wallet, no_work)

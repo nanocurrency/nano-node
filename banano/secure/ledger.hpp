@@ -1,7 +1,8 @@
 #pragma once
 
-#include <banano/common.hpp>
+#include <banano/secure/common.hpp>
 
+struct MDB_txn;
 namespace rai
 {
 class block_store;
@@ -17,10 +18,7 @@ using tally_t = std::map<rai::uint128_t, std::shared_ptr<rai::block>, std::great
 class ledger
 {
 public:
-	ledger (rai::block_store &, rai::stat &);
-	std::pair<rai::uint128_t, std::shared_ptr<rai::block>> winner (MDB_txn *, rai::votes const & votes_a);
-	// Map of weight -> associated block, ordered greatest to least
-	rai::tally_t tally (MDB_txn *, rai::votes const &);
+	ledger (rai::block_store &, rai::stat &, rai::uint256_union const & = 1, rai::account const & = 0);
 	rai::account account (MDB_txn *, rai::block_hash const &);
 	rai::uint128_t amount (MDB_txn *, rai::block_hash const &);
 	rai::uint128_t balance (MDB_txn *, rai::block_hash const &);
@@ -41,15 +39,18 @@ public:
 	rai::block_hash block_source (MDB_txn *, rai::block const &);
 	rai::process_return process (MDB_txn *, rai::block const &);
 	void rollback (MDB_txn *, rai::block_hash const &);
-	void change_latest (MDB_txn *, rai::account const &, rai::block_hash const &, rai::account const &, rai::uint128_union const &, uint64_t, bool = false);
+	void change_latest (MDB_txn *, rai::account const &, rai::block_hash const &, rai::account const &, rai::uint128_union const &, uint64_t, bool = false, rai::epoch = rai::epoch::epoch_0);
 	void checksum_update (MDB_txn *, rai::block_hash const &);
 	rai::checksum checksum (MDB_txn *, rai::account const &, rai::account const &);
 	void dump_account_chain (rai::account const &);
+	bool could_fit (MDB_txn *, rai::block const &);
 	static rai::uint128_t const unit;
 	rai::block_store & store;
 	rai::stat & stats;
 	std::unordered_map<rai::account, rai::uint128_t> bootstrap_weights;
 	uint64_t bootstrap_weight_max_blocks;
 	std::atomic<bool> check_bootstrap_weights;
+	rai::uint256_union epoch_link;
+	rai::account epoch_signer;
 };
 };

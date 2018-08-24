@@ -1,9 +1,7 @@
 #include <gtest/gtest.h>
 
-#include <banano/common.hpp>
+#include <banano/secure/common.hpp>
 #include <banano/lib/interface.h>
-
-#include <ed25519-donna/ed25519.h>
 
 TEST (uint128_union, decode_dec)
 {
@@ -115,8 +113,7 @@ TEST (uint256_union, key_encryption)
 	rai::raw_key key4;
 	key4.decrypt (encrypted, secret_key, key1.pub.owords[0]);
 	ASSERT_EQ (key1.prv, key4);
-	rai::public_key pub;
-	ed25519_publickey (key4.data.bytes.data (), pub.bytes.data ());
+	rai::public_key pub (rai::pub_key (key4.data));
 	ASSERT_EQ (key1.pub, pub);
 }
 
@@ -310,8 +307,7 @@ TEST (uint256_union, big_endian_union_function)
 TEST (uint256_union, decode_nano_variant)
 {
 	rai::uint256_union key;
-	ASSERT_FALSE (key.decode_account ("TR6ZJ4pdp6HC76xMRpVDny5x2s8AEbrhFue3NKVxYYdmKuTEib"));
-	ASSERT_EQ (rai::banano_test_account, key);
+	ASSERT_FALSE (key.decode_account ("ban_1111111111111111111111111111111111111111111111111111hifc8npp"));
 }
 
 TEST (uint256_union, decode_account_variations)

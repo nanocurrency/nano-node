@@ -12,51 +12,62 @@ public:
 	confirm_req_count (0),
 	confirm_ack_count (0),
 	bulk_pull_count (0),
+	bulk_pull_account_count (0),
 	bulk_pull_blocks_count (0),
 	bulk_push_count (0),
 	frontier_req_count (0)
 	{
 	}
-	void keepalive (rai::keepalive const &)
+	void keepalive (rai::keepalive const &) override
 	{
 		++keepalive_count;
 	}
-	void publish (rai::publish const &)
+	void publish (rai::publish const &) override
 	{
 		++publish_count;
 	}
-	void confirm_req (rai::confirm_req const &)
+	void confirm_req (rai::confirm_req const &) override
 	{
 		++confirm_req_count;
 	}
-	void confirm_ack (rai::confirm_ack const &)
+	void confirm_ack (rai::confirm_ack const &) override
 	{
 		++confirm_ack_count;
 	}
-	void bulk_pull (rai::bulk_pull const &)
+	void bulk_pull (rai::bulk_pull const &) override
 	{
 		++bulk_pull_count;
 	}
-	void bulk_pull_blocks (rai::bulk_pull_blocks const &)
+	void bulk_pull_account (rai::bulk_pull_account const &) override
+	{
+		++bulk_pull_account_count;
+	}
+	void bulk_pull_blocks (rai::bulk_pull_blocks const &) override
 	{
 		++bulk_pull_blocks_count;
 	}
-	void bulk_push (rai::bulk_push const &)
+	void bulk_push (rai::bulk_push const &) override
 	{
 		++bulk_push_count;
 	}
-	void frontier_req (rai::frontier_req const &)
+	void frontier_req (rai::frontier_req const &) override
 	{
 		++frontier_req_count;
+	}
+	void node_id_handshake (rai::node_id_handshake const &) override
+	{
+		++node_id_handshake_count;
 	}
 	uint64_t keepalive_count;
 	uint64_t publish_count;
 	uint64_t confirm_req_count;
 	uint64_t confirm_ack_count;
 	uint64_t bulk_pull_count;
+	uint64_t bulk_pull_account_count;
 	uint64_t bulk_pull_blocks_count;
 	uint64_t bulk_push_count;
 	uint64_t frontier_req_count;
+	uint64_t node_id_handshake_count;
 };
 }
 

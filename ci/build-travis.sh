@@ -30,6 +30,7 @@ cmake \
     -DCMAKE_VERBOSE_MAKEFILE=ON \
     -DBOOST_ROOT=/usr/local \
     -DQt5_DIR=${qt_dir} \
+    -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
     ${SANITIZERS} \
     ..
 
@@ -42,15 +43,9 @@ fi
 
 popd
 
-if [[ "$OSTYPE" == "darwin"* ]]; then
-    TRUE_CMD=gtrue
-else
-    TRUE_CMD=true
-fi
-
 pushd load-tester
 cargo build --release
 popd
 cp ./load-tester/target/release/banano-load-tester ./build/load_test
 
-./ci/test.sh ./build || ${TRUE_CMD}
+./ci/test.sh ./build

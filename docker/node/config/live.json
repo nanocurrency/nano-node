@@ -9,12 +9,12 @@
         "chain_request_limit": "16384"
     },
     "node": {
-        "version": "8",
+        "version": "12",
         "peering_port": "7071",
         "bootstrap_fraction_numerator": "1",
         "receive_minimum": "100000000000000000000000000000",
         "logging": {
-            "version": "2",
+            "version": "3",
             "ledger": "false",
             "ledger_duplicate": "false",
             "vote": "false",
@@ -23,6 +23,7 @@
             "network_publish": "false",
             "network_packet": "false",
             "network_keepalive": "false",
+            "network_node_id_handshake": "false",
             "node_lifetime_tracing": "false",
             "insufficient_work": "true",
             "log_rpc": "true",
@@ -47,16 +48,20 @@
            
             
         ],
-        "inactive_supply": "0",
+        "online_weight_minimum": "60000000000000000000000000000000000000",
+        "online_weight_quorum": "50",
         "password_fanout": "1024",
         "io_threads": "4",
         "work_threads": "4",
         "enable_voting": "true",
         "bootstrap_connections": "16",
+        "bootstrap_connections_max": "64",
         "callback_address": "",
         "callback_port": "0",
         "callback_target": "",
-        "lmdb_max_dbs": "128"
+        "lmdb_max_dbs": "128",
+        "state_block_parse_canary": "991CF190094C00F0B68E2E5F75F6BEE95A2E0BD93CEAA4A6734DB9F19B728948",
+        "state_block_generate_canary": "991CF190094C00F0B68E2E5F75F6BEE95A2E0BD93CEAA4A6734DB9F19B728948"
     },
     "opencl_enable": "false",
     "opencl": {

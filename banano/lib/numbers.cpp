@@ -58,14 +58,6 @@ void rai::uint256_union::encode_account (std::string & destination_a) const
 	std::reverse (destination_a.begin (), destination_a.end ());
 }
 
-std::string rai::uint256_union::to_account_split () const
-{
-	auto result (to_account ());
-	assert (result.size () == 64);
-	result.insert (32, "\n");
-	return result;
-}
-
 std::string rai::uint256_union::to_account () const
 {
 	std::string result;
@@ -419,6 +411,13 @@ void rai::deterministic_key (rai::uint256_union const & seed_a, uint32_t index_a
 	rai::uint256_union index (index_a);
 	blake2b_update (&hash, reinterpret_cast<uint8_t *> (&index.dwords[7]), sizeof (uint32_t));
 	blake2b_final (&hash, prv_a.bytes.data (), prv_a.bytes.size ());
+}
+
+rai::public_key rai::pub_key (rai::private_key const & privatekey_a)
+{
+	rai::uint256_union result;
+	ed25519_publickey (privatekey_a.bytes.data (), result.bytes.data ());
+	return result;
 }
 
 bool rai::validate_message (rai::public_key const & public_key, rai::uint256_union const & message, rai::uint512_union const & signature)
