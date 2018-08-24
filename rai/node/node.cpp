@@ -1479,7 +1479,6 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 {
 	{
 		rai::transaction transaction (node.store.environment, nullptr, true);
-		auto cutoff (std::chrono::steady_clock::now () + rai::transaction_timeout);
 		lock_a.lock ();
 		auto count (0);
 		while (have_blocks () && count < 16384)
@@ -2019,25 +2018,6 @@ rai::uint128_t rai::gap_cache::bootstrap_threshold (MDB_txn * transaction_a)
 {
 	auto result ((node.online_reps.online_stake () / 256) * node.config.bootstrap_fraction_numerator);
 	return result;
-}
-
-void rai::gap_cache::purge_old ()
-{
-	auto cutoff (std::chrono::steady_clock::now () - std::chrono::seconds (10));
-	std::lock_guard<std::mutex> lock (mutex);
-	auto done (false);
-	while (!done && !blocks.empty ())
-	{
-		auto first (blocks.get<1> ().begin ());
-		if (first->arrival < cutoff)
-		{
-			blocks.get<1> ().erase (first);
-		}
-		else
-		{
-			done = true;
-		}
-	}
 }
 
 void rai::network::confirm_send (rai::confirm_ack const & confirm_a, std::shared_ptr<std::vector<uint8_t>> bytes_a, rai::endpoint const & endpoint_a)
