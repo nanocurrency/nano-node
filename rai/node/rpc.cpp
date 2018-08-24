@@ -2606,29 +2606,30 @@ void rai::rpc_handler::send ()
 					if (!ec)
 					{
 						boost::optional<std::string> send_id (request.get_optional<std::string> ("id"));
-						if (balance >= amount.number ())
-						{
-							auto rpc_l (shared_from_this ());
-							auto response_a (response);
-							wallet->send_async (source, destination, amount.number (), [response_a](std::shared_ptr<rai::block> block_a) {
-								if (block_a != nullptr)
-								{
-									rai::uint256_union hash (block_a->hash ());
-									boost::property_tree::ptree response_l;
-									response_l.put ("block", hash.to_string ());
-									response_a (response_l);
-								}
-								else
+						auto rpc_l (shared_from_this ());
+						auto response_a (response);
+						wallet->send_async (source, destination, amount.number (), [balance, amount, response_a](std::shared_ptr<rai::block> block_a) {
+							if (block_a != nullptr)
+							{
+								rai::uint256_union hash (block_a->hash ());
+								boost::property_tree::ptree response_l;
+								response_l.put ("block", hash.to_string ());
+								response_a (response_l);
+							}
+							else
+							{
+								if (balance >= amount.number ())
 								{
 									error_response (response_a, "Error generating block");
 								}
-							},
-							work == 0, send_id);
-						}
-						else
-						{
-							ec = nano::error_common::insufficient_balance;
-						}
+								else
+								{
+									std::error_code ec (nano::error_common::insufficient_balance);
+									error_response (response_a, ec.message ());
+								}
+							}
+						},
+						work == 0, send_id);
 					}
 				}
 				else

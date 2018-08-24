@@ -355,8 +355,8 @@ TEST (rpc, send_idempotent)
 	request.put ("wallet", wallet);
 	request.put ("action", "send");
 	request.put ("source", rai::test_genesis_key.pub.to_account ());
-	request.put ("destination", rai::test_genesis_key.pub.to_account ());
-	request.put ("amount", "100");
+	request.put ("destination", rai::account (0).to_account ());
+	request.put ("amount", (rai::genesis_amount - (rai::genesis_amount / 4)).convert_to<std::string> ());
 	request.put ("id", "123abc");
 	test_response response (request, rpc, system.service);
 	while (response.status == 0)
@@ -368,7 +368,7 @@ TEST (rpc, send_idempotent)
 	rai::block_hash block;
 	ASSERT_FALSE (block.decode_hex (block_text));
 	ASSERT_TRUE (system.nodes[0]->ledger.block_exists (block));
-	ASSERT_EQ (system.nodes[0]->balance (rai::test_genesis_key.pub), rai::genesis_amount - 100);
+	ASSERT_EQ (system.nodes[0]->balance (rai::test_genesis_key.pub), rai::genesis_amount / 4);
 	test_response response2 (request, rpc, system.service);
 	while (response2.status == 0)
 	{
@@ -376,7 +376,7 @@ TEST (rpc, send_idempotent)
 	}
 	ASSERT_EQ (200, response2.status);
 	ASSERT_EQ (response2.json.get<std::string> ("block"), block_text);
-	ASSERT_EQ (system.nodes[0]->balance (rai::test_genesis_key.pub), rai::genesis_amount - 100);
+	ASSERT_EQ (system.nodes[0]->balance (rai::test_genesis_key.pub), rai::genesis_amount / 4);
 	request.erase ("id");
 	request.put ("id", "456def");
 	test_response response3 (request, rpc, system.service);
@@ -385,12 +385,7 @@ TEST (rpc, send_idempotent)
 		system.poll ();
 	}
 	ASSERT_EQ (200, response3.status);
-	std::string block2_text (response3.json.get<std::string> ("block"));
-	rai::block_hash block2;
-	ASSERT_NE (block2, block);
-	ASSERT_FALSE (block2.decode_hex (block2_text));
-	ASSERT_TRUE (system.nodes[0]->ledger.block_exists (block2));
-	ASSERT_EQ (system.nodes[0]->balance (rai::test_genesis_key.pub), rai::genesis_amount - 200);
+	ASSERT_EQ (response3.json.get<std::string> ("error"), "Insufficient balance");
 }
 
 TEST (rpc, stop)
