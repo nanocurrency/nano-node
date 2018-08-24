@@ -68,7 +68,7 @@ public:
 	// Change our winner to agree with the network
 	void compute_rep_votes (MDB_txn *);
 	// Confirm this block if quorum is met
-	void confirm_if_quorum (MDB_txn *);
+	void confirm_if_quorum (MDB_txn *, bool);
 	void log_votes (rai::tally_t const &);
 	bool publish (std::shared_ptr<rai::block> block_a);
 	void abort ();

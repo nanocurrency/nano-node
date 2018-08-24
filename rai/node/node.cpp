@@ -4937,7 +4937,7 @@ rai::tally_t rai::election::tally (MDB_txn * transaction_a)
 	return result;
 }
 
-void rai::election::confirm_if_quorum (MDB_txn * transaction_a)
+void rai::election::confirm_if_quorum (MDB_txn * transaction_a, bool should_update_winner)
 {
 	auto tally_l (tally (transaction_a));
 	assert (tally_l.size () > 0);
@@ -4949,7 +4949,7 @@ void rai::election::confirm_if_quorum (MDB_txn * transaction_a)
 	{
 		sum += i.first;
 	}
-	if (sum >= node.config.online_weight_minimum.number () && !(*block_l == *status.winner))
+	if (sum >= node.config.online_weight_minimum.number () && !(*block_l == *status.winner) && should_update_winner)
 	{
 		auto node_l (node.shared ());
 		node_l->block_processor.force (block_l);
@@ -5257,7 +5257,7 @@ bool rai::active_transactions::start (std::pair<std::shared_ptr<rai::block>, std
 		if (existing == roots.end ())
 		{
 			auto election (std::make_shared<rai::election> (node, primary_block, confirmation_action_a));
-			election->should_update_winner = vote_stapled_block; // If we have a vote stapled block, keep winner for an election
+			election->should_update_winner = (bool)vote_stapled_block; // If we have a vote stapled block, keep winner for an election
 			roots.insert (rai::conflict_info{ root, election, 0, blocks_a });
 			successors.insert (std::make_pair (primary_block->hash (), election));
 		}
