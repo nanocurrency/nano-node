@@ -95,15 +95,20 @@ void rai::network::send_keepalive (rai::endpoint const & endpoint_a)
 	});
 }
 
-void rai::node::keepalive (std::string const & address_a, uint16_t port_a)
+void rai::node::keepalive (std::string const & address_a, uint16_t port_a, bool preconfigured_peer_a)
 {
 	auto node_l (shared_from_this ());
-	network.resolver.async_resolve (boost::asio::ip::udp::resolver::query (address_a, std::to_string (port_a)), [node_l, address_a, port_a](boost::system::error_code const & ec, boost::asio::ip::udp::resolver::iterator i_a) {
+	network.resolver.async_resolve (boost::asio::ip::udp::resolver::query (address_a, std::to_string (port_a)), [node_l, preconfigured_peer_a, address_a, port_a](boost::system::error_code const & ec, boost::asio::ip::udp::resolver::iterator i_a) {
 		if (!ec)
 		{
 			for (auto i (i_a), n (boost::asio::ip::udp::resolver::iterator{}); i != n; ++i)
 			{
-				node_l->send_keepalive (rai::map_endpoint_to_v6 (i->endpoint ()));
+				auto endpoint (rai::map_endpoint_to_v6 (i->endpoint ()));
+				node_l->send_keepalive (endpoint);
+				if (preconfigured_peer_a)
+				{
+					node_l->peers.insert (endpoint, rai::protocol_version, true);
+				}
 			}
 		}
 		else
@@ -2298,7 +2303,7 @@ void rai::node::keepalive_preconfigured (std::vector<std::string> const & peers_
 {
 	for (auto i (peers_a.begin ()), n (peers_a.end ()); i != n; ++i)
 	{
-		keepalive (*i, rai::network::node_port);
+		keepalive (*i, rai::network::node_port, true);
 	}
 }
 
@@ -3234,12 +3239,12 @@ bool rai::peer_container::reachout (rai::endpoint const & endpoint_a)
 	return error;
 }
 
-bool rai::peer_container::insert (rai::endpoint const & endpoint_a, unsigned version_a)
+bool rai::peer_container::insert (rai::endpoint const & endpoint_a, unsigned version_a, bool preconfigured_a)
 {
 	assert (endpoint_a.address ().is_v6 ());
 	auto unknown (false);
 	auto is_legacy (version_a < rai::node_id_version);
-	auto result (not_a_peer (endpoint_a, false));
+	auto result (!preconfigured_a && not_a_peer (endpoint_a, false));
 	if (!result)
 	{
 		if (version_a >= rai::protocol_version_min)

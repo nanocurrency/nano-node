@@ -226,7 +226,7 @@ public:
 	// Returns true if peer was already known
 	bool known_peer (rai::endpoint const &);
 	// Notify of peer we received from
-	bool insert (rai::endpoint const &, unsigned);
+	bool insert (rai::endpoint const &, unsigned, bool = false);
 	std::unordered_set<rai::endpoint> random_set (size_t);
 	void random_fill (std::array<rai::endpoint, 8> &);
 	// Request a list of the top known representatives
@@ -591,7 +591,7 @@ public:
 	}
 	void send_keepalive (rai::endpoint const &);
 	bool copy_with_compaction (boost::filesystem::path const &);
-	void keepalive (std::string const &, uint16_t);
+	void keepalive (std::string const &, uint16_t, bool = false);
 	void start ();
 	void stop ();
 	std::shared_ptr<rai::node> shared ();
