@@ -375,7 +375,8 @@ TEST (rpc, send_idempotent)
 		system.poll ();
 	}
 	ASSERT_EQ (200, response2.status);
-	ASSERT_EQ (response2.json.get<std::string> ("block"), block_text);
+	ASSERT_EQ ("", response2.json.get<std::string> ("error", ""));
+	ASSERT_EQ (block_text, response2.json.get<std::string> ("block"));
 	ASSERT_EQ (system.nodes[0]->balance (rai::test_genesis_key.pub), rai::genesis_amount / 4);
 	request.erase ("id");
 	request.put ("id", "456def");
