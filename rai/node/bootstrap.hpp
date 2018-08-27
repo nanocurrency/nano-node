@@ -276,16 +276,11 @@ public:
 	void set_params ();
 	std::unique_ptr<rai::block> get_next ();
 	void send_next ();
-	void sent_action (boost::system::error_code const &, size_t);
 	void send_finished ();
 	void no_block_sent (boost::system::error_code const &, size_t);
 	std::shared_ptr<rai::bootstrap_server> connection;
 	std::unique_ptr<rai::bulk_pull_blocks> request;
 	std::shared_ptr<std::vector<uint8_t>> send_buffer;
-	rai::store_iterator<rai::block_hash, rai::block_info> stream;
-	rai::transaction stream_transaction;
-	uint32_t sent_count;
-	rai::block_hash checksum;
 };
 class bulk_push_server : public std::enable_shared_from_this<rai::bulk_push_server>
 {
