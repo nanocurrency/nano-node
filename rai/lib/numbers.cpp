@@ -1,4 +1,5 @@
 #include <rai/lib/numbers.hpp>
+#include <rai/lib/utility.hpp>
 
 #include <ed25519-donna/ed25519.h>
 
