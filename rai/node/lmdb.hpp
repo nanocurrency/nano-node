@@ -74,8 +74,12 @@ public:
 class transaction
 {
 public:
-	transaction (rai::mdb_env &, bool, MDB_txn * = nullptr);
+	transaction (rai::mdb_env &, bool = false);
+	transaction (rai::transaction &) = delete;
+	transaction (rai::transaction &&) = default;
 	~transaction ();
+	rai::transaction & operator= (rai::transaction const &) = delete;
+	rai::transaction & operator= (rai::transaction &) = default;
 	operator MDB_txn * () const;
 	MDB_txn * handle;
 };
