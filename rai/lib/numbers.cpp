@@ -187,7 +187,7 @@ rai::uint256_union::uint256_union (std::string const & hex_a)
 {
 	auto error (decode_hex (hex_a));
 
-	assert (!error);
+	release_assert (!error);
 }
 
 void rai::uint256_union::clear ()
@@ -433,7 +433,7 @@ rai::uint128_union::uint128_union (std::string const & string_a)
 {
 	auto error (decode_hex (string_a));
 
-	assert (!error);
+	release_assert (!error);
 }
 
 rai::uint128_union::uint128_union (uint64_t value_a)
