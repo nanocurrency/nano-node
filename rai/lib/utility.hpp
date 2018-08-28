@@ -30,3 +30,6 @@ public:
 	std::vector<std::function<void(T...)>> observers;
 };
 }
+
+void release_assert_internal (bool check, const char * check_expr, const char * file, unsigned int line);
+#define release_assert(check) release_assert_internal (check, #check, __FILE__, __LINE__)

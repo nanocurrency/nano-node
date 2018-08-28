@@ -1,4 +1,5 @@
 add_executable (core_test
+	testutil.hpp
 	block.cpp
 	block_store.cpp
 	interface.cpp

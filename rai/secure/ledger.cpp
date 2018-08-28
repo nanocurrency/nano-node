@@ -606,39 +606,6 @@ epoch_signer (epoch_signer_a)
 {
 }
 
-// Sum the weights for each vote and return the winning block with its vote tally
-std::pair<rai::uint128_t, std::shared_ptr<rai::block>> rai::ledger::winner (MDB_txn * transaction_a, rai::votes const & votes_a)
-{
-	auto tally_l (tally (transaction_a, votes_a));
-	auto existing (tally_l.begin ());
-	return std::make_pair (existing->first, existing->second);
-}
-
-std::map<rai::uint128_t, std::shared_ptr<rai::block>, std::greater<rai::uint128_t>> rai::ledger::tally (MDB_txn * transaction_a, rai::votes const & votes_a)
-{
-	std::unordered_map<std::shared_ptr<block>, rai::uint128_t, rai::shared_ptr_block_hash, rai::shared_ptr_block_hash> totals;
-	// Construct a map of blocks -> vote total.
-	for (auto & i : votes_a.rep_votes)
-	{
-		auto existing (totals.find (i.second));
-		if (existing == totals.end ())
-		{
-			totals.insert (std::make_pair (i.second, 0));
-			existing = totals.find (i.second);
-			assert (existing != totals.end ());
-		}
-		auto weight_l (weight (transaction_a, i.first));
-		existing->second += weight_l;
-	}
-	// Construction a map of vote total -> block in decreasing order.
-	std::map<rai::uint128_t, std::shared_ptr<rai::block>, std::greater<rai::uint128_t>> result;
-	for (auto & i : totals)
-	{
-		result[i.second] = i.first;
-	}
-	return result;
-}
-
 // Balance for account containing hash
 rai::uint128_t rai::ledger::balance (MDB_txn * transaction_a, rai::block_hash const & hash_a)
 {
@@ -666,12 +633,12 @@ rai::uint128_t rai::ledger::account_pending (MDB_txn * transaction_a, rai::accou
 	rai::account end (account_a.number () + 1);
 	for (auto i (store.pending_v0_begin (transaction_a, rai::pending_key (account_a, 0))), n (store.pending_v0_begin (transaction_a, rai::pending_key (end, 0))); i != n; ++i)
 	{
-		rai::pending_info info (i->second, rai::epoch::epoch_0);
+		rai::pending_info info (i->second);
 		result += info.amount.number ();
 	}
 	for (auto i (store.pending_v1_begin (transaction_a, rai::pending_key (account_a, 0))), n (store.pending_v1_begin (transaction_a, rai::pending_key (end, 0))); i != n; ++i)
 	{
-		rai::pending_info info (i->second, rai::epoch::epoch_1);
+		rai::pending_info info (i->second);
 		result += info.amount.number ();
 	}
 	return result;
@@ -700,7 +667,7 @@ rai::block_hash rai::ledger::representative_calculated (MDB_txn * transaction_a,
 
 bool rai::ledger::block_exists (rai::block_hash const & hash_a)
 {
-	rai::transaction transaction (store.environment, nullptr, false);
+	rai::transaction transaction (store.environment, false);
 	auto result (store.block_exists (transaction, hash_a));
 	return result;
 }
@@ -713,7 +680,7 @@ std::string rai::ledger::block_text (char const * hash_a)
 std::string rai::ledger::block_text (rai::block_hash const & hash_a)
 {
 	std::string result;
-	rai::transaction transaction (store.environment, nullptr, false);
+	rai::transaction transaction (store.environment, false);
 	auto block (store.block_get (transaction, hash_a));
 	if (block != nullptr)
 	{
@@ -880,7 +847,7 @@ rai::checksum rai::ledger::checksum (MDB_txn * transaction_a, rai::account const
 
 void rai::ledger::dump_account_chain (rai::account const & account_a)
 {
-	rai::transaction transaction (store.environment, nullptr, false);
+	rai::transaction transaction (store.environment, false);
 	auto hash (latest (transaction, account_a));
 	while (!hash.is_zero ())
 	{

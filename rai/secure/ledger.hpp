@@ -2,6 +2,7 @@
 
 #include <rai/secure/common.hpp>
 
+struct MDB_txn;
 namespace rai
 {
 class block_store;
@@ -18,9 +19,6 @@ class ledger
 {
 public:
 	ledger (rai::block_store &, rai::stat &, rai::uint256_union const & = 1, rai::account const & = 0);
-	std::pair<rai::uint128_t, std::shared_ptr<rai::block>> winner (MDB_txn *, rai::votes const & votes_a);
-	// Map of weight -> associated block, ordered greatest to least
-	rai::tally_t tally (MDB_txn *, rai::votes const &);
 	rai::account account (MDB_txn *, rai::block_hash const &);
 	rai::uint128_t amount (MDB_txn *, rai::block_hash const &);
 	rai::uint128_t balance (MDB_txn *, rai::block_hash const &);

@@ -6,7 +6,6 @@
 #include <ctime>
 #include <fstream>
 #include <iostream>
-#include <memory>
 #include <sstream>
 #include <tuple>
 
@@ -325,6 +324,9 @@ std::string rai::stat::type_to_string (uint32_t key)
 		case rai::stat::type::error:
 			res = "error";
 			break;
+		case rai::stat::type::http_callback:
+			res = "http_callback";
+			break;
 		case rai::stat::type::ledger:
 			res = "ledger";
 			break;
@@ -362,6 +364,9 @@ std::string rai::stat::detail_to_string (uint32_t key)
 		case rai::stat::detail::bulk_pull:
 			res = "bulk_pull";
 			break;
+		case rai::stat::detail::bulk_pull_account:
+			res = "bulk_pull_account";
+			break;
 		case rai::stat::detail::bulk_pull_blocks:
 			res = "bulk_pull_blocks";
 			break;
@@ -385,6 +390,9 @@ std::string rai::stat::detail_to_string (uint32_t key)
 			break;
 		case rai::stat::detail::handshake:
 			res = "handshake";
+			break;
+		case rai::stat::detail::http_callback:
+			res = "http_callback";
 			break;
 		case rai::stat::detail::initiate:
 			res = "initiate";
