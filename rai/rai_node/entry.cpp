@@ -61,7 +61,7 @@ int main (int argc, char * const * argv)
 		else if (vm.count ("debug_block_count"))
 		{
 			rai::inactive_node node (data_path);
-			rai::transaction transaction (node.node->store.environment, false);
+			auto transaction (node.node->store.tx_begin ());
 			std::cout << boost::str (boost::format ("Block count: %1%\n") % node.node->store.block_count (transaction).sum ());
 		}
 		else if (vm.count ("debug_bootstrap_generate"))
@@ -121,7 +121,7 @@ int main (int argc, char * const * argv)
 		else if (vm.count ("debug_dump_representatives"))
 		{
 			rai::inactive_node node (data_path);
-			rai::transaction transaction (node.node->store.environment, false);
+			auto transaction (node.node->store.tx_begin ());
 			rai::uint128_t total;
 			for (auto i (node.node->store.representation_begin (transaction)), n (node.node->store.representation_end ()); i != n; ++i)
 			{
@@ -148,7 +148,7 @@ int main (int argc, char * const * argv)
 		else if (vm.count ("debug_account_count"))
 		{
 			rai::inactive_node node (data_path);
-			rai::transaction transaction (node.node->store.environment, false);
+			auto transaction (node.node->store.tx_begin ());
 			std::cout << boost::str (boost::format ("Frontier count: %1%\n") % node.node->store.account_count (transaction));
 		}
 		else if (vm.count ("debug_mass_activity"))

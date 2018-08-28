@@ -177,6 +177,7 @@ public:
 	void foreach_representative (MDB_txn *, std::function<void(rai::public_key const &, rai::raw_key const &)> const &);
 	bool exists (MDB_txn *, rai::public_key const &);
 	void stop ();
+	rai::transaction tx_begin (bool = false);
 	std::function<void(bool)> observer;
 	std::unordered_map<rai::uint256_union, std::shared_ptr<rai::wallet>> items;
 	std::multimap<rai::uint128_t, std::function<void()>, std::greater<rai::uint128_t>> actions;
