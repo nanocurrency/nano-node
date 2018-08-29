@@ -257,7 +257,7 @@ public:
 	/** Deletes the node ID from the store */
 	void delete_node_id (rai::transaction const &);
 
-	rai::mdb_env environment;
+	rai::mdb_env env;
 
 	/**
 	 * Maps head block to owning account

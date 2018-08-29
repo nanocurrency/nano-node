@@ -405,7 +405,7 @@ rai::store_iterator<rai::account, std::shared_ptr<rai::vote>> rai::block_store::
 }
 
 rai::block_store::block_store (bool & error_a, boost::filesystem::path const & path_a, int lmdb_max_dbs) :
-environment (error_a, path_a, lmdb_max_dbs),
+env (error_a, path_a, lmdb_max_dbs),
 frontiers (0),
 accounts_v0 (0),
 accounts_v1 (0),
@@ -454,7 +454,7 @@ meta (0)
 
 rai::transaction rai::block_store::tx_begin (bool write_a)
 {
-	return rai::transaction (environment, write_a);
+	return rai::transaction (env, write_a);
 }
 
 void rai::block_store::initialize (rai::transaction const & transaction_a, rai::genesis const & genesis_a)

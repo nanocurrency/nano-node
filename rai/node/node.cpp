@@ -1916,8 +1916,7 @@ rai::node::~node ()
 
 bool rai::node::copy_with_compaction (boost::filesystem::path const & destination_file)
 {
-	return !mdb_env_copy2 (store.environment.environment,
-	destination_file.string ().c_str (), MDB_CP_COMPACT);
+	return !mdb_env_copy2 (store.env.environment, destination_file.string ().c_str (), MDB_CP_COMPACT);
 }
 
 void rai::node::send_keepalive (rai::endpoint const & endpoint_a)
