@@ -795,7 +795,7 @@ TEST (block_store, change_dupsort)
 		ASSERT_EQ (store.unchecked_end (), iterator1);
 	}
 	ASSERT_EQ (0, mdb_drop (transaction, store.unchecked, 0));
-	mdb_dbi_close (store.environment, store.unchecked);
+	mdb_dbi_close (store.env, store.unchecked);
 	ASSERT_EQ (0, mdb_dbi_open (transaction, "unchecked", MDB_CREATE | MDB_DUPSORT, &store.unchecked));
 	store.unchecked_put (transaction, send1->hash (), send1);
 	store.unchecked_put (transaction, send1->hash (), send2);

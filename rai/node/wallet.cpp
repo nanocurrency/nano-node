@@ -1246,7 +1246,7 @@ void rai::wallet::work_cache_blocking (rai::account const & account_a, rai::bloc
 rai::wallets::wallets (bool & error_a, rai::node & node_a) :
 observer ([](bool) {}),
 node (node_a),
-environment (node_a.store.environment),
+env (node_a.store.env),
 stopped (false),
 thread ([this]() { do_wallet_actions (); })
 {
@@ -1434,7 +1434,7 @@ void rai::wallets::stop ()
 
 rai::transaction rai::wallets::tx_begin (bool write_a)
 {
-	return rai::transaction (environment, write_a);
+	return rai::transaction (env, write_a);
 }
 
 rai::uint128_t const rai::wallets::generate_priority = std::numeric_limits<rai::uint128_t>::max ();
