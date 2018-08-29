@@ -2382,3 +2382,21 @@ void rai::frontier_req_server::next ()
 		current.clear ();
 	}
 }
+
+/*
+ * Lazy Bootstrapping Client
+ */
+rai::bootstrap_lazy::bootstrap_lazy ()
+{
+	return;
+}
+
+rai::bootstrap_lazy::~bootstrap_lazy ()
+{
+	return;
+}
+
+void rai::bootstrap_lazy::add_confirmed_block (std::shared_ptr<rai::block> block_a, rai::account const & account_a, rai::amount const & amount_a)
+{
+	return;
+}

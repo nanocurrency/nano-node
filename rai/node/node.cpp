@@ -1611,6 +1611,8 @@ stats (config.stat_config)
 		observers.disconnect.notify ();
 	};
 	observers.blocks.add ([this](std::shared_ptr<rai::block> block_a, rai::account const & account_a, rai::amount const & amount_a, bool is_state_send_a) {
+		this->bootstrap_lazy.add_confirmed_block (block_a, account_a, amount_a);
+
 		if (this->block_arrival.recent (block_a->hash ()))
 		{
 			auto node_l (shared_from_this ());
@@ -2317,16 +2319,7 @@ void rai::node::ongoing_rep_crawl ()
 
 void rai::node::ongoing_bootstrap ()
 {
-	auto next_wakeup (300);
-	if (warmed_up < 3)
-	{
-		// Re-attempt bootstrapping more aggressively on startup
-		next_wakeup = 5;
-		if (!bootstrap_initiator.in_progress () && !peers.empty ())
-		{
-			++warmed_up;
-		}
-	}
+	auto next_wakeup (3600);
 	bootstrap_initiator.bootstrap ();
 	std::weak_ptr<rai::node> node_w (shared_from_this ());
 	alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (next_wakeup), [node_w]() {

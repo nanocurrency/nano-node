@@ -610,6 +610,7 @@ public:
 	rai::network network;
 	rai::bootstrap_initiator bootstrap_initiator;
 	rai::bootstrap_listener bootstrap;
+	rai::bootstrap_lazy bootstrap_lazy;
 	rai::peer_container peers;
 	boost::filesystem::path application_path;
 	rai::node_observers observers;
