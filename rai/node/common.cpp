@@ -439,7 +439,6 @@ bool rai::confirm_req::deserialize (rai::stream & stream_a)
 			result_stream = rai::read (stream_a, block_hash);
 			if (!result_stream && !block_hash.is_zero ())
 			{
-				calls++;
 				result_stream = rai::read (stream_a, root_hash);
 				if (!result_stream && !root_hash.is_zero ())
 				{
