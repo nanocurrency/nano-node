@@ -292,7 +292,14 @@ void rai::network::broadcast_confirm_req_base (std::shared_ptr<rai::block> block
 	auto count (0);
 	while (!endpoints_a->empty () && count < max_reps)
 	{
-		send_confirm_req (endpoints_a->back ().endpoint, block_a);
+		if (rai::rai_network == rai::rai_networks::rai_live_network)
+		{
+			send_confirm_req (endpoints_a->back ().endpoint, block_a);
+		}
+		else
+		{
+			send_confirm_req_hash (endpoints_a->back ().endpoint, block_a);
+		}
 		endpoints_a->pop_back ();
 		count++;
 	}
