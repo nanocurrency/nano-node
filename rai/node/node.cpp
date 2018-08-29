@@ -168,7 +168,7 @@ void rai::network::republish (rai::block_hash const & hash_a, std::shared_ptr<st
 }
 
 template <typename T>
-bool confirm_block (MDB_txn * transaction_a, rai::node & node_a, T & list_a, std::shared_ptr<rai::block> block_a)
+bool confirm_block (rai::transaction const & transaction_a, rai::node & node_a, T & list_a, std::shared_ptr<rai::block> block_a)
 {
 	bool result (false);
 	if (node_a.config.enable_voting)
@@ -192,7 +192,7 @@ bool confirm_block (MDB_txn * transaction_a, rai::node & node_a, T & list_a, std
 }
 
 template <>
-bool confirm_block (MDB_txn * transaction_a, rai::node & node_a, rai::endpoint & peer_a, std::shared_ptr<rai::block> block_a)
+bool confirm_block (rai::transaction const & transaction_a, rai::node & node_a, rai::endpoint & peer_a, std::shared_ptr<rai::block> block_a)
 {
 	std::array<rai::endpoint, 1> endpoints;
 	endpoints[0] = peer_a;
@@ -200,7 +200,7 @@ bool confirm_block (MDB_txn * transaction_a, rai::node & node_a, rai::endpoint &
 	return result;
 }
 
-void rai::network::republish_block (MDB_txn * transaction, std::shared_ptr<rai::block> block, bool enable_voting)
+void rai::network::republish_block (rai::transaction const & transaction, std::shared_ptr<rai::block> block, bool enable_voting)
 {
 	auto hash (block->hash ());
 	auto list (node.peers.list_fanout ());
@@ -1278,7 +1278,7 @@ void rai::vote_processor::vote (std::shared_ptr<rai::vote> vote_a, rai::endpoint
 	}
 }
 
-rai::vote_code rai::vote_processor::vote_blocking (MDB_txn * transaction_a, std::shared_ptr<rai::vote> vote_a, rai::endpoint endpoint_a)
+rai::vote_code rai::vote_processor::vote_blocking (rai::transaction const & transaction_a, std::shared_ptr<rai::vote> vote_a, rai::endpoint endpoint_a)
 {
 	assert (endpoint_a.address ().is_v6 ());
 	auto result (rai::vote_code::invalid);
@@ -1522,7 +1522,7 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 	lock_a.unlock ();
 }
 
-rai::process_return rai::block_processor::process_receive_one (MDB_txn * transaction_a, std::shared_ptr<rai::block> block_a, std::chrono::steady_clock::time_point origination)
+rai::process_return rai::block_processor::process_receive_one (rai::transaction const & transaction_a, std::shared_ptr<rai::block> block_a, std::chrono::steady_clock::time_point origination)
 {
 	rai::process_return result;
 	auto hash (block_a->hash ());
@@ -1643,7 +1643,7 @@ rai::process_return rai::block_processor::process_receive_one (MDB_txn * transac
 	return result;
 }
 
-void rai::block_processor::queue_unchecked (MDB_txn * transaction_a, rai::block_hash const & hash_a)
+void rai::block_processor::queue_unchecked (rai::transaction const & transaction_a, rai::block_hash const & hash_a)
 {
 	auto cached (node.store.unchecked_get (transaction_a, hash_a));
 	for (auto i (cached.begin ()), n (cached.end ()); i != n; ++i)
@@ -1925,7 +1925,7 @@ void rai::node::send_keepalive (rai::endpoint const & endpoint_a)
 	network.send_keepalive (rai::map_endpoint_to_v6 (endpoint_a));
 }
 
-void rai::node::process_fork (MDB_txn * transaction_a, std::shared_ptr<rai::block> block_a)
+void rai::node::process_fork (rai::transaction const & transaction_a, std::shared_ptr<rai::block> block_a)
 {
 	auto root (block_a->root ());
 	if (!store.block_exists (transaction_a, block_a->hash ()) && store.root_exists (transaction_a, block_a->root ()))
@@ -1966,7 +1966,7 @@ node (node_a)
 {
 }
 
-void rai::gap_cache::add (MDB_txn * transaction_a, std::shared_ptr<rai::block> block_a)
+void rai::gap_cache::add (rai::transaction const & transaction_a, std::shared_ptr<rai::block> block_a)
 {
 	auto hash (block_a->hash ());
 	std::lock_guard<std::mutex> lock (mutex);
@@ -2026,7 +2026,7 @@ void rai::gap_cache::vote (std::shared_ptr<rai::vote> vote_a)
 	}
 }
 
-rai::uint128_t rai::gap_cache::bootstrap_threshold (MDB_txn * transaction_a)
+rai::uint128_t rai::gap_cache::bootstrap_threshold (rai::transaction const & transaction_a)
 {
 	auto result ((node.online_reps.online_stake () / 256) * node.config.bootstrap_fraction_numerator);
 	return result;
@@ -2779,7 +2779,7 @@ namespace
 class confirmed_visitor : public rai::block_visitor
 {
 public:
-	confirmed_visitor (MDB_txn * transaction_a, rai::node & node_a, std::shared_ptr<rai::block> block_a, rai::block_hash const & hash_a) :
+	confirmed_visitor (rai::transaction const & transaction_a, rai::node & node_a, std::shared_ptr<rai::block> block_a, rai::block_hash const & hash_a) :
 	transaction (transaction_a),
 	node (node_a),
 	block (block_a),
@@ -2836,7 +2836,7 @@ public:
 	void change_block (rai::change_block const &) override
 	{
 	}
-	MDB_txn * transaction;
+	rai::transaction const & transaction;
 	rai::node & node;
 	std::shared_ptr<rai::block> block;
 	rai::block_hash const & hash;
@@ -3527,18 +3527,18 @@ aborted (false)
 	blocks.insert (std::make_pair (block_a->hash (), block_a));
 }
 
-void rai::election::compute_rep_votes (MDB_txn * transaction_a)
+void rai::election::compute_rep_votes (rai::transaction const & transaction_a)
 {
 	if (node.config.enable_voting)
 	{
-		node.wallets.foreach_representative (transaction_a, [this, transaction_a](rai::public_key const & pub_a, rai::raw_key const & prv_a) {
+		node.wallets.foreach_representative (transaction_a, [this, &transaction_a](rai::public_key const & pub_a, rai::raw_key const & prv_a) {
 			auto vote (this->node.store.vote_generate (transaction_a, pub_a, prv_a, status.winner));
 			this->node.vote_processor.vote (vote, this->node.network.endpoint ());
 		});
 	}
 }
 
-void rai::election::confirm_once (MDB_txn * transaction_a)
+void rai::election::confirm_once (rai::transaction const & transaction_a)
 {
 	if (!confirmed.exchange (true))
 	{
@@ -3568,7 +3568,7 @@ bool rai::election::have_quorum (rai::tally_t const & tally_a)
 	return result;
 }
 
-rai::tally_t rai::election::tally (MDB_txn * transaction_a)
+rai::tally_t rai::election::tally (rai::transaction const & transaction_a)
 {
 	std::unordered_map<rai::block_hash, rai::uint128_t> block_weights;
 	for (auto vote_info : last_votes)
@@ -3588,7 +3588,7 @@ rai::tally_t rai::election::tally (MDB_txn * transaction_a)
 	return result;
 }
 
-void rai::election::confirm_if_quorum (MDB_txn * transaction_a)
+void rai::election::confirm_if_quorum (rai::transaction const & transaction_a)
 {
 	auto tally_l (tally (transaction_a));
 	assert (tally_l.size () > 0);
