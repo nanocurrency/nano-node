@@ -7,13 +7,7 @@
 #include <rai/secure/ledger.hpp>
 
 #include <condition_variable>
-#include <memory>
-#include <mutex>
-#include <queue>
-#include <thread>
-#include <unordered_set>
 
-#include <boost/asio.hpp>
 #include <boost/iostreams/device/array.hpp>
 #include <boost/log/trivial.hpp>
 #include <boost/multi_index/hashed_index.hpp>
@@ -177,7 +171,6 @@ public:
 	void add (MDB_txn *, std::shared_ptr<rai::block>);
 	void vote (std::shared_ptr<rai::vote>);
 	rai::uint128_t bootstrap_threshold (MDB_txn *);
-	void purge_old ();
 	boost::multi_index_container<
 	rai::gap_information,
 	boost::multi_index::indexed_by<

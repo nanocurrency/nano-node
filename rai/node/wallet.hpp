@@ -94,9 +94,9 @@ public:
 	void work_put (MDB_txn *, rai::public_key const &, uint64_t);
 	unsigned version (MDB_txn *);
 	void version_put (MDB_txn *, unsigned);
-	void upgrade_v1_v2 ();
-	void upgrade_v2_v3 ();
-	void upgrade_v3_v4 ();
+	void upgrade_v1_v2 (MDB_txn *);
+	void upgrade_v2_v3 (MDB_txn *);
+	void upgrade_v3_v4 (MDB_txn *);
 	rai::fan password;
 	rai::fan wallet_key_mem;
 	static unsigned const version_1 = 1;
@@ -118,11 +118,10 @@ public:
 	static unsigned const kdf_test_work = 8;
 	static unsigned const kdf_work = rai::rai_network == rai::rai_networks::rai_test_network ? kdf_test_work : kdf_full_work;
 	rai::kdf & kdf;
-	rai::mdb_env & environment;
 	MDB_dbi handle;
 	std::recursive_mutex mutex;
 };
-class node;
+class wallets;
 // A wallet is a set of account keys encrypted by a common encryption key
 class wallet : public std::enable_shared_from_this<rai::wallet>
 {
@@ -130,11 +129,10 @@ public:
 	std::shared_ptr<rai::block> change_action (rai::account const &, rai::account const &, bool = true);
 	std::shared_ptr<rai::block> receive_action (rai::block const &, rai::account const &, rai::uint128_union const &, bool = true);
 	std::shared_ptr<rai::block> send_action (rai::account const &, rai::account const &, rai::uint128_t const &, bool = true, boost::optional<std::string> = {});
-	wallet (bool &, rai::transaction &, rai::node &, std::string const &);
-	wallet (bool &, rai::transaction &, rai::node &, std::string const &, std::string const &);
+	wallet (bool &, rai::transaction &, rai::wallets &, std::string const &);
+	wallet (bool &, rai::transaction &, rai::wallets &, std::string const &, std::string const &);
 	void enter_initial_password ();
-	bool valid_password ();
-	bool enter_password (std::string const &);
+	bool enter_password (MDB_txn *, std::string const &);
 	rai::public_key insert_adhoc (rai::raw_key const &, bool = true);
 	rai::public_key insert_adhoc (MDB_txn *, rai::raw_key const &, bool = true);
 	void insert_watch (MDB_txn *, rai::public_key const &);
@@ -160,8 +158,9 @@ public:
 	std::unordered_set<rai::account> free_accounts;
 	std::function<void(bool, bool)> lock_observer;
 	rai::wallet_store store;
-	rai::node & node;
+	rai::wallets & wallets;
 };
+class node;
 // The wallets set is all the wallets a node controls.  A node may contain multiple wallets independently encrypted and operated.
 class wallets
 {
@@ -187,6 +186,7 @@ public:
 	MDB_dbi handle;
 	MDB_dbi send_action_ids;
 	rai::node & node;
+	rai::mdb_env & environment;
 	bool stopped;
 	std::thread thread;
 	static rai::uint128_t const generate_priority;

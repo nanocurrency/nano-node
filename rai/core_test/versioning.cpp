@@ -13,7 +13,7 @@ TEST (versioning, account_info_v1)
 		auto error (false);
 		rai::block_store store (error, file);
 		ASSERT_FALSE (error);
-		rai::transaction transaction (store.environment, nullptr, true);
+		rai::transaction transaction (store.environment, true);
 		store.block_put (transaction, open.hash (), open);
 		auto status (mdb_put (transaction, store.accounts_v0, rai::mdb_val (account), v1.val (), 0));
 		ASSERT_EQ (0, status);
@@ -23,7 +23,7 @@ TEST (versioning, account_info_v1)
 		auto error (false);
 		rai::block_store store (error, file);
 		ASSERT_FALSE (error);
-		rai::transaction transaction (store.environment, nullptr, false);
+		rai::transaction transaction (store.environment, false);
 		rai::account_info v2;
 		ASSERT_FALSE (store.account_get (transaction, account, v2));
 		ASSERT_EQ (open.hash (), v2.open_block);

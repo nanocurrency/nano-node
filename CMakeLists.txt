@@ -1,8 +1,8 @@
 cmake_minimum_required (VERSION 3.4)
 project (rai)
 
-set (CPACK_PACKAGE_VERSION_MAJOR "15")
-set (CPACK_PACKAGE_VERSION_MINOR "1")
+set (CPACK_PACKAGE_VERSION_MAJOR "16")
+set (CPACK_PACKAGE_VERSION_MINOR "0")
 set (CPACK_PACKAGE_VERSION_PATCH "0")
 if (DEFINED GIT_COMMIT)
 	set (CPACK_PACKAGE_VERSION_PATCH "GIT-${GIT_COMMIT}")
@@ -120,7 +120,7 @@ if (BOOST_ROOT)
     list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/Modules")
 endif ()
 
-find_package (Boost 1.66.0 REQUIRED COMPONENTS date_time filesystem system log log_setup thread program_options regex chrono atomic)
+find_package (Boost 1.66.0 REQUIRED COMPONENTS filesystem log thread program_options)
 
 add_subdirectory(ed25519-donna)
 

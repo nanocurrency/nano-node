@@ -166,7 +166,7 @@ void rai::system::generate_usage_traffic (uint32_t count_a, uint32_t wait_a, siz
 
 void rai::system::generate_rollback (rai::node & node_a, std::vector<rai::account> & accounts_a)
 {
-	rai::transaction transaction (node_a.store.environment, nullptr, true);
+	rai::transaction transaction (node_a.store.environment, true);
 	auto index (random_pool.GenerateWord32 (0, accounts_a.size () - 1));
 	auto account (accounts_a[index]);
 	rai::account_info info;
@@ -188,7 +188,7 @@ void rai::system::generate_receive (rai::node & node_a)
 {
 	std::shared_ptr<rai::block> send_block;
 	{
-		rai::transaction transaction (node_a.store.environment, nullptr, false);
+		rai::transaction transaction (node_a.store.environment, false);
 		rai::uint256_union random_block;
 		random_pool.GenerateBlock (random_block.bytes.data (), sizeof (random_block.bytes));
 		auto i (node_a.store.pending_begin (transaction, rai::pending_key (random_block, 0)));
@@ -261,7 +261,7 @@ void rai::system::generate_send_existing (rai::node & node_a, std::vector<rai::a
 	{
 		rai::account account;
 		random_pool.GenerateBlock (account.bytes.data (), sizeof (account.bytes));
-		rai::transaction transaction (node_a.store.environment, nullptr, false);
+		rai::transaction transaction (node_a.store.environment, false);
 		rai::store_iterator<rai::account, rai::account_info> entry (node_a.store.latest_begin (transaction, account));
 		if (entry == node_a.store.latest_end ())
 		{
@@ -308,7 +308,7 @@ void rai::system::generate_send_new (rai::node & node_a, std::vector<rai::accoun
 	rai::uint128_t amount;
 	rai::account source;
 	{
-		rai::transaction transaction (node_a.store.environment, nullptr, false);
+		rai::transaction transaction (node_a.store.environment, false);
 		source = get_random_account (accounts_a);
 		amount = get_random_amount (transaction, node_a, source);
 	}
@@ -336,7 +336,7 @@ void rai::system::generate_mass_activity (uint32_t count_a, rai::node & node_a)
 			uint64_t count (0);
 			uint64_t state (0);
 			{
-				rai::transaction transaction (node_a.store.environment, nullptr, false);
+				rai::transaction transaction (node_a.store.environment, false);
 				auto block_counts (node_a.store.block_count (transaction));
 				count = block_counts.sum ();
 				state = block_counts.state_v0 + block_counts.state_v1;

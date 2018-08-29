@@ -151,7 +151,7 @@ TEST (network, send_discarded_publish)
 	auto block (std::make_shared<rai::send_block> (1, 1, 2, rai::keypair ().prv, 4, system.work.generate (1)));
 	rai::genesis genesis;
 	{
-		rai::transaction transaction (system.nodes[0]->store.environment, nullptr, false);
+		rai::transaction transaction (system.nodes[0]->store.environment, false);
 		system.nodes[0]->network.republish_block (transaction, block);
 		ASSERT_EQ (genesis.hash (), system.nodes[0]->ledger.latest (transaction, rai::test_genesis_key.pub));
 		ASSERT_EQ (genesis.hash (), system.nodes[1]->latest (rai::test_genesis_key.pub));
@@ -161,7 +161,7 @@ TEST (network, send_discarded_publish)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	rai::transaction transaction (system.nodes[0]->store.environment, nullptr, false);
+	rai::transaction transaction (system.nodes[0]->store.environment, false);
 	ASSERT_EQ (genesis.hash (), system.nodes[0]->ledger.latest (transaction, rai::test_genesis_key.pub));
 	ASSERT_EQ (genesis.hash (), system.nodes[1]->latest (rai::test_genesis_key.pub));
 }
@@ -172,7 +172,7 @@ TEST (network, send_invalid_publish)
 	rai::genesis genesis;
 	auto block (std::make_shared<rai::send_block> (1, 1, 20, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (1)));
 	{
-		rai::transaction transaction (system.nodes[0]->store.environment, nullptr, false);
+		rai::transaction transaction (system.nodes[0]->store.environment, false);
 		system.nodes[0]->network.republish_block (transaction, block);
 		ASSERT_EQ (genesis.hash (), system.nodes[0]->ledger.latest (transaction, rai::test_genesis_key.pub));
 		ASSERT_EQ (genesis.hash (), system.nodes[1]->latest (rai::test_genesis_key.pub));
@@ -182,7 +182,7 @@ TEST (network, send_invalid_publish)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	rai::transaction transaction (system.nodes[0]->store.environment, nullptr, false);
+	rai::transaction transaction (system.nodes[0]->store.environment, false);
 	ASSERT_EQ (genesis.hash (), system.nodes[0]->ledger.latest (transaction, rai::test_genesis_key.pub));
 	ASSERT_EQ (genesis.hash (), system.nodes[1]->latest (rai::test_genesis_key.pub));
 }
@@ -325,7 +325,7 @@ TEST (network, receive_weight_change)
 	rai::keypair key2;
 	system.wallet (1)->insert_adhoc (key2.prv);
 	{
-		rai::transaction transaction (system.nodes[1]->store.environment, nullptr, true);
+		rai::transaction transaction (system.nodes[1]->store.environment, true);
 		system.wallet (1)->store.representative_set (transaction, key2.pub);
 	}
 	ASSERT_NE (nullptr, system.wallet (0)->send_action (rai::test_genesis_key.pub, key2.pub, system.nodes[0]->config.receive_minimum.number ()));
