@@ -1529,10 +1529,6 @@ public:
 	{
 		assert (false);
 	}
-	void confirm_req_hash (rai::confirm_req_hash const &) override
-	{
-		assert (false);
-	}
 	void confirm_ack (rai::confirm_ack const &) override
 	{
 		assert (false);

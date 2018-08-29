@@ -383,9 +383,6 @@ std::string rai::stat::detail_to_string (uint32_t key)
 		case rai::stat::detail::confirm_req:
 			res = "confirm_req";
 			break;
-		case rai::stat::detail::confirm_req_hash:
-			res = "confirm_req_hash";
-			break;
 		case rai::stat::detail::frontier_req:
 			res = "frontier_req";
 			break;

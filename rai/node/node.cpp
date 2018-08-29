@@ -205,13 +205,12 @@ bool confirm_block (MDB_txn * transaction_a, rai::node & node_a, rai::endpoint &
 	return result;
 }
 
-void rai::network::confirm_hash (MDB_txn * transaction_a, rai::endpoint const & peer_a, rai::block_hash const & hash_a)
+void rai::network::confirm_hashes (MDB_txn * transaction_a, rai::endpoint const & peer_a, std::vector<rai::block_hash> blocks_bundle_a)
 {
 	if (node.config.enable_voting)
 	{
-		std::vector<rai::block_hash> blocks_bundle (1, hash_a);
-		node.wallets.foreach_representative (transaction_a, [this, &blocks_bundle, &peer_a, &transaction_a](rai::public_key const & pub_a, rai::raw_key const & prv_a) {
-			auto vote (this->node.store.vote_generate (transaction_a, pub_a, prv_a, blocks_bundle));
+		node.wallets.foreach_representative (transaction_a, [this, &blocks_bundle_a, &peer_a, &transaction_a](rai::public_key const & pub_a, rai::raw_key const & prv_a) {
+			auto vote (this->node.store.vote_generate (transaction_a, pub_a, prv_a, blocks_bundle_a));
 			rai::confirm_ack confirm (vote);
 			std::shared_ptr<std::vector<uint8_t>> bytes (new std::vector<uint8_t>);
 			{
@@ -341,7 +340,7 @@ void rai::network::send_confirm_req (rai::endpoint const & endpoint_a, std::shar
 
 void rai::network::send_confirm_req_hash (rai::endpoint const & endpoint_a, std::shared_ptr<rai::block> block)
 {
-	rai::confirm_req_hash message (block);
+	rai::confirm_req message (block->hash (), block->root ());
 	std::shared_ptr<std::vector<uint8_t>> bytes (new std::vector<uint8_t>);
 	{
 		rai::vectorstream stream (*bytes);
@@ -352,7 +351,7 @@ void rai::network::send_confirm_req_hash (rai::endpoint const & endpoint_a, std:
 		BOOST_LOG (node.log) << boost::str (boost::format ("Sending confirm req hash to %1%") % endpoint_a);
 	}
 	std::weak_ptr<rai::node> node_w (node.shared ());
-	node.stats.inc (rai::stat::type::message, rai::stat::detail::confirm_req_hash, rai::stat::dir::out);
+	node.stats.inc (rai::stat::type::message, rai::stat::detail::confirm_req, rai::stat::dir::out);
 	send_buffer (bytes->data (), bytes->size (), endpoint_a, [bytes, node_w](boost::system::error_code const & ec, size_t size) {
 		if (auto node_l = node_w.lock ())
 		{
@@ -437,39 +436,64 @@ public:
 	{
 		if (node.config.logging.network_message_logging ())
 		{
-			BOOST_LOG (node.log) << boost::str (boost::format ("Confirm_req message from %1% for %2%") % sender % message_a.block->hash ().to_string ());
-		}
-		node.stats.inc (rai::stat::type::message, rai::stat::detail::confirm_req, rai::stat::dir::in);
-		node.peers.contacted (sender, message_a.header.version_using);
-		node.process_active (message_a.block);
-		node.active.publish (message_a.block);
-		rai::transaction transaction_a (node.store.environment, nullptr, false);
-		auto successor (node.ledger.successor (transaction_a, message_a.block->root ()));
-		if (successor != nullptr)
-		{
-			confirm_block (transaction_a, node, sender, std::move (successor));
-		}
-	}
-	void confirm_req_hash (rai::confirm_req_hash const & message_a) override
-	{
-		if (node.config.logging.network_message_logging ())
-		{
-			BOOST_LOG (node.log) << boost::str (boost::format ("Confirm_req_hash message from %1% for %2%") % sender % message_a.hash.to_string ());
-		}
-		node.stats.inc (rai::stat::type::message, rai::stat::detail::confirm_req_hash, rai::stat::dir::in);
-		node.peers.contacted (sender, message_a.header.version_using);
-		rai::transaction transaction_a (node.store.environment, nullptr, false);
-		auto successor (node.ledger.successor (transaction_a, message_a.root));
-		if (successor != nullptr)
-		{
-			if (message_a.hash == successor->hash ())
+			if (!message_a.hashes.empty ())
 			{
-				node.network.confirm_hash (transaction_a, sender, successor->hash ());
+				BOOST_LOG (node.log) << boost::str (boost::format ("Confirm_req message from %1% for hashes %2%") % sender % message_a.hashes_string ());
+			}
+			else if (!message_a.roots_hashes.empty ())
+			{
+				BOOST_LOG (node.log) << boost::str (boost::format ("Confirm_req message from %1% for hashes:roots %2%") % sender % message_a.roots_string ());
 			}
 			else
 			{
+				BOOST_LOG (node.log) << boost::str (boost::format ("Confirm_req message from %1% for %2%") % sender % message_a.block->hash ().to_string ());
+			}
+		}
+		node.stats.inc (rai::stat::type::message, rai::stat::detail::confirm_req, rai::stat::dir::in);
+		node.peers.contacted (sender, message_a.header.version_using);
+		std::vector<rai::block_hash> blocks_bundle;
+		rai::transaction transaction_a (node.store.environment, nullptr, false);
+		if (block != nullptr)
+		{
+			node.process_active (message_a.block);
+			node.active.publish (message_a.block);
+			auto successor (node.ledger.successor (transaction_a, message_a.block->root ()));
+			if (successor != nullptr)
+			{
 				confirm_block (transaction_a, node, sender, std::move (successor));
 			}
+		}
+		else if (!message_a.roots_hashes.empty ())
+		{
+			for (auto root_hash : message_a.roots_hashes)
+			{
+				auto successor (node.ledger.successor (transaction_a, root_hash.second));
+				if (successor != nullptr)
+				{
+					if (root_hash.first == successor->hash ())
+					{
+						blocks_bundle.push_back (root_hash.first);
+					}
+					else
+					{
+						confirm_block (transaction_a, node, sender, std::move (successor));
+					}
+				}
+			}
+		}
+		else if (!message_a.hashes.empty ())
+		{
+			for (auto hash : message_a.hashes)
+			{
+				if (node.store.block_exists (transaction_a, hash))
+				{
+					blocks_bundle.push_back (hash);
+				}
+			}
+		}
+		if (!blocks_bundle.empty ())
+		{
+			node.network.confirm_hashes (transaction_a, sender, blocks_bundle);
 		}
 	}
 	void confirm_ack (rai::confirm_ack const & message_a) override
@@ -611,13 +635,6 @@ void rai::network::receive_action (boost::system::error_code const & error, size
 					if (node.config.logging.network_logging ())
 					{
 						BOOST_LOG (node.log) << "Invalid confirm_req message";
-					}
-				}
-				else if (parser.status == rai::message_parser::parse_status::invalid_confirm_req_hash_message)
-				{
-					if (node.config.logging.network_logging ())
-					{
-						BOOST_LOG (node.log) << "Invalid confirm_req_hash message";
 					}
 				}
 				else if (parser.status == rai::message_parser::parse_status::invalid_confirm_ack_message)

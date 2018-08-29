@@ -141,8 +141,7 @@ enum class message_type : uint8_t
 	frontier_req = 0x8,
 	bulk_pull_blocks = 0x9,
 	node_id_handshake = 0x0a,
-	bulk_pull_account = 0x0b,
-	confirm_req_hash = 0x0c
+	bulk_pull_account = 0x0b
 };
 enum class bulk_pull_blocks_mode : uint8_t
 {
@@ -200,7 +199,6 @@ public:
 		invalid_keepalive_message,
 		invalid_publish_message,
 		invalid_confirm_req_message,
-		invalid_confirm_req_hash_message,
 		invalid_confirm_ack_message,
 		invalid_node_id_handshake_message,
 		outdated_version
@@ -210,7 +208,6 @@ public:
 	void deserialize_keepalive (rai::stream &, rai::message_header const &);
 	void deserialize_publish (rai::stream &, rai::message_header const &);
 	void deserialize_confirm_req (rai::stream &, rai::message_header const &);
-	void deserialize_confirm_req_hash (rai::stream &, rai::message_header const &);
 	void deserialize_confirm_ack (rai::stream &, rai::message_header const &);
 	void deserialize_node_id_handshake (rai::stream &, rai::message_header const &);
 	bool at_end (rai::stream &);
@@ -246,23 +243,19 @@ class confirm_req : public message
 public:
 	confirm_req (bool &, rai::stream &, rai::message_header const &);
 	confirm_req (std::shared_ptr<rai::block>);
+	confirm_req (std::vector<rai::block_hash> const &);
+	confirm_req (std::vector<std:pair<rai::block_hash, rai::block_hash>> const &);
+	confirm_req (rai::block_hash const &);
+	confirm_req (rai::block_hash const &, rai::block_hash const &);
 	bool deserialize (rai::stream &) override;
 	void serialize (rai::stream &) override;
 	void visit (rai::message_visitor &) const override;
 	bool operator== (rai::confirm_req const &) const;
 	std::shared_ptr<rai::block> block;
-};
-class confirm_req_hash : public message
-{
-public:
-	confirm_req_hash (bool &, rai::stream &, rai::message_header const &);
-	confirm_req_hash (std::shared_ptr<rai::block>);
-	bool deserialize (rai::stream &) override;
-	void serialize (rai::stream &) override;
-	void visit (rai::message_visitor &) const override;
-	bool operator== (rai::confirm_req_hash const &) const;
-	rai::block_hash hash;
-	rai::block_hash root;
+	std::vector<rai::block_hash> hashes;
+	std::vector<std:pair<rai::block_hash, rai::block_hash>> roots_hashes;
+	std::string hashes_string ();
+	std::string roots_string ();
 };
 class confirm_ack : public message
 {
@@ -353,7 +346,6 @@ public:
 	virtual void keepalive (rai::keepalive const &) = 0;
 	virtual void publish (rai::publish const &) = 0;
 	virtual void confirm_req (rai::confirm_req const &) = 0;
-	virtual void confirm_req_hash (rai::confirm_req_hash const &) = 0;
 	virtual void confirm_ack (rai::confirm_ack const &) = 0;
 	virtual void bulk_pull (rai::bulk_pull const &) = 0;
 	virtual void bulk_pull_account (rai::bulk_pull_account const &) = 0;
