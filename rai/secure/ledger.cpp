@@ -889,9 +889,7 @@ public:
 		result = block_a.previous ().is_zero () || ledger.store.block_exists (transaction, block_a.previous ());
 		if (result && !ledger.is_send (transaction, block_a))
 		{
-			result &= ledger.store.block_exists (transaction, block_a.hashables.link) ||
-				block_a.hashables.link.is_zero () ||
-				ledger.is_epoch_link (block_a.hashables.link);
+			result &= ledger.store.block_exists (transaction, block_a.hashables.link) || block_a.hashables.link.is_zero () || ledger.is_epoch_link (block_a.hashables.link);
 		}
 	}
 	rai::ledger & ledger;
