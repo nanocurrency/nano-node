@@ -120,6 +120,8 @@ public:
 	rai::kdf & kdf;
 	MDB_dbi handle;
 	std::recursive_mutex mutex;
+private:
+	MDB_txn * tx (rai::transaction const &) const;
 };
 class wallets;
 // A wallet is a set of account keys encrypted by a common encryption key

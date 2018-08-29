@@ -9,9 +9,9 @@ using namespace std::chrono_literals;
 TEST (wallet, no_key)
 {
 	bool init;
-	rai::mdb_env environment (init, rai::unique_path ());
+	rai::mdb_env env (init, rai::unique_path ());
 	ASSERT_FALSE (init);
-	rai::transaction transaction (environment, true);
+	rai::transaction transaction (env.tx_begin (true));
 	rai::kdf kdf;
 	rai::wallet_store wallet (init, kdf, transaction, rai::genesis_account, 1, "0");
 	ASSERT_FALSE (init);
@@ -24,9 +24,9 @@ TEST (wallet, no_key)
 TEST (wallet, fetch_locked)
 {
 	bool init;
-	rai::mdb_env environment (init, rai::unique_path ());
+	rai::mdb_env env (init, rai::unique_path ());
 	ASSERT_FALSE (init);
-	rai::transaction transaction (environment, true);
+	rai::transaction transaction (env.tx_begin (true));
 	rai::kdf kdf;
 	rai::wallet_store wallet (init, kdf, transaction, rai::genesis_account, 1, "0");
 	ASSERT_TRUE (wallet.valid_password (transaction));
@@ -46,9 +46,9 @@ TEST (wallet, fetch_locked)
 TEST (wallet, retrieval)
 {
 	bool init;
-	rai::mdb_env environment (init, rai::unique_path ());
+	rai::mdb_env env (init, rai::unique_path ());
 	ASSERT_FALSE (init);
-	rai::transaction transaction (environment, true);
+	rai::transaction transaction (env.tx_begin (true));
 	rai::kdf kdf;
 	rai::wallet_store wallet (init, kdf, transaction, rai::genesis_account, 1, "0");
 	ASSERT_FALSE (init);
@@ -68,9 +68,9 @@ TEST (wallet, retrieval)
 TEST (wallet, empty_iteration)
 {
 	bool init;
-	rai::mdb_env environment (init, rai::unique_path ());
+	rai::mdb_env env (init, rai::unique_path ());
 	ASSERT_FALSE (init);
-	rai::transaction transaction (environment, true);
+	rai::transaction transaction (env.tx_begin (true));
 	rai::kdf kdf;
 	rai::wallet_store wallet (init, kdf, transaction, rai::genesis_account, 1, "0");
 	ASSERT_FALSE (init);
@@ -82,9 +82,9 @@ TEST (wallet, empty_iteration)
 TEST (wallet, one_item_iteration)
 {
 	bool init;
-	rai::mdb_env environment (init, rai::unique_path ());
+	rai::mdb_env env (init, rai::unique_path ());
 	ASSERT_FALSE (init);
-	rai::transaction transaction (environment, true);
+	rai::transaction transaction (env.tx_begin (true));
 	rai::kdf kdf;
 	rai::wallet_store wallet (init, kdf, transaction, rai::genesis_account, 1, "0");
 	ASSERT_FALSE (init);
@@ -104,7 +104,7 @@ TEST (wallet, one_item_iteration)
 TEST (wallet, two_item_iteration)
 {
 	bool init;
-	rai::mdb_env environment (init, rai::unique_path ());
+	rai::mdb_env env (init, rai::unique_path ());
 	ASSERT_FALSE (init);
 	rai::keypair key1;
 	rai::keypair key2;
@@ -113,7 +113,7 @@ TEST (wallet, two_item_iteration)
 	std::unordered_set<rai::private_key> prvs;
 	rai::kdf kdf;
 	{
-		rai::transaction transaction (environment, true);
+		rai::transaction transaction (env.tx_begin (true));
 		rai::wallet_store wallet (init, kdf, transaction, rai::genesis_account, 1, "0");
 		ASSERT_FALSE (init);
 		wallet.insert_adhoc (transaction, key1.prv);
@@ -250,9 +250,9 @@ TEST (wallet, spend_no_previous)
 TEST (wallet, find_none)
 {
 	bool init;
-	rai::mdb_env environment (init, rai::unique_path ());
+	rai::mdb_env env (init, rai::unique_path ());
 	ASSERT_FALSE (init);
-	rai::transaction transaction (environment, true);
+	rai::transaction transaction (env.tx_begin (true));
 	rai::kdf kdf;
 	rai::wallet_store wallet (init, kdf, transaction, rai::genesis_account, 1, "0");
 	ASSERT_FALSE (init);
@@ -263,9 +263,9 @@ TEST (wallet, find_none)
 TEST (wallet, find_existing)
 {
 	bool init;
-	rai::mdb_env environment (init, rai::unique_path ());
+	rai::mdb_env env (init, rai::unique_path ());
 	ASSERT_FALSE (init);
-	rai::transaction transaction (environment, true);
+	rai::transaction transaction (env.tx_begin (true));
 	rai::kdf kdf;
 	rai::wallet_store wallet (init, kdf, transaction, rai::genesis_account, 1, "0");
 	ASSERT_FALSE (init);
@@ -282,9 +282,9 @@ TEST (wallet, find_existing)
 TEST (wallet, rekey)
 {
 	bool init;
-	rai::mdb_env environment (init, rai::unique_path ());
+	rai::mdb_env env (init, rai::unique_path ());
 	ASSERT_FALSE (init);
-	rai::transaction transaction (environment, true);
+	rai::transaction transaction (env.tx_begin (true));
 	rai::kdf kdf;
 	rai::wallet_store wallet (init, kdf, transaction, rai::genesis_account, 1, "0");
 	ASSERT_FALSE (init);
@@ -345,9 +345,9 @@ TEST (account, encode_fail)
 TEST (wallet, hash_password)
 {
 	bool init;
-	rai::mdb_env environment (init, rai::unique_path ());
+	rai::mdb_env env (init, rai::unique_path ());
 	ASSERT_FALSE (init);
-	rai::transaction transaction (environment, true);
+	rai::transaction transaction (env.tx_begin (true));
 	rai::kdf kdf;
 	rai::wallet_store wallet (init, kdf, transaction, rai::genesis_account, 1, "0");
 	ASSERT_FALSE (init);
@@ -394,8 +394,8 @@ TEST (fan, change)
 TEST (wallet, reopen_default_password)
 {
 	bool init;
-	rai::mdb_env environment (init, rai::unique_path ());
-	rai::transaction transaction (environment, true);
+	rai::mdb_env env (init, rai::unique_path ());
+	rai::transaction transaction (env.tx_begin (true));
 	ASSERT_FALSE (init);
 	rai::kdf kdf;
 	{
@@ -430,9 +430,9 @@ TEST (wallet, reopen_default_password)
 TEST (wallet, representative)
 {
 	auto error (false);
-	rai::mdb_env environment (error, rai::unique_path ());
+	rai::mdb_env env (error, rai::unique_path ());
 	ASSERT_FALSE (error);
-	rai::transaction transaction (environment, true);
+	rai::transaction transaction (env.tx_begin (true));
 	rai::kdf kdf;
 	rai::wallet_store wallet (error, kdf, transaction, rai::genesis_account, 1, "0");
 	ASSERT_FALSE (error);
@@ -451,9 +451,9 @@ TEST (wallet, representative)
 TEST (wallet, serialize_json_empty)
 {
 	auto error (false);
-	rai::mdb_env environment (error, rai::unique_path ());
+	rai::mdb_env env (error, rai::unique_path ());
 	ASSERT_FALSE (error);
-	rai::transaction transaction (environment, true);
+	rai::transaction transaction (env.tx_begin (true));
 	rai::kdf kdf;
 	rai::wallet_store wallet1 (error, kdf, transaction, rai::genesis_account, 1, "0");
 	ASSERT_FALSE (error);
@@ -476,9 +476,9 @@ TEST (wallet, serialize_json_empty)
 TEST (wallet, serialize_json_one)
 {
 	auto error (false);
-	rai::mdb_env environment (error, rai::unique_path ());
+	rai::mdb_env env (error, rai::unique_path ());
 	ASSERT_FALSE (error);
-	rai::transaction transaction (environment, true);
+	rai::transaction transaction (env.tx_begin (true));
 	rai::kdf kdf;
 	rai::wallet_store wallet1 (error, kdf, transaction, rai::genesis_account, 1, "0");
 	ASSERT_FALSE (error);
@@ -505,9 +505,9 @@ TEST (wallet, serialize_json_one)
 TEST (wallet, serialize_json_password)
 {
 	auto error (false);
-	rai::mdb_env environment (error, rai::unique_path ());
+	rai::mdb_env env (error, rai::unique_path ());
 	ASSERT_FALSE (error);
-	rai::transaction transaction (environment, true);
+	rai::transaction transaction (env.tx_begin (true));
 	rai::kdf kdf;
 	rai::wallet_store wallet1 (error, kdf, transaction, rai::genesis_account, 1, "0");
 	ASSERT_FALSE (error);
@@ -538,9 +538,9 @@ TEST (wallet, serialize_json_password)
 TEST (wallet_store, move)
 {
 	auto error (false);
-	rai::mdb_env environment (error, rai::unique_path ());
+	rai::mdb_env env (error, rai::unique_path ());
 	ASSERT_FALSE (error);
-	rai::transaction transaction (environment, true);
+	rai::transaction transaction (env.tx_begin (true));
 	rai::kdf kdf;
 	rai::wallet_store wallet1 (error, kdf, transaction, rai::genesis_account, 1, "0");
 	ASSERT_FALSE (error);
@@ -706,9 +706,9 @@ TEST (wallet, version_1_upgrade)
 TEST (wallet, deterministic_keys)
 {
 	bool init;
-	rai::mdb_env environment (init, rai::unique_path ());
+	rai::mdb_env env (init, rai::unique_path ());
 	ASSERT_FALSE (init);
-	rai::transaction transaction (environment, true);
+	rai::transaction transaction (env.tx_begin (true));
 	rai::kdf kdf;
 	rai::wallet_store wallet (init, kdf, transaction, rai::genesis_account, 1, "0");
 	rai::raw_key key1;
@@ -752,9 +752,9 @@ TEST (wallet, deterministic_keys)
 TEST (wallet, reseed)
 {
 	bool init;
-	rai::mdb_env environment (init, rai::unique_path ());
+	rai::mdb_env env (init, rai::unique_path ());
 	ASSERT_FALSE (init);
-	rai::transaction transaction (environment, true);
+	rai::transaction transaction (env.tx_begin (true));
 	rai::kdf kdf;
 	rai::wallet_store wallet (init, kdf, transaction, rai::genesis_account, 1, "0");
 	rai::raw_key seed1;
