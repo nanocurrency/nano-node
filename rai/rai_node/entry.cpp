@@ -338,7 +338,7 @@ int main (int argc, char * const * argv)
 					std::cerr << boost::str (boost::format ("%1% accounts validated\n") % count);
 				}
 				rai::account_info info (i->second);
-				rai::account account (i->first.uint256 ());
+				rai::account account (i->first);
 				auto hash (info.open_block);
 				rai::block_hash calculated_hash (0);
 				while (!hash.is_zero ())
