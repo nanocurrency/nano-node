@@ -44,6 +44,7 @@ public:
 	rai::checksum checksum (MDB_txn *, rai::account const &, rai::account const &);
 	void dump_account_chain (rai::account const &);
 	bool could_fit (MDB_txn *, rai::block const &);
+	bool is_epoch_link (rai::uint256_union const &);
 	static rai::uint128_t const unit;
 	rai::block_store & store;
 	rai::stat & stats;

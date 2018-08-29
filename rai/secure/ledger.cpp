@@ -889,7 +889,7 @@ public:
 		result = block_a.previous ().is_zero () || ledger.store.block_exists (transaction, block_a.previous ());
 		if (result && !ledger.is_send (transaction, block_a))
 		{
-			result &= ledger.store.block_exists (transaction, block_a.hashables.link);
+			result &= ledger.store.block_exists (transaction, block_a.hashables.link) || block_a.hashables.link.is_zero () || ledger.is_epoch_link (block_a.hashables.link);
 		}
 	}
 	rai::ledger & ledger;
@@ -902,6 +902,11 @@ bool rai::ledger::could_fit (MDB_txn * transaction_a, rai::block const & block_a
 	block_fit_visitor visitor (*this, transaction_a);
 	block_a.visit (visitor);
 	return visitor.result;
+}
+
+bool rai::ledger::is_epoch_link (rai::uint256_union const & link_a)
+{
+	return link_a == epoch_link;
 }
 
 void rai::ledger::checksum_update (MDB_txn * transaction_a, rai::block_hash const & hash_a)
