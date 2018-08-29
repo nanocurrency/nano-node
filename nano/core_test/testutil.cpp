@@ -1,7 +1,7 @@
 #if ACTIVE_NETWORK == nano_test_network
+#include <gtest/gtest.h>
 #include <iostream>
 #include <nano/lib/utility.hpp>
-#include <gtest/gtest.h>
 
 /*
  * If we are running under the test harness, mark this test as failed

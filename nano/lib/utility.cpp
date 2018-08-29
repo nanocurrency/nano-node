@@ -90,7 +90,7 @@ void nano::thread_attributes::set (boost::thread::attributes & attrs)
  * weak symbol so the one we provide as part of gtest can
  * override it.
  */
-#  pragma weak release_assert_internal
+#pragma weak release_assert_internal
 #endif
 void release_assert_internal (bool check, const char * check_expr, const char * file, unsigned int line)
 {
