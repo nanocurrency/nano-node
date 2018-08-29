@@ -13,8 +13,7 @@
 TEST (ed25519, signing)
 {
 	rai::uint256_union prv (0);
-	rai::uint256_union pub;
-	ed25519_publickey (prv.bytes.data (), pub.bytes.data ());
+	rai::uint256_union pub (rai::pub_key (prv));
 	rai::uint256_union message (0);
 	rai::uint512_union signature;
 	ed25519_sign (message.bytes.data (), sizeof (message.bytes), prv.bytes.data (), pub.bytes.data (), signature.bytes.data ());
@@ -48,7 +47,7 @@ TEST (block, send_serialize)
 	ASSERT_NE (nullptr, data);
 	ASSERT_NE (0, size);
 	rai::bufferstream stream2 (data, size);
-	bool error;
+	bool error (false);
 	rai::send_block block2 (error, stream2);
 	ASSERT_FALSE (error);
 	ASSERT_EQ (block1, block2);
@@ -63,7 +62,7 @@ TEST (block, send_serialize_json)
 	boost::property_tree::ptree tree1;
 	std::stringstream istream (string1);
 	boost::property_tree::read_json (istream, tree1);
-	bool error;
+	bool error (false);
 	rai::send_block block2 (error, tree1);
 	ASSERT_FALSE (error);
 	ASSERT_EQ (block1, block2);
@@ -79,7 +78,7 @@ TEST (block, receive_serialize)
 		block1.serialize (stream1);
 	}
 	rai::bufferstream stream2 (bytes.data (), bytes.size ());
-	bool error;
+	bool error (false);
 	rai::receive_block block2 (error, stream2);
 	ASSERT_FALSE (error);
 	ASSERT_EQ (block1, block2);
@@ -94,7 +93,7 @@ TEST (block, receive_serialize_json)
 	boost::property_tree::ptree tree1;
 	std::stringstream istream (string1);
 	boost::property_tree::read_json (istream, tree1);
-	bool error;
+	bool error (false);
 	rai::receive_block block2 (error, tree1);
 	ASSERT_FALSE (error);
 	ASSERT_EQ (block1, block2);
@@ -109,7 +108,7 @@ TEST (block, open_serialize_json)
 	boost::property_tree::ptree tree1;
 	std::stringstream istream (string1);
 	boost::property_tree::read_json (istream, tree1);
-	bool error;
+	bool error (false);
 	rai::open_block block2 (error, tree1);
 	ASSERT_FALSE (error);
 	ASSERT_EQ (block1, block2);
@@ -124,7 +123,7 @@ TEST (block, change_serialize_json)
 	boost::property_tree::ptree tree1;
 	std::stringstream istream (string1);
 	boost::property_tree::read_json (istream, tree1);
-	bool error;
+	bool error (false);
 	rai::change_block block2 (error, tree1);
 	ASSERT_FALSE (error);
 	ASSERT_EQ (block1, block2);
@@ -208,7 +207,7 @@ TEST (send_block, deserialize)
 	}
 	ASSERT_EQ (rai::send_block::size, bytes.size ());
 	rai::bufferstream stream2 (bytes.data (), bytes.size ());
-	bool error;
+	bool error (false);
 	rai::send_block block2 (error, stream2);
 	ASSERT_FALSE (error);
 	ASSERT_EQ (block1, block2);
@@ -227,7 +226,7 @@ TEST (receive_block, deserialize)
 	}
 	ASSERT_EQ (rai::receive_block::size, bytes.size ());
 	rai::bufferstream stream2 (bytes.data (), bytes.size ());
-	bool error;
+	bool error (false);
 	rai::receive_block block2 (error, stream2);
 	ASSERT_FALSE (error);
 	ASSERT_EQ (block1, block2);
@@ -244,7 +243,7 @@ TEST (open_block, deserialize)
 	}
 	ASSERT_EQ (rai::open_block::size, bytes.size ());
 	rai::bufferstream stream (bytes.data (), bytes.size ());
-	bool error;
+	bool error (false);
 	rai::open_block block2 (error, stream);
 	ASSERT_FALSE (error);
 	ASSERT_EQ (block1, block2);
@@ -265,7 +264,7 @@ TEST (change_block, deserialize)
 	ASSERT_NE (nullptr, data);
 	ASSERT_NE (0, size);
 	rai::bufferstream stream2 (data, size);
-	bool error;
+	bool error (false);
 	rai::change_block block2 (error, stream2);
 	ASSERT_FALSE (error);
 	ASSERT_EQ (block1, block2);
@@ -349,7 +348,7 @@ TEST (state_block, serialization)
 	}
 	ASSERT_EQ (0x5, bytes[215]); // Ensure work is serialized big-endian
 	ASSERT_EQ (rai::state_block::size, bytes.size ());
-	bool error1;
+	bool error1 (false);
 	rai::bufferstream stream (bytes.data (), bytes.size ());
 	rai::state_block block2 (error1, stream);
 	ASSERT_FALSE (error1);
@@ -369,7 +368,7 @@ TEST (state_block, serialization)
 	std::stringstream body (json);
 	boost::property_tree::ptree tree;
 	boost::property_tree::read_json (body, tree);
-	bool error2;
+	bool error2 (false);
 	rai::state_block block3 (error2, tree);
 	ASSERT_FALSE (error2);
 	ASSERT_EQ (block1, block3);

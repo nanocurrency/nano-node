@@ -1,8 +1,8 @@
-#include <rai/icon.hpp>
 #include <rai/node/cli.hpp>
 #include <rai/node/rpc.hpp>
 #include <rai/node/working.hpp>
 #include <rai/qt/qt.hpp>
+#include <rai/rai_wallet/icon.hpp>
 
 #include <boost/make_shared.hpp>
 #include <boost/program_options.hpp>
@@ -236,11 +236,11 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 			}
 			if (config.account.is_zero () || !wallet->exists (config.account))
 			{
-				rai::transaction transaction (wallet->store.environment, nullptr, true);
+				rai::transaction transaction (wallet->wallets.environment, true);
 				auto existing (wallet->store.begin (transaction));
 				if (existing != wallet->store.end ())
 				{
-					rai::uint256_union account (existing->first.uint256 ());
+					rai::uint256_union account (existing->first);
 					config.account = account;
 				}
 				else
