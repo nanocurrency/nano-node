@@ -364,7 +364,25 @@ int main (int argc, char * const * argv)
 					// Check if block signature is correct
 					if (validate_message (account, hash, block->block_signature ()))
 					{
-						std::cerr << boost::str (boost::format ("Invalid signature for block %1%\n") % hash.to_string ());
+						bool invalid (true);
+						// Epoch blocks
+						if (!node.node->ledger.epoch_link.is_zero () && block->type () == rai::block_type::state)
+						{
+							auto & state_block (static_cast<rai::state_block &> (*block.get ()));
+							rai::amount prev_balance (0);
+							if (!state_block.hashables.previous.is_zero ())
+							{
+								prev_balance = node.node->ledger.balance (transaction, state_block.hashables.previous);
+							}
+							if (state_block.hashables.link == node.node->ledger.epoch_link && state_block.hashables.balance == prev_balance)
+							{
+								invalid = validate_message (node.node->ledger.epoch_signer, hash, block->block_signature ());
+							}
+						}
+						if (invalid)
+						{
+							std::cerr << boost::str (boost::format ("Invalid signature for block %1%\n") % hash.to_string ());
+						}
 					}
 					// Check if block work value is correct
 					if (rai::work_validate (*block.get ()))
