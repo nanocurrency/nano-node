@@ -387,7 +387,7 @@ int main (int argc, char * const * argv)
 				while (block_count < max_blocks + 1)
 				{
 					std::this_thread::sleep_for (std::chrono::milliseconds (100));
-					rai::transaction transaction (node->store.environment, nullptr, false);
+					rai::transaction transaction (node->store.environment, false);
 					block_count = node->store.block_count (transaction).sum ();
 				}
 				auto end (std::chrono::high_resolution_clock::now ());
