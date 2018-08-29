@@ -9,7 +9,25 @@
 
 namespace rai
 {
+class transaction_impl
+{
+public:
+	virtual ~transaction_impl () = default;
+};
 class mdb_env;
+class mdb_txn : public transaction_impl
+{
+public:
+	mdb_txn (rai::mdb_env const &, bool = false);
+	mdb_txn (rai::mdb_txn &) = delete;
+	mdb_txn (rai::mdb_txn &&) = default;
+	~mdb_txn ();
+	rai::mdb_txn & operator= (rai::mdb_txn const &) = delete;
+	rai::mdb_txn & operator= (rai::mdb_txn &) = default;
+	operator MDB_txn * () const;
+	MDB_txn * handle;
+};
+
 /**
  * RAII wrapper of MDB_txn where the constructor starts the transaction
  * and the destructor commits it.
@@ -17,14 +35,7 @@ class mdb_env;
 class transaction
 {
 public:
-	transaction (rai::mdb_env const &, bool = false);
-	transaction (rai::transaction &) = delete;
-	transaction (rai::transaction &&) = default;
-	~transaction ();
-	rai::transaction & operator= (rai::transaction const &) = delete;
-	rai::transaction & operator= (rai::transaction &) = default;
-	operator MDB_txn * () const;
-	MDB_txn * handle;
+	std::unique_ptr<rai::transaction_impl> impl;
 };
 /**
  * RAII wrapper for MDB_env
@@ -36,6 +47,7 @@ public:
 	~mdb_env ();
 	operator MDB_env * () const;
 	rai::transaction tx_begin (bool = false) const;
+	MDB_txn * tx (rai::transaction const &) const;
 	MDB_env * environment;
 };
 

@@ -47,6 +47,8 @@ public:
 	rai::store_iterator_impl<T, U> & operator= (rai::store_iterator_impl<T, U> const &) = delete;
 	MDB_cursor * cursor;
 	std::pair<rai::mdb_val, rai::mdb_val> current;
+private:
+	MDB_txn * tx (rai::transaction const &) const;
 };
 template <typename T, typename U>
 class mdb_merge_iterator;

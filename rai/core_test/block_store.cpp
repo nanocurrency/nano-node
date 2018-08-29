@@ -625,7 +625,7 @@ TEST (block_store, upgrade_v2_v3)
 		ASSERT_FALSE (store.account_get (transaction, rai::test_genesis_key.pub, info));
 		info.rep_block = 42;
 		rai::account_info_v5 info_old (info.head, info.rep_block, info.open_block, info.balance, info.modified);
-		auto status (mdb_put (transaction, store.accounts_v0, rai::mdb_val (rai::test_genesis_key.pub), info_old.val (), 0));
+		auto status (mdb_put (store.env.tx (transaction), store.accounts_v0, rai::mdb_val (rai::test_genesis_key.pub), info_old.val (), 0));
 		assert (status == 0);
 	}
 	bool init (false);
@@ -655,7 +655,7 @@ TEST (block_store, upgrade_v3_v4)
 		auto transaction (store.tx_begin (true));
 		store.version_put (transaction, 3);
 		rai::pending_info_v3 info (key1.pub, 100, key2.pub);
-		auto status (mdb_put (transaction, store.pending_v0, rai::mdb_val (key3.pub), info.val (), 0));
+		auto status (mdb_put (store.env.tx (transaction), store.pending_v0, rai::mdb_val (key3.pub), info.val (), 0));
 		ASSERT_EQ (0, status);
 	}
 	bool init (false);
@@ -702,7 +702,7 @@ TEST (block_store, upgrade_v4_v5)
 		rai::account_info info2;
 		store.account_get (transaction, rai::test_genesis_key.pub, info2);
 		rai::account_info_v5 info_old (info2.head, info2.rep_block, info2.open_block, info2.balance, info2.modified);
-		auto status (mdb_put (transaction, store.accounts_v0, rai::mdb_val (rai::test_genesis_key.pub), info_old.val (), 0));
+		auto status (mdb_put (store.env.tx (transaction), store.accounts_v0, rai::mdb_val (rai::test_genesis_key.pub), info_old.val (), 0));
 		assert (status == 0);
 	}
 	bool init (false);
@@ -739,7 +739,7 @@ TEST (block_store, upgrade_v5_v6)
 		rai::account_info info;
 		store.account_get (transaction, rai::test_genesis_key.pub, info);
 		rai::account_info_v5 info_old (info.head, info.rep_block, info.open_block, info.balance, info.modified);
-		auto status (mdb_put (transaction, store.accounts_v0, rai::mdb_val (rai::test_genesis_key.pub), info_old.val (), 0));
+		auto status (mdb_put (store.env.tx (transaction), store.accounts_v0, rai::mdb_val (rai::test_genesis_key.pub), info_old.val (), 0));
 		assert (status == 0);
 	}
 	bool init (false);
@@ -781,8 +781,8 @@ TEST (block_store, change_dupsort)
 	bool init (false);
 	rai::block_store store (init, path);
 	auto transaction (store.tx_begin (true));
-	ASSERT_EQ (0, mdb_drop (transaction, store.unchecked, 1));
-	ASSERT_EQ (0, mdb_dbi_open (transaction, "unchecked", MDB_CREATE, &store.unchecked));
+	ASSERT_EQ (0, mdb_drop (store.env.tx (transaction), store.unchecked, 1));
+	ASSERT_EQ (0, mdb_dbi_open (store.env.tx (transaction), "unchecked", MDB_CREATE, &store.unchecked));
 	auto send1 (std::make_shared<rai::send_block> (0, 0, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
 	auto send2 (std::make_shared<rai::send_block> (1, 0, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
 	ASSERT_NE (send1->hash (), send2->hash ());
@@ -794,9 +794,9 @@ TEST (block_store, change_dupsort)
 		++iterator1;
 		ASSERT_EQ (store.unchecked_end (), iterator1);
 	}
-	ASSERT_EQ (0, mdb_drop (transaction, store.unchecked, 0));
+	ASSERT_EQ (0, mdb_drop (store.env.tx (transaction), store.unchecked, 0));
 	mdb_dbi_close (store.env, store.unchecked);
-	ASSERT_EQ (0, mdb_dbi_open (transaction, "unchecked", MDB_CREATE | MDB_DUPSORT, &store.unchecked));
+	ASSERT_EQ (0, mdb_dbi_open (store.env.tx (transaction), "unchecked", MDB_CREATE | MDB_DUPSORT, &store.unchecked));
 	store.unchecked_put (transaction, send1->hash (), send1);
 	store.unchecked_put (transaction, send1->hash (), send2);
 	store.flush (transaction);
@@ -805,8 +805,8 @@ TEST (block_store, change_dupsort)
 		++iterator1;
 		ASSERT_EQ (store.unchecked_end (), iterator1);
 	}
-	ASSERT_EQ (0, mdb_drop (transaction, store.unchecked, 1));
-	ASSERT_EQ (0, mdb_dbi_open (transaction, "unchecked", MDB_CREATE | MDB_DUPSORT, &store.unchecked));
+	ASSERT_EQ (0, mdb_drop (store.env.tx (transaction), store.unchecked, 1));
+	ASSERT_EQ (0, mdb_dbi_open (store.env.tx (transaction), "unchecked", MDB_CREATE | MDB_DUPSORT, &store.unchecked));
 	store.unchecked_put (transaction, send1->hash (), send1);
 	store.unchecked_put (transaction, send1->hash (), send2);
 	store.flush (transaction);
@@ -826,8 +826,8 @@ TEST (block_store, upgrade_v7_v8)
 		bool init (false);
 		rai::block_store store (init, path);
 		auto transaction (store.tx_begin (true));
-		ASSERT_EQ (0, mdb_drop (transaction, store.unchecked, 1));
-		ASSERT_EQ (0, mdb_dbi_open (transaction, "unchecked", MDB_CREATE, &store.unchecked));
+		ASSERT_EQ (0, mdb_drop (store.env.tx (transaction), store.unchecked, 1));
+		ASSERT_EQ (0, mdb_dbi_open (store.env.tx (transaction), "unchecked", MDB_CREATE, &store.unchecked));
 		store.version_put (transaction, 7);
 	}
 	bool init (false);
@@ -894,10 +894,10 @@ TEST (block_store, upgrade_v8_v9)
 		bool init (false);
 		rai::block_store store (init, path);
 		auto transaction (store.tx_begin (true));
-		ASSERT_EQ (0, mdb_drop (transaction, store.vote, 1));
-		ASSERT_EQ (0, mdb_dbi_open (transaction, "sequence", MDB_CREATE, &store.vote));
+		ASSERT_EQ (0, mdb_drop (store.env.tx (transaction), store.vote, 1));
+		ASSERT_EQ (0, mdb_dbi_open (store.env.tx (transaction), "sequence", MDB_CREATE, &store.vote));
 		uint64_t sequence (10);
-		ASSERT_EQ (0, mdb_put (transaction, store.vote, rai::mdb_val (key.pub), rai::mdb_val (sizeof (sequence), &sequence), 0));
+		ASSERT_EQ (0, mdb_put (store.env.tx (transaction), store.vote, rai::mdb_val (key.pub), rai::mdb_val (sizeof (sequence), &sequence), 0));
 		store.version_put (transaction, 8);
 	}
 	bool init (false);
@@ -940,7 +940,7 @@ TEST (block_store, upgrade_v9_v10)
 		store.block_info_get (transaction, hash, block_info_auto);
 		ASSERT_EQ (block_info_auto.account, rai::test_genesis_key.pub);
 		ASSERT_EQ (block_info_auto.balance.number (), balance);
-		ASSERT_EQ (0, mdb_drop (transaction, store.blocks_info, 0)); // Cleaning blocks_info subdatabase
+		ASSERT_EQ (0, mdb_drop (store.env.tx (transaction), store.blocks_info, 0)); // Cleaning blocks_info subdatabase
 		bool block_info_exists (store.block_info_exists (transaction, hash));
 		ASSERT_EQ (block_info_exists, 0); // Checking if automatic block_info is deleted
 	}

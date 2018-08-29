@@ -1,6 +1,8 @@
 
 #include <rai/node/lmdb.hpp>
 
+#include <boost/polymorphic_cast.hpp>
+
 rai::mdb_env::mdb_env (bool & error_a, boost::filesystem::path const & path_a, int max_dbs)
 {
 	boost::system::error_code error;
@@ -48,7 +50,13 @@ rai::mdb_env::operator MDB_env * () const
 
 rai::transaction rai::mdb_env::tx_begin (bool write_a) const
 {
-	return rai::transaction (*this, write_a);
+	return {std::make_unique<rai::mdb_txn> (*this, write_a)};
+}
+
+MDB_txn * rai::mdb_env::tx (rai::transaction const & transaction_a) const
+{
+	auto result (boost::polymorphic_downcast<rai::mdb_txn *>(transaction_a.impl.get()));
+	return *result;
 }
 
 rai::mdb_val::mdb_val (rai::epoch epoch_a) :
@@ -263,19 +271,19 @@ rai::mdb_val::operator MDB_val const & () const
 	return value;
 }
 
-rai::transaction::transaction (rai::mdb_env const & environment_a, bool write_a)
+rai::mdb_txn::mdb_txn (rai::mdb_env const & environment_a, bool write_a)
 {
 	auto status (mdb_txn_begin (environment_a, nullptr, write_a ? 0 : MDB_RDONLY, &handle));
 	assert (status == 0);
 }
 
-rai::transaction::~transaction ()
+rai::mdb_txn::~mdb_txn ()
 {
 	auto status (mdb_txn_commit (handle));
 	assert (status == 0);
 }
 
-rai::transaction::operator MDB_txn * () const
+rai::mdb_txn::operator MDB_txn * () const
 {
 	return handle;
 }
