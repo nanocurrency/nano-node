@@ -454,7 +454,7 @@ meta (0)
 
 rai::transaction rai::block_store::tx_begin (bool write_a)
 {
-	return rai::transaction (env, write_a);
+	return env.tx_begin (write_a);
 }
 
 void rai::block_store::initialize (rai::transaction const & transaction_a, rai::genesis const & genesis_a)

@@ -1434,7 +1434,7 @@ void rai::wallets::stop ()
 
 rai::transaction rai::wallets::tx_begin (bool write_a)
 {
-	return rai::transaction (env, write_a);
+	return env.tx_begin (write_a);
 }
 
 rai::uint128_t const rai::wallets::generate_priority = std::numeric_limits<rai::uint128_t>::max ();
