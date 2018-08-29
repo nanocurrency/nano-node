@@ -187,7 +187,7 @@ public:
 	MDB_dbi handle;
 	MDB_dbi send_action_ids;
 	rai::node & node;
-	rai::mdb_env & environment;
+	rai::mdb_env & env;
 	bool stopped;
 	std::thread thread;
 	static rai::uint128_t const generate_priority;
