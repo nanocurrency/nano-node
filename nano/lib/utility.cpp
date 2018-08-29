@@ -84,6 +84,14 @@ void nano::thread_attributes::set (boost::thread::attributes & attrs)
 /*
  * Backing code for "release_assert", which is itself a macro
  */
+#if ACTIVE_NETWORK == nano_test_network
+/*
+ * If we are running under the test harness, create this as a
+ * weak symbol so the one we provide as part of gtest can
+ * override it.
+ */
+#  pragma weak release_assert_internal
+#endif
 void release_assert_internal (bool check, const char * check_expr, const char * file, unsigned int line)
 {
 	if (check)
@@ -91,6 +99,6 @@ void release_assert_internal (bool check, const char * check_expr, const char * 
 		return;
 	}
 
-	std::cerr << "Assertion (" << check_expr << ") failed " << file << ":" << line << std::endl;
-	abort ();
+	std::cerr << "Assertion (" << check_expr << ") failed at " << file << ":" << line << std::endl;
+	abort();
 }

@@ -20,7 +20,8 @@ add_executable (core_test
 	versioning.cpp
 	wallet.cpp
 	wallets.cpp
-	work_pool.cpp)
+	work_pool.cpp
+	testutil.cpp)
 
 target_compile_definitions(core_test
 		PRIVATE
