@@ -327,7 +327,7 @@ int main (int argc, char * const * argv)
 		else if (vm.count ("debug_validate_blocks"))
 		{
 			rai::inactive_node node (data_path);
-			rai::transaction transaction (node.node->store.environment, nullptr, false);
+			rai::transaction transaction (node.node->store.environment, false);
 			std::cerr << boost::str (boost::format ("Performing blocks hash, signature, work validation...\n"));
 			size_t count (0);
 			for (auto i (node.node->store.latest_begin (transaction)), n (node.node->store.latest_end ()); i != n; ++i)
