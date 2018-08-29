@@ -1,31 +1,35 @@
 #include <queue>
+#include <rai/node/common.hpp>
+#include <rai/node/wallet.hpp>
 #include <rai/secure/blockstore.hpp>
 #include <rai/secure/versioning.hpp>
 
-namespace
+#include <boost/polymorphic_cast.hpp>
+
+namespace rai
 {
 /**
  * Fill in our predecessors
  */
-class set_predecessor : public rai::block_visitor
+class block_predecessor_set : public rai::block_visitor
 {
 public:
-	set_predecessor (MDB_txn * transaction_a, rai::block_store & store_a) :
+	block_predecessor_set (MDB_txn * transaction_a, rai::block_store & store_a) :
 	transaction (transaction_a),
 	store (store_a)
 	{
 	}
-	virtual ~set_predecessor () = default;
+	virtual ~block_predecessor_set () = default;
 	void fill_value (rai::block const & block_a)
 	{
 		auto hash (block_a.hash ());
 		rai::block_type type;
-		auto value (store.block_get_raw (transaction, block_a.previous (), type));
+		auto value (store.block_raw_get (transaction, block_a.previous (), type));
 		auto version (store.block_version (transaction, block_a.previous ()));
 		assert (value.mv_size != 0);
 		std::vector<uint8_t> data (static_cast<uint8_t *> (value.mv_data), static_cast<uint8_t *> (value.mv_data) + value.mv_size);
 		std::copy (hash.bytes.begin (), hash.bytes.end (), data.end () - hash.bytes.size ());
-		store.block_put_raw (transaction, store.block_database (type, version), block_a.previous (), rai::mdb_val (data.size (), data.data ()));
+		store.block_raw_put (transaction, store.block_database (type, version), block_a.previous (), rai::mdb_val (data.size (), data.data ()));
 	}
 	void send_block (rai::send_block const & block_a) override
 	{
@@ -55,14 +59,12 @@ public:
 };
 }
 
-std::pair<rai::mdb_val, rai::mdb_val> * rai::store_iterator::operator-> ()
-{
-	return &current;
-}
-
-rai::store_iterator::store_iterator (MDB_txn * transaction_a, MDB_dbi db_a) :
+template <typename T, typename U>
+rai::mdb_iterator<T, U>::mdb_iterator (MDB_txn * transaction_a, MDB_dbi db_a, rai::epoch epoch_a) :
 cursor (nullptr)
 {
+	current.first.epoch = epoch_a;
+	current.second.epoch = epoch_a;
 	auto status (mdb_cursor_open (transaction_a, db_a, &cursor));
 	assert (status == 0);
 	auto status2 (mdb_cursor_get (cursor, &current.first.value, &current.second.value, MDB_FIRST));
@@ -71,6 +73,10 @@ cursor (nullptr)
 	{
 		auto status3 (mdb_cursor_get (cursor, &current.first.value, &current.second.value, MDB_GET_CURRENT));
 		assert (status3 == 0 || status3 == MDB_NOTFOUND);
+		if (current.first.size () != sizeof (T))
+		{
+			clear ();
+		}
 	}
 	else
 	{
@@ -78,23 +84,33 @@ cursor (nullptr)
 	}
 }
 
-rai::store_iterator::store_iterator (std::nullptr_t) :
+template <typename T, typename U>
+rai::mdb_iterator<T, U>::mdb_iterator (std::nullptr_t, rai::epoch epoch_a) :
 cursor (nullptr)
 {
+	current.first.epoch = epoch_a;
+	current.second.epoch = epoch_a;
 }
 
-rai::store_iterator::store_iterator (MDB_txn * transaction_a, MDB_dbi db_a, MDB_val const & val_a) :
+template <typename T, typename U>
+rai::mdb_iterator<T, U>::mdb_iterator (MDB_txn * transaction_a, MDB_dbi db_a, MDB_val const & val_a, rai::epoch epoch_a) :
 cursor (nullptr)
 {
+	current.first.epoch = epoch_a;
+	current.second.epoch = epoch_a;
 	auto status (mdb_cursor_open (transaction_a, db_a, &cursor));
 	assert (status == 0);
-	current.first.value = val_a;
+	current.first = val_a;
 	auto status2 (mdb_cursor_get (cursor, &current.first.value, &current.second.value, MDB_SET_RANGE));
 	assert (status2 == 0 || status2 == MDB_NOTFOUND);
 	if (status2 != MDB_NOTFOUND)
 	{
 		auto status3 (mdb_cursor_get (cursor, &current.first.value, &current.second.value, MDB_GET_CURRENT));
 		assert (status3 == 0 || status3 == MDB_NOTFOUND);
+		if (current.first.size () != sizeof (T))
+		{
+			clear ();
+		}
 	}
 	else
 	{
@@ -102,14 +118,16 @@ cursor (nullptr)
 	}
 }
 
-rai::store_iterator::store_iterator (rai::store_iterator && other_a)
+template <typename T, typename U>
+rai::mdb_iterator<T, U>::mdb_iterator (rai::mdb_iterator<T, U> && other_a)
 {
 	cursor = other_a.cursor;
 	other_a.cursor = nullptr;
 	current = other_a.current;
 }
 
-rai::store_iterator::~store_iterator ()
+template <typename T, typename U>
+rai::mdb_iterator<T, U>::~mdb_iterator ()
 {
 	if (cursor != nullptr)
 	{
@@ -117,7 +135,8 @@ rai::store_iterator::~store_iterator ()
 	}
 }
 
-rai::store_iterator & rai::store_iterator::operator++ ()
+template <typename T, typename U>
+rai::store_iterator_impl<T, U> & rai::mdb_iterator<T, U>::operator++ ()
 {
 	assert (cursor != nullptr);
 	auto status (mdb_cursor_get (cursor, &current.first.value, &current.second.value, MDB_NEXT));
@@ -125,20 +144,15 @@ rai::store_iterator & rai::store_iterator::operator++ ()
 	{
 		clear ();
 	}
-	return *this;
-}
-
-void rai::store_iterator::next_dup ()
-{
-	assert (cursor != nullptr);
-	auto status (mdb_cursor_get (cursor, &current.first.value, &current.second.value, MDB_NEXT_DUP));
-	if (status == MDB_NOTFOUND)
+	if (current.first.size () != sizeof (T))
 	{
 		clear ();
 	}
+	return *this;
 }
 
-rai::store_iterator & rai::store_iterator::operator= (rai::store_iterator && other_a)
+template <typename T, typename U>
+rai::mdb_iterator<T, U> & rai::mdb_iterator<T, U>::operator= (rai::mdb_iterator<T, U> && other_a)
 {
 	if (cursor != nullptr)
 	{
@@ -151,298 +165,243 @@ rai::store_iterator & rai::store_iterator::operator= (rai::store_iterator && oth
 	return *this;
 }
 
-bool rai::store_iterator::operator== (rai::store_iterator const & other_a) const
+template <typename T, typename U>
+std::pair<rai::mdb_val, rai::mdb_val> * rai::mdb_iterator<T, U>::operator-> ()
 {
-	auto result (current.first.data () == other_a.current.first.data ());
-	assert (!result || (current.first.size () == other_a.current.first.size ()));
-	assert (!result || (current.second.data () == other_a.current.second.data ()));
-	assert (!result || (current.second.size () == other_a.current.second.size ()));
+	return &current;
+}
+
+template <typename T, typename U>
+bool rai::mdb_iterator<T, U>::operator== (rai::store_iterator_impl<T, U> const & base_a) const
+{
+	auto const other_a (boost::polymorphic_downcast<rai::mdb_iterator<T, U> const *> (&base_a));
+	auto result (current.first.data () == other_a->current.first.data ());
+	assert (!result || (current.first.size () == other_a->current.first.size ()));
+	assert (!result || (current.second.data () == other_a->current.second.data ()));
+	assert (!result || (current.second.size () == other_a->current.second.size ()));
 	return result;
 }
 
-bool rai::store_iterator::operator!= (rai::store_iterator const & other_a) const
+template <typename T, typename U>
+void rai::mdb_iterator<T, U>::next_dup ()
 {
-	return !(*this == other_a);
-}
-
-void rai::store_iterator::clear ()
-{
-	current.first = rai::mdb_val ();
-	current.second = rai::mdb_val ();
-}
-
-std::pair<MDB_cursor **, rai::merged_store_kv *> rai::store_merge_iterator::cursor_current ()
-{
-	std::pair<MDB_cursor **, rai::merged_store_kv *> result;
-	if (current1.first.data () && current2.first.data ())
-	{
-		if (current1.first < current2.first)
-		{
-			result = std::make_pair (&cursor1, &current1);
-		}
-		else if (current1.first > current2.first)
-		{
-			result = std::make_pair (&cursor2, &current2);
-		}
-		else if (current1.second < current2.second)
-		{
-			result = std::make_pair (&cursor1, &current1);
-		}
-		else if (current1.second > current2.second)
-		{
-			result = std::make_pair (&cursor2, &current2);
-		}
-		else
-		{
-			result = std::make_pair (&cursor1, &current1);
-		}
-	}
-	else if (current1.first.data ())
-	{
-		result = std::make_pair (&cursor1, &current1);
-	}
-	else if (current2.first.data ())
-	{
-		result = std::make_pair (&cursor2, &current2);
-	}
-	else
-	{
-		result = std::make_pair (&cursor1, &current1);
-	}
-	return result;
-}
-
-rai::merged_store_kv * rai::store_merge_iterator::operator-> ()
-{
-	return cursor_current ().second;
-}
-
-rai::store_merge_iterator::store_merge_iterator (MDB_txn * transaction_a, MDB_dbi db1_a, MDB_dbi db2_a) :
-cursor1 (nullptr),
-cursor2 (nullptr)
-{
-	current1.from_secondary_store = false;
-	current2.from_secondary_store = true;
-	auto status (mdb_cursor_open (transaction_a, db1_a, &cursor1));
-	assert (status == 0);
-	status = mdb_cursor_get (cursor1, &current1.first.value, &current1.second.value, MDB_FIRST);
-	assert (status == 0 || status == MDB_NOTFOUND);
-	if (status != MDB_NOTFOUND)
-	{
-		status = mdb_cursor_get (cursor1, &current1.first.value, &current1.second.value, MDB_GET_CURRENT);
-		assert (status == 0 || status == MDB_NOTFOUND);
-	}
-	else
-	{
-		current1.first = rai::mdb_val ();
-		current1.second = rai::mdb_val ();
-	}
-	status = mdb_cursor_open (transaction_a, db2_a, &cursor2);
-	assert (status == 0);
-	status = mdb_cursor_get (cursor2, &current2.first.value, &current2.second.value, MDB_FIRST);
-	assert (status == 0 || status == MDB_NOTFOUND);
-	if (status != MDB_NOTFOUND)
-	{
-		status = mdb_cursor_get (cursor2, &current2.first.value, &current2.second.value, MDB_GET_CURRENT);
-		assert (status == 0 || status == MDB_NOTFOUND);
-	}
-	else
-	{
-		current2.first = rai::mdb_val ();
-		current2.second = rai::mdb_val ();
-	}
-}
-
-rai::store_merge_iterator::store_merge_iterator (std::nullptr_t) :
-cursor1 (nullptr),
-cursor2 (nullptr)
-{
-	current1.from_secondary_store = false;
-	current2.from_secondary_store = true;
-}
-
-rai::store_merge_iterator::store_merge_iterator (MDB_txn * transaction_a, MDB_dbi db1_a, MDB_dbi db2_a, MDB_val const & val_a) :
-cursor1 (nullptr),
-cursor2 (nullptr)
-{
-	current1.from_secondary_store = false;
-	current2.from_secondary_store = true;
-	auto status (mdb_cursor_open (transaction_a, db1_a, &cursor1));
-	assert (status == 0);
-	current1.first.value = val_a;
-	status = mdb_cursor_get (cursor1, &current1.first.value, &current1.second.value, MDB_SET_RANGE);
-	assert (status == 0 || status == MDB_NOTFOUND);
-	if (status != MDB_NOTFOUND)
-	{
-		status = mdb_cursor_get (cursor1, &current1.first.value, &current1.second.value, MDB_GET_CURRENT);
-		assert (status == 0 || status == MDB_NOTFOUND);
-	}
-	else
-	{
-		current1.first = rai::mdb_val ();
-		current1.second = rai::mdb_val ();
-	}
-	status = mdb_cursor_open (transaction_a, db2_a, &cursor2);
-	assert (status == 0);
-	current2.first.value = val_a;
-	status = mdb_cursor_get (cursor2, &current2.first.value, &current2.second.value, MDB_SET_RANGE);
-	assert (status == 0 || status == MDB_NOTFOUND);
-	if (status != MDB_NOTFOUND)
-	{
-		status = mdb_cursor_get (cursor2, &current2.first.value, &current2.second.value, MDB_GET_CURRENT);
-		assert (status == 0 || status == MDB_NOTFOUND);
-	}
-	else
-	{
-		current2.first = rai::mdb_val ();
-		current2.second = rai::mdb_val ();
-	}
-}
-
-rai::store_merge_iterator::store_merge_iterator (rai::store_merge_iterator && other_a)
-{
-	cursor1 = other_a.cursor1;
-	other_a.cursor1 = nullptr;
-	current1 = other_a.current1;
-	cursor2 = other_a.cursor2;
-	other_a.cursor2 = nullptr;
-	current2 = other_a.current2;
-}
-
-rai::store_merge_iterator::~store_merge_iterator ()
-{
-	if (cursor1 != nullptr)
-	{
-		mdb_cursor_close (cursor1);
-	}
-	if (cursor2 != nullptr)
-	{
-		mdb_cursor_close (cursor2);
-	}
-}
-
-rai::store_merge_iterator & rai::store_merge_iterator::operator++ ()
-{
-	auto cursor_and_current (cursor_current ());
-	assert (*cursor_and_current.first != nullptr);
-	auto status (mdb_cursor_get (*cursor_and_current.first, &cursor_and_current.second->first.value, &cursor_and_current.second->second.value, MDB_NEXT));
+	assert (cursor != nullptr);
+	auto status (mdb_cursor_get (cursor, &current.first.value, &current.second.value, MDB_NEXT_DUP));
 	if (status == MDB_NOTFOUND)
 	{
-		cursor_and_current.second->first = rai::mdb_val ();
-		cursor_and_current.second->second = rai::mdb_val ();
+		clear ();
 	}
+}
+
+template <typename T, typename U>
+void rai::mdb_iterator<T, U>::clear ()
+{
+	current.first = rai::mdb_val (current.first.epoch);
+	current.second = rai::mdb_val (current.second.epoch);
+	assert (is_end_sentinal ());
+}
+
+template <typename T, typename U>
+bool rai::mdb_iterator<T, U>::is_end_sentinal () const
+{
+	return current.first.size () == 0;
+}
+
+template <typename T, typename U>
+void rai::mdb_iterator<T, U>::fill (std::pair<T, U> & value_a) const
+{
+	if (current.first.size () != 0)
+	{
+		value_a.first = static_cast<T> (current.first);
+	}
+	else
+	{
+		value_a.first = T ();
+	}
+	if (current.second.size () != 0)
+	{
+		value_a.second = static_cast<U> (current.second);
+	}
+	else
+	{
+		value_a.second = U ();
+	}
+}
+
+template <typename T, typename U>
+std::pair<rai::mdb_val, rai::mdb_val> * rai::mdb_merge_iterator<T, U>::operator-> ()
+{
+	return least_iterator ().operator-> ();
+}
+
+template <typename T, typename U>
+rai::mdb_merge_iterator<T, U>::mdb_merge_iterator (MDB_txn * transaction_a, MDB_dbi db1_a, MDB_dbi db2_a) :
+impl1 (std::make_unique<rai::mdb_iterator<T, U>> (transaction_a, db1_a, rai::epoch::epoch_0)),
+impl2 (std::make_unique<rai::mdb_iterator<T, U>> (transaction_a, db2_a, rai::epoch::epoch_1))
+{
+}
+
+template <typename T, typename U>
+rai::mdb_merge_iterator<T, U>::mdb_merge_iterator (std::nullptr_t) :
+impl1 (std::make_unique<rai::mdb_iterator<T, U>> (nullptr, rai::epoch::epoch_0)),
+impl2 (std::make_unique<rai::mdb_iterator<T, U>> (nullptr, rai::epoch::epoch_1))
+{
+}
+
+template <typename T, typename U>
+rai::mdb_merge_iterator<T, U>::mdb_merge_iterator (MDB_txn * transaction_a, MDB_dbi db1_a, MDB_dbi db2_a, MDB_val const & val_a) :
+impl1 (std::make_unique<rai::mdb_iterator<T, U>> (transaction_a, db1_a, val_a, rai::epoch::epoch_0)),
+impl2 (std::make_unique<rai::mdb_iterator<T, U>> (transaction_a, db2_a, val_a, rai::epoch::epoch_1))
+{
+}
+
+template <typename T, typename U>
+rai::mdb_merge_iterator<T, U>::mdb_merge_iterator (rai::mdb_merge_iterator<T, U> && other_a)
+{
+	impl1 = std::move (other_a.impl1);
+	impl2 = std::move (other_a.impl2);
+}
+
+template <typename T, typename U>
+rai::mdb_merge_iterator<T, U>::~mdb_merge_iterator ()
+{
+}
+
+template <typename T, typename U>
+rai::store_iterator_impl<T, U> & rai::mdb_merge_iterator<T, U>::operator++ ()
+{
+	++least_iterator ();
 	return *this;
 }
 
-void rai::store_merge_iterator::next_dup ()
+template <typename T, typename U>
+void rai::mdb_merge_iterator<T, U>::next_dup ()
 {
-	auto cursor_and_current (cursor_current ());
-	assert (*cursor_and_current.first != nullptr);
-	auto status (mdb_cursor_get (*cursor_and_current.first, &cursor_and_current.second->first.value, &cursor_and_current.second->second.value, MDB_NEXT_DUP));
-	if (status == MDB_NOTFOUND)
+	least_iterator ().next_dup ();
+}
+
+template <typename T, typename U>
+bool rai::mdb_merge_iterator<T, U>::is_end_sentinal () const
+{
+	return least_iterator ().is_end_sentinal ();
+}
+
+template <typename T, typename U>
+void rai::mdb_merge_iterator<T, U>::fill (std::pair<T, U> & value_a) const
+{
+	auto & current (least_iterator ());
+	if (current->first.size () != 0)
 	{
-		cursor_and_current.second->first = rai::mdb_val ();
-		cursor_and_current.second->second = rai::mdb_val ();
+		value_a.first = static_cast<T> (current->first);
+	}
+	else
+	{
+		value_a.first = T ();
+	}
+	if (current->second.size () != 0)
+	{
+		value_a.second = static_cast<U> (current->second);
+	}
+	else
+	{
+		value_a.second = U ();
 	}
 }
 
-rai::store_merge_iterator & rai::store_merge_iterator::operator= (rai::store_merge_iterator && other_a)
+template <typename T, typename U>
+bool rai::mdb_merge_iterator<T, U>::operator== (rai::store_iterator_impl<T, U> const & base_a) const
 {
-	if (cursor1 != nullptr)
+	assert ((dynamic_cast<rai::mdb_merge_iterator<T, U> const *> (&base_a) != nullptr) && "Incompatible iterator comparison");
+	auto & other (static_cast<rai::mdb_merge_iterator<T, U> const &> (base_a));
+	return *impl1 == *other.impl1 && *impl2 == *other.impl2;
+}
+
+template <typename T, typename U>
+rai::mdb_iterator<T, U> & rai::mdb_merge_iterator<T, U>::least_iterator () const
+{
+	rai::mdb_iterator<T, U> * result;
+	if (impl1->is_end_sentinal ())
 	{
-		mdb_cursor_close (cursor1);
+		result = impl2.get ();
 	}
-	if (cursor2 != nullptr)
+	else if (impl2->is_end_sentinal ())
 	{
-		mdb_cursor_close (cursor2);
+		result = impl1.get ();
 	}
-	cursor1 = other_a.cursor1;
-	other_a.cursor1 = nullptr;
-	current1 = other_a.current1;
-	other_a.current1.first = rai::mdb_val ();
-	other_a.current1.second = rai::mdb_val ();
-	cursor2 = other_a.cursor2;
-	other_a.cursor2 = nullptr;
-	current2 = other_a.current2;
-	other_a.current2.first = rai::mdb_val ();
-	other_a.current2.second = rai::mdb_val ();
-	return *this;
+	else
+	{
+		auto key_cmp (mdb_cmp (mdb_cursor_txn (impl1->cursor), mdb_cursor_dbi (impl1->cursor), impl1->current.first, impl2->current.first));
+		auto val_cmp (mdb_cmp (mdb_cursor_txn (impl1->cursor), mdb_cursor_dbi (impl1->cursor), impl1->current.second, impl2->current.second));
+		result = key_cmp < 0 ? impl1.get () : val_cmp < 0 ? impl1.get () : impl2.get ();
+	}
+	return *result;
 }
 
-bool rai::store_merge_iterator::operator== (rai::store_merge_iterator const & other_a) const
-{
-	auto result1 (current1.first.data () == other_a.current1.first.data ());
-	assert (!result1 || (current1.first.size () == other_a.current1.first.size ()));
-	assert (!result1 || (current1.second.data () == other_a.current1.second.data ()));
-	assert (!result1 || (current1.second.size () == other_a.current1.second.size ()));
-	auto result2 (current2.first.data () == other_a.current2.first.data ());
-	assert (!result2 || (current2.first.size () == other_a.current2.first.size ()));
-	assert (!result2 || (current2.second.data () == other_a.current2.second.data ()));
-	assert (!result2 || (current2.second.size () == other_a.current2.second.size ()));
-	return result1 && result2;
-}
+template class rai::mdb_iterator<rai::pending_key, rai::pending_info>;
+template class rai::mdb_iterator<rai::uint256_union, rai::block_info>;
+template class rai::mdb_iterator<rai::uint256_union, rai::uint128_union>;
+template class rai::mdb_iterator<rai::uint256_union, rai::uint256_union>;
+template class rai::mdb_iterator<rai::uint256_union, std::shared_ptr<rai::block>>;
+template class rai::mdb_iterator<rai::uint256_union, std::shared_ptr<rai::vote>>;
+template class rai::mdb_iterator<rai::uint256_union, rai::wallet_value>;
+template class rai::mdb_iterator<std::array<char, 64>, rai::mdb_val::no_value>;
 
-bool rai::store_merge_iterator::operator!= (rai::store_merge_iterator const & other_a) const
+rai::store_iterator<rai::block_hash, rai::block_info> rai::block_store::block_info_begin (MDB_txn * transaction_a, rai::block_hash const & hash_a)
 {
-	return !(*this == other_a);
-}
-
-rai::store_iterator rai::block_store::block_info_begin (MDB_txn * transaction_a, rai::block_hash const & hash_a)
-{
-	rai::store_iterator result (transaction_a, blocks_info, rai::mdb_val (hash_a));
+	rai::store_iterator<rai::block_hash, rai::block_info> result (std::make_unique<rai::mdb_iterator<rai::block_hash, rai::block_info>> (transaction_a, blocks_info, rai::mdb_val (hash_a)));
 	return result;
 }
 
-rai::store_iterator rai::block_store::block_info_begin (MDB_txn * transaction_a)
+rai::store_iterator<rai::block_hash, rai::block_info> rai::block_store::block_info_begin (MDB_txn * transaction_a)
 {
-	rai::store_iterator result (transaction_a, blocks_info);
+	rai::store_iterator<rai::block_hash, rai::block_info> result (std::make_unique<rai::mdb_iterator<rai::block_hash, rai::block_info>> (transaction_a, blocks_info));
 	return result;
 }
 
-rai::store_iterator rai::block_store::block_info_end ()
+rai::store_iterator<rai::block_hash, rai::block_info> rai::block_store::block_info_end ()
 {
-	rai::store_iterator result (nullptr);
+	rai::store_iterator<rai::block_hash, rai::block_info> result (nullptr);
 	return result;
 }
 
-rai::store_iterator rai::block_store::representation_begin (MDB_txn * transaction_a)
+rai::store_iterator<rai::account, rai::uint128_union> rai::block_store::representation_begin (MDB_txn * transaction_a)
 {
-	rai::store_iterator result (transaction_a, representation);
+	rai::store_iterator<rai::account, rai::uint128_union> result (std::make_unique<rai::mdb_iterator<rai::account, rai::uint128_union>> (transaction_a, representation));
 	return result;
 }
 
-rai::store_iterator rai::block_store::representation_end ()
+rai::store_iterator<rai::account, rai::uint128_union> rai::block_store::representation_end ()
 {
-	rai::store_iterator result (nullptr);
+	rai::store_iterator<rai::account, rai::uint128_union> result (nullptr);
 	return result;
 }
 
-rai::store_iterator rai::block_store::unchecked_begin (MDB_txn * transaction_a)
+rai::store_iterator<rai::block_hash, std::shared_ptr<rai::block>> rai::block_store::unchecked_begin (MDB_txn * transaction_a)
 {
-	rai::store_iterator result (transaction_a, unchecked);
+	rai::store_iterator<rai::block_hash, std::shared_ptr<rai::block>> result (std::make_unique<rai::mdb_iterator<rai::account, std::shared_ptr<rai::block>>> (transaction_a, unchecked));
 	return result;
 }
 
-rai::store_iterator rai::block_store::unchecked_begin (MDB_txn * transaction_a, rai::block_hash const & hash_a)
+rai::store_iterator<rai::block_hash, std::shared_ptr<rai::block>> rai::block_store::unchecked_begin (MDB_txn * transaction_a, rai::block_hash const & hash_a)
 {
-	rai::store_iterator result (transaction_a, unchecked, rai::mdb_val (hash_a));
+	rai::store_iterator<rai::block_hash, std::shared_ptr<rai::block>> result (std::make_unique<rai::mdb_iterator<rai::block_hash, std::shared_ptr<rai::block>>> (transaction_a, unchecked, rai::mdb_val (hash_a)));
 	return result;
 }
 
-rai::store_iterator rai::block_store::unchecked_end ()
+rai::store_iterator<rai::block_hash, std::shared_ptr<rai::block>> rai::block_store::unchecked_end ()
 {
-	rai::store_iterator result (nullptr);
+	rai::store_iterator<rai::block_hash, std::shared_ptr<rai::block>> result (nullptr);
 	return result;
 }
 
-rai::store_iterator rai::block_store::vote_begin (MDB_txn * transaction_a)
+rai::store_iterator<rai::account, std::shared_ptr<rai::vote>> rai::block_store::vote_begin (MDB_txn * transaction_a)
 {
-	return rai::store_iterator (transaction_a, vote);
+	return rai::store_iterator<rai::account, std::shared_ptr<rai::vote>> (std::make_unique<rai::mdb_iterator<rai::account, std::shared_ptr<rai::vote>>> (transaction_a, vote));
 }
 
-rai::store_iterator rai::block_store::vote_end ()
+rai::store_iterator<rai::account, std::shared_ptr<rai::vote>> rai::block_store::vote_end ()
 {
-	return rai::store_iterator (nullptr);
+	return rai::store_iterator<rai::account, std::shared_ptr<rai::vote>> (nullptr);
 }
 
 rai::block_store::block_store (bool & error_a, boost::filesystem::path const & path_a, int lmdb_max_dbs) :
@@ -467,7 +426,7 @@ meta (0)
 {
 	if (!error_a)
 	{
-		rai::transaction transaction (environment, nullptr, true);
+		rai::transaction transaction (environment, true);
 		error_a |= mdb_dbi_open (transaction, "frontiers", MDB_CREATE, &frontiers) != 0;
 		error_a |= mdb_dbi_open (transaction, "accounts", MDB_CREATE, &accounts_v0) != 0;
 		error_a |= mdb_dbi_open (transaction, "accounts_v1", MDB_CREATE, &accounts_v1) != 0;
@@ -493,6 +452,18 @@ meta (0)
 	}
 }
 
+void rai::block_store::initialize (MDB_txn * transaction_a, rai::genesis const & genesis_a)
+{
+	auto hash_l (genesis_a.hash ());
+	assert (latest_v0_begin (transaction_a) == latest_v0_end ());
+	assert (latest_v1_begin (transaction_a) == latest_v1_end ());
+	block_put (transaction_a, hash_l, *genesis_a.open);
+	account_put (transaction_a, genesis_account, { hash_l, genesis_a.open->hash (), genesis_a.open->hash (), std::numeric_limits<rai::uint128_t>::max (), rai::seconds_since_epoch (), 1, rai::epoch::epoch_0 });
+	representation_put (transaction_a, genesis_account, std::numeric_limits<rai::uint128_t>::max ());
+	checksum_put (transaction_a, 0, 0, hash_l);
+	frontier_put (transaction_a, hash_l, genesis_account);
+}
+
 void rai::block_store::version_put (MDB_txn * transaction_a, int version_a)
 {
 	rai::uint256_union version_key (1);
@@ -506,14 +477,10 @@ int rai::block_store::version_get (MDB_txn * transaction_a)
 	rai::uint256_union version_key (1);
 	rai::mdb_val data;
 	auto error (mdb_get (transaction_a, meta, rai::mdb_val (version_key), data));
-	int result;
-	if (error == MDB_NOTFOUND)
+	int result (1);
+	if (error != MDB_NOTFOUND)
 	{
-		result = 1;
-	}
-	else
-	{
-		rai::uint256_union version_value (data.uint256 ());
+		rai::uint256_union version_value (data);
 		assert (version_value.qwords[2] == 0 && version_value.qwords[1] == 0 && version_value.qwords[0] == 0);
 		result = version_value.number ().convert_to<int> ();
 	}
@@ -585,11 +552,11 @@ void rai::block_store::upgrade_v1_to_v2 (MDB_txn * transaction_a)
 	rai::account account (1);
 	while (!account.is_zero ())
 	{
-		rai::store_iterator i (transaction_a, accounts_v0, rai::mdb_val (account));
+		rai::mdb_iterator<rai::uint256_union, rai::account_info_v1> i (transaction_a, accounts_v0, rai::mdb_val (account));
 		std::cerr << std::hex;
-		if (i != rai::store_iterator (nullptr))
+		if (i != rai::mdb_iterator<rai::uint256_union, rai::account_info_v1> (nullptr))
 		{
-			account = i->first.uint256 ();
+			account = rai::uint256_union (i->first);
 			rai::account_info_v1 v1 (i->second);
 			rai::account_info_v5 v2;
 			v2.balance = v1.balance;
@@ -617,15 +584,16 @@ void rai::block_store::upgrade_v2_to_v3 (MDB_txn * transaction_a)
 {
 	version_put (transaction_a, 3);
 	mdb_drop (transaction_a, representation, 0);
-	for (auto i (latest_v0_begin (transaction_a)), n (latest_v0_end ()); i != n; ++i)
+	for (auto i (rai::store_iterator<rai::account, rai::account_info_v5> (std::make_unique<rai::mdb_iterator<rai::account, rai::account_info_v5>> (transaction_a, accounts_v0))), n (rai::store_iterator<rai::account, rai::account_info_v5> (nullptr)); i != n; ++i)
 	{
-		rai::account account_l (i->first.uint256 ());
+		rai::account account_l (i->first);
 		rai::account_info_v5 info (i->second);
 		representative_visitor visitor (transaction_a, *this);
 		visitor.compute (info.head);
 		assert (!visitor.result.is_zero ());
 		info.rep_block = visitor.result;
-		mdb_cursor_put (i.cursor, rai::mdb_val (account_l), info.val (), MDB_CURRENT);
+		auto impl (boost::polymorphic_downcast<rai::mdb_iterator<rai::account, rai::account_info_v5> *> (i.impl.get ()));
+		mdb_cursor_put (impl->cursor, rai::mdb_val (account_l), info.val (), MDB_CURRENT);
 		representation_add (transaction_a, visitor.result, info.balance.number ());
 	}
 }
@@ -634,11 +602,11 @@ void rai::block_store::upgrade_v3_to_v4 (MDB_txn * transaction_a)
 {
 	version_put (transaction_a, 4);
 	std::queue<std::pair<rai::pending_key, rai::pending_info>> items;
-	for (auto i (pending_v0_begin (transaction_a)), n (pending_v0_end ()); i != n; ++i)
+	for (auto i (rai::store_iterator<rai::block_hash, rai::pending_info_v3> (std::make_unique<rai::mdb_iterator<rai::block_hash, rai::pending_info_v3>> (transaction_a, pending_v0))), n (rai::store_iterator<rai::block_hash, rai::pending_info_v3> (nullptr)); i != n; ++i)
 	{
-		rai::block_hash hash (i->first.uint256 ());
+		rai::block_hash hash (i->first);
 		rai::pending_info_v3 info (i->second);
-		items.push (std::make_pair (rai::pending_key (info.destination, hash), rai::pending_info (info.source, info.amount, 0)));
+		items.push (std::make_pair (rai::pending_key (info.destination, hash), rai::pending_info (info.source, info.amount, rai::epoch::epoch_0)));
 	}
 	mdb_drop (transaction_a, pending_v0, 0);
 	while (!items.empty ())
@@ -651,7 +619,7 @@ void rai::block_store::upgrade_v3_to_v4 (MDB_txn * transaction_a)
 void rai::block_store::upgrade_v4_to_v5 (MDB_txn * transaction_a)
 {
 	version_put (transaction_a, 5);
-	for (auto i (latest_v0_begin (transaction_a)), n (latest_v0_end ()); i != n; ++i)
+	for (auto i (rai::store_iterator<rai::account, rai::account_info_v5> (std::make_unique<rai::mdb_iterator<rai::account, rai::account_info_v5>> (transaction_a, accounts_v0))), n (rai::store_iterator<rai::account, rai::account_info_v5> (nullptr)); i != n; ++i)
 	{
 		rai::account_info_v5 info (i->second);
 		rai::block_hash successor (0);
@@ -661,7 +629,6 @@ void rai::block_store::upgrade_v4_to_v5 (MDB_txn * transaction_a)
 			auto hash (block->hash ());
 			if (block_successor (transaction_a, hash).is_zero () && !successor.is_zero ())
 			{
-				//std::cerr << boost::str (boost::format ("Adding successor for account %1%, block %2%, successor %3%\n") % account.to_account () % hash.to_string () % successor.to_string ());
 				block_put (transaction_a, hash, *block, successor);
 			}
 			successor = hash;
@@ -674,9 +641,9 @@ void rai::block_store::upgrade_v5_to_v6 (MDB_txn * transaction_a)
 {
 	version_put (transaction_a, 6);
 	std::deque<std::pair<rai::account, rai::account_info>> headers;
-	for (auto i (latest_v0_begin (transaction_a)), n (latest_v0_end ()); i != n; ++i)
+	for (auto i (rai::store_iterator<rai::account, rai::account_info_v5> (std::make_unique<rai::mdb_iterator<rai::account, rai::account_info_v5>> (transaction_a, accounts_v0))), n (rai::store_iterator<rai::account, rai::account_info_v5> (nullptr)); i != n; ++i)
 	{
-		rai::account account (i->first.uint256 ());
+		rai::account account (i->first);
 		rai::account_info_v5 info_old (i->second);
 		uint64_t block_count (0);
 		auto hash (info_old.head);
@@ -687,7 +654,7 @@ void rai::block_store::upgrade_v5_to_v6 (MDB_txn * transaction_a)
 			assert (block != nullptr);
 			hash = block->previous ();
 		}
-		rai::account_info info (info_old.head, info_old.rep_block, info_old.open_block, info_old.balance, info_old.modified, block_count, 0);
+		rai::account_info info (info_old.head, info_old.rep_block, info_old.open_block, info_old.balance, info_old.modified, block_count, rai::epoch::epoch_0);
 		headers.push_back (std::make_pair (account, info));
 	}
 	for (auto i (headers.begin ()), n (headers.end ()); i != n; ++i)
@@ -717,19 +684,19 @@ void rai::block_store::upgrade_v8_to_v9 (MDB_txn * transaction_a)
 	rai::genesis genesis;
 	std::shared_ptr<rai::block> block (std::move (genesis.open));
 	rai::keypair junk;
-	for (rai::store_iterator i (transaction_a, sequence), n (nullptr); i != n; ++i)
+	for (rai::mdb_iterator<rai::account, uint64_t> i (transaction_a, sequence), n (rai::mdb_iterator<rai::account, uint64_t> (nullptr)); i != n; ++i)
 	{
 		rai::bufferstream stream (reinterpret_cast<uint8_t const *> (i->second.data ()), i->second.size ());
 		uint64_t sequence;
 		auto error (rai::read (stream, sequence));
 		// Create a dummy vote with the same sequence number for easy upgrading.  This won't have a valid signature.
-		auto dummy (std::make_shared<rai::vote> (rai::account (i->first.uint256 ()), junk.prv, sequence, block));
+		rai::vote dummy (rai::account (i->first), junk.prv, sequence, block);
 		std::vector<uint8_t> vector;
 		{
 			rai::vectorstream stream (vector);
-			dummy->serialize (stream);
+			dummy.serialize (stream);
 		}
-		auto status1 (mdb_put (transaction_a, vote, i->first, rai::mdb_val (vector.size (), vector.data ()), 0));
+		auto status1 (mdb_put (transaction_a, vote, rai::mdb_val (i->first), rai::mdb_val (vector.size (), vector.data ()), 0));
 		assert (status1 == 0);
 		assert (!error);
 	}
@@ -742,10 +709,10 @@ void rai::block_store::upgrade_v9_to_v10 (MDB_txn * transaction_a)
 	version_put (transaction_a, 10);
 	for (auto i (latest_v0_begin (transaction_a)), n (latest_v0_end ()); i != n; ++i)
 	{
-		rai::account_info info (i->second, 0);
+		rai::account_info info (i->second);
 		if (info.block_count >= block_info_max)
 		{
-			rai::account account (i->first.uint256 ());
+			rai::account account (i->first);
 			//std::cerr << boost::str (boost::format ("Upgrading account %1%...\n") % account.to_account ());
 			size_t block_count (1);
 			auto hash (info.open_block);
@@ -764,7 +731,6 @@ void rai::block_store::upgrade_v9_to_v10 (MDB_txn * transaction_a)
 			}
 		}
 	}
-	//std::cerr << boost::str (boost::format ("Database upgrade is completed\n"));
 }
 
 void rai::block_store::upgrade_v10_to_v11 (MDB_txn * transaction_a)
@@ -777,7 +743,7 @@ void rai::block_store::upgrade_v10_to_v11 (MDB_txn * transaction_a)
 
 void rai::block_store::clear (MDB_dbi db_a)
 {
-	rai::transaction transaction (environment, nullptr, true);
+	rai::transaction transaction (environment, true);
 	auto status (mdb_drop (transaction, db_a, 0));
 	assert (status == 0);
 }
@@ -789,13 +755,12 @@ rai::uint128_t rai::block_store::block_balance (MDB_txn * transaction_a, rai::bl
 	return visitor.balance;
 }
 
-uint8_t rai::block_store::block_version (MDB_txn * transaction_a, rai::block_hash const & hash_a)
+rai::epoch rai::block_store::block_version (MDB_txn * transaction_a, rai::block_hash const & hash_a)
 {
-	rai::block_type type;
 	rai::mdb_val value;
 	auto status (mdb_get (transaction_a, state_blocks_v1, rai::mdb_val (hash_a), value));
 	assert (status == 0 || status == MDB_NOTFOUND);
-	return status == 0;
+	return status == 0 ? rai::epoch::epoch_1 : rai::epoch::epoch_0;
 }
 
 void rai::block_store::representation_add (MDB_txn * transaction_a, rai::block_hash const & source_a, rai::uint128_t const & amount_a)
@@ -807,15 +772,15 @@ void rai::block_store::representation_add (MDB_txn * transaction_a, rai::block_h
 	representation_put (transaction_a, source_rep, source_previous + amount_a);
 }
 
-MDB_dbi rai::block_store::block_database (rai::block_type type_a, uint8_t version_a)
+MDB_dbi rai::block_store::block_database (rai::block_type type_a, rai::epoch epoch_a)
 {
 	if (type_a == rai::block_type::state)
 	{
-		assert (version_a <= 1);
+		assert (epoch_a == rai::epoch::epoch_0 || epoch_a == rai::epoch::epoch_1);
 	}
 	else
 	{
-		assert (version_a == 0);
+		assert (epoch_a == rai::epoch::epoch_0);
 	}
 	MDB_dbi result;
 	switch (type_a)
@@ -833,7 +798,17 @@ MDB_dbi rai::block_store::block_database (rai::block_type type_a, uint8_t versio
 			result = change_blocks;
 			break;
 		case rai::block_type::state:
-			result = version_a ? state_blocks_v1 : state_blocks_v0;
+			switch (epoch_a)
+			{
+				case rai::epoch::epoch_0:
+					result = state_blocks_v0;
+					break;
+				case rai::epoch::epoch_1:
+					result = state_blocks_v1;
+					break;
+				default:
+					assert (false);
+			}
 			break;
 		default:
 			assert (false);
@@ -842,13 +817,13 @@ MDB_dbi rai::block_store::block_database (rai::block_type type_a, uint8_t versio
 	return result;
 }
 
-void rai::block_store::block_put_raw (MDB_txn * transaction_a, MDB_dbi database_a, rai::block_hash const & hash_a, MDB_val value_a)
+void rai::block_store::block_raw_put (MDB_txn * transaction_a, MDB_dbi database_a, rai::block_hash const & hash_a, MDB_val value_a)
 {
 	auto status2 (mdb_put (transaction_a, database_a, rai::mdb_val (hash_a), &value_a, 0));
 	assert (status2 == 0);
 }
 
-void rai::block_store::block_put (MDB_txn * transaction_a, rai::block_hash const & hash_a, rai::block const & block_a, rai::block_hash const & successor_a, uint8_t version_a)
+void rai::block_store::block_put (MDB_txn * transaction_a, rai::block_hash const & hash_a, rai::block const & block_a, rai::block_hash const & successor_a, rai::epoch epoch_a)
 {
 	assert (successor_a.is_zero () || block_exists (transaction_a, successor_a));
 	std::vector<uint8_t> vector;
@@ -857,14 +832,13 @@ void rai::block_store::block_put (MDB_txn * transaction_a, rai::block_hash const
 		block_a.serialize (stream);
 		rai::write (stream, successor_a.bytes);
 	}
-	assert (version_a <= 1);
-	block_put_raw (transaction_a, block_database (block_a.type (), version_a), hash_a, { vector.size (), vector.data () });
-	set_predecessor predecessor (transaction_a, *this);
+	block_raw_put (transaction_a, block_database (block_a.type (), epoch_a), hash_a, { vector.size (), vector.data () });
+	rai::block_predecessor_set predecessor (transaction_a, *this);
 	block_a.visit (predecessor);
 	assert (block_a.previous ().is_zero () || block_successor (transaction_a, block_a.previous ()) == hash_a);
 }
 
-MDB_val rai::block_store::block_get_raw (MDB_txn * transaction_a, rai::block_hash const & hash_a, rai::block_type & type_a)
+MDB_val rai::block_store::block_raw_get (MDB_txn * transaction_a, rai::block_hash const & hash_a, rai::block_type & type_a)
 {
 	rai::mdb_val result;
 	auto status (mdb_get (transaction_a, send_blocks, rai::mdb_val (hash_a), result));
@@ -925,17 +899,19 @@ MDB_val rai::block_store::block_get_raw (MDB_txn * transaction_a, rai::block_has
 	return result;
 }
 
+template <typename T>
 std::unique_ptr<rai::block> rai::block_store::block_random (MDB_txn * transaction_a, MDB_dbi database)
 {
 	rai::block_hash hash;
 	rai::random_pool.GenerateBlock (hash.bytes.data (), hash.bytes.size ());
-	rai::store_iterator existing (transaction_a, database, rai::mdb_val (hash));
-	if (existing == rai::store_iterator (nullptr))
+	rai::store_iterator<rai::block_hash, std::shared_ptr<T>> existing (std::make_unique<rai::mdb_iterator<rai::block_hash, std::shared_ptr<T>>> (transaction_a, database, rai::mdb_val (hash)));
+	if (existing == rai::store_iterator<rai::block_hash, std::shared_ptr<T>> (nullptr))
 	{
-		existing = rai::store_iterator (transaction_a, database);
+		existing = rai::store_iterator<rai::block_hash, std::shared_ptr<T>> (std::make_unique<rai::mdb_iterator<rai::block_hash, std::shared_ptr<T>>> (transaction_a, database));
 	}
-	assert (existing != rai::store_iterator (nullptr));
-	return block_get (transaction_a, rai::block_hash (existing->first.uint256 ()));
+	auto end (rai::store_iterator<rai::block_hash, std::shared_ptr<T>> (nullptr));
+	assert (existing != end);
+	return block_get (transaction_a, rai::block_hash (existing->first));
 }
 
 std::unique_ptr<rai::block> rai::block_store::block_random (MDB_txn * transaction_a)
@@ -945,51 +921,52 @@ std::unique_ptr<rai::block> rai::block_store::block_random (MDB_txn * transactio
 	std::unique_ptr<rai::block> result;
 	if (region < count.send)
 	{
-		result = block_random (transaction_a, send_blocks);
+		result = block_random<rai::send_block> (transaction_a, send_blocks);
 	}
 	else
 	{
 		region -= count.send;
 		if (region < count.receive)
 		{
-			result = block_random (transaction_a, receive_blocks);
+			result = block_random<rai::receive_block> (transaction_a, receive_blocks);
 		}
 		else
 		{
 			region -= count.receive;
 			if (region < count.open)
 			{
-				result = block_random (transaction_a, open_blocks);
+				result = block_random<rai::open_block> (transaction_a, open_blocks);
 			}
 			else
 			{
 				region -= count.open;
 				if (region < count.change)
 				{
-					result = block_random (transaction_a, change_blocks);
+					result = block_random<rai::change_block> (transaction_a, change_blocks);
 				}
 				else
 				{
 					region -= count.change;
 					if (region < count.state_v0)
 					{
-						result = block_random (transaction_a, state_blocks_v0);
+						result = block_random<rai::state_block> (transaction_a, state_blocks_v0);
 					}
 					else
 					{
-						result = block_random (transaction_a, state_blocks_v1);
+						result = block_random<rai::state_block> (transaction_a, state_blocks_v1);
 					}
 				}
 			}
 		}
 	}
+	assert (result != nullptr);
 	return result;
 }
 
 rai::block_hash rai::block_store::block_successor (MDB_txn * transaction_a, rai::block_hash const & hash_a)
 {
 	rai::block_type type;
-	auto value (block_get_raw (transaction_a, hash_a, type));
+	auto value (block_raw_get (transaction_a, hash_a, type));
 	rai::block_hash result;
 	if (value.mv_size != 0)
 	{
@@ -1009,13 +986,13 @@ void rai::block_store::block_successor_clear (MDB_txn * transaction_a, rai::bloc
 {
 	auto block (block_get (transaction_a, hash_a));
 	auto version (block_version (transaction_a, hash_a));
-	block_put (transaction_a, hash_a, *block, version);
+	block_put (transaction_a, hash_a, *block, 0, version);
 }
 
 std::unique_ptr<rai::block> rai::block_store::block_get (MDB_txn * transaction_a, rai::block_hash const & hash_a)
 {
 	rai::block_type type;
-	auto value (block_get_raw (transaction_a, hash_a, type));
+	auto value (block_raw_get (transaction_a, hash_a, type));
 	std::unique_ptr<rai::block> result;
 	if (value.mv_size != 0)
 	{
@@ -1145,20 +1122,8 @@ void rai::block_store::account_del (MDB_txn * transaction_a, rai::account const 
 
 bool rai::block_store::account_exists (MDB_txn * transaction_a, rai::account const & account_a)
 {
-	rai::mdb_val junk;
-	bool result (true);
-	auto status1 (mdb_get (transaction_a, accounts_v1, rai::mdb_val (account_a), junk));
-	if (status1 != 0)
-	{
-		assert (status1 == MDB_NOTFOUND);
-		auto status2 (mdb_get (transaction_a, accounts_v0, rai::mdb_val (account_a), junk));
-		if (status2 != 0)
-		{
-			assert (status2 == MDB_NOTFOUND);
-			result = false;
-		}
-	}
-	return result;
+	auto iterator (latest_begin (transaction_a, account_a));
+	return iterator != latest_end () && rai::account (iterator->first) == account_a;
 }
 
 bool rai::block_store::account_get (MDB_txn * transaction_a, rai::account const & account_a, rai::account_info & info_a)
@@ -1167,10 +1132,10 @@ bool rai::block_store::account_get (MDB_txn * transaction_a, rai::account const 
 	auto status1 (mdb_get (transaction_a, accounts_v1, rai::mdb_val (account_a), value));
 	assert (status1 == 0 || status1 == MDB_NOTFOUND);
 	bool result (false);
-	uint8_t version;
+	rai::epoch epoch;
 	if (status1 == 0)
 	{
-		version = 1;
+		epoch = rai::epoch::epoch_1;
 	}
 	else
 	{
@@ -1178,7 +1143,7 @@ bool rai::block_store::account_get (MDB_txn * transaction_a, rai::account const 
 		assert (status2 == 0 || status2 == MDB_NOTFOUND);
 		if (status2 == 0)
 		{
-			version = 0;
+			epoch = rai::epoch::epoch_0;
 		}
 		else
 		{
@@ -1188,7 +1153,7 @@ bool rai::block_store::account_get (MDB_txn * transaction_a, rai::account const 
 	if (!result)
 	{
 		rai::bufferstream stream (reinterpret_cast<uint8_t const *> (value.data ()), value.size ());
-		info_a.version = version;
+		info_a.epoch = epoch;
 		info_a.deserialize (stream);
 	}
 	return result;
@@ -1208,7 +1173,7 @@ rai::account rai::block_store::frontier_get (MDB_txn * transaction_a, rai::block
 	rai::account result (0);
 	if (status == 0)
 	{
-		result = value.uint256 ();
+		result = rai::uint256_union (value);
 	}
 	return result;
 }
@@ -1233,65 +1198,77 @@ size_t rai::block_store::account_count (MDB_txn * transaction_a)
 
 void rai::block_store::account_put (MDB_txn * transaction_a, rai::account const & account_a, rai::account_info const & info_a)
 {
-	auto db (info_a.version ? accounts_v1 : accounts_v0);
-	auto status (mdb_put (transaction_a, db, rai::mdb_val (account_a), info_a.val (), 0));
+	MDB_dbi db;
+	switch (info_a.epoch)
+	{
+		case rai::epoch::invalid:
+		case rai::epoch::unspecified:
+			assert (false);
+		case rai::epoch::epoch_0:
+			db = accounts_v0;
+			break;
+		case rai::epoch::epoch_1:
+			db = accounts_v1;
+			break;
+	}
+	auto status (mdb_put (transaction_a, db, rai::mdb_val (account_a), rai::mdb_val (info_a), 0));
 	assert (status == 0);
 }
 
 void rai::block_store::pending_put (MDB_txn * transaction_a, rai::pending_key const & key_a, rai::pending_info const & pending_a)
 {
-	auto db (pending_a.min_version ? pending_v1 : pending_v0);
-	auto status (mdb_put (transaction_a, db, key_a.val (), pending_a.val (), 0));
+	MDB_dbi db;
+	switch (pending_a.epoch)
+	{
+		case rai::epoch::invalid:
+		case rai::epoch::unspecified:
+			assert (false);
+		case rai::epoch::epoch_0:
+			db = pending_v0;
+			break;
+		case rai::epoch::epoch_1:
+			db = pending_v1;
+			break;
+	}
+	auto status (mdb_put (transaction_a, db, rai::mdb_val (key_a), rai::mdb_val (pending_a), 0));
 	assert (status == 0);
 }
 
 void rai::block_store::pending_del (MDB_txn * transaction_a, rai::pending_key const & key_a)
 {
-	auto status1 (mdb_del (transaction_a, pending_v1, key_a.val (), nullptr));
+	auto status1 (mdb_del (transaction_a, pending_v1, mdb_val (key_a), nullptr));
 	if (status1 != 0)
 	{
 		assert (status1 == MDB_NOTFOUND);
-		auto status2 (mdb_del (transaction_a, pending_v0, key_a.val (), nullptr));
+		auto status2 (mdb_del (transaction_a, pending_v0, mdb_val (key_a), nullptr));
 		assert (status2 == 0);
 	}
 }
 
 bool rai::block_store::pending_exists (MDB_txn * transaction_a, rai::pending_key const & key_a)
 {
-	rai::mdb_val junk;
-	bool result (true);
-	auto status1 (mdb_get (transaction_a, pending_v1, key_a.val (), junk));
-	if (status1 != 0)
-	{
-		assert (status1 == MDB_NOTFOUND);
-		auto status2 (mdb_get (transaction_a, pending_v0, key_a.val (), junk));
-		if (status2 != 0)
-		{
-			assert (status2 == MDB_NOTFOUND);
-			result = false;
-		}
-	}
-	return result;
+	auto iterator (pending_begin (transaction_a, key_a));
+	return iterator != pending_end () && rai::pending_key (iterator->first) == key_a;
 }
 
 bool rai::block_store::pending_get (MDB_txn * transaction_a, rai::pending_key const & key_a, rai::pending_info & pending_a)
 {
 	rai::mdb_val value;
-	auto status1 (mdb_get (transaction_a, pending_v1, key_a.val (), value));
+	auto status1 (mdb_get (transaction_a, pending_v1, mdb_val (key_a), value));
 	assert (status1 == 0 || status1 == MDB_NOTFOUND);
 	bool result (false);
-	uint8_t min_version;
+	rai::epoch epoch;
 	if (status1 == 0)
 	{
-		min_version = 1;
+		epoch = rai::epoch::epoch_1;
 	}
 	else
 	{
-		auto status2 (mdb_get (transaction_a, pending_v0, key_a.val (), value));
+		auto status2 (mdb_get (transaction_a, pending_v0, mdb_val (key_a), value));
 		assert (status2 == 0 || status2 == MDB_NOTFOUND);
 		if (status2 == 0)
 		{
-			min_version = 0;
+			epoch = rai::epoch::epoch_0;
 		}
 		else
 		{
@@ -1301,69 +1278,69 @@ bool rai::block_store::pending_get (MDB_txn * transaction_a, rai::pending_key co
 	if (!result)
 	{
 		rai::bufferstream stream (reinterpret_cast<uint8_t const *> (value.data ()), value.size ());
-		pending_a.min_version = min_version;
+		pending_a.epoch = epoch;
 		pending_a.deserialize (stream);
 	}
 	return result;
 }
 
-rai::store_iterator rai::block_store::pending_v0_begin (MDB_txn * transaction_a, rai::pending_key const & key_a)
+rai::store_iterator<rai::pending_key, rai::pending_info> rai::block_store::pending_begin (MDB_txn * transaction_a, rai::pending_key const & key_a)
 {
-	rai::store_iterator result (transaction_a, pending_v0, key_a.val ());
+	rai::store_iterator<rai::pending_key, rai::pending_info> result (std::make_unique<rai::mdb_merge_iterator<rai::pending_key, rai::pending_info>> (transaction_a, pending_v0, pending_v1, mdb_val (key_a)));
 	return result;
 }
 
-rai::store_iterator rai::block_store::pending_v0_begin (MDB_txn * transaction_a)
+rai::store_iterator<rai::pending_key, rai::pending_info> rai::block_store::pending_begin (MDB_txn * transaction_a)
 {
-	rai::store_iterator result (transaction_a, pending_v0);
+	rai::store_iterator<rai::pending_key, rai::pending_info> result (std::make_unique<rai::mdb_merge_iterator<rai::pending_key, rai::pending_info>> (transaction_a, pending_v0, pending_v1));
 	return result;
 }
 
-rai::store_iterator rai::block_store::pending_v0_end ()
+rai::store_iterator<rai::pending_key, rai::pending_info> rai::block_store::pending_end ()
 {
-	rai::store_iterator result (nullptr);
+	rai::store_iterator<rai::pending_key, rai::pending_info> result (nullptr);
 	return result;
 }
 
-rai::store_iterator rai::block_store::pending_v1_begin (MDB_txn * transaction_a, rai::pending_key const & key_a)
+rai::store_iterator<rai::pending_key, rai::pending_info> rai::block_store::pending_v0_begin (MDB_txn * transaction_a, rai::pending_key const & key_a)
 {
-	rai::store_iterator result (transaction_a, pending_v1, key_a.val ());
+	rai::store_iterator<rai::pending_key, rai::pending_info> result (std::make_unique<rai::mdb_iterator<rai::pending_key, rai::pending_info>> (transaction_a, pending_v0, mdb_val (key_a)));
 	return result;
 }
 
-rai::store_iterator rai::block_store::pending_v1_begin (MDB_txn * transaction_a)
+rai::store_iterator<rai::pending_key, rai::pending_info> rai::block_store::pending_v0_begin (MDB_txn * transaction_a)
 {
-	rai::store_iterator result (transaction_a, pending_v1);
+	rai::store_iterator<rai::pending_key, rai::pending_info> result (std::make_unique<rai::mdb_iterator<rai::pending_key, rai::pending_info>> (transaction_a, pending_v0));
 	return result;
 }
 
-rai::store_iterator rai::block_store::pending_v1_end ()
+rai::store_iterator<rai::pending_key, rai::pending_info> rai::block_store::pending_v0_end ()
 {
-	rai::store_iterator result (nullptr);
+	rai::store_iterator<rai::pending_key, rai::pending_info> result (nullptr);
 	return result;
 }
 
-rai::store_merge_iterator rai::block_store::pending_begin (MDB_txn * transaction_a, rai::pending_key const & key_a)
+rai::store_iterator<rai::pending_key, rai::pending_info> rai::block_store::pending_v1_begin (MDB_txn * transaction_a, rai::pending_key const & key_a)
 {
-	rai::store_merge_iterator result (transaction_a, pending_v0, pending_v1, key_a.val ());
+	rai::store_iterator<rai::pending_key, rai::pending_info> result (std::make_unique<rai::mdb_iterator<rai::pending_key, rai::pending_info>> (transaction_a, pending_v1, mdb_val (key_a)));
 	return result;
 }
 
-rai::store_merge_iterator rai::block_store::pending_begin (MDB_txn * transaction_a)
+rai::store_iterator<rai::pending_key, rai::pending_info> rai::block_store::pending_v1_begin (MDB_txn * transaction_a)
 {
-	rai::store_merge_iterator result (transaction_a, pending_v0, pending_v1);
+	rai::store_iterator<rai::pending_key, rai::pending_info> result (std::make_unique<rai::mdb_iterator<rai::pending_key, rai::pending_info>> (transaction_a, pending_v1));
 	return result;
 }
 
-rai::store_merge_iterator rai::block_store::pending_end ()
+rai::store_iterator<rai::pending_key, rai::pending_info> rai::block_store::pending_v1_end ()
 {
-	rai::store_merge_iterator result (nullptr);
+	rai::store_iterator<rai::pending_key, rai::pending_info> result (nullptr);
 	return result;
 }
 
 void rai::block_store::block_info_put (MDB_txn * transaction_a, rai::block_hash const & hash_a, rai::block_info const & block_info_a)
 {
-	auto status (mdb_put (transaction_a, blocks_info, rai::mdb_val (hash_a), block_info_a.val (), 0));
+	auto status (mdb_put (transaction_a, blocks_info, rai::mdb_val (hash_a), rai::mdb_val (block_info_a), 0));
 	assert (status == 0);
 }
 
@@ -1376,7 +1353,7 @@ void rai::block_store::block_info_del (MDB_txn * transaction_a, rai::block_hash 
 bool rai::block_store::block_info_exists (MDB_txn * transaction_a, rai::block_hash const & hash_a)
 {
 	auto iterator (block_info_begin (transaction_a, hash_a));
-	return iterator != rai::store_iterator (nullptr) && rai::block_hash (iterator->first.uint256 ()) == hash_a;
+	return iterator != block_info_end () && rai::block_hash (iterator->first) == hash_a;
 }
 
 bool rai::block_store::block_info_get (MDB_txn * transaction_a, rai::block_hash const & hash_a, rai::block_info & block_info_a)
@@ -1384,12 +1361,8 @@ bool rai::block_store::block_info_get (MDB_txn * transaction_a, rai::block_hash 
 	rai::mdb_val value;
 	auto status (mdb_get (transaction_a, blocks_info, rai::mdb_val (hash_a), value));
 	assert (status == 0 || status == MDB_NOTFOUND);
-	bool result;
-	if (status == MDB_NOTFOUND)
-	{
-		result = true;
-	}
-	else
+	bool result (true);
+	if (status != MDB_NOTFOUND)
 	{
 		result = false;
 		assert (value.size () == sizeof (block_info_a.account.bytes) + sizeof (block_info_a.balance.bytes));
@@ -1407,7 +1380,7 @@ rai::uint128_t rai::block_store::representation_get (MDB_txn * transaction_a, ra
 	rai::mdb_val value;
 	auto status (mdb_get (transaction_a, representation, rai::mdb_val (account_a), value));
 	assert (status == 0 || status == MDB_NOTFOUND);
-	rai::uint128_t result;
+	rai::uint128_t result = 0;
 	if (status == 0)
 	{
 		rai::uint128_union rep;
@@ -1415,10 +1388,6 @@ rai::uint128_t rai::block_store::representation_get (MDB_txn * transaction_a, ra
 		auto error (rai::read (stream, rep));
 		assert (!error);
 		result = rep.number ();
-	}
-	else
-	{
-		result = 0;
 	}
 	return result;
 }
@@ -1465,10 +1434,11 @@ std::shared_ptr<rai::vote> rai::block_store::vote_get (MDB_txn * transaction_a, 
 	assert (status == 0 || status == MDB_NOTFOUND);
 	if (status == 0)
 	{
-		result = std::make_shared<rai::vote> (value);
+		std::shared_ptr<rai::vote> result (value);
 		assert (result != nullptr);
+		return result;
 	}
-	return result;
+	return nullptr;
 }
 
 std::vector<std::shared_ptr<rai::block>> rai::block_store::unchecked_get (MDB_txn * transaction_a, rai::block_hash const & hash_a)
@@ -1481,21 +1451,21 @@ std::vector<std::shared_ptr<rai::block>> rai::block_store::unchecked_get (MDB_tx
 			result.push_back (i->second);
 		}
 	}
-	for (auto i (unchecked_begin (transaction_a, hash_a)), n (unchecked_end ()); i != n && rai::block_hash (i->first.uint256 ()) == hash_a; i.next_dup ())
+	for (auto i (unchecked_begin (transaction_a, hash_a)), n (unchecked_end ()); i != n && rai::block_hash (i->first) == hash_a; i.impl->next_dup ())
 	{
-		rai::bufferstream stream (reinterpret_cast<uint8_t const *> (i->second.data ()), i->second.size ());
-		result.push_back (rai::deserialize_block (stream));
+		std::shared_ptr<rai::block> block (i->second);
+		result.push_back (block);
 	}
 	return result;
 }
 
-void rai::block_store::unchecked_del (MDB_txn * transaction_a, rai::block_hash const & hash_a, rai::block const & block_a)
+void rai::block_store::unchecked_del (MDB_txn * transaction_a, rai::block_hash const & hash_a, std::shared_ptr<rai::block> block_a)
 {
 	{
 		std::lock_guard<std::mutex> lock (cache_mutex);
 		for (auto i (unchecked_cache.find (hash_a)), n (unchecked_cache.end ()); i != n && i->first == hash_a;)
 		{
-			if (*i->second == block_a)
+			if (*i->second == *block_a)
 			{
 				i = unchecked_cache.erase (i);
 			}
@@ -1505,12 +1475,8 @@ void rai::block_store::unchecked_del (MDB_txn * transaction_a, rai::block_hash c
 			}
 		}
 	}
-	std::vector<uint8_t> vector;
-	{
-		rai::vectorstream stream (vector);
-		rai::serialize_block (stream, block_a);
-	}
-	auto status (mdb_del (transaction_a, unchecked, rai::mdb_val (hash_a), rai::mdb_val (vector.size (), vector.data ())));
+	rai::mdb_val block (block_a);
+	auto status (mdb_del (transaction_a, unchecked, rai::mdb_val (hash_a), block));
 	assert (status == 0 || status == MDB_NOTFOUND);
 }
 
@@ -1538,17 +1504,13 @@ bool rai::block_store::checksum_get (MDB_txn * transaction_a, uint64_t prefix, u
 	rai::mdb_val value;
 	auto status (mdb_get (transaction_a, checksum, rai::mdb_val (sizeof (key), &key), value));
 	assert (status == 0 || status == MDB_NOTFOUND);
-	bool result;
+	bool result (true);
 	if (status == 0)
 	{
 		result = false;
 		rai::bufferstream stream (reinterpret_cast<uint8_t const *> (value.data ()), value.size ());
 		auto error (rai::read (stream, hash_a));
 		assert (!error);
-	}
-	else
-	{
-		result = true;
 	}
 	return result;
 }
@@ -1572,12 +1534,8 @@ void rai::block_store::flush (MDB_txn * transaction_a)
 	}
 	for (auto & i : unchecked_cache_l)
 	{
-		std::vector<uint8_t> vector;
-		{
-			rai::vectorstream stream (vector);
-			rai::serialize_block (stream, *i.second);
-		}
-		auto status (mdb_put (transaction_a, unchecked, rai::mdb_val (i.first), rai::mdb_val (vector.size (), vector.data ()), 0));
+		mdb_val block (i.second);
+		auto status (mdb_put (transaction_a, unchecked, rai::mdb_val (i.first), block, 0));
 		assert (status == 0);
 	}
 	for (auto i (sequence_cache_l.begin ()), n (sequence_cache_l.end ()); i != n; ++i)
@@ -1617,72 +1575,79 @@ std::shared_ptr<rai::vote> rai::block_store::vote_generate (MDB_txn * transactio
 	return result;
 }
 
+std::shared_ptr<rai::vote> rai::block_store::vote_generate (MDB_txn * transaction_a, rai::account const & account_a, rai::raw_key const & key_a, std::vector<rai::block_hash> blocks_a)
+{
+	std::lock_guard<std::mutex> lock (cache_mutex);
+	auto result (vote_current (transaction_a, account_a));
+	uint64_t sequence ((result ? result->sequence : 0) + 1);
+	result = std::make_shared<rai::vote> (account_a, key_a, sequence, blocks_a);
+	vote_cache[account_a] = result;
+	return result;
+}
+
 std::shared_ptr<rai::vote> rai::block_store::vote_max (MDB_txn * transaction_a, std::shared_ptr<rai::vote> vote_a)
 {
 	std::lock_guard<std::mutex> lock (cache_mutex);
 	auto current (vote_current (transaction_a, vote_a->account));
 	auto result (vote_a);
-	if (current != nullptr)
+	if (current != nullptr && current->sequence > result->sequence)
 	{
-		if (current->sequence > result->sequence)
-		{
-			result = current;
-		}
+		result = current;
 	}
 	vote_cache[vote_a->account] = result;
 	return result;
 }
 
-rai::store_iterator rai::block_store::latest_v0_begin (MDB_txn * transaction_a, rai::account const & account_a)
+rai::store_iterator<rai::account, rai::account_info> rai::block_store::latest_begin (MDB_txn * transaction_a, rai::account const & account_a)
 {
-	rai::store_iterator result (transaction_a, accounts_v0, rai::mdb_val (account_a));
+	rai::store_iterator<rai::account, rai::account_info> result (std::make_unique<rai::mdb_merge_iterator<rai::account, rai::account_info>> (transaction_a, accounts_v0, accounts_v1, rai::mdb_val (account_a)));
 	return result;
 }
 
-rai::store_iterator rai::block_store::latest_v0_begin (MDB_txn * transaction_a)
+rai::store_iterator<rai::account, rai::account_info> rai::block_store::latest_begin (MDB_txn * transaction_a)
 {
-	rai::store_iterator result (transaction_a, accounts_v0);
+	rai::store_iterator<rai::account, rai::account_info> result (std::make_unique<rai::mdb_merge_iterator<rai::account, rai::account_info>> (transaction_a, accounts_v0, accounts_v1));
 	return result;
 }
 
-rai::store_iterator rai::block_store::latest_v0_end ()
+rai::store_iterator<rai::account, rai::account_info> rai::block_store::latest_end ()
 {
-	rai::store_iterator result (nullptr);
+	rai::store_iterator<rai::account, rai::account_info> result (nullptr);
 	return result;
 }
 
-rai::store_iterator rai::block_store::latest_v1_begin (MDB_txn * transaction_a, rai::account const & account_a)
+rai::store_iterator<rai::account, rai::account_info> rai::block_store::latest_v0_begin (MDB_txn * transaction_a, rai::account const & account_a)
 {
-	rai::store_iterator result (transaction_a, accounts_v1, rai::mdb_val (account_a));
+	rai::store_iterator<rai::account, rai::account_info> result (std::make_unique<rai::mdb_iterator<rai::account, rai::account_info>> (transaction_a, accounts_v0, rai::mdb_val (account_a)));
 	return result;
 }
 
-rai::store_iterator rai::block_store::latest_v1_begin (MDB_txn * transaction_a)
+rai::store_iterator<rai::account, rai::account_info> rai::block_store::latest_v0_begin (MDB_txn * transaction_a)
 {
-	rai::store_iterator result (transaction_a, accounts_v1);
+	rai::store_iterator<rai::account, rai::account_info> result (std::make_unique<rai::mdb_iterator<rai::account, rai::account_info>> (transaction_a, accounts_v0));
 	return result;
 }
 
-rai::store_iterator rai::block_store::latest_v1_end ()
+rai::store_iterator<rai::account, rai::account_info> rai::block_store::latest_v0_end ()
 {
-	rai::store_iterator result (nullptr);
+	rai::store_iterator<rai::account, rai::account_info> result (nullptr);
 	return result;
 }
 
-rai::store_merge_iterator rai::block_store::latest_begin (MDB_txn * transaction_a, rai::account const & account_a)
+rai::store_iterator<rai::account, rai::account_info> rai::block_store::latest_v1_begin (MDB_txn * transaction_a, rai::account const & account_a)
 {
-	rai::store_merge_iterator result (transaction_a, accounts_v0, accounts_v1, rai::mdb_val (account_a));
+	rai::store_iterator<rai::account, rai::account_info> result (std::make_unique<rai::mdb_iterator<rai::account, rai::account_info>> (transaction_a, accounts_v1, rai::mdb_val (account_a)));
 	return result;
 }
 
-rai::store_merge_iterator rai::block_store::latest_begin (MDB_txn * transaction_a)
+rai::store_iterator<rai::account, rai::account_info> rai::block_store::latest_v1_begin (MDB_txn * transaction_a)
 {
-	rai::store_merge_iterator result (transaction_a, accounts_v0, accounts_v1);
+	rai::store_iterator<rai::account, rai::account_info> result (std::make_unique<rai::mdb_iterator<rai::account, rai::account_info>> (transaction_a, accounts_v1));
 	return result;
 }
 
-rai::store_merge_iterator rai::block_store::latest_end ()
+rai::store_iterator<rai::account, rai::account_info> rai::block_store::latest_v1_end ()
 {
-	rai::store_merge_iterator result (nullptr);
+	rai::store_iterator<rai::account, rai::account_info> result (nullptr);
 	return result;
 }

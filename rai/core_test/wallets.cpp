@@ -1,6 +1,9 @@
 #include <gtest/gtest.h>
 
+#include <rai/core_test/testutil.hpp>
 #include <rai/node/testing.hpp>
+
+using namespace std::chrono_literals;
 
 TEST (wallets, open_create)
 {
@@ -28,14 +31,12 @@ TEST (wallets, open_existing)
 		auto wallet (wallets.create (id));
 		ASSERT_NE (nullptr, wallet);
 		ASSERT_EQ (wallet, wallets.open (id));
-		auto iterations (0);
 		rai::raw_key password;
 		password.data.clear ();
+		system.deadline_set (10s);
 		while (password.data == 0)
 		{
-			system.poll ();
-			++iterations;
-			ASSERT_LT (iterations, 200);
+			ASSERT_NO_ERROR (system.poll ());
 			wallet->store.password.value (password);
 		}
 	}
@@ -86,7 +87,7 @@ TEST (wallets, DISABLED_wallet_create_max)
 		ASSERT_TRUE (existing != wallets.items.end ());
 		rai::raw_key seed;
 		seed.data = 0;
-		rai::transaction transaction (system.nodes[0]->store.environment, nullptr, true);
+		rai::transaction transaction (system.nodes[0]->store.environment, true);
 		existing->second->store.seed_set (transaction, seed);
 	}
 	rai::keypair key;

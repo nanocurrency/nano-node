@@ -1,12 +1,15 @@
 #include <gtest/gtest.h>
+#include <rai/core_test/testutil.hpp>
 #include <rai/node/testing.hpp>
+
+using namespace std::chrono_literals;
 
 TEST (gap_cache, add_new)
 {
 	rai::system system (24000, 1);
 	rai::gap_cache cache (*system.nodes[0]);
 	auto block1 (std::make_shared<rai::send_block> (0, 1, 2, rai::keypair ().prv, 4, 5));
-	rai::transaction transaction (system.nodes[0]->store.environment, nullptr, true);
+	rai::transaction transaction (system.nodes[0]->store.environment, true);
 	cache.add (transaction, block1);
 }
 
@@ -15,7 +18,7 @@ TEST (gap_cache, add_existing)
 	rai::system system (24000, 1);
 	rai::gap_cache cache (*system.nodes[0]);
 	auto block1 (std::make_shared<rai::send_block> (0, 1, 2, rai::keypair ().prv, 4, 5));
-	rai::transaction transaction (system.nodes[0]->store.environment, nullptr, true);
+	rai::transaction transaction (system.nodes[0]->store.environment, true);
 	cache.add (transaction, block1);
 	auto existing1 (cache.blocks.get<1> ().find (block1->hash ()));
 	ASSERT_NE (cache.blocks.get<1> ().end (), existing1);
@@ -34,7 +37,7 @@ TEST (gap_cache, comparison)
 	rai::system system (24000, 1);
 	rai::gap_cache cache (*system.nodes[0]);
 	auto block1 (std::make_shared<rai::send_block> (1, 0, 2, rai::keypair ().prv, 4, 5));
-	rai::transaction transaction (system.nodes[0]->store.environment, nullptr, true);
+	rai::transaction transaction (system.nodes[0]->store.environment, true);
 	cache.add (transaction, block1);
 	auto existing1 (cache.blocks.get<1> ().find (block1->hash ()));
 	ASSERT_NE (cache.blocks.get<1> ().end (), existing1);
@@ -57,22 +60,27 @@ TEST (gap_cache, gap_bootstrap)
 	rai::keypair key;
 	auto send (std::make_shared<rai::send_block> (latest, key.pub, rai::genesis_amount - 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (latest)));
 	{
-		rai::transaction transaction (system.nodes[0]->store.environment, nullptr, true);
+		rai::transaction transaction (system.nodes[0]->store.environment, true);
 		ASSERT_EQ (rai::process_result::progress, system.nodes[0]->block_processor.process_receive_one (transaction, send).code);
 	}
 	ASSERT_EQ (rai::genesis_amount - 100, system.nodes[0]->balance (rai::genesis_account));
 	ASSERT_EQ (rai::genesis_amount, system.nodes[1]->balance (rai::genesis_account));
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	system.wallet (0)->insert_adhoc (key.prv);
-	system.wallet (0)->send_action (rai::test_genesis_key.pub, key.pub, 100);
+	auto latest_block (system.wallet (0)->send_action (rai::test_genesis_key.pub, key.pub, 100));
+	ASSERT_NE (nullptr, latest_block);
 	ASSERT_EQ (rai::genesis_amount - 200, system.nodes[0]->balance (rai::genesis_account));
 	ASSERT_EQ (rai::genesis_amount, system.nodes[1]->balance (rai::genesis_account));
-	auto iterations2 (0);
+	system.deadline_set (10s);
+	{
+		// The separate publish and vote system doesn't work very well here because it's instantly confirmed.
+		// We help it get the block and vote out here.
+		rai::transaction transaction (system.nodes[0]->store.environment, false);
+		system.nodes[0]->network.republish_block (transaction, latest_block);
+	}
 	while (system.nodes[1]->balance (rai::genesis_account) != rai::genesis_amount - 200)
 	{
-		system.poll ();
-		++iterations2;
-		ASSERT_LT (iterations2, 200);
+		ASSERT_NO_ERROR (system.poll ());
 	}
 }
 
@@ -94,7 +102,7 @@ TEST (gap_cache, two_dependencies)
 	system.nodes[0]->block_processor.add (send1, std::chrono::steady_clock::now ());
 	system.nodes[0]->block_processor.flush ();
 	ASSERT_EQ (0, system.nodes[0]->gap_cache.blocks.size ());
-	rai::transaction transaction (system.nodes[0]->store.environment, nullptr, false);
+	rai::transaction transaction (system.nodes[0]->store.environment, false);
 	ASSERT_TRUE (system.nodes[0]->store.block_exists (transaction, send1->hash ()));
 	ASSERT_TRUE (system.nodes[0]->store.block_exists (transaction, send2->hash ()));
 	ASSERT_TRUE (system.nodes[0]->store.block_exists (transaction, open->hash ()));

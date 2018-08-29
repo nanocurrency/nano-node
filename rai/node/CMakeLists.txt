@@ -22,7 +22,8 @@ add_library (node
 	cli.hpp
 	cli.cpp
 	common.cpp
-	common.hpp
+	lmdb.cpp
+	lmdb.hpp
 	node.hpp
 	node.cpp
 	openclwork.cpp
@@ -39,7 +40,6 @@ add_library (node
 	xorshift.hpp)
 
 target_link_libraries (node
-	lmdb
 	secure
 	rai_lib
 	libminiupnpc-static
