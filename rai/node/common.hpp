@@ -253,7 +253,7 @@ public:
 	bool operator== (rai::confirm_req const &) const;
 	std::shared_ptr<rai::block> block;
 	std::vector<rai::block_hash> hashes;
-	std::vector<std:pair<rai::block_hash, rai::block_hash>> roots_hashes;
+	std::vector<std::pair<rai::block_hash, rai::block_hash>> roots_hashes;
 	std::string hashes_string ();
 	std::string roots_string ();
 };
