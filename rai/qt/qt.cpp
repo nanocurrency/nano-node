@@ -499,7 +499,7 @@ namespace
 class short_text_visitor : public rai::block_visitor
 {
 public:
-	short_text_visitor (MDB_txn * transaction_a, rai::ledger & ledger_a) :
+	short_text_visitor (rai::transaction const & transaction_a, rai::ledger & ledger_a) :
 	transaction (transaction_a),
 	ledger (ledger_a)
 	{
@@ -566,7 +566,7 @@ public:
 			amount = balance - previous_balance;
 		}
 	}
-	MDB_txn * transaction;
+	rai::transaction const & transaction;
 	rai::ledger & ledger;
 	std::string type;
 	rai::uint128_t amount;

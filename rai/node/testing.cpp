@@ -87,7 +87,7 @@ std::shared_ptr<rai::wallet> rai::system::wallet (size_t index_a)
 	return nodes[index_a]->wallets.items.begin ()->second;
 }
 
-rai::account rai::system::account (MDB_txn * transaction_a, size_t index_a)
+rai::account rai::system::account (rai::transaction const & transaction_a, size_t index_a)
 {
 	auto wallet_l (wallet (index_a));
 	auto keys (wallet_l->store.begin (transaction_a));
@@ -242,7 +242,7 @@ rai::account rai::system::get_random_account (std::vector<rai::account> & accoun
 	return result;
 }
 
-rai::uint128_t rai::system::get_random_amount (MDB_txn * transaction_a, rai::node & node_a, rai::account const & account_a)
+rai::uint128_t rai::system::get_random_amount (rai::transaction const & transaction_a, rai::node & node_a, rai::account const & account_a)
 {
 	rai::uint128_t balance (node_a.ledger.account_balance (transaction_a, account_a));
 	std::string balance_text (balance.convert_to<std::string> ());

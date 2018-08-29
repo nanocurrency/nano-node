@@ -365,7 +365,7 @@ void rai::frontier_req_client::received_frontier (boost::system::error_code cons
 	}
 }
 
-void rai::frontier_req_client::next (MDB_txn * transaction_a)
+void rai::frontier_req_client::next (rai::transaction const & transaction_a)
 {
 	auto iterator (connection->node->store.latest_begin (transaction_a, rai::uint256_union (current.number () + 1)));
 	if (iterator != connection->node->store.latest_end ())
@@ -602,7 +602,7 @@ void rai::bulk_push_client::start ()
 	});
 }
 
-void rai::bulk_push_client::push (MDB_txn * transaction_a)
+void rai::bulk_push_client::push (rai::transaction const & transaction_a)
 {
 	std::unique_ptr<rai::block> block;
 	bool finished (false);

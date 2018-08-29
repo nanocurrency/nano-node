@@ -22,7 +22,7 @@ public:
 	void generate_usage_traffic (uint32_t, uint32_t, size_t);
 	void generate_usage_traffic (uint32_t, uint32_t);
 	rai::account get_random_account (std::vector<rai::account> &);
-	rai::uint128_t get_random_amount (MDB_txn *, rai::node &, rai::account const &);
+	rai::uint128_t get_random_amount (rai::transaction const &, rai::node &, rai::account const &);
 	void generate_rollback (rai::node &, std::vector<rai::account> &);
 	void generate_change_known (rai::node &, std::vector<rai::account> &);
 	void generate_change_unknown (rai::node &, std::vector<rai::account> &);
@@ -30,7 +30,7 @@ public:
 	void generate_send_new (rai::node &, std::vector<rai::account> &);
 	void generate_send_existing (rai::node &, std::vector<rai::account> &);
 	std::shared_ptr<rai::wallet> wallet (size_t);
-	rai::account account (MDB_txn *, size_t);
+	rai::account account (rai::transaction const &, size_t);
 	/**
 	 * Polls, sleep if there's no work to be done (default 50ms), then check the deadline
 	 * @returns 0 or rai::deadline_expired
