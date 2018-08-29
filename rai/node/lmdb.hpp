@@ -90,7 +90,7 @@ class block_store;
 class balance_visitor : public rai::block_visitor
 {
 public:
-	balance_visitor (MDB_txn *, rai::block_store &);
+	balance_visitor (rai::transaction const &, rai::block_store &);
 	virtual ~balance_visitor () = default;
 	void compute (rai::block_hash const &);
 	void send_block (rai::send_block const &) override;
@@ -98,7 +98,7 @@ public:
 	void open_block (rai::open_block const &) override;
 	void change_block (rai::change_block const &) override;
 	void state_block (rai::state_block const &) override;
-	MDB_txn * transaction;
+	rai::transaction const & transaction;
 	rai::block_store & store;
 	rai::block_hash current_balance;
 	rai::block_hash current_amount;
@@ -111,7 +111,7 @@ public:
 class amount_visitor : public rai::block_visitor
 {
 public:
-	amount_visitor (MDB_txn *, rai::block_store &);
+	amount_visitor (rai::transaction const &, rai::block_store &);
 	virtual ~amount_visitor () = default;
 	void compute (rai::block_hash const &);
 	void send_block (rai::send_block const &) override;
@@ -120,7 +120,7 @@ public:
 	void change_block (rai::change_block const &) override;
 	void state_block (rai::state_block const &) override;
 	void from_send (rai::block_hash const &);
-	MDB_txn * transaction;
+	rai::transaction const & transaction;
 	rai::block_store & store;
 	rai::block_hash current_amount;
 	rai::block_hash current_balance;
@@ -133,7 +133,7 @@ public:
 class representative_visitor : public rai::block_visitor
 {
 public:
-	representative_visitor (MDB_txn * transaction_a, rai::block_store & store_a);
+	representative_visitor (rai::transaction const & transaction_a, rai::block_store & store_a);
 	virtual ~representative_visitor () = default;
 	void compute (rai::block_hash const & hash_a);
 	void send_block (rai::send_block const & block_a) override;
@@ -141,7 +141,7 @@ public:
 	void open_block (rai::open_block const & block_a) override;
 	void change_block (rai::change_block const & block_a) override;
 	void state_block (rai::state_block const & block_a) override;
-	MDB_txn * transaction;
+	rai::transaction const & transaction;
 	rai::block_store & store;
 	rai::block_hash current;
 	rai::block_hash result;
