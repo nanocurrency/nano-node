@@ -447,8 +447,8 @@ public:
 		node.stats.inc (rai::stat::type::message, rai::stat::detail::confirm_req, rai::stat::dir::in);
 		node.peers.contacted (sender, message_a.header.version_using);
 		std::vector<rai::block_hash> blocks_bundle;
-		rai::transaction transaction_a (node.store.environment, nullptr, false);
-		if (block != nullptr)
+		rai::transaction transaction_a (node.store.environment, false);
+		if (message_a.block != nullptr)
 		{
 			node.process_active (message_a.block);
 			node.active.publish (message_a.block);

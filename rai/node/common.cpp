@@ -397,6 +397,7 @@ rai::confirm_req::confirm_req (rai::block_hash const & hash_a) :
 message (rai::message_type::confirm_req),
 hashes (std::vector<rai::block_hash> (1, hash_a))
 {
+	assert (!hashes.empty ());
 	// Invalid (0) block type for hashes + roots request
 	header.block_type_set (rai::block_type::invalid);
 }
@@ -405,6 +406,7 @@ rai::confirm_req::confirm_req (rai::block_hash const & hash_a, rai::block_hash c
 message (rai::message_type::confirm_req),
 roots_hashes (std::vector<std::pair<rai::block_hash, rai::block_hash>> (1, std::make_pair (hash_a, root_a)))
 {
+	assert (!roots_hashes.empty ());
 	// not_a_block (1) block type for hashes + roots request
 	header.block_type_set (rai::block_type::not_a_block);
 }
@@ -413,34 +415,39 @@ bool rai::confirm_req::deserialize (rai::stream & stream_a)
 {
 	bool result (true);
 	assert (header.type == rai::message_type::confirm_req);
-	if (header.block_type_set == rai::block_type::invalid)
+	if (header.block_type () == rai::block_type::invalid)
 	{
-		while (!result)
+		bool result_stream (false);
+		while (!result_stream && stream_a.in_avail () > 0)
 		{
-			rai::block_hash block_hash;
-			result = rai::read (stream_a, block_hash);
-			if (!result)
+			rai::block_hash block_hash (0);
+			result_stream = rai::read (stream_a, block_hash);
+			if (!result_stream && !block_hash.is_zero ())
 			{
 				hashes.push_back (block_hash);
 			}
 		}
+		result = hashes.empty ();
 	}
-	else if (header.block_type_set == rai::block_type::not_a_block)
+	else if (header.block_type () == rai::block_type::not_a_block)
 	{
-		while (!result)
+		bool result_stream (false);
+		while (!result_stream && stream_a.in_avail () > 0)
 		{
-			rai::block_hash block_hash;
-			rai::block_hash root_hash;
-			result = rai::read (stream_a, block_hash);
-			if (!result)
+			rai::block_hash block_hash (0);
+			rai::block_hash root_hash (0);
+			result_stream = rai::read (stream_a, block_hash);
+			if (!result_stream && !block_hash.is_zero ())
 			{
-				result = rai::read (stream_a, root_hash);
-				if (!result)
+				calls++;
+				result_stream = rai::read (stream_a, root_hash);
+				if (!result_stream && !root_hash.is_zero ())
 				{
 					roots_hashes.push_back (std::make_pair (block_hash, root_hash));
 				}
 			}
 		}
+		result = roots_hashes.empty ();
 	}
 	else
 	{
@@ -457,17 +464,18 @@ void rai::confirm_req::visit (rai::message_visitor & visitor_a) const
 
 void rai::confirm_req::serialize (rai::stream & stream_a)
 {
-	assert (block != nullptr);
 	header.serialize (stream_a);
-	if (header.block_type_set == rai::block_type::invalid)
+	if (header.block_type () == rai::block_type::invalid)
 	{
+		assert (!hashes.empty ());
 		for (auto hash : hashes)
 		{
 			write (stream_a, hash);
 		}
 	}
-	else if (header.block_type_set == rai::block_type::not_a_block)
+	else if (header.block_type () == rai::block_type::not_a_block)
 	{
+		assert (!roots_hashes.empty ());
 		for (auto root_hash : roots_hashes)
 		{
 			write (stream_a, root_hash.first);
@@ -476,6 +484,7 @@ void rai::confirm_req::serialize (rai::stream & stream_a)
 	}
 	else
 	{
+		assert (block != nullptr);
 		block->serialize (stream_a);
 	}
 }
@@ -498,7 +507,7 @@ bool rai::confirm_req::operator== (rai::confirm_req const & other_a) const
 	return equal;
 }
 
-std::string rai::confirm_req::hashes_string ()
+std::string rai::confirm_req::hashes_string () const
 {
 	std::string result;
 	for (auto hash : hashes)
@@ -509,7 +518,7 @@ std::string rai::confirm_req::hashes_string ()
 	return result;
 }
 
-std::string rai::confirm_req::roots_string ()
+std::string rai::confirm_req::roots_string () const
 {
 	std::string result;
 	for (auto root_hash : roots_hashes)

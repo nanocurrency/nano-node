@@ -348,7 +348,7 @@ TEST (block, confirm_req_hash_serialization)
 	rai::confirm_req req2 (error, stream2, header);
 	ASSERT_FALSE (error);
 	ASSERT_EQ (req, req2);
-	ASSERT_EQ (req.hash, req2.hash);
+	ASSERT_EQ (req.hashes, req2.hashes);
 }
 
 TEST (state_block, serialization)

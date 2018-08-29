@@ -254,8 +254,8 @@ public:
 	std::shared_ptr<rai::block> block;
 	std::vector<rai::block_hash> hashes;
 	std::vector<std::pair<rai::block_hash, rai::block_hash>> roots_hashes;
-	std::string hashes_string ();
-	std::string roots_string ();
+	std::string hashes_string () const;
+	std::string roots_string () const;
 };
 class confirm_ack : public message
 {
