@@ -7,6 +7,7 @@
 #include <argon2.h>
 
 #include <boost/filesystem.hpp>
+#include <boost/polymorphic_cast.hpp>
 
 #include <future>
 
@@ -275,7 +276,7 @@ kdf (kdf_a)
 	if (!init_a)
 	{
 		MDB_val junk;
-		assert (mdb_get (transaction_a, handle, rai::mdb_val (version_special), &junk) == MDB_NOTFOUND);
+		assert (mdb_get (tx (transaction_a), handle, rai::mdb_val (version_special), &junk) == MDB_NOTFOUND);
 		boost::property_tree::ptree wallet_l;
 		std::stringstream istream (json_a);
 		try
@@ -308,11 +309,11 @@ kdf (kdf_a)
 				init_a = true;
 			}
 		}
-		init_a |= mdb_get (transaction_a, handle, rai::mdb_val (version_special), &junk) != 0;
-		init_a |= mdb_get (transaction_a, handle, rai::mdb_val (wallet_key_special), &junk) != 0;
-		init_a |= mdb_get (transaction_a, handle, rai::mdb_val (salt_special), &junk) != 0;
-		init_a |= mdb_get (transaction_a, handle, rai::mdb_val (check_special), &junk) != 0;
-		init_a |= mdb_get (transaction_a, handle, rai::mdb_val (representative_special), &junk) != 0;
+		init_a |= mdb_get (tx (transaction_a), handle, rai::mdb_val (version_special), &junk) != 0;
+		init_a |= mdb_get (tx (transaction_a), handle, rai::mdb_val (wallet_key_special), &junk) != 0;
+		init_a |= mdb_get (tx (transaction_a), handle, rai::mdb_val (salt_special), &junk) != 0;
+		init_a |= mdb_get (tx (transaction_a), handle, rai::mdb_val (check_special), &junk) != 0;
+		init_a |= mdb_get (tx (transaction_a), handle, rai::mdb_val (representative_special), &junk) != 0;
 		rai::raw_key key;
 		key.data.clear ();
 		password.value_set (key);
@@ -332,7 +333,7 @@ kdf (kdf_a)
 	{
 		int version_status;
 		MDB_val version_value;
-		version_status = mdb_get (transaction_a, handle, rai::mdb_val (version_special), &version_value);
+		version_status = mdb_get (tx (transaction_a), handle, rai::mdb_val (version_special), &version_value);
 		if (version_status == MDB_NOTFOUND)
 		{
 			version_put (transaction_a, version_current);
@@ -384,7 +385,7 @@ void rai::wallet_store::initialize (rai::transaction const & transaction_a, bool
 {
 	assert (strlen (path_a.c_str ()) == path_a.size ());
 	auto error (0);
-	error |= mdb_dbi_open (transaction_a, path_a.c_str (), MDB_CREATE, &handle);
+	error |= mdb_dbi_open (tx (transaction_a), path_a.c_str (), MDB_CREATE, &handle);
 	init_a = error != 0;
 }
 
@@ -423,7 +424,7 @@ void rai::wallet_store::insert_watch (rai::transaction const & transaction_a, ra
 
 void rai::wallet_store::erase (rai::transaction const & transaction_a, rai::public_key const & pub)
 {
-	auto status (mdb_del (transaction_a, handle, rai::mdb_val (pub), nullptr));
+	auto status (mdb_del (tx (transaction_a), handle, rai::mdb_val (pub), nullptr));
 	assert (status == 0);
 }
 
@@ -431,7 +432,7 @@ rai::wallet_value rai::wallet_store::entry_get_raw (rai::transaction const & tra
 {
 	rai::wallet_value result;
 	rai::mdb_val value;
-	auto status (mdb_get (transaction_a, handle, rai::mdb_val (pub_a), value));
+	auto status (mdb_get (tx (transaction_a), handle, rai::mdb_val (pub_a), value));
 	if (status == 0)
 	{
 		result = rai::wallet_value (value);
@@ -446,7 +447,7 @@ rai::wallet_value rai::wallet_store::entry_get_raw (rai::transaction const & tra
 
 void rai::wallet_store::entry_put_raw (rai::transaction const & transaction_a, rai::public_key const & pub_a, rai::wallet_value const & entry_a)
 {
-	auto status (mdb_put (transaction_a, handle, rai::mdb_val (pub_a), entry_a.val (), 0));
+	auto status (mdb_put (tx (transaction_a), handle, rai::mdb_val (pub_a), entry_a.val (), 0));
 	assert (status == 0);
 }
 
@@ -871,7 +872,7 @@ void rai::wallet::serialize (std::string & json_a)
 
 void rai::wallet_store::destroy (rai::transaction const & transaction_a)
 {
-	auto status (mdb_drop (transaction_a, handle, 1));
+	auto status (mdb_drop (tx (transaction_a), handle, 1));
 	assert (status == 0);
 }
 
@@ -996,7 +997,7 @@ std::shared_ptr<rai::block> rai::wallet::send_action (rai::account const & sourc
 		if (id_mdb_val)
 		{
 			rai::mdb_val result;
-			auto status (mdb_get (transaction, wallets.node.wallets.send_action_ids, *id_mdb_val, result));
+			auto status (mdb_get (wallets.env.tx (transaction), wallets.node.wallets.send_action_ids, *id_mdb_val, result));
 			if (status == 0)
 			{
 				rai::uint256_union hash (result);
@@ -1035,7 +1036,7 @@ std::shared_ptr<rai::block> rai::wallet::send_action (rai::account const & sourc
 						block.reset (new rai::state_block (source_a, info.head, rep_block->representative (), balance - amount_a, account_a, prv, source_a, cached_work));
 						if (id_mdb_val && block != nullptr)
 						{
-							auto status (mdb_put (transaction, wallets.node.wallets.send_action_ids, *id_mdb_val, rai::mdb_val (block->hash ()), 0));
+							auto status (mdb_put (wallets.env.tx (transaction), wallets.node.wallets.send_action_ids, *id_mdb_val, rai::mdb_val (block->hash ()), 0));
 							if (status != 0)
 							{
 								block = nullptr;
@@ -1253,8 +1254,8 @@ thread ([this]() { do_wallet_actions (); })
 	if (!error_a)
 	{
 		auto transaction (node.store.tx_begin (true));
-		auto status (mdb_dbi_open (transaction, nullptr, MDB_CREATE, &handle));
-		status |= mdb_dbi_open (transaction, "send_action_ids", MDB_CREATE, &send_action_ids);
+		auto status (mdb_dbi_open (env.tx (transaction), nullptr, MDB_CREATE, &handle));
+		status |= mdb_dbi_open (env.tx (transaction), "send_action_ids", MDB_CREATE, &send_action_ids);
 		assert (status == 0);
 		std::string beginning (rai::uint256_union (0).to_string ());
 		std::string end ((rai::uint256_union (rai::uint256_t (0) - rai::uint256_t (1))).to_string ());
@@ -1477,4 +1478,10 @@ rai::store_iterator<rai::uint256_union, rai::wallet_value> rai::wallet_store::fi
 rai::store_iterator<rai::uint256_union, rai::wallet_value> rai::wallet_store::end ()
 {
 	return rai::store_iterator<rai::uint256_union, rai::wallet_value> (nullptr);
+}
+
+MDB_txn * rai::wallet_store::tx (rai::transaction const & transaction_a) const
+{
+	auto result (boost::polymorphic_downcast<rai::mdb_txn *>(transaction_a.impl.get()));
+	return *result;
 }
