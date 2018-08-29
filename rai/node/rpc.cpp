@@ -1900,10 +1900,9 @@ void rai::rpc_handler::node_id ()
 	rpc_control_impl ();
 	if (!ec)
 	{
-		rai::keypair node_id (node.node_id);
-		response_l.put ("private", node_id.prv.data.to_string ());
-		response_l.put ("public", node_id.pub.to_string ());
-		response_l.put ("as_account", node_id.pub.to_account ());
+		response_l.put ("private", node.node_id.prv.data.to_string ());
+		response_l.put ("public", node.node_id.pub.to_string ());
+		response_l.put ("as_account", node.node_id.pub.to_account ());
 	}
 	response_errors ();
 }
