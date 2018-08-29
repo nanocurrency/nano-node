@@ -29,6 +29,7 @@ int main (int argc, char * const * argv)
 		("debug_profile_kdf", "Profile kdf function")
 		("debug_verify_profile", "Profile signature verification")
 		("debug_profile_sign", "Profile signature generation")
+		("debug_validate_blocks", "Check all blocks for correct hash, signature, work value")
 		("platform", boost::program_options::value<std::string> (), "Defines the <platform> for OpenCL commands")
 		("device", boost::program_options::value<std::string> (), "Defines <device> for OpenCL command")
 		("threads", boost::program_options::value<std::string> (), "Defines <threads> count for OpenCL command");
@@ -321,6 +322,76 @@ int main (int argc, char * const * argv)
 				}
 				auto end1 (std::chrono::high_resolution_clock::now ());
 				std::cerr << boost::str (boost::format ("%|1$ 12d|\n") % std::chrono::duration_cast<std::chrono::microseconds> (end1 - begin1).count ());
+			}
+		}
+		else if (vm.count ("debug_validate_blocks"))
+		{
+			rai::inactive_node node (data_path);
+			rai::transaction transaction (node.node->store.environment, false);
+			std::cerr << boost::str (boost::format ("Performing blocks hash, signature, work validation...\n"));
+			size_t count (0);
+			for (auto i (node.node->store.latest_begin (transaction)), n (node.node->store.latest_end ()); i != n; ++i)
+			{
+				++count;
+				if ((count % 20000) == 0)
+				{
+					std::cerr << boost::str (boost::format ("%1% accounts validated\n") % count);
+				}
+				rai::account_info info (i->second);
+				rai::account account (i->first);
+				auto hash (info.open_block);
+				rai::block_hash calculated_hash (0);
+				while (!hash.is_zero ())
+				{
+					// Retrieving block data
+					auto block (node.node->store.block_get (transaction, hash));
+					// Check for state & open blocks if account field is correct
+					if ((block->type () == rai::block_type::open && block->root () != account) || (block->type () == rai::block_type::state && static_cast<rai::state_block const &> (*block.get ()).hashables.account != account))
+					{
+						std::cerr << boost::str (boost::format ("Incorrect account field for block %1%\n") % hash.to_string ());
+					}
+					// Check if previous field is correct
+					if (calculated_hash != block->previous ())
+					{
+						std::cerr << boost::str (boost::format ("Incorrect previous field for block %1%\n") % hash.to_string ());
+					}
+					// Check if block data is correct (calculating hash)
+					calculated_hash = block->hash ();
+					if (calculated_hash != hash)
+					{
+						std::cerr << boost::str (boost::format ("Invalid data inside block %1% calculated hash: %2%\n") % hash.to_string () % calculated_hash.to_string ());
+					}
+					// Check if block signature is correct
+					if (validate_message (account, hash, block->block_signature ()))
+					{
+						bool invalid (true);
+						// Epoch blocks
+						if (!node.node->ledger.epoch_link.is_zero () && block->type () == rai::block_type::state)
+						{
+							auto & state_block (static_cast<rai::state_block &> (*block.get ()));
+							rai::amount prev_balance (0);
+							if (!state_block.hashables.previous.is_zero ())
+							{
+								prev_balance = node.node->ledger.balance (transaction, state_block.hashables.previous);
+							}
+							if (state_block.hashables.link == node.node->ledger.epoch_link && state_block.hashables.balance == prev_balance)
+							{
+								invalid = validate_message (node.node->ledger.epoch_signer, hash, block->block_signature ());
+							}
+						}
+						if (invalid)
+						{
+							std::cerr << boost::str (boost::format ("Invalid signature for block %1%\n") % hash.to_string ());
+						}
+					}
+					// Check if block work value is correct
+					if (rai::work_validate (*block.get ()))
+					{
+						std::cerr << boost::str (boost::format ("Invalid work for block %1% value: %2%\n") % hash.to_string () % rai::to_string_hex (block->block_work ()));
+					}
+					// Retrieving successor block hash
+					hash = node.node->store.block_successor (transaction, hash);
+				}
 			}
 		}
 		else if (vm.count ("version"))
