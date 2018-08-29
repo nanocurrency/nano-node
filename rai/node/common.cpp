@@ -395,7 +395,7 @@ roots_hashes (roots_hashes_a)
 
 rai::confirm_req::confirm_req (rai::block_hash const & hash_a) :
 message (rai::message_type::confirm_req),
-hashes (std::vector (1, hash_a))
+hashes (std::vector<rai::block_hash> (1, hash_a))
 {
 	// Invalid (0) block type for hashes + roots request
 	header.block_type_set (rai::block_type::invalid);
@@ -403,7 +403,7 @@ hashes (std::vector (1, hash_a))
 
 rai::confirm_req::confirm_req (rai::block_hash const & hash_a, rai::block_hash const & root_a) :
 message (rai::message_type::confirm_req),
-roots_hashes (std::vector (1, std::make_pair (hash_a, root_a)))
+roots_hashes (std::vector<std::pair<rai::block_hash, rai::block_hash>> (1, std::make_pair (hash_a, root_a)))
 {
 	// not_a_block (1) block type for hashes + roots request
 	header.block_type_set (rai::block_type::not_a_block);

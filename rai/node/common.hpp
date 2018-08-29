@@ -244,7 +244,7 @@ public:
 	confirm_req (bool &, rai::stream &, rai::message_header const &);
 	confirm_req (std::shared_ptr<rai::block>);
 	confirm_req (std::vector<rai::block_hash> const &);
-	confirm_req (std::vector<std:pair<rai::block_hash, rai::block_hash>> const &);
+	confirm_req (std::vector<std::pair<rai::block_hash, rai::block_hash>> const &);
 	confirm_req (rai::block_hash const &);
 	confirm_req (rai::block_hash const &, rai::block_hash const &);
 	bool deserialize (rai::stream &) override;
