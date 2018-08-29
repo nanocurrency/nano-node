@@ -626,7 +626,8 @@ public:
 	rai::alarm & alarm;
 	rai::work_pool & work;
 	boost::log::sources::logger_mt log;
-	rai::block_store store;
+	std::unique_ptr<rai::block_store> store_impl;
+	rai::block_store & store;
 	rai::gap_cache gap_cache;
 	rai::ledger ledger;
 	rai::active_transactions active;
