@@ -9,5 +9,5 @@ void release_assert_internal (bool check, const char * check_expr, const char * 
 	}
 
 	std::cerr << "Assertion (" << check_expr << ") failed " << file << ":" << line << std::endl;
-	abort();
+	abort ();
 }
