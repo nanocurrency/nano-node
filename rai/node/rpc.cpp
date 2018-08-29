@@ -1912,7 +1912,7 @@ void rai::rpc_handler::node_id_delete ()
 	rpc_control_impl ();
 	if (!ec)
 	{
-		rai::transaction transaction (node.store.environment, nullptr, true);
+		rai::transaction transaction (node.store.environment, true);
 		node.store.delete_node_id (transaction);
 		response_l.put ("deleted", "1");
 	}
