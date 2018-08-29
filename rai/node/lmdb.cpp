@@ -46,6 +46,11 @@ rai::mdb_env::operator MDB_env * () const
 	return environment;
 }
 
+rai::transaction rai::mdb_env::tx_begin (bool write_a) const
+{
+	return rai::transaction (*this, write_a);
+}
+
 rai::mdb_val::mdb_val (rai::epoch epoch_a) :
 value ({ 0, nullptr }),
 epoch (epoch_a)
@@ -258,7 +263,7 @@ rai::mdb_val::operator MDB_val const & () const
 	return value;
 }
 
-rai::transaction::transaction (rai::mdb_env & environment_a, bool write_a)
+rai::transaction::transaction (rai::mdb_env const & environment_a, bool write_a)
 {
 	auto status (mdb_txn_begin (environment_a, nullptr, write_a ? 0 : MDB_RDONLY, &handle));
 	assert (status == 0);

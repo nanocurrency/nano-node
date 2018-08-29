@@ -9,6 +9,23 @@
 
 namespace rai
 {
+class mdb_env;
+/**
+ * RAII wrapper of MDB_txn where the constructor starts the transaction
+ * and the destructor commits it.
+ */
+class transaction
+{
+public:
+	transaction (rai::mdb_env const &, bool = false);
+	transaction (rai::transaction &) = delete;
+	transaction (rai::transaction &&) = default;
+	~transaction ();
+	rai::transaction & operator= (rai::transaction const &) = delete;
+	rai::transaction & operator= (rai::transaction &) = default;
+	operator MDB_txn * () const;
+	MDB_txn * handle;
+};
 /**
  * RAII wrapper for MDB_env
  */
@@ -18,6 +35,7 @@ public:
 	mdb_env (bool &, boost::filesystem::path const &, int max_dbs = 128);
 	~mdb_env ();
 	operator MDB_env * () const;
+	rai::transaction tx_begin (bool = false) const;
 	MDB_env * environment;
 };
 
@@ -65,23 +83,6 @@ public:
 	MDB_val value;
 	std::shared_ptr<std::vector<uint8_t>> buffer;
 	rai::epoch epoch;
-};
-
-/**
- * RAII wrapper of MDB_txn where the constructor starts the transaction
- * and the destructor commits it.
- */
-class transaction
-{
-public:
-	transaction (rai::mdb_env &, bool = false);
-	transaction (rai::transaction &) = delete;
-	transaction (rai::transaction &&) = default;
-	~transaction ();
-	rai::transaction & operator= (rai::transaction const &) = delete;
-	rai::transaction & operator= (rai::transaction &) = default;
-	operator MDB_txn * () const;
-	MDB_txn * handle;
 };
 class block_store;
 /**
