@@ -399,8 +399,8 @@ int main (int argc, char * const * argv)
 			else
 			{
 				std::cerr << "For this test ACTIVE_NETWORK should be rai_test_network" << std::endl;
-      }
-    }
+			}
+		}
 		else if (vm.count ("debug_validate_blocks"))
 		{
 			rai::inactive_node node (data_path);
