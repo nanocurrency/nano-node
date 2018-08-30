@@ -292,14 +292,7 @@ void rai::network::broadcast_confirm_req_base (std::shared_ptr<rai::block> block
 	auto count (0);
 	while (!endpoints_a->empty () && count < max_reps)
 	{
-		if (rai::rai_network == rai::rai_networks::rai_live_network)
-		{
-			send_confirm_req (endpoints_a->back ().endpoint, block_a);
-		}
-		else
-		{
-			send_confirm_req_hash (endpoints_a->back ().endpoint, block_a);
-		}
+		send_confirm_req (endpoints_a->back ().endpoint, block_a);
 		endpoints_a->pop_back ();
 		count++;
 	}
@@ -310,6 +303,45 @@ void rai::network::broadcast_confirm_req_base (std::shared_ptr<rai::block> block
 			if (auto node_l = node_w.lock ())
 			{
 				node_l->network.broadcast_confirm_req_base (block_a, endpoints_a, delay_a + 50, true);
+			}
+		});
+	}
+}
+
+void rai::network::broadcast_confirm_req_batch (std::unordered_map<rai::endpoint, std::vector<std::pair<rai::block_hash, rai::block_hash>>> request_bundle_a, unsigned delay_a, bool resumption)
+{
+	const size_t max_reps = 10;
+	if (!resumption && node.config.logging.network_logging ())
+	{
+		BOOST_LOG (node.log) << boost::str (boost::format ("Broadcasting batch confirm req to %1% representatives") % request_bundle_a.size ());
+	}
+	auto count (0);
+	while (!request_bundle_a.empty () && count < max_reps)
+	{
+		for (auto j (request_bundle_a.begin ()), m (request_bundle_a.end ()); j != m && count < max_reps; j++)
+		{
+			count++;
+			std::vector<std::pair<rai::block_hash, rai::block_hash>> roots_hashes;
+			// Limit max request size hash + root to 7 pairs
+			while (roots_hashes.size () < 7 && !j->second.empty ())
+			{
+				roots_hashes.push_back (j->second.back ());
+				j->second.pop_back ();
+			}
+			send_confirm_req_hashes (j->first, roots_hashes);
+			if (j->second.empty ())
+			{
+				request_bundle_a.erase (j);
+			}
+		}
+	}
+	if (!request_bundle_a.empty ())
+	{
+		std::weak_ptr<rai::node> node_w (node.shared ());
+		node.alarm.add (std::chrono::steady_clock::now () + std::chrono::milliseconds (delay_a), [node_w, request_bundle_a, delay_a]() {
+			if (auto node_l = node_w.lock ())
+			{
+				node_l->network.broadcast_confirm_req_batch (request_bundle_a, delay_a + 50, true);
 			}
 		});
 	}
@@ -340,9 +372,9 @@ void rai::network::send_confirm_req (rai::endpoint const & endpoint_a, std::shar
 	});
 }
 
-void rai::network::send_confirm_req_hash (rai::endpoint const & endpoint_a, std::shared_ptr<rai::block> block)
+void rai::network::send_confirm_req_hashes (rai::endpoint const & endpoint_a, std::vector<std::pair<rai::block_hash, rai::block_hash>> const & roots_hashes_a)
 {
-	rai::confirm_req message (block->hash (), block->root ());
+	rai::confirm_req message (roots_hashes_a);
 	std::shared_ptr<std::vector<uint8_t>> bytes (new std::vector<uint8_t>);
 	{
 		rai::vectorstream stream (*bytes);
@@ -350,7 +382,7 @@ void rai::network::send_confirm_req_hash (rai::endpoint const & endpoint_a, std:
 	}
 	if (node.config.logging.network_message_logging ())
 	{
-		BOOST_LOG (node.log) << boost::str (boost::format ("Sending confirm req hash to %1%") % endpoint_a);
+		BOOST_LOG (node.log) << boost::str (boost::format ("Sending confirm req hashes to %1%") % endpoint_a);
 	}
 	std::weak_ptr<rai::node> node_w (node.shared ());
 	node.stats.inc (rai::stat::type::message, rai::stat::detail::confirm_req, rai::stat::dir::out);
@@ -3806,6 +3838,7 @@ void rai::active_transactions::announce_votes ()
 	unsigned unconfirmed_announcements (0);
 	unsigned mass_request_count (0);
 	std::vector<rai::block_hash> blocks_bundle;
+	std::unordered_map<rai::endpoint, std::vector<std::pair<rai::block_hash, rai::block_hash>>> requests_bundle;
 
 	for (auto i (roots.begin ()), n (roots.end ()); i != n; ++i)
 	{
@@ -3897,12 +3930,52 @@ void rai::active_transactions::announce_votes ()
 				if (!reps->empty () && (total_weight > node.config.online_weight_minimum.number () || mass_request_count > 20))
 				{
 					// broadcast_confirm_req_base modifies reps, so we clone it once to avoid aliasing
-					node.network.broadcast_confirm_req_base (i->confirm_req_options.first, std::make_shared<std::vector<rai::peer_information>> (*reps), 0);
+					if (rai::rai_network == rai::rai_networks::rai_live_network)
+					{
+						node.network.broadcast_confirm_req_base (i->confirm_req_options.first, std::make_shared<std::vector<rai::peer_information>> (*reps), 0);
+					}
+					else
+					{
+						for (auto j (reps->begin ()), m (reps->end ()); j != m; j++)
+						{
+							auto rep_request (requests_bundle.find (j->endpoint));
+							auto root_hash (std::make_pair (i->confirm_req_options.first->hash (), i->confirm_req_options.first->root ()));
+							if (rep_request != requests_bundle.end ())
+							{
+								std::vector<std::pair<rai::block_hash, rai::block_hash>> insert_vector (1, root_hash);
+								requests_bundle.insert (std::make_pair (j->endpoint, insert_vector));
+							}
+							else
+							{
+								rep_request->second.push_back (root_hash);
+							}
+						}
+					}
 				}
 				else
 				{
 					// broadcast request to all peers
-					node.network.broadcast_confirm_req_base (i->confirm_req_options.first, std::make_shared<std::vector<rai::peer_information>> (node.peers.list_vector ()), 0);
+					if (rai::rai_network == rai::rai_networks::rai_live_network)
+					{
+						node.network.broadcast_confirm_req_base (i->confirm_req_options.first, std::make_shared<std::vector<rai::peer_information>> (node.peers.list_vector ()), 0);
+					}
+					else
+					{
+						for (auto j (reps->begin ()), m (reps->end ()); j != m; j++)
+						{
+							auto rep_request (requests_bundle.find (j->endpoint));
+							auto root_hash (std::make_pair (i->confirm_req_options.first->hash (), i->confirm_req_options.first->root ()));
+							if (rep_request != requests_bundle.end ())
+							{
+								std::vector<std::pair<rai::block_hash, rai::block_hash>> insert_vector (1, root_hash);
+								requests_bundle.insert (std::make_pair (j->endpoint, insert_vector));
+							}
+							else
+							{
+								rep_request->second.push_back (root_hash);
+							}
+						}
+					}
 					++mass_request_count;
 				}
 			}
@@ -3910,6 +3983,11 @@ void rai::active_transactions::announce_votes ()
 		roots.modify (i, [](rai::conflict_info & info_a) {
 			++info_a.announcements;
 		});
+	}
+	// Batch confirmation request
+	if (rai::rai_network != rai::rai_networks::rai_live_network && !requests_bundle.empty ())
+	{
+		node.network.broadcast_confirm_req_batch (requests_bundle, 50);
 	}
 	if (node.config.enable_voting && !blocks_bundle.empty ())
 	{
