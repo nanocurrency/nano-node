@@ -1,8 +1,10 @@
-#include <boost/make_shared.hpp>
 #include <gtest/gtest.h>
 #include <rai/core_test/testutil.hpp>
 #include <rai/node/testing.hpp>
 #include <rai/node/working.hpp>
+
+#include <boost/make_shared.hpp>
+#include <boost/polymorphic_cast.hpp>
 
 using namespace std::chrono_literals;
 
@@ -1421,7 +1423,7 @@ TEST (node, vote_replay)
 	}
 	{
 		auto transaction (system.nodes[0]->store.tx_begin ());
-		std::lock_guard<std::mutex> lock (system.nodes[0]->store.cache_mutex);
+		std::lock_guard<std::mutex> lock (boost::polymorphic_downcast<rai::mdb_store *> (system.nodes[0]->store_impl.get ())->cache_mutex);
 		auto vote (system.nodes[0]->store.vote_current (transaction, rai::test_genesis_key.pub));
 		ASSERT_EQ (nullptr, vote);
 	}
@@ -1434,7 +1436,7 @@ TEST (node, vote_replay)
 	{
 		auto ec = system.poll ();
 		auto transaction (system.nodes[0]->store.tx_begin ());
-		std::lock_guard<std::mutex> lock (system.nodes[0]->store.cache_mutex);
+		std::lock_guard<std::mutex> lock (boost::polymorphic_downcast<rai::mdb_store *> (system.nodes[0]->store_impl.get ())->cache_mutex);
 		auto vote (system.nodes[0]->store.vote_current (transaction, rai::test_genesis_key.pub));
 		done = vote && (vote->sequence >= 10000);
 		ASSERT_NO_ERROR (ec);

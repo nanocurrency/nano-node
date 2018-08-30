@@ -50,12 +50,12 @@ rai::mdb_env::operator MDB_env * () const
 
 rai::transaction rai::mdb_env::tx_begin (bool write_a) const
 {
-	return {std::make_unique<rai::mdb_txn> (*this, write_a)};
+	return { std::make_unique<rai::mdb_txn> (*this, write_a) };
 }
 
 MDB_txn * rai::mdb_env::tx (rai::transaction const & transaction_a) const
 {
-	auto result (boost::polymorphic_downcast<rai::mdb_txn *>(transaction_a.impl.get()));
+	auto result (boost::polymorphic_downcast<rai::mdb_txn *> (transaction_a.impl.get ()));
 	return *result;
 }
 

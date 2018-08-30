@@ -14,7 +14,7 @@ namespace rai
 class block_predecessor_set : public rai::block_visitor
 {
 public:
-	block_predecessor_set (rai::transaction const & transaction_a, rai::block_store & store_a) :
+	block_predecessor_set (rai::transaction const & transaction_a, rai::mdb_store & store_a) :
 	transaction (transaction_a),
 	store (store_a)
 	{
@@ -55,7 +55,7 @@ public:
 		}
 	}
 	rai::transaction const & transaction;
-	rai::block_store & store;
+	rai::mdb_store & store;
 };
 }
 
@@ -204,7 +204,7 @@ void rai::mdb_iterator<T, U>::clear ()
 template <typename T, typename U>
 MDB_txn * rai::mdb_iterator<T, U>::tx (rai::transaction const & transaction_a) const
 {
-	auto result (boost::polymorphic_downcast<rai::mdb_txn *>(transaction_a.impl.get()));
+	auto result (boost::polymorphic_downcast<rai::mdb_txn *> (transaction_a.impl.get ()));
 	return *result;
 }
 
@@ -353,65 +353,65 @@ template class rai::mdb_iterator<rai::uint256_union, std::shared_ptr<rai::vote>>
 template class rai::mdb_iterator<rai::uint256_union, rai::wallet_value>;
 template class rai::mdb_iterator<std::array<char, 64>, rai::mdb_val::no_value>;
 
-rai::store_iterator<rai::block_hash, rai::block_info> rai::block_store::block_info_begin (rai::transaction const & transaction_a, rai::block_hash const & hash_a)
+rai::store_iterator<rai::block_hash, rai::block_info> rai::mdb_store::block_info_begin (rai::transaction const & transaction_a, rai::block_hash const & hash_a)
 {
 	rai::store_iterator<rai::block_hash, rai::block_info> result (std::make_unique<rai::mdb_iterator<rai::block_hash, rai::block_info>> (transaction_a, blocks_info, rai::mdb_val (hash_a)));
 	return result;
 }
 
-rai::store_iterator<rai::block_hash, rai::block_info> rai::block_store::block_info_begin (rai::transaction const & transaction_a)
+rai::store_iterator<rai::block_hash, rai::block_info> rai::mdb_store::block_info_begin (rai::transaction const & transaction_a)
 {
 	rai::store_iterator<rai::block_hash, rai::block_info> result (std::make_unique<rai::mdb_iterator<rai::block_hash, rai::block_info>> (transaction_a, blocks_info));
 	return result;
 }
 
-rai::store_iterator<rai::block_hash, rai::block_info> rai::block_store::block_info_end ()
+rai::store_iterator<rai::block_hash, rai::block_info> rai::mdb_store::block_info_end ()
 {
 	rai::store_iterator<rai::block_hash, rai::block_info> result (nullptr);
 	return result;
 }
 
-rai::store_iterator<rai::account, rai::uint128_union> rai::block_store::representation_begin (rai::transaction const & transaction_a)
+rai::store_iterator<rai::account, rai::uint128_union> rai::mdb_store::representation_begin (rai::transaction const & transaction_a)
 {
 	rai::store_iterator<rai::account, rai::uint128_union> result (std::make_unique<rai::mdb_iterator<rai::account, rai::uint128_union>> (transaction_a, representation));
 	return result;
 }
 
-rai::store_iterator<rai::account, rai::uint128_union> rai::block_store::representation_end ()
+rai::store_iterator<rai::account, rai::uint128_union> rai::mdb_store::representation_end ()
 {
 	rai::store_iterator<rai::account, rai::uint128_union> result (nullptr);
 	return result;
 }
 
-rai::store_iterator<rai::block_hash, std::shared_ptr<rai::block>> rai::block_store::unchecked_begin (rai::transaction const & transaction_a)
+rai::store_iterator<rai::block_hash, std::shared_ptr<rai::block>> rai::mdb_store::unchecked_begin (rai::transaction const & transaction_a)
 {
 	rai::store_iterator<rai::block_hash, std::shared_ptr<rai::block>> result (std::make_unique<rai::mdb_iterator<rai::account, std::shared_ptr<rai::block>>> (transaction_a, unchecked));
 	return result;
 }
 
-rai::store_iterator<rai::block_hash, std::shared_ptr<rai::block>> rai::block_store::unchecked_begin (rai::transaction const & transaction_a, rai::block_hash const & hash_a)
+rai::store_iterator<rai::block_hash, std::shared_ptr<rai::block>> rai::mdb_store::unchecked_begin (rai::transaction const & transaction_a, rai::block_hash const & hash_a)
 {
 	rai::store_iterator<rai::block_hash, std::shared_ptr<rai::block>> result (std::make_unique<rai::mdb_iterator<rai::block_hash, std::shared_ptr<rai::block>>> (transaction_a, unchecked, rai::mdb_val (hash_a)));
 	return result;
 }
 
-rai::store_iterator<rai::block_hash, std::shared_ptr<rai::block>> rai::block_store::unchecked_end ()
+rai::store_iterator<rai::block_hash, std::shared_ptr<rai::block>> rai::mdb_store::unchecked_end ()
 {
 	rai::store_iterator<rai::block_hash, std::shared_ptr<rai::block>> result (nullptr);
 	return result;
 }
 
-rai::store_iterator<rai::account, std::shared_ptr<rai::vote>> rai::block_store::vote_begin (rai::transaction const & transaction_a)
+rai::store_iterator<rai::account, std::shared_ptr<rai::vote>> rai::mdb_store::vote_begin (rai::transaction const & transaction_a)
 {
 	return rai::store_iterator<rai::account, std::shared_ptr<rai::vote>> (std::make_unique<rai::mdb_iterator<rai::account, std::shared_ptr<rai::vote>>> (transaction_a, vote));
 }
 
-rai::store_iterator<rai::account, std::shared_ptr<rai::vote>> rai::block_store::vote_end ()
+rai::store_iterator<rai::account, std::shared_ptr<rai::vote>> rai::mdb_store::vote_end ()
 {
 	return rai::store_iterator<rai::account, std::shared_ptr<rai::vote>> (nullptr);
 }
 
-rai::block_store::block_store (bool & error_a, boost::filesystem::path const & path_a, int lmdb_max_dbs) :
+rai::mdb_store::mdb_store (bool & error_a, boost::filesystem::path const & path_a, int lmdb_max_dbs) :
 env (error_a, path_a, lmdb_max_dbs),
 frontiers (0),
 accounts_v0 (0),
@@ -459,12 +459,12 @@ meta (0)
 	}
 }
 
-rai::transaction rai::block_store::tx_begin (bool write_a)
+rai::transaction rai::mdb_store::tx_begin (bool write_a)
 {
 	return env.tx_begin (write_a);
 }
 
-void rai::block_store::initialize (rai::transaction const & transaction_a, rai::genesis const & genesis_a)
+void rai::mdb_store::initialize (rai::transaction const & transaction_a, rai::genesis const & genesis_a)
 {
 	auto hash_l (genesis_a.hash ());
 	assert (latest_v0_begin (transaction_a) == latest_v0_end ());
@@ -476,7 +476,7 @@ void rai::block_store::initialize (rai::transaction const & transaction_a, rai::
 	frontier_put (transaction_a, hash_l, genesis_account);
 }
 
-void rai::block_store::version_put (rai::transaction const & transaction_a, int version_a)
+void rai::mdb_store::version_put (rai::transaction const & transaction_a, int version_a)
 {
 	rai::uint256_union version_key (1);
 	rai::uint256_union version_value (version_a);
@@ -484,7 +484,7 @@ void rai::block_store::version_put (rai::transaction const & transaction_a, int 
 	assert (status == 0);
 }
 
-int rai::block_store::version_get (rai::transaction const & transaction_a)
+int rai::mdb_store::version_get (rai::transaction const & transaction_a)
 {
 	rai::uint256_union version_key (1);
 	rai::mdb_val data;
@@ -499,7 +499,7 @@ int rai::block_store::version_get (rai::transaction const & transaction_a)
 	return result;
 }
 
-rai::raw_key rai::block_store::get_node_id (rai::transaction const & transaction_a)
+rai::raw_key rai::mdb_store::get_node_id (rai::transaction const & transaction_a)
 {
 	rai::uint256_union node_id_mdb_key (3);
 	rai::raw_key node_id;
@@ -520,14 +520,14 @@ rai::raw_key rai::block_store::get_node_id (rai::transaction const & transaction
 	return node_id;
 }
 
-void rai::block_store::delete_node_id (rai::transaction const & transaction_a)
+void rai::mdb_store::delete_node_id (rai::transaction const & transaction_a)
 {
 	rai::uint256_union node_id_mdb_key (3);
 	auto error (mdb_del (env.tx (transaction_a), meta, rai::mdb_val (node_id_mdb_key), nullptr));
 	assert (!error || error == MDB_NOTFOUND);
 }
 
-void rai::block_store::do_upgrades (rai::transaction const & transaction_a)
+void rai::mdb_store::do_upgrades (rai::transaction const & transaction_a)
 {
 	switch (version_get (transaction_a))
 	{
@@ -558,7 +558,7 @@ void rai::block_store::do_upgrades (rai::transaction const & transaction_a)
 	}
 }
 
-void rai::block_store::upgrade_v1_to_v2 (rai::transaction const & transaction_a)
+void rai::mdb_store::upgrade_v1_to_v2 (rai::transaction const & transaction_a)
 {
 	version_put (transaction_a, 2);
 	rai::account account (1);
@@ -592,7 +592,7 @@ void rai::block_store::upgrade_v1_to_v2 (rai::transaction const & transaction_a)
 	}
 }
 
-void rai::block_store::upgrade_v2_to_v3 (rai::transaction const & transaction_a)
+void rai::mdb_store::upgrade_v2_to_v3 (rai::transaction const & transaction_a)
 {
 	version_put (transaction_a, 3);
 	mdb_drop (env.tx (transaction_a), representation, 0);
@@ -610,7 +610,7 @@ void rai::block_store::upgrade_v2_to_v3 (rai::transaction const & transaction_a)
 	}
 }
 
-void rai::block_store::upgrade_v3_to_v4 (rai::transaction const & transaction_a)
+void rai::mdb_store::upgrade_v3_to_v4 (rai::transaction const & transaction_a)
 {
 	version_put (transaction_a, 4);
 	std::queue<std::pair<rai::pending_key, rai::pending_info>> items;
@@ -628,7 +628,7 @@ void rai::block_store::upgrade_v3_to_v4 (rai::transaction const & transaction_a)
 	}
 }
 
-void rai::block_store::upgrade_v4_to_v5 (rai::transaction const & transaction_a)
+void rai::mdb_store::upgrade_v4_to_v5 (rai::transaction const & transaction_a)
 {
 	version_put (transaction_a, 5);
 	for (auto i (rai::store_iterator<rai::account, rai::account_info_v5> (std::make_unique<rai::mdb_iterator<rai::account, rai::account_info_v5>> (transaction_a, accounts_v0))), n (rai::store_iterator<rai::account, rai::account_info_v5> (nullptr)); i != n; ++i)
@@ -649,7 +649,7 @@ void rai::block_store::upgrade_v4_to_v5 (rai::transaction const & transaction_a)
 	}
 }
 
-void rai::block_store::upgrade_v5_to_v6 (rai::transaction const & transaction_a)
+void rai::mdb_store::upgrade_v5_to_v6 (rai::transaction const & transaction_a)
 {
 	version_put (transaction_a, 6);
 	std::deque<std::pair<rai::account, rai::account_info>> headers;
@@ -675,20 +675,20 @@ void rai::block_store::upgrade_v5_to_v6 (rai::transaction const & transaction_a)
 	}
 }
 
-void rai::block_store::upgrade_v6_to_v7 (rai::transaction const & transaction_a)
+void rai::mdb_store::upgrade_v6_to_v7 (rai::transaction const & transaction_a)
 {
 	version_put (transaction_a, 7);
 	mdb_drop (env.tx (transaction_a), unchecked, 0);
 }
 
-void rai::block_store::upgrade_v7_to_v8 (rai::transaction const & transaction_a)
+void rai::mdb_store::upgrade_v7_to_v8 (rai::transaction const & transaction_a)
 {
 	version_put (transaction_a, 8);
 	mdb_drop (env.tx (transaction_a), unchecked, 1);
 	mdb_dbi_open (env.tx (transaction_a), "unchecked", MDB_CREATE | MDB_DUPSORT, &unchecked);
 }
 
-void rai::block_store::upgrade_v8_to_v9 (rai::transaction const & transaction_a)
+void rai::mdb_store::upgrade_v8_to_v9 (rai::transaction const & transaction_a)
 {
 	version_put (transaction_a, 9);
 	MDB_dbi sequence;
@@ -715,7 +715,7 @@ void rai::block_store::upgrade_v8_to_v9 (rai::transaction const & transaction_a)
 	mdb_drop (env.tx (transaction_a), sequence, 1);
 }
 
-void rai::block_store::upgrade_v9_to_v10 (rai::transaction const & transaction_a)
+void rai::mdb_store::upgrade_v9_to_v10 (rai::transaction const & transaction_a)
 {
 	//std::cerr << boost::str (boost::format ("Performing database upgrade to version 10...\n"));
 	version_put (transaction_a, 10);
@@ -745,7 +745,7 @@ void rai::block_store::upgrade_v9_to_v10 (rai::transaction const & transaction_a
 	}
 }
 
-void rai::block_store::upgrade_v10_to_v11 (rai::transaction const & transaction_a)
+void rai::mdb_store::upgrade_v10_to_v11 (rai::transaction const & transaction_a)
 {
 	version_put (transaction_a, 11);
 	MDB_dbi unsynced;
@@ -753,21 +753,21 @@ void rai::block_store::upgrade_v10_to_v11 (rai::transaction const & transaction_
 	mdb_drop (env.tx (transaction_a), unsynced, 1);
 }
 
-void rai::block_store::clear (MDB_dbi db_a)
+void rai::mdb_store::clear (MDB_dbi db_a)
 {
 	auto transaction (tx_begin (true));
 	auto status (mdb_drop (env.tx (transaction), db_a, 0));
 	assert (status == 0);
 }
 
-rai::uint128_t rai::block_store::block_balance (rai::transaction const & transaction_a, rai::block_hash const & hash_a)
+rai::uint128_t rai::mdb_store::block_balance (rai::transaction const & transaction_a, rai::block_hash const & hash_a)
 {
 	balance_visitor visitor (transaction_a, *this);
 	visitor.compute (hash_a);
 	return visitor.balance;
 }
 
-rai::epoch rai::block_store::block_version (rai::transaction const & transaction_a, rai::block_hash const & hash_a)
+rai::epoch rai::mdb_store::block_version (rai::transaction const & transaction_a, rai::block_hash const & hash_a)
 {
 	rai::mdb_val value;
 	auto status (mdb_get (env.tx (transaction_a), state_blocks_v1, rai::mdb_val (hash_a), value));
@@ -775,7 +775,7 @@ rai::epoch rai::block_store::block_version (rai::transaction const & transaction
 	return status == 0 ? rai::epoch::epoch_1 : rai::epoch::epoch_0;
 }
 
-void rai::block_store::representation_add (rai::transaction const & transaction_a, rai::block_hash const & source_a, rai::uint128_t const & amount_a)
+void rai::mdb_store::representation_add (rai::transaction const & transaction_a, rai::block_hash const & source_a, rai::uint128_t const & amount_a)
 {
 	auto source_block (block_get (transaction_a, source_a));
 	assert (source_block != nullptr);
@@ -784,7 +784,7 @@ void rai::block_store::representation_add (rai::transaction const & transaction_
 	representation_put (transaction_a, source_rep, source_previous + amount_a);
 }
 
-MDB_dbi rai::block_store::block_database (rai::block_type type_a, rai::epoch epoch_a)
+MDB_dbi rai::mdb_store::block_database (rai::block_type type_a, rai::epoch epoch_a)
 {
 	if (type_a == rai::block_type::state)
 	{
@@ -829,13 +829,13 @@ MDB_dbi rai::block_store::block_database (rai::block_type type_a, rai::epoch epo
 	return result;
 }
 
-void rai::block_store::block_raw_put (rai::transaction const & transaction_a, MDB_dbi database_a, rai::block_hash const & hash_a, MDB_val value_a)
+void rai::mdb_store::block_raw_put (rai::transaction const & transaction_a, MDB_dbi database_a, rai::block_hash const & hash_a, MDB_val value_a)
 {
 	auto status2 (mdb_put (env.tx (transaction_a), database_a, rai::mdb_val (hash_a), &value_a, 0));
 	assert (status2 == 0);
 }
 
-void rai::block_store::block_put (rai::transaction const & transaction_a, rai::block_hash const & hash_a, rai::block const & block_a, rai::block_hash const & successor_a, rai::epoch epoch_a)
+void rai::mdb_store::block_put (rai::transaction const & transaction_a, rai::block_hash const & hash_a, rai::block const & block_a, rai::block_hash const & successor_a, rai::epoch epoch_a)
 {
 	assert (successor_a.is_zero () || block_exists (transaction_a, successor_a));
 	std::vector<uint8_t> vector;
@@ -850,7 +850,7 @@ void rai::block_store::block_put (rai::transaction const & transaction_a, rai::b
 	assert (block_a.previous ().is_zero () || block_successor (transaction_a, block_a.previous ()) == hash_a);
 }
 
-MDB_val rai::block_store::block_raw_get (rai::transaction const & transaction_a, rai::block_hash const & hash_a, rai::block_type & type_a)
+MDB_val rai::mdb_store::block_raw_get (rai::transaction const & transaction_a, rai::block_hash const & hash_a, rai::block_type & type_a)
 {
 	rai::mdb_val result;
 	auto status (mdb_get (env.tx (transaction_a), send_blocks, rai::mdb_val (hash_a), result));
@@ -912,7 +912,7 @@ MDB_val rai::block_store::block_raw_get (rai::transaction const & transaction_a,
 }
 
 template <typename T>
-std::unique_ptr<rai::block> rai::block_store::block_random (rai::transaction const & transaction_a, MDB_dbi database)
+std::unique_ptr<rai::block> rai::mdb_store::block_random (rai::transaction const & transaction_a, MDB_dbi database)
 {
 	rai::block_hash hash;
 	rai::random_pool.GenerateBlock (hash.bytes.data (), hash.bytes.size ());
@@ -926,7 +926,7 @@ std::unique_ptr<rai::block> rai::block_store::block_random (rai::transaction con
 	return block_get (transaction_a, rai::block_hash (existing->first));
 }
 
-std::unique_ptr<rai::block> rai::block_store::block_random (rai::transaction const & transaction_a)
+std::unique_ptr<rai::block> rai::mdb_store::block_random (rai::transaction const & transaction_a)
 {
 	auto count (block_count (transaction_a));
 	auto region (rai::random_pool.GenerateWord32 (0, count.sum () - 1));
@@ -975,7 +975,7 @@ std::unique_ptr<rai::block> rai::block_store::block_random (rai::transaction con
 	return result;
 }
 
-rai::block_hash rai::block_store::block_successor (rai::transaction const & transaction_a, rai::block_hash const & hash_a)
+rai::block_hash rai::mdb_store::block_successor (rai::transaction const & transaction_a, rai::block_hash const & hash_a)
 {
 	rai::block_type type;
 	auto value (block_raw_get (transaction_a, hash_a, type));
@@ -994,14 +994,14 @@ rai::block_hash rai::block_store::block_successor (rai::transaction const & tran
 	return result;
 }
 
-void rai::block_store::block_successor_clear (rai::transaction const & transaction_a, rai::block_hash const & hash_a)
+void rai::mdb_store::block_successor_clear (rai::transaction const & transaction_a, rai::block_hash const & hash_a)
 {
 	auto block (block_get (transaction_a, hash_a));
 	auto version (block_version (transaction_a, hash_a));
 	block_put (transaction_a, hash_a, *block, 0, version);
 }
 
-std::unique_ptr<rai::block> rai::block_store::block_get (rai::transaction const & transaction_a, rai::block_hash const & hash_a)
+std::unique_ptr<rai::block> rai::mdb_store::block_get (rai::transaction const & transaction_a, rai::block_hash const & hash_a)
 {
 	rai::block_type type;
 	auto value (block_raw_get (transaction_a, hash_a, type));
@@ -1015,7 +1015,7 @@ std::unique_ptr<rai::block> rai::block_store::block_get (rai::transaction const 
 	return result;
 }
 
-void rai::block_store::block_del (rai::transaction const & transaction_a, rai::block_hash const & hash_a)
+void rai::mdb_store::block_del (rai::transaction const & transaction_a, rai::block_hash const & hash_a)
 {
 	auto status (mdb_del (env.tx (transaction_a), state_blocks_v1, rai::mdb_val (hash_a), nullptr));
 	assert (status == 0 || status == MDB_NOTFOUND);
@@ -1046,7 +1046,7 @@ void rai::block_store::block_del (rai::transaction const & transaction_a, rai::b
 	}
 }
 
-bool rai::block_store::block_exists (rai::transaction const & transaction_a, rai::block_hash const & hash_a)
+bool rai::mdb_store::block_exists (rai::transaction const & transaction_a, rai::block_hash const & hash_a)
 {
 	auto exists (true);
 	rai::mdb_val junk;
@@ -1086,7 +1086,7 @@ bool rai::block_store::block_exists (rai::transaction const & transaction_a, rai
 	return exists;
 }
 
-rai::block_counts rai::block_store::block_count (rai::transaction const & transaction_a)
+rai::block_counts rai::mdb_store::block_count (rai::transaction const & transaction_a)
 {
 	rai::block_counts result;
 	MDB_stat send_stats;
@@ -1116,12 +1116,12 @@ rai::block_counts rai::block_store::block_count (rai::transaction const & transa
 	return result;
 }
 
-bool rai::block_store::root_exists (rai::transaction const & transaction_a, rai::uint256_union const & root_a)
+bool rai::mdb_store::root_exists (rai::transaction const & transaction_a, rai::uint256_union const & root_a)
 {
 	return block_exists (transaction_a, root_a) || account_exists (transaction_a, root_a);
 }
 
-void rai::block_store::account_del (rai::transaction const & transaction_a, rai::account const & account_a)
+void rai::mdb_store::account_del (rai::transaction const & transaction_a, rai::account const & account_a)
 {
 	auto status1 (mdb_del (env.tx (transaction_a), accounts_v1, rai::mdb_val (account_a), nullptr));
 	if (status1 != 0)
@@ -1132,13 +1132,13 @@ void rai::block_store::account_del (rai::transaction const & transaction_a, rai:
 	}
 }
 
-bool rai::block_store::account_exists (rai::transaction const & transaction_a, rai::account const & account_a)
+bool rai::mdb_store::account_exists (rai::transaction const & transaction_a, rai::account const & account_a)
 {
 	auto iterator (latest_begin (transaction_a, account_a));
 	return iterator != latest_end () && rai::account (iterator->first) == account_a;
 }
 
-bool rai::block_store::account_get (rai::transaction const & transaction_a, rai::account const & account_a, rai::account_info & info_a)
+bool rai::mdb_store::account_get (rai::transaction const & transaction_a, rai::account const & account_a, rai::account_info & info_a)
 {
 	rai::mdb_val value;
 	auto status1 (mdb_get (env.tx (transaction_a), accounts_v1, rai::mdb_val (account_a), value));
@@ -1171,13 +1171,13 @@ bool rai::block_store::account_get (rai::transaction const & transaction_a, rai:
 	return result;
 }
 
-void rai::block_store::frontier_put (rai::transaction const & transaction_a, rai::block_hash const & block_a, rai::account const & account_a)
+void rai::mdb_store::frontier_put (rai::transaction const & transaction_a, rai::block_hash const & block_a, rai::account const & account_a)
 {
 	auto status (mdb_put (env.tx (transaction_a), frontiers, rai::mdb_val (block_a), rai::mdb_val (account_a), 0));
 	assert (status == 0);
 }
 
-rai::account rai::block_store::frontier_get (rai::transaction const & transaction_a, rai::block_hash const & block_a)
+rai::account rai::mdb_store::frontier_get (rai::transaction const & transaction_a, rai::block_hash const & block_a)
 {
 	rai::mdb_val value;
 	auto status (mdb_get (env.tx (transaction_a), frontiers, rai::mdb_val (block_a), value));
@@ -1190,13 +1190,13 @@ rai::account rai::block_store::frontier_get (rai::transaction const & transactio
 	return result;
 }
 
-void rai::block_store::frontier_del (rai::transaction const & transaction_a, rai::block_hash const & block_a)
+void rai::mdb_store::frontier_del (rai::transaction const & transaction_a, rai::block_hash const & block_a)
 {
 	auto status (mdb_del (env.tx (transaction_a), frontiers, rai::mdb_val (block_a), nullptr));
 	assert (status == 0);
 }
 
-size_t rai::block_store::account_count (rai::transaction const & transaction_a)
+size_t rai::mdb_store::account_count (rai::transaction const & transaction_a)
 {
 	MDB_stat stats1;
 	auto status1 (mdb_stat (env.tx (transaction_a), accounts_v0, &stats1));
@@ -1208,7 +1208,7 @@ size_t rai::block_store::account_count (rai::transaction const & transaction_a)
 	return result;
 }
 
-void rai::block_store::account_put (rai::transaction const & transaction_a, rai::account const & account_a, rai::account_info const & info_a)
+void rai::mdb_store::account_put (rai::transaction const & transaction_a, rai::account const & account_a, rai::account_info const & info_a)
 {
 	MDB_dbi db;
 	switch (info_a.epoch)
@@ -1227,7 +1227,7 @@ void rai::block_store::account_put (rai::transaction const & transaction_a, rai:
 	assert (status == 0);
 }
 
-void rai::block_store::pending_put (rai::transaction const & transaction_a, rai::pending_key const & key_a, rai::pending_info const & pending_a)
+void rai::mdb_store::pending_put (rai::transaction const & transaction_a, rai::pending_key const & key_a, rai::pending_info const & pending_a)
 {
 	MDB_dbi db;
 	switch (pending_a.epoch)
@@ -1246,7 +1246,7 @@ void rai::block_store::pending_put (rai::transaction const & transaction_a, rai:
 	assert (status == 0);
 }
 
-void rai::block_store::pending_del (rai::transaction const & transaction_a, rai::pending_key const & key_a)
+void rai::mdb_store::pending_del (rai::transaction const & transaction_a, rai::pending_key const & key_a)
 {
 	auto status1 (mdb_del (env.tx (transaction_a), pending_v1, mdb_val (key_a), nullptr));
 	if (status1 != 0)
@@ -1257,13 +1257,13 @@ void rai::block_store::pending_del (rai::transaction const & transaction_a, rai:
 	}
 }
 
-bool rai::block_store::pending_exists (rai::transaction const & transaction_a, rai::pending_key const & key_a)
+bool rai::mdb_store::pending_exists (rai::transaction const & transaction_a, rai::pending_key const & key_a)
 {
 	auto iterator (pending_begin (transaction_a, key_a));
 	return iterator != pending_end () && rai::pending_key (iterator->first) == key_a;
 }
 
-bool rai::block_store::pending_get (rai::transaction const & transaction_a, rai::pending_key const & key_a, rai::pending_info & pending_a)
+bool rai::mdb_store::pending_get (rai::transaction const & transaction_a, rai::pending_key const & key_a, rai::pending_info & pending_a)
 {
 	rai::mdb_val value;
 	auto status1 (mdb_get (env.tx (transaction_a), pending_v1, mdb_val (key_a), value));
@@ -1296,79 +1296,79 @@ bool rai::block_store::pending_get (rai::transaction const & transaction_a, rai:
 	return result;
 }
 
-rai::store_iterator<rai::pending_key, rai::pending_info> rai::block_store::pending_begin (rai::transaction const & transaction_a, rai::pending_key const & key_a)
+rai::store_iterator<rai::pending_key, rai::pending_info> rai::mdb_store::pending_begin (rai::transaction const & transaction_a, rai::pending_key const & key_a)
 {
 	rai::store_iterator<rai::pending_key, rai::pending_info> result (std::make_unique<rai::mdb_merge_iterator<rai::pending_key, rai::pending_info>> (transaction_a, pending_v0, pending_v1, mdb_val (key_a)));
 	return result;
 }
 
-rai::store_iterator<rai::pending_key, rai::pending_info> rai::block_store::pending_begin (rai::transaction const & transaction_a)
+rai::store_iterator<rai::pending_key, rai::pending_info> rai::mdb_store::pending_begin (rai::transaction const & transaction_a)
 {
 	rai::store_iterator<rai::pending_key, rai::pending_info> result (std::make_unique<rai::mdb_merge_iterator<rai::pending_key, rai::pending_info>> (transaction_a, pending_v0, pending_v1));
 	return result;
 }
 
-rai::store_iterator<rai::pending_key, rai::pending_info> rai::block_store::pending_end ()
+rai::store_iterator<rai::pending_key, rai::pending_info> rai::mdb_store::pending_end ()
 {
 	rai::store_iterator<rai::pending_key, rai::pending_info> result (nullptr);
 	return result;
 }
 
-rai::store_iterator<rai::pending_key, rai::pending_info> rai::block_store::pending_v0_begin (rai::transaction const & transaction_a, rai::pending_key const & key_a)
+rai::store_iterator<rai::pending_key, rai::pending_info> rai::mdb_store::pending_v0_begin (rai::transaction const & transaction_a, rai::pending_key const & key_a)
 {
 	rai::store_iterator<rai::pending_key, rai::pending_info> result (std::make_unique<rai::mdb_iterator<rai::pending_key, rai::pending_info>> (transaction_a, pending_v0, mdb_val (key_a)));
 	return result;
 }
 
-rai::store_iterator<rai::pending_key, rai::pending_info> rai::block_store::pending_v0_begin (rai::transaction const & transaction_a)
+rai::store_iterator<rai::pending_key, rai::pending_info> rai::mdb_store::pending_v0_begin (rai::transaction const & transaction_a)
 {
 	rai::store_iterator<rai::pending_key, rai::pending_info> result (std::make_unique<rai::mdb_iterator<rai::pending_key, rai::pending_info>> (transaction_a, pending_v0));
 	return result;
 }
 
-rai::store_iterator<rai::pending_key, rai::pending_info> rai::block_store::pending_v0_end ()
+rai::store_iterator<rai::pending_key, rai::pending_info> rai::mdb_store::pending_v0_end ()
 {
 	rai::store_iterator<rai::pending_key, rai::pending_info> result (nullptr);
 	return result;
 }
 
-rai::store_iterator<rai::pending_key, rai::pending_info> rai::block_store::pending_v1_begin (rai::transaction const & transaction_a, rai::pending_key const & key_a)
+rai::store_iterator<rai::pending_key, rai::pending_info> rai::mdb_store::pending_v1_begin (rai::transaction const & transaction_a, rai::pending_key const & key_a)
 {
 	rai::store_iterator<rai::pending_key, rai::pending_info> result (std::make_unique<rai::mdb_iterator<rai::pending_key, rai::pending_info>> (transaction_a, pending_v1, mdb_val (key_a)));
 	return result;
 }
 
-rai::store_iterator<rai::pending_key, rai::pending_info> rai::block_store::pending_v1_begin (rai::transaction const & transaction_a)
+rai::store_iterator<rai::pending_key, rai::pending_info> rai::mdb_store::pending_v1_begin (rai::transaction const & transaction_a)
 {
 	rai::store_iterator<rai::pending_key, rai::pending_info> result (std::make_unique<rai::mdb_iterator<rai::pending_key, rai::pending_info>> (transaction_a, pending_v1));
 	return result;
 }
 
-rai::store_iterator<rai::pending_key, rai::pending_info> rai::block_store::pending_v1_end ()
+rai::store_iterator<rai::pending_key, rai::pending_info> rai::mdb_store::pending_v1_end ()
 {
 	rai::store_iterator<rai::pending_key, rai::pending_info> result (nullptr);
 	return result;
 }
 
-void rai::block_store::block_info_put (rai::transaction const & transaction_a, rai::block_hash const & hash_a, rai::block_info const & block_info_a)
+void rai::mdb_store::block_info_put (rai::transaction const & transaction_a, rai::block_hash const & hash_a, rai::block_info const & block_info_a)
 {
 	auto status (mdb_put (env.tx (transaction_a), blocks_info, rai::mdb_val (hash_a), rai::mdb_val (block_info_a), 0));
 	assert (status == 0);
 }
 
-void rai::block_store::block_info_del (rai::transaction const & transaction_a, rai::block_hash const & hash_a)
+void rai::mdb_store::block_info_del (rai::transaction const & transaction_a, rai::block_hash const & hash_a)
 {
 	auto status (mdb_del (env.tx (transaction_a), blocks_info, rai::mdb_val (hash_a), nullptr));
 	assert (status == 0);
 }
 
-bool rai::block_store::block_info_exists (rai::transaction const & transaction_a, rai::block_hash const & hash_a)
+bool rai::mdb_store::block_info_exists (rai::transaction const & transaction_a, rai::block_hash const & hash_a)
 {
 	auto iterator (block_info_begin (transaction_a, hash_a));
 	return iterator != block_info_end () && rai::block_hash (iterator->first) == hash_a;
 }
 
-bool rai::block_store::block_info_get (rai::transaction const & transaction_a, rai::block_hash const & hash_a, rai::block_info & block_info_a)
+bool rai::mdb_store::block_info_get (rai::transaction const & transaction_a, rai::block_hash const & hash_a, rai::block_info & block_info_a)
 {
 	rai::mdb_val value;
 	auto status (mdb_get (env.tx (transaction_a), blocks_info, rai::mdb_val (hash_a), value));
@@ -1387,7 +1387,7 @@ bool rai::block_store::block_info_get (rai::transaction const & transaction_a, r
 	return result;
 }
 
-rai::uint128_t rai::block_store::representation_get (rai::transaction const & transaction_a, rai::account const & account_a)
+rai::uint128_t rai::mdb_store::representation_get (rai::transaction const & transaction_a, rai::account const & account_a)
 {
 	rai::mdb_val value;
 	auto status (mdb_get (env.tx (transaction_a), representation, rai::mdb_val (account_a), value));
@@ -1404,20 +1404,20 @@ rai::uint128_t rai::block_store::representation_get (rai::transaction const & tr
 	return result;
 }
 
-void rai::block_store::representation_put (rai::transaction const & transaction_a, rai::account const & account_a, rai::uint128_t const & representation_a)
+void rai::mdb_store::representation_put (rai::transaction const & transaction_a, rai::account const & account_a, rai::uint128_t const & representation_a)
 {
 	rai::uint128_union rep (representation_a);
 	auto status (mdb_put (env.tx (transaction_a), representation, rai::mdb_val (account_a), rai::mdb_val (rep), 0));
 	assert (status == 0);
 }
 
-void rai::block_store::unchecked_clear (rai::transaction const & transaction_a)
+void rai::mdb_store::unchecked_clear (rai::transaction const & transaction_a)
 {
 	auto status (mdb_drop (env.tx (transaction_a), unchecked, 0));
 	assert (status == 0);
 }
 
-void rai::block_store::unchecked_put (rai::transaction const & transaction_a, rai::block_hash const & hash_a, std::shared_ptr<rai::block> const & block_a)
+void rai::mdb_store::unchecked_put (rai::transaction const & transaction_a, rai::block_hash const & hash_a, std::shared_ptr<rai::block> const & block_a)
 {
 	// Checking if same unchecked block is already in database
 	bool exists (false);
@@ -1438,7 +1438,7 @@ void rai::block_store::unchecked_put (rai::transaction const & transaction_a, ra
 	}
 }
 
-std::shared_ptr<rai::vote> rai::block_store::vote_get (rai::transaction const & transaction_a, rai::account const & account_a)
+std::shared_ptr<rai::vote> rai::mdb_store::vote_get (rai::transaction const & transaction_a, rai::account const & account_a)
 {
 	std::shared_ptr<rai::vote> result;
 	rai::mdb_val value;
@@ -1453,7 +1453,7 @@ std::shared_ptr<rai::vote> rai::block_store::vote_get (rai::transaction const & 
 	return nullptr;
 }
 
-std::vector<std::shared_ptr<rai::block>> rai::block_store::unchecked_get (rai::transaction const & transaction_a, rai::block_hash const & hash_a)
+std::vector<std::shared_ptr<rai::block>> rai::mdb_store::unchecked_get (rai::transaction const & transaction_a, rai::block_hash const & hash_a)
 {
 	std::vector<std::shared_ptr<rai::block>> result;
 	{
@@ -1471,7 +1471,7 @@ std::vector<std::shared_ptr<rai::block>> rai::block_store::unchecked_get (rai::t
 	return result;
 }
 
-void rai::block_store::unchecked_del (rai::transaction const & transaction_a, rai::block_hash const & hash_a, std::shared_ptr<rai::block> block_a)
+void rai::mdb_store::unchecked_del (rai::transaction const & transaction_a, rai::block_hash const & hash_a, std::shared_ptr<rai::block> block_a)
 {
 	{
 		std::lock_guard<std::mutex> lock (cache_mutex);
@@ -1492,7 +1492,7 @@ void rai::block_store::unchecked_del (rai::transaction const & transaction_a, ra
 	assert (status == 0 || status == MDB_NOTFOUND);
 }
 
-size_t rai::block_store::unchecked_count (rai::transaction const & transaction_a)
+size_t rai::mdb_store::unchecked_count (rai::transaction const & transaction_a)
 {
 	MDB_stat unchecked_stats;
 	auto status (mdb_stat (env.tx (transaction_a), unchecked, &unchecked_stats));
@@ -1501,7 +1501,7 @@ size_t rai::block_store::unchecked_count (rai::transaction const & transaction_a
 	return result;
 }
 
-void rai::block_store::checksum_put (rai::transaction const & transaction_a, uint64_t prefix, uint8_t mask, rai::uint256_union const & hash_a)
+void rai::mdb_store::checksum_put (rai::transaction const & transaction_a, uint64_t prefix, uint8_t mask, rai::uint256_union const & hash_a)
 {
 	assert ((prefix & 0xff) == 0);
 	uint64_t key (prefix | mask);
@@ -1509,7 +1509,7 @@ void rai::block_store::checksum_put (rai::transaction const & transaction_a, uin
 	assert (status == 0);
 }
 
-bool rai::block_store::checksum_get (rai::transaction const & transaction_a, uint64_t prefix, uint8_t mask, rai::uint256_union & hash_a)
+bool rai::mdb_store::checksum_get (rai::transaction const & transaction_a, uint64_t prefix, uint8_t mask, rai::uint256_union & hash_a)
 {
 	assert ((prefix & 0xff) == 0);
 	uint64_t key (prefix | mask);
@@ -1527,7 +1527,7 @@ bool rai::block_store::checksum_get (rai::transaction const & transaction_a, uin
 	return result;
 }
 
-void rai::block_store::checksum_del (rai::transaction const & transaction_a, uint64_t prefix, uint8_t mask)
+void rai::mdb_store::checksum_del (rai::transaction const & transaction_a, uint64_t prefix, uint8_t mask)
 {
 	assert ((prefix & 0xff) == 0);
 	uint64_t key (prefix | mask);
@@ -1535,7 +1535,7 @@ void rai::block_store::checksum_del (rai::transaction const & transaction_a, uin
 	assert (status == 0);
 }
 
-void rai::block_store::flush (rai::transaction const & transaction_a)
+void rai::mdb_store::flush (rai::transaction const & transaction_a)
 {
 	std::unordered_map<rai::account, std::shared_ptr<rai::vote>> sequence_cache_l;
 	std::unordered_multimap<rai::block_hash, std::shared_ptr<rai::block>> unchecked_cache_l;
@@ -1561,7 +1561,7 @@ void rai::block_store::flush (rai::transaction const & transaction_a)
 		assert (status1 == 0);
 	}
 }
-std::shared_ptr<rai::vote> rai::block_store::vote_current (rai::transaction const & transaction_a, rai::account const & account_a)
+std::shared_ptr<rai::vote> rai::mdb_store::vote_current (rai::transaction const & transaction_a, rai::account const & account_a)
 {
 	assert (!cache_mutex.try_lock ());
 	std::shared_ptr<rai::vote> result;
@@ -1577,7 +1577,7 @@ std::shared_ptr<rai::vote> rai::block_store::vote_current (rai::transaction cons
 	return result;
 }
 
-std::shared_ptr<rai::vote> rai::block_store::vote_generate (rai::transaction const & transaction_a, rai::account const & account_a, rai::raw_key const & key_a, std::shared_ptr<rai::block> block_a)
+std::shared_ptr<rai::vote> rai::mdb_store::vote_generate (rai::transaction const & transaction_a, rai::account const & account_a, rai::raw_key const & key_a, std::shared_ptr<rai::block> block_a)
 {
 	std::lock_guard<std::mutex> lock (cache_mutex);
 	auto result (vote_current (transaction_a, account_a));
@@ -1587,7 +1587,7 @@ std::shared_ptr<rai::vote> rai::block_store::vote_generate (rai::transaction con
 	return result;
 }
 
-std::shared_ptr<rai::vote> rai::block_store::vote_generate (rai::transaction const & transaction_a, rai::account const & account_a, rai::raw_key const & key_a, std::vector<rai::block_hash> blocks_a)
+std::shared_ptr<rai::vote> rai::mdb_store::vote_generate (rai::transaction const & transaction_a, rai::account const & account_a, rai::raw_key const & key_a, std::vector<rai::block_hash> blocks_a)
 {
 	std::lock_guard<std::mutex> lock (cache_mutex);
 	auto result (vote_current (transaction_a, account_a));
@@ -1597,7 +1597,7 @@ std::shared_ptr<rai::vote> rai::block_store::vote_generate (rai::transaction con
 	return result;
 }
 
-std::shared_ptr<rai::vote> rai::block_store::vote_max (rai::transaction const & transaction_a, std::shared_ptr<rai::vote> vote_a)
+std::shared_ptr<rai::vote> rai::mdb_store::vote_max (rai::transaction const & transaction_a, std::shared_ptr<rai::vote> vote_a)
 {
 	std::lock_guard<std::mutex> lock (cache_mutex);
 	auto current (vote_current (transaction_a, vote_a->account));
@@ -1610,55 +1610,55 @@ std::shared_ptr<rai::vote> rai::block_store::vote_max (rai::transaction const & 
 	return result;
 }
 
-rai::store_iterator<rai::account, rai::account_info> rai::block_store::latest_begin (rai::transaction const & transaction_a, rai::account const & account_a)
+rai::store_iterator<rai::account, rai::account_info> rai::mdb_store::latest_begin (rai::transaction const & transaction_a, rai::account const & account_a)
 {
 	rai::store_iterator<rai::account, rai::account_info> result (std::make_unique<rai::mdb_merge_iterator<rai::account, rai::account_info>> (transaction_a, accounts_v0, accounts_v1, rai::mdb_val (account_a)));
 	return result;
 }
 
-rai::store_iterator<rai::account, rai::account_info> rai::block_store::latest_begin (rai::transaction const & transaction_a)
+rai::store_iterator<rai::account, rai::account_info> rai::mdb_store::latest_begin (rai::transaction const & transaction_a)
 {
 	rai::store_iterator<rai::account, rai::account_info> result (std::make_unique<rai::mdb_merge_iterator<rai::account, rai::account_info>> (transaction_a, accounts_v0, accounts_v1));
 	return result;
 }
 
-rai::store_iterator<rai::account, rai::account_info> rai::block_store::latest_end ()
+rai::store_iterator<rai::account, rai::account_info> rai::mdb_store::latest_end ()
 {
 	rai::store_iterator<rai::account, rai::account_info> result (nullptr);
 	return result;
 }
 
-rai::store_iterator<rai::account, rai::account_info> rai::block_store::latest_v0_begin (rai::transaction const & transaction_a, rai::account const & account_a)
+rai::store_iterator<rai::account, rai::account_info> rai::mdb_store::latest_v0_begin (rai::transaction const & transaction_a, rai::account const & account_a)
 {
 	rai::store_iterator<rai::account, rai::account_info> result (std::make_unique<rai::mdb_iterator<rai::account, rai::account_info>> (transaction_a, accounts_v0, rai::mdb_val (account_a)));
 	return result;
 }
 
-rai::store_iterator<rai::account, rai::account_info> rai::block_store::latest_v0_begin (rai::transaction const & transaction_a)
+rai::store_iterator<rai::account, rai::account_info> rai::mdb_store::latest_v0_begin (rai::transaction const & transaction_a)
 {
 	rai::store_iterator<rai::account, rai::account_info> result (std::make_unique<rai::mdb_iterator<rai::account, rai::account_info>> (transaction_a, accounts_v0));
 	return result;
 }
 
-rai::store_iterator<rai::account, rai::account_info> rai::block_store::latest_v0_end ()
+rai::store_iterator<rai::account, rai::account_info> rai::mdb_store::latest_v0_end ()
 {
 	rai::store_iterator<rai::account, rai::account_info> result (nullptr);
 	return result;
 }
 
-rai::store_iterator<rai::account, rai::account_info> rai::block_store::latest_v1_begin (rai::transaction const & transaction_a, rai::account const & account_a)
+rai::store_iterator<rai::account, rai::account_info> rai::mdb_store::latest_v1_begin (rai::transaction const & transaction_a, rai::account const & account_a)
 {
 	rai::store_iterator<rai::account, rai::account_info> result (std::make_unique<rai::mdb_iterator<rai::account, rai::account_info>> (transaction_a, accounts_v1, rai::mdb_val (account_a)));
 	return result;
 }
 
-rai::store_iterator<rai::account, rai::account_info> rai::block_store::latest_v1_begin (rai::transaction const & transaction_a)
+rai::store_iterator<rai::account, rai::account_info> rai::mdb_store::latest_v1_begin (rai::transaction const & transaction_a)
 {
 	rai::store_iterator<rai::account, rai::account_info> result (std::make_unique<rai::mdb_iterator<rai::account, rai::account_info>> (transaction_a, accounts_v1));
 	return result;
 }
 
-rai::store_iterator<rai::account, rai::account_info> rai::block_store::latest_v1_end ()
+rai::store_iterator<rai::account, rai::account_info> rai::mdb_store::latest_v1_end ()
 {
 	rai::store_iterator<rai::account, rai::account_info> result (nullptr);
 	return result;

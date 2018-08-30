@@ -11,7 +11,7 @@ TEST (versioning, account_info_v1)
 	rai::account_info_v1 v1 (open.hash (), open.hash (), 3, 4);
 	{
 		auto error (false);
-		rai::block_store store (error, file);
+		rai::mdb_store store (error, file);
 		ASSERT_FALSE (error);
 		auto transaction (store.tx_begin (true));
 		store.block_put (transaction, open.hash (), open);
@@ -21,7 +21,7 @@ TEST (versioning, account_info_v1)
 	}
 	{
 		auto error (false);
-		rai::block_store store (error, file);
+		rai::mdb_store store (error, file);
 		ASSERT_FALSE (error);
 		auto transaction (store.tx_begin ());
 		rai::account_info v2;
