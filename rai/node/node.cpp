@@ -1855,13 +1855,19 @@ stats (config.stat_config)
 		{
 			BOOST_LOG (log) << "Constructing node";
 		}
+		rai::genesis genesis;
 		rai::transaction transaction (store.environment, true);
 		if (store.latest_begin (transaction) == store.latest_end ())
 		{
 			// Store was empty meaning we just created it, add the genesis block
-			rai::genesis genesis;
 			store.initialize (transaction, genesis);
 		}
+		if (!store.block_exists (transaction, genesis.hash ()))
+		{
+			BOOST_LOG (log) << "Genesis block not found. Make sure the node network ID is correct.";
+			std::exit (1);
+		}
+
 		node_id = rai::keypair (store.get_node_id (transaction));
 		BOOST_LOG (log) << "Node ID: " << node_id.pub.to_account ();
 	}
