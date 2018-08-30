@@ -8,7 +8,7 @@
 
 #include <queue>
 
-rai::mdb_env::mdb_env (bool & error_a, boost::filesystem::path const & path_a, int max_dbs)
+rai::mdb_env::mdb_env (bool & error_a, boost::filesystem::path const & path_a, int max_dbs, int flags)
 {
 	boost::system::error_code error_mkdir, error_chmod;
 	if (path_a.has_parent_path ())
@@ -25,7 +25,7 @@ rai::mdb_env::mdb_env (bool & error_a, boost::filesystem::path const & path_a, i
 			release_assert (status3 == 0);
 			// It seems if there's ever more threads than mdb_env_set_maxreaders has read slots available, we get failures on transaction creation unless MDB_NOTLS is specified
 			// This can happen if something like 256 io_threads are specified in the node config
-			auto status4 (mdb_env_open (environment, path_a.string ().c_str (), MDB_NOSUBDIR | MDB_NOTLS, 00600));
+			auto status4 (mdb_env_open (environment, path_a.string ().c_str (), flags, 00600));
 			error_a = status4 != 0;
 		}
 		else

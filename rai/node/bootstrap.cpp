@@ -536,6 +536,8 @@ void rai::bulk_pull_client::received_block (boost::system::error_code const & ec
 				block->serialize_json (block_l);
 				BOOST_LOG (connection->node->log) << boost::str (boost::format ("Pulled block %1% %2%") % hash.to_string () % block_l);
 			}
+
+			connection->node->recorder.add<nano::events::block_event> (nano::events::type::bootstrap_pull_receive, hash, connection->endpoint.address ());
 			if (hash == expected)
 			{
 				expected = block->previous ();
@@ -677,11 +679,15 @@ void rai::bulk_push_client::push_block (rai::block const & block_a)
 		rai::serialize_block (stream, block_a);
 	}
 	auto this_l (shared_from_this ());
-	connection->socket->async_write (buffer, [this_l](boost::system::error_code const & ec, size_t size_a) {
+	auto hash (block_a.hash ());
+	connection->socket->async_write (buffer, [this_l, hash](boost::system::error_code const & ec, size_t size_a) {
 		if (!ec)
 		{
-			auto transaction (this_l->connection->node->store.tx_begin_read ());
-			this_l->push (transaction);
+			{
+				auto transaction (this_l->connection->node->store.tx_begin_read ());
+				this_l->push (transaction);
+			}
+			this_l->connection->node->recorder.add<nano::events::block_event> (nano::events::type::bootstrap_bulk_push_send, hash, this_l->connection->endpoint.address ());
 		}
 		else
 		{
@@ -1665,8 +1671,10 @@ void rai::bulk_pull_server::send_next ()
 		{
 			BOOST_LOG (connection->node->log) << boost::str (boost::format ("Sending block: %1%") % block->hash ().to_string ());
 		}
-		connection->socket->async_write (send_buffer, [this_l](boost::system::error_code const & ec, size_t size_a) {
+		auto hash (block->hash ());
+		connection->socket->async_write (send_buffer, [this_l, hash](boost::system::error_code const & ec, size_t size_a) {
 			this_l->sent_action (ec, size_a);
+			this_l->connection->node->recorder.add<nano::events::block_event> (nano::events::type::bootstrap_pull_send, hash, this_l->connection->socket->remote_endpoint ().address ());
 		});
 	}
 	else
@@ -2257,8 +2265,11 @@ void rai::bulk_push_server::received_block (boost::system::error_code const & ec
 		auto block (rai::deserialize_block (stream, type_a));
 		if (block != nullptr && !rai::work_validate (*block))
 		{
+			auto hash (block->hash ());
 			connection->node->process_active (std::move (block));
 			receive ();
+
+			connection->node->recorder.add<nano::events::block_event> (nano::events::type::bootstrap_bulk_push_receive, hash, connection->socket->remote_endpoint ().address ());
 		}
 		else
 		{

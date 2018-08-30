@@ -34,6 +34,7 @@ void rai::add_node_options (boost::program_options::options_description & descri
 	("delete_node_id", "Delete the node ID in the database")
 	("clear_send_ids", "Remove all send IDs from the database (dangerous: not intended for production use)")
 	("diagnostics", "Run internal diagnostics")
+	("events", "Show events for a <hash>, up to <count> entries per event type (default 10)")
 	("key_create", "Generates a adhoc random keypair and prints it to stdout")
 	("key_expand", "Derive public key and account number from <key>")
 	("wallet_add_adhoc", "Insert <key> in to <wallet>")
@@ -48,7 +49,9 @@ void rai::add_node_options (boost::program_options::options_description & descri
 	("wallet_representative_set", "Set <account> as default representative for <wallet>")
 	("vote_dump", "Dump most recent votes from representatives")
 	("account", boost::program_options::value<std::string> (), "Defines <account> for other commands")
+	("count", boost::program_options::value<size_t> (), "Defines <count> for other commands")
 	("file", boost::program_options::value<std::string> (), "Defines <file> for other commands")
+	("hash", boost::program_options::value<std::string> (), "Defines <hash> for other commands")
 	("key", boost::program_options::value<std::string> (), "Defines the <key> for other commands, hex")
 	("password", boost::program_options::value<std::string> (), "Defines <password> for other commands")
 	("wallet", boost::program_options::value<std::string> (), "Defines <wallet> for other commands");
@@ -291,6 +294,40 @@ std::error_code rai::handle_node_options (boost::program_options::variables_map 
 		else
 		{
 			std::cout << "Error initializing OpenCL" << std::endl;
+		}
+	}
+	else if (vm.count ("events"))
+	{
+		if (vm.count ("hash") == 1)
+		{
+			inactive_node node (data_path);
+			node.node->config.recorder_config.enabled = true;
+			node.node->recorder.store_get ().open (node.node->application_path / "events.ldb");
+			auto hash_str = vm["hash"].as<std::string> ();
+			rai::block_hash hash_l;
+			if (!hash_l.decode_hex (hash_str))
+			{
+				auto summary = node.node->recorder.get_summary (hash_l);
+				if (summary)
+				{
+					size_t count = 10;
+					if (vm.count ("count") == 1)
+					{
+						count = vm["count"].as<size_t> ();
+					}
+					summary->print (std::cout, nano::events::summary::display_type::full, count);
+				}
+			}
+			else
+			{
+				std::cerr << "Invalid hash" << std::endl;
+				ec = rai::error_cli::invalid_arguments;
+			}
+		}
+		else
+		{
+			std::cerr << "events command requires one <hash> option\n";
+			ec = rai::error_cli::invalid_arguments;
 		}
 	}
 	else if (vm.count ("key_create"))

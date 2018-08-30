@@ -17,6 +17,8 @@ endif ()
 add_library (node
 	${platform_sources}
 	${secure_rpc_sources}
+	eventrecorder.cpp
+	eventrecorder.hpp
 	bootstrap.cpp
 	bootstrap.hpp
 	cli.hpp

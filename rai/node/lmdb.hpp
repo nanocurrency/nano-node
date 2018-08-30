@@ -29,7 +29,7 @@ public:
 class mdb_env
 {
 public:
-	mdb_env (bool &, boost::filesystem::path const &, int max_dbs = 128);
+	mdb_env (bool &, boost::filesystem::path const &, int max_dbs = 128, int flags = MDB_NOSUBDIR | MDB_NOTLS);
 	~mdb_env ();
 	operator MDB_env * () const;
 	rai::transaction tx_begin (bool = false) const;

@@ -4,6 +4,7 @@
 #include <rai/node/bootstrap.hpp>
 #include <rai/node/logging.hpp>
 #include <rai/node/portmapping.hpp>
+#include <rai/node/eventrecorder.hpp>
 #include <rai/node/stats.hpp>
 #include <rai/node/wallet.hpp>
 #include <rai/secure/ledger.hpp>
@@ -474,6 +475,7 @@ public:
 	uint16_t callback_port;
 	std::string callback_target;
 	int lmdb_max_dbs;
+	nano::events::recorder_config recorder_config;
 	rai::stat_config stat_config;
 	rai::uint256_union epoch_block_link;
 	rai::account epoch_block_signer;
@@ -624,6 +626,7 @@ public:
 	std::thread block_processor_thread;
 	rai::block_arrival block_arrival;
 	rai::online_reps online_reps;
+	nano::events::recorder recorder;
 	rai::stat stats;
 	rai::keypair node_id;
 	static double constexpr price_max = 16.0;
