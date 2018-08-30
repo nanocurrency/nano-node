@@ -1,6 +1,7 @@
 #pragma once
 
 #include <rai/node/common.hpp>
+#include <rai/node/lmdb.hpp>
 #include <rai/node/openclwork.hpp>
 #include <rai/secure/blockstore.hpp>
 #include <rai/secure/common.hpp>
@@ -24,16 +25,6 @@ public:
 private:
 	std::mutex mutex;
 	void value_get (rai::raw_key &);
-};
-class wallet_value
-{
-public:
-	wallet_value () = default;
-	wallet_value (rai::mdb_val const &);
-	wallet_value (rai::uint256_union const &, uint64_t);
-	rai::mdb_val val () const;
-	rai::private_key key;
-	uint64_t work;
 };
 class node_config;
 class kdf
