@@ -12,6 +12,7 @@
 #include <boost/log/utility/setup/common_attributes.hpp>
 #include <boost/log/utility/setup/console.hpp>
 #include <boost/log/utility/setup/file.hpp>
+#include <boost/polymorphic_cast.hpp>
 #include <boost/property_tree/json_parser.hpp>
 
 #include <upnpcommands.h>
@@ -1665,7 +1666,7 @@ service (service_a),
 config (config_a),
 alarm (alarm_a),
 work (work_a),
-store_impl (std::make_unique<rai::block_store>(init_a.block_store_init, application_path_a / "data.ldb", config_a.lmdb_max_dbs)),
+store_impl (std::make_unique<rai::mdb_store> (init_a.block_store_init, application_path_a / "data.ldb", config_a.lmdb_max_dbs)),
 store (*store_impl),
 gap_cache (*this),
 ledger (store, stats, config.epoch_block_link, config.epoch_block_signer),
@@ -1917,7 +1918,7 @@ rai::node::~node ()
 
 bool rai::node::copy_with_compaction (boost::filesystem::path const & destination_file)
 {
-	return !mdb_env_copy2 (store.env.environment, destination_file.string ().c_str (), MDB_CP_COMPACT);
+	return !mdb_env_copy2 (boost::polymorphic_downcast<rai::mdb_store *> (store_impl.get ())->env.environment, destination_file.string ().c_str (), MDB_CP_COMPACT);
 }
 
 void rai::node::send_keepalive (rai::endpoint const & endpoint_a)

@@ -1247,7 +1247,7 @@ void rai::wallet::work_cache_blocking (rai::account const & account_a, rai::bloc
 rai::wallets::wallets (bool & error_a, rai::node & node_a) :
 observer ([](bool) {}),
 node (node_a),
-env (node_a.store.env),
+env (boost::polymorphic_downcast<rai::mdb_store *> (node_a.store_impl.get ())->env),
 stopped (false),
 thread ([this]() { do_wallet_actions (); })
 {
@@ -1482,6 +1482,6 @@ rai::store_iterator<rai::uint256_union, rai::wallet_value> rai::wallet_store::en
 
 MDB_txn * rai::wallet_store::tx (rai::transaction const & transaction_a) const
 {
-	auto result (boost::polymorphic_downcast<rai::mdb_txn *>(transaction_a.impl.get()));
+	auto result (boost::polymorphic_downcast<rai::mdb_txn *> (transaction_a.impl.get ()));
 	return *result;
 }

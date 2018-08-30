@@ -5,7 +5,7 @@
 
 namespace rai
 {
-class block_store;
+class mdb_store;
 template <typename T, typename U>
 class store_iterator_impl
 {
@@ -47,6 +47,7 @@ public:
 	rai::store_iterator_impl<T, U> & operator= (rai::store_iterator_impl<T, U> const &) = delete;
 	MDB_cursor * cursor;
 	std::pair<rai::mdb_val, rai::mdb_val> current;
+
 private:
 	MDB_txn * tx (rai::transaction const &) const;
 };
@@ -58,7 +59,7 @@ class mdb_merge_iterator;
 template <typename T, typename U>
 class store_iterator
 {
-	friend class rai::block_store;
+	friend class rai::mdb_store;
 	friend class rai::mdb_merge_iterator<T, U>;
 
 public:
@@ -142,104 +143,207 @@ private:
  */
 class block_store
 {
+public:
+	virtual rai::transaction tx_begin (bool = false) = 0;
+	virtual void initialize (rai::transaction const &, rai::genesis const &) = 0;
+	virtual void block_put (rai::transaction const &, rai::block_hash const &, rai::block const &, rai::block_hash const & = rai::block_hash (0), rai::epoch version = rai::epoch::epoch_0) = 0;
+	virtual rai::block_hash block_successor (rai::transaction const &, rai::block_hash const &) = 0;
+	virtual void block_successor_clear (rai::transaction const &, rai::block_hash const &) = 0;
+	virtual std::unique_ptr<rai::block> block_get (rai::transaction const &, rai::block_hash const &) = 0;
+	virtual std::unique_ptr<rai::block> block_random (rai::transaction const &) = 0;
+	virtual void block_del (rai::transaction const &, rai::block_hash const &) = 0;
+	virtual bool block_exists (rai::transaction const &, rai::block_hash const &) = 0;
+	virtual rai::block_counts block_count (rai::transaction const &) = 0;
+	virtual bool root_exists (rai::transaction const &, rai::uint256_union const &) = 0;
+
+	virtual void frontier_put (rai::transaction const &, rai::block_hash const &, rai::account const &) = 0;
+	virtual rai::account frontier_get (rai::transaction const &, rai::block_hash const &) = 0;
+	virtual void frontier_del (rai::transaction const &, rai::block_hash const &) = 0;
+
+	virtual void account_put (rai::transaction const &, rai::account const &, rai::account_info const &) = 0;
+	virtual bool account_get (rai::transaction const &, rai::account const &, rai::account_info &) = 0;
+	virtual void account_del (rai::transaction const &, rai::account const &) = 0;
+	virtual bool account_exists (rai::transaction const &, rai::account const &) = 0;
+	virtual size_t account_count (rai::transaction const &) = 0;
+	virtual rai::store_iterator<rai::account, rai::account_info> latest_v0_begin (rai::transaction const &, rai::account const &) = 0;
+	virtual rai::store_iterator<rai::account, rai::account_info> latest_v0_begin (rai::transaction const &) = 0;
+	virtual rai::store_iterator<rai::account, rai::account_info> latest_v0_end () = 0;
+	virtual rai::store_iterator<rai::account, rai::account_info> latest_v1_begin (rai::transaction const &, rai::account const &) = 0;
+	virtual rai::store_iterator<rai::account, rai::account_info> latest_v1_begin (rai::transaction const &) = 0;
+	virtual rai::store_iterator<rai::account, rai::account_info> latest_v1_end () = 0;
+	virtual rai::store_iterator<rai::account, rai::account_info> latest_begin (rai::transaction const &, rai::account const &) = 0;
+	virtual rai::store_iterator<rai::account, rai::account_info> latest_begin (rai::transaction const &) = 0;
+	virtual rai::store_iterator<rai::account, rai::account_info> latest_end () = 0;
+
+	virtual void pending_put (rai::transaction const &, rai::pending_key const &, rai::pending_info const &) = 0;
+	virtual void pending_del (rai::transaction const &, rai::pending_key const &) = 0;
+	virtual bool pending_get (rai::transaction const &, rai::pending_key const &, rai::pending_info &) = 0;
+	virtual bool pending_exists (rai::transaction const &, rai::pending_key const &) = 0;
+	virtual rai::store_iterator<rai::pending_key, rai::pending_info> pending_v0_begin (rai::transaction const &, rai::pending_key const &) = 0;
+	virtual rai::store_iterator<rai::pending_key, rai::pending_info> pending_v0_begin (rai::transaction const &) = 0;
+	virtual rai::store_iterator<rai::pending_key, rai::pending_info> pending_v0_end () = 0;
+	virtual rai::store_iterator<rai::pending_key, rai::pending_info> pending_v1_begin (rai::transaction const &, rai::pending_key const &) = 0;
+	virtual rai::store_iterator<rai::pending_key, rai::pending_info> pending_v1_begin (rai::transaction const &) = 0;
+	virtual rai::store_iterator<rai::pending_key, rai::pending_info> pending_v1_end () = 0;
+	virtual rai::store_iterator<rai::pending_key, rai::pending_info> pending_begin (rai::transaction const &, rai::pending_key const &) = 0;
+	virtual rai::store_iterator<rai::pending_key, rai::pending_info> pending_begin (rai::transaction const &) = 0;
+	virtual rai::store_iterator<rai::pending_key, rai::pending_info> pending_end () = 0;
+
+	virtual void block_info_put (rai::transaction const &, rai::block_hash const &, rai::block_info const &) = 0;
+	virtual void block_info_del (rai::transaction const &, rai::block_hash const &) = 0;
+	virtual bool block_info_get (rai::transaction const &, rai::block_hash const &, rai::block_info &) = 0;
+	virtual bool block_info_exists (rai::transaction const &, rai::block_hash const &) = 0;
+	virtual rai::store_iterator<rai::block_hash, rai::block_info> block_info_begin (rai::transaction const &, rai::block_hash const &) = 0;
+	virtual rai::store_iterator<rai::block_hash, rai::block_info> block_info_begin (rai::transaction const &) = 0;
+	virtual rai::store_iterator<rai::block_hash, rai::block_info> block_info_end () = 0;
+	virtual rai::uint128_t block_balance (rai::transaction const &, rai::block_hash const &) = 0;
+	virtual rai::epoch block_version (rai::transaction const &, rai::block_hash const &) = 0;
+	static size_t const block_info_max = 32;
+
+	virtual rai::uint128_t representation_get (rai::transaction const &, rai::account const &) = 0;
+	virtual void representation_put (rai::transaction const &, rai::account const &, rai::uint128_t const &) = 0;
+	virtual void representation_add (rai::transaction const &, rai::account const &, rai::uint128_t const &) = 0;
+	virtual rai::store_iterator<rai::account, rai::uint128_union> representation_begin (rai::transaction const &) = 0;
+	virtual rai::store_iterator<rai::account, rai::uint128_union> representation_end () = 0;
+
+	virtual void unchecked_clear (rai::transaction const &) = 0;
+	virtual void unchecked_put (rai::transaction const &, rai::block_hash const &, std::shared_ptr<rai::block> const &) = 0;
+	virtual std::vector<std::shared_ptr<rai::block>> unchecked_get (rai::transaction const &, rai::block_hash const &) = 0;
+	virtual void unchecked_del (rai::transaction const &, rai::block_hash const &, std::shared_ptr<rai::block>) = 0;
+	virtual rai::store_iterator<rai::block_hash, std::shared_ptr<rai::block>> unchecked_begin (rai::transaction const &) = 0;
+	virtual rai::store_iterator<rai::block_hash, std::shared_ptr<rai::block>> unchecked_begin (rai::transaction const &, rai::block_hash const &) = 0;
+	virtual rai::store_iterator<rai::block_hash, std::shared_ptr<rai::block>> unchecked_end () = 0;
+	virtual size_t unchecked_count (rai::transaction const &) = 0;
+
+	virtual void checksum_put (rai::transaction const &, uint64_t, uint8_t, rai::checksum const &) = 0;
+	virtual bool checksum_get (rai::transaction const &, uint64_t, uint8_t, rai::checksum &) = 0;
+	virtual void checksum_del (rai::transaction const &, uint64_t, uint8_t) = 0;
+
+	// Return latest vote for an account from store
+	virtual std::shared_ptr<rai::vote> vote_get (rai::transaction const &, rai::account const &) = 0;
+	// Populate vote with the next sequence number
+	virtual std::shared_ptr<rai::vote> vote_generate (rai::transaction const &, rai::account const &, rai::raw_key const &, std::shared_ptr<rai::block>) = 0;
+	virtual std::shared_ptr<rai::vote> vote_generate (rai::transaction const &, rai::account const &, rai::raw_key const &, std::vector<rai::block_hash>) = 0;
+	// Return either vote or the stored vote with a higher sequence number
+	virtual std::shared_ptr<rai::vote> vote_max (rai::transaction const &, std::shared_ptr<rai::vote>) = 0;
+	// Return latest vote for an account considering the vote cache
+	virtual std::shared_ptr<rai::vote> vote_current (rai::transaction const &, rai::account const &) = 0;
+	virtual void flush (rai::transaction const &) = 0;
+	virtual rai::store_iterator<rai::account, std::shared_ptr<rai::vote>> vote_begin (rai::transaction const &) = 0;
+	virtual rai::store_iterator<rai::account, std::shared_ptr<rai::vote>> vote_end () = 0;
+
+	virtual void version_put (rai::transaction const &, int) = 0;
+	virtual int version_get (rai::transaction const &) = 0;
+
+	// Requires a write transaction
+	virtual rai::raw_key get_node_id (rai::transaction const &) = 0;
+
+	/** Deletes the node ID from the store */
+	virtual void delete_node_id (rai::transaction const &) = 0;
+};
+
+/**
+ * mdb implementation of the block store
+ */
+class mdb_store : public block_store
+{
 	friend class rai::block_predecessor_set;
 
 public:
-	block_store (bool &, boost::filesystem::path const &, int lmdb_max_dbs = 128);
+	mdb_store (bool &, boost::filesystem::path const &, int lmdb_max_dbs = 128);
 
-	rai::transaction tx_begin (bool = false);
-	void initialize (rai::transaction const &, rai::genesis const &);
-	void block_put (rai::transaction const &, rai::block_hash const &, rai::block const &, rai::block_hash const & = rai::block_hash (0), rai::epoch version = rai::epoch::epoch_0);
-	rai::block_hash block_successor (rai::transaction const &, rai::block_hash const &);
-	void block_successor_clear (rai::transaction const &, rai::block_hash const &);
-	std::unique_ptr<rai::block> block_get (rai::transaction const &, rai::block_hash const &);
-	std::unique_ptr<rai::block> block_random (rai::transaction const &);
-	void block_del (rai::transaction const &, rai::block_hash const &);
-	bool block_exists (rai::transaction const &, rai::block_hash const &);
-	rai::block_counts block_count (rai::transaction const &);
-	bool root_exists (rai::transaction const &, rai::uint256_union const &);
+	rai::transaction tx_begin (bool = false) override;
+	void initialize (rai::transaction const &, rai::genesis const &) override;
+	void block_put (rai::transaction const &, rai::block_hash const &, rai::block const &, rai::block_hash const & = rai::block_hash (0), rai::epoch version = rai::epoch::epoch_0) override;
+	rai::block_hash block_successor (rai::transaction const &, rai::block_hash const &) override;
+	void block_successor_clear (rai::transaction const &, rai::block_hash const &) override;
+	std::unique_ptr<rai::block> block_get (rai::transaction const &, rai::block_hash const &) override;
+	std::unique_ptr<rai::block> block_random (rai::transaction const &) override;
+	void block_del (rai::transaction const &, rai::block_hash const &) override;
+	bool block_exists (rai::transaction const &, rai::block_hash const &) override;
+	rai::block_counts block_count (rai::transaction const &) override;
+	bool root_exists (rai::transaction const &, rai::uint256_union const &) override;
 
-	void frontier_put (rai::transaction const &, rai::block_hash const &, rai::account const &);
-	rai::account frontier_get (rai::transaction const &, rai::block_hash const &);
-	void frontier_del (rai::transaction const &, rai::block_hash const &);
+	void frontier_put (rai::transaction const &, rai::block_hash const &, rai::account const &) override;
+	rai::account frontier_get (rai::transaction const &, rai::block_hash const &) override;
+	void frontier_del (rai::transaction const &, rai::block_hash const &) override;
 
-	void account_put (rai::transaction const &, rai::account const &, rai::account_info const &);
-	bool account_get (rai::transaction const &, rai::account const &, rai::account_info &);
-	void account_del (rai::transaction const &, rai::account const &);
-	bool account_exists (rai::transaction const &, rai::account const &);
-	size_t account_count (rai::transaction const &);
-	rai::store_iterator<rai::account, rai::account_info> latest_v0_begin (rai::transaction const &, rai::account const &);
-	rai::store_iterator<rai::account, rai::account_info> latest_v0_begin (rai::transaction const &);
-	rai::store_iterator<rai::account, rai::account_info> latest_v0_end ();
-	rai::store_iterator<rai::account, rai::account_info> latest_v1_begin (rai::transaction const &, rai::account const &);
-	rai::store_iterator<rai::account, rai::account_info> latest_v1_begin (rai::transaction const &);
-	rai::store_iterator<rai::account, rai::account_info> latest_v1_end ();
-	rai::store_iterator<rai::account, rai::account_info> latest_begin (rai::transaction const &, rai::account const &);
-	rai::store_iterator<rai::account, rai::account_info> latest_begin (rai::transaction const &);
-	rai::store_iterator<rai::account, rai::account_info> latest_end ();
+	void account_put (rai::transaction const &, rai::account const &, rai::account_info const &) override;
+	bool account_get (rai::transaction const &, rai::account const &, rai::account_info &) override;
+	void account_del (rai::transaction const &, rai::account const &) override;
+	bool account_exists (rai::transaction const &, rai::account const &) override;
+	size_t account_count (rai::transaction const &) override;
+	rai::store_iterator<rai::account, rai::account_info> latest_v0_begin (rai::transaction const &, rai::account const &) override;
+	rai::store_iterator<rai::account, rai::account_info> latest_v0_begin (rai::transaction const &) override;
+	rai::store_iterator<rai::account, rai::account_info> latest_v0_end () override;
+	rai::store_iterator<rai::account, rai::account_info> latest_v1_begin (rai::transaction const &, rai::account const &) override;
+	rai::store_iterator<rai::account, rai::account_info> latest_v1_begin (rai::transaction const &) override;
+	rai::store_iterator<rai::account, rai::account_info> latest_v1_end () override;
+	rai::store_iterator<rai::account, rai::account_info> latest_begin (rai::transaction const &, rai::account const &) override;
+	rai::store_iterator<rai::account, rai::account_info> latest_begin (rai::transaction const &) override;
+	rai::store_iterator<rai::account, rai::account_info> latest_end () override;
 
-	void pending_put (rai::transaction const &, rai::pending_key const &, rai::pending_info const &);
-	void pending_del (rai::transaction const &, rai::pending_key const &);
-	bool pending_get (rai::transaction const &, rai::pending_key const &, rai::pending_info &);
-	bool pending_exists (rai::transaction const &, rai::pending_key const &);
-	rai::store_iterator<rai::pending_key, rai::pending_info> pending_v0_begin (rai::transaction const &, rai::pending_key const &);
-	rai::store_iterator<rai::pending_key, rai::pending_info> pending_v0_begin (rai::transaction const &);
-	rai::store_iterator<rai::pending_key, rai::pending_info> pending_v0_end ();
-	rai::store_iterator<rai::pending_key, rai::pending_info> pending_v1_begin (rai::transaction const &, rai::pending_key const &);
-	rai::store_iterator<rai::pending_key, rai::pending_info> pending_v1_begin (rai::transaction const &);
-	rai::store_iterator<rai::pending_key, rai::pending_info> pending_v1_end ();
-	rai::store_iterator<rai::pending_key, rai::pending_info> pending_begin (rai::transaction const &, rai::pending_key const &);
-	rai::store_iterator<rai::pending_key, rai::pending_info> pending_begin (rai::transaction const &);
-	rai::store_iterator<rai::pending_key, rai::pending_info> pending_end ();
+	void pending_put (rai::transaction const &, rai::pending_key const &, rai::pending_info const &) override;
+	void pending_del (rai::transaction const &, rai::pending_key const &) override;
+	bool pending_get (rai::transaction const &, rai::pending_key const &, rai::pending_info &) override;
+	bool pending_exists (rai::transaction const &, rai::pending_key const &) override;
+	rai::store_iterator<rai::pending_key, rai::pending_info> pending_v0_begin (rai::transaction const &, rai::pending_key const &) override;
+	rai::store_iterator<rai::pending_key, rai::pending_info> pending_v0_begin (rai::transaction const &) override;
+	rai::store_iterator<rai::pending_key, rai::pending_info> pending_v0_end () override;
+	rai::store_iterator<rai::pending_key, rai::pending_info> pending_v1_begin (rai::transaction const &, rai::pending_key const &) override;
+	rai::store_iterator<rai::pending_key, rai::pending_info> pending_v1_begin (rai::transaction const &) override;
+	rai::store_iterator<rai::pending_key, rai::pending_info> pending_v1_end () override;
+	rai::store_iterator<rai::pending_key, rai::pending_info> pending_begin (rai::transaction const &, rai::pending_key const &) override;
+	rai::store_iterator<rai::pending_key, rai::pending_info> pending_begin (rai::transaction const &) override;
+	rai::store_iterator<rai::pending_key, rai::pending_info> pending_end () override;
 
-	void block_info_put (rai::transaction const &, rai::block_hash const &, rai::block_info const &);
-	void block_info_del (rai::transaction const &, rai::block_hash const &);
-	bool block_info_get (rai::transaction const &, rai::block_hash const &, rai::block_info &);
-	bool block_info_exists (rai::transaction const &, rai::block_hash const &);
-	rai::store_iterator<rai::block_hash, rai::block_info> block_info_begin (rai::transaction const &, rai::block_hash const &);
-	rai::store_iterator<rai::block_hash, rai::block_info> block_info_begin (rai::transaction const &);
-	rai::store_iterator<rai::block_hash, rai::block_info> block_info_end ();
-	rai::uint128_t block_balance (rai::transaction const &, rai::block_hash const &);
-	rai::epoch block_version (rai::transaction const &, rai::block_hash const &);
-	static size_t const block_info_max = 32;
+	void block_info_put (rai::transaction const &, rai::block_hash const &, rai::block_info const &) override;
+	void block_info_del (rai::transaction const &, rai::block_hash const &) override;
+	bool block_info_get (rai::transaction const &, rai::block_hash const &, rai::block_info &) override;
+	bool block_info_exists (rai::transaction const &, rai::block_hash const &) override;
+	rai::store_iterator<rai::block_hash, rai::block_info> block_info_begin (rai::transaction const &, rai::block_hash const &) override;
+	rai::store_iterator<rai::block_hash, rai::block_info> block_info_begin (rai::transaction const &) override;
+	rai::store_iterator<rai::block_hash, rai::block_info> block_info_end () override;
+	rai::uint128_t block_balance (rai::transaction const &, rai::block_hash const &) override;
+	rai::epoch block_version (rai::transaction const &, rai::block_hash const &) override;
 
-	rai::uint128_t representation_get (rai::transaction const &, rai::account const &);
-	void representation_put (rai::transaction const &, rai::account const &, rai::uint128_t const &);
-	void representation_add (rai::transaction const &, rai::account const &, rai::uint128_t const &);
-	rai::store_iterator<rai::account, rai::uint128_union> representation_begin (rai::transaction const &);
-	rai::store_iterator<rai::account, rai::uint128_union> representation_end ();
+	rai::uint128_t representation_get (rai::transaction const &, rai::account const &) override;
+	void representation_put (rai::transaction const &, rai::account const &, rai::uint128_t const &) override;
+	void representation_add (rai::transaction const &, rai::account const &, rai::uint128_t const &) override;
+	rai::store_iterator<rai::account, rai::uint128_union> representation_begin (rai::transaction const &) override;
+	rai::store_iterator<rai::account, rai::uint128_union> representation_end () override;
 
-	void unchecked_clear (rai::transaction const &);
-	void unchecked_put (rai::transaction const &, rai::block_hash const &, std::shared_ptr<rai::block> const &);
-	std::vector<std::shared_ptr<rai::block>> unchecked_get (rai::transaction const &, rai::block_hash const &);
-	void unchecked_del (rai::transaction const &, rai::block_hash const &, std::shared_ptr<rai::block>);
-	rai::store_iterator<rai::block_hash, std::shared_ptr<rai::block>> unchecked_begin (rai::transaction const &);
-	rai::store_iterator<rai::block_hash, std::shared_ptr<rai::block>> unchecked_begin (rai::transaction const &, rai::block_hash const &);
-	rai::store_iterator<rai::block_hash, std::shared_ptr<rai::block>> unchecked_end ();
-	size_t unchecked_count (rai::transaction const &);
+	void unchecked_clear (rai::transaction const &) override;
+	void unchecked_put (rai::transaction const &, rai::block_hash const &, std::shared_ptr<rai::block> const &) override;
+	std::vector<std::shared_ptr<rai::block>> unchecked_get (rai::transaction const &, rai::block_hash const &) override;
+	void unchecked_del (rai::transaction const &, rai::block_hash const &, std::shared_ptr<rai::block>) override;
+	rai::store_iterator<rai::block_hash, std::shared_ptr<rai::block>> unchecked_begin (rai::transaction const &) override;
+	rai::store_iterator<rai::block_hash, std::shared_ptr<rai::block>> unchecked_begin (rai::transaction const &, rai::block_hash const &) override;
+	rai::store_iterator<rai::block_hash, std::shared_ptr<rai::block>> unchecked_end () override;
+	size_t unchecked_count (rai::transaction const &) override;
 	std::unordered_multimap<rai::block_hash, std::shared_ptr<rai::block>> unchecked_cache;
 
-	void checksum_put (rai::transaction const &, uint64_t, uint8_t, rai::checksum const &);
-	bool checksum_get (rai::transaction const &, uint64_t, uint8_t, rai::checksum &);
-	void checksum_del (rai::transaction const &, uint64_t, uint8_t);
+	void checksum_put (rai::transaction const &, uint64_t, uint8_t, rai::checksum const &) override;
+	bool checksum_get (rai::transaction const &, uint64_t, uint8_t, rai::checksum &) override;
+	void checksum_del (rai::transaction const &, uint64_t, uint8_t) override;
 
 	// Return latest vote for an account from store
-	std::shared_ptr<rai::vote> vote_get (rai::transaction const &, rai::account const &);
+	std::shared_ptr<rai::vote> vote_get (rai::transaction const &, rai::account const &) override;
 	// Populate vote with the next sequence number
-	std::shared_ptr<rai::vote> vote_generate (rai::transaction const &, rai::account const &, rai::raw_key const &, std::shared_ptr<rai::block>);
-	std::shared_ptr<rai::vote> vote_generate (rai::transaction const &, rai::account const &, rai::raw_key const &, std::vector<rai::block_hash>);
+	std::shared_ptr<rai::vote> vote_generate (rai::transaction const &, rai::account const &, rai::raw_key const &, std::shared_ptr<rai::block>) override;
+	std::shared_ptr<rai::vote> vote_generate (rai::transaction const &, rai::account const &, rai::raw_key const &, std::vector<rai::block_hash>) override;
 	// Return either vote or the stored vote with a higher sequence number
-	std::shared_ptr<rai::vote> vote_max (rai::transaction const &, std::shared_ptr<rai::vote>);
+	std::shared_ptr<rai::vote> vote_max (rai::transaction const &, std::shared_ptr<rai::vote>) override;
 	// Return latest vote for an account considering the vote cache
-	std::shared_ptr<rai::vote> vote_current (rai::transaction const &, rai::account const &);
-	void flush (rai::transaction const &);
-	rai::store_iterator<rai::account, std::shared_ptr<rai::vote>> vote_begin (rai::transaction const &);
-	rai::store_iterator<rai::account, std::shared_ptr<rai::vote>> vote_end ();
+	std::shared_ptr<rai::vote> vote_current (rai::transaction const &, rai::account const &) override;
+	void flush (rai::transaction const &) override;
+	rai::store_iterator<rai::account, std::shared_ptr<rai::vote>> vote_begin (rai::transaction const &) override;
+	rai::store_iterator<rai::account, std::shared_ptr<rai::vote>> vote_end () override;
 	std::mutex cache_mutex;
 	std::unordered_map<rai::account, std::shared_ptr<rai::vote>> vote_cache;
 
-	void version_put (rai::transaction const &, int);
-	int version_get (rai::transaction const &);
+	void version_put (rai::transaction const &, int) override;
+	int version_get (rai::transaction const &) override;
 	void do_upgrades (rai::transaction const &);
 	void upgrade_v1_to_v2 (rai::transaction const &);
 	void upgrade_v2_to_v3 (rai::transaction const &);
@@ -254,10 +358,10 @@ public:
 	void upgrade_v11_to_v12 (rai::transaction const &);
 
 	// Requires a write transaction
-	rai::raw_key get_node_id (rai::transaction const &);
+	rai::raw_key get_node_id (rai::transaction const &) override;
 
 	/** Deletes the node ID from the store */
-	void delete_node_id (rai::transaction const &);
+	void delete_node_id (rai::transaction const &) override;
 
 	rai::mdb_env env;
 
