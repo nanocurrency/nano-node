@@ -229,25 +229,6 @@ void rai::fan::value_set (rai::raw_key const & value_a)
 	*(values[0]) ^= value_a.data;
 }
 
-rai::wallet_value::wallet_value (rai::mdb_val const & val_a)
-{
-	assert (val_a.size () == sizeof (*this));
-	std::copy (reinterpret_cast<uint8_t const *> (val_a.data ()), reinterpret_cast<uint8_t const *> (val_a.data ()) + sizeof (key), key.chars.begin ());
-	std::copy (reinterpret_cast<uint8_t const *> (val_a.data ()) + sizeof (key), reinterpret_cast<uint8_t const *> (val_a.data ()) + sizeof (key) + sizeof (work), reinterpret_cast<char *> (&work));
-}
-
-rai::wallet_value::wallet_value (rai::uint256_union const & key_a, uint64_t work_a) :
-key (key_a),
-work (work_a)
-{
-}
-
-rai::mdb_val rai::wallet_value::val () const
-{
-	static_assert (sizeof (*this) == sizeof (key) + sizeof (work), "Class not packed");
-	return rai::mdb_val (sizeof (*this), const_cast<rai::wallet_value *> (this));
-}
-
 // Wallet version number
 rai::uint256_union const rai::wallet_store::version_special (0);
 // Random number used to salt private key encryption
