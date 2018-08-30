@@ -11,7 +11,7 @@ using namespace std::chrono_literals;
 TEST (ledger, store_error)
 {
 	bool init (false);
-	rai::block_store store (init, boost::filesystem::path ("///"));
+	rai::mdb_store store (init, boost::filesystem::path ("///"));
 	ASSERT_FALSE (!init);
 	rai::stat stats;
 	rai::ledger ledger (store, stats);
@@ -21,7 +21,7 @@ TEST (ledger, store_error)
 TEST (ledger, empty)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
 	rai::stat stats;
 	rai::ledger ledger (store, stats);
@@ -35,7 +35,7 @@ TEST (ledger, empty)
 TEST (ledger, genesis_balance)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
 	rai::stat stats;
 	rai::ledger ledger (store, stats);
@@ -57,7 +57,7 @@ TEST (ledger, genesis_balance)
 TEST (ledger, checksum_persistence)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
 	rai::uint256_union checksum1;
 	rai::uint256_union max;
@@ -96,7 +96,7 @@ TEST (system, system_genesis)
 TEST (ledger, process_send)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
 	rai::stat stats;
 	rai::ledger ledger (store, stats);
@@ -189,7 +189,7 @@ TEST (ledger, process_send)
 TEST (ledger, process_receive)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
 	rai::stat stats;
 	rai::ledger ledger (store, stats);
@@ -246,7 +246,7 @@ TEST (ledger, process_receive)
 TEST (ledger, rollback_receiver)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
 	rai::stat stats;
 	rai::ledger ledger (store, stats);
@@ -284,7 +284,7 @@ TEST (ledger, rollback_receiver)
 TEST (ledger, rollback_representation)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
 	rai::stat stats;
 	rai::ledger ledger (store, stats);
@@ -337,7 +337,7 @@ TEST (ledger, rollback_representation)
 TEST (ledger, receive_rollback)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
 	rai::stat stats;
 	rai::ledger ledger (store, stats);
@@ -354,7 +354,7 @@ TEST (ledger, receive_rollback)
 TEST (ledger, process_duplicate)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
 	rai::stat stats;
 	rai::ledger ledger (store, stats);
@@ -376,7 +376,7 @@ TEST (ledger, process_duplicate)
 TEST (ledger, representative_genesis)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
 	rai::stat stats;
 	rai::ledger ledger (store, stats);
@@ -391,7 +391,7 @@ TEST (ledger, representative_genesis)
 TEST (ledger, weight)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
 	rai::stat stats;
 	rai::ledger ledger (store, stats);
@@ -404,7 +404,7 @@ TEST (ledger, weight)
 TEST (ledger, representative_change)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
 	rai::stat stats;
 	rai::ledger ledger (store, stats);
@@ -442,7 +442,7 @@ TEST (ledger, representative_change)
 TEST (ledger, send_fork)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
 	rai::stat stats;
 	rai::ledger ledger (store, stats);
@@ -462,7 +462,7 @@ TEST (ledger, send_fork)
 TEST (ledger, receive_fork)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
 	rai::stat stats;
 	rai::ledger ledger (store, stats);
@@ -488,7 +488,7 @@ TEST (ledger, receive_fork)
 TEST (ledger, open_fork)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
 	rai::stat stats;
 	rai::ledger ledger (store, stats);
@@ -510,7 +510,7 @@ TEST (ledger, open_fork)
 TEST (ledger, checksum_single)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
 	rai::genesis genesis;
 	auto transaction (store.tx_begin (true));
@@ -530,7 +530,7 @@ TEST (ledger, checksum_single)
 TEST (ledger, checksum_two)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
 	rai::genesis genesis;
 	auto transaction (store.tx_begin (true));
@@ -551,7 +551,7 @@ TEST (ledger, checksum_two)
 TEST (ledger, DISABLED_checksum_range)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
 	rai::stat stats;
 	rai::ledger ledger (store, stats);
@@ -665,7 +665,7 @@ TEST (system, generate_send_new)
 TEST (ledger, representation)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
 	rai::stat stats;
 	rai::ledger ledger (store, stats);
@@ -738,7 +738,7 @@ TEST (ledger, representation)
 TEST (ledger, double_open)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
 	rai::stat stats;
 	rai::ledger ledger (store, stats);
@@ -757,7 +757,7 @@ TEST (ledger, double_open)
 TEST (ledegr, double_receive)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
 	rai::stat stats;
 	rai::ledger ledger (store, stats);
@@ -1004,7 +1004,7 @@ TEST (ledger, successor)
 TEST (ledger, fail_change_old)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_FALSE (init);
 	rai::stat stats;
 	rai::ledger ledger (store, stats);
@@ -1022,7 +1022,7 @@ TEST (ledger, fail_change_old)
 TEST (ledger, fail_change_gap_previous)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_FALSE (init);
 	rai::stat stats;
 	rai::ledger ledger (store, stats);
@@ -1038,7 +1038,7 @@ TEST (ledger, fail_change_gap_previous)
 TEST (ledger, fail_change_bad_signature)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_FALSE (init);
 	rai::stat stats;
 	rai::ledger ledger (store, stats);
@@ -1054,7 +1054,7 @@ TEST (ledger, fail_change_bad_signature)
 TEST (ledger, fail_change_fork)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_FALSE (init);
 	rai::stat stats;
 	rai::ledger ledger (store, stats);
@@ -1074,7 +1074,7 @@ TEST (ledger, fail_change_fork)
 TEST (ledger, fail_send_old)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_FALSE (init);
 	rai::stat stats;
 	rai::ledger ledger (store, stats);
@@ -1092,7 +1092,7 @@ TEST (ledger, fail_send_old)
 TEST (ledger, fail_send_gap_previous)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_FALSE (init);
 	rai::stat stats;
 	rai::ledger ledger (store, stats);
@@ -1108,7 +1108,7 @@ TEST (ledger, fail_send_gap_previous)
 TEST (ledger, fail_send_bad_signature)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_FALSE (init);
 	rai::stat stats;
 	rai::ledger ledger (store, stats);
@@ -1124,7 +1124,7 @@ TEST (ledger, fail_send_bad_signature)
 TEST (ledger, fail_send_negative_spend)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_FALSE (init);
 	rai::stat stats;
 	rai::ledger ledger (store, stats);
@@ -1142,7 +1142,7 @@ TEST (ledger, fail_send_negative_spend)
 TEST (ledger, fail_send_fork)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_FALSE (init);
 	rai::stat stats;
 	rai::ledger ledger (store, stats);
@@ -1160,7 +1160,7 @@ TEST (ledger, fail_send_fork)
 TEST (ledger, fail_open_old)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_FALSE (init);
 	rai::stat stats;
 	rai::ledger ledger (store, stats);
@@ -1178,7 +1178,7 @@ TEST (ledger, fail_open_old)
 TEST (ledger, fail_open_gap_source)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_FALSE (init);
 	rai::stat stats;
 	rai::ledger ledger (store, stats);
@@ -1194,7 +1194,7 @@ TEST (ledger, fail_open_gap_source)
 TEST (ledger, fail_open_bad_signature)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_FALSE (init);
 	rai::stat stats;
 	rai::ledger ledger (store, stats);
@@ -1212,7 +1212,7 @@ TEST (ledger, fail_open_bad_signature)
 TEST (ledger, fail_open_fork_previous)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_FALSE (init);
 	rai::stat stats;
 	rai::ledger ledger (store, stats);
@@ -1233,7 +1233,7 @@ TEST (ledger, fail_open_fork_previous)
 TEST (ledger, fail_open_account_mismatch)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_FALSE (init);
 	rai::stat stats;
 	rai::ledger ledger (store, stats);
@@ -1251,7 +1251,7 @@ TEST (ledger, fail_open_account_mismatch)
 TEST (ledger, fail_receive_old)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_FALSE (init);
 	rai::stat stats;
 	rai::ledger ledger (store, stats);
@@ -1273,7 +1273,7 @@ TEST (ledger, fail_receive_old)
 TEST (ledger, fail_receive_gap_source)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_FALSE (init);
 	rai::stat stats;
 	rai::ledger ledger (store, stats);
@@ -1298,7 +1298,7 @@ TEST (ledger, fail_receive_gap_source)
 TEST (ledger, fail_receive_overreceive)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_FALSE (init);
 	rai::stat stats;
 	rai::ledger ledger (store, stats);
@@ -1320,7 +1320,7 @@ TEST (ledger, fail_receive_overreceive)
 TEST (ledger, fail_receive_bad_signature)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_FALSE (init);
 	rai::stat stats;
 	rai::ledger ledger (store, stats);
@@ -1345,7 +1345,7 @@ TEST (ledger, fail_receive_bad_signature)
 TEST (ledger, fail_receive_gap_previous_opened)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_FALSE (init);
 	rai::stat stats;
 	rai::ledger ledger (store, stats);
@@ -1370,7 +1370,7 @@ TEST (ledger, fail_receive_gap_previous_opened)
 TEST (ledger, fail_receive_gap_previous_unopened)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_FALSE (init);
 	rai::stat stats;
 	rai::ledger ledger (store, stats);
@@ -1392,7 +1392,7 @@ TEST (ledger, fail_receive_gap_previous_unopened)
 TEST (ledger, fail_receive_fork_previous)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_FALSE (init);
 	rai::stat stats;
 	rai::ledger ledger (store, stats);
@@ -1421,7 +1421,7 @@ TEST (ledger, fail_receive_fork_previous)
 TEST (ledger, fail_receive_received_source)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_FALSE (init);
 	rai::stat stats;
 	rai::ledger ledger (store, stats);
@@ -1456,7 +1456,7 @@ TEST (ledger, fail_receive_received_source)
 TEST (ledger, latest_empty)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_FALSE (init);
 	rai::stat stats;
 	rai::ledger ledger (store, stats);
@@ -1469,7 +1469,7 @@ TEST (ledger, latest_empty)
 TEST (ledger, latest_root)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_FALSE (init);
 	rai::stat stats;
 	rai::ledger ledger (store, stats);
@@ -1487,7 +1487,7 @@ TEST (ledger, latest_root)
 TEST (ledger, change_representative_move_representation)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
 	rai::stat stats;
 	rai::ledger ledger (store, stats);
@@ -1512,7 +1512,7 @@ TEST (ledger, change_representative_move_representation)
 TEST (ledger, send_open_receive_rollback)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
 	rai::stat stats;
 	rai::ledger ledger (store, stats);
@@ -1570,7 +1570,7 @@ TEST (ledger, send_open_receive_rollback)
 TEST (ledger, bootstrap_rep_weight)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
 	rai::stat stats;
 	rai::ledger ledger (store, stats);
@@ -1605,7 +1605,7 @@ TEST (ledger, bootstrap_rep_weight)
 TEST (ledger, block_destination_source)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
 	rai::stat stats;
 	rai::ledger ledger (store, stats);
@@ -1650,7 +1650,7 @@ TEST (ledger, block_destination_source)
 TEST (ledger, state_account)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
 	rai::stat stats;
 	rai::ledger ledger (store, stats);
@@ -1665,7 +1665,7 @@ TEST (ledger, state_account)
 TEST (ledger, state_send_receive)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
 	rai::stat stats;
 	rai::ledger ledger (store, stats);
@@ -1697,7 +1697,7 @@ TEST (ledger, state_send_receive)
 TEST (ledger, state_receive)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
 	rai::stat stats;
 	rai::ledger ledger (store, stats);
@@ -1727,7 +1727,7 @@ TEST (ledger, state_receive)
 TEST (ledger, state_rep_change)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
 	rai::stat stats;
 	rai::ledger ledger (store, stats);
@@ -1750,7 +1750,7 @@ TEST (ledger, state_rep_change)
 TEST (ledger, state_open)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
 	rai::stat stats;
 	rai::ledger ledger (store, stats);
@@ -1784,7 +1784,7 @@ TEST (ledger, state_open)
 TEST (ledger, send_after_state_fail)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
 	rai::stat stats;
 	rai::ledger ledger (store, stats);
@@ -1801,7 +1801,7 @@ TEST (ledger, send_after_state_fail)
 TEST (ledger, receive_after_state_fail)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
 	rai::stat stats;
 	rai::ledger ledger (store, stats);
@@ -1818,7 +1818,7 @@ TEST (ledger, receive_after_state_fail)
 TEST (ledger, change_after_state_fail)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
 	rai::stat stats;
 	rai::ledger ledger (store, stats);
@@ -1835,7 +1835,7 @@ TEST (ledger, change_after_state_fail)
 TEST (ledger, state_unreceivable_fail)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
 	rai::stat stats;
 	rai::ledger ledger (store, stats);
@@ -1858,7 +1858,7 @@ TEST (ledger, state_unreceivable_fail)
 TEST (ledger, state_receive_bad_amount_fail)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
 	rai::stat stats;
 	rai::ledger ledger (store, stats);
@@ -1881,7 +1881,7 @@ TEST (ledger, state_receive_bad_amount_fail)
 TEST (ledger, state_no_link_amount_fail)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
 	rai::stat stats;
 	rai::ledger ledger (store, stats);
@@ -1898,7 +1898,7 @@ TEST (ledger, state_no_link_amount_fail)
 TEST (ledger, state_receive_wrong_account_fail)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
 	rai::stat stats;
 	rai::ledger ledger (store, stats);
@@ -1922,7 +1922,7 @@ TEST (ledger, state_receive_wrong_account_fail)
 TEST (ledger, state_open_state_fork)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
 	rai::stat stats;
 	rai::ledger ledger (store, stats);
@@ -1942,7 +1942,7 @@ TEST (ledger, state_open_state_fork)
 TEST (ledger, state_state_open_fork)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
 	rai::stat stats;
 	rai::ledger ledger (store, stats);
@@ -1962,7 +1962,7 @@ TEST (ledger, state_state_open_fork)
 TEST (ledger, state_open_previous_fail)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
 	rai::stat stats;
 	rai::ledger ledger (store, stats);
@@ -1979,7 +1979,7 @@ TEST (ledger, state_open_previous_fail)
 TEST (ledger, state_open_source_fail)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
 	rai::stat stats;
 	rai::ledger ledger (store, stats);
@@ -1996,7 +1996,7 @@ TEST (ledger, state_open_source_fail)
 TEST (ledger, state_send_change)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
 	rai::stat stats;
 	rai::ledger ledger (store, stats);
@@ -2019,7 +2019,7 @@ TEST (ledger, state_send_change)
 TEST (ledger, state_receive_change)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
 	rai::stat stats;
 	rai::ledger ledger (store, stats);
@@ -2051,7 +2051,7 @@ TEST (ledger, state_receive_change)
 TEST (ledger, state_open_old)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
 	rai::stat stats;
 	rai::ledger ledger (store, stats);
@@ -2071,7 +2071,7 @@ TEST (ledger, state_open_old)
 TEST (ledger, state_receive_old)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
 	rai::stat stats;
 	rai::ledger ledger (store, stats);
@@ -2095,7 +2095,7 @@ TEST (ledger, state_receive_old)
 TEST (ledger, state_rollback_send)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
 	rai::stat stats;
 	rai::ledger ledger (store, stats);
@@ -2125,7 +2125,7 @@ TEST (ledger, state_rollback_send)
 TEST (ledger, state_rollback_receive)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
 	rai::stat stats;
 	rai::ledger ledger (store, stats);
@@ -2150,7 +2150,7 @@ TEST (ledger, state_rollback_receive)
 TEST (ledger, state_rollback_received_send)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
 	rai::stat stats;
 	rai::ledger ledger (store, stats);
@@ -2176,7 +2176,7 @@ TEST (ledger, state_rollback_received_send)
 TEST (ledger, state_rep_change_rollback)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
 	rai::stat stats;
 	rai::ledger ledger (store, stats);
@@ -2196,7 +2196,7 @@ TEST (ledger, state_rep_change_rollback)
 TEST (ledger, state_open_rollback)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
 	rai::stat stats;
 	rai::ledger ledger (store, stats);
@@ -2221,7 +2221,7 @@ TEST (ledger, state_open_rollback)
 TEST (ledger, state_send_change_rollback)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
 	rai::stat stats;
 	rai::ledger ledger (store, stats);
@@ -2241,7 +2241,7 @@ TEST (ledger, state_send_change_rollback)
 TEST (ledger, state_receive_change_rollback)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
 	rai::stat stats;
 	rai::ledger ledger (store, stats);
@@ -2263,7 +2263,7 @@ TEST (ledger, state_receive_change_rollback)
 TEST (ledger, epoch_blocks_general)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
 	rai::stat stats;
 	rai::keypair epoch_key;
@@ -2309,7 +2309,7 @@ TEST (ledger, epoch_blocks_general)
 TEST (ledger, epoch_blocks_receive_upgrade)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
 	rai::stat stats;
 	rai::keypair epoch_key;
@@ -2349,7 +2349,7 @@ TEST (ledger, epoch_blocks_receive_upgrade)
 TEST (ledger, epoch_blocks_fork)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
 	rai::stat stats;
 	rai::keypair epoch_key;

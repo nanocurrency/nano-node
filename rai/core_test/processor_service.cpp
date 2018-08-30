@@ -9,7 +9,7 @@
 TEST (processor_service, bad_send_signature)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_FALSE (init);
 	rai::stat stats;
 	rai::ledger ledger (store, stats);
@@ -28,7 +28,7 @@ TEST (processor_service, bad_send_signature)
 TEST (processor_service, bad_receive_signature)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_FALSE (init);
 	rai::stat stats;
 	rai::ledger ledger (store, stats);

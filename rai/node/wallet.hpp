@@ -120,6 +120,7 @@ public:
 	rai::kdf & kdf;
 	MDB_dbi handle;
 	std::recursive_mutex mutex;
+
 private:
 	MDB_txn * tx (rai::transaction const &) const;
 };
