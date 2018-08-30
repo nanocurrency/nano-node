@@ -1,4 +1,5 @@
 #include <rai/node/common.hpp>
+#include <rai/node/lmdb.hpp>
 #include <rai/node/stats.hpp>
 #include <rai/secure/blockstore.hpp>
 #include <rai/secure/ledger.hpp>
@@ -609,7 +610,7 @@ epoch_signer (epoch_signer_a)
 // Balance for account containing hash
 rai::uint128_t rai::ledger::balance (rai::transaction const & transaction_a, rai::block_hash const & hash_a)
 {
-	balance_visitor visitor (transaction_a, store);
+	rai::balance_visitor visitor (transaction_a, store);
 	visitor.compute (hash_a);
 	return visitor.balance;
 }
