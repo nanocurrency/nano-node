@@ -282,12 +282,12 @@ void rai::network::broadcast_confirm_req (std::shared_ptr<rai::block> block_a)
 	broadcast_confirm_req_base (block_a, list, 0);
 }
 
-void rai::network::broadcast_confirm_req_base (std::shared_ptr<rai::block> block_a, std::shared_ptr<std::vector<rai::peer_information>> endpoints_a, unsigned delay_a)
+void rai::network::broadcast_confirm_req_base (std::shared_ptr<rai::block> block_a, std::shared_ptr<std::vector<rai::peer_information>> endpoints_a, unsigned delay_a, bool resumption)
 {
 	const size_t max_reps = 10;
-	if (node.config.logging.network_logging ())
+	if (!resumption && node.config.logging.network_logging ())
 	{
-		BOOST_LOG (node.log) << boost::str (boost::format ("Broadcasting confirm req for block %1% to %2% representatives") % block_a->hash ().to_string () % std::min (endpoints_a->size (), max_reps));
+		BOOST_LOG (node.log) << boost::str (boost::format ("Broadcasting confirm req for block %1% to %2% representatives") % block_a->hash ().to_string () % endpoints_a->size ());
 	}
 	auto count (0);
 	while (!endpoints_a->empty () && count < max_reps)
@@ -309,7 +309,7 @@ void rai::network::broadcast_confirm_req_base (std::shared_ptr<rai::block> block
 		node.alarm.add (std::chrono::steady_clock::now () + std::chrono::milliseconds (delay_a), [node_w, block_a, endpoints_a, delay_a]() {
 			if (auto node_l = node_w.lock ())
 			{
-				node_l->network.broadcast_confirm_req_base (block_a, endpoints_a, delay_a + 50);
+				node_l->network.broadcast_confirm_req_base (block_a, endpoints_a, delay_a + 50, true);
 			}
 		});
 	}
@@ -1951,13 +1951,19 @@ stats (config.stat_config)
 		{
 			BOOST_LOG (log) << "Constructing node";
 		}
+		rai::genesis genesis;
 		rai::transaction transaction (store.environment, true);
 		if (store.latest_begin (transaction) == store.latest_end ())
 		{
 			// Store was empty meaning we just created it, add the genesis block
-			rai::genesis genesis;
 			store.initialize (transaction, genesis);
 		}
+		if (!store.block_exists (transaction, genesis.hash ()))
+		{
+			BOOST_LOG (log) << "Genesis block not found. Make sure the node network ID is correct.";
+			std::exit (1);
+		}
+
 		node_id = rai::keypair (store.get_node_id (transaction));
 		BOOST_LOG (log) << "Node ID: " << node_id.pub.to_account ();
 	}

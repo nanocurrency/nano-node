@@ -2363,3 +2363,68 @@ TEST (ledger, epoch_blocks_fork)
 	rai::state_block epoch1 (rai::genesis_account, genesis.hash (), rai::genesis_account, rai::genesis_amount, 123, epoch_key.prv, epoch_key.pub, 0);
 	ASSERT_EQ (rai::process_result::fork, ledger.process (transaction, epoch1).code);
 }
+
+TEST (ledger, could_fit)
+{
+	bool init (false);
+	rai::block_store store (init, rai::unique_path ());
+	ASSERT_TRUE (!init);
+	rai::stat stats;
+	rai::keypair epoch_key;
+	rai::ledger ledger (store, stats, 123, epoch_key.pub);
+	rai::keypair epoch_signer;
+	ledger.epoch_link = 123;
+	ledger.epoch_signer = epoch_signer.pub;
+	rai::genesis genesis;
+	rai::transaction transaction (store.environment, true);
+	store.initialize (transaction, genesis);
+	rai::keypair destination;
+	// Test legacy and state change blocks could_fit
+	rai::change_block change1 (genesis.hash (), rai::genesis_account, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
+	rai::state_block change2 (rai::genesis_account, genesis.hash (), rai::genesis_account, rai::genesis_amount, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
+	ASSERT_TRUE (ledger.could_fit (transaction, change1));
+	ASSERT_TRUE (ledger.could_fit (transaction, change2));
+	// Test legacy and state send
+	rai::keypair key1;
+	rai::send_block send1 (change1.hash (), key1.pub, rai::genesis_amount - 1, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
+	rai::state_block send2 (rai::genesis_account, change1.hash (), rai::genesis_account, rai::genesis_amount - 1, key1.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
+	ASSERT_FALSE (ledger.could_fit (transaction, send1));
+	ASSERT_FALSE (ledger.could_fit (transaction, send2));
+	ASSERT_EQ (rai::process_result::progress, ledger.process (transaction, change1).code);
+	ASSERT_TRUE (ledger.could_fit (transaction, change1));
+	ASSERT_TRUE (ledger.could_fit (transaction, change2));
+	ASSERT_TRUE (ledger.could_fit (transaction, send1));
+	ASSERT_TRUE (ledger.could_fit (transaction, send2));
+	// Test legacy and state open
+	rai::open_block open1 (send2.hash (), rai::genesis_account, key1.pub, key1.prv, key1.pub, 0);
+	rai::state_block open2 (key1.pub, 0, rai::genesis_account, 1, send2.hash (), key1.prv, key1.pub, 0);
+	ASSERT_FALSE (ledger.could_fit (transaction, open1));
+	ASSERT_FALSE (ledger.could_fit (transaction, open2));
+	ASSERT_EQ (rai::process_result::progress, ledger.process (transaction, send2).code);
+	ASSERT_TRUE (ledger.could_fit (transaction, send1));
+	ASSERT_TRUE (ledger.could_fit (transaction, send2));
+	ASSERT_TRUE (ledger.could_fit (transaction, open1));
+	ASSERT_TRUE (ledger.could_fit (transaction, open2));
+	ASSERT_EQ (rai::process_result::progress, ledger.process (transaction, open1).code);
+	ASSERT_TRUE (ledger.could_fit (transaction, open1));
+	ASSERT_TRUE (ledger.could_fit (transaction, open2));
+	// Create another send to receive
+	rai::state_block send3 (rai::genesis_account, send2.hash (), rai::genesis_account, rai::genesis_amount - 2, key1.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
+	// Test legacy and state receive
+	rai::receive_block receive1 (open1.hash (), send3.hash (), key1.prv, key1.pub, 0);
+	rai::state_block receive2 (key1.pub, open1.hash (), rai::genesis_account, 2, send3.hash (), key1.prv, key1.pub, 0);
+	ASSERT_FALSE (ledger.could_fit (transaction, receive1));
+	ASSERT_FALSE (ledger.could_fit (transaction, receive2));
+	ASSERT_EQ (rai::process_result::progress, ledger.process (transaction, send3).code);
+	ASSERT_TRUE (ledger.could_fit (transaction, receive1));
+	ASSERT_TRUE (ledger.could_fit (transaction, receive2));
+	// Test epoch (state)
+	rai::state_block epoch1 (key1.pub, receive1.hash (), rai::genesis_account, 2, ledger.epoch_link, epoch_signer.prv, epoch_signer.pub, 0);
+	ASSERT_FALSE (ledger.could_fit (transaction, epoch1));
+	ASSERT_EQ (rai::process_result::progress, ledger.process (transaction, receive1).code);
+	ASSERT_TRUE (ledger.could_fit (transaction, receive1));
+	ASSERT_TRUE (ledger.could_fit (transaction, receive2));
+	ASSERT_TRUE (ledger.could_fit (transaction, epoch1));
+	ASSERT_EQ (rai::process_result::progress, ledger.process (transaction, epoch1).code);
+	ASSERT_TRUE (ledger.could_fit (transaction, epoch1));
+}

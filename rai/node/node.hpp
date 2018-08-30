@@ -405,7 +405,7 @@ public:
 	void send_keepalive (rai::endpoint const &);
 	void send_node_id_handshake (rai::endpoint const &, boost::optional<rai::uint256_union> const & query, boost::optional<rai::uint256_union> const & respond_to);
 	void broadcast_confirm_req (std::shared_ptr<rai::block>);
-	void broadcast_confirm_req_base (std::shared_ptr<rai::block>, std::shared_ptr<std::vector<rai::peer_information>>, unsigned);
+	void broadcast_confirm_req_base (std::shared_ptr<rai::block>, std::shared_ptr<std::vector<rai::peer_information>>, unsigned, bool = false);
 	void send_confirm_req (rai::endpoint const &, std::shared_ptr<rai::block>);
 	void send_confirm_req_hash (rai::endpoint const &, std::shared_ptr<rai::block>);
 	void confirm_hashes (MDB_txn *, rai::endpoint const &, std::vector<rai::block_hash>);
