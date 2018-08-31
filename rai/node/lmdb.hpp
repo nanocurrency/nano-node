@@ -15,11 +15,11 @@ class mdb_txn : public transaction_impl
 {
 public:
 	mdb_txn (rai::mdb_env const &, bool = false);
-	mdb_txn (rai::mdb_txn &) = delete;
+	mdb_txn (rai::mdb_txn const &) = delete;
 	mdb_txn (rai::mdb_txn &&) = default;
 	~mdb_txn ();
 	rai::mdb_txn & operator= (rai::mdb_txn const &) = delete;
-	rai::mdb_txn & operator= (rai::mdb_txn &) = default;
+	rai::mdb_txn & operator= (rai::mdb_txn &&) = default;
 	operator MDB_txn * () const;
 	MDB_txn * handle;
 };
