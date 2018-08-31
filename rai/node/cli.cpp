@@ -433,13 +433,10 @@ std::error_code rai::handle_node_options (boost::program_options::variables_map 
 							rai::raw_key key;
 							auto error (existing->second->store.fetch (transaction, account, key));
 							assert (!error);
-							if (rai::pub_key (key.data) == account)
+							std::cout << boost::str (boost::format ("Pub: %1% Prv: %2%\n") % account.to_account () % key.data.to_string ());
+							if (rai::pub_key (key.data) != account)
 							{
-								std::cout << boost::str (boost::format ("Pub: %1% Prv: %2%\n") % account.to_account () % key.data.to_string ());
-							}
-							else
-							{
-								std::cout << boost::str (boost::format ("Pub: %1% Prv: %2% Invalid private key!\n") % account.to_account () % key.data.to_string ());
+								std::cerr << boost::str (boost::format ("Invalid private key %1%\n") % key.data.to_string ());
 							}
 						}
 					}
