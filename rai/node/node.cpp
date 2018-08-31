@@ -1007,7 +1007,7 @@ public:
 				if (!rai::validate_message (*node_id, message_a.hash (), message_a.node_id_signature))
 				{
 					rai::transaction transaction (node.store.environment, nullptr, false);
-					bool could_fit = node.ledger.could_fit (transaction, *message_a.block);
+					bool could_fit = node.ledger.process (transaction, *message_a.block, true);
 					if (could_fit)
 					{
 						rai::transaction transaction (node.store.environment, nullptr, false);

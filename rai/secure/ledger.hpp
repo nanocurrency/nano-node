@@ -37,7 +37,7 @@ public:
 	bool is_send (MDB_txn *, rai::state_block const &);
 	rai::block_hash block_destination (MDB_txn *, rai::block const &);
 	rai::block_hash block_source (MDB_txn *, rai::block const &);
-	rai::process_return process (MDB_txn *, rai::block const &);
+	rai::process_return process (MDB_txn *, rai::block const &, bool = false);
 	void rollback (MDB_txn *, rai::block_hash const &);
 	void change_latest (MDB_txn *, rai::account const &, rai::block_hash const &, rai::account const &, rai::uint128_union const &, uint64_t, bool = false, rai::epoch = rai::epoch::epoch_0);
 	void checksum_update (MDB_txn *, rai::block_hash const &);

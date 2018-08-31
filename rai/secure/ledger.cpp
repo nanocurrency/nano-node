@@ -644,9 +644,9 @@ rai::uint128_t rai::ledger::account_pending (MDB_txn * transaction_a, rai::accou
 	return result;
 }
 
-rai::process_return rai::ledger::process (MDB_txn * transaction_a, rai::block const & block_a)
+rai::process_return rai::ledger::process (MDB_txn * transaction_a, rai::block const & block_a, bool test_run)
 {
-	ledger_processor processor (*this, transaction_a);
+	ledger_processor processor (*this, transaction_a, test_run);
 	block_a.visit (processor);
 	return processor.result;
 }
