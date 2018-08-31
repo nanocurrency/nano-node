@@ -1586,6 +1586,7 @@ ledger (store, stats, config.epoch_block_link, config.epoch_block_signer),
 active (*this),
 network (*this, config.peering_port),
 bootstrap_initiator (*this),
+bootstrap_lazy (*this, config_a.bootstrap_connections /* XXX:TODO: Move this to its own config option */),
 bootstrap (service_a, config.peering_port, *this),
 peers (network.endpoint ()),
 application_path (application_path_a),
@@ -1611,6 +1612,7 @@ stats (config.stat_config)
 		observers.disconnect.notify ();
 	};
 	observers.blocks.add ([this](std::shared_ptr<rai::block> block_a, rai::account const & account_a, rai::amount const & amount_a, bool is_state_send_a) {
+		/* XXX:TODO: Determine if the block is confirmed at this point */
 		this->bootstrap_lazy.add_confirmed_block (block_a, account_a, amount_a);
 
 		if (this->block_arrival.recent (block_a->hash ()))

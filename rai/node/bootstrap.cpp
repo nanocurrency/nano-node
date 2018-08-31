@@ -2386,8 +2386,13 @@ void rai::frontier_req_server::next ()
 /*
  * Lazy Bootstrapping Client
  */
-rai::bootstrap_lazy::bootstrap_lazy ()
+rai::bootstrap_lazy::bootstrap_lazy (rai::node & node_a, int thread_count) :
+node (node_a)
 {
+	int thread_number;
+
+	
+
 	return;
 }
 
@@ -2397,6 +2402,11 @@ rai::bootstrap_lazy::~bootstrap_lazy ()
 }
 
 void rai::bootstrap_lazy::add_confirmed_block (std::shared_ptr<rai::block> block_a, rai::account const & account_a, rai::amount const & amount_a)
+{
+	return;
+}
+
+void rai::bootstrap_lazy::start_thread (void)
 {
 	return;
 }
