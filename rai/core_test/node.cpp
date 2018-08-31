@@ -1664,22 +1664,22 @@ TEST (node, vote_stapling)
 	system.nodes[0]->online_reps.online_stake_total = std::numeric_limits<rai::uint128_t>::max ();
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	{
-		rai::transaction transaction (system.nodes[1]->store.environment, nullptr, true);
+		rai::transaction transaction (system.nodes[1]->store.environment, true);
 		system.wallet (1)->store.representative_set (transaction, rep1.pub);
 	}
 	system.wallet (1)->insert_adhoc (rep1.prv);
 	{
-		rai::transaction transaction (system.nodes[2]->store.environment, nullptr, true);
+		rai::transaction transaction (system.nodes[2]->store.environment, true);
 		system.wallet (2)->store.representative_set (transaction, rep2.pub);
 	}
 	system.wallet (2)->insert_adhoc (rep2.prv);
 	{
-		rai::transaction transaction (system.nodes[3]->store.environment, nullptr, true);
+		rai::transaction transaction (system.nodes[3]->store.environment, true);
 		system.wallet (3)->store.representative_set (transaction, rep3.pub);
 	}
 	system.wallet (3)->insert_adhoc (rep3.prv);
 	{
-		rai::transaction transaction (system.nodes[4]->store.environment, nullptr, true);
+		rai::transaction transaction (system.nodes[4]->store.environment, true);
 		system.wallet (4)->store.representative_set (transaction, rep4.pub);
 	}
 	system.wallet (4)->insert_adhoc (rep4.prv);

@@ -788,10 +788,10 @@ bool rai::wallet::enter_password (MDB_txn * transaction_a, std::string const & p
 
 void rai::wallet::check_self_weight (MDB_txn * transaction_a, rai::public_key const & public_key)
 {
-	auto weight (node.ledger.weight (transaction_a, public_key));
+	auto weight (wallets.node.ledger.weight (transaction_a, public_key));
 	if (!weight.is_zero ())
 	{
-		node.peers.rep_response (node.network.endpoint (), public_key, weight);
+		wallets.node.peers.rep_response (wallets.node.network.endpoint (), public_key, weight);
 	}
 }
 

@@ -551,7 +551,7 @@ void rai::rep_xor_solver::calculate_top_reps ()
 {
 	std::vector<std::pair<rai::uint128_t, rai::account>> representatives;
 	{
-		rai::transaction transaction (node.store.environment, nullptr, false);
+		rai::transaction transaction (node.store.environment, false);
 		for (auto i (node.store.representation_begin (transaction)), n (node.store.representation_end ()); i != n; ++i)
 		{
 			representatives.push_back (std::make_pair (rai::uint128_union (i->second).number (), rai::uint256_union (i->first)));
@@ -825,7 +825,7 @@ std::pair<rai::uint128_t, size_t> rai::rep_xor_solver::validate_staple (rai::blo
 		calculate_top_reps ();
 		lock.lock ();
 	}
-	rai::transaction transaction (node.store.environment, nullptr, false);
+	rai::transaction transaction (node.store.environment, false);
 	rai::uint128_t total_stake (0);
 	size_t max_position (0);
 	if (solution.empty ())
@@ -1006,11 +1006,11 @@ public:
 			{
 				if (!rai::validate_message (*node_id, message_a.hash (), message_a.node_id_signature))
 				{
-					rai::transaction transaction (node.store.environment, nullptr, false);
-					bool could_fit = node.ledger.process (transaction, *message_a.block, true);
+					rai::transaction transaction (node.store.environment, false);
+					bool could_fit = node.ledger.process (transaction, *message_a.block, true).code == rai::process_result::progress;
 					if (could_fit)
 					{
-						rai::transaction transaction (node.store.environment, nullptr, false);
+						rai::transaction transaction (node.store.environment, false);
 						auto rep_requested (message_a.rep_requested);
 						if (!rep_requested.is_zero ())
 						{
@@ -1263,7 +1263,7 @@ rai::uint256_union rai::vote_stapler::stage1 (rai::public_key node_id, rai::uint
 	rai::raw_key rep_key;
 	if (!result)
 	{
-		rai::transaction transaction (node.store.environment, nullptr, false);
+		rai::transaction transaction (node.store.environment, false);
 		for (auto i (node.wallets.items.begin ()), n (node.wallets.items.end ()); i != n; ++i)
 		{
 			auto & wallet (*i->second);
@@ -1364,7 +1364,7 @@ force_full_broadcast (false)
 void rai::vote_staple_requester::calculate_weight_cutoff ()
 {
 	std::vector<rai::uint128_t> representation;
-	rai::transaction transaction (node.store.environment, nullptr, false);
+	rai::transaction transaction (node.store.environment, false);
 	for (auto i (node.store.representation_begin (transaction)), n (node.store.representation_end ()); i != n; ++i)
 	{
 		representation.push_back (rai::uint128_union (i->second).number ());
@@ -1463,7 +1463,7 @@ void rai::vote_staple_requester::request_staple_inner (std::shared_ptr<rai::stat
 	}
 	if (node.config.enable_voting)
 	{
-		rai::transaction transaction (node.store.environment, nullptr, false);
+		rai::transaction transaction (node.store.environment, false);
 		node.wallets.foreach_representative (transaction, [&](rai::public_key const & pub, rai::raw_key const & prv) {
 			add_rep (node.network.endpoint (), pub, node.ledger.weight (transaction, pub));
 		});
@@ -1509,7 +1509,7 @@ void rai::vote_staple_requester::musig_stage0_res (rai::endpoint const & source,
 	}
 	else
 	{
-		rai::transaction transaction (node.store.environment, nullptr, false);
+		rai::transaction transaction (node.store.environment, false);
 		for (auto message_block_hash : full_broadcast_blocks)
 		{
 			rai::uint256_union message_rep (message_a.request_id.number () ^ message_block_hash.number ());
@@ -1517,7 +1517,7 @@ void rai::vote_staple_requester::musig_stage0_res (rai::endpoint const & source,
 			{
 				rai::uint128_t rep_weight;
 				{
-					rai::transaction transaction (node.store.environment, nullptr, false);
+					rai::transaction transaction (node.store.environment, false);
 					rep_weight = node.ledger.weight (transaction, message_rep);
 				}
 				if (rep_weight >= weight_cutoff)
@@ -1544,7 +1544,7 @@ void rai::vote_staple_requester::musig_stage0_res (rai::endpoint const & source,
 			if (stage0_status.rb_values.insert (std::make_pair (rep, message_a.rb_value)).second)
 			{
 				{
-					rai::transaction transaction (node.store.environment, nullptr, false);
+					rai::transaction transaction (node.store.environment, false);
 					auto last_vote_weight (stage0_status.vote_weight_collected);
 					stage0_status.vote_weight_collected += node.ledger.weight (transaction, rep);
 					if (stage0_status.vote_weight_collected < last_vote_weight)
