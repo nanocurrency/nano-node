@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <chrono>
 #include <functional>
 #include <map>
@@ -17,11 +18,6 @@
 #include <rai/secure/utility.hpp>
 
 using namespace std::chrono;
-
-namespace rai
-{
-class node;
-}
 
 namespace nano
 {
@@ -457,9 +453,17 @@ namespace events
 	class recorder
 	{
 	public:
-		recorder (rai::node & node);
+		/**
+		 * Construct recorder
+		 * @param full_db_path_a Path to database file, such as `application_path_a / "events.ldb"`
+		 * @param config_a Configuration object
+		 */
+		recorder (nano::events::recorder_config config_a, boost::filesystem::path const & full_db_path_a);
 
-		/** Stop recorder. This flushes the persistence queue */
+		/** Destructor calls stop() */
+		~recorder ();
+
+		/** Stop recorder. This flushes the persistence queue. */
 		void stop ();
 
 		inline bool enabled ()
@@ -536,7 +540,6 @@ namespace events
 
 	private:
 		nano::events::store eventstore;
-		rai::node & node;
 		/** Configuration object deserialized from config.json */
 		nano::events::recorder_config config;
 		/** Persistence queue to batch writes in a single transaction */

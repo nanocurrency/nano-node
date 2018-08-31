@@ -1644,7 +1644,7 @@ block_processor_thread ([this]() {
 	this->block_processor.process_blocks ();
 }),
 online_reps (*this),
-recorder (*this),
+recorder (config.recorder_config, application_path_a / "events.ldb"),
 stats (config.stat_config)
 {
 	wallets.observer = [this](bool active) {
@@ -2188,7 +2188,6 @@ void rai::node::stop ()
 	port_mapping.stop ();
 	vote_processor.stop ();
 	wallets.stop ();
-	recorder.stop ();
 }
 
 void rai::node::keepalive_preconfigured (std::vector<std::string> const & peers_a)

@@ -2,7 +2,6 @@
 #include <boost/algorithm/string.hpp>
 #include <iostream>
 #include <rai/node/eventrecorder.hpp>
-#include <rai/node/node.hpp>
 #include <vector>
 
 std::string nano::error_eventrecorder_messages::message (int ec) const
@@ -299,15 +298,19 @@ std::error_code nano::events::store::iterate_hash (rai::block_hash hash_a, std::
 	return ec;
 }
 
-nano::events::recorder::recorder (rai::node & node) :
-node (node),
-config (node.config.recorder_config)
+nano::events::recorder::recorder (nano::events::recorder_config config, boost::filesystem::path const & full_db_path_a) :
+config (config)
 {
-	auto path = node.application_path / "events.ldb";
+	auto path = full_db_path_a;
 	if (enabled ())
 	{
 		eventstore.open (path);
 	}
+}
+
+nano::events::recorder::~recorder ()
+{
+	stop ();
 }
 
 void nano::events::recorder::flush_queue (rai::transaction & tx)
