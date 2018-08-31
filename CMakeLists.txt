@@ -10,7 +10,9 @@ endif ()
 set (CPACK_PACKAGE_VENDOR "Nano Currency")
 
 set(CMAKE_INSTALL_RPATH "@executable_path/../Frameworks")
+
 # Create all libraries and executables in the root binary dir
+set(CMAKE_BINARY_DIR "${CMAKE_SOURCE_DIR}/build/bin")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
 set (RAIBLOCKS_GUI OFF CACHE BOOL "")

@@ -69,3 +69,9 @@ CTestTestfile.cmake
 install_manifest.txt
 Makefile
 Testing
+/build
+
+# Build generated files
+bootstrap_weights.cpp
+counters.stat
+samples.stat
