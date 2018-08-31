@@ -388,7 +388,7 @@ int main (int argc, char * const * argv)
 				while (block_count < max_blocks + 1)
 				{
 					std::this_thread::sleep_for (std::chrono::milliseconds (100));
-					rai::transaction transaction (node->store.environment, false);
+					auto transaction (node->store.tx_begin());
 					block_count = node->store.block_count (transaction).sum ();
 				}
 				auto end (std::chrono::high_resolution_clock::now ());
@@ -404,7 +404,7 @@ int main (int argc, char * const * argv)
 		else if (vm.count ("debug_validate_blocks"))
 		{
 			rai::inactive_node node (data_path);
-			rai::transaction transaction (node.node->store.environment, false);
+			auto transaction (node.node->store.tx_begin());
 			std::cerr << boost::str (boost::format ("Performing blocks hash, signature, work validation...\n"));
 			size_t count (0);
 			for (auto i (node.node->store.latest_begin (transaction)), n (node.node->store.latest_end ()); i != n; ++i)

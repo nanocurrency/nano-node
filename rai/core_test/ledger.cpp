@@ -2367,7 +2367,7 @@ TEST (ledger, epoch_blocks_fork)
 TEST (ledger, could_fit)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
 	rai::stat stats;
 	rai::keypair epoch_key;
@@ -2376,7 +2376,7 @@ TEST (ledger, could_fit)
 	ledger.epoch_link = 123;
 	ledger.epoch_signer = epoch_signer.pub;
 	rai::genesis genesis;
-	rai::transaction transaction (store.environment, true);
+	auto transaction (store.tx_begin (true));
 	store.initialize (transaction, genesis);
 	rai::keypair destination;
 	// Test legacy and state change blocks could_fit
