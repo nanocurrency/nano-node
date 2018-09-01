@@ -210,7 +210,10 @@ class mdb_store : public block_store
 public:
 	mdb_store (bool &, boost::filesystem::path const &, int lmdb_max_dbs = 128);
 
-	rai::transaction tx_begin (bool = false) override;
+	rai::transaction tx_begin_write () override;
+	rai::transaction tx_begin_read () override;
+	rai::transaction tx_begin (bool write = false) override;
+
 	void initialize (rai::transaction const &, rai::genesis const &) override;
 	void block_put (rai::transaction const &, rai::block_hash const &, rai::block const &, rai::block_hash const & = rai::block_hash (0), rai::epoch version = rai::epoch::epoch_0) override;
 	rai::block_hash block_successor (rai::transaction const &, rai::block_hash const &) override;

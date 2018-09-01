@@ -75,7 +75,7 @@ std::error_code rai::handle_node_options (boost::program_options::variables_map 
 				auto wallet (node.node->wallets.open (wallet_id));
 				if (wallet != nullptr)
 				{
-					auto transaction (wallet->wallets.tx_begin (true));
+					auto transaction (wallet->wallets.tx_begin_write ());
 					if (!wallet->enter_password (transaction, password))
 					{
 						auto pub (wallet->store.deterministic_insert (transaction));
@@ -151,12 +151,12 @@ std::error_code rai::handle_node_options (boost::program_options::variables_map 
 				inactive_node node (data_path);
 				if (vm.count ("unchecked_clear"))
 				{
-					auto transaction (node.node->store.tx_begin (true));
+					auto transaction (node.node->store.tx_begin_write ());
 					node.node->store.unchecked_clear (transaction);
 				}
 				if (vm.count ("delete_node_id"))
 				{
-					auto transaction (node.node->store.tx_begin (true));
+					auto transaction (node.node->store.tx_begin_write ());
 					node.node->store.delete_node_id (transaction);
 				}
 				success = node.node->copy_with_compaction (vacuum_path);
@@ -198,12 +198,12 @@ std::error_code rai::handle_node_options (boost::program_options::variables_map 
 				inactive_node node (data_path);
 				if (vm.count ("unchecked_clear"))
 				{
-					auto transaction (node.node->store.tx_begin (true));
+					auto transaction (node.node->store.tx_begin_write ());
 					node.node->store.unchecked_clear (transaction);
 				}
 				if (vm.count ("delete_node_id"))
 				{
-					auto transaction (node.node->store.tx_begin (true));
+					auto transaction (node.node->store.tx_begin_write ());
 					node.node->store.delete_node_id (transaction);
 				}
 				success = node.node->copy_with_compaction (snapshot_path);
@@ -226,7 +226,7 @@ std::error_code rai::handle_node_options (boost::program_options::variables_map 
 	{
 		boost::filesystem::path data_path = vm.count ("data_path") ? boost::filesystem::path (vm["data_path"].as<std::string> ()) : rai::working_path ();
 		inactive_node node (data_path);
-		auto transaction (node.node->store.tx_begin (true));
+		auto transaction (node.node->store.tx_begin_write ());
 		node.node->store.unchecked_clear (transaction);
 		std::cerr << "Unchecked blocks deleted" << std::endl;
 	}
@@ -234,7 +234,7 @@ std::error_code rai::handle_node_options (boost::program_options::variables_map 
 	{
 		boost::filesystem::path data_path = vm.count ("data_path") ? boost::filesystem::path (vm["data_path"].as<std::string> ()) : rai::working_path ();
 		inactive_node node (data_path);
-		auto transaction (node.node->store.tx_begin (true));
+		auto transaction (node.node->store.tx_begin_write ());
 		node.node->store.delete_node_id (transaction);
 		std::cerr << "Deleted Node ID" << std::endl;
 	}
@@ -306,7 +306,7 @@ std::error_code rai::handle_node_options (boost::program_options::variables_map 
 				auto wallet (node.node->wallets.open (wallet_id));
 				if (wallet != nullptr)
 				{
-					auto transaction (wallet->wallets.tx_begin (true));
+					auto transaction (wallet->wallets.tx_begin_write ());
 					if (!wallet->enter_password (transaction, password))
 					{
 						rai::raw_key key;
@@ -360,7 +360,7 @@ std::error_code rai::handle_node_options (boost::program_options::variables_map 
 				auto wallet (node.node->wallets.open (wallet_id));
 				if (wallet != nullptr)
 				{
-					auto transaction (wallet->wallets.tx_begin (true));
+					auto transaction (wallet->wallets.tx_begin_write ());
 					if (!wallet->enter_password (transaction, password))
 					{
 						rai::raw_key key;
@@ -421,7 +421,7 @@ std::error_code rai::handle_node_options (boost::program_options::variables_map 
 				auto existing (node.node->wallets.items.find (wallet_id));
 				if (existing != node.node->wallets.items.end ())
 				{
-					auto transaction (existing->second->wallets.tx_begin (true));
+					auto transaction (existing->second->wallets.tx_begin_write ());
 					if (!existing->second->enter_password (transaction, password))
 					{
 						rai::raw_key seed;
@@ -557,7 +557,7 @@ std::error_code rai::handle_node_options (boost::program_options::variables_map 
 		for (auto i (node.node->wallets.items.begin ()), n (node.node->wallets.items.end ()); i != n; ++i)
 		{
 			std::cout << boost::str (boost::format ("Wallet ID: %1%\n") % i->first.to_string ());
-			auto transaction (i->second->wallets.tx_begin ());
+			auto transaction (i->second->wallets.tx_begin_read ());
 			for (auto j (i->second->store.begin (transaction)), m (i->second->store.end ()); j != m; ++j)
 			{
 				std::cout << rai::uint256_union (j->first).to_account () << '\n';
@@ -578,7 +578,7 @@ std::error_code rai::handle_node_options (boost::program_options::variables_map 
 					rai::account account_id;
 					if (!account_id.decode_account (vm["account"].as<std::string> ()))
 					{
-						auto transaction (wallet->second->wallets.tx_begin (true));
+						auto transaction (wallet->second->wallets.tx_begin_write ());
 						auto account (wallet->second->store.find (transaction, account_id));
 						if (account != wallet->second->store.end ())
 						{
@@ -625,7 +625,7 @@ std::error_code rai::handle_node_options (boost::program_options::variables_map 
 				auto wallet (node.node->wallets.items.find (wallet_id));
 				if (wallet != node.node->wallets.items.end ())
 				{
-					auto transaction (wallet->second->wallets.tx_begin ());
+					auto transaction (wallet->second->wallets.tx_begin_read ());
 					auto representative (wallet->second->store.representative (transaction));
 					std::cout << boost::str (boost::format ("Representative: %1%\n") % representative.to_account ());
 				}
@@ -663,7 +663,7 @@ std::error_code rai::handle_node_options (boost::program_options::variables_map 
 						auto wallet (node.node->wallets.items.find (wallet_id));
 						if (wallet != node.node->wallets.items.end ())
 						{
-							auto transaction (wallet->second->wallets.tx_begin (true));
+							auto transaction (wallet->second->wallets.tx_begin_write ());
 							wallet->second->store.representative_set (transaction, account);
 						}
 						else
@@ -699,7 +699,7 @@ std::error_code rai::handle_node_options (boost::program_options::variables_map 
 	else if (vm.count ("vote_dump") == 1)
 	{
 		inactive_node node (data_path);
-		auto transaction (node.node->store.tx_begin ());
+		auto transaction (node.node->store.tx_begin_read ());
 		for (auto i (node.node->store.vote_begin (transaction)), n (node.node->store.vote_end ()); i != n; ++i)
 		{
 			auto vote (i->second);
