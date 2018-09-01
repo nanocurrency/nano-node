@@ -155,7 +155,11 @@ public:
 	rai::wallets & wallets;
 };
 class node;
-// The wallets set is all the wallets a node controls.  A node may contain multiple wallets independently encrypted and operated.
+
+/**
+ * The wallets set is all the wallets a node controls.
+ * A node may contain multiple wallets independently encrypted and operated.
+ */
 class wallets
 {
 public:
@@ -171,7 +175,6 @@ public:
 	void foreach_representative (rai::transaction const &, std::function<void(rai::public_key const &, rai::raw_key const &)> const &);
 	bool exists (rai::transaction const &, rai::public_key const &);
 	void stop ();
-	rai::transaction tx_begin (bool = false);
 	std::function<void(bool)> observer;
 	std::unordered_map<rai::uint256_union, std::shared_ptr<rai::wallet>> items;
 	std::multimap<rai::uint128_t, std::function<void()>, std::greater<rai::uint128_t>> actions;
@@ -186,5 +189,17 @@ public:
 	std::thread thread;
 	static rai::uint128_t const generate_priority;
 	static rai::uint128_t const high_priority;
+
+	/** Start read-write transaction */
+	rai::transaction tx_begin_write ();
+
+	/** Start read-only transaction */
+	rai::transaction tx_begin_read ();
+
+	/**
+	 * Start a read-only or read-write transaction
+	 * @param write If true, start a read-write transaction
+	 */
+	rai::transaction tx_begin (bool write = false);
 };
 }

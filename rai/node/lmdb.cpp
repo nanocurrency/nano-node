@@ -737,7 +737,7 @@ meta (0)
 {
 	if (!error_a)
 	{
-		auto transaction (tx_begin (true));
+		auto transaction (tx_begin_write ());
 		error_a |= mdb_dbi_open (env.tx (transaction), "frontiers", MDB_CREATE, &frontiers) != 0;
 		error_a |= mdb_dbi_open (env.tx (transaction), "accounts", MDB_CREATE, &accounts_v0) != 0;
 		error_a |= mdb_dbi_open (env.tx (transaction), "accounts_v1", MDB_CREATE, &accounts_v1) != 0;
@@ -761,6 +761,16 @@ meta (0)
 			checksum_put (transaction, 0, 0, 0);
 		}
 	}
+}
+
+rai::transaction rai::mdb_store::tx_begin_write ()
+{
+	return tx_begin (true);
+}
+
+rai::transaction rai::mdb_store::tx_begin_read ()
+{
+	return tx_begin (false);
 }
 
 rai::transaction rai::mdb_store::tx_begin (bool write_a)
@@ -1059,7 +1069,7 @@ void rai::mdb_store::upgrade_v10_to_v11 (rai::transaction const & transaction_a)
 
 void rai::mdb_store::clear (MDB_dbi db_a)
 {
-	auto transaction (tx_begin (true));
+	auto transaction (tx_begin_write ());
 	auto status (mdb_drop (env.tx (transaction), db_a, 0));
 	assert (status == 0);
 }
