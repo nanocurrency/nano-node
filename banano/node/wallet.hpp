@@ -59,7 +59,7 @@ public:
 	rai::uint256_union check (MDB_txn *);
 	bool rekey (MDB_txn *, std::string const &);
 	bool valid_password (MDB_txn *);
-	bool attempt_password (MDB_txn *, std::string const &);
+	bool attempt_password (rai::transaction &, std::string const &);
 	void wallet_key (rai::raw_key &, MDB_txn *);
 	void seed (rai::raw_key &, MDB_txn *);
 	void seed_set (MDB_txn *, rai::raw_key const &);
@@ -81,10 +81,10 @@ public:
 	bool fetch (MDB_txn *, rai::public_key const &, rai::raw_key &);
 	bool exists (MDB_txn *, rai::public_key const &);
 	void destroy (MDB_txn *);
-	rai::store_iterator<rai::uint256_union, rai::wallet_value> find (MDB_txn *, rai::uint256_union const &);
-	rai::store_iterator<rai::uint256_union, rai::wallet_value> begin (MDB_txn *, rai::uint256_union const &);
-	rai::store_iterator<rai::uint256_union, rai::wallet_value> begin (MDB_txn *);
-	rai::store_iterator<rai::uint256_union, rai::wallet_value> end ();
+	rai::store_iterator find (MDB_txn *, rai::uint256_union const &);
+	rai::store_iterator begin (MDB_txn *, rai::uint256_union const &);
+	rai::store_iterator begin (MDB_txn *);
+	rai::store_iterator end ();
 	void derive_key (rai::raw_key &, MDB_txn *, std::string const &);
 	void serialize_json (MDB_txn *, std::string &);
 	void write_backup (MDB_txn *, boost::filesystem::path const &);
@@ -94,9 +94,9 @@ public:
 	void work_put (MDB_txn *, rai::public_key const &, uint64_t);
 	unsigned version (MDB_txn *);
 	void version_put (MDB_txn *, unsigned);
-	void upgrade_v1_v2 ();
-	void upgrade_v2_v3 ();
-	void upgrade_v3_v4 ();
+	void upgrade_v1_v2 (MDB_txn *);
+	void upgrade_v2_v3 (MDB_txn *);
+	void upgrade_v3_v4 (MDB_txn *);
 	rai::fan password;
 	rai::fan wallet_key_mem;
 	static unsigned const version_1 = 1;
@@ -135,6 +135,7 @@ public:
 	void enter_initial_password ();
 	bool valid_password ();
 	bool enter_password (std::string const &);
+	bool enter_password (rai::transaction &, std::string const &);
 	rai::public_key insert_adhoc (rai::raw_key const &, bool = true);
 	rai::public_key insert_adhoc (MDB_txn *, rai::raw_key const &, bool = true);
 	void insert_watch (MDB_txn *, rai::public_key const &);

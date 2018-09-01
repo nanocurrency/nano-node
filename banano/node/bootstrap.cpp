@@ -344,10 +344,6 @@ void rai::frontier_req_client::received_frontier (boost::system::error_code cons
 			{
 				BOOST_LOG (connection->node->log) << "Bulk push cost: " << bulk_push_cost;
 			}
-			if (connection->node->config.logging.bulk_pull_logging ())
-			{
-				BOOST_LOG (connection->node->log) << "Bulk push cost: " << bulk_push_cost;
-			}
 			{
 				try
 				{
@@ -374,7 +370,7 @@ void rai::frontier_req_client::next (MDB_txn * transaction_a)
 	auto iterator (connection->node->store.latest_begin (transaction_a, rai::uint256_union (current.number () + 1)));
 	if (iterator != connection->node->store.latest_end ())
 	{
-		current = rai::account (iterator->first);
+		current = rai::account (iterator->first.uint256 ());
 		info = rai::account_info (iterator->second);
 	}
 	else
@@ -1946,7 +1942,7 @@ std::pair<std::unique_ptr<rai::pending_key>, std::unique_ptr<rai::pending_info>>
 		rai::transaction stream_transaction (connection->node->store.environment, nullptr, false);
 		auto stream (connection->node->store.pending_begin (stream_transaction, current_key));
 
-		if (stream == rai::store_iterator<rai::pending_key, rai::pending_info> (nullptr))
+		if (stream->first == nullptr)
 		{
 			break;
 		}
@@ -2206,9 +2202,9 @@ std::unique_ptr<rai::block> rai::bulk_pull_blocks_server::get_next ()
 
 	if (!out_of_bounds)
 	{
-		if (stream != connection->node->store.block_info_end ())
+		if (stream->first.size () != 0)
 		{
-			auto current = rai::uint256_union (stream->first);
+			auto current = stream->first.uint256 ();
 			if (current < request->max_hash)
 			{
 				rai::transaction transaction (connection->node->store.environment, nullptr, false);
@@ -2490,7 +2486,7 @@ void rai::frontier_req_server::next ()
 	auto iterator (connection->node->store.latest_begin (transaction, current.number () + 1));
 	if (iterator != connection->node->store.latest_end ())
 	{
-		current = rai::uint256_union (iterator->first);
+		current = rai::uint256_union (iterator->first.uint256 ());
 		info = rai::account_info (iterator->second);
 	}
 	else

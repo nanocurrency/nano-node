@@ -1,7 +1,6 @@
 #pragma once
 
 #include <banano/lib/blocks.hpp>
-#include <banano/node/lmdb.hpp>
 #include <banano/secure/utility.hpp>
 
 namespace rai

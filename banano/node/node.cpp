@@ -21,6 +21,8 @@
 
 #include <upnpcommands.h>
 
+#include <ed25519-donna/ed25519.h>
+
 double constexpr rai::node::price_max;
 double constexpr rai::node::free_cutoff;
 std::chrono::seconds constexpr rai::node::period;
@@ -1644,7 +1646,7 @@ void rai::block_processor::queue_unchecked (MDB_txn * transaction_a, rai::block_
 	auto cached (node.store.unchecked_get (transaction_a, hash_a));
 	for (auto i (cached.begin ()), n (cached.end ()); i != n; ++i)
 	{
-		node.store.unchecked_del (transaction_a, hash_a, *i);
+		node.store.unchecked_del (transaction_a, hash_a, **i);
 		add (*i, std::chrono::steady_clock::time_point ());
 	}
 	std::lock_guard<std::mutex> lock (node.gap_cache.mutex);
@@ -1850,7 +1852,7 @@ stats (config.stat_config)
 		{
 			// Store was empty meaning we just created it, add the genesis block
 			rai::genesis genesis;
-			store.initialize (transaction, genesis);
+			genesis.initialize (transaction, store);
 		}
 		node_id = rai::keypair (store.get_node_id (transaction));
 		BOOST_LOG (log) << "Node ID: " << node_id.pub.to_account ();
@@ -3985,11 +3987,6 @@ thread ([this]() { announce_loop (); })
 	{
 		condition.wait (lock);
 	}
-}
-
-rai::active_transactions::~active_transactions ()
-{
-	stop ();
 }
 
 bool rai::active_transactions::publish (std::shared_ptr<rai::block> block_a)
