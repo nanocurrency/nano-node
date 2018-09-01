@@ -102,7 +102,6 @@ public:
 class block_store
 {
 public:
-	virtual rai::transaction tx_begin (bool = false) = 0;
 	virtual void initialize (rai::transaction const &, rai::genesis const &) = 0;
 	virtual void block_put (rai::transaction const &, rai::block_hash const &, rai::block const &, rai::block_hash const & = rai::block_hash (0), rai::epoch version = rai::epoch::epoch_0) = 0;
 	virtual rai::block_hash block_successor (rai::transaction const &, rai::block_hash const &) = 0;
@@ -198,5 +197,17 @@ public:
 
 	/** Deletes the node ID from the store */
 	virtual void delete_node_id (rai::transaction const &) = 0;
+
+	/** Start read-write transaction */
+	virtual rai::transaction tx_begin_write () = 0;
+
+	/** Start read-only transaction */
+	virtual rai::transaction tx_begin_read () = 0;
+
+	/**
+	 * Start a read-only or read-write transaction
+	 * @param write If true, start a read-write transaction
+	 */
+	virtual rai::transaction tx_begin (bool write = false) = 0;
 };
 }

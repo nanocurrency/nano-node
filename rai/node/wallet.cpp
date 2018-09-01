@@ -741,7 +741,7 @@ void rai::wallet::enter_initial_password ()
 	store.password.value (password_l);
 	if (password_l.data.is_zero ())
 	{
-		auto transaction (wallets.tx_begin (true));
+		auto transaction (wallets.tx_begin_write ());
 		if (store.valid_password (transaction))
 		{
 			// Newly created wallets have a zero key
@@ -784,7 +784,7 @@ rai::public_key rai::wallet::deterministic_insert (rai::transaction const & tran
 
 rai::public_key rai::wallet::deterministic_insert (bool generate_work_a)
 {
-	auto transaction (wallets.tx_begin (true));
+	auto transaction (wallets.tx_begin_write ());
 	auto result (deterministic_insert (transaction, generate_work_a));
 	return result;
 }
@@ -805,7 +805,7 @@ rai::public_key rai::wallet::insert_adhoc (rai::transaction const & transaction_
 
 rai::public_key rai::wallet::insert_adhoc (rai::raw_key const & account_a, bool generate_work_a)
 {
-	auto transaction (wallets.tx_begin (true));
+	auto transaction (wallets.tx_begin_write ());
 	auto result (insert_adhoc (transaction, account_a, generate_work_a));
 	return result;
 }
@@ -817,7 +817,7 @@ void rai::wallet::insert_watch (rai::transaction const & transaction_a, rai::pub
 
 bool rai::wallet::exists (rai::public_key const & account_a)
 {
-	auto transaction (wallets.tx_begin ());
+	auto transaction (wallets.tx_begin_read ());
 	return store.exists (transaction, account_a);
 }
 
@@ -826,17 +826,17 @@ bool rai::wallet::import (std::string const & json_a, std::string const & passwo
 	auto error (false);
 	std::unique_ptr<rai::wallet_store> temp;
 	{
-		auto transaction (wallets.tx_begin (true));
+		auto transaction (wallets.tx_begin_write ());
 		rai::uint256_union id;
 		random_pool.GenerateBlock (id.bytes.data (), id.bytes.size ());
 		temp.reset (new rai::wallet_store (error, wallets.node.wallets.kdf, transaction, 0, 1, id.to_string (), json_a));
 	}
 	if (!error)
 	{
-		auto transaction (wallets.tx_begin ());
+		auto transaction (wallets.tx_begin_read ());
 		error = temp->attempt_password (transaction, password_a);
 	}
-	auto transaction (wallets.tx_begin (true));
+	auto transaction (wallets.tx_begin_write ());
 	if (!error)
 	{
 		error = store.import (transaction, *temp);
@@ -847,7 +847,7 @@ bool rai::wallet::import (std::string const & json_a, std::string const & passwo
 
 void rai::wallet::serialize (std::string & json_a)
 {
-	auto transaction (wallets.tx_begin ());
+	auto transaction (wallets.tx_begin_read ());
 	store.serialize_json (transaction, json_a);
 }
 
@@ -864,7 +864,7 @@ std::shared_ptr<rai::block> rai::wallet::receive_action (rai::block const & send
 	std::shared_ptr<rai::block> block;
 	if (wallets.node.config.receive_minimum.number () <= amount_a.number ())
 	{
-		auto transaction (wallets.node.ledger.store.tx_begin ());
+		auto transaction (wallets.node.ledger.store.tx_begin_read ());
 		rai::pending_info pending_info;
 		if (wallets.node.store.block_exists (transaction, hash))
 		{
@@ -929,7 +929,7 @@ std::shared_ptr<rai::block> rai::wallet::change_action (rai::account const & sou
 {
 	std::shared_ptr<rai::block> block;
 	{
-		auto transaction (wallets.tx_begin ());
+		auto transaction (wallets.tx_begin_read ());
 		if (store.valid_password (transaction))
 		{
 			auto existing (store.find (transaction, source_a));
@@ -1126,14 +1126,14 @@ void rai::wallet::work_ensure (rai::account const & account_a, rai::block_hash c
 
 bool rai::wallet::search_pending ()
 {
-	auto transaction (wallets.tx_begin ());
+	auto transaction (wallets.tx_begin_read ());
 	auto result (!store.valid_password (transaction));
 	if (!result)
 	{
 		BOOST_LOG (wallets.node.log) << "Beginning pending block search";
 		for (auto i (store.begin (transaction)), n (store.end ()); i != n; ++i)
 		{
-			auto transaction (wallets.node.store.tx_begin ());
+			auto transaction (wallets.node.store.tx_begin_read ());
 			rai::account account (i->first);
 			// Don't search pending for watch-only accounts
 			if (!rai::wallet_value (i->second).key.is_zero ())
@@ -1218,7 +1218,7 @@ void rai::wallet::work_cache_blocking (rai::account const & account_a, rai::bloc
 	{
 		BOOST_LOG (wallets.node.log) << "Work generation complete: " << (std::chrono::duration_cast<std::chrono::microseconds> (std::chrono::steady_clock::now () - begin).count ()) << " us";
 	}
-	auto transaction (wallets.tx_begin (true));
+	auto transaction (wallets.tx_begin_write ());
 	if (store.exists (transaction, account_a))
 	{
 		work_update (transaction, account_a, root_a, work);
@@ -1234,7 +1234,7 @@ thread ([this]() { do_wallet_actions (); })
 {
 	if (!error_a)
 	{
-		auto transaction (node.store.tx_begin (true));
+		auto transaction (node.store.tx_begin_write ());
 		auto status (mdb_dbi_open (env.tx (transaction), nullptr, MDB_CREATE, &handle));
 		status |= mdb_dbi_open (env.tx (transaction), "send_action_ids", MDB_CREATE, &send_action_ids);
 		assert (status == 0);
@@ -1288,7 +1288,7 @@ std::shared_ptr<rai::wallet> rai::wallets::create (rai::uint256_union const & id
 	std::shared_ptr<rai::wallet> result;
 	bool error;
 	{
-		auto transaction (node.store.tx_begin (true));
+		auto transaction (node.store.tx_begin_write ());
 		result = std::make_shared<rai::wallet> (error, transaction, *this, id_a.to_string ());
 	}
 	if (!error)
@@ -1322,7 +1322,7 @@ void rai::wallets::search_pending_all ()
 
 void rai::wallets::destroy (rai::uint256_union const & id_a)
 {
-	auto transaction (node.store.tx_begin (true));
+	auto transaction (node.store.tx_begin_write ());
 	auto existing (items.find (id_a));
 	assert (existing != items.end ());
 	auto wallet (existing->second);
@@ -1412,6 +1412,16 @@ void rai::wallets::stop ()
 	{
 		thread.join ();
 	}
+}
+
+rai::transaction rai::wallets::tx_begin_write ()
+{
+	return tx_begin (true);
+}
+
+rai::transaction rai::wallets::tx_begin_read ()
+{
+	return tx_begin (false);
 }
 
 rai::transaction rai::wallets::tx_begin (bool write_a)
