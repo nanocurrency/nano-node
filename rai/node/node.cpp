@@ -420,7 +420,9 @@ public:
 				node.active.publish (block);
 			}
 		}
-		node.vote_processor.vote (message_a.vote, sender, message_a.header.extensions);
+		rai::confirm_ack message_l (message_a);
+		message_l.set_rebroadcasted (true);
+		node.vote_processor.vote (message_l.vote, sender, message_l.header.extensions);
 	}
 	void bulk_pull (rai::bulk_pull const &) override
 	{
