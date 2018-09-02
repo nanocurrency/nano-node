@@ -104,7 +104,7 @@ public:
 	bool start (std::pair<std::shared_ptr<rai::block>, std::shared_ptr<rai::block>>, std::function<void(std::shared_ptr<rai::block>)> const & = [](std::shared_ptr<rai::block>) {});
 	// If this returns true, the vote is a replay
 	// If this returns false, the vote may or may not be a replay
-	bool vote (std::shared_ptr<rai::vote>);
+	bool vote (std::shared_ptr<rai::vote>, std::bitset<16> = 0);
 	// Is the root of this block in the roots container
 	bool active (rai::block const &);
 	std::deque<std::shared_ptr<rai::block>> list_blocks ();
@@ -396,7 +396,7 @@ public:
 	void stop ();
 	void receive_action (boost::system::error_code const &, size_t);
 	void rpc_action (boost::system::error_code const &, size_t);
-	void republish_vote (std::shared_ptr<rai::vote>);
+	void republish_vote (std::shared_ptr<rai::vote>, std::bitset<16>);
 	void republish_block (MDB_txn *, std::shared_ptr<rai::block>, bool = true);
 	void republish (rai::block_hash const &, std::shared_ptr<std::vector<uint8_t>>, rai::endpoint);
 	void publish_broadcast (std::vector<rai::peer_information> &, std::unique_ptr<rai::block>);
@@ -518,19 +518,26 @@ public:
 	rai::observer_set<> disconnect;
 	rai::observer_set<> started;
 };
+class vote_processor_vote
+{
+public:
+	std::shared_ptr<rai::vote> vote;
+	rai::endpoint endpoint;
+	std::bitset<16> ack_ext;
+};
 class vote_processor
 {
 public:
 	vote_processor (rai::node &);
-	void vote (std::shared_ptr<rai::vote>, rai::endpoint);
-	rai::vote_code vote_blocking (MDB_txn *, std::shared_ptr<rai::vote>, rai::endpoint);
+	void vote (std::shared_ptr<rai::vote>, rai::endpoint, std::bitset<16>);
+	rai::vote_code vote_blocking (MDB_txn *, std::shared_ptr<rai::vote>, rai::endpoint, std::bitset<16> = 0);
 	void flush ();
 	rai::node & node;
 	void stop ();
 
 private:
 	void process_loop ();
-	std::deque<std::pair<std::shared_ptr<rai::vote>, rai::endpoint>> votes;
+	std::deque<rai::vote_processor_vote> votes;
 	std::condition_variable condition;
 	std::mutex mutex;
 	bool started;

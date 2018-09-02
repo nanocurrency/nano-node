@@ -168,15 +168,16 @@ void rai::network::republish (rai::block_hash const & hash_a, std::shared_ptr<st
 }
 
 template <typename T>
-bool confirm_block (MDB_txn * transaction_a, rai::node & node_a, T & list_a, std::shared_ptr<rai::block> block_a)
+bool confirm_block (MDB_txn * transaction_a, rai::node & node_a, T & list_a, std::shared_ptr<rai::block> block_a, bool orig_confirm_req)
 {
 	bool result (false);
 	if (node_a.config.enable_voting)
 	{
-		node_a.wallets.foreach_representative (transaction_a, [&result, &block_a, &list_a, &node_a, &transaction_a](rai::public_key const & pub_a, rai::raw_key const & prv_a) {
+		node_a.wallets.foreach_representative (transaction_a, [&](rai::public_key const & pub_a, rai::raw_key const & prv_a) {
 			result = true;
 			auto vote (node_a.store.vote_generate (transaction_a, pub_a, prv_a, block_a));
 			rai::confirm_ack confirm (vote);
+			confirm.set_orig_confirm_req (orig_confirm_req);
 			std::shared_ptr<std::vector<uint8_t>> bytes (new std::vector<uint8_t>);
 			{
 				rai::vectorstream stream (*bytes);
@@ -192,11 +193,11 @@ bool confirm_block (MDB_txn * transaction_a, rai::node & node_a, T & list_a, std
 }
 
 template <>
-bool confirm_block (MDB_txn * transaction_a, rai::node & node_a, rai::endpoint & peer_a, std::shared_ptr<rai::block> block_a)
+bool confirm_block (MDB_txn * transaction_a, rai::node & node_a, rai::endpoint & peer_a, std::shared_ptr<rai::block> block_a, bool orig_confirm_req)
 {
 	std::array<rai::endpoint, 1> endpoints;
 	endpoints[0] = peer_a;
-	auto result (confirm_block (transaction_a, node_a, endpoints, std::move (block_a)));
+	auto result (confirm_block (transaction_a, node_a, endpoints, std::move (block_a), orig_confirm_req));
 	return result;
 }
 
@@ -205,7 +206,7 @@ void rai::network::republish_block (MDB_txn * transaction, std::shared_ptr<rai::
 	auto hash (block->hash ());
 	auto list (node.peers.list_fanout ());
 	// If we're a representative, broadcast a signed confirm, otherwise an unsigned publish
-	if (!enable_voting || !confirm_block (transaction, node, list, block))
+	if (!enable_voting || !confirm_block (transaction, node, list, block, false))
 	{
 		rai::publish message (block);
 		std::shared_ptr<std::vector<uint8_t>> bytes (new std::vector<uint8_t>);
@@ -239,9 +240,9 @@ void rai::network::republish_block (MDB_txn * transaction, std::shared_ptr<rai::
 //    This prevents rapid publishing of votes with increasing sequence numbers.
 //
 // These rules are implemented by the caller, not this function.
-void rai::network::republish_vote (std::shared_ptr<rai::vote> vote_a)
+void rai::network::republish_vote (std::shared_ptr<rai::vote> vote_a, std::bitset<16> ack_ext)
 {
-	rai::confirm_ack confirm (vote_a);
+	rai::confirm_ack confirm (vote_a, ack_ext);
 	std::shared_ptr<std::vector<uint8_t>> bytes (new std::vector<uint8_t>);
 	{
 		rai::vectorstream stream (*bytes);
@@ -399,7 +400,7 @@ public:
 		auto successor (node.ledger.successor (transaction_a, message_a.block->root ()));
 		if (successor != nullptr)
 		{
-			confirm_block (transaction_a, node, sender, std::move (successor));
+			confirm_block (transaction_a, node, sender, std::move (successor), true);
 		}
 	}
 	void confirm_ack (rai::confirm_ack const & message_a) override
@@ -419,7 +420,7 @@ public:
 				node.active.publish (block);
 			}
 		}
-		node.vote_processor.vote (message_a.vote, sender);
+		node.vote_processor.vote (message_a.vote, sender, message_a.header.extensions);
 	}
 	void bulk_pull (rai::bulk_pull const &) override
 	{
@@ -1245,7 +1246,7 @@ void rai::vote_processor::process_loop ()
 	{
 		if (!votes.empty ())
 		{
-			std::deque<std::pair<std::shared_ptr<rai::vote>, rai::endpoint>> votes_l;
+			std::deque<rai::vote_processor_vote> votes_l;
 			votes_l.swap (votes);
 			active = true;
 			lock.unlock ();
@@ -1253,7 +1254,7 @@ void rai::vote_processor::process_loop ()
 				rai::transaction transaction (node.store.environment, false);
 				for (auto & i : votes_l)
 				{
-					vote_blocking (transaction, i.first, i.second);
+					vote_blocking (transaction, i.vote, i.endpoint, i.ack_ext);
 				}
 			}
 			lock.lock ();
@@ -1267,18 +1268,18 @@ void rai::vote_processor::process_loop ()
 	}
 }
 
-void rai::vote_processor::vote (std::shared_ptr<rai::vote> vote_a, rai::endpoint endpoint_a)
+void rai::vote_processor::vote (std::shared_ptr<rai::vote> vote_a, rai::endpoint endpoint_a, std::bitset<16> ack_ext)
 {
 	assert (endpoint_a.address ().is_v6 ());
 	std::lock_guard<std::mutex> lock (mutex);
 	if (!stopped)
 	{
-		votes.push_back (std::make_pair (vote_a, endpoint_a));
+		votes.push_back (rai::vote_processor_vote { vote_a, endpoint_a, ack_ext });
 		condition.notify_all ();
 	}
 }
 
-rai::vote_code rai::vote_processor::vote_blocking (MDB_txn * transaction_a, std::shared_ptr<rai::vote> vote_a, rai::endpoint endpoint_a)
+rai::vote_code rai::vote_processor::vote_blocking (MDB_txn * transaction_a, std::shared_ptr<rai::vote> vote_a, rai::endpoint endpoint_a, std::bitset<16> ack_ext)
 {
 	assert (endpoint_a.address ().is_v6 ());
 	auto result (rai::vote_code::invalid);
@@ -1286,7 +1287,7 @@ rai::vote_code rai::vote_processor::vote_blocking (MDB_txn * transaction_a, std:
 	{
 		result = rai::vote_code::replay;
 		auto max_vote (node.store.vote_max (transaction_a, vote_a));
-		if (!node.active.vote (vote_a) || max_vote->sequence > vote_a->sequence)
+		if (!node.active.vote (vote_a, ack_ext) || max_vote->sequence > vote_a->sequence)
 		{
 			result = rai::vote_code::vote;
 		}
@@ -1301,6 +1302,8 @@ rai::vote_code rai::vote_processor::vote_blocking (MDB_txn * transaction_a, std:
 				if (max_vote->sequence > vote_a->sequence + 10000)
 				{
 					rai::confirm_ack confirm (max_vote);
+					confirm.set_orig_confirm_req (false);
+					confirm.set_rebroadcasted (true);
 					std::shared_ptr<std::vector<uint8_t>> bytes (new std::vector<uint8_t>);
 					{
 						rai::vectorstream stream (*bytes);
@@ -3533,7 +3536,10 @@ void rai::election::compute_rep_votes (MDB_txn * transaction_a)
 	{
 		node.wallets.foreach_representative (transaction_a, [this, transaction_a](rai::public_key const & pub_a, rai::raw_key const & prv_a) {
 			auto vote (this->node.store.vote_generate (transaction_a, pub_a, prv_a, status.winner));
-			this->node.vote_processor.vote (vote, this->node.network.endpoint ());
+			rai::confirm_ack ack (vote);
+			ack.set_orig_confirm_req (false);
+			ack.set_rebroadcasted (false);
+			this->node.vote_processor.vote (vote, this->node.network.endpoint (), ack.header.extensions);
 		});
 	}
 }
@@ -3752,7 +3758,10 @@ void rai::active_transactions::announce_votes ()
 						{
 							node.wallets.foreach_representative (transaction, [&](rai::public_key const & pub_a, rai::raw_key const & prv_a) {
 								auto vote (this->node.store.vote_generate (transaction, pub_a, prv_a, blocks_bundle));
-								this->node.vote_processor.vote (vote, this->node.network.endpoint ());
+								rai::confirm_ack ack (vote);
+								ack.set_orig_confirm_req (false);
+								ack.set_rebroadcasted (false);
+								this->node.vote_processor.vote (vote, this->node.network.endpoint (), ack.header.extensions);
 							});
 							blocks_bundle.clear ();
 						}
@@ -3819,7 +3828,10 @@ void rai::active_transactions::announce_votes ()
 	{
 		node.wallets.foreach_representative (transaction, [&](rai::public_key const & pub_a, rai::raw_key const & prv_a) {
 			auto vote (this->node.store.vote_generate (transaction, pub_a, prv_a, blocks_bundle));
-			this->node.vote_processor.vote (vote, this->node.network.endpoint ());
+			rai::confirm_ack ack (vote);
+			ack.set_orig_confirm_req (false);
+			ack.set_rebroadcasted (false);
+			this->node.vote_processor.vote (vote, this->node.network.endpoint (), ack.header.extensions);
 		});
 	}
 	for (auto i (inactive.begin ()), n (inactive.end ()); i != n; ++i)
@@ -3904,7 +3916,7 @@ bool rai::active_transactions::start (std::pair<std::shared_ptr<rai::block>, std
 }
 
 // Validate a vote and apply it to the current election if one exists
-bool rai::active_transactions::vote (std::shared_ptr<rai::vote> vote_a)
+bool rai::active_transactions::vote (std::shared_ptr<rai::vote> vote_a, std::bitset<16> ack_ext)
 {
 	std::shared_ptr<rai::election> election;
 	bool replay (false);
@@ -3938,7 +3950,7 @@ bool rai::active_transactions::vote (std::shared_ptr<rai::vote> vote_a)
 	}
 	if (processed)
 	{
-		node.network.republish_vote (vote_a);
+		node.network.republish_vote (vote_a, ack_ext);
 	}
 	return replay;
 }

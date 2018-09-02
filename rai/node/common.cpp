@@ -408,10 +408,11 @@ vote (std::make_shared<rai::vote> (error_a, stream_a, header.block_type ()))
 {
 }
 
-rai::confirm_ack::confirm_ack (std::shared_ptr<rai::vote> vote_a) :
+rai::confirm_ack::confirm_ack (std::shared_ptr<rai::vote> vote_a, std::bitset<16> extensions_a) :
 message (rai::message_type::confirm_ack),
 vote (vote_a)
 {
+	header.extensions = extensions_a;
 	auto & first_vote_block (vote_a->blocks[0]);
 	if (first_vote_block.which ())
 	{
@@ -435,6 +436,32 @@ void rai::confirm_ack::serialize (rai::stream & stream_a)
 	assert (header.block_type () == rai::block_type::not_a_block || header.block_type () == rai::block_type::send || header.block_type () == rai::block_type::receive || header.block_type () == rai::block_type::open || header.block_type () == rai::block_type::change || header.block_type () == rai::block_type::state);
 	header.serialize (stream_a);
 	vote->serialize (stream_a, header.block_type ());
+}
+
+bool rai::confirm_ack::get_orig_known ()
+{
+	return header.extensions.test (orig_known_flag);
+}
+
+bool rai::confirm_ack::get_orig_confirm_req ()
+{
+	return header.extensions.test (orig_confirm_req_flag);
+}
+
+bool rai::confirm_ack::get_rebroadcasted ()
+{
+	return header.extensions.test (rebroadcasted_flag);
+}
+
+void rai::confirm_ack::set_orig_confirm_req (bool val)
+{
+	header.extensions.set (orig_known_flag, true);
+	header.extensions.set (orig_confirm_req_flag, val);
+}
+
+void rai::confirm_ack::set_rebroadcasted (bool val)
+{
+	header.extensions.set (rebroadcasted_flag, val);
 }
 
 bool rai::confirm_ack::operator== (rai::confirm_ack const & other_a) const
