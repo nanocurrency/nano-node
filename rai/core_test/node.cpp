@@ -1611,3 +1611,43 @@ TEST (node, confirm_quorum)
 	}
 	ASSERT_EQ (0, system.nodes[0]->balance (rai::test_genesis_key.pub));
 }
+
+TEST (node, vote_republish)
+{
+	rai::system system (24000, 2);
+	rai::keypair key2;
+	system.wallet (1)->insert_adhoc (key2.prv);
+	rai::genesis genesis;
+	rai::send_block send1 (genesis.hash (), key2.pub, std::numeric_limits<rai::uint128_t>::max () - system.nodes[0]->config.receive_minimum.number (), rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (genesis.hash ()));
+	rai::send_block send2 (genesis.hash (), key2.pub, std::numeric_limits<rai::uint128_t>::max () - system.nodes[0]->config.receive_minimum.number () * 2, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (genesis.hash ()));
+	system.nodes[0]->process_active (std::unique_ptr<rai::block> (new rai::send_block (send1)));
+	system.deadline_set (5s);
+	while (!system.nodes[1]->block (send1.hash ()))
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	system.nodes[0]->active.publish (std::unique_ptr<rai::block> (new rai::send_block (send2)));
+	auto vote (std::make_shared<rai::vote> (rai::test_genesis_key.pub, rai::test_genesis_key.prv, 0, std::unique_ptr<rai::block> (new rai::send_block (send2))));
+	ASSERT_TRUE (system.nodes[0]->active.active (send1));
+	ASSERT_TRUE (system.nodes[1]->active.active (send1));
+	system.nodes[0]->vote_processor.vote (vote, system.nodes[0]->network.endpoint ());
+	while (!system.nodes[0]->block (send2.hash ()))
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	while (!system.nodes[1]->block (send2.hash ()))
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_FALSE (system.nodes[0]->block (send1.hash ()));
+	ASSERT_FALSE (system.nodes[1]->block (send1.hash ()));
+	system.deadline_set (5s);
+	while (system.nodes[1]->balance (key2.pub) != system.nodes[0]->config.receive_minimum.number () * 2)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	while (system.nodes[0]->balance (key2.pub) != system.nodes[0]->config.receive_minimum.number () * 2)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+}
