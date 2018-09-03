@@ -3697,7 +3697,31 @@ bool rai::election::publish (std::shared_ptr<rai::block> block_a)
 	}
 	if (!result)
 	{
-		blocks.insert (std::make_pair (block_a->hash (), block_a));
+		rai::transaction transaction (node.store.environment, false);
+		rai::account account;
+		if (!block_a->previous ().is_zero ())
+		{
+			if (node.store.block_exists (transaction, block_a->previous ()))
+			{
+				account = node.ledger.account (transaction, block_a->previous ());
+			}
+		}
+		else
+		{
+			account = block_a->root ();
+		}
+		if (account.is_zero () || rai::validate_message (account, block_a->hash (), block_a->block_signature ()))
+		{
+			result = true;
+		}
+	}
+	if (!result)
+	{
+		if (blocks.find (block_a->hash ()) == blocks.end ())
+		{
+			blocks.insert (std::make_pair (block_a->hash (), block_a));
+			node.network.republish_block (nullptr, block_a, false);
+		}
 	}
 	return result;
 }
