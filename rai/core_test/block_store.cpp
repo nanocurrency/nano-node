@@ -863,6 +863,26 @@ TEST (block_store, sequence_flush)
 	ASSERT_EQ (*seq3, *vote1);
 }
 
+TEST (block_store, sequence_flush_by_hash)
+{
+	auto path (rai::unique_path ());
+	bool init (false);
+	rai::block_store store (init, path);
+	ASSERT_FALSE (init);
+	rai::transaction transaction (store.environment, true);
+	rai::keypair key1;
+	std::vector<rai::block_hash> blocks1;
+	blocks1.push_back (rai::genesis ().hash ());
+	blocks1.push_back (1234);
+	blocks1.push_back (5678);
+	auto vote1 (store.vote_generate (transaction, key1.pub, key1.prv, blocks1));
+	auto seq2 (store.vote_get (transaction, vote1->account));
+	ASSERT_EQ (nullptr, seq2);
+	store.flush (transaction);
+	auto seq3 (store.vote_get (transaction, vote1->account));
+	ASSERT_EQ (*seq3, *vote1);
+}
+
 // Upgrading tracking block sequence numbers to whole vote.
 TEST (block_store, upgrade_v8_v9)
 {
