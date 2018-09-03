@@ -910,7 +910,7 @@ void rai::mdb_store::upgrade_v2_to_v3 (rai::transaction const & transaction_a)
 {
 	version_put (transaction_a, 3);
 	mdb_drop (env.tx (transaction_a), representation, 0);
-	for (auto i (std::make_unique<rai::mdb_iterator<rai::account, rai::account_info_v5>> (transaction_a, accounts_v0)), n (std::make_unique<rai::mdb_iterator<rai::account, rai::account_info_v5>> (nullptr)); i != n; ++(*i))
+	for (auto i (std::make_unique<rai::mdb_iterator<rai::account, rai::account_info_v5>> (transaction_a, accounts_v0)), n (std::make_unique<rai::mdb_iterator<rai::account, rai::account_info_v5>> (nullptr)); *i != *n; ++(*i))
 	{
 		rai::account account_l ((*i)->first);
 		rai::account_info_v5 info ((*i)->second);
