@@ -1,5 +1,7 @@
 #pragma once
 
+#include <atomic>
+
 #include <boost/filesystem.hpp>
 
 #include <lmdb/libraries/liblmdb/lmdb.h>
@@ -78,6 +80,10 @@ public:
 	~transaction ();
 	operator MDB_txn * () const;
 	MDB_txn * handle;
+private:
+	bool is_write;
+	uint64_t id;
+	static std::atomic<uint64_t> id_counter;
 };
 class block_store;
 /**

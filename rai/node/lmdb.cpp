@@ -258,14 +258,29 @@ rai::mdb_val::operator MDB_val const & () const
 	return value;
 }
 
+std::atomic<uint64_t> rai::transaction::id_counter;
+
 rai::transaction::transaction (rai::mdb_env & environment_a, bool write, MDB_txn * parent_a)
 {
+	/*
+	 * Specifying a parent transaction isn't currently used and it is going away as we
+	 * add more backends
+	 */
+	assert (parent_a == nullptr);
+
+	is_write = write;
+	id = rai::transaction::id_counter.fetch_add(1, std::memory_order_relaxed);
+
+	/* XXX:TODO: Record event that a transaction was started here (backtrace), whether it was for writing, and its id */
+
 	auto status (mdb_txn_begin (environment_a, parent_a, write ? 0 : MDB_RDONLY, &handle));
 	assert (status == 0);
 }
 
 rai::transaction::~transaction ()
 {
+	/* XXX:TODO: Record event that a transaction was end here (backtrace), whether it was for writing, and its id */
+
 	auto status (mdb_txn_commit (handle));
 	assert (status == 0);
 }
