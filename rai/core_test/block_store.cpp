@@ -869,9 +869,9 @@ TEST (block_store, sequence_flush_by_hash)
 {
 	auto path (rai::unique_path ());
 	bool init (false);
-	rai::block_store store (init, path);
+	rai::mdb_store store (init, path);
 	ASSERT_FALSE (init);
-	rai::transaction transaction (store.environment, true);
+	auto transaction (store.tx_begin_write ());
 	rai::keypair key1;
 	std::vector<rai::block_hash> blocks1;
 	blocks1.push_back (rai::genesis ().hash ());
