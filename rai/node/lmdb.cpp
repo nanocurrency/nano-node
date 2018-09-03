@@ -231,16 +231,10 @@ rai::mdb_val::operator std::shared_ptr<rai::state_block> () const
 
 rai::mdb_val::operator std::shared_ptr<rai::vote> () const
 {
-	auto result (std::make_shared<rai::vote> ());
 	rai::bufferstream stream (reinterpret_cast<uint8_t const *> (value.mv_data), value.mv_size);
-	auto error (rai::read (stream, result->account.bytes));
+	auto error (false);
+	std::shared_ptr<rai::vote> result (std::make_shared<rai::vote> (error, stream));
 	assert (!error);
-	error = rai::read (stream, result->signature.bytes);
-	assert (!error);
-	error = rai::read (stream, result->sequence);
-	assert (!error);
-	result->blocks.push_back (rai::deserialize_block (stream));
-	assert (boost::get<std::shared_ptr<rai::block>> (result->blocks[0]) != nullptr);
 	return result;
 }
 
