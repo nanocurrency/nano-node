@@ -438,19 +438,19 @@ void rai::confirm_ack::serialize (rai::stream & stream_a)
 	vote->serialize (stream_a, header.block_type ());
 }
 
-bool rai::confirm_ack::get_orig_known ()
+bool rai::confirm_ack::get_orig_known () const
 {
 	return header.extensions.test (orig_known_flag);
 }
 
-bool rai::confirm_ack::get_orig_confirm_req ()
+bool rai::confirm_ack::get_orig_confirm_req () const
 {
 	return header.extensions.test (orig_confirm_req_flag);
 }
 
-bool rai::confirm_ack::get_rebroadcasted ()
+bool rai::confirm_ack::get_rebroadcast () const
 {
-	return header.extensions.test (rebroadcasted_flag);
+	return header.extensions.test (rebroadcast_flag);
 }
 
 void rai::confirm_ack::set_orig_confirm_req (bool val)
@@ -459,9 +459,36 @@ void rai::confirm_ack::set_orig_confirm_req (bool val)
 	header.extensions.set (orig_confirm_req_flag, val);
 }
 
-void rai::confirm_ack::set_rebroadcasted (bool val)
+void rai::confirm_ack::set_rebroadcast (bool val)
 {
-	header.extensions.set (rebroadcasted_flag, val);
+	header.extensions.set (rebroadcast_flag, val);
+}
+
+void rai::confirm_ack::inc_stats (rai::stat & stats, rai::stat::dir dir_a) const
+{
+	if (get_orig_known ())
+	{
+		if (get_orig_confirm_req ())
+		{
+			stats.inc (rai::stat::type::vote_propagation, rai::stat::detail::orig_confirm_req, dir_a);
+		}
+		else
+		{
+			stats.inc (rai::stat::type::vote_propagation, rai::stat::detail::orig_announce, dir_a);
+		}
+		if (get_rebroadcast ())
+		{
+			stats.inc (rai::stat::type::vote_propagation, rai::stat::detail::rebroadcast, dir_a);
+		}
+		else
+		{
+			stats.inc (rai::stat::type::vote_propagation, rai::stat::detail::original, dir_a);
+		}
+	}
+	else
+	{
+		stats.inc (rai::stat::type::vote_propagation, rai::stat::detail::orig_unknown, dir_a);
+	}
 }
 
 bool rai::confirm_ack::operator== (rai::confirm_ack const & other_a) const

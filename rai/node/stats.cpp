@@ -345,6 +345,9 @@ std::string rai::stat::type_to_string (uint32_t key)
 		case rai::stat::type::message:
 			res = "message";
 			break;
+		case rai::stat::type::vote_propagation:
+			res = "vote_propagation";
+			break;
 	}
 	return res;
 }
@@ -429,6 +432,21 @@ std::string rai::stat::detail_to_string (uint32_t key)
 			break;
 		case rai::stat::detail::vote_invalid:
 			res = "vote_invalid";
+			break;
+		case rai::stat::detail::orig_unknown:
+			res = "orig_unknown";
+			break;
+		case rai::stat::detail::orig_confirm_req:
+			res = "orig_confirm_req";
+			break;
+		case rai::stat::detail::orig_announce:
+			res = "orig_announce";
+			break;
+		case rai::stat::detail::rebroadcast:
+			res = "rebroadcast";
+			break;
+		case rai::stat::detail::original:
+			res = "original";
 			break;
 	}
 	return res;

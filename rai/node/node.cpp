@@ -185,6 +185,7 @@ bool confirm_block (MDB_txn * transaction_a, rai::node & node_a, T & list_a, std
 			}
 			for (auto j (list_a.begin ()), m (list_a.end ()); j != m; ++j)
 			{
+				confirm.inc_stats (node_a.stats, rai::stat::dir::out);
 				node_a.network.confirm_send (confirm, bytes, *j);
 			}
 		});
@@ -251,6 +252,7 @@ void rai::network::republish_vote (std::shared_ptr<rai::vote> vote_a, std::bitse
 	auto list (node.peers.list_fanout ());
 	for (auto j (list.begin ()), m (list.end ()); j != m; ++j)
 	{
+		confirm.inc_stats (node.stats, rai::stat::dir::out);
 		node.network.confirm_send (confirm, bytes, *j);
 	}
 }
@@ -410,6 +412,7 @@ public:
 			BOOST_LOG (node.log) << boost::str (boost::format ("Received confirm_ack message from %1% for %2%sequence %3%") % sender % message_a.vote->hashes_string () % std::to_string (message_a.vote->sequence));
 		}
 		node.stats.inc (rai::stat::type::message, rai::stat::detail::confirm_ack, rai::stat::dir::in);
+		message_a.inc_stats (node.stats, rai::stat::dir::in);
 		node.peers.contacted (sender, message_a.header.version_using);
 		for (auto & vote_block : message_a.vote->blocks)
 		{
@@ -421,7 +424,7 @@ public:
 			}
 		}
 		rai::confirm_ack message_l (message_a);
-		message_l.set_rebroadcasted (true);
+		message_l.set_rebroadcast (true);
 		node.vote_processor.vote (message_l.vote, sender, message_l.header.extensions);
 	}
 	void bulk_pull (rai::bulk_pull const &) override
@@ -1305,12 +1308,13 @@ rai::vote_code rai::vote_processor::vote_blocking (MDB_txn * transaction_a, std:
 				{
 					rai::confirm_ack confirm (max_vote);
 					confirm.set_orig_confirm_req (false);
-					confirm.set_rebroadcasted (true);
+					confirm.set_rebroadcast (true);
 					std::shared_ptr<std::vector<uint8_t>> bytes (new std::vector<uint8_t>);
 					{
 						rai::vectorstream stream (*bytes);
 						confirm.serialize (stream);
 					}
+					confirm.inc_stats (node.stats, rai::stat::dir::out);
 					node.network.confirm_send (confirm, bytes, endpoint_a);
 				}
 			case rai::vote_code::invalid:
@@ -3540,7 +3544,7 @@ void rai::election::compute_rep_votes (MDB_txn * transaction_a)
 			auto vote (this->node.store.vote_generate (transaction_a, pub_a, prv_a, status.winner));
 			rai::confirm_ack ack (vote);
 			ack.set_orig_confirm_req (false);
-			ack.set_rebroadcasted (false);
+			ack.set_rebroadcast (false);
 			this->node.vote_processor.vote (vote, this->node.network.endpoint (), ack.header.extensions);
 		});
 	}
@@ -3762,7 +3766,7 @@ void rai::active_transactions::announce_votes ()
 								auto vote (this->node.store.vote_generate (transaction, pub_a, prv_a, blocks_bundle));
 								rai::confirm_ack ack (vote);
 								ack.set_orig_confirm_req (false);
-								ack.set_rebroadcasted (false);
+								ack.set_rebroadcast (false);
 								this->node.vote_processor.vote (vote, this->node.network.endpoint (), ack.header.extensions);
 							});
 							blocks_bundle.clear ();
@@ -3832,7 +3836,7 @@ void rai::active_transactions::announce_votes ()
 			auto vote (this->node.store.vote_generate (transaction, pub_a, prv_a, blocks_bundle));
 			rai::confirm_ack ack (vote);
 			ack.set_orig_confirm_req (false);
-			ack.set_rebroadcasted (false);
+			ack.set_rebroadcast (false);
 			this->node.vote_processor.vote (vote, this->node.network.endpoint (), ack.header.extensions);
 		});
 	}

@@ -185,6 +185,7 @@ public:
 		vote,
 		http_callback,
 		peering,
+		vote_propagation,
 	};
 
 	/** Optional detail type */
@@ -227,8 +228,15 @@ public:
 		vote_replay,
 		vote_invalid,
 
-		// peering
+		// peering specific
 		handshake,
+
+		// vote_propagation specific
+		orig_unknown,
+		orig_confirm_req,
+		orig_announce,
+		rebroadcast,
+		original,
 	};
 
 	/** Direction of the stat. If the direction is irrelevant, use in */

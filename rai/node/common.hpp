@@ -2,6 +2,7 @@
 
 #include <rai/lib/interface.h>
 #include <rai/secure/common.hpp>
+#include <rai/node/stats.hpp>
 
 #include <boost/asio.hpp>
 
@@ -257,17 +258,18 @@ public:
 	bool deserialize (rai::stream &) override;
 	void serialize (rai::stream &) override;
 	void visit (rai::message_visitor &) const override;
-	bool get_orig_known ();
-	bool get_orig_confirm_req ();
-	bool get_rebroadcasted ();
+	bool get_orig_known () const;
+	bool get_orig_confirm_req () const;
+	bool get_rebroadcast () const;
 	/** also sets orig_known */
 	void set_orig_confirm_req (bool);
-	void set_rebroadcasted (bool);
+	void set_rebroadcast (bool);
+	void inc_stats (rai::stat &, rai::stat::dir) const;
 	bool operator== (rai::confirm_ack const &) const;
 	std::shared_ptr<rai::vote> vote;
 	static size_t constexpr orig_known_flag = 0;
 	static size_t constexpr orig_confirm_req_flag = 1;
-	static size_t constexpr rebroadcasted_flag = 2;
+	static size_t constexpr rebroadcast_flag = 2;
 };
 class frontier_req : public message
 {
