@@ -3646,7 +3646,6 @@ rai::election_vote_result rai::election::vote (rai::account rep, uint64_t sequen
 		{
 			cooldown = 1;
 		}
-		auto should_process (false);
 		auto last_vote_it (last_votes.find (rep));
 		if (last_vote_it == last_votes.end ())
 		{
