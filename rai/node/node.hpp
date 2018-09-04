@@ -7,13 +7,7 @@
 #include <rai/secure/ledger.hpp>
 
 #include <condition_variable>
-#include <memory>
-#include <mutex>
-#include <queue>
-#include <thread>
-#include <unordered_set>
 
-#include <boost/asio.hpp>
 #include <boost/iostreams/device/array.hpp>
 #include <boost/log/trivial.hpp>
 #include <boost/multi_index/hashed_index.hpp>
@@ -61,18 +55,18 @@ public:
 class election : public std::enable_shared_from_this<rai::election>
 {
 	std::function<void(std::shared_ptr<rai::block>)> confirmation_action;
-	void confirm_once (MDB_txn *);
+	void confirm_once (rai::transaction const &);
 
 public:
 	election (rai::node &, std::shared_ptr<rai::block>, std::function<void(std::shared_ptr<rai::block>)> const &);
 	rai::election_vote_result vote (rai::account, uint64_t, rai::block_hash);
-	rai::tally_t tally (MDB_txn *);
+	rai::tally_t tally (rai::transaction const &);
 	// Check if we have vote quorum
 	bool have_quorum (rai::tally_t const &);
 	// Change our winner to agree with the network
-	void compute_rep_votes (MDB_txn *);
+	void compute_rep_votes (rai::transaction const &);
 	// Confirm this block if quorum is met
-	void confirm_if_quorum (MDB_txn *);
+	void confirm_if_quorum (rai::transaction const &);
 	void log_votes (rai::tally_t const &);
 	bool publish (std::shared_ptr<rai::block> block_a);
 	void abort ();
@@ -174,10 +168,9 @@ class gap_cache
 {
 public:
 	gap_cache (rai::node &);
-	void add (MDB_txn *, std::shared_ptr<rai::block>);
+	void add (rai::transaction const &, std::shared_ptr<rai::block>);
 	void vote (std::shared_ptr<rai::vote>);
-	rai::uint128_t bootstrap_threshold (MDB_txn *);
-	void purge_old ();
+	rai::uint128_t bootstrap_threshold (rai::transaction const &);
 	boost::multi_index_container<
 	rai::gap_information,
 	boost::multi_index::indexed_by<
@@ -404,7 +397,7 @@ public:
 	void receive_action (boost::system::error_code const &, size_t);
 	void rpc_action (boost::system::error_code const &, size_t);
 	void republish_vote (std::shared_ptr<rai::vote>);
-	void republish_block (MDB_txn *, std::shared_ptr<rai::block>, bool = true);
+	void republish_block (rai::transaction const &, std::shared_ptr<rai::block>, bool = true);
 	void republish (rai::block_hash const &, std::shared_ptr<std::vector<uint8_t>>, rai::endpoint);
 	void publish_broadcast (std::vector<rai::peer_information> &, std::unique_ptr<rai::block>);
 	void confirm_send (rai::confirm_ack const &, std::shared_ptr<std::vector<uint8_t>>, rai::endpoint const &);
@@ -412,7 +405,7 @@ public:
 	void send_keepalive (rai::endpoint const &);
 	void send_node_id_handshake (rai::endpoint const &, boost::optional<rai::uint256_union> const & query, boost::optional<rai::uint256_union> const & respond_to);
 	void broadcast_confirm_req (std::shared_ptr<rai::block>);
-	void broadcast_confirm_req_base (std::shared_ptr<rai::block>, std::shared_ptr<std::vector<rai::peer_information>>, unsigned);
+	void broadcast_confirm_req_base (std::shared_ptr<rai::block>, std::shared_ptr<std::vector<rai::peer_information>>, unsigned, bool = false);
 	void send_confirm_req (rai::endpoint const &, std::shared_ptr<rai::block>);
 	void send_buffer (uint8_t const *, size_t, rai::endpoint const &, std::function<void(boost::system::error_code const &, size_t)>);
 	rai::endpoint endpoint ();
@@ -530,7 +523,7 @@ class vote_processor
 public:
 	vote_processor (rai::node &);
 	void vote (std::shared_ptr<rai::vote>, rai::endpoint);
-	rai::vote_code vote_blocking (MDB_txn *, std::shared_ptr<rai::vote>, rai::endpoint);
+	rai::vote_code vote_blocking (rai::transaction const &, std::shared_ptr<rai::vote>, rai::endpoint);
 	void flush ();
 	rai::node & node;
 	void stop ();
@@ -570,10 +563,10 @@ public:
 	bool should_log ();
 	bool have_blocks ();
 	void process_blocks ();
-	rai::process_return process_receive_one (MDB_txn *, std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point = std::chrono::steady_clock::now ());
+	rai::process_return process_receive_one (rai::transaction const &, std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point = std::chrono::steady_clock::now ());
 
 private:
-	void queue_unchecked (MDB_txn *, rai::block_hash const &);
+	void queue_unchecked (rai::transaction const &, rai::block_hash const &);
 	void process_receive_many (std::unique_lock<std::mutex> &);
 	bool stopped;
 	bool active;
@@ -626,14 +619,15 @@ public:
 	void work_generate (rai::uint256_union const &, std::function<void(uint64_t)>);
 	void add_initial_peers ();
 	void block_confirm (std::shared_ptr<rai::block>);
-	void process_fork (MDB_txn *, std::shared_ptr<rai::block>);
+	void process_fork (rai::transaction const &, std::shared_ptr<rai::block>);
 	rai::uint128_t delta ();
 	boost::asio::io_service & service;
 	rai::node_config config;
 	rai::alarm & alarm;
 	rai::work_pool & work;
 	boost::log::sources::logger_mt log;
-	rai::block_store store;
+	std::unique_ptr<rai::block_store> store_impl;
+	rai::block_store & store;
 	rai::gap_cache gap_cache;
 	rai::ledger ledger;
 	rai::active_transactions active;

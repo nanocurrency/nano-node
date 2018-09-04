@@ -48,6 +48,7 @@ public:
 	uint64_t frontier_request_limit;
 	uint64_t chain_request_limit;
 	rpc_secure_config secure;
+	uint8_t max_json_depth;
 };
 enum class payment_status
 {
