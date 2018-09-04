@@ -220,7 +220,6 @@ public:
 		bulk_pull,
 		bulk_push,
 		bulk_pull_account,
-		bulk_pull_blocks,
 		frontier_req,
 
 		// vote specific

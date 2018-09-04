@@ -1,4 +1,5 @@
 #include <rai/lib/numbers.hpp>
+#include <rai/lib/utility.hpp>
 
 #include <ed25519-donna/ed25519.h>
 
@@ -31,7 +32,11 @@ uint8_t account_decode (char value)
 {
 	assert (value >= '0');
 	assert (value <= '~');
-	auto result (account_reverse[value - 0x30] - 0x30);
+	auto result (account_reverse[value - 0x30]);
+	if (result != '~')
+	{
+		result -= 0x30;
+	}
 	return result;
 }
 }

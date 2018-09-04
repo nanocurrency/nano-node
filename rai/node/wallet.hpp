@@ -1,6 +1,7 @@
 #pragma once
 
 #include <rai/node/common.hpp>
+#include <rai/node/lmdb.hpp>
 #include <rai/node/openclwork.hpp>
 #include <rai/secure/blockstore.hpp>
 #include <rai/secure/common.hpp>
@@ -25,16 +26,6 @@ private:
 	std::mutex mutex;
 	void value_get (rai::raw_key &);
 };
-class wallet_value
-{
-public:
-	wallet_value () = default;
-	wallet_value (rai::mdb_val const &);
-	wallet_value (rai::uint256_union const &, uint64_t);
-	rai::mdb_val val () const;
-	rai::private_key key;
-	uint64_t work;
-};
 class node_config;
 class kdf
 {
@@ -54,49 +45,49 @@ class wallet_store
 public:
 	wallet_store (bool &, rai::kdf &, rai::transaction &, rai::account, unsigned, std::string const &);
 	wallet_store (bool &, rai::kdf &, rai::transaction &, rai::account, unsigned, std::string const &, std::string const &);
-	std::vector<rai::account> accounts (MDB_txn *);
-	void initialize (MDB_txn *, bool &, std::string const &);
-	rai::uint256_union check (MDB_txn *);
-	bool rekey (MDB_txn *, std::string const &);
-	bool valid_password (MDB_txn *);
-	bool attempt_password (MDB_txn *, std::string const &);
-	void wallet_key (rai::raw_key &, MDB_txn *);
-	void seed (rai::raw_key &, MDB_txn *);
-	void seed_set (MDB_txn *, rai::raw_key const &);
+	std::vector<rai::account> accounts (rai::transaction const &);
+	void initialize (rai::transaction const &, bool &, std::string const &);
+	rai::uint256_union check (rai::transaction const &);
+	bool rekey (rai::transaction const &, std::string const &);
+	bool valid_password (rai::transaction const &);
+	bool attempt_password (rai::transaction const &, std::string const &);
+	void wallet_key (rai::raw_key &, rai::transaction const &);
+	void seed (rai::raw_key &, rai::transaction const &);
+	void seed_set (rai::transaction const &, rai::raw_key const &);
 	rai::key_type key_type (rai::wallet_value const &);
-	rai::public_key deterministic_insert (MDB_txn *);
-	void deterministic_key (rai::raw_key &, MDB_txn *, uint32_t);
-	uint32_t deterministic_index_get (MDB_txn *);
-	void deterministic_index_set (MDB_txn *, uint32_t);
-	void deterministic_clear (MDB_txn *);
-	rai::uint256_union salt (MDB_txn *);
-	bool is_representative (MDB_txn *);
-	rai::account representative (MDB_txn *);
-	void representative_set (MDB_txn *, rai::account const &);
-	rai::public_key insert_adhoc (MDB_txn *, rai::raw_key const &);
-	void insert_watch (MDB_txn *, rai::public_key const &);
-	void erase (MDB_txn *, rai::public_key const &);
-	rai::wallet_value entry_get_raw (MDB_txn *, rai::public_key const &);
-	void entry_put_raw (MDB_txn *, rai::public_key const &, rai::wallet_value const &);
-	bool fetch (MDB_txn *, rai::public_key const &, rai::raw_key &);
-	bool exists (MDB_txn *, rai::public_key const &);
-	void destroy (MDB_txn *);
-	rai::store_iterator<rai::uint256_union, rai::wallet_value> find (MDB_txn *, rai::uint256_union const &);
-	rai::store_iterator<rai::uint256_union, rai::wallet_value> begin (MDB_txn *, rai::uint256_union const &);
-	rai::store_iterator<rai::uint256_union, rai::wallet_value> begin (MDB_txn *);
+	rai::public_key deterministic_insert (rai::transaction const &);
+	void deterministic_key (rai::raw_key &, rai::transaction const &, uint32_t);
+	uint32_t deterministic_index_get (rai::transaction const &);
+	void deterministic_index_set (rai::transaction const &, uint32_t);
+	void deterministic_clear (rai::transaction const &);
+	rai::uint256_union salt (rai::transaction const &);
+	bool is_representative (rai::transaction const &);
+	rai::account representative (rai::transaction const &);
+	void representative_set (rai::transaction const &, rai::account const &);
+	rai::public_key insert_adhoc (rai::transaction const &, rai::raw_key const &);
+	void insert_watch (rai::transaction const &, rai::public_key const &);
+	void erase (rai::transaction const &, rai::public_key const &);
+	rai::wallet_value entry_get_raw (rai::transaction const &, rai::public_key const &);
+	void entry_put_raw (rai::transaction const &, rai::public_key const &, rai::wallet_value const &);
+	bool fetch (rai::transaction const &, rai::public_key const &, rai::raw_key &);
+	bool exists (rai::transaction const &, rai::public_key const &);
+	void destroy (rai::transaction const &);
+	rai::store_iterator<rai::uint256_union, rai::wallet_value> find (rai::transaction const &, rai::uint256_union const &);
+	rai::store_iterator<rai::uint256_union, rai::wallet_value> begin (rai::transaction const &, rai::uint256_union const &);
+	rai::store_iterator<rai::uint256_union, rai::wallet_value> begin (rai::transaction const &);
 	rai::store_iterator<rai::uint256_union, rai::wallet_value> end ();
-	void derive_key (rai::raw_key &, MDB_txn *, std::string const &);
-	void serialize_json (MDB_txn *, std::string &);
-	void write_backup (MDB_txn *, boost::filesystem::path const &);
-	bool move (MDB_txn *, rai::wallet_store &, std::vector<rai::public_key> const &);
-	bool import (MDB_txn *, rai::wallet_store &);
-	bool work_get (MDB_txn *, rai::public_key const &, uint64_t &);
-	void work_put (MDB_txn *, rai::public_key const &, uint64_t);
-	unsigned version (MDB_txn *);
-	void version_put (MDB_txn *, unsigned);
-	void upgrade_v1_v2 (MDB_txn *);
-	void upgrade_v2_v3 (MDB_txn *);
-	void upgrade_v3_v4 (MDB_txn *);
+	void derive_key (rai::raw_key &, rai::transaction const &, std::string const &);
+	void serialize_json (rai::transaction const &, std::string &);
+	void write_backup (rai::transaction const &, boost::filesystem::path const &);
+	bool move (rai::transaction const &, rai::wallet_store &, std::vector<rai::public_key> const &);
+	bool import (rai::transaction const &, rai::wallet_store &);
+	bool work_get (rai::transaction const &, rai::public_key const &, uint64_t &);
+	void work_put (rai::transaction const &, rai::public_key const &, uint64_t);
+	unsigned version (rai::transaction const &);
+	void version_put (rai::transaction const &, unsigned);
+	void upgrade_v1_v2 (rai::transaction const &);
+	void upgrade_v2_v3 (rai::transaction const &);
+	void upgrade_v3_v4 (rai::transaction const &);
 	rai::fan password;
 	rai::fan wallet_key_mem;
 	static unsigned const version_1 = 1;
@@ -120,6 +111,9 @@ public:
 	rai::kdf & kdf;
 	MDB_dbi handle;
 	std::recursive_mutex mutex;
+
+private:
+	MDB_txn * tx (rai::transaction const &) const;
 };
 class wallets;
 // A wallet is a set of account keys encrypted by a common encryption key
@@ -132,11 +126,11 @@ public:
 	wallet (bool &, rai::transaction &, rai::wallets &, std::string const &);
 	wallet (bool &, rai::transaction &, rai::wallets &, std::string const &, std::string const &);
 	void enter_initial_password ();
-	bool enter_password (MDB_txn *, std::string const &);
+	bool enter_password (rai::transaction const &, std::string const &);
 	rai::public_key insert_adhoc (rai::raw_key const &, bool = true);
-	rai::public_key insert_adhoc (MDB_txn *, rai::raw_key const &, bool = true);
-	void insert_watch (MDB_txn *, rai::public_key const &);
-	rai::public_key deterministic_insert (MDB_txn *, bool = true);
+	rai::public_key insert_adhoc (rai::transaction const &, rai::raw_key const &, bool = true);
+	void insert_watch (rai::transaction const &, rai::public_key const &);
+	rai::public_key deterministic_insert (rai::transaction const &, bool = true);
 	rai::public_key deterministic_insert (bool = true);
 	bool exists (rai::public_key const &);
 	bool import (std::string const &, std::string const &);
@@ -149,19 +143,23 @@ public:
 	void send_async (rai::account const &, rai::account const &, rai::uint128_t const &, std::function<void(std::shared_ptr<rai::block>)> const &, bool = true, boost::optional<std::string> = {});
 	void work_apply (rai::account const &, std::function<void(uint64_t)>);
 	void work_cache_blocking (rai::account const &, rai::block_hash const &);
-	void work_update (MDB_txn *, rai::account const &, rai::block_hash const &, uint64_t);
+	void work_update (rai::transaction const &, rai::account const &, rai::block_hash const &, uint64_t);
 	void work_ensure (rai::account const &, rai::block_hash const &);
 	bool search_pending ();
-	void init_free_accounts (MDB_txn *);
+	void init_free_accounts (rai::transaction const &);
 	/** Changes the wallet seed and returns the first account */
-	rai::public_key change_seed (MDB_txn * transaction_a, rai::raw_key const & prv_a);
+	rai::public_key change_seed (rai::transaction const & transaction_a, rai::raw_key const & prv_a);
 	std::unordered_set<rai::account> free_accounts;
 	std::function<void(bool, bool)> lock_observer;
 	rai::wallet_store store;
 	rai::wallets & wallets;
 };
 class node;
-// The wallets set is all the wallets a node controls.  A node may contain multiple wallets independently encrypted and operated.
+
+/**
+ * The wallets set is all the wallets a node controls.
+ * A node may contain multiple wallets independently encrypted and operated.
+ */
 class wallets
 {
 public:
@@ -174,8 +172,8 @@ public:
 	void destroy (rai::uint256_union const &);
 	void do_wallet_actions ();
 	void queue_wallet_action (rai::uint128_t const &, std::function<void()> const &);
-	void foreach_representative (MDB_txn *, std::function<void(rai::public_key const &, rai::raw_key const &)> const &);
-	bool exists (MDB_txn *, rai::public_key const &);
+	void foreach_representative (rai::transaction const &, std::function<void(rai::public_key const &, rai::raw_key const &)> const &);
+	bool exists (rai::transaction const &, rai::public_key const &);
 	void stop ();
 	std::function<void(bool)> observer;
 	std::unordered_map<rai::uint256_union, std::shared_ptr<rai::wallet>> items;
@@ -186,10 +184,22 @@ public:
 	MDB_dbi handle;
 	MDB_dbi send_action_ids;
 	rai::node & node;
-	rai::mdb_env & environment;
+	rai::mdb_env & env;
 	bool stopped;
 	std::thread thread;
 	static rai::uint128_t const generate_priority;
 	static rai::uint128_t const high_priority;
+
+	/** Start read-write transaction */
+	rai::transaction tx_begin_write ();
+
+	/** Start read-only transaction */
+	rai::transaction tx_begin_read ();
+
+	/**
+	 * Start a read-only or read-write transaction
+	 * @param write If true, start a read-write transaction
+	 */
+	rai::transaction tx_begin (bool write = false);
 };
 }
