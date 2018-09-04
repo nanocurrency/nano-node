@@ -1,3 +1,5 @@
+#include <rai/node/common.hpp>
+#include <rai/node/eventrecorder.hpp>
 #include <rai/node/lmdb.hpp>
 
 #include <rai/lib/utility.hpp>
@@ -6,7 +8,10 @@
 
 #include <boost/polymorphic_cast.hpp>
 
+#include <chrono>
 #include <queue>
+
+std::atomic<uint64_t> rai::mdb_txn::id_counter (std::chrono::duration_cast<milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()).count ());
 
 rai::mdb_env::mdb_env (bool & error_a, boost::filesystem::path const & path_a, int max_dbs, int flags)
 {
@@ -280,6 +285,10 @@ rai::mdb_val::operator MDB_val const & () const
 
 rai::mdb_txn::mdb_txn (rai::mdb_env const & environment_a, bool write_a)
 {
+	is_write = write_a;
+	id = rai::mdb_txn::id_counter.fetch_add (1, std::memory_order_relaxed);
+	nano::events::recorder::instance_get ()->add_tx (id, true, is_write);
+
 	auto status (mdb_txn_begin (environment_a, nullptr, write_a ? 0 : MDB_RDONLY, &handle));
 	release_assert (status == 0);
 }
@@ -287,6 +296,7 @@ rai::mdb_txn::mdb_txn (rai::mdb_env const & environment_a, bool write_a)
 rai::mdb_txn::~mdb_txn ()
 {
 	auto status (mdb_txn_commit (handle));
+	nano::events::recorder::instance_get ()->add_tx (id, false, is_write);
 	release_assert (status == 0);
 }
 

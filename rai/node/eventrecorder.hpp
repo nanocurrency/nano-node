@@ -7,6 +7,7 @@
 #include <mutex>
 #include <ostream>
 #include <set>
+#include <sstream>
 #include <string>
 #include <unordered_map>
 
@@ -16,6 +17,12 @@
 #include <rai/node/common.hpp>
 #include <rai/node/lmdb.hpp>
 #include <rai/secure/utility.hpp>
+
+#ifdef __clang__
+#define BOOST_STACKTRACE_GNU_SOURCE_NOT_REQUIRED 1
+#endif
+#include <boost/crc.hpp>
+#include <boost/stacktrace.hpp>
 
 using namespace std::chrono;
 
@@ -58,6 +65,8 @@ namespace events
 		publish_out,
 		rollback_loser,
 		rollback_winner,
+		transaction,
+		stacktrace,
 	};
 
 	/**
@@ -71,6 +80,10 @@ namespace events
 		bool deserialize_json (boost::property_tree::ptree & tree_a);
 		/** True if the event recorder is enabled */
 		bool enabled{ false };
+		/** If true, record transactions along with stack traces */
+		bool record_transactions{ false };
+		/** If true, record stack traces for supported events. This adds significant time overhead to recording. */
+		bool record_stacktraces{ false };
 	};
 
 	/** Base type for all events */
@@ -90,20 +103,7 @@ namespace events
 		virtual std::error_code deserialize_key (rai::stream & input) = 0;
 
 		/** Returns a summary string shared by all subclasses */
-		virtual std::string summary_string (size_t indent)
-		{
-			std::string summary;
-			summary.append (indent, ' ');
-			summary.append ("#");
-			summary.append (std::to_string (ordinal_get ()));
-			summary.append (", ");
-			char time[64];
-			time_t ts = (time_t)timestamp;
-			auto localtime = std::localtime (&ts);
-			std::strftime (time, sizeof (time) - 1, "%m/%d %T", localtime);
-			summary.append (time);
-			return summary;
-		}
+		virtual std::string summary_string (size_t indent);
 
 		inline uint64_t timestamp_get () const
 		{
@@ -130,6 +130,154 @@ namespace events
 		nano::events::type type{ nano::events::type::invalid };
 		uint64_t timestamp{ 0 };
 		uint32_t ordinal{ 0 };
+	};
+
+	/**
+	 * A persistent stack trace keyed by its hash. stacktrace_event isn't used on
+	 * its own, but other events refer to it in order to record a stacktrace. It's
+	 * defined as an event in order to be able to participate in queued persistence
+	 * and queries.
+	 */
+	class stacktrace_event : public event
+	{
+	public:
+		stacktrace_event (nano::events::type type) :
+		event (type)
+		{
+		}
+
+		stacktrace_event (stacktrace_event const & other) :
+		event (nano::events::type::stacktrace)
+		{
+			strace = other.strace;
+			strace_hash = other.strace_hash;
+		}
+
+		stacktrace_event (uint64_t strace_hash_a) :
+		event (nano::events::type::stacktrace), strace_hash (strace_hash_a)
+		{
+		}
+
+		stacktrace_event (boost::stacktrace::stacktrace & trace, uint64_t trace_hash) :
+		event (nano::events::type::stacktrace)
+		{
+			strace_hash = trace_hash;
+
+			// Convert trace to string. This is fairly slow; stacktrace logging is thus a config option.
+			// std::ostringstream ostr;
+			// ostr << trace;
+			//strace = ostr.str ();
+			strace = boost::stacktrace::detail::to_string (&trace.as_vector ()[0], trace.size ());
+		}
+
+		std::unique_ptr<event> clone () override
+		{
+			return std::make_unique<stacktrace_event> (*this);
+		}
+
+		std::string summary_string (size_t indent) override;
+
+		inline std::string strace_get () const
+		{
+			return strace;
+		}
+
+		inline void strace_set (uint64_t strace_a)
+		{
+			strace = strace_a;
+		}
+
+		inline uint64_t strace_hash_get () const
+		{
+			return strace_hash;
+		}
+
+		inline void strace_hash_set (uint64_t strace_hash_a)
+		{
+			strace_hash = strace_hash_a;
+		}
+
+		std::string describe () override
+		{
+			return "Stacktrace event";
+		}
+
+		std::vector<uint8_t> serialize_key () override;
+		std::error_code deserialize_key (rai::stream & input) override;
+		expected<std::vector<uint8_t>, std::error_code> serialize () override;
+		std::error_code deserialize (rai::stream & input) override;
+
+	private:
+		std::string strace;
+		uint64_t strace_hash;
+	};
+
+	/** A database transaction event */
+	class tx_event : public event
+	{
+	public:
+		tx_event () :
+		event (nano::events::type::transaction)
+		{
+		}
+
+		tx_event (tx_event const & other) :
+		event (other.type)
+		{
+			timestamp = other.timestamp;
+			ordinal = other.ordinal;
+			tx_id = other.tx_id;
+			tx_is_write = other.tx_is_write;
+			tx_is_start = other.tx_is_start;
+			strace_hash = other.strace_hash;
+		}
+
+		tx_event (uint64_t tx_id, bool tx_is_start, bool tx_is_write, uint64_t strace_hash) :
+		event (nano::events::type::transaction), tx_id (tx_id), tx_is_start (tx_is_start), tx_is_write (tx_is_write), strace_hash (strace_hash)
+		{
+			// Skip current frame from stacktrace
+			auto strace = boost::stacktrace::stacktrace (2, 4);
+			strace_hash = boost::stacktrace::hash_value (strace);
+		}
+
+		std::unique_ptr<event> clone () override
+		{
+			return std::make_unique<tx_event> (*this);
+		}
+
+		std::string describe () override
+		{
+			return "Transaction event";
+		}
+
+		uint64_t tx_id_get () const
+		{
+			return tx_id;
+		}
+		bool tx_is_start_get () const
+		{
+			return tx_is_start;
+		}
+		bool tx_is_write_get () const
+		{
+			return tx_is_write;
+		}
+		uint64_t stacktrace_hash_get () const
+		{
+			return strace_hash;
+		}
+
+		std::string summary_string (size_t indent) override;
+		std::vector<uint8_t> serialize_key () override;
+		std::error_code deserialize_key (rai::stream & input) override;
+		expected<std::vector<uint8_t>, std::error_code> serialize () override;
+		std::error_code deserialize (rai::stream & input) override;
+
+	private:
+		uint64_t tx_id{ 0 };
+		bool tx_is_start{ false };
+		bool tx_is_write{ false };
+		uint64_t strace_hash;
 	};
 
 	/** Base type for block events, containing a block hash and an optional endpoint address */
@@ -352,9 +500,17 @@ namespace events
 		 */
 		std::error_code open (boost::filesystem::path const & path_a);
 		/** Add an event to the store */
-		std::error_code put (rai::transaction & transaction, nano::events::event & event);
+		std::error_code put (rai::transaction & transaction_a, nano::events::event & event_a);
+		/** Returns the hash of the stack trace */
+		expected<uint64_t, std::error_code> put_stacktrace (rai::transaction & transaction_a, boost::stacktrace::stacktrace & trace_a);
+		/** Returns the stacktrace for the given stack trace hash, or an empty string if no entry exists for the hash */
+		std::string get_stacktrace (rai::transaction & transaction_a, uint64_t strace_hash_a);
 		/** Return the database name corresponding to the type */
 		std::string type_to_name (nano::events::type type);
+		/** Returns the database corresponding to the name, or nullptr if not found */
+		db_info * name_to_dbinfo (std::string name);
+		/** Iterate table contents */
+		std::error_code iterate_table (std::string table_name, std::function<void(db_info * db_info, std::unique_ptr<nano::events::event>)> callback);
 
 	private:
 		std::unique_ptr<rai::mdb_env> environment;
@@ -400,6 +556,14 @@ namespace events
 		MDB_dbi bad_block_position;
 		MDB_dbi rollback_loser;
 		MDB_dbi rollback_winner;
+		MDB_dbi transaction;
+
+		/**
+		 * Stacktraces keyed by its CRC. This allows events to reference potentially
+		 * large stack traces, while maintaining a low footprint (in practice, there's a limited
+		 * amount of unique stack traces)
+		*/
+		MDB_dbi stacktrace;
 	};
 
 	/** Most recent events first*/
@@ -511,6 +675,24 @@ namespace events
 			return ec;
 		}
 
+		inline std::error_code add_tx (uint64_t tx_id, bool tx_is_start, bool tx_is_write)
+		{
+			std::error_code ec;
+			if (enabled () && config.record_transactions)
+			{
+				uint64_t trace_hash (0);
+				if (config.record_stacktraces)
+				{
+					// Create stack trace (skip current frame) and reference its hash from the tx_event
+					auto trace = boost::stacktrace::stacktrace (2, 4);
+					trace_hash = boost::stacktrace::hash_value (trace);
+					ec = add<nano::events::stacktrace_event> (trace, trace_hash);
+				}
+				ec = add<nano::events::tx_event> (tx_id, tx_is_start, tx_is_write, trace_hash);
+			}
+			return ec;
+		}
+
 		/** 
 		 * Creates an event object of the template type and puts it on the persistence queue.
 		 * This is a convenience method to keep the recording call-sites one liners, and is a
@@ -538,14 +720,24 @@ namespace events
 		/** Generate summary for the given hash */
 		expected<nano::events::summary, std::error_code> get_summary (rai::block_hash hash);
 
+		/**
+		 * Get the most recent instance of the recorder.
+		 * @deprecated This is a workaround to make recording available to rai::transaction, and will be removed in a future versions.
+		 */
+		static nano::events::recorder * instance_get ()
+		{
+			return last_instance.load ();
+		}
+
 	private:
 		nano::events::store eventstore;
+		static std::atomic<nano::events::recorder *> last_instance;
 		/** Configuration object deserialized from config.json */
 		nano::events::recorder_config config;
 		/** Persistence queue to batch writes in a single transaction */
 		std::vector<std::unique_ptr<nano::events::event>> queue;
 		/** Protects the persistence queue */
-		std::mutex event_queue_mutex;
+		std::recursive_mutex event_queue_mutex;
 		/** Flush queue to disk */
 		void flush_queue (rai::transaction & tx);
 	};

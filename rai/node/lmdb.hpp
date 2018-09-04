@@ -1,5 +1,7 @@
 #pragma once
 
+#include <atomic>
+
 #include <boost/filesystem.hpp>
 
 #include <lmdb/libraries/liblmdb/lmdb.h>
@@ -22,6 +24,11 @@ public:
 	rai::mdb_txn & operator= (rai::mdb_txn &&) = default;
 	operator MDB_txn * () const;
 	MDB_txn * handle;
+private:
+	bool is_write;
+	uint64_t id{ 0 };
+	/** Initialized to milliseconds since epoch to get unique id's across runs */
+	static std::atomic<uint64_t> id_counter;	
 };
 /**
  * RAII wrapper for MDB_env

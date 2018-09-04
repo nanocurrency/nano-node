@@ -1622,6 +1622,7 @@ node (init_a, service_a, application_path_a, alarm_a, rai::node_config (peering_
 rai::node::node (rai::node_init & init_a, boost::asio::io_service & service_a, boost::filesystem::path const & application_path_a, rai::alarm & alarm_a, rai::node_config const & config_a, rai::work_pool & work_a) :
 service (service_a),
 config (config_a),
+recorder (config.recorder_config, application_path_a / "events.ldb"),
 alarm (alarm_a),
 work (work_a),
 store_impl (std::make_unique<rai::mdb_store> (init_a.block_store_init, application_path_a / "data.ldb", config_a.lmdb_max_dbs)),
@@ -1644,7 +1645,6 @@ block_processor_thread ([this]() {
 	this->block_processor.process_blocks ();
 }),
 online_reps (*this),
-recorder (config.recorder_config, application_path_a / "events.ldb"),
 stats (config.stat_config)
 {
 	wallets.observer = [this](bool active) {

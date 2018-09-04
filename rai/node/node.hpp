@@ -603,6 +603,7 @@ public:
 	rai::uint128_t delta ();
 	boost::asio::io_service & service;
 	rai::node_config config;
+	nano::events::recorder recorder;
 	rai::alarm & alarm;
 	rai::work_pool & work;
 	boost::log::sources::logger_mt log;
@@ -626,7 +627,6 @@ public:
 	std::thread block_processor_thread;
 	rai::block_arrival block_arrival;
 	rai::online_reps online_reps;
-	nano::events::recorder recorder;
 	rai::stat stats;
 	rai::keypair node_id;
 	static double constexpr price_max = 16.0;

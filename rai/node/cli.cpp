@@ -50,8 +50,11 @@ void rai::add_node_options (boost::program_options::options_description & descri
 	("vote_dump", "Dump most recent votes from representatives")
 	("account", boost::program_options::value<std::string> (), "Defines <account> for other commands")
 	("count", boost::program_options::value<size_t> (), "Defines <count> for other commands")
+	("dump", "Sets the <dump> flag for other commands")
 	("file", boost::program_options::value<std::string> (), "Defines <file> for other commands")
 	("hash", boost::program_options::value<std::string> (), "Defines <hash> for other commands")
+	("table", boost::program_options::value<std::string> (), "Defines <table> for other commands")
+	("max-time", boost::program_options::value<uint64_t> (), "Defines <max-time> for other commands")
 	("key", boost::program_options::value<std::string> (), "Defines the <key> for other commands, hex")
 	("password", boost::program_options::value<std::string> (), "Defines <password> for other commands")
 	("wallet", boost::program_options::value<std::string> (), "Defines <wallet> for other commands");
@@ -298,7 +301,60 @@ std::error_code rai::handle_node_options (boost::program_options::variables_map 
 	}
 	else if (vm.count ("events"))
 	{
-		if (vm.count ("hash") == 1)
+		// Dump table
+		if (vm.count ("dump"))
+		{
+			if (vm.count ("table") == 1)
+			{
+				uint64_t max_millisec = std::numeric_limits<uint64_t>::max ();
+				if (vm.count ("max-time") == 1)
+				{
+					max_millisec = vm["max-time"].as<uint64_t> ();
+				}
+				inactive_node node (data_path);
+				node.node->config.recorder_config.enabled = true;
+				node.node->recorder.store_get ().open (node.node->application_path / "events.ldb");
+				auto table = vm["table"].as<std::string> ();
+
+				nano::events::tx_event tx_prev;
+				std::string lazy_line ("");
+				node.node->recorder.store_get ().iterate_table (table, [&](nano::events::db_info * dbinfo, std::unique_ptr<nano::events::event> event) {
+					std::string line ("");
+					if (event->type_get () == nano::events::type::transaction)
+					{
+						nano::events::tx_event * tx = static_cast<nano::events::tx_event *> (event.get ());
+						if (tx_prev.tx_id_get () != 0 && tx->tx_is_start_get () && tx_prev.tx_is_start_get ())
+						{
+							lazy_line += ", ACTIVE";
+						}
+
+						line += event->summary_string (0);
+						if (tx_prev.tx_id_get () != 0 && tx->tx_id_get () == tx_prev.tx_id_get () && tx->timestamp_get () - tx_prev.timestamp_get () > max_millisec)
+						{
+							line += ", SLOW";
+						}
+
+						tx_prev = nano::events::tx_event (*tx);
+					}
+					else
+					{
+						line += event->summary_string (0);
+					}
+
+					std::cout << lazy_line << std::endl;
+					lazy_line = line;
+				});
+
+				std::cout << lazy_line << std::endl;
+			}
+			else
+			{
+				std::cerr << "events --dump command requires one <table> option\n";
+				ec = rai::error_cli::invalid_arguments;
+			}
+		}
+		// Show events for a given hash
+		else if (vm.count ("hash") == 1)
 		{
 			inactive_node node (data_path);
 			node.node->config.recorder_config.enabled = true;
@@ -326,7 +382,7 @@ std::error_code rai::handle_node_options (boost::program_options::variables_map 
 		}
 		else
 		{
-			std::cerr << "events command requires one <hash> option\n";
+			std::cerr << "events command requires a <hash> or <dump> option\n";
 			ec = rai::error_cli::invalid_arguments;
 		}
 	}

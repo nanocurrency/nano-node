@@ -1,8 +1,12 @@
 #include <algorithm>
-#include <boost/algorithm/string.hpp>
 #include <iostream>
-#include <rai/node/eventrecorder.hpp>
 #include <vector>
+
+#include <boost/algorithm/string.hpp>
+#include <boost/endian/conversion.hpp>
+#include <boost/lexical_cast.hpp>
+
+#include <rai/node/eventrecorder.hpp>
 
 std::string nano::error_eventrecorder_messages::message (int ec) const
 {
@@ -25,10 +29,62 @@ std::string nano::error_eventrecorder_messages::message (int ec) const
 	return "Invalid error code";
 }
 
+namespace
+{
+/**
+ * Read a length-prefixed string. The template argument determines the length type (big endian),
+ * and thus the maximum length.
+ */
+template <typename T>
+bool read_string (rai::stream & stream_a, std::string & value)
+{
+	static_assert (std::is_integral<T>::value, "Can't write non-integral length prefix");
+	T length;
+	auto amount_read (stream_a.sgetn (reinterpret_cast<uint8_t *> (&length), sizeof (length)));
+	if (amount_read == sizeof (length))
+	{
+		boost::endian::big_to_native_inplace (length);
+		char data[length + 1];
+		data[length] = 0;
+		amount_read = stream_a.sgetn (reinterpret_cast<uint8_t *> (data), length);
+		value = data;
+	}
+	return amount_read != value.size ();
+}
+
+/**
+ * Write a length-prefixed string. The template argument determines the length type (big endian),
+ * and thus the maximum length.
+ */
+template <typename T>
+void write_string (rai::stream & stream_a, std::string & value)
+{
+	static_assert (std::is_integral<T>::value, "Can't write non-integral length prefix");
+	T length = static_cast<T> (value.size ());
+	boost::endian::native_to_big_inplace (length);
+	auto amount_written (stream_a.sputn (reinterpret_cast<uint8_t const *> (&length), sizeof (length)));
+	assert (amount_written == sizeof (length));
+	amount_written = stream_a.sputn (reinterpret_cast<uint8_t const *> (value.data ()), value.size ());
+	assert (amount_written == value.size ());
+}
+}
+
 nano::events::event::event (nano::events::type type) :
 type (type)
 {
-	timestamp = duration_cast<seconds> (system_clock::now ().time_since_epoch ()).count ();
+	timestamp = duration_cast<milliseconds> (system_clock::now ().time_since_epoch ()).count ();
+}
+
+std::string nano::events::event::summary_string (size_t indent)
+{
+	std::ostringstream ostr;
+	ostr << std::string (indent, ' ') << "#" << std::to_string (ordinal_get ()) << ", ";
+	char time[64];
+	time_t ts = (time_t) (timestamp / 1000);
+	auto localtime = std::localtime (&ts);
+	std::strftime (time, sizeof (time) - 1, "%m/%d %T", localtime);
+	ostr << time << "." << std::setw (3) << std::setfill ('0') << uint64_t (timestamp % 1000);
+	return ostr.str ();
 }
 
 nano::events::block_event::block_event::block_event (nano::events::type type, rai::block_hash hash, boost::asio::ip::address const & address) :
@@ -56,6 +112,7 @@ std::error_code nano::events::block_event::deserialize_key (rai::stream & input_
 	error |= rai::read (input_a, ordinal);
 	return !error ? ec : nano::error_eventrecorder::deserialization;
 }
+
 std::string nano::events::block_event::summary_string (size_t indent)
 {
 	std::string summary = nano::events::event::summary_string (indent);
@@ -66,6 +123,7 @@ std::string nano::events::block_event::summary_string (size_t indent)
 	}
 	return summary;
 }
+
 expected<std::vector<uint8_t>, std::error_code> nano::events::block_event::serialize ()
 {
 	std::vector<uint8_t> vec;
@@ -96,6 +154,117 @@ std::error_code nano::events::block_event::deserialize (rai::stream & input_a)
 		endpoint_bytes = std::make_unique<std::array<uint8_t, 16>> ();
 		rai::read (input_a, *endpoint_bytes);
 	}
+	return !error ? ec : nano::error_eventrecorder::deserialization;
+}
+
+std::string nano::events::stacktrace_event::summary_string (size_t indent)
+{
+	return std::string (indent, ' ') + "Stacktrace id: " + boost::lexical_cast<std::string> (strace_hash) + "\n" + strace;
+}
+
+std::vector<uint8_t> nano::events::stacktrace_event::serialize_key ()
+{
+	std::vector<uint8_t> vec;
+	{
+		rai::vectorstream output (vec);
+		rai::write (output, strace_hash);
+	}
+	return vec;
+}
+
+std::error_code nano::events::stacktrace_event::deserialize_key (rai::stream & input_a)
+{
+	std::error_code ec;
+	auto error (rai::read (input_a, strace_hash));
+	return !error ? ec : nano::error_eventrecorder::deserialization;
+}
+
+expected<std::vector<uint8_t>, std::error_code> nano::events::stacktrace_event::serialize ()
+{
+	std::vector<uint8_t> vec;
+	{
+		rai::vectorstream output (vec);
+		write_string<uint16_t> (output, strace);
+	}
+	return vec;
+}
+
+std::error_code nano::events::stacktrace_event::deserialize (rai::stream & input)
+{
+	std::error_code ec;
+	auto error (read_string<uint16_t> (input, strace));
+	return !error ? ec : nano::error_eventrecorder::deserialization;
+}
+
+std::string nano::events::tx_event::summary_string (size_t indent)
+{
+	std::string summary = nano::events::event::summary_string (indent);
+	summary += ", txid: " + boost::lexical_cast<std::string> (tx_id);
+	if (tx_is_write)
+	{
+		summary += ", RW";
+	}
+	else
+	{
+		summary += ", RO";
+	}
+	if (tx_is_start)
+	{
+		summary += ", begin";
+	}
+	else
+	{
+		summary += ", commit";
+	}
+	summary += ", stacktrace id: " + boost::lexical_cast<std::string> (strace_hash);
+	return summary;
+}
+
+std::vector<uint8_t> nano::events::tx_event::serialize_key ()
+{
+	std::vector<uint8_t> vec;
+	{
+		rai::vectorstream output (vec);
+		rai::write (output, boost::endian::native_to_big (tx_id));
+		rai::write (output, boost::endian::native_to_big (ordinal_get ()));
+	}
+	return vec;
+}
+
+std::error_code nano::events::tx_event::deserialize_key (rai::stream & input_a)
+{
+	std::error_code ec;
+	bool error (false);
+	error |= rai::read (input_a, tx_id);
+	error |= rai::read (input_a, ordinal);
+	boost::endian::big_to_native_inplace (tx_id);
+	boost::endian::big_to_native_inplace (ordinal);
+	return !error ? ec : nano::error_eventrecorder::deserialization;
+}
+
+expected<std::vector<uint8_t>, std::error_code> nano::events::tx_event::serialize ()
+{
+	std::vector<uint8_t> vec;
+	{
+		rai::vectorstream output (vec);
+		rai::write (output, timestamp_get ());
+		rai::write (output, tx_is_start);
+		rai::write (output, tx_is_write);
+		rai::write (output, strace_hash);
+	}
+	return std::move (vec);
+}
+
+std::error_code nano::events::tx_event::deserialize (rai::stream & input_a)
+{
+	std::error_code ec;
+	bool error (false);
+	uint64_t timestamp;
+	error |= rai::read (input_a, timestamp);
+	timestamp_set (timestamp);
+	error |= rai::read (input_a, tx_is_start);
+	error |= rai::read (input_a, tx_is_write);
+	error |= rai::read (input_a, strace_hash);
 	return !error ? ec : nano::error_eventrecorder::deserialization;
 }
 
@@ -154,7 +323,7 @@ std::error_code nano::events::store::open (boost::filesystem::path const & path_
 {
 	std::error_code ec;
 	bool error (false);
-	environment = std::make_unique<rai::mdb_env> (error, path_a, 64, MDB_NOSUBDIR | MDB_NOTLS | MDB_NOSYNC | MDB_NOMETASYNC);
+	environment = std::make_unique<rai::mdb_env> (error, path_a, 64, MDB_NOSUBDIR | MDB_NOTLS);
 	if (!error)
 	{
 		enlist_db (std::make_unique<db_info> ("bootstrap_bulk_push_send", &bootstrap_bulk_push_send, std::make_unique<block_event> (type::bootstrap_bulk_push_send)));
@@ -177,7 +346,8 @@ std::error_code nano::events::store::open (boost::filesystem::path const & path_
 		enlist_db (std::make_unique<db_info> ("bad_block_position", &bad_block_position, std::make_unique<block_pair_event> (type::bad_block_position)));
 		enlist_db (std::make_unique<db_info> ("rollback_loser", &rollback_loser, std::make_unique<block_pair_event> (type::rollback_loser)));
 		enlist_db (std::make_unique<db_info> ("rollback_winner", &rollback_winner, std::make_unique<block_event> (type::rollback_winner)));
-
+		enlist_db (std::make_unique<db_info> ("transaction", &transaction, std::make_unique<tx_event> ()));
+		enlist_db (std::make_unique<db_info> ("stacktrace", &stacktrace, std::make_unique<stacktrace_event> (type::stacktrace)));
 		rai::transaction transaction (*environment, true);
 
 		bool error (false);
@@ -216,6 +386,20 @@ MDB_dbi * nano::events::store::type_to_dbi (nano::events::type type)
 	return dbi;
 }
 
+nano::events::db_info * nano::events::store::name_to_dbinfo (std::string name)
+{
+	db_info * dbinfo (nullptr);
+	for (auto & db : dbmap)
+	{
+		if (db.second->name == name)
+		{
+			dbinfo = db.second.get ();
+			break;
+		}
+	}
+	return dbinfo;
+}
+
 std::string nano::events::store::type_to_name (nano::events::type type)
 {
 	std::string name;
@@ -225,6 +409,23 @@ std::string nano::events::store::type_to_name (nano::events::type type)
 		name = match->second->name;
 	}
 	return name;
+}
+
+std::string nano::events::store::get_stacktrace (rai::transaction & transaction_a, uint64_t strace_hash_a)
+{
+	stacktrace_event event (strace_hash_a);
+	auto key_vec (event.serialize_key ());
+	rai::mdb_val key (key_vec.size (), key_vec.data ());
+	rai::mdb_val data;
+
+	auto status (mdb_get (transaction_a, stacktrace, key, data));
+	if (status != MDB_NOTFOUND)
+	{
+		rai::bufferstream datastream (reinterpret_cast<uint8_t const *> (data.value.mv_data), data.value.mv_size);
+		event.deserialize (datastream);
+	}
+
+	return event.strace_get ();
 }
 
 std::error_code nano::events::store::put (rai::transaction & transaction_a, nano::events::event & event_a)
@@ -244,6 +445,41 @@ std::error_code nano::events::store::put (rai::transaction & transaction_a, nano
 			rai::mdb_val key (vec.size (), vec.data ());
 			auto status (mdb_put (transaction_a, *dbi, key, rai::mdb_val (buf->size (), buf->data ()), 0));
 			assert (status == 0);
+		}
+	}
+	return ec;
+}
+
+std::error_code nano::events::store::iterate_table (std::string table_name, std::function<void(db_info * db_info, std::unique_ptr<nano::events::event>)> callback)
+{
+	std::error_code ec;
+	auto dbinfo (name_to_dbinfo (table_name));
+	if (dbinfo)
+	{
+		MDB_cursor * cursor (nullptr);
+		rai::transaction tx (*environment, false);
+		auto status (mdb_cursor_open (tx, *dbinfo->dbi, &cursor));
+		if (status != MDB_SUCCESS)
+		{
+			ec = nano::error_eventrecorder::cursor_open;
+		}
+		else
+		{
+			rai::mdb_val key, data;
+			auto status (mdb_cursor_get (cursor, &key.value, &data.value, MDB_FIRST));
+			for (size_t entry = 0; status == MDB_SUCCESS; entry++)
+			{
+				auto event = dbinfo->marshaller->clone ();
+				rai::bufferstream datastream (reinterpret_cast<uint8_t const *> (data.value.mv_data), data.value.mv_size);
+				event->deserialize (datastream);
+
+				rai::bufferstream keystream (reinterpret_cast<uint8_t const *> (key.value.mv_data), sizeof (rai::block_hash) + sizeof (uint32_t));
+				event->deserialize_key (keystream);
+
+				callback (dbinfo, std::move (event));
+				status = mdb_cursor_get (cursor, &key.value, &data.value, MDB_NEXT);
+			}
+			mdb_cursor_close (cursor);
 		}
 	}
 	return ec;
@@ -298,9 +534,12 @@ std::error_code nano::events::store::iterate_hash (rai::block_hash hash_a, std::
 	return ec;
 }
 
+std::atomic<nano::events::recorder *> nano::events::recorder::last_instance (nullptr);
+
 nano::events::recorder::recorder (nano::events::recorder_config config, boost::filesystem::path const & full_db_path_a) :
 config (config)
 {
+	last_instance = this;
 	auto path = full_db_path_a;
 	if (enabled ())
 	{
@@ -313,6 +552,7 @@ nano::events::recorder::~recorder ()
 	stop ();
 }
 
+// This must be called under a lock
 void nano::events::recorder::flush_queue (rai::transaction & tx)
 {
 	while (queue.size () > 0)
@@ -328,9 +568,11 @@ std::error_code nano::events::recorder::enqueue (std::unique_ptr<nano::events::e
 	assert (enabled ());
 	std::error_code ec;
 	static const size_t max_queue_size = 75;
+	std::unique_lock<std::recursive_mutex> lock (event_queue_mutex);
 
-	std::unique_lock<std::mutex> lock (event_queue_mutex);
-	if (queue.size () >= max_queue_size)
+	// Flush queue if max queue size is reached. We defer flushing events related to transaction logging since we need
+	// a transaction to flush, thus causing a loop.
+	if (event->type_get () != nano::events::type::transaction && event->type_get () != nano::events::type::stacktrace && queue.size () >= max_queue_size)
 	{
 		rai::transaction tx (*eventstore.environment, true);
 		flush_queue (tx);
@@ -344,7 +586,7 @@ std::error_code nano::events::recorder::enqueue (std::unique_ptr<nano::events::e
 
 void nano::events::recorder::stop ()
 {
-	std::unique_lock<std::mutex> lock (event_queue_mutex);
+	std::unique_lock<std::recursive_mutex> lock (event_queue_mutex);
 	if (queue.size () > 0)
 	{
 		rai::transaction tx (*eventstore.environment, true);
@@ -357,7 +599,6 @@ expected<nano::events::summary, std::error_code> nano::events::recorder::get_sum
 	nano::events::summary summary (*this, hash);
 
 	eventstore.iterate_hash (hash, [&summary](nano::events::db_info * db_info, std::unique_ptr<nano::events::event> event) {
-		time_t ts = (time_t)event->timestamp_get ();
 		auto events = summary.events.find (event->type_get ());
 		if (events == summary.events.end ())
 		{
@@ -400,7 +641,8 @@ void nano::events::summary::print (std::ostream & stream_a, nano::events::summar
 
 bool nano::events::recorder_config::deserialize_json (boost::property_tree::ptree & tree_a)
 {
-	bool error = false;
 	enabled = tree_a.get<bool> ("enabled", enabled);
-	return error;
+	record_transactions = tree_a.get<bool> ("record_transactions", record_transactions);
+	record_stacktraces = tree_a.get<bool> ("record_stacktraces", record_stacktraces);
+	return false;
 }
