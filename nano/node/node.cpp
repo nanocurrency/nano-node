@@ -981,6 +981,7 @@ nano::vote_code nano::vote_processor::vote_blocking (nano::transaction const & t
 		result = nano::vote_code::replay;
 		if (!node.active.vote (vote_a, true))
 		{
+			nano_debug(comment, "Set default result to vote");
 			result = nano::vote_code::vote;
 		}
 		switch (result)
