@@ -1,7 +1,7 @@
 #pragma once
 #include <boost/asio/ssl/context.hpp>
 #include <boost/asio/ssl/stream.hpp>
-#include <rai/node/rpc.hpp>
+#include <rai/rpc/rpc.hpp>
 
 namespace rai
 {

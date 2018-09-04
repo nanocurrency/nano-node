@@ -7,8 +7,8 @@
 #include <boost/thread.hpp>
 #include <rai/core_test/testutil.hpp>
 #include <rai/node/common.hpp>
-#include <rai/node/rpc.hpp>
 #include <rai/node/testing.hpp>
+#include <rai/rpc/rpc.hpp>
 
 using namespace std::chrono_literals;
 

@@ -2,7 +2,7 @@
 
 #include <rai/lib/interface.h>
 #include <rai/node/common.hpp>
-#include <rai/node/rpc.hpp>
+#include <rai/rpc/rpc.hpp>
 
 #include <algorithm>
 #include <future>

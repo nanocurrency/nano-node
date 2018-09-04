@@ -4,6 +4,7 @@
 #include <fstream>
 #include <iostream>
 #include <rai/node/working.hpp>
+#include <rai/rpc/rpc.hpp>
 
 rai_daemon::daemon_config::daemon_config (boost::filesystem::path const & application_path_a) :
 rpc_enable (false),

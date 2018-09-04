@@ -28,8 +28,6 @@ add_library (node
 	node.cpp
 	openclwork.cpp
 	openclwork.hpp
-	rpc.hpp
-	rpc.cpp
 	testing.hpp
 	testing.cpp
 	wallet.hpp
@@ -42,6 +40,7 @@ add_library (node
 target_link_libraries (node
 	secure
 	rai_lib
+	rpc
 	libminiupnpc-static
 	argon2
 	lmdb

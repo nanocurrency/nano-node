@@ -231,6 +231,7 @@ add_subdirectory(rai/secure)
 add_subdirectory(rai/lib)
 add_subdirectory(rai/node)
 add_subdirectory(rai/rai_node)
+add_subdirectory(rai/rpc)
 
 if (RAIBLOCKS_TEST)
     if(WIN32)

@@ -1,8 +1,8 @@
 #include <rai/node/cli.hpp>
-#include <rai/node/rpc.hpp>
 #include <rai/node/working.hpp>
 #include <rai/qt/qt.hpp>
 #include <rai/rai_wallet/icon.hpp>
+#include <rai/rpc/rpc.hpp>
 
 #include <boost/make_shared.hpp>
 #include <boost/program_options.hpp>
