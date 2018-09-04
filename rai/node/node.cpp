@@ -3710,7 +3710,30 @@ bool rai::election::publish (std::shared_ptr<rai::block> block_a)
 		{
 			account = block_a->root ();
 		}
-		if (account.is_zero () || rai::validate_message (account, block_a->hash (), block_a->block_signature ()))
+		if (block_a->type () == rai::block_type::state)
+		{
+			std::shared_ptr<rai::state_block> block_l (std::static_pointer_cast<rai::state_block> (block_a));
+			rai::amount prev_balance (0);
+			if (!block_l->hashables.previous.is_zero ())
+			{
+				if (node.store.block_exists (transaction, block_l->hashables.previous))
+				{
+					prev_balance = node.ledger.balance (transaction, block_l->hashables.previous);
+				}
+				else
+				{
+					result = true;
+				}
+			}
+			if (!result)
+			{
+				if (block_l->hashables.balance == prev_balance && !node.ledger.epoch_link.is_zero () && block_l->hashables.link == node.ledger.epoch_link)
+				{
+					account = node.ledger.epoch_signer;
+				}
+			}
+		}
+		if (!result && (account.is_zero () || rai::validate_message (account, block_a->hash (), block_a->block_signature ())))
 		{
 			result = true;
 		}
