@@ -7,7 +7,7 @@ bootstrapArgs=()
 while getopts 'm' OPT; do
 	case "${OPT}" in
 		m)
-			bootstrapArgs+=('--with-libraries=atomic,chrono,thread,log,date_time,filesystem,program_options,regex')
+			bootstrapArgs+=('--with-libraries=thread,log,filesystem,program_options')
 			;;
 	esac
 done

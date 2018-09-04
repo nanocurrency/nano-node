@@ -107,53 +107,6 @@ rai::block_hash const & rai::not_a_block (globals.not_a_block);
 rai::block_hash const & rai::not_an_account (globals.not_an_account);
 rai::account const & rai::burn_account (globals.burn_account);
 
-rai::votes::votes (std::shared_ptr<rai::block> block_a) :
-id (block_a->root ())
-{
-	rep_votes.insert (std::make_pair (rai::not_an_account, block_a));
-}
-
-rai::tally_result rai::votes::vote (std::shared_ptr<rai::vote> vote_a)
-{
-	rai::tally_result result;
-	auto existing (rep_votes.find (vote_a->account));
-	if (existing == rep_votes.end ())
-	{
-		// Vote on this block hasn't been seen from rep before
-		result = rai::tally_result::vote;
-		rep_votes.insert (std::make_pair (vote_a->account, vote_a->block));
-	}
-	else
-	{
-		if (!(*existing->second == *vote_a->block))
-		{
-			// Rep changed their vote
-			result = rai::tally_result::changed;
-			existing->second = vote_a->block;
-		}
-		else
-		{
-			// Rep vote remained the same
-			result = rai::tally_result::confirm;
-		}
-	}
-	return result;
-}
-
-bool rai::votes::uncontested ()
-{
-	bool result (true);
-	if (!rep_votes.empty ())
-	{
-		auto block (rep_votes.begin ()->second);
-		for (auto i (rep_votes.begin ()), n (rep_votes.end ()); result && i != n; ++i)
-		{
-			result = *i->second == *block;
-		}
-	}
-	return result;
-}
-
 // Create a new random keypair
 rai::keypair::keypair ()
 {
@@ -183,12 +136,6 @@ void rai::serialize_block (rai::stream & stream_a, rai::block const & block_a)
 	block_a.serialize (stream_a);
 }
 
-std::unique_ptr<rai::block> rai::deserialize_block (MDB_val const & val_a)
-{
-	rai::bufferstream stream (reinterpret_cast<uint8_t const *> (val_a.mv_data), val_a.mv_size);
-	return deserialize_block (stream);
-}
-
 rai::account_info::account_info () :
 head (0),
 rep_block (0),
@@ -196,25 +143,18 @@ open_block (0),
 balance (0),
 modified (0),
 block_count (0),
-version (0)
+epoch (rai::epoch::epoch_0)
 {
 }
 
-rai::account_info::account_info (MDB_val const & val_a)
-{
-	assert (val_a.mv_size == sizeof (*this));
-	static_assert (sizeof (head) + sizeof (rep_block) + sizeof (open_block) + sizeof (balance) + sizeof (modified) + sizeof (block_count) + sizeof (version) == sizeof (*this), "Class not packed");
-	std::copy (reinterpret_cast<uint8_t const *> (val_a.mv_data), reinterpret_cast<uint8_t const *> (val_a.mv_data) + sizeof (*this), reinterpret_cast<uint8_t *> (this));
-}
-
-rai::account_info::account_info (rai::block_hash const & head_a, rai::block_hash const & rep_block_a, rai::block_hash const & open_block_a, rai::amount const & balance_a, uint64_t modified_a, uint64_t block_count_a, uint8_t version_a) :
+rai::account_info::account_info (rai::block_hash const & head_a, rai::block_hash const & rep_block_a, rai::block_hash const & open_block_a, rai::amount const & balance_a, uint64_t modified_a, uint64_t block_count_a, rai::epoch epoch_a) :
 head (head_a),
 rep_block (rep_block_a),
 open_block (open_block_a),
 balance (balance_a),
 modified (modified_a),
 block_count (block_count_a),
-version (version_a)
+epoch (epoch_a)
 {
 }
 
@@ -226,7 +166,6 @@ void rai::account_info::serialize (rai::stream & stream_a) const
 	write (stream_a, balance.bytes);
 	write (stream_a, modified);
 	write (stream_a, block_count);
-	write (stream_a, version);
 }
 
 bool rai::account_info::deserialize (rai::stream & stream_a)
@@ -247,10 +186,6 @@ bool rai::account_info::deserialize (rai::stream & stream_a)
 					if (!error)
 					{
 						error = read (stream_a, block_count);
-						if (!error)
-						{
-							error = read (stream_a, version);
-						}
 					}
 				}
 			}
@@ -261,7 +196,7 @@ bool rai::account_info::deserialize (rai::stream & stream_a)
 
 bool rai::account_info::operator== (rai::account_info const & other_a) const
 {
-	return head == other_a.head && rep_block == other_a.rep_block && open_block == other_a.open_block && balance == other_a.balance && modified == other_a.modified && block_count == other_a.block_count && version == other_a.version;
+	return head == other_a.head && rep_block == other_a.rep_block && open_block == other_a.open_block && balance == other_a.balance && modified == other_a.modified && block_count == other_a.block_count && epoch == other_a.epoch;
 }
 
 bool rai::account_info::operator!= (rai::account_info const & other_a) const
@@ -269,9 +204,15 @@ bool rai::account_info::operator!= (rai::account_info const & other_a) const
 	return !(*this == other_a);
 }
 
-rai::mdb_val rai::account_info::val () const
+size_t rai::account_info::db_size () const
 {
-	return rai::mdb_val (sizeof (*this), const_cast<rai::account_info *> (this));
+	assert (reinterpret_cast<const uint8_t *> (this) == reinterpret_cast<const uint8_t *> (&head));
+	assert (reinterpret_cast<const uint8_t *> (&head) + sizeof (head) == reinterpret_cast<const uint8_t *> (&rep_block));
+	assert (reinterpret_cast<const uint8_t *> (&rep_block) + sizeof (rep_block) == reinterpret_cast<const uint8_t *> (&open_block));
+	assert (reinterpret_cast<const uint8_t *> (&open_block) + sizeof (open_block) == reinterpret_cast<const uint8_t *> (&balance));
+	assert (reinterpret_cast<const uint8_t *> (&balance) + sizeof (balance) == reinterpret_cast<const uint8_t *> (&modified));
+	assert (reinterpret_cast<const uint8_t *> (&modified) + sizeof (modified) == reinterpret_cast<const uint8_t *> (&block_count));
+	return sizeof (head) + sizeof (rep_block) + sizeof (open_block) + sizeof (balance) + sizeof (modified) + sizeof (block_count);
 }
 
 rai::block_counts::block_counts () :
@@ -279,33 +220,27 @@ send (0),
 receive (0),
 open (0),
 change (0),
-state (0)
+state_v0 (0),
+state_v1 (0)
 {
 }
 
 size_t rai::block_counts::sum ()
 {
-	return send + receive + open + change + state;
+	return send + receive + open + change + state_v0 + state_v1;
 }
 
 rai::pending_info::pending_info () :
 source (0),
 amount (0),
-min_version (0)
+epoch (rai::epoch::epoch_0)
 {
 }
 
-rai::pending_info::pending_info (MDB_val const & val_a)
-{
-	assert (val_a.mv_size == sizeof (*this));
-	static_assert (sizeof (source) + sizeof (amount) + sizeof (min_version) == sizeof (*this), "Packed class");
-	std::copy (reinterpret_cast<uint8_t const *> (val_a.mv_data), reinterpret_cast<uint8_t const *> (val_a.mv_data) + sizeof (*this), reinterpret_cast<uint8_t *> (this));
-}
-
-rai::pending_info::pending_info (rai::account const & source_a, rai::amount const & amount_a, uint8_t min_version_a) :
+rai::pending_info::pending_info (rai::account const & source_a, rai::amount const & amount_a, rai::epoch epoch_a) :
 source (source_a),
 amount (amount_a),
-min_version (min_version_a)
+epoch (epoch_a)
 {
 }
 
@@ -313,7 +248,6 @@ void rai::pending_info::serialize (rai::stream & stream_a) const
 {
 	rai::write (stream_a, source.bytes);
 	rai::write (stream_a, amount.bytes);
-	rai::write (stream_a, min_version);
 }
 
 bool rai::pending_info::deserialize (rai::stream & stream_a)
@@ -322,35 +256,25 @@ bool rai::pending_info::deserialize (rai::stream & stream_a)
 	if (!result)
 	{
 		result = rai::read (stream_a, amount.bytes);
-		if (!result)
-		{
-			result = rai::read (stream_a, min_version);
-		}
 	}
 	return result;
 }
 
 bool rai::pending_info::operator== (rai::pending_info const & other_a) const
 {
-	return source == other_a.source && amount == other_a.amount && min_version == other_a.min_version;
+	return source == other_a.source && amount == other_a.amount && epoch == other_a.epoch;
 }
 
-rai::mdb_val rai::pending_info::val () const
+rai::pending_key::pending_key () :
+account (0),
+hash (0)
 {
-	return rai::mdb_val (sizeof (*this), const_cast<rai::pending_info *> (this));
 }
 
 rai::pending_key::pending_key (rai::account const & account_a, rai::block_hash const & hash_a) :
 account (account_a),
 hash (hash_a)
 {
-}
-
-rai::pending_key::pending_key (MDB_val const & val_a)
-{
-	assert (val_a.mv_size == sizeof (*this));
-	static_assert (sizeof (account) + sizeof (hash) == sizeof (*this), "Packed class");
-	std::copy (reinterpret_cast<uint8_t const *> (val_a.mv_data), reinterpret_cast<uint8_t const *> (val_a.mv_data) + sizeof (*this), reinterpret_cast<uint8_t *> (this));
 }
 
 void rai::pending_key::serialize (rai::stream & stream_a) const
@@ -374,22 +298,10 @@ bool rai::pending_key::operator== (rai::pending_key const & other_a) const
 	return account == other_a.account && hash == other_a.hash;
 }
 
-rai::mdb_val rai::pending_key::val () const
-{
-	return rai::mdb_val (sizeof (*this), const_cast<rai::pending_key *> (this));
-}
-
 rai::block_info::block_info () :
 account (0),
 balance (0)
 {
-}
-
-rai::block_info::block_info (MDB_val const & val_a)
-{
-	assert (val_a.mv_size == sizeof (*this));
-	static_assert (sizeof (account) + sizeof (balance) == sizeof (*this), "Packed class");
-	std::copy (reinterpret_cast<uint8_t const *> (val_a.mv_data), reinterpret_cast<uint8_t const *> (val_a.mv_data) + sizeof (*this), reinterpret_cast<uint8_t *> (this));
 }
 
 rai::block_info::block_info (rai::account const & account_a, rai::amount const & balance_a) :
@@ -419,14 +331,40 @@ bool rai::block_info::operator== (rai::block_info const & other_a) const
 	return account == other_a.account && balance == other_a.balance;
 }
 
-rai::mdb_val rai::block_info::val () const
-{
-	return rai::mdb_val (sizeof (*this), const_cast<rai::block_info *> (this));
-}
-
 bool rai::vote::operator== (rai::vote const & other_a) const
 {
-	return sequence == other_a.sequence && *block == *other_a.block && account == other_a.account && signature == other_a.signature;
+	auto blocks_equal (true);
+	if (blocks.size () != other_a.blocks.size ())
+	{
+		blocks_equal = false;
+	}
+	else
+	{
+		for (auto i (0); blocks_equal && i < blocks.size (); ++i)
+		{
+			auto block (blocks[i]);
+			auto other_block (other_a.blocks[i]);
+			if (block.which () != other_block.which ())
+			{
+				blocks_equal = false;
+			}
+			else if (block.which ())
+			{
+				if (boost::get<rai::block_hash> (block) != boost::get<rai::block_hash> (other_block))
+				{
+					blocks_equal = false;
+				}
+			}
+			else
+			{
+				if (!(*boost::get<std::shared_ptr<rai::block>> (block) == *boost::get<std::shared_ptr<rai::block>> (other_block)))
+				{
+					blocks_equal = false;
+				}
+			}
+		}
+	}
+	return sequence == other_a.sequence && blocks_equal && account == other_a.account && signature == other_a.signature;
 }
 
 bool rai::vote::operator!= (rai::vote const & other_a) const
@@ -441,12 +379,24 @@ std::string rai::vote::to_json () const
 	tree.put ("account", account.to_account ());
 	tree.put ("signature", signature.number ());
 	tree.put ("sequence", std::to_string (sequence));
-	tree.put ("block", block->to_json ());
+	boost::property_tree::ptree blocks_tree;
+	for (auto block : blocks)
+	{
+		if (block.which ())
+		{
+			blocks_tree.put ("", boost::get<std::shared_ptr<rai::block>> (block)->to_json ());
+		}
+		else
+		{
+			blocks_tree.put ("", boost::get<std::shared_ptr<rai::block>> (block)->hash ().to_string ());
+		}
+	}
+	tree.add_child ("blocks", blocks_tree);
 	boost::property_tree::write_json (stream, tree);
 	return stream.str ();
 }
 
-rai::amount_visitor::amount_visitor (MDB_txn * transaction_a, rai::block_store & store_a) :
+rai::amount_visitor::amount_visitor (rai::transaction const & transaction_a, rai::block_store & store_a) :
 transaction (transaction_a),
 store (store_a),
 current_amount (0),
@@ -530,7 +480,7 @@ void rai::amount_visitor::compute (rai::block_hash const & block_hash)
 	}
 }
 
-rai::balance_visitor::balance_visitor (MDB_txn * transaction_a, rai::block_store & store_a) :
+rai::balance_visitor::balance_visitor (rai::transaction const & transaction_a, rai::block_store & store_a) :
 transaction (transaction_a),
 store (store_a),
 current_balance (0),
@@ -607,7 +557,7 @@ void rai::balance_visitor::compute (rai::block_hash const & block_hash)
 	}
 }
 
-rai::representative_visitor::representative_visitor (MDB_txn * transaction_a, rai::block_store & store_a) :
+rai::representative_visitor::representative_visitor (rai::transaction const & transaction_a, rai::block_store & store_a) :
 transaction (transaction_a),
 store (store_a),
 result (0)
@@ -652,7 +602,7 @@ void rai::representative_visitor::state_block (rai::state_block const & block_a)
 
 rai::vote::vote (rai::vote const & other_a) :
 sequence (other_a.sequence),
-block (other_a.block),
+blocks (other_a.blocks),
 account (other_a.account),
 signature (other_a.signature)
 {
@@ -660,23 +610,7 @@ signature (other_a.signature)
 
 rai::vote::vote (bool & error_a, rai::stream & stream_a)
 {
-	if (!error_a)
-	{
-		error_a = rai::read (stream_a, account.bytes);
-		if (!error_a)
-		{
-			error_a = rai::read (stream_a, signature.bytes);
-			if (!error_a)
-			{
-				error_a = rai::read (stream_a, sequence);
-				if (!error_a)
-				{
-					block = rai::deserialize_block (stream_a);
-					error_a = block == nullptr;
-				}
-			}
-		}
-	}
+	error_a = deserialize (stream_a);
 }
 
 rai::vote::vote (bool & error_a, rai::stream & stream_a, rai::block_type type_a)
@@ -692,8 +626,31 @@ rai::vote::vote (bool & error_a, rai::stream & stream_a, rai::block_type type_a)
 				error_a = rai::read (stream_a, sequence);
 				if (!error_a)
 				{
-					block = rai::deserialize_block (stream_a, type_a);
-					error_a = block == nullptr;
+					while (!error_a && stream_a.in_avail () > 0)
+					{
+						if (type_a == rai::block_type::not_a_block)
+						{
+							rai::block_hash block_hash;
+							error_a = rai::read (stream_a, block_hash);
+							if (!error_a)
+							{
+								blocks.push_back (block_hash);
+							}
+						}
+						else
+						{
+							std::shared_ptr<rai::block> block (rai::deserialize_block (stream_a, type_a));
+							error_a = block == nullptr;
+							if (!error_a)
+							{
+								blocks.push_back (block);
+							}
+						}
+					}
+					if (blocks.empty ())
+					{
+						error_a = true;
+					}
 				}
 			}
 		}
@@ -702,31 +659,50 @@ rai::vote::vote (bool & error_a, rai::stream & stream_a, rai::block_type type_a)
 
 rai::vote::vote (rai::account const & account_a, rai::raw_key const & prv_a, uint64_t sequence_a, std::shared_ptr<rai::block> block_a) :
 sequence (sequence_a),
-block (block_a),
+blocks (1, block_a),
 account (account_a),
 signature (rai::sign_message (prv_a, account_a, hash ()))
 {
 }
 
-rai::vote::vote (MDB_val const & value_a)
+rai::vote::vote (rai::account const & account_a, rai::raw_key const & prv_a, uint64_t sequence_a, std::vector<rai::block_hash> blocks_a) :
+sequence (sequence_a),
+account (account_a)
 {
-	rai::bufferstream stream (reinterpret_cast<uint8_t const *> (value_a.mv_data), value_a.mv_size);
-	auto error (rai::read (stream, account.bytes));
-	assert (!error);
-	error = rai::read (stream, signature.bytes);
-	assert (!error);
-	error = rai::read (stream, sequence);
-	assert (!error);
-	block = rai::deserialize_block (stream);
-	assert (block != nullptr);
+	assert (blocks_a.size () > 0);
+	for (auto hash : blocks_a)
+	{
+		blocks.push_back (hash);
+	}
+	signature = rai::sign_message (prv_a, account_a, hash ());
 }
+
+std::string rai::vote::hashes_string () const
+{
+	std::string result;
+	for (auto hash : *this)
+	{
+		result += hash.to_string ();
+		result += ", ";
+	}
+	return result;
+}
+
+const std::string rai::vote::hash_prefix = "vote ";
 
 rai::uint256_union rai::vote::hash () const
 {
 	rai::uint256_union result;
 	blake2b_state hash;
 	blake2b_init (&hash, sizeof (result.bytes));
-	blake2b_update (&hash, block->hash ().bytes.data (), sizeof (result.bytes));
+	if (blocks.size () > 1 || (blocks.size () > 0 && blocks[0].which ()))
+	{
+		blake2b_update (&hash, hash_prefix.data (), hash_prefix.size ());
+	}
+	for (auto block_hash : *this)
+	{
+		blake2b_update (&hash, block_hash.bytes.data (), sizeof (block_hash.bytes));
+	}
 	union
 	{
 		uint64_t qword;
@@ -738,12 +714,30 @@ rai::uint256_union rai::vote::hash () const
 	return result;
 }
 
-void rai::vote::serialize (rai::stream & stream_a, rai::block_type)
+void rai::vote::serialize (rai::stream & stream_a, rai::block_type type)
 {
 	write (stream_a, account);
 	write (stream_a, signature);
 	write (stream_a, sequence);
-	block->serialize (stream_a);
+	for (auto block : blocks)
+	{
+		if (block.which ())
+		{
+			assert (type == rai::block_type::not_a_block);
+			write (stream_a, boost::get<rai::block_hash> (block));
+		}
+		else
+		{
+			if (type == rai::block_type::not_a_block)
+			{
+				write (stream_a, boost::get<std::shared_ptr<rai::block>> (block)->hash ());
+			}
+			else
+			{
+				boost::get<std::shared_ptr<rai::block>> (block)->serialize (stream_a);
+			}
+		}
+	}
 }
 
 void rai::vote::serialize (rai::stream & stream_a)
@@ -751,7 +745,18 @@ void rai::vote::serialize (rai::stream & stream_a)
 	write (stream_a, account);
 	write (stream_a, signature);
 	write (stream_a, sequence);
-	rai::serialize_block (stream_a, *block);
+	for (auto block : blocks)
+	{
+		if (block.which ())
+		{
+			write (stream_a, rai::block_type::not_a_block);
+			write (stream_a, boost::get<rai::block_hash> (block));
+		}
+		else
+		{
+			rai::serialize_block (stream_a, *boost::get<std::shared_ptr<rai::block>> (block));
+		}
+	}
 }
 
 bool rai::vote::deserialize (rai::stream & stream_a)
@@ -765,8 +770,39 @@ bool rai::vote::deserialize (rai::stream & stream_a)
 			result = read (stream_a, sequence);
 			if (!result)
 			{
-				block = rai::deserialize_block (stream_a, block_type ());
-				result = block == nullptr;
+				rai::block_type type;
+				while (!result)
+				{
+					if (rai::read (stream_a, type))
+					{
+						if (blocks.empty ())
+						{
+							result = true;
+						}
+						break;
+					}
+					if (!result)
+					{
+						if (type == rai::block_type::not_a_block)
+						{
+							rai::block_hash block_hash;
+							result = rai::read (stream_a, block_hash);
+							if (!result)
+							{
+								blocks.push_back (block_hash);
+							}
+						}
+						else
+						{
+							std::shared_ptr<rai::block> block (rai::deserialize_block (stream_a, type));
+							result = block == nullptr;
+							if (!result)
+							{
+								blocks.push_back (block);
+							}
+						}
+					}
+				}
 			}
 		}
 	}
@@ -779,6 +815,30 @@ bool rai::vote::validate ()
 	return result;
 }
 
+rai::block_hash rai::iterate_vote_blocks_as_hash::operator() (boost::variant<std::shared_ptr<rai::block>, rai::block_hash> const & item) const
+{
+	rai::block_hash result;
+	if (item.which ())
+	{
+		result = boost::get<rai::block_hash> (item);
+	}
+	else
+	{
+		result = boost::get<std::shared_ptr<rai::block>> (item)->hash ();
+	}
+	return result;
+}
+
+boost::transform_iterator<rai::iterate_vote_blocks_as_hash, rai::vote_blocks_vec_iter> rai::vote::begin () const
+{
+	return boost::transform_iterator<rai::iterate_vote_blocks_as_hash, rai::vote_blocks_vec_iter> (blocks.begin (), rai::iterate_vote_blocks_as_hash ());
+}
+
+boost::transform_iterator<rai::iterate_vote_blocks_as_hash, rai::vote_blocks_vec_iter> rai::vote::end () const
+{
+	return boost::transform_iterator<rai::iterate_vote_blocks_as_hash, rai::vote_blocks_vec_iter> (blocks.end (), rai::iterate_vote_blocks_as_hash ());
+}
+
 rai::genesis::genesis ()
 {
 	boost::property_tree::ptree tree;
@@ -787,17 +847,6 @@ rai::genesis::genesis ()
 	auto block (rai::deserialize_block_json (tree));
 	assert (dynamic_cast<rai::open_block *> (block.get ()) != nullptr);
 	open.reset (static_cast<rai::open_block *> (block.release ()));
-}
-
-void rai::genesis::initialize (MDB_txn * transaction_a, rai::block_store & store_a) const
-{
-	auto hash_l (hash ());
-	assert (store_a.latest_begin (transaction_a) == store_a.latest_end ());
-	store_a.block_put (transaction_a, hash_l, *open);
-	store_a.account_put (transaction_a, genesis_account, { hash_l, open->hash (), open->hash (), std::numeric_limits<rai::uint128_t>::max (), rai::seconds_since_epoch (), 1, 0 });
-	store_a.representation_put (transaction_a, genesis_account, std::numeric_limits<rai::uint128_t>::max ());
-	store_a.checksum_put (transaction_a, 0, 0, hash_l);
-	store_a.frontier_put (transaction_a, hash_l, genesis_account);
 }
 
 rai::block_hash rai::genesis::hash () const

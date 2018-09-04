@@ -236,11 +236,11 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 			}
 			if (config.account.is_zero () || !wallet->exists (config.account))
 			{
-				rai::transaction transaction (wallet->store.environment, nullptr, true);
+				auto transaction (wallet->wallets.tx_begin (true));
 				auto existing (wallet->store.begin (transaction));
 				if (existing != wallet->store.end ())
 				{
-					rai::uint256_union account (existing->first.uint256 ());
+					rai::uint256_union account (existing->first);
 					config.account = account;
 				}
 				else
