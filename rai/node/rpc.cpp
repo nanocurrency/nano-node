@@ -1427,8 +1427,8 @@ void rai::rpc_handler::confirmation_info ()
 			auto election (conflict_info->election);
 			rai::uint128_t total (0);
 			response_l.put ("last_winner", election->status.winner->hash ().to_string ());
-			rai::transaction transaction (node.store.environment, nullptr, false);
-			auto tally_l (node.ledger.tally (transaction, election->votes));
+			auto transaction (node.store.tx_begin_read ());
+			auto tally_l (election->tally (transaction));
 			boost::property_tree::ptree blocks;
 			for (auto i (tally_l.begin ()), n (tally_l.end ()); i != n; ++i)
 			{
@@ -1445,9 +1445,9 @@ void rai::rpc_handler::confirmation_info ()
 				if (representatives)
 				{
 					std::multimap<rai::uint128_t, rai::account, std::greater<rai::uint128_t>> representatives;
-					for (auto ii (election->votes.rep_votes.begin ()), nn (election->votes.rep_votes.end ()); ii != nn; ++ii)
+					for (auto ii (election->last_votes.begin ()), nn (election->last_votes.end ()); ii != nn; ++ii)
 					{
-						if (i->second->hash () == ii->second->hash ())
+						if (i->second->hash () == ii->second.hash)
 						{
 							rai::account representative (ii->first);
 							auto amount (node.store.representation_get (transaction, representative));
@@ -1483,8 +1483,8 @@ void rai::rpc_handler::confirmation_quorum ()
 	response_l.put ("quorum_delta", node.delta ().convert_to<std::string> ());
 	response_l.put ("online_weight_quorum_percent", std::to_string (node.config.online_weight_quorum));
 	response_l.put ("online_weight_minimum", node.config.online_weight_minimum.to_string_dec ());
-	response_l.put ("online_stake_total", node.online_reps.online_stake_total.to_string_dec ());
-	response_l.put ("peers_stake_total", node.peers.total_weight ().to_string_dec ());
+	response_l.put ("online_stake_total", node.online_reps.online_stake_total.convert_to<std::string> ());
+	response_l.put ("peers_stake_total", node.peers.total_weight ().convert_to<std::string> ());
 	response_errors ();
 }
 
