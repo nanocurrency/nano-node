@@ -5,7 +5,7 @@
 #include <iostream>
 #include <rai/node/working.hpp>
 
-rai_daemon::daemon_config::daemon_config (boost::filesystem::path const & application_path_a) :
+rai_daemon::daemon_config::daemon_config () :
 rpc_enable (false),
 opencl_enable (false)
 {
@@ -96,7 +96,7 @@ bool rai_daemon::daemon_config::upgrade_json (unsigned version_a, boost::propert
 void rai_daemon::daemon::run (boost::filesystem::path const & data_path)
 {
 	boost::filesystem::create_directories (data_path);
-	rai_daemon::daemon_config config (data_path);
+	rai_daemon::daemon_config config;
 	auto config_path ((data_path / "config.json"));
 	std::fstream config_file;
 	std::unique_ptr<rai::thread_runner> runner;

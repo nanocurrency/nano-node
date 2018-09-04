@@ -11,7 +11,7 @@ public:
 class daemon_config
 {
 public:
-	daemon_config (boost::filesystem::path const &);
+	daemon_config ();
 	bool deserialize_json (bool &, boost::property_tree::ptree &);
 	void serialize_json (boost::property_tree::ptree &);
 	bool upgrade_json (unsigned, boost::property_tree::ptree &);
