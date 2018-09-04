@@ -4,7 +4,6 @@
 
 #include <boost/algorithm/string.hpp>
 #include <boost/endian/conversion.hpp>
-#include <boost/functional/hash.hpp>
 #include <boost/lexical_cast.hpp>
 #include <rai/node/eventrecorder.hpp>
 
@@ -157,6 +156,7 @@ std::error_code nano::events::block_event::deserialize (rai::stream & input_a)
 	return !error ? ec : nano::error_eventrecorder::deserialization;
 }
 
+#ifdef RAIBLOCKS_ENABLE_STACKTRACE
 std::string nano::events::stacktrace_event::summary_string (size_t indent)
 {
 	return std::string (indent, ' ') + "Stacktrace id: " + boost::lexical_cast<std::string> (strace_hash) + "\n" + strace;
@@ -195,6 +195,7 @@ std::error_code nano::events::stacktrace_event::deserialize (rai::stream & input
 	auto error (read_string<uint16_t> (input, strace));
 	return !error ? ec : nano::error_eventrecorder::deserialization;
 }
+#endif
 
 std::string nano::events::tx_event::summary_string (size_t indent)
 {
@@ -347,7 +348,9 @@ std::error_code nano::events::store::open (boost::filesystem::path const & path_
 		enlist_db (std::make_unique<db_info> ("rollback_loser", &rollback_loser, std::make_unique<block_pair_event> (type::rollback_loser)));
 		enlist_db (std::make_unique<db_info> ("rollback_winner", &rollback_winner, std::make_unique<block_event> (type::rollback_winner)));
 		enlist_db (std::make_unique<db_info> ("transaction", &transaction, std::make_unique<tx_event> ()));
+#ifdef RAIBLOCKS_ENABLE_STACKTRACE
 		enlist_db (std::make_unique<db_info> ("stacktrace", &stacktrace, std::make_unique<stacktrace_event> (type::stacktrace)));
+#endif
 		rai::transaction transaction (environment->tx_begin (true));
 
 		bool error (false);
@@ -409,23 +412,6 @@ std::string nano::events::store::type_to_name (nano::events::type type)
 		name = match->second->name;
 	}
 	return name;
-}
-
-std::string nano::events::store::get_stacktrace (rai::transaction & transaction_a, uint64_t strace_hash_a)
-{
-	stacktrace_event event (strace_hash_a);
-	auto key_vec (event.serialize_key ());
-	rai::mdb_val key (key_vec.size (), key_vec.data ());
-	rai::mdb_val data;
-
-	auto status (mdb_get (environment->tx (transaction_a), stacktrace, key, data));
-	if (status != MDB_NOTFOUND)
-	{
-		rai::bufferstream datastream (reinterpret_cast<uint8_t const *> (data.value.mv_data), data.value.mv_size);
-		event.deserialize (datastream);
-	}
-
-	return event.strace_get ();
 }
 
 std::error_code nano::events::store::put (rai::transaction & transaction_a, nano::events::event & event_a)

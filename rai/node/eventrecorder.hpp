@@ -18,11 +18,12 @@
 #include <rai/node/lmdb.hpp>
 #include <rai/secure/utility.hpp>
 
+#ifdef RAIBLOCKS_ENABLE_STACKTRACE
 #ifdef __clang__
 #define BOOST_STACKTRACE_GNU_SOURCE_NOT_REQUIRED 1
 #endif
-#include <boost/crc.hpp>
 #include <boost/stacktrace.hpp>
+#endif
 
 using namespace std::chrono;
 
@@ -132,6 +133,7 @@ namespace events
 		uint32_t ordinal{ 0 };
 	};
 
+#ifdef RAIBLOCKS_ENABLE_STACKTRACE
 	/**
 	 * A persistent stack trace keyed by its hash. stacktrace_event isn't used on
 	 * its own, but other events refer to it in order to record a stacktrace. It's
@@ -164,9 +166,6 @@ namespace events
 			strace_hash = trace_hash;
 
 			// Convert trace to string. This is fairly slow; stacktrace logging is thus a config option.
-			// std::ostringstream ostr;
-			// ostr << trace;
-			//strace = ostr.str ();
 			strace = boost::stacktrace::detail::to_string (&trace.as_vector ()[0], trace.size ());
 		}
 
@@ -211,6 +210,7 @@ namespace events
 		std::string strace;
 		uint64_t strace_hash;
 	};
+#endif // RAIBLOCKS_ENABLE_STACKTRACE
 
 	/** A database transaction event */
 	class tx_event : public event
@@ -235,9 +235,6 @@ namespace events
 		tx_event (uint64_t tx_id, bool tx_is_start, bool tx_is_write, uint64_t strace_hash) :
 		event (nano::events::type::transaction), tx_id (tx_id), tx_is_start (tx_is_start), tx_is_write (tx_is_write), strace_hash (strace_hash)
 		{
-			// Skip current frame from stacktrace
-			auto strace = boost::stacktrace::stacktrace (2, 4);
-			strace_hash = boost::stacktrace::hash_value (strace);
 		}
 
 		std::unique_ptr<event> clone () override
@@ -277,7 +274,7 @@ namespace events
 		uint64_t tx_id{ 0 };
 		bool tx_is_start{ false };
 		bool tx_is_write{ false };
-		uint64_t strace_hash;
+		uint64_t strace_hash{ 0 };
 	};
 
 	/** Base type for block events, containing a block hash and an optional endpoint address */
@@ -501,10 +498,6 @@ namespace events
 		std::error_code open (boost::filesystem::path const & path_a);
 		/** Add an event to the store */
 		std::error_code put (rai::transaction & transaction_a, nano::events::event & event_a);
-		/** Returns the hash of the stack trace */
-		expected<uint64_t, std::error_code> put_stacktrace (rai::transaction & transaction_a, boost::stacktrace::stacktrace & trace_a);
-		/** Returns the stacktrace for the given stack trace hash, or an empty string if no entry exists for the hash */
-		std::string get_stacktrace (rai::transaction & transaction_a, uint64_t strace_hash_a);
 		/** Return the database name corresponding to the type */
 		std::string type_to_name (nano::events::type type);
 		/** Returns the database corresponding to the name, or nullptr if not found */
@@ -559,7 +552,7 @@ namespace events
 		MDB_dbi transaction;
 
 		/**
-		 * Stacktraces keyed by its CRC. This allows events to reference potentially
+		 * Stacktraces keyed by its hash. This allows events to reference potentially
 		 * large stack traces, while maintaining a low footprint (in practice, there's a limited
 		 * amount of unique stack traces)
 		*/
@@ -681,13 +674,15 @@ namespace events
 			if (enabled () && config.record_transactions)
 			{
 				uint64_t trace_hash (0);
+#ifdef RAIBLOCKS_ENABLE_STACKTRACE
 				if (config.record_stacktraces)
 				{
 					// Create stack trace (skip current frame) and reference its hash from the tx_event
-					auto trace = boost::stacktrace::stacktrace (2, 4);
+					auto trace = boost::stacktrace::stacktrace (2, 6);
 					trace_hash = boost::stacktrace::hash_value (trace);
 					ec = add<nano::events::stacktrace_event> (trace, trace_hash);
 				}
+#endif
 				ec = add<nano::events::tx_event> (tx_id, tx_is_start, tx_is_write, trace_hash);
 			}
 			return ec;
