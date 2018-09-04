@@ -24,6 +24,8 @@ add_library (rai_lib
 	numbers.hpp
 	utility.cpp
 	utility.hpp
+	debug.cpp
+	debug.hpp
 	work.hpp
 	work.cpp)
 
