@@ -3705,12 +3705,16 @@ bool rai::election::publish (std::shared_ptr<rai::block> block_a)
 			{
 				account = node.ledger.account (transaction, block_a->previous ());
 			}
+			else
+			{
+				result = true;
+			}
 		}
 		else
 		{
 			account = block_a->root ();
 		}
-		if (block_a->type () == rai::block_type::state)
+		if (!result && block_a->type () == rai::block_type::state)
 		{
 			std::shared_ptr<rai::state_block> block_l (std::static_pointer_cast<rai::state_block> (block_a));
 			rai::amount prev_balance (0);
