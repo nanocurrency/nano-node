@@ -4,8 +4,8 @@
 
 #include <boost/algorithm/string.hpp>
 #include <boost/endian/conversion.hpp>
+#include <boost/functional/hash.hpp>
 #include <boost/lexical_cast.hpp>
-
 #include <rai/node/eventrecorder.hpp>
 
 std::string nano::error_eventrecorder_messages::message (int ec) const
@@ -44,10 +44,10 @@ bool read_string (rai::stream & stream_a, std::string & value)
 	if (amount_read == sizeof (length))
 	{
 		boost::endian::big_to_native_inplace (length);
-		char data[length + 1];
-		data[length] = 0;
-		amount_read = stream_a.sgetn (reinterpret_cast<uint8_t *> (data), length);
-		value = data;
+		std::vector<uint8_t> vec (length);
+		amount_read = stream_a.sgetn (reinterpret_cast<uint8_t *> (&vec[0]), length);
+		value = std::string (vec.begin (), vec.end ());
+		;
 	}
 	return amount_read != value.size ();
 }
@@ -348,17 +348,17 @@ std::error_code nano::events::store::open (boost::filesystem::path const & path_
 		enlist_db (std::make_unique<db_info> ("rollback_winner", &rollback_winner, std::make_unique<block_event> (type::rollback_winner)));
 		enlist_db (std::make_unique<db_info> ("transaction", &transaction, std::make_unique<tx_event> ()));
 		enlist_db (std::make_unique<db_info> ("stacktrace", &stacktrace, std::make_unique<stacktrace_event> (type::stacktrace)));
-		rai::transaction transaction (*environment, true);
+		rai::transaction transaction (environment->tx_begin (true));
 
 		bool error (false);
 		for (auto & db : dbmap)
 		{
 			auto & entry = db.second;
-			error |= mdb_dbi_open (transaction, entry->name.c_str (), MDB_CREATE, entry->dbi) != 0;
+			error |= mdb_dbi_open (environment->tx (transaction), entry->name.c_str (), MDB_CREATE, entry->dbi) != 0;
 			if (!error)
 			{
 				MDB_stat stat;
-				mdb_stat (transaction, *entry->dbi, &stat);
+				mdb_stat (environment->tx (transaction), *entry->dbi, &stat);
 				counter += stat.ms_entries;
 			}
 			else
@@ -418,7 +418,7 @@ std::string nano::events::store::get_stacktrace (rai::transaction & transaction_
 	rai::mdb_val key (key_vec.size (), key_vec.data ());
 	rai::mdb_val data;
 
-	auto status (mdb_get (transaction_a, stacktrace, key, data));
+	auto status (mdb_get (environment->tx (transaction_a), stacktrace, key, data));
 	if (status != MDB_NOTFOUND)
 	{
 		rai::bufferstream datastream (reinterpret_cast<uint8_t const *> (data.value.mv_data), data.value.mv_size);
@@ -443,7 +443,7 @@ std::error_code nano::events::store::put (rai::transaction & transaction_a, nano
 		{
 			auto vec = event_a.serialize_key ();
 			rai::mdb_val key (vec.size (), vec.data ());
-			auto status (mdb_put (transaction_a, *dbi, key, rai::mdb_val (buf->size (), buf->data ()), 0));
+			auto status (mdb_put (environment->tx (transaction_a), *dbi, key, rai::mdb_val (buf->size (), buf->data ()), 0));
 			assert (status == 0);
 		}
 	}
@@ -457,8 +457,8 @@ std::error_code nano::events::store::iterate_table (std::string table_name, std:
 	if (dbinfo)
 	{
 		MDB_cursor * cursor (nullptr);
-		rai::transaction tx (*environment, false);
-		auto status (mdb_cursor_open (tx, *dbinfo->dbi, &cursor));
+		rai::transaction tx (environment->tx_begin (false));
+		auto status (mdb_cursor_open (environment->tx (tx), *dbinfo->dbi, &cursor));
 		if (status != MDB_SUCCESS)
 		{
 			ec = nano::error_eventrecorder::cursor_open;
@@ -488,11 +488,11 @@ std::error_code nano::events::store::iterate_table (std::string table_name, std:
 std::error_code nano::events::store::iterate_hash (rai::block_hash hash_a, std::function<void(db_info * db_info, std::unique_ptr<nano::events::event>)> callback)
 {
 	std::error_code ec;
-	rai::transaction tx (*environment, false);
+	rai::transaction tx (environment->tx_begin (false));
 	for (auto & db : dbmap)
 	{
 		MDB_cursor * cursor (nullptr);
-		auto status (mdb_cursor_open (tx, *db.second->dbi, &cursor));
+		auto status (mdb_cursor_open (environment->tx (tx), *db.second->dbi, &cursor));
 		if (status != MDB_SUCCESS)
 		{
 			ec = nano::error_eventrecorder::cursor_open;
@@ -574,7 +574,7 @@ std::error_code nano::events::recorder::enqueue (std::unique_ptr<nano::events::e
 	// a transaction to flush, thus causing a loop.
 	if (event->type_get () != nano::events::type::transaction && event->type_get () != nano::events::type::stacktrace && queue.size () >= max_queue_size)
 	{
-		rai::transaction tx (*eventstore.environment, true);
+		rai::transaction tx (eventstore.environment->tx_begin (true));
 		flush_queue (tx);
 	}
 	else
@@ -589,7 +589,7 @@ void nano::events::recorder::stop ()
 	std::unique_lock<std::recursive_mutex> lock (event_queue_mutex);
 	if (queue.size () > 0)
 	{
-		rai::transaction tx (*eventstore.environment, true);
+		rai::transaction tx (eventstore.environment->tx_begin (true));
 		flush_queue (tx);
 	}
 }
