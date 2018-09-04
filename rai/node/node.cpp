@@ -3697,7 +3697,7 @@ bool rai::election::publish (std::shared_ptr<rai::block> block_a)
 	}
 	if (!result)
 	{
-		rai::transaction transaction (node.store.environment, false);
+		auto transaction (node.store.tx_begin_read ());
 		rai::account account;
 		if (!block_a->previous ().is_zero ())
 		{
@@ -3737,13 +3737,13 @@ bool rai::election::publish (std::shared_ptr<rai::block> block_a)
 		{
 			result = true;
 		}
-	}
-	if (!result)
-	{
-		if (blocks.find (block_a->hash ()) == blocks.end ())
+		if (!result)
 		{
-			blocks.insert (std::make_pair (block_a->hash (), block_a));
-			node.network.republish_block (nullptr, block_a, false);
+			if (blocks.find (block_a->hash ()) == blocks.end ())
+			{
+				blocks.insert (std::make_pair (block_a->hash (), block_a));
+				node.network.republish_block (transaction, block_a, false);
+			}
 		}
 	}
 	return result;
