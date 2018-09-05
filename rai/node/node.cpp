@@ -3746,6 +3746,7 @@ bool rai::election::publish (std::shared_ptr<rai::block> block_a)
 			if (blocks.find (block_a->hash ()) == blocks.end ())
 			{
 				blocks.insert (std::make_pair (block_a->hash (), block_a));
+				confirm_if_quorum (transaction);
 				node.network.republish_block (transaction, block_a, false);
 			}
 		}
