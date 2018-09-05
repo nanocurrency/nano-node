@@ -3678,6 +3678,55 @@ rai::election_vote_result rai::election::vote (rai::account rep, uint64_t sequen
 	return rai::election_vote_result (replay, should_process);
 }
 
+bool rai::node::validate_block_by_previous (rai::transaction const & transaction, std::shared_ptr<rai::block> block_a)
+{
+	bool result (false);
+	rai::account account;
+	if (!block_a->previous ().is_zero ())
+	{
+		if (store.block_exists (transaction, block_a->previous ()))
+		{
+			account = ledger.account (transaction, block_a->previous ());
+		}
+		else
+		{
+			result = true;
+		}
+	}
+	else
+	{
+		account = block_a->root ();
+	}
+	if (!result && block_a->type () == rai::block_type::state)
+	{
+		std::shared_ptr<rai::state_block> block_l (std::static_pointer_cast<rai::state_block> (block_a));
+		rai::amount prev_balance (0);
+		if (!block_l->hashables.previous.is_zero ())
+		{
+			if (store.block_exists (transaction, block_l->hashables.previous))
+			{
+				prev_balance = ledger.balance (transaction, block_l->hashables.previous);
+			}
+			else
+			{
+				result = true;
+			}
+		}
+		if (!result)
+		{
+			if (block_l->hashables.balance == prev_balance && !ledger.epoch_link.is_zero () && block_l->hashables.link == ledger.epoch_link)
+			{
+				account = ledger.epoch_signer;
+			}
+		}
+	}
+	if (!result && (account.is_zero () || rai::validate_message (account, block_a->hash (), block_a->block_signature ())))
+	{
+		result = true;
+	}
+	return result;
+}
+
 bool rai::election::publish (std::shared_ptr<rai::block> block_a)
 {
 	auto result (false);
@@ -3690,7 +3739,16 @@ bool rai::election::publish (std::shared_ptr<rai::block> block_a)
 	}
 	if (!result)
 	{
-		blocks.insert (std::make_pair (block_a->hash (), block_a));
+		rai::transaction transaction (node.store.environment, false);
+		result = node.validate_block_by_previous (transaction, block_a);
+		if (!result)
+		{
+			if (blocks.find (block_a->hash ()) == blocks.end ())
+			{
+				blocks.insert (std::make_pair (block_a->hash (), block_a));
+				node.network.republish_block (transaction, block_a, false);
+			}
+		}
 	}
 	return result;
 }
