@@ -1741,7 +1741,7 @@ TEST (node, fork_invalid_block_signature)
 	send2_corrupt.signature = rai::signature (123);
 	system.nodes[0]->process_active (std::unique_ptr<rai::block> (new rai::send_block (send1)));
 	system.deadline_set (5s);
-	while (!system.nodes[0]->block (send1.hash ()))
+	while (!system.nodes[0]->active.active (send1))
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
@@ -1772,7 +1772,7 @@ TEST (node, fork_invalid_block_signature_vote_by_hash)
 	send2_corrupt.signature = rai::signature (123);
 	system.nodes[0]->process_active (std::unique_ptr<rai::block> (new rai::send_block (send1)));
 	system.deadline_set (5s);
-	while (!system.nodes[0]->block (send1.hash ()))
+	while (!system.nodes[0]->active.active (send1))
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
