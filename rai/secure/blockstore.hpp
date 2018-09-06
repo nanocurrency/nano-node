@@ -102,6 +102,7 @@ public:
 class block_store
 {
 public:
+	virtual ~block_store () = default;
 	virtual void initialize (rai::transaction const &, rai::genesis const &) = 0;
 	virtual void block_put (rai::transaction const &, rai::block_hash const &, rai::block const &, rai::block_hash const & = rai::block_hash (0), rai::epoch version = rai::epoch::epoch_0) = 0;
 	virtual rai::block_hash block_successor (rai::transaction const &, rai::block_hash const &) = 0;
