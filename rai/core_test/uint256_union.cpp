@@ -1,9 +1,7 @@
 #include <gtest/gtest.h>
 
-#include <rai/common.hpp>
 #include <rai/lib/interface.h>
-
-#include <ed25519-donna/ed25519.h>
+#include <rai/secure/common.hpp>
 
 TEST (uint128_union, decode_dec)
 {
@@ -115,8 +113,7 @@ TEST (uint256_union, key_encryption)
 	rai::raw_key key4;
 	key4.decrypt (encrypted, secret_key, key1.pub.owords[0]);
 	ASSERT_EQ (key1.prv, key4);
-	rai::public_key pub;
-	ed25519_publickey (key4.data.bytes.data (), pub.bytes.data ());
+	rai::public_key pub (rai::pub_key (key4.data));
 	ASSERT_EQ (key1.pub, pub);
 }
 

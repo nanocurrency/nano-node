@@ -80,7 +80,7 @@ TEST (message, confirm_ack_serialization)
 		con1.serialize (stream1);
 	}
 	rai::bufferstream stream2 (bytes.data (), bytes.size ());
-	bool error;
+	bool error (false);
 	rai::message_header header (error, stream2);
 	rai::confirm_ack con2 (error, stream2, header);
 	ASSERT_FALSE (error);

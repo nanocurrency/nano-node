@@ -1,7 +1,7 @@
 #pragma once
 
-#include <rai/common.hpp>
 #include <rai/lib/interface.h>
+#include <rai/secure/common.hpp>
 
 #include <boost/asio.hpp>
 
@@ -124,24 +124,34 @@ struct hash<rai::endpoint>
 
 namespace rai
 {
+/**
+ * Message types are serialized to the network and existing values must thus never change as
+ * types are added, removed and reordered in the enum.
+ */
 enum class message_type : uint8_t
 {
-	invalid,
-	not_a_type,
-	keepalive,
-	publish,
-	confirm_req,
-	confirm_ack,
-	bulk_pull,
-	bulk_push,
-	frontier_req,
-	bulk_pull_blocks,
-	node_id_handshake
+	invalid = 0x0,
+	not_a_type = 0x1,
+	keepalive = 0x2,
+	publish = 0x3,
+	confirm_req = 0x4,
+	confirm_ack = 0x5,
+	bulk_pull = 0x6,
+	bulk_push = 0x7,
+	frontier_req = 0x8,
+	bulk_pull_blocks = 0x9,
+	node_id_handshake = 0x0a,
+	bulk_pull_account = 0x0b
 };
 enum class bulk_pull_blocks_mode : uint8_t
 {
 	list_blocks,
 	checksum_blocks
+};
+enum class bulk_pull_account_flags : uint8_t
+{
+	pending_hash_and_amount = 0x0,
+	pending_address_only = 0x1
 };
 class message_visitor;
 class message_header
@@ -190,7 +200,8 @@ public:
 		invalid_publish_message,
 		invalid_confirm_req_message,
 		invalid_confirm_ack_message,
-		invalid_node_id_handshake_message
+		invalid_node_id_handshake_message,
+		outdated_version
 	};
 	message_parser (rai::message_visitor &, rai::work_pool &);
 	void deserialize_buffer (uint8_t const *, size_t);
@@ -203,6 +214,7 @@ public:
 	rai::message_visitor & visitor;
 	rai::work_pool & pool;
 	parse_status status;
+	static const size_t max_safe_udp_message_size;
 };
 class keepalive : public message
 {
@@ -272,6 +284,18 @@ public:
 	rai::uint256_union start;
 	rai::block_hash end;
 };
+class bulk_pull_account : public message
+{
+public:
+	bulk_pull_account ();
+	bulk_pull_account (bool &, rai::stream &, rai::message_header const &);
+	bool deserialize (rai::stream &) override;
+	void serialize (rai::stream &) override;
+	void visit (rai::message_visitor &) const override;
+	rai::uint256_union account;
+	rai::uint128_union minimum_amount;
+	bulk_pull_account_flags flags;
+};
 class bulk_pull_blocks : public message
 {
 public:
@@ -316,6 +340,7 @@ public:
 	virtual void confirm_req (rai::confirm_req const &) = 0;
 	virtual void confirm_ack (rai::confirm_ack const &) = 0;
 	virtual void bulk_pull (rai::bulk_pull const &) = 0;
+	virtual void bulk_pull_account (rai::bulk_pull_account const &) = 0;
 	virtual void bulk_pull_blocks (rai::bulk_pull_blocks const &) = 0;
 	virtual void bulk_push (rai::bulk_push const &) = 0;
 	virtual void frontier_req (rai::frontier_req const &) = 0;
