@@ -621,6 +621,7 @@ public:
 	void add_initial_peers ();
 	void block_confirm (std::shared_ptr<rai::block>);
 	void process_fork (rai::transaction const &, std::shared_ptr<rai::block>);
+	bool validate_block_by_previous (rai::transaction const &, std::shared_ptr<rai::block>);
 	rai::uint128_t delta ();
 	boost::asio::io_service & service;
 	rai::node_config config;
