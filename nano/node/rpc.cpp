@@ -3561,10 +3561,8 @@ void nano::rpc_handler::wallet_seed ()
 {
 	if (rpc.config.enable_control)
 	{
-		std::string wallet_text (request.get<std::string> ("wallet"));
-		nano::uint256_union wallet;
-		auto error (wallet.decode_hex (wallet_text));
-		if (!error)
+		auto transaction (node.store.tx_begin_read ());
+		if (wallet->store.valid_password (transaction))
 		{
 			auto existing (node.wallets.items.find (wallet));
 			if (existing != node.wallets.items.end ())
