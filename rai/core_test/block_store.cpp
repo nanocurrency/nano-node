@@ -988,7 +988,7 @@ TEST (timestamps, simple)
 	ASSERT_TRUE (!init);
 	auto block1 (std::make_shared<rai::state_block> (0, 1, 2, 3, 4, rai::keypair ().prv, 5, 6));
 	auto block2 (std::make_shared<rai::state_block> (0, block1->hash (), 2, 3, 4, rai::keypair ().prv, 5, 6));
-	rai::transaction transaction (store.environment, nullptr, true);
+	auto transaction (store.tx_begin (true));
 	auto seconds_since_epoch (rai::seconds_since_epoch ());
 	store.timestamp_put (transaction, block1->hash (), seconds_since_epoch);
 	auto timestamp1 (store.timestamp_get (transaction, block1->hash ()));

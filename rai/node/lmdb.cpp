@@ -755,7 +755,7 @@ meta (0)
 		error_a |= mdb_dbi_open (env.tx (transaction), "unchecked", MDB_CREATE | MDB_DUPSORT, &unchecked) != 0;
 		error_a |= mdb_dbi_open (env.tx (transaction), "checksum", MDB_CREATE, &checksum) != 0;
 		error_a |= mdb_dbi_open (env.tx (transaction), "vote", MDB_CREATE, &vote) != 0;
-		error_a |= mdb_dbi_open (transaction, "timestamps", MDB_CREATE, &timestamps) != 0;
+		error_a |= mdb_dbi_open (env.tx (transaction), "timestamps", MDB_CREATE, &timestamps) != 0;
 		error_a |= mdb_dbi_open (env.tx (transaction), "meta", MDB_CREATE, &meta) != 0;
 		if (!error_a)
 		{
