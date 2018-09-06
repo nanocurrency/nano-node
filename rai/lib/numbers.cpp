@@ -1,4 +1,5 @@
 #include <rai/lib/numbers.hpp>
+#include <rai/lib/utility.hpp>
 
 #include <ed25519-donna/ed25519.h>
 
@@ -31,7 +32,11 @@ uint8_t account_decode (char value)
 {
 	assert (value >= '0');
 	assert (value <= '~');
-	auto result (account_reverse[value - 0x30] - 0x30);
+	auto result (account_reverse[value - 0x30]);
+	if (result != '~')
+	{
+		result -= 0x30;
+	}
 	return result;
 }
 }
@@ -56,14 +61,6 @@ void rai::uint256_union::encode_account (std::string & destination_a) const
 	}
 	destination_a.append ("_brx"); // xrb_
 	std::reverse (destination_a.begin (), destination_a.end ());
-}
-
-std::string rai::uint256_union::to_account_split () const
-{
-	auto result (to_account ());
-	assert (result.size () == 64);
-	result.insert (32, "\n");
-	return result;
 }
 
 std::string rai::uint256_union::to_account () const
@@ -193,7 +190,9 @@ rai::uint256_union rai::uint256_union::operator^ (rai::uint256_union const & oth
 
 rai::uint256_union::uint256_union (std::string const & hex_a)
 {
-	decode_hex (hex_a);
+	auto error (decode_hex (hex_a));
+
+	release_assert (!error);
 }
 
 void rai::uint256_union::clear ()
@@ -437,7 +436,9 @@ bool rai::validate_message (rai::public_key const & public_key, rai::uint256_uni
 
 rai::uint128_union::uint128_union (std::string const & string_a)
 {
-	decode_hex (string_a);
+	auto error (decode_hex (string_a));
+
+	release_assert (!error);
 }
 
 rai::uint128_union::uint128_union (uint64_t value_a)

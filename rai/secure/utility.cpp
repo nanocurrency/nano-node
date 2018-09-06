@@ -3,8 +3,6 @@
 #include <rai/lib/interface.h>
 #include <rai/node/working.hpp>
 
-#include <ed25519-donna/ed25519.h>
-
 static std::vector<boost::filesystem::path> all_unique_paths;
 
 boost::filesystem::path rai::working_path ()

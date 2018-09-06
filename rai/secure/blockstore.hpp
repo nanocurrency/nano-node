@@ -1,89 +1,99 @@
 #pragma once
 
-#include <rai/node/lmdb.hpp>
 #include <rai/secure/common.hpp>
 
 namespace rai
 {
-class block_store;
+template <typename T, typename U>
 class store_iterator_impl
 {
 public:
-	store_iterator_impl (MDB_txn * transaction_a, MDB_dbi db_a, rai::epoch = rai::epoch::unspecified);
-	store_iterator_impl (std::nullptr_t);
-	store_iterator_impl (MDB_txn * transaction_a, MDB_dbi db_a, MDB_val const & val_a, rai::epoch = rai::epoch::unspecified);
-	store_iterator_impl (rai::store_iterator_impl && other_a);
-	store_iterator_impl (rai::store_iterator_impl const &) = delete;
-	~store_iterator_impl ();
-	rai::store_iterator_impl & operator++ ();
-	rai::store_iterator_impl & operator= (rai::store_iterator_impl && other_a);
-	rai::store_iterator_impl & operator= (rai::store_iterator_impl const &) = delete;
-	std::pair<rai::mdb_val, rai::mdb_val> * operator-> ();
-	bool operator== (rai::store_iterator_impl const & other_a) const;
-	bool operator!= (rai::store_iterator_impl const & other_a) const;
-	void next_dup ();
-	void clear ();
-	MDB_cursor * cursor;
-	std::pair<rai::mdb_val, rai::mdb_val> current;
+	virtual ~store_iterator_impl () = default;
+	virtual rai::store_iterator_impl<T, U> & operator++ () = 0;
+	virtual bool operator== (rai::store_iterator_impl<T, U> const & other_a) const = 0;
+	virtual void next_dup () = 0;
+	virtual bool is_end_sentinal () const = 0;
+	virtual void fill (std::pair<T, U> &) const = 0;
+	rai::store_iterator_impl<T, U> & operator= (rai::store_iterator_impl<T, U> const &) = delete;
+	bool operator== (rai::store_iterator_impl<T, U> const * other_a) const
+	{
+		return (other_a != nullptr && *this == *other_a) || (other_a == nullptr && is_end_sentinal ());
+	}
+	bool operator!= (rai::store_iterator_impl<T, U> const & other_a) const
+	{
+		return !(*this == other_a);
+	}
 };
 /**
  * Iterates the key/value pairs of a transaction
  */
+template <typename T, typename U>
 class store_iterator
 {
-	friend class rai::block_store;
-
 public:
-	store_iterator (std::nullptr_t);
-	store_iterator (std::unique_ptr<rai::store_iterator_impl>);
-	store_iterator (rai::store_iterator &&);
-	rai::store_iterator & operator++ ();
-	rai::store_iterator & operator= (rai::store_iterator &&);
-	rai::store_iterator & operator= (rai::store_iterator const &) = delete;
-	std::pair<rai::mdb_val, rai::mdb_val> * operator-> ();
-	bool operator== (rai::store_iterator const &) const;
-	bool operator!= (rai::store_iterator const &) const;
+	store_iterator (std::nullptr_t)
+	{
+	}
+	store_iterator (std::unique_ptr<rai::store_iterator_impl<T, U>> impl_a) :
+	impl (std::move (impl_a))
+	{
+		impl->fill (current);
+	}
+	store_iterator (rai::store_iterator<T, U> && other_a) :
+	current (std::move (other_a.current)),
+	impl (std::move (other_a.impl))
+	{
+	}
+	rai::store_iterator<T, U> & operator++ ()
+	{
+		++*impl;
+		impl->fill (current);
+		return *this;
+	}
+	rai::store_iterator<T, U> & operator= (rai::store_iterator<T, U> && other_a)
+	{
+		impl = std::move (other_a.impl);
+		current = std::move (other_a.current);
+		return *this;
+	}
+	rai::store_iterator<T, U> & operator= (rai::store_iterator<T, U> const &) = delete;
+	std::pair<T, U> * operator-> ()
+	{
+		return &current;
+	}
+	bool operator== (rai::store_iterator<T, U> const & other_a) const
+	{
+		return (impl == nullptr && other_a.impl == nullptr) || (impl != nullptr && *impl == other_a.impl.get ()) || (other_a.impl != nullptr && *other_a.impl == impl.get ());
+	}
+	bool operator!= (rai::store_iterator<T, U> const & other_a) const
+	{
+		return !(*this == other_a);
+	}
+	void next_dup ()
+	{
+		impl->next_dup ();
+	}
 
 private:
-	std::unique_ptr<rai::store_iterator_impl> impl;
+	std::pair<T, U> current;
+	std::unique_ptr<rai::store_iterator_impl<T, U>> impl;
 };
 
 class block_predecessor_set;
-/**
- * A specialized std::pair which also indicates if it is from the secondary store
- */
-class merged_store_kv
-{
-public:
-	merged_store_kv (rai::epoch = rai::epoch::unspecified);
-	rai::mdb_val first;
-	rai::mdb_val second;
-};
 
-/**
- * Iterates the key/value pairs of two stores merged together
- */
-class store_merge_iterator
+class transaction_impl
 {
 public:
-	store_merge_iterator (MDB_txn *, MDB_dbi, MDB_dbi);
-	store_merge_iterator (std::nullptr_t);
-	store_merge_iterator (MDB_txn *, MDB_dbi, MDB_dbi, MDB_val const &);
-	store_merge_iterator (rai::store_merge_iterator &&);
-	store_merge_iterator (rai::store_merge_iterator const &) = delete;
-	~store_merge_iterator ();
-	rai::store_merge_iterator & operator++ ();
-	void next_dup ();
-	std::pair<MDB_cursor **, rai::merged_store_kv *> cursor_current ();
-	rai::store_merge_iterator & operator= (rai::store_merge_iterator &&);
-	rai::store_merge_iterator & operator= (rai::store_merge_iterator const &) = delete;
-	rai::merged_store_kv * operator-> ();
-	bool operator== (rai::store_merge_iterator const &) const;
-	bool operator!= (rai::store_merge_iterator const &) const;
-	MDB_cursor * cursor1;
-	MDB_cursor * cursor2;
-	rai::merged_store_kv current1;
-	rai::merged_store_kv current2;
+	virtual ~transaction_impl () = default;
+};
+/**
+ * RAII wrapper of MDB_txn where the constructor starts the transaction
+ * and the destructor commits it.
+ */
+class transaction
+{
+public:
+	std::unique_ptr<rai::transaction_impl> impl;
 };
 
 /**
@@ -91,241 +101,118 @@ public:
  */
 class block_store
 {
-	friend class rai::block_predecessor_set;
-
 public:
-	block_store (bool &, boost::filesystem::path const &, int lmdb_max_dbs = 128);
+	virtual ~block_store () = default;
+	virtual void initialize (rai::transaction const &, rai::genesis const &) = 0;
+	virtual void block_put (rai::transaction const &, rai::block_hash const &, rai::block const &, rai::block_hash const & = rai::block_hash (0), rai::epoch version = rai::epoch::epoch_0) = 0;
+	virtual rai::block_hash block_successor (rai::transaction const &, rai::block_hash const &) = 0;
+	virtual void block_successor_clear (rai::transaction const &, rai::block_hash const &) = 0;
+	virtual std::unique_ptr<rai::block> block_get (rai::transaction const &, rai::block_hash const &) = 0;
+	virtual std::unique_ptr<rai::block> block_random (rai::transaction const &) = 0;
+	virtual void block_del (rai::transaction const &, rai::block_hash const &) = 0;
+	virtual bool block_exists (rai::transaction const &, rai::block_hash const &) = 0;
+	virtual rai::block_counts block_count (rai::transaction const &) = 0;
+	virtual bool root_exists (rai::transaction const &, rai::uint256_union const &) = 0;
 
-	void initialize (MDB_txn *, rai::genesis const &);
-	void block_put (MDB_txn *, rai::block_hash const &, rai::block const &, rai::block_hash const & = rai::block_hash (0), rai::epoch version = rai::epoch::epoch_0);
-	rai::block_hash block_successor (MDB_txn *, rai::block_hash const &);
-	void block_successor_clear (MDB_txn *, rai::block_hash const &);
-	std::unique_ptr<rai::block> block_get (MDB_txn *, rai::block_hash const &);
-	std::unique_ptr<rai::block> block_random (MDB_txn *);
-	void block_del (MDB_txn *, rai::block_hash const &);
-	bool block_exists (MDB_txn *, rai::block_hash const &);
-	rai::block_counts block_count (MDB_txn *);
-	bool root_exists (MDB_txn *, rai::uint256_union const &);
+	virtual void frontier_put (rai::transaction const &, rai::block_hash const &, rai::account const &) = 0;
+	virtual rai::account frontier_get (rai::transaction const &, rai::block_hash const &) = 0;
+	virtual void frontier_del (rai::transaction const &, rai::block_hash const &) = 0;
 
-	void frontier_put (MDB_txn *, rai::block_hash const &, rai::account const &);
-	rai::account frontier_get (MDB_txn *, rai::block_hash const &);
-	void frontier_del (MDB_txn *, rai::block_hash const &);
+	virtual void account_put (rai::transaction const &, rai::account const &, rai::account_info const &) = 0;
+	virtual bool account_get (rai::transaction const &, rai::account const &, rai::account_info &) = 0;
+	virtual void account_del (rai::transaction const &, rai::account const &) = 0;
+	virtual bool account_exists (rai::transaction const &, rai::account const &) = 0;
+	virtual size_t account_count (rai::transaction const &) = 0;
+	virtual rai::store_iterator<rai::account, rai::account_info> latest_v0_begin (rai::transaction const &, rai::account const &) = 0;
+	virtual rai::store_iterator<rai::account, rai::account_info> latest_v0_begin (rai::transaction const &) = 0;
+	virtual rai::store_iterator<rai::account, rai::account_info> latest_v0_end () = 0;
+	virtual rai::store_iterator<rai::account, rai::account_info> latest_v1_begin (rai::transaction const &, rai::account const &) = 0;
+	virtual rai::store_iterator<rai::account, rai::account_info> latest_v1_begin (rai::transaction const &) = 0;
+	virtual rai::store_iterator<rai::account, rai::account_info> latest_v1_end () = 0;
+	virtual rai::store_iterator<rai::account, rai::account_info> latest_begin (rai::transaction const &, rai::account const &) = 0;
+	virtual rai::store_iterator<rai::account, rai::account_info> latest_begin (rai::transaction const &) = 0;
+	virtual rai::store_iterator<rai::account, rai::account_info> latest_end () = 0;
 
-	void account_put (MDB_txn *, rai::account const &, rai::account_info const &);
-	bool account_get (MDB_txn *, rai::account const &, rai::account_info &);
-	void account_del (MDB_txn *, rai::account const &);
-	bool account_exists (MDB_txn *, rai::account const &);
-	size_t account_count (MDB_txn *);
-	rai::store_iterator latest_v0_begin (MDB_txn *, rai::account const &);
-	rai::store_iterator latest_v0_begin (MDB_txn *);
-	rai::store_iterator latest_v0_end ();
-	rai::store_iterator latest_v1_begin (MDB_txn *, rai::account const &);
-	rai::store_iterator latest_v1_begin (MDB_txn *);
-	rai::store_iterator latest_v1_end ();
-	rai::store_merge_iterator latest_begin (MDB_txn *, rai::account const &);
-	rai::store_merge_iterator latest_begin (MDB_txn *);
-	rai::store_merge_iterator latest_end ();
+	virtual void pending_put (rai::transaction const &, rai::pending_key const &, rai::pending_info const &) = 0;
+	virtual void pending_del (rai::transaction const &, rai::pending_key const &) = 0;
+	virtual bool pending_get (rai::transaction const &, rai::pending_key const &, rai::pending_info &) = 0;
+	virtual bool pending_exists (rai::transaction const &, rai::pending_key const &) = 0;
+	virtual rai::store_iterator<rai::pending_key, rai::pending_info> pending_v0_begin (rai::transaction const &, rai::pending_key const &) = 0;
+	virtual rai::store_iterator<rai::pending_key, rai::pending_info> pending_v0_begin (rai::transaction const &) = 0;
+	virtual rai::store_iterator<rai::pending_key, rai::pending_info> pending_v0_end () = 0;
+	virtual rai::store_iterator<rai::pending_key, rai::pending_info> pending_v1_begin (rai::transaction const &, rai::pending_key const &) = 0;
+	virtual rai::store_iterator<rai::pending_key, rai::pending_info> pending_v1_begin (rai::transaction const &) = 0;
+	virtual rai::store_iterator<rai::pending_key, rai::pending_info> pending_v1_end () = 0;
+	virtual rai::store_iterator<rai::pending_key, rai::pending_info> pending_begin (rai::transaction const &, rai::pending_key const &) = 0;
+	virtual rai::store_iterator<rai::pending_key, rai::pending_info> pending_begin (rai::transaction const &) = 0;
+	virtual rai::store_iterator<rai::pending_key, rai::pending_info> pending_end () = 0;
 
-	void pending_put (MDB_txn *, rai::pending_key const &, rai::pending_info const &);
-	void pending_del (MDB_txn *, rai::pending_key const &);
-	bool pending_get (MDB_txn *, rai::pending_key const &, rai::pending_info &);
-	bool pending_exists (MDB_txn *, rai::pending_key const &);
-	rai::store_iterator pending_v0_begin (MDB_txn *, rai::pending_key const &);
-	rai::store_iterator pending_v0_begin (MDB_txn *);
-	rai::store_iterator pending_v0_end ();
-	rai::store_iterator pending_v1_begin (MDB_txn *, rai::pending_key const &);
-	rai::store_iterator pending_v1_begin (MDB_txn *);
-	rai::store_iterator pending_v1_end ();
-	rai::store_merge_iterator pending_begin (MDB_txn *, rai::pending_key const &);
-	rai::store_merge_iterator pending_begin (MDB_txn *);
-	rai::store_merge_iterator pending_end ();
-
-	void block_info_put (MDB_txn *, rai::block_hash const &, rai::block_info const &);
-	void block_info_del (MDB_txn *, rai::block_hash const &);
-	bool block_info_get (MDB_txn *, rai::block_hash const &, rai::block_info &);
-	bool block_info_exists (MDB_txn *, rai::block_hash const &);
-	rai::store_iterator block_info_begin (MDB_txn *, rai::block_hash const &);
-	rai::store_iterator block_info_begin (MDB_txn *);
-	rai::store_iterator block_info_end ();
-	rai::uint128_t block_balance (MDB_txn *, rai::block_hash const &);
-	rai::epoch block_version (MDB_txn *, rai::block_hash const &);
+	virtual void block_info_put (rai::transaction const &, rai::block_hash const &, rai::block_info const &) = 0;
+	virtual void block_info_del (rai::transaction const &, rai::block_hash const &) = 0;
+	virtual bool block_info_get (rai::transaction const &, rai::block_hash const &, rai::block_info &) = 0;
+	virtual bool block_info_exists (rai::transaction const &, rai::block_hash const &) = 0;
+	virtual rai::store_iterator<rai::block_hash, rai::block_info> block_info_begin (rai::transaction const &, rai::block_hash const &) = 0;
+	virtual rai::store_iterator<rai::block_hash, rai::block_info> block_info_begin (rai::transaction const &) = 0;
+	virtual rai::store_iterator<rai::block_hash, rai::block_info> block_info_end () = 0;
+	virtual rai::uint128_t block_balance (rai::transaction const &, rai::block_hash const &) = 0;
+	virtual rai::epoch block_version (rai::transaction const &, rai::block_hash const &) = 0;
 	static size_t const block_info_max = 32;
 
-	rai::uint128_t representation_get (MDB_txn *, rai::account const &);
-	void representation_put (MDB_txn *, rai::account const &, rai::uint128_t const &);
-	void representation_add (MDB_txn *, rai::account const &, rai::uint128_t const &);
-	rai::store_iterator representation_begin (MDB_txn *);
-	rai::store_iterator representation_end ();
+	virtual rai::uint128_t representation_get (rai::transaction const &, rai::account const &) = 0;
+	virtual void representation_put (rai::transaction const &, rai::account const &, rai::uint128_t const &) = 0;
+	virtual void representation_add (rai::transaction const &, rai::account const &, rai::uint128_t const &) = 0;
+	virtual rai::store_iterator<rai::account, rai::uint128_union> representation_begin (rai::transaction const &) = 0;
+	virtual rai::store_iterator<rai::account, rai::uint128_union> representation_end () = 0;
 
-	void unchecked_clear (MDB_txn *);
-	void unchecked_put (MDB_txn *, rai::block_hash const &, std::shared_ptr<rai::block> const &);
-	std::vector<std::shared_ptr<rai::block>> unchecked_get (MDB_txn *, rai::block_hash const &);
-	void unchecked_del (MDB_txn *, rai::block_hash const &, rai::block const &);
-	rai::store_iterator unchecked_begin (MDB_txn *);
-	rai::store_iterator unchecked_begin (MDB_txn *, rai::block_hash const &);
-	rai::store_iterator unchecked_end ();
-	size_t unchecked_count (MDB_txn *);
-	std::unordered_multimap<rai::block_hash, std::shared_ptr<rai::block>> unchecked_cache;
+	virtual void unchecked_clear (rai::transaction const &) = 0;
+	virtual void unchecked_put (rai::transaction const &, rai::block_hash const &, std::shared_ptr<rai::block> const &) = 0;
+	virtual std::vector<std::shared_ptr<rai::block>> unchecked_get (rai::transaction const &, rai::block_hash const &) = 0;
+	virtual void unchecked_del (rai::transaction const &, rai::block_hash const &, std::shared_ptr<rai::block>) = 0;
+	virtual rai::store_iterator<rai::block_hash, std::shared_ptr<rai::block>> unchecked_begin (rai::transaction const &) = 0;
+	virtual rai::store_iterator<rai::block_hash, std::shared_ptr<rai::block>> unchecked_begin (rai::transaction const &, rai::block_hash const &) = 0;
+	virtual rai::store_iterator<rai::block_hash, std::shared_ptr<rai::block>> unchecked_end () = 0;
+	virtual size_t unchecked_count (rai::transaction const &) = 0;
 
-	void checksum_put (MDB_txn *, uint64_t, uint8_t, rai::checksum const &);
-	bool checksum_get (MDB_txn *, uint64_t, uint8_t, rai::checksum &);
-	void checksum_del (MDB_txn *, uint64_t, uint8_t);
+	virtual void checksum_put (rai::transaction const &, uint64_t, uint8_t, rai::checksum const &) = 0;
+	virtual bool checksum_get (rai::transaction const &, uint64_t, uint8_t, rai::checksum &) = 0;
+	virtual void checksum_del (rai::transaction const &, uint64_t, uint8_t) = 0;
 
 	// Return latest vote for an account from store
-	std::shared_ptr<rai::vote> vote_get (MDB_txn *, rai::account const &);
+	virtual std::shared_ptr<rai::vote> vote_get (rai::transaction const &, rai::account const &) = 0;
 	// Populate vote with the next sequence number
-	std::shared_ptr<rai::vote> vote_generate (MDB_txn *, rai::account const &, rai::raw_key const &, std::shared_ptr<rai::block>);
-	std::shared_ptr<rai::vote> vote_generate (MDB_txn *, rai::account const &, rai::raw_key const &, std::vector<rai::block_hash>);
+	virtual std::shared_ptr<rai::vote> vote_generate (rai::transaction const &, rai::account const &, rai::raw_key const &, std::shared_ptr<rai::block>) = 0;
+	virtual std::shared_ptr<rai::vote> vote_generate (rai::transaction const &, rai::account const &, rai::raw_key const &, std::vector<rai::block_hash>) = 0;
 	// Return either vote or the stored vote with a higher sequence number
-	std::shared_ptr<rai::vote> vote_max (MDB_txn *, std::shared_ptr<rai::vote>);
+	virtual std::shared_ptr<rai::vote> vote_max (rai::transaction const &, std::shared_ptr<rai::vote>) = 0;
 	// Return latest vote for an account considering the vote cache
-	std::shared_ptr<rai::vote> vote_current (MDB_txn *, rai::account const &);
-	void flush (MDB_txn *);
-	rai::store_iterator vote_begin (MDB_txn *);
-	rai::store_iterator vote_end ();
-	std::mutex cache_mutex;
-	std::unordered_map<rai::account, std::shared_ptr<rai::vote>> vote_cache;
+	virtual std::shared_ptr<rai::vote> vote_current (rai::transaction const &, rai::account const &) = 0;
+	virtual void flush (rai::transaction const &) = 0;
+	virtual rai::store_iterator<rai::account, std::shared_ptr<rai::vote>> vote_begin (rai::transaction const &) = 0;
+	virtual rai::store_iterator<rai::account, std::shared_ptr<rai::vote>> vote_end () = 0;
 
-	void timestamp_put (MDB_txn *, rai::block_hash const &, uint64_t const &);
-	uint64_t timestamp_get (MDB_txn *, rai::block_hash const &);
-	void timestamp_del (MDB_txn *, rai::block_hash const &);
-
-	void version_put (MDB_txn *, int);
-	int version_get (MDB_txn *);
-	void do_upgrades (MDB_txn *);
-	void upgrade_v1_to_v2 (MDB_txn *);
-	void upgrade_v2_to_v3 (MDB_txn *);
-	void upgrade_v3_to_v4 (MDB_txn *);
-	void upgrade_v4_to_v5 (MDB_txn *);
-	void upgrade_v5_to_v6 (MDB_txn *);
-	void upgrade_v6_to_v7 (MDB_txn *);
-	void upgrade_v7_to_v8 (MDB_txn *);
-	void upgrade_v8_to_v9 (MDB_txn *);
-	void upgrade_v9_to_v10 (MDB_txn *);
-	void upgrade_v10_to_v11 (MDB_txn *);
-	void upgrade_v11_to_v12 (MDB_txn *);
+	virtual void timestamp_put (rai::transaction const &, rai::block_hash const &, uint64_t const &) = 0;
+	virtual uint64_t timestamp_get (rai::transaction const &, rai::block_hash const &) = 0;
+	virtual void timestamp_del (rai::transaction const &, rai::block_hash const &) = 0;
+	
+	virtual void version_put (rai::transaction const &, int) = 0;
+	virtual int version_get (rai::transaction const &) = 0;
 
 	// Requires a write transaction
-	rai::raw_key get_node_id (MDB_txn *);
+	virtual rai::raw_key get_node_id (rai::transaction const &) = 0;
 
 	/** Deletes the node ID from the store */
-	void delete_node_id (MDB_txn *);
+	virtual void delete_node_id (rai::transaction const &) = 0;
 
-	rai::mdb_env environment;
+	/** Start read-write transaction */
+	virtual rai::transaction tx_begin_write () = 0;
 
-	/**
-	 * Maps head block to owning account
-	 * rai::block_hash -> rai::account
-	 */
-	MDB_dbi frontiers;
+	/** Start read-only transaction */
+	virtual rai::transaction tx_begin_read () = 0;
 
 	/**
-	 * Maps account v1 to account information, head, rep, open, balance, timestamp and block count.
-	 * rai::account -> rai::block_hash, rai::block_hash, rai::block_hash, rai::amount, uint64_t, uint64_t
+	 * Start a read-only or read-write transaction
+	 * @param write If true, start a read-write transaction
 	 */
-	MDB_dbi accounts_v0;
-
-	/**
-	 * Maps account v0 to account information, head, rep, open, balance, timestamp and block count.
-	 * rai::account -> rai::block_hash, rai::block_hash, rai::block_hash, rai::amount, uint64_t, uint64_t
-	 */
-	MDB_dbi accounts_v1;
-
-	/**
-	 * Maps block hash to send block.
-	 * rai::block_hash -> rai::send_block
-	 */
-	MDB_dbi send_blocks;
-
-	/**
-	 * Maps block hash to receive block.
-	 * rai::block_hash -> rai::receive_block
-	 */
-	MDB_dbi receive_blocks;
-
-	/**
-	 * Maps block hash to open block.
-	 * rai::block_hash -> rai::open_block
-	 */
-	MDB_dbi open_blocks;
-
-	/**
-	 * Maps block hash to change block.
-	 * rai::block_hash -> rai::change_block
-	 */
-	MDB_dbi change_blocks;
-
-	/**
-	 * Maps block hash to v0 state block.
-	 * rai::block_hash -> rai::state_block
-	 */
-	MDB_dbi state_blocks_v0;
-
-	/**
-	 * Maps block hash to v1 state block.
-	 * rai::block_hash -> rai::state_block
-	 */
-	MDB_dbi state_blocks_v1;
-
-	/**
-	 * Maps min_version 0 (destination account, pending block) to (source account, amount).
-	 * rai::account, rai::block_hash -> rai::account, rai::amount
-	 */
-	MDB_dbi pending_v0;
-
-	/**
-	 * Maps min_version 1 (destination account, pending block) to (source account, amount).
-	 * rai::account, rai::block_hash -> rai::account, rai::amount
-	 */
-	MDB_dbi pending_v1;
-
-	/**
-	 * Maps block hash to account and balance.
-	 * block_hash -> rai::account, rai::amount
-	 */
-	MDB_dbi blocks_info;
-
-	/**
-	 * Representative weights.
-	 * rai::account -> rai::uint128_t
-	 */
-	MDB_dbi representation;
-
-	/**
-	 * Unchecked bootstrap blocks.
-	 * rai::block_hash -> rai::block
-	 */
-	MDB_dbi unchecked;
-
-	/**
-	 * Mapping of region to checksum.
-	 * (uint56_t, uint8_t) -> rai::block_hash
-	 */
-	MDB_dbi checksum;
-
-	/**
-	 * Highest vote observed for account.
-	 * rai::account -> uint64_t
-	 */
-	MDB_dbi vote;
-
-	/**
-	 * Seconds since posix epoch for block.
-	 * rai::block_hash -> uint64_t
-	 */
-	MDB_dbi timestamps;
-
-	/**
-	 * Meta information about block store, such as versions.
-	 * rai::uint256_union (arbitrary key) -> blob
-	 */
-	MDB_dbi meta;
-
-private:
-	MDB_dbi block_database (rai::block_type, rai::epoch);
-	std::unique_ptr<rai::block> block_random (MDB_txn *, MDB_dbi);
-	MDB_val block_raw_get (MDB_txn *, rai::block_hash const &, rai::block_type &);
-	void block_raw_put (MDB_txn *, MDB_dbi, rai::block_hash const &, MDB_val);
-	void clear (MDB_dbi);
+	virtual rai::transaction tx_begin (bool write = false) = 0;
 };
 }
