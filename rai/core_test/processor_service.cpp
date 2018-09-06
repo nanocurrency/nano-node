@@ -9,12 +9,12 @@
 TEST (processor_service, bad_send_signature)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_FALSE (init);
 	rai::stat stats;
 	rai::ledger ledger (store, stats);
 	rai::genesis genesis;
-	rai::transaction transaction (store.environment, nullptr, true);
+	auto transaction (store.tx_begin (true));
 	store.initialize (transaction, genesis);
 	rai::account_info info1;
 	ASSERT_FALSE (store.account_get (transaction, rai::test_genesis_key.pub, info1));
@@ -28,12 +28,12 @@ TEST (processor_service, bad_send_signature)
 TEST (processor_service, bad_receive_signature)
 {
 	bool init (false);
-	rai::block_store store (init, rai::unique_path ());
+	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_FALSE (init);
 	rai::stat stats;
 	rai::ledger ledger (store, stats);
 	rai::genesis genesis;
-	rai::transaction transaction (store.environment, nullptr, true);
+	auto transaction (store.tx_begin (true));
 	store.initialize (transaction, genesis);
 	rai::account_info info1;
 	ASSERT_FALSE (store.account_get (transaction, rai::test_genesis_key.pub, info1));

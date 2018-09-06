@@ -24,6 +24,10 @@ union uint128_union
 {
 public:
 	uint128_union () = default;
+	/**
+	 * Decode from hex string
+	 * @warning Aborts at runtime if the input is invalid
+	 */
 	uint128_union (std::string const &);
 	uint128_union (uint64_t);
 	uint128_union (rai::uint128_union const &) = default;
@@ -54,6 +58,10 @@ class raw_key;
 union uint256_union
 {
 	uint256_union () = default;
+	/**
+	 * Decode from hex string
+	 * @warning Aborts at runtime if the input is invalid
+	 */
 	uint256_union (std::string const &);
 	uint256_union (uint64_t);
 	uint256_union (rai::uint256_t const &);

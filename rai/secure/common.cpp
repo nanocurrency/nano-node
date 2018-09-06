@@ -396,7 +396,7 @@ std::string rai::vote::to_json () const
 	return stream.str ();
 }
 
-rai::amount_visitor::amount_visitor (MDB_txn * transaction_a, rai::block_store & store_a) :
+rai::amount_visitor::amount_visitor (rai::transaction const & transaction_a, rai::block_store & store_a) :
 transaction (transaction_a),
 store (store_a),
 current_amount (0),
@@ -480,7 +480,7 @@ void rai::amount_visitor::compute (rai::block_hash const & block_hash)
 	}
 }
 
-rai::balance_visitor::balance_visitor (MDB_txn * transaction_a, rai::block_store & store_a) :
+rai::balance_visitor::balance_visitor (rai::transaction const & transaction_a, rai::block_store & store_a) :
 transaction (transaction_a),
 store (store_a),
 current_balance (0),
@@ -557,7 +557,7 @@ void rai::balance_visitor::compute (rai::block_hash const & block_hash)
 	}
 }
 
-rai::representative_visitor::representative_visitor (MDB_txn * transaction_a, rai::block_store & store_a) :
+rai::representative_visitor::representative_visitor (rai::transaction const & transaction_a, rai::block_store & store_a) :
 transaction (transaction_a),
 store (store_a),
 result (0)
