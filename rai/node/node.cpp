@@ -2066,7 +2066,7 @@ bool rai::node::process_local (std::shared_ptr<rai::block> incoming)
 	bool result (false);
 	auto hash (incoming->hash ());
 	block_arrival.add (hash);
-	auto transaction (node.store.tx_begin_write ());
+	auto transaction (store.tx_begin_write ());
 	block_processor.process_receive_one (transaction, incoming, std::chrono::steady_clock::now ());
 	result = store.block_exists (transaction, hash);
 	// Immediately put timestamp & republish valid block
