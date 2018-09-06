@@ -1,6 +1,16 @@
 <!--
 
 ---------------------------------------------------
+HAVE A QUESTION? PLEASE JOIN OUR DISCORD SERVER
+---------------------------------------------------
+
+Only use GitHub issues for reporting problems and submitting proposals. 
+
+Questions should  be asked on our Discord server, https://chat.nano.org,
+which has channels for a wide range of topics, such as development and 
+support.
+
+---------------------------------------------------
 BUG BOUNTY REPORT INFORMATION
 ---------------------------------------------------
 

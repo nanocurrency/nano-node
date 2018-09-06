@@ -107,8 +107,8 @@ public:
 	void receive_frontier ();
 	void received_frontier (boost::system::error_code const &, size_t);
 	void request_account (rai::account const &, rai::block_hash const &);
-	void unsynced (MDB_txn *, rai::block_hash const &, rai::block_hash const &);
-	void next (MDB_txn *);
+	void unsynced (rai::block_hash const &, rai::block_hash const &);
+	void next (rai::transaction const &);
 	void insert_pull (rai::pull_info const &);
 	std::shared_ptr<rai::bootstrap_client> connection;
 	rai::account current;
@@ -161,7 +161,7 @@ public:
 	bulk_push_client (std::shared_ptr<rai::bootstrap_client> const &);
 	~bulk_push_client ();
 	void start ();
-	void push (MDB_txn *);
+	void push (rai::transaction const &);
 	void push_block (rai::block const &);
 	void send_finished ();
 	std::shared_ptr<rai::bootstrap_client> connection;
@@ -218,6 +218,7 @@ public:
 	void receive ();
 	void receive_header_action (boost::system::error_code const &, size_t);
 	void receive_bulk_pull_action (boost::system::error_code const &, size_t, rai::message_header const &);
+	void receive_bulk_pull_account_action (boost::system::error_code const &, size_t, rai::message_header const &);
 	void receive_bulk_pull_blocks_action (boost::system::error_code const &, size_t, rai::message_header const &);
 	void receive_frontier_req_action (boost::system::error_code const &, size_t, rai::message_header const &);
 	void receive_bulk_push_action ();
@@ -247,6 +248,26 @@ public:
 	rai::block_hash current;
 	bool include_start;
 };
+class bulk_pull_account;
+class bulk_pull_account_server : public std::enable_shared_from_this<rai::bulk_pull_account_server>
+{
+public:
+	bulk_pull_account_server (std::shared_ptr<rai::bootstrap_server> const &, std::unique_ptr<rai::bulk_pull_account>);
+	void set_params ();
+	std::pair<std::unique_ptr<rai::pending_key>, std::unique_ptr<rai::pending_info>> get_next ();
+	void send_frontier ();
+	void send_next_block ();
+	void sent_action (boost::system::error_code const &, size_t);
+	void send_finished ();
+	void complete (boost::system::error_code const &, size_t);
+	std::shared_ptr<rai::bootstrap_server> connection;
+	std::unique_ptr<rai::bulk_pull_account> request;
+	std::shared_ptr<std::vector<uint8_t>> send_buffer;
+	std::unordered_map<rai::uint256_union, bool> deduplication;
+	rai::pending_key current_key;
+	bool pending_address_only;
+	bool invalid_request;
+};
 class bulk_pull_blocks;
 class bulk_pull_blocks_server : public std::enable_shared_from_this<rai::bulk_pull_blocks_server>
 {
@@ -255,16 +276,11 @@ public:
 	void set_params ();
 	std::unique_ptr<rai::block> get_next ();
 	void send_next ();
-	void sent_action (boost::system::error_code const &, size_t);
 	void send_finished ();
 	void no_block_sent (boost::system::error_code const &, size_t);
 	std::shared_ptr<rai::bootstrap_server> connection;
 	std::unique_ptr<rai::bulk_pull_blocks> request;
 	std::shared_ptr<std::vector<uint8_t>> send_buffer;
-	rai::store_iterator stream;
-	rai::transaction stream_transaction;
-	uint32_t sent_count;
-	rai::block_hash checksum;
 };
 class bulk_push_server : public std::enable_shared_from_this<rai::bulk_push_server>
 {

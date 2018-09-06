@@ -24,6 +24,10 @@ union uint128_union
 {
 public:
 	uint128_union () = default;
+	/**
+	 * Decode from hex string
+	 * @warning Aborts at runtime if the input is invalid
+	 */
 	uint128_union (std::string const &);
 	uint128_union (uint64_t);
 	uint128_union (rai::uint128_union const &) = default;
@@ -54,6 +58,10 @@ class raw_key;
 union uint256_union
 {
 	uint256_union () = default;
+	/**
+	 * Decode from hex string
+	 * @warning Aborts at runtime if the input is invalid
+	 */
 	uint256_union (std::string const &);
 	uint256_union (uint64_t);
 	uint256_union (rai::uint256_t const &);
@@ -69,7 +77,6 @@ union uint256_union
 	bool decode_dec (std::string const &);
 	void encode_account (std::string &) const;
 	std::string to_account () const;
-	std::string to_account_split () const;
 	bool decode_account (std::string const &);
 	std::array<uint8_t, 32> bytes;
 	std::array<char, 32> chars;
@@ -121,6 +128,7 @@ using signature = uint512_union;
 rai::uint512_union sign_message (rai::raw_key const &, rai::public_key const &, rai::uint256_union const &);
 bool validate_message (rai::public_key const &, rai::uint256_union const &, rai::uint512_union const &);
 void deterministic_key (rai::uint256_union const &, uint32_t, rai::uint256_union &);
+rai::public_key pub_key (rai::private_key const &);
 }
 
 namespace std
