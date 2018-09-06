@@ -1806,7 +1806,7 @@ stats (config.stat_config)
 		this->network.send_keepalive (endpoint_a);
 		rep_query (*this, endpoint_a);
 	});
-	observers.vote.add ([this](rai::transaction const & transaction, std::shared_ptr<rai::vote> vote_a, rai::endpoint const & endpoint_a) {
+	observers.vote.add ([this](MDB_txn * transaction, std::shared_ptr<rai::vote> vote_a, rai::endpoint const & endpoint_a) {
 		assert (endpoint_a.address ().is_v6 ());
 		this->gap_cache.vote (vote_a);
 		this->online_reps.vote (vote_a);
