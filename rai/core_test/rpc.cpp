@@ -1,14 +1,16 @@
 #include <gtest/gtest.h>
 
+#include <boost/algorithm/string.hpp>
 #include <boost/beast.hpp>
+#include <boost/property_tree/json_parser.hpp>
+#include <boost/property_tree/ptree.hpp>
+#include <boost/thread.hpp>
+#include <rai/core_test/testutil.hpp>
 #include <rai/node/common.hpp>
 #include <rai/node/rpc.hpp>
 #include <rai/node/testing.hpp>
 
-#include <boost/algorithm/string.hpp>
-#include <boost/property_tree/json_parser.hpp>
-#include <boost/property_tree/ptree.hpp>
-#include <boost/thread.hpp>
+using namespace std::chrono_literals;
 
 class test_response
 {
@@ -252,12 +254,10 @@ TEST (rpc, send)
 	request.put ("destination", rai::test_genesis_key.pub.to_account ());
 	request.put ("amount", "100");
 	std::thread thread2 ([&system]() {
-		auto iterations (0);
+		system.deadline_set (10s);
 		while (system.nodes[0]->balance (rai::test_genesis_key.pub) == rai::genesis_amount)
 		{
-			system.poll ();
-			++iterations;
-			ASSERT_LT (iterations, 200);
+			ASSERT_NO_ERROR (system.poll ());
 		}
 	});
 	test_response response (request, rpc, system.service);
@@ -289,12 +289,10 @@ TEST (rpc, send_fail)
 	request.put ("amount", "100");
 	std::atomic<bool> done (false);
 	std::thread thread2 ([&system, &done]() {
-		auto iterations (0);
+		system.deadline_set (10s);
 		while (!done)
 		{
-			system.poll ();
-			++iterations;
-			ASSERT_LT (iterations, 200);
+			ASSERT_NO_ERROR (system.poll ());
 		}
 	});
 	test_response response (request, rpc, system.service);
@@ -323,21 +321,19 @@ TEST (rpc, send_work)
 	request.put ("amount", "100");
 	request.put ("work", "1");
 	test_response response (request, rpc, system.service);
-	auto iterations1 (0);
+	system.deadline_set (10s);
 	while (response.status == 0)
 	{
-		system.poll ();
-		ASSERT_LT (++iterations1, 200);
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (response.json.get<std::string> ("error"), "Invalid work");
 	request.erase ("work");
 	request.put ("work", rai::to_string_hex (system.nodes[0]->work_generate_blocking (system.nodes[0]->latest (rai::test_genesis_key.pub))));
 	test_response response2 (request, rpc, system.service);
-	auto iterations2 (0);
+	system.deadline_set (10s);
 	while (response2.status == 0)
 	{
-		system.poll ();
-		ASSERT_LT (++iterations2, 200);
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response2.status);
 	std::string block_text (response2.json.get<std::string> ("block"));
@@ -359,8 +355,8 @@ TEST (rpc, send_idempotent)
 	request.put ("wallet", wallet);
 	request.put ("action", "send");
 	request.put ("source", rai::test_genesis_key.pub.to_account ());
-	request.put ("destination", rai::test_genesis_key.pub.to_account ());
-	request.put ("amount", "100");
+	request.put ("destination", rai::account (0).to_account ());
+	request.put ("amount", (rai::genesis_amount - (rai::genesis_amount / 4)).convert_to<std::string> ());
 	request.put ("id", "123abc");
 	test_response response (request, rpc, system.service);
 	while (response.status == 0)
@@ -372,15 +368,16 @@ TEST (rpc, send_idempotent)
 	rai::block_hash block;
 	ASSERT_FALSE (block.decode_hex (block_text));
 	ASSERT_TRUE (system.nodes[0]->ledger.block_exists (block));
-	ASSERT_EQ (system.nodes[0]->balance (rai::test_genesis_key.pub), rai::genesis_amount - 100);
+	ASSERT_EQ (system.nodes[0]->balance (rai::test_genesis_key.pub), rai::genesis_amount / 4);
 	test_response response2 (request, rpc, system.service);
 	while (response2.status == 0)
 	{
 		system.poll ();
 	}
 	ASSERT_EQ (200, response2.status);
-	ASSERT_EQ (response2.json.get<std::string> ("block"), block_text);
-	ASSERT_EQ (system.nodes[0]->balance (rai::test_genesis_key.pub), rai::genesis_amount - 100);
+	ASSERT_EQ ("", response2.json.get<std::string> ("error", ""));
+	ASSERT_EQ (block_text, response2.json.get<std::string> ("block"));
+	ASSERT_EQ (system.nodes[0]->balance (rai::test_genesis_key.pub), rai::genesis_amount / 4);
 	request.erase ("id");
 	request.put ("id", "456def");
 	test_response response3 (request, rpc, system.service);
@@ -389,12 +386,7 @@ TEST (rpc, send_idempotent)
 		system.poll ();
 	}
 	ASSERT_EQ (200, response3.status);
-	std::string block2_text (response3.json.get<std::string> ("block"));
-	rai::block_hash block2;
-	ASSERT_NE (block2, block);
-	ASSERT_FALSE (block2.decode_hex (block2_text));
-	ASSERT_TRUE (system.nodes[0]->ledger.block_exists (block2));
-	ASSERT_EQ (system.nodes[0]->balance (rai::test_genesis_key.pub), rai::genesis_amount - 200);
+	ASSERT_EQ (response3.json.get<std::string> ("error"), "Insufficient balance");
 }
 
 TEST (rpc, stop)
@@ -476,24 +468,23 @@ TEST (rpc, wallet_password_change)
 	ASSERT_EQ (200, response.status);
 	std::string account_text1 (response.json.get<std::string> ("changed"));
 	ASSERT_EQ (account_text1, "1");
-	ASSERT_TRUE (system.wallet (0)->valid_password ());
-	ASSERT_TRUE (system.wallet (0)->enter_password (""));
-	ASSERT_FALSE (system.wallet (0)->valid_password ());
-	ASSERT_FALSE (system.wallet (0)->enter_password ("test"));
-	ASSERT_TRUE (system.wallet (0)->valid_password ());
+	auto transaction (system.wallet (0)->wallets.tx_begin (true));
+	ASSERT_TRUE (system.wallet (0)->store.valid_password (transaction));
+	ASSERT_TRUE (system.wallet (0)->enter_password (transaction, ""));
+	ASSERT_FALSE (system.wallet (0)->store.valid_password (transaction));
+	ASSERT_FALSE (system.wallet (0)->enter_password (transaction, "test"));
+	ASSERT_TRUE (system.wallet (0)->store.valid_password (transaction));
 }
 
 TEST (rpc, wallet_password_enter)
 {
 	rai::system system (24000, 1);
-	auto iterations (0);
 	rai::raw_key password_l;
 	password_l.data.clear ();
+	system.deadline_set (10s);
 	while (password_l.data == 0)
 	{
-		system.poll ();
-		++iterations;
-		ASSERT_LT (iterations, 200);
+		ASSERT_NO_ERROR (system.poll ());
 		system.wallet (0)->store.password.value (password_l);
 	}
 	rai::rpc rpc (system.service, *system.nodes[0], rai::rpc_config (true));
@@ -552,7 +543,7 @@ TEST (rpc, wallet_representative_set)
 		system.poll ();
 	}
 	ASSERT_EQ (200, response.status);
-	rai::transaction transaction (system.nodes[0]->store.environment, nullptr, false);
+	auto transaction (system.nodes[0]->wallets.tx_begin ());
 	ASSERT_EQ (key.pub, system.nodes[0]->wallets.items.begin ()->second->store.representative (transaction));
 }
 
@@ -648,7 +639,7 @@ TEST (rpc, wallet_export)
 	ASSERT_EQ (200, response.status);
 	std::string wallet_json (response.json.get<std::string> ("json"));
 	bool error (false);
-	rai::transaction transaction (system.nodes[0]->store.environment, nullptr, true);
+	auto transaction (system.nodes[0]->wallets.tx_begin (true));
 	rai::kdf kdf;
 	rai::wallet_store store (error, kdf, transaction, rai::genesis_account, 1, "0", wallet_json);
 	ASSERT_FALSE (error);
@@ -704,7 +695,7 @@ TEST (rpc, account_move)
 	ASSERT_EQ ("1", response.json.get<std::string> ("moved"));
 	ASSERT_TRUE (destination->exists (key.pub));
 	ASSERT_TRUE (destination->exists (rai::test_genesis_key.pub));
-	rai::transaction transaction (system.nodes[0]->store.environment, nullptr, false);
+	auto transaction (system.nodes[0]->wallets.tx_begin ());
 	ASSERT_EQ (source->store.end (), source->store.begin (transaction));
 }
 
@@ -814,7 +805,7 @@ TEST (rpc, frontier)
 	rai::system system (24000, 1);
 	std::unordered_map<rai::account, rai::block_hash> source;
 	{
-		rai::transaction transaction (system.nodes[0]->store.environment, nullptr, true);
+		auto transaction (system.nodes[0]->wallets.tx_begin (true));
 		for (auto i (0); i < 1000; ++i)
 		{
 			rai::keypair key;
@@ -854,7 +845,7 @@ TEST (rpc, frontier_limited)
 	rai::system system (24000, 1);
 	std::unordered_map<rai::account, rai::block_hash> source;
 	{
-		rai::transaction transaction (system.nodes[0]->store.environment, nullptr, true);
+		auto transaction (system.nodes[0]->wallets.tx_begin (true));
 		for (auto i (0); i < 1000; ++i)
 		{
 			rai::keypair key;
@@ -884,7 +875,7 @@ TEST (rpc, frontier_startpoint)
 	rai::system system (24000, 1);
 	std::unordered_map<rai::account, rai::block_hash> source;
 	{
-		rai::transaction transaction (system.nodes[0]->store.environment, nullptr, true);
+		auto transaction (system.nodes[0]->wallets.tx_begin (true));
 		for (auto i (0); i < 1000; ++i)
 		{
 			rai::keypair key;
@@ -926,7 +917,7 @@ TEST (rpc, history)
 	rai::state_block ureceive (rai::genesis_account, usend.hash (), rai::genesis_account, rai::genesis_amount, usend.hash (), rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
 	rai::state_block uchange (rai::genesis_account, ureceive.hash (), rai::keypair ().pub, rai::genesis_amount, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
 	{
-		rai::transaction transaction (node0->store.environment, nullptr, true);
+		auto transaction (node0->wallets.tx_begin (true));
 		ASSERT_EQ (rai::process_result::progress, node0->ledger.process (transaction, usend).code);
 		ASSERT_EQ (rai::process_result::progress, node0->ledger.process (transaction, ureceive).code);
 		ASSERT_EQ (rai::process_result::progress, node0->ledger.process (transaction, uchange).code);
@@ -1019,12 +1010,10 @@ TEST (rpc, process_block)
 		system.poll ();
 	}
 	ASSERT_EQ (200, response.status);
-	auto iterations (0);
+	system.deadline_set (10s);
 	while (system.nodes[0]->latest (rai::test_genesis_key.pub) != send.hash ())
 	{
-		system.poll ();
-		++iterations;
-		ASSERT_LT (iterations, 200);
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	std::string send_hash (response.json.get<std::string> ("hash"));
 	ASSERT_EQ (send.hash ().to_string (), send_hash);
@@ -1074,12 +1063,10 @@ TEST (rpc, process_republish)
 		system.poll ();
 	}
 	ASSERT_EQ (200, response.status);
-	auto iterations (0);
+	system.deadline_set (10s);
 	while (system.nodes[1]->latest (rai::test_genesis_key.pub) != send.hash ())
 	{
-		system.poll ();
-		++iterations;
-		ASSERT_LT (iterations, 200);
+		ASSERT_NO_ERROR (system.poll ());
 	}
 }
 
@@ -1105,13 +1092,11 @@ TEST (rpc, keepalive)
 		system.poll ();
 	}
 	ASSERT_EQ (200, response.status);
-	auto iterations (0);
+	system.deadline_set (10s);
 	while (!system.nodes[0]->peers.known_peer (node1->network.endpoint ()))
 	{
 		ASSERT_EQ (0, system.nodes[0]->peers.size ());
-		system.poll ();
-		++iterations;
-		ASSERT_LT (iterations, 200);
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	node1->stop ();
 }
@@ -1161,20 +1146,20 @@ TEST (rpc, payment_begin_end)
 	rai::uint256_union account;
 	ASSERT_FALSE (account.decode_account (account_text));
 	ASSERT_TRUE (wallet->exists (account));
-	auto root1 (system.nodes[0]->ledger.latest_root (rai::transaction (wallet->store.environment, nullptr, false), account));
+	auto transaction (wallet->wallets.tx_begin ());
+	auto root1 (system.nodes[0]->ledger.latest_root (transaction, account));
 	uint64_t work (0);
-	auto iteration (0);
 	while (!rai::work_validate (root1, work))
 	{
 		++work;
 		ASSERT_LT (work, 50);
 	}
+	system.deadline_set (10s);
 	while (rai::work_validate (root1, work))
 	{
-		system.poll ();
-		ASSERT_FALSE (wallet->store.work_get (rai::transaction (wallet->store.environment, nullptr, false), account, work));
-		++iteration;
-		ASSERT_LT (iteration, 200);
+		auto ec = system.poll ();
+		ASSERT_FALSE (wallet->store.work_get (transaction, account, work));
+		ASSERT_NO_ERROR (ec);
 	}
 	ASSERT_EQ (wallet->free_accounts.end (), wallet->free_accounts.find (account));
 	boost::property_tree::ptree request2;
@@ -1199,7 +1184,8 @@ TEST (rpc, payment_end_nonempty)
 	rai::node_init init1;
 	auto node1 (system.nodes[0]);
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
-	system.wallet (0)->init_free_accounts (rai::transaction (node1->store.environment, nullptr, false));
+	auto transaction (node1->store.tx_begin ());
+	system.wallet (0)->init_free_accounts (transaction);
 	auto wallet_id (node1->wallets.items.begin ()->first);
 	rai::rpc rpc (system.service, *system.nodes[0], rai::rpc_config (true));
 	rpc.start ();
@@ -1222,7 +1208,8 @@ TEST (rpc, payment_zero_balance)
 	rai::node_init init1;
 	auto node1 (system.nodes[0]);
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
-	system.wallet (0)->init_free_accounts (rai::transaction (node1->store.environment, nullptr, false));
+	auto transaction (node1->store.tx_begin ());
+	system.wallet (0)->init_free_accounts (transaction);
 	auto wallet_id (node1->wallets.items.begin ()->first);
 	rai::rpc rpc (system.service, *system.nodes[0], rai::rpc_config (true));
 	rpc.start ();
@@ -1297,7 +1284,7 @@ TEST (rpc, payment_begin_locked)
 	rai::keypair wallet_id;
 	auto wallet (node1->wallets.create (wallet_id.pub));
 	{
-		rai::transaction transaction (wallet->store.environment, nullptr, true);
+		auto transaction (wallet->wallets.tx_begin (true));
 		wallet->store.rekey (transaction, "1");
 		ASSERT_TRUE (wallet->store.attempt_password (transaction, ""));
 	}
@@ -1487,7 +1474,8 @@ TEST (rpc, search_pending)
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	auto wallet (system.nodes[0]->wallets.items.begin ()->first.to_string ());
 	rai::send_block block (system.nodes[0]->latest (rai::test_genesis_key.pub), rai::test_genesis_key.pub, rai::genesis_amount - system.nodes[0]->config.receive_minimum.number (), rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
-	ASSERT_EQ (rai::process_result::progress, system.nodes[0]->ledger.process (rai::transaction (system.nodes[0]->store.environment, nullptr, true), block).code);
+	auto transaction (system.nodes[0]->store.tx_begin (true));
+	ASSERT_EQ (rai::process_result::progress, system.nodes[0]->ledger.process (transaction, block).code);
 	rai::rpc rpc (system.service, *system.nodes[0], rai::rpc_config (true));
 	rpc.start ();
 	boost::property_tree::ptree request;
@@ -1499,12 +1487,10 @@ TEST (rpc, search_pending)
 		system.poll ();
 	}
 	ASSERT_EQ (200, response.status);
-	auto iterations (0);
+	system.deadline_set (10s);
 	while (system.nodes[0]->balance (rai::test_genesis_key.pub) != rai::genesis_amount)
 	{
-		system.poll ();
-		++iterations;
-		ASSERT_LT (iterations, 200);
+		ASSERT_NO_ERROR (system.poll ());
 	}
 }
 
@@ -1529,7 +1515,7 @@ TEST (rpc, version)
 	ASSERT_EQ ("1", response1.json.get<std::string> ("rpc_version"));
 	ASSERT_EQ (200, response1.status);
 	{
-		rai::transaction transaction (system.nodes[0]->store.environment, nullptr, false);
+		auto transaction (system.nodes[0]->store.tx_begin ());
 		ASSERT_EQ (std::to_string (node1->store.version_get (transaction)), response1.json.get<std::string> ("store_version"));
 	}
 	ASSERT_EQ (boost::str (boost::format ("RaiBlocks %1%.%2%") % RAIBLOCKS_VERSION_MAJOR % RAIBLOCKS_VERSION_MINOR), response1.json.get<std::string> ("node_vendor"));
@@ -1581,20 +1567,20 @@ TEST (rpc, work_cancel)
 	request1.put ("action", "work_cancel");
 	request1.put ("hash", hash1.to_string ());
 	auto done (false);
-	auto iterations (0);
+	system.deadline_set (10s);
 	while (!done)
 	{
 		system.work.generate (hash1, [&done](boost::optional<uint64_t> work_a) {
 			done = !work_a;
 		});
 		test_response response1 (request1, rpc, system.service);
+		std::error_code ec;
 		while (response1.status == 0)
 		{
-			system.poll ();
+			ec = system.poll ();
 		}
 		ASSERT_EQ (200, response1.status);
-		++iterations;
-		ASSERT_LT (iterations, 200);
+		ASSERT_NO_ERROR (ec);
 	}
 }
 
@@ -1934,7 +1920,7 @@ TEST (rpc, account_representative_set)
 	rai::block_hash hash;
 	ASSERT_FALSE (hash.decode_hex (block_text1));
 	ASSERT_FALSE (hash.is_zero ());
-	rai::transaction transaction (system.nodes[0]->store.environment, nullptr, false);
+	auto transaction (system.nodes[0]->store.tx_begin ());
 	ASSERT_TRUE (system.nodes[0]->store.block_exists (transaction, hash));
 	ASSERT_EQ (rep.pub, system.nodes[0]->store.block_get (transaction, hash)->representative ());
 }
@@ -1946,7 +1932,7 @@ TEST (rpc, bootstrap)
 	auto latest (system1.nodes[0]->latest (rai::test_genesis_key.pub));
 	rai::send_block send (latest, rai::genesis_account, 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system1.nodes[0]->work_generate_blocking (latest));
 	{
-		rai::transaction transaction (system1.nodes[0]->store.environment, nullptr, true);
+		auto transaction (system1.nodes[0]->store.tx_begin (true));
 		ASSERT_EQ (rai::process_result::progress, system1.nodes[0]->ledger.process (transaction, send).code);
 	}
 	rai::rpc rpc (system0.service, *system0.nodes[0], rai::rpc_config (true));
@@ -1960,13 +1946,11 @@ TEST (rpc, bootstrap)
 	{
 		system0.poll ();
 	}
-	auto iterations (0);
+	system1.deadline_set (10s);
 	while (system0.nodes[0]->latest (rai::genesis_account) != system1.nodes[0]->latest (rai::genesis_account))
 	{
-		system0.poll ();
-		system1.poll ();
-		++iterations;
-		ASSERT_GT (200, iterations);
+		ASSERT_NO_ERROR (system0.poll ());
+		ASSERT_NO_ERROR (system1.poll ());
 	}
 }
 
@@ -2019,7 +2003,7 @@ TEST (rpc, wallet_change_seed)
 	rai::system system0 (24000, 1);
 	rai::keypair seed;
 	{
-		rai::transaction transaction (system0.nodes[0]->store.environment, nullptr, false);
+		auto transaction (system0.nodes[0]->store.tx_begin ());
 		rai::raw_key seed0;
 		system0.wallet (0)->store.seed (seed0, transaction);
 		ASSERT_NE (seed.pub, seed0.data);
@@ -2037,7 +2021,7 @@ TEST (rpc, wallet_change_seed)
 	}
 	ASSERT_EQ (200, response.status);
 	{
-		rai::transaction transaction (system0.nodes[0]->store.environment, nullptr, false);
+		auto transaction (system0.nodes[0]->store.tx_begin ());
 		rai::raw_key seed0;
 		system0.wallet (0)->store.seed (seed0, transaction);
 		ASSERT_EQ (seed.pub, seed0.data);
@@ -2144,7 +2128,7 @@ TEST (rpc, bootstrap_any)
 	auto latest (system1.nodes[0]->latest (rai::test_genesis_key.pub));
 	rai::send_block send (latest, rai::genesis_account, 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system1.nodes[0]->work_generate_blocking (latest));
 	{
-		rai::transaction transaction (system1.nodes[0]->store.environment, nullptr, true);
+		auto transaction (system1.nodes[0]->store.tx_begin (true));
 		ASSERT_EQ (rai::process_result::progress, system1.nodes[0]->ledger.process (transaction, send).code);
 	}
 	rai::rpc rpc (system0.service, *system0.nodes[0], rai::rpc_config (true));
@@ -2182,12 +2166,10 @@ TEST (rpc, republish)
 		system.poll ();
 	}
 	ASSERT_EQ (200, response.status);
-	auto iterations (0);
+	system.deadline_set (10s);
 	while (system.nodes[1]->balance (rai::test_genesis_key.pub) == rai::genesis_amount)
 	{
-		system.poll ();
-		++iterations;
-		ASSERT_GT (200, iterations);
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	auto & blocks_node (response.json.get_child ("blocks"));
 	std::vector<rai::block_hash> blocks;
@@ -2240,7 +2222,7 @@ TEST (rpc, deterministic_key)
 	rai::system system0 (24000, 1);
 	rai::raw_key seed;
 	{
-		rai::transaction transaction (system0.nodes[0]->store.environment, nullptr, false);
+		auto transaction (system0.nodes[0]->store.tx_begin ());
 		system0.wallet (0)->store.seed (seed, transaction);
 	}
 	rai::account account0 (system0.wallet (0)->deterministic_insert ());
@@ -2335,6 +2317,13 @@ TEST (rpc, accounts_pending)
 	rai::keypair key1;
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	auto block1 (system.wallet (0)->send_action (rai::test_genesis_key.pub, key1.pub, 100));
+	auto iterations (0);
+	while (system.nodes[0]->active.active (*block1))
+	{
+		system.poll ();
+		++iterations;
+		ASSERT_LT (iterations, 200);
+	}
 	rai::rpc rpc (system.service, *system.nodes[0], rai::rpc_config (true));
 	rpc.start ();
 	boost::property_tree::ptree request;
@@ -2434,17 +2423,23 @@ TEST (rpc, blocks)
 	}
 }
 
-TEST (rpc, wallet_balance_total)
+TEST (rpc, wallet_info)
 {
 	rai::system system (24000, 1);
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	rai::keypair key;
 	system.wallet (0)->insert_adhoc (key.prv);
 	auto send (system.wallet (0)->send_action (rai::test_genesis_key.pub, key.pub, 1));
+	rai::account account (system.wallet (0)->deterministic_insert ());
+	{
+		auto transaction (system.nodes[0]->store.tx_begin (true));
+		system.wallet (0)->store.erase (transaction, account);
+	}
+	account = system.wallet (0)->deterministic_insert ();
 	rai::rpc rpc (system.service, *system.nodes[0], rai::rpc_config (true));
 	rpc.start ();
 	boost::property_tree::ptree request;
-	request.put ("action", "wallet_balance_total");
+	request.put ("action", "wallet_info");
 	request.put ("wallet", system.nodes[0]->wallets.items.begin ()->first.to_string ());
 	test_response response (request, rpc, system.service);
 	while (response.status == 0)
@@ -2456,6 +2451,14 @@ TEST (rpc, wallet_balance_total)
 	ASSERT_EQ ("340282366920938463463374607431768211454", balance_text);
 	std::string pending_text (response.json.get<std::string> ("pending"));
 	ASSERT_EQ ("1", pending_text);
+	std::string count_text (response.json.get<std::string> ("accounts_count"));
+	ASSERT_EQ ("3", count_text);
+	std::string adhoc_count (response.json.get<std::string> ("adhoc_count"));
+	ASSERT_EQ ("2", adhoc_count);
+	std::string deterministic_count (response.json.get<std::string> ("deterministic_count"));
+	ASSERT_EQ ("1", deterministic_count);
+	std::string index_text (response.json.get<std::string> ("deterministic_index"));
+	ASSERT_EQ ("2", index_text);
 }
 
 TEST (rpc, wallet_balances)
@@ -2541,6 +2544,13 @@ TEST (rpc, wallet_pending)
 	system0.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	system0.wallet (0)->insert_adhoc (key1.prv);
 	auto block1 (system0.wallet (0)->send_action (rai::test_genesis_key.pub, key1.pub, 100));
+	auto iterations (0);
+	while (system0.nodes[0]->active.active (*block1))
+	{
+		system0.poll ();
+		++iterations;
+		ASSERT_LT (iterations, 200);
+	}
 	rai::rpc rpc (system0.service, *system0.nodes[0], rai::rpc_config (true));
 	rpc.start ();
 	boost::property_tree::ptree request;
@@ -2553,6 +2563,7 @@ TEST (rpc, wallet_pending)
 		system0.poll ();
 	}
 	ASSERT_EQ (200, response.status);
+	ASSERT_EQ (1, response.json.get_child ("blocks").size ());
 	for (auto & pending : response.json.get_child ("blocks"))
 	{
 		std::string account_text (pending.first);
@@ -2568,6 +2579,7 @@ TEST (rpc, wallet_pending)
 	}
 	ASSERT_EQ (200, response0.status);
 	std::unordered_map<rai::block_hash, rai::uint128_union> blocks;
+	ASSERT_EQ (1, response0.json.get_child ("blocks").size ());
 	for (auto & pending : response0.json.get_child ("blocks"))
 	{
 		std::string account_text (pending.first);
@@ -2606,6 +2618,7 @@ TEST (rpc, wallet_pending)
 	ASSERT_EQ (200, response2.status);
 	std::unordered_map<rai::block_hash, rai::uint128_union> amounts;
 	std::unordered_map<rai::block_hash, rai::account> sources;
+	ASSERT_EQ (1, response0.json.get_child ("blocks").size ());
 	for (auto & pending : response2.json.get_child ("blocks"))
 	{
 		std::string account_text (pending.first);
@@ -2679,7 +2692,7 @@ TEST (rpc, work_get)
 	ASSERT_EQ (200, response.status);
 	std::string work_text (response.json.get<std::string> ("work"));
 	uint64_t work (1);
-	rai::transaction transaction (system.nodes[0]->store.environment, nullptr, false);
+	auto transaction (system.nodes[0]->store.tx_begin ());
 	system.nodes[0]->wallets.items.begin ()->second->store.work_get (transaction, rai::genesis_account, work);
 	ASSERT_EQ (rai::to_string_hex (work), work_text);
 }
@@ -2700,7 +2713,7 @@ TEST (rpc, wallet_work_get)
 		system.poll ();
 	}
 	ASSERT_EQ (200, response.status);
-	rai::transaction transaction (system.nodes[0]->store.environment, nullptr, false);
+	auto transaction (system.nodes[0]->store.tx_begin ());
 	for (auto & works : response.json.get_child ("works"))
 	{
 		std::string account_text (works.first);
@@ -2733,7 +2746,7 @@ TEST (rpc, work_set)
 	std::string success (response.json.get<std::string> ("success"));
 	ASSERT_TRUE (success.empty ());
 	uint64_t work1 (1);
-	rai::transaction transaction (system.nodes[0]->store.environment, nullptr, false);
+	auto transaction (system.nodes[0]->store.tx_begin ());
 	system.nodes[0]->wallets.items.begin ()->second->store.work_get (transaction, rai::genesis_account, work1);
 	ASSERT_EQ (work1, work0);
 }
@@ -2743,7 +2756,8 @@ TEST (rpc, search_pending_all)
 	rai::system system (24000, 1);
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	rai::send_block block (system.nodes[0]->latest (rai::test_genesis_key.pub), rai::test_genesis_key.pub, rai::genesis_amount - system.nodes[0]->config.receive_minimum.number (), rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
-	ASSERT_EQ (rai::process_result::progress, system.nodes[0]->ledger.process (rai::transaction (system.nodes[0]->store.environment, nullptr, true), block).code);
+	auto transaction (system.nodes[0]->store.tx_begin (true));
+	ASSERT_EQ (rai::process_result::progress, system.nodes[0]->ledger.process (transaction, block).code);
 	rai::rpc rpc (system.service, *system.nodes[0], rai::rpc_config (true));
 	rpc.start ();
 	boost::property_tree::ptree request;
@@ -2754,12 +2768,10 @@ TEST (rpc, search_pending_all)
 		system.poll ();
 	}
 	ASSERT_EQ (200, response.status);
-	auto iterations (0);
+	system.deadline_set (10s);
 	while (system.nodes[0]->balance (rai::test_genesis_key.pub) != rai::genesis_amount)
 	{
-		system.poll ();
-		++iterations;
-		ASSERT_LT (iterations, 200);
+		ASSERT_NO_ERROR (system.poll ());
 	}
 }
 
@@ -3431,7 +3443,10 @@ TEST (rpc, wallet_lock)
 	boost::property_tree::ptree request;
 	std::string wallet;
 	system.nodes[0]->wallets.items.begin ()->first.encode_hex (wallet);
-	ASSERT_TRUE (system.wallet (0)->valid_password ());
+	{
+		auto transaction (system.wallet (0)->wallets.tx_begin ());
+		ASSERT_TRUE (system.wallet (0)->store.valid_password (transaction));
+	}
 	request.put ("wallet", wallet);
 	request.put ("action", "wallet_lock");
 	test_response response (request, rpc, system.service);
@@ -3442,7 +3457,8 @@ TEST (rpc, wallet_lock)
 	ASSERT_EQ (200, response.status);
 	std::string account_text1 (response.json.get<std::string> ("locked"));
 	ASSERT_EQ (account_text1, "1");
-	ASSERT_FALSE (system.wallet (0)->valid_password ());
+	auto transaction (system.wallet (0)->wallets.tx_begin ());
+	ASSERT_FALSE (system.wallet (0)->store.valid_password (transaction));
 }
 
 TEST (rpc, wallet_locked)
@@ -3589,12 +3605,10 @@ TEST (rpc, online_reps)
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	ASSERT_TRUE (system.nodes[1]->online_reps.online_stake () == system.nodes[1]->config.online_weight_minimum.number ());
 	system.wallet (0)->send_action (rai::test_genesis_key.pub, rai::test_genesis_key.pub, rai::Gxrb_ratio);
-	auto iterations (0);
+	system.deadline_set (10s);
 	while (system.nodes[1]->online_reps.online_stake () == system.nodes[1]->config.online_weight_minimum.number ())
 	{
-		system.poll ();
-		++iterations;
-		ASSERT_LT (iterations, 200);
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	rai::rpc rpc (system.service, *system.nodes[1], rai::rpc_config (true));
 	rpc.start ();
@@ -3618,13 +3632,11 @@ TEST (rpc, confirmation_history)
 	rai::system system (24000, 1);
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	auto block (system.wallet (0)->send_action (rai::test_genesis_key.pub, rai::test_genesis_key.pub, rai::Gxrb_ratio));
-	auto iterations (0);
 	ASSERT_TRUE (system.nodes[0]->active.confirmed.empty ());
+	system.deadline_set (10s);
 	while (system.nodes[0]->active.confirmed.empty ())
 	{
-		system.poll ();
-		++iterations;
-		ASSERT_LT (iterations, 200);
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	rai::rpc rpc (system.service, *system.nodes[0], rai::rpc_config (true));
 	rpc.start ();
@@ -3656,7 +3668,7 @@ TEST (rpc, block_confirm)
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	auto send1 (std::make_shared<rai::state_block> (rai::test_genesis_key.pub, genesis.hash (), rai::test_genesis_key.pub, rai::genesis_amount - rai::Gxrb_ratio, rai::test_genesis_key.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.nodes[0]->work_generate_blocking (genesis.hash ())));
 	{
-		rai::transaction transaction (system.nodes[0]->store.environment, nullptr, true);
+		auto transaction (system.nodes[0]->store.tx_begin (true));
 		ASSERT_EQ (rai::process_result::progress, system.nodes[0]->ledger.process (transaction, *send1).code);
 	}
 	rai::rpc rpc (system.service, *system.nodes[0], rai::rpc_config (true));

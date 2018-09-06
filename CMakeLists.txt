@@ -1,7 +1,7 @@
 cmake_minimum_required (VERSION 3.4)
 project (rai)
 
-set (CPACK_PACKAGE_VERSION_MAJOR "15")
+set (CPACK_PACKAGE_VERSION_MAJOR "17")
 set (CPACK_PACKAGE_VERSION_MINOR "0")
 set (CPACK_PACKAGE_VERSION_PATCH "0")
 if (DEFINED GIT_COMMIT)
@@ -100,7 +100,7 @@ endif ()
 SET( CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${PLATFORM_LINK_FLAGS}" )
 
 if (RAIBLOCKS_SECURE_RPC)
-	find_package (OpenSSL 1.0 EXACT REQUIRED)
+	find_package (OpenSSL 1.0 REQUIRED)
 	#include_directories(${OPENSSL_INCLUDE_DIR})
 	add_definitions (-DRAIBLOCKS_SECURE_RPC)
 	message("OpenSSL include dir: ${OPENSSL_INCLUDE_DIR}")
@@ -120,7 +120,7 @@ if (BOOST_ROOT)
     list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/Modules")
 endif ()
 
-find_package (Boost 1.66.0 REQUIRED COMPONENTS date_time filesystem system log log_setup thread program_options regex chrono atomic)
+find_package (Boost 1.66.0 REQUIRED COMPONENTS filesystem log thread program_options)
 
 add_subdirectory(ed25519-donna)
 

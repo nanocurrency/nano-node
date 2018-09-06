@@ -1,4 +1,5 @@
 #include <rai/node/common.hpp>
+#include <rai/node/lmdb.hpp>
 #include <rai/node/stats.hpp>
 #include <rai/secure/blockstore.hpp>
 #include <rai/secure/ledger.hpp>
@@ -11,7 +12,7 @@ namespace
 class rollback_visitor : public rai::block_visitor
 {
 public:
-	rollback_visitor (MDB_txn * transaction_a, rai::ledger & ledger_a) :
+	rollback_visitor (rai::transaction const & transaction_a, rai::ledger & ledger_a) :
 	transaction (transaction_a),
 	ledger (ledger_a)
 	{
@@ -158,14 +159,14 @@ public:
 		}
 		ledger.store.block_del (transaction, hash);
 	}
-	MDB_txn * transaction;
+	rai::transaction const & transaction;
 	rai::ledger & ledger;
 };
 
 class ledger_processor : public rai::block_visitor
 {
 public:
-	ledger_processor (rai::ledger &, MDB_txn *);
+	ledger_processor (rai::ledger &, rai::transaction const &);
 	virtual ~ledger_processor () = default;
 	void send_block (rai::send_block const &) override;
 	void receive_block (rai::receive_block const &) override;
@@ -175,7 +176,7 @@ public:
 	void state_block_impl (rai::state_block const &);
 	void epoch_block_impl (rai::state_block const &);
 	rai::ledger & ledger;
-	MDB_txn * transaction;
+	rai::transaction const & transaction;
 	rai::process_return result;
 };
 
@@ -578,7 +579,7 @@ void ledger_processor::open_block (rai::open_block const & block_a)
 	}
 }
 
-ledger_processor::ledger_processor (rai::ledger & ledger_a, MDB_txn * transaction_a) :
+ledger_processor::ledger_processor (rai::ledger & ledger_a, rai::transaction const & transaction_a) :
 ledger (ledger_a),
 transaction (transaction_a)
 {
@@ -606,49 +607,16 @@ epoch_signer (epoch_signer_a)
 {
 }
 
-// Sum the weights for each vote and return the winning block with its vote tally
-std::pair<rai::uint128_t, std::shared_ptr<rai::block>> rai::ledger::winner (MDB_txn * transaction_a, rai::votes const & votes_a)
-{
-	auto tally_l (tally (transaction_a, votes_a));
-	auto existing (tally_l.begin ());
-	return std::make_pair (existing->first, existing->second);
-}
-
-std::map<rai::uint128_t, std::shared_ptr<rai::block>, std::greater<rai::uint128_t>> rai::ledger::tally (MDB_txn * transaction_a, rai::votes const & votes_a)
-{
-	std::unordered_map<std::shared_ptr<block>, rai::uint128_t, rai::shared_ptr_block_hash, rai::shared_ptr_block_hash> totals;
-	// Construct a map of blocks -> vote total.
-	for (auto & i : votes_a.rep_votes)
-	{
-		auto existing (totals.find (i.second));
-		if (existing == totals.end ())
-		{
-			totals.insert (std::make_pair (i.second, 0));
-			existing = totals.find (i.second);
-			assert (existing != totals.end ());
-		}
-		auto weight_l (weight (transaction_a, i.first));
-		existing->second += weight_l;
-	}
-	// Construction a map of vote total -> block in decreasing order.
-	std::map<rai::uint128_t, std::shared_ptr<rai::block>, std::greater<rai::uint128_t>> result;
-	for (auto & i : totals)
-	{
-		result[i.second] = i.first;
-	}
-	return result;
-}
-
 // Balance for account containing hash
-rai::uint128_t rai::ledger::balance (MDB_txn * transaction_a, rai::block_hash const & hash_a)
+rai::uint128_t rai::ledger::balance (rai::transaction const & transaction_a, rai::block_hash const & hash_a)
 {
-	balance_visitor visitor (transaction_a, store);
+	rai::balance_visitor visitor (transaction_a, store);
 	visitor.compute (hash_a);
 	return visitor.balance;
 }
 
 // Balance for an account by account number
-rai::uint128_t rai::ledger::account_balance (MDB_txn * transaction_a, rai::account const & account_a)
+rai::uint128_t rai::ledger::account_balance (rai::transaction const & transaction_a, rai::account const & account_a)
 {
 	rai::uint128_t result (0);
 	rai::account_info info;
@@ -660,38 +628,38 @@ rai::uint128_t rai::ledger::account_balance (MDB_txn * transaction_a, rai::accou
 	return result;
 }
 
-rai::uint128_t rai::ledger::account_pending (MDB_txn * transaction_a, rai::account const & account_a)
+rai::uint128_t rai::ledger::account_pending (rai::transaction const & transaction_a, rai::account const & account_a)
 {
 	rai::uint128_t result (0);
 	rai::account end (account_a.number () + 1);
 	for (auto i (store.pending_v0_begin (transaction_a, rai::pending_key (account_a, 0))), n (store.pending_v0_begin (transaction_a, rai::pending_key (end, 0))); i != n; ++i)
 	{
-		rai::pending_info info (i->second, rai::epoch::epoch_0);
+		rai::pending_info info (i->second);
 		result += info.amount.number ();
 	}
 	for (auto i (store.pending_v1_begin (transaction_a, rai::pending_key (account_a, 0))), n (store.pending_v1_begin (transaction_a, rai::pending_key (end, 0))); i != n; ++i)
 	{
-		rai::pending_info info (i->second, rai::epoch::epoch_1);
+		rai::pending_info info (i->second);
 		result += info.amount.number ();
 	}
 	return result;
 }
 
-rai::process_return rai::ledger::process (MDB_txn * transaction_a, rai::block const & block_a)
+rai::process_return rai::ledger::process (rai::transaction const & transaction_a, rai::block const & block_a)
 {
 	ledger_processor processor (*this, transaction_a);
 	block_a.visit (processor);
 	return processor.result;
 }
 
-rai::block_hash rai::ledger::representative (MDB_txn * transaction_a, rai::block_hash const & hash_a)
+rai::block_hash rai::ledger::representative (rai::transaction const & transaction_a, rai::block_hash const & hash_a)
 {
 	auto result (representative_calculated (transaction_a, hash_a));
 	assert (result.is_zero () || store.block_exists (transaction_a, result));
 	return result;
 }
 
-rai::block_hash rai::ledger::representative_calculated (MDB_txn * transaction_a, rai::block_hash const & hash_a)
+rai::block_hash rai::ledger::representative_calculated (rai::transaction const & transaction_a, rai::block_hash const & hash_a)
 {
 	representative_visitor visitor (transaction_a, store);
 	visitor.compute (hash_a);
@@ -700,7 +668,7 @@ rai::block_hash rai::ledger::representative_calculated (MDB_txn * transaction_a,
 
 bool rai::ledger::block_exists (rai::block_hash const & hash_a)
 {
-	rai::transaction transaction (store.environment, nullptr, false);
+	auto transaction (store.tx_begin_read ());
 	auto result (store.block_exists (transaction, hash_a));
 	return result;
 }
@@ -713,7 +681,7 @@ std::string rai::ledger::block_text (char const * hash_a)
 std::string rai::ledger::block_text (rai::block_hash const & hash_a)
 {
 	std::string result;
-	rai::transaction transaction (store.environment, nullptr, false);
+	auto transaction (store.tx_begin_read ());
 	auto block (store.block_get (transaction, hash_a));
 	if (block != nullptr)
 	{
@@ -722,7 +690,7 @@ std::string rai::ledger::block_text (rai::block_hash const & hash_a)
 	return result;
 }
 
-bool rai::ledger::is_send (MDB_txn * transaction_a, rai::state_block const & block_a)
+bool rai::ledger::is_send (rai::transaction const & transaction_a, rai::state_block const & block_a)
 {
 	bool result (false);
 	rai::block_hash previous (block_a.hashables.previous);
@@ -736,7 +704,7 @@ bool rai::ledger::is_send (MDB_txn * transaction_a, rai::state_block const & blo
 	return result;
 }
 
-rai::block_hash rai::ledger::block_destination (MDB_txn * transaction_a, rai::block const & block_a)
+rai::block_hash rai::ledger::block_destination (rai::transaction const & transaction_a, rai::block const & block_a)
 {
 	rai::block_hash result (0);
 	rai::send_block const * send_block (dynamic_cast<rai::send_block const *> (&block_a));
@@ -752,7 +720,7 @@ rai::block_hash rai::ledger::block_destination (MDB_txn * transaction_a, rai::bl
 	return result;
 }
 
-rai::block_hash rai::ledger::block_source (MDB_txn * transaction_a, rai::block const & block_a)
+rai::block_hash rai::ledger::block_source (rai::transaction const & transaction_a, rai::block const & block_a)
 {
 	// If block_a.source () is nonzero, then we have our source.
 	// However, universal blocks will always return zero.
@@ -766,7 +734,7 @@ rai::block_hash rai::ledger::block_source (MDB_txn * transaction_a, rai::block c
 }
 
 // Vote weight of an account
-rai::uint128_t rai::ledger::weight (MDB_txn * transaction_a, rai::account const & account_a)
+rai::uint128_t rai::ledger::weight (rai::transaction const & transaction_a, rai::account const & account_a)
 {
 	if (check_bootstrap_weights.load ())
 	{
@@ -788,7 +756,7 @@ rai::uint128_t rai::ledger::weight (MDB_txn * transaction_a, rai::account const 
 }
 
 // Rollback blocks until `block_a' doesn't exist
-void rai::ledger::rollback (MDB_txn * transaction_a, rai::block_hash const & block_a)
+void rai::ledger::rollback (rai::transaction const & transaction_a, rai::block_hash const & block_a)
 {
 	assert (store.block_exists (transaction_a, block_a));
 	auto account_l (account (transaction_a, block_a));
@@ -804,7 +772,7 @@ void rai::ledger::rollback (MDB_txn * transaction_a, rai::block_hash const & blo
 }
 
 // Return account containing hash
-rai::account rai::ledger::account (MDB_txn * transaction_a, rai::block_hash const & hash_a)
+rai::account rai::ledger::account (rai::transaction const & transaction_a, rai::block_hash const & hash_a)
 {
 	rai::account result;
 	auto hash (hash_a);
@@ -838,7 +806,7 @@ rai::account rai::ledger::account (MDB_txn * transaction_a, rai::block_hash cons
 }
 
 // Return amount decrease or increase for block
-rai::uint128_t rai::ledger::amount (MDB_txn * transaction_a, rai::block_hash const & hash_a)
+rai::uint128_t rai::ledger::amount (rai::transaction const & transaction_a, rai::block_hash const & hash_a)
 {
 	amount_visitor amount (transaction_a, store);
 	amount.compute (hash_a);
@@ -846,7 +814,7 @@ rai::uint128_t rai::ledger::amount (MDB_txn * transaction_a, rai::block_hash con
 }
 
 // Return latest block for account
-rai::block_hash rai::ledger::latest (MDB_txn * transaction_a, rai::account const & account_a)
+rai::block_hash rai::ledger::latest (rai::transaction const & transaction_a, rai::account const & account_a)
 {
 	rai::account_info info;
 	auto latest_error (store.account_get (transaction_a, account_a, info));
@@ -854,7 +822,7 @@ rai::block_hash rai::ledger::latest (MDB_txn * transaction_a, rai::account const
 }
 
 // Return latest root for account, account number of there are no blocks for this account.
-rai::block_hash rai::ledger::latest_root (MDB_txn * transaction_a, rai::account const & account_a)
+rai::block_hash rai::ledger::latest_root (rai::transaction const & transaction_a, rai::account const & account_a)
 {
 	rai::account_info info;
 	auto latest_error (store.account_get (transaction_a, account_a, info));
@@ -870,7 +838,7 @@ rai::block_hash rai::ledger::latest_root (MDB_txn * transaction_a, rai::account 
 	return result;
 }
 
-rai::checksum rai::ledger::checksum (MDB_txn * transaction_a, rai::account const & begin_a, rai::account const & end_a)
+rai::checksum rai::ledger::checksum (rai::transaction const & transaction_a, rai::account const & begin_a, rai::account const & end_a)
 {
 	rai::checksum result;
 	auto error (store.checksum_get (transaction_a, 0, 0, result));
@@ -880,7 +848,7 @@ rai::checksum rai::ledger::checksum (MDB_txn * transaction_a, rai::account const
 
 void rai::ledger::dump_account_chain (rai::account const & account_a)
 {
-	rai::transaction transaction (store.environment, nullptr, false);
+	auto transaction (store.tx_begin_read ());
 	auto hash (latest (transaction, account_a));
 	while (!hash.is_zero ())
 	{
@@ -894,7 +862,7 @@ void rai::ledger::dump_account_chain (rai::account const & account_a)
 class block_fit_visitor : public rai::block_visitor
 {
 public:
-	block_fit_visitor (rai::ledger & ledger_a, MDB_txn * transaction_a) :
+	block_fit_visitor (rai::ledger & ledger_a, rai::transaction const & transaction_a) :
 	ledger (ledger_a),
 	transaction (transaction_a),
 	result (false)
@@ -922,22 +890,27 @@ public:
 		result = block_a.previous ().is_zero () || ledger.store.block_exists (transaction, block_a.previous ());
 		if (result && !ledger.is_send (transaction, block_a))
 		{
-			result &= ledger.store.block_exists (transaction, block_a.hashables.link);
+			result &= ledger.store.block_exists (transaction, block_a.hashables.link) || block_a.hashables.link.is_zero () || ledger.is_epoch_link (block_a.hashables.link);
 		}
 	}
 	rai::ledger & ledger;
-	MDB_txn * transaction;
+	rai::transaction const & transaction;
 	bool result;
 };
 
-bool rai::ledger::could_fit (MDB_txn * transaction_a, rai::block const & block_a)
+bool rai::ledger::could_fit (rai::transaction const & transaction_a, rai::block const & block_a)
 {
 	block_fit_visitor visitor (*this, transaction_a);
 	block_a.visit (visitor);
 	return visitor.result;
 }
 
-void rai::ledger::checksum_update (MDB_txn * transaction_a, rai::block_hash const & hash_a)
+bool rai::ledger::is_epoch_link (rai::uint256_union const & link_a)
+{
+	return link_a == epoch_link;
+}
+
+void rai::ledger::checksum_update (rai::transaction const & transaction_a, rai::block_hash const & hash_a)
 {
 	rai::checksum value;
 	auto error (store.checksum_get (transaction_a, 0, 0, value));
@@ -946,7 +919,7 @@ void rai::ledger::checksum_update (MDB_txn * transaction_a, rai::block_hash cons
 	store.checksum_put (transaction_a, 0, 0, value);
 }
 
-void rai::ledger::change_latest (MDB_txn * transaction_a, rai::account const & account_a, rai::block_hash const & hash_a, rai::block_hash const & rep_block_a, rai::amount const & balance_a, uint64_t block_count_a, bool is_state, rai::epoch epoch_a)
+void rai::ledger::change_latest (rai::transaction const & transaction_a, rai::account const & account_a, rai::block_hash const & hash_a, rai::block_hash const & rep_block_a, rai::amount const & balance_a, uint64_t block_count_a, bool is_state, rai::epoch epoch_a)
 {
 	rai::account_info info;
 	auto exists (!store.account_get (transaction_a, account_a, info));
@@ -988,7 +961,7 @@ void rai::ledger::change_latest (MDB_txn * transaction_a, rai::account const & a
 	}
 }
 
-std::unique_ptr<rai::block> rai::ledger::successor (MDB_txn * transaction_a, rai::uint256_union const & root_a)
+std::unique_ptr<rai::block> rai::ledger::successor (rai::transaction const & transaction_a, rai::uint256_union const & root_a)
 {
 	rai::block_hash successor (0);
 	if (store.account_exists (transaction_a, root_a))
@@ -1011,7 +984,7 @@ std::unique_ptr<rai::block> rai::ledger::successor (MDB_txn * transaction_a, rai
 	return result;
 }
 
-std::unique_ptr<rai::block> rai::ledger::forked_block (MDB_txn * transaction_a, rai::block const & block_a)
+std::unique_ptr<rai::block> rai::ledger::forked_block (rai::transaction const & transaction_a, rai::block const & block_a)
 {
 	assert (!store.block_exists (transaction_a, block_a.hash ()));
 	auto root (block_a.root ());

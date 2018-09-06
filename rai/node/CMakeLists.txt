@@ -22,7 +22,8 @@ add_library (node
 	cli.hpp
 	cli.cpp
 	common.cpp
-	common.hpp
+	lmdb.cpp
+	lmdb.hpp
 	node.hpp
 	node.cpp
 	openclwork.cpp
