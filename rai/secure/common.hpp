@@ -25,7 +25,7 @@ struct hash<rai::uint256_union>
 }
 namespace rai
 {
-const uint8_t protocol_version = 0x0d;
+const uint8_t protocol_version = 0x0e;
 const uint8_t protocol_version_min = 0x07;
 const uint8_t node_id_version = 0x0c;
 
