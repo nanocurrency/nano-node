@@ -3702,3 +3702,46 @@ TEST (rpc, block_confirm_absent)
 	ASSERT_EQ (200, response.status);
 	ASSERT_EQ ("Block not found", response.json.get<std::string> ("error"));
 }
+
+TEST (rpc, node_id)
+{
+	rai::system system (24000, 1);
+	rai::rpc rpc (system.service, *system.nodes[0], rai::rpc_config (true));
+	rpc.start ();
+	boost::property_tree::ptree request;
+	request.put ("action", "node_id");
+	test_response response (request, rpc, system.service);
+	while (response.status == 0)
+	{
+		system.poll ();
+	}
+	ASSERT_EQ (200, response.status);
+	auto transaction (system.nodes[0]->store.tx_begin_read ());
+	rai::keypair node_id (system.nodes[0]->store.get_node_id (transaction));
+	ASSERT_EQ (node_id.prv.data.to_string (), response.json.get<std::string> ("private"));
+	ASSERT_EQ (node_id.pub.to_account (), response.json.get<std::string> ("as_account"));
+}
+
+TEST (rpc, node_id_delete)
+{
+	rai::system system (24000, 1);
+	rai::rpc rpc (system.service, *system.nodes[0], rai::rpc_config (true));
+	rpc.start 
+	{
+		auto transaction (system.nodes[0]->store.tx_begin_write ());
+		rai::keypair node_id (system.nodes[0]->store.get_node_id (transaction));
+		ASSERT_EQ (node_id.pub.to_string (), system.nodes[0]->node_id.pub.to_string ());
+	}
+	boost::property_tree::ptree request;
+	request.put ("action", "node_id_delete");
+	test_response response (request, rpc, system.service);
+	while (response.status == 0)
+	{
+		system.poll ();
+	}
+	ASSERT_EQ (200, response.status);
+	ASSERT_EQ ("1", response.json.get<std::string> ("deleted"));
+	auto transaction (system.nodes[0]->store.tx_begin_write ());
+	rai::keypair node_id (system.nodes[0]->store.get_node_id (transaction));
+	ASSERT_NE (node_id.pub.to_string (), system.nodes[0]->node_id.pub.to_string ());
+}
