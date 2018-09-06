@@ -1379,8 +1379,8 @@ bool rai::rep_crawler::exists (rai::block_hash const & hash_a)
 rai::block_processor::block_processor (rai::node & node_a) :
 stopped (false),
 active (false),
-next_log (std::chrono::steady_clock::now ()),
-node (node_a)
+node (node_a),
+next_log (std::chrono::steady_clock::now ())
 {
 }
 

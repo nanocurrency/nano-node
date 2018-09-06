@@ -1837,7 +1837,7 @@ TEST (node, block_processor_signatures)
 	node1.process_active (receive2);
 	node1.process_active (receive3);
 	node1.block_processor.flush ();
-	rai::transaction transaction (node1.store.environment, nullptr, false);
+	auto transaction (node1.store.tx_begin_read ());
 	ASSERT_TRUE (node1.store.block_exists (transaction, send1->hash ()));
 	ASSERT_TRUE (node1.store.block_exists (transaction, send2->hash ()));
 	ASSERT_TRUE (node1.store.block_exists (transaction, send3->hash ()));
