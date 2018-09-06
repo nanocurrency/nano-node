@@ -164,7 +164,7 @@ std::string nano::error_process_messages::message (int ev) const
 		case nano::error_process::block_position:
 			return "This block cannot follow the previous block";
 		case nano::error_process::other:
-			"Error processing block";
+			return "Error processing block";
 	}
 
 	return "Invalid error code";
