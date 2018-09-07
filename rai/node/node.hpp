@@ -573,6 +573,7 @@ private:
 	std::chrono::steady_clock::time_point next_log;
 	std::deque<std::pair<std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point>> blocks;
 	std::unordered_set<rai::block_hash> blocks_hashes;
+	std::unordered_set<rai::block_hash> rolled_back;
 	std::deque<std::shared_ptr<rai::block>> forced;
 	std::condition_variable condition;
 	rai::node & node;

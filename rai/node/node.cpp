@@ -1415,11 +1415,12 @@ void rai::block_processor::add (std::shared_ptr<rai::block> block_a, std::chrono
 {
 	if (!rai::work_validate (block_a->root (), block_a->block_work ()))
 	{
+		auto hash (block_a->hash ());
 		std::lock_guard<std::mutex> lock (mutex);
-		if (blocks_hashes.find (block_a->hash ()) == blocks_hashes.end ())
+		if (blocks_hashes.find (hash) == blocks_hashes.end () && rolled_back.find (hash) == rolled_back.end ())
 		{
 			blocks.push_back (std::make_pair (block_a, origination));
-			blocks_hashes.insert (block_a->hash ());
+			blocks_hashes.insert (hash);
 			condition.notify_all ();
 		}
 	}
@@ -1512,6 +1513,7 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 					// Replace our block with the winner and roll back any dependent blocks
 					BOOST_LOG (node.log) << boost::str (boost::format ("Rolling back %1% and replacing with %2%") % successor->hash ().to_string () % hash.to_string ());
 					node.ledger.rollback (transaction, successor->hash ());
+					rolled_back.insert (successor->hash ());
 				}
 			}
 			auto process_result (process_receive_one (transaction, block.first, block.second));
