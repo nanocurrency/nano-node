@@ -1513,7 +1513,13 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 					// Replace our block with the winner and roll back any dependent blocks
 					BOOST_LOG (node.log) << boost::str (boost::format ("Rolling back %1% and replacing with %2%") % successor->hash ().to_string () % hash.to_string ());
 					node.ledger.rollback (transaction, successor->hash ());
+					// Prevent rolled back blocks second insertion
 					rolled_back.insert (successor->hash ());
+					if (rolled_back.find (hash) != rolled_back.end ())
+					{
+						// Possible election winner change
+						rolled_back.erase (hash);
+					}
 				}
 			}
 			auto process_result (process_receive_one (transaction, block.first, block.second));
