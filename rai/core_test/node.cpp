@@ -738,11 +738,12 @@ TEST (node, fork_flip)
 		ASSERT_TRUE (node2.store.block_exists (transaction, publish2.block->hash ()));
 	}
 	system.deadline_set (10s);
-	while (votes1->last_votes.size () < 2)
+	auto done (false);
+	while (!done)
 	{
 		ASSERT_NO_ERROR (system.poll ());
+		done = node2.ledger.block_exists (publish1.block->hash ());
 	}
-	node2.block_processor.flush ();
 	auto transaction1 (system.nodes[0]->store.tx_begin ());
 	auto transaction2 (system.nodes[1]->store.tx_begin ());
 	auto winner (*votes1->tally (transaction2).begin ());
@@ -796,12 +797,12 @@ TEST (node, fork_multi_flip)
 		ASSERT_TRUE (node2.store.block_exists (transaction, publish3.block->hash ()));
 	}
 	system.deadline_set (10s);
-	while (votes1->last_votes.size () == 1)
+	auto done (false);
+	while (!done)
 	{
 		ASSERT_NO_ERROR (system.poll ());
+		done = node2.ledger.block_exists (publish1.block->hash ());
 	}
-	// Winning block is queued for rollback
-	node2.block_processor.flush ();
 	auto transaction1 (system.nodes[0]->store.tx_begin ());
 	auto transaction2 (system.nodes[1]->store.tx_begin ());
 	auto winner (*votes1->tally (transaction2).begin ());
