@@ -693,7 +693,7 @@ TEST (node, fork_keep)
 	auto transaction0 (system.nodes[0]->store.tx_begin ());
 	auto transaction1 (system.nodes[1]->store.tx_begin ());
 	// The vote should be in agreement with what we already have.
-	auto winner (*votes1->tally (transaction0).begin ());
+	auto winner (*votes1->tally (transaction1).begin ());
 	ASSERT_EQ (*send1, *winner.second);
 	ASSERT_EQ (rai::genesis_amount - 100, winner.first);
 	ASSERT_TRUE (system.nodes[0]->store.block_exists (transaction0, send1->hash ()));
@@ -738,17 +738,19 @@ TEST (node, fork_flip)
 		ASSERT_TRUE (node2.store.block_exists (transaction, publish2.block->hash ()));
 	}
 	system.deadline_set (10s);
-	while (votes1->last_votes.size () == 1)
+	while (votes1->last_votes.size () < 2)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	auto transaction (system.nodes[0]->store.tx_begin ());
-	auto winner (*votes1->tally (transaction).begin ());
+	node2.block_processor.flush ();
+	auto transaction1 (system.nodes[0]->store.tx_begin ());
+	auto transaction2 (system.nodes[1]->store.tx_begin ());
+	auto winner (*votes1->tally (transaction2).begin ());
 	ASSERT_EQ (*publish1.block, *winner.second);
 	ASSERT_EQ (rai::genesis_amount - 100, winner.first);
-	ASSERT_TRUE (node1.store.block_exists (transaction, publish1.block->hash ()));
-	ASSERT_TRUE (node2.store.block_exists (transaction, publish1.block->hash ()));
-	ASSERT_FALSE (node2.store.block_exists (transaction, publish2.block->hash ()));
+	ASSERT_TRUE (node1.store.block_exists (transaction1, publish1.block->hash ()));
+	ASSERT_TRUE (node2.store.block_exists (transaction2, publish1.block->hash ()));
+	ASSERT_FALSE (node2.store.block_exists (transaction2, publish2.block->hash ()));
 }
 
 TEST (node, fork_multi_flip)
@@ -798,14 +800,17 @@ TEST (node, fork_multi_flip)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	auto transaction (system.nodes[0]->store.tx_begin ());
-	auto winner (*votes1->tally (transaction).begin ());
+	// Winning block is queued for rollback
+	node2.block_processor.flush ();
+	auto transaction1 (system.nodes[0]->store.tx_begin ());
+	auto transaction2 (system.nodes[1]->store.tx_begin ());
+	auto winner (*votes1->tally (transaction2).begin ());
 	ASSERT_EQ (*publish1.block, *winner.second);
 	ASSERT_EQ (rai::genesis_amount - 100, winner.first);
-	ASSERT_TRUE (node1.store.block_exists (transaction, publish1.block->hash ()));
-	ASSERT_TRUE (node2.store.block_exists (transaction, publish1.block->hash ()));
-	ASSERT_FALSE (node2.store.block_exists (transaction, publish2.block->hash ()));
-	ASSERT_FALSE (node2.store.block_exists (transaction, publish3.block->hash ()));
+	ASSERT_TRUE (node1.store.block_exists (transaction1, publish1.block->hash ()));
+	ASSERT_TRUE (node2.store.block_exists (transaction2, publish1.block->hash ()));
+	ASSERT_FALSE (node2.store.block_exists (transaction2, publish2.block->hash ()));
+	ASSERT_FALSE (node2.store.block_exists (transaction2, publish3.block->hash ()));
 }
 
 // Blocks that are no longer actively being voted on should be able to be evicted through bootstrapping.
@@ -917,13 +922,15 @@ TEST (node, fork_open_flip)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	auto transaction (system.nodes[0]->store.tx_begin ());
-	auto winner (*votes1->tally (transaction).begin ());
+	node2.block_processor.flush ();
+	auto transaction1 (system.nodes[0]->store.tx_begin ());
+	auto transaction2 (system.nodes[1]->store.tx_begin ());
+	auto winner (*votes1->tally (transaction2).begin ());
 	ASSERT_EQ (*open1, *winner.second);
 	ASSERT_EQ (rai::genesis_amount - 1, winner.first);
-	ASSERT_TRUE (node1.store.block_exists (transaction, open1->hash ()));
-	ASSERT_TRUE (node2.store.block_exists (transaction, open1->hash ()));
-	ASSERT_FALSE (node2.store.block_exists (transaction, open2->hash ()));
+	ASSERT_TRUE (node1.store.block_exists (transaction1, open1->hash ()));
+	ASSERT_TRUE (node2.store.block_exists (transaction2, open1->hash ()));
+	ASSERT_FALSE (node2.store.block_exists (transaction2, open2->hash ()));
 }
 
 TEST (node, coherent_observer)
