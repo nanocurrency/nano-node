@@ -1146,7 +1146,11 @@ TEST (rpc, payment_begin_end)
 	rai::uint256_union account;
 	ASSERT_FALSE (account.decode_account (account_text));
 	ASSERT_TRUE (wallet->exists (account));
-	auto root1 (system.nodes[0]->ledger.latest_root (rai::transaction (wallet->wallets.environment, false), account));
+	rai::block_hash root1;
+	{
+		rai::transaction transaction (node1->store.environment, false);
+		root1 = node1->ledger.latest_root (transaction, account);
+	}
 	uint64_t work (0);
 	while (!rai::work_validate (root1, work))
 	{
@@ -1157,7 +1161,8 @@ TEST (rpc, payment_begin_end)
 	while (rai::work_validate (root1, work))
 	{
 		auto ec = system.poll ();
-		ASSERT_FALSE (wallet->store.work_get (rai::transaction (wallet->wallets.environment, false), account, work));
+		rai::transaction transaction (wallet->wallets.environment, false);
+		ASSERT_FALSE (wallet->store.work_get (transaction, account, work));
 		ASSERT_NO_ERROR (ec);
 	}
 	ASSERT_EQ (wallet->free_accounts.end (), wallet->free_accounts.find (account));
