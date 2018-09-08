@@ -61,7 +61,7 @@ rai::transaction rai::mdb_env::tx_begin (bool write_a) const
 MDB_txn * rai::mdb_env::tx (rai::transaction const & transaction_a) const
 {
 	auto result (boost::polymorphic_downcast<rai::mdb_txn *> (transaction_a.impl.get ()));
-	release_assert (mdb_txn_env(result->handle) == environment);
+	release_assert (mdb_txn_env (result->handle) == environment);
 	return *result;
 }
 
