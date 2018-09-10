@@ -1087,7 +1087,7 @@ bool rai::node_config::upgrade_json (unsigned version, boost::property_tree::ptr
 			tree_a.put ("version", "13");
 			result = true;
 		case 13:
-			tree_a.put ("generate_hash_votes_at", std::chrono::system_clock::to_time_t (0));
+			tree_a.put ("generate_hash_votes_at", "0");
 			tree_a.erase ("version");
 			tree_a.put ("version", "14");
 			result = true;
