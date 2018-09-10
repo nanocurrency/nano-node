@@ -626,8 +626,20 @@ rai::mdb_iterator<T, U> & rai::mdb_merge_iterator<T, U>::least_iterator () const
 	else
 	{
 		auto key_cmp (mdb_cmp (mdb_cursor_txn (impl1->cursor), mdb_cursor_dbi (impl1->cursor), impl1->current.first, impl2->current.first));
-		auto val_cmp (mdb_cmp (mdb_cursor_txn (impl1->cursor), mdb_cursor_dbi (impl1->cursor), impl1->current.second, impl2->current.second));
-		result = key_cmp < 0 ? impl1.get () : val_cmp < 0 ? impl1.get () : impl2.get ();
+
+		if (key_cmp < 0)
+		{
+			result = impl1.get ();
+		}
+		else if (key_cmp > 0)
+		{
+			result = impl2.get ();
+		}
+		else
+		{
+			auto val_cmp (mdb_cmp (mdb_cursor_txn (impl1->cursor), mdb_cursor_dbi (impl1->cursor), impl1->current.second, impl2->current.second));
+			result = val_cmp < 0 ? impl1.get () : impl2.get ();
+		}
 	}
 	return *result;
 }
