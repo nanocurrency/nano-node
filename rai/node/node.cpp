@@ -933,9 +933,6 @@ lmdb_max_dbs (128)
 			preconfigured_representatives.push_back (rai::account ("2399A083C600AA0572F5E36247D978FCFC840405F8D4B6D33161C0066A55F431"));
 			preconfigured_representatives.push_back (rai::account ("2298FAB7C61058E77EA554CB93EDEEDA0692CBFCC540AB213B2836B29029E23A"));
 			preconfigured_representatives.push_back (rai::account ("3FE80B4BC842E82C1C18ABFEEC47EA989E63953BC82AC411F304D13833D52A56"));
-			// 2018-09-01 UTC 00:00 in unix time
-			// Technically, time_t is never defined to be unix time, but compilers implement it as such
-			generate_hash_votes_at = std::chrono::system_clock::from_time_t (1535760000);
 			break;
 		default:
 			assert (false);
@@ -988,7 +985,6 @@ void rai::node_config::serialize_json (boost::property_tree::ptree & tree_a) con
 	tree_a.put ("callback_port", std::to_string (callback_port));
 	tree_a.put ("callback_target", callback_target);
 	tree_a.put ("lmdb_max_dbs", lmdb_max_dbs);
-	tree_a.put ("generate_hash_votes_at", std::chrono::system_clock::to_time_t (generate_hash_votes_at));
 }
 
 bool rai::node_config::upgrade_json (unsigned version, boost::property_tree::ptree & tree_a)
@@ -1091,11 +1087,16 @@ bool rai::node_config::upgrade_json (unsigned version, boost::property_tree::ptr
 			tree_a.put ("version", "13");
 			result = true;
 		case 13:
-			tree_a.put ("generate_hash_votes_at", std::chrono::system_clock::to_time_t (generate_hash_votes_at));
+			tree_a.put ("generate_hash_votes_at", std::chrono::system_clock::to_time_t (0));
 			tree_a.erase ("version");
 			tree_a.put ("version", "14");
 			result = true;
 		case 14:
+			tree_a.erase ("generate_hash_votes_at");
+			tree_a.erase ("version");
+			tree_a.put ("version", "15");
+			result = true;
+		case 15:
 			break;
 		default:
 			throw std::runtime_error ("Unknown node_config version");
@@ -1181,8 +1182,6 @@ bool rai::node_config::deserialize_json (bool & upgraded_a, boost::property_tree
 		callback_target = tree_a.get<std::string> ("callback_target");
 		auto lmdb_max_dbs_l = tree_a.get<std::string> ("lmdb_max_dbs");
 		result |= parse_port (callback_port_l, callback_port);
-		auto generate_hash_votes_at_l = tree_a.get<time_t> ("generate_hash_votes_at");
-		generate_hash_votes_at = std::chrono::system_clock::from_time_t (generate_hash_votes_at_l);
 		try
 		{
 			peering_port = std::stoul (peering_port_l);
@@ -3802,7 +3801,7 @@ void rai::active_transactions::announce_votes ()
 				// Broadcast winner
 				if (node.ledger.could_fit (transaction, *election_l->status.winner))
 				{
-					if (node.config.enable_voting && std::chrono::system_clock::now () >= node.config.generate_hash_votes_at)
+					if (node.config.enable_voting)
 					{
 						node.network.republish_block (transaction, election_l->status.winner, false);
 						blocks_bundle.push_back (election_l->status.winner->hash ());
