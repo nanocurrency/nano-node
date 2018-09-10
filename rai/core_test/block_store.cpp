@@ -140,6 +140,55 @@ TEST (block_store, pending_iterator)
 	ASSERT_EQ (rai::epoch::epoch_1, pending.epoch);
 }
 
+/**
+ * Regression test for Issue 1164
+ * This reconstructs the situation where a key is larger in pending than the account being iterated in pending_v1, leaving
+ * iteration order up to the value, causing undefined behavior.
+ * After the bugfix, the value is compared only if the keys are equal.
+ */
+TEST (block_store, pending_iterator_comparison)
+{
+	bool init (false);
+	rai::block_store store (init, rai::unique_path ());
+	ASSERT_TRUE (!init);
+	rai::stat stats;
+	rai::transaction transaction (store.environment, true);
+	// Populate pending
+	store.pending_put (transaction, rai::pending_key (rai::account (3), rai::block_hash (1)), rai::pending_info (rai::account (10), rai::amount (1), rai::epoch::epoch_0));
+	store.pending_put (transaction, rai::pending_key (rai::account (3), rai::block_hash (4)), rai::pending_info (rai::account (10), rai::amount (0), rai::epoch::epoch_0));
+	// Populate pending_v1
+	store.pending_put (transaction, rai::pending_key (rai::account (2), rai::block_hash (2)), rai::pending_info (rai::account (10), rai::amount (2), rai::epoch::epoch_1));
+	store.pending_put (transaction, rai::pending_key (rai::account (2), rai::block_hash (3)), rai::pending_info (rai::account (10), rai::amount (3), rai::epoch::epoch_1));
+
+	// Iterate account 3 (pending)
+	{
+		size_t count = 0;
+		rai::account begin (3);
+		rai::account end (begin.number () + 1);
+		for (auto i (store.pending_begin (transaction, rai::pending_key (begin, 0))), n (store.pending_begin (transaction, rai::pending_key (end, 0))); i != n; ++i, ++count)
+		{
+			rai::pending_key key (i->first);
+			ASSERT_EQ (key.account, begin);
+			ASSERT_LT (count, 3);
+		}
+		ASSERT_EQ (count, 2);
+	}
+
+	// Iterate account 2 (pending_v1)
+	{
+		size_t count = 0;
+		rai::account begin (2);
+		rai::account end (begin.number () + 1);
+		for (auto i (store.pending_begin (transaction, rai::pending_key (begin, 0))), n (store.pending_begin (transaction, rai::pending_key (end, 0))); i != n; ++i, ++count)
+		{
+			rai::pending_key key (i->first);
+			ASSERT_EQ (key.account, begin);
+			ASSERT_LT (count, 3);
+		}
+		ASSERT_EQ (count, 2);
+	}
+}
+
 TEST (block_store, genesis)
 {
 	bool init (false);
