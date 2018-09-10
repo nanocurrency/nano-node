@@ -58,44 +58,50 @@ bool fetch_object (T & object, std::iostream & stream_a)
 }
 // Reads a json object from the stream and if was changed, write the object back to the stream
 template <typename T>
-bool fetch_object (T & object, boost::filesystem::path const & path_a, std::fstream & stream_a)
+bool fetch_object (T & object, boost::filesystem::path const & path_a)
 {
 	bool error (false);
-	nano::open_or_create (stream_a, path_a.string ());
-	if (!stream_a.fail ())
+	std::fstream config_file;
+	nano::open_or_create (config_file, path_a.string ());
+
+	if (!config_file.fail ())
 	{
 		boost::property_tree::ptree tree;
 		try
 		{
-			boost::property_tree::read_json (stream_a, tree);
+			boost::property_tree::read_json (config_file, tree);
 		}
 		catch (std::runtime_error const &)
 		{
-			auto pos (stream_a.tellg ());
+			auto pos (config_file.tellg ());
 			if (pos != std::streampos (0))
 			{
 				error = true;
 			}
 		}
+
+		config_file.close ();
+
 		if (!error)
 		{
 			auto updated (false);
 			error = object.deserialize_json (updated, tree);
 			if (!error && updated)
 			{
-				stream_a.close ();
-				stream_a.open (path_a.string (), std::ios_base::out | std::ios_base::trunc);
+				config_file.open (path_a.string (), std::ios_base::out | std::ios_base::trunc);
 				try
 				{
-					boost::property_tree::write_json (stream_a, tree);
+					boost::property_tree::write_json (config_file, tree);
 				}
 				catch (std::runtime_error const &)
 				{
 					error = true;
 				}
+				config_file.close ();
 			}
 		}
 	}
+
 	return error;
 }
 }
