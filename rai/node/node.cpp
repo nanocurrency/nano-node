@@ -319,21 +319,19 @@ void rai::network::broadcast_confirm_req_batch (std::unordered_map<rai::endpoint
 	auto count (0);
 	while (!request_bundle_a.empty () && count < max_reps)
 	{
-		for (auto j (request_bundle_a.begin ()), m (request_bundle_a.end ()); j != m && count < max_reps; j++)
+		auto j (request_bundle_a.begin ());
+		count++;
+		std::vector<std::pair<rai::block_hash, rai::block_hash>> roots_hashes;
+		// Limit max request size hash + root to 7 pairs
+		while (roots_hashes.size () < 7 && !j->second.empty ())
 		{
-			count++;
-			std::vector<std::pair<rai::block_hash, rai::block_hash>> roots_hashes;
-			// Limit max request size hash + root to 7 pairs
-			while (roots_hashes.size () < 7 && !j->second.empty ())
-			{
-				roots_hashes.push_back (j->second.back ());
-				j->second.pop_back ();
-			}
-			send_confirm_req_hashes (j->first, roots_hashes);
-			if (j->second.empty ())
-			{
-				request_bundle_a.erase (j);
-			}
+			roots_hashes.push_back (j->second.back ());
+			j->second.pop_back ();
+		}
+		send_confirm_req_hashes (j->first, roots_hashes);
+		if (j->second.empty ())
+		{
+			request_bundle_a.erase (j);
 		}
 	}
 	if (!request_bundle_a.empty ())
@@ -3998,7 +3996,7 @@ void rai::active_transactions::announce_votes ()
 						{
 							auto rep_request (requests_bundle.find (j->endpoint));
 							auto root_hash (std::make_pair (i->confirm_req_options.first->hash (), i->confirm_req_options.first->root ()));
-							if (rep_request != requests_bundle.end ())
+							if (rep_request == requests_bundle.end ())
 							{
 								std::vector<std::pair<rai::block_hash, rai::block_hash>> insert_vector (1, root_hash);
 								requests_bundle.insert (std::make_pair (j->endpoint, insert_vector));
@@ -4023,7 +4021,7 @@ void rai::active_transactions::announce_votes ()
 						{
 							auto rep_request (requests_bundle.find (j->endpoint));
 							auto root_hash (std::make_pair (i->confirm_req_options.first->hash (), i->confirm_req_options.first->root ()));
-							if (rep_request != requests_bundle.end ())
+							if (rep_request == requests_bundle.end ())
 							{
 								std::vector<std::pair<rai::block_hash, rai::block_hash>> insert_vector (1, root_hash);
 								requests_bundle.insert (std::make_pair (j->endpoint, insert_vector));
