@@ -2016,6 +2016,7 @@ void rai::rpc_handler::pending ()
 void rai::rpc_handler::pending_exists ()
 {
 	auto hash (hash_impl ());
+	const bool include_active = request.get<bool> ("include_active", false);
 	if (!ec)
 	{
 		auto transaction (node.store.tx_begin_read ());
@@ -2028,6 +2029,7 @@ void rai::rpc_handler::pending_exists ()
 			{
 				exists = node.store.pending_exists (transaction, rai::pending_key (destination, hash));
 			}
+			exists = exists && (include_active || !node.active.active (*block));
 			response_l.put ("exists", exists ? "1" : "0");
 		}
 		else

@@ -2521,6 +2521,10 @@ TEST (rpc, pending_exists)
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	auto hash0 (system.nodes[0]->latest (rai::genesis_account));
 	auto block1 (system.wallet (0)->send_action (rai::test_genesis_key.pub, key1.pub, 100));
+	while (system.nodes[0]->active.active (*block1))
+	{
+		system.poll ();
+	}
 	rai::rpc rpc (system.service, *system.nodes[0], rai::rpc_config (true));
 	rpc.start ();
 	boost::property_tree::ptree request;
