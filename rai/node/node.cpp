@@ -3878,6 +3878,7 @@ void rai::active_transactions::announce_votes ()
 			auto vote (this->node.store.vote_generate (transaction, pub_a, prv_a, blocks_bundle));
 			this->node.vote_processor.vote (vote, this->node.network.endpoint ());
 		});
+		blocks_bundle.clear ();
 	}
 	for (auto i (inactive.begin ()), n (inactive.end ()); i != n; ++i)
 	{
