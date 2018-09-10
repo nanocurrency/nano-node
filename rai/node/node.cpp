@@ -201,35 +201,23 @@ bool confirm_block (rai::transaction const & transaction_a, rai::node & node_a, 
 	return result;
 }
 
-void rai::network::republish_block (rai::transaction const & transaction, std::shared_ptr<rai::block> block, bool enable_voting)
+void rai::network::republish_block (rai::transaction const & transaction, std::shared_ptr<rai::block> block)
 {
 	auto hash (block->hash ());
 	auto list (node.peers.list_fanout ());
-	// If we're a representative, broadcast a signed confirm, otherwise an unsigned publish
-	if (!enable_voting || !confirm_block (transaction, node, list, block))
+	rai::publish message (block);
+	std::shared_ptr<std::vector<uint8_t>> bytes (new std::vector<uint8_t>);
 	{
-		rai::publish message (block);
-		std::shared_ptr<std::vector<uint8_t>> bytes (new std::vector<uint8_t>);
-		{
-			rai::vectorstream stream (*bytes);
-			message.serialize (stream);
-		}
-		auto hash (block->hash ());
-		for (auto i (list.begin ()), n (list.end ()); i != n; ++i)
-		{
-			republish (hash, bytes, *i);
-		}
-		if (node.config.logging.network_logging ())
-		{
-			BOOST_LOG (node.log) << boost::str (boost::format ("Block %1% was republished to peers") % hash.to_string ());
-		}
+		rai::vectorstream stream (*bytes);
+		message.serialize (stream);
 	}
-	else
+	for (auto i (list.begin ()), n (list.end ()); i != n; ++i)
 	{
-		if (node.config.logging.network_logging ())
-		{
-			BOOST_LOG (node.log) << boost::str (boost::format ("Block %1% was confirmed to peers") % hash.to_string ());
-		}
+		republish (hash, bytes, *i);
+	}
+	if (node.config.logging.network_logging ())
+	{
+		BOOST_LOG (node.log) << boost::str (boost::format ("Block %1% was republished to peers") % hash.to_string ());
 	}
 }
 
@@ -3752,7 +3740,7 @@ bool rai::election::publish (std::shared_ptr<rai::block> block_a)
 			{
 				blocks.insert (std::make_pair (block_a->hash (), block_a));
 				confirm_if_quorum (transaction);
-				node.network.republish_block (transaction, block_a, false);
+				node.network.republish_block (transaction, block_a);
 			}
 		}
 	}
@@ -3801,9 +3789,9 @@ void rai::active_transactions::announce_votes ()
 				// Broadcast winner
 				if (node.ledger.could_fit (transaction, *election_l->status.winner))
 				{
+					node.network.republish_block (transaction, election_l->status.winner);
 					if (node.config.enable_voting)
 					{
-						node.network.republish_block (transaction, election_l->status.winner, false);
 						blocks_bundle.push_back (election_l->status.winner->hash ());
 						if (blocks_bundle.size () >= 12)
 						{
@@ -3817,7 +3805,6 @@ void rai::active_transactions::announce_votes ()
 					else
 					{
 						election_l->compute_rep_votes (transaction);
-						node.network.republish_block (transaction, election_l->status.winner);
 					}
 				}
 				else if (i->announcements > 3)
