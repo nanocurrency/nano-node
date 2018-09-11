@@ -1,7 +1,7 @@
 #include <rai/lib/utility.hpp>
 
-#include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/types.h>
 
 void rai::set_umask ()
 {

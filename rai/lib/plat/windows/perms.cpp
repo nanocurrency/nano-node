@@ -1,9 +1,9 @@
-#include <rai/lib/utility.hpp>
 #include <assert.h>
+#include <rai/lib/utility.hpp>
 
 #include <io.h>
-#include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/types.h>
 
 void rai::set_umask ()
 {
