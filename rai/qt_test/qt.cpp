@@ -3,6 +3,7 @@
 #include <gtest/gtest.h>
 
 #include <rai/core_test/testutil.hpp>
+#include <rai/lib/debug.hpp>
 #include <rai/node/testing.hpp>
 
 #include <rai/qt/qt.hpp>
@@ -397,6 +398,7 @@ TEST (wallet, create_open_receive)
 	QTest::keyClicks (wallet->block_creation.representative, rai::test_genesis_key.pub.to_account ().c_str ());
 	QTest::mouseClick (wallet->block_creation.create, Qt::LeftButton);
 	std::string json1 (wallet->block_creation.block->toPlainText ().toStdString ());
+	rai_debug(debug, "json1=" << json1);
 	ASSERT_FALSE (json1.empty ());
 	boost::property_tree::ptree tree1;
 	std::stringstream istream1 (json1);
