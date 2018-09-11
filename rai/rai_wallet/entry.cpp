@@ -191,6 +191,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 {
 	rai_qt::eventloop_processor processor;
 	boost::filesystem::create_directories (data_path);
+	boost::filesystem::permissions (data_path, boost::filesystem::owner_all);
 	QPixmap pixmap (":/logo.png");
 	QSplashScreen * splash = new QSplashScreen (pixmap);
 	splash->show ();
@@ -285,6 +286,8 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 
 int main (int argc, char * const * argv)
 {
+	rai::set_umask ();
+
 	try
 	{
 		QApplication application (argc, const_cast<char **> (argv));

@@ -1,3 +1,4 @@
+#include <rai/lib/utility.hpp>
 #include <rai/node/cli.hpp>
 #include <rai/node/node.hpp>
 #include <rai/node/testing.hpp>
@@ -10,6 +11,8 @@
 
 int main (int argc, char * const * argv)
 {
+	rai::set_umask ();
+
 	boost::program_options::options_description description ("Command line options");
 	rai::add_node_options (description);
 
