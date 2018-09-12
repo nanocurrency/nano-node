@@ -1426,6 +1426,12 @@ rai::transaction rai::wallets::tx_begin (bool write_a)
 	return env.tx_begin (write_a);
 }
 
+void rai::wallets::clear_send_ids (rai::transaction const & transaction_a)
+{
+	auto status (mdb_drop (env.tx (transaction_a), send_action_ids, 0));
+	assert (status == 0);
+}
+
 rai::uint128_t const rai::wallets::generate_priority = std::numeric_limits<rai::uint128_t>::max ();
 rai::uint128_t const rai::wallets::high_priority = std::numeric_limits<rai::uint128_t>::max () - 1;
 
