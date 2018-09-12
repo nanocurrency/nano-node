@@ -175,6 +175,7 @@ public:
 	void foreach_representative (rai::transaction const &, std::function<void(rai::public_key const &, rai::raw_key const &)> const &);
 	bool exists (rai::transaction const &, rai::public_key const &);
 	void stop ();
+	void clear_send_ids (rai::transaction const &);
 	std::function<void(bool)> observer;
 	std::unordered_map<rai::uint256_union, std::shared_ptr<rai::wallet>> items;
 	std::multimap<rai::uint128_t, std::function<void()>, std::greater<rai::uint128_t>> actions;

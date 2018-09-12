@@ -1369,6 +1369,31 @@ void rai::rpc_handler::chain (bool successors)
 	response_errors ();
 }
 
+void rai::rpc_handler::confirmation_active ()
+{
+	uint64_t announcements (0);
+	boost::optional<std::string> announcements_text (request.get_optional<std::string> ("announcements"));
+	if (announcements_text.is_initialized ())
+	{
+		announcements = strtoul (announcements_text.get ().c_str (), NULL, 10);
+	}
+	boost::property_tree::ptree elections;
+	{
+		std::lock_guard<std::mutex> lock (node.active.mutex);
+		for (auto i (node.active.roots.begin ()), n (node.active.roots.end ()); i != n; ++i)
+		{
+			if (i->announcements >= announcements)
+			{
+				boost::property_tree::ptree entry;
+				entry.put ("", i->root.to_string ());
+				elections.push_back (std::make_pair ("", entry));
+			}
+		}
+	}
+	response_l.add_child ("confirmations", elections);
+	response_errors ();
+}
+
 void rai::rpc_handler::confirmation_history ()
 {
 	boost::property_tree::ptree elections;
@@ -1383,6 +1408,83 @@ void rai::rpc_handler::confirmation_history ()
 		}
 	}
 	response_l.add_child ("confirmations", elections);
+	response_errors ();
+}
+
+void rai::rpc_handler::confirmation_info ()
+{
+	const bool representatives = request.get<bool> ("representatives", false);
+	const bool contents = request.get<bool> ("contents", true);
+	std::string root_text (request.get<std::string> ("root"));
+	rai::block_hash root;
+	if (!root.decode_hex (root_text))
+	{
+		std::lock_guard<std::mutex> lock (node.active.mutex);
+		auto conflict_info (node.active.roots.find (root));
+		if (conflict_info != node.active.roots.end ())
+		{
+			response_l.put ("announcements", std::to_string (conflict_info->announcements));
+			auto election (conflict_info->election);
+			rai::uint128_t total (0);
+			response_l.put ("last_winner", election->status.winner->hash ().to_string ());
+			auto transaction (node.store.tx_begin_read ());
+			auto tally_l (election->tally (transaction));
+			boost::property_tree::ptree blocks;
+			for (auto i (tally_l.begin ()), n (tally_l.end ()); i != n; ++i)
+			{
+				boost::property_tree::ptree entry;
+				auto tally (i->first);
+				entry.put ("tally", tally.convert_to<std::string> ());
+				total += tally;
+				if (contents)
+				{
+					std::string contents;
+					i->second->serialize_json (contents);
+					entry.put ("contents", contents);
+				}
+				if (representatives)
+				{
+					std::multimap<rai::uint128_t, rai::account, std::greater<rai::uint128_t>> representatives;
+					for (auto ii (election->last_votes.begin ()), nn (election->last_votes.end ()); ii != nn; ++ii)
+					{
+						if (i->second->hash () == ii->second.hash)
+						{
+							rai::account representative (ii->first);
+							auto amount (node.store.representation_get (transaction, representative));
+							representatives.insert (std::make_pair (amount, representative));
+						}
+					}
+					boost::property_tree::ptree representatives_list;
+					for (auto ii (representatives.begin ()), nn (representatives.end ()); ii != nn; ++ii)
+					{
+						representatives_list.put (ii->second.to_account (), ii->first.convert_to<std::string> ());
+					}
+					entry.add_child ("representatives", representatives_list);
+				}
+				blocks.add_child ((i->second->hash ()).to_string (), entry);
+			}
+			response_l.put ("total_tally", total.convert_to<std::string> ());
+			response_l.add_child ("blocks", blocks);
+		}
+		else
+		{
+			ec = nano::error_rpc::confirmation_not_found;
+		}
+	}
+	else
+	{
+		ec = nano::error_rpc::invalid_root;
+	}
+	response_errors ();
+}
+
+void rai::rpc_handler::confirmation_quorum ()
+{
+	response_l.put ("quorum_delta", node.delta ().convert_to<std::string> ());
+	response_l.put ("online_weight_quorum_percent", std::to_string (node.config.online_weight_quorum));
+	response_l.put ("online_weight_minimum", node.config.online_weight_minimum.to_string_dec ());
+	response_l.put ("online_stake_total", node.online_reps.online_stake_total.convert_to<std::string> ());
+	response_l.put ("peers_stake_total", node.peers.total_weight ().convert_to<std::string> ());
 	response_errors ();
 }
 
@@ -1962,6 +2064,7 @@ void rai::rpc_handler::pending ()
 	auto threshold (threshold_optional_impl ());
 	const bool source = request.get<bool> ("source", false);
 	const bool min_version = request.get<bool> ("min_version", false);
+	const bool include_active = request.get<bool> ("include_active", false);
 	if (!ec)
 	{
 		boost::property_tree::ptree peers_l;
@@ -1970,34 +2073,39 @@ void rai::rpc_handler::pending ()
 		for (auto i (node.store.pending_begin (transaction, rai::pending_key (account, 0))), n (node.store.pending_begin (transaction, rai::pending_key (end, 0))); i != n && peers_l.size () < count; ++i)
 		{
 			rai::pending_key key (i->first);
-			if (threshold.is_zero () && !source && !min_version)
+			std::shared_ptr<rai::block> block (node.store.block_get (transaction, key.hash));
+			assert (block);
+			if (include_active || (block && !node.active.active (*block)))
 			{
-				boost::property_tree::ptree entry;
-				entry.put ("", key.hash.to_string ());
-				peers_l.push_back (std::make_pair ("", entry));
-			}
-			else
-			{
-				rai::pending_info info (i->second);
-				if (info.amount.number () >= threshold.number ())
+				if (threshold.is_zero () && !source && !min_version)
 				{
-					if (source || min_version)
+					boost::property_tree::ptree entry;
+					entry.put ("", key.hash.to_string ());
+					peers_l.push_back (std::make_pair ("", entry));
+				}
+				else
+				{
+					rai::pending_info info (i->second);
+					if (info.amount.number () >= threshold.number ())
 					{
-						boost::property_tree::ptree pending_tree;
-						pending_tree.put ("amount", info.amount.number ().convert_to<std::string> ());
-						if (source)
+						if (source || min_version)
 						{
-							pending_tree.put ("source", info.source.to_account ());
+							boost::property_tree::ptree pending_tree;
+							pending_tree.put ("amount", info.amount.number ().convert_to<std::string> ());
+							if (source)
+							{
+								pending_tree.put ("source", info.source.to_account ());
+							}
+							if (min_version)
+							{
+								pending_tree.put ("min_version", info.epoch == rai::epoch::epoch_1 ? "1" : "0");
+							}
+							peers_l.add_child (key.hash.to_string (), pending_tree);
 						}
-						if (min_version)
+						else
 						{
-							pending_tree.put ("min_version", info.epoch == rai::epoch::epoch_1 ? "1" : "0");
+							peers_l.put (key.hash.to_string (), info.amount.number ().convert_to<std::string> ());
 						}
-						peers_l.add_child (key.hash.to_string (), pending_tree);
-					}
-					else
-					{
-						peers_l.put (key.hash.to_string (), info.amount.number ().convert_to<std::string> ());
 					}
 				}
 			}
@@ -2010,6 +2118,7 @@ void rai::rpc_handler::pending ()
 void rai::rpc_handler::pending_exists ()
 {
 	auto hash (hash_impl ());
+	const bool include_active = request.get<bool> ("include_active", false);
 	if (!ec)
 	{
 		auto transaction (node.store.tx_begin_read ());
@@ -2022,6 +2131,7 @@ void rai::rpc_handler::pending_exists ()
 			{
 				exists = node.store.pending_exists (transaction, rai::pending_key (destination, hash));
 			}
+			exists = exists && (include_active || !node.active.active (*block));
 			response_l.put ("exists", exists ? "1" : "0");
 		}
 		else
@@ -3712,9 +3822,21 @@ void rai::rpc_handler::process_request ()
 			{
 				deterministic_key ();
 			}
+			else if (action == "confirmation_active")
+			{
+				confirmation_active ();
+			}
 			else if (action == "confirmation_history")
 			{
 				confirmation_history ();
+			}
+			else if (action == "confirmation_info")
+			{
+				confirmation_info ();
+			}
+			else if (action == "confirmation_quorum")
+			{
+				confirmation_quorum ();
 			}
 			else if (action == "frontiers")
 			{
