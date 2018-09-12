@@ -2064,6 +2064,7 @@ void rai::rpc_handler::pending ()
 	auto threshold (threshold_optional_impl ());
 	const bool source = request.get<bool> ("source", false);
 	const bool min_version = request.get<bool> ("min_version", false);
+	const bool include_active = request.get<bool> ("include_active", false);
 	if (!ec)
 	{
 		boost::property_tree::ptree peers_l;
@@ -2072,34 +2073,39 @@ void rai::rpc_handler::pending ()
 		for (auto i (node.store.pending_begin (transaction, rai::pending_key (account, 0))), n (node.store.pending_begin (transaction, rai::pending_key (end, 0))); i != n && peers_l.size () < count; ++i)
 		{
 			rai::pending_key key (i->first);
-			if (threshold.is_zero () && !source && !min_version)
+			std::shared_ptr<rai::block> block (node.store.block_get (transaction, key.hash));
+			assert (block);
+			if (include_active || (block && !node.active.active (*block)))
 			{
-				boost::property_tree::ptree entry;
-				entry.put ("", key.hash.to_string ());
-				peers_l.push_back (std::make_pair ("", entry));
-			}
-			else
-			{
-				rai::pending_info info (i->second);
-				if (info.amount.number () >= threshold.number ())
+				if (threshold.is_zero () && !source && !min_version)
 				{
-					if (source || min_version)
+					boost::property_tree::ptree entry;
+					entry.put ("", key.hash.to_string ());
+					peers_l.push_back (std::make_pair ("", entry));
+				}
+				else
+				{
+					rai::pending_info info (i->second);
+					if (info.amount.number () >= threshold.number ())
 					{
-						boost::property_tree::ptree pending_tree;
-						pending_tree.put ("amount", info.amount.number ().convert_to<std::string> ());
-						if (source)
+						if (source || min_version)
 						{
-							pending_tree.put ("source", info.source.to_account ());
+							boost::property_tree::ptree pending_tree;
+							pending_tree.put ("amount", info.amount.number ().convert_to<std::string> ());
+							if (source)
+							{
+								pending_tree.put ("source", info.source.to_account ());
+							}
+							if (min_version)
+							{
+								pending_tree.put ("min_version", info.epoch == rai::epoch::epoch_1 ? "1" : "0");
+							}
+							peers_l.add_child (key.hash.to_string (), pending_tree);
 						}
-						if (min_version)
+						else
 						{
-							pending_tree.put ("min_version", info.epoch == rai::epoch::epoch_1 ? "1" : "0");
+							peers_l.put (key.hash.to_string (), info.amount.number ().convert_to<std::string> ());
 						}
-						peers_l.add_child (key.hash.to_string (), pending_tree);
-					}
-					else
-					{
-						peers_l.put (key.hash.to_string (), info.amount.number ().convert_to<std::string> ());
 					}
 				}
 			}
@@ -2112,6 +2118,7 @@ void rai::rpc_handler::pending ()
 void rai::rpc_handler::pending_exists ()
 {
 	auto hash (hash_impl ());
+	const bool include_active = request.get<bool> ("include_active", false);
 	if (!ec)
 	{
 		auto transaction (node.store.tx_begin_read ());
@@ -2124,6 +2131,7 @@ void rai::rpc_handler::pending_exists ()
 			{
 				exists = node.store.pending_exists (transaction, rai::pending_key (destination, hash));
 			}
+			exists = exists && (include_active || !node.active.active (*block));
 			response_l.put ("exists", exists ? "1" : "0");
 		}
 		else
