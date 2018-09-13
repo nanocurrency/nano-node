@@ -1873,7 +1873,7 @@ stats (config.stat_config)
 		BOOST_LOG (log) << "Node ID: " << node_id.pub.to_account ();
 	}
 	peers.online_weight_minimum = config.online_weight_minimum.number ();
-	if (rai::rai_network == rai::rai_networks::rai_live_network)
+	if (rai::rai_network == rai::rai_networks::rai_live_network || rai::rai_network == rai::rai_networks::rai_beta_network)
 	{
 		extern const char rai_bootstrap_weights[];
 		extern const size_t rai_bootstrap_weights_size;
