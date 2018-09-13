@@ -1,5 +1,4 @@
 #include <rai/node/common.hpp>
-#include <rai/node/lmdb.hpp>
 #include <rai/node/stats.hpp>
 #include <rai/secure/blockstore.hpp>
 #include <rai/secure/ledger.hpp>
