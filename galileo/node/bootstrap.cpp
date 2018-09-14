@@ -14,14 +14,14 @@ constexpr double bootstrap_minimum_termination_time_sec = 30.0;
 constexpr unsigned bootstrap_max_new_connections = 10;
 constexpr unsigned bulk_push_cost_limit = 200;
 
-rai::socket::socket (std::shared_ptr<rai::node> node_a) :
+galileo::socket::socket (std::shared_ptr<galileo::node> node_a) :
 socket_m (node_a->service),
 ticket (0),
 node (node_a)
 {
 }
 
-void rai::socket::async_connect (rai::tcp_endpoint const & endpoint_a, std::function<void(boost::system::error_code const &)> callback_a)
+void galileo::socket::async_connect (galileo::tcp_endpoint const & endpoint_a, std::function<void(boost::system::error_code const &)> callback_a)
 {
 	auto this_l (shared_from_this ());
 	start ();
@@ -31,7 +31,7 @@ void rai::socket::async_connect (rai::tcp_endpoint const & endpoint_a, std::func
 	});
 }
 
-void rai::socket::async_read (std::shared_ptr<std::vector<uint8_t>> buffer_a, size_t size_a, std::function<void(boost::system::error_code const &, size_t)> callback_a)
+void galileo::socket::async_read (std::shared_ptr<std::vector<uint8_t>> buffer_a, size_t size_a, std::function<void(boost::system::error_code const &, size_t)> callback_a)
 {
 	assert (size_a <= buffer_a->size ());
 	auto this_l (shared_from_this ());
@@ -42,7 +42,7 @@ void rai::socket::async_read (std::shared_ptr<std::vector<uint8_t>> buffer_a, si
 	});
 }
 
-void rai::socket::async_write (std::shared_ptr<std::vector<uint8_t>> buffer_a, std::function<void(boost::system::error_code const &, size_t)> callback_a)
+void galileo::socket::async_write (std::shared_ptr<std::vector<uint8_t>> buffer_a, std::function<void(boost::system::error_code const &, size_t)> callback_a)
 {
 	auto this_l (shared_from_this ());
 	start ();
@@ -52,10 +52,10 @@ void rai::socket::async_write (std::shared_ptr<std::vector<uint8_t>> buffer_a, s
 	});
 }
 
-void rai::socket::start (std::chrono::steady_clock::time_point timeout_a)
+void galileo::socket::start (std::chrono::steady_clock::time_point timeout_a)
 {
 	auto ticket_l (++ticket);
-	std::weak_ptr<rai::socket> this_w (shared_from_this ());
+	std::weak_ptr<galileo::socket> this_w (shared_from_this ());
 	node->alarm.add (timeout_a, [this_w, ticket_l]() {
 		if (auto this_l = this_w.lock ())
 		{
@@ -72,12 +72,12 @@ void rai::socket::start (std::chrono::steady_clock::time_point timeout_a)
 	});
 }
 
-void rai::socket::stop ()
+void galileo::socket::stop ()
 {
 	++ticket;
 }
 
-void rai::socket::close ()
+void galileo::socket::close ()
 {
 	if (socket_m.is_open ())
 	{
@@ -85,9 +85,9 @@ void rai::socket::close ()
 	}
 }
 
-rai::tcp_endpoint rai::socket::remote_endpoint ()
+galileo::tcp_endpoint galileo::socket::remote_endpoint ()
 {
-	rai::tcp_endpoint endpoint;
+	galileo::tcp_endpoint endpoint;
 
 	if (socket_m.is_open ())
 	{
@@ -99,10 +99,10 @@ rai::tcp_endpoint rai::socket::remote_endpoint ()
 	return endpoint;
 }
 
-rai::bootstrap_client::bootstrap_client (std::shared_ptr<rai::node> node_a, std::shared_ptr<rai::bootstrap_attempt> attempt_a, rai::tcp_endpoint const & endpoint_a) :
+galileo::bootstrap_client::bootstrap_client (std::shared_ptr<galileo::node> node_a, std::shared_ptr<galileo::bootstrap_attempt> attempt_a, galileo::tcp_endpoint const & endpoint_a) :
 node (node_a),
 attempt (attempt_a),
-socket (std::make_shared<rai::socket> (node_a)),
+socket (std::make_shared<galileo::socket> (node_a)),
 receive_buffer (std::make_shared<std::vector<uint8_t>> ()),
 endpoint (endpoint_a),
 start_time (std::chrono::steady_clock::now ()),
@@ -114,23 +114,23 @@ hard_stop (false)
 	receive_buffer->resize (256);
 }
 
-rai::bootstrap_client::~bootstrap_client ()
+galileo::bootstrap_client::~bootstrap_client ()
 {
 	--attempt->connections;
 }
 
-double rai::bootstrap_client::block_rate () const
+double galileo::bootstrap_client::block_rate () const
 {
 	auto elapsed = elapsed_seconds ();
 	return elapsed > 0.0 ? (double)block_count.load () / elapsed : 0.0;
 }
 
-double rai::bootstrap_client::elapsed_seconds () const
+double galileo::bootstrap_client::elapsed_seconds () const
 {
 	return std::chrono::duration_cast<std::chrono::duration<double>> (std::chrono::steady_clock::now () - start_time).count ();
 }
 
-void rai::bootstrap_client::stop (bool force)
+void galileo::bootstrap_client::stop (bool force)
 {
 	pending_stop = true;
 	if (force)
@@ -139,7 +139,7 @@ void rai::bootstrap_client::stop (bool force)
 	}
 }
 
-void rai::bootstrap_client::run ()
+void galileo::bootstrap_client::run ()
 {
 	auto this_l (shared_from_this ());
 	socket->async_connect (endpoint, [this_l](boost::system::error_code const & ec) {
@@ -172,15 +172,15 @@ void rai::bootstrap_client::run ()
 	});
 }
 
-void rai::frontier_req_client::run ()
+void galileo::frontier_req_client::run ()
 {
-	std::unique_ptr<rai::frontier_req> request (new rai::frontier_req);
+	std::unique_ptr<galileo::frontier_req> request (new galileo::frontier_req);
 	request->start.clear ();
 	request->age = std::numeric_limits<decltype (request->age)>::max ();
 	request->count = std::numeric_limits<decltype (request->count)>::max ();
 	auto send_buffer (std::make_shared<std::vector<uint8_t>> ());
 	{
-		rai::vectorstream stream (*send_buffer);
+		galileo::vectorstream stream (*send_buffer);
 		request->serialize (stream);
 	}
 	auto this_l (shared_from_this ());
@@ -199,12 +199,12 @@ void rai::frontier_req_client::run ()
 	});
 }
 
-std::shared_ptr<rai::bootstrap_client> rai::bootstrap_client::shared ()
+std::shared_ptr<galileo::bootstrap_client> galileo::bootstrap_client::shared ()
 {
 	return shared_from_this ();
 }
 
-rai::frontier_req_client::frontier_req_client (std::shared_ptr<rai::bootstrap_client> connection_a) :
+galileo::frontier_req_client::frontier_req_client (std::shared_ptr<galileo::bootstrap_client> connection_a) :
 connection (connection_a),
 current (0),
 count (0),
@@ -214,14 +214,14 @@ bulk_push_cost (0)
 	next (transaction);
 }
 
-rai::frontier_req_client::~frontier_req_client ()
+galileo::frontier_req_client::~frontier_req_client ()
 {
 }
 
-void rai::frontier_req_client::receive_frontier ()
+void galileo::frontier_req_client::receive_frontier ()
 {
 	auto this_l (shared_from_this ());
-	size_t size_l (sizeof (rai::uint256_union) + sizeof (rai::uint256_union));
+	size_t size_l (sizeof (galileo::uint256_union) + sizeof (galileo::uint256_union));
 	connection->socket->async_read (connection->receive_buffer, size_l, [this_l, size_l](boost::system::error_code const & ec, size_t size_a) {
 		// An issue with asio is that sometimes, instead of reporting a bad file descriptor during disconnect,
 		// we simply get a size of 0.
@@ -239,7 +239,7 @@ void rai::frontier_req_client::receive_frontier ()
 	});
 }
 
-void rai::frontier_req_client::unsynced (rai::block_hash const & head, rai::block_hash const & end)
+void galileo::frontier_req_client::unsynced (galileo::block_hash const & head, galileo::block_hash const & end)
 {
 	if (bulk_push_cost < bulk_push_cost_limit)
 	{
@@ -255,18 +255,18 @@ void rai::frontier_req_client::unsynced (rai::block_hash const & head, rai::bloc
 	}
 }
 
-void rai::frontier_req_client::received_frontier (boost::system::error_code const & ec, size_t size_a)
+void galileo::frontier_req_client::received_frontier (boost::system::error_code const & ec, size_t size_a)
 {
 	if (!ec)
 	{
-		assert (size_a == sizeof (rai::uint256_union) + sizeof (rai::uint256_union));
-		rai::account account;
-		rai::bufferstream account_stream (connection->receive_buffer->data (), sizeof (rai::uint256_union));
-		auto error1 (rai::read (account_stream, account));
+		assert (size_a == sizeof (galileo::uint256_union) + sizeof (galileo::uint256_union));
+		galileo::account account;
+		galileo::bufferstream account_stream (connection->receive_buffer->data (), sizeof (galileo::uint256_union));
+		auto error1 (galileo::read (account_stream, account));
 		assert (!error1);
-		rai::block_hash latest;
-		rai::bufferstream latest_stream (connection->receive_buffer->data () + sizeof (rai::uint256_union), sizeof (rai::uint256_union));
-		auto error2 (rai::read (latest_stream, latest));
+		galileo::block_hash latest;
+		galileo::bufferstream latest_stream (connection->receive_buffer->data () + sizeof (galileo::uint256_union), sizeof (galileo::uint256_union));
+		auto error2 (galileo::read (latest_stream, latest));
 		assert (!error2);
 		if (count == 0)
 		{
@@ -312,7 +312,7 @@ void rai::frontier_req_client::received_frontier (boost::system::error_code cons
 						}
 						else
 						{
-							connection->attempt->add_pull (rai::pull_info (account, latest, info.head));
+							connection->attempt->add_pull (galileo::pull_info (account, latest, info.head));
 							// Either we're behind or there's a fork we differ on
 							// Either way, bulk pushing will probably not be effective
 							bulk_push_cost += 5;
@@ -323,12 +323,12 @@ void rai::frontier_req_client::received_frontier (boost::system::error_code cons
 				else
 				{
 					assert (account < current);
-					connection->attempt->add_pull (rai::pull_info (account, latest, rai::block_hash (0)));
+					connection->attempt->add_pull (galileo::pull_info (account, latest, galileo::block_hash (0)));
 				}
 			}
 			else
 			{
-				connection->attempt->add_pull (rai::pull_info (account, latest, rai::block_hash (0)));
+				connection->attempt->add_pull (galileo::pull_info (account, latest, galileo::block_hash (0)));
 			}
 			receive_frontier ();
 		}
@@ -365,13 +365,13 @@ void rai::frontier_req_client::received_frontier (boost::system::error_code cons
 	}
 }
 
-void rai::frontier_req_client::next (rai::transaction const & transaction_a)
+void galileo::frontier_req_client::next (galileo::transaction const & transaction_a)
 {
-	auto iterator (connection->node->store.latest_begin (transaction_a, rai::uint256_union (current.number () + 1)));
+	auto iterator (connection->node->store.latest_begin (transaction_a, galileo::uint256_union (current.number () + 1)));
 	if (iterator != connection->node->store.latest_end ())
 	{
-		current = rai::account (iterator->first);
-		info = rai::account_info (iterator->second);
+		current = galileo::account (iterator->first);
+		info = galileo::account_info (iterator->second);
 	}
 	else
 	{
@@ -379,7 +379,7 @@ void rai::frontier_req_client::next (rai::transaction const & transaction_a)
 	}
 }
 
-rai::bulk_pull_client::bulk_pull_client (std::shared_ptr<rai::bootstrap_client> connection_a, rai::pull_info const & pull_a) :
+galileo::bulk_pull_client::bulk_pull_client (std::shared_ptr<galileo::bootstrap_client> connection_a, galileo::pull_info const & pull_a) :
 connection (connection_a),
 pull (pull_a)
 {
@@ -388,7 +388,7 @@ pull (pull_a)
 	connection->attempt->condition.notify_all ();
 }
 
-rai::bulk_pull_client::~bulk_pull_client ()
+galileo::bulk_pull_client::~bulk_pull_client ()
 {
 	// If received end block is not expected end block
 	if (expected != pull.end)
@@ -405,15 +405,15 @@ rai::bulk_pull_client::~bulk_pull_client ()
 	connection->attempt->condition.notify_all ();
 }
 
-void rai::bulk_pull_client::request ()
+void galileo::bulk_pull_client::request ()
 {
 	expected = pull.head;
-	rai::bulk_pull req;
+	galileo::bulk_pull req;
 	req.start = pull.account;
 	req.end = pull.end;
 	auto buffer (std::make_shared<std::vector<uint8_t>> ());
 	{
-		rai::vectorstream stream (*buffer);
+		galileo::vectorstream stream (*buffer);
 		req.serialize (stream);
 	}
 	if (connection->node->config.logging.bulk_pull_logging ())
@@ -442,7 +442,7 @@ void rai::bulk_pull_client::request ()
 	});
 }
 
-void rai::bulk_pull_client::receive_block ()
+void galileo::bulk_pull_client::receive_block ()
 {
 	auto this_l (shared_from_this ());
 	connection->socket->async_read (connection->receive_buffer, 1, [this_l](boost::system::error_code const & ec, size_t size_a) {
@@ -460,48 +460,48 @@ void rai::bulk_pull_client::receive_block ()
 	});
 }
 
-void rai::bulk_pull_client::received_type ()
+void galileo::bulk_pull_client::received_type ()
 {
 	auto this_l (shared_from_this ());
-	rai::block_type type (static_cast<rai::block_type> (connection->receive_buffer->data ()[0]));
+	galileo::block_type type (static_cast<galileo::block_type> (connection->receive_buffer->data ()[0]));
 	switch (type)
 	{
-		case rai::block_type::send:
+		case galileo::block_type::send:
 		{
-			connection->socket->async_read (connection->receive_buffer, rai::send_block::size, [this_l, type](boost::system::error_code const & ec, size_t size_a) {
+			connection->socket->async_read (connection->receive_buffer, galileo::send_block::size, [this_l, type](boost::system::error_code const & ec, size_t size_a) {
 				this_l->received_block (ec, size_a, type);
 			});
 			break;
 		}
-		case rai::block_type::receive:
+		case galileo::block_type::receive:
 		{
-			connection->socket->async_read (connection->receive_buffer, rai::receive_block::size, [this_l, type](boost::system::error_code const & ec, size_t size_a) {
+			connection->socket->async_read (connection->receive_buffer, galileo::receive_block::size, [this_l, type](boost::system::error_code const & ec, size_t size_a) {
 				this_l->received_block (ec, size_a, type);
 			});
 			break;
 		}
-		case rai::block_type::open:
+		case galileo::block_type::open:
 		{
-			connection->socket->async_read (connection->receive_buffer, rai::open_block::size, [this_l, type](boost::system::error_code const & ec, size_t size_a) {
+			connection->socket->async_read (connection->receive_buffer, galileo::open_block::size, [this_l, type](boost::system::error_code const & ec, size_t size_a) {
 				this_l->received_block (ec, size_a, type);
 			});
 			break;
 		}
-		case rai::block_type::change:
+		case galileo::block_type::change:
 		{
-			connection->socket->async_read (connection->receive_buffer, rai::change_block::size, [this_l, type](boost::system::error_code const & ec, size_t size_a) {
+			connection->socket->async_read (connection->receive_buffer, galileo::change_block::size, [this_l, type](boost::system::error_code const & ec, size_t size_a) {
 				this_l->received_block (ec, size_a, type);
 			});
 			break;
 		}
-		case rai::block_type::state:
+		case galileo::block_type::state:
 		{
-			connection->socket->async_read (connection->receive_buffer, rai::state_block::size, [this_l, type](boost::system::error_code const & ec, size_t size_a) {
+			connection->socket->async_read (connection->receive_buffer, galileo::state_block::size, [this_l, type](boost::system::error_code const & ec, size_t size_a) {
 				this_l->received_block (ec, size_a, type);
 			});
 			break;
 		}
-		case rai::block_type::not_a_block:
+		case galileo::block_type::not_a_block:
 		{
 			// Avoid re-using slow peers, or peers that sent the wrong blocks.
 			if (!connection->pending_stop && expected == pull.end)
@@ -521,13 +521,13 @@ void rai::bulk_pull_client::received_type ()
 	}
 }
 
-void rai::bulk_pull_client::received_block (boost::system::error_code const & ec, size_t size_a, rai::block_type type_a)
+void galileo::bulk_pull_client::received_block (boost::system::error_code const & ec, size_t size_a, galileo::block_type type_a)
 {
 	if (!ec)
 	{
-		rai::bufferstream stream (connection->receive_buffer->data (), size_a);
-		std::shared_ptr<rai::block> block (rai::deserialize_block (stream, type_a));
-		if (block != nullptr && !rai::work_validate (*block))
+		galileo::bufferstream stream (connection->receive_buffer->data (), size_a);
+		std::shared_ptr<galileo::block> block (galileo::deserialize_block (stream, type_a));
+		if (block != nullptr && !galileo::work_validate (*block))
 		{
 			auto hash (block->hash ());
 			if (connection->node->config.logging.bulk_pull_logging ())
@@ -568,21 +568,21 @@ void rai::bulk_pull_client::received_block (boost::system::error_code const & ec
 	}
 }
 
-rai::bulk_push_client::bulk_push_client (std::shared_ptr<rai::bootstrap_client> const & connection_a) :
+galileo::bulk_push_client::bulk_push_client (std::shared_ptr<galileo::bootstrap_client> const & connection_a) :
 connection (connection_a)
 {
 }
 
-rai::bulk_push_client::~bulk_push_client ()
+galileo::bulk_push_client::~bulk_push_client ()
 {
 }
 
-void rai::bulk_push_client::start ()
+void galileo::bulk_push_client::start ()
 {
-	rai::bulk_push message;
+	galileo::bulk_push message;
 	auto buffer (std::make_shared<std::vector<uint8_t>> ());
 	{
-		rai::vectorstream stream (*buffer);
+		galileo::vectorstream stream (*buffer);
 		message.serialize (stream);
 	}
 	auto this_l (shared_from_this ());
@@ -602,9 +602,9 @@ void rai::bulk_push_client::start ()
 	});
 }
 
-void rai::bulk_push_client::push (rai::transaction const & transaction_a)
+void galileo::bulk_push_client::push (galileo::transaction const & transaction_a)
 {
-	std::unique_ptr<rai::block> block;
+	std::unique_ptr<galileo::block> block;
 	bool finished (false);
 	while (block == nullptr && !finished)
 	{
@@ -626,7 +626,7 @@ void rai::bulk_push_client::push (rai::transaction const & transaction_a)
 			block = connection->node->store.block_get (transaction_a, current_target.first);
 			if (block == nullptr)
 			{
-				current_target.first = rai::block_hash (0);
+				current_target.first = galileo::block_hash (0);
 			}
 			else
 			{
@@ -648,11 +648,11 @@ void rai::bulk_push_client::push (rai::transaction const & transaction_a)
 	}
 }
 
-void rai::bulk_push_client::send_finished ()
+void galileo::bulk_push_client::send_finished ()
 {
 	auto buffer (std::make_shared<std::vector<uint8_t>> ());
-	buffer->push_back (static_cast<uint8_t> (rai::block_type::not_a_block));
-	connection->node->stats.inc (rai::stat::type::bootstrap, rai::stat::detail::bulk_push, rai::stat::dir::out);
+	buffer->push_back (static_cast<uint8_t> (galileo::block_type::not_a_block));
+	connection->node->stats.inc (galileo::stat::type::bootstrap, galileo::stat::detail::bulk_push, galileo::stat::dir::out);
 	if (connection->node->config.logging.network_logging ())
 	{
 		BOOST_LOG (connection->node->log) << "Bulk push finished";
@@ -669,12 +669,12 @@ void rai::bulk_push_client::send_finished ()
 	});
 }
 
-void rai::bulk_push_client::push_block (rai::block const & block_a)
+void galileo::bulk_push_client::push_block (galileo::block const & block_a)
 {
 	auto buffer (std::make_shared<std::vector<uint8_t>> ());
 	{
-		rai::vectorstream stream (*buffer);
-		rai::serialize_block (stream, block_a);
+		galileo::vectorstream stream (*buffer);
+		galileo::serialize_block (stream, block_a);
 	}
 	auto this_l (shared_from_this ());
 	connection->socket->async_write (buffer, [this_l, buffer](boost::system::error_code const & ec, size_t size_a) {
@@ -693,14 +693,14 @@ void rai::bulk_push_client::push_block (rai::block const & block_a)
 	});
 }
 
-rai::pull_info::pull_info () :
+galileo::pull_info::pull_info () :
 account (0),
 end (0),
 attempts (0)
 {
 }
 
-rai::pull_info::pull_info (rai::account const & account_a, rai::block_hash const & head_a, rai::block_hash const & end_a) :
+galileo::pull_info::pull_info (galileo::account const & account_a, galileo::block_hash const & head_a, galileo::block_hash const & end_a) :
 account (account_a),
 head (head_a),
 end (end_a),
@@ -708,7 +708,7 @@ attempts (0)
 {
 }
 
-rai::bootstrap_attempt::bootstrap_attempt (std::shared_ptr<rai::node> node_a) :
+galileo::bootstrap_attempt::bootstrap_attempt (std::shared_ptr<galileo::node> node_a) :
 next_log (std::chrono::steady_clock::now ()),
 connections (0),
 pulling (0),
@@ -721,13 +721,13 @@ stopped (false)
 	node->bootstrap_initiator.notify_listeners (true);
 }
 
-rai::bootstrap_attempt::~bootstrap_attempt ()
+galileo::bootstrap_attempt::~bootstrap_attempt ()
 {
 	BOOST_LOG (node->log) << "Exiting bootstrap attempt";
 	node->bootstrap_initiator.notify_listeners (false);
 }
 
-bool rai::bootstrap_attempt::should_log ()
+bool galileo::bootstrap_attempt::should_log ()
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	auto result (false);
@@ -740,7 +740,7 @@ bool rai::bootstrap_attempt::should_log ()
 	return result;
 }
 
-bool rai::bootstrap_attempt::request_frontier (std::unique_lock<std::mutex> & lock_a)
+bool galileo::bootstrap_attempt::request_frontier (std::unique_lock<std::mutex> & lock_a)
 {
 	auto result (true);
 	auto connection_l (connection (lock_a));
@@ -749,7 +749,7 @@ bool rai::bootstrap_attempt::request_frontier (std::unique_lock<std::mutex> & lo
 	{
 		std::future<bool> future;
 		{
-			auto client (std::make_shared<rai::frontier_req_client> (connection_l));
+			auto client (std::make_shared<galileo::frontier_req_client> (connection_l));
 			client->run ();
 			frontiers = client;
 			future = client->promise.get_future ();
@@ -776,7 +776,7 @@ bool rai::bootstrap_attempt::request_frontier (std::unique_lock<std::mutex> & lo
 	return result;
 }
 
-void rai::bootstrap_attempt::request_pull (std::unique_lock<std::mutex> & lock_a)
+void galileo::bootstrap_attempt::request_pull (std::unique_lock<std::mutex> & lock_a)
 {
 	auto connection_l (connection (lock_a));
 	if (connection_l)
@@ -786,18 +786,18 @@ void rai::bootstrap_attempt::request_pull (std::unique_lock<std::mutex> & lock_a
 		// The bulk_pull_client destructor attempt to requeue_pull which can cause a deadlock if this is the last reference
 		// Dispatch request in an external thread in case it needs to be destroyed
 		node->background ([connection_l, pull]() {
-			auto client (std::make_shared<rai::bulk_pull_client> (connection_l, pull));
+			auto client (std::make_shared<galileo::bulk_pull_client> (connection_l, pull));
 			client->request ();
 		});
 	}
 }
 
-void rai::bootstrap_attempt::request_push (std::unique_lock<std::mutex> & lock_a)
+void galileo::bootstrap_attempt::request_push (std::unique_lock<std::mutex> & lock_a)
 {
 	bool error (false);
 	if (auto connection_shared = connection_frontier_request.lock ())
 	{
-		auto client (std::make_shared<rai::bulk_push_client> (connection_shared));
+		auto client (std::make_shared<galileo::bulk_push_client> (connection_shared));
 		client->start ();
 		push = client;
 		auto future (client->promise.get_future ());
@@ -815,7 +815,7 @@ void rai::bootstrap_attempt::request_push (std::unique_lock<std::mutex> & lock_a
 	}
 }
 
-bool rai::bootstrap_attempt::still_pulling ()
+bool galileo::bootstrap_attempt::still_pulling ()
 {
 	assert (!mutex.try_lock ());
 	auto running (!stopped);
@@ -824,7 +824,7 @@ bool rai::bootstrap_attempt::still_pulling ()
 	return running && (more_pulls || still_pulling);
 }
 
-void rai::bootstrap_attempt::run ()
+void galileo::bootstrap_attempt::run ()
 {
 	populate_connections ();
 	std::unique_lock<std::mutex> lock (mutex);
@@ -836,7 +836,7 @@ void rai::bootstrap_attempt::run ()
 	// Shuffle pulls.
 	for (int i = pulls.size () - 1; i > 0; i--)
 	{
-		auto k = rai::random_pool.GenerateWord32 (0, i);
+		auto k = galileo::random_pool.GenerateWord32 (0, i);
 		std::swap (pulls[i], pulls[k]);
 	}
 	while (still_pulling ())
@@ -876,13 +876,13 @@ void rai::bootstrap_attempt::run ()
 	idle.clear ();
 }
 
-std::shared_ptr<rai::bootstrap_client> rai::bootstrap_attempt::connection (std::unique_lock<std::mutex> & lock_a)
+std::shared_ptr<galileo::bootstrap_client> galileo::bootstrap_attempt::connection (std::unique_lock<std::mutex> & lock_a)
 {
 	while (!stopped && idle.empty ())
 	{
 		condition.wait (lock_a);
 	}
-	std::shared_ptr<rai::bootstrap_client> result;
+	std::shared_ptr<galileo::bootstrap_client> result;
 	if (!idle.empty ())
 	{
 		result = idle.back ();
@@ -891,7 +891,7 @@ std::shared_ptr<rai::bootstrap_client> rai::bootstrap_attempt::connection (std::
 	return result;
 }
 
-bool rai::bootstrap_attempt::consume_future (std::future<bool> & future_a)
+bool galileo::bootstrap_attempt::consume_future (std::future<bool> & future_a)
 {
 	bool result;
 	try
@@ -907,13 +907,13 @@ bool rai::bootstrap_attempt::consume_future (std::future<bool> & future_a)
 
 struct block_rate_cmp
 {
-	bool operator() (const std::shared_ptr<rai::bootstrap_client> & lhs, const std::shared_ptr<rai::bootstrap_client> & rhs) const
+	bool operator() (const std::shared_ptr<galileo::bootstrap_client> & lhs, const std::shared_ptr<galileo::bootstrap_client> & rhs) const
 	{
 		return lhs->block_rate () > rhs->block_rate ();
 	}
 };
 
-unsigned rai::bootstrap_attempt::target_connections (size_t pulls_remaining)
+unsigned galileo::bootstrap_attempt::target_connections (size_t pulls_remaining)
 {
 	if (node->config.bootstrap_connections >= node->config.bootstrap_connections_max)
 	{
@@ -926,11 +926,11 @@ unsigned rai::bootstrap_attempt::target_connections (size_t pulls_remaining)
 	return std::max (1U, (unsigned)(target + 0.5f));
 }
 
-void rai::bootstrap_attempt::populate_connections ()
+void galileo::bootstrap_attempt::populate_connections ()
 {
 	double rate_sum = 0.0;
 	size_t num_pulls = 0;
-	std::priority_queue<std::shared_ptr<rai::bootstrap_client>, std::vector<std::shared_ptr<rai::bootstrap_client>>, block_rate_cmp> sorted_connections;
+	std::priority_queue<std::shared_ptr<galileo::bootstrap_client>, std::vector<std::shared_ptr<galileo::bootstrap_client>>, block_rate_cmp> sorted_connections;
 	{
 		std::unique_lock<std::mutex> lock (mutex);
 		num_pulls = pulls.size ();
@@ -1002,9 +1002,9 @@ void rai::bootstrap_attempt::populate_connections ()
 		for (int i = 0; i < delta; i++)
 		{
 			auto peer (node->peers.bootstrap_peer ());
-			if (peer != rai::endpoint (boost::asio::ip::address_v6::any (), 0))
+			if (peer != galileo::endpoint (boost::asio::ip::address_v6::any (), 0))
 			{
-				auto client (std::make_shared<rai::bootstrap_client> (node, shared_from_this (), rai::tcp_endpoint (peer.address (), peer.port ())));
+				auto client (std::make_shared<galileo::bootstrap_client> (node, shared_from_this (), galileo::tcp_endpoint (peer.address (), peer.port ())));
 				client->run ();
 				std::lock_guard<std::mutex> lock (mutex);
 				clients.push_back (client);
@@ -1019,7 +1019,7 @@ void rai::bootstrap_attempt::populate_connections ()
 	}
 	if (!stopped)
 	{
-		std::weak_ptr<rai::bootstrap_attempt> this_w (shared_from_this ());
+		std::weak_ptr<galileo::bootstrap_attempt> this_w (shared_from_this ());
 		node->alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (1), [this_w]() {
 			if (auto this_l = this_w.lock ())
 			{
@@ -1029,20 +1029,20 @@ void rai::bootstrap_attempt::populate_connections ()
 	}
 }
 
-void rai::bootstrap_attempt::add_connection (rai::endpoint const & endpoint_a)
+void galileo::bootstrap_attempt::add_connection (galileo::endpoint const & endpoint_a)
 {
-	auto client (std::make_shared<rai::bootstrap_client> (node, shared_from_this (), rai::tcp_endpoint (endpoint_a.address (), endpoint_a.port ())));
+	auto client (std::make_shared<galileo::bootstrap_client> (node, shared_from_this (), galileo::tcp_endpoint (endpoint_a.address (), endpoint_a.port ())));
 	client->run ();
 }
 
-void rai::bootstrap_attempt::pool_connection (std::shared_ptr<rai::bootstrap_client> client_a)
+void galileo::bootstrap_attempt::pool_connection (std::shared_ptr<galileo::bootstrap_client> client_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	idle.push_front (client_a);
 	condition.notify_all ();
 }
 
-void rai::bootstrap_attempt::stop ()
+void galileo::bootstrap_attempt::stop ()
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	stopped = true;
@@ -1076,14 +1076,14 @@ void rai::bootstrap_attempt::stop ()
 	}
 }
 
-void rai::bootstrap_attempt::add_pull (rai::pull_info const & pull)
+void galileo::bootstrap_attempt::add_pull (galileo::pull_info const & pull)
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	pulls.push_back (pull);
 	condition.notify_all ();
 }
 
-void rai::bootstrap_attempt::requeue_pull (rai::pull_info const & pull_a)
+void galileo::bootstrap_attempt::requeue_pull (galileo::pull_info const & pull_a)
 {
 	auto pull (pull_a);
 	if (++pull.attempts < bootstrap_frontier_retry_limit)
@@ -1099,7 +1099,7 @@ void rai::bootstrap_attempt::requeue_pull (rai::pull_info const & pull_a)
 		if (auto connection_shared = connection_frontier_request.lock ())
 		{
 			node->background ([connection_shared, pull]() {
-				auto client (std::make_shared<rai::bulk_pull_client> (connection_shared, pull));
+				auto client (std::make_shared<galileo::bulk_pull_client> (connection_shared, pull));
 				client->request ();
 			});
 			if (node->config.logging.bulk_pull_logging ())
@@ -1117,41 +1117,41 @@ void rai::bootstrap_attempt::requeue_pull (rai::pull_info const & pull_a)
 	}
 }
 
-void rai::bootstrap_attempt::add_bulk_push_target (rai::block_hash const & head, rai::block_hash const & end)
+void galileo::bootstrap_attempt::add_bulk_push_target (galileo::block_hash const & head, galileo::block_hash const & end)
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	bulk_push_targets.push_back (std::make_pair (head, end));
 }
 
-rai::bootstrap_initiator::bootstrap_initiator (rai::node & node_a) :
+galileo::bootstrap_initiator::bootstrap_initiator (galileo::node & node_a) :
 node (node_a),
 stopped (false),
 thread ([this]() { run_bootstrap (); })
 {
 }
 
-rai::bootstrap_initiator::~bootstrap_initiator ()
+galileo::bootstrap_initiator::~bootstrap_initiator ()
 {
 	stop ();
 	thread.join ();
 }
 
-void rai::bootstrap_initiator::bootstrap ()
+void galileo::bootstrap_initiator::bootstrap ()
 {
 	std::unique_lock<std::mutex> lock (mutex);
 	if (!stopped && attempt == nullptr)
 	{
-		node.stats.inc (rai::stat::type::bootstrap, rai::stat::detail::initiate, rai::stat::dir::out);
-		attempt = std::make_shared<rai::bootstrap_attempt> (node.shared ());
+		node.stats.inc (galileo::stat::type::bootstrap, galileo::stat::detail::initiate, galileo::stat::dir::out);
+		attempt = std::make_shared<galileo::bootstrap_attempt> (node.shared ());
 		condition.notify_all ();
 	}
 }
 
-void rai::bootstrap_initiator::bootstrap (rai::endpoint const & endpoint_a, bool add_to_peers)
+void galileo::bootstrap_initiator::bootstrap (galileo::endpoint const & endpoint_a, bool add_to_peers)
 {
 	if (add_to_peers)
 	{
-		node.peers.insert (rai::map_endpoint_to_v6 (endpoint_a), rai::protocol_version);
+		node.peers.insert (galileo::map_endpoint_to_v6 (endpoint_a), galileo::protocol_version);
 	}
 	std::unique_lock<std::mutex> lock (mutex);
 	if (!stopped)
@@ -1161,14 +1161,14 @@ void rai::bootstrap_initiator::bootstrap (rai::endpoint const & endpoint_a, bool
 			attempt->stop ();
 			condition.wait (lock);
 		}
-		node.stats.inc (rai::stat::type::bootstrap, rai::stat::detail::initiate, rai::stat::dir::out);
-		attempt = std::make_shared<rai::bootstrap_attempt> (node.shared ());
+		node.stats.inc (galileo::stat::type::bootstrap, galileo::stat::detail::initiate, galileo::stat::dir::out);
+		attempt = std::make_shared<galileo::bootstrap_attempt> (node.shared ());
 		attempt->add_connection (endpoint_a);
 		condition.notify_all ();
 	}
 }
 
-void rai::bootstrap_initiator::run_bootstrap ()
+void galileo::bootstrap_initiator::run_bootstrap ()
 {
 	std::unique_lock<std::mutex> lock (mutex);
 	while (!stopped)
@@ -1188,24 +1188,24 @@ void rai::bootstrap_initiator::run_bootstrap ()
 	}
 }
 
-void rai::bootstrap_initiator::add_observer (std::function<void(bool)> const & observer_a)
+void galileo::bootstrap_initiator::add_observer (std::function<void(bool)> const & observer_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	observers.push_back (observer_a);
 }
 
-bool rai::bootstrap_initiator::in_progress ()
+bool galileo::bootstrap_initiator::in_progress ()
 {
 	return current_attempt () != nullptr;
 }
 
-std::shared_ptr<rai::bootstrap_attempt> rai::bootstrap_initiator::current_attempt ()
+std::shared_ptr<galileo::bootstrap_attempt> galileo::bootstrap_initiator::current_attempt ()
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	return attempt;
 }
 
-void rai::bootstrap_initiator::stop ()
+void galileo::bootstrap_initiator::stop ()
 {
 	std::unique_lock<std::mutex> lock (mutex);
 	stopped = true;
@@ -1216,7 +1216,7 @@ void rai::bootstrap_initiator::stop ()
 	condition.notify_all ();
 }
 
-void rai::bootstrap_initiator::notify_listeners (bool in_progress_a)
+void galileo::bootstrap_initiator::notify_listeners (bool in_progress_a)
 {
 	for (auto & i : observers)
 	{
@@ -1224,7 +1224,7 @@ void rai::bootstrap_initiator::notify_listeners (bool in_progress_a)
 	}
 }
 
-rai::bootstrap_listener::bootstrap_listener (boost::asio::io_service & service_a, uint16_t port_a, rai::node & node_a) :
+galileo::bootstrap_listener::bootstrap_listener (boost::asio::io_service & service_a, uint16_t port_a, galileo::node & node_a) :
 acceptor (service_a),
 local (boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v6::any (), port_a)),
 service (service_a),
@@ -1232,7 +1232,7 @@ node (node_a)
 {
 }
 
-void rai::bootstrap_listener::start ()
+void galileo::bootstrap_listener::start ()
 {
 	acceptor.open (local.protocol ());
 	acceptor.set_option (boost::asio::ip::tcp::acceptor::reuse_address (true));
@@ -1249,7 +1249,7 @@ void rai::bootstrap_listener::start ()
 	accept_connection ();
 }
 
-void rai::bootstrap_listener::stop ()
+void galileo::bootstrap_listener::stop ()
 {
 	decltype (connections) connections_l;
 	{
@@ -1268,20 +1268,20 @@ void rai::bootstrap_listener::stop ()
 	}
 }
 
-void rai::bootstrap_listener::accept_connection ()
+void galileo::bootstrap_listener::accept_connection ()
 {
-	auto socket (std::make_shared<rai::socket> (node.shared ()));
+	auto socket (std::make_shared<galileo::socket> (node.shared ()));
 	acceptor.async_accept (socket->socket_m, [this, socket](boost::system::error_code const & ec) {
 		accept_action (ec, socket);
 	});
 }
 
-void rai::bootstrap_listener::accept_action (boost::system::error_code const & ec, std::shared_ptr<rai::socket> socket_a)
+void galileo::bootstrap_listener::accept_action (boost::system::error_code const & ec, std::shared_ptr<galileo::socket> socket_a)
 {
 	if (!ec)
 	{
 		accept_connection ();
-		auto connection (std::make_shared<rai::bootstrap_server> (socket_a, node.shared ()));
+		auto connection (std::make_shared<galileo::bootstrap_server> (socket_a, node.shared ()));
 		{
 			std::lock_guard<std::mutex> lock (mutex);
 			if (connections.size () < node.config.bootstrap_connections_max && acceptor.is_open ())
@@ -1297,12 +1297,12 @@ void rai::bootstrap_listener::accept_action (boost::system::error_code const & e
 	}
 }
 
-boost::asio::ip::tcp::endpoint rai::bootstrap_listener::endpoint ()
+boost::asio::ip::tcp::endpoint galileo::bootstrap_listener::endpoint ()
 {
 	return boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v6::loopback (), local.port ());
 }
 
-rai::bootstrap_server::~bootstrap_server ()
+galileo::bootstrap_server::~bootstrap_server ()
 {
 	if (node->config.logging.bulk_pull_logging ())
 	{
@@ -1312,7 +1312,7 @@ rai::bootstrap_server::~bootstrap_server ()
 	node->bootstrap.connections.erase (this);
 }
 
-rai::bootstrap_server::bootstrap_server (std::shared_ptr<rai::socket> socket_a, std::shared_ptr<rai::node> node_a) :
+galileo::bootstrap_server::bootstrap_server (std::shared_ptr<galileo::socket> socket_a, std::shared_ptr<galileo::node> node_a) :
 receive_buffer (std::make_shared<std::vector<uint8_t>> ()),
 socket (socket_a),
 node (node_a)
@@ -1320,7 +1320,7 @@ node (node_a)
 	receive_buffer->resize (128);
 }
 
-void rai::bootstrap_server::receive ()
+void galileo::bootstrap_server::receive ()
 {
 	auto this_l (shared_from_this ());
 	socket->async_read (receive_buffer, 8, [this_l](boost::system::error_code const & ec, size_t size_a) {
@@ -1328,37 +1328,37 @@ void rai::bootstrap_server::receive ()
 	});
 }
 
-void rai::bootstrap_server::receive_header_action (boost::system::error_code const & ec, size_t size_a)
+void galileo::bootstrap_server::receive_header_action (boost::system::error_code const & ec, size_t size_a)
 {
 	if (!ec)
 	{
 		assert (size_a == 8);
-		rai::bufferstream type_stream (receive_buffer->data (), size_a);
+		galileo::bufferstream type_stream (receive_buffer->data (), size_a);
 		auto error (false);
-		rai::message_header header (error, type_stream);
+		galileo::message_header header (error, type_stream);
 		if (!error)
 		{
 			switch (header.type)
 			{
-				case rai::message_type::bulk_pull:
+				case galileo::message_type::bulk_pull:
 				{
-					node->stats.inc (rai::stat::type::bootstrap, rai::stat::detail::bulk_pull, rai::stat::dir::in);
+					node->stats.inc (galileo::stat::type::bootstrap, galileo::stat::detail::bulk_pull, galileo::stat::dir::in);
 					auto this_l (shared_from_this ());
-					socket->async_read (receive_buffer, sizeof (rai::uint256_union) + sizeof (rai::uint256_union), [this_l, header](boost::system::error_code const & ec, size_t size_a) {
+					socket->async_read (receive_buffer, sizeof (galileo::uint256_union) + sizeof (galileo::uint256_union), [this_l, header](boost::system::error_code const & ec, size_t size_a) {
 						this_l->receive_bulk_pull_action (ec, size_a, header);
 					});
 					break;
 				}
-				case rai::message_type::bulk_pull_account:
+				case galileo::message_type::bulk_pull_account:
 				{
-					node->stats.inc (rai::stat::type::bootstrap, rai::stat::detail::bulk_pull_account, rai::stat::dir::in);
+					node->stats.inc (galileo::stat::type::bootstrap, galileo::stat::detail::bulk_pull_account, galileo::stat::dir::in);
 					auto this_l (shared_from_this ());
-					socket->async_read (receive_buffer, sizeof (rai::uint256_union) + sizeof (rai::uint128_union) + sizeof (uint8_t), [this_l, header](boost::system::error_code const & ec, size_t size_a) {
+					socket->async_read (receive_buffer, sizeof (galileo::uint256_union) + sizeof (galileo::uint128_union) + sizeof (uint8_t), [this_l, header](boost::system::error_code const & ec, size_t size_a) {
 						this_l->receive_bulk_pull_account_action (ec, size_a, header);
 					});
 					break;
 				}
-				case rai::message_type::bulk_pull_blocks:
+				case galileo::message_type::bulk_pull_blocks:
 				{
 					if (node->config.logging.network_logging ())
 					{
@@ -1366,24 +1366,24 @@ void rai::bootstrap_server::receive_header_action (boost::system::error_code con
 					}
 
 					auto this_l (shared_from_this ());
-					socket->async_read (receive_buffer, sizeof (rai::uint256_union) + sizeof (rai::uint256_union) + sizeof (bulk_pull_blocks_mode) + sizeof (uint32_t), [this_l, header](boost::system::error_code const & ec, size_t size_a) {
+					socket->async_read (receive_buffer, sizeof (galileo::uint256_union) + sizeof (galileo::uint256_union) + sizeof (bulk_pull_blocks_mode) + sizeof (uint32_t), [this_l, header](boost::system::error_code const & ec, size_t size_a) {
 						this_l->receive_bulk_pull_blocks_action (ec, size_a, header);
 					});
 					break;
 				}
-				case rai::message_type::frontier_req:
+				case galileo::message_type::frontier_req:
 				{
-					node->stats.inc (rai::stat::type::bootstrap, rai::stat::detail::frontier_req, rai::stat::dir::in);
+					node->stats.inc (galileo::stat::type::bootstrap, galileo::stat::detail::frontier_req, galileo::stat::dir::in);
 					auto this_l (shared_from_this ());
-					socket->async_read (receive_buffer, sizeof (rai::uint256_union) + sizeof (uint32_t) + sizeof (uint32_t), [this_l, header](boost::system::error_code const & ec, size_t size_a) {
+					socket->async_read (receive_buffer, sizeof (galileo::uint256_union) + sizeof (uint32_t) + sizeof (uint32_t), [this_l, header](boost::system::error_code const & ec, size_t size_a) {
 						this_l->receive_frontier_req_action (ec, size_a, header);
 					});
 					break;
 				}
-				case rai::message_type::bulk_push:
+				case galileo::message_type::bulk_push:
 				{
-					node->stats.inc (rai::stat::type::bootstrap, rai::stat::detail::bulk_push, rai::stat::dir::in);
-					add_request (std::unique_ptr<rai::message> (new rai::bulk_push (header)));
+					node->stats.inc (galileo::stat::type::bootstrap, galileo::stat::detail::bulk_push, galileo::stat::dir::in);
+					add_request (std::unique_ptr<galileo::message> (new galileo::bulk_push (header)));
 					break;
 				}
 				default:
@@ -1406,78 +1406,78 @@ void rai::bootstrap_server::receive_header_action (boost::system::error_code con
 	}
 }
 
-void rai::bootstrap_server::receive_bulk_pull_action (boost::system::error_code const & ec, size_t size_a, rai::message_header const & header_a)
+void galileo::bootstrap_server::receive_bulk_pull_action (boost::system::error_code const & ec, size_t size_a, galileo::message_header const & header_a)
 {
 	if (!ec)
 	{
 		auto error (false);
-		rai::bufferstream stream (receive_buffer->data (), sizeof (rai::uint256_union) + sizeof (rai::uint256_union));
-		std::unique_ptr<rai::bulk_pull> request (new rai::bulk_pull (error, stream, header_a));
+		galileo::bufferstream stream (receive_buffer->data (), sizeof (galileo::uint256_union) + sizeof (galileo::uint256_union));
+		std::unique_ptr<galileo::bulk_pull> request (new galileo::bulk_pull (error, stream, header_a));
 		if (!error)
 		{
 			if (node->config.logging.bulk_pull_logging ())
 			{
 				BOOST_LOG (node->log) << boost::str (boost::format ("Received bulk pull for %1% down to %2%") % request->start.to_string () % request->end.to_string ());
 			}
-			add_request (std::unique_ptr<rai::message> (request.release ()));
+			add_request (std::unique_ptr<galileo::message> (request.release ()));
 			receive ();
 		}
 	}
 }
 
-void rai::bootstrap_server::receive_bulk_pull_account_action (boost::system::error_code const & ec, size_t size_a, rai::message_header const & header_a)
+void galileo::bootstrap_server::receive_bulk_pull_account_action (boost::system::error_code const & ec, size_t size_a, galileo::message_header const & header_a)
 {
 	if (!ec)
 	{
 		auto error (false);
-		assert (size_a == (sizeof (rai::uint256_union) + sizeof (rai::uint128_union) + sizeof (uint8_t)));
-		rai::bufferstream stream (receive_buffer->data (), size_a);
-		std::unique_ptr<rai::bulk_pull_account> request (new rai::bulk_pull_account (error, stream, header_a));
+		assert (size_a == (sizeof (galileo::uint256_union) + sizeof (galileo::uint128_union) + sizeof (uint8_t)));
+		galileo::bufferstream stream (receive_buffer->data (), size_a);
+		std::unique_ptr<galileo::bulk_pull_account> request (new galileo::bulk_pull_account (error, stream, header_a));
 		if (!error)
 		{
 			if (node->config.logging.bulk_pull_logging ())
 			{
-				BOOST_LOG (node->log) << boost::str (boost::format ("Received bulk pull account for %1% with a minimum amount of %2%") % request->account.to_account () % rai::amount (request->minimum_amount).format_balance (rai::Mxrb_ratio, 10, true));
+				BOOST_LOG (node->log) << boost::str (boost::format ("Received bulk pull account for %1% with a minimum amount of %2%") % request->account.to_account () % galileo::amount (request->minimum_amount).format_balance (galileo::Mxrb_ratio, 10, true));
 			}
-			add_request (std::unique_ptr<rai::message> (request.release ()));
+			add_request (std::unique_ptr<galileo::message> (request.release ()));
 			receive ();
 		}
 	}
 }
 
-void rai::bootstrap_server::receive_bulk_pull_blocks_action (boost::system::error_code const & ec, size_t size_a, rai::message_header const & header_a)
+void galileo::bootstrap_server::receive_bulk_pull_blocks_action (boost::system::error_code const & ec, size_t size_a, galileo::message_header const & header_a)
 {
 	if (!ec)
 	{
 		auto error (false);
-		rai::bufferstream stream (receive_buffer->data (), sizeof (rai::uint256_union) + sizeof (rai::uint256_union) + sizeof (bulk_pull_blocks_mode) + sizeof (uint32_t));
-		std::unique_ptr<rai::bulk_pull_blocks> request (new rai::bulk_pull_blocks (error, stream, header_a));
+		galileo::bufferstream stream (receive_buffer->data (), sizeof (galileo::uint256_union) + sizeof (galileo::uint256_union) + sizeof (bulk_pull_blocks_mode) + sizeof (uint32_t));
+		std::unique_ptr<galileo::bulk_pull_blocks> request (new galileo::bulk_pull_blocks (error, stream, header_a));
 		if (!error)
 		{
 			if (node->config.logging.bulk_pull_logging ())
 			{
 				BOOST_LOG (node->log) << boost::str (boost::format ("Received deprecated bulk pull blocks for %1% to %2%") % request->min_hash.to_string () % request->max_hash.to_string ());
 			}
-			add_request (std::unique_ptr<rai::message> (request.release ()));
+			add_request (std::unique_ptr<galileo::message> (request.release ()));
 			receive ();
 		}
 	}
 }
 
-void rai::bootstrap_server::receive_frontier_req_action (boost::system::error_code const & ec, size_t size_a, rai::message_header const & header_a)
+void galileo::bootstrap_server::receive_frontier_req_action (boost::system::error_code const & ec, size_t size_a, galileo::message_header const & header_a)
 {
 	if (!ec)
 	{
 		auto error (false);
-		rai::bufferstream stream (receive_buffer->data (), sizeof (rai::uint256_union) + sizeof (uint32_t) + sizeof (uint32_t));
-		std::unique_ptr<rai::frontier_req> request (new rai::frontier_req (error, stream, header_a));
+		galileo::bufferstream stream (receive_buffer->data (), sizeof (galileo::uint256_union) + sizeof (uint32_t) + sizeof (uint32_t));
+		std::unique_ptr<galileo::frontier_req> request (new galileo::frontier_req (error, stream, header_a));
 		if (!error)
 		{
 			if (node->config.logging.bulk_pull_logging ())
 			{
 				BOOST_LOG (node->log) << boost::str (boost::format ("Received frontier request for %1% with age %2%") % request->start.to_string () % request->age);
 			}
-			add_request (std::unique_ptr<rai::message> (request.release ()));
+			add_request (std::unique_ptr<galileo::message> (request.release ()));
 			receive ();
 		}
 	}
@@ -1490,7 +1490,7 @@ void rai::bootstrap_server::receive_frontier_req_action (boost::system::error_co
 	}
 }
 
-void rai::bootstrap_server::add_request (std::unique_ptr<rai::message> message_a)
+void galileo::bootstrap_server::add_request (std::unique_ptr<galileo::message> message_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	auto start (requests.empty ());
@@ -1501,7 +1501,7 @@ void rai::bootstrap_server::add_request (std::unique_ptr<rai::message> message_a
 	}
 }
 
-void rai::bootstrap_server::finish_request ()
+void galileo::bootstrap_server::finish_request ()
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	requests.pop ();
@@ -1513,64 +1513,64 @@ void rai::bootstrap_server::finish_request ()
 
 namespace
 {
-class request_response_visitor : public rai::message_visitor
+class request_response_visitor : public galileo::message_visitor
 {
 public:
-	request_response_visitor (std::shared_ptr<rai::bootstrap_server> connection_a) :
+	request_response_visitor (std::shared_ptr<galileo::bootstrap_server> connection_a) :
 	connection (connection_a)
 	{
 	}
 	virtual ~request_response_visitor () = default;
-	void keepalive (rai::keepalive const &) override
+	void keepalive (galileo::keepalive const &) override
 	{
 		assert (false);
 	}
-	void publish (rai::publish const &) override
+	void publish (galileo::publish const &) override
 	{
 		assert (false);
 	}
-	void confirm_req (rai::confirm_req const &) override
+	void confirm_req (galileo::confirm_req const &) override
 	{
 		assert (false);
 	}
-	void confirm_ack (rai::confirm_ack const &) override
+	void confirm_ack (galileo::confirm_ack const &) override
 	{
 		assert (false);
 	}
-	void bulk_pull (rai::bulk_pull const &) override
+	void bulk_pull (galileo::bulk_pull const &) override
 	{
-		auto response (std::make_shared<rai::bulk_pull_server> (connection, std::unique_ptr<rai::bulk_pull> (static_cast<rai::bulk_pull *> (connection->requests.front ().release ()))));
+		auto response (std::make_shared<galileo::bulk_pull_server> (connection, std::unique_ptr<galileo::bulk_pull> (static_cast<galileo::bulk_pull *> (connection->requests.front ().release ()))));
 		response->send_next ();
 	}
-	void bulk_pull_account (rai::bulk_pull_account const &) override
+	void bulk_pull_account (galileo::bulk_pull_account const &) override
 	{
-		auto response (std::make_shared<rai::bulk_pull_account_server> (connection, std::unique_ptr<rai::bulk_pull_account> (static_cast<rai::bulk_pull_account *> (connection->requests.front ().release ()))));
+		auto response (std::make_shared<galileo::bulk_pull_account_server> (connection, std::unique_ptr<galileo::bulk_pull_account> (static_cast<galileo::bulk_pull_account *> (connection->requests.front ().release ()))));
 		response->send_frontier ();
 	}
-	void bulk_pull_blocks (rai::bulk_pull_blocks const &) override
+	void bulk_pull_blocks (galileo::bulk_pull_blocks const &) override
 	{
-		auto response (std::make_shared<rai::bulk_pull_blocks_server> (connection, std::unique_ptr<rai::bulk_pull_blocks> (static_cast<rai::bulk_pull_blocks *> (connection->requests.front ().release ()))));
+		auto response (std::make_shared<galileo::bulk_pull_blocks_server> (connection, std::unique_ptr<galileo::bulk_pull_blocks> (static_cast<galileo::bulk_pull_blocks *> (connection->requests.front ().release ()))));
 		response->send_next ();
 	}
-	void bulk_push (rai::bulk_push const &) override
+	void bulk_push (galileo::bulk_push const &) override
 	{
-		auto response (std::make_shared<rai::bulk_push_server> (connection));
+		auto response (std::make_shared<galileo::bulk_push_server> (connection));
 		response->receive ();
 	}
-	void frontier_req (rai::frontier_req const &) override
+	void frontier_req (galileo::frontier_req const &) override
 	{
-		auto response (std::make_shared<rai::frontier_req_server> (connection, std::unique_ptr<rai::frontier_req> (static_cast<rai::frontier_req *> (connection->requests.front ().release ()))));
+		auto response (std::make_shared<galileo::frontier_req_server> (connection, std::unique_ptr<galileo::frontier_req> (static_cast<galileo::frontier_req *> (connection->requests.front ().release ()))));
 		response->send_next ();
 	}
-	void node_id_handshake (rai::node_id_handshake const &) override
+	void node_id_handshake (galileo::node_id_handshake const &) override
 	{
 		assert (false);
 	}
-	std::shared_ptr<rai::bootstrap_server> connection;
+	std::shared_ptr<galileo::bootstrap_server> connection;
 };
 }
 
-void rai::bootstrap_server::run_next ()
+void galileo::bootstrap_server::run_next ()
 {
 	assert (!requests.empty ());
 	request_response_visitor visitor (shared_from_this ());
@@ -1592,7 +1592,7 @@ void rai::bootstrap_server::run_next ()
  * range will be exclusive of the frontier for that account with
  * a range of (frontier, end)
  */
-void rai::bulk_pull_server::set_current_end ()
+void galileo::bulk_pull_server::set_current_end ()
 {
 	include_start = false;
 	assert (request != nullptr);
@@ -1618,7 +1618,7 @@ void rai::bulk_pull_server::set_current_end ()
 	}
 	else
 	{
-		rai::account_info info;
+		galileo::account_info info;
 		auto no_address (connection->node->store.account_get (transaction, request->start, info));
 		if (no_address)
 		{
@@ -1647,15 +1647,15 @@ void rai::bulk_pull_server::set_current_end ()
 	}
 }
 
-void rai::bulk_pull_server::send_next ()
+void galileo::bulk_pull_server::send_next ()
 {
-	std::unique_ptr<rai::block> block (get_next ());
+	std::unique_ptr<galileo::block> block (get_next ());
 	if (block != nullptr)
 	{
 		{
 			send_buffer->clear ();
-			rai::vectorstream stream (*send_buffer);
-			rai::serialize_block (stream, *block);
+			galileo::vectorstream stream (*send_buffer);
+			galileo::serialize_block (stream, *block);
 		}
 		auto this_l (shared_from_this ());
 		if (connection->node->config.logging.bulk_pull_logging ())
@@ -1672,9 +1672,9 @@ void rai::bulk_pull_server::send_next ()
 	}
 }
 
-std::unique_ptr<rai::block> rai::bulk_pull_server::get_next ()
+std::unique_ptr<galileo::block> galileo::bulk_pull_server::get_next ()
 {
-	std::unique_ptr<rai::block> result;
+	std::unique_ptr<galileo::block> result;
 	bool send_current = false, set_current_to_end = false;
 
 	/*
@@ -1732,7 +1732,7 @@ std::unique_ptr<rai::block> rai::bulk_pull_server::get_next ()
 	return result;
 }
 
-void rai::bulk_pull_server::sent_action (boost::system::error_code const & ec, size_t size_a)
+void galileo::bulk_pull_server::sent_action (boost::system::error_code const & ec, size_t size_a)
 {
 	if (!ec)
 	{
@@ -1747,10 +1747,10 @@ void rai::bulk_pull_server::sent_action (boost::system::error_code const & ec, s
 	}
 }
 
-void rai::bulk_pull_server::send_finished ()
+void galileo::bulk_pull_server::send_finished ()
 {
 	send_buffer->clear ();
-	send_buffer->push_back (static_cast<uint8_t> (rai::block_type::not_a_block));
+	send_buffer->push_back (static_cast<uint8_t> (galileo::block_type::not_a_block));
 	auto this_l (shared_from_this ());
 	if (connection->node->config.logging.bulk_pull_logging ())
 	{
@@ -1761,7 +1761,7 @@ void rai::bulk_pull_server::send_finished ()
 	});
 }
 
-void rai::bulk_pull_server::no_block_sent (boost::system::error_code const & ec, size_t size_a)
+void galileo::bulk_pull_server::no_block_sent (boost::system::error_code const & ec, size_t size_a)
 {
 	if (!ec)
 	{
@@ -1777,7 +1777,7 @@ void rai::bulk_pull_server::no_block_sent (boost::system::error_code const & ec,
 	}
 }
 
-rai::bulk_pull_server::bulk_pull_server (std::shared_ptr<rai::bootstrap_server> const & connection_a, std::unique_ptr<rai::bulk_pull> request_a) :
+galileo::bulk_pull_server::bulk_pull_server (std::shared_ptr<galileo::bootstrap_server> const & connection_a, std::unique_ptr<galileo::bulk_pull> request_a) :
 connection (connection_a),
 request (std::move (request_a)),
 send_buffer (std::make_shared<std::vector<uint8_t>> ())
@@ -1788,7 +1788,7 @@ send_buffer (std::make_shared<std::vector<uint8_t>> ())
 /**
  * Bulk pull blocks related to an account
  */
-void rai::bulk_pull_account_server::set_params ()
+void galileo::bulk_pull_account_server::set_params ()
 {
 	assert (request != nullptr);
 
@@ -1796,11 +1796,11 @@ void rai::bulk_pull_account_server::set_params ()
 	 * Parse the flags
 	 */
 	invalid_request = false;
-	if (request->flags == rai::bulk_pull_account_flags::pending_address_only)
+	if (request->flags == galileo::bulk_pull_account_flags::pending_address_only)
 	{
 		pending_address_only = true;
 	}
-	else if (request->flags == rai::bulk_pull_account_flags::pending_hash_and_amount)
+	else if (request->flags == galileo::bulk_pull_account_flags::pending_hash_and_amount)
 	{
 		pending_address_only = false;
 	}
@@ -1823,7 +1823,7 @@ void rai::bulk_pull_account_server::set_params ()
 	current_key.hash = 0;
 }
 
-void rai::bulk_pull_account_server::send_frontier ()
+void galileo::bulk_pull_account_server::send_frontier ()
 {
 	/*
 	 * This function is really the entry point into this class,
@@ -1850,14 +1850,14 @@ void rai::bulk_pull_account_server::send_frontier ()
 	 **/
 	auto account_frontier_hash (connection->node->ledger.latest (stream_transaction, request->account));
 	auto account_frontier_balance_int (connection->node->ledger.account_balance (stream_transaction, request->account));
-	rai::uint128_union account_frontier_balance (account_frontier_balance_int);
+	galileo::uint128_union account_frontier_balance (account_frontier_balance_int);
 
 	/**
 	 ** Write the frontier block hash and balance into a buffer
 	 **/
 	send_buffer->clear ();
 	{
-		rai::vectorstream output_stream (*send_buffer);
+		galileo::vectorstream output_stream (*send_buffer);
 
 		write (output_stream, account_frontier_hash.bytes);
 		write (output_stream, account_frontier_balance.bytes);
@@ -1872,7 +1872,7 @@ void rai::bulk_pull_account_server::send_frontier ()
 	});
 }
 
-void rai::bulk_pull_account_server::send_next_block ()
+void galileo::bulk_pull_account_server::send_next_block ()
 {
 	/*
 	 * Get the next item from the queue, it is a tuple with the key (which
@@ -1891,7 +1891,7 @@ void rai::bulk_pull_account_server::send_next_block ()
 
 		if (pending_address_only)
 		{
-			rai::vectorstream output_stream (*send_buffer);
+			galileo::vectorstream output_stream (*send_buffer);
 
 			if (connection->node->config.logging.bulk_pull_logging ())
 			{
@@ -1902,7 +1902,7 @@ void rai::bulk_pull_account_server::send_next_block ()
 		}
 		else
 		{
-			rai::vectorstream output_stream (*send_buffer);
+			galileo::vectorstream output_stream (*send_buffer);
 
 			if (connection->node->config.logging.bulk_pull_logging ())
 			{
@@ -1932,9 +1932,9 @@ void rai::bulk_pull_account_server::send_next_block ()
 	}
 }
 
-std::pair<std::unique_ptr<rai::pending_key>, std::unique_ptr<rai::pending_info>> rai::bulk_pull_account_server::get_next ()
+std::pair<std::unique_ptr<galileo::pending_key>, std::unique_ptr<galileo::pending_info>> galileo::bulk_pull_account_server::get_next ()
 {
-	std::pair<std::unique_ptr<rai::pending_key>, std::unique_ptr<rai::pending_info>> result;
+	std::pair<std::unique_ptr<galileo::pending_key>, std::unique_ptr<galileo::pending_info>> result;
 
 	while (true)
 	{
@@ -1946,13 +1946,13 @@ std::pair<std::unique_ptr<rai::pending_key>, std::unique_ptr<rai::pending_info>>
 		auto stream_transaction (connection->node->store.tx_begin_read ());
 		auto stream (connection->node->store.pending_begin (stream_transaction, current_key));
 
-		if (stream == rai::store_iterator<rai::pending_key, rai::pending_info> (nullptr))
+		if (stream == galileo::store_iterator<galileo::pending_key, galileo::pending_info> (nullptr))
 		{
 			break;
 		}
 
-		rai::pending_key key (stream->first);
-		rai::pending_info info (stream->second);
+		galileo::pending_key key (stream->first);
+		galileo::pending_info info (stream->second);
 
 		/*
 		 * Get the key for the next value, to use in the next call or iteration
@@ -1993,8 +1993,8 @@ std::pair<std::unique_ptr<rai::pending_key>, std::unique_ptr<rai::pending_info>>
 			deduplication.insert ({ info.source, true });
 		}
 
-		result.first = std::unique_ptr<rai::pending_key> (new rai::pending_key (key));
-		result.second = std::unique_ptr<rai::pending_info> (new rai::pending_info (info));
+		result.first = std::unique_ptr<galileo::pending_key> (new galileo::pending_key (key));
+		result.second = std::unique_ptr<galileo::pending_info> (new galileo::pending_info (info));
 
 		break;
 	}
@@ -2002,7 +2002,7 @@ std::pair<std::unique_ptr<rai::pending_key>, std::unique_ptr<rai::pending_info>>
 	return result;
 }
 
-void rai::bulk_pull_account_server::sent_action (boost::system::error_code const & ec, size_t size_a)
+void galileo::bulk_pull_account_server::sent_action (boost::system::error_code const & ec, size_t size_a)
 {
 	if (!ec)
 	{
@@ -2017,7 +2017,7 @@ void rai::bulk_pull_account_server::sent_action (boost::system::error_code const
 	}
 }
 
-void rai::bulk_pull_account_server::send_finished ()
+void galileo::bulk_pull_account_server::send_finished ()
 {
 	/*
 	 * The "bulk_pull_account" final sequence is a final block of all
@@ -2028,9 +2028,9 @@ void rai::bulk_pull_account_server::send_finished ()
 	send_buffer->clear ();
 
 	{
-		rai::vectorstream output_stream (*send_buffer);
-		rai::uint256_union account_zero (0);
-		rai::uint128_union balance_zero (0);
+		galileo::vectorstream output_stream (*send_buffer);
+		galileo::uint256_union account_zero (0);
+		galileo::uint128_union balance_zero (0);
 
 		write (output_stream, account_zero.bytes);
 
@@ -2052,7 +2052,7 @@ void rai::bulk_pull_account_server::send_finished ()
 	});
 }
 
-void rai::bulk_pull_account_server::complete (boost::system::error_code const & ec, size_t size_a)
+void galileo::bulk_pull_account_server::complete (boost::system::error_code const & ec, size_t size_a)
 {
 	if (!ec)
 	{
@@ -2076,7 +2076,7 @@ void rai::bulk_pull_account_server::complete (boost::system::error_code const & 
 	}
 }
 
-rai::bulk_pull_account_server::bulk_pull_account_server (std::shared_ptr<rai::bootstrap_server> const & connection_a, std::unique_ptr<rai::bulk_pull_account> request_a) :
+galileo::bulk_pull_account_server::bulk_pull_account_server (std::shared_ptr<galileo::bootstrap_server> const & connection_a, std::unique_ptr<galileo::bulk_pull_account> request_a) :
 connection (connection_a),
 request (std::move (request_a)),
 send_buffer (std::make_shared<std::vector<uint8_t>> ()),
@@ -2091,27 +2091,27 @@ current_key (0, 0)
 /**
  * DEPRECATED
  */
-void rai::bulk_pull_blocks_server::set_params ()
+void galileo::bulk_pull_blocks_server::set_params ()
 {
 	assert (request != nullptr);
 }
 
-void rai::bulk_pull_blocks_server::send_next ()
+void galileo::bulk_pull_blocks_server::send_next ()
 {
 	send_finished ();
 }
 
-void rai::bulk_pull_blocks_server::send_finished ()
+void galileo::bulk_pull_blocks_server::send_finished ()
 {
 	send_buffer->clear ();
-	send_buffer->push_back (static_cast<uint8_t> (rai::block_type::not_a_block));
+	send_buffer->push_back (static_cast<uint8_t> (galileo::block_type::not_a_block));
 	auto this_l (shared_from_this ());
 	connection->socket->async_write (send_buffer, [this_l](boost::system::error_code const & ec, size_t size_a) {
 		this_l->no_block_sent (ec, size_a);
 	});
 }
 
-void rai::bulk_pull_blocks_server::no_block_sent (boost::system::error_code const & ec, size_t size_a)
+void galileo::bulk_pull_blocks_server::no_block_sent (boost::system::error_code const & ec, size_t size_a)
 {
 	if (!ec)
 	{
@@ -2120,7 +2120,7 @@ void rai::bulk_pull_blocks_server::no_block_sent (boost::system::error_code cons
 	}
 }
 
-rai::bulk_pull_blocks_server::bulk_pull_blocks_server (std::shared_ptr<rai::bootstrap_server> const & connection_a, std::unique_ptr<rai::bulk_pull_blocks> request_a) :
+galileo::bulk_pull_blocks_server::bulk_pull_blocks_server (std::shared_ptr<galileo::bootstrap_server> const & connection_a, std::unique_ptr<galileo::bulk_pull_blocks> request_a) :
 connection (connection_a),
 request (std::move (request_a)),
 send_buffer (std::make_shared<std::vector<uint8_t>> ())
@@ -2128,14 +2128,14 @@ send_buffer (std::make_shared<std::vector<uint8_t>> ())
 	set_params ();
 }
 
-rai::bulk_push_server::bulk_push_server (std::shared_ptr<rai::bootstrap_server> const & connection_a) :
+galileo::bulk_push_server::bulk_push_server (std::shared_ptr<galileo::bootstrap_server> const & connection_a) :
 receive_buffer (std::make_shared<std::vector<uint8_t>> ()),
 connection (connection_a)
 {
 	receive_buffer->resize (256);
 }
 
-void rai::bulk_push_server::receive ()
+void galileo::bulk_push_server::receive ()
 {
 	auto this_l (shared_from_this ());
 	connection->socket->async_read (receive_buffer, 1, [this_l](boost::system::error_code const & ec, size_t size_a) {
@@ -2153,53 +2153,53 @@ void rai::bulk_push_server::receive ()
 	});
 }
 
-void rai::bulk_push_server::received_type ()
+void galileo::bulk_push_server::received_type ()
 {
 	auto this_l (shared_from_this ());
-	rai::block_type type (static_cast<rai::block_type> (receive_buffer->data ()[0]));
+	galileo::block_type type (static_cast<galileo::block_type> (receive_buffer->data ()[0]));
 	switch (type)
 	{
-		case rai::block_type::send:
+		case galileo::block_type::send:
 		{
-			connection->node->stats.inc (rai::stat::type::bootstrap, rai::stat::detail::send, rai::stat::dir::in);
-			connection->socket->async_read (receive_buffer, rai::send_block::size, [this_l, type](boost::system::error_code const & ec, size_t size_a) {
+			connection->node->stats.inc (galileo::stat::type::bootstrap, galileo::stat::detail::send, galileo::stat::dir::in);
+			connection->socket->async_read (receive_buffer, galileo::send_block::size, [this_l, type](boost::system::error_code const & ec, size_t size_a) {
 				this_l->received_block (ec, size_a, type);
 			});
 			break;
 		}
-		case rai::block_type::receive:
+		case galileo::block_type::receive:
 		{
-			connection->node->stats.inc (rai::stat::type::bootstrap, rai::stat::detail::receive, rai::stat::dir::in);
-			connection->socket->async_read (receive_buffer, rai::receive_block::size, [this_l, type](boost::system::error_code const & ec, size_t size_a) {
+			connection->node->stats.inc (galileo::stat::type::bootstrap, galileo::stat::detail::receive, galileo::stat::dir::in);
+			connection->socket->async_read (receive_buffer, galileo::receive_block::size, [this_l, type](boost::system::error_code const & ec, size_t size_a) {
 				this_l->received_block (ec, size_a, type);
 			});
 			break;
 		}
-		case rai::block_type::open:
+		case galileo::block_type::open:
 		{
-			connection->node->stats.inc (rai::stat::type::bootstrap, rai::stat::detail::open, rai::stat::dir::in);
-			connection->socket->async_read (receive_buffer, rai::open_block::size, [this_l, type](boost::system::error_code const & ec, size_t size_a) {
+			connection->node->stats.inc (galileo::stat::type::bootstrap, galileo::stat::detail::open, galileo::stat::dir::in);
+			connection->socket->async_read (receive_buffer, galileo::open_block::size, [this_l, type](boost::system::error_code const & ec, size_t size_a) {
 				this_l->received_block (ec, size_a, type);
 			});
 			break;
 		}
-		case rai::block_type::change:
+		case galileo::block_type::change:
 		{
-			connection->node->stats.inc (rai::stat::type::bootstrap, rai::stat::detail::change, rai::stat::dir::in);
-			connection->socket->async_read (receive_buffer, rai::change_block::size, [this_l, type](boost::system::error_code const & ec, size_t size_a) {
+			connection->node->stats.inc (galileo::stat::type::bootstrap, galileo::stat::detail::change, galileo::stat::dir::in);
+			connection->socket->async_read (receive_buffer, galileo::change_block::size, [this_l, type](boost::system::error_code const & ec, size_t size_a) {
 				this_l->received_block (ec, size_a, type);
 			});
 			break;
 		}
-		case rai::block_type::state:
+		case galileo::block_type::state:
 		{
-			connection->node->stats.inc (rai::stat::type::bootstrap, rai::stat::detail::state_block, rai::stat::dir::in);
-			connection->socket->async_read (receive_buffer, rai::state_block::size, [this_l, type](boost::system::error_code const & ec, size_t size_a) {
+			connection->node->stats.inc (galileo::stat::type::bootstrap, galileo::stat::detail::state_block, galileo::stat::dir::in);
+			connection->socket->async_read (receive_buffer, galileo::state_block::size, [this_l, type](boost::system::error_code const & ec, size_t size_a) {
 				this_l->received_block (ec, size_a, type);
 			});
 			break;
 		}
-		case rai::block_type::not_a_block:
+		case galileo::block_type::not_a_block:
 		{
 			connection->finish_request ();
 			break;
@@ -2215,13 +2215,13 @@ void rai::bulk_push_server::received_type ()
 	}
 }
 
-void rai::bulk_push_server::received_block (boost::system::error_code const & ec, size_t size_a, rai::block_type type_a)
+void galileo::bulk_push_server::received_block (boost::system::error_code const & ec, size_t size_a, galileo::block_type type_a)
 {
 	if (!ec)
 	{
-		rai::bufferstream stream (receive_buffer->data (), size_a);
-		auto block (rai::deserialize_block (stream, type_a));
-		if (block != nullptr && !rai::work_validate (*block))
+		galileo::bufferstream stream (receive_buffer->data (), size_a);
+		auto block (galileo::deserialize_block (stream, type_a));
+		if (block != nullptr && !galileo::work_validate (*block))
 		{
 			connection->node->process_active (std::move (block));
 			receive ();
@@ -2236,10 +2236,10 @@ void rai::bulk_push_server::received_block (boost::system::error_code const & ec
 	}
 }
 
-rai::frontier_req_server::frontier_req_server (std::shared_ptr<rai::bootstrap_server> const & connection_a, std::unique_ptr<rai::frontier_req> request_a) :
+galileo::frontier_req_server::frontier_req_server (std::shared_ptr<galileo::bootstrap_server> const & connection_a, std::unique_ptr<galileo::frontier_req> request_a) :
 connection (connection_a),
 current (request_a->start.number () - 1),
-info (0, 0, 0, 0, 0, 0, rai::epoch::epoch_0),
+info (0, 0, 0, 0, 0, 0, galileo::epoch::epoch_0),
 request (std::move (request_a)),
 send_buffer (std::make_shared<std::vector<uint8_t>> ())
 {
@@ -2247,11 +2247,11 @@ send_buffer (std::make_shared<std::vector<uint8_t>> ())
 	skip_old ();
 }
 
-void rai::frontier_req_server::skip_old ()
+void galileo::frontier_req_server::skip_old ()
 {
 	if (request->age != std::numeric_limits<decltype (request->age)>::max ())
 	{
-		auto now (rai::seconds_since_epoch ());
+		auto now (galileo::seconds_since_epoch ());
 		while (!current.is_zero () && (now - info.modified) >= request->age)
 		{
 			next ();
@@ -2259,13 +2259,13 @@ void rai::frontier_req_server::skip_old ()
 	}
 }
 
-void rai::frontier_req_server::send_next ()
+void galileo::frontier_req_server::send_next ()
 {
 	if (!current.is_zero ())
 	{
 		{
 			send_buffer->clear ();
-			rai::vectorstream stream (*send_buffer);
+			galileo::vectorstream stream (*send_buffer);
 			write (stream, current.bytes);
 			write (stream, info.head.bytes);
 		}
@@ -2285,12 +2285,12 @@ void rai::frontier_req_server::send_next ()
 	}
 }
 
-void rai::frontier_req_server::send_finished ()
+void galileo::frontier_req_server::send_finished ()
 {
 	{
 		send_buffer->clear ();
-		rai::vectorstream stream (*send_buffer);
-		rai::uint256_union zero (0);
+		galileo::vectorstream stream (*send_buffer);
+		galileo::uint256_union zero (0);
 		write (stream, zero.bytes);
 		write (stream, zero.bytes);
 	}
@@ -2304,7 +2304,7 @@ void rai::frontier_req_server::send_finished ()
 	});
 }
 
-void rai::frontier_req_server::no_block_sent (boost::system::error_code const & ec, size_t size_a)
+void galileo::frontier_req_server::no_block_sent (boost::system::error_code const & ec, size_t size_a)
 {
 	if (!ec)
 	{
@@ -2319,7 +2319,7 @@ void rai::frontier_req_server::no_block_sent (boost::system::error_code const & 
 	}
 }
 
-void rai::frontier_req_server::sent_action (boost::system::error_code const & ec, size_t size_a)
+void galileo::frontier_req_server::sent_action (boost::system::error_code const & ec, size_t size_a)
 {
 	if (!ec)
 	{
@@ -2334,14 +2334,14 @@ void rai::frontier_req_server::sent_action (boost::system::error_code const & ec
 	}
 }
 
-void rai::frontier_req_server::next ()
+void galileo::frontier_req_server::next ()
 {
 	auto transaction (connection->node->store.tx_begin_read ());
 	auto iterator (connection->node->store.latest_begin (transaction, current.number () + 1));
 	if (iterator != connection->node->store.latest_end ())
 	{
-		current = rai::uint256_union (iterator->first);
-		info = rai::account_info (iterator->second);
+		current = galileo::uint256_union (iterator->first);
+		info = galileo::account_info (iterator->second);
 	}
 	else
 	{

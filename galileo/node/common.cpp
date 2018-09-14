@@ -4,20 +4,20 @@
 #include <galileo/lib/work.hpp>
 #include <galileo/node/wallet.hpp>
 
-std::array<uint8_t, 2> constexpr rai::message_header::magic_number;
-size_t constexpr rai::message_header::ipv4_only_position;
-size_t constexpr rai::message_header::bootstrap_server_position;
-std::bitset<16> constexpr rai::message_header::block_type_mask;
+std::array<uint8_t, 2> constexpr galileo::message_header::magic_number;
+size_t constexpr galileo::message_header::ipv4_only_position;
+size_t constexpr galileo::message_header::bootstrap_server_position;
+std::bitset<16> constexpr galileo::message_header::block_type_mask;
 
-rai::message_header::message_header (rai::message_type type_a) :
-version_max (rai::protocol_version),
-version_using (rai::protocol_version),
-version_min (rai::protocol_version_min),
+galileo::message_header::message_header (galileo::message_type type_a) :
+version_max (galileo::protocol_version),
+version_using (galileo::protocol_version),
+version_min (galileo::protocol_version_min),
 type (type_a)
 {
 }
 
-rai::message_header::message_header (bool & error_a, rai::stream & stream_a)
+galileo::message_header::message_header (bool & error_a, galileo::stream & stream_a)
 {
 	if (!error_a)
 	{
@@ -25,27 +25,27 @@ rai::message_header::message_header (bool & error_a, rai::stream & stream_a)
 	}
 }
 
-void rai::message_header::serialize (rai::stream & stream_a)
+void galileo::message_header::serialize (galileo::stream & stream_a)
 {
-	rai::write (stream_a, rai::message_header::magic_number);
-	rai::write (stream_a, version_max);
-	rai::write (stream_a, version_using);
-	rai::write (stream_a, version_min);
-	rai::write (stream_a, type);
-	rai::write (stream_a, static_cast<uint16_t> (extensions.to_ullong ()));
+	galileo::write (stream_a, galileo::message_header::magic_number);
+	galileo::write (stream_a, version_max);
+	galileo::write (stream_a, version_using);
+	galileo::write (stream_a, version_min);
+	galileo::write (stream_a, type);
+	galileo::write (stream_a, static_cast<uint16_t> (extensions.to_ullong ()));
 }
 
-bool rai::message_header::deserialize (rai::stream & stream_a)
+bool galileo::message_header::deserialize (galileo::stream & stream_a)
 {
 	uint16_t extensions_l;
 	std::array<uint8_t, 2> magic_number_l;
-	auto result (rai::read (stream_a, magic_number_l));
+	auto result (galileo::read (stream_a, magic_number_l));
 	result = result || magic_number_l != magic_number;
-	result = result || rai::read (stream_a, version_max);
-	result = result || rai::read (stream_a, version_using);
-	result = result || rai::read (stream_a, version_min);
-	result = result || rai::read (stream_a, type);
-	result = result || rai::read (stream_a, extensions_l);
+	result = result || galileo::read (stream_a, version_max);
+	result = result || galileo::read (stream_a, version_using);
+	result = result || galileo::read (stream_a, version_min);
+	result = result || galileo::read (stream_a, type);
+	result = result || galileo::read (stream_a, extensions_l);
 	if (!result)
 	{
 		extensions = extensions_l;
@@ -53,59 +53,59 @@ bool rai::message_header::deserialize (rai::stream & stream_a)
 	return result;
 }
 
-rai::message::message (rai::message_type type_a) :
+galileo::message::message (galileo::message_type type_a) :
 header (type_a)
 {
 }
 
-rai::message::message (rai::message_header const & header_a) :
+galileo::message::message (galileo::message_header const & header_a) :
 header (header_a)
 {
 }
 
-rai::block_type rai::message_header::block_type () const
+galileo::block_type galileo::message_header::block_type () const
 {
-	return static_cast<rai::block_type> (((extensions & block_type_mask) >> 8).to_ullong ());
+	return static_cast<galileo::block_type> (((extensions & block_type_mask) >> 8).to_ullong ());
 }
 
-void rai::message_header::block_type_set (rai::block_type type_a)
+void galileo::message_header::block_type_set (galileo::block_type type_a)
 {
 	extensions &= ~block_type_mask;
 	extensions |= std::bitset<16> (static_cast<unsigned long long> (type_a) << 8);
 }
 
-bool rai::message_header::ipv4_only ()
+bool galileo::message_header::ipv4_only ()
 {
 	return extensions.test (ipv4_only_position);
 }
 
-void rai::message_header::ipv4_only_set (bool value_a)
+void galileo::message_header::ipv4_only_set (bool value_a)
 {
 	extensions.set (ipv4_only_position, value_a);
 }
 
 // MTU - IP header - UDP header
-const size_t rai::message_parser::max_safe_udp_message_size = 508;
+const size_t galileo::message_parser::max_safe_udp_message_size = 508;
 
-rai::message_parser::message_parser (rai::message_visitor & visitor_a, rai::work_pool & pool_a) :
+galileo::message_parser::message_parser (galileo::message_visitor & visitor_a, galileo::work_pool & pool_a) :
 visitor (visitor_a),
 pool (pool_a),
 status (parse_status::success)
 {
 }
 
-void rai::message_parser::deserialize_buffer (uint8_t const * buffer_a, size_t size_a)
+void galileo::message_parser::deserialize_buffer (uint8_t const * buffer_a, size_t size_a)
 {
 	status = parse_status::success;
 	auto error (false);
 	if (size_a <= max_safe_udp_message_size)
 	{
 		// Guaranteed to be deliverable
-		rai::bufferstream stream (buffer_a, size_a);
-		rai::message_header header (error, stream);
+		galileo::bufferstream stream (buffer_a, size_a);
+		galileo::message_header header (error, stream);
 		if (!error)
 		{
-			if (rai::rai_network == rai::rai_networks::rai_beta_network && header.version_using < rai::protocol_version)
+			if (galileo::rai_network == galileo::rai_networks::rai_beta_network && header.version_using < galileo::protocol_version)
 			{
 				status = parse_status::outdated_version;
 			}
@@ -113,27 +113,27 @@ void rai::message_parser::deserialize_buffer (uint8_t const * buffer_a, size_t s
 			{
 				switch (header.type)
 				{
-					case rai::message_type::keepalive:
+					case galileo::message_type::keepalive:
 					{
 						deserialize_keepalive (stream, header);
 						break;
 					}
-					case rai::message_type::publish:
+					case galileo::message_type::publish:
 					{
 						deserialize_publish (stream, header);
 						break;
 					}
-					case rai::message_type::confirm_req:
+					case galileo::message_type::confirm_req:
 					{
 						deserialize_confirm_req (stream, header);
 						break;
 					}
-					case rai::message_type::confirm_ack:
+					case galileo::message_type::confirm_ack:
 					{
 						deserialize_confirm_ack (stream, header);
 						break;
 					}
-					case rai::message_type::node_id_handshake:
+					case galileo::message_type::node_id_handshake:
 					{
 						deserialize_node_id_handshake (stream, header);
 						break;
@@ -153,10 +153,10 @@ void rai::message_parser::deserialize_buffer (uint8_t const * buffer_a, size_t s
 	}
 }
 
-void rai::message_parser::deserialize_keepalive (rai::stream & stream_a, rai::message_header const & header_a)
+void galileo::message_parser::deserialize_keepalive (galileo::stream & stream_a, galileo::message_header const & header_a)
 {
 	auto error (false);
-	rai::keepalive incoming (error, stream_a, header_a);
+	galileo::keepalive incoming (error, stream_a, header_a);
 	if (!error && at_end (stream_a))
 	{
 		visitor.keepalive (incoming);
@@ -167,13 +167,13 @@ void rai::message_parser::deserialize_keepalive (rai::stream & stream_a, rai::me
 	}
 }
 
-void rai::message_parser::deserialize_publish (rai::stream & stream_a, rai::message_header const & header_a)
+void galileo::message_parser::deserialize_publish (galileo::stream & stream_a, galileo::message_header const & header_a)
 {
 	auto error (false);
-	rai::publish incoming (error, stream_a, header_a);
+	galileo::publish incoming (error, stream_a, header_a);
 	if (!error && at_end (stream_a))
 	{
-		if (!rai::work_validate (*incoming.block))
+		if (!galileo::work_validate (*incoming.block))
 		{
 			visitor.publish (incoming);
 		}
@@ -188,13 +188,13 @@ void rai::message_parser::deserialize_publish (rai::stream & stream_a, rai::mess
 	}
 }
 
-void rai::message_parser::deserialize_confirm_req (rai::stream & stream_a, rai::message_header const & header_a)
+void galileo::message_parser::deserialize_confirm_req (galileo::stream & stream_a, galileo::message_header const & header_a)
 {
 	auto error (false);
-	rai::confirm_req incoming (error, stream_a, header_a);
+	galileo::confirm_req incoming (error, stream_a, header_a);
 	if (!error && at_end (stream_a))
 	{
-		if (!rai::work_validate (*incoming.block))
+		if (!galileo::work_validate (*incoming.block))
 		{
 			visitor.confirm_req (incoming);
 		}
@@ -209,18 +209,18 @@ void rai::message_parser::deserialize_confirm_req (rai::stream & stream_a, rai::
 	}
 }
 
-void rai::message_parser::deserialize_confirm_ack (rai::stream & stream_a, rai::message_header const & header_a)
+void galileo::message_parser::deserialize_confirm_ack (galileo::stream & stream_a, galileo::message_header const & header_a)
 {
 	auto error (false);
-	rai::confirm_ack incoming (error, stream_a, header_a);
+	galileo::confirm_ack incoming (error, stream_a, header_a);
 	if (!error && at_end (stream_a))
 	{
 		for (auto & vote_block : incoming.vote->blocks)
 		{
 			if (!vote_block.which ())
 			{
-				auto block (boost::get<std::shared_ptr<rai::block>> (vote_block));
-				if (rai::work_validate (*block))
+				auto block (boost::get<std::shared_ptr<galileo::block>> (vote_block));
+				if (galileo::work_validate (*block))
 				{
 					status = parse_status::insufficient_work;
 					break;
@@ -238,10 +238,10 @@ void rai::message_parser::deserialize_confirm_ack (rai::stream & stream_a, rai::
 	}
 }
 
-void rai::message_parser::deserialize_node_id_handshake (rai::stream & stream_a, rai::message_header const & header_a)
+void galileo::message_parser::deserialize_node_id_handshake (galileo::stream & stream_a, galileo::message_header const & header_a)
 {
 	bool error_l (false);
-	rai::node_id_handshake incoming (error_l, stream_a, header_a);
+	galileo::node_id_handshake incoming (error_l, stream_a, header_a);
 	if (!error_l && at_end (stream_a))
 	{
 		visitor.node_id_handshake (incoming);
@@ -252,24 +252,24 @@ void rai::message_parser::deserialize_node_id_handshake (rai::stream & stream_a,
 	}
 }
 
-bool rai::message_parser::at_end (rai::stream & stream_a)
+bool galileo::message_parser::at_end (galileo::stream & stream_a)
 {
 	uint8_t junk;
-	auto end (rai::read (stream_a, junk));
+	auto end (galileo::read (stream_a, junk));
 	return end;
 }
 
-rai::keepalive::keepalive () :
-message (rai::message_type::keepalive)
+galileo::keepalive::keepalive () :
+message (galileo::message_type::keepalive)
 {
-	rai::endpoint endpoint (boost::asio::ip::address_v6{}, 0);
+	galileo::endpoint endpoint (boost::asio::ip::address_v6{}, 0);
 	for (auto i (peers.begin ()), n (peers.end ()); i != n; ++i)
 	{
 		*i = endpoint;
 	}
 }
 
-rai::keepalive::keepalive (bool & error_a, rai::stream & stream_a, rai::message_header const & header_a) :
+galileo::keepalive::keepalive (bool & error_a, galileo::stream & stream_a, galileo::message_header const & header_a) :
 message (header_a)
 {
 	if (!error_a)
@@ -278,12 +278,12 @@ message (header_a)
 	}
 }
 
-void rai::keepalive::visit (rai::message_visitor & visitor_a) const
+void galileo::keepalive::visit (galileo::message_visitor & visitor_a) const
 {
 	visitor_a.keepalive (*this);
 }
 
-void rai::keepalive::serialize (rai::stream & stream_a)
+void galileo::keepalive::serialize (galileo::stream & stream_a)
 {
 	header.serialize (stream_a);
 	for (auto i (peers.begin ()), j (peers.end ()); i != j; ++i)
@@ -295,9 +295,9 @@ void rai::keepalive::serialize (rai::stream & stream_a)
 	}
 }
 
-bool rai::keepalive::deserialize (rai::stream & stream_a)
+bool galileo::keepalive::deserialize (galileo::stream & stream_a)
 {
-	assert (header.type == rai::message_type::keepalive);
+	assert (header.type == galileo::message_type::keepalive);
 	auto error (false);
 	for (auto i (peers.begin ()), j (peers.end ()); i != j && !error; ++i)
 	{
@@ -305,7 +305,7 @@ bool rai::keepalive::deserialize (rai::stream & stream_a)
 		uint16_t port;
 		if (!read (stream_a, address) && !read (stream_a, port))
 		{
-			*i = rai::endpoint (boost::asio::ip::address_v6 (address), port);
+			*i = galileo::endpoint (boost::asio::ip::address_v6 (address), port);
 		}
 		else
 		{
@@ -315,12 +315,12 @@ bool rai::keepalive::deserialize (rai::stream & stream_a)
 	return error;
 }
 
-bool rai::keepalive::operator== (rai::keepalive const & other_a) const
+bool galileo::keepalive::operator== (galileo::keepalive const & other_a) const
 {
 	return peers == other_a.peers;
 }
 
-rai::publish::publish (bool & error_a, rai::stream & stream_a, rai::message_header const & header_a) :
+galileo::publish::publish (bool & error_a, galileo::stream & stream_a, galileo::message_header const & header_a) :
 message (header_a)
 {
 	if (!error_a)
@@ -329,39 +329,39 @@ message (header_a)
 	}
 }
 
-rai::publish::publish (std::shared_ptr<rai::block> block_a) :
-message (rai::message_type::publish),
+galileo::publish::publish (std::shared_ptr<galileo::block> block_a) :
+message (galileo::message_type::publish),
 block (block_a)
 {
 	header.block_type_set (block->type ());
 }
 
-bool rai::publish::deserialize (rai::stream & stream_a)
+bool galileo::publish::deserialize (galileo::stream & stream_a)
 {
-	assert (header.type == rai::message_type::publish);
-	block = rai::deserialize_block (stream_a, header.block_type ());
+	assert (header.type == galileo::message_type::publish);
+	block = galileo::deserialize_block (stream_a, header.block_type ());
 	auto result (block == nullptr);
 	return result;
 }
 
-void rai::publish::serialize (rai::stream & stream_a)
+void galileo::publish::serialize (galileo::stream & stream_a)
 {
 	assert (block != nullptr);
 	header.serialize (stream_a);
 	block->serialize (stream_a);
 }
 
-void rai::publish::visit (rai::message_visitor & visitor_a) const
+void galileo::publish::visit (galileo::message_visitor & visitor_a) const
 {
 	visitor_a.publish (*this);
 }
 
-bool rai::publish::operator== (rai::publish const & other_a) const
+bool galileo::publish::operator== (galileo::publish const & other_a) const
 {
 	return *block == *other_a.block;
 }
 
-rai::confirm_req::confirm_req (bool & error_a, rai::stream & stream_a, rai::message_header const & header_a) :
+galileo::confirm_req::confirm_req (bool & error_a, galileo::stream & stream_a, galileo::message_header const & header_a) :
 message (header_a)
 {
 	if (!error_a)
@@ -370,90 +370,90 @@ message (header_a)
 	}
 }
 
-rai::confirm_req::confirm_req (std::shared_ptr<rai::block> block_a) :
-message (rai::message_type::confirm_req),
+galileo::confirm_req::confirm_req (std::shared_ptr<galileo::block> block_a) :
+message (galileo::message_type::confirm_req),
 block (block_a)
 {
 	header.block_type_set (block->type ());
 }
 
-bool rai::confirm_req::deserialize (rai::stream & stream_a)
+bool galileo::confirm_req::deserialize (galileo::stream & stream_a)
 {
-	assert (header.type == rai::message_type::confirm_req);
-	block = rai::deserialize_block (stream_a, header.block_type ());
+	assert (header.type == galileo::message_type::confirm_req);
+	block = galileo::deserialize_block (stream_a, header.block_type ());
 	auto result (block == nullptr);
 	return result;
 }
 
-void rai::confirm_req::visit (rai::message_visitor & visitor_a) const
+void galileo::confirm_req::visit (galileo::message_visitor & visitor_a) const
 {
 	visitor_a.confirm_req (*this);
 }
 
-void rai::confirm_req::serialize (rai::stream & stream_a)
+void galileo::confirm_req::serialize (galileo::stream & stream_a)
 {
 	assert (block != nullptr);
 	header.serialize (stream_a);
 	block->serialize (stream_a);
 }
 
-bool rai::confirm_req::operator== (rai::confirm_req const & other_a) const
+bool galileo::confirm_req::operator== (galileo::confirm_req const & other_a) const
 {
 	return *block == *other_a.block;
 }
 
-rai::confirm_ack::confirm_ack (bool & error_a, rai::stream & stream_a, rai::message_header const & header_a) :
+galileo::confirm_ack::confirm_ack (bool & error_a, galileo::stream & stream_a, galileo::message_header const & header_a) :
 message (header_a),
-vote (std::make_shared<rai::vote> (error_a, stream_a, header.block_type ()))
+vote (std::make_shared<galileo::vote> (error_a, stream_a, header.block_type ()))
 {
 }
 
-rai::confirm_ack::confirm_ack (std::shared_ptr<rai::vote> vote_a) :
-message (rai::message_type::confirm_ack),
+galileo::confirm_ack::confirm_ack (std::shared_ptr<galileo::vote> vote_a) :
+message (galileo::message_type::confirm_ack),
 vote (vote_a)
 {
 	auto & first_vote_block (vote_a->blocks[0]);
 	if (first_vote_block.which ())
 	{
-		header.block_type_set (rai::block_type::not_a_block);
+		header.block_type_set (galileo::block_type::not_a_block);
 	}
 	else
 	{
-		header.block_type_set (boost::get<std::shared_ptr<rai::block>> (first_vote_block)->type ());
+		header.block_type_set (boost::get<std::shared_ptr<galileo::block>> (first_vote_block)->type ());
 	}
 }
 
-bool rai::confirm_ack::deserialize (rai::stream & stream_a)
+bool galileo::confirm_ack::deserialize (galileo::stream & stream_a)
 {
-	assert (header.type == rai::message_type::confirm_ack);
+	assert (header.type == galileo::message_type::confirm_ack);
 	auto result (vote->deserialize (stream_a));
 	return result;
 }
 
-void rai::confirm_ack::serialize (rai::stream & stream_a)
+void galileo::confirm_ack::serialize (galileo::stream & stream_a)
 {
-	assert (header.block_type () == rai::block_type::not_a_block || header.block_type () == rai::block_type::send || header.block_type () == rai::block_type::receive || header.block_type () == rai::block_type::open || header.block_type () == rai::block_type::change || header.block_type () == rai::block_type::state);
+	assert (header.block_type () == galileo::block_type::not_a_block || header.block_type () == galileo::block_type::send || header.block_type () == galileo::block_type::receive || header.block_type () == galileo::block_type::open || header.block_type () == galileo::block_type::change || header.block_type () == galileo::block_type::state);
 	header.serialize (stream_a);
 	vote->serialize (stream_a, header.block_type ());
 }
 
-bool rai::confirm_ack::operator== (rai::confirm_ack const & other_a) const
+bool galileo::confirm_ack::operator== (galileo::confirm_ack const & other_a) const
 {
 	auto result (*vote == *other_a.vote);
 	return result;
 }
 
-void rai::confirm_ack::visit (rai::message_visitor & visitor_a) const
+void galileo::confirm_ack::visit (galileo::message_visitor & visitor_a) const
 {
 	visitor_a.confirm_ack (*this);
 }
 
-rai::frontier_req::frontier_req () :
-message (rai::message_type::frontier_req)
+galileo::frontier_req::frontier_req () :
+message (galileo::message_type::frontier_req)
 {
 }
 
-rai::frontier_req::frontier_req (bool & error_a, rai::stream & stream_a, rai::message_header const & header_a) :
+galileo::frontier_req::frontier_req (bool & error_a, galileo::stream & stream_a, galileo::message_header const & header_a) :
 message (header_a)
 {
 	if (!error_a)
@@ -462,9 +462,9 @@ message (header_a)
 	}
 }
 
-bool rai::frontier_req::deserialize (rai::stream & stream_a)
+bool galileo::frontier_req::deserialize (galileo::stream & stream_a)
 {
-	assert (header.type == rai::message_type::frontier_req);
+	assert (header.type == galileo::message_type::frontier_req);
 	auto result (read (stream_a, start.bytes));
 	if (!result)
 	{
@@ -477,7 +477,7 @@ bool rai::frontier_req::deserialize (rai::stream & stream_a)
 	return result;
 }
 
-void rai::frontier_req::serialize (rai::stream & stream_a)
+void galileo::frontier_req::serialize (galileo::stream & stream_a)
 {
 	header.serialize (stream_a);
 	write (stream_a, start.bytes);
@@ -485,22 +485,22 @@ void rai::frontier_req::serialize (rai::stream & stream_a)
 	write (stream_a, count);
 }
 
-void rai::frontier_req::visit (rai::message_visitor & visitor_a) const
+void galileo::frontier_req::visit (galileo::message_visitor & visitor_a) const
 {
 	visitor_a.frontier_req (*this);
 }
 
-bool rai::frontier_req::operator== (rai::frontier_req const & other_a) const
+bool galileo::frontier_req::operator== (galileo::frontier_req const & other_a) const
 {
 	return start == other_a.start && age == other_a.age && count == other_a.count;
 }
 
-rai::bulk_pull::bulk_pull () :
-message (rai::message_type::bulk_pull)
+galileo::bulk_pull::bulk_pull () :
+message (galileo::message_type::bulk_pull)
 {
 }
 
-rai::bulk_pull::bulk_pull (bool & error_a, rai::stream & stream_a, rai::message_header const & header_a) :
+galileo::bulk_pull::bulk_pull (bool & error_a, galileo::stream & stream_a, galileo::message_header const & header_a) :
 message (header_a)
 {
 	if (!error_a)
@@ -509,14 +509,14 @@ message (header_a)
 	}
 }
 
-void rai::bulk_pull::visit (rai::message_visitor & visitor_a) const
+void galileo::bulk_pull::visit (galileo::message_visitor & visitor_a) const
 {
 	visitor_a.bulk_pull (*this);
 }
 
-bool rai::bulk_pull::deserialize (rai::stream & stream_a)
+bool galileo::bulk_pull::deserialize (galileo::stream & stream_a)
 {
-	assert (header.type == rai::message_type::bulk_pull);
+	assert (header.type == galileo::message_type::bulk_pull);
 	auto result (read (stream_a, start));
 	if (!result)
 	{
@@ -525,19 +525,19 @@ bool rai::bulk_pull::deserialize (rai::stream & stream_a)
 	return result;
 }
 
-void rai::bulk_pull::serialize (rai::stream & stream_a)
+void galileo::bulk_pull::serialize (galileo::stream & stream_a)
 {
 	header.serialize (stream_a);
 	write (stream_a, start);
 	write (stream_a, end);
 }
 
-rai::bulk_pull_account::bulk_pull_account () :
-message (rai::message_type::bulk_pull_account)
+galileo::bulk_pull_account::bulk_pull_account () :
+message (galileo::message_type::bulk_pull_account)
 {
 }
 
-rai::bulk_pull_account::bulk_pull_account (bool & error_a, rai::stream & stream_a, rai::message_header const & header_a) :
+galileo::bulk_pull_account::bulk_pull_account (bool & error_a, galileo::stream & stream_a, galileo::message_header const & header_a) :
 message (header_a)
 {
 	if (!error_a)
@@ -546,14 +546,14 @@ message (header_a)
 	}
 }
 
-void rai::bulk_pull_account::visit (rai::message_visitor & visitor_a) const
+void galileo::bulk_pull_account::visit (galileo::message_visitor & visitor_a) const
 {
 	visitor_a.bulk_pull_account (*this);
 }
 
-bool rai::bulk_pull_account::deserialize (rai::stream & stream_a)
+bool galileo::bulk_pull_account::deserialize (galileo::stream & stream_a)
 {
-	assert (header.type == rai::message_type::bulk_pull_account);
+	assert (header.type == galileo::message_type::bulk_pull_account);
 	auto result (read (stream_a, account));
 	if (!result)
 	{
@@ -566,7 +566,7 @@ bool rai::bulk_pull_account::deserialize (rai::stream & stream_a)
 	return result;
 }
 
-void rai::bulk_pull_account::serialize (rai::stream & stream_a)
+void galileo::bulk_pull_account::serialize (galileo::stream & stream_a)
 {
 	header.serialize (stream_a);
 	write (stream_a, account);
@@ -574,12 +574,12 @@ void rai::bulk_pull_account::serialize (rai::stream & stream_a)
 	write (stream_a, flags);
 }
 
-rai::bulk_pull_blocks::bulk_pull_blocks () :
-message (rai::message_type::bulk_pull_blocks)
+galileo::bulk_pull_blocks::bulk_pull_blocks () :
+message (galileo::message_type::bulk_pull_blocks)
 {
 }
 
-rai::bulk_pull_blocks::bulk_pull_blocks (bool & error_a, rai::stream & stream_a, rai::message_header const & header_a) :
+galileo::bulk_pull_blocks::bulk_pull_blocks (bool & error_a, galileo::stream & stream_a, galileo::message_header const & header_a) :
 message (header_a)
 {
 	if (!error_a)
@@ -588,14 +588,14 @@ message (header_a)
 	}
 }
 
-void rai::bulk_pull_blocks::visit (rai::message_visitor & visitor_a) const
+void galileo::bulk_pull_blocks::visit (galileo::message_visitor & visitor_a) const
 {
 	visitor_a.bulk_pull_blocks (*this);
 }
 
-bool rai::bulk_pull_blocks::deserialize (rai::stream & stream_a)
+bool galileo::bulk_pull_blocks::deserialize (galileo::stream & stream_a)
 {
-	assert (header.type == rai::message_type::bulk_pull_blocks);
+	assert (header.type == galileo::message_type::bulk_pull_blocks);
 	auto result (read (stream_a, min_hash));
 	if (!result)
 	{
@@ -612,7 +612,7 @@ bool rai::bulk_pull_blocks::deserialize (rai::stream & stream_a)
 	return result;
 }
 
-void rai::bulk_pull_blocks::serialize (rai::stream & stream_a)
+void galileo::bulk_pull_blocks::serialize (galileo::stream & stream_a)
 {
 	header.serialize (stream_a);
 	write (stream_a, min_hash);
@@ -621,36 +621,36 @@ void rai::bulk_pull_blocks::serialize (rai::stream & stream_a)
 	write (stream_a, max_count);
 }
 
-rai::bulk_push::bulk_push () :
-message (rai::message_type::bulk_push)
+galileo::bulk_push::bulk_push () :
+message (galileo::message_type::bulk_push)
 {
 }
 
-rai::bulk_push::bulk_push (rai::message_header const & header_a) :
+galileo::bulk_push::bulk_push (galileo::message_header const & header_a) :
 message (header_a)
 {
 }
 
-bool rai::bulk_push::deserialize (rai::stream & stream_a)
+bool galileo::bulk_push::deserialize (galileo::stream & stream_a)
 {
-	assert (header.type == rai::message_type::bulk_push);
+	assert (header.type == galileo::message_type::bulk_push);
 	return false;
 }
 
-void rai::bulk_push::serialize (rai::stream & stream_a)
+void galileo::bulk_push::serialize (galileo::stream & stream_a)
 {
 	header.serialize (stream_a);
 }
 
-void rai::bulk_push::visit (rai::message_visitor & visitor_a) const
+void galileo::bulk_push::visit (galileo::message_visitor & visitor_a) const
 {
 	visitor_a.bulk_push (*this);
 }
 
-size_t constexpr rai::node_id_handshake::query_flag;
-size_t constexpr rai::node_id_handshake::response_flag;
+size_t constexpr galileo::node_id_handshake::query_flag;
+size_t constexpr galileo::node_id_handshake::response_flag;
 
-rai::node_id_handshake::node_id_handshake (bool & error_a, rai::stream & stream_a, rai::message_header const & header_a) :
+galileo::node_id_handshake::node_id_handshake (bool & error_a, galileo::stream & stream_a, galileo::message_header const & header_a) :
 message (header_a),
 query (boost::none),
 response (boost::none)
@@ -658,8 +658,8 @@ response (boost::none)
 	error_a = deserialize (stream_a);
 }
 
-rai::node_id_handshake::node_id_handshake (boost::optional<rai::uint256_union> query, boost::optional<std::pair<rai::account, rai::signature>> response) :
-message (rai::message_type::node_id_handshake),
+galileo::node_id_handshake::node_id_handshake (boost::optional<galileo::uint256_union> query, boost::optional<std::pair<galileo::account, galileo::signature>> response) :
+message (galileo::message_type::node_id_handshake),
 query (query),
 response (response)
 {
@@ -673,13 +673,13 @@ response (response)
 	}
 }
 
-bool rai::node_id_handshake::deserialize (rai::stream & stream_a)
+bool galileo::node_id_handshake::deserialize (galileo::stream & stream_a)
 {
 	auto result (false);
-	assert (header.type == rai::message_type::node_id_handshake);
+	assert (header.type == galileo::message_type::node_id_handshake);
 	if (!result && header.extensions.test (query_flag))
 	{
-		rai::uint256_union query_hash;
+		galileo::uint256_union query_hash;
 		result = read (stream_a, query_hash);
 		if (!result)
 		{
@@ -688,11 +688,11 @@ bool rai::node_id_handshake::deserialize (rai::stream & stream_a)
 	}
 	if (!result && header.extensions.test (response_flag))
 	{
-		rai::account response_account;
+		galileo::account response_account;
 		result = read (stream_a, response_account);
 		if (!result)
 		{
-			rai::signature response_signature;
+			galileo::signature response_signature;
 			result = read (stream_a, response_signature);
 			if (!result)
 			{
@@ -703,7 +703,7 @@ bool rai::node_id_handshake::deserialize (rai::stream & stream_a)
 	return result;
 }
 
-void rai::node_id_handshake::serialize (rai::stream & stream_a)
+void galileo::node_id_handshake::serialize (galileo::stream & stream_a)
 {
 	header.serialize (stream_a);
 	if (query)
@@ -717,17 +717,17 @@ void rai::node_id_handshake::serialize (rai::stream & stream_a)
 	}
 }
 
-bool rai::node_id_handshake::operator== (rai::node_id_handshake const & other_a) const
+bool galileo::node_id_handshake::operator== (galileo::node_id_handshake const & other_a) const
 {
 	auto result (*query == *other_a.query && *response == *other_a.response);
 	return result;
 }
 
-void rai::node_id_handshake::visit (rai::message_visitor & visitor_a) const
+void galileo::node_id_handshake::visit (galileo::message_visitor & visitor_a) const
 {
 	visitor_a.node_id_handshake (*this);
 }
 
-rai::message_visitor::~message_visitor ()
+galileo::message_visitor::~message_visitor ()
 {
 }

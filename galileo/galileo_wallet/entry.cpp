@@ -1,8 +1,8 @@
-#include <rai/node/cli.hpp>
-#include <rai/node/rpc.hpp>
-#include <rai/node/working.hpp>
-#include <rai/qt/qt.hpp>
-#include <rai/rai_wallet/icon.hpp>
+#include <galileo/node/cli.hpp>
+#include <galileo/node/rpc.hpp>
+#include <galileo/node/working.hpp>
+#include <galileo/qt/qt.hpp>
+#include <galileo/galileo_wallet/icon.hpp>
 
 #include <boost/make_shared.hpp>
 #include <boost/program_options.hpp>
@@ -17,7 +17,7 @@ public:
 	rpc_enable (false),
 	opencl_enable (false)
 	{
-		rai::random_pool.GenerateBlock (wallet.bytes.data (), wallet.bytes.size ());
+		galileo::random_pool.GenerateBlock (wallet.bytes.data (), wallet.bytes.size ());
 		assert (!wallet.is_zero ());
 	}
 	bool upgrade_json (unsigned version_a, boost::property_tree::ptree & tree_a)
@@ -27,7 +27,7 @@ public:
 		{
 			case 1:
 			{
-				rai::account account;
+				galileo::account account;
 				account.decode_account (tree_a.get<std::string> ("account"));
 				tree_a.erase ("account");
 				tree_a.put ("account", account.to_account ());
@@ -98,7 +98,7 @@ public:
 				error |= opencl.deserialize_json (opencl_l);
 				if (wallet.is_zero ())
 				{
-					rai::random_pool.GenerateBlock (wallet.bytes.data (), wallet.bytes.size ());
+					galileo::random_pool.GenerateBlock (wallet.bytes.data (), wallet.bytes.size ());
 					upgraded_a = true;
 				}
 			}
@@ -149,13 +149,13 @@ public:
 		}
 		return result;
 	}
-	rai::uint256_union wallet;
-	rai::account account;
-	rai::node_config node;
+	galileo::uint256_union wallet;
+	galileo::account account;
+	galileo::node_config node;
 	bool rpc_enable;
-	rai::rpc_config rpc;
+	galileo::rpc_config rpc;
 	bool opencl_enable;
-	rai::opencl_config opencl;
+	galileo::opencl_config opencl;
 };
 
 namespace
@@ -172,7 +172,7 @@ bool update_config (qt_wallet_config & config_a, boost::filesystem::path const &
 	auto account (config_a.account);
 	auto wallet (config_a.wallet);
 	auto error (false);
-	if (!rai::fetch_object (config_a, config_path_a, config_file_a))
+	if (!galileo::fetch_object (config_a, config_path_a, config_file_a))
 	{
 		if (account != config_a.account || wallet != config_a.wallet)
 		{
@@ -201,23 +201,23 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 	auto config_path ((data_path / "config.json"));
 	int result (0);
 	std::fstream config_file;
-	auto error (rai::fetch_object (config, config_path, config_file));
+	auto error (galileo::fetch_object (config, config_path, config_file));
 	config_file.close ();
 	if (!error)
 	{
 		boost::asio::io_service service;
 		config.node.logging.init (data_path);
-		std::shared_ptr<rai::node> node;
+		std::shared_ptr<galileo::node> node;
 		std::shared_ptr<rai_qt::wallet> gui;
-		rai::set_application_icon (application);
-		auto opencl (rai::opencl_work::create (config.opencl_enable, config.opencl, config.node.logging));
-		rai::work_pool work (config.node.work_threads, opencl ? [&opencl](rai::uint256_union const & root_a) {
+		galileo::set_application_icon (application);
+		auto opencl (galileo::opencl_work::create (config.opencl_enable, config.opencl, config.node.logging));
+		galileo::work_pool work (config.node.work_threads, opencl ? [&opencl](galileo::uint256_union const & root_a) {
 			return opencl->generate_work (root_a);
 		}
-		                                                      : std::function<boost::optional<uint64_t> (rai::uint256_union const &)> (nullptr));
-		rai::alarm alarm (service);
-		rai::node_init init;
-		node = std::make_shared<rai::node> (init, service, data_path, alarm, config.node, work);
+		                                                      : std::function<boost::optional<uint64_t> (galileo::uint256_union const &)> (nullptr));
+		galileo::alarm alarm (service);
+		galileo::node_init init;
+		node = std::make_shared<galileo::node> (init, service, data_path, alarm, config.node, work);
 		if (!init.error ())
 		{
 			auto wallet (node->wallets.open (config.wallet));
@@ -240,7 +240,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 				auto existing (wallet->store.begin (transaction));
 				if (existing != wallet->store.end ())
 				{
-					rai::uint256_union account (existing->first);
+					galileo::uint256_union account (existing->first);
 					config.account = account;
 				}
 				else
@@ -251,17 +251,17 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 			assert (wallet->exists (config.account));
 			update_config (config, config_path, config_file);
 			node->start ();
-			std::unique_ptr<rai::rpc> rpc = get_rpc (service, *node, config.rpc);
+			std::unique_ptr<galileo::rpc> rpc = get_rpc (service, *node, config.rpc);
 			if (rpc && config.rpc_enable)
 			{
 				rpc->start ();
 			}
-			rai::thread_runner runner (service, node->config.io_threads);
+			galileo::thread_runner runner (service, node->config.io_threads);
 			QObject::connect (&application, &QApplication::aboutToQuit, [&]() {
 				rpc->stop ();
 				node->stop ();
 			});
-			application.postEvent (&processor, new rai_qt::eventloop_event ([&]() {
+			application.postEvent (&processor, new galileo_qt::eventloop_event ([&]() {
 				gui = std::make_shared<rai_qt::wallet> (application, processor, *node, wallet, config.account);
 				splash->close ();
 				gui->start ();
@@ -290,13 +290,13 @@ int main (int argc, char * const * argv)
 		QApplication application (argc, const_cast<char **> (argv));
 		boost::program_options::options_description description ("Command line options");
 		description.add_options () ("help", "Print out options");
-		rai::add_node_options (description);
+		galileo::add_node_options (description);
 		boost::program_options::variables_map vm;
 		boost::program_options::store (boost::program_options::command_line_parser (argc, argv).options (description).allow_unregistered ().run (), vm);
 		boost::program_options::notify (vm);
 		int result (0);
-		auto ec = rai::handle_node_options (vm);
-		if (ec == rai::error_cli::unknown_command)
+		auto ec = galileo::handle_node_options (vm);
+		if (ec == galileo::error_cli::unknown_command)
 		{
 			if (vm.count ("help") != 0)
 			{
@@ -314,7 +314,7 @@ int main (int argc, char * const * argv)
 					}
 					else
 					{
-						data_path = rai::working_path ();
+						data_path = galileo::working_path ();
 					}
 					result = run_wallet (application, argc, argv, data_path);
 				}

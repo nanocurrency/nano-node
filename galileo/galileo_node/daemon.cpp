@@ -1,9 +1,9 @@
-#include <rai/rai_node/daemon.hpp>
+#include <galileo/galileo_node/daemon.hpp>
 
 #include <boost/property_tree/json_parser.hpp>
 #include <fstream>
 #include <iostream>
-#include <rai/node/working.hpp>
+#include <galileo/node/working.hpp>
 
 rai_daemon::daemon_config::daemon_config (boost::filesystem::path const & application_path_a) :
 rpc_enable (false),
@@ -11,7 +11,7 @@ opencl_enable (false)
 {
 }
 
-void rai_daemon::daemon_config::serialize_json (boost::property_tree::ptree & tree_a)
+void galileo_daemon::daemon_config::serialize_json (boost::property_tree::ptree & tree_a)
 {
 	tree_a.put ("version", "2");
 	tree_a.put ("rpc_enable", rpc_enable);
@@ -27,7 +27,7 @@ void rai_daemon::daemon_config::serialize_json (boost::property_tree::ptree & tr
 	tree_a.add_child ("opencl", opencl_l);
 }
 
-bool rai_daemon::daemon_config::deserialize_json (bool & upgraded_a, boost::property_tree::ptree & tree_a)
+bool galileo_daemon::daemon_config::deserialize_json (bool & upgraded_a, boost::property_tree::ptree & tree_a)
 {
 	auto error (false);
 	try
@@ -63,7 +63,7 @@ bool rai_daemon::daemon_config::deserialize_json (bool & upgraded_a, boost::prop
 	return error;
 }
 
-bool rai_daemon::daemon_config::upgrade_json (unsigned version_a, boost::property_tree::ptree & tree_a)
+bool galileo_daemon::daemon_config::upgrade_json (unsigned version_a, boost::property_tree::ptree & tree_a)
 {
 	auto result (false);
 	switch (version_a)
@@ -93,38 +93,38 @@ bool rai_daemon::daemon_config::upgrade_json (unsigned version_a, boost::propert
 	return result;
 }
 
-void rai_daemon::daemon::run (boost::filesystem::path const & data_path)
+void galileo_daemon::daemon::run (boost::filesystem::path const & data_path)
 {
 	boost::filesystem::create_directories (data_path);
 	rai_daemon::daemon_config config (data_path);
 	auto config_path ((data_path / "config.json"));
 	std::fstream config_file;
-	std::unique_ptr<rai::thread_runner> runner;
-	auto error (rai::fetch_object (config, config_path, config_file));
+	std::unique_ptr<galileo::thread_runner> runner;
+	auto error (galileo::fetch_object (config, config_path, config_file));
 	if (!error)
 	{
 		config.node.logging.init (data_path);
 		config_file.close ();
 		boost::asio::io_service service;
-		auto opencl (rai::opencl_work::create (config.opencl_enable, config.opencl, config.node.logging));
-		rai::work_pool opencl_work (config.node.work_threads, opencl ? [&opencl](rai::uint256_union const & root_a) {
+		auto opencl (galileo::opencl_work::create (config.opencl_enable, config.opencl, config.node.logging));
+		galileo::work_pool opencl_work (config.node.work_threads, opencl ? [&opencl](galileo::uint256_union const & root_a) {
 			return opencl->generate_work (root_a);
 		}
-		                                                             : std::function<boost::optional<uint64_t> (rai::uint256_union const &)> (nullptr));
-		rai::alarm alarm (service);
-		rai::node_init init;
+		                                                             : std::function<boost::optional<uint64_t> (galileo::uint256_union const &)> (nullptr));
+		galileo::alarm alarm (service);
+		galileo::node_init init;
 		try
 		{
-			auto node (std::make_shared<rai::node> (init, service, data_path, alarm, config.node, opencl_work));
+			auto node (std::make_shared<galileo::node> (init, service, data_path, alarm, config.node, opencl_work));
 			if (!init.error ())
 			{
 				node->start ();
-				std::unique_ptr<rai::rpc> rpc = get_rpc (service, *node, config.rpc);
+				std::unique_ptr<galileo::rpc> rpc = get_rpc (service, *node, config.rpc);
 				if (rpc && config.rpc_enable)
 				{
 					rpc->start ();
 				}
-				runner = std::make_unique<rai::thread_runner> (service, node->config.io_threads);
+				runner = std::make_unique<galileo::thread_runner> (service, node->config.io_threads);
 				runner->join ();
 			}
 			else

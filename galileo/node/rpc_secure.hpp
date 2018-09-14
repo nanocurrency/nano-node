@@ -6,12 +6,12 @@
 namespace rai
 {
 /**
- * Specialization of rai::rpc with TLS support
+ * Specialization of galileo::rpc with TLS support
  */
 class rpc_secure : public rpc
 {
 public:
-	rpc_secure (boost::asio::io_service & service_a, rai::node & node_a, rai::rpc_config const & config_a);
+	rpc_secure (boost::asio::io_service & service_a, galileo::node & node_a, galileo::rpc_config const & config_a);
 
 	/** Starts accepting connections */
 	virtual void accept () override;
@@ -30,13 +30,13 @@ public:
 };
 
 /**
- * Specialization of rai::rpc_connection for establishing TLS connections.
+ * Specialization of galileo::rpc_connection for establishing TLS connections.
  * Handshakes with client certificates are supported.
  */
 class rpc_connection_secure : public rpc_connection
 {
 public:
-	rpc_connection_secure (rai::node &, rai::rpc_secure &);
+	rpc_connection_secure (galileo::node &, galileo::rpc_secure &);
 	virtual void parse_connection () override;
 	virtual void read () override;
 	/** The TLS handshake callback */

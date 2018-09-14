@@ -5,17 +5,17 @@
 
 #include <future>
 
-bool rai::work_validate (rai::block_hash const & root_a, uint64_t work_a)
+bool galileo::work_validate (galileo::block_hash const & root_a, uint64_t work_a)
 {
-	return rai::work_value (root_a, work_a) < rai::work_pool::publish_threshold;
+	return galileo::work_value (root_a, work_a) < galileo::work_pool::publish_threshold;
 }
 
-bool rai::work_validate (rai::block const & block_a)
+bool galileo::work_validate (galileo::block const & block_a)
 {
 	return work_validate (block_a.root (), block_a.block_work ());
 }
 
-uint64_t rai::work_value (rai::block_hash const & root_a, uint64_t work_a)
+uint64_t galileo::work_value (galileo::block_hash const & root_a, uint64_t work_a)
 {
 	uint64_t result;
 	blake2b_state hash;
@@ -26,24 +26,24 @@ uint64_t rai::work_value (rai::block_hash const & root_a, uint64_t work_a)
 	return result;
 }
 
-rai::work_pool::work_pool (unsigned max_threads_a, std::function<boost::optional<uint64_t> (rai::uint256_union const &)> opencl_a) :
+galileo::work_pool::work_pool (unsigned max_threads_a, std::function<boost::optional<uint64_t> (galileo::uint256_union const &)> opencl_a) :
 ticket (0),
 done (false),
 opencl (opencl_a)
 {
 	static_assert (ATOMIC_INT_LOCK_FREE == 2, "Atomic int needed");
-	auto count (rai::rai_network == rai::rai_networks::rai_test_network ? 1 : std::min (max_threads_a, std::max (1u, std::thread::hardware_concurrency ())));
+	auto count (galileo::rai_network == galileo::rai_networks::rai_test_network ? 1 : std::min (max_threads_a, std::max (1u, std::thread::hardware_concurrency ())));
 	for (auto i (0); i < count; ++i)
 	{
 		auto thread (std::thread ([this, i]() {
-			rai::work_thread_reprioritize ();
+			galileo::work_thread_reprioritize ();
 			loop (i);
 		}));
 		threads.push_back (std::move (thread));
 	}
 }
 
-rai::work_pool::~work_pool ()
+galileo::work_pool::~work_pool ()
 {
 	stop ();
 	for (auto & i : threads)
@@ -52,11 +52,11 @@ rai::work_pool::~work_pool ()
 	}
 }
 
-void rai::work_pool::loop (uint64_t thread)
+void galileo::work_pool::loop (uint64_t thread)
 {
 	// Quick RNG for work attempts.
 	xorshift1024star rng;
-	rai::random_pool.GenerateBlock (reinterpret_cast<uint8_t *> (rng.s.data ()), rng.s.size () * sizeof (decltype (rng.s)::value_type));
+	galileo::random_pool.GenerateBlock (reinterpret_cast<uint8_t *> (rng.s.data ()), rng.s.size () * sizeof (decltype (rng.s)::value_type));
 	uint64_t work;
 	uint64_t output;
 	blake2b_state hash;
@@ -77,13 +77,13 @@ void rai::work_pool::loop (uint64_t thread)
 			lock.unlock ();
 			output = 0;
 			// ticket != ticket_l indicates a different thread found a solution and we should stop
-			while (ticket == ticket_l && output < rai::work_pool::publish_threshold)
+			while (ticket == ticket_l && output < galileo::work_pool::publish_threshold)
 			{
 				// Don't query main memory every iteration in order to reduce memory bus traffic
 				// All operations here operate on stack memory
 				// Count iterations down to zero since comparing to zero is easier than comparing to another number
 				unsigned iteration (256);
-				while (iteration && output < rai::work_pool::publish_threshold)
+				while (iteration && output < galileo::work_pool::publish_threshold)
 				{
 					work = rng.next ();
 					blake2b_update (&hash, reinterpret_cast<uint8_t *> (&work), sizeof (work));
@@ -97,7 +97,7 @@ void rai::work_pool::loop (uint64_t thread)
 			if (ticket == ticket_l)
 			{
 				// If the ticket matches what we started with, we're the ones that found the solution
-				assert (output >= rai::work_pool::publish_threshold);
+				assert (output >= galileo::work_pool::publish_threshold);
 				assert (work_value (current_l.first, work) == output);
 				// Signal other threads to stop their work next time they check ticket
 				++ticket;
@@ -119,7 +119,7 @@ void rai::work_pool::loop (uint64_t thread)
 	}
 }
 
-void rai::work_pool::cancel (rai::uint256_union const & root_a)
+void galileo::work_pool::cancel (galileo::uint256_union const & root_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	if (!pending.empty ())
@@ -144,14 +144,14 @@ void rai::work_pool::cancel (rai::uint256_union const & root_a)
 	});
 }
 
-void rai::work_pool::stop ()
+void galileo::work_pool::stop ()
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	done = true;
 	producer_condition.notify_all ();
 }
 
-void rai::work_pool::generate (rai::uint256_union const & root_a, std::function<void(boost::optional<uint64_t> const &)> callback_a)
+void galileo::work_pool::generate (galileo::uint256_union const & root_a, std::function<void(boost::optional<uint64_t> const &)> callback_a)
 {
 	assert (!root_a.is_zero ());
 	boost::optional<uint64_t> result;
@@ -171,7 +171,7 @@ void rai::work_pool::generate (rai::uint256_union const & root_a, std::function<
 	}
 }
 
-uint64_t rai::work_pool::generate (rai::uint256_union const & hash_a)
+uint64_t galileo::work_pool::generate (galileo::uint256_union const & hash_a)
 {
 	std::promise<boost::optional<uint64_t>> work;
 	generate (hash_a, [&work](boost::optional<uint64_t> work_a) {

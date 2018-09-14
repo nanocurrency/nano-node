@@ -39,7 +39,7 @@ target_compile_definitions(rai_lib
 )
 
 if (RAIBLOCKS_GUI AND NOT APPLE)
-	install(TARGETS rai_lib
+	install(TARGETS galileo_lib
 			RUNTIME DESTINATION bin
 			LIBRARY DESTINATION lib
 			ARCHIVE DESTINATION lib

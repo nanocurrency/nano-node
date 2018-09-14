@@ -17,37 +17,37 @@
 
 #include <upnpcommands.h>
 
-double constexpr rai::node::price_max;
-double constexpr rai::node::free_cutoff;
-std::chrono::seconds constexpr rai::node::period;
-std::chrono::seconds constexpr rai::node::cutoff;
-std::chrono::seconds constexpr rai::node::syn_cookie_cutoff;
-std::chrono::minutes constexpr rai::node::backup_interval;
-int constexpr rai::port_mapping::mapping_timeout;
-int constexpr rai::port_mapping::check_timeout;
-unsigned constexpr rai::active_transactions::announce_interval_ms;
-size_t constexpr rai::block_arrival::arrival_size_min;
-std::chrono::seconds constexpr rai::block_arrival::arrival_time_min;
+double constexpr galileo::node::price_max;
+double constexpr galileo::node::free_cutoff;
+std::chrono::seconds constexpr galileo::node::period;
+std::chrono::seconds constexpr galileo::node::cutoff;
+std::chrono::seconds constexpr galileo::node::syn_cookie_cutoff;
+std::chrono::minutes constexpr galileo::node::backup_interval;
+int constexpr galileo::port_mapping::mapping_timeout;
+int constexpr galileo::port_mapping::check_timeout;
+unsigned constexpr galileo::active_transactions::announce_interval_ms;
+size_t constexpr galileo::block_arrival::arrival_size_min;
+std::chrono::seconds constexpr galileo::block_arrival::arrival_time_min;
 
-rai::endpoint rai::map_endpoint_to_v6 (rai::endpoint const & endpoint_a)
+galileo::endpoint galileo::map_endpoint_to_v6 (galileo::endpoint const & endpoint_a)
 {
 	auto endpoint_l (endpoint_a);
 	if (endpoint_l.address ().is_v4 ())
 	{
-		endpoint_l = rai::endpoint (boost::asio::ip::address_v6::v4_mapped (endpoint_l.address ().to_v4 ()), endpoint_l.port ());
+		endpoint_l = galileo::endpoint (boost::asio::ip::address_v6::v4_mapped (endpoint_l.address ().to_v4 ()), endpoint_l.port ());
 	}
 	return endpoint_l;
 }
 
-rai::network::network (rai::node & node_a, uint16_t port) :
-socket (node_a.service, rai::endpoint (boost::asio::ip::address_v6::any (), port)),
+galileo::network::network (galileo::node & node_a, uint16_t port) :
+socket (node_a.service, galileo::endpoint (boost::asio::ip::address_v6::any (), port)),
 resolver (node_a.service),
 node (node_a),
 on (true)
 {
 }
 
-void rai::network::receive ()
+void galileo::network::receive ()
 {
 	if (node.config.logging.network_packet_logging ())
 	{
@@ -59,28 +59,28 @@ void rai::network::receive ()
 	});
 }
 
-void rai::network::stop ()
+void galileo::network::stop ()
 {
 	on = false;
 	socket.close ();
 	resolver.cancel ();
 }
 
-void rai::network::send_keepalive (rai::endpoint const & endpoint_a)
+void galileo::network::send_keepalive (galileo::endpoint const & endpoint_a)
 {
 	assert (endpoint_a.address ().is_v6 ());
-	rai::keepalive message;
+	galileo::keepalive message;
 	node.peers.random_fill (message.peers);
 	std::shared_ptr<std::vector<uint8_t>> bytes (new std::vector<uint8_t>);
 	{
-		rai::vectorstream stream (*bytes);
+		galileo::vectorstream stream (*bytes);
 		message.serialize (stream);
 	}
 	if (node.config.logging.network_keepalive_logging ())
 	{
 		BOOST_LOG (node.log) << boost::str (boost::format ("Keepalive req sent to %1%") % endpoint_a);
 	}
-	std::weak_ptr<rai::node> node_w (node.shared ());
+	std::weak_ptr<galileo::node> node_w (node.shared ());
 	send_buffer (bytes->data (), bytes->size (), endpoint_a, [bytes, node_w, endpoint_a](boost::system::error_code const & ec, size_t) {
 		if (auto node_l = node_w.lock ())
 		{
@@ -90,13 +90,13 @@ void rai::network::send_keepalive (rai::endpoint const & endpoint_a)
 			}
 			else
 			{
-				node_l->stats.inc (rai::stat::type::message, rai::stat::detail::keepalive, rai::stat::dir::out);
+				node_l->stats.inc (galileo::stat::type::message, galileo::stat::detail::keepalive, galileo::stat::dir::out);
 			}
 		}
 	});
 }
 
-void rai::node::keepalive (std::string const & address_a, uint16_t port_a)
+void galileo::node::keepalive (std::string const & address_a, uint16_t port_a)
 {
 	auto node_l (shared_from_this ());
 	network.resolver.async_resolve (boost::asio::ip::udp::resolver::query (address_a, std::to_string (port_a)), [node_l, address_a, port_a](boost::system::error_code const & ec, boost::asio::ip::udp::resolver::iterator i_a) {
@@ -104,7 +104,7 @@ void rai::node::keepalive (std::string const & address_a, uint16_t port_a)
 		{
 			for (auto i (i_a), n (boost::asio::ip::udp::resolver::iterator{}); i != n; ++i)
 			{
-				node_l->send_keepalive (rai::map_endpoint_to_v6 (i->endpoint ()));
+				node_l->send_keepalive (galileo::map_endpoint_to_v6 (i->endpoint ()));
 			}
 		}
 		else
@@ -114,27 +114,27 @@ void rai::node::keepalive (std::string const & address_a, uint16_t port_a)
 	});
 }
 
-void rai::network::send_node_id_handshake (rai::endpoint const & endpoint_a, boost::optional<rai::uint256_union> const & query, boost::optional<rai::uint256_union> const & respond_to)
+void galileo::network::send_node_id_handshake (galileo::endpoint const & endpoint_a, boost::optional<galileo::uint256_union> const & query, boost::optional<galileo::uint256_union> const & respond_to)
 {
 	assert (endpoint_a.address ().is_v6 ());
-	boost::optional<std::pair<rai::account, rai::signature>> response (boost::none);
+	boost::optional<std::pair<galileo::account, galileo::signature>> response (boost::none);
 	if (respond_to)
 	{
-		response = std::make_pair (node.node_id.pub, rai::sign_message (node.node_id.prv, node.node_id.pub, *respond_to));
-		assert (!rai::validate_message (response->first, *respond_to, response->second));
+		response = std::make_pair (node.node_id.pub, galileo::sign_message (node.node_id.prv, node.node_id.pub, *respond_to));
+		assert (!galileo::validate_message (response->first, *respond_to, response->second));
 	}
-	rai::node_id_handshake message (query, response);
+	galileo::node_id_handshake message (query, response);
 	std::shared_ptr<std::vector<uint8_t>> bytes (new std::vector<uint8_t>);
 	{
-		rai::vectorstream stream (*bytes);
+		galileo::vectorstream stream (*bytes);
 		message.serialize (stream);
 	}
 	if (node.config.logging.network_node_id_handshake_logging ())
 	{
 		BOOST_LOG (node.log) << boost::str (boost::format ("Node ID handshake sent with node ID %1% to %2%: query %3%, respond_to %4% (signature %5%)") % node.node_id.pub.to_account () % endpoint_a % (query ? query->to_string () : std::string ("[none]")) % (respond_to ? respond_to->to_string () : std::string ("[none]")) % (response ? response->second.to_string () : std::string ("[none]")));
 	}
-	node.stats.inc (rai::stat::type::message, rai::stat::detail::node_id_handshake, rai::stat::dir::out);
-	std::weak_ptr<rai::node> node_w (node.shared ());
+	node.stats.inc (galileo::stat::type::message, galileo::stat::detail::node_id_handshake, galileo::stat::dir::out);
+	std::weak_ptr<galileo::node> node_w (node.shared ());
 	send_buffer (bytes->data (), bytes->size (), endpoint_a, [bytes, node_w, endpoint_a](boost::system::error_code const & ec, size_t) {
 		if (auto node_l = node_w.lock ())
 		{
@@ -146,13 +146,13 @@ void rai::network::send_node_id_handshake (rai::endpoint const & endpoint_a, boo
 	});
 }
 
-void rai::network::republish (rai::block_hash const & hash_a, std::shared_ptr<std::vector<uint8_t>> buffer_a, rai::endpoint endpoint_a)
+void galileo::network::republish (galileo::block_hash const & hash_a, std::shared_ptr<std::vector<uint8_t>> buffer_a, galileo::endpoint endpoint_a)
 {
 	if (node.config.logging.network_publish_logging ())
 	{
 		BOOST_LOG (node.log) << boost::str (boost::format ("Publishing %1% to %2%") % hash_a.to_string () % endpoint_a);
 	}
-	std::weak_ptr<rai::node> node_w (node.shared ());
+	std::weak_ptr<galileo::node> node_w (node.shared ());
 	send_buffer (buffer_a->data (), buffer_a->size (), endpoint_a, [buffer_a, node_w, endpoint_a](boost::system::error_code const & ec, size_t size) {
 		if (auto node_l = node_w.lock ())
 		{
@@ -162,25 +162,25 @@ void rai::network::republish (rai::block_hash const & hash_a, std::shared_ptr<st
 			}
 			else
 			{
-				node_l->stats.inc (rai::stat::type::message, rai::stat::detail::publish, rai::stat::dir::out);
+				node_l->stats.inc (galileo::stat::type::message, galileo::stat::detail::publish, galileo::stat::dir::out);
 			}
 		}
 	});
 }
 
 template <typename T>
-bool confirm_block (rai::transaction const & transaction_a, rai::node & node_a, T & list_a, std::shared_ptr<rai::block> block_a)
+bool confirm_block (galileo::transaction const & transaction_a, galileo::node & node_a, T & list_a, std::shared_ptr<galileo::block> block_a)
 {
 	bool result (false);
 	if (node_a.config.enable_voting)
 	{
-		node_a.wallets.foreach_representative (transaction_a, [&result, &block_a, &list_a, &node_a, &transaction_a](rai::public_key const & pub_a, rai::raw_key const & prv_a) {
+		node_a.wallets.foreach_representative (transaction_a, [&result, &block_a, &list_a, &node_a, &transaction_a](galileo::public_key const & pub_a, galileo::raw_key const & prv_a) {
 			result = true;
 			auto vote (node_a.store.vote_generate (transaction_a, pub_a, prv_a, block_a));
-			rai::confirm_ack confirm (vote);
+			galileo::confirm_ack confirm (vote);
 			std::shared_ptr<std::vector<uint8_t>> bytes (new std::vector<uint8_t>);
 			{
-				rai::vectorstream stream (*bytes);
+				galileo::vectorstream stream (*bytes);
 				confirm.serialize (stream);
 			}
 			for (auto j (list_a.begin ()), m (list_a.end ()); j != m; ++j)
@@ -193,25 +193,25 @@ bool confirm_block (rai::transaction const & transaction_a, rai::node & node_a, 
 }
 
 template <>
-bool confirm_block (rai::transaction const & transaction_a, rai::node & node_a, rai::endpoint & peer_a, std::shared_ptr<rai::block> block_a)
+bool confirm_block (galileo::transaction const & transaction_a, galileo::node & node_a, galileo::endpoint & peer_a, std::shared_ptr<galileo::block> block_a)
 {
-	std::array<rai::endpoint, 1> endpoints;
+	std::array<galileo::endpoint, 1> endpoints;
 	endpoints[0] = peer_a;
 	auto result (confirm_block (transaction_a, node_a, endpoints, std::move (block_a)));
 	return result;
 }
 
-void rai::network::republish_block (rai::transaction const & transaction, std::shared_ptr<rai::block> block, bool enable_voting)
+void galileo::network::republish_block (galileo::transaction const & transaction, std::shared_ptr<galileo::block> block, bool enable_voting)
 {
 	auto hash (block->hash ());
 	auto list (node.peers.list_fanout ());
 	// If we're a representative, broadcast a signed confirm, otherwise an unsigned publish
 	if (!enable_voting || !confirm_block (transaction, node, list, block))
 	{
-		rai::publish message (block);
+		galileo::publish message (block);
 		std::shared_ptr<std::vector<uint8_t>> bytes (new std::vector<uint8_t>);
 		{
-			rai::vectorstream stream (*bytes);
+			galileo::vectorstream stream (*bytes);
 			message.serialize (stream);
 		}
 		auto hash (block->hash ());
@@ -240,12 +240,12 @@ void rai::network::republish_block (rai::transaction const & transaction, std::s
 //    This prevents rapid publishing of votes with increasing sequence numbers.
 //
 // These rules are implemented by the caller, not this function.
-void rai::network::republish_vote (std::shared_ptr<rai::vote> vote_a)
+void galileo::network::republish_vote (std::shared_ptr<galileo::vote> vote_a)
 {
-	rai::confirm_ack confirm (vote_a);
+	galileo::confirm_ack confirm (vote_a);
 	std::shared_ptr<std::vector<uint8_t>> bytes (new std::vector<uint8_t>);
 	{
-		rai::vectorstream stream (*bytes);
+		galileo::vectorstream stream (*bytes);
 		confirm.serialize (stream);
 	}
 	auto list (node.peers.list_fanout ());
@@ -255,18 +255,18 @@ void rai::network::republish_vote (std::shared_ptr<rai::vote> vote_a)
 	}
 }
 
-void rai::network::broadcast_confirm_req (std::shared_ptr<rai::block> block_a)
+void galileo::network::broadcast_confirm_req (std::shared_ptr<galileo::block> block_a)
 {
-	auto list (std::make_shared<std::vector<rai::peer_information>> (node.peers.representatives (std::numeric_limits<size_t>::max ())));
+	auto list (std::make_shared<std::vector<galileo::peer_information>> (node.peers.representatives (std::numeric_limits<size_t>::max ())));
 	if (list->empty () || node.peers.total_weight () < node.config.online_weight_minimum.number ())
 	{
 		// broadcast request to all peers
-		list = std::make_shared<std::vector<rai::peer_information>> (node.peers.list_vector ());
+		list = std::make_shared<std::vector<galileo::peer_information>> (node.peers.list_vector ());
 	}
 	broadcast_confirm_req_base (block_a, list, 0);
 }
 
-void rai::network::broadcast_confirm_req_base (std::shared_ptr<rai::block> block_a, std::shared_ptr<std::vector<rai::peer_information>> endpoints_a, unsigned delay_a, bool resumption)
+void galileo::network::broadcast_confirm_req_base (std::shared_ptr<galileo::block> block_a, std::shared_ptr<std::vector<galileo::peer_information>> endpoints_a, unsigned delay_a, bool resumption)
 {
 	const size_t max_reps = 10;
 	if (!resumption && node.config.logging.network_logging ())
@@ -282,7 +282,7 @@ void rai::network::broadcast_confirm_req_base (std::shared_ptr<rai::block> block
 	}
 	if (!endpoints_a->empty ())
 	{
-		std::weak_ptr<rai::node> node_w (node.shared ());
+		std::weak_ptr<galileo::node> node_w (node.shared ());
 		node.alarm.add (std::chrono::steady_clock::now () + std::chrono::milliseconds (delay_a), [node_w, block_a, endpoints_a, delay_a]() {
 			if (auto node_l = node_w.lock ())
 			{
@@ -292,20 +292,20 @@ void rai::network::broadcast_confirm_req_base (std::shared_ptr<rai::block> block
 	}
 }
 
-void rai::network::send_confirm_req (rai::endpoint const & endpoint_a, std::shared_ptr<rai::block> block)
+void galileo::network::send_confirm_req (galileo::endpoint const & endpoint_a, std::shared_ptr<galileo::block> block)
 {
-	rai::confirm_req message (block);
+	galileo::confirm_req message (block);
 	std::shared_ptr<std::vector<uint8_t>> bytes (new std::vector<uint8_t>);
 	{
-		rai::vectorstream stream (*bytes);
+		galileo::vectorstream stream (*bytes);
 		message.serialize (stream);
 	}
 	if (node.config.logging.network_message_logging ())
 	{
 		BOOST_LOG (node.log) << boost::str (boost::format ("Sending confirm req to %1%") % endpoint_a);
 	}
-	std::weak_ptr<rai::node> node_w (node.shared ());
-	node.stats.inc (rai::stat::type::message, rai::stat::detail::confirm_req, rai::stat::dir::out);
+	std::weak_ptr<galileo::node> node_w (node.shared ());
+	node.stats.inc (galileo::stat::type::message, galileo::stat::detail::confirm_req, galileo::stat::dir::out);
 	send_buffer (bytes->data (), bytes->size (), endpoint_a, [bytes, node_w](boost::system::error_code const & ec, size_t size) {
 		if (auto node_l = node_w.lock ())
 		{
@@ -318,10 +318,10 @@ void rai::network::send_confirm_req (rai::endpoint const & endpoint_a, std::shar
 }
 
 template <typename T>
-void rep_query (rai::node & node_a, T const & peers_a)
+void rep_query (galileo::node & node_a, T const & peers_a)
 {
 	auto transaction (node_a.store.tx_begin_read ());
-	std::shared_ptr<rai::block> block (node_a.store.block_random (transaction));
+	std::shared_ptr<galileo::block> block (node_a.store.block_random (transaction));
 	auto hash (block->hash ());
 	node_a.rep_crawler.add (hash);
 	for (auto i (peers_a.begin ()), n (peers_a.end ()); i != n; ++i)
@@ -329,7 +329,7 @@ void rep_query (rai::node & node_a, T const & peers_a)
 		node_a.peers.rep_request (*i);
 		node_a.network.send_confirm_req (*i, block);
 	}
-	std::weak_ptr<rai::node> node_w (node_a.shared ());
+	std::weak_ptr<galileo::node> node_w (node_a.shared ());
 	node_a.alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (5), [node_w, hash]() {
 		if (auto node_l = node_w.lock ())
 		{
@@ -339,34 +339,34 @@ void rep_query (rai::node & node_a, T const & peers_a)
 }
 
 template <>
-void rep_query (rai::node & node_a, rai::endpoint const & peers_a)
+void rep_query (galileo::node & node_a, galileo::endpoint const & peers_a)
 {
-	std::array<rai::endpoint, 1> peers;
+	std::array<galileo::endpoint, 1> peers;
 	peers[0] = peers_a;
 	rep_query (node_a, peers);
 }
 
 namespace
 {
-class network_message_visitor : public rai::message_visitor
+class network_message_visitor : public galileo::message_visitor
 {
 public:
-	network_message_visitor (rai::node & node_a, rai::endpoint const & sender_a) :
+	network_message_visitor (galileo::node & node_a, galileo::endpoint const & sender_a) :
 	node (node_a),
 	sender (sender_a)
 	{
 	}
 	virtual ~network_message_visitor () = default;
-	void keepalive (rai::keepalive const & message_a) override
+	void keepalive (galileo::keepalive const & message_a) override
 	{
 		if (node.config.logging.network_keepalive_logging ())
 		{
 			BOOST_LOG (node.log) << boost::str (boost::format ("Received keepalive message from %1%") % sender);
 		}
-		node.stats.inc (rai::stat::type::message, rai::stat::detail::keepalive, rai::stat::dir::in);
+		node.stats.inc (galileo::stat::type::message, galileo::stat::detail::keepalive, galileo::stat::dir::in);
 		if (node.peers.contacted (sender, message_a.header.version_using))
 		{
-			auto endpoint_l (rai::map_endpoint_to_v6 (sender));
+			auto endpoint_l (galileo::map_endpoint_to_v6 (sender));
 			auto cookie (node.peers.assign_syn_cookie (endpoint_l));
 			if (cookie)
 			{
@@ -375,24 +375,24 @@ public:
 		}
 		node.network.merge_peers (message_a.peers);
 	}
-	void publish (rai::publish const & message_a) override
+	void publish (galileo::publish const & message_a) override
 	{
 		if (node.config.logging.network_message_logging ())
 		{
 			BOOST_LOG (node.log) << boost::str (boost::format ("Publish message from %1% for %2%") % sender % message_a.block->hash ().to_string ());
 		}
-		node.stats.inc (rai::stat::type::message, rai::stat::detail::publish, rai::stat::dir::in);
+		node.stats.inc (galileo::stat::type::message, galileo::stat::detail::publish, galileo::stat::dir::in);
 		node.peers.contacted (sender, message_a.header.version_using);
 		node.process_active (message_a.block);
 		node.active.publish (message_a.block);
 	}
-	void confirm_req (rai::confirm_req const & message_a) override
+	void confirm_req (galileo::confirm_req const & message_a) override
 	{
 		if (node.config.logging.network_message_logging ())
 		{
 			BOOST_LOG (node.log) << boost::str (boost::format ("Confirm_req message from %1% for %2%") % sender % message_a.block->hash ().to_string ());
 		}
-		node.stats.inc (rai::stat::type::message, rai::stat::detail::confirm_req, rai::stat::dir::in);
+		node.stats.inc (galileo::stat::type::message, galileo::stat::detail::confirm_req, galileo::stat::dir::in);
 		node.peers.contacted (sender, message_a.header.version_using);
 		node.process_active (message_a.block);
 		node.active.publish (message_a.block);
@@ -403,55 +403,55 @@ public:
 			confirm_block (transaction_a, node, sender, std::move (successor));
 		}
 	}
-	void confirm_ack (rai::confirm_ack const & message_a) override
+	void confirm_ack (galileo::confirm_ack const & message_a) override
 	{
 		if (node.config.logging.network_message_logging ())
 		{
 			BOOST_LOG (node.log) << boost::str (boost::format ("Received confirm_ack message from %1% for %2%sequence %3%") % sender % message_a.vote->hashes_string () % std::to_string (message_a.vote->sequence));
 		}
-		node.stats.inc (rai::stat::type::message, rai::stat::detail::confirm_ack, rai::stat::dir::in);
+		node.stats.inc (galileo::stat::type::message, galileo::stat::detail::confirm_ack, galileo::stat::dir::in);
 		node.peers.contacted (sender, message_a.header.version_using);
 		for (auto & vote_block : message_a.vote->blocks)
 		{
 			if (!vote_block.which ())
 			{
-				auto block (boost::get<std::shared_ptr<rai::block>> (vote_block));
+				auto block (boost::get<std::shared_ptr<galileo::block>> (vote_block));
 				node.process_active (block);
 				node.active.publish (block);
 			}
 		}
 		node.vote_processor.vote (message_a.vote, sender);
 	}
-	void bulk_pull (rai::bulk_pull const &) override
+	void bulk_pull (galileo::bulk_pull const &) override
 	{
 		assert (false);
 	}
-	void bulk_pull_account (rai::bulk_pull_account const &) override
+	void bulk_pull_account (galileo::bulk_pull_account const &) override
 	{
 		assert (false);
 	}
-	void bulk_pull_blocks (rai::bulk_pull_blocks const &) override
+	void bulk_pull_blocks (galileo::bulk_pull_blocks const &) override
 	{
 		assert (false);
 	}
-	void bulk_push (rai::bulk_push const &) override
+	void bulk_push (galileo::bulk_push const &) override
 	{
 		assert (false);
 	}
-	void frontier_req (rai::frontier_req const &) override
+	void frontier_req (galileo::frontier_req const &) override
 	{
 		assert (false);
 	}
-	void node_id_handshake (rai::node_id_handshake const & message_a) override
+	void node_id_handshake (galileo::node_id_handshake const & message_a) override
 	{
 		if (node.config.logging.network_node_id_handshake_logging ())
 		{
 			BOOST_LOG (node.log) << boost::str (boost::format ("Received node_id_handshake message from %1% with query %2% and response account %3%") % sender % (message_a.query ? message_a.query->to_string () : std::string ("[none]")) % (message_a.response ? message_a.response->first.to_account () : std::string ("[none]")));
 		}
-		node.stats.inc (rai::stat::type::message, rai::stat::detail::node_id_handshake, rai::stat::dir::in);
-		auto endpoint_l (rai::map_endpoint_to_v6 (sender));
-		boost::optional<rai::uint256_union> out_query;
-		boost::optional<rai::uint256_union> out_respond_to;
+		node.stats.inc (galileo::stat::type::message, galileo::stat::detail::node_id_handshake, galileo::stat::dir::in);
+		auto endpoint_l (galileo::map_endpoint_to_v6 (sender));
+		boost::optional<galileo::uint256_union> out_query;
+		boost::optional<galileo::uint256_union> out_respond_to;
 		if (message_a.query)
 		{
 			out_respond_to = message_a.query;
@@ -481,25 +481,25 @@ public:
 			node.network.send_node_id_handshake (sender, out_query, out_respond_to);
 		}
 	}
-	rai::node & node;
-	rai::endpoint sender;
+	galileo::node & node;
+	galileo::endpoint sender;
 };
 }
 
-void rai::network::receive_action (boost::system::error_code const & error, size_t size_a)
+void galileo::network::receive_action (boost::system::error_code const & error, size_t size_a)
 {
 	if (!error && on)
 	{
-		if (!rai::reserved_address (remote, false) && remote != endpoint ())
+		if (!galileo::reserved_address (remote, false) && remote != endpoint ())
 		{
 			network_message_visitor visitor (node, remote);
-			rai::message_parser parser (visitor, node.work);
+			galileo::message_parser parser (visitor, node.work);
 			parser.deserialize_buffer (buffer.data (), size_a);
-			if (parser.status != rai::message_parser::parse_status::success)
+			if (parser.status != galileo::message_parser::parse_status::success)
 			{
-				node.stats.inc (rai::stat::type::error);
+				node.stats.inc (galileo::stat::type::error);
 
-				if (parser.status == rai::message_parser::parse_status::insufficient_work)
+				if (parser.status == galileo::message_parser::parse_status::insufficient_work)
 				{
 					if (node.config.logging.insufficient_work_logging ())
 					{
@@ -507,51 +507,51 @@ void rai::network::receive_action (boost::system::error_code const & error, size
 					}
 
 					// We've already increment error count, update detail only
-					node.stats.inc_detail_only (rai::stat::type::error, rai::stat::detail::insufficient_work);
+					node.stats.inc_detail_only (galileo::stat::type::error, galileo::stat::detail::insufficient_work);
 				}
-				else if (parser.status == rai::message_parser::parse_status::invalid_message_type)
+				else if (parser.status == galileo::message_parser::parse_status::invalid_message_type)
 				{
 					if (node.config.logging.network_logging ())
 					{
 						BOOST_LOG (node.log) << "Invalid message type in message";
 					}
 				}
-				else if (parser.status == rai::message_parser::parse_status::invalid_header)
+				else if (parser.status == galileo::message_parser::parse_status::invalid_header)
 				{
 					if (node.config.logging.network_logging ())
 					{
 						BOOST_LOG (node.log) << "Invalid header in message";
 					}
 				}
-				else if (parser.status == rai::message_parser::parse_status::invalid_keepalive_message)
+				else if (parser.status == galileo::message_parser::parse_status::invalid_keepalive_message)
 				{
 					if (node.config.logging.network_logging ())
 					{
 						BOOST_LOG (node.log) << "Invalid keepalive message";
 					}
 				}
-				else if (parser.status == rai::message_parser::parse_status::invalid_publish_message)
+				else if (parser.status == galileo::message_parser::parse_status::invalid_publish_message)
 				{
 					if (node.config.logging.network_logging ())
 					{
 						BOOST_LOG (node.log) << "Invalid publish message";
 					}
 				}
-				else if (parser.status == rai::message_parser::parse_status::invalid_confirm_req_message)
+				else if (parser.status == galileo::message_parser::parse_status::invalid_confirm_req_message)
 				{
 					if (node.config.logging.network_logging ())
 					{
 						BOOST_LOG (node.log) << "Invalid confirm_req message";
 					}
 				}
-				else if (parser.status == rai::message_parser::parse_status::invalid_confirm_ack_message)
+				else if (parser.status == galileo::message_parser::parse_status::invalid_confirm_ack_message)
 				{
 					if (node.config.logging.network_logging ())
 					{
 						BOOST_LOG (node.log) << "Invalid confirm_ack message";
 					}
 				}
-				else if (parser.status == rai::message_parser::parse_status::invalid_node_id_handshake_message)
+				else if (parser.status == galileo::message_parser::parse_status::invalid_node_id_handshake_message)
 				{
 					if (node.config.logging.network_logging ())
 					{
@@ -565,7 +565,7 @@ void rai::network::receive_action (boost::system::error_code const & error, size
 			}
 			else
 			{
-				node.stats.add (rai::stat::type::traffic, rai::stat::dir::in, size_a);
+				node.stats.add (galileo::stat::type::traffic, galileo::stat::dir::in, size_a);
 			}
 		}
 		else
@@ -575,7 +575,7 @@ void rai::network::receive_action (boost::system::error_code const & error, size
 				BOOST_LOG (node.log) << boost::str (boost::format ("Reserved sender %1%") % remote.address ().to_string ());
 			}
 
-			node.stats.inc_detail_only (rai::stat::type::error, rai::stat::detail::bad_sender);
+			node.stats.inc_detail_only (galileo::stat::type::error, galileo::stat::detail::bad_sender);
 		}
 		receive ();
 	}
@@ -596,7 +596,7 @@ void rai::network::receive_action (boost::system::error_code const & error, size
 }
 
 // Send keepalives to all the peers we've been notified of
-void rai::network::merge_peers (std::array<rai::endpoint, 8> const & peers_a)
+void galileo::network::merge_peers (std::array<galileo::endpoint, 8> const & peers_a)
 {
 	for (auto i (peers_a.begin ()), j (peers_a.end ()); i != j; ++i)
 	{
@@ -607,24 +607,24 @@ void rai::network::merge_peers (std::array<rai::endpoint, 8> const & peers_a)
 	}
 }
 
-bool rai::operation::operator> (rai::operation const & other_a) const
+bool galileo::operation::operator> (galileo::operation const & other_a) const
 {
 	return wakeup > other_a.wakeup;
 }
 
-rai::alarm::alarm (boost::asio::io_service & service_a) :
+galileo::alarm::alarm (boost::asio::io_service & service_a) :
 service (service_a),
 thread ([this]() { run (); })
 {
 }
 
-rai::alarm::~alarm ()
+galileo::alarm::~alarm ()
 {
 	add (std::chrono::steady_clock::now (), nullptr);
 	thread.join ();
 }
 
-void rai::alarm::run ()
+void galileo::alarm::run ()
 {
 	std::unique_lock<std::mutex> lock (mutex);
 	auto done (false);
@@ -658,14 +658,14 @@ void rai::alarm::run ()
 	}
 }
 
-void rai::alarm::add (std::chrono::steady_clock::time_point const & wakeup_a, std::function<void()> const & operation)
+void galileo::alarm::add (std::chrono::steady_clock::time_point const & wakeup_a, std::function<void()> const & operation)
 {
 	std::lock_guard<std::mutex> lock (mutex);
-	operations.push (rai::operation ({ wakeup_a, operation }));
+	operations.push (galileo::operation ({ wakeup_a, operation }));
 	condition.notify_all ();
 }
 
-rai::logging::logging () :
+galileo::logging::logging () :
 ledger_logging_value (false),
 ledger_duplicate_logging_value (false),
 vote_logging_value (false),
@@ -687,7 +687,7 @@ flush (true)
 {
 }
 
-void rai::logging::init (boost::filesystem::path const & application_path_a)
+void galileo::logging::init (boost::filesystem::path const & application_path_a)
 {
 	static std::atomic_flag logging_already_added = ATOMIC_FLAG_INIT;
 	if (!logging_already_added.test_and_set ())
@@ -701,7 +701,7 @@ void rai::logging::init (boost::filesystem::path const & application_path_a)
 	}
 }
 
-void rai::logging::serialize_json (boost::property_tree::ptree & tree_a) const
+void galileo::logging::serialize_json (boost::property_tree::ptree & tree_a) const
 {
 	tree_a.put ("version", "4");
 	tree_a.put ("ledger", ledger_logging_value);
@@ -724,7 +724,7 @@ void rai::logging::serialize_json (boost::property_tree::ptree & tree_a) const
 	tree_a.put ("flush", flush);
 }
 
-bool rai::logging::upgrade_json (unsigned version_a, boost::property_tree::ptree & tree_a)
+bool galileo::logging::upgrade_json (unsigned version_a, boost::property_tree::ptree & tree_a)
 {
 	auto result (false);
 	switch (version_a)
@@ -751,7 +751,7 @@ bool rai::logging::upgrade_json (unsigned version_a, boost::property_tree::ptree
 	return result;
 }
 
-bool rai::logging::deserialize_json (bool & upgraded_a, boost::property_tree::ptree & tree_a)
+bool galileo::logging::deserialize_json (bool & upgraded_a, boost::property_tree::ptree & tree_a)
 {
 	auto result (false);
 	try
@@ -795,108 +795,108 @@ bool rai::logging::deserialize_json (bool & upgraded_a, boost::property_tree::pt
 	return result;
 }
 
-bool rai::logging::ledger_logging () const
+bool galileo::logging::ledger_logging () const
 {
 	return ledger_logging_value;
 }
 
-bool rai::logging::ledger_duplicate_logging () const
+bool galileo::logging::ledger_duplicate_logging () const
 {
 	return ledger_logging () && ledger_duplicate_logging_value;
 }
 
-bool rai::logging::vote_logging () const
+bool galileo::logging::vote_logging () const
 {
 	return vote_logging_value;
 }
 
-bool rai::logging::network_logging () const
+bool galileo::logging::network_logging () const
 {
 	return network_logging_value;
 }
 
-bool rai::logging::network_message_logging () const
+bool galileo::logging::network_message_logging () const
 {
 	return network_logging () && network_message_logging_value;
 }
 
-bool rai::logging::network_publish_logging () const
+bool galileo::logging::network_publish_logging () const
 {
 	return network_logging () && network_publish_logging_value;
 }
 
-bool rai::logging::network_packet_logging () const
+bool galileo::logging::network_packet_logging () const
 {
 	return network_logging () && network_packet_logging_value;
 }
 
-bool rai::logging::network_keepalive_logging () const
+bool galileo::logging::network_keepalive_logging () const
 {
 	return network_logging () && network_keepalive_logging_value;
 }
 
-bool rai::logging::network_node_id_handshake_logging () const
+bool galileo::logging::network_node_id_handshake_logging () const
 {
 	return network_logging () && network_node_id_handshake_logging_value;
 }
 
-bool rai::logging::node_lifetime_tracing () const
+bool galileo::logging::node_lifetime_tracing () const
 {
 	return node_lifetime_tracing_value;
 }
 
-bool rai::logging::insufficient_work_logging () const
+bool galileo::logging::insufficient_work_logging () const
 {
 	return network_logging () && insufficient_work_logging_value;
 }
 
-bool rai::logging::log_rpc () const
+bool galileo::logging::log_rpc () const
 {
 	return network_logging () && log_rpc_value;
 }
 
-bool rai::logging::bulk_pull_logging () const
+bool galileo::logging::bulk_pull_logging () const
 {
 	return network_logging () && bulk_pull_logging_value;
 }
 
-bool rai::logging::callback_logging () const
+bool galileo::logging::callback_logging () const
 {
 	return network_logging ();
 }
 
-bool rai::logging::work_generation_time () const
+bool galileo::logging::work_generation_time () const
 {
 	return work_generation_time_value;
 }
 
-bool rai::logging::log_to_cerr () const
+bool galileo::logging::log_to_cerr () const
 {
 	return log_to_cerr_value;
 }
 
-rai::node_init::node_init () :
+galileo::node_init::node_init () :
 block_store_init (false),
 wallet_init (false)
 {
 }
 
-bool rai::node_init::error ()
+bool galileo::node_init::error ()
 {
 	return block_store_init || wallet_init;
 }
 
-rai::node_config::node_config () :
-node_config (rai::network::node_port, rai::logging ())
+galileo::node_config::node_config () :
+node_config (galileo::network::node_port, galileo::logging ())
 {
 }
 
-rai::node_config::node_config (uint16_t peering_port_a, rai::logging const & logging_a) :
+galileo::node_config::node_config (uint16_t peering_port_a, galileo::logging const & logging_a) :
 peering_port (peering_port_a),
 logging (logging_a),
 bootstrap_fraction_numerator (1),
-receive_minimum (rai::xrb_ratio),
-online_weight_minimum (60000 * rai::Gxrb_ratio),
+receive_minimum (galileo::xrb_ratio),
+online_weight_minimum (60000 * galileo::Gxrb_ratio),
 online_weight_quorum (50),
 password_fanout (1024),
 io_threads (std::max<unsigned> (4, std::thread::hardware_concurrency ())),
@@ -909,30 +909,30 @@ lmdb_max_dbs (128)
 {
 	const char * epoch_message ("epoch v1 block");
 	strncpy ((char *)epoch_block_link.bytes.data (), epoch_message, epoch_block_link.bytes.size ());
-	epoch_block_signer = rai::genesis_account;
-	switch (rai::rai_network)
+	epoch_block_signer = galileo::genesis_account;
+	switch (galileo::rai_network)
 	{
-		case rai::rai_networks::rai_test_network:
-			preconfigured_representatives.push_back (rai::genesis_account);
+		case galileo::rai_networks::rai_test_network:
+			preconfigured_representatives.push_back (galileo::genesis_account);
 			break;
-		case rai::rai_networks::rai_beta_network:
+		case galileo::rai_networks::rai_beta_network:
 			preconfigured_peers.push_back ("rai-beta.raiblocks.net");
-			preconfigured_representatives.push_back (rai::account ("A59A47CC4F593E75AE9AD653FDA9358E2F7898D9ACC8C60E80D0495CE20FBA9F"));
-			preconfigured_representatives.push_back (rai::account ("259A4011E6CAD1069A97C02C3C1F2AAA32BC093C8D82EE1334F937A4BE803071"));
-			preconfigured_representatives.push_back (rai::account ("259A40656144FAA16D2A8516F7BE9C74A63C6CA399960EDB747D144ABB0F7ABD"));
-			preconfigured_representatives.push_back (rai::account ("259A40A92FA42E2240805DE8618EC4627F0BA41937160B4CFF7F5335FD1933DF"));
-			preconfigured_representatives.push_back (rai::account ("259A40FF3262E273EC451E873C4CDF8513330425B38860D882A16BCC74DA9B73"));
+			preconfigured_representatives.push_back (galileo::account ("A59A47CC4F593E75AE9AD653FDA9358E2F7898D9ACC8C60E80D0495CE20FBA9F"));
+			preconfigured_representatives.push_back (galileo::account ("259A4011E6CAD1069A97C02C3C1F2AAA32BC093C8D82EE1334F937A4BE803071"));
+			preconfigured_representatives.push_back (galileo::account ("259A40656144FAA16D2A8516F7BE9C74A63C6CA399960EDB747D144ABB0F7ABD"));
+			preconfigured_representatives.push_back (galileo::account ("259A40A92FA42E2240805DE8618EC4627F0BA41937160B4CFF7F5335FD1933DF"));
+			preconfigured_representatives.push_back (galileo::account ("259A40FF3262E273EC451E873C4CDF8513330425B38860D882A16BCC74DA9B73"));
 			break;
-		case rai::rai_networks::rai_live_network:
+		case galileo::rai_networks::rai_live_network:
 			preconfigured_peers.push_back ("rai.raiblocks.net");
-			preconfigured_representatives.push_back (rai::account ("A30E0A32ED41C8607AA9212843392E853FCBCB4E7CB194E35C94F07F91DE59EF"));
-			preconfigured_representatives.push_back (rai::account ("67556D31DDFC2A440BF6147501449B4CB9572278D034EE686A6BEE29851681DF"));
-			preconfigured_representatives.push_back (rai::account ("5C2FBB148E006A8E8BA7A75DD86C9FE00C83F5FFDBFD76EAA09531071436B6AF"));
-			preconfigured_representatives.push_back (rai::account ("AE7AC63990DAAAF2A69BF11C913B928844BF5012355456F2F164166464024B29"));
-			preconfigured_representatives.push_back (rai::account ("BD6267D6ECD8038327D2BCC0850BDF8F56EC0414912207E81BCF90DFAC8A4AAA"));
-			preconfigured_representatives.push_back (rai::account ("2399A083C600AA0572F5E36247D978FCFC840405F8D4B6D33161C0066A55F431"));
-			preconfigured_representatives.push_back (rai::account ("2298FAB7C61058E77EA554CB93EDEEDA0692CBFCC540AB213B2836B29029E23A"));
-			preconfigured_representatives.push_back (rai::account ("3FE80B4BC842E82C1C18ABFEEC47EA989E63953BC82AC411F304D13833D52A56"));
+			preconfigured_representatives.push_back (galileo::account ("A30E0A32ED41C8607AA9212843392E853FCBCB4E7CB194E35C94F07F91DE59EF"));
+			preconfigured_representatives.push_back (galileo::account ("67556D31DDFC2A440BF6147501449B4CB9572278D034EE686A6BEE29851681DF"));
+			preconfigured_representatives.push_back (galileo::account ("5C2FBB148E006A8E8BA7A75DD86C9FE00C83F5FFDBFD76EAA09531071436B6AF"));
+			preconfigured_representatives.push_back (galileo::account ("AE7AC63990DAAAF2A69BF11C913B928844BF5012355456F2F164166464024B29"));
+			preconfigured_representatives.push_back (galileo::account ("BD6267D6ECD8038327D2BCC0850BDF8F56EC0414912207E81BCF90DFAC8A4AAA"));
+			preconfigured_representatives.push_back (galileo::account ("2399A083C600AA0572F5E36247D978FCFC840405F8D4B6D33161C0066A55F431"));
+			preconfigured_representatives.push_back (galileo::account ("2298FAB7C61058E77EA554CB93EDEEDA0692CBFCC540AB213B2836B29029E23A"));
+			preconfigured_representatives.push_back (galileo::account ("3FE80B4BC842E82C1C18ABFEEC47EA989E63953BC82AC411F304D13833D52A56"));
 			// 2018-09-01 UTC 00:00 in unix time
 			// Technically, time_t is never defined to be unix time, but compilers implement it as such
 			generate_hash_votes_at = std::chrono::system_clock::from_time_t (1535760000);
@@ -943,7 +943,7 @@ lmdb_max_dbs (128)
 	}
 }
 
-void rai::node_config::serialize_json (boost::property_tree::ptree & tree_a) const
+void galileo::node_config::serialize_json (boost::property_tree::ptree & tree_a) const
 {
 	tree_a.put ("version", "14");
 	tree_a.put ("peering_port", std::to_string (peering_port));
@@ -991,7 +991,7 @@ void rai::node_config::serialize_json (boost::property_tree::ptree & tree_a) con
 	tree_a.put ("generate_hash_votes_at", std::chrono::system_clock::to_time_t (generate_hash_votes_at));
 }
 
-bool rai::node_config::upgrade_json (unsigned version, boost::property_tree::ptree & tree_a)
+bool galileo::node_config::upgrade_json (unsigned version, boost::property_tree::ptree & tree_a)
 {
 	auto result (false);
 	switch (version)
@@ -1002,7 +1002,7 @@ bool rai::node_config::upgrade_json (unsigned version, boost::property_tree::ptr
 			boost::property_tree::ptree reps;
 			for (auto i (reps_l.begin ()), n (reps_l.end ()); i != n; ++i)
 			{
-				rai::uint256_union account;
+				galileo::uint256_union account;
 				account.decode_account (i->second.get<std::string> (""));
 				boost::property_tree::ptree entry;
 				entry.put ("", account.to_account ());
@@ -1016,7 +1016,7 @@ bool rai::node_config::upgrade_json (unsigned version, boost::property_tree::ptr
 		}
 		case 2:
 		{
-			tree_a.put ("inactive_supply", rai::uint128_union (0).to_string_dec ());
+			tree_a.put ("inactive_supply", galileo::uint128_union (0).to_string_dec ());
 			tree_a.put ("password_fanout", std::to_string (1024));
 			tree_a.put ("io_threads", std::to_string (io_threads));
 			tree_a.put ("work_threads", std::to_string (work_threads));
@@ -1026,13 +1026,13 @@ bool rai::node_config::upgrade_json (unsigned version, boost::property_tree::ptr
 		}
 		case 3:
 			tree_a.erase ("receive_minimum");
-			tree_a.put ("receive_minimum", rai::xrb_ratio.convert_to<std::string> ());
+			tree_a.put ("receive_minimum", galileo::xrb_ratio.convert_to<std::string> ());
 			tree_a.erase ("version");
 			tree_a.put ("version", "4");
 			result = true;
 		case 4:
 			tree_a.erase ("receive_minimum");
-			tree_a.put ("receive_minimum", rai::xrb_ratio.convert_to<std::string> ());
+			tree_a.put ("receive_minimum", galileo::xrb_ratio.convert_to<std::string> ());
 			tree_a.erase ("version");
 			tree_a.put ("version", "5");
 			result = true;
@@ -1063,8 +1063,8 @@ bool rai::node_config::upgrade_json (unsigned version, boost::property_tree::ptr
 			tree_a.put ("version", "9");
 			result = true;
 		case 9:
-			tree_a.put ("state_block_parse_canary", rai::block_hash (0).to_string ());
-			tree_a.put ("state_block_generate_canary", rai::block_hash (0).to_string ());
+			tree_a.put ("state_block_parse_canary", galileo::block_hash (0).to_string ());
+			tree_a.put ("state_block_generate_canary", galileo::block_hash (0).to_string ());
 			tree_a.erase ("version");
 			tree_a.put ("version", "10");
 			result = true;
@@ -1103,7 +1103,7 @@ bool rai::node_config::upgrade_json (unsigned version, boost::property_tree::ptr
 	return result;
 }
 
-bool rai::node_config::deserialize_json (bool & upgraded_a, boost::property_tree::ptree & tree_a)
+bool galileo::node_config::deserialize_json (bool & upgraded_a, boost::property_tree::ptree & tree_a)
 {
 	auto result (false);
 	try
@@ -1155,7 +1155,7 @@ bool rai::node_config::deserialize_json (bool & upgraded_a, boost::property_tree
 		preconfigured_representatives.clear ();
 		for (auto i (preconfigured_representatives_l.begin ()), n (preconfigured_representatives_l.end ()); i != n; ++i)
 		{
-			rai::account representative (0);
+			galileo::account representative (0);
 			result = result || representative.decode_account (i->second.get<std::string> (""));
 			preconfigured_representatives.push_back (representative);
 		}
@@ -1215,15 +1215,15 @@ bool rai::node_config::deserialize_json (bool & upgraded_a, boost::property_tree
 	return result;
 }
 
-rai::account rai::node_config::random_representative ()
+galileo::account galileo::node_config::random_representative ()
 {
 	assert (preconfigured_representatives.size () > 0);
-	size_t index (rai::random_pool.GenerateWord32 (0, preconfigured_representatives.size () - 1));
+	size_t index (galileo::random_pool.GenerateWord32 (0, preconfigured_representatives.size () - 1));
 	auto result (preconfigured_representatives[index]);
 	return result;
 }
 
-rai::vote_processor::vote_processor (rai::node & node_a) :
+galileo::vote_processor::vote_processor (galileo::node & node_a) :
 node (node_a),
 started (false),
 stopped (false),
@@ -1237,7 +1237,7 @@ thread ([this]() { process_loop (); })
 	}
 }
 
-void rai::vote_processor::process_loop ()
+void galileo::vote_processor::process_loop ()
 {
 	std::unique_lock<std::mutex> lock (mutex);
 	started = true;
@@ -1246,7 +1246,7 @@ void rai::vote_processor::process_loop ()
 	{
 		if (!votes.empty ())
 		{
-			std::deque<std::pair<std::shared_ptr<rai::vote>, rai::endpoint>> votes_l;
+			std::deque<std::pair<std::shared_ptr<galileo::vote>, galileo::endpoint>> votes_l;
 			votes_l.swap (votes);
 			active = true;
 			lock.unlock ();
@@ -1268,7 +1268,7 @@ void rai::vote_processor::process_loop ()
 	}
 }
 
-void rai::vote_processor::vote (std::shared_ptr<rai::vote> vote_a, rai::endpoint endpoint_a)
+void galileo::vote_processor::vote (std::shared_ptr<galileo::vote> vote_a, galileo::endpoint endpoint_a)
 {
 	assert (endpoint_a.address ().is_v6 ());
 	std::lock_guard<std::mutex> lock (mutex);
@@ -1279,37 +1279,37 @@ void rai::vote_processor::vote (std::shared_ptr<rai::vote> vote_a, rai::endpoint
 	}
 }
 
-rai::vote_code rai::vote_processor::vote_blocking (rai::transaction const & transaction_a, std::shared_ptr<rai::vote> vote_a, rai::endpoint endpoint_a)
+galileo::vote_code galileo::vote_processor::vote_blocking (galileo::transaction const & transaction_a, std::shared_ptr<galileo::vote> vote_a, galileo::endpoint endpoint_a)
 {
 	assert (endpoint_a.address ().is_v6 ());
-	auto result (rai::vote_code::invalid);
+	auto result (galileo::vote_code::invalid);
 	if (!vote_a->validate ())
 	{
-		result = rai::vote_code::replay;
+		result = galileo::vote_code::replay;
 		auto max_vote (node.store.vote_max (transaction_a, vote_a));
 		if (!node.active.vote (vote_a) || max_vote->sequence > vote_a->sequence)
 		{
-			result = rai::vote_code::vote;
+			result = galileo::vote_code::vote;
 		}
 		switch (result)
 		{
-			case rai::vote_code::vote:
+			case galileo::vote_code::vote:
 				node.observers.vote.notify (transaction_a, vote_a, endpoint_a);
-			case rai::vote_code::replay:
+			case galileo::vote_code::replay:
 				// This tries to assist rep nodes that have lost track of their highest sequence number by replaying our highest known vote back to them
 				// Only do this if the sequence number is significantly different to account for network reordering
 				// Amplify attack considerations: We're sending out a confirm_ack in response to a confirm_ack for no net traffic increase
 				if (max_vote->sequence > vote_a->sequence + 10000)
 				{
-					rai::confirm_ack confirm (max_vote);
+					galileo::confirm_ack confirm (max_vote);
 					std::shared_ptr<std::vector<uint8_t>> bytes (new std::vector<uint8_t>);
 					{
-						rai::vectorstream stream (*bytes);
+						galileo::vectorstream stream (*bytes);
 						confirm.serialize (stream);
 					}
 					node.network.confirm_send (confirm, bytes, endpoint_a);
 				}
-			case rai::vote_code::invalid:
+			case galileo::vote_code::invalid:
 				break;
 		}
 	}
@@ -1318,17 +1318,17 @@ rai::vote_code rai::vote_processor::vote_blocking (rai::transaction const & tran
 		char const * status;
 		switch (result)
 		{
-			case rai::vote_code::invalid:
+			case galileo::vote_code::invalid:
 				status = "Invalid";
-				node.stats.inc (rai::stat::type::vote, rai::stat::detail::vote_invalid);
+				node.stats.inc (galileo::stat::type::vote, galileo::stat::detail::vote_invalid);
 				break;
-			case rai::vote_code::replay:
+			case galileo::vote_code::replay:
 				status = "Replay";
-				node.stats.inc (rai::stat::type::vote, rai::stat::detail::vote_replay);
+				node.stats.inc (galileo::stat::type::vote, galileo::stat::detail::vote_replay);
 				break;
-			case rai::vote_code::vote:
+			case galileo::vote_code::vote:
 				status = "Vote";
-				node.stats.inc (rai::stat::type::vote, rai::stat::detail::vote_valid);
+				node.stats.inc (galileo::stat::type::vote, galileo::stat::detail::vote_valid);
 				break;
 		}
 		BOOST_LOG (node.log) << boost::str (boost::format ("Vote from: %1% sequence: %2% block(s): %3%status: %4%") % vote_a->account.to_account () % std::to_string (vote_a->sequence) % vote_a->hashes_string () % status);
@@ -1336,7 +1336,7 @@ rai::vote_code rai::vote_processor::vote_blocking (rai::transaction const & tran
 	return result;
 }
 
-void rai::vote_processor::stop ()
+void galileo::vote_processor::stop ()
 {
 	{
 		std::lock_guard<std::mutex> lock (mutex);
@@ -1349,7 +1349,7 @@ void rai::vote_processor::stop ()
 	}
 }
 
-void rai::vote_processor::flush ()
+void galileo::vote_processor::flush ()
 {
 	std::unique_lock<std::mutex> lock (mutex);
 	while (active || !votes.empty ())
@@ -1358,25 +1358,25 @@ void rai::vote_processor::flush ()
 	}
 }
 
-void rai::rep_crawler::add (rai::block_hash const & hash_a)
+void galileo::rep_crawler::add (galileo::block_hash const & hash_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	active.insert (hash_a);
 }
 
-void rai::rep_crawler::remove (rai::block_hash const & hash_a)
+void galileo::rep_crawler::remove (galileo::block_hash const & hash_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	active.erase (hash_a);
 }
 
-bool rai::rep_crawler::exists (rai::block_hash const & hash_a)
+bool galileo::rep_crawler::exists (galileo::block_hash const & hash_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	return active.count (hash_a) != 0;
 }
 
-rai::block_processor::block_processor (rai::node & node_a) :
+galileo::block_processor::block_processor (galileo::node & node_a) :
 stopped (false),
 active (false),
 node (node_a),
@@ -1384,19 +1384,19 @@ next_log (std::chrono::steady_clock::now ())
 {
 }
 
-rai::block_processor::~block_processor ()
+galileo::block_processor::~block_processor ()
 {
 	stop ();
 }
 
-void rai::block_processor::stop ()
+void galileo::block_processor::stop ()
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	stopped = true;
 	condition.notify_all ();
 }
 
-void rai::block_processor::flush ()
+void galileo::block_processor::flush ()
 {
 	std::unique_lock<std::mutex> lock (mutex);
 	while (!stopped && (!blocks.empty () || active))
@@ -1405,15 +1405,15 @@ void rai::block_processor::flush ()
 	}
 }
 
-bool rai::block_processor::full ()
+bool galileo::block_processor::full ()
 {
 	std::unique_lock<std::mutex> lock (mutex);
 	return blocks.size () > 16384;
 }
 
-void rai::block_processor::add (std::shared_ptr<rai::block> block_a, std::chrono::steady_clock::time_point origination)
+void galileo::block_processor::add (std::shared_ptr<galileo::block> block_a, std::chrono::steady_clock::time_point origination)
 {
-	if (!rai::work_validate (block_a->root (), block_a->block_work ()))
+	if (!galileo::work_validate (block_a->root (), block_a->block_work ()))
 	{
 		std::lock_guard<std::mutex> lock (mutex);
 		if (blocks_hashes.find (block_a->hash ()) == blocks_hashes.end ())
@@ -1425,19 +1425,19 @@ void rai::block_processor::add (std::shared_ptr<rai::block> block_a, std::chrono
 	}
 	else
 	{
-		BOOST_LOG (node.log) << "rai::block_processor::add called for hash " << block_a->hash ().to_string () << " with invalid work " << rai::to_string_hex (block_a->block_work ());
-		assert (false && "rai::block_processor::add called with invalid work");
+		BOOST_LOG (node.log) << "galileo::block_processor::add called for hash " << block_a->hash ().to_string () << " with invalid work " << galileo::to_string_hex (block_a->block_work ());
+		assert (false && "galileo::block_processor::add called with invalid work");
 	}
 }
 
-void rai::block_processor::force (std::shared_ptr<rai::block> block_a)
+void galileo::block_processor::force (std::shared_ptr<galileo::block> block_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	forced.push_back (block_a);
 	condition.notify_all ();
 }
 
-void rai::block_processor::process_blocks ()
+void galileo::block_processor::process_blocks ()
 {
 	std::unique_lock<std::mutex> lock (mutex);
 	while (!stopped)
@@ -1458,7 +1458,7 @@ void rai::block_processor::process_blocks ()
 	}
 }
 
-bool rai::block_processor::should_log ()
+bool galileo::block_processor::should_log ()
 {
 	auto result (false);
 	auto now (std::chrono::steady_clock::now ());
@@ -1470,13 +1470,13 @@ bool rai::block_processor::should_log ()
 	return result;
 }
 
-bool rai::block_processor::have_blocks ()
+bool galileo::block_processor::have_blocks ()
 {
 	assert (!mutex.try_lock ());
 	return !blocks.empty () || !forced.empty ();
 }
 
-void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & lock_a)
+void galileo::block_processor::process_receive_many (std::unique_lock<std::mutex> & lock_a)
 {
 	{
 		auto transaction (node.store.tx_begin_write ());
@@ -1488,7 +1488,7 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 			{
 				BOOST_LOG (node.log) << boost::str (boost::format ("%1% blocks in processing queue") % blocks.size ());
 			}
-			std::pair<std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point> block;
+			std::pair<std::shared_ptr<galileo::block>, std::chrono::steady_clock::time_point> block;
 			bool force (false);
 			if (forced.empty ())
 			{
@@ -1523,14 +1523,14 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 	lock_a.unlock ();
 }
 
-rai::process_return rai::block_processor::process_receive_one (rai::transaction const & transaction_a, std::shared_ptr<rai::block> block_a, std::chrono::steady_clock::time_point origination)
+galileo::process_return galileo::block_processor::process_receive_one (galileo::transaction const & transaction_a, std::shared_ptr<galileo::block> block_a, std::chrono::steady_clock::time_point origination)
 {
-	rai::process_return result;
+	galileo::process_return result;
 	auto hash (block_a->hash ());
 	result = node.ledger.process (transaction_a, *block_a);
 	switch (result.code)
 	{
-		case rai::process_result::progress:
+		case galileo::process_result::progress:
 		{
 			if (node.config.logging.ledger_logging ())
 			{
@@ -1545,7 +1545,7 @@ rai::process_return rai::block_processor::process_receive_one (rai::transaction 
 			queue_unchecked (transaction_a, hash);
 			break;
 		}
-		case rai::process_result::gap_previous:
+		case galileo::process_result::gap_previous:
 		{
 			if (node.config.logging.ledger_logging ())
 			{
@@ -1555,7 +1555,7 @@ rai::process_return rai::block_processor::process_receive_one (rai::transaction 
 			node.gap_cache.add (transaction_a, block_a);
 			break;
 		}
-		case rai::process_result::gap_source:
+		case galileo::process_result::gap_source:
 		{
 			if (node.config.logging.ledger_logging ())
 			{
@@ -1565,7 +1565,7 @@ rai::process_return rai::block_processor::process_receive_one (rai::transaction 
 			node.gap_cache.add (transaction_a, block_a);
 			break;
 		}
-		case rai::process_result::old:
+		case galileo::process_result::old:
 		{
 			if (node.config.logging.ledger_duplicate_logging ())
 			{
@@ -1574,7 +1574,7 @@ rai::process_return rai::block_processor::process_receive_one (rai::transaction 
 			queue_unchecked (transaction_a, hash);
 			break;
 		}
-		case rai::process_result::bad_signature:
+		case galileo::process_result::bad_signature:
 		{
 			if (node.config.logging.ledger_logging ())
 			{
@@ -1582,7 +1582,7 @@ rai::process_return rai::block_processor::process_receive_one (rai::transaction 
 			}
 			break;
 		}
-		case rai::process_result::negative_spend:
+		case galileo::process_result::negative_spend:
 		{
 			if (node.config.logging.ledger_logging ())
 			{
@@ -1590,7 +1590,7 @@ rai::process_return rai::block_processor::process_receive_one (rai::transaction 
 			}
 			break;
 		}
-		case rai::process_result::unreceivable:
+		case galileo::process_result::unreceivable:
 		{
 			if (node.config.logging.ledger_logging ())
 			{
@@ -1598,7 +1598,7 @@ rai::process_return rai::block_processor::process_receive_one (rai::transaction 
 			}
 			break;
 		}
-		case rai::process_result::fork:
+		case galileo::process_result::fork:
 		{
 			if (origination < std::chrono::steady_clock::now () - std::chrono::seconds (15))
 			{
@@ -1611,12 +1611,12 @@ rai::process_return rai::block_processor::process_receive_one (rai::transaction 
 			}
 			break;
 		}
-		case rai::process_result::opened_burn_account:
+		case galileo::process_result::opened_burn_account:
 		{
 			BOOST_LOG (node.log) << boost::str (boost::format ("*** Rejecting open block for burn account ***: %1%") % hash.to_string ());
 			break;
 		}
-		case rai::process_result::balance_mismatch:
+		case galileo::process_result::balance_mismatch:
 		{
 			if (node.config.logging.ledger_logging ())
 			{
@@ -1624,7 +1624,7 @@ rai::process_return rai::block_processor::process_receive_one (rai::transaction 
 			}
 			break;
 		}
-		case rai::process_result::representative_mismatch:
+		case galileo::process_result::representative_mismatch:
 		{
 			if (node.config.logging.ledger_logging ())
 			{
@@ -1632,7 +1632,7 @@ rai::process_return rai::block_processor::process_receive_one (rai::transaction 
 			}
 			break;
 		}
-		case rai::process_result::block_position:
+		case galileo::process_result::block_position:
 		{
 			if (node.config.logging.ledger_logging ())
 			{
@@ -1644,7 +1644,7 @@ rai::process_return rai::block_processor::process_receive_one (rai::transaction 
 	return result;
 }
 
-void rai::block_processor::queue_unchecked (rai::transaction const & transaction_a, rai::block_hash const & hash_a)
+void galileo::block_processor::queue_unchecked (galileo::transaction const & transaction_a, galileo::block_hash const & hash_a)
 {
 	auto cached (node.store.unchecked_get (transaction_a, hash_a));
 	for (auto i (cached.begin ()), n (cached.end ()); i != n; ++i)
@@ -1656,17 +1656,17 @@ void rai::block_processor::queue_unchecked (rai::transaction const & transaction
 	node.gap_cache.blocks.get<1> ().erase (hash_a);
 }
 
-rai::node::node (rai::node_init & init_a, boost::asio::io_service & service_a, uint16_t peering_port_a, boost::filesystem::path const & application_path_a, rai::alarm & alarm_a, rai::logging const & logging_a, rai::work_pool & work_a) :
-node (init_a, service_a, application_path_a, alarm_a, rai::node_config (peering_port_a, logging_a), work_a)
+galileo::node::node (galileo::node_init & init_a, boost::asio::io_service & service_a, uint16_t peering_port_a, boost::filesystem::path const & application_path_a, galileo::alarm & alarm_a, galileo::logging const & logging_a, galileo::work_pool & work_a) :
+node (init_a, service_a, application_path_a, alarm_a, galileo::node_config (peering_port_a, logging_a), work_a)
 {
 }
 
-rai::node::node (rai::node_init & init_a, boost::asio::io_service & service_a, boost::filesystem::path const & application_path_a, rai::alarm & alarm_a, rai::node_config const & config_a, rai::work_pool & work_a) :
+galileo::node::node (galileo::node_init & init_a, boost::asio::io_service & service_a, boost::filesystem::path const & application_path_a, galileo::alarm & alarm_a, galileo::node_config const & config_a, galileo::work_pool & work_a) :
 service (service_a),
 config (config_a),
 alarm (alarm_a),
 work (work_a),
-store_impl (std::make_unique<rai::mdb_store> (init_a.block_store_init, application_path_a / "data.ldb", config_a.lmdb_max_dbs)),
+store_impl (std::make_unique<galileo::mdb_store> (init_a.block_store_init, application_path_a / "data.ldb", config_a.lmdb_max_dbs)),
 store (*store_impl),
 gap_cache (*this),
 ledger (store, stats, config.epoch_block_link, config.epoch_block_signer),
@@ -1688,13 +1688,13 @@ stats (config.stat_config)
 	wallets.observer = [this](bool active) {
 		observers.wallet.notify (active);
 	};
-	peers.peer_observer = [this](rai::endpoint const & endpoint_a) {
+	peers.peer_observer = [this](galileo::endpoint const & endpoint_a) {
 		observers.endpoint.notify (endpoint_a);
 	};
 	peers.disconnect_observer = [this]() {
 		observers.disconnect.notify ();
 	};
-	observers.blocks.add ([this](std::shared_ptr<rai::block> block_a, rai::account const & account_a, rai::amount const & amount_a, bool is_state_send_a) {
+	observers.blocks.add ([this](std::shared_ptr<galileo::block> block_a, galileo::account const & account_a, galileo::amount const & amount_a, bool is_state_send_a) {
 		if (this->block_arrival.recent (block_a->hash ()))
 		{
 			auto node_l (shared_from_this ());
@@ -1749,7 +1749,7 @@ stats (config.stat_config)
 													{
 														if (resp->result () == boost::beast::http::status::ok)
 														{
-															node_l->stats.inc (rai::stat::type::http_callback, rai::stat::detail::initiate, rai::stat::dir::out);
+															node_l->stats.inc (galileo::stat::type::http_callback, galileo::stat::detail::initiate, galileo::stat::dir::out);
 														}
 														else
 														{
@@ -1757,7 +1757,7 @@ stats (config.stat_config)
 															{
 																BOOST_LOG (node_l->log) << boost::str (boost::format ("Callback to %1%:%2% failed with status: %3%") % address % port % resp->result ());
 															}
-															node_l->stats.inc (rai::stat::type::error, rai::stat::detail::http_callback, rai::stat::dir::out);
+															node_l->stats.inc (galileo::stat::type::error, galileo::stat::detail::http_callback, galileo::stat::dir::out);
 														}
 													}
 													else
@@ -1766,7 +1766,7 @@ stats (config.stat_config)
 														{
 															BOOST_LOG (node_l->log) << boost::str (boost::format ("Unable complete callback: %1%:%2%: %3%") % address % port % ec.message ());
 														}
-														node_l->stats.inc (rai::stat::type::error, rai::stat::detail::http_callback, rai::stat::dir::out);
+														node_l->stats.inc (galileo::stat::type::error, galileo::stat::detail::http_callback, galileo::stat::dir::out);
 													};
 												});
 											}
@@ -1776,7 +1776,7 @@ stats (config.stat_config)
 												{
 													BOOST_LOG (node_l->log) << boost::str (boost::format ("Unable to send callback: %1%:%2%: %3%") % address % port % ec.message ());
 												}
-												node_l->stats.inc (rai::stat::type::error, rai::stat::detail::http_callback, rai::stat::dir::out);
+												node_l->stats.inc (galileo::stat::type::error, galileo::stat::detail::http_callback, galileo::stat::dir::out);
 											}
 										});
 									}
@@ -1786,7 +1786,7 @@ stats (config.stat_config)
 										{
 											BOOST_LOG (node_l->log) << boost::str (boost::format ("Unable to connect to callback address: %1%:%2%: %3%") % address % port % ec.message ());
 										}
-										node_l->stats.inc (rai::stat::type::error, rai::stat::detail::http_callback, rai::stat::dir::out);
+										node_l->stats.inc (galileo::stat::type::error, galileo::stat::detail::http_callback, galileo::stat::dir::out);
 									}
 								});
 							}
@@ -1797,23 +1797,23 @@ stats (config.stat_config)
 							{
 								BOOST_LOG (node_l->log) << boost::str (boost::format ("Error resolving callback: %1%:%2%: %3%") % address % port % ec.message ());
 							}
-							node_l->stats.inc (rai::stat::type::error, rai::stat::detail::http_callback, rai::stat::dir::out);
+							node_l->stats.inc (galileo::stat::type::error, galileo::stat::detail::http_callback, galileo::stat::dir::out);
 						}
 					});
 				}
 			});
 		}
 	});
-	observers.endpoint.add ([this](rai::endpoint const & endpoint_a) {
+	observers.endpoint.add ([this](galileo::endpoint const & endpoint_a) {
 		this->network.send_keepalive (endpoint_a);
 		rep_query (*this, endpoint_a);
 	});
-	observers.vote.add ([this](rai::transaction const & transaction, std::shared_ptr<rai::vote> vote_a, rai::endpoint const & endpoint_a) {
+	observers.vote.add ([this](galileo::transaction const & transaction, std::shared_ptr<galileo::vote> vote_a, galileo::endpoint const & endpoint_a) {
 		assert (endpoint_a.address ().is_v6 ());
 		this->gap_cache.vote (vote_a);
 		this->online_reps.vote (vote_a);
-		rai::uint128_t rep_weight;
-		rai::uint128_t min_rep_weight;
+		galileo::uint128_t rep_weight;
+		galileo::uint128_t min_rep_weight;
 		{
 			rep_weight = ledger.weight (transaction, vote_a->account);
 			min_rep_weight = online_reps.online_stake () / 1000;
@@ -1856,7 +1856,7 @@ stats (config.stat_config)
 		{
 			BOOST_LOG (log) << "Constructing node";
 		}
-		rai::genesis genesis;
+		galileo::genesis genesis;
 		auto transaction (store.tx_begin_write ());
 		if (store.latest_begin (transaction) == store.latest_end ())
 		{
@@ -1869,17 +1869,17 @@ stats (config.stat_config)
 			std::exit (1);
 		}
 
-		node_id = rai::keypair (store.get_node_id (transaction));
+		node_id = galileo::keypair (store.get_node_id (transaction));
 		BOOST_LOG (log) << "Node ID: " << node_id.pub.to_account ();
 	}
 	peers.online_weight_minimum = config.online_weight_minimum.number ();
-	if (rai::rai_network == rai::rai_networks::rai_live_network)
+	if (galileo::rai_network == galileo::rai_networks::rai_live_network)
 	{
-		extern const char rai_bootstrap_weights[];
-		extern const size_t rai_bootstrap_weights_size;
-		rai::bufferstream weight_stream ((const uint8_t *)rai_bootstrap_weights, rai_bootstrap_weights_size);
-		rai::uint128_union block_height;
-		if (!rai::read (weight_stream, block_height))
+		extern const char galileo_bootstrap_weights[];
+		extern const size_t galileo_bootstrap_weights_size;
+		galileo::bufferstream weight_stream ((const uint8_t *)rai_bootstrap_weights, galileo_bootstrap_weights_size);
+		galileo::uint128_union block_height;
+		if (!galileo::read (weight_stream, block_height))
 		{
 			auto max_blocks = (uint64_t)block_height.number ();
 			auto transaction (store.tx_begin_read ());
@@ -1888,13 +1888,13 @@ stats (config.stat_config)
 				ledger.bootstrap_weight_max_blocks = max_blocks;
 				while (true)
 				{
-					rai::account account;
-					if (rai::read (weight_stream, account.bytes))
+					galileo::account account;
+					if (galileo::read (weight_stream, account.bytes))
 					{
 						break;
 					}
-					rai::amount weight;
-					if (rai::read (weight_stream, weight.bytes))
+					galileo::amount weight;
+					if (galileo::read (weight_stream, weight.bytes))
 					{
 						break;
 					}
@@ -1906,7 +1906,7 @@ stats (config.stat_config)
 	}
 }
 
-rai::node::~node ()
+galileo::node::~node ()
 {
 	if (config.logging.node_lifetime_tracing ())
 	{
@@ -1915,26 +1915,26 @@ rai::node::~node ()
 	stop ();
 }
 
-bool rai::node::copy_with_compaction (boost::filesystem::path const & destination_file)
+bool galileo::node::copy_with_compaction (boost::filesystem::path const & destination_file)
 {
-	return !mdb_env_copy2 (boost::polymorphic_downcast<rai::mdb_store *> (store_impl.get ())->env.environment, destination_file.string ().c_str (), MDB_CP_COMPACT);
+	return !mdb_env_copy2 (boost::polymorphic_downcast<galileo::mdb_store *> (store_impl.get ())->env.environment, destination_file.string ().c_str (), MDB_CP_COMPACT);
 }
 
-void rai::node::send_keepalive (rai::endpoint const & endpoint_a)
+void galileo::node::send_keepalive (galileo::endpoint const & endpoint_a)
 {
-	network.send_keepalive (rai::map_endpoint_to_v6 (endpoint_a));
+	network.send_keepalive (galileo::map_endpoint_to_v6 (endpoint_a));
 }
 
-void rai::node::process_fork (rai::transaction const & transaction_a, std::shared_ptr<rai::block> block_a)
+void galileo::node::process_fork (galileo::transaction const & transaction_a, std::shared_ptr<galileo::block> block_a)
 {
 	auto root (block_a->root ());
 	if (!store.block_exists (transaction_a, block_a->hash ()) && store.root_exists (transaction_a, block_a->root ()))
 	{
-		std::shared_ptr<rai::block> ledger_block (ledger.forked_block (transaction_a, *block_a));
+		std::shared_ptr<galileo::block> ledger_block (ledger.forked_block (transaction_a, *block_a));
 		if (ledger_block)
 		{
-			std::weak_ptr<rai::node> this_w (shared_from_this ());
-			if (!active.start (std::make_pair (ledger_block, block_a), [this_w, root](std::shared_ptr<rai::block>) {
+			std::weak_ptr<galileo::node> this_w (shared_from_this ());
+			if (!active.start (std::make_pair (ledger_block, block_a), [this_w, root](std::shared_ptr<galileo::block>) {
 				    if (auto this_l = this_w.lock ())
 				    {
 					    auto attempt (this_l->bootstrap_initiator.current_attempt ());
@@ -1944,11 +1944,11 @@ void rai::node::process_fork (rai::transaction const & transaction_a, std::share
 						    auto account (this_l->ledger.store.frontier_get (transaction, root));
 						    if (!account.is_zero ())
 						    {
-							    attempt->requeue_pull (rai::pull_info (account, root, root));
+							    attempt->requeue_pull (galileo::pull_info (account, root, root));
 						    }
 						    else if (this_l->ledger.store.account_exists (transaction, root))
 						    {
-							    attempt->requeue_pull (rai::pull_info (root, rai::block_hash (0), rai::block_hash (0)));
+							    attempt->requeue_pull (galileo::pull_info (root, galileo::block_hash (0), galileo::block_hash (0)));
 						    }
 					    }
 				    }
@@ -1961,25 +1961,25 @@ void rai::node::process_fork (rai::transaction const & transaction_a, std::share
 	}
 }
 
-rai::gap_cache::gap_cache (rai::node & node_a) :
+galileo::gap_cache::gap_cache (galileo::node & node_a) :
 node (node_a)
 {
 }
 
-void rai::gap_cache::add (rai::transaction const & transaction_a, std::shared_ptr<rai::block> block_a)
+void galileo::gap_cache::add (galileo::transaction const & transaction_a, std::shared_ptr<galileo::block> block_a)
 {
 	auto hash (block_a->hash ());
 	std::lock_guard<std::mutex> lock (mutex);
 	auto existing (blocks.get<1> ().find (hash));
 	if (existing != blocks.get<1> ().end ())
 	{
-		blocks.get<1> ().modify (existing, [](rai::gap_information & info) {
+		blocks.get<1> ().modify (existing, [](galileo::gap_information & info) {
 			info.arrival = std::chrono::steady_clock::now ();
 		});
 	}
 	else
 	{
-		blocks.insert ({ std::chrono::steady_clock::now (), hash, std::unordered_set<rai::account> () });
+		blocks.insert ({ std::chrono::steady_clock::now (), hash, std::unordered_set<galileo::account> () });
 		if (blocks.size () > max)
 		{
 			blocks.get<0> ().erase (blocks.get<0> ().begin ());
@@ -1987,7 +1987,7 @@ void rai::gap_cache::add (rai::transaction const & transaction_a, std::shared_pt
 	}
 }
 
-void rai::gap_cache::vote (std::shared_ptr<rai::vote> vote_a)
+void galileo::gap_cache::vote (std::shared_ptr<galileo::vote> vote_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	auto transaction (node.store.tx_begin_read ());
@@ -1997,7 +1997,7 @@ void rai::gap_cache::vote (std::shared_ptr<rai::vote> vote_a)
 		if (existing != blocks.get<1> ().end ())
 		{
 			auto is_new (false);
-			blocks.get<1> ().modify (existing, [&](rai::gap_information & info) { is_new = info.voters.insert (vote_a->account).second; });
+			blocks.get<1> ().modify (existing, [&](galileo::gap_information & info) { is_new = info.voters.insert (vote_a->account).second; });
 			if (is_new)
 			{
 				uint128_t tally;
@@ -2009,7 +2009,7 @@ void rai::gap_cache::vote (std::shared_ptr<rai::vote> vote_a)
 				{
 					auto node_l (node.shared ());
 					auto now (std::chrono::steady_clock::now ());
-					node.alarm.add (rai::rai_network == rai::rai_networks::rai_test_network ? now + std::chrono::milliseconds (5) : now + std::chrono::seconds (5), [node_l, hash]() {
+					node.alarm.add (galileo::rai_network == galileo::rai_networks::rai_test_network ? now + std::chrono::milliseconds (5) : now + std::chrono::seconds (5), [node_l, hash]() {
 						auto transaction (node_l->store.tx_begin_read ());
 						if (!node_l->store.block_exists (transaction, hash))
 						{
@@ -2026,19 +2026,19 @@ void rai::gap_cache::vote (std::shared_ptr<rai::vote> vote_a)
 	}
 }
 
-rai::uint128_t rai::gap_cache::bootstrap_threshold (rai::transaction const & transaction_a)
+galileo::uint128_t galileo::gap_cache::bootstrap_threshold (galileo::transaction const & transaction_a)
 {
 	auto result ((node.online_reps.online_stake () / 256) * node.config.bootstrap_fraction_numerator);
 	return result;
 }
 
-void rai::network::confirm_send (rai::confirm_ack const & confirm_a, std::shared_ptr<std::vector<uint8_t>> bytes_a, rai::endpoint const & endpoint_a)
+void galileo::network::confirm_send (galileo::confirm_ack const & confirm_a, std::shared_ptr<std::vector<uint8_t>> bytes_a, galileo::endpoint const & endpoint_a)
 {
 	if (node.config.logging.network_publish_logging ())
 	{
 		BOOST_LOG (node.log) << boost::str (boost::format ("Sending confirm_ack for block(s) %1%to %2% sequence %3%") % confirm_a.vote->hashes_string () % endpoint_a % std::to_string (confirm_a.vote->sequence));
 	}
-	std::weak_ptr<rai::node> node_w (node.shared ());
+	std::weak_ptr<galileo::node> node_w (node.shared ());
 	node.network.send_buffer (bytes_a->data (), bytes_a->size (), endpoint_a, [bytes_a, node_w, endpoint_a](boost::system::error_code const & ec, size_t size_a) {
 		if (auto node_l = node_w.lock ())
 		{
@@ -2048,13 +2048,13 @@ void rai::network::confirm_send (rai::confirm_ack const & confirm_a, std::shared
 			}
 			else
 			{
-				node_l->stats.inc (rai::stat::type::message, rai::stat::detail::confirm_ack, rai::stat::dir::out);
+				node_l->stats.inc (galileo::stat::type::message, galileo::stat::detail::confirm_ack, galileo::stat::dir::out);
 			}
 		}
 	});
 }
 
-void rai::node::process_active (std::shared_ptr<rai::block> incoming)
+void galileo::node::process_active (std::shared_ptr<galileo::block> incoming)
 {
 	if (!block_arrival.add (incoming->hash ()))
 	{
@@ -2062,7 +2062,7 @@ void rai::node::process_active (std::shared_ptr<rai::block> incoming)
 	}
 }
 
-rai::process_return rai::node::process (rai::block const & block_a)
+galileo::process_return galileo::node::process (galileo::block const & block_a)
 {
 	auto transaction (store.tx_begin_write ());
 	auto result (ledger.process (transaction, block_a));
@@ -2070,10 +2070,10 @@ rai::process_return rai::node::process (rai::block const & block_a)
 }
 
 // Simulating with sqrt_broadcast_simulate shows we only need to broadcast to sqrt(total_peers) random peers in order to successfully publish to everyone with high probability
-std::deque<rai::endpoint> rai::peer_container::list_fanout ()
+std::deque<galileo::endpoint> galileo::peer_container::list_fanout ()
 {
 	auto peers (random_set (size_sqrt ()));
-	std::deque<rai::endpoint> result;
+	std::deque<galileo::endpoint> result;
 	for (auto i (peers.begin ()), n (peers.end ()); i != n; ++i)
 	{
 		result.push_back (*i);
@@ -2081,9 +2081,9 @@ std::deque<rai::endpoint> rai::peer_container::list_fanout ()
 	return result;
 }
 
-std::deque<rai::endpoint> rai::peer_container::list ()
+std::deque<galileo::endpoint> galileo::peer_container::list ()
 {
-	std::deque<rai::endpoint> result;
+	std::deque<galileo::endpoint> result;
 	std::lock_guard<std::mutex> lock (mutex);
 	for (auto i (peers.begin ()), j (peers.end ()); i != j; ++i)
 	{
@@ -2093,18 +2093,18 @@ std::deque<rai::endpoint> rai::peer_container::list ()
 	return result;
 }
 
-std::map<rai::endpoint, unsigned> rai::peer_container::list_version ()
+std::map<galileo::endpoint, unsigned> galileo::peer_container::list_version ()
 {
-	std::map<rai::endpoint, unsigned> result;
+	std::map<galileo::endpoint, unsigned> result;
 	std::lock_guard<std::mutex> lock (mutex);
 	for (auto i (peers.begin ()), j (peers.end ()); i != j; ++i)
 	{
-		result.insert (std::pair<rai::endpoint, unsigned> (i->endpoint, i->network_version));
+		result.insert (std::pair<galileo::endpoint, unsigned> (i->endpoint, i->network_version));
 	}
 	return result;
 }
 
-std::vector<rai::peer_information> rai::peer_container::list_vector ()
+std::vector<galileo::peer_information> galileo::peer_container::list_vector ()
 {
 	std::vector<peer_information> result;
 	std::lock_guard<std::mutex> lock (mutex);
@@ -2116,9 +2116,9 @@ std::vector<rai::peer_information> rai::peer_container::list_vector ()
 	return result;
 }
 
-rai::endpoint rai::peer_container::bootstrap_peer ()
+galileo::endpoint galileo::peer_container::bootstrap_peer ()
 {
-	rai::endpoint result (boost::asio::ip::address_v6::any (), 0);
+	galileo::endpoint result (boost::asio::ip::address_v6::any (), 0);
 	std::lock_guard<std::mutex> lock (mutex);
 	;
 	for (auto i (peers.get<4> ().begin ()), n (peers.get<4> ().end ()); i != n;)
@@ -2126,7 +2126,7 @@ rai::endpoint rai::peer_container::bootstrap_peer ()
 		if (i->network_version >= 0x5)
 		{
 			result = i->endpoint;
-			peers.get<4> ().modify (i, [](rai::peer_information & peer_a) {
+			peers.get<4> ().modify (i, [](galileo::peer_information & peer_a) {
 				peer_a.last_bootstrap_attempt = std::chrono::steady_clock::now ();
 			});
 			i = n;
@@ -2139,18 +2139,18 @@ rai::endpoint rai::peer_container::bootstrap_peer ()
 	return result;
 }
 
-boost::optional<rai::uint256_union> rai::peer_container::assign_syn_cookie (rai::endpoint const & endpoint)
+boost::optional<galileo::uint256_union> galileo::peer_container::assign_syn_cookie (galileo::endpoint const & endpoint)
 {
 	auto ip_addr (endpoint.address ());
 	assert (ip_addr.is_v6 ());
 	std::unique_lock<std::mutex> lock (syn_cookie_mutex);
 	unsigned & ip_cookies = syn_cookies_per_ip[ip_addr];
-	boost::optional<rai::uint256_union> result;
+	boost::optional<galileo::uint256_union> result;
 	if (ip_cookies < max_peers_per_ip)
 	{
 		if (syn_cookies.find (endpoint) == syn_cookies.end ())
 		{
-			rai::uint256_union query;
+			galileo::uint256_union query;
 			random_pool.GenerateBlock (query.bytes.data (), query.bytes.size ());
 			syn_cookie_info info{ query, std::chrono::steady_clock::now () };
 			syn_cookies[endpoint] = info;
@@ -2161,14 +2161,14 @@ boost::optional<rai::uint256_union> rai::peer_container::assign_syn_cookie (rai:
 	return result;
 }
 
-bool rai::peer_container::validate_syn_cookie (rai::endpoint const & endpoint, rai::account node_id, rai::signature sig)
+bool galileo::peer_container::validate_syn_cookie (galileo::endpoint const & endpoint, galileo::account node_id, galileo::signature sig)
 {
 	auto ip_addr (endpoint.address ());
 	assert (ip_addr.is_v6 ());
 	std::unique_lock<std::mutex> lock (syn_cookie_mutex);
 	auto result (true);
 	auto cookie_it (syn_cookies.find (endpoint));
-	if (cookie_it != syn_cookies.end () && !rai::validate_message (node_id, cookie_it->second.cookie, sig))
+	if (cookie_it != syn_cookies.end () && !galileo::validate_message (node_id, cookie_it->second.cookie, sig))
 	{
 		result = false;
 		syn_cookies.erase (cookie_it);
@@ -2185,7 +2185,7 @@ bool rai::peer_container::validate_syn_cookie (rai::endpoint const & endpoint, r
 	return result;
 }
 
-bool rai::parse_port (std::string const & string_a, uint16_t & port_a)
+bool galileo::parse_port (std::string const & string_a, uint16_t & port_a)
 {
 	bool result;
 	size_t converted;
@@ -2201,7 +2201,7 @@ bool rai::parse_port (std::string const & string_a, uint16_t & port_a)
 	return result;
 }
 
-bool rai::parse_address_port (std::string const & string, boost::asio::ip::address & address_a, uint16_t & port_a)
+bool galileo::parse_address_port (std::string const & string, boost::asio::ip::address & address_a, uint16_t & port_a)
 {
 	auto result (false);
 	auto port_position (string.rfind (':'));
@@ -2243,31 +2243,31 @@ bool rai::parse_address_port (std::string const & string, boost::asio::ip::addre
 	return result;
 }
 
-bool rai::parse_endpoint (std::string const & string, rai::endpoint & endpoint_a)
+bool galileo::parse_endpoint (std::string const & string, galileo::endpoint & endpoint_a)
 {
 	boost::asio::ip::address address;
 	uint16_t port;
 	auto result (parse_address_port (string, address, port));
 	if (!result)
 	{
-		endpoint_a = rai::endpoint (address, port);
+		endpoint_a = galileo::endpoint (address, port);
 	}
 	return result;
 }
 
-bool rai::parse_tcp_endpoint (std::string const & string, rai::tcp_endpoint & endpoint_a)
+bool galileo::parse_tcp_endpoint (std::string const & string, galileo::tcp_endpoint & endpoint_a)
 {
 	boost::asio::ip::address address;
 	uint16_t port;
 	auto result (parse_address_port (string, address, port));
 	if (!result)
 	{
-		endpoint_a = rai::tcp_endpoint (address, port);
+		endpoint_a = galileo::tcp_endpoint (address, port);
 	}
 	return result;
 }
 
-void rai::node::start ()
+void galileo::node::start ()
 {
 	network.receive ();
 	ongoing_keepalive ();
@@ -2283,7 +2283,7 @@ void rai::node::start ()
 	observers.started.notify ();
 }
 
-void rai::node::stop ()
+void galileo::node::stop ()
 {
 	BOOST_LOG (log) << "Node stopping";
 	block_processor.stop ();
@@ -2300,52 +2300,52 @@ void rai::node::stop ()
 	wallets.stop ();
 }
 
-void rai::node::keepalive_preconfigured (std::vector<std::string> const & peers_a)
+void galileo::node::keepalive_preconfigured (std::vector<std::string> const & peers_a)
 {
 	for (auto i (peers_a.begin ()), n (peers_a.end ()); i != n; ++i)
 	{
-		keepalive (*i, rai::network::node_port);
+		keepalive (*i, galileo::network::node_port);
 	}
 }
 
-rai::block_hash rai::node::latest (rai::account const & account_a)
+galileo::block_hash galileo::node::latest (galileo::account const & account_a)
 {
 	auto transaction (store.tx_begin_read ());
 	return ledger.latest (transaction, account_a);
 }
 
-rai::uint128_t rai::node::balance (rai::account const & account_a)
+galileo::uint128_t galileo::node::balance (galileo::account const & account_a)
 {
 	auto transaction (store.tx_begin_read ());
 	return ledger.account_balance (transaction, account_a);
 }
 
-std::unique_ptr<rai::block> rai::node::block (rai::block_hash const & hash_a)
+std::unique_ptr<galileo::block> galileo::node::block (galileo::block_hash const & hash_a)
 {
 	auto transaction (store.tx_begin_read ());
 	return store.block_get (transaction, hash_a);
 }
 
-std::pair<rai::uint128_t, rai::uint128_t> rai::node::balance_pending (rai::account const & account_a)
+std::pair<galileo::uint128_t, galileo::uint128_t> galileo::node::balance_pending (galileo::account const & account_a)
 {
-	std::pair<rai::uint128_t, rai::uint128_t> result;
+	std::pair<galileo::uint128_t, galileo::uint128_t> result;
 	auto transaction (store.tx_begin_read ());
 	result.first = ledger.account_balance (transaction, account_a);
 	result.second = ledger.account_pending (transaction, account_a);
 	return result;
 }
 
-rai::uint128_t rai::node::weight (rai::account const & account_a)
+galileo::uint128_t galileo::node::weight (galileo::account const & account_a)
 {
 	auto transaction (store.tx_begin_read ());
 	return ledger.weight (transaction, account_a);
 }
 
-rai::account rai::node::representative (rai::account const & account_a)
+galileo::account galileo::node::representative (galileo::account const & account_a)
 {
 	auto transaction (store.tx_begin_read ());
-	rai::account_info info;
-	rai::account result (0);
+	galileo::account_info info;
+	galileo::account result (0);
 	if (!store.account_get (transaction, account_a, info))
 	{
 		result = info.rep_block;
@@ -2353,7 +2353,7 @@ rai::account rai::node::representative (rai::account const & account_a)
 	return result;
 }
 
-void rai::node::ongoing_keepalive ()
+void galileo::node::ongoing_keepalive ()
 {
 	keepalive_preconfigured (config.preconfigured_peers);
 	auto peers_l (peers.purge_list (std::chrono::steady_clock::now () - cutoff));
@@ -2361,7 +2361,7 @@ void rai::node::ongoing_keepalive ()
 	{
 		network.send_keepalive (i->endpoint);
 	}
-	std::weak_ptr<rai::node> node_w (shared_from_this ());
+	std::weak_ptr<galileo::node> node_w (shared_from_this ());
 	alarm.add (std::chrono::steady_clock::now () + period, [node_w]() {
 		if (auto node_l = node_w.lock ())
 		{
@@ -2370,10 +2370,10 @@ void rai::node::ongoing_keepalive ()
 	});
 }
 
-void rai::node::ongoing_syn_cookie_cleanup ()
+void galileo::node::ongoing_syn_cookie_cleanup ()
 {
 	peers.purge_syn_cookies (std::chrono::steady_clock::now () - syn_cookie_cutoff);
-	std::weak_ptr<rai::node> node_w (shared_from_this ());
+	std::weak_ptr<galileo::node> node_w (shared_from_this ());
 	alarm.add (std::chrono::steady_clock::now () + (syn_cookie_cutoff * 2), [node_w]() {
 		if (auto node_l = node_w.lock ())
 		{
@@ -2382,14 +2382,14 @@ void rai::node::ongoing_syn_cookie_cleanup ()
 	});
 }
 
-void rai::node::ongoing_rep_crawl ()
+void galileo::node::ongoing_rep_crawl ()
 {
 	auto now (std::chrono::steady_clock::now ());
 	auto peers_l (peers.rep_crawl ());
 	rep_query (*this, peers_l);
 	if (network.on)
 	{
-		std::weak_ptr<rai::node> node_w (shared_from_this ());
+		std::weak_ptr<galileo::node> node_w (shared_from_this ());
 		alarm.add (now + std::chrono::seconds (4), [node_w]() {
 			if (auto node_l = node_w.lock ())
 			{
@@ -2399,7 +2399,7 @@ void rai::node::ongoing_rep_crawl ()
 	}
 }
 
-void rai::node::ongoing_bootstrap ()
+void galileo::node::ongoing_bootstrap ()
 {
 	auto next_wakeup (300);
 	if (warmed_up < 3)
@@ -2412,7 +2412,7 @@ void rai::node::ongoing_bootstrap ()
 		}
 	}
 	bootstrap_initiator.bootstrap ();
-	std::weak_ptr<rai::node> node_w (shared_from_this ());
+	std::weak_ptr<galileo::node> node_w (shared_from_this ());
 	alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (next_wakeup), [node_w]() {
 		if (auto node_l = node_w.lock ())
 		{
@@ -2421,13 +2421,13 @@ void rai::node::ongoing_bootstrap ()
 	});
 }
 
-void rai::node::ongoing_store_flush ()
+void galileo::node::ongoing_store_flush ()
 {
 	{
 		auto transaction (store.tx_begin_write ());
 		store.flush (transaction);
 	}
-	std::weak_ptr<rai::node> node_w (shared_from_this ());
+	std::weak_ptr<galileo::node> node_w (shared_from_this ());
 	alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (5), [node_w]() {
 		if (auto node_l = node_w.lock ())
 		{
@@ -2436,7 +2436,7 @@ void rai::node::ongoing_store_flush ()
 	});
 }
 
-void rai::node::backup_wallet ()
+void galileo::node::backup_wallet ()
 {
 	auto transaction (store.tx_begin_read ());
 	for (auto i (wallets.items.begin ()), n (wallets.items.end ()); i != n; ++i)
@@ -2451,15 +2451,15 @@ void rai::node::backup_wallet ()
 	});
 }
 
-int rai::node::price (rai::uint128_t const & balance_a, int amount_a)
+int galileo::node::price (galileo::uint128_t const & balance_a, int amount_a)
 {
-	assert (balance_a >= amount_a * rai::Gxrb_ratio);
+	assert (balance_a >= amount_a * galileo::Gxrb_ratio);
 	auto balance_l (balance_a);
 	double result (0.0);
 	for (auto i (0); i < amount_a; ++i)
 	{
-		balance_l -= rai::Gxrb_ratio;
-		auto balance_scaled ((balance_l / rai::Mxrb_ratio).convert_to<double> ());
+		balance_l -= galileo::Gxrb_ratio;
+		auto balance_scaled ((balance_l / galileo::Mxrb_ratio).convert_to<double> ());
 		auto units (balance_scaled / 1000.0);
 		auto unit_price (((free_cutoff - units) / free_cutoff) * price_max);
 		result += std::min (std::max (0.0, unit_price), price_max);
@@ -2487,7 +2487,7 @@ public:
 class distributed_work : public std::enable_shared_from_this<distributed_work>
 {
 public:
-	distributed_work (std::shared_ptr<rai::node> const & node_a, rai::block_hash const & root_a, std::function<void(uint64_t)> callback_a, unsigned int backoff_a = 1) :
+	distributed_work (std::shared_ptr<galileo::node> const & node_a, galileo::block_hash const & root_a, std::function<void(uint64_t)> callback_a, unsigned int backoff_a = 1) :
 	callback (callback_a),
 	node (node_a),
 	root (root_a),
@@ -2546,7 +2546,7 @@ public:
 				auto service (i.second);
 				node->background ([this_l, host, service]() {
 					auto connection (std::make_shared<work_request> (this_l->node->service, host, service));
-					connection->socket.async_connect (rai::tcp_endpoint (host, service), [this_l, connection](boost::system::error_code const & ec) {
+					connection->socket.async_connect (galileo::tcp_endpoint (host, service), [this_l, connection](boost::system::error_code const & ec) {
 						if (!ec)
 						{
 							std::string request_string;
@@ -2649,9 +2649,9 @@ public:
 			boost::property_tree::read_json (istream, result);
 			auto work_text (result.get<std::string> ("work"));
 			uint64_t work;
-			if (!rai::from_string_hex (work_text, work))
+			if (!galileo::from_string_hex (work_text, work))
 			{
-				if (!rai::work_validate (root, work))
+				if (!galileo::work_validate (root, work))
 				{
 					set_once (work);
 					stop ();
@@ -2708,7 +2708,7 @@ public:
 					auto now (std::chrono::steady_clock::now ());
 					auto root_l (root);
 					auto callback_l (callback);
-					std::weak_ptr<rai::node> node_w (node);
+					std::weak_ptr<galileo::node> node_w (node);
 					auto next_backoff (std::min (backoff * 2, (unsigned int)60 * 5));
 					node->alarm.add (now + std::chrono::seconds (backoff), [node_w, root_l, callback_l, next_backoff] {
 						if (auto node_l = node_w.lock ())
@@ -2729,8 +2729,8 @@ public:
 	}
 	std::function<void(uint64_t)> callback;
 	unsigned int backoff; // in seconds
-	std::shared_ptr<rai::node> node;
-	rai::block_hash root;
+	std::shared_ptr<galileo::node> node;
+	galileo::block_hash root;
 	std::mutex mutex;
 	std::map<boost::asio::ip::address, uint16_t> outstanding;
 	std::vector<std::pair<std::string, uint16_t>> need_resolve;
@@ -2738,18 +2738,18 @@ public:
 };
 }
 
-void rai::node::work_generate_blocking (rai::block & block_a)
+void galileo::node::work_generate_blocking (galileo::block & block_a)
 {
 	block_a.block_work_set (work_generate_blocking (block_a.root ()));
 }
 
-void rai::node::work_generate (rai::uint256_union const & hash_a, std::function<void(uint64_t)> callback_a)
+void galileo::node::work_generate (galileo::uint256_union const & hash_a, std::function<void(uint64_t)> callback_a)
 {
 	auto work_generation (std::make_shared<distributed_work> (shared (), hash_a, callback_a));
 	work_generation->start ();
 }
 
-uint64_t rai::node::work_generate_blocking (rai::uint256_union const & hash_a)
+uint64_t galileo::node::work_generate_blocking (galileo::uint256_union const & hash_a)
 {
 	std::promise<uint64_t> promise;
 	work_generate (hash_a, [&promise](uint64_t work_a) {
@@ -2758,17 +2758,17 @@ uint64_t rai::node::work_generate_blocking (rai::uint256_union const & hash_a)
 	return promise.get_future ().get ();
 }
 
-void rai::node::add_initial_peers ()
+void galileo::node::add_initial_peers ()
 {
 }
 
-void rai::node::block_confirm (std::shared_ptr<rai::block> block_a)
+void galileo::node::block_confirm (std::shared_ptr<galileo::block> block_a)
 {
 	active.start (block_a);
 	network.broadcast_confirm_req (block_a);
 }
 
-rai::uint128_t rai::node::delta ()
+galileo::uint128_t galileo::node::delta ()
 {
 	auto result ((online_reps.online_stake () / 100) * config.online_weight_quorum);
 	return result;
@@ -2776,10 +2776,10 @@ rai::uint128_t rai::node::delta ()
 
 namespace
 {
-class confirmed_visitor : public rai::block_visitor
+class confirmed_visitor : public galileo::block_visitor
 {
 public:
-	confirmed_visitor (rai::transaction const & transaction_a, rai::node & node_a, std::shared_ptr<rai::block> block_a, rai::block_hash const & hash_a) :
+	confirmed_visitor (galileo::transaction const & transaction_a, galileo::node & node_a, std::shared_ptr<galileo::block> block_a, galileo::block_hash const & hash_a) :
 	transaction (transaction_a),
 	node (node_a),
 	block (block_a),
@@ -2787,22 +2787,22 @@ public:
 	{
 	}
 	virtual ~confirmed_visitor () = default;
-	void scan_receivable (rai::account const & account_a)
+	void scan_receivable (galileo::account const & account_a)
 	{
 		for (auto i (node.wallets.items.begin ()), n (node.wallets.items.end ()); i != n; ++i)
 		{
 			auto wallet (i->second);
 			if (wallet->store.exists (transaction, account_a))
 			{
-				rai::account representative;
-				rai::pending_info pending;
+				galileo::account representative;
+				galileo::pending_info pending;
 				representative = wallet->store.representative (transaction);
-				auto error (node.store.pending_get (transaction, rai::pending_key (account_a, hash), pending));
+				auto error (node.store.pending_get (transaction, galileo::pending_key (account_a, hash), pending));
 				if (!error)
 				{
 					auto node_l (node.shared ());
 					auto amount (pending.amount.number ());
-					wallet->receive_async (block, representative, amount, [](std::shared_ptr<rai::block>) {});
+					wallet->receive_async (block, representative, amount, [](std::shared_ptr<galileo::block>) {});
 				}
 				else
 				{
@@ -2819,31 +2819,31 @@ public:
 			}
 		}
 	}
-	void state_block (rai::state_block const & block_a) override
+	void state_block (galileo::state_block const & block_a) override
 	{
 		scan_receivable (block_a.hashables.link);
 	}
-	void send_block (rai::send_block const & block_a) override
+	void send_block (galileo::send_block const & block_a) override
 	{
 		scan_receivable (block_a.hashables.destination);
 	}
-	void receive_block (rai::receive_block const &) override
+	void receive_block (galileo::receive_block const &) override
 	{
 	}
-	void open_block (rai::open_block const &) override
+	void open_block (galileo::open_block const &) override
 	{
 	}
-	void change_block (rai::change_block const &) override
+	void change_block (galileo::change_block const &) override
 	{
 	}
-	rai::transaction const & transaction;
-	rai::node & node;
-	std::shared_ptr<rai::block> block;
-	rai::block_hash const & hash;
+	galileo::transaction const & transaction;
+	galileo::node & node;
+	std::shared_ptr<galileo::block> block;
+	galileo::block_hash const & hash;
 };
 }
 
-void rai::node::process_confirmed (std::shared_ptr<rai::block> block_a)
+void galileo::node::process_confirmed (std::shared_ptr<galileo::block> block_a)
 {
 	auto hash (block_a->hash ());
 	bool exists (ledger.block_exists (hash));
@@ -2862,13 +2862,13 @@ void rai::node::process_confirmed (std::shared_ptr<rai::block> block_a)
 		auto account (ledger.account (transaction, hash));
 		auto amount (ledger.amount (transaction, hash));
 		bool is_state_send (false);
-		rai::account pending_account (0);
-		if (auto state = dynamic_cast<rai::state_block *> (block_a.get ()))
+		galileo::account pending_account (0);
+		if (auto state = dynamic_cast<galileo::state_block *> (block_a.get ()))
 		{
 			is_state_send = ledger.is_send (transaction, *state);
 			pending_account = state->hashables.link;
 		}
-		if (auto send = dynamic_cast<rai::send_block *> (block_a.get ()))
+		if (auto send = dynamic_cast<galileo::send_block *> (block_a.get ()))
 		{
 			pending_account = send->hashables.destination;
 		}
@@ -2884,13 +2884,13 @@ void rai::node::process_confirmed (std::shared_ptr<rai::block> block_a)
 	}
 }
 
-void rai::node::process_message (rai::message & message_a, rai::endpoint const & sender_a)
+void galileo::node::process_message (galileo::message & message_a, galileo::endpoint const & sender_a)
 {
 	network_message_visitor visitor (*this, sender_a);
 	message_a.visit (visitor);
 }
 
-rai::endpoint rai::network::endpoint ()
+galileo::endpoint galileo::network::endpoint ()
 {
 	boost::system::error_code ec;
 	auto port (socket.local_endpoint (ec).port ());
@@ -2898,19 +2898,19 @@ rai::endpoint rai::network::endpoint ()
 	{
 		BOOST_LOG (node.log) << "Unable to retrieve port: " << ec.message ();
 	}
-	return rai::endpoint (boost::asio::ip::address_v6::loopback (), port);
+	return galileo::endpoint (boost::asio::ip::address_v6::loopback (), port);
 }
 
-bool rai::block_arrival::add (rai::block_hash const & hash_a)
+bool galileo::block_arrival::add (galileo::block_hash const & hash_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	auto now (std::chrono::steady_clock::now ());
-	auto inserted (arrival.insert (rai::block_arrival_info{ now, hash_a }));
+	auto inserted (arrival.insert (galileo::block_arrival_info{ now, hash_a }));
 	auto result (!inserted.second);
 	return result;
 }
 
-bool rai::block_arrival::recent (rai::block_hash const & hash_a)
+bool galileo::block_arrival::recent (galileo::block_hash const & hash_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	auto now (std::chrono::steady_clock::now ());
@@ -2921,19 +2921,19 @@ bool rai::block_arrival::recent (rai::block_hash const & hash_a)
 	return arrival.get<1> ().find (hash_a) != arrival.get<1> ().end ();
 }
 
-rai::online_reps::online_reps (rai::node & node) :
+galileo::online_reps::online_reps (galileo::node & node) :
 node (node)
 {
 }
 
-void rai::online_reps::vote (std::shared_ptr<rai::vote> const & vote_a)
+void galileo::online_reps::vote (std::shared_ptr<galileo::vote> const & vote_a)
 {
 	auto rep (vote_a->account);
 	std::lock_guard<std::mutex> lock (mutex);
 	auto now (std::chrono::steady_clock::now ());
 	auto transaction (node.store.tx_begin_read ());
 	auto current (reps.begin ());
-	while (current != reps.end () && current->last_heard + std::chrono::seconds (rai::node::cutoff) < now)
+	while (current != reps.end () && current->last_heard + std::chrono::seconds (galileo::node::cutoff) < now)
 	{
 		auto old_stake (online_stake_total);
 		online_stake_total -= node.ledger.weight (transaction, current->representative);
@@ -2945,7 +2945,7 @@ void rai::online_reps::vote (std::shared_ptr<rai::vote> const & vote_a)
 		current = reps.erase (current);
 	}
 	auto rep_it (reps.get<1> ().find (rep));
-	auto info (rai::rep_last_heard_info{ now, rep });
+	auto info (galileo::rep_last_heard_info{ now, rep });
 	if (rep_it == reps.get<1> ().end ())
 	{
 		auto old_stake (online_stake_total);
@@ -2953,7 +2953,7 @@ void rai::online_reps::vote (std::shared_ptr<rai::vote> const & vote_a)
 		if (online_stake_total < old_stake)
 		{
 			// overflow
-			online_stake_total = std::numeric_limits<rai::uint128_t>::max ();
+			online_stake_total = std::numeric_limits<galileo::uint128_t>::max ();
 		}
 		reps.insert (info);
 	}
@@ -2963,7 +2963,7 @@ void rai::online_reps::vote (std::shared_ptr<rai::vote> const & vote_a)
 	}
 }
 
-void rai::online_reps::recalculate_stake ()
+void galileo::online_reps::recalculate_stake ()
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	online_stake_total = 0;
@@ -2973,7 +2973,7 @@ void rai::online_reps::recalculate_stake ()
 		online_stake_total += node.ledger.weight (transaction, it.representative);
 	}
 	auto now (std::chrono::steady_clock::now ());
-	std::weak_ptr<rai::node> node_w (node.shared ());
+	std::weak_ptr<galileo::node> node_w (node.shared ());
 	node.alarm.add (now + std::chrono::minutes (5), [node_w]() {
 		if (auto node_l = node_w.lock ())
 		{
@@ -2982,15 +2982,15 @@ void rai::online_reps::recalculate_stake ()
 	});
 }
 
-rai::uint128_t rai::online_reps::online_stake ()
+galileo::uint128_t galileo::online_reps::online_stake ()
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	return std::max (online_stake_total, node.config.online_weight_minimum.number ());
 }
 
-std::deque<rai::account> rai::online_reps::list ()
+std::deque<galileo::account> galileo::online_reps::list ()
 {
-	std::deque<rai::account> result;
+	std::deque<galileo::account> result;
 	std::lock_guard<std::mutex> lock (mutex);
 	for (auto i (reps.begin ()), n (reps.end ()); i != n; ++i)
 	{
@@ -2999,9 +2999,9 @@ std::deque<rai::account> rai::online_reps::list ()
 	return result;
 }
 
-std::unordered_set<rai::endpoint> rai::peer_container::random_set (size_t count_a)
+std::unordered_set<galileo::endpoint> galileo::peer_container::random_set (size_t count_a)
 {
-	std::unordered_set<rai::endpoint> result;
+	std::unordered_set<galileo::endpoint> result;
 	result.reserve (count_a);
 	std::lock_guard<std::mutex> lock (mutex);
 	// Stop trying to fill result with random samples after this many attempts
@@ -3025,11 +3025,11 @@ std::unordered_set<rai::endpoint> rai::peer_container::random_set (size_t count_
 	return result;
 }
 
-void rai::peer_container::random_fill (std::array<rai::endpoint, 8> & target_a)
+void galileo::peer_container::random_fill (std::array<galileo::endpoint, 8> & target_a)
 {
 	auto peers (random_set (target_a.size ()));
 	assert (peers.size () <= target_a.size ());
-	auto endpoint (rai::endpoint (boost::asio::ip::address_v6{}, 0));
+	auto endpoint (galileo::endpoint (boost::asio::ip::address_v6{}, 0));
 	assert (endpoint.address ().is_v6 ());
 	std::fill (target_a.begin (), target_a.end (), endpoint);
 	auto j (target_a.begin ());
@@ -3042,7 +3042,7 @@ void rai::peer_container::random_fill (std::array<rai::endpoint, 8> & target_a)
 }
 
 // Request a list of the top known representatives
-std::vector<rai::peer_information> rai::peer_container::representatives (size_t count_a)
+std::vector<galileo::peer_information> galileo::peer_container::representatives (size_t count_a)
 {
 	std::vector<peer_information> result;
 	result.reserve (std::min (count_a, size_t (16)));
@@ -3057,7 +3057,7 @@ std::vector<rai::peer_information> rai::peer_container::representatives (size_t 
 	return result;
 }
 
-void rai::peer_container::purge_syn_cookies (std::chrono::steady_clock::time_point const & cutoff)
+void galileo::peer_container::purge_syn_cookies (std::chrono::steady_clock::time_point const & cutoff)
 {
 	std::lock_guard<std::mutex> lock (syn_cookie_mutex);
 	auto it (syn_cookies.begin ());
@@ -3084,16 +3084,16 @@ void rai::peer_container::purge_syn_cookies (std::chrono::steady_clock::time_poi
 	}
 }
 
-std::vector<rai::peer_information> rai::peer_container::purge_list (std::chrono::steady_clock::time_point const & cutoff)
+std::vector<galileo::peer_information> galileo::peer_container::purge_list (std::chrono::steady_clock::time_point const & cutoff)
 {
-	std::vector<rai::peer_information> result;
+	std::vector<galileo::peer_information> result;
 	{
 		std::lock_guard<std::mutex> lock (mutex);
 		auto pivot (peers.get<1> ().lower_bound (cutoff));
 		result.assign (pivot, peers.get<1> ().end ());
 		for (auto i (peers.get<1> ().begin ()); i != pivot; ++i)
 		{
-			if (i->network_version < rai::node_id_version)
+			if (i->network_version < galileo::node_id_version)
 			{
 				if (legacy_peers > 0)
 				{
@@ -3109,7 +3109,7 @@ std::vector<rai::peer_information> rai::peer_container::purge_list (std::chrono:
 		peers.get<1> ().erase (peers.get<1> ().begin (), pivot);
 		for (auto i (peers.begin ()), n (peers.end ()); i != n; ++i)
 		{
-			peers.modify (i, [](rai::peer_information & info) { info.last_attempt = std::chrono::steady_clock::now (); });
+			peers.modify (i, [](galileo::peer_information & info) { info.last_attempt = std::chrono::steady_clock::now (); });
 		}
 
 		// Remove keepalive attempt tracking for attempts older than cutoff
@@ -3123,9 +3123,9 @@ std::vector<rai::peer_information> rai::peer_container::purge_list (std::chrono:
 	return result;
 }
 
-std::vector<rai::endpoint> rai::peer_container::rep_crawl ()
+std::vector<galileo::endpoint> galileo::peer_container::rep_crawl ()
 {
-	std::vector<rai::endpoint> result;
+	std::vector<galileo::endpoint> result;
 	// If there is enough observed peers weight, crawl 10 peers. Otherwise - 40
 	uint16_t max_count = (total_weight () > online_weight_minimum) ? 10 : 40;
 	result.reserve (max_count);
@@ -3138,22 +3138,22 @@ std::vector<rai::endpoint> rai::peer_container::rep_crawl ()
 	return result;
 }
 
-size_t rai::peer_container::size ()
+size_t galileo::peer_container::size ()
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	return peers.size ();
 }
 
-size_t rai::peer_container::size_sqrt ()
+size_t galileo::peer_container::size_sqrt ()
 {
 	auto result (std::ceil (std::sqrt (size ())));
 	return result;
 }
 
-rai::uint128_t rai::peer_container::total_weight ()
+galileo::uint128_t galileo::peer_container::total_weight ()
 {
-	rai::uint128_t result (0);
-	std::unordered_set<rai::account> probable_reps;
+	galileo::uint128_t result (0);
+	std::unordered_set<galileo::account> probable_reps;
 	std::lock_guard<std::mutex> lock (mutex);
 	for (auto i (peers.get<6> ().begin ()), n (peers.get<6> ().end ()); i != n; ++i)
 	{
@@ -3167,19 +3167,19 @@ rai::uint128_t rai::peer_container::total_weight ()
 	return result;
 }
 
-bool rai::peer_container::empty ()
+bool galileo::peer_container::empty ()
 {
 	return size () == 0;
 }
 
-bool rai::peer_container::not_a_peer (rai::endpoint const & endpoint_a, bool blacklist_loopback)
+bool galileo::peer_container::not_a_peer (galileo::endpoint const & endpoint_a, bool blacklist_loopback)
 {
 	bool result (false);
 	if (endpoint_a.address ().to_v6 ().is_unspecified ())
 	{
 		result = true;
 	}
-	else if (rai::reserved_address (endpoint_a, blacklist_loopback))
+	else if (galileo::reserved_address (endpoint_a, blacklist_loopback))
 	{
 		result = true;
 	}
@@ -3190,7 +3190,7 @@ bool rai::peer_container::not_a_peer (rai::endpoint const & endpoint_a, bool bla
 	return result;
 }
 
-bool rai::peer_container::rep_response (rai::endpoint const & endpoint_a, rai::account const & rep_account_a, rai::amount const & weight_a)
+bool galileo::peer_container::rep_response (galileo::endpoint const & endpoint_a, galileo::account const & rep_account_a, galileo::amount const & weight_a)
 {
 	assert (endpoint_a.address ().is_v6 ());
 	auto updated (false);
@@ -3198,7 +3198,7 @@ bool rai::peer_container::rep_response (rai::endpoint const & endpoint_a, rai::a
 	auto existing (peers.find (endpoint_a));
 	if (existing != peers.end ())
 	{
-		peers.modify (existing, [weight_a, &updated, rep_account_a](rai::peer_information & info) {
+		peers.modify (existing, [weight_a, &updated, rep_account_a](galileo::peer_information & info) {
 			info.last_rep_response = std::chrono::steady_clock::now ();
 			if (info.rep_weight < weight_a)
 			{
@@ -3211,25 +3211,25 @@ bool rai::peer_container::rep_response (rai::endpoint const & endpoint_a, rai::a
 	return updated;
 }
 
-void rai::peer_container::rep_request (rai::endpoint const & endpoint_a)
+void galileo::peer_container::rep_request (galileo::endpoint const & endpoint_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	auto existing (peers.find (endpoint_a));
 	if (existing != peers.end ())
 	{
-		peers.modify (existing, [](rai::peer_information & info) {
+		peers.modify (existing, [](galileo::peer_information & info) {
 			info.last_rep_request = std::chrono::steady_clock::now ();
 		});
 	}
 }
 
-bool rai::peer_container::reachout (rai::endpoint const & endpoint_a)
+bool galileo::peer_container::reachout (galileo::endpoint const & endpoint_a)
 {
 	// Don't contact invalid IPs
 	bool error = not_a_peer (endpoint_a, false);
 	if (!error)
 	{
-		auto endpoint_l (rai::map_endpoint_to_v6 (endpoint_a));
+		auto endpoint_l (galileo::map_endpoint_to_v6 (endpoint_a));
 		// Don't keepalive to nodes that already sent us something
 		error |= known_peer (endpoint_l);
 		std::lock_guard<std::mutex> lock (mutex);
@@ -3240,21 +3240,21 @@ bool rai::peer_container::reachout (rai::endpoint const & endpoint_a)
 	return error;
 }
 
-bool rai::peer_container::insert (rai::endpoint const & endpoint_a, unsigned version_a)
+bool galileo::peer_container::insert (galileo::endpoint const & endpoint_a, unsigned version_a)
 {
 	assert (endpoint_a.address ().is_v6 ());
 	auto unknown (false);
-	auto is_legacy (version_a < rai::node_id_version);
+	auto is_legacy (version_a < galileo::node_id_version);
 	auto result (not_a_peer (endpoint_a, false));
 	if (!result)
 	{
-		if (version_a >= rai::protocol_version_min)
+		if (version_a >= galileo::protocol_version_min)
 		{
 			std::lock_guard<std::mutex> lock (mutex);
 			auto existing (peers.find (endpoint_a));
 			if (existing != peers.end ())
 			{
-				peers.modify (existing, [](rai::peer_information & info) {
+				peers.modify (existing, [](galileo::peer_information & info) {
 					info.last_contact = std::chrono::steady_clock::now ();
 					// Don't update `network_version` here unless you handle the legacy peer caps (both global and per IP)
 					// You'd need to ensure that an upgrade from network version 7 to 8 entails a node ID handshake
@@ -3275,9 +3275,9 @@ bool rai::peer_container::insert (rai::endpoint const & endpoint_a, unsigned ver
 						result = true;
 					}
 				}
-				if (!result && rai_network != rai_networks::rai_test_network)
+				if (!result && galileo_network != galileo_networks::rai_test_network)
 				{
-					auto peer_it_range (peers.get<rai::peer_by_ip_addr> ().equal_range (endpoint_a.address ()));
+					auto peer_it_range (peers.get<galileo::peer_by_ip_addr> ().equal_range (endpoint_a.address ()));
 					auto i (peer_it_range.first);
 					auto n (peer_it_range.second);
 					unsigned ip_peers (0);
@@ -3285,7 +3285,7 @@ bool rai::peer_container::insert (rai::endpoint const & endpoint_a, unsigned ver
 					while (i != n)
 					{
 						++ip_peers;
-						if (i->network_version < rai::node_id_version)
+						if (i->network_version < galileo::node_id_version)
 						{
 							++legacy_ip_peers;
 						}
@@ -3298,7 +3298,7 @@ bool rai::peer_container::insert (rai::endpoint const & endpoint_a, unsigned ver
 				}
 				if (!result)
 				{
-					peers.insert (rai::peer_information (endpoint_a, version_a));
+					peers.insert (galileo::peer_information (endpoint_a, version_a));
 				}
 			}
 		}
@@ -3318,7 +3318,7 @@ boost::asio::ip::address_v6 mapped_from_v4_bytes (unsigned long address_a)
 }
 }
 
-bool rai::reserved_address (rai::endpoint const & endpoint_a, bool blacklist_loopback)
+bool galileo::reserved_address (galileo::endpoint const & endpoint_a, bool blacklist_loopback)
 {
 	assert (endpoint_a.address ().is_v6 ());
 	auto bytes (endpoint_a.address ().to_v6 ());
@@ -3397,7 +3397,7 @@ bool rai::reserved_address (rai::endpoint const & endpoint_a, bool blacklist_loo
 	{
 		result = true;
 	}
-	else if (rai::rai_network == rai::rai_networks::rai_live_network)
+	else if (galileo::rai_network == galileo::rai_networks::rai_live_network)
 	{
 		if (bytes >= rfc1918_1_min && bytes <= rfc1918_1_max)
 		{
@@ -3423,7 +3423,7 @@ bool rai::reserved_address (rai::endpoint const & endpoint_a, bool blacklist_loo
 	return result;
 }
 
-rai::peer_information::peer_information (rai::endpoint const & endpoint_a, unsigned network_version_a) :
+galileo::peer_information::peer_information (galileo::endpoint const & endpoint_a, unsigned network_version_a) :
 endpoint (endpoint_a),
 ip_address (endpoint_a.address ()),
 last_contact (std::chrono::steady_clock::now ()),
@@ -3437,7 +3437,7 @@ node_id ()
 {
 }
 
-rai::peer_information::peer_information (rai::endpoint const & endpoint_a, std::chrono::steady_clock::time_point const & last_contact_a, std::chrono::steady_clock::time_point const & last_attempt_a) :
+galileo::peer_information::peer_information (galileo::endpoint const & endpoint_a, std::chrono::steady_clock::time_point const & last_contact_a, std::chrono::steady_clock::time_point const & last_attempt_a) :
 endpoint (endpoint_a),
 ip_address (endpoint_a.address ()),
 last_contact (last_contact_a),
@@ -3447,34 +3447,34 @@ last_rep_request (std::chrono::steady_clock::time_point ()),
 last_rep_response (std::chrono::steady_clock::time_point ()),
 rep_weight (0),
 node_id (),
-network_version (rai::protocol_version)
+network_version (galileo::protocol_version)
 {
 }
 
-rai::peer_container::peer_container (rai::endpoint const & self_a) :
+galileo::peer_container::peer_container (galileo::endpoint const & self_a) :
 self (self_a),
-peer_observer ([](rai::endpoint const &) {}),
+peer_observer ([](galileo::endpoint const &) {}),
 disconnect_observer ([]() {}),
 legacy_peers (0)
 {
 }
 
-bool rai::peer_container::contacted (rai::endpoint const & endpoint_a, unsigned version_a)
+bool galileo::peer_container::contacted (galileo::endpoint const & endpoint_a, unsigned version_a)
 {
-	auto endpoint_l (rai::map_endpoint_to_v6 (endpoint_a));
+	auto endpoint_l (galileo::map_endpoint_to_v6 (endpoint_a));
 	auto should_handshake (false);
-	if (version_a < rai::node_id_version)
+	if (version_a < galileo::node_id_version)
 	{
 		insert (endpoint_l, version_a);
 	}
-	else if (!known_peer (endpoint_l) && peers.get<rai::peer_by_ip_addr> ().count (endpoint_l.address ()) < max_peers_per_ip)
+	else if (!known_peer (endpoint_l) && peers.get<galileo::peer_by_ip_addr> ().count (endpoint_l.address ()) < max_peers_per_ip)
 	{
 		should_handshake = true;
 	}
 	return should_handshake;
 }
 
-void rai::network::send_buffer (uint8_t const * data_a, size_t size_a, rai::endpoint const & endpoint_a, std::function<void(boost::system::error_code const &, size_t)> callback_a)
+void galileo::network::send_buffer (uint8_t const * data_a, size_t size_a, galileo::endpoint const & endpoint_a, std::function<void(boost::system::error_code const &, size_t)> callback_a)
 {
 	std::unique_lock<std::mutex> lock (socket_mutex);
 	if (node.config.logging.network_packet_logging ())
@@ -3483,7 +3483,7 @@ void rai::network::send_buffer (uint8_t const * data_a, size_t size_a, rai::endp
 	}
 	socket.async_send_to (boost::asio::buffer (data_a, size_a), endpoint_a, [this, callback_a](boost::system::error_code const & ec, size_t size_a) {
 		callback_a (ec, size_a);
-		this->node.stats.add (rai::stat::type::traffic, rai::stat::dir::out, size_a);
+		this->node.stats.add (galileo::stat::type::traffic, galileo::stat::dir::out, size_a);
 		if (this->node.config.logging.network_packet_logging ())
 		{
 			BOOST_LOG (this->node.log) << "Packet send complete";
@@ -3491,31 +3491,31 @@ void rai::network::send_buffer (uint8_t const * data_a, size_t size_a, rai::endp
 	});
 }
 
-bool rai::peer_container::known_peer (rai::endpoint const & endpoint_a)
+bool galileo::peer_container::known_peer (galileo::endpoint const & endpoint_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	auto existing (peers.find (endpoint_a));
 	return existing != peers.end ();
 }
 
-std::shared_ptr<rai::node> rai::node::shared ()
+std::shared_ptr<galileo::node> galileo::node::shared ()
 {
 	return shared_from_this ();
 }
 
-rai::election_vote_result::election_vote_result () :
+galileo::election_vote_result::election_vote_result () :
 replay (false),
 processed (false)
 {
 }
 
-rai::election_vote_result::election_vote_result (bool replay_a, bool processed_a)
+galileo::election_vote_result::election_vote_result (bool replay_a, bool processed_a)
 {
 	replay = replay_a;
 	processed = processed_a;
 }
 
-rai::election::election (rai::node & node_a, std::shared_ptr<rai::block> block_a, std::function<void(std::shared_ptr<rai::block>)> const & confirmation_action_a) :
+galileo::election::election (galileo::node & node_a, std::shared_ptr<galileo::block> block_a, std::function<void(std::shared_ptr<galileo::block>)> const & confirmation_action_a) :
 confirmation_action (confirmation_action_a),
 root (block_a->root ()),
 node (node_a),
@@ -3523,22 +3523,22 @@ status ({ block_a, 0 }),
 confirmed (false),
 aborted (false)
 {
-	last_votes.insert (std::make_pair (rai::not_an_account, rai::vote_info{ std::chrono::steady_clock::now (), 0, block_a->hash () }));
+	last_votes.insert (std::make_pair (galileo::not_an_account, galileo::vote_info{ std::chrono::steady_clock::now (), 0, block_a->hash () }));
 	blocks.insert (std::make_pair (block_a->hash (), block_a));
 }
 
-void rai::election::compute_rep_votes (rai::transaction const & transaction_a)
+void galileo::election::compute_rep_votes (galileo::transaction const & transaction_a)
 {
 	if (node.config.enable_voting)
 	{
-		node.wallets.foreach_representative (transaction_a, [this, &transaction_a](rai::public_key const & pub_a, rai::raw_key const & prv_a) {
+		node.wallets.foreach_representative (transaction_a, [this, &transaction_a](galileo::public_key const & pub_a, galileo::raw_key const & prv_a) {
 			auto vote (this->node.store.vote_generate (transaction_a, pub_a, prv_a, status.winner));
 			this->node.vote_processor.vote (vote, this->node.network.endpoint ());
 		});
 	}
 }
 
-void rai::election::confirm_once (rai::transaction const & transaction_a)
+void galileo::election::confirm_once (galileo::transaction const & transaction_a)
 {
 	if (!confirmed.exchange (true))
 	{
@@ -3552,12 +3552,12 @@ void rai::election::confirm_once (rai::transaction const & transaction_a)
 	}
 }
 
-void rai::election::abort ()
+void galileo::election::abort ()
 {
 	aborted = true;
 }
 
-bool rai::election::have_quorum (rai::tally_t const & tally_a)
+bool galileo::election::have_quorum (galileo::tally_t const & tally_a)
 {
 	auto i (tally_a.begin ());
 	auto first (i->first);
@@ -3568,15 +3568,15 @@ bool rai::election::have_quorum (rai::tally_t const & tally_a)
 	return result;
 }
 
-rai::tally_t rai::election::tally (rai::transaction const & transaction_a)
+galileo::tally_t galileo::election::tally (galileo::transaction const & transaction_a)
 {
-	std::unordered_map<rai::block_hash, rai::uint128_t> block_weights;
+	std::unordered_map<galileo::block_hash, galileo::uint128_t> block_weights;
 	for (auto vote_info : last_votes)
 	{
 		block_weights[vote_info.second.hash] += node.ledger.weight (transaction_a, vote_info.first);
 	}
 	last_tally = block_weights;
-	rai::tally_t result;
+	galileo::tally_t result;
 	for (auto item : block_weights)
 	{
 		auto block (blocks.find (item.first));
@@ -3588,14 +3588,14 @@ rai::tally_t rai::election::tally (rai::transaction const & transaction_a)
 	return result;
 }
 
-void rai::election::confirm_if_quorum (rai::transaction const & transaction_a)
+void galileo::election::confirm_if_quorum (galileo::transaction const & transaction_a)
 {
 	auto tally_l (tally (transaction_a));
 	assert (tally_l.size () > 0);
 	auto winner (tally_l.begin ());
 	auto block_l (winner->second);
 	status.tally = winner->first;
-	rai::uint128_t sum (0);
+	galileo::uint128_t sum (0);
 	for (auto & i : tally_l)
 	{
 		sum += i.first;
@@ -3616,7 +3616,7 @@ void rai::election::confirm_if_quorum (rai::transaction const & transaction_a)
 	}
 }
 
-void rai::election::log_votes (rai::tally_t const & tally_a)
+void galileo::election::log_votes (galileo::tally_t const & tally_a)
 {
 	BOOST_LOG (node.log) << boost::str (boost::format ("Vote tally for root %1%") % status.winner->root ().to_string ());
 	for (auto i (tally_a.begin ()), n (tally_a.end ()); i != n; ++i)
@@ -3629,7 +3629,7 @@ void rai::election::log_votes (rai::tally_t const & tally_a)
 	}
 }
 
-rai::election_vote_result rai::election::vote (rai::account rep, uint64_t sequence, rai::block_hash block_hash)
+galileo::election_vote_result galileo::election::vote (galileo::account rep, uint64_t sequence, galileo::block_hash block_hash)
 {
 	// see republish_vote documentation for an explanation of these rules
 	auto transaction (node.store.tx_begin_read ());
@@ -3637,7 +3637,7 @@ rai::election_vote_result rai::election::vote (rai::account rep, uint64_t sequen
 	auto supply (node.online_reps.online_stake ());
 	auto weight (node.ledger.weight (transaction, rep));
 	auto should_process (false);
-	if (rai::rai_network == rai::rai_networks::rai_test_network || weight > supply / 1000) // 0.1% or above
+	if (galileo::rai_network == galileo::rai_networks::rai_test_network || weight > supply / 1000) // 0.1% or above
 	{
 		unsigned int cooldown;
 		if (weight < supply / 100) // 0.1% to 1%
@@ -3681,13 +3681,13 @@ rai::election_vote_result rai::election::vote (rai::account rep, uint64_t sequen
 			}
 		}
 	}
-	return rai::election_vote_result (replay, should_process);
+	return galileo::election_vote_result (replay, should_process);
 }
 
-bool rai::node::validate_block_by_previous (rai::transaction const & transaction, std::shared_ptr<rai::block> block_a)
+bool galileo::node::validate_block_by_previous (galileo::transaction const & transaction, std::shared_ptr<galileo::block> block_a)
 {
 	bool result (false);
-	rai::account account;
+	galileo::account account;
 	if (!block_a->previous ().is_zero ())
 	{
 		if (store.block_exists (transaction, block_a->previous ()))
@@ -3703,10 +3703,10 @@ bool rai::node::validate_block_by_previous (rai::transaction const & transaction
 	{
 		account = block_a->root ();
 	}
-	if (!result && block_a->type () == rai::block_type::state)
+	if (!result && block_a->type () == galileo::block_type::state)
 	{
-		std::shared_ptr<rai::state_block> block_l (std::static_pointer_cast<rai::state_block> (block_a));
-		rai::amount prev_balance (0);
+		std::shared_ptr<galileo::state_block> block_l (std::static_pointer_cast<galileo::state_block> (block_a));
+		galileo::amount prev_balance (0);
 		if (!block_l->hashables.previous.is_zero ())
 		{
 			if (store.block_exists (transaction, block_l->hashables.previous))
@@ -3726,14 +3726,14 @@ bool rai::node::validate_block_by_previous (rai::transaction const & transaction
 			}
 		}
 	}
-	if (!result && (account.is_zero () || rai::validate_message (account, block_a->hash (), block_a->block_signature ())))
+	if (!result && (account.is_zero () || galileo::validate_message (account, block_a->hash (), block_a->block_signature ())))
 	{
 		result = true;
 	}
 	return result;
 }
 
-bool rai::election::publish (std::shared_ptr<rai::block> block_a)
+bool galileo::election::publish (std::shared_ptr<galileo::block> block_a)
 {
 	auto result (false);
 	if (blocks.size () >= 10)
@@ -3760,14 +3760,14 @@ bool rai::election::publish (std::shared_ptr<rai::block> block_a)
 	return result;
 }
 
-void rai::active_transactions::announce_votes ()
+void galileo::active_transactions::announce_votes ()
 {
-	std::unordered_set<rai::block_hash> inactive;
+	std::unordered_set<galileo::block_hash> inactive;
 	auto transaction (node.store.tx_begin_read ());
 	unsigned unconfirmed_count (0);
 	unsigned unconfirmed_announcements (0);
 	unsigned mass_request_count (0);
-	std::vector<rai::block_hash> blocks_bundle;
+	std::vector<galileo::block_hash> blocks_bundle;
 
 	for (auto i (roots.begin ()), n (roots.end ()); i != n; ++i)
 	{
@@ -3808,7 +3808,7 @@ void rai::active_transactions::announce_votes ()
 						blocks_bundle.push_back (election_l->status.winner->hash ());
 						if (blocks_bundle.size () >= 12)
 						{
-							node.wallets.foreach_representative (transaction, [&](rai::public_key const & pub_a, rai::raw_key const & prv_a) {
+							node.wallets.foreach_representative (transaction, [&](galileo::public_key const & pub_a, galileo::raw_key const & prv_a) {
 								auto vote (this->node.store.vote_generate (transaction, pub_a, prv_a, blocks_bundle));
 								this->node.vote_processor.vote (vote, this->node.network.endpoint ());
 							});
@@ -3828,9 +3828,9 @@ void rai::active_transactions::announce_votes ()
 			}
 			if (i->announcements % 4 == 1)
 			{
-				auto reps (std::make_shared<std::vector<rai::peer_information>> (node.peers.representatives (std::numeric_limits<size_t>::max ())));
-				std::unordered_set<rai::account> probable_reps;
-				rai::uint128_t total_weight (0);
+				auto reps (std::make_shared<std::vector<galileo::peer_information>> (node.peers.representatives (std::numeric_limits<size_t>::max ())));
+				std::unordered_set<galileo::account> probable_reps;
+				galileo::uint128_t total_weight (0);
 				for (auto j (reps->begin ()), m (reps->end ()); j != m;)
 				{
 					auto & rep_votes (i->election->last_votes);
@@ -3859,23 +3859,23 @@ void rai::active_transactions::announce_votes ()
 				if (!reps->empty () && (total_weight > node.config.online_weight_minimum.number () || mass_request_count > 20))
 				{
 					// broadcast_confirm_req_base modifies reps, so we clone it once to avoid aliasing
-					node.network.broadcast_confirm_req_base (i->confirm_req_options.first, std::make_shared<std::vector<rai::peer_information>> (*reps), 0);
+					node.network.broadcast_confirm_req_base (i->confirm_req_options.first, std::make_shared<std::vector<galileo::peer_information>> (*reps), 0);
 				}
 				else
 				{
 					// broadcast request to all peers
-					node.network.broadcast_confirm_req_base (i->confirm_req_options.first, std::make_shared<std::vector<rai::peer_information>> (node.peers.list_vector ()), 0);
+					node.network.broadcast_confirm_req_base (i->confirm_req_options.first, std::make_shared<std::vector<galileo::peer_information>> (node.peers.list_vector ()), 0);
 					++mass_request_count;
 				}
 			}
 		}
-		roots.modify (i, [](rai::conflict_info & info_a) {
+		roots.modify (i, [](galileo::conflict_info & info_a) {
 			++info_a.announcements;
 		});
 	}
 	if (node.config.enable_voting && !blocks_bundle.empty ())
 	{
-		node.wallets.foreach_representative (transaction, [&](rai::public_key const & pub_a, rai::raw_key const & prv_a) {
+		node.wallets.foreach_representative (transaction, [&](galileo::public_key const & pub_a, galileo::raw_key const & prv_a) {
 			auto vote (this->node.store.vote_generate (transaction, pub_a, prv_a, blocks_bundle));
 			this->node.vote_processor.vote (vote, this->node.network.endpoint ());
 		});
@@ -3905,7 +3905,7 @@ void rai::active_transactions::announce_votes ()
 	}
 }
 
-void rai::active_transactions::announce_loop ()
+void galileo::active_transactions::announce_loop ()
 {
 	std::unique_lock<std::mutex> lock (mutex);
 	started = true;
@@ -3917,7 +3917,7 @@ void rai::active_transactions::announce_loop ()
 	}
 }
 
-void rai::active_transactions::stop ()
+void galileo::active_transactions::stop ()
 {
 	{
 		std::unique_lock<std::mutex> lock (mutex);
@@ -3935,12 +3935,12 @@ void rai::active_transactions::stop ()
 	}
 }
 
-bool rai::active_transactions::start (std::shared_ptr<rai::block> block_a, std::function<void(std::shared_ptr<rai::block>)> const & confirmation_action_a)
+bool galileo::active_transactions::start (std::shared_ptr<galileo::block> block_a, std::function<void(std::shared_ptr<galileo::block>)> const & confirmation_action_a)
 {
 	return start (std::make_pair (block_a, nullptr), confirmation_action_a);
 }
 
-bool rai::active_transactions::start (std::pair<std::shared_ptr<rai::block>, std::shared_ptr<rai::block>> blocks_a, std::function<void(std::shared_ptr<rai::block>)> const & confirmation_action_a)
+bool galileo::active_transactions::start (std::pair<std::shared_ptr<galileo::block>, std::shared_ptr<galileo::block>> blocks_a, std::function<void(std::shared_ptr<galileo::block>)> const & confirmation_action_a)
 {
 	assert (blocks_a.first != nullptr);
 	auto error (true);
@@ -3952,8 +3952,8 @@ bool rai::active_transactions::start (std::pair<std::shared_ptr<rai::block>, std
 		auto existing (roots.find (root));
 		if (existing == roots.end ())
 		{
-			auto election (std::make_shared<rai::election> (node, primary_block, confirmation_action_a));
-			roots.insert (rai::conflict_info{ root, election, 0, blocks_a });
+			auto election (std::make_shared<galileo::election> (node, primary_block, confirmation_action_a));
+			roots.insert (galileo::conflict_info{ root, election, 0, blocks_a });
 			successors.insert (std::make_pair (primary_block->hash (), election));
 		}
 		error = existing != roots.end ();
@@ -3962,19 +3962,19 @@ bool rai::active_transactions::start (std::pair<std::shared_ptr<rai::block>, std
 }
 
 // Validate a vote and apply it to the current election if one exists
-bool rai::active_transactions::vote (std::shared_ptr<rai::vote> vote_a)
+bool galileo::active_transactions::vote (std::shared_ptr<galileo::vote> vote_a)
 {
-	std::shared_ptr<rai::election> election;
+	std::shared_ptr<galileo::election> election;
 	bool replay (false);
 	bool processed (false);
 	{
 		std::lock_guard<std::mutex> lock (mutex);
 		for (auto vote_block : vote_a->blocks)
 		{
-			rai::election_vote_result result;
+			galileo::election_vote_result result;
 			if (vote_block.which ())
 			{
-				auto block_hash (boost::get<rai::block_hash> (vote_block));
+				auto block_hash (boost::get<galileo::block_hash> (vote_block));
 				auto existing (successors.find (block_hash));
 				if (existing != successors.end ())
 				{
@@ -3983,7 +3983,7 @@ bool rai::active_transactions::vote (std::shared_ptr<rai::vote> vote_a)
 			}
 			else
 			{
-				auto block (boost::get<std::shared_ptr<rai::block>> (vote_block));
+				auto block (boost::get<std::shared_ptr<galileo::block>> (vote_block));
 				auto existing (roots.find (block->root ()));
 				if (existing != roots.end ())
 				{
@@ -4001,16 +4001,16 @@ bool rai::active_transactions::vote (std::shared_ptr<rai::vote> vote_a)
 	return replay;
 }
 
-bool rai::active_transactions::active (rai::block const & block_a)
+bool galileo::active_transactions::active (galileo::block const & block_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	return roots.find (block_a.root ()) != roots.end ();
 }
 
 // List of active blocks in elections
-std::deque<std::shared_ptr<rai::block>> rai::active_transactions::list_blocks ()
+std::deque<std::shared_ptr<galileo::block>> galileo::active_transactions::list_blocks ()
 {
-	std::deque<std::shared_ptr<rai::block>> result;
+	std::deque<std::shared_ptr<galileo::block>> result;
 	std::lock_guard<std::mutex> lock (mutex);
 	for (auto i (roots.begin ()), n (roots.end ()); i != n; ++i)
 	{
@@ -4019,7 +4019,7 @@ std::deque<std::shared_ptr<rai::block>> rai::active_transactions::list_blocks ()
 	return result;
 }
 
-void rai::active_transactions::erase (rai::block const & block_a)
+void galileo::active_transactions::erase (galileo::block const & block_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	if (roots.find (block_a.root ()) != roots.end ())
@@ -4029,7 +4029,7 @@ void rai::active_transactions::erase (rai::block const & block_a)
 	}
 }
 
-rai::active_transactions::active_transactions (rai::node & node_a) :
+galileo::active_transactions::active_transactions (galileo::node & node_a) :
 node (node_a),
 started (false),
 stopped (false),
@@ -4042,12 +4042,12 @@ thread ([this]() { announce_loop (); })
 	}
 }
 
-rai::active_transactions::~active_transactions ()
+galileo::active_transactions::~active_transactions ()
 {
 	stop ();
 }
 
-bool rai::active_transactions::publish (std::shared_ptr<rai::block> block_a)
+bool galileo::active_transactions::publish (std::shared_ptr<galileo::block> block_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	auto existing (roots.find (block_a->root ()));
@@ -4063,13 +4063,13 @@ bool rai::active_transactions::publish (std::shared_ptr<rai::block> block_a)
 	return result;
 }
 
-int rai::node::store_version ()
+int galileo::node::store_version ()
 {
 	auto transaction (store.tx_begin_read ());
 	return store.version_get (transaction);
 }
 
-rai::thread_runner::thread_runner (boost::asio::io_service & service_a, unsigned service_threads_a)
+galileo::thread_runner::thread_runner (boost::asio::io_service & service_a, unsigned service_threads_a)
 {
 	for (auto i (0); i < service_threads_a; ++i)
 	{
@@ -4093,12 +4093,12 @@ rai::thread_runner::thread_runner (boost::asio::io_service & service_a, unsigned
 	}
 }
 
-rai::thread_runner::~thread_runner ()
+galileo::thread_runner::~thread_runner ()
 {
 	join ();
 }
 
-void rai::thread_runner::join ()
+void galileo::thread_runner::join ()
 {
 	for (auto & i : threads)
 	{
@@ -4109,7 +4109,7 @@ void rai::thread_runner::join ()
 	}
 }
 
-rai::inactive_node::inactive_node (boost::filesystem::path const & path) :
+galileo::inactive_node::inactive_node (boost::filesystem::path const & path) :
 path (path),
 service (boost::make_shared<boost::asio::io_service> ()),
 alarm (*service),
@@ -4118,15 +4118,15 @@ work (1, nullptr)
 	boost::filesystem::create_directories (path);
 	logging.max_size = std::numeric_limits<std::uintmax_t>::max ();
 	logging.init (path);
-	node = std::make_shared<rai::node> (init, *service, 24000, path, alarm, logging, work);
+	node = std::make_shared<galileo::node> (init, *service, 24000, path, alarm, logging, work);
 }
 
-rai::inactive_node::~inactive_node ()
+galileo::inactive_node::~inactive_node ()
 {
 	node->stop ();
 }
 
-rai::port_mapping::port_mapping (rai::node & node_a) :
+galileo::port_mapping::port_mapping (galileo::node & node_a) :
 node (node_a),
 devices (nullptr),
 protocols ({ { { "TCP", 0, boost::asio::ip::address_v4::any (), 0 }, { "UDP", 0, boost::asio::ip::address_v4::any (), 0 } } }),
@@ -4137,14 +4137,14 @@ on (false)
 	data = { { 0 } };
 }
 
-void rai::port_mapping::start ()
+void galileo::port_mapping::start ()
 {
 	check_mapping_loop ();
 }
 
-void rai::port_mapping::refresh_devices ()
+void galileo::port_mapping::refresh_devices ()
 {
-	if (rai::rai_network != rai::rai_networks::rai_test_network)
+	if (galileo::rai_network != galileo::rai_networks::rai_test_network)
 	{
 		std::lock_guard<std::mutex> lock (mutex);
 		int discover_error = 0;
@@ -4169,9 +4169,9 @@ void rai::port_mapping::refresh_devices ()
 	}
 }
 
-void rai::port_mapping::refresh_mapping ()
+void galileo::port_mapping::refresh_mapping ()
 {
-	if (rai::rai_network != rai::rai_networks::rai_test_network)
+	if (galileo::rai_network != galileo::rai_networks::rai_test_network)
 	{
 		std::lock_guard<std::mutex> lock (mutex);
 		auto node_port (std::to_string (node.network.endpoint ().port ()));
@@ -4198,10 +4198,10 @@ void rai::port_mapping::refresh_mapping ()
 	}
 }
 
-int rai::port_mapping::check_mapping ()
+int galileo::port_mapping::check_mapping ()
 {
 	int result (3600);
-	if (rai::rai_network != rai::rai_networks::rai_test_network)
+	if (galileo::rai_network != galileo::rai_networks::rai_test_network)
 	{
 		// Long discovery time and fast setup/teardown make this impractical for testing
 		std::lock_guard<std::mutex> lock (mutex);
@@ -4243,7 +4243,7 @@ int rai::port_mapping::check_mapping ()
 	return result;
 }
 
-void rai::port_mapping::check_mapping_loop ()
+void galileo::port_mapping::check_mapping_loop ()
 {
 	int wait_duration = check_timeout;
 	refresh_devices ();
@@ -4274,7 +4274,7 @@ void rai::port_mapping::check_mapping_loop ()
 	}
 }
 
-void rai::port_mapping::stop ()
+void galileo::port_mapping::stop ()
 {
 	on = false;
 	std::lock_guard<std::mutex> lock (mutex);

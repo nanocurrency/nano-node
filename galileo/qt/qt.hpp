@@ -9,7 +9,7 @@
 #include <QtGui>
 #include <QtWidgets>
 
-namespace rai_qt
+namespace galileo_qt
 {
 class wallet;
 class eventloop_processor : public QObject
@@ -149,7 +149,7 @@ public:
 class self_pane
 {
 public:
-	self_pane (rai_qt::wallet &, rai::account const &);
+	self_pane (rai_qt::wallet &, galileo::account const &);
 	void refresh_balance ();
 	QWidget * window;
 	QVBoxLayout * layout;
@@ -210,7 +210,7 @@ public:
 class history
 {
 public:
-	history (rai::ledger &, rai::account const &, rai_qt::wallet &);
+	history (galileo::ledger &, galileo::account const &, galileo_qt::wallet &);
 	void refresh ();
 	QWidget * window;
 	QVBoxLayout * layout;
@@ -220,15 +220,15 @@ public:
 	QHBoxLayout * tx_layout;
 	QLabel * tx_label;
 	QSpinBox * tx_count;
-	rai::ledger & ledger;
-	rai::account const & account;
+	galileo::ledger & ledger;
+	galileo::account const & account;
 	rai_qt::wallet & wallet;
 };
 class block_viewer
 {
 public:
 	block_viewer (rai_qt::wallet &);
-	void rebroadcast_action (rai::uint256_union const &);
+	void rebroadcast_action (galileo::uint256_union const &);
 	QWidget * window;
 	QVBoxLayout * layout;
 	QLabel * hash_label;
@@ -256,7 +256,7 @@ public:
 	QLabel * balance_label;
 	rai_qt::history history;
 	QPushButton * back;
-	rai::account account;
+	galileo::account account;
 	rai_qt::wallet & wallet;
 };
 class stats_viewer
@@ -298,17 +298,17 @@ public:
 class wallet : public std::enable_shared_from_this<rai_qt::wallet>
 {
 public:
-	wallet (QApplication &, rai_qt::eventloop_processor &, rai::node &, std::shared_ptr<rai::wallet>, rai::account &);
+	wallet (QApplication &, galileo_qt::eventloop_processor &, galileo::node &, std::shared_ptr<galileo::wallet>, galileo::account &);
 	void start ();
 	void refresh ();
 	void update_connected ();
 	void empty_password ();
-	void change_rendering_ratio (rai::uint128_t const &);
-	std::string format_balance (rai::uint128_t const &) const;
-	rai::uint128_t rendering_ratio;
-	rai::node & node;
-	std::shared_ptr<rai::wallet> wallet_m;
-	rai::account & account;
+	void change_rendering_ratio (galileo::uint128_t const &);
+	std::string format_balance (galileo::uint128_t const &) const;
+	galileo::uint128_t rendering_ratio;
+	galileo::node & node;
+	std::shared_ptr<galileo::wallet> wallet_m;
+	galileo::account & account;
 	rai_qt::eventloop_processor & processor;
 	rai_qt::history history;
 	rai_qt::accounts accounts;

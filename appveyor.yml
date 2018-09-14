@@ -8,8 +8,8 @@ configuration: Release
 platform: x64
 environment:
   matrix:
-    - network: rai_live_network
-    - network: rai_beta_network
+    - network: galileo_live_network
+    - network: galileo_beta_network
 clone_folder: C:\projects\myproject
 install:
 - cmd: >-

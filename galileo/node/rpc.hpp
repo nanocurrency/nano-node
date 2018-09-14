@@ -65,55 +65,55 @@ class payment_observer;
 class rpc
 {
 public:
-	rpc (boost::asio::io_service &, rai::node &, rai::rpc_config const &);
+	rpc (boost::asio::io_service &, galileo::node &, galileo::rpc_config const &);
 	void start ();
 	virtual void accept ();
 	void stop ();
-	void observer_action (rai::account const &);
+	void observer_action (galileo::account const &);
 	boost::asio::ip::tcp::acceptor acceptor;
 	std::mutex mutex;
-	std::unordered_map<rai::account, std::shared_ptr<rai::payment_observer>> payment_observers;
-	rai::rpc_config config;
-	rai::node & node;
+	std::unordered_map<galileo::account, std::shared_ptr<galileo::payment_observer>> payment_observers;
+	galileo::rpc_config config;
+	galileo::node & node;
 	bool on;
-	static uint16_t const rpc_port = rai::rai_network == rai::rai_networks::rai_live_network ? 7076 : 55000;
+	static uint16_t const rpc_port = galileo::rai_network == galileo::rai_networks::rai_live_network ? 7076 : 55000;
 };
-class rpc_connection : public std::enable_shared_from_this<rai::rpc_connection>
+class rpc_connection : public std::enable_shared_from_this<galileo::rpc_connection>
 {
 public:
-	rpc_connection (rai::node &, rai::rpc &);
+	rpc_connection (galileo::node &, galileo::rpc &);
 	virtual void parse_connection ();
 	virtual void read ();
 	virtual void write_result (std::string body, unsigned version);
-	std::shared_ptr<rai::node> node;
-	rai::rpc & rpc;
+	std::shared_ptr<galileo::node> node;
+	galileo::rpc & rpc;
 	boost::asio::ip::tcp::socket socket;
 	boost::beast::flat_buffer buffer;
 	boost::beast::http::request<boost::beast::http::string_body> request;
 	boost::beast::http::response<boost::beast::http::string_body> res;
 	std::atomic_flag responded;
 };
-class payment_observer : public std::enable_shared_from_this<rai::payment_observer>
+class payment_observer : public std::enable_shared_from_this<galileo::payment_observer>
 {
 public:
-	payment_observer (std::function<void(boost::property_tree::ptree const &)> const &, rai::rpc &, rai::account const &, rai::amount const &);
+	payment_observer (std::function<void(boost::property_tree::ptree const &)> const &, galileo::rpc &, galileo::account const &, galileo::amount const &);
 	~payment_observer ();
 	void start (uint64_t);
 	void observe ();
 	void timeout ();
-	void complete (rai::payment_status);
+	void complete (galileo::payment_status);
 	std::mutex mutex;
 	std::condition_variable condition;
-	rai::rpc & rpc;
-	rai::account account;
-	rai::amount amount;
+	galileo::rpc & rpc;
+	galileo::account account;
+	galileo::amount amount;
 	std::function<void(boost::property_tree::ptree const &)> response;
 	std::atomic_flag completed;
 };
-class rpc_handler : public std::enable_shared_from_this<rai::rpc_handler>
+class rpc_handler : public std::enable_shared_from_this<galileo::rpc_handler>
 {
 public:
-	rpc_handler (rai::node &, rai::rpc &, std::string const &, std::string const &, std::function<void(boost::property_tree::ptree const &)> const &);
+	rpc_handler (galileo::node &, galileo::rpc &, std::string const &, std::string const &, std::function<void(boost::property_tree::ptree const &)> const &);
 	void process_request ();
 	void account_balance ();
 	void account_block_count ();
@@ -159,8 +159,8 @@ public:
 	void key_create ();
 	void key_expand ();
 	void ledger ();
-	void mrai_to_raw (rai::uint128_t = rai::Mxrb_ratio);
-	void mrai_from_raw (rai::uint128_t = rai::Mxrb_ratio);
+	void mrai_to_raw (galileo::uint128_t = galileo::Mxrb_ratio);
+	void mrai_from_raw (galileo::uint128_t = galileo::Mxrb_ratio);
 	void password_change ();
 	void password_enter ();
 	void password_valid (bool = false);
@@ -217,23 +217,23 @@ public:
 	void work_peers_clear ();
 	std::string body;
 	std::string request_id;
-	rai::node & node;
-	rai::rpc & rpc;
+	galileo::node & node;
+	galileo::rpc & rpc;
 	boost::property_tree::ptree request;
 	std::function<void(boost::property_tree::ptree const &)> response;
 	void response_errors ();
 	std::error_code ec;
 	boost::property_tree::ptree response_l;
-	std::shared_ptr<rai::wallet> wallet_impl ();
-	rai::account account_impl (std::string = "");
-	rai::amount amount_impl ();
-	rai::block_hash hash_impl (std::string = "hash");
-	rai::amount threshold_optional_impl ();
+	std::shared_ptr<galileo::wallet> wallet_impl ();
+	galileo::account account_impl (std::string = "");
+	galileo::amount amount_impl ();
+	galileo::block_hash hash_impl (std::string = "hash");
+	galileo::amount threshold_optional_impl ();
 	uint64_t work_optional_impl ();
 	uint64_t count_impl ();
 	uint64_t count_optional_impl (uint64_t = std::numeric_limits<uint64_t>::max ());
 	bool rpc_control_impl ();
 };
 /** Returns the correct RPC implementation based on TLS configuration */
-std::unique_ptr<rai::rpc> get_rpc (boost::asio::io_service & service_a, rai::node & node_a, rai::rpc_config const & config_a);
+std::unique_ptr<galileo::rpc> get_rpc (boost::asio::io_service & service_a, galileo::node & node_a, galileo::rpc_config const & config_a);
 }

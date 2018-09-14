@@ -9,7 +9,7 @@
 #include <sstream>
 #include <tuple>
 
-bool rai::stat_config::deserialize_json (boost::property_tree::ptree & tree_a)
+bool galileo::stat_config::deserialize_json (boost::property_tree::ptree & tree_a)
 {
 	bool error = false;
 
@@ -38,13 +38,13 @@ bool rai::stat_config::deserialize_json (boost::property_tree::ptree & tree_a)
 	return error;
 }
 
-std::string rai::stat_log_sink::tm_to_string (tm & tm)
+std::string galileo::stat_log_sink::tm_to_string (tm & tm)
 {
 	return (boost::format ("%04d.%02d.%02d %02d:%02d:%02d") % (1900 + tm.tm_year) % (tm.tm_mon + 1) % tm.tm_mday % tm.tm_hour % tm.tm_min % tm.tm_sec).str ();
 }
 
 /** JSON sink. The resulting JSON object is provided as both a property_tree::ptree (to_object) and a string (to_string) */
-class json_writer : public rai::stat_log_sink
+class json_writer : public galileo::stat_log_sink
 {
 	boost::property_tree::ptree tree;
 	boost::property_tree::ptree entries;
@@ -100,7 +100,7 @@ private:
 };
 
 /** File sink with rotation support */
-class file_writer : public rai::stat_log_sink
+class file_writer : public galileo::stat_log_sink
 {
 public:
 	std::ofstream log;
@@ -140,29 +140,29 @@ public:
 	}
 };
 
-rai::stat::stat (rai::stat_config config) :
+galileo::stat::stat (galileo::stat_config config) :
 config (config)
 {
 }
 
-std::shared_ptr<rai::stat_entry> rai::stat::get_entry (uint32_t key)
+std::shared_ptr<galileo::stat_entry> galileo::stat::get_entry (uint32_t key)
 {
 	return get_entry (key, config.interval, config.capacity);
 }
 
-std::shared_ptr<rai::stat_entry> rai::stat::get_entry (uint32_t key, size_t interval, size_t capacity)
+std::shared_ptr<galileo::stat_entry> galileo::stat::get_entry (uint32_t key, size_t interval, size_t capacity)
 {
 	std::unique_lock<std::mutex> lock (stat_mutex);
 	return get_entry_impl (key, interval, capacity);
 }
 
-std::shared_ptr<rai::stat_entry> rai::stat::get_entry_impl (uint32_t key, size_t interval, size_t capacity)
+std::shared_ptr<galileo::stat_entry> galileo::stat::get_entry_impl (uint32_t key, size_t interval, size_t capacity)
 {
-	std::shared_ptr<rai::stat_entry> res;
+	std::shared_ptr<galileo::stat_entry> res;
 	auto entry = entries.find (key);
 	if (entry == entries.end ())
 	{
-		res = entries.insert (std::make_pair (key, std::make_shared<rai::stat_entry> (capacity, interval))).first->second;
+		res = entries.insert (std::make_pair (key, std::make_shared<galileo::stat_entry> (capacity, interval))).first->second;
 	}
 	else
 	{
@@ -172,23 +172,23 @@ std::shared_ptr<rai::stat_entry> rai::stat::get_entry_impl (uint32_t key, size_t
 	return res;
 }
 
-std::unique_ptr<rai::stat_log_sink> rai::stat::log_sink_json ()
+std::unique_ptr<galileo::stat_log_sink> galileo::stat::log_sink_json ()
 {
 	return std::make_unique<json_writer> ();
 }
 
-std::unique_ptr<rai::stat_log_sink> log_sink_file (std::string filename)
+std::unique_ptr<galileo::stat_log_sink> log_sink_file (std::string filename)
 {
 	return std::make_unique<file_writer> (filename);
 }
 
-void rai::stat::log_counters (stat_log_sink & sink)
+void galileo::stat::log_counters (stat_log_sink & sink)
 {
 	std::unique_lock<std::mutex> lock (stat_mutex);
 	log_counters_impl (sink);
 }
 
-void rai::stat::log_counters_impl (stat_log_sink & sink)
+void galileo::stat::log_counters_impl (stat_log_sink & sink)
 {
 	sink.begin ();
 	if (sink.entries () >= config.log_rotation_count)
@@ -217,13 +217,13 @@ void rai::stat::log_counters_impl (stat_log_sink & sink)
 	sink.finalize ();
 }
 
-void rai::stat::log_samples (stat_log_sink & sink)
+void galileo::stat::log_samples (stat_log_sink & sink)
 {
 	std::unique_lock<std::mutex> lock (stat_mutex);
 	log_samples_impl (sink);
 }
 
-void rai::stat::log_samples_impl (stat_log_sink & sink)
+void galileo::stat::log_samples_impl (stat_log_sink & sink)
 {
 	sink.begin ();
 	if (sink.entries () >= config.log_rotation_count)
@@ -255,7 +255,7 @@ void rai::stat::log_samples_impl (stat_log_sink & sink)
 	sink.finalize ();
 }
 
-void rai::stat::update (uint32_t key_a, uint64_t value)
+void galileo::stat::update (uint32_t key_a, uint64_t value)
 {
 	static file_writer log_count (config.log_counters_filename);
 	static file_writer log_sample (config.log_samples_filename);
@@ -309,141 +309,141 @@ void rai::stat::update (uint32_t key_a, uint64_t value)
 	}
 }
 
-std::string rai::stat::type_to_string (uint32_t key)
+std::string galileo::stat::type_to_string (uint32_t key)
 {
 	auto type = static_cast<stat::type> (key >> 16 & 0x000000ff);
 	std::string res;
 	switch (type)
 	{
-		case rai::stat::type::block:
+		case galileo::stat::type::block:
 			res = "block";
 			break;
-		case rai::stat::type::bootstrap:
+		case galileo::stat::type::bootstrap:
 			res = "bootstrap";
 			break;
-		case rai::stat::type::error:
+		case galileo::stat::type::error:
 			res = "error";
 			break;
-		case rai::stat::type::http_callback:
+		case galileo::stat::type::http_callback:
 			res = "http_callback";
 			break;
-		case rai::stat::type::ledger:
+		case galileo::stat::type::ledger:
 			res = "ledger";
 			break;
-		case rai::stat::type::peering:
+		case galileo::stat::type::peering:
 			res = "peering";
 			break;
-		case rai::stat::type::rollback:
+		case galileo::stat::type::rollback:
 			res = "rollback";
 			break;
-		case rai::stat::type::traffic:
+		case galileo::stat::type::traffic:
 			res = "traffic";
 			break;
-		case rai::stat::type::vote:
+		case galileo::stat::type::vote:
 			res = "vote";
 			break;
-		case rai::stat::type::message:
+		case galileo::stat::type::message:
 			res = "message";
 			break;
 	}
 	return res;
 }
 
-std::string rai::stat::detail_to_string (uint32_t key)
+std::string galileo::stat::detail_to_string (uint32_t key)
 {
 	auto detail = static_cast<stat::detail> (key >> 8 & 0x000000ff);
 	std::string res;
 	switch (detail)
 	{
-		case rai::stat::detail::all:
+		case galileo::stat::detail::all:
 			res = "all";
 			break;
-		case rai::stat::detail::bad_sender:
+		case galileo::stat::detail::bad_sender:
 			res = "bad_sender";
 			break;
-		case rai::stat::detail::bulk_pull:
+		case galileo::stat::detail::bulk_pull:
 			res = "bulk_pull";
 			break;
-		case rai::stat::detail::bulk_pull_account:
+		case galileo::stat::detail::bulk_pull_account:
 			res = "bulk_pull_account";
 			break;
-		case rai::stat::detail::bulk_push:
+		case galileo::stat::detail::bulk_push:
 			res = "bulk_push";
 			break;
-		case rai::stat::detail::change:
+		case galileo::stat::detail::change:
 			res = "change";
 			break;
-		case rai::stat::detail::confirm_ack:
+		case galileo::stat::detail::confirm_ack:
 			res = "confirm_ack";
 			break;
-		case rai::stat::detail::node_id_handshake:
+		case galileo::stat::detail::node_id_handshake:
 			res = "node_id_handshake";
 			break;
-		case rai::stat::detail::confirm_req:
+		case galileo::stat::detail::confirm_req:
 			res = "confirm_req";
 			break;
-		case rai::stat::detail::frontier_req:
+		case galileo::stat::detail::frontier_req:
 			res = "frontier_req";
 			break;
-		case rai::stat::detail::handshake:
+		case galileo::stat::detail::handshake:
 			res = "handshake";
 			break;
-		case rai::stat::detail::http_callback:
+		case galileo::stat::detail::http_callback:
 			res = "http_callback";
 			break;
-		case rai::stat::detail::initiate:
+		case galileo::stat::detail::initiate:
 			res = "initiate";
 			break;
-		case rai::stat::detail::insufficient_work:
+		case galileo::stat::detail::insufficient_work:
 			res = "insufficient_work";
 			break;
-		case rai::stat::detail::keepalive:
+		case galileo::stat::detail::keepalive:
 			res = "keepalive";
 			break;
-		case rai::stat::detail::open:
+		case galileo::stat::detail::open:
 			res = "open";
 			break;
-		case rai::stat::detail::publish:
+		case galileo::stat::detail::publish:
 			res = "publish";
 			break;
-		case rai::stat::detail::receive:
+		case galileo::stat::detail::receive:
 			res = "receive";
 			break;
-		case rai::stat::detail::republish_vote:
+		case galileo::stat::detail::republish_vote:
 			res = "republish_vote";
 			break;
-		case rai::stat::detail::send:
+		case galileo::stat::detail::send:
 			res = "send";
 			break;
-		case rai::stat::detail::state_block:
+		case galileo::stat::detail::state_block:
 			res = "state_block";
 			break;
-		case rai::stat::detail::epoch_block:
+		case galileo::stat::detail::epoch_block:
 			res = "epoch_block";
 			break;
-		case rai::stat::detail::vote_valid:
+		case galileo::stat::detail::vote_valid:
 			res = "vote_valid";
 			break;
-		case rai::stat::detail::vote_replay:
+		case galileo::stat::detail::vote_replay:
 			res = "vote_replay";
 			break;
-		case rai::stat::detail::vote_invalid:
+		case galileo::stat::detail::vote_invalid:
 			res = "vote_invalid";
 			break;
 	}
 	return res;
 }
 
-std::string rai::stat::dir_to_string (uint32_t key)
+std::string galileo::stat::dir_to_string (uint32_t key)
 {
 	auto dir = static_cast<stat::dir> (key & 0x000000ff);
 	std::string res;
 	switch (dir)
 	{
-		case rai::stat::dir::in:
+		case galileo::stat::dir::in:
 			res = "in";
 			break;
-		case rai::stat::dir::out:
+		case galileo::stat::dir::out:
 			res = "out";
 			break;
 	}

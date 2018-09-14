@@ -2,7 +2,7 @@
 
 #include <pthread.h>
 
-void rai::work_thread_reprioritize ()
+void galileo::work_thread_reprioritize ()
 {
 	auto handle (pthread_self ());
 	int policy;

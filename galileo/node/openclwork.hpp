@@ -30,7 +30,7 @@ class opencl_environment
 public:
 	opencl_environment (bool &);
 	void dump (std::ostream & stream);
-	std::vector<rai::opencl_platform> platforms;
+	std::vector<galileo::opencl_platform> platforms;
 };
 union uint256_union;
 class work_pool;
@@ -48,11 +48,11 @@ public:
 class opencl_work
 {
 public:
-	opencl_work (bool &, rai::opencl_config const &, rai::opencl_environment &, rai::logging &);
+	opencl_work (bool &, galileo::opencl_config const &, galileo::opencl_environment &, galileo::logging &);
 	~opencl_work ();
-	boost::optional<uint64_t> generate_work (rai::uint256_union const &);
-	static std::unique_ptr<opencl_work> create (bool, rai::opencl_config const &, rai::logging &);
-	rai::opencl_config const & config;
+	boost::optional<uint64_t> generate_work (galileo::uint256_union const &);
+	static std::unique_ptr<opencl_work> create (bool, galileo::opencl_config const &, galileo::logging &);
+	galileo::opencl_config const & config;
 	std::mutex mutex;
 	cl_context context;
 	cl_mem attempt_buffer;
@@ -61,7 +61,7 @@ public:
 	cl_program program;
 	cl_kernel kernel;
 	cl_command_queue queue;
-	rai::xorshift1024star rand;
-	rai::logging & logging;
+	galileo::xorshift1024star rand;
+	galileo::logging & logging;
 };
 }

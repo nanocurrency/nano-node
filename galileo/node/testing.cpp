@@ -4,20 +4,20 @@
 #include <galileo/node/common.hpp>
 #include <galileo/node/testing.hpp>
 
-std::string rai::error_system_messages::message (int ev) const
+std::string galileo::error_system_messages::message (int ev) const
 {
-	switch (static_cast<rai::error_system> (ev))
+	switch (static_cast<galileo::error_system> (ev))
 	{
-		case rai::error_system::generic:
+		case galileo::error_system::generic:
 			return "Unknown error";
-		case rai::error_system::deadline_expired:
+		case galileo::error_system::deadline_expired:
 			return "Deadline expired";
 	}
 
 	return "Invalid error code";
 }
 
-rai::system::system (uint16_t port_a, size_t count_a) :
+galileo::system::system (uint16_t port_a, size_t count_a) :
 alarm (service),
 work (1, nullptr)
 {
@@ -26,17 +26,17 @@ work (1, nullptr)
 	{
 		deadline_scaling_factor = std::stod (scale_str);
 	}
-	logging.init (rai::unique_path ());
+	logging.init (galileo::unique_path ());
 	nodes.reserve (count_a);
 	for (size_t i (0); i < count_a; ++i)
 	{
-		rai::node_init init;
-		rai::node_config config (port_a + i, logging);
-		auto node (std::make_shared<rai::node> (init, service, rai::unique_path (), alarm, config, work));
+		galileo::node_init init;
+		galileo::node_config config (port_a + i, logging);
+		auto node (std::make_shared<galileo::node> (init, service, galileo::unique_path (), alarm, config, work));
 		assert (!init.error ());
 		node->start ();
-		rai::uint256_union wallet;
-		rai::random_pool.GenerateBlock (wallet.bytes.data (), wallet.bytes.size ());
+		galileo::uint256_union wallet;
+		galileo::random_pool.GenerateBlock (wallet.bytes.data (), wallet.bytes.size ());
 		node->wallets.create (wallet);
 		nodes.push_back (node);
 	}
@@ -55,7 +55,7 @@ work (1, nullptr)
 		} while (new1 == starting1 || new2 == starting2);
 	}
 	auto iterations1 (0);
-	while (std::any_of (nodes.begin (), nodes.end (), [](std::shared_ptr<rai::node> const & node_a) { return node_a->bootstrap_initiator.in_progress (); }))
+	while (std::any_of (nodes.begin (), nodes.end (), [](std::shared_ptr<galileo::node> const & node_a) { return node_a->bootstrap_initiator.in_progress (); }))
 	{
 		poll ();
 		++iterations1;
@@ -63,7 +63,7 @@ work (1, nullptr)
 	}
 }
 
-rai::system::~system ()
+galileo::system::~system ()
 {
 	for (auto & i : nodes)
 	{
@@ -75,11 +75,11 @@ rai::system::~system ()
 	// retain the files.
 	if (std::getenv ("TEST_KEEP_TMPDIRS") == nullptr)
 	{
-		rai::remove_temporary_directories ();
+		galileo::remove_temporary_directories ();
 	}
 }
 
-std::shared_ptr<rai::wallet> rai::system::wallet (size_t index_a)
+std::shared_ptr<galileo::wallet> galileo::system::wallet (size_t index_a)
 {
 	assert (nodes.size () > index_a);
 	auto size (nodes[index_a]->wallets.items.size ());
@@ -87,22 +87,22 @@ std::shared_ptr<rai::wallet> rai::system::wallet (size_t index_a)
 	return nodes[index_a]->wallets.items.begin ()->second;
 }
 
-rai::account rai::system::account (rai::transaction const & transaction_a, size_t index_a)
+galileo::account galileo::system::account (galileo::transaction const & transaction_a, size_t index_a)
 {
 	auto wallet_l (wallet (index_a));
 	auto keys (wallet_l->store.begin (transaction_a));
 	assert (keys != wallet_l->store.end ());
 	auto result (keys->first);
 	assert (++keys == wallet_l->store.end ());
-	return rai::account (result);
+	return galileo::account (result);
 }
 
-void rai::system::deadline_set (const std::chrono::duration<double, std::nano> & delta_a)
+void galileo::system::deadline_set (const std::chrono::duration<double, std::nano> & delta_a)
 {
 	deadline = std::chrono::steady_clock::now () + delta_a * deadline_scaling_factor;
 }
 
-std::error_code rai::system::poll (const std::chrono::nanoseconds & sleep_time)
+std::error_code galileo::system::poll (const std::chrono::nanoseconds & sleep_time)
 {
 	std::error_code ec;
 	if (service.poll_one () == 0)
@@ -112,7 +112,7 @@ std::error_code rai::system::poll (const std::chrono::nanoseconds & sleep_time)
 
 	if (std::chrono::steady_clock::now () > deadline)
 	{
-		ec = rai::error_system::deadline_expired;
+		ec = galileo::error_system::deadline_expired;
 	}
 	return ec;
 }
@@ -122,7 +122,7 @@ namespace
 class traffic_generator : public std::enable_shared_from_this<traffic_generator>
 {
 public:
-	traffic_generator (uint32_t count_a, uint32_t wait_a, std::shared_ptr<rai::node> node_a, rai::system & system_a) :
+	traffic_generator (uint32_t count_a, uint32_t wait_a, std::shared_ptr<galileo::node> node_a, galileo::system & system_a) :
 	count (count_a),
 	wait (wait_a),
 	node (node_a),
@@ -140,15 +140,15 @@ public:
 			node->alarm.add (std::chrono::steady_clock::now () + std::chrono::milliseconds (wait), [this_l]() { this_l->run (); });
 		}
 	}
-	std::vector<rai::account> accounts;
+	std::vector<galileo::account> accounts;
 	uint32_t count;
 	uint32_t wait;
-	std::shared_ptr<rai::node> node;
-	rai::system & system;
+	std::shared_ptr<galileo::node> node;
+	galileo::system & system;
 };
 }
 
-void rai::system::generate_usage_traffic (uint32_t count_a, uint32_t wait_a)
+void galileo::system::generate_usage_traffic (uint32_t count_a, uint32_t wait_a)
 {
 	for (size_t i (0), n (nodes.size ()); i != n; ++i)
 	{
@@ -156,7 +156,7 @@ void rai::system::generate_usage_traffic (uint32_t count_a, uint32_t wait_a)
 	}
 }
 
-void rai::system::generate_usage_traffic (uint32_t count_a, uint32_t wait_a, size_t index_a)
+void galileo::system::generate_usage_traffic (uint32_t count_a, uint32_t wait_a, size_t index_a)
 {
 	assert (nodes.size () > index_a);
 	assert (count_a > 0);
@@ -164,17 +164,17 @@ void rai::system::generate_usage_traffic (uint32_t count_a, uint32_t wait_a, siz
 	generate->run ();
 }
 
-void rai::system::generate_rollback (rai::node & node_a, std::vector<rai::account> & accounts_a)
+void galileo::system::generate_rollback (galileo::node & node_a, std::vector<galileo::account> & accounts_a)
 {
 	auto transaction (node_a.store.tx_begin_write ());
 	auto index (random_pool.GenerateWord32 (0, accounts_a.size () - 1));
 	auto account (accounts_a[index]);
-	rai::account_info info;
+	galileo::account_info info;
 	auto error (node_a.store.account_get (transaction, account, info));
 	if (!error)
 	{
 		auto hash (info.open_block);
-		rai::genesis genesis;
+		galileo::genesis genesis;
 		if (hash != genesis.hash ())
 		{
 			accounts_a[index] = accounts_a[accounts_a.size () - 1];
@@ -184,29 +184,29 @@ void rai::system::generate_rollback (rai::node & node_a, std::vector<rai::accoun
 	}
 }
 
-void rai::system::generate_receive (rai::node & node_a)
+void galileo::system::generate_receive (galileo::node & node_a)
 {
-	std::shared_ptr<rai::block> send_block;
+	std::shared_ptr<galileo::block> send_block;
 	{
 		auto transaction (node_a.store.tx_begin_read ());
-		rai::uint256_union random_block;
+		galileo::uint256_union random_block;
 		random_pool.GenerateBlock (random_block.bytes.data (), sizeof (random_block.bytes));
-		auto i (node_a.store.pending_begin (transaction, rai::pending_key (random_block, 0)));
+		auto i (node_a.store.pending_begin (transaction, galileo::pending_key (random_block, 0)));
 		if (i != node_a.store.pending_end ())
 		{
-			rai::pending_key send_hash (i->first);
-			rai::pending_info info (i->second);
+			galileo::pending_key send_hash (i->first);
+			galileo::pending_info info (i->second);
 			send_block = node_a.store.block_get (transaction, send_hash.hash);
 		}
 	}
 	if (send_block != nullptr)
 	{
-		auto receive_error (wallet (0)->receive_sync (send_block, rai::genesis_account, std::numeric_limits<rai::uint128_t>::max ()));
+		auto receive_error (wallet (0)->receive_sync (send_block, galileo::genesis_account, std::numeric_limits<galileo::uint128_t>::max ()));
 		(void)receive_error;
 	}
 }
 
-void rai::system::generate_activity (rai::node & node_a, std::vector<rai::account> & accounts_a)
+void galileo::system::generate_activity (galileo::node & node_a, std::vector<galileo::account> & accounts_a)
 {
 	auto what (random_pool.GenerateByte ());
 	if (what < 0x1)
@@ -235,40 +235,40 @@ void rai::system::generate_activity (rai::node & node_a, std::vector<rai::accoun
 	}
 }
 
-rai::account rai::system::get_random_account (std::vector<rai::account> & accounts_a)
+galileo::account galileo::system::get_random_account (std::vector<galileo::account> & accounts_a)
 {
 	auto index (random_pool.GenerateWord32 (0, accounts_a.size () - 1));
 	auto result (accounts_a[index]);
 	return result;
 }
 
-rai::uint128_t rai::system::get_random_amount (rai::transaction const & transaction_a, rai::node & node_a, rai::account const & account_a)
+galileo::uint128_t galileo::system::get_random_amount (galileo::transaction const & transaction_a, galileo::node & node_a, galileo::account const & account_a)
 {
-	rai::uint128_t balance (node_a.ledger.account_balance (transaction_a, account_a));
+	galileo::uint128_t balance (node_a.ledger.account_balance (transaction_a, account_a));
 	std::string balance_text (balance.convert_to<std::string> ());
-	rai::uint128_union random_amount;
+	galileo::uint128_union random_amount;
 	random_pool.GenerateBlock (random_amount.bytes.data (), sizeof (random_amount.bytes));
-	auto result (((rai::uint256_t{ random_amount.number () } * balance) / rai::uint256_t{ std::numeric_limits<rai::uint128_t>::max () }).convert_to<rai::uint128_t> ());
+	auto result (((galileo::uint256_t{ random_amount.number () } * balance) / galileo::uint256_t{ std::numeric_limits<galileo::uint128_t>::max () }).convert_to<galileo::uint128_t> ());
 	std::string text (result.convert_to<std::string> ());
 	return result;
 }
 
-void rai::system::generate_send_existing (rai::node & node_a, std::vector<rai::account> & accounts_a)
+void galileo::system::generate_send_existing (galileo::node & node_a, std::vector<galileo::account> & accounts_a)
 {
-	rai::uint128_t amount;
-	rai::account destination;
-	rai::account source;
+	galileo::uint128_t amount;
+	galileo::account destination;
+	galileo::account source;
 	{
-		rai::account account;
+		galileo::account account;
 		random_pool.GenerateBlock (account.bytes.data (), sizeof (account.bytes));
 		auto transaction (node_a.store.tx_begin_read ());
-		rai::store_iterator<rai::account, rai::account_info> entry (node_a.store.latest_begin (transaction, account));
+		galileo::store_iterator<galileo::account, galileo::account_info> entry (node_a.store.latest_begin (transaction, account));
 		if (entry == node_a.store.latest_end ())
 		{
 			entry = node_a.store.latest_begin (transaction);
 		}
 		assert (entry != node_a.store.latest_end ());
-		destination = rai::account (entry->first);
+		destination = galileo::account (entry->first);
 		source = get_random_account (accounts_a);
 		amount = get_random_amount (transaction, node_a, source);
 	}
@@ -279,34 +279,34 @@ void rai::system::generate_send_existing (rai::node & node_a, std::vector<rai::a
 	}
 }
 
-void rai::system::generate_change_known (rai::node & node_a, std::vector<rai::account> & accounts_a)
+void galileo::system::generate_change_known (galileo::node & node_a, std::vector<galileo::account> & accounts_a)
 {
-	rai::account source (get_random_account (accounts_a));
+	galileo::account source (get_random_account (accounts_a));
 	if (!node_a.latest (source).is_zero ())
 	{
-		rai::account destination (get_random_account (accounts_a));
+		galileo::account destination (get_random_account (accounts_a));
 		auto change_error (wallet (0)->change_sync (source, destination));
 		assert (!change_error);
 	}
 }
 
-void rai::system::generate_change_unknown (rai::node & node_a, std::vector<rai::account> & accounts_a)
+void galileo::system::generate_change_unknown (galileo::node & node_a, std::vector<galileo::account> & accounts_a)
 {
-	rai::account source (get_random_account (accounts_a));
+	galileo::account source (get_random_account (accounts_a));
 	if (!node_a.latest (source).is_zero ())
 	{
-		rai::keypair key;
-		rai::account destination (key.pub);
+		galileo::keypair key;
+		galileo::account destination (key.pub);
 		auto change_error (wallet (0)->change_sync (source, destination));
 		assert (!change_error);
 	}
 }
 
-void rai::system::generate_send_new (rai::node & node_a, std::vector<rai::account> & accounts_a)
+void galileo::system::generate_send_new (galileo::node & node_a, std::vector<galileo::account> & accounts_a)
 {
 	assert (node_a.wallets.items.size () == 1);
-	rai::uint128_t amount;
-	rai::account source;
+	galileo::uint128_t amount;
+	galileo::account source;
 	{
 		auto transaction (node_a.store.tx_begin_read ());
 		source = get_random_account (accounts_a);
@@ -321,11 +321,11 @@ void rai::system::generate_send_new (rai::node & node_a, std::vector<rai::accoun
 	}
 }
 
-void rai::system::generate_mass_activity (uint32_t count_a, rai::node & node_a)
+void galileo::system::generate_mass_activity (uint32_t count_a, galileo::node & node_a)
 {
-	std::vector<rai::account> accounts;
-	wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
-	accounts.push_back (rai::test_genesis_key.pub);
+	std::vector<galileo::account> accounts;
+	wallet (0)->insert_adhoc (galileo::test_genesis_key.prv);
+	accounts.push_back (galileo::test_genesis_key.pub);
 	auto previous (std::chrono::steady_clock::now ());
 	for (uint32_t i (0); i < count_a; ++i)
 	{
@@ -348,7 +348,7 @@ void rai::system::generate_mass_activity (uint32_t count_a, rai::node & node_a)
 	}
 }
 
-void rai::system::stop ()
+void galileo::system::stop ()
 {
 	for (auto i : nodes)
 	{
@@ -357,11 +357,11 @@ void rai::system::stop ()
 	work.stop ();
 }
 
-rai::landing_store::landing_store ()
+galileo::landing_store::landing_store ()
 {
 }
 
-rai::landing_store::landing_store (rai::account const & source_a, rai::account const & destination_a, uint64_t start_a, uint64_t last_a) :
+galileo::landing_store::landing_store (galileo::account const & source_a, galileo::account const & destination_a, uint64_t start_a, uint64_t last_a) :
 source (source_a),
 destination (destination_a),
 start (start_a),
@@ -369,12 +369,12 @@ last (last_a)
 {
 }
 
-rai::landing_store::landing_store (bool & error_a, std::istream & stream_a)
+galileo::landing_store::landing_store (bool & error_a, std::istream & stream_a)
 {
 	error_a = deserialize (stream_a);
 }
 
-bool rai::landing_store::deserialize (std::istream & stream_a)
+bool galileo::landing_store::deserialize (std::istream & stream_a)
 {
 	bool result;
 	try
@@ -407,7 +407,7 @@ bool rai::landing_store::deserialize (std::istream & stream_a)
 	return result;
 }
 
-void rai::landing_store::serialize (std::ostream & stream_a) const
+void galileo::landing_store::serialize (std::ostream & stream_a) const
 {
 	boost::property_tree::ptree tree;
 	tree.put ("source", source.to_account ());
@@ -417,12 +417,12 @@ void rai::landing_store::serialize (std::ostream & stream_a) const
 	boost::property_tree::write_json (stream_a, tree);
 }
 
-bool rai::landing_store::operator== (rai::landing_store const & other_a) const
+bool galileo::landing_store::operator== (galileo::landing_store const & other_a) const
 {
 	return source == other_a.source && destination == other_a.destination && start == other_a.start && last == other_a.last;
 }
 
-rai::landing::landing (rai::node & node_a, std::shared_ptr<rai::wallet> wallet_a, rai::landing_store & store_a, boost::filesystem::path const & path_a) :
+galileo::landing::landing (galileo::node & node_a, std::shared_ptr<galileo::wallet> wallet_a, galileo::landing_store & store_a, boost::filesystem::path const & path_a) :
 path (path_a),
 store (store_a),
 wallet (wallet_a),
@@ -430,7 +430,7 @@ node (node_a)
 {
 }
 
-void rai::landing::write_store ()
+void galileo::landing::write_store ()
 {
 	std::ofstream store_file;
 	store_file.open (path.string ());
@@ -446,45 +446,45 @@ void rai::landing::write_store ()
 	}
 }
 
-rai::uint128_t rai::landing::distribution_amount (uint64_t interval)
+galileo::uint128_t galileo::landing::distribution_amount (uint64_t interval)
 {
 	// Halving period ~= Exponent of 2 in seconds approximately 1 year = 2^25 = 33554432
 	// Interval = Exponent of 2 in seconds approximately 1 minute = 2^10 = 64
 	uint64_t intervals_per_period (1 << (25 - interval_exponent));
-	rai::uint128_t result;
+	galileo::uint128_t result;
 	if (interval < intervals_per_period * 1)
 	{
 		// Total supply / 2^halving period / intervals per period
 		// 2^128 / 2^1 / (2^25 / 2^10)
-		result = rai::uint128_t (1) << (127 - (25 - interval_exponent)); // 50%
+		result = galileo::uint128_t (1) << (127 - (25 - interval_exponent)); // 50%
 	}
 	else if (interval < intervals_per_period * 2)
 	{
-		result = rai::uint128_t (1) << (126 - (25 - interval_exponent)); // 25%
+		result = galileo::uint128_t (1) << (126 - (25 - interval_exponent)); // 25%
 	}
 	else if (interval < intervals_per_period * 3)
 	{
-		result = rai::uint128_t (1) << (125 - (25 - interval_exponent)); // 13%
+		result = galileo::uint128_t (1) << (125 - (25 - interval_exponent)); // 13%
 	}
 	else if (interval < intervals_per_period * 4)
 	{
-		result = rai::uint128_t (1) << (124 - (25 - interval_exponent)); // 6.3%
+		result = galileo::uint128_t (1) << (124 - (25 - interval_exponent)); // 6.3%
 	}
 	else if (interval < intervals_per_period * 5)
 	{
-		result = rai::uint128_t (1) << (123 - (25 - interval_exponent)); // 3.1%
+		result = galileo::uint128_t (1) << (123 - (25 - interval_exponent)); // 3.1%
 	}
 	else if (interval < intervals_per_period * 6)
 	{
-		result = rai::uint128_t (1) << (122 - (25 - interval_exponent)); // 1.6%
+		result = galileo::uint128_t (1) << (122 - (25 - interval_exponent)); // 1.6%
 	}
 	else if (interval < intervals_per_period * 7)
 	{
-		result = rai::uint128_t (1) << (121 - (25 - interval_exponent)); // 0.8%
+		result = galileo::uint128_t (1) << (121 - (25 - interval_exponent)); // 0.8%
 	}
 	else if (interval < intervals_per_period * 8)
 	{
-		result = rai::uint128_t (1) << (121 - (25 - interval_exponent)); // 0.8*
+		result = galileo::uint128_t (1) << (121 - (25 - interval_exponent)); // 0.8*
 	}
 	else
 	{
@@ -493,10 +493,10 @@ rai::uint128_t rai::landing::distribution_amount (uint64_t interval)
 	return result;
 }
 
-void rai::landing::distribute_one ()
+void galileo::landing::distribute_one ()
 {
-	auto now (rai::seconds_since_epoch ());
-	rai::block_hash last (1);
+	auto now (galileo::seconds_since_epoch ());
+	galileo::block_hash last (1);
 	while (!last.is_zero () && store.last + distribution_interval.count () < now)
 	{
 		auto amount (distribution_amount ((store.last - store.start) >> interval_exponent));
@@ -514,12 +514,12 @@ void rai::landing::distribute_one ()
 	}
 }
 
-void rai::landing::distribute_ongoing ()
+void galileo::landing::distribute_ongoing ()
 {
 	distribute_one ();
 	BOOST_LOG (node.log) << "Waiting for next distribution cycle";
 	node.alarm.add (std::chrono::steady_clock::now () + sleep_seconds, [this]() { distribute_ongoing (); });
 }
 
-std::chrono::seconds constexpr rai::landing::distribution_interval;
-std::chrono::seconds constexpr rai::landing::sleep_seconds;
+std::chrono::seconds constexpr galileo::landing::distribution_interval;
+std::chrono::seconds constexpr galileo::landing::sleep_seconds;

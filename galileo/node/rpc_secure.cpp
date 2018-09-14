@@ -1,7 +1,7 @@
 #include <galileo/node/node.hpp>
 #include <galileo/node/rpc_secure.hpp>
 
-bool rai::rpc_secure::on_verify_certificate (bool preverified, boost::asio::ssl::verify_context & ctx)
+bool galileo::rpc_secure::on_verify_certificate (bool preverified, boost::asio::ssl::verify_context & ctx)
 {
 	X509_STORE_CTX * cts = ctx.native_handle ();
 	auto error (X509_STORE_CTX_get_error (cts));
@@ -56,7 +56,7 @@ bool rai::rpc_secure::on_verify_certificate (bool preverified, boost::asio::ssl:
 	return preverified;
 }
 
-void rai::rpc_secure::load_certs (boost::asio::ssl::context & context_a)
+void galileo::rpc_secure::load_certs (boost::asio::ssl::context & context_a)
 {
 	// This is called if the key is password protected
 	context_a.set_password_callback (
@@ -82,20 +82,20 @@ void rai::rpc_secure::load_certs (boost::asio::ssl::context & context_a)
 	{
 		context_a.set_verify_mode (boost::asio::ssl::verify_fail_if_no_peer_cert | boost::asio::ssl::verify_peer);
 		context_a.add_verify_path (config.secure.client_certs_path);
-		context_a.set_verify_callback (boost::bind (&rai::rpc_secure::on_verify_certificate, this, _1, _2));
+		context_a.set_verify_callback (boost::bind (&galileo::rpc_secure::on_verify_certificate, this, _1, _2));
 	}
 }
 
-rai::rpc_secure::rpc_secure (boost::asio::io_service & service_a, rai::node & node_a, rai::rpc_config const & config_a) :
+galileo::rpc_secure::rpc_secure (boost::asio::io_service & service_a, galileo::node & node_a, galileo::rpc_config const & config_a) :
 rpc (service_a, node_a, config_a),
 ssl_context (boost::asio::ssl::context::tlsv12_server)
 {
 	load_certs (ssl_context);
 }
 
-void rai::rpc_secure::accept ()
+void galileo::rpc_secure::accept ()
 {
-	auto connection (std::make_shared<rai::rpc_connection_secure> (node, *this));
+	auto connection (std::make_shared<galileo::rpc_connection_secure> (node, *this));
 	acceptor.async_accept (connection->socket, [this, connection](boost::system::error_code const & ec) {
 		if (!ec)
 		{
@@ -109,29 +109,29 @@ void rai::rpc_secure::accept ()
 	});
 }
 
-rai::rpc_connection_secure::rpc_connection_secure (rai::node & node_a, rai::rpc_secure & rpc_a) :
-rai::rpc_connection (node_a, rpc_a),
+galileo::rpc_connection_secure::rpc_connection_secure (galileo::node & node_a, galileo::rpc_secure & rpc_a) :
+galileo::rpc_connection (node_a, rpc_a),
 stream (socket, rpc_a.ssl_context)
 {
 }
 
-void rai::rpc_connection_secure::parse_connection ()
+void galileo::rpc_connection_secure::parse_connection ()
 {
 	// Perform the SSL handshake
 	stream.async_handshake (boost::asio::ssl::stream_base::server,
 	std::bind (
-	&rai::rpc_connection_secure::handle_handshake,
-	std::static_pointer_cast<rai::rpc_connection_secure> (shared_from_this ()),
+	&galileo::rpc_connection_secure::handle_handshake,
+	std::static_pointer_cast<galileo::rpc_connection_secure> (shared_from_this ()),
 	std::placeholders::_1));
 }
 
-void rai::rpc_connection_secure::on_shutdown (const boost::system::error_code & error)
+void galileo::rpc_connection_secure::on_shutdown (const boost::system::error_code & error)
 {
 	// No-op. We initiate the shutdown (since the RPC server kills the connection after each request)
 	// and we'll thus get an expected EOF error. If the client disconnects, a short-read error will be expected.
 }
 
-void rai::rpc_connection_secure::handle_handshake (const boost::system::error_code & error)
+void galileo::rpc_connection_secure::handle_handshake (const boost::system::error_code & error)
 {
 	if (!error)
 	{
@@ -143,9 +143,9 @@ void rai::rpc_connection_secure::handle_handshake (const boost::system::error_co
 	}
 }
 
-void rai::rpc_connection_secure::read ()
+void galileo::rpc_connection_secure::read ()
 {
-	auto this_l (std::static_pointer_cast<rai::rpc_connection_secure> (shared_from_this ()));
+	auto this_l (std::static_pointer_cast<galileo::rpc_connection_secure> (shared_from_this ()));
 	boost::beast::http::async_read (stream, buffer, request, [this_l](boost::system::error_code const & ec, size_t bytes_transferred) {
 		if (!ec)
 		{
@@ -163,7 +163,7 @@ void rai::rpc_connection_secure::read ()
 						// Perform the SSL shutdown
 						this_l->stream.async_shutdown (
 						std::bind (
-						&rai::rpc_connection_secure::on_shutdown,
+						&galileo::rpc_connection_secure::on_shutdown,
 						this_l,
 						std::placeholders::_1));
 					});
@@ -176,7 +176,7 @@ void rai::rpc_connection_secure::read ()
 
 				if (this_l->request.method () == boost::beast::http::verb::post)
 				{
-					auto handler (std::make_shared<rai::rpc_handler> (*this_l->node, this_l->rpc, this_l->request.body (), request_id, response_handler));
+					auto handler (std::make_shared<galileo::rpc_handler> (*this_l->node, this_l->rpc, this_l->request.body (), request_id, response_handler));
 					handler->process_request ();
 				}
 				else

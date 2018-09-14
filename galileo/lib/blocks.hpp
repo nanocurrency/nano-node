@@ -15,14 +15,14 @@ bool from_string_hex (std::string const &, uint64_t &);
 using stream = std::basic_streambuf<uint8_t>;
 // Read a raw byte stream the size of `T' and fill value.
 template <typename T>
-bool read (rai::stream & stream_a, T & value)
+bool read (galileo::stream & stream_a, T & value)
 {
 	static_assert (std::is_pod<T>::value, "Can't stream read non-standard layout types");
 	auto amount_read (stream_a.sgetn (reinterpret_cast<uint8_t *> (&value), sizeof (value)));
 	return amount_read != sizeof (value);
 }
 template <typename T>
-void write (rai::stream & stream_a, T const & value)
+void write (galileo::stream & stream_a, T const & value)
 {
 	static_assert (std::is_pod<T>::value, "Can't stream write non-standard layout types");
 	auto amount_written (stream_a.sputn (reinterpret_cast<uint8_t const *> (&value), sizeof (value)));
@@ -43,260 +43,260 @@ class block
 {
 public:
 	// Return a digest of the hashables in this block.
-	rai::block_hash hash () const;
+	galileo::block_hash hash () const;
 	std::string to_json ();
 	virtual void hash (blake2b_state &) const = 0;
 	virtual uint64_t block_work () const = 0;
 	virtual void block_work_set (uint64_t) = 0;
 	// Previous block in account's chain, zero for open block
-	virtual rai::block_hash previous () const = 0;
+	virtual galileo::block_hash previous () const = 0;
 	// Source block for open/receive blocks, zero otherwise.
-	virtual rai::block_hash source () const = 0;
+	virtual galileo::block_hash source () const = 0;
 	// Previous block or account number for open blocks
-	virtual rai::block_hash root () const = 0;
-	virtual rai::account representative () const = 0;
-	virtual void serialize (rai::stream &) const = 0;
+	virtual galileo::block_hash root () const = 0;
+	virtual galileo::account representative () const = 0;
+	virtual void serialize (galileo::stream &) const = 0;
 	virtual void serialize_json (std::string &) const = 0;
-	virtual void visit (rai::block_visitor &) const = 0;
-	virtual bool operator== (rai::block const &) const = 0;
-	virtual rai::block_type type () const = 0;
-	virtual rai::signature block_signature () const = 0;
-	virtual void signature_set (rai::uint512_union const &) = 0;
+	virtual void visit (galileo::block_visitor &) const = 0;
+	virtual bool operator== (galileo::block const &) const = 0;
+	virtual galileo::block_type type () const = 0;
+	virtual galileo::signature block_signature () const = 0;
+	virtual void signature_set (galileo::uint512_union const &) = 0;
 	virtual ~block () = default;
-	virtual bool valid_predecessor (rai::block const &) const = 0;
+	virtual bool valid_predecessor (galileo::block const &) const = 0;
 };
 class send_hashables
 {
 public:
-	send_hashables (rai::account const &, rai::block_hash const &, rai::amount const &);
-	send_hashables (bool &, rai::stream &);
+	send_hashables (galileo::account const &, galileo::block_hash const &, galileo::amount const &);
+	send_hashables (bool &, galileo::stream &);
 	send_hashables (bool &, boost::property_tree::ptree const &);
 	void hash (blake2b_state &) const;
-	rai::block_hash previous;
-	rai::account destination;
-	rai::amount balance;
+	galileo::block_hash previous;
+	galileo::account destination;
+	galileo::amount balance;
 };
-class send_block : public rai::block
+class send_block : public galileo::block
 {
 public:
-	send_block (rai::block_hash const &, rai::account const &, rai::amount const &, rai::raw_key const &, rai::public_key const &, uint64_t);
-	send_block (bool &, rai::stream &);
+	send_block (galileo::block_hash const &, galileo::account const &, galileo::amount const &, galileo::raw_key const &, galileo::public_key const &, uint64_t);
+	send_block (bool &, galileo::stream &);
 	send_block (bool &, boost::property_tree::ptree const &);
 	virtual ~send_block () = default;
-	using rai::block::hash;
+	using galileo::block::hash;
 	void hash (blake2b_state &) const override;
 	uint64_t block_work () const override;
 	void block_work_set (uint64_t) override;
-	rai::block_hash previous () const override;
-	rai::block_hash source () const override;
-	rai::block_hash root () const override;
-	rai::account representative () const override;
-	void serialize (rai::stream &) const override;
+	galileo::block_hash previous () const override;
+	galileo::block_hash source () const override;
+	galileo::block_hash root () const override;
+	galileo::account representative () const override;
+	void serialize (galileo::stream &) const override;
 	void serialize_json (std::string &) const override;
-	bool deserialize (rai::stream &);
+	bool deserialize (galileo::stream &);
 	bool deserialize_json (boost::property_tree::ptree const &);
-	void visit (rai::block_visitor &) const override;
-	rai::block_type type () const override;
-	rai::signature block_signature () const override;
-	void signature_set (rai::uint512_union const &) override;
-	bool operator== (rai::block const &) const override;
-	bool operator== (rai::send_block const &) const;
-	bool valid_predecessor (rai::block const &) const override;
-	static size_t constexpr size = sizeof (rai::account) + sizeof (rai::block_hash) + sizeof (rai::amount) + sizeof (rai::signature) + sizeof (uint64_t);
+	void visit (galileo::block_visitor &) const override;
+	galileo::block_type type () const override;
+	galileo::signature block_signature () const override;
+	void signature_set (galileo::uint512_union const &) override;
+	bool operator== (galileo::block const &) const override;
+	bool operator== (galileo::send_block const &) const;
+	bool valid_predecessor (galileo::block const &) const override;
+	static size_t constexpr size = sizeof (galileo::account) + sizeof (galileo::block_hash) + sizeof (galileo::amount) + sizeof (galileo::signature) + sizeof (uint64_t);
 	send_hashables hashables;
-	rai::signature signature;
+	galileo::signature signature;
 	uint64_t work;
 };
 class receive_hashables
 {
 public:
-	receive_hashables (rai::block_hash const &, rai::block_hash const &);
-	receive_hashables (bool &, rai::stream &);
+	receive_hashables (galileo::block_hash const &, galileo::block_hash const &);
+	receive_hashables (bool &, galileo::stream &);
 	receive_hashables (bool &, boost::property_tree::ptree const &);
 	void hash (blake2b_state &) const;
-	rai::block_hash previous;
-	rai::block_hash source;
+	galileo::block_hash previous;
+	galileo::block_hash source;
 };
-class receive_block : public rai::block
+class receive_block : public galileo::block
 {
 public:
-	receive_block (rai::block_hash const &, rai::block_hash const &, rai::raw_key const &, rai::public_key const &, uint64_t);
-	receive_block (bool &, rai::stream &);
+	receive_block (galileo::block_hash const &, galileo::block_hash const &, galileo::raw_key const &, galileo::public_key const &, uint64_t);
+	receive_block (bool &, galileo::stream &);
 	receive_block (bool &, boost::property_tree::ptree const &);
 	virtual ~receive_block () = default;
-	using rai::block::hash;
+	using galileo::block::hash;
 	void hash (blake2b_state &) const override;
 	uint64_t block_work () const override;
 	void block_work_set (uint64_t) override;
-	rai::block_hash previous () const override;
-	rai::block_hash source () const override;
-	rai::block_hash root () const override;
-	rai::account representative () const override;
-	void serialize (rai::stream &) const override;
+	galileo::block_hash previous () const override;
+	galileo::block_hash source () const override;
+	galileo::block_hash root () const override;
+	galileo::account representative () const override;
+	void serialize (galileo::stream &) const override;
 	void serialize_json (std::string &) const override;
-	bool deserialize (rai::stream &);
+	bool deserialize (galileo::stream &);
 	bool deserialize_json (boost::property_tree::ptree const &);
-	void visit (rai::block_visitor &) const override;
-	rai::block_type type () const override;
-	rai::signature block_signature () const override;
-	void signature_set (rai::uint512_union const &) override;
-	bool operator== (rai::block const &) const override;
-	bool operator== (rai::receive_block const &) const;
-	bool valid_predecessor (rai::block const &) const override;
-	static size_t constexpr size = sizeof (rai::block_hash) + sizeof (rai::block_hash) + sizeof (rai::signature) + sizeof (uint64_t);
+	void visit (galileo::block_visitor &) const override;
+	galileo::block_type type () const override;
+	galileo::signature block_signature () const override;
+	void signature_set (galileo::uint512_union const &) override;
+	bool operator== (galileo::block const &) const override;
+	bool operator== (galileo::receive_block const &) const;
+	bool valid_predecessor (galileo::block const &) const override;
+	static size_t constexpr size = sizeof (galileo::block_hash) + sizeof (galileo::block_hash) + sizeof (galileo::signature) + sizeof (uint64_t);
 	receive_hashables hashables;
-	rai::signature signature;
+	galileo::signature signature;
 	uint64_t work;
 };
 class open_hashables
 {
 public:
-	open_hashables (rai::block_hash const &, rai::account const &, rai::account const &);
-	open_hashables (bool &, rai::stream &);
+	open_hashables (galileo::block_hash const &, galileo::account const &, galileo::account const &);
+	open_hashables (bool &, galileo::stream &);
 	open_hashables (bool &, boost::property_tree::ptree const &);
 	void hash (blake2b_state &) const;
-	rai::block_hash source;
-	rai::account representative;
-	rai::account account;
+	galileo::block_hash source;
+	galileo::account representative;
+	galileo::account account;
 };
-class open_block : public rai::block
+class open_block : public galileo::block
 {
 public:
-	open_block (rai::block_hash const &, rai::account const &, rai::account const &, rai::raw_key const &, rai::public_key const &, uint64_t);
-	open_block (rai::block_hash const &, rai::account const &, rai::account const &, std::nullptr_t);
-	open_block (bool &, rai::stream &);
+	open_block (galileo::block_hash const &, galileo::account const &, galileo::account const &, galileo::raw_key const &, galileo::public_key const &, uint64_t);
+	open_block (galileo::block_hash const &, galileo::account const &, galileo::account const &, std::nullptr_t);
+	open_block (bool &, galileo::stream &);
 	open_block (bool &, boost::property_tree::ptree const &);
 	virtual ~open_block () = default;
-	using rai::block::hash;
+	using galileo::block::hash;
 	void hash (blake2b_state &) const override;
 	uint64_t block_work () const override;
 	void block_work_set (uint64_t) override;
-	rai::block_hash previous () const override;
-	rai::block_hash source () const override;
-	rai::block_hash root () const override;
-	rai::account representative () const override;
-	void serialize (rai::stream &) const override;
+	galileo::block_hash previous () const override;
+	galileo::block_hash source () const override;
+	galileo::block_hash root () const override;
+	galileo::account representative () const override;
+	void serialize (galileo::stream &) const override;
 	void serialize_json (std::string &) const override;
-	bool deserialize (rai::stream &);
+	bool deserialize (galileo::stream &);
 	bool deserialize_json (boost::property_tree::ptree const &);
-	void visit (rai::block_visitor &) const override;
-	rai::block_type type () const override;
-	rai::signature block_signature () const override;
-	void signature_set (rai::uint512_union const &) override;
-	bool operator== (rai::block const &) const override;
-	bool operator== (rai::open_block const &) const;
-	bool valid_predecessor (rai::block const &) const override;
-	static size_t constexpr size = sizeof (rai::block_hash) + sizeof (rai::account) + sizeof (rai::account) + sizeof (rai::signature) + sizeof (uint64_t);
-	rai::open_hashables hashables;
-	rai::signature signature;
+	void visit (galileo::block_visitor &) const override;
+	galileo::block_type type () const override;
+	galileo::signature block_signature () const override;
+	void signature_set (galileo::uint512_union const &) override;
+	bool operator== (galileo::block const &) const override;
+	bool operator== (galileo::open_block const &) const;
+	bool valid_predecessor (galileo::block const &) const override;
+	static size_t constexpr size = sizeof (galileo::block_hash) + sizeof (galileo::account) + sizeof (galileo::account) + sizeof (galileo::signature) + sizeof (uint64_t);
+	galileo::open_hashables hashables;
+	galileo::signature signature;
 	uint64_t work;
 };
 class change_hashables
 {
 public:
-	change_hashables (rai::block_hash const &, rai::account const &);
-	change_hashables (bool &, rai::stream &);
+	change_hashables (galileo::block_hash const &, galileo::account const &);
+	change_hashables (bool &, galileo::stream &);
 	change_hashables (bool &, boost::property_tree::ptree const &);
 	void hash (blake2b_state &) const;
-	rai::block_hash previous;
-	rai::account representative;
+	galileo::block_hash previous;
+	galileo::account representative;
 };
-class change_block : public rai::block
+class change_block : public galileo::block
 {
 public:
-	change_block (rai::block_hash const &, rai::account const &, rai::raw_key const &, rai::public_key const &, uint64_t);
-	change_block (bool &, rai::stream &);
+	change_block (galileo::block_hash const &, galileo::account const &, galileo::raw_key const &, galileo::public_key const &, uint64_t);
+	change_block (bool &, galileo::stream &);
 	change_block (bool &, boost::property_tree::ptree const &);
 	virtual ~change_block () = default;
-	using rai::block::hash;
+	using galileo::block::hash;
 	void hash (blake2b_state &) const override;
 	uint64_t block_work () const override;
 	void block_work_set (uint64_t) override;
-	rai::block_hash previous () const override;
-	rai::block_hash source () const override;
-	rai::block_hash root () const override;
-	rai::account representative () const override;
-	void serialize (rai::stream &) const override;
+	galileo::block_hash previous () const override;
+	galileo::block_hash source () const override;
+	galileo::block_hash root () const override;
+	galileo::account representative () const override;
+	void serialize (galileo::stream &) const override;
 	void serialize_json (std::string &) const override;
-	bool deserialize (rai::stream &);
+	bool deserialize (galileo::stream &);
 	bool deserialize_json (boost::property_tree::ptree const &);
-	void visit (rai::block_visitor &) const override;
-	rai::block_type type () const override;
-	rai::signature block_signature () const override;
-	void signature_set (rai::uint512_union const &) override;
-	bool operator== (rai::block const &) const override;
-	bool operator== (rai::change_block const &) const;
-	bool valid_predecessor (rai::block const &) const override;
-	static size_t constexpr size = sizeof (rai::block_hash) + sizeof (rai::account) + sizeof (rai::signature) + sizeof (uint64_t);
-	rai::change_hashables hashables;
-	rai::signature signature;
+	void visit (galileo::block_visitor &) const override;
+	galileo::block_type type () const override;
+	galileo::signature block_signature () const override;
+	void signature_set (galileo::uint512_union const &) override;
+	bool operator== (galileo::block const &) const override;
+	bool operator== (galileo::change_block const &) const;
+	bool valid_predecessor (galileo::block const &) const override;
+	static size_t constexpr size = sizeof (galileo::block_hash) + sizeof (galileo::account) + sizeof (galileo::signature) + sizeof (uint64_t);
+	galileo::change_hashables hashables;
+	galileo::signature signature;
 	uint64_t work;
 };
 class state_hashables
 {
 public:
-	state_hashables (rai::account const &, rai::block_hash const &, rai::account const &, rai::amount const &, rai::uint256_union const &);
-	state_hashables (bool &, rai::stream &);
+	state_hashables (galileo::account const &, galileo::block_hash const &, galileo::account const &, galileo::amount const &, galileo::uint256_union const &);
+	state_hashables (bool &, galileo::stream &);
 	state_hashables (bool &, boost::property_tree::ptree const &);
 	void hash (blake2b_state &) const;
 	// Account# / public key that operates this account
 	// Uses:
 	// Bulk signature validation in advance of further ledger processing
 	// Arranging uncomitted transactions by account
-	rai::account account;
+	galileo::account account;
 	// Previous transaction in this chain
-	rai::block_hash previous;
+	galileo::block_hash previous;
 	// Representative of this account
-	rai::account representative;
+	galileo::account representative;
 	// Current balance of this account
 	// Allows lookup of account balance simply by looking at the head block
-	rai::amount balance;
+	galileo::amount balance;
 	// Link field contains source block_hash if receiving, destination account if sending
-	rai::uint256_union link;
+	galileo::uint256_union link;
 };
-class state_block : public rai::block
+class state_block : public galileo::block
 {
 public:
-	state_block (rai::account const &, rai::block_hash const &, rai::account const &, rai::amount const &, rai::uint256_union const &, rai::raw_key const &, rai::public_key const &, uint64_t);
-	state_block (bool &, rai::stream &);
+	state_block (galileo::account const &, galileo::block_hash const &, galileo::account const &, galileo::amount const &, galileo::uint256_union const &, galileo::raw_key const &, galileo::public_key const &, uint64_t);
+	state_block (bool &, galileo::stream &);
 	state_block (bool &, boost::property_tree::ptree const &);
 	virtual ~state_block () = default;
-	using rai::block::hash;
+	using galileo::block::hash;
 	void hash (blake2b_state &) const override;
 	uint64_t block_work () const override;
 	void block_work_set (uint64_t) override;
-	rai::block_hash previous () const override;
-	rai::block_hash source () const override;
-	rai::block_hash root () const override;
-	rai::account representative () const override;
-	void serialize (rai::stream &) const override;
+	galileo::block_hash previous () const override;
+	galileo::block_hash source () const override;
+	galileo::block_hash root () const override;
+	galileo::account representative () const override;
+	void serialize (galileo::stream &) const override;
 	void serialize_json (std::string &) const override;
-	bool deserialize (rai::stream &);
+	bool deserialize (galileo::stream &);
 	bool deserialize_json (boost::property_tree::ptree const &);
-	void visit (rai::block_visitor &) const override;
-	rai::block_type type () const override;
-	rai::signature block_signature () const override;
-	void signature_set (rai::uint512_union const &) override;
-	bool operator== (rai::block const &) const override;
-	bool operator== (rai::state_block const &) const;
-	bool valid_predecessor (rai::block const &) const override;
-	static size_t constexpr size = sizeof (rai::account) + sizeof (rai::block_hash) + sizeof (rai::account) + sizeof (rai::amount) + sizeof (rai::uint256_union) + sizeof (rai::signature) + sizeof (uint64_t);
-	rai::state_hashables hashables;
-	rai::signature signature;
+	void visit (galileo::block_visitor &) const override;
+	galileo::block_type type () const override;
+	galileo::signature block_signature () const override;
+	void signature_set (galileo::uint512_union const &) override;
+	bool operator== (galileo::block const &) const override;
+	bool operator== (galileo::state_block const &) const;
+	bool valid_predecessor (galileo::block const &) const override;
+	static size_t constexpr size = sizeof (galileo::account) + sizeof (galileo::block_hash) + sizeof (galileo::account) + sizeof (galileo::amount) + sizeof (galileo::uint256_union) + sizeof (galileo::signature) + sizeof (uint64_t);
+	galileo::state_hashables hashables;
+	galileo::signature signature;
 	uint64_t work;
 };
 class block_visitor
 {
 public:
-	virtual void send_block (rai::send_block const &) = 0;
-	virtual void receive_block (rai::receive_block const &) = 0;
-	virtual void open_block (rai::open_block const &) = 0;
-	virtual void change_block (rai::change_block const &) = 0;
-	virtual void state_block (rai::state_block const &) = 0;
+	virtual void send_block (galileo::send_block const &) = 0;
+	virtual void receive_block (galileo::receive_block const &) = 0;
+	virtual void open_block (galileo::open_block const &) = 0;
+	virtual void change_block (galileo::change_block const &) = 0;
+	virtual void state_block (galileo::state_block const &) = 0;
 	virtual ~block_visitor () = default;
 };
-std::unique_ptr<rai::block> deserialize_block (rai::stream &);
-std::unique_ptr<rai::block> deserialize_block (rai::stream &, rai::block_type);
-std::unique_ptr<rai::block> deserialize_block_json (boost::property_tree::ptree const &);
-void serialize_block (rai::stream &, rai::block const &);
+std::unique_ptr<galileo::block> deserialize_block (galileo::stream &);
+std::unique_ptr<galileo::block> deserialize_block (galileo::stream &, galileo::block_type);
+std::unique_ptr<galileo::block> deserialize_block_json (boost::property_tree::ptree const &);
+void serialize_block (galileo::stream &, galileo::block const &);
 }

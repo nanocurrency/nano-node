@@ -1,33 +1,33 @@
 #include <gtest/gtest.h>
 
-#include <rai/node/node.hpp>
-#include <rai/node/wallet.hpp>
+#include <galileo/node/node.hpp>
+#include <galileo/node/wallet.hpp>
 
 TEST (work, one)
 {
-	rai::work_pool pool (std::numeric_limits<unsigned>::max (), nullptr);
-	rai::change_block block (1, 1, rai::keypair ().prv, 3, 4);
+	galileo::work_pool pool (std::numeric_limits<unsigned>::max (), nullptr);
+	galileo::change_block block (1, 1, galileo::keypair ().prv, 3, 4);
 	block.block_work_set (pool.generate (block.root ()));
-	ASSERT_FALSE (rai::work_validate (block));
+	ASSERT_FALSE (galileo::work_validate (block));
 }
 
 TEST (work, validate)
 {
-	rai::work_pool pool (std::numeric_limits<unsigned>::max (), nullptr);
-	rai::send_block send_block (1, 1, 2, rai::keypair ().prv, 4, 6);
-	ASSERT_TRUE (rai::work_validate (send_block));
+	galileo::work_pool pool (std::numeric_limits<unsigned>::max (), nullptr);
+	galileo::send_block send_block (1, 1, 2, galileo::keypair ().prv, 4, 6);
+	ASSERT_TRUE (galileo::work_validate (send_block));
 	send_block.block_work_set (pool.generate (send_block.root ()));
-	ASSERT_FALSE (rai::work_validate (send_block));
+	ASSERT_FALSE (galileo::work_validate (send_block));
 }
 
 TEST (work, cancel)
 {
-	rai::work_pool pool (std::numeric_limits<unsigned>::max (), nullptr);
+	galileo::work_pool pool (std::numeric_limits<unsigned>::max (), nullptr);
 	auto iterations (0);
 	auto done (false);
 	while (!done)
 	{
-		rai::uint256_union key (1);
+		galileo::uint256_union key (1);
 		pool.generate (key, [&done](boost::optional<uint64_t> work_a) {
 			done = !work_a;
 		});
@@ -39,13 +39,13 @@ TEST (work, cancel)
 
 TEST (work, cancel_many)
 {
-	rai::work_pool pool (std::numeric_limits<unsigned>::max (), nullptr);
-	rai::uint256_union key1 (1);
-	rai::uint256_union key2 (2);
-	rai::uint256_union key3 (1);
-	rai::uint256_union key4 (1);
-	rai::uint256_union key5 (3);
-	rai::uint256_union key6 (1);
+	galileo::work_pool pool (std::numeric_limits<unsigned>::max (), nullptr);
+	galileo::uint256_union key1 (1);
+	galileo::uint256_union key2 (2);
+	galileo::uint256_union key3 (1);
+	galileo::uint256_union key4 (1);
+	galileo::uint256_union key5 (3);
+	galileo::uint256_union key6 (1);
 	pool.generate (key1, [](boost::optional<uint64_t>) {});
 	pool.generate (key2, [](boost::optional<uint64_t>) {});
 	pool.generate (key3, [](boost::optional<uint64_t>) {});
@@ -57,35 +57,35 @@ TEST (work, cancel_many)
 
 TEST (work, DISABLED_opencl)
 {
-	rai::logging logging;
-	logging.init (rai::unique_path ());
-	auto opencl (rai::opencl_work::create (true, { 0, 1, 1024 * 1024 }, logging));
+	galileo::logging logging;
+	logging.init (galileo::unique_path ());
+	auto opencl (galileo::opencl_work::create (true, { 0, 1, 1024 * 1024 }, logging));
 	if (opencl != nullptr)
 	{
-		rai::work_pool pool (std::numeric_limits<unsigned>::max (), opencl ? [&opencl](rai::uint256_union const & root_a) {
+		galileo::work_pool pool (std::numeric_limits<unsigned>::max (), opencl ? [&opencl](galileo::uint256_union const & root_a) {
 			return opencl->generate_work (root_a);
 		}
-		                                                                   : std::function<boost::optional<uint64_t> (rai::uint256_union const &)> (nullptr));
+		                                                                   : std::function<boost::optional<uint64_t> (galileo::uint256_union const &)> (nullptr));
 		ASSERT_NE (nullptr, pool.opencl);
-		rai::uint256_union root;
+		galileo::uint256_union root;
 		for (auto i (0); i < 1; ++i)
 		{
-			rai::random_pool.GenerateBlock (root.bytes.data (), root.bytes.size ());
+			galileo::random_pool.GenerateBlock (root.bytes.data (), root.bytes.size ());
 			auto result (pool.generate (root));
-			ASSERT_FALSE (rai::work_validate (root, result));
+			ASSERT_FALSE (galileo::work_validate (root, result));
 		}
 	}
 }
 
 TEST (work, opencl_config)
 {
-	rai::opencl_config config1;
+	galileo::opencl_config config1;
 	config1.platform = 1;
 	config1.device = 2;
 	config1.threads = 3;
 	boost::property_tree::ptree tree;
 	config1.serialize_json (tree);
-	rai::opencl_config config2;
+	galileo::opencl_config config2;
 	ASSERT_FALSE (config2.deserialize_json (tree));
 	ASSERT_EQ (1, config2.platform);
 	ASSERT_EQ (2, config2.device);

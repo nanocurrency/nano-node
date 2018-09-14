@@ -401,7 +401,7 @@ void printstate (blake2b_state * S)
 	<< std::dec << std::endl;
 }
 
-rai::opencl_environment::opencl_environment (bool & error_a)
+galileo::opencl_environment::opencl_environment (bool & error_a)
 {
 	cl_uint platformIdCount = 0;
 	clGetPlatformIDs (0, nullptr, &platformIdCount);
@@ -409,7 +409,7 @@ rai::opencl_environment::opencl_environment (bool & error_a)
 	clGetPlatformIDs (platformIdCount, platformIds.data (), nullptr);
 	for (auto i (platformIds.begin ()), n (platformIds.end ()); i != n; ++i)
 	{
-		rai::opencl_platform platform;
+		galileo::opencl_platform platform;
 		platform.platform = *i;
 		cl_uint deviceIdCount = 0;
 		clGetDeviceIDs (*i, CL_DEVICE_TYPE_ALL, 0, nullptr, &deviceIdCount);
@@ -423,7 +423,7 @@ rai::opencl_environment::opencl_environment (bool & error_a)
 	}
 }
 
-void rai::opencl_environment::dump (std::ostream & stream)
+void galileo::opencl_environment::dump (std::ostream & stream)
 {
 	auto index (0);
 	auto device_count (0);
@@ -498,28 +498,28 @@ void rai::opencl_environment::dump (std::ostream & stream)
 	}
 }
 
-rai::opencl_config::opencl_config () :
+galileo::opencl_config::opencl_config () :
 platform (0),
 device (0),
 threads (1024 * 1024)
 {
 }
 
-rai::opencl_config::opencl_config (unsigned platform_a, unsigned device_a, unsigned threads_a) :
+galileo::opencl_config::opencl_config (unsigned platform_a, unsigned device_a, unsigned threads_a) :
 platform (platform_a),
 device (device_a),
 threads (threads_a)
 {
 }
 
-void rai::opencl_config::serialize_json (boost::property_tree::ptree & tree_a) const
+void galileo::opencl_config::serialize_json (boost::property_tree::ptree & tree_a) const
 {
 	tree_a.put ("platform", std::to_string (platform));
 	tree_a.put ("device", std::to_string (device));
 	tree_a.put ("threads", std::to_string (threads));
 }
 
-bool rai::opencl_config::deserialize_json (boost::property_tree::ptree const & tree_a)
+bool galileo::opencl_config::deserialize_json (boost::property_tree::ptree const & tree_a)
 {
 	auto result (false);
 	try
@@ -545,7 +545,7 @@ bool rai::opencl_config::deserialize_json (boost::property_tree::ptree const & t
 	return result;
 }
 
-rai::opencl_work::opencl_work (bool & error_a, rai::opencl_config const & config_a, rai::opencl_environment & environment_a, rai::logging & logging_a) :
+galileo::opencl_work::opencl_work (bool & error_a, galileo::opencl_config const & config_a, galileo::opencl_environment & environment_a, galileo::logging & logging_a) :
 config (config_a),
 context (0),
 attempt_buffer (0),
@@ -563,7 +563,7 @@ logging (logging_a)
 		error_a |= config.device >= platform.devices.size ();
 		if (!error_a)
 		{
-			rai::random_pool.GenerateBlock (reinterpret_cast<uint8_t *> (rand.s.data ()), rand.s.size () * sizeof (decltype (rand.s)::value_type));
+			galileo::random_pool.GenerateBlock (reinterpret_cast<uint8_t *> (rand.s.data ()), rand.s.size () * sizeof (decltype (rand.s)::value_type));
 			std::array<cl_device_id, 1> selected_devices;
 			selected_devices[0] = platform.devices[config.device];
 			cl_context_properties contextProperties[] = {
@@ -592,7 +592,7 @@ logging (logging_a)
 						if (!error_a)
 						{
 							cl_int item_error (0);
-							size_t item_size (sizeof (rai::uint256_union));
+							size_t item_size (sizeof (galileo::uint256_union));
 							item_buffer = clCreateBuffer (context, 0, item_size, nullptr, &item_error);
 							error_a |= item_error != CL_SUCCESS;
 							if (!error_a)
@@ -700,7 +700,7 @@ logging (logging_a)
 	}
 }
 
-rai::opencl_work::~opencl_work ()
+galileo::opencl_work::~opencl_work ()
 {
 	if (kernel != 0)
 	{
@@ -716,20 +716,20 @@ rai::opencl_work::~opencl_work ()
 	}
 }
 
-boost::optional<uint64_t> rai::opencl_work::generate_work (rai::uint256_union const & root_a)
+boost::optional<uint64_t> galileo::opencl_work::generate_work (galileo::uint256_union const & root_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	bool error (false);
 	uint64_t result (0);
 	unsigned thread_count (config.threads);
 	size_t work_size[] = { thread_count, 0, 0 };
-	while (rai::work_validate (root_a, result) && !error)
+	while (galileo::work_validate (root_a, result) && !error)
 	{
 		result = rand.next ();
 		cl_int write_error1 = clEnqueueWriteBuffer (queue, attempt_buffer, false, 0, sizeof (uint64_t), &result, 0, nullptr, nullptr);
 		if (write_error1 == CL_SUCCESS)
 		{
-			cl_int write_error2 = clEnqueueWriteBuffer (queue, item_buffer, false, 0, sizeof (rai::uint256_union), root_a.bytes.data (), 0, nullptr, nullptr);
+			cl_int write_error2 = clEnqueueWriteBuffer (queue, item_buffer, false, 0, sizeof (galileo::uint256_union), root_a.bytes.data (), 0, nullptr, nullptr);
 			if (write_error2 == CL_SUCCESS)
 			{
 				cl_int enqueue_error = clEnqueueNDRangeKernel (queue, kernel, 1, nullptr, work_size, nullptr, 0, nullptr, nullptr);
@@ -780,19 +780,19 @@ boost::optional<uint64_t> rai::opencl_work::generate_work (rai::uint256_union co
 	return value;
 }
 
-std::unique_ptr<rai::opencl_work> rai::opencl_work::create (bool create_a, rai::opencl_config const & config_a, rai::logging & logging_a)
+std::unique_ptr<galileo::opencl_work> galileo::opencl_work::create (bool create_a, galileo::opencl_config const & config_a, galileo::logging & logging_a)
 {
-	std::unique_ptr<rai::opencl_work> result;
+	std::unique_ptr<galileo::opencl_work> result;
 	if (create_a)
 	{
 		auto error (false);
-		rai::opencl_environment environment (error);
+		galileo::opencl_environment environment (error);
 		std::stringstream stream;
 		environment.dump (stream);
 		BOOST_LOG (logging_a.log) << stream.str ();
 		if (!error)
 		{
-			result.reset (new rai::opencl_work (error, config_a, environment, logging_a));
+			result.reset (new galileo::opencl_work (error, config_a, environment, logging_a));
 			if (error)
 			{
 				result.reset ();

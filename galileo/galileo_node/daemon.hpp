@@ -1,7 +1,7 @@
-#include <rai/node/node.hpp>
-#include <rai/node/rpc.hpp>
+#include <galileo/node/node.hpp>
+#include <galileo/node/rpc.hpp>
 
-namespace rai_daemon
+namespace galileo_daemon
 {
 class daemon
 {
@@ -16,9 +16,9 @@ public:
 	void serialize_json (boost::property_tree::ptree &);
 	bool upgrade_json (unsigned, boost::property_tree::ptree &);
 	bool rpc_enable;
-	rai::rpc_config rpc;
-	rai::node_config node;
+	galileo::rpc_config rpc;
+	galileo::node_config node;
 	bool opencl_enable;
-	rai::opencl_config opencl;
+	galileo::opencl_config opencl;
 };
 }

@@ -57,9 +57,9 @@ public:
 	rai_test_genesis (test_genesis_data),
 	rai_beta_genesis (beta_genesis_data),
 	rai_live_genesis (live_genesis_data),
-	genesis_account (rai::rai_network == rai::rai_networks::rai_test_network ? rai_test_account : rai::rai_network == rai::rai_networks::rai_beta_network ? rai_beta_account : rai_live_account),
-	genesis_block (rai::rai_network == rai::rai_networks::rai_test_network ? rai_test_genesis : rai::rai_network == rai::rai_networks::rai_beta_network ? rai_beta_genesis : rai_live_genesis),
-	genesis_amount (std::numeric_limits<rai::uint128_t>::max ()),
+	genesis_account (galileo::rai_network == galileo::rai_networks::rai_test_network ? galileo_test_account : galileo::rai_network == galileo::rai_networks::rai_beta_network ? galileo_beta_account : galileo_live_account),
+	genesis_block (galileo::rai_network == galileo::rai_networks::rai_test_network ? galileo_test_genesis : galileo::rai_network == galileo::rai_networks::rai_beta_network ? galileo_beta_genesis : galileo_live_genesis),
+	genesis_amount (std::numeric_limits<galileo::uint128_t>::max ()),
 	burn_account (0)
 	{
 		CryptoPP::AutoSeededRandomPool random_pool;
@@ -67,62 +67,62 @@ public:
 		random_pool.GenerateBlock (not_a_block.bytes.data (), not_a_block.bytes.size ());
 		random_pool.GenerateBlock (not_an_account.bytes.data (), not_an_account.bytes.size ());
 	}
-	rai::keypair zero_key;
-	rai::keypair test_genesis_key;
-	rai::account rai_test_account;
-	rai::account rai_beta_account;
-	rai::account rai_live_account;
-	std::string rai_test_genesis;
-	std::string rai_beta_genesis;
-	std::string rai_live_genesis;
-	rai::account genesis_account;
+	galileo::keypair zero_key;
+	galileo::keypair test_genesis_key;
+	galileo::account galileo_test_account;
+	galileo::account galileo_beta_account;
+	galileo::account galileo_live_account;
+	std::string galileo_test_genesis;
+	std::string galileo_beta_genesis;
+	std::string galileo_live_genesis;
+	galileo::account genesis_account;
 	std::string genesis_block;
-	rai::uint128_t genesis_amount;
-	rai::block_hash not_a_block;
-	rai::account not_an_account;
-	rai::account burn_account;
+	galileo::uint128_t genesis_amount;
+	galileo::block_hash not_a_block;
+	galileo::account not_an_account;
+	galileo::account burn_account;
 };
 ledger_constants globals;
 }
 
-size_t constexpr rai::send_block::size;
-size_t constexpr rai::receive_block::size;
-size_t constexpr rai::open_block::size;
-size_t constexpr rai::change_block::size;
-size_t constexpr rai::state_block::size;
+size_t constexpr galileo::send_block::size;
+size_t constexpr galileo::receive_block::size;
+size_t constexpr galileo::open_block::size;
+size_t constexpr galileo::change_block::size;
+size_t constexpr galileo::state_block::size;
 
-rai::keypair const & rai::zero_key (globals.zero_key);
-rai::keypair const & rai::test_genesis_key (globals.test_genesis_key);
-rai::account const & rai::rai_test_account (globals.rai_test_account);
-rai::account const & rai::rai_beta_account (globals.rai_beta_account);
-rai::account const & rai::rai_live_account (globals.rai_live_account);
-std::string const & rai::rai_test_genesis (globals.rai_test_genesis);
-std::string const & rai::rai_beta_genesis (globals.rai_beta_genesis);
-std::string const & rai::rai_live_genesis (globals.rai_live_genesis);
+galileo::keypair const & galileo::zero_key (globals.zero_key);
+galileo::keypair const & galileo::test_genesis_key (globals.test_genesis_key);
+galileo::account const & galileo::rai_test_account (globals.rai_test_account);
+galileo::account const & galileo::rai_beta_account (globals.rai_beta_account);
+galileo::account const & galileo::rai_live_account (globals.rai_live_account);
+std::string const & galileo::rai_test_genesis (globals.rai_test_genesis);
+std::string const & galileo::rai_beta_genesis (globals.rai_beta_genesis);
+std::string const & galileo::rai_live_genesis (globals.rai_live_genesis);
 
-rai::account const & rai::genesis_account (globals.genesis_account);
-std::string const & rai::genesis_block (globals.genesis_block);
-rai::uint128_t const & rai::genesis_amount (globals.genesis_amount);
-rai::block_hash const & rai::not_a_block (globals.not_a_block);
-rai::block_hash const & rai::not_an_account (globals.not_an_account);
-rai::account const & rai::burn_account (globals.burn_account);
+galileo::account const & galileo::genesis_account (globals.genesis_account);
+std::string const & galileo::genesis_block (globals.genesis_block);
+galileo::uint128_t const & galileo::genesis_amount (globals.genesis_amount);
+galileo::block_hash const & galileo::not_a_block (globals.not_a_block);
+galileo::block_hash const & galileo::not_an_account (globals.not_an_account);
+galileo::account const & galileo::burn_account (globals.burn_account);
 
 // Create a new random keypair
-rai::keypair::keypair ()
+galileo::keypair::keypair ()
 {
 	random_pool.GenerateBlock (prv.data.bytes.data (), prv.data.bytes.size ());
 	ed25519_publickey (prv.data.bytes.data (), pub.bytes.data ());
 }
 
 // Create a keypair given a private key
-rai::keypair::keypair (rai::raw_key && prv_a) :
+galileo::keypair::keypair (galileo::raw_key && prv_a) :
 prv (std::move (prv_a))
 {
 	ed25519_publickey (prv.data.bytes.data (), pub.bytes.data ());
 }
 
 // Create a keypair given a hex string of the private key
-rai::keypair::keypair (std::string const & prv_a)
+galileo::keypair::keypair (std::string const & prv_a)
 {
 	auto error (prv.data.decode_hex (prv_a));
 	assert (!error);
@@ -130,24 +130,24 @@ rai::keypair::keypair (std::string const & prv_a)
 }
 
 // Serialize a block prefixed with an 8-bit typecode
-void rai::serialize_block (rai::stream & stream_a, rai::block const & block_a)
+void galileo::serialize_block (galileo::stream & stream_a, galileo::block const & block_a)
 {
 	write (stream_a, block_a.type ());
 	block_a.serialize (stream_a);
 }
 
-rai::account_info::account_info () :
+galileo::account_info::account_info () :
 head (0),
 rep_block (0),
 open_block (0),
 balance (0),
 modified (0),
 block_count (0),
-epoch (rai::epoch::epoch_0)
+epoch (galileo::epoch::epoch_0)
 {
 }
 
-rai::account_info::account_info (rai::block_hash const & head_a, rai::block_hash const & rep_block_a, rai::block_hash const & open_block_a, rai::amount const & balance_a, uint64_t modified_a, uint64_t block_count_a, rai::epoch epoch_a) :
+galileo::account_info::account_info (galileo::block_hash const & head_a, galileo::block_hash const & rep_block_a, galileo::block_hash const & open_block_a, galileo::amount const & balance_a, uint64_t modified_a, uint64_t block_count_a, galileo::epoch epoch_a) :
 head (head_a),
 rep_block (rep_block_a),
 open_block (open_block_a),
@@ -158,7 +158,7 @@ epoch (epoch_a)
 {
 }
 
-void rai::account_info::serialize (rai::stream & stream_a) const
+void galileo::account_info::serialize (galileo::stream & stream_a) const
 {
 	write (stream_a, head.bytes);
 	write (stream_a, rep_block.bytes);
@@ -168,7 +168,7 @@ void rai::account_info::serialize (rai::stream & stream_a) const
 	write (stream_a, block_count);
 }
 
-bool rai::account_info::deserialize (rai::stream & stream_a)
+bool galileo::account_info::deserialize (galileo::stream & stream_a)
 {
 	auto error (read (stream_a, head.bytes));
 	if (!error)
@@ -194,17 +194,17 @@ bool rai::account_info::deserialize (rai::stream & stream_a)
 	return error;
 }
 
-bool rai::account_info::operator== (rai::account_info const & other_a) const
+bool galileo::account_info::operator== (galileo::account_info const & other_a) const
 {
 	return head == other_a.head && rep_block == other_a.rep_block && open_block == other_a.open_block && balance == other_a.balance && modified == other_a.modified && block_count == other_a.block_count && epoch == other_a.epoch;
 }
 
-bool rai::account_info::operator!= (rai::account_info const & other_a) const
+bool galileo::account_info::operator!= (galileo::account_info const & other_a) const
 {
 	return !(*this == other_a);
 }
 
-size_t rai::account_info::db_size () const
+size_t galileo::account_info::db_size () const
 {
 	assert (reinterpret_cast<const uint8_t *> (this) == reinterpret_cast<const uint8_t *> (&head));
 	assert (reinterpret_cast<const uint8_t *> (&head) + sizeof (head) == reinterpret_cast<const uint8_t *> (&rep_block));
@@ -215,7 +215,7 @@ size_t rai::account_info::db_size () const
 	return sizeof (head) + sizeof (rep_block) + sizeof (open_block) + sizeof (balance) + sizeof (modified) + sizeof (block_count);
 }
 
-rai::block_counts::block_counts () :
+galileo::block_counts::block_counts () :
 send (0),
 receive (0),
 open (0),
@@ -225,113 +225,113 @@ state_v1 (0)
 {
 }
 
-size_t rai::block_counts::sum ()
+size_t galileo::block_counts::sum ()
 {
 	return send + receive + open + change + state_v0 + state_v1;
 }
 
-rai::pending_info::pending_info () :
+galileo::pending_info::pending_info () :
 source (0),
 amount (0),
-epoch (rai::epoch::epoch_0)
+epoch (galileo::epoch::epoch_0)
 {
 }
 
-rai::pending_info::pending_info (rai::account const & source_a, rai::amount const & amount_a, rai::epoch epoch_a) :
+galileo::pending_info::pending_info (galileo::account const & source_a, galileo::amount const & amount_a, galileo::epoch epoch_a) :
 source (source_a),
 amount (amount_a),
 epoch (epoch_a)
 {
 }
 
-void rai::pending_info::serialize (rai::stream & stream_a) const
+void galileo::pending_info::serialize (galileo::stream & stream_a) const
 {
-	rai::write (stream_a, source.bytes);
-	rai::write (stream_a, amount.bytes);
+	galileo::write (stream_a, source.bytes);
+	galileo::write (stream_a, amount.bytes);
 }
 
-bool rai::pending_info::deserialize (rai::stream & stream_a)
+bool galileo::pending_info::deserialize (galileo::stream & stream_a)
 {
-	auto result (rai::read (stream_a, source.bytes));
+	auto result (galileo::read (stream_a, source.bytes));
 	if (!result)
 	{
-		result = rai::read (stream_a, amount.bytes);
+		result = galileo::read (stream_a, amount.bytes);
 	}
 	return result;
 }
 
-bool rai::pending_info::operator== (rai::pending_info const & other_a) const
+bool galileo::pending_info::operator== (galileo::pending_info const & other_a) const
 {
 	return source == other_a.source && amount == other_a.amount && epoch == other_a.epoch;
 }
 
-rai::pending_key::pending_key () :
+galileo::pending_key::pending_key () :
 account (0),
 hash (0)
 {
 }
 
-rai::pending_key::pending_key (rai::account const & account_a, rai::block_hash const & hash_a) :
+galileo::pending_key::pending_key (galileo::account const & account_a, galileo::block_hash const & hash_a) :
 account (account_a),
 hash (hash_a)
 {
 }
 
-void rai::pending_key::serialize (rai::stream & stream_a) const
+void galileo::pending_key::serialize (galileo::stream & stream_a) const
 {
-	rai::write (stream_a, account.bytes);
-	rai::write (stream_a, hash.bytes);
+	galileo::write (stream_a, account.bytes);
+	galileo::write (stream_a, hash.bytes);
 }
 
-bool rai::pending_key::deserialize (rai::stream & stream_a)
+bool galileo::pending_key::deserialize (galileo::stream & stream_a)
 {
-	auto error (rai::read (stream_a, account.bytes));
+	auto error (galileo::read (stream_a, account.bytes));
 	if (!error)
 	{
-		error = rai::read (stream_a, hash.bytes);
+		error = galileo::read (stream_a, hash.bytes);
 	}
 	return error;
 }
 
-bool rai::pending_key::operator== (rai::pending_key const & other_a) const
+bool galileo::pending_key::operator== (galileo::pending_key const & other_a) const
 {
 	return account == other_a.account && hash == other_a.hash;
 }
 
-rai::block_info::block_info () :
+galileo::block_info::block_info () :
 account (0),
 balance (0)
 {
 }
 
-rai::block_info::block_info (rai::account const & account_a, rai::amount const & balance_a) :
+galileo::block_info::block_info (galileo::account const & account_a, galileo::amount const & balance_a) :
 account (account_a),
 balance (balance_a)
 {
 }
 
-void rai::block_info::serialize (rai::stream & stream_a) const
+void galileo::block_info::serialize (galileo::stream & stream_a) const
 {
-	rai::write (stream_a, account.bytes);
-	rai::write (stream_a, balance.bytes);
+	galileo::write (stream_a, account.bytes);
+	galileo::write (stream_a, balance.bytes);
 }
 
-bool rai::block_info::deserialize (rai::stream & stream_a)
+bool galileo::block_info::deserialize (galileo::stream & stream_a)
 {
-	auto error (rai::read (stream_a, account.bytes));
+	auto error (galileo::read (stream_a, account.bytes));
 	if (!error)
 	{
-		error = rai::read (stream_a, balance.bytes);
+		error = galileo::read (stream_a, balance.bytes);
 	}
 	return error;
 }
 
-bool rai::block_info::operator== (rai::block_info const & other_a) const
+bool galileo::block_info::operator== (galileo::block_info const & other_a) const
 {
 	return account == other_a.account && balance == other_a.balance;
 }
 
-bool rai::vote::operator== (rai::vote const & other_a) const
+bool galileo::vote::operator== (galileo::vote const & other_a) const
 {
 	auto blocks_equal (true);
 	if (blocks.size () != other_a.blocks.size ())
@@ -350,14 +350,14 @@ bool rai::vote::operator== (rai::vote const & other_a) const
 			}
 			else if (block.which ())
 			{
-				if (boost::get<rai::block_hash> (block) != boost::get<rai::block_hash> (other_block))
+				if (boost::get<galileo::block_hash> (block) != boost::get<galileo::block_hash> (other_block))
 				{
 					blocks_equal = false;
 				}
 			}
 			else
 			{
-				if (!(*boost::get<std::shared_ptr<rai::block>> (block) == *boost::get<std::shared_ptr<rai::block>> (other_block)))
+				if (!(*boost::get<std::shared_ptr<galileo::block>> (block) == *boost::get<std::shared_ptr<galileo::block>> (other_block)))
 				{
 					blocks_equal = false;
 				}
@@ -367,12 +367,12 @@ bool rai::vote::operator== (rai::vote const & other_a) const
 	return sequence == other_a.sequence && blocks_equal && account == other_a.account && signature == other_a.signature;
 }
 
-bool rai::vote::operator!= (rai::vote const & other_a) const
+bool galileo::vote::operator!= (galileo::vote const & other_a) const
 {
 	return !(*this == other_a);
 }
 
-std::string rai::vote::to_json () const
+std::string galileo::vote::to_json () const
 {
 	std::stringstream stream;
 	boost::property_tree::ptree tree;
@@ -384,11 +384,11 @@ std::string rai::vote::to_json () const
 	{
 		if (block.which ())
 		{
-			blocks_tree.put ("", boost::get<std::shared_ptr<rai::block>> (block)->to_json ());
+			blocks_tree.put ("", boost::get<std::shared_ptr<galileo::block>> (block)->to_json ());
 		}
 		else
 		{
-			blocks_tree.put ("", boost::get<std::shared_ptr<rai::block>> (block)->hash ().to_string ());
+			blocks_tree.put ("", boost::get<std::shared_ptr<galileo::block>> (block)->hash ().to_string ());
 		}
 	}
 	tree.add_child ("blocks", blocks_tree);
@@ -396,7 +396,7 @@ std::string rai::vote::to_json () const
 	return stream.str ();
 }
 
-rai::amount_visitor::amount_visitor (rai::transaction const & transaction_a, rai::block_store & store_a) :
+galileo::amount_visitor::amount_visitor (galileo::transaction const & transaction_a, galileo::block_store & store_a) :
 transaction (transaction_a),
 store (store_a),
 current_amount (0),
@@ -405,45 +405,45 @@ amount (0)
 {
 }
 
-void rai::amount_visitor::send_block (rai::send_block const & block_a)
+void galileo::amount_visitor::send_block (galileo::send_block const & block_a)
 {
 	current_balance = block_a.hashables.previous;
 	amount = block_a.hashables.balance.number ();
 	current_amount = 0;
 }
 
-void rai::amount_visitor::receive_block (rai::receive_block const & block_a)
+void galileo::amount_visitor::receive_block (galileo::receive_block const & block_a)
 {
 	current_amount = block_a.hashables.source;
 }
 
-void rai::amount_visitor::open_block (rai::open_block const & block_a)
+void galileo::amount_visitor::open_block (galileo::open_block const & block_a)
 {
-	if (block_a.hashables.source != rai::genesis_account)
+	if (block_a.hashables.source != galileo::genesis_account)
 	{
 		current_amount = block_a.hashables.source;
 	}
 	else
 	{
-		amount = rai::genesis_amount;
+		amount = galileo::genesis_amount;
 		current_amount = 0;
 	}
 }
 
-void rai::amount_visitor::state_block (rai::state_block const & block_a)
+void galileo::amount_visitor::state_block (galileo::state_block const & block_a)
 {
 	current_balance = block_a.hashables.previous;
 	amount = block_a.hashables.balance.number ();
 	current_amount = 0;
 }
 
-void rai::amount_visitor::change_block (rai::change_block const & block_a)
+void galileo::amount_visitor::change_block (galileo::change_block const & block_a)
 {
 	amount = 0;
 	current_amount = 0;
 }
 
-void rai::amount_visitor::compute (rai::block_hash const & block_hash)
+void galileo::amount_visitor::compute (galileo::block_hash const & block_hash)
 {
 	current_amount = block_hash;
 	while (!current_amount.is_zero () || !current_balance.is_zero ())
@@ -457,9 +457,9 @@ void rai::amount_visitor::compute (rai::block_hash const & block_hash)
 			}
 			else
 			{
-				if (block_hash == rai::genesis_account)
+				if (block_hash == galileo::genesis_account)
 				{
-					amount = std::numeric_limits<rai::uint128_t>::max ();
+					amount = std::numeric_limits<galileo::uint128_t>::max ();
 					current_amount = 0;
 				}
 				else
@@ -480,7 +480,7 @@ void rai::amount_visitor::compute (rai::block_hash const & block_hash)
 	}
 }
 
-rai::balance_visitor::balance_visitor (rai::transaction const & transaction_a, rai::block_store & store_a) :
+galileo::balance_visitor::balance_visitor (galileo::transaction const & transaction_a, galileo::block_store & store_a) :
 transaction (transaction_a),
 store (store_a),
 current_balance (0),
@@ -489,15 +489,15 @@ balance (0)
 {
 }
 
-void rai::balance_visitor::send_block (rai::send_block const & block_a)
+void galileo::balance_visitor::send_block (galileo::send_block const & block_a)
 {
 	balance += block_a.hashables.balance.number ();
 	current_balance = 0;
 }
 
-void rai::balance_visitor::receive_block (rai::receive_block const & block_a)
+void galileo::balance_visitor::receive_block (galileo::receive_block const & block_a)
 {
-	rai::block_info block_info;
+	galileo::block_info block_info;
 	if (!store.block_info_get (transaction, block_a.hash (), block_info))
 	{
 		balance += block_info.balance.number ();
@@ -510,15 +510,15 @@ void rai::balance_visitor::receive_block (rai::receive_block const & block_a)
 	}
 }
 
-void rai::balance_visitor::open_block (rai::open_block const & block_a)
+void galileo::balance_visitor::open_block (galileo::open_block const & block_a)
 {
 	current_amount = block_a.hashables.source;
 	current_balance = 0;
 }
 
-void rai::balance_visitor::change_block (rai::change_block const & block_a)
+void galileo::balance_visitor::change_block (galileo::change_block const & block_a)
 {
-	rai::block_info block_info;
+	galileo::block_info block_info;
 	if (!store.block_info_get (transaction, block_a.hash (), block_info))
 	{
 		balance += block_info.balance.number ();
@@ -530,13 +530,13 @@ void rai::balance_visitor::change_block (rai::change_block const & block_a)
 	}
 }
 
-void rai::balance_visitor::state_block (rai::state_block const & block_a)
+void galileo::balance_visitor::state_block (galileo::state_block const & block_a)
 {
 	balance = block_a.hashables.balance.number ();
 	current_balance = 0;
 }
 
-void rai::balance_visitor::compute (rai::block_hash const & block_hash)
+void galileo::balance_visitor::compute (galileo::block_hash const & block_hash)
 {
 	current_balance = block_hash;
 	while (!current_balance.is_zero () || !current_amount.is_zero ())
@@ -557,14 +557,14 @@ void rai::balance_visitor::compute (rai::block_hash const & block_hash)
 	}
 }
 
-rai::representative_visitor::representative_visitor (rai::transaction const & transaction_a, rai::block_store & store_a) :
+galileo::representative_visitor::representative_visitor (galileo::transaction const & transaction_a, galileo::block_store & store_a) :
 transaction (transaction_a),
 store (store_a),
 result (0)
 {
 }
 
-void rai::representative_visitor::compute (rai::block_hash const & hash_a)
+void galileo::representative_visitor::compute (galileo::block_hash const & hash_a)
 {
 	current = hash_a;
 	while (result.is_zero ())
@@ -575,32 +575,32 @@ void rai::representative_visitor::compute (rai::block_hash const & hash_a)
 	}
 }
 
-void rai::representative_visitor::send_block (rai::send_block const & block_a)
+void galileo::representative_visitor::send_block (galileo::send_block const & block_a)
 {
 	current = block_a.previous ();
 }
 
-void rai::representative_visitor::receive_block (rai::receive_block const & block_a)
+void galileo::representative_visitor::receive_block (galileo::receive_block const & block_a)
 {
 	current = block_a.previous ();
 }
 
-void rai::representative_visitor::open_block (rai::open_block const & block_a)
+void galileo::representative_visitor::open_block (galileo::open_block const & block_a)
 {
 	result = block_a.hash ();
 }
 
-void rai::representative_visitor::change_block (rai::change_block const & block_a)
+void galileo::representative_visitor::change_block (galileo::change_block const & block_a)
 {
 	result = block_a.hash ();
 }
 
-void rai::representative_visitor::state_block (rai::state_block const & block_a)
+void galileo::representative_visitor::state_block (galileo::state_block const & block_a)
 {
 	result = block_a.hash ();
 }
 
-rai::vote::vote (rai::vote const & other_a) :
+galileo::vote::vote (galileo::vote const & other_a) :
 sequence (other_a.sequence),
 blocks (other_a.blocks),
 account (other_a.account),
@@ -608,30 +608,30 @@ signature (other_a.signature)
 {
 }
 
-rai::vote::vote (bool & error_a, rai::stream & stream_a)
+galileo::vote::vote (bool & error_a, galileo::stream & stream_a)
 {
 	error_a = deserialize (stream_a);
 }
 
-rai::vote::vote (bool & error_a, rai::stream & stream_a, rai::block_type type_a)
+galileo::vote::vote (bool & error_a, galileo::stream & stream_a, galileo::block_type type_a)
 {
 	if (!error_a)
 	{
-		error_a = rai::read (stream_a, account.bytes);
+		error_a = galileo::read (stream_a, account.bytes);
 		if (!error_a)
 		{
-			error_a = rai::read (stream_a, signature.bytes);
+			error_a = galileo::read (stream_a, signature.bytes);
 			if (!error_a)
 			{
-				error_a = rai::read (stream_a, sequence);
+				error_a = galileo::read (stream_a, sequence);
 				if (!error_a)
 				{
 					while (!error_a && stream_a.in_avail () > 0)
 					{
-						if (type_a == rai::block_type::not_a_block)
+						if (type_a == galileo::block_type::not_a_block)
 						{
-							rai::block_hash block_hash;
-							error_a = rai::read (stream_a, block_hash);
+							galileo::block_hash block_hash;
+							error_a = galileo::read (stream_a, block_hash);
 							if (!error_a)
 							{
 								blocks.push_back (block_hash);
@@ -639,7 +639,7 @@ rai::vote::vote (bool & error_a, rai::stream & stream_a, rai::block_type type_a)
 						}
 						else
 						{
-							std::shared_ptr<rai::block> block (rai::deserialize_block (stream_a, type_a));
+							std::shared_ptr<galileo::block> block (galileo::deserialize_block (stream_a, type_a));
 							error_a = block == nullptr;
 							if (!error_a)
 							{
@@ -657,15 +657,15 @@ rai::vote::vote (bool & error_a, rai::stream & stream_a, rai::block_type type_a)
 	}
 }
 
-rai::vote::vote (rai::account const & account_a, rai::raw_key const & prv_a, uint64_t sequence_a, std::shared_ptr<rai::block> block_a) :
+galileo::vote::vote (galileo::account const & account_a, galileo::raw_key const & prv_a, uint64_t sequence_a, std::shared_ptr<galileo::block> block_a) :
 sequence (sequence_a),
 blocks (1, block_a),
 account (account_a),
-signature (rai::sign_message (prv_a, account_a, hash ()))
+signature (galileo::sign_message (prv_a, account_a, hash ()))
 {
 }
 
-rai::vote::vote (rai::account const & account_a, rai::raw_key const & prv_a, uint64_t sequence_a, std::vector<rai::block_hash> blocks_a) :
+galileo::vote::vote (galileo::account const & account_a, galileo::raw_key const & prv_a, uint64_t sequence_a, std::vector<galileo::block_hash> blocks_a) :
 sequence (sequence_a),
 account (account_a)
 {
@@ -674,10 +674,10 @@ account (account_a)
 	{
 		blocks.push_back (hash);
 	}
-	signature = rai::sign_message (prv_a, account_a, hash ());
+	signature = galileo::sign_message (prv_a, account_a, hash ());
 }
 
-std::string rai::vote::hashes_string () const
+std::string galileo::vote::hashes_string () const
 {
 	std::string result;
 	for (auto hash : *this)
@@ -688,11 +688,11 @@ std::string rai::vote::hashes_string () const
 	return result;
 }
 
-const std::string rai::vote::hash_prefix = "vote ";
+const std::string galileo::vote::hash_prefix = "vote ";
 
-rai::uint256_union rai::vote::hash () const
+galileo::uint256_union galileo::vote::hash () const
 {
-	rai::uint256_union result;
+	galileo::uint256_union result;
 	blake2b_state hash;
 	blake2b_init (&hash, sizeof (result.bytes));
 	if (blocks.size () > 1 || (blocks.size () > 0 && blocks[0].which ()))
@@ -714,7 +714,7 @@ rai::uint256_union rai::vote::hash () const
 	return result;
 }
 
-void rai::vote::serialize (rai::stream & stream_a, rai::block_type type)
+void galileo::vote::serialize (galileo::stream & stream_a, galileo::block_type type)
 {
 	write (stream_a, account);
 	write (stream_a, signature);
@@ -723,24 +723,24 @@ void rai::vote::serialize (rai::stream & stream_a, rai::block_type type)
 	{
 		if (block.which ())
 		{
-			assert (type == rai::block_type::not_a_block);
-			write (stream_a, boost::get<rai::block_hash> (block));
+			assert (type == galileo::block_type::not_a_block);
+			write (stream_a, boost::get<galileo::block_hash> (block));
 		}
 		else
 		{
-			if (type == rai::block_type::not_a_block)
+			if (type == galileo::block_type::not_a_block)
 			{
-				write (stream_a, boost::get<std::shared_ptr<rai::block>> (block)->hash ());
+				write (stream_a, boost::get<std::shared_ptr<galileo::block>> (block)->hash ());
 			}
 			else
 			{
-				boost::get<std::shared_ptr<rai::block>> (block)->serialize (stream_a);
+				boost::get<std::shared_ptr<galileo::block>> (block)->serialize (stream_a);
 			}
 		}
 	}
 }
 
-void rai::vote::serialize (rai::stream & stream_a)
+void galileo::vote::serialize (galileo::stream & stream_a)
 {
 	write (stream_a, account);
 	write (stream_a, signature);
@@ -749,17 +749,17 @@ void rai::vote::serialize (rai::stream & stream_a)
 	{
 		if (block.which ())
 		{
-			write (stream_a, rai::block_type::not_a_block);
-			write (stream_a, boost::get<rai::block_hash> (block));
+			write (stream_a, galileo::block_type::not_a_block);
+			write (stream_a, boost::get<galileo::block_hash> (block));
 		}
 		else
 		{
-			rai::serialize_block (stream_a, *boost::get<std::shared_ptr<rai::block>> (block));
+			galileo::serialize_block (stream_a, *boost::get<std::shared_ptr<galileo::block>> (block));
 		}
 	}
 }
 
-bool rai::vote::deserialize (rai::stream & stream_a)
+bool galileo::vote::deserialize (galileo::stream & stream_a)
 {
 	auto result (read (stream_a, account));
 	if (!result)
@@ -770,10 +770,10 @@ bool rai::vote::deserialize (rai::stream & stream_a)
 			result = read (stream_a, sequence);
 			if (!result)
 			{
-				rai::block_type type;
+				galileo::block_type type;
 				while (!result)
 				{
-					if (rai::read (stream_a, type))
+					if (galileo::read (stream_a, type))
 					{
 						if (blocks.empty ())
 						{
@@ -783,10 +783,10 @@ bool rai::vote::deserialize (rai::stream & stream_a)
 					}
 					if (!result)
 					{
-						if (type == rai::block_type::not_a_block)
+						if (type == galileo::block_type::not_a_block)
 						{
-							rai::block_hash block_hash;
-							result = rai::read (stream_a, block_hash);
+							galileo::block_hash block_hash;
+							result = galileo::read (stream_a, block_hash);
 							if (!result)
 							{
 								blocks.push_back (block_hash);
@@ -794,7 +794,7 @@ bool rai::vote::deserialize (rai::stream & stream_a)
 						}
 						else
 						{
-							std::shared_ptr<rai::block> block (rai::deserialize_block (stream_a, type));
+							std::shared_ptr<galileo::block> block (galileo::deserialize_block (stream_a, type));
 							result = block == nullptr;
 							if (!result)
 							{
@@ -809,47 +809,47 @@ bool rai::vote::deserialize (rai::stream & stream_a)
 	return result;
 }
 
-bool rai::vote::validate ()
+bool galileo::vote::validate ()
 {
-	auto result (rai::validate_message (account, hash (), signature));
+	auto result (galileo::validate_message (account, hash (), signature));
 	return result;
 }
 
-rai::block_hash rai::iterate_vote_blocks_as_hash::operator() (boost::variant<std::shared_ptr<rai::block>, rai::block_hash> const & item) const
+galileo::block_hash galileo::iterate_vote_blocks_as_hash::operator() (boost::variant<std::shared_ptr<galileo::block>, galileo::block_hash> const & item) const
 {
-	rai::block_hash result;
+	galileo::block_hash result;
 	if (item.which ())
 	{
-		result = boost::get<rai::block_hash> (item);
+		result = boost::get<galileo::block_hash> (item);
 	}
 	else
 	{
-		result = boost::get<std::shared_ptr<rai::block>> (item)->hash ();
+		result = boost::get<std::shared_ptr<galileo::block>> (item)->hash ();
 	}
 	return result;
 }
 
-boost::transform_iterator<rai::iterate_vote_blocks_as_hash, rai::vote_blocks_vec_iter> rai::vote::begin () const
+boost::transform_iterator<galileo::iterate_vote_blocks_as_hash, galileo::vote_blocks_vec_iter> galileo::vote::begin () const
 {
-	return boost::transform_iterator<rai::iterate_vote_blocks_as_hash, rai::vote_blocks_vec_iter> (blocks.begin (), rai::iterate_vote_blocks_as_hash ());
+	return boost::transform_iterator<galileo::iterate_vote_blocks_as_hash, galileo::vote_blocks_vec_iter> (blocks.begin (), galileo::iterate_vote_blocks_as_hash ());
 }
 
-boost::transform_iterator<rai::iterate_vote_blocks_as_hash, rai::vote_blocks_vec_iter> rai::vote::end () const
+boost::transform_iterator<galileo::iterate_vote_blocks_as_hash, galileo::vote_blocks_vec_iter> galileo::vote::end () const
 {
-	return boost::transform_iterator<rai::iterate_vote_blocks_as_hash, rai::vote_blocks_vec_iter> (blocks.end (), rai::iterate_vote_blocks_as_hash ());
+	return boost::transform_iterator<galileo::iterate_vote_blocks_as_hash, galileo::vote_blocks_vec_iter> (blocks.end (), galileo::iterate_vote_blocks_as_hash ());
 }
 
-rai::genesis::genesis ()
+galileo::genesis::genesis ()
 {
 	boost::property_tree::ptree tree;
-	std::stringstream istream (rai::genesis_block);
+	std::stringstream istream (galileo::genesis_block);
 	boost::property_tree::read_json (istream, tree);
-	auto block (rai::deserialize_block_json (tree));
-	assert (dynamic_cast<rai::open_block *> (block.get ()) != nullptr);
-	open.reset (static_cast<rai::open_block *> (block.release ()));
+	auto block (galileo::deserialize_block_json (tree));
+	assert (dynamic_cast<galileo::open_block *> (block.get ()) != nullptr);
+	open.reset (static_cast<galileo::open_block *> (block.release ()));
 }
 
-rai::block_hash rai::genesis::hash () const
+galileo::block_hash galileo::genesis::hash () const
 {
 	return open->hash ();
 }

@@ -1,18 +1,18 @@
 #include <gtest/gtest.h>
 
-#include <rai/core_test/testutil.hpp>
-#include <rai/node/testing.hpp>
+#include <galileo/core_test/testutil.hpp>
+#include <galileo/node/testing.hpp>
 
 using namespace std::chrono_literals;
 
 TEST (wallets, open_create)
 {
-	rai::system system (24000, 1);
+	galileo::system system (24000, 1);
 	bool error (false);
-	rai::wallets wallets (error, *system.nodes[0]);
+	galileo::wallets wallets (error, *system.nodes[0]);
 	ASSERT_FALSE (error);
 	ASSERT_EQ (1, wallets.items.size ()); // it starts out with a default wallet
-	rai::uint256_union id;
+	galileo::uint256_union id;
 	ASSERT_EQ (nullptr, wallets.open (id));
 	auto wallet (wallets.create (id));
 	ASSERT_NE (nullptr, wallet);
@@ -21,17 +21,17 @@ TEST (wallets, open_create)
 
 TEST (wallets, open_existing)
 {
-	rai::system system (24000, 1);
-	rai::uint256_union id;
+	galileo::system system (24000, 1);
+	galileo::uint256_union id;
 	{
 		bool error (false);
-		rai::wallets wallets (error, *system.nodes[0]);
+		galileo::wallets wallets (error, *system.nodes[0]);
 		ASSERT_FALSE (error);
 		ASSERT_EQ (1, wallets.items.size ());
 		auto wallet (wallets.create (id));
 		ASSERT_NE (nullptr, wallet);
 		ASSERT_EQ (wallet, wallets.open (id));
-		rai::raw_key password;
+		galileo::raw_key password;
 		password.data.clear ();
 		system.deadline_set (10s);
 		while (password.data == 0)
@@ -42,7 +42,7 @@ TEST (wallets, open_existing)
 	}
 	{
 		bool error (false);
-		rai::wallets wallets (error, *system.nodes[0]);
+		galileo::wallets wallets (error, *system.nodes[0]);
 		ASSERT_FALSE (error);
 		ASSERT_EQ (2, wallets.items.size ());
 		ASSERT_NE (nullptr, wallets.open (id));
@@ -51,11 +51,11 @@ TEST (wallets, open_existing)
 
 TEST (wallets, remove)
 {
-	rai::system system (24000, 1);
-	rai::uint256_union one (1);
+	galileo::system system (24000, 1);
+	galileo::uint256_union one (1);
 	{
 		bool error (false);
-		rai::wallets wallets (error, *system.nodes[0]);
+		galileo::wallets wallets (error, *system.nodes[0]);
 		ASSERT_FALSE (error);
 		ASSERT_EQ (1, wallets.items.size ());
 		auto wallet (wallets.create (one));
@@ -66,7 +66,7 @@ TEST (wallets, remove)
 	}
 	{
 		bool error (false);
-		rai::wallets wallets (error, *system.nodes[0]);
+		galileo::wallets wallets (error, *system.nodes[0]);
 		ASSERT_FALSE (error);
 		ASSERT_EQ (1, wallets.items.size ());
 	}
@@ -75,22 +75,22 @@ TEST (wallets, remove)
 // Keeps breaking whenever we add new DBs
 TEST (wallets, DISABLED_wallet_create_max)
 {
-	rai::system system (24000, 1);
+	galileo::system system (24000, 1);
 	bool error (false);
-	rai::wallets wallets (error, *system.nodes[0]);
+	galileo::wallets wallets (error, *system.nodes[0]);
 	const int nonWalletDbs = 19;
 	for (int i = 0; i < system.nodes[0]->config.lmdb_max_dbs - nonWalletDbs; i++)
 	{
-		rai::keypair key;
+		galileo::keypair key;
 		auto wallet = wallets.create (key.pub);
 		auto existing = wallets.items.find (key.pub);
 		ASSERT_TRUE (existing != wallets.items.end ());
-		rai::raw_key seed;
+		galileo::raw_key seed;
 		seed.data = 0;
 		auto transaction (system.nodes[0]->store.tx_begin (true));
 		existing->second->store.seed_set (transaction, seed);
 	}
-	rai::keypair key;
+	galileo::keypair key;
 	wallets.create (key.pub);
 	auto existing = wallets.items.find (key.pub);
 	ASSERT_TRUE (existing == wallets.items.end ());

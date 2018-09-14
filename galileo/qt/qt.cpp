@@ -43,7 +43,7 @@ void show_button_success (QPushButton & button)
 }
 }
 
-bool rai_qt::eventloop_processor::event (QEvent * event_a)
+bool galileo_qt::eventloop_processor::event (QEvent * event_a)
 {
 	assert (dynamic_cast<rai_qt::eventloop_event *> (event_a) != nullptr);
 	static_cast<rai_qt::eventloop_event *> (event_a)->action ();
@@ -56,7 +56,7 @@ action (action_a)
 {
 }
 
-rai_qt::self_pane::self_pane (rai_qt::wallet & wallet_a, rai::account const & account_a) :
+rai_qt::self_pane::self_pane (rai_qt::wallet & wallet_a, galileo::account const & account_a) :
 window (new QWidget),
 layout (new QVBoxLayout),
 self_layout (new QHBoxLayout),
@@ -106,7 +106,7 @@ wallet (wallet_a)
 	});
 }
 
-void rai_qt::self_pane::refresh_balance ()
+void galileo_qt::self_pane::refresh_balance ()
 {
 	auto balance (wallet.node.balance_pending (wallet.account));
 	auto final_text (std::string ("Balance: ") + wallet.format_balance (balance.first));
@@ -165,7 +165,7 @@ wallet (wallet_a)
 	QObject::connect (account_key_button, &QPushButton::released, [this]() {
 		QString key_text_wide (account_key_line->text ());
 		std::string key_text (key_text_wide.toLocal8Bit ());
-		rai::raw_key key;
+		galileo::raw_key key;
 		if (!key.data.decode_hex (key_text))
 		{
 			show_line_ok (*account_key_line);
@@ -214,7 +214,7 @@ wallet (wallet_a)
 		this->wallet.push_main_stack (this->wallet.import.window);
 	});
 	QObject::connect (backup_seed, &QPushButton::released, [this]() {
-		rai::raw_key seed;
+		galileo::raw_key seed;
 		auto transaction (this->wallet.wallet_m->wallets.tx_begin_read ());
 		if (this->wallet.wallet_m->store.valid_password (transaction))
 		{
@@ -250,14 +250,14 @@ wallet (wallet_a)
 	refresh_wallet_balance ();
 }
 
-void rai_qt::accounts::refresh_wallet_balance ()
+void galileo_qt::accounts::refresh_wallet_balance ()
 {
 	auto transaction (this->wallet.wallet_m->wallets.tx_begin_read ());
-	rai::uint128_t balance (0);
-	rai::uint128_t pending (0);
+	galileo::uint128_t balance (0);
+	galileo::uint128_t pending (0);
 	for (auto i (this->wallet.wallet_m->store.begin (transaction)), j (this->wallet.wallet_m->store.end ()); i != j; ++i)
 	{
-		rai::public_key key (i->first);
+		galileo::public_key key (i->first);
 		balance = balance + (this->wallet.node.ledger.account_balance (transaction, key));
 		pending = pending + (this->wallet.node.ledger.account_pending (transaction, key));
 	}
@@ -274,19 +274,19 @@ void rai_qt::accounts::refresh_wallet_balance ()
 	});
 }
 
-void rai_qt::accounts::refresh ()
+void galileo_qt::accounts::refresh ()
 {
 	model->removeRows (0, model->rowCount ());
 	auto transaction (wallet.wallet_m->wallets.tx_begin_read ());
 	QBrush brush;
 	for (auto i (wallet.wallet_m->store.begin (transaction)), j (wallet.wallet_m->store.end ()); i != j; ++i)
 	{
-		rai::public_key key (i->first);
+		galileo::public_key key (i->first);
 		auto balance_amount (wallet.node.ledger.account_balance (transaction, key));
 		bool display (true);
 		switch (wallet.wallet_m->store.key_type (i->second))
 		{
-			case rai::key_type::adhoc:
+			case galileo::key_type::adhoc:
 			{
 				brush.setColor ("red");
 				display = !balance_amount.is_zero ();
@@ -375,7 +375,7 @@ wallet (wallet_a)
 		if (clear_line->text ().toStdString () == "clear keys")
 		{
 			show_line_ok (*clear_line);
-			rai::raw_key seed_l;
+			galileo::raw_key seed_l;
 			if (!seed_l.data.decode_hex (seed->text ().toStdString ()))
 			{
 				bool successful (false);
@@ -461,7 +461,7 @@ wallet (wallet_a)
 	});
 }
 
-rai_qt::history::history (rai::ledger & ledger_a, rai::account const & account_a, rai_qt::wallet & wallet_a) :
+rai_qt::history::history (galileo::ledger & ledger_a, galileo::account const & account_a, galileo_qt::wallet & wallet_a) :
 window (new QWidget),
 layout (new QVBoxLayout),
 model (new QStandardItemModel),
@@ -496,47 +496,47 @@ wallet (wallet_a)
 
 namespace
 {
-class short_text_visitor : public rai::block_visitor
+class short_text_visitor : public galileo::block_visitor
 {
 public:
-	short_text_visitor (rai::transaction const & transaction_a, rai::ledger & ledger_a) :
+	short_text_visitor (galileo::transaction const & transaction_a, galileo::ledger & ledger_a) :
 	transaction (transaction_a),
 	ledger (ledger_a)
 	{
 	}
-	void send_block (rai::send_block const & block_a)
+	void send_block (galileo::send_block const & block_a)
 	{
 		type = "Send";
 		account = block_a.hashables.destination;
 		amount = ledger.amount (transaction, block_a.hash ());
 	}
-	void receive_block (rai::receive_block const & block_a)
+	void receive_block (galileo::receive_block const & block_a)
 	{
 		type = "Receive";
 		account = ledger.account (transaction, block_a.source ());
 		amount = ledger.amount (transaction, block_a.source ());
 	}
-	void open_block (rai::open_block const & block_a)
+	void open_block (galileo::open_block const & block_a)
 	{
 		type = "Receive";
-		if (block_a.hashables.source != rai::genesis_account)
+		if (block_a.hashables.source != galileo::genesis_account)
 		{
 			account = ledger.account (transaction, block_a.hashables.source);
 			amount = ledger.amount (transaction, block_a.hash ());
 		}
 		else
 		{
-			account = rai::genesis_account;
-			amount = rai::genesis_amount;
+			account = galileo::genesis_account;
+			amount = galileo::genesis_amount;
 		}
 	}
-	void change_block (rai::change_block const & block_a)
+	void change_block (galileo::change_block const & block_a)
 	{
 		type = "Change";
 		amount = 0;
 		account = block_a.hashables.representative;
 	}
-	void state_block (rai::state_block const & block_a)
+	void state_block (galileo::state_block const & block_a)
 	{
 		auto balance (block_a.hashables.balance.number ());
 		auto previous_balance (ledger.balance (transaction, block_a.hashables.previous));
@@ -566,15 +566,15 @@ public:
 			amount = balance - previous_balance;
 		}
 	}
-	rai::transaction const & transaction;
-	rai::ledger & ledger;
+	galileo::transaction const & transaction;
+	galileo::ledger & ledger;
 	std::string type;
-	rai::uint128_t amount;
-	rai::account account;
+	galileo::uint128_t amount;
+	galileo::account account;
 };
 }
 
-void rai_qt::history::refresh ()
+void galileo_qt::history::refresh ()
 {
 	auto transaction (ledger.store.tx_begin_read ());
 	model->removeRows (0, model->rowCount ());
@@ -626,7 +626,7 @@ wallet (wallet_a)
 		this->wallet.pop_main_stack ();
 	});
 	QObject::connect (retrieve, &QPushButton::released, [this]() {
-		rai::block_hash hash_l;
+		galileo::block_hash hash_l;
 		if (!hash_l.decode_hex (hash->text ().toStdString ()))
 		{
 			auto transaction (this->wallet.node.store.tx_begin_read ());
@@ -650,7 +650,7 @@ wallet (wallet_a)
 		}
 	});
 	QObject::connect (rebroadcast, &QPushButton::released, [this]() {
-		rai::block_hash block;
+		galileo::block_hash block;
 		auto error (block.decode_hex (hash->text ().toStdString ()));
 		if (!error)
 		{
@@ -672,7 +672,7 @@ wallet (wallet_a)
 	rebroadcast->setToolTip ("Rebroadcast block into the network");
 }
 
-void rai_qt::block_viewer::rebroadcast_action (rai::uint256_union const & hash_a)
+void galileo_qt::block_viewer::rebroadcast_action (galileo::uint256_union const & hash_a)
 {
 	auto done (true);
 	auto transaction (wallet.node.ledger.store.tx_begin_read ());
@@ -786,7 +786,7 @@ wallet (wallet_a)
 	refresh_stats ();
 }
 
-void rai_qt::stats_viewer::refresh_stats ()
+void galileo_qt::stats_viewer::refresh_stats ()
 {
 	model->removeRows (0, model->rowCount ());
 
@@ -842,28 +842,28 @@ wallet (wallet_a)
 	set_text ();
 }
 
-void rai_qt::status::erase (rai_qt::status_types status_a)
+void galileo_qt::status::erase (rai_qt::status_types status_a)
 {
-	assert (status_a != rai_qt::status_types::nominal);
+	assert (status_a != galileo_qt::status_types::nominal);
 	auto erased (active.erase (status_a));
 	(void)erased;
 	set_text ();
 }
 
-void rai_qt::status::insert (rai_qt::status_types status_a)
+void galileo_qt::status::insert (rai_qt::status_types status_a)
 {
-	assert (status_a != rai_qt::status_types::nominal);
+	assert (status_a != galileo_qt::status_types::nominal);
 	active.insert (status_a);
 	set_text ();
 }
 
-void rai_qt::status::set_text ()
+void galileo_qt::status::set_text ()
 {
 	wallet.status->setText (text ().c_str ());
 	wallet.status->setStyleSheet ((std::string ("QLabel {") + color () + "}").c_str ());
 }
 
-std::string rai_qt::status::text ()
+std::string galileo_qt::status::text ()
 {
 	assert (!active.empty ());
 	std::string result;
@@ -878,25 +878,25 @@ std::string rai_qt::status::text ()
 
 	switch (*active.begin ())
 	{
-		case rai_qt::status_types::disconnected:
+		case galileo_qt::status_types::disconnected:
 			result = "Status: Disconnected";
 			break;
-		case rai_qt::status_types::working:
+		case galileo_qt::status_types::working:
 			result = "Status: Generating proof of work";
 			break;
-		case rai_qt::status_types::synchronizing:
+		case galileo_qt::status_types::synchronizing:
 			result = "Status: Synchronizing";
 			break;
-		case rai_qt::status_types::locked:
+		case galileo_qt::status_types::locked:
 			result = "Status: Wallet locked";
 			break;
-		case rai_qt::status_types::vulnerable:
+		case galileo_qt::status_types::vulnerable:
 			result = "Status: Wallet password empty";
 			break;
-		case rai_qt::status_types::active:
+		case galileo_qt::status_types::active:
 			result = "Status: Wallet active";
 			break;
-		case rai_qt::status_types::nominal:
+		case galileo_qt::status_types::nominal:
 			result = "Status: Running";
 			break;
 		default:
@@ -914,31 +914,31 @@ std::string rai_qt::status::text ()
 	return result;
 }
 
-std::string rai_qt::status::color ()
+std::string galileo_qt::status::color ()
 {
 	assert (!active.empty ());
 	std::string result;
 	switch (*active.begin ())
 	{
-		case rai_qt::status_types::disconnected:
+		case galileo_qt::status_types::disconnected:
 			result = "color: red";
 			break;
-		case rai_qt::status_types::working:
+		case galileo_qt::status_types::working:
 			result = "color: blue";
 			break;
-		case rai_qt::status_types::synchronizing:
+		case galileo_qt::status_types::synchronizing:
 			result = "color: blue";
 			break;
-		case rai_qt::status_types::locked:
+		case galileo_qt::status_types::locked:
 			result = "color: orange";
 			break;
-		case rai_qt::status_types::vulnerable:
+		case galileo_qt::status_types::vulnerable:
 			result = "color: blue";
 			break;
-		case rai_qt::status_types::active:
+		case galileo_qt::status_types::active:
 			result = "color: black";
 			break;
-		case rai_qt::status_types::nominal:
+		case galileo_qt::status_types::nominal:
 			result = "color: black";
 			break;
 		default:
@@ -948,8 +948,8 @@ std::string rai_qt::status::color ()
 	return result;
 }
 
-rai_qt::wallet::wallet (QApplication & application_a, rai_qt::eventloop_processor & processor_a, rai::node & node_a, std::shared_ptr<rai::wallet> wallet_a, rai::account & account_a) :
-rendering_ratio (rai::Mxrb_ratio),
+rai_qt::wallet::wallet (QApplication & application_a, galileo_qt::eventloop_processor & processor_a, galileo::node & node_a, std::shared_ptr<galileo::wallet> wallet_a, galileo::account & account_a) :
+rendering_ratio (galileo::Mxrb_ratio),
 node (node_a),
 wallet_m (wallet_a),
 account (account_a),
@@ -992,7 +992,7 @@ active_status (*this)
 	empty_password ();
 	settings.update_locked (true, true);
 	send_blocks_layout->addWidget (send_account_label);
-	send_account->setPlaceholderText (rai::zero_key.pub.to_account ().c_str ());
+	send_account->setPlaceholderText (galileo::zero_key.pub.to_account ().c_str ());
 	send_blocks_layout->addWidget (send_account);
 	send_blocks_layout->addWidget (send_count_label);
 	send_count->setPlaceholderText ("0");
@@ -1043,7 +1043,7 @@ active_status (*this)
 	refresh ();
 }
 
-void rai_qt::wallet::start ()
+void galileo_qt::wallet::start ()
 {
 	std::weak_ptr<rai_qt::wallet> this_w (shared_from_this ());
 	QObject::connect (settings_button, &QPushButton::released, [this_w]() {
@@ -1069,15 +1069,15 @@ void rai_qt::wallet::start ()
 		{
 			show_line_ok (*this_l->send_count);
 			show_line_ok (*this_l->send_account);
-			rai::amount amount;
+			galileo::amount amount;
 			if (!amount.decode_dec (this_l->send_count->text ().toStdString ()))
 			{
-				rai::uint128_t actual (amount.number () * this_l->rendering_ratio);
+				galileo::uint128_t actual (amount.number () * this_l->rendering_ratio);
 				if (actual / this_l->rendering_ratio == amount.number ())
 				{
 					QString account_text (this_l->send_account->text ());
 					std::string account_text_narrow (account_text.toLocal8Bit ());
-					rai::account account_l;
+					galileo::account account_l;
 					auto parse_error (account_l.decode_account (account_text_narrow));
 					if (!parse_error)
 					{
@@ -1091,7 +1091,7 @@ void rai_qt::wallet::start ()
 								this_l->node.background ([this_w, account_l, actual]() {
 									if (auto this_l = this_w.lock ())
 									{
-										this_l->wallet_m->send_async (this_l->account, account_l, actual, [this_w](std::shared_ptr<rai::block> block_a) {
+										this_l->wallet_m->send_async (this_l->account, account_l, actual, [this_w](std::shared_ptr<galileo::block> block_a) {
 											if (auto this_l = this_w.lock ())
 											{
 												auto succeeded (block_a != nullptr);
@@ -1227,7 +1227,7 @@ void rai_qt::wallet::start ()
 			this_l->push_main_stack (this_l->send_blocks_window);
 		}
 	});
-	node.observers.blocks.add ([this_w](std::shared_ptr<rai::block> block_a, rai::account const & account_a, rai::uint128_t const & amount_a, bool) {
+	node.observers.blocks.add ([this_w](std::shared_ptr<galileo::block> block_a, galileo::account const & account_a, galileo::uint128_t const & amount_a, bool) {
 		if (auto this_l = this_w.lock ())
 		{
 			this_l->application.postEvent (&this_l->processor, new eventloop_event ([this_w, block_a, account_a]() {
@@ -1245,7 +1245,7 @@ void rai_qt::wallet::start ()
 			}));
 		}
 	});
-	node.observers.account_balance.add ([this_w](rai::account const & account_a, bool is_pending) {
+	node.observers.account_balance.add ([this_w](galileo::account const & account_a, bool is_pending) {
 		if (auto this_l = this_w.lock ())
 		{
 			this_l->application.postEvent (&this_l->processor, new eventloop_event ([this_w, account_a]() {
@@ -1277,7 +1277,7 @@ void rai_qt::wallet::start ()
 			}));
 		}
 	});
-	node.observers.endpoint.add ([this_w](rai::endpoint const &) {
+	node.observers.endpoint.add ([this_w](galileo::endpoint const &) {
 		if (auto this_l = this_w.lock ())
 		{
 			this_l->application.postEvent (&this_l->processor, new eventloop_event ([this_w]() {
@@ -1349,7 +1349,7 @@ void rai_qt::wallet::start ()
 	settings_button->setToolTip ("Unlock wallet, set password, change representative");
 }
 
-void rai_qt::wallet::refresh ()
+void galileo_qt::wallet::refresh ()
 {
 	{
 		auto transaction (wallet_m->wallets.tx_begin_read ());
@@ -1363,7 +1363,7 @@ void rai_qt::wallet::refresh ()
 	settings.refresh_representative ();
 }
 
-void rai_qt::wallet::update_connected ()
+void galileo_qt::wallet::update_connected ()
 {
 	if (node.peers.empty ())
 	{
@@ -1375,7 +1375,7 @@ void rai_qt::wallet::update_connected ()
 	}
 }
 
-void rai_qt::wallet::empty_password ()
+void galileo_qt::wallet::empty_password ()
 {
 	this->node.alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (3), [this]() {
 		auto transaction (wallet_m->wallets.tx_begin_write ());
@@ -1383,7 +1383,7 @@ void rai_qt::wallet::empty_password ()
 	});
 }
 
-void rai_qt::wallet::change_rendering_ratio (rai::uint128_t const & rendering_ratio_a)
+void galileo_qt::wallet::change_rendering_ratio (galileo::uint128_t const & rendering_ratio_a)
 {
 	application.postEvent (&processor, new eventloop_event ([this, rendering_ratio_a]() {
 		this->rendering_ratio = rendering_ratio_a;
@@ -1391,28 +1391,28 @@ void rai_qt::wallet::change_rendering_ratio (rai::uint128_t const & rendering_ra
 	}));
 }
 
-std::string rai_qt::wallet::format_balance (rai::uint128_t const & balance) const
+std::string galileo_qt::wallet::format_balance (galileo::uint128_t const & balance) const
 {
-	auto balance_str = rai::amount (balance).format_balance (rendering_ratio, 0, false);
+	auto balance_str = galileo::amount (balance).format_balance (rendering_ratio, 0, false);
 	auto unit = std::string ("XRB");
-	if (rendering_ratio == rai::kxrb_ratio)
+	if (rendering_ratio == galileo::kxrb_ratio)
 	{
 		unit = std::string ("kxrb");
 	}
-	else if (rendering_ratio == rai::xrb_ratio)
+	else if (rendering_ratio == galileo::xrb_ratio)
 	{
 		unit = std::string ("xrb");
 	}
 	return balance_str + " " + unit;
 }
 
-void rai_qt::wallet::push_main_stack (QWidget * widget_a)
+void galileo_qt::wallet::push_main_stack (QWidget * widget_a)
 {
 	main_stack->addWidget (widget_a);
 	main_stack->setCurrentIndex (main_stack->count () - 1);
 }
 
-void rai_qt::wallet::pop_main_stack ()
+void galileo_qt::wallet::pop_main_stack ()
 {
 	main_stack->removeWidget (main_stack->currentWidget ());
 }
@@ -1454,7 +1454,7 @@ wallet (wallet_a)
 	layout->addWidget (representative);
 	current_representative->setTextInteractionFlags (Qt::TextSelectableByMouse);
 	layout->addWidget (current_representative);
-	new_representative->setPlaceholderText (rai::zero_key.pub.to_account ().c_str ());
+	new_representative->setPlaceholderText (galileo::zero_key.pub.to_account ().c_str ());
 	layout->addWidget (new_representative);
 	layout->addWidget (change_rep);
 	layout->addStretch ();
@@ -1509,7 +1509,7 @@ wallet (wallet_a)
 		}
 	});
 	QObject::connect (change_rep, &QPushButton::released, [this]() {
-		rai::account representative_l;
+		galileo::account representative_l;
 		if (!representative_l.decode_account (new_representative->text ().toStdString ()))
 		{
 			auto transaction (this->wallet.wallet_m->wallets.tx_begin_read ());
@@ -1568,7 +1568,7 @@ wallet (wallet_a)
 		if (this->wallet.wallet_m->store.valid_password (transaction))
 		{
 			// lock wallet
-			rai::raw_key empty;
+			galileo::raw_key empty;
 			empty.data.clear ();
 			this->wallet.wallet_m->store.password.value_set (empty);
 			update_locked (true, true);
@@ -1623,10 +1623,10 @@ wallet (wallet_a)
 	refresh_representative ();
 }
 
-void rai_qt::settings::refresh_representative ()
+void galileo_qt::settings::refresh_representative ()
 {
 	auto transaction (this->wallet.wallet_m->wallets.node.store.tx_begin_read ());
-	rai::account_info info;
+	galileo::account_info info;
 	auto error (wallet.node.store.account_get (transaction, this->wallet.account, info));
 	if (!error)
 	{
@@ -1640,12 +1640,12 @@ void rai_qt::settings::refresh_representative ()
 	}
 }
 
-void rai_qt::settings::activate ()
+void galileo_qt::settings::activate ()
 {
 	this->wallet.push_main_stack (window);
 }
 
-void rai_qt::settings::update_locked (bool invalid, bool vulnerable)
+void galileo_qt::settings::update_locked (bool invalid, bool vulnerable)
 {
 	if (invalid)
 	{
@@ -1768,19 +1768,19 @@ wallet (wallet_a)
 	QObject::connect (mrai, &QRadioButton::toggled, [this]() {
 		if (mrai->isChecked ())
 		{
-			this->wallet.change_rendering_ratio (rai::Mxrb_ratio);
+			this->wallet.change_rendering_ratio (galileo::Mxrb_ratio);
 		}
 	});
 	QObject::connect (krai, &QRadioButton::toggled, [this]() {
 		if (krai->isChecked ())
 		{
-			this->wallet.change_rendering_ratio (rai::kxrb_ratio);
+			this->wallet.change_rendering_ratio (galileo::kxrb_ratio);
 		}
 	});
 	QObject::connect (rai, &QRadioButton::toggled, [this]() {
 		if (rai->isChecked ())
 		{
-			this->wallet.change_rendering_ratio (rai::xrb_ratio);
+			this->wallet.change_rendering_ratio (galileo::xrb_ratio);
 		}
 	});
 	mrai->click ();
@@ -1802,8 +1802,8 @@ wallet (wallet_a)
 		this->wallet.pop_main_stack ();
 	});
 	QObject::connect (peers_bootstrap, &QPushButton::released, [this]() {
-		rai::endpoint endpoint;
-		auto error (rai::parse_endpoint (bootstrap_line->text ().toStdString (), endpoint));
+		galileo::endpoint endpoint;
+		auto error (galileo::parse_endpoint (bootstrap_line->text ().toStdString (), endpoint));
 		if (!error)
 		{
 			show_line_ok (*bootstrap_line);
@@ -1853,7 +1853,7 @@ wallet (wallet_a)
 	enter_block->setToolTip ("Enter block in JSON format");
 }
 
-void rai_qt::advanced_actions::refresh_peers ()
+void galileo_qt::advanced_actions::refresh_peers ()
 {
 	peers_model->removeRows (0, peers_model->rowCount ());
 	auto list (wallet.node.peers.list_version ());
@@ -1874,17 +1874,17 @@ void rai_qt::advanced_actions::refresh_peers ()
 	peer_count_label->setText (QString ("%1 peers").arg (peers_model->rowCount ()));
 }
 
-void rai_qt::advanced_actions::refresh_ledger ()
+void galileo_qt::advanced_actions::refresh_ledger ()
 {
 	ledger_model->removeRows (0, ledger_model->rowCount ());
 	auto transaction (wallet.node.store.tx_begin_read ());
 	for (auto i (wallet.node.ledger.store.latest_begin (transaction)), j (wallet.node.ledger.store.latest_end ()); i != j; ++i)
 	{
 		QList<QStandardItem *> items;
-		items.push_back (new QStandardItem (QString (rai::block_hash (i->first).to_account ().c_str ())));
-		rai::account_info info (i->second);
+		items.push_back (new QStandardItem (QString (galileo::block_hash (i->first).to_account ().c_str ())));
+		galileo::account_info info (i->second);
 		std::string balance;
-		rai::amount (info.balance.number () / wallet.rendering_ratio).encode_dec (balance);
+		galileo::amount (info.balance.number () / wallet.rendering_ratio).encode_dec (balance);
 		items.push_back (new QStandardItem (QString (balance.c_str ())));
 		std::string block_hash;
 		info.head.encode_hex (block_hash);
@@ -1893,7 +1893,7 @@ void rai_qt::advanced_actions::refresh_ledger ()
 	}
 }
 
-void rai_qt::advanced_actions::refresh_stats ()
+void galileo_qt::advanced_actions::refresh_stats ()
 {
 	wallet.stats_viewer.refresh_stats ();
 }
@@ -1919,7 +1919,7 @@ wallet (wallet_a)
 			boost::property_tree::ptree tree;
 			std::stringstream istream (string);
 			boost::property_tree::read_json (istream, tree);
-			auto block_l (rai::deserialize_block_json (tree));
+			auto block_l (galileo::deserialize_block_json (tree));
 			if (block_l != nullptr)
 			{
 				show_label_ok (*status);
@@ -2078,7 +2078,7 @@ wallet (wallet_a)
 	send->click ();
 }
 
-void rai_qt::block_creation::deactivate_all ()
+void galileo_qt::block_creation::deactivate_all ()
 {
 	account_label->hide ();
 	account->hide ();
@@ -2092,7 +2092,7 @@ void rai_qt::block_creation::deactivate_all ()
 	representative->hide ();
 }
 
-void rai_qt::block_creation::activate_send ()
+void galileo_qt::block_creation::activate_send ()
 {
 	account_label->show ();
 	account->show ();
@@ -2102,13 +2102,13 @@ void rai_qt::block_creation::activate_send ()
 	destination->show ();
 }
 
-void rai_qt::block_creation::activate_receive ()
+void galileo_qt::block_creation::activate_receive ()
 {
 	source_label->show ();
 	source->show ();
 }
 
-void rai_qt::block_creation::activate_open ()
+void galileo_qt::block_creation::activate_open ()
 {
 	source_label->show ();
 	source->show ();
@@ -2116,7 +2116,7 @@ void rai_qt::block_creation::activate_open ()
 	representative->show ();
 }
 
-void rai_qt::block_creation::activate_change ()
+void galileo_qt::block_creation::activate_change ()
 {
 	account_label->show ();
 	account->show ();
@@ -2124,33 +2124,33 @@ void rai_qt::block_creation::activate_change ()
 	representative->show ();
 }
 
-void rai_qt::block_creation::create_send ()
+void galileo_qt::block_creation::create_send ()
 {
-	rai::account account_l;
+	galileo::account account_l;
 	auto error (account_l.decode_account (account->text ().toStdString ()));
 	if (!error)
 	{
-		rai::amount amount_l;
+		galileo::amount amount_l;
 		error = amount_l.decode_dec (amount->text ().toStdString ());
 		if (!error)
 		{
-			rai::account destination_l;
+			galileo::account destination_l;
 			error = destination_l.decode_account (destination->text ().toStdString ());
 			if (!error)
 			{
 				auto transaction (wallet.node.store.tx_begin_read ());
-				rai::raw_key key;
+				galileo::raw_key key;
 				if (!wallet.wallet_m->store.fetch (transaction, account_l, key))
 				{
 					auto balance (wallet.node.ledger.account_balance (transaction, account_l));
 					if (amount_l.number () <= balance)
 					{
-						rai::account_info info;
+						galileo::account_info info;
 						auto error (wallet.node.store.account_get (transaction, account_l, info));
 						assert (!error);
 						auto rep_block (wallet.node.store.block_get (transaction, info.rep_block));
 						assert (rep_block != nullptr);
-						rai::state_block send (account_l, info.head, rep_block->representative (), balance - amount_l.number (), destination_l, key, account_l, 0);
+						galileo::state_block send (account_l, info.head, rep_block->representative (), balance - amount_l.number (), destination_l, key, account_l, 0);
 						wallet.node.work_generate_blocking (send);
 						std::string block_l;
 						send.serialize_json (block_l);
@@ -2189,9 +2189,9 @@ void rai_qt::block_creation::create_send ()
 	}
 }
 
-void rai_qt::block_creation::create_receive ()
+void galileo_qt::block_creation::create_receive ()
 {
-	rai::block_hash source_l;
+	galileo::block_hash source_l;
 	auto error (source_l.decode_hex (source->text ().toStdString ()));
 	if (!error)
 	{
@@ -2202,21 +2202,21 @@ void rai_qt::block_creation::create_receive ()
 			auto destination (wallet.node.ledger.block_destination (transaction, *block_l));
 			if (!destination.is_zero ())
 			{
-				rai::pending_key pending_key (destination, source_l);
-				rai::pending_info pending;
+				galileo::pending_key pending_key (destination, source_l);
+				galileo::pending_info pending;
 				if (!wallet.node.store.pending_get (transaction, pending_key, pending))
 				{
-					rai::account_info info;
+					galileo::account_info info;
 					auto error (wallet.node.store.account_get (transaction, pending_key.account, info));
 					if (!error)
 					{
-						rai::raw_key key;
+						galileo::raw_key key;
 						auto error (wallet.wallet_m->store.fetch (transaction, pending_key.account, key));
 						if (!error)
 						{
 							auto rep_block (wallet.node.store.block_get (transaction, info.rep_block));
 							assert (rep_block != nullptr);
-							rai::state_block receive (pending_key.account, info.head, rep_block->representative (), info.balance.number () + pending.amount.number (), source_l, key, pending_key.account, 0);
+							galileo::state_block receive (pending_key.account, info.head, rep_block->representative (), info.balance.number () + pending.amount.number (), source_l, key, pending_key.account, 0);
 							wallet.node.work_generate_blocking (receive);
 							std::string block_l;
 							receive.serialize_json (block_l);
@@ -2261,26 +2261,26 @@ void rai_qt::block_creation::create_receive ()
 	}
 }
 
-void rai_qt::block_creation::create_change ()
+void galileo_qt::block_creation::create_change ()
 {
-	rai::account account_l;
+	galileo::account account_l;
 	auto error (account_l.decode_account (account->text ().toStdString ()));
 	if (!error)
 	{
-		rai::account representative_l;
+		galileo::account representative_l;
 		error = representative_l.decode_account (representative->text ().toStdString ());
 		if (!error)
 		{
 			auto transaction (wallet.node.store.tx_begin_read ());
-			rai::account_info info;
+			galileo::account_info info;
 			auto error (wallet.node.store.account_get (transaction, account_l, info));
 			if (!error)
 			{
-				rai::raw_key key;
+				galileo::raw_key key;
 				auto error (wallet.wallet_m->store.fetch (transaction, account_l, key));
 				if (!error)
 				{
-					rai::state_block change (account_l, info.head, representative_l, info.balance, 0, key, account_l, 0);
+					galileo::state_block change (account_l, info.head, representative_l, info.balance, 0, key, account_l, 0);
 					wallet.node.work_generate_blocking (change);
 					std::string block_l;
 					change.serialize_json (block_l);
@@ -2313,13 +2313,13 @@ void rai_qt::block_creation::create_change ()
 	}
 }
 
-void rai_qt::block_creation::create_open ()
+void galileo_qt::block_creation::create_open ()
 {
-	rai::block_hash source_l;
+	galileo::block_hash source_l;
 	auto error (source_l.decode_hex (source->text ().toStdString ()));
 	if (!error)
 	{
-		rai::account representative_l;
+		galileo::account representative_l;
 		error = representative_l.decode_account (representative->text ().toStdString ());
 		if (!error)
 		{
@@ -2330,19 +2330,19 @@ void rai_qt::block_creation::create_open ()
 				auto destination (wallet.node.ledger.block_destination (transaction, *block_l));
 				if (!destination.is_zero ())
 				{
-					rai::pending_key pending_key (destination, source_l);
-					rai::pending_info pending;
+					galileo::pending_key pending_key (destination, source_l);
+					galileo::pending_info pending;
 					if (!wallet.node.store.pending_get (transaction, pending_key, pending))
 					{
-						rai::account_info info;
+						galileo::account_info info;
 						auto error (wallet.node.store.account_get (transaction, pending_key.account, info));
 						if (error)
 						{
-							rai::raw_key key;
+							galileo::raw_key key;
 							auto error (wallet.wallet_m->store.fetch (transaction, pending_key.account, key));
 							if (!error)
 							{
-								rai::state_block open (pending_key.account, 0, representative_l, pending.amount, source_l, key, pending_key.account, 0);
+								galileo::state_block open (pending_key.account, 0, representative_l, pending.amount, source_l, key, pending_key.account, 0);
 								wallet.node.work_generate_blocking (open);
 								std::string block_l;
 								open.serialize_json (block_l);

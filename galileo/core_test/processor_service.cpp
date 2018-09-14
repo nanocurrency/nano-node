@@ -1,5 +1,5 @@
 #include <gtest/gtest.h>
-#include <rai/node/node.hpp>
+#include <galileo/node/node.hpp>
 
 #include <atomic>
 #include <condition_variable>
@@ -9,48 +9,48 @@
 TEST (processor_service, bad_send_signature)
 {
 	bool init (false);
-	rai::mdb_store store (init, rai::unique_path ());
+	galileo::mdb_store store (init, galileo::unique_path ());
 	ASSERT_FALSE (init);
-	rai::stat stats;
-	rai::ledger ledger (store, stats);
-	rai::genesis genesis;
+	galileo::stat stats;
+	galileo::ledger ledger (store, stats);
+	galileo::genesis genesis;
 	auto transaction (store.tx_begin (true));
 	store.initialize (transaction, genesis);
-	rai::account_info info1;
-	ASSERT_FALSE (store.account_get (transaction, rai::test_genesis_key.pub, info1));
-	rai::keypair key2;
-	rai::send_block send (info1.head, rai::test_genesis_key.pub, 50, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
-	rai::block_hash hash1 (send.hash ());
+	galileo::account_info info1;
+	ASSERT_FALSE (store.account_get (transaction, galileo::test_genesis_key.pub, info1));
+	galileo::keypair key2;
+	galileo::send_block send (info1.head, galileo::test_genesis_key.pub, 50, galileo::test_genesis_key.prv, galileo::test_genesis_key.pub, 0);
+	galileo::block_hash hash1 (send.hash ());
 	send.signature.bytes[32] ^= 0x1;
-	ASSERT_EQ (rai::process_result::bad_signature, ledger.process (transaction, send).code);
+	ASSERT_EQ (galileo::process_result::bad_signature, ledger.process (transaction, send).code);
 }
 
 TEST (processor_service, bad_receive_signature)
 {
 	bool init (false);
-	rai::mdb_store store (init, rai::unique_path ());
+	galileo::mdb_store store (init, galileo::unique_path ());
 	ASSERT_FALSE (init);
-	rai::stat stats;
-	rai::ledger ledger (store, stats);
-	rai::genesis genesis;
+	galileo::stat stats;
+	galileo::ledger ledger (store, stats);
+	galileo::genesis genesis;
 	auto transaction (store.tx_begin (true));
 	store.initialize (transaction, genesis);
-	rai::account_info info1;
-	ASSERT_FALSE (store.account_get (transaction, rai::test_genesis_key.pub, info1));
-	rai::send_block send (info1.head, rai::test_genesis_key.pub, 50, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
-	rai::block_hash hash1 (send.hash ());
-	ASSERT_EQ (rai::process_result::progress, ledger.process (transaction, send).code);
-	rai::account_info info2;
-	ASSERT_FALSE (store.account_get (transaction, rai::test_genesis_key.pub, info2));
-	rai::receive_block receive (hash1, hash1, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
+	galileo::account_info info1;
+	ASSERT_FALSE (store.account_get (transaction, galileo::test_genesis_key.pub, info1));
+	galileo::send_block send (info1.head, galileo::test_genesis_key.pub, 50, galileo::test_genesis_key.prv, galileo::test_genesis_key.pub, 0);
+	galileo::block_hash hash1 (send.hash ());
+	ASSERT_EQ (galileo::process_result::progress, ledger.process (transaction, send).code);
+	galileo::account_info info2;
+	ASSERT_FALSE (store.account_get (transaction, galileo::test_genesis_key.pub, info2));
+	galileo::receive_block receive (hash1, hash1, galileo::test_genesis_key.prv, galileo::test_genesis_key.pub, 0);
 	receive.signature.bytes[32] ^= 0x1;
-	ASSERT_EQ (rai::process_result::bad_signature, ledger.process (transaction, receive).code);
+	ASSERT_EQ (galileo::process_result::bad_signature, ledger.process (transaction, receive).code);
 }
 
 TEST (alarm, one)
 {
 	boost::asio::io_service service;
-	rai::alarm alarm (service);
+	galileo::alarm alarm (service);
 	std::atomic<bool> done (false);
 	std::mutex mutex;
 	std::condition_variable condition;
@@ -70,7 +70,7 @@ TEST (alarm, one)
 TEST (alarm, many)
 {
 	boost::asio::io_service service;
-	rai::alarm alarm (service);
+	galileo::alarm alarm (service);
 	std::atomic<int> count (0);
 	std::mutex mutex;
 	std::condition_variable condition;
@@ -100,7 +100,7 @@ TEST (alarm, many)
 TEST (alarm, top_execution)
 {
 	boost::asio::io_service service;
-	rai::alarm alarm (service);
+	galileo::alarm alarm (service);
 	int value1 (0);
 	int value2 (0);
 	std::mutex mutex;

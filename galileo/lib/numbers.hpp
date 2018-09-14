@@ -13,12 +13,12 @@ using uint128_t = boost::multiprecision::uint128_t;
 using uint256_t = boost::multiprecision::uint256_t;
 using uint512_t = boost::multiprecision::uint512_t;
 // SI dividers
-rai::uint128_t const Gxrb_ratio = rai::uint128_t ("1000000000000000000000000000000000"); // 10^33
-rai::uint128_t const Mxrb_ratio = rai::uint128_t ("1000000000000000000000000000000"); // 10^30
-rai::uint128_t const kxrb_ratio = rai::uint128_t ("1000000000000000000000000000"); // 10^27
-rai::uint128_t const xrb_ratio = rai::uint128_t ("1000000000000000000000000"); // 10^24
-rai::uint128_t const mxrb_ratio = rai::uint128_t ("1000000000000000000000"); // 10^21
-rai::uint128_t const uxrb_ratio = rai::uint128_t ("1000000000000000000"); // 10^18
+galileo::uint128_t const Gxrb_ratio = galileo::uint128_t ("1000000000000000000000000000000000"); // 10^33
+galileo::uint128_t const Mxrb_ratio = galileo::uint128_t ("1000000000000000000000000000000"); // 10^30
+galileo::uint128_t const kxrb_ratio = galileo::uint128_t ("1000000000000000000000000000"); // 10^27
+galileo::uint128_t const xrb_ratio = galileo::uint128_t ("1000000000000000000000000"); // 10^24
+galileo::uint128_t const mxrb_ratio = galileo::uint128_t ("1000000000000000000000"); // 10^21
+galileo::uint128_t const uxrb_ratio = galileo::uint128_t ("1000000000000000000"); // 10^18
 
 union uint128_union
 {
@@ -30,19 +30,19 @@ public:
 	 */
 	uint128_union (std::string const &);
 	uint128_union (uint64_t);
-	uint128_union (rai::uint128_union const &) = default;
-	uint128_union (rai::uint128_t const &);
-	bool operator== (rai::uint128_union const &) const;
-	bool operator!= (rai::uint128_union const &) const;
-	bool operator< (rai::uint128_union const &) const;
-	bool operator> (rai::uint128_union const &) const;
+	uint128_union (galileo::uint128_union const &) = default;
+	uint128_union (galileo::uint128_t const &);
+	bool operator== (galileo::uint128_union const &) const;
+	bool operator!= (galileo::uint128_union const &) const;
+	bool operator< (galileo::uint128_union const &) const;
+	bool operator> (galileo::uint128_union const &) const;
 	void encode_hex (std::string &) const;
 	bool decode_hex (std::string const &);
 	void encode_dec (std::string &) const;
 	bool decode_dec (std::string const &);
-	std::string format_balance (rai::uint128_t scale, int precision, bool group_digits);
-	std::string format_balance (rai::uint128_t scale, int precision, bool group_digits, const std::locale & locale);
-	rai::uint128_t number () const;
+	std::string format_balance (galileo::uint128_t scale, int precision, bool group_digits);
+	std::string format_balance (galileo::uint128_t scale, int precision, bool group_digits, const std::locale & locale);
+	galileo::uint128_t number () const;
 	void clear ();
 	bool is_zero () const;
 	std::string to_string () const;
@@ -64,13 +64,13 @@ union uint256_union
 	 */
 	uint256_union (std::string const &);
 	uint256_union (uint64_t);
-	uint256_union (rai::uint256_t const &);
-	void encrypt (rai::raw_key const &, rai::raw_key const &, uint128_union const &);
-	uint256_union & operator^= (rai::uint256_union const &);
-	uint256_union operator^ (rai::uint256_union const &) const;
-	bool operator== (rai::uint256_union const &) const;
-	bool operator!= (rai::uint256_union const &) const;
-	bool operator< (rai::uint256_union const &) const;
+	uint256_union (galileo::uint256_t const &);
+	void encrypt (galileo::raw_key const &, galileo::raw_key const &, uint128_union const &);
+	uint256_union & operator^= (galileo::uint256_union const &);
+	uint256_union operator^ (galileo::uint256_union const &) const;
+	bool operator== (galileo::uint256_union const &) const;
+	bool operator!= (galileo::uint256_union const &) const;
+	bool operator< (galileo::uint256_union const &) const;
 	void encode_hex (std::string &) const;
 	bool decode_hex (std::string const &);
 	void encode_dec (std::string &) const;
@@ -86,7 +86,7 @@ union uint256_union
 	void clear ();
 	bool is_zero () const;
 	std::string to_string () const;
-	rai::uint256_t number () const;
+	galileo::uint256_t number () const;
 };
 // All keys and hashes are 256 bit.
 using block_hash = uint256_union;
@@ -100,18 +100,18 @@ class raw_key
 public:
 	raw_key () = default;
 	~raw_key ();
-	void decrypt (rai::uint256_union const &, rai::raw_key const &, uint128_union const &);
-	bool operator== (rai::raw_key const &) const;
-	bool operator!= (rai::raw_key const &) const;
-	rai::uint256_union data;
+	void decrypt (galileo::uint256_union const &, galileo::raw_key const &, uint128_union const &);
+	bool operator== (galileo::raw_key const &) const;
+	bool operator!= (galileo::raw_key const &) const;
+	galileo::uint256_union data;
 };
 union uint512_union
 {
 	uint512_union () = default;
-	uint512_union (rai::uint512_t const &);
-	bool operator== (rai::uint512_union const &) const;
-	bool operator!= (rai::uint512_union const &) const;
-	rai::uint512_union & operator^= (rai::uint512_union const &);
+	uint512_union (galileo::uint512_t const &);
+	bool operator== (galileo::uint512_union const &) const;
+	bool operator!= (galileo::uint512_union const &) const;
+	galileo::uint512_union & operator^= (galileo::uint512_union const &);
 	void encode_hex (std::string &) const;
 	bool decode_hex (std::string const &);
 	std::array<uint8_t, 64> bytes;
@@ -119,32 +119,32 @@ union uint512_union
 	std::array<uint64_t, 8> qwords;
 	std::array<uint256_union, 2> uint256s;
 	void clear ();
-	rai::uint512_t number () const;
+	galileo::uint512_t number () const;
 	std::string to_string () const;
 };
 // Only signatures are 512 bit.
 using signature = uint512_union;
 
-rai::uint512_union sign_message (rai::raw_key const &, rai::public_key const &, rai::uint256_union const &);
-bool validate_message (rai::public_key const &, rai::uint256_union const &, rai::uint512_union const &);
-void deterministic_key (rai::uint256_union const &, uint32_t, rai::uint256_union &);
-rai::public_key pub_key (rai::private_key const &);
+galileo::uint512_union sign_message (galileo::raw_key const &, galileo::public_key const &, galileo::uint256_union const &);
+bool validate_message (galileo::public_key const &, galileo::uint256_union const &, galileo::uint512_union const &);
+void deterministic_key (galileo::uint256_union const &, uint32_t, galileo::uint256_union &);
+galileo::public_key pub_key (galileo::private_key const &);
 }
 
 namespace std
 {
 template <>
-struct hash<rai::uint256_union>
+struct hash<galileo::uint256_union>
 {
-	size_t operator() (rai::uint256_union const & data_a) const
+	size_t operator() (galileo::uint256_union const & data_a) const
 	{
 		return *reinterpret_cast<size_t const *> (data_a.bytes.data ());
 	}
 };
 template <>
-struct hash<rai::uint256_t>
+struct hash<galileo::uint256_t>
 {
-	size_t operator() (rai::uint256_t const & number_a) const
+	size_t operator() (galileo::uint256_t const & number_a) const
 	{
 		return number_a.convert_to<size_t> ();
 	}

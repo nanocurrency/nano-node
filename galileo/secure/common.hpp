@@ -14,11 +14,11 @@
 namespace boost
 {
 template <>
-struct hash<rai::uint256_union>
+struct hash<galileo::uint256_union>
 {
-	size_t operator() (rai::uint256_union const & value_a) const
+	size_t operator() (galileo::uint256_union const & value_a) const
 	{
-		std::hash<rai::uint256_union> hash;
+		std::hash<galileo::uint256_union> hash;
 		return hash (value_a);
 	}
 };
@@ -38,9 +38,9 @@ class keypair
 public:
 	keypair ();
 	keypair (std::string const &);
-	keypair (rai::raw_key &&);
-	rai::public_key pub;
-	rai::raw_key prv;
+	keypair (galileo::raw_key &&);
+	galileo::public_key pub;
+	galileo::raw_key prv;
 };
 
 /**
@@ -61,21 +61,21 @@ class account_info
 {
 public:
 	account_info ();
-	account_info (rai::account_info const &) = default;
-	account_info (rai::block_hash const &, rai::block_hash const &, rai::block_hash const &, rai::amount const &, uint64_t, uint64_t, epoch);
-	void serialize (rai::stream &) const;
-	bool deserialize (rai::stream &);
-	bool operator== (rai::account_info const &) const;
-	bool operator!= (rai::account_info const &) const;
+	account_info (galileo::account_info const &) = default;
+	account_info (galileo::block_hash const &, galileo::block_hash const &, galileo::block_hash const &, galileo::amount const &, uint64_t, uint64_t, epoch);
+	void serialize (galileo::stream &) const;
+	bool deserialize (galileo::stream &);
+	bool operator== (galileo::account_info const &) const;
+	bool operator!= (galileo::account_info const &) const;
 	size_t db_size () const;
-	rai::block_hash head;
-	rai::block_hash rep_block;
-	rai::block_hash open_block;
-	rai::amount balance;
+	galileo::block_hash head;
+	galileo::block_hash rep_block;
+	galileo::block_hash open_block;
+	galileo::amount balance;
 	/** Seconds since posix epoch */
 	uint64_t modified;
 	uint64_t block_count;
-	rai::epoch epoch;
+	galileo::epoch epoch;
 };
 
 /**
@@ -85,35 +85,35 @@ class pending_info
 {
 public:
 	pending_info ();
-	pending_info (rai::account const &, rai::amount const &, epoch);
-	void serialize (rai::stream &) const;
-	bool deserialize (rai::stream &);
-	bool operator== (rai::pending_info const &) const;
-	rai::account source;
-	rai::amount amount;
-	rai::epoch epoch;
+	pending_info (galileo::account const &, galileo::amount const &, epoch);
+	void serialize (galileo::stream &) const;
+	bool deserialize (galileo::stream &);
+	bool operator== (galileo::pending_info const &) const;
+	galileo::account source;
+	galileo::amount amount;
+	galileo::epoch epoch;
 };
 class pending_key
 {
 public:
 	pending_key ();
-	pending_key (rai::account const &, rai::block_hash const &);
-	void serialize (rai::stream &) const;
-	bool deserialize (rai::stream &);
-	bool operator== (rai::pending_key const &) const;
-	rai::account account;
-	rai::block_hash hash;
+	pending_key (galileo::account const &, galileo::block_hash const &);
+	void serialize (galileo::stream &) const;
+	bool deserialize (galileo::stream &);
+	bool operator== (galileo::pending_key const &) const;
+	galileo::account account;
+	galileo::block_hash hash;
 };
 class block_info
 {
 public:
 	block_info ();
-	block_info (rai::account const &, rai::amount const &);
-	void serialize (rai::stream &) const;
-	bool deserialize (rai::stream &);
-	bool operator== (rai::block_info const &) const;
-	rai::account account;
-	rai::amount balance;
+	block_info (galileo::account const &, galileo::amount const &);
+	void serialize (galileo::stream &) const;
+	bool deserialize (galileo::stream &);
+	bool operator== (galileo::block_info const &) const;
+	galileo::account account;
+	galileo::amount balance;
 };
 class block_counts
 {
@@ -127,41 +127,41 @@ public:
 	size_t state_v0;
 	size_t state_v1;
 };
-typedef std::vector<boost::variant<std::shared_ptr<rai::block>, rai::block_hash>>::const_iterator vote_blocks_vec_iter;
+typedef std::vector<boost::variant<std::shared_ptr<galileo::block>, galileo::block_hash>>::const_iterator vote_blocks_vec_iter;
 class iterate_vote_blocks_as_hash
 {
 public:
 	iterate_vote_blocks_as_hash () = default;
-	rai::block_hash operator() (boost::variant<std::shared_ptr<rai::block>, rai::block_hash> const & item) const;
+	galileo::block_hash operator() (boost::variant<std::shared_ptr<galileo::block>, galileo::block_hash> const & item) const;
 };
 class vote
 {
 public:
 	vote () = default;
-	vote (rai::vote const &);
-	vote (bool &, rai::stream &);
-	vote (bool &, rai::stream &, rai::block_type);
-	vote (rai::account const &, rai::raw_key const &, uint64_t, std::shared_ptr<rai::block>);
-	vote (rai::account const &, rai::raw_key const &, uint64_t, std::vector<rai::block_hash>);
+	vote (galileo::vote const &);
+	vote (bool &, galileo::stream &);
+	vote (bool &, galileo::stream &, galileo::block_type);
+	vote (galileo::account const &, galileo::raw_key const &, uint64_t, std::shared_ptr<galileo::block>);
+	vote (galileo::account const &, galileo::raw_key const &, uint64_t, std::vector<galileo::block_hash>);
 	std::string hashes_string () const;
-	rai::uint256_union hash () const;
-	bool operator== (rai::vote const &) const;
-	bool operator!= (rai::vote const &) const;
-	void serialize (rai::stream &, rai::block_type);
-	void serialize (rai::stream &);
-	bool deserialize (rai::stream &);
+	galileo::uint256_union hash () const;
+	bool operator== (galileo::vote const &) const;
+	bool operator!= (galileo::vote const &) const;
+	void serialize (galileo::stream &, galileo::block_type);
+	void serialize (galileo::stream &);
+	bool deserialize (galileo::stream &);
 	bool validate ();
-	boost::transform_iterator<rai::iterate_vote_blocks_as_hash, rai::vote_blocks_vec_iter> begin () const;
-	boost::transform_iterator<rai::iterate_vote_blocks_as_hash, rai::vote_blocks_vec_iter> end () const;
+	boost::transform_iterator<galileo::iterate_vote_blocks_as_hash, galileo::vote_blocks_vec_iter> begin () const;
+	boost::transform_iterator<galileo::iterate_vote_blocks_as_hash, galileo::vote_blocks_vec_iter> end () const;
 	std::string to_json () const;
 	// Vote round sequence number
 	uint64_t sequence;
 	// The blocks, or block hashes, that this vote is for
-	std::vector<boost::variant<std::shared_ptr<rai::block>, rai::block_hash>> blocks;
+	std::vector<boost::variant<std::shared_ptr<galileo::block>, galileo::block_hash>> blocks;
 	// Account that's voting
-	rai::account account;
+	galileo::account account;
 	// Signature of sequence + block hashes
-	rai::signature signature;
+	galileo::signature signature;
 	static const std::string hash_prefix;
 };
 enum class vote_code
@@ -189,10 +189,10 @@ enum class process_result
 class process_return
 {
 public:
-	rai::process_result code;
-	rai::account account;
-	rai::amount amount;
-	rai::account pending_account;
+	galileo::process_result code;
+	galileo::account account;
+	galileo::amount amount;
+	galileo::account pending_account;
 	boost::optional<bool> state_is_send;
 };
 enum class tally_result
@@ -201,27 +201,27 @@ enum class tally_result
 	changed,
 	confirm
 };
-extern rai::keypair const & zero_key;
-extern rai::keypair const & test_genesis_key;
-extern rai::account const & rai_test_account;
-extern rai::account const & rai_beta_account;
-extern rai::account const & rai_live_account;
-extern std::string const & rai_test_genesis;
-extern std::string const & rai_beta_genesis;
-extern std::string const & rai_live_genesis;
+extern galileo::keypair const & zero_key;
+extern galileo::keypair const & test_genesis_key;
+extern galileo::account const & galileo_test_account;
+extern galileo::account const & galileo_beta_account;
+extern galileo::account const & galileo_live_account;
+extern std::string const & galileo_test_genesis;
+extern std::string const & galileo_beta_genesis;
+extern std::string const & galileo_live_genesis;
 extern std::string const & genesis_block;
-extern rai::account const & genesis_account;
-extern rai::account const & burn_account;
-extern rai::uint128_t const & genesis_amount;
+extern galileo::account const & genesis_account;
+extern galileo::account const & burn_account;
+extern galileo::uint128_t const & genesis_amount;
 // A block hash that compares inequal to any real block hash
-extern rai::block_hash const & not_a_block;
+extern galileo::block_hash const & not_a_block;
 // An account number that compares inequal to any real account number
-extern rai::block_hash const & not_an_account;
+extern galileo::block_hash const & not_an_account;
 class genesis
 {
 public:
 	explicit genesis ();
-	rai::block_hash hash () const;
-	std::unique_ptr<rai::open_block> open;
+	galileo::block_hash hash () const;
+	std::unique_ptr<galileo::open_block> open;
 };
 }

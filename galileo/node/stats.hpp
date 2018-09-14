@@ -98,10 +98,10 @@ public:
 	stat_datapoint counter;
 
 	/** Zero or more observers for samples. Called at the end of the sample interval. */
-	rai::observer_set<boost::circular_buffer<stat_datapoint> &> sample_observers;
+	galileo::observer_set<boost::circular_buffer<stat_datapoint> &> sample_observers;
 
 	/** Observers for count. Called on each update. */
-	rai::observer_set<uint64_t, uint64_t> count_observers;
+	galileo::observer_set<uint64_t, uint64_t> count_observers;
 };
 
 /** Log sink interface */
@@ -247,7 +247,7 @@ public:
 	 * Initialize stats with a config.
 	 * @param config Configuration object; deserialized from config.json
 	 */
-	stat (rai::stat_config config);
+	stat (galileo::stat_config config);
 
 	/**
 	 * Call this to override the default sample interval and capacity, for a specific stat entry.
@@ -383,13 +383,13 @@ private:
 	}
 
 	/** Get entry for key, creating a new entry if necessary, using interval and sample count from config */
-	std::shared_ptr<rai::stat_entry> get_entry (uint32_t key);
+	std::shared_ptr<galileo::stat_entry> get_entry (uint32_t key);
 
 	/** Get entry for key, creating a new entry if necessary */
-	std::shared_ptr<rai::stat_entry> get_entry (uint32_t key, size_t sample_interval, size_t max_samples);
+	std::shared_ptr<galileo::stat_entry> get_entry (uint32_t key, size_t sample_interval, size_t max_samples);
 
 	/** Unlocked implementation of get_entry() */
-	std::shared_ptr<rai::stat_entry> get_entry_impl (uint32_t key, size_t sample_interval, size_t max_samples);
+	std::shared_ptr<galileo::stat_entry> get_entry_impl (uint32_t key, size_t sample_interval, size_t max_samples);
 
 	/**
 	 * Update count and sample and call any observers on the key
@@ -405,10 +405,10 @@ private:
 	void log_samples_impl (stat_log_sink & sink);
 
 	/** Configuration deserialized from config.json */
-	rai::stat_config config;
+	galileo::stat_config config;
 
 	/** Stat entries are sorted by key to simplify processing of log output */
-	std::map<uint32_t, std::shared_ptr<rai::stat_entry>> entries;
+	std::map<uint32_t, std::shared_ptr<galileo::stat_entry>> entries;
 	std::chrono::steady_clock::time_point log_last_count_writeout{ std::chrono::steady_clock::now () };
 	std::chrono::steady_clock::time_point log_last_sample_writeout{ std::chrono::steady_clock::now () };
 

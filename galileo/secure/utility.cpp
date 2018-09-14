@@ -5,32 +5,32 @@
 
 static std::vector<boost::filesystem::path> all_unique_paths;
 
-boost::filesystem::path rai::working_path ()
+boost::filesystem::path galileo::working_path ()
 {
-	auto result (rai::app_path ());
-	switch (rai::rai_network)
+	auto result (galileo::app_path ());
+	switch (galileo::rai_network)
 	{
-		case rai::rai_networks::rai_test_network:
+		case galileo::rai_networks::rai_test_network:
 			result /= "RaiBlocksTest";
 			break;
-		case rai::rai_networks::rai_beta_network:
+		case galileo::rai_networks::rai_beta_network:
 			result /= "RaiBlocksBeta";
 			break;
-		case rai::rai_networks::rai_live_network:
+		case galileo::rai_networks::rai_live_network:
 			result /= "RaiBlocks";
 			break;
 	}
 	return result;
 }
 
-boost::filesystem::path rai::unique_path ()
+boost::filesystem::path galileo::unique_path ()
 {
 	auto result (working_path () / boost::filesystem::unique_path ());
 	all_unique_paths.push_back (result);
 	return result;
 }
 
-std::vector<boost::filesystem::path> rai::remove_temporary_directories ()
+std::vector<boost::filesystem::path> galileo::remove_temporary_directories ()
 {
 	for (auto & path : all_unique_paths)
 	{
@@ -53,7 +53,7 @@ std::vector<boost::filesystem::path> rai::remove_temporary_directories ()
 	return all_unique_paths;
 }
 
-void rai::open_or_create (std::fstream & stream_a, std::string const & path_a)
+void galileo::open_or_create (std::fstream & stream_a, std::string const & path_a)
 {
 	stream_a.open (path_a, std::ios_base::in);
 	if (stream_a.fail ())
