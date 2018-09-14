@@ -7,14 +7,14 @@
 	<key>NSHighResolutionCapable</key>
 	<string>True</string>
 	<key>CFBundleExecutable</key>
-	<string>nano_wallet</string>
+	<string>galileo_wallet</string>
 	<key>CFBundleName</key>
-	<string>Nano</string>
+	<string>Galileo</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleIconFile</key>
-	<string>RaiBlocks.icns</string>
+	<string>Galileo.icns</string>
 	<key>CFBundleIdentifier</key>
-	<string>net.raiblocks.rai_wallet</string>
+	<string>net.galileo.gal_wallet</string>
 </dict>
 </plist>

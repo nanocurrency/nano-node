@@ -1,5 +1,5 @@
 cmake_minimum_required (VERSION 3.4)
-project (rai)
+project (galileo)
 
 set (CPACK_PACKAGE_VERSION_MAJOR "17")
 set (CPACK_PACKAGE_VERSION_MINOR "0")
@@ -7,22 +7,22 @@ set (CPACK_PACKAGE_VERSION_PATCH "0")
 if (DEFINED GIT_COMMIT)
 	set (CPACK_PACKAGE_VERSION_PATCH "GIT-${GIT_COMMIT}")
 endif ()
-set (CPACK_PACKAGE_VENDOR "Nano Currency")
+set (CPACK_PACKAGE_VENDOR "Galileo Currency")
 
 set(CMAKE_INSTALL_RPATH "@executable_path/../Frameworks")
 # Create all libraries and executables in the root binary dir
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
-set (RAIBLOCKS_GUI OFF CACHE BOOL "")
-set (RAIBLOCKS_TEST OFF CACHE BOOL "")
-set (RAIBLOCKS_SECURE_RPC OFF CACHE BOOL "")
+set (GALILEO_GUI OFF CACHE BOOL "")
+set (GALILEO_TEST OFF CACHE BOOL "")
+set (GALILEO_SECURE_RPC OFF CACHE BOOL "")
 
-option(RAIBLOCKS_ASAN_INT "Enable ASan+UBSan+Integer overflow" OFF)
-option(RAIBLOCKS_ASAN "Enable ASan+UBSan" OFF)
-option(RAIBLOCKS_SIMD_OPTIMIZATIONS "Enable CPU-specific SIMD optimizations (SSE/AVX or NEON, e.g.)" OFF)
+option(GALILEO_ASAN_INT "Enable ASan+UBSan+Integer overflow" OFF)
+option(GALILEO_ASAN "Enable ASan+UBSan" OFF)
+option(GALILEO_SIMD_OPTIMIZATIONS "Enable CPU-specific SIMD optimizations (SSE/AVX or NEON, e.g.)" OFF)
 
-SET (ACTIVE_NETWORK rai_live_network CACHE STRING "Selects which network parameters are used")
-set_property (CACHE ACTIVE_NETWORK PROPERTY STRINGS rai_test_network rai_beta_network rai_live_network)
+SET (ACTIVE_NETWORK galileo_live_network CACHE STRING "Selects which network parameters are used")
+set_property (CACHE ACTIVE_NETWORK PROPERTY STRINGS galileo_test_network galileo_beta_network galileo_live_network)
 
 if(NOT CMAKE_BUILD_TYPE)
 	set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose the type of build, options are: Debug Release RelWithDebInfo MinSizeRel." FORCE)
@@ -41,19 +41,19 @@ if (WIN32)
 					-DMINIUPNP_STATICLIB)
 else ()
 	add_compile_options(-Werror=switch)
-	if (RAIBLOCKS_ASAN)
+	if (GALILEO_ASAN)
 		add_compile_options(-fsanitize=address,undefined)
 		add_definitions(-DED25519_NO_INLINE_ASM)
-	elseif (RAIBLOCKS_ASAN_INT)
+	elseif (GALILEO_ASAN_INT)
 		add_compile_options(-fsanitize=address,undefined,integer)
 		add_definitions(-DED25519_NO_INLINE_ASM)
-	elseif (RAIBLOCKS_TSAN)
+	elseif (GALILEO_TSAN)
 		add_compile_options(-fsanitize=thread)
 		add_definitions(-DED25519_NO_INLINE_ASM)
 	endif()
 
 	IF (CMAKE_SYSTEM_PROCESSOR MATCHES "^(i.86|x86(_64)?)$")
-		if (RAIBLOCKS_SIMD_OPTIMIZATIONS)
+		if (GALILEO_SIMD_OPTIMIZATIONS)
 			add_compile_options(-msse4)
 		elseif(CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
 			add_compile_options(-msse2)
@@ -88,21 +88,21 @@ elseif (WIN32)
 	set (PLATFORM_LINK_FLAGS "")
 else ()
 	set (PLATFORM_LINK_FLAGS "-static-libgcc -static-libstdc++")
-	if (RAIBLOCKS_ASAN)
+	if (GALILEO_ASAN)
 		set (PLATFORM_LINK_FLAGS "${PLATFORM_LINK_FLAGS} -fsanitize=address,undefined")
-	elseif (RAIBLOCKS_ASAN_INT)
+	elseif (GALILEO_ASAN_INT)
 		set (PLATFORM_LINK_FLAGS "${PLATFORM_LINK_FLAGS} -fsanitize=address,undefined,integer")
-	elseif (RAIBLOCKS_TSAN)
+	elseif (GALILEO_TSAN)
 		set (PLATFORM_LINK_FLAGS "${PLATFORM_LINK_FLAGS} -fsanitize=thread")
 	endif()
 endif ()
 
 SET( CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${PLATFORM_LINK_FLAGS}" )
 
-if (RAIBLOCKS_SECURE_RPC)
+if (GALILEO_SECURE_RPC)
 	find_package (OpenSSL 1.0 REQUIRED)
 	#include_directories(${OPENSSL_INCLUDE_DIR})
-	add_definitions (-DRAIBLOCKS_SECURE_RPC)
+	add_definitions (-DGALILEO_SECURE_RPC)
 	message("OpenSSL include dir: ${OPENSSL_INCLUDE_DIR}")
 	message("OpenSSL libraries: ${OPENSSL_LIBRARIES}")
 	message("OpenSSL lib: ${OPENSSL_SSL_LIBRARY}")
@@ -120,7 +120,7 @@ if (BOOST_ROOT)
     list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/Modules")
 endif ()
 
-find_package (Boost 1.66.0 REQUIRED COMPONENTS filesystem log thread program_options)
+find_package (Boost 1.66.0 REQUIRED COMPONENTS date_time filesystem system log log_setup thread program_options regex chrono atomic)
 
 add_subdirectory(ed25519-donna)
 
@@ -134,7 +134,7 @@ set_target_properties(libminiupnpc-static PROPERTIES INTERFACE_INCLUDE_DIRECTORI
 set (BUILD_SHARED OFF CACHE BOOL "")
 set (BUILD_TESTING OFF CACHE BOOL "")
 set (USE_INTERMEDIATE_OBJECTS_TARGET OFF CACHE BOOL "")
-if (CRYPTOPP_CUSTOM OR NOT RAIBLOCKS_SIMD_OPTIMIZATIONS)
+if (CRYPTOPP_CUSTOM OR NOT GALILEO_SIMD_OPTIMIZATIONS)
 	set (CRYPTOPP_LIBRARY cryptopp)
 	add_library (cryptopp
 		cryptopp/algparam.cpp
@@ -227,12 +227,12 @@ add_library (blake2
 
 target_compile_definitions(blake2 PRIVATE -D__SSE2__)
 
-add_subdirectory(rai/secure)
-add_subdirectory(rai/lib)
-add_subdirectory(rai/node)
-add_subdirectory(rai/rai_node)
+add_subdirectory(galileo/secure)
+add_subdirectory(galileo/lib)
+add_subdirectory(galileo/node)
+add_subdirectory(galileo/galileo_node)
 
-if (RAIBLOCKS_TEST)
+if (GALILEO_TEST)
     if(WIN32)
         if(MSVC_VERSION)
             if(MSVC_VERSION GREATER_EQUAL 1910)
@@ -252,11 +252,11 @@ if (RAIBLOCKS_TEST)
 	set_target_properties(gtest PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
 		"${CMAKE_SOURCE_DIR}/gtest/include")
 
-	add_subdirectory(rai/core_test)
-	add_subdirectory(rai/slow_test)
+	add_subdirectory(galileo/core_test)
+	add_subdirectory(galileo/slow_test)
 endif ()
 
-if (RAIBLOCKS_GUI)
+if (GALILEO_GUI)
 	if (WIN32)
 		set (PLATFORM_QT_PACKAGES WinExtras)
 	else ()
@@ -266,16 +266,16 @@ if (RAIBLOCKS_GUI)
 	find_package (Qt5 COMPONENTS Core Gui Widgets Test ${PLATFORM_QT_PACKAGES})
 
 	add_library (qt
-		rai/qt/qt.cpp
-		rai/qt/qt.hpp)
+		galileo/qt/qt.cpp
+		galileo/qt/qt.hpp)
 
 	target_link_libraries(qt
-		secure rai_lib node libminiupnpc-static Qt5::Gui Qt5::Widgets)
+		secure galileo_lib node libminiupnpc-static Qt5::Gui Qt5::Widgets)
 
 	target_compile_definitions(qt
 		PRIVATE
-		-DRAIBLOCKS_VERSION_MAJOR=${CPACK_PACKAGE_VERSION_MAJOR}
-		-DRAIBLOCKS_VERSION_MINOR=${CPACK_PACKAGE_VERSION_MINOR})
+		-DGALILEO_VERSION_MAJOR=${CPACK_PACKAGE_VERSION_MAJOR}
+		-DGALILEO_VERSION_MINOR=${CPACK_PACKAGE_VERSION_MINOR})
 
 	if (WIN32)
 		set (PLATFORM_GUI_TARGET_PROPERTIES WIN32)
@@ -284,44 +284,44 @@ if (RAIBLOCKS_GUI)
 	endif ()
 
 	if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-		set (PLATFORM_WALLET_SOURCE rai/rai_wallet/plat/default/icon.cpp)
+		set (PLATFORM_WALLET_SOURCE galileo/galileo_wallet/plat/default/icon.cpp)
 	elseif (${CMAKE_SYSTEM_NAME} MATCHES "Windows")
-		set (PLATFORM_WALLET_SOURCE rai/rai_wallet/plat/windows/icon.cpp RaiBlocks.rc)
+		set (PLATFORM_WALLET_SOURCE galileo/galileo_wallet/plat/windows/icon.cpp Galileo.rc)
 	elseif (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-		set (PLATFORM_WALLET_SOURCE rai/rai_wallet/plat/default/icon.cpp)
+		set (PLATFORM_WALLET_SOURCE galileo/galileo_wallet/plat/default/icon.cpp)
 	elseif (${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
-		set (PLATFORM_WALLET_SOURCE rai/rai_wallet/plat/default/icon.cpp)
+		set (PLATFORM_WALLET_SOURCE galileo/galileo_wallet/plat/default/icon.cpp)
 	else ()
 		error ("Unknown platform: ${CMAKE_SYSTEM_NAME}")
 	endif ()
 
 	qt5_add_resources(RES resources.qrc)
 
-	add_executable (nano_wallet ${PLATFORM_GUI_TARGET_PROPERTIES}
+	add_executable (galileo_wallet ${PLATFORM_GUI_TARGET_PROPERTIES}
 		${PLATFORM_WALLET_SOURCE}
-		rai/rai_wallet/entry.cpp
-		rai/rai_wallet/icon.hpp
+		galileo/galileo_wallet/entry.cpp
+		galileo/galileo_wallet/icon.hpp
 		${RES})
 
-	target_link_libraries (nano_wallet
+	target_link_libraries (galileo_wallet
 		node
 		qt)
 
 	if (WIN32)
-		target_link_libraries (nano_wallet Qt5::WinExtras)
+		target_link_libraries (galileo_wallet Qt5::WinExtras)
 	endif()
 
 	add_executable (qt_system
-		rai/qt_system/entry.cpp)
+		galileo/qt_system/entry.cpp)
 
 	target_link_libraries (qt_system qt node Qt5::Gui Qt5::Widgets)
 
-	set_target_properties (qt nano_wallet qt_system PROPERTIES COMPILE_FLAGS "-DQT_NO_KEYWORDS -DBOOST_ASIO_HAS_STD_ARRAY=1")
+	set_target_properties (qt galileo_wallet qt_system PROPERTIES COMPILE_FLAGS "-DQT_NO_KEYWORDS -DBOOST_ASIO_HAS_STD_ARRAY=1")
 
-	if (RAIBLOCKS_TEST)
+	if (GALILEO_TEST)
 		add_executable (qt_test
-			rai/qt_test/entry.cpp
-			rai/qt_test/qt.cpp)
+			galileo/qt_test/entry.cpp
+			galileo/qt_test/qt.cpp)
 
 		target_link_libraries(qt_test gtest gtest_main qt Qt5::Test)
 
@@ -329,16 +329,16 @@ if (RAIBLOCKS_GUI)
 	endif ()
 
 	if (APPLE)
-		install (TARGETS nano_wallet DESTINATION Nano.app/Contents/MacOS)
-		install (FILES Info.plist DESTINATION Nano.app/Contents)
-		install (FILES qt.conf DESTINATION Nano.app/Contents/Resources)
-		install (DIRECTORY ${Qt5_DIR}/../../QtCore.framework DESTINATION Nano.app/Contents/Frameworks)
-		install (DIRECTORY ${Qt5_DIR}/../../QtGui.framework DESTINATION Nano.app/Contents/Frameworks)
-		install (DIRECTORY ${Qt5_DIR}/../../QtPrintSupport.framework DESTINATION Nano.app/Contents/Frameworks)
-		install (DIRECTORY ${Qt5_DIR}/../../QtTest.framework DESTINATION Nano.app/Contents/Frameworks)
-		install (DIRECTORY ${Qt5_DIR}/../../QtWidgets.framework DESTINATION Nano.app/Contents/Frameworks)
-		install (FILES "${Qt5_DIR}/../../../plugins/platforms/libqcocoa.dylib" DESTINATION Nano.app/Contents/PlugIns/platforms)
-		install (FILES RaiBlocks.icns DESTINATION Nano.app/Contents/Resources)
+		install (TARGETS galileo_wallet DESTINATION Galileo.app/Contents/MacOS)
+		install (FILES Info.plist DESTINATION Galileo.app/Contents)
+		install (FILES qt.conf DESTINATION Galileo.app/Contents/Resources)
+		install (DIRECTORY ${Qt5_DIR}/../../QtCore.framework DESTINATION Galileo.app/Contents/Frameworks)
+		install (DIRECTORY ${Qt5_DIR}/../../QtGui.framework DESTINATION Galileo.app/Contents/Frameworks)
+		install (DIRECTORY ${Qt5_DIR}/../../QtPrintSupport.framework DESTINATION Galileo.app/Contents/Frameworks)
+		install (DIRECTORY ${Qt5_DIR}/../../QtTest.framework DESTINATION Galileo.app/Contents/Frameworks)
+		install (DIRECTORY ${Qt5_DIR}/../../QtWidgets.framework DESTINATION Galileo.app/Contents/Frameworks)
+		install (FILES "${Qt5_DIR}/../../../plugins/platforms/libqcocoa.dylib" DESTINATION Galileo.app/Contents/PlugIns/platforms)
+		install (FILES Galileo.icns DESTINATION Galileo.app/Contents/Resources)
 	elseif (WIN32)
 		if ("${CMAKE_SIZEOF_VOID_P}" EQUAL "8")
 			set (WIN_REDIST vc_redist.x64.exe)
@@ -346,17 +346,17 @@ if (RAIBLOCKS_GUI)
 			set (WIN_REDIST vc_redist.x86.exe)
 		endif ()
 		set (CPACK_NSIS_EXTRA_INSTALL_COMMANDS "ExecWait '\\\"$INSTDIR\\\\${WIN_REDIST}\\\" /quiet /norestart'")
-		set (CPACK_NSIS_MUI_ICON ${CMAKE_SOURCE_DIR}/RaiBlocks.ico)
-		set (CPACK_NSIS_DISPLAY_NAME "Nano")
-		set (CPACK_PACKAGE_NAME "Nano_Installer")
-		set (CPACK_NSIS_PACKAGE_NAME "Nano ${CPACK_PACKAGE_VERSION_MAJOR}.${CPACK_PACKAGE_VERSION_MINOR}.${CPACK_PACKAGE_VERSION_PATCH}")
-		set (CPACK_NSIS_URL_INFO_ABOUT "https://nano.org")
-		set (CPACK_NSIS_CONTACT "info@nano.org")
-		set (CPACK_NSIS_MENU_LINKS "nano_wallet.exe" "Nano Wallet" "https://nano.org" "Nano website")
+		set (CPACK_NSIS_MUI_ICON ${CMAKE_SOURCE_DIR}/Galileo.ico)
+		set (CPACK_NSIS_DISPLAY_NAME "Galileo")
+		set (CPACK_PACKAGE_NAME "Galileo_Installer")
+		set (CPACK_NSIS_PACKAGE_NAME "Galileo ${CPACK_PACKAGE_VERSION_MAJOR}.${CPACK_PACKAGE_VERSION_MINOR}.${CPACK_PACKAGE_VERSION_PATCH}")
+		set (CPACK_NSIS_URL_INFO_ABOUT "https://galileo.org")
+		set (CPACK_NSIS_CONTACT "info@galileo.org")
+		set (CPACK_NSIS_MENU_LINKS "galileo_wallet.exe" "Galileo Wallet" "https://galileo.org" "Galileo website")
 		set (CPACK_NSIS_ENABLE_UNINSTALL_BEFORE_INSTALL ON)
 		get_target_property (Qt5WindowsPlugin Qt5::QWindowsIntegrationPlugin LOCATION)
 		get_filename_component (Qt5_bin_DIR ${Qt5_DIR}/../../../bin ABSOLUTE)
-		install (TARGETS nano_wallet DESTINATION .)
+		install (TARGETS galileo_wallet DESTINATION .)
 		install (FILES ${CMAKE_CURRENT_BINARY_DIR}/${WIN_REDIST} DESTINATION .)
 		install (FILES ${Qt5_bin_DIR}/libGLESv2.dll DESTINATION .)
 		install (FILES ${Qt5_bin_DIR}/Qt5Core.dll DESTINATION .)
@@ -365,7 +365,7 @@ if (RAIBLOCKS_GUI)
 		install (FILES ${Qt5_bin_DIR}/Qt5WinExtras.dll DESTINATION .)
 		install (FILES ${Qt5WindowsPlugin} DESTINATION platforms)
 	else ()
-		install(TARGETS nano_wallet
+		install(TARGETS galileo_wallet
 				RUNTIME DESTINATION bin
 				LIBRARY DESTINATION lib
 				ARCHIVE DESTINATION lib

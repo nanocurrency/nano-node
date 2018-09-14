@@ -6,7 +6,7 @@ export PATH
 set -euo pipefail
 IFS=$'\n\t'
 
-network="$(cat /etc/nano-network)"
+network="$(cat /etc/galileo-network)"
 case "${network}" in
         live|'')
                 network='live'
@@ -20,12 +20,12 @@ case "${network}" in
                 ;;
 esac
 
-nanodir="${HOME}/RaiBlocks${dirSuffix}"
-dbFile="${nanodir}/data.ldb"
-mkdir -p "${nanodir}"
-if [ ! -f "${nanodir}/config.json" ]; then
+galileodir="${HOME}/Galileo${dirSuffix}"
+dbFile="${galileodir}/data.ldb"
+mkdir -p "${galileodir}"
+if [ ! -f "${galileodir}/config.json" ]; then
         echo "Config File not found, adding default."
-        cp "/usr/share/raiblocks/config/${network}.json" "${nanodir}/config.json"
+        cp "/usr/share/galileo/config/${network}.json" "${galileodir}/config.json"
 fi
 
 pid=''
@@ -48,7 +48,7 @@ while true; do
 				fi
 			done
 
-			rai_node --vacuum
+			galileo_node --vacuum
 		fi
 	fi
 
@@ -59,7 +59,7 @@ while true; do
 	fi
 
 	if [ -z "${pid}" ]; then
-		rai_node --daemon &
+		galileo_node --daemon &
 		pid="$!"
 	fi
 done
