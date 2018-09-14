@@ -3738,7 +3738,7 @@ TEST (rpc, node_id_delete)
 {
 	rai::system system (24000, 1);
 	rai::rpc rpc (system.service, *system.nodes[0], rai::rpc_config (true));
-	rpc.start 
+	rpc.start (); 
 	{
 		auto transaction (system.nodes[0]->store.tx_begin_write ());
 		rai::keypair node_id (system.nodes[0]->store.get_node_id (transaction));
