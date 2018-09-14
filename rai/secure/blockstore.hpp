@@ -13,7 +13,6 @@ public:
 	virtual ~store_iterator_impl () = default;
 	virtual rai::store_iterator_impl<T, U> & operator++ () = 0;
 	virtual bool operator== (rai::store_iterator_impl<T, U> const & other_a) const = 0;
-	virtual void next_dup () = 0;
 	virtual bool is_end_sentinal () const = 0;
 	virtual void fill (std::pair<T, U> &) const = 0;
 	rai::store_iterator_impl<T, U> & operator= (rai::store_iterator_impl<T, U> const &) = delete;
@@ -39,7 +38,6 @@ public:
 	rai::store_iterator_impl<T, U> & operator++ () override;
 	std::pair<rai::mdb_val, rai::mdb_val> * operator-> ();
 	bool operator== (rai::store_iterator_impl<T, U> const & other_a) const override;
-	void next_dup () override;
 	bool is_end_sentinal () const override;
 	void fill (std::pair<T, U> &) const override;
 	void clear ();
@@ -122,7 +120,6 @@ public:
 	rai::store_iterator_impl<T, U> & operator++ () override;
 	std::pair<rai::mdb_val, rai::mdb_val> * operator-> ();
 	bool operator== (rai::store_iterator_impl<T, U> const &) const override;
-	void next_dup () override;
 	bool is_end_sentinal () const override;
 	void fill (std::pair<T, U> &) const override;
 	void clear ();
@@ -214,7 +211,6 @@ public:
 	rai::store_iterator<rai::block_hash, std::shared_ptr<rai::block>> unchecked_begin (MDB_txn *, rai::block_hash const &);
 	rai::store_iterator<rai::block_hash, std::shared_ptr<rai::block>> unchecked_end ();
 	size_t unchecked_count (MDB_txn *);
-	std::unordered_multimap<rai::block_hash, std::shared_ptr<rai::block>> unchecked_cache;
 
 	void checksum_put (MDB_txn *, uint64_t, uint8_t, rai::checksum const &);
 	bool checksum_get (MDB_txn *, uint64_t, uint8_t, rai::checksum &);
