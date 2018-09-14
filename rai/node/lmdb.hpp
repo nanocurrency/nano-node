@@ -282,7 +282,6 @@ public:
 	rai::store_iterator<rai::block_hash, std::shared_ptr<rai::block>> unchecked_begin (rai::transaction const &, rai::block_hash const &) override;
 	rai::store_iterator<rai::block_hash, std::shared_ptr<rai::block>> unchecked_end () override;
 	size_t unchecked_count (rai::transaction const &) override;
-	std::unordered_multimap<rai::block_hash, std::shared_ptr<rai::block>> unchecked_cache;
 
 	void checksum_put (rai::transaction const &, uint64_t, uint8_t, rai::checksum const &) override;
 	bool checksum_get (rai::transaction const &, uint64_t, uint8_t, rai::checksum &) override;
