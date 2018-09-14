@@ -193,7 +193,7 @@ public:
 	virtual void timestamp_put (rai::transaction const &, rai::block_hash const &, uint64_t const &) = 0;
 	virtual uint64_t timestamp_get (rai::transaction const &, rai::block_hash const &) = 0;
 	virtual void timestamp_del (rai::transaction const &, rai::block_hash const &) = 0;
-	
+
 	virtual void version_put (rai::transaction const &, int) = 0;
 	virtual int version_get (rai::transaction const &) = 0;
 

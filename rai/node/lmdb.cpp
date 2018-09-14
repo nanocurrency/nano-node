@@ -1942,13 +1942,13 @@ std::shared_ptr<rai::vote> rai::mdb_store::vote_max (rai::transaction const & tr
 	return result;
 }
 
-void rai::block_store::timestamp_put (rai::transaction const & transaction_a, rai::block_hash const & block_a, uint64_t const & timestamp_a)
+void rai::mdb_store::timestamp_put (rai::transaction const & transaction_a, rai::block_hash const & block_a, uint64_t const & timestamp_a)
 {
 	auto status (mdb_put (env.tx (transaction_a), timestamps, rai::mdb_val (block_a), rai::mdb_val (sizeof (timestamp_a), const_cast<uint64_t *> (&timestamp_a)), 0));
 	assert (status == 0);
 }
 
-uint64_t rai::block_store::timestamp_get (rai::transaction const & transaction_a, rai::block_hash const & block_a)
+uint64_t rai::mdb_store::timestamp_get (rai::transaction const & transaction_a, rai::block_hash const & block_a)
 {
 	rai::mdb_val value;
 	auto status (mdb_get (env.tx (transaction_a), timestamps, rai::mdb_val (block_a), value));
@@ -1963,7 +1963,7 @@ uint64_t rai::block_store::timestamp_get (rai::transaction const & transaction_a
 	return result;
 }
 
-void rai::block_store::timestamp_del (rai::transaction const & transaction_a, rai::block_hash const & block_a)
+void rai::mdb_store::timestamp_del (rai::transaction const & transaction_a, rai::block_hash const & block_a)
 {
 	auto status (mdb_del (env.tx (transaction_a), timestamps, rai::mdb_val (block_a), nullptr));
 	assert (status == 0);
