@@ -428,10 +428,7 @@ template <typename T, typename U>
 rai::store_iterator_impl<T, U> & rai::mdb_iterator<T, U>::operator++ ()
 {
 	assert (cursor != nullptr);
-	unsigned flags;
-	auto flags_status (mdb_dbi_flags (mdb_cursor_txn (cursor), mdb_cursor_dbi (cursor), &flags));
-	assert (flags_status == MDB_SUCCESS);
-	auto status (mdb_cursor_get (cursor, &current.first.value, &current.second.value, (flags & MDB_DUPSORT) != 0 ? MDB_NEXT_DUP : MDB_NEXT));
+	auto status (mdb_cursor_get (cursor, &current.first.value, &current.second.value, MDB_NEXT));
 	if (status == MDB_NOTFOUND)
 	{
 		clear ();
