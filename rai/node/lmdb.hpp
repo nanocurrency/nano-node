@@ -158,7 +158,6 @@ public:
 	rai::store_iterator_impl<T, U> & operator++ () override;
 	std::pair<rai::mdb_val, rai::mdb_val> * operator-> ();
 	bool operator== (rai::store_iterator_impl<T, U> const & other_a) const override;
-	void next_dup () override;
 	bool is_end_sentinal () const override;
 	void fill (std::pair<T, U> &) const override;
 	void clear ();
@@ -187,7 +186,6 @@ public:
 	rai::store_iterator_impl<T, U> & operator++ () override;
 	std::pair<rai::mdb_val, rai::mdb_val> * operator-> ();
 	bool operator== (rai::store_iterator_impl<T, U> const &) const override;
-	void next_dup () override;
 	bool is_end_sentinal () const override;
 	void fill (std::pair<T, U> &) const override;
 	void clear ();

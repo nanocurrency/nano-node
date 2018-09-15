@@ -428,7 +428,10 @@ template <typename T, typename U>
 rai::store_iterator_impl<T, U> & rai::mdb_iterator<T, U>::operator++ ()
 {
 	assert (cursor != nullptr);
-	auto status (mdb_cursor_get (cursor, &current.first.value, &current.second.value, MDB_NEXT));
+	unsigned flags;
+	auto flags_status (mdb_dbi_flags (mdb_cursor_txn (cursor), mdb_cursor_dbi (cursor), &flags));
+	assert (flags_status == MDB_SUCCESS);
+	auto status (mdb_cursor_get (cursor, &current.first.value, &current.second.value, (flags & MDB_DUPSORT) != 0 ? MDB_NEXT_DUP : MDB_NEXT));
 	if (status == MDB_NOTFOUND)
 	{
 		clear ();
@@ -469,17 +472,6 @@ bool rai::mdb_iterator<T, U>::operator== (rai::store_iterator_impl<T, U> const &
 	assert (!result || (current.second.data () == other_a->current.second.data ()));
 	assert (!result || (current.second.size () == other_a->current.second.size ()));
 	return result;
-}
-
-template <typename T, typename U>
-void rai::mdb_iterator<T, U>::next_dup ()
-{
-	assert (cursor != nullptr);
-	auto status (mdb_cursor_get (cursor, &current.first.value, &current.second.value, MDB_NEXT_DUP));
-	if (status == MDB_NOTFOUND)
-	{
-		clear ();
-	}
 }
 
 template <typename T, typename U>
@@ -568,12 +560,6 @@ rai::store_iterator_impl<T, U> & rai::mdb_merge_iterator<T, U>::operator++ ()
 {
 	++least_iterator ();
 	return *this;
-}
-
-template <typename T, typename U>
-void rai::mdb_merge_iterator<T, U>::next_dup ()
-{
-	least_iterator ().next_dup ();
 }
 
 template <typename T, typename U>
@@ -1787,7 +1773,7 @@ std::shared_ptr<rai::vote> rai::mdb_store::vote_get (rai::transaction const & tr
 std::vector<std::shared_ptr<rai::block>> rai::mdb_store::unchecked_get (rai::transaction const & transaction_a, rai::block_hash const & hash_a)
 {
 	std::vector<std::shared_ptr<rai::block>> result;
-	for (auto i (unchecked_begin (transaction_a, hash_a)), n (unchecked_end ()); i != n && rai::block_hash (i->first) == hash_a; i.next_dup ())
+	for (auto i (unchecked_begin (transaction_a, hash_a)), n (unchecked_end ()); i != n && rai::block_hash (i->first) == hash_a; ++i)
 	{
 		std::shared_ptr<rai::block> block (i->second);
 		result.push_back (block);
