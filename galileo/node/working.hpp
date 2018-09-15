@@ -2,7 +2,7 @@
 
 #include <galileo/secure/common.hpp>
 
-namespace rai
+namespace galileo
 {
 boost::filesystem::path app_path ();
 }

@@ -3,7 +3,7 @@
 #include <galileo/secure/common.hpp>
 
 struct MDB_txn;
-namespace rai
+namespace galileo
 {
 class block_store;
 class stat;

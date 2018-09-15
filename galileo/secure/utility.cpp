@@ -8,15 +8,15 @@ static std::vector<boost::filesystem::path> all_unique_paths;
 boost::filesystem::path galileo::working_path ()
 {
 	auto result (galileo::app_path ());
-	switch (galileo::rai_network)
+	switch (galileo::galileo_network)
 	{
-		case galileo::rai_networks::rai_test_network:
+		case galileo::galileo_networks::galileo_test_network:
 			result /= "RaiBlocksTest";
 			break;
-		case galileo::rai_networks::rai_beta_network:
+		case galileo::galileo_networks::galileo_beta_network:
 			result /= "RaiBlocksBeta";
 			break;
-		case galileo::rai_networks::rai_live_network:
+		case galileo::galileo_networks::galileo_live_network:
 			result /= "RaiBlocks";
 			break;
 	}

@@ -7,7 +7,7 @@
 #include <boost/property_tree/json_parser.hpp>
 #include <streambuf>
 
-namespace rai
+namespace galileo
 {
 std::string to_string_hex (uint64_t);
 bool from_string_hex (std::string const &, uint64_t &);

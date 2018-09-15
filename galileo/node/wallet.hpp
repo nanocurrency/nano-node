@@ -11,7 +11,7 @@
 #include <thread>
 #include <unordered_set>
 
-namespace rai
+namespace galileo
 {
 // The fan spreads a key out over the heap to decrease the likelihood of it being recovered by memory inspection
 class fan
@@ -107,7 +107,7 @@ public:
 	static int const special_count;
 	static unsigned const kdf_full_work = 64 * 1024;
 	static unsigned const kdf_test_work = 8;
-	static unsigned const kdf_work = galileo::rai_network == galileo::rai_networks::rai_test_network ? kdf_test_work : kdf_full_work;
+	static unsigned const kdf_work = galileo::galileo_network == galileo::galileo_networks::galileo_test_network ? kdf_test_work : kdf_full_work;
 	galileo::kdf & kdf;
 	MDB_dbi handle;
 	std::recursive_mutex mutex;

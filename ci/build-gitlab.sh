@@ -55,9 +55,9 @@ if [[ ${FLAVOR-_} == "_" ]]; then
 fi
 
 if [[ "${BETA}" -eq 1 ]]; then
-    NETWORK_CFG="-DACTIVE_NETWORK=rai_beta_network"
+    NETWORK_CFG="-DACTIVE_NETWORK=galileo_beta_network"
 else
-    NETWORK_CFG="-DACTIVE_NETWORK=rai_live_network"
+    NETWORK_CFG="-DACTIVE_NETWORK=galileo_live_network"
 fi
 
 set -o nounset

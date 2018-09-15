@@ -55,7 +55,7 @@ int main (int argc, char * const * argv)
 	{
 		if (vm.count ("daemon") > 0)
 		{
-			rai_daemon::daemon daemon;
+			galileo_daemon::daemon daemon;
 			daemon.run (data_path);
 		}
 		else if (vm.count ("debug_block_count"))
@@ -327,7 +327,7 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_profile_process"))
 		{
-			if (galileo::rai_network == galileo::rai_networks::rai_test_network)
+			if (galileo::galileo_network == galileo::galileo_networks::galileo_test_network)
 			{
 				size_t num_accounts (100000);
 				size_t num_interations (5); // 100,000 * 5 * 2 = 1,000,000 blocks

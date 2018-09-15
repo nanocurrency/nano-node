@@ -8,7 +8,7 @@
 #include <galileo/secure/utility.hpp>
 #include <unordered_map>
 
-namespace rai
+namespace galileo
 {
 void error_response (std::function<void(boost::property_tree::ptree const &)> response_a, std::string const & message_a);
 class node;
@@ -76,7 +76,7 @@ public:
 	galileo::rpc_config config;
 	galileo::node & node;
 	bool on;
-	static uint16_t const rpc_port = galileo::rai_network == galileo::rai_networks::rai_live_network ? 7076 : 55000;
+	static uint16_t const rpc_port = galileo::galileo_network == galileo::galileo_networks::galileo_live_network ? 7076 : 55000;
 };
 class rpc_connection : public std::enable_shared_from_this<galileo::rpc_connection>
 {
@@ -159,8 +159,8 @@ public:
 	void key_create ();
 	void key_expand ();
 	void ledger ();
-	void mrai_to_raw (galileo::uint128_t = galileo::Mxrb_ratio);
-	void mrai_from_raw (galileo::uint128_t = galileo::Mxrb_ratio);
+	void mgalileo_to_raw (galileo::uint128_t = galileo::Mxrb_ratio);
+	void mgalileo_from_raw (galileo::uint128_t = galileo::Mxrb_ratio);
 	void password_change ();
 	void password_enter ();
 	void password_valid (bool = false);

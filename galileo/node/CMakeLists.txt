@@ -41,7 +41,7 @@ add_library (node
 
 target_link_libraries (node
 	secure
-	rai_lib
+	galileo_lib
 	libminiupnpc-static
 	argon2
 	lmdb

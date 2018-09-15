@@ -14,9 +14,9 @@ endif ()
 file (READ ${CMAKE_SOURCE_DIR}/rep_weights.bin filedata HEX)
 string (REGEX REPLACE "(..)" "0x\\1," filedata ${filedata})
 file (WRITE ${CMAKE_BINARY_DIR}/bootstrap_weights.cpp "#include <cstddef>\n"
-	"namespace rai {\n"
+	"namespace galileo {\n"
 	"	unsigned char galileo_bootstrap_weights[] = {${filedata} 0x00};\n"
-	"	size_t galileo_bootstrap_weights_size = sizeof(rai_bootstrap_weights) - 1;\n"
+	"	size_t galileo_bootstrap_weights_size = sizeof(galileo_bootstrap_weights) - 1;\n"
 	"}\n")
 
 add_library (secure
@@ -35,7 +35,7 @@ add_library (secure
 
 target_link_libraries(secure
 	ed25519
-	rai_lib
+	galileo_lib
 	lmdb
 	Boost::boost
 	Boost::system

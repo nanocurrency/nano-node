@@ -105,7 +105,7 @@ void galileo::message_parser::deserialize_buffer (uint8_t const * buffer_a, size
 		galileo::message_header header (error, stream);
 		if (!error)
 		{
-			if (galileo::rai_network == galileo::rai_networks::rai_beta_network && header.version_using < galileo::protocol_version)
+			if (galileo::galileo_network == galileo::galileo_networks::galileo_beta_network && header.version_using < galileo::protocol_version)
 			{
 				status = parse_status::outdated_version;
 			}

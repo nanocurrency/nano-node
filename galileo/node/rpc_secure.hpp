@@ -3,7 +3,7 @@
 #include <boost/asio/ssl/stream.hpp>
 #include <galileo/node/rpc.hpp>
 
-namespace rai
+namespace galileo
 {
 /**
  * Specialization of galileo::rpc with TLS support

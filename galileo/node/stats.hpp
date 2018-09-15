@@ -10,7 +10,7 @@
 #include <string>
 #include <unordered_map>
 
-namespace rai
+namespace galileo
 {
 class node;
 

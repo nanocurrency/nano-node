@@ -18,11 +18,11 @@ extern QApplication * test_application;
 
 TEST (wallet, construction)
 {
-	rai_qt::eventloop_processor processor;
+	galileo_qt::eventloop_processor processor;
 	galileo::system system (24000, 1);
 	auto wallet_l (system.nodes[0]->wallets.create (galileo::uint256_union ()));
 	auto key (wallet_l->deterministic_insert ());
-	auto wallet (std::make_shared<rai_qt::wallet> (*test_application, processor, *system.nodes[0], wallet_l, key));
+	auto wallet (std::make_shared<galileo_qt::wallet> (*test_application, processor, *system.nodes[0], wallet_l, key));
 	wallet->start ();
 	std::string account (key.to_account ());
 	ASSERT_EQ (account, wallet->self.account_text->text ().toStdString ());
@@ -33,55 +33,55 @@ TEST (wallet, construction)
 
 TEST (wallet, status)
 {
-	rai_qt::eventloop_processor processor;
+	galileo_qt::eventloop_processor processor;
 	galileo::system system (24000, 1);
 	auto wallet_l (system.nodes[0]->wallets.create (galileo::uint256_union ()));
 	galileo::keypair key;
 	wallet_l->insert_adhoc (key.prv);
-	auto wallet (std::make_shared<rai_qt::wallet> (*test_application, processor, *system.nodes[0], wallet_l, key.pub));
+	auto wallet (std::make_shared<galileo_qt::wallet> (*test_application, processor, *system.nodes[0], wallet_l, key.pub));
 	wallet->start ();
-	auto wallet_has = [wallet](rai_qt::status_types status_ty) {
+	auto wallet_has = [wallet](galileo_qt::status_types status_ty) {
 		return wallet->active_status.active.find (status_ty) != wallet->active_status.active.end ();
 	};
 	ASSERT_EQ ("Status: Disconnected, Block: 1", wallet->status->text ().toStdString ());
 	system.nodes[0]->peers.insert (galileo::endpoint (boost::asio::ip::address_v6::loopback (), 10000), 0);
 	// Because of the wallet "vulnerable" message, this won't be the message displayed.
 	// However, it will still be part of the status set.
-	ASSERT_FALSE (wallet_has (rai_qt::status_types::synchronizing));
+	ASSERT_FALSE (wallet_has (galileo_qt::status_types::synchronizing));
 	system.deadline_set (25s);
-	while (!wallet_has (rai_qt::status_types::synchronizing))
+	while (!wallet_has (galileo_qt::status_types::synchronizing))
 	{
 		test_application->processEvents ();
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	system.nodes[0]->peers.purge_list (std::chrono::steady_clock::now () + std::chrono::seconds (5));
-	while (wallet_has (rai_qt::status_types::synchronizing))
+	while (wallet_has (galileo_qt::status_types::synchronizing))
 	{
 		test_application->processEvents ();
 	}
-	ASSERT_TRUE (wallet_has (rai_qt::status_types::disconnected));
+	ASSERT_TRUE (wallet_has (galileo_qt::status_types::disconnected));
 }
 
 TEST (wallet, startup_balance)
 {
-	rai_qt::eventloop_processor processor;
+	galileo_qt::eventloop_processor processor;
 	galileo::system system (24000, 1);
 	auto wallet_l (system.nodes[0]->wallets.create (galileo::uint256_union ()));
 	galileo::keypair key;
 	wallet_l->insert_adhoc (key.prv);
-	auto wallet (std::make_shared<rai_qt::wallet> (*test_application, processor, *system.nodes[0], wallet_l, key.pub));
+	auto wallet (std::make_shared<galileo_qt::wallet> (*test_application, processor, *system.nodes[0], wallet_l, key.pub));
 	wallet->start ();
 	ASSERT_EQ ("Balance: 0 XRB", wallet->self.balance_label->text ().toStdString ());
 }
 
 TEST (wallet, select_account)
 {
-	rai_qt::eventloop_processor processor;
+	galileo_qt::eventloop_processor processor;
 	galileo::system system (24000, 1);
 	auto wallet_l (system.nodes[0]->wallets.create (galileo::uint256_union ()));
 	galileo::public_key key1 (wallet_l->deterministic_insert ());
 	galileo::public_key key2 (wallet_l->deterministic_insert ());
-	auto wallet (std::make_shared<rai_qt::wallet> (*test_application, processor, *system.nodes[0], wallet_l, key1));
+	auto wallet (std::make_shared<galileo_qt::wallet> (*test_application, processor, *system.nodes[0], wallet_l, key1));
 	wallet->start ();
 	ASSERT_EQ (key1, wallet->account);
 	QTest::mouseClick (wallet->show_advanced, Qt::LeftButton);
@@ -97,12 +97,12 @@ TEST (wallet, select_account)
 
 TEST (wallet, main)
 {
-	rai_qt::eventloop_processor processor;
+	galileo_qt::eventloop_processor processor;
 	galileo::system system (24000, 1);
 	auto wallet_l (system.nodes[0]->wallets.create (galileo::uint256_union ()));
 	galileo::keypair key;
 	wallet_l->insert_adhoc (key.prv);
-	auto wallet (std::make_shared<rai_qt::wallet> (*test_application, processor, *system.nodes[0], wallet_l, key.pub));
+	auto wallet (std::make_shared<galileo_qt::wallet> (*test_application, processor, *system.nodes[0], wallet_l, key.pub));
 	wallet->start ();
 	ASSERT_EQ (wallet->entry_window, wallet->main_stack->currentWidget ());
 	QTest::mouseClick (wallet->send_blocks, Qt::LeftButton);
@@ -128,7 +128,7 @@ TEST (wallet, main)
 
 TEST (wallet, password_change)
 {
-	rai_qt::eventloop_processor processor;
+	galileo_qt::eventloop_processor processor;
 	galileo::system system (24000, 1);
 	galileo::account account;
 	system.wallet (0)->insert_adhoc (galileo::keypair ().prv);
@@ -136,7 +136,7 @@ TEST (wallet, password_change)
 		auto transaction (system.nodes[0]->store.tx_begin ());
 		account = system.account (transaction, 0);
 	}
-	auto wallet (std::make_shared<rai_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
+	auto wallet (std::make_shared<galileo_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
 	wallet->start ();
 	QTest::mouseClick (wallet->settings_button, Qt::LeftButton);
 	{
@@ -164,7 +164,7 @@ TEST (wallet, password_change)
 
 TEST (client, password_nochange)
 {
-	rai_qt::eventloop_processor processor;
+	galileo_qt::eventloop_processor processor;
 	galileo::system system (24000, 1);
 	galileo::account account;
 	system.wallet (0)->insert_adhoc (galileo::keypair ().prv);
@@ -172,7 +172,7 @@ TEST (client, password_nochange)
 		auto transaction (system.nodes[0]->store.tx_begin ());
 		account = system.account (transaction, 0);
 	}
-	auto wallet (std::make_shared<rai_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
+	auto wallet (std::make_shared<galileo_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
 	wallet->start ();
 	QTest::mouseClick (wallet->settings_button, Qt::LeftButton);
 	galileo::raw_key password;
@@ -208,7 +208,7 @@ TEST (client, password_nochange)
 
 TEST (wallet, enter_password)
 {
-	rai_qt::eventloop_processor processor;
+	galileo_qt::eventloop_processor processor;
 	galileo::system system (24000, 2);
 	galileo::account account;
 	system.wallet (0)->insert_adhoc (galileo::keypair ().prv);
@@ -216,7 +216,7 @@ TEST (wallet, enter_password)
 		auto transaction (system.nodes[0]->store.tx_begin ());
 		account = system.account (transaction, 0);
 	}
-	auto wallet (std::make_shared<rai_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
+	auto wallet (std::make_shared<galileo_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
 	wallet->start ();
 	ASSERT_NE (-1, wallet->settings.layout->indexOf (wallet->settings.password));
 	ASSERT_NE (-1, wallet->settings.layout->indexOf (wallet->settings.lock_toggle));
@@ -245,12 +245,12 @@ TEST (wallet, enter_password)
 
 TEST (wallet, send)
 {
-	rai_qt::eventloop_processor processor;
+	galileo_qt::eventloop_processor processor;
 	galileo::system system (24000, 2);
 	system.wallet (0)->insert_adhoc (galileo::test_genesis_key.prv);
 	galileo::public_key key1 (system.wallet (1)->insert_adhoc (galileo::keypair ().prv));
 	auto account (galileo::test_genesis_key.pub);
-	auto wallet (std::make_shared<rai_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
+	auto wallet (std::make_shared<galileo_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
 	wallet->start ();
 	QTest::mouseClick (wallet->send_blocks, Qt::LeftButton);
 	QTest::keyClicks (wallet->send_account, key1.to_account ().c_str ());
@@ -277,7 +277,7 @@ TEST (wallet, send)
 
 TEST (wallet, send_locked)
 {
-	rai_qt::eventloop_processor processor;
+	galileo_qt::eventloop_processor processor;
 	galileo::system system (24000, 1);
 	system.wallet (0)->insert_adhoc (galileo::test_genesis_key.prv);
 	galileo::keypair key1;
@@ -286,7 +286,7 @@ TEST (wallet, send_locked)
 		system.wallet (0)->enter_password (transaction, "0");
 	}
 	auto account (galileo::test_genesis_key.pub);
-	auto wallet (std::make_shared<rai_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
+	auto wallet (std::make_shared<galileo_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
 	wallet->start ();
 	QTest::mouseClick (wallet->send_blocks, Qt::LeftButton);
 	QTest::keyClicks (wallet->send_account, key1.pub.to_account ().c_str ());
@@ -302,7 +302,7 @@ TEST (wallet, send_locked)
 
 TEST (wallet, process_block)
 {
-	rai_qt::eventloop_processor processor;
+	galileo_qt::eventloop_processor processor;
 	galileo::system system (24000, 1);
 	galileo::account account;
 	galileo::block_hash latest (system.nodes[0]->latest (galileo::genesis_account));
@@ -311,7 +311,7 @@ TEST (wallet, process_block)
 		auto transaction (system.nodes[0]->store.tx_begin ());
 		account = system.account (transaction, 0);
 	}
-	auto wallet (std::make_shared<rai_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
+	auto wallet (std::make_shared<galileo_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
 	wallet->start ();
 	ASSERT_EQ ("Process", wallet->block_entry.process->text ());
 	ASSERT_EQ ("Back", wallet->block_entry.back->text ());
@@ -346,13 +346,13 @@ TEST (wallet, process_block)
 
 TEST (wallet, create_send)
 {
-	rai_qt::eventloop_processor processor;
+	galileo_qt::eventloop_processor processor;
 	galileo::keypair key;
 	galileo::system system (24000, 1);
 	system.wallet (0)->insert_adhoc (galileo::test_genesis_key.prv);
 	system.wallet (0)->insert_adhoc (key.prv);
 	auto account (galileo::test_genesis_key.pub);
-	auto wallet (std::make_shared<rai_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
+	auto wallet (std::make_shared<galileo_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
 	wallet->start ();
 	wallet->client_window->show ();
 	QTest::mouseClick (wallet->show_advanced, Qt::LeftButton);
@@ -376,7 +376,7 @@ TEST (wallet, create_send)
 
 TEST (wallet, create_open_receive)
 {
-	rai_qt::eventloop_processor processor;
+	galileo_qt::eventloop_processor processor;
 	galileo::keypair key;
 	galileo::system system (24000, 1);
 	system.wallet (0)->insert_adhoc (galileo::test_genesis_key.prv);
@@ -387,7 +387,7 @@ TEST (wallet, create_open_receive)
 	ASSERT_NE (latest1, latest2);
 	system.wallet (0)->insert_adhoc (key.prv);
 	auto account (galileo::test_genesis_key.pub);
-	auto wallet (std::make_shared<rai_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
+	auto wallet (std::make_shared<galileo_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
 	wallet->start ();
 	wallet->client_window->show ();
 	QTest::mouseClick (wallet->show_advanced, Qt::LeftButton);
@@ -425,12 +425,12 @@ TEST (wallet, create_open_receive)
 
 TEST (wallet, create_change)
 {
-	rai_qt::eventloop_processor processor;
+	galileo_qt::eventloop_processor processor;
 	galileo::keypair key;
 	galileo::system system (24000, 1);
 	system.wallet (0)->insert_adhoc (galileo::test_genesis_key.prv);
 	auto account (galileo::test_genesis_key.pub);
-	auto wallet (std::make_shared<rai_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
+	auto wallet (std::make_shared<galileo_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
 	wallet->start ();
 	wallet->client_window->show ();
 	QTest::mouseClick (wallet->show_advanced, Qt::LeftButton);
@@ -454,7 +454,7 @@ TEST (wallet, create_change)
 TEST (history, short_text)
 {
 	bool init (false);
-	rai_qt::eventloop_processor processor;
+	galileo_qt::eventloop_processor processor;
 	galileo::keypair key;
 	galileo::system system (24000, 1);
 	system.wallet (0)->insert_adhoc (key.prv);
@@ -463,7 +463,7 @@ TEST (history, short_text)
 		auto transaction (system.nodes[0]->store.tx_begin ());
 		account = system.account (transaction, 0);
 	}
-	auto wallet (std::make_shared<rai_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
+	auto wallet (std::make_shared<galileo_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
 	galileo::mdb_store store (init, galileo::unique_path ());
 	ASSERT_TRUE (!init);
 	galileo::genesis genesis;
@@ -479,14 +479,14 @@ TEST (history, short_text)
 		galileo::change_block change (receive.hash (), key.pub, galileo::test_genesis_key.prv, galileo::test_genesis_key.pub, 0);
 		ASSERT_EQ (galileo::process_result::progress, ledger.process (transaction, change).code);
 	}
-	rai_qt::history history (ledger, galileo::test_genesis_key.pub, *wallet);
+	galileo_qt::history history (ledger, galileo::test_genesis_key.pub, *wallet);
 	history.refresh ();
 	ASSERT_EQ (4, history.model->rowCount ());
 }
 
 TEST (wallet, startup_work)
 {
-	rai_qt::eventloop_processor processor;
+	galileo_qt::eventloop_processor processor;
 	galileo::keypair key;
 	galileo::system system (24000, 1);
 	system.wallet (0)->insert_adhoc (key.prv);
@@ -495,7 +495,7 @@ TEST (wallet, startup_work)
 		auto transaction (system.nodes[0]->store.tx_begin ());
 		account = system.account (transaction, 0);
 	}
-	auto wallet (std::make_shared<rai_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
+	auto wallet (std::make_shared<galileo_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
 	wallet->start ();
 	QTest::mouseClick (wallet->show_advanced, Qt::LeftButton);
 	uint64_t work1;
@@ -518,7 +518,7 @@ TEST (wallet, startup_work)
 
 TEST (wallet, block_viewer)
 {
-	rai_qt::eventloop_processor processor;
+	galileo_qt::eventloop_processor processor;
 	galileo::keypair key;
 	galileo::system system (24000, 1);
 	system.wallet (0)->insert_adhoc (key.prv);
@@ -527,7 +527,7 @@ TEST (wallet, block_viewer)
 		auto transaction (system.nodes[0]->store.tx_begin ());
 		account = system.account (transaction, 0);
 	}
-	auto wallet (std::make_shared<rai_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
+	auto wallet (std::make_shared<galileo_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
 	wallet->start ();
 	QTest::mouseClick (wallet->show_advanced, Qt::LeftButton);
 	ASSERT_NE (-1, wallet->advanced.layout->indexOf (wallet->advanced.block_viewer));
@@ -543,7 +543,7 @@ TEST (wallet, block_viewer)
 
 TEST (wallet, import)
 {
-	rai_qt::eventloop_processor processor;
+	galileo_qt::eventloop_processor processor;
 	galileo::system system (24000, 2);
 	std::string json;
 	galileo::keypair key1;
@@ -560,7 +560,7 @@ TEST (wallet, import)
 		stream.open (path.string ().c_str ());
 		stream << json;
 	}
-	auto wallet (std::make_shared<rai_qt::wallet> (*test_application, processor, *system.nodes[1], system.wallet (1), key2.pub));
+	auto wallet (std::make_shared<galileo_qt::wallet> (*test_application, processor, *system.nodes[1], system.wallet (1), key2.pub));
 	wallet->start ();
 	QTest::mouseClick (wallet->show_advanced, Qt::LeftButton);
 	ASSERT_EQ (wallet->advanced.window, wallet->main_stack->currentWidget ());
@@ -577,7 +577,7 @@ TEST (wallet, import)
 
 TEST (wallet, republish)
 {
-	rai_qt::eventloop_processor processor;
+	galileo_qt::eventloop_processor processor;
 	galileo::system system (24000, 2);
 	system.wallet (0)->insert_adhoc (galileo::test_genesis_key.prv);
 	galileo::keypair key;
@@ -589,7 +589,7 @@ TEST (wallet, republish)
 		ASSERT_EQ (galileo::process_result::progress, system.nodes[0]->ledger.process (transaction, block).code);
 	}
 	auto account (galileo::test_genesis_key.pub);
-	auto wallet (std::make_shared<rai_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
+	auto wallet (std::make_shared<galileo_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
 	wallet->start ();
 	QTest::mouseClick (wallet->show_advanced, Qt::LeftButton);
 	ASSERT_EQ (wallet->advanced.window, wallet->main_stack->currentWidget ());
@@ -607,11 +607,11 @@ TEST (wallet, republish)
 
 TEST (wallet, ignore_empty_adhoc)
 {
-	rai_qt::eventloop_processor processor;
+	galileo_qt::eventloop_processor processor;
 	galileo::system system (24000, 1);
 	galileo::keypair key1;
 	system.wallet (0)->insert_adhoc (key1.prv);
-	auto wallet (std::make_shared<rai_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), key1.pub));
+	auto wallet (std::make_shared<galileo_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), key1.pub));
 	wallet->start ();
 	QTest::mouseClick (wallet->show_advanced, Qt::LeftButton);
 	ASSERT_EQ (wallet->advanced.window, wallet->main_stack->currentWidget ());
@@ -634,7 +634,7 @@ TEST (wallet, ignore_empty_adhoc)
 
 TEST (wallet, change_seed)
 {
-	rai_qt::eventloop_processor processor;
+	galileo_qt::eventloop_processor processor;
 	galileo::system system (24000, 1);
 	auto key1 (system.wallet (0)->deterministic_insert ());
 	auto key3 (system.wallet (0)->deterministic_insert ());
@@ -644,7 +644,7 @@ TEST (wallet, change_seed)
 		system.wallet (0)->store.seed (seed3, transaction);
 	}
 	auto wallet_key (key1);
-	auto wallet (std::make_shared<rai_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), wallet_key));
+	auto wallet (std::make_shared<galileo_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), wallet_key));
 	wallet->start ();
 	QTest::mouseClick (wallet->show_advanced, Qt::LeftButton);
 	ASSERT_EQ (wallet->advanced.window, wallet->main_stack->currentWidget ());
@@ -687,10 +687,10 @@ TEST (wallet, change_seed)
 
 TEST (wallet, seed_work_generation)
 {
-	rai_qt::eventloop_processor processor;
+	galileo_qt::eventloop_processor processor;
 	galileo::system system (24000, 1);
 	auto key1 (system.wallet (0)->deterministic_insert ());
-	auto wallet (std::make_shared<rai_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), key1));
+	auto wallet (std::make_shared<galileo_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), key1));
 	wallet->start ();
 	QTest::mouseClick (wallet->show_advanced, Qt::LeftButton);
 	ASSERT_EQ (wallet->advanced.window, wallet->main_stack->currentWidget ());
@@ -723,10 +723,10 @@ TEST (wallet, seed_work_generation)
 
 TEST (wallet, backup_seed)
 {
-	rai_qt::eventloop_processor processor;
+	galileo_qt::eventloop_processor processor;
 	galileo::system system (24000, 1);
 	auto key1 (system.wallet (0)->deterministic_insert ());
-	auto wallet (std::make_shared<rai_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), key1));
+	auto wallet (std::make_shared<galileo_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), key1));
 	wallet->start ();
 	QTest::mouseClick (wallet->show_advanced, Qt::LeftButton);
 	ASSERT_EQ (wallet->advanced.window, wallet->main_stack->currentWidget ());
@@ -741,14 +741,14 @@ TEST (wallet, backup_seed)
 
 TEST (wallet, import_locked)
 {
-	rai_qt::eventloop_processor processor;
+	galileo_qt::eventloop_processor processor;
 	galileo::system system (24000, 1);
 	auto key1 (system.wallet (0)->deterministic_insert ());
 	{
 		auto transaction (system.wallet (0)->wallets.tx_begin (true));
 		system.wallet (0)->store.rekey (transaction, "1");
 	}
-	auto wallet (std::make_shared<rai_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), key1));
+	auto wallet (std::make_shared<galileo_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), key1));
 	wallet->start ();
 	QTest::mouseClick (wallet->show_advanced, Qt::LeftButton);
 	ASSERT_EQ (wallet->advanced.window, wallet->main_stack->currentWidget ());
@@ -779,11 +779,11 @@ TEST (wallet, import_locked)
 // DISABLED: this always fails
 TEST (wallet, DISABLED_synchronizing)
 {
-	rai_qt::eventloop_processor processor;
+	galileo_qt::eventloop_processor processor;
 	galileo::system system0 (24000, 1);
 	galileo::system system1 (24001, 1);
 	auto key1 (system0.wallet (0)->deterministic_insert ());
-	auto wallet (std::make_shared<rai_qt::wallet> (*test_application, processor, *system0.nodes[0], system0.wallet (0), key1));
+	auto wallet (std::make_shared<galileo_qt::wallet> (*test_application, processor, *system0.nodes[0], system0.wallet (0), key1));
 	wallet->start ();
 	{
 		auto transaction (system1.nodes[0]->store.tx_begin (true));
@@ -791,17 +791,17 @@ TEST (wallet, DISABLED_synchronizing)
 		galileo::send_block send (latest, key1, 0, galileo::test_genesis_key.prv, galileo::test_genesis_key.pub, system1.work.generate (latest));
 		system1.nodes[0]->ledger.process (transaction, send);
 	}
-	ASSERT_EQ (0, wallet->active_status.active.count (rai_qt::status_types::synchronizing));
+	ASSERT_EQ (0, wallet->active_status.active.count (galileo_qt::status_types::synchronizing));
 	system0.nodes[0]->bootstrap_initiator.bootstrap (system1.nodes[0]->network.endpoint ());
 	system1.deadline_set (10s);
-	while (wallet->active_status.active.count (rai_qt::status_types::synchronizing) == 0)
+	while (wallet->active_status.active.count (galileo_qt::status_types::synchronizing) == 0)
 	{
 		ASSERT_NO_ERROR (system0.poll ());
 		ASSERT_NO_ERROR (system1.poll ());
 		test_application->processEvents ();
 	}
 	system1.deadline_set (25s);
-	while (wallet->active_status.active.count (rai_qt::status_types::synchronizing) == 1)
+	while (wallet->active_status.active.count (galileo_qt::status_types::synchronizing) == 1)
 	{
 		ASSERT_NO_ERROR (system0.poll ());
 		ASSERT_NO_ERROR (system1.poll ());

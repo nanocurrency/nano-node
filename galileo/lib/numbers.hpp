@@ -4,7 +4,7 @@
 
 #include <cryptopp/osrng.h>
 
-namespace rai
+namespace galileo
 {
 // Random pool used by RaiBlocks.
 // This must be thread_local as long as the AutoSeededRandomPool implementation requires it

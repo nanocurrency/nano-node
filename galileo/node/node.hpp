@@ -27,7 +27,7 @@ namespace program_options
 }
 }
 
-namespace rai
+namespace galileo
 {
 galileo::endpoint map_endpoint_to_v6 (galileo::endpoint const &);
 class node;
@@ -126,7 +126,7 @@ public:
 	static unsigned constexpr announcement_min = 2;
 	// Threshold to start logging blocks haven't yet been confirmed
 	static unsigned constexpr announcement_long = 20;
-	static unsigned constexpr announce_interval_ms = (galileo::rai_network == galileo::rai_networks::rai_test_network) ? 10 : 16000;
+	static unsigned constexpr announce_interval_ms = (galileo::galileo_network == galileo::galileo_networks::galileo_test_network) ? 10 : 16000;
 	static size_t constexpr election_history_size = 2048;
 
 private:
@@ -331,8 +331,8 @@ public:
 	UPNPUrls urls; // Something for UPnP
 	IGDdatas data; // Some other UPnP thing
 	// Primes so they infrequently happen at the same time
-	static int constexpr mapping_timeout = galileo::rai_network == galileo::rai_networks::rai_test_network ? 53 : 3593;
-	static int constexpr check_timeout = galileo::rai_network == galileo::rai_networks::rai_test_network ? 17 : 53;
+	static int constexpr mapping_timeout = galileo::galileo_network == galileo::galileo_networks::galileo_test_network ? 53 : 3593;
+	static int constexpr check_timeout = galileo::galileo_network == galileo::galileo_networks::galileo_test_network ? 17 : 53;
 	boost::asio::ip::address_v4 address;
 	std::array<mapping_protocol, 2> protocols;
 	uint64_t check_count;
@@ -416,7 +416,7 @@ public:
 	boost::asio::ip::udp::resolver resolver;
 	galileo::node & node;
 	bool on;
-	static uint16_t const node_port = galileo::rai_network == galileo::rai_networks::rai_live_network ? 7075 : 54000;
+	static uint16_t const node_port = galileo::galileo_network == galileo::galileo_networks::galileo_live_network ? 7075 : 54000;
 };
 class logging
 {

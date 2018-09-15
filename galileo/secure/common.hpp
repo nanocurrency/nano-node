@@ -23,7 +23,7 @@ struct hash<galileo::uint256_union>
 	}
 };
 }
-namespace rai
+namespace galileo
 {
 const uint8_t protocol_version = 0x0f;
 const uint8_t protocol_version_min = 0x07;

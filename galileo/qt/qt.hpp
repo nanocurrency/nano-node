@@ -26,7 +26,7 @@ public:
 class settings
 {
 public:
-	settings (rai_qt::wallet &);
+	settings (galileo_qt::wallet &);
 	void refresh_representative ();
 	void activate ();
 	void update_locked (bool, bool);
@@ -44,12 +44,12 @@ public:
 	QLineEdit * new_representative;
 	QPushButton * change_rep;
 	QPushButton * back;
-	rai_qt::wallet & wallet;
+	galileo_qt::wallet & wallet;
 };
 class advanced_actions
 {
 public:
-	advanced_actions (rai_qt::wallet &);
+	advanced_actions (galileo_qt::wallet &);
 	QWidget * window;
 	QVBoxLayout * layout;
 	QPushButton * show_ledger;
@@ -68,7 +68,7 @@ public:
 	QButtonGroup * ratio_group;
 	QRadioButton * mrai;
 	QRadioButton * krai;
-	QRadioButton * rai;
+	QRadioButton * galileo;
 	QPushButton * back;
 
 	QWidget * ledger_window;
@@ -90,7 +90,7 @@ public:
 	QPushButton * peers_refresh;
 	QPushButton * peers_back;
 
-	rai_qt::wallet & wallet;
+	galileo_qt::wallet & wallet;
 
 private:
 	void refresh_ledger ();
@@ -100,19 +100,19 @@ private:
 class block_entry
 {
 public:
-	block_entry (rai_qt::wallet &);
+	block_entry (galileo_qt::wallet &);
 	QWidget * window;
 	QVBoxLayout * layout;
 	QPlainTextEdit * block;
 	QLabel * status;
 	QPushButton * process;
 	QPushButton * back;
-	rai_qt::wallet & wallet;
+	galileo_qt::wallet & wallet;
 };
 class block_creation
 {
 public:
-	block_creation (rai_qt::wallet &);
+	block_creation (galileo_qt::wallet &);
 	void deactivate_all ();
 	void activate_send ();
 	void activate_receive ();
@@ -144,12 +144,12 @@ public:
 	QLabel * status;
 	QPushButton * create;
 	QPushButton * back;
-	rai_qt::wallet & wallet;
+	galileo_qt::wallet & wallet;
 };
 class self_pane
 {
 public:
-	self_pane (rai_qt::wallet &, galileo::account const &);
+	self_pane (galileo_qt::wallet &, galileo::account const &);
 	void refresh_balance ();
 	QWidget * window;
 	QVBoxLayout * layout;
@@ -164,12 +164,12 @@ public:
 	QWidget * balance_window;
 	QHBoxLayout * balance_layout;
 	QLabel * balance_label;
-	rai_qt::wallet & wallet;
+	galileo_qt::wallet & wallet;
 };
 class accounts
 {
 public:
-	accounts (rai_qt::wallet &);
+	accounts (galileo_qt::wallet &);
 	void refresh ();
 	void refresh_wallet_balance ();
 	QLabel * wallet_balance_label;
@@ -185,12 +185,12 @@ public:
 	QLineEdit * account_key_line;
 	QPushButton * account_key_button;
 	QPushButton * back;
-	rai_qt::wallet & wallet;
+	galileo_qt::wallet & wallet;
 };
 class import
 {
 public:
-	import (rai_qt::wallet &);
+	import (galileo_qt::wallet &);
 	QWidget * window;
 	QVBoxLayout * layout;
 	QLabel * seed_label;
@@ -205,7 +205,7 @@ public:
 	QLineEdit * password;
 	QPushButton * perform;
 	QPushButton * back;
-	rai_qt::wallet & wallet;
+	galileo_qt::wallet & wallet;
 };
 class history
 {
@@ -222,12 +222,12 @@ public:
 	QSpinBox * tx_count;
 	galileo::ledger & ledger;
 	galileo::account const & account;
-	rai_qt::wallet & wallet;
+	galileo_qt::wallet & wallet;
 };
 class block_viewer
 {
 public:
-	block_viewer (rai_qt::wallet &);
+	block_viewer (galileo_qt::wallet &);
 	void rebroadcast_action (galileo::uint256_union const &);
 	QWidget * window;
 	QVBoxLayout * layout;
@@ -240,12 +240,12 @@ public:
 	QPushButton * retrieve;
 	QPushButton * rebroadcast;
 	QPushButton * back;
-	rai_qt::wallet & wallet;
+	galileo_qt::wallet & wallet;
 };
 class account_viewer
 {
 public:
-	account_viewer (rai_qt::wallet &);
+	account_viewer (galileo_qt::wallet &);
 	QWidget * window;
 	QVBoxLayout * layout;
 	QLabel * account_label;
@@ -254,22 +254,22 @@ public:
 	QWidget * balance_window;
 	QHBoxLayout * balance_layout;
 	QLabel * balance_label;
-	rai_qt::history history;
+	galileo_qt::history history;
 	QPushButton * back;
 	galileo::account account;
-	rai_qt::wallet & wallet;
+	galileo_qt::wallet & wallet;
 };
 class stats_viewer
 {
 public:
-	stats_viewer (rai_qt::wallet &);
+	stats_viewer (galileo_qt::wallet &);
 	QWidget * window;
 	QVBoxLayout * layout;
 	QPushButton * refresh;
 	QStandardItemModel * model;
 	QTableView * view;
 	QPushButton * back;
-	rai_qt::wallet & wallet;
+	galileo_qt::wallet & wallet;
 	void refresh_stats ();
 };
 enum class status_types
@@ -286,16 +286,16 @@ enum class status_types
 class status
 {
 public:
-	status (rai_qt::wallet &);
-	void erase (rai_qt::status_types);
-	void insert (rai_qt::status_types);
+	status (galileo_qt::wallet &);
+	void erase (galileo_qt::status_types);
+	void insert (galileo_qt::status_types);
 	void set_text ();
 	std::string text ();
 	std::string color ();
-	std::set<rai_qt::status_types> active;
-	rai_qt::wallet & wallet;
+	std::set<galileo_qt::status_types> active;
+	galileo_qt::wallet & wallet;
 };
-class wallet : public std::enable_shared_from_this<rai_qt::wallet>
+class wallet : public std::enable_shared_from_this<galileo_qt::wallet>
 {
 public:
 	wallet (QApplication &, galileo_qt::eventloop_processor &, galileo::node &, std::shared_ptr<galileo::wallet>, galileo::account &);
@@ -309,18 +309,18 @@ public:
 	galileo::node & node;
 	std::shared_ptr<galileo::wallet> wallet_m;
 	galileo::account & account;
-	rai_qt::eventloop_processor & processor;
-	rai_qt::history history;
-	rai_qt::accounts accounts;
-	rai_qt::self_pane self;
-	rai_qt::settings settings;
-	rai_qt::advanced_actions advanced;
-	rai_qt::block_creation block_creation;
-	rai_qt::block_entry block_entry;
-	rai_qt::block_viewer block_viewer;
-	rai_qt::account_viewer account_viewer;
-	rai_qt::stats_viewer stats_viewer;
-	rai_qt::import import;
+	galileo_qt::eventloop_processor & processor;
+	galileo_qt::history history;
+	galileo_qt::accounts accounts;
+	galileo_qt::self_pane self;
+	galileo_qt::settings settings;
+	galileo_qt::advanced_actions advanced;
+	galileo_qt::block_creation block_creation;
+	galileo_qt::block_entry block_entry;
+	galileo_qt::block_viewer block_viewer;
+	galileo_qt::account_viewer account_viewer;
+	galileo_qt::stats_viewer stats_viewer;
+	galileo_qt::import import;
 
 	QApplication & application;
 	QLabel * status;
@@ -347,7 +347,7 @@ public:
 	QPushButton * send_blocks_send;
 	QPushButton * send_blocks_back;
 
-	rai_qt::status active_status;
+	galileo_qt::status active_status;
 	void pop_main_stack ();
 	void push_main_stack (QWidget *);
 };

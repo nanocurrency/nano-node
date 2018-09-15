@@ -1773,7 +1773,7 @@ TEST (rpc, available_supply)
 	ASSERT_EQ ("1", response3.json.get<std::string> ("available"));
 }
 
-TEST (rpc, mrai_to_raw)
+TEST (rpc, mgalileo_to_raw)
 {
 	galileo::system system (24000, 1);
 	galileo::node_init init1;
@@ -1781,7 +1781,7 @@ TEST (rpc, mrai_to_raw)
 	galileo::rpc rpc (system.service, node1, galileo::rpc_config (true));
 	rpc.start ();
 	boost::property_tree::ptree request1;
-	request1.put ("action", "mrai_to_raw");
+	request1.put ("action", "mgalileo_to_raw");
 	request1.put ("amount", "1");
 	test_response response1 (request1, rpc, system.service);
 	while (response1.status == 0)
@@ -1792,7 +1792,7 @@ TEST (rpc, mrai_to_raw)
 	ASSERT_EQ (galileo::Mxrb_ratio.convert_to<std::string> (), response1.json.get<std::string> ("amount"));
 }
 
-TEST (rpc, mrai_from_raw)
+TEST (rpc, mgalileo_from_raw)
 {
 	galileo::system system (24000, 1);
 	galileo::node_init init1;
@@ -1800,7 +1800,7 @@ TEST (rpc, mrai_from_raw)
 	galileo::rpc rpc (system.service, node1, galileo::rpc_config (true));
 	rpc.start ();
 	boost::property_tree::ptree request1;
-	request1.put ("action", "mrai_from_raw");
+	request1.put ("action", "mgalileo_from_raw");
 	request1.put ("amount", galileo::Mxrb_ratio.convert_to<std::string> ());
 	test_response response1 (request1, rpc, system.service);
 	while (response1.status == 0)
@@ -1811,7 +1811,7 @@ TEST (rpc, mrai_from_raw)
 	ASSERT_EQ ("1", response1.json.get<std::string> ("amount"));
 }
 
-TEST (rpc, krai_to_raw)
+TEST (rpc, kgalileo_to_raw)
 {
 	galileo::system system (24000, 1);
 	galileo::node_init init1;
@@ -1819,7 +1819,7 @@ TEST (rpc, krai_to_raw)
 	galileo::rpc rpc (system.service, node1, galileo::rpc_config (true));
 	rpc.start ();
 	boost::property_tree::ptree request1;
-	request1.put ("action", "krai_to_raw");
+	request1.put ("action", "kgalileo_to_raw");
 	request1.put ("amount", "1");
 	test_response response1 (request1, rpc, system.service);
 	while (response1.status == 0)
@@ -1830,7 +1830,7 @@ TEST (rpc, krai_to_raw)
 	ASSERT_EQ (galileo::kxrb_ratio.convert_to<std::string> (), response1.json.get<std::string> ("amount"));
 }
 
-TEST (rpc, krai_from_raw)
+TEST (rpc, kgalileo_from_raw)
 {
 	galileo::system system (24000, 1);
 	galileo::node_init init1;
@@ -1838,7 +1838,7 @@ TEST (rpc, krai_from_raw)
 	galileo::rpc rpc (system.service, node1, galileo::rpc_config (true));
 	rpc.start ();
 	boost::property_tree::ptree request1;
-	request1.put ("action", "krai_from_raw");
+	request1.put ("action", "kgalileo_from_raw");
 	request1.put ("amount", galileo::kxrb_ratio.convert_to<std::string> ());
 	test_response response1 (request1, rpc, system.service);
 	while (response1.status == 0)
@@ -1857,7 +1857,7 @@ TEST (rpc, galileo_to_raw)
 	galileo::rpc rpc (system.service, node1, galileo::rpc_config (true));
 	rpc.start ();
 	boost::property_tree::ptree request1;
-	request1.put ("action", "rai_to_raw");
+	request1.put ("action", "galileo_to_raw");
 	request1.put ("amount", "1");
 	test_response response1 (request1, rpc, system.service);
 	while (response1.status == 0)
@@ -1876,7 +1876,7 @@ TEST (rpc, galileo_from_raw)
 	galileo::rpc rpc (system.service, node1, galileo::rpc_config (true));
 	rpc.start ();
 	boost::property_tree::ptree request1;
-	request1.put ("action", "rai_from_raw");
+	request1.put ("action", "galileo_from_raw");
 	request1.put ("amount", galileo::xrb_ratio.convert_to<std::string> ());
 	test_response response1 (request1, rpc, system.service);
 	while (response1.status == 0)

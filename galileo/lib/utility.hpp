@@ -5,7 +5,7 @@
 #include <thread>
 #include <vector>
 
-namespace rai
+namespace galileo
 {
 // Lower priority of calling work generating thread
 void work_thread_reprioritize ();

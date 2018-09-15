@@ -16,7 +16,7 @@
 #include <galileo/lib/interface.h>
 #include <galileo/lib/numbers.hpp>
 
-namespace rai
+namespace galileo
 {
 using bufferstream = boost::iostreams::stream_buffer<boost::iostreams::basic_array_source<uint8_t>>;
 using vectorstream = boost::iostreams::stream_buffer<boost::iostreams::back_insert_device<std::vector<uint8_t>>>;

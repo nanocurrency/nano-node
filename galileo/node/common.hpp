@@ -9,7 +9,7 @@
 
 #include <xxhash/xxhash.h>
 
-namespace rai
+namespace galileo
 {
 using endpoint = boost::asio::ip::udp::endpoint;
 bool parse_port (std::string const &, uint16_t &);
@@ -122,7 +122,7 @@ struct hash<galileo::endpoint>
 };
 }
 
-namespace rai
+namespace galileo
 {
 /**
  * Message types are serialized to the network and existing values must thus never change as
@@ -165,7 +165,7 @@ public:
 	void block_type_set (galileo::block_type);
 	bool ipv4_only ();
 	void ipv4_only_set (bool);
-	static std::array<uint8_t, 2> constexpr magic_number = galileo::rai_network == galileo::rai_networks::rai_test_network ? std::array<uint8_t, 2>{ { 'R', 'A' } } : galileo::rai_network == galileo::rai_networks::rai_beta_network ? std::array<uint8_t, 2>{ { 'R', 'B' } } : std::array<uint8_t, 2>{ { 'R', 'C' } };
+	static std::array<uint8_t, 2> constexpr magic_number = galileo::galileo_network == galileo::galileo_networks::galileo_test_network ? std::array<uint8_t, 2>{ { 'R', 'A' } } : galileo::galileo_network == galileo::galileo_networks::galileo_beta_network ? std::array<uint8_t, 2>{ { 'R', 'B' } } : std::array<uint8_t, 2>{ { 'R', 'C' } };
 	uint8_t version_max;
 	uint8_t version_using;
 	uint8_t version_min;

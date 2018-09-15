@@ -3,7 +3,7 @@
 #include <boost/program_options.hpp>
 #include <galileo/lib/errors.hpp>
 
-namespace rai
+namespace galileo
 {
 /** Command line related error codes */
 enum class error_cli
@@ -18,4 +18,4 @@ void add_node_options (boost::program_options::options_description &);
 std::error_code handle_node_options (boost::program_options::variables_map &);
 }
 
-REGISTER_ERROR_CODES (rai, error_cli)
+REGISTER_ERROR_CODES (galileo, error_cli)

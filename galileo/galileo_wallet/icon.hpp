@@ -1,7 +1,7 @@
 #pragma once
 
 class QApplication;
-namespace rai
+namespace galileo
 {
 void set_application_icon (QApplication &);
 }

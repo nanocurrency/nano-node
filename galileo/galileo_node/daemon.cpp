@@ -5,7 +5,7 @@
 #include <iostream>
 #include <galileo/node/working.hpp>
 
-rai_daemon::daemon_config::daemon_config (boost::filesystem::path const & application_path_a) :
+galileo_daemon::daemon_config::daemon_config (boost::filesystem::path const & application_path_a) :
 rpc_enable (false),
 opencl_enable (false)
 {
@@ -96,7 +96,7 @@ bool galileo_daemon::daemon_config::upgrade_json (unsigned version_a, boost::pro
 void galileo_daemon::daemon::run (boost::filesystem::path const & data_path)
 {
 	boost::filesystem::create_directories (data_path);
-	rai_daemon::daemon_config config (data_path);
+	galileo_daemon::daemon_config config (data_path);
 	auto config_path ((data_path / "config.json"));
 	std::fstream config_file;
 	std::unique_ptr<galileo::thread_runner> runner;

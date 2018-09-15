@@ -189,7 +189,7 @@ bool update_config (qt_wallet_config & config_a, boost::filesystem::path const &
 
 int run_wallet (QApplication & application, int argc, char * const * argv, boost::filesystem::path const & data_path)
 {
-	rai_qt::eventloop_processor processor;
+	galileo_qt::eventloop_processor processor;
 	boost::filesystem::create_directories (data_path);
 	QPixmap pixmap (":/logo.png");
 	QSplashScreen * splash = new QSplashScreen (pixmap);
@@ -208,7 +208,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 		boost::asio::io_service service;
 		config.node.logging.init (data_path);
 		std::shared_ptr<galileo::node> node;
-		std::shared_ptr<rai_qt::wallet> gui;
+		std::shared_ptr<galileo_qt::wallet> gui;
 		galileo::set_application_icon (application);
 		auto opencl (galileo::opencl_work::create (config.opencl_enable, config.opencl, config.node.logging));
 		galileo::work_pool work (config.node.work_threads, opencl ? [&opencl](galileo::uint256_union const & root_a) {
@@ -262,7 +262,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 				node->stop ();
 			});
 			application.postEvent (&processor, new galileo_qt::eventloop_event ([&]() {
-				gui = std::make_shared<rai_qt::wallet> (application, processor, *node, wallet, config.account);
+				gui = std::make_shared<galileo_qt::wallet> (application, processor, *node, wallet, config.account);
 				splash->close ();
 				gui->start ();
 				gui->client_window->show ();

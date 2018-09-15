@@ -1968,7 +1968,7 @@ void galileo::rpc_handler::ledger ()
 	response_errors ();
 }
 
-void galileo::rpc_handler::mrai_from_raw (galileo::uint128_t ratio)
+void galileo::rpc_handler::mgalileo_from_raw (galileo::uint128_t ratio)
 {
 	auto amount (amount_impl ());
 	if (!ec)
@@ -1979,7 +1979,7 @@ void galileo::rpc_handler::mrai_from_raw (galileo::uint128_t ratio)
 	response_errors ();
 }
 
-void galileo::rpc_handler::mrai_to_raw (galileo::uint128_t ratio)
+void galileo::rpc_handler::mgalileo_to_raw (galileo::uint128_t ratio)
 {
 	auto amount (amount_impl ());
 	if (!ec)
@@ -3863,25 +3863,25 @@ void galileo::rpc_handler::process_request ()
 			{
 				key_expand ();
 			}
-			else if (action == "krai_from_raw")
+			else if (action == "kgalileo_from_raw")
 			{
-				mrai_from_raw (galileo::kxrb_ratio);
+				mgalileo_from_raw (galileo::kxrb_ratio);
 			}
-			else if (action == "krai_to_raw")
+			else if (action == "kgalileo_to_raw")
 			{
-				mrai_to_raw (galileo::kxrb_ratio);
+				mgalileo_to_raw (galileo::kxrb_ratio);
 			}
 			else if (action == "ledger")
 			{
 				ledger ();
 			}
-			else if (action == "mrai_from_raw")
+			else if (action == "mgalileo_from_raw")
 			{
-				mrai_from_raw ();
+				mgalileo_from_raw ();
 			}
-			else if (action == "mrai_to_raw")
+			else if (action == "mgalileo_to_raw")
 			{
-				mrai_to_raw ();
+				mgalileo_to_raw ();
 			}
 			else if (action == "password_change")
 			{
@@ -3927,13 +3927,13 @@ void galileo::rpc_handler::process_request ()
 			{
 				process ();
 			}
-			else if (action == "rai_from_raw")
+			else if (action == "galileo_from_raw")
 			{
-				mrai_from_raw (galileo::xrb_ratio);
+				mgalileo_from_raw (galileo::xrb_ratio);
 			}
-			else if (action == "rai_to_raw")
+			else if (action == "galileo_to_raw")
 			{
-				mrai_to_raw (galileo::xrb_ratio);
+				mgalileo_to_raw (galileo::xrb_ratio);
 			}
 			else if (action == "receive")
 			{

@@ -45,18 +45,18 @@ void show_button_success (QPushButton & button)
 
 bool galileo_qt::eventloop_processor::event (QEvent * event_a)
 {
-	assert (dynamic_cast<rai_qt::eventloop_event *> (event_a) != nullptr);
-	static_cast<rai_qt::eventloop_event *> (event_a)->action ();
+	assert (dynamic_cast<galileo_qt::eventloop_event *> (event_a) != nullptr);
+	static_cast<galileo_qt::eventloop_event *> (event_a)->action ();
 	return true;
 }
 
-rai_qt::eventloop_event::eventloop_event (std::function<void()> const & action_a) :
+galileo_qt::eventloop_event::eventloop_event (std::function<void()> const & action_a) :
 QEvent (QEvent::Type::User),
 action (action_a)
 {
 }
 
-rai_qt::self_pane::self_pane (rai_qt::wallet & wallet_a, galileo::account const & account_a) :
+galileo_qt::self_pane::self_pane (galileo_qt::wallet & wallet_a, galileo::account const & account_a) :
 window (new QWidget),
 layout (new QVBoxLayout),
 self_layout (new QHBoxLayout),
@@ -117,7 +117,7 @@ void galileo_qt::self_pane::refresh_balance ()
 	wallet.self.balance_label->setText (QString (final_text.c_str ()));
 }
 
-rai_qt::accounts::accounts (rai_qt::wallet & wallet_a) :
+galileo_qt::accounts::accounts (galileo_qt::wallet & wallet_a) :
 window (new QWidget),
 wallet_balance_label (new QLabel),
 layout (new QVBoxLayout),
@@ -311,7 +311,7 @@ void galileo_qt::accounts::refresh ()
 	}
 }
 
-rai_qt::import::import (rai_qt::wallet & wallet_a) :
+galileo_qt::import::import (galileo_qt::wallet & wallet_a) :
 window (new QWidget),
 layout (new QVBoxLayout),
 seed_label (new QLabel ("Seed:")),
@@ -461,7 +461,7 @@ wallet (wallet_a)
 	});
 }
 
-rai_qt::history::history (galileo::ledger & ledger_a, galileo::account const & account_a, galileo_qt::wallet & wallet_a) :
+galileo_qt::history::history (galileo::ledger & ledger_a, galileo::account const & account_a, galileo_qt::wallet & wallet_a) :
 window (new QWidget),
 layout (new QVBoxLayout),
 model (new QStandardItemModel),
@@ -597,7 +597,7 @@ void galileo_qt::history::refresh ()
 	}
 }
 
-rai_qt::block_viewer::block_viewer (rai_qt::wallet & wallet_a) :
+galileo_qt::block_viewer::block_viewer (galileo_qt::wallet & wallet_a) :
 window (new QWidget),
 layout (new QVBoxLayout),
 hash_label (new QLabel ("Hash:")),
@@ -697,7 +697,7 @@ void galileo_qt::block_viewer::rebroadcast_action (galileo::uint256_union const 
 	}
 }
 
-rai_qt::account_viewer::account_viewer (rai_qt::wallet & wallet_a) :
+galileo_qt::account_viewer::account_viewer (galileo_qt::wallet & wallet_a) :
 window (new QWidget),
 layout (new QVBoxLayout),
 account_label (new QLabel ("Account:")),
@@ -752,7 +752,7 @@ wallet (wallet_a)
 	});
 }
 
-rai_qt::stats_viewer::stats_viewer (rai_qt::wallet & wallet_a) :
+galileo_qt::stats_viewer::stats_viewer (galileo_qt::wallet & wallet_a) :
 window (new QWidget),
 layout (new QVBoxLayout),
 model (new QStandardItemModel),
@@ -834,15 +834,15 @@ void galileo_qt::stats_viewer::refresh_stats ()
 	}
 }
 
-rai_qt::status::status (rai_qt::wallet & wallet_a) :
+galileo_qt::status::status (galileo_qt::wallet & wallet_a) :
 wallet (wallet_a)
 {
 	wallet.status->setToolTip ("Wallet status, block count (blocks downloaded)");
-	active.insert (rai_qt::status_types::nominal);
+	active.insert (galileo_qt::status_types::nominal);
 	set_text ();
 }
 
-void galileo_qt::status::erase (rai_qt::status_types status_a)
+void galileo_qt::status::erase (galileo_qt::status_types status_a)
 {
 	assert (status_a != galileo_qt::status_types::nominal);
 	auto erased (active.erase (status_a));
@@ -850,7 +850,7 @@ void galileo_qt::status::erase (rai_qt::status_types status_a)
 	set_text ();
 }
 
-void galileo_qt::status::insert (rai_qt::status_types status_a)
+void galileo_qt::status::insert (galileo_qt::status_types status_a)
 {
 	assert (status_a != galileo_qt::status_types::nominal);
 	active.insert (status_a);
@@ -948,7 +948,7 @@ std::string galileo_qt::status::color ()
 	return result;
 }
 
-rai_qt::wallet::wallet (QApplication & application_a, galileo_qt::eventloop_processor & processor_a, galileo::node & node_a, std::shared_ptr<galileo::wallet> wallet_a, galileo::account & account_a) :
+galileo_qt::wallet::wallet (QApplication & application_a, galileo_qt::eventloop_processor & processor_a, galileo::node & node_a, std::shared_ptr<galileo::wallet> wallet_a, galileo::account & account_a) :
 rendering_ratio (galileo::Mxrb_ratio),
 node (node_a),
 wallet_m (wallet_a),
@@ -1045,7 +1045,7 @@ active_status (*this)
 
 void galileo_qt::wallet::start ()
 {
-	std::weak_ptr<rai_qt::wallet> this_w (shared_from_this ());
+	std::weak_ptr<galileo_qt::wallet> this_w (shared_from_this ());
 	QObject::connect (settings_button, &QPushButton::released, [this_w]() {
 		if (auto this_l = this_w.lock ())
 		{
@@ -1267,11 +1267,11 @@ void galileo_qt::wallet::start ()
 				{
 					if (active_a)
 					{
-						this_l->active_status.insert (rai_qt::status_types::active);
+						this_l->active_status.insert (galileo_qt::status_types::active);
 					}
 					else
 					{
-						this_l->active_status.erase (rai_qt::status_types::active);
+						this_l->active_status.erase (galileo_qt::status_types::active);
 					}
 				}
 			}));
@@ -1307,11 +1307,11 @@ void galileo_qt::wallet::start ()
 				{
 					if (active_a)
 					{
-						this_l->active_status.insert (rai_qt::status_types::synchronizing);
+						this_l->active_status.insert (galileo_qt::status_types::synchronizing);
 					}
 					else
 					{
-						this_l->active_status.erase (rai_qt::status_types::synchronizing);
+						this_l->active_status.erase (galileo_qt::status_types::synchronizing);
 					}
 				}
 			}));
@@ -1325,11 +1325,11 @@ void galileo_qt::wallet::start ()
 				{
 					if (working)
 					{
-						this_l->active_status.insert (rai_qt::status_types::working);
+						this_l->active_status.insert (galileo_qt::status_types::working);
 					}
 					else
 					{
-						this_l->active_status.erase (rai_qt::status_types::working);
+						this_l->active_status.erase (galileo_qt::status_types::working);
 					}
 				}
 			}));
@@ -1367,11 +1367,11 @@ void galileo_qt::wallet::update_connected ()
 {
 	if (node.peers.empty ())
 	{
-		active_status.insert (rai_qt::status_types::disconnected);
+		active_status.insert (galileo_qt::status_types::disconnected);
 	}
 	else
 	{
-		active_status.erase (rai_qt::status_types::disconnected);
+		active_status.erase (galileo_qt::status_types::disconnected);
 	}
 }
 
@@ -1417,7 +1417,7 @@ void galileo_qt::wallet::pop_main_stack ()
 	main_stack->removeWidget (main_stack->currentWidget ());
 }
 
-rai_qt::settings::settings (rai_qt::wallet & wallet_a) :
+galileo_qt::settings::settings (galileo_qt::wallet & wallet_a) :
 window (new QWidget),
 layout (new QVBoxLayout),
 password (new QLineEdit),
@@ -1649,23 +1649,23 @@ void galileo_qt::settings::update_locked (bool invalid, bool vulnerable)
 {
 	if (invalid)
 	{
-		this->wallet.active_status.insert (rai_qt::status_types::locked);
+		this->wallet.active_status.insert (galileo_qt::status_types::locked);
 	}
 	else
 	{
-		this->wallet.active_status.erase (rai_qt::status_types::locked);
+		this->wallet.active_status.erase (galileo_qt::status_types::locked);
 	}
 	if (vulnerable)
 	{
-		this->wallet.active_status.insert (rai_qt::status_types::vulnerable);
+		this->wallet.active_status.insert (galileo_qt::status_types::vulnerable);
 	}
 	else
 	{
-		this->wallet.active_status.erase (rai_qt::status_types::vulnerable);
+		this->wallet.active_status.erase (galileo_qt::status_types::vulnerable);
 	}
 }
 
-rai_qt::advanced_actions::advanced_actions (rai_qt::wallet & wallet_a) :
+galileo_qt::advanced_actions::advanced_actions (galileo_qt::wallet & wallet_a) :
 window (new QWidget),
 layout (new QVBoxLayout),
 show_ledger (new QPushButton ("Ledger")),
@@ -1684,7 +1684,7 @@ scale_label (new QLabel ("Scale:")),
 ratio_group (new QButtonGroup),
 mrai (new QRadioButton ("Mxrb")),
 krai (new QRadioButton ("kxrb")),
-rai (new QRadioButton ("xrb")),
+galileo (new QRadioButton ("xrb")),
 back (new QPushButton ("Back")),
 ledger_window (new QWidget),
 ledger_layout (new QVBoxLayout),
@@ -1707,14 +1707,14 @@ wallet (wallet_a)
 {
 	ratio_group->addButton (mrai);
 	ratio_group->addButton (krai);
-	ratio_group->addButton (rai);
+	ratio_group->addButton (galileo);
 	ratio_group->setId (mrai, 0);
 	ratio_group->setId (krai, 1);
-	ratio_group->setId (rai, 2);
+	ratio_group->setId (galileo, 2);
 	scale_layout->addWidget (scale_label);
 	scale_layout->addWidget (mrai);
 	scale_layout->addWidget (krai);
-	scale_layout->addWidget (rai);
+	scale_layout->addWidget (galileo);
 	scale_window->setLayout (scale_layout);
 
 	ledger_model->setHorizontalHeaderItem (0, new QStandardItem ("Account"));
@@ -1777,8 +1777,8 @@ wallet (wallet_a)
 			this->wallet.change_rendering_ratio (galileo::kxrb_ratio);
 		}
 	});
-	QObject::connect (rai, &QRadioButton::toggled, [this]() {
-		if (rai->isChecked ())
+	QObject::connect (galileo, &QRadioButton::toggled, [this]() {
+		if (galileo->isChecked ())
 		{
 			this->wallet.change_rendering_ratio (galileo::xrb_ratio);
 		}
@@ -1898,7 +1898,7 @@ void galileo_qt::advanced_actions::refresh_stats ()
 	wallet.stats_viewer.refresh_stats ();
 }
 
-rai_qt::block_entry::block_entry (rai_qt::wallet & wallet_a) :
+galileo_qt::block_entry::block_entry (galileo_qt::wallet & wallet_a) :
 window (new QWidget),
 layout (new QVBoxLayout),
 block (new QPlainTextEdit),
@@ -1943,7 +1943,7 @@ wallet (wallet_a)
 	});
 }
 
-rai_qt::block_creation::block_creation (rai_qt::wallet & wallet_a) :
+galileo_qt::block_creation::block_creation (galileo_qt::wallet & wallet_a) :
 window (new QWidget),
 layout (new QVBoxLayout),
 group (new QButtonGroup),

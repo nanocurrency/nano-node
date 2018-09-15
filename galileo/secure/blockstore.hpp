@@ -2,7 +2,7 @@
 
 #include <galileo/secure/common.hpp>
 
-namespace rai
+namespace galileo
 {
 template <typename T, typename U>
 class store_iterator_impl

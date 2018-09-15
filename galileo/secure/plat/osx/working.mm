@@ -2,7 +2,7 @@
 
 #include <Foundation/Foundation.h>
 
-namespace rai
+namespace galileo
 {
 boost::filesystem::path app_path ()
 {

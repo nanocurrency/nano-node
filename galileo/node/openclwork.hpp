@@ -16,7 +16,7 @@
 #include <CL/cl.h>
 #endif
 
-namespace rai
+namespace galileo
 {
 class logging;
 class opencl_platform

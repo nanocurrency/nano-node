@@ -8,7 +8,7 @@
 #include <galileo/secure/blockstore.hpp>
 #include <galileo/secure/common.hpp>
 
-namespace rai
+namespace galileo
 {
 class mdb_env;
 class mdb_txn : public transaction_impl

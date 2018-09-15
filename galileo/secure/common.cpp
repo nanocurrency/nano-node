@@ -51,14 +51,14 @@ public:
 	ledger_constants () :
 	zero_key ("0"),
 	test_genesis_key (test_private_key_data),
-	rai_test_account (test_public_key_data),
-	rai_beta_account (beta_public_key_data),
-	rai_live_account (live_public_key_data),
-	rai_test_genesis (test_genesis_data),
-	rai_beta_genesis (beta_genesis_data),
-	rai_live_genesis (live_genesis_data),
-	genesis_account (galileo::rai_network == galileo::rai_networks::rai_test_network ? galileo_test_account : galileo::rai_network == galileo::rai_networks::rai_beta_network ? galileo_beta_account : galileo_live_account),
-	genesis_block (galileo::rai_network == galileo::rai_networks::rai_test_network ? galileo_test_genesis : galileo::rai_network == galileo::rai_networks::rai_beta_network ? galileo_beta_genesis : galileo_live_genesis),
+	galileo_test_account (test_public_key_data),
+	galileo_beta_account (beta_public_key_data),
+	galileo_live_account (live_public_key_data),
+	galileo_test_genesis (test_genesis_data),
+	galileo_beta_genesis (beta_genesis_data),
+	galileo_live_genesis (live_genesis_data),
+	genesis_account (galileo::galileo_network == galileo::galileo_networks::galileo_test_network ? galileo_test_account : galileo::galileo_network == galileo::galileo_networks::galileo_beta_network ? galileo_beta_account : galileo_live_account),
+	genesis_block (galileo::galileo_network == galileo::galileo_networks::galileo_test_network ? galileo_test_genesis : galileo::galileo_network == galileo::galileo_networks::galileo_beta_network ? galileo_beta_genesis : galileo_live_genesis),
 	genesis_amount (std::numeric_limits<galileo::uint128_t>::max ()),
 	burn_account (0)
 	{
@@ -93,12 +93,12 @@ size_t constexpr galileo::state_block::size;
 
 galileo::keypair const & galileo::zero_key (globals.zero_key);
 galileo::keypair const & galileo::test_genesis_key (globals.test_genesis_key);
-galileo::account const & galileo::rai_test_account (globals.rai_test_account);
-galileo::account const & galileo::rai_beta_account (globals.rai_beta_account);
-galileo::account const & galileo::rai_live_account (globals.rai_live_account);
-std::string const & galileo::rai_test_genesis (globals.rai_test_genesis);
-std::string const & galileo::rai_beta_genesis (globals.rai_beta_genesis);
-std::string const & galileo::rai_live_genesis (globals.rai_live_genesis);
+galileo::account const & galileo::galileo_test_account (globals.galileo_test_account);
+galileo::account const & galileo::galileo_beta_account (globals.galileo_beta_account);
+galileo::account const & galileo::galileo_live_account (globals.galileo_live_account);
+std::string const & galileo::galileo_test_genesis (globals.galileo_test_genesis);
+std::string const & galileo::galileo_beta_genesis (globals.galileo_beta_genesis);
+std::string const & galileo::galileo_live_genesis (globals.galileo_live_genesis);
 
 galileo::account const & galileo::genesis_account (globals.genesis_account);
 std::string const & galileo::genesis_block (globals.genesis_block);

@@ -10,7 +10,7 @@
 #include <memory>
 #include <thread>
 
-namespace rai
+namespace galileo
 {
 class block;
 bool work_validate (galileo::block_hash const &, uint64_t);
@@ -38,6 +38,6 @@ public:
 	// Local work threshold for rate-limiting publishing blocks. ~5 seconds of work.
 	static uint64_t const publish_test_threshold = 0xff00000000000000;
 	static uint64_t const publish_full_threshold = 0xffffffc000000000;
-	static uint64_t const publish_threshold = galileo::rai_network == galileo::rai_networks::rai_test_network ? publish_test_threshold : publish_full_threshold;
+	static uint64_t const publish_threshold = galileo::galileo_network == galileo::galileo_networks::galileo_test_network ? publish_test_threshold : publish_full_threshold;
 };
 }

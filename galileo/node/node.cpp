@@ -910,21 +910,21 @@ lmdb_max_dbs (128)
 	const char * epoch_message ("epoch v1 block");
 	strncpy ((char *)epoch_block_link.bytes.data (), epoch_message, epoch_block_link.bytes.size ());
 	epoch_block_signer = galileo::genesis_account;
-	switch (galileo::rai_network)
+	switch (galileo::galileo_network)
 	{
-		case galileo::rai_networks::rai_test_network:
+		case galileo::galileo_networks::galileo_test_network:
 			preconfigured_representatives.push_back (galileo::genesis_account);
 			break;
-		case galileo::rai_networks::rai_beta_network:
-			preconfigured_peers.push_back ("rai-beta.raiblocks.net");
+		case galileo::galileo_networks::galileo_beta_network:
+			preconfigured_peers.push_back ("galileo-beta.raiblocks.net");
 			preconfigured_representatives.push_back (galileo::account ("A59A47CC4F593E75AE9AD653FDA9358E2F7898D9ACC8C60E80D0495CE20FBA9F"));
 			preconfigured_representatives.push_back (galileo::account ("259A4011E6CAD1069A97C02C3C1F2AAA32BC093C8D82EE1334F937A4BE803071"));
 			preconfigured_representatives.push_back (galileo::account ("259A40656144FAA16D2A8516F7BE9C74A63C6CA399960EDB747D144ABB0F7ABD"));
 			preconfigured_representatives.push_back (galileo::account ("259A40A92FA42E2240805DE8618EC4627F0BA41937160B4CFF7F5335FD1933DF"));
 			preconfigured_representatives.push_back (galileo::account ("259A40FF3262E273EC451E873C4CDF8513330425B38860D882A16BCC74DA9B73"));
 			break;
-		case galileo::rai_networks::rai_live_network:
-			preconfigured_peers.push_back ("rai.raiblocks.net");
+		case galileo::galileo_networks::galileo_live_network:
+			preconfigured_peers.push_back ("galileo.raiblocks.net");
 			preconfigured_representatives.push_back (galileo::account ("A30E0A32ED41C8607AA9212843392E853FCBCB4E7CB194E35C94F07F91DE59EF"));
 			preconfigured_representatives.push_back (galileo::account ("67556D31DDFC2A440BF6147501449B4CB9572278D034EE686A6BEE29851681DF"));
 			preconfigured_representatives.push_back (galileo::account ("5C2FBB148E006A8E8BA7A75DD86C9FE00C83F5FFDBFD76EAA09531071436B6AF"));
@@ -1873,11 +1873,11 @@ stats (config.stat_config)
 		BOOST_LOG (log) << "Node ID: " << node_id.pub.to_account ();
 	}
 	peers.online_weight_minimum = config.online_weight_minimum.number ();
-	if (galileo::rai_network == galileo::rai_networks::rai_live_network)
+	if (galileo::galileo_network == galileo::galileo_networks::galileo_live_network)
 	{
 		extern const char galileo_bootstrap_weights[];
 		extern const size_t galileo_bootstrap_weights_size;
-		galileo::bufferstream weight_stream ((const uint8_t *)rai_bootstrap_weights, galileo_bootstrap_weights_size);
+		galileo::bufferstream weight_stream ((const uint8_t *)galileo_bootstrap_weights, galileo_bootstrap_weights_size);
 		galileo::uint128_union block_height;
 		if (!galileo::read (weight_stream, block_height))
 		{
@@ -2009,7 +2009,7 @@ void galileo::gap_cache::vote (std::shared_ptr<galileo::vote> vote_a)
 				{
 					auto node_l (node.shared ());
 					auto now (std::chrono::steady_clock::now ());
-					node.alarm.add (galileo::rai_network == galileo::rai_networks::rai_test_network ? now + std::chrono::milliseconds (5) : now + std::chrono::seconds (5), [node_l, hash]() {
+					node.alarm.add (galileo::galileo_network == galileo::galileo_networks::galileo_test_network ? now + std::chrono::milliseconds (5) : now + std::chrono::seconds (5), [node_l, hash]() {
 						auto transaction (node_l->store.tx_begin_read ());
 						if (!node_l->store.block_exists (transaction, hash))
 						{
@@ -3275,7 +3275,7 @@ bool galileo::peer_container::insert (galileo::endpoint const & endpoint_a, unsi
 						result = true;
 					}
 				}
-				if (!result && galileo_network != galileo_networks::rai_test_network)
+				if (!result && galileo_network != galileo_networks::galileo_test_network)
 				{
 					auto peer_it_range (peers.get<galileo::peer_by_ip_addr> ().equal_range (endpoint_a.address ()));
 					auto i (peer_it_range.first);
@@ -3397,7 +3397,7 @@ bool galileo::reserved_address (galileo::endpoint const & endpoint_a, bool black
 	{
 		result = true;
 	}
-	else if (galileo::rai_network == galileo::rai_networks::rai_live_network)
+	else if (galileo::galileo_network == galileo::galileo_networks::galileo_live_network)
 	{
 		if (bytes >= rfc1918_1_min && bytes <= rfc1918_1_max)
 		{
@@ -3637,7 +3637,7 @@ galileo::election_vote_result galileo::election::vote (galileo::account rep, uin
 	auto supply (node.online_reps.online_stake ());
 	auto weight (node.ledger.weight (transaction, rep));
 	auto should_process (false);
-	if (galileo::rai_network == galileo::rai_networks::rai_test_network || weight > supply / 1000) // 0.1% or above
+	if (galileo::galileo_network == galileo::galileo_networks::galileo_test_network || weight > supply / 1000) // 0.1% or above
 	{
 		unsigned int cooldown;
 		if (weight < supply / 100) // 0.1% to 1%
@@ -4144,7 +4144,7 @@ void galileo::port_mapping::start ()
 
 void galileo::port_mapping::refresh_devices ()
 {
-	if (galileo::rai_network != galileo::rai_networks::rai_test_network)
+	if (galileo::galileo_network != galileo::galileo_networks::galileo_test_network)
 	{
 		std::lock_guard<std::mutex> lock (mutex);
 		int discover_error = 0;
@@ -4171,7 +4171,7 @@ void galileo::port_mapping::refresh_devices ()
 
 void galileo::port_mapping::refresh_mapping ()
 {
-	if (galileo::rai_network != galileo::rai_networks::rai_test_network)
+	if (galileo::galileo_network != galileo::galileo_networks::galileo_test_network)
 	{
 		std::lock_guard<std::mutex> lock (mutex);
 		auto node_port (std::to_string (node.network.endpoint ().port ()));
@@ -4201,7 +4201,7 @@ void galileo::port_mapping::refresh_mapping ()
 int galileo::port_mapping::check_mapping ()
 {
 	int result (3600);
-	if (galileo::rai_network != galileo::rai_networks::rai_test_network)
+	if (galileo::galileo_network != galileo::galileo_networks::galileo_test_network)
 	{
 		// Long discovery time and fast setup/teardown make this impractical for testing
 		std::lock_guard<std::mutex> lock (mutex);

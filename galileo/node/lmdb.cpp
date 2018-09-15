@@ -294,7 +294,7 @@ galileo::mdb_txn::operator MDB_txn * () const
 	return handle;
 }
 
-namespace rai
+namespace galileo
 {
 /**
 	 * Fill in our predecessors

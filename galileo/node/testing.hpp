@@ -4,7 +4,7 @@
 #include <galileo/lib/errors.hpp>
 #include <galileo/node/node.hpp>
 
-namespace rai
+namespace galileo
 {
 /** Test-system related error codes */
 enum class error_system
@@ -77,4 +77,4 @@ public:
 	static std::chrono::seconds constexpr sleep_seconds = std::chrono::seconds (7);
 };
 }
-REGISTER_ERROR_CODES (rai, error_system);
+REGISTER_ERROR_CODES (galileo, error_system);

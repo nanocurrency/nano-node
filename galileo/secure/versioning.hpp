@@ -4,7 +4,7 @@
 #include <galileo/node/lmdb.hpp>
 #include <galileo/secure/utility.hpp>
 
-namespace rai
+namespace galileo
 {
 class account_info_v1
 {

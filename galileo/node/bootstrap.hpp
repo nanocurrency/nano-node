@@ -12,7 +12,7 @@
 
 #include <boost/log/sources/logger.hpp>
 
-namespace rai
+namespace galileo
 {
 class bootstrap_attempt;
 class bootstrap_client;

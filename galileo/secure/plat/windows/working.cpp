@@ -2,7 +2,7 @@
 
 #include <shlobj.h>
 
-namespace rai
+namespace galileo
 {
 boost::filesystem::path app_path ()
 {

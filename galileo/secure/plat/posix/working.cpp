@@ -3,7 +3,7 @@
 #include <pwd.h>
 #include <sys/types.h>
 
-namespace rai
+namespace galileo
 {
 boost::filesystem::path app_path ()
 {
