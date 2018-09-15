@@ -285,7 +285,6 @@ TEST (unchecked, multiple_get)
 	auto block2 (std::make_shared<rai::send_block> (3, 1, 2, rai::keypair ().prv, 4, 5));
 	auto block3 (std::make_shared<rai::send_block> (5, 1, 2, rai::keypair ().prv, 4, 5));
 	{
-		
 		auto transaction (store.tx_begin (true));
 		store.unchecked_put (transaction, block1->previous (), block1); // unchecked1
 		store.unchecked_put (transaction, block1->hash (), block1); // unchecked2
