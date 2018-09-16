@@ -12,7 +12,7 @@ fi
 
 tags=()
 if [[ "${TRAVIS_TAG}" =~ 'RC' ]]; then
-    tags+=("$TRAVIS_TAG")
+    tags+=("$TRAVIS_TAG" latest-rc)
 elif [ -n "$TRAVIS_TAG" ]; then
     tags+=("$TRAVIS_TAG" latest)
 elif [ -n "$TRAVIS_BRANCH" ]; then
