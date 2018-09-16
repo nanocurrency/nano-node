@@ -200,11 +200,11 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 	application.processEvents ();
 	qt_wallet_config config (data_path);
 	auto config_path ((data_path / "config.json"));
-	boost::filesystem::permissions (config_path, boost::filesystem::owner_all);
 	int result (0);
 	std::fstream config_file;
 	auto error (rai::fetch_object (config, config_path, config_file));
 	config_file.close ();
+	boost::filesystem::permissions (config_path, boost::filesystem::owner_all);
 	if (!error)
 	{
 		boost::asio::io_service service;
