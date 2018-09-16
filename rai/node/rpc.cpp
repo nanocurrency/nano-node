@@ -2897,6 +2897,7 @@ void rai::rpc_handler::version ()
 {
 	response_l.put ("rpc_version", "1");
 	response_l.put ("store_version", std::to_string (node.store_version ()));
+	response_l.put ("protocol_version", std::to_string(rai::protocol_version));
 	response_l.put ("node_vendor", boost::str (boost::format ("RaiBlocks %1%.%2%") % RAIBLOCKS_VERSION_MAJOR % RAIBLOCKS_VERSION_MINOR));
 	response_errors ();
 }
