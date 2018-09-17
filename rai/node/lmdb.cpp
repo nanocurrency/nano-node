@@ -1046,7 +1046,7 @@ void rai::mdb_store::upgrade_v10_to_v11 (rai::transaction const & transaction_a)
 
 void rai::mdb_store::upgrade_v11_to_v12 (rai::transaction const & transaction_a)
 {
-	std::cout << boost::str (boost::format ("Performing database upgrade to version 12 ...\n"));
+	//std::cout << boost::str (boost::format ("Performing database upgrade to version 12 ...\n"));
 	version_put (transaction_a, 12);
 	for (auto i (latest_v0_begin (transaction_a)), n (latest_v0_end ()); i != n; ++i)
 	{
