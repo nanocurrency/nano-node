@@ -865,6 +865,8 @@ void rai::mdb_store::do_upgrades (rai::transaction const & transaction_a)
 		case 10:
 			upgrade_v10_to_v11 (transaction_a);
 		case 11:
+			upgrade_v11_to_v12 (transaction_a);
+		case 12:
 			break;
 		default:
 			assert (false);
@@ -1030,18 +1032,32 @@ void rai::mdb_store::upgrade_v8_to_v9 (rai::transaction const & transaction_a)
 
 void rai::mdb_store::upgrade_v9_to_v10 (rai::transaction const & transaction_a)
 {
-	//std::cerr << boost::str (boost::format ("Performing database upgrade to version 10...\n"));
-	version_put (transaction_a, 10);
+	// Replaced with upgrade_v11_to_v12
+}
+
+void rai::mdb_store::upgrade_v10_to_v11 (rai::transaction const & transaction_a)
+{
+	version_put (transaction_a, 11);
+	MDB_dbi unsynced;
+	mdb_dbi_open (env.tx (transaction_a), "unsynced", MDB_CREATE | MDB_DUPSORT, &unsynced);
+	mdb_drop (env.tx (transaction_a), unsynced, 1);
+}
+
+void rai::mdb_store::upgrade_v11_to_v12 (rai::transaction const & transaction_a)
+{
+	std::cout << boost::str (boost::format ("Performing database upgrade to version 12...\n"));
+	version_put (transaction_a, 12);
 	for (auto i (latest_v0_begin (transaction_a)), n (latest_v0_end ()); i != n; ++i)
 	{
 		rai::account_info info (i->second);
 		if (info.block_count >= block_info_max)
 		{
 			rai::account account (i->first);
-			//std::cerr << boost::str (boost::format ("Upgrading account %1%...\n") % account.to_account ());
+			std::cout << boost::str (boost::format ("Upgrading account %1%...\n") % account.to_account ());
 			size_t block_count (1);
 			auto hash (info.open_block);
-			while (!hash.is_zero ())
+			auto block (block_get (transaction_a, hash));
+			while (!hash.is_zero () && block->type () != rai::block_type::state)
 			{
 				if ((block_count % block_info_max) == 0)
 				{
@@ -1052,18 +1068,11 @@ void rai::mdb_store::upgrade_v9_to_v10 (rai::transaction const & transaction_a)
 					block_info_put (transaction_a, hash, block_info);
 				}
 				hash = block_successor (transaction_a, hash);
+				block = !hash.is_zero () ? block_get (transaction_a, hash) : nullptr;
 				++block_count;
 			}
 		}
 	}
-}
-
-void rai::mdb_store::upgrade_v10_to_v11 (rai::transaction const & transaction_a)
-{
-	version_put (transaction_a, 11);
-	MDB_dbi unsynced;
-	mdb_dbi_open (env.tx (transaction_a), "unsynced", MDB_CREATE | MDB_DUPSORT, &unsynced);
-	mdb_drop (env.tx (transaction_a), unsynced, 1);
 }
 
 void rai::mdb_store::clear (MDB_dbi db_a)

@@ -151,7 +151,7 @@ public:
 	virtual rai::store_iterator<rai::block_hash, rai::block_info> block_info_end () = 0;
 	virtual rai::uint128_t block_balance (rai::transaction const &, rai::block_hash const &) = 0;
 	virtual rai::epoch block_version (rai::transaction const &, rai::block_hash const &) = 0;
-	static size_t const block_info_max = 32;
+	static size_t const block_info_max = 4;
 
 	virtual rai::uint128_t representation_get (rai::transaction const &, rai::account const &) = 0;
 	virtual void representation_put (rai::transaction const &, rai::account const &, rai::uint128_t const &) = 0;
