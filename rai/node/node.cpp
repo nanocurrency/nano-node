@@ -43,8 +43,41 @@ rai::network::network (rai::node & node_a, uint16_t port) :
 socket (node_a.service, rai::endpoint (boost::asio::ip::address_v6::any (), port)),
 resolver (node_a.service),
 node (node_a),
-on (true)
+on (true),
+buffer_container (rai::network::buffer_size, 100*1024) // about 50MB of memory
 {
+	for (size_t i = 0; i < node.config.io_threads; ++i)
+	{
+		packet_processing_threads.push_back (std::thread ([this]() {
+			while (true)
+			{
+				try
+				{
+					process_packets ();
+					break;
+				}
+				catch (...)
+				{
+#ifndef NDEBUG
+					/*
+					* In a release build, catch and swallow the
+					* exception, in debug mode pass it
+					* on
+					*/
+					throw;
+#endif
+				}
+			}
+		}));
+	}
+}
+
+rai::network::~network ()
+{
+	for (auto & thread : packet_processing_threads)
+	{
+		thread.join ();
+	}
 }
 
 void rai::network::receive ()
@@ -54,9 +87,47 @@ void rai::network::receive ()
 		BOOST_LOG (node.log) << "Receiving packet";
 	}
 	std::unique_lock<std::mutex> lock (socket_mutex);
-	socket.async_receive_from (boost::asio::buffer (buffer.data (), buffer.size ()), remote, [this](boost::system::error_code const & error, size_t size_a) {
-		receive_action (error, size_a);
+	uint8_t * buffer (buffer_container.allocate ());
+	socket.async_receive_from (boost::asio::buffer (buffer, rai::network::buffer_size), remote, [this, buffer](boost::system::error_code const & error, size_t size_a) {
+		if (!error && on)
+		{
+			buffer_container.enqueue (buffer, size_a);
+			receive ();
+		}
+		else
+		{
+			buffer_container.release (buffer);
+			if (error)
+			{
+				if (node.config.logging.network_logging ())
+				{
+					BOOST_LOG (node.log) << boost::str (boost::format ("UDP Receive error: %1%") % error.message ());
+				}
+			}
+			if (on)
+			{
+				node.alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (5), [this]() { receive (); });
+			}
+		}
 	});
+}
+
+void rai::network::process_packets ()
+{
+	if (node.config.logging.network_packet_logging ())
+	{
+		BOOST_LOG (node.log) << "Dequeue packet";
+	}
+	while (on)
+	{
+		auto buffer (buffer_container.dequeue ());
+		if (!buffer.first)
+		{
+			continue;
+		}
+		receive_action (buffer.first, buffer.second);
+		buffer_container.release (buffer.first);
+	}
 }
 
 void rai::network::stop ()
@@ -64,6 +135,7 @@ void rai::network::stop ()
 	on = false;
 	socket.close ();
 	resolver.cancel ();
+	buffer_container.stop ();
 }
 
 void rai::network::send_keepalive (rai::endpoint const & endpoint_a)
@@ -486,112 +558,94 @@ public:
 };
 }
 
-void rai::network::receive_action (boost::system::error_code const & error, size_t size_a)
+void rai::network::receive_action (uint8_t * buffer_a, size_t size_a)
 {
-	if (!error && on)
+	if (!rai::reserved_address (remote, false) && remote != endpoint ())
 	{
-		if (!rai::reserved_address (remote, false) && remote != endpoint ())
+		network_message_visitor visitor (node, remote);
+		rai::message_parser parser (visitor, node.work);
+		parser.deserialize_buffer (buffer_a, size_a);
+		if (parser.status != rai::message_parser::parse_status::success)
 		{
-			network_message_visitor visitor (node, remote);
-			rai::message_parser parser (visitor, node.work);
-			parser.deserialize_buffer (buffer.data (), size_a);
-			if (parser.status != rai::message_parser::parse_status::success)
+			node.stats.inc (rai::stat::type::error);
+
+			if (parser.status == rai::message_parser::parse_status::insufficient_work)
 			{
-				node.stats.inc (rai::stat::type::error);
+				if (node.config.logging.insufficient_work_logging ())
+				{
+					BOOST_LOG (node.log) << "Insufficient work in message";
+				}
 
-				if (parser.status == rai::message_parser::parse_status::insufficient_work)
+				// We've already increment error count, update detail only
+				node.stats.inc_detail_only (rai::stat::type::error, rai::stat::detail::insufficient_work);
+			}
+			else if (parser.status == rai::message_parser::parse_status::invalid_message_type)
+			{
+				if (node.config.logging.network_logging ())
 				{
-					if (node.config.logging.insufficient_work_logging ())
-					{
-						BOOST_LOG (node.log) << "Insufficient work in message";
-					}
-
-					// We've already increment error count, update detail only
-					node.stats.inc_detail_only (rai::stat::type::error, rai::stat::detail::insufficient_work);
+					BOOST_LOG (node.log) << "Invalid message type in message";
 				}
-				else if (parser.status == rai::message_parser::parse_status::invalid_message_type)
+			}
+			else if (parser.status == rai::message_parser::parse_status::invalid_header)
+			{
+				if (node.config.logging.network_logging ())
 				{
-					if (node.config.logging.network_logging ())
-					{
-						BOOST_LOG (node.log) << "Invalid message type in message";
-					}
+					BOOST_LOG (node.log) << "Invalid header in message";
 				}
-				else if (parser.status == rai::message_parser::parse_status::invalid_header)
+			}
+			else if (parser.status == rai::message_parser::parse_status::invalid_keepalive_message)
+			{
+				if (node.config.logging.network_logging ())
 				{
-					if (node.config.logging.network_logging ())
-					{
-						BOOST_LOG (node.log) << "Invalid header in message";
-					}
+					BOOST_LOG (node.log) << "Invalid keepalive message";
 				}
-				else if (parser.status == rai::message_parser::parse_status::invalid_keepalive_message)
+			}
+			else if (parser.status == rai::message_parser::parse_status::invalid_publish_message)
+			{
+				if (node.config.logging.network_logging ())
 				{
-					if (node.config.logging.network_logging ())
-					{
-						BOOST_LOG (node.log) << "Invalid keepalive message";
-					}
+					BOOST_LOG (node.log) << "Invalid publish message";
 				}
-				else if (parser.status == rai::message_parser::parse_status::invalid_publish_message)
+			}
+			else if (parser.status == rai::message_parser::parse_status::invalid_confirm_req_message)
+			{
+				if (node.config.logging.network_logging ())
 				{
-					if (node.config.logging.network_logging ())
-					{
-						BOOST_LOG (node.log) << "Invalid publish message";
-					}
+					BOOST_LOG (node.log) << "Invalid confirm_req message";
 				}
-				else if (parser.status == rai::message_parser::parse_status::invalid_confirm_req_message)
+			}
+			else if (parser.status == rai::message_parser::parse_status::invalid_confirm_ack_message)
+			{
+				if (node.config.logging.network_logging ())
 				{
-					if (node.config.logging.network_logging ())
-					{
-						BOOST_LOG (node.log) << "Invalid confirm_req message";
-					}
+					BOOST_LOG (node.log) << "Invalid confirm_ack message";
 				}
-				else if (parser.status == rai::message_parser::parse_status::invalid_confirm_ack_message)
+			}
+			else if (parser.status == rai::message_parser::parse_status::invalid_node_id_handshake_message)
+			{
+				if (node.config.logging.network_logging ())
 				{
-					if (node.config.logging.network_logging ())
-					{
-						BOOST_LOG (node.log) << "Invalid confirm_ack message";
-					}
-				}
-				else if (parser.status == rai::message_parser::parse_status::invalid_node_id_handshake_message)
-				{
-					if (node.config.logging.network_logging ())
-					{
-						BOOST_LOG (node.log) << "Invalid node_id_handshake message";
-					}
-				}
-				else
-				{
-					BOOST_LOG (node.log) << "Could not deserialize buffer";
+					BOOST_LOG (node.log) << "Invalid node_id_handshake message";
 				}
 			}
 			else
 			{
-				node.stats.add (rai::stat::type::traffic, rai::stat::dir::in, size_a);
+				BOOST_LOG (node.log) << "Could not deserialize buffer";
 			}
 		}
 		else
 		{
-			if (node.config.logging.network_logging ())
-			{
-				BOOST_LOG (node.log) << boost::str (boost::format ("Reserved sender %1%") % remote.address ().to_string ());
-			}
-
-			node.stats.inc_detail_only (rai::stat::type::error, rai::stat::detail::bad_sender);
+			node.stats.add (rai::stat::type::traffic, rai::stat::dir::in, size_a);
 		}
-		receive ();
 	}
 	else
 	{
-		if (error)
+		if (node.config.logging.network_logging ())
 		{
-			if (node.config.logging.network_logging ())
-			{
-				BOOST_LOG (node.log) << boost::str (boost::format ("UDP Receive error: %1%") % error.message ());
-			}
+			BOOST_LOG (node.log) << boost::str (boost::format ("Reserved sender %1%") % remote.address ().to_string ());
 		}
-		if (on)
-		{
-			node.alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (5), [this]() { receive (); });
-		}
+
+		node.stats.inc_detail_only (rai::stat::type::error, rai::stat::detail::bad_sender);
 	}
 }
 
@@ -4323,27 +4377,27 @@ uint8_t * rai::udp_buffer::allocate ()
 	}
 	if (result == nullptr)
 	{
-		result = full.front ();
+		result = full.front ().first;
 		full.pop_front ();
 		//++udp_overflow;
 	}
 	return result;
 }
-void rai::udp_buffer::enqueue (uint8_t * buffer)
+void rai::udp_buffer::enqueue (uint8_t * buffer, size_t size)
 {
 	assert (buffer != nullptr);
 	std::lock_guard<std::mutex> lock (mutex);
-	full.push_back (buffer);
+	full.push_back (std::make_pair (buffer, size));
 	condition.notify_one ();
 }
-uint8_t * rai::udp_buffer::dequeue ()
+std::pair<uint8_t *, size_t> rai::udp_buffer::dequeue ()
 {
 	std::unique_lock<std::mutex> lock (mutex);
 	while (!stopped && full.empty ())
 	{
 		condition.wait (lock);
 	}
-	uint8_t * result (nullptr);
+	std::pair<uint8_t *, size_t> result (nullptr, 0);
 	if (!full.empty ())
 	{
 		result = full.front ();

@@ -57,7 +57,7 @@ TEST (network, self_discard)
 	rai::system system (24000, 1);
 	system.nodes[0]->network.remote = system.nodes[0]->network.endpoint ();
 	ASSERT_EQ (0, system.nodes[0]->stats.count (rai::stat::type::error, rai::stat::detail::bad_sender));
-	system.nodes[0]->network.receive_action (boost::system::error_code{}, 0);
+	system.nodes[0]->network.receive_action (nullptr, 0);
 	ASSERT_EQ (1, system.nodes[0]->stats.count (rai::stat::type::error, rai::stat::detail::bad_sender));
 }
 
@@ -936,10 +936,10 @@ TEST (udp_buffer, one_buffer)
 	rai::udp_buffer buffer (512, 1);
 	auto buffer1 (buffer.allocate ());
 	ASSERT_NE (nullptr, buffer1);
-	buffer.enqueue (buffer1);
+	buffer.enqueue (buffer1, 5);
 	auto buffer2 (buffer.dequeue ());
-	ASSERT_EQ (buffer1, buffer2);
-	buffer.release (buffer2);
+	ASSERT_EQ (buffer1, buffer2.first);
+	buffer.release (buffer2.first);
 	auto buffer3 (buffer.allocate ());
 	ASSERT_EQ (buffer1, buffer3);
 }
@@ -951,14 +951,16 @@ TEST (udp_buffer, two_buffers)
 	ASSERT_NE (nullptr, buffer1);
 	auto buffer2 (buffer.allocate ());
 	ASSERT_NE (nullptr, buffer2);
-	buffer.enqueue (buffer2);
-	buffer.enqueue (buffer1);
+	buffer.enqueue (buffer2, 4);
+	buffer.enqueue (buffer1, 5);
 	auto buffer3 (buffer.dequeue ());
-	ASSERT_EQ (buffer2, buffer3);
+	ASSERT_EQ (buffer2, buffer3.first);
+	ASSERT_EQ (4, buffer3.second);
 	auto buffer4 (buffer.dequeue ());
-	ASSERT_EQ (buffer1, buffer4);
-	buffer.release (buffer3);
-	buffer.release (buffer4);
+	ASSERT_EQ (buffer1, buffer4.first);
+	ASSERT_EQ (5, buffer4.second);
+	buffer.release (buffer3.first);
+	buffer.release (buffer4.first);
 	auto buffer5 (buffer.allocate ());
 	ASSERT_EQ (buffer2, buffer5);
 	auto buffer6 (buffer.allocate ());
@@ -973,16 +975,16 @@ TEST (udp_buffer, one_buffer_multithreaded)
 		while (!done)
 		{
 			auto item (buffer.dequeue ());
-			done = item == nullptr;
-			if (item != nullptr)
+			done = item.first == nullptr;
+			if (item.first != nullptr)
 			{
-				buffer.release (item);
+				buffer.release (item.first);
 			}
 		}
 	});
 	auto buffer1 (buffer.allocate ());
 	ASSERT_NE (nullptr, buffer1);
-	buffer.enqueue (buffer1);
+	buffer.enqueue (buffer1, 5);
 	auto buffer2 (buffer.allocate ());
 	ASSERT_EQ (buffer1, buffer2);
 	buffer.stop ();
@@ -1000,10 +1002,11 @@ TEST (udp_buffer, many_buffers_multithreaded)
 			while (!done)
 			{
 				auto item (buffer.dequeue ());
-				done = item == nullptr;
-				if (item != nullptr)
+				done = item.first == nullptr;
+				if (item.first != nullptr)
 				{
-					buffer.release (item);
+					ASSERT_EQ (5, item.second);
+					buffer.release (item.first);
 				}
 			}
 		}));
@@ -1019,7 +1022,7 @@ TEST (udp_buffer, many_buffers_multithreaded)
 				done = item == nullptr;
 				if (item != nullptr)
 				{
-					buffer.enqueue (item);
+					buffer.enqueue (item, 5);
 					++count;
 					if (count > 3000)
 					{
