@@ -388,6 +388,44 @@ private:
 	std::mutex mutex;
 	rai::node & node;
 };
+
+/**
+  * A circular buffer for servicing UDP datagrams. This container follows a producer/consumer model where the operating system is producing data in to buffers which are serviced by internal threads.
+  * If buffers are not serviced fast enough they're internally dropped.
+  * This container has a maximum space to hold N buffers of M size and will allocate them in round-robin order.
+  * All public methods are thread-safe
+*/
+class udp_buffer
+{
+public:
+	// Size - Size of each individual buffer
+	// Count - Number of buffers to allocate
+	udp_buffer (size_t, size_t);
+	// Return a buffer where UDP data can be put
+	// Method will attempt to return the first free buffer
+	// If there are no free buffers, an unserviced buffer will be dequeued and returned
+	// Function will block if there are no free or unserviced buffers
+	// Return nullptr if the container has stopped
+	uint8_t * allocate ();
+	// Queue a buffer that has been filled with UDP data and notify servicing threads
+	void enqueue (uint8_t * buffer);
+	// Return a buffer that has been filled with UDP data
+	// Function will block until a buffer has been added
+	// Return nullptr if the container has stopped
+	uint8_t * dequeue ();
+	// Return a buffer to the freelist after is has been serviced
+	void release (uint8_t * buffer);
+	// Stop container and notify waiting threads
+	void stop ();
+
+private:
+	std::mutex mutex;
+	std::condition_variable condition;
+	boost::circular_buffer<uint8_t *> free;
+	boost::circular_buffer<uint8_t *> full;
+	std::vector<uint8_t> slab;
+	bool stopped;
+};
 class network
 {
 public:

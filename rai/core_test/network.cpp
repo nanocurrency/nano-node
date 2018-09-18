@@ -930,3 +930,108 @@ TEST (node, port_mapping)
 		system.poll ();
 	}
 }
+
+TEST (udp_buffer, one_buffer)
+{
+	rai::udp_buffer buffer (512, 1);
+	auto buffer1 (buffer.allocate ());
+	ASSERT_NE (nullptr, buffer1);
+	buffer.enqueue (buffer1);
+	auto buffer2 (buffer.dequeue ());
+	ASSERT_EQ (buffer1, buffer2);
+	buffer.release (buffer2);
+	auto buffer3 (buffer.allocate ());
+	ASSERT_EQ (buffer1, buffer3);
+}
+
+TEST (udp_buffer, two_buffers)
+{
+	rai::udp_buffer buffer (512, 2);
+	auto buffer1 (buffer.allocate ());
+	ASSERT_NE (nullptr, buffer1);
+	auto buffer2 (buffer.allocate ());
+	ASSERT_NE (nullptr, buffer2);
+	buffer.enqueue (buffer2);
+	buffer.enqueue (buffer1);
+	auto buffer3 (buffer.dequeue ());
+	ASSERT_EQ (buffer2, buffer3);
+	auto buffer4 (buffer.dequeue ());
+	ASSERT_EQ (buffer1, buffer4);
+	buffer.release (buffer3);
+	buffer.release (buffer4);
+	auto buffer5 (buffer.allocate ());
+	ASSERT_EQ (buffer2, buffer5);
+	auto buffer6 (buffer.allocate ());
+	ASSERT_EQ (buffer1, buffer6);
+}
+
+TEST (udp_buffer, one_buffer_multithreaded)
+{
+	rai::udp_buffer buffer (512, 1);
+	std::thread thread ([&buffer]() {
+		auto done (false);
+		while (!done)
+		{
+			auto item (buffer.dequeue ());
+			done = item == nullptr;
+			if (item != nullptr)
+			{
+				buffer.release (item);
+			}
+		}
+	});
+	auto buffer1 (buffer.allocate ());
+	ASSERT_NE (nullptr, buffer1);
+	buffer.enqueue (buffer1);
+	auto buffer2 (buffer.allocate ());
+	ASSERT_EQ (buffer1, buffer2);
+	buffer.stop ();
+	thread.join ();
+}
+
+TEST (udp_buffer, many_buffers_multithreaded)
+{
+	rai::udp_buffer buffer (512, 16);
+	std::vector<std::thread> threads;
+	for (auto i (0); i < 4; ++i)
+	{
+		threads.push_back (std::thread ([&buffer]() {
+			auto done (false);
+			while (!done)
+			{
+				auto item (buffer.dequeue ());
+				done = item == nullptr;
+				if (item != nullptr)
+				{
+					buffer.release (item);
+				}
+			}
+		}));
+	}
+	std::atomic_int count (0);
+	for (auto i (0); i < 4; ++i)
+	{
+		threads.push_back (std::thread ([&buffer, &count]() {
+			auto done (false);
+			for (auto i (0); !done && i < 1000; ++i)
+			{
+				auto item (buffer.allocate ());
+				done = item == nullptr;
+				if (item != nullptr)
+				{
+					buffer.enqueue (item);
+					++count;
+					if (count > 3000)
+					{
+						buffer.stop ();
+					}
+				}
+			}
+		}));
+	}
+	buffer.stop ();
+	for (auto & i : threads)
+	{
+		i.join ();
+	}
+}

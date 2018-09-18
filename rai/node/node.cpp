@@ -4292,3 +4292,75 @@ void rai::port_mapping::stop ()
 	freeUPNPDevlist (devices);
 	devices = nullptr;
 }
+
+rai::udp_buffer::udp_buffer (size_t size, size_t count) :
+free (count),
+full (count),
+slab (size * count),
+stopped (false)
+{
+	assert (count > 0);
+	assert (size > 0);
+	auto data (slab.data ());
+	for (auto i (0); i < count; ++i)
+	{
+		free.push_back (data + i * size);
+	}
+}
+uint8_t * rai::udp_buffer::allocate ()
+{
+	std::unique_lock<std::mutex> lock (mutex);
+	while (!stopped && free.empty () && full.empty ())
+	{
+		//++udp_blocking;
+		condition.wait (lock);
+	}
+	uint8_t * result (nullptr);
+	if (!free.empty ())
+	{
+		result = free.front ();
+		free.pop_front ();
+	}
+	if (result == nullptr)
+	{
+		result = full.front ();
+		full.pop_front ();
+		//++udp_overflow;
+	}
+	return result;
+}
+void rai::udp_buffer::enqueue (uint8_t * buffer)
+{
+	assert (buffer != nullptr);
+	std::lock_guard<std::mutex> lock (mutex);
+	full.push_back (buffer);
+	condition.notify_one ();
+}
+uint8_t * rai::udp_buffer::dequeue ()
+{
+	std::unique_lock<std::mutex> lock (mutex);
+	while (!stopped && full.empty ())
+	{
+		condition.wait (lock);
+	}
+	uint8_t * result (nullptr);
+	if (!full.empty ())
+	{
+		result = full.front ();
+		full.pop_front ();
+	}
+	return result;
+}
+void rai::udp_buffer::release (uint8_t * buffer)
+{
+	assert (buffer != nullptr);
+	std::lock_guard<std::mutex> lock (mutex);
+	free.push_back (buffer);
+	condition.notify_one ();
+}
+void rai::udp_buffer::stop ()
+{
+	std::lock_guard<std::mutex> lock (mutex);
+	stopped = true;
+	condition.notify_all ();
+}
