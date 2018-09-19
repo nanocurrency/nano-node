@@ -1,4 +1,4 @@
-#include <rai/rai_wallet/icon.hpp>
+#include <banano/banano_wallet/icon.hpp>
 
 #include <QApplication>
 #include <QtGui>
