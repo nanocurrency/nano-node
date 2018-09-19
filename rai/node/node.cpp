@@ -1479,7 +1479,6 @@ bool rai::block_processor::have_blocks ()
 void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & lock_a)
 {
 	{
-		auto transaction (node.store.tx_begin_write ());
 		lock_a.lock ();
 		auto count (0);
 		while (have_blocks () && count < 16384)
@@ -1506,6 +1505,7 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 			auto hash (block.first->hash ());
 			if (force)
 			{
+				auto transaction (node.store.tx_begin_write ());
 				auto successor (node.ledger.successor (transaction, block.first->root ()));
 				if (successor != nullptr && successor->hash () != hash)
 				{
@@ -1514,8 +1514,12 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 					node.ledger.rollback (transaction, successor->hash ());
 				}
 			}
-			auto process_result (process_receive_one (transaction, block.first, block.second));
-			(void)process_result;
+
+			{
+				auto transaction (node.store.tx_begin_write ());
+				auto process_result (process_receive_one (transaction, block.first, block.second));
+				(void)process_result;
+			}
 			lock_a.lock ();
 			++count;
 		}
