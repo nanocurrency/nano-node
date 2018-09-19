@@ -204,7 +204,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 	std::fstream config_file;
 	auto error (rai::fetch_object (config, config_path, config_file));
 	config_file.close ();
-	boost::filesystem::permissions (config_path, boost::filesystem::owner_all);
+	boost::filesystem::permissions (config_path, boost::filesystem::owner_read|boost::filesystem::owner_write);
 	if (!error)
 	{
 		boost::asio::io_service service;
