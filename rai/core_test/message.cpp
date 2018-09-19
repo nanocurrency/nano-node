@@ -45,7 +45,7 @@ TEST (message, publish_serialization)
 	publish.header.set_query_flag (false);
 	ASSERT_FALSE (publish.header.is_query_flag ());
 	publish.header.set_query_flag (true);
-	ASSERT_TRUE (publish.header.is_query_flag());
+	ASSERT_TRUE (publish.header.is_query_flag ());
 	std::vector<uint8_t> bytes;
 	{
 		rai::vectorstream stream (bytes);

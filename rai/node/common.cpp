@@ -84,14 +84,14 @@ void rai::message_header::set_query_flag (bool value_a)
 	extensions.set (query_flag_position, value_a);
 }
 
-bool rai::message_header::is_response_flag() const
+bool rai::message_header::is_response_flag () const
 {
-	return extensions.test(response_flag_position);
+	return extensions.test (response_flag_position);
 }
 
-void rai::message_header::set_response_flag(bool value_a)
+void rai::message_header::set_response_flag (bool value_a)
 {
-	extensions.set(response_flag_position, value_a);
+	extensions.set (response_flag_position, value_a);
 }
 
 // MTU - IP header - UDP header
