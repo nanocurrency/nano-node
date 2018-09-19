@@ -266,6 +266,7 @@ public:
 	std::unordered_map<rai::uint256_union, bool> deduplication;
 	rai::pending_key current_key;
 	bool pending_address_only;
+	bool pending_include_address;
 	bool invalid_request;
 };
 class bulk_pull_blocks;
