@@ -316,7 +316,7 @@ if (BANANO_GUI)
 
 	target_link_libraries (qt_system qt node Qt5::Gui Qt5::Widgets)
 
-	set_target_properties (qt nano_wallet qt_system PROPERTIES COMPILE_FLAGS "-DQT_NO_KEYWORDS -DBOOST_ASIO_HAS_STD_ARRAY=1")
+	set_target_properties (qt banano_wallet qt_system PROPERTIES COMPILE_FLAGS "-DQT_NO_KEYWORDS -DBOOST_ASIO_HAS_STD_ARRAY=1")
 
 	if (BANANO_TEST)
 		add_executable (qt_test
@@ -329,7 +329,7 @@ if (BANANO_GUI)
 	endif ()
 
 	if (APPLE)
-		install (TARGETS nano_wallet DESTINATION Banano.app/Contents/MacOS)
+		install (TARGETS banano_wallet DESTINATION Banano.app/Contents/MacOS)
 		install (FILES Info.plist DESTINATION Banano.app/Contents)
 		install (FILES qt.conf DESTINATION Banano.app/Contents/Resources)
 		install (DIRECTORY ${Qt5_DIR}/../../QtCore.framework DESTINATION Banano.app/Contents/Frameworks)
