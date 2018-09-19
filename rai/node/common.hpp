@@ -163,16 +163,20 @@ public:
 	bool deserialize (rai::stream &);
 	rai::block_type block_type () const;
 	void block_type_set (rai::block_type);
-	bool ipv4_only ();
-	void ipv4_only_set (bool);
+	bool is_query_flag () const;
+	void set_query_flag (bool);
+	bool is_response_flag () const;
+	void set_response_flag (bool);
 	static std::array<uint8_t, 2> constexpr magic_number = rai::rai_network == rai::rai_networks::rai_test_network ? std::array<uint8_t, 2>{ { 'R', 'A' } } : rai::rai_network == rai::rai_networks::rai_beta_network ? std::array<uint8_t, 2>{ { 'R', 'B' } } : std::array<uint8_t, 2>{ { 'R', 'C' } };
 	uint8_t version_max;
 	uint8_t version_using;
 	uint8_t version_min;
 	rai::message_type type;
 	std::bitset<16> extensions;
-	static size_t constexpr ipv4_only_position = 1;
-	static size_t constexpr bootstrap_server_position = 2;
+	static size_t constexpr query_flag_position = 0;
+	static size_t constexpr response_flag_position = 1;
+	//static size_t constexpr ipv4_only_position = 1;  // Not in use, deprecated, was conflicting
+	//static size_t constexpr bootstrap_server_position = 2;  // Not in use, deprecated
 	static std::bitset<16> constexpr block_type_mask = std::bitset<16> (0x0f00);
 };
 class message
@@ -329,8 +333,6 @@ public:
 	bool operator== (rai::node_id_handshake const &) const;
 	boost::optional<rai::uint256_union> query;
 	boost::optional<std::pair<rai::account, rai::signature>> response;
-	static size_t constexpr query_flag = 0;
-	static size_t constexpr response_flag = 1;
 };
 class message_visitor
 {
