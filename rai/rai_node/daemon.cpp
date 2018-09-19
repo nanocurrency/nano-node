@@ -102,6 +102,7 @@ void rai_daemon::daemon::run (boost::filesystem::path const & data_path)
 	std::fstream config_file;
 	std::unique_ptr<rai::thread_runner> runner;
 	auto error (rai::fetch_object (config, config_path, config_file));
+	boost::filesystem::permissions (config_path, boost::filesystem::owner_read | boost::filesystem::owner_write);
 	if (!error)
 	{
 		config.node.logging.init (data_path);
