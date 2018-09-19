@@ -29,6 +29,9 @@ const uint8_t protocol_version = 0x0e;
 const uint8_t protocol_version_min = 0x07;
 const uint8_t node_id_version = 0x0c;
 
+/** Do not bootstrap from nodes older than this version */
+const uint8_t protocol_version_bootstrap_min = 0x0d;
+
 /**
  * A key pair. The private key is generated from the random pool, or passed in
  * as a hex string. The public key is derived using ed25519.
