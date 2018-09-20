@@ -42,10 +42,10 @@ TEST (message, publish_serialization)
 {
 	rai::publish publish (std::unique_ptr<rai::block> (new rai::send_block (0, 1, 2, rai::keypair ().prv, 4, 5)));
 	ASSERT_EQ (rai::block_type::send, publish.header.block_type ());
-	publish.header.set_query_flag (false);
-	ASSERT_FALSE (publish.header.is_query_flag ());
-	publish.header.set_query_flag (true);
-	ASSERT_TRUE (publish.header.is_query_flag ());
+	publish.set_query_flag (false);
+	ASSERT_FALSE (publish.is_query_flag ());
+	publish.set_query_flag (true);
+	ASSERT_TRUE (publish.is_query_flag ());
 	std::vector<uint8_t> bytes;
 	{
 		rai::vectorstream stream (bytes);
