@@ -57,9 +57,9 @@ on (true)
 			{
 				release_assert (false);
 			}
-			if (node.config.logging.network_packet_logging ())
+			if (this->node.config.logging.network_packet_logging ())
 			{
-				BOOST_LOG (node.log) << "Exiting packet processing thread";
+				BOOST_LOG (this->node.log) << "Exiting packet processing thread";
 			}
 		}));
 	}
