@@ -90,25 +90,25 @@ void rai::network::receive ()
 	std::unique_lock<std::mutex> lock (socket_mutex);
 	auto data (buffer_container.allocate ());
 	socket.async_receive_from (boost::asio::buffer (data->buffer, rai::network::buffer_size), data->endpoint, [this, data](boost::system::error_code const & error, size_t size_a) {
-		if (!error && on)
+		if (!error && this->on)
 		{
 			data->size = size_a;
-			buffer_container.enqueue (data);
-			receive ();
+			this->buffer_container.enqueue (data);
+			this->receive ();
 		}
 		else
 		{
-			buffer_container.release (data);
+			this->buffer_container.release (data);
 			if (error)
 			{
-				if (node.config.logging.network_logging ())
+				if (this->node.config.logging.network_logging ())
 				{
-					BOOST_LOG (node.log) << boost::str (boost::format ("UDP Receive error: %1%") % error.message ());
+					BOOST_LOG (this->node.log) << boost::str (boost::format ("UDP Receive error: %1%") % error.message ());
 				}
 			}
-			if (on)
+			if (this->on)
 			{
-				node.alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (5), [this]() { receive (); });
+				this->node.alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (5), [this]() { this->receive (); });
 			}
 		}
 	});
