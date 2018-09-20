@@ -406,7 +406,8 @@ class udp_buffer
 public:
 	// Size - Size of each individual buffer
 	// Count - Number of buffers to allocate
-	udp_buffer (size_t, size_t);
+	// Stats - Statistics
+	udp_buffer (rai::stat & stats, size_t, size_t);
 	// Return a buffer where UDP data can be put
 	// Method will attempt to return the first free buffer
 	// If there are no free buffers, an unserviced buffer will be dequeued and returned
@@ -425,6 +426,7 @@ public:
 	void stop ();
 
 private:
+	rai::stat & stats;
 	std::mutex mutex;
 	std::condition_variable condition;
 	boost::circular_buffer<rai::udp_data *> free;

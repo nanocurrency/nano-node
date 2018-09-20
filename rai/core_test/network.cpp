@@ -934,7 +934,8 @@ TEST (node, port_mapping)
 
 TEST (udp_buffer, one_buffer)
 {
-	rai::udp_buffer buffer (512, 1);
+	rai::stat stats;
+	rai::udp_buffer buffer (stats, 512, 1);
 	auto buffer1 (buffer.allocate ());
 	ASSERT_NE (nullptr, buffer1);
 	buffer.enqueue (buffer1);
@@ -947,7 +948,8 @@ TEST (udp_buffer, one_buffer)
 
 TEST (udp_buffer, two_buffers)
 {
-	rai::udp_buffer buffer (512, 2);
+	rai::stat stats;
+	rai::udp_buffer buffer (stats, 512, 2);
 	auto buffer1 (buffer.allocate ());
 	ASSERT_NE (nullptr, buffer1);
 	auto buffer2 (buffer.allocate ());
@@ -969,7 +971,8 @@ TEST (udp_buffer, two_buffers)
 
 TEST (udp_buffer, one_overflow)
 {
-	rai::udp_buffer buffer (512, 1);
+	rai::stat stats;
+	rai::udp_buffer buffer (stats, 512, 1);
 	auto buffer1 (buffer.allocate ());
 	ASSERT_NE (nullptr, buffer1);
 	buffer.enqueue (buffer1);
@@ -979,7 +982,8 @@ TEST (udp_buffer, one_overflow)
 
 TEST (udp_buffer, two_overflow)
 {
-	rai::udp_buffer buffer (512, 2);
+	rai::stat stats;
+	rai::udp_buffer buffer (stats, 512, 2);
 	auto buffer1 (buffer.allocate ());
 	ASSERT_NE (nullptr, buffer1);
 	buffer.enqueue (buffer1);
@@ -995,7 +999,8 @@ TEST (udp_buffer, two_overflow)
 
 TEST (udp_buffer, one_buffer_multithreaded)
 {
-	rai::udp_buffer buffer (512, 1);
+	rai::stat stats;
+	rai::udp_buffer buffer (stats, 512, 1);
 	std::thread thread ([&buffer]() {
 		auto done (false);
 		while (!done)
@@ -1019,7 +1024,8 @@ TEST (udp_buffer, one_buffer_multithreaded)
 
 TEST (udp_buffer, many_buffers_multithreaded)
 {
-	rai::udp_buffer buffer (512, 16);
+	rai::stat stats;
+	rai::udp_buffer buffer (stats, 512, 16);
 	std::vector<std::thread> threads;
 	for (auto i (0); i < 4; ++i)
 	{
@@ -1062,4 +1068,14 @@ TEST (udp_buffer, many_buffers_multithreaded)
 	{
 		i.join ();
 	}
+}
+
+TEST (udp_buffer, stats)
+{
+	rai::stat stats;
+	rai::udp_buffer buffer (stats, 512, 1);
+	auto buffer1 (buffer.allocate ());
+	buffer.enqueue (buffer1);
+	buffer.allocate ();
+	ASSERT_EQ (1, stats.count (rai::stat::type::udp, rai::stat::detail::overflow));
 }

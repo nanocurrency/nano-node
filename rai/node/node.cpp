@@ -40,7 +40,7 @@ rai::endpoint rai::map_endpoint_to_v6 (rai::endpoint const & endpoint_a)
 }
 
 rai::network::network (rai::node & node_a, uint16_t port) :
-buffer_container (rai::network::buffer_size, 4096), // 2Mb receive buffer
+buffer_container (node_a.stats, rai::network::buffer_size, 4096), // 2Mb receive buffer
 socket (node_a.service, rai::endpoint (boost::asio::ip::address_v6::any (), port)),
 resolver (node_a.service),
 node (node_a),
@@ -4346,7 +4346,8 @@ void rai::port_mapping::stop ()
 	devices = nullptr;
 }
 
-rai::udp_buffer::udp_buffer (size_t size, size_t count) :
+rai::udp_buffer::udp_buffer (rai::stat & stats, size_t size, size_t count) :
+stats (stats),
 free (count),
 full (count),
 slab (size * count),
@@ -4359,7 +4360,7 @@ stopped (false)
 	auto entry_data (entries.data ());
 	for (auto i (0); i < count; ++i, ++entry_data)
 	{
-		*entry_data = {slab_data + i * size, 0, rai::endpoint ()};
+		*entry_data = { slab_data + i * size, 0, rai::endpoint () };
 		free.push_back (entry_data);
 	}
 }
@@ -4368,7 +4369,7 @@ rai::udp_data * rai::udp_buffer::allocate ()
 	std::unique_lock<std::mutex> lock (mutex);
 	while (!stopped && free.empty () && full.empty ())
 	{
-		//++udp_blocking;
+		stats.inc (rai::stat::type::udp, rai::stat::detail::blocking, rai::stat::dir::in);
 		condition.wait (lock);
 	}
 	rai::udp_data * result (nullptr);
@@ -4381,7 +4382,7 @@ rai::udp_data * rai::udp_buffer::allocate ()
 	{
 		result = full.front ();
 		full.pop_front ();
-		//++udp_overflow;
+		stats.inc (rai::stat::type::udp, rai::stat::detail::overflow, rai::stat::dir::in);
 	}
 	return result;
 }
