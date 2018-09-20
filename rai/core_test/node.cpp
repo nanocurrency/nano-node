@@ -125,7 +125,7 @@ TEST (node, send_single_observing_peer)
 
 TEST (node, send_single_many_peers)
 {
-	rai::system system (24000, 6);
+	rai::system system (24000, 10);
 	rai::keypair key2;
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	system.wallet (1)->insert_adhoc (key2.prv);

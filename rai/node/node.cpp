@@ -4357,7 +4357,7 @@ stopped (false)
 	assert (size > 0);
 	auto slab_data (slab.data ());
 	auto entry_data (entries.data ());
-	for (auto i (0); i < count; ++i)
+	for (auto i (0); i < count; ++i, ++entry_data)
 	{
 		*entry_data = {slab_data + i * size, 0, rai::endpoint ()};
 		free.push_back (entry_data);

@@ -952,6 +952,7 @@ TEST (udp_buffer, two_buffers)
 	ASSERT_NE (nullptr, buffer1);
 	auto buffer2 (buffer.allocate ());
 	ASSERT_NE (nullptr, buffer2);
+	ASSERT_NE (buffer1, buffer2);
 	buffer.enqueue (buffer2);
 	buffer.enqueue (buffer1);
 	auto buffer3 (buffer.dequeue ());
@@ -964,6 +965,32 @@ TEST (udp_buffer, two_buffers)
 	ASSERT_EQ (buffer2, buffer5);
 	auto buffer6 (buffer.allocate ());
 	ASSERT_EQ (buffer1, buffer6);
+}
+
+TEST (udp_buffer, one_overflow)
+{
+	rai::udp_buffer buffer (512, 1);
+	auto buffer1 (buffer.allocate ());
+	ASSERT_NE (nullptr, buffer1);
+	buffer.enqueue (buffer1);
+	auto buffer2 (buffer.allocate ());
+	ASSERT_EQ (buffer1, buffer2);
+}
+
+TEST (udp_buffer, two_overflow)
+{
+	rai::udp_buffer buffer (512, 2);
+	auto buffer1 (buffer.allocate ());
+	ASSERT_NE (nullptr, buffer1);
+	buffer.enqueue (buffer1);
+	auto buffer2 (buffer.allocate ());
+	ASSERT_NE (nullptr, buffer2);
+	ASSERT_NE (buffer1, buffer2);
+	buffer.enqueue (buffer2);
+	auto buffer3 (buffer.allocate ());
+	ASSERT_EQ (buffer1, buffer3);
+	auto buffer4 (buffer.allocate ());
+	ASSERT_EQ (buffer2, buffer4);
 }
 
 TEST (udp_buffer, one_buffer_multithreaded)
