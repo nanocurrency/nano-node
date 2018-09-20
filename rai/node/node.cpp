@@ -40,33 +40,26 @@ rai::endpoint rai::map_endpoint_to_v6 (rai::endpoint const & endpoint_a)
 }
 
 rai::network::network (rai::node & node_a, uint16_t port) :
+buffer_container (rai::network::buffer_size, 4096), // 2Mb receive buffer
 socket (node_a.service, rai::endpoint (boost::asio::ip::address_v6::any (), port)),
 resolver (node_a.service),
 node (node_a),
-on (true),
-buffer_container (rai::network::buffer_size, 100*1024) // about 50MB of memory
+on (true)
 {
 	for (size_t i = 0; i < node.config.io_threads; ++i)
 	{
 		packet_processing_threads.push_back (std::thread ([this]() {
-			while (true)
+			try
 			{
-				try
-				{
-					process_packets ();
-					break;
-				}
-				catch (...)
-				{
-#ifndef NDEBUG
-					/*
-					* In a release build, catch and swallow the
-					* exception, in debug mode pass it
-					* on
-					*/
-					throw;
-#endif
-				}
+				process_packets ();
+			}
+			catch (...)
+			{
+				release_assert (false);
+			}
+			if (node.config.logging.network_packet_logging ())
+			{
+				BOOST_LOG (node.log) << "Exiting packet processing thread";
 			}
 		}));
 	}
@@ -80,6 +73,14 @@ rai::network::~network ()
 	}
 }
 
+void rai::network::start ()
+{
+	for (size_t i = 0; i < node.config.io_threads; ++i)
+	{
+		receive ();
+	}
+}
+
 void rai::network::receive ()
 {
 	if (node.config.logging.network_packet_logging ())
@@ -87,16 +88,17 @@ void rai::network::receive ()
 		BOOST_LOG (node.log) << "Receiving packet";
 	}
 	std::unique_lock<std::mutex> lock (socket_mutex);
-	uint8_t * buffer (buffer_container.allocate ());
-	socket.async_receive_from (boost::asio::buffer (buffer, rai::network::buffer_size), remote, [this, buffer](boost::system::error_code const & error, size_t size_a) {
+	auto data (buffer_container.allocate ());
+	socket.async_receive_from (boost::asio::buffer (data->buffer, rai::network::buffer_size), data->endpoint, [this, data](boost::system::error_code const & error, size_t size_a) {
 		if (!error && on)
 		{
-			buffer_container.enqueue (buffer, size_a);
+			data->size = size_a;
+			buffer_container.enqueue (data);
 			receive ();
 		}
 		else
 		{
-			buffer_container.release (buffer);
+			buffer_container.release (data);
 			if (error)
 			{
 				if (node.config.logging.network_logging ())
@@ -114,19 +116,16 @@ void rai::network::receive ()
 
 void rai::network::process_packets ()
 {
-	if (node.config.logging.network_packet_logging ())
-	{
-		BOOST_LOG (node.log) << "Dequeue packet";
-	}
 	while (on)
 	{
-		auto buffer (buffer_container.dequeue ());
-		if (!buffer.first)
+		auto data (buffer_container.dequeue ());
+		if (data == nullptr)
 		{
-			continue;
+			break;
 		}
-		receive_action (buffer.first, buffer.second);
-		buffer_container.release (buffer.first);
+		//std::cerr << data->endpoint.address ().to_string ();
+		receive_action (data);
+		buffer_container.release (data);
 	}
 }
 
@@ -558,13 +557,13 @@ public:
 };
 }
 
-void rai::network::receive_action (uint8_t * buffer_a, size_t size_a)
+void rai::network::receive_action (rai::udp_data * data_a)
 {
-	if (!rai::reserved_address (remote, false) && remote != endpoint ())
+	if (!rai::reserved_address (data_a->endpoint, false) && data_a->endpoint != endpoint ())
 	{
-		network_message_visitor visitor (node, remote);
+		network_message_visitor visitor (node, data_a->endpoint);
 		rai::message_parser parser (visitor, node.work);
-		parser.deserialize_buffer (buffer_a, size_a);
+		parser.deserialize_buffer (data_a->buffer, data_a->size);
 		if (parser.status != rai::message_parser::parse_status::success)
 		{
 			node.stats.inc (rai::stat::type::error);
@@ -635,14 +634,14 @@ void rai::network::receive_action (uint8_t * buffer_a, size_t size_a)
 		}
 		else
 		{
-			node.stats.add (rai::stat::type::traffic, rai::stat::dir::in, size_a);
+			node.stats.add (rai::stat::type::traffic, rai::stat::dir::in, data_a->size);
 		}
 	}
 	else
 	{
 		if (node.config.logging.network_logging ())
 		{
-			BOOST_LOG (node.log) << boost::str (boost::format ("Reserved sender %1%") % remote.address ().to_string ());
+			BOOST_LOG (node.log) << boost::str (boost::format ("Reserved sender %1%") % data_a->endpoint.address ().to_string ());
 		}
 
 		node.stats.inc_detail_only (rai::stat::type::error, rai::stat::detail::bad_sender);
@@ -2323,7 +2322,7 @@ bool rai::parse_tcp_endpoint (std::string const & string, rai::tcp_endpoint & en
 
 void rai::node::start ()
 {
-	network.receive ();
+	network.start ();
 	ongoing_keepalive ();
 	ongoing_syn_cookie_cleanup ();
 	ongoing_bootstrap ();
@@ -4351,17 +4350,20 @@ rai::udp_buffer::udp_buffer (size_t size, size_t count) :
 free (count),
 full (count),
 slab (size * count),
+entries (count),
 stopped (false)
 {
 	assert (count > 0);
 	assert (size > 0);
-	auto data (slab.data ());
+	auto slab_data (slab.data ());
+	auto entry_data (entries.data ());
 	for (auto i (0); i < count; ++i)
 	{
-		free.push_back (data + i * size);
+		*entry_data = {slab_data + i * size, 0, rai::endpoint ()};
+		free.push_back (entry_data);
 	}
 }
-uint8_t * rai::udp_buffer::allocate ()
+rai::udp_data * rai::udp_buffer::allocate ()
 {
 	std::unique_lock<std::mutex> lock (mutex);
 	while (!stopped && free.empty () && full.empty ())
@@ -4369,7 +4371,7 @@ uint8_t * rai::udp_buffer::allocate ()
 		//++udp_blocking;
 		condition.wait (lock);
 	}
-	uint8_t * result (nullptr);
+	rai::udp_data * result (nullptr);
 	if (!free.empty ())
 	{
 		result = free.front ();
@@ -4377,27 +4379,27 @@ uint8_t * rai::udp_buffer::allocate ()
 	}
 	if (result == nullptr)
 	{
-		result = full.front ().first;
+		result = full.front ();
 		full.pop_front ();
 		//++udp_overflow;
 	}
 	return result;
 }
-void rai::udp_buffer::enqueue (uint8_t * buffer, size_t size)
+void rai::udp_buffer::enqueue (rai::udp_data * data_a)
 {
-	assert (buffer != nullptr);
+	assert (data_a != nullptr);
 	std::lock_guard<std::mutex> lock (mutex);
-	full.push_back (std::make_pair (buffer, size));
+	full.push_back (data_a);
 	condition.notify_one ();
 }
-std::pair<uint8_t *, size_t> rai::udp_buffer::dequeue ()
+rai::udp_data * rai::udp_buffer::dequeue ()
 {
 	std::unique_lock<std::mutex> lock (mutex);
 	while (!stopped && full.empty ())
 	{
 		condition.wait (lock);
 	}
-	std::pair<uint8_t *, size_t> result (nullptr, 0);
+	rai::udp_data * result (nullptr);
 	if (!full.empty ())
 	{
 		result = full.front ();
@@ -4405,11 +4407,11 @@ std::pair<uint8_t *, size_t> rai::udp_buffer::dequeue ()
 	}
 	return result;
 }
-void rai::udp_buffer::release (uint8_t * buffer)
+void rai::udp_buffer::release (rai::udp_data * data_a)
 {
-	assert (buffer != nullptr);
+	assert (data_a != nullptr);
 	std::lock_guard<std::mutex> lock (mutex);
-	free.push_back (buffer);
+	free.push_back (data_a);
 	condition.notify_one ();
 }
 void rai::udp_buffer::stop ()

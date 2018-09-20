@@ -388,7 +388,13 @@ private:
 	std::mutex mutex;
 	rai::node & node;
 };
-
+class udp_data
+{
+public:
+	uint8_t * buffer;
+	size_t size;
+	rai::endpoint endpoint;
+};
 /**
   * A circular buffer for servicing UDP datagrams. This container follows a producer/consumer model where the operating system is producing data in to buffers which are serviced by internal threads.
   * If buffers are not serviced fast enough they're internally dropped.
@@ -406,24 +412,25 @@ public:
 	// If there are no free buffers, an unserviced buffer will be dequeued and returned
 	// Function will block if there are no free or unserviced buffers
 	// Return nullptr if the container has stopped
-	uint8_t * allocate ();
+	rai::udp_data * allocate ();
 	// Queue a buffer that has been filled with UDP data and notify servicing threads
-	void enqueue (uint8_t * buffer, size_t);
+	void enqueue (rai::udp_data *);
 	// Return a buffer that has been filled with UDP data
 	// Function will block until a buffer has been added
 	// Return nullptr if the container has stopped
-	std::pair<uint8_t *, size_t> dequeue ();
+	rai::udp_data * dequeue ();
 	// Return a buffer to the freelist after is has been serviced
-	void release (uint8_t * buffer);
+	void release (rai::udp_data *);
 	// Stop container and notify waiting threads
 	void stop ();
 
 private:
 	std::mutex mutex;
 	std::condition_variable condition;
-	boost::circular_buffer<uint8_t *> free;
-	boost::circular_buffer<std::pair<uint8_t *, size_t>> full;
+	boost::circular_buffer<rai::udp_data *> free;
+	boost::circular_buffer<rai::udp_data *> full;
 	std::vector<uint8_t> slab;
+	std::vector<rai::udp_data> entries;
 	bool stopped;
 };
 class network
@@ -433,8 +440,9 @@ public:
 	~network ();
 	void receive ();
 	void process_packets ();
+	void start ();
 	void stop ();
-	void receive_action (uint8_t *, size_t);
+	void receive_action (rai::udp_data *);
 	void rpc_action (boost::system::error_code const &, size_t);
 	void republish_vote (std::shared_ptr<rai::vote>);
 	void republish_block (rai::transaction const &, std::shared_ptr<rai::block>, bool = true);
@@ -449,7 +457,6 @@ public:
 	void send_confirm_req (rai::endpoint const &, std::shared_ptr<rai::block>);
 	void send_buffer (uint8_t const *, size_t, rai::endpoint const &, std::function<void(boost::system::error_code const &, size_t)>);
 	rai::endpoint endpoint ();
-	rai::endpoint remote;
 	rai::udp_buffer buffer_container;
 	boost::asio::ip::udp::socket socket;
 	std::mutex socket_mutex;
@@ -458,7 +465,7 @@ public:
 	rai::node & node;
 	bool on;
 	static uint16_t const node_port = rai::rai_network == rai::rai_networks::rai_live_network ? 7075 : 54000;
-	static size_t const buffer_size = 508;
+	static size_t const buffer_size = 512;
 };
 class logging
 {
