@@ -158,7 +158,6 @@ public:
 	rai::store_iterator_impl<T, U> & operator++ () override;
 	std::pair<rai::mdb_val, rai::mdb_val> * operator-> ();
 	bool operator== (rai::store_iterator_impl<T, U> const & other_a) const override;
-	void next_dup () override;
 	bool is_end_sentinal () const override;
 	void fill (std::pair<T, U> &) const override;
 	void clear ();
@@ -187,7 +186,6 @@ public:
 	rai::store_iterator_impl<T, U> & operator++ () override;
 	std::pair<rai::mdb_val, rai::mdb_val> * operator-> ();
 	bool operator== (rai::store_iterator_impl<T, U> const &) const override;
-	void next_dup () override;
 	bool is_end_sentinal () const override;
 	void fill (std::pair<T, U> &) const override;
 	void clear ();
@@ -282,7 +280,6 @@ public:
 	rai::store_iterator<rai::block_hash, std::shared_ptr<rai::block>> unchecked_begin (rai::transaction const &, rai::block_hash const &) override;
 	rai::store_iterator<rai::block_hash, std::shared_ptr<rai::block>> unchecked_end () override;
 	size_t unchecked_count (rai::transaction const &) override;
-	std::unordered_multimap<rai::block_hash, std::shared_ptr<rai::block>> unchecked_cache;
 
 	void checksum_put (rai::transaction const &, uint64_t, uint8_t, rai::checksum const &) override;
 	bool checksum_get (rai::transaction const &, uint64_t, uint8_t, rai::checksum &) override;

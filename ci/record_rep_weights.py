@@ -55,9 +55,11 @@ with open(args.output, 'wb') as of:
         of.write(weight_bytes)
         total += rep["weight"]
         count += 1
+        print rep["account"] + ": " + str(rep["weight"])
         if total >= supplymax:
             break
 
     print "wrote %d rep weights" % count
+    print "max supply %d" % supplymax
 
     of.close()

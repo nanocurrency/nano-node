@@ -14,6 +14,7 @@ rai::mdb_env::mdb_env (bool & error_a, boost::filesystem::path const & path_a, i
 	if (path_a.has_parent_path ())
 	{
 		boost::filesystem::create_directories (path_a.parent_path (), error);
+		boost::filesystem::permissions (path_a.parent_path (), boost::filesystem::owner_all);
 		if (!error)
 		{
 			auto status1 (mdb_env_create (&environment));
@@ -471,17 +472,6 @@ bool rai::mdb_iterator<T, U>::operator== (rai::store_iterator_impl<T, U> const &
 }
 
 template <typename T, typename U>
-void rai::mdb_iterator<T, U>::next_dup ()
-{
-	assert (cursor != nullptr);
-	auto status (mdb_cursor_get (cursor, &current.first.value, &current.second.value, MDB_NEXT_DUP));
-	if (status == MDB_NOTFOUND)
-	{
-		clear ();
-	}
-}
-
-template <typename T, typename U>
 void rai::mdb_iterator<T, U>::clear ()
 {
 	current.first = rai::mdb_val (current.first.epoch);
@@ -570,12 +560,6 @@ rai::store_iterator_impl<T, U> & rai::mdb_merge_iterator<T, U>::operator++ ()
 }
 
 template <typename T, typename U>
-void rai::mdb_merge_iterator<T, U>::next_dup ()
-{
-	least_iterator ().next_dup ();
-}
-
-template <typename T, typename U>
 bool rai::mdb_merge_iterator<T, U>::is_end_sentinal () const
 {
 	return least_iterator ().is_end_sentinal ();
@@ -626,8 +610,20 @@ rai::mdb_iterator<T, U> & rai::mdb_merge_iterator<T, U>::least_iterator () const
 	else
 	{
 		auto key_cmp (mdb_cmp (mdb_cursor_txn (impl1->cursor), mdb_cursor_dbi (impl1->cursor), impl1->current.first, impl2->current.first));
-		auto val_cmp (mdb_cmp (mdb_cursor_txn (impl1->cursor), mdb_cursor_dbi (impl1->cursor), impl1->current.second, impl2->current.second));
-		result = key_cmp < 0 ? impl1.get () : val_cmp < 0 ? impl1.get () : impl2.get ();
+
+		if (key_cmp < 0)
+		{
+			result = impl1.get ();
+		}
+		else if (key_cmp > 0)
+		{
+			result = impl2.get ();
+		}
+		else
+		{
+			auto val_cmp (mdb_cmp (mdb_cursor_txn (impl1->cursor), mdb_cursor_dbi (impl1->cursor), impl1->current.second, impl2->current.second));
+			result = val_cmp < 0 ? impl1.get () : impl2.get ();
+		}
 	}
 	return *result;
 }
@@ -1750,8 +1746,9 @@ void rai::mdb_store::unchecked_put (rai::transaction const & transaction_a, rai:
 	// Inserting block if it wasn't found in database
 	if (!exists)
 	{
-		std::lock_guard<std::mutex> lock (cache_mutex);
-		unchecked_cache.insert (std::make_pair (hash_a, block_a));
+		mdb_val block (block_a);
+		auto status (mdb_put (env.tx (transaction_a), unchecked, rai::mdb_val (hash_a), block, 0));
+		assert (status == 0);
 	}
 }
 
@@ -1773,15 +1770,9 @@ std::shared_ptr<rai::vote> rai::mdb_store::vote_get (rai::transaction const & tr
 std::vector<std::shared_ptr<rai::block>> rai::mdb_store::unchecked_get (rai::transaction const & transaction_a, rai::block_hash const & hash_a)
 {
 	std::vector<std::shared_ptr<rai::block>> result;
+	for (auto i (unchecked_begin (transaction_a, hash_a)), n (unchecked_begin (transaction_a, hash_a.number () + 1)); i != n; ++i)
 	{
-		std::lock_guard<std::mutex> lock (cache_mutex);
-		for (auto i (unchecked_cache.find (hash_a)), n (unchecked_cache.end ()); i != n && i->first == hash_a; ++i)
-		{
-			result.push_back (i->second);
-		}
-	}
-	for (auto i (unchecked_begin (transaction_a, hash_a)), n (unchecked_end ()); i != n && rai::block_hash (i->first) == hash_a; i.next_dup ())
-	{
+		assert (rai::block_hash (i->first) == hash_a);
 		std::shared_ptr<rai::block> block (i->second);
 		result.push_back (block);
 	}
@@ -1790,20 +1781,6 @@ std::vector<std::shared_ptr<rai::block>> rai::mdb_store::unchecked_get (rai::tra
 
 void rai::mdb_store::unchecked_del (rai::transaction const & transaction_a, rai::block_hash const & hash_a, std::shared_ptr<rai::block> block_a)
 {
-	{
-		std::lock_guard<std::mutex> lock (cache_mutex);
-		for (auto i (unchecked_cache.find (hash_a)), n (unchecked_cache.end ()); i != n && i->first == hash_a;)
-		{
-			if (*i->second == *block_a)
-			{
-				i = unchecked_cache.erase (i);
-			}
-			else
-			{
-				++i;
-			}
-		}
-	}
 	rai::mdb_val block (block_a);
 	auto status (mdb_del (env.tx (transaction_a), unchecked, rai::mdb_val (hash_a), block));
 	assert (status == 0 || status == MDB_NOTFOUND);
@@ -1855,17 +1832,9 @@ void rai::mdb_store::checksum_del (rai::transaction const & transaction_a, uint6
 void rai::mdb_store::flush (rai::transaction const & transaction_a)
 {
 	std::unordered_map<rai::account, std::shared_ptr<rai::vote>> sequence_cache_l;
-	std::unordered_multimap<rai::block_hash, std::shared_ptr<rai::block>> unchecked_cache_l;
 	{
 		std::lock_guard<std::mutex> lock (cache_mutex);
 		sequence_cache_l.swap (vote_cache);
-		unchecked_cache_l.swap (unchecked_cache);
-	}
-	for (auto & i : unchecked_cache_l)
-	{
-		mdb_val block (i.second);
-		auto status (mdb_put (env.tx (transaction_a), unchecked, rai::mdb_val (i.first), block, 0));
-		assert (status == 0);
 	}
 	for (auto i (sequence_cache_l.begin ()), n (sequence_cache_l.end ()); i != n; ++i)
 	{

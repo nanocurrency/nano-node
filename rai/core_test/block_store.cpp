@@ -140,6 +140,55 @@ TEST (block_store, pending_iterator)
 	ASSERT_EQ (rai::epoch::epoch_1, pending.epoch);
 }
 
+/**
+ * Regression test for Issue 1164
+ * This reconstructs the situation where a key is larger in pending than the account being iterated in pending_v1, leaving
+ * iteration order up to the value, causing undefined behavior.
+ * After the bugfix, the value is compared only if the keys are equal.
+ */
+TEST (block_store, pending_iterator_comparison)
+{
+	bool init (false);
+	rai::mdb_store store (init, rai::unique_path ());
+	ASSERT_TRUE (!init);
+	rai::stat stats;
+	auto transaction (store.tx_begin (true));
+	// Populate pending
+	store.pending_put (transaction, rai::pending_key (rai::account (3), rai::block_hash (1)), rai::pending_info (rai::account (10), rai::amount (1), rai::epoch::epoch_0));
+	store.pending_put (transaction, rai::pending_key (rai::account (3), rai::block_hash (4)), rai::pending_info (rai::account (10), rai::amount (0), rai::epoch::epoch_0));
+	// Populate pending_v1
+	store.pending_put (transaction, rai::pending_key (rai::account (2), rai::block_hash (2)), rai::pending_info (rai::account (10), rai::amount (2), rai::epoch::epoch_1));
+	store.pending_put (transaction, rai::pending_key (rai::account (2), rai::block_hash (3)), rai::pending_info (rai::account (10), rai::amount (3), rai::epoch::epoch_1));
+
+	// Iterate account 3 (pending)
+	{
+		size_t count = 0;
+		rai::account begin (3);
+		rai::account end (begin.number () + 1);
+		for (auto i (store.pending_begin (transaction, rai::pending_key (begin, 0))), n (store.pending_begin (transaction, rai::pending_key (end, 0))); i != n; ++i, ++count)
+		{
+			rai::pending_key key (i->first);
+			ASSERT_EQ (key.account, begin);
+			ASSERT_LT (count, 3);
+		}
+		ASSERT_EQ (count, 2);
+	}
+
+	// Iterate account 2 (pending_v1)
+	{
+		size_t count = 0;
+		rai::account begin (2);
+		rai::account end (begin.number () + 1);
+		for (auto i (store.pending_begin (transaction, rai::pending_key (begin, 0))), n (store.pending_begin (transaction, rai::pending_key (end, 0))); i != n; ++i, ++count)
+		{
+			rai::pending_key key (i->first);
+			ASSERT_EQ (key.account, begin);
+			ASSERT_LT (count, 3);
+		}
+		ASSERT_EQ (count, 2);
+	}
+}
+
 TEST (block_store, genesis)
 {
 	bool init (false);
@@ -225,6 +274,57 @@ TEST (unchecked, double_put)
 	store.unchecked_put (transaction, block1->previous (), block1);
 	auto block3 (store.unchecked_get (transaction, block1->previous ()));
 	ASSERT_EQ (block3.size (), 1);
+}
+
+TEST (unchecked, multiple_get)
+{
+	bool init (false);
+	rai::mdb_store store (init, rai::unique_path ());
+	ASSERT_TRUE (!init);
+	auto block1 (std::make_shared<rai::send_block> (4, 1, 2, rai::keypair ().prv, 4, 5));
+	auto block2 (std::make_shared<rai::send_block> (3, 1, 2, rai::keypair ().prv, 4, 5));
+	auto block3 (std::make_shared<rai::send_block> (5, 1, 2, rai::keypair ().prv, 4, 5));
+	{
+		auto transaction (store.tx_begin (true));
+		store.unchecked_put (transaction, block1->previous (), block1); // unchecked1
+		store.unchecked_put (transaction, block1->hash (), block1); // unchecked2
+		store.unchecked_put (transaction, block2->previous (), block2); // unchecked3
+		store.unchecked_put (transaction, block1->previous (), block2); // unchecked1
+		store.unchecked_put (transaction, block1->hash (), block2); // unchecked2
+		store.unchecked_put (transaction, block3->previous (), block3);
+		store.unchecked_put (transaction, block3->hash (), block3); // unchecked4
+		store.unchecked_put (transaction, block1->previous (), block3); // unchecked1
+	}
+	auto transaction (store.tx_begin ());
+	auto unchecked_count (store.unchecked_count (transaction));
+	ASSERT_EQ (unchecked_count, 8);
+	std::vector<rai::block_hash> unchecked1;
+	auto unchecked1_blocks (store.unchecked_get (transaction, block1->previous ()));
+	ASSERT_EQ (unchecked1_blocks.size (), 3);
+	for (auto & i : unchecked1_blocks)
+	{
+		unchecked1.push_back (i->hash ());
+	}
+	ASSERT_TRUE (std::find (unchecked1.begin (), unchecked1.end (), block1->hash ()) != unchecked1.end ());
+	ASSERT_TRUE (std::find (unchecked1.begin (), unchecked1.end (), block2->hash ()) != unchecked1.end ());
+	ASSERT_TRUE (std::find (unchecked1.begin (), unchecked1.end (), block3->hash ()) != unchecked1.end ());
+	std::vector<rai::block_hash> unchecked2;
+	auto unchecked2_blocks (store.unchecked_get (transaction, block1->hash ()));
+	ASSERT_EQ (unchecked2_blocks.size (), 2);
+	for (auto & i : unchecked2_blocks)
+	{
+		unchecked2.push_back (i->hash ());
+	}
+	ASSERT_TRUE (std::find (unchecked2.begin (), unchecked2.end (), block1->hash ()) != unchecked2.end ());
+	ASSERT_TRUE (std::find (unchecked2.begin (), unchecked2.end (), block2->hash ()) != unchecked2.end ());
+	auto unchecked3 (store.unchecked_get (transaction, block2->previous ()));
+	ASSERT_EQ (unchecked3.size (), 1);
+	ASSERT_EQ (unchecked3[0]->hash (), block2->hash ());
+	auto unchecked4 (store.unchecked_get (transaction, block3->hash ()));
+	ASSERT_EQ (unchecked4.size (), 1);
+	ASSERT_EQ (unchecked4[0]->hash (), block3->hash ());
+	auto unchecked5 (store.unchecked_get (transaction, block2->hash ()));
+	ASSERT_EQ (unchecked5.size (), 0);
 }
 
 TEST (checksum, simple)
@@ -434,6 +534,7 @@ TEST (block_store, DISABLED_already_open) // File can be shared
 {
 	auto path (rai::unique_path ());
 	boost::filesystem::create_directories (path.parent_path ());
+	boost::filesystem::permissions (path.parent_path (), boost::filesystem::owner_all);
 	std::ofstream file;
 	file.open (path.string ().c_str ());
 	ASSERT_TRUE (file.is_open ());

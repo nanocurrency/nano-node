@@ -96,11 +96,13 @@ bool rai_daemon::daemon_config::upgrade_json (unsigned version_a, boost::propert
 void rai_daemon::daemon::run (boost::filesystem::path const & data_path)
 {
 	boost::filesystem::create_directories (data_path);
+	boost::filesystem::permissions (data_path, boost::filesystem::owner_all);
 	rai_daemon::daemon_config config (data_path);
 	auto config_path ((data_path / "config.json"));
 	std::fstream config_file;
 	std::unique_ptr<rai::thread_runner> runner;
 	auto error (rai::fetch_object (config, config_path, config_file));
+	boost::filesystem::permissions (config_path, boost::filesystem::owner_read | boost::filesystem::owner_write);
 	if (!error)
 	{
 		config.node.logging.init (data_path);

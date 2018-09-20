@@ -1,3 +1,4 @@
+#include <rai/lib/utility.hpp>
 #include <rai/node/cli.hpp>
 #include <rai/node/node.hpp>
 #include <rai/node/testing.hpp>
@@ -10,6 +11,8 @@
 
 int main (int argc, char * const * argv)
 {
+	rai::set_umask ();
+
 	boost::program_options::options_description description ("Command line options");
 	rai::add_node_options (description);
 
@@ -430,7 +433,7 @@ int main (int argc, char * const * argv)
 				++count;
 				if ((count % 20000) == 0)
 				{
-					std::cerr << boost::str (boost::format ("%1% accounts validated\n") % count);
+					std::cout << boost::str (boost::format ("%1% accounts validated\n") % count);
 				}
 				rai::account_info info (i->second);
 				rai::account account (i->first);
@@ -488,6 +491,61 @@ int main (int argc, char * const * argv)
 					hash = node.node->store.block_successor (transaction, hash);
 				}
 			}
+			std::cout << boost::str (boost::format ("%1% accounts validated\n") % count);
+			count = 0;
+			for (auto i (node.node->store.pending_begin (transaction)), n (node.node->store.pending_end ()); i != n; ++i)
+			{
+				++count;
+				if ((count % 50000) == 0)
+				{
+					std::cout << boost::str (boost::format ("%1% pending blocks validated\n") % count);
+				}
+				rai::pending_key key (i->first);
+				rai::pending_info info (i->second);
+				// Check block existance
+				auto block (node.node->store.block_get (transaction, key.hash));
+				if (block == nullptr)
+				{
+					std::cerr << boost::str (boost::format ("Pending block not existing %1%\n") % key.hash.to_string ());
+				}
+				else
+				{
+					// Check if pending destination is correct
+					rai::account destination (0);
+					if (auto state = dynamic_cast<rai::state_block *> (block.get ()))
+					{
+						if (node.node->ledger.is_send (transaction, *state))
+						{
+							destination = state->hashables.link;
+						}
+					}
+					else if (auto send = dynamic_cast<rai::send_block *> (block.get ()))
+					{
+						destination = send->hashables.destination;
+					}
+					else
+					{
+						std::cerr << boost::str (boost::format ("Incorrect type for pending block %1%\n") % key.hash.to_string ());
+					}
+					if (key.account != destination)
+					{
+						std::cerr << boost::str (boost::format ("Incorrect destination for pending block %1%\n") % key.hash.to_string ());
+					}
+					// Check if pending source is correct
+					auto account (node.node->ledger.account (transaction, key.hash));
+					if (info.source != account)
+					{
+						std::cerr << boost::str (boost::format ("Incorrect source for pending block %1%\n") % key.hash.to_string ());
+					}
+					// Check if pending amount is correct
+					auto amount (node.node->ledger.amount (transaction, key.hash));
+					if (info.amount != amount)
+					{
+						std::cerr << boost::str (boost::format ("Incorrect amount for pending block %1%\n") % key.hash.to_string ());
+					}
+				}
+			}
+			std::cout << boost::str (boost::format ("%1% pending blocks validated\n") % count);
 		}
 		else if (vm.count ("version"))
 		{

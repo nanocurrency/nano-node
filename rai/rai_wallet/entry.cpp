@@ -191,6 +191,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 {
 	rai_qt::eventloop_processor processor;
 	boost::filesystem::create_directories (data_path);
+	boost::filesystem::permissions (data_path, boost::filesystem::owner_all);
 	QPixmap pixmap (":/logo.png");
 	QSplashScreen * splash = new QSplashScreen (pixmap);
 	splash->show ();
@@ -203,6 +204,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 	std::fstream config_file;
 	auto error (rai::fetch_object (config, config_path, config_file));
 	config_file.close ();
+	boost::filesystem::permissions (config_path, boost::filesystem::owner_read | boost::filesystem::owner_write);
 	if (!error)
 	{
 		boost::asio::io_service service;
@@ -285,6 +287,8 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 
 int main (int argc, char * const * argv)
 {
+	rai::set_umask ();
+
 	try
 	{
 		QApplication application (argc, const_cast<char **> (argv));
