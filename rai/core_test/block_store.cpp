@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+#include <rai/lib/utility.hpp>
 #include <rai/node/common.hpp>
 #include <rai/node/node.hpp>
 #include <rai/secure/versioning.hpp>
