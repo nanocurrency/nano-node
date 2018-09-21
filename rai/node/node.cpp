@@ -3558,14 +3558,18 @@ void rai::election::abort ()
 	aborted = true;
 }
 
-bool rai::election::have_quorum (rai::tally_t const & tally_a)
+bool rai::election::have_quorum (rai::tally_t const & tally_a, rai::uint128_t tally_sum)
 {
-	auto i (tally_a.begin ());
-	auto first (i->first);
-	++i;
-	auto second (i != tally_a.end () ? i->first : 0);
-	auto delta_l (node.delta ());
-	auto result (tally_a.begin ()->first > (second + delta_l));
+	bool result = false;
+	if (tally_sum >= node.config.online_weight_minimum.number ())
+	{
+		auto i (tally_a.begin ());
+		auto first (i->first);
+		++i;
+		auto second (i != tally_a.end () ? i->first : 0);
+		auto delta_l (node.delta ());
+		result = tally_a.begin ()->first > (second + delta_l);
+	}
 	return result;
 }
 
@@ -3607,7 +3611,7 @@ void rai::election::confirm_if_quorum (rai::transaction const & transaction_a)
 		node_l->block_processor.force (block_l);
 		status.winner = block_l;
 	}
-	if (have_quorum (tally_l) && sum >= node.config.online_weight_minimum.number ())
+	if (have_quorum (tally_l, sum))
 	{
 		if (node.config.logging.vote_logging () || blocks.size () > 1)
 		{
