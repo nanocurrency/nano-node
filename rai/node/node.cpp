@@ -1999,7 +1999,7 @@ stats (config.stat_config)
 		BOOST_LOG (log) << "Node ID: " << node_id.pub.to_account ();
 	}
 	peers.online_weight_minimum = config.online_weight_minimum.number ();
-	if (rai::rai_network == rai::rai_networks::rai_live_network)
+	if (rai::rai_network == rai::rai_networks::rai_live_network || rai::rai_network == rai::rai_networks::rai_beta_network)
 	{
 		extern const char rai_bootstrap_weights[];
 		extern const size_t rai_bootstrap_weights_size;
@@ -2249,7 +2249,7 @@ rai::endpoint rai::peer_container::bootstrap_peer ()
 	;
 	for (auto i (peers.get<4> ().begin ()), n (peers.get<4> ().end ()); i != n;)
 	{
-		if (i->network_version >= 0x5)
+		if (i->network_version >= protocol_version_bootstrap_min)
 		{
 			result = i->endpoint;
 			peers.get<4> ().modify (i, [](rai::peer_information & peer_a) {
@@ -2567,8 +2567,11 @@ void rai::node::backup_wallet ()
 	auto transaction (store.tx_begin_read ());
 	for (auto i (wallets.items.begin ()), n (wallets.items.end ()); i != n; ++i)
 	{
+		boost::system::error_code error_chmod;
 		auto backup_path (application_path / "backup");
+
 		boost::filesystem::create_directories (backup_path);
+		boost::filesystem::permissions (backup_path, boost::filesystem::owner_all, error_chmod);
 		i->second->store.write_backup (transaction, backup_path / (i->first.to_string () + ".json"));
 	}
 	auto this_l (shared ());
@@ -4287,7 +4290,13 @@ service (boost::make_shared<boost::asio::io_service> ()),
 alarm (*service),
 work (1, nullptr)
 {
+	boost::system::error_code error_chmod;
+
+	/*
+	 * @warning May throw a filesystem exception
+	 */
 	boost::filesystem::create_directories (path);
+	boost::filesystem::permissions (path, boost::filesystem::owner_all, error_chmod);
 	logging.max_size = std::numeric_limits<std::uintmax_t>::max ();
 	logging.init (path);
 	node = std::make_shared<rai::node> (init, *service, 24000, path, alarm, logging, work);

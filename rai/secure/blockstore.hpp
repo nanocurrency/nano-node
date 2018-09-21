@@ -11,7 +11,6 @@ public:
 	virtual ~store_iterator_impl () = default;
 	virtual rai::store_iterator_impl<T, U> & operator++ () = 0;
 	virtual bool operator== (rai::store_iterator_impl<T, U> const & other_a) const = 0;
-	virtual void next_dup () = 0;
 	virtual bool is_end_sentinal () const = 0;
 	virtual void fill (std::pair<T, U> &) const = 0;
 	rai::store_iterator_impl<T, U> & operator= (rai::store_iterator_impl<T, U> const &) = delete;
@@ -68,10 +67,6 @@ public:
 	bool operator!= (rai::store_iterator<T, U> const & other_a) const
 	{
 		return !(*this == other_a);
-	}
-	void next_dup ()
-	{
-		impl->next_dup ();
 	}
 
 private:

@@ -375,6 +375,7 @@ public:
 	void vote (std::shared_ptr<rai::vote> const &);
 	void recalculate_stake ();
 	rai::uint128_t online_stake ();
+	rai::uint128_t online_stake_total;
 	std::deque<rai::account> list ();
 	boost::multi_index_container<
 	rai::rep_last_heard_info,
@@ -384,7 +385,6 @@ public:
 	reps;
 
 private:
-	rai::uint128_t online_stake_total;
 	std::mutex mutex;
 	rai::node & node;
 };

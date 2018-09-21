@@ -151,7 +151,8 @@ enum class bulk_pull_blocks_mode : uint8_t
 enum class bulk_pull_account_flags : uint8_t
 {
 	pending_hash_and_amount = 0x0,
-	pending_address_only = 0x1
+	pending_address_only = 0x1,
+	pending_hash_amount_and_address = 0x2
 };
 class message_visitor;
 class message_header
