@@ -2498,7 +2498,7 @@ void rai::node::backup_wallet ()
 		auto backup_path (application_path / "backup");
 
 		boost::filesystem::create_directories (backup_path);
-		boost::filesystem::permissions (backup_path, boost::filesystem::owner_all, error_chmod);
+		rai::set_secure_perm_directory (backup_path, error_chmod);
 		i->second->store.write_backup (transaction, backup_path / (i->first.to_string () + ".json"));
 	}
 	auto this_l (shared ());
@@ -4177,7 +4177,7 @@ work (1, nullptr)
 	 * @warning May throw a filesystem exception
 	 */
 	boost::filesystem::create_directories (path);
-	boost::filesystem::permissions (path, boost::filesystem::owner_all, error_chmod);
+	rai::set_secure_perm_directory (path, error_chmod);
 	logging.max_size = std::numeric_limits<std::uintmax_t>::max ();
 	logging.init (path);
 	node = std::make_shared<rai::node> (init, *service, 24000, path, alarm, logging, work);
