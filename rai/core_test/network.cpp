@@ -55,9 +55,10 @@ TEST (network, construction)
 TEST (network, self_discard)
 {
 	rai::system system (24000, 1);
-	system.nodes[0]->network.remote = system.nodes[0]->network.endpoint ();
+	rai::udp_data data;
+	data.endpoint = system.nodes[0]->network.endpoint ();
 	ASSERT_EQ (0, system.nodes[0]->stats.count (rai::stat::type::error, rai::stat::detail::bad_sender));
-	system.nodes[0]->network.receive_action (boost::system::error_code{}, 0);
+	system.nodes[0]->network.receive_action (&data);
 	ASSERT_EQ (1, system.nodes[0]->stats.count (rai::stat::type::error, rai::stat::detail::bad_sender));
 }
 
@@ -929,4 +930,152 @@ TEST (node, port_mapping)
 	{
 		system.poll ();
 	}
+}
+
+TEST (udp_buffer, one_buffer)
+{
+	rai::stat stats;
+	rai::udp_buffer buffer (stats, 512, 1);
+	auto buffer1 (buffer.allocate ());
+	ASSERT_NE (nullptr, buffer1);
+	buffer.enqueue (buffer1);
+	auto buffer2 (buffer.dequeue ());
+	ASSERT_EQ (buffer1, buffer2);
+	buffer.release (buffer2);
+	auto buffer3 (buffer.allocate ());
+	ASSERT_EQ (buffer1, buffer3);
+}
+
+TEST (udp_buffer, two_buffers)
+{
+	rai::stat stats;
+	rai::udp_buffer buffer (stats, 512, 2);
+	auto buffer1 (buffer.allocate ());
+	ASSERT_NE (nullptr, buffer1);
+	auto buffer2 (buffer.allocate ());
+	ASSERT_NE (nullptr, buffer2);
+	ASSERT_NE (buffer1, buffer2);
+	buffer.enqueue (buffer2);
+	buffer.enqueue (buffer1);
+	auto buffer3 (buffer.dequeue ());
+	ASSERT_EQ (buffer2, buffer3);
+	auto buffer4 (buffer.dequeue ());
+	ASSERT_EQ (buffer1, buffer4);
+	buffer.release (buffer3);
+	buffer.release (buffer4);
+	auto buffer5 (buffer.allocate ());
+	ASSERT_EQ (buffer2, buffer5);
+	auto buffer6 (buffer.allocate ());
+	ASSERT_EQ (buffer1, buffer6);
+}
+
+TEST (udp_buffer, one_overflow)
+{
+	rai::stat stats;
+	rai::udp_buffer buffer (stats, 512, 1);
+	auto buffer1 (buffer.allocate ());
+	ASSERT_NE (nullptr, buffer1);
+	buffer.enqueue (buffer1);
+	auto buffer2 (buffer.allocate ());
+	ASSERT_EQ (buffer1, buffer2);
+}
+
+TEST (udp_buffer, two_overflow)
+{
+	rai::stat stats;
+	rai::udp_buffer buffer (stats, 512, 2);
+	auto buffer1 (buffer.allocate ());
+	ASSERT_NE (nullptr, buffer1);
+	buffer.enqueue (buffer1);
+	auto buffer2 (buffer.allocate ());
+	ASSERT_NE (nullptr, buffer2);
+	ASSERT_NE (buffer1, buffer2);
+	buffer.enqueue (buffer2);
+	auto buffer3 (buffer.allocate ());
+	ASSERT_EQ (buffer1, buffer3);
+	auto buffer4 (buffer.allocate ());
+	ASSERT_EQ (buffer2, buffer4);
+}
+
+TEST (udp_buffer, one_buffer_multithreaded)
+{
+	rai::stat stats;
+	rai::udp_buffer buffer (stats, 512, 1);
+	std::thread thread ([&buffer]() {
+		auto done (false);
+		while (!done)
+		{
+			auto item (buffer.dequeue ());
+			done = item == nullptr;
+			if (item != nullptr)
+			{
+				buffer.release (item);
+			}
+		}
+	});
+	auto buffer1 (buffer.allocate ());
+	ASSERT_NE (nullptr, buffer1);
+	buffer.enqueue (buffer1);
+	auto buffer2 (buffer.allocate ());
+	ASSERT_EQ (buffer1, buffer2);
+	buffer.stop ();
+	thread.join ();
+}
+
+TEST (udp_buffer, many_buffers_multithreaded)
+{
+	rai::stat stats;
+	rai::udp_buffer buffer (stats, 512, 16);
+	std::vector<std::thread> threads;
+	for (auto i (0); i < 4; ++i)
+	{
+		threads.push_back (std::thread ([&buffer]() {
+			auto done (false);
+			while (!done)
+			{
+				auto item (buffer.dequeue ());
+				done = item == nullptr;
+				if (item != nullptr)
+				{
+					buffer.release (item);
+				}
+			}
+		}));
+	}
+	std::atomic_int count (0);
+	for (auto i (0); i < 4; ++i)
+	{
+		threads.push_back (std::thread ([&buffer, &count]() {
+			auto done (false);
+			for (auto i (0); !done && i < 1000; ++i)
+			{
+				auto item (buffer.allocate ());
+				done = item == nullptr;
+				if (item != nullptr)
+				{
+					buffer.enqueue (item);
+					++count;
+					if (count > 3000)
+					{
+						buffer.stop ();
+					}
+				}
+			}
+		}));
+	}
+	buffer.stop ();
+	for (auto & i : threads)
+	{
+		i.join ();
+	}
+}
+
+TEST (udp_buffer, stats)
+{
+	rai::stat stats;
+	rai::udp_buffer buffer (stats, 512, 1);
+	auto buffer1 (buffer.allocate ());
+	buffer.enqueue (buffer1);
+	buffer.allocate ();
+	ASSERT_EQ (1, stats.count (rai::stat::type::udp, rai::stat::detail::overflow));
 }
