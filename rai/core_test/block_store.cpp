@@ -279,13 +279,13 @@ TEST (unchecked, double_put)
 TEST (unchecked, multiple_get)
 {
 	bool init (false);
-	rai::mdb_store store (init, rai::unique_path ());
+	rai::block_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
 	auto block1 (std::make_shared<rai::send_block> (4, 1, 2, rai::keypair ().prv, 4, 5));
 	auto block2 (std::make_shared<rai::send_block> (3, 1, 2, rai::keypair ().prv, 4, 5));
 	auto block3 (std::make_shared<rai::send_block> (5, 1, 2, rai::keypair ().prv, 4, 5));
 	{
-		auto transaction (store.tx_begin (true));
+		rai::transaction transaction (store.environment, true);
 		store.unchecked_put (transaction, block1->previous (), block1); // unchecked1
 		store.unchecked_put (transaction, block1->hash (), block1); // unchecked2
 		store.unchecked_put (transaction, block2->previous (), block2); // unchecked3
@@ -295,7 +295,7 @@ TEST (unchecked, multiple_get)
 		store.unchecked_put (transaction, block3->hash (), block3); // unchecked4
 		store.unchecked_put (transaction, block1->previous (), block3); // unchecked1
 	}
-	auto transaction (store.tx_begin ());
+	rai::transaction transaction (store.environment, true);
 	auto unchecked_count (store.unchecked_count (transaction));
 	ASSERT_EQ (unchecked_count, 8);
 	std::vector<rai::block_hash> unchecked1;
