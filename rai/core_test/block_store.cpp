@@ -534,7 +534,7 @@ TEST (block_store, DISABLED_already_open) // File can be shared
 {
 	auto path (rai::unique_path ());
 	boost::filesystem::create_directories (path.parent_path ());
-	boost::filesystem::permissions (path.parent_path (), boost::filesystem::owner_all);
+	rai::set_secure_perm_directory (path.parent_path ());
 	std::ofstream file;
 	file.open (path.string ().c_str ());
 	ASSERT_TRUE (file.is_open ());

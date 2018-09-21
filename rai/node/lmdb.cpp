@@ -7,7 +7,7 @@ rai::mdb_env::mdb_env (bool & error_a, boost::filesystem::path const & path_a, i
 	if (path_a.has_parent_path ())
 	{
 		boost::filesystem::create_directories (path_a.parent_path (), error_mkdir);
-		boost::filesystem::permissions (path_a.parent_path (), boost::filesystem::owner_all, error_chmod);
+		rai::set_secure_perm_directory (path_a.parent_path (), error_chmod);
 		if (!error_mkdir)
 		{
 			auto status1 (mdb_env_create (&environment));

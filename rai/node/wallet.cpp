@@ -551,7 +551,7 @@ void rai::wallet_store::write_backup (MDB_txn * transaction_a, boost::filesystem
 	{
 		// Set permissions to 600
 		boost::system::error_code ec;
-		boost::filesystem::permissions (path_a, boost::filesystem::perms::owner_read | boost::filesystem::perms::owner_write, ec);
+		rai::set_secure_perm_file (path_a, ec);
 
 		std::string json;
 		serialize_json (transaction_a, json);
