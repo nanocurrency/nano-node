@@ -1,4 +1,4 @@
-
+#include <rai/lib/utility.hpp>
 #include <rai/node/lmdb.hpp>
 
 rai::mdb_env::mdb_env (bool & error_a, boost::filesystem::path const & path_a, int max_dbs)

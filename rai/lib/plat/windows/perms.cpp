@@ -26,14 +26,10 @@ void rai::set_secure_perm_directory (boost::filesystem::path const & path, boost
 
 void rai::set_secure_perm_file (boost::filesystem::path const & path)
 {
-	/*
-	 * XXX:TODO: Set the permissions sanely; For now we rely on directory permissions
-	 */
+	boost::filesystem::permissions (path, boost::filesystem::owner_read | boost::filesystem::owner_write);
 }
 
 void rai::set_secure_perm_file (boost::filesystem::path const & path, boost::system::error_code & ec)
 {
-	/*
-	 * XXX:TODO: Set the permissions sanely; For now we rely on directory permissions
-	 */
+	boost::filesystem::permissions (path, boost::filesystem::owner_read | boost::filesystem::owner_write, ec);
 }
