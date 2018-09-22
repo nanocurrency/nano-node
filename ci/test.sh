@@ -34,6 +34,8 @@ xvfb_run_() {
 }
 
 run_tests() {
+    local tries try
+
     # when busybox pretends to be bash it needs different args
     #   for the timeout builtin
     if [[ "${BUSYBOX_BASH}" -eq 1 ]]; then
@@ -42,8 +44,23 @@ run_tests() {
         TIMEOUT_TIME_ARG=""
     fi
 
-    ${TIMEOUT_CMD} ${TIMEOUT_TIME_ARG} ${TIMEOUT_SEC-${TIMEOUT_DEFAULT}} ./core_test
-    core_test_res=${?}
+    if [ "$(date +%s)" -lt 1545350400 ]; then
+        tries=(1 2 3 4 5)
+    else
+        tries=()
+    fi
+
+    for try in _initial_ "${tries[@]}"; do
+        if [ "${try}" != '_initial_' ]; then
+            echo "core_test failed: ${core_test_res}, retrying (try=${try})"
+        fi
+
+        ${TIMEOUT_CMD} ${TIMEOUT_TIME_ARG} ${TIMEOUT_SEC-${TIMEOUT_DEFAULT}} ./core_test
+        core_test_res=${?}
+        if [ "${core_test_res}" = '0' ]; then
+            break
+        fi
+    done
 
     xvfb_run_ ./qt_test
     qt_test_res=${?}
