@@ -1,3 +1,4 @@
+#include <rai/lib/utility.hpp>
 #include <rai/node/wallet.hpp>
 
 #include <rai/node/node.hpp>
