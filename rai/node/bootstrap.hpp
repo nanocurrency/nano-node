@@ -23,13 +23,14 @@ enum class sync_result
 	error,
 	fork
 };
+class udp_data;
 class socket : public std::enable_shared_from_this<rai::socket>
 {
 public:
 	socket (std::shared_ptr<rai::node>);
 	void async_connect (rai::tcp_endpoint const &, std::function<void(boost::system::error_code const &)>);
 	void async_read (std::shared_ptr<std::vector<uint8_t>>, size_t, std::function<void(boost::system::error_code const &, size_t)>);
-	void async_write (std::shared_ptr<std::vector<uint8_t>>, std::function<void(boost::system::error_code const &, size_t)>);
+	void async_write (rai::udp_data *, std::function<void(boost::system::error_code const &, size_t)>);
 	void start (std::chrono::steady_clock::time_point = std::chrono::steady_clock::now () + std::chrono::seconds (5));
 	void stop ();
 	void close ();
@@ -244,7 +245,6 @@ public:
 	void no_block_sent (boost::system::error_code const &, size_t);
 	std::shared_ptr<rai::bootstrap_server> connection;
 	std::unique_ptr<rai::bulk_pull> request;
-	std::shared_ptr<std::vector<uint8_t>> send_buffer;
 	rai::block_hash current;
 	bool include_start;
 };
@@ -309,7 +309,6 @@ public:
 	rai::account current;
 	rai::account_info info;
 	std::unique_ptr<rai::frontier_req> request;
-	std::shared_ptr<std::vector<uint8_t>> send_buffer;
 	size_t count;
 };
 }

@@ -42,11 +42,12 @@ void rai::socket::async_read (std::shared_ptr<std::vector<uint8_t>> buffer_a, si
 	});
 }
 
-void rai::socket::async_write (std::shared_ptr<std::vector<uint8_t>> buffer_a, std::function<void(boost::system::error_code const &, size_t)> callback_a)
+void rai::socket::async_write (rai::udp_data * buffer_a, std::function<void(boost::system::error_code const &, size_t)> callback_a)
 {
 	auto this_l (shared_from_this ());
 	start ();
-	boost::asio::async_write (socket_m, boost::asio::buffer (buffer_a->data (), buffer_a->size ()), [this_l, callback_a](boost::system::error_code const & ec, size_t size_a) {
+	boost::asio::async_write (socket_m, boost::asio::buffer (buffer_a->buffer, buffer_a->size), [this_l, callback_a, buffer_a](boost::system::error_code const & ec, size_t size_a) {
+		this_l->node->network.buffer_container.release (buffer_a);
 		this_l->stop ();
 		callback_a (ec, size_a);
 	});
@@ -178,13 +179,12 @@ void rai::frontier_req_client::run ()
 	request->start.clear ();
 	request->age = std::numeric_limits<decltype (request->age)>::max ();
 	request->count = std::numeric_limits<decltype (request->count)>::max ();
-	auto send_buffer (std::make_shared<std::vector<uint8_t>> ());
-	{
-		rai::vectorstream stream (*send_buffer);
-		request->serialize (stream);
-	}
+	auto buffer (connection->node->network.buffer_container.allocate ());
+	rai::arraystream stream (buffer->buffer, rai::network::buffer_size);
+	request->serialize (stream);
+	buffer->size = boost::iostreams::seek (stream, 0, std::ios::cur);
 	auto this_l (shared_from_this ());
-	connection->socket->async_write (send_buffer, [this_l, send_buffer](boost::system::error_code const & ec, size_t size_a) {
+	connection->socket->async_write (buffer, [this_l](boost::system::error_code const & ec, size_t size_a) {
 		if (!ec)
 		{
 			this_l->receive_frontier ();
@@ -411,11 +411,10 @@ void rai::bulk_pull_client::request ()
 	rai::bulk_pull req;
 	req.start = pull.account;
 	req.end = pull.end;
-	auto buffer (std::make_shared<std::vector<uint8_t>> ());
-	{
-		rai::vectorstream stream (*buffer);
-		req.serialize (stream);
-	}
+	auto buffer (connection->node->network.buffer_container.allocate ());
+	rai::arraystream stream (buffer->buffer, rai::network::buffer_size);
+	req.serialize (stream);
+	buffer->size = boost::iostreams::seek (stream, 0, std::ios::cur);
 	if (connection->node->config.logging.bulk_pull_logging ())
 	{
 		std::unique_lock<std::mutex> lock (connection->attempt->mutex);
@@ -427,7 +426,7 @@ void rai::bulk_pull_client::request ()
 		BOOST_LOG (connection->node->log) << boost::str (boost::format ("%1% accounts in pull queue") % connection->attempt->pulls.size ());
 	}
 	auto this_l (shared_from_this ());
-	connection->socket->async_write (buffer, [this_l, buffer](boost::system::error_code const & ec, size_t size_a) {
+	connection->socket->async_write (buffer, [this_l](boost::system::error_code const & ec, size_t size_a) {
 		if (!ec)
 		{
 			this_l->receive_block ();
@@ -580,13 +579,12 @@ rai::bulk_push_client::~bulk_push_client ()
 void rai::bulk_push_client::start ()
 {
 	rai::bulk_push message;
-	auto buffer (std::make_shared<std::vector<uint8_t>> ());
-	{
-		rai::vectorstream stream (*buffer);
-		message.serialize (stream);
-	}
+	auto buffer (connection->node->network.buffer_container.allocate ());
+	rai::arraystream stream (buffer->buffer, rai::network::buffer_size);
+	message.serialize (stream);
+	buffer->size = boost::iostreams::seek (stream, 0, std::ios::cur);
 	auto this_l (shared_from_this ());
-	connection->socket->async_write (buffer, [this_l, buffer](boost::system::error_code const & ec, size_t size_a) {
+	connection->socket->async_write (buffer, [this_l](boost::system::error_code const & ec, size_t size_a) {
 		auto transaction (this_l->connection->node->store.tx_begin_read ());
 		if (!ec)
 		{
@@ -650,8 +648,9 @@ void rai::bulk_push_client::push (rai::transaction const & transaction_a)
 
 void rai::bulk_push_client::send_finished ()
 {
-	auto buffer (std::make_shared<std::vector<uint8_t>> ());
-	buffer->push_back (static_cast<uint8_t> (rai::block_type::not_a_block));
+	auto buffer (connection->node->network.buffer_container.allocate ());
+	*buffer->buffer = static_cast<uint8_t> (rai::block_type::not_a_block);
+	buffer->size = 1;
 	connection->node->stats.inc (rai::stat::type::bootstrap, rai::stat::detail::bulk_push, rai::stat::dir::out);
 	if (connection->node->config.logging.network_logging ())
 	{
@@ -671,13 +670,12 @@ void rai::bulk_push_client::send_finished ()
 
 void rai::bulk_push_client::push_block (rai::block const & block_a)
 {
-	auto buffer (std::make_shared<std::vector<uint8_t>> ());
-	{
-		rai::vectorstream stream (*buffer);
-		rai::serialize_block (stream, block_a);
-	}
+	auto buffer (connection->node->network.buffer_container.allocate ());
+	rai::arraystream stream (buffer->buffer, rai::network::buffer_size);
+	rai::serialize_block (stream, block_a);
+	buffer->size = boost::iostreams::seek (stream, 0, std::ios::cur);
 	auto this_l (shared_from_this ());
-	connection->socket->async_write (buffer, [this_l, buffer](boost::system::error_code const & ec, size_t size_a) {
+	connection->socket->async_write (buffer, [this_l](boost::system::error_code const & ec, size_t size_a) {
 		if (!ec)
 		{
 			auto transaction (this_l->connection->node->store.tx_begin_read ());
@@ -1652,17 +1650,16 @@ void rai::bulk_pull_server::send_next ()
 	std::unique_ptr<rai::block> block (get_next ());
 	if (block != nullptr)
 	{
-		{
-			send_buffer->clear ();
-			rai::vectorstream stream (*send_buffer);
-			rai::serialize_block (stream, *block);
-		}
+		auto buffer (connection->node->network.buffer_container.allocate ());
+		rai::arraystream stream (buffer->buffer, rai::network::buffer_size);
+		rai::serialize_block (stream, *block);
+		buffer->size = boost::iostreams::seek (stream, 0, std::ios::cur);
 		auto this_l (shared_from_this ());
 		if (connection->node->config.logging.bulk_pull_logging ())
 		{
 			BOOST_LOG (connection->node->log) << boost::str (boost::format ("Sending block: %1%") % block->hash ().to_string ());
 		}
-		connection->socket->async_write (send_buffer, [this_l](boost::system::error_code const & ec, size_t size_a) {
+		connection->socket->async_write (buffer, [this_l](boost::system::error_code const & ec, size_t size_a) {
 			this_l->sent_action (ec, size_a);
 		});
 	}
@@ -1749,14 +1746,15 @@ void rai::bulk_pull_server::sent_action (boost::system::error_code const & ec, s
 
 void rai::bulk_pull_server::send_finished ()
 {
-	send_buffer->clear ();
-	send_buffer->push_back (static_cast<uint8_t> (rai::block_type::not_a_block));
+	auto buffer (connection->node->network.buffer_container.allocate ());
+	*buffer->buffer = static_cast<uint8_t> (rai::block_type::not_a_block);
+	buffer->size = 1;
 	auto this_l (shared_from_this ());
 	if (connection->node->config.logging.bulk_pull_logging ())
 	{
 		BOOST_LOG (connection->node->log) << "Bulk sending finished";
 	}
-	connection->socket->async_write (send_buffer, [this_l](boost::system::error_code const & ec, size_t size_a) {
+	connection->socket->async_write (buffer, [this_l](boost::system::error_code const & ec, size_t size_a) {
 		this_l->no_block_sent (ec, size_a);
 	});
 }
@@ -1779,8 +1777,7 @@ void rai::bulk_pull_server::no_block_sent (boost::system::error_code const & ec,
 
 rai::bulk_pull_server::bulk_pull_server (std::shared_ptr<rai::bootstrap_server> const & connection_a, std::unique_ptr<rai::bulk_pull> request_a) :
 connection (connection_a),
-request (std::move (request_a)),
-send_buffer (std::make_shared<std::vector<uint8_t>> ())
+request (std::move (request_a))
 {
 	set_current_end ();
 }
@@ -1865,19 +1862,17 @@ void rai::bulk_pull_account_server::send_frontier ()
 	/**
 	 ** Write the frontier block hash and balance into a buffer
 	 **/
-	send_buffer->clear ();
-	{
-		rai::vectorstream output_stream (*send_buffer);
-
-		write (output_stream, account_frontier_hash.bytes);
-		write (output_stream, account_frontier_balance.bytes);
-	}
+	auto buffer (connection->node->network.buffer_container.allocate ());
+	rai::arraystream stream (buffer->buffer, rai::network::buffer_size);
+	write (stream, account_frontier_hash.bytes);
+	write (stream, account_frontier_balance.bytes);
+	buffer->size = boost::iostreams::seek (stream, 0, std::ios::cur);
 
 	/**
 	 ** Send the buffer to the requestor
 	 **/
 	auto this_l (shared_from_this ());
-	connection->socket->async_write (send_buffer, [this_l](boost::system::error_code const & ec, size_t size_a) {
+	connection->socket->async_write (buffer, [this_l](boost::system::error_code const & ec, size_t size_a) {
 		this_l->sent_action (ec, size_a);
 	});
 }
@@ -1897,42 +1892,40 @@ void rai::bulk_pull_account_server::send_next_block ()
 		/*
 		 * If we have a new item, emit it to the socket
 		 */
-		send_buffer->clear ();
+		auto buffer (connection->node->network.buffer_container.allocate ());
+		rai::arraystream stream (buffer->buffer, rai::network::buffer_size);
 
 		if (pending_address_only)
 		{
-			rai::vectorstream output_stream (*send_buffer);
-
 			if (connection->node->config.logging.bulk_pull_logging ())
 			{
 				BOOST_LOG (connection->node->log) << boost::str (boost::format ("Sending address: %1%") % block_info->source.to_string ());
 			}
 
-			write (output_stream, block_info->source.bytes);
+			write (stream, block_info->source.bytes);
 		}
 		else
 		{
-			rai::vectorstream output_stream (*send_buffer);
-
 			if (connection->node->config.logging.bulk_pull_logging ())
 			{
 				BOOST_LOG (connection->node->log) << boost::str (boost::format ("Sending block: %1%") % block_info_key->hash.to_string ());
 			}
 
-			write (output_stream, block_info_key->hash.bytes);
-			write (output_stream, block_info->amount.bytes);
+			write (stream, block_info_key->hash.bytes);
+			write (stream, block_info->amount.bytes);
 
 			if (pending_include_address)
 			{
 				/**
 				 ** Write the source address as well, if requested
 				 **/
-				write (output_stream, block_info->source.bytes);
+				write (stream, block_info->source.bytes);
 			}
 		}
+		buffer->size = boost::iostreams::seek (stream, 0, std::ios::cur);
 
 		auto this_l (shared_from_this ());
-		connection->socket->async_write (send_buffer, [this_l](boost::system::error_code const & ec, size_t size_a) {
+		connection->socket->async_write (buffer, [this_l](boost::system::error_code const & ec, size_t size_a) {
 			this_l->sent_action (ec, size_a);
 		});
 	}
@@ -2045,33 +2038,31 @@ void rai::bulk_pull_account_server::send_finished ()
 	 * "pending_include_address" flag is not set) or 640-bits of zeros
 	 * (if that flag is set).
 	 */
-	send_buffer->clear ();
+	auto buffer (connection->node->network.buffer_container.allocate ());
 
+	rai::arraystream stream (buffer->buffer, rai::network::buffer_size);
+	rai::uint256_union account_zero (0);
+	rai::uint128_union balance_zero (0);
+
+	write (stream, account_zero.bytes);
+
+	if (!pending_address_only)
 	{
-		rai::vectorstream output_stream (*send_buffer);
-		rai::uint256_union account_zero (0);
-		rai::uint128_union balance_zero (0);
-
-		write (output_stream, account_zero.bytes);
-
-		if (!pending_address_only)
+		write (stream, balance_zero.bytes);
+		if (pending_include_address)
 		{
-			write (output_stream, balance_zero.bytes);
-			if (pending_include_address)
-			{
-				write (output_stream, account_zero.bytes);
-			}
+			write (stream, account_zero.bytes);
 		}
 	}
 
+	buffer->size = boost::iostreams::seek (stream, 0, std::ios::cur);
 	auto this_l (shared_from_this ());
-
 	if (connection->node->config.logging.bulk_pull_logging ())
 	{
 		BOOST_LOG (connection->node->log) << "Bulk sending for an account finished";
 	}
 
-	connection->socket->async_write (send_buffer, [this_l](boost::system::error_code const & ec, size_t size_a) {
+	connection->socket->async_write (buffer, [this_l](boost::system::error_code const & ec, size_t size_a) {
 		this_l->complete (ec, size_a);
 	});
 }
@@ -2134,10 +2125,11 @@ void rai::bulk_pull_blocks_server::send_next ()
 
 void rai::bulk_pull_blocks_server::send_finished ()
 {
-	send_buffer->clear ();
-	send_buffer->push_back (static_cast<uint8_t> (rai::block_type::not_a_block));
+	auto buffer (connection->node->network.buffer_container.allocate ());
+	*buffer->buffer = static_cast<uint8_t> (rai::block_type::not_a_block);
+	buffer->size = 1;
 	auto this_l (shared_from_this ());
-	connection->socket->async_write (send_buffer, [this_l](boost::system::error_code const & ec, size_t size_a) {
+	connection->socket->async_write (buffer, [this_l](boost::system::error_code const & ec, size_t size_a) {
 		this_l->no_block_sent (ec, size_a);
 	});
 }
@@ -2271,8 +2263,7 @@ rai::frontier_req_server::frontier_req_server (std::shared_ptr<rai::bootstrap_se
 connection (connection_a),
 current (request_a->start.number () - 1),
 info (0, 0, 0, 0, 0, 0, rai::epoch::epoch_0),
-request (std::move (request_a)),
-send_buffer (std::make_shared<std::vector<uint8_t>> ())
+request (std::move (request_a))
 {
 	next ();
 	skip_old ();
@@ -2294,19 +2285,18 @@ void rai::frontier_req_server::send_next ()
 {
 	if (!current.is_zero ())
 	{
-		{
-			send_buffer->clear ();
-			rai::vectorstream stream (*send_buffer);
-			write (stream, current.bytes);
-			write (stream, info.head.bytes);
-		}
+		auto buffer (connection->node->network.buffer_container.allocate ());
+		rai::arraystream stream (buffer->buffer, rai::network::buffer_size);
+		write (stream, current.bytes);
+		write (stream, info.head.bytes);
+		buffer->size = boost::iostreams::seek (stream, 0, std::ios::cur);
 		auto this_l (shared_from_this ());
 		if (connection->node->config.logging.bulk_pull_logging ())
 		{
 			BOOST_LOG (connection->node->log) << boost::str (boost::format ("Sending frontier for %1% %2%") % current.to_account () % info.head.to_string ());
 		}
 		next ();
-		connection->socket->async_write (send_buffer, [this_l](boost::system::error_code const & ec, size_t size_a) {
+		connection->socket->async_write (buffer, [this_l](boost::system::error_code const & ec, size_t size_a) {
 			this_l->sent_action (ec, size_a);
 		});
 	}
@@ -2318,19 +2308,18 @@ void rai::frontier_req_server::send_next ()
 
 void rai::frontier_req_server::send_finished ()
 {
-	{
-		send_buffer->clear ();
-		rai::vectorstream stream (*send_buffer);
-		rai::uint256_union zero (0);
-		write (stream, zero.bytes);
-		write (stream, zero.bytes);
-	}
+	auto buffer (connection->node->network.buffer_container.allocate ());
+	rai::arraystream stream (buffer->buffer, rai::network::buffer_size);
+	rai::uint256_union zero (0);
+	write (stream, zero.bytes);
+	write (stream, zero.bytes);
+	buffer->size = boost::iostreams::seek (stream, 0, std::ios::cur);
 	auto this_l (shared_from_this ());
 	if (connection->node->config.logging.network_logging ())
 	{
 		BOOST_LOG (connection->node->log) << "Frontier sending finished";
 	}
-	connection->socket->async_write (send_buffer, [this_l](boost::system::error_code const & ec, size_t size_a) {
+	connection->socket->async_write (buffer, [this_l](boost::system::error_code const & ec, size_t size_a) {
 		this_l->no_block_sent (ec, size_a);
 	});
 }

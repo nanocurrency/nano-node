@@ -39,6 +39,8 @@ rai::endpoint rai::map_endpoint_to_v6 (rai::endpoint const & endpoint_a)
 	return endpoint_l;
 }
 
+size_t const rai::network::buffer_size;
+
 rai::network::network (rai::node & node_a, uint16_t port) :
 buffer_container (node_a.stats, rai::network::buffer_size, 4096), // 2Mb receive buffer
 socket (node_a.service, rai::endpoint (boost::asio::ip::address_v6::any (), port)),
