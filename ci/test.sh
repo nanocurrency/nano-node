@@ -53,6 +53,9 @@ run_tests() {
     for try in _initial_ "${tries[@]}"; do
         if [ "${try}" != '_initial_' ]; then
             echo "core_test failed: ${core_test_res}, retrying (try=${try})"
+
+            # Wait a while for sockets to be all cleaned up by the kernel
+            sleep $[60 + (${RANDOM} % 30)]
         fi
 
         ${TIMEOUT_CMD} ${TIMEOUT_TIME_ARG} ${TIMEOUT_SEC-${TIMEOUT_DEFAULT}} ./core_test
