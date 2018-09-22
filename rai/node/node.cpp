@@ -2170,7 +2170,7 @@ rai::endpoint rai::peer_container::bootstrap_peer ()
 	;
 	for (auto i (peers.get<4> ().begin ()), n (peers.get<4> ().end ()); i != n;)
 	{
-		if (i->network_version >= protocol_version_bootstrap_min)
+		if (i->network_version >= protocol_version_reasonable_min)
 		{
 			result = i->endpoint;
 			peers.get<4> ().modify (i, [](rai::peer_information & peer_a) {
