@@ -591,7 +591,14 @@ bool rai::wallet_store::import (MDB_txn * transaction_a, rai::wallet_store & oth
 		result = result | error;
 		if (!result)
 		{
-			insert_adhoc (transaction_a, prv);
+			if (!prv.data.is_zero ())
+			{
+				insert_adhoc (transaction_a, prv);
+			}
+			else
+			{
+				insert_watch (transaction_a, rai::uint256_union (i->first));
+			}
 			other_a.erase (transaction_a, rai::uint256_union (i->first));
 		}
 	}
