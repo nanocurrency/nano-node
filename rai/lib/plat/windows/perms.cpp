@@ -16,28 +16,20 @@ void rai::set_umask ()
 
 void rai::set_secure_perm_directory (boost::filesystem::path const & path)
 {
-	/*
-	 * XXX:TODO: Set the permissions sanely; For now we rely on umask
-	 */
+	boost::filesystem::permissions (path, boost::filesystem::owner_all);
 }
 
 void rai::set_secure_perm_directory (boost::filesystem::path const & path, boost::system::error_code & ec)
 {
-	/*
-	 * XXX:TODO: Set the permissions sanely; For now we rely on umask
-	 */
+	boost::filesystem::permissions (path, boost::filesystem::owner_all, ec);
 }
 
 void rai::set_secure_perm_file (boost::filesystem::path const & path)
 {
-	/*
-	 * XXX:TODO: Set the permissions sanely; For now we rely on umask
-	 */
+	boost::filesystem::permissions (path, boost::filesystem::owner_read | boost::filesystem::owner_write);
 }
 
 void rai::set_secure_perm_file (boost::filesystem::path const & path, boost::system::error_code & ec)
 {
-	/*
-	 * XXX:TODO: Set the permissions sanely; For now we rely on umask
-	 */
+	boost::filesystem::permissions (path, boost::filesystem::owner_read | boost::filesystem::owner_write, ec);
 }
