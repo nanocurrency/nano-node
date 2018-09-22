@@ -42,7 +42,7 @@ rai::endpoint rai::map_endpoint_to_v6 (rai::endpoint const & endpoint_a)
 size_t const rai::network::buffer_size;
 
 rai::network::network (rai::node & node_a, uint16_t port) :
-buffer_container (node_a.stats, rai::network::buffer_size, 4096), // 2Mb receive buffer
+buffers (node_a.stats, rai::network::buffer_size, 4096), // 2Mb receive buffer
 socket (node_a.service, rai::endpoint (boost::asio::ip::address_v6::any (), port)),
 resolver (node_a.service),
 node (node_a),
@@ -90,17 +90,17 @@ void rai::network::receive ()
 		BOOST_LOG (node.log) << "Receiving packet";
 	}
 	std::unique_lock<std::mutex> lock (socket_mutex);
-	auto data (buffer_container.allocate ());
+	auto data (buffers.allocate ());
 	socket.async_receive_from (boost::asio::buffer (data->buffer, rai::network::buffer_size), data->endpoint, [this, data](boost::system::error_code const & error, size_t size_a) {
 		if (!error && this->on)
 		{
 			data->size = size_a;
-			this->buffer_container.enqueue (data);
+			this->buffers.enqueue (data);
 			this->receive ();
 		}
 		else
 		{
-			this->buffer_container.release (data);
+			this->buffers.release (data);
 			if (error)
 			{
 				if (this->node.config.logging.network_logging ())
@@ -120,14 +120,14 @@ void rai::network::process_packets ()
 {
 	while (on)
 	{
-		auto data (buffer_container.dequeue ());
+		auto data (buffers.dequeue ());
 		if (data == nullptr)
 		{
 			break;
 		}
 		//std::cerr << data->endpoint.address ().to_string ();
 		receive_action (data);
-		buffer_container.release (data);
+		buffers.release (data);
 	}
 }
 
@@ -136,7 +136,7 @@ void rai::network::stop ()
 	on = false;
 	socket.close ();
 	resolver.cancel ();
-	buffer_container.stop ();
+	buffers.stop ();
 }
 
 void rai::network::send_keepalive (rai::endpoint const & endpoint_a)
@@ -559,7 +559,7 @@ public:
 };
 }
 
-void rai::network::receive_action (rai::udp_data * data_a)
+void rai::network::receive_action (rai::net_data * data_a)
 {
 	if (!rai::reserved_address (data_a->endpoint, false) && data_a->endpoint != endpoint ())
 	{
@@ -4355,7 +4355,7 @@ void rai::port_mapping::stop ()
 	devices = nullptr;
 }
 
-rai::udp_buffer::udp_buffer (rai::stat & stats, size_t size, size_t count) :
+rai::net_buffer::net_buffer (rai::stat & stats, size_t size, size_t count) :
 stats (stats),
 free (count),
 full (count),
@@ -4373,7 +4373,7 @@ stopped (false)
 		free.push_back (entry_data);
 	}
 }
-rai::udp_data * rai::udp_buffer::allocate ()
+rai::net_data * rai::net_buffer::allocate ()
 {
 	std::unique_lock<std::mutex> lock (mutex);
 	while (!stopped && free.empty () && full.empty ())
@@ -4381,7 +4381,7 @@ rai::udp_data * rai::udp_buffer::allocate ()
 		stats.inc (rai::stat::type::udp, rai::stat::detail::blocking, rai::stat::dir::in);
 		condition.wait (lock);
 	}
-	rai::udp_data * result (nullptr);
+	rai::net_data * result (nullptr);
 	if (!free.empty ())
 	{
 		result = free.front ();
@@ -4395,21 +4395,21 @@ rai::udp_data * rai::udp_buffer::allocate ()
 	}
 	return result;
 }
-void rai::udp_buffer::enqueue (rai::udp_data * data_a)
+void rai::net_buffer::enqueue (rai::net_data * data_a)
 {
 	assert (data_a != nullptr);
 	std::lock_guard<std::mutex> lock (mutex);
 	full.push_back (data_a);
 	condition.notify_one ();
 }
-rai::udp_data * rai::udp_buffer::dequeue ()
+rai::net_data * rai::net_buffer::dequeue ()
 {
 	std::unique_lock<std::mutex> lock (mutex);
 	while (!stopped && full.empty ())
 	{
 		condition.wait (lock);
 	}
-	rai::udp_data * result (nullptr);
+	rai::net_data * result (nullptr);
 	if (!full.empty ())
 	{
 		result = full.front ();
@@ -4417,14 +4417,14 @@ rai::udp_data * rai::udp_buffer::dequeue ()
 	}
 	return result;
 }
-void rai::udp_buffer::release (rai::udp_data * data_a)
+void rai::net_buffer::release (rai::net_data * data_a)
 {
 	assert (data_a != nullptr);
 	std::lock_guard<std::mutex> lock (mutex);
 	free.push_back (data_a);
 	condition.notify_one ();
 }
-void rai::udp_buffer::stop ()
+void rai::net_buffer::stop ()
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	stopped = true;

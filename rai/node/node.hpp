@@ -388,7 +388,7 @@ private:
 	std::mutex mutex;
 	rai::node & node;
 };
-class udp_data
+class net_data
 {
 public:
 	uint8_t * buffer;
@@ -396,32 +396,32 @@ public:
 	rai::endpoint endpoint;
 };
 /**
-  * A circular buffer for servicing UDP datagrams. This container follows a producer/consumer model where the operating system is producing data in to buffers which are serviced by internal threads.
+  * A circular buffer for servicing network data. This container follows a producer/consumer model where the operating system is producing data in to buffers which are serviced by internal threads.
   * If buffers are not serviced fast enough they're internally dropped.
   * This container has a maximum space to hold N buffers of M size and will allocate them in round-robin order.
   * All public methods are thread-safe
 */
-class udp_buffer
+class net_buffer
 {
 public:
 	// Size - Size of each individual buffer
 	// Count - Number of buffers to allocate
 	// Stats - Statistics
-	udp_buffer (rai::stat & stats, size_t, size_t);
-	// Return a buffer where UDP data can be put
+	net_buffer (rai::stat & stats, size_t, size_t);
+	// Return a buffer where network data can be put
 	// Method will attempt to return the first free buffer
 	// If there are no free buffers, an unserviced buffer will be dequeued and returned
 	// Function will block if there are no free or unserviced buffers
 	// Return nullptr if the container has stopped
-	rai::udp_data * allocate ();
-	// Queue a buffer that has been filled with UDP data and notify servicing threads
-	void enqueue (rai::udp_data *);
-	// Return a buffer that has been filled with UDP data
+	rai::net_data * allocate ();
+	// Queue a buffer that has been filled with network data and notify servicing threads
+	void enqueue (rai::net_data *);
+	// Return a buffer that has been filled with network data
 	// Function will block until a buffer has been added
 	// Return nullptr if the container has stopped
-	rai::udp_data * dequeue ();
+	rai::net_data * dequeue ();
 	// Return a buffer to the freelist after is has been serviced
-	void release (rai::udp_data *);
+	void release (rai::net_data *);
 	// Stop container and notify waiting threads
 	void stop ();
 
@@ -429,10 +429,10 @@ private:
 	rai::stat & stats;
 	std::mutex mutex;
 	std::condition_variable condition;
-	boost::circular_buffer<rai::udp_data *> free;
-	boost::circular_buffer<rai::udp_data *> full;
+	boost::circular_buffer<rai::net_data *> free;
+	boost::circular_buffer<rai::net_data *> full;
 	std::vector<uint8_t> slab;
-	std::vector<rai::udp_data> entries;
+	std::vector<rai::net_data> entries;
 	bool stopped;
 };
 class network
@@ -444,7 +444,7 @@ public:
 	void process_packets ();
 	void start ();
 	void stop ();
-	void receive_action (rai::udp_data *);
+	void receive_action (rai::net_data *);
 	void rpc_action (boost::system::error_code const &, size_t);
 	void republish_vote (std::shared_ptr<rai::vote>);
 	void republish_block (rai::transaction const &, std::shared_ptr<rai::block>, bool = true);
@@ -459,7 +459,7 @@ public:
 	void send_confirm_req (rai::endpoint const &, std::shared_ptr<rai::block>);
 	void send_buffer (uint8_t const *, size_t, rai::endpoint const &, std::function<void(boost::system::error_code const &, size_t)>);
 	rai::endpoint endpoint ();
-	rai::udp_buffer buffer_container;
+	rai::net_buffer buffers;
 	boost::asio::ip::udp::socket socket;
 	std::mutex socket_mutex;
 	boost::asio::ip::udp::resolver resolver;

@@ -31,7 +31,7 @@ void rai::socket::async_connect (rai::tcp_endpoint const & endpoint_a, std::func
 	});
 }
 
-void rai::socket::async_read (rai::udp_data * buffer_a, size_t size_a, std::function<void(boost::system::error_code const &, uint8_t const *, size_t)> callback_a)
+void rai::socket::async_read (rai::net_data * buffer_a, size_t size_a, std::function<void(boost::system::error_code const &, uint8_t const *, size_t)> callback_a)
 {
 	assert (size_a <= rai::network::buffer_size);
 	auto this_l (shared_from_this ());
@@ -39,18 +39,18 @@ void rai::socket::async_read (rai::udp_data * buffer_a, size_t size_a, std::func
 	boost::asio::async_read (socket_m, boost::asio::buffer (buffer_a->buffer, size_a), [this_l, callback_a, buffer_a](boost::system::error_code const & ec, size_t size_a) {
 		this_l->stop ();
 		callback_a (ec, buffer_a->buffer, size_a);
-		this_l->node->network.buffer_container.release (buffer_a);
+		this_l->node->network.buffers.release (buffer_a);
 	});
 }
 
-void rai::socket::async_write (rai::udp_data * buffer_a, std::function<void(boost::system::error_code const &, size_t)> callback_a)
+void rai::socket::async_write (rai::net_data * buffer_a, std::function<void(boost::system::error_code const &, size_t)> callback_a)
 {
 	auto this_l (shared_from_this ());
 	start ();
 	boost::asio::async_write (socket_m, boost::asio::buffer (buffer_a->buffer, buffer_a->size), [this_l, callback_a, buffer_a](boost::system::error_code const & ec, size_t size_a) {
 		this_l->stop ();
 		callback_a (ec, size_a);
-		this_l->node->network.buffer_container.release (buffer_a);
+		this_l->node->network.buffers.release (buffer_a);
 	});
 }
 
@@ -178,7 +178,7 @@ void rai::frontier_req_client::run ()
 	request->start.clear ();
 	request->age = std::numeric_limits<decltype (request->age)>::max ();
 	request->count = std::numeric_limits<decltype (request->count)>::max ();
-	auto buffer (connection->node->network.buffer_container.allocate ());
+	auto buffer (connection->node->network.buffers.allocate ());
 	rai::arraystream stream (buffer->buffer, rai::network::buffer_size);
 	request->serialize (stream);
 	buffer->size = boost::iostreams::seek (stream, 0, std::ios::cur);
@@ -219,7 +219,7 @@ rai::frontier_req_client::~frontier_req_client ()
 
 void rai::frontier_req_client::receive_frontier ()
 {
-	auto buffer (connection->node->network.buffer_container.allocate ());
+	auto buffer (connection->node->network.buffers.allocate ());
 	auto this_l (shared_from_this ());
 	size_t size_l (sizeof (rai::uint256_union) + sizeof (rai::uint256_union));
 	connection->socket->async_read (buffer, size_l, [this_l, size_l](boost::system::error_code const & ec, uint8_t const * buffer_a, size_t size_a) {
@@ -411,7 +411,7 @@ void rai::bulk_pull_client::request ()
 	rai::bulk_pull req;
 	req.start = pull.account;
 	req.end = pull.end;
-	auto buffer (connection->node->network.buffer_container.allocate ());
+	auto buffer (connection->node->network.buffers.allocate ());
 	rai::arraystream stream (buffer->buffer, rai::network::buffer_size);
 	req.serialize (stream);
 	buffer->size = boost::iostreams::seek (stream, 0, std::ios::cur);
@@ -443,7 +443,7 @@ void rai::bulk_pull_client::request ()
 
 void rai::bulk_pull_client::receive_block ()
 {
-	auto buffer (connection->node->network.buffer_container.allocate ());
+	auto buffer (connection->node->network.buffers.allocate ());
 	auto this_l (shared_from_this ());
 	connection->socket->async_read (buffer, 1, [this_l](boost::system::error_code const & ec, uint8_t const * buffer_a, size_t size_a) {
 		if (!ec)
@@ -464,7 +464,7 @@ void rai::bulk_pull_client::received_type (uint8_t const * buffer_a)
 {
 	auto this_l (shared_from_this ());
 	rai::block_type type (static_cast<rai::block_type> (buffer_a[0]));
-	auto buffer (connection->node->network.buffer_container.allocate ());
+	auto buffer (connection->node->network.buffers.allocate ());
 	switch (type)
 	{
 		case rai::block_type::send:
@@ -581,7 +581,7 @@ rai::bulk_push_client::~bulk_push_client ()
 void rai::bulk_push_client::start ()
 {
 	rai::bulk_push message;
-	auto buffer (connection->node->network.buffer_container.allocate ());
+	auto buffer (connection->node->network.buffers.allocate ());
 	rai::arraystream stream (buffer->buffer, rai::network::buffer_size);
 	message.serialize (stream);
 	buffer->size = boost::iostreams::seek (stream, 0, std::ios::cur);
@@ -650,7 +650,7 @@ void rai::bulk_push_client::push (rai::transaction const & transaction_a)
 
 void rai::bulk_push_client::send_finished ()
 {
-	auto buffer (connection->node->network.buffer_container.allocate ());
+	auto buffer (connection->node->network.buffers.allocate ());
 	*buffer->buffer = static_cast<uint8_t> (rai::block_type::not_a_block);
 	buffer->size = 1;
 	connection->node->stats.inc (rai::stat::type::bootstrap, rai::stat::detail::bulk_push, rai::stat::dir::out);
@@ -672,7 +672,7 @@ void rai::bulk_push_client::send_finished ()
 
 void rai::bulk_push_client::push_block (rai::block const & block_a)
 {
-	auto buffer (connection->node->network.buffer_container.allocate ());
+	auto buffer (connection->node->network.buffers.allocate ());
 	rai::arraystream stream (buffer->buffer, rai::network::buffer_size);
 	rai::serialize_block (stream, block_a);
 	buffer->size = boost::iostreams::seek (stream, 0, std::ios::cur);
@@ -1320,7 +1320,7 @@ node (node_a)
 
 void rai::bootstrap_server::receive ()
 {
-	auto buffer (node->network.buffer_container.allocate ());
+	auto buffer (node->network.buffers.allocate ());
 	auto this_l (shared_from_this ());
 	socket->async_read (buffer, 8, [this_l](boost::system::error_code const & ec, uint8_t const * buffer_a, size_t size_a) {
 		this_l->receive_header_action (ec, buffer_a, size_a);
@@ -1337,7 +1337,7 @@ void rai::bootstrap_server::receive_header_action (boost::system::error_code con
 		rai::message_header header (error, stream);
 		if (!error)
 		{
-			auto buffer (node->network.buffer_container.allocate ());
+			auto buffer (node->network.buffers.allocate ());
 			switch (header.type)
 			{
 				case rai::message_type::bulk_pull:
@@ -1652,7 +1652,7 @@ void rai::bulk_pull_server::send_next ()
 	std::unique_ptr<rai::block> block (get_next ());
 	if (block != nullptr)
 	{
-		auto buffer (connection->node->network.buffer_container.allocate ());
+		auto buffer (connection->node->network.buffers.allocate ());
 		rai::arraystream stream (buffer->buffer, rai::network::buffer_size);
 		rai::serialize_block (stream, *block);
 		buffer->size = boost::iostreams::seek (stream, 0, std::ios::cur);
@@ -1748,7 +1748,7 @@ void rai::bulk_pull_server::sent_action (boost::system::error_code const & ec, s
 
 void rai::bulk_pull_server::send_finished ()
 {
-	auto buffer (connection->node->network.buffer_container.allocate ());
+	auto buffer (connection->node->network.buffers.allocate ());
 	*buffer->buffer = static_cast<uint8_t> (rai::block_type::not_a_block);
 	buffer->size = 1;
 	auto this_l (shared_from_this ());
@@ -1864,7 +1864,7 @@ void rai::bulk_pull_account_server::send_frontier ()
 	/**
 	 ** Write the frontier block hash and balance into a buffer
 	 **/
-	auto buffer (connection->node->network.buffer_container.allocate ());
+	auto buffer (connection->node->network.buffers.allocate ());
 	rai::arraystream stream (buffer->buffer, rai::network::buffer_size);
 	write (stream, account_frontier_hash.bytes);
 	write (stream, account_frontier_balance.bytes);
@@ -1894,7 +1894,7 @@ void rai::bulk_pull_account_server::send_next_block ()
 		/*
 		 * If we have a new item, emit it to the socket
 		 */
-		auto buffer (connection->node->network.buffer_container.allocate ());
+		auto buffer (connection->node->network.buffers.allocate ());
 		rai::arraystream stream (buffer->buffer, rai::network::buffer_size);
 
 		if (pending_address_only)
@@ -2040,7 +2040,7 @@ void rai::bulk_pull_account_server::send_finished ()
 	 * "pending_include_address" flag is not set) or 640-bits of zeros
 	 * (if that flag is set).
 	 */
-	auto buffer (connection->node->network.buffer_container.allocate ());
+	auto buffer (connection->node->network.buffers.allocate ());
 
 	rai::arraystream stream (buffer->buffer, rai::network::buffer_size);
 	rai::uint256_union account_zero (0);
@@ -2126,7 +2126,7 @@ void rai::bulk_pull_blocks_server::send_next ()
 
 void rai::bulk_pull_blocks_server::send_finished ()
 {
-	auto buffer (connection->node->network.buffer_container.allocate ());
+	auto buffer (connection->node->network.buffers.allocate ());
 	*buffer->buffer = static_cast<uint8_t> (rai::block_type::not_a_block);
 	buffer->size = 1;
 	auto this_l (shared_from_this ());
@@ -2158,7 +2158,7 @@ connection (connection_a)
 
 void rai::bulk_push_server::receive ()
 {
-	auto buffer (connection->node->network.buffer_container.allocate ());
+	auto buffer (connection->node->network.buffers.allocate ());
 	auto this_l (shared_from_this ());
 	connection->socket->async_read (buffer, 1, [this_l](boost::system::error_code const & ec, uint8_t const * buffer_a, size_t size_a) {
 		if (!ec)
@@ -2179,7 +2179,7 @@ void rai::bulk_push_server::received_type (uint8_t const * buffer_a)
 {
 	auto this_l (shared_from_this ());
 	rai::block_type type (static_cast<rai::block_type> (buffer_a[0]));
-	auto buffer (connection->node->network.buffer_container.allocate ());
+	auto buffer (connection->node->network.buffers.allocate ());
 	switch (type)
 	{
 		case rai::block_type::send:
@@ -2285,7 +2285,7 @@ void rai::frontier_req_server::send_next ()
 {
 	if (!current.is_zero ())
 	{
-		auto buffer (connection->node->network.buffer_container.allocate ());
+		auto buffer (connection->node->network.buffers.allocate ());
 		rai::arraystream stream (buffer->buffer, rai::network::buffer_size);
 		write (stream, current.bytes);
 		write (stream, info.head.bytes);
@@ -2308,7 +2308,7 @@ void rai::frontier_req_server::send_next ()
 
 void rai::frontier_req_server::send_finished ()
 {
-	auto buffer (connection->node->network.buffer_container.allocate ());
+	auto buffer (connection->node->network.buffers.allocate ());
 	rai::arraystream stream (buffer->buffer, rai::network::buffer_size);
 	rai::uint256_union zero (0);
 	write (stream, zero.bytes);

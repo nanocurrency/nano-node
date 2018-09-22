@@ -23,14 +23,14 @@ enum class sync_result
 	error,
 	fork
 };
-class udp_data;
+class net_data;
 class socket : public std::enable_shared_from_this<rai::socket>
 {
 public:
 	socket (std::shared_ptr<rai::node>);
 	void async_connect (rai::tcp_endpoint const &, std::function<void(boost::system::error_code const &)>);
-	void async_read (rai::udp_data *, size_t, std::function<void(boost::system::error_code const &, uint8_t const *, size_t)>);
-	void async_write (rai::udp_data *, std::function<void(boost::system::error_code const &, size_t)>);
+	void async_read (rai::net_data *, size_t, std::function<void(boost::system::error_code const &, uint8_t const *, size_t)>);
+	void async_write (rai::net_data *, std::function<void(boost::system::error_code const &, size_t)>);
 	void start (std::chrono::steady_clock::time_point = std::chrono::steady_clock::now () + std::chrono::seconds (5));
 	void stop ();
 	void close ();
