@@ -1573,6 +1573,13 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 			++count;
 		}
 	}
+	// Start elections for recent blocks
+	while (!processed_active.empty ())
+	{
+		auto block (processed_active.front ());
+		processed_active.pop_front ();
+		node.active.start (block);
+	}
 	lock_a.unlock ();
 }
 
@@ -1593,7 +1600,7 @@ rai::process_return rai::block_processor::process_receive_one (MDB_txn * transac
 			}
 			if (node.block_arrival.recent (hash))
 			{
-				node.active.start (block_a);
+				processed_active.push_back (block_a);
 			}
 			queue_unchecked (transaction_a, hash);
 			break;
@@ -3875,7 +3882,7 @@ void rai::active_transactions::announce_votes ()
 						node.network.republish_block (transaction, election_l->status.winner);
 					}
 				}
-				else if (i->announcements > 3)
+				else
 				{
 					election_l->abort ();
 				}
