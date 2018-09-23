@@ -625,6 +625,7 @@ private:
 	std::deque<std::pair<std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point>> blocks;
 	std::unordered_set<rai::block_hash> blocks_hashes;
 	std::deque<std::shared_ptr<rai::block>> forced;
+	std::deque<std::shared_ptr<rai::block>> processed_active;
 	std::condition_variable condition;
 	rai::node & node;
 	std::mutex mutex;
