@@ -172,8 +172,8 @@ TEST (node, quick_confirm)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	ASSERT_EQ(system.nodes[0]->balance (rai::test_genesis_key.pub), system.nodes[0]->config.online_weight_minimum.number () + 1);
-	ASSERT_EQ(system.nodes[0]->balance (key.pub), genesis_start_balance - (system.nodes[0]->config.online_weight_minimum.number () + 1));
+	ASSERT_EQ (system.nodes[0]->balance (rai::test_genesis_key.pub), system.nodes[0]->config.online_weight_minimum.number () + 1);
+	ASSERT_EQ (system.nodes[0]->balance (key.pub), genesis_start_balance - (system.nodes[0]->config.online_weight_minimum.number () + 1));
 }
 
 TEST (node, node_receive_quorum)
