@@ -160,15 +160,18 @@ TEST (node, quick_confirm)
 	rai::system system (24000, 1);
 	rai::keypair key;
 	rai::block_hash previous (system.nodes[0]->latest (rai::test_genesis_key.pub));
+	auto genesis_start_balance (system.nodes[0]->balance (rai::test_genesis_key.pub));
 	system.wallet (0)->insert_adhoc (key.prv);
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
-	auto send (std::make_shared<rai::send_block> (previous, key.pub, system.nodes[0]->delta () + 1, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (previous)));
+	auto send (std::make_shared<rai::send_block> (previous, key.pub, system.nodes[0]->config.online_weight_minimum.number () + 1, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (previous)));
 	system.nodes[0]->process_active (send);
 	system.deadline_set (10s);
 	while (system.nodes[0]->balance (key.pub).is_zero ())
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
+	ASSERT_EQ (system.nodes[0]->balance (rai::test_genesis_key.pub), system.nodes[0]->config.online_weight_minimum.number () + 1);
+	ASSERT_EQ (system.nodes[0]->balance (key.pub), genesis_start_balance - (system.nodes[0]->config.online_weight_minimum.number () + 1));
 }
 
 TEST (node, node_receive_quorum)
