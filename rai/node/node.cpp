@@ -3889,7 +3889,7 @@ void rai::active_transactions::announce_votes ()
 						node.network.republish_block (transaction, election_l->status.winner);
 					}
 				}
-				else if (i->announcements > 3)
+				else
 				{
 					election_l->abort ();
 				}
