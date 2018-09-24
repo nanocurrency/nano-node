@@ -28,6 +28,10 @@ if [ ! -f "${nanodir}/config.json" ]; then
         cp "/usr/share/raiblocks/config/${network}.json" "${nanodir}/config.json"
 fi
 
+# Start watching the log file we are going to log output to
+logfile="${nanodir}/nano-docker-output.log"
+tail -F "${logfile}" &
+
 pid=''
 firstTimeComplete=''
 while true; do
@@ -62,4 +66,4 @@ while true; do
 		rai_node --daemon &
 		pid="$!"
 	fi
-done
+done > "${logfile}" 2>&1
