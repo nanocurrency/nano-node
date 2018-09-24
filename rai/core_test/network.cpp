@@ -1079,3 +1079,36 @@ TEST (udp_buffer, stats)
 	buffer.allocate ();
 	ASSERT_EQ (1, stats.count (rai::stat::type::udp, rai::stat::detail::overflow));
 }
+
+TEST (bulk_pull_account, basics)
+{
+	rai::system system (24000, 1);
+	system.nodes[0]->config.receive_minimum = rai::uint128_union (20);
+	rai::keypair key1;
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	system.wallet (0)->insert_adhoc (key1.prv);
+	auto send1 (system.wallet (0)->send_action (rai::genesis_account, key1.pub, 25));
+	auto send2 (system.wallet (0)->send_action (rai::genesis_account, key1.pub, 10));
+	auto send3 (system.wallet (0)->send_action (rai::genesis_account, key1.pub, 2));
+	system.deadline_set (5s);
+	while (system.nodes[0]->balance (key1.pub) != 25) {
+		ASSERT_NO_ERROR (system.poll());
+	}
+	auto connection (std::make_shared<rai::bootstrap_server> (nullptr, system.nodes[0]));
+	std::unique_ptr<rai::bulk_pull_account> req (new rai::bulk_pull_account{});
+	req->account = key1.pub;
+	req->minimum_amount = 5;
+	req->flags = rai::bulk_pull_account_flags ();
+	connection->requests.push (std::unique_ptr<rai::message>{});
+	auto request (std::make_shared<rai::bulk_pull_account_server> (connection, std::move (req)));
+	ASSERT_FALSE (request->invalid_request);
+	ASSERT_FALSE (request->pending_include_address);
+	ASSERT_FALSE (request->pending_address_only);
+	ASSERT_EQ (request->current_key.account, key1.pub);
+	ASSERT_EQ (request->current_key.hash, 0);
+	auto block_data (request->get_next ());
+	ASSERT_EQ (send2->hash (), block_data.first.get ()->hash);
+	ASSERT_EQ (rai::uint128_union (10), block_data.second.get ()->amount);
+	ASSERT_EQ (rai::genesis_account, block_data.second.get ()->source);
+	ASSERT_EQ (nullptr, request->get_next ().first.get ());
+}
