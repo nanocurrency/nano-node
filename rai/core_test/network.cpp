@@ -1091,7 +1091,8 @@ TEST (bulk_pull_account, basics)
 	auto send2 (system.wallet (0)->send_action (rai::genesis_account, key1.pub, 10));
 	auto send3 (system.wallet (0)->send_action (rai::genesis_account, key1.pub, 2));
 	system.deadline_set (5s);
-	while (system.nodes[0]->balance (key1.pub) != 25) {
+	while (system.nodes[0]->balance (key1.pub) != 25)
+	{
 		ASSERT_NO_ERROR (system.poll());
 	}
 	auto connection (std::make_shared<rai::bootstrap_server> (nullptr, system.nodes[0]));
