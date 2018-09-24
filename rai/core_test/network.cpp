@@ -1093,7 +1093,7 @@ TEST (bulk_pull_account, basics)
 	system.deadline_set (5s);
 	while (system.nodes[0]->balance (key1.pub) != 25)
 	{
-		ASSERT_NO_ERROR (system.poll());
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	auto connection (std::make_shared<rai::bootstrap_server> (nullptr, system.nodes[0]));
 	std::unique_ptr<rai::bulk_pull_account> req (new rai::bulk_pull_account{});
