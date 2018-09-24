@@ -87,6 +87,57 @@ void rai::message_header::ipv4_only_set (bool value_a)
 // MTU - IP header - UDP header
 const size_t rai::message_parser::max_safe_udp_message_size = 508;
 
+const char * operator~ (const rai::message_parser::parse_status & id)
+{
+	switch (id)
+	{
+		case rai::message_parser::parse_status::success:
+		{
+			return "success";
+		}
+		case rai::message_parser::parse_status::insufficient_work:
+		{
+			return "insufficient_work";
+		}
+		case rai::message_parser::parse_status::invalid_header:
+		{
+			return "invalid_header";
+		}
+		case rai::message_parser::parse_status::invalid_message_type:
+		{
+			return "invalid_message_type";
+		}
+		case rai::message_parser::parse_status::invalid_keepalive_message:
+		{
+			return "invalid_keepalive_message";
+		}
+		case rai::message_parser::parse_status::invalid_publish_message:
+		{
+			return "invalid_publish_message";
+		}
+		case rai::message_parser::parse_status::invalid_confirm_req_message:
+		{
+			return "invalid_confirm_req_message";
+		}
+		case rai::message_parser::parse_status::invalid_confirm_ack_message:
+		{
+			return "invalid_confirm_ack_message";
+		}
+		case rai::message_parser::parse_status::invalid_node_id_handshake_message:
+		{
+			return "invalid_node_id_handshake_message";
+		}
+		case rai::message_parser::parse_status::outdated_version:
+		{
+			return "outdated_version";
+		}
+	}
+
+	assert (false);
+
+	return "[unknown parse_status]";
+}
+
 rai::message_parser::message_parser (rai::message_visitor & visitor_a, rai::work_pool & pool_a) :
 visitor (visitor_a),
 pool (pool_a),

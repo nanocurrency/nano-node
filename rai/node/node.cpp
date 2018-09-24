@@ -684,7 +684,7 @@ void rai::network::receive_action (rai::udp_data * data_a)
 			}
 			else
 			{
-				BOOST_LOG (node.log) << "Could not deserialize buffer";
+				BOOST_LOG (node.log) << "Could not deserialize buffer (error = " << ~parser.status << ")";
 			}
 		}
 		else

@@ -367,3 +367,9 @@ inline uint64_t seconds_since_epoch ()
 	return std::chrono::duration_cast<std::chrono::seconds> (std::chrono::system_clock::now ().time_since_epoch ()).count ();
 }
 }
+
+/*
+ * Allow "parse_status" enum class to be explicitly converted to a
+ * string describing that item.
+ */
+const char * operator~ (const rai::message_parser::parse_status &);
