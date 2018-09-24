@@ -1952,7 +1952,7 @@ void rai::gap_cache::vote (std::shared_ptr<rai::vote> vote_a)
 						{
 							if (!node_l->bootstrap_initiator.in_progress ())
 							{
-								BOOST_LOG (node_l->log) << boost::str (boost::format ("Missing confirmed block %1%") % hash.to_string ());
+								BOOST_LOG (node_l->log) << boost::str (boost::format ("Missing block %1% which has enough votes to warrant bootstrapping it") % hash.to_string ());
 							}
 							node_l->bootstrap_initiator.bootstrap ();
 						}
