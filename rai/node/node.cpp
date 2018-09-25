@@ -273,7 +273,7 @@ bool confirm_block (rai::transaction const & transaction_a, rai::node & node_a, 
 	return result;
 }
 
-void rai::network::republish_block (rai::transaction const & transaction, std::shared_ptr<rai::block> block)
+void rai::network::republish_block (std::shared_ptr<rai::block> block)
 {
 	auto hash (block->hash ());
 	auto list (node.peers.list_fanout ());
@@ -3808,7 +3808,7 @@ bool rai::election::publish (std::shared_ptr<rai::block> block_a)
 			{
 				blocks.insert (std::make_pair (block_a->hash (), block_a));
 				confirm_if_quorum (transaction);
-				node.network.republish_block (transaction, block_a);
+				node.network.republish_block (block_a);
 			}
 		}
 	}
@@ -3857,7 +3857,7 @@ void rai::active_transactions::announce_votes ()
 				// Broadcast winner
 				if (node.ledger.could_fit (transaction, *election_l->status.winner))
 				{
-					node.network.republish_block (transaction, election_l->status.winner);
+					node.network.republish_block (election_l->status.winner);
 					if (node.config.enable_voting)
 					{
 						blocks_bundle.push_back (election_l->status.winner->hash ());
