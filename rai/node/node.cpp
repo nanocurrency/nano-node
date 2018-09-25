@@ -3977,7 +3977,7 @@ void rai::active_transactions::announce_votes ()
 	// Rebroadcast unconfirmed blocks
 	if (!rebroadcast_bundle.empty ())
 	{
-		node.network.republish_block_batch (rebroadcast_bundle, 100);
+		node.network.republish_block_batch (rebroadcast_bundle);
 	}
 	// Request votes for unconfirmed blocks
 	if (node.config.enable_voting && !blocks_bundle.empty ())
@@ -4020,7 +4020,7 @@ void rai::active_transactions::announce_loop ()
 	while (!stopped)
 	{
 		announce_votes ();
-		condition.wait_for (lock, std::chrono::milliseconds (announce_interval_ms));
+		condition.wait_for (lock, std::chrono::milliseconds (announce_interval_ms + roots.size () * broadcast_interval_ms));
 	}
 }
 
