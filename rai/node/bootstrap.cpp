@@ -46,7 +46,7 @@ void rai::socket::async_write (std::shared_ptr<std::vector<uint8_t>> buffer_a, s
 {
 	auto this_l (shared_from_this ());
 	start ();
-	boost::asio::async_write (socket_m, boost::asio::buffer (buffer_a->data (), buffer_a->size ()), [this_l, callback_a](boost::system::error_code const & ec, size_t size_a) {
+	boost::asio::async_write (socket_m, boost::asio::buffer (buffer_a->data (), buffer_a->size ()), [this_l, callback_a, buffer_a](boost::system::error_code const & ec, size_t size_a) {
 		this_l->stop ();
 		callback_a (ec, size_a);
 	});
@@ -184,7 +184,7 @@ void rai::frontier_req_client::run ()
 		request->serialize (stream);
 	}
 	auto this_l (shared_from_this ());
-	connection->socket->async_write (send_buffer, [this_l, send_buffer](boost::system::error_code const & ec, size_t size_a) {
+	connection->socket->async_write (send_buffer, [this_l](boost::system::error_code const & ec, size_t size_a) {
 		if (!ec)
 		{
 			this_l->receive_frontier ();
@@ -427,7 +427,7 @@ void rai::bulk_pull_client::request ()
 		BOOST_LOG (connection->node->log) << boost::str (boost::format ("%1% accounts in pull queue") % connection->attempt->pulls.size ());
 	}
 	auto this_l (shared_from_this ());
-	connection->socket->async_write (buffer, [this_l, buffer](boost::system::error_code const & ec, size_t size_a) {
+	connection->socket->async_write (buffer, [this_l](boost::system::error_code const & ec, size_t size_a) {
 		if (!ec)
 		{
 			this_l->receive_block ();
@@ -586,7 +586,7 @@ void rai::bulk_push_client::start ()
 		message.serialize (stream);
 	}
 	auto this_l (shared_from_this ());
-	connection->socket->async_write (buffer, [this_l, buffer](boost::system::error_code const & ec, size_t size_a) {
+	connection->socket->async_write (buffer, [this_l](boost::system::error_code const & ec, size_t size_a) {
 		rai::transaction transaction (this_l->connection->node->store.environment, false);
 		if (!ec)
 		{
@@ -677,7 +677,7 @@ void rai::bulk_push_client::push_block (rai::block const & block_a)
 		rai::serialize_block (stream, block_a);
 	}
 	auto this_l (shared_from_this ());
-	connection->socket->async_write (buffer, [this_l, buffer](boost::system::error_code const & ec, size_t size_a) {
+	connection->socket->async_write (buffer, [this_l](boost::system::error_code const & ec, size_t size_a) {
 		if (!ec)
 		{
 			rai::transaction transaction (this_l->connection->node->store.environment, false);
