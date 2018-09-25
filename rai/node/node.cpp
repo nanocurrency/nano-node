@@ -628,6 +628,22 @@ void rai::network::receive_action (rai::udp_data * data_a)
 					BOOST_LOG (node.log) << "Invalid node_id_handshake message";
 				}
 			}
+			else if (parser.status == rai::message_parser::parse_status::invalid_magic)
+			{
+				if (node.config.logging.network_logging ())
+				{
+					BOOST_LOG (node.log) << "Invalid magic in header";
+				}
+				node.stats.inc (rai::stat::type::udp, rai::stat::detail::invalid_magic);
+			}
+			else if (parser.status == rai::message_parser::parse_status::invalid_network)
+			{
+				if (node.config.logging.network_logging ())
+				{
+					BOOST_LOG (node.log) << "Invalid network in header";
+				}
+				node.stats.inc (rai::stat::type::udp, rai::stat::detail::invalid_network);
+			}
 			else
 			{
 				BOOST_LOG (node.log) << "Could not deserialize buffer";

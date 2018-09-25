@@ -175,6 +175,14 @@ public:
 	static size_t constexpr ipv4_only_position = 1;
 	static size_t constexpr bootstrap_server_position = 2;
 	static std::bitset<16> constexpr block_type_mask = std::bitset<16> (0x0f00);
+	inline bool valid_magic () const
+	{
+		return magic_number[0] == 'R' && magic_number[1] >= 'A' && magic_number[1] <= 'C';
+	}
+	inline bool valid_network () const
+	{
+		return (magic_number[1] - 'A') == static_cast<int> (rai::rai_network);
+	}
 };
 class message
 {
@@ -202,7 +210,9 @@ public:
 		invalid_confirm_req_message,
 		invalid_confirm_ack_message,
 		invalid_node_id_handshake_message,
-		outdated_version
+		outdated_version,
+		invalid_magic,
+		invalid_network
 	};
 	message_parser (rai::message_visitor &, rai::work_pool &);
 	void deserialize_buffer (uint8_t const *, size_t);

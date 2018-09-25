@@ -231,6 +231,8 @@ public:
 		// udp
 		blocking,
 		overflow,
+		invalid_magic,
+		invalid_network,
 
 		// peering
 		handshake,
