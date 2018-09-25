@@ -177,6 +177,10 @@ std::error_code rai::handle_node_options (boost::program_options::variables_map 
 				boost::filesystem::rename (vacuum_path, source_path);
 				std::cout << "Vacuum completed" << std::endl;
 			}
+			else
+			{
+				std::cerr << "Vacuum failed (copy_with_compaction returned false)" << std::endl;
+			}
 		}
 		catch (const boost::filesystem::filesystem_error & ex)
 		{
@@ -184,7 +188,7 @@ std::error_code rai::handle_node_options (boost::program_options::variables_map 
 		}
 		catch (...)
 		{
-			std::cerr << "Vacuum failed" << std::endl;
+			std::cerr << "Vacuum failed (unknown reason)" << std::endl;
 		}
 	}
 	else if (vm.count ("snapshot"))
@@ -223,6 +227,10 @@ std::error_code rai::handle_node_options (boost::program_options::variables_map 
 			{
 				std::cout << "Snapshot completed, This can be found at " << snapshot_path << std::endl;
 			}
+			else
+			{
+				std::cerr << "Snapshot Failed (copy_with_compaction returned false)" << std::endl;
+			}
 		}
 		catch (const boost::filesystem::filesystem_error & ex)
 		{
@@ -230,7 +238,7 @@ std::error_code rai::handle_node_options (boost::program_options::variables_map 
 		}
 		catch (...)
 		{
-			std::cerr << "Snapshot Failed" << std::endl;
+			std::cerr << "Snapshot Failed (unknown reason)" << std::endl;
 		}
 	}
 	else if (vm.count ("unchecked_clear"))

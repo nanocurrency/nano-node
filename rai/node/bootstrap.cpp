@@ -1796,13 +1796,23 @@ void rai::bulk_pull_account_server::set_params ()
 	 * Parse the flags
 	 */
 	invalid_request = false;
+	pending_include_address = false;
+	pending_address_only = false;
 	if (request->flags == rai::bulk_pull_account_flags::pending_address_only)
 	{
 		pending_address_only = true;
 	}
+	else if (request->flags == rai::bulk_pull_account_flags::pending_hash_amount_and_address)
+	{
+		/**
+		 ** This is the same as "pending_hash_and_amount" but with the
+		 ** sending address appended, for UI purposes mainly.
+		 **/
+		pending_include_address = true;
+	}
 	else if (request->flags == rai::bulk_pull_account_flags::pending_hash_and_amount)
 	{
-		pending_address_only = false;
+		/** The defaults are set above **/
 	}
 	else
 	{
@@ -1911,6 +1921,14 @@ void rai::bulk_pull_account_server::send_next_block ()
 
 			write (output_stream, block_info_key->hash.bytes);
 			write (output_stream, block_info->amount.bytes);
+
+			if (pending_include_address)
+			{
+				/**
+				 ** Write the source address as well, if requested
+				 **/
+				write (output_stream, block_info->source.bytes);
+			}
 		}
 
 		auto this_l (shared_from_this ());
@@ -2023,7 +2041,9 @@ void rai::bulk_pull_account_server::send_finished ()
 	 * The "bulk_pull_account" final sequence is a final block of all
 	 * zeros.  If we are sending only account public keys (with the
 	 * "pending_address_only" flag) then it will be 256-bits of zeros,
-	 * otherwise it will be 384-bits of zeros.
+	 * otherwise it will be either 384-bits of zeros (if the
+	 * "pending_include_address" flag is not set) or 640-bits of zeros
+	 * (if that flag is set).
 	 */
 	send_buffer->clear ();
 
@@ -2037,6 +2057,10 @@ void rai::bulk_pull_account_server::send_finished ()
 		if (!pending_address_only)
 		{
 			write (output_stream, balance_zero.bytes);
+			if (pending_include_address)
+			{
+				write (output_stream, account_zero.bytes);
+			}
 		}
 	}
 
@@ -2062,7 +2086,14 @@ void rai::bulk_pull_account_server::complete (boost::system::error_code const & 
 		}
 		else
 		{
-			assert (size_a == 48);
+			if (pending_include_address)
+			{
+				assert (size_a == 80);
+			}
+			else
+			{
+				assert (size_a == 48);
+			}
 		}
 
 		connection->finish_request ();

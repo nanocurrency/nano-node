@@ -1,3 +1,4 @@
+#include <rai/lib/utility.hpp>
 #include <rai/node/cli.hpp>
 #include <rai/node/rpc.hpp>
 #include <rai/node/working.hpp>
@@ -190,8 +191,9 @@ bool update_config (qt_wallet_config & config_a, boost::filesystem::path const &
 int run_wallet (QApplication & application, int argc, char * const * argv, boost::filesystem::path const & data_path)
 {
 	rai_qt::eventloop_processor processor;
+	boost::system::error_code error_chmod;
 	boost::filesystem::create_directories (data_path);
-	boost::filesystem::permissions (data_path, boost::filesystem::owner_all);
+	rai::set_secure_perm_directory (data_path, error_chmod);
 	QPixmap pixmap (":/logo.png");
 	QSplashScreen * splash = new QSplashScreen (pixmap);
 	splash->show ();
@@ -204,6 +206,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 	std::fstream config_file;
 	auto error (rai::fetch_object (config, config_path, config_file));
 	config_file.close ();
+	rai::set_secure_perm_file (config_path, error_chmod);
 	if (!error)
 	{
 		boost::asio::io_service service;

@@ -1,6 +1,7 @@
 #include <rai/node/node.hpp>
 
 #include <rai/lib/interface.h>
+#include <rai/lib/utility.hpp>
 #include <rai/node/common.hpp>
 #include <rai/node/rpc.hpp>
 
@@ -40,11 +41,45 @@ rai::endpoint rai::map_endpoint_to_v6 (rai::endpoint const & endpoint_a)
 }
 
 rai::network::network (rai::node & node_a, uint16_t port) :
+buffer_container (node_a.stats, rai::network::buffer_size, 4096), // 2Mb receive buffer
 socket (node_a.service, rai::endpoint (boost::asio::ip::address_v6::any (), port)),
 resolver (node_a.service),
 node (node_a),
 on (true)
 {
+	for (size_t i = 0; i < node.config.io_threads; ++i)
+	{
+		packet_processing_threads.push_back (std::thread ([this]() {
+			try
+			{
+				process_packets ();
+			}
+			catch (...)
+			{
+				release_assert (false);
+			}
+			if (this->node.config.logging.network_packet_logging ())
+			{
+				BOOST_LOG (this->node.log) << "Exiting packet processing thread";
+			}
+		}));
+	}
+}
+
+rai::network::~network ()
+{
+	for (auto & thread : packet_processing_threads)
+	{
+		thread.join ();
+	}
+}
+
+void rai::network::start ()
+{
+	for (size_t i = 0; i < node.config.io_threads; ++i)
+	{
+		receive ();
+	}
 }
 
 void rai::network::receive ()
@@ -54,9 +89,45 @@ void rai::network::receive ()
 		BOOST_LOG (node.log) << "Receiving packet";
 	}
 	std::unique_lock<std::mutex> lock (socket_mutex);
-	socket.async_receive_from (boost::asio::buffer (buffer.data (), buffer.size ()), remote, [this](boost::system::error_code const & error, size_t size_a) {
-		receive_action (error, size_a);
+	auto data (buffer_container.allocate ());
+	socket.async_receive_from (boost::asio::buffer (data->buffer, rai::network::buffer_size), data->endpoint, [this, data](boost::system::error_code const & error, size_t size_a) {
+		if (!error && this->on)
+		{
+			data->size = size_a;
+			this->buffer_container.enqueue (data);
+			this->receive ();
+		}
+		else
+		{
+			this->buffer_container.release (data);
+			if (error)
+			{
+				if (this->node.config.logging.network_logging ())
+				{
+					BOOST_LOG (this->node.log) << boost::str (boost::format ("UDP Receive error: %1%") % error.message ());
+				}
+			}
+			if (this->on)
+			{
+				this->node.alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (5), [this]() { this->receive (); });
+			}
+		}
 	});
+}
+
+void rai::network::process_packets ()
+{
+	while (on)
+	{
+		auto data (buffer_container.dequeue ());
+		if (data == nullptr)
+		{
+			break;
+		}
+		//std::cerr << data->endpoint.address ().to_string ();
+		receive_action (data);
+		buffer_container.release (data);
+	}
 }
 
 void rai::network::stop ()
@@ -64,6 +135,7 @@ void rai::network::stop ()
 	on = false;
 	socket.close ();
 	resolver.cancel ();
+	buffer_container.stop ();
 }
 
 void rai::network::send_keepalive (rai::endpoint const & endpoint_a)
@@ -474,112 +546,94 @@ public:
 };
 }
 
-void rai::network::receive_action (boost::system::error_code const & error, size_t size_a)
+void rai::network::receive_action (rai::udp_data * data_a)
 {
-	if (!error && on)
+	if (!rai::reserved_address (data_a->endpoint, false) && data_a->endpoint != endpoint ())
 	{
-		if (!rai::reserved_address (remote, false) && remote != endpoint ())
+		network_message_visitor visitor (node, data_a->endpoint);
+		rai::message_parser parser (visitor, node.work);
+		parser.deserialize_buffer (data_a->buffer, data_a->size);
+		if (parser.status != rai::message_parser::parse_status::success)
 		{
-			network_message_visitor visitor (node, remote);
-			rai::message_parser parser (visitor, node.work);
-			parser.deserialize_buffer (buffer.data (), size_a);
-			if (parser.status != rai::message_parser::parse_status::success)
+			node.stats.inc (rai::stat::type::error);
+
+			if (parser.status == rai::message_parser::parse_status::insufficient_work)
 			{
-				node.stats.inc (rai::stat::type::error);
+				if (node.config.logging.insufficient_work_logging ())
+				{
+					BOOST_LOG (node.log) << "Insufficient work in message";
+				}
 
-				if (parser.status == rai::message_parser::parse_status::insufficient_work)
+				// We've already increment error count, update detail only
+				node.stats.inc_detail_only (rai::stat::type::error, rai::stat::detail::insufficient_work);
+			}
+			else if (parser.status == rai::message_parser::parse_status::invalid_message_type)
+			{
+				if (node.config.logging.network_logging ())
 				{
-					if (node.config.logging.insufficient_work_logging ())
-					{
-						BOOST_LOG (node.log) << "Insufficient work in message";
-					}
-
-					// We've already increment error count, update detail only
-					node.stats.inc_detail_only (rai::stat::type::error, rai::stat::detail::insufficient_work);
+					BOOST_LOG (node.log) << "Invalid message type in message";
 				}
-				else if (parser.status == rai::message_parser::parse_status::invalid_message_type)
+			}
+			else if (parser.status == rai::message_parser::parse_status::invalid_header)
+			{
+				if (node.config.logging.network_logging ())
 				{
-					if (node.config.logging.network_logging ())
-					{
-						BOOST_LOG (node.log) << "Invalid message type in message";
-					}
+					BOOST_LOG (node.log) << "Invalid header in message";
 				}
-				else if (parser.status == rai::message_parser::parse_status::invalid_header)
+			}
+			else if (parser.status == rai::message_parser::parse_status::invalid_keepalive_message)
+			{
+				if (node.config.logging.network_logging ())
 				{
-					if (node.config.logging.network_logging ())
-					{
-						BOOST_LOG (node.log) << "Invalid header in message";
-					}
+					BOOST_LOG (node.log) << "Invalid keepalive message";
 				}
-				else if (parser.status == rai::message_parser::parse_status::invalid_keepalive_message)
+			}
+			else if (parser.status == rai::message_parser::parse_status::invalid_publish_message)
+			{
+				if (node.config.logging.network_logging ())
 				{
-					if (node.config.logging.network_logging ())
-					{
-						BOOST_LOG (node.log) << "Invalid keepalive message";
-					}
+					BOOST_LOG (node.log) << "Invalid publish message";
 				}
-				else if (parser.status == rai::message_parser::parse_status::invalid_publish_message)
+			}
+			else if (parser.status == rai::message_parser::parse_status::invalid_confirm_req_message)
+			{
+				if (node.config.logging.network_logging ())
 				{
-					if (node.config.logging.network_logging ())
-					{
-						BOOST_LOG (node.log) << "Invalid publish message";
-					}
+					BOOST_LOG (node.log) << "Invalid confirm_req message";
 				}
-				else if (parser.status == rai::message_parser::parse_status::invalid_confirm_req_message)
+			}
+			else if (parser.status == rai::message_parser::parse_status::invalid_confirm_ack_message)
+			{
+				if (node.config.logging.network_logging ())
 				{
-					if (node.config.logging.network_logging ())
-					{
-						BOOST_LOG (node.log) << "Invalid confirm_req message";
-					}
+					BOOST_LOG (node.log) << "Invalid confirm_ack message";
 				}
-				else if (parser.status == rai::message_parser::parse_status::invalid_confirm_ack_message)
+			}
+			else if (parser.status == rai::message_parser::parse_status::invalid_node_id_handshake_message)
+			{
+				if (node.config.logging.network_logging ())
 				{
-					if (node.config.logging.network_logging ())
-					{
-						BOOST_LOG (node.log) << "Invalid confirm_ack message";
-					}
-				}
-				else if (parser.status == rai::message_parser::parse_status::invalid_node_id_handshake_message)
-				{
-					if (node.config.logging.network_logging ())
-					{
-						BOOST_LOG (node.log) << "Invalid node_id_handshake message";
-					}
-				}
-				else
-				{
-					BOOST_LOG (node.log) << "Could not deserialize buffer";
+					BOOST_LOG (node.log) << "Invalid node_id_handshake message";
 				}
 			}
 			else
 			{
-				node.stats.add (rai::stat::type::traffic, rai::stat::dir::in, size_a);
+				BOOST_LOG (node.log) << "Could not deserialize buffer";
 			}
 		}
 		else
 		{
-			if (node.config.logging.network_logging ())
-			{
-				BOOST_LOG (node.log) << boost::str (boost::format ("Reserved sender %1%") % remote.address ().to_string ());
-			}
-
-			node.stats.inc_detail_only (rai::stat::type::error, rai::stat::detail::bad_sender);
+			node.stats.add (rai::stat::type::traffic, rai::stat::dir::in, data_a->size);
 		}
-		receive ();
 	}
 	else
 	{
-		if (error)
+		if (node.config.logging.network_logging ())
 		{
-			if (node.config.logging.network_logging ())
-			{
-				BOOST_LOG (node.log) << boost::str (boost::format ("UDP Receive error: %1%") % error.message ());
-			}
+			BOOST_LOG (node.log) << boost::str (boost::format ("Reserved sender %1%") % data_a->endpoint.address ().to_string ());
 		}
-		if (on)
-		{
-			node.alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (5), [this]() { receive (); });
-		}
+
+		node.stats.inc_detail_only (rai::stat::type::error, rai::stat::detail::bad_sender);
 	}
 }
 
@@ -1507,6 +1561,13 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 			++count;
 		}
 	}
+	// Start elections for recent blocks
+	while (!processed_active.empty ())
+	{
+		auto block (processed_active.front ());
+		processed_active.pop_front ();
+		node.active.start (block);
+	}
 	lock_a.unlock ();
 }
 
@@ -1527,7 +1588,7 @@ rai::process_return rai::block_processor::process_receive_one (rai::transaction 
 			}
 			if (node.block_arrival.recent (hash))
 			{
-				node.active.start (block_a);
+				processed_active.push_back (block_a);
 			}
 			queue_unchecked (transaction_a, hash);
 			break;
@@ -2110,7 +2171,7 @@ rai::endpoint rai::peer_container::bootstrap_peer ()
 	;
 	for (auto i (peers.get<4> ().begin ()), n (peers.get<4> ().end ()); i != n;)
 	{
-		if (i->network_version >= 0x5)
+		if (i->network_version >= protocol_version_reasonable_min)
 		{
 			result = i->endpoint;
 			peers.get<4> ().modify (i, [](rai::peer_information & peer_a) {
@@ -2256,7 +2317,7 @@ bool rai::parse_tcp_endpoint (std::string const & string, rai::tcp_endpoint & en
 
 void rai::node::start ()
 {
-	network.receive ();
+	network.start ();
 	ongoing_keepalive ();
 	ongoing_syn_cookie_cleanup ();
 	ongoing_bootstrap ();
@@ -2428,9 +2489,11 @@ void rai::node::backup_wallet ()
 	auto transaction (store.tx_begin_read ());
 	for (auto i (wallets.items.begin ()), n (wallets.items.end ()); i != n; ++i)
 	{
+		boost::system::error_code error_chmod;
 		auto backup_path (application_path / "backup");
+
 		boost::filesystem::create_directories (backup_path);
-		boost::filesystem::permissions (backup_path, boost::filesystem::owner_all);
+		rai::set_secure_perm_directory (backup_path, error_chmod);
 		i->second->store.write_backup (transaction, backup_path / (i->first.to_string () + ".json"));
 	}
 	auto this_l (shared ());
@@ -3545,14 +3608,18 @@ void rai::election::abort ()
 	aborted = true;
 }
 
-bool rai::election::have_quorum (rai::tally_t const & tally_a)
+bool rai::election::have_quorum (rai::tally_t const & tally_a, rai::uint128_t tally_sum)
 {
-	auto i (tally_a.begin ());
-	auto first (i->first);
-	++i;
-	auto second (i != tally_a.end () ? i->first : 0);
-	auto delta_l (node.delta ());
-	auto result (tally_a.begin ()->first > (second + delta_l));
+	bool result = false;
+	if (tally_sum >= node.config.online_weight_minimum.number ())
+	{
+		auto i (tally_a.begin ());
+		auto first (i->first);
+		++i;
+		auto second (i != tally_a.end () ? i->first : 0);
+		auto delta_l (node.delta ());
+		result = tally_a.begin ()->first > (second + delta_l);
+	}
 	return result;
 }
 
@@ -3588,13 +3655,13 @@ void rai::election::confirm_if_quorum (rai::transaction const & transaction_a)
 	{
 		sum += i.first;
 	}
-	if (sum >= node.config.online_weight_minimum.number () && !(*block_l == *status.winner))
+	if (sum >= node.config.online_weight_minimum.number () && block_l->hash () != status.winner->hash ())
 	{
 		auto node_l (node.shared ());
 		node_l->block_processor.force (block_l);
 		status.winner = block_l;
 	}
-	if (have_quorum (tally_l))
+	if (have_quorum (tally_l, sum))
 	{
 		if (node.config.logging.vote_logging () || blocks.size () > 1)
 		{
@@ -3808,7 +3875,7 @@ void rai::active_transactions::announce_votes ()
 						election_l->compute_rep_votes (transaction);
 					}
 				}
-				else if (i->announcements > 3)
+				else
 				{
 					election_l->abort ();
 				}
@@ -4103,8 +4170,13 @@ service (boost::make_shared<boost::asio::io_service> ()),
 alarm (*service),
 work (1, nullptr)
 {
+	boost::system::error_code error_chmod;
+
+	/*
+	 * @warning May throw a filesystem exception
+	 */
 	boost::filesystem::create_directories (path);
-	boost::filesystem::permissions (path, boost::filesystem::owner_all);
+	rai::set_secure_perm_directory (path, error_chmod);
 	logging.max_size = std::numeric_limits<std::uintmax_t>::max ();
 	logging.init (path);
 	node = std::make_shared<rai::node> (init, *service, 24000, path, alarm, logging, work);
@@ -4278,4 +4350,80 @@ void rai::port_mapping::stop ()
 	}
 	freeUPNPDevlist (devices);
 	devices = nullptr;
+}
+
+rai::udp_buffer::udp_buffer (rai::stat & stats, size_t size, size_t count) :
+stats (stats),
+free (count),
+full (count),
+slab (size * count),
+entries (count),
+stopped (false)
+{
+	assert (count > 0);
+	assert (size > 0);
+	auto slab_data (slab.data ());
+	auto entry_data (entries.data ());
+	for (auto i (0); i < count; ++i, ++entry_data)
+	{
+		*entry_data = { slab_data + i * size, 0, rai::endpoint () };
+		free.push_back (entry_data);
+	}
+}
+rai::udp_data * rai::udp_buffer::allocate ()
+{
+	std::unique_lock<std::mutex> lock (mutex);
+	while (!stopped && free.empty () && full.empty ())
+	{
+		stats.inc (rai::stat::type::udp, rai::stat::detail::blocking, rai::stat::dir::in);
+		condition.wait (lock);
+	}
+	rai::udp_data * result (nullptr);
+	if (!free.empty ())
+	{
+		result = free.front ();
+		free.pop_front ();
+	}
+	if (result == nullptr)
+	{
+		result = full.front ();
+		full.pop_front ();
+		stats.inc (rai::stat::type::udp, rai::stat::detail::overflow, rai::stat::dir::in);
+	}
+	return result;
+}
+void rai::udp_buffer::enqueue (rai::udp_data * data_a)
+{
+	assert (data_a != nullptr);
+	std::lock_guard<std::mutex> lock (mutex);
+	full.push_back (data_a);
+	condition.notify_one ();
+}
+rai::udp_data * rai::udp_buffer::dequeue ()
+{
+	std::unique_lock<std::mutex> lock (mutex);
+	while (!stopped && full.empty ())
+	{
+		condition.wait (lock);
+	}
+	rai::udp_data * result (nullptr);
+	if (!full.empty ())
+	{
+		result = full.front ();
+		full.pop_front ();
+	}
+	return result;
+}
+void rai::udp_buffer::release (rai::udp_data * data_a)
+{
+	assert (data_a != nullptr);
+	std::lock_guard<std::mutex> lock (mutex);
+	free.push_back (data_a);
+	condition.notify_one ();
+}
+void rai::udp_buffer::stop ()
+{
+	std::lock_guard<std::mutex> lock (mutex);
+	stopped = true;
+	condition.notify_all ();
 }
