@@ -338,13 +338,20 @@ void rai::network::broadcast_confirm_req (std::shared_ptr<rai::block> block_a)
 	broadcast_confirm_req_base (block_a, list, 0);
 }
 
-void rai::network::broadcast_confirm_req_base (std::shared_ptr<rai::block> block_a, std::shared_ptr<std::vector<rai::peer_information>> endpoints_a, unsigned delay_a, bool resumption)
+void rai::network::broadcast_confirm_req_base (std::shared_ptr<rai::block> block_a, std::shared_ptr<std::vector<rai::peer_information>> endpoints_a, unsigned delay_a)
 {
 	const size_t max_reps = 10;
-	if (!resumption && node.config.logging.network_logging ())
+	if (node.config.logging.network_logging ())
 	{
-		BOOST_LOG (node.log) << boost::str (boost::format ("Broadcasting confirm req for block %1% to %2% representatives") % block_a->hash ().to_string () % endpoints_a->size ());
+		auto endpoint_count (endpoints_a->size ());
+		if (endpoint_count > max_reps)
+		{
+			endpoint_count = max_reps;
+		}
+
+		BOOST_LOG (node.log) << boost::str (boost::format ("Broadcasting confirm req for block %1% to %2% representatives") % block_a->hash ().to_string () % endpoint_count);
 	}
+
 	auto count (0);
 	while (!endpoints_a->empty () && count < max_reps)
 	{
@@ -352,13 +359,21 @@ void rai::network::broadcast_confirm_req_base (std::shared_ptr<rai::block> block
 		endpoints_a->pop_back ();
 		count++;
 	}
+
 	if (!endpoints_a->empty ())
 	{
+		delay_a += 50;
+
+		if (node.config.logging.network_logging ())
+		{
+			BOOST_LOG (node.log) << boost::str (boost::format ("Scheduling more confirm req for block %1% to %2% more representatives in %3% ms") % block_a->hash ().to_string () % endpoints_a->size () % delay_a);
+		}
+
 		std::weak_ptr<rai::node> node_w (node.shared ());
 		node.alarm.add (std::chrono::steady_clock::now () + std::chrono::milliseconds (delay_a), [node_w, block_a, endpoints_a, delay_a]() {
 			if (auto node_l = node_w.lock ())
 			{
-				node_l->network.broadcast_confirm_req_base (block_a, endpoints_a, delay_a + 50, true);
+				node_l->network.broadcast_confirm_req_base (block_a, endpoints_a, delay_a);
 			}
 		});
 	}
