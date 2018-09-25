@@ -1,10 +1,11 @@
+#include <rai/node/stats.hpp>
+
 #include <boost/asio.hpp>
 #include <boost/format.hpp>
 #include <boost/property_tree/json_parser.hpp>
 #include <ctime>
 #include <fstream>
 #include <iostream>
-#include <rai/node/stats.hpp>
 #include <sstream>
 #include <tuple>
 
@@ -323,8 +324,14 @@ std::string rai::stat::type_to_string (uint32_t key)
 		case rai::stat::type::error:
 			res = "error";
 			break;
+		case rai::stat::type::http_callback:
+			res = "http_callback";
+			break;
 		case rai::stat::type::ledger:
 			res = "ledger";
+			break;
+		case rai::stat::type::udp:
+			res = "udp";
 			break;
 		case rai::stat::type::peering:
 			res = "peering";
@@ -360,8 +367,8 @@ std::string rai::stat::detail_to_string (uint32_t key)
 		case rai::stat::detail::bulk_pull:
 			res = "bulk_pull";
 			break;
-		case rai::stat::detail::bulk_pull_blocks:
-			res = "bulk_pull_blocks";
+		case rai::stat::detail::bulk_pull_account:
+			res = "bulk_pull_account";
 			break;
 		case rai::stat::detail::bulk_push:
 			res = "bulk_push";
@@ -383,6 +390,9 @@ std::string rai::stat::detail_to_string (uint32_t key)
 			break;
 		case rai::stat::detail::handshake:
 			res = "handshake";
+			break;
+		case rai::stat::detail::http_callback:
+			res = "http_callback";
 			break;
 		case rai::stat::detail::initiate:
 			res = "initiate";
@@ -411,6 +421,9 @@ std::string rai::stat::detail_to_string (uint32_t key)
 		case rai::stat::detail::state_block:
 			res = "state_block";
 			break;
+		case rai::stat::detail::epoch_block:
+			res = "epoch_block";
+			break;
 		case rai::stat::detail::vote_valid:
 			res = "vote_valid";
 			break;
@@ -419,6 +432,12 @@ std::string rai::stat::detail_to_string (uint32_t key)
 			break;
 		case rai::stat::detail::vote_invalid:
 			res = "vote_invalid";
+			break;
+		case rai::stat::detail::blocking:
+			res = "blocking";
+			break;
+		case rai::stat::detail::overflow:
+			res = "overflow";
 			break;
 	}
 	return res;

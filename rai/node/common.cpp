@@ -84,6 +84,9 @@ void rai::message_header::ipv4_only_set (bool value_a)
 	extensions.set (ipv4_only_position, value_a);
 }
 
+// MTU - IP header - UDP header
+const size_t rai::message_parser::max_safe_udp_message_size = 508;
+
 rai::message_parser::message_parser (rai::message_visitor & visitor_a, rai::work_pool & pool_a) :
 visitor (visitor_a),
 pool (pool_a),
@@ -94,48 +97,59 @@ status (parse_status::success)
 void rai::message_parser::deserialize_buffer (uint8_t const * buffer_a, size_t size_a)
 {
 	status = parse_status::success;
-	rai::bufferstream stream (buffer_a, size_a);
 	auto error (false);
-	rai::message_header header (error, stream);
-	if (!error)
+	if (size_a <= max_safe_udp_message_size)
 	{
-		switch (header.type)
+		// Guaranteed to be deliverable
+		rai::bufferstream stream (buffer_a, size_a);
+		rai::message_header header (error, stream);
+		if (!error)
 		{
-			case rai::message_type::keepalive:
+			if (rai::rai_network == rai::rai_networks::rai_beta_network && header.version_using < rai::protocol_version_reasonable_min)
 			{
-				deserialize_keepalive (stream, header);
-				break;
+				status = parse_status::outdated_version;
 			}
-			case rai::message_type::publish:
+			else
 			{
-				deserialize_publish (stream, header);
-				break;
-			}
-			case rai::message_type::confirm_req:
-			{
-				deserialize_confirm_req (stream, header);
-				break;
-			}
-			case rai::message_type::confirm_ack:
-			{
-				deserialize_confirm_ack (stream, header);
-				break;
-			}
-			case rai::message_type::node_id_handshake:
-			{
-				deserialize_node_id_handshake (stream, header);
-				break;
-			}
-			default:
-			{
-				status = parse_status::invalid_message_type;
-				break;
+				switch (header.type)
+				{
+					case rai::message_type::keepalive:
+					{
+						deserialize_keepalive (stream, header);
+						break;
+					}
+					case rai::message_type::publish:
+					{
+						deserialize_publish (stream, header);
+						break;
+					}
+					case rai::message_type::confirm_req:
+					{
+						deserialize_confirm_req (stream, header);
+						break;
+					}
+					case rai::message_type::confirm_ack:
+					{
+						deserialize_confirm_ack (stream, header);
+						break;
+					}
+					case rai::message_type::node_id_handshake:
+					{
+						deserialize_node_id_handshake (stream, header);
+						break;
+					}
+					default:
+					{
+						status = parse_status::invalid_message_type;
+						break;
+					}
+				}
 			}
 		}
-	}
-	else
-	{
-		status = parse_status::invalid_header;
+		else
+		{
+			status = parse_status::invalid_header;
+		}
 	}
 }
 
@@ -201,13 +215,21 @@ void rai::message_parser::deserialize_confirm_ack (rai::stream & stream_a, rai::
 	rai::confirm_ack incoming (error, stream_a, header_a);
 	if (!error && at_end (stream_a))
 	{
-		if (!rai::work_validate (*incoming.vote->block))
+		for (auto & vote_block : incoming.vote->blocks)
+		{
+			if (!vote_block.which ())
+			{
+				auto block (boost::get<std::shared_ptr<rai::block>> (vote_block));
+				if (rai::work_validate (*block))
+				{
+					status = parse_status::insufficient_work;
+					break;
+				}
+			}
+		}
+		if (status == parse_status::success)
 		{
 			visitor.confirm_ack (incoming);
-		}
-		else
-		{
-			status = parse_status::insufficient_work;
 		}
 	}
 	else
@@ -218,7 +240,7 @@ void rai::message_parser::deserialize_confirm_ack (rai::stream & stream_a, rai::
 
 void rai::message_parser::deserialize_node_id_handshake (rai::stream & stream_a, rai::message_header const & header_a)
 {
-	bool error_l;
+	bool error_l (false);
 	rai::node_id_handshake incoming (error_l, stream_a, header_a);
 	if (!error_l && at_end (stream_a))
 	{
@@ -390,7 +412,15 @@ rai::confirm_ack::confirm_ack (std::shared_ptr<rai::vote> vote_a) :
 message (rai::message_type::confirm_ack),
 vote (vote_a)
 {
-	header.block_type_set (vote->block->type ());
+	auto & first_vote_block (vote_a->blocks[0]);
+	if (first_vote_block.which ())
+	{
+		header.block_type_set (rai::block_type::not_a_block);
+	}
+	else
+	{
+		header.block_type_set (boost::get<std::shared_ptr<rai::block>> (first_vote_block)->type ());
+	}
 }
 
 bool rai::confirm_ack::deserialize (rai::stream & stream_a)
@@ -402,7 +432,7 @@ bool rai::confirm_ack::deserialize (rai::stream & stream_a)
 
 void rai::confirm_ack::serialize (rai::stream & stream_a)
 {
-	assert (header.block_type () == rai::block_type::send || header.block_type () == rai::block_type::receive || header.block_type () == rai::block_type::open || header.block_type () == rai::block_type::change || header.block_type () == rai::block_type::state);
+	assert (header.block_type () == rai::block_type::not_a_block || header.block_type () == rai::block_type::send || header.block_type () == rai::block_type::receive || header.block_type () == rai::block_type::open || header.block_type () == rai::block_type::change || header.block_type () == rai::block_type::state);
 	header.serialize (stream_a);
 	vote->serialize (stream_a, header.block_type ());
 }
@@ -500,6 +530,48 @@ void rai::bulk_pull::serialize (rai::stream & stream_a)
 	header.serialize (stream_a);
 	write (stream_a, start);
 	write (stream_a, end);
+}
+
+rai::bulk_pull_account::bulk_pull_account () :
+message (rai::message_type::bulk_pull_account)
+{
+}
+
+rai::bulk_pull_account::bulk_pull_account (bool & error_a, rai::stream & stream_a, rai::message_header const & header_a) :
+message (header_a)
+{
+	if (!error_a)
+	{
+		error_a = deserialize (stream_a);
+	}
+}
+
+void rai::bulk_pull_account::visit (rai::message_visitor & visitor_a) const
+{
+	visitor_a.bulk_pull_account (*this);
+}
+
+bool rai::bulk_pull_account::deserialize (rai::stream & stream_a)
+{
+	assert (header.type == rai::message_type::bulk_pull_account);
+	auto result (read (stream_a, account));
+	if (!result)
+	{
+		result = read (stream_a, minimum_amount);
+		if (!result)
+		{
+			result = read (stream_a, flags);
+		}
+	}
+	return result;
+}
+
+void rai::bulk_pull_account::serialize (rai::stream & stream_a)
+{
+	header.serialize (stream_a);
+	write (stream_a, account);
+	write (stream_a, minimum_amount);
+	write (stream_a, flags);
 }
 
 rai::bulk_pull_blocks::bulk_pull_blocks () :

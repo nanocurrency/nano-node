@@ -1,8 +1,9 @@
-#include <rai/icon.hpp>
+#include <rai/lib/utility.hpp>
 #include <rai/node/cli.hpp>
 #include <rai/node/rpc.hpp>
 #include <rai/node/working.hpp>
 #include <rai/qt/qt.hpp>
+#include <rai/rai_wallet/icon.hpp>
 
 #include <boost/make_shared.hpp>
 #include <boost/program_options.hpp>
@@ -190,7 +191,9 @@ bool update_config (qt_wallet_config & config_a, boost::filesystem::path const &
 int run_wallet (QApplication & application, int argc, char * const * argv, boost::filesystem::path const & data_path)
 {
 	rai_qt::eventloop_processor processor;
+	boost::system::error_code error_chmod;
 	boost::filesystem::create_directories (data_path);
+	rai::set_secure_perm_directory (data_path, error_chmod);
 	QPixmap pixmap (":/logo.png");
 	QSplashScreen * splash = new QSplashScreen (pixmap);
 	splash->show ();
@@ -203,6 +206,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 	std::fstream config_file;
 	auto error (rai::fetch_object (config, config_path, config_file));
 	config_file.close ();
+	rai::set_secure_perm_file (config_path, error_chmod);
 	if (!error)
 	{
 		boost::asio::io_service service;
@@ -236,11 +240,11 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 			}
 			if (config.account.is_zero () || !wallet->exists (config.account))
 			{
-				rai::transaction transaction (wallet->store.environment, nullptr, true);
+				auto transaction (wallet->wallets.tx_begin (true));
 				auto existing (wallet->store.begin (transaction));
 				if (existing != wallet->store.end ())
 				{
-					rai::uint256_union account (existing->first.uint256 ());
+					rai::uint256_union account (existing->first);
 					config.account = account;
 				}
 				else
@@ -285,6 +289,8 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 
 int main (int argc, char * const * argv)
 {
+	rai::set_umask ();
+
 	try
 	{
 		QApplication application (argc, const_cast<char **> (argv));

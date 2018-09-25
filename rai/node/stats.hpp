@@ -6,7 +6,6 @@
 #include <chrono>
 #include <map>
 #include <memory>
-#include <mutex>
 #include <rai/lib/utility.hpp>
 #include <string>
 #include <unordered_map>
@@ -184,7 +183,9 @@ public:
 		rollback,
 		bootstrap,
 		vote,
-		peering
+		http_callback,
+		peering,
+		udp
 	};
 
 	/** Optional detail type */
@@ -195,6 +196,7 @@ public:
 		// error specific
 		bad_sender,
 		insufficient_work,
+		http_callback,
 
 		// ledger, block, bootstrap
 		send,
@@ -202,6 +204,7 @@ public:
 		open,
 		change,
 		state_block,
+		epoch_block,
 
 		// message specific
 		keepalive,
@@ -211,17 +214,23 @@ public:
 		confirm_ack,
 		node_id_handshake,
 
-		// bootstrap specific
+		// bootstrap, callback
 		initiate,
+
+		// bootstrap specific
 		bulk_pull,
 		bulk_push,
-		bulk_pull_blocks,
+		bulk_pull_account,
 		frontier_req,
 
 		// vote specific
 		vote_valid,
 		vote_replay,
 		vote_invalid,
+
+		// udp
+		blocking,
+		overflow,
 
 		// peering
 		handshake,
