@@ -3870,10 +3870,6 @@ void rai::active_transactions::announce_votes ()
 							blocks_bundle.clear ();
 						}
 					}
-					else
-					{
-						election_l->compute_rep_votes (transaction);
-					}
 				}
 				else
 				{
