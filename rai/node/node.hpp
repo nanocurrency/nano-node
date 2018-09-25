@@ -448,6 +448,7 @@ public:
 	void rpc_action (boost::system::error_code const &, size_t);
 	void republish_vote (std::shared_ptr<rai::vote>);
 	void republish_block (rai::transaction const &, std::shared_ptr<rai::block>, bool = true);
+	void republish_block_batch (std::deque<std::shared_ptr<rai::block>>, unsigned = 100);
 	void republish (rai::block_hash const &, std::shared_ptr<std::vector<uint8_t>>, rai::endpoint);
 	void publish_broadcast (std::vector<rai::peer_information> &, std::unique_ptr<rai::block>);
 	void confirm_send (rai::confirm_ack const &, std::shared_ptr<std::vector<uint8_t>>, rai::endpoint const &);
