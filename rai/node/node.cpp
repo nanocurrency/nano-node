@@ -1593,7 +1593,7 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 	 * Copy "processed_active" to a local variable so that we
 	 * may operate on it without holding the mutex.
 	 */
-	decltype(processed_active) processed_active_copy;
+	decltype (processed_active) processed_active_copy;
 	processed_active_copy.swap (processed_active);
 
 	lock_a.unlock ();
@@ -1605,7 +1605,6 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 		processed_active_copy.pop_front ();
 		node.active.start (block);
 	}
-
 }
 
 rai::process_return rai::block_processor::process_receive_one (rai::transaction const & transaction_a, std::shared_ptr<rai::block> block_a, std::chrono::steady_clock::time_point origination)
