@@ -439,6 +439,12 @@ std::string rai::stat::detail_to_string (uint32_t key)
 		case rai::stat::detail::overflow:
 			res = "overflow";
 			break;
+		case rai::stat::detail::invalid_magic:
+			res = "invalid_magic";
+			break;
+		case rai::stat::detail::invalid_network:
+			res = "invalid_network";
+			break;
 	}
 	return res;
 }
