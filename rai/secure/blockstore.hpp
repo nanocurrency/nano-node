@@ -178,7 +178,7 @@ public:
 	virtual std::shared_ptr<rai::vote> vote_generate (rai::transaction const &, rai::account const &, rai::raw_key const &, std::shared_ptr<rai::block>) = 0;
 	virtual std::shared_ptr<rai::vote> vote_generate (rai::transaction const &, rai::account const &, rai::raw_key const &, std::vector<rai::block_hash>) = 0;
 	// Return either vote or the stored vote with a higher sequence number
-	virtual std::shared_ptr<rai::vote> vote_max (rai::transaction const &, std::shared_ptr<rai::vote>) = 0;
+	virtual std::shared_ptr<rai::vote> vote_max (rai::transaction const &, std::shared_ptr<rai::vote>, rai::vote_code &) = 0;
 	// Return latest vote for an account considering the vote cache
 	virtual std::shared_ptr<rai::vote> vote_current (rai::transaction const &, rai::account const &) = 0;
 	virtual void flush (rai::transaction const &) = 0;

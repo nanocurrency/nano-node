@@ -2,6 +2,7 @@
 
 #include <rai/lib/utility.hpp>
 #include <rai/node/common.hpp>
+#include <rai/secure/common.hpp>
 #include <rai/secure/versioning.hpp>
 
 #include <boost/polymorphic_cast.hpp>
@@ -1884,15 +1885,24 @@ std::shared_ptr<rai::vote> rai::mdb_store::vote_generate (rai::transaction const
 	return result;
 }
 
-std::shared_ptr<rai::vote> rai::mdb_store::vote_max (rai::transaction const & transaction_a, std::shared_ptr<rai::vote> vote_a)
+std::shared_ptr<rai::vote> rai::mdb_store::vote_max (rai::transaction const & transaction_a, std::shared_ptr<rai::vote> vote_a, rai::vote_code & vote_result)
 {
 	std::lock_guard<std::mutex> lock (cache_mutex);
 	auto current (vote_current (transaction_a, vote_a->account));
 	auto result (vote_a);
+
+
 	if (current != nullptr && current->sequence > result->sequence)
 	{
+		vote_result = rai::vote_code::replay;
+
 		result = current;
 	}
+	else
+	{
+		vote_result = rai::vote_code::vote;
+	}
+
 	vote_cache[vote_a->account] = result;
 	return result;
 }
