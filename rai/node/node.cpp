@@ -5,6 +5,7 @@
 #include <rai/node/common.hpp>
 #include <rai/node/rpc.hpp>
 
+#include <cstdlib>
 #include <algorithm>
 #include <future>
 #include <sstream>
@@ -363,6 +364,7 @@ void rai::network::broadcast_confirm_req_base (std::shared_ptr<rai::block> block
 	if (!endpoints_a->empty ())
 	{
 		delay_a += 50;
+		delay_a += std::rand() % 30;
 
 		if (node.config.logging.network_logging ())
 		{
