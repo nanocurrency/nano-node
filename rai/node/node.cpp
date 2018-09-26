@@ -334,6 +334,21 @@ void rai::network::broadcast_confirm_req (std::shared_ptr<rai::block> block_a)
 		// broadcast request to all peers
 		list = std::make_shared<std::vector<rai::peer_information>> (node.peers.list_vector ());
 	}
+
+	/*
+	 * In either case (broadcasting to all representatives, or broadcasting to
+	 * all peers because there are not enough connected representatives),
+	 * limit each instance to a single random up-to-32 selection.  The invoker
+	 * of "broadcast_confirm_req" will be responsible for calling it again
+	 * if the votes for a block have not arrived in time.
+	 */
+	const size_t max_endpoints = 32;
+	std::random_shuffle (list->begin (), list->end ());
+	if (list->size () > max_endpoints)
+	{
+		list->erase (list->begin () + max_endpoints, list->end ());
+	}
+
 	broadcast_confirm_req_base (block_a, list, 0);
 }
 
