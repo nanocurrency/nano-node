@@ -3888,7 +3888,7 @@ void rai::active_transactions::announce_votes ()
 							auto previous (node.store.block_get (transaction, previous_hash));
 							if (previous != nullptr)
 							{
-								start (previous);
+								start (std::move (previous));
 							}
 						}
 						auto source_hash (node.ledger.block_source (transaction, *election_l->status.winner));
@@ -3897,7 +3897,7 @@ void rai::active_transactions::announce_votes ()
 							auto source (node.store.block_get (transaction, source_hash));
 							if (source != nullptr)
 							{
-								start (source);
+								start (std::move (source));
 							}
 						}
 					}
