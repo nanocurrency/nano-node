@@ -1599,10 +1599,8 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 	lock_a.unlock ();
 
 	// Start elections for recent blocks
-	while (!processed_active_copy.empty ())
+	for (const auto & block : processed_active_copy)
 	{
-		auto block (processed_active_copy.front ());
-		processed_active_copy.pop_front ();
 		node.active.start (block);
 	}
 }
