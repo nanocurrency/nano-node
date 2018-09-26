@@ -1624,14 +1624,21 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 			++count;
 		}
 	}
+
+	/*
+	 * Copy "processed_active" to a local variable so that we
+	 * may operate on it without holding the mutex.
+	 */
+	decltype (processed_active) processed_active_copy;
+	processed_active_copy.swap (processed_active);
+
+	lock_a.unlock ();
+
 	// Start elections for recent blocks
-	while (!processed_active.empty ())
+	for (const auto & block : processed_active_copy)
 	{
-		auto block (processed_active.front ());
-		processed_active.pop_front ();
 		node.active.start (block);
 	}
-	lock_a.unlock ();
 }
 
 rai::process_return rai::block_processor::process_receive_one (MDB_txn * transaction_a, std::shared_ptr<rai::block> block_a, std::chrono::steady_clock::time_point origination)
@@ -1651,6 +1658,13 @@ rai::process_return rai::block_processor::process_receive_one (MDB_txn * transac
 			}
 			if (node.block_arrival.recent (hash))
 			{
+				/*
+				 * The dequeuing of this buffer uses the mutex
+				 * named "mutex", so we must use it when we
+				 * enqueue it.
+				 */
+				std::unique_lock<std::mutex> lock (mutex);
+
 				processed_active.push_back (block_a);
 			}
 			queue_unchecked (transaction_a, hash);
