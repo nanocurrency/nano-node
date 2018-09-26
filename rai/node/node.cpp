@@ -303,6 +303,38 @@ void rai::network::republish_block (rai::transaction const & transaction, std::s
 	}
 }
 
+void rai::network::republish_block_batch (std::deque<std::shared_ptr<rai::block>> blocks_a, unsigned delay_a)
+{
+	auto block (blocks_a.front ());
+	blocks_a.pop_front ();
+	auto hash (block->hash ());
+	auto list (node.peers.list_fanout ());
+	rai::publish message (block);
+	std::shared_ptr<std::vector<uint8_t>> bytes (new std::vector<uint8_t>);
+	{
+		rai::vectorstream stream (*bytes);
+		message.serialize (stream);
+	}
+	for (auto i (list.begin ()), n (list.end ()); i != n; ++i)
+	{
+		republish (hash, bytes, *i);
+	}
+	if (node.config.logging.network_logging ())
+	{
+		BOOST_LOG (node.log) << boost::str (boost::format ("Block %1% was republished to peers") % hash.to_string ());
+	}
+	if (!blocks_a.empty ())
+	{
+		std::weak_ptr<rai::node> node_w (node.shared ());
+		node.alarm.add (std::chrono::steady_clock::now () + std::chrono::milliseconds (delay_a), [node_w, blocks_a, delay_a]() {
+			if (auto node_l = node_w.lock ())
+			{
+				node_l->network.republish_block_batch (blocks_a, delay_a);
+			}
+		});
+	}
+}
+
 // In order to rate limit network traffic we republish:
 // 1) Only if they are a non-replay vote of a block that's actively settling. Settling blocks are limited by block PoW
 // 2) The rep has a weight > Y to prevent creating a lot of small-weight accounts to send out votes
@@ -3865,6 +3897,7 @@ void rai::active_transactions::announce_votes ()
 	unsigned unconfirmed_announcements (0);
 	unsigned mass_request_count (0);
 	std::vector<rai::block_hash> blocks_bundle;
+	std::deque<std::shared_ptr<rai::block>> rebroadcast_bundle;
 
 	for (auto i (roots.begin ()), n (roots.end ()); i != n; ++i)
 	{
@@ -3901,7 +3934,7 @@ void rai::active_transactions::announce_votes ()
 				{
 					if (node.config.enable_voting && std::chrono::system_clock::now () >= node.config.generate_hash_votes_at)
 					{
-						node.network.republish_block (transaction, election_l->status.winner, false);
+						rebroadcast_bundle.push_back (election_l->status.winner);
 						blocks_bundle.push_back (election_l->status.winner->hash ());
 						if (blocks_bundle.size () >= 12)
 						{
@@ -3915,7 +3948,7 @@ void rai::active_transactions::announce_votes ()
 					else
 					{
 						election_l->compute_rep_votes (transaction);
-						node.network.republish_block (transaction, election_l->status.winner);
+						rebroadcast_bundle.push_back (election_l->status.winner);
 					}
 				}
 				else
@@ -3970,6 +4003,12 @@ void rai::active_transactions::announce_votes ()
 			++info_a.announcements;
 		});
 	}
+	// Rebroadcast unconfirmed blocks
+	if (!rebroadcast_bundle.empty ())
+	{
+		node.network.republish_block_batch (rebroadcast_bundle);
+	}
+	// Request votes for unconfirmed blocks
 	if (node.config.enable_voting && !blocks_bundle.empty ())
 	{
 		node.wallets.foreach_representative (transaction, [&](rai::public_key const & pub_a, rai::raw_key const & prv_a) {
@@ -4010,7 +4049,7 @@ void rai::active_transactions::announce_loop ()
 	while (!stopped)
 	{
 		announce_votes ();
-		condition.wait_for (lock, std::chrono::milliseconds (announce_interval_ms));
+		condition.wait_for (lock, std::chrono::milliseconds (announce_interval_ms + roots.size () * node.network.broadcast_interval_ms));
 	}
 }
 
