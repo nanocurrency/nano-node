@@ -1891,7 +1891,6 @@ std::shared_ptr<rai::vote> rai::mdb_store::vote_max (rai::transaction const & tr
 	auto current (vote_current (transaction_a, vote_a->account));
 	auto result (vote_a);
 
-
 	if (current != nullptr && current->sequence > result->sequence)
 	{
 		vote_result = rai::vote_code::replay;
