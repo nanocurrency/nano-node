@@ -1615,6 +1615,13 @@ rai::process_return rai::block_processor::process_receive_one (rai::transaction 
 			}
 			if (node.block_arrival.recent (hash))
 			{
+				/*
+				 * The dequeuing of this buffer uses the mutex
+				 * named "mutex", so we must use it when we
+				 * enqueue it.
+				 */
+				std::unique_lock<std::mutex> lock (mutex);
+
 				processed_active.push_back (block_a);
 			}
 			queue_unchecked (transaction_a, hash);
@@ -3685,8 +3692,17 @@ void rai::election::confirm_if_quorum (rai::transaction const & transaction_a)
 	if (sum >= node.config.online_weight_minimum.number () && block_l->hash () != status.winner->hash ())
 	{
 		auto node_l (node.shared ());
-		node_l->block_processor.force (block_l);
 		status.winner = block_l;
+
+		/*
+		 * Create a background job entry to force this block
+		 * through the block_processor. (note we moved it
+		 * after assigning the winner to be clear that it
+		 * occurs after in time).
+		 */
+		node.background ([node_l, block_l]() {
+			node_l->block_processor.force (block_l);
+		});
 	}
 	if (have_quorum (tally_l, sum))
 	{
