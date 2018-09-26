@@ -1639,14 +1639,17 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 			++count;
 		}
 	}
+
+	lock_a.unlock ();
+
 	// Start elections for recent blocks
+	std::unique_lock<std::mutex> lock_processed_active (processed_active_mutex);
 	while (!processed_active.empty ())
 	{
 		auto block (processed_active.front ());
 		processed_active.pop_front ();
 		node.active.start (block);
 	}
-	lock_a.unlock ();
 }
 
 rai::process_return rai::block_processor::process_receive_one (rai::transaction const & transaction_a, std::shared_ptr<rai::block> block_a, std::chrono::steady_clock::time_point origination)
@@ -1666,6 +1669,7 @@ rai::process_return rai::block_processor::process_receive_one (rai::transaction 
 			}
 			if (node.block_arrival.recent (hash))
 			{
+				std::unique_lock<std::mutex> lock_processed_active (processed_active_mutex);
 				processed_active.push_back (block_a);
 			}
 			queue_unchecked (transaction_a, hash);

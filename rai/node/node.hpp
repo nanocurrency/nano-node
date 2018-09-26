@@ -595,6 +595,7 @@ private:
 	std::condition_variable condition;
 	rai::node & node;
 	std::mutex mutex;
+	std::mutex processed_active_mutex;
 };
 class node : public std::enable_shared_from_this<rai::node>
 {
