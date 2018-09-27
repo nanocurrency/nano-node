@@ -15,7 +15,7 @@ class mdb_env;
 class mdb_txn : public transaction_impl
 {
 public:
-	mdb_txn (rai::mdb_env const &, bool = false);
+	mdb_txn (rai::mdb_env const &, bool, size_t);
 	mdb_txn (rai::mdb_txn const &) = delete;
 	mdb_txn (rai::mdb_txn &&) = default;
 	~mdb_txn ();
@@ -23,6 +23,7 @@ public:
 	rai::mdb_txn & operator= (rai::mdb_txn &&) = default;
 	operator MDB_txn * () const;
 	MDB_txn * handle;
+	boost::optional<size_t> resource_lock_id;
 };
 /**
  * RAII wrapper for MDB_env
@@ -36,6 +37,7 @@ public:
 	rai::transaction tx_begin (bool = false) const;
 	MDB_txn * tx (rai::transaction const &) const;
 	MDB_env * environment;
+	size_t resource_lock_id;
 };
 
 /**
