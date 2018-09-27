@@ -272,42 +272,8 @@ bool confirm_block (rai::transaction const & transaction_a, rai::node & node_a, 
 	return result;
 }
 
-void rai::network::republish_block (rai::transaction const & transaction, std::shared_ptr<rai::block> block, bool enable_voting)
+void rai::network::republish_block (std::shared_ptr<rai::block> block)
 {
-	auto hash (block->hash ());
-	auto list (node.peers.list_fanout ());
-	// If we're a representative, broadcast a signed confirm, otherwise an unsigned publish
-	if (!enable_voting || !confirm_block (transaction, node, list, block))
-	{
-		rai::publish message (block);
-		std::shared_ptr<std::vector<uint8_t>> bytes (new std::vector<uint8_t>);
-		{
-			rai::vectorstream stream (*bytes);
-			message.serialize (stream);
-		}
-		auto hash (block->hash ());
-		for (auto i (list.begin ()), n (list.end ()); i != n; ++i)
-		{
-			republish (hash, bytes, *i);
-		}
-		if (node.config.logging.network_logging ())
-		{
-			BOOST_LOG (node.log) << boost::str (boost::format ("Block %1% was republished to peers") % hash.to_string ());
-		}
-	}
-	else
-	{
-		if (node.config.logging.network_logging ())
-		{
-			BOOST_LOG (node.log) << boost::str (boost::format ("Block %1% was confirmed to peers") % hash.to_string ());
-		}
-	}
-}
-
-void rai::network::republish_block_batch (std::deque<std::shared_ptr<rai::block>> blocks_a, unsigned delay_a)
-{
-	auto block (blocks_a.front ());
-	blocks_a.pop_front ();
 	auto hash (block->hash ());
 	auto list (node.peers.list_fanout ());
 	rai::publish message (block);
@@ -324,6 +290,29 @@ void rai::network::republish_block_batch (std::deque<std::shared_ptr<rai::block>
 	{
 		BOOST_LOG (node.log) << boost::str (boost::format ("Block %1% was republished to peers") % hash.to_string ());
 	}
+}
+
+void rai::network::republish_block (rai::transaction const & transaction, std::shared_ptr<rai::block> block, bool enable_voting)
+{
+	// If we're a representative, broadcast a signed confirm, otherwise an unsigned publish
+	if (!enable_voting || !confirm_block (transaction, node, list, block))
+	{
+		republish_block (block);
+	}
+	else
+	{
+		if (node.config.logging.network_logging ())
+		{
+			BOOST_LOG (node.log) << boost::str (boost::format ("Block %1% was confirmed to peers") % block->hash ().to_string ());
+		}
+	}
+}
+
+void rai::network::republish_block_batch (std::deque<std::shared_ptr<rai::block>> blocks_a, unsigned delay_a)
+{
+	auto block (blocks_a.front ());
+	blocks_a.pop_front ();
+	republish_block (block);
 	if (!blocks_a.empty ())
 	{
 		std::weak_ptr<rai::node> node_w (node.shared ());
@@ -3902,7 +3891,7 @@ bool rai::election::publish (std::shared_ptr<rai::block> block_a)
 			{
 				blocks.insert (std::make_pair (block_a->hash (), block_a));
 				confirm_if_quorum (transaction);
-				node.network.republish_block (transaction, block_a, false);
+				node.network.republish_block (block_a);
 			}
 		}
 	}

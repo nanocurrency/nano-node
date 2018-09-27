@@ -411,6 +411,7 @@ public:
 	void receive_action (rai::udp_data *);
 	void rpc_action (boost::system::error_code const &, size_t);
 	void republish_vote (std::shared_ptr<rai::vote>);
+	void republish_block (std::shared_ptr<rai::block>);
 	void republish_block (rai::transaction const &, std::shared_ptr<rai::block>, bool = true);
 	static unsigned const broadcast_interval_ms = (rai::rai_network == rai::rai_networks::rai_test_network) ? 10 : 50;
 	void republish_block_batch (std::deque<std::shared_ptr<rai::block>>, unsigned = broadcast_interval_ms);
