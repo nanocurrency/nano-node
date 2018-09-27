@@ -2,27 +2,27 @@
 
 #include <rai/lib/mutex.hpp>
 
+#include <atomic>
 #include <boost/stacktrace.hpp>
 #include <cstdlib>
+#include <iostream>
 #include <mutex>
 #include <shared_mutex>
-#include <iostream>
-#include <atomic>
 #include <thread>
 
 template <class T>
 class movable_atomic : public std::atomic<T>
 {
 public:
-    movable_atomic (T inner) :
-    std::atomic<T> (inner)
-    {
-    }
+	movable_atomic (T inner) :
+	std::atomic<T> (inner)
+	{
+	}
 
-    movable_atomic (movable_atomic & other) :
-    std::atomic<T> (static_cast<T> (other))
-    {
-    }
+	movable_atomic (movable_atomic & other) :
+	std::atomic<T> (static_cast<T> (other))
+	{
+	}
 };
 
 class lock_info
@@ -76,7 +76,7 @@ void rai::notify_resource_locking (size_t id)
 		if (!lock_info.locked_after[other_id].load (std::memory_order_relaxed))
 		{
 			boost::stacktrace::stacktrace * backtrace_alloc (new boost::stacktrace::stacktrace (locked_after.second));
-            boost::stacktrace::stacktrace * expected (nullptr);
+			boost::stacktrace::stacktrace * expected (nullptr);
 			if (lock_info.locked_after[other_id].compare_exchange_strong (expected, backtrace_alloc, std::memory_order_acq_rel))
 			{
 				auto other_backtrace (locks_info[other_id].locked_after[id].load (std::memory_order_acq_rel));
@@ -114,7 +114,7 @@ void rai::notify_resource_unlocking (size_t id)
 		if (it->first == id)
 		{
 			thread_has_locks.erase (it);
-            break;
+			break;
 		}
 	}
 }
@@ -175,9 +175,9 @@ void rai::condition_variable::notify_all () noexcept
 
 void rai::condition_variable::wait (std::unique_lock<rai::mutex> & lock)
 {
-    std::unique_lock<std::mutex> std_lock (static_cast<std::mutex &> (*lock.mutex ()), std::adopt_lock);
+	std::unique_lock<std::mutex> std_lock (static_cast<std::mutex &> (*lock.mutex ()), std::adopt_lock);
 	std::condition_variable::wait (std_lock);
-    std_lock.release ();
+	std_lock.release ();
 }
 
 #endif
