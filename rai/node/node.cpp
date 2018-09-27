@@ -294,6 +294,7 @@ void rai::network::republish_block (std::shared_ptr<rai::block> block)
 
 void rai::network::republish_block (rai::transaction const & transaction, std::shared_ptr<rai::block> block, bool enable_voting)
 {
+	auto list (node.peers.list_fanout ());
 	// If we're a representative, broadcast a signed confirm, otherwise an unsigned publish
 	if (!enable_voting || !confirm_block (transaction, node, list, block))
 	{
@@ -397,6 +398,31 @@ void rai::network::broadcast_confirm_req_base (std::shared_ptr<rai::block> block
 			if (auto node_l = node_w.lock ())
 			{
 				node_l->network.broadcast_confirm_req_base (block_a, endpoints_a, delay_a, true);
+			}
+		});
+	}
+}
+
+void rai::network::broadcast_confirm_req_batch (std::deque<std::pair<std::shared_ptr<rai::block>, std::shared_ptr<std::vector<rai::peer_information>>>> deque_a, unsigned delay_a)
+{
+	auto pair (deque_a.front ());
+	deque_a.pop_front ();
+	auto block (pair.first);
+	// confirm_req to representatives
+	auto endpoints (pair.second);
+	if (!endpoints->empty ())
+	{
+		broadcast_confirm_req_base (block, endpoints, delay_a);
+	}
+	/* Continue while blocks remain
+	Broadcast with random delay between delay_a & 2*delay_a */
+	if (!deque_a.empty ())
+	{
+		std::weak_ptr<rai::node> node_w (node.shared ());
+		node.alarm.add (std::chrono::steady_clock::now () + std::chrono::milliseconds (delay_a + std::rand () % delay_a), [node_w, deque_a, delay_a]() {
+			if (auto node_l = node_w.lock ())
+			{
+				node_l->network.broadcast_confirm_req_batch (deque_a, delay_a);
 			}
 		});
 	}
@@ -3907,6 +3933,7 @@ void rai::active_transactions::announce_votes ()
 	unsigned mass_request_count (0);
 	std::vector<rai::block_hash> blocks_bundle;
 	std::deque<std::shared_ptr<rai::block>> rebroadcast_bundle;
+	std::deque<std::pair<std::shared_ptr<rai::block>, std::shared_ptr<std::vector<rai::peer_information>>>> confirm_req_bundle;
 
 	for (auto i (roots.begin ()), n (roots.end ()); i != n; ++i)
 	{
@@ -3997,13 +4024,12 @@ void rai::active_transactions::announce_votes ()
 				}
 				if (!reps->empty () && (total_weight > node.config.online_weight_minimum.number () || mass_request_count > 20))
 				{
-					// broadcast_confirm_req_base modifies reps, so we clone it once to avoid aliasing
-					node.network.broadcast_confirm_req_base (i->confirm_req_options.first, std::make_shared<std::vector<rai::peer_information>> (*reps), 0);
+					confirm_req_bundle.push_back (std::make_pair (i->confirm_req_options.first, reps));
 				}
 				else
 				{
 					// broadcast request to all peers
-					node.network.broadcast_confirm_req_base (i->confirm_req_options.first, std::make_shared<std::vector<rai::peer_information>> (node.peers.list_vector ()), 0);
+					confirm_req_bundle.push_back (std::make_pair (i->confirm_req_options.first, std::make_shared<std::vector<rai::peer_information>> (node.peers.list_vector ())));
 					++mass_request_count;
 				}
 			}
@@ -4016,6 +4042,11 @@ void rai::active_transactions::announce_votes ()
 	if (!rebroadcast_bundle.empty ())
 	{
 		node.network.republish_block_batch (rebroadcast_bundle);
+	}
+	//confirm_req broadcast
+	if (!confirm_req_bundle.empty ())
+	{
+		node.network.broadcast_confirm_req_batch (confirm_req_bundle);
 	}
 	// Request votes for unconfirmed blocks
 	if (node.config.enable_voting && !blocks_bundle.empty ())
