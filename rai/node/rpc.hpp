@@ -7,6 +7,7 @@
 #include <boost/property_tree/ptree.hpp>
 #include <rai/secure/utility.hpp>
 #include <unordered_map>
+#include <rai/lib/blocks.hpp>
 
 namespace rai
 {
