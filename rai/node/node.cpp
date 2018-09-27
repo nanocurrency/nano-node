@@ -1428,7 +1428,9 @@ rai::vote_code rai::vote_processor::vote_blocking (rai::transaction const & tran
 					}
 					node.network.confirm_send (confirm, bytes, endpoint_a);
 				}
+				break;
 			case rai::vote_code::invalid:
+				assert (false);
 				break;
 		}
 	}
