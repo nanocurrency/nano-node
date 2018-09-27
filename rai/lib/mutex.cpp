@@ -1,6 +1,6 @@
-#ifndef RAI_DEADLOCK_DETECTION
-
 #include <rai/lib/mutex.hpp>
+
+#ifndef RAI_DEADLOCK_DETECTION
 
 #include <atomic>
 #include <boost/stacktrace.hpp>
