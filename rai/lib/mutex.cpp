@@ -31,21 +31,37 @@ public:
 };
 
 static std::vector<lock_info> locks_info;
-static std::shared_timed_mutex locks_info_mutex;
+static std::vector<size_t> free_lock_ids;
+static std::shared_timed_mutex lock_info_mutex;
 
 thread_local std::vector<std::pair<size_t, boost::stacktrace::stacktrace>> thread_has_locks;
 
 size_t rai::create_resource_lock_id ()
 {
 #ifndef NDEBUG
-	std::unique_lock<std::shared_timed_mutex> locks_info_guard (locks_info_mutex);
-	for (auto & lock_info : locks_info)
+	std::unique_lock<std::shared_timed_mutex> locks_info_guard (lock_info_mutex);
+	size_t id;
+	if (free_lock_ids.empty ())
 	{
-		lock_info.locked_after.push_back (movable_atomic<boost::stacktrace::stacktrace *> (nullptr));
+		id = locks_info.size ();
+		for (auto & lock_info : locks_info)
+		{
+			lock_info.locked_after.push_back (movable_atomic<boost::stacktrace::stacktrace *> (nullptr));
+		}
+		std::vector<movable_atomic<boost::stacktrace::stacktrace *>> locked_after (locks_info.size () + 1, movable_atomic<boost::stacktrace::stacktrace *> (nullptr));
+		locks_info.push_back (lock_info{ locked_after, boost::stacktrace::stacktrace () });
 	}
-	std::vector<movable_atomic<boost::stacktrace::stacktrace *>> locked_after (locks_info.size () + 1, movable_atomic<boost::stacktrace::stacktrace *> (nullptr));
-	locks_info.push_back (lock_info{ locked_after, boost::stacktrace::stacktrace () });
-	return locks_info.size () - 1;
+	else
+	{
+		id = free_lock_ids.back ();
+		free_lock_ids.pop_back ();
+		for (auto & locked_after : locks_info[id].locked_after)
+		{
+			locked_after.store (nullptr, std::memory_order_relaxed);
+		}
+		locks_info[id].creation_backtrace = boost::stacktrace::stacktrace ();
+	}
+	return id;
 #else
 	return 0;
 #endif
@@ -54,7 +70,7 @@ size_t rai::create_resource_lock_id ()
 void rai::notify_resource_locking (size_t id)
 {
 #ifndef NDEBUG
-	std::shared_lock<std::shared_timed_mutex> locks_info_guard (locks_info_mutex);
+	std::shared_lock<std::shared_timed_mutex> locks_info_guard (lock_info_mutex);
 	auto & lock_info (locks_info[id]);
 	for (auto & locked_after : thread_has_locks)
 	{
@@ -108,10 +124,23 @@ void rai::notify_resource_unlocking (size_t id)
 #endif
 }
 
+void rai::destroy_resource_lock_id (size_t id)
+{
+#ifndef NDEBUG
+	std::unique_lock<std::shared_timed_mutex> locks_info_guard (lock_info_mutex);
+	free_lock_ids.push_back (id);
+#endif
+}
+
 rai::mutex::mutex () noexcept :
 std::mutex (),
 resource_lock_id (create_resource_lock_id ())
 {
+}
+
+rai::mutex::~mutex ()
+{
+	rai::destroy_resource_lock_id (resource_lock_id);
 }
 
 void rai::mutex::lock ()

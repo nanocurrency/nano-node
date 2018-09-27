@@ -9,6 +9,7 @@ namespace rai
 size_t create_resource_lock_id ();
 void notify_resource_locking (size_t);
 void notify_resource_unlocking (size_t);
+void destroy_resource_lock_id (size_t);
 
 class condition_variable;
 
@@ -18,6 +19,7 @@ class mutex : std::mutex
 
 public:
 	mutex () noexcept;
+    ~mutex ();
 	void lock ();
 	bool try_lock ();
 	void unlock ();
