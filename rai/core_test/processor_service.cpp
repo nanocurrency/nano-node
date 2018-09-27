@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+#include <rai/lib/mutex.hpp>
 #include <rai/node/node.hpp>
 
 #include <atomic>

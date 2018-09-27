@@ -1,13 +1,16 @@
 #pragma once
 
+#ifndef NDEBUG
+#define RAI_DEADLOCK_DETECTION
+#endif
+
 #include <chrono>
 #include <condition_variable>
 #include <mutex>
 
 namespace rai
 {
-#ifndef NDEBUG
-#define RAI_DEADLOCK_DETECTION
+#ifdef RAI_DEADLOCK_DETECTION
 
 size_t create_resource_lock_id ();
 void notify_resource_locking (size_t);
