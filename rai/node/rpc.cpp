@@ -307,7 +307,7 @@ rai::amount rai::rpc_handler::amount_impl ()
 	return result;
 }
 
-std::shared_ptr<rai::block> rai::rpc_handler::block_impl ()
+std::shared_ptr<rai::block> rai::rpc_handler::block_impl (bool signature_work_required)
 {
 	std::shared_ptr<rai::block> result;
 	if (!ec)
@@ -316,6 +316,11 @@ std::shared_ptr<rai::block> rai::rpc_handler::block_impl ()
 		boost::property_tree::ptree block_l;
 		std::stringstream block_stream (block_text);
 		boost::property_tree::read_json (block_stream, block_l);
+		if (!signature_work_required)
+		{
+			block_l.put ("signature", "0");
+			block_l.put ("work", "0");
+		}
 		result = rai::deserialize_block_json (block_l);
 		if (result == nullptr)
 		{
@@ -1318,7 +1323,7 @@ void rai::rpc_handler::block_create ()
 
 void rai::rpc_handler::block_hash ()
 {
-	auto block (block_impl ());
+	auto block (block_impl (false));
 	if (!ec)
 	{
 		response_l.put ("hash", block->hash ().to_string ());

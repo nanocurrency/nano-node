@@ -233,7 +233,7 @@ public:
 	bool wallet_account_impl (rai::transaction const &, std::shared_ptr<rai::wallet>, rai::account const &);
 	rai::account account_impl (std::string = "");
 	rai::amount amount_impl ();
-	std::shared_ptr<rai::block> block_impl ();
+	std::shared_ptr<rai::block> block_impl (bool = true);
 	rai::block_hash hash_impl (std::string = "hash");
 	rai::amount threshold_optional_impl ();
 	uint64_t work_optional_impl ();
