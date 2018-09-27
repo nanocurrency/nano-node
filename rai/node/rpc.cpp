@@ -276,6 +276,24 @@ rai::amount rai::rpc_handler::amount_impl ()
 	return result;
 }
 
+std::shared_ptr<rai::block> rai::rpc_handler::block_impl ()
+{
+	std::shared_ptr<rai::block> result;
+	if (!ec)
+	{
+		std::string block_text (request.get<std::string> ("block"));
+		boost::property_tree::ptree block_l;
+		std::stringstream block_stream (block_text);
+		boost::property_tree::read_json (block_stream, block_l);
+		result = rai::deserialize_block_json (block_l);
+		if (result == nullptr)
+		{
+			ec = nano::error_blocks::invalid_block;
+		}
+	}
+	return result;
+}
+
 rai::block_hash rai::rpc_handler::hash_impl (std::string search_text)
 {
 	rai::block_hash result (0);
@@ -1290,20 +1308,10 @@ void rai::rpc_handler::block_create ()
 
 void rai::rpc_handler::block_hash ()
 {
-	std::string block_text (request.get<std::string> ("block"));
-	boost::property_tree::ptree block_l;
-	std::stringstream block_stream (block_text);
-	boost::property_tree::read_json (block_stream, block_l);
-	block_l.put ("signature", "0");
-	block_l.put ("work", "0");
-	auto block (rai::deserialize_block_json (block_l));
-	if (block != nullptr)
+	auto block (block_impl ());
+	if (!ec)
 	{
 		response_l.put ("hash", block->hash ().to_string ());
-	}
-	else
-	{
-		ec = nano::error_blocks::invalid_block;
 	}
 	response_errors ();
 }
@@ -2288,12 +2296,8 @@ void rai::rpc_handler::payment_wait ()
 
 void rai::rpc_handler::process ()
 {
-	std::string block_text (request.get<std::string> ("block"));
-	boost::property_tree::ptree block_l;
-	std::stringstream block_stream (block_text);
-	boost::property_tree::read_json (block_stream, block_l);
-	std::shared_ptr<rai::block> block (rai::deserialize_block_json (block_l));
-	if (block != nullptr)
+	auto block (block_impl ());
+	if (!ec)
 	{
 		if (!rai::work_validate (*block))
 		{
@@ -2378,10 +2382,6 @@ void rai::rpc_handler::process ()
 		{
 			ec = nano::error_blocks::work_low;
 		}
-	}
-	else
-	{
-		ec = nano::error_blocks::invalid_block;
 	}
 	response_errors ();
 }
@@ -2780,17 +2780,10 @@ void rai::rpc_handler::sign ()
 	boost::optional<std::string> block_text (request.get_optional<std::string> ("block"));
 	if (!ec && block_text.is_initialized ())
 	{
-		boost::property_tree::ptree block_l;
-		std::stringstream block_stream (block_text.get ());
-		boost::property_tree::read_json (block_stream, block_l);
-		block = rai::deserialize_block_json (block_l);
-		if (block != nullptr)
+		block = block_impl ();
+		if (!ec)
 		{
 			hash = block->hash ();
-		}
-		else
-		{
-			ec = nano::error_blocks::invalid_block;
 		}
 	}
 	if (!ec && hash.is_zero ())
