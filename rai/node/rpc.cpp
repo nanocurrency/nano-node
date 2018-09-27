@@ -2766,6 +2766,102 @@ void rai::rpc_handler::send ()
 	}
 }
 
+void rai::rpc_handler::sign ()
+{
+	// Retrieving hash
+	rai::block_hash hash (0);
+	boost::optional<std::string> hash_text (request.get_optional<std::string> ("hash"));
+	if (hash_text.is_initialized ())
+	{
+		hash = hash_impl ();
+	}
+	// Retrieving block
+	std::shared_ptr<rai::block> block;
+	boost::optional<std::string> block_text (request.get_optional<std::string> ("block"));
+	if (!ec && block_text.is_initialized ())
+	{
+		boost::property_tree::ptree block_l;
+		std::stringstream block_stream (block_text.get ());
+		boost::property_tree::read_json (block_stream, block_l);
+		block = rai::deserialize_block_json (block_l);
+		if (block != nullptr)
+		{
+			hash = block->hash ();
+		}
+		else
+		{
+			ec = nano::error_blocks::invalid_block;
+		}
+	}
+	if (!ec && hash.is_zero ())
+	{
+		ec = nano::error_blocks::invalid_block;
+	}
+	if (!ec)
+	{
+		rai::raw_key prv;
+		prv.data.clear ();
+		// Retrieving private key from request
+		boost::optional<std::string> key_text (request.get_optional<std::string> ("key"));
+		if (key_text.is_initialized ())
+		{
+			if (prv.data.decode_hex (key_text.get ()))
+			{
+				ec = nano::error_common::bad_private_key;
+			}
+		}
+		else
+		{
+			// Retrieving private key from wallet
+			boost::optional<std::string> account_text (request.get_optional<std::string> ("account"));
+			boost::optional<std::string> wallet_text (request.get_optional<std::string> ("wallet"));
+			if (wallet_text.is_initialized () && account_text.is_initialized ())
+			{
+				auto account (account_impl ());
+				auto wallet (wallet_impl ());
+				if (!ec)
+				{
+					auto transaction (node.store.tx_begin_read ());
+					if (wallet->store.valid_password (transaction))
+					{
+						if (wallet->store.find (transaction, account) != wallet->store.end ())
+						{
+							wallet->store.fetch (transaction, account, prv);
+						}
+						else
+						{
+							ec = nano::error_common::account_not_found_wallet;
+						}
+					}
+					else
+					{
+						ec = nano::error_common::wallet_locked;
+					}
+				}
+			}
+		}
+		// Signing
+		if (prv.data != 0)
+		{
+			rai::public_key pub (rai::pub_key (prv.data));
+			rai::signature signature (rai::sign_message (prv, pub, hash));
+			response_l.put ("signature", signature.to_string ());
+			if (block != nullptr)
+			{
+				block.signature_set (signature);
+				std::string contents;
+				block->serialize_json (contents);
+				response_l.put ("block", contents);
+			}
+		}
+		else
+		{
+			ec = nano::error_rpc::block_create_key_required;
+		}
+	}
+	response_errors ();
+}
+
 void rai::rpc_handler::stats ()
 {
 	auto sink = node.stats.log_sink_json ();
@@ -3974,6 +4070,10 @@ void rai::rpc_handler::process_request ()
 			else if (action == "send")
 			{
 				send ();
+			}
+			else if (action == "sign")
+			{
+				sign ();
 			}
 			else if (action == "stats")
 			{
