@@ -65,7 +65,11 @@ rai::mdb_env::operator MDB_env * () const
 
 rai::transaction rai::mdb_env::tx_begin (bool write_a) const
 {
+#ifdef RAI_DEADLOCK_DETECTION
 	return { std::make_unique<rai::mdb_txn> (*this, write_a, resource_lock_id) };
+#else
+	return { std::make_unique<rai::mdb_txn> (*this, write_a, 0) };
+#endif
 }
 
 MDB_txn * rai::mdb_env::tx (rai::transaction const & transaction_a) const

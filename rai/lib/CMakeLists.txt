@@ -35,6 +35,23 @@ target_link_libraries (rai_lib
 	${CRYPTOPP_LIBRARY}
 	Boost::boost)
 
+string (TOUPPER "${CMAKE_BUILD_TYPE}" uppercase_CMAKE_BUILD_TYPE)
+
+if (uppercase_CMAKE_BUILD_TYPE MATCHES "DEBUG")
+	set (RAI_DEADLOCK_DETECTION_default ON)
+else ()
+	set (RAI_DEADLOCK_DETECTION_default OFF)
+endif()
+
+option (RAI_DEADLOCK_DETECTION "Enable deadlock ordering issue detection" "${RAI_DEADLOCK_DETECTION_default}")
+
+if (RAI_DEADLOCK_DETECTION)
+	if (UNIX)
+		target_link_libraries (rai_lib dl)
+	endif ()
+	add_compile_definitions (RAI_DEADLOCK_DETECTION)
+endif ()
+
 target_compile_definitions(rai_lib
 	PUBLIC
 		-DACTIVE_NETWORK=${ACTIVE_NETWORK}

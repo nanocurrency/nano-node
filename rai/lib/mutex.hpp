@@ -1,9 +1,5 @@
 #pragma once
 
-#ifndef NDEBUG
-#define RAI_DEADLOCK_DETECTION
-#endif
-
 #include <chrono>
 #include <condition_variable>
 #include <mutex>
