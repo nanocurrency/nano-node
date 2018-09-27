@@ -3714,3 +3714,51 @@ TEST (rpc, block_confirm_absent)
 	ASSERT_EQ (200, response.status);
 	ASSERT_EQ ("Block not found", response.json.get<std::string> ("error"));
 }
+
+TEST (rpc, sign)
+{
+	rai::system system (24000, 1);
+	rai::keypair key;
+	auto & node1 (*system.nodes[0]);
+	rai::state_block send (rai::genesis_account, node1.latest (rai::test_genesis_key.pub), rai::genesis_account, rai::genesis_amount - rai::Gxrb_ratio, key.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
+	rai::rpc rpc (system.service, node1, rai::rpc_config (true));
+	rpc.start ();
+	boost::property_tree::ptree request;
+	request.put ("action", "sign");
+	request.put ("hash", send.hash ().to_string ());
+	request.put ("key", key.prv.data.to_string ());
+	test_response response (request, rpc, system.service);
+	while (response.status == 0)
+	{
+		system.poll ();
+	}
+	ASSERT_EQ (200, response.status);
+	rai::signature signature;
+	std::string signature_text (response.json.get<std::string> ("signature"));
+	ASSERT_FALSE (signature.decode_hex (signature_text));
+	ASSERT_FALSE (rai::validate_message (key.pub, send.hash (), signature));
+	request.erase ("hash");
+	request.erase ("key");
+	system.wallet (0)->insert_adhoc (key.prv);
+	std::string wallet;
+	system.nodes[0]->wallets.items.begin ()->first.encode_hex (wallet);
+	request.put ("wallet", wallet);
+	request.put ("account", key.pub.to_account ());
+	std::string json;
+	send.serialize_json (json);
+	request.put ("block", json);
+	test_response response2 (request, rpc, system.service);
+	while (response2.status == 0)
+	{
+		system.poll ();
+	}
+	ASSERT_EQ (200, response2.status);
+	auto contents (response2.json.get<std::string> ("block"));
+	boost::property_tree::ptree block_l;
+	std::stringstream block_stream (contents);
+	boost::property_tree::read_json (block_stream, block_l);
+	auto block (rai::deserialize_block_json (block_l));
+	ASSERT_EQ (block->block_signature (), signature);
+	ASSERT_NE (block->block_signature (), send.block_signature ());
+	ASSERT_EQ (block->hash (), send.hash ());
+}
