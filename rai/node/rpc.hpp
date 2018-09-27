@@ -6,6 +6,7 @@
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
 #include <rai/secure/utility.hpp>
+#include <rai/secure/blockstore.hpp>
 #include <unordered_map>
 #include <rai/lib/blocks.hpp>
 
@@ -182,7 +183,8 @@ public:
 	void search_pending ();
 	void search_pending_all ();
 	void send ();
-	void sign ();
+	void sign_block ();
+	void sign_hash ();
 	void stats ();
 	void stop ();
 	void unchecked ();
@@ -227,6 +229,8 @@ public:
 	std::error_code ec;
 	boost::property_tree::ptree response_l;
 	std::shared_ptr<rai::wallet> wallet_impl ();
+	bool wallet_locked_impl (rai::transaction const &, std::shared_ptr<rai::wallet>);
+	bool wallet_account_impl (rai::transaction const &, std::shared_ptr<rai::wallet>, rai::account const &);
 	rai::account account_impl (std::string = "");
 	rai::amount amount_impl ();
 	std::shared_ptr<rai::block> block_impl ();
