@@ -5,10 +5,10 @@
 #include <boost/beast.hpp>
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
-#include <rai/secure/utility.hpp>
-#include <rai/secure/blockstore.hpp>
-#include <unordered_map>
 #include <rai/lib/blocks.hpp>
+#include <rai/secure/blockstore.hpp>
+#include <rai/secure/utility.hpp>
+#include <unordered_map>
 
 namespace rai
 {
