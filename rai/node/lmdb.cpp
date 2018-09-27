@@ -1896,7 +1896,7 @@ std::shared_ptr<rai::vote> rai::mdb_store::vote_max (rai::transaction const & tr
 	 * database or vote_cache, and "result" represents the
 	 * vote under question.
 	 */
-	if (current != nullptr && current->sequence > result->sequence)
+	if (current != nullptr && current->sequence >= result->sequence)
 	{
 		/*
 		 * If the DB vote exists AND its sequence number is larger
