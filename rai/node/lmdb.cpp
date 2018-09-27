@@ -1891,14 +1891,33 @@ std::shared_ptr<rai::vote> rai::mdb_store::vote_max (rai::transaction const & tr
 	auto current (vote_current (transaction_a, vote_a->account));
 	auto result (vote_a);
 
+	/*
+	 * "current" represents the vote we pulled in from the
+	 * database or vote_cache, and "result" represents the
+	 * vote under question.
+	 */
 	if (current != nullptr && current->sequence > result->sequence)
 	{
+		/*
+		 * If the DB vote exists AND its sequence number is larger
+		 * than the vote under question, this must be a replay.
+		 * Notably, this means if they have the same sequence number
+		 * that this will be interpreted as a replay.
+		 *
+		 * We return the DB vote and indicate the vote_code is
+		 * a replay.
+		 */
 		vote_result = rai::vote_code::replay;
 
 		result = current;
 	}
 	else
 	{
+		/*
+		 * Otherwise, we return (by default) the vote under question,
+		 * update the database (by updating the vote_cache) and
+		 * return the vote_code as a vote.
+		 */
 		vote_result = rai::vote_code::vote;
 	}
 
