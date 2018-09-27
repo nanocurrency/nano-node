@@ -4022,7 +4022,7 @@ void rai::active_transactions::announce_votes ()
 						}
 					}
 				}
-				if (!reps->empty () && (total_weight > node.config.online_weight_minimum.number () || mass_request_count > 20))
+				if (!reps->empty () && (total_weight > node.config.online_weight_minimum.number () || mass_request_count > 20 || roots.size () > 100))
 				{
 					confirm_req_bundle.push_back (std::make_pair (i->confirm_req_options.first, reps));
 				}
