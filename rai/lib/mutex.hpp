@@ -7,6 +7,8 @@
 namespace rai
 {
 #ifndef NDEBUG
+#define RAI_DEADLOCK_DETECTION
+
 size_t create_resource_lock_id ();
 void notify_resource_locking (size_t);
 void notify_resource_unlocking (size_t);

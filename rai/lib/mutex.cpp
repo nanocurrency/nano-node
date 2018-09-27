@@ -1,4 +1,4 @@
-#ifndef NDEBUG
+#ifndef RAI_DEADLOCK_DETECTION
 
 #include <rai/lib/mutex.hpp>
 

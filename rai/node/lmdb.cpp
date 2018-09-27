@@ -39,7 +39,7 @@ rai::mdb_env::mdb_env (bool & error_a, boost::filesystem::path const & path_a, i
 		error_a = true;
 		environment = nullptr;
 	}
-#ifndef NDEBUG
+#ifdef RAI_DEADLOCK_DETECTION
 	if (environment)
 	{
 		resource_lock_id = rai::create_resource_lock_id ();
@@ -52,7 +52,7 @@ rai::mdb_env::~mdb_env ()
 	if (environment != nullptr)
 	{
 		mdb_env_close (environment);
-#ifndef NDEBUG
+#ifdef RAI_DEADLOCK_DETECTION
 		rai::destroy_resource_lock_id (resource_lock_id);
 #endif
 	}
@@ -289,7 +289,7 @@ rai::mdb_val::operator MDB_val const & () const
 
 rai::mdb_txn::mdb_txn (rai::mdb_env const & environment_a, bool write_a, size_t resource_lock_id_a)
 {
-#ifndef NDEBUG
+#ifdef RAI_DEADLOCK_DETECTION
 	if (write_a)
 	{
 		resource_lock_id = resource_lock_id_a;
@@ -302,7 +302,7 @@ rai::mdb_txn::mdb_txn (rai::mdb_env const & environment_a, bool write_a, size_t 
 
 rai::mdb_txn::~mdb_txn ()
 {
-#ifndef NDEBUG
+#ifdef RAI_DEADLOCK_DETECTION
 	if (resource_lock_id)
 	{
 		rai::notify_resource_unlocking (*resource_lock_id);

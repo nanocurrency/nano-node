@@ -23,7 +23,7 @@ public:
 	rai::mdb_txn & operator= (rai::mdb_txn &&) = default;
 	operator MDB_txn * () const;
 	MDB_txn * handle;
-#ifndef NDEBUG
+#ifdef RAI_DEADLOCK_DETECTION
 	boost::optional<size_t> resource_lock_id;
 #endif
 };
@@ -39,7 +39,7 @@ public:
 	rai::transaction tx_begin (bool = false) const;
 	MDB_txn * tx (rai::transaction const &) const;
 	MDB_env * environment;
-#ifndef NDEBUG
+#ifdef RAI_DEADLOCK_DETECTION
 	size_t resource_lock_id;
 #endif
 };
