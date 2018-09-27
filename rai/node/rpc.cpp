@@ -2848,7 +2848,7 @@ void rai::rpc_handler::sign ()
 			response_l.put ("signature", signature.to_string ());
 			if (block != nullptr)
 			{
-				block.signature_set (signature);
+				block->signature_set (signature);
 				std::string contents;
 				block->serialize_json (contents);
 				response_l.put ("block", contents);
