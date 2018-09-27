@@ -4089,7 +4089,7 @@ void rai::active_transactions::announce_loop ()
 	while (!stopped)
 	{
 		announce_votes ();
-		condition.wait_for (lock, std::chrono::milliseconds (announce_interval_ms + roots.size () * node.network.broadcast_interval_ms));
+		condition.wait_for (lock, std::chrono::milliseconds (announce_interval_ms + roots.size () * node.network.broadcast_interval_ms * 3 / 2));
 	}
 }
 
