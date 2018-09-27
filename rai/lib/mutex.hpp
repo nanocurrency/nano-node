@@ -6,6 +6,7 @@
 
 namespace rai
 {
+#ifndef NDEBUG
 size_t create_resource_lock_id ();
 void notify_resource_locking (size_t);
 void notify_resource_unlocking (size_t);
@@ -71,4 +72,8 @@ public:
         std_lock.release ();
     }
 };
+#else
+typedef std::mutex mutex;
+typedef std::condition_variable condition_variable;
+#endif
 }

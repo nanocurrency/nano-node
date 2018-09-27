@@ -1,3 +1,5 @@
+#ifndef NDEBUG
+
 #include <rai/lib/mutex.hpp>
 
 #include <boost/stacktrace.hpp>
@@ -38,7 +40,6 @@ thread_local std::vector<std::pair<size_t, boost::stacktrace::stacktrace>> threa
 
 size_t rai::create_resource_lock_id ()
 {
-#ifndef NDEBUG
 	std::unique_lock<std::shared_timed_mutex> locks_info_guard (lock_info_mutex);
 	size_t id;
 	if (free_lock_ids.empty ())
@@ -62,14 +63,11 @@ size_t rai::create_resource_lock_id ()
 		locks_info[id].creation_backtrace = boost::stacktrace::stacktrace ();
 	}
 	return id;
-#else
 	return 0;
-#endif
 }
 
 void rai::notify_resource_locking (size_t id)
 {
-#ifndef NDEBUG
 	std::shared_lock<std::shared_timed_mutex> locks_info_guard (lock_info_mutex);
 	auto & lock_info (locks_info[id]);
 	for (auto & locked_after : thread_has_locks)
@@ -104,12 +102,10 @@ void rai::notify_resource_locking (size_t id)
 		}
 	}
 	thread_has_locks.push_back (std::make_pair (id, boost::stacktrace::stacktrace ()));
-#endif
 }
 
 void rai::notify_resource_unlocking (size_t id)
 {
-#ifndef NDEBUG
 	auto it (thread_has_locks.end ());
 	auto end (thread_has_locks.begin ());
 	while (it != end)
@@ -121,15 +117,12 @@ void rai::notify_resource_unlocking (size_t id)
             break;
 		}
 	}
-#endif
 }
 
 void rai::destroy_resource_lock_id (size_t id)
 {
-#ifndef NDEBUG
 	std::unique_lock<std::shared_timed_mutex> locks_info_guard (lock_info_mutex);
 	free_lock_ids.push_back (id);
-#endif
 }
 
 rai::mutex::mutex () noexcept :
@@ -186,3 +179,5 @@ void rai::condition_variable::wait (std::unique_lock<rai::mutex> & lock)
 	std::condition_variable::wait (std_lock);
     std_lock.release ();
 }
+
+#endif
