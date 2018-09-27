@@ -1404,9 +1404,9 @@ rai::vote_code rai::vote_processor::vote_blocking (rai::transaction const & tran
 	auto result (rai::vote_code::invalid);
 	if (!vote_a->validate ())
 	{
-		result = rai::vote_code::replay;
 		auto max_vote (node.store.vote_max (transaction_a, vote_a));
-		if (!node.active.vote (vote_a) || max_vote->sequence < vote_a->sequence)
+		result = rai::vote_code::replay;
+		if (!node.active.vote (vote_a))
 		{
 			result = rai::vote_code::vote;
 		}
@@ -1428,7 +1428,9 @@ rai::vote_code rai::vote_processor::vote_blocking (rai::transaction const & tran
 					}
 					node.network.confirm_send (confirm, bytes, endpoint_a);
 				}
+				break;
 			case rai::vote_code::invalid:
+				assert (false);
 				break;
 		}
 	}
