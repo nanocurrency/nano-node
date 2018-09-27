@@ -185,7 +185,7 @@ void rai::rpc::observer_action (rai::account const & account_a)
 {
 	std::shared_ptr<rai::payment_observer> observer;
 	{
-		std::lock_guard<std::mutex> lock (mutex);
+		std::lock_guard<rai::mutex> lock (mutex);
 		auto existing (payment_observers.find (account_a));
 		if (existing != payment_observers.end ())
 		{
@@ -1377,7 +1377,7 @@ void rai::rpc_handler::confirmation_active ()
 	}
 	boost::property_tree::ptree elections;
 	{
-		std::lock_guard<std::mutex> lock (node.active.mutex);
+		std::lock_guard<rai::mutex> lock (node.active.mutex);
 		for (auto i (node.active.roots.begin ()), n (node.active.roots.end ()); i != n; ++i)
 		{
 			if (i->announcements >= announcements)
@@ -1396,7 +1396,7 @@ void rai::rpc_handler::confirmation_history ()
 {
 	boost::property_tree::ptree elections;
 	{
-		std::lock_guard<std::mutex> lock (node.active.mutex);
+		std::lock_guard<rai::mutex> lock (node.active.mutex);
 		for (auto i (node.active.confirmed.begin ()), n (node.active.confirmed.end ()); i != n; ++i)
 		{
 			boost::property_tree::ptree election;
@@ -1417,7 +1417,7 @@ void rai::rpc_handler::confirmation_info ()
 	rai::block_hash root;
 	if (!root.decode_hex (root_text))
 	{
-		std::lock_guard<std::mutex> lock (node.active.mutex);
+		std::lock_guard<rai::mutex> lock (node.active.mutex);
 		auto conflict_info (node.active.roots.find (root));
 		if (conflict_info != node.active.roots.end ())
 		{
@@ -2265,7 +2265,7 @@ void rai::rpc_handler::payment_wait ()
 			{
 				auto observer (std::make_shared<rai::payment_observer> (response, rpc, account, amount));
 				observer->start (timeout);
-				std::lock_guard<std::mutex> lock (rpc.mutex);
+				std::lock_guard<rai::mutex> lock (rpc.mutex);
 				assert (rpc.payment_observers.find (account) == rpc.payment_observers.end ());
 				rpc.payment_observers[account] = observer;
 			}
@@ -4194,7 +4194,7 @@ void rai::payment_observer::complete (rai::payment_status status)
 				break;
 			}
 		}
-		std::lock_guard<std::mutex> lock (rpc.mutex);
+		std::lock_guard<rai::mutex> lock (rpc.mutex);
 		assert (rpc.payment_observers.find (account) != rpc.payment_observers.end ());
 		rpc.payment_observers.erase (account);
 	}

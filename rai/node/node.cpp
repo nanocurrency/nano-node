@@ -103,7 +103,7 @@ void rai::network::receive ()
 	{
 		BOOST_LOG (node.log) << "Receiving packet";
 	}
-	std::unique_lock<std::mutex> lock (socket_mutex);
+	std::unique_lock<rai::mutex> lock (socket_mutex);
 	auto data (buffer_container.allocate ());
 	socket.async_receive_from (boost::asio::buffer (data->buffer, rai::network::buffer_size), data->endpoint, [this, data](boost::system::error_code const & error, size_t size_a) {
 		if (!error && this->on)
@@ -705,7 +705,7 @@ rai::alarm::~alarm ()
 
 void rai::alarm::run ()
 {
-	std::unique_lock<std::mutex> lock (mutex);
+	std::unique_lock<rai::mutex> lock (mutex);
 	auto done (false);
 	while (!done)
 	{
@@ -739,7 +739,7 @@ void rai::alarm::run ()
 
 void rai::alarm::add (std::chrono::steady_clock::time_point const & wakeup_a, std::function<void()> const & operation)
 {
-	std::lock_guard<std::mutex> lock (mutex);
+	std::lock_guard<rai::mutex> lock (mutex);
 	operations.push (rai::operation ({ wakeup_a, operation }));
 	condition.notify_all ();
 }
@@ -1110,7 +1110,7 @@ thread ([this]() {
 	process_loop ();
 })
 {
-	std::unique_lock<std::mutex> lock (mutex);
+	std::unique_lock<rai::mutex> lock (mutex);
 	while (!started)
 	{
 		condition.wait (lock);
@@ -1119,7 +1119,7 @@ thread ([this]() {
 
 void rai::vote_processor::process_loop ()
 {
-	std::unique_lock<std::mutex> lock (mutex);
+	std::unique_lock<rai::mutex> lock (mutex);
 	started = true;
 	condition.notify_all ();
 	while (!stopped)
@@ -1151,7 +1151,7 @@ void rai::vote_processor::process_loop ()
 void rai::vote_processor::vote (std::shared_ptr<rai::vote> vote_a, rai::endpoint endpoint_a)
 {
 	assert (endpoint_a.address ().is_v6 ());
-	std::lock_guard<std::mutex> lock (mutex);
+	std::lock_guard<rai::mutex> lock (mutex);
 	if (!stopped)
 	{
 		votes.push_back (std::make_pair (vote_a, endpoint_a));
@@ -1221,7 +1221,7 @@ rai::vote_code rai::vote_processor::vote_blocking (rai::transaction const & tran
 void rai::vote_processor::stop ()
 {
 	{
-		std::lock_guard<std::mutex> lock (mutex);
+		std::lock_guard<rai::mutex> lock (mutex);
 		stopped = true;
 		condition.notify_all ();
 	}
@@ -1233,7 +1233,7 @@ void rai::vote_processor::stop ()
 
 void rai::vote_processor::flush ()
 {
-	std::unique_lock<std::mutex> lock (mutex);
+	std::unique_lock<rai::mutex> lock (mutex);
 	while (active || !votes.empty ())
 	{
 		condition.wait (lock);
@@ -1242,19 +1242,19 @@ void rai::vote_processor::flush ()
 
 void rai::rep_crawler::add (rai::block_hash const & hash_a)
 {
-	std::lock_guard<std::mutex> lock (mutex);
+	std::lock_guard<rai::mutex> lock (mutex);
 	active.insert (hash_a);
 }
 
 void rai::rep_crawler::remove (rai::block_hash const & hash_a)
 {
-	std::lock_guard<std::mutex> lock (mutex);
+	std::lock_guard<rai::mutex> lock (mutex);
 	active.erase (hash_a);
 }
 
 bool rai::rep_crawler::exists (rai::block_hash const & hash_a)
 {
-	std::lock_guard<std::mutex> lock (mutex);
+	std::lock_guard<rai::mutex> lock (mutex);
 	return active.count (hash_a) != 0;
 }
 
@@ -1273,14 +1273,14 @@ rai::block_processor::~block_processor ()
 
 void rai::block_processor::stop ()
 {
-	std::lock_guard<std::mutex> lock (mutex);
+	std::lock_guard<rai::mutex> lock (mutex);
 	stopped = true;
 	condition.notify_all ();
 }
 
 void rai::block_processor::flush ()
 {
-	std::unique_lock<std::mutex> lock (mutex);
+	std::unique_lock<rai::mutex> lock (mutex);
 	while (!stopped && (!blocks.empty () || active))
 	{
 		condition.wait (lock);
@@ -1289,7 +1289,7 @@ void rai::block_processor::flush ()
 
 bool rai::block_processor::full ()
 {
-	std::unique_lock<std::mutex> lock (mutex);
+	std::unique_lock<rai::mutex> lock (mutex);
 	return blocks.size () > 16384;
 }
 
@@ -1297,7 +1297,7 @@ void rai::block_processor::add (std::shared_ptr<rai::block> block_a, std::chrono
 {
 	if (!rai::work_validate (block_a->root (), block_a->block_work ()))
 	{
-		std::lock_guard<std::mutex> lock (mutex);
+		std::lock_guard<rai::mutex> lock (mutex);
 		if (blocks_hashes.find (block_a->hash ()) == blocks_hashes.end ())
 		{
 			blocks.push_back (std::make_pair (block_a, origination));
@@ -1314,14 +1314,14 @@ void rai::block_processor::add (std::shared_ptr<rai::block> block_a, std::chrono
 
 void rai::block_processor::force (std::shared_ptr<rai::block> block_a)
 {
-	std::lock_guard<std::mutex> lock (mutex);
+	std::lock_guard<rai::mutex> lock (mutex);
 	forced.push_back (block_a);
 	condition.notify_all ();
 }
 
 void rai::block_processor::process_blocks ()
 {
-	std::unique_lock<std::mutex> lock (mutex);
+	std::unique_lock<rai::mutex> lock (mutex);
 	while (!stopped)
 	{
 		if (have_blocks ())
@@ -1358,7 +1358,7 @@ bool rai::block_processor::have_blocks ()
 	return !blocks.empty () || !forced.empty ();
 }
 
-void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & lock_a)
+void rai::block_processor::process_receive_many (std::unique_lock<rai::mutex> & lock_a)
 {
 	{
 		auto transaction (node.store.tx_begin_write ());
@@ -1440,7 +1440,7 @@ rai::process_return rai::block_processor::process_receive_one (rai::transaction 
 				 * named "mutex", so we must use it when we
 				 * enqueue it.
 				 */
-				std::unique_lock<std::mutex> lock (mutex);
+				std::unique_lock<rai::mutex> lock (mutex);
 
 				processed_active.push_back (block_a);
 			}
@@ -1554,7 +1554,7 @@ void rai::block_processor::queue_unchecked (rai::transaction const & transaction
 		node.store.unchecked_del (transaction_a, hash_a, *i);
 		add (*i, std::chrono::steady_clock::time_point ());
 	}
-	std::lock_guard<std::mutex> lock (node.gap_cache.mutex);
+	std::lock_guard<rai::mutex> lock (node.gap_cache.mutex);
 	node.gap_cache.blocks.get<1> ().erase (hash_a);
 }
 
@@ -1874,7 +1874,7 @@ node (node_a)
 void rai::gap_cache::add (rai::transaction const & transaction_a, std::shared_ptr<rai::block> block_a)
 {
 	auto hash (block_a->hash ());
-	std::lock_guard<std::mutex> lock (mutex);
+	std::lock_guard<rai::mutex> lock (mutex);
 	auto existing (blocks.get<1> ().find (hash));
 	if (existing != blocks.get<1> ().end ())
 	{
@@ -1894,7 +1894,7 @@ void rai::gap_cache::add (rai::transaction const & transaction_a, std::shared_pt
 
 void rai::gap_cache::vote (std::shared_ptr<rai::vote> vote_a)
 {
-	std::lock_guard<std::mutex> lock (mutex);
+	std::lock_guard<rai::mutex> lock (mutex);
 	auto transaction (node.store.tx_begin_read ());
 	for (auto hash : *vote_a)
 	{
@@ -1989,7 +1989,7 @@ std::deque<rai::endpoint> rai::peer_container::list_fanout ()
 std::deque<rai::endpoint> rai::peer_container::list ()
 {
 	std::deque<rai::endpoint> result;
-	std::lock_guard<std::mutex> lock (mutex);
+	std::lock_guard<rai::mutex> lock (mutex);
 	for (auto i (peers.begin ()), j (peers.end ()); i != j; ++i)
 	{
 		result.push_back (i->endpoint);
@@ -2001,7 +2001,7 @@ std::deque<rai::endpoint> rai::peer_container::list ()
 std::map<rai::endpoint, unsigned> rai::peer_container::list_version ()
 {
 	std::map<rai::endpoint, unsigned> result;
-	std::lock_guard<std::mutex> lock (mutex);
+	std::lock_guard<rai::mutex> lock (mutex);
 	for (auto i (peers.begin ()), j (peers.end ()); i != j; ++i)
 	{
 		result.insert (std::pair<rai::endpoint, unsigned> (i->endpoint, i->network_version));
@@ -2012,7 +2012,7 @@ std::map<rai::endpoint, unsigned> rai::peer_container::list_version ()
 std::vector<rai::peer_information> rai::peer_container::list_vector ()
 {
 	std::vector<peer_information> result;
-	std::lock_guard<std::mutex> lock (mutex);
+	std::lock_guard<rai::mutex> lock (mutex);
 	for (auto i (peers.begin ()), j (peers.end ()); i != j; ++i)
 	{
 		result.push_back (*i);
@@ -2024,7 +2024,7 @@ std::vector<rai::peer_information> rai::peer_container::list_vector ()
 rai::endpoint rai::peer_container::bootstrap_peer ()
 {
 	rai::endpoint result (boost::asio::ip::address_v6::any (), 0);
-	std::lock_guard<std::mutex> lock (mutex);
+	std::lock_guard<rai::mutex> lock (mutex);
 	;
 	for (auto i (peers.get<4> ().begin ()), n (peers.get<4> ().end ()); i != n;)
 	{
@@ -2048,7 +2048,7 @@ boost::optional<rai::uint256_union> rai::peer_container::assign_syn_cookie (rai:
 {
 	auto ip_addr (endpoint.address ());
 	assert (ip_addr.is_v6 ());
-	std::unique_lock<std::mutex> lock (syn_cookie_mutex);
+	std::unique_lock<rai::mutex> lock (syn_cookie_mutex);
 	unsigned & ip_cookies = syn_cookies_per_ip[ip_addr];
 	boost::optional<rai::uint256_union> result;
 	if (ip_cookies < max_peers_per_ip)
@@ -2070,7 +2070,7 @@ bool rai::peer_container::validate_syn_cookie (rai::endpoint const & endpoint, r
 {
 	auto ip_addr (endpoint.address ());
 	assert (ip_addr.is_v6 ());
-	std::unique_lock<std::mutex> lock (syn_cookie_mutex);
+	std::unique_lock<rai::mutex> lock (syn_cookie_mutex);
 	auto result (true);
 	auto cookie_it (syn_cookies.find (endpoint));
 	if (cookie_it != syn_cookies.end () && !rai::validate_message (node_id, cookie_it->second.cookie, sig))
@@ -2375,7 +2375,7 @@ public:
 		if (!outstanding.empty ())
 		{
 			auto this_l (shared_from_this ());
-			std::lock_guard<std::mutex> lock (mutex);
+			std::lock_guard<rai::mutex> lock (mutex);
 			for (auto const & i : outstanding)
 			{
 				auto host (i.first);
@@ -2447,7 +2447,7 @@ public:
 	void stop ()
 	{
 		auto this_l (shared_from_this ());
-		std::lock_guard<std::mutex> lock (mutex);
+		std::lock_guard<rai::mutex> lock (mutex);
 		for (auto const & i : outstanding)
 		{
 			auto host (i.first);
@@ -2559,7 +2559,7 @@ public:
 	}
 	bool remove (boost::asio::ip::address const & address)
 	{
-		std::lock_guard<std::mutex> lock (mutex);
+		std::lock_guard<rai::mutex> lock (mutex);
 		outstanding.erase (address);
 		return outstanding.empty ();
 	}
@@ -2567,7 +2567,7 @@ public:
 	unsigned int backoff; // in seconds
 	std::shared_ptr<rai::node> node;
 	rai::block_hash root;
-	std::mutex mutex;
+	rai::mutex mutex;
 	std::map<boost::asio::ip::address, uint16_t> outstanding;
 	std::vector<std::pair<std::string, uint16_t>> need_resolve;
 	std::atomic_flag completed;
@@ -2739,7 +2739,7 @@ rai::endpoint rai::network::endpoint ()
 
 bool rai::block_arrival::add (rai::block_hash const & hash_a)
 {
-	std::lock_guard<std::mutex> lock (mutex);
+	std::lock_guard<rai::mutex> lock (mutex);
 	auto now (std::chrono::steady_clock::now ());
 	auto inserted (arrival.insert (rai::block_arrival_info{ now, hash_a }));
 	auto result (!inserted.second);
@@ -2748,7 +2748,7 @@ bool rai::block_arrival::add (rai::block_hash const & hash_a)
 
 bool rai::block_arrival::recent (rai::block_hash const & hash_a)
 {
-	std::lock_guard<std::mutex> lock (mutex);
+	std::lock_guard<rai::mutex> lock (mutex);
 	auto now (std::chrono::steady_clock::now ());
 	while (arrival.size () > arrival_size_min && arrival.begin ()->arrival + arrival_time_min < now)
 	{
@@ -2765,7 +2765,7 @@ node (node)
 void rai::online_reps::vote (std::shared_ptr<rai::vote> const & vote_a)
 {
 	auto rep (vote_a->account);
-	std::lock_guard<std::mutex> lock (mutex);
+	std::lock_guard<rai::mutex> lock (mutex);
 	auto now (std::chrono::steady_clock::now ());
 	auto transaction (node.store.tx_begin_read ());
 	auto current (reps.begin ());
@@ -2801,7 +2801,7 @@ void rai::online_reps::vote (std::shared_ptr<rai::vote> const & vote_a)
 
 void rai::online_reps::recalculate_stake ()
 {
-	std::lock_guard<std::mutex> lock (mutex);
+	std::lock_guard<rai::mutex> lock (mutex);
 	online_stake_total = 0;
 	auto transaction (node.store.tx_begin_read ());
 	for (auto it : reps)
@@ -2820,14 +2820,14 @@ void rai::online_reps::recalculate_stake ()
 
 rai::uint128_t rai::online_reps::online_stake ()
 {
-	std::lock_guard<std::mutex> lock (mutex);
+	std::lock_guard<rai::mutex> lock (mutex);
 	return std::max (online_stake_total, node.config.online_weight_minimum.number ());
 }
 
 std::deque<rai::account> rai::online_reps::list ()
 {
 	std::deque<rai::account> result;
-	std::lock_guard<std::mutex> lock (mutex);
+	std::lock_guard<rai::mutex> lock (mutex);
 	for (auto i (reps.begin ()), n (reps.end ()); i != n; ++i)
 	{
 		result.push_back (i->representative);
@@ -2839,7 +2839,7 @@ std::unordered_set<rai::endpoint> rai::peer_container::random_set (size_t count_
 {
 	std::unordered_set<rai::endpoint> result;
 	result.reserve (count_a);
-	std::lock_guard<std::mutex> lock (mutex);
+	std::lock_guard<rai::mutex> lock (mutex);
 	// Stop trying to fill result with random samples after this many attempts
 	auto random_cutoff (count_a * 2);
 	auto peers_size (peers.size ());
@@ -2882,7 +2882,7 @@ std::vector<rai::peer_information> rai::peer_container::representatives (size_t 
 {
 	std::vector<peer_information> result;
 	result.reserve (std::min (count_a, size_t (16)));
-	std::lock_guard<std::mutex> lock (mutex);
+	std::lock_guard<rai::mutex> lock (mutex);
 	for (auto i (peers.get<6> ().begin ()), n (peers.get<6> ().end ()); i != n && result.size () < count_a; ++i)
 	{
 		if (!i->rep_weight.is_zero ())
@@ -2895,7 +2895,7 @@ std::vector<rai::peer_information> rai::peer_container::representatives (size_t 
 
 void rai::peer_container::purge_syn_cookies (std::chrono::steady_clock::time_point const & cutoff)
 {
-	std::lock_guard<std::mutex> lock (syn_cookie_mutex);
+	std::lock_guard<rai::mutex> lock (syn_cookie_mutex);
 	auto it (syn_cookies.begin ());
 	while (it != syn_cookies.end ())
 	{
@@ -2924,7 +2924,7 @@ std::vector<rai::peer_information> rai::peer_container::purge_list (std::chrono:
 {
 	std::vector<rai::peer_information> result;
 	{
-		std::lock_guard<std::mutex> lock (mutex);
+		std::lock_guard<rai::mutex> lock (mutex);
 		auto pivot (peers.get<1> ().lower_bound (cutoff));
 		result.assign (pivot, peers.get<1> ().end ());
 		for (auto i (peers.get<1> ().begin ()); i != pivot; ++i)
@@ -2965,7 +2965,7 @@ std::vector<rai::endpoint> rai::peer_container::rep_crawl ()
 	// If there is enough observed peers weight, crawl 10 peers. Otherwise - 40
 	uint16_t max_count = (total_weight () > online_weight_minimum) ? 10 : 40;
 	result.reserve (max_count);
-	std::lock_guard<std::mutex> lock (mutex);
+	std::lock_guard<rai::mutex> lock (mutex);
 	uint16_t count (0);
 	for (auto i (peers.get<5> ().begin ()), n (peers.get<5> ().end ()); i != n && count < max_count; ++i, ++count)
 	{
@@ -2976,7 +2976,7 @@ std::vector<rai::endpoint> rai::peer_container::rep_crawl ()
 
 size_t rai::peer_container::size ()
 {
-	std::lock_guard<std::mutex> lock (mutex);
+	std::lock_guard<rai::mutex> lock (mutex);
 	return peers.size ();
 }
 
@@ -2990,7 +2990,7 @@ rai::uint128_t rai::peer_container::total_weight ()
 {
 	rai::uint128_t result (0);
 	std::unordered_set<rai::account> probable_reps;
-	std::lock_guard<std::mutex> lock (mutex);
+	std::lock_guard<rai::mutex> lock (mutex);
 	for (auto i (peers.get<6> ().begin ()), n (peers.get<6> ().end ()); i != n; ++i)
 	{
 		// Calculate if representative isn't recorded for several IP addresses
@@ -3030,7 +3030,7 @@ bool rai::peer_container::rep_response (rai::endpoint const & endpoint_a, rai::a
 {
 	assert (endpoint_a.address ().is_v6 ());
 	auto updated (false);
-	std::lock_guard<std::mutex> lock (mutex);
+	std::lock_guard<rai::mutex> lock (mutex);
 	auto existing (peers.find (endpoint_a));
 	if (existing != peers.end ())
 	{
@@ -3049,7 +3049,7 @@ bool rai::peer_container::rep_response (rai::endpoint const & endpoint_a, rai::a
 
 void rai::peer_container::rep_request (rai::endpoint const & endpoint_a)
 {
-	std::lock_guard<std::mutex> lock (mutex);
+	std::lock_guard<rai::mutex> lock (mutex);
 	auto existing (peers.find (endpoint_a));
 	if (existing != peers.end ())
 	{
@@ -3068,7 +3068,7 @@ bool rai::peer_container::reachout (rai::endpoint const & endpoint_a)
 		auto endpoint_l (rai::map_endpoint_to_v6 (endpoint_a));
 		// Don't keepalive to nodes that already sent us something
 		error |= known_peer (endpoint_l);
-		std::lock_guard<std::mutex> lock (mutex);
+		std::lock_guard<rai::mutex> lock (mutex);
 		auto existing (attempts.find (endpoint_l));
 		error |= existing != attempts.end ();
 		attempts.insert ({ endpoint_l, std::chrono::steady_clock::now () });
@@ -3086,7 +3086,7 @@ bool rai::peer_container::insert (rai::endpoint const & endpoint_a, unsigned ver
 	{
 		if (version_a >= rai::protocol_version_min)
 		{
-			std::lock_guard<std::mutex> lock (mutex);
+			std::lock_guard<rai::mutex> lock (mutex);
 			auto existing (peers.find (endpoint_a));
 			if (existing != peers.end ())
 			{
@@ -3305,7 +3305,7 @@ bool rai::peer_container::contacted (rai::endpoint const & endpoint_a, unsigned 
 	}
 	else if (!known_peer (endpoint_l))
 	{
-		std::lock_guard<std::mutex> lock (mutex);
+		std::lock_guard<rai::mutex> lock (mutex);
 
 		if (peers.get<rai::peer_by_ip_addr> ().count (endpoint_l.address ()) < max_peers_per_ip)
 		{
@@ -3317,7 +3317,7 @@ bool rai::peer_container::contacted (rai::endpoint const & endpoint_a, unsigned 
 
 void rai::network::send_buffer (uint8_t const * data_a, size_t size_a, rai::endpoint const & endpoint_a, std::function<void(boost::system::error_code const &, size_t)> callback_a)
 {
-	std::unique_lock<std::mutex> lock (socket_mutex);
+	std::unique_lock<rai::mutex> lock (socket_mutex);
 	if (node.config.logging.network_packet_logging ())
 	{
 		BOOST_LOG (node.log) << "Sending packet";
@@ -3334,7 +3334,7 @@ void rai::network::send_buffer (uint8_t const * data_a, size_t size_a, rai::endp
 
 bool rai::peer_container::known_peer (rai::endpoint const & endpoint_a)
 {
-	std::lock_guard<std::mutex> lock (mutex);
+	std::lock_guard<rai::mutex> lock (mutex);
 	auto existing (peers.find (endpoint_a));
 	return existing != peers.end ();
 }
@@ -3784,7 +3784,7 @@ void rai::active_transactions::announce_votes ()
 
 void rai::active_transactions::announce_loop ()
 {
-	std::unique_lock<std::mutex> lock (mutex);
+	std::unique_lock<rai::mutex> lock (mutex);
 	started = true;
 	condition.notify_all ();
 	while (!stopped)
@@ -3797,7 +3797,7 @@ void rai::active_transactions::announce_loop ()
 void rai::active_transactions::stop ()
 {
 	{
-		std::unique_lock<std::mutex> lock (mutex);
+		std::unique_lock<rai::mutex> lock (mutex);
 		while (!started)
 		{
 			condition.wait (lock);
@@ -3819,7 +3819,7 @@ bool rai::active_transactions::start (std::shared_ptr<rai::block> block_a, std::
 
 bool rai::active_transactions::start (std::pair<std::shared_ptr<rai::block>, std::shared_ptr<rai::block>> blocks_a, std::function<void(std::shared_ptr<rai::block>)> const & confirmation_action_a)
 {
-	std::lock_guard<std::mutex> lock (mutex);
+	std::lock_guard<rai::mutex> lock (mutex);
 	return add (blocks_a, confirmation_action_a);
 }
 
@@ -3850,7 +3850,7 @@ bool rai::active_transactions::vote (std::shared_ptr<rai::vote> vote_a)
 	bool replay (false);
 	bool processed (false);
 	{
-		std::lock_guard<std::mutex> lock (mutex);
+		std::lock_guard<rai::mutex> lock (mutex);
 		for (auto vote_block : vote_a->blocks)
 		{
 			rai::election_vote_result result;
@@ -3885,7 +3885,7 @@ bool rai::active_transactions::vote (std::shared_ptr<rai::vote> vote_a)
 
 bool rai::active_transactions::active (rai::block const & block_a)
 {
-	std::lock_guard<std::mutex> lock (mutex);
+	std::lock_guard<rai::mutex> lock (mutex);
 	return roots.find (block_a.root ()) != roots.end ();
 }
 
@@ -3893,7 +3893,7 @@ bool rai::active_transactions::active (rai::block const & block_a)
 std::deque<std::shared_ptr<rai::block>> rai::active_transactions::list_blocks ()
 {
 	std::deque<std::shared_ptr<rai::block>> result;
-	std::lock_guard<std::mutex> lock (mutex);
+	std::lock_guard<rai::mutex> lock (mutex);
 	for (auto i (roots.begin ()), n (roots.end ()); i != n; ++i)
 	{
 		result.push_back (i->election->status.winner);
@@ -3903,7 +3903,7 @@ std::deque<std::shared_ptr<rai::block>> rai::active_transactions::list_blocks ()
 
 void rai::active_transactions::erase (rai::block const & block_a)
 {
-	std::lock_guard<std::mutex> lock (mutex);
+	std::lock_guard<rai::mutex> lock (mutex);
 	if (roots.find (block_a.root ()) != roots.end ())
 	{
 		roots.erase (block_a.root ());
@@ -3920,7 +3920,7 @@ thread ([this]() {
 	announce_loop ();
 })
 {
-	std::unique_lock<std::mutex> lock (mutex);
+	std::unique_lock<rai::mutex> lock (mutex);
 	while (!started)
 	{
 		condition.wait (lock);
@@ -3934,7 +3934,7 @@ rai::active_transactions::~active_transactions ()
 
 bool rai::active_transactions::publish (std::shared_ptr<rai::block> block_a)
 {
-	std::lock_guard<std::mutex> lock (mutex);
+	std::lock_guard<rai::mutex> lock (mutex);
 	auto existing (roots.find (block_a->root ()));
 	auto result (true);
 	if (existing != roots.end ())
@@ -4040,7 +4040,7 @@ stopped (false)
 }
 rai::udp_data * rai::udp_buffer::allocate ()
 {
-	std::unique_lock<std::mutex> lock (mutex);
+	std::unique_lock<rai::mutex> lock (mutex);
 	while (!stopped && free.empty () && full.empty ())
 	{
 		stats.inc (rai::stat::type::udp, rai::stat::detail::blocking, rai::stat::dir::in);
@@ -4063,13 +4063,13 @@ rai::udp_data * rai::udp_buffer::allocate ()
 void rai::udp_buffer::enqueue (rai::udp_data * data_a)
 {
 	assert (data_a != nullptr);
-	std::lock_guard<std::mutex> lock (mutex);
+	std::lock_guard<rai::mutex> lock (mutex);
 	full.push_back (data_a);
 	condition.notify_one ();
 }
 rai::udp_data * rai::udp_buffer::dequeue ()
 {
-	std::unique_lock<std::mutex> lock (mutex);
+	std::unique_lock<rai::mutex> lock (mutex);
 	while (!stopped && full.empty ())
 	{
 		condition.wait (lock);
@@ -4085,13 +4085,13 @@ rai::udp_data * rai::udp_buffer::dequeue ()
 void rai::udp_buffer::release (rai::udp_data * data_a)
 {
 	assert (data_a != nullptr);
-	std::lock_guard<std::mutex> lock (mutex);
+	std::lock_guard<rai::mutex> lock (mutex);
 	free.push_back (data_a);
 	condition.notify_one ();
 }
 void rai::udp_buffer::stop ()
 {
-	std::lock_guard<std::mutex> lock (mutex);
+	std::lock_guard<rai::mutex> lock (mutex);
 	stopped = true;
 	condition.notify_all ();
 }

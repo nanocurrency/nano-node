@@ -1833,7 +1833,7 @@ void rai::mdb_store::flush (rai::transaction const & transaction_a)
 {
 	std::unordered_map<rai::account, std::shared_ptr<rai::vote>> sequence_cache_l;
 	{
-		std::lock_guard<std::mutex> lock (cache_mutex);
+		std::lock_guard<rai::mutex> lock (cache_mutex);
 		sequence_cache_l.swap (vote_cache);
 	}
 	for (auto i (sequence_cache_l.begin ()), n (sequence_cache_l.end ()); i != n; ++i)
@@ -1865,7 +1865,7 @@ std::shared_ptr<rai::vote> rai::mdb_store::vote_current (rai::transaction const 
 
 std::shared_ptr<rai::vote> rai::mdb_store::vote_generate (rai::transaction const & transaction_a, rai::account const & account_a, rai::raw_key const & key_a, std::shared_ptr<rai::block> block_a)
 {
-	std::lock_guard<std::mutex> lock (cache_mutex);
+	std::lock_guard<rai::mutex> lock (cache_mutex);
 	auto result (vote_current (transaction_a, account_a));
 	uint64_t sequence ((result ? result->sequence : 0) + 1);
 	result = std::make_shared<rai::vote> (account_a, key_a, sequence, block_a);
@@ -1875,7 +1875,7 @@ std::shared_ptr<rai::vote> rai::mdb_store::vote_generate (rai::transaction const
 
 std::shared_ptr<rai::vote> rai::mdb_store::vote_generate (rai::transaction const & transaction_a, rai::account const & account_a, rai::raw_key const & key_a, std::vector<rai::block_hash> blocks_a)
 {
-	std::lock_guard<std::mutex> lock (cache_mutex);
+	std::lock_guard<rai::mutex> lock (cache_mutex);
 	auto result (vote_current (transaction_a, account_a));
 	uint64_t sequence ((result ? result->sequence : 0) + 1);
 	result = std::make_shared<rai::vote> (account_a, key_a, sequence, blocks_a);
@@ -1885,7 +1885,7 @@ std::shared_ptr<rai::vote> rai::mdb_store::vote_generate (rai::transaction const
 
 std::shared_ptr<rai::vote> rai::mdb_store::vote_max (rai::transaction const & transaction_a, std::shared_ptr<rai::vote> vote_a)
 {
-	std::lock_guard<std::mutex> lock (cache_mutex);
+	std::lock_guard<rai::mutex> lock (cache_mutex);
 	auto current (vote_current (transaction_a, vote_a->account));
 	auto result (vote_a);
 	if (current != nullptr && current->sequence > result->sequence)

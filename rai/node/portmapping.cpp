@@ -22,7 +22,7 @@ void rai::port_mapping::refresh_devices ()
 {
 	if (rai::rai_network != rai::rai_networks::rai_test_network)
 	{
-		std::lock_guard<std::mutex> lock (mutex);
+		std::lock_guard<rai::mutex> lock (mutex);
 		int discover_error = 0;
 		freeUPNPDevlist (devices);
 		devices = upnpDiscover (2000, nullptr, nullptr, UPNP_LOCAL_PORT_ANY, false, 2, &discover_error);
@@ -49,7 +49,7 @@ void rai::port_mapping::refresh_mapping ()
 {
 	if (rai::rai_network != rai::rai_networks::rai_test_network)
 	{
-		std::lock_guard<std::mutex> lock (mutex);
+		std::lock_guard<rai::mutex> lock (mutex);
 		auto node_port (std::to_string (node.network.endpoint ().port ()));
 
 		// We don't map the RPC port because, unless RPC authentication was added, this would almost always be a security risk
@@ -80,7 +80,7 @@ int rai::port_mapping::check_mapping ()
 	if (rai::rai_network != rai::rai_networks::rai_test_network)
 	{
 		// Long discovery time and fast setup/teardown make this impractical for testing
-		std::lock_guard<std::mutex> lock (mutex);
+		std::lock_guard<rai::mutex> lock (mutex);
 		auto node_port (std::to_string (node.network.endpoint ().port ()));
 		for (auto & protocol : protocols)
 		{
@@ -153,7 +153,7 @@ void rai::port_mapping::check_mapping_loop ()
 void rai::port_mapping::stop ()
 {
 	on = false;
-	std::lock_guard<std::mutex> lock (mutex);
+	std::lock_guard<rai::mutex> lock (mutex);
 	for (auto & protocol : protocols)
 	{
 		if (protocol.external_port != 0)

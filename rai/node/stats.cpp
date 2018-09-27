@@ -152,7 +152,7 @@ std::shared_ptr<rai::stat_entry> rai::stat::get_entry (uint32_t key)
 
 std::shared_ptr<rai::stat_entry> rai::stat::get_entry (uint32_t key, size_t interval, size_t capacity)
 {
-	std::unique_lock<std::mutex> lock (stat_mutex);
+	std::unique_lock<rai::mutex> lock (stat_mutex);
 	return get_entry_impl (key, interval, capacity);
 }
 
@@ -184,7 +184,7 @@ std::unique_ptr<rai::stat_log_sink> log_sink_file (std::string filename)
 
 void rai::stat::log_counters (stat_log_sink & sink)
 {
-	std::unique_lock<std::mutex> lock (stat_mutex);
+	std::unique_lock<rai::mutex> lock (stat_mutex);
 	log_counters_impl (sink);
 }
 
@@ -219,7 +219,7 @@ void rai::stat::log_counters_impl (stat_log_sink & sink)
 
 void rai::stat::log_samples (stat_log_sink & sink)
 {
-	std::unique_lock<std::mutex> lock (stat_mutex);
+	std::unique_lock<rai::mutex> lock (stat_mutex);
 	log_samples_impl (sink);
 }
 
@@ -262,7 +262,7 @@ void rai::stat::update (uint32_t key_a, uint64_t value)
 
 	auto now (std::chrono::steady_clock::now ());
 
-	std::unique_lock<std::mutex> lock (stat_mutex);
+	std::unique_lock<rai::mutex> lock (stat_mutex);
 	auto entry (get_entry_impl (key_a, config.interval, config.capacity));
 
 	// Counters

@@ -2,7 +2,6 @@
 #include <rai/node/node.hpp>
 
 #include <atomic>
-#include <condition_variable>
 #include <future>
 #include <thread>
 
@@ -52,16 +51,16 @@ TEST (alarm, one)
 	boost::asio::io_service service;
 	rai::alarm alarm (service);
 	std::atomic<bool> done (false);
-	std::mutex mutex;
-	std::condition_variable condition;
+	rai::mutex mutex;
+	rai::condition_variable condition;
 	alarm.add (std::chrono::steady_clock::now (), [&]() {
-		std::lock_guard<std::mutex> lock (mutex);
+		std::lock_guard<rai::mutex> lock (mutex);
 		done = true;
 		condition.notify_one ();
 	});
 	boost::asio::io_service::work work (service);
 	boost::thread thread ([&service]() { service.run (); });
-	std::unique_lock<std::mutex> unique (mutex);
+	std::unique_lock<rai::mutex> unique (mutex);
 	condition.wait (unique, [&]() { return !!done; });
 	service.stop ();
 	thread.join ();
@@ -72,12 +71,12 @@ TEST (alarm, many)
 	boost::asio::io_service service;
 	rai::alarm alarm (service);
 	std::atomic<int> count (0);
-	std::mutex mutex;
-	std::condition_variable condition;
+	rai::mutex mutex;
+	rai::condition_variable condition;
 	for (auto i (0); i < 50; ++i)
 	{
 		alarm.add (std::chrono::steady_clock::now (), [&]() {
-			std::lock_guard<std::mutex> lock (mutex);
+			std::lock_guard<rai::mutex> lock (mutex);
 			count += 1;
 			condition.notify_one ();
 		});
@@ -88,7 +87,7 @@ TEST (alarm, many)
 	{
 		threads.push_back (boost::thread ([&service]() { service.run (); }));
 	}
-	std::unique_lock<std::mutex> unique (mutex);
+	std::unique_lock<rai::mutex> unique (mutex);
 	condition.wait (unique, [&]() { return count == 50; });
 	service.stop ();
 	for (auto i (threads.begin ()), j (threads.end ()); i != j; ++i)
@@ -103,15 +102,15 @@ TEST (alarm, top_execution)
 	rai::alarm alarm (service);
 	int value1 (0);
 	int value2 (0);
-	std::mutex mutex;
+	rai::mutex mutex;
 	std::promise<bool> promise;
 	alarm.add (std::chrono::steady_clock::now (), [&]() {
-		std::lock_guard<std::mutex> lock (mutex);
+		std::lock_guard<rai::mutex> lock (mutex);
 		value1 = 1;
 		value2 = 1;
 	});
 	alarm.add (std::chrono::steady_clock::now () + std::chrono::milliseconds (1), [&]() {
-		std::lock_guard<std::mutex> lock (mutex);
+		std::lock_guard<rai::mutex> lock (mutex);
 		value2 = 2;
 		promise.set_value (false);
 	});
@@ -120,7 +119,7 @@ TEST (alarm, top_execution)
 		service.run ();
 	});
 	promise.get_future ().get ();
-	std::lock_guard<std::mutex> lock (mutex);
+	std::lock_guard<rai::mutex> lock (mutex);
 	ASSERT_EQ (1, value1);
 	ASSERT_EQ (2, value2);
 	service.stop ();

@@ -6,7 +6,7 @@
 #include <boost/property_tree/ptree.hpp>
 
 #include <map>
-#include <mutex>
+#include <rai/lib/mutex.hpp>
 #include <vector>
 
 #ifdef __APPLE__
@@ -53,7 +53,7 @@ public:
 	boost::optional<uint64_t> generate_work (rai::uint256_union const &);
 	static std::unique_ptr<opencl_work> create (bool, rai::opencl_config const &, rai::logging &);
 	rai::opencl_config const & config;
-	std::mutex mutex;
+	rai::mutex mutex;
 	cl_context context;
 	cl_mem attempt_buffer;
 	cl_mem result_buffer;

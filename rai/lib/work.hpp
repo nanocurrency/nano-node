@@ -3,11 +3,11 @@
 #include <boost/optional.hpp>
 #include <boost/thread/thread.hpp>
 #include <rai/lib/config.hpp>
+#include <rai/lib/mutex.hpp>
 #include <rai/lib/numbers.hpp>
 #include <rai/lib/utility.hpp>
 
 #include <atomic>
-#include <condition_variable>
 #include <memory>
 #include <thread>
 
@@ -32,8 +32,8 @@ public:
 	bool done;
 	std::vector<boost::thread> threads;
 	std::list<std::pair<rai::uint256_union, std::function<void(boost::optional<uint64_t> const &)>>> pending;
-	std::mutex mutex;
-	std::condition_variable producer_condition;
+	rai::mutex mutex;
+	rai::condition_variable producer_condition;
 	std::function<boost::optional<uint64_t> (rai::uint256_union const &)> opencl;
 	rai::observer_set<bool> work_observers;
 	// Local work threshold for rate-limiting publishing blocks. ~5 seconds of work.

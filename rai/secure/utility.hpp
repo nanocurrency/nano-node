@@ -2,7 +2,6 @@
 
 #include <array>
 #include <atomic>
-#include <condition_variable>
 #include <type_traits>
 
 #include <boost/filesystem.hpp>
@@ -14,6 +13,7 @@
 
 #include <rai/lib/config.hpp>
 #include <rai/lib/interface.h>
+#include <rai/lib/mutex.hpp>
 #include <rai/lib/numbers.hpp>
 
 namespace rai

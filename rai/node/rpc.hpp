@@ -71,7 +71,7 @@ public:
 	void stop ();
 	void observer_action (rai::account const &);
 	boost::asio::ip::tcp::acceptor acceptor;
-	std::mutex mutex;
+	rai::mutex mutex;
 	std::unordered_map<rai::account, std::shared_ptr<rai::payment_observer>> payment_observers;
 	rai::rpc_config config;
 	rai::node & node;
@@ -102,8 +102,8 @@ public:
 	void observe ();
 	void timeout ();
 	void complete (rai::payment_status);
-	std::mutex mutex;
-	std::condition_variable condition;
+	rai::mutex mutex;
+	rai::condition_variable condition;
 	rai::rpc & rpc;
 	rai::account account;
 	rai::amount amount;

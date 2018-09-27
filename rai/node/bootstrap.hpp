@@ -1,5 +1,6 @@
 #pragma once
 
+#include <rai/lib/mutex.hpp>
 #include <rai/node/common.hpp>
 #include <rai/secure/blockstore.hpp>
 #include <rai/secure/ledger.hpp>
@@ -67,12 +68,12 @@ public:
 	bootstrap_attempt (std::shared_ptr<rai::node> node_a);
 	~bootstrap_attempt ();
 	void run ();
-	std::shared_ptr<rai::bootstrap_client> connection (std::unique_lock<std::mutex> &);
+	std::shared_ptr<rai::bootstrap_client> connection (std::unique_lock<rai::mutex> &);
 	bool consume_future (std::future<bool> &);
 	void populate_connections ();
-	bool request_frontier (std::unique_lock<std::mutex> &);
-	void request_pull (std::unique_lock<std::mutex> &);
-	void request_push (std::unique_lock<std::mutex> &);
+	bool request_frontier (std::unique_lock<rai::mutex> &);
+	void request_pull (std::unique_lock<rai::mutex> &);
+	void request_push (std::unique_lock<rai::mutex> &);
 	void add_connection (rai::endpoint const &);
 	void pool_connection (std::shared_ptr<rai::bootstrap_client>);
 	void stop ();
@@ -96,8 +97,8 @@ public:
 	std::atomic<uint64_t> total_blocks;
 	std::vector<std::pair<rai::block_hash, rai::block_hash>> bulk_push_targets;
 	bool stopped;
-	std::mutex mutex;
-	std::condition_variable condition;
+	rai::mutex mutex;
+	rai::condition_variable condition;
 };
 class frontier_req_client : public std::enable_shared_from_this<rai::frontier_req_client>
 {
@@ -187,8 +188,8 @@ private:
 	rai::node & node;
 	std::shared_ptr<rai::bootstrap_attempt> attempt;
 	bool stopped;
-	std::mutex mutex;
-	std::condition_variable condition;
+	rai::mutex mutex;
+	rai::condition_variable condition;
 	std::vector<std::function<void(bool)>> observers;
 	boost::thread thread;
 };
@@ -201,7 +202,7 @@ public:
 	void stop ();
 	void accept_connection ();
 	void accept_action (boost::system::error_code const &, std::shared_ptr<rai::socket>);
-	std::mutex mutex;
+	rai::mutex mutex;
 	std::unordered_map<rai::bootstrap_server *, std::weak_ptr<rai::bootstrap_server>> connections;
 	rai::tcp_endpoint endpoint ();
 	boost::asio::ip::tcp::acceptor acceptor;
@@ -229,7 +230,7 @@ public:
 	std::shared_ptr<std::vector<uint8_t>> receive_buffer;
 	std::shared_ptr<rai::socket> socket;
 	std::shared_ptr<rai::node> node;
-	std::mutex mutex;
+	rai::mutex mutex;
 	std::queue<std::unique_ptr<rai::message>> requests;
 };
 class bulk_pull;

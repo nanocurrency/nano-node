@@ -4,6 +4,7 @@
 
 #include <lmdb/libraries/liblmdb/lmdb.h>
 
+#include <rai/lib/mutex.hpp>
 #include <rai/lib/numbers.hpp>
 #include <rai/secure/blockstore.hpp>
 #include <rai/secure/common.hpp>
@@ -236,7 +237,7 @@ public:
 	void flush (rai::transaction const &) override;
 	rai::store_iterator<rai::account, std::shared_ptr<rai::vote>> vote_begin (rai::transaction const &) override;
 	rai::store_iterator<rai::account, std::shared_ptr<rai::vote>> vote_end () override;
-	std::mutex cache_mutex;
+	rai::mutex cache_mutex;
 	std::unordered_map<rai::account, std::shared_ptr<rai::vote>> vote_cache;
 
 	void version_put (rai::transaction const &, int) override;

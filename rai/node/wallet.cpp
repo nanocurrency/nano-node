@@ -207,7 +207,7 @@ rai::fan::fan (rai::uint256_union const & key, size_t count_a)
 
 void rai::fan::value (rai::raw_key & prv_a)
 {
-	std::lock_guard<std::mutex> lock (mutex);
+	std::lock_guard<rai::mutex> lock (mutex);
 	value_get (prv_a);
 }
 
@@ -223,7 +223,7 @@ void rai::fan::value_get (rai::raw_key & prv_a)
 
 void rai::fan::value_set (rai::raw_key const & value_a)
 {
-	std::lock_guard<std::mutex> lock (mutex);
+	std::lock_guard<rai::mutex> lock (mutex);
 	rai::raw_key value_l;
 	value_get (value_l);
 	*(values[0]) ^= value_l.data;
@@ -722,7 +722,7 @@ void rai::wallet_store::upgrade_v3_v4 (rai::transaction const & transaction_a)
 
 void rai::kdf::phs (rai::raw_key & result_a, std::string const & password_a, rai::uint256_union const & salt_a)
 {
-	std::lock_guard<std::mutex> lock (mutex);
+	std::lock_guard<rai::mutex> lock (mutex);
 	auto success (argon2_hash (1, rai::wallet_store::kdf_work, 1, password_a.data (), password_a.size (), salt_a.bytes.data (), salt_a.bytes.size (), result_a.data.bytes.data (), result_a.data.bytes.size (), NULL, 0, Argon2_d, 0x10));
 	assert (success == 0);
 	(void)success;
@@ -1342,7 +1342,7 @@ void rai::wallets::destroy (rai::uint256_union const & id_a)
 
 void rai::wallets::do_wallet_actions ()
 {
-	std::unique_lock<std::mutex> lock (mutex);
+	std::unique_lock<rai::mutex> lock (mutex);
 	while (!stopped)
 	{
 		if (!actions.empty ())
@@ -1365,7 +1365,7 @@ void rai::wallets::do_wallet_actions ()
 
 void rai::wallets::queue_wallet_action (rai::uint128_t const & amount_a, std::function<void()> const & action_a)
 {
-	std::lock_guard<std::mutex> lock (mutex);
+	std::lock_guard<rai::mutex> lock (mutex);
 	actions.insert (std::make_pair (amount_a, std::move (action_a)));
 	condition.notify_all ();
 }
@@ -1414,7 +1414,7 @@ bool rai::wallets::exists (rai::transaction const & transaction_a, rai::public_k
 void rai::wallets::stop ()
 {
 	{
-		std::lock_guard<std::mutex> lock (mutex);
+		std::lock_guard<rai::mutex> lock (mutex);
 		stopped = true;
 		condition.notify_all ();
 	}

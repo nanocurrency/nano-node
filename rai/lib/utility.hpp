@@ -5,7 +5,7 @@
 #include <boost/thread/thread.hpp>
 
 #include <functional>
-#include <mutex>
+#include <rai/lib/mutex.hpp>
 #include <thread>
 #include <vector>
 
@@ -57,18 +57,18 @@ class observer_set
 public:
 	void add (std::function<void(T...)> const & observer_a)
 	{
-		std::lock_guard<std::mutex> lock (mutex);
+		std::lock_guard<rai::mutex> lock (mutex);
 		observers.push_back (observer_a);
 	}
 	void notify (T... args)
 	{
-		std::lock_guard<std::mutex> lock (mutex);
+		std::lock_guard<rai::mutex> lock (mutex);
 		for (auto & i : observers)
 		{
 			i (args...);
 		}
 	}
-	std::mutex mutex;
+	rai::mutex mutex;
 	std::vector<std::function<void(T...)>> observers;
 };
 }

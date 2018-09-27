@@ -64,7 +64,7 @@ void rai::work_pool::loop (uint64_t thread)
 	uint64_t output;
 	blake2b_state hash;
 	blake2b_init (&hash, sizeof (output));
-	std::unique_lock<std::mutex> lock (mutex);
+	std::unique_lock<rai::mutex> lock (mutex);
 	while (!done || !pending.empty ())
 	{
 		auto empty (pending.empty ());
@@ -124,7 +124,7 @@ void rai::work_pool::loop (uint64_t thread)
 
 void rai::work_pool::cancel (rai::uint256_union const & root_a)
 {
-	std::lock_guard<std::mutex> lock (mutex);
+	std::lock_guard<rai::mutex> lock (mutex);
 	if (!pending.empty ())
 	{
 		if (pending.front ().first == root_a)
@@ -149,7 +149,7 @@ void rai::work_pool::cancel (rai::uint256_union const & root_a)
 
 void rai::work_pool::stop ()
 {
-	std::lock_guard<std::mutex> lock (mutex);
+	std::lock_guard<rai::mutex> lock (mutex);
 	done = true;
 	producer_condition.notify_all ();
 }
@@ -164,7 +164,7 @@ void rai::work_pool::generate (rai::uint256_union const & root_a, std::function<
 	}
 	if (!result)
 	{
-		std::lock_guard<std::mutex> lock (mutex);
+		std::lock_guard<rai::mutex> lock (mutex);
 		pending.push_back (std::make_pair (root_a, callback_a));
 		producer_condition.notify_all ();
 	}

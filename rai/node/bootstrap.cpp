@@ -383,7 +383,7 @@ rai::bulk_pull_client::bulk_pull_client (std::shared_ptr<rai::bootstrap_client> 
 connection (connection_a),
 pull (pull_a)
 {
-	std::lock_guard<std::mutex> mutex (connection->attempt->mutex);
+	std::lock_guard<rai::mutex> mutex (connection->attempt->mutex);
 	++connection->attempt->pulling;
 	connection->attempt->condition.notify_all ();
 }
@@ -400,7 +400,7 @@ rai::bulk_pull_client::~bulk_pull_client ()
 			BOOST_LOG (connection->node->log) << boost::str (boost::format ("Bulk pull end block is not expected %1% for account %2%") % pull.end.to_string () % pull.account.to_account ());
 		}
 	}
-	std::lock_guard<std::mutex> mutex (connection->attempt->mutex);
+	std::lock_guard<rai::mutex> mutex (connection->attempt->mutex);
 	--connection->attempt->pulling;
 	connection->attempt->condition.notify_all ();
 }
@@ -418,12 +418,12 @@ void rai::bulk_pull_client::request ()
 	}
 	if (connection->node->config.logging.bulk_pull_logging ())
 	{
-		std::unique_lock<std::mutex> lock (connection->attempt->mutex);
+		std::unique_lock<rai::mutex> lock (connection->attempt->mutex);
 		BOOST_LOG (connection->node->log) << boost::str (boost::format ("Requesting account %1% from %2%. %3% accounts in queue") % req.start.to_account () % connection->endpoint % connection->attempt->pulls.size ());
 	}
 	else if (connection->node->config.logging.network_logging () && connection->attempt->should_log ())
 	{
-		std::unique_lock<std::mutex> lock (connection->attempt->mutex);
+		std::unique_lock<rai::mutex> lock (connection->attempt->mutex);
 		BOOST_LOG (connection->node->log) << boost::str (boost::format ("%1% accounts in pull queue") % connection->attempt->pulls.size ());
 	}
 	auto this_l (shared_from_this ());
@@ -610,7 +610,7 @@ void rai::bulk_push_client::push (rai::transaction const & transaction_a)
 	{
 		if (current_target.first.is_zero () || current_target.first == current_target.second)
 		{
-			std::lock_guard<std::mutex> guard (connection->attempt->mutex);
+			std::lock_guard<rai::mutex> guard (connection->attempt->mutex);
 			if (!connection->attempt->bulk_push_targets.empty ())
 			{
 				current_target = connection->attempt->bulk_push_targets.back ();
@@ -729,7 +729,7 @@ rai::bootstrap_attempt::~bootstrap_attempt ()
 
 bool rai::bootstrap_attempt::should_log ()
 {
-	std::lock_guard<std::mutex> lock (mutex);
+	std::lock_guard<rai::mutex> lock (mutex);
 	auto result (false);
 	auto now (std::chrono::steady_clock::now ());
 	if (next_log < now)
@@ -740,7 +740,7 @@ bool rai::bootstrap_attempt::should_log ()
 	return result;
 }
 
-bool rai::bootstrap_attempt::request_frontier (std::unique_lock<std::mutex> & lock_a)
+bool rai::bootstrap_attempt::request_frontier (std::unique_lock<rai::mutex> & lock_a)
 {
 	auto result (true);
 	auto connection_l (connection (lock_a));
@@ -776,7 +776,7 @@ bool rai::bootstrap_attempt::request_frontier (std::unique_lock<std::mutex> & lo
 	return result;
 }
 
-void rai::bootstrap_attempt::request_pull (std::unique_lock<std::mutex> & lock_a)
+void rai::bootstrap_attempt::request_pull (std::unique_lock<rai::mutex> & lock_a)
 {
 	auto connection_l (connection (lock_a));
 	if (connection_l)
@@ -792,7 +792,7 @@ void rai::bootstrap_attempt::request_pull (std::unique_lock<std::mutex> & lock_a
 	}
 }
 
-void rai::bootstrap_attempt::request_push (std::unique_lock<std::mutex> & lock_a)
+void rai::bootstrap_attempt::request_push (std::unique_lock<rai::mutex> & lock_a)
 {
 	bool error (false);
 	if (auto connection_shared = connection_frontier_request.lock ())
@@ -827,7 +827,7 @@ bool rai::bootstrap_attempt::still_pulling ()
 void rai::bootstrap_attempt::run ()
 {
 	populate_connections ();
-	std::unique_lock<std::mutex> lock (mutex);
+	std::unique_lock<rai::mutex> lock (mutex);
 	auto frontier_failure (true);
 	while (!stopped && frontier_failure)
 	{
@@ -876,7 +876,7 @@ void rai::bootstrap_attempt::run ()
 	idle.clear ();
 }
 
-std::shared_ptr<rai::bootstrap_client> rai::bootstrap_attempt::connection (std::unique_lock<std::mutex> & lock_a)
+std::shared_ptr<rai::bootstrap_client> rai::bootstrap_attempt::connection (std::unique_lock<rai::mutex> & lock_a)
 {
 	while (!stopped && idle.empty ())
 	{
@@ -932,7 +932,7 @@ void rai::bootstrap_attempt::populate_connections ()
 	size_t num_pulls = 0;
 	std::priority_queue<std::shared_ptr<rai::bootstrap_client>, std::vector<std::shared_ptr<rai::bootstrap_client>>, block_rate_cmp> sorted_connections;
 	{
-		std::unique_lock<std::mutex> lock (mutex);
+		std::unique_lock<rai::mutex> lock (mutex);
 		num_pulls = pulls.size ();
 		for (auto & c : clients)
 		{
@@ -990,7 +990,7 @@ void rai::bootstrap_attempt::populate_connections ()
 
 	if (node->config.logging.bulk_pull_logging ())
 	{
-		std::unique_lock<std::mutex> lock (mutex);
+		std::unique_lock<rai::mutex> lock (mutex);
 		BOOST_LOG (node->log) << boost::str (boost::format ("Bulk pull connections: %1%, rate: %2% blocks/sec, remaining account pulls: %3%, total blocks: %4%") % connections.load () % (int)rate_sum % pulls.size () % (int)total_blocks.load ());
 	}
 
@@ -1006,7 +1006,7 @@ void rai::bootstrap_attempt::populate_connections ()
 			{
 				auto client (std::make_shared<rai::bootstrap_client> (node, shared_from_this (), rai::tcp_endpoint (peer.address (), peer.port ())));
 				client->run ();
-				std::lock_guard<std::mutex> lock (mutex);
+				std::lock_guard<rai::mutex> lock (mutex);
 				clients.push_back (client);
 			}
 			else if (connections == 0)
@@ -1037,14 +1037,14 @@ void rai::bootstrap_attempt::add_connection (rai::endpoint const & endpoint_a)
 
 void rai::bootstrap_attempt::pool_connection (std::shared_ptr<rai::bootstrap_client> client_a)
 {
-	std::lock_guard<std::mutex> lock (mutex);
+	std::lock_guard<rai::mutex> lock (mutex);
 	idle.push_front (client_a);
 	condition.notify_all ();
 }
 
 void rai::bootstrap_attempt::stop ()
 {
-	std::lock_guard<std::mutex> lock (mutex);
+	std::lock_guard<rai::mutex> lock (mutex);
 	stopped = true;
 	condition.notify_all ();
 	for (auto i : clients)
@@ -1078,7 +1078,7 @@ void rai::bootstrap_attempt::stop ()
 
 void rai::bootstrap_attempt::add_pull (rai::pull_info const & pull)
 {
-	std::lock_guard<std::mutex> lock (mutex);
+	std::lock_guard<rai::mutex> lock (mutex);
 	pulls.push_back (pull);
 	condition.notify_all ();
 }
@@ -1088,14 +1088,14 @@ void rai::bootstrap_attempt::requeue_pull (rai::pull_info const & pull_a)
 	auto pull (pull_a);
 	if (++pull.attempts < bootstrap_frontier_retry_limit)
 	{
-		std::lock_guard<std::mutex> lock (mutex);
+		std::lock_guard<rai::mutex> lock (mutex);
 		pulls.push_front (pull);
 		condition.notify_all ();
 	}
 	else if (pull.attempts == bootstrap_frontier_retry_limit)
 	{
 		pull.attempts++;
-		std::lock_guard<std::mutex> lock (mutex);
+		std::lock_guard<rai::mutex> lock (mutex);
 		if (auto connection_shared = connection_frontier_request.lock ())
 		{
 			node->background ([connection_shared, pull]() {
@@ -1119,7 +1119,7 @@ void rai::bootstrap_attempt::requeue_pull (rai::pull_info const & pull_a)
 
 void rai::bootstrap_attempt::add_bulk_push_target (rai::block_hash const & head, rai::block_hash const & end)
 {
-	std::lock_guard<std::mutex> lock (mutex);
+	std::lock_guard<rai::mutex> lock (mutex);
 	bulk_push_targets.push_back (std::make_pair (head, end));
 }
 
@@ -1141,7 +1141,7 @@ rai::bootstrap_initiator::~bootstrap_initiator ()
 
 void rai::bootstrap_initiator::bootstrap ()
 {
-	std::unique_lock<std::mutex> lock (mutex);
+	std::unique_lock<rai::mutex> lock (mutex);
 	if (!stopped && attempt == nullptr)
 	{
 		node.stats.inc (rai::stat::type::bootstrap, rai::stat::detail::initiate, rai::stat::dir::out);
@@ -1156,7 +1156,7 @@ void rai::bootstrap_initiator::bootstrap (rai::endpoint const & endpoint_a, bool
 	{
 		node.peers.insert (rai::map_endpoint_to_v6 (endpoint_a), rai::protocol_version);
 	}
-	std::unique_lock<std::mutex> lock (mutex);
+	std::unique_lock<rai::mutex> lock (mutex);
 	if (!stopped)
 	{
 		while (attempt != nullptr)
@@ -1173,7 +1173,7 @@ void rai::bootstrap_initiator::bootstrap (rai::endpoint const & endpoint_a, bool
 
 void rai::bootstrap_initiator::run_bootstrap ()
 {
-	std::unique_lock<std::mutex> lock (mutex);
+	std::unique_lock<rai::mutex> lock (mutex);
 	while (!stopped)
 	{
 		if (attempt != nullptr)
@@ -1193,7 +1193,7 @@ void rai::bootstrap_initiator::run_bootstrap ()
 
 void rai::bootstrap_initiator::add_observer (std::function<void(bool)> const & observer_a)
 {
-	std::lock_guard<std::mutex> lock (mutex);
+	std::lock_guard<rai::mutex> lock (mutex);
 	observers.push_back (observer_a);
 }
 
@@ -1204,13 +1204,13 @@ bool rai::bootstrap_initiator::in_progress ()
 
 std::shared_ptr<rai::bootstrap_attempt> rai::bootstrap_initiator::current_attempt ()
 {
-	std::lock_guard<std::mutex> lock (mutex);
+	std::lock_guard<rai::mutex> lock (mutex);
 	return attempt;
 }
 
 void rai::bootstrap_initiator::stop ()
 {
-	std::unique_lock<std::mutex> lock (mutex);
+	std::unique_lock<rai::mutex> lock (mutex);
 	stopped = true;
 	if (attempt != nullptr)
 	{
@@ -1256,7 +1256,7 @@ void rai::bootstrap_listener::stop ()
 {
 	decltype (connections) connections_l;
 	{
-		std::lock_guard<std::mutex> lock (mutex);
+		std::lock_guard<rai::mutex> lock (mutex);
 		on = false;
 		connections_l.swap (connections);
 	}
@@ -1286,7 +1286,7 @@ void rai::bootstrap_listener::accept_action (boost::system::error_code const & e
 		accept_connection ();
 		auto connection (std::make_shared<rai::bootstrap_server> (socket_a, node.shared ()));
 		{
-			std::lock_guard<std::mutex> lock (mutex);
+			std::lock_guard<rai::mutex> lock (mutex);
 			if (connections.size () < node.config.bootstrap_connections_max && acceptor.is_open ())
 			{
 				connections[connection.get ()] = connection;
@@ -1311,7 +1311,7 @@ rai::bootstrap_server::~bootstrap_server ()
 	{
 		BOOST_LOG (node->log) << "Exiting bootstrap server";
 	}
-	std::lock_guard<std::mutex> lock (node->bootstrap.mutex);
+	std::lock_guard<rai::mutex> lock (node->bootstrap.mutex);
 	node->bootstrap.connections.erase (this);
 }
 
@@ -1495,7 +1495,7 @@ void rai::bootstrap_server::receive_frontier_req_action (boost::system::error_co
 
 void rai::bootstrap_server::add_request (std::unique_ptr<rai::message> message_a)
 {
-	std::lock_guard<std::mutex> lock (mutex);
+	std::lock_guard<rai::mutex> lock (mutex);
 	auto start (requests.empty ());
 	requests.push (std::move (message_a));
 	if (start)
@@ -1506,7 +1506,7 @@ void rai::bootstrap_server::add_request (std::unique_ptr<rai::message> message_a
 
 void rai::bootstrap_server::finish_request ()
 {
-	std::lock_guard<std::mutex> lock (mutex);
+	std::lock_guard<rai::mutex> lock (mutex);
 	requests.pop ();
 	if (!requests.empty ())
 	{

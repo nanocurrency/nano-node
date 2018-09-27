@@ -7,8 +7,8 @@
 #include <rai/secure/blockstore.hpp>
 #include <rai/secure/common.hpp>
 
-#include <mutex>
 #include <queue>
+#include <rai/lib/mutex.hpp>
 #include <thread>
 #include <unordered_set>
 
@@ -24,7 +24,7 @@ public:
 	std::vector<std::unique_ptr<rai::uint256_union>> values;
 
 private:
-	std::mutex mutex;
+	rai::mutex mutex;
 	void value_get (rai::raw_key &);
 };
 class node_config;
@@ -32,7 +32,7 @@ class kdf
 {
 public:
 	void phs (rai::raw_key &, std::string const &, rai::uint256_union const &);
-	std::mutex mutex;
+	rai::mutex mutex;
 };
 enum class key_type
 {
@@ -180,8 +180,8 @@ public:
 	std::function<void(bool)> observer;
 	std::unordered_map<rai::uint256_union, std::shared_ptr<rai::wallet>> items;
 	std::multimap<rai::uint128_t, std::function<void()>, std::greater<rai::uint128_t>> actions;
-	std::mutex mutex;
-	std::condition_variable condition;
+	rai::mutex mutex;
+	rai::condition_variable condition;
 	rai::kdf kdf;
 	MDB_dbi handle;
 	MDB_dbi send_action_ids;

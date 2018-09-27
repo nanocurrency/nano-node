@@ -1,5 +1,6 @@
 #pragma once
 
+#include <rai/lib/mutex.hpp>
 #include <rai/lib/work.hpp>
 #include <rai/node/bootstrap.hpp>
 #include <rai/node/logging.hpp>
@@ -7,8 +8,6 @@
 #include <rai/node/stats.hpp>
 #include <rai/node/wallet.hpp>
 #include <rai/secure/ledger.hpp>
-
-#include <condition_variable>
 
 #include <boost/iostreams/device/array.hpp>
 #include <boost/multi_index/hashed_index.hpp>
@@ -120,7 +119,7 @@ public:
 	std::unordered_map<rai::block_hash, std::shared_ptr<rai::election>> successors;
 	std::deque<rai::election_status> confirmed;
 	rai::node & node;
-	std::mutex mutex;
+	rai::mutex mutex;
 	// Maximum number of conflicts to vote on per interval, lowest root hash first
 	static unsigned constexpr announcements_per_interval = 32;
 	// Minimum number of block announcements
@@ -133,7 +132,7 @@ public:
 private:
 	void announce_loop ();
 	void announce_votes ();
-	std::condition_variable condition;
+	rai::condition_variable condition;
 	bool started;
 	bool stopped;
 	boost::thread thread;
@@ -153,8 +152,8 @@ public:
 	void add (std::chrono::steady_clock::time_point const &, std::function<void()> const &);
 	void run ();
 	boost::asio::io_service & service;
-	std::mutex mutex;
-	std::condition_variable condition;
+	rai::mutex mutex;
+	rai::condition_variable condition;
 	std::priority_queue<operation, std::vector<operation>, std::greater<operation>> operations;
 	boost::thread thread;
 };
@@ -179,7 +178,7 @@ public:
 	boost::multi_index::hashed_unique<boost::multi_index::member<gap_information, rai::block_hash, &gap_information::hash>>>>
 	blocks;
 	size_t const max = 256;
-	std::mutex mutex;
+	rai::mutex mutex;
 	rai::node & node;
 };
 class work_pool;
@@ -259,7 +258,7 @@ public:
 	rai::uint128_t total_weight ();
 	rai::uint128_t online_weight_minimum;
 	bool empty ();
-	std::mutex mutex;
+	rai::mutex mutex;
 	rai::endpoint self;
 	boost::multi_index_container<
 	peer_information,
@@ -279,7 +278,7 @@ public:
 	boost::multi_index::hashed_unique<boost::multi_index::member<peer_attempt, rai::endpoint, &peer_attempt::endpoint>>,
 	boost::multi_index::ordered_non_unique<boost::multi_index::member<peer_attempt, std::chrono::steady_clock::time_point, &peer_attempt::last_attempt>>>>
 	attempts;
-	std::mutex syn_cookie_mutex;
+	rai::mutex syn_cookie_mutex;
 	std::unordered_map<rai::endpoint, syn_cookie_info> syn_cookies;
 	std::unordered_map<boost::asio::ip::address, unsigned> syn_cookies_per_ip;
 	// Number of peers that don't support node ID
@@ -324,7 +323,7 @@ public:
 	boost::multi_index::ordered_non_unique<boost::multi_index::member<rai::block_arrival_info, std::chrono::steady_clock::time_point, &rai::block_arrival_info::arrival>>,
 	boost::multi_index::hashed_unique<boost::multi_index::member<rai::block_arrival_info, rai::block_hash, &rai::block_arrival_info::hash>>>>
 	arrival;
-	std::mutex mutex;
+	rai::mutex mutex;
 	static size_t constexpr arrival_size_min = 8 * 1024;
 	static std::chrono::seconds constexpr arrival_time_min = std::chrono::seconds (300);
 };
@@ -351,7 +350,7 @@ public:
 	reps;
 
 private:
-	std::mutex mutex;
+	rai::mutex mutex;
 	rai::node & node;
 };
 class udp_data
@@ -393,8 +392,8 @@ public:
 
 private:
 	rai::stat & stats;
-	std::mutex mutex;
-	std::condition_variable condition;
+	rai::mutex mutex;
+	rai::condition_variable condition;
 	boost::circular_buffer<rai::udp_data *> free;
 	boost::circular_buffer<rai::udp_data *> full;
 	std::vector<uint8_t> slab;
@@ -429,7 +428,7 @@ public:
 	rai::endpoint endpoint ();
 	rai::udp_buffer buffer_container;
 	boost::asio::ip::udp::socket socket;
-	std::mutex socket_mutex;
+	rai::mutex socket_mutex;
 	boost::asio::ip::udp::resolver resolver;
 	std::vector<boost::thread> packet_processing_threads;
 	rai::node & node;
@@ -507,8 +506,8 @@ public:
 private:
 	void process_loop ();
 	std::deque<std::pair<std::shared_ptr<rai::vote>, rai::endpoint>> votes;
-	std::condition_variable condition;
-	std::mutex mutex;
+	rai::condition_variable condition;
+	rai::mutex mutex;
 	bool started;
 	bool stopped;
 	bool active;
@@ -521,7 +520,7 @@ public:
 	void add (rai::block_hash const &);
 	void remove (rai::block_hash const &);
 	bool exists (rai::block_hash const &);
-	std::mutex mutex;
+	rai::mutex mutex;
 	std::unordered_set<rai::block_hash> active;
 };
 // Processing blocks is a potentially long IO operation
@@ -543,7 +542,7 @@ public:
 
 private:
 	void queue_unchecked (rai::transaction const &, rai::block_hash const &);
-	void process_receive_many (std::unique_lock<std::mutex> &);
+	void process_receive_many (std::unique_lock<rai::mutex> &);
 	bool stopped;
 	bool active;
 	std::chrono::steady_clock::time_point next_log;
@@ -551,9 +550,9 @@ private:
 	std::unordered_set<rai::block_hash> blocks_hashes;
 	std::deque<std::shared_ptr<rai::block>> forced;
 	std::deque<std::shared_ptr<rai::block>> processed_active;
-	std::condition_variable condition;
+	rai::condition_variable condition;
 	rai::node & node;
-	std::mutex mutex;
+	rai::mutex mutex;
 };
 class node : public std::enable_shared_from_this<rai::node>
 {

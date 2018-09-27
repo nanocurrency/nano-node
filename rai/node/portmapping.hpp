@@ -2,8 +2,8 @@
 
 #include <boost/asio/ip/address_v4.hpp>
 #include <miniupnpc.h>
-#include <mutex>
 #include <rai/lib/config.hpp>
+#include <rai/lib/mutex.hpp>
 
 namespace rai
 {
@@ -35,7 +35,7 @@ private:
 	/** Refresh occasionally in case router loses mapping */
 	void check_mapping_loop ();
 	int check_mapping ();
-	std::mutex mutex;
+	rai::mutex mutex;
 	rai::node & node;
 	/** List of all UPnP devices */
 	UPNPDev * devices;

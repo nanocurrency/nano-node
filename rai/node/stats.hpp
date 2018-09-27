@@ -428,6 +428,6 @@ private:
 	std::chrono::steady_clock::time_point log_last_sample_writeout{ std::chrono::steady_clock::now () };
 
 	/** All access to stat is thread safe, including calls from observers on the same thread */
-	std::mutex stat_mutex;
+	rai::mutex stat_mutex;
 };
 }

@@ -25,7 +25,9 @@ add_library (rai_lib
 	utility.cpp
 	utility.hpp
 	work.hpp
-	work.cpp)
+	work.cpp
+	mutex.hpp
+	mutex.cpp)
 
 target_link_libraries (rai_lib
 	xxhash

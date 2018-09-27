@@ -718,7 +718,7 @@ rai::opencl_work::~opencl_work ()
 
 boost::optional<uint64_t> rai::opencl_work::generate_work (rai::uint256_union const & root_a)
 {
-	std::lock_guard<std::mutex> lock (mutex);
+	std::lock_guard<rai::mutex> lock (mutex);
 	bool error (false);
 	uint64_t result (0);
 	unsigned thread_count (config.threads);
