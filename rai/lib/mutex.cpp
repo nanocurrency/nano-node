@@ -1,6 +1,5 @@
-#ifdef __APPLE__
+// Needed for backtraces on MacOS
 #define _GNU_SOURCE
-#endif
 
 #include <rai/lib/mutex.hpp>
 
