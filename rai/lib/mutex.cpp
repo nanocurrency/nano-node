@@ -79,7 +79,7 @@ void rai::notify_resource_locking (size_t id)
 			boost::stacktrace::stacktrace * expected (nullptr);
 			if (lock_info.locked_after[other_id].compare_exchange_strong (expected, backtrace_alloc, std::memory_order_acq_rel))
 			{
-				auto other_backtrace (locks_info[other_id].locked_after[id].load (std::memory_order_acq_rel));
+				auto other_backtrace (locks_info[other_id].locked_after[id].load (std::memory_order_acquire));
 				if (other_backtrace)
 				{
 					std::cerr << "Potential deadlock detected between resource ids " << id << " and " << other_id << std::endl;
