@@ -22,6 +22,7 @@ public:
 	{
 	}
 
+	//! WARNING: only use this if you are the only one accessing the atomic
 	movable_atomic (movable_atomic & other) :
 	std::atomic<T> (static_cast<T> (other))
 	{
