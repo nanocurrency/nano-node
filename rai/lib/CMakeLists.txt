@@ -49,7 +49,7 @@ if (RAI_DEADLOCK_DETECTION)
 	if (UNIX)
 		target_link_libraries (rai_lib dl)
 	endif ()
-	add_compile_definitions (RAI_DEADLOCK_DETECTION)
+	add_definitions (-DRAI_DEADLOCK_DETECTION)
 endif ()
 
 target_compile_definitions(rai_lib
