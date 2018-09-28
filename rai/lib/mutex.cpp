@@ -125,7 +125,7 @@ void rai::destroy_resource_lock_id (size_t id)
 	free_lock_ids.push_back (id);
 	for (auto & lock_info : locks_info)
 	{
-		lock_info.locked_after[id].store(nullptr, std::memory_order_relaxed);
+		lock_info.locked_after[id].store (nullptr, std::memory_order_relaxed);
 	}
 }
 
