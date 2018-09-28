@@ -1,3 +1,7 @@
+#ifdef __APPLE__
+#define _GNU_SOURCE
+#endif
+
 #include <rai/lib/mutex.hpp>
 
 #ifdef RAI_DEADLOCK_DETECTION
