@@ -123,6 +123,10 @@ void rai::destroy_resource_lock_id (size_t id)
 {
 	std::unique_lock<std::shared_timed_mutex> locks_info_guard (lock_info_mutex);
 	free_lock_ids.push_back (id);
+	for (auto & lock_info : locks_info)
+	{
+		lock_info.locked_after[id].store(nullptr, std::memory_order_relaxed);
+	}
 }
 
 rai::mutex::mutex () noexcept :
