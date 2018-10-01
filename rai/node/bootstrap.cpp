@@ -2367,15 +2367,25 @@ void rai::frontier_req_server::sent_action (boost::system::error_code const & ec
 
 void rai::frontier_req_server::next ()
 {
-	auto transaction (connection->node->store.tx_begin_read ());
-	auto iterator (connection->node->store.latest_begin (transaction, current.number () + 1));
-	if (iterator != connection->node->store.latest_end ())
+	// Filling accounts deque to prevent often read transactions
+	if (accounts.empty ())
 	{
-		current = rai::uint256_union (iterator->first);
-		info = rai::account_info (iterator->second);
+		size_t max_size = 128;
+		auto transaction (connection->node->store.tx_begin_read ());
+		for (auto i (connection->node->store.latest_begin (transaction, current.number () + 1)), n (connection->node->store.latest_end ()); i != n && accounts.size () != max_size; ++i)
+		{
+			accounts.push_back (std::make_pair (rai::account (i->first), rai::account_info (i->second)));
+		}
+		/* If loop breaks before max_size, then latest_end () is reached
+		Add empty record to finish frontier_req_server */
+		if (accounts.size () != max_size)
+		{
+			accounts.push_back (std::make_pair (rai::account (0), rai::account_info (0, 0, 0, 0, 0, 0, rai::epoch::epoch_0)));
+		}
 	}
-	else
-	{
-		current.clear ();
-	}
+	// Retrieving accounts from deque
+	auto account_pair (accounts.front ());
+	accounts.pop_front ();
+	current = account_pair.first;
+	info = account_pair.second;
 }

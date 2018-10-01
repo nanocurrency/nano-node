@@ -311,5 +311,6 @@ public:
 	std::unique_ptr<rai::frontier_req> request;
 	std::shared_ptr<std::vector<uint8_t>> send_buffer;
 	size_t count;
+	std::deque<std::pair<rai::account, rai::account_info>> accounts;
 };
 }
