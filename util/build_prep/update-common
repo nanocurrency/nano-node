@@ -22,6 +22,10 @@ for file in */prep.sh; do
 			# Save the current line
 			terminator = $0;
 
+			# Print out a notification to not edit the
+			# individual scripts
+			print "# DO NOT EDIT THIS SECTION, INSTEAD EDIT ../common.sh";
+
 			# Print out the common script
 			while (getline <"common.sh") {
 				print;

@@ -4,7 +4,7 @@ function boost_version () {
 	local boost_version
 	boost_version="$(
 		set -o pipefail
-		echo $'#include <boost/version.hpp>\nBOOST_LIB_VERSION'  | cc -E - 2>/dev/null | tail -n 1 | sed 's@"@@g;s@_@.@g'
+		echo $'#include <boost/version.hpp>\nBOOST_LIB_VERSION'  | cc -I/usr/local/boost/include -E - 2>/dev/null | tail -n 1 | sed 's@"@@g;s@_@.@g'
 	)" || boost_version=''
 
 	echo "${boost_version}"
