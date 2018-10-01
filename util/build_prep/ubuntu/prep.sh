@@ -1,6 +1,8 @@
 #! /usr/bin/env bash
 
 # -----BEGIN COMMON.SH-----
+scriptDirectory="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)" || exit 1
+
 function boost_version () {
 	local boost_version
 	boost_version="$(
@@ -93,8 +95,22 @@ apt-get --yes install libqt5gui5 libqt5core5a libqt5dbus5 qttools5-dev qttools5-
 apt remove --yes libboost-all-dev
 apt autoremove --yes
 
-# XXX:TODO: Use common.sh
-boost_dir=/usr/local/boost
+if ! have boost; then
+	"${scriptDirectory}/../bootstrap_boost.sh" -m
+fi
+
+if ! have boost; then
+	echo "Unable to install boost" >&2
+
+	exit 1
+fi
+
+if ! version_min 'boost --version' 1.65.999; then
+	echo "boost version too low (1.66.0+ required)" >&2
+	exit 1
+fi
+
+boost_dir="$(boost --install-prefix)"
 
 echo "All verified."
 echo ""

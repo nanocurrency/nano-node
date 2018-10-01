@@ -1,3 +1,5 @@
+scriptDirectory="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)" || exit 1
+
 function boost_version () {
 	local boost_version
 	boost_version="$(

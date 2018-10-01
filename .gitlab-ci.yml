@@ -52,7 +52,6 @@ Arch Linux:
 
   before_script:
     - ./util/build_prep/ubuntu/prep.sh
-    - ./ci/bootstrap_boost.sh
 
 
 Ubuntu Linux Artful:
@@ -63,8 +62,7 @@ Ubuntu Linux Artful:
     FLAVOR: artful
 
   before_script:
-    - ./ci/ubuntu_prep.sh
-    - ./ci/bootstrap_boost.sh
+    - ./util/build_prep/ubuntu/prep.sh
 
 Ubuntu Linux Xenial:
   <<: *linux_cfg
@@ -74,8 +72,7 @@ Ubuntu Linux Xenial:
     FLAVOR: xenial
 
   before_script:
-    - ./ci/ubuntu_prep.sh
-    - ./ci/bootstrap_boost.sh
+    - ./util/build_prep/ubuntu/prep.sh
 
 Ubuntu Linux Xenial Beta:
   <<: *linux_cfg
@@ -86,8 +83,7 @@ Ubuntu Linux Xenial Beta:
     BETA: 1
 
   before_script:
-    - ./ci/ubuntu_prep.sh
-    - ./ci/bootstrap_boost.sh
+    - ./util/build_prep/ubuntu/prep.sh
 
 Xenial OPTIMIZED:
   <<: *linux_cfg
@@ -98,8 +94,7 @@ Xenial OPTIMIZED:
     SIMD: 1
 
   before_script:
-    - ./ci/ubuntu_prep.sh
-    - ./ci/bootstrap_boost.sh
+    - ./util/build_prep/ubuntu/prep.sh
 
 Artful OPTIMIZED:
   <<: *linux_cfg
@@ -110,8 +105,7 @@ Artful OPTIMIZED:
     SIMD: 1
 
   before_script:
-    - ./ci/ubuntu_prep.sh
-    - ./ci/bootstrap_boost.sh
+    - ./util/build_prep/ubuntu/prep.sh
 
 
 # DISABLED for now
@@ -123,8 +117,7 @@ Artful OPTIMIZED:
     FLAVOR: zesty_asan
 
   before_script:
-    - ./ci/ubuntu_prep.sh
-    - ./ci/bootstrap_boost.sh
+    - ./util/build_prep/ubuntu/prep.sh
 
 
 
@@ -137,7 +130,7 @@ Artful OPTIMIZED:
     FLAVOR: zesty_tsan
 
   before_script:
-    - ./ci/ubuntu_prep.sh
+    - ./util/build_prep/ubuntu/prep.sh
 
 
 
