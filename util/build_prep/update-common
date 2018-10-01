@@ -1,0 +1,47 @@
+#! /usr/bin/env bash
+
+cd "$(dirname "${BASH_SOURCE[0]}")" || exit 1
+
+for file in */prep.sh; do
+	if ! grep '^#* *-----BEGIN COMMON\.SH-----$' "${file}" >/dev/null 2>/dev/null; then
+		echo "Skipping \"${file}\"..."
+
+		continue
+	fi
+
+	echo "Updating \"${file}\"..."
+
+	rm -f "${file}.new"
+	awk -v insideCommon=0 '
+		/^#* *-----BEGIN COMMON\.SH-----$/{
+			insideCommon = 1;
+			print;
+		}
+
+		/^#* *-----END COMMON\.SH-----$/{
+			# Save the current line
+			terminator = $0;
+
+			# Print out the common script
+			while (getline <"common.sh") {
+				print;
+			}
+			close("common.sh");
+
+			insideCommon = 0;
+
+			$0 = terminator;
+		}
+
+		{
+			# Skip over the existing contents
+			if (insideCommon == 1) {
+				next;
+			}
+
+			print;
+		}
+	' < "${file}" > "${file}.new"
+	cat "${file}.new" > "${file}"
+	rm -f "${file}.new"
+done
