@@ -123,6 +123,8 @@ public:
 		tree_a.put ("wallet", wallet_string);
 		tree_a.put ("account", account.to_account ());
 		boost::property_tree::ptree node_l;
+		node.enable_voting = false;
+		node.bootstrap_connections_max = 4;
 		node.serialize_json (node_l);
 		tree_a.add_child ("node", node_l);
 		boost::property_tree::ptree rpc_l;
