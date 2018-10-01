@@ -51,7 +51,7 @@ Arch Linux:
     FLAVOR: trusty
 
   before_script:
-    - ./ci/ubuntu_prep.sh
+    - ./util/build_prep/ubuntu/prep.sh
     - ./ci/bootstrap_boost.sh
 
 
