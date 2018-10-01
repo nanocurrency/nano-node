@@ -1,6 +1,6 @@
 #! /usr/bin/env bash
 
-# ----BEGIN COMMON.SH-----
+# -----BEGIN COMMON.SH-----
 function boost_version () {
 	local boost_version
 	boost_version="$(
