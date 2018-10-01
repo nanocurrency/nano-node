@@ -2370,7 +2370,7 @@ void rai::frontier_req_server::next ()
 	// Filling accounts deque to prevent often read transactions
 	if (accounts.empty ())
 	{
-		size_t max_size = 128;
+		size_t max_size (128);
 		auto transaction (connection->node->store.tx_begin_read ());
 		for (auto i (connection->node->store.latest_begin (transaction, current.number () + 1)), n (connection->node->store.latest_end ()); i != n && accounts.size () != max_size; ++i)
 		{
