@@ -4,13 +4,31 @@ set -o errexit
 set -o xtrace
 
 bootstrapArgs=()
-while getopts 'm' OPT; do
+useClang='false'
+while getopts 'mc' OPT; do
 	case "${OPT}" in
 		m)
 			bootstrapArgs+=('--with-libraries=thread,log,filesystem,program_options')
 			;;
+		c)
+			useClang='true'
+			;;
 	esac
 done
+
+if ! c++ --version >/dev/null 2>/dev/null; then
+	useClang='true'
+
+	if ! clang++ --version >/dev/null 2>/dev/null; then
+		echo "Unable to find a usable toolset" >&2
+
+		exit 1
+	fi
+fi
+
+if [ "${useClang}" = 'true' ]; then
+	bootstrapArgs+=(--with-toolset=clang)
+fi
 
 BOOST_BASENAME=boost_1_66_0
 BOOST_ROOT=${BOOST_ROOT-/usr/local/boost}
@@ -18,15 +36,18 @@ BOOST_URL=https://downloads.sourceforge.net/project/boost/boost/1.66.0/${BOOST_B
 BOOST_ARCHIVE="${BOOST_BASENAME}.tar.bz2"
 BOOST_ARCHIVE_SHA256='5721818253e6a0989583192f96782c4a98eb6204965316df9f5ad75819225ca9'
 
-wget --quiet -O "${BOOST_ARCHIVE}.new" "${BOOST_URL}"
-checkHash="$(openssl dgst -sha256 "${BOOST_ARCHIVE}.new" | sed 's@^.*= *@@')"
-if [ "${checkHash}" != "${BOOST_ARCHIVE_SHA256}" ]; then
-	echo "Checksum mismatch.  Expected ${BOOST_ARCHIVE_SHA256}, got ${checkHash}" >&2
+if [ ! -f "${BOOST_ARCHIVE}" ]; then
+	wget --quiet -O "${BOOST_ARCHIVE}.new" "${BOOST_URL}"
+	checkHash="$(openssl dgst -sha256 "${BOOST_ARCHIVE}.new" | sed 's@^.*= *@@')"
+	if [ "${checkHash}" != "${BOOST_ARCHIVE_SHA256}" ]; then
+		echo "Checksum mismatch.  Expected ${BOOST_ARCHIVE_SHA256}, got ${checkHash}" >&2
 
-	exit 1
+		exit 1
+	fi
+	mv "${BOOST_ARCHIVE}.new" "${BOOST_ARCHIVE}" || exit 1
 fi
-mv "${BOOST_ARCHIVE}.new" "${BOOST_ARCHIVE}"
 
+rm -rf ${BOOST_BASENAME}
 tar xf "${BOOST_ARCHIVE}"
 cd ${BOOST_BASENAME}
 ./bootstrap.sh "${bootstrapArgs[@]}"
