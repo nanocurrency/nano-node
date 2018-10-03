@@ -585,7 +585,7 @@ public:
 private:
 	void queue_unchecked (rai::transaction const &, rai::block_hash const &);
 	void process_receive_many (std::unique_lock<std::mutex> &);
-	void verify_state_blocks (std::unique_lock<std::mutex> & lock_a);
+	void verify_state_blocks (std::unique_lock<std::mutex> &);
 	bool stopped;
 	bool active;
 	std::chrono::steady_clock::time_point next_log;
