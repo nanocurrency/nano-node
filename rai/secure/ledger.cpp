@@ -196,7 +196,8 @@ void ledger_processor::state_block (rai::state_block const & block_a)
 				prev_balance = ledger.balance (transaction, block_a.hashables.previous);
 			}
 		}
-		if (block_a.hashables.balance == prev_balance) {
+		if (block_a.hashables.balance == prev_balance)
+		{
 			is_epoch_block = true;
 		}
 	}
