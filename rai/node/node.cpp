@@ -1539,7 +1539,7 @@ void rai::block_processor::add (std::shared_ptr<rai::block> block_a, std::chrono
 		std::lock_guard<std::mutex> lock (mutex);
 		if (blocks_hashes.find (block_a->hash ()) == blocks_hashes.end ())
 		{
-			if (!unchecked && block_a->type () == rai::block_type::state)
+			if (!unchecked && block_a->type () == rai::block_type::state && block_a->link () != node.ledger.epoch_link)
 			{
 				state_blocks.push_back (std::make_pair (block_a, origination));
 			}
@@ -1628,7 +1628,7 @@ void rai::block_processor::verify_state_blocks (std::unique_lock<std::mutex> & l
 		hashes.push_back (block.hash ());
 		messages.push_back (hashes.back ().bytes.data ());
 		lengths.push_back (sizeof (decltype (hashes)::value_type));
-		pub_keys.push_back (block.link () == node.ledger.epoch_link ? node.ledger.epoch_signer.bytes.data () : block.hashables.account.bytes.data ());
+		pub_keys.push_back (block.hashables.account.bytes.data ());
 		signatures.push_back (block.signature.bytes.data ());
 	}
 	auto code (rai::validate_message_batch (messages.data (), lengths.data (), pub_keys.data (), signatures.data (), size, verifications.data ()));
