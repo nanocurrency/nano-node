@@ -3946,30 +3946,6 @@ void rai::active_transactions::announce_votes ()
 					auto tally_l (election_l->tally (transaction));
 					election_l->log_votes (tally_l);
 				}
-				/* Escalation for long unconfirmed elections
-				Start new elections for previous block & source
-				if there are less than 100 active elections */
-				if (i->announcements % announcement_long == 1 && roots.size () < 100)
-				{
-					auto previous_hash (election_l->status.winner->previous ());
-					if (!previous_hash.is_zero ())
-					{
-						auto previous (node.store.block_get (transaction, previous_hash));
-						if (previous != nullptr)
-						{
-							start (std::move (previous));
-						}
-					}
-					auto source_hash (node.ledger.block_source (transaction, *election_l->status.winner));
-					if (!source_hash.is_zero ())
-					{
-						auto source (node.store.block_get (transaction, source_hash));
-						if (source != nullptr)
-						{
-							start (std::move (source));
-						}
-					}
-				}
 			}
 			if (i->announcements < announcement_long || i->announcements % announcement_long == 1)
 			{
