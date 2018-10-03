@@ -3889,7 +3889,7 @@ void rai::active_transactions::announce_votes ()
 						auto previous (node.store.block_get (transaction, previous_hash));
 						if (previous != nullptr)
 						{
-							start (std::move (previous));
+							add (std::make_pair (std::move (previous), nullptr));
 						}
 					}
 					auto source_hash (node.ledger.block_source (transaction, *election_l->status.winner));
@@ -3898,7 +3898,7 @@ void rai::active_transactions::announce_votes ()
 						auto source (node.store.block_get (transaction, source_hash));
 						if (source != nullptr)
 						{
-							start (std::move (source));
+							add (std::make_pair (std::move (source), nullptr));
 						}
 					}
 				}
@@ -4048,9 +4048,14 @@ bool rai::active_transactions::start (std::shared_ptr<rai::block> block_a, std::
 
 bool rai::active_transactions::start (std::pair<std::shared_ptr<rai::block>, std::shared_ptr<rai::block>> blocks_a, std::function<void(std::shared_ptr<rai::block>)> const & confirmation_action_a)
 {
+	std::lock_guard<std::mutex> lock (mutex);
+	return add (blocks_a, confirmation_action_a);
+}
+
+bool rai::active_transactions::add (std::pair<std::shared_ptr<rai::block>, std::shared_ptr<rai::block>> blocks_a, std::function<void(std::shared_ptr<rai::block>)> const & confirmation_action_a)
+{
 	assert (blocks_a.first != nullptr);
 	auto error (true);
-	std::lock_guard<std::mutex> lock (mutex);
 	if (!stopped)
 	{
 		auto primary_block (blocks_a.first);
