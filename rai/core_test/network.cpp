@@ -732,7 +732,7 @@ TEST (frontier_req, begin)
 	auto request (std::make_shared<rai::frontier_req_server> (connection, std::move (req)));
 	ASSERT_EQ (rai::test_genesis_key.pub, request->current);
 	rai::genesis genesis;
-	ASSERT_EQ (genesis.hash (), request->info.head);
+	ASSERT_EQ (genesis.hash (), request->frontier);
 }
 
 TEST (frontier_req, end)
@@ -758,7 +758,17 @@ TEST (frontier_req, time_bound)
 	req->count = std::numeric_limits<decltype (req->count)>::max ();
 	connection->requests.push (std::unique_ptr<rai::message>{});
 	auto request (std::make_shared<rai::frontier_req_server> (connection, std::move (req)));
-	ASSERT_TRUE (request->current.is_zero ());
+	ASSERT_EQ (rai::test_genesis_key.pub, request->current);
+	// Wait for next second when age of account will be > 0 seconds
+	std::this_thread::sleep_for (std::chrono::milliseconds (1001));
+	std::unique_ptr<rai::frontier_req> req2 (new rai::frontier_req);
+	req2->start.clear ();
+	req2->age = 0;
+	req2->count = std::numeric_limits<decltype (req->count)>::max ();
+	auto connection2 (std::make_shared<rai::bootstrap_server> (nullptr, system.nodes[0]));
+	connection2->requests.push (std::unique_ptr<rai::message>{});
+	auto request2 (std::make_shared<rai::frontier_req_server> (connection, std::move (req2)));
+	ASSERT_TRUE (request2->current.is_zero ());
 }
 
 TEST (frontier_req, time_cutoff)
@@ -767,13 +777,23 @@ TEST (frontier_req, time_cutoff)
 	auto connection (std::make_shared<rai::bootstrap_server> (nullptr, system.nodes[0]));
 	std::unique_ptr<rai::frontier_req> req (new rai::frontier_req);
 	req->start.clear ();
-	req->age = 10;
+	req->age = 3;
 	req->count = std::numeric_limits<decltype (req->count)>::max ();
 	connection->requests.push (std::unique_ptr<rai::message>{});
 	auto request (std::make_shared<rai::frontier_req_server> (connection, std::move (req)));
 	ASSERT_EQ (rai::test_genesis_key.pub, request->current);
 	rai::genesis genesis;
-	ASSERT_EQ (genesis.hash (), request->info.head);
+	ASSERT_EQ (genesis.hash (), request->frontier);
+	// Wait 4 seconds when age of account will be > 3 seconds
+	std::this_thread::sleep_for (std::chrono::milliseconds (4001));
+	std::unique_ptr<rai::frontier_req> req2 (new rai::frontier_req);
+	req2->start.clear ();
+	req2->age = 3;
+	req2->count = std::numeric_limits<decltype (req->count)>::max ();
+	auto connection2 (std::make_shared<rai::bootstrap_server> (nullptr, system.nodes[0]));
+	connection2->requests.push (std::unique_ptr<rai::message>{});
+	auto request2 (std::make_shared<rai::frontier_req_server> (connection, std::move (req2)));
+	ASSERT_TRUE (request2->frontier.is_zero ());
 }
 
 TEST (bulk, genesis)
