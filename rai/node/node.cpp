@@ -3946,6 +3946,30 @@ void rai::active_transactions::announce_votes ()
 					auto tally_l (election_l->tally (transaction));
 					election_l->log_votes (tally_l);
 				}
+				/* Escalation for long unconfirmed elections
+				Start new elections for previous block & source
+				if there are less than 100 active elections */
+				if (i->announcements % announcement_long == 1 && roots.size () < 100)
+				{
+					auto previous_hash (election_l->status.winner->previous ());
+					if (!previous_hash.is_zero ())
+					{
+						auto previous (node.store.block_get (transaction, previous_hash));
+						if (previous != nullptr)
+						{
+							add (std::make_pair (std::move (previous), nullptr));
+						}
+					}
+					auto source_hash (node.ledger.block_source (transaction, *election_l->status.winner));
+					if (!source_hash.is_zero ())
+					{
+						auto source (node.store.block_get (transaction, source_hash));
+						if (source != nullptr)
+						{
+							add (std::make_pair (std::move (source), nullptr));
+						}
+					}
+				}
 			}
 			if (i->announcements < announcement_long || i->announcements % announcement_long == 1)
 			{
@@ -4098,9 +4122,14 @@ bool rai::active_transactions::start (std::shared_ptr<rai::block> block_a, std::
 
 bool rai::active_transactions::start (std::pair<std::shared_ptr<rai::block>, std::shared_ptr<rai::block>> blocks_a, std::function<void(std::shared_ptr<rai::block>)> const & confirmation_action_a)
 {
+	std::lock_guard<std::mutex> lock (mutex);
+	return add (blocks_a, confirmation_action_a);
+}
+
+bool rai::active_transactions::add (std::pair<std::shared_ptr<rai::block>, std::shared_ptr<rai::block>> blocks_a, std::function<void(std::shared_ptr<rai::block>)> const & confirmation_action_a)
+{
 	assert (blocks_a.first != nullptr);
 	auto error (true);
-	std::lock_guard<std::mutex> lock (mutex);
 	if (!stopped)
 	{
 		auto primary_block (blocks_a.first);
