@@ -299,7 +299,6 @@ class frontier_req_server : public std::enable_shared_from_this<rai::frontier_re
 {
 public:
 	frontier_req_server (std::shared_ptr<rai::bootstrap_server> const &, std::unique_ptr<rai::frontier_req>);
-	void skip_old ();
 	void send_next ();
 	void sent_action (boost::system::error_code const &, size_t);
 	void send_finished ();
@@ -307,10 +306,10 @@ public:
 	void next ();
 	std::shared_ptr<rai::bootstrap_server> connection;
 	rai::account current;
-	rai::account_info info;
+	rai::block_hash frontier;
 	std::unique_ptr<rai::frontier_req> request;
 	std::shared_ptr<std::vector<uint8_t>> send_buffer;
 	size_t count;
-	std::deque<std::pair<rai::account, rai::account_info>> accounts;
+	std::deque<std::pair<rai::account, rai::block_hash>> accounts;
 };
 }
