@@ -1,10 +1,12 @@
 #include <rai/node/node.hpp>
 
 #include <rai/lib/interface.h>
+#include <rai/lib/utility.hpp>
 #include <rai/node/common.hpp>
 #include <rai/node/rpc.hpp>
 
 #include <algorithm>
+#include <cstdlib>
 #include <future>
 #include <sstream>
 
@@ -14,8 +16,6 @@
 #include <boost/log/utility/setup/file.hpp>
 #include <boost/polymorphic_cast.hpp>
 #include <boost/property_tree/json_parser.hpp>
-
-#include <upnpcommands.h>
 
 double constexpr rai::node::price_max;
 double constexpr rai::node::free_cutoff;
@@ -40,11 +40,45 @@ rai::endpoint rai::map_endpoint_to_v6 (rai::endpoint const & endpoint_a)
 }
 
 rai::network::network (rai::node & node_a, uint16_t port) :
+buffer_container (node_a.stats, rai::network::buffer_size, 4096), // 2Mb receive buffer
 socket (node_a.service, rai::endpoint (boost::asio::ip::address_v6::any (), port)),
 resolver (node_a.service),
 node (node_a),
 on (true)
 {
+	for (size_t i = 0; i < node.config.io_threads; ++i)
+	{
+		packet_processing_threads.push_back (std::thread ([this]() {
+			try
+			{
+				process_packets ();
+			}
+			catch (...)
+			{
+				release_assert (false);
+			}
+			if (this->node.config.logging.network_packet_logging ())
+			{
+				BOOST_LOG (this->node.log) << "Exiting packet processing thread";
+			}
+		}));
+	}
+}
+
+rai::network::~network ()
+{
+	for (auto & thread : packet_processing_threads)
+	{
+		thread.join ();
+	}
+}
+
+void rai::network::start ()
+{
+	for (size_t i = 0; i < node.config.io_threads; ++i)
+	{
+		receive ();
+	}
 }
 
 void rai::network::receive ()
@@ -54,9 +88,45 @@ void rai::network::receive ()
 		BOOST_LOG (node.log) << "Receiving packet";
 	}
 	std::unique_lock<std::mutex> lock (socket_mutex);
-	socket.async_receive_from (boost::asio::buffer (buffer.data (), buffer.size ()), remote, [this](boost::system::error_code const & error, size_t size_a) {
-		receive_action (error, size_a);
+	auto data (buffer_container.allocate ());
+	socket.async_receive_from (boost::asio::buffer (data->buffer, rai::network::buffer_size), data->endpoint, [this, data](boost::system::error_code const & error, size_t size_a) {
+		if (!error && this->on)
+		{
+			data->size = size_a;
+			this->buffer_container.enqueue (data);
+			this->receive ();
+		}
+		else
+		{
+			this->buffer_container.release (data);
+			if (error)
+			{
+				if (this->node.config.logging.network_logging ())
+				{
+					BOOST_LOG (this->node.log) << boost::str (boost::format ("UDP Receive error: %1%") % error.message ());
+				}
+			}
+			if (this->on)
+			{
+				this->node.alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (5), [this]() { this->receive (); });
+			}
+		}
 	});
+}
+
+void rai::network::process_packets ()
+{
+	while (on)
+	{
+		auto data (buffer_container.dequeue ());
+		if (data == nullptr)
+		{
+			break;
+		}
+		//std::cerr << data->endpoint.address ().to_string ();
+		receive_action (data);
+		buffer_container.release (data);
+	}
 }
 
 void rai::network::stop ()
@@ -64,6 +134,7 @@ void rai::network::stop ()
 	on = false;
 	socket.close ();
 	resolver.cancel ();
+	buffer_container.stop ();
 }
 
 void rai::network::send_keepalive (rai::endpoint const & endpoint_a)
@@ -233,6 +304,38 @@ void rai::network::republish_block (rai::transaction const & transaction, std::s
 	}
 }
 
+void rai::network::republish_block_batch (std::deque<std::shared_ptr<rai::block>> blocks_a, unsigned delay_a)
+{
+	auto block (blocks_a.front ());
+	blocks_a.pop_front ();
+	auto hash (block->hash ());
+	auto list (node.peers.list_fanout ());
+	rai::publish message (block);
+	std::shared_ptr<std::vector<uint8_t>> bytes (new std::vector<uint8_t>);
+	{
+		rai::vectorstream stream (*bytes);
+		message.serialize (stream);
+	}
+	for (auto i (list.begin ()), n (list.end ()); i != n; ++i)
+	{
+		republish (hash, bytes, *i);
+	}
+	if (node.config.logging.network_logging ())
+	{
+		BOOST_LOG (node.log) << boost::str (boost::format ("Block %1% was republished to peers") % hash.to_string ());
+	}
+	if (!blocks_a.empty ())
+	{
+		std::weak_ptr<rai::node> node_w (node.shared ());
+		node.alarm.add (std::chrono::steady_clock::now () + std::chrono::milliseconds (delay_a), [node_w, blocks_a, delay_a]() {
+			if (auto node_l = node_w.lock ())
+			{
+				node_l->network.republish_block_batch (blocks_a, delay_a);
+			}
+		});
+	}
+}
+
 // In order to rate limit network traffic we republish:
 // 1) Only if they are a non-replay vote of a block that's actively settling. Settling blocks are limited by block PoW
 // 2) The rep has a weight > Y to prevent creating a lot of small-weight accounts to send out votes
@@ -263,6 +366,21 @@ void rai::network::broadcast_confirm_req (std::shared_ptr<rai::block> block_a)
 		// broadcast request to all peers
 		list = std::make_shared<std::vector<rai::peer_information>> (node.peers.list_vector ());
 	}
+
+	/*
+	 * In either case (broadcasting to all representatives, or broadcasting to
+	 * all peers because there are not enough connected representatives),
+	 * limit each instance to a single random up-to-32 selection.  The invoker
+	 * of "broadcast_confirm_req" will be responsible for calling it again
+	 * if the votes for a block have not arrived in time.
+	 */
+	const size_t max_endpoints = 32;
+	std::random_shuffle (list->begin (), list->end ());
+	if (list->size () > max_endpoints)
+	{
+		list->erase (list->begin () + max_endpoints, list->end ());
+	}
+
 	broadcast_confirm_req_base (block_a, list, 0);
 }
 
@@ -282,11 +400,14 @@ void rai::network::broadcast_confirm_req_base (std::shared_ptr<rai::block> block
 	}
 	if (!endpoints_a->empty ())
 	{
+		delay_a += 50;
+		delay_a += std::rand () % 50;
+
 		std::weak_ptr<rai::node> node_w (node.shared ());
 		node.alarm.add (std::chrono::steady_clock::now () + std::chrono::milliseconds (delay_a), [node_w, block_a, endpoints_a, delay_a]() {
 			if (auto node_l = node_w.lock ())
 			{
-				node_l->network.broadcast_confirm_req_base (block_a, endpoints_a, delay_a + 50, true);
+				node_l->network.broadcast_confirm_req_base (block_a, endpoints_a, delay_a, true);
 			}
 		});
 	}
@@ -486,112 +607,110 @@ public:
 };
 }
 
-void rai::network::receive_action (boost::system::error_code const & error, size_t size_a)
+void rai::network::receive_action (rai::udp_data * data_a)
 {
-	if (!error && on)
+	if (!rai::reserved_address (data_a->endpoint, false) && data_a->endpoint != endpoint ())
 	{
-		if (!rai::reserved_address (remote, false) && remote != endpoint ())
+		network_message_visitor visitor (node, data_a->endpoint);
+		rai::message_parser parser (visitor, node.work);
+		parser.deserialize_buffer (data_a->buffer, data_a->size);
+		if (parser.status != rai::message_parser::parse_status::success)
 		{
-			network_message_visitor visitor (node, remote);
-			rai::message_parser parser (visitor, node.work);
-			parser.deserialize_buffer (buffer.data (), size_a);
-			if (parser.status != rai::message_parser::parse_status::success)
+			node.stats.inc (rai::stat::type::error);
+
+			if (parser.status == rai::message_parser::parse_status::insufficient_work)
 			{
-				node.stats.inc (rai::stat::type::error);
+				if (node.config.logging.insufficient_work_logging ())
+				{
+					BOOST_LOG (node.log) << "Insufficient work in message";
+				}
 
-				if (parser.status == rai::message_parser::parse_status::insufficient_work)
+				// We've already increment error count, update detail only
+				node.stats.inc_detail_only (rai::stat::type::error, rai::stat::detail::insufficient_work);
+			}
+			else if (parser.status == rai::message_parser::parse_status::invalid_message_type)
+			{
+				if (node.config.logging.network_logging ())
 				{
-					if (node.config.logging.insufficient_work_logging ())
-					{
-						BOOST_LOG (node.log) << "Insufficient work in message";
-					}
-
-					// We've already increment error count, update detail only
-					node.stats.inc_detail_only (rai::stat::type::error, rai::stat::detail::insufficient_work);
+					BOOST_LOG (node.log) << "Invalid message type in message";
 				}
-				else if (parser.status == rai::message_parser::parse_status::invalid_message_type)
+			}
+			else if (parser.status == rai::message_parser::parse_status::invalid_header)
+			{
+				if (node.config.logging.network_logging ())
 				{
-					if (node.config.logging.network_logging ())
-					{
-						BOOST_LOG (node.log) << "Invalid message type in message";
-					}
+					BOOST_LOG (node.log) << "Invalid header in message";
 				}
-				else if (parser.status == rai::message_parser::parse_status::invalid_header)
+			}
+			else if (parser.status == rai::message_parser::parse_status::invalid_keepalive_message)
+			{
+				if (node.config.logging.network_logging ())
 				{
-					if (node.config.logging.network_logging ())
-					{
-						BOOST_LOG (node.log) << "Invalid header in message";
-					}
+					BOOST_LOG (node.log) << "Invalid keepalive message";
 				}
-				else if (parser.status == rai::message_parser::parse_status::invalid_keepalive_message)
+			}
+			else if (parser.status == rai::message_parser::parse_status::invalid_publish_message)
+			{
+				if (node.config.logging.network_logging ())
 				{
-					if (node.config.logging.network_logging ())
-					{
-						BOOST_LOG (node.log) << "Invalid keepalive message";
-					}
+					BOOST_LOG (node.log) << "Invalid publish message";
 				}
-				else if (parser.status == rai::message_parser::parse_status::invalid_publish_message)
+			}
+			else if (parser.status == rai::message_parser::parse_status::invalid_confirm_req_message)
+			{
+				if (node.config.logging.network_logging ())
 				{
-					if (node.config.logging.network_logging ())
-					{
-						BOOST_LOG (node.log) << "Invalid publish message";
-					}
+					BOOST_LOG (node.log) << "Invalid confirm_req message";
 				}
-				else if (parser.status == rai::message_parser::parse_status::invalid_confirm_req_message)
+			}
+			else if (parser.status == rai::message_parser::parse_status::invalid_confirm_ack_message)
+			{
+				if (node.config.logging.network_logging ())
 				{
-					if (node.config.logging.network_logging ())
-					{
-						BOOST_LOG (node.log) << "Invalid confirm_req message";
-					}
+					BOOST_LOG (node.log) << "Invalid confirm_ack message";
 				}
-				else if (parser.status == rai::message_parser::parse_status::invalid_confirm_ack_message)
+			}
+			else if (parser.status == rai::message_parser::parse_status::invalid_node_id_handshake_message)
+			{
+				if (node.config.logging.network_logging ())
 				{
-					if (node.config.logging.network_logging ())
-					{
-						BOOST_LOG (node.log) << "Invalid confirm_ack message";
-					}
+					BOOST_LOG (node.log) << "Invalid node_id_handshake message";
 				}
-				else if (parser.status == rai::message_parser::parse_status::invalid_node_id_handshake_message)
+			}
+			else if (parser.status == rai::message_parser::parse_status::invalid_magic)
+			{
+				if (node.config.logging.network_logging ())
 				{
-					if (node.config.logging.network_logging ())
-					{
-						BOOST_LOG (node.log) << "Invalid node_id_handshake message";
-					}
+					BOOST_LOG (node.log) << "Invalid magic in header";
 				}
-				else
+				node.stats.inc (rai::stat::type::udp, rai::stat::detail::invalid_magic);
+			}
+			else if (parser.status == rai::message_parser::parse_status::invalid_network)
+			{
+				if (node.config.logging.network_logging ())
 				{
-					BOOST_LOG (node.log) << "Could not deserialize buffer";
+					BOOST_LOG (node.log) << "Invalid network in header";
 				}
+				node.stats.inc (rai::stat::type::udp, rai::stat::detail::invalid_network);
 			}
 			else
 			{
-				node.stats.add (rai::stat::type::traffic, rai::stat::dir::in, size_a);
+				BOOST_LOG (node.log) << "Could not deserialize buffer";
 			}
 		}
 		else
 		{
-			if (node.config.logging.network_logging ())
-			{
-				BOOST_LOG (node.log) << boost::str (boost::format ("Reserved sender %1%") % remote.address ().to_string ());
-			}
-
-			node.stats.inc_detail_only (rai::stat::type::error, rai::stat::detail::bad_sender);
+			node.stats.add (rai::stat::type::traffic, rai::stat::dir::in, data_a->size);
 		}
-		receive ();
 	}
 	else
 	{
-		if (error)
+		if (node.config.logging.network_logging ())
 		{
-			if (node.config.logging.network_logging ())
-			{
-				BOOST_LOG (node.log) << boost::str (boost::format ("UDP Receive error: %1%") % error.message ());
-			}
+			BOOST_LOG (node.log) << boost::str (boost::format ("Reserved sender %1%") % data_a->endpoint.address ().to_string ());
 		}
-		if (on)
-		{
-			node.alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (5), [this]() { receive (); });
-		}
+
+		node.stats.inc_detail_only (rai::stat::type::error, rai::stat::detail::bad_sender);
 	}
 }
 
@@ -1285,9 +1404,9 @@ rai::vote_code rai::vote_processor::vote_blocking (rai::transaction const & tran
 	auto result (rai::vote_code::invalid);
 	if (!vote_a->validate ())
 	{
-		result = rai::vote_code::replay;
 		auto max_vote (node.store.vote_max (transaction_a, vote_a));
-		if (!node.active.vote (vote_a) || max_vote->sequence > vote_a->sequence)
+		result = rai::vote_code::replay;
+		if (!node.active.vote (vote_a))
 		{
 			result = rai::vote_code::vote;
 		}
@@ -1309,7 +1428,9 @@ rai::vote_code rai::vote_processor::vote_blocking (rai::transaction const & tran
 					}
 					node.network.confirm_send (confirm, bytes, endpoint_a);
 				}
+				break;
 			case rai::vote_code::invalid:
+				assert (false);
 				break;
 		}
 	}
@@ -1571,7 +1692,21 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 			++count;
 		}
 	}
+
+	/*
+	 * Copy "processed_active" to a local variable so that we
+	 * may operate on it without holding the mutex.
+	 */
+	decltype (processed_active) processed_active_copy;
+	processed_active_copy.swap (processed_active);
+
 	lock_a.unlock ();
+
+	// Start elections for recent blocks
+	for (const auto & block : processed_active_copy)
+	{
+		node.active.start (block);
+	}
 }
 
 rai::process_return rai::block_processor::process_receive_one (rai::transaction const & transaction_a, std::shared_ptr<rai::block> block_a, std::chrono::steady_clock::time_point origination, bool validated_state_block)
@@ -1591,7 +1726,14 @@ rai::process_return rai::block_processor::process_receive_one (rai::transaction 
 			}
 			if (node.block_arrival.recent (hash))
 			{
-				node.active.start (block_a);
+				/*
+				 * The dequeuing of this buffer uses the mutex
+				 * named "mutex", so we must use it when we
+				 * enqueue it.
+				 */
+				std::unique_lock<std::mutex> lock (mutex);
+
+				processed_active.push_back (block_a);
 			}
 			queue_unchecked (transaction_a, hash);
 			break;
@@ -2174,7 +2316,7 @@ rai::endpoint rai::peer_container::bootstrap_peer ()
 	;
 	for (auto i (peers.get<4> ().begin ()), n (peers.get<4> ().end ()); i != n;)
 	{
-		if (i->network_version >= protocol_version_bootstrap_min)
+		if (i->network_version >= protocol_version_reasonable_min)
 		{
 			result = i->endpoint;
 			peers.get<4> ().modify (i, [](rai::peer_information & peer_a) {
@@ -2320,7 +2462,7 @@ bool rai::parse_tcp_endpoint (std::string const & string, rai::tcp_endpoint & en
 
 void rai::node::start ()
 {
-	network.receive ();
+	network.start ();
 	ongoing_keepalive ();
 	ongoing_syn_cookie_cleanup ();
 	ongoing_bootstrap ();
@@ -2492,9 +2634,11 @@ void rai::node::backup_wallet ()
 	auto transaction (store.tx_begin_read ());
 	for (auto i (wallets.items.begin ()), n (wallets.items.end ()); i != n; ++i)
 	{
+		boost::system::error_code error_chmod;
 		auto backup_path (application_path / "backup");
+
 		boost::filesystem::create_directories (backup_path);
-		boost::filesystem::permissions (backup_path, boost::filesystem::owner_all);
+		rai::set_secure_perm_directory (backup_path, error_chmod);
 		i->second->store.write_backup (transaction, backup_path / (i->first.to_string () + ".json"));
 	}
 	auto this_l (shared ());
@@ -3609,14 +3753,18 @@ void rai::election::abort ()
 	aborted = true;
 }
 
-bool rai::election::have_quorum (rai::tally_t const & tally_a)
+bool rai::election::have_quorum (rai::tally_t const & tally_a, rai::uint128_t tally_sum)
 {
-	auto i (tally_a.begin ());
-	auto first (i->first);
-	++i;
-	auto second (i != tally_a.end () ? i->first : 0);
-	auto delta_l (node.delta ());
-	auto result (tally_a.begin ()->first > (second + delta_l));
+	bool result = false;
+	if (tally_sum >= node.config.online_weight_minimum.number ())
+	{
+		auto i (tally_a.begin ());
+		auto first (i->first);
+		++i;
+		auto second (i != tally_a.end () ? i->first : 0);
+		auto delta_l (node.delta ());
+		result = tally_a.begin ()->first > (second + delta_l);
+	}
 	return result;
 }
 
@@ -3652,13 +3800,13 @@ void rai::election::confirm_if_quorum (rai::transaction const & transaction_a)
 	{
 		sum += i.first;
 	}
-	if (sum >= node.config.online_weight_minimum.number () && !(*block_l == *status.winner))
+	if (sum >= node.config.online_weight_minimum.number () && block_l->hash () != status.winner->hash ())
 	{
 		auto node_l (node.shared ());
 		node_l->block_processor.force (block_l);
 		status.winner = block_l;
 	}
-	if (have_quorum (tally_l))
+	if (have_quorum (tally_l, sum))
 	{
 		if (node.config.logging.vote_logging () || blocks.size () > 1)
 		{
@@ -3820,6 +3968,7 @@ void rai::active_transactions::announce_votes ()
 	unsigned unconfirmed_announcements (0);
 	unsigned mass_request_count (0);
 	std::vector<rai::block_hash> blocks_bundle;
+	std::deque<std::shared_ptr<rai::block>> rebroadcast_bundle;
 
 	for (auto i (roots.begin ()), n (roots.end ()); i != n; ++i)
 	{
@@ -3848,6 +3997,30 @@ void rai::active_transactions::announce_votes ()
 					auto tally_l (election_l->tally (transaction));
 					election_l->log_votes (tally_l);
 				}
+				/* Escalation for long unconfirmed elections
+				Start new elections for previous block & source
+				if there are less than 100 active elections */
+				if (i->announcements % announcement_long == 1 && roots.size () < 100)
+				{
+					auto previous_hash (election_l->status.winner->previous ());
+					if (!previous_hash.is_zero ())
+					{
+						auto previous (node.store.block_get (transaction, previous_hash));
+						if (previous != nullptr)
+						{
+							start (std::move (previous));
+						}
+					}
+					auto source_hash (node.ledger.block_source (transaction, *election_l->status.winner));
+					if (!source_hash.is_zero ())
+					{
+						auto source (node.store.block_get (transaction, source_hash));
+						if (source != nullptr)
+						{
+							start (std::move (source));
+						}
+					}
+				}
 			}
 			if (i->announcements < announcement_long || i->announcements % announcement_long == 1)
 			{
@@ -3856,7 +4029,7 @@ void rai::active_transactions::announce_votes ()
 				{
 					if (node.config.enable_voting && std::chrono::system_clock::now () >= node.config.generate_hash_votes_at)
 					{
-						node.network.republish_block (transaction, election_l->status.winner, false);
+						rebroadcast_bundle.push_back (election_l->status.winner);
 						blocks_bundle.push_back (election_l->status.winner->hash ());
 						if (blocks_bundle.size () >= 12)
 						{
@@ -3870,10 +4043,10 @@ void rai::active_transactions::announce_votes ()
 					else
 					{
 						election_l->compute_rep_votes (transaction);
-						node.network.republish_block (transaction, election_l->status.winner);
+						rebroadcast_bundle.push_back (election_l->status.winner);
 					}
 				}
-				else if (i->announcements > 3)
+				else
 				{
 					election_l->abort ();
 				}
@@ -3925,6 +4098,12 @@ void rai::active_transactions::announce_votes ()
 			++info_a.announcements;
 		});
 	}
+	// Rebroadcast unconfirmed blocks
+	if (!rebroadcast_bundle.empty ())
+	{
+		node.network.republish_block_batch (rebroadcast_bundle);
+	}
+	// Request votes for unconfirmed blocks
 	if (node.config.enable_voting && !blocks_bundle.empty ())
 	{
 		node.wallets.foreach_representative (transaction, [&](rai::public_key const & pub_a, rai::raw_key const & prv_a) {
@@ -3965,7 +4144,7 @@ void rai::active_transactions::announce_loop ()
 	while (!stopped)
 	{
 		announce_votes ();
-		condition.wait_for (lock, std::chrono::milliseconds (announce_interval_ms));
+		condition.wait_for (lock, std::chrono::milliseconds (announce_interval_ms + roots.size () * node.network.broadcast_interval_ms));
 	}
 }
 
@@ -4167,8 +4346,13 @@ service (boost::make_shared<boost::asio::io_service> ()),
 alarm (*service),
 work (1, nullptr)
 {
+	boost::system::error_code error_chmod;
+
+	/*
+	 * @warning May throw a filesystem exception
+	 */
 	boost::filesystem::create_directories (path);
-	boost::filesystem::permissions (path, boost::filesystem::owner_all);
+	rai::set_secure_perm_directory (path, error_chmod);
 	logging.max_size = std::numeric_limits<std::uintmax_t>::max ();
 	logging.init (path);
 	node = std::make_shared<rai::node> (init, *service, 24000, path, alarm, logging, work);
@@ -4179,167 +4363,78 @@ rai::inactive_node::~inactive_node ()
 	node->stop ();
 }
 
-rai::port_mapping::port_mapping (rai::node & node_a) :
-node (node_a),
-devices (nullptr),
-protocols ({ { { "TCP", 0, boost::asio::ip::address_v4::any (), 0 }, { "UDP", 0, boost::asio::ip::address_v4::any (), 0 } } }),
-check_count (0),
-on (false)
+rai::udp_buffer::udp_buffer (rai::stat & stats, size_t size, size_t count) :
+stats (stats),
+free (count),
+full (count),
+slab (size * count),
+entries (count),
+stopped (false)
 {
-	urls = { 0 };
-	data = { { 0 } };
-}
-
-void rai::port_mapping::start ()
-{
-	check_mapping_loop ();
-}
-
-void rai::port_mapping::refresh_devices ()
-{
-	if (rai::rai_network != rai::rai_networks::rai_test_network)
+	assert (count > 0);
+	assert (size > 0);
+	auto slab_data (slab.data ());
+	auto entry_data (entries.data ());
+	for (auto i (0); i < count; ++i, ++entry_data)
 	{
-		std::lock_guard<std::mutex> lock (mutex);
-		int discover_error = 0;
-		freeUPNPDevlist (devices);
-		devices = upnpDiscover (2000, nullptr, nullptr, UPNP_LOCAL_PORT_ANY, false, 2, &discover_error);
-		std::array<char, 64> local_address;
-		local_address.fill (0);
-		auto igd_error (UPNP_GetValidIGD (devices, &urls, &data, local_address.data (), sizeof (local_address)));
-		if (igd_error == 1 || igd_error == 2)
-		{
-			boost::system::error_code ec;
-			address = boost::asio::ip::address_v4::from_string (local_address.data (), ec);
-		}
-		if (check_count % 15 == 0)
-		{
-			BOOST_LOG (node.log) << boost::str (boost::format ("UPnP local address: %1%, discovery: %2%, IGD search: %3%") % local_address.data () % discover_error % igd_error);
-			for (auto i (devices); i != nullptr; i = i->pNext)
-			{
-				BOOST_LOG (node.log) << boost::str (boost::format ("UPnP device url: %1% st: %2% usn: %3%") % i->descURL % i->st % i->usn);
-			}
-		}
+		*entry_data = { slab_data + i * size, 0, rai::endpoint () };
+		free.push_back (entry_data);
 	}
 }
-
-void rai::port_mapping::refresh_mapping ()
+rai::udp_data * rai::udp_buffer::allocate ()
 {
-	if (rai::rai_network != rai::rai_networks::rai_test_network)
+	std::unique_lock<std::mutex> lock (mutex);
+	while (!stopped && free.empty () && full.empty ())
 	{
-		std::lock_guard<std::mutex> lock (mutex);
-		auto node_port (std::to_string (node.network.endpoint ().port ()));
-
-		// Intentionally omitted: we don't map the RPC port because, unless RPC authentication was added, this would almost always be a security risk
-		for (auto & protocol : protocols)
-		{
-			std::array<char, 6> actual_external_port;
-			actual_external_port.fill (0);
-			auto add_port_mapping_error (UPNP_AddAnyPortMapping (urls.controlURL, data.first.servicetype, node_port.c_str (), node_port.c_str (), address.to_string ().c_str (), nullptr, protocol.name, nullptr, std::to_string (mapping_timeout).c_str (), actual_external_port.data ()));
-			if (check_count % 15 == 0)
-			{
-				BOOST_LOG (node.log) << boost::str (boost::format ("UPnP %1% port mapping response: %2%, actual external port %3%") % protocol.name % add_port_mapping_error % actual_external_port.data ());
-			}
-			if (add_port_mapping_error == UPNPCOMMAND_SUCCESS)
-			{
-				protocol.external_port = std::atoi (actual_external_port.data ());
-			}
-			else
-			{
-				protocol.external_port = 0;
-			}
-		}
+		stats.inc (rai::stat::type::udp, rai::stat::detail::blocking, rai::stat::dir::in);
+		condition.wait (lock);
 	}
-}
-
-int rai::port_mapping::check_mapping ()
-{
-	int result (3600);
-	if (rai::rai_network != rai::rai_networks::rai_test_network)
+	rai::udp_data * result (nullptr);
+	if (!free.empty ())
 	{
-		// Long discovery time and fast setup/teardown make this impractical for testing
-		std::lock_guard<std::mutex> lock (mutex);
-		auto node_port (std::to_string (node.network.endpoint ().port ()));
-		for (auto & protocol : protocols)
-		{
-			std::array<char, 64> int_client;
-			std::array<char, 6> int_port;
-			std::array<char, 16> remaining_mapping_duration;
-			remaining_mapping_duration.fill (0);
-			auto verify_port_mapping_error (UPNP_GetSpecificPortMappingEntry (urls.controlURL, data.first.servicetype, node_port.c_str (), protocol.name, nullptr, int_client.data (), int_port.data (), nullptr, nullptr, remaining_mapping_duration.data ()));
-			if (verify_port_mapping_error == UPNPCOMMAND_SUCCESS)
-			{
-				protocol.remaining = result;
-			}
-			else
-			{
-				protocol.remaining = 0;
-			}
-			result = std::min (result, protocol.remaining);
-			std::array<char, 64> external_address;
-			external_address.fill (0);
-			auto external_ip_error (UPNP_GetExternalIPAddress (urls.controlURL, data.first.servicetype, external_address.data ()));
-			if (external_ip_error == UPNPCOMMAND_SUCCESS)
-			{
-				boost::system::error_code ec;
-				protocol.external_address = boost::asio::ip::address_v4::from_string (external_address.data (), ec);
-			}
-			else
-			{
-				protocol.external_address = boost::asio::ip::address_v4::any ();
-			}
-			if (check_count % 15 == 0)
-			{
-				BOOST_LOG (node.log) << boost::str (boost::format ("UPnP %1% mapping verification response: %2%, external ip response: %3%, external ip: %4%, internal ip: %5%, remaining lease: %6%") % protocol.name % verify_port_mapping_error % external_ip_error % external_address.data () % address.to_string () % remaining_mapping_duration.data ());
-			}
-		}
+		result = free.front ();
+		free.pop_front ();
+	}
+	if (result == nullptr)
+	{
+		result = full.front ();
+		full.pop_front ();
+		stats.inc (rai::stat::type::udp, rai::stat::detail::overflow, rai::stat::dir::in);
 	}
 	return result;
 }
-
-void rai::port_mapping::check_mapping_loop ()
+void rai::udp_buffer::enqueue (rai::udp_data * data_a)
 {
-	int wait_duration = check_timeout;
-	refresh_devices ();
-	if (devices != nullptr)
-	{
-		auto remaining (check_mapping ());
-		// If the mapping is lost, refresh it
-		if (remaining == 0)
-		{
-			refresh_mapping ();
-		}
-	}
-	else
-	{
-		wait_duration = 300;
-		if (check_count < 10)
-		{
-			BOOST_LOG (node.log) << boost::str (boost::format ("UPnP No IGD devices found"));
-		}
-	}
-	++check_count;
-	if (on)
-	{
-		auto node_l (node.shared ());
-		node.alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (wait_duration), [node_l]() {
-			node_l->port_mapping.check_mapping_loop ();
-		});
-	}
-}
-
-void rai::port_mapping::stop ()
-{
-	on = false;
+	assert (data_a != nullptr);
 	std::lock_guard<std::mutex> lock (mutex);
-	for (auto & protocol : protocols)
+	full.push_back (data_a);
+	condition.notify_one ();
+}
+rai::udp_data * rai::udp_buffer::dequeue ()
+{
+	std::unique_lock<std::mutex> lock (mutex);
+	while (!stopped && full.empty ())
 	{
-		if (protocol.external_port != 0)
-		{
-			// Be a good citizen for the router and shut down our mapping
-			auto delete_error (UPNP_DeletePortMapping (urls.controlURL, data.first.servicetype, std::to_string (protocol.external_port).c_str (), protocol.name, address.to_string ().c_str ()));
-			BOOST_LOG (node.log) << boost::str (boost::format ("Shutdown port mapping response: %1%") % delete_error);
-		}
+		condition.wait (lock);
 	}
-	freeUPNPDevlist (devices);
-	devices = nullptr;
+	rai::udp_data * result (nullptr);
+	if (!full.empty ())
+	{
+		result = full.front ();
+		full.pop_front ();
+	}
+	return result;
+}
+void rai::udp_buffer::release (rai::udp_data * data_a)
+{
+	assert (data_a != nullptr);
+	std::lock_guard<std::mutex> lock (mutex);
+	free.push_back (data_a);
+	condition.notify_one ();
+}
+void rai::udp_buffer::stop ()
+{
+	std::lock_guard<std::mutex> lock (mutex);
+	stopped = true;
+	condition.notify_all ();
 }

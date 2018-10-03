@@ -28,6 +28,8 @@ add_library (node
 	node.cpp
 	openclwork.cpp
 	openclwork.hpp
+	portmapping.hpp
+	portmapping.cpp
 	rpc.hpp
 	rpc.cpp
 	testing.hpp

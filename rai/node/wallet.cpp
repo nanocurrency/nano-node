@@ -1,3 +1,4 @@
+#include <rai/lib/utility.hpp>
 #include <rai/node/wallet.hpp>
 
 #include <rai/node/node.hpp>
@@ -533,7 +534,7 @@ void rai::wallet_store::write_backup (rai::transaction const & transaction_a, bo
 	{
 		// Set permissions to 600
 		boost::system::error_code ec;
-		boost::filesystem::permissions (path_a, boost::filesystem::perms::owner_read | boost::filesystem::perms::owner_write, ec);
+		rai::set_secure_perm_file (path_a, ec);
 
 		std::string json;
 		serialize_json (transaction_a, json);
@@ -572,7 +573,14 @@ bool rai::wallet_store::import (rai::transaction const & transaction_a, rai::wal
 		result = result | error;
 		if (!result)
 		{
-			insert_adhoc (transaction_a, prv);
+			if (!prv.data.is_zero ())
+			{
+				insert_adhoc (transaction_a, prv);
+			}
+			else
+			{
+				insert_watch (transaction_a, rai::uint256_union (i->first));
+			}
 			other_a.erase (transaction_a, rai::uint256_union (i->first));
 		}
 	}

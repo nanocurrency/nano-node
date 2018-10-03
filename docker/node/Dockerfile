@@ -5,13 +5,14 @@ ARG NETWORK=live
 ENV BOOST_ROOT=/tmp/boost_install
 
 ADD ci /tmp/ci
+ADD util /tmp/util
 
 RUN apt-get update -qq && apt-get install -yqq \
     build-essential \
     cmake \
     g++ \
     wget && \
-    /tmp/ci/bootstrap_boost.sh -m
+    /tmp/util/build_prep/bootstrap_boost.sh -m
 
 ADD ./ /tmp/src
 

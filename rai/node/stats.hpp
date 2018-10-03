@@ -185,6 +185,7 @@ public:
 		vote,
 		http_callback,
 		peering,
+		udp
 	};
 
 	/** Optional detail type */
@@ -226,6 +227,12 @@ public:
 		vote_valid,
 		vote_replay,
 		vote_invalid,
+
+		// udp
+		blocking,
+		overflow,
+		invalid_magic,
+		invalid_network,
 
 		// peering
 		handshake,
