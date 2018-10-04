@@ -1,6 +1,7 @@
+#include <windows.h>
+
 #include <processthreadsapi.h>
 #include <rai/lib/utility.hpp>
-#include <windows.h>
 
 typedef HRESULT (*SetThreadDescription_t) (HANDLE, PCWSTR);
 
