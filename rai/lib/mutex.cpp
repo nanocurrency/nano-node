@@ -86,16 +86,29 @@ void rai::notify_resource_locking (size_t id)
 				auto other_backtrace (locks_info[other_id].locked_after[id].load (std::memory_order_acquire));
 				if (other_backtrace)
 				{
-					std::cerr << "Potential deadlock detected between resource ids " << id << " and " << other_id << std::endl;
-					std::cerr << std::endl;
-					std::cerr << "Resource id " << id << " creation backtrace:" << std::endl;
-					std::cerr << lock_info.creation_backtrace << std::endl;
-					std::cerr << "Resource id " << other_id << " creation backtrace:" << std::endl;
-					std::cerr << locks_info[other_id].creation_backtrace << std::endl;
-					std::cerr << "Backtrace of " << id << " -> " << other_id << " locking:" << std::endl;
-					std::cerr << *other_backtrace << std::endl;
-					std::cerr << "Backtrace of " << other_id << " -> " << id << " locking:" << std::endl;
-					std::cerr << locked_after.second << std::endl;
+					if (id == other_id)
+					{
+						std::cerr << "Potential deadlock detected with resource id " << id << " attempted to be recursively locked" << std::endl;
+						std::cerr << "Resource id " << id << " creation backtrace:" << std::endl;
+						std::cerr << lock_info.creation_backtrace << std::endl;
+						std::cerr << "First lock backtrace" << std::endl;
+						std::cerr << locked_after.second << std::endl;
+						std::cerr << "Second lock backtrace" << std::endl;
+						std::cerr << boost::stacktrace::stacktrace () << std::endl;
+					}
+					else
+					{
+						std::cerr << "Potential deadlock detected between resource ids " << id << " and " << other_id << std::endl;
+						std::cerr << std::endl;
+						std::cerr << "Resource id " << id << " creation backtrace:" << std::endl;
+						std::cerr << lock_info.creation_backtrace << std::endl;
+						std::cerr << "Resource id " << other_id << " creation backtrace:" << std::endl;
+						std::cerr << locks_info[other_id].creation_backtrace << std::endl;
+						std::cerr << "Backtrace of " << id << " -> " << other_id << " locking:" << std::endl;
+						std::cerr << *other_backtrace << std::endl;
+						std::cerr << "Backtrace of " << other_id << " -> " << id << " locking:" << std::endl;
+						std::cerr << locked_after.second << std::endl;
+					}
 					abort ();
 				}
 			}
