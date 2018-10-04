@@ -882,13 +882,13 @@ TEST (wallet, password_race)
 	rai::system system (24000, 1);
 	rai::thread_runner runner (system.service, system.nodes[0]->config.io_threads);
 	auto wallet = system.wallet (0);
-	system.nodes[0]->background ([&wallet]() {
+	auto thread (std::thread ([&wallet]() {
 		for (int i = 0; i < 100; i++)
 		{
 			auto transaction (wallet->wallets.tx_begin (true));
 			wallet->store.rekey (transaction, std::to_string (i));
 		}
-	});
+	}));
 	for (int i = 0; i < 100; i++)
 	{
 		auto transaction (wallet->wallets.tx_begin ());
@@ -900,6 +900,7 @@ TEST (wallet, password_race)
 			break;
 		}
 	}
+	thread.join ();
 	system.stop ();
 	runner.join ();
 }
