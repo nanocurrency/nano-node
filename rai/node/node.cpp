@@ -272,42 +272,8 @@ bool confirm_block (rai::transaction const & transaction_a, rai::node & node_a, 
 	return result;
 }
 
-void rai::network::republish_block (rai::transaction const & transaction, std::shared_ptr<rai::block> block, bool enable_voting)
+void rai::network::republish_block (std::shared_ptr<rai::block> block)
 {
-	auto hash (block->hash ());
-	auto list (node.peers.list_fanout ());
-	// If we're a representative, broadcast a signed confirm, otherwise an unsigned publish
-	if (!enable_voting || !confirm_block (transaction, node, list, block))
-	{
-		rai::publish message (block);
-		std::shared_ptr<std::vector<uint8_t>> bytes (new std::vector<uint8_t>);
-		{
-			rai::vectorstream stream (*bytes);
-			message.serialize (stream);
-		}
-		auto hash (block->hash ());
-		for (auto i (list.begin ()), n (list.end ()); i != n; ++i)
-		{
-			republish (hash, bytes, *i);
-		}
-		if (node.config.logging.network_logging ())
-		{
-			BOOST_LOG (node.log) << boost::str (boost::format ("Block %1% was republished to peers") % hash.to_string ());
-		}
-	}
-	else
-	{
-		if (node.config.logging.network_logging ())
-		{
-			BOOST_LOG (node.log) << boost::str (boost::format ("Block %1% was confirmed to peers") % hash.to_string ());
-		}
-	}
-}
-
-void rai::network::republish_block_batch (std::deque<std::shared_ptr<rai::block>> blocks_a, unsigned delay_a)
-{
-	auto block (blocks_a.front ());
-	blocks_a.pop_front ();
 	auto hash (block->hash ());
 	auto list (node.peers.list_fanout ());
 	rai::publish message (block);
@@ -324,6 +290,13 @@ void rai::network::republish_block_batch (std::deque<std::shared_ptr<rai::block>
 	{
 		BOOST_LOG (node.log) << boost::str (boost::format ("Block %1% was republished to peers") % hash.to_string ());
 	}
+}
+
+void rai::network::republish_block_batch (std::deque<std::shared_ptr<rai::block>> blocks_a, unsigned delay_a)
+{
+	auto block (blocks_a.front ());
+	blocks_a.pop_front ();
+	republish_block (block);
 	if (!blocks_a.empty ())
 	{
 		std::weak_ptr<rai::node> node_w (node.shared ());
@@ -1053,9 +1026,6 @@ block_processor_batch_max_time (std::chrono::milliseconds (5000))
 			preconfigured_representatives.push_back (rai::account ("2399A083C600AA0572F5E36247D978FCFC840405F8D4B6D33161C0066A55F431"));
 			preconfigured_representatives.push_back (rai::account ("2298FAB7C61058E77EA554CB93EDEEDA0692CBFCC540AB213B2836B29029E23A"));
 			preconfigured_representatives.push_back (rai::account ("3FE80B4BC842E82C1C18ABFEEC47EA989E63953BC82AC411F304D13833D52A56"));
-			// 2018-09-01 UTC 00:00 in unix time
-			// Technically, time_t is never defined to be unix time, but compilers implement it as such
-			generate_hash_votes_at = std::chrono::system_clock::from_time_t (1535760000);
 			break;
 		default:
 			assert (false);
@@ -1108,7 +1078,6 @@ void rai::node_config::serialize_json (boost::property_tree::ptree & tree_a) con
 	tree_a.put ("callback_port", std::to_string (callback_port));
 	tree_a.put ("callback_target", callback_target);
 	tree_a.put ("lmdb_max_dbs", lmdb_max_dbs);
-	tree_a.put ("generate_hash_votes_at", std::chrono::system_clock::to_time_t (generate_hash_votes_at));
 	tree_a.put ("block_processor_batch_max_time", block_processor_batch_max_time.count ());
 }
 
@@ -1212,11 +1181,12 @@ bool rai::node_config::upgrade_json (unsigned version, boost::property_tree::ptr
 			tree_a.put ("version", "13");
 			result = true;
 		case 13:
-			tree_a.put ("generate_hash_votes_at", std::chrono::system_clock::to_time_t (generate_hash_votes_at));
+			tree_a.put ("generate_hash_votes_at", "0");
 			tree_a.erase ("version");
 			tree_a.put ("version", "14");
 			result = true;
 		case 14:
+			tree_a.erase ("generate_hash_votes_at");
 			tree_a.put ("block_processor_batch_max_time", block_processor_batch_max_time.count ());
 			tree_a.erase ("version");
 			tree_a.put ("version", "15");
@@ -1307,8 +1277,6 @@ bool rai::node_config::deserialize_json (bool & upgraded_a, boost::property_tree
 		callback_target = tree_a.get<std::string> ("callback_target");
 		auto lmdb_max_dbs_l = tree_a.get<std::string> ("lmdb_max_dbs");
 		result |= parse_port (callback_port_l, callback_port);
-		auto generate_hash_votes_at_l = tree_a.get<time_t> ("generate_hash_votes_at");
-		generate_hash_votes_at = std::chrono::system_clock::from_time_t (generate_hash_votes_at_l);
 		auto block_processor_batch_max_time_l = tree_a.get<std::string> ("block_processor_batch_max_time");
 		try
 		{
@@ -3910,7 +3878,7 @@ bool rai::election::publish (std::shared_ptr<rai::block> block_a)
 			{
 				blocks.insert (std::make_pair (block_a->hash (), block_a));
 				confirm_if_quorum (transaction);
-				node.network.republish_block (transaction, block_a, false);
+				node.network.republish_block (block_a);
 			}
 		}
 	}
@@ -3984,9 +3952,9 @@ void rai::active_transactions::announce_votes ()
 				// Broadcast winner
 				if (node.ledger.could_fit (transaction, *election_l->status.winner))
 				{
-					if (node.config.enable_voting && std::chrono::system_clock::now () >= node.config.generate_hash_votes_at)
+					rebroadcast_bundle.push_back (election_l->status.winner);
+					if (node.config.enable_voting)
 					{
-						rebroadcast_bundle.push_back (election_l->status.winner);
 						blocks_bundle.push_back (election_l->status.winner->hash ());
 						if (blocks_bundle.size () >= 12)
 						{
@@ -3996,11 +3964,6 @@ void rai::active_transactions::announce_votes ()
 							});
 							blocks_bundle.clear ();
 						}
-					}
-					else
-					{
-						election_l->compute_rep_votes (transaction);
-						rebroadcast_bundle.push_back (election_l->status.winner);
 					}
 				}
 				else

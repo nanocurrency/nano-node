@@ -994,7 +994,7 @@ std::shared_ptr<rai::block> rai::wallet::send_action (rai::account const & sourc
 				if (block != nullptr)
 				{
 					cached_block = true;
-					wallets.node.network.republish_block (transaction, block);
+					wallets.node.network.republish_block (block);
 				}
 			}
 			else if (status != MDB_NOTFOUND)
