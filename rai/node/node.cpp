@@ -49,6 +49,7 @@ on (true)
 	for (size_t i = 0; i < node.config.io_threads; ++i)
 	{
 		packet_processing_threads.push_back (std::thread ([this]() {
+			rai::thread_role::set(rai::thread_role::name::io);
 			try
 			{
 				process_packets ();

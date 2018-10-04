@@ -22,6 +22,21 @@ void set_secure_perm_directory (boost::filesystem::path const & path, boost::sys
 void set_secure_perm_file (boost::filesystem::path const & path);
 void set_secure_perm_file (boost::filesystem::path const & path, boost::system::error_code & ec);
 
+/*
+ * Functions for understanding the role of the current thread
+ */
+namespace thread_role
+{
+	enum class name
+	{
+		unknown,
+		io,
+		/* XXX:TODO: Add more */
+	};
+	rai::thread_role::name get (void);
+	void set (rai::thread_role::name);
+}
+
 template <typename... T>
 class observer_set
 {
