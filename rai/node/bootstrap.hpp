@@ -112,7 +112,7 @@ public:
 	void insert_pull (rai::pull_info const &);
 	std::shared_ptr<rai::bootstrap_client> connection;
 	rai::account current;
-	rai::account_info info;
+	rai::block_hash frontier;
 	unsigned count;
 	rai::account landing;
 	rai::account faucet;
@@ -120,6 +120,7 @@ public:
 	std::promise<bool> promise;
 	/** A very rough estimate of the cost of `bulk_push`ing missing blocks */
 	uint64_t bulk_push_cost;
+	std::deque<std::pair<rai::account, rai::block_hash>> accounts;
 };
 class bulk_pull_client : public std::enable_shared_from_this<rai::bulk_pull_client>
 {

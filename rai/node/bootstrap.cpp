@@ -292,14 +292,14 @@ void rai::frontier_req_client::received_frontier (boost::system::error_code cons
 			while (!current.is_zero () && current < account)
 			{
 				// We know about an account they don't.
-				unsynced (info.head, 0);
+				unsynced (frontier, 0);
 				next (transaction);
 			}
 			if (!current.is_zero ())
 			{
 				if (account == current)
 				{
-					if (latest == info.head)
+					if (latest == frontier)
 					{
 						// In sync
 					}
@@ -308,11 +308,11 @@ void rai::frontier_req_client::received_frontier (boost::system::error_code cons
 						if (connection->node->store.block_exists (transaction, latest))
 						{
 							// We know about a block they don't.
-							unsynced (info.head, latest);
+							unsynced (frontier, latest);
 						}
 						else
 						{
-							connection->attempt->add_pull (rai::pull_info (account, latest, info.head));
+							connection->attempt->add_pull (rai::pull_info (account, latest, frontier));
 							// Either we're behind or there's a fork we differ on
 							// Either way, bulk pushing will probably not be effective
 							bulk_push_cost += 5;
@@ -337,7 +337,7 @@ void rai::frontier_req_client::received_frontier (boost::system::error_code cons
 			while (!current.is_zero ())
 			{
 				// We know about an account they don't.
-				unsynced (info.head, 0);
+				unsynced (frontier, 0);
 				next (transaction);
 			}
 			if (connection->node->config.logging.bulk_pull_logging ())
@@ -367,16 +367,27 @@ void rai::frontier_req_client::received_frontier (boost::system::error_code cons
 
 void rai::frontier_req_client::next (rai::transaction const & transaction_a)
 {
-	auto iterator (connection->node->store.latest_begin (transaction_a, rai::uint256_union (current.number () + 1)));
-	if (iterator != connection->node->store.latest_end ())
+	// Filling accounts deque to prevent often read transactions
+	if (accounts.empty ())
 	{
-		current = rai::account (iterator->first);
-		info = rai::account_info (iterator->second);
+		size_t max_size (128);
+		for (auto i (connection->node->store.latest_begin (transaction_a, current.number () + 1)), n (connection->node->store.latest_end ()); i != n && accounts.size () != max_size; ++i)
+		{
+			rai::account_info info (i->second);
+			accounts.push_back (std::make_pair (rai::account (i->first), info.head));
+		}
+		/* If loop breaks before max_size, then latest_end () is reached
+		Add empty record to finish frontier_req_server */
+		if (accounts.size () != max_size)
+		{
+			accounts.push_back (std::make_pair (rai::account (0), rai::block_hash (0)));
+		}
 	}
-	else
-	{
-		current.clear ();
-	}
+	// Retrieving accounts from deque
+	auto account_pair (accounts.front ());
+	accounts.pop_front ();
+	current = account_pair.first;
+	frontier = account_pair.second;
 }
 
 rai::bulk_pull_client::bulk_pull_client (std::shared_ptr<rai::bootstrap_client> connection_a, rai::pull_info const & pull_a) :
