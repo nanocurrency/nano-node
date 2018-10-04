@@ -6,7 +6,7 @@ typedef HRESULT (*SetThreadDescription_t)(HANDLE, PCWSTR);
 
 void rai::thread_role::set_name (std::string thread_name)
 {
-	SetThreadDescription_t SetThreadDescription_local = NULL;
+	SetThreadDescription_t SetThreadDescription_local;
 
 	SetThreadDescription_local = GetProcAddress (GetModuleHandle (TEXT ("kernel32.dll")), "SetThreadDescription");
 	if (SetThreadDescription_local)
