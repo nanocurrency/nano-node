@@ -1,5 +1,7 @@
 // Needed for backtraces on MacOS
+#ifndef _GNU_SOURCE
 #define _GNU_SOURCE
+#endif
 
 #include <rai/lib/mutex.hpp>
 
@@ -29,10 +31,12 @@ public:
 	}
 };
 
+typedef std::pair<boost::stacktrace::stacktrace, boost::stacktrace::stacktrace> lock_backtraces;
+
 class lock_info
 {
 public:
-	std::vector<movable_atomic<boost::stacktrace::stacktrace *>> locked_after;
+	std::vector<movable_atomic<lock_backtraces *>> locked_after;
 	boost::stacktrace::stacktrace creation_backtrace;
 };
 
@@ -51,9 +55,9 @@ size_t rai::create_resource_lock_id ()
 		id = locks_info.size ();
 		for (auto & lock_info : locks_info)
 		{
-			lock_info.locked_after.push_back (movable_atomic<boost::stacktrace::stacktrace *> (nullptr));
+			lock_info.locked_after.push_back (movable_atomic<lock_backtraces *> (nullptr));
 		}
-		std::vector<movable_atomic<boost::stacktrace::stacktrace *>> locked_after (locks_info.size () + 1, movable_atomic<boost::stacktrace::stacktrace *> (nullptr));
+		std::vector<movable_atomic<lock_backtraces *>> locked_after (locks_info.size () + 1, movable_atomic<lock_backtraces *> (nullptr));
 		locks_info.push_back (lock_info{ locked_after, boost::stacktrace::stacktrace () });
 	}
 	else
@@ -79,12 +83,12 @@ void rai::notify_resource_locking (size_t id)
 		auto other_id (locked_after.first);
 		if (!lock_info.locked_after[other_id].load (std::memory_order_relaxed))
 		{
-			boost::stacktrace::stacktrace * backtrace_alloc (new boost::stacktrace::stacktrace (locked_after.second));
-			boost::stacktrace::stacktrace * expected (nullptr);
-			if (lock_info.locked_after[other_id].compare_exchange_strong (expected, backtrace_alloc, std::memory_order_acq_rel))
+			lock_backtraces * our_backtraces (new lock_backtraces (locked_after.second, boost::stacktrace::stacktrace ()));
+			lock_backtraces * expected (nullptr);
+			if (lock_info.locked_after[other_id].compare_exchange_strong (expected, our_backtraces, std::memory_order_acq_rel))
 			{
-				auto other_backtrace (locks_info[other_id].locked_after[id].load (std::memory_order_acquire));
-				if (other_backtrace)
+				auto other_backtraces (locks_info[other_id].locked_after[id].load (std::memory_order_acquire));
+				if (other_backtraces)
 				{
 					if (id == other_id)
 					{
@@ -92,29 +96,33 @@ void rai::notify_resource_locking (size_t id)
 						std::cerr << "Resource id " << id << " creation backtrace:" << std::endl;
 						std::cerr << lock_info.creation_backtrace << std::endl;
 						std::cerr << "First lock backtrace" << std::endl;
-						std::cerr << locked_after.second << std::endl;
+						std::cerr << our_backtraces->first << std::endl;
 						std::cerr << "Second lock backtrace" << std::endl;
-						std::cerr << boost::stacktrace::stacktrace () << std::endl;
+						std::cerr << our_backtraces->second << std::endl;
 					}
 					else
 					{
 						std::cerr << "Potential deadlock detected between resource ids " << id << " and " << other_id << std::endl;
 						std::cerr << std::endl;
-						std::cerr << "Resource id " << id << " creation backtrace:" << std::endl;
-						std::cerr << lock_info.creation_backtrace << std::endl;
 						std::cerr << "Resource id " << other_id << " creation backtrace:" << std::endl;
 						std::cerr << locks_info[other_id].creation_backtrace << std::endl;
-						std::cerr << "Backtrace of " << id << " -> " << other_id << " locking:" << std::endl;
-						std::cerr << *other_backtrace << std::endl;
-						std::cerr << "Backtrace of " << other_id << " -> " << id << " locking:" << std::endl;
-						std::cerr << locked_after.second << std::endl;
+						std::cerr << "Resource id " << id << " creation backtrace:" << std::endl;
+						std::cerr << lock_info.creation_backtrace << std::endl;
+						std::cerr << "Backtrace of " << other_id << " -> " << id << " first lock:" << std::endl;
+						std::cerr << our_backtraces->first << std::endl;
+						std::cerr << "Backtrace of " << other_id << " -> " << id << " second lock:" << std::endl;
+						std::cerr << our_backtraces->second << std::endl;
+						std::cerr << "Backtrace of " << id << " -> " << other_id << " first lock:" << std::endl;
+						std::cerr << other_backtraces->first << std::endl;
+						std::cerr << "Backtrace of " << id << " -> " << other_id << " second lock:" << std::endl;
+						std::cerr << other_backtraces->second << std::endl;
 					}
 					abort ();
 				}
 			}
 			else
 			{
-				delete backtrace_alloc;
+				delete our_backtraces;
 			}
 		}
 	}
