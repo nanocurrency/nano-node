@@ -57,6 +57,14 @@ namespace thread_role
 				break;
 		}
 
+		/*
+		 * We want to constrain the thread names to 15
+		 * characters, since this is the smallest maximum
+		 * length supported by the platforms we support
+		 * (specifically, Linux)
+		 */
+		assert (thread_role_name_string.size () < 16)
+
 		rai::thread_role::set_name (thread_role_name_string);
 
 		rai::thread_role::current_thread_role = role;
