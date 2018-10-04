@@ -2,7 +2,7 @@
 #include <rai/lib/utility.hpp>
 #include <windows.h>
 
-typedef HRESULT (*SetThreadDescription_t)(HANDLE, PCWSTR);
+typedef HRESULT (*SetThreadDescription_t) (HANDLE, PCWSTR);
 
 void rai::thread_role::set_name (std::string thread_name)
 {
