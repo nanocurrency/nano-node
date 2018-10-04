@@ -76,7 +76,7 @@ TEST (gap_cache, gap_bootstrap)
 		// The separate publish and vote system doesn't work very well here because it's instantly confirmed.
 		// We help it get the block and vote out here.
 		auto transaction (system.nodes[0]->store.tx_begin ());
-		system.nodes[0]->network.republish_block (transaction, latest_block);
+		system.nodes[0]->network.republish_block (latest_block);
 	}
 	while (system.nodes[1]->balance (rai::genesis_account) != rai::genesis_amount - 200)
 	{

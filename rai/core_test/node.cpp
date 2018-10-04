@@ -603,7 +603,7 @@ TEST (node, confirm_locked)
 	auto transaction (system.nodes[0]->store.tx_begin ());
 	system.wallet (0)->enter_password (transaction, "1");
 	auto block (std::make_shared<rai::send_block> (0, 0, 0, rai::keypair ().prv, 0, 0));
-	system.nodes[0]->network.republish_block (transaction, block);
+	system.nodes[0]->network.republish_block (block);
 }
 
 TEST (node_config, random_rep)
