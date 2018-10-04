@@ -33,6 +33,10 @@ namespace thread_role
 		io,
 		work,
 		packet_processing,
+		alarm,
+		vote_processing,
+		block_processing,
+		announce_loop,
 	};
 	rai::thread_role::name get (void);
 	void set (rai::thread_role::name);

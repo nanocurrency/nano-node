@@ -34,6 +34,18 @@ namespace thread_role
 			case rai::thread_role::name::packet_processing:
 				thread_role_name_string = "Pkt processing";
 				break;
+			case rai::thread_role::name::alarm:
+				thread_role_name_string = "Alarm + bkgnd";
+				break;
+			case rai::thread_role::name::vote_processing:
+				thread_role_name_string = "Vote processing";
+				break;
+			case rai::thread_role::name::block_processing:
+				thread_role_name_string = "Blck processing";
+				break;
+			case rai::thread_role::name::announce_loop:
+				thread_role_name_string = "Announce loop";
+				break;
 		}
 
 		rai::thread_role::set_name (thread_role_name_string);
