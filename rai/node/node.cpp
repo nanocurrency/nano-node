@@ -1024,7 +1024,8 @@ enable_voting (true),
 bootstrap_connections (4),
 bootstrap_connections_max (64),
 callback_port (0),
-lmdb_max_dbs (128)
+lmdb_max_dbs (128),
+block_processor_batch_max_time (std::chrono::milliseconds (5000))
 {
 	const char * epoch_message ("epoch v1 block");
 	strncpy ((char *)epoch_block_link.bytes.data (), epoch_message, epoch_block_link.bytes.size ());
@@ -1064,7 +1065,7 @@ lmdb_max_dbs (128)
 
 void rai::node_config::serialize_json (boost::property_tree::ptree & tree_a) const
 {
-	tree_a.put ("version", "14");
+	tree_a.put ("version", "15");
 	tree_a.put ("peering_port", std::to_string (peering_port));
 	tree_a.put ("bootstrap_fraction_numerator", std::to_string (bootstrap_fraction_numerator));
 	tree_a.put ("receive_minimum", receive_minimum.to_string_dec ());
@@ -1108,6 +1109,7 @@ void rai::node_config::serialize_json (boost::property_tree::ptree & tree_a) con
 	tree_a.put ("callback_target", callback_target);
 	tree_a.put ("lmdb_max_dbs", lmdb_max_dbs);
 	tree_a.put ("generate_hash_votes_at", std::chrono::system_clock::to_time_t (generate_hash_votes_at));
+	tree_a.put ("block_processor_batch_max_time", block_processor_batch_max_time.count ());
 }
 
 bool rai::node_config::upgrade_json (unsigned version, boost::property_tree::ptree & tree_a)
@@ -1215,6 +1217,11 @@ bool rai::node_config::upgrade_json (unsigned version, boost::property_tree::ptr
 			tree_a.put ("version", "14");
 			result = true;
 		case 14:
+			tree_a.put ("block_processor_batch_max_time", block_processor_batch_max_time.count ());
+			tree_a.erase ("version");
+			tree_a.put ("version", "15");
+			result = true;
+		case 15:
 			break;
 		default:
 			throw std::runtime_error ("Unknown node_config version");
@@ -1302,6 +1309,7 @@ bool rai::node_config::deserialize_json (bool & upgraded_a, boost::property_tree
 		result |= parse_port (callback_port_l, callback_port);
 		auto generate_hash_votes_at_l = tree_a.get<time_t> ("generate_hash_votes_at");
 		generate_hash_votes_at = std::chrono::system_clock::from_time_t (generate_hash_votes_at_l);
+		auto block_processor_batch_max_time_l = tree_a.get<std::string> ("block_processor_batch_max_time");
 		try
 		{
 			peering_port = std::stoul (peering_port_l);
@@ -1313,6 +1321,7 @@ bool rai::node_config::deserialize_json (bool & upgraded_a, boost::property_tree
 			bootstrap_connections_max = std::stoul (bootstrap_connections_max_l);
 			lmdb_max_dbs = std::stoi (lmdb_max_dbs_l);
 			online_weight_quorum = std::stoul (online_weight_quorum_l);
+			block_processor_batch_max_time = std::chrono::milliseconds (std::stoul (block_processor_batch_max_time_l));
 			result |= peering_port > std::numeric_limits<uint16_t>::max ();
 			result |= logging.deserialize_json (upgraded_a, logging_l);
 			result |= receive_minimum.decode_dec (receive_minimum_l);
@@ -1651,10 +1660,10 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 	verify_state_blocks (lock_a);
 	{
 		auto transaction (node.store.tx_begin_write ());
+		auto start_time (std::chrono::steady_clock::now ());
 		lock_a.lock ();
-		auto count (0);
 		// Processing blocks
-		while ((!blocks.empty () || !forced.empty ()) && count < 16384)
+		while ((!blocks.empty () || !forced.empty ()) && std::chrono::steady_clock::now () - start_time < node.config.block_processor_batch_max_time)
 		{
 			if (blocks.size () > 64 && should_log ())
 			{
@@ -1689,7 +1698,6 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 			auto process_result (process_receive_one (transaction, block.first, block.second, !force));
 			(void)process_result;
 			lock_a.lock ();
-			++count;
 		}
 	}
 
