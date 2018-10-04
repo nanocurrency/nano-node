@@ -521,6 +521,7 @@ public:
 	rai::uint256_union epoch_block_link;
 	rai::account epoch_block_signer;
 	std::chrono::system_clock::time_point generate_hash_votes_at;
+	std::chrono::milliseconds block_processor_batch_max_time;
 	static std::chrono::seconds constexpr keepalive_period = std::chrono::seconds (60);
 	static std::chrono::seconds constexpr keepalive_cutoff = keepalive_period * 5;
 	static std::chrono::minutes constexpr wallet_backup_interval = std::chrono::minutes (5);
