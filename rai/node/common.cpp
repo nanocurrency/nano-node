@@ -109,6 +109,14 @@ void rai::message_parser::deserialize_buffer (uint8_t const * buffer_a, size_t s
 			{
 				status = parse_status::outdated_version;
 			}
+			else if (!header.valid_magic ())
+			{
+				status = parse_status::invalid_magic;
+			}
+			else if (!header.valid_network ())
+			{
+				status = parse_status::invalid_network;
+			}
 			else
 			{
 				switch (header.type)

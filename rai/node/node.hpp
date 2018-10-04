@@ -2,6 +2,7 @@
 
 #include <rai/lib/work.hpp>
 #include <rai/node/bootstrap.hpp>
+#include <rai/node/portmapping.hpp>
 #include <rai/node/stats.hpp>
 #include <rai/node/wallet.hpp>
 #include <rai/secure/ledger.hpp>
@@ -15,8 +16,6 @@
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index/random_access_index.hpp>
 #include <boost/multi_index_container.hpp>
-
-#include <miniupnpc.h>
 
 namespace boost
 {
@@ -102,6 +101,7 @@ public:
 	// Should only be used for old elections
 	// The first block should be the one in the ledger
 	bool start (std::pair<std::shared_ptr<rai::block>, std::shared_ptr<rai::block>>, std::function<void(std::shared_ptr<rai::block>)> const & = [](std::shared_ptr<rai::block>) {});
+	bool add (std::pair<std::shared_ptr<rai::block>, std::shared_ptr<rai::block>>, std::function<void(std::shared_ptr<rai::block>)> const & = [](std::shared_ptr<rai::block>) {});
 	// If this returns true, the vote is a replay
 	// If this returns false, the vote may or may not be a replay
 	bool vote (std::shared_ptr<rai::vote>);
@@ -303,41 +303,6 @@ public:
 	rai::endpoint endpoint;
 	std::function<void(boost::system::error_code const &, size_t)> callback;
 };
-class mapping_protocol
-{
-public:
-	char const * name;
-	int remaining;
-	boost::asio::ip::address_v4 external_address;
-	uint16_t external_port;
-};
-// These APIs aren't easy to understand so comments are verbose
-class port_mapping
-{
-public:
-	port_mapping (rai::node &);
-	void start ();
-	void stop ();
-	void refresh_devices ();
-	// Refresh when the lease ends
-	void refresh_mapping ();
-	// Refresh occasionally in case router loses mapping
-	void check_mapping_loop ();
-	int check_mapping ();
-	bool has_address ();
-	std::mutex mutex;
-	rai::node & node;
-	UPNPDev * devices; // List of all UPnP devices
-	UPNPUrls urls; // Something for UPnP
-	IGDdatas data; // Some other UPnP thing
-	// Primes so they infrequently happen at the same time
-	static int constexpr mapping_timeout = rai::rai_network == rai::rai_networks::rai_test_network ? 53 : 3593;
-	static int constexpr check_timeout = rai::rai_network == rai::rai_networks::rai_test_network ? 17 : 53;
-	boost::asio::ip::address_v4 address;
-	std::array<mapping_protocol, 2> protocols;
-	uint64_t check_count;
-	bool on;
-};
 class block_arrival_info
 {
 public:
@@ -448,6 +413,8 @@ public:
 	void rpc_action (boost::system::error_code const &, size_t);
 	void republish_vote (std::shared_ptr<rai::vote>);
 	void republish_block (std::shared_ptr<rai::block>);
+	static unsigned const broadcast_interval_ms = (rai::rai_network == rai::rai_networks::rai_test_network) ? 10 : 50;
+	void republish_block_batch (std::deque<std::shared_ptr<rai::block>>, unsigned = broadcast_interval_ms);
 	void republish (rai::block_hash const &, std::shared_ptr<std::vector<uint8_t>>, rai::endpoint);
 	void publish_broadcast (std::vector<rai::peer_information> &, std::unique_ptr<rai::block>);
 	void confirm_send (rai::confirm_ack const &, std::shared_ptr<std::vector<uint8_t>>, rai::endpoint const &);
@@ -553,6 +520,11 @@ public:
 	rai::stat_config stat_config;
 	rai::uint256_union epoch_block_link;
 	rai::account epoch_block_signer;
+<<<<<<< HEAD
+=======
+	std::chrono::system_clock::time_point generate_hash_votes_at;
+	std::chrono::milliseconds block_processor_batch_max_time;
+>>>>>>> upstream/master
 	static std::chrono::seconds constexpr keepalive_period = std::chrono::seconds (60);
 	static std::chrono::seconds constexpr keepalive_cutoff = keepalive_period * 5;
 	static std::chrono::minutes constexpr wallet_backup_interval = std::chrono::minutes (5);

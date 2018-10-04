@@ -6,6 +6,7 @@
 #include <rai/node/rpc.hpp>
 
 #include <algorithm>
+#include <cstdlib>
 #include <future>
 #include <sstream>
 
@@ -15,8 +16,6 @@
 #include <boost/log/utility/setup/file.hpp>
 #include <boost/polymorphic_cast.hpp>
 #include <boost/property_tree/json_parser.hpp>
-
-#include <upnpcommands.h>
 
 double constexpr rai::node::price_max;
 double constexpr rai::node::free_cutoff;
@@ -293,6 +292,38 @@ void rai::network::republish_block (std::shared_ptr<rai::block> block)
 	}
 }
 
+void rai::network::republish_block_batch (std::deque<std::shared_ptr<rai::block>> blocks_a, unsigned delay_a)
+{
+	auto block (blocks_a.front ());
+	blocks_a.pop_front ();
+	auto hash (block->hash ());
+	auto list (node.peers.list_fanout ());
+	rai::publish message (block);
+	std::shared_ptr<std::vector<uint8_t>> bytes (new std::vector<uint8_t>);
+	{
+		rai::vectorstream stream (*bytes);
+		message.serialize (stream);
+	}
+	for (auto i (list.begin ()), n (list.end ()); i != n; ++i)
+	{
+		republish (hash, bytes, *i);
+	}
+	if (node.config.logging.network_logging ())
+	{
+		BOOST_LOG (node.log) << boost::str (boost::format ("Block %1% was republished to peers") % hash.to_string ());
+	}
+	if (!blocks_a.empty ())
+	{
+		std::weak_ptr<rai::node> node_w (node.shared ());
+		node.alarm.add (std::chrono::steady_clock::now () + std::chrono::milliseconds (delay_a), [node_w, blocks_a, delay_a]() {
+			if (auto node_l = node_w.lock ())
+			{
+				node_l->network.republish_block_batch (blocks_a, delay_a);
+			}
+		});
+	}
+}
+
 // In order to rate limit network traffic we republish:
 // 1) Only if they are a non-replay vote of a block that's actively settling. Settling blocks are limited by block PoW
 // 2) The rep has a weight > Y to prevent creating a lot of small-weight accounts to send out votes
@@ -323,6 +354,21 @@ void rai::network::broadcast_confirm_req (std::shared_ptr<rai::block> block_a)
 		// broadcast request to all peers
 		list = std::make_shared<std::vector<rai::peer_information>> (node.peers.list_vector ());
 	}
+
+	/*
+	 * In either case (broadcasting to all representatives, or broadcasting to
+	 * all peers because there are not enough connected representatives),
+	 * limit each instance to a single random up-to-32 selection.  The invoker
+	 * of "broadcast_confirm_req" will be responsible for calling it again
+	 * if the votes for a block have not arrived in time.
+	 */
+	const size_t max_endpoints = 32;
+	std::random_shuffle (list->begin (), list->end ());
+	if (list->size () > max_endpoints)
+	{
+		list->erase (list->begin () + max_endpoints, list->end ());
+	}
+
 	broadcast_confirm_req_base (block_a, list, 0);
 }
 
@@ -342,11 +388,14 @@ void rai::network::broadcast_confirm_req_base (std::shared_ptr<rai::block> block
 	}
 	if (!endpoints_a->empty ())
 	{
+		delay_a += 50;
+		delay_a += std::rand () % 50;
+
 		std::weak_ptr<rai::node> node_w (node.shared ());
 		node.alarm.add (std::chrono::steady_clock::now () + std::chrono::milliseconds (delay_a), [node_w, block_a, endpoints_a, delay_a]() {
 			if (auto node_l = node_w.lock ())
 			{
-				node_l->network.broadcast_confirm_req_base (block_a, endpoints_a, delay_a + 50, true);
+				node_l->network.broadcast_confirm_req_base (block_a, endpoints_a, delay_a, true);
 			}
 		});
 	}
@@ -615,6 +664,22 @@ void rai::network::receive_action (rai::udp_data * data_a)
 				{
 					BOOST_LOG (node.log) << "Invalid node_id_handshake message";
 				}
+			}
+			else if (parser.status == rai::message_parser::parse_status::invalid_magic)
+			{
+				if (node.config.logging.network_logging ())
+				{
+					BOOST_LOG (node.log) << "Invalid magic in header";
+				}
+				node.stats.inc (rai::stat::type::udp, rai::stat::detail::invalid_magic);
+			}
+			else if (parser.status == rai::message_parser::parse_status::invalid_network)
+			{
+				if (node.config.logging.network_logging ())
+				{
+					BOOST_LOG (node.log) << "Invalid network in header";
+				}
+				node.stats.inc (rai::stat::type::udp, rai::stat::detail::invalid_network);
 			}
 			else
 			{
@@ -947,7 +1012,8 @@ enable_voting (true),
 bootstrap_connections (4),
 bootstrap_connections_max (64),
 callback_port (0),
-lmdb_max_dbs (128)
+lmdb_max_dbs (128),
+block_processor_batch_max_time (std::chrono::milliseconds (5000))
 {
 	const char * epoch_message ("epoch v1 block");
 	strncpy ((char *)epoch_block_link.bytes.data (), epoch_message, epoch_block_link.bytes.size ());
@@ -1027,6 +1093,7 @@ void rai::node_config::serialize_json (boost::property_tree::ptree & tree_a) con
 	tree_a.put ("callback_port", std::to_string (callback_port));
 	tree_a.put ("callback_target", callback_target);
 	tree_a.put ("lmdb_max_dbs", lmdb_max_dbs);
+	tree_a.put ("block_processor_batch_max_time", block_processor_batch_max_time.count ());
 }
 
 bool rai::node_config::upgrade_json (unsigned version, boost::property_tree::ptree & tree_a)
@@ -1135,6 +1202,7 @@ bool rai::node_config::upgrade_json (unsigned version, boost::property_tree::ptr
 			result = true;
 		case 14:
 			tree_a.erase ("generate_hash_votes_at");
+			tree_a.put ("block_processor_batch_max_time", block_processor_batch_max_time.count ());
 			tree_a.erase ("version");
 			tree_a.put ("version", "15");
 			result = true;
@@ -1224,6 +1292,7 @@ bool rai::node_config::deserialize_json (bool & upgraded_a, boost::property_tree
 		callback_target = tree_a.get<std::string> ("callback_target");
 		auto lmdb_max_dbs_l = tree_a.get<std::string> ("lmdb_max_dbs");
 		result |= parse_port (callback_port_l, callback_port);
+		auto block_processor_batch_max_time_l = tree_a.get<std::string> ("block_processor_batch_max_time");
 		try
 		{
 			peering_port = std::stoul (peering_port_l);
@@ -1235,6 +1304,7 @@ bool rai::node_config::deserialize_json (bool & upgraded_a, boost::property_tree
 			bootstrap_connections_max = std::stoul (bootstrap_connections_max_l);
 			lmdb_max_dbs = std::stoi (lmdb_max_dbs_l);
 			online_weight_quorum = std::stoul (online_weight_quorum_l);
+			block_processor_batch_max_time = std::chrono::milliseconds (std::stoul (block_processor_batch_max_time_l));
 			result |= peering_port > std::numeric_limits<uint16_t>::max ();
 			result |= logging.deserialize_json (upgraded_a, logging_l);
 			result |= receive_minimum.decode_dec (receive_minimum_l);
@@ -1326,9 +1396,9 @@ rai::vote_code rai::vote_processor::vote_blocking (rai::transaction const & tran
 	auto result (rai::vote_code::invalid);
 	if (!vote_a->validate ())
 	{
-		result = rai::vote_code::replay;
 		auto max_vote (node.store.vote_max (transaction_a, vote_a));
-		if (!node.active.vote (vote_a) || max_vote->sequence > vote_a->sequence)
+		result = rai::vote_code::replay;
+		if (!node.active.vote (vote_a))
 		{
 			result = rai::vote_code::vote;
 		}
@@ -1350,7 +1420,9 @@ rai::vote_code rai::vote_processor::vote_blocking (rai::transaction const & tran
 					}
 					node.network.confirm_send (confirm, bytes, endpoint_a);
 				}
+				break;
 			case rai::vote_code::invalid:
+				assert (false);
 				break;
 		}
 	}
@@ -1521,9 +1593,9 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 {
 	{
 		auto transaction (node.store.tx_begin_write ());
+		auto start_time (std::chrono::steady_clock::now ());
 		lock_a.lock ();
-		auto count (0);
-		while (have_blocks () && count < 16384)
+		while (have_blocks () && std::chrono::steady_clock::now () - start_time < node.config.block_processor_batch_max_time)
 		{
 			if (blocks.size () > 64 && should_log ())
 			{
@@ -1558,17 +1630,23 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 			auto process_result (process_receive_one (transaction, block.first, block.second));
 			(void)process_result;
 			lock_a.lock ();
-			++count;
 		}
 	}
+
+	/*
+	 * Copy "processed_active" to a local variable so that we
+	 * may operate on it without holding the mutex.
+	 */
+	decltype (processed_active) processed_active_copy;
+	processed_active_copy.swap (processed_active);
+
+	lock_a.unlock ();
+
 	// Start elections for recent blocks
-	while (!processed_active.empty ())
+	for (const auto & block : processed_active_copy)
 	{
-		auto block (processed_active.front ());
-		processed_active.pop_front ();
 		node.active.start (block);
 	}
-	lock_a.unlock ();
 }
 
 rai::process_return rai::block_processor::process_receive_one (rai::transaction const & transaction_a, std::shared_ptr<rai::block> block_a, std::chrono::steady_clock::time_point origination)
@@ -1588,6 +1666,13 @@ rai::process_return rai::block_processor::process_receive_one (rai::transaction 
 			}
 			if (node.block_arrival.recent (hash))
 			{
+				/*
+				 * The dequeuing of this buffer uses the mutex
+				 * named "mutex", so we must use it when we
+				 * enqueue it.
+				 */
+				std::unique_lock<std::mutex> lock (mutex);
+
 				processed_active.push_back (block_a);
 			}
 			queue_unchecked (transaction_a, hash);
@@ -3823,6 +3908,7 @@ void rai::active_transactions::announce_votes ()
 	unsigned unconfirmed_announcements (0);
 	unsigned mass_request_count (0);
 	std::vector<rai::block_hash> blocks_bundle;
+	std::deque<std::shared_ptr<rai::block>> rebroadcast_bundle;
 
 	for (auto i (roots.begin ()), n (roots.end ()); i != n; ++i)
 	{
@@ -3851,13 +3937,37 @@ void rai::active_transactions::announce_votes ()
 					auto tally_l (election_l->tally (transaction));
 					election_l->log_votes (tally_l);
 				}
+				/* Escalation for long unconfirmed elections
+				Start new elections for previous block & source
+				if there are less than 100 active elections */
+				if (i->announcements % announcement_long == 1 && roots.size () < 100)
+				{
+					auto previous_hash (election_l->status.winner->previous ());
+					if (!previous_hash.is_zero ())
+					{
+						auto previous (node.store.block_get (transaction, previous_hash));
+						if (previous != nullptr)
+						{
+							add (std::make_pair (std::move (previous), nullptr));
+						}
+					}
+					auto source_hash (node.ledger.block_source (transaction, *election_l->status.winner));
+					if (!source_hash.is_zero ())
+					{
+						auto source (node.store.block_get (transaction, source_hash));
+						if (source != nullptr)
+						{
+							add (std::make_pair (std::move (source), nullptr));
+						}
+					}
+				}
 			}
 			if (i->announcements < announcement_long || i->announcements % announcement_long == 1)
 			{
 				// Broadcast winner
 				if (node.ledger.could_fit (transaction, *election_l->status.winner))
 				{
-					node.network.republish_block (election_l->status.winner);
+					rebroadcast_bundle.push_back (election_l->status.winner);
 					if (node.config.enable_voting)
 					{
 						blocks_bundle.push_back (election_l->status.winner->hash ());
@@ -3923,6 +4033,12 @@ void rai::active_transactions::announce_votes ()
 			++info_a.announcements;
 		});
 	}
+	// Rebroadcast unconfirmed blocks
+	if (!rebroadcast_bundle.empty ())
+	{
+		node.network.republish_block_batch (rebroadcast_bundle);
+	}
+	// Request votes for unconfirmed blocks
 	if (node.config.enable_voting && !blocks_bundle.empty ())
 	{
 		node.wallets.foreach_representative (transaction, [&](rai::public_key const & pub_a, rai::raw_key const & prv_a) {
@@ -3963,7 +4079,7 @@ void rai::active_transactions::announce_loop ()
 	while (!stopped)
 	{
 		announce_votes ();
-		condition.wait_for (lock, std::chrono::milliseconds (announce_interval_ms));
+		condition.wait_for (lock, std::chrono::milliseconds (announce_interval_ms + roots.size () * node.network.broadcast_interval_ms));
 	}
 }
 
@@ -3992,9 +4108,14 @@ bool rai::active_transactions::start (std::shared_ptr<rai::block> block_a, std::
 
 bool rai::active_transactions::start (std::pair<std::shared_ptr<rai::block>, std::shared_ptr<rai::block>> blocks_a, std::function<void(std::shared_ptr<rai::block>)> const & confirmation_action_a)
 {
+	std::lock_guard<std::mutex> lock (mutex);
+	return add (blocks_a, confirmation_action_a);
+}
+
+bool rai::active_transactions::add (std::pair<std::shared_ptr<rai::block>, std::shared_ptr<rai::block>> blocks_a, std::function<void(std::shared_ptr<rai::block>)> const & confirmation_action_a)
+{
 	assert (blocks_a.first != nullptr);
 	auto error (true);
-	std::lock_guard<std::mutex> lock (mutex);
 	if (!stopped)
 	{
 		auto primary_block (blocks_a.first);
@@ -4180,171 +4301,6 @@ work (1, nullptr)
 rai::inactive_node::~inactive_node ()
 {
 	node->stop ();
-}
-
-rai::port_mapping::port_mapping (rai::node & node_a) :
-node (node_a),
-devices (nullptr),
-protocols ({ { { "TCP", 0, boost::asio::ip::address_v4::any (), 0 }, { "UDP", 0, boost::asio::ip::address_v4::any (), 0 } } }),
-check_count (0),
-on (false)
-{
-	urls = { 0 };
-	data = { { 0 } };
-}
-
-void rai::port_mapping::start ()
-{
-	check_mapping_loop ();
-}
-
-void rai::port_mapping::refresh_devices ()
-{
-	if (rai::rai_network != rai::rai_networks::rai_test_network)
-	{
-		std::lock_guard<std::mutex> lock (mutex);
-		int discover_error = 0;
-		freeUPNPDevlist (devices);
-		devices = upnpDiscover (2000, nullptr, nullptr, UPNP_LOCAL_PORT_ANY, false, 2, &discover_error);
-		std::array<char, 64> local_address;
-		local_address.fill (0);
-		auto igd_error (UPNP_GetValidIGD (devices, &urls, &data, local_address.data (), sizeof (local_address)));
-		if (igd_error == 1 || igd_error == 2)
-		{
-			boost::system::error_code ec;
-			address = boost::asio::ip::address_v4::from_string (local_address.data (), ec);
-		}
-		if (check_count % 15 == 0)
-		{
-			BOOST_LOG (node.log) << boost::str (boost::format ("UPnP local address: %1%, discovery: %2%, IGD search: %3%") % local_address.data () % discover_error % igd_error);
-			for (auto i (devices); i != nullptr; i = i->pNext)
-			{
-				BOOST_LOG (node.log) << boost::str (boost::format ("UPnP device url: %1% st: %2% usn: %3%") % i->descURL % i->st % i->usn);
-			}
-		}
-	}
-}
-
-void rai::port_mapping::refresh_mapping ()
-{
-	if (rai::rai_network != rai::rai_networks::rai_test_network)
-	{
-		std::lock_guard<std::mutex> lock (mutex);
-		auto node_port (std::to_string (node.network.endpoint ().port ()));
-
-		// Intentionally omitted: we don't map the RPC port because, unless RPC authentication was added, this would almost always be a security risk
-		for (auto & protocol : protocols)
-		{
-			std::array<char, 6> actual_external_port;
-			actual_external_port.fill (0);
-			auto add_port_mapping_error (UPNP_AddAnyPortMapping (urls.controlURL, data.first.servicetype, node_port.c_str (), node_port.c_str (), address.to_string ().c_str (), nullptr, protocol.name, nullptr, std::to_string (mapping_timeout).c_str (), actual_external_port.data ()));
-			if (check_count % 15 == 0)
-			{
-				BOOST_LOG (node.log) << boost::str (boost::format ("UPnP %1% port mapping response: %2%, actual external port %3%") % protocol.name % add_port_mapping_error % actual_external_port.data ());
-			}
-			if (add_port_mapping_error == UPNPCOMMAND_SUCCESS)
-			{
-				protocol.external_port = std::atoi (actual_external_port.data ());
-			}
-			else
-			{
-				protocol.external_port = 0;
-			}
-		}
-	}
-}
-
-int rai::port_mapping::check_mapping ()
-{
-	int result (3600);
-	if (rai::rai_network != rai::rai_networks::rai_test_network)
-	{
-		// Long discovery time and fast setup/teardown make this impractical for testing
-		std::lock_guard<std::mutex> lock (mutex);
-		auto node_port (std::to_string (node.network.endpoint ().port ()));
-		for (auto & protocol : protocols)
-		{
-			std::array<char, 64> int_client;
-			std::array<char, 6> int_port;
-			std::array<char, 16> remaining_mapping_duration;
-			remaining_mapping_duration.fill (0);
-			auto verify_port_mapping_error (UPNP_GetSpecificPortMappingEntry (urls.controlURL, data.first.servicetype, node_port.c_str (), protocol.name, nullptr, int_client.data (), int_port.data (), nullptr, nullptr, remaining_mapping_duration.data ()));
-			if (verify_port_mapping_error == UPNPCOMMAND_SUCCESS)
-			{
-				protocol.remaining = result;
-			}
-			else
-			{
-				protocol.remaining = 0;
-			}
-			result = std::min (result, protocol.remaining);
-			std::array<char, 64> external_address;
-			external_address.fill (0);
-			auto external_ip_error (UPNP_GetExternalIPAddress (urls.controlURL, data.first.servicetype, external_address.data ()));
-			if (external_ip_error == UPNPCOMMAND_SUCCESS)
-			{
-				boost::system::error_code ec;
-				protocol.external_address = boost::asio::ip::address_v4::from_string (external_address.data (), ec);
-			}
-			else
-			{
-				protocol.external_address = boost::asio::ip::address_v4::any ();
-			}
-			if (check_count % 15 == 0)
-			{
-				BOOST_LOG (node.log) << boost::str (boost::format ("UPnP %1% mapping verification response: %2%, external ip response: %3%, external ip: %4%, internal ip: %5%, remaining lease: %6%") % protocol.name % verify_port_mapping_error % external_ip_error % external_address.data () % address.to_string () % remaining_mapping_duration.data ());
-			}
-		}
-	}
-	return result;
-}
-
-void rai::port_mapping::check_mapping_loop ()
-{
-	int wait_duration = check_timeout;
-	refresh_devices ();
-	if (devices != nullptr)
-	{
-		auto remaining (check_mapping ());
-		// If the mapping is lost, refresh it
-		if (remaining == 0)
-		{
-			refresh_mapping ();
-		}
-	}
-	else
-	{
-		wait_duration = 300;
-		if (check_count < 10)
-		{
-			BOOST_LOG (node.log) << boost::str (boost::format ("UPnP No IGD devices found"));
-		}
-	}
-	++check_count;
-	if (on)
-	{
-		auto node_l (node.shared ());
-		node.alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (wait_duration), [node_l]() {
-			node_l->port_mapping.check_mapping_loop ();
-		});
-	}
-}
-
-void rai::port_mapping::stop ()
-{
-	on = false;
-	std::lock_guard<std::mutex> lock (mutex);
-	for (auto & protocol : protocols)
-	{
-		if (protocol.external_port != 0)
-		{
-			// Be a good citizen for the router and shut down our mapping
-			auto delete_error (UPNP_DeletePortMapping (urls.controlURL, data.first.servicetype, std::to_string (protocol.external_port).c_str (), protocol.name, address.to_string ().c_str ()));
-			BOOST_LOG (node.log) << boost::str (boost::format ("Shutdown port mapping response: %1%") % delete_error);
-		}
-	}
-	freeUPNPDevlist (devices);
-	devices = nullptr;
 }
 
 rai::udp_buffer::udp_buffer (rai::stat & stats, size_t size, size_t count) :
