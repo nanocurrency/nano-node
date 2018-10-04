@@ -1,5 +1,4 @@
 #include <rai/node/common.hpp>
-#include <rai/node/lmdb.hpp>
 #include <rai/node/stats.hpp>
 #include <rai/secure/blockstore.hpp>
 #include <rai/secure/ledger.hpp>
@@ -184,19 +183,27 @@ public:
 void ledger_processor::state_block (rai::state_block const & block_a)
 {
 	result.code = rai::process_result::progress;
+	auto is_epoch_block (false);
 	// Check if this is an epoch block
-	rai::amount prev_balance (0);
-	if (!block_a.hashables.previous.is_zero ())
+	if (!ledger.epoch_link.is_zero () && block_a.hashables.link == ledger.epoch_link)
 	{
-		result.code = ledger.store.block_exists (transaction, block_a.hashables.previous) ? rai::process_result::progress : rai::process_result::gap_previous;
-		if (result.code == rai::process_result::progress)
+		rai::amount prev_balance (0);
+		if (!block_a.hashables.previous.is_zero ())
 		{
-			prev_balance = ledger.balance (transaction, block_a.hashables.previous);
+			result.code = ledger.store.block_exists (transaction, block_a.hashables.previous) ? rai::process_result::progress : rai::process_result::gap_previous;
+			if (result.code == rai::process_result::progress)
+			{
+				prev_balance = ledger.balance (transaction, block_a.hashables.previous);
+			}
+		}
+		if (block_a.hashables.balance == prev_balance)
+		{
+			is_epoch_block = true;
 		}
 	}
 	if (result.code == rai::process_result::progress)
 	{
-		if (block_a.hashables.balance == prev_balance && !ledger.epoch_link.is_zero () && block_a.hashables.link == ledger.epoch_link)
+		if (is_epoch_block)
 		{
 			epoch_block_impl (block_a);
 		}
