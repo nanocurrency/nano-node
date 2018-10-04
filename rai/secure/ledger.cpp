@@ -617,9 +617,8 @@ epoch_signer (epoch_signer_a)
 // Balance for account containing hash
 rai::uint128_t rai::ledger::balance (rai::transaction const & transaction_a, rai::block_hash const & hash_a)
 {
-	rai::balance_visitor visitor (transaction_a, store);
-	visitor.compute (hash_a);
-	return visitor.balance;
+	rai::summation_visitor visitor (transaction_a, store);
+	return visitor.compute_balance (hash_a);
 }
 
 // Balance for an account by account number
@@ -815,9 +814,8 @@ rai::account rai::ledger::account (rai::transaction const & transaction_a, rai::
 // Return amount decrease or increase for block
 rai::uint128_t rai::ledger::amount (rai::transaction const & transaction_a, rai::block_hash const & hash_a)
 {
-	amount_visitor amount (transaction_a, store);
-	amount.compute (hash_a);
-	return amount.amount;
+	summation_visitor amount (transaction_a, store);
+	return amount.compute_amount (hash_a);
 }
 
 // Return latest block for account

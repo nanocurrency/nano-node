@@ -1,169 +1,248 @@
-#include <queue>
 #include <rai/node/common.hpp>
 #include <rai/node/wallet.hpp>
 #include <rai/secure/blockstore.hpp>
 
 #include <boost/polymorphic_cast.hpp>
 
-rai::amount_visitor::amount_visitor (rai::transaction const & transaction_a, rai::block_store & store_a) :
+rai::summation_visitor::summation_visitor (rai::transaction const & transaction_a, rai::block_store & store_a) :
 transaction (transaction_a),
-store (store_a),
-current_amount (0),
-current_balance (0),
-amount (0)
+store (store_a)
 {
 }
 
-void rai::amount_visitor::send_block (rai::send_block const & block_a)
+void rai::summation_visitor::send_block (rai::send_block const & block_a)
 {
-	current_balance = block_a.hashables.previous;
-	amount = block_a.hashables.balance.number ();
-	current_amount = 0;
-}
-
-void rai::amount_visitor::receive_block (rai::receive_block const & block_a)
-{
-	current_amount = block_a.hashables.source;
-}
-
-void rai::amount_visitor::open_block (rai::open_block const & block_a)
-{
-	if (block_a.hashables.source != rai::genesis_account)
+	assert (current->type != summation_type::invalid && current != nullptr);
+	if (current->type == summation_type::amount)
 	{
-		current_amount = block_a.hashables.source;
+		sum_set (block_a.hashables.balance.number ());
+		current->balance_hash = block_a.hashables.previous;
+		current->amount_hash = 0;
 	}
 	else
 	{
-		amount = rai::genesis_amount;
-		current_amount = 0;
+		sum_add (block_a.hashables.balance.number ());
+		current->balance_hash = 0;
 	}
 }
 
-void rai::amount_visitor::state_block (rai::state_block const & block_a)
+void rai::summation_visitor::state_block (rai::state_block const & block_a)
 {
-	current_balance = block_a.hashables.previous;
-	amount = block_a.hashables.balance.number ();
-	current_amount = 0;
-}
-
-void rai::amount_visitor::change_block (rai::change_block const & block_a)
-{
-	amount = 0;
-	current_amount = 0;
-}
-
-void rai::amount_visitor::compute (rai::block_hash const & block_hash)
-{
-	current_amount = block_hash;
-	while (!current_amount.is_zero () || !current_balance.is_zero ())
+	assert (current->type != summation_type::invalid && current != nullptr);
+	sum_set (block_a.hashables.balance.number ());
+	if (current->type == summation_type::amount)
 	{
-		if (!current_amount.is_zero ())
+		current->balance_hash = block_a.hashables.previous;
+		current->amount_hash = 0;
+	}
+	else
+	{
+		current->balance_hash = 0;
+	}
+}
+
+void rai::summation_visitor::receive_block (rai::receive_block const & block_a)
+{
+	assert (current->type != summation_type::invalid && current != nullptr);
+	if (current->type == summation_type::amount)
+	{
+		current->amount_hash = block_a.hashables.source;
+	}
+	else
+	{
+		rai::block_info block_info;
+		if (!store.block_info_get (transaction, block_a.hash (), block_info))
 		{
-			auto block (store.block_get (transaction, current_amount));
-			if (block != nullptr)
+			sum_add (block_info.balance.number ());
+			current->balance_hash = 0;
+		}
+		else
+		{
+			current->amount_hash = block_a.hashables.source;
+			current->balance_hash = block_a.hashables.previous;
+		}
+	}
+}
+
+void rai::summation_visitor::open_block (rai::open_block const & block_a)
+{
+	assert (current->type != summation_type::invalid && current != nullptr);
+	if (current->type == summation_type::amount)
+	{
+		if (block_a.hashables.source != rai::genesis_account)
+		{
+			current->amount_hash = block_a.hashables.source;
+		}
+		else
+		{
+			sum_set (rai::genesis_amount);
+			current->amount_hash = 0;
+		}
+	}
+	else
+	{
+		current->amount_hash = block_a.hashables.source;
+		current->balance_hash = 0;
+	}
+}
+
+void rai::summation_visitor::change_block (rai::change_block const & block_a)
+{
+	assert (current->type != summation_type::invalid && current != nullptr);
+	if (current->type == summation_type::amount)
+	{
+		sum_set (0);
+		current->amount_hash = 0;
+	}
+	else
+	{
+		rai::block_info block_info;
+		if (!store.block_info_get (transaction, block_a.hash (), block_info))
+		{
+			sum_add (block_info.balance.number ());
+			current->balance_hash = 0;
+		}
+		else
+		{
+			current->balance_hash = block_a.hashables.previous;
+		}
+	}
+}
+
+rai::summation_visitor::frame rai::summation_visitor::push (rai::summation_visitor::summation_type type_a, rai::block_hash const & hash_a)
+{
+	frames.emplace (type_a, type_a == summation_type::balance ? hash_a : 0, type_a == summation_type::amount ? hash_a : 0);
+	return frames.top ();
+}
+
+void rai::summation_visitor::sum_add (rai::uint128_t addend_a)
+{
+	current->sum += addend_a;
+	result = current->sum;
+}
+
+void rai::summation_visitor::sum_set (rai::uint128_t value_a)
+{
+	current->sum = value_a;
+	result = current->sum;
+}
+
+rai::uint128_t rai::summation_visitor::compute_internal (rai::summation_visitor::summation_type type_a, rai::block_hash const & hash_a)
+{
+	push (type_a, hash_a);
+
+	/*
+	 Invocation loop representing balance and amount computations calling each other.
+	 This is usually better done by recursion or something like boost::coroutine2, but
+	 segmented stacks are not supported on all platforms so we do it manually to avoid
+	 stack overflow (the mutual calls are not tail-recursive so we cannot rely on the
+	 compiler optimizing that into a loop, though a future alternative is to do a
+	 CPS-style implementation to enforce tail calls.)
+	*/
+	while (frames.size () > 0)
+	{
+		current = &frames.top ();
+		assert (current->type != summation_type::invalid && current != nullptr);
+
+		if (current->type == summation_type::balance)
+		{
+			if (current->awaiting_result)
 			{
-				block->visit (*this);
+				sum_add (current->incoming_result);
+				current->awaiting_result = false;
 			}
-			else
+
+			while (!current->awaiting_result && (!current->balance_hash.is_zero () || !current->amount_hash.is_zero ()))
 			{
-				if (block_hash == rai::genesis_account)
+				if (!current->amount_hash.is_zero ())
 				{
-					amount = std::numeric_limits<rai::uint128_t>::max ();
-					current_amount = 0;
+					// Compute amount
+					current->awaiting_result = true;
+					push (summation_type::amount, current->amount_hash);
+					current->amount_hash = 0;
 				}
 				else
 				{
-					assert (false);
-					amount = 0;
-					current_amount = 0;
+					auto block (store.block_get (transaction, current->balance_hash));
+					assert (block != nullptr);
+					block->visit (*this);
+				}
+			}
+
+			// The epilogue yields the result to previous frame, if any
+			if (!current->awaiting_result)
+			{
+				frames.pop ();
+				if (frames.size () > 0)
+				{
+					frames.top ().incoming_result = current->sum;
 				}
 			}
 		}
-		else
+		else if (current->type == summation_type::amount)
 		{
-			balance_visitor prev (transaction, store);
-			prev.compute (current_balance);
-			amount = amount < prev.balance ? prev.balance - amount : amount - prev.balance;
-			current_balance = 0;
+			if (current->awaiting_result)
+			{
+				sum_set (current->sum < current->incoming_result ? current->incoming_result - current->sum : current->sum - current->incoming_result);
+				current->awaiting_result = false;
+			}
+
+			while (!current->awaiting_result && (!current->amount_hash.is_zero () || !current->balance_hash.is_zero ()))
+			{
+				if (!current->amount_hash.is_zero ())
+				{
+					auto block (store.block_get (transaction, current->amount_hash));
+					if (block != nullptr)
+					{
+						block->visit (*this);
+					}
+					else
+					{
+						if (current->amount_hash == rai::genesis_account)
+						{
+							sum_set (std::numeric_limits<rai::uint128_t>::max ());
+							current->amount_hash = 0;
+						}
+						else
+						{
+							assert (false);
+							sum_set (0);
+							current->amount_hash = 0;
+						}
+					}
+				}
+				else
+				{
+					// Compute balance
+					current->awaiting_result = true;
+					push (summation_type::balance, current->balance_hash);
+					current->balance_hash = 0;
+				}
+			}
+
+			// The epilogue yields the result to previous frame, if any
+			if (!current->awaiting_result)
+			{
+				frames.pop ();
+				if (frames.size () > 0)
+				{
+					frames.top ().incoming_result = current->sum;
+				}
+			}
 		}
 	}
+
+	return result;
 }
 
-rai::balance_visitor::balance_visitor (rai::transaction const & transaction_a, rai::block_store & store_a) :
-transaction (transaction_a),
-store (store_a),
-current_balance (0),
-current_amount (0),
-balance (0)
+rai::uint128_t rai::summation_visitor::compute_amount (rai::block_hash const & block_hash)
 {
+	return compute_internal (summation_type::amount, block_hash);
 }
 
-void rai::balance_visitor::send_block (rai::send_block const & block_a)
+rai::uint128_t rai::summation_visitor::compute_balance (rai::block_hash const & block_hash)
 {
-	balance += block_a.hashables.balance.number ();
-	current_balance = 0;
-}
-
-void rai::balance_visitor::receive_block (rai::receive_block const & block_a)
-{
-	rai::block_info block_info;
-	if (!store.block_info_get (transaction, block_a.hash (), block_info))
-	{
-		balance += block_info.balance.number ();
-		current_balance = 0;
-	}
-	else
-	{
-		current_amount = block_a.hashables.source;
-		current_balance = block_a.hashables.previous;
-	}
-}
-
-void rai::balance_visitor::open_block (rai::open_block const & block_a)
-{
-	current_amount = block_a.hashables.source;
-	current_balance = 0;
-}
-
-void rai::balance_visitor::change_block (rai::change_block const & block_a)
-{
-	rai::block_info block_info;
-	if (!store.block_info_get (transaction, block_a.hash (), block_info))
-	{
-		balance += block_info.balance.number ();
-		current_balance = 0;
-	}
-	else
-	{
-		current_balance = block_a.hashables.previous;
-	}
-}
-
-void rai::balance_visitor::state_block (rai::state_block const & block_a)
-{
-	balance = block_a.hashables.balance.number ();
-	current_balance = 0;
-}
-
-void rai::balance_visitor::compute (rai::block_hash const & block_hash)
-{
-	current_balance = block_hash;
-	while (!current_balance.is_zero () || !current_amount.is_zero ())
-	{
-		if (!current_amount.is_zero ())
-		{
-			amount_visitor source (transaction, store);
-			source.compute (current_amount);
-			balance += source.amount;
-			current_amount = 0;
-		}
-		else
-		{
-			auto block (store.block_get (transaction, current_balance));
-			assert (block != nullptr);
-			block->visit (*this);
-		}
-	}
+	return compute_internal (summation_type::balance, block_hash);
 }
 
 rai::representative_visitor::representative_visitor (rai::transaction const & transaction_a, rai::block_store & store_a) :

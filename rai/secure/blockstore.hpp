@@ -1,52 +1,80 @@
 #pragma once
 
 #include <rai/secure/common.hpp>
+#include <stack>
 
 namespace rai
 {
 class transaction;
 class block_store;
-/**
- * Determine the balance as of this block
- */
-class balance_visitor : public rai::block_visitor
-{
-public:
-	balance_visitor (rai::transaction const &, rai::block_store &);
-	virtual ~balance_visitor () = default;
-	void compute (rai::block_hash const &);
-	void send_block (rai::send_block const &) override;
-	void receive_block (rai::receive_block const &) override;
-	void open_block (rai::open_block const &) override;
-	void change_block (rai::change_block const &) override;
-	void state_block (rai::state_block const &) override;
-	rai::transaction const & transaction;
-	rai::block_store & store;
-	rai::block_hash current_balance;
-	rai::block_hash current_amount;
-	rai::uint128_t balance;
-};
 
 /**
- * Determine the amount delta resultant from this block
+ * Summation visitor for blocks, supporting amount and balance computations. These
+ * computations are mutually dependant. The natural solution is to use mutual recursion
+ * between balance and amount visitors, but this leads to very deep stacks. Hence, the
+ * summation visitor uses an iterative approach.
  */
-class amount_visitor : public rai::block_visitor
+class summation_visitor : public rai::block_visitor
 {
+	enum summation_type
+	{
+		invalid = 0,
+		balance = 1,
+		amount = 2
+	};
+
+	/** Represents an invocation frame */
+	class frame
+	{
+	public:
+		frame (summation_type type_a, rai::block_hash balance_hash_a, rai::block_hash amount_hash_a) :
+		type (type_a), balance_hash (balance_hash_a), amount_hash (amount_hash_a)
+		{
+		}
+
+		/** The summation type guides the block visitor handlers */
+		summation_type type{ invalid };
+		/** Accumulated balance or amount */
+		rai::uint128_t sum{ 0 };
+		/** The current balance hash */
+		rai::block_hash balance_hash{ 0 };
+		/** The current amount hash */
+		rai::block_hash amount_hash{ 0 };
+		/** If true, this frame is awaiting an invocation result */
+		bool awaiting_result{ false };
+		/** Set by the invoked frame, representing the return value */
+		rai::uint128_t incoming_result{ 0 };
+	};
+
 public:
-	amount_visitor (rai::transaction const &, rai::block_store &);
-	virtual ~amount_visitor () = default;
-	void compute (rai::block_hash const &);
+	summation_visitor (rai::transaction const &, rai::block_store &);
+	virtual ~summation_visitor () = default;
+	/** Computes the balance as of \p block_hash */
+	rai::uint128_t compute_balance (rai::block_hash const & block_hash);
+	/** Computes the amount delta between \p block_hash and its predecessor */
+	rai::uint128_t compute_amount (rai::block_hash const & block_hash);
+
+protected:
+	rai::transaction const & transaction;
+	rai::block_store & store;
+
+	/** The final result */
+	rai::uint128_t result{ 0 };
+	/** The current invocation frame */
+	frame * current{ nullptr };
+	/** Invocation frames */
+	std::stack<frame> frames;
+	/** Push a copy of \p hash of the given summation \p type */
+	rai::summation_visitor::frame push (rai::summation_visitor::summation_type type, rai::block_hash const & hash);
+	void sum_add (rai::uint128_t addend_a);
+	void sum_set (rai::uint128_t value_a);
+
+	rai::uint128_t compute_internal (rai::summation_visitor::summation_type type, rai::block_hash const &);
 	void send_block (rai::send_block const &) override;
 	void receive_block (rai::receive_block const &) override;
 	void open_block (rai::open_block const &) override;
 	void change_block (rai::change_block const &) override;
 	void state_block (rai::state_block const &) override;
-	void from_send (rai::block_hash const &);
-	rai::transaction const & transaction;
-	rai::block_store & store;
-	rai::block_hash current_amount;
-	rai::block_hash current_balance;
-	rai::uint128_t amount;
 };
 
 /**
