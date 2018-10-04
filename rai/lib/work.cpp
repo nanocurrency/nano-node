@@ -36,6 +36,7 @@ opencl (opencl_a)
 	for (auto i (0); i < count; ++i)
 	{
 		auto thread (std::thread ([this, i]() {
+			rai::thread_role::set (rai::thread_role::name::work);
 			rai::work_thread_reprioritize ();
 			loop (i);
 		}));

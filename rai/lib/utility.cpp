@@ -28,6 +28,12 @@ namespace thread_role
 			case rai::thread_role::name::io:
 				thread_role_name_string = "I/O";
 				break;
+			case rai::thread_role::name::work:
+				thread_role_name_string = "Work pool";
+				break;
+			case rai::thread_role::name::io:
+				thread_role_name_string = "Pkt processing";
+				break;
 		}
 
 		rai::thread_role::set_name (thread_role_name_string);

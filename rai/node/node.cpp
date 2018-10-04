@@ -49,7 +49,7 @@ on (true)
 	for (size_t i = 0; i < node.config.io_threads; ++i)
 	{
 		packet_processing_threads.push_back (std::thread ([this]() {
-			rai::thread_role::set (rai::thread_role::name::io);
+			rai::thread_role::set (rai::thread_role::name::packet_processing);
 			try
 			{
 				process_packets ();
@@ -4260,6 +4260,7 @@ rai::thread_runner::thread_runner (boost::asio::io_service & service_a, unsigned
 	for (auto i (0); i < service_threads_a; ++i)
 	{
 		threads.push_back (std::thread ([&service_a]() {
+			rai::thread_role::set (rai::thread_role::name::io);
 			try
 			{
 				service_a.run ();

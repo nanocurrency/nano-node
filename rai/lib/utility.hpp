@@ -31,7 +31,8 @@ namespace thread_role
 	{
 		unknown,
 		io,
-		/* XXX:TODO: Add more */
+		work,
+		packet_processing,
 	};
 	rai::thread_role::name get (void);
 	void set (rai::thread_role::name);
