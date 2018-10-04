@@ -37,6 +37,8 @@ namespace thread_role
 		vote_processing,
 		block_processing,
 		announce_loop,
+		wallet_actions,
+		bootstrap_initiator,
 	};
 	rai::thread_role::name get (void);
 	void set (rai::thread_role::name);

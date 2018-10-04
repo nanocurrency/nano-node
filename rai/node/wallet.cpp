@@ -1238,7 +1238,10 @@ observer ([](bool) {}),
 node (node_a),
 env (boost::polymorphic_downcast<rai::mdb_store *> (node_a.store_impl.get ())->env),
 stopped (false),
-thread ([this]() { do_wallet_actions (); })
+thread ([this]() {
+	rai::thread_role::set (rai::thread_role::name::wallet_actions);
+	do_wallet_actions ();
+})
 {
 	if (!error_a)
 	{
