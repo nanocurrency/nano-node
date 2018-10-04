@@ -5,7 +5,6 @@ namespace rai
 {
 namespace thread_role
 {
-
 	/*
 	 * rai::thread_role namespace
 	 *
@@ -19,6 +18,20 @@ namespace thread_role
 
 	void set (rai::thread_role::name role)
 	{
+		std::string thread_role_name_string;
+
+		switch (role)
+		{
+			case rai::thread_role::name::unknown:
+				thread_role_name_string = "<unknown>";
+				break;
+			case rai::thread_role::name::io:
+				thread_role_name_string = "I/O";
+				break;
+		}
+
+		rai::thread_role::set_name (thread_role_name_string);
+
 		rai::thread_role::current_thread_role = role;
 	}
 }

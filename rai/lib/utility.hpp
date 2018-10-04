@@ -35,6 +35,7 @@ namespace thread_role
 	};
 	rai::thread_role::name get (void);
 	void set (rai::thread_role::name);
+	void set_name (std::string);
 }
 
 template <typename... T>
