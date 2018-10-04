@@ -52,9 +52,6 @@ namespace thread_role
 			case rai::thread_role::name::bootstrap_initiator:
 				thread_role_name_string = "Bootstrap init";
 				break;
-			case rai::thread_role::name::boost_io_context:
-				thread_role_name_string = "Boost io ctx";
-				break;
 		}
 
 		/*
