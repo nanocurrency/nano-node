@@ -105,9 +105,17 @@ void rai::message_parser::deserialize_buffer (uint8_t const * buffer_a, size_t s
 		rai::message_header header (error, stream);
 		if (!error)
 		{
-			if (rai::rai_network == rai::rai_networks::rai_beta_network && header.version_using < rai::protocol_version)
+			if (rai::rai_network == rai::rai_networks::rai_beta_network && header.version_using < rai::protocol_version_reasonable_min)
 			{
 				status = parse_status::outdated_version;
+			}
+			else if (!header.valid_magic ())
+			{
+				status = parse_status::invalid_magic;
+			}
+			else if (!header.valid_network ())
+			{
+				status = parse_status::invalid_network;
 			}
 			else
 			{
