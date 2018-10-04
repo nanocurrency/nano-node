@@ -169,15 +169,7 @@ rai::uint128_t rai::summation_visitor::compute_internal (rai::summation_visitor:
 				}
 			}
 
-			// The epilogue yields the result to previous frame, if any
-			if (!current->awaiting_result)
-			{
-				frames.pop ();
-				if (frames.size () > 0)
-				{
-					frames.top ().incoming_result = current->sum;
-				}
-			}
+			epilogue ();
 		}
 		else if (current->type == summation_type::amount)
 		{
@@ -220,19 +212,23 @@ rai::uint128_t rai::summation_visitor::compute_internal (rai::summation_visitor:
 				}
 			}
 
-			// The epilogue yields the result to previous frame, if any
-			if (!current->awaiting_result)
-			{
-				frames.pop ();
-				if (frames.size () > 0)
-				{
-					frames.top ().incoming_result = current->sum;
-				}
-			}
+			epilogue ();
 		}
 	}
 
 	return result;
+}
+
+void rai::summation_visitor::epilogue ()
+{
+	if (!current->awaiting_result)
+	{
+		frames.pop ();
+		if (frames.size () > 0)
+		{
+			frames.top ().incoming_result = current->sum;
+		}
+	}
 }
 
 rai::uint128_t rai::summation_visitor::compute_amount (rai::block_hash const & block_hash)

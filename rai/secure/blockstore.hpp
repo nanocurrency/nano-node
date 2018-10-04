@@ -68,6 +68,8 @@ protected:
 	rai::summation_visitor::frame push (rai::summation_visitor::summation_type type, rai::block_hash const & hash);
 	void sum_add (rai::uint128_t addend_a);
 	void sum_set (rai::uint128_t value_a);
+	/** The epilogue yields the result to previous frame, if any */
+	void epilogue ();
 
 	rai::uint128_t compute_internal (rai::summation_visitor::summation_type type, rai::block_hash const &);
 	void send_block (rai::send_block const &) override;
