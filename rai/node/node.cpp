@@ -296,22 +296,7 @@ void rai::network::republish_block_batch (std::deque<std::shared_ptr<rai::block>
 {
 	auto block (blocks_a.front ());
 	blocks_a.pop_front ();
-	auto hash (block->hash ());
-	auto list (node.peers.list_fanout ());
-	rai::publish message (block);
-	std::shared_ptr<std::vector<uint8_t>> bytes (new std::vector<uint8_t>);
-	{
-		rai::vectorstream stream (*bytes);
-		message.serialize (stream);
-	}
-	for (auto i (list.begin ()), n (list.end ()); i != n; ++i)
-	{
-		republish (hash, bytes, *i);
-	}
-	if (node.config.logging.network_logging ())
-	{
-		BOOST_LOG (node.log) << boost::str (boost::format ("Block %1% was republished to peers") % hash.to_string ());
-	}
+	republish_block (block);
 	if (!blocks_a.empty ())
 	{
 		std::weak_ptr<rai::node> node_w (node.shared ());
