@@ -280,6 +280,10 @@ rai::mdb_val::operator MDB_val const & () const
 
 rai::mdb_txn::mdb_txn (rai::mdb_env const & environment_a, bool write_a)
 {
+	/*
+	 * For IO threads, we do not want them to block on creating
+	 * write transactions.
+	 */
 	if (write_a)
 	{
 		assert (rai::thread_role::get () != rai::thread_role::name::io);
