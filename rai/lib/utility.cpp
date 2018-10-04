@@ -60,7 +60,7 @@ namespace thread_role
 		 * length supported by the platforms we support
 		 * (specifically, Linux)
 		 */
-		assert (thread_role_name_string.size () < 16)
+		assert (thread_role_name_string.size () < 16);
 
 		rai::thread_role::set_name (thread_role_name_string);
 
