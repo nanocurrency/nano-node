@@ -49,6 +49,7 @@ on (true)
 	for (size_t i = 0; i < node.config.io_threads; ++i)
 	{
 		packet_processing_threads.push_back (std::thread ([this]() {
+			rai::thread_role::set (rai::thread_role::name::packet_processing);
 			try
 			{
 				process_packets ();
@@ -706,7 +707,10 @@ bool rai::operation::operator> (rai::operation const & other_a) const
 
 rai::alarm::alarm (boost::asio::io_service & service_a) :
 service (service_a),
-thread ([this]() { run (); })
+thread ([this]() {
+	rai::thread_role::set (rai::thread_role::name::alarm);
+	run ();
+})
 {
 }
 
@@ -1324,7 +1328,10 @@ node (node_a),
 started (false),
 stopped (false),
 active (false),
-thread ([this]() { process_loop (); })
+thread ([this]() {
+	rai::thread_role::set (rai::thread_role::name::vote_processing);
+	process_loop ();
+})
 {
 	std::unique_lock<std::mutex> lock (mutex);
 	while (!started)
@@ -1799,7 +1806,10 @@ port_mapping (*this),
 vote_processor (*this),
 warmed_up (0),
 block_processor (*this),
-block_processor_thread ([this]() { this->block_processor.process_blocks (); }),
+block_processor_thread ([this]() {
+	rai::thread_role::set (rai::thread_role::name::block_processing);
+	this->block_processor.process_blocks ();
+}),
 online_reps (*this),
 stats (config.stat_config)
 {
@@ -4189,7 +4199,10 @@ rai::active_transactions::active_transactions (rai::node & node_a) :
 node (node_a),
 started (false),
 stopped (false),
-thread ([this]() { announce_loop (); })
+thread ([this]() {
+	rai::thread_role::set (rai::thread_role::name::announce_loop);
+	announce_loop ();
+})
 {
 	std::unique_lock<std::mutex> lock (mutex);
 	while (!started)
@@ -4230,6 +4243,7 @@ rai::thread_runner::thread_runner (boost::asio::io_service & service_a, unsigned
 	for (auto i (0); i < service_threads_a; ++i)
 	{
 		threads.push_back (std::thread ([&service_a]() {
+			rai::thread_role::set (rai::thread_role::name::io);
 			try
 			{
 				service_a.run ();
