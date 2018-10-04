@@ -35,7 +35,7 @@ namespace thread_role
 				thread_role_name_string = "Pkt processing";
 				break;
 			case rai::thread_role::name::alarm:
-				thread_role_name_string = "Alarm + bkgnd";
+				thread_role_name_string = "Alarm";
 				break;
 			case rai::thread_role::name::vote_processing:
 				thread_role_name_string = "Vote processing";
