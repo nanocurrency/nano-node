@@ -4269,6 +4269,9 @@ int rai::node::store_version ()
 
 rai::thread_runner::thread_runner (boost::asio::io_service & service_a, unsigned service_threads_a)
 {
+	boost::asio::post (service_a.get_executor (), []() {
+		rai::thread_role::set (rai::thread_role::name::boost_io_context);
+	});
 	for (auto i (0); i < service_threads_a; ++i)
 	{
 		threads.push_back (std::thread ([&service_a]() {

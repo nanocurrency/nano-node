@@ -39,6 +39,7 @@ namespace thread_role
 		announce_loop,
 		wallet_actions,
 		bootstrap_initiator,
+		boost_io_context,
 	};
 	rai::thread_role::name get (void);
 	void set (rai::thread_role::name);
