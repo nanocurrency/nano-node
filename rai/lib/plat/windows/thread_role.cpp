@@ -9,7 +9,7 @@ void rai::thread_role::set_name (std::string thread_name)
 {
 	SetThreadDescription_t SetThreadDescription_local;
 
-	SetThreadDescription_local = (SetThreadDescription_t) GetProcAddress (GetModuleHandle (TEXT ("kernel32.dll")), "SetThreadDescription");
+	SetThreadDescription_local = (SetThreadDescription_t)GetProcAddress (GetModuleHandle (TEXT ("kernel32.dll")), "SetThreadDescription");
 	if (SetThreadDescription_local)
 	{
 		std::wstring thread_name_wide (thread_name.begin (), thread_name.end ());
