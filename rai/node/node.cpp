@@ -1418,24 +1418,24 @@ rai::vote_code rai::vote_processor::vote_blocking (rai::transaction const & tran
 				break;
 		}
 	}
+	std::string status;
+	switch (result)
+	{
+		case rai::vote_code::invalid:
+			status = "Invalid";
+			node.stats.inc (rai::stat::type::vote, rai::stat::detail::vote_invalid);
+			break;
+		case rai::vote_code::replay:
+			status = "Replay";
+			node.stats.inc (rai::stat::type::vote, rai::stat::detail::vote_replay);
+			break;
+		case rai::vote_code::vote:
+			status = "Vote";
+			node.stats.inc (rai::stat::type::vote, rai::stat::detail::vote_valid);
+			break;
+	}
 	if (node.config.logging.vote_logging ())
 	{
-		char const * status;
-		switch (result)
-		{
-			case rai::vote_code::invalid:
-				status = "Invalid";
-				node.stats.inc (rai::stat::type::vote, rai::stat::detail::vote_invalid);
-				break;
-			case rai::vote_code::replay:
-				status = "Replay";
-				node.stats.inc (rai::stat::type::vote, rai::stat::detail::vote_replay);
-				break;
-			case rai::vote_code::vote:
-				status = "Vote";
-				node.stats.inc (rai::stat::type::vote, rai::stat::detail::vote_valid);
-				break;
-		}
 		BOOST_LOG (node.log) << boost::str (boost::format ("Vote from: %1% sequence: %2% block(s): %3%status: %4%") % vote_a->account.to_account () % std::to_string (vote_a->sequence) % vote_a->hashes_string () % status);
 	}
 	return result;
