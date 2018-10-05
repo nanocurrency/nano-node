@@ -2,6 +2,7 @@
 
 #include <rai/lib/work.hpp>
 #include <rai/node/bootstrap.hpp>
+#include <rai/node/logging.hpp>
 #include <rai/node/portmapping.hpp>
 #include <rai/node/stats.hpp>
 #include <rai/node/wallet.hpp>
@@ -10,7 +11,6 @@
 #include <condition_variable>
 
 #include <boost/iostreams/device/array.hpp>
-#include <boost/log/trivial.hpp>
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/member.hpp>
 #include <boost/multi_index/ordered_index.hpp>
@@ -436,51 +436,7 @@ public:
 	static uint16_t const node_port = rai::rai_network == rai::rai_networks::rai_live_network ? 7075 : 54000;
 	static size_t const buffer_size = 512;
 };
-class logging
-{
-public:
-	logging ();
-	void serialize_json (boost::property_tree::ptree &) const;
-	bool deserialize_json (bool &, boost::property_tree::ptree &);
-	bool upgrade_json (unsigned, boost::property_tree::ptree &);
-	bool ledger_logging () const;
-	bool ledger_duplicate_logging () const;
-	bool vote_logging () const;
-	bool network_logging () const;
-	bool network_message_logging () const;
-	bool network_publish_logging () const;
-	bool network_packet_logging () const;
-	bool network_keepalive_logging () const;
-	bool network_node_id_handshake_logging () const;
-	bool node_lifetime_tracing () const;
-	bool insufficient_work_logging () const;
-	bool log_rpc () const;
-	bool bulk_pull_logging () const;
-	bool callback_logging () const;
-	bool work_generation_time () const;
-	bool log_to_cerr () const;
-	void init (boost::filesystem::path const &);
 
-	bool ledger_logging_value;
-	bool ledger_duplicate_logging_value;
-	bool vote_logging_value;
-	bool network_logging_value;
-	bool network_message_logging_value;
-	bool network_publish_logging_value;
-	bool network_packet_logging_value;
-	bool network_keepalive_logging_value;
-	bool network_node_id_handshake_logging_value;
-	bool node_lifetime_tracing_value;
-	bool insufficient_work_logging_value;
-	bool log_rpc_value;
-	bool bulk_pull_logging_value;
-	bool work_generation_time_value;
-	bool log_to_cerr_value;
-	bool flush;
-	uintmax_t max_size;
-	uintmax_t rotation_size;
-	boost::log::sources::logger_mt log;
-};
 class node_init
 {
 public:
@@ -689,7 +645,7 @@ public:
 	inactive_node (boost::filesystem::path const & path = rai::working_path ());
 	~inactive_node ();
 	boost::filesystem::path path;
-	boost::shared_ptr<boost::asio::io_service> service;
+	std::shared_ptr<boost::asio::io_service> service;
 	rai::alarm alarm;
 	rai::logging logging;
 	rai::node_init init;

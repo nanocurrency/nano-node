@@ -24,6 +24,8 @@ add_library (node
 	common.cpp
 	lmdb.cpp
 	lmdb.hpp
+	logging.cpp
+	logging.hpp
 	node.hpp
 	node.cpp
 	openclwork.cpp
