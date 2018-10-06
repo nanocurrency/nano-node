@@ -2,6 +2,7 @@
 
 #include <rai/lib/work.hpp>
 #include <rai/node/bootstrap.hpp>
+#include <rai/node/logging.hpp>
 #include <rai/node/portmapping.hpp>
 #include <rai/node/stats.hpp>
 #include <rai/node/wallet.hpp>
@@ -10,7 +11,6 @@
 #include <condition_variable>
 
 #include <boost/iostreams/device/array.hpp>
-#include <boost/log/trivial.hpp>
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/member.hpp>
 #include <boost/multi_index/ordered_index.hpp>
@@ -101,6 +101,7 @@ public:
 	// Should only be used for old elections
 	// The first block should be the one in the ledger
 	bool start (std::pair<std::shared_ptr<rai::block>, std::shared_ptr<rai::block>>, std::function<void(std::shared_ptr<rai::block>)> const & = [](std::shared_ptr<rai::block>) {});
+	bool add (std::pair<std::shared_ptr<rai::block>, std::shared_ptr<rai::block>>, std::function<void(std::shared_ptr<rai::block>)> const & = [](std::shared_ptr<rai::block>) {});
 	// If this returns true, the vote is a replay
 	// If this returns false, the vote may or may not be a replay
 	bool vote (std::shared_ptr<rai::vote>);
@@ -411,7 +412,7 @@ public:
 	void receive_action (rai::udp_data *);
 	void rpc_action (boost::system::error_code const &, size_t);
 	void republish_vote (std::shared_ptr<rai::vote>);
-	void republish_block (rai::transaction const &, std::shared_ptr<rai::block>, bool = true);
+	void republish_block (std::shared_ptr<rai::block>);
 	static unsigned const broadcast_interval_ms = (rai::rai_network == rai::rai_networks::rai_test_network) ? 10 : 50;
 	void republish_block_batch (std::deque<std::shared_ptr<rai::block>>, unsigned = broadcast_interval_ms);
 	void republish (rai::block_hash const &, std::shared_ptr<std::vector<uint8_t>>, rai::endpoint);
@@ -435,51 +436,7 @@ public:
 	static uint16_t const node_port = rai::rai_network == rai::rai_networks::rai_live_network ? 7075 : 54000;
 	static size_t const buffer_size = 512;
 };
-class logging
-{
-public:
-	logging ();
-	void serialize_json (boost::property_tree::ptree &) const;
-	bool deserialize_json (bool &, boost::property_tree::ptree &);
-	bool upgrade_json (unsigned, boost::property_tree::ptree &);
-	bool ledger_logging () const;
-	bool ledger_duplicate_logging () const;
-	bool vote_logging () const;
-	bool network_logging () const;
-	bool network_message_logging () const;
-	bool network_publish_logging () const;
-	bool network_packet_logging () const;
-	bool network_keepalive_logging () const;
-	bool network_node_id_handshake_logging () const;
-	bool node_lifetime_tracing () const;
-	bool insufficient_work_logging () const;
-	bool log_rpc () const;
-	bool bulk_pull_logging () const;
-	bool callback_logging () const;
-	bool work_generation_time () const;
-	bool log_to_cerr () const;
-	void init (boost::filesystem::path const &);
 
-	bool ledger_logging_value;
-	bool ledger_duplicate_logging_value;
-	bool vote_logging_value;
-	bool network_logging_value;
-	bool network_message_logging_value;
-	bool network_publish_logging_value;
-	bool network_packet_logging_value;
-	bool network_keepalive_logging_value;
-	bool network_node_id_handshake_logging_value;
-	bool node_lifetime_tracing_value;
-	bool insufficient_work_logging_value;
-	bool log_rpc_value;
-	bool bulk_pull_logging_value;
-	bool work_generation_time_value;
-	bool log_to_cerr_value;
-	bool flush;
-	uintmax_t max_size;
-	uintmax_t rotation_size;
-	boost::log::sources::logger_mt log;
-};
 class node_init
 {
 public:
@@ -519,7 +476,7 @@ public:
 	rai::stat_config stat_config;
 	rai::uint256_union epoch_block_link;
 	rai::account epoch_block_signer;
-	std::chrono::system_clock::time_point generate_hash_votes_at;
+	std::chrono::milliseconds block_processor_batch_max_time;
 	static std::chrono::seconds constexpr keepalive_period = std::chrono::seconds (60);
 	static std::chrono::seconds constexpr keepalive_cutoff = keepalive_period * 5;
 	static std::chrono::minutes constexpr wallet_backup_interval = std::chrono::minutes (5);
@@ -688,7 +645,7 @@ public:
 	inactive_node (boost::filesystem::path const & path = rai::working_path ());
 	~inactive_node ();
 	boost::filesystem::path path;
-	boost::shared_ptr<boost::asio::io_service> service;
+	std::shared_ptr<boost::asio::io_service> service;
 	rai::alarm alarm;
 	rai::logging logging;
 	rai::node_init init;

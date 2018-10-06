@@ -1126,7 +1126,10 @@ void rai::bootstrap_attempt::add_bulk_push_target (rai::block_hash const & head,
 rai::bootstrap_initiator::bootstrap_initiator (rai::node & node_a) :
 node (node_a),
 stopped (false),
-thread ([this]() { run_bootstrap (); })
+thread ([this]() {
+	rai::thread_role::set (rai::thread_role::name::bootstrap_initiator);
+	run_bootstrap ();
+})
 {
 }
 
