@@ -5,13 +5,17 @@
 #    API_KEY generated here https://github.com/settings/tokens/new?description=GitHub%20Changelog%20Generator%20token
 
 if [ -e $1 ]; then
-	echo "makesrc <tag> - valid <tag> for nanocurrency/raiblocks"
+	echo "makesrc <tag>" >&2
+	echo "    tag      valid <tag> for nanocurrency/raiblocks" >&2
 	exit 1
 fi
+
 TAG="$1"
 VERSION=`echo $TAG | sed 's/V//'`
 TAG_DATE=""
 VERSION_MAJOR=`echo $VERSION |cut -d "." -f 1`
+scriptDir="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
+
 function make_source () {
 	git clone --recursive --single-branch --branch releases/v${VERSION_MAJOR} https://github.com/nanocurrency/raiblocks nano-$VERSION
 	cd nano-$VERSION
@@ -22,21 +26,30 @@ function make_source () {
 	else
 		git checkout "${TAG}"
 	fi
+	# XXX:TODO: Update spec file with version information
 	source_information
-	rm -fr */.git .git* .clang-format .travis.yml appveyor.yml asan_blacklist ci docker
+	rm -fr .git* .clang-format .travis.yml appveyor.yml asan_blacklist ci docker util
 	find . -type f ! -print 2>/dev/null | egrep -v '^\./(MD5SUMS|SHA256SUMS)$' | sort -u | sed s/'^\.\/'/''/ | sed 's/ /\\ /g' | xargs openssl md5 | sed 's@MD5(\(.*\))= \([0-9a-f]*\)@\2  \1@' > MD5SUMS 2>/dev/null
 	find . -type f ! -print 2>/dev/null | egrep -v '^\./(SHA256SUMS)$' | sort -u | sed s/'^\.\/'/''/ | sed 's/ /\\ /g' | xargs openssl sha1 -sha256 | sed 's@SHA256(\(.*\))= \([0-9a-f]*\)@\2  \1@' > SHA256SUMS 2>/dev/null
 	tarball_creation
 }
 function source_information () {
+	local version_no_rc
+	local changelog_args
+
+	version_no_rc="$(echo "${VERSION}" | sed 's@RC[0-9]*$@@')"
+
 	DATE=`git log --tags --simplify-by-decoration --pretty="format:%ai %d" | head -1 |cut -d " " -f1-3`
 	COMMIT=`git log | head -1 | cut -d " " -f 2`
 	TAG_DATE=`TZ=UTC date -d"$DATE" +%s`
-	github_changelog_generator -t "${API_KEY}" -u nanocurrency -p raiblocks --release_branch releases/v${VERSION_MAJOR} --no-issues --simple-list true
-	if [ ! -f CHANGELOG.md ]; then
-		echo "CHANGELOG not generated is github_changelog_generator gem installed"
+
+	"${scriptDir}/changelog_generator" nanocurrency/raiblocks "V${version_no_rc}"
+
+	if [ ! -s CHANGELOG.md ]; then
+		echo "CHANGELOG not generated"
 		exit 1
 	fi
+
 	export TAG_DATE
 }
 function cleanup_source () {
