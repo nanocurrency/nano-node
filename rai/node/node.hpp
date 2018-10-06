@@ -588,6 +588,7 @@ public:
 	void ongoing_bootstrap ();
 	void ongoing_store_flush ();
 	void backup_wallet ();
+	void search_pending ();
 	int price (rai::uint128_t const &, int);
 	void work_generate_blocking (rai::block &);
 	uint64_t work_generate_blocking (rai::uint256_union const &);
