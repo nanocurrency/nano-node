@@ -292,23 +292,6 @@ void rai::network::republish_block (std::shared_ptr<rai::block> block)
 	}
 }
 
-void rai::network::republish_block (rai::transaction const & transaction, std::shared_ptr<rai::block> block, bool enable_voting)
-{
-	auto list (node.peers.list_fanout ());
-	// If we're a representative, broadcast a signed confirm, otherwise an unsigned publish
-	if (!enable_voting || !confirm_block (transaction, node, list, block))
-	{
-		republish_block (block);
-	}
-	else
-	{
-		if (node.config.logging.network_logging ())
-		{
-			BOOST_LOG (node.log) << boost::str (boost::format ("Block %1% was confirmed to peers") % block->hash ().to_string ());
-		}
-	}
-}
-
 void rai::network::republish_block_batch (std::deque<std::shared_ptr<rai::block>> blocks_a, unsigned delay_a)
 {
 	auto block (blocks_a.front ());
