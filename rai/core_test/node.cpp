@@ -222,6 +222,7 @@ TEST (node, auto_bootstrap)
 	ASSERT_FALSE (init1.error ());
 	node1->network.send_keepalive (system.nodes[0]->network.endpoint ());
 	node1->start ();
+	system.nodes.push_back (node1);
 	while (!node1->bootstrap_initiator.in_progress ())
 	{
 		system.poll ();
@@ -251,6 +252,7 @@ TEST (node, auto_bootstrap_reverse)
 	ASSERT_NE (nullptr, system.wallet (0)->send_action (rai::test_genesis_key.pub, key2.pub, system.nodes[0]->config.receive_minimum.number ()));
 	system.nodes[0]->network.send_keepalive (node1->network.endpoint ());
 	node1->start ();
+	system.nodes.push_back (node1);
 	system.deadline_set (10s);
 	while (node1->balance (key2.pub) != system.nodes[0]->config.receive_minimum.number ())
 	{
@@ -383,6 +385,7 @@ TEST (node, connect_after_junk)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	node1->start ();
+	system.nodes.push_back (node1);
 	node1->network.send_keepalive (system.nodes[0]->network.endpoint ());
 	system.deadline_set (10s);
 	while (node1->peers.empty ())
