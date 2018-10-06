@@ -2595,6 +2595,7 @@ void rai::rpc_handler::republish ()
 		auto block (node.store.block_get (transaction, hash));
 		if (block != nullptr)
 		{
+			std::deque<std::shared_ptr<rai::block>> republish_bundle;
 			for (auto i (0); !hash.is_zero () && i < count; ++i)
 			{
 				block = node.store.block_get (transaction, hash);
@@ -2613,13 +2614,13 @@ void rai::rpc_handler::republish ()
 					for (auto & hash_l : hashes)
 					{
 						block_a = node.store.block_get (transaction, hash_l);
-						node.network.republish_block (transaction, std::move (block_a));
+						republish_bundle.push_back (std::move (block_a));
 						boost::property_tree::ptree entry_l;
 						entry_l.put ("", hash_l.to_string ());
 						blocks.push_back (std::make_pair ("", entry_l));
 					}
 				}
-				node.network.republish_block (transaction, std::move (block)); // Republish block
+				republish_bundle.push_back (std::move (block)); // Republish block
 				boost::property_tree::ptree entry;
 				entry.put ("", hash.to_string ());
 				blocks.push_back (std::make_pair ("", entry));
@@ -2650,7 +2651,7 @@ void rai::rpc_handler::republish ()
 							for (auto & hash_l : hashes)
 							{
 								block_d = node.store.block_get (transaction, hash_l);
-								node.network.republish_block (transaction, std::move (block_d));
+								republish_bundle.push_back (std::move (block_d));
 								boost::property_tree::ptree entry_l;
 								entry_l.put ("", hash_l.to_string ());
 								blocks.push_back (std::make_pair ("", entry_l));
@@ -2660,6 +2661,7 @@ void rai::rpc_handler::republish ()
 				}
 				hash = node.store.block_successor (transaction, hash);
 			}
+			node.network.republish_block_batch (republish_bundle, 25);
 			response_l.put ("success", ""); // obsolete
 			response_l.add_child ("blocks", blocks);
 		}
@@ -3372,6 +3374,7 @@ void rai::rpc_handler::wallet_republish ()
 	if (!ec)
 	{
 		boost::property_tree::ptree blocks;
+		std::deque<std::shared_ptr<rai::block>> republish_bundle;
 		auto transaction (node.store.tx_begin_read ());
 		for (auto i (wallet->store.begin (transaction)), n (wallet->store.end ()); i != n; ++i)
 		{
@@ -3389,12 +3392,13 @@ void rai::rpc_handler::wallet_republish ()
 			for (auto & hash : hashes)
 			{
 				block = node.store.block_get (transaction, hash);
-				node.network.republish_block (transaction, std::move (block));
+				republish_bundle.push_back (std::move (block));
 				boost::property_tree::ptree entry;
 				entry.put ("", hash.to_string ());
 				blocks.push_back (std::make_pair ("", entry));
 			}
 		}
+		node.network.republish_block_batch (republish_bundle, 25);
 		response_l.add_child ("blocks", blocks);
 	}
 	response_errors ();

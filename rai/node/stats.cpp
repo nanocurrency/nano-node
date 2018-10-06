@@ -330,6 +330,9 @@ std::string rai::stat::type_to_string (uint32_t key)
 		case rai::stat::type::ledger:
 			res = "ledger";
 			break;
+		case rai::stat::type::udp:
+			res = "udp";
+			break;
 		case rai::stat::type::peering:
 			res = "peering";
 			break;
@@ -429,6 +432,18 @@ std::string rai::stat::detail_to_string (uint32_t key)
 			break;
 		case rai::stat::detail::vote_invalid:
 			res = "vote_invalid";
+			break;
+		case rai::stat::detail::blocking:
+			res = "blocking";
+			break;
+		case rai::stat::detail::overflow:
+			res = "overflow";
+			break;
+		case rai::stat::detail::invalid_magic:
+			res = "invalid_magic";
+			break;
+		case rai::stat::detail::invalid_network:
+			res = "invalid_network";
 			break;
 	}
 	return res;
