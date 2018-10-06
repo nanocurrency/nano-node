@@ -266,7 +266,7 @@ TEST (node, receive_gap)
 	ASSERT_EQ (0, node1.gap_cache.blocks.size ());
 	auto block (std::make_shared<rai::send_block> (5, 1, 2, rai::keypair ().prv, 4, 0));
 	node1.work_generate_blocking (*block);
-	rai::confirm_req message (block);
+	rai::publish message (block);
 	node1.process_message (message, node1.network.endpoint ());
 	node1.block_processor.flush ();
 	ASSERT_EQ (1, node1.gap_cache.blocks.size ());
@@ -603,7 +603,7 @@ TEST (node, confirm_locked)
 	auto transaction (system.nodes[0]->store.tx_begin ());
 	system.wallet (0)->enter_password (transaction, "1");
 	auto block (std::make_shared<rai::send_block> (0, 0, 0, rai::keypair ().prv, 0, 0));
-	system.nodes[0]->network.republish_block (transaction, block);
+	system.nodes[0]->network.republish_block (block);
 }
 
 TEST (node_config, random_rep)
