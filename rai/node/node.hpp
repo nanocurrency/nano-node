@@ -630,6 +630,7 @@ public:
 	static std::chrono::seconds constexpr cutoff = period * 5;
 	static std::chrono::seconds constexpr syn_cookie_cutoff = std::chrono::seconds (5);
 	static std::chrono::minutes constexpr backup_interval = std::chrono::minutes (5);
+	static std::chrono::seconds constexpr search_pending_interval = (rai::rai_network == rai::rai_networks::rai_test_network) ? std::chrono::seconds (1) : std::chrono::seconds (5 * 60);
 };
 class thread_runner
 {
