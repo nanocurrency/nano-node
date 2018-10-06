@@ -1,3 +1,4 @@
+#include <rai/lib/utility.hpp>
 #include <rai/node/wallet.hpp>
 
 #include <rai/node/node.hpp>
@@ -533,7 +534,7 @@ void rai::wallet_store::write_backup (rai::transaction const & transaction_a, bo
 	{
 		// Set permissions to 600
 		boost::system::error_code ec;
-		boost::filesystem::permissions (path_a, boost::filesystem::perms::owner_read | boost::filesystem::perms::owner_write, ec);
+		rai::set_secure_perm_file (path_a, ec);
 
 		std::string json;
 		serialize_json (transaction_a, json);
@@ -572,7 +573,14 @@ bool rai::wallet_store::import (rai::transaction const & transaction_a, rai::wal
 		result = result | error;
 		if (!result)
 		{
-			insert_adhoc (transaction_a, prv);
+			if (!prv.data.is_zero ())
+			{
+				insert_adhoc (transaction_a, prv);
+			}
+			else
+			{
+				insert_watch (transaction_a, rai::uint256_union (i->first));
+			}
 			other_a.erase (transaction_a, rai::uint256_union (i->first));
 		}
 	}
@@ -986,7 +994,7 @@ std::shared_ptr<rai::block> rai::wallet::send_action (rai::account const & sourc
 				if (block != nullptr)
 				{
 					cached_block = true;
-					wallets.node.network.republish_block (transaction, block);
+					wallets.node.network.republish_block (block);
 				}
 			}
 			else if (status != MDB_NOTFOUND)
@@ -1230,7 +1238,10 @@ observer ([](bool) {}),
 node (node_a),
 env (boost::polymorphic_downcast<rai::mdb_store *> (node_a.store_impl.get ())->env),
 stopped (false),
-thread ([this]() { do_wallet_actions (); })
+thread ([this]() {
+	rai::thread_role::set (rai::thread_role::name::wallet_actions);
+	do_wallet_actions ();
+})
 {
 	if (!error_a)
 	{
