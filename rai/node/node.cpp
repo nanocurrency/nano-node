@@ -10,10 +10,6 @@
 #include <future>
 #include <sstream>
 
-#include <boost/log/expressions.hpp>
-#include <boost/log/utility/setup/common_attributes.hpp>
-#include <boost/log/utility/setup/console.hpp>
-#include <boost/log/utility/setup/file.hpp>
 #include <boost/polymorphic_cast.hpp>
 #include <boost/property_tree/json_parser.hpp>
 
@@ -49,6 +45,7 @@ on (true)
 	for (size_t i = 0; i < node.config.io_threads; ++i)
 	{
 		packet_processing_threads.push_back (std::thread ([this]() {
+			rai::thread_role::set (rai::thread_role::name::packet_processing);
 			try
 			{
 				process_packets ();
@@ -272,42 +269,8 @@ bool confirm_block (rai::transaction const & transaction_a, rai::node & node_a, 
 	return result;
 }
 
-void rai::network::republish_block (rai::transaction const & transaction, std::shared_ptr<rai::block> block, bool enable_voting)
+void rai::network::republish_block (std::shared_ptr<rai::block> block)
 {
-	auto hash (block->hash ());
-	auto list (node.peers.list_fanout ());
-	// If we're a representative, broadcast a signed confirm, otherwise an unsigned publish
-	if (!enable_voting || !confirm_block (transaction, node, list, block))
-	{
-		rai::publish message (block);
-		std::shared_ptr<std::vector<uint8_t>> bytes (new std::vector<uint8_t>);
-		{
-			rai::vectorstream stream (*bytes);
-			message.serialize (stream);
-		}
-		auto hash (block->hash ());
-		for (auto i (list.begin ()), n (list.end ()); i != n; ++i)
-		{
-			republish (hash, bytes, *i);
-		}
-		if (node.config.logging.network_logging ())
-		{
-			BOOST_LOG (node.log) << boost::str (boost::format ("Block %1% was republished to peers") % hash.to_string ());
-		}
-	}
-	else
-	{
-		if (node.config.logging.network_logging ())
-		{
-			BOOST_LOG (node.log) << boost::str (boost::format ("Block %1% was confirmed to peers") % hash.to_string ());
-		}
-	}
-}
-
-void rai::network::republish_block_batch (std::deque<std::shared_ptr<rai::block>> blocks_a, unsigned delay_a)
-{
-	auto block (blocks_a.front ());
-	blocks_a.pop_front ();
 	auto hash (block->hash ());
 	auto list (node.peers.list_fanout ());
 	rai::publish message (block);
@@ -324,6 +287,13 @@ void rai::network::republish_block_batch (std::deque<std::shared_ptr<rai::block>
 	{
 		BOOST_LOG (node.log) << boost::str (boost::format ("Block %1% was republished to peers") % hash.to_string ());
 	}
+}
+
+void rai::network::republish_block_batch (std::deque<std::shared_ptr<rai::block>> blocks_a, unsigned delay_a)
+{
+	auto block (blocks_a.front ());
+	blocks_a.pop_front ();
+	republish_block (block);
 	if (!blocks_a.empty ())
 	{
 		std::weak_ptr<rai::node> node_w (node.shared ());
@@ -515,13 +485,15 @@ public:
 		}
 		node.stats.inc (rai::stat::type::message, rai::stat::detail::confirm_req, rai::stat::dir::in);
 		node.peers.contacted (sender, message_a.header.version_using);
-		node.process_active (message_a.block);
-		node.active.publish (message_a.block);
-		auto transaction_a (node.store.tx_begin_read ());
-		auto successor (node.ledger.successor (transaction_a, message_a.block->root ()));
-		if (successor != nullptr)
+		// Don't load nodes with disabled voting
+		if (node.config.enable_voting)
 		{
-			confirm_block (transaction_a, node, sender, std::move (successor));
+			auto transaction (node.store.tx_begin_read ());
+			auto successor (node.ledger.successor (transaction, message_a.block->root ()));
+			if (successor != nullptr)
+			{
+				confirm_block (transaction, node, sender, std::move (successor));
+			}
 		}
 	}
 	void confirm_ack (rai::confirm_ack const & message_a) override
@@ -733,7 +705,10 @@ bool rai::operation::operator> (rai::operation const & other_a) const
 
 rai::alarm::alarm (boost::asio::io_service & service_a) :
 service (service_a),
-thread ([this]() { run (); })
+thread ([this]() {
+	rai::thread_role::set (rai::thread_role::name::alarm);
+	run ();
+})
 {
 }
 
@@ -782,216 +757,6 @@ void rai::alarm::add (std::chrono::steady_clock::time_point const & wakeup_a, st
 	std::lock_guard<std::mutex> lock (mutex);
 	operations.push (rai::operation ({ wakeup_a, operation }));
 	condition.notify_all ();
-}
-
-rai::logging::logging () :
-ledger_logging_value (false),
-ledger_duplicate_logging_value (false),
-vote_logging_value (false),
-network_logging_value (true),
-network_message_logging_value (false),
-network_publish_logging_value (false),
-network_packet_logging_value (false),
-network_keepalive_logging_value (false),
-network_node_id_handshake_logging_value (false),
-node_lifetime_tracing_value (false),
-insufficient_work_logging_value (true),
-log_rpc_value (true),
-bulk_pull_logging_value (false),
-work_generation_time_value (true),
-log_to_cerr_value (false),
-max_size (16 * 1024 * 1024),
-rotation_size (4 * 1024 * 1024),
-flush (true)
-{
-}
-
-void rai::logging::init (boost::filesystem::path const & application_path_a)
-{
-	static std::atomic_flag logging_already_added = ATOMIC_FLAG_INIT;
-	if (!logging_already_added.test_and_set ())
-	{
-		boost::log::add_common_attributes ();
-		if (log_to_cerr ())
-		{
-			boost::log::add_console_log (std::cerr, boost::log::keywords::format = "[%TimeStamp%]: %Message%");
-		}
-		boost::log::add_file_log (boost::log::keywords::target = application_path_a / "log", boost::log::keywords::file_name = application_path_a / "log" / "log_%Y-%m-%d_%H-%M-%S.%N.log", boost::log::keywords::rotation_size = rotation_size, boost::log::keywords::auto_flush = flush, boost::log::keywords::scan_method = boost::log::sinks::file::scan_method::scan_matching, boost::log::keywords::max_size = max_size, boost::log::keywords::format = "[%TimeStamp%]: %Message%");
-	}
-}
-
-void rai::logging::serialize_json (boost::property_tree::ptree & tree_a) const
-{
-	tree_a.put ("version", "4");
-	tree_a.put ("ledger", ledger_logging_value);
-	tree_a.put ("ledger_duplicate", ledger_duplicate_logging_value);
-	tree_a.put ("vote", vote_logging_value);
-	tree_a.put ("network", network_logging_value);
-	tree_a.put ("network_message", network_message_logging_value);
-	tree_a.put ("network_publish", network_publish_logging_value);
-	tree_a.put ("network_packet", network_packet_logging_value);
-	tree_a.put ("network_keepalive", network_keepalive_logging_value);
-	tree_a.put ("network_node_id_handshake", network_node_id_handshake_logging_value);
-	tree_a.put ("node_lifetime_tracing", node_lifetime_tracing_value);
-	tree_a.put ("insufficient_work", insufficient_work_logging_value);
-	tree_a.put ("log_rpc", log_rpc_value);
-	tree_a.put ("bulk_pull", bulk_pull_logging_value);
-	tree_a.put ("work_generation_time", work_generation_time_value);
-	tree_a.put ("log_to_cerr", log_to_cerr_value);
-	tree_a.put ("max_size", max_size);
-	tree_a.put ("rotation_size", rotation_size);
-	tree_a.put ("flush", flush);
-}
-
-bool rai::logging::upgrade_json (unsigned version_a, boost::property_tree::ptree & tree_a)
-{
-	auto result (false);
-	switch (version_a)
-	{
-		case 1:
-			tree_a.put ("vote", vote_logging_value);
-			tree_a.put ("version", "2");
-			result = true;
-		case 2:
-			tree_a.put ("rotation_size", "4194304");
-			tree_a.put ("flush", "true");
-			tree_a.put ("version", "3");
-			result = true;
-		case 3:
-			tree_a.put ("network_node_id_handshake", "false");
-			tree_a.put ("version", "4");
-			result = true;
-		case 4:
-			break;
-		default:
-			throw std::runtime_error ("Unknown logging_config version");
-			break;
-	}
-	return result;
-}
-
-bool rai::logging::deserialize_json (bool & upgraded_a, boost::property_tree::ptree & tree_a)
-{
-	auto result (false);
-	try
-	{
-		auto version_l (tree_a.get_optional<std::string> ("version"));
-		if (!version_l)
-		{
-			tree_a.put ("version", "1");
-			version_l = "1";
-			auto work_peers_l (tree_a.get_child_optional ("work_peers"));
-			if (!work_peers_l)
-			{
-				tree_a.add_child ("work_peers", boost::property_tree::ptree ());
-			}
-			upgraded_a = true;
-		}
-		upgraded_a |= upgrade_json (std::stoull (version_l.get ()), tree_a);
-		ledger_logging_value = tree_a.get<bool> ("ledger");
-		ledger_duplicate_logging_value = tree_a.get<bool> ("ledger_duplicate");
-		vote_logging_value = tree_a.get<bool> ("vote");
-		network_logging_value = tree_a.get<bool> ("network");
-		network_message_logging_value = tree_a.get<bool> ("network_message");
-		network_publish_logging_value = tree_a.get<bool> ("network_publish");
-		network_packet_logging_value = tree_a.get<bool> ("network_packet");
-		network_keepalive_logging_value = tree_a.get<bool> ("network_keepalive");
-		network_node_id_handshake_logging_value = tree_a.get<bool> ("network_node_id_handshake");
-		node_lifetime_tracing_value = tree_a.get<bool> ("node_lifetime_tracing");
-		insufficient_work_logging_value = tree_a.get<bool> ("insufficient_work");
-		log_rpc_value = tree_a.get<bool> ("log_rpc");
-		bulk_pull_logging_value = tree_a.get<bool> ("bulk_pull");
-		work_generation_time_value = tree_a.get<bool> ("work_generation_time");
-		log_to_cerr_value = tree_a.get<bool> ("log_to_cerr");
-		max_size = tree_a.get<uintmax_t> ("max_size");
-		rotation_size = tree_a.get<uintmax_t> ("rotation_size", 4194304);
-		flush = tree_a.get<bool> ("flush", true);
-	}
-	catch (std::runtime_error const &)
-	{
-		result = true;
-	}
-	return result;
-}
-
-bool rai::logging::ledger_logging () const
-{
-	return ledger_logging_value;
-}
-
-bool rai::logging::ledger_duplicate_logging () const
-{
-	return ledger_logging () && ledger_duplicate_logging_value;
-}
-
-bool rai::logging::vote_logging () const
-{
-	return vote_logging_value;
-}
-
-bool rai::logging::network_logging () const
-{
-	return network_logging_value;
-}
-
-bool rai::logging::network_message_logging () const
-{
-	return network_logging () && network_message_logging_value;
-}
-
-bool rai::logging::network_publish_logging () const
-{
-	return network_logging () && network_publish_logging_value;
-}
-
-bool rai::logging::network_packet_logging () const
-{
-	return network_logging () && network_packet_logging_value;
-}
-
-bool rai::logging::network_keepalive_logging () const
-{
-	return network_logging () && network_keepalive_logging_value;
-}
-
-bool rai::logging::network_node_id_handshake_logging () const
-{
-	return network_logging () && network_node_id_handshake_logging_value;
-}
-
-bool rai::logging::node_lifetime_tracing () const
-{
-	return node_lifetime_tracing_value;
-}
-
-bool rai::logging::insufficient_work_logging () const
-{
-	return network_logging () && insufficient_work_logging_value;
-}
-
-bool rai::logging::log_rpc () const
-{
-	return network_logging () && log_rpc_value;
-}
-
-bool rai::logging::bulk_pull_logging () const
-{
-	return network_logging () && bulk_pull_logging_value;
-}
-
-bool rai::logging::callback_logging () const
-{
-	return network_logging ();
-}
-
-bool rai::logging::work_generation_time () const
-{
-	return work_generation_time_value;
-}
-
-bool rai::logging::log_to_cerr () const
-{
-	return log_to_cerr_value;
 }
 
 rai::node_init::node_init () :
@@ -1053,9 +818,6 @@ block_processor_batch_max_time (std::chrono::milliseconds (5000))
 			preconfigured_representatives.push_back (rai::account ("2399A083C600AA0572F5E36247D978FCFC840405F8D4B6D33161C0066A55F431"));
 			preconfigured_representatives.push_back (rai::account ("2298FAB7C61058E77EA554CB93EDEEDA0692CBFCC540AB213B2836B29029E23A"));
 			preconfigured_representatives.push_back (rai::account ("3FE80B4BC842E82C1C18ABFEEC47EA989E63953BC82AC411F304D13833D52A56"));
-			// 2018-09-01 UTC 00:00 in unix time
-			// Technically, time_t is never defined to be unix time, but compilers implement it as such
-			generate_hash_votes_at = std::chrono::system_clock::from_time_t (1535760000);
 			break;
 		default:
 			assert (false);
@@ -1108,7 +870,6 @@ void rai::node_config::serialize_json (boost::property_tree::ptree & tree_a) con
 	tree_a.put ("callback_port", std::to_string (callback_port));
 	tree_a.put ("callback_target", callback_target);
 	tree_a.put ("lmdb_max_dbs", lmdb_max_dbs);
-	tree_a.put ("generate_hash_votes_at", std::chrono::system_clock::to_time_t (generate_hash_votes_at));
 	tree_a.put ("block_processor_batch_max_time", block_processor_batch_max_time.count ());
 }
 
@@ -1212,11 +973,12 @@ bool rai::node_config::upgrade_json (unsigned version, boost::property_tree::ptr
 			tree_a.put ("version", "13");
 			result = true;
 		case 13:
-			tree_a.put ("generate_hash_votes_at", std::chrono::system_clock::to_time_t (generate_hash_votes_at));
+			tree_a.put ("generate_hash_votes_at", "0");
 			tree_a.erase ("version");
 			tree_a.put ("version", "14");
 			result = true;
 		case 14:
+			tree_a.erase ("generate_hash_votes_at");
 			tree_a.put ("block_processor_batch_max_time", block_processor_batch_max_time.count ());
 			tree_a.erase ("version");
 			tree_a.put ("version", "15");
@@ -1307,8 +1069,6 @@ bool rai::node_config::deserialize_json (bool & upgraded_a, boost::property_tree
 		callback_target = tree_a.get<std::string> ("callback_target");
 		auto lmdb_max_dbs_l = tree_a.get<std::string> ("lmdb_max_dbs");
 		result |= parse_port (callback_port_l, callback_port);
-		auto generate_hash_votes_at_l = tree_a.get<time_t> ("generate_hash_votes_at");
-		generate_hash_votes_at = std::chrono::system_clock::from_time_t (generate_hash_votes_at_l);
 		auto block_processor_batch_max_time_l = tree_a.get<std::string> ("block_processor_batch_max_time");
 		try
 		{
@@ -1356,7 +1116,10 @@ node (node_a),
 started (false),
 stopped (false),
 active (false),
-thread ([this]() { process_loop (); })
+thread ([this]() {
+	rai::thread_role::set (rai::thread_role::name::vote_processing);
+	process_loop ();
+})
 {
 	std::unique_lock<std::mutex> lock (mutex);
 	while (!started)
@@ -1443,24 +1206,24 @@ rai::vote_code rai::vote_processor::vote_blocking (rai::transaction const & tran
 				break;
 		}
 	}
+	std::string status;
+	switch (result)
+	{
+		case rai::vote_code::invalid:
+			status = "Invalid";
+			node.stats.inc (rai::stat::type::vote, rai::stat::detail::vote_invalid);
+			break;
+		case rai::vote_code::replay:
+			status = "Replay";
+			node.stats.inc (rai::stat::type::vote, rai::stat::detail::vote_replay);
+			break;
+		case rai::vote_code::vote:
+			status = "Vote";
+			node.stats.inc (rai::stat::type::vote, rai::stat::detail::vote_valid);
+			break;
+	}
 	if (node.config.logging.vote_logging ())
 	{
-		char const * status;
-		switch (result)
-		{
-			case rai::vote_code::invalid:
-				status = "Invalid";
-				node.stats.inc (rai::stat::type::vote, rai::stat::detail::vote_invalid);
-				break;
-			case rai::vote_code::replay:
-				status = "Replay";
-				node.stats.inc (rai::stat::type::vote, rai::stat::detail::vote_replay);
-				break;
-			case rai::vote_code::vote:
-				status = "Vote";
-				node.stats.inc (rai::stat::type::vote, rai::stat::detail::vote_valid);
-				break;
-		}
 		BOOST_LOG (node.log) << boost::str (boost::format ("Vote from: %1% sequence: %2% block(s): %3%status: %4%") % vote_a->account.to_account () % std::to_string (vote_a->sequence) % vote_a->hashes_string () % status);
 	}
 	return result;
@@ -1882,7 +1645,10 @@ port_mapping (*this),
 vote_processor (*this),
 warmed_up (0),
 block_processor (*this),
-block_processor_thread ([this]() { this->block_processor.process_blocks (); }),
+block_processor_thread ([this]() {
+	rai::thread_role::set (rai::thread_role::name::block_processing);
+	this->block_processor.process_blocks ();
+}),
 online_reps (*this),
 stats (config.stat_config)
 {
@@ -3961,7 +3727,7 @@ bool rai::election::publish (std::shared_ptr<rai::block> block_a)
 			{
 				blocks.insert (std::make_pair (block_a->hash (), block_a));
 				confirm_if_quorum (transaction);
-				node.network.republish_block (transaction, block_a, false);
+				node.network.republish_block (block_a);
 			}
 		}
 	}
@@ -4035,9 +3801,9 @@ void rai::active_transactions::announce_votes ()
 				// Broadcast winner
 				if (node.ledger.could_fit (transaction, *election_l->status.winner))
 				{
-					if (node.config.enable_voting && std::chrono::system_clock::now () >= node.config.generate_hash_votes_at)
+					rebroadcast_bundle.push_back (election_l->status.winner);
+					if (node.config.enable_voting)
 					{
-						rebroadcast_bundle.push_back (election_l->status.winner);
 						blocks_bundle.push_back (election_l->status.winner->hash ());
 						if (blocks_bundle.size () >= 12)
 						{
@@ -4047,11 +3813,6 @@ void rai::active_transactions::announce_votes ()
 							});
 							blocks_bundle.clear ();
 						}
-					}
-					else
-					{
-						election_l->compute_rep_votes (transaction);
-						rebroadcast_bundle.push_back (election_l->status.winner);
 					}
 				}
 				else
@@ -4277,7 +4038,10 @@ rai::active_transactions::active_transactions (rai::node & node_a) :
 node (node_a),
 started (false),
 stopped (false),
-thread ([this]() { announce_loop (); })
+thread ([this]() {
+	rai::thread_role::set (rai::thread_role::name::announce_loop);
+	announce_loop ();
+})
 {
 	std::unique_lock<std::mutex> lock (mutex);
 	while (!started)
@@ -4318,6 +4082,7 @@ rai::thread_runner::thread_runner (boost::asio::io_service & service_a, unsigned
 	for (auto i (0); i < service_threads_a; ++i)
 	{
 		threads.push_back (std::thread ([&service_a]() {
+			rai::thread_role::set (rai::thread_role::name::io);
 			try
 			{
 				service_a.run ();
@@ -4355,7 +4120,7 @@ void rai::thread_runner::join ()
 
 rai::inactive_node::inactive_node (boost::filesystem::path const & path) :
 path (path),
-service (boost::make_shared<boost::asio::io_service> ()),
+service (std::make_shared<boost::asio::io_service> ()),
 alarm (*service),
 work (1, nullptr)
 {
