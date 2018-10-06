@@ -162,15 +162,18 @@ TEST (node, quick_confirm)
 	rai::system system (24000, 1);
 	rai::keypair key;
 	rai::block_hash previous (system.nodes[0]->latest (rai::test_genesis_key.pub));
+	auto genesis_start_balance (system.nodes[0]->balance (rai::test_genesis_key.pub));
 	system.wallet (0)->insert_adhoc (key.prv);
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
-	auto send (std::make_shared<rai::send_block> (previous, key.pub, system.nodes[0]->delta () + 1, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (previous)));
+	auto send (std::make_shared<rai::send_block> (previous, key.pub, system.nodes[0]->config.online_weight_minimum.number () + 1, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (previous)));
 	system.nodes[0]->process_active (send);
 	system.deadline_set (10s);
 	while (system.nodes[0]->balance (key.pub).is_zero ())
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
+	ASSERT_EQ (system.nodes[0]->balance (rai::test_genesis_key.pub), system.nodes[0]->config.online_weight_minimum.number () + 1);
+	ASSERT_EQ (system.nodes[0]->balance (key.pub), genesis_start_balance - (system.nodes[0]->config.online_weight_minimum.number () + 1));
 }
 
 TEST (node, node_receive_quorum)
@@ -263,7 +266,7 @@ TEST (node, receive_gap)
 	ASSERT_EQ (0, node1.gap_cache.blocks.size ());
 	auto block (std::make_shared<rai::send_block> (5, 1, 2, rai::keypair ().prv, 4, 0));
 	node1.work_generate_blocking (*block);
-	rai::confirm_req message (block);
+	rai::publish message (block);
 	node1.process_message (message, node1.network.endpoint ());
 	node1.block_processor.flush ();
 	ASSERT_EQ (1, node1.gap_cache.blocks.size ());
@@ -600,7 +603,7 @@ TEST (node, confirm_locked)
 	auto transaction (system.nodes[0]->store.tx_begin ());
 	system.wallet (0)->enter_password (transaction, "1");
 	auto block (std::make_shared<rai::send_block> (0, 0, 0, rai::keypair ().prv, 0, 0));
-	system.nodes[0]->network.republish_block (transaction, block);
+	system.nodes[0]->network.republish_block (block);
 }
 
 TEST (node_config, random_rep)
@@ -1603,12 +1606,13 @@ TEST (node, confirm_quorum)
 	rai::genesis genesis;
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	// Put greater than online_weight_minimum in pending so quorum can't be reached
-	auto send1 (std::make_shared<rai::state_block> (rai::test_genesis_key.pub, genesis.hash (), rai::test_genesis_key.pub, rai::Gxrb_ratio, rai::test_genesis_key.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.nodes[0]->work_generate_blocking (genesis.hash ())));
+	rai::uint128_union new_balance (system.nodes[0]->config.online_weight_minimum.number () - rai::Gxrb_ratio);
+	auto send1 (std::make_shared<rai::state_block> (rai::test_genesis_key.pub, genesis.hash (), rai::test_genesis_key.pub, new_balance, rai::test_genesis_key.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.nodes[0]->work_generate_blocking (genesis.hash ())));
 	{
 		auto transaction (system.nodes[0]->store.tx_begin (true));
 		ASSERT_EQ (rai::process_result::progress, system.nodes[0]->ledger.process (transaction, *send1).code);
 	}
-	system.wallet (0)->send_action (rai::test_genesis_key.pub, rai::test_genesis_key.pub, rai::Gxrb_ratio);
+	system.wallet (0)->send_action (rai::test_genesis_key.pub, rai::test_genesis_key.pub, new_balance.number ());
 	system.deadline_set (10s);
 	while (system.nodes[0]->active.roots.empty ())
 	{
