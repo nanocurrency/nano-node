@@ -1,5 +1,8 @@
 #pragma once
 
+#include <boost/filesystem.hpp>
+#include <boost/system/error_code.hpp>
+
 #include <functional>
 #include <mutex>
 #include <thread>
@@ -9,7 +12,39 @@ namespace rai
 {
 // Lower priority of calling work generating thread
 void work_thread_reprioritize ();
+
+/*
+ * Functions for managing filesystem permissions, platform specific
+ */
 void set_umask ();
+void set_secure_perm_directory (boost::filesystem::path const & path);
+void set_secure_perm_directory (boost::filesystem::path const & path, boost::system::error_code & ec);
+void set_secure_perm_file (boost::filesystem::path const & path);
+void set_secure_perm_file (boost::filesystem::path const & path, boost::system::error_code & ec);
+
+/*
+ * Functions for understanding the role of the current thread
+ */
+namespace thread_role
+{
+	enum class name
+	{
+		unknown,
+		io,
+		work,
+		packet_processing,
+		alarm,
+		vote_processing,
+		block_processing,
+		announce_loop,
+		wallet_actions,
+		bootstrap_initiator,
+	};
+	rai::thread_role::name get (void);
+	void set (rai::thread_role::name);
+	void set_name (std::string);
+}
+
 template <typename... T>
 class observer_set
 {

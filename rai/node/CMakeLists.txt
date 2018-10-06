@@ -24,10 +24,14 @@ add_library (node
 	common.cpp
 	lmdb.cpp
 	lmdb.hpp
+	logging.cpp
+	logging.hpp
 	node.hpp
 	node.cpp
 	openclwork.cpp
 	openclwork.hpp
+	portmapping.hpp
+	portmapping.cpp
 	rpc.hpp
 	rpc.cpp
 	testing.hpp

@@ -2,6 +2,8 @@
 
 #include <rai/lib/work.hpp>
 #include <rai/node/bootstrap.hpp>
+#include <rai/node/logging.hpp>
+#include <rai/node/portmapping.hpp>
 #include <rai/node/stats.hpp>
 #include <rai/node/wallet.hpp>
 #include <rai/secure/ledger.hpp>
@@ -9,14 +11,11 @@
 #include <condition_variable>
 
 #include <boost/iostreams/device/array.hpp>
-#include <boost/log/trivial.hpp>
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/member.hpp>
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index/random_access_index.hpp>
 #include <boost/multi_index_container.hpp>
-
-#include <miniupnpc.h>
 
 namespace boost
 {
@@ -62,7 +61,7 @@ public:
 	rai::election_vote_result vote (rai::account, uint64_t, rai::block_hash);
 	rai::tally_t tally (rai::transaction const &);
 	// Check if we have vote quorum
-	bool have_quorum (rai::tally_t const &);
+	bool have_quorum (rai::tally_t const &, rai::uint128_t);
 	// Change our winner to agree with the network
 	void compute_rep_votes (rai::transaction const &);
 	// Confirm this block if quorum is met
@@ -102,6 +101,7 @@ public:
 	// Should only be used for old elections
 	// The first block should be the one in the ledger
 	bool start (std::pair<std::shared_ptr<rai::block>, std::shared_ptr<rai::block>>, std::function<void(std::shared_ptr<rai::block>)> const & = [](std::shared_ptr<rai::block>) {});
+	bool add (std::pair<std::shared_ptr<rai::block>, std::shared_ptr<rai::block>>, std::function<void(std::shared_ptr<rai::block>)> const & = [](std::shared_ptr<rai::block>) {});
 	// If this returns true, the vote is a replay
 	// If this returns false, the vote may or may not be a replay
 	bool vote (std::shared_ptr<rai::vote>);
@@ -303,41 +303,6 @@ public:
 	rai::endpoint endpoint;
 	std::function<void(boost::system::error_code const &, size_t)> callback;
 };
-class mapping_protocol
-{
-public:
-	char const * name;
-	int remaining;
-	boost::asio::ip::address_v4 external_address;
-	uint16_t external_port;
-};
-// These APIs aren't easy to understand so comments are verbose
-class port_mapping
-{
-public:
-	port_mapping (rai::node &);
-	void start ();
-	void stop ();
-	void refresh_devices ();
-	// Refresh when the lease ends
-	void refresh_mapping ();
-	// Refresh occasionally in case router loses mapping
-	void check_mapping_loop ();
-	int check_mapping ();
-	bool has_address ();
-	std::mutex mutex;
-	rai::node & node;
-	UPNPDev * devices; // List of all UPnP devices
-	UPNPUrls urls; // Something for UPnP
-	IGDdatas data; // Some other UPnP thing
-	// Primes so they infrequently happen at the same time
-	static int constexpr mapping_timeout = rai::rai_network == rai::rai_networks::rai_test_network ? 53 : 3593;
-	static int constexpr check_timeout = rai::rai_network == rai::rai_networks::rai_test_network ? 17 : 53;
-	boost::asio::ip::address_v4 address;
-	std::array<mapping_protocol, 2> protocols;
-	uint64_t check_count;
-	bool on;
-};
 class block_arrival_info
 {
 public:
@@ -388,16 +353,68 @@ private:
 	std::mutex mutex;
 	rai::node & node;
 };
+class udp_data
+{
+public:
+	uint8_t * buffer;
+	size_t size;
+	rai::endpoint endpoint;
+};
+/**
+  * A circular buffer for servicing UDP datagrams. This container follows a producer/consumer model where the operating system is producing data in to buffers which are serviced by internal threads.
+  * If buffers are not serviced fast enough they're internally dropped.
+  * This container has a maximum space to hold N buffers of M size and will allocate them in round-robin order.
+  * All public methods are thread-safe
+*/
+class udp_buffer
+{
+public:
+	// Size - Size of each individual buffer
+	// Count - Number of buffers to allocate
+	// Stats - Statistics
+	udp_buffer (rai::stat & stats, size_t, size_t);
+	// Return a buffer where UDP data can be put
+	// Method will attempt to return the first free buffer
+	// If there are no free buffers, an unserviced buffer will be dequeued and returned
+	// Function will block if there are no free or unserviced buffers
+	// Return nullptr if the container has stopped
+	rai::udp_data * allocate ();
+	// Queue a buffer that has been filled with UDP data and notify servicing threads
+	void enqueue (rai::udp_data *);
+	// Return a buffer that has been filled with UDP data
+	// Function will block until a buffer has been added
+	// Return nullptr if the container has stopped
+	rai::udp_data * dequeue ();
+	// Return a buffer to the freelist after is has been serviced
+	void release (rai::udp_data *);
+	// Stop container and notify waiting threads
+	void stop ();
+
+private:
+	rai::stat & stats;
+	std::mutex mutex;
+	std::condition_variable condition;
+	boost::circular_buffer<rai::udp_data *> free;
+	boost::circular_buffer<rai::udp_data *> full;
+	std::vector<uint8_t> slab;
+	std::vector<rai::udp_data> entries;
+	bool stopped;
+};
 class network
 {
 public:
 	network (rai::node &, uint16_t);
+	~network ();
 	void receive ();
+	void process_packets ();
+	void start ();
 	void stop ();
-	void receive_action (boost::system::error_code const &, size_t);
+	void receive_action (rai::udp_data *);
 	void rpc_action (boost::system::error_code const &, size_t);
 	void republish_vote (std::shared_ptr<rai::vote>);
-	void republish_block (rai::transaction const &, std::shared_ptr<rai::block>, bool = true);
+	void republish_block (std::shared_ptr<rai::block>);
+	static unsigned const broadcast_interval_ms = (rai::rai_network == rai::rai_networks::rai_test_network) ? 10 : 50;
+	void republish_block_batch (std::deque<std::shared_ptr<rai::block>>, unsigned = broadcast_interval_ms);
 	void republish (rai::block_hash const &, std::shared_ptr<std::vector<uint8_t>>, rai::endpoint);
 	void publish_broadcast (std::vector<rai::peer_information> &, std::unique_ptr<rai::block>);
 	void confirm_send (rai::confirm_ack const &, std::shared_ptr<std::vector<uint8_t>>, rai::endpoint const &);
@@ -409,60 +426,17 @@ public:
 	void send_confirm_req (rai::endpoint const &, std::shared_ptr<rai::block>);
 	void send_buffer (uint8_t const *, size_t, rai::endpoint const &, std::function<void(boost::system::error_code const &, size_t)>);
 	rai::endpoint endpoint ();
-	rai::endpoint remote;
-	std::array<uint8_t, 512> buffer;
+	rai::udp_buffer buffer_container;
 	boost::asio::ip::udp::socket socket;
 	std::mutex socket_mutex;
 	boost::asio::ip::udp::resolver resolver;
+	std::vector<std::thread> packet_processing_threads;
 	rai::node & node;
 	bool on;
 	static uint16_t const node_port = rai::rai_network == rai::rai_networks::rai_live_network ? 7075 : 54000;
+	static size_t const buffer_size = 512;
 };
-class logging
-{
-public:
-	logging ();
-	void serialize_json (boost::property_tree::ptree &) const;
-	bool deserialize_json (bool &, boost::property_tree::ptree &);
-	bool upgrade_json (unsigned, boost::property_tree::ptree &);
-	bool ledger_logging () const;
-	bool ledger_duplicate_logging () const;
-	bool vote_logging () const;
-	bool network_logging () const;
-	bool network_message_logging () const;
-	bool network_publish_logging () const;
-	bool network_packet_logging () const;
-	bool network_keepalive_logging () const;
-	bool network_node_id_handshake_logging () const;
-	bool node_lifetime_tracing () const;
-	bool insufficient_work_logging () const;
-	bool log_rpc () const;
-	bool bulk_pull_logging () const;
-	bool callback_logging () const;
-	bool work_generation_time () const;
-	bool log_to_cerr () const;
-	void init (boost::filesystem::path const &);
 
-	bool ledger_logging_value;
-	bool ledger_duplicate_logging_value;
-	bool vote_logging_value;
-	bool network_logging_value;
-	bool network_message_logging_value;
-	bool network_publish_logging_value;
-	bool network_packet_logging_value;
-	bool network_keepalive_logging_value;
-	bool network_node_id_handshake_logging_value;
-	bool node_lifetime_tracing_value;
-	bool insufficient_work_logging_value;
-	bool log_rpc_value;
-	bool bulk_pull_logging_value;
-	bool work_generation_time_value;
-	bool log_to_cerr_value;
-	bool flush;
-	uintmax_t max_size;
-	uintmax_t rotation_size;
-	boost::log::sources::logger_mt log;
-};
 class node_init
 {
 public:
@@ -502,7 +476,7 @@ public:
 	rai::stat_config stat_config;
 	rai::uint256_union epoch_block_link;
 	rai::account epoch_block_signer;
-	std::chrono::system_clock::time_point generate_hash_votes_at;
+	std::chrono::milliseconds block_processor_batch_max_time;
 	static std::chrono::seconds constexpr keepalive_period = std::chrono::seconds (60);
 	static std::chrono::seconds constexpr keepalive_cutoff = keepalive_period * 5;
 	static std::chrono::minutes constexpr wallet_backup_interval = std::chrono::minutes (5);
@@ -574,6 +548,7 @@ private:
 	std::deque<std::pair<std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point>> blocks;
 	std::unordered_set<rai::block_hash> blocks_hashes;
 	std::deque<std::shared_ptr<rai::block>> forced;
+	std::deque<std::shared_ptr<rai::block>> processed_active;
 	std::condition_variable condition;
 	rai::node & node;
 	std::mutex mutex;
@@ -671,7 +646,7 @@ public:
 	inactive_node (boost::filesystem::path const & path = rai::working_path ());
 	~inactive_node ();
 	boost::filesystem::path path;
-	boost::shared_ptr<boost::asio::io_service> service;
+	std::shared_ptr<boost::asio::io_service> service;
 	rai::alarm alarm;
 	rai::logging logging;
 	rai::node_init init;

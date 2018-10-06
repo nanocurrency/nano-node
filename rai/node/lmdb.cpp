@@ -10,19 +10,19 @@
 
 rai::mdb_env::mdb_env (bool & error_a, boost::filesystem::path const & path_a, int max_dbs)
 {
-	boost::system::error_code error;
+	boost::system::error_code error_mkdir, error_chmod;
 	if (path_a.has_parent_path ())
 	{
-		boost::filesystem::create_directories (path_a.parent_path (), error);
-		boost::filesystem::permissions (path_a.parent_path (), boost::filesystem::owner_all);
-		if (!error)
+		boost::filesystem::create_directories (path_a.parent_path (), error_mkdir);
+		rai::set_secure_perm_directory (path_a.parent_path (), error_chmod);
+		if (!error_mkdir)
 		{
 			auto status1 (mdb_env_create (&environment));
-			assert (status1 == 0);
+			release_assert (status1 == 0);
 			auto status2 (mdb_env_set_maxdbs (environment, max_dbs));
-			assert (status2 == 0);
+			release_assert (status2 == 0);
 			auto status3 (mdb_env_set_mapsize (environment, 1ULL * 1024 * 1024 * 1024 * 128)); // 128 Gigabyte
-			assert (status3 == 0);
+			release_assert (status3 == 0);
 			// It seems if there's ever more threads than mdb_env_set_maxreaders has read slots available, we get failures on transaction creation unless MDB_NOTLS is specified
 			// This can happen if something like 256 io_threads are specified in the node config
 			auto status4 (mdb_env_open (environment, path_a.string ().c_str (), MDB_NOSUBDIR | MDB_NOTLS, 00600));
@@ -281,13 +281,13 @@ rai::mdb_val::operator MDB_val const & () const
 rai::mdb_txn::mdb_txn (rai::mdb_env const & environment_a, bool write_a)
 {
 	auto status (mdb_txn_begin (environment_a, nullptr, write_a ? 0 : MDB_RDONLY, &handle));
-	assert (status == 0);
+	release_assert (status == 0);
 }
 
 rai::mdb_txn::~mdb_txn ()
 {
 	auto status (mdb_txn_commit (handle));
-	assert (status == 0);
+	release_assert (status == 0);
 }
 
 rai::mdb_txn::operator MDB_txn * () const
@@ -355,13 +355,13 @@ cursor (nullptr)
 	current.first.epoch = epoch_a;
 	current.second.epoch = epoch_a;
 	auto status (mdb_cursor_open (tx (transaction_a), db_a, &cursor));
-	assert (status == 0);
+	release_assert (status == 0);
 	auto status2 (mdb_cursor_get (cursor, &current.first.value, &current.second.value, MDB_FIRST));
-	assert (status2 == 0 || status2 == MDB_NOTFOUND);
+	release_assert (status2 == 0 || status2 == MDB_NOTFOUND);
 	if (status2 != MDB_NOTFOUND)
 	{
 		auto status3 (mdb_cursor_get (cursor, &current.first.value, &current.second.value, MDB_GET_CURRENT));
-		assert (status3 == 0 || status3 == MDB_NOTFOUND);
+		release_assert (status3 == 0 || status3 == MDB_NOTFOUND);
 		if (current.first.size () != sizeof (T))
 		{
 			clear ();
@@ -388,14 +388,14 @@ cursor (nullptr)
 	current.first.epoch = epoch_a;
 	current.second.epoch = epoch_a;
 	auto status (mdb_cursor_open (tx (transaction_a), db_a, &cursor));
-	assert (status == 0);
+	release_assert (status == 0);
 	current.first = val_a;
 	auto status2 (mdb_cursor_get (cursor, &current.first.value, &current.second.value, MDB_SET_RANGE));
-	assert (status2 == 0 || status2 == MDB_NOTFOUND);
+	release_assert (status2 == 0 || status2 == MDB_NOTFOUND);
 	if (status2 != MDB_NOTFOUND)
 	{
 		auto status3 (mdb_cursor_get (cursor, &current.first.value, &current.second.value, MDB_GET_CURRENT));
-		assert (status3 == 0 || status3 == MDB_NOTFOUND);
+		release_assert (status3 == 0 || status3 == MDB_NOTFOUND);
 		if (current.first.size () != sizeof (T))
 		{
 			clear ();
@@ -429,6 +429,7 @@ rai::store_iterator_impl<T, U> & rai::mdb_iterator<T, U>::operator++ ()
 {
 	assert (cursor != nullptr);
 	auto status (mdb_cursor_get (cursor, &current.first.value, &current.second.value, MDB_NEXT));
+	release_assert (status == 0 || status == MDB_NOTFOUND);
 	if (status == MDB_NOTFOUND)
 	{
 		clear ();
@@ -469,17 +470,6 @@ bool rai::mdb_iterator<T, U>::operator== (rai::store_iterator_impl<T, U> const &
 	assert (!result || (current.second.data () == other_a->current.second.data ()));
 	assert (!result || (current.second.size () == other_a->current.second.size ()));
 	return result;
-}
-
-template <typename T, typename U>
-void rai::mdb_iterator<T, U>::next_dup ()
-{
-	assert (cursor != nullptr);
-	auto status (mdb_cursor_get (cursor, &current.first.value, &current.second.value, MDB_NEXT_DUP));
-	if (status == MDB_NOTFOUND)
-	{
-		clear ();
-	}
 }
 
 template <typename T, typename U>
@@ -568,12 +558,6 @@ rai::store_iterator_impl<T, U> & rai::mdb_merge_iterator<T, U>::operator++ ()
 {
 	++least_iterator ();
 	return *this;
-}
-
-template <typename T, typename U>
-void rai::mdb_merge_iterator<T, U>::next_dup ()
-{
-	least_iterator ().next_dup ();
 }
 
 template <typename T, typename U>
@@ -811,7 +795,7 @@ void rai::mdb_store::version_put (rai::transaction const & transaction_a, int ve
 	rai::uint256_union version_key (1);
 	rai::uint256_union version_value (version_a);
 	auto status (mdb_put (env.tx (transaction_a), meta, rai::mdb_val (version_key), rai::mdb_val (version_value), 0));
-	assert (status == 0);
+	release_assert (status == 0);
 }
 
 int rai::mdb_store::version_get (rai::transaction const & transaction_a)
@@ -912,7 +896,7 @@ void rai::mdb_store::upgrade_v1_to_v2 (rai::transaction const & transaction_a)
 			}
 			v2.open_block = block->hash ();
 			auto status (mdb_put (env.tx (transaction_a), accounts_v0, rai::mdb_val (account), v2.val (), 0));
-			assert (status == 0);
+			release_assert (status == 0);
 			account = account.number () + 1;
 		}
 		else
@@ -1039,7 +1023,7 @@ void rai::mdb_store::upgrade_v8_to_v9 (rai::transaction const & transaction_a)
 			dummy.serialize (stream);
 		}
 		auto status1 (mdb_put (env.tx (transaction_a), vote, rai::mdb_val (i->first), rai::mdb_val (vector.size (), vector.data ()), 0));
-		assert (status1 == 0);
+		release_assert (status1 == 0);
 		assert (!error);
 	}
 	mdb_drop (env.tx (transaction_a), sequence, 1);
@@ -1087,7 +1071,7 @@ void rai::mdb_store::clear (MDB_dbi db_a)
 {
 	auto transaction (tx_begin_write ());
 	auto status (mdb_drop (env.tx (transaction), db_a, 0));
-	assert (status == 0);
+	release_assert (status == 0);
 }
 
 rai::uint128_t rai::mdb_store::block_balance (rai::transaction const & transaction_a, rai::block_hash const & hash_a)
@@ -1101,7 +1085,7 @@ rai::epoch rai::mdb_store::block_version (rai::transaction const & transaction_a
 {
 	rai::mdb_val value;
 	auto status (mdb_get (env.tx (transaction_a), state_blocks_v1, rai::mdb_val (hash_a), value));
-	assert (status == 0 || status == MDB_NOTFOUND);
+	release_assert (status == 0 || status == MDB_NOTFOUND);
 	return status == 0 ? rai::epoch::epoch_1 : rai::epoch::epoch_0;
 }
 
@@ -1162,7 +1146,7 @@ MDB_dbi rai::mdb_store::block_database (rai::block_type type_a, rai::epoch epoch
 void rai::mdb_store::block_raw_put (rai::transaction const & transaction_a, MDB_dbi database_a, rai::block_hash const & hash_a, MDB_val value_a)
 {
 	auto status2 (mdb_put (env.tx (transaction_a), database_a, rai::mdb_val (hash_a), &value_a, 0));
-	assert (status2 == 0);
+	release_assert (status2 == 0);
 }
 
 void rai::mdb_store::block_put (rai::transaction const & transaction_a, rai::block_hash const & hash_a, rai::block const & block_a, rai::block_hash const & successor_a, rai::epoch epoch_a)
@@ -1184,27 +1168,27 @@ MDB_val rai::mdb_store::block_raw_get (rai::transaction const & transaction_a, r
 {
 	rai::mdb_val result;
 	auto status (mdb_get (env.tx (transaction_a), send_blocks, rai::mdb_val (hash_a), result));
-	assert (status == 0 || status == MDB_NOTFOUND);
+	release_assert (status == 0 || status == MDB_NOTFOUND);
 	if (status != 0)
 	{
 		auto status (mdb_get (env.tx (transaction_a), receive_blocks, rai::mdb_val (hash_a), result));
-		assert (status == 0 || status == MDB_NOTFOUND);
+		release_assert (status == 0 || status == MDB_NOTFOUND);
 		if (status != 0)
 		{
 			auto status (mdb_get (env.tx (transaction_a), open_blocks, rai::mdb_val (hash_a), result));
-			assert (status == 0 || status == MDB_NOTFOUND);
+			release_assert (status == 0 || status == MDB_NOTFOUND);
 			if (status != 0)
 			{
 				auto status (mdb_get (env.tx (transaction_a), change_blocks, rai::mdb_val (hash_a), result));
-				assert (status == 0 || status == MDB_NOTFOUND);
+				release_assert (status == 0 || status == MDB_NOTFOUND);
 				if (status != 0)
 				{
 					auto status (mdb_get (env.tx (transaction_a), state_blocks_v0, rai::mdb_val (hash_a), result));
-					assert (status == 0 || status == MDB_NOTFOUND);
+					release_assert (status == 0 || status == MDB_NOTFOUND);
 					if (status != 0)
 					{
 						auto status (mdb_get (env.tx (transaction_a), state_blocks_v1, rai::mdb_val (hash_a), result));
-						assert (status == 0 || status == MDB_NOTFOUND);
+						release_assert (status == 0 || status == MDB_NOTFOUND);
 						if (status != 0)
 						{
 							// Block not found
@@ -1348,27 +1332,27 @@ std::unique_ptr<rai::block> rai::mdb_store::block_get (rai::transaction const & 
 void rai::mdb_store::block_del (rai::transaction const & transaction_a, rai::block_hash const & hash_a)
 {
 	auto status (mdb_del (env.tx (transaction_a), state_blocks_v1, rai::mdb_val (hash_a), nullptr));
-	assert (status == 0 || status == MDB_NOTFOUND);
+	release_assert (status == 0 || status == MDB_NOTFOUND);
 	if (status != 0)
 	{
 		auto status (mdb_del (env.tx (transaction_a), state_blocks_v0, rai::mdb_val (hash_a), nullptr));
-		assert (status == 0 || status == MDB_NOTFOUND);
+		release_assert (status == 0 || status == MDB_NOTFOUND);
 		if (status != 0)
 		{
 			auto status (mdb_del (env.tx (transaction_a), send_blocks, rai::mdb_val (hash_a), nullptr));
-			assert (status == 0 || status == MDB_NOTFOUND);
+			release_assert (status == 0 || status == MDB_NOTFOUND);
 			if (status != 0)
 			{
 				auto status (mdb_del (env.tx (transaction_a), receive_blocks, rai::mdb_val (hash_a), nullptr));
-				assert (status == 0 || status == MDB_NOTFOUND);
+				release_assert (status == 0 || status == MDB_NOTFOUND);
 				if (status != 0)
 				{
 					auto status (mdb_del (env.tx (transaction_a), open_blocks, rai::mdb_val (hash_a), nullptr));
-					assert (status == 0 || status == MDB_NOTFOUND);
+					release_assert (status == 0 || status == MDB_NOTFOUND);
 					if (status != 0)
 					{
 						auto status (mdb_del (env.tx (transaction_a), change_blocks, rai::mdb_val (hash_a), nullptr));
-						assert (status == 0);
+						release_assert (status == 0);
 					}
 				}
 			}
@@ -1386,27 +1370,27 @@ bool rai::mdb_store::block_exists (rai::transaction const & transaction_a, rai::
 	if (!exists)
 	{
 		auto status (mdb_get (env.tx (transaction_a), receive_blocks, rai::mdb_val (hash_a), junk));
-		assert (status == 0 || status == MDB_NOTFOUND);
+		release_assert (status == 0 || status == MDB_NOTFOUND);
 		exists = status == 0;
 		if (!exists)
 		{
 			auto status (mdb_get (env.tx (transaction_a), open_blocks, rai::mdb_val (hash_a), junk));
-			assert (status == 0 || status == MDB_NOTFOUND);
+			release_assert (status == 0 || status == MDB_NOTFOUND);
 			exists = status == 0;
 			if (!exists)
 			{
 				auto status (mdb_get (env.tx (transaction_a), change_blocks, rai::mdb_val (hash_a), junk));
-				assert (status == 0 || status == MDB_NOTFOUND);
+				release_assert (status == 0 || status == MDB_NOTFOUND);
 				exists = status == 0;
 				if (!exists)
 				{
 					auto status (mdb_get (env.tx (transaction_a), state_blocks_v0, rai::mdb_val (hash_a), junk));
-					assert (status == 0 || status == MDB_NOTFOUND);
+					release_assert (status == 0 || status == MDB_NOTFOUND);
 					exists = status == 0;
 					if (!exists)
 					{
 						auto status (mdb_get (env.tx (transaction_a), state_blocks_v1, rai::mdb_val (hash_a), junk));
-						assert (status == 0 || status == MDB_NOTFOUND);
+						release_assert (status == 0 || status == MDB_NOTFOUND);
 						exists = status == 0;
 					}
 				}
@@ -1421,22 +1405,22 @@ rai::block_counts rai::mdb_store::block_count (rai::transaction const & transact
 	rai::block_counts result;
 	MDB_stat send_stats;
 	auto status1 (mdb_stat (env.tx (transaction_a), send_blocks, &send_stats));
-	assert (status1 == 0);
+	release_assert (status1 == 0);
 	MDB_stat receive_stats;
 	auto status2 (mdb_stat (env.tx (transaction_a), receive_blocks, &receive_stats));
-	assert (status2 == 0);
+	release_assert (status2 == 0);
 	MDB_stat open_stats;
 	auto status3 (mdb_stat (env.tx (transaction_a), open_blocks, &open_stats));
-	assert (status3 == 0);
+	release_assert (status3 == 0);
 	MDB_stat change_stats;
 	auto status4 (mdb_stat (env.tx (transaction_a), change_blocks, &change_stats));
-	assert (status4 == 0);
+	release_assert (status4 == 0);
 	MDB_stat state_v0_stats;
 	auto status5 (mdb_stat (env.tx (transaction_a), state_blocks_v0, &state_v0_stats));
-	assert (status5 == 0);
+	release_assert (status5 == 0);
 	MDB_stat state_v1_stats;
 	auto status6 (mdb_stat (env.tx (transaction_a), state_blocks_v1, &state_v1_stats));
-	assert (status6 == 0);
+	release_assert (status6 == 0);
 	result.send = send_stats.ms_entries;
 	result.receive = receive_stats.ms_entries;
 	result.open = open_stats.ms_entries;
@@ -1456,9 +1440,9 @@ void rai::mdb_store::account_del (rai::transaction const & transaction_a, rai::a
 	auto status1 (mdb_del (env.tx (transaction_a), accounts_v1, rai::mdb_val (account_a), nullptr));
 	if (status1 != 0)
 	{
-		assert (status1 == MDB_NOTFOUND);
+		release_assert (status1 == MDB_NOTFOUND);
 		auto status2 (mdb_del (env.tx (transaction_a), accounts_v0, rai::mdb_val (account_a), nullptr));
-		assert (status2 == 0);
+		release_assert (status2 == 0);
 	}
 }
 
@@ -1472,7 +1456,7 @@ bool rai::mdb_store::account_get (rai::transaction const & transaction_a, rai::a
 {
 	rai::mdb_val value;
 	auto status1 (mdb_get (env.tx (transaction_a), accounts_v1, rai::mdb_val (account_a), value));
-	assert (status1 == 0 || status1 == MDB_NOTFOUND);
+	release_assert (status1 == 0 || status1 == MDB_NOTFOUND);
 	bool result (false);
 	rai::epoch epoch;
 	if (status1 == 0)
@@ -1482,7 +1466,7 @@ bool rai::mdb_store::account_get (rai::transaction const & transaction_a, rai::a
 	else
 	{
 		auto status2 (mdb_get (env.tx (transaction_a), accounts_v0, rai::mdb_val (account_a), value));
-		assert (status2 == 0 || status2 == MDB_NOTFOUND);
+		release_assert (status2 == 0 || status2 == MDB_NOTFOUND);
 		if (status2 == 0)
 		{
 			epoch = rai::epoch::epoch_0;
@@ -1504,14 +1488,14 @@ bool rai::mdb_store::account_get (rai::transaction const & transaction_a, rai::a
 void rai::mdb_store::frontier_put (rai::transaction const & transaction_a, rai::block_hash const & block_a, rai::account const & account_a)
 {
 	auto status (mdb_put (env.tx (transaction_a), frontiers, rai::mdb_val (block_a), rai::mdb_val (account_a), 0));
-	assert (status == 0);
+	release_assert (status == 0);
 }
 
 rai::account rai::mdb_store::frontier_get (rai::transaction const & transaction_a, rai::block_hash const & block_a)
 {
 	rai::mdb_val value;
 	auto status (mdb_get (env.tx (transaction_a), frontiers, rai::mdb_val (block_a), value));
-	assert (status == 0 || status == MDB_NOTFOUND);
+	release_assert (status == 0 || status == MDB_NOTFOUND);
 	rai::account result (0);
 	if (status == 0)
 	{
@@ -1523,17 +1507,17 @@ rai::account rai::mdb_store::frontier_get (rai::transaction const & transaction_
 void rai::mdb_store::frontier_del (rai::transaction const & transaction_a, rai::block_hash const & block_a)
 {
 	auto status (mdb_del (env.tx (transaction_a), frontiers, rai::mdb_val (block_a), nullptr));
-	assert (status == 0);
+	release_assert (status == 0);
 }
 
 size_t rai::mdb_store::account_count (rai::transaction const & transaction_a)
 {
 	MDB_stat stats1;
 	auto status1 (mdb_stat (env.tx (transaction_a), accounts_v0, &stats1));
-	assert (status1 == 0);
+	release_assert (status1 == 0);
 	MDB_stat stats2;
 	auto status2 (mdb_stat (env.tx (transaction_a), accounts_v1, &stats2));
-	assert (status2 == 0);
+	release_assert (status2 == 0);
 	auto result (stats1.ms_entries + stats2.ms_entries);
 	return result;
 }
@@ -1554,7 +1538,7 @@ void rai::mdb_store::account_put (rai::transaction const & transaction_a, rai::a
 			break;
 	}
 	auto status (mdb_put (env.tx (transaction_a), db, rai::mdb_val (account_a), rai::mdb_val (info_a), 0));
-	assert (status == 0);
+	release_assert (status == 0);
 }
 
 void rai::mdb_store::pending_put (rai::transaction const & transaction_a, rai::pending_key const & key_a, rai::pending_info const & pending_a)
@@ -1573,7 +1557,7 @@ void rai::mdb_store::pending_put (rai::transaction const & transaction_a, rai::p
 			break;
 	}
 	auto status (mdb_put (env.tx (transaction_a), db, rai::mdb_val (key_a), rai::mdb_val (pending_a), 0));
-	assert (status == 0);
+	release_assert (status == 0);
 }
 
 void rai::mdb_store::pending_del (rai::transaction const & transaction_a, rai::pending_key const & key_a)
@@ -1581,9 +1565,9 @@ void rai::mdb_store::pending_del (rai::transaction const & transaction_a, rai::p
 	auto status1 (mdb_del (env.tx (transaction_a), pending_v1, mdb_val (key_a), nullptr));
 	if (status1 != 0)
 	{
-		assert (status1 == MDB_NOTFOUND);
+		release_assert (status1 == MDB_NOTFOUND);
 		auto status2 (mdb_del (env.tx (transaction_a), pending_v0, mdb_val (key_a), nullptr));
-		assert (status2 == 0);
+		release_assert (status2 == 0);
 	}
 }
 
@@ -1597,7 +1581,7 @@ bool rai::mdb_store::pending_get (rai::transaction const & transaction_a, rai::p
 {
 	rai::mdb_val value;
 	auto status1 (mdb_get (env.tx (transaction_a), pending_v1, mdb_val (key_a), value));
-	assert (status1 == 0 || status1 == MDB_NOTFOUND);
+	release_assert (status1 == 0 || status1 == MDB_NOTFOUND);
 	bool result (false);
 	rai::epoch epoch;
 	if (status1 == 0)
@@ -1607,7 +1591,7 @@ bool rai::mdb_store::pending_get (rai::transaction const & transaction_a, rai::p
 	else
 	{
 		auto status2 (mdb_get (env.tx (transaction_a), pending_v0, mdb_val (key_a), value));
-		assert (status2 == 0 || status2 == MDB_NOTFOUND);
+		release_assert (status2 == 0 || status2 == MDB_NOTFOUND);
 		if (status2 == 0)
 		{
 			epoch = rai::epoch::epoch_0;
@@ -1683,13 +1667,13 @@ rai::store_iterator<rai::pending_key, rai::pending_info> rai::mdb_store::pending
 void rai::mdb_store::block_info_put (rai::transaction const & transaction_a, rai::block_hash const & hash_a, rai::block_info const & block_info_a)
 {
 	auto status (mdb_put (env.tx (transaction_a), blocks_info, rai::mdb_val (hash_a), rai::mdb_val (block_info_a), 0));
-	assert (status == 0);
+	release_assert (status == 0);
 }
 
 void rai::mdb_store::block_info_del (rai::transaction const & transaction_a, rai::block_hash const & hash_a)
 {
 	auto status (mdb_del (env.tx (transaction_a), blocks_info, rai::mdb_val (hash_a), nullptr));
-	assert (status == 0);
+	release_assert (status == 0);
 }
 
 bool rai::mdb_store::block_info_exists (rai::transaction const & transaction_a, rai::block_hash const & hash_a)
@@ -1702,7 +1686,7 @@ bool rai::mdb_store::block_info_get (rai::transaction const & transaction_a, rai
 {
 	rai::mdb_val value;
 	auto status (mdb_get (env.tx (transaction_a), blocks_info, rai::mdb_val (hash_a), value));
-	assert (status == 0 || status == MDB_NOTFOUND);
+	release_assert (status == 0 || status == MDB_NOTFOUND);
 	bool result (true);
 	if (status != MDB_NOTFOUND)
 	{
@@ -1721,7 +1705,7 @@ rai::uint128_t rai::mdb_store::representation_get (rai::transaction const & tran
 {
 	rai::mdb_val value;
 	auto status (mdb_get (env.tx (transaction_a), representation, rai::mdb_val (account_a), value));
-	assert (status == 0 || status == MDB_NOTFOUND);
+	release_assert (status == 0 || status == MDB_NOTFOUND);
 	rai::uint128_t result = 0;
 	if (status == 0)
 	{
@@ -1738,13 +1722,13 @@ void rai::mdb_store::representation_put (rai::transaction const & transaction_a,
 {
 	rai::uint128_union rep (representation_a);
 	auto status (mdb_put (env.tx (transaction_a), representation, rai::mdb_val (account_a), rai::mdb_val (rep), 0));
-	assert (status == 0);
+	release_assert (status == 0);
 }
 
 void rai::mdb_store::unchecked_clear (rai::transaction const & transaction_a)
 {
 	auto status (mdb_drop (env.tx (transaction_a), unchecked, 0));
-	assert (status == 0);
+	release_assert (status == 0);
 }
 
 void rai::mdb_store::unchecked_put (rai::transaction const & transaction_a, rai::block_hash const & hash_a, std::shared_ptr<rai::block> const & block_a)
@@ -1763,8 +1747,9 @@ void rai::mdb_store::unchecked_put (rai::transaction const & transaction_a, rai:
 	// Inserting block if it wasn't found in database
 	if (!exists)
 	{
-		std::lock_guard<std::mutex> lock (cache_mutex);
-		unchecked_cache.insert (std::make_pair (hash_a, block_a));
+		mdb_val block (block_a);
+		auto status (mdb_put (env.tx (transaction_a), unchecked, rai::mdb_val (hash_a), block, 0));
+		release_assert (status == 0);
 	}
 }
 
@@ -1773,7 +1758,7 @@ std::shared_ptr<rai::vote> rai::mdb_store::vote_get (rai::transaction const & tr
 	std::shared_ptr<rai::vote> result;
 	rai::mdb_val value;
 	auto status (mdb_get (env.tx (transaction_a), vote, rai::mdb_val (account_a), value));
-	assert (status == 0 || status == MDB_NOTFOUND);
+	release_assert (status == 0 || status == MDB_NOTFOUND);
 	if (status == 0)
 	{
 		std::shared_ptr<rai::vote> result (value);
@@ -1786,15 +1771,9 @@ std::shared_ptr<rai::vote> rai::mdb_store::vote_get (rai::transaction const & tr
 std::vector<std::shared_ptr<rai::block>> rai::mdb_store::unchecked_get (rai::transaction const & transaction_a, rai::block_hash const & hash_a)
 {
 	std::vector<std::shared_ptr<rai::block>> result;
+	for (auto i (unchecked_begin (transaction_a, hash_a)), n (unchecked_begin (transaction_a, hash_a.number () + 1)); i != n; ++i)
 	{
-		std::lock_guard<std::mutex> lock (cache_mutex);
-		for (auto i (unchecked_cache.find (hash_a)), n (unchecked_cache.end ()); i != n && i->first == hash_a; ++i)
-		{
-			result.push_back (i->second);
-		}
-	}
-	for (auto i (unchecked_begin (transaction_a, hash_a)), n (unchecked_end ()); i != n && rai::block_hash (i->first) == hash_a; i.next_dup ())
-	{
+		assert (rai::block_hash (i->first) == hash_a);
 		std::shared_ptr<rai::block> block (i->second);
 		result.push_back (block);
 	}
@@ -1803,30 +1782,16 @@ std::vector<std::shared_ptr<rai::block>> rai::mdb_store::unchecked_get (rai::tra
 
 void rai::mdb_store::unchecked_del (rai::transaction const & transaction_a, rai::block_hash const & hash_a, std::shared_ptr<rai::block> block_a)
 {
-	{
-		std::lock_guard<std::mutex> lock (cache_mutex);
-		for (auto i (unchecked_cache.find (hash_a)), n (unchecked_cache.end ()); i != n && i->first == hash_a;)
-		{
-			if (*i->second == *block_a)
-			{
-				i = unchecked_cache.erase (i);
-			}
-			else
-			{
-				++i;
-			}
-		}
-	}
 	rai::mdb_val block (block_a);
 	auto status (mdb_del (env.tx (transaction_a), unchecked, rai::mdb_val (hash_a), block));
-	assert (status == 0 || status == MDB_NOTFOUND);
+	release_assert (status == 0 || status == MDB_NOTFOUND);
 }
 
 size_t rai::mdb_store::unchecked_count (rai::transaction const & transaction_a)
 {
 	MDB_stat unchecked_stats;
 	auto status (mdb_stat (env.tx (transaction_a), unchecked, &unchecked_stats));
-	assert (status == 0);
+	release_assert (status == 0);
 	auto result (unchecked_stats.ms_entries);
 	return result;
 }
@@ -1836,7 +1801,7 @@ void rai::mdb_store::checksum_put (rai::transaction const & transaction_a, uint6
 	assert ((prefix & 0xff) == 0);
 	uint64_t key (prefix | mask);
 	auto status (mdb_put (env.tx (transaction_a), checksum, rai::mdb_val (sizeof (key), &key), rai::mdb_val (hash_a), 0));
-	assert (status == 0);
+	release_assert (status == 0);
 }
 
 bool rai::mdb_store::checksum_get (rai::transaction const & transaction_a, uint64_t prefix, uint8_t mask, rai::uint256_union & hash_a)
@@ -1845,7 +1810,7 @@ bool rai::mdb_store::checksum_get (rai::transaction const & transaction_a, uint6
 	uint64_t key (prefix | mask);
 	rai::mdb_val value;
 	auto status (mdb_get (env.tx (transaction_a), checksum, rai::mdb_val (sizeof (key), &key), value));
-	assert (status == 0 || status == MDB_NOTFOUND);
+	release_assert (status == 0 || status == MDB_NOTFOUND);
 	bool result (true);
 	if (status == 0)
 	{
@@ -1862,23 +1827,15 @@ void rai::mdb_store::checksum_del (rai::transaction const & transaction_a, uint6
 	assert ((prefix & 0xff) == 0);
 	uint64_t key (prefix | mask);
 	auto status (mdb_del (env.tx (transaction_a), checksum, rai::mdb_val (sizeof (key), &key), nullptr));
-	assert (status == 0);
+	release_assert (status == 0);
 }
 
 void rai::mdb_store::flush (rai::transaction const & transaction_a)
 {
 	std::unordered_map<rai::account, std::shared_ptr<rai::vote>> sequence_cache_l;
-	std::unordered_multimap<rai::block_hash, std::shared_ptr<rai::block>> unchecked_cache_l;
 	{
 		std::lock_guard<std::mutex> lock (cache_mutex);
 		sequence_cache_l.swap (vote_cache);
-		unchecked_cache_l.swap (unchecked_cache);
-	}
-	for (auto & i : unchecked_cache_l)
-	{
-		mdb_val block (i.second);
-		auto status (mdb_put (env.tx (transaction_a), unchecked, rai::mdb_val (i.first), block, 0));
-		assert (status == 0);
 	}
 	for (auto i (sequence_cache_l.begin ()), n (sequence_cache_l.end ()); i != n; ++i)
 	{
@@ -1888,7 +1845,7 @@ void rai::mdb_store::flush (rai::transaction const & transaction_a)
 			i->second->serialize (stream);
 		}
 		auto status1 (mdb_put (env.tx (transaction_a), vote, rai::mdb_val (i->first), rai::mdb_val (vector.size (), vector.data ()), 0));
-		assert (status1 == 0);
+		release_assert (status1 == 0);
 	}
 }
 std::shared_ptr<rai::vote> rai::mdb_store::vote_current (rai::transaction const & transaction_a, rai::account const & account_a)

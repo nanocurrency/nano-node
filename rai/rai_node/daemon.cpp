@@ -1,3 +1,4 @@
+#include <rai/lib/utility.hpp>
 #include <rai/rai_node/daemon.hpp>
 
 #include <boost/property_tree/json_parser.hpp>
@@ -95,13 +96,15 @@ bool rai_daemon::daemon_config::upgrade_json (unsigned version_a, boost::propert
 
 void rai_daemon::daemon::run (boost::filesystem::path const & data_path, bool backup_enable)
 {
+	boost::system::error_code error_chmod;
 	boost::filesystem::create_directories (data_path);
-	boost::filesystem::permissions (data_path, boost::filesystem::owner_all);
+	rai::set_secure_perm_directory (data_path, error_chmod);
 	rai_daemon::daemon_config config (data_path);
 	auto config_path ((data_path / "config.json"));
 	std::fstream config_file;
 	std::unique_ptr<rai::thread_runner> runner;
 	auto error (rai::fetch_object (config, config_path, config_file));
+	rai::set_secure_perm_file (config_path, error_chmod);
 	if (!error)
 	{
 		config.node.logging.init (data_path);
