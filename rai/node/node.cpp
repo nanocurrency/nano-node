@@ -19,6 +19,7 @@ std::chrono::seconds constexpr rai::node::period;
 std::chrono::seconds constexpr rai::node::cutoff;
 std::chrono::seconds constexpr rai::node::syn_cookie_cutoff;
 std::chrono::minutes constexpr rai::node::backup_interval;
+std::chrono::seconds constexpr rai::node::search_pending_interval;
 int constexpr rai::port_mapping::mapping_timeout;
 int constexpr rai::port_mapping::check_timeout;
 unsigned constexpr rai::active_transactions::announce_interval_ms;
@@ -2193,6 +2194,7 @@ void rai::node::start ()
 	ongoing_rep_crawl ();
 	bootstrap.start ();
 	backup_wallet ();
+	search_pending ();
 	online_reps.recalculate_stake ();
 	port_mapping.start ();
 	add_initial_peers ();
@@ -2367,6 +2369,15 @@ void rai::node::backup_wallet ()
 	auto this_l (shared ());
 	alarm.add (std::chrono::steady_clock::now () + backup_interval, [this_l]() {
 		this_l->backup_wallet ();
+	});
+}
+
+void rai::node::search_pending ()
+{
+	wallets.search_pending_all ();
+	auto this_l (shared ());
+	alarm.add (std::chrono::steady_clock::now () + search_pending_interval, [this_l]() {
+		this_l->search_pending ();
 	});
 }
 

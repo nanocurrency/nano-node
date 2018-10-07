@@ -588,6 +588,7 @@ public:
 	void ongoing_bootstrap ();
 	void ongoing_store_flush ();
 	void backup_wallet ();
+	void search_pending ();
 	int price (rai::uint128_t const &, int);
 	void work_generate_blocking (rai::block &);
 	uint64_t work_generate_blocking (rai::uint256_union const &);
@@ -630,6 +631,7 @@ public:
 	static std::chrono::seconds constexpr cutoff = period * 5;
 	static std::chrono::seconds constexpr syn_cookie_cutoff = std::chrono::seconds (5);
 	static std::chrono::minutes constexpr backup_interval = std::chrono::minutes (5);
+	static std::chrono::seconds constexpr search_pending_interval = (rai::rai_network == rai::rai_networks::rai_test_network) ? std::chrono::seconds (1) : std::chrono::seconds (5 * 60);
 };
 class thread_runner
 {
