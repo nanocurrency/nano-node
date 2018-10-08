@@ -383,6 +383,23 @@ rai::bulk_pull_client::bulk_pull_client (std::shared_ptr<rai::bootstrap_client> 
 connection (connection_a),
 pull (pull_a)
 {
+	auto this_l (shared_from_this ());
+	receive_block_completion = [this_l](boost::system::error_code const & ec, size_t size_a) {
+		if (!ec)
+		{
+			this_l->received_type ();
+		}
+		else
+		{
+			if (this_l->connection->node->config.logging.bulk_pull_logging ())
+			{
+				BOOST_LOG (this_l->connection->node->log) << boost::str (boost::format ("Error receiving block type: %1%") % ec.message ());
+			}
+		}
+	};
+	receive_type_send_completion = [this_l](boost::system::error_code const & ec, size_t size_a) {
+		this_l->received_block (ec, size_a, rai::block_type::send);
+	}
 	std::lock_guard<std::mutex> mutex (connection->attempt->mutex);
 	++connection->attempt->pulling;
 	connection->attempt->condition.notify_all ();
@@ -444,20 +461,7 @@ void rai::bulk_pull_client::request ()
 
 void rai::bulk_pull_client::receive_block ()
 {
-	auto this_l (shared_from_this ());
-	connection->socket->async_read (connection->receive_buffer, 1, [this_l](boost::system::error_code const & ec, size_t size_a) {
-		if (!ec)
-		{
-			this_l->received_type ();
-		}
-		else
-		{
-			if (this_l->connection->node->config.logging.bulk_pull_logging ())
-			{
-				BOOST_LOG (this_l->connection->node->log) << boost::str (boost::format ("Error receiving block type: %1%") % ec.message ());
-			}
-		}
-	});
+	connection->socket->async_read (connection->receive_buffer, 1, receive_block_completion);
 }
 
 void rai::bulk_pull_client::received_type ()
@@ -468,9 +472,7 @@ void rai::bulk_pull_client::received_type ()
 	{
 		case rai::block_type::send:
 		{
-			connection->socket->async_read (connection->receive_buffer, rai::send_block::size, [this_l, type](boost::system::error_code const & ec, size_t size_a) {
-				this_l->received_block (ec, size_a, type);
-			});
+			connection->socket->async_read (connection->receive_buffer, rai::send_block::size, receive_type_send_completion);
 			break;
 		}
 		case rai::block_type::receive:

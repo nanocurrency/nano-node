@@ -134,6 +134,8 @@ public:
 	std::shared_ptr<rai::bootstrap_client> connection;
 	rai::block_hash expected;
 	rai::pull_info pull;
+	std::function<void(boost::system::error_code const &, size_t)> receive_block_completion;
+	std::function<void(boost::system::error_code const &, size_t)> receive_type_send_completion;
 };
 class bootstrap_client : public std::enable_shared_from_this<bootstrap_client>
 {
