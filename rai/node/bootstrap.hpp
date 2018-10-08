@@ -27,9 +27,40 @@ class socket : public std::enable_shared_from_this<rai::socket>
 {
 public:
 	socket (std::shared_ptr<rai::node>);
-	void async_connect (rai::tcp_endpoint const &, std::function<void(boost::system::error_code const &)>);
-	void async_read (std::shared_ptr<std::vector<uint8_t>>, size_t, std::function<void(boost::system::error_code const &, size_t)>);
-	void async_write (std::shared_ptr<std::vector<uint8_t>>, std::function<void(boost::system::error_code const &, size_t)>);
+	// F should be a function with signature void(boost::system::error_code const &)
+	template <typename F>
+	void async_connect (rai::tcp_endpoint const & endpoint_a, F callback_a)
+	{
+		auto this_l (shared_from_this ());
+		start ();
+		socket_m.async_connect (endpoint_a, [this_l, callback_a](boost::system::error_code const & ec) {
+			this_l->stop ();
+			callback_a (ec);
+		});
+	}
+	// F should be a function with signature void(boost::system::error_code const &, size_t)
+	template <typename F>
+	void async_read (std::shared_ptr<std::vector<uint8_t>> buffer_a, size_t size_a, F callback_a)
+	{
+		assert (size_a <= buffer_a->size ());
+		auto this_l (shared_from_this ());
+		start ();
+		boost::asio::async_read (socket_m, boost::asio::buffer (buffer_a->data (), size_a), [this_l, callback_a](boost::system::error_code const & ec, size_t size_a) {
+			this_l->stop ();
+			callback_a (ec, size_a);
+		});
+	}
+	// F should be a function with signature void(boost::system::error_code const &, size_t)
+	template <typename F>
+	void async_write (std::shared_ptr<std::vector<uint8_t>> buffer_a, F callback_a)
+	{
+		auto this_l (shared_from_this ());
+		start ();
+		boost::asio::async_write (socket_m, boost::asio::buffer (buffer_a->data (), buffer_a->size ()), [this_l, callback_a, buffer_a](boost::system::error_code const & ec, size_t size_a) {
+			this_l->stop ();
+			callback_a (ec, size_a);
+		});
+	}
 	void start (std::chrono::steady_clock::time_point = std::chrono::steady_clock::now () + std::chrono::seconds (5));
 	void stop ();
 	void close ();
