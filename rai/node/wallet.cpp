@@ -1377,31 +1377,34 @@ void rai::wallets::queue_wallet_action (rai::uint128_t const & amount_a, std::fu
 
 void rai::wallets::foreach_representative (rai::transaction const & transaction_a, std::function<void(rai::public_key const & pub_a, rai::raw_key const & prv_a)> const & action_a)
 {
-	for (auto i (items.begin ()), n (items.end ()); i != n; ++i)
+	if (node.config.enable_voting)
 	{
-		auto & wallet (*i->second);
-		std::lock_guard <std::mutex> lock (wallet.representatives_mutex);
-		for (auto ii (wallet.representatives.begin ()), nn (wallet.representatives.end ()); ii != nn; ++ii)
+		for (auto i (items.begin ()), n (items.end ()); i != n; ++i)
 		{
-			rai::account account (*ii);
-			if (wallet.store.exists (transaction_a, account))
+			auto & wallet (*i->second);
+			std::lock_guard <std::mutex> lock (wallet.representatives_mutex);
+			for (auto ii (wallet.representatives.begin ()), nn (wallet.representatives.end ()); ii != nn; ++ii)
 			{
-				if (!node.ledger.weight (transaction_a, account).is_zero ())
+				rai::account account (*ii);
+				if (wallet.store.exists (transaction_a, account))
 				{
-					if (wallet.store.valid_password (transaction_a))
+					if (!node.ledger.weight (transaction_a, account).is_zero ())
 					{
-						rai::raw_key prv;
-						auto error (wallet.store.fetch (transaction_a, account, prv));
-						assert (!error);
-						action_a (account, prv);
-					}
-					else
-					{
-						static auto last_log = std::chrono::steady_clock::time_point ();
-						if (last_log < std::chrono::steady_clock::now () - std::chrono::seconds (60))
+						if (wallet.store.valid_password (transaction_a))
 						{
-							last_log = std::chrono::steady_clock::now ();
-							BOOST_LOG (node.log) << boost::str (boost::format ("Representative locked inside wallet %1%") % i->first.to_string ());
+							rai::raw_key prv;
+							auto error (wallet.store.fetch (transaction_a, account, prv));
+							assert (!error);
+							action_a (account, prv);
+						}
+						else
+						{
+							static auto last_log = std::chrono::steady_clock::time_point ();
+							if (last_log < std::chrono::steady_clock::now () - std::chrono::seconds (60))
+							{
+								last_log = std::chrono::steady_clock::now ();
+								BOOST_LOG (node.log) << boost::str (boost::format ("Representative locked inside wallet %1%") % i->first.to_string ());
+							}
 						}
 					}
 				}

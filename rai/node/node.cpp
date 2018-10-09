@@ -241,23 +241,20 @@ template <typename T>
 bool confirm_block (rai::transaction const & transaction_a, rai::node & node_a, T & list_a, std::shared_ptr<rai::block> block_a)
 {
 	bool result (false);
-	if (node_a.config.enable_voting)
-	{
-		node_a.wallets.foreach_representative (transaction_a, [&result, &block_a, &list_a, &node_a, &transaction_a](rai::public_key const & pub_a, rai::raw_key const & prv_a) {
-			result = true;
-			auto vote (node_a.store.vote_generate (transaction_a, pub_a, prv_a, block_a));
-			rai::confirm_ack confirm (vote);
-			std::shared_ptr<std::vector<uint8_t>> bytes (new std::vector<uint8_t>);
-			{
-				rai::vectorstream stream (*bytes);
-				confirm.serialize (stream);
-			}
-			for (auto j (list_a.begin ()), m (list_a.end ()); j != m; ++j)
-			{
-				node_a.network.confirm_send (confirm, bytes, *j);
-			}
-		});
-	}
+	node_a.wallets.foreach_representative (transaction_a, [&result, &block_a, &list_a, &node_a, &transaction_a](rai::public_key const & pub_a, rai::raw_key const & prv_a) {
+		result = true;
+		auto vote (node_a.store.vote_generate (transaction_a, pub_a, prv_a, block_a));
+		rai::confirm_ack confirm (vote);
+		std::shared_ptr<std::vector<uint8_t>> bytes (new std::vector<uint8_t>);
+		{
+			rai::vectorstream stream (*bytes);
+			confirm.serialize (stream);
+		}
+		for (auto j (list_a.begin ()), m (list_a.end ()); j != m; ++j)
+		{
+			node_a.network.confirm_send (confirm, bytes, *j);
+		}
+	});
 	return result;
 }
 
@@ -3459,13 +3456,10 @@ aborted (false)
 
 void rai::election::compute_rep_votes (rai::transaction const & transaction_a)
 {
-	if (node.config.enable_voting)
-	{
-		node.wallets.foreach_representative (transaction_a, [this, &transaction_a](rai::public_key const & pub_a, rai::raw_key const & prv_a) {
-			auto vote (this->node.store.vote_generate (transaction_a, pub_a, prv_a, status.winner));
-			this->node.vote_processor.vote (vote, this->node.network.endpoint ());
-		});
-	}
+	node.wallets.foreach_representative (transaction_a, [this, &transaction_a](rai::public_key const & pub_a, rai::raw_key const & prv_a) {
+		auto vote (this->node.store.vote_generate (transaction_a, pub_a, prv_a, status.winner));
+		this->node.vote_processor.vote (vote, this->node.network.endpoint ());
+	});
 }
 
 void rai::election::confirm_once (rai::transaction const & transaction_a)
@@ -3762,17 +3756,14 @@ void rai::active_transactions::announce_votes ()
 				if (node.ledger.could_fit (transaction, *election_l->status.winner))
 				{
 					rebroadcast_bundle.push_back (election_l->status.winner);
-					if (node.config.enable_voting)
+					blocks_bundle.push_back (election_l->status.winner->hash ());
+					if (blocks_bundle.size () >= 12)
 					{
-						blocks_bundle.push_back (election_l->status.winner->hash ());
-						if (blocks_bundle.size () >= 12)
-						{
-							node.wallets.foreach_representative (transaction, [&](rai::public_key const & pub_a, rai::raw_key const & prv_a) {
-								auto vote (this->node.store.vote_generate (transaction, pub_a, prv_a, blocks_bundle));
-								this->node.vote_processor.vote (vote, this->node.network.endpoint ());
-							});
-							blocks_bundle.clear ();
-						}
+						node.wallets.foreach_representative (transaction, [&](rai::public_key const & pub_a, rai::raw_key const & prv_a) {
+							auto vote (this->node.store.vote_generate (transaction, pub_a, prv_a, blocks_bundle));
+							this->node.vote_processor.vote (vote, this->node.network.endpoint ());
+						});
+						blocks_bundle.clear ();
 					}
 				}
 				else
@@ -3833,7 +3824,7 @@ void rai::active_transactions::announce_votes ()
 		node.network.republish_block_batch (rebroadcast_bundle);
 	}
 	// Request votes for unconfirmed blocks
-	if (node.config.enable_voting && !blocks_bundle.empty ())
+	if (!blocks_bundle.empty ())
 	{
 		node.wallets.foreach_representative (transaction, [&](rai::public_key const & pub_a, rai::raw_key const & prv_a) {
 			auto vote (this->node.store.vote_generate (transaction, pub_a, prv_a, blocks_bundle));
