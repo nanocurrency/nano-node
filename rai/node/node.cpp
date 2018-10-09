@@ -3674,22 +3674,28 @@ void rai::active_transactions::announce_votes ()
 				if there are less than 100 active elections */
 				if (i->announcements % announcement_long == 1 && roots.size () < 100)
 				{
+					std::unique_ptr<rai::block> previous (nullptr);
 					auto previous_hash (election_l->status.winner->previous ());
 					if (!previous_hash.is_zero ())
 					{
-						auto previous (node.store.block_get (transaction, previous_hash));
+						previous = node.store.block_get (transaction, previous_hash);
 						if (previous != nullptr)
 						{
 							add (std::make_pair (std::move (previous), nullptr));
 						}
 					}
-					auto source_hash (node.ledger.block_source (transaction, *election_l->status.winner));
-					if (!source_hash.is_zero ())
+					/* If previous block not existing/not commited yet, block_source can cause segfault for state blocks
+					So source check can be done only if previous != nullptr or previous is 0 (open account) */
+					if (previous_hash.is_zero () || previous != nullptr)
 					{
-						auto source (node.store.block_get (transaction, source_hash));
-						if (source != nullptr)
+						auto source_hash (node.ledger.block_source (transaction, *election_l->status.winner));
+						if (!source_hash.is_zero ())
 						{
-							add (std::make_pair (std::move (source), nullptr));
+							auto source (node.store.block_get (transaction, source_hash));
+							if (source != nullptr)
+							{
+								add (std::make_pair (std::move (source), nullptr));
+							}
 						}
 					}
 				}
