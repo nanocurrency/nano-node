@@ -1468,7 +1468,7 @@ void rai::wallets::compute_reps ()
 		for (auto ii (wallet.store.begin (transaction)), nn (wallet.store.end ()); ii != nn; ++ii)
 		{
 			auto account (ii->first);
-			if (!node.ledger.weight (ledger_transaction, account).is_zero ())
+			if (node.ledger.weight (ledger_transaction, account) >= node.config.vote_minimum)
 			{
 				representatives_l.insert (account);
 			}

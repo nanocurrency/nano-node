@@ -788,7 +788,8 @@ bootstrap_connections (4),
 bootstrap_connections_max (64),
 callback_port (0),
 lmdb_max_dbs (128),
-block_processor_batch_max_time (std::chrono::milliseconds (5000))
+block_processor_batch_max_time (std::chrono::milliseconds (5000)),
+vote_minimum (rai::Gxrb_ratio)
 {
 	const char * epoch_message ("epoch v1 block");
 	strncpy ((char *)epoch_block_link.bytes.data (), epoch_message, epoch_block_link.bytes.size ());
@@ -869,6 +870,7 @@ void rai::node_config::serialize_json (boost::property_tree::ptree & tree_a) con
 	tree_a.put ("callback_target", callback_target);
 	tree_a.put ("lmdb_max_dbs", lmdb_max_dbs);
 	tree_a.put ("block_processor_batch_max_time", block_processor_batch_max_time.count ());
+	tree_a.put ("vote_minimum", vote_minimum.to_string_dec ());
 }
 
 bool rai::node_config::upgrade_json (unsigned version, boost::property_tree::ptree & tree_a)
@@ -978,6 +980,7 @@ bool rai::node_config::upgrade_json (unsigned version, boost::property_tree::ptr
 		case 14:
 			tree_a.erase ("generate_hash_votes_at");
 			tree_a.put ("block_processor_batch_max_time", block_processor_batch_max_time.count ());
+			tree_a.put ("vote_minimum", vote_minimum.to_string_dec ());
 			tree_a.erase ("version");
 			tree_a.put ("version", "15");
 			result = true;
@@ -1068,6 +1071,7 @@ bool rai::node_config::deserialize_json (bool & upgraded_a, boost::property_tree
 		auto lmdb_max_dbs_l = tree_a.get<std::string> ("lmdb_max_dbs");
 		result |= parse_port (callback_port_l, callback_port);
 		auto block_processor_batch_max_time_l = tree_a.get<std::string> ("block_processor_batch_max_time");
+		auto vote_minimum_l (tree_a.get<std::string> ("vote_minimum"));
 		try
 		{
 			peering_port = std::stoul (peering_port_l);
@@ -1083,6 +1087,7 @@ bool rai::node_config::deserialize_json (bool & upgraded_a, boost::property_tree
 			result |= peering_port > std::numeric_limits<uint16_t>::max ();
 			result |= logging.deserialize_json (upgraded_a, logging_l);
 			result |= receive_minimum.decode_dec (receive_minimum_l);
+			result |= vote_minimum.decode_dec (vote_minimum_l);
 			result |= online_weight_minimum.decode_dec (online_weight_minimum_l);
 			result |= online_weight_quorum > 100;
 			result |= password_fanout < 16;

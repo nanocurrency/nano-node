@@ -461,6 +461,7 @@ public:
 	std::vector<rai::account> preconfigured_representatives;
 	unsigned bootstrap_fraction_numerator;
 	rai::amount receive_minimum;
+	rai::amount vote_minimum;
 	rai::amount online_weight_minimum;
 	unsigned online_weight_quorum;
 	unsigned password_fanout;
