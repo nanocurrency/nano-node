@@ -51,8 +51,24 @@ on (true)
 			{
 				process_packets ();
 			}
+			catch (boost::system::error_code & ec)
+			{
+				BOOST_LOG (this->node.log) << FATAL_LOG_PREFIX << ec.message ();
+				release_assert (false);
+			}
+			catch (std::error_code & ec)
+			{
+				BOOST_LOG (this->node.log) << FATAL_LOG_PREFIX << ec.message ();
+				release_assert (false);
+			}
+			catch (std::runtime_error & err)
+			{
+				BOOST_LOG (this->node.log) << FATAL_LOG_PREFIX << err.what ();
+				release_assert (false);
+			}
 			catch (...)
 			{
+				BOOST_LOG (this->node.log) << FATAL_LOG_PREFIX << "Unknown exception";
 				release_assert (false);
 			}
 			if (this->node.config.logging.network_packet_logging ())
