@@ -43,7 +43,7 @@ resolver (node_a.service),
 node (node_a),
 on (true)
 {
-	for (size_t i = 0; i < node.config.io_threads; ++i)
+	for (size_t i = 0; i < node.config.network_threads; ++i)
 	{
 		packet_processing_threads.push_back (std::thread ([this]() {
 			rai::thread_role::set (rai::thread_role::name::packet_processing);
@@ -785,6 +785,7 @@ online_weight_minimum (60000 * rai::Gxrb_ratio),
 online_weight_quorum (50),
 password_fanout (1024),
 io_threads (std::max<unsigned> (4, std::thread::hardware_concurrency ())),
+network_threads (std::max<unsigned> (4, std::thread::hardware_concurrency ())),
 work_threads (std::max<unsigned> (4, std::thread::hardware_concurrency ())),
 enable_voting (true),
 bootstrap_connections (4),
@@ -863,6 +864,7 @@ void rai::node_config::serialize_json (boost::property_tree::ptree & tree_a) con
 	tree_a.put ("online_weight_quorum", std::to_string (online_weight_quorum));
 	tree_a.put ("password_fanout", std::to_string (password_fanout));
 	tree_a.put ("io_threads", std::to_string (io_threads));
+	tree_a.put ("network_threads", std::to_string (network_threads));
 	tree_a.put ("work_threads", std::to_string (work_threads));
 	tree_a.put ("enable_voting", enable_voting);
 	tree_a.put ("bootstrap_connections", bootstrap_connections);
@@ -979,6 +981,7 @@ bool rai::node_config::upgrade_json (unsigned version, boost::property_tree::ptr
 			tree_a.put ("version", "14");
 			result = true;
 		case 14:
+			tree_a.put ("network_threads", std::to_string (network_threads));
 			tree_a.erase ("generate_hash_votes_at");
 			tree_a.put ("block_processor_batch_max_time", block_processor_batch_max_time.count ());
 			tree_a.erase ("version");
@@ -1077,6 +1080,7 @@ bool rai::node_config::deserialize_json (bool & upgraded_a, boost::property_tree
 			bootstrap_fraction_numerator = std::stoul (bootstrap_fraction_numerator_l);
 			password_fanout = std::stoul (password_fanout_l);
 			io_threads = std::stoul (io_threads_l);
+			network_threads = tree_a.get<unsigned> ("network_threads", network_threads);
 			work_threads = std::stoul (work_threads_l);
 			bootstrap_connections = std::stoul (bootstrap_connections_l);
 			bootstrap_connections_max = std::stoul (bootstrap_connections_max_l);

@@ -465,6 +465,7 @@ public:
 	unsigned online_weight_quorum;
 	unsigned password_fanout;
 	unsigned io_threads;
+	unsigned network_threads;
 	unsigned work_threads;
 	bool enable_voting;
 	unsigned bootstrap_connections;
