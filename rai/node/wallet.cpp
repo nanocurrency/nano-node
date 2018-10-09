@@ -1275,6 +1275,10 @@ thread ([this]() {
 	{
 		i->second->enter_initial_password ();
 	}
+	if (node_a.config.enable_voting)
+	{
+		ongoing_compute_reps ();
+	}
 }
 
 rai::wallets::~wallets ()
@@ -1376,25 +1380,29 @@ void rai::wallets::foreach_representative (rai::transaction const & transaction_
 	for (auto i (items.begin ()), n (items.end ()); i != n; ++i)
 	{
 		auto & wallet (*i->second);
-		for (auto j (wallet.store.begin (transaction_a)), m (wallet.store.end ()); j != m; ++j)
+		std::lock_guard <std::mutex> lock (wallet.representatives_mutex);
+		for (auto ii (wallet.representatives.begin ()), nn (wallet.representatives.end ()); ii != nn; ++ii)
 		{
-			rai::account account (j->first);
-			if (!node.ledger.weight (transaction_a, account).is_zero ())
+			rai::account account (*ii);
+			if (wallet.store.exists (transaction_a, account))
 			{
-				if (wallet.store.valid_password (transaction_a))
+				if (!node.ledger.weight (transaction_a, account).is_zero ())
 				{
-					rai::raw_key prv;
-					auto error (wallet.store.fetch (transaction_a, rai::uint256_union (j->first), prv));
-					assert (!error);
-					action_a (rai::uint256_union (j->first), prv);
-				}
-				else
-				{
-					static auto last_log = std::chrono::steady_clock::time_point ();
-					if (last_log < std::chrono::steady_clock::now () - std::chrono::seconds (60))
+					if (wallet.store.valid_password (transaction_a))
 					{
-						last_log = std::chrono::steady_clock::now ();
-						BOOST_LOG (node.log) << boost::str (boost::format ("Representative locked inside wallet %1%") % i->first.to_string ());
+						rai::raw_key prv;
+						auto error (wallet.store.fetch (transaction_a, account, prv));
+						assert (!error);
+						action_a (account, prv);
+					}
+					else
+					{
+						static auto last_log = std::chrono::steady_clock::time_point ();
+						if (last_log < std::chrono::steady_clock::now () - std::chrono::seconds (60))
+						{
+							last_log = std::chrono::steady_clock::now ();
+							BOOST_LOG (node.log) << boost::str (boost::format ("Representative locked inside wallet %1%") % i->first.to_string ());
+						}
 					}
 				}
 			}
@@ -1444,6 +1452,38 @@ void rai::wallets::clear_send_ids (rai::transaction const & transaction_a)
 {
 	auto status (mdb_drop (env.tx (transaction_a), send_action_ids, 0));
 	assert (status == 0);
+}
+
+void rai::wallets::compute_reps ()
+{
+	auto ledger_transaction (node.store.tx_begin_read());
+	auto transaction (tx_begin_read ());
+	for (auto i (items.begin ()), n (items.end ()); i != n; ++i)
+	{
+		auto & wallet (*i->second);
+		decltype (wallet.representatives) representatives_l;
+		for (auto ii (wallet.store.begin (transaction)), nn (wallet.store.end ()); ii != nn; ++ii)
+		{
+			auto account (ii->first);
+			if (!node.ledger.weight (ledger_transaction, account).is_zero ())
+			{
+				representatives_l.insert (account);
+			}
+		}
+		std::lock_guard <std::mutex> lock (wallet.representatives_mutex);
+		wallet.representatives.swap (representatives_l);
+	}
+}
+
+void rai::wallets::ongoing_compute_reps ()
+{
+	compute_reps ();
+	auto & node_l (node);
+	auto compute_delay (rai::rai_network == rai::rai_networks::rai_test_network ? std::chrono::milliseconds (10) : std::chrono::milliseconds (15 * 60 * 1000)); // Representation drifts quickly on the test network but very slowly on the live network
+	node.alarm.add (std::chrono::steady_clock::now () + compute_delay, [&node_l] ()
+	{
+		node_l.wallets.ongoing_compute_reps ();
+	});
 }
 
 rai::uint128_t const rai::wallets::generate_priority = std::numeric_limits<rai::uint128_t>::max ();

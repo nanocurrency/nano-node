@@ -153,6 +153,8 @@ public:
 	std::function<void(bool, bool)> lock_observer;
 	rai::wallet_store store;
 	rai::wallets & wallets;
+	std::mutex representatives_mutex;
+	std::unordered_set <rai::account> representatives;
 };
 class node;
 
@@ -176,6 +178,8 @@ public:
 	bool exists (rai::transaction const &, rai::public_key const &);
 	void stop ();
 	void clear_send_ids (rai::transaction const &);
+	void ongoing_compute_reps ();
+	void compute_reps ();
 	std::function<void(bool)> observer;
 	std::unordered_map<rai::uint256_union, std::shared_ptr<rai::wallet>> items;
 	std::multimap<rai::uint128_t, std::function<void()>, std::greater<rai::uint128_t>> actions;
