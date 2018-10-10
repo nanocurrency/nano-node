@@ -1164,7 +1164,7 @@ bool rai::wallet::search_pending ()
 			// Don't search pending for watch-only accounts
 			if (!rai::wallet_value (i->second).key.is_zero ())
 			{
-				for (auto j (wallets.node.store.pending_begin (transaction, rai::pending_key (account, 0))), m (wallets.node.store.pending_begin (transaction, rai::pending_key (account.number () + 1, 0))); j != m; ++j)
+				for (auto j (wallets.node.store.pending_begin (transaction, rai::pending_key (account, 0))); rai::pending_key (j->first).account == account; ++j)
 				{
 					rai::pending_key key (j->first);
 					auto hash (key.hash);
@@ -1218,8 +1218,7 @@ rai::public_key rai::wallet::change_seed (MDB_txn * transaction_a, rai::raw_key 
 		else
 		{
 			// Check if there are pending blocks for account
-			rai::account end (pair.pub.number () + 1);
-			for (auto ii (wallets.node.store.pending_begin (transaction_a, rai::pending_key (pair.pub, 0))), nn (wallets.node.store.pending_begin (transaction_a, rai::pending_key (end, 0))); ii != nn; ++ii)
+			for (auto ii (wallets.node.store.pending_begin (transaction_a, rai::pending_key (pair.pub, 0))); rai::pending_key (ii->first).account == pair.pub; ++ii)
 			{
 				count = i;
 				n = i + 64 + (i / 64);

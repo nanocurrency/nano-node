@@ -1439,7 +1439,7 @@ std::shared_ptr<rai::vote> rai::block_store::vote_get (MDB_txn * transaction_a, 
 std::vector<std::shared_ptr<rai::block>> rai::block_store::unchecked_get (MDB_txn * transaction_a, rai::block_hash const & hash_a)
 {
 	std::vector<std::shared_ptr<rai::block>> result;
-	for (auto i (unchecked_begin (transaction_a, hash_a)), n (unchecked_begin (transaction_a, hash_a.number () + 1)); i != n; ++i)
+	for (auto i (unchecked_begin (transaction_a, hash_a)), n (unchecked_end ()); i != n && rai::block_hash (i->first) == hash_a; ++i)
 	{
 		assert (rai::block_hash (i->first) == hash_a);
 		std::shared_ptr<rai::block> block (i->second);
