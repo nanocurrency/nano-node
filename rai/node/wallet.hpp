@@ -1,5 +1,6 @@
 #pragma once
 
+#include <boost/thread/thread.hpp>
 #include <rai/node/common.hpp>
 #include <rai/node/openclwork.hpp>
 #include <rai/secure/blockstore.hpp>
@@ -188,7 +189,7 @@ public:
 	rai::node & node;
 	rai::mdb_env & environment;
 	bool stopped;
-	std::thread thread;
+	boost::thread thread;
 	static rai::uint128_t const generate_priority;
 	static rai::uint128_t const high_priority;
 };

@@ -15,6 +15,7 @@
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index/random_access_index.hpp>
 #include <boost/multi_index_container.hpp>
+#include <boost/thread/thread.hpp>
 
 #include <miniupnpc.h>
 
@@ -135,7 +136,7 @@ private:
 	std::condition_variable condition;
 	bool started;
 	bool stopped;
-	std::thread thread;
+	boost::thread thread;
 };
 class operation
 {
@@ -155,7 +156,7 @@ public:
 	std::mutex mutex;
 	std::condition_variable condition;
 	std::priority_queue<operation, std::vector<operation>, std::greater<operation>> operations;
-	std::thread thread;
+	boost::thread thread;
 };
 class gap_information
 {
@@ -465,7 +466,7 @@ public:
 	boost::asio::ip::udp::socket socket;
 	std::mutex socket_mutex;
 	boost::asio::ip::udp::resolver resolver;
-	std::vector<std::thread> packet_processing_threads;
+	std::vector<boost::thread> packet_processing_threads;
 	rai::node & node;
 	bool on;
 	static uint16_t const node_port = rai::rai_network == rai::rai_networks::rai_live_network ? 7075 : 54000;
@@ -589,7 +590,7 @@ private:
 	bool started;
 	bool stopped;
 	bool active;
-	std::thread thread;
+	boost::thread thread;
 };
 // The network is crawled for representatives by occasionally sending a unicast confirm_req for a specific block and watching to see if it's acknowledged with a vote.
 class rep_crawler
@@ -697,7 +698,7 @@ public:
 	rai::rep_crawler rep_crawler;
 	unsigned warmed_up;
 	rai::block_processor block_processor;
-	std::thread block_processor_thread;
+	boost::thread block_processor_thread;
 	rai::block_arrival block_arrival;
 	rai::online_reps online_reps;
 	rai::stat stats;
@@ -715,7 +716,7 @@ public:
 	thread_runner (boost::asio::io_service &, unsigned);
 	~thread_runner ();
 	void join ();
-	std::vector<std::thread> threads;
+	std::vector<boost::thread> threads;
 };
 class inactive_node
 {

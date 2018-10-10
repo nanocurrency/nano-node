@@ -2,6 +2,7 @@
 
 #include <boost/filesystem.hpp>
 #include <boost/system/error_code.hpp>
+#include <boost/thread/thread.hpp>
 
 #include <functional>
 #include <mutex>
@@ -21,6 +22,11 @@ void set_secure_perm_directory (boost::filesystem::path const & path);
 void set_secure_perm_directory (boost::filesystem::path const & path, boost::system::error_code & ec);
 void set_secure_perm_file (boost::filesystem::path const & path);
 void set_secure_perm_file (boost::filesystem::path const & path, boost::system::error_code & ec);
+
+namespace thread_attributes
+{
+	void set (boost::thread::attributes &);
+}
 
 template <typename... T>
 class observer_set

@@ -1001,7 +1001,7 @@ TEST (udp_buffer, one_buffer_multithreaded)
 {
 	rai::stat stats;
 	rai::udp_buffer buffer (stats, 512, 1);
-	std::thread thread ([&buffer]() {
+	boost::thread thread ([&buffer]() {
 		auto done (false);
 		while (!done)
 		{
@@ -1026,10 +1026,10 @@ TEST (udp_buffer, many_buffers_multithreaded)
 {
 	rai::stat stats;
 	rai::udp_buffer buffer (stats, 512, 16);
-	std::vector<std::thread> threads;
+	std::vector<boost::thread> threads;
 	for (auto i (0); i < 4; ++i)
 	{
-		threads.push_back (std::thread ([&buffer]() {
+		threads.push_back (boost::thread ([&buffer]() {
 			auto done (false);
 			while (!done)
 			{
@@ -1045,7 +1045,7 @@ TEST (udp_buffer, many_buffers_multithreaded)
 	std::atomic_int count (0);
 	for (auto i (0); i < 4; ++i)
 	{
-		threads.push_back (std::thread ([&buffer, &count]() {
+		threads.push_back (boost::thread ([&buffer, &count]() {
 			auto done (false);
 			for (auto i (0); !done && i < 1000; ++i)
 			{

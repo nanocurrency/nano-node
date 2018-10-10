@@ -11,6 +11,7 @@
 #include <unordered_set>
 
 #include <boost/log/sources/logger.hpp>
+#include <boost/thread/thread.hpp>
 
 namespace rai
 {
@@ -189,7 +190,7 @@ private:
 	std::mutex mutex;
 	std::condition_variable condition;
 	std::vector<std::function<void(bool)>> observers;
-	std::thread thread;
+	boost::thread thread;
 };
 class bootstrap_server;
 class bootstrap_listener

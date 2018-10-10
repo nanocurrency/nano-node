@@ -60,7 +60,7 @@ TEST (alarm, one)
 		condition.notify_one ();
 	});
 	boost::asio::io_service::work work (service);
-	std::thread thread ([&service]() { service.run (); });
+	boost::thread thread ([&service]() { service.run (); });
 	std::unique_lock<std::mutex> unique (mutex);
 	condition.wait (unique, [&]() { return !!done; });
 	service.stop ();
@@ -83,10 +83,10 @@ TEST (alarm, many)
 		});
 	}
 	boost::asio::io_service::work work (service);
-	std::vector<std::thread> threads;
+	std::vector<boost::thread> threads;
 	for (auto i (0); i < 50; ++i)
 	{
-		threads.push_back (std::thread ([&service]() { service.run (); }));
+		threads.push_back (boost::thread ([&service]() { service.run (); }));
 	}
 	std::unique_lock<std::mutex> unique (mutex);
 	condition.wait (unique, [&]() { return count == 50; });
@@ -116,7 +116,7 @@ TEST (alarm, top_execution)
 		promise.set_value (false);
 	});
 	boost::asio::io_service::work work (service);
-	std::thread thread ([&service]() {
+	boost::thread thread ([&service]() {
 		service.run ();
 	});
 	promise.get_future ().get ();
