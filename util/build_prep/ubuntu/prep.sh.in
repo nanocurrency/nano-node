@@ -33,9 +33,22 @@ if ! version_min 'boost --version' 1.65.999; then
 	echo "boost version too low (1.66.0+ required)" >&2
 	exit 1
 fi
-
 boost_dir="$(boost --install-prefix)"
 
+# Ensure we have a new enough Qt5
+if ! have qtpaths; then
+	echo "Unable to install qt5" >&2
+
+	exit 1
+fi
+
+if ! version_min 'qtpaths --qt-version 2>/dev/null' 5.2.999 5.8.999; then
+	if ! version_min 'qtpaths -- --qt-version' 5.2.999 5.8.999; then
+		echo "qt5 version not in range (version range: [5.3+, 5.9-))" >&2
+
+		exit 1
+	fi
+fi
 qt5_dir="$(qtpaths --install-prefix)/lib/cmake/Qt5"
 
 if [ ! -d "${qt5_dir}" ]; then
