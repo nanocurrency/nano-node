@@ -340,7 +340,7 @@ public:
 	 * block_hash -> rai::account, rai::amount
 	 */
 	MDB_dbi blocks_info;
-	
+
 	/**
 	 * Maps block hash to balance.
 	 * block_hash -> rai::amount
