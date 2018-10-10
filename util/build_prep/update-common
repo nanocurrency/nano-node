@@ -10,7 +10,7 @@ for file in */prep.sh.in; do
 		continue
 	fi
 
-	echo "Updating \"${file}\"..."
+	echo "Updating \"${outfile}\"..."
 
 	rm -f "${file}.new"
 	awk -v insideCommon=0 '
