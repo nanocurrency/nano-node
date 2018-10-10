@@ -25,6 +25,20 @@ for file in */prep.sh; do
 			# Print out a notification to not edit the
 			# individual scripts
 			print "# DO NOT EDIT THIS SECTION, INSTEAD EDIT ../common.sh";
+			print ""
+
+			# Print out the bootstrap_boost
+			print "function bootstrap_boost () {"
+			print "\t("
+			print "\t\tmkdir -p \"${KEEP_AROUND_DIRECTORY}\" || exit 1"
+			print "\t\tcd \"${KEEP_AROUND_DIRECTORY}\" || exit 1"
+			while (getline <"bootstrap_boost.sh") {
+				print;
+			}
+			close("bootstrap_boost.sh");
+			print "\t)"
+			print "}"
+			print ""
 
 			# Print out the common script
 			while (getline <"common.sh") {
