@@ -619,14 +619,28 @@ void rai::network::receive_action (rai::udp_data * data_a)
 					node.stats.inc (rai::stat::type::udp, rai::stat::detail::invalid_network);
 					break;
 				case rai::message_parser::parse_status::invalid_header:
+					node.stats.inc (rai::stat::type::udp, rai::stat::detail::invalid_header);
+					break;
 				case rai::message_parser::parse_status::invalid_message_type:
+					node.stats.inc (rai::stat::type::udp, rai::stat::detail::invalid_message_type);
+					break;
 				case rai::message_parser::parse_status::invalid_keepalive_message:
+					node.stats.inc (rai::stat::type::udp, rai::stat::detail::invalid_keepalive_message);
+					break;
 				case rai::message_parser::parse_status::invalid_publish_message:
+					node.stats.inc (rai::stat::type::udp, rai::stat::detail::invalid_publish_message);
+					break;
 				case rai::message_parser::parse_status::invalid_confirm_req_message:
+					node.stats.inc (rai::stat::type::udp, rai::stat::detail::invalid_confirm_req_message);
+					break;
 				case rai::message_parser::parse_status::invalid_confirm_ack_message:
+					node.stats.inc (rai::stat::type::udp, rai::stat::detail::invalid_confirm_ack_message);
+					break;
 				case rai::message_parser::parse_status::invalid_node_id_handshake_message:
+					node.stats.inc (rai::stat::type::udp, rai::stat::detail::invalid_node_id_handshake_message);
+					break;
 				case rai::message_parser::parse_status::outdated_version:
-					/* XXX:TODO */
+					node.stats.inc (rai::stat::type::udp, rai::stat::detail::outdated_version);
 					break;
 				case rai::message_parser::parse_status::success:
 					/* Already checked, unreachable */
