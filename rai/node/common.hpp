@@ -214,6 +214,11 @@ public:
 		invalid_magic,
 		invalid_network
 	};
+	/*
+	 * Allow "parse_status" enum class to be explicitly converted to a
+	 * string describing that item.
+	 */
+	static const char * parse_status_to_string (const rai::message_parser::parse_status &);
 	message_parser (rai::message_visitor &, rai::work_pool &);
 	void deserialize_buffer (uint8_t const *, size_t);
 	void deserialize_keepalive (rai::stream &, rai::message_header const &);
@@ -367,9 +372,3 @@ inline uint64_t seconds_since_epoch ()
 	return std::chrono::duration_cast<std::chrono::seconds> (std::chrono::system_clock::now ().time_since_epoch ()).count ();
 }
 }
-
-/*
- * Allow "parse_status" enum class to be explicitly converted to a
- * string describing that item.
- */
-const char * operator~ (const rai::message_parser::parse_status &);

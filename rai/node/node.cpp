@@ -635,7 +635,7 @@ void rai::network::receive_action (rai::udp_data * data_a)
 
 			if (node.config.logging.network_logging ())
 			{
-				BOOST_LOG (node.log) << "Could not parse message.  Error: " << ~parser.status;
+				BOOST_LOG (node.log) << "Could not parse message.  Error: " << rai::message_parser::parse_status_to_string (parser.status);
 			}
 		}
 		else
