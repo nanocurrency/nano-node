@@ -131,6 +131,14 @@ const char * operator~ (const rai::message_parser::parse_status & id)
 		{
 			return "outdated_version";
 		}
+		case rai::message_parser::parse_status::invalid_magic:
+		{
+			return "invalid_magic";
+		}
+		case rai::message_parser::parse_status::invalid_network:
+		{
+			return "invalid_network";
+		}
 	}
 
 	assert (false);
