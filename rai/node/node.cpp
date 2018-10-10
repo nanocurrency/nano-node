@@ -618,6 +618,16 @@ void rai::network::receive_action (rai::udp_data * data_a)
 				case rai::message_parser::parse_status::invalid_network:
 					node.stats.inc (rai::stat::type::udp, rai::stat::detail::invalid_network);
 					break;
+				case rai::message_parser::parse_status::invalid_header:
+				case rai::message_parser::parse_status::invalid_message_type:
+				case rai::message_parser::parse_status::invalid_keepalive_message:
+				case rai::message_parser::parse_status::invalid_publish_message:
+				case rai::message_parser::parse_status::invalid_confirm_req_message:
+				case rai::message_parser::parse_status::invalid_confirm_ack_message:
+				case rai::message_parser::parse_status::invalid_node_id_handshake_message:
+				case rai::message_parser::parse_status::outdated_version:
+					/* XXX:TODO */
+					break;
 				case rai::message_parser::parse_status::success:
 					/* Already checked, unreachable */
 					break;
