@@ -53,14 +53,15 @@ else
 	keepArchive='true'
 fi
 
-rm -rf ${BOOST_BASENAME}
+rm -rf "${BOOST_BASENAME}"
 tar xf "${BOOST_ARCHIVE}"
-cd ${BOOST_BASENAME}
+
+pushd "${BOOST_BASENAME}"
 ./bootstrap.sh "${bootstrapArgs[@]}"
-./b2 -d0 --prefix=${BOOST_ROOT} link=static install
-cd ..
-rm -rf ${BOOST_BASENAME}
-rm -f "${BOOST_ARCHIVE}"
+./b2 -d0 --prefix="${BOOST_ROOT}" link=static install
+popd
+
+rm -rf "${BOOST_BASENAME}"
 if [ "${keepArchive}" != 'true' ]; then
 	rm -f "${BOOST_ARCHIVE}"
 fi
