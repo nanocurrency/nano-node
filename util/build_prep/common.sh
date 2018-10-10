@@ -1,5 +1,4 @@
 KEEP_AROUND_DIRECTORY="${HOME:-/dev/null}/.cache/nanocurrency-build"
-scriptDirectory="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)" || exit 1
 
 function _cpp () {
 	"${CC:-cc}" -I"${BOOST_ROOT:-/usr/local/boost}"/include -E "$@"
