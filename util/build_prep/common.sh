@@ -1,11 +1,15 @@
 KEEP_AROUND_DIRECTORY="${HOME:-/dev/null}/.cache/nanocurrency-build"
 scriptDirectory="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)" || exit 1
 
+function _cpp () {
+	"${CC:-cc}" -I"${BOOST_ROOT:-/usr/local/boost}"/include -E "$@"
+}
+
 function boost_version () {
 	local boost_version
 	boost_version="$(
 		set -o pipefail
-		echo $'#include <boost/version.hpp>\nBOOST_LIB_VERSION'  | cc -I/usr/local/boost/include -E - 2>/dev/null | tail -n 1 | sed 's@"@@g;s@_@.@g'
+		echo $'#include <boost/version.hpp>\nBOOST_LIB_VERSION'  | _cpp - 2>/dev/null | tail -n 1 | sed 's@"@@g;s@_@.@g'
 	)" || boost_version=''
 
 	echo "${boost_version}"
@@ -36,7 +40,7 @@ function check_create_boost () {
 					return 0
 					;;
 				'--install-prefix')
-					echo '#include <boost/version.hpp>' | cc -v -E - 2>/dev/null | grep '/version.hpp' | sed 's@^[^"]*"@@;s@/version\.hpp".*$@@'
+					echo '#include <boost/version.hpp>' | _cpp -v - 2>/dev/null | grep '/version.hpp' | sed 's@^[^"]*"@@;s@/boost/version\.hpp".*$@@'
 					return 0
 					;;
 			esac
