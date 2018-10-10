@@ -43,9 +43,11 @@ resolver (node_a.service),
 node (node_a),
 on (true)
 {
+	boost::thread::attributes attrs;
+	rai::thread_attributes::set (attrs);
 	for (size_t i = 0; i < node.config.network_threads; ++i)
 	{
-		packet_processing_threads.push_back (std::thread ([this]() {
+		packet_processing_threads.push_back (boost::thread (attrs, [this]() {
 			rai::thread_role::set (rai::thread_role::name::packet_processing);
 			try
 			{
@@ -800,9 +802,9 @@ receive_minimum (rai::xrb_ratio),
 online_weight_minimum (60000 * rai::Gxrb_ratio),
 online_weight_quorum (50),
 password_fanout (1024),
-io_threads (std::max<unsigned> (4, std::thread::hardware_concurrency ())),
-network_threads (std::max<unsigned> (4, std::thread::hardware_concurrency ())),
-work_threads (std::max<unsigned> (4, std::thread::hardware_concurrency ())),
+io_threads (std::max<unsigned> (4, boost::thread::hardware_concurrency ())),
+network_threads (std::max<unsigned> (4, boost::thread::hardware_concurrency ())),
+work_threads (std::max<unsigned> (4, boost::thread::hardware_concurrency ())),
 enable_voting (true),
 bootstrap_connections (4),
 bootstrap_connections_max (64),
@@ -3977,9 +3979,11 @@ int rai::node::store_version ()
 
 rai::thread_runner::thread_runner (boost::asio::io_service & service_a, unsigned service_threads_a)
 {
+	boost::thread::attributes attrs;
+	rai::thread_attributes::set (attrs);
 	for (auto i (0); i < service_threads_a; ++i)
 	{
-		threads.push_back (std::thread ([&service_a]() {
+		threads.push_back (boost::thread (attrs, [&service_a]() {
 			rai::thread_role::set (rai::thread_role::name::io);
 			try
 			{
