@@ -64,16 +64,16 @@ function version_min () {
 	local detected_version check_version
 
 	version_command="$1"
-	below_min_version="$2"
-	above_max_version="$3"
+	below_min_version="${2:-0}"
+	above_max_version="${3:-2147483648}"
 
 	detected_version="$(eval "${version_command}" | awk '{ print $NF }' | grep '^[0-9]' | head -n 1)"
 
 	check_version="$(
 		(
-			echo "${below_min_version:-0}"
+			echo "${below_min_version}"
 			echo "${detected_version}"
-			echo "${above_max_version:-2147483648}"
+			echo "${above_max_version}"
 		) | sort -rV | tail -n 2 | head -n 1
 	)"
 
