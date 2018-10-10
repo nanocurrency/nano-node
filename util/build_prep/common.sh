@@ -1,3 +1,4 @@
+KEEP_AROUND_DIRECTORY="${HOME:-/dev/null}/.cache/nanocurrency-build"
 scriptDirectory="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)" || exit 1
 
 function boost_version () {
