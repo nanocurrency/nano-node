@@ -130,7 +130,7 @@ void rai::balance_visitor::open_block (rai::open_block const & block_a)
 	rai::amount block_balance;
 	if (!store.block_balance_get (transaction, block_a.hash (), block_balance))
 	{
-		balance += block_info.balance.number ();
+		balance += block_balance.number ();
 	}
 	else
 	{
