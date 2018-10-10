@@ -84,3 +84,71 @@ function version_min () {
 
 	return 0
 }
+
+function wrap_compilers () {
+	local tool tool_check tool_add tool_wrapper_file
+	local prep_common_workdir_bin
+
+	if [ -z "${wrap_compilers_add_options[*]}" ]; then
+		return
+	fi
+
+	prep_common_workdir_bin="${prep_common_workdir}/bin"
+	mkdir -p "${prep_common_workdir_bin}" || return 1
+
+	tool_add=()
+	for tool in cc c++ clang clang++ gcc g++; do
+		tool_check="$(type -f "${tool}")" || tool_check=''
+		if [ -n "${tool_check}" ]; then
+			tool_add+=("${tool}")
+		fi
+	done
+
+	for tool in "${tool_add[@]}"; do
+		tool_wrapper_file="${prep_common_workdir_bin}/${tool}"
+		if [ -e "${tool_wrapper_file}" ]; then
+			continue
+		fi
+
+		(
+			echo '#! /usr/bin/env bash'
+			echo ''
+			set | grep '^tool='
+			set | grep '^wrap_compilers_add_options='
+			set | grep '^prep_common_workdir='
+			echo ''
+			cat << \_EOF_
+
+NEW_PATH='/dev/null'
+while read -r -d ':' element; do
+	case "${element}" in
+		"${prep_common_workdir}"|"${prep_common_workdir}"/*)
+			continue
+			;;
+	esac
+
+	NEW_PATH="${NEW_PATH}:${element}"
+done <<<"${PATH}"
+PATH="${NEW_PATH}"
+export PATH
+
+exec "${tool}" "${wrap_compilers_add_options[@]}" "$@"
+_EOF_
+		) > "${tool_wrapper_file}"
+
+		chmod +x "${tool_wrapper_file}"
+	done
+
+	PATH="${prep_common_workdir_bin}:${PATH}"
+	export PATH
+}
+
+function common_cleanup () {
+	if [ -n "${prep_common_workdir}" ]; then
+		rm -rf "${prep_common_workdir}"
+	fi
+}
+
+trap common_cleanup EXIT
+
+prep_common_workdir="$(mktemp -d)"
