@@ -769,8 +769,7 @@ void rai::rpc_handler::accounts_pending ()
 		if (!ec)
 		{
 			boost::property_tree::ptree peers_l;
-			rai::account end (account.number () + 1);
-			for (auto i (node.store.pending_begin (transaction, rai::pending_key (account, 0))), n (node.store.pending_begin (transaction, rai::pending_key (end, 0))); i != n && peers_l.size () < count; ++i)
+			for (auto i (node.store.pending_begin (transaction, rai::pending_key (account, 0))); rai::pending_key (i->first).account == account && peers_l.size () < count; ++i)
 			{
 				rai::pending_key key (i->first);
 				std::shared_ptr<rai::block> block (include_active ? nullptr : node.store.block_get (transaction, key.hash));
@@ -2068,8 +2067,7 @@ void rai::rpc_handler::pending ()
 	{
 		boost::property_tree::ptree peers_l;
 		auto transaction (node.store.tx_begin_read ());
-		rai::account end (account.number () + 1);
-		for (auto i (node.store.pending_begin (transaction, rai::pending_key (account, 0))), n (node.store.pending_begin (transaction, rai::pending_key (end, 0))); i != n && peers_l.size () < count; ++i)
+		for (auto i (node.store.pending_begin (transaction, rai::pending_key (account, 0))); rai::pending_key (i->first).account == account && peers_l.size () < count; ++i)
 		{
 			rai::pending_key key (i->first);
 			std::shared_ptr<rai::block> block (include_active ? nullptr : node.store.block_get (transaction, key.hash));
@@ -3256,8 +3254,7 @@ void rai::rpc_handler::wallet_pending ()
 		{
 			rai::account account (i->first);
 			boost::property_tree::ptree peers_l;
-			rai::account end (account.number () + 1);
-			for (auto ii (node.store.pending_begin (transaction, rai::pending_key (account, 0))), nn (node.store.pending_begin (transaction, rai::pending_key (end, 0))); ii != nn && peers_l.size () < count; ++ii)
+			for (auto ii (node.store.pending_begin (transaction, rai::pending_key (account, 0))); rai::pending_key (ii->first).account == account && peers_l.size () < count; ++ii)
 			{
 				rai::pending_key key (ii->first);
 				std::shared_ptr<rai::block> block (include_active ? nullptr : node.store.block_get (transaction, key.hash));
