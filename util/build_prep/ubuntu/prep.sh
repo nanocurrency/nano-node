@@ -19,7 +19,7 @@ apt remove --yes libboost-all-dev
 apt autoremove --yes
 
 if ! have boost; then
-	"${scriptDirectory}/../bootstrap_boost.sh" -m
+	bootstrap_boost -m -k
 fi
 
 if ! have boost; then
