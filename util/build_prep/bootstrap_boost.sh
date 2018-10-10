@@ -5,13 +5,17 @@ set -o xtrace
 
 bootstrapArgs=()
 useClang='false'
-while getopts 'mc' OPT; do
+keepArchive='false'
+while getopts 'mck' OPT; do
 	case "${OPT}" in
 		m)
 			bootstrapArgs+=('--with-libraries=thread,log,filesystem,program_options')
 			;;
 		c)
 			useClang='true'
+			;;
+		k)
+			keepArchive='true'
 			;;
 	esac
 done
@@ -45,6 +49,8 @@ if [ ! -f "${BOOST_ARCHIVE}" ]; then
 		exit 1
 	fi
 	mv "${BOOST_ARCHIVE}.new" "${BOOST_ARCHIVE}" || exit 1
+else
+	keepArchive='true'
 fi
 
 rm -rf ${BOOST_BASENAME}
@@ -55,3 +61,6 @@ cd ${BOOST_BASENAME}
 cd ..
 rm -rf ${BOOST_BASENAME}
 rm -f "${BOOST_ARCHIVE}"
+if [ "${keepArchive}" != 'true' ]; then
+	rm -f "${BOOST_ARCHIVE}"
+fi
