@@ -87,9 +87,9 @@ void rai::message_header::ipv4_only_set (bool value_a)
 // MTU - IP header - UDP header
 const size_t rai::message_parser::max_safe_udp_message_size = 508;
 
-const char * rai::message_parser::parse_status_to_string (const rai::message_parser::parse_status & id)
+std::string rai::message_parser::status_string ()
 {
-	switch (id)
+	switch (status)
 	{
 		case rai::message_parser::parse_status::success:
 		{
