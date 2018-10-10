@@ -202,6 +202,13 @@ public:
 	rai::store_iterator<rai::block_hash, rai::block_info> block_info_begin (rai::transaction const &, rai::block_hash const &) override;
 	rai::store_iterator<rai::block_hash, rai::block_info> block_info_begin (rai::transaction const &) override;
 	rai::store_iterator<rai::block_hash, rai::block_info> block_info_end () override;
+	void block_balance_put (rai::transaction const &, rai::block_hash const &, rai::amount const &) override;
+	void block_balance_del (rai::transaction const &, rai::block_hash const &) override;
+	bool block_balance_get (rai::transaction const &, rai::block_hash const &, rai::amount &) override;
+	bool block_balance_exists (rai::transaction const &, rai::block_hash const &) override;
+	rai::store_iterator<rai::block_hash, rai::uint128_union> block_balance_begin (rai::transaction const &, rai::block_hash const &) override;
+	rai::store_iterator<rai::block_hash, rai::uint128_union> block_balance_begin (rai::transaction const &) override;
+	rai::store_iterator<rai::block_hash, rai::uint128_union> block_balance_end () override;
 	rai::uint128_t block_balance (rai::transaction const &, rai::block_hash const &) override;
 	rai::epoch block_version (rai::transaction const &, rai::block_hash const &) override;
 

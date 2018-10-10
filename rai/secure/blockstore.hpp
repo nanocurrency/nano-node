@@ -213,6 +213,13 @@ public:
 	virtual rai::store_iterator<rai::block_hash, rai::block_info> block_info_begin (rai::transaction const &, rai::block_hash const &) = 0;
 	virtual rai::store_iterator<rai::block_hash, rai::block_info> block_info_begin (rai::transaction const &) = 0;
 	virtual rai::store_iterator<rai::block_hash, rai::block_info> block_info_end () = 0;
+	virtual void block_balance_put (rai::transaction const &, rai::block_hash const &, rai::amount const &) = 0;
+	virtual void block_balance_del (rai::transaction const &, rai::block_hash const &) = 0;
+	virtual bool block_balance_get (rai::transaction const &, rai::block_hash const &, rai::amount &) = 0;
+	virtual bool block_balance_exists (rai::transaction const &, rai::block_hash const &) = 0;
+	virtual rai::store_iterator<rai::block_hash, rai::uint128_union> block_balance_begin (rai::transaction const &, rai::block_hash const &) = 0;
+	virtual rai::store_iterator<rai::block_hash, rai::uint128_union> block_balance_begin (rai::transaction const &) = 0;
+	virtual rai::store_iterator<rai::block_hash, rai::uint128_union> block_balance_end () = 0;
 	virtual rai::uint128_t block_balance (rai::transaction const &, rai::block_hash const &) = 0;
 	virtual rai::epoch block_version (rai::transaction const &, rai::block_hash const &) = 0;
 	static size_t const block_info_max = 32;
