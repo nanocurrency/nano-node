@@ -15,6 +15,7 @@ TEST (versioning, account_info_v1)
 		ASSERT_FALSE (error);
 		auto transaction (store.tx_begin (true));
 		store.block_put (transaction, open.hash (), open);
+		store.block_balance_put (transaction, open.hash (), 3);
 		auto status (mdb_put (store.env.tx (transaction), store.accounts_v0, rai::mdb_val (account), v1.val (), 0));
 		ASSERT_EQ (0, status);
 		store.version_put (transaction, 1);
