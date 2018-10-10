@@ -607,7 +607,8 @@ void rai::network::receive_action (rai::udp_data * data_a)
 		{
 			node.stats.inc (rai::stat::type::error);
 
-			switch (parser.status) {
+			switch (parser.status)
+			{
 				case rai::message_parser::parse_status::insufficient_work:
 					// We've already increment error count, update detail only
 					node.stats.inc_detail_only (rai::stat::type::error, rai::stat::detail::insufficient_work);
