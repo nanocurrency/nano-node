@@ -2,7 +2,8 @@
 
 cd "$(dirname "${BASH_SOURCE[0]}")" || exit 1
 
-for file in */prep.sh; do
+for file in */prep.sh.in; do
+	outfile="$(echo "${file}" | sed 's@\.in$@@')"
 	if ! grep '^#* *-----BEGIN COMMON\.SH-----$' "${file}" >/dev/null 2>/dev/null; then
 		echo "Skipping \"${file}\"..."
 
@@ -60,6 +61,11 @@ for file in */prep.sh; do
 			print;
 		}
 	' < "${file}" > "${file}.new"
-	cat "${file}.new" > "${file}"
+
+	rm -f "${outfile}"
+
+	cat "${file}.new" > "${outfile}"
 	rm -f "${file}.new"
+
+	chmod 755 "${outfile}"
 done
