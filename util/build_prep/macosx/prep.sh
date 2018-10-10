@@ -1,5 +1,7 @@
 #! /usr/bin/env bash
 
+macosx_version='10.11'
+
 # -----BEGIN COMMON.SH-----
 # -----END COMMON.SH-----
 
@@ -21,10 +23,25 @@ if ! version_min 'cmake --version' 3.3.999; then
 	exit 1
 fi
 
+# Install a native "xz" command, in case it is later needed
+if ! have xz; then
+	brew install xz
+fi
+
+# Setup compiler wrappers to specify the minimum
+# Mac OS X version and SDK
+## XXX:TODO: Find this SDK directory
+macosx_sdk_directory="/Library/Developer/CommandLineTools/SDKs/MacOSX${macosx_version}.sdk"
+wrap_compilers_add_options=(-mmacosx-version-min="${macosx_version}" -isysroot "${macosx_sdk_directory}")
+wrap_compilers
+
 # Ensure we have a new enough Boost
 if ! have boost; then
-	brew install boost --without-single || exit 1
-	brew link boost || exit 1
+	BOOST_ROOT="${KEEP_AROUND_DIRECTORY}/boost"
+
+	if ! have boost; then
+		bootstrap_boost -m -c -k
+	fi
 fi
 
 if ! have boost; then
@@ -41,10 +58,51 @@ fi
 boost_dir="$(boost --install-prefix)"
 
 # Ensure we have a new enough Qt5
-PATH="${PATH}:/usr/local/opt/qt/bin"
+PATH="${PATH}:/usr/local/opt/qt/bin:${KEEP_AROUND_DIRECTORY}/qt/bin"
 export PATH
 if ! have qtpaths; then
-	brew install qt5 || exit 1
+	(
+		qt5_version='5.11.2'
+		qt5_url="https://download.qt.io/archive/qt/$(echo "${qt5_version}" | cut -f 1-2 -d .)/${qt5_version}/single/qt-everywhere-src-${qt5_version}.tar.xz"
+		qt5_sha256='c6104b840b6caee596fa9a35bc5f57f67ed5a99d6a36497b6fe66f990a53ca81'
+		qt5_archive="qt5-${qt5_version}.tar.xz"
+		qt5_dir="qt-everywhere-src-${qt5_version}"
+
+		cd "${KEEP_AROUND_DIRECTORY}" || exit 1
+
+		rm -rf "${qt5_dir}"
+
+		if [ ! -f "${qt5_archive}" ]; then
+			rm -f "${qt5_archive}.new"
+			wget -O "${qt5_archive}.new" "${qt5_url}" || rm -f "${qt5_archive}.new"
+			qt5_download_sha256="$(openssl dgst -sha256 "${qt5_archive}.new" | sed 's@^.*= *@@')"
+			if [ "${qt5_download_sha256}" != "${qt5_sha256}" ]; then
+				echo "Failed to download Qt5.  Got SHA256 ${qt5_download_sha256}, expected ${qt5_sha256}" >&2
+
+				exit 1
+			fi
+
+			mv "${qt5_archive}.new" "${qt5_archive}" || exit 1
+		fi
+
+		xz -dc "${qt5_archive}" | tar -xf - || exit 1
+
+		(
+			cd "${qt5_dir}" || exit 1
+
+			CC="$(type -p clang)"
+			CXX="$(type -p clang++)"
+			QMAKE_CC="${CC}"
+			QMAKE_CXX="${CXX}"
+			export CC CXX QMAKE_CC QMAKE_CXX
+
+			yes | ./configure -verbose -opensource -rpath -framework -prefix "${KEEP_AROUND_DIRECTORY}/qt" || exit 1
+			make || exit 1
+			make install || exit 1
+		) || exit 1
+
+		rm -rf "${qt5_dir}"
+	)
 fi
 
 if ! have qtpaths; then
@@ -53,8 +111,8 @@ if ! have qtpaths; then
 	exit 1
 fi
 
-if ! version_min 'qtpaths --qt-version' 4.999; then
-	echo "qt5 version too low (5.0+ required)" >&2
+if ! version_min 'qtpaths --qt-version' 5.8.999 5.11.999; then
+	echo "qt5 version not in range (version range: [5.9+, 5.12-))" >&2
 
 	exit 1
 fi
@@ -63,6 +121,9 @@ qt5_dir="$(qtpaths --install-prefix)"
 echo "All verified."
 echo ""
 echo "Next steps:"
+echo "    CC='${CC:-cc} ${wrap_compilers_add_options[*]}'"
+echo "    CXX='${CXX:-c++} ${wrap_compilers_add_options[*]}'"
+echo "    export CC CXX"
 echo "    cmake -DBOOST_ROOT=${boost_dir} -DRAIBLOCKS_GUI=ON -DQt5_DIR=${qt5_dir}/lib/cmake/Qt5 <dir>"
 echo "    cpack -G \"DragNDrop\""
 
