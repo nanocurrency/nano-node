@@ -61,20 +61,24 @@ function have () {
 }
 
 function version_min () {
-	local version_command below_min_version
-	local check_version
+	local version_command below_min_version above_max_version
+	local detected_version check_version
 
 	version_command="$1"
 	below_min_version="$2"
+	above_max_version="$3"
+
+	detected_version="$(eval "${version_command}" | awk '{ print $NF }' | grep '^[0-9]' | head -n 1)"
 
 	check_version="$(
 		(
-			eval "${version_command}" | awk '{ print $NF }' | grep '^[0-9]'
-			echo "${below_min_version}"
-		) | sort -rV | head -n 1
+			echo "${below_min_version:-0}"
+			echo "${detected_version}"
+			echo "${above_max_version:-2147483648}"
+		) | sort -rV | tail -n 2 | head -n 1
 	)"
 
-	if [ "${check_version}" = "${below_min_version}" ]; then
+	if [ "${check_version}" != "${detected_version}" ]; then
 		return 1
 	fi
 
