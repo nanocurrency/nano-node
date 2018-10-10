@@ -116,7 +116,7 @@ if ! version_min 'qtpaths --qt-version' 5.8.999 5.11.999; then
 
 	exit 1
 fi
-qt5_dir="$(qtpaths --install-prefix)"
+qt5_dir="$(qtpaths --install-prefix)/lib/cmake/Qt5"
 
 echo "All verified."
 echo ""
@@ -124,7 +124,7 @@ echo "Next steps:"
 echo "    CC='${CC:-cc} ${wrap_compilers_add_options[*]}'"
 echo "    CXX='${CXX:-c++} ${wrap_compilers_add_options[*]}'"
 echo "    export CC CXX"
-echo "    cmake -DBOOST_ROOT=${boost_dir} -DRAIBLOCKS_GUI=ON -DQt5_DIR=${qt5_dir}/lib/cmake/Qt5 <dir>"
+echo "    cmake -DBOOST_ROOT=${boost_dir} -DRAIBLOCKS_GUI=ON -DQt5_DIR=${qt5_dir} <dir>"
 echo "    cpack -G \"DragNDrop\""
 
 exit 0

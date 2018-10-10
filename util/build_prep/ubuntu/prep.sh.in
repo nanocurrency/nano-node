@@ -18,6 +18,7 @@ apt-get --yes install libqt5gui5 libqt5core5a libqt5dbus5 qttools5-dev qttools5-
 apt remove --yes libboost-all-dev
 apt autoremove --yes
 
+# Ensure we have a new enough Boost
 if ! have boost; then
 	bootstrap_boost -m -k
 fi
@@ -35,10 +36,22 @@ fi
 
 boost_dir="$(boost --install-prefix)"
 
+qt5_dir="$(qtpaths --install-prefix)/lib/cmake/Qt5"
+
+if [ ! -d "${qt5_dir}" ]; then
+	qt5_dir=''
+fi
+
+# Determine how to call cmake
+cmake_add=''
+if [ -n "${qt5_dir}" ]; then
+	cmake_add="${cmake_add} -DQt5_DIR=${qt5_dir}"
+fi
+
 echo "All verified."
 echo ""
 echo "Next steps:"
-echo "    cmake -DBOOST_ROOT=${boost_dir} -DRAIBLOCKS_GUI=ON <dir>"
+echo "    cmake -DBOOST_ROOT=${boost_dir} -DRAIBLOCKS_GUI=ON ${cmake_add} <dir>"
 echo "    cpack -G \"TBZ2\""
 
 exit 0
