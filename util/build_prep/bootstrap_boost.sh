@@ -5,13 +5,17 @@ set -o xtrace
 
 bootstrapArgs=()
 useClang='false'
-while getopts 'mc' OPT; do
+keepArchive='false'
+while getopts 'mck' OPT; do
 	case "${OPT}" in
 		m)
 			bootstrapArgs+=('--with-libraries=thread,log,filesystem,program_options')
 			;;
 		c)
 			useClang='true'
+			;;
+		k)
+			keepArchive='true'
 			;;
 	esac
 done
@@ -45,13 +49,19 @@ if [ ! -f "${BOOST_ARCHIVE}" ]; then
 		exit 1
 	fi
 	mv "${BOOST_ARCHIVE}.new" "${BOOST_ARCHIVE}" || exit 1
+else
+	keepArchive='true'
 fi
 
-rm -rf ${BOOST_BASENAME}
+rm -rf "${BOOST_BASENAME}"
 tar xf "${BOOST_ARCHIVE}"
-cd ${BOOST_BASENAME}
+
+pushd "${BOOST_BASENAME}"
 ./bootstrap.sh "${bootstrapArgs[@]}"
-./b2 -d0 --prefix=${BOOST_ROOT} link=static install
-cd ..
-rm -rf ${BOOST_BASENAME}
-rm -f "${BOOST_ARCHIVE}"
+./b2 -d0 --prefix="${BOOST_ROOT}" link=static install
+popd
+
+rm -rf "${BOOST_BASENAME}"
+if [ "${keepArchive}" != 'true' ]; then
+	rm -f "${BOOST_ARCHIVE}"
+fi

@@ -38,6 +38,7 @@ TEST (node, password_fanout)
 	rai::alarm alarm (*service);
 	auto path (rai::unique_path ());
 	rai::node_config config;
+	config.peering_port = 24000;
 	config.logging.init (path);
 	rai::work_pool work (std::numeric_limits<unsigned>::max (), nullptr);
 	config.password_fanout = 10;
