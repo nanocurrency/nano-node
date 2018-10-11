@@ -19,6 +19,7 @@ std::chrono::seconds constexpr rai::node::period;
 std::chrono::seconds constexpr rai::node::cutoff;
 std::chrono::seconds constexpr rai::node::syn_cookie_cutoff;
 std::chrono::minutes constexpr rai::node::backup_interval;
+std::chrono::seconds constexpr rai::node::search_pending_interval;
 int constexpr rai::port_mapping::mapping_timeout;
 int constexpr rai::port_mapping::check_timeout;
 unsigned constexpr rai::active_transactions::announce_interval_ms;
@@ -42,16 +43,34 @@ resolver (node_a.service),
 node (node_a),
 on (true)
 {
-	for (size_t i = 0; i < node.config.io_threads; ++i)
+	boost::thread::attributes attrs;
+	rai::thread_attributes::set (attrs);
+	for (size_t i = 0; i < node.config.network_threads; ++i)
 	{
-		packet_processing_threads.push_back (std::thread ([this]() {
+		packet_processing_threads.push_back (boost::thread (attrs, [this]() {
 			rai::thread_role::set (rai::thread_role::name::packet_processing);
 			try
 			{
 				process_packets ();
 			}
+			catch (boost::system::error_code & ec)
+			{
+				BOOST_LOG (this->node.log) << FATAL_LOG_PREFIX << ec.message ();
+				release_assert (false);
+			}
+			catch (std::error_code & ec)
+			{
+				BOOST_LOG (this->node.log) << FATAL_LOG_PREFIX << ec.message ();
+				release_assert (false);
+			}
+			catch (std::runtime_error & err)
+			{
+				BOOST_LOG (this->node.log) << FATAL_LOG_PREFIX << err.what ();
+				release_assert (false);
+			}
 			catch (...)
 			{
+				BOOST_LOG (this->node.log) << FATAL_LOG_PREFIX << "Unknown exception";
 				release_assert (false);
 			}
 			if (this->node.config.logging.network_packet_logging ())
@@ -590,84 +609,50 @@ void rai::network::receive_action (rai::udp_data * data_a)
 		{
 			node.stats.inc (rai::stat::type::error);
 
-			if (parser.status == rai::message_parser::parse_status::insufficient_work)
+			switch (parser.status)
 			{
-				if (node.config.logging.insufficient_work_logging ())
-				{
-					BOOST_LOG (node.log) << "Insufficient work in message";
-				}
+				case rai::message_parser::parse_status::insufficient_work:
+					// We've already increment error count, update detail only
+					node.stats.inc_detail_only (rai::stat::type::error, rai::stat::detail::insufficient_work);
+					break;
+				case rai::message_parser::parse_status::invalid_magic:
+					node.stats.inc (rai::stat::type::udp, rai::stat::detail::invalid_magic);
+					break;
+				case rai::message_parser::parse_status::invalid_network:
+					node.stats.inc (rai::stat::type::udp, rai::stat::detail::invalid_network);
+					break;
+				case rai::message_parser::parse_status::invalid_header:
+					node.stats.inc (rai::stat::type::udp, rai::stat::detail::invalid_header);
+					break;
+				case rai::message_parser::parse_status::invalid_message_type:
+					node.stats.inc (rai::stat::type::udp, rai::stat::detail::invalid_message_type);
+					break;
+				case rai::message_parser::parse_status::invalid_keepalive_message:
+					node.stats.inc (rai::stat::type::udp, rai::stat::detail::invalid_keepalive_message);
+					break;
+				case rai::message_parser::parse_status::invalid_publish_message:
+					node.stats.inc (rai::stat::type::udp, rai::stat::detail::invalid_publish_message);
+					break;
+				case rai::message_parser::parse_status::invalid_confirm_req_message:
+					node.stats.inc (rai::stat::type::udp, rai::stat::detail::invalid_confirm_req_message);
+					break;
+				case rai::message_parser::parse_status::invalid_confirm_ack_message:
+					node.stats.inc (rai::stat::type::udp, rai::stat::detail::invalid_confirm_ack_message);
+					break;
+				case rai::message_parser::parse_status::invalid_node_id_handshake_message:
+					node.stats.inc (rai::stat::type::udp, rai::stat::detail::invalid_node_id_handshake_message);
+					break;
+				case rai::message_parser::parse_status::outdated_version:
+					node.stats.inc (rai::stat::type::udp, rai::stat::detail::outdated_version);
+					break;
+				case rai::message_parser::parse_status::success:
+					/* Already checked, unreachable */
+					break;
+			}
 
-				// We've already increment error count, update detail only
-				node.stats.inc_detail_only (rai::stat::type::error, rai::stat::detail::insufficient_work);
-			}
-			else if (parser.status == rai::message_parser::parse_status::invalid_message_type)
+			if (node.config.logging.network_logging ())
 			{
-				if (node.config.logging.network_logging ())
-				{
-					BOOST_LOG (node.log) << "Invalid message type in message";
-				}
-			}
-			else if (parser.status == rai::message_parser::parse_status::invalid_header)
-			{
-				if (node.config.logging.network_logging ())
-				{
-					BOOST_LOG (node.log) << "Invalid header in message";
-				}
-			}
-			else if (parser.status == rai::message_parser::parse_status::invalid_keepalive_message)
-			{
-				if (node.config.logging.network_logging ())
-				{
-					BOOST_LOG (node.log) << "Invalid keepalive message";
-				}
-			}
-			else if (parser.status == rai::message_parser::parse_status::invalid_publish_message)
-			{
-				if (node.config.logging.network_logging ())
-				{
-					BOOST_LOG (node.log) << "Invalid publish message";
-				}
-			}
-			else if (parser.status == rai::message_parser::parse_status::invalid_confirm_req_message)
-			{
-				if (node.config.logging.network_logging ())
-				{
-					BOOST_LOG (node.log) << "Invalid confirm_req message";
-				}
-			}
-			else if (parser.status == rai::message_parser::parse_status::invalid_confirm_ack_message)
-			{
-				if (node.config.logging.network_logging ())
-				{
-					BOOST_LOG (node.log) << "Invalid confirm_ack message";
-				}
-			}
-			else if (parser.status == rai::message_parser::parse_status::invalid_node_id_handshake_message)
-			{
-				if (node.config.logging.network_logging ())
-				{
-					BOOST_LOG (node.log) << "Invalid node_id_handshake message";
-				}
-			}
-			else if (parser.status == rai::message_parser::parse_status::invalid_magic)
-			{
-				if (node.config.logging.network_logging ())
-				{
-					BOOST_LOG (node.log) << "Invalid magic in header";
-				}
-				node.stats.inc (rai::stat::type::udp, rai::stat::detail::invalid_magic);
-			}
-			else if (parser.status == rai::message_parser::parse_status::invalid_network)
-			{
-				if (node.config.logging.network_logging ())
-				{
-					BOOST_LOG (node.log) << "Invalid network in header";
-				}
-				node.stats.inc (rai::stat::type::udp, rai::stat::detail::invalid_network);
-			}
-			else
-			{
-				BOOST_LOG (node.log) << "Could not deserialize buffer";
+				BOOST_LOG (node.log) << "Could not parse message.  Error: " << parser.status_string ();
 			}
 		}
 		else
@@ -783,8 +768,9 @@ receive_minimum (rai::xrb_ratio),
 online_weight_minimum (60000 * rai::Gxrb_ratio),
 online_weight_quorum (50),
 password_fanout (1024),
-io_threads (std::max<unsigned> (4, std::thread::hardware_concurrency ())),
-work_threads (std::max<unsigned> (4, std::thread::hardware_concurrency ())),
+io_threads (std::max<unsigned> (4, boost::thread::hardware_concurrency ())),
+network_threads (std::max<unsigned> (4, boost::thread::hardware_concurrency ())),
+work_threads (std::max<unsigned> (4, boost::thread::hardware_concurrency ())),
 enable_voting (true),
 bootstrap_connections (4),
 bootstrap_connections_max (64),
@@ -862,6 +848,7 @@ void rai::node_config::serialize_json (boost::property_tree::ptree & tree_a) con
 	tree_a.put ("online_weight_quorum", std::to_string (online_weight_quorum));
 	tree_a.put ("password_fanout", std::to_string (password_fanout));
 	tree_a.put ("io_threads", std::to_string (io_threads));
+	tree_a.put ("network_threads", std::to_string (network_threads));
 	tree_a.put ("work_threads", std::to_string (work_threads));
 	tree_a.put ("enable_voting", enable_voting);
 	tree_a.put ("bootstrap_connections", bootstrap_connections);
@@ -978,6 +965,7 @@ bool rai::node_config::upgrade_json (unsigned version, boost::property_tree::ptr
 			tree_a.put ("version", "14");
 			result = true;
 		case 14:
+			tree_a.put ("network_threads", std::to_string (network_threads));
 			tree_a.erase ("generate_hash_votes_at");
 			tree_a.put ("block_processor_batch_max_time", block_processor_batch_max_time.count ());
 			tree_a.erase ("version");
@@ -1076,6 +1064,7 @@ bool rai::node_config::deserialize_json (bool & upgraded_a, boost::property_tree
 			bootstrap_fraction_numerator = std::stoul (bootstrap_fraction_numerator_l);
 			password_fanout = std::stoul (password_fanout_l);
 			io_threads = std::stoul (io_threads_l);
+			network_threads = tree_a.get<unsigned> ("network_threads", network_threads);
 			work_threads = std::stoul (work_threads_l);
 			bootstrap_connections = std::stoul (bootstrap_connections_l);
 			bootstrap_connections_max = std::stoul (bootstrap_connections_max_l);
@@ -1982,7 +1971,7 @@ void rai::gap_cache::vote (std::shared_ptr<rai::vote> vote_a)
 						{
 							if (!node_l->bootstrap_initiator.in_progress ())
 							{
-								BOOST_LOG (node_l->log) << boost::str (boost::format ("Missing confirmed block %1%") % hash.to_string ());
+								BOOST_LOG (node_l->log) << boost::str (boost::format ("Missing block %1% which has enough votes to warrant bootstrapping it") % hash.to_string ());
 							}
 							node_l->bootstrap_initiator.bootstrap ();
 						}
@@ -2152,88 +2141,6 @@ bool rai::peer_container::validate_syn_cookie (rai::endpoint const & endpoint, r
 	return result;
 }
 
-bool rai::parse_port (std::string const & string_a, uint16_t & port_a)
-{
-	bool result;
-	size_t converted;
-	try
-	{
-		port_a = std::stoul (string_a, &converted);
-		result = converted != string_a.size () || converted > std::numeric_limits<uint16_t>::max ();
-	}
-	catch (...)
-	{
-		result = true;
-	}
-	return result;
-}
-
-bool rai::parse_address_port (std::string const & string, boost::asio::ip::address & address_a, uint16_t & port_a)
-{
-	auto result (false);
-	auto port_position (string.rfind (':'));
-	if (port_position != std::string::npos && port_position > 0)
-	{
-		std::string port_string (string.substr (port_position + 1));
-		try
-		{
-			uint16_t port;
-			result = parse_port (port_string, port);
-			if (!result)
-			{
-				boost::system::error_code ec;
-				auto address (boost::asio::ip::address_v6::from_string (string.substr (0, port_position), ec));
-				if (!ec)
-				{
-					address_a = address;
-					port_a = port;
-				}
-				else
-				{
-					result = true;
-				}
-			}
-			else
-			{
-				result = true;
-			}
-		}
-		catch (...)
-		{
-			result = true;
-		}
-	}
-	else
-	{
-		result = true;
-	}
-	return result;
-}
-
-bool rai::parse_endpoint (std::string const & string, rai::endpoint & endpoint_a)
-{
-	boost::asio::ip::address address;
-	uint16_t port;
-	auto result (parse_address_port (string, address, port));
-	if (!result)
-	{
-		endpoint_a = rai::endpoint (address, port);
-	}
-	return result;
-}
-
-bool rai::parse_tcp_endpoint (std::string const & string, rai::tcp_endpoint & endpoint_a)
-{
-	boost::asio::ip::address address;
-	uint16_t port;
-	auto result (parse_address_port (string, address, port));
-	if (!result)
-	{
-		endpoint_a = rai::tcp_endpoint (address, port);
-	}
-	return result;
-}
-
 void rai::node::start ()
 {
 	network.start ();
@@ -2244,6 +2151,7 @@ void rai::node::start ()
 	ongoing_rep_crawl ();
 	bootstrap.start ();
 	backup_wallet ();
+	search_pending ();
 	online_reps.recalculate_stake ();
 	port_mapping.start ();
 	add_initial_peers ();
@@ -2418,6 +2326,15 @@ void rai::node::backup_wallet ()
 	auto this_l (shared ());
 	alarm.add (std::chrono::steady_clock::now () + backup_interval, [this_l]() {
 		this_l->backup_wallet ();
+	});
+}
+
+void rai::node::search_pending ()
+{
+	wallets.search_pending_all ();
+	auto this_l (shared ());
+	alarm.add (std::chrono::steady_clock::now () + search_pending_interval, [this_l]() {
+		this_l->search_pending ();
 	});
 }
 
@@ -3776,22 +3693,28 @@ void rai::active_transactions::announce_votes ()
 				if there are less than 100 active elections */
 				if (i->announcements % announcement_long == 1 && roots.size () < 100)
 				{
+					std::unique_ptr<rai::block> previous (nullptr);
 					auto previous_hash (election_l->status.winner->previous ());
 					if (!previous_hash.is_zero ())
 					{
-						auto previous (node.store.block_get (transaction, previous_hash));
+						previous = node.store.block_get (transaction, previous_hash);
 						if (previous != nullptr)
 						{
 							add (std::make_pair (std::move (previous), nullptr));
 						}
 					}
-					auto source_hash (node.ledger.block_source (transaction, *election_l->status.winner));
-					if (!source_hash.is_zero ())
+					/* If previous block not existing/not commited yet, block_source can cause segfault for state blocks
+					So source check can be done only if previous != nullptr or previous is 0 (open account) */
+					if (previous_hash.is_zero () || previous != nullptr)
 					{
-						auto source (node.store.block_get (transaction, source_hash));
-						if (source != nullptr)
+						auto source_hash (node.ledger.block_source (transaction, *election_l->status.winner));
+						if (!source_hash.is_zero ())
 						{
-							add (std::make_pair (std::move (source), nullptr));
+							auto source (node.store.block_get (transaction, source_hash));
+							if (source != nullptr)
+							{
+								add (std::make_pair (std::move (source), nullptr));
+							}
 						}
 					}
 				}
@@ -4079,9 +4002,11 @@ int rai::node::store_version ()
 
 rai::thread_runner::thread_runner (boost::asio::io_service & service_a, unsigned service_threads_a)
 {
+	boost::thread::attributes attrs;
+	rai::thread_attributes::set (attrs);
 	for (auto i (0); i < service_threads_a; ++i)
 	{
-		threads.push_back (std::thread ([&service_a]() {
+		threads.push_back (boost::thread (attrs, [&service_a]() {
 			rai::thread_role::set (rai::thread_role::name::io);
 			try
 			{

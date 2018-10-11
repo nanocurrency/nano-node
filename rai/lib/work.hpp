@@ -1,6 +1,7 @@
 #pragma once
 
 #include <boost/optional.hpp>
+#include <boost/thread/thread.hpp>
 #include <rai/lib/config.hpp>
 #include <rai/lib/numbers.hpp>
 #include <rai/lib/utility.hpp>
@@ -29,7 +30,7 @@ public:
 	uint64_t generate (rai::uint256_union const &);
 	std::atomic<int> ticket;
 	bool done;
-	std::vector<std::thread> threads;
+	std::vector<boost::thread> threads;
 	std::list<std::pair<rai::uint256_union, std::function<void(boost::optional<uint64_t> const &)>>> pending;
 	std::mutex mutex;
 	std::condition_variable producer_condition;

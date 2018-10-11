@@ -32,10 +32,12 @@ done (false),
 opencl (opencl_a)
 {
 	static_assert (ATOMIC_INT_LOCK_FREE == 2, "Atomic int needed");
-	auto count (rai::rai_network == rai::rai_networks::rai_test_network ? 1 : std::min (max_threads_a, std::max (1u, std::thread::hardware_concurrency ())));
+	boost::thread::attributes attrs;
+	rai::thread_attributes::set (attrs);
+	auto count (rai::rai_network == rai::rai_networks::rai_test_network ? 1 : std::min (max_threads_a, std::max (1u, boost::thread::hardware_concurrency ())));
 	for (auto i (0); i < count; ++i)
 	{
-		auto thread (std::thread ([this, i]() {
+		auto thread (boost::thread (attrs, [this, i]() {
 			rai::thread_role::set (rai::thread_role::name::work);
 			rai::work_thread_reprioritize ();
 			loop (i);

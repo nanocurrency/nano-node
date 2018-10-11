@@ -16,6 +16,7 @@
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index/random_access_index.hpp>
 #include <boost/multi_index_container.hpp>
+#include <boost/thread/thread.hpp>
 
 namespace boost
 {
@@ -135,7 +136,7 @@ private:
 	std::condition_variable condition;
 	bool started;
 	bool stopped;
-	std::thread thread;
+	boost::thread thread;
 };
 class operation
 {
@@ -155,7 +156,7 @@ public:
 	std::mutex mutex;
 	std::condition_variable condition;
 	std::priority_queue<operation, std::vector<operation>, std::greater<operation>> operations;
-	std::thread thread;
+	boost::thread thread;
 };
 class gap_information
 {
@@ -430,7 +431,7 @@ public:
 	boost::asio::ip::udp::socket socket;
 	std::mutex socket_mutex;
 	boost::asio::ip::udp::resolver resolver;
-	std::vector<std::thread> packet_processing_threads;
+	std::vector<boost::thread> packet_processing_threads;
 	rai::node & node;
 	bool on;
 	static uint16_t const node_port = rai::rai_network == rai::rai_networks::rai_live_network ? 7075 : 54000;
@@ -465,6 +466,7 @@ public:
 	unsigned online_weight_quorum;
 	unsigned password_fanout;
 	unsigned io_threads;
+	unsigned network_threads;
 	unsigned work_threads;
 	bool enable_voting;
 	unsigned bootstrap_connections;
@@ -510,7 +512,7 @@ private:
 	bool started;
 	bool stopped;
 	bool active;
-	std::thread thread;
+	boost::thread thread;
 };
 // The network is crawled for representatives by occasionally sending a unicast confirm_req for a specific block and watching to see if it's acknowledged with a vote.
 class rep_crawler
@@ -590,6 +592,7 @@ public:
 	void ongoing_bootstrap ();
 	void ongoing_store_flush ();
 	void backup_wallet ();
+	void search_pending ();
 	int price (rai::uint128_t const &, int);
 	void work_generate_blocking (rai::block &);
 	uint64_t work_generate_blocking (rai::uint256_union const &);
@@ -621,7 +624,7 @@ public:
 	rai::rep_crawler rep_crawler;
 	unsigned warmed_up;
 	rai::block_processor block_processor;
-	std::thread block_processor_thread;
+	boost::thread block_processor_thread;
 	rai::block_arrival block_arrival;
 	rai::online_reps online_reps;
 	rai::stat stats;
@@ -632,6 +635,7 @@ public:
 	static std::chrono::seconds constexpr cutoff = period * 5;
 	static std::chrono::seconds constexpr syn_cookie_cutoff = std::chrono::seconds (5);
 	static std::chrono::minutes constexpr backup_interval = std::chrono::minutes (5);
+	static std::chrono::seconds constexpr search_pending_interval = (rai::rai_network == rai::rai_networks::rai_test_network) ? std::chrono::seconds (1) : std::chrono::seconds (5 * 60);
 };
 class thread_runner
 {
@@ -639,7 +643,7 @@ public:
 	thread_runner (boost::asio::io_service &, unsigned);
 	~thread_runner ();
 	void join ();
-	std::vector<std::thread> threads;
+	std::vector<boost::thread> threads;
 };
 class inactive_node
 {

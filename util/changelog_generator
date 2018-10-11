@@ -1,12 +1,27 @@
 #! /usr/bin/env bash
 
-if [ "$#" -lt 1 -o "$#" -gt 2 ]; then
-	echo "Usage: $0 <user/repo> <tag>" >&2
+if [ "$#" -lt 1 ]; then
+	echo "Usage: $0 <user/repo> <tag> [only]" >&2
 	exit 1
 fi
 
 repository="$1"
 tag="$2"
+shift 2
+flags=("$@")
+
+set -eo pipefail
+
+function _curl () {
+	local curl_args
+
+	curl_args=(-s)
+	if [ -n "${API_KEY}" ]; then
+		curl_args+=(-H "Authorization: token ${API_KEY}")
+	fi
+
+	curl "${curl_args[@]}" "$@"
+}
 
 function milestones () {
 	local repository
@@ -15,7 +30,7 @@ function milestones () {
 
 	(
 		for state in closed open; do
-			curl -s -H "Authorization: token ${API_KEY}" "https://api.github.com/repos/${repository}/milestones?state=${state}&per_page=100" | jq -r '.[] | [.title, .number] | @tsv'
+			_curl "https://api.github.com/repos/${repository}/milestones?state=${state}&per_page=100" | jq -r '.[] | [.title, .number] | @tsv' || return 1
 		done
 	) | sort -rV
 }
@@ -26,8 +41,9 @@ function milestone_to_tag_date () {
 
 	milestone="$1"
 
-	tag_url="$(curl -s -H "Authorization: token ${API_KEY}" "https://api.github.com/repos/${repository}/git/refs/tags/${milestone}" | jq -r '.object.url')"
-	curl -s -H "Authorization: token ${API_KEY}" "${tag_url}" | jq -r '.tagger.date | fromdateiso8601 | strftime("%Y-%m-%d")'
+	tag_url="$(_curl "https://api.github.com/repos/${repository}/git/refs/tags/${milestone}" | jq -r '.object.url')" || return 1
+	_curl "${tag_url}" | jq -r '.tagger.date | fromdateiso8601 | strftime("%Y-%m-%d")' 2>/dev/null || \
+		_curl "${tag_url}" | jq -r '.committer.date | fromdateiso8601 | strftime("%Y-%m-%d")' || return 1
 }
 
 function parts_of_milestone () {
@@ -38,8 +54,8 @@ function parts_of_milestone () {
 	milestone_id="$2"
 
 	for state in closed open; do
-		curl -s -H "Authorization: token ${API_KEY}" "https://api.github.com/repos/${repository}/issues?milestone=${milestone_id}&state=${state}" | \
-			jq -r '.[] | [.html_url, .number, .title, (.labels[] | .name)] | @tsv'
+		_curl "https://api.github.com/repos/${repository}/issues?milestone=${milestone_id}&state=${state}" | \
+			jq -r '.[] | [.html_url, .number, .title, (.labels[] | .name)] | @tsv' || return 1
 	done
 }
 
@@ -59,113 +75,147 @@ function print_item () {
 	echo " - ${item_name} \[[\#${item_id}](${item_url})\]"
 }
 
-# Get milestone information
-milestones_info="$(milestones "${repository}")"
+function changelog () {
+	local repository start_tag flags_list
+	local milestones_info previous_milestones previous_milestone
+	local milestone_name previous_milestone_name milestone_date
+	local itemToTags itemToName itemURL categoryIds categoryId
+	local majorIds item_url item_id item_name item_tags skip_item
+	local category is_major breaking
+	local start_output flags flag_only
 
-# Compute previous version information
-declare -A previous_milestones
-milestone_name=''
-while IFS=$'\t' read -r milestone_name milestone_id; do
-	previous_milestones["${milestone_name}"]="${previous_milestone}"
-	previous_milestone="${milestone_name}"
-done < <(echo "${milestones_info}" | sort -V)
+	echo "# Change Log"
 
-# Process all milestones
-echo "# Changelog" > CHANGELOG.md
-if [ -n "${tag}" ]; then
-	startOutput='false'
-else
-	startOutput='true'
-fi
-while IFS=$'\t' read -r milestone_name milestone_id; do
-	echo "Processing milestone: ${milestone_name}..." >&2
+	repository="$1"
+	start_tag="$2"
+	flags_list="$3"
 
-	if [ "${startOutput}" = 'false' ]; then
-		if [ "${milestone_name}" = "${tag}" ]; then
-			startOutput='true'
-		fi
+	flag_only='false'
+	for flag in ${flags_list}; do
+		case "${flag}" in
+			only)
+				if [ -n "${start_tag}" ]; then
+					flag_only='true'
+				fi
+				;;
+		esac
+	done
+
+	# Get milestone information
+	milestones_info="$(milestones "${repository}")" || return 1
+
+	# Compute previous version information
+	unset previous_milestones
+	declare -A previous_milestones
+	milestone_name=''
+	while IFS=$'\t' read -r milestone_name milestone_id; do
+		previous_milestones["${milestone_name}"]="${previous_milestone}"
+		previous_milestone="${milestone_name}"
+	done < <(echo "${milestones_info}" | sort -V)
+
+	# Process all milestones
+	if [ -n "${start_tag}" ]; then
+		start_output='false'
+	else
+		start_output='true'
 	fi
+	while IFS=$'\t' read -r milestone_name milestone_id; do
+		echo "Processing milestone: ${milestone_name}..." >&2
 
-	if [ "${startOutput}" = 'false' ]; then
-		continue
-	fi
-
-	milestone_date="$(milestone_to_tag_date "${milestone_name}")"
-	if [ -z "${milestone_date}" ]; then
-		continue
-	fi
-
-	echo "## Release [${milestone_name}](https://github.com/nanocurrency/raiblocks/tree/${milestone_name}) (${milestone_date})"
-	echo ""
-
-	previous_milestone_name="${previous_milestones[${milestone_name}]}"
-	if [ -n "${previous_milestone_name}" ]; then
-		echo "[Full Changelog](https://github.com/nanocurrency/raiblocks/compare/${previous_milestone_name}...${milestone_name})"
-		echo ""
-	fi
-
-	unset itemToTags itemToName itemURL categoryIds
-	declare -A itemToTags itemToName itemToURL
-	declare -A categoryIds
-	majorIds=()
-	while IFS=$'\t' read -r item_url item_id item_name item_tags; do
-		skip_item='false'
-		is_major='false'
-		category=''
-		for item_tag in ${item_tags}; do
-			case "${item_tag}" in
-				wontfix|duplicate|invalid)
-					skip_item='true'
-					;;
-				enhancement)
-					category='Implemented enhancements'
-					;;
-				major|semantics)
-					is_major='true'
-					;;
-				bug)
-					category='Fixed bugs'
-					;;
-			esac
-		done
-		if [ -z "${category}" ]; then
-			category='Fixed bugs'
+		if [ "${start_output}" = 'false' ]; then
+			if [ "${milestone_name}" = "${start_tag}" ]; then
+				start_output='true'
+			fi
 		fi
 
-		if [ "${skip_item}" = 'true' ]; then
+		if [ "${start_output}" = 'false' ]; then
 			continue
 		fi
 
-		breaking='false'
-		item_name="$(echo "${item_name}" | sanitize_markdown)"
-
-		itemToTags[$item_id]="${item_tags}"
-		itemToName[$item_id]="${item_name}"
-		itemToURL[$item_id]="${item_url}"
-
-		categoryIds[${category}]+=" $item_id"
-		if [ "${is_major}" = 'true' ]; then
-			majorIds+=($item_id)
+		milestone_date="$(milestone_to_tag_date "${milestone_name}")" || milestone_date=''
+		previous_milestone_name="${previous_milestones[${milestone_name}]}"
+		if [ -z "${milestone_date}" -o -z "${previous_milestone_name}" ]; then
+			continue
 		fi
-	done < <(parts_of_milestone "${repository}" "${milestone_id}")
 
-	if [ "${#majorIds[@]}" -gt 0 ]; then
-		echo "**Major Changes:**"
-		for item_id in "${majorIds[@]}"; do
-			print_item "${item_id}"
-		done
+		echo "## Release [${milestone_name}](https://github.com/nanocurrency/raiblocks/tree/${milestone_name}) (${milestone_date})"
 		echo ""
-	fi
 
-	for categoryId in 'Implemented enhancements' 'Fixed bugs'; do
-		if [ -n "${categoryIds[${categoryId}]}" ]; then
-			echo "**${categoryId}:**"
-			for item_id in ${categoryIds[${categoryId}]}; do
+		echo "[Full Changelog](https://github.com/nanocurrency/raiblocks/compare/${previous_milestone_name}...${milestone_name})"
+		echo ""
+
+		unset itemToTags itemToName itemURL categoryIds
+		declare -A itemToTags itemToName itemToURL
+		declare -A categoryIds
+		majorIds=()
+		while IFS=$'\t' read -r item_url item_id item_name item_tags; do
+			skip_item='false'
+			is_major='false'
+			category=''
+			for item_tag in ${item_tags}; do
+				case "${item_tag}" in
+					wontfix|duplicate|invalid)
+						skip_item='true'
+						;;
+					enhancement|quality)
+						category='Implemented enhancements'
+						;;
+					major|semantics)
+						is_major='true'
+						;;
+					bug)
+						category='Fixed bugs'
+						;;
+				esac
+			done
+			if [ -z "${category}" ]; then
+				category='Fixed bugs'
+			fi
+
+			if [ "${skip_item}" = 'true' ]; then
+				continue
+			fi
+
+			breaking='false'
+			item_name="$(echo "${item_name}" | sanitize_markdown)"
+
+			itemToTags[$item_id]="${item_tags}"
+			itemToName[$item_id]="${item_name}"
+			itemToURL[$item_id]="${item_url}"
+
+			categoryIds[${category}]+=" $item_id"
+			if [ "${is_major}" = 'true' ]; then
+				majorIds+=($item_id)
+			fi
+		done < <(parts_of_milestone "${repository}" "${milestone_id}")
+
+		if [ "${#majorIds[@]}" -gt 0 ]; then
+			echo "**Major Changes:**"
+			for item_id in "${majorIds[@]}"; do
 				print_item "${item_id}"
 			done
 			echo ""
 		fi
-	done
-	echo ""
-	echo ""
-done <<<"${milestones_info}" >> CHANGELOG.md
+
+		for categoryId in 'Implemented enhancements' 'Fixed bugs'; do
+			if [ -n "${categoryIds[${categoryId}]}" ]; then
+				echo "**${categoryId}:**"
+				for item_id in ${categoryIds[${categoryId}]}; do
+					print_item "${item_id}"
+				done
+				echo ""
+			fi
+		done
+
+		if [ "${flag_only}" = 'true' ]; then
+			break
+		fi
+
+		echo ""
+		echo ""
+	done <<<"${milestones_info}"
+}
+
+changelog="$(changelog "${repository}" "${tag}" "${flags[*]}")"
+
+echo "${changelog}" > CHANGELOG.md

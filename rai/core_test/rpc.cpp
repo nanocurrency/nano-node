@@ -253,7 +253,7 @@ TEST (rpc, send)
 	request.put ("source", rai::test_genesis_key.pub.to_account ());
 	request.put ("destination", rai::test_genesis_key.pub.to_account ());
 	request.put ("amount", "100");
-	std::thread thread2 ([&system]() {
+	boost::thread thread2 ([&system]() {
 		system.deadline_set (10s);
 		while (system.nodes[0]->balance (rai::test_genesis_key.pub) == rai::genesis_amount)
 		{
@@ -288,7 +288,7 @@ TEST (rpc, send_fail)
 	request.put ("destination", rai::test_genesis_key.pub.to_account ());
 	request.put ("amount", "100");
 	std::atomic<bool> done (false);
-	std::thread thread2 ([&system, &done]() {
+	boost::thread thread2 ([&system, &done]() {
 		system.deadline_set (10s);
 		while (!done)
 		{
