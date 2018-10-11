@@ -609,84 +609,50 @@ void rai::network::receive_action (rai::udp_data * data_a)
 		{
 			node.stats.inc (rai::stat::type::error);
 
-			if (parser.status == rai::message_parser::parse_status::insufficient_work)
+			switch (parser.status)
 			{
-				if (node.config.logging.insufficient_work_logging ())
-				{
-					BOOST_LOG (node.log) << "Insufficient work in message";
-				}
+				case rai::message_parser::parse_status::insufficient_work:
+					// We've already increment error count, update detail only
+					node.stats.inc_detail_only (rai::stat::type::error, rai::stat::detail::insufficient_work);
+					break;
+				case rai::message_parser::parse_status::invalid_magic:
+					node.stats.inc (rai::stat::type::udp, rai::stat::detail::invalid_magic);
+					break;
+				case rai::message_parser::parse_status::invalid_network:
+					node.stats.inc (rai::stat::type::udp, rai::stat::detail::invalid_network);
+					break;
+				case rai::message_parser::parse_status::invalid_header:
+					node.stats.inc (rai::stat::type::udp, rai::stat::detail::invalid_header);
+					break;
+				case rai::message_parser::parse_status::invalid_message_type:
+					node.stats.inc (rai::stat::type::udp, rai::stat::detail::invalid_message_type);
+					break;
+				case rai::message_parser::parse_status::invalid_keepalive_message:
+					node.stats.inc (rai::stat::type::udp, rai::stat::detail::invalid_keepalive_message);
+					break;
+				case rai::message_parser::parse_status::invalid_publish_message:
+					node.stats.inc (rai::stat::type::udp, rai::stat::detail::invalid_publish_message);
+					break;
+				case rai::message_parser::parse_status::invalid_confirm_req_message:
+					node.stats.inc (rai::stat::type::udp, rai::stat::detail::invalid_confirm_req_message);
+					break;
+				case rai::message_parser::parse_status::invalid_confirm_ack_message:
+					node.stats.inc (rai::stat::type::udp, rai::stat::detail::invalid_confirm_ack_message);
+					break;
+				case rai::message_parser::parse_status::invalid_node_id_handshake_message:
+					node.stats.inc (rai::stat::type::udp, rai::stat::detail::invalid_node_id_handshake_message);
+					break;
+				case rai::message_parser::parse_status::outdated_version:
+					node.stats.inc (rai::stat::type::udp, rai::stat::detail::outdated_version);
+					break;
+				case rai::message_parser::parse_status::success:
+					/* Already checked, unreachable */
+					break;
+			}
 
-				// We've already increment error count, update detail only
-				node.stats.inc_detail_only (rai::stat::type::error, rai::stat::detail::insufficient_work);
-			}
-			else if (parser.status == rai::message_parser::parse_status::invalid_message_type)
+			if (node.config.logging.network_logging ())
 			{
-				if (node.config.logging.network_logging ())
-				{
-					BOOST_LOG (node.log) << "Invalid message type in message";
-				}
-			}
-			else if (parser.status == rai::message_parser::parse_status::invalid_header)
-			{
-				if (node.config.logging.network_logging ())
-				{
-					BOOST_LOG (node.log) << "Invalid header in message";
-				}
-			}
-			else if (parser.status == rai::message_parser::parse_status::invalid_keepalive_message)
-			{
-				if (node.config.logging.network_logging ())
-				{
-					BOOST_LOG (node.log) << "Invalid keepalive message";
-				}
-			}
-			else if (parser.status == rai::message_parser::parse_status::invalid_publish_message)
-			{
-				if (node.config.logging.network_logging ())
-				{
-					BOOST_LOG (node.log) << "Invalid publish message";
-				}
-			}
-			else if (parser.status == rai::message_parser::parse_status::invalid_confirm_req_message)
-			{
-				if (node.config.logging.network_logging ())
-				{
-					BOOST_LOG (node.log) << "Invalid confirm_req message";
-				}
-			}
-			else if (parser.status == rai::message_parser::parse_status::invalid_confirm_ack_message)
-			{
-				if (node.config.logging.network_logging ())
-				{
-					BOOST_LOG (node.log) << "Invalid confirm_ack message";
-				}
-			}
-			else if (parser.status == rai::message_parser::parse_status::invalid_node_id_handshake_message)
-			{
-				if (node.config.logging.network_logging ())
-				{
-					BOOST_LOG (node.log) << "Invalid node_id_handshake message";
-				}
-			}
-			else if (parser.status == rai::message_parser::parse_status::invalid_magic)
-			{
-				if (node.config.logging.network_logging ())
-				{
-					BOOST_LOG (node.log) << "Invalid magic in header";
-				}
-				node.stats.inc (rai::stat::type::udp, rai::stat::detail::invalid_magic);
-			}
-			else if (parser.status == rai::message_parser::parse_status::invalid_network)
-			{
-				if (node.config.logging.network_logging ())
-				{
-					BOOST_LOG (node.log) << "Invalid network in header";
-				}
-				node.stats.inc (rai::stat::type::udp, rai::stat::detail::invalid_network);
-			}
-			else
-			{
-				BOOST_LOG (node.log) << "Could not deserialize buffer";
+				BOOST_LOG (node.log) << "Could not parse message.  Error: " << parser.status_string ();
 			}
 		}
 		else
@@ -1954,7 +1920,7 @@ void rai::gap_cache::vote (std::shared_ptr<rai::vote> vote_a)
 						{
 							if (!node_l->bootstrap_initiator.in_progress ())
 							{
-								BOOST_LOG (node_l->log) << boost::str (boost::format ("Missing confirmed block %1%") % hash.to_string ());
+								BOOST_LOG (node_l->log) << boost::str (boost::format ("Missing block %1% which has enough votes to warrant bootstrapping it") % hash.to_string ());
 							}
 							node_l->bootstrap_initiator.bootstrap ();
 						}
