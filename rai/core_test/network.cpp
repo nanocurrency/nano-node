@@ -65,30 +65,30 @@ TEST (network, self_discard)
 TEST (network, send_node_id_handshake)
 {
 	rai::system system (24000, 1);
-	auto list1 (system.nodes[0]->peers.list ());
+	auto list1 (system.nodes[0]->peers.lock ()->list ());
 	ASSERT_EQ (0, list1.size ());
 	rai::node_init init1;
 	auto node1 (std::make_shared<rai::node> (init1, system.service, 24001, rai::unique_path (), system.alarm, system.logging, system.work));
 	node1->start ();
 	auto initial (system.nodes[0]->stats.count (rai::stat::type::message, rai::stat::detail::node_id_handshake, rai::stat::dir::in));
 	auto initial_node1 (node1->stats.count (rai::stat::type::message, rai::stat::detail::node_id_handshake, rai::stat::dir::in));
-	system.nodes[0]->network.send_keepalive (node1->network.endpoint ());
-	ASSERT_EQ (0, system.nodes[0]->peers.list ().size ());
-	ASSERT_EQ (0, node1->peers.list ().size ());
+	system.nodes[0]->send_keepalive (node1->network.endpoint ());
+	ASSERT_EQ (0, system.nodes[0]->peers.lock ()->list ().size ());
+	ASSERT_EQ (0, node1->peers.lock ()->list ().size ());
 	system.deadline_set (10s);
 	while (node1->stats.count (rai::stat::type::message, rai::stat::detail::node_id_handshake, rai::stat::dir::in) == initial_node1)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	ASSERT_EQ (0, system.nodes[0]->peers.list ().size ());
-	ASSERT_EQ (1, node1->peers.list ().size ());
+	ASSERT_EQ (0, system.nodes[0]->peers.lock ()->list ().size ());
+	ASSERT_EQ (1, node1->peers.lock ()->list ().size ());
 	system.deadline_set (10s);
 	while (system.nodes[0]->stats.count (rai::stat::type::message, rai::stat::detail::node_id_handshake, rai::stat::dir::in) < initial + 2)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	auto peers1 (system.nodes[0]->peers.list ());
-	auto peers2 (node1->peers.list ());
+	auto peers1 (system.nodes[0]->peers.lock ()->list ());
+	auto peers2 (node1->peers.lock ()->list ());
 	ASSERT_EQ (1, peers1.size ());
 	ASSERT_EQ (1, peers2.size ());
 	ASSERT_EQ (node1->network.endpoint (), peers1[0]);
@@ -99,7 +99,7 @@ TEST (network, send_node_id_handshake)
 TEST (network, keepalive_ipv4)
 {
 	rai::system system (24000, 1);
-	auto list1 (system.nodes[0]->peers.list ());
+	auto list1 (system.nodes[0]->peers.lock ()->list ());
 	ASSERT_EQ (0, list1.size ());
 	rai::node_init init1;
 	auto node1 (std::make_shared<rai::node> (init1, system.service, 24001, rai::unique_path (), system.alarm, system.logging, system.work));
@@ -117,18 +117,18 @@ TEST (network, keepalive_ipv4)
 TEST (network, multi_keepalive)
 {
 	rai::system system (24000, 1);
-	auto list1 (system.nodes[0]->peers.list ());
+	auto list1 (system.nodes[0]->peers.lock ()->list ());
 	ASSERT_EQ (0, list1.size ());
 	rai::node_init init1;
 	auto node1 (std::make_shared<rai::node> (init1, system.service, 24001, rai::unique_path (), system.alarm, system.logging, system.work));
 	ASSERT_FALSE (init1.error ());
 	node1->start ();
-	ASSERT_EQ (0, node1->peers.size ());
-	node1->network.send_keepalive (system.nodes[0]->network.endpoint ());
-	ASSERT_EQ (0, node1->peers.size ());
-	ASSERT_EQ (0, system.nodes[0]->peers.size ());
+	ASSERT_EQ (0, node1->peers.lock ()->size ());
+	node1->send_keepalive (system.nodes[0]->network.endpoint ());
+	ASSERT_EQ (0, node1->peers.lock ()->size ());
+	ASSERT_EQ (0, system.nodes[0]->peers.lock ()->size ());
 	system.deadline_set (10s);
-	while (system.nodes[0]->peers.size () != 1)
+	while (system.nodes[0]->peers.lock ()->size () != 1)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
@@ -136,9 +136,9 @@ TEST (network, multi_keepalive)
 	auto node2 (std::make_shared<rai::node> (init2, system.service, 24002, rai::unique_path (), system.alarm, system.logging, system.work));
 	ASSERT_FALSE (init2.error ());
 	node2->start ();
-	node2->network.send_keepalive (system.nodes[0]->network.endpoint ());
+	node2->send_keepalive (system.nodes[0]->network.endpoint ());
 	system.deadline_set (10s);
-	while (node1->peers.size () != 2 || system.nodes[0]->peers.size () != 2 || node2->peers.size () != 2)
+	while (node1->peers.lock ()->size () != 2 || system.nodes[0]->peers.lock ()->size () != 2 || node2->peers.lock ()->size () != 2)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
@@ -825,7 +825,7 @@ TEST (bulk, offline_send)
 	do
 	{
 		ASSERT_NO_ERROR (system.poll ());
-	} while (system.nodes[0]->peers.empty () || node1->peers.empty ());
+	} while (system.nodes[0]->peers.lock ()->empty () || node1->peers.lock ()->empty ());
 	// Send block arrival via bootstrap
 	while (node1->balance (rai::test_genesis_key.pub) == std::numeric_limits<rai::uint256_t>::max ())
 	{

@@ -1482,7 +1482,7 @@ void rai::rpc_handler::confirmation_quorum ()
 	response_l.put ("online_weight_quorum_percent", std::to_string (node.config.online_weight_quorum));
 	response_l.put ("online_weight_minimum", node.config.online_weight_minimum.to_string_dec ());
 	response_l.put ("online_stake_total", node.online_reps.online_stake_total.convert_to<std::string> ());
-	response_l.put ("peers_stake_total", node.peers.total_weight ().convert_to<std::string> ());
+	response_l.put ("peers_stake_total", node.peers.lock ()->total_weight ().convert_to<std::string> ());
 	response_errors ();
 }
 
@@ -2044,7 +2044,7 @@ void rai::rpc_handler::password_valid (bool wallet_locked)
 void rai::rpc_handler::peers ()
 {
 	boost::property_tree::ptree peers_l;
-	auto peers_list (node.peers.list_version ());
+	auto peers_list (node.peers.lock ()->list_version ());
 	for (auto i (peers_list.begin ()), n (peers_list.end ()); i != n; ++i)
 	{
 		std::stringstream text;

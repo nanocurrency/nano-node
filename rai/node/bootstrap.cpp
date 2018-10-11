@@ -1001,7 +1001,7 @@ void rai::bootstrap_attempt::populate_connections ()
 		// Not many peers respond, need to try to make more connections than we need.
 		for (int i = 0; i < delta; i++)
 		{
-			auto peer (node->peers.bootstrap_peer ());
+			auto peer (node->peers.lock ()->bootstrap_peer ());
 			if (peer != rai::endpoint (boost::asio::ip::address_v6::any (), 0))
 			{
 				auto client (std::make_shared<rai::bootstrap_client> (node, shared_from_this (), rai::tcp_endpoint (peer.address (), peer.port ())));
@@ -1154,7 +1154,7 @@ void rai::bootstrap_initiator::bootstrap (rai::endpoint const & endpoint_a, bool
 {
 	if (add_to_peers)
 	{
-		node.peers.insert (rai::map_endpoint_to_v6 (endpoint_a), rai::protocol_version);
+		node.peers.lock ()->insert (rai::map_endpoint_to_v6 (endpoint_a), rai::protocol_version);
 	}
 	std::unique_lock<std::mutex> lock (mutex);
 	if (!stopped)

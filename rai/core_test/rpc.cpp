@@ -1084,8 +1084,8 @@ TEST (rpc, keepalive)
 	auto port (boost::str (boost::format ("%1%") % node1->network.endpoint ().port ()));
 	request.put ("address", address);
 	request.put ("port", port);
-	ASSERT_FALSE (system.nodes[0]->peers.known_peer (node1->network.endpoint ()));
-	ASSERT_EQ (0, system.nodes[0]->peers.size ());
+	ASSERT_FALSE (system.nodes[0]->peers.lock ()->known_peer (node1->network.endpoint ()));
+	ASSERT_EQ (0, system.nodes[0]->peers.lock ()->size ());
 	test_response response (request, rpc, system.service);
 	while (response.status == 0)
 	{
@@ -1093,9 +1093,9 @@ TEST (rpc, keepalive)
 	}
 	ASSERT_EQ (200, response.status);
 	system.deadline_set (10s);
-	while (!system.nodes[0]->peers.known_peer (node1->network.endpoint ()))
+	while (!system.nodes[0]->peers.lock ()->known_peer (node1->network.endpoint ()))
 	{
-		ASSERT_EQ (0, system.nodes[0]->peers.size ());
+		ASSERT_EQ (0, system.nodes[0]->peers.lock ()->size ());
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	node1->stop ();
@@ -1354,7 +1354,7 @@ TEST (rpc, payment_wait)
 TEST (rpc, peers)
 {
 	rai::system system (24000, 2);
-	system.nodes[0]->peers.insert (rai::endpoint (boost::asio::ip::address_v6::from_string ("::ffff:80.80.80.80"), 4000), rai::protocol_version);
+	system.nodes[0]->peers.lock ()->insert (rai::endpoint (boost::asio::ip::address_v6::from_string ("::ffff:80.80.80.80"), 4000), rai::protocol_version);
 	rai::rpc rpc (system.service, *system.nodes[0], rai::rpc_config (true));
 	rpc.start ();
 	boost::property_tree::ptree request;

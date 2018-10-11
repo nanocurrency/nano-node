@@ -1,6 +1,7 @@
 #pragma once
 
 #include <rai/lib/work.hpp>
+#include <rai/lib/wrapping_mutex.hpp>
 #include <rai/node/bootstrap.hpp>
 #include <rai/node/logging.hpp>
 #include <rai/node/portmapping.hpp>
@@ -259,7 +260,6 @@ public:
 	rai::uint128_t total_weight ();
 	rai::uint128_t online_weight_minimum;
 	bool empty ();
-	std::mutex mutex;
 	rai::endpoint self;
 	boost::multi_index_container<
 	peer_information,
@@ -279,13 +279,12 @@ public:
 	boost::multi_index::hashed_unique<boost::multi_index::member<peer_attempt, rai::endpoint, &peer_attempt::endpoint>>,
 	boost::multi_index::ordered_non_unique<boost::multi_index::member<peer_attempt, std::chrono::steady_clock::time_point, &peer_attempt::last_attempt>>>>
 	attempts;
-	std::mutex syn_cookie_mutex;
 	std::unordered_map<rai::endpoint, syn_cookie_info> syn_cookies;
 	std::unordered_map<boost::asio::ip::address, unsigned> syn_cookies_per_ip;
 	// Number of peers that don't support node ID
 	size_t legacy_peers;
 	// Called when a new peer is observed
-	std::function<void(rai::endpoint const &)> peer_observer;
+	std::function<void(rai::peer_container &, rai::endpoint const &)> peer_observer;
 	std::function<void()> disconnect_observer;
 	// Number of peers to crawl for being a rep every period
 	static size_t constexpr peers_per_crawl = 8;
@@ -420,7 +419,7 @@ public:
 	void publish_broadcast (std::vector<rai::peer_information> &, std::unique_ptr<rai::block>);
 	void confirm_send (rai::confirm_ack const &, std::shared_ptr<std::vector<uint8_t>>, rai::endpoint const &);
 	void merge_peers (std::array<rai::endpoint, 8> const &);
-	void send_keepalive (rai::endpoint const &);
+	void send_keepalive (rai::peer_container &, rai::endpoint const &);
 	void send_node_id_handshake (rai::endpoint const &, boost::optional<rai::uint256_union> const & query, boost::optional<rai::uint256_union> const & respond_to);
 	void broadcast_confirm_req (std::shared_ptr<rai::block>);
 	void broadcast_confirm_req_base (std::shared_ptr<rai::block>, std::shared_ptr<std::vector<rai::peer_information>>, unsigned, bool = false);
@@ -490,7 +489,7 @@ public:
 	rai::observer_set<bool> wallet;
 	rai::observer_set<rai::transaction const &, std::shared_ptr<rai::vote>, rai::endpoint const &> vote;
 	rai::observer_set<rai::account const &, bool> account_balance;
-	rai::observer_set<rai::endpoint const &> endpoint;
+	rai::observer_set<rai::peer_container &, rai::endpoint const &> endpoint;
 	rai::observer_set<> disconnect;
 	rai::observer_set<> started;
 };
@@ -613,7 +612,7 @@ public:
 	rai::network network;
 	rai::bootstrap_initiator bootstrap_initiator;
 	rai::bootstrap_listener bootstrap;
-	rai::peer_container peers;
+	rai::wrapping_mutex<rai::peer_container> peers;
 	boost::filesystem::path application_path;
 	rai::node_observers observers;
 	rai::wallets wallets;

@@ -15,7 +15,7 @@ TEST (peer_container, no_recontact)
 	auto observed_disconnect (false);
 	rai::endpoint endpoint1 (boost::asio::ip::address_v6::loopback (), 10000);
 	ASSERT_EQ (0, peers.size ());
-	peers.peer_observer = [&observed_peer](rai::endpoint const &) { ++observed_peer; };
+	peers.peer_observer = [&observed_peer](rai::peer_container &, rai::endpoint const &) { ++observed_peer; };
 	peers.disconnect_observer = [&observed_disconnect]() { observed_disconnect = true; };
 	ASSERT_FALSE (peers.insert (endpoint1, rai::protocol_version));
 	ASSERT_EQ (1, peers.size ());

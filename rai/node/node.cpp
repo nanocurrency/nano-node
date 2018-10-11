@@ -153,11 +153,11 @@ void rai::network::stop ()
 	buffer_container.stop ();
 }
 
-void rai::network::send_keepalive (rai::endpoint const & endpoint_a)
+void rai::network::send_keepalive (rai::peer_container & peers_a, rai::endpoint const & endpoint_a)
 {
 	assert (endpoint_a.address ().is_v6 ());
 	rai::keepalive message;
-	node.peers.random_fill (message.peers);
+	peers_a.random_fill (message.peers);
 	std::shared_ptr<std::vector<uint8_t>> bytes (new std::vector<uint8_t>);
 	{
 		rai::vectorstream stream (*bytes);
@@ -291,7 +291,7 @@ bool confirm_block (rai::transaction const & transaction_a, rai::node & node_a, 
 void rai::network::republish_block (std::shared_ptr<rai::block> block)
 {
 	auto hash (block->hash ());
-	auto list (node.peers.list_fanout ());
+	auto list (node.peers.lock ()->list_fanout ());
 	rai::publish message (block);
 	std::shared_ptr<std::vector<uint8_t>> bytes (new std::vector<uint8_t>);
 	{
@@ -340,7 +340,7 @@ void rai::network::republish_vote (std::shared_ptr<rai::vote> vote_a)
 		rai::vectorstream stream (*bytes);
 		confirm.serialize (stream);
 	}
-	auto list (node.peers.list_fanout ());
+	auto list (node.peers.lock ()->list_fanout ());
 	for (auto j (list.begin ()), m (list.end ()); j != m; ++j)
 	{
 		node.network.confirm_send (confirm, bytes, *j);
@@ -349,11 +349,15 @@ void rai::network::republish_vote (std::shared_ptr<rai::vote> vote_a)
 
 void rai::network::broadcast_confirm_req (std::shared_ptr<rai::block> block_a)
 {
-	auto list (std::make_shared<std::vector<rai::peer_information>> (node.peers.representatives (std::numeric_limits<size_t>::max ())));
-	if (list->empty () || node.peers.total_weight () < node.config.online_weight_minimum.number ())
+	std::shared_ptr<std::vector<rai::peer_information>> list;
 	{
-		// broadcast request to all peers
-		list = std::make_shared<std::vector<rai::peer_information>> (node.peers.list_vector ());
+		auto peers_l (node.peers.lock ());
+		list = std::make_shared<std::vector<rai::peer_information>> (peers_l->representatives (std::numeric_limits<size_t>::max ()));
+		if (list->empty () || peers_l->total_weight () < node.config.online_weight_minimum.number ())
+		{
+			// broadcast request to all peers
+			list = std::make_shared<std::vector<rai::peer_information>> (peers_l->list_vector ());
+		}
 	}
 
 	/*
@@ -428,7 +432,7 @@ void rai::network::send_confirm_req (rai::endpoint const & endpoint_a, std::shar
 }
 
 template <typename T>
-void rep_query (rai::node & node_a, T const & peers_a)
+void rep_query (rai::node & node_a, rai::peer_container & peer_container_a, T const & peers_a)
 {
 	auto transaction (node_a.store.tx_begin_read ());
 	std::shared_ptr<rai::block> block (node_a.store.block_random (transaction));
@@ -436,7 +440,7 @@ void rep_query (rai::node & node_a, T const & peers_a)
 	node_a.rep_crawler.add (hash);
 	for (auto i (peers_a.begin ()), n (peers_a.end ()); i != n; ++i)
 	{
-		node_a.peers.rep_request (*i);
+		peer_container_a.rep_request (*i);
 		node_a.network.send_confirm_req (*i, block);
 	}
 	std::weak_ptr<rai::node> node_w (node_a.shared ());
@@ -449,11 +453,11 @@ void rep_query (rai::node & node_a, T const & peers_a)
 }
 
 template <>
-void rep_query (rai::node & node_a, rai::endpoint const & peers_a)
+void rep_query (rai::node & node_a, rai::peer_container & peer_container_a, rai::endpoint const & peers_a)
 {
 	std::array<rai::endpoint, 1> peers;
 	peers[0] = peers_a;
-	rep_query (node_a, peers);
+	rep_query (node_a, peer_container_a, peers);
 }
 
 namespace
@@ -474,13 +478,17 @@ public:
 			BOOST_LOG (node.log) << boost::str (boost::format ("Received keepalive message from %1%") % sender);
 		}
 		node.stats.inc (rai::stat::type::message, rai::stat::detail::keepalive, rai::stat::dir::in);
-		if (node.peers.contacted (sender, message_a.header.version_using))
+		boost::optional<rai::uint256_union> cookie;
 		{
-			auto endpoint_l (rai::map_endpoint_to_v6 (sender));
-			auto cookie (node.peers.assign_syn_cookie (endpoint_l));
-			if (cookie)
+			auto peers_l (node.peers.lock ());
+			if (peers_l->contacted (sender, message_a.header.version_using))
 			{
-				node.network.send_node_id_handshake (endpoint_l, *cookie, boost::none);
+				auto endpoint_l (rai::map_endpoint_to_v6 (sender));
+				cookie = peers_l->assign_syn_cookie (endpoint_l);
+				if (cookie)
+				{
+					node.network.send_node_id_handshake (endpoint_l, *cookie, boost::none);
+				}
 			}
 		}
 		node.network.merge_peers (message_a.peers);
@@ -492,7 +500,7 @@ public:
 			BOOST_LOG (node.log) << boost::str (boost::format ("Publish message from %1% for %2%") % sender % message_a.block->hash ().to_string ());
 		}
 		node.stats.inc (rai::stat::type::message, rai::stat::detail::publish, rai::stat::dir::in);
-		node.peers.contacted (sender, message_a.header.version_using);
+		node.peers.lock ()->contacted (sender, message_a.header.version_using);
 		node.process_active (message_a.block);
 		node.active.publish (message_a.block);
 	}
@@ -503,7 +511,7 @@ public:
 			BOOST_LOG (node.log) << boost::str (boost::format ("Confirm_req message from %1% for %2%") % sender % message_a.block->hash ().to_string ());
 		}
 		node.stats.inc (rai::stat::type::message, rai::stat::detail::confirm_req, rai::stat::dir::in);
-		node.peers.contacted (sender, message_a.header.version_using);
+		node.peers.lock ()->contacted (sender, message_a.header.version_using);
 		// Don't load nodes with disabled voting
 		if (node.config.enable_voting)
 		{
@@ -522,7 +530,7 @@ public:
 			BOOST_LOG (node.log) << boost::str (boost::format ("Received confirm_ack message from %1% for %2%sequence %3%") % sender % message_a.vote->hashes_string () % std::to_string (message_a.vote->sequence));
 		}
 		node.stats.inc (rai::stat::type::message, rai::stat::detail::confirm_ack, rai::stat::dir::in);
-		node.peers.contacted (sender, message_a.header.version_using);
+		node.peers.lock ()->contacted (sender, message_a.header.version_using);
 		for (auto & vote_block : message_a.vote->blocks)
 		{
 			if (!vote_block.which ())
@@ -569,24 +577,27 @@ public:
 			out_respond_to = message_a.query;
 		}
 		auto validated_response (false);
-		if (message_a.response)
 		{
-			if (!node.peers.validate_syn_cookie (endpoint_l, message_a.response->first, message_a.response->second))
+			auto peers_l (node.peers.lock ());
+			if (message_a.response)
 			{
-				validated_response = true;
-				if (message_a.response->first != node.node_id.pub)
+				if (!peers_l->validate_syn_cookie (endpoint_l, message_a.response->first, message_a.response->second))
 				{
-					node.peers.insert (endpoint_l, message_a.header.version_using);
+					validated_response = true;
+					if (message_a.response->first != node.node_id.pub)
+					{
+						peers_l->insert (endpoint_l, message_a.header.version_using);
+					}
+				}
+				else if (node.config.logging.network_node_id_handshake_logging ())
+				{
+					BOOST_LOG (node.log) << boost::str (boost::format ("Failed to validate syn cookie signature %1% by %2%") % message_a.response->second.to_string () % message_a.response->first.to_account ());
 				}
 			}
-			else if (node.config.logging.network_node_id_handshake_logging ())
+			if (!validated_response && !peers_l->known_peer (endpoint_l))
 			{
-				BOOST_LOG (node.log) << boost::str (boost::format ("Failed to validate syn cookie signature %1% by %2%") % message_a.response->second.to_string () % message_a.response->first.to_account ());
+				out_query = peers_l->assign_syn_cookie (endpoint_l);
 			}
-		}
-		if (!validated_response && !node.peers.known_peer (endpoint_l))
-		{
-			out_query = node.peers.assign_syn_cookie (endpoint_l);
 		}
 		if (out_query || out_respond_to)
 		{
@@ -674,11 +685,12 @@ void rai::network::receive_action (rai::udp_data * data_a)
 // Send keepalives to all the peers we've been notified of
 void rai::network::merge_peers (std::array<rai::endpoint, 8> const & peers_a)
 {
+	auto peers_l (node.peers.lock ());
 	for (auto i (peers_a.begin ()), j (peers_a.end ()); i != j; ++i)
 	{
-		if (!node.peers.reachout (*i))
+		if (!peers_l->reachout (*i))
 		{
-			send_keepalive (*i);
+			send_keepalive (*peers_l, *i);
 		}
 	}
 }
@@ -1593,12 +1605,15 @@ stats (config.stat_config)
 	wallets.observer = [this](bool active) {
 		observers.wallet.notify (active);
 	};
-	peers.peer_observer = [this](rai::endpoint const & endpoint_a) {
-		observers.endpoint.notify (endpoint_a);
-	};
-	peers.disconnect_observer = [this]() {
-		observers.disconnect.notify ();
-	};
+	{
+		auto peers_l (peers.lock ());
+		peers_l->peer_observer = [this](rai::peer_container & peer_container_a, rai::endpoint const & endpoint_a) {
+			observers.endpoint.notify (peer_container_a, endpoint_a);
+		};
+		peers_l->disconnect_observer = [this]() {
+			observers.disconnect.notify ();
+		};
+	}
 	observers.blocks.add ([this](std::shared_ptr<rai::block> block_a, rai::account const & account_a, rai::amount const & amount_a, bool is_state_send_a) {
 		if (this->block_arrival.recent (block_a->hash ()))
 		{
@@ -1709,9 +1724,9 @@ stats (config.stat_config)
 			});
 		}
 	});
-	observers.endpoint.add ([this](rai::endpoint const & endpoint_a) {
-		this->network.send_keepalive (endpoint_a);
-		rep_query (*this, endpoint_a);
+	observers.endpoint.add ([this](rai::peer_container & peers_a, rai::endpoint const & endpoint_a) {
+		this->network.send_keepalive (peers_a, endpoint_a);
+		rep_query (*this, peers_a, endpoint_a);
 	});
 	observers.vote.add ([this](rai::transaction const & transaction, std::shared_ptr<rai::vote> vote_a, rai::endpoint const & endpoint_a) {
 		assert (endpoint_a.address ().is_v6 ());
@@ -1737,7 +1752,7 @@ stats (config.stat_config)
 			if (rep_crawler_exists)
 			{
 				// We see a valid non-replay vote for a block we requested, this node is probably a representative
-				if (this->peers.rep_response (endpoint_a, vote_a->account, rep_weight))
+				if (this->peers.lock ()->rep_response (endpoint_a, vote_a->account, rep_weight))
 				{
 					BOOST_LOG (log) << boost::str (boost::format ("Found a representative at %1%") % endpoint_a);
 					// Rebroadcasting all active votes to new representative
@@ -1777,7 +1792,7 @@ stats (config.stat_config)
 		node_id = rai::keypair (store.get_node_id (transaction));
 		BOOST_LOG (log) << "Node ID: " << node_id.pub.to_account ();
 	}
-	peers.online_weight_minimum = config.online_weight_minimum.number ();
+	peers.lock ()->online_weight_minimum = config.online_weight_minimum.number ();
 	if (rai::rai_network == rai::rai_networks::rai_live_network || rai::rai_network == rai::rai_networks::rai_beta_network)
 	{
 		extern const char rai_bootstrap_weights[];
@@ -1827,7 +1842,7 @@ bool rai::node::copy_with_compaction (boost::filesystem::path const & destinatio
 
 void rai::node::send_keepalive (rai::endpoint const & endpoint_a)
 {
-	network.send_keepalive (rai::map_endpoint_to_v6 (endpoint_a));
+	network.send_keepalive (*peers.lock (), rai::map_endpoint_to_v6 (endpoint_a));
 }
 
 void rai::node::process_fork (rai::transaction const & transaction_a, std::shared_ptr<rai::block> block_a)
@@ -1989,7 +2004,6 @@ std::deque<rai::endpoint> rai::peer_container::list_fanout ()
 std::deque<rai::endpoint> rai::peer_container::list ()
 {
 	std::deque<rai::endpoint> result;
-	std::lock_guard<std::mutex> lock (mutex);
 	for (auto i (peers.begin ()), j (peers.end ()); i != j; ++i)
 	{
 		result.push_back (i->endpoint);
@@ -2001,7 +2015,6 @@ std::deque<rai::endpoint> rai::peer_container::list ()
 std::map<rai::endpoint, unsigned> rai::peer_container::list_version ()
 {
 	std::map<rai::endpoint, unsigned> result;
-	std::lock_guard<std::mutex> lock (mutex);
 	for (auto i (peers.begin ()), j (peers.end ()); i != j; ++i)
 	{
 		result.insert (std::pair<rai::endpoint, unsigned> (i->endpoint, i->network_version));
@@ -2012,7 +2025,6 @@ std::map<rai::endpoint, unsigned> rai::peer_container::list_version ()
 std::vector<rai::peer_information> rai::peer_container::list_vector ()
 {
 	std::vector<peer_information> result;
-	std::lock_guard<std::mutex> lock (mutex);
 	for (auto i (peers.begin ()), j (peers.end ()); i != j; ++i)
 	{
 		result.push_back (*i);
@@ -2024,8 +2036,6 @@ std::vector<rai::peer_information> rai::peer_container::list_vector ()
 rai::endpoint rai::peer_container::bootstrap_peer ()
 {
 	rai::endpoint result (boost::asio::ip::address_v6::any (), 0);
-	std::lock_guard<std::mutex> lock (mutex);
-	;
 	for (auto i (peers.get<4> ().begin ()), n (peers.get<4> ().end ()); i != n;)
 	{
 		if (i->network_version >= protocol_version_reasonable_min)
@@ -2048,7 +2058,6 @@ boost::optional<rai::uint256_union> rai::peer_container::assign_syn_cookie (rai:
 {
 	auto ip_addr (endpoint.address ());
 	assert (ip_addr.is_v6 ());
-	std::unique_lock<std::mutex> lock (syn_cookie_mutex);
 	unsigned & ip_cookies = syn_cookies_per_ip[ip_addr];
 	boost::optional<rai::uint256_union> result;
 	if (ip_cookies < max_peers_per_ip)
@@ -2070,7 +2079,6 @@ bool rai::peer_container::validate_syn_cookie (rai::endpoint const & endpoint, r
 {
 	auto ip_addr (endpoint.address ());
 	assert (ip_addr.is_v6 ());
-	std::unique_lock<std::mutex> lock (syn_cookie_mutex);
 	auto result (true);
 	auto cookie_it (syn_cookies.find (endpoint));
 	if (cookie_it != syn_cookies.end () && !rai::validate_message (node_id, cookie_it->second.cookie, sig))
@@ -2180,10 +2188,13 @@ rai::account rai::node::representative (rai::account const & account_a)
 void rai::node::ongoing_keepalive ()
 {
 	keepalive_preconfigured (config.preconfigured_peers);
-	auto peers_l (peers.purge_list (std::chrono::steady_clock::now () - cutoff));
-	for (auto i (peers_l.begin ()), j (peers_l.end ()); i != j && std::chrono::steady_clock::now () - i->last_attempt > period; ++i)
 	{
-		network.send_keepalive (i->endpoint);
+		auto peers_l (peers.lock ());
+		auto list (peers_l->purge_list (std::chrono::steady_clock::now () - cutoff));
+		for (auto i (list.begin ()), j (list.end ()); i != j && std::chrono::steady_clock::now () - i->last_attempt > period; ++i)
+		{
+			network.send_keepalive (*peers_l, i->endpoint);
+		}
 	}
 	std::weak_ptr<rai::node> node_w (shared_from_this ());
 	alarm.add (std::chrono::steady_clock::now () + period, [node_w]() {
@@ -2196,7 +2207,7 @@ void rai::node::ongoing_keepalive ()
 
 void rai::node::ongoing_syn_cookie_cleanup ()
 {
-	peers.purge_syn_cookies (std::chrono::steady_clock::now () - syn_cookie_cutoff);
+	peers.lock ()->purge_syn_cookies (std::chrono::steady_clock::now () - syn_cookie_cutoff);
 	std::weak_ptr<rai::node> node_w (shared_from_this ());
 	alarm.add (std::chrono::steady_clock::now () + (syn_cookie_cutoff * 2), [node_w]() {
 		if (auto node_l = node_w.lock ())
@@ -2209,8 +2220,8 @@ void rai::node::ongoing_syn_cookie_cleanup ()
 void rai::node::ongoing_rep_crawl ()
 {
 	auto now (std::chrono::steady_clock::now ());
-	auto peers_l (peers.rep_crawl ());
-	rep_query (*this, peers_l);
+	auto peers_l (peers.lock ());
+	rep_query (*this, *peers_l, peers_l->rep_crawl ());
 	if (network.on)
 	{
 		std::weak_ptr<rai::node> node_w (shared_from_this ());
@@ -2230,7 +2241,7 @@ void rai::node::ongoing_bootstrap ()
 	{
 		// Re-attempt bootstrapping more aggressively on startup
 		next_wakeup = 5;
-		if (!bootstrap_initiator.in_progress () && !peers.empty ())
+		if (!bootstrap_initiator.in_progress () && !peers.lock ()->empty ())
 		{
 			++warmed_up;
 		}
@@ -2839,7 +2850,6 @@ std::unordered_set<rai::endpoint> rai::peer_container::random_set (size_t count_
 {
 	std::unordered_set<rai::endpoint> result;
 	result.reserve (count_a);
-	std::lock_guard<std::mutex> lock (mutex);
 	// Stop trying to fill result with random samples after this many attempts
 	auto random_cutoff (count_a * 2);
 	auto peers_size (peers.size ());
@@ -2882,7 +2892,6 @@ std::vector<rai::peer_information> rai::peer_container::representatives (size_t 
 {
 	std::vector<peer_information> result;
 	result.reserve (std::min (count_a, size_t (16)));
-	std::lock_guard<std::mutex> lock (mutex);
 	for (auto i (peers.get<6> ().begin ()), n (peers.get<6> ().end ()); i != n && result.size () < count_a; ++i)
 	{
 		if (!i->rep_weight.is_zero ())
@@ -2895,7 +2904,6 @@ std::vector<rai::peer_information> rai::peer_container::representatives (size_t 
 
 void rai::peer_container::purge_syn_cookies (std::chrono::steady_clock::time_point const & cutoff)
 {
-	std::lock_guard<std::mutex> lock (syn_cookie_mutex);
 	auto it (syn_cookies.begin ());
 	while (it != syn_cookies.end ())
 	{
@@ -2924,7 +2932,6 @@ std::vector<rai::peer_information> rai::peer_container::purge_list (std::chrono:
 {
 	std::vector<rai::peer_information> result;
 	{
-		std::lock_guard<std::mutex> lock (mutex);
 		auto pivot (peers.get<1> ().lower_bound (cutoff));
 		result.assign (pivot, peers.get<1> ().end ());
 		for (auto i (peers.get<1> ().begin ()); i != pivot; ++i)
@@ -2965,7 +2972,6 @@ std::vector<rai::endpoint> rai::peer_container::rep_crawl ()
 	// If there is enough observed peers weight, crawl 10 peers. Otherwise - 40
 	uint16_t max_count = (total_weight () > online_weight_minimum) ? 10 : 40;
 	result.reserve (max_count);
-	std::lock_guard<std::mutex> lock (mutex);
 	uint16_t count (0);
 	for (auto i (peers.get<5> ().begin ()), n (peers.get<5> ().end ()); i != n && count < max_count; ++i, ++count)
 	{
@@ -2976,7 +2982,6 @@ std::vector<rai::endpoint> rai::peer_container::rep_crawl ()
 
 size_t rai::peer_container::size ()
 {
-	std::lock_guard<std::mutex> lock (mutex);
 	return peers.size ();
 }
 
@@ -2990,7 +2995,6 @@ rai::uint128_t rai::peer_container::total_weight ()
 {
 	rai::uint128_t result (0);
 	std::unordered_set<rai::account> probable_reps;
-	std::lock_guard<std::mutex> lock (mutex);
 	for (auto i (peers.get<6> ().begin ()), n (peers.get<6> ().end ()); i != n; ++i)
 	{
 		// Calculate if representative isn't recorded for several IP addresses
@@ -3030,7 +3034,6 @@ bool rai::peer_container::rep_response (rai::endpoint const & endpoint_a, rai::a
 {
 	assert (endpoint_a.address ().is_v6 ());
 	auto updated (false);
-	std::lock_guard<std::mutex> lock (mutex);
 	auto existing (peers.find (endpoint_a));
 	if (existing != peers.end ())
 	{
@@ -3049,7 +3052,6 @@ bool rai::peer_container::rep_response (rai::endpoint const & endpoint_a, rai::a
 
 void rai::peer_container::rep_request (rai::endpoint const & endpoint_a)
 {
-	std::lock_guard<std::mutex> lock (mutex);
 	auto existing (peers.find (endpoint_a));
 	if (existing != peers.end ())
 	{
@@ -3068,7 +3070,6 @@ bool rai::peer_container::reachout (rai::endpoint const & endpoint_a)
 		auto endpoint_l (rai::map_endpoint_to_v6 (endpoint_a));
 		// Don't keepalive to nodes that already sent us something
 		error |= known_peer (endpoint_l);
-		std::lock_guard<std::mutex> lock (mutex);
 		auto existing (attempts.find (endpoint_l));
 		error |= existing != attempts.end ();
 		attempts.insert ({ endpoint_l, std::chrono::steady_clock::now () });
@@ -3086,7 +3087,6 @@ bool rai::peer_container::insert (rai::endpoint const & endpoint_a, unsigned ver
 	{
 		if (version_a >= rai::protocol_version_min)
 		{
-			std::lock_guard<std::mutex> lock (mutex);
 			auto existing (peers.find (endpoint_a));
 			if (existing != peers.end ())
 			{
@@ -3141,7 +3141,7 @@ bool rai::peer_container::insert (rai::endpoint const & endpoint_a, unsigned ver
 	}
 	if (unknown && !result)
 	{
-		peer_observer (endpoint_a);
+		peer_observer (*this, endpoint_a);
 	}
 	return result;
 }
@@ -3289,7 +3289,7 @@ network_version (rai::protocol_version)
 
 rai::peer_container::peer_container (rai::endpoint const & self_a) :
 self (self_a),
-peer_observer ([](rai::endpoint const &) {}),
+peer_observer ([](rai::peer_container &, rai::endpoint const &) {}),
 disconnect_observer ([]() {}),
 legacy_peers (0)
 {
@@ -3305,8 +3305,6 @@ bool rai::peer_container::contacted (rai::endpoint const & endpoint_a, unsigned 
 	}
 	else if (!known_peer (endpoint_l))
 	{
-		std::lock_guard<std::mutex> lock (mutex);
-
 		if (peers.get<rai::peer_by_ip_addr> ().count (endpoint_l.address ()) < max_peers_per_ip)
 		{
 			should_handshake = true;
@@ -3334,7 +3332,6 @@ void rai::network::send_buffer (uint8_t const * data_a, size_t size_a, rai::endp
 
 bool rai::peer_container::known_peer (rai::endpoint const & endpoint_a)
 {
-	std::lock_guard<std::mutex> lock (mutex);
 	auto existing (peers.find (endpoint_a));
 	return existing != peers.end ();
 }
@@ -3699,7 +3696,7 @@ void rai::active_transactions::announce_votes ()
 			}
 			if (i->announcements % 4 == 1)
 			{
-				auto reps (std::make_shared<std::vector<rai::peer_information>> (node.peers.representatives (std::numeric_limits<size_t>::max ())));
+				auto reps (std::make_shared<std::vector<rai::peer_information>> (node.peers.lock ()->representatives (std::numeric_limits<size_t>::max ())));
 				std::unordered_set<rai::account> probable_reps;
 				rai::uint128_t total_weight (0);
 				for (auto j (reps->begin ()), m (reps->end ()); j != m;)
@@ -3735,7 +3732,7 @@ void rai::active_transactions::announce_votes ()
 				else
 				{
 					// broadcast request to all peers
-					node.network.broadcast_confirm_req_base (i->confirm_req_options.first, std::make_shared<std::vector<rai::peer_information>> (node.peers.list_vector ()), 0);
+					node.network.broadcast_confirm_req_base (i->confirm_req_options.first, std::make_shared<std::vector<rai::peer_information>> (node.peers.lock ()->list_vector ()), 0);
 					++mass_request_count;
 				}
 			}
