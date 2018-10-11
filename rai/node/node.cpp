@@ -3303,9 +3303,14 @@ bool rai::peer_container::contacted (rai::endpoint const & endpoint_a, unsigned 
 	{
 		insert (endpoint_l, version_a);
 	}
-	else if (!known_peer (endpoint_l) && peers.get<rai::peer_by_ip_addr> ().count (endpoint_l.address ()) < max_peers_per_ip)
+	else if (!known_peer (endpoint_l))
 	{
-		should_handshake = true;
+		std::lock_guard<std::mutex> lock (mutex);
+
+		if (peers.get<rai::peer_by_ip_addr> ().count (endpoint_l.address ()) < max_peers_per_ip)
+		{
+			should_handshake = true;
+		}
 	}
 	return should_handshake;
 }
