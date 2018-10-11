@@ -3837,6 +3837,8 @@ bool rai::active_transactions::add (std::pair<std::shared_ptr<rai::block>, std::
 			auto election (std::make_shared<rai::election> (node, primary_block, confirmation_action_a));
 			roots.insert (rai::conflict_info{ root, election, 0, blocks_a });
 			successors.insert (std::make_pair (primary_block->hash (), election));
+			node.network.republish_block (primary_block);
+			node.network.broadcast_confirm_req (primary_block);
 		}
 		error = existing != roots.end ();
 	}
