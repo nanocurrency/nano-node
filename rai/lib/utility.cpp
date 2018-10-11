@@ -69,6 +69,12 @@ namespace thread_role
 }
 }
 
+void rai::thread_attributes::set (boost::thread::attributes & attrs)
+{
+	auto attrs_l (&attrs);
+	attrs_l->set_stack_size (8000000); //8MB
+}
+
 /*
  * Backing code for "release_assert", which is itself a macro
  */

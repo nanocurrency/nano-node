@@ -729,6 +729,13 @@ rai::block_hash rai::ledger::block_destination (rai::transaction const & transac
 
 rai::block_hash rai::ledger::block_source (rai::transaction const & transaction_a, rai::block const & block_a)
 {
+	/*
+	 * block_source() requires that the previous block of the block
+	 * passed in exist in the database.  This is because it will try
+	 * to check account balances to determine if it is a send block.
+	 */
+	assert (block_a.previous ().is_zero () || store.block_exists (transaction_a, block_a.previous ()));
+
 	// If block_a.source () is nonzero, then we have our source.
 	// However, universal blocks will always return zero.
 	rai::block_hash result (block_a.source ());

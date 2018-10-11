@@ -233,6 +233,14 @@ public:
 		overflow,
 		invalid_magic,
 		invalid_network,
+		invalid_header,
+		invalid_message_type,
+		invalid_keepalive_message,
+		invalid_publish_message,
+		invalid_confirm_req_message,
+		invalid_confirm_ack_message,
+		invalid_node_id_handshake_message,
+		outdated_version,
 
 		// peering
 		handshake,
