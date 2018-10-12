@@ -1782,8 +1782,8 @@ void rai::rpc_handler::account_history ()
 							entry.put ("signature", block->block_signature ().to_string ());
 						}
 						history.push_back (std::make_pair ("", entry));
+						--count;
 					}
-					--count;
 				}
 				hash = block->previous ();
 				block = node.store.block_get (transaction, hash);
