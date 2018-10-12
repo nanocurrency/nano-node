@@ -26,6 +26,8 @@ add_library (node
 	lmdb.hpp
 	logging.cpp
 	logging.hpp
+	nodeconfig.hpp
+	nodeconfig.cpp
 	node.hpp
 	node.cpp
 	openclwork.cpp
