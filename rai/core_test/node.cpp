@@ -1855,10 +1855,11 @@ TEST (node, block_processor_signatures)
 	node1.process_active (send2);
 	node1.process_active (send3);
 	node1.process_active (send4);
-	node1.block_processor.force (send5);
 	node1.process_active (receive1);
 	node1.process_active (receive2);
 	node1.process_active (receive3);
+	node1.block_processor.flush ();
+	node1.block_processor.force (send5);
 	node1.block_processor.flush ();
 	auto transaction (node1.store.tx_begin_read ());
 	ASSERT_TRUE (node1.store.block_exists (transaction, send1->hash ()));
