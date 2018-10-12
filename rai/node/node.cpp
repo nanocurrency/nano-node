@@ -1105,8 +1105,9 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 				}
 			}
 			/* Forced state blocks are not validated in verify_state_blocks () function
-			Because of that we should set set validated_state_block as "false" for forced blocks (!force) */
-			auto process_result (process_receive_one (transaction, block.first, block.second, !force));
+			Because of that we should set set validated_state_block as "false" for forced state blocks (!force) */
+			bool validated_state_block (!force && block.first->type () == rai::block_type::state);
+			auto process_result (process_receive_one (transaction, block.first, block.second, validated_state_block));
 			(void)process_result;
 			lock_a.lock ();
 		}
