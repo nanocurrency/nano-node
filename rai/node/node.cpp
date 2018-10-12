@@ -1047,6 +1047,8 @@ void rai::block_processor::verify_state_blocks (std::unique_lock<std::mutex> & l
 		pub_keys.push_back (block.hashables.account.bytes.data ());
 		signatures.push_back (block.signature.bytes.data ());
 	}
+	/* Verifications is vector if signatures check results
+	validate_message_batch returing "true" if there are at least 1 invalid signature */
 	auto code (rai::validate_message_batch (messages.data (), lengths.data (), pub_keys.data (), signatures.data (), size, verifications.data ()));
 	(void)code;
 	lock_a.lock ();
@@ -1102,6 +1104,8 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 					node.ledger.rollback (transaction, successor->hash ());
 				}
 			}
+			/* Forced state blocks are not validated in verify_state_blocks () function
+			Because of that we should set set validated_state_block as "false" for forced blocks (!force) */
 			auto process_result (process_receive_one (transaction, block.first, block.second, !force));
 			(void)process_result;
 			lock_a.lock ();
