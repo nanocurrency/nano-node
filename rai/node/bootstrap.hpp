@@ -104,6 +104,7 @@ public:
 	std::condition_variable condition;
 private:
 	std::unordered_set<rai::block_hash> lazy_blocks;
+	rai::block_hash lazy_start;
 };
 class frontier_req_client : public std::enable_shared_from_this<rai::frontier_req_client>
 {

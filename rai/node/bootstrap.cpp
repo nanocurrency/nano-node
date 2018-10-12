@@ -1126,6 +1126,11 @@ void rai::bootstrap_attempt::add_bulk_push_target (rai::block_hash const & head,
 
 void rai::bootstrap_attempt::lazy_add (rai::block_hash const & hash_a)
 {
+	// Add start block
+	if (lazy_blocks.empty ())
+	{
+		lazy_start = hash_a;
+	}
 	// Add only unknown blocks
 	if (lazy_blocks.find (hash_a) == lazy_blocks.end ())
 	{
@@ -1139,7 +1144,7 @@ void rai::bootstrap_attempt::lazy_run ()
 	std::unique_lock<std::mutex> lock (mutex);
 	while (still_pulling ())
 	{
-		while (still_pulling ())
+		while (still_pulling () || node->block (lazy_start) == nullptr)
 		{
 			if (!pulls.empty ())
 			{
@@ -1154,7 +1159,7 @@ void rai::bootstrap_attempt::lazy_run ()
 			}
 			else
 			{
-				condition.wait (lock);
+				condition.wait (lock, std::chrono::milliseconds (100));
 			}
 		}
 		// Flushing may resolve forks which can add more pulls
@@ -1168,7 +1173,6 @@ void rai::bootstrap_attempt::lazy_run ()
 	{
 		BOOST_LOG (node->log) << "Completed lazy pulls";
 	}
-	request_push (lock);
 	stopped = true;
 	condition.notify_all ();
 	idle.clear ();
@@ -1191,7 +1195,7 @@ bool rai::bootstrap_attempt::process_block (std::shared_ptr<rai::block> block_a)
 				lock.unlock ();
 				node->block_processor.add (block_a, std::chrono::steady_clock::time_point ());
 				// Search for new dependencies
-				if (block_a->source ().is_zero ())
+				if (!block_a->source ().is_zero ())
 				{
 					lazy_add (block_a->source ());
 				}
