@@ -1768,22 +1768,36 @@ wallet (wallet_a)
 	QObject::connect (mnano_unit, &QRadioButton::toggled, [this]() {
 		if (mnano_unit->isChecked ())
 		{
+			QSettings ().setValue (saved_ratio_key, ratio_group->id (mnano_unit));
 			this->wallet.change_rendering_ratio (rai::Mxrb_ratio);
 		}
 	});
 	QObject::connect (knano_unit, &QRadioButton::toggled, [this]() {
 		if (knano_unit->isChecked ())
 		{
+			QSettings ().setValue (saved_ratio_key, ratio_group->id (knano_unit));
 			this->wallet.change_rendering_ratio (rai::kxrb_ratio);
 		}
 	});
 	QObject::connect (nano_unit, &QRadioButton::toggled, [this]() {
 		if (nano_unit->isChecked ())
 		{
+			QSettings ().setValue (saved_ratio_key, ratio_group->id (nano_unit));
 			this->wallet.change_rendering_ratio (rai::xrb_ratio);
 		}
 	});
-	mnano_unit->click ();
+	auto selected_ratio_id (QSettings ().value (saved_ratio_key, ratio_group->id (mnano_unit)).toInt ());
+	auto selected_ratio_button = ratio_group->button (selected_ratio_id);
+	assert (selected_ratio_button != nullptr);
+
+	if (selected_ratio_button)
+	{
+		selected_ratio_button->click ();
+	}
+	else
+	{
+		mnano_unit->click ();
+	}
 	QObject::connect (wallet_refresh, &QPushButton::released, [this]() {
 		this->wallet.accounts.refresh ();
 		this->wallet.accounts.refresh_wallet_balance ();
