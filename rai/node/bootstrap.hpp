@@ -82,6 +82,9 @@ public:
 	unsigned target_connections (size_t pulls_remaining);
 	bool should_log ();
 	void add_bulk_push_target (rai::block_hash const &, rai::block_hash const &);
+	bool process_block (std::shared_ptr<rai::block>);
+	void lazy_run ();
+	void lazy_add (rai::block_hash const &);
 	std::chrono::steady_clock::time_point next_log;
 	std::deque<std::weak_ptr<rai::bootstrap_client>> clients;
 	std::weak_ptr<rai::bootstrap_client> connection_frontier_request;
@@ -96,8 +99,11 @@ public:
 	std::atomic<uint64_t> total_blocks;
 	std::vector<std::pair<rai::block_hash, rai::block_hash>> bulk_push_targets;
 	bool stopped;
+	bool lazy;
 	std::mutex mutex;
 	std::condition_variable condition;
+private:
+	std::unordered_set<rai::block_hash> lazy_blocks;
 };
 class frontier_req_client : public std::enable_shared_from_this<rai::frontier_req_client>
 {
@@ -176,6 +182,7 @@ public:
 	~bootstrap_initiator ();
 	void bootstrap (rai::endpoint const &, bool add_to_peers = true);
 	void bootstrap ();
+	void bootstrap_lazy (rai::block_hash const &);
 	void run_bootstrap ();
 	void notify_listeners (bool);
 	void add_observer (std::function<void(bool)> const &);

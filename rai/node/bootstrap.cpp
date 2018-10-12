@@ -545,8 +545,8 @@ void rai::bulk_pull_client::received_block (boost::system::error_code const & ec
 				connection->start_time = std::chrono::steady_clock::now ();
 			}
 			connection->attempt->total_blocks++;
-			connection->attempt->node->block_processor.add (block, std::chrono::steady_clock::time_point ());
-			if (!connection->hard_stop.load ())
+			bool stop_pull (connection->attempt->process_block (block));
+			if (!stop_pull && !connection->hard_stop.load ())
 			{
 				receive_block ();
 			}
@@ -715,7 +715,8 @@ pulling (0),
 node (node_a),
 account_count (0),
 total_blocks (0),
-stopped (false)
+stopped (false),
+lazy (false)
 {
 	BOOST_LOG (node->log) << "Starting bootstrap attempt";
 	node->bootstrap_initiator.notify_listeners (true);
@@ -1123,6 +1124,106 @@ void rai::bootstrap_attempt::add_bulk_push_target (rai::block_hash const & head,
 	bulk_push_targets.push_back (std::make_pair (head, end));
 }
 
+void rai::bootstrap_attempt::lazy_add (rai::block_hash const & hash_a)
+{
+	// Add only unknown blocks
+	if (lazy_blocks.find (hash_a) == lazy_blocks.end ())
+	{
+		add_pull (rai::pull_info (hash_a, hash_a, rai::block_hash (0)));
+	}
+}
+
+void rai::bootstrap_attempt::lazy_run ()
+{
+	populate_connections ();
+	std::unique_lock<std::mutex> lock (mutex);
+	while (still_pulling ())
+	{
+		while (still_pulling ())
+		{
+			if (!pulls.empty ())
+			{
+				if (!node->block_processor.full ())
+				{
+					request_pull (lock);
+				}
+				else
+				{
+					condition.wait_for (lock, std::chrono::seconds (15));
+				}
+			}
+			else
+			{
+				condition.wait (lock);
+			}
+		}
+		// Flushing may resolve forks which can add more pulls
+		BOOST_LOG (node->log) << "Flushing unchecked blocks";
+		lock.unlock ();
+		node->block_processor.flush ();
+		lock.lock ();
+		BOOST_LOG (node->log) << "Finished flushing unchecked blocks";
+	}
+	if (!stopped)
+	{
+		BOOST_LOG (node->log) << "Completed lazy pulls";
+	}
+	request_push (lock);
+	stopped = true;
+	condition.notify_all ();
+	idle.clear ();
+}
+
+bool rai::bootstrap_attempt::process_block (std::shared_ptr<rai::block> block_a)
+{
+	bool stop_pull (false);
+	if (lazy)
+	{
+		auto hash (block_a->hash ());
+		// Processing new blocks
+		if (lazy_blocks.find (hash) == lazy_blocks.end ())
+		{
+			// Search block in ledger (old)
+			if (node->block (hash) == nullptr)
+			{
+				std::unique_lock<std::mutex> lock (mutex);
+				lazy_blocks.insert (hash);
+				lock.unlock ();
+				node->block_processor.add (block_a, std::chrono::steady_clock::time_point ());
+				// Search for new dependencies
+				if (block_a->source ().is_zero ())
+				{
+					lazy_add (block_a->source ());
+				}
+				else if (block_a->type () == rai::block_type::state)
+				{
+					std::shared_ptr<rai::state_block> block_l (std::static_pointer_cast<rai::state_block> (block_a));
+					if (block_l != nullptr && !block_l->hashables.link.is_zero () && block_l->hashables.link != node->ledger.epoch_link)
+					{
+						//weak assumption
+						lazy_add (block_l->hashables.link);
+					}
+				}
+			}
+			// Drop bulk_pull if block is already known (ledger)
+			else
+			{
+				stop_pull = true;
+			}
+		}
+		// Drop bulk_pull if block is already known (processed set)
+		else
+		{
+			stop_pull = true;
+		}
+	}
+	else
+	{
+		node->block_processor.add (block_a, std::chrono::steady_clock::time_point ());
+	}
+	return stop_pull;
+}
+
 rai::bootstrap_initiator::bootstrap_initiator (rai::node & node_a) :
 node (node_a),
 stopped (false),
@@ -1171,6 +1272,21 @@ void rai::bootstrap_initiator::bootstrap (rai::endpoint const & endpoint_a, bool
 	}
 }
 
+void rai::bootstrap_initiator::bootstrap_lazy (rai::block_hash const & hash_a)
+{
+	std::unique_lock<std::mutex> lock (mutex);
+	while (attempt != nullptr)
+	{
+		attempt->stop ();
+		condition.wait (lock);
+	}
+	node.stats.inc (rai::stat::type::bootstrap, rai::stat::detail::initiate, rai::stat::dir::out);
+	attempt = std::make_shared<rai::bootstrap_attempt> (node.shared ());
+	attempt->lazy = true;
+	attempt->lazy_add (hash_a);
+	condition.notify_all ();
+}
+
 void rai::bootstrap_initiator::run_bootstrap ()
 {
 	std::unique_lock<std::mutex> lock (mutex);
@@ -1179,7 +1295,14 @@ void rai::bootstrap_initiator::run_bootstrap ()
 		if (attempt != nullptr)
 		{
 			lock.unlock ();
-			attempt->run ();
+			if (!attempt->lazy)
+			{
+				attempt->run ();
+			}
+			else
+			{
+				attempt->lazy_run ();
+			}
 			lock.lock ();
 			attempt = nullptr;
 			condition.notify_all ();
