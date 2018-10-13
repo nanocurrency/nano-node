@@ -78,12 +78,15 @@ void rai::vote_generator::run ()
 		}
 		else // now >= cutoff && hashes.size () < 12
 		{
+			cutoff = min;
 			if (!hashes.empty ())
 			{
 				send (lock);
 			}
-			cutoff = min;
-			condition.wait (lock);
+			else
+			{
+				condition.wait (lock);
+			}
 		}
 	}
 }
