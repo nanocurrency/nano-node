@@ -19,11 +19,12 @@ private:
 	void run ();
 	void send (std::unique_lock<std::mutex> &);
 	rai::node & node;
-	std::thread thread;
 	std::mutex mutex;
 	std::condition_variable condition;
 	std::deque<rai::block_hash> hashes;
 	std::chrono::milliseconds wait;
 	bool stopped;
+	bool started;
+	std::thread thread;
 };
 }
