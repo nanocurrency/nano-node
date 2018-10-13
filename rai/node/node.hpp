@@ -343,7 +343,7 @@ public:
 	void recalculate_stake ();
 	rai::uint128_t online_stake ();
 	rai::uint128_t online_stake_total;
-	std::deque<rai::account> list ();
+	std::vector<rai::account> list ();
 	boost::multi_index_container<
 	rai::rep_last_heard_info,
 	boost::multi_index::indexed_by<

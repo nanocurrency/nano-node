@@ -2528,11 +2528,48 @@ void rai::rpc_handler::representatives ()
 
 void rai::rpc_handler::representatives_online ()
 {
+	const auto accounts_node = request.get_child_optional ("accounts");
+	const bool weight = request.get<bool> ("weight", false);
+	std::vector<rai::public_key> accounts_to_filter;
+	if (accounts_node.is_initialized ())
+	{
+		for (auto & a : (*accounts_node))
+		{
+			rai::public_key account;
+			auto error (account.decode_account (a.second.get<std::string> ("")));
+			if (!error)
+			{
+				accounts_to_filter.push_back (account);
+			}
+		}
+	}
 	boost::property_tree::ptree representatives;
 	auto reps (node.online_reps.list ());
 	for (auto & i : reps)
 	{
-		representatives.put (i.to_account (), "");
+		if (accounts_node.is_initialized ())
+		{
+			if (accounts_to_filter.empty ())
+			{
+				break;
+			}
+			auto found_acc = std::find (accounts_to_filter.begin (), accounts_to_filter.end (), i);
+			if (found_acc == accounts_to_filter.end ())
+			{
+				continue;
+			}
+			else
+			{
+				accounts_to_filter.erase (found_acc);
+			}
+		}
+		boost::property_tree::ptree weight_node;
+		if (weight)
+		{
+			auto account_weight (node.weight (i));
+			weight_node.put ("weight", account_weight.convert_to<std::string> ());
+		}
+		representatives.add_child (i.to_account (), weight_node);
 	}
 	response_l.add_child ("representatives", representatives);
 	response_errors ();
