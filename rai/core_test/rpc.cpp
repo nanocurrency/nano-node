@@ -3661,7 +3661,10 @@ TEST (rpc, online_reps)
 	ASSERT_NE (nullptr, receive);
 	auto change (system.wallet (1)->change_action (rai::test_genesis_key.pub, new_rep));
 	ASSERT_NE (nullptr, change);
-	ASSERT_EQ (system.nodes[1]->online_reps.list ().size (), 2);
+	while (system.nodes[1]->online_reps.list ().size () != 2)
+	{
+		system.poll ();
+	}
 	boost::property_tree::ptree child_rep;
 	child_rep.put ("", new_rep.to_account ());
 	boost::property_tree::ptree filtered_accounts;
