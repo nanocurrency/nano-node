@@ -1537,15 +1537,30 @@ TEST (node, online_reps)
 
 TEST (node, block_confirm)
 {
-	rai::system system (24000, 1);
+	rai::system system (24000, 2);
 	rai::genesis genesis;
-	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
-	auto send1 (std::make_shared<rai::state_block> (rai::test_genesis_key.pub, genesis.hash (), rai::test_genesis_key.pub, rai::genesis_amount - rai::Gxrb_ratio, rai::test_genesis_key.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.nodes[0]->work_generate_blocking (genesis.hash ())));
+	rai::keypair key;
+	system.wallet (1)->insert_adhoc (rai::test_genesis_key.prv);
+	auto send1 (std::make_shared<rai::state_block> (rai::test_genesis_key.pub, genesis.hash (), rai::test_genesis_key.pub, rai::genesis_amount - rai::Gxrb_ratio, key.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.nodes[0]->work_generate_blocking (genesis.hash ())));
+	system.nodes[0]->block_processor.add(send1, std::chrono::steady_clock::now ());
+	system.nodes[1]->block_processor.add(send1, std::chrono::steady_clock::now ());
+	system.deadline_set(std::chrono::seconds(5));
+	while (!system.nodes[0]->ledger.block_exists(send1->hash ()) || !system.nodes[1]->ledger.block_exists(send1->hash ()))
+	{
+		ASSERT_NO_ERROR (system.poll());
+	}
+	ASSERT_TRUE (system.nodes[0]->ledger.block_exists(send1->hash ()));
+	ASSERT_TRUE (system.nodes[1]->ledger.block_exists(send1->hash ()));
+	auto send2 (std::make_shared<rai::state_block> (rai::test_genesis_key.pub, send1->hash (), rai::test_genesis_key.pub, rai::genesis_amount - rai::Gxrb_ratio * 2, key.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.nodes[0]->work_generate_blocking (send1->hash ())));
 	{
 		auto transaction (system.nodes[0]->store.tx_begin (true));
-		ASSERT_EQ (rai::process_result::progress, system.nodes[0]->ledger.process (transaction, *send1).code);
+		ASSERT_EQ (rai::process_result::progress, system.nodes[0]->ledger.process (transaction, *send2).code);
 	}
-	system.nodes[0]->block_confirm (send1);
+	{
+		auto transaction (system.nodes[1]->store.tx_begin (true));
+		ASSERT_EQ (rai::process_result::progress, system.nodes[1]->ledger.process (transaction, *send2).code);
+	}
+	system.nodes[0]->block_confirm (send2);
 	ASSERT_TRUE (system.nodes[0]->active.confirmed.empty ());
 	system.deadline_set (10s);
 	while (system.nodes[0]->active.confirmed.empty ())
