@@ -42,6 +42,8 @@ add_library (node
 	wallet.cpp
 	stats.hpp
 	stats.cpp
+	voting.hpp
+	voting.cpp
 	working.hpp
 	xorshift.hpp)
 

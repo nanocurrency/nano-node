@@ -916,8 +916,9 @@ bool rai::rep_crawler::exists (rai::block_hash const & hash_a)
 rai::block_processor::block_processor (rai::node & node_a) :
 stopped (false),
 active (false),
+next_log (std::chrono::steady_clock::now ()),
 node (node_a),
-next_log (std::chrono::steady_clock::now ())
+generator (node_a, rai::rai_network == rai::rai_networks::rai_test_network ? std::chrono::milliseconds (10) : std::chrono::milliseconds (500))
 {
 }
 
@@ -928,6 +929,7 @@ rai::block_processor::~block_processor ()
 
 void rai::block_processor::stop ()
 {
+	generator.stop ();
 	std::lock_guard<std::mutex> lock (mutex);
 	stopped = true;
 	condition.notify_all ();
@@ -1082,6 +1084,10 @@ rai::process_return rai::block_processor::process_receive_one (rai::transaction 
 	{
 		case rai::process_result::progress:
 		{
+			if (node.config.enable_voting)
+			{
+				generator.add(hash);
+			}
 			if (node.config.logging.ledger_logging ())
 			{
 				std::string block;
@@ -3267,7 +3273,6 @@ void rai::active_transactions::announce_votes ()
 	unsigned unconfirmed_count (0);
 	unsigned unconfirmed_announcements (0);
 	unsigned mass_request_count (0);
-	std::vector<rai::block_hash> blocks_bundle;
 	std::deque<std::shared_ptr<rai::block>> rebroadcast_bundle;
 
 	for (auto i (roots.begin ()), n (roots.end ()); i != n; ++i)
@@ -3334,18 +3339,6 @@ void rai::active_transactions::announce_votes ()
 				if (node.ledger.could_fit (transaction, *election_l->status.winner))
 				{
 					rebroadcast_bundle.push_back (election_l->status.winner);
-					if (node.config.enable_voting)
-					{
-						blocks_bundle.push_back (election_l->status.winner->hash ());
-						if (blocks_bundle.size () >= 12)
-						{
-							node.wallets.foreach_representative (transaction, [&](rai::public_key const & pub_a, rai::raw_key const & prv_a) {
-								auto vote (this->node.store.vote_generate (transaction, pub_a, prv_a, blocks_bundle));
-								this->node.vote_processor.vote (vote, this->node.network.endpoint ());
-							});
-							blocks_bundle.clear ();
-						}
-					}
 				}
 				else
 				{
@@ -3403,14 +3396,6 @@ void rai::active_transactions::announce_votes ()
 	if (!rebroadcast_bundle.empty ())
 	{
 		node.network.republish_block_batch (rebroadcast_bundle);
-	}
-	// Request votes for unconfirmed blocks
-	if (node.config.enable_voting && !blocks_bundle.empty ())
-	{
-		node.wallets.foreach_representative (transaction, [&](rai::public_key const & pub_a, rai::raw_key const & prv_a) {
-			auto vote (this->node.store.vote_generate (transaction, pub_a, prv_a, blocks_bundle));
-			this->node.vote_processor.vote (vote, this->node.network.endpoint ());
-		});
 	}
 	for (auto i (inactive.begin ()), n (inactive.end ()); i != n; ++i)
 	{
