@@ -1455,7 +1455,6 @@ rai::extended_block rai::mdb_store::extended_block_get (rai::transaction const &
 	return result;
 }
 
-
 void rai::mdb_store::block_del (rai::transaction const & transaction_a, rai::block_hash const & hash_a)
 {
 	auto status (mdb_del (env.tx (transaction_a), state_blocks_v1, rai::mdb_val (hash_a), nullptr));

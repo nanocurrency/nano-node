@@ -56,7 +56,7 @@ public:
 	mdb_val (rai::block_info const &);
 	mdb_val (MDB_val const &, rai::epoch = rai::epoch::unspecified);
 	mdb_val (rai::pending_info const &);
-    mdb_val (rai::pending_info_v4 const &);
+	mdb_val (rai::pending_info_v4 const &);
 	mdb_val (rai::pending_key const &);
 	mdb_val (size_t, void *);
 	mdb_val (rai::uint128_union const &);
