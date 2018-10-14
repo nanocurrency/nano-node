@@ -1086,7 +1086,7 @@ rai::process_return rai::block_processor::process_receive_one (rai::transaction 
 		{
 			if (node.config.enable_voting)
 			{
-				generator.add(hash);
+				generator.add (hash);
 			}
 			if (node.config.logging.ledger_logging ())
 			{

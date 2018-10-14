@@ -7,9 +7,9 @@ node (node_a),
 wait (wait_a),
 stopped (false),
 started (false),
-thread ([this] () {run ();})
+thread ([this]() { run (); })
 {
-	std::unique_lock<std::mutex>lock(mutex);
+	std::unique_lock<std::mutex> lock (mutex);
 	while (!started)
 	{
 		condition.wait (lock);
@@ -18,14 +18,14 @@ thread ([this] () {run ();})
 
 void rai::vote_generator::add (rai::block_hash const & hash_a)
 {
-	std::lock_guard <std::mutex> lock (mutex);
+	std::lock_guard<std::mutex> lock (mutex);
 	hashes.push_back (hash_a);
-	condition.notify_all();
+	condition.notify_all ();
 }
 
 void rai::vote_generator::stop ()
 {
-	std::unique_lock <std::mutex> lock (mutex);
+	std::unique_lock<std::mutex> lock (mutex);
 	stopped = true;
 	condition.notify_all ();
 	lock.unlock ();
@@ -37,7 +37,7 @@ void rai::vote_generator::stop ()
 
 void rai::vote_generator::send (std::unique_lock<std::mutex> & lock_a)
 {
-	std::vector <rai::block_hash> hashes_l;
+	std::vector<rai::block_hash> hashes_l;
 	hashes_l.reserve (12);
 	while (!hashes.empty () && hashes.size () < 12)
 	{
@@ -55,7 +55,7 @@ void rai::vote_generator::send (std::unique_lock<std::mutex> & lock_a)
 
 void rai::vote_generator::run ()
 {
-	std::unique_lock <std::mutex> lock (mutex);
+	std::unique_lock<std::mutex> lock (mutex);
 	started = true;
 	condition.notify_all ();
 	auto min (std::numeric_limits<std::chrono::steady_clock::time_point>::min ());
