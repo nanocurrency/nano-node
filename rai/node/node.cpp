@@ -1122,11 +1122,18 @@ rai::process_return rai::block_processor::process_receive_one (rai::transaction 
 	rai::process_return result;
 	auto hash (block_a->hash ());
 	result = node.ledger.process (transaction_a, *block_a, confirmed, validated_state_block);
-	if (confirmed && (result.code == rai::process_result::progress || result.code == rai::process_result::old))
+	if (result.newly_confirmed_blocks > 0)
 	{
 		auto node_l (node.shared_from_this ());
-		node.background ([node_l, block_a]() {
-			node_l->process_confirmed (block_a);
+		auto confirmed_blocks (result.newly_confirmed_blocks);
+		node.background ([node_l, block_a, confirmed_blocks]() {
+			auto block (block_a);
+			for (uint64_t i = 0; i < confirmed_blocks; ++i)
+			{
+				assert (block);
+				node_l->process_confirmed (block_a);
+				block = node_l->block (block->previous ());
+			}
 		});
 	}
 	switch (result.code)
@@ -2423,8 +2430,39 @@ public:
 void rai::node::process_confirmed (std::shared_ptr<rai::block> block_a)
 {
 	auto hash (block_a->hash ());
-	assert (ledger.block_exists (hash));
 	auto transaction (store.tx_begin_read ());
+	assert (store.block_exists (transaction, hash));
+	rai::block_hash source;
+	if (block_a->type () == rai::block_type::state)
+	{
+		auto state_block (std::static_pointer_cast<rai::state_block> (block_a));
+		if (!ledger.is_send (transaction, *state_block) && !ledger.is_epoch_link (state_block->hashables.link))
+		{
+			source = state_block->hashables.link;
+		}
+		else
+		{
+			source = 0;
+		}
+	}
+	else
+	{
+		source = block_a->source ();
+	}
+	if (!source.is_zero ())
+	{
+		if (!ledger.block_confirmed (transaction, source))
+		{
+			std::shared_ptr<rai::block> source_block (store.block_get (transaction, source));
+			if (!source_block)
+			{
+				std::cerr << store.block_get (transaction, block_a->previous ())->to_json () << std::endl;
+				std::cerr << block_a->to_json () << std::endl;
+			}
+			assert (source_block);
+			block_processor.force (source_block, true);
+		}
+	}
 	confirmed_visitor visitor (transaction, *this, block_a, hash);
 	block_a->visit (visitor);
 	auto account (ledger.account (transaction, hash));

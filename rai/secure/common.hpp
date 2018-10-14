@@ -227,6 +227,7 @@ public:
 	rai::amount amount;
 	rai::account pending_account;
 	boost::optional<bool> state_is_send;
+	uint64_t newly_confirmed_blocks;
 };
 enum class tally_result
 {

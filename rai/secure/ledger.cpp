@@ -317,7 +317,7 @@ void ledger_processor::state_block_impl (rai::state_block const & block_a)
 						ledger.store.pending_del (transaction, rai::pending_key (block_a.hashables.account, block_a.hashables.link));
 					}
 
-					ledger.change_latest (transaction, block_a.hashables.account, hash, hash, block_a.hashables.balance, info.block_count, true, epoch, confirmed);
+					result.newly_confirmed_blocks = ledger.change_latest (transaction, block_a.hashables.account, hash, hash, block_a.hashables.balance, info.block_count, true, epoch, confirmed);
 					if (!ledger.store.frontier_get (transaction, info.head).is_zero ())
 					{
 						ledger.store.frontier_del (transaction, info.head);
@@ -381,7 +381,7 @@ void ledger_processor::epoch_block_impl (rai::state_block const & block_a)
 							ledger.store.block_put (transaction, hash, rai::extended_block (std::make_unique<rai::state_block> (block_a), rai::block_sideband (info.block_count, 0), rai::epoch::epoch_1));
 							result.account = block_a.hashables.account;
 							result.amount = 0;
-							ledger.change_latest (transaction, block_a.hashables.account, hash, hash, info.balance, info.block_count, true, rai::epoch::epoch_1, confirmed);
+							result.newly_confirmed_blocks = ledger.change_latest (transaction, block_a.hashables.account, hash, hash, info.balance, info.block_count, true, rai::epoch::epoch_1, confirmed);
 							if (!ledger.store.frontier_get (transaction, info.head).is_zero ())
 							{
 								ledger.store.frontier_del (transaction, info.head);
@@ -424,7 +424,7 @@ void ledger_processor::change_block (rai::change_block const & block_a)
 						auto balance (ledger.balance (transaction, block_a.hashables.previous));
 						ledger.store.representation_add (transaction, hash, balance);
 						ledger.store.representation_add (transaction, info.rep_block, 0 - balance);
-						ledger.change_latest (transaction, account, hash, hash, info.balance, info.block_count, false, rai::epoch::epoch_0, confirmed);
+						result.newly_confirmed_blocks = ledger.change_latest (transaction, account, hash, hash, info.balance, info.block_count, false, rai::epoch::epoch_0, confirmed);
 						ledger.store.frontier_del (transaction, block_a.hashables.previous);
 						ledger.store.frontier_put (transaction, hash, account);
 						result.account = account;
@@ -469,7 +469,7 @@ void ledger_processor::send_block (rai::send_block const & block_a)
 							ledger.store.block_put (transaction, hash, rai::extended_block (std::make_unique<rai::send_block> (block_a), rai::block_sideband (info.block_count, 0), rai::epoch::epoch_0));
 							auto amount (info.balance.number () - block_a.hashables.balance.number ());
 							ledger.store.representation_add (transaction, info.rep_block, 0 - amount);
-							ledger.change_latest (transaction, account, hash, info.rep_block, block_a.hashables.balance, info.block_count, false, rai::epoch::epoch_0, confirmed);
+							result.newly_confirmed_blocks = ledger.change_latest (transaction, account, hash, info.rep_block, block_a.hashables.balance, info.block_count, false, rai::epoch::epoch_0, confirmed);
 							ledger.store.pending_put (transaction, rai::pending_key (block_a.hashables.destination, hash), { account, amount, info.block_count, rai::epoch::epoch_0 });
 							ledger.store.frontier_del (transaction, block_a.hashables.previous);
 							ledger.store.frontier_put (transaction, hash, account);
@@ -529,7 +529,7 @@ void ledger_processor::receive_block (rai::receive_block const & block_a)
 										auto error (ledger.store.account_get (transaction, pending.source, source_info));
 										assert (!error);
 										ledger.store.pending_del (transaction, key);
-										ledger.change_latest (transaction, account, hash, info.rep_block, new_balance, info.block_count, false, rai::epoch::epoch_0, confirmed);
+										result.newly_confirmed_blocks = ledger.change_latest (transaction, account, hash, info.rep_block, new_balance, info.block_count, false, rai::epoch::epoch_0, confirmed);
 										ledger.store.representation_add (transaction, info.rep_block, pending.amount.number ());
 										ledger.store.frontier_del (transaction, block_a.hashables.previous);
 										ledger.store.frontier_put (transaction, hash, account);
@@ -586,7 +586,7 @@ void ledger_processor::open_block (rai::open_block const & block_a)
 								auto error (ledger.store.account_get (transaction, pending.source, source_info));
 								assert (!error);
 								ledger.store.pending_del (transaction, key);
-								ledger.change_latest (transaction, block_a.hashables.account, hash, hash, pending.amount.number (), info.block_count, false, rai::epoch::epoch_0, confirmed);
+								result.newly_confirmed_blocks = ledger.change_latest (transaction, block_a.hashables.account, hash, hash, pending.amount.number (), info.block_count, false, rai::epoch::epoch_0, confirmed);
 								ledger.store.representation_add (transaction, hash, pending.amount.number ());
 								ledger.store.frontier_put (transaction, hash, block_a.hashables.account);
 								result.account = block_a.hashables.account;
@@ -672,6 +672,7 @@ rai::uint128_t rai::ledger::account_pending (rai::transaction const & transactio
 rai::process_return rai::ledger::process (rai::transaction const & transaction_a, rai::block const & block_a, bool confirmed_a, bool valid_signature)
 {
 	ledger_processor processor (*this, transaction_a, confirmed_a, valid_signature);
+	processor.result.newly_confirmed_blocks = 0;
 	block_a.visit (processor);
 	if (confirmed_a && processor.result.code == rai::process_result::old)
 	{
@@ -681,7 +682,11 @@ rai::process_return rai::ledger::process (rai::transaction const & transaction_a
 		rai::account_info info;
 		rai::account account (this->account (transaction_a, hash));
 		release_assert (!store.account_get (transaction_a, account, info));
-		info.confirmation_height = std::max (info.confirmation_height, block_height);
+		if (block_height > info.confirmation_height)
+		{
+			processor.result.newly_confirmed_blocks = block_height - info.confirmation_height;
+			info.confirmation_height = block_height;
+		}
 		store.account_put (transaction_a, account, info);
 	}
 	return processor.result;
@@ -963,8 +968,9 @@ void rai::ledger::checksum_update (rai::transaction const & transaction_a, rai::
 	store.checksum_put (transaction_a, 0, 0, value);
 }
 
-void rai::ledger::change_latest (rai::transaction const & transaction_a, rai::account const & account_a, rai::block_hash const & hash_a, rai::block_hash const & rep_block_a, rai::amount const & balance_a, uint64_t block_count_a, bool is_state, rai::epoch epoch_a, bool confirmed)
+uint64_t rai::ledger::change_latest (rai::transaction const & transaction_a, rai::account const & account_a, rai::block_hash const & hash_a, rai::block_hash const & rep_block_a, rai::amount const & balance_a, uint64_t block_count_a, bool is_state, rai::epoch epoch_a, bool confirmed)
 {
+	uint64_t newly_confirmed_blocks (0);
 	rai::account_info info;
 	auto exists (!store.account_get (transaction_a, account_a, info));
 	if (exists)
@@ -991,6 +997,7 @@ void rai::ledger::change_latest (rai::transaction const & transaction_a, rai::ac
 		release_assert (info.confirmation_height <= info.block_count);
 		if (confirmed)
 		{
+			newly_confirmed_blocks = info.block_count - info.confirmation_height;
 			info.confirmation_height = info.block_count;
 		}
 		info.epoch = epoch_a;
@@ -1008,6 +1015,7 @@ void rai::ledger::change_latest (rai::transaction const & transaction_a, rai::ac
 	{
 		store.account_del (transaction_a, account_a);
 	}
+	return newly_confirmed_blocks;
 }
 
 std::unique_ptr<rai::block> rai::ledger::successor (rai::transaction const & transaction_a, rai::uint256_union const & root_a)
