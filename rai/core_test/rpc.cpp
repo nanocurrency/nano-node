@@ -3720,13 +3720,13 @@ TEST (rpc, block_confirm_absent)
 	ASSERT_EQ ("Block not found", response.json.get<std::string> ("error"));
 }
 
-TEST (rpc, is_confirmed)
+TEST (rpc, block_confirmed)
 {
 	rai::system system (24000, 1);
 	rai::rpc rpc (system.service, *system.nodes[0], rai::rpc_config (true));
 	rpc.start ();
 	boost::property_tree::ptree request;
-	request.put ("action", "is_confirmed");
+	request.put ("action", "block_confirmed");
 	request.put ("hash", "0");
 	test_response response (request, rpc, system.service);
 	while (response.status == 0)

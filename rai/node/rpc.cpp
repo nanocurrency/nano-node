@@ -1579,7 +1579,7 @@ void rai::rpc_handler::frontiers ()
 	response_errors ();
 }
 
-void rai::rpc_handler::is_confirmed ()
+void rai::rpc_handler::block_confirmed ()
 {
 	auto hash (hash_impl ());
 	if (!ec)
@@ -3874,9 +3874,9 @@ void rai::rpc_handler::process_request ()
 				request.put ("head", request.get<std::string> ("hash"));
 				account_history ();
 			}
-			else if (action == "is_confirmed")
+			else if (action == "block_confirmed")
 			{
-				is_confirmed ();
+				block_confirmed ();
 			}
 			else if (action == "keepalive")
 			{
