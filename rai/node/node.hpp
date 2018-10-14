@@ -540,7 +540,7 @@ public:
 	void stop ();
 	std::shared_ptr<rai::node> shared ();
 	int store_version ();
-	void process_confirmed (std::shared_ptr<rai::block>);
+	void process_confirmed (rai::transaction const &, std::shared_ptr<rai::block>);
 	void process_message (rai::message &, rai::endpoint const &);
 	void process_active (std::shared_ptr<rai::block>);
 	rai::process_return process (rai::block const &);

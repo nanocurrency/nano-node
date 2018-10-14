@@ -1125,16 +1125,13 @@ rai::process_return rai::block_processor::process_receive_one (rai::transaction 
 	if (result.newly_confirmed_blocks > 0)
 	{
 		auto node_l (node.shared_from_this ());
-		auto confirmed_blocks (result.newly_confirmed_blocks);
-		node.background ([node_l, block_a, confirmed_blocks]() {
-			auto block (block_a);
-			for (uint64_t i = 0; i < confirmed_blocks; ++i)
-			{
-				assert (block);
-				node_l->process_confirmed (block_a);
-				block = node_l->block (block->previous ());
-			}
-		});
+		auto block (block_a);
+		for (uint64_t i = 0; i < result.newly_confirmed_blocks; ++i)
+		{
+			assert (block);
+			node_l->process_confirmed (transaction_a, block_a);
+			block = node_l->block (block->previous ());
+		}
 	}
 	switch (result.code)
 	{
@@ -2427,16 +2424,15 @@ public:
 };
 }
 
-void rai::node::process_confirmed (std::shared_ptr<rai::block> block_a)
+void rai::node::process_confirmed (rai::transaction const & transaction_a, std::shared_ptr<rai::block> block_a)
 {
 	auto hash (block_a->hash ());
-	auto transaction (store.tx_begin_read ());
-	assert (store.block_exists (transaction, hash));
+	assert (store.block_exists (transaction_a, hash));
 	rai::block_hash source;
 	if (block_a->type () == rai::block_type::state)
 	{
 		auto state_block (std::static_pointer_cast<rai::state_block> (block_a));
-		if (!ledger.is_send (transaction, *state_block) && !ledger.is_epoch_link (state_block->hashables.link))
+		if (!ledger.is_send (transaction_a, *state_block) && !ledger.is_epoch_link (state_block->hashables.link))
 		{
 			source = state_block->hashables.link;
 		}
@@ -2451,27 +2447,22 @@ void rai::node::process_confirmed (std::shared_ptr<rai::block> block_a)
 	}
 	if (!source.is_zero ())
 	{
-		if (!ledger.block_confirmed (transaction, source))
+		if (!ledger.block_confirmed (transaction_a, source))
 		{
-			std::shared_ptr<rai::block> source_block (store.block_get (transaction, source));
-			if (!source_block)
-			{
-				std::cerr << store.block_get (transaction, block_a->previous ())->to_json () << std::endl;
-				std::cerr << block_a->to_json () << std::endl;
-			}
+			std::shared_ptr<rai::block> source_block (store.block_get (transaction_a, source));
 			assert (source_block);
 			block_processor.force (source_block, true);
 		}
 	}
-	confirmed_visitor visitor (transaction, *this, block_a, hash);
+	confirmed_visitor visitor (transaction_a, *this, block_a, hash);
 	block_a->visit (visitor);
-	auto account (ledger.account (transaction, hash));
-	auto amount (ledger.amount (transaction, hash));
+	auto account (ledger.account (transaction_a, hash));
+	auto amount (ledger.amount (transaction_a, hash));
 	bool is_state_send (false);
 	rai::account pending_account (0);
 	if (auto state = dynamic_cast<rai::state_block *> (block_a.get ()))
 	{
-		is_state_send = ledger.is_send (transaction, *state);
+		is_state_send = ledger.is_send (transaction_a, *state);
 		pending_account = state->hashables.link;
 	}
 	if (auto send = dynamic_cast<rai::send_block *> (block_a.get ()))
