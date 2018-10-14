@@ -2428,3 +2428,46 @@ TEST (ledger, could_fit)
 	ASSERT_EQ (rai::process_result::progress, ledger.process (transaction, epoch1).code);
 	ASSERT_TRUE (ledger.could_fit (transaction, epoch1));
 }
+
+TEST (ledger, confirmation)
+{
+	bool init (false);
+	rai::mdb_store store (init, rai::unique_path ());
+	ASSERT_TRUE (!init);
+	rai::stat stats;
+	rai::ledger ledger (store, stats);
+	auto transaction (store.tx_begin (true));
+	rai::genesis genesis;
+	store.initialize (transaction, genesis);
+	rai::account_info info;
+	ASSERT_FALSE (store.account_get (transaction, rai::test_genesis_key.pub, info));
+	rai::keypair key2;
+	rai::send_block send1 (info.head, key2.pub, 50, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
+	rai::send_block send2 (send1.hash (), key2.pub, 25, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
+	ASSERT_EQ (1, info.block_count);
+	ASSERT_EQ (1, info.confirmation_height);
+	ASSERT_EQ (rai::process_result::progress, ledger.process (transaction, send1).code);
+	ASSERT_FALSE (store.account_get (transaction, rai::test_genesis_key.pub, info));
+	ASSERT_EQ (2, info.block_count);
+	ASSERT_EQ (1, info.confirmation_height);
+	ASSERT_EQ (rai::process_result::progress, ledger.process (transaction, send2).code);
+	ASSERT_FALSE (store.account_get (transaction, rai::test_genesis_key.pub, info));
+	ASSERT_EQ (3, info.block_count);
+	ASSERT_EQ (1, info.confirmation_height);
+	ASSERT_EQ (rai::process_result::old, ledger.process (transaction, send1).code);
+	ASSERT_FALSE (store.account_get (transaction, rai::test_genesis_key.pub, info));
+	ASSERT_EQ (3, info.block_count);
+	ASSERT_EQ (1, info.confirmation_height);
+	ASSERT_EQ (rai::process_result::old, ledger.process (transaction, send1, true).code);
+	ASSERT_FALSE (store.account_get (transaction, rai::test_genesis_key.pub, info));
+	ASSERT_EQ (3, info.block_count);
+	ASSERT_EQ (2, info.confirmation_height);
+	ASSERT_EQ (rai::process_result::old, ledger.process (transaction, send2, true).code);
+	ASSERT_FALSE (store.account_get (transaction, rai::test_genesis_key.pub, info));
+	ASSERT_EQ (3, info.block_count);
+	ASSERT_EQ (3, info.confirmation_height);
+	ASSERT_EQ (rai::process_result::old, ledger.process (transaction, send2, true).code);
+	ASSERT_FALSE (store.account_get (transaction, rai::test_genesis_key.pub, info));
+	ASSERT_EQ (3, info.block_count);
+	ASSERT_EQ (3, info.confirmation_height);
+}

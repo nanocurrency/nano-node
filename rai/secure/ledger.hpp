@@ -37,9 +37,9 @@ public:
 	bool is_send (rai::transaction const &, rai::state_block const &);
 	rai::block_hash block_destination (rai::transaction const &, rai::block const &);
 	rai::block_hash block_source (rai::transaction const &, rai::block const &);
-	rai::process_return process (rai::transaction const &, rai::block const &, bool = false);
+	rai::process_return process (rai::transaction const &, rai::block const &, bool = false, bool = false);
 	void rollback (rai::transaction const &, rai::block_hash const &);
-	void change_latest (rai::transaction const &, rai::account const &, rai::block_hash const &, rai::account const &, rai::uint128_union const &, uint64_t, bool = false, rai::epoch = rai::epoch::epoch_0);
+	void change_latest (rai::transaction const &, rai::account const &, rai::block_hash const &, rai::account const &, rai::uint128_union const &, uint64_t, bool = false, rai::epoch = rai::epoch::epoch_0, bool = false);
 	void checksum_update (rai::transaction const &, rai::block_hash const &);
 	rai::checksum checksum (rai::transaction const &, rai::account const &, rai::account const &);
 	void dump_account_chain (rai::account const &);

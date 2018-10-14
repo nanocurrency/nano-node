@@ -1119,7 +1119,7 @@ rai::process_return rai::block_processor::process_receive_one (rai::transaction 
 {
 	rai::process_return result;
 	auto hash (block_a->hash ());
-	result = node.ledger.process (transaction_a, *block_a, validated_state_block);
+	result = node.ledger.process (transaction_a, *block_a, false, validated_state_block);
 	switch (result.code)
 	{
 		case rai::process_result::progress:
