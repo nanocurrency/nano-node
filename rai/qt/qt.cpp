@@ -108,7 +108,7 @@ wallet (wallet_a)
 
 void rai_qt::self_pane::refresh_balance ()
 {
-	auto balance (wallet.node.balance_pending (wallet.account));
+	auto balance (wallet.node.balance_pending (wallet.account, true));
 	auto final_text (std::string ("Balance: ") + wallet.format_balance (balance.first));
 	if (!balance.second.is_zero ())
 	{
@@ -731,7 +731,7 @@ wallet (wallet_a)
 		{
 			show_line_ok (*account_line);
 			this->history.refresh ();
-			auto balance (this->wallet.node.balance_pending (account));
+			auto balance (this->wallet.node.balance_pending (account, true));
 			auto final_text (std::string ("Balance (NANO): ") + wallet.format_balance (balance.first));
 			if (!balance.second.is_zero ())
 			{

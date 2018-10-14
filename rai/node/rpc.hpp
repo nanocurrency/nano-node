@@ -156,7 +156,7 @@ public:
 	void delegators_count ();
 	void deterministic_key ();
 	void frontiers ();
-	void history ();
+	void is_confirmed ();
 	void keepalive ();
 	void key_create ();
 	void key_expand ();

@@ -1138,6 +1138,7 @@ bool rai::wallet::search_pending ()
 	auto result (!store.valid_password (transaction));
 	if (!result)
 	{
+		auto representative (store.representative (transaction));
 		BOOST_LOG (wallets.node.log) << "Beginning pending block search";
 		for (auto i (store.begin (transaction)), n (store.end ()); i != n; ++i)
 		{
@@ -1155,7 +1156,15 @@ bool rai::wallet::search_pending ()
 					if (wallets.node.config.receive_minimum.number () <= amount)
 					{
 						BOOST_LOG (wallets.node.log) << boost::str (boost::format ("Found a pending block %1% for account %2%") % hash.to_string () % pending.source.to_account ());
-						wallets.node.block_confirm (wallets.node.store.block_get (transaction, hash));
+						std::shared_ptr<rai::block> block (wallets.node.store.block_get (transaction, hash));
+						if (wallets.node.ledger.is_confirmed (transaction, hash))
+						{
+							receive_async (block, representative, amount, [](std::shared_ptr<rai::block>) {});
+						}
+						else
+						{
+							wallets.node.block_confirm (block);
+						}
 					}
 				}
 			}

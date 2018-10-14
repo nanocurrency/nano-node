@@ -1375,7 +1375,7 @@ TEST (rpc, pending)
 	rai::keypair key1;
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	auto block1 (system.wallet (0)->send_action (rai::test_genesis_key.pub, key1.pub, 100));
-	while (system.nodes[0]->active.active (*block1))
+	while (!system.nodes[0]->is_confirmed (block1->hash ()))
 	{
 		system.poll ();
 	}
@@ -2327,7 +2327,7 @@ TEST (rpc, accounts_pending)
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	auto block1 (system.wallet (0)->send_action (rai::test_genesis_key.pub, key1.pub, 100));
 	auto iterations (0);
-	while (system.nodes[0]->active.active (*block1))
+	while (!system.nodes[0]->is_confirmed (block1->hash ()))
 	{
 		system.poll ();
 		++iterations;
@@ -2439,6 +2439,10 @@ TEST (rpc, wallet_info)
 	rai::keypair key;
 	system.wallet (0)->insert_adhoc (key.prv);
 	auto send (system.wallet (0)->send_action (rai::test_genesis_key.pub, key.pub, 1));
+	while (!system.nodes[0]->is_confirmed (send->hash ()))
+	{
+		system.poll ();
+	}
 	rai::account account (system.wallet (0)->deterministic_insert ());
 	{
 		auto transaction (system.nodes[0]->store.tx_begin (true));
@@ -2522,7 +2526,7 @@ TEST (rpc, pending_exists)
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	auto hash0 (system.nodes[0]->latest (rai::genesis_account));
 	auto block1 (system.wallet (0)->send_action (rai::test_genesis_key.pub, key1.pub, 100));
-	while (system.nodes[0]->active.active (*block1))
+	while (!system.nodes[0]->is_confirmed (block1->hash ()))
 	{
 		system.poll ();
 	}
@@ -2558,7 +2562,7 @@ TEST (rpc, wallet_pending)
 	system0.wallet (0)->insert_adhoc (key1.prv);
 	auto block1 (system0.wallet (0)->send_action (rai::test_genesis_key.pub, key1.pub, 100));
 	auto iterations (0);
-	while (system0.nodes[0]->active.active (*block1))
+	while (!system0.nodes[0]->is_confirmed (block1->hash ()))
 	{
 		system0.poll ();
 		++iterations;
@@ -3714,4 +3718,62 @@ TEST (rpc, block_confirm_absent)
 	}
 	ASSERT_EQ (200, response.status);
 	ASSERT_EQ ("Block not found", response.json.get<std::string> ("error"));
+}
+
+TEST (rpc, is_confirmed)
+{
+	rai::system system (24000, 1);
+	rai::rpc rpc (system.service, *system.nodes[0], rai::rpc_config (true));
+	rpc.start ();
+	boost::property_tree::ptree request;
+	request.put ("action", "is_confirmed");
+	request.put ("hash", "0");
+	test_response response (request, rpc, system.service);
+	while (response.status == 0)
+	{
+		system.poll ();
+	}
+	ASSERT_EQ (200, response.status);
+	ASSERT_EQ ("Block not found", response.json.get<std::string> ("error"));
+	request.erase ("hash");
+	request.put ("hash", rai::genesis ().hash ().to_string ());
+	test_response response2 (request, rpc, system.service);
+	while (response2.status == 0)
+	{
+		system.poll ();
+	}
+	ASSERT_EQ (200, response2.status);
+	ASSERT_TRUE (response2.json.get<bool> ("confirmed"));
+	system.nodes[0]->config.enable_voting = false; // prevent confirmation
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	rai::keypair key;
+	auto block (system.wallet (0)->send_action (rai::test_genesis_key.pub, key.pub, 1));
+	request.erase ("hash");
+	request.put ("hash", block->hash ().to_string ());
+	test_response response3 (request, rpc, system.service);
+	while (response3.status == 0)
+	{
+		system.poll ();
+	}
+	ASSERT_EQ (200, response3.status);
+	ASSERT_FALSE (response3.json.get<bool> ("confirmed"));
+	request.erase ("action");
+	request.erase ("hash");
+	request.put ("action", "account_balance");
+	request.put ("account", key.pub.to_account ());
+	test_response response4 (request, rpc, system.service);
+	while (response4.status == 0)
+	{
+		system.poll ();
+	}
+	ASSERT_EQ (200, response4.status);
+	ASSERT_EQ ("0", response4.json.get<std::string> ("pending"));
+	request.put ("include_unconfirmed", "true");
+	test_response response5 (request, rpc, system.service);
+	while (response5.status == 0)
+	{
+		system.poll ();
+	}
+	ASSERT_EQ (200, response5.status);
+	ASSERT_EQ ("0", response5.json.get<std::string> ("pending"));
 }

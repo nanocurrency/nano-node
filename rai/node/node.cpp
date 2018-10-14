@@ -1846,12 +1846,12 @@ std::unique_ptr<rai::block> rai::node::block (rai::block_hash const & hash_a)
 	return store.block_get (transaction, hash_a);
 }
 
-std::pair<rai::uint128_t, rai::uint128_t> rai::node::balance_pending (rai::account const & account_a)
+std::pair<rai::uint128_t, rai::uint128_t> rai::node::balance_pending (rai::account const & account_a, bool include_unconfirmed_pending)
 {
 	std::pair<rai::uint128_t, rai::uint128_t> result;
 	auto transaction (store.tx_begin_read ());
 	result.first = ledger.account_balance (transaction, account_a);
-	result.second = ledger.account_pending (transaction, account_a);
+	result.second = account_pending (transaction, account_a, include_unconfirmed_pending);
 	return result;
 }
 
@@ -2305,6 +2305,36 @@ rai::uint128_t rai::node::delta ()
 	return result;
 }
 
+bool rai::node::is_confirmed (rai::block_hash const & hash_a)
+{
+	return ledger.is_confirmed (store.tx_begin_read (), hash_a);
+}
+
+rai::uint128_t rai::node::account_pending (rai::transaction const & transaction_a, rai::account account_a, bool include_unconfirmed)
+{
+	rai::uint128_t result (0);
+	rai::account end (account_a.number () + 1);
+	auto add_pending ([&, this](rai::pending_key key, rai::pending_info info) {
+		if (include_unconfirmed || ledger.is_confirmed (transaction_a, key.hash))
+		{
+			result += info.amount.number ();
+		}
+		else
+		{
+			this->block_confirm (this->ledger.store.block_get (transaction_a, key.hash));
+		}
+	});
+	for (auto i (store.pending_v0_begin (transaction_a, rai::pending_key (account_a, 0))), n (store.pending_v0_begin (transaction_a, rai::pending_key (end, 0))); i != n; ++i)
+	{
+		add_pending (i->first, i->second);
+	}
+	for (auto i (store.pending_v1_begin (transaction_a, rai::pending_key (account_a, 0))), n (store.pending_v1_begin (transaction_a, rai::pending_key (end, 0))); i != n; ++i)
+	{
+		add_pending (i->first, i->second);
+	}
+	return result;
+}
+
 namespace
 {
 class confirmed_visitor : public rai::block_visitor
@@ -2382,7 +2412,7 @@ void rai::node::process_confirmed (std::shared_ptr<rai::block> block_a)
 	if (!exists)
 	{
 		auto transaction (store.tx_begin_write ());
-		block_processor.process_receive_one (transaction, block_a);
+		block_processor.process_receive_one (transaction, block_a, std::chrono::steady_clock::now (), true);
 		exists = store.block_exists (transaction, hash);
 	}
 	if (exists)
@@ -3141,7 +3171,8 @@ void rai::election::confirm_if_quorum (rai::transaction const & transaction_a)
 		sum += i.first;
 	}
 	auto confirmed (have_quorum (tally_l, sum));
-	if (sum >= node.config.online_weight_minimum.number () && block_l->hash () != status.winner->hash ())
+	// We always re-process the block when confirmed to store confirmation in the database
+	if (sum >= node.config.online_weight_minimum.number () && (block_l->hash () != status.winner->hash () || confirmed))
 	{
 		auto node_l (node.shared ());
 		node_l->block_processor.force (block_l, confirmed);

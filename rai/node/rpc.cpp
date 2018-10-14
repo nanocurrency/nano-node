@@ -391,7 +391,7 @@ void rai::rpc_handler::account_balance ()
 	auto account (account_impl ());
 	if (!ec)
 	{
-		auto balance (node.balance_pending (account));
+		auto balance (node.balance_pending (account, request.get<bool> ("include_unconfirmed_pending", false)));
 		response_l.put ("balance", balance.first.convert_to<std::string> ());
 		response_l.put ("pending", balance.second.convert_to<std::string> ());
 	}
@@ -460,6 +460,7 @@ void rai::rpc_handler::account_info ()
 		const bool representative = request.get<bool> ("representative", false);
 		const bool weight = request.get<bool> ("weight", false);
 		const bool pending = request.get<bool> ("pending", false);
+		const bool include_unconfirmed_pending = request.get<bool> ("include_unconfirmed_pending", false);
 		auto transaction (node.store.tx_begin_read ());
 		rai::account_info info;
 		if (!node.store.account_get (transaction, account, info))
@@ -486,7 +487,7 @@ void rai::rpc_handler::account_info ()
 			}
 			if (pending)
 			{
-				auto account_pending (node.ledger.account_pending (transaction, account));
+				auto account_pending (node.account_pending (transaction, account, include_unconfirmed_pending));
 				response_l.put ("pending", account_pending.convert_to<std::string> ());
 			}
 		}
@@ -694,6 +695,7 @@ void rai::rpc_handler::account_weight ()
 
 void rai::rpc_handler::accounts_balances ()
 {
+	const bool include_unconfirmed_pending = request.get<bool> ("include_unconfirmed_pending", false);
 	boost::property_tree::ptree balances;
 	for (auto & accounts : request.get_child ("accounts"))
 	{
@@ -701,7 +703,7 @@ void rai::rpc_handler::accounts_balances ()
 		if (!ec)
 		{
 			boost::property_tree::ptree entry;
-			auto balance (node.balance_pending (account));
+			auto balance (node.balance_pending (account, include_unconfirmed_pending));
 			entry.put ("balance", balance.first.convert_to<std::string> ());
 			entry.put ("pending", balance.second.convert_to<std::string> ());
 			balances.push_back (std::make_pair (account.to_account (), entry));
@@ -760,7 +762,7 @@ void rai::rpc_handler::accounts_pending ()
 	auto count (count_optional_impl ());
 	auto threshold (threshold_optional_impl ());
 	const bool source = request.get<bool> ("source", false);
-	const bool include_active = request.get<bool> ("include_active", false);
+	const bool include_unconfirmed = request.get<bool> ("include_unconfirmed", false) || request.get<bool> ("include_active", false);
 	boost::property_tree::ptree pending;
 	auto transaction (node.store.tx_begin_read ());
 	for (auto & accounts : request.get_child ("accounts"))
@@ -772,8 +774,7 @@ void rai::rpc_handler::accounts_pending ()
 			for (auto i (node.store.pending_begin (transaction, rai::pending_key (account, 0))); rai::pending_key (i->first).account == account && peers_l.size () < count; ++i)
 			{
 				rai::pending_key key (i->first);
-				std::shared_ptr<rai::block> block (include_active ? nullptr : node.store.block_get (transaction, key.hash));
-				if (include_active || (block && !node.active.active (*block)))
+				if (include_unconfirmed || node.ledger.is_confirmed (transaction, key.hash))
 				{
 					if (threshold.is_zero () && !source)
 					{
@@ -813,7 +814,7 @@ void rai::rpc_handler::available_supply ()
 	auto genesis_balance (node.balance (rai::genesis_account)); // Cold storage genesis
 	auto landing_balance (node.balance (rai::account ("059F68AAB29DE0D3A27443625C7EA9CDDB6517A8B76FE37727EF6A4D76832AD5"))); // Active unavailable account
 	auto faucet_balance (node.balance (rai::account ("8E319CE6F3025E5B2DF66DA7AB1467FE48F1679C13DD43BFDB29FA2E9FC40D3B"))); // Faucet account
-	auto burned_balance ((node.balance_pending (rai::account (0))).second); // Burning 0 account
+	auto burned_balance ((node.balance_pending (rai::account (0), true)).second); // Burning 0 account
 	auto available (rai::genesis_amount - genesis_balance - landing_balance - faucet_balance - burned_balance);
 	response_l.put ("available", available.convert_to<std::string> ());
 	response_errors ();
@@ -1578,6 +1579,25 @@ void rai::rpc_handler::frontiers ()
 	response_errors ();
 }
 
+void rai::rpc_handler::is_confirmed ()
+{
+	auto hash (hash_impl ());
+	if (!ec)
+	{
+		auto transaction (node.store.tx_begin_read ());
+		if (node.store.block_exists (transaction, hash))
+		{
+			auto confirmed (node.ledger.is_confirmed (transaction, hash));
+			response_l.put ("confirmed", confirmed);
+		}
+		else
+		{
+			ec = nano::error_blocks::not_found;
+		}
+	}
+	response_errors ();
+}
+
 void rai::rpc_handler::account_count ()
 {
 	auto transaction (node.store.tx_begin_read ());
@@ -1875,6 +1895,7 @@ void rai::rpc_handler::ledger ()
 		const bool representative = request.get<bool> ("representative", false);
 		const bool weight = request.get<bool> ("weight", false);
 		const bool pending = request.get<bool> ("pending", false);
+		const bool include_unconfirmed_pending = request.get<bool> ("include_unconfirmed_pending", false);
 		boost::property_tree::ptree accounts;
 		auto transaction (node.store.tx_begin_read ());
 		if (!ec && !sorting) // Simple
@@ -1907,7 +1928,7 @@ void rai::rpc_handler::ledger ()
 					}
 					if (pending)
 					{
-						auto account_pending (node.ledger.account_pending (transaction, account));
+						auto account_pending (node.account_pending (transaction, account, include_unconfirmed_pending));
 						response_a.put ("pending", account_pending.convert_to<std::string> ());
 					}
 					accounts.push_back (std::make_pair (account.to_account (), response_a));
@@ -1955,7 +1976,7 @@ void rai::rpc_handler::ledger ()
 				}
 				if (pending)
 				{
-					auto account_pending (node.ledger.account_pending (transaction, account));
+					auto account_pending (node.account_pending (transaction, account, include_unconfirmed_pending));
 					response_a.put ("pending", account_pending.convert_to<std::string> ());
 				}
 				accounts.push_back (std::make_pair (account.to_account (), response_a));
@@ -2062,7 +2083,7 @@ void rai::rpc_handler::pending ()
 	auto threshold (threshold_optional_impl ());
 	const bool source = request.get<bool> ("source", false);
 	const bool min_version = request.get<bool> ("min_version", false);
-	const bool include_active = request.get<bool> ("include_active", false);
+	const bool include_unconfirmed = request.get<bool> ("include_unconfirmed", false) || request.get<bool> ("include_active", false);
 	if (!ec)
 	{
 		boost::property_tree::ptree peers_l;
@@ -2070,8 +2091,7 @@ void rai::rpc_handler::pending ()
 		for (auto i (node.store.pending_begin (transaction, rai::pending_key (account, 0))); rai::pending_key (i->first).account == account && peers_l.size () < count; ++i)
 		{
 			rai::pending_key key (i->first);
-			std::shared_ptr<rai::block> block (include_active ? nullptr : node.store.block_get (transaction, key.hash));
-			if (include_active || (block && !node.active.active (*block)))
+			if (include_unconfirmed || node.ledger.is_confirmed (transaction, key.hash))
 			{
 				if (threshold.is_zero () && !source && !min_version)
 				{
@@ -2114,7 +2134,7 @@ void rai::rpc_handler::pending ()
 void rai::rpc_handler::pending_exists ()
 {
 	auto hash (hash_impl ());
-	const bool include_active = request.get<bool> ("include_active", false);
+	const bool include_unconfirmed = request.get<bool> ("include_unconfirmed", false) || request.get<bool> ("include_active", false);
 	if (!ec)
 	{
 		auto transaction (node.store.tx_begin_read ());
@@ -2127,7 +2147,7 @@ void rai::rpc_handler::pending_exists ()
 			{
 				exists = node.store.pending_exists (transaction, rai::pending_key (destination, hash));
 			}
-			exists = exists && (include_active || !node.active.active (*block));
+			exists = exists && (include_unconfirmed || node.ledger.is_confirmed (transaction, hash));
 			response_l.put ("exists", exists ? "1" : "0");
 		}
 		else
@@ -2970,6 +2990,7 @@ void rai::rpc_handler::wallet_info ()
 	auto wallet (wallet_impl ());
 	if (!ec)
 	{
+		const bool include_unconfirmed_pending = request.get<bool> ("include_unconfirmed_pending", false);
 		rai::uint128_t balance (0);
 		rai::uint128_t pending (0);
 		uint64_t count (0);
@@ -2980,7 +3001,7 @@ void rai::rpc_handler::wallet_info ()
 		{
 			rai::account account (i->first);
 			balance = balance + node.ledger.account_balance (transaction, account);
-			pending = pending + node.ledger.account_pending (transaction, account);
+			pending = pending + node.account_pending (transaction, account, include_unconfirmed_pending);
 			rai::key_type key_type (wallet->store.key_type (i->second));
 			if (key_type == rai::key_type::deterministic)
 			{
@@ -3009,6 +3030,7 @@ void rai::rpc_handler::wallet_balances ()
 	auto threshold (threshold_optional_impl ());
 	if (!ec)
 	{
+		const bool include_unconfirmed_pending = request.get<bool> ("include_unconfirmed_pending", false);
 		boost::property_tree::ptree balances;
 		auto transaction (node.store.tx_begin_read ());
 		for (auto i (wallet->store.begin (transaction)), n (wallet->store.end ()); i != n; ++i)
@@ -3018,7 +3040,7 @@ void rai::rpc_handler::wallet_balances ()
 			if (balance >= threshold.number ())
 			{
 				boost::property_tree::ptree entry;
-				rai::uint128_t pending = node.ledger.account_pending (transaction, account);
+				rai::uint128_t pending = node.account_pending (transaction, account, include_unconfirmed_pending);
 				entry.put ("balance", balance.convert_to<std::string> ());
 				entry.put ("pending", pending.convert_to<std::string> ());
 				balances.push_back (std::make_pair (account.to_account (), entry));
@@ -3172,6 +3194,7 @@ void rai::rpc_handler::wallet_ledger ()
 	const bool representative = request.get<bool> ("representative", false);
 	const bool weight = request.get<bool> ("weight", false);
 	const bool pending = request.get<bool> ("pending", false);
+	const bool include_unconfirmed_pending = request.get<bool> ("include_unconfirmed_pending", false);
 	uint64_t modified_since (0);
 	boost::optional<std::string> modified_since_text (request.get_optional<std::string> ("modified_since"));
 	if (modified_since_text.is_initialized ())
@@ -3213,7 +3236,7 @@ void rai::rpc_handler::wallet_ledger ()
 					}
 					if (pending)
 					{
-						auto account_pending (node.ledger.account_pending (transaction, account));
+						auto account_pending (node.account_pending (transaction, account, include_unconfirmed_pending));
 						entry.put ("pending", account_pending.convert_to<std::string> ());
 					}
 					accounts.push_back (std::make_pair (account.to_account (), entry));
@@ -3246,7 +3269,7 @@ void rai::rpc_handler::wallet_pending ()
 	auto threshold (threshold_optional_impl ());
 	const bool source = request.get<bool> ("source", false);
 	const bool min_version = request.get<bool> ("min_version", false);
-	const bool include_active = request.get<bool> ("include_active", false);
+	const bool include_unconfirmed = request.get<bool> ("include_unconfirmed", false) || request.get<bool> ("include_active", false);
 	if (!ec)
 	{
 		boost::property_tree::ptree pending;
@@ -3258,8 +3281,7 @@ void rai::rpc_handler::wallet_pending ()
 			for (auto ii (node.store.pending_begin (transaction, rai::pending_key (account, 0))); rai::pending_key (ii->first).account == account && peers_l.size () < count; ++ii)
 			{
 				rai::pending_key key (ii->first);
-				std::shared_ptr<rai::block> block (include_active ? nullptr : node.store.block_get (transaction, key.hash));
-				if (include_active || (block && !node.active.active (*block)))
+				if (include_unconfirmed || node.ledger.is_confirmed (transaction, key.hash))
 				{
 					if (threshold.is_zero () && !source)
 					{
@@ -3851,6 +3873,10 @@ void rai::rpc_handler::process_request ()
 			{
 				request.put ("head", request.get<std::string> ("hash"));
 				account_history ();
+			}
+			else if (action == "is_confirmed")
+			{
+				is_confirmed ();
 			}
 			else if (action == "keepalive")
 			{

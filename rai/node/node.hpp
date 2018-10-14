@@ -548,7 +548,7 @@ public:
 	rai::block_hash latest (rai::account const &);
 	rai::uint128_t balance (rai::account const &);
 	std::unique_ptr<rai::block> block (rai::block_hash const &);
-	std::pair<rai::uint128_t, rai::uint128_t> balance_pending (rai::account const &);
+	std::pair<rai::uint128_t, rai::uint128_t> balance_pending (rai::account const &, bool);
 	rai::uint128_t weight (rai::account const &);
 	rai::account representative (rai::account const &);
 	void ongoing_keepalive ();
@@ -567,6 +567,9 @@ public:
 	void process_fork (rai::transaction const &, std::shared_ptr<rai::block>);
 	bool validate_block_by_previous (rai::transaction const &, std::shared_ptr<rai::block>);
 	rai::uint128_t delta ();
+	bool is_confirmed (rai::block_hash const &);
+	// If include_unconfirmed is false, block_confirm will be called on any unconfirmed blocks.
+	rai::uint128_t account_pending (rai::transaction const &, rai::account, bool include_unconfirmed);
 	boost::asio::io_service & service;
 	rai::node_config config;
 	rai::alarm & alarm;
