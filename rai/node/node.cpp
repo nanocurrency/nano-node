@@ -2407,10 +2407,9 @@ public:
 void rai::node::process_confirmed (std::shared_ptr<rai::block> block_a)
 {
 	auto hash (block_a->hash ());
-	bool exists (ledger.block_exists (hash));
-	// Attempt to process confirmed block if it's not in ledger yet
-	if (!exists)
+	bool exists;
 	{
+		// We always re-process the block to guarantee it's marked as confirmed
 		auto transaction (store.tx_begin_write ());
 		block_processor.process_receive_one (transaction, block_a, std::chrono::steady_clock::now (), true);
 		exists = store.block_exists (transaction, hash);
@@ -3171,8 +3170,7 @@ void rai::election::confirm_if_quorum (rai::transaction const & transaction_a)
 		sum += i.first;
 	}
 	auto confirmed (have_quorum (tally_l, sum));
-	// We always re-process the block when confirmed to store confirmation in the database
-	if (sum >= node.config.online_weight_minimum.number () && (block_l->hash () != status.winner->hash () || confirmed))
+	if (sum >= node.config.online_weight_minimum.number () && block_l->hash () != status.winner->hash ())
 	{
 		auto node_l (node.shared ());
 		node_l->block_processor.force (block_l, confirmed);
