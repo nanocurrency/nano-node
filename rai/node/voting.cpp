@@ -39,7 +39,7 @@ void rai::vote_generator::send (std::unique_lock<std::mutex> & lock_a)
 {
 	std::vector<rai::block_hash> hashes_l;
 	hashes_l.reserve (12);
-	while (!hashes.empty () && hashes.size () < 12)
+	while (!hashes.empty () && hashes_l.size () < 12)
 	{
 		hashes_l.push_back (hashes.front ());
 		hashes.pop_front ();
