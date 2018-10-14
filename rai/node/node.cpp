@@ -1122,6 +1122,13 @@ rai::process_return rai::block_processor::process_receive_one (rai::transaction 
 	rai::process_return result;
 	auto hash (block_a->hash ());
 	result = node.ledger.process (transaction_a, *block_a, confirmed, validated_state_block);
+	if (confirmed && (result.code == rai::process_result::progress || result.code == rai::process_result::old))
+	{
+		auto node_l (node.shared_from_this ());
+		node.background ([node_l, block_a]() {
+			node_l->process_confirmed (block_a);
+		});
+	}
 	switch (result.code)
 	{
 		case rai::process_result::progress:
@@ -2407,39 +2414,30 @@ public:
 void rai::node::process_confirmed (std::shared_ptr<rai::block> block_a)
 {
 	auto hash (block_a->hash ());
-	bool exists;
+	assert (ledger.block_exists (hash));
+	auto transaction (store.tx_begin_read ());
+	confirmed_visitor visitor (transaction, *this, block_a, hash);
+	block_a->visit (visitor);
+	auto account (ledger.account (transaction, hash));
+	auto amount (ledger.amount (transaction, hash));
+	bool is_state_send (false);
+	rai::account pending_account (0);
+	if (auto state = dynamic_cast<rai::state_block *> (block_a.get ()))
 	{
-		// We always re-process the block to guarantee it's marked as confirmed
-		auto transaction (store.tx_begin_write ());
-		block_processor.process_receive_one (transaction, block_a, std::chrono::steady_clock::now (), true);
-		exists = store.block_exists (transaction, hash);
+		is_state_send = ledger.is_send (transaction, *state);
+		pending_account = state->hashables.link;
 	}
-	if (exists)
+	if (auto send = dynamic_cast<rai::send_block *> (block_a.get ()))
 	{
-		auto transaction (store.tx_begin_read ());
-		confirmed_visitor visitor (transaction, *this, block_a, hash);
-		block_a->visit (visitor);
-		auto account (ledger.account (transaction, hash));
-		auto amount (ledger.amount (transaction, hash));
-		bool is_state_send (false);
-		rai::account pending_account (0);
-		if (auto state = dynamic_cast<rai::state_block *> (block_a.get ()))
+		pending_account = send->hashables.destination;
+	}
+	observers.blocks.notify (block_a, account, amount, is_state_send);
+	if (amount > 0)
+	{
+		observers.account_balance.notify (account, false);
+		if (!pending_account.is_zero ())
 		{
-			is_state_send = ledger.is_send (transaction, *state);
-			pending_account = state->hashables.link;
-		}
-		if (auto send = dynamic_cast<rai::send_block *> (block_a.get ()))
-		{
-			pending_account = send->hashables.destination;
-		}
-		observers.blocks.notify (block_a, account, amount, is_state_send);
-		if (amount > 0)
-		{
-			observers.account_balance.notify (account, false);
-			if (!pending_account.is_zero ())
-			{
-				observers.account_balance.notify (pending_account, true);
-			}
+			observers.account_balance.notify (pending_account, true);
 		}
 	}
 }
@@ -3108,10 +3106,11 @@ void rai::election::confirm_once (rai::transaction const & transaction_a)
 	if (!confirmed.exchange (true))
 	{
 		auto winner_l (status.winner);
+		// Re-process to store confirmation in DB
+		node.block_processor.force (winner_l, true);
 		auto node_l (node.shared ());
 		auto confirmation_action_l (confirmation_action);
 		node.background ([node_l, winner_l, confirmation_action_l]() {
-			node_l->process_confirmed (winner_l);
 			confirmation_action_l (winner_l);
 		});
 	}
@@ -3173,7 +3172,7 @@ void rai::election::confirm_if_quorum (rai::transaction const & transaction_a)
 	if (sum >= node.config.online_weight_minimum.number () && block_l->hash () != status.winner->hash ())
 	{
 		auto node_l (node.shared ());
-		node_l->block_processor.force (block_l, confirmed);
+		node_l->block_processor.force (block_l);
 		status.winner = block_l;
 	}
 	if (confirmed)
