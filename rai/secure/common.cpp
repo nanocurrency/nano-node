@@ -143,17 +143,19 @@ open_block (0),
 balance (0),
 modified (0),
 block_count (0),
+confirmation_height (0),
 epoch (rai::epoch::epoch_0)
 {
 }
 
-rai::account_info::account_info (rai::block_hash const & head_a, rai::block_hash const & rep_block_a, rai::block_hash const & open_block_a, rai::amount const & balance_a, uint64_t modified_a, uint64_t block_count_a, rai::epoch epoch_a) :
+rai::account_info::account_info (rai::block_hash const & head_a, rai::block_hash const & rep_block_a, rai::block_hash const & open_block_a, rai::amount const & balance_a, uint64_t modified_a, uint64_t block_count_a, uint64_t confirmation_height_a, rai::epoch epoch_a) :
 head (head_a),
 rep_block (rep_block_a),
 open_block (open_block_a),
 balance (balance_a),
 modified (modified_a),
 block_count (block_count_a),
+confirmation_height (confirmation_height_a),
 epoch (epoch_a)
 {
 }
@@ -166,6 +168,7 @@ void rai::account_info::serialize (rai::stream & stream_a) const
 	write (stream_a, balance.bytes);
 	write (stream_a, modified);
 	write (stream_a, block_count);
+	write (stream_a, confirmation_height);
 }
 
 bool rai::account_info::deserialize (rai::stream & stream_a)
@@ -186,6 +189,10 @@ bool rai::account_info::deserialize (rai::stream & stream_a)
 					if (!error)
 					{
 						error = read (stream_a, block_count);
+						if (!error)
+						{
+							error = read (stream_a, confirmation_height);
+						}
 					}
 				}
 			}
@@ -196,7 +203,7 @@ bool rai::account_info::deserialize (rai::stream & stream_a)
 
 bool rai::account_info::operator== (rai::account_info const & other_a) const
 {
-	return head == other_a.head && rep_block == other_a.rep_block && open_block == other_a.open_block && balance == other_a.balance && modified == other_a.modified && block_count == other_a.block_count && epoch == other_a.epoch;
+	return head == other_a.head && rep_block == other_a.rep_block && open_block == other_a.open_block && balance == other_a.balance && modified == other_a.modified && block_count == other_a.block_count && confirmation_height == other_a.confirmation_height && epoch == other_a.epoch;
 }
 
 bool rai::account_info::operator!= (rai::account_info const & other_a) const
@@ -212,7 +219,8 @@ size_t rai::account_info::db_size () const
 	assert (reinterpret_cast<const uint8_t *> (&open_block) + sizeof (open_block) == reinterpret_cast<const uint8_t *> (&balance));
 	assert (reinterpret_cast<const uint8_t *> (&balance) + sizeof (balance) == reinterpret_cast<const uint8_t *> (&modified));
 	assert (reinterpret_cast<const uint8_t *> (&modified) + sizeof (modified) == reinterpret_cast<const uint8_t *> (&block_count));
-	return sizeof (head) + sizeof (rep_block) + sizeof (open_block) + sizeof (balance) + sizeof (modified) + sizeof (block_count);
+	assert (reinterpret_cast<const uint8_t *> (&block_count) + sizeof (block_count) == reinterpret_cast<const uint8_t *> (&confirmation_height));
+	return sizeof (head) + sizeof (rep_block) + sizeof (open_block) + sizeof (balance) + sizeof (modified) + sizeof (block_count) + sizeof (confirmation_height);
 }
 
 rai::block_counts::block_counts () :
@@ -233,13 +241,15 @@ size_t rai::block_counts::sum ()
 rai::pending_info::pending_info () :
 source (0),
 amount (0),
+source_account_height (0),
 epoch (rai::epoch::epoch_0)
 {
 }
 
-rai::pending_info::pending_info (rai::account const & source_a, rai::amount const & amount_a, rai::epoch epoch_a) :
+rai::pending_info::pending_info (rai::account const & source_a, rai::amount const & amount_a, uint64_t source_account_height_a, rai::epoch epoch_a) :
 source (source_a),
 amount (amount_a),
+source_account_height (source_account_height_a),
 epoch (epoch_a)
 {
 }
@@ -248,6 +258,7 @@ void rai::pending_info::serialize (rai::stream & stream_a) const
 {
 	rai::write (stream_a, source.bytes);
 	rai::write (stream_a, amount.bytes);
+	rai::write (stream_a, source_account_height);
 }
 
 bool rai::pending_info::deserialize (rai::stream & stream_a)
@@ -256,13 +267,17 @@ bool rai::pending_info::deserialize (rai::stream & stream_a)
 	if (!result)
 	{
 		result = rai::read (stream_a, amount.bytes);
+		if (!result)
+		{
+			result = rai::read (stream_a, source_account_height);
+		}
 	}
 	return result;
 }
 
 bool rai::pending_info::operator== (rai::pending_info const & other_a) const
 {
-	return source == other_a.source && amount == other_a.amount && epoch == other_a.epoch;
+	return source == other_a.source && amount == other_a.amount && source_account_height == other_a.source_account_height && epoch == other_a.epoch;
 }
 
 rai::pending_key::pending_key () :
@@ -329,6 +344,78 @@ bool rai::block_info::deserialize (rai::stream & stream_a)
 bool rai::block_info::operator== (rai::block_info const & other_a) const
 {
 	return account == other_a.account && balance == other_a.balance;
+}
+
+rai::block_sideband::block_sideband () :
+account_height (0),
+successor (0)
+{
+}
+
+rai::block_sideband::block_sideband (uint64_t account_height_a, rai::block_hash successor_a) :
+account_height (account_height_a),
+successor (successor_a)
+{
+}
+
+void rai::block_sideband::serialize (rai::stream & stream_a) const
+{
+	rai::write (stream_a, account_height);
+	rai::write (stream_a, successor);
+}
+
+bool rai::block_sideband::deserialize (rai::stream & stream_a)
+{
+	auto error (rai::read (stream_a, account_height));
+	if (!error)
+	{
+		error = rai::read (stream_a, successor);
+	}
+	return error;
+}
+
+bool rai::block_sideband::operator== (rai::block_sideband const & other_a) const
+{
+	return account_height == other_a.account_height && successor == other_a.successor;
+}
+
+rai::extended_block::extended_block () :
+epoch (rai::epoch::epoch_0)
+{
+}
+
+rai::extended_block::extended_block (std::unique_ptr<rai::block> block_a, rai::block_sideband sideband_a, rai::epoch epoch_a) :
+block (std::move (block_a)),
+sideband (sideband_a),
+epoch (epoch_a)
+{
+}
+
+void rai::extended_block::serialize (rai::stream & stream_a) const
+{
+	block->serialize (stream_a);
+	sideband.serialize (stream_a);
+}
+
+bool rai::extended_block::deserialize (rai::stream & stream_a, rai::block_type block_type_a)
+{
+	block = rai::deserialize_block (stream_a, block_type_a);
+	auto error (block == nullptr);
+	if (!error)
+	{
+		error = sideband.deserialize (stream_a);
+	}
+	return error;
+}
+
+bool rai::extended_block::operator== (rai::extended_block const & other_a) const
+{
+	return *block == *other_a.block && sideband == other_a.sideband && epoch == other_a.epoch;
+}
+
+bool rai::extended_block::operator!= (rai::extended_block const & other_a) const
+{
+	return !(*this == other_a);
 }
 
 bool rai::vote::operator== (rai::vote const & other_a) const

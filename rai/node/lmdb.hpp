@@ -37,6 +37,9 @@ public:
 	MDB_env * environment;
 };
 
+class account_info_v6;
+class pending_info_v4;
+
 /**
  * Encapsulates MDB_val and provides uint256_union conversion of the data.
  */
@@ -49,9 +52,11 @@ public:
 	};
 	mdb_val (rai::epoch = rai::epoch::unspecified);
 	mdb_val (rai::account_info const &);
+	mdb_val (rai::account_info_v6 const &);
 	mdb_val (rai::block_info const &);
 	mdb_val (MDB_val const &, rai::epoch = rai::epoch::unspecified);
 	mdb_val (rai::pending_info const &);
+    mdb_val (rai::pending_info_v4 const &);
 	mdb_val (rai::pending_key const &);
 	mdb_val (size_t, void *);
 	mdb_val (rai::uint128_union const &);
@@ -61,8 +66,10 @@ public:
 	void * data () const;
 	size_t size () const;
 	explicit operator rai::account_info () const;
+	explicit operator rai::account_info_v6 () const;
 	explicit operator rai::block_info () const;
 	explicit operator rai::pending_info () const;
+	explicit operator rai::pending_info_v4 () const;
 	explicit operator rai::pending_key () const;
 	explicit operator rai::uint128_union () const;
 	explicit operator rai::uint256_union () const;
@@ -152,10 +159,12 @@ public:
 	rai::transaction tx_begin (bool write = false) override;
 
 	void initialize (rai::transaction const &, rai::genesis const &) override;
-	void block_put (rai::transaction const &, rai::block_hash const &, rai::block const &, rai::block_hash const & = rai::block_hash (0), rai::epoch version = rai::epoch::epoch_0) override;
+	void block_put (rai::transaction const &, rai::block_hash const &, rai::extended_block const &) override;
 	rai::block_hash block_successor (rai::transaction const &, rai::block_hash const &) override;
+	uint64_t block_account_height (rai::transaction const &, rai::block_hash const &) override;
 	void block_successor_clear (rai::transaction const &, rai::block_hash const &) override;
 	std::unique_ptr<rai::block> block_get (rai::transaction const &, rai::block_hash const &) override;
+	rai::extended_block extended_block_get (rai::transaction const &, rai::block_hash const &) override;
 	std::unique_ptr<rai::block> block_random (rai::transaction const &) override;
 	void block_del (rai::transaction const &, rai::block_hash const &) override;
 	bool block_exists (rai::transaction const &, rai::block_hash const &) override;
@@ -368,7 +377,7 @@ private:
 	MDB_dbi block_database (rai::block_type, rai::epoch);
 	template <typename T>
 	std::unique_ptr<rai::block> block_random (rai::transaction const &, MDB_dbi);
-	MDB_val block_raw_get (rai::transaction const &, rai::block_hash const &, rai::block_type &);
+	MDB_val block_raw_get (rai::transaction const &, rai::block_hash const &, rai::block_type &, rai::epoch &);
 	void block_raw_put (rai::transaction const &, MDB_dbi, rai::block_hash const &, MDB_val);
 	void clear (MDB_dbi);
 };

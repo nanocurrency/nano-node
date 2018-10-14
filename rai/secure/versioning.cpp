@@ -106,6 +106,41 @@ rai::mdb_val rai::pending_info_v3::val () const
 	return rai::mdb_val (sizeof (*this), const_cast<rai::pending_info_v3 *> (this));
 }
 
+rai::pending_info_v4::pending_info_v4 () :
+source (0),
+amount (0),
+epoch (rai::epoch::epoch_0)
+{
+}
+
+rai::pending_info_v4::pending_info_v4 (rai::account const & source_a, rai::amount const & amount_a, rai::epoch epoch_a) :
+source (source_a),
+amount (amount_a),
+epoch (epoch_a)
+{
+}
+
+void rai::pending_info_v4::serialize (rai::stream & stream_a) const
+{
+	rai::write (stream_a, source.bytes);
+	rai::write (stream_a, amount.bytes);
+}
+
+bool rai::pending_info_v4::deserialize (rai::stream & stream_a)
+{
+	auto result (rai::read (stream_a, source.bytes));
+	if (!result)
+	{
+		result = rai::read (stream_a, amount.bytes);
+	}
+	return result;
+}
+
+bool rai::pending_info_v4::operator== (rai::pending_info_v4 const & other_a) const
+{
+	return source == other_a.source && amount == other_a.amount && epoch == other_a.epoch;
+}
+
 rai::account_info_v5::account_info_v5 () :
 head (0),
 rep_block (0),
@@ -165,4 +200,83 @@ bool rai::account_info_v5::deserialize (rai::stream & stream_a)
 rai::mdb_val rai::account_info_v5::val () const
 {
 	return rai::mdb_val (sizeof (*this), const_cast<rai::account_info_v5 *> (this));
+}
+
+rai::account_info_v6::account_info_v6 () :
+head (0),
+rep_block (0),
+open_block (0),
+balance (0),
+modified (0),
+block_count (0),
+epoch (rai::epoch::epoch_0)
+{
+}
+
+rai::account_info_v6::account_info_v6 (rai::block_hash const & head_a, rai::block_hash const & rep_block_a, rai::block_hash const & open_block_a, rai::amount const & balance_a, uint64_t modified_a, uint64_t block_count_a, rai::epoch epoch_a) :
+head (head_a),
+rep_block (rep_block_a),
+open_block (open_block_a),
+balance (balance_a),
+modified (modified_a),
+block_count (block_count_a),
+epoch (epoch_a)
+{
+}
+
+void rai::account_info_v6::serialize (rai::stream & stream_a) const
+{
+	write (stream_a, head.bytes);
+	write (stream_a, rep_block.bytes);
+	write (stream_a, open_block.bytes);
+	write (stream_a, balance.bytes);
+	write (stream_a, modified);
+	write (stream_a, block_count);
+}
+
+bool rai::account_info_v6::deserialize (rai::stream & stream_a)
+{
+	auto error (read (stream_a, head.bytes));
+	if (!error)
+	{
+		error = read (stream_a, rep_block.bytes);
+		if (!error)
+		{
+			error = read (stream_a, open_block.bytes);
+			if (!error)
+			{
+				error = read (stream_a, balance.bytes);
+				if (!error)
+				{
+					error = read (stream_a, modified);
+					if (!error)
+					{
+						error = read (stream_a, block_count);
+					}
+				}
+			}
+		}
+	}
+	return error;
+}
+
+bool rai::account_info_v6::operator== (rai::account_info_v6 const & other_a) const
+{
+	return head == other_a.head && rep_block == other_a.rep_block && open_block == other_a.open_block && balance == other_a.balance && modified == other_a.modified && block_count == other_a.block_count && epoch == other_a.epoch;
+}
+
+bool rai::account_info_v6::operator!= (rai::account_info_v6 const & other_a) const
+{
+	return !(*this == other_a);
+}
+
+size_t rai::account_info_v6::db_size () const
+{
+	assert (reinterpret_cast<const uint8_t *> (this) == reinterpret_cast<const uint8_t *> (&head));
+	assert (reinterpret_cast<const uint8_t *> (&head) + sizeof (head) == reinterpret_cast<const uint8_t *> (&rep_block));
+	assert (reinterpret_cast<const uint8_t *> (&rep_block) + sizeof (rep_block) == reinterpret_cast<const uint8_t *> (&open_block));
+	assert (reinterpret_cast<const uint8_t *> (&open_block) + sizeof (open_block) == reinterpret_cast<const uint8_t *> (&balance));
+	assert (reinterpret_cast<const uint8_t *> (&balance) + sizeof (balance) == reinterpret_cast<const uint8_t *> (&modified));
+	assert (reinterpret_cast<const uint8_t *> (&modified) + sizeof (modified) == reinterpret_cast<const uint8_t *> (&block_count));
+	return sizeof (head) + sizeof (rep_block) + sizeof (open_block) + sizeof (balance) + sizeof (modified) + sizeof (block_count);
 }

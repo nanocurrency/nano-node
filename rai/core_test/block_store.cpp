@@ -21,15 +21,16 @@ TEST (block_store, add_item)
 	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
 	rai::open_block block (0, 1, 0, rai::keypair ().prv, 0, 0);
+	rai::extended_block extended_block (std::make_unique<rai::open_block> (block), rai::block_sideband (1, 0), rai::epoch::epoch_0);
 	rai::uint256_union hash1 (block.hash ());
 	auto transaction (store.tx_begin (true));
 	auto latest1 (store.block_get (transaction, hash1));
 	ASSERT_EQ (nullptr, latest1);
 	ASSERT_FALSE (store.block_exists (transaction, hash1));
-	store.block_put (transaction, hash1, block);
-	auto latest2 (store.block_get (transaction, hash1));
-	ASSERT_NE (nullptr, latest2);
-	ASSERT_EQ (block, *latest2);
+	store.block_put (transaction, hash1, extended_block);
+	auto latest2 (store.extended_block_get (transaction, hash1));
+	ASSERT_NE (nullptr, latest2.block);
+	ASSERT_EQ (extended_block, latest2);
 	ASSERT_TRUE (store.block_exists (transaction, hash1));
 	ASSERT_FALSE (store.block_exists (transaction, hash1.number () - 1));
 	store.block_del (transaction, hash1);
@@ -44,15 +45,16 @@ TEST (block_store, add_nonempty_block)
 	ASSERT_TRUE (!init);
 	rai::keypair key1;
 	rai::open_block block (0, 1, 0, rai::keypair ().prv, 0, 0);
+	rai::extended_block extended_block (std::make_unique<rai::open_block> (block), rai::block_sideband (1, 0), rai::epoch::epoch_0);
 	rai::uint256_union hash1 (block.hash ());
 	block.signature = rai::sign_message (key1.prv, key1.pub, hash1);
 	auto transaction (store.tx_begin (true));
 	auto latest1 (store.block_get (transaction, hash1));
 	ASSERT_EQ (nullptr, latest1);
-	store.block_put (transaction, hash1, block);
-	auto latest2 (store.block_get (transaction, hash1));
-	ASSERT_NE (nullptr, latest2);
-	ASSERT_EQ (block, *latest2);
+	store.block_put (transaction, hash1, extended_block);
+	auto latest2 (store.extended_block_get (transaction, hash1));
+	ASSERT_NE (nullptr, latest2.block);
+	ASSERT_EQ (extended_block, latest2);
 }
 
 TEST (block_store, add_two_items)
@@ -62,26 +64,28 @@ TEST (block_store, add_two_items)
 	ASSERT_TRUE (!init);
 	rai::keypair key1;
 	rai::open_block block (0, 1, 1, rai::keypair ().prv, 0, 0);
+	rai::extended_block extended_block (std::make_unique<rai::open_block> (block), rai::block_sideband (1, 0), rai::epoch::epoch_0);
 	rai::uint256_union hash1 (block.hash ());
 	block.signature = rai::sign_message (key1.prv, key1.pub, hash1);
 	auto transaction (store.tx_begin (true));
-	auto latest1 (store.block_get (transaction, hash1));
-	ASSERT_EQ (nullptr, latest1);
+	auto latest1 (store.extended_block_get (transaction, hash1));
+	ASSERT_EQ (nullptr, latest1.block);
 	rai::open_block block2 (0, 1, 3, rai::keypair ().prv, 0, 0);
+	rai::extended_block extended_block2 (std::make_unique<rai::open_block> (block2), rai::block_sideband (1, 0), rai::epoch::epoch_0);
 	block2.hashables.account = 3;
 	rai::uint256_union hash2 (block2.hash ());
 	block2.signature = rai::sign_message (key1.prv, key1.pub, hash2);
-	auto latest2 (store.block_get (transaction, hash2));
-	ASSERT_EQ (nullptr, latest2);
-	store.block_put (transaction, hash1, block);
-	store.block_put (transaction, hash2, block2);
-	auto latest3 (store.block_get (transaction, hash1));
-	ASSERT_NE (nullptr, latest3);
-	ASSERT_EQ (block, *latest3);
-	auto latest4 (store.block_get (transaction, hash2));
-	ASSERT_NE (nullptr, latest4);
-	ASSERT_EQ (block2, *latest4);
-	ASSERT_FALSE (*latest3 == *latest4);
+	auto latest2 (store.extended_block_get (transaction, hash2));
+	ASSERT_EQ (nullptr, latest2.block);
+	store.block_put (transaction, hash1, extended_block);
+	store.block_put (transaction, hash2, extended_block2);
+	auto latest3 (store.extended_block_get (transaction, hash1));
+	ASSERT_NE (nullptr, latest3.block);
+	ASSERT_EQ (extended_block, latest3);
+	auto latest4 (store.extended_block_get (transaction, hash2));
+	ASSERT_NE (nullptr, latest4.block);
+	ASSERT_EQ (extended_block2, latest4);
+	ASSERT_NE (latest3, latest4);
 }
 
 TEST (block_store, add_receive)
@@ -92,16 +96,18 @@ TEST (block_store, add_receive)
 	rai::keypair key1;
 	rai::keypair key2;
 	rai::open_block block1 (0, 1, 0, rai::keypair ().prv, 0, 0);
+	rai::extended_block extended_block1 (std::make_unique<rai::open_block> (block1), rai::block_sideband (1, 0), rai::epoch::epoch_0);
 	auto transaction (store.tx_begin (true));
-	store.block_put (transaction, block1.hash (), block1);
+	store.block_put (transaction, block1.hash (), extended_block1);
 	rai::receive_block block (block1.hash (), 1, rai::keypair ().prv, 2, 3);
+	rai::extended_block extended_block (std::make_unique<rai::receive_block> (block), rai::block_sideband (2, 0), rai::epoch::epoch_0);
 	rai::block_hash hash1 (block.hash ());
-	auto latest1 (store.block_get (transaction, hash1));
-	ASSERT_EQ (nullptr, latest1);
-	store.block_put (transaction, hash1, block);
-	auto latest2 (store.block_get (transaction, hash1));
-	ASSERT_NE (nullptr, latest2);
-	ASSERT_EQ (block, *latest2);
+	auto latest1 (store.extended_block_get (transaction, hash1));
+	ASSERT_EQ (nullptr, latest1.block);
+	store.block_put (transaction, hash1, extended_block);
+	auto latest2 (store.extended_block_get (transaction, hash1));
+	ASSERT_NE (nullptr, latest2.block);
+	ASSERT_EQ (extended_block, latest2);
 }
 
 TEST (block_store, add_pending)
@@ -129,7 +135,7 @@ TEST (block_store, pending_iterator)
 	ASSERT_TRUE (!init);
 	auto transaction (store.tx_begin (true));
 	ASSERT_EQ (store.pending_end (), store.pending_begin (transaction));
-	store.pending_put (transaction, rai::pending_key (1, 2), { 2, 3, rai::epoch::epoch_1 });
+	store.pending_put (transaction, rai::pending_key (1, 2), { 2, 3, 4, rai::epoch::epoch_1 });
 	auto current (store.pending_begin (transaction));
 	ASSERT_NE (store.pending_end (), current);
 	rai::pending_key key1 (current->first);
@@ -138,6 +144,7 @@ TEST (block_store, pending_iterator)
 	rai::pending_info pending (current->second);
 	ASSERT_EQ (rai::account (2), pending.source);
 	ASSERT_EQ (rai::amount (3), pending.amount);
+	ASSERT_EQ (4, pending.source_account_height);
 	ASSERT_EQ (rai::epoch::epoch_1, pending.epoch);
 }
 
@@ -155,11 +162,11 @@ TEST (block_store, pending_iterator_comparison)
 	rai::stat stats;
 	auto transaction (store.tx_begin (true));
 	// Populate pending
-	store.pending_put (transaction, rai::pending_key (rai::account (3), rai::block_hash (1)), rai::pending_info (rai::account (10), rai::amount (1), rai::epoch::epoch_0));
-	store.pending_put (transaction, rai::pending_key (rai::account (3), rai::block_hash (4)), rai::pending_info (rai::account (10), rai::amount (0), rai::epoch::epoch_0));
+	store.pending_put (transaction, rai::pending_key (rai::account (3), rai::block_hash (1)), rai::pending_info (rai::account (10), rai::amount (1), 5, rai::epoch::epoch_0));
+	store.pending_put (transaction, rai::pending_key (rai::account (3), rai::block_hash (4)), rai::pending_info (rai::account (10), rai::amount (0), 6, rai::epoch::epoch_0));
 	// Populate pending_v1
-	store.pending_put (transaction, rai::pending_key (rai::account (2), rai::block_hash (2)), rai::pending_info (rai::account (10), rai::amount (2), rai::epoch::epoch_1));
-	store.pending_put (transaction, rai::pending_key (rai::account (2), rai::block_hash (3)), rai::pending_info (rai::account (10), rai::amount (3), rai::epoch::epoch_1));
+	store.pending_put (transaction, rai::pending_key (rai::account (2), rai::block_hash (2)), rai::pending_info (rai::account (10), rai::amount (2), 7, rai::epoch::epoch_1));
+	store.pending_put (transaction, rai::pending_key (rai::account (2), rai::block_hash (3)), rai::pending_info (rai::account (10), rai::amount (3), 8, rai::epoch::epoch_1));
 
 	// Iterate account 3 (pending)
 	{
@@ -170,6 +177,8 @@ TEST (block_store, pending_iterator_comparison)
 		{
 			rai::pending_key key (i->first);
 			ASSERT_EQ (key.account, begin);
+			ASSERT_GT (i->second.source_account_height, 4);
+			ASSERT_LT (i->second.source_account_height, 10);
 			ASSERT_LT (count, 3);
 		}
 		ASSERT_EQ (count, 2);
@@ -184,6 +193,8 @@ TEST (block_store, pending_iterator_comparison)
 		{
 			rai::pending_key key (i->first);
 			ASSERT_EQ (key.account, begin);
+			ASSERT_GT (i->second.source_account_height, 4);
+			ASSERT_LT (i->second.source_account_height, 10);
 			ASSERT_LT (count, 3);
 		}
 		ASSERT_EQ (count, 2);
@@ -363,8 +374,9 @@ TEST (block_store, one_block)
 	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
 	rai::open_block block1 (0, 1, 0, rai::keypair ().prv, 0, 0);
+	rai::extended_block extended_block1 (std::make_unique<rai::open_block> (block1), rai::block_sideband (1, 0), rai::epoch::epoch_0);
 	auto transaction (store.tx_begin (true));
-	store.block_put (transaction, block1.hash (), block1);
+	store.block_put (transaction, block1.hash (), extended_block1);
 	ASSERT_TRUE (store.block_exists (transaction, block1.hash ()));
 }
 
@@ -417,7 +429,7 @@ TEST (block_store, frontier_retrieval)
 	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
 	rai::account account1 (0);
-	rai::account_info info1 (0, 0, 0, 0, 0, 0, rai::epoch::epoch_0);
+	rai::account_info info1 (1, 2, 3, 4, 5, 6, 7, rai::epoch::epoch_1);
 	auto transaction (store.tx_begin (true));
 	store.account_put (transaction, account1, info1);
 	rai::account_info info2;
@@ -433,7 +445,7 @@ TEST (block_store, one_account)
 	rai::account account (0);
 	rai::block_hash hash (0);
 	auto transaction (store.tx_begin (true));
-	store.account_put (transaction, account, { hash, account, hash, 42, 100, 200, rai::epoch::epoch_0 });
+	store.account_put (transaction, account, { hash, account, hash, 42, 100, 200, 150, rai::epoch::epoch_0 });
 	auto begin (store.latest_begin (transaction));
 	auto end (store.latest_end ());
 	ASSERT_NE (end, begin);
@@ -443,6 +455,7 @@ TEST (block_store, one_account)
 	ASSERT_EQ (42, info.balance.number ());
 	ASSERT_EQ (100, info.modified);
 	ASSERT_EQ (200, info.block_count);
+	ASSERT_EQ (150, info.confirmation_height);
 	++begin;
 	ASSERT_EQ (end, begin);
 }
@@ -453,17 +466,19 @@ TEST (block_store, two_block)
 	rai::mdb_store store (init, rai::unique_path ());
 	ASSERT_TRUE (!init);
 	rai::open_block block1 (0, 1, 1, rai::keypair ().prv, 0, 0);
+	rai::extended_block extended_block1 (std::make_unique<rai::open_block> (block1), rai::block_sideband (1, 0), rai::epoch::epoch_0);
 	block1.hashables.account = 1;
 	std::vector<rai::block_hash> hashes;
 	std::vector<rai::open_block> blocks;
 	hashes.push_back (block1.hash ());
 	blocks.push_back (block1);
 	auto transaction (store.tx_begin (true));
-	store.block_put (transaction, hashes[0], block1);
+	store.block_put (transaction, hashes[0], extended_block1);
 	rai::open_block block2 (0, 1, 2, rai::keypair ().prv, 0, 0);
+	rai::extended_block extended_block2 (std::make_unique<rai::open_block> (block2), rai::block_sideband (1, 0), rai::epoch::epoch_0);
 	hashes.push_back (block2.hash ());
 	blocks.push_back (block2);
-	store.block_put (transaction, hashes[1], block2);
+	store.block_put (transaction, hashes[1], extended_block2);
 	ASSERT_TRUE (store.block_exists (transaction, block1.hash ()));
 	ASSERT_TRUE (store.block_exists (transaction, block2.hash ()));
 }
@@ -478,8 +493,8 @@ TEST (block_store, two_account)
 	rai::account account2 (3);
 	rai::block_hash hash2 (4);
 	auto transaction (store.tx_begin (true));
-	store.account_put (transaction, account1, { hash1, account1, hash1, 42, 100, 300, rai::epoch::epoch_0 });
-	store.account_put (transaction, account2, { hash2, account2, hash2, 84, 200, 400, rai::epoch::epoch_0 });
+	store.account_put (transaction, account1, { hash1, account1, hash1, 42, 100, 300, 250, rai::epoch::epoch_0 });
+	store.account_put (transaction, account2, { hash2, account2, hash2, 84, 200, 400, 350, rai::epoch::epoch_0 });
 	auto begin (store.latest_begin (transaction));
 	auto end (store.latest_end ());
 	ASSERT_NE (end, begin);
@@ -489,6 +504,7 @@ TEST (block_store, two_account)
 	ASSERT_EQ (42, info1.balance.number ());
 	ASSERT_EQ (100, info1.modified);
 	ASSERT_EQ (300, info1.block_count);
+	ASSERT_EQ (250, info1.confirmation_height);
 	++begin;
 	ASSERT_NE (end, begin);
 	ASSERT_EQ (account2, rai::account (begin->first));
@@ -497,6 +513,7 @@ TEST (block_store, two_account)
 	ASSERT_EQ (84, info2.balance.number ());
 	ASSERT_EQ (200, info2.modified);
 	ASSERT_EQ (400, info2.block_count);
+	ASSERT_EQ (350, info2.confirmation_height);
 	++begin;
 	ASSERT_EQ (end, begin);
 }
@@ -511,8 +528,8 @@ TEST (block_store, latest_find)
 	rai::account account2 (3);
 	rai::block_hash hash2 (4);
 	auto transaction (store.tx_begin (true));
-	store.account_put (transaction, account1, { hash1, account1, hash1, 100, 0, 300, rai::epoch::epoch_0 });
-	store.account_put (transaction, account2, { hash2, account2, hash2, 200, 0, 400, rai::epoch::epoch_0 });
+	store.account_put (transaction, account1, { hash1, account1, hash1, 100, 0, 300, 250, rai::epoch::epoch_0 });
+	store.account_put (transaction, account2, { hash2, account2, hash2, 200, 0, 400, 350, rai::epoch::epoch_0 });
 	auto first (store.latest_begin (transaction));
 	auto second (store.latest_begin (transaction));
 	++second;
@@ -634,9 +651,11 @@ TEST (block_store, block_replace)
 	ASSERT_TRUE (!init);
 	rai::send_block send1 (0, 0, 0, rai::keypair ().prv, 0, 1);
 	rai::send_block send2 (0, 0, 0, rai::keypair ().prv, 0, 2);
+	rai::extended_block extended_block1 (std::make_unique<rai::send_block> (send1), rai::block_sideband (1, 0), rai::epoch::epoch_0);
+	rai::extended_block extended_block2 (std::make_unique<rai::send_block> (send2), rai::block_sideband (1, 0), rai::epoch::epoch_0);
 	auto transaction (store.tx_begin (true));
-	store.block_put (transaction, 0, send1);
-	store.block_put (transaction, 0, send2);
+	store.block_put (transaction, 0, extended_block1);
+	store.block_put (transaction, 0, extended_block2);
 	auto block3 (store.block_get (transaction, 0));
 	ASSERT_NE (nullptr, block3);
 	ASSERT_EQ (2, block3->block_work ());
@@ -650,8 +669,9 @@ TEST (block_store, block_count)
 	auto transaction (store.tx_begin (true));
 	ASSERT_EQ (0, store.block_count (transaction).sum ());
 	rai::open_block block (0, 1, 0, rai::keypair ().prv, 0, 0);
+	rai::extended_block extended_block (std::make_unique<rai::open_block> (block), rai::block_sideband (1, 0), rai::epoch::epoch_0);
 	rai::uint256_union hash1 (block.hash ());
-	store.block_put (transaction, hash1, block);
+	store.block_put (transaction, hash1, extended_block);
 	ASSERT_EQ (1, store.block_count (transaction).sum ());
 }
 
@@ -861,8 +881,6 @@ TEST (block_store, upgrade_v6_v7)
 		rai::mdb_store store (init, path);
 		ASSERT_FALSE (init);
 		auto transaction (store.tx_begin (true));
-		rai::genesis genesis;
-		store.initialize (transaction, genesis);
 		store.version_put (transaction, 6);
 		auto send1 (std::make_shared<rai::send_block> (0, 0, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
 		store.unchecked_put (transaction, send1->hash (), send1);
@@ -1045,6 +1063,10 @@ TEST (block_store, upgrade_v9_v10)
 		ASSERT_EQ (0, mdb_drop (store.env.tx (transaction), store.blocks_info, 0)); // Cleaning blocks_info subdatabase
 		bool block_info_exists (store.block_info_exists (transaction, hash));
 		ASSERT_EQ (block_info_exists, 0); // Checking if automatic block_info is deleted
+		// Replace account_info with account_info_v6 for future upgrades
+		store.account_get (transaction, rai::test_genesis_key.pub, info);
+		rai::account_info_v6 new_old_info (info.head, info.rep_block, info.open_block, info.balance, info.modified, info.block_count, info.epoch);
+		ASSERT_FALSE (mdb_put (store.env.tx (transaction), store.accounts_v0, rai::mdb_val (rai::genesis_account), rai::mdb_val (new_old_info), 0));
 	}
 	bool init (false);
 	rai::mdb_store store (init, path);
@@ -1067,8 +1089,9 @@ TEST (block_store, state_block)
 	store.initialize (transaction, genesis);
 	rai::keypair key1;
 	rai::state_block block1 (1, genesis.hash (), 3, 4, 6, key1.prv, key1.pub, 7);
+	rai::extended_block extended_block1 (std::make_unique<rai::state_block> (block1), rai::block_sideband (1, 0), rai::epoch::epoch_0);
 	ASSERT_EQ (rai::block_type::state, block1.type ());
-	store.block_put (transaction, block1.hash (), block1);
+	store.block_put (transaction, block1.hash (), extended_block1);
 	ASSERT_TRUE (store.block_exists (transaction, block1.hash ()));
 	auto block2 (store.block_get (transaction, block1.hash ()));
 	ASSERT_NE (nullptr, block2);

@@ -55,7 +55,8 @@ public:
 		ledger.store.representation_add (transaction, ledger.representative (transaction, hash), 0 - amount);
 		ledger.change_latest (transaction, destination_account, block_a.hashables.previous, representative, ledger.balance (transaction, block_a.hashables.previous), info.block_count - 1);
 		ledger.store.block_del (transaction, hash);
-		ledger.store.pending_put (transaction, rai::pending_key (destination_account, block_a.hashables.source), { source_account, amount, rai::epoch::epoch_0 });
+		auto source_height (ledger.store.block_account_height (transaction, block_a.hashables.source));
+		ledger.store.pending_put (transaction, rai::pending_key (destination_account, block_a.hashables.source), { source_account, amount, source_height, rai::epoch::epoch_0 });
 		ledger.store.frontier_del (transaction, hash);
 		ledger.store.frontier_put (transaction, block_a.hashables.previous, destination_account);
 		ledger.store.block_successor_clear (transaction, block_a.hashables.previous);
@@ -74,7 +75,8 @@ public:
 		ledger.store.representation_add (transaction, ledger.representative (transaction, hash), 0 - amount);
 		ledger.change_latest (transaction, destination_account, 0, 0, 0, 0);
 		ledger.store.block_del (transaction, hash);
-		ledger.store.pending_put (transaction, rai::pending_key (destination_account, block_a.hashables.source), { source_account, amount, rai::epoch::epoch_0 });
+		auto source_height (ledger.store.block_account_height (transaction, block_a.hashables.source));
+		ledger.store.pending_put (transaction, rai::pending_key (destination_account, block_a.hashables.source), { source_account, amount, source_height, rai::epoch::epoch_0 });
 		ledger.store.frontier_del (transaction, hash);
 		ledger.stats.inc (rai::stat::type::rollback, rai::stat::detail::open);
 	}
@@ -134,7 +136,8 @@ public:
 		else if (!block_a.hashables.link.is_zero () && block_a.hashables.link != ledger.epoch_link)
 		{
 			auto source_version (ledger.store.block_version (transaction, block_a.hashables.link));
-			rai::pending_info pending_info (ledger.account (transaction, block_a.hashables.link), block_a.hashables.balance.number () - balance, source_version);
+			auto source_height (ledger.store.block_account_height (transaction, block_a.hashables.link));
+			rai::pending_info pending_info (ledger.account (transaction, block_a.hashables.link), block_a.hashables.balance.number () - balance, source_height, source_version);
 			ledger.store.pending_put (transaction, rai::pending_key (block_a.hashables.account, block_a.hashables.link), pending_info);
 			ledger.stats.inc (rai::stat::type::rollback, rai::stat::detail::receive);
 		}
@@ -290,8 +293,9 @@ void ledger_processor::state_block_impl (rai::state_block const & block_a)
 				if (result.code == rai::process_result::progress)
 				{
 					ledger.stats.inc (rai::stat::type::ledger, rai::stat::detail::state_block);
+					info.block_count++;
 					result.state_is_send = is_send;
-					ledger.store.block_put (transaction, hash, block_a, 0, epoch);
+					ledger.store.block_put (transaction, hash, rai::extended_block (std::make_unique<rai::state_block> (block_a), rai::block_sideband (info.block_count, 0), epoch));
 
 					if (!info.rep_block.is_zero ())
 					{
@@ -304,15 +308,15 @@ void ledger_processor::state_block_impl (rai::state_block const & block_a)
 					if (is_send)
 					{
 						rai::pending_key key (block_a.hashables.link, hash);
-						rai::pending_info info (block_a.hashables.account, result.amount.number (), epoch);
-						ledger.store.pending_put (transaction, key, info);
+						rai::pending_info pending_info (block_a.hashables.account, result.amount.number (), info.block_count, epoch);
+						ledger.store.pending_put (transaction, key, pending_info);
 					}
 					else if (!block_a.hashables.link.is_zero ())
 					{
 						ledger.store.pending_del (transaction, rai::pending_key (block_a.hashables.account, block_a.hashables.link));
 					}
 
-					ledger.change_latest (transaction, block_a.hashables.account, hash, hash, block_a.hashables.balance, info.block_count + 1, true, epoch);
+					ledger.change_latest (transaction, block_a.hashables.account, hash, hash, block_a.hashables.balance, info.block_count, true, epoch);
 					if (!ledger.store.frontier_get (transaction, info.head).is_zero ())
 					{
 						ledger.store.frontier_del (transaction, info.head);
@@ -372,10 +376,11 @@ void ledger_processor::epoch_block_impl (rai::state_block const & block_a)
 						if (result.code == rai::process_result::progress)
 						{
 							ledger.stats.inc (rai::stat::type::ledger, rai::stat::detail::epoch_block);
+							info.block_count++;
+							ledger.store.block_put (transaction, hash, rai::extended_block (std::make_unique<rai::state_block> (block_a), rai::block_sideband (info.block_count, 0), rai::epoch::epoch_1));
 							result.account = block_a.hashables.account;
 							result.amount = 0;
-							ledger.store.block_put (transaction, hash, block_a, 0, rai::epoch::epoch_1);
-							ledger.change_latest (transaction, block_a.hashables.account, hash, hash, info.balance, info.block_count + 1, true, rai::epoch::epoch_1);
+							ledger.change_latest (transaction, block_a.hashables.account, hash, hash, info.balance, info.block_count, true, rai::epoch::epoch_1);
 							if (!ledger.store.frontier_get (transaction, info.head).is_zero ())
 							{
 								ledger.store.frontier_del (transaction, info.head);
@@ -413,11 +418,12 @@ void ledger_processor::change_block (rai::change_block const & block_a)
 					result.code = validate_message (account, hash, block_a.signature) ? rai::process_result::bad_signature : rai::process_result::progress; // Is this block signed correctly (Malformed)
 					if (result.code == rai::process_result::progress)
 					{
-						ledger.store.block_put (transaction, hash, block_a);
+						info.block_count++;
+						ledger.store.block_put (transaction, hash, rai::extended_block (std::make_unique<rai::change_block> (block_a), rai::block_sideband (info.block_count, 0), rai::epoch::epoch_0));
 						auto balance (ledger.balance (transaction, block_a.hashables.previous));
 						ledger.store.representation_add (transaction, hash, balance);
 						ledger.store.representation_add (transaction, info.rep_block, 0 - balance);
-						ledger.change_latest (transaction, account, hash, hash, info.balance, info.block_count + 1);
+						ledger.change_latest (transaction, account, hash, hash, info.balance, info.block_count);
 						ledger.store.frontier_del (transaction, block_a.hashables.previous);
 						ledger.store.frontier_put (transaction, hash, account);
 						result.account = account;
@@ -458,11 +464,12 @@ void ledger_processor::send_block (rai::send_block const & block_a)
 						result.code = info.balance.number () >= block_a.hashables.balance.number () ? rai::process_result::progress : rai::process_result::negative_spend; // Is this trying to spend a negative amount (Malicious)
 						if (result.code == rai::process_result::progress)
 						{
+							info.block_count++;
+							ledger.store.block_put (transaction, hash, rai::extended_block (std::make_unique<rai::send_block> (block_a), rai::block_sideband (info.block_count, 0), rai::epoch::epoch_0));
 							auto amount (info.balance.number () - block_a.hashables.balance.number ());
 							ledger.store.representation_add (transaction, info.rep_block, 0 - amount);
-							ledger.store.block_put (transaction, hash, block_a);
-							ledger.change_latest (transaction, account, hash, info.rep_block, block_a.hashables.balance, info.block_count + 1);
-							ledger.store.pending_put (transaction, rai::pending_key (block_a.hashables.destination, hash), { account, amount, rai::epoch::epoch_0 });
+							ledger.change_latest (transaction, account, hash, info.rep_block, block_a.hashables.balance, info.block_count);
+							ledger.store.pending_put (transaction, rai::pending_key (block_a.hashables.destination, hash), { account, amount, info.block_count, rai::epoch::epoch_0 });
 							ledger.store.frontier_del (transaction, block_a.hashables.previous);
 							ledger.store.frontier_put (transaction, hash, account);
 							result.account = account;
@@ -514,13 +521,14 @@ void ledger_processor::receive_block (rai::receive_block const & block_a)
 									result.code = pending.epoch == rai::epoch::epoch_0 ? rai::process_result::progress : rai::process_result::unreceivable; // Are we receiving a state-only send? (Malformed)
 									if (result.code == rai::process_result::progress)
 									{
+										info.block_count++;
+										ledger.store.block_put (transaction, hash, rai::extended_block (std::make_unique<rai::receive_block> (block_a), rai::block_sideband (info.block_count, 0), rai::epoch::epoch_0));
 										auto new_balance (info.balance.number () + pending.amount.number ());
 										rai::account_info source_info;
 										auto error (ledger.store.account_get (transaction, pending.source, source_info));
 										assert (!error);
 										ledger.store.pending_del (transaction, key);
-										ledger.store.block_put (transaction, hash, block_a);
-										ledger.change_latest (transaction, account, hash, info.rep_block, new_balance, info.block_count + 1);
+										ledger.change_latest (transaction, account, hash, info.rep_block, new_balance, info.block_count);
 										ledger.store.representation_add (transaction, info.rep_block, pending.amount.number ());
 										ledger.store.frontier_del (transaction, block_a.hashables.previous);
 										ledger.store.frontier_put (transaction, hash, account);
@@ -571,12 +579,13 @@ void ledger_processor::open_block (rai::open_block const & block_a)
 							result.code = pending.epoch == rai::epoch::epoch_0 ? rai::process_result::progress : rai::process_result::unreceivable; // Are we receiving a state-only send? (Malformed)
 							if (result.code == rai::process_result::progress)
 							{
+								info.block_count++;
+								ledger.store.block_put (transaction, hash, rai::extended_block (std::make_unique<rai::open_block> (block_a), rai::block_sideband (info.block_count, 0), rai::epoch::epoch_0));
 								rai::account_info source_info;
 								auto error (ledger.store.account_get (transaction, pending.source, source_info));
 								assert (!error);
 								ledger.store.pending_del (transaction, key);
-								ledger.store.block_put (transaction, hash, block_a);
-								ledger.change_latest (transaction, block_a.hashables.account, hash, hash, pending.amount.number (), info.block_count + 1);
+								ledger.change_latest (transaction, block_a.hashables.account, hash, hash, pending.amount.number (), info.block_count);
 								ledger.store.representation_add (transaction, hash, pending.amount.number ());
 								ledger.store.frontier_put (transaction, hash, block_a.hashables.account);
 								result.account = block_a.hashables.account;
@@ -780,12 +789,14 @@ void rai::ledger::rollback (rai::transaction const & transaction_a, rai::block_h
 {
 	assert (store.block_exists (transaction_a, block_a));
 	auto account_l (account (transaction_a, block_a));
+	auto block_account_height (store.block_account_height (transaction_a, block_a));
 	rollback_visitor rollback (transaction_a, *this);
 	rai::account_info info;
 	while (store.block_exists (transaction_a, block_a))
 	{
 		auto latest_error (store.account_get (transaction_a, account_l, info));
 		assert (!latest_error);
+		release_assert (block_account_height > info.confirmation_height);
 		auto block (store.block_get (transaction_a, info.head));
 		block->visit (rollback);
 	}

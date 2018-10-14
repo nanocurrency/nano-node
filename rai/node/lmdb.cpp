@@ -98,8 +98,18 @@ mdb_val (val_a.db_size (), const_cast<rai::account_info *> (&val_a))
 {
 }
 
+rai::mdb_val::mdb_val (rai::account_info_v6 const & val_a) :
+mdb_val (val_a.db_size (), const_cast<rai::account_info_v6 *> (&val_a))
+{
+}
+
 rai::mdb_val::mdb_val (rai::pending_info const & val_a) :
-mdb_val (sizeof (val_a.source) + sizeof (val_a.amount), const_cast<rai::pending_info *> (&val_a))
+mdb_val (sizeof (val_a.source) + sizeof (val_a.amount) + sizeof (val_a.source_account_height), const_cast<rai::pending_info *> (&val_a))
+{
+}
+
+rai::mdb_val::mdb_val (rai::pending_info_v4 const & val_a) :
+mdb_val (sizeof (val_a.source) + sizeof (val_a.amount), const_cast<rai::pending_info_v4 *> (&val_a))
 {
 }
 
@@ -142,6 +152,15 @@ rai::mdb_val::operator rai::account_info () const
 	return result;
 }
 
+rai::mdb_val::operator rai::account_info_v6 () const
+{
+	rai::account_info_v6 result;
+	result.epoch = epoch;
+	assert (value.mv_size == result.db_size ());
+	std::copy (reinterpret_cast<uint8_t const *> (value.mv_data), reinterpret_cast<uint8_t const *> (value.mv_data) + result.db_size (), reinterpret_cast<uint8_t *> (&result));
+	return result;
+}
+
 rai::mdb_val::operator rai::block_info () const
 {
 	rai::block_info result;
@@ -154,6 +173,14 @@ rai::mdb_val::operator rai::block_info () const
 rai::mdb_val::operator rai::pending_info () const
 {
 	rai::pending_info result;
+	result.epoch = epoch;
+	std::copy (reinterpret_cast<uint8_t const *> (value.mv_data), reinterpret_cast<uint8_t const *> (value.mv_data) + sizeof (rai::pending_info::source) + sizeof (rai::pending_info::amount) + sizeof (rai::pending_info::source_account_height), reinterpret_cast<uint8_t *> (&result));
+	return result;
+}
+
+rai::mdb_val::operator rai::pending_info_v4 () const
+{
+	rai::pending_info_v4 result;
 	result.epoch = epoch;
 	std::copy (reinterpret_cast<uint8_t const *> (value.mv_data), reinterpret_cast<uint8_t const *> (value.mv_data) + sizeof (rai::pending_info::source) + sizeof (rai::pending_info::amount), reinterpret_cast<uint8_t *> (&result));
 	return result;
@@ -313,12 +340,12 @@ public:
 	{
 		auto hash (block_a.hash ());
 		rai::block_type type;
-		auto value (store.block_raw_get (transaction, block_a.previous (), type));
-		auto version (store.block_version (transaction, block_a.previous ()));
+		rai::epoch epoch;
+		auto value (store.block_raw_get (transaction, block_a.previous (), type, epoch));
 		assert (value.mv_size != 0);
 		std::vector<uint8_t> data (static_cast<uint8_t *> (value.mv_data), static_cast<uint8_t *> (value.mv_data) + value.mv_size);
 		std::copy (hash.bytes.begin (), hash.bytes.end (), data.end () - hash.bytes.size ());
-		store.block_raw_put (transaction, store.block_database (type, version), block_a.previous (), rai::mdb_val (data.size (), data.data ()));
+		store.block_raw_put (transaction, store.block_database (type, epoch), block_a.previous (), rai::mdb_val (data.size (), data.data ()));
 	}
 	void send_block (rai::send_block const & block_a) override
 	{
@@ -783,8 +810,8 @@ void rai::mdb_store::initialize (rai::transaction const & transaction_a, rai::ge
 	auto hash_l (genesis_a.hash ());
 	assert (latest_v0_begin (transaction_a) == latest_v0_end ());
 	assert (latest_v1_begin (transaction_a) == latest_v1_end ());
-	block_put (transaction_a, hash_l, *genesis_a.open);
-	account_put (transaction_a, genesis_account, { hash_l, genesis_a.open->hash (), genesis_a.open->hash (), std::numeric_limits<rai::uint128_t>::max (), rai::seconds_since_epoch (), 1, rai::epoch::epoch_0 });
+	block_put (transaction_a, hash_l, rai::extended_block (std::make_unique<rai::open_block> (*genesis_a.open), rai::block_sideband (1, 0), rai::epoch::epoch_0));
+	account_put (transaction_a, genesis_account, { hash_l, genesis_a.open->hash (), genesis_a.open->hash (), std::numeric_limits<rai::uint128_t>::max (), rai::seconds_since_epoch (), 1, 1, rai::epoch::epoch_0 });
 	representation_put (transaction_a, genesis_account, std::numeric_limits<rai::uint128_t>::max ());
 	checksum_put (transaction_a, 0, 0, hash_l);
 	frontier_put (transaction_a, hash_l, genesis_account);
@@ -927,17 +954,18 @@ void rai::mdb_store::upgrade_v2_to_v3 (rai::transaction const & transaction_a)
 void rai::mdb_store::upgrade_v3_to_v4 (rai::transaction const & transaction_a)
 {
 	version_put (transaction_a, 4);
-	std::queue<std::pair<rai::pending_key, rai::pending_info>> items;
+	std::queue<std::pair<rai::pending_key, rai::pending_info_v4>> items;
 	for (auto i (rai::store_iterator<rai::block_hash, rai::pending_info_v3> (std::make_unique<rai::mdb_iterator<rai::block_hash, rai::pending_info_v3>> (transaction_a, pending_v0))), n (rai::store_iterator<rai::block_hash, rai::pending_info_v3> (nullptr)); i != n; ++i)
 	{
 		rai::block_hash hash (i->first);
 		rai::pending_info_v3 info (i->second);
-		items.push (std::make_pair (rai::pending_key (info.destination, hash), rai::pending_info (info.source, info.amount, rai::epoch::epoch_0)));
+		items.push (std::make_pair (rai::pending_key (info.destination, hash), rai::pending_info_v4 (info.source, info.amount, rai::epoch::epoch_0)));
 	}
 	mdb_drop (env.tx (transaction_a), pending_v0, 0);
 	while (!items.empty ())
 	{
-		pending_put (transaction_a, items.front ().first, items.front ().second);
+		auto status (mdb_put (env.tx (transaction_a), pending_v0, rai::mdb_val (items.front ().first), rai::mdb_val (items.front ().second), 0));
+		release_assert (status == 0);
 		items.pop ();
 	}
 }
@@ -953,12 +981,14 @@ void rai::mdb_store::upgrade_v4_to_v5 (rai::transaction const & transaction_a)
 		while (block != nullptr)
 		{
 			auto hash (block->hash ());
+			auto previous (block->previous ());
 			if (block_successor (transaction_a, hash).is_zero () && !successor.is_zero ())
 			{
-				block_put (transaction_a, hash, *block, successor);
+				// We fill in account_height later
+				block_put (transaction_a, hash, rai::extended_block (std::move (block), rai::block_sideband (0, successor), rai::epoch::epoch_0));
 			}
 			successor = hash;
-			block = block_get (transaction_a, block->previous ());
+			block = block_get (transaction_a, previous);
 		}
 	}
 }
@@ -966,7 +996,7 @@ void rai::mdb_store::upgrade_v4_to_v5 (rai::transaction const & transaction_a)
 void rai::mdb_store::upgrade_v5_to_v6 (rai::transaction const & transaction_a)
 {
 	version_put (transaction_a, 6);
-	std::deque<std::pair<rai::account, rai::account_info>> headers;
+	std::deque<std::pair<rai::account, rai::account_info_v6>> headers;
 	for (auto i (rai::store_iterator<rai::account, rai::account_info_v5> (std::make_unique<rai::mdb_iterator<rai::account, rai::account_info_v5>> (transaction_a, accounts_v0))), n (rai::store_iterator<rai::account, rai::account_info_v5> (nullptr)); i != n; ++i)
 	{
 		rai::account account (i->first);
@@ -980,12 +1010,13 @@ void rai::mdb_store::upgrade_v5_to_v6 (rai::transaction const & transaction_a)
 			assert (block != nullptr);
 			hash = block->previous ();
 		}
-		rai::account_info info (info_old.head, info_old.rep_block, info_old.open_block, info_old.balance, info_old.modified, block_count, rai::epoch::epoch_0);
+		rai::account_info_v6 info (info_old.head, info_old.rep_block, info_old.open_block, info_old.balance, info_old.modified, block_count, rai::epoch::epoch_0);
 		headers.push_back (std::make_pair (account, info));
 	}
 	for (auto i (headers.begin ()), n (headers.end ()); i != n; ++i)
 	{
-		account_put (transaction_a, i->first, i->second);
+		auto status (mdb_put (env.tx (transaction_a), accounts_v0, rai::mdb_val (i->first), rai::mdb_val (i->second), 0));
+		release_assert (status == 0);
 	}
 }
 
@@ -1033,9 +1064,11 @@ void rai::mdb_store::upgrade_v9_to_v10 (rai::transaction const & transaction_a)
 {
 	//std::cerr << boost::str (boost::format ("Performing database upgrade to version 10...\n"));
 	version_put (transaction_a, 10);
-	for (auto i (latest_v0_begin (transaction_a)), n (latest_v0_end ()); i != n; ++i)
+	rai::store_iterator<rai::account, rai::account_info_v6> i (std::make_unique<rai::mdb_iterator<rai::account, rai::account_info_v6>> (transaction_a, accounts_v0));
+	rai::store_iterator<rai::account, rai::account_info_v6> n (nullptr);
+	for (; i != n; ++i)
 	{
-		rai::account_info info (i->second);
+		rai::account_info_v6 info (i->second);
 		if (info.block_count >= block_info_max)
 		{
 			rai::account account (i->first);
@@ -1065,6 +1098,65 @@ void rai::mdb_store::upgrade_v10_to_v11 (rai::transaction const & transaction_a)
 	MDB_dbi unsynced;
 	mdb_dbi_open (env.tx (transaction_a), "unsynced", MDB_CREATE | MDB_DUPSORT, &unsynced);
 	mdb_drop (env.tx (transaction_a), unsynced, 1);
+}
+
+void rai::mdb_store::upgrade_v11_to_v12 (rai::transaction const & transaction_a)
+{
+	version_put (transaction_a, 12);
+	rai::store_iterator<rai::account, rai::account_info_v6> i (std::make_unique<rai::mdb_merge_iterator<rai::account, rai::account_info_v6>> (transaction_a, accounts_v0, accounts_v1));
+	rai::store_iterator<rai::account, rai::account_info_v6> n (nullptr);
+	for (; i != n; ++i)
+	{
+		rai::account_info_v6 account_info (i->second);
+		uint64_t account_height (0);
+		auto hash (account_info.open_block);
+		while (!hash.is_zero ())
+		{
+			++account_height;
+			auto block (block_get (transaction_a, hash));
+			if (block->type () == rai::block_type::send || block->type () == rai::block_type::state)
+			{
+				rai::pending_key pending_key (block->potential_destination (), hash);
+				rai::mdb_val value;
+				auto status1 (mdb_get (env.tx (transaction_a), pending_v1, mdb_val (pending_key), value));
+				release_assert (status1 == 0 || status1 == MDB_NOTFOUND);
+				bool result (false);
+				rai::epoch epoch;
+				if (status1 == 0)
+				{
+					epoch = rai::epoch::epoch_1;
+				}
+				else
+				{
+					auto status2 (mdb_get (env.tx (transaction_a), pending_v0, mdb_val (pending_key), value));
+					release_assert (status2 == 0 || status2 == MDB_NOTFOUND);
+					if (status2 == 0)
+					{
+						epoch = rai::epoch::epoch_0;
+					}
+					else
+					{
+						result = true;
+					}
+				}
+				if (!result)
+				{
+					rai::bufferstream stream (reinterpret_cast<uint8_t const *> (value.data ()), value.size ());
+					rai::pending_info_v4 pending_info;
+					pending_info.deserialize (stream);
+					rai::pending_info new_pending_info (pending_info.source, pending_info.amount, account_height, epoch);
+					pending_put (transaction_a, pending_key, new_pending_info);
+				}
+			}
+			auto successor (block_successor (transaction_a, hash));
+			auto epoch (block_version (transaction_a, hash));
+			block_put (transaction_a, hash, rai::extended_block (std::move (block), rai::block_sideband (account_height, successor), epoch));
+			hash = successor;
+		}
+		assert (account_info.block_count == account_height);
+		rai::account_info new_account_info (account_info.head, account_info.rep_block, account_info.open_block, account_info.balance, account_info.modified, account_info.block_count, 0, account_info.epoch);
+		account_put (transaction_a, i->first, new_account_info);
+	}
 }
 
 void rai::mdb_store::clear (MDB_dbi db_a)
@@ -1149,23 +1241,23 @@ void rai::mdb_store::block_raw_put (rai::transaction const & transaction_a, MDB_
 	release_assert (status2 == 0);
 }
 
-void rai::mdb_store::block_put (rai::transaction const & transaction_a, rai::block_hash const & hash_a, rai::block const & block_a, rai::block_hash const & successor_a, rai::epoch epoch_a)
+void rai::mdb_store::block_put (rai::transaction const & transaction_a, rai::block_hash const & hash_a, rai::extended_block const & extended_block_a)
 {
-	assert (successor_a.is_zero () || block_exists (transaction_a, successor_a));
+	assert (extended_block_a.sideband.successor.is_zero () || block_exists (transaction_a, extended_block_a.sideband.successor));
 	std::vector<uint8_t> vector;
 	{
 		rai::vectorstream stream (vector);
-		block_a.serialize (stream);
-		rai::write (stream, successor_a.bytes);
+		extended_block_a.serialize (stream);
 	}
-	block_raw_put (transaction_a, block_database (block_a.type (), epoch_a), hash_a, { vector.size (), vector.data () });
+	block_raw_put (transaction_a, block_database (extended_block_a.block->type (), extended_block_a.epoch), hash_a, { vector.size (), vector.data () });
 	rai::block_predecessor_set predecessor (transaction_a, *this);
-	block_a.visit (predecessor);
-	assert (block_a.previous ().is_zero () || block_successor (transaction_a, block_a.previous ()) == hash_a);
+	extended_block_a.block->visit (predecessor);
+	assert (extended_block_a.block->previous ().is_zero () || block_successor (transaction_a, extended_block_a.block->previous ()) == hash_a);
 }
 
-MDB_val rai::mdb_store::block_raw_get (rai::transaction const & transaction_a, rai::block_hash const & hash_a, rai::block_type & type_a)
+MDB_val rai::mdb_store::block_raw_get (rai::transaction const & transaction_a, rai::block_hash const & hash_a, rai::block_type & type_a, rai::epoch & epoch_a)
 {
+	epoch_a = rai::epoch::epoch_0;
 	rai::mdb_val result;
 	auto status (mdb_get (env.tx (transaction_a), send_blocks, rai::mdb_val (hash_a), result));
 	release_assert (status == 0 || status == MDB_NOTFOUND);
@@ -1195,6 +1287,7 @@ MDB_val rai::mdb_store::block_raw_get (rai::transaction const & transaction_a, r
 						}
 						else
 						{
+							epoch_a = rai::epoch::epoch_1;
 							type_a = rai::block_type::state;
 						}
 					}
@@ -1292,14 +1385,15 @@ std::unique_ptr<rai::block> rai::mdb_store::block_random (rai::transaction const
 rai::block_hash rai::mdb_store::block_successor (rai::transaction const & transaction_a, rai::block_hash const & hash_a)
 {
 	rai::block_type type;
-	auto value (block_raw_get (transaction_a, hash_a, type));
+	rai::epoch epoch;
+	auto value (block_raw_get (transaction_a, hash_a, type, epoch));
 	rai::block_hash result;
 	if (value.mv_size != 0)
 	{
 		assert (value.mv_size >= result.bytes.size ());
 		rai::bufferstream stream (reinterpret_cast<uint8_t const *> (value.mv_data) + value.mv_size - result.bytes.size (), result.bytes.size ());
 		auto error (rai::read (stream, result.bytes));
-		assert (!error);
+		release_assert (!error);
 	}
 	else
 	{
@@ -1308,26 +1402,59 @@ rai::block_hash rai::mdb_store::block_successor (rai::transaction const & transa
 	return result;
 }
 
+uint64_t rai::mdb_store::block_account_height (rai::transaction const & transaction_a, rai::block_hash const & hash_a)
+{
+	rai::block_type type;
+	rai::epoch epoch;
+	auto value (block_raw_get (transaction_a, hash_a, type, epoch));
+	uint64_t result (0);
+	if (value.mv_size != 0)
+	{
+		assert (value.mv_size >= sizeof (rai::block_hash) + sizeof (result));
+		rai::bufferstream stream (reinterpret_cast<uint8_t const *> (value.mv_data) + value.mv_size - sizeof (rai::block_hash) - sizeof (result), sizeof (result));
+		auto error (rai::read (stream, result));
+		release_assert (!error);
+	}
+	return result;
+}
+
 void rai::mdb_store::block_successor_clear (rai::transaction const & transaction_a, rai::block_hash const & hash_a)
 {
-	auto block (block_get (transaction_a, hash_a));
-	auto version (block_version (transaction_a, hash_a));
-	block_put (transaction_a, hash_a, *block, 0, version);
+	auto extended_block (extended_block_get (transaction_a, hash_a));
+	extended_block.sideband.successor = 0;
+	block_put (transaction_a, hash_a, extended_block);
 }
 
 std::unique_ptr<rai::block> rai::mdb_store::block_get (rai::transaction const & transaction_a, rai::block_hash const & hash_a)
 {
 	rai::block_type type;
-	auto value (block_raw_get (transaction_a, hash_a, type));
+	rai::epoch epoch;
+	auto value (block_raw_get (transaction_a, hash_a, type, epoch));
 	std::unique_ptr<rai::block> result;
 	if (value.mv_size != 0)
 	{
 		rai::bufferstream stream (reinterpret_cast<uint8_t const *> (value.mv_data), value.mv_size);
 		result = rai::deserialize_block (stream, type);
-		assert (result != nullptr);
+		release_assert (result != nullptr);
 	}
 	return result;
 }
+
+rai::extended_block rai::mdb_store::extended_block_get (rai::transaction const & transaction_a, rai::block_hash const & hash_a)
+{
+	rai::block_type type;
+	rai::epoch epoch;
+	auto value (block_raw_get (transaction_a, hash_a, type, epoch));
+	rai::extended_block result;
+	if (value.mv_size != 0)
+	{
+		rai::bufferstream stream (reinterpret_cast<uint8_t const *> (value.mv_data), value.mv_size);
+		result.epoch = epoch;
+		release_assert (!result.deserialize (stream, type));
+	}
+	return result;
+}
+
 
 void rai::mdb_store::block_del (rai::transaction const & transaction_a, rai::block_hash const & hash_a)
 {
