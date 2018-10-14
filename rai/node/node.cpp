@@ -1286,6 +1286,8 @@ stats (config.stat_config)
 							for (auto i (i_a), n (boost::asio::ip::tcp::resolver::iterator{}); i != n; ++i)
 							{
 								auto sock (std::make_shared<boost::asio::ip::tcp::socket> (node_l->service));
+								boost::asio::socket_base::keep_alive option (true);
+								sock->set_option (option);
 								sock->async_connect (i->endpoint (), [node_l, target, body, sock, address, port](boost::system::error_code const & ec) {
 									if (!ec)
 									{
@@ -1293,6 +1295,8 @@ stats (config.stat_config)
 										req->method (boost::beast::http::verb::post);
 										req->target (*target);
 										req->version (11);
+										req->insert (boost::beast::http::field::connection, "keep-alive");
+										req->insert (boost::beast::http::field::keep_alive, "timeout=120");
 										req->insert (boost::beast::http::field::host, address);
 										req->insert (boost::beast::http::field::content_type, "application/json");
 										req->body () = *body;
