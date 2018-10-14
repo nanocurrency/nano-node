@@ -2321,6 +2321,7 @@ rai::uint128_t rai::node::account_pending (rai::transaction const & transaction_
 {
 	rai::uint128_t result (0);
 	rai::account end (account_a.number () + 1);
+	std::unordered_set<rai::account> accounts_to_confirm;
 	auto add_pending ([&, this](rai::pending_key key, rai::pending_info info) {
 		if (include_unconfirmed || ledger.block_confirmed (transaction_a, key.hash))
 		{
@@ -2328,7 +2329,7 @@ rai::uint128_t rai::node::account_pending (rai::transaction const & transaction_
 		}
 		else
 		{
-			this->block_confirm (this->ledger.store.block_get (transaction_a, key.hash));
+			accounts_to_confirm.insert (info.source);
 		}
 	});
 	for (auto i (store.pending_v0_begin (transaction_a, rai::pending_key (account_a, 0))), n (store.pending_v0_begin (transaction_a, rai::pending_key (end, 0))); i != n; ++i)
@@ -2338,6 +2339,14 @@ rai::uint128_t rai::node::account_pending (rai::transaction const & transaction_
 	for (auto i (store.pending_v1_begin (transaction_a, rai::pending_key (account_a, 0))), n (store.pending_v1_begin (transaction_a, rai::pending_key (end, 0))); i != n; ++i)
 	{
 		add_pending (i->first, i->second);
+	}
+	for (auto & account : accounts_to_confirm)
+	{
+		auto latest (ledger.latest (transaction_a, account));
+		assert (!latest.is_zero ());
+		std::shared_ptr<rai::block> frontier (ledger.store.block_get (transaction_a, latest));
+		assert (frontier);
+		block_confirm (frontier);
 	}
 	return result;
 }
