@@ -1375,7 +1375,7 @@ TEST (rpc, pending)
 	rai::keypair key1;
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	auto block1 (system.wallet (0)->send_action (rai::test_genesis_key.pub, key1.pub, 100));
-	while (!system.nodes[0]->is_confirmed (block1->hash ()))
+	while (!system.nodes[0]->block_confirmed (block1->hash ()))
 	{
 		system.poll ();
 	}
@@ -2327,7 +2327,7 @@ TEST (rpc, accounts_pending)
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	auto block1 (system.wallet (0)->send_action (rai::test_genesis_key.pub, key1.pub, 100));
 	auto iterations (0);
-	while (!system.nodes[0]->is_confirmed (block1->hash ()))
+	while (!system.nodes[0]->block_confirmed (block1->hash ()))
 	{
 		system.poll ();
 		++iterations;
@@ -2439,7 +2439,7 @@ TEST (rpc, wallet_info)
 	rai::keypair key;
 	system.wallet (0)->insert_adhoc (key.prv);
 	auto send (system.wallet (0)->send_action (rai::test_genesis_key.pub, key.pub, 1));
-	while (!system.nodes[0]->is_confirmed (send->hash ()))
+	while (!system.nodes[0]->block_confirmed (send->hash ()))
 	{
 		system.poll ();
 	}
@@ -2526,7 +2526,7 @@ TEST (rpc, pending_exists)
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	auto hash0 (system.nodes[0]->latest (rai::genesis_account));
 	auto block1 (system.wallet (0)->send_action (rai::test_genesis_key.pub, key1.pub, 100));
-	while (!system.nodes[0]->is_confirmed (block1->hash ()))
+	while (!system.nodes[0]->block_confirmed (block1->hash ()))
 	{
 		system.poll ();
 	}
@@ -2562,7 +2562,7 @@ TEST (rpc, wallet_pending)
 	system0.wallet (0)->insert_adhoc (key1.prv);
 	auto block1 (system0.wallet (0)->send_action (rai::test_genesis_key.pub, key1.pub, 100));
 	auto iterations (0);
-	while (!system0.nodes[0]->is_confirmed (block1->hash ()))
+	while (!system0.nodes[0]->block_confirmed (block1->hash ()))
 	{
 		system0.poll ();
 		++iterations;

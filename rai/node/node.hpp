@@ -567,7 +567,7 @@ public:
 	void process_fork (rai::transaction const &, std::shared_ptr<rai::block>);
 	bool validate_block_by_previous (rai::transaction const &, std::shared_ptr<rai::block>);
 	rai::uint128_t delta ();
-	bool is_confirmed (rai::block_hash const &);
+	bool block_confirmed (rai::block_hash const &);
 	// If include_unconfirmed is false, block_confirm will be called on any unconfirmed blocks.
 	rai::uint128_t account_pending (rai::transaction const &, rai::account, bool include_unconfirmed);
 	boost::asio::io_service & service;

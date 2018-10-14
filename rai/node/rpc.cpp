@@ -774,7 +774,7 @@ void rai::rpc_handler::accounts_pending ()
 			for (auto i (node.store.pending_begin (transaction, rai::pending_key (account, 0))); rai::pending_key (i->first).account == account && peers_l.size () < count; ++i)
 			{
 				rai::pending_key key (i->first);
-				if (include_unconfirmed || node.ledger.is_confirmed (transaction, key.hash))
+				if (include_unconfirmed || node.ledger.block_confirmed (transaction, key.hash))
 				{
 					if (threshold.is_zero () && !source)
 					{
@@ -1587,7 +1587,7 @@ void rai::rpc_handler::block_confirmed ()
 		auto transaction (node.store.tx_begin_read ());
 		if (node.store.block_exists (transaction, hash))
 		{
-			auto confirmed (node.ledger.is_confirmed (transaction, hash));
+			auto confirmed (node.ledger.block_confirmed (transaction, hash));
 			response_l.put ("confirmed", confirmed);
 		}
 		else
@@ -2091,7 +2091,7 @@ void rai::rpc_handler::pending ()
 		for (auto i (node.store.pending_begin (transaction, rai::pending_key (account, 0))); rai::pending_key (i->first).account == account && peers_l.size () < count; ++i)
 		{
 			rai::pending_key key (i->first);
-			if (include_unconfirmed || node.ledger.is_confirmed (transaction, key.hash))
+			if (include_unconfirmed || node.ledger.block_confirmed (transaction, key.hash))
 			{
 				if (threshold.is_zero () && !source && !min_version)
 				{
@@ -2147,7 +2147,7 @@ void rai::rpc_handler::pending_exists ()
 			{
 				exists = node.store.pending_exists (transaction, rai::pending_key (destination, hash));
 			}
-			exists = exists && (include_unconfirmed || node.ledger.is_confirmed (transaction, hash));
+			exists = exists && (include_unconfirmed || node.ledger.block_confirmed (transaction, hash));
 			response_l.put ("exists", exists ? "1" : "0");
 		}
 		else
@@ -3281,7 +3281,7 @@ void rai::rpc_handler::wallet_pending ()
 			for (auto ii (node.store.pending_begin (transaction, rai::pending_key (account, 0))); rai::pending_key (ii->first).account == account && peers_l.size () < count; ++ii)
 			{
 				rai::pending_key key (ii->first);
-				if (include_unconfirmed || node.ledger.is_confirmed (transaction, key.hash))
+				if (include_unconfirmed || node.ledger.block_confirmed (transaction, key.hash))
 				{
 					if (threshold.is_zero () && !source)
 					{

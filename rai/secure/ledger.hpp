@@ -27,7 +27,7 @@ public:
 	rai::uint128_t weight (rai::transaction const &, rai::account const &);
 	std::unique_ptr<rai::block> successor (rai::transaction const &, rai::block_hash const &);
 	std::unique_ptr<rai::block> forked_block (rai::transaction const &, rai::block const &);
-	bool is_confirmed (rai::transaction const &, rai::block_hash const &);
+	bool block_confirmed (rai::transaction const &, rai::block_hash const &);
 	rai::block_hash latest (rai::transaction const &, rai::account const &);
 	rai::block_hash latest_root (rai::transaction const &, rai::account const &);
 	rai::block_hash representative (rai::transaction const &, rai::block_hash const &);

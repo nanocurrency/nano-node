@@ -1050,7 +1050,7 @@ std::unique_ptr<rai::block> rai::ledger::forked_block (rai::transaction const & 
 	return result;
 }
 
-bool rai::ledger::is_confirmed (rai::transaction const & transaction_a, rai::block_hash const & hash_a)
+bool rai::ledger::block_confirmed (rai::transaction const & transaction_a, rai::block_hash const & hash_a)
 {
 	auto confirmed (false);
 	auto block_height (store.block_account_height (transaction_a, hash_a));

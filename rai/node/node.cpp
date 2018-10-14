@@ -2312,9 +2312,9 @@ rai::uint128_t rai::node::delta ()
 	return result;
 }
 
-bool rai::node::is_confirmed (rai::block_hash const & hash_a)
+bool rai::node::block_confirmed (rai::block_hash const & hash_a)
 {
-	return ledger.is_confirmed (store.tx_begin_read (), hash_a);
+	return ledger.block_confirmed (store.tx_begin_read (), hash_a);
 }
 
 rai::uint128_t rai::node::account_pending (rai::transaction const & transaction_a, rai::account account_a, bool include_unconfirmed)
@@ -2322,7 +2322,7 @@ rai::uint128_t rai::node::account_pending (rai::transaction const & transaction_
 	rai::uint128_t result (0);
 	rai::account end (account_a.number () + 1);
 	auto add_pending ([&, this](rai::pending_key key, rai::pending_info info) {
-		if (include_unconfirmed || ledger.is_confirmed (transaction_a, key.hash))
+		if (include_unconfirmed || ledger.block_confirmed (transaction_a, key.hash))
 		{
 			result += info.amount.number ();
 		}

@@ -1157,7 +1157,7 @@ bool rai::wallet::search_pending ()
 					{
 						BOOST_LOG (wallets.node.log) << boost::str (boost::format ("Found a pending block %1% for account %2%") % hash.to_string () % pending.source.to_account ());
 						std::shared_ptr<rai::block> block (wallets.node.store.block_get (transaction, hash));
-						if (wallets.node.ledger.is_confirmed (transaction, hash))
+						if (wallets.node.ledger.block_confirmed (transaction, hash))
 						{
 							receive_async (block, representative, amount, [](std::shared_ptr<rai::block>) {});
 						}
