@@ -955,7 +955,7 @@ void rai::block_processor::add (std::shared_ptr<rai::block> block_a, std::chrono
 	if (!rai::work_validate (block_a->root (), block_a->block_work ()))
 	{
 		std::lock_guard<std::mutex> lock (mutex);
-		if (blocks_hashes.find (block_a->hash ()) == blocks_hashes.end ())
+		if (blocks_hashes.insert (block_a->hash ()).second)
 		{
 			if (block_a->type () == rai::block_type::state && block_a->link () != node.ledger.epoch_link)
 			{
@@ -975,10 +975,10 @@ void rai::block_processor::add (std::shared_ptr<rai::block> block_a, std::chrono
 	}
 }
 
-void rai::block_processor::force (std::shared_ptr<rai::block> block_a)
+void rai::block_processor::force (std::shared_ptr<rai::block> block_a, bool confirmed)
 {
 	std::lock_guard<std::mutex> lock (mutex);
-	forced.push_back (block_a);
+	forced.push_back (std::make_pair (block_a, confirmed));
 	condition.notify_all ();
 }
 
@@ -1081,6 +1081,7 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 		}
 		std::pair<std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point> block;
 		bool force (false);
+		bool confirmed (false);
 		if (forced.empty ())
 		{
 			block = blocks.front ();
@@ -1089,7 +1090,8 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 		}
 		else
 		{
-			block = std::make_pair (forced.front (), std::chrono::steady_clock::now ());
+			block = std::make_pair (forced.front ().first, std::chrono::steady_clock::now ());
+			confirmed = forced.front ().second;
 			forced.pop_front ();
 			force = true;
 		}
@@ -1108,18 +1110,18 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 		/* Forced state blocks are not validated in verify_state_blocks () function
 		Because of that we should set set validated_state_block as "false" for forced state blocks (!force) */
 		bool validated_state_block (!force && block.first->type () == rai::block_type::state);
-		auto process_result (process_receive_one (transaction, block.first, block.second, validated_state_block));
+		auto process_result (process_receive_one (transaction, block.first, block.second, confirmed, validated_state_block));
 		(void)process_result;
 		lock_a.lock ();
 	}
 	lock_a.unlock ();
 }
 
-rai::process_return rai::block_processor::process_receive_one (rai::transaction const & transaction_a, std::shared_ptr<rai::block> block_a, std::chrono::steady_clock::time_point origination, bool validated_state_block)
+rai::process_return rai::block_processor::process_receive_one (rai::transaction const & transaction_a, std::shared_ptr<rai::block> block_a, std::chrono::steady_clock::time_point origination, bool confirmed, bool validated_state_block)
 {
 	rai::process_return result;
 	auto hash (block_a->hash ());
-	result = node.ledger.process (transaction_a, *block_a, false, validated_state_block);
+	result = node.ledger.process (transaction_a, *block_a, confirmed, validated_state_block);
 	switch (result.code)
 	{
 		case rai::process_result::progress:
@@ -3138,13 +3140,14 @@ void rai::election::confirm_if_quorum (rai::transaction const & transaction_a)
 	{
 		sum += i.first;
 	}
+	auto confirmed (have_quorum (tally_l, sum));
 	if (sum >= node.config.online_weight_minimum.number () && block_l->hash () != status.winner->hash ())
 	{
 		auto node_l (node.shared ());
-		node_l->block_processor.force (block_l);
+		node_l->block_processor.force (block_l, confirmed);
 		status.winner = block_l;
 	}
-	if (have_quorum (tally_l, sum))
+	if (confirmed)
 	{
 		if (node.config.logging.vote_logging () || blocks.size () > 1)
 		{
