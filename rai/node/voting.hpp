@@ -2,6 +2,7 @@
 
 #include <rai/lib/numbers.hpp>
 
+#include <condition_variable>
 #include <deque>
 #include <mutex>
 #include <thread>
