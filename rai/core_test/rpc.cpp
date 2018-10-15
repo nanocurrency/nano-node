@@ -253,7 +253,7 @@ TEST (rpc, send)
 	request.put ("source", rai::test_genesis_key.pub.to_account ());
 	request.put ("destination", rai::test_genesis_key.pub.to_account ());
 	request.put ("amount", "100");
-	std::thread thread2 ([&system]() {
+	boost::thread thread2 ([&system]() {
 		system.deadline_set (10s);
 		while (system.nodes[0]->balance (rai::test_genesis_key.pub) == rai::genesis_amount)
 		{
@@ -288,7 +288,7 @@ TEST (rpc, send_fail)
 	request.put ("destination", rai::test_genesis_key.pub.to_account ());
 	request.put ("amount", "100");
 	std::atomic<bool> done (false);
-	std::thread thread2 ([&system, &done]() {
+	boost::thread thread2 ([&system, &done]() {
 		system.deadline_set (10s);
 		while (!done)
 		{
@@ -1526,6 +1526,7 @@ TEST (rpc, version)
 		auto transaction (system.nodes[0]->store.tx_begin ());
 		ASSERT_EQ (std::to_string (node1->store.version_get (transaction)), response1.json.get<std::string> ("store_version"));
 	}
+	ASSERT_EQ (std::to_string (rai::protocol_version), response1.json.get<std::string> ("protocol_version"));
 	ASSERT_EQ (boost::str (boost::format ("RaiBlocks %1%.%2%") % RAIBLOCKS_VERSION_MAJOR % RAIBLOCKS_VERSION_MINOR), response1.json.get<std::string> ("node_vendor"));
 	auto headers (response1.resp.base ());
 	auto allowed_origin (headers.at ("Access-Control-Allow-Origin"));

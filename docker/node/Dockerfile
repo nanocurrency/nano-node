@@ -7,12 +7,7 @@ ENV BOOST_ROOT=/tmp/boost_install
 ADD ci /tmp/ci
 ADD util /tmp/util
 
-RUN apt-get update -qq && apt-get install -yqq \
-    build-essential \
-    cmake \
-    g++ \
-    wget && \
-    /tmp/util/build_prep/bootstrap_boost.sh -m
+RUN /tmp/util/build_prep/update-common && /tmp/util/build_prep/ubuntu/prep.sh
 
 ADD ./ /tmp/src
 

@@ -36,7 +36,7 @@ TEST (system, generate_mass_activity_long)
 
 TEST (system, receive_while_synchronizing)
 {
-	std::vector<std::thread> threads;
+	std::vector<boost::thread> threads;
 	{
 		rai::system system (24000, 1);
 		rai::thread_runner runner (system.service, system.nodes[0]->config.io_threads);
@@ -112,7 +112,7 @@ TEST (ledger, deep_account_compute)
 
 TEST (wallet, multithreaded_send)
 {
-	std::vector<std::thread> threads;
+	std::vector<boost::thread> threads;
 	{
 		rai::system system (24000, 1);
 		rai::keypair key;
@@ -120,7 +120,7 @@ TEST (wallet, multithreaded_send)
 		wallet_l->insert_adhoc (rai::test_genesis_key.prv);
 		for (auto i (0); i < 20; ++i)
 		{
-			threads.push_back (std::thread ([wallet_l, &key]() {
+			threads.push_back (boost::thread ([wallet_l, &key]() {
 				for (auto i (0); i < 1000; ++i)
 				{
 					wallet_l->send_action (rai::test_genesis_key.pub, key.pub, 1000);
@@ -141,10 +141,10 @@ TEST (wallet, multithreaded_send)
 TEST (store, load)
 {
 	rai::system system (24000, 1);
-	std::vector<std::thread> threads;
+	std::vector<boost::thread> threads;
 	for (auto i (0); i < 100; ++i)
 	{
-		threads.push_back (std::thread ([&system]() {
+		threads.push_back (boost::thread ([&system]() {
 			for (auto i (0); i != 1000; ++i)
 			{
 				auto transaction (system.nodes[0]->store.tx_begin (true));
