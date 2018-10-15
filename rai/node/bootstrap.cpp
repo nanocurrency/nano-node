@@ -1159,7 +1159,7 @@ void rai::bootstrap_attempt::lazy_run ()
 			}
 			else
 			{
-				condition.wait (lock, std::chrono::milliseconds (100));
+				condition.wait_for (lock, std::chrono::milliseconds (100));
 			}
 		}
 		// Flushing may resolve forks which can add more pulls
@@ -1188,24 +1188,46 @@ bool rai::bootstrap_attempt::process_block (std::shared_ptr<rai::block> block_a)
 		if (lazy_blocks.find (hash) == lazy_blocks.end ())
 		{
 			// Search block in ledger (old)
-			if (node->block (hash) == nullptr)
+			auto transaction (node->store.tx_begin_read ());
+			if (!node->store.block_exists (transaction, hash))
 			{
 				std::unique_lock<std::mutex> lock (mutex);
 				lazy_blocks.insert (hash);
 				lock.unlock ();
 				node->block_processor.add (block_a, std::chrono::steady_clock::time_point ());
 				// Search for new dependencies
-				if (!block_a->source ().is_zero ())
+				if (!block_a->source ().is_zero () && !node->store.block_exists (transaction, block_a->source ()))
 				{
 					lazy_add (block_a->source ());
 				}
 				else if (block_a->type () == rai::block_type::state)
 				{
 					std::shared_ptr<rai::state_block> block_l (std::static_pointer_cast<rai::state_block> (block_a));
-					if (block_l != nullptr && !block_l->hashables.link.is_zero () && block_l->hashables.link != node->ledger.epoch_link)
+					if (block_l != nullptr)
 					{
-						//weak assumption
-						lazy_add (block_l->hashables.link);
+						rai::block_hash link (block_l->hashables.link);
+						// If link is not epoch link or 0. And if block from link unknown
+						if (!link.is_zero () && link != node->ledger.epoch_link && !node->store.block_exists (transaction, link))
+						{
+							// If state block previous is 0 then source block required
+							if (block_l->hashables.previous.is_zero ())
+							{
+								lazy_add (link);
+							}
+							// In other cases previous block balance required to find out subtype of state block
+							else if (node->store.block_exists (transaction, block_l->hashables.previous))
+							{
+								rai::amount prev_balance (node->ledger.balance (transaction, block_l->hashables.previous));
+								if (prev_balance.number () <= block_l->hashables.balance.number ())
+								{
+									lazy_add (link);
+								}
+							}
+							else
+							{
+								lazy_state_unknown.insert (std::make_pair (block_l->hashables.previous, block_l));
+							}
+						}
 					}
 				}
 			}
@@ -1213,6 +1235,31 @@ bool rai::bootstrap_attempt::process_block (std::shared_ptr<rai::block> block_a)
 			else
 			{
 				stop_pull = true;
+			}
+			//Search unknown state blocks balances
+			auto find_state (lazy_state_unknown.find (hash));
+			if (find_state != lazy_state_unknown.end ())
+			{
+				auto next_block (find_state->second);
+				std::unique_lock<std::mutex> lock (mutex);
+				lazy_state_unknown.erase (hash);
+				lock.unlock ();
+				if (block_a->type () == rai::block_type::state)
+				{
+					std::shared_ptr<rai::state_block> block_l (std::static_pointer_cast<rai::state_block> (block_a));
+					if (block_l->hashables.balance.number () <= next_block->hashables.balance.number ())
+					{
+						lazy_add (next_block->hashables.link);
+					}
+				}
+				else if (block_a->type () == rai::block_type::send)
+				{
+					std::shared_ptr<rai::send_block> block_l (std::static_pointer_cast<rai::send_block> (block_a));
+					if (block_l->hashables.balance.number () <= next_block->hashables.balance.number ())
+					{
+						lazy_add (next_block->hashables.link);
+					}
+				}
 			}
 		}
 		// Drop bulk_pull if block is already known (processed set)
