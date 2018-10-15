@@ -936,7 +936,7 @@ void rai::block_processor::stop ()
 void rai::block_processor::flush ()
 {
 	std::unique_lock<std::mutex> lock (mutex);
-	while (!stopped && (!blocks.empty () || active))
+	while (!stopped && (have_blocks () || active))
 	{
 		condition.wait (lock);
 	}
@@ -955,8 +955,14 @@ void rai::block_processor::add (std::shared_ptr<rai::block> block_a, std::chrono
 		std::lock_guard<std::mutex> lock (mutex);
 		if (blocks_hashes.find (block_a->hash ()) == blocks_hashes.end ())
 		{
-			blocks.push_back (std::make_pair (block_a, origination));
-			blocks_hashes.insert (block_a->hash ());
+			if (block_a->type () == rai::block_type::state && block_a->link () != node.ledger.epoch_link)
+			{
+				state_blocks.push_back (std::make_pair (block_a, origination));
+			}
+			else
+			{
+				blocks.push_back (std::make_pair (block_a, origination));
+			}
 			condition.notify_all ();
 		}
 	}
@@ -1010,16 +1016,63 @@ bool rai::block_processor::should_log ()
 bool rai::block_processor::have_blocks ()
 {
 	assert (!mutex.try_lock ());
-	return !blocks.empty () || !forced.empty ();
+	return !blocks.empty () || !forced.empty () || !state_blocks.empty ();
+}
+
+void rai::block_processor::verify_state_blocks (std::unique_lock<std::mutex> & lock_a)
+{
+	lock_a.lock ();
+	std::deque<std::pair<std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point>> items;
+	items.swap (state_blocks);
+	lock_a.unlock ();
+	auto size (items.size ());
+	std::vector<rai::uint256_union> hashes;
+	hashes.reserve (size);
+	std::vector<unsigned char const *> messages;
+	messages.reserve (size);
+	std::vector<size_t> lengths;
+	lengths.reserve (size);
+	std::vector<unsigned char const *> pub_keys;
+	pub_keys.reserve (size);
+	std::vector<unsigned char const *> signatures;
+	signatures.reserve (size);
+	std::vector<int> verifications;
+	verifications.resize (size);
+	for (auto i (0); i < size; ++i)
+	{
+		auto & block (static_cast<rai::state_block &> (*items[i].first));
+		hashes.push_back (block.hash ());
+		messages.push_back (hashes.back ().bytes.data ());
+		lengths.push_back (sizeof (decltype (hashes)::value_type));
+		pub_keys.push_back (block.hashables.account.bytes.data ());
+		signatures.push_back (block.signature.bytes.data ());
+	}
+	/* Verifications is vector if signatures check results
+	validate_message_batch returing "true" if there are at least 1 invalid signature */
+	auto code (rai::validate_message_batch (messages.data (), lengths.data (), pub_keys.data (), signatures.data (), size, verifications.data ()));
+	(void)code;
+	lock_a.lock ();
+	for (auto i (0); i < size; ++i)
+	{
+		assert (verifications[i] == 1 || verifications[i] == 0);
+		if (verifications[i] == 1)
+		{
+			blocks.push_back (items.front ());
+		}
+		items.pop_front ();
+	}
+	lock_a.unlock ();
 }
 
 void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & lock_a)
 {
+	verify_state_blocks (lock_a);
 	{
 		auto transaction (node.store.tx_begin_write ());
 		auto start_time (std::chrono::steady_clock::now ());
 		lock_a.lock ();
-		while (have_blocks () && std::chrono::steady_clock::now () - start_time < node.config.block_processor_batch_max_time)
+		// Processing blocks
+		while ((!blocks.empty () || !forced.empty ()) && std::chrono::steady_clock::now () - start_time < node.config.block_processor_batch_max_time)
 		{
 			if (blocks.size () > 64 && should_log ())
 			{
@@ -1051,7 +1104,10 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 					node.ledger.rollback (transaction, successor->hash ());
 				}
 			}
-			auto process_result (process_receive_one (transaction, block.first, block.second));
+			/* Forced state blocks are not validated in verify_state_blocks () function
+			Because of that we should set set validated_state_block as "false" for forced state blocks (!force) */
+			bool validated_state_block (!force && block.first->type () == rai::block_type::state);
+			auto process_result (process_receive_one (transaction, block.first, block.second, validated_state_block));
 			(void)process_result;
 			lock_a.lock ();
 		}
@@ -1073,11 +1129,11 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 	}
 }
 
-rai::process_return rai::block_processor::process_receive_one (rai::transaction const & transaction_a, std::shared_ptr<rai::block> block_a, std::chrono::steady_clock::time_point origination)
+rai::process_return rai::block_processor::process_receive_one (rai::transaction const & transaction_a, std::shared_ptr<rai::block> block_a, std::chrono::steady_clock::time_point origination, bool validated_state_block)
 {
 	rai::process_return result;
 	auto hash (block_a->hash ());
-	result = node.ledger.process (transaction_a, *block_a);
+	result = node.ledger.process (transaction_a, *block_a, validated_state_block);
 	switch (result.code)
 	{
 		case rai::process_result::progress:
