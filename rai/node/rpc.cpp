@@ -1371,6 +1371,7 @@ void rai::rpc_handler::confirmation_active ()
 {
 	uint64_t announcements (0);
 	boost::optional<std::string> announcements_text (request.get_optional<std::string> ("announcements"));
+	const bool confirmed = request.get<bool> ("confirmed", false);
 	if (announcements_text.is_initialized ())
 	{
 		announcements = strtoul (announcements_text.get ().c_str (), NULL, 10);
@@ -1380,7 +1381,7 @@ void rai::rpc_handler::confirmation_active ()
 		std::lock_guard<std::mutex> lock (node.active.mutex);
 		for (auto i (node.active.roots.begin ()), n (node.active.roots.end ()); i != n; ++i)
 		{
-			if (i->announcements >= announcements)
+			if (i->announcements >= announcements && (confirmed || !i->election->confirmed))
 			{
 				boost::property_tree::ptree entry;
 				entry.put ("", i->root.to_string ());
