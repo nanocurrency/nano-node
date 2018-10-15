@@ -3215,14 +3215,13 @@ void rai::election::confirm_if_quorum (rai::transaction const & transaction_a)
 	{
 		sum += i.first;
 	}
-	auto confirmed (have_quorum (tally_l, sum));
 	if (sum >= node.config.online_weight_minimum.number () && block_l->hash () != status.winner->hash ())
 	{
 		auto node_l (node.shared ());
 		node_l->block_processor.force (block_l);
 		status.winner = block_l;
 	}
-	if (confirmed)
+	if (have_quorum (tally_l, sum))
 	{
 		if (node.config.logging.vote_logging () || blocks.size () > 1)
 		{
