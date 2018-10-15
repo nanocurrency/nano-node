@@ -683,7 +683,7 @@ TEST (rpc, account_move)
 	request.put ("source", source_id.pub.to_string ());
 	boost::property_tree::ptree keys;
 	boost::property_tree::ptree entry;
-	entry.put ("", key.pub.to_string ());
+	entry.put ("", key.pub.to_account ());
 	keys.push_back (std::make_pair ("", entry));
 	request.add_child ("accounts", keys);
 	test_response response (request, rpc, system.service);
