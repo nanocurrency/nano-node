@@ -803,21 +803,29 @@ rai::uint128_t rai::ledger::weight (rai::transaction const & transaction_a, rai:
 }
 
 // Rollback blocks until `block_a' doesn't exist
-void rai::ledger::rollback (rai::transaction const & transaction_a, rai::block_hash const & block_a)
+bool rai::ledger::rollback (rai::transaction const & transaction_a, rai::block_hash const & block_a)
 {
 	assert (store.block_exists (transaction_a, block_a));
 	auto account_l (account (transaction_a, block_a));
 	auto block_account_height (store.block_account_height (transaction_a, block_a));
 	rollback_visitor rollback (transaction_a, *this);
 	rai::account_info info;
-	while (store.block_exists (transaction_a, block_a))
+	bool error (false);
+	while (!error && store.block_exists (transaction_a, block_a))
 	{
 		auto latest_error (store.account_get (transaction_a, account_l, info));
 		assert (!latest_error);
-		release_assert (block_account_height > info.confirmation_height);
-		auto block (store.block_get (transaction_a, info.head));
-		block->visit (rollback);
+		if (block_account_height > info.confirmation_height)
+		{
+			auto block (store.block_get (transaction_a, info.head));
+			block->visit (rollback);
+		}
+		else
+		{
+			error = true;
+		}
 	}
+	return error;
 }
 
 // Return account containing hash

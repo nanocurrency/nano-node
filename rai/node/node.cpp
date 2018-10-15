@@ -1104,7 +1104,11 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 			{
 				// Replace our block with the winner and roll back any dependent blocks
 				BOOST_LOG (node.log) << boost::str (boost::format ("Rolling back %1% and replacing with %2%") % successor->hash ().to_string () % hash.to_string ());
-				node.ledger.rollback (transaction, successor->hash ());
+				if (node.ledger.rollback (transaction, successor->hash ()))
+				{
+					BOOST_LOG (node.log) << boost::str (boost::format ("Failed to roll back %1% because it or a successor was confirmed") % successor->hash ().to_string ());
+					release_assert (!confirmed);
+				}
 			}
 		}
 		/* Forced state blocks are not validated in verify_state_blocks () function
