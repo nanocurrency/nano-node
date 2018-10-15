@@ -111,6 +111,7 @@ public:
 	// Is the root of this block in the roots container
 	bool active (rai::block const &);
 	std::deque<std::shared_ptr<rai::block>> list_blocks ();
+	void erase_root (rai::block_hash const &);
 	void erase (rai::block const &);
 	void stop ();
 	bool publish (std::shared_ptr<rai::block> block_a);

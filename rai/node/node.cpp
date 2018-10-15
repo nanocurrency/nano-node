@@ -2426,8 +2426,9 @@ public:
 
 void rai::node::process_confirmed (rai::transaction const & transaction_a, std::shared_ptr<rai::block> block_a)
 {
+	active.erase (*block_a);
 	auto hash (block_a->hash ());
-	assert (store.block_exists (transaction_a, hash));
+	release_assert (store.block_exists (transaction_a, hash));
 	rai::block_hash source;
 	if (block_a->type () == rai::block_type::state)
 	{
@@ -3502,22 +3503,7 @@ void rai::active_transactions::announce_votes ()
 	}
 	for (auto i (inactive.begin ()), n (inactive.end ()); i != n; ++i)
 	{
-		auto root_it (roots.find (*i));
-		assert (root_it != roots.end ());
-		for (auto successor : root_it->election->blocks)
-		{
-			auto successor_it (successors.find (successor.first));
-			if (successor_it != successors.end ())
-			{
-				assert (successor_it->second == root_it->election);
-				successors.erase (successor_it);
-			}
-			else
-			{
-				assert (false && "election successor not in active_transactions blocks table");
-			}
-		}
-		roots.erase (root_it);
+		erase_root (*i);
 	}
 	if (unconfirmed_count > 0)
 	{
@@ -3644,14 +3630,33 @@ std::deque<std::shared_ptr<rai::block>> rai::active_transactions::list_blocks ()
 	return result;
 }
 
+void rai::active_transactions::erase_root (rai::block_hash const & root_a)
+{
+	assert (!mutex.try_lock ());
+	auto root_it (roots.find (root_a));
+	if (root_it != roots.end ())
+	{
+		for (auto successor : root_it->election->blocks)
+		{
+			auto successor_it (successors.find (successor.first));
+			if (successor_it != successors.end ())
+			{
+				assert (successor_it->second == root_it->election);
+				successors.erase (successor_it);
+			}
+			else
+			{
+				assert (false && "election successor not in active_transactions blocks table");
+			}
+		}
+		roots.erase (root_it);
+	}
+}
+
 void rai::active_transactions::erase (rai::block const & block_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
-	if (roots.find (block_a.root ()) != roots.end ())
-	{
-		roots.erase (block_a.root ());
-		BOOST_LOG (node.log) << boost::str (boost::format ("Election erased for block block %1% root %2%") % block_a.hash ().to_string () % block_a.root ().to_string ());
-	}
+	erase_root (block_a.root ());
 }
 
 rai::active_transactions::active_transactions (rai::node & node_a) :
