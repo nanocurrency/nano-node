@@ -2426,7 +2426,15 @@ public:
 
 void rai::node::process_confirmed (rai::transaction const & transaction_a, std::shared_ptr<rai::block> block_a)
 {
-	active.erase (*block_a);
+	{
+		std::lock_guard<std::mutex> lock (active.mutex);
+		auto root_it (active.roots.find (block_a->root ()));
+		if (root_it != active.roots.end ())
+		{
+			root_it->election->status.winner = block_a;
+			root_it->election->confirmed.store (true);
+		}
+	}
 	auto hash (block_a->hash ());
 	release_assert (store.block_exists (transaction_a, hash));
 	rai::block_hash source;
