@@ -145,6 +145,7 @@ public:
 	void block_hash ();
 	void bootstrap ();
 	void bootstrap_any ();
+	void bootstrap_lazy ();
 	void chain (bool = false);
 	void confirmation_active ();
 	void confirmation_history ();

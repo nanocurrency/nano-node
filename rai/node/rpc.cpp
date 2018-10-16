@@ -1339,6 +1339,18 @@ void rai::rpc_handler::bootstrap_any ()
 	response_errors ();
 }
 
+void rai::rpc_handler::bootstrap_lazy ()
+{
+	rpc_control_impl ();
+	auto hash (hash_impl ());
+	if (!ec)
+	{
+		node.bootstrap_initiator.bootstrap_lazy (hash);
+		response_l.put ("started", "1");
+	}
+	response_errors ();
+}
+
 void rai::rpc_handler::chain (bool successors)
 {
 	auto hash (hash_impl ("block"));
@@ -3804,6 +3816,10 @@ void rai::rpc_handler::process_request ()
 			else if (action == "bootstrap_any")
 			{
 				bootstrap_any ();
+			}
+			else if (action == "bootstrap_lazy")
+			{
+				bootstrap_lazy ();
 			}
 			else if (action == "chain")
 			{
