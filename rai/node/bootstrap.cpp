@@ -1244,6 +1244,7 @@ bool rai::bootstrap_attempt::process_block (std::shared_ptr<rai::block> block_a)
 				std::unique_lock<std::mutex> lock (mutex);
 				lazy_state_unknown.erase (hash);
 				lock.unlock ();
+				// Retrieve balance for previous state blocks
 				if (block_a->type () == rai::block_type::state)
 				{
 					std::shared_ptr<rai::state_block> block_l (std::static_pointer_cast<rai::state_block> (block_a));
@@ -1252,6 +1253,7 @@ bool rai::bootstrap_attempt::process_block (std::shared_ptr<rai::block> block_a)
 						lazy_add (next_block->hashables.link);
 					}
 				}
+				// Retrieve balance for previous legacy send blocks
 				else if (block_a->type () == rai::block_type::send)
 				{
 					std::shared_ptr<rai::send_block> block_l (std::static_pointer_cast<rai::send_block> (block_a));
@@ -1259,6 +1261,11 @@ bool rai::bootstrap_attempt::process_block (std::shared_ptr<rai::block> block_a)
 					{
 						lazy_add (next_block->hashables.link);
 					}
+				}
+				// Weak assumption for other legacy block types
+				else
+				{
+					lazy_add (next_block->hashables.link);
 				}
 			}
 		}
