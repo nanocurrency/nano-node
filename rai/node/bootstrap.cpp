@@ -1225,7 +1225,9 @@ bool rai::bootstrap_attempt::process_block (std::shared_ptr<rai::block> block_a)
 							}
 							else
 							{
+								lock.lock ();
 								lazy_state_unknown.insert (std::make_pair (block_l->hashables.previous, block_l));
+								lock.unlock ();
 							}
 						}
 					}
