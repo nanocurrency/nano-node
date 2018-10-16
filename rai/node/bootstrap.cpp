@@ -1196,7 +1196,7 @@ bool rai::bootstrap_attempt::process_block (std::shared_ptr<rai::block> block_a)
 				lock.unlock ();
 				node->block_processor.add (block_a, std::chrono::steady_clock::time_point ());
 				// Search for new dependencies
-				if (!block_a->source ().is_zero () && !node->store.block_exists (transaction, block_a->source ()))
+				if (!block_a->source ().is_zero () && lazy_blocks.find (block_a->source ()) == lazy_blocks.end () && !node->store.block_exists (transaction, block_a->source ()))
 				{
 					lazy_add (block_a->source ());
 				}
@@ -1207,7 +1207,7 @@ bool rai::bootstrap_attempt::process_block (std::shared_ptr<rai::block> block_a)
 					{
 						rai::block_hash link (block_l->hashables.link);
 						// If link is not epoch link or 0. And if block from link unknown
-						if (!link.is_zero () && link != node->ledger.epoch_link && !node->store.block_exists (transaction, link))
+						if (!link.is_zero () && link != node->ledger.epoch_link && lazy_blocks.find (link) == lazy_blocks.end () && !node->store.block_exists (transaction, link))
 						{
 							// If state block previous is 0 then source block required
 							if (block_l->hashables.previous.is_zero ())
