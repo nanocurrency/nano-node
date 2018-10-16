@@ -2541,45 +2541,45 @@ void rai::rpc_handler::representatives_online ()
 			{
 				accounts_to_filter.push_back (account);
 			}
-            else
-            {
-                ec = nano::error_common::bad_account_number;
-                break;
-            }
+			else
+			{
+				ec = nano::error_common::bad_account_number;
+				break;
+			}
 		}
 	}
-    if (!ec)
-    {
-        boost::property_tree::ptree representatives;
-        auto reps(node.online_reps.list());
-        for (auto & i : reps)
-        {
-            if (accounts_node.is_initialized())
-            {
-                if (accounts_to_filter.empty())
-                {
-                    break;
-                }
-                auto found_acc = std::find(accounts_to_filter.begin(), accounts_to_filter.end(), i);
-                if (found_acc == accounts_to_filter.end())
-                {
-                    continue;
-                }
-                else
-                {
-                    accounts_to_filter.erase(found_acc);
-                }
-            }
-            boost::property_tree::ptree weight_node;
-            if (weight)
-            {
-                auto account_weight(node.weight(i));
-                weight_node.put("weight", account_weight.convert_to<std::string>());
-            }
-            representatives.add_child(i.to_account(), weight_node);
-        }
-        response_l.add_child("representatives", representatives);
-    }
+	if (!ec)
+	{
+		boost::property_tree::ptree representatives;
+		auto reps (node.online_reps.list ());
+		for (auto & i : reps)
+		{
+			if (accounts_node.is_initialized ())
+			{
+				if (accounts_to_filter.empty ())
+				{
+					break;
+				}
+				auto found_acc = std::find (accounts_to_filter.begin (), accounts_to_filter.end (), i);
+				if (found_acc == accounts_to_filter.end ())
+				{
+					continue;
+				}
+				else
+				{
+					accounts_to_filter.erase (found_acc);
+				}
+			}
+			boost::property_tree::ptree weight_node;
+			if (weight)
+			{
+				auto account_weight (node.weight (i));
+				weight_node.put ("weight", account_weight.convert_to<std::string> ());
+			}
+			representatives.add_child (i.to_account (), weight_node);
+		}
+		response_l.add_child ("representatives", representatives);
+	}
 	response_errors ();
 }
 
