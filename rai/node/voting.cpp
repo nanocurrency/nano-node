@@ -57,6 +57,7 @@ void rai::vote_generator::send (std::unique_lock<std::mutex> & lock_a)
 
 void rai::vote_generator::run ()
 {
+	rai::thread_role::set (rai::thread_role::name::voting);
 	std::unique_lock<std::mutex> lock (mutex);
 	started = true;
 	condition.notify_all ();

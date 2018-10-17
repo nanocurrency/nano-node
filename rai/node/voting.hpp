@@ -2,10 +2,11 @@
 
 #include <rai/lib/numbers.hpp>
 
+#include <boost/thread.hpp>
+
 #include <condition_variable>
 #include <deque>
 #include <mutex>
-#include <thread>
 
 namespace rai
 {
@@ -27,6 +28,6 @@ private:
 	std::chrono::milliseconds wait;
 	bool stopped;
 	bool started;
-	std::thread thread;
+	boost::thread thread;
 };
 }
