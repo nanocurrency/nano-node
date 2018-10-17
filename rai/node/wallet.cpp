@@ -1416,8 +1416,9 @@ void rai::wallets::stop ()
 	{
 		std::lock_guard<std::mutex> lock (mutex);
 		stopped = true;
-		condition.notify_all ();
+		actions.clear ();
 	}
+	condition.notify_all ();
 	if (thread.joinable ())
 	{
 		thread.join ();
