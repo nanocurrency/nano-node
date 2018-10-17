@@ -1127,7 +1127,7 @@ void rai::wallet::work_update (rai::transaction const & transaction_a, rai::acco
 
 void rai::wallet::work_ensure (rai::account const & account_a, rai::block_hash const & hash_a)
 {
-	wallets.node.wallets.queue_wallet_action (rai::wallets::generate_priority, shared_from_this (), [account_a, hash_a] (rai::wallet & wallet_a){
+	wallets.node.wallets.queue_wallet_action (rai::wallets::generate_priority, shared_from_this (), [account_a, hash_a](rai::wallet & wallet_a) {
 		wallet_a.work_cache_blocking (account_a, hash_a);
 	});
 }

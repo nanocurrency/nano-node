@@ -180,7 +180,7 @@ public:
 	void clear_send_ids (rai::transaction const &);
 	std::function<void(bool)> observer;
 	std::unordered_map<rai::uint256_union, std::shared_ptr<rai::wallet>> items;
-	std::multimap<rai::uint128_t, std::pair <std::shared_ptr<rai::wallet>, std::function<void(rai::wallet &)>>, std::greater<rai::uint128_t>> actions;
+	std::multimap<rai::uint128_t, std::pair<std::shared_ptr<rai::wallet>, std::function<void(rai::wallet &)>>, std::greater<rai::uint128_t>> actions;
 	std::mutex mutex;
 	std::condition_variable condition;
 	rai::kdf kdf;
