@@ -1150,32 +1150,23 @@ void rai::bootstrap_attempt::lazy_run ()
 {
 	populate_connections ();
 	std::unique_lock<std::mutex> lock (mutex);
-	while (still_pulling ())
+	while (still_pulling () || node->block (lazy_start) == nullptr)
 	{
-		while (still_pulling () || node->block (lazy_start) == nullptr)
+		if (!pulls.empty ())
 		{
-			if (!pulls.empty ())
+			if (!node->block_processor.full ())
 			{
-				if (!node->block_processor.full ())
-				{
-					request_pull (lock);
-				}
-				else
-				{
-					condition.wait_for (lock, std::chrono::seconds (15));
-				}
+				request_pull (lock);
 			}
 			else
 			{
-				condition.wait_for (lock, std::chrono::milliseconds (100));
+				condition.wait_for (lock, std::chrono::seconds (5));
 			}
 		}
-		// Flushing may resolve forks which can add more pulls
-		BOOST_LOG (node->log) << "Flushing unchecked blocks";
-		lock.unlock ();
-		node->block_processor.flush ();
-		lock.lock ();
-		BOOST_LOG (node->log) << "Finished flushing unchecked blocks";
+		else
+		{
+			condition.wait_for (lock, std::chrono::seconds (1));
+		}
 	}
 	if (!stopped)
 	{
