@@ -732,7 +732,7 @@ wallet (wallet_a)
 			show_line_ok (*account_line);
 			this->history.refresh ();
 			auto balance (this->wallet.node.balance_pending (account));
-			auto final_text (std::string ("Balance (XRB): ") + wallet.format_balance (balance.first));
+			auto final_text (std::string ("Balance (NANO): ") + wallet.format_balance (balance.first));
 			if (!balance.second.is_zero ())
 			{
 				final_text += "\nPending: " + wallet.format_balance (balance.second);
@@ -1394,14 +1394,14 @@ void rai_qt::wallet::change_rendering_ratio (rai::uint128_t const & rendering_ra
 std::string rai_qt::wallet::format_balance (rai::uint128_t const & balance) const
 {
 	auto balance_str = rai::amount (balance).format_balance (rendering_ratio, 0, false);
-	auto unit = std::string ("XRB");
+	auto unit = std::string ("NANO");
 	if (rendering_ratio == rai::kxrb_ratio)
 	{
-		unit = std::string ("kxrb");
+		unit = std::string ("knano");
 	}
 	else if (rendering_ratio == rai::xrb_ratio)
 	{
-		unit = std::string ("xrb");
+		unit = std::string ("nano");
 	}
 	return balance_str + " " + unit;
 }
@@ -1682,9 +1682,9 @@ scale_window (new QWidget),
 scale_layout (new QHBoxLayout),
 scale_label (new QLabel ("Scale:")),
 ratio_group (new QButtonGroup),
-mrai (new QRadioButton ("Mxrb")),
-krai (new QRadioButton ("kxrb")),
-rai (new QRadioButton ("xrb")),
+mnano_unit (new QRadioButton ("Mnano")),
+knano_unit (new QRadioButton ("knano")),
+nano_unit (new QRadioButton ("nano")),
 back (new QPushButton ("Back")),
 ledger_window (new QWidget),
 ledger_layout (new QVBoxLayout),
@@ -1705,16 +1705,16 @@ peers_refresh (new QPushButton ("Refresh")),
 peers_back (new QPushButton ("Back")),
 wallet (wallet_a)
 {
-	ratio_group->addButton (mrai);
-	ratio_group->addButton (krai);
-	ratio_group->addButton (rai);
-	ratio_group->setId (mrai, 0);
-	ratio_group->setId (krai, 1);
-	ratio_group->setId (rai, 2);
+	ratio_group->addButton (mnano_unit);
+	ratio_group->addButton (knano_unit);
+	ratio_group->addButton (nano_unit);
+	ratio_group->setId (mnano_unit, 0);
+	ratio_group->setId (knano_unit, 1);
+	ratio_group->setId (nano_unit, 2);
 	scale_layout->addWidget (scale_label);
-	scale_layout->addWidget (mrai);
-	scale_layout->addWidget (krai);
-	scale_layout->addWidget (rai);
+	scale_layout->addWidget (mnano_unit);
+	scale_layout->addWidget (knano_unit);
+	scale_layout->addWidget (nano_unit);
 	scale_window->setLayout (scale_layout);
 
 	ledger_model->setHorizontalHeaderItem (0, new QStandardItem ("Account"));
@@ -1765,25 +1765,25 @@ wallet (wallet_a)
 	layout->addWidget (back);
 	window->setLayout (layout);
 
-	QObject::connect (mrai, &QRadioButton::toggled, [this]() {
-		if (mrai->isChecked ())
+	QObject::connect (mnano_unit, &QRadioButton::toggled, [this]() {
+		if (mnano_unit->isChecked ())
 		{
 			this->wallet.change_rendering_ratio (rai::Mxrb_ratio);
 		}
 	});
-	QObject::connect (krai, &QRadioButton::toggled, [this]() {
-		if (krai->isChecked ())
+	QObject::connect (knano_unit, &QRadioButton::toggled, [this]() {
+		if (knano_unit->isChecked ())
 		{
 			this->wallet.change_rendering_ratio (rai::kxrb_ratio);
 		}
 	});
-	QObject::connect (rai, &QRadioButton::toggled, [this]() {
-		if (rai->isChecked ())
+	QObject::connect (nano_unit, &QRadioButton::toggled, [this]() {
+		if (nano_unit->isChecked ())
 		{
 			this->wallet.change_rendering_ratio (rai::xrb_ratio);
 		}
 	});
-	mrai->click ();
+	mnano_unit->click ();
 	QObject::connect (wallet_refresh, &QPushButton::released, [this]() {
 		this->wallet.accounts.refresh ();
 		this->wallet.accounts.refresh_wallet_balance ();

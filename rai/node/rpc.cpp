@@ -1380,7 +1380,7 @@ void rai::rpc_handler::confirmation_active ()
 		std::lock_guard<std::mutex> lock (node.active.mutex);
 		for (auto i (node.active.roots.begin ()), n (node.active.roots.end ()); i != n; ++i)
 		{
-			if (i->announcements >= announcements)
+			if (i->announcements >= announcements && !i->election->confirmed && !i->election->aborted)
 			{
 				boost::property_tree::ptree entry;
 				entry.put ("", i->root.to_string ());
