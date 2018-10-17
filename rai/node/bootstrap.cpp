@@ -1199,7 +1199,7 @@ bool rai::bootstrap_attempt::process_block (std::shared_ptr<rai::block> block_a)
 			auto transaction (node->store.tx_begin_read ());
 			if (!node->store.block_exists (transaction, hash))
 			{
-				std::unique_lock<std::mutex> lock (mutex);
+				std::unique_lock<std::mutex> lock (lazy_mutex);
 				lazy_blocks.insert (hash);
 				lock.unlock ();
 				node->block_processor.add (block_a, std::chrono::steady_clock::time_point ());
@@ -1251,7 +1251,7 @@ bool rai::bootstrap_attempt::process_block (std::shared_ptr<rai::block> block_a)
 			if (find_state != lazy_state_unknown.end ())
 			{
 				auto next_block (find_state->second);
-				std::unique_lock<std::mutex> lock (mutex);
+				std::unique_lock<std::mutex> lock (lazy_mutex);
 				lazy_state_unknown.erase (hash);
 				lock.unlock ();
 				// Retrieve balance for previous state blocks
