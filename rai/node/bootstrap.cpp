@@ -550,6 +550,10 @@ void rai::bulk_pull_client::received_block (boost::system::error_code const & ec
 			{
 				receive_block ();
 			}
+			else if (stop_pull)
+			{
+				expected = pull.end;
+			}
 		}
 		else
 		{
@@ -1196,7 +1200,7 @@ bool rai::bootstrap_attempt::process_block (std::shared_ptr<rai::block> block_a)
 				lock.unlock ();
 				node->block_processor.add (block_a, std::chrono::steady_clock::time_point ());
 				// Search for new dependencies
-				if (!block_a->source ().is_zero () && lazy_blocks.find (block_a->source ()) == lazy_blocks.end () && !node->store.block_exists (transaction, block_a->source ()))
+				if (!block_a->source ().is_zero () && !node->store.block_exists (transaction, block_a->source ()))
 				{
 					lazy_add (block_a->source ());
 				}
