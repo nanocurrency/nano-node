@@ -788,12 +788,16 @@ void rai::bootstrap_attempt::request_pull (std::unique_lock<std::mutex> & lock_a
 	{
 		auto pull (pulls.front ());
 		pulls.pop_front ();
-		// The bulk_pull_client destructor attempt to requeue_pull which can cause a deadlock if this is the last reference
-		// Dispatch request in an external thread in case it needs to be destroyed
-		node->background ([connection_l, pull]() {
-			auto client (std::make_shared<rai::bulk_pull_client> (connection_l, pull));
-			client->request ();
-		});
+		// Do not request already known blocks
+		if (!lazy || lazy_blocks.find (pull.account) == lazy_blocks.end ())
+		{
+			// The bulk_pull_client destructor attempt to requeue_pull which can cause a deadlock if this is the last reference
+			// Dispatch request in an external thread in case it needs to be destroyed
+			node->background ([connection_l, pull]() {
+				auto client (std::make_shared<rai::bulk_pull_client> (connection_l, pull));
+				client->request ();
+			});
+		}
 	}
 }
 
