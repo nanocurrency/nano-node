@@ -1069,66 +1069,50 @@ void rai::block_processor::verify_state_blocks (std::unique_lock<std::mutex> & l
 void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & lock_a)
 {
 	verify_state_blocks (lock_a);
+	auto transaction (node.store.tx_begin_write ());
+	auto start_time (std::chrono::steady_clock::now ());
+	lock_a.lock ();
+	// Processing blocks
+	while ((!blocks.empty () || !forced.empty ()) && std::chrono::steady_clock::now () - start_time < node.config.block_processor_batch_max_time)
 	{
-		auto transaction (node.store.tx_begin_write ());
-		auto start_time (std::chrono::steady_clock::now ());
-		lock_a.lock ();
-		// Processing blocks
-		while ((!blocks.empty () || !forced.empty ()) && std::chrono::steady_clock::now () - start_time < node.config.block_processor_batch_max_time)
+		if (blocks.size () > 64 && should_log ())
 		{
-			if (blocks.size () > 64 && should_log ())
-			{
-				BOOST_LOG (node.log) << boost::str (boost::format ("%1% blocks in processing queue") % blocks.size ());
-			}
-			std::pair<std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point> block;
-			bool force (false);
-			if (forced.empty ())
-			{
-				block = blocks.front ();
-				blocks.pop_front ();
-				blocks_hashes.erase (block.first->hash ());
-			}
-			else
-			{
-				block = std::make_pair (forced.front (), std::chrono::steady_clock::now ());
-				forced.pop_front ();
-				force = true;
-			}
-			lock_a.unlock ();
-			auto hash (block.first->hash ());
-			if (force)
-			{
-				auto successor (node.ledger.successor (transaction, block.first->root ()));
-				if (successor != nullptr && successor->hash () != hash)
-				{
-					// Replace our block with the winner and roll back any dependent blocks
-					BOOST_LOG (node.log) << boost::str (boost::format ("Rolling back %1% and replacing with %2%") % successor->hash ().to_string () % hash.to_string ());
-					node.ledger.rollback (transaction, successor->hash ());
-				}
-			}
-			/* Forced state blocks are not validated in verify_state_blocks () function
-			Because of that we should set set validated_state_block as "false" for forced state blocks (!force) */
-			bool validated_state_block (!force && block.first->type () == rai::block_type::state);
-			auto process_result (process_receive_one (transaction, block.first, block.second, validated_state_block));
-			(void)process_result;
-			lock_a.lock ();
+			BOOST_LOG (node.log) << boost::str (boost::format ("%1% blocks in processing queue") % blocks.size ());
 		}
+		std::pair<std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point> block;
+		bool force (false);
+		if (forced.empty ())
+		{
+			block = blocks.front ();
+			blocks.pop_front ();
+			blocks_hashes.erase (block.first->hash ());
+		}
+		else
+		{
+			block = std::make_pair (forced.front (), std::chrono::steady_clock::now ());
+			forced.pop_front ();
+			force = true;
+		}
+		lock_a.unlock ();
+		auto hash (block.first->hash ());
+		if (force)
+		{
+			auto successor (node.ledger.successor (transaction, block.first->root ()));
+			if (successor != nullptr && successor->hash () != hash)
+			{
+				// Replace our block with the winner and roll back any dependent blocks
+				BOOST_LOG (node.log) << boost::str (boost::format ("Rolling back %1% and replacing with %2%") % successor->hash ().to_string () % hash.to_string ());
+				node.ledger.rollback (transaction, successor->hash ());
+			}
+		}
+		/* Forced state blocks are not validated in verify_state_blocks () function
+		Because of that we should set set validated_state_block as "false" for forced state blocks (!force) */
+		bool validated_state_block (!force && block.first->type () == rai::block_type::state);
+		auto process_result (process_receive_one (transaction, block.first, block.second, validated_state_block));
+		(void)process_result;
+		lock_a.lock ();
 	}
-
-	/*
-	 * Copy "processed_active" to a local variable so that we
-	 * may operate on it without holding the mutex.
-	 */
-	decltype (processed_active) processed_active_copy;
-	processed_active_copy.swap (processed_active);
-
 	lock_a.unlock ();
-
-	// Start elections for recent blocks
-	for (const auto & block : processed_active_copy)
-	{
-		node.active.start (block);
-	}
 }
 
 rai::process_return rai::block_processor::process_receive_one (rai::transaction const & transaction_a, std::shared_ptr<rai::block> block_a, std::chrono::steady_clock::time_point origination, bool validated_state_block)
@@ -1152,14 +1136,7 @@ rai::process_return rai::block_processor::process_receive_one (rai::transaction 
 			}
 			if (node.block_arrival.recent (hash))
 			{
-				/*
-				 * The dequeuing of this buffer uses the mutex
-				 * named "mutex", so we must use it when we
-				 * enqueue it.
-				 */
-				std::unique_lock<std::mutex> lock (mutex);
-
-				processed_active.push_back (block_a);
+				node.active.start (block_a);
 			}
 			queue_unchecked (transaction_a, hash);
 			break;
@@ -3180,15 +3157,17 @@ void rai::election::confirm_if_quorum (rai::transaction const & transaction_a)
 
 void rai::election::log_votes (rai::tally_t const & tally_a)
 {
-	BOOST_LOG (node.log) << boost::str (boost::format ("Vote tally for root %1%") % status.winner->root ().to_string ());
+	std::stringstream tally;
+	tally << boost::str (boost::format ("\nVote tally for root %1%") % status.winner->root ().to_string ());
 	for (auto i (tally_a.begin ()), n (tally_a.end ()); i != n; ++i)
 	{
-		BOOST_LOG (node.log) << boost::str (boost::format ("Block %1% weight %2%") % i->second->hash ().to_string () % i->first.convert_to<std::string> ());
+		tally << boost::str (boost::format ("\nBlock %1% weight %2%") % i->second->hash ().to_string () % i->first.convert_to<std::string> ());
 	}
 	for (auto i (last_votes.begin ()), n (last_votes.end ()); i != n; ++i)
 	{
-		BOOST_LOG (node.log) << boost::str (boost::format ("%1% %2%") % i->first.to_account () % i->second.hash.to_string ());
+		tally << boost::str (boost::format ("\n%1% %2%") % i->first.to_account () % i->second.hash.to_string ());
 	}
+	BOOST_LOG (node.log) << tally.str ();
 }
 
 rai::election_vote_result rai::election::vote (rai::account rep, uint64_t sequence, rai::block_hash block_hash)
