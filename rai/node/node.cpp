@@ -3174,15 +3174,17 @@ void rai::election::confirm_if_quorum (rai::transaction const & transaction_a)
 
 void rai::election::log_votes (rai::tally_t const & tally_a)
 {
-	BOOST_LOG (node.log) << boost::str (boost::format ("Vote tally for root %1%") % status.winner->root ().to_string ());
+	std::stringstream tally;
+	tally << boost::str (boost::format ("\nVote tally for root %1%") % status.winner->root ().to_string ());
 	for (auto i (tally_a.begin ()), n (tally_a.end ()); i != n; ++i)
 	{
-		BOOST_LOG (node.log) << boost::str (boost::format ("Block %1% weight %2%") % i->second->hash ().to_string () % i->first.convert_to<std::string> ());
+		tally << boost::str (boost::format ("\nBlock %1% weight %2%") % i->second->hash ().to_string () % i->first.convert_to<std::string> ());
 	}
 	for (auto i (last_votes.begin ()), n (last_votes.end ()); i != n; ++i)
 	{
-		BOOST_LOG (node.log) << boost::str (boost::format ("%1% %2%") % i->first.to_account () % i->second.hash.to_string ());
+		tally << boost::str (boost::format ("\n%1% %2%") % i->first.to_account () % i->second.hash.to_string ());
 	}
+	BOOST_LOG (node.log) << tally.str ();
 }
 
 rai::election_vote_result rai::election::vote (rai::account rep, uint64_t sequence, rai::block_hash block_hash)
