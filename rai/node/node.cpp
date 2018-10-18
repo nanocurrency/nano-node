@@ -1124,10 +1124,6 @@ rai::process_return rai::block_processor::process_receive_one (rai::transaction 
 	{
 		case rai::process_result::progress:
 		{
-			if (node.config.enable_voting)
-			{
-				generator.add (hash);
-			}
 			if (node.config.logging.ledger_logging ())
 			{
 				std::string block;
@@ -1137,6 +1133,10 @@ rai::process_return rai::block_processor::process_receive_one (rai::transaction 
 			if (node.block_arrival.recent (hash))
 			{
 				node.active.start (block_a);
+				if (node.config.enable_voting)
+				{
+					generator.add (hash);
+				}
 			}
 			queue_unchecked (transaction_a, hash);
 			break;
