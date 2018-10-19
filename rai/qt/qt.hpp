@@ -11,6 +11,7 @@
 
 namespace rai_qt
 {
+static const QString saved_ratio_key = "settings/ratio";
 class wallet;
 class eventloop_processor : public QObject
 {
