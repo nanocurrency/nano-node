@@ -97,18 +97,15 @@ rai::account rai::system::account (rai::transaction const & transaction_a, size_
 	return rai::account (result);
 }
 
-void rai::system::deadline_set (const std::chrono::duration<double, std::nano> & delta_a)
+void rai::system::deadline_set (std::chrono::duration<double, std::nano> const & delta_a)
 {
 	deadline = std::chrono::steady_clock::now () + delta_a * deadline_scaling_factor;
 }
 
-std::error_code rai::system::poll (const std::chrono::nanoseconds & sleep_time)
+std::error_code rai::system::poll (std::chrono::nanoseconds const & wait_time)
 {
 	std::error_code ec;
-	if (service.poll_one () == 0)
-	{
-		std::this_thread::sleep_for (sleep_time);
-	}
+	service.run_one_for (wait_time);
 
 	if (std::chrono::steady_clock::now () > deadline)
 	{

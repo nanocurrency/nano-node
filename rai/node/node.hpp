@@ -6,6 +6,7 @@
 #include <rai/node/nodeconfig.hpp>
 #include <rai/node/portmapping.hpp>
 #include <rai/node/stats.hpp>
+#include <rai/node/voting.hpp>
 #include <rai/node/wallet.hpp>
 #include <rai/secure/ledger.hpp>
 
@@ -516,9 +517,9 @@ private:
 	std::deque<std::pair<std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point>> state_blocks;
 	std::unordered_set<rai::block_hash> blocks_hashes;
 	std::deque<std::shared_ptr<rai::block>> forced;
-	std::deque<std::shared_ptr<rai::block>> processed_active;
 	std::condition_variable condition;
 	rai::node & node;
+	rai::vote_generator generator;
 	std::mutex mutex;
 };
 class node : public std::enable_shared_from_this<rai::node>

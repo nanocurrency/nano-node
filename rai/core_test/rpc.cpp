@@ -683,7 +683,7 @@ TEST (rpc, account_move)
 	request.put ("source", source_id.pub.to_string ());
 	boost::property_tree::ptree keys;
 	boost::property_tree::ptree entry;
-	entry.put ("", key.pub.to_string ());
+	entry.put ("", key.pub.to_account ());
 	keys.push_back (std::make_pair ("", entry));
 	request.add_child ("accounts", keys);
 	test_response response (request, rpc, system.service);
@@ -909,7 +909,7 @@ TEST (rpc, history)
 	ASSERT_NE (nullptr, change);
 	auto send (system.wallet (0)->send_action (rai::test_genesis_key.pub, rai::test_genesis_key.pub, system.nodes[0]->config.receive_minimum.number ()));
 	ASSERT_NE (nullptr, send);
-	auto receive (system.wallet (0)->receive_action (static_cast<rai::send_block &> (*send), rai::test_genesis_key.pub, system.nodes[0]->config.receive_minimum.number ()));
+	auto receive (system.wallet (0)->receive_action (*send, rai::test_genesis_key.pub, system.nodes[0]->config.receive_minimum.number ()));
 	ASSERT_NE (nullptr, receive);
 	auto node0 (system.nodes[0]);
 	rai::genesis genesis;
@@ -972,7 +972,7 @@ TEST (rpc, history_count)
 	ASSERT_NE (nullptr, change);
 	auto send (system.wallet (0)->send_action (rai::test_genesis_key.pub, rai::test_genesis_key.pub, system.nodes[0]->config.receive_minimum.number ()));
 	ASSERT_NE (nullptr, send);
-	auto receive (system.wallet (0)->receive_action (static_cast<rai::send_block &> (*send), rai::test_genesis_key.pub, system.nodes[0]->config.receive_minimum.number ()));
+	auto receive (system.wallet (0)->receive_action (*send, rai::test_genesis_key.pub, system.nodes[0]->config.receive_minimum.number ()));
 	ASSERT_NE (nullptr, receive);
 	rai::rpc rpc (system.service, *system.nodes[0], rai::rpc_config (true));
 	rpc.start ();
@@ -3069,7 +3069,7 @@ TEST (rpc, block_count_type)
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	auto send (system.wallet (0)->send_action (rai::test_genesis_key.pub, rai::test_genesis_key.pub, system.nodes[0]->config.receive_minimum.number ()));
 	ASSERT_NE (nullptr, send);
-	auto receive (system.wallet (0)->receive_action (static_cast<rai::send_block &> (*send), rai::test_genesis_key.pub, system.nodes[0]->config.receive_minimum.number ()));
+	auto receive (system.wallet (0)->receive_action (*send, rai::test_genesis_key.pub, system.nodes[0]->config.receive_minimum.number ()));
 	ASSERT_NE (nullptr, receive);
 	rai::rpc rpc (system.service, *system.nodes[0], rai::rpc_config (true));
 	rpc.start ();

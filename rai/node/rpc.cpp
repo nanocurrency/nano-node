@@ -545,7 +545,7 @@ void rai::rpc_handler::account_move ()
 				for (auto i (accounts_text.begin ()), n (accounts_text.end ()); i != n; ++i)
 				{
 					rai::public_key account;
-					account.decode_hex (i->second.get<std::string> (""));
+					account.decode_account (i->second.get<std::string> (""));
 					accounts.push_back (account);
 				}
 				auto transaction (node.store.tx_begin_write ());
@@ -1392,7 +1392,7 @@ void rai::rpc_handler::confirmation_active ()
 		std::lock_guard<std::mutex> lock (node.active.mutex);
 		for (auto i (node.active.roots.begin ()), n (node.active.roots.end ()); i != n; ++i)
 		{
-			if (i->announcements >= announcements)
+			if (i->announcements >= announcements && !i->election->confirmed && !i->election->aborted)
 			{
 				boost::property_tree::ptree entry;
 				entry.put ("", i->root.to_string ());
