@@ -1132,13 +1132,19 @@ void rai::bootstrap_attempt::add_bulk_push_target (rai::block_hash const & head,
 	bulk_push_targets.push_back (std::make_pair (head, end));
 }
 
+void rai::bootstrap_attempt::lazy_start (rai::block_hash const & hash_a)
+{
+	// Add start blocks
+	if (lazy_keys.find (hash_a) == lazy_keys.end ())
+	{
+		std::unique_lock<std::mutex> lock (lazy_mutex);
+		lazy_keys.push_back (hash_a);
+	}
+	lazy_add (hash_a);
+}
+
 void rai::bootstrap_attempt::lazy_add (rai::block_hash const & hash_a)
 {
-	// Add start block
-	if (lazy_blocks.empty ())
-	{
-		lazy_start = hash_a;
-	}
 	// Add only unknown blocks
 	if (lazy_blocks.find (hash_a) == lazy_blocks.end ())
 	{
@@ -1146,27 +1152,57 @@ void rai::bootstrap_attempt::lazy_add (rai::block_hash const & hash_a)
 	}
 }
 
+bool rai::bootstrap_attempt::lazy_finished ()
+{
+	bool result (true);
+	auto transaction (node->store.tx_begin_read ());
+	std::unique_lock<std::mutex> lock (lazy_mutex);
+	for (auto & hash : lazy_keys)
+	{
+		if (node->store.block_exists (transaction, hash))
+		{
+			// Could be not safe enough
+			lazy_keys.erase (hash);
+		}
+		else
+		{
+			result = false;
+			break;
+		}
+	}
+	return result;
+}
+
 void rai::bootstrap_attempt::lazy_run ()
 {
 	populate_connections ();
 	std::unique_lock<std::mutex> lock (mutex);
-	while (still_pulling () || node->block (lazy_start) == nullptr)
+	while (still_pulling () || !lazy_finished ())
 	{
-		if (!pulls.empty ())
+		while (still_pulling ())
 		{
-			if (!node->block_processor.full ())
+			if (!pulls.empty ())
 			{
-				request_pull (lock);
+				if (!node->block_processor.full ())
+				{
+					request_pull (lock);
+				}
+				else
+				{
+					condition.wait_for (lock, std::chrono::seconds (15));
+				}
 			}
 			else
 			{
-				condition.wait_for (lock, std::chrono::seconds (5));
+				condition.wait_for (lock, std::chrono::seconds (1));
 			}
 		}
-		else
-		{
-			condition.wait_for (lock, std::chrono::seconds (1));
-		}
+		// Flushing may resolve forks which can add more pulls
+		BOOST_LOG (node->log) << "Flushing unchecked blocks";
+		lock.unlock ();
+		node->block_processor.flush ();
+		lock.lock ();
+		BOOST_LOG (node->log) << "Finished flushing unchecked blocks";
 	}
 	if (!stopped)
 	{
@@ -1342,7 +1378,7 @@ void rai::bootstrap_initiator::bootstrap_lazy (rai::block_hash const & hash_a)
 	node.stats.inc (rai::stat::type::bootstrap, rai::stat::detail::initiate, rai::stat::dir::out);
 	attempt = std::make_shared<rai::bootstrap_attempt> (node.shared ());
 	attempt->lazy = true;
-	attempt->lazy_add (hash_a);
+	attempt->lazy_start (hash_a);
 	condition.notify_all ();
 }
 
