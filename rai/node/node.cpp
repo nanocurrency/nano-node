@@ -26,6 +26,12 @@ unsigned constexpr rai::active_transactions::announce_interval_ms;
 size_t constexpr rai::block_arrival::arrival_size_min;
 std::chrono::seconds constexpr rai::block_arrival::arrival_time_min;
 
+namespace rai
+{
+extern unsigned char rai_bootstrap_weights[];
+extern size_t rai_bootstrap_weights_size;
+}
+
 rai::endpoint rai::map_endpoint_to_v6 (rai::endpoint const & endpoint_a)
 {
 	auto endpoint_l (endpoint_a);
@@ -1474,9 +1480,7 @@ stats (config.stat_config)
 	peers.online_weight_minimum = config.online_weight_minimum.number ();
 	if (rai::rai_network == rai::rai_networks::rai_live_network || rai::rai_network == rai::rai_networks::rai_beta_network)
 	{
-		extern const char rai_bootstrap_weights[];
-		extern const size_t rai_bootstrap_weights_size;
-		rai::bufferstream weight_stream ((const uint8_t *)rai_bootstrap_weights, rai_bootstrap_weights_size);
+		rai::bufferstream weight_stream (static_cast<uint8_t *> (rai_bootstrap_weights), rai_bootstrap_weights_size);
 		rai::uint128_union block_height;
 		if (!rai::read (weight_stream, block_height))
 		{
