@@ -2017,9 +2017,9 @@ public:
 class distributed_work : public std::enable_shared_from_this<distributed_work>
 {
 public:
-	distributed_work (std::shared_ptr<rai::node> const & node_a, rai::block_hash const & root_a, std::function<void(uint64_t)> callback_a, unsigned int backoff_a = 1) :
+	distributed_work (std::shared_ptr<rai::node> const & node_a, rai::block_hash const & root_a, std::function<void(uint64_t)> callback_a) :
 	callback (callback_a),
-	backoff (backoff_a),
+	backoff (1),
 	node (node_a),
 	root (root_a),
 	need_resolve (node_a->config.work_peers)
@@ -2235,15 +2235,12 @@ public:
 						BOOST_LOG (node->log) << "Work peer(s) failed to generate work for root " << root.to_string () << ", retrying...";
 					}
 					auto now (std::chrono::steady_clock::now ());
-					auto root_l (root);
-					auto callback_l (callback);
-					std::weak_ptr<rai::node> node_w (node);
-					auto next_backoff (std::min (backoff * 2, (unsigned int)60 * 5));
-					node->alarm.add (now + std::chrono::seconds (backoff), [node_w, root_l, callback_l, next_backoff] {
-						if (auto node_l = node_w.lock ())
+					backoff = std::min (backoff * 2, (unsigned int)60 * 5);
+					std::weak_ptr<distributed_work> this_w (shared_from_this ());
+					node->alarm.add (now + std::chrono::seconds (backoff), [this_w] {
+						if (auto this_l = this_w.lock ())
 						{
-							auto work_generation (std::make_shared<distributed_work> (node_l, root_l, callback_l, next_backoff));
-							work_generation->start ();
+							this_l->start ();
 						}
 					});
 				}
