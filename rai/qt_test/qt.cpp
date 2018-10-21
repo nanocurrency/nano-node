@@ -80,6 +80,7 @@ TEST (wallet, select_account)
 	rai::system system (24000, 1);
 	auto wallet_l (system.nodes[0]->wallets.create (rai::uint256_union ()));
 	rai::public_key key1 (wallet_l->deterministic_insert ());
+	rai::public_key key2 (wallet_l->deterministic_insert ());
 	auto wallet (std::make_shared<rai_qt::wallet> (*test_application, processor, *system.nodes[0], wallet_l, key1));
 	wallet->start ();
 	ASSERT_EQ (key1, wallet->account);
@@ -92,6 +93,7 @@ TEST (wallet, select_account)
 	QTest::mouseClick (wallet->accounts.use_account, Qt::LeftButton);
 	auto key4 (wallet->account);
 	ASSERT_NE (key3, key4);
+	ASSERT_EQ (key2, key4);
 }
 
 TEST (wallet, main)
