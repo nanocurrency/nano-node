@@ -87,6 +87,7 @@ public:
 	void lazy_start (rai::block_hash const &);
 	void lazy_add (rai::block_hash const &);
 	bool lazy_finished ();
+	void lazy_pull_flush ();
 	std::chrono::steady_clock::time_point next_log;
 	std::deque<std::weak_ptr<rai::bootstrap_client>> clients;
 	std::weak_ptr<rai::bootstrap_client> connection_frontier_request;
@@ -108,6 +109,7 @@ private:
 	std::unordered_set<rai::block_hash> lazy_blocks;
 	std::unordered_map<rai::block_hash, std::shared_ptr<rai::state_block>> lazy_state_unknown;
 	std::unordered_set<rai::block_hash> lazy_keys;
+	std::deque<rai::block_hash> lazy_pulls;
 	std::mutex lazy_mutex;
 };
 class frontier_req_client : public std::enable_shared_from_this<rai::frontier_req_client>

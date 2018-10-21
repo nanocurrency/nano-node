@@ -1138,7 +1138,7 @@ void rai::bootstrap_attempt::lazy_start (rai::block_hash const & hash_a)
 	if (lazy_keys.find (hash_a) == lazy_keys.end ())
 	{
 		std::unique_lock<std::mutex> lock (lazy_mutex);
-		lazy_keys.push_back (hash_a);
+		lazy_keys.insert (hash_a);
 	}
 	lazy_add (hash_a);
 }
@@ -1148,8 +1148,22 @@ void rai::bootstrap_attempt::lazy_add (rai::block_hash const & hash_a)
 	// Add only unknown blocks
 	if (lazy_blocks.find (hash_a) == lazy_blocks.end ())
 	{
-		add_pull (rai::pull_info (hash_a, hash_a, rai::block_hash (0)));
+		lazy_pulls.push_back (hash_a);
 	}
+}
+
+void rai::bootstrap_attempt::lazy_pull_flush ()
+{
+	std::unique_lock<std::mutex> lock (lazy_mutex);
+	for (auto & pull_start : lazy_pulls)
+	{
+		// Recheck if block was already processed
+		if (lazy_blocks.find (pull_start) == lazy_blocks.end ())
+		{
+			add_pull (rai::pull_info (pull_start, pull_start, rai::block_hash (0)));
+		}
+	}
+	lazy_pulls.clear ();
 }
 
 bool rai::bootstrap_attempt::lazy_finished ()
@@ -1198,11 +1212,11 @@ void rai::bootstrap_attempt::lazy_run ()
 			}
 		}
 		// Flushing may resolve forks which can add more pulls
-		BOOST_LOG (node->log) << "Flushing unchecked blocks";
+		// Flushing lazy pulls
 		lock.unlock ();
 		node->block_processor.flush ();
+		lazy_pull_flush ();
 		lock.lock ();
-		BOOST_LOG (node->log) << "Finished flushing unchecked blocks";
 	}
 	if (!stopped)
 	{
