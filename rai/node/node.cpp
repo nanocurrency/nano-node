@@ -2555,7 +2555,7 @@ node (node_a),
 root (block_a->root ()),
 status ({ block_a, 0 }),
 confirmed (false),
-aborted (false)
+stopped (false)
 {
 	last_votes.insert (std::make_pair (rai::not_an_account, rai::vote_info{ std::chrono::steady_clock::now (), 0, block_a->hash () }));
 	blocks.insert (std::make_pair (block_a->hash (), block_a));
@@ -2586,9 +2586,9 @@ void rai::election::confirm_once (rai::transaction const & transaction_a)
 	}
 }
 
-void rai::election::abort ()
+void rai::election::stop ()
 {
-	aborted = true;
+	stopped = true;
 }
 
 bool rai::election::have_quorum (rai::tally_t const & tally_a, rai::uint128_t tally_sum)
@@ -2812,7 +2812,7 @@ void rai::active_transactions::announce_votes ()
 	for (auto i (roots.begin ()), n (roots.end ()); i != n; ++i)
 	{
 		auto election_l (i->election);
-		if ((election_l->confirmed || election_l->aborted) && i->announcements >= announcement_min - 1)
+		if ((election_l->confirmed || election_l->stopped) && i->announcements >= announcement_min - 1)
 		{
 			if (election_l->confirmed)
 			{
@@ -2869,16 +2869,16 @@ void rai::active_transactions::announce_votes ()
 			}
 			if (i->announcements < announcement_long || i->announcements % announcement_long == 1)
 			{
-				// Broadcast winner
 				if (node.ledger.could_fit (transaction, *election_l->status.winner))
 				{
+					// Broadcast winner
 					rebroadcast_bundle.push_back (election_l->status.winner);
 				}
 				else
 				{
 					if (i->announcements != 0)
 					{
-						election_l->abort ();
+						election_l->stop ();
 					}
 				}
 			}

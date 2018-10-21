@@ -71,14 +71,14 @@ public:
 	void confirm_if_quorum (rai::transaction const &);
 	void log_votes (rai::tally_t const &);
 	bool publish (std::shared_ptr<rai::block> block_a);
-	void abort ();
+	void stop ();
 	rai::node & node;
 	std::unordered_map<rai::account, rai::vote_info> last_votes;
 	std::unordered_map<rai::block_hash, std::shared_ptr<rai::block>> blocks;
 	rai::block_hash root;
 	rai::election_status status;
 	std::atomic<bool> confirmed;
-	bool aborted;
+	bool stopped;
 	std::unordered_map<rai::block_hash, rai::uint128_t> last_tally;
 };
 class conflict_info
