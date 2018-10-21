@@ -2876,7 +2876,10 @@ void rai::active_transactions::announce_votes ()
 				}
 				else
 				{
-					election_l->abort ();
+					if (i->announcements != 0)
+					{
+						election_l->abort ();
+					}
 				}
 			}
 			if (i->announcements % 4 == 1)
