@@ -66,7 +66,7 @@ class rpc
 {
 public:
 	rpc (boost::asio::io_service &, rai::node &, rai::rpc_config const &);
-	virtual ~rpc() = default;
+	virtual ~rpc () = default;
 	void start ();
 	virtual void accept ();
 	void stop ();
