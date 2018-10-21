@@ -2019,9 +2019,9 @@ class distributed_work : public std::enable_shared_from_this<distributed_work>
 public:
 	distributed_work (std::shared_ptr<rai::node> const & node_a, rai::block_hash const & root_a, std::function<void(uint64_t)> callback_a, unsigned int backoff_a = 1) :
 	callback (callback_a),
+	backoff (backoff_a),
 	node (node_a),
 	root (root_a),
-	backoff (backoff_a),
 	need_resolve (node_a->config.work_peers)
 	{
 		completed.clear ();
@@ -2145,8 +2145,7 @@ public:
 		for (auto const & i : outstanding)
 		{
 			auto host (i.first);
-			auto service (i.second);
-			node->background ([this_l, host, service]() {
+			node->background ([this_l, host]() {
 				std::string request_string;
 				{
 					boost::property_tree::ptree request;
@@ -2976,16 +2975,16 @@ last_bootstrap_attempt (std::chrono::steady_clock::time_point ()),
 last_rep_request (std::chrono::steady_clock::time_point ()),
 last_rep_response (std::chrono::steady_clock::time_point ()),
 rep_weight (0),
-node_id (),
-network_version (rai::protocol_version)
+network_version (rai::protocol_version),
+node_id ()
 {
 }
 
 rai::peer_container::peer_container (rai::endpoint const & self_a) :
 self (self_a),
+legacy_peers (0),
 peer_observer ([](rai::endpoint const &) {}),
-disconnect_observer ([]() {}),
-legacy_peers (0)
+disconnect_observer ([]() {})
 {
 }
 
@@ -3052,8 +3051,8 @@ rai::election_vote_result::election_vote_result (bool replay_a, bool processed_a
 
 rai::election::election (rai::node & node_a, std::shared_ptr<rai::block> block_a, std::function<void(std::shared_ptr<rai::block>)> const & confirmation_action_a) :
 confirmation_action (confirmation_action_a),
-root (block_a->root ()),
 node (node_a),
+root (block_a->root ()),
 status ({ block_a, 0 }),
 confirmed (false),
 aborted (false)
