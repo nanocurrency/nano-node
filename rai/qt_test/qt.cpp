@@ -636,6 +636,7 @@ TEST (wallet, change_seed)
 	rai_qt::eventloop_processor processor;
 	rai::system system (24000, 1);
 	auto key1 (system.wallet (0)->deterministic_insert ());
+	system.wallet (0)->deterministic_insert ();
 	rai::raw_key seed3;
 	{
 		auto transaction (system.wallet (0)->wallets.tx_begin ());
