@@ -14,8 +14,8 @@
 namespace rai
 {
 class block;
-bool work_validate (rai::block_hash const &, uint64_t);
-bool work_validate (rai::block const &);
+bool work_validate (rai::block_hash const &, uint64_t, uint64_t * = nullptr);
+bool work_validate (rai::block const &, uint64_t * = nullptr);
 uint64_t work_value (rai::block_hash const &, uint64_t);
 class opencl_work;
 class work_pool
