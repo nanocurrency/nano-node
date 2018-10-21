@@ -170,6 +170,7 @@ int main (int argc, char * const * argv)
 			{
 				auto begin1 (std::chrono::high_resolution_clock::now ());
 				auto success (argon2_hash (1, rai::wallet_store::kdf_work, 1, password.data (), password.size (), salt.bytes.data (), salt.bytes.size (), result.bytes.data (), result.bytes.size (), NULL, 0, Argon2_d, 0x10));
+				(void)success;
 				auto end1 (std::chrono::high_resolution_clock::now ());
 				std::cerr << boost::str (boost::format ("Derivation time: %1%us\n") % std::chrono::duration_cast<std::chrono::microseconds> (end1 - begin1).count ());
 			}

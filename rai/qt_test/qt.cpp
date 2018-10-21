@@ -80,7 +80,6 @@ TEST (wallet, select_account)
 	rai::system system (24000, 1);
 	auto wallet_l (system.nodes[0]->wallets.create (rai::uint256_union ()));
 	rai::public_key key1 (wallet_l->deterministic_insert ());
-	rai::public_key key2 (wallet_l->deterministic_insert ());
 	auto wallet (std::make_shared<rai_qt::wallet> (*test_application, processor, *system.nodes[0], wallet_l, key1));
 	wallet->start ();
 	ASSERT_EQ (key1, wallet->account);
@@ -637,7 +636,6 @@ TEST (wallet, change_seed)
 	rai_qt::eventloop_processor processor;
 	rai::system system (24000, 1);
 	auto key1 (system.wallet (0)->deterministic_insert ());
-	auto key3 (system.wallet (0)->deterministic_insert ());
 	rai::raw_key seed3;
 	{
 		auto transaction (system.wallet (0)->wallets.tx_begin ());
