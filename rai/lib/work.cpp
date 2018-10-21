@@ -5,14 +5,19 @@
 
 #include <future>
 
-bool rai::work_validate (rai::block_hash const & root_a, uint64_t work_a)
+bool rai::work_validate (rai::block_hash const & root_a, uint64_t work_a, uint64_t * difficulty_a)
 {
-	return rai::work_value (root_a, work_a) < rai::work_pool::publish_threshold;
+	auto value (rai::work_value (root_a, work_a));
+	if (difficulty_a != nullptr)
+	{
+		*difficulty_a = value;
+	}
+	return value < rai::work_pool::publish_threshold;
 }
 
-bool rai::work_validate (rai::block const & block_a)
+bool rai::work_validate (rai::block const & block_a, uint64_t * difficulty_a)
 {
-	return work_validate (block_a.root (), block_a.block_work ());
+	return work_validate (block_a.root (), block_a.block_work (), difficulty_a);
 }
 
 uint64_t rai::work_value (rai::block_hash const & root_a, uint64_t work_a)
