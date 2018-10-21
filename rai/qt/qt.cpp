@@ -2012,29 +2012,29 @@ wallet (wallet_a)
 	layout->addWidget (create);
 	layout->addWidget (back);
 	window->setLayout (layout);
-	QObject::connect (send, &QRadioButton::toggled, [this]() {
-		if (send->isChecked ())
+	QObject::connect (send, &QRadioButton::toggled, [this](bool on) {
+		if (on)
 		{
 			deactivate_all ();
 			activate_send ();
 		}
 	});
-	QObject::connect (receive, &QRadioButton::toggled, [this]() {
-		if (receive->isChecked ())
+	QObject::connect (receive, &QRadioButton::toggled, [this](bool on) {
+		if (on)
 		{
 			deactivate_all ();
 			activate_receive ();
 		}
 	});
-	QObject::connect (open, &QRadioButton::toggled, [this]() {
-		if (open->isChecked ())
+	QObject::connect (open, &QRadioButton::toggled, [this](bool on) {
+		if (on)
 		{
 			deactivate_all ();
 			activate_open ();
 		}
 	});
-	QObject::connect (change, &QRadioButton::toggled, [this]() {
-		if (change->isChecked ())
+	QObject::connect (change, &QRadioButton::toggled, [this](bool on) {
+		if (on)
 		{
 			deactivate_all ();
 			activate_change ();
