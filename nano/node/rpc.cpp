@@ -1739,17 +1739,22 @@ namespace
 class history_visitor : public nano::block_visitor
 {
 public:
-	history_visitor (nano::rpc_handler & handler_a, bool raw_a, nano::transaction & transaction_a, boost::property_tree::ptree & tree_a, nano::block_hash const & hash_a) :
+	history_visitor (nano::rpc_handler & handler_a, bool raw_a, nano::transaction & transaction_a, boost::property_tree::ptree & tree_a, nano::block_hash const & hash_a, std::vector<nano::public_key> & accounts_filter_a) :
 	handler (handler_a),
 	raw (raw_a),
 	transaction (transaction_a),
 	tree (tree_a),
-	hash (hash_a)
+	hash (hash_a),
+	accounts_filter (accounts_filter_a)
 	{
 	}
 	virtual ~history_visitor () = default;
 	void send_block (nano::send_block const & block_a)
 	{
+		if (should_ignore_account (block_a.hashables.destination))
+		{
+			return;
+		}
 		tree.put ("type", "send");
 		auto account (block_a.hashables.destination.to_account ());
 		tree.put ("account", account);
@@ -1764,6 +1769,10 @@ public:
 	}
 	void receive_block (nano::receive_block const & block_a)
 	{
+		if (should_ignore_account (block_a.hashables.source))
+		{
+			return;
+		}
 		tree.put ("type", "receive");
 		auto account (handler.node.ledger.account (transaction, block_a.hashables.source).to_account ());
 		tree.put ("account", account);
@@ -1777,6 +1786,10 @@ public:
 	}
 	void open_block (nano::open_block const & block_a)
 	{
+		if (should_ignore_account (block_a.hashables.source))
+		{
+			return;
+		}
 		if (raw)
 		{
 			tree.put ("type", "open");
@@ -1802,7 +1815,7 @@ public:
 	}
 	void change_block (nano::change_block const & block_a)
 	{
-		if (raw)
+		if (raw && accounts_filter.empty ())
 		{
 			tree.put ("type", "change");
 			tree.put ("representative", block_a.hashables.representative.to_account ());
@@ -1823,6 +1836,11 @@ public:
 		auto previous_balance (handler.node.ledger.balance (transaction, block_a.hashables.previous));
 		if (balance < previous_balance)
 		{
+			if (should_ignore_account (block_a.hashables.link))
+			{
+				tree.clear ();
+				return;
+			}
 			if (raw)
 			{
 				tree.put ("subtype", "send");
@@ -1838,14 +1856,14 @@ public:
 		{
 			if (block_a.hashables.link.is_zero ())
 			{
-				if (raw)
+				if (raw && accounts_filter.empty ())
 				{
 					tree.put ("subtype", "change");
 				}
 			}
 			else if (balance == previous_balance && !handler.node.ledger.epoch_link.is_zero () && handler.node.ledger.is_epoch_link (block_a.hashables.link))
 			{
-				if (raw)
+				if (raw && accounts_filter.empty ())
 				{
 					tree.put ("subtype", "epoch");
 					tree.put ("account", handler.node.ledger.epoch_signer.to_account ());
@@ -1853,6 +1871,11 @@ public:
 			}
 			else
 			{
+				if (should_ignore_account (block_a.hashables.link))
+				{
+					tree.clear ();
+					return;
+				}
 				if (raw)
 				{
 					tree.put ("subtype", "receive");
@@ -1866,16 +1889,48 @@ public:
 			}
 		}
 	}
+	bool should_ignore_account (nano::public_key const & account)
+	{
+		bool ignore (false);
+		if (!accounts_filter.empty ())
+		{
+			if (std::find (accounts_filter.begin (), accounts_filter.end (), account) == accounts_filter.end ())
+			{
+				ignore = true;
+			}
+		}
+		return ignore;
+	}
 	nano::rpc_handler & handler;
 	bool raw;
 	nano::transaction & transaction;
 	boost::property_tree::ptree & tree;
 	nano::block_hash const & hash;
+	std::vector<nano::public_key> & accounts_filter;
 };
 }
 
 void nano::rpc_handler::account_history ()
 {
+	std::vector<nano::public_key> accounts_to_filter;
+	const auto accounts_filter_node = request.get_child_optional ("account_filter");
+	if (accounts_filter_node.is_initialized ())
+	{
+		for (auto & a : (*accounts_filter_node))
+		{
+			nano::public_key account;
+			auto error (account.decode_account (a.second.get<std::string> ("")));
+			if (!error)
+			{
+				accounts_to_filter.push_back (account);
+			}
+			else
+			{
+				ec = nano::error_common::bad_account_number;
+				break;
+			}
+		}
+	}
 	nano::account account;
 	bool output_raw (request.get_optional<bool> ("raw") == true);
 	nano::block_hash hash;
@@ -1924,7 +1979,7 @@ void nano::rpc_handler::account_history ()
 			else
 			{
 				boost::property_tree::ptree entry;
-				history_visitor visitor (*this, output_raw, transaction, entry, hash);
+				history_visitor visitor (*this, output_raw, transaction, entry, hash, accounts_to_filter);
 				block->visit (visitor);
 				if (!entry.empty ())
 				{
