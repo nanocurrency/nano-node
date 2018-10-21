@@ -192,7 +192,6 @@ void rai::system::generate_receive (rai::node & node_a)
 		if (i != node_a.store.pending_end ())
 		{
 			rai::pending_key send_hash (i->first);
-			rai::pending_info info (i->second);
 			send_block = node_a.store.block_get (transaction, send_hash.hash);
 		}
 	}

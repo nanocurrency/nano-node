@@ -174,10 +174,10 @@ void rai::rpc::stop ()
 
 rai::rpc_handler::rpc_handler (rai::node & node_a, rai::rpc & rpc_a, std::string const & body_a, std::string const & request_id_a, std::function<void(boost::property_tree::ptree const &)> const & response_a) :
 body (body_a),
+request_id (request_id_a),
 node (node_a),
 rpc (rpc_a),
-response (response_a),
-request_id (request_id_a)
+response (response_a)
 {
 }
 
@@ -545,7 +545,7 @@ void rai::rpc_handler::account_move ()
 				for (auto i (accounts_text.begin ()), n (accounts_text.end ()); i != n; ++i)
 				{
 					rai::public_key account;
-					account.decode_hex (i->second.get<std::string> (""));
+					account.decode_account (i->second.get<std::string> (""));
 					accounts.push_back (account);
 				}
 				auto transaction (node.store.tx_begin_write ());
@@ -3388,6 +3388,7 @@ void rai::rpc_handler::wallet_work_get ()
 			rai::account account (i->first);
 			uint64_t work (0);
 			auto error_work (wallet->store.work_get (transaction, account, work));
+			(void)error_work;
 			works.put (account.to_account (), rai::to_string_hex (work));
 		}
 		response_l.add_child ("works", works);
@@ -3454,6 +3455,7 @@ void rai::rpc_handler::work_get ()
 		{
 			uint64_t work (0);
 			auto error_work (wallet->store.work_get (transaction, account, work));
+			(void)error_work;
 			response_l.put ("work", rai::to_string_hex (work));
 		}
 		else
