@@ -553,7 +553,7 @@ public:
 				type = "Change";
 				account = block_a.hashables.representative;
 			}
-			else if (balance == previous_balance && !ledger.epoch_link.is_zero () && block_a.hashables.link == ledger.epoch_link)
+			else if (balance == previous_balance && !ledger.epoch_link.is_zero () && ledger.is_epoch_link (block_a.hashables.link))
 			{
 				type = "Epoch";
 				account = ledger.epoch_signer;
