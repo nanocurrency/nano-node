@@ -1,3 +1,5 @@
+#include <cryptopp/hex.h>
+#include <cryptopp/sha.h>
 #include <rai/lib/interface.h>
 #include <rai/node/cli.hpp>
 #include <rai/node/common.hpp>
@@ -36,6 +38,8 @@ void rai::add_node_options (boost::program_options::options_description & descri
 	("diagnostics", "Run internal diagnostics")
 	("key_create", "Generates a adhoc random keypair and prints it to stdout")
 	("key_expand", "Derive public key and account number from <key>")
+	("seed_safe_export", "Export seed from <wallet> using wallet <password> and encrypt with <passphrase>")
+	("seed_safe_import", "Import encrypted seed <file> into <wallet> using wallet <password> and decrypt with <passphrase>")
 	("wallet_add_adhoc", "Insert <key> in to <wallet>")
 	("wallet_create", "Creates a new wallet and prints the ID")
 	("wallet_change_seed", "Changes seed for <wallet> to <key>")
@@ -50,6 +54,7 @@ void rai::add_node_options (boost::program_options::options_description & descri
 	("account", boost::program_options::value<std::string> (), "Defines <account> for other commands")
 	("file", boost::program_options::value<std::string> (), "Defines <file> for other commands")
 	("key", boost::program_options::value<std::string> (), "Defines the <key> for other commands, hex")
+	("passphrase", boost::program_options::value<std::string> (), "Defines encryption <passphrase> for other commands")
 	("password", boost::program_options::value<std::string> (), "Defines <password> for other commands")
 	("wallet", boost::program_options::value<std::string> (), "Defines <wallet> for other commands");
 	// clang-format on
@@ -735,6 +740,196 @@ std::error_code rai::handle_node_options (boost::program_options::variables_map 
 		{
 			auto vote (i->second);
 			std::cerr << boost::str (boost::format ("%1%\n") % vote->to_json ());
+		}
+	}
+	else if (vm.count ("seed_safe_export") == 1)
+	{
+		if (vm.count ("password") == 1 && vm.count ("wallet") == 1 && vm.count ("passphrase") == 1)
+		{
+			rai::uint256_union wallet_id;
+			if (!wallet_id.decode_hex (vm["wallet"].as<std::string> ()))
+			{
+				std::string password = vm["password"].as<std::string> ();
+				std::string passphrase = vm["passphrase"].as<std::string> ();
+				inactive_node node (data_path);
+				auto wallet (node.node->wallets.open (wallet_id));
+				if (wallet != nullptr)
+				{
+					auto transaction (node.node->wallets.tx_begin_write ());
+					if (!wallet->enter_password (transaction, password))
+					{
+						rai::uint256_union derived_key_iv;
+						rai::random_pool.GenerateBlock (derived_key_iv.bytes.data (), derived_key_iv.bytes.size ());
+						std::string derived_key_iv_hex;
+						derived_key_iv.encode_hex (derived_key_iv_hex);
+						rai::raw_key derived_key;
+						wallet->store.kdf.phs (derived_key, passphrase, derived_key_iv);
+						std::string passphrase_hex;
+						derived_key.data.encode_hex (passphrase_hex);
+						rai::uint128_union seed_iv;
+						rai::random_pool.GenerateBlock (seed_iv.bytes.data (), seed_iv.bytes.size ());
+						std::string seed_iv_hex;
+						seed_iv.encode_hex (seed_iv_hex);
+						rai::raw_key seed;
+						wallet->store.seed (seed, transaction);
+						// The sha256 of the seed is used as a checksum, e.g. to verify that the decrypted seed
+						// is the intended one.
+						CryptoPP::SHA256 hash;
+						CryptoPP::byte digest[CryptoPP::SHA256::DIGESTSIZE];
+						hash.CalculateDigest (digest, seed.data.bytes.data (), seed.data.bytes.size ());
+						CryptoPP::HexEncoder encoder;
+						std::string checksum_hex;
+						encoder.Attach (new CryptoPP::StringSink (checksum_hex));
+						encoder.Put (digest, CryptoPP::SHA256::DIGESTSIZE);
+						encoder.MessageEnd ();
+						seed.data.encrypt (seed, derived_key, seed_iv);
+						std::string seed_encrypted_hex;
+						seed.data.encode_hex (seed_encrypted_hex);
+						boost::property_tree::ptree seed_export_json;
+						seed_export_json.add ("type_key", "ARGON2-IV256");
+						seed_export_json.add ("type_cipher", "AES256-CTR-IV128");
+						seed_export_json.add ("type_checksum", "SHA256");
+						seed_export_json.add ("key_iv", derived_key_iv_hex);
+						seed_export_json.add ("seed_iv", seed_iv_hex);
+						seed_export_json.add ("seed_encrypted", seed_encrypted_hex);
+						seed_export_json.add ("checksum", checksum_hex);
+						boost::property_tree::write_json (std::cout, seed_export_json);
+					}
+					else
+					{
+						std::cerr << "Invalid wallet password" << std::endl;
+						ec = rai::error_cli::invalid_arguments;
+					}
+				}
+				else
+				{
+					std::cerr << "Wallet doesn't exist" << std::endl;
+					ec = rai::error_cli::invalid_arguments;
+				}
+			}
+			else
+			{
+				std::cerr << "Invalid wallet id" << std::endl;
+				ec = rai::error_cli::invalid_arguments;
+			}
+		}
+		else
+		{
+			std::cerr << "seed_safe_export requires the <wallet>, <password> and <passphrase> options" << std::endl;
+			ec = rai::error_cli::invalid_arguments;
+		}
+	}
+	else if (vm.count ("seed_safe_import") == 1)
+	{
+		if (vm.count ("password") == 1 && vm.count ("wallet") == 1 && vm.count ("passphrase") == 1 && vm.count ("file") == 1)
+		{
+			rai::uint256_union wallet_id;
+			if (!wallet_id.decode_hex (vm["wallet"].as<std::string> ()))
+			{
+				std::string password = vm["password"].as<std::string> ();
+				std::string passphrase = vm["passphrase"].as<std::string> ();
+				std::string filename = vm["file"].as<std::string> ();
+				inactive_node node (data_path);
+				auto wallet (node.node->wallets.open (wallet_id));
+				if (wallet != nullptr)
+				{
+					auto transaction (node.node->wallets.tx_begin_write ());
+					if (!wallet->enter_password (transaction, password))
+					{
+						try
+						{
+							boost::property_tree::ptree json;
+							boost::property_tree::read_json (filename, json);
+							std::string type_key = json.get<std::string> ("type_key");
+							std::string type_cipher = json.get<std::string> ("type_cipher");
+							std::string type_checksum = json.get<std::string> ("type_checksum");
+							std::string input_key_iv = json.get<std::string> ("key_iv");
+							std::string input_seed_iv = json.get<std::string> ("seed_iv");
+							std::string input_seed_encrypted = json.get<std::string> ("seed_encrypted");
+							std::string input_checksum = json.get<std::string> ("checksum");
+							if (type_key == "ARGON2-IV256" && type_cipher == "AES256-CTR-IV128" && type_checksum == "SHA256")
+							{
+								// Run the passphrase through deriviation using the imported key iv
+								rai::uint256_union derived_key_iv;
+								derived_key_iv.decode_hex (input_key_iv);
+								rai::raw_key derived_key;
+								wallet->store.kdf.phs (derived_key, passphrase, derived_key_iv);
+								rai::uint128_union enc_iv;
+								rai::uint256_union seed_imported;
+								if (!seed_imported.decode_hex (input_seed_encrypted) && !enc_iv.decode_hex (input_seed_iv))
+								{
+									// We're going to print both the old and the new seed as a safety measure, in case the user
+									// imported into the wrong wallet.
+									rai::raw_key current_seed;
+									wallet->store.seed (current_seed, transaction);
+									std::string current_seed_hex;
+									current_seed.data.encode_hex (current_seed_hex);
+									rai::raw_key seed_decryped;
+									seed_decryped.decrypt (seed_imported, derived_key, enc_iv);
+									std::string new_seed_hex;
+									seed_decryped.data.encode_hex (new_seed_hex);
+									// Recalculate checksum
+									CryptoPP::SHA256 hash;
+									CryptoPP::byte digest[CryptoPP::SHA256::DIGESTSIZE];
+									hash.CalculateDigest (digest, seed_decryped.data.bytes.data (), seed_decryped.data.bytes.size ());
+									CryptoPP::HexEncoder encoder;
+									std::string checksum_hex;
+									encoder.Attach (new CryptoPP::StringSink (checksum_hex));
+									encoder.Put (digest, CryptoPP::SHA256::DIGESTSIZE);
+									encoder.MessageEnd ();
+									if (checksum_hex == input_checksum)
+									{
+										std::cout << "Old seed: " << current_seed_hex << std::endl;
+										std::cout << "New seed: " << new_seed_hex << std::endl;
+										wallet->store.seed_set (transaction, seed_decryped);
+										std::cout << "Changed seed successfully" << std::endl;
+									}
+									else
+									{
+										std::cerr << "Invalid seed checksum. Check passphrase and input file and try again." << std::endl;
+										ec = rai::error_cli::invalid_arguments;
+									}
+								}
+								else
+								{
+									std::cerr << "Invalid hex input" << std::endl;
+									ec = rai::error_cli::invalid_arguments;
+								}
+							}
+							else
+							{
+								std::cerr << "Unsupported seed import type" << std::endl;
+								ec = rai::error_cli::invalid_arguments;
+							}
+						}
+						catch (std::runtime_error const & ex)
+						{
+							std::cerr << "Could not import seed from json file: " << ex.what () << std::endl;
+							ec = rai::error_cli::invalid_arguments;
+						}
+					}
+					else
+					{
+						std::cerr << "Invalid wallet password" << std::endl;
+						ec = rai::error_cli::invalid_arguments;
+					}
+				}
+				else
+				{
+					std::cerr << "Wallet doesn't exist" << std::endl;
+					ec = rai::error_cli::invalid_arguments;
+				}
+			}
+			else
+			{
+				std::cerr << "Invalid wallet id" << std::endl;
+				ec = rai::error_cli::invalid_arguments;
+			}
+		}
+		else
+		{
+			std::cerr << "seed_safe_import requires the <wallet>, <password>, <passphrase> and <file> options" << std::endl;
+			ec = rai::error_cli::invalid_arguments;
 		}
 	}
 	else
