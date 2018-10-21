@@ -71,7 +71,7 @@ TEST (wallet, startup_balance)
 	wallet_l->insert_adhoc (key.prv);
 	auto wallet (std::make_shared<rai_qt::wallet> (*test_application, processor, *system.nodes[0], wallet_l, key.pub));
 	wallet->start ();
-	ASSERT_EQ ("Balance: 0 XRB", wallet->self.balance_label->text ().toStdString ());
+	ASSERT_EQ ("Balance: 0 NANO", wallet->self.balance_label->text ().toStdString ());
 }
 
 TEST (wallet, select_account)
@@ -391,7 +391,7 @@ TEST (wallet, create_open_receive)
 	wallet->client_window->show ();
 	QTest::mouseClick (wallet->show_advanced, Qt::LeftButton);
 	QTest::mouseClick (wallet->advanced.create_block, Qt::LeftButton);
-	QTest::mouseClick (wallet->block_creation.open, Qt::LeftButton);
+	wallet->block_creation.open->click ();
 	QTest::keyClicks (wallet->block_creation.source, latest1.to_string ().c_str ());
 	QTest::keyClicks (wallet->block_creation.representative, rai::test_genesis_key.pub.to_account ().c_str ());
 	QTest::mouseClick (wallet->block_creation.create, Qt::LeftButton);
