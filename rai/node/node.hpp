@@ -21,15 +21,6 @@
 #include <boost/multi_index_container.hpp>
 #include <boost/thread/thread.hpp>
 
-namespace boost
-{
-namespace program_options
-{
-	class options_description;
-	class variables_map;
-}
-}
-
 namespace rai
 {
 class node;
