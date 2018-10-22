@@ -66,6 +66,7 @@ class rpc
 {
 public:
 	rpc (boost::asio::io_service &, rai::node &, rai::rpc_config const &);
+	virtual ~rpc () = default;
 	void start ();
 	virtual void accept ();
 	void stop ();
@@ -82,6 +83,7 @@ class rpc_connection : public std::enable_shared_from_this<rai::rpc_connection>
 {
 public:
 	rpc_connection (rai::node &, rai::rpc &);
+	virtual ~rpc_connection () = default;
 	virtual void parse_connection ();
 	virtual void read ();
 	virtual void write_result (std::string body, unsigned version);

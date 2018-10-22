@@ -118,8 +118,8 @@ void rai_qt::self_pane::refresh_balance ()
 }
 
 rai_qt::accounts::accounts (rai_qt::wallet & wallet_a) :
-window (new QWidget),
 wallet_balance_label (new QLabel),
+window (new QWidget),
 layout (new QVBoxLayout),
 model (new QStandardItemModel),
 view (new QTableView),
@@ -755,9 +755,9 @@ wallet (wallet_a)
 rai_qt::stats_viewer::stats_viewer (rai_qt::wallet & wallet_a) :
 window (new QWidget),
 layout (new QVBoxLayout),
+refresh (new QPushButton ("Refresh")),
 model (new QStandardItemModel),
 view (new QTableView),
-refresh (new QPushButton ("Refresh")),
 back (new QPushButton ("Back")),
 wallet (wallet_a)
 {
@@ -1520,7 +1520,7 @@ wallet (wallet_a)
 					auto transaction_l (this->wallet.wallet_m->wallets.tx_begin_write ());
 					this->wallet.wallet_m->store.representative_set (transaction_l, representative_l);
 				}
-				auto block (this->wallet.wallet_m->change_sync (this->wallet.account, representative_l));
+				this->wallet.wallet_m->change_sync (this->wallet.account, representative_l);
 				change_rep->setEnabled (true);
 				show_button_success (*change_rep);
 				change_rep->setText ("Representative was changed");
@@ -1768,22 +1768,36 @@ wallet (wallet_a)
 	QObject::connect (mnano_unit, &QRadioButton::toggled, [this]() {
 		if (mnano_unit->isChecked ())
 		{
+			QSettings ().setValue (saved_ratio_key, ratio_group->id (mnano_unit));
 			this->wallet.change_rendering_ratio (rai::Mxrb_ratio);
 		}
 	});
 	QObject::connect (knano_unit, &QRadioButton::toggled, [this]() {
 		if (knano_unit->isChecked ())
 		{
+			QSettings ().setValue (saved_ratio_key, ratio_group->id (knano_unit));
 			this->wallet.change_rendering_ratio (rai::kxrb_ratio);
 		}
 	});
 	QObject::connect (nano_unit, &QRadioButton::toggled, [this]() {
 		if (nano_unit->isChecked ())
 		{
+			QSettings ().setValue (saved_ratio_key, ratio_group->id (nano_unit));
 			this->wallet.change_rendering_ratio (rai::xrb_ratio);
 		}
 	});
-	mnano_unit->click ();
+	auto selected_ratio_id (QSettings ().value (saved_ratio_key, ratio_group->id (mnano_unit)).toInt ());
+	auto selected_ratio_button = ratio_group->button (selected_ratio_id);
+	assert (selected_ratio_button != nullptr);
+
+	if (selected_ratio_button)
+	{
+		selected_ratio_button->click ();
+	}
+	else
+	{
+		mnano_unit->click ();
+	}
 	QObject::connect (wallet_refresh, &QPushButton::released, [this]() {
 		this->wallet.accounts.refresh ();
 		this->wallet.accounts.refresh_wallet_balance ();
@@ -1998,29 +2012,29 @@ wallet (wallet_a)
 	layout->addWidget (create);
 	layout->addWidget (back);
 	window->setLayout (layout);
-	QObject::connect (send, &QRadioButton::toggled, [this]() {
-		if (send->isChecked ())
+	QObject::connect (send, &QRadioButton::toggled, [this](bool on) {
+		if (on)
 		{
 			deactivate_all ();
 			activate_send ();
 		}
 	});
-	QObject::connect (receive, &QRadioButton::toggled, [this]() {
-		if (receive->isChecked ())
+	QObject::connect (receive, &QRadioButton::toggled, [this](bool on) {
+		if (on)
 		{
 			deactivate_all ();
 			activate_receive ();
 		}
 	});
-	QObject::connect (open, &QRadioButton::toggled, [this]() {
-		if (open->isChecked ())
+	QObject::connect (open, &QRadioButton::toggled, [this](bool on) {
+		if (on)
 		{
 			deactivate_all ();
 			activate_open ();
 		}
 	});
-	QObject::connect (change, &QRadioButton::toggled, [this]() {
-		if (change->isChecked ())
+	QObject::connect (change, &QRadioButton::toggled, [this](bool on) {
+		if (on)
 		{
 			deactivate_all ();
 			activate_change ();

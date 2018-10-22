@@ -20,7 +20,6 @@ TEST (processor_service, bad_send_signature)
 	ASSERT_FALSE (store.account_get (transaction, rai::test_genesis_key.pub, info1));
 	rai::keypair key2;
 	rai::send_block send (info1.head, rai::test_genesis_key.pub, 50, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
-	rai::block_hash hash1 (send.hash ());
 	send.signature.bytes[32] ^= 0x1;
 	ASSERT_EQ (rai::process_result::bad_signature, ledger.process (transaction, send).code);
 }

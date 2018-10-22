@@ -293,6 +293,7 @@ TEST (broadcast, world_broadcast_simulate)
 		}
 	}
 	auto count (heard_count (nodes));
+	(void)count;
 	printf ("");
 }
 
@@ -346,6 +347,7 @@ TEST (broadcast, sqrt_broadcast_simulate)
 		}
 	}
 	auto count (heard_count (nodes));
+	(void)count;
 	printf ("");
 }
 
@@ -368,8 +370,11 @@ TEST (peer_container, random_set)
 		auto list (container.random_set (15));
 	}
 	auto end (std::chrono::steady_clock::now ());
+	(void)end;
 	auto old_ms (std::chrono::duration_cast<std::chrono::milliseconds> (current - old));
+	(void)old_ms;
 	auto new_ms (std::chrono::duration_cast<std::chrono::milliseconds> (end - current));
+	(void)new_ms;
 }
 
 TEST (store, unchecked_load)
@@ -384,6 +389,7 @@ TEST (store, unchecked_load)
 	}
 	auto transaction (node.store.tx_begin ());
 	auto count (node.store.unchecked_count (transaction));
+	(void)count;
 }
 
 TEST (store, vote_load)
