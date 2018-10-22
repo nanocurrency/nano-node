@@ -902,7 +902,6 @@ TEST (network, ipv6_bind_send_ipv4)
 	}
 	ASSERT_EQ (endpoint6, endpoint3);
 	std::array<uint8_t, 16> bytes2;
-	auto finish2 (false);
 	rai::endpoint endpoint4;
 	socket2.async_receive_from (boost::asio::buffer (bytes2.data (), bytes2.size ()), endpoint4, [](boost::system::error_code const & error, size_t size_a) {
 		ASSERT_FALSE (!error);
@@ -938,6 +937,7 @@ TEST (node, port_mapping)
 	node0->port_mapping.refresh_devices ();
 	node0->port_mapping.start ();
 	auto end (std::chrono::steady_clock::now () + std::chrono::seconds (500));
+	(void)end;
 	//while (std::chrono::steady_clock::now () < end)
 	{
 		system.poll ();

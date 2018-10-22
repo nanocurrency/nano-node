@@ -1337,6 +1337,7 @@ void rai::wallets::search_pending_all ()
 
 void rai::wallets::destroy (rai::uint256_union const & id_a)
 {
+	std::lock_guard <std::mutex> lock (mutex);
 	auto transaction (node.store.tx_begin_write ());
 	auto existing (items.find (id_a));
 	assert (existing != items.end ());
