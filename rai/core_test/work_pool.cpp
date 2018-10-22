@@ -96,3 +96,30 @@ TEST (work, opencl_config)
 	ASSERT_EQ (2, config2.device);
 	ASSERT_EQ (3, config2.threads);
 }
+
+TEST (work, difficulty)
+{
+	rai::work_pool pool (std::numeric_limits<unsigned>::max (), nullptr);
+	rai::uint256_union root (1);
+	uint64_t difficulty1 (0xff00000000000000);
+	uint64_t difficulty2 (0xfff0000000000000);
+	uint64_t difficulty3 (0xffff000000000000);
+	uint64_t work1 (0);
+	uint64_t nonce1 (0);
+	do
+	{
+		work1 = pool.generate (root, difficulty1);
+		rai::work_validate (root, work1, &nonce1);
+	}
+	while (nonce1 > difficulty2);
+	ASSERT_GT (nonce1, difficulty1);
+	uint64_t work2 (0);
+	uint64_t nonce2 (0);
+	do
+	{
+		work2 = pool.generate (root, difficulty2);
+		rai::work_validate (root, work2, &nonce2);
+	}
+	while (nonce2 > difficulty3);
+	ASSERT_GT (nonce2, difficulty2);
+}
