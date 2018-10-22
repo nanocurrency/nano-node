@@ -953,7 +953,7 @@ void rai::block_processor::add (std::shared_ptr<rai::block> block_a, std::chrono
 		std::lock_guard<std::mutex> lock (mutex);
 		if (blocks_hashes.find (block_a->hash ()) == blocks_hashes.end ())
 		{
-			if (block_a->type () == rai::block_type::state && block_a->link () != node.ledger.epoch_link)
+			if (block_a->type () == rai::block_type::state && !node.ledger.is_epoch_link (block_a->link ()))
 			{
 				state_blocks.push_back (std::make_pair (block_a, origination));
 			}
@@ -2764,7 +2764,7 @@ bool rai::node::validate_block_by_previous (rai::transaction const & transaction
 		}
 		if (!result)
 		{
-			if (block_l->hashables.balance == prev_balance && !ledger.epoch_link.is_zero () && block_l->hashables.link == ledger.epoch_link)
+			if (block_l->hashables.balance == prev_balance && !ledger.epoch_link.is_zero () && ledger.is_epoch_link (block_l->hashables.link))
 			{
 				account = ledger.epoch_signer;
 			}
