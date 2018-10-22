@@ -720,7 +720,7 @@ node (node_a),
 account_count (0),
 total_blocks (0),
 stopped (false),
-lazy (false)
+lazy_mode (false)
 {
 	BOOST_LOG (node->log) << "Starting bootstrap attempt";
 	node->bootstrap_initiator.notify_listeners (true);
@@ -789,7 +789,7 @@ void rai::bootstrap_attempt::request_pull (std::unique_lock<std::mutex> & lock_a
 		auto pull (pulls.front ());
 		pulls.pop_front ();
 		// Do not request already known blocks
-		if (!lazy || lazy_blocks.find (pull.account) == lazy_blocks.end ())
+		if (!lazy_mode || lazy_blocks.find (pull.account) == lazy_blocks.end ())
 		{
 			// The bulk_pull_client destructor attempt to requeue_pull which can cause a deadlock if this is the last reference
 			// Dispatch request in an external thread in case it needs to be destroyed
@@ -1230,7 +1230,7 @@ void rai::bootstrap_attempt::lazy_run ()
 bool rai::bootstrap_attempt::process_block (std::shared_ptr<rai::block> block_a)
 {
 	bool stop_pull (false);
-	if (lazy)
+	if (lazy_mode)
 	{
 		auto hash (block_a->hash ());
 		// Processing new blocks
@@ -1381,17 +1381,23 @@ void rai::bootstrap_initiator::bootstrap (rai::endpoint const & endpoint_a, bool
 	}
 }
 
-void rai::bootstrap_initiator::bootstrap_lazy (rai::block_hash const & hash_a)
+void rai::bootstrap_initiator::bootstrap_lazy (rai::block_hash const & hash_a, bool force)
 {
 	std::unique_lock<std::mutex> lock (mutex);
-	while (attempt != nullptr)
+	if (force)
 	{
-		attempt->stop ();
-		condition.wait (lock);
+		while (attempt != nullptr)
+		{
+			attempt->stop ();
+			condition.wait (lock);
+		}
 	}
 	node.stats.inc (rai::stat::type::bootstrap, rai::stat::detail::initiate, rai::stat::dir::out);
-	attempt = std::make_shared<rai::bootstrap_attempt> (node.shared ());
-	attempt->lazy = true;
+	if (attempt == nullptr)
+	{
+		attempt = std::make_shared<rai::bootstrap_attempt> (node.shared ());
+		attempt->lazy_mode = true;
+	}
 	attempt->lazy_start (hash_a);
 	condition.notify_all ();
 }
@@ -1404,7 +1410,7 @@ void rai::bootstrap_initiator::run_bootstrap ()
 		if (attempt != nullptr)
 		{
 			lock.unlock ();
-			if (!attempt->lazy)
+			if (!attempt->lazy_mode)
 			{
 				attempt->run ();
 			}

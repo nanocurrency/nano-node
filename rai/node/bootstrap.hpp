@@ -102,7 +102,7 @@ public:
 	std::atomic<uint64_t> total_blocks;
 	std::vector<std::pair<rai::block_hash, rai::block_hash>> bulk_push_targets;
 	bool stopped;
-	bool lazy;
+	bool lazy_mode;
 	std::mutex mutex;
 	std::condition_variable condition;
 private:
@@ -189,7 +189,7 @@ public:
 	~bootstrap_initiator ();
 	void bootstrap (rai::endpoint const &, bool add_to_peers = true);
 	void bootstrap ();
-	void bootstrap_lazy (rai::block_hash const &);
+	void bootstrap_lazy (rai::block_hash const &, bool = false);
 	void run_bootstrap ();
 	void notify_listeners (bool);
 	void add_observer (std::function<void(bool)> const &);
