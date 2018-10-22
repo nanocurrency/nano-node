@@ -878,13 +878,13 @@ void rai::bootstrap_attempt::run ()
 	if (!stopped)
 	{
 		BOOST_LOG (node->log) << "Completed pulls";
-	}
-	// Start lazy bootstrap if some lazy keys were inserted
-	if (!lazy_keys.empty ())
-	{
-		lock.unlock ();
-		lazy_run ();
-		lock.lock ();
+		// Start lazy bootstrap if some lazy keys were inserted
+		if (!lazy_keys.empty ())
+		{
+			lock.unlock ();
+			lazy_run ();
+			lock.lock ();
+		}
 	}
 	request_push (lock);
 	stopped = true;

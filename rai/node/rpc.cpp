@@ -1351,6 +1351,30 @@ void rai::rpc_handler::bootstrap_lazy ()
 	response_errors ();
 }
 
+void rai::rpc_handler::bootstrap_status ()
+{
+	auto attempt (node.bootstrap_initiator.current_attempt ());
+	if (attempt != nullptr)
+	{
+		response_l.put ("clients", std::to_string (attempt->clients.size ()));
+		response_l.put ("pulls", std::to_string (attempt->pulls.size ()));
+		response_l.put ("pulling", std::to_string (attempt->pulling));
+		response_l.put ("connections", std::to_string (attempt->connections));
+		response_l.put ("idle", std::to_string (attempt->idle.size ()));
+		response_l.put ("lazy_mode", attempt->lazy_mode);
+		response_l.put ("lazy_blocks", std::to_string (attempt->lazy_blocks.size ()));
+		response_l.put ("lazy_state_unknown", std::to_string (attempt->lazy_state_unknown.size ()));
+		response_l.put ("lazy_pulls", std::to_string (attempt->lazy_pulls.size ()));
+		response_l.put ("lazy_keys", std::to_string (attempt->lazy_keys.size ()));
+		response_l.put ("lazy_key_1", (*(attempt->lazy_keys.begin ())).to_string ());
+	}
+	else
+	{
+		response_l.put ("active", "0");
+	}
+	response_errors ();
+}
+
 void rai::rpc_handler::chain (bool successors)
 {
 	auto hash (hash_impl ("block"));
@@ -3820,6 +3844,10 @@ void rai::rpc_handler::process_request ()
 			else if (action == "bootstrap_lazy")
 			{
 				bootstrap_lazy ();
+			}
+			else if (action == "_bootstrap_status")
+			{
+				bootstrap_status ();
 			}
 			else if (action == "chain")
 			{
