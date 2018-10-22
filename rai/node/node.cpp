@@ -1891,13 +1891,18 @@ public:
 class distributed_work : public std::enable_shared_from_this<distributed_work>
 {
 public:
-	distributed_work (std::shared_ptr<rai::node> const & node_a, rai::block_hash const & root_a, std::function<void(uint64_t)> callback_a, unsigned int backoff_a = 1) :
+	distributed_work (std::shared_ptr<rai::node> const & node_a, rai::block_hash const & root_a, std::function<void(uint64_t)> callback_a) : distributed_work (1, node_a, root_a, callback_a)
+	{
+		assert (node_a != nullptr);
+	}
+	distributed_work (unsigned int backoff_a, std::shared_ptr<rai::node> const & node_a, rai::block_hash const & root_a, std::function<void(uint64_t)> callback_a) :
 	callback (callback_a),
 	backoff (backoff_a),
 	node (node_a),
 	root (root_a),
 	need_resolve (node_a->config.work_peers)
 	{
+		assert (node_a != nullptr);
 		completed.clear ();
 	}
 	void start ()
@@ -2116,7 +2121,7 @@ public:
 					node->alarm.add (now + std::chrono::seconds (backoff), [node_w, root_l, callback_l, next_backoff] {
 						if (auto node_l = node_w.lock ())
 						{
-							auto work_generation (std::make_shared<distributed_work> (node_l, root_l, callback_l, next_backoff));
+							auto work_generation (std::make_shared<distributed_work> (next_backoff, node_l, root_l, callback_l));
 							work_generation->start ();
 						}
 					});
