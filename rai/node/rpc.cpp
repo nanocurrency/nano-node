@@ -174,10 +174,10 @@ void rai::rpc::stop ()
 
 rai::rpc_handler::rpc_handler (rai::node & node_a, rai::rpc & rpc_a, std::string const & body_a, std::string const & request_id_a, std::function<void(boost::property_tree::ptree const &)> const & response_a) :
 body (body_a),
+request_id (request_id_a),
 node (node_a),
 rpc (rpc_a),
-response (response_a),
-request_id (request_id_a)
+response (response_a)
 {
 }
 
@@ -545,7 +545,7 @@ void rai::rpc_handler::account_move ()
 				for (auto i (accounts_text.begin ()), n (accounts_text.end ()); i != n; ++i)
 				{
 					rai::public_key account;
-					account.decode_hex (i->second.get<std::string> (""));
+					account.decode_account (i->second.get<std::string> (""));
 					accounts.push_back (account);
 				}
 				auto transaction (node.store.tx_begin_write ());
@@ -769,12 +769,10 @@ void rai::rpc_handler::accounts_pending ()
 		if (!ec)
 		{
 			boost::property_tree::ptree peers_l;
-			rai::account end (account.number () + 1);
-			for (auto i (node.store.pending_begin (transaction, rai::pending_key (account, 0))), n (node.store.pending_begin (transaction, rai::pending_key (end, 0))); i != n && peers_l.size () < count; ++i)
+			for (auto i (node.store.pending_begin (transaction, rai::pending_key (account, 0))); rai::pending_key (i->first).account == account && peers_l.size () < count; ++i)
 			{
 				rai::pending_key key (i->first);
-				std::shared_ptr<rai::block> block (node.store.block_get (transaction, key.hash));
-				assert (block);
+				std::shared_ptr<rai::block> block (include_active ? nullptr : node.store.block_get (transaction, key.hash));
 				if (include_active || (block && !node.active.active (*block)))
 				{
 					if (threshold.is_zero () && !source)
@@ -1382,7 +1380,7 @@ void rai::rpc_handler::confirmation_active ()
 		std::lock_guard<std::mutex> lock (node.active.mutex);
 		for (auto i (node.active.roots.begin ()), n (node.active.roots.end ()); i != n; ++i)
 		{
-			if (i->announcements >= announcements)
+			if (i->announcements >= announcements && !i->election->confirmed && !i->election->stopped)
 			{
 				boost::property_tree::ptree entry;
 				entry.put ("", i->root.to_string ());
@@ -1697,7 +1695,7 @@ public:
 					tree.put ("subtype", "change");
 				}
 			}
-			else if (balance == previous_balance && !handler.node.ledger.epoch_link.is_zero () && block_a.hashables.link == handler.node.ledger.epoch_link)
+			else if (balance == previous_balance && !handler.node.ledger.epoch_link.is_zero () && handler.node.ledger.is_epoch_link (block_a.hashables.link))
 			{
 				if (raw)
 				{
@@ -1784,8 +1782,8 @@ void rai::rpc_handler::account_history ()
 							entry.put ("signature", block->block_signature ().to_string ());
 						}
 						history.push_back (std::make_pair ("", entry));
+						--count;
 					}
-					--count;
 				}
 				hash = block->previous ();
 				block = node.store.block_get (transaction, hash);
@@ -2069,12 +2067,10 @@ void rai::rpc_handler::pending ()
 	{
 		boost::property_tree::ptree peers_l;
 		auto transaction (node.store.tx_begin_read ());
-		rai::account end (account.number () + 1);
-		for (auto i (node.store.pending_begin (transaction, rai::pending_key (account, 0))), n (node.store.pending_begin (transaction, rai::pending_key (end, 0))); i != n && peers_l.size () < count; ++i)
+		for (auto i (node.store.pending_begin (transaction, rai::pending_key (account, 0))); rai::pending_key (i->first).account == account && peers_l.size () < count; ++i)
 		{
 			rai::pending_key key (i->first);
-			std::shared_ptr<rai::block> block (node.store.block_get (transaction, key.hash));
-			assert (block);
+			std::shared_ptr<rai::block> block (include_active ? nullptr : node.store.block_get (transaction, key.hash));
 			if (include_active || (block && !node.active.active (*block)))
 			{
 				if (threshold.is_zero () && !source && !min_version)
@@ -2899,6 +2895,7 @@ void rai::rpc_handler::version ()
 {
 	response_l.put ("rpc_version", "1");
 	response_l.put ("store_version", std::to_string (node.store_version ()));
+	response_l.put ("protocol_version", std::to_string (rai::protocol_version));
 	response_l.put ("node_vendor", boost::str (boost::format ("RaiBlocks %1%.%2%") % RAIBLOCKS_VERSION_MAJOR % RAIBLOCKS_VERSION_MINOR));
 	response_errors ();
 }
@@ -3258,12 +3255,10 @@ void rai::rpc_handler::wallet_pending ()
 		{
 			rai::account account (i->first);
 			boost::property_tree::ptree peers_l;
-			rai::account end (account.number () + 1);
-			for (auto ii (node.store.pending_begin (transaction, rai::pending_key (account, 0))), nn (node.store.pending_begin (transaction, rai::pending_key (end, 0))); ii != nn && peers_l.size () < count; ++ii)
+			for (auto ii (node.store.pending_begin (transaction, rai::pending_key (account, 0))); rai::pending_key (ii->first).account == account && peers_l.size () < count; ++ii)
 			{
 				rai::pending_key key (ii->first);
-				std::shared_ptr<rai::block> block (node.store.block_get (transaction, key.hash));
-				assert (block);
+				std::shared_ptr<rai::block> block (include_active ? nullptr : node.store.block_get (transaction, key.hash));
 				if (include_active || (block && !node.active.active (*block)))
 				{
 					if (threshold.is_zero () && !source)
@@ -3393,6 +3388,7 @@ void rai::rpc_handler::wallet_work_get ()
 			rai::account account (i->first);
 			uint64_t work (0);
 			auto error_work (wallet->store.work_get (transaction, account, work));
+			(void)error_work;
 			works.put (account.to_account (), rai::to_string_hex (work));
 		}
 		response_l.add_child ("works", works);
@@ -3459,6 +3455,7 @@ void rai::rpc_handler::work_get ()
 		{
 			uint64_t work (0);
 			auto error_work (wallet->store.work_get (transaction, account, work));
+			(void)error_work;
 			response_l.put ("work", rai::to_string_hex (work));
 		}
 		else

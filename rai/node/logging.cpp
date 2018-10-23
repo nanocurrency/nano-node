@@ -20,9 +20,9 @@ log_rpc_value (true),
 bulk_pull_logging_value (false),
 work_generation_time_value (true),
 log_to_cerr_value (false),
+flush (true),
 max_size (16 * 1024 * 1024),
-rotation_size (4 * 1024 * 1024),
-flush (true)
+rotation_size (4 * 1024 * 1024)
 {
 }
 

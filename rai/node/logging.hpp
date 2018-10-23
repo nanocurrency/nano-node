@@ -6,6 +6,8 @@
 #include <boost/property_tree/ptree.hpp>
 #include <cstdint>
 
+#define FATAL_LOG_PREFIX "FATAL ERROR: "
+
 namespace rai
 {
 class logging

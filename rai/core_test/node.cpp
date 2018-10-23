@@ -38,6 +38,7 @@ TEST (node, password_fanout)
 	rai::alarm alarm (*service);
 	auto path (rai::unique_path ());
 	rai::node_config config;
+	config.peering_port = 24000;
 	config.logging.init (path);
 	rai::work_pool work (std::numeric_limits<unsigned>::max (), nullptr);
 	config.password_fanout = 10;
@@ -197,11 +198,14 @@ TEST (node, node_receive_quorum)
 		done = info->announcements > rai::active_transactions::announcement_min;
 		ASSERT_NO_ERROR (system.poll ());
 	}
+	rai::system system2 (24001, 1);
+	system2.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	ASSERT_TRUE (system.nodes[0]->balance (key.pub).is_zero ());
-	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	system.nodes[0]->network.send_keepalive (system2.nodes[0]->network.endpoint ());
 	while (system.nodes[0]->balance (key.pub).is_zero ())
 	{
 		ASSERT_NO_ERROR (system.poll ());
+		ASSERT_NO_ERROR (system2.poll ());
 	}
 }
 
@@ -1536,15 +1540,30 @@ TEST (node, online_reps)
 
 TEST (node, block_confirm)
 {
-	rai::system system (24000, 1);
+	rai::system system (24000, 2);
 	rai::genesis genesis;
-	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
-	auto send1 (std::make_shared<rai::state_block> (rai::test_genesis_key.pub, genesis.hash (), rai::test_genesis_key.pub, rai::genesis_amount - rai::Gxrb_ratio, rai::test_genesis_key.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.nodes[0]->work_generate_blocking (genesis.hash ())));
+	rai::keypair key;
+	system.wallet (1)->insert_adhoc (rai::test_genesis_key.prv);
+	auto send1 (std::make_shared<rai::state_block> (rai::test_genesis_key.pub, genesis.hash (), rai::test_genesis_key.pub, rai::genesis_amount - rai::Gxrb_ratio, key.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.nodes[0]->work_generate_blocking (genesis.hash ())));
+	system.nodes[0]->block_processor.add (send1, std::chrono::steady_clock::now ());
+	system.nodes[1]->block_processor.add (send1, std::chrono::steady_clock::now ());
+	system.deadline_set (std::chrono::seconds (5));
+	while (!system.nodes[0]->ledger.block_exists (send1->hash ()) || !system.nodes[1]->ledger.block_exists (send1->hash ()))
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_TRUE (system.nodes[0]->ledger.block_exists (send1->hash ()));
+	ASSERT_TRUE (system.nodes[1]->ledger.block_exists (send1->hash ()));
+	auto send2 (std::make_shared<rai::state_block> (rai::test_genesis_key.pub, send1->hash (), rai::test_genesis_key.pub, rai::genesis_amount - rai::Gxrb_ratio * 2, key.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.nodes[0]->work_generate_blocking (send1->hash ())));
 	{
 		auto transaction (system.nodes[0]->store.tx_begin (true));
-		ASSERT_EQ (rai::process_result::progress, system.nodes[0]->ledger.process (transaction, *send1).code);
+		ASSERT_EQ (rai::process_result::progress, system.nodes[0]->ledger.process (transaction, *send2).code);
 	}
-	system.nodes[0]->block_confirm (send1);
+	{
+		auto transaction (system.nodes[1]->store.tx_begin (true));
+		ASSERT_EQ (rai::process_result::progress, system.nodes[1]->ledger.process (transaction, *send2).code);
+	}
+	system.nodes[0]->block_confirm (send2);
 	ASSERT_TRUE (system.nodes[0]->active.confirmed.empty ());
 	system.deadline_set (10s);
 	while (system.nodes[0]->active.confirmed.empty ())
@@ -1813,4 +1832,82 @@ TEST (node, fork_invalid_block_signature_vote_by_hash)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (system.nodes[0]->block (send2.hash ())->block_signature (), send2.block_signature ());
+}
+
+TEST (node, block_processor_signatures)
+{
+	rai::system system0 (24000, 1);
+	auto & node1 (*system0.nodes[0]);
+	system0.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	rai::block_hash latest (system0.nodes[0]->latest (rai::test_genesis_key.pub));
+	rai::keypair key1;
+	auto send1 (std::make_shared<rai::state_block> (rai::test_genesis_key.pub, latest, rai::test_genesis_key.pub, rai::genesis_amount - rai::Gxrb_ratio, key1.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
+	node1.work_generate_blocking (*send1);
+	rai::keypair key2;
+	auto send2 (std::make_shared<rai::state_block> (rai::test_genesis_key.pub, send1->hash (), rai::test_genesis_key.pub, rai::genesis_amount - 2 * rai::Gxrb_ratio, key2.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
+	node1.work_generate_blocking (*send2);
+	rai::keypair key3;
+	auto send3 (std::make_shared<rai::state_block> (rai::test_genesis_key.pub, send2->hash (), rai::test_genesis_key.pub, rai::genesis_amount - 3 * rai::Gxrb_ratio, key3.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
+	node1.work_generate_blocking (*send3);
+	// Invalid signature bit
+	auto send4 (std::make_shared<rai::state_block> (rai::test_genesis_key.pub, send3->hash (), rai::test_genesis_key.pub, rai::genesis_amount - 4 * rai::Gxrb_ratio, key3.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
+	node1.work_generate_blocking (*send4);
+	send4->signature.bytes[32] ^= 0x1;
+	// Invalid signature bit (force)
+	auto send5 (std::make_shared<rai::state_block> (rai::test_genesis_key.pub, send3->hash (), rai::test_genesis_key.pub, rai::genesis_amount - 5 * rai::Gxrb_ratio, key3.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
+	node1.work_generate_blocking (*send5);
+	send5->signature.bytes[31] ^= 0x1;
+	// Invalid signature to unchecked
+	{
+		auto transaction (node1.store.tx_begin_write ());
+		node1.store.unchecked_put (transaction, send5->previous (), send5);
+	}
+	auto receive1 (std::make_shared<rai::state_block> (key1.pub, 0, rai::test_genesis_key.pub, rai::Gxrb_ratio, send1->hash (), key1.prv, key1.pub, 0));
+	node1.work_generate_blocking (*receive1);
+	auto receive2 (std::make_shared<rai::state_block> (key2.pub, 0, rai::test_genesis_key.pub, rai::Gxrb_ratio, send2->hash (), key2.prv, key2.pub, 0));
+	node1.work_generate_blocking (*receive2);
+	// Invalid private key
+	auto receive3 (std::make_shared<rai::state_block> (key3.pub, 0, rai::test_genesis_key.pub, rai::Gxrb_ratio, send3->hash (), key2.prv, key3.pub, 0));
+	node1.work_generate_blocking (*receive3);
+	node1.process_active (send1);
+	node1.process_active (send2);
+	node1.process_active (send3);
+	node1.process_active (send4);
+	node1.process_active (receive1);
+	node1.process_active (receive2);
+	node1.process_active (receive3);
+	node1.block_processor.flush ();
+	node1.block_processor.force (send5);
+	node1.block_processor.flush ();
+	auto transaction (node1.store.tx_begin_read ());
+	ASSERT_TRUE (node1.store.block_exists (transaction, send1->hash ()));
+	ASSERT_TRUE (node1.store.block_exists (transaction, send2->hash ()));
+	ASSERT_TRUE (node1.store.block_exists (transaction, send3->hash ()));
+	ASSERT_FALSE (node1.store.block_exists (transaction, send4->hash ()));
+	ASSERT_FALSE (node1.store.block_exists (transaction, send5->hash ()));
+	ASSERT_TRUE (node1.store.block_exists (transaction, receive1->hash ()));
+	ASSERT_TRUE (node1.store.block_exists (transaction, receive2->hash ()));
+	ASSERT_FALSE (node1.store.block_exists (transaction, receive3->hash ()));
+}
+
+/*
+ *  State blocks go through a different signature path, ensure invalidly signed state blocks are rejected
+ */
+TEST (node, block_processor_reject_state)
+{
+	rai::system system (24000, 1);
+	auto & node (*system.nodes[0]);
+	rai::genesis genesis;
+	auto send1 (std::make_shared<rai::state_block> (rai::test_genesis_key.pub, genesis.hash (), rai::test_genesis_key.pub, rai::genesis_amount - rai::Gxrb_ratio, rai::test_genesis_key.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
+	node.work_generate_blocking (*send1);
+	send1->signature.bytes[0] ^= 1;
+	ASSERT_FALSE (node.ledger.block_exists (send1->hash ()));
+	node.process_active (send1);
+	node.block_processor.flush ();
+	ASSERT_FALSE (node.ledger.block_exists (send1->hash ()));
+	auto send2 (std::make_shared<rai::state_block> (rai::test_genesis_key.pub, genesis.hash (), rai::test_genesis_key.pub, rai::genesis_amount - 2 * rai::Gxrb_ratio, rai::test_genesis_key.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
+	node.work_generate_blocking (*send2);
+	node.process_active (send2);
+	node.block_processor.flush ();
+	ASSERT_TRUE (node.ledger.block_exists (send2->hash ()));
 }

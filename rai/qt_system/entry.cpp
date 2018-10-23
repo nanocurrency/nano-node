@@ -6,6 +6,9 @@
 int main (int argc, char ** argv)
 {
 	QApplication application (argc, argv);
+	QCoreApplication::setOrganizationName ("Nano");
+	QCoreApplication::setOrganizationDomain ("nano.org");
+	QCoreApplication::setApplicationName ("Nano Wallet");
 	rai_qt::eventloop_processor processor;
 	static int count (16);
 	rai::system system (24000, count);

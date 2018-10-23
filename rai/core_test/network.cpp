@@ -902,7 +902,6 @@ TEST (network, ipv6_bind_send_ipv4)
 	}
 	ASSERT_EQ (endpoint6, endpoint3);
 	std::array<uint8_t, 16> bytes2;
-	auto finish2 (false);
 	rai::endpoint endpoint4;
 	socket2.async_receive_from (boost::asio::buffer (bytes2.data (), bytes2.size ()), endpoint4, [](boost::system::error_code const & error, size_t size_a) {
 		ASSERT_FALSE (!error);
@@ -938,6 +937,7 @@ TEST (node, port_mapping)
 	node0->port_mapping.refresh_devices ();
 	node0->port_mapping.start ();
 	auto end (std::chrono::steady_clock::now () + std::chrono::seconds (500));
+	(void)end;
 	//while (std::chrono::steady_clock::now () < end)
 	{
 		system.poll ();
@@ -1013,7 +1013,7 @@ TEST (udp_buffer, one_buffer_multithreaded)
 {
 	rai::stat stats;
 	rai::udp_buffer buffer (stats, 512, 1);
-	std::thread thread ([&buffer]() {
+	boost::thread thread ([&buffer]() {
 		auto done (false);
 		while (!done)
 		{
@@ -1038,10 +1038,10 @@ TEST (udp_buffer, many_buffers_multithreaded)
 {
 	rai::stat stats;
 	rai::udp_buffer buffer (stats, 512, 16);
-	std::vector<std::thread> threads;
+	std::vector<boost::thread> threads;
 	for (auto i (0); i < 4; ++i)
 	{
-		threads.push_back (std::thread ([&buffer]() {
+		threads.push_back (boost::thread ([&buffer]() {
 			auto done (false);
 			while (!done)
 			{
@@ -1057,7 +1057,7 @@ TEST (udp_buffer, many_buffers_multithreaded)
 	std::atomic_int count (0);
 	for (auto i (0); i < 4; ++i)
 	{
-		threads.push_back (std::thread ([&buffer, &count]() {
+		threads.push_back (boost::thread ([&buffer, &count]() {
 			auto done (false);
 			for (auto i (0); !done && i < 1000; ++i)
 			{

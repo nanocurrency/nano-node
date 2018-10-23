@@ -87,6 +87,65 @@ void rai::message_header::ipv4_only_set (bool value_a)
 // MTU - IP header - UDP header
 const size_t rai::message_parser::max_safe_udp_message_size = 508;
 
+std::string rai::message_parser::status_string ()
+{
+	switch (status)
+	{
+		case rai::message_parser::parse_status::success:
+		{
+			return "success";
+		}
+		case rai::message_parser::parse_status::insufficient_work:
+		{
+			return "insufficient_work";
+		}
+		case rai::message_parser::parse_status::invalid_header:
+		{
+			return "invalid_header";
+		}
+		case rai::message_parser::parse_status::invalid_message_type:
+		{
+			return "invalid_message_type";
+		}
+		case rai::message_parser::parse_status::invalid_keepalive_message:
+		{
+			return "invalid_keepalive_message";
+		}
+		case rai::message_parser::parse_status::invalid_publish_message:
+		{
+			return "invalid_publish_message";
+		}
+		case rai::message_parser::parse_status::invalid_confirm_req_message:
+		{
+			return "invalid_confirm_req_message";
+		}
+		case rai::message_parser::parse_status::invalid_confirm_ack_message:
+		{
+			return "invalid_confirm_ack_message";
+		}
+		case rai::message_parser::parse_status::invalid_node_id_handshake_message:
+		{
+			return "invalid_node_id_handshake_message";
+		}
+		case rai::message_parser::parse_status::outdated_version:
+		{
+			return "outdated_version";
+		}
+		case rai::message_parser::parse_status::invalid_magic:
+		{
+			return "invalid_magic";
+		}
+		case rai::message_parser::parse_status::invalid_network:
+		{
+			return "invalid_network";
+		}
+	}
+
+	assert (false);
+
+	return "[unknown parse_status]";
+}
+
 rai::message_parser::message_parser (rai::message_visitor & visitor_a, rai::work_pool & pool_a) :
 visitor (visitor_a),
 pool (pool_a),
@@ -866,4 +925,86 @@ void rai::node_id_handshake::visit (rai::message_visitor & visitor_a) const
 
 rai::message_visitor::~message_visitor ()
 {
+}
+
+bool rai::parse_port (std::string const & string_a, uint16_t & port_a)
+{
+	bool result;
+	size_t converted;
+	try
+	{
+		port_a = std::stoul (string_a, &converted);
+		result = converted != string_a.size () || converted > std::numeric_limits<uint16_t>::max ();
+	}
+	catch (...)
+	{
+		result = true;
+	}
+	return result;
+}
+
+bool rai::parse_address_port (std::string const & string, boost::asio::ip::address & address_a, uint16_t & port_a)
+{
+	auto result (false);
+	auto port_position (string.rfind (':'));
+	if (port_position != std::string::npos && port_position > 0)
+	{
+		std::string port_string (string.substr (port_position + 1));
+		try
+		{
+			uint16_t port;
+			result = parse_port (port_string, port);
+			if (!result)
+			{
+				boost::system::error_code ec;
+				auto address (boost::asio::ip::address_v6::from_string (string.substr (0, port_position), ec));
+				if (!ec)
+				{
+					address_a = address;
+					port_a = port;
+				}
+				else
+				{
+					result = true;
+				}
+			}
+			else
+			{
+				result = true;
+			}
+		}
+		catch (...)
+		{
+			result = true;
+		}
+	}
+	else
+	{
+		result = true;
+	}
+	return result;
+}
+
+bool rai::parse_endpoint (std::string const & string, rai::endpoint & endpoint_a)
+{
+	boost::asio::ip::address address;
+	uint16_t port;
+	auto result (parse_address_port (string, address, port));
+	if (!result)
+	{
+		endpoint_a = rai::endpoint (address, port);
+	}
+	return result;
+}
+
+bool rai::parse_tcp_endpoint (std::string const & string, rai::tcp_endpoint & endpoint_a)
+{
+	boost::asio::ip::address address;
+	uint16_t port;
+	auto result (parse_address_port (string, address, port));
+	if (!result)
+	{
+		endpoint_a = rai::tcp_endpoint (address, port);
+	}
+	return result;
 }
