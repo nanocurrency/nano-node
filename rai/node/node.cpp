@@ -3031,12 +3031,12 @@ void rai::active_transactions::announce_votes (std::unique_lock<std::mutex> & lo
 				if (!reps->empty () && (total_weight > node.config.online_weight_minimum.number () || mass_request_count > 20))
 				{
 					// broadcast_confirm_req_base modifies reps, so we clone it once to avoid aliasing
-					node.network.broadcast_confirm_req_base (i->confirm_req_options.first, std::make_shared<std::vector<rai::peer_information>> (*reps), 0);
+					node.network.broadcast_confirm_req_base (i->election->status.winner, std::make_shared<std::vector<rai::peer_information>> (*reps), 0);
 				}
 				else
 				{
 					// broadcast request to all peers
-					node.network.broadcast_confirm_req_base (i->confirm_req_options.first, std::make_shared<std::vector<rai::peer_information>> (node.peers.list_vector ()), 0);
+					node.network.broadcast_confirm_req_base (i->election->status.winner, std::make_shared<std::vector<rai::peer_information>> (node.peers.list_vector ()), 0);
 					++mass_request_count;
 				}
 			}
@@ -3126,7 +3126,7 @@ bool rai::active_transactions::add (std::pair<std::shared_ptr<rai::block>, std::
 		if (existing == roots.end ())
 		{
 			auto election (std::make_shared<rai::election> (node, primary_block, confirmation_action_a));
-			roots.insert (rai::conflict_info{ root, election, blocks_a });
+			roots.insert (rai::conflict_info{ root, election });
 			successors.insert (std::make_pair (primary_block->hash (), election));
 		}
 		error = existing != roots.end ();
