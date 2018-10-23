@@ -3035,12 +3035,12 @@ void rai::active_transactions::announce_votes (std::unique_lock<std::mutex> & lo
 				}
 				if ((!reps->empty () && total_weight > node.config.online_weight_minimum.number ()) || roots.size () > 5)
 				{
-					confirm_req_bundle.push_back (std::make_pair (i->confirm_req_options.first, reps));
+					confirm_req_bundle.push_back (std::make_pair (i->election->status.winner, reps));
 				}
 				else
 				{
 					// broadcast request to all peers
-					confirm_req_bundle.push_back (std::make_pair (i->confirm_req_options.first, std::make_shared<std::vector<rai::peer_information>> (node.peers.list_vector (100))));
+					confirm_req_bundle.push_back (std::make_pair (i->election->status.winner, std::make_shared<std::vector<rai::peer_information>> (node.peers.list_vector (100))));
 				}
 			}
 		}
@@ -3134,7 +3134,7 @@ bool rai::active_transactions::add (std::pair<std::shared_ptr<rai::block>, std::
 		if (existing == roots.end ())
 		{
 			auto election (std::make_shared<rai::election> (node, primary_block, confirmation_action_a));
-			roots.insert (rai::conflict_info{ root, election, blocks_a });
+			roots.insert (rai::conflict_info{ root, election });
 			successors.insert (std::make_pair (primary_block->hash (), election));
 		}
 		error = existing != roots.end ();
