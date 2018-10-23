@@ -1895,7 +1895,8 @@ public:
 class distributed_work : public std::enable_shared_from_this<distributed_work>
 {
 public:
-	distributed_work (std::shared_ptr<rai::node> const & node_a, rai::block_hash const & root_a, std::function<void(uint64_t)> callback_a) : distributed_work (1, node_a, root_a, callback_a)
+	distributed_work (std::shared_ptr<rai::node> const & node_a, rai::block_hash const & root_a, std::function<void(uint64_t)> callback_a) :
+	distributed_work (1, node_a, root_a, callback_a)
 	{
 		assert (node_a != nullptr);
 	}
