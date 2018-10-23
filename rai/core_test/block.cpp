@@ -335,7 +335,7 @@ TEST (block, confirm_req_hash_serialization)
 {
 	rai::keypair key1;
 	rai::keypair key2;
-	auto block (std::unique_ptr<rai::send_block> (new rai::send_block (0, key2.pub, 200, rai::keypair ().prv, 2, 3)));
+	auto block (std::unique_ptr<rai::send_block> (new rai::send_block (1, key2.pub, 200, rai::keypair ().prv, 2, 3)));
 	rai::confirm_req req (block->hash (), block->root ());
 	std::vector<uint8_t> bytes;
 	{
