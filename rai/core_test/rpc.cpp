@@ -3637,6 +3637,49 @@ TEST (rpc, online_reps)
 	auto item (representatives.begin ());
 	ASSERT_NE (representatives.end (), item);
 	ASSERT_EQ (rai::test_genesis_key.pub.to_account (), item->first);
+	boost::optional<std::string> weight (item->second.get_optional<std::string> ("weight"));
+	ASSERT_FALSE (weight.is_initialized ());
+	//Test weight option
+	request.put ("weight", "true");
+	test_response response2 (request, rpc, system.service);
+	while (response2.status == 0)
+	{
+		system.poll ();
+	}
+	auto representatives2 (response2.json.get_child ("representatives"));
+	auto item2 (representatives2.begin ());
+	ASSERT_NE (representatives2.end (), item2);
+	ASSERT_EQ (rai::test_genesis_key.pub.to_account (), item2->first);
+	auto weight2 (item2->second.get<std::string> ("weight"));
+	ASSERT_EQ (system.nodes[1]->weight (rai::test_genesis_key.pub).convert_to<std::string> (), weight2);
+	//Test accounts filter
+	system.wallet (1)->insert_adhoc (rai::test_genesis_key.prv);
+	auto new_rep (system.wallet (1)->deterministic_insert ());
+	auto send (system.wallet (1)->send_action (rai::test_genesis_key.pub, new_rep, system.nodes[0]->config.receive_minimum.number ()));
+	ASSERT_NE (nullptr, send);
+	auto receive (system.wallet (1)->receive_action (static_cast<rai::send_block &> (*send), new_rep, system.nodes[0]->config.receive_minimum.number ()));
+	ASSERT_NE (nullptr, receive);
+	auto change (system.wallet (1)->change_action (rai::test_genesis_key.pub, new_rep));
+	ASSERT_NE (nullptr, change);
+	while (system.nodes[1]->online_reps.list ().size () != 2)
+	{
+		system.poll ();
+	}
+	boost::property_tree::ptree child_rep;
+	child_rep.put ("", new_rep.to_account ());
+	boost::property_tree::ptree filtered_accounts;
+	filtered_accounts.push_back (std::make_pair ("", child_rep));
+	request.add_child ("accounts", filtered_accounts);
+	test_response response3 (request, rpc, system.service);
+	while (response3.status == 0)
+	{
+		system.poll ();
+	}
+	auto representatives3 (response3.json.get_child ("representatives"));
+	auto item3 (representatives3.begin ());
+	ASSERT_NE (representatives3.end (), item3);
+	ASSERT_EQ (new_rep.to_account (), item3->first);
+	ASSERT_EQ (representatives3.size (), 1);
 	system.nodes[1]->stop ();
 }
 
