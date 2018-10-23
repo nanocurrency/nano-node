@@ -17,6 +17,7 @@ public:
 	vote_generator (rai::node &, std::chrono::milliseconds);
 	void add (rai::block_hash const &);
 	void stop ();
+	void flush ();
 
 private:
 	void run ();

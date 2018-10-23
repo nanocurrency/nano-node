@@ -65,8 +65,6 @@ public:
 	rai::tally_t tally (rai::transaction const &);
 	// Check if we have vote quorum
 	bool have_quorum (rai::tally_t const &, rai::uint128_t);
-	// Change our winner to agree with the network
-	void compute_rep_votes (rai::transaction const &);
 	// Confirm this block if quorum is met
 	void confirm_if_quorum (rai::transaction const &);
 	void log_votes (rai::tally_t const &);

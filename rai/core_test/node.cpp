@@ -642,7 +642,6 @@ TEST (node, fork_publish)
 		ASSERT_NE (node1.active.roots.end (), existing);
 		auto election (existing->election);
 		auto transaction (node1.store.tx_begin ());
-		election->compute_rep_votes (transaction);
 		node1.vote_processor.flush ();
 		ASSERT_EQ (2, election->last_votes.size ());
 		node1.process_active (send2);
@@ -1179,6 +1178,8 @@ TEST (node, rep_self_vote)
 	rai::system system (24000, 1);
 	auto node0 (system.nodes[0]);
 	rai::keypair rep_big;
+	system.wallet (0)->insert_adhoc (rep_big.prv);
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	{
 		auto transaction0 (node0->store.tx_begin (true));
 		rai::send_block fund_big (node0->ledger.latest (transaction0, rai::test_genesis_key.pub), rep_big.pub, rai::uint128_t ("0xb0000000000000000000000000000000"), rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
@@ -1187,18 +1188,17 @@ TEST (node, rep_self_vote)
 		node0->work_generate_blocking (open_big);
 		ASSERT_EQ (rai::process_result::progress, node0->ledger.process (transaction0, fund_big).code);
 		ASSERT_EQ (rai::process_result::progress, node0->ledger.process (transaction0, open_big).code);
+		node0->block_processor.flush ();
 	}
-	system.wallet (0)->insert_adhoc (rep_big.prv);
-	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	auto block0 (std::make_shared<rai::send_block> (node0->latest (rai::test_genesis_key.pub), rep_big.pub, rai::uint128_t ("0x60000000000000000000000000000000"), rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
 	node0->work_generate_blocking (*block0);
-	ASSERT_EQ (rai::process_result::progress, node0->process (*block0).code);
+	node0->process_active (block0);
+	node0->block_processor.flush ();
 	auto & active (node0->active);
 	active.start (block0);
 	auto existing (active.roots.find (block0->root ()));
 	ASSERT_NE (active.roots.end (), existing);
 	auto transaction (node0->store.tx_begin ());
-	existing->election->compute_rep_votes (transaction);
 	node0->vote_processor.flush ();
 	auto & rep_votes (existing->election->last_votes);
 	ASSERT_EQ (3, rep_votes.size ());

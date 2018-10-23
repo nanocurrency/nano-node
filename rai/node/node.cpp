@@ -932,6 +932,8 @@ void rai::block_processor::flush ()
 	{
 		condition.wait (lock);
 	}
+	lock.unlock ();
+	generator.flush ();
 }
 
 bool rai::block_processor::full ()
@@ -2566,17 +2568,6 @@ stopped (false)
 {
 	last_votes.insert (std::make_pair (rai::not_an_account, rai::vote_info{ std::chrono::steady_clock::now (), 0, block_a->hash () }));
 	blocks.insert (std::make_pair (block_a->hash (), block_a));
-}
-
-void rai::election::compute_rep_votes (rai::transaction const & transaction_a)
-{
-	if (node.config.enable_voting)
-	{
-		node.wallets.foreach_representative (transaction_a, [this, &transaction_a](rai::public_key const & pub_a, rai::raw_key const & prv_a) {
-			auto vote (this->node.store.vote_generate (transaction_a, pub_a, prv_a, status.winner));
-			this->node.vote_processor.vote (vote, this->node.network.endpoint ());
-		});
-	}
 }
 
 void rai::election::confirm_once (rai::transaction const & transaction_a)

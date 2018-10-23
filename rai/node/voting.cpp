@@ -35,6 +35,15 @@ void rai::vote_generator::stop ()
 	}
 }
 
+void rai::vote_generator::flush ()
+{
+	std::unique_lock<std::mutex> lock (mutex);
+	while (!stopped && !hashes.empty ())
+	{
+		condition.wait (lock);
+	}
+}
+
 void rai::vote_generator::send (std::unique_lock<std::mutex> & lock_a)
 {
 	std::vector<rai::block_hash> hashes_l;
@@ -53,6 +62,7 @@ void rai::vote_generator::send (std::unique_lock<std::mutex> & lock_a)
 		});
 	}
 	lock_a.lock ();
+	condition.notify_all ();
 }
 
 void rai::vote_generator::run ()
