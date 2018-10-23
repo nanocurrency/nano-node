@@ -575,11 +575,7 @@ public:
 	{
 		if (node.config.logging.network_message_logging ())
 		{
-			if (!message_a.hashes.empty ())
-			{
-				BOOST_LOG (node.log) << boost::str (boost::format ("Confirm_req message from %1% for hashes %2%") % sender % message_a.hashes_string ());
-			}
-			else if (!message_a.roots_hashes.empty ())
+			if (!message_a.roots_hashes.empty ())
 			{
 				BOOST_LOG (node.log) << boost::str (boost::format ("Confirm_req message from %1% for hashes:roots %2%") % sender % message_a.roots_string ());
 			}
@@ -593,7 +589,6 @@ public:
 		// Don't load nodes with disabled voting
 		if (node.config.enable_voting)
 		{
-			std::vector<rai::block_hash> blocks_bundle;
 			auto transaction (node.store.tx_begin_read ());
 			if (message_a.block != nullptr)
 			{
@@ -607,6 +602,7 @@ public:
 			}
 			else if (!message_a.roots_hashes.empty ())
 			{
+				std::vector<rai::block_hash> blocks_bundle;
 				for (auto root_hash : message_a.roots_hashes)
 				{
 					auto successor (node.ledger.successor (transaction, root_hash.second));
@@ -622,20 +618,10 @@ public:
 						}
 					}
 				}
-			}
-			else if (!message_a.hashes.empty ())
-			{
-				for (auto hash : message_a.hashes)
+				if (!blocks_bundle.empty ())
 				{
-					if (node.store.block_exists (transaction, hash))
-					{
-						blocks_bundle.push_back (hash);
-					}
+					node.network.confirm_hashes (transaction, sender, blocks_bundle);
 				}
-			}
-			if (!blocks_bundle.empty ())
-			{
-				node.network.confirm_hashes (transaction, sender, blocks_bundle);
 			}
 		}
 	}

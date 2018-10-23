@@ -255,18 +255,14 @@ class confirm_req : public message
 public:
 	confirm_req (bool &, rai::stream &, rai::message_header const &);
 	confirm_req (std::shared_ptr<rai::block>);
-	confirm_req (std::vector<rai::block_hash> const &);
 	confirm_req (std::vector<std::pair<rai::block_hash, rai::block_hash>> const &);
-	confirm_req (rai::block_hash const &);
 	confirm_req (rai::block_hash const &, rai::block_hash const &);
 	bool deserialize (rai::stream &) override;
 	void serialize (rai::stream &) override;
 	void visit (rai::message_visitor &) const override;
 	bool operator== (rai::confirm_req const &) const;
 	std::shared_ptr<rai::block> block;
-	std::vector<rai::block_hash> hashes;
 	std::vector<std::pair<rai::block_hash, rai::block_hash>> roots_hashes;
-	std::string hashes_string () const;
 	std::string roots_string () const;
 };
 class confirm_ack : public message
