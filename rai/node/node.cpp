@@ -2529,9 +2529,9 @@ rai::uint128_t rai::online_reps::online_stake ()
 	return std::max (online_stake_total, node.config.online_weight_minimum.number ());
 }
 
-std::deque<rai::account> rai::online_reps::list ()
+std::vector<rai::account> rai::online_reps::list ()
 {
-	std::deque<rai::account> result;
+	std::vector<rai::account> result;
 	std::lock_guard<std::mutex> lock (mutex);
 	for (auto i (reps.begin ()), n (reps.end ()); i != n; ++i)
 	{
