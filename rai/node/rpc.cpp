@@ -1995,6 +1995,9 @@ void rai::rpc_handler::mrai_to_raw (rai::uint128_t ratio)
 	response_errors ();
 }
 
+/*
+ * @warning This is an internal/diagnostic RPC, do not rely on its interface being stable
+ */
 void rai::rpc_handler::node_id ()
 {
 	rpc_control_impl ();
@@ -2007,6 +2010,9 @@ void rai::rpc_handler::node_id ()
 	response_errors ();
 }
 
+/*
+ * @warning This is an internal/diagnostic RPC, do not rely on its interface being stable
+ */
 void rai::rpc_handler::node_id_delete ()
 {
 	rpc_control_impl ();
