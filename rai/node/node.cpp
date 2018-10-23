@@ -1525,7 +1525,7 @@ void rai::node::process_fork (rai::transaction const & transaction_a, std::share
 		if (ledger_block)
 		{
 			std::weak_ptr<rai::node> this_w (shared_from_this ());
-			if (!active.start (std::make_pair (ledger_block, block_a), [this_w, root](std::shared_ptr<rai::block>) {
+			if (!active.start (ledger_block, [this_w, root](std::shared_ptr<rai::block>) {
 				    if (auto this_l = this_w.lock ())
 				    {
 					    auto attempt (this_l->bootstrap_initiator.current_attempt ());
@@ -2847,7 +2847,7 @@ void rai::active_transactions::announce_votes ()
 						previous = node.store.block_get (transaction, previous_hash);
 						if (previous != nullptr)
 						{
-							add (std::make_pair (std::move (previous), nullptr));
+							add (std::move (previous));
 						}
 					}
 					/* If previous block not existing/not commited yet, block_source can cause segfault for state blocks
@@ -2860,7 +2860,7 @@ void rai::active_transactions::announce_votes ()
 							auto source (node.store.block_get (transaction, source_hash));
 							if (source != nullptr)
 							{
-								add (std::make_pair (std::move (source), nullptr));
+								add (std::move (source));
 							}
 						}
 					}
@@ -2988,29 +2988,22 @@ void rai::active_transactions::stop ()
 
 bool rai::active_transactions::start (std::shared_ptr<rai::block> block_a, std::function<void(std::shared_ptr<rai::block>)> const & confirmation_action_a)
 {
-	return start (std::make_pair (block_a, nullptr), confirmation_action_a);
-}
-
-bool rai::active_transactions::start (std::pair<std::shared_ptr<rai::block>, std::shared_ptr<rai::block>> blocks_a, std::function<void(std::shared_ptr<rai::block>)> const & confirmation_action_a)
-{
 	std::lock_guard<std::mutex> lock (mutex);
-	return add (blocks_a, confirmation_action_a);
+	return add (block_a, confirmation_action_a);
 }
 
-bool rai::active_transactions::add (std::pair<std::shared_ptr<rai::block>, std::shared_ptr<rai::block>> blocks_a, std::function<void(std::shared_ptr<rai::block>)> const & confirmation_action_a)
+bool rai::active_transactions::add (std::shared_ptr<rai::block> block_a, std::function<void(std::shared_ptr<rai::block>)> const & confirmation_action_a)
 {
-	assert (blocks_a.first != nullptr);
 	auto error (true);
 	if (!stopped)
 	{
-		auto primary_block (blocks_a.first);
-		auto root (primary_block->root ());
+		auto root (block_a->root ());
 		auto existing (roots.find (root));
 		if (existing == roots.end ())
 		{
-			auto election (std::make_shared<rai::election> (node, primary_block, confirmation_action_a));
+			auto election (std::make_shared<rai::election> (node, block_a, confirmation_action_a));
 			roots.insert (rai::conflict_info{ root, election });
-			successors.insert (std::make_pair (primary_block->hash (), election));
+			successors.insert (std::make_pair (block_a->hash (), election));
 		}
 		error = existing != roots.end ();
 	}
