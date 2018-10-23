@@ -85,7 +85,6 @@ class conflict_info
 public:
 	rai::block_hash root;
 	std::shared_ptr<rai::election> election;
-	std::pair<std::shared_ptr<rai::block>, std::shared_ptr<rai::block>> confirm_req_options;
 };
 // Core class for determining consensus
 // Holds all active blocks i.e. recently added blocks that need confirmation
