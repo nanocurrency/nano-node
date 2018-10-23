@@ -336,7 +336,7 @@ TEST (block, confirm_req_hash_serialization)
 	rai::keypair key1;
 	rai::keypair key2;
 	auto block (std::unique_ptr<rai::send_block> (new rai::send_block (0, key2.pub, 200, rai::keypair ().prv, 2, 3)));
-	rai::confirm_req req (block->hash (), block-root ());
+	rai::confirm_req req (block->hash (), block->root ());
 	std::vector<uint8_t> bytes;
 	{
 		rai::vectorstream stream (bytes);
@@ -348,7 +348,7 @@ TEST (block, confirm_req_hash_serialization)
 	rai::confirm_req req2 (error, stream2, header);
 	ASSERT_FALSE (error);
 	ASSERT_EQ (req, req2);
-	ASSERT_EQ (req.hashes, req2.hashes);
+	ASSERT_EQ (req.roots_hashes, req2.roots_hashes);
 }
 
 TEST (state_block, serialization)
