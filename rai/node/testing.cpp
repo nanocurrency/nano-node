@@ -110,6 +110,7 @@ std::error_code rai::system::poll (std::chrono::nanoseconds const & wait_time)
 	if (std::chrono::steady_clock::now () > deadline)
 	{
 		ec = rai::error_system::deadline_expired;
+		stop ();
 	}
 	return ec;
 }
