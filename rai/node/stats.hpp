@@ -197,6 +197,7 @@ public:
 		bad_sender,
 		insufficient_work,
 		http_callback,
+		unreachable_host,
 
 		// ledger, block, bootstrap
 		send,
