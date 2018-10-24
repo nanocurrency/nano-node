@@ -115,7 +115,7 @@ public:
 	boost::multi_index::member<rai::conflict_info, uint64_t, &rai::conflict_info::difficulty>,
 	std::greater<uint64_t>>>>
 	roots;
-	std::unordered_map<rai::block_hash, std::shared_ptr<rai::election>> successors;
+	std::unordered_map<rai::block_hash, std::shared_ptr<rai::election>> blocks;
 	std::deque<rai::election_status> confirmed;
 	rai::node & node;
 	std::mutex mutex;

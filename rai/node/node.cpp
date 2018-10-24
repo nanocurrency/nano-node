@@ -2938,20 +2938,13 @@ void rai::active_transactions::announce_votes ()
 	{
 		auto root_it (roots.find (*i));
 		assert (root_it != roots.end ());
-		for (auto successor : root_it->election->blocks)
+		for (auto & block : root_it->election->blocks)
 		{
-			auto successor_it (successors.find (successor.first));
-			if (successor_it != successors.end ())
-			{
-				assert (successor_it->second == root_it->election);
-				successors.erase (successor_it);
-			}
-			else
-			{
-				assert (false && "election successor not in active_transactions blocks table");
-			}
+			auto erased (blocks.erase (block.first));
+			(void) erased;
+			assert (erased == 1);
 		}
-		roots.erase (root_it);
+		roots.erase (*i);
 	}
 	if (unconfirmed_count > 0)
 	{
@@ -3009,7 +3002,7 @@ bool rai::active_transactions::add (std::shared_ptr<rai::block> block_a, std::fu
 			auto error (rai::work_validate (*block_a, &difficulty));
 			release_assert (!error);
 			roots.insert (rai::conflict_info{ root, difficulty, election });
-			successors.insert (std::make_pair (block_a->hash (), election));
+			blocks.insert (std::make_pair (block_a->hash (), election));
 		}
 		error = existing != roots.end ();
 	}
@@ -3030,8 +3023,8 @@ bool rai::active_transactions::vote (std::shared_ptr<rai::vote> vote_a)
 			if (vote_block.which ())
 			{
 				auto block_hash (boost::get<rai::block_hash> (vote_block));
-				auto existing (successors.find (block_hash));
-				if (existing != successors.end ())
+				auto existing (blocks.find (block_hash));
+				if (existing != blocks.end ())
 				{
 					result = existing->second->vote (vote_a->account, vote_a->sequence, block_hash);
 				}
@@ -3115,7 +3108,7 @@ bool rai::active_transactions::publish (std::shared_ptr<rai::block> block_a)
 		result = existing->election->publish (block_a);
 		if (!result)
 		{
-			successors.insert (std::make_pair (block_a->hash (), existing->election));
+			blocks.insert (std::make_pair (block_a->hash (), existing->election));
 		}
 	}
 	return result;
