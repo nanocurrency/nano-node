@@ -2811,7 +2811,7 @@ void rai::active_transactions::announce_votes ()
 	unsigned mass_request_count (0);
 	std::deque<std::shared_ptr<rai::block>> rebroadcast_bundle;
 
-	for (auto i (roots.begin ()), n (roots.end ()); i != n; ++i)
+	for (auto i (roots.get<1> ().begin ()), n (roots.get<1> ().end ()); i != n; ++i)
 	{
 		auto election_l (i->election);
 		if ((election_l->confirmed || election_l->stopped) && i->election->announcements >= announcement_min - 1)
