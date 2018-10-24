@@ -170,7 +170,7 @@ void rai::work_pool::generate (rai::uint256_union const & root_a, std::function<
 	if (!result)
 	{
 		std::lock_guard<std::mutex> lock (mutex);
-		pending.push_back ({root_a, callback_a, difficulty_a});
+		pending.push_back ({ root_a, callback_a, difficulty_a });
 		producer_condition.notify_all ();
 	}
 	else
@@ -184,7 +184,8 @@ uint64_t rai::work_pool::generate (rai::uint256_union const & hash_a, uint64_t d
 	std::promise<boost::optional<uint64_t>> work;
 	generate (hash_a, [&work](boost::optional<uint64_t> work_a) {
 		work.set_value (work_a);
-	}, difficulty_a);
+	},
+	difficulty_a);
 	auto result (work.get_future ().get ());
 	return result.value ();
 }

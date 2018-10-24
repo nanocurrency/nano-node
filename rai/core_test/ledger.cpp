@@ -565,7 +565,7 @@ TEST (ledger, DISABLED_checksum_range)
 	ASSERT_EQ (hash1, check3);
 }
 
-TEST (system, generate_send_existing)
+TEST (system, DISABLED_generate_send_existing)
 {
 	rai::system system (24000, 1);
 	rai::thread_runner runner (system.service, system.nodes[0]->config.io_threads);
@@ -780,6 +780,7 @@ TEST (votes, check_signature)
 	rai::genesis genesis;
 	rai::keypair key1;
 	auto send1 (std::make_shared<rai::send_block> (genesis.hash (), key1.pub, rai::genesis_amount - 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
+	node1.work_generate_blocking (*send1);
 	auto transaction (node1.store.tx_begin (true));
 	ASSERT_EQ (rai::process_result::progress, node1.ledger.process (transaction, *send1).code);
 	auto node_l (system.nodes[0]);
@@ -801,11 +802,9 @@ TEST (votes, add_one)
 	rai::genesis genesis;
 	rai::keypair key1;
 	auto send1 (std::make_shared<rai::send_block> (genesis.hash (), key1.pub, rai::genesis_amount - 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
-	{
-		auto transaction (node1.store.tx_begin (true));
-		ASSERT_EQ (rai::process_result::progress, node1.ledger.process (transaction, *send1).code);
-	}
-	auto node_l (system.nodes[0]);
+	node1.work_generate_blocking (*send1);
+	auto transaction (node1.store.tx_begin (true));
+	ASSERT_EQ (rai::process_result::progress, node1.ledger.process (transaction, *send1).code);
 	node1.active.start (send1);
 	auto votes1 (node1.active.roots.find (send1->root ())->election);
 	ASSERT_EQ (1, votes1->last_votes.size ());
@@ -817,7 +816,6 @@ TEST (votes, add_one)
 	auto existing1 (votes1->last_votes.find (rai::test_genesis_key.pub));
 	ASSERT_NE (votes1->last_votes.end (), existing1);
 	ASSERT_EQ (send1->hash (), existing1->second.hash);
-	auto transaction (system.nodes[0]->store.tx_begin ());
 	auto winner (*votes1->tally (transaction).begin ());
 	ASSERT_EQ (*send1, *winner.second);
 	ASSERT_EQ (rai::genesis_amount - 100, winner.first);
@@ -830,11 +828,9 @@ TEST (votes, add_two)
 	rai::genesis genesis;
 	rai::keypair key1;
 	auto send1 (std::make_shared<rai::send_block> (genesis.hash (), key1.pub, rai::genesis_amount - 100, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
-	{
-		auto transaction (node1.store.tx_begin (true));
-		ASSERT_EQ (rai::process_result::progress, node1.ledger.process (transaction, *send1).code);
-	}
-	auto node_l (system.nodes[0]);
+	node1.work_generate_blocking (*send1);
+	auto transaction (node1.store.tx_begin (true));
+	ASSERT_EQ (rai::process_result::progress, node1.ledger.process (transaction, *send1).code);
 	node1.active.start (send1);
 	auto votes1 (node1.active.roots.find (send1->root ())->election);
 	auto vote1 (std::make_shared<rai::vote> (rai::test_genesis_key.pub, rai::test_genesis_key.prv, 1, send1));
@@ -848,7 +844,6 @@ TEST (votes, add_two)
 	ASSERT_EQ (send1->hash (), votes1->last_votes[rai::test_genesis_key.pub].hash);
 	ASSERT_NE (votes1->last_votes.end (), votes1->last_votes.find (key2.pub));
 	ASSERT_EQ (send2->hash (), votes1->last_votes[key2.pub].hash);
-	auto transaction (system.nodes[0]->store.tx_begin ());
 	auto winner (*votes1->tally (transaction).begin ());
 	ASSERT_EQ (*send1, *winner.second);
 }
@@ -861,11 +856,9 @@ TEST (votes, add_existing)
 	rai::genesis genesis;
 	rai::keypair key1;
 	auto send1 (std::make_shared<rai::send_block> (genesis.hash (), key1.pub, rai::genesis_amount - rai::Gxrb_ratio, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
-	{
-		auto transaction (node1.store.tx_begin (true));
-		ASSERT_EQ (rai::process_result::progress, node1.ledger.process (transaction, *send1).code);
-	}
-	auto node_l (system.nodes[0]);
+	node1.work_generate_blocking (*send1);
+	auto transaction (node1.store.tx_begin (true));
+	ASSERT_EQ (rai::process_result::progress, node1.ledger.process (transaction, *send1).code);
 	node1.active.start (send1);
 	auto votes1 (node1.active.roots.find (send1->root ())->election);
 	auto vote1 (std::make_shared<rai::vote> (rai::test_genesis_key.pub, rai::test_genesis_key.prv, 1, send1));
@@ -887,7 +880,6 @@ TEST (votes, add_existing)
 	ASSERT_EQ (2, votes1->last_votes.size ());
 	ASSERT_NE (votes1->last_votes.end (), votes1->last_votes.find (rai::test_genesis_key.pub));
 	ASSERT_EQ (send2->hash (), votes1->last_votes[rai::test_genesis_key.pub].hash);
-	auto transaction (system.nodes[0]->store.tx_begin ());
 	auto winner (*votes1->tally (transaction).begin ());
 	ASSERT_EQ (*send2, *winner.second);
 }
@@ -900,9 +892,9 @@ TEST (votes, add_old)
 	rai::genesis genesis;
 	rai::keypair key1;
 	auto send1 (std::make_shared<rai::send_block> (genesis.hash (), key1.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
+	node1.work_generate_blocking (*send1);
 	auto transaction (node1.store.tx_begin (true));
 	ASSERT_EQ (rai::process_result::progress, node1.ledger.process (transaction, *send1).code);
-	auto node_l (system.nodes[0]);
 	node1.active.start (send1);
 	auto votes1 (node1.active.roots.find (send1->root ())->election);
 	auto vote1 (std::make_shared<rai::vote> (rai::test_genesis_key.pub, rai::test_genesis_key.prv, 2, send1));
@@ -927,13 +919,12 @@ TEST (votes, add_old_different_account)
 	rai::genesis genesis;
 	rai::keypair key1;
 	auto send1 (std::make_shared<rai::send_block> (genesis.hash (), key1.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
+	node1.work_generate_blocking (*send1);
 	auto send2 (std::make_shared<rai::send_block> (send1->hash (), key1.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
-	{
-		auto transaction (node1.store.tx_begin (true));
-		ASSERT_EQ (rai::process_result::progress, node1.ledger.process (transaction, *send1).code);
-		ASSERT_EQ (rai::process_result::progress, node1.ledger.process (transaction, *send2).code);
-	}
-	auto node_l (system.nodes[0]);
+	node1.work_generate_blocking (*send2);
+	auto transaction (node1.store.tx_begin (true));
+	ASSERT_EQ (rai::process_result::progress, node1.ledger.process (transaction, *send1).code);
+	ASSERT_EQ (rai::process_result::progress, node1.ledger.process (transaction, *send2).code);
 	node1.active.start (send1);
 	node1.active.start (send2);
 	auto votes1 (node1.active.roots.find (send1->root ())->election);
@@ -941,7 +932,6 @@ TEST (votes, add_old_different_account)
 	ASSERT_EQ (1, votes1->last_votes.size ());
 	ASSERT_EQ (1, votes2->last_votes.size ());
 	auto vote1 (std::make_shared<rai::vote> (rai::test_genesis_key.pub, rai::test_genesis_key.prv, 2, send1));
-	auto transaction (system.nodes[0]->store.tx_begin ());
 	auto vote_result1 (node1.vote_processor.vote_blocking (transaction, vote1, node1.network.endpoint ()));
 	ASSERT_EQ (rai::vote_code::vote, vote_result1);
 	ASSERT_EQ (2, votes1->last_votes.size ());
@@ -969,15 +959,16 @@ TEST (votes, add_cooldown)
 	rai::genesis genesis;
 	rai::keypair key1;
 	auto send1 (std::make_shared<rai::send_block> (genesis.hash (), key1.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
+	node1.work_generate_blocking (*send1);
 	auto transaction (node1.store.tx_begin (true));
 	ASSERT_EQ (rai::process_result::progress, node1.ledger.process (transaction, *send1).code);
-	auto node_l (system.nodes[0]);
 	node1.active.start (send1);
 	auto votes1 (node1.active.roots.find (send1->root ())->election);
 	auto vote1 (std::make_shared<rai::vote> (rai::test_genesis_key.pub, rai::test_genesis_key.prv, 1, send1));
 	node1.vote_processor.vote_blocking (transaction, vote1, node1.network.endpoint ());
 	rai::keypair key2;
 	auto send2 (std::make_shared<rai::send_block> (genesis.hash (), key2.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
+	node1.work_generate_blocking (*send2);
 	auto vote2 (std::make_shared<rai::vote> (rai::test_genesis_key.pub, rai::test_genesis_key.prv, 2, send2));
 	node1.vote_processor.vote_blocking (transaction, vote2, node1.network.endpoint ());
 	ASSERT_EQ (2, votes1->last_votes.size ());
