@@ -103,7 +103,7 @@ public:
 	boost::multi_index::indexed_by<
 	boost::multi_index::hashed_unique<boost::multi_index::member<rai::conflict_info, rai::block_hash, &rai::conflict_info::root>>>>
 	roots;
-	std::unordered_map<rai::block_hash, std::shared_ptr<rai::election>> successors;
+	std::unordered_map<rai::block_hash, std::shared_ptr<rai::election>> blocks;
 	std::deque<rai::election_status> confirmed;
 	rai::node & node;
 	std::mutex mutex;
