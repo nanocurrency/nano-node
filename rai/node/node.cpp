@@ -2535,6 +2535,10 @@ void rai::network::send_buffer (uint8_t const * data_a, size_t size_a, rai::endp
 	socket.async_send_to (boost::asio::buffer (data_a, size_a), endpoint_a, [this, callback_a](boost::system::error_code const & ec, size_t size_a) {
 		callback_a (ec, size_a);
 		this->node.stats.add (rai::stat::type::traffic, rai::stat::dir::out, size_a);
+		if (ec == boost::system::errc::host_unreachable)
+		{
+			this->node.stats.inc (rai::stat::type::error, rai::stat::detail::unreachable_host, rai::stat::dir::out);
+		}
 		if (this->node.config.logging.network_packet_logging ())
 		{
 			BOOST_LOG (this->node.log) << "Packet send complete";
