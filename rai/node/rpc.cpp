@@ -1995,6 +1995,36 @@ void rai::rpc_handler::mrai_to_raw (rai::uint128_t ratio)
 	response_errors ();
 }
 
+/*
+ * @warning This is an internal/diagnostic RPC, do not rely on its interface being stable
+ */
+void rai::rpc_handler::node_id ()
+{
+	rpc_control_impl ();
+	if (!ec)
+	{
+		response_l.put ("private", node.node_id.prv.data.to_string ());
+		response_l.put ("public", node.node_id.pub.to_string ());
+		response_l.put ("as_account", node.node_id.pub.to_account ());
+	}
+	response_errors ();
+}
+
+/*
+ * @warning This is an internal/diagnostic RPC, do not rely on its interface being stable
+ */
+void rai::rpc_handler::node_id_delete ()
+{
+	rpc_control_impl ();
+	if (!ec)
+	{
+		auto transaction (node.store.tx_begin_write ());
+		node.store.delete_node_id (transaction);
+		response_l.put ("deleted", "1");
+	}
+	response_errors ();
+}
+
 void rai::rpc_handler::password_change ()
 {
 	rpc_control_impl ();
@@ -3928,6 +3958,14 @@ void rai::rpc_handler::process_request ()
 			else if (action == "mrai_to_raw")
 			{
 				mrai_to_raw ();
+			}
+			else if (action == "node_id")
+			{
+				node_id ();
+			}
+			else if (action == "node_id_delete")
+			{
+				node_id_delete ();
 			}
 			else if (action == "password_change")
 			{
