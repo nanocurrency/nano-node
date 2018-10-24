@@ -589,6 +589,7 @@ public:
 		// Don't load nodes with disabled voting
 		if (node.config.enable_voting)
 		{
+			std::vector<rai::block_hash> blocks_bundle;
 			auto transaction (node.store.tx_begin_read ());
 			if (message_a.block != nullptr)
 			{
@@ -597,12 +598,18 @@ public:
 				auto successor (node.ledger.successor (transaction, message_a.block->root ()));
 				if (successor != nullptr)
 				{
-					confirm_block (transaction, node, sender, std::move (successor));
+					if (message_a.block->hash () == successor->hash ())
+					{
+						blocks_bundle.push_back (message_a.block->hash ());
+					}
+					else
+					{
+						confirm_block (transaction, node, sender, std::move (successor));
+					}
 				}
 			}
 			else if (!message_a.roots_hashes.empty ())
 			{
-				std::vector<rai::block_hash> blocks_bundle;
 				for (auto root_hash : message_a.roots_hashes)
 				{
 					auto successor (node.ledger.successor (transaction, root_hash.second));
@@ -618,10 +625,10 @@ public:
 						}
 					}
 				}
-				if (!blocks_bundle.empty ())
-				{
-					node.network.confirm_hashes (transaction, sender, blocks_bundle);
-				}
+			}
+			if (!blocks_bundle.empty ())
+			{
+				node.network.confirm_hashes (transaction, sender, blocks_bundle);
 			}
 		}
 	}
