@@ -550,9 +550,10 @@ void rai::bulk_pull_client::received_block (boost::system::error_code const & ec
 			{
 				receive_block ();
 			}
-			else if (stop_pull)
+			else if (stop_pull && expected == block->previous ())
 			{
 				expected = pull.end;
+				connection->attempt->pool_connection (connection);
 			}
 		}
 		else
@@ -1108,21 +1109,12 @@ void rai::bootstrap_attempt::requeue_pull (rai::pull_info const & pull_a)
 		pulls.push_front (pull);
 		condition.notify_all ();
 	}
-	else if (pull.attempts == bootstrap_frontier_retry_limit)
+	else if (lazy_mode && lazy_state_assumption.find (pull.account) == lazy_state_assumption.end ())
 	{
+		// Retry for lazy pulls (not weak state block link assumptions)
 		pull.attempts++;
-		std::lock_guard<std::mutex> lock (mutex);
-		if (auto connection_shared = connection_frontier_request.lock ())
-		{
-			node->background ([connection_shared, pull]() {
-				auto client (std::make_shared<rai::bulk_pull_client> (connection_shared, pull));
-				client->request ();
-			});
-			if (node->config.logging.bulk_pull_logging ())
-			{
-				BOOST_LOG (node->log) << boost::str (boost::format ("Requesting pull account %1% from frontier peer after %2% attempts") % pull.account.to_account () % pull.attempts);
-			}
-		}
+		pulls.push_back (pull);
+		condition.notify_all ();
 	}
 	else
 	{
@@ -1324,6 +1316,9 @@ bool rai::bootstrap_attempt::process_block (std::shared_ptr<rai::block> block_a)
 				else
 				{
 					lazy_add (next_block->hashables.link);
+					lock.lock ();
+					lazy_state_assumption.insert (next_block->hashables.link);
+					lock.unlock ();
 				}
 			}
 		}

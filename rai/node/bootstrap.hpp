@@ -108,6 +108,7 @@ public:
 // Lazy bootstrap
 	std::unordered_set<rai::block_hash> lazy_blocks;
 	std::unordered_map<rai::block_hash, std::shared_ptr<rai::state_block>> lazy_state_unknown;
+	std::unordered_map<rai::block_hash> lazy_state_assumption;
 	std::unordered_set<rai::block_hash> lazy_keys;
 	std::deque<rai::block_hash> lazy_pulls;
 	std::mutex lazy_mutex;
