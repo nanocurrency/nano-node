@@ -1147,6 +1147,7 @@ void rai::bootstrap_attempt::lazy_add (rai::block_hash const & hash_a)
 	// Add only unknown blocks
 	if (lazy_blocks.find (hash_a) == lazy_blocks.end ())
 	{
+		std::unique_lock<std::mutex> lock (lazy_mutex);
 		lazy_pulls.push_back (hash_a);
 	}
 }
