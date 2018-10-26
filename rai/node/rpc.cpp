@@ -1366,7 +1366,10 @@ void rai::rpc_handler::bootstrap_status ()
 		response_l.put ("lazy_state_unknown", std::to_string (attempt->lazy_state_unknown.size ()));
 		response_l.put ("lazy_pulls", std::to_string (attempt->lazy_pulls.size ()));
 		response_l.put ("lazy_keys", std::to_string (attempt->lazy_keys.size ()));
-		response_l.put ("lazy_key_1", (*(attempt->lazy_keys.begin ())).to_string ());
+		if (!attempt->lazy_keys.empty ())
+		{
+			response_l.put ("lazy_key_1", (*(attempt->lazy_keys.begin ())).to_string ());
+		}
 	}
 	else
 	{
