@@ -1883,17 +1883,15 @@ std::shared_ptr<rai::vote> rai::mdb_store::vote_generate (rai::transaction const
 	return result;
 }
 
-std::shared_ptr<rai::vote> rai::mdb_store::vote_max (rai::transaction const & transaction_a, std::shared_ptr<rai::vote> vote_a)
+std::shared_ptr<rai::vote> rai::mdb_store::vote_current_update (rai::transaction const & transaction_a, std::shared_ptr<rai::vote> vote_a)
 {
 	std::lock_guard<std::mutex> lock (cache_mutex);
 	auto current (vote_current (transaction_a, vote_a->account));
-	auto result (vote_a);
-	if (current != nullptr && current->sequence > result->sequence)
+	if (current != nullptr && current->sequence > vote_a->sequence)
 	{
-		result = current;
+		vote_cache[vote_a->account] = vote_a;
 	}
-	vote_cache[vote_a->account] = result;
-	return result;
+	return current;
 }
 
 rai::store_iterator<rai::account, rai::account_info> rai::mdb_store::latest_begin (rai::transaction const & transaction_a, rai::account const & account_a)

@@ -816,9 +816,9 @@ rai::vote_code rai::vote_processor::vote_blocking (rai::transaction const & tran
 	auto result (rai::vote_code::invalid);
 	if (!vote_a->validate ())
 	{
-		auto max_vote (node.store.vote_max (transaction_a, vote_a));
+		auto current_vote (node.store.vote_current_update (transaction_a, vote_a));
 		result = rai::vote_code::replay;
-		if (!node.active.vote (vote_a) && max_vote->sequence != vote_a->sequence)
+		if (!node.active.vote (vote_a) && (current_vote == nullptr || current_vote->sequence < vote_a->sequence))
 		{
 			result = rai::vote_code::vote;
 		}
@@ -830,9 +830,9 @@ rai::vote_code rai::vote_processor::vote_blocking (rai::transaction const & tran
 				// This tries to assist rep nodes that have lost track of their highest sequence number by replaying our highest known vote back to them
 				// Only do this if the sequence number is significantly different to account for network reordering
 				// Amplify attack considerations: We're sending out a confirm_ack in response to a confirm_ack for no net traffic increase
-				if (max_vote->sequence > vote_a->sequence + 10000)
+				if (current_vote != nullptr && current_vote->sequence > vote_a->sequence + 10000)
 				{
-					rai::confirm_ack confirm (max_vote);
+					rai::confirm_ack confirm (current_vote);
 					std::shared_ptr<std::vector<uint8_t>> bytes (new std::vector<uint8_t>);
 					{
 						rai::vectorstream stream (*bytes);
