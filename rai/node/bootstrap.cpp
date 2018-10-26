@@ -1133,21 +1133,22 @@ void rai::bootstrap_attempt::add_bulk_push_target (rai::block_hash const & head,
 
 void rai::bootstrap_attempt::lazy_start (rai::block_hash const & hash_a)
 {
+	std::unique_lock<std::mutex> lock (lazy_mutex);
 	// Add start blocks
 	if (lazy_keys.find (hash_a) == lazy_keys.end ())
 	{
-		std::unique_lock<std::mutex> lock (lazy_mutex);
 		lazy_keys.insert (hash_a);
 	}
+	lock.unlock ();
 	lazy_add (hash_a);
 }
 
 void rai::bootstrap_attempt::lazy_add (rai::block_hash const & hash_a)
 {
+	std::unique_lock<std::mutex> lock (lazy_mutex);
 	// Add only unknown blocks
 	if (lazy_blocks.find (hash_a) == lazy_blocks.end ())
 	{
-		std::unique_lock<std::mutex> lock (lazy_mutex);
 		lazy_pulls.push_back (hash_a);
 	}
 }
@@ -1240,6 +1241,7 @@ bool rai::bootstrap_attempt::process_block (std::shared_ptr<rai::block> block_a)
 	if (lazy_mode)
 	{
 		auto hash (block_a->hash ());
+		std::unique_lock<std::mutex> lock (lazy_mutex);
 		// Processing new blocks
 		if (lazy_blocks.find (hash) == lazy_blocks.end ())
 		{
@@ -1247,7 +1249,6 @@ bool rai::bootstrap_attempt::process_block (std::shared_ptr<rai::block> block_a)
 			auto transaction (node->store.tx_begin_read ());
 			if (!node->store.block_exists (transaction, hash))
 			{
-				std::unique_lock<std::mutex> lock (lazy_mutex);
 				lazy_blocks.insert (hash);
 				lock.unlock ();
 				node->block_processor.add (block_a, std::chrono::steady_clock::time_point ());
@@ -1283,7 +1284,6 @@ bool rai::bootstrap_attempt::process_block (std::shared_ptr<rai::block> block_a)
 							{
 								lock.lock ();
 								lazy_state_unknown.insert (std::make_pair (block_l->hashables.previous, block_l));
-								lock.unlock ();
 							}
 						}
 					}
@@ -1300,7 +1300,6 @@ bool rai::bootstrap_attempt::process_block (std::shared_ptr<rai::block> block_a)
 			if (find_state != lazy_state_unknown.end ())
 			{
 				auto next_block (find_state->second);
-				std::unique_lock<std::mutex> lock (lazy_mutex);
 				lazy_state_unknown.erase (hash);
 				lock.unlock ();
 				// Retrieve balance for previous state blocks
@@ -1327,7 +1326,6 @@ bool rai::bootstrap_attempt::process_block (std::shared_ptr<rai::block> block_a)
 					lazy_add (next_block->hashables.link);
 					lock.lock ();
 					lazy_state_assumption.insert (next_block->hashables.link);
-					lock.unlock ();
 				}
 			}
 		}
