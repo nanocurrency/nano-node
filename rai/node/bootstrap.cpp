@@ -1208,6 +1208,13 @@ void rai::bootstrap_attempt::lazy_run ()
 			}
 			else
 			{
+				// Flushing lazy pulls
+				if (!lazy_pulls.empty ())
+				{
+					lock.unlock ();
+					lazy_pull_flush ();
+					lock.lock ();
+				}
 				condition.wait_for (lock, std::chrono::seconds (1));
 			}
 		}
