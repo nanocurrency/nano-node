@@ -1352,6 +1352,9 @@ void rai::rpc_handler::bootstrap_lazy ()
 	response_errors ();
 }
 
+/*
+ * @warning This is an internal/diagnostic RPC, do not rely on its interface being stable
+ */
 void rai::rpc_handler::bootstrap_status ()
 {
 	auto attempt (node.bootstrap_initiator.current_attempt ());
@@ -3927,7 +3930,7 @@ void rai::rpc_handler::process_request ()
 			{
 				bootstrap_lazy ();
 			}
-			else if (action == "_bootstrap_status")
+			else if (action == "bootstrap_status")
 			{
 				bootstrap_status ();
 			}
