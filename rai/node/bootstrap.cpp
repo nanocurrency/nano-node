@@ -1284,7 +1284,8 @@ bool rai::bootstrap_attempt::process_block (std::shared_ptr<rai::block> block_a)
 			// Drop bulk_pull if block is already known (ledger)
 			else
 			{
-				stop_pull = true;
+				// Disabled until server rewrite
+				// stop_pull = true;
 			}
 			//Search unknown state blocks balances
 			auto find_state (lazy_state_unknown.find (hash));
@@ -1325,7 +1326,8 @@ bool rai::bootstrap_attempt::process_block (std::shared_ptr<rai::block> block_a)
 		// Drop bulk_pull if block is already known (processed set)
 		else
 		{
-			stop_pull = true;
+			// Disabled until server rewrite
+			// stop_pull = true;
 		}
 	}
 	else
