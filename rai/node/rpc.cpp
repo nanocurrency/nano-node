@@ -1343,9 +1343,10 @@ void rai::rpc_handler::bootstrap_lazy ()
 {
 	rpc_control_impl ();
 	auto hash (hash_impl ());
+	const bool force = request.get<bool> ("force", false);
 	if (!ec)
 	{
-		node.bootstrap_initiator.bootstrap_lazy (hash);
+		node.bootstrap_initiator.bootstrap_lazy (hash, force);
 		response_l.put ("started", "1");
 	}
 	response_errors ();
