@@ -473,7 +473,7 @@ int main (int argc, char * const * argv)
 							{
 								prev_balance = node.node->ledger.balance (transaction, state_block.hashables.previous);
 							}
-							if (state_block.hashables.link == node.node->ledger.epoch_link && state_block.hashables.balance == prev_balance)
+							if (node.node->ledger.is_epoch_link (state_block.hashables.link) && state_block.hashables.balance == prev_balance)
 							{
 								invalid = validate_message (node.node->ledger.epoch_signer, hash, block->block_signature ());
 							}

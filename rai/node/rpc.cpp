@@ -1736,7 +1736,7 @@ public:
 					tree.put ("subtype", "change");
 				}
 			}
-			else if (balance == previous_balance && !handler.node.ledger.epoch_link.is_zero () && block_a.hashables.link == handler.node.ledger.epoch_link)
+			else if (balance == previous_balance && !handler.node.ledger.epoch_link.is_zero () && handler.node.ledger.is_epoch_link (block_a.hashables.link))
 			{
 				if (raw)
 				{
@@ -2032,6 +2032,36 @@ void rai::rpc_handler::mrai_to_raw (rai::uint128_t ratio)
 		{
 			ec = nano::error_common::invalid_amount_big;
 		}
+	}
+	response_errors ();
+}
+
+/*
+ * @warning This is an internal/diagnostic RPC, do not rely on its interface being stable
+ */
+void rai::rpc_handler::node_id ()
+{
+	rpc_control_impl ();
+	if (!ec)
+	{
+		response_l.put ("private", node.node_id.prv.data.to_string ());
+		response_l.put ("public", node.node_id.pub.to_string ());
+		response_l.put ("as_account", node.node_id.pub.to_account ());
+	}
+	response_errors ();
+}
+
+/*
+ * @warning This is an internal/diagnostic RPC, do not rely on its interface being stable
+ */
+void rai::rpc_handler::node_id_delete ()
+{
+	rpc_control_impl ();
+	if (!ec)
+	{
+		auto transaction (node.store.tx_begin_write ());
+		node.store.delete_node_id (transaction);
+		response_l.put ("deleted", "1");
 	}
 	response_errors ();
 }
@@ -2569,13 +2599,58 @@ void rai::rpc_handler::representatives ()
 
 void rai::rpc_handler::representatives_online ()
 {
-	boost::property_tree::ptree representatives;
-	auto reps (node.online_reps.list ());
-	for (auto & i : reps)
+	const auto accounts_node = request.get_child_optional ("accounts");
+	const bool weight = request.get<bool> ("weight", false);
+	std::vector<rai::public_key> accounts_to_filter;
+	if (accounts_node.is_initialized ())
 	{
-		representatives.put (i.to_account (), "");
+		for (auto & a : (*accounts_node))
+		{
+			rai::public_key account;
+			auto error (account.decode_account (a.second.get<std::string> ("")));
+			if (!error)
+			{
+				accounts_to_filter.push_back (account);
+			}
+			else
+			{
+				ec = nano::error_common::bad_account_number;
+				break;
+			}
+		}
 	}
-	response_l.add_child ("representatives", representatives);
+	if (!ec)
+	{
+		boost::property_tree::ptree representatives;
+		auto reps (node.online_reps.list ());
+		for (auto & i : reps)
+		{
+			if (accounts_node.is_initialized ())
+			{
+				if (accounts_to_filter.empty ())
+				{
+					break;
+				}
+				auto found_acc = std::find (accounts_to_filter.begin (), accounts_to_filter.end (), i);
+				if (found_acc == accounts_to_filter.end ())
+				{
+					continue;
+				}
+				else
+				{
+					accounts_to_filter.erase (found_acc);
+				}
+			}
+			boost::property_tree::ptree weight_node;
+			if (weight)
+			{
+				auto account_weight (node.weight (i));
+				weight_node.put ("weight", account_weight.convert_to<std::string> ());
+			}
+			representatives.add_child (i.to_account (), weight_node);
+		}
+		response_l.add_child ("representatives", representatives);
+	}
 	response_errors ();
 }
 
@@ -3932,6 +4007,14 @@ void rai::rpc_handler::process_request ()
 			else if (action == "mrai_to_raw")
 			{
 				mrai_to_raw ();
+			}
+			else if (action == "node_id")
+			{
+				node_id ();
+			}
+			else if (action == "node_id_delete")
+			{
+				node_id_delete ();
 			}
 			else if (action == "password_change")
 			{

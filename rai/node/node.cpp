@@ -26,6 +26,12 @@ unsigned constexpr rai::active_transactions::announce_interval_ms;
 size_t constexpr rai::block_arrival::arrival_size_min;
 std::chrono::seconds constexpr rai::block_arrival::arrival_time_min;
 
+namespace rai
+{
+extern unsigned char rai_bootstrap_weights[];
+extern size_t rai_bootstrap_weights_size;
+}
+
 rai::network::network (rai::node & node_a, uint16_t port) :
 buffer_container (node_a.stats, rai::network::buffer_size, 4096), // 2Mb receive buffer
 socket (node_a.service, rai::endpoint (boost::asio::ip::address_v6::any (), port)),
@@ -947,7 +953,7 @@ void rai::block_processor::add (std::shared_ptr<rai::block> block_a, std::chrono
 		std::lock_guard<std::mutex> lock (mutex);
 		if (blocks_hashes.find (block_a->hash ()) == blocks_hashes.end ())
 		{
-			if (block_a->type () == rai::block_type::state && block_a->link () != node.ledger.epoch_link)
+			if (block_a->type () == rai::block_type::state && !node.ledger.is_epoch_link (block_a->link ()))
 			{
 				state_blocks.push_back (std::make_pair (block_a, origination));
 			}
@@ -1464,8 +1470,6 @@ stats (config.stat_config)
 	peers.online_weight_minimum = config.online_weight_minimum.number ();
 	if (rai::rai_network == rai::rai_networks::rai_live_network || rai::rai_network == rai::rai_networks::rai_beta_network)
 	{
-		extern const char rai_bootstrap_weights[];
-		extern const size_t rai_bootstrap_weights_size;
 		rai::bufferstream weight_stream ((const uint8_t *)rai_bootstrap_weights, rai_bootstrap_weights_size);
 		rai::uint128_union block_height;
 		if (!rai::read (weight_stream, block_height))
@@ -1891,13 +1895,19 @@ public:
 class distributed_work : public std::enable_shared_from_this<distributed_work>
 {
 public:
-	distributed_work (std::shared_ptr<rai::node> const & node_a, rai::block_hash const & root_a, std::function<void(uint64_t)> callback_a, unsigned int backoff_a = 1) :
+	distributed_work (std::shared_ptr<rai::node> const & node_a, rai::block_hash const & root_a, std::function<void(uint64_t)> callback_a) :
+	distributed_work (1, node_a, root_a, callback_a)
+	{
+		assert (node_a != nullptr);
+	}
+	distributed_work (unsigned int backoff_a, std::shared_ptr<rai::node> const & node_a, rai::block_hash const & root_a, std::function<void(uint64_t)> callback_a) :
 	callback (callback_a),
 	backoff (backoff_a),
 	node (node_a),
 	root (root_a),
 	need_resolve (node_a->config.work_peers)
 	{
+		assert (node_a != nullptr);
 		completed.clear ();
 	}
 	void start ()
@@ -2116,7 +2126,7 @@ public:
 					node->alarm.add (now + std::chrono::seconds (backoff), [node_w, root_l, callback_l, next_backoff] {
 						if (auto node_l = node_w.lock ())
 						{
-							auto work_generation (std::make_shared<distributed_work> (node_l, root_l, callback_l, next_backoff));
+							auto work_generation (std::make_shared<distributed_work> (next_backoff, node_l, root_l, callback_l));
 							work_generation->start ();
 						}
 					});
@@ -2391,9 +2401,9 @@ rai::uint128_t rai::online_reps::online_stake ()
 	return std::max (online_stake_total, node.config.online_weight_minimum.number ());
 }
 
-std::deque<rai::account> rai::online_reps::list ()
+std::vector<rai::account> rai::online_reps::list ()
 {
-	std::deque<rai::account> result;
+	std::vector<rai::account> result;
 	std::lock_guard<std::mutex> lock (mutex);
 	for (auto i (reps.begin ()), n (reps.end ()); i != n; ++i)
 	{
@@ -2525,6 +2535,10 @@ void rai::network::send_buffer (uint8_t const * data_a, size_t size_a, rai::endp
 	socket.async_send_to (boost::asio::buffer (data_a, size_a), endpoint_a, [this, callback_a](boost::system::error_code const & ec, size_t size_a) {
 		callback_a (ec, size_a);
 		this->node.stats.add (rai::stat::type::traffic, rai::stat::dir::out, size_a);
+		if (ec == boost::system::errc::host_unreachable)
+		{
+			this->node.stats.inc (rai::stat::type::error, rai::stat::detail::unreachable_host, rai::stat::dir::out);
+		}
 		if (this->node.config.logging.network_packet_logging ())
 		{
 			BOOST_LOG (this->node.log) << "Packet send complete";
@@ -2760,7 +2774,7 @@ bool rai::node::validate_block_by_previous (rai::transaction const & transaction
 		}
 		if (!result)
 		{
-			if (block_l->hashables.balance == prev_balance && !ledger.epoch_link.is_zero () && block_l->hashables.link == ledger.epoch_link)
+			if (block_l->hashables.balance == prev_balance && !ledger.epoch_link.is_zero () && ledger.is_epoch_link (block_l->hashables.link))
 			{
 				account = ledger.epoch_signer;
 			}
