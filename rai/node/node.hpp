@@ -363,10 +363,34 @@ public:
 	std::mutex mutex;
 	std::unordered_set<rai::block_hash> active;
 };
+class block_processor;
+class signature_checker
+{
+public:
+	signature_checker (rai::block_processor &);
+	~signature_checker ();
+	void add (std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point);
+	void stop ();
+	void flush ();
+
+private:
+	void run ();
+	void verify ();
+	std::deque<std::pair<std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point>> blocks;
+	std::deque<std::pair<std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point>> checking;
+	rai::block_processor & processor;
+	bool started;
+	bool stopped;
+	std::mutex mutex;
+	std::condition_variable condition;
+	std::thread thread;
+};
 // Processing blocks is a potentially long IO operation
 // This class isolates block insertion from other operations like servicing network operations
 class block_processor
 {
+	friend class rai::signature_checker;
+
 public:
 	block_processor (rai::node &);
 	~block_processor ();
@@ -383,17 +407,16 @@ public:
 private:
 	void queue_unchecked (rai::transaction const &, rai::block_hash const &);
 	void process_receive_many (std::unique_lock<std::mutex> &);
-	void verify_state_blocks (std::unique_lock<std::mutex> &);
 	bool stopped;
 	bool active;
 	std::chrono::steady_clock::time_point next_log;
 	std::deque<std::pair<std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point>> blocks;
-	std::deque<std::pair<std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point>> state_blocks;
 	std::unordered_set<rai::block_hash> blocks_hashes;
 	std::deque<std::shared_ptr<rai::block>> forced;
 	std::condition_variable condition;
 	rai::node & node;
 	rai::vote_generator generator;
+	rai::signature_checker checker;
 	std::mutex mutex;
 };
 class node : public std::enable_shared_from_this<rai::node>
