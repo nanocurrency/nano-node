@@ -789,16 +789,12 @@ void rai::bootstrap_attempt::request_pull (std::unique_lock<std::mutex> & lock_a
 	{
 		auto pull (pulls.front ());
 		pulls.pop_front ();
-		// Do not request already known blocks
-		if (!lazy_mode || lazy_blocks.find (pull.account) == lazy_blocks.end ())
-		{
-			// The bulk_pull_client destructor attempt to requeue_pull which can cause a deadlock if this is the last reference
-			// Dispatch request in an external thread in case it needs to be destroyed
-			node->background ([connection_l, pull]() {
-				auto client (std::make_shared<rai::bulk_pull_client> (connection_l, pull));
-				client->request ();
-			});
-		}
+		// The bulk_pull_client destructor attempt to requeue_pull which can cause a deadlock if this is the last reference
+		// Dispatch request in an external thread in case it needs to be destroyed
+		node->background ([connection_l, pull]() {
+			auto client (std::make_shared<rai::bulk_pull_client> (connection_l, pull));
+			client->request ();
+		});
 	}
 }
 
@@ -1103,15 +1099,25 @@ void rai::bootstrap_attempt::add_pull (rai::pull_info const & pull)
 void rai::bootstrap_attempt::requeue_pull (rai::pull_info const & pull_a)
 {
 	auto pull (pull_a);
+	bool lazy_continue (false);
+	if (lazy_mode && pull.attempts > bootstrap_frontier_retry_limit - 2)
+	{
+		std::unique_lock<std::mutex> lazy_lock (lazy_mutex);
+		if (lazy_state_assumption.find (pull.account) == lazy_state_assumption.end ())
+		{
+			lazy_continue = true;
+		}
+	}
 	if (++pull.attempts < bootstrap_frontier_retry_limit)
 	{
 		std::lock_guard<std::mutex> lock (mutex);
 		pulls.push_front (pull);
 		condition.notify_all ();
 	}
-	else if (lazy_mode && lazy_state_assumption.find (pull.account) == lazy_state_assumption.end ())
+	else if (lazy_continue)
 	{
 		// Retry for lazy pulls (not weak state block link assumptions)
+		std::lock_guard<std::mutex> lock (mutex);
 		pull.attempts++;
 		pulls.push_back (pull);
 		condition.notify_all ();
