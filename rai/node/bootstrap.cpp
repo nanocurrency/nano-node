@@ -1139,13 +1139,11 @@ void rai::bootstrap_attempt::lazy_start (rai::block_hash const & hash_a)
 	{
 		lazy_keys.insert (hash_a);
 	}
-	lock.unlock ();
 	lazy_add (hash_a);
 }
 
 void rai::bootstrap_attempt::lazy_add (rai::block_hash const & hash_a)
 {
-	std::unique_lock<std::mutex> lock (lazy_mutex);
 	// Add only unknown blocks
 	if (lazy_blocks.find (hash_a) == lazy_blocks.end ())
 	{
@@ -1211,14 +1209,7 @@ void rai::bootstrap_attempt::lazy_run ()
 			}
 			else
 			{
-				// Flushing lazy pulls
-				if (!lazy_pulls.empty ())
-				{
-					lock.unlock ();
-					lazy_pull_flush ();
-					lock.lock ();
-				}
-				condition.wait_for (lock, std::chrono::seconds (1));
+				condition.wait (lock);
 			}
 		}
 		// Flushing may resolve forks which can add more pulls
@@ -1252,7 +1243,6 @@ bool rai::bootstrap_attempt::process_block (std::shared_ptr<rai::block> block_a)
 			if (!node->store.block_exists (transaction, hash))
 			{
 				lazy_blocks.insert (hash);
-				lock.unlock ();
 				node->block_processor.add (block_a, std::chrono::steady_clock::time_point ());
 				// Search for new dependencies
 				if (!block_a->source ().is_zero () && !node->store.block_exists (transaction, block_a->source ()))
@@ -1284,7 +1274,6 @@ bool rai::bootstrap_attempt::process_block (std::shared_ptr<rai::block> block_a)
 							}
 							else
 							{
-								lock.lock ();
 								lazy_state_unknown.insert (std::make_pair (block_l->hashables.previous, block_l));
 							}
 						}
@@ -1303,7 +1292,6 @@ bool rai::bootstrap_attempt::process_block (std::shared_ptr<rai::block> block_a)
 			{
 				auto next_block (find_state->second);
 				lazy_state_unknown.erase (hash);
-				lock.unlock ();
 				// Retrieve balance for previous state blocks
 				if (block_a->type () == rai::block_type::state)
 				{
@@ -1326,7 +1314,6 @@ bool rai::bootstrap_attempt::process_block (std::shared_ptr<rai::block> block_a)
 				else
 				{
 					lazy_add (next_block->hashables.link);
-					lock.lock ();
 					lazy_state_assumption.insert (next_block->hashables.link);
 				}
 			}
