@@ -1228,6 +1228,7 @@ rai::process_return rai::block_processor::process_one (rai::transaction const & 
 				BOOST_LOG (node.log) << boost::str (boost::format ("Old for: %1%") % block_a->hash ().to_string ());
 			}
 			queue_unchecked (transaction_a, hash);
+			node.active.update_difficulty (*block_a);
 			break;
 		}
 		case rai::process_result::bad_signature:
@@ -1715,10 +1716,8 @@ void rai::network::confirm_send (rai::confirm_ack const & confirm_a, std::shared
 
 void rai::node::process_active (std::shared_ptr<rai::block> incoming)
 {
-	if (!block_arrival.add (incoming->hash ()))
-	{
-		block_processor.add (incoming, std::chrono::steady_clock::now ());
-	}
+	block_arrival.add (incoming->hash ());
+	block_processor.add (incoming, std::chrono::steady_clock::now ());
 }
 
 rai::process_return rai::node::process (rai::block const & block_a)
@@ -3121,6 +3120,21 @@ bool rai::active_transactions::active (rai::block const & block_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	return roots.find (block_a.root ()) != roots.end ();
+}
+
+void rai::active_transactions::update_difficulty (rai::block const & block_a)
+{
+	std::lock_guard<std::mutex> lock (mutex);
+	auto existing (roots.find (block_a.root ()));
+	if (existing != roots.end ())
+	{
+		uint64_t difficulty;
+		auto error (rai::work_validate (block_a, &difficulty));
+		assert (!error);
+		roots.modify (existing, [difficulty](rai::conflict_info & info_a) {
+			info_a.difficulty = difficulty;
+		});
+	}
 }
 
 // List of active blocks in elections
