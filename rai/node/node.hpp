@@ -283,19 +283,13 @@ public:
 	std::mutex syn_cookie_mutex;
 	std::unordered_map<rai::endpoint, syn_cookie_info> syn_cookies;
 	std::unordered_map<boost::asio::ip::address, unsigned> syn_cookies_per_ip;
-	// Number of peers that don't support node ID
-	size_t legacy_peers;
 	// Called when a new peer is observed
 	std::function<void(rai::endpoint const &)> peer_observer;
 	std::function<void()> disconnect_observer;
 	// Number of peers to crawl for being a rep every period
 	static size_t constexpr peers_per_crawl = 8;
-	// Maximum number of peers per IP (includes legacy peers)
+	// Maximum number of peers per IP
 	static size_t constexpr max_peers_per_ip = 10;
-	// Maximum number of legacy peers per IP
-	static size_t constexpr max_legacy_peers_per_ip = 5;
-	// Maximum number of peers that don't support node ID
-	static size_t constexpr max_legacy_peers = 500;
 };
 class send_info
 {

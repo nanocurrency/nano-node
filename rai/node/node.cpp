@@ -3240,20 +3240,6 @@ std::vector<rai::peer_information> rai::peer_container::purge_list (std::chrono:
 		std::lock_guard<std::mutex> lock (mutex);
 		auto pivot (peers.get<1> ().lower_bound (cutoff));
 		result.assign (pivot, peers.get<1> ().end ());
-		for (auto i (peers.get<1> ().begin ()); i != pivot; ++i)
-		{
-			if (i->network_version < rai::node_id_version)
-			{
-				if (legacy_peers > 0)
-				{
-					--legacy_peers;
-				}
-				else
-				{
-					assert (false && "More legacy peers removed than added");
-				}
-			}
-		}
 		// Remove peers that haven't been heard from past the cutoff
 		peers.get<1> ().erase (peers.get<1> ().begin (), pivot);
 		for (auto i (peers.begin ()), n (peers.end ()); i != n; ++i)
@@ -3393,7 +3379,6 @@ bool rai::peer_container::insert (rai::endpoint const & endpoint_a, unsigned ver
 {
 	assert (endpoint_a.address ().is_v6 ());
 	auto unknown (false);
-	auto is_legacy (version_a < rai::node_id_version);
 	auto result (not_a_peer (endpoint_a, false));
 	if (!result)
 	{
@@ -3405,42 +3390,16 @@ bool rai::peer_container::insert (rai::endpoint const & endpoint_a, unsigned ver
 			{
 				peers.modify (existing, [](rai::peer_information & info) {
 					info.last_contact = std::chrono::steady_clock::now ();
-					// Don't update `network_version` here unless you handle the legacy peer caps (both global and per IP)
-					// You'd need to ensure that an upgrade from network version 7 to 8 entails a node ID handshake
 				});
 				result = true;
 			}
 			else
 			{
 				unknown = true;
-				if (is_legacy)
-				{
-					if (legacy_peers < max_legacy_peers)
-					{
-						++legacy_peers;
-					}
-					else
-					{
-						result = true;
-					}
-				}
 				if (!result && rai_network != rai_networks::rai_test_network)
 				{
-					auto peer_it_range (peers.get<rai::peer_by_ip_addr> ().equal_range (endpoint_a.address ()));
-					auto i (peer_it_range.first);
-					auto n (peer_it_range.second);
-					unsigned ip_peers (0);
-					unsigned legacy_ip_peers (0);
-					while (i != n)
-					{
-						++ip_peers;
-						if (i->network_version < rai::node_id_version)
-						{
-							++legacy_ip_peers;
-						}
-						++i;
-					}
-					if (ip_peers >= max_peers_per_ip || (is_legacy && legacy_ip_peers >= max_legacy_peers_per_ip))
+					auto ip_peers (peers.get<rai::peer_by_ip_addr> ().count (endpoint_a.address ()));
+					if (ip_peers >= max_peers_per_ip)
 					{
 						result = true;
 					}
@@ -3603,8 +3562,7 @@ network_version (rai::protocol_version)
 rai::peer_container::peer_container (rai::endpoint const & self_a) :
 self (self_a),
 peer_observer ([](rai::endpoint const &) {}),
-disconnect_observer ([]() {}),
-legacy_peers (0)
+disconnect_observer ([]() {})
 {
 }
 
