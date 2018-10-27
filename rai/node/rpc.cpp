@@ -2298,7 +2298,7 @@ void rai::rpc_handler::process ()
 			rai::process_return result;
 			{
 				auto transaction (node.store.tx_begin_write ());
-				result = node.block_processor.process_receive_one (transaction, block, std::chrono::steady_clock::time_point ());
+				result = node.block_processor.process_one (transaction, block, std::chrono::steady_clock::time_point ());
 			}
 			switch (result.code)
 			{
