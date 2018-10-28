@@ -37,9 +37,12 @@ void rai::port_mapping::refresh_devices ()
 		if (check_count % 15 == 0)
 		{
 			BOOST_LOG (node.log) << boost::str (boost::format ("UPnP local address: %1%, discovery: %2%, IGD search: %3%") % local_address.data () % discover_error % igd_error);
-			for (auto i (devices); i != nullptr; i = i->pNext)
+			if (node.config.logging.upnp_details_logging ())
 			{
-				BOOST_LOG (node.log) << boost::str (boost::format ("UPnP device url: %1% st: %2% usn: %3%") % i->descURL % i->st % i->usn);
+				for (auto i (devices); i != nullptr; i = i->pNext)
+				{
+					BOOST_LOG (node.log) << boost::str (boost::format ("UPnP device url: %1% st: %2% usn: %3%") % i->descURL % i->st % i->usn);
+				}
 			}
 		}
 	}
