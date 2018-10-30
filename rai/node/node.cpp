@@ -349,7 +349,7 @@ void rai::network::broadcast_confirm_req (std::shared_ptr<rai::block> block_a)
 	if (list->empty () || node.peers.total_weight () < node.config.online_weight_minimum.number ())
 	{
 		// broadcast request to all peers
-		list = std::make_shared<std::vector<rai::peer_information>> (node.peers.list_vector ());
+		list = std::make_shared<std::vector<rai::peer_information>> (node.peers.list_vector (100));
 	}
 
 	/*
@@ -2845,7 +2845,6 @@ void rai::active_transactions::announce_votes ()
 	auto transaction (node.store.tx_begin_read ());
 	unsigned unconfirmed_count (0);
 	unsigned unconfirmed_announcements (0);
-	unsigned mass_request_count (0);
 	std::deque<std::shared_ptr<rai::block>> rebroadcast_bundle;
 	std::deque<std::pair<std::shared_ptr<rai::block>, std::shared_ptr<std::vector<rai::peer_information>>>> confirm_req_bundle;
 
@@ -2952,15 +2951,14 @@ void rai::active_transactions::announce_votes ()
 						}
 					}
 				}
-				if ((!reps->empty () && total_weight > node.config.online_weight_minimum.number ()) || mass_request_count > 4)
+				if ((!reps->empty () && total_weight > node.config.online_weight_minimum.number ()) || roots.size () > 5)
 				{
 					confirm_req_bundle.push_back (std::make_pair (i->confirm_req_options.first, reps));
 				}
 				else
 				{
 					// broadcast request to all peers
-					confirm_req_bundle.push_back (std::make_pair (i->confirm_req_options.first, std::make_shared<std::vector<rai::peer_information>> (node.peers.list_vector ())));
-					++mass_request_count;
+					confirm_req_bundle.push_back (std::make_pair (i->confirm_req_options.first, std::make_shared<std::vector<rai::peer_information>> (node.peers.list_vector (100))));
 				}
 			}
 		}

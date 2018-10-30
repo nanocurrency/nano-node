@@ -80,7 +80,7 @@ public:
 	// List of all peers
 	std::deque<rai::endpoint> list ();
 	std::map<rai::endpoint, unsigned> list_version ();
-	std::vector<peer_information> list_vector ();
+	std::vector<peer_information> list_vector (size_t);
 	// A list of random peers sized for the configured rebroadcast fanout
 	std::deque<rai::endpoint> list_fanout ();
 	// Get the next peer for attempting bootstrap
