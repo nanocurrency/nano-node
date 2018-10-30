@@ -118,7 +118,7 @@ std::vector<rai::peer_information> rai::peer_container::list_vector (size_t coun
 	std::random_shuffle (result.begin (), result.end ());
 	if (result.size () > count_a)
 	{
-		result.resize (count_a);
+		result.resize (count_a, rai::peer_information (rai::endpoint{}, 0));
 	}
 	return result;
 }
