@@ -466,6 +466,7 @@ sequence (sequence_a),
 account (account_a)
 {
 	assert (blocks_a.size () > 0);
+	assert (blocks_a.size () <= 12);
 	for (auto hash : blocks_a)
 	{
 		blocks.push_back (hash);

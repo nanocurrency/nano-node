@@ -439,11 +439,38 @@ std::string rai::stat::detail_to_string (uint32_t key)
 		case rai::stat::detail::overflow:
 			res = "overflow";
 			break;
+		case rai::stat::detail::unreachable_host:
+			res = "unreachable_host";
+			break;
 		case rai::stat::detail::invalid_magic:
 			res = "invalid_magic";
 			break;
 		case rai::stat::detail::invalid_network:
 			res = "invalid_network";
+			break;
+		case rai::stat::detail::invalid_header:
+			res = "invalid_header";
+			break;
+		case rai::stat::detail::invalid_message_type:
+			res = "invalid_message_type";
+			break;
+		case rai::stat::detail::invalid_keepalive_message:
+			res = "invalid_keepalive_message";
+			break;
+		case rai::stat::detail::invalid_publish_message:
+			res = "invalid_publish_message";
+			break;
+		case rai::stat::detail::invalid_confirm_req_message:
+			res = "invalid_confirm_req_message";
+			break;
+		case rai::stat::detail::invalid_confirm_ack_message:
+			res = "invalid_confirm_ack_message";
+			break;
+		case rai::stat::detail::invalid_node_id_handshake_message:
+			res = "invalid_node_id_handshake_message";
+			break;
+		case rai::stat::detail::outdated_version:
+			res = "outdated_version";
 			break;
 	}
 	return res;

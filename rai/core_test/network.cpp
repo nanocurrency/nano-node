@@ -70,6 +70,7 @@ TEST (network, send_node_id_handshake)
 	rai::node_init init1;
 	auto node1 (std::make_shared<rai::node> (init1, system.service, 24001, rai::unique_path (), system.alarm, system.logging, system.work));
 	node1->start ();
+	system.nodes.push_back (node1);
 	auto initial (system.nodes[0]->stats.count (rai::stat::type::message, rai::stat::detail::node_id_handshake, rai::stat::dir::in));
 	auto initial_node1 (node1->stats.count (rai::stat::type::message, rai::stat::detail::node_id_handshake, rai::stat::dir::in));
 	system.nodes[0]->network.send_keepalive (node1->network.endpoint ());
@@ -104,6 +105,7 @@ TEST (network, keepalive_ipv4)
 	rai::node_init init1;
 	auto node1 (std::make_shared<rai::node> (init1, system.service, 24001, rai::unique_path (), system.alarm, system.logging, system.work));
 	node1->start ();
+	system.nodes.push_back (node1);
 	node1->send_keepalive (rai::endpoint (boost::asio::ip::address_v4::loopback (), 24000));
 	auto initial (system.nodes[0]->stats.count (rai::stat::type::message, rai::stat::detail::keepalive, rai::stat::dir::in));
 	system.deadline_set (10s);
@@ -123,6 +125,7 @@ TEST (network, multi_keepalive)
 	auto node1 (std::make_shared<rai::node> (init1, system.service, 24001, rai::unique_path (), system.alarm, system.logging, system.work));
 	ASSERT_FALSE (init1.error ());
 	node1->start ();
+	system.nodes.push_back (node1);
 	ASSERT_EQ (0, node1->peers.size ());
 	node1->network.send_keepalive (system.nodes[0]->network.endpoint ());
 	ASSERT_EQ (0, node1->peers.size ());
@@ -136,6 +139,7 @@ TEST (network, multi_keepalive)
 	auto node2 (std::make_shared<rai::node> (init2, system.service, 24002, rai::unique_path (), system.alarm, system.logging, system.work));
 	ASSERT_FALSE (init2.error ());
 	node2->start ();
+	system.nodes.push_back (node2);
 	node2->network.send_keepalive (system.nodes[0]->network.endpoint ());
 	system.deadline_set (10s);
 	while (node1->peers.size () != 2 || system.nodes[0]->peers.size () != 2 || node2->peers.size () != 2)
@@ -808,6 +812,7 @@ TEST (bulk, offline_send)
 	auto node1 (std::make_shared<rai::node> (init1, system.service, 24001, rai::unique_path (), system.alarm, system.logging, system.work));
 	ASSERT_FALSE (init1.error ());
 	node1->start ();
+	system.nodes.push_back (node1);
 	rai::keypair key2;
 	auto wallet (node1->wallets.create (rai::uint256_union ()));
 	wallet->insert_adhoc (key2.prv);
@@ -902,7 +907,6 @@ TEST (network, ipv6_bind_send_ipv4)
 	}
 	ASSERT_EQ (endpoint6, endpoint3);
 	std::array<uint8_t, 16> bytes2;
-	auto finish2 (false);
 	rai::endpoint endpoint4;
 	socket2.async_receive_from (boost::asio::buffer (bytes2.data (), bytes2.size ()), endpoint4, [](boost::system::error_code const & error, size_t size_a) {
 		ASSERT_FALSE (!error);
@@ -938,6 +942,7 @@ TEST (node, port_mapping)
 	node0->port_mapping.refresh_devices ();
 	node0->port_mapping.start ();
 	auto end (std::chrono::steady_clock::now () + std::chrono::seconds (500));
+	(void)end;
 	//while (std::chrono::steady_clock::now () < end)
 	{
 		system.poll ();
@@ -1013,7 +1018,7 @@ TEST (udp_buffer, one_buffer_multithreaded)
 {
 	rai::stat stats;
 	rai::udp_buffer buffer (stats, 512, 1);
-	std::thread thread ([&buffer]() {
+	boost::thread thread ([&buffer]() {
 		auto done (false);
 		while (!done)
 		{
@@ -1038,10 +1043,10 @@ TEST (udp_buffer, many_buffers_multithreaded)
 {
 	rai::stat stats;
 	rai::udp_buffer buffer (stats, 512, 16);
-	std::vector<std::thread> threads;
+	std::vector<boost::thread> threads;
 	for (auto i (0); i < 4; ++i)
 	{
-		threads.push_back (std::thread ([&buffer]() {
+		threads.push_back (boost::thread ([&buffer]() {
 			auto done (false);
 			while (!done)
 			{
@@ -1057,7 +1062,7 @@ TEST (udp_buffer, many_buffers_multithreaded)
 	std::atomic_int count (0);
 	for (auto i (0); i < 4; ++i)
 	{
-		threads.push_back (std::thread ([&buffer, &count]() {
+		threads.push_back (boost::thread ([&buffer, &count]() {
 			auto done (false);
 			for (auto i (0); !done && i < 1000; ++i)
 			{

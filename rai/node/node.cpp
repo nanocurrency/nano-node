@@ -19,20 +19,17 @@ std::chrono::seconds constexpr rai::node::period;
 std::chrono::seconds constexpr rai::node::cutoff;
 std::chrono::seconds constexpr rai::node::syn_cookie_cutoff;
 std::chrono::minutes constexpr rai::node::backup_interval;
+std::chrono::seconds constexpr rai::node::search_pending_interval;
 int constexpr rai::port_mapping::mapping_timeout;
 int constexpr rai::port_mapping::check_timeout;
 unsigned constexpr rai::active_transactions::announce_interval_ms;
 size_t constexpr rai::block_arrival::arrival_size_min;
 std::chrono::seconds constexpr rai::block_arrival::arrival_time_min;
 
-rai::endpoint rai::map_endpoint_to_v6 (rai::endpoint const & endpoint_a)
+namespace rai
 {
-	auto endpoint_l (endpoint_a);
-	if (endpoint_l.address ().is_v4 ())
-	{
-		endpoint_l = rai::endpoint (boost::asio::ip::address_v6::v4_mapped (endpoint_l.address ().to_v4 ()), endpoint_l.port ());
-	}
-	return endpoint_l;
+extern unsigned char rai_bootstrap_weights[];
+extern size_t rai_bootstrap_weights_size;
 }
 
 rai::network::network (rai::node & node_a, uint16_t port) :
@@ -42,16 +39,34 @@ resolver (node_a.service),
 node (node_a),
 on (true)
 {
-	for (size_t i = 0; i < node.config.io_threads; ++i)
+	boost::thread::attributes attrs;
+	rai::thread_attributes::set (attrs);
+	for (size_t i = 0; i < node.config.network_threads; ++i)
 	{
-		packet_processing_threads.push_back (std::thread ([this]() {
+		packet_processing_threads.push_back (boost::thread (attrs, [this]() {
 			rai::thread_role::set (rai::thread_role::name::packet_processing);
 			try
 			{
 				process_packets ();
 			}
+			catch (boost::system::error_code & ec)
+			{
+				BOOST_LOG (this->node.log) << FATAL_LOG_PREFIX << ec.message ();
+				release_assert (false);
+			}
+			catch (std::error_code & ec)
+			{
+				BOOST_LOG (this->node.log) << FATAL_LOG_PREFIX << ec.message ();
+				release_assert (false);
+			}
+			catch (std::runtime_error & err)
+			{
+				BOOST_LOG (this->node.log) << FATAL_LOG_PREFIX << err.what ();
+				release_assert (false);
+			}
 			catch (...)
 			{
+				BOOST_LOG (this->node.log) << FATAL_LOG_PREFIX << "Unknown exception";
 				release_assert (false);
 			}
 			if (this->node.config.logging.network_packet_logging ())
@@ -615,84 +630,50 @@ void rai::network::receive_action (rai::udp_data * data_a)
 		{
 			node.stats.inc (rai::stat::type::error);
 
-			if (parser.status == rai::message_parser::parse_status::insufficient_work)
+			switch (parser.status)
 			{
-				if (node.config.logging.insufficient_work_logging ())
-				{
-					BOOST_LOG (node.log) << "Insufficient work in message";
-				}
+				case rai::message_parser::parse_status::insufficient_work:
+					// We've already increment error count, update detail only
+					node.stats.inc_detail_only (rai::stat::type::error, rai::stat::detail::insufficient_work);
+					break;
+				case rai::message_parser::parse_status::invalid_magic:
+					node.stats.inc (rai::stat::type::udp, rai::stat::detail::invalid_magic);
+					break;
+				case rai::message_parser::parse_status::invalid_network:
+					node.stats.inc (rai::stat::type::udp, rai::stat::detail::invalid_network);
+					break;
+				case rai::message_parser::parse_status::invalid_header:
+					node.stats.inc (rai::stat::type::udp, rai::stat::detail::invalid_header);
+					break;
+				case rai::message_parser::parse_status::invalid_message_type:
+					node.stats.inc (rai::stat::type::udp, rai::stat::detail::invalid_message_type);
+					break;
+				case rai::message_parser::parse_status::invalid_keepalive_message:
+					node.stats.inc (rai::stat::type::udp, rai::stat::detail::invalid_keepalive_message);
+					break;
+				case rai::message_parser::parse_status::invalid_publish_message:
+					node.stats.inc (rai::stat::type::udp, rai::stat::detail::invalid_publish_message);
+					break;
+				case rai::message_parser::parse_status::invalid_confirm_req_message:
+					node.stats.inc (rai::stat::type::udp, rai::stat::detail::invalid_confirm_req_message);
+					break;
+				case rai::message_parser::parse_status::invalid_confirm_ack_message:
+					node.stats.inc (rai::stat::type::udp, rai::stat::detail::invalid_confirm_ack_message);
+					break;
+				case rai::message_parser::parse_status::invalid_node_id_handshake_message:
+					node.stats.inc (rai::stat::type::udp, rai::stat::detail::invalid_node_id_handshake_message);
+					break;
+				case rai::message_parser::parse_status::outdated_version:
+					node.stats.inc (rai::stat::type::udp, rai::stat::detail::outdated_version);
+					break;
+				case rai::message_parser::parse_status::success:
+					/* Already checked, unreachable */
+					break;
+			}
 
-				// We've already increment error count, update detail only
-				node.stats.inc_detail_only (rai::stat::type::error, rai::stat::detail::insufficient_work);
-			}
-			else if (parser.status == rai::message_parser::parse_status::invalid_message_type)
+			if (node.config.logging.network_logging ())
 			{
-				if (node.config.logging.network_logging ())
-				{
-					BOOST_LOG (node.log) << "Invalid message type in message";
-				}
-			}
-			else if (parser.status == rai::message_parser::parse_status::invalid_header)
-			{
-				if (node.config.logging.network_logging ())
-				{
-					BOOST_LOG (node.log) << "Invalid header in message";
-				}
-			}
-			else if (parser.status == rai::message_parser::parse_status::invalid_keepalive_message)
-			{
-				if (node.config.logging.network_logging ())
-				{
-					BOOST_LOG (node.log) << "Invalid keepalive message";
-				}
-			}
-			else if (parser.status == rai::message_parser::parse_status::invalid_publish_message)
-			{
-				if (node.config.logging.network_logging ())
-				{
-					BOOST_LOG (node.log) << "Invalid publish message";
-				}
-			}
-			else if (parser.status == rai::message_parser::parse_status::invalid_confirm_req_message)
-			{
-				if (node.config.logging.network_logging ())
-				{
-					BOOST_LOG (node.log) << "Invalid confirm_req message";
-				}
-			}
-			else if (parser.status == rai::message_parser::parse_status::invalid_confirm_ack_message)
-			{
-				if (node.config.logging.network_logging ())
-				{
-					BOOST_LOG (node.log) << "Invalid confirm_ack message";
-				}
-			}
-			else if (parser.status == rai::message_parser::parse_status::invalid_node_id_handshake_message)
-			{
-				if (node.config.logging.network_logging ())
-				{
-					BOOST_LOG (node.log) << "Invalid node_id_handshake message";
-				}
-			}
-			else if (parser.status == rai::message_parser::parse_status::invalid_magic)
-			{
-				if (node.config.logging.network_logging ())
-				{
-					BOOST_LOG (node.log) << "Invalid magic in header";
-				}
-				node.stats.inc (rai::stat::type::udp, rai::stat::detail::invalid_magic);
-			}
-			else if (parser.status == rai::message_parser::parse_status::invalid_network)
-			{
-				if (node.config.logging.network_logging ())
-				{
-					BOOST_LOG (node.log) << "Invalid network in header";
-				}
-				node.stats.inc (rai::stat::type::udp, rai::stat::detail::invalid_network);
-			}
-			else
-			{
-				BOOST_LOG (node.log) << "Could not deserialize buffer";
+				BOOST_LOG (node.log) << "Could not parse message.  Error: " << parser.status_string ();
 			}
 		}
 		else
@@ -793,347 +774,6 @@ wallet_init (false)
 bool rai::node_init::error ()
 {
 	return block_store_init || wallet_init;
-}
-
-rai::node_config::node_config () :
-node_config (rai::network::node_port, rai::logging ())
-{
-}
-
-rai::node_config::node_config (uint16_t peering_port_a, rai::logging const & logging_a) :
-peering_port (peering_port_a),
-logging (logging_a),
-bootstrap_fraction_numerator (1),
-receive_minimum (rai::xrb_ratio),
-online_weight_minimum (60000 * rai::Gxrb_ratio),
-online_weight_quorum (50),
-password_fanout (1024),
-io_threads (std::max<unsigned> (4, std::thread::hardware_concurrency ())),
-work_threads (std::max<unsigned> (4, std::thread::hardware_concurrency ())),
-enable_voting (true),
-bootstrap_connections (4),
-bootstrap_connections_max (64),
-callback_port (0),
-lmdb_max_dbs (128),
-block_processor_batch_max_time (std::chrono::milliseconds (5000))
-{
-	const char * epoch_message ("epoch v1 block");
-	strncpy ((char *)epoch_block_link.bytes.data (), epoch_message, epoch_block_link.bytes.size ());
-	epoch_block_signer = rai::genesis_account;
-	switch (rai::rai_network)
-	{
-		case rai::rai_networks::rai_test_network:
-			preconfigured_representatives.push_back (rai::genesis_account);
-			break;
-		case rai::rai_networks::rai_beta_network:
-			preconfigured_peers.push_back ("rai-beta.raiblocks.net");
-			preconfigured_representatives.push_back (rai::account ("A59A47CC4F593E75AE9AD653FDA9358E2F7898D9ACC8C60E80D0495CE20FBA9F"));
-			preconfigured_representatives.push_back (rai::account ("259A4011E6CAD1069A97C02C3C1F2AAA32BC093C8D82EE1334F937A4BE803071"));
-			preconfigured_representatives.push_back (rai::account ("259A40656144FAA16D2A8516F7BE9C74A63C6CA399960EDB747D144ABB0F7ABD"));
-			preconfigured_representatives.push_back (rai::account ("259A40A92FA42E2240805DE8618EC4627F0BA41937160B4CFF7F5335FD1933DF"));
-			preconfigured_representatives.push_back (rai::account ("259A40FF3262E273EC451E873C4CDF8513330425B38860D882A16BCC74DA9B73"));
-			break;
-		case rai::rai_networks::rai_live_network:
-			preconfigured_peers.push_back ("rai.raiblocks.net");
-			preconfigured_representatives.push_back (rai::account ("A30E0A32ED41C8607AA9212843392E853FCBCB4E7CB194E35C94F07F91DE59EF"));
-			preconfigured_representatives.push_back (rai::account ("67556D31DDFC2A440BF6147501449B4CB9572278D034EE686A6BEE29851681DF"));
-			preconfigured_representatives.push_back (rai::account ("5C2FBB148E006A8E8BA7A75DD86C9FE00C83F5FFDBFD76EAA09531071436B6AF"));
-			preconfigured_representatives.push_back (rai::account ("AE7AC63990DAAAF2A69BF11C913B928844BF5012355456F2F164166464024B29"));
-			preconfigured_representatives.push_back (rai::account ("BD6267D6ECD8038327D2BCC0850BDF8F56EC0414912207E81BCF90DFAC8A4AAA"));
-			preconfigured_representatives.push_back (rai::account ("2399A083C600AA0572F5E36247D978FCFC840405F8D4B6D33161C0066A55F431"));
-			preconfigured_representatives.push_back (rai::account ("2298FAB7C61058E77EA554CB93EDEEDA0692CBFCC540AB213B2836B29029E23A"));
-			preconfigured_representatives.push_back (rai::account ("3FE80B4BC842E82C1C18ABFEEC47EA989E63953BC82AC411F304D13833D52A56"));
-			break;
-		default:
-			assert (false);
-			break;
-	}
-}
-
-void rai::node_config::serialize_json (boost::property_tree::ptree & tree_a) const
-{
-	tree_a.put ("version", "15");
-	tree_a.put ("peering_port", std::to_string (peering_port));
-	tree_a.put ("bootstrap_fraction_numerator", std::to_string (bootstrap_fraction_numerator));
-	tree_a.put ("receive_minimum", receive_minimum.to_string_dec ());
-	boost::property_tree::ptree logging_l;
-	logging.serialize_json (logging_l);
-	tree_a.add_child ("logging", logging_l);
-	boost::property_tree::ptree work_peers_l;
-	for (auto i (work_peers.begin ()), n (work_peers.end ()); i != n; ++i)
-	{
-		boost::property_tree::ptree entry;
-		entry.put ("", boost::str (boost::format ("%1%:%2%") % i->first % i->second));
-		work_peers_l.push_back (std::make_pair ("", entry));
-	}
-	tree_a.add_child ("work_peers", work_peers_l);
-	boost::property_tree::ptree preconfigured_peers_l;
-	for (auto i (preconfigured_peers.begin ()), n (preconfigured_peers.end ()); i != n; ++i)
-	{
-		boost::property_tree::ptree entry;
-		entry.put ("", *i);
-		preconfigured_peers_l.push_back (std::make_pair ("", entry));
-	}
-	tree_a.add_child ("preconfigured_peers", preconfigured_peers_l);
-	boost::property_tree::ptree preconfigured_representatives_l;
-	for (auto i (preconfigured_representatives.begin ()), n (preconfigured_representatives.end ()); i != n; ++i)
-	{
-		boost::property_tree::ptree entry;
-		entry.put ("", i->to_account ());
-		preconfigured_representatives_l.push_back (std::make_pair ("", entry));
-	}
-	tree_a.add_child ("preconfigured_representatives", preconfigured_representatives_l);
-	tree_a.put ("online_weight_minimum", online_weight_minimum.to_string_dec ());
-	tree_a.put ("online_weight_quorum", std::to_string (online_weight_quorum));
-	tree_a.put ("password_fanout", std::to_string (password_fanout));
-	tree_a.put ("io_threads", std::to_string (io_threads));
-	tree_a.put ("work_threads", std::to_string (work_threads));
-	tree_a.put ("enable_voting", enable_voting);
-	tree_a.put ("bootstrap_connections", bootstrap_connections);
-	tree_a.put ("bootstrap_connections_max", bootstrap_connections_max);
-	tree_a.put ("callback_address", callback_address);
-	tree_a.put ("callback_port", std::to_string (callback_port));
-	tree_a.put ("callback_target", callback_target);
-	tree_a.put ("lmdb_max_dbs", lmdb_max_dbs);
-	tree_a.put ("block_processor_batch_max_time", block_processor_batch_max_time.count ());
-}
-
-bool rai::node_config::upgrade_json (unsigned version, boost::property_tree::ptree & tree_a)
-{
-	auto result (false);
-	switch (version)
-	{
-		case 1:
-		{
-			auto reps_l (tree_a.get_child ("preconfigured_representatives"));
-			boost::property_tree::ptree reps;
-			for (auto i (reps_l.begin ()), n (reps_l.end ()); i != n; ++i)
-			{
-				rai::uint256_union account;
-				account.decode_account (i->second.get<std::string> (""));
-				boost::property_tree::ptree entry;
-				entry.put ("", account.to_account ());
-				reps.push_back (std::make_pair ("", entry));
-			}
-			tree_a.erase ("preconfigured_representatives");
-			tree_a.add_child ("preconfigured_representatives", reps);
-			tree_a.erase ("version");
-			tree_a.put ("version", "2");
-			result = true;
-		}
-		case 2:
-		{
-			tree_a.put ("inactive_supply", rai::uint128_union (0).to_string_dec ());
-			tree_a.put ("password_fanout", std::to_string (1024));
-			tree_a.put ("io_threads", std::to_string (io_threads));
-			tree_a.put ("work_threads", std::to_string (work_threads));
-			tree_a.erase ("version");
-			tree_a.put ("version", "3");
-			result = true;
-		}
-		case 3:
-			tree_a.erase ("receive_minimum");
-			tree_a.put ("receive_minimum", rai::xrb_ratio.convert_to<std::string> ());
-			tree_a.erase ("version");
-			tree_a.put ("version", "4");
-			result = true;
-		case 4:
-			tree_a.erase ("receive_minimum");
-			tree_a.put ("receive_minimum", rai::xrb_ratio.convert_to<std::string> ());
-			tree_a.erase ("version");
-			tree_a.put ("version", "5");
-			result = true;
-		case 5:
-			tree_a.put ("enable_voting", enable_voting);
-			tree_a.erase ("packet_delay_microseconds");
-			tree_a.erase ("rebroadcast_delay");
-			tree_a.erase ("creation_rebroadcast");
-			tree_a.erase ("version");
-			tree_a.put ("version", "6");
-			result = true;
-		case 6:
-			tree_a.put ("bootstrap_connections", 16);
-			tree_a.put ("callback_address", "");
-			tree_a.put ("callback_port", "0");
-			tree_a.put ("callback_target", "");
-			tree_a.erase ("version");
-			tree_a.put ("version", "7");
-			result = true;
-		case 7:
-			tree_a.put ("lmdb_max_dbs", "128");
-			tree_a.erase ("version");
-			tree_a.put ("version", "8");
-			result = true;
-		case 8:
-			tree_a.put ("bootstrap_connections_max", "64");
-			tree_a.erase ("version");
-			tree_a.put ("version", "9");
-			result = true;
-		case 9:
-			tree_a.put ("state_block_parse_canary", rai::block_hash (0).to_string ());
-			tree_a.put ("state_block_generate_canary", rai::block_hash (0).to_string ());
-			tree_a.erase ("version");
-			tree_a.put ("version", "10");
-			result = true;
-		case 10:
-			tree_a.put ("online_weight_minimum", online_weight_minimum.to_string_dec ());
-			tree_a.put ("online_weight_quorom", std::to_string (online_weight_quorum));
-			tree_a.erase ("inactive_supply");
-			tree_a.erase ("version");
-			tree_a.put ("version", "11");
-			result = true;
-		case 11:
-		{
-			auto online_weight_quorum_l (tree_a.get<std::string> ("online_weight_quorom"));
-			tree_a.erase ("online_weight_quorom");
-			tree_a.put ("online_weight_quorum", online_weight_quorum_l);
-			tree_a.erase ("version");
-			tree_a.put ("version", "12");
-			result = true;
-		}
-		case 12:
-			tree_a.erase ("state_block_parse_canary");
-			tree_a.erase ("state_block_generate_canary");
-			tree_a.erase ("version");
-			tree_a.put ("version", "13");
-			result = true;
-		case 13:
-			tree_a.put ("generate_hash_votes_at", "0");
-			tree_a.erase ("version");
-			tree_a.put ("version", "14");
-			result = true;
-		case 14:
-			tree_a.erase ("generate_hash_votes_at");
-			tree_a.put ("block_processor_batch_max_time", block_processor_batch_max_time.count ());
-			tree_a.erase ("version");
-			tree_a.put ("version", "15");
-			result = true;
-		case 15:
-			break;
-		default:
-			throw std::runtime_error ("Unknown node_config version");
-	}
-	return result;
-}
-
-bool rai::node_config::deserialize_json (bool & upgraded_a, boost::property_tree::ptree & tree_a)
-{
-	auto result (false);
-	try
-	{
-		auto version_l (tree_a.get_optional<std::string> ("version"));
-		if (!version_l)
-		{
-			tree_a.put ("version", "1");
-			version_l = "1";
-			auto work_peers_l (tree_a.get_child_optional ("work_peers"));
-			if (!work_peers_l)
-			{
-				tree_a.add_child ("work_peers", boost::property_tree::ptree ());
-			}
-			upgraded_a = true;
-		}
-		upgraded_a |= upgrade_json (std::stoull (version_l.get ()), tree_a);
-		auto peering_port_l (tree_a.get<std::string> ("peering_port"));
-		auto bootstrap_fraction_numerator_l (tree_a.get<std::string> ("bootstrap_fraction_numerator"));
-		auto receive_minimum_l (tree_a.get<std::string> ("receive_minimum"));
-		auto & logging_l (tree_a.get_child ("logging"));
-		work_peers.clear ();
-		auto work_peers_l (tree_a.get_child ("work_peers"));
-		for (auto i (work_peers_l.begin ()), n (work_peers_l.end ()); i != n; ++i)
-		{
-			auto work_peer (i->second.get<std::string> (""));
-			auto port_position (work_peer.rfind (':'));
-			result |= port_position == -1;
-			if (!result)
-			{
-				auto port_str (work_peer.substr (port_position + 1));
-				uint16_t port;
-				result |= parse_port (port_str, port);
-				if (!result)
-				{
-					auto address (work_peer.substr (0, port_position));
-					work_peers.push_back (std::make_pair (address, port));
-				}
-			}
-		}
-		auto preconfigured_peers_l (tree_a.get_child ("preconfigured_peers"));
-		preconfigured_peers.clear ();
-		for (auto i (preconfigured_peers_l.begin ()), n (preconfigured_peers_l.end ()); i != n; ++i)
-		{
-			auto bootstrap_peer (i->second.get<std::string> (""));
-			preconfigured_peers.push_back (bootstrap_peer);
-		}
-		auto preconfigured_representatives_l (tree_a.get_child ("preconfigured_representatives"));
-		preconfigured_representatives.clear ();
-		for (auto i (preconfigured_representatives_l.begin ()), n (preconfigured_representatives_l.end ()); i != n; ++i)
-		{
-			rai::account representative (0);
-			result = result || representative.decode_account (i->second.get<std::string> (""));
-			preconfigured_representatives.push_back (representative);
-		}
-		if (preconfigured_representatives.empty ())
-		{
-			result = true;
-		}
-		auto stat_config_l (tree_a.get_child_optional ("statistics"));
-		if (stat_config_l)
-		{
-			result |= stat_config.deserialize_json (stat_config_l.get ());
-		}
-		auto online_weight_minimum_l (tree_a.get<std::string> ("online_weight_minimum"));
-		auto online_weight_quorum_l (tree_a.get<std::string> ("online_weight_quorum"));
-		auto password_fanout_l (tree_a.get<std::string> ("password_fanout"));
-		auto io_threads_l (tree_a.get<std::string> ("io_threads"));
-		auto work_threads_l (tree_a.get<std::string> ("work_threads"));
-		enable_voting = tree_a.get<bool> ("enable_voting");
-		auto bootstrap_connections_l (tree_a.get<std::string> ("bootstrap_connections"));
-		auto bootstrap_connections_max_l (tree_a.get<std::string> ("bootstrap_connections_max"));
-		callback_address = tree_a.get<std::string> ("callback_address");
-		auto callback_port_l (tree_a.get<std::string> ("callback_port"));
-		callback_target = tree_a.get<std::string> ("callback_target");
-		auto lmdb_max_dbs_l = tree_a.get<std::string> ("lmdb_max_dbs");
-		result |= parse_port (callback_port_l, callback_port);
-		auto block_processor_batch_max_time_l = tree_a.get<std::string> ("block_processor_batch_max_time");
-		try
-		{
-			peering_port = std::stoul (peering_port_l);
-			bootstrap_fraction_numerator = std::stoul (bootstrap_fraction_numerator_l);
-			password_fanout = std::stoul (password_fanout_l);
-			io_threads = std::stoul (io_threads_l);
-			work_threads = std::stoul (work_threads_l);
-			bootstrap_connections = std::stoul (bootstrap_connections_l);
-			bootstrap_connections_max = std::stoul (bootstrap_connections_max_l);
-			lmdb_max_dbs = std::stoi (lmdb_max_dbs_l);
-			online_weight_quorum = std::stoul (online_weight_quorum_l);
-			block_processor_batch_max_time = std::chrono::milliseconds (std::stoul (block_processor_batch_max_time_l));
-			result |= peering_port > std::numeric_limits<uint16_t>::max ();
-			result |= logging.deserialize_json (upgraded_a, logging_l);
-			result |= receive_minimum.decode_dec (receive_minimum_l);
-			result |= online_weight_minimum.decode_dec (online_weight_minimum_l);
-			result |= online_weight_quorum > 100;
-			result |= password_fanout < 16;
-			result |= password_fanout > 1024 * 1024;
-			result |= io_threads == 0;
-		}
-		catch (std::logic_error const &)
-		{
-			result = true;
-		}
-	}
-	catch (std::runtime_error const &)
-	{
-		result = true;
-	}
-	return result;
-}
-
-rai::account rai::node_config::random_representative ()
-{
-	assert (preconfigured_representatives.size () > 0);
-	size_t index (rai::random_pool.GenerateWord32 (0, preconfigured_representatives.size () - 1));
-	auto result (preconfigured_representatives[index]);
-	return result;
 }
 
 rai::vote_processor::vote_processor (rai::node & node_a) :
@@ -1297,8 +937,9 @@ bool rai::rep_crawler::exists (rai::block_hash const & hash_a)
 rai::block_processor::block_processor (rai::node & node_a) :
 stopped (false),
 active (false),
+next_log (std::chrono::steady_clock::now ()),
 node (node_a),
-next_log (std::chrono::steady_clock::now ())
+generator (node_a, rai::rai_network == rai::rai_networks::rai_test_network ? std::chrono::milliseconds (10) : std::chrono::milliseconds (500))
 {
 }
 
@@ -1309,6 +950,7 @@ rai::block_processor::~block_processor ()
 
 void rai::block_processor::stop ()
 {
+	generator.stop ();
 	std::lock_guard<std::mutex> lock (mutex);
 	stopped = true;
 	condition.notify_all ();
@@ -1317,7 +959,7 @@ void rai::block_processor::stop ()
 void rai::block_processor::flush ()
 {
 	std::unique_lock<std::mutex> lock (mutex);
-	while (!stopped && (!blocks.empty () || active))
+	while (!stopped && (have_blocks () || active))
 	{
 		condition.wait (lock);
 	}
@@ -1336,8 +978,14 @@ void rai::block_processor::add (std::shared_ptr<rai::block> block_a, std::chrono
 		std::lock_guard<std::mutex> lock (mutex);
 		if (blocks_hashes.find (block_a->hash ()) == blocks_hashes.end ())
 		{
-			blocks.push_back (std::make_pair (block_a, origination));
-			blocks_hashes.insert (block_a->hash ());
+			if (block_a->type () == rai::block_type::state && !node.ledger.is_epoch_link (block_a->link ()))
+			{
+				state_blocks.push_back (std::make_pair (block_a, origination));
+			}
+			else
+			{
+				blocks.push_back (std::make_pair (block_a, origination));
+			}
 			condition.notify_all ();
 		}
 	}
@@ -1391,74 +1039,108 @@ bool rai::block_processor::should_log ()
 bool rai::block_processor::have_blocks ()
 {
 	assert (!mutex.try_lock ());
-	return !blocks.empty () || !forced.empty ();
+	return !blocks.empty () || !forced.empty () || !state_blocks.empty ();
+}
+
+void rai::block_processor::verify_state_blocks (std::unique_lock<std::mutex> & lock_a)
+{
+	lock_a.lock ();
+	std::deque<std::pair<std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point>> items;
+	items.swap (state_blocks);
+	lock_a.unlock ();
+	auto size (items.size ());
+	std::vector<rai::uint256_union> hashes;
+	hashes.reserve (size);
+	std::vector<unsigned char const *> messages;
+	messages.reserve (size);
+	std::vector<size_t> lengths;
+	lengths.reserve (size);
+	std::vector<unsigned char const *> pub_keys;
+	pub_keys.reserve (size);
+	std::vector<unsigned char const *> signatures;
+	signatures.reserve (size);
+	std::vector<int> verifications;
+	verifications.resize (size);
+	for (auto i (0); i < size; ++i)
+	{
+		auto & block (static_cast<rai::state_block &> (*items[i].first));
+		hashes.push_back (block.hash ());
+		messages.push_back (hashes.back ().bytes.data ());
+		lengths.push_back (sizeof (decltype (hashes)::value_type));
+		pub_keys.push_back (block.hashables.account.bytes.data ());
+		signatures.push_back (block.signature.bytes.data ());
+	}
+	/* Verifications is vector if signatures check results
+	validate_message_batch returing "true" if there are at least 1 invalid signature */
+	auto code (rai::validate_message_batch (messages.data (), lengths.data (), pub_keys.data (), signatures.data (), size, verifications.data ()));
+	(void)code;
+	lock_a.lock ();
+	for (auto i (0); i < size; ++i)
+	{
+		assert (verifications[i] == 1 || verifications[i] == 0);
+		if (verifications[i] == 1)
+		{
+			blocks.push_back (items.front ());
+		}
+		items.pop_front ();
+	}
+	lock_a.unlock ();
 }
 
 void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & lock_a)
 {
+	verify_state_blocks (lock_a);
+	auto transaction (node.store.tx_begin_write ());
+	auto start_time (std::chrono::steady_clock::now ());
+	lock_a.lock ();
+	// Processing blocks
+	while ((!blocks.empty () || !forced.empty ()) && std::chrono::steady_clock::now () - start_time < node.config.block_processor_batch_max_time)
 	{
-		auto transaction (node.store.tx_begin_write ());
-		auto start_time (std::chrono::steady_clock::now ());
-		lock_a.lock ();
-		while (have_blocks () && std::chrono::steady_clock::now () - start_time < node.config.block_processor_batch_max_time)
+		if (blocks.size () > 64 && should_log ())
 		{
-			if (blocks.size () > 64 && should_log ())
-			{
-				BOOST_LOG (node.log) << boost::str (boost::format ("%1% blocks in processing queue") % blocks.size ());
-			}
-			std::pair<std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point> block;
-			bool force (false);
-			if (forced.empty ())
-			{
-				block = blocks.front ();
-				blocks.pop_front ();
-				blocks_hashes.erase (block.first->hash ());
-			}
-			else
-			{
-				block = std::make_pair (forced.front (), std::chrono::steady_clock::now ());
-				forced.pop_front ();
-				force = true;
-			}
-			lock_a.unlock ();
-			auto hash (block.first->hash ());
-			if (force)
-			{
-				auto successor (node.ledger.successor (transaction, block.first->root ()));
-				if (successor != nullptr && successor->hash () != hash)
-				{
-					// Replace our block with the winner and roll back any dependent blocks
-					BOOST_LOG (node.log) << boost::str (boost::format ("Rolling back %1% and replacing with %2%") % successor->hash ().to_string () % hash.to_string ());
-					node.ledger.rollback (transaction, successor->hash ());
-				}
-			}
-			auto process_result (process_receive_one (transaction, block.first, block.second));
-			(void)process_result;
-			lock_a.lock ();
+			BOOST_LOG (node.log) << boost::str (boost::format ("%1% blocks in processing queue") % blocks.size ());
 		}
+		std::pair<std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point> block;
+		bool force (false);
+		if (forced.empty ())
+		{
+			block = blocks.front ();
+			blocks.pop_front ();
+			blocks_hashes.erase (block.first->hash ());
+		}
+		else
+		{
+			block = std::make_pair (forced.front (), std::chrono::steady_clock::now ());
+			forced.pop_front ();
+			force = true;
+		}
+		lock_a.unlock ();
+		auto hash (block.first->hash ());
+		if (force)
+		{
+			auto successor (node.ledger.successor (transaction, block.first->root ()));
+			if (successor != nullptr && successor->hash () != hash)
+			{
+				// Replace our block with the winner and roll back any dependent blocks
+				BOOST_LOG (node.log) << boost::str (boost::format ("Rolling back %1% and replacing with %2%") % successor->hash ().to_string () % hash.to_string ());
+				node.ledger.rollback (transaction, successor->hash ());
+			}
+		}
+		/* Forced state blocks are not validated in verify_state_blocks () function
+		Because of that we should set set validated_state_block as "false" for forced state blocks (!force) */
+		bool validated_state_block (!force && block.first->type () == rai::block_type::state);
+		auto process_result (process_receive_one (transaction, block.first, block.second, validated_state_block));
+		(void)process_result;
+		lock_a.lock ();
 	}
-
-	/*
-	 * Copy "processed_active" to a local variable so that we
-	 * may operate on it without holding the mutex.
-	 */
-	decltype (processed_active) processed_active_copy;
-	processed_active_copy.swap (processed_active);
-
 	lock_a.unlock ();
-
-	// Start elections for recent blocks
-	for (const auto & block : processed_active_copy)
-	{
-		node.active.start (block);
-	}
 }
 
-rai::process_return rai::block_processor::process_receive_one (rai::transaction const & transaction_a, std::shared_ptr<rai::block> block_a, std::chrono::steady_clock::time_point origination)
+rai::process_return rai::block_processor::process_receive_one (rai::transaction const & transaction_a, std::shared_ptr<rai::block> block_a, std::chrono::steady_clock::time_point origination, bool validated_state_block)
 {
 	rai::process_return result;
 	auto hash (block_a->hash ());
-	result = node.ledger.process (transaction_a, *block_a);
+	result = node.ledger.process (transaction_a, *block_a, validated_state_block);
 	switch (result.code)
 	{
 		case rai::process_result::progress:
@@ -1471,14 +1153,11 @@ rai::process_return rai::block_processor::process_receive_one (rai::transaction 
 			}
 			if (node.block_arrival.recent (hash))
 			{
-				/*
-				 * The dequeuing of this buffer uses the mutex
-				 * named "mutex", so we must use it when we
-				 * enqueue it.
-				 */
-				std::unique_lock<std::mutex> lock (mutex);
-
-				processed_active.push_back (block_a);
+				node.active.start (block_a);
+				if (node.config.enable_voting)
+				{
+					generator.add (hash);
+				}
 			}
 			queue_unchecked (transaction_a, hash);
 			break;
@@ -1816,8 +1495,6 @@ stats (config.stat_config)
 	peers.online_weight_minimum = config.online_weight_minimum.number ();
 	if (rai::rai_network == rai::rai_networks::rai_live_network || rai::rai_network == rai::rai_networks::rai_beta_network)
 	{
-		extern const char rai_bootstrap_weights[];
-		extern const size_t rai_bootstrap_weights_size;
 		rai::bufferstream weight_stream ((const uint8_t *)rai_bootstrap_weights, rai_bootstrap_weights_size);
 		rai::uint128_union block_height;
 		if (!rai::read (weight_stream, block_height))
@@ -1956,7 +1633,7 @@ void rai::gap_cache::vote (std::shared_ptr<rai::vote> vote_a)
 						{
 							if (!node_l->bootstrap_initiator.in_progress ())
 							{
-								BOOST_LOG (node_l->log) << boost::str (boost::format ("Missing confirmed block %1%") % hash.to_string ());
+								BOOST_LOG (node_l->log) << boost::str (boost::format ("Missing block %1% which has enough votes to warrant bootstrapping it") % hash.to_string ());
 							}
 							node_l->bootstrap_initiator.bootstrap ();
 						}
@@ -2010,204 +1687,6 @@ rai::process_return rai::node::process (rai::block const & block_a)
 	return result;
 }
 
-// Simulating with sqrt_broadcast_simulate shows we only need to broadcast to sqrt(total_peers) random peers in order to successfully publish to everyone with high probability
-std::deque<rai::endpoint> rai::peer_container::list_fanout ()
-{
-	auto peers (random_set (size_sqrt ()));
-	std::deque<rai::endpoint> result;
-	for (auto i (peers.begin ()), n (peers.end ()); i != n; ++i)
-	{
-		result.push_back (*i);
-	}
-	return result;
-}
-
-std::deque<rai::endpoint> rai::peer_container::list ()
-{
-	std::deque<rai::endpoint> result;
-	std::lock_guard<std::mutex> lock (mutex);
-	for (auto i (peers.begin ()), j (peers.end ()); i != j; ++i)
-	{
-		result.push_back (i->endpoint);
-	}
-	std::random_shuffle (result.begin (), result.end ());
-	return result;
-}
-
-std::map<rai::endpoint, unsigned> rai::peer_container::list_version ()
-{
-	std::map<rai::endpoint, unsigned> result;
-	std::lock_guard<std::mutex> lock (mutex);
-	for (auto i (peers.begin ()), j (peers.end ()); i != j; ++i)
-	{
-		result.insert (std::pair<rai::endpoint, unsigned> (i->endpoint, i->network_version));
-	}
-	return result;
-}
-
-std::vector<rai::peer_information> rai::peer_container::list_vector ()
-{
-	std::vector<peer_information> result;
-	std::lock_guard<std::mutex> lock (mutex);
-	for (auto i (peers.begin ()), j (peers.end ()); i != j; ++i)
-	{
-		result.push_back (*i);
-	}
-	std::random_shuffle (result.begin (), result.end ());
-	return result;
-}
-
-rai::endpoint rai::peer_container::bootstrap_peer ()
-{
-	rai::endpoint result (boost::asio::ip::address_v6::any (), 0);
-	std::lock_guard<std::mutex> lock (mutex);
-	;
-	for (auto i (peers.get<4> ().begin ()), n (peers.get<4> ().end ()); i != n;)
-	{
-		if (i->network_version >= protocol_version_reasonable_min)
-		{
-			result = i->endpoint;
-			peers.get<4> ().modify (i, [](rai::peer_information & peer_a) {
-				peer_a.last_bootstrap_attempt = std::chrono::steady_clock::now ();
-			});
-			i = n;
-		}
-		else
-		{
-			++i;
-		}
-	}
-	return result;
-}
-
-boost::optional<rai::uint256_union> rai::peer_container::assign_syn_cookie (rai::endpoint const & endpoint)
-{
-	auto ip_addr (endpoint.address ());
-	assert (ip_addr.is_v6 ());
-	std::unique_lock<std::mutex> lock (syn_cookie_mutex);
-	unsigned & ip_cookies = syn_cookies_per_ip[ip_addr];
-	boost::optional<rai::uint256_union> result;
-	if (ip_cookies < max_peers_per_ip)
-	{
-		if (syn_cookies.find (endpoint) == syn_cookies.end ())
-		{
-			rai::uint256_union query;
-			random_pool.GenerateBlock (query.bytes.data (), query.bytes.size ());
-			syn_cookie_info info{ query, std::chrono::steady_clock::now () };
-			syn_cookies[endpoint] = info;
-			++ip_cookies;
-			result = query;
-		}
-	}
-	return result;
-}
-
-bool rai::peer_container::validate_syn_cookie (rai::endpoint const & endpoint, rai::account node_id, rai::signature sig)
-{
-	auto ip_addr (endpoint.address ());
-	assert (ip_addr.is_v6 ());
-	std::unique_lock<std::mutex> lock (syn_cookie_mutex);
-	auto result (true);
-	auto cookie_it (syn_cookies.find (endpoint));
-	if (cookie_it != syn_cookies.end () && !rai::validate_message (node_id, cookie_it->second.cookie, sig))
-	{
-		result = false;
-		syn_cookies.erase (cookie_it);
-		unsigned & ip_cookies = syn_cookies_per_ip[ip_addr];
-		if (ip_cookies > 0)
-		{
-			--ip_cookies;
-		}
-		else
-		{
-			assert (false && "More SYN cookies deleted than created for IP");
-		}
-	}
-	return result;
-}
-
-bool rai::parse_port (std::string const & string_a, uint16_t & port_a)
-{
-	bool result;
-	size_t converted;
-	try
-	{
-		port_a = std::stoul (string_a, &converted);
-		result = converted != string_a.size () || converted > std::numeric_limits<uint16_t>::max ();
-	}
-	catch (...)
-	{
-		result = true;
-	}
-	return result;
-}
-
-bool rai::parse_address_port (std::string const & string, boost::asio::ip::address & address_a, uint16_t & port_a)
-{
-	auto result (false);
-	auto port_position (string.rfind (':'));
-	if (port_position != std::string::npos && port_position > 0)
-	{
-		std::string port_string (string.substr (port_position + 1));
-		try
-		{
-			uint16_t port;
-			result = parse_port (port_string, port);
-			if (!result)
-			{
-				boost::system::error_code ec;
-				auto address (boost::asio::ip::address_v6::from_string (string.substr (0, port_position), ec));
-				if (!ec)
-				{
-					address_a = address;
-					port_a = port;
-				}
-				else
-				{
-					result = true;
-				}
-			}
-			else
-			{
-				result = true;
-			}
-		}
-		catch (...)
-		{
-			result = true;
-		}
-	}
-	else
-	{
-		result = true;
-	}
-	return result;
-}
-
-bool rai::parse_endpoint (std::string const & string, rai::endpoint & endpoint_a)
-{
-	boost::asio::ip::address address;
-	uint16_t port;
-	auto result (parse_address_port (string, address, port));
-	if (!result)
-	{
-		endpoint_a = rai::endpoint (address, port);
-	}
-	return result;
-}
-
-bool rai::parse_tcp_endpoint (std::string const & string, rai::tcp_endpoint & endpoint_a)
-{
-	boost::asio::ip::address address;
-	uint16_t port;
-	auto result (parse_address_port (string, address, port));
-	if (!result)
-	{
-		endpoint_a = rai::tcp_endpoint (address, port);
-	}
-	return result;
-}
-
 void rai::node::start ()
 {
 	network.start ();
@@ -2218,6 +1697,7 @@ void rai::node::start ()
 	ongoing_rep_crawl ();
 	bootstrap.start ();
 	backup_wallet ();
+	search_pending ();
 	online_reps.recalculate_stake ();
 	port_mapping.start ();
 	add_initial_peers ();
@@ -2395,6 +1875,15 @@ void rai::node::backup_wallet ()
 	});
 }
 
+void rai::node::search_pending ()
+{
+	wallets.search_pending_all ();
+	auto this_l (shared ());
+	alarm.add (std::chrono::steady_clock::now () + search_pending_interval, [this_l]() {
+		this_l->search_pending ();
+	});
+}
+
 int rai::node::price (rai::uint128_t const & balance_a, int amount_a)
 {
 	assert (balance_a >= amount_a * rai::Gxrb_ratio);
@@ -2431,13 +1920,19 @@ public:
 class distributed_work : public std::enable_shared_from_this<distributed_work>
 {
 public:
-	distributed_work (std::shared_ptr<rai::node> const & node_a, rai::block_hash const & root_a, std::function<void(uint64_t)> callback_a, unsigned int backoff_a = 1) :
+	distributed_work (std::shared_ptr<rai::node> const & node_a, rai::block_hash const & root_a, std::function<void(uint64_t)> callback_a) :
+	distributed_work (1, node_a, root_a, callback_a)
+	{
+		assert (node_a != nullptr);
+	}
+	distributed_work (unsigned int backoff_a, std::shared_ptr<rai::node> const & node_a, rai::block_hash const & root_a, std::function<void(uint64_t)> callback_a) :
 	callback (callback_a),
+	backoff (backoff_a),
 	node (node_a),
 	root (root_a),
-	backoff (backoff_a),
 	need_resolve (node_a->config.work_peers)
 	{
+		assert (node_a != nullptr);
 		completed.clear ();
 	}
 	void start ()
@@ -2559,8 +2054,7 @@ public:
 		for (auto const & i : outstanding)
 		{
 			auto host (i.first);
-			auto service (i.second);
-			node->background ([this_l, host, service]() {
+			node->background ([this_l, host]() {
 				std::string request_string;
 				{
 					boost::property_tree::ptree request;
@@ -2657,7 +2151,7 @@ public:
 					node->alarm.add (now + std::chrono::seconds (backoff), [node_w, root_l, callback_l, next_backoff] {
 						if (auto node_l = node_w.lock ())
 						{
-							auto work_generation (std::make_shared<distributed_work> (node_l, root_l, callback_l, next_backoff));
+							auto work_generation (std::make_shared<distributed_work> (next_backoff, node_l, root_l, callback_l));
 							work_generation->start ();
 						}
 					});
@@ -2932,324 +2426,13 @@ rai::uint128_t rai::online_reps::online_stake ()
 	return std::max (online_stake_total, node.config.online_weight_minimum.number ());
 }
 
-std::deque<rai::account> rai::online_reps::list ()
+std::vector<rai::account> rai::online_reps::list ()
 {
-	std::deque<rai::account> result;
+	std::vector<rai::account> result;
 	std::lock_guard<std::mutex> lock (mutex);
 	for (auto i (reps.begin ()), n (reps.end ()); i != n; ++i)
 	{
 		result.push_back (i->representative);
-	}
-	return result;
-}
-
-std::unordered_set<rai::endpoint> rai::peer_container::random_set (size_t count_a)
-{
-	std::unordered_set<rai::endpoint> result;
-	result.reserve (count_a);
-	std::lock_guard<std::mutex> lock (mutex);
-	// Stop trying to fill result with random samples after this many attempts
-	auto random_cutoff (count_a * 2);
-	auto peers_size (peers.size ());
-	// Usually count_a will be much smaller than peers.size()
-	// Otherwise make sure we have a cutoff on attempting to randomly fill
-	if (!peers.empty ())
-	{
-		for (auto i (0); i < random_cutoff && result.size () < count_a; ++i)
-		{
-			auto index (random_pool.GenerateWord32 (0, peers_size - 1));
-			result.insert (peers.get<3> ()[index].endpoint);
-		}
-	}
-	// Fill the remainder with most recent contact
-	for (auto i (peers.get<1> ().begin ()), n (peers.get<1> ().end ()); i != n && result.size () < count_a; ++i)
-	{
-		result.insert (i->endpoint);
-	}
-	return result;
-}
-
-void rai::peer_container::random_fill (std::array<rai::endpoint, 8> & target_a)
-{
-	auto peers (random_set (target_a.size ()));
-	assert (peers.size () <= target_a.size ());
-	auto endpoint (rai::endpoint (boost::asio::ip::address_v6{}, 0));
-	assert (endpoint.address ().is_v6 ());
-	std::fill (target_a.begin (), target_a.end (), endpoint);
-	auto j (target_a.begin ());
-	for (auto i (peers.begin ()), n (peers.end ()); i != n; ++i, ++j)
-	{
-		assert (i->address ().is_v6 ());
-		assert (j < target_a.end ());
-		*j = *i;
-	}
-}
-
-// Request a list of the top known representatives
-std::vector<rai::peer_information> rai::peer_container::representatives (size_t count_a)
-{
-	std::vector<peer_information> result;
-	result.reserve (std::min (count_a, size_t (16)));
-	std::lock_guard<std::mutex> lock (mutex);
-	for (auto i (peers.get<6> ().begin ()), n (peers.get<6> ().end ()); i != n && result.size () < count_a; ++i)
-	{
-		if (!i->rep_weight.is_zero ())
-		{
-			result.push_back (*i);
-		}
-	}
-	return result;
-}
-
-void rai::peer_container::purge_syn_cookies (std::chrono::steady_clock::time_point const & cutoff)
-{
-	std::lock_guard<std::mutex> lock (syn_cookie_mutex);
-	auto it (syn_cookies.begin ());
-	while (it != syn_cookies.end ())
-	{
-		auto info (it->second);
-		if (info.created_at < cutoff)
-		{
-			unsigned & per_ip = syn_cookies_per_ip[it->first.address ()];
-			if (per_ip > 0)
-			{
-				--per_ip;
-			}
-			else
-			{
-				assert (false && "More SYN cookies deleted than created for IP");
-			}
-			it = syn_cookies.erase (it);
-		}
-		else
-		{
-			++it;
-		}
-	}
-}
-
-std::vector<rai::peer_information> rai::peer_container::purge_list (std::chrono::steady_clock::time_point const & cutoff)
-{
-	std::vector<rai::peer_information> result;
-	{
-		std::lock_guard<std::mutex> lock (mutex);
-		auto pivot (peers.get<1> ().lower_bound (cutoff));
-		result.assign (pivot, peers.get<1> ().end ());
-		for (auto i (peers.get<1> ().begin ()); i != pivot; ++i)
-		{
-			if (i->network_version < rai::node_id_version)
-			{
-				if (legacy_peers > 0)
-				{
-					--legacy_peers;
-				}
-				else
-				{
-					assert (false && "More legacy peers removed than added");
-				}
-			}
-		}
-		// Remove peers that haven't been heard from past the cutoff
-		peers.get<1> ().erase (peers.get<1> ().begin (), pivot);
-		for (auto i (peers.begin ()), n (peers.end ()); i != n; ++i)
-		{
-			peers.modify (i, [](rai::peer_information & info) { info.last_attempt = std::chrono::steady_clock::now (); });
-		}
-
-		// Remove keepalive attempt tracking for attempts older than cutoff
-		auto attempts_pivot (attempts.get<1> ().lower_bound (cutoff));
-		attempts.get<1> ().erase (attempts.get<1> ().begin (), attempts_pivot);
-	}
-	if (result.empty ())
-	{
-		disconnect_observer ();
-	}
-	return result;
-}
-
-std::vector<rai::endpoint> rai::peer_container::rep_crawl ()
-{
-	std::vector<rai::endpoint> result;
-	// If there is enough observed peers weight, crawl 10 peers. Otherwise - 40
-	uint16_t max_count = (total_weight () > online_weight_minimum) ? 10 : 40;
-	result.reserve (max_count);
-	std::lock_guard<std::mutex> lock (mutex);
-	uint16_t count (0);
-	for (auto i (peers.get<5> ().begin ()), n (peers.get<5> ().end ()); i != n && count < max_count; ++i, ++count)
-	{
-		result.push_back (i->endpoint);
-	};
-	return result;
-}
-
-size_t rai::peer_container::size ()
-{
-	std::lock_guard<std::mutex> lock (mutex);
-	return peers.size ();
-}
-
-size_t rai::peer_container::size_sqrt ()
-{
-	auto result (std::ceil (std::sqrt (size ())));
-	return result;
-}
-
-rai::uint128_t rai::peer_container::total_weight ()
-{
-	rai::uint128_t result (0);
-	std::unordered_set<rai::account> probable_reps;
-	std::lock_guard<std::mutex> lock (mutex);
-	for (auto i (peers.get<6> ().begin ()), n (peers.get<6> ().end ()); i != n; ++i)
-	{
-		// Calculate if representative isn't recorded for several IP addresses
-		if (probable_reps.find (i->probable_rep_account) == probable_reps.end ())
-		{
-			result = result + i->rep_weight.number ();
-			probable_reps.insert (i->probable_rep_account);
-		}
-	}
-	return result;
-}
-
-bool rai::peer_container::empty ()
-{
-	return size () == 0;
-}
-
-bool rai::peer_container::not_a_peer (rai::endpoint const & endpoint_a, bool blacklist_loopback)
-{
-	bool result (false);
-	if (endpoint_a.address ().to_v6 ().is_unspecified ())
-	{
-		result = true;
-	}
-	else if (rai::reserved_address (endpoint_a, blacklist_loopback))
-	{
-		result = true;
-	}
-	else if (endpoint_a == self)
-	{
-		result = true;
-	}
-	return result;
-}
-
-bool rai::peer_container::rep_response (rai::endpoint const & endpoint_a, rai::account const & rep_account_a, rai::amount const & weight_a)
-{
-	assert (endpoint_a.address ().is_v6 ());
-	auto updated (false);
-	std::lock_guard<std::mutex> lock (mutex);
-	auto existing (peers.find (endpoint_a));
-	if (existing != peers.end ())
-	{
-		peers.modify (existing, [weight_a, &updated, rep_account_a](rai::peer_information & info) {
-			info.last_rep_response = std::chrono::steady_clock::now ();
-			if (info.rep_weight < weight_a)
-			{
-				updated = true;
-				info.rep_weight = weight_a;
-				info.probable_rep_account = rep_account_a;
-			}
-		});
-	}
-	return updated;
-}
-
-void rai::peer_container::rep_request (rai::endpoint const & endpoint_a)
-{
-	std::lock_guard<std::mutex> lock (mutex);
-	auto existing (peers.find (endpoint_a));
-	if (existing != peers.end ())
-	{
-		peers.modify (existing, [](rai::peer_information & info) {
-			info.last_rep_request = std::chrono::steady_clock::now ();
-		});
-	}
-}
-
-bool rai::peer_container::reachout (rai::endpoint const & endpoint_a)
-{
-	// Don't contact invalid IPs
-	bool error = not_a_peer (endpoint_a, false);
-	if (!error)
-	{
-		auto endpoint_l (rai::map_endpoint_to_v6 (endpoint_a));
-		// Don't keepalive to nodes that already sent us something
-		error |= known_peer (endpoint_l);
-		std::lock_guard<std::mutex> lock (mutex);
-		auto existing (attempts.find (endpoint_l));
-		error |= existing != attempts.end ();
-		attempts.insert ({ endpoint_l, std::chrono::steady_clock::now () });
-	}
-	return error;
-}
-
-bool rai::peer_container::insert (rai::endpoint const & endpoint_a, unsigned version_a)
-{
-	assert (endpoint_a.address ().is_v6 ());
-	auto unknown (false);
-	auto is_legacy (version_a < rai::node_id_version);
-	auto result (not_a_peer (endpoint_a, false));
-	if (!result)
-	{
-		if (version_a >= rai::protocol_version_min)
-		{
-			std::lock_guard<std::mutex> lock (mutex);
-			auto existing (peers.find (endpoint_a));
-			if (existing != peers.end ())
-			{
-				peers.modify (existing, [](rai::peer_information & info) {
-					info.last_contact = std::chrono::steady_clock::now ();
-					// Don't update `network_version` here unless you handle the legacy peer caps (both global and per IP)
-					// You'd need to ensure that an upgrade from network version 7 to 8 entails a node ID handshake
-				});
-				result = true;
-			}
-			else
-			{
-				unknown = true;
-				if (is_legacy)
-				{
-					if (legacy_peers < max_legacy_peers)
-					{
-						++legacy_peers;
-					}
-					else
-					{
-						result = true;
-					}
-				}
-				if (!result && rai_network != rai_networks::rai_test_network)
-				{
-					auto peer_it_range (peers.get<rai::peer_by_ip_addr> ().equal_range (endpoint_a.address ()));
-					auto i (peer_it_range.first);
-					auto n (peer_it_range.second);
-					unsigned ip_peers (0);
-					unsigned legacy_ip_peers (0);
-					while (i != n)
-					{
-						++ip_peers;
-						if (i->network_version < rai::node_id_version)
-						{
-							++legacy_ip_peers;
-						}
-						++i;
-					}
-					if (ip_peers >= max_peers_per_ip || (is_legacy && legacy_ip_peers >= max_legacy_peers_per_ip))
-					{
-						result = true;
-					}
-				}
-				if (!result)
-				{
-					peers.insert (rai::peer_information (endpoint_a, version_a));
-				}
-			}
-		}
-	}
-	if (unknown && !result)
-	{
-		peer_observer (endpoint_a);
 	}
 	return result;
 }
@@ -3367,57 +2550,6 @@ bool rai::reserved_address (rai::endpoint const & endpoint_a, bool blacklist_loo
 	return result;
 }
 
-rai::peer_information::peer_information (rai::endpoint const & endpoint_a, unsigned network_version_a) :
-endpoint (endpoint_a),
-ip_address (endpoint_a.address ()),
-last_contact (std::chrono::steady_clock::now ()),
-last_attempt (last_contact),
-last_bootstrap_attempt (std::chrono::steady_clock::time_point ()),
-last_rep_request (std::chrono::steady_clock::time_point ()),
-last_rep_response (std::chrono::steady_clock::time_point ()),
-rep_weight (0),
-network_version (network_version_a),
-node_id ()
-{
-}
-
-rai::peer_information::peer_information (rai::endpoint const & endpoint_a, std::chrono::steady_clock::time_point const & last_contact_a, std::chrono::steady_clock::time_point const & last_attempt_a) :
-endpoint (endpoint_a),
-ip_address (endpoint_a.address ()),
-last_contact (last_contact_a),
-last_attempt (last_attempt_a),
-last_bootstrap_attempt (std::chrono::steady_clock::time_point ()),
-last_rep_request (std::chrono::steady_clock::time_point ()),
-last_rep_response (std::chrono::steady_clock::time_point ()),
-rep_weight (0),
-node_id (),
-network_version (rai::protocol_version)
-{
-}
-
-rai::peer_container::peer_container (rai::endpoint const & self_a) :
-self (self_a),
-peer_observer ([](rai::endpoint const &) {}),
-disconnect_observer ([]() {}),
-legacy_peers (0)
-{
-}
-
-bool rai::peer_container::contacted (rai::endpoint const & endpoint_a, unsigned version_a)
-{
-	auto endpoint_l (rai::map_endpoint_to_v6 (endpoint_a));
-	auto should_handshake (false);
-	if (version_a < rai::node_id_version)
-	{
-		insert (endpoint_l, version_a);
-	}
-	else if (!known_peer (endpoint_l) && peers.get<rai::peer_by_ip_addr> ().count (endpoint_l.address ()) < max_peers_per_ip)
-	{
-		should_handshake = true;
-	}
-	return should_handshake;
-}
-
 void rai::network::send_buffer (uint8_t const * data_a, size_t size_a, rai::endpoint const & endpoint_a, std::function<void(boost::system::error_code const &, size_t)> callback_a)
 {
 	std::unique_lock<std::mutex> lock (socket_mutex);
@@ -3428,18 +2560,15 @@ void rai::network::send_buffer (uint8_t const * data_a, size_t size_a, rai::endp
 	socket.async_send_to (boost::asio::buffer (data_a, size_a), endpoint_a, [this, callback_a](boost::system::error_code const & ec, size_t size_a) {
 		callback_a (ec, size_a);
 		this->node.stats.add (rai::stat::type::traffic, rai::stat::dir::out, size_a);
+		if (ec == boost::system::errc::host_unreachable)
+		{
+			this->node.stats.inc (rai::stat::type::error, rai::stat::detail::unreachable_host, rai::stat::dir::out);
+		}
 		if (this->node.config.logging.network_packet_logging ())
 		{
 			BOOST_LOG (this->node.log) << "Packet send complete";
 		}
 	});
-}
-
-bool rai::peer_container::known_peer (rai::endpoint const & endpoint_a)
-{
-	std::lock_guard<std::mutex> lock (mutex);
-	auto existing (peers.find (endpoint_a));
-	return existing != peers.end ();
 }
 
 std::shared_ptr<rai::node> rai::node::shared ()
@@ -3461,11 +2590,11 @@ rai::election_vote_result::election_vote_result (bool replay_a, bool processed_a
 
 rai::election::election (rai::node & node_a, std::shared_ptr<rai::block> block_a, std::function<void(std::shared_ptr<rai::block>)> const & confirmation_action_a) :
 confirmation_action (confirmation_action_a),
-root (block_a->root ()),
 node (node_a),
+root (block_a->root ()),
 status ({ block_a, 0 }),
 confirmed (false),
-aborted (false)
+stopped (false)
 {
 	last_votes.insert (std::make_pair (rai::not_an_account, rai::vote_info{ std::chrono::steady_clock::now (), 0, block_a->hash () }));
 	blocks.insert (std::make_pair (block_a->hash (), block_a));
@@ -3496,9 +2625,9 @@ void rai::election::confirm_once (rai::transaction const & transaction_a)
 	}
 }
 
-void rai::election::abort ()
+void rai::election::stop ()
 {
-	aborted = true;
+	stopped = true;
 }
 
 bool rai::election::have_quorum (rai::tally_t const & tally_a, rai::uint128_t tally_sum)
@@ -3566,15 +2695,17 @@ void rai::election::confirm_if_quorum (rai::transaction const & transaction_a)
 
 void rai::election::log_votes (rai::tally_t const & tally_a)
 {
-	BOOST_LOG (node.log) << boost::str (boost::format ("Vote tally for root %1%") % status.winner->root ().to_string ());
+	std::stringstream tally;
+	tally << boost::str (boost::format ("\nVote tally for root %1%") % status.winner->root ().to_string ());
 	for (auto i (tally_a.begin ()), n (tally_a.end ()); i != n; ++i)
 	{
-		BOOST_LOG (node.log) << boost::str (boost::format ("Block %1% weight %2%") % i->second->hash ().to_string () % i->first.convert_to<std::string> ());
+		tally << boost::str (boost::format ("\nBlock %1% weight %2%") % i->second->hash ().to_string () % i->first.convert_to<std::string> ());
 	}
 	for (auto i (last_votes.begin ()), n (last_votes.end ()); i != n; ++i)
 	{
-		BOOST_LOG (node.log) << boost::str (boost::format ("%1% %2%") % i->first.to_account () % i->second.hash.to_string ());
+		tally << boost::str (boost::format ("\n%1% %2%") % i->first.to_account () % i->second.hash.to_string ());
 	}
+	BOOST_LOG (node.log) << tally.str ();
 }
 
 rai::election_vote_result rai::election::vote (rai::account rep, uint64_t sequence, rai::block_hash block_hash)
@@ -3668,7 +2799,7 @@ bool rai::node::validate_block_by_previous (rai::transaction const & transaction
 		}
 		if (!result)
 		{
-			if (block_l->hashables.balance == prev_balance && !ledger.epoch_link.is_zero () && block_l->hashables.link == ledger.epoch_link)
+			if (block_l->hashables.balance == prev_balance && !ledger.epoch_link.is_zero () && ledger.is_epoch_link (block_l->hashables.link))
 			{
 				account = ledger.epoch_signer;
 			}
@@ -3715,14 +2846,13 @@ void rai::active_transactions::announce_votes ()
 	unsigned unconfirmed_count (0);
 	unsigned unconfirmed_announcements (0);
 	unsigned mass_request_count (0);
-	std::vector<rai::block_hash> blocks_bundle;
 	std::deque<std::shared_ptr<rai::block>> rebroadcast_bundle;
 	std::deque<std::pair<std::shared_ptr<rai::block>, std::shared_ptr<std::vector<rai::peer_information>>>> confirm_req_bundle;
 
 	for (auto i (roots.begin ()), n (roots.end ()); i != n; ++i)
 	{
 		auto election_l (i->election);
-		if ((election_l->confirmed || election_l->aborted) && i->announcements >= announcement_min - 1)
+		if ((election_l->confirmed || election_l->stopped) && i->announcements >= announcement_min - 1)
 		{
 			if (election_l->confirmed)
 			{
@@ -3751,48 +2881,45 @@ void rai::active_transactions::announce_votes ()
 				if there are less than 100 active elections */
 				if (i->announcements % announcement_long == 1 && roots.size () < 100)
 				{
+					std::unique_ptr<rai::block> previous (nullptr);
 					auto previous_hash (election_l->status.winner->previous ());
 					if (!previous_hash.is_zero ())
 					{
-						auto previous (node.store.block_get (transaction, previous_hash));
+						previous = node.store.block_get (transaction, previous_hash);
 						if (previous != nullptr)
 						{
 							add (std::make_pair (std::move (previous), nullptr));
 						}
 					}
-					auto source_hash (node.ledger.block_source (transaction, *election_l->status.winner));
-					if (!source_hash.is_zero ())
+					/* If previous block not existing/not commited yet, block_source can cause segfault for state blocks
+					So source check can be done only if previous != nullptr or previous is 0 (open account) */
+					if (previous_hash.is_zero () || previous != nullptr)
 					{
-						auto source (node.store.block_get (transaction, source_hash));
-						if (source != nullptr)
+						auto source_hash (node.ledger.block_source (transaction, *election_l->status.winner));
+						if (!source_hash.is_zero ())
 						{
-							add (std::make_pair (std::move (source), nullptr));
+							auto source (node.store.block_get (transaction, source_hash));
+							if (source != nullptr)
+							{
+								add (std::make_pair (std::move (source), nullptr));
+							}
 						}
 					}
 				}
 			}
 			if (i->announcements < announcement_long || i->announcements % announcement_long == 1)
 			{
-				// Broadcast winner
 				if (node.ledger.could_fit (transaction, *election_l->status.winner))
 				{
+					// Broadcast winner
 					rebroadcast_bundle.push_back (election_l->status.winner);
-					if (node.config.enable_voting)
-					{
-						blocks_bundle.push_back (election_l->status.winner->hash ());
-						if (blocks_bundle.size () >= 12)
-						{
-							node.wallets.foreach_representative (transaction, [&](rai::public_key const & pub_a, rai::raw_key const & prv_a) {
-								auto vote (this->node.store.vote_generate (transaction, pub_a, prv_a, blocks_bundle));
-								this->node.vote_processor.vote (vote, this->node.network.endpoint ());
-							});
-							blocks_bundle.clear ();
-						}
-					}
 				}
 				else
 				{
-					election_l->abort ();
+					if (i->announcements != 0)
+					{
+						election_l->stop ();
+					}
 				}
 			}
 			if (i->announcements % 4 == 1)
@@ -3850,14 +2977,6 @@ void rai::active_transactions::announce_votes ()
 	if (!confirm_req_bundle.empty ())
 	{
 		node.network.broadcast_confirm_req_batch (confirm_req_bundle);
-	}
-	// Request votes for unconfirmed blocks
-	if (node.config.enable_voting && !blocks_bundle.empty ())
-	{
-		node.wallets.foreach_representative (transaction, [&](rai::public_key const & pub_a, rai::raw_key const & prv_a) {
-			auto vote (this->node.store.vote_generate (transaction, pub_a, prv_a, blocks_bundle));
-			this->node.vote_processor.vote (vote, this->node.network.endpoint ());
-		});
 	}
 	for (auto i (inactive.begin ()), n (inactive.end ()); i != n; ++i)
 	{
@@ -4058,9 +3177,11 @@ int rai::node::store_version ()
 
 rai::thread_runner::thread_runner (boost::asio::io_service & service_a, unsigned service_threads_a)
 {
+	boost::thread::attributes attrs;
+	rai::thread_attributes::set (attrs);
 	for (auto i (0); i < service_threads_a; ++i)
 	{
-		threads.push_back (std::thread ([&service_a]() {
+		threads.push_back (boost::thread (attrs, [&service_a]() {
 			rai::thread_role::set (rai::thread_role::name::io);
 			try
 			{

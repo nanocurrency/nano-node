@@ -16,5 +16,7 @@
 	<string>RaiBlocks.icns</string>
 	<key>CFBundleIdentifier</key>
 	<string>net.raiblocks.rai_wallet</string>
+	<key>NSRequiresAquaSystemAppearance</key>
+	<true/>
 </dict>
 </plist>

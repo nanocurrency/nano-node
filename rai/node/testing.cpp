@@ -97,22 +97,20 @@ rai::account rai::system::account (rai::transaction const & transaction_a, size_
 	return rai::account (result);
 }
 
-void rai::system::deadline_set (const std::chrono::duration<double, std::nano> & delta_a)
+void rai::system::deadline_set (std::chrono::duration<double, std::nano> const & delta_a)
 {
 	deadline = std::chrono::steady_clock::now () + delta_a * deadline_scaling_factor;
 }
 
-std::error_code rai::system::poll (const std::chrono::nanoseconds & sleep_time)
+std::error_code rai::system::poll (std::chrono::nanoseconds const & wait_time)
 {
 	std::error_code ec;
-	if (service.poll_one () == 0)
-	{
-		std::this_thread::sleep_for (sleep_time);
-	}
+	service.run_one_for (wait_time);
 
 	if (std::chrono::steady_clock::now () > deadline)
 	{
 		ec = rai::error_system::deadline_expired;
+		stop ();
 	}
 	return ec;
 }
@@ -195,7 +193,6 @@ void rai::system::generate_receive (rai::node & node_a)
 		if (i != node_a.store.pending_end ())
 		{
 			rai::pending_key send_hash (i->first);
-			rai::pending_info info (i->second);
 			send_block = node_a.store.block_get (transaction, send_hash.hash);
 		}
 	}

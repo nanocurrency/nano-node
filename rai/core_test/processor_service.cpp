@@ -20,7 +20,6 @@ TEST (processor_service, bad_send_signature)
 	ASSERT_FALSE (store.account_get (transaction, rai::test_genesis_key.pub, info1));
 	rai::keypair key2;
 	rai::send_block send (info1.head, rai::test_genesis_key.pub, 50, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
-	rai::block_hash hash1 (send.hash ());
 	send.signature.bytes[32] ^= 0x1;
 	ASSERT_EQ (rai::process_result::bad_signature, ledger.process (transaction, send).code);
 }
@@ -60,7 +59,7 @@ TEST (alarm, one)
 		condition.notify_one ();
 	});
 	boost::asio::io_service::work work (service);
-	std::thread thread ([&service]() { service.run (); });
+	boost::thread thread ([&service]() { service.run (); });
 	std::unique_lock<std::mutex> unique (mutex);
 	condition.wait (unique, [&]() { return !!done; });
 	service.stop ();
@@ -83,10 +82,10 @@ TEST (alarm, many)
 		});
 	}
 	boost::asio::io_service::work work (service);
-	std::vector<std::thread> threads;
+	std::vector<boost::thread> threads;
 	for (auto i (0); i < 50; ++i)
 	{
-		threads.push_back (std::thread ([&service]() { service.run (); }));
+		threads.push_back (boost::thread ([&service]() { service.run (); }));
 	}
 	std::unique_lock<std::mutex> unique (mutex);
 	condition.wait (unique, [&]() { return count == 50; });
@@ -116,7 +115,7 @@ TEST (alarm, top_execution)
 		promise.set_value (false);
 	});
 	boost::asio::io_service::work work (service);
-	std::thread thread ([&service]() {
+	boost::thread thread ([&service]() {
 		service.run ();
 	});
 	promise.get_future ().get ();
