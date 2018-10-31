@@ -146,8 +146,8 @@ class vote
 public:
 	vote () = default;
 	vote (rai::vote const &);
-	vote (bool &, rai::stream &);
-	vote (bool &, rai::stream &, rai::block_type);
+	vote (bool &, rai::stream &, rai::block_uniquer * = nullptr);
+	vote (bool &, rai::stream &, rai::block_type, rai::block_uniquer * = nullptr);
 	vote (rai::account const &, rai::raw_key const &, uint64_t, std::shared_ptr<rai::block>);
 	vote (rai::account const &, rai::raw_key const &, uint64_t, std::vector<rai::block_hash>);
 	std::string hashes_string () const;
@@ -156,7 +156,7 @@ public:
 	bool operator!= (rai::vote const &) const;
 	void serialize (rai::stream &, rai::block_type);
 	void serialize (rai::stream &);
-	bool deserialize (rai::stream &);
+	bool deserialize (rai::stream &, rai::block_uniquer * = nullptr);
 	bool validate ();
 	boost::transform_iterator<rai::iterate_vote_blocks_as_hash, rai::vote_blocks_vec_iter> begin () const;
 	boost::transform_iterator<rai::iterate_vote_blocks_as_hash, rai::vote_blocks_vec_iter> end () const;

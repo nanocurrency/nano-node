@@ -404,12 +404,12 @@ signature (other_a.signature)
 {
 }
 
-rai::vote::vote (bool & error_a, rai::stream & stream_a)
+rai::vote::vote (bool & error_a, rai::stream & stream_a, rai::block_uniquer * uniquer_a)
 {
-	error_a = deserialize (stream_a);
+	error_a = deserialize (stream_a, uniquer_a);
 }
 
-rai::vote::vote (bool & error_a, rai::stream & stream_a, rai::block_type type_a)
+rai::vote::vote (bool & error_a, rai::stream & stream_a, rai::block_type type_a, rai::block_uniquer * uniquer_a)
 {
 	if (!error_a)
 	{
@@ -435,7 +435,7 @@ rai::vote::vote (bool & error_a, rai::stream & stream_a, rai::block_type type_a)
 						}
 						else
 						{
-							std::shared_ptr<rai::block> block (rai::deserialize_block (stream_a, type_a));
+							std::shared_ptr<rai::block> block (rai::deserialize_block (stream_a, type_a, uniquer_a));
 							error_a = block == nullptr;
 							if (!error_a)
 							{
@@ -556,7 +556,7 @@ void rai::vote::serialize (rai::stream & stream_a)
 	}
 }
 
-bool rai::vote::deserialize (rai::stream & stream_a)
+bool rai::vote::deserialize (rai::stream & stream_a, rai::block_uniquer * uniquer_a)
 {
 	auto result (read (stream_a, account));
 	if (!result)
@@ -591,7 +591,7 @@ bool rai::vote::deserialize (rai::stream & stream_a)
 						}
 						else
 						{
-							std::shared_ptr<rai::block> block (rai::deserialize_block (stream_a, type));
+							std::shared_ptr<rai::block> block (rai::deserialize_block (stream_a, type, uniquer_a));
 							result = block == nullptr;
 							if (!result)
 							{

@@ -599,7 +599,7 @@ void rai::network::receive_action (rai::udp_data * data_a)
 	if (!rai::reserved_address (data_a->endpoint, false) && data_a->endpoint != endpoint ())
 	{
 		network_message_visitor visitor (node, data_a->endpoint);
-		rai::message_parser parser (visitor, node.work);
+		rai::message_parser parser (node.block_uniquer, visitor, node.work);
 		parser.deserialize_buffer (data_a->buffer, data_a->size);
 		if (parser.status != rai::message_parser::parse_status::success)
 		{
