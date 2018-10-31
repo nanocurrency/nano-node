@@ -642,7 +642,7 @@ rai::genesis::genesis ()
 	std::stringstream istream (rai::genesis_block);
 	boost::property_tree::read_json (istream, tree);
 	open = rai::deserialize_block_json (tree);
-	assert (open != nullptr); 
+	assert (open != nullptr);
 }
 
 rai::block_hash rai::genesis::hash () const

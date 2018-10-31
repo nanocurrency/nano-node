@@ -1658,29 +1658,29 @@ TEST (node, vote_republish)
 	rai::keypair key2;
 	system.wallet (1)->insert_adhoc (key2.prv);
 	rai::genesis genesis;
-	rai::send_block send1 (genesis.hash (), key2.pub, std::numeric_limits<rai::uint128_t>::max () - system.nodes[0]->config.receive_minimum.number (), rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (genesis.hash ()));
-	rai::send_block send2 (genesis.hash (), key2.pub, std::numeric_limits<rai::uint128_t>::max () - system.nodes[0]->config.receive_minimum.number () * 2, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (genesis.hash ()));
-	system.nodes[0]->process_active (std::make_shared<rai::send_block> (send1));
+	auto send1 (std::make_shared<rai::send_block> (genesis.hash (), key2.pub, std::numeric_limits<rai::uint128_t>::max () - system.nodes[0]->config.receive_minimum.number (), rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (genesis.hash ())));
+	auto send2 (std::make_shared<rai::send_block> (genesis.hash (), key2.pub, std::numeric_limits<rai::uint128_t>::max () - system.nodes[0]->config.receive_minimum.number () * 2, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (genesis.hash ())));
+	system.nodes[0]->process_active (send1);
 	system.deadline_set (5s);
-	while (!system.nodes[1]->block (send1.hash ()))
+	while (!system.nodes[1]->block (send1->hash ()))
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	system.nodes[0]->active.publish (std::make_shared<rai::send_block> (send2));
-	auto vote (std::make_shared<rai::vote> (rai::test_genesis_key.pub, rai::test_genesis_key.prv, 0, std::unique_ptr<rai::block> (new rai::send_block (send2))));
-	ASSERT_TRUE (system.nodes[0]->active.active (send1));
-	ASSERT_TRUE (system.nodes[1]->active.active (send1));
+	system.nodes[0]->active.publish (send2);
+	auto vote (std::make_shared<rai::vote> (rai::test_genesis_key.pub, rai::test_genesis_key.prv, 0, send2));
+	ASSERT_TRUE (system.nodes[0]->active.active (*send1));
+	ASSERT_TRUE (system.nodes[1]->active.active (*send1));
 	system.nodes[0]->vote_processor.vote (vote, system.nodes[0]->network.endpoint ());
-	while (!system.nodes[0]->block (send2.hash ()))
+	while (!system.nodes[0]->block (send2->hash ()))
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	while (!system.nodes[1]->block (send2.hash ()))
+	while (!system.nodes[1]->block (send2->hash ()))
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	ASSERT_FALSE (system.nodes[0]->block (send1.hash ()));
-	ASSERT_FALSE (system.nodes[1]->block (send1.hash ()));
+	ASSERT_FALSE (system.nodes[0]->block (send1->hash ()));
+	ASSERT_FALSE (system.nodes[1]->block (send1->hash ()));
 	system.deadline_set (5s);
 	while (system.nodes[1]->balance (key2.pub) != system.nodes[0]->config.receive_minimum.number () * 2)
 	{
@@ -1698,31 +1698,31 @@ TEST (node, vote_by_hash_republish)
 	rai::keypair key2;
 	system.wallet (1)->insert_adhoc (key2.prv);
 	rai::genesis genesis;
-	rai::send_block send1 (genesis.hash (), key2.pub, std::numeric_limits<rai::uint128_t>::max () - system.nodes[0]->config.receive_minimum.number (), rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (genesis.hash ()));
-	rai::send_block send2 (genesis.hash (), key2.pub, std::numeric_limits<rai::uint128_t>::max () - system.nodes[0]->config.receive_minimum.number () * 2, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (genesis.hash ()));
-	system.nodes[0]->process_active (std::unique_ptr<rai::block> (new rai::send_block (send1)));
+	auto send1 (std::make_shared<rai::send_block> (genesis.hash (), key2.pub, std::numeric_limits<rai::uint128_t>::max () - system.nodes[0]->config.receive_minimum.number (), rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (genesis.hash ())));
+	auto send2 (std::make_shared<rai::send_block> (genesis.hash (), key2.pub, std::numeric_limits<rai::uint128_t>::max () - system.nodes[0]->config.receive_minimum.number () * 2, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (genesis.hash ())));
+	system.nodes[0]->process_active (send1);
 	system.deadline_set (5s);
-	while (!system.nodes[1]->block (send1.hash ()))
+	while (!system.nodes[1]->block (send1->hash ()))
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	system.nodes[0]->active.publish (std::unique_ptr<rai::block> (new rai::send_block (send2)));
+	system.nodes[0]->active.publish (send2);
 	std::vector<rai::block_hash> vote_blocks;
-	vote_blocks.push_back (send2.hash ());
+	vote_blocks.push_back (send2->hash ());
 	auto vote (std::make_shared<rai::vote> (rai::test_genesis_key.pub, rai::test_genesis_key.prv, 0, vote_blocks));
-	ASSERT_TRUE (system.nodes[0]->active.active (send1));
-	ASSERT_TRUE (system.nodes[1]->active.active (send1));
+	ASSERT_TRUE (system.nodes[0]->active.active (*send1));
+	ASSERT_TRUE (system.nodes[1]->active.active (*send1));
 	system.nodes[0]->vote_processor.vote (vote, system.nodes[0]->network.endpoint ());
-	while (!system.nodes[0]->block (send2.hash ()))
+	while (!system.nodes[0]->block (send2->hash ()))
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	while (!system.nodes[1]->block (send2.hash ()))
+	while (!system.nodes[1]->block (send2->hash ()))
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	ASSERT_FALSE (system.nodes[0]->block (send1.hash ()));
-	ASSERT_FALSE (system.nodes[1]->block (send1.hash ()));
+	ASSERT_FALSE (system.nodes[0]->block (send1->hash ()));
+	ASSERT_FALSE (system.nodes[1]->block (send1->hash ()));
 	system.deadline_set (5s);
 	while (system.nodes[1]->balance (key2.pub) != system.nodes[0]->config.receive_minimum.number () * 2)
 	{
@@ -1743,31 +1743,31 @@ TEST (node, vote_by_hash_epoch_block_republish)
 	system.nodes[0]->ledger.epoch_signer = epoch_signer.pub;
 	system.nodes[1]->ledger.epoch_signer = epoch_signer.pub;
 	rai::genesis genesis;
-	rai::send_block send1 (genesis.hash (), key2.pub, std::numeric_limits<rai::uint128_t>::max () - system.nodes[0]->config.receive_minimum.number (), rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (genesis.hash ()));
-	rai::state_block epoch1 (rai::genesis_account, genesis.hash (), rai::genesis_account, rai::genesis_amount, system.nodes[0]->ledger.epoch_link, epoch_signer.prv, epoch_signer.pub, system.work.generate (genesis.hash ()));
-	system.nodes[0]->process_active (std::unique_ptr<rai::block> (new rai::send_block (send1)));
+	auto send1 (std::make_shared<rai::send_block> (genesis.hash (), key2.pub, std::numeric_limits<rai::uint128_t>::max () - system.nodes[0]->config.receive_minimum.number (), rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (genesis.hash ())));
+	auto epoch1 (std::make_shared<rai::state_block> (rai::genesis_account, genesis.hash (), rai::genesis_account, rai::genesis_amount, system.nodes[0]->ledger.epoch_link, epoch_signer.prv, epoch_signer.pub, system.work.generate (genesis.hash ())));
+	system.nodes[0]->process_active (send1);
 	system.deadline_set (5s);
-	while (!system.nodes[1]->block (send1.hash ()))
+	while (!system.nodes[1]->block (send1->hash ()))
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	system.nodes[0]->active.publish (std::unique_ptr<rai::block> (new rai::state_block (epoch1)));
+	system.nodes[0]->active.publish (epoch1);
 	std::vector<rai::block_hash> vote_blocks;
-	vote_blocks.push_back (epoch1.hash ());
+	vote_blocks.push_back (epoch1->hash ());
 	auto vote (std::make_shared<rai::vote> (rai::test_genesis_key.pub, rai::test_genesis_key.prv, 0, vote_blocks));
-	ASSERT_TRUE (system.nodes[0]->active.active (send1));
-	ASSERT_TRUE (system.nodes[1]->active.active (send1));
+	ASSERT_TRUE (system.nodes[0]->active.active (*send1));
+	ASSERT_TRUE (system.nodes[1]->active.active (*send1));
 	system.nodes[0]->vote_processor.vote (vote, system.nodes[0]->network.endpoint ());
-	while (!system.nodes[0]->block (epoch1.hash ()))
+	while (!system.nodes[0]->block (epoch1->hash ()))
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	while (!system.nodes[1]->block (epoch1.hash ()))
+	while (!system.nodes[1]->block (epoch1->hash ()))
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	ASSERT_FALSE (system.nodes[0]->block (send1.hash ()));
-	ASSERT_FALSE (system.nodes[1]->block (send1.hash ()));
+	ASSERT_FALSE (system.nodes[0]->block (send1->hash ()));
+	ASSERT_FALSE (system.nodes[1]->block (send1->hash ()));
 }
 
 TEST (node, fork_invalid_block_signature)
@@ -1775,30 +1775,30 @@ TEST (node, fork_invalid_block_signature)
 	rai::system system (24000, 2);
 	rai::keypair key2;
 	rai::genesis genesis;
-	rai::send_block send1 (genesis.hash (), key2.pub, std::numeric_limits<rai::uint128_t>::max () - system.nodes[0]->config.receive_minimum.number (), rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (genesis.hash ()));
-	rai::send_block send2 (genesis.hash (), key2.pub, std::numeric_limits<rai::uint128_t>::max () - system.nodes[0]->config.receive_minimum.number () * 2, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (genesis.hash ()));
-	rai::send_block send2_corrupt (send2);
-	send2_corrupt.signature = rai::signature (123);
-	system.nodes[0]->process_active (std::unique_ptr<rai::block> (new rai::send_block (send1)));
+	auto send1 (std::make_shared<rai::send_block> (genesis.hash (), key2.pub, std::numeric_limits<rai::uint128_t>::max () - system.nodes[0]->config.receive_minimum.number (), rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (genesis.hash ())));
+	auto send2 (std::make_shared<rai::send_block> (genesis.hash (), key2.pub, std::numeric_limits<rai::uint128_t>::max () - system.nodes[0]->config.receive_minimum.number () * 2, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (genesis.hash ())));
+	auto send2_corrupt (std::make_shared<rai::send_block> (*send2));
+	send2_corrupt->signature = rai::signature (123);
+	system.nodes[0]->process_active (send1);
 	system.deadline_set (5s);
-	while (!system.nodes[0]->block (send1.hash ()))
+	while (!system.nodes[0]->block (send1->hash ()))
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	auto vote (std::make_shared<rai::vote> (rai::test_genesis_key.pub, rai::test_genesis_key.prv, 0, std::make_unique<rai::send_block> (send2)));
-	auto vote_corrupt (std::make_shared<rai::vote> (rai::test_genesis_key.pub, rai::test_genesis_key.prv, 0, std::make_unique<rai::send_block> (send2_corrupt)));
+	auto vote (std::make_shared<rai::vote> (rai::test_genesis_key.pub, rai::test_genesis_key.prv, 0, send2));
+	auto vote_corrupt (std::make_shared<rai::vote> (rai::test_genesis_key.pub, rai::test_genesis_key.prv, 0, send2_corrupt));
 	system.nodes[1]->network.republish_vote (vote_corrupt);
 	ASSERT_NO_ERROR (system.poll ());
 	system.nodes[1]->network.republish_vote (vote);
-	while (system.nodes[0]->block (send1.hash ()))
+	while (system.nodes[0]->block (send1->hash ()))
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	while (!system.nodes[0]->block (send2.hash ()))
+	while (!system.nodes[0]->block (send2->hash ()))
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	ASSERT_EQ (system.nodes[0]->block (send2.hash ())->block_signature (), send2.block_signature ());
+	ASSERT_EQ (system.nodes[0]->block (send2->hash ())->block_signature (), send2->block_signature ());
 }
 
 TEST (node, fork_invalid_block_signature_vote_by_hash)
@@ -1806,35 +1806,35 @@ TEST (node, fork_invalid_block_signature_vote_by_hash)
 	rai::system system (24000, 1);
 	rai::keypair key2;
 	rai::genesis genesis;
-	rai::send_block send1 (genesis.hash (), key2.pub, std::numeric_limits<rai::uint128_t>::max () - system.nodes[0]->config.receive_minimum.number (), rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (genesis.hash ()));
-	rai::send_block send2 (genesis.hash (), key2.pub, std::numeric_limits<rai::uint128_t>::max () - system.nodes[0]->config.receive_minimum.number () * 2, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (genesis.hash ()));
-	rai::send_block send2_corrupt (send2);
-	send2_corrupt.signature = rai::signature (123);
-	system.nodes[0]->process_active (std::unique_ptr<rai::block> (new rai::send_block (send1)));
+	auto send1 (std::make_shared<rai::send_block> (genesis.hash (), key2.pub, std::numeric_limits<rai::uint128_t>::max () - system.nodes[0]->config.receive_minimum.number (), rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (genesis.hash ())));
+	auto send2 (std::make_shared<rai::send_block> (genesis.hash (), key2.pub, std::numeric_limits<rai::uint128_t>::max () - system.nodes[0]->config.receive_minimum.number () * 2, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (genesis.hash ())));
+	auto send2_corrupt (std::make_shared<rai::send_block> (*send2));
+	send2_corrupt->signature = rai::signature (123);
+	system.nodes[0]->process_active (send1);
 	system.deadline_set (5s);
-	while (!system.nodes[0]->block (send1.hash ()))
+	while (!system.nodes[0]->block (send1->hash ()))
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	system.nodes[0]->active.publish (std::make_unique<rai::send_block> (send2_corrupt));
+	system.nodes[0]->active.publish (send2_corrupt);
 	ASSERT_NO_ERROR (system.poll ());
-	system.nodes[0]->active.publish (std::make_unique<rai::send_block> (send2));
+	system.nodes[0]->active.publish (send2);
 	std::vector<rai::block_hash> vote_blocks;
-	vote_blocks.push_back (send2.hash ());
+	vote_blocks.push_back (send2->hash ());
 	auto vote (std::make_shared<rai::vote> (rai::test_genesis_key.pub, rai::test_genesis_key.prv, 0, vote_blocks));
 	{
 		auto transaction (system.nodes[0]->store.tx_begin_read ());
 		system.nodes[0]->vote_processor.vote_blocking (transaction, vote, system.nodes[0]->network.endpoint ());
 	}
-	while (system.nodes[0]->block (send1.hash ()))
+	while (system.nodes[0]->block (send1->hash ()))
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	while (!system.nodes[0]->block (send2.hash ()))
+	while (!system.nodes[0]->block (send2->hash ()))
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	ASSERT_EQ (system.nodes[0]->block (send2.hash ())->block_signature (), send2.block_signature ());
+	ASSERT_EQ (system.nodes[0]->block (send2->hash ())->block_signature (), send2->block_signature ());
 }
 
 TEST (node, block_processor_signatures)

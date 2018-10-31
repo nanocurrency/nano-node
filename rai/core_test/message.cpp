@@ -40,7 +40,7 @@ TEST (message, keepalive_deserialize)
 
 TEST (message, publish_serialization)
 {
-	rai::publish publish (std::make_shared <rai::send_block> (0, 1, 2, rai::keypair ().prv, 4, 5));
+	rai::publish publish (std::make_shared<rai::send_block> (0, 1, 2, rai::keypair ().prv, 4, 5));
 	ASSERT_EQ (rai::block_type::send, publish.header.block_type ());
 	ASSERT_FALSE (publish.header.ipv4_only ());
 	publish.header.ipv4_only_set (true);
