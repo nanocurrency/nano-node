@@ -3713,21 +3713,21 @@ std::string filter_request (boost::property_tree::ptree tree_a)
 	boost::optional<std::string> wallet_text (tree_a.get_optional<std::string> ("wallet"));
 	if (wallet_text.is_initialized () && wallet_text.get ().length () > 2)
 	{
-		tree_a.put ("wallet", wallet_text.get ().replace (wallet_text.get ().begin () + 2, wallet_text.get ().end (), "X"));
+		tree_a.put ("wallet", wallet_text.get ().replace (wallet_text.get ().begin () + 2, wallet_text.get ().end (), wallet_text.get ().length () - 2, "X"));
 	}
 	boost::optional<std::string> key_text (tree_a.get_optional<std::string> ("key"));
 	if (key_text.is_initialized () && key_text.get ().length () > 2)
 	{
-		tree_a.put ("key", key_text.get ().replace (key_text.get ().begin () + 2, key_text.get ().end (), "X"));
+		tree_a.put ("key", key_text.get ().replace (key_text.get ().begin () + 2, key_text.get ().end (), key_text.get ().length () - 2, "X"));
 	}
 	boost::optional<std::string> seed_text (tree_a.get_optional<std::string> ("seed"));
 	if (seed_text.is_initialized () && seed_text.get ().length () > 2)
 	{
-		tree_a.put ("seed", seed_text.get ().replace (seed_text.get ().begin () + 2, seed_text.get ().end (), "X"));
+		tree_a.put ("seed", seed_text.get ().replace (seed_text.get ().begin () + 2, seed_text.get ().end (), seed_text.get ().length () - 2, "X"));
 	}
 	std::string result;
 	std::stringstream stream;
-	boost::property_tree::write_json (stream, tree_a);
+	boost::property_tree::write_json (stream, tree_a, false);
 	result = stream.str ();
 	return result;
 }
