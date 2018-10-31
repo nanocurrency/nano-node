@@ -409,3 +409,44 @@ TEST (state_block, hashing)
 	block.hashables.link.bytes[0] ^= 0x1;
 	ASSERT_EQ (hash, block.hash ());
 }
+
+TEST (block_uniquer, null)
+{
+	rai::block_uniquer uniquer;
+	ASSERT_EQ (nullptr, uniquer.unique (nullptr));
+}
+
+TEST (block_uniquer, single)
+{
+	rai::keypair key;
+	auto block1 (std::make_shared<rai::state_block> (0, 0, 0, 0, 0, key.prv, key.pub, 0));
+	auto block2 (std::make_shared<rai::state_block> (0, 0, 0, 0, 0, key.prv, key.pub, 0));
+	std::weak_ptr<rai::state_block> block3 (block2);
+	ASSERT_NE (nullptr, block3.lock ());
+	rai::block_uniquer uniquer;
+	auto block4 (uniquer.unique (block1));
+	ASSERT_EQ (block1, block4);
+	auto block5 (uniquer.unique (block2));
+	ASSERT_EQ (block1, block5);
+	block2.reset ();
+	ASSERT_EQ (nullptr, block3.lock ());
+}
+
+TEST (block_uniquer, cleanup)
+{
+	rai::keypair key;
+	auto block1 (std::make_shared<rai::state_block> (0, 0, 0, 0, 0, key.prv, key.pub, 0));
+	auto block2 (std::make_shared<rai::state_block> (0, 0, 0, 0, 0, key.prv, key.pub, 1));
+	rai::block_uniquer uniquer;
+	auto block3 (uniquer.unique (block1));
+	auto block4 (uniquer.unique (block2));
+	block2.reset ();
+	block4.reset ();
+	ASSERT_EQ (2, uniquer.size ());
+	auto iterations (0);
+	while (uniquer.size () == 2)
+	{
+		auto block5 (uniquer.unique (block1));
+		ASSERT_LT (iterations++, 200);
+	}
+}

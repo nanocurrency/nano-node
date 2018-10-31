@@ -2,6 +2,8 @@
 
 #include <boost/endian/conversion.hpp>
 
+#include <xxhash/xxhash.h>
+
 /** Compare blocks, first by type, then content. This is an optimization over dynamic_cast, which is very slow on some platforms. */
 namespace
 {
@@ -1145,7 +1147,7 @@ void rai::state_block::signature_set (rai::uint512_union const & signature_a)
 	signature = signature_a;
 }
 
-std::shared_ptr<rai::block> rai::deserialize_block_json (boost::property_tree::ptree const & tree_a)
+std::shared_ptr<rai::block> rai::deserialize_block_json (boost::property_tree::ptree const & tree_a, rai::block_uniquer * uniquer_a)
 {
 	std::shared_ptr<rai::block> result;
 	try
@@ -1200,10 +1202,14 @@ std::shared_ptr<rai::block> rai::deserialize_block_json (boost::property_tree::p
 	catch (std::runtime_error const &)
 	{
 	}
+	if (uniquer_a != nullptr)
+	{
+		result = uniquer_a->unique (result);
+	}
 	return result;
 }
 
-std::shared_ptr<rai::block> rai::deserialize_block (rai::stream & stream_a)
+std::shared_ptr<rai::block> rai::deserialize_block (rai::stream & stream_a, rai::block_uniquer * uniquer_a)
 {
 	rai::block_type type;
 	auto error (read (stream_a, type));
@@ -1215,7 +1221,7 @@ std::shared_ptr<rai::block> rai::deserialize_block (rai::stream & stream_a)
 	return result;
 }
 
-std::shared_ptr<rai::block> rai::deserialize_block (rai::stream & stream_a, rai::block_type type_a)
+std::shared_ptr<rai::block> rai::deserialize_block (rai::stream & stream_a, rai::block_type type_a, rai::block_uniquer * uniquer_a)
 {
 	std::shared_ptr<rai::block> result;
 	switch (type_a)
@@ -1273,6 +1279,10 @@ std::shared_ptr<rai::block> rai::deserialize_block (rai::stream & stream_a, rai:
 		default:
 			assert (false);
 			break;
+	}
+	if (uniquer_a != nullptr)
+	{
+		result = uniquer_a->unique (result);
 	}
 	return result;
 }
@@ -1522,4 +1532,59 @@ void rai::receive_hashables::hash (blake2b_state & hash_a) const
 {
 	blake2b_update (&hash_a, previous.bytes.data (), sizeof (previous.bytes));
 	blake2b_update (&hash_a, source.bytes.data (), sizeof (source.bytes));
+}
+
+std::shared_ptr<rai::block> rai::block_uniquer::unique (std::shared_ptr<rai::block> block_a)
+{
+	auto result (block_a);
+	if (result != nullptr)
+	{
+		rai::uint256_union key;
+		blake2b_state hash;
+		blake2b_init (&hash, sizeof (key.bytes));
+		blake2b_update (&hash, block_a->hash ().bytes.data (), sizeof (block_a->hash ()));
+		auto block_work (block_a->block_work ());
+		blake2b_update (&hash, &block_work, sizeof (block_work));
+		auto signature (block_a->block_signature ());
+		blake2b_update (&hash, signature.bytes.data (), sizeof (signature));
+		blake2b_final (&hash, key.bytes.data (), sizeof (key.bytes));
+		std::lock_guard<std::mutex> lock (mutex);
+		auto & existing (blocks[key]);
+		if (auto block_l = existing.lock ())
+		{
+			result = block_l;
+		}
+		else
+		{
+			existing = block_a;
+		}
+		for (auto i (0); i < cleanup_count; ++i)
+		{
+			rai::uint256_union random;
+			rai::random_pool.GenerateBlock (random.bytes.data (), random.bytes.size ());
+			auto existing (blocks.find (random));
+			if (existing == blocks.end ())
+			{
+				existing = blocks.begin ();
+			}
+			if (existing != blocks.end ())
+			{
+				if (auto block_l = existing->second.lock ())
+				{
+					// Still live
+				}
+				else
+				{
+					blocks.erase (existing);
+				}
+			}
+		}
+	}
+	return result;
+}
+
+size_t rai::block_uniquer::size ()
+{
+	std::lock_guard<std::mutex> lock (mutex);
+	return blocks.size ();
 }
