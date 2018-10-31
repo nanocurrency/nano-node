@@ -641,9 +641,8 @@ rai::genesis::genesis ()
 	boost::property_tree::ptree tree;
 	std::stringstream istream (rai::genesis_block);
 	boost::property_tree::read_json (istream, tree);
-	auto block (rai::deserialize_block_json (tree));
-	assert (dynamic_cast<rai::open_block *> (block.get ()) != nullptr);
-	open.reset (static_cast<rai::open_block *> (block.release ()));
+	open = rai::deserialize_block_json (tree);
+	assert (open != nullptr); 
 }
 
 rai::block_hash rai::genesis::hash () const

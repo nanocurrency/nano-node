@@ -1145,9 +1145,9 @@ void rai::state_block::signature_set (rai::uint512_union const & signature_a)
 	signature = signature_a;
 }
 
-std::unique_ptr<rai::block> rai::deserialize_block_json (boost::property_tree::ptree const & tree_a)
+std::shared_ptr<rai::block> rai::deserialize_block_json (boost::property_tree::ptree const & tree_a)
 {
-	std::unique_ptr<rai::block> result;
+	std::shared_ptr<rai::block> result;
 	try
 	{
 		auto type (tree_a.get<std::string> ("type"));
@@ -1203,11 +1203,11 @@ std::unique_ptr<rai::block> rai::deserialize_block_json (boost::property_tree::p
 	return result;
 }
 
-std::unique_ptr<rai::block> rai::deserialize_block (rai::stream & stream_a)
+std::shared_ptr<rai::block> rai::deserialize_block (rai::stream & stream_a)
 {
 	rai::block_type type;
 	auto error (read (stream_a, type));
-	std::unique_ptr<rai::block> result;
+	std::shared_ptr<rai::block> result;
 	if (!error)
 	{
 		result = rai::deserialize_block (stream_a, type);
@@ -1215,9 +1215,9 @@ std::unique_ptr<rai::block> rai::deserialize_block (rai::stream & stream_a)
 	return result;
 }
 
-std::unique_ptr<rai::block> rai::deserialize_block (rai::stream & stream_a, rai::block_type type_a)
+std::shared_ptr<rai::block> rai::deserialize_block (rai::stream & stream_a, rai::block_type type_a)
 {
-	std::unique_ptr<rai::block> result;
+	std::shared_ptr<rai::block> result;
 	switch (type_a)
 	{
 		case rai::block_type::receive:

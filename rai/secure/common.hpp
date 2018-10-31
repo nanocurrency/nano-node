@@ -229,6 +229,6 @@ class genesis
 public:
 	explicit genesis ();
 	rai::block_hash hash () const;
-	std::unique_ptr<rai::open_block> open;
+	std::shared_ptr<rai::block> open;
 };
 }

@@ -302,8 +302,8 @@ public:
 	virtual void state_block (rai::state_block const &) = 0;
 	virtual ~block_visitor () = default;
 };
-std::unique_ptr<rai::block> deserialize_block (rai::stream &);
-std::unique_ptr<rai::block> deserialize_block (rai::stream &, rai::block_type);
-std::unique_ptr<rai::block> deserialize_block_json (boost::property_tree::ptree const &);
+std::shared_ptr<rai::block> deserialize_block (rai::stream &);
+std::shared_ptr<rai::block> deserialize_block (rai::stream &, rai::block_type);
+std::shared_ptr<rai::block> deserialize_block_json (boost::property_tree::ptree const &);
 void serialize_block (rai::stream &, rai::block const &);
 }
