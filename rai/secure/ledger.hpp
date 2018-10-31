@@ -25,8 +25,8 @@ public:
 	rai::uint128_t account_balance (rai::transaction const &, rai::account const &);
 	rai::uint128_t account_pending (rai::transaction const &, rai::account const &);
 	rai::uint128_t weight (rai::transaction const &, rai::account const &);
-	std::unique_ptr<rai::block> successor (rai::transaction const &, rai::block_hash const &);
-	std::unique_ptr<rai::block> forked_block (rai::transaction const &, rai::block const &);
+	std::shared_ptr<rai::block> successor (rai::transaction const &, rai::block_hash const &);
+	std::shared_ptr<rai::block> forked_block (rai::transaction const &, rai::block const &);
 	rai::block_hash latest (rai::transaction const &, rai::account const &);
 	rai::block_hash latest_root (rai::transaction const &, rai::account const &);
 	rai::block_hash representative (rai::transaction const &, rai::block_hash const &);

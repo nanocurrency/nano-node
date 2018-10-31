@@ -1226,7 +1226,7 @@ MDB_val rai::mdb_store::block_raw_get (rai::transaction const & transaction_a, r
 }
 
 template <typename T>
-std::unique_ptr<rai::block> rai::mdb_store::block_random (rai::transaction const & transaction_a, MDB_dbi database)
+std::shared_ptr<rai::block> rai::mdb_store::block_random (rai::transaction const & transaction_a, MDB_dbi database)
 {
 	rai::block_hash hash;
 	rai::random_pool.GenerateBlock (hash.bytes.data (), hash.bytes.size ());
@@ -1240,11 +1240,11 @@ std::unique_ptr<rai::block> rai::mdb_store::block_random (rai::transaction const
 	return block_get (transaction_a, rai::block_hash (existing->first));
 }
 
-std::unique_ptr<rai::block> rai::mdb_store::block_random (rai::transaction const & transaction_a)
+std::shared_ptr<rai::block> rai::mdb_store::block_random (rai::transaction const & transaction_a)
 {
 	auto count (block_count (transaction_a));
 	auto region (rai::random_pool.GenerateWord32 (0, count.sum () - 1));
-	std::unique_ptr<rai::block> result;
+	std::shared_ptr<rai::block> result;
 	if (region < count.send)
 	{
 		result = block_random<rai::send_block> (transaction_a, send_blocks);
@@ -1315,11 +1315,11 @@ void rai::mdb_store::block_successor_clear (rai::transaction const & transaction
 	block_put (transaction_a, hash_a, *block, 0, version);
 }
 
-std::unique_ptr<rai::block> rai::mdb_store::block_get (rai::transaction const & transaction_a, rai::block_hash const & hash_a)
+std::shared_ptr<rai::block> rai::mdb_store::block_get (rai::transaction const & transaction_a, rai::block_hash const & hash_a)
 {
 	rai::block_type type;
 	auto value (block_raw_get (transaction_a, hash_a, type));
-	std::unique_ptr<rai::block> result;
+	std::shared_ptr<rai::block> result;
 	if (value.mv_size != 0)
 	{
 		rai::bufferstream stream (reinterpret_cast<uint8_t const *> (value.mv_data), value.mv_size);

@@ -1716,7 +1716,7 @@ rai::uint128_t rai::node::balance (rai::account const & account_a)
 	return ledger.account_balance (transaction, account_a);
 }
 
-std::unique_ptr<rai::block> rai::node::block (rai::block_hash const & hash_a)
+std::shared_ptr<rai::block> rai::node::block (rai::block_hash const & hash_a)
 {
 	auto transaction (store.tx_begin_read ());
 	return store.block_get (transaction, hash_a);
@@ -2855,7 +2855,7 @@ void rai::active_transactions::announce_votes ()
 				if there are less than 100 active elections */
 				if (i->announcements % announcement_long == 1 && roots.size () < 100)
 				{
-					std::unique_ptr<rai::block> previous (nullptr);
+					std::shared_ptr<rai::block> previous;
 					auto previous_hash (election_l->status.winner->previous ());
 					if (!previous_hash.is_zero ())
 					{
