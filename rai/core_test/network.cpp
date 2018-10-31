@@ -201,7 +201,7 @@ TEST (network, send_valid_confirm_ack)
 	rai::block_hash latest1 (system.nodes[0]->latest (rai::test_genesis_key.pub));
 	rai::send_block block2 (latest1, key2.pub, 50, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (latest1));
 	rai::block_hash latest2 (system.nodes[1]->latest (rai::test_genesis_key.pub));
-	system.nodes[0]->process_active (std::unique_ptr<rai::block> (new rai::send_block (block2)));
+	system.nodes[0]->process_active (std::make_shared<rai::send_block> (block2));
 	system.deadline_set (10s);
 	// Keep polling until latest block changes
 	while (system.nodes[1]->latest (rai::test_genesis_key.pub) == latest2)
@@ -224,7 +224,7 @@ TEST (network, send_valid_publish)
 	rai::send_block block2 (latest1, key2.pub, 50, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (latest1));
 	auto hash2 (block2.hash ());
 	rai::block_hash latest2 (system.nodes[1]->latest (rai::test_genesis_key.pub));
-	system.nodes[1]->process_active (std::unique_ptr<rai::block> (new rai::send_block (block2)));
+	system.nodes[1]->process_active (std::make_shared<rai::send_block> (block2));
 	system.deadline_set (10s);
 	while (system.nodes[0]->stats.count (rai::stat::type::message, rai::stat::detail::publish, rai::stat::dir::in) == 0)
 	{
@@ -584,8 +584,8 @@ TEST (bootstrap_processor, process_state)
 	rai::genesis genesis;
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	auto node0 (system.nodes[0]);
-	std::unique_ptr<rai::block> block1 (new rai::state_block (rai::test_genesis_key.pub, node0->latest (rai::test_genesis_key.pub), rai::test_genesis_key.pub, rai::genesis_amount - 100, rai::test_genesis_key.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
-	std::unique_ptr<rai::block> block2 (new rai::state_block (rai::test_genesis_key.pub, block1->hash (), rai::test_genesis_key.pub, rai::genesis_amount, block1->hash (), rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
+	auto block1 (std::make_shared<rai::state_block> (rai::test_genesis_key.pub, node0->latest (rai::test_genesis_key.pub), rai::test_genesis_key.pub, rai::genesis_amount - 100, rai::test_genesis_key.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
+	auto block2 (std::make_shared<rai::state_block> (rai::test_genesis_key.pub, block1->hash (), rai::test_genesis_key.pub, rai::genesis_amount, block1->hash (), rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
 	node0->work_generate_blocking (*block1);
 	node0->work_generate_blocking (*block2);
 	node0->process (*block1);
