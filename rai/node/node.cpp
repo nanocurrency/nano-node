@@ -770,6 +770,10 @@ thread ([this]() {
 
 void rai::vote_processor::process_loop ()
 {
+	std::chrono::steady_clock::time_point start_time, end_time;
+	std::chrono::steady_clock::duration elapsed_time;
+	std::chrono::milliseconds elapsed_time_ms;
+
 	std::unique_lock<std::mutex> lock (mutex);
 	started = true;
 	condition.notify_all ();
@@ -778,6 +782,10 @@ void rai::vote_processor::process_loop ()
 		if (!votes.empty ())
 		{
 			std::deque<std::pair<std::shared_ptr<rai::vote>, rai::endpoint>> votes_l;
+			if (node.config.logging.network_logging ())
+			{
+				start_time = std::chrono::steady_clock::now ();
+			}
 			votes_l.swap (votes);
 			active = true;
 			lock.unlock ();
@@ -791,6 +799,14 @@ void rai::vote_processor::process_loop ()
 			lock.lock ();
 			active = false;
 			condition.notify_all ();
+
+			if (node.config.logging.network_logging ())
+			{
+				end_time = std::chrono::steady_clock::now ();
+				elapsed_time = end_time - start_time;
+				elapsed_time_ms = std::chrono::duration_cast<std::chrono::milliseconds> (elapsed_time);
+				BOOST_LOG (node.log) << boost::str (boost::format ("Processed %1% votes in %2% milliseconds (rate of %3% votes per second)") % votes_l.size () % elapsed_time_ms.count () % ((votes_l.size () * 1000ULL) / elapsed_time_ms.count ()) );
+			}
 		}
 		else
 		{
