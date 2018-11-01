@@ -805,7 +805,7 @@ void rai::vote_processor::process_loop ()
 				end_time = std::chrono::steady_clock::now ();
 				elapsed_time = end_time - start_time;
 				elapsed_time_ms = std::chrono::duration_cast<std::chrono::milliseconds> (elapsed_time);
-				BOOST_LOG (node.log) << boost::str (boost::format ("Processed %1% votes in %2% milliseconds (rate of %3% votes per second)") % votes_l.size () % elapsed_time_ms.count () % ((votes_l.size () * 1000ULL) / elapsed_time_ms.count ()) );
+				BOOST_LOG (node.log) << boost::str (boost::format ("Processed %1% votes in %2% milliseconds (rate of %3% votes per second)") % votes_l.size () % elapsed_time_ms.count () % ((votes_l.size () * 1000ULL) / elapsed_time_ms.count ()));
 			}
 		}
 		else
