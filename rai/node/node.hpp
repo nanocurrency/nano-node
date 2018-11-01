@@ -98,10 +98,10 @@ public:
 	bool add (std::pair<std::shared_ptr<rai::block>, std::shared_ptr<rai::block>>, std::function<void(std::shared_ptr<rai::block>)> const & = [](std::shared_ptr<rai::block>) {});
 	// If this returns true, the vote is a replay
 	// If this returns false, the vote may or may not be a replay
-	bool vote (std::shared_ptr<rai::vote>);
+	bool vote (std::shared_ptr<rai::vote>, bool = false);
 	// Is the root of this block in the roots container
 	bool active (rai::block const &);
-	std::deque<std::shared_ptr<rai::block>> list_blocks ();
+	std::deque<std::shared_ptr<rai::block>> list_blocks (bool = false);
 	void erase (rai::block const &);
 	void stop ();
 	bool publish (std::shared_ptr<rai::block> block_a);
@@ -342,7 +342,7 @@ class vote_processor
 public:
 	vote_processor (rai::node &);
 	void vote (std::shared_ptr<rai::vote>, rai::endpoint);
-	rai::vote_code vote_blocking (rai::transaction const &, std::shared_ptr<rai::vote>, rai::endpoint);
+	rai::vote_code vote_blocking (rai::transaction const &, std::shared_ptr<rai::vote>, rai::endpoint, bool = false);
 	void flush ();
 	rai::node & node;
 	void stop ();
