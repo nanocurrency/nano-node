@@ -773,6 +773,7 @@ void rai::vote_processor::process_loop ()
 	std::chrono::steady_clock::time_point start_time, end_time;
 	std::chrono::steady_clock::duration elapsed_time;
 	std::chrono::milliseconds elapsed_time_ms;
+	uint64_t elapsed_time_ms_int;
 
 	std::unique_lock<std::mutex> lock (mutex);
 	started = true;
@@ -805,7 +806,16 @@ void rai::vote_processor::process_loop ()
 				end_time = std::chrono::steady_clock::now ();
 				elapsed_time = end_time - start_time;
 				elapsed_time_ms = std::chrono::duration_cast<std::chrono::milliseconds> (elapsed_time);
-				BOOST_LOG (node.log) << boost::str (boost::format ("Processed %1% votes in %2% milliseconds (rate of %3% votes per second)") % votes_l.size () % elapsed_time_ms.count () % ((votes_l.size () * 1000ULL) / elapsed_time_ms.count ()));
+				elapsed_time_ms_int = elapsed_time_ms.count ();
+				if (elapsed_time_ms_int == 0)
+				{
+					/*
+					 * If the time took less than 1ms, round up
+					 * to avoid floating point errors in division
+					 */
+					elapsed_time_ms_int = 1;
+				}
+				BOOST_LOG (node.log) << boost::str (boost::format ("Processed %1% votes in %2% milliseconds (rate of %3% votes per second)") % votes_l.size () % elapsed_time_ms_int % ((votes_l.size () * 1000ULL) / elapsed_time_ms_int));
 			}
 		}
 		else
