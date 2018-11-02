@@ -1099,22 +1099,13 @@ void rai::bootstrap_attempt::add_pull (rai::pull_info const & pull)
 void rai::bootstrap_attempt::requeue_pull (rai::pull_info const & pull_a)
 {
 	auto pull (pull_a);
-	bool lazy_continue (false);
-	if (lazy_mode && pull.attempts > bootstrap_frontier_retry_limit - 2)
-	{
-		std::unique_lock<std::mutex> lazy_lock (lazy_mutex);
-		if (lazy_state_assumption.find (pull.account) == lazy_state_assumption.end ())
-		{
-			lazy_continue = true;
-		}
-	}
 	if (++pull.attempts < bootstrap_frontier_retry_limit)
 	{
 		std::lock_guard<std::mutex> lock (mutex);
 		pulls.push_front (pull);
 		condition.notify_all ();
 	}
-	else if (lazy_continue)
+	else if (lazy_mode)
 	{
 		// Retry for lazy pulls (not weak state block link assumptions)
 		std::lock_guard<std::mutex> lock (mutex);
@@ -1319,8 +1310,7 @@ bool rai::bootstrap_attempt::process_block (std::shared_ptr<rai::block> block_a)
 				// Weak assumption for other legacy block types
 				else
 				{
-					lazy_add (next_block->hashables.link);
-					lazy_state_assumption.insert (next_block->hashables.link);
+					// Disabled
 				}
 			}
 		}
