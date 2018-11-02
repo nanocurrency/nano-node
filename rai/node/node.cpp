@@ -817,9 +817,12 @@ rai::vote_code rai::vote_processor::vote_blocking (rai::transaction const & tran
 	if (!vote_a->validate ())
 	{
 		auto max_vote (node.store.vote_max (transaction_a, vote_a, result));
-		if (!node.active.vote (vote_a))
+		if (result != rai::vote_code::vote)
 		{
-			result = rai::vote_code::vote;
+			if (!node.active.vote (vote_a))
+			{
+				result = rai::vote_code::vote;
+			}
 		}
 		switch (result)
 		{
