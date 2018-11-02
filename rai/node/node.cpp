@@ -252,23 +252,31 @@ void rai::network::republish (rai::block_hash const & hash_a, std::shared_ptr<st
 }
 
 template <typename T>
-bool confirm_block (rai::transaction const & transaction_a, rai::node & node_a, T & list_a, std::shared_ptr<rai::block> block_a)
+bool confirm_block (rai::transaction const & transaction_a, rai::node & node_a, T & list_a, std::shared_ptr<rai::block> block_a, bool also_publish)
 {
 	bool result (false);
 	if (node_a.config.enable_voting)
 	{
 		node_a.wallets.foreach_representative (transaction_a, [&result, &block_a, &list_a, &node_a, &transaction_a](rai::public_key const & pub_a, rai::raw_key const & prv_a) {
 			result = true;
-			auto vote (node_a.store.vote_generate (transaction_a, pub_a, prv_a, block_a));
+			auto hash (block_a->hash ());
+			auto vote (node_a.store.vote_generate (transaction_a, pub_a, prv_a, std::vector<rai::block_hash> (1, hash)));
 			rai::confirm_ack confirm (vote);
-			std::shared_ptr<std::vector<uint8_t>> bytes (new std::vector<uint8_t>);
+			std::shared_ptr<std::vector<uint8_t>> vote_bytes (new std::vector<uint8_t>);
 			{
-				rai::vectorstream stream (*bytes);
+				rai::vectorstream stream (*vote_bytes);
 				confirm.serialize (stream);
+			}
+			rai::publish publish (block_a);
+			std::shared_ptr<std::vector<uint8_t>> publish_bytes (new std::vector<uint8_t>);
+			{
+				rai::vectorstream stream (*publish_bytes);
+				publish.serialize (stream);
 			}
 			for (auto j (list_a.begin ()), m (list_a.end ()); j != m; ++j)
 			{
-				node_a.network.confirm_send (confirm, bytes, *j);
+				node_a.network.confirm_send (confirm, vote_bytes, *j);
+				node_a.network.republish (hash, publish_bytes, *j);
 			}
 		});
 	}
@@ -276,11 +284,11 @@ bool confirm_block (rai::transaction const & transaction_a, rai::node & node_a, 
 }
 
 template <>
-bool confirm_block (rai::transaction const & transaction_a, rai::node & node_a, rai::endpoint & peer_a, std::shared_ptr<rai::block> block_a)
+bool confirm_block (rai::transaction const & transaction_a, rai::node & node_a, rai::endpoint & peer_a, std::shared_ptr<rai::block> block_a, bool also_publish)
 {
 	std::array<rai::endpoint, 1> endpoints;
 	endpoints[0] = peer_a;
-	auto result (confirm_block (transaction_a, node_a, endpoints, std::move (block_a)));
+	auto result (confirm_block (transaction_a, node_a, endpoints, std::move (block_a), also_publish));
 	return result;
 }
 
@@ -507,7 +515,8 @@ public:
 			auto successor (node.ledger.successor (transaction, message_a.block->root ()));
 			if (successor != nullptr)
 			{
-				confirm_block (transaction, node, sender, std::move (successor));
+				auto same_block (successor->hash () == message_a.block->hash ());
+				confirm_block (transaction, node, sender, std::move (successor), !same_block);
 			}
 		}
 	}
