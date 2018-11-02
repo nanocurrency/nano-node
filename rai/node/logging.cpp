@@ -80,7 +80,6 @@ bool rai::logging::upgrade_json (unsigned version_a, boost::property_tree::ptree
 			result = true;
 		case 3:
 			tree_a.put ("network_node_id_handshake", "false");
-			tree_a.put ("version", "4");
 			result = true;
 		case 4:
 			tree_a.put ("upnp_details", "false");
