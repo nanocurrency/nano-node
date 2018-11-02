@@ -125,7 +125,7 @@ public:
 
 private:
 	void announce_loop ();
-	void announce_votes ();
+	void announce_votes (std::unique_lock<std::mutex> &);
 	std::condition_variable condition;
 	bool started;
 	bool stopped;
