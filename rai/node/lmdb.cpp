@@ -1887,7 +1887,7 @@ std::shared_ptr<rai::vote> rai::mdb_store::vote_max (rai::transaction const & tr
 	std::lock_guard<std::mutex> lock (cache_mutex);
 	auto current (vote_current (transaction_a, vote_a->account));
 	auto result (vote_a);
-	if (current != nullptr && current->sequence > result->sequence)
+	if (current != nullptr && current->sequence >= result->sequence)
 	{
 		result = current;
 		result_code = rai::vote_code::replay;
