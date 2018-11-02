@@ -1076,6 +1076,7 @@ TEST (rpc, keepalive)
 	rai::node_init init1;
 	auto node1 (std::make_shared<rai::node> (init1, system.service, 24001, rai::unique_path (), system.alarm, system.logging, system.work));
 	node1->start ();
+	system.nodes.push_back (node1);
 	rai::rpc rpc (system.service, *system.nodes[0], rai::rpc_config (true));
 	rpc.start ();
 	boost::property_tree::ptree request;
@@ -3637,6 +3638,49 @@ TEST (rpc, online_reps)
 	auto item (representatives.begin ());
 	ASSERT_NE (representatives.end (), item);
 	ASSERT_EQ (rai::test_genesis_key.pub.to_account (), item->first);
+	boost::optional<std::string> weight (item->second.get_optional<std::string> ("weight"));
+	ASSERT_FALSE (weight.is_initialized ());
+	//Test weight option
+	request.put ("weight", "true");
+	test_response response2 (request, rpc, system.service);
+	while (response2.status == 0)
+	{
+		system.poll ();
+	}
+	auto representatives2 (response2.json.get_child ("representatives"));
+	auto item2 (representatives2.begin ());
+	ASSERT_NE (representatives2.end (), item2);
+	ASSERT_EQ (rai::test_genesis_key.pub.to_account (), item2->first);
+	auto weight2 (item2->second.get<std::string> ("weight"));
+	ASSERT_EQ (system.nodes[1]->weight (rai::test_genesis_key.pub).convert_to<std::string> (), weight2);
+	//Test accounts filter
+	system.wallet (1)->insert_adhoc (rai::test_genesis_key.prv);
+	auto new_rep (system.wallet (1)->deterministic_insert ());
+	auto send (system.wallet (1)->send_action (rai::test_genesis_key.pub, new_rep, system.nodes[0]->config.receive_minimum.number ()));
+	ASSERT_NE (nullptr, send);
+	auto receive (system.wallet (1)->receive_action (static_cast<rai::send_block &> (*send), new_rep, system.nodes[0]->config.receive_minimum.number ()));
+	ASSERT_NE (nullptr, receive);
+	auto change (system.wallet (1)->change_action (rai::test_genesis_key.pub, new_rep));
+	ASSERT_NE (nullptr, change);
+	while (system.nodes[1]->online_reps.list ().size () != 2)
+	{
+		system.poll ();
+	}
+	boost::property_tree::ptree child_rep;
+	child_rep.put ("", new_rep.to_account ());
+	boost::property_tree::ptree filtered_accounts;
+	filtered_accounts.push_back (std::make_pair ("", child_rep));
+	request.add_child ("accounts", filtered_accounts);
+	test_response response3 (request, rpc, system.service);
+	while (response3.status == 0)
+	{
+		system.poll ();
+	}
+	auto representatives3 (response3.json.get_child ("representatives"));
+	auto item3 (representatives3.begin ());
+	ASSERT_NE (representatives3.end (), item3);
+	ASSERT_EQ (new_rep.to_account (), item3->first);
+	ASSERT_EQ (representatives3.size (), 1);
 	system.nodes[1]->stop ();
 }
 
@@ -3714,4 +3758,47 @@ TEST (rpc, block_confirm_absent)
 	}
 	ASSERT_EQ (200, response.status);
 	ASSERT_EQ ("Block not found", response.json.get<std::string> ("error"));
+}
+
+TEST (rpc, node_id)
+{
+	rai::system system (24000, 1);
+	rai::rpc rpc (system.service, *system.nodes[0], rai::rpc_config (true));
+	rpc.start ();
+	boost::property_tree::ptree request;
+	request.put ("action", "node_id");
+	test_response response (request, rpc, system.service);
+	while (response.status == 0)
+	{
+		system.poll ();
+	}
+	ASSERT_EQ (200, response.status);
+	auto transaction (system.nodes[0]->store.tx_begin_read ());
+	rai::keypair node_id (system.nodes[0]->store.get_node_id (transaction));
+	ASSERT_EQ (node_id.prv.data.to_string (), response.json.get<std::string> ("private"));
+	ASSERT_EQ (node_id.pub.to_account (), response.json.get<std::string> ("as_account"));
+}
+
+TEST (rpc, node_id_delete)
+{
+	rai::system system (24000, 1);
+	rai::rpc rpc (system.service, *system.nodes[0], rai::rpc_config (true));
+	rpc.start ();
+	{
+		auto transaction (system.nodes[0]->store.tx_begin_write ());
+		rai::keypair node_id (system.nodes[0]->store.get_node_id (transaction));
+		ASSERT_EQ (node_id.pub.to_string (), system.nodes[0]->node_id.pub.to_string ());
+	}
+	boost::property_tree::ptree request;
+	request.put ("action", "node_id_delete");
+	test_response response (request, rpc, system.service);
+	while (response.status == 0)
+	{
+		system.poll ();
+	}
+	ASSERT_EQ (200, response.status);
+	ASSERT_EQ ("1", response.json.get<std::string> ("deleted"));
+	auto transaction (system.nodes[0]->store.tx_begin_write ());
+	rai::keypair node_id (system.nodes[0]->store.get_node_id (transaction));
+	ASSERT_NE (node_id.pub.to_string (), system.nodes[0]->node_id.pub.to_string ());
 }

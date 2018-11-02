@@ -131,7 +131,7 @@ public:
 			ledger.store.pending_del (transaction, key);
 			ledger.stats.inc (rai::stat::type::rollback, rai::stat::detail::send);
 		}
-		else if (!block_a.hashables.link.is_zero () && block_a.hashables.link != ledger.epoch_link)
+		else if (!block_a.hashables.link.is_zero () && !ledger.is_epoch_link (block_a.hashables.link))
 		{
 			auto source_version (ledger.store.block_version (transaction, block_a.hashables.link));
 			rai::pending_info pending_info (ledger.account (transaction, block_a.hashables.link), block_a.hashables.balance.number () - balance, source_version);
@@ -185,7 +185,7 @@ void ledger_processor::state_block (rai::state_block const & block_a)
 	result.code = rai::process_result::progress;
 	auto is_epoch_block (false);
 	// Check if this is an epoch block
-	if (!ledger.epoch_link.is_zero () && block_a.hashables.link == ledger.epoch_link)
+	if (!ledger.epoch_link.is_zero () && ledger.is_epoch_link (block_a.hashables.link))
 	{
 		rai::amount prev_balance (0);
 		if (!block_a.hashables.previous.is_zero ())
@@ -222,7 +222,7 @@ void ledger_processor::state_block_impl (rai::state_block const & block_a)
 	if (result.code == rai::process_result::progress)
 	{
 		// Revalidate blocks with epoch links
-		if (!valid_signature || block_a.hashables.link == ledger.epoch_link)
+		if (!valid_signature || ledger.is_epoch_link (block_a.hashables.link))
 		{
 			result.code = validate_message (block_a.hashables.account, hash, block_a.signature) ? rai::process_result::bad_signature : rai::process_result::progress; // Is this block signed correctly (Unambiguous)
 		}
