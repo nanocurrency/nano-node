@@ -3745,11 +3745,35 @@ void rai::rpc_connection::read ()
 
 namespace
 {
-void reprocess_body (std::string & body, boost::property_tree::ptree & tree_a)
+std::string filter_request (boost::property_tree::ptree tree_a)
 {
+	// Replace password
+	boost::optional<std::string> password_text (tree_a.get_optional<std::string> ("password"));
+	if (password_text.is_initialized ())
+	{
+		tree_a.put ("password", "password");
+	}
+	// Save first 2 symbols of wallet, key, seed
+	boost::optional<std::string> wallet_text (tree_a.get_optional<std::string> ("wallet"));
+	if (wallet_text.is_initialized () && wallet_text.get ().length () > 2)
+	{
+		tree_a.put ("wallet", wallet_text.get ().replace (wallet_text.get ().begin () + 2, wallet_text.get ().end (), wallet_text.get ().length () - 2, 'X'));
+	}
+	boost::optional<std::string> key_text (tree_a.get_optional<std::string> ("key"));
+	if (key_text.is_initialized () && key_text.get ().length () > 2)
+	{
+		tree_a.put ("key", key_text.get ().replace (key_text.get ().begin () + 2, key_text.get ().end (), key_text.get ().length () - 2, 'X'));
+	}
+	boost::optional<std::string> seed_text (tree_a.get_optional<std::string> ("seed"));
+	if (seed_text.is_initialized () && seed_text.get ().length () > 2)
+	{
+		tree_a.put ("seed", seed_text.get ().replace (seed_text.get ().begin () + 2, seed_text.get ().end (), seed_text.get ().length () - 2, 'X'));
+	}
+	std::string result;
 	std::stringstream stream;
-	boost::property_tree::write_json (stream, tree_a);
-	body = stream.str ();
+	boost::property_tree::write_json (stream, tree_a, false);
+	result = stream.str ();
+	return result;
 }
 }
 
@@ -3780,27 +3804,9 @@ void rai::rpc_handler::process_request ()
 			std::stringstream istream (body);
 			boost::property_tree::read_json (istream, request);
 			std::string action (request.get<std::string> ("action"));
-			if (action == "password_enter")
-			{
-				password_enter ();
-				request.erase ("password");
-				reprocess_body (body, request);
-			}
-			else if (action == "password_change")
-			{
-				password_change ();
-				request.erase ("password");
-				reprocess_body (body, request);
-			}
-			else if (action == "wallet_unlock")
-			{
-				password_enter ();
-				request.erase ("password");
-				reprocess_body (body, request);
-			}
 			if (node.config.logging.log_rpc ())
 			{
-				BOOST_LOG (node.log) << boost::str (boost::format ("%1% ") % request_id) << body;
+				BOOST_LOG (node.log) << boost::str (boost::format ("%1% ") % request_id) << filter_request (request);
 			}
 			if (action == "account_balance")
 			{
@@ -4021,11 +4027,11 @@ void rai::rpc_handler::process_request ()
 			}
 			else if (action == "password_change")
 			{
-				// Processed before logging
+				password_change ();
 			}
 			else if (action == "password_enter")
 			{
-				// Processed before logging
+				password_enter ();
 			}
 			else if (action == "password_valid")
 			{
@@ -4218,7 +4224,7 @@ void rai::rpc_handler::process_request ()
 			}
 			else if (action == "wallet_unlock")
 			{
-				// Processed before logging
+				password_enter ();
 			}
 			else if (action == "wallet_work_get")
 			{
