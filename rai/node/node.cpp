@@ -774,6 +774,7 @@ void rai::vote_processor::process_loop ()
 	std::chrono::steady_clock::duration elapsed_time;
 	std::chrono::milliseconds elapsed_time_ms;
 	uint64_t elapsed_time_ms_int;
+	bool log_this_iteration;
 
 	std::unique_lock<std::mutex> lock (mutex);
 	started = true;
@@ -783,11 +784,21 @@ void rai::vote_processor::process_loop ()
 		if (!votes.empty ())
 		{
 			std::deque<std::pair<std::shared_ptr<rai::vote>, rai::endpoint>> votes_l;
-			if (node.config.logging.network_logging ())
+			votes_l.swap (votes);
+	
+			log_this_iteration = false;
+			if (node.config.logging.network_logging () && votes_l.size () > 50)
+			{
+				/*
+				 * Only log the timing information for this iteration if
+				 * there are a sufficient number of items for it to be relevant
+				 */
+				log_this_iteration = true;
+			}
+			if (log_this_iteration)
 			{
 				start_time = std::chrono::steady_clock::now ();
 			}
-			votes_l.swap (votes);
 			active = true;
 			lock.unlock ();
 			{
@@ -801,12 +812,25 @@ void rai::vote_processor::process_loop ()
 			active = false;
 			condition.notify_all ();
 
-			if (node.config.logging.network_logging ())
+			if (log_this_iteration)
 			{
 				end_time = std::chrono::steady_clock::now ();
 				elapsed_time = end_time - start_time;
 				elapsed_time_ms = std::chrono::duration_cast<std::chrono::milliseconds> (elapsed_time);
 				elapsed_time_ms_int = elapsed_time_ms.count ();
+	
+				if (elapsed_time_ms_int < 100)
+				{
+					/*
+					 * If the time spent was less than 100ms then
+					 * the results are probably not useful as well,
+					 * so don't spam the logs.
+					 */
+					log_this_iteration = false;
+				}
+			}
+			if (log_this_iteration)
+			{
 				if (elapsed_time_ms_int == 0)
 				{
 					/*
