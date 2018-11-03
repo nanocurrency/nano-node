@@ -3029,7 +3029,7 @@ bool rai::active_transactions::add (std::pair<std::shared_ptr<rai::block>, std::
 		if (existing == roots.end ())
 		{
 			auto election (std::make_shared<rai::election> (node, primary_block, confirmation_action_a));
-			roots.insert (rai::conflict_info{ root, election, static_cast<unsigned> (0 - 1), blocks_a });
+			roots.insert (rai::conflict_info{ root, election, std::numeric_limits<unsigned>::max(), blocks_a });
 			successors.insert (std::make_pair (primary_block->hash (), election));
 		}
 		error = existing != roots.end ();
