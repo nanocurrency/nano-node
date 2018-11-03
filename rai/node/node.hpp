@@ -78,7 +78,7 @@ public:
 	rai::block_hash root;
 	std::shared_ptr<rai::election> election;
 	// Number of announcements in a row for this fork
-	unsigned announcements;
+	long int announcements;
 	std::pair<std::shared_ptr<rai::block>, std::shared_ptr<rai::block>> confirm_req_options;
 };
 // Core class for determining consensus
