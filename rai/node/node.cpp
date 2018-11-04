@@ -2823,7 +2823,7 @@ bool rai::election::publish (std::shared_ptr<rai::block> block_a)
 	return result;
 }
 
-void rai::active_transactions::announce_votes ()
+void rai::active_transactions::announce_votes (std::unique_lock<std::mutex> & lock_a)
 {
 	std::unordered_set<rai::block_hash> inactive;
 	auto transaction (node.store.tx_begin_read ());
@@ -2832,8 +2832,13 @@ void rai::active_transactions::announce_votes ()
 	unsigned mass_request_count (0);
 	std::deque<std::shared_ptr<rai::block>> rebroadcast_bundle;
 
+	auto roots_size (roots.size ());
 	for (auto i (roots.begin ()), n (roots.end ()); i != n; ++i)
 	{
+		roots.modify (i, [](rai::conflict_info & info_a) {
+			++info_a.announcements;
+		});
+		lock_a.unlock ();
 		auto election_l (i->election);
 		if ((election_l->confirmed || election_l->stopped) && i->announcements >= announcement_min - 1)
 		{
@@ -2862,7 +2867,7 @@ void rai::active_transactions::announce_votes ()
 				/* Escalation for long unconfirmed elections
 				Start new elections for previous block & source
 				if there are less than 100 active elections */
-				if (i->announcements % announcement_long == 1 && roots.size () < 100)
+				if (i->announcements % announcement_long == 1 && roots_size < 100)
 				{
 					std::unique_ptr<rai::block> previous (nullptr);
 					auto previous_hash (election_l->status.winner->previous ());
@@ -2948,9 +2953,7 @@ void rai::active_transactions::announce_votes ()
 				}
 			}
 		}
-		roots.modify (i, [](rai::conflict_info & info_a) {
-			++info_a.announcements;
-		});
+		lock_a.lock ();
 	}
 	// Rebroadcast unconfirmed blocks
 	if (!rebroadcast_bundle.empty ())
@@ -2989,7 +2992,7 @@ void rai::active_transactions::announce_loop ()
 	condition.notify_all ();
 	while (!stopped)
 	{
-		announce_votes ();
+		announce_votes (lock);
 		condition.wait_for (lock, std::chrono::milliseconds (announce_interval_ms + roots.size () * node.network.broadcast_interval_ms));
 	}
 }
@@ -3035,7 +3038,7 @@ bool rai::active_transactions::add (std::pair<std::shared_ptr<rai::block>, std::
 		if (existing == roots.end ())
 		{
 			auto election (std::make_shared<rai::election> (node, primary_block, confirmation_action_a));
-			roots.insert (rai::conflict_info{ root, election, 0, blocks_a });
+			roots.insert (rai::conflict_info{ root, election, -1, blocks_a });
 			successors.insert (std::make_pair (primary_block->hash (), election));
 		}
 		error = existing != roots.end ();
