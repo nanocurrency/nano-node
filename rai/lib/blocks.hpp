@@ -45,6 +45,8 @@ class block
 public:
 	// Return a digest of the hashables in this block.
 	rai::block_hash hash () const;
+	// Return a digest of hashables and non-hashables in this block.
+	rai::block_hash full_hash () const;
 	std::string to_json ();
 	virtual void hash (blake2b_state &) const = 0;
 	virtual uint64_t block_work () const = 0;

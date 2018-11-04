@@ -71,6 +71,20 @@ rai::block_hash rai::block::hash () const
 	return result;
 }
 
+rai::block_hash rai::block::full_hash () const
+{
+	rai::block_hash result;
+	blake2b_state state;
+	blake2b_init (&state, sizeof (result.bytes));
+	blake2b_update (&state, hash ().bytes.data (), sizeof (hash ()));
+	auto work (block_work ());
+	blake2b_update (&state, &work, sizeof (work));
+	auto signature (block_signature ());
+	blake2b_update (&state, signature.bytes.data (), sizeof (signature));
+	blake2b_final (&state, result.bytes.data (), sizeof (result.bytes));
+	return result;
+}
+
 void rai::send_block::visit (rai::block_visitor & visitor_a) const
 {
 	visitor_a.send_block (*this);
@@ -1539,15 +1553,7 @@ std::shared_ptr<rai::block> rai::block_uniquer::unique (std::shared_ptr<rai::blo
 	auto result (block_a);
 	if (result != nullptr)
 	{
-		rai::uint256_union key;
-		blake2b_state hash;
-		blake2b_init (&hash, sizeof (key.bytes));
-		blake2b_update (&hash, block_a->hash ().bytes.data (), sizeof (block_a->hash ()));
-		auto block_work (block_a->block_work ());
-		blake2b_update (&hash, &block_work, sizeof (block_work));
-		auto signature (block_a->block_signature ());
-		blake2b_update (&hash, signature.bytes.data (), sizeof (signature));
-		blake2b_final (&hash, key.bytes.data (), sizeof (key.bytes));
+		rai::uint256_union key (block_a->full_hash ());
 		std::lock_guard<std::mutex> lock (mutex);
 		auto & existing (blocks[key]);
 		if (auto block_l = existing.lock ())
