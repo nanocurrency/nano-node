@@ -472,6 +472,7 @@ public:
 	rai::stat stats;
 	rai::keypair node_id;
 	rai::block_uniquer block_uniquer;
+	rai::vote_uniquer vote_uniquer;
 	static double constexpr price_max = 16.0;
 	static double constexpr free_cutoff = 1024.0;
 	static std::chrono::seconds constexpr period = std::chrono::seconds (60);

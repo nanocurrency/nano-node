@@ -146,8 +146,9 @@ std::string rai::message_parser::status_string ()
 	return "[unknown parse_status]";
 }
 
-rai::message_parser::message_parser (rai::block_uniquer & uniquer_a, rai::message_visitor & visitor_a, rai::work_pool & pool_a) :
-uniquer (uniquer_a),
+rai::message_parser::message_parser (rai::block_uniquer & block_uniquer_a, rai::vote_uniquer & vote_uniquer_a, rai::message_visitor & visitor_a, rai::work_pool & pool_a) :
+block_uniquer (block_uniquer_a),
+vote_uniquer (vote_uniquer_a),
 visitor (visitor_a),
 pool (pool_a),
 status (parse_status::success)
@@ -238,7 +239,7 @@ void rai::message_parser::deserialize_keepalive (rai::stream & stream_a, rai::me
 void rai::message_parser::deserialize_publish (rai::stream & stream_a, rai::message_header const & header_a)
 {
 	auto error (false);
-	rai::publish incoming (error, stream_a, header_a, &uniquer);
+	rai::publish incoming (error, stream_a, header_a, &block_uniquer);
 	if (!error && at_end (stream_a))
 	{
 		if (!rai::work_validate (*incoming.block))
@@ -259,7 +260,7 @@ void rai::message_parser::deserialize_publish (rai::stream & stream_a, rai::mess
 void rai::message_parser::deserialize_confirm_req (rai::stream & stream_a, rai::message_header const & header_a)
 {
 	auto error (false);
-	rai::confirm_req incoming (error, stream_a, header_a, &uniquer);
+	rai::confirm_req incoming (error, stream_a, header_a, &block_uniquer);
 	if (!error && at_end (stream_a))
 	{
 		if (!rai::work_validate (*incoming.block))
@@ -280,7 +281,7 @@ void rai::message_parser::deserialize_confirm_req (rai::stream & stream_a, rai::
 void rai::message_parser::deserialize_confirm_ack (rai::stream & stream_a, rai::message_header const & header_a)
 {
 	auto error (false);
-	rai::confirm_ack incoming (error, stream_a, header_a, &uniquer);
+	rai::confirm_ack incoming (error, stream_a, header_a, &vote_uniquer);
 	if (!error && at_end (stream_a))
 	{
 		for (auto & vote_block : incoming.vote->blocks)
@@ -470,10 +471,14 @@ bool rai::confirm_req::operator== (rai::confirm_req const & other_a) const
 	return *block == *other_a.block;
 }
 
-rai::confirm_ack::confirm_ack (bool & error_a, rai::stream & stream_a, rai::message_header const & header_a, rai::block_uniquer * uniquer_a) :
+rai::confirm_ack::confirm_ack (bool & error_a, rai::stream & stream_a, rai::message_header const & header_a, rai::vote_uniquer * uniquer_a) :
 message (header_a),
-vote (std::make_shared<rai::vote> (error_a, stream_a, header.block_type (), uniquer_a))
+vote (std::make_shared<rai::vote> (error_a, stream_a, header.block_type ()))
 {
+	if (uniquer_a)
+	{
+		vote = uniquer_a->unique (vote);
+	}
 }
 
 rai::confirm_ack::confirm_ack (std::shared_ptr<rai::vote> vote_a) :
@@ -491,10 +496,14 @@ vote (vote_a)
 	}
 }
 
-bool rai::confirm_ack::deserialize (rai::stream & stream_a, rai::block_uniquer * uniquer_a)
+bool rai::confirm_ack::deserialize (rai::stream & stream_a, rai::vote_uniquer * uniquer_a)
 {
 	assert (header.type == rai::message_type::confirm_ack);
-	auto result (vote->deserialize (stream_a, uniquer_a));
+	auto result (vote->deserialize (stream_a));
+	if (uniquer_a)
+	{
+		vote = uniquer_a->unique (vote);
+	}
 	return result;
 }
 

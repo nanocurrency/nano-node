@@ -213,7 +213,7 @@ public:
 		invalid_magic,
 		invalid_network
 	};
-	message_parser (rai::block_uniquer &, rai::message_visitor &, rai::work_pool &);
+	message_parser (rai::block_uniquer &, rai::vote_uniquer &, rai::message_visitor &, rai::work_pool &);
 	void deserialize_buffer (uint8_t const *, size_t);
 	void deserialize_keepalive (rai::stream &, rai::message_header const &);
 	void deserialize_publish (rai::stream &, rai::message_header const &);
@@ -221,7 +221,8 @@ public:
 	void deserialize_confirm_ack (rai::stream &, rai::message_header const &);
 	void deserialize_node_id_handshake (rai::stream &, rai::message_header const &);
 	bool at_end (rai::stream &);
-	rai::block_uniquer & uniquer;
+	rai::block_uniquer & block_uniquer;
+	rai::vote_uniquer & vote_uniquer;
 	rai::message_visitor & visitor;
 	rai::work_pool & pool;
 	parse_status status;
@@ -264,9 +265,9 @@ public:
 class confirm_ack : public message
 {
 public:
-	confirm_ack (bool &, rai::stream &, rai::message_header const &, rai::block_uniquer * = nullptr);
+	confirm_ack (bool &, rai::stream &, rai::message_header const &, rai::vote_uniquer * = nullptr);
 	confirm_ack (std::shared_ptr<rai::vote>);
-	bool deserialize (rai::stream &, rai::block_uniquer * = nullptr);
+	bool deserialize (rai::stream &, rai::vote_uniquer * = nullptr);
 	void serialize (rai::stream &) override;
 	void visit (rai::message_visitor &) const override;
 	bool operator== (rai::confirm_ack const &) const;
