@@ -260,7 +260,10 @@ bool confirm_block (rai::transaction const & transaction_a, rai::node & node_a, 
 		node_a.wallets.foreach_representative (transaction_a, [&result, &block_a, &list_a, &node_a, &transaction_a](rai::public_key const & pub_a, rai::raw_key const & prv_a) {
 			result = true;
 			auto hash (block_a->hash ());
-			auto vote (node_a.store.vote_generate (transaction_a, pub_a, prv_a, std::vector<rai::block_hash> (1, hash)));
+			std::vector<rai::block_hash> hashes;
+			hashes.push_back (hash);
+			hashes.push_back (rai::block_hash (0));
+			auto vote (node_a.store.vote_generate (transaction_a, pub_a, prv_a, hashes));
 			rai::confirm_ack confirm (vote);
 			std::shared_ptr<std::vector<uint8_t>> vote_bytes (new std::vector<uint8_t>);
 			{
@@ -3079,7 +3082,7 @@ bool rai::active_transactions::vote (std::shared_ptr<rai::vote> vote_a)
 			processed = processed || result.processed;
 		}
 	}
-	if (processed)
+	if (processed && !vote_a->from_confirm_req ())
 	{
 		node.network.republish_vote (vote_a);
 	}

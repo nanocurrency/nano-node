@@ -161,6 +161,7 @@ public:
 	boost::transform_iterator<rai::iterate_vote_blocks_as_hash, rai::vote_blocks_vec_iter> begin () const;
 	boost::transform_iterator<rai::iterate_vote_blocks_as_hash, rai::vote_blocks_vec_iter> end () const;
 	std::string to_json () const;
+	bool from_confirm_req () const;
 	// Vote round sequence number
 	uint64_t sequence;
 	// The blocks, or block hashes, that this vote is for

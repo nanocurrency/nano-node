@@ -636,6 +636,13 @@ boost::transform_iterator<rai::iterate_vote_blocks_as_hash, rai::vote_blocks_vec
 	return boost::transform_iterator<rai::iterate_vote_blocks_as_hash, rai::vote_blocks_vec_iter> (blocks.end (), rai::iterate_vote_blocks_as_hash ());
 }
 
+bool rai::vote::from_confirm_req () const
+{
+	auto i (begin ());
+	auto n (end ());
+	return std::find (i, n, rai::block_hash (0)) != n;
+}
+
 rai::genesis::genesis ()
 {
 	boost::property_tree::ptree tree;
