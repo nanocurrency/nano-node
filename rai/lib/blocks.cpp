@@ -77,10 +77,10 @@ rai::block_hash rai::block::full_hash () const
 	blake2b_state state;
 	blake2b_init (&state, sizeof (result.bytes));
 	blake2b_update (&state, hash ().bytes.data (), sizeof (hash ()));
-	auto work (block_work ());
-	blake2b_update (&state, &work, sizeof (work));
 	auto signature (block_signature ());
 	blake2b_update (&state, signature.bytes.data (), sizeof (signature));
+	auto work (block_work ());
+	blake2b_update (&state, &work, sizeof (work));
 	blake2b_final (&state, result.bytes.data (), sizeof (result.bytes));
 	return result;
 }

@@ -152,6 +152,7 @@ public:
 	vote (rai::account const &, rai::raw_key const &, uint64_t, std::vector<rai::block_hash>);
 	std::string hashes_string () const;
 	rai::uint256_union hash () const;
+	rai::uint256_union full_hash () const;
 	bool operator== (rai::vote const &) const;
 	bool operator!= (rai::vote const &) const;
 	void serialize (rai::stream &, rai::block_type);
@@ -170,6 +171,22 @@ public:
 	// Signature of sequence + block hashes
 	rai::signature signature;
 	static const std::string hash_prefix;
+};
+/**
+ * This class serves to find and return unique variants of a vote in order to minimize memory usage
+ */
+class vote_uniquer
+{
+public:
+	vote_uniquer (rai::block_uniquer &);
+	std::shared_ptr<rai::vote> unique (std::shared_ptr<rai::vote>);
+	size_t size ();
+
+private:
+	rai::block_uniquer & uniquer;
+	std::mutex mutex;
+	std::unordered_map<rai::uint256_union, std::weak_ptr<rai::vote>> votes;
+	static unsigned constexpr cleanup_count = 2;
 };
 enum class vote_code
 {
