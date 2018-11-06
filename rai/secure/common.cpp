@@ -658,6 +658,10 @@ std::shared_ptr<rai::vote> rai::vote_uniquer::unique (std::shared_ptr<rai::vote>
 	auto result (vote_a);
 	if (result != nullptr)
 	{
+		if (!result->blocks[0].which ())
+		{
+			result->blocks[0] = uniquer.unique (boost::get<std::shared_ptr<rai::block>> (result->blocks[0]));
+		}
 		rai::uint256_union key (vote_a->full_hash ());
 		std::lock_guard<std::mutex> lock (mutex);
 		auto & existing (votes[key]);
@@ -689,13 +693,6 @@ std::shared_ptr<rai::vote> rai::vote_uniquer::unique (std::shared_ptr<rai::vote>
 					votes.erase (existing);
 				}
 			}
-		}
-	}
-	if (result != nullptr)
-	{
-		if (!result->blocks[0].which ())
-		{
-			result->blocks[0] = uniquer.unique (boost::get<std::shared_ptr<rai::block>> (result->blocks[0]));
 		}
 	}
 	return result;
