@@ -604,7 +604,7 @@ void rai::bulk_push_client::start ()
 
 void rai::bulk_push_client::push (rai::transaction const & transaction_a)
 {
-	std::unique_ptr<rai::block> block;
+	std::shared_ptr<rai::block> block;
 	bool finished (false);
 	while (block == nullptr && !finished)
 	{
@@ -1652,7 +1652,7 @@ void rai::bulk_pull_server::set_current_end ()
 
 void rai::bulk_pull_server::send_next ()
 {
-	std::unique_ptr<rai::block> block (get_next ());
+	auto block (get_next ());
 	if (block != nullptr)
 	{
 		{
@@ -1675,9 +1675,9 @@ void rai::bulk_pull_server::send_next ()
 	}
 }
 
-std::unique_ptr<rai::block> rai::bulk_pull_server::get_next ()
+std::shared_ptr<rai::block> rai::bulk_pull_server::get_next ()
 {
-	std::unique_ptr<rai::block> result;
+	std::shared_ptr<rai::block> result;
 	bool send_current = false, set_current_to_end = false;
 
 	/*

@@ -608,7 +608,7 @@ void rai::network::receive_action (rai::udp_data * data_a)
 	if (!rai::reserved_address (data_a->endpoint, false) && data_a->endpoint != endpoint ())
 	{
 		network_message_visitor visitor (node, data_a->endpoint);
-		rai::message_parser parser (visitor, node.work);
+		rai::message_parser parser (node.block_uniquer, node.vote_uniquer, visitor, node.work);
 		parser.deserialize_buffer (data_a->buffer, data_a->size);
 		if (parser.status != rai::message_parser::parse_status::success)
 		{
@@ -1287,7 +1287,8 @@ block_processor_thread ([this]() {
 	this->block_processor.process_blocks ();
 }),
 online_reps (*this),
-stats (config.stat_config)
+stats (config.stat_config),
+vote_uniquer (block_uniquer)
 {
 	wallets.observer = [this](bool active) {
 		observers.wallet.notify (active);
@@ -1725,7 +1726,7 @@ rai::uint128_t rai::node::balance (rai::account const & account_a)
 	return ledger.account_balance (transaction, account_a);
 }
 
-std::unique_ptr<rai::block> rai::node::block (rai::block_hash const & hash_a)
+std::shared_ptr<rai::block> rai::node::block (rai::block_hash const & hash_a)
 {
 	auto transaction (store.tx_begin_read ());
 	return store.block_get (transaction, hash_a);
@@ -2869,7 +2870,7 @@ void rai::active_transactions::announce_votes (std::unique_lock<std::mutex> & lo
 				if there are less than 100 active elections */
 				if (i->announcements % announcement_long == 1 && roots_size < 100)
 				{
-					std::unique_ptr<rai::block> previous (nullptr);
+					std::shared_ptr<rai::block> previous;
 					auto previous_hash (election_l->status.winner->previous ());
 					if (!previous_hash.is_zero ())
 					{

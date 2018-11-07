@@ -166,8 +166,8 @@ public:
 	virtual void block_put (rai::transaction const &, rai::block_hash const &, rai::block const &, rai::block_hash const & = rai::block_hash (0), rai::epoch version = rai::epoch::epoch_0) = 0;
 	virtual rai::block_hash block_successor (rai::transaction const &, rai::block_hash const &) = 0;
 	virtual void block_successor_clear (rai::transaction const &, rai::block_hash const &) = 0;
-	virtual std::unique_ptr<rai::block> block_get (rai::transaction const &, rai::block_hash const &) = 0;
-	virtual std::unique_ptr<rai::block> block_random (rai::transaction const &) = 0;
+	virtual std::shared_ptr<rai::block> block_get (rai::transaction const &, rai::block_hash const &) = 0;
+	virtual std::shared_ptr<rai::block> block_random (rai::transaction const &) = 0;
 	virtual void block_del (rai::transaction const &, rai::block_hash const &) = 0;
 	virtual bool block_exists (rai::transaction const &, rai::block_hash const &) = 0;
 	virtual rai::block_counts block_count (rai::transaction const &) = 0;

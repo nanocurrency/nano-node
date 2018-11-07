@@ -798,7 +798,7 @@ rai::account rai::ledger::account (rai::transaction const & transaction_a, rai::
 	auto hash (hash_a);
 	rai::block_hash successor (1);
 	rai::block_info block_info;
-	std::unique_ptr<rai::block> block (store.block_get (transaction_a, hash));
+	auto block (store.block_get (transaction_a, hash));
 	while (!successor.is_zero () && block->type () != rai::block_type::state && store.block_info_get (transaction_a, successor, block_info))
 	{
 		successor = store.block_successor (transaction_a, hash);
@@ -981,7 +981,7 @@ void rai::ledger::change_latest (rai::transaction const & transaction_a, rai::ac
 	}
 }
 
-std::unique_ptr<rai::block> rai::ledger::successor (rai::transaction const & transaction_a, rai::uint256_union const & root_a)
+std::shared_ptr<rai::block> rai::ledger::successor (rai::transaction const & transaction_a, rai::uint256_union const & root_a)
 {
 	rai::block_hash successor (0);
 	if (store.account_exists (transaction_a, root_a))
@@ -995,7 +995,7 @@ std::unique_ptr<rai::block> rai::ledger::successor (rai::transaction const & tra
 	{
 		successor = store.block_successor (transaction_a, root_a);
 	}
-	std::unique_ptr<rai::block> result;
+	std::shared_ptr<rai::block> result;
 	if (!successor.is_zero ())
 	{
 		result = store.block_get (transaction_a, successor);
@@ -1004,12 +1004,12 @@ std::unique_ptr<rai::block> rai::ledger::successor (rai::transaction const & tra
 	return result;
 }
 
-std::unique_ptr<rai::block> rai::ledger::forked_block (rai::transaction const & transaction_a, rai::block const & block_a)
+std::shared_ptr<rai::block> rai::ledger::forked_block (rai::transaction const & transaction_a, rai::block const & block_a)
 {
 	assert (!store.block_exists (transaction_a, block_a.hash ()));
 	auto root (block_a.root ());
 	assert (store.block_exists (transaction_a, root) || store.account_exists (transaction_a, root));
-	std::unique_ptr<rai::block> result (store.block_get (transaction_a, store.block_successor (transaction_a, root)));
+	auto result (store.block_get (transaction_a, store.block_successor (transaction_a, root)));
 	if (result == nullptr)
 	{
 		rai::account_info info;
