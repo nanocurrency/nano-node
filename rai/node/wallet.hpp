@@ -66,11 +66,13 @@ public:
 	rai::account representative (rai::transaction const &);
 	void representative_set (rai::transaction const &, rai::account const &);
 	rai::public_key insert_adhoc (rai::transaction const &, rai::raw_key const &);
+	rai::public_key insert_scalar (rai::transaction const &, rai::raw_key const &);
 	void insert_watch (rai::transaction const &, rai::public_key const &);
 	void erase (rai::transaction const &, rai::public_key const &);
 	rai::wallet_value entry_get_raw (rai::transaction const &, rai::public_key const &);
 	void entry_put_raw (rai::transaction const &, rai::public_key const &, rai::wallet_value const &);
-	bool fetch (rai::transaction const &, rai::public_key const &, rai::raw_key &);
+	bool fetch_key (rai::transaction const &, rai::public_key const &, rai::raw_key &);
+	bool fetch (rai::transaction const &, rai::public_key const &, rai::raw_extsk &);
 	bool exists (rai::transaction const &, rai::public_key const &);
 	void destroy (rai::transaction const &);
 	rai::store_iterator<rai::uint256_union, rai::wallet_value> find (rai::transaction const &, rai::uint256_union const &);
@@ -130,6 +132,8 @@ public:
 	bool enter_password (rai::transaction const &, std::string const &);
 	rai::public_key insert_adhoc (rai::raw_key const &, bool = true);
 	rai::public_key insert_adhoc (rai::transaction const &, rai::raw_key const &, bool = true);
+	rai::public_key insert_scalar (rai::raw_key const &, bool = true);
+	rai::public_key insert_scalar (rai::transaction const &, rai::raw_key const &, bool = true);
 	void insert_watch (rai::transaction const &, rai::public_key const &);
 	rai::public_key deterministic_insert (rai::transaction const &, bool = true);
 	rai::public_key deterministic_insert (bool = true);
@@ -174,7 +178,7 @@ public:
 	void destroy (rai::uint256_union const &);
 	void do_wallet_actions ();
 	void queue_wallet_action (rai::uint128_t const &, std::shared_ptr<rai::wallet>, std::function<void(rai::wallet &)> const &);
-	void foreach_representative (rai::transaction const &, std::function<void(rai::public_key const &, rai::raw_key const &)> const &);
+	void foreach_representative (rai::transaction const &, std::function<void(rai::public_key const &, rai::raw_extsk const &)> const &);
 	bool exists (rai::transaction const &, rai::public_key const &);
 	void stop ();
 	void clear_send_ids (rai::transaction const &);

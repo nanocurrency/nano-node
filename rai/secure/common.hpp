@@ -148,8 +148,8 @@ public:
 	vote (rai::vote const &);
 	vote (bool &, rai::stream &);
 	vote (bool &, rai::stream &, rai::block_type);
-	vote (rai::account const &, rai::raw_key const &, uint64_t, std::shared_ptr<rai::block>);
-	vote (rai::account const &, rai::raw_key const &, uint64_t, std::vector<rai::block_hash>);
+	vote (rai::account const &, rai::extsk_source const &, uint64_t, std::shared_ptr<rai::block>);
+	vote (rai::account const &, rai::extsk_source const &, uint64_t, std::vector<rai::block_hash>);
 	std::string hashes_string () const;
 	rai::uint256_union hash () const;
 	bool operator== (rai::vote const &) const;

@@ -399,6 +399,19 @@ rai::public_key rai::wallet_store::insert_adhoc (rai::transaction const & transa
 	return pub;
 }
 
+rai::public_key rai::wallet_store::insert_scalar (rai::transaction const & transaction_a, rai::raw_key const & scl)
+{
+	auto prv (rai::raw_extsk::from_scalar (scl.data));
+	assert (valid_password (transaction_a));
+	rai::public_key pub (rai::pub_key (prv));
+	rai::raw_key password_l;
+	wallet_key (password_l, transaction_a);
+	rai::uint256_union ciphertext;
+	ciphertext.encrypt (scl, password_l, pub.owords[0].number ());
+	entry_put_raw (transaction_a, pub, rai::wallet_value (ciphertext, 0));
+	return pub;
+}
+
 void rai::wallet_store::insert_watch (rai::transaction const & transaction_a, rai::public_key const & pub)
 {
 	entry_put_raw (transaction_a, pub, rai::wallet_value (rai::uint256_union (0), 0));
@@ -456,7 +469,7 @@ rai::key_type rai::wallet_store::key_type (rai::wallet_value const & value_a)
 	return result;
 }
 
-bool rai::wallet_store::fetch (rai::transaction const & transaction_a, rai::public_key const & pub, rai::raw_key & prv)
+bool rai::wallet_store::fetch_key (rai::transaction const & transaction_a, rai::public_key const & pub, rai::raw_key & prv)
 {
 	auto result (false);
 	if (valid_password (transaction_a))
@@ -498,12 +511,25 @@ bool rai::wallet_store::fetch (rai::transaction const & transaction_a, rai::publ
 	{
 		result = true;
 	}
+	return result;
+}
+
+bool rai::wallet_store::fetch (rai::transaction const & transaction_a, rai::public_key const & pub, rai::raw_extsk & out)
+{
+	rai::raw_key prv;
+	auto result (fetch_key (transaction_a, pub, prv));
 	if (!result)
 	{
-		rai::public_key compare (rai::pub_key (prv.data));
-		if (!(pub == compare))
+		out = rai::raw_extsk::from_private_key (prv);
+		rai::public_key compare (rai::pub_key (out));
+		if (pub != compare)
 		{
-			result = true;
+			out = rai::raw_extsk::from_scalar (prv.data);
+			compare = rai::pub_key (out);
+			if (pub != compare)
+			{
+				result = true;
+			}
 		}
 	}
 	return result;
@@ -550,7 +576,7 @@ bool rai::wallet_store::move (rai::transaction const & transaction_a, rai::walle
 	for (auto i (keys.begin ()), n (keys.end ()); i != n; ++i)
 	{
 		rai::raw_key prv;
-		auto error (other_a.fetch (transaction_a, *i, prv));
+		auto error (other_a.fetch_key (transaction_a, *i, prv));
 		result = result | error;
 		if (!result)
 		{
@@ -569,7 +595,7 @@ bool rai::wallet_store::import (rai::transaction const & transaction_a, rai::wal
 	for (auto i (other_a.begin (transaction_a)), n (end ()); i != n; ++i)
 	{
 		rai::raw_key prv;
-		auto error (other_a.fetch (transaction_a, rai::uint256_union (i->first), prv));
+		auto error (other_a.fetch_key (transaction_a, rai::uint256_union (i->first), prv));
 		result = result | error;
 		if (!result)
 		{
@@ -639,7 +665,8 @@ void rai::wallet_store::upgrade_v1_v2 (rai::transaction const & transaction_a)
 	{
 		rai::public_key key (i->first);
 		rai::raw_key prv;
-		if (fetch (transaction_a, key, prv))
+		assert (!fetch_key (transaction_a, key, prv));
+		if (key != rai::pub_key (prv.data))
 		{
 			// Key failed to decrypt despite valid password
 			rai::wallet_value data (entry_get_raw (transaction_a, key));
@@ -699,8 +726,10 @@ void rai::wallet_store::upgrade_v3_v4 (rai::transaction const & transaction_a)
 			{
 				case rai::key_type::adhoc:
 				{
+					rai::public_key pub (i->first);
 					rai::raw_key key;
-					if (fetch (transaction_a, rai::public_key (i->first), key))
+					assert (!fetch_key (transaction_a, pub, key));
+					if (pub != rai::pub_key (key.data))
 					{
 						// Key failed to decrypt despite valid password
 						key.decrypt (value.key, password_l, salt (transaction_a).owords[0]);
@@ -818,6 +847,27 @@ rai::public_key rai::wallet::insert_adhoc (rai::raw_key const & account_a, bool 
 	return result;
 }
 
+rai::public_key rai::wallet::insert_scalar (rai::transaction const & transaction_a, rai::raw_key const & key_a, bool generate_work_a)
+{
+	rai::public_key key (0);
+	if (store.valid_password (transaction_a))
+	{
+		key = store.insert_scalar (transaction_a, key_a);
+		if (generate_work_a)
+		{
+			work_ensure (key, wallets.node.ledger.latest_root (transaction_a, key));
+		}
+	}
+	return key;
+}
+
+rai::public_key rai::wallet::insert_scalar (rai::raw_key const & account_a, bool generate_work_a)
+{
+	auto transaction (wallets.tx_begin_write ());
+	auto result (insert_scalar (transaction, account_a, generate_work_a));
+	return result;
+}
+
 void rai::wallet::insert_watch (rai::transaction const & transaction_a, rai::public_key const & pub_a)
 {
 	store.insert_watch (transaction_a, pub_a);
@@ -880,7 +930,7 @@ std::shared_ptr<rai::block> rai::wallet::receive_action (rai::block const & send
 			account = wallets.node.ledger.block_destination (transaction, send_a);
 			if (!wallets.node.ledger.store.pending_get (transaction, rai::pending_key (account, hash), pending_info))
 			{
-				rai::raw_key prv;
+				rai::raw_extsk prv;
 				if (!store.fetch (transaction, account, prv))
 				{
 					uint64_t cached_work (0);
@@ -947,7 +997,7 @@ std::shared_ptr<rai::block> rai::wallet::change_action (rai::account const & sou
 				rai::account_info info;
 				auto error1 (wallets.node.ledger.store.account_get (transaction, source_a, info));
 				assert (!error1);
-				rai::raw_key prv;
+				rai::raw_extsk prv;
 				auto error2 (store.fetch (transaction, source_a, prv));
 				assert (!error2);
 				uint64_t cached_work (0);
@@ -1016,7 +1066,7 @@ std::shared_ptr<rai::block> rai::wallet::send_action (rai::account const & sourc
 						rai::account_info info;
 						auto error1 (wallets.node.ledger.store.account_get (transaction, source_a, info));
 						assert (!error1);
-						rai::raw_key prv;
+						rai::raw_extsk prv;
 						auto error2 (store.fetch (transaction, source_a, prv));
 						assert (!error2);
 						std::shared_ptr<rai::block> rep_block = wallets.node.ledger.store.block_get (transaction, info.rep_block);
@@ -1380,7 +1430,7 @@ void rai::wallets::queue_wallet_action (rai::uint128_t const & amount_a, std::sh
 	condition.notify_all ();
 }
 
-void rai::wallets::foreach_representative (rai::transaction const & transaction_a, std::function<void(rai::public_key const & pub_a, rai::raw_key const & prv_a)> const & action_a)
+void rai::wallets::foreach_representative (rai::transaction const & transaction_a, std::function<void(rai::public_key const & pub_a, rai::raw_extsk const & prv_a)> const & action_a)
 {
 	for (auto i (items.begin ()), n (items.end ()); i != n; ++i)
 	{
@@ -1392,7 +1442,7 @@ void rai::wallets::foreach_representative (rai::transaction const & transaction_
 			{
 				if (wallet.store.valid_password (transaction_a))
 				{
-					rai::raw_key prv;
+					rai::raw_extsk prv;
 					auto error (wallet.store.fetch (transaction_a, rai::uint256_union (j->first), prv));
 					assert (!error);
 					action_a (rai::uint256_union (j->first), prv);

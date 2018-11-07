@@ -82,11 +82,14 @@ void xrb_seed_key (xrb_uint256 seed, int index, xrb_uint256 destination)
 
 void xrb_key_account (const xrb_uint256 key, xrb_uint256 pub)
 {
-	ed25519_publickey (key, pub);
+	auto & key_l (*reinterpret_cast<rai::uint256_union *> (key));
+	auto extsk_l (rai::raw_extsk::from_private_key (key_l));
+	ed25519_extsk_publickey (extsk_l.data.bytes.data (), pub);
 }
 
 char * xrb_sign_transaction (const char * transaction, const xrb_uint256 private_key)
 {
+	auto & key_l (*reinterpret_cast<rai::uint256_union *> (private_key));
 	char * result (nullptr);
 	try
 	{
@@ -97,8 +100,7 @@ char * xrb_sign_transaction (const char * transaction, const xrb_uint256 private
 		auto block (rai::deserialize_block_json (block_l));
 		if (block != nullptr)
 		{
-			rai::uint256_union pub;
-			ed25519_publickey (private_key, pub.bytes.data ());
+			rai::uint256_union pub (rai::pub_key (key_l));
 			rai::raw_key prv;
 			prv.data = *reinterpret_cast<rai::uint256_union *> (private_key);
 			block->signature_set (rai::sign_message (prv, pub, block->hash ()));

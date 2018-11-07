@@ -47,7 +47,7 @@ void rai::vote_generator::send (std::unique_lock<std::mutex> & lock_a)
 	lock_a.unlock ();
 	{
 		auto transaction (node.store.tx_begin_read ());
-		node.wallets.foreach_representative (transaction, [this, &hashes_l, &transaction](rai::public_key const & pub_a, rai::raw_key const & prv_a) {
+		node.wallets.foreach_representative (transaction, [this, &hashes_l, &transaction](rai::public_key const & pub_a, rai::raw_extsk const & prv_a) {
 			auto vote (this->node.store.vote_generate (transaction, pub_a, prv_a, hashes_l));
 			this->node.vote_processor.vote (vote, this->node.network.endpoint ());
 		});

@@ -1,6 +1,7 @@
 #include <rai/secure/common.hpp>
 
 #include <rai/lib/interface.h>
+#include <rai/lib/utility.hpp>
 #include <rai/node/common.hpp>
 #include <rai/secure/blockstore.hpp>
 #include <rai/secure/versioning.hpp>
@@ -111,22 +112,22 @@ rai::account const & rai::burn_account (globals.burn_account);
 rai::keypair::keypair ()
 {
 	random_pool.GenerateBlock (prv.data.bytes.data (), prv.data.bytes.size ());
-	ed25519_publickey (prv.data.bytes.data (), pub.bytes.data ());
+	pub = rai::pub_key (prv.data);
 }
 
 // Create a keypair given a private key
 rai::keypair::keypair (rai::raw_key && prv_a) :
+pub (rai::pub_key (prv_a.data)),
 prv (std::move (prv_a))
 {
-	ed25519_publickey (prv.data.bytes.data (), pub.bytes.data ());
 }
 
 // Create a keypair given a hex string of the private key
 rai::keypair::keypair (std::string const & prv_a)
 {
 	auto error (prv.data.decode_hex (prv_a));
-	assert (!error);
-	ed25519_publickey (prv.data.bytes.data (), pub.bytes.data ());
+	release_assert (!error);
+	pub = rai::pub_key (prv.data);
 }
 
 // Serialize a block prefixed with an 8-bit typecode
@@ -453,7 +454,7 @@ rai::vote::vote (bool & error_a, rai::stream & stream_a, rai::block_type type_a)
 	}
 }
 
-rai::vote::vote (rai::account const & account_a, rai::raw_key const & prv_a, uint64_t sequence_a, std::shared_ptr<rai::block> block_a) :
+rai::vote::vote (rai::account const & account_a, rai::extsk_source const & prv_a, uint64_t sequence_a, std::shared_ptr<rai::block> block_a) :
 sequence (sequence_a),
 blocks (1, block_a),
 account (account_a),
@@ -461,7 +462,7 @@ signature (rai::sign_message (prv_a, account_a, hash ()))
 {
 }
 
-rai::vote::vote (rai::account const & account_a, rai::raw_key const & prv_a, uint64_t sequence_a, std::vector<rai::block_hash> blocks_a) :
+rai::vote::vote (rai::account const & account_a, rai::extsk_source const & prv_a, uint64_t sequence_a, std::vector<rai::block_hash> blocks_a) :
 sequence (sequence_a),
 account (account_a)
 {

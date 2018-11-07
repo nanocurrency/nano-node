@@ -1862,7 +1862,7 @@ std::shared_ptr<rai::vote> rai::mdb_store::vote_current (rai::transaction const 
 	return result;
 }
 
-std::shared_ptr<rai::vote> rai::mdb_store::vote_generate (rai::transaction const & transaction_a, rai::account const & account_a, rai::raw_key const & key_a, std::shared_ptr<rai::block> block_a)
+std::shared_ptr<rai::vote> rai::mdb_store::vote_generate (rai::transaction const & transaction_a, rai::account const & account_a, rai::extsk_source const & key_a, std::shared_ptr<rai::block> block_a)
 {
 	std::lock_guard<std::mutex> lock (cache_mutex);
 	auto result (vote_current (transaction_a, account_a));
@@ -1872,7 +1872,7 @@ std::shared_ptr<rai::vote> rai::mdb_store::vote_generate (rai::transaction const
 	return result;
 }
 
-std::shared_ptr<rai::vote> rai::mdb_store::vote_generate (rai::transaction const & transaction_a, rai::account const & account_a, rai::raw_key const & key_a, std::vector<rai::block_hash> blocks_a)
+std::shared_ptr<rai::vote> rai::mdb_store::vote_generate (rai::transaction const & transaction_a, rai::account const & account_a, rai::extsk_source const & key_a, std::vector<rai::block_hash> blocks_a)
 {
 	std::lock_guard<std::mutex> lock (cache_mutex);
 	auto result (vote_current (transaction_a, account_a));

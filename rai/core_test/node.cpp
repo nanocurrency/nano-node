@@ -987,7 +987,7 @@ TEST (node, fork_no_vote_quorum)
 	ASSERT_EQ (rai::process_result::progress, node3.process (send1).code);
 	auto key2 (system.wallet (2)->deterministic_insert ());
 	auto send2 (std::make_shared<rai::send_block> (block->hash (), key2, (rai::genesis_amount / 4) - (node1.config.receive_minimum.number () * 2), rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (block->hash ())));
-	rai::raw_key key3;
+	rai::raw_extsk key3;
 	auto transaction (system.wallet (1)->wallets.tx_begin ());
 	ASSERT_FALSE (system.wallet (1)->store.fetch (transaction, key1, key3));
 	auto vote (std::make_shared<rai::vote> (key1, key3, 0, send2));

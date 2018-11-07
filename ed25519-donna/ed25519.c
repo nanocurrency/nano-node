@@ -23,8 +23,8 @@
 	Generates a (extsk[0..31]) and aExt (extsk[32..63])
 */
 
-DONNA_INLINE static void
-ed25519_extsk(hash_512bits extsk, const ed25519_secret_key sk) {
+void
+ED25519_FN(ed25519_extend_secretkey) (ed25519_extsk extsk, const ed25519_secret_key sk) {
 	ed25519_hash(extsk, sk, 32);
 	extsk[0] &= 248;
 	extsk[31] &= 127;
@@ -42,13 +42,11 @@ ed25519_hram(hash_512bits hram, const ed25519_signature RS, const ed25519_public
 }
 
 void
-ED25519_FN(ed25519_publickey) (const ed25519_secret_key sk, ed25519_public_key pk) {
+ED25519_FN(ed25519_extsk_publickey) (const ed25519_extsk extsk, ed25519_public_key pk) {
 	bignum256modm a;
 	ge25519 ALIGN(16) A;
-	hash_512bits extsk;
 
 	/* A = aB */
-	ed25519_extsk(extsk, sk);
 	expand256_modm(a, extsk, 32);
 	ge25519_scalarmult_base_niels(&A, ge25519_niels_base_multiples, a);
 	ge25519_pack(pk, &A);
@@ -56,13 +54,11 @@ ED25519_FN(ed25519_publickey) (const ed25519_secret_key sk, ed25519_public_key p
 
 
 void
-ED25519_FN(ed25519_sign) (const unsigned char *m, size_t mlen, const ed25519_secret_key sk, const ed25519_public_key pk, ed25519_signature RS) {
+ED25519_FN(ed25519_extsk_sign) (const unsigned char *m, size_t mlen, const ed25519_extsk extsk, const ed25519_public_key pk, ed25519_signature RS) {
 	ed25519_hash_context ctx;
 	bignum256modm r, S, a;
 	ge25519 ALIGN(16) R;
-	hash_512bits extsk, hashr, hram;
-
-	ed25519_extsk(extsk, sk);
+	hash_512bits hashr, hram;
 
 	/* r = H(aExt[32..64], m) */
 	ed25519_hash_init(&ctx);

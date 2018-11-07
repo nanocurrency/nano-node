@@ -1070,7 +1070,7 @@ void rai::rpc_handler::block_create ()
 			}
 		}
 		auto work (work_optional_impl ());
-		rai::raw_key prv;
+		rai::raw_extsk prv;
 		prv.data.clear ();
 		rai::uint256_union previous (0);
 		rai::uint128_union balance (0);
@@ -1106,7 +1106,20 @@ void rai::rpc_handler::block_create ()
 		boost::optional<std::string> key_text (request.get_optional<std::string> ("key"));
 		if (!ec && key_text.is_initialized ())
 		{
-			if (prv.data.decode_hex (key_text.get ()))
+			rai::raw_key key;
+			if (!key.data.decode_hex (key_text.get ()))
+			{
+				const bool is_scalar = request.get<bool> ("is_scalar", false);
+				if (is_scalar)
+				{
+					prv = rai::raw_extsk::from_scalar (key.data);
+				}
+				else
+				{
+					prv = rai::raw_extsk::from_private_key (key);
+				}
+			}
+			else
 			{
 				ec = nano::error_common::bad_private_key;
 			}
@@ -1144,9 +1157,9 @@ void rai::rpc_handler::block_create ()
 			// Retrieve link from source or destination
 			link = source.is_zero () ? destination : source;
 		}
-		if (prv.data != 0)
+		if (!prv.data.is_zero ())
 		{
-			rai::uint256_union pub (rai::pub_key (prv.data));
+			rai::uint256_union pub (rai::pub_key (prv));
 			// Fetching account balance & previous for send blocks (if aren't given directly)
 			if (!previous_text.is_initialized () && !balance_text.is_initialized ())
 			{
@@ -2991,11 +3004,20 @@ void rai::rpc_handler::wallet_add ()
 	if (!ec)
 	{
 		std::string key_text (request.get<std::string> ("key"));
+		const bool is_scalar = request.get<bool> ("is_scalar", false);
 		rai::raw_key key;
 		if (!key.data.decode_hex (key_text))
 		{
 			const bool generate_work = request.get<bool> ("work", true);
-			auto pub (wallet->insert_adhoc (key, generate_work));
+			rai::public_key pub;
+			if (is_scalar)
+			{
+				pub = wallet->insert_scalar (key, generate_work);
+			}
+			else
+			{
+				pub = wallet->insert_adhoc (key, generate_work);
+			}
 			if (!pub.is_zero ())
 			{
 				response_l.put ("account", pub.to_account ());

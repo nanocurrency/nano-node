@@ -230,7 +230,7 @@ bool rai::send_block::deserialize_json (boost::property_tree::ptree const & tree
 	return error;
 }
 
-rai::send_block::send_block (rai::block_hash const & previous_a, rai::account const & destination_a, rai::amount const & balance_a, rai::raw_key const & prv_a, rai::public_key const & pub_a, uint64_t work_a) :
+rai::send_block::send_block (rai::block_hash const & previous_a, rai::account const & destination_a, rai::amount const & balance_a, rai::extsk_source const & prv_a, rai::public_key const & pub_a, uint64_t work_a) :
 hashables (previous_a, destination_a, balance_a),
 signature (rai::sign_message (prv_a, pub_a, hash ())),
 work (work_a)
@@ -391,7 +391,7 @@ void rai::open_hashables::hash (blake2b_state & hash_a) const
 	blake2b_update (&hash_a, account.bytes.data (), sizeof (account.bytes));
 }
 
-rai::open_block::open_block (rai::block_hash const & source_a, rai::account const & representative_a, rai::account const & account_a, rai::raw_key const & prv_a, rai::public_key const & pub_a, uint64_t work_a) :
+rai::open_block::open_block (rai::block_hash const & source_a, rai::account const & representative_a, rai::account const & account_a, rai::extsk_source const & prv_a, rai::public_key const & pub_a, uint64_t work_a) :
 hashables (source_a, representative_a, account_a),
 signature (rai::sign_message (prv_a, pub_a, hash ())),
 work (work_a)
@@ -639,7 +639,7 @@ void rai::change_hashables::hash (blake2b_state & hash_a) const
 	blake2b_update (&hash_a, representative.bytes.data (), sizeof (representative.bytes));
 }
 
-rai::change_block::change_block (rai::block_hash const & previous_a, rai::account const & representative_a, rai::raw_key const & prv_a, rai::public_key const & pub_a, uint64_t work_a) :
+rai::change_block::change_block (rai::block_hash const & previous_a, rai::account const & representative_a, rai::extsk_source const & prv_a, rai::public_key const & pub_a, uint64_t work_a) :
 hashables (previous_a, representative_a),
 signature (rai::sign_message (prv_a, pub_a, hash ())),
 work (work_a)
@@ -913,7 +913,7 @@ void rai::state_hashables::hash (blake2b_state & hash_a) const
 	blake2b_update (&hash_a, link.bytes.data (), sizeof (link.bytes));
 }
 
-rai::state_block::state_block (rai::account const & account_a, rai::block_hash const & previous_a, rai::account const & representative_a, rai::amount const & balance_a, rai::uint256_union const & link_a, rai::raw_key const & prv_a, rai::public_key const & pub_a, uint64_t work_a) :
+rai::state_block::state_block (rai::account const & account_a, rai::block_hash const & previous_a, rai::account const & representative_a, rai::amount const & balance_a, rai::uint256_union const & link_a, rai::extsk_source const & prv_a, rai::public_key const & pub_a, uint64_t work_a) :
 hashables (account_a, previous_a, representative_a, balance_a, link_a),
 signature (rai::sign_message (prv_a, pub_a, hash ())),
 work (work_a)
@@ -1365,7 +1365,7 @@ void rai::receive_block::serialize_json (std::string & string_a) const
 	string_a = ostream.str ();
 }
 
-rai::receive_block::receive_block (rai::block_hash const & previous_a, rai::block_hash const & source_a, rai::raw_key const & prv_a, rai::public_key const & pub_a, uint64_t work_a) :
+rai::receive_block::receive_block (rai::block_hash const & previous_a, rai::block_hash const & source_a, rai::extsk_source const & prv_a, rai::public_key const & pub_a, uint64_t work_a) :
 hashables (previous_a, source_a),
 signature (rai::sign_message (prv_a, pub_a, hash ())),
 work (work_a)

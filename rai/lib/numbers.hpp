@@ -3,6 +3,7 @@
 #include <boost/multiprecision/cpp_int.hpp>
 
 #include <cryptopp/osrng.h>
+#include <ed25519-donna/ed25519.h>
 
 namespace rai
 {
@@ -95,7 +96,13 @@ using public_key = uint256_union;
 using private_key = uint256_union;
 using secret_key = uint256_union;
 using checksum = uint256_union;
-class raw_key
+class raw_extsk;
+class extsk_source
+{
+public:
+	virtual rai::raw_extsk as_extsk () const = 0;
+};
+class raw_key : public rai::extsk_source
 {
 public:
 	raw_key () = default;
@@ -103,6 +110,7 @@ public:
 	void decrypt (rai::uint256_union const &, rai::raw_key const &, uint128_union const &);
 	bool operator== (rai::raw_key const &) const;
 	bool operator!= (rai::raw_key const &) const;
+	rai::raw_extsk as_extsk () const override;
 	rai::uint256_union data;
 };
 union uint512_union
@@ -119,16 +127,32 @@ union uint512_union
 	std::array<uint64_t, 8> qwords;
 	std::array<uint256_union, 2> uint256s;
 	void clear ();
+	bool is_zero () const;
 	rai::uint512_t number () const;
 	std::string to_string () const;
+};
+class raw_extsk : public rai::extsk_source
+{
+public:
+	raw_extsk () = default;
+	~raw_extsk ();
+	/** Note: different extended secret keys can have the same public key */
+	static rai::raw_extsk from_private_key (rai::uint256_union const &);
+	static rai::raw_extsk from_private_key (rai::raw_key const &);
+	static rai::raw_extsk from_scalar (rai::uint256_union const &);
+	bool operator== (rai::raw_extsk const &) const;
+	bool operator!= (rai::raw_extsk const &) const;
+	rai::raw_extsk as_extsk () const override;
+	rai::uint512_union data;
 };
 // Only signatures are 512 bit.
 using signature = uint512_union;
 
-rai::uint512_union sign_message (rai::raw_key const &, rai::public_key const &, rai::uint256_union const &);
+rai::uint512_union sign_message (rai::extsk_source const &, rai::public_key const &, rai::uint256_union const &);
 bool validate_message (rai::public_key const &, rai::uint256_union const &, rai::uint512_union const &);
 bool validate_message_batch (const unsigned char **, size_t *, const unsigned char **, const unsigned char **, size_t, int *);
 void deterministic_key (rai::uint256_union const &, uint32_t, rai::uint256_union &);
+rai::public_key pub_key (rai::raw_extsk const &);
 rai::public_key pub_key (rai::private_key const &);
 }
 

@@ -227,8 +227,8 @@ public:
 	// Return latest vote for an account from store
 	std::shared_ptr<rai::vote> vote_get (rai::transaction const &, rai::account const &) override;
 	// Populate vote with the next sequence number
-	std::shared_ptr<rai::vote> vote_generate (rai::transaction const &, rai::account const &, rai::raw_key const &, std::shared_ptr<rai::block>) override;
-	std::shared_ptr<rai::vote> vote_generate (rai::transaction const &, rai::account const &, rai::raw_key const &, std::vector<rai::block_hash>) override;
+	std::shared_ptr<rai::vote> vote_generate (rai::transaction const &, rai::account const &, rai::extsk_source const &, std::shared_ptr<rai::block>) override;
+	std::shared_ptr<rai::vote> vote_generate (rai::transaction const &, rai::account const &, rai::extsk_source const &, std::vector<rai::block_hash>) override;
 	// Return either vote or the stored vote with a higher sequence number
 	std::shared_ptr<rai::vote> vote_max (rai::transaction const &, std::shared_ptr<rai::vote>) override;
 	// Return latest vote for an account considering the vote cache

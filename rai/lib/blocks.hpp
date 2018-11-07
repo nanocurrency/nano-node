@@ -81,7 +81,7 @@ public:
 class send_block : public rai::block
 {
 public:
-	send_block (rai::block_hash const &, rai::account const &, rai::amount const &, rai::raw_key const &, rai::public_key const &, uint64_t);
+	send_block (rai::block_hash const &, rai::account const &, rai::amount const &, rai::extsk_source const &, rai::public_key const &, uint64_t);
 	send_block (bool &, rai::stream &);
 	send_block (bool &, boost::property_tree::ptree const &);
 	virtual ~send_block () = default;
@@ -123,7 +123,7 @@ public:
 class receive_block : public rai::block
 {
 public:
-	receive_block (rai::block_hash const &, rai::block_hash const &, rai::raw_key const &, rai::public_key const &, uint64_t);
+	receive_block (rai::block_hash const &, rai::block_hash const &, rai::extsk_source const &, rai::public_key const &, uint64_t);
 	receive_block (bool &, rai::stream &);
 	receive_block (bool &, boost::property_tree::ptree const &);
 	virtual ~receive_block () = default;
@@ -166,7 +166,7 @@ public:
 class open_block : public rai::block
 {
 public:
-	open_block (rai::block_hash const &, rai::account const &, rai::account const &, rai::raw_key const &, rai::public_key const &, uint64_t);
+	open_block (rai::block_hash const &, rai::account const &, rai::account const &, rai::extsk_source const &, rai::public_key const &, uint64_t);
 	open_block (rai::block_hash const &, rai::account const &, rai::account const &, std::nullptr_t);
 	open_block (bool &, rai::stream &);
 	open_block (bool &, boost::property_tree::ptree const &);
@@ -209,7 +209,7 @@ public:
 class change_block : public rai::block
 {
 public:
-	change_block (rai::block_hash const &, rai::account const &, rai::raw_key const &, rai::public_key const &, uint64_t);
+	change_block (rai::block_hash const &, rai::account const &, rai::extsk_source const &, rai::public_key const &, uint64_t);
 	change_block (bool &, rai::stream &);
 	change_block (bool &, boost::property_tree::ptree const &);
 	virtual ~change_block () = default;
@@ -263,7 +263,7 @@ public:
 class state_block : public rai::block
 {
 public:
-	state_block (rai::account const &, rai::block_hash const &, rai::account const &, rai::amount const &, rai::uint256_union const &, rai::raw_key const &, rai::public_key const &, uint64_t);
+	state_block (rai::account const &, rai::block_hash const &, rai::account const &, rai::amount const &, rai::uint256_union const &, rai::extsk_source const &, rai::public_key const &, uint64_t);
 	state_block (bool &, rai::stream &);
 	state_block (bool &, boost::property_tree::ptree const &);
 	virtual ~state_block () = default;

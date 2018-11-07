@@ -10,13 +10,23 @@
 
 #include <ed25519-donna/ed25519.h>
 
+TEST (ed25519, extsk)
+{
+	rai::raw_key prv;
+	prv.data = rai::uint256_union (12345);
+	rai::uint256_union pub (rai::pub_key (prv.data));
+	ASSERT_EQ (pub, rai::pub_key (prv.data));
+	rai::raw_extsk extsk (rai::raw_extsk::from_private_key (prv));
+	ASSERT_EQ (extsk, rai::raw_extsk::from_private_key (prv));
+	ASSERT_EQ (pub, rai::pub_key (extsk));
+}
+
 TEST (ed25519, signing)
 {
-	rai::uint256_union prv (0);
-	rai::uint256_union pub (rai::pub_key (prv));
+	rai::raw_key prv;
+	rai::uint256_union pub (rai::pub_key (prv.data));
 	rai::uint256_union message (0);
-	rai::uint512_union signature;
-	ed25519_sign (message.bytes.data (), sizeof (message.bytes), prv.bytes.data (), pub.bytes.data (), signature.bytes.data ());
+	rai::uint512_union signature (rai::sign_message (prv, pub, message));
 	auto valid1 (ed25519_sign_open (message.bytes.data (), sizeof (message.bytes), pub.bytes.data (), signature.bytes.data ()));
 	ASSERT_EQ (0, valid1);
 	signature.bytes[32] ^= 0x1;

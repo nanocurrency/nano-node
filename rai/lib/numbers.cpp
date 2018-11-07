@@ -1,8 +1,6 @@
 #include <rai/lib/numbers.hpp>
 #include <rai/lib/utility.hpp>
 
-#include <ed25519-donna/ed25519.h>
-
 #include <blake2/blake2.h>
 
 #include <cryptopp/aes.h>
@@ -315,6 +313,11 @@ void rai::uint512_union::clear ()
 	bytes.fill (0);
 }
 
+bool rai::uint512_union::is_zero () const
+{
+	return uint256s[0].is_zero () && uint256s[1].is_zero ();
+}
+
 rai::uint512_t rai::uint512_union::number () const
 {
 	rai::uint512_t result;
@@ -404,11 +407,56 @@ void rai::raw_key::decrypt (rai::uint256_union const & ciphertext, rai::raw_key 
 	dec.ProcessData (data.bytes.data (), ciphertext.bytes.data (), sizeof (ciphertext.bytes));
 }
 
-rai::uint512_union rai::sign_message (rai::raw_key const & private_key, rai::public_key const & public_key, rai::uint256_union const & message)
+rai::raw_extsk rai::raw_key::as_extsk () const
 {
-	rai::uint512_union result;
-	ed25519_sign (message.bytes.data (), sizeof (message.bytes), private_key.data.bytes.data (), public_key.bytes.data (), result.bytes.data ());
+	return rai::raw_extsk::from_private_key (data);
+}
+
+rai::raw_extsk::~raw_extsk ()
+{
+	data.clear ();
+}
+
+bool rai::raw_extsk::operator== (rai::raw_extsk const & other_a) const
+{
+	return data == other_a.data;
+}
+
+bool rai::raw_extsk::operator!= (rai::raw_extsk const & other_a) const
+{
+	return !(*this == other_a);
+}
+
+rai::raw_extsk rai::raw_extsk::from_private_key (rai::uint256_union const & priv_a)
+{
+	rai::raw_extsk result;
+	ed25519_extend_secretkey (result.data.bytes.data (), priv_a.bytes.data ());
 	return result;
+}
+
+rai::raw_extsk rai::raw_extsk::from_private_key (rai::raw_key const & key_a)
+{
+	return rai::raw_extsk::from_private_key (key_a.data);
+}
+
+rai::raw_extsk rai::raw_extsk::from_scalar (rai::uint256_union const & scalar_a)
+{
+	rai::raw_extsk result;
+	result.data.uint256s[0] = scalar_a;
+	// It's important that an attacker can't know the second half.
+	// It could be random, but we hash the scalar to make it deterministic.
+	blake2b_state hash_l;
+	auto status (blake2b_init (&hash_l, sizeof (rai::uint256_union)));
+	release_assert (status == 0);
+	blake2b_update (&hash_l, scalar_a.bytes.data (), sizeof (scalar_a.bytes));
+	status = blake2b_final (&hash_l, result.data.uint256s[1].bytes.data (), sizeof (rai::uint256_union));
+	release_assert (status == 0);
+	return result;
+}
+
+rai::raw_extsk rai::raw_extsk::as_extsk () const
+{
+	return *this;
 }
 
 void rai::deterministic_key (rai::uint256_union const & seed_a, uint32_t index_a, rai::uint256_union & prv_a)
@@ -421,10 +469,23 @@ void rai::deterministic_key (rai::uint256_union const & seed_a, uint32_t index_a
 	blake2b_final (&hash, prv_a.bytes.data (), prv_a.bytes.size ());
 }
 
-rai::public_key rai::pub_key (rai::private_key const & privatekey_a)
+rai::public_key rai::pub_key (rai::raw_extsk const & extsk_a)
 {
 	rai::uint256_union result;
-	ed25519_publickey (privatekey_a.bytes.data (), result.bytes.data ());
+	ed25519_extsk_publickey (extsk_a.data.bytes.data (), result.bytes.data ());
+	return result;
+}
+
+rai::public_key rai::pub_key (rai::private_key const & key_a)
+{
+	auto extsk (rai::raw_extsk::from_private_key (key_a));
+	return rai::pub_key (extsk);
+}
+
+rai::uint512_union rai::sign_message (rai::extsk_source const & prv, rai::public_key const & public_key, rai::uint256_union const & message)
+{
+	rai::uint512_union result;
+	ed25519_extsk_sign (message.bytes.data (), sizeof (message.bytes), prv.as_extsk ().data.bytes.data (), public_key.bytes.data (), result.bytes.data ());
 	return result;
 }
 
