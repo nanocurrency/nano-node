@@ -77,6 +77,8 @@ public:
 	rai::block_hash root;
 	uint64_t difficulty;
 	std::shared_ptr<rai::election> election;
+	// Number of announcements in a row for this fork
+	long int announcements;
 };
 // Core class for determining consensus
 // Holds all active blocks i.e. recently added blocks that need confirmation
@@ -124,7 +126,7 @@ private:
 	// Call action with confirmed block, may be different than what we started with
 	bool add (std::shared_ptr<rai::block>, std::function<void(std::shared_ptr<rai::block>)> const & = [](std::shared_ptr<rai::block>) {});
 	void announce_loop ();
-	void announce_votes ();
+	void announce_votes (std::unique_lock<std::mutex> &);
 	std::condition_variable condition;
 	bool started;
 	bool stopped;
@@ -296,7 +298,6 @@ public:
 	static unsigned const broadcast_interval_ms = (rai::rai_network == rai::rai_networks::rai_test_network) ? 10 : 50;
 	void republish_block_batch (std::deque<std::shared_ptr<rai::block>>, unsigned = broadcast_interval_ms);
 	void republish (rai::block_hash const &, std::shared_ptr<std::vector<uint8_t>>, rai::endpoint);
-	void publish_broadcast (std::vector<rai::peer_information> &, std::unique_ptr<rai::block>);
 	void confirm_send (rai::confirm_ack const &, std::shared_ptr<std::vector<uint8_t>>, rai::endpoint const &);
 	void merge_peers (std::array<rai::endpoint, 8> const &);
 	void send_keepalive (rai::endpoint const &);
@@ -447,7 +448,7 @@ public:
 	void keepalive_preconfigured (std::vector<std::string> const &);
 	rai::block_hash latest (rai::account const &);
 	rai::uint128_t balance (rai::account const &);
-	std::unique_ptr<rai::block> block (rai::block_hash const &);
+	std::shared_ptr<rai::block> block (rai::block_hash const &);
 	std::pair<rai::uint128_t, rai::uint128_t> balance_pending (rai::account const &);
 	rai::uint128_t weight (rai::account const &);
 	rai::account representative (rai::account const &);
@@ -494,6 +495,8 @@ public:
 	rai::online_reps online_reps;
 	rai::stat stats;
 	rai::keypair node_id;
+	rai::block_uniquer block_uniquer;
+	rai::vote_uniquer vote_uniquer;
 	static double constexpr price_max = 16.0;
 	static double constexpr free_cutoff = 1024.0;
 	static std::chrono::seconds constexpr period = std::chrono::seconds (60);
