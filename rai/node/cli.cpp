@@ -574,8 +574,8 @@ std::error_code rai::handle_node_options (boost::program_options::variables_map 
 									std::cerr << "Unable to import wallet\n";
 									ec = rai::error_cli::invalid_arguments;
 								}
-								
-							}}
+							}
+						}
 					}
 					else
 					{
