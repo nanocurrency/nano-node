@@ -1755,7 +1755,6 @@ void rai::mdb_store::unchecked_put (rai::transaction const & transaction_a, rai:
 
 std::shared_ptr<rai::vote> rai::mdb_store::vote_get (rai::transaction const & transaction_a, rai::account const & account_a)
 {
-	std::shared_ptr<rai::vote> result;
 	rai::mdb_val value;
 	auto status (mdb_get (env.tx (transaction_a), vote, rai::mdb_val (account_a), value));
 	release_assert (status == 0 || status == MDB_NOTFOUND);

@@ -78,7 +78,7 @@ public:
 	rai::block_hash root;
 	std::shared_ptr<rai::election> election;
 	// Number of announcements in a row for this fork
-	unsigned announcements;
+	long int announcements;
 	std::pair<std::shared_ptr<rai::block>, std::shared_ptr<rai::block>> confirm_req_options;
 };
 // Core class for determining consensus
@@ -125,7 +125,7 @@ public:
 
 private:
 	void announce_loop ();
-	void announce_votes ();
+	void announce_votes (std::unique_lock<std::mutex> &);
 	std::condition_variable condition;
 	bool started;
 	bool stopped;
@@ -294,6 +294,7 @@ public:
 	void rpc_action (boost::system::error_code const &, size_t);
 	void republish_vote (std::shared_ptr<rai::vote>);
 	void republish_block (std::shared_ptr<rai::block>);
+	void republish_block (std::shared_ptr<rai::block>, rai::endpoint const &);
 	static unsigned const broadcast_interval_ms = (rai::rai_network == rai::rai_networks::rai_test_network) ? 10 : 50;
 	void republish_block_batch (std::deque<std::shared_ptr<rai::block>>, unsigned = broadcast_interval_ms);
 	void republish (rai::block_hash const &, std::shared_ptr<std::vector<uint8_t>>, rai::endpoint);
