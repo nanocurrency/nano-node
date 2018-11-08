@@ -237,7 +237,8 @@ public:
 	rai::store_iterator<rai::account, std::shared_ptr<rai::vote>> vote_begin (rai::transaction const &) override;
 	rai::store_iterator<rai::account, std::shared_ptr<rai::vote>> vote_end () override;
 	std::mutex cache_mutex;
-	std::unordered_map<rai::account, std::shared_ptr<rai::vote>> vote_cache;
+	std::unordered_map<rai::account, std::shared_ptr<rai::vote>> vote_cache_l1;
+	std::unordered_map<rai::account, std::shared_ptr<rai::vote>> vote_cache_l2;
 
 	void version_put (rai::transaction const &, int) override;
 	int version_get (rai::transaction const &) override;
