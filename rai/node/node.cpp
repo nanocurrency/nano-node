@@ -3007,13 +3007,13 @@ void rai::active_transactions::stop ()
 			condition.wait (lock);
 		}
 		stopped = true;
-		roots.clear ();
 		condition.notify_all ();
 	}
 	if (thread.joinable ())
 	{
 		thread.join ();
 	}
+	roots.clear ();
 }
 
 bool rai::active_transactions::start (std::shared_ptr<rai::block> block_a, std::function<void(std::shared_ptr<rai::block>)> const & confirmation_action_a)
