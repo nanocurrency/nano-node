@@ -2430,7 +2430,7 @@ std::pair<std::unique_ptr<nano::pending_key>, std::unique_ptr<nano::pending_info
 		 */
 		if (pending_address_only)
 		{
-			if (deduplication.count (info.source) != 0)
+			if (!deduplication.insert (info.source).second)
 			{
 				/*
 				 * If the deduplication map gets too
@@ -2445,8 +2445,6 @@ std::pair<std::unique_ptr<nano::pending_key>, std::unique_ptr<nano::pending_info
 				}
 				continue;
 			}
-
-			deduplication.insert ({ info.source, true });
 		}
 
 		result.first = std::unique_ptr<nano::pending_key> (new nano::pending_key (key));
