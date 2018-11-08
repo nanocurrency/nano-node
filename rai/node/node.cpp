@@ -803,6 +803,7 @@ void rai::vote_processor::process_loop ()
 						active_single_lock.unlock ();
 						active_single_lock.lock ();
 					}
+					count++;
 				}
 			}
 			lock.lock ();
