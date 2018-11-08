@@ -60,3 +60,88 @@ TEST (conflicts, add_two)
 	node1.active.start (send2);
 	ASSERT_EQ (2, node1.active.roots.size ());
 }
+
+TEST (vote_uniquer, null)
+{
+	rai::block_uniquer block_uniquer;
+	rai::vote_uniquer uniquer (block_uniquer);
+	ASSERT_EQ (nullptr, uniquer.unique (nullptr));
+}
+
+// Show that an identical vote can be uniqued
+TEST (vote_uniquer, same_vote)
+{
+	rai::block_uniquer block_uniquer;
+	rai::vote_uniquer uniquer (block_uniquer);
+	rai::keypair key;
+	auto vote1 (std::make_shared<rai::vote> (key.pub, key.prv, 0, std::make_shared<rai::state_block> (0, 0, 0, 0, 0, key.prv, key.pub, 0)));
+	auto vote2 (std::make_shared<rai::vote> (key.pub, key.prv, 0, std::make_shared<rai::state_block> (0, 0, 0, 0, 0, key.prv, key.pub, 0)));
+	ASSERT_EQ (vote1, uniquer.unique (vote1));
+	ASSERT_EQ (vote1, uniquer.unique (vote2));
+}
+
+// Show that a different vote for the same block will have the block uniqued
+TEST (vote_uniquer, same_block)
+{
+	rai::block_uniquer block_uniquer;
+	rai::vote_uniquer uniquer (block_uniquer);
+	rai::keypair key1;
+	rai::keypair key2;
+	auto vote1 (std::make_shared<rai::vote> (key1.pub, key1.prv, 0, std::make_shared<rai::state_block> (0, 0, 0, 0, 0, key1.prv, key1.pub, 0)));
+	auto vote2 (std::make_shared<rai::vote> (key2.pub, key2.prv, 0, std::make_shared<rai::state_block> (0, 0, 0, 0, 0, key1.prv, key1.pub, 0)));
+	ASSERT_EQ (vote1, uniquer.unique (vote1));
+	ASSERT_EQ (vote2, uniquer.unique (vote2));
+	ASSERT_NE (vote1, vote2);
+	ASSERT_EQ (boost::get<std::shared_ptr<rai::block>> (vote1->blocks[0]), boost::get<std::shared_ptr<rai::block>> (vote2->blocks[0]));
+}
+
+TEST (vote_uniquer, vbh_one)
+{
+	rai::block_uniquer block_uniquer;
+	rai::vote_uniquer uniquer (block_uniquer);
+	rai::keypair key;
+	auto block (std::make_shared<rai::state_block> (0, 0, 0, 0, 0, key.prv, key.pub, 0));
+	std::vector<rai::block_hash> hashes;
+	hashes.push_back (block->hash ());
+	auto vote1 (std::make_shared<rai::vote> (key.pub, key.prv, 0, hashes));
+	auto vote2 (std::make_shared<rai::vote> (key.pub, key.prv, 0, hashes));
+	ASSERT_EQ (vote1, uniquer.unique (vote1));
+	ASSERT_EQ (vote1, uniquer.unique (vote2));
+}
+
+TEST (vote_uniquer, vbh_two)
+{
+	rai::block_uniquer block_uniquer;
+	rai::vote_uniquer uniquer (block_uniquer);
+	rai::keypair key;
+	auto block1 (std::make_shared<rai::state_block> (0, 0, 0, 0, 0, key.prv, key.pub, 0));
+	std::vector<rai::block_hash> hashes1;
+	hashes1.push_back (block1->hash ());
+	auto block2 (std::make_shared<rai::state_block> (1, 0, 0, 0, 0, key.prv, key.pub, 0));
+	std::vector<rai::block_hash> hashes2;
+	hashes2.push_back (block2->hash ());
+	auto vote1 (std::make_shared<rai::vote> (key.pub, key.prv, 0, hashes1));
+	auto vote2 (std::make_shared<rai::vote> (key.pub, key.prv, 0, hashes2));
+	ASSERT_EQ (vote1, uniquer.unique (vote1));
+	ASSERT_EQ (vote2, uniquer.unique (vote2));
+}
+
+TEST (vote_uniquer, cleanup)
+{
+	rai::block_uniquer block_uniquer;
+	rai::vote_uniquer uniquer (block_uniquer);
+	rai::keypair key;
+	auto vote1 (std::make_shared<rai::vote> (key.pub, key.prv, 0, std::make_shared<rai::state_block> (0, 0, 0, 0, 0, key.prv, key.pub, 0)));
+	auto vote2 (std::make_shared<rai::vote> (key.pub, key.prv, 1, std::make_shared<rai::state_block> (0, 0, 0, 0, 0, key.prv, key.pub, 0)));
+	auto vote3 (uniquer.unique (vote1));
+	auto vote4 (uniquer.unique (vote2));
+	vote2.reset ();
+	vote4.reset ();
+	ASSERT_EQ (2, uniquer.size ());
+	auto iterations (0);
+	while (uniquer.size () == 2)
+	{
+		auto vote5 (uniquer.unique (vote1));
+		ASSERT_LT (iterations++, 200);
+	}
+}

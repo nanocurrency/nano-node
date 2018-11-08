@@ -342,6 +342,9 @@ std::string rai::stat::type_to_string (uint32_t key)
 		case rai::stat::type::traffic:
 			res = "traffic";
 			break;
+		case rai::stat::type::traffic_bootstrap:
+			res = "traffic_bootstrap";
+			break;
 		case rai::stat::type::vote:
 			res = "vote";
 			break;
@@ -438,6 +441,9 @@ std::string rai::stat::detail_to_string (uint32_t key)
 			break;
 		case rai::stat::detail::overflow:
 			res = "overflow";
+			break;
+		case rai::stat::detail::unreachable_host:
+			res = "unreachable_host";
 			break;
 		case rai::stat::detail::invalid_magic:
 			res = "invalid_magic";

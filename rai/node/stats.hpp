@@ -176,6 +176,7 @@ public:
 	enum class type : uint8_t
 	{
 		traffic,
+		traffic_bootstrap,
 		error,
 		message,
 		block,
@@ -197,6 +198,7 @@ public:
 		bad_sender,
 		insufficient_work,
 		http_callback,
+		unreachable_host,
 
 		// ledger, block, bootstrap
 		send,

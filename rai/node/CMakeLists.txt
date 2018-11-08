@@ -32,6 +32,8 @@ add_library (node
 	node.cpp
 	openclwork.cpp
 	openclwork.hpp
+	peers.cpp
+	peers.hpp
 	portmapping.hpp
 	portmapping.cpp
 	rpc.hpp
@@ -42,6 +44,8 @@ add_library (node
 	wallet.cpp
 	stats.hpp
 	stats.cpp
+	voting.hpp
+	voting.cpp
 	working.hpp
 	xorshift.hpp)
 

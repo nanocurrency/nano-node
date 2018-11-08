@@ -139,7 +139,7 @@ int main (int argc, char * const * argv)
 			{
 				rai::account_info info (i->second);
 				rai::block_hash rep_block (node.node->ledger.representative_calculated (transaction, info.head));
-				std::unique_ptr<rai::block> block (node.node->store.block_get (transaction, rep_block));
+				auto block (node.node->store.block_get (transaction, rep_block));
 				calculated[block->representative ()] += info.balance.number ();
 			}
 			total = 0;
@@ -170,6 +170,7 @@ int main (int argc, char * const * argv)
 			{
 				auto begin1 (std::chrono::high_resolution_clock::now ());
 				auto success (argon2_hash (1, rai::wallet_store::kdf_work, 1, password.data (), password.size (), salt.bytes.data (), salt.bytes.size (), result.bytes.data (), result.bytes.size (), NULL, 0, Argon2_d, 0x10));
+				(void)success;
 				auto end1 (std::chrono::high_resolution_clock::now ());
 				std::cerr << boost::str (boost::format ("Derivation time: %1%us\n") % std::chrono::duration_cast<std::chrono::microseconds> (end1 - begin1).count ());
 			}
@@ -472,7 +473,7 @@ int main (int argc, char * const * argv)
 							{
 								prev_balance = node.node->ledger.balance (transaction, state_block.hashables.previous);
 							}
-							if (state_block.hashables.link == node.node->ledger.epoch_link && state_block.hashables.balance == prev_balance)
+							if (node.node->ledger.is_epoch_link (state_block.hashables.link) && state_block.hashables.balance == prev_balance)
 							{
 								invalid = validate_message (node.node->ledger.epoch_signer, hash, block->block_signature ());
 							}
