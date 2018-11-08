@@ -176,6 +176,7 @@ public:
 	enum class type : uint8_t
 	{
 		traffic,
+		traffic_bootstrap,
 		error,
 		message,
 		block,

@@ -404,12 +404,12 @@ signature (other_a.signature)
 {
 }
 
-rai::vote::vote (bool & error_a, rai::stream & stream_a)
+rai::vote::vote (bool & error_a, rai::stream & stream_a, rai::block_uniquer * uniquer_a)
 {
-	error_a = deserialize (stream_a);
+	error_a = deserialize (stream_a, uniquer_a);
 }
 
-rai::vote::vote (bool & error_a, rai::stream & stream_a, rai::block_type type_a)
+rai::vote::vote (bool & error_a, rai::stream & stream_a, rai::block_type type_a, rai::block_uniquer * uniquer_a)
 {
 	if (!error_a)
 	{
@@ -435,7 +435,7 @@ rai::vote::vote (bool & error_a, rai::stream & stream_a, rai::block_type type_a)
 						}
 						else
 						{
-							std::shared_ptr<rai::block> block (rai::deserialize_block (stream_a, type_a));
+							std::shared_ptr<rai::block> block (rai::deserialize_block (stream_a, type_a, uniquer_a));
 							error_a = block == nullptr;
 							if (!error_a)
 							{
@@ -511,6 +511,18 @@ rai::uint256_union rai::vote::hash () const
 	return result;
 }
 
+rai::uint256_union rai::vote::full_hash () const
+{
+	rai::uint256_union result;
+	blake2b_state state;
+	blake2b_init (&state, sizeof (result.bytes));
+	blake2b_update (&state, hash ().bytes.data (), sizeof (hash ().bytes));
+	blake2b_update (&state, account.bytes.data (), sizeof (account.bytes.data ()));
+	blake2b_update (&state, signature.bytes.data (), sizeof (signature.bytes.data ()));
+	blake2b_final (&state, result.bytes.data (), sizeof (result.bytes));
+	return result;
+}
+
 void rai::vote::serialize (rai::stream & stream_a, rai::block_type type)
 {
 	write (stream_a, account);
@@ -556,7 +568,7 @@ void rai::vote::serialize (rai::stream & stream_a)
 	}
 }
 
-bool rai::vote::deserialize (rai::stream & stream_a)
+bool rai::vote::deserialize (rai::stream & stream_a, rai::block_uniquer * uniquer_a)
 {
 	auto result (read (stream_a, account));
 	if (!result)
@@ -591,7 +603,7 @@ bool rai::vote::deserialize (rai::stream & stream_a)
 						}
 						else
 						{
-							std::shared_ptr<rai::block> block (rai::deserialize_block (stream_a, type));
+							std::shared_ptr<rai::block> block (rai::deserialize_block (stream_a, type, uniquer_a));
 							result = block == nullptr;
 							if (!result)
 							{
@@ -636,6 +648,62 @@ boost::transform_iterator<rai::iterate_vote_blocks_as_hash, rai::vote_blocks_vec
 	return boost::transform_iterator<rai::iterate_vote_blocks_as_hash, rai::vote_blocks_vec_iter> (blocks.end (), rai::iterate_vote_blocks_as_hash ());
 }
 
+rai::vote_uniquer::vote_uniquer (rai::block_uniquer & uniquer_a) :
+uniquer (uniquer_a)
+{
+}
+
+std::shared_ptr<rai::vote> rai::vote_uniquer::unique (std::shared_ptr<rai::vote> vote_a)
+{
+	auto result (vote_a);
+	if (result != nullptr)
+	{
+		if (!result->blocks[0].which ())
+		{
+			result->blocks[0] = uniquer.unique (boost::get<std::shared_ptr<rai::block>> (result->blocks[0]));
+		}
+		rai::uint256_union key (vote_a->full_hash ());
+		std::lock_guard<std::mutex> lock (mutex);
+		auto & existing (votes[key]);
+		if (auto block_l = existing.lock ())
+		{
+			result = block_l;
+		}
+		else
+		{
+			existing = vote_a;
+		}
+		for (auto i (0); i < cleanup_count; ++i)
+		{
+			rai::uint256_union random;
+			rai::random_pool.GenerateBlock (random.bytes.data (), random.bytes.size ());
+			auto existing (votes.find (random));
+			if (existing == votes.end ())
+			{
+				existing = votes.begin ();
+			}
+			if (existing != votes.end ())
+			{
+				if (auto block_l = existing->second.lock ())
+				{
+					// Still live
+				}
+				else
+				{
+					votes.erase (existing);
+				}
+			}
+		}
+	}
+	return result;
+}
+
+size_t rai::vote_uniquer::size ()
+{
+	std::lock_guard<std::mutex> lock (mutex);
+	return votes.size ();
+}
+
 bool rai::vote::from_confirm_req () const
 {
 	auto i (begin ());
@@ -648,9 +716,8 @@ rai::genesis::genesis ()
 	boost::property_tree::ptree tree;
 	std::stringstream istream (rai::genesis_block);
 	boost::property_tree::read_json (istream, tree);
-	auto block (rai::deserialize_block_json (tree));
-	assert (dynamic_cast<rai::open_block *> (block.get ()) != nullptr);
-	open.reset (static_cast<rai::open_block *> (block.release ()));
+	open = rai::deserialize_block_json (tree);
+	assert (open != nullptr);
 }
 
 rai::block_hash rai::genesis::hash () const
