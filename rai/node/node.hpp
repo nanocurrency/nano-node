@@ -341,6 +341,7 @@ class vote_processor
 public:
 	vote_processor (rai::node &);
 	void vote (std::shared_ptr<rai::vote>, rai::endpoint);
+	// node.active.mutex lock required
 	rai::vote_code vote_blocking (rai::transaction const &, std::shared_ptr<rai::vote>, rai::endpoint);
 	void flush ();
 	rai::node & node;

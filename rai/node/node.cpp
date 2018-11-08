@@ -828,9 +828,11 @@ void rai::vote_processor::vote (std::shared_ptr<rai::vote> vote_a, rai::endpoint
 	}
 }
 
+// node.active.mutex lock required
 rai::vote_code rai::vote_processor::vote_blocking (rai::transaction const & transaction_a, std::shared_ptr<rai::vote> vote_a, rai::endpoint endpoint_a)
 {
 	assert (endpoint_a.address ().is_v6 ());
+	assert (!node.active.mutex.try_lock ());
 	auto result (rai::vote_code::invalid);
 	if (!vote_a->validate ())
 	{
