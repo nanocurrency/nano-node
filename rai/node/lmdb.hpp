@@ -155,8 +155,8 @@ public:
 	void block_put (rai::transaction const &, rai::block_hash const &, rai::block const &, rai::block_hash const & = rai::block_hash (0), rai::epoch version = rai::epoch::epoch_0) override;
 	rai::block_hash block_successor (rai::transaction const &, rai::block_hash const &) override;
 	void block_successor_clear (rai::transaction const &, rai::block_hash const &) override;
-	std::unique_ptr<rai::block> block_get (rai::transaction const &, rai::block_hash const &) override;
-	std::unique_ptr<rai::block> block_random (rai::transaction const &) override;
+	std::shared_ptr<rai::block> block_get (rai::transaction const &, rai::block_hash const &) override;
+	std::shared_ptr<rai::block> block_random (rai::transaction const &) override;
 	void block_del (rai::transaction const &, rai::block_hash const &) override;
 	bool block_exists (rai::transaction const &, rai::block_hash const &) override;
 	rai::block_counts block_count (rai::transaction const &) override;
@@ -367,7 +367,7 @@ public:
 private:
 	MDB_dbi block_database (rai::block_type, rai::epoch);
 	template <typename T>
-	std::unique_ptr<rai::block> block_random (rai::transaction const &, MDB_dbi);
+	std::shared_ptr<rai::block> block_random (rai::transaction const &, MDB_dbi);
 	MDB_val block_raw_get (rai::transaction const &, rai::block_hash const &, rai::block_type &);
 	void block_raw_put (rai::transaction const &, MDB_dbi, rai::block_hash const &, MDB_val);
 	void clear (MDB_dbi);

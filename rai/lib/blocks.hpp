@@ -6,6 +6,7 @@
 #include <blake2/blake2.h>
 #include <boost/property_tree/json_parser.hpp>
 #include <streambuf>
+#include <unordered_map>
 
 namespace rai
 {
@@ -44,6 +45,8 @@ class block
 public:
 	// Return a digest of the hashables in this block.
 	rai::block_hash hash () const;
+	// Return a digest of hashables and non-hashables in this block.
+	rai::block_hash full_hash () const;
 	std::string to_json ();
 	virtual void hash (blake2b_state &) const = 0;
 	virtual uint64_t block_work () const = 0;
@@ -302,8 +305,22 @@ public:
 	virtual void state_block (rai::state_block const &) = 0;
 	virtual ~block_visitor () = default;
 };
-std::unique_ptr<rai::block> deserialize_block (rai::stream &);
-std::unique_ptr<rai::block> deserialize_block (rai::stream &, rai::block_type);
-std::unique_ptr<rai::block> deserialize_block_json (boost::property_tree::ptree const &);
+/**
+ * This class serves to find and return unique variants of a block in order to minimize memory usage
+ */
+class block_uniquer
+{
+public:
+	std::shared_ptr<rai::block> unique (std::shared_ptr<rai::block>);
+	size_t size ();
+
+private:
+	std::mutex mutex;
+	std::unordered_map<rai::uint256_union, std::weak_ptr<rai::block>> blocks;
+	static unsigned constexpr cleanup_count = 2;
+};
+std::shared_ptr<rai::block> deserialize_block (rai::stream &, rai::block_uniquer * = nullptr);
+std::shared_ptr<rai::block> deserialize_block (rai::stream &, rai::block_type, rai::block_uniquer * = nullptr);
+std::shared_ptr<rai::block> deserialize_block_json (boost::property_tree::ptree const &, rai::block_uniquer * = nullptr);
 void serialize_block (rai::stream &, rai::block const &);
 }
