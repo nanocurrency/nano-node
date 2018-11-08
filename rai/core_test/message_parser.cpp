@@ -75,8 +75,10 @@ TEST (message_parser, exact_confirm_ack_size)
 {
 	rai::system system (24000, 1);
 	test_visitor visitor;
-	rai::message_parser parser (visitor, system.work);
-	auto block (std::unique_ptr<rai::send_block> (new rai::send_block (1, 1, 2, rai::keypair ().prv, 4, system.work.generate (1))));
+	rai::block_uniquer block_uniquer;
+	rai::vote_uniquer vote_uniquer (block_uniquer);
+	rai::message_parser parser (block_uniquer, vote_uniquer, visitor, system.work);
+	auto block (std::make_shared<rai::send_block> (1, 1, 2, rai::keypair ().prv, 4, system.work.generate (1)));
 	auto vote (std::make_shared<rai::vote> (0, rai::keypair ().prv, 0, std::move (block)));
 	rai::confirm_ack message (vote);
 	std::vector<uint8_t> bytes;
@@ -106,8 +108,10 @@ TEST (message_parser, exact_confirm_req_size)
 {
 	rai::system system (24000, 1);
 	test_visitor visitor;
-	rai::message_parser parser (visitor, system.work);
-	auto block (std::unique_ptr<rai::send_block> (new rai::send_block (1, 1, 2, rai::keypair ().prv, 4, system.work.generate (1))));
+	rai::block_uniquer block_uniquer;
+	rai::vote_uniquer vote_uniquer (block_uniquer);
+	rai::message_parser parser (block_uniquer, vote_uniquer, visitor, system.work);
+	auto block (std::make_shared<rai::send_block> (1, 1, 2, rai::keypair ().prv, 4, system.work.generate (1)));
 	rai::confirm_req message (std::move (block));
 	std::vector<uint8_t> bytes;
 	{
@@ -166,8 +170,10 @@ TEST (message_parser, exact_publish_size)
 {
 	rai::system system (24000, 1);
 	test_visitor visitor;
-	rai::message_parser parser (visitor, system.work);
-	auto block (std::unique_ptr<rai::send_block> (new rai::send_block (1, 1, 2, rai::keypair ().prv, 4, system.work.generate (1))));
+	rai::block_uniquer block_uniquer;
+	rai::vote_uniquer vote_uniquer (block_uniquer);
+	rai::message_parser parser (block_uniquer, vote_uniquer, visitor, system.work);
+	auto block (std::make_shared<rai::send_block> (1, 1, 2, rai::keypair ().prv, 4, system.work.generate (1)));
 	rai::publish message (std::move (block));
 	std::vector<uint8_t> bytes;
 	{
@@ -196,7 +202,9 @@ TEST (message_parser, exact_keepalive_size)
 {
 	rai::system system (24000, 1);
 	test_visitor visitor;
-	rai::message_parser parser (visitor, system.work);
+	rai::block_uniquer block_uniquer;
+	rai::vote_uniquer vote_uniquer (block_uniquer);
+	rai::message_parser parser (block_uniquer, vote_uniquer, visitor, system.work);
 	rai::keepalive message;
 	std::vector<uint8_t> bytes;
 	{
