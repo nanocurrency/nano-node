@@ -1076,9 +1076,8 @@ void rai::mdb_store::clear (MDB_dbi db_a)
 
 rai::uint128_t rai::mdb_store::block_balance (rai::transaction const & transaction_a, rai::block_hash const & hash_a)
 {
-	balance_visitor visitor (transaction_a, *this);
-	visitor.compute (hash_a);
-	return visitor.balance;
+	summation_visitor visitor (transaction_a, *this);
+	return visitor.compute_balance (hash_a);
 }
 
 rai::epoch rai::mdb_store::block_version (rai::transaction const & transaction_a, rai::block_hash const & hash_a)
