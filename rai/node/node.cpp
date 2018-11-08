@@ -793,9 +793,16 @@ void rai::vote_processor::process_loop ()
 			{
 				std::unique_lock<std::mutex> active_single_lock (node.active.mutex);
 				auto transaction (node.store.tx_begin_read ());
+				uint64_t count (1);
 				for (auto & i : votes_l)
 				{
 					vote_blocking (transaction, i.first, i.second, true);
+					// Free active_transactions mutex each 100 processed votes
+					if (count % 100 == 0)
+					{
+						active_single_lock.unlock ();
+						active_single_lock.lock ();
+					}
 				}
 			}
 			lock.lock ();
