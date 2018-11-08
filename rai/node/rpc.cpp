@@ -935,7 +935,7 @@ void rai::rpc_handler::blocks_info ()
 					if (source)
 					{
 						rai::block_hash source_hash (node.ledger.block_source (transaction, *block));
-						std::unique_ptr<rai::block> block_a (node.store.block_get (transaction, source_hash));
+						auto block_a (node.store.block_get (transaction, source_hash));
 						if (block_a != nullptr)
 						{
 							auto source_account (node.ledger.account (transaction, source_hash));
@@ -2693,7 +2693,7 @@ void rai::rpc_handler::republish ()
 				if (sources != 0) // Republish source chain
 				{
 					rai::block_hash source (node.ledger.block_source (transaction, *block));
-					std::unique_ptr<rai::block> block_a (node.store.block_get (transaction, source));
+					auto block_a (node.store.block_get (transaction, source));
 					std::vector<rai::block_hash> hashes;
 					while (block_a != nullptr && hashes.size () < sources)
 					{
@@ -2724,7 +2724,7 @@ void rai::rpc_handler::republish ()
 						if (!node.store.pending_exists (transaction, rai::pending_key (destination, hash)))
 						{
 							rai::block_hash previous (node.ledger.latest (transaction, destination));
-							std::unique_ptr<rai::block> block_d (node.store.block_get (transaction, previous));
+							auto block_d (node.store.block_get (transaction, previous));
 							rai::block_hash source;
 							std::vector<rai::block_hash> hashes;
 							while (block_d != nullptr && hash != source)
@@ -3470,7 +3470,7 @@ void rai::rpc_handler::wallet_republish ()
 		{
 			rai::account account (i->first);
 			auto latest (node.ledger.latest (transaction, account));
-			std::unique_ptr<rai::block> block;
+			std::shared_ptr<rai::block> block;
 			std::vector<rai::block_hash> hashes;
 			while (!latest.is_zero () && hashes.size () < count)
 			{

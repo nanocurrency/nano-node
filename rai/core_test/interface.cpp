@@ -103,7 +103,8 @@ TEST (interface, sign_transaction)
 	ASSERT_FALSE (rai::validate_message (pub, send.hash (), send.signature));
 	send.signature.bytes[0] ^= 1;
 	ASSERT_TRUE (rai::validate_message (pub, send.hash (), send.signature));
-	auto transaction (xrb_sign_transaction (send.to_json ().c_str (), key.data.bytes.data ()));
+	auto send_json (send.to_json ());
+	auto transaction (xrb_sign_transaction (send_json.c_str (), key.data.bytes.data ()));
 	boost::property_tree::ptree block_l;
 	std::string transaction_l (transaction);
 	std::stringstream block_stream (transaction_l);
@@ -113,7 +114,11 @@ TEST (interface, sign_transaction)
 	auto send1 (dynamic_cast<rai::send_block *> (block.get ()));
 	ASSERT_NE (nullptr, send1);
 	ASSERT_FALSE (rai::validate_message (pub, send.hash (), send1->signature));
+	// Signatures should be non-deterministic
+	auto transaction2 (xrb_sign_transaction (send_json.c_str (), key.data.bytes.data ()));
+	ASSERT_NE (0, strcmp (transaction, transaction2));
 	free (transaction);
+	free (transaction2);
 }
 
 TEST (interface, fail_sign_transaction)

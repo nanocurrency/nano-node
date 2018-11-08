@@ -37,6 +37,7 @@ void rai::socket::async_read (std::shared_ptr<std::vector<uint8_t>> buffer_a, si
 	auto this_l (shared_from_this ());
 	start ();
 	boost::asio::async_read (socket_m, boost::asio::buffer (buffer_a->data (), size_a), [this_l, callback_a](boost::system::error_code const & ec, size_t size_a) {
+		this_l->node->stats.add (rai::stat::type::traffic_bootstrap, rai::stat::dir::in, size_a);
 		this_l->stop ();
 		callback_a (ec, size_a);
 	});
@@ -47,6 +48,7 @@ void rai::socket::async_write (std::shared_ptr<std::vector<uint8_t>> buffer_a, s
 	auto this_l (shared_from_this ());
 	start ();
 	boost::asio::async_write (socket_m, boost::asio::buffer (buffer_a->data (), buffer_a->size ()), [this_l, callback_a, buffer_a](boost::system::error_code const & ec, size_t size_a) {
+		this_l->node->stats.add (rai::stat::type::traffic_bootstrap, rai::stat::dir::out, size_a);
 		this_l->stop ();
 		callback_a (ec, size_a);
 	});
@@ -609,7 +611,7 @@ void rai::bulk_push_client::start ()
 
 void rai::bulk_push_client::push (rai::transaction const & transaction_a)
 {
-	std::unique_ptr<rai::block> block;
+	std::shared_ptr<rai::block> block;
 	bool finished (false);
 	while (block == nullptr && !finished)
 	{
@@ -1885,7 +1887,7 @@ void rai::bulk_pull_server::set_current_end ()
 
 void rai::bulk_pull_server::send_next ()
 {
-	std::unique_ptr<rai::block> block (get_next ());
+	auto block (get_next ());
 	if (block != nullptr)
 	{
 		{
@@ -1908,9 +1910,9 @@ void rai::bulk_pull_server::send_next ()
 	}
 }
 
-std::unique_ptr<rai::block> rai::bulk_pull_server::get_next ()
+std::shared_ptr<rai::block> rai::bulk_pull_server::get_next ()
 {
-	std::unique_ptr<rai::block> result;
+	std::shared_ptr<rai::block> result;
 	bool send_current = false, set_current_to_end = false;
 
 	/*
