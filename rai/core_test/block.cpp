@@ -420,7 +420,9 @@ TEST (block_uniquer, single)
 {
 	rai::keypair key;
 	auto block1 (std::make_shared<rai::state_block> (0, 0, 0, 0, 0, key.prv, key.pub, 0));
-	auto block2 (std::make_shared<rai::state_block> (0, 0, 0, 0, 0, key.prv, key.pub, 0));
+	auto block2 (std::make_shared<rai::state_block> (*block1));
+	ASSERT_NE (block1, block2);
+	ASSERT_EQ (*block1, *block2);
 	std::weak_ptr<rai::state_block> block3 (block2);
 	ASSERT_NE (nullptr, block3.lock ());
 	rai::block_uniquer uniquer;
