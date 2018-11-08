@@ -796,7 +796,7 @@ void rai::vote_processor::process_loop ()
 				uint64_t count (1);
 				for (auto & i : votes_l)
 				{
-					vote_blocking (transaction, i.first, i.second, true);
+					vote_blocking (transaction, i.first, i.second);
 					// Free active_transactions mutex each 100 processed votes
 					if (count % 100 == 0)
 					{
@@ -827,7 +827,7 @@ void rai::vote_processor::vote (std::shared_ptr<rai::vote> vote_a, rai::endpoint
 	}
 }
 
-rai::vote_code rai::vote_processor::vote_blocking (rai::transaction const & transaction_a, std::shared_ptr<rai::vote> vote_a, rai::endpoint endpoint_a, bool single_lock)
+rai::vote_code rai::vote_processor::vote_blocking (rai::transaction const & transaction_a, std::shared_ptr<rai::vote> vote_a, rai::endpoint endpoint_a)
 {
 	assert (endpoint_a.address ().is_v6 ());
 	auto result (rai::vote_code::invalid);
@@ -835,7 +835,7 @@ rai::vote_code rai::vote_processor::vote_blocking (rai::transaction const & tran
 	{
 		auto max_vote (node.store.vote_max (transaction_a, vote_a));
 		result = rai::vote_code::replay;
-		if (!node.active.vote (vote_a, single_lock))
+		if (!node.active.vote (vote_a, true))
 		{
 			result = rai::vote_code::vote;
 		}
