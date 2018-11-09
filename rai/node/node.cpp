@@ -606,12 +606,13 @@ public:
 void rai::network::receive_action (rai::udp_data * data_a)
 {
 	auto allowed_sender (true);
-	if (!rai::reserved_address (data_a->endpoint, false) && data_a->endpoint != endpoint ())
+	if (data_a->endpoint == endpoint ())
 	{
-		if (node.config.allow_local_peers)
-		{
-			allowed_sender = false;
-		}
+		allowed_sender = false;
+	}
+	else if (rai::reserved_address (data_a->endpoint, false) && !node.config.allow_local_peers)
+	{
+		allowed_sender = false;
 	}
 	if (allowed_sender)
 	{
