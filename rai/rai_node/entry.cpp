@@ -34,6 +34,7 @@ int main (int argc, char * const * argv)
 		("debug_verify_profile_batch", "Profile batch signature verification")
 		("debug_profile_sign", "Profile signature generation")
 		("debug_profile_process", "Profile active blocks processing (only for rai_test_network)")
+		("debug_profile_votes", "Profile votes processing (only for rai_test_network)")
 		("debug_validate_blocks", "Check all blocks for correct hash, signature, work value")
 		("platform", boost::program_options::value<std::string> (), "Defines the <platform> for OpenCL commands")
 		("device", boost::program_options::value<std::string> (), "Defines <device> for OpenCL command")
@@ -417,6 +418,89 @@ int main (int argc, char * const * argv)
 				auto time (std::chrono::duration_cast<std::chrono::microseconds> (end - begin).count ());
 				node->stop ();
 				std::cerr << boost::str (boost::format ("%|1$ 12d| us \n%2% blocks per second\n") % time % (max_blocks * 1000000 / time));
+			}
+			else
+			{
+				std::cerr << "For this test ACTIVE_NETWORK should be rai_test_network" << std::endl;
+			}
+		}
+		else if (vm.count ("debug_profile_votes"))
+		{
+			if (rai::rai_network == rai::rai_networks::rai_test_network)
+			{
+				size_t num_elections (40000);
+				size_t num_representatives (25);
+				size_t max_votes (num_elections * num_representatives); // 40,000 * 25 = 1,000,000 votes
+				std::cerr << boost::str (boost::format ("Starting pregenerating %1% votes\n") % max_votes);
+				rai::system system (24000, 1);
+				rai::node_init init;
+				rai::work_pool work (std::numeric_limits<unsigned>::max (), nullptr);
+				rai::logging logging;
+				auto path (rai::unique_path ());
+				logging.init (path);
+				auto node (std::make_shared<rai::node> (init, system.service, 24001, path, system.alarm, logging, work));
+				rai::block_hash genesis_latest (node->latest (rai::test_genesis_key.pub));
+				rai::uint128_t genesis_balance (std::numeric_limits<rai::uint128_t>::max ());
+				// Generating keys
+				std::vector<rai::keypair> keys (num_representatives);
+				rai::uint128_t balance ((node->config.online_weight_minimum.number () / num_representatives) + 1);
+				for (auto i (0); i != num_representatives; ++i)
+				{
+					auto transaction (node->store.tx_begin_write ());
+					genesis_balance = genesis_balance - balance;
+					rai::state_block send (rai::test_genesis_key.pub, genesis_latest, rai::test_genesis_key.pub, genesis_balance, keys[i].pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, work.generate (genesis_latest));
+					genesis_latest = send.hash ();
+					node->ledger.process (transaction, send);
+					rai::state_block open (keys[i].pub, 0, keys[i].pub, balance, genesis_latest, keys[i].prv, keys[i].pub, work.generate (keys[i].pub));
+					node->ledger.process (transaction, open);
+				}
+				// Generating blocks
+				std::deque<std::shared_ptr<rai::block>> blocks;
+				for (auto i (0); i != num_elections; ++i)
+				{
+					genesis_balance = genesis_balance - 1;
+					rai::keypair destination;
+					auto send (std::make_shared<rai::state_block> (rai::test_genesis_key.pub, genesis_latest, rai::test_genesis_key.pub, genesis_balance, destination.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, work.generate (genesis_latest)));
+					genesis_latest = send->hash ();
+					blocks.push_back (send);
+				}
+				// Generating votes
+				std::deque<std::shared_ptr<rai::vote>> votes;
+				for (auto j (0); j != num_representatives; ++j)
+				{
+					uint64_t sequence (1);
+					for (auto & i : blocks)
+					{
+						auto vote (std::make_shared<rai::vote> (keys[j].pub, keys[j].prv, sequence, std::vector<rai::block_hash> (1, i->hash ())));
+						votes.push_back (vote);
+						sequence++;
+					}
+				}
+				// Processing block & start elections
+				while (!blocks.empty ())
+				{
+					auto block (blocks.front ());
+					node->process_active (block);
+					blocks.pop_front ();
+				}
+				node->block_processor.flush ();
+				// Processing votes
+				std::cerr << boost::str (boost::format ("Starting processing %1% votes\n") % max_votes);
+				auto begin (std::chrono::high_resolution_clock::now ());
+				while (!votes.empty ())
+				{
+					auto vote (votes.front ());
+					node->vote_processor.vote (vote, node->network.endpoint ());
+					votes.pop_front ();
+				}
+				while (!node->active.roots.empty ())
+				{
+					std::this_thread::sleep_for (std::chrono::milliseconds (100));
+				}
+				auto end (std::chrono::high_resolution_clock::now ());
+				auto time (std::chrono::duration_cast<std::chrono::microseconds> (end - begin).count ());
+				node->stop ();
+				std::cerr << boost::str (boost::format ("%|1$ 12d| us \n%2% votes per second\n") % time % (max_votes * 1000000 / time));
 			}
 			else
 			{
