@@ -62,6 +62,7 @@ ED25519_FN(ed25519_sign) (const unsigned char *m, size_t mlen, const ed25519_sec
 	ge25519 ALIGN(16) R;
 	hash_512bits extsk, hashr, hram;
 	unsigned char randr[32];
+	static const unsigned char rzero[64] = {0};
 
 	ed25519_extsk(extsk, sk);
 
@@ -70,6 +71,11 @@ ED25519_FN(ed25519_sign) (const unsigned char *m, size_t mlen, const ed25519_sec
 	ed25519_hash_update(&ctx, extsk + 32, 32);
 	ed25519_randombytes_unsafe(randr, 32);
 	ed25519_hash_update(&ctx, randr, 32);
+	/*
+		Fill up the rest of the hash block.
+		This puts the message (possibly known to a side channel attacker) in a separate block.
+	*/
+	ed25519_hash_update(&ctx, rzero, 64);
 	ed25519_hash_update(&ctx, m, mlen);
 	ed25519_hash_final(&ctx, hashr);
 	expand256_modm(r, hashr, 64);
