@@ -66,7 +66,7 @@ ED25519_FN(ed25519_sign) (const unsigned char *m, size_t mlen, const ed25519_sec
 
 	ed25519_extsk(extsk, sk);
 
-	/* r = H(aExt[32..64], randr[0..31], zero[0..63], m) */
+	/* r = H(aExt[32..63], randr[0..31], zero[0..63], m) */
 	ed25519_hash_init(&ctx);
 	ed25519_hash_update(&ctx, extsk + 32, 32);
 	ed25519_randombytes_unsafe(randr, 32);
