@@ -85,7 +85,7 @@ endif ()
 if (APPLE)
 	set (PLATFORM_LINK_FLAGS "-framework Foundation -framework OpenCL")
 elseif (WIN32)
-	set (PLATFORM_LINK_FLAGS "/STACK:8000000") #provides 8MB default stack size for linux on windows
+	set (PLATFORM_LINK_FLAGS "") 
 else ()
 	set (PLATFORM_LINK_FLAGS "-static-libgcc -static-libstdc++")
 	if (RAIBLOCKS_ASAN)

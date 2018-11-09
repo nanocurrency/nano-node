@@ -52,6 +52,9 @@ namespace thread_role
 			case rai::thread_role::name::bootstrap_initiator:
 				thread_role_name_string = "Bootstrap init";
 				break;
+			case rai::thread_role::name::voting:
+				thread_role_name_string = "Voting";
+				break;
 		}
 
 		/*
@@ -67,6 +70,12 @@ namespace thread_role
 		rai::thread_role::current_thread_role = role;
 	}
 }
+}
+
+void rai::thread_attributes::set (boost::thread::attributes & attrs)
+{
+	auto attrs_l (&attrs);
+	attrs_l->set_stack_size (8000000); //8MB
 }
 
 /*

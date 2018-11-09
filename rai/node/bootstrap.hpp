@@ -11,6 +11,7 @@
 #include <unordered_set>
 
 #include <boost/log/sources/logger.hpp>
+#include <boost/thread/thread.hpp>
 
 namespace rai
 {
@@ -189,7 +190,7 @@ private:
 	std::mutex mutex;
 	std::condition_variable condition;
 	std::vector<std::function<void(bool)>> observers;
-	std::thread thread;
+	boost::thread thread;
 };
 class bootstrap_server;
 class bootstrap_listener
@@ -237,7 +238,7 @@ class bulk_pull_server : public std::enable_shared_from_this<rai::bulk_pull_serv
 public:
 	bulk_pull_server (std::shared_ptr<rai::bootstrap_server> const &, std::unique_ptr<rai::bulk_pull>);
 	void set_current_end ();
-	std::unique_ptr<rai::block> get_next ();
+	std::shared_ptr<rai::block> get_next ();
 	void send_next ();
 	void sent_action (boost::system::error_code const &, size_t);
 	void send_finished ();
@@ -275,7 +276,7 @@ class bulk_pull_blocks_server : public std::enable_shared_from_this<rai::bulk_pu
 public:
 	bulk_pull_blocks_server (std::shared_ptr<rai::bootstrap_server> const &, std::unique_ptr<rai::bulk_pull_blocks>);
 	void set_params ();
-	std::unique_ptr<rai::block> get_next ();
+	std::shared_ptr<rai::block> get_next ();
 	void send_next ();
 	void send_finished ();
 	void no_block_sent (boost::system::error_code const &, size_t);

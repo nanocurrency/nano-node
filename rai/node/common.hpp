@@ -191,7 +191,6 @@ public:
 	message (rai::message_header const &);
 	virtual ~message () = default;
 	virtual void serialize (rai::stream &) = 0;
-	virtual bool deserialize (rai::stream &) = 0;
 	virtual void visit (rai::message_visitor &) const = 0;
 	rai::message_header header;
 };
@@ -214,7 +213,7 @@ public:
 		invalid_magic,
 		invalid_network
 	};
-	message_parser (rai::message_visitor &, rai::work_pool &);
+	message_parser (rai::block_uniquer &, rai::vote_uniquer &, rai::message_visitor &, rai::work_pool &);
 	void deserialize_buffer (uint8_t const *, size_t);
 	void deserialize_keepalive (rai::stream &, rai::message_header const &);
 	void deserialize_publish (rai::stream &, rai::message_header const &);
@@ -222,9 +221,12 @@ public:
 	void deserialize_confirm_ack (rai::stream &, rai::message_header const &);
 	void deserialize_node_id_handshake (rai::stream &, rai::message_header const &);
 	bool at_end (rai::stream &);
+	rai::block_uniquer & block_uniquer;
+	rai::vote_uniquer & vote_uniquer;
 	rai::message_visitor & visitor;
 	rai::work_pool & pool;
 	parse_status status;
+	std::string status_string ();
 	static const size_t max_safe_udp_message_size;
 };
 class keepalive : public message
@@ -233,7 +235,7 @@ public:
 	keepalive (bool &, rai::stream &, rai::message_header const &);
 	keepalive ();
 	void visit (rai::message_visitor &) const override;
-	bool deserialize (rai::stream &) override;
+	bool deserialize (rai::stream &);
 	void serialize (rai::stream &) override;
 	bool operator== (rai::keepalive const &) const;
 	std::array<rai::endpoint, 8> peers;
@@ -241,10 +243,10 @@ public:
 class publish : public message
 {
 public:
-	publish (bool &, rai::stream &, rai::message_header const &);
+	publish (bool &, rai::stream &, rai::message_header const &, rai::block_uniquer * = nullptr);
 	publish (std::shared_ptr<rai::block>);
 	void visit (rai::message_visitor &) const override;
-	bool deserialize (rai::stream &) override;
+	bool deserialize (rai::stream &, rai::block_uniquer * = nullptr);
 	void serialize (rai::stream &) override;
 	bool operator== (rai::publish const &) const;
 	std::shared_ptr<rai::block> block;
@@ -252,9 +254,9 @@ public:
 class confirm_req : public message
 {
 public:
-	confirm_req (bool &, rai::stream &, rai::message_header const &);
+	confirm_req (bool &, rai::stream &, rai::message_header const &, rai::block_uniquer * = nullptr);
 	confirm_req (std::shared_ptr<rai::block>);
-	bool deserialize (rai::stream &) override;
+	bool deserialize (rai::stream &, rai::block_uniquer * = nullptr);
 	void serialize (rai::stream &) override;
 	void visit (rai::message_visitor &) const override;
 	bool operator== (rai::confirm_req const &) const;
@@ -263,9 +265,9 @@ public:
 class confirm_ack : public message
 {
 public:
-	confirm_ack (bool &, rai::stream &, rai::message_header const &);
+	confirm_ack (bool &, rai::stream &, rai::message_header const &, rai::vote_uniquer * = nullptr);
 	confirm_ack (std::shared_ptr<rai::vote>);
-	bool deserialize (rai::stream &) override;
+	bool deserialize (rai::stream &, rai::vote_uniquer * = nullptr);
 	void serialize (rai::stream &) override;
 	void visit (rai::message_visitor &) const override;
 	bool operator== (rai::confirm_ack const &) const;
@@ -276,7 +278,7 @@ class frontier_req : public message
 public:
 	frontier_req ();
 	frontier_req (bool &, rai::stream &, rai::message_header const &);
-	bool deserialize (rai::stream &) override;
+	bool deserialize (rai::stream &);
 	void serialize (rai::stream &) override;
 	void visit (rai::message_visitor &) const override;
 	bool operator== (rai::frontier_req const &) const;
@@ -289,7 +291,7 @@ class bulk_pull : public message
 public:
 	bulk_pull ();
 	bulk_pull (bool &, rai::stream &, rai::message_header const &);
-	bool deserialize (rai::stream &) override;
+	bool deserialize (rai::stream &);
 	void serialize (rai::stream &) override;
 	void visit (rai::message_visitor &) const override;
 	rai::uint256_union start;
@@ -300,7 +302,7 @@ class bulk_pull_account : public message
 public:
 	bulk_pull_account ();
 	bulk_pull_account (bool &, rai::stream &, rai::message_header const &);
-	bool deserialize (rai::stream &) override;
+	bool deserialize (rai::stream &);
 	void serialize (rai::stream &) override;
 	void visit (rai::message_visitor &) const override;
 	rai::uint256_union account;
@@ -312,7 +314,7 @@ class bulk_pull_blocks : public message
 public:
 	bulk_pull_blocks ();
 	bulk_pull_blocks (bool &, rai::stream &, rai::message_header const &);
-	bool deserialize (rai::stream &) override;
+	bool deserialize (rai::stream &);
 	void serialize (rai::stream &) override;
 	void visit (rai::message_visitor &) const override;
 	rai::block_hash min_hash;
@@ -325,7 +327,7 @@ class bulk_push : public message
 public:
 	bulk_push ();
 	bulk_push (rai::message_header const &);
-	bool deserialize (rai::stream &) override;
+	bool deserialize (rai::stream &);
 	void serialize (rai::stream &) override;
 	void visit (rai::message_visitor &) const override;
 };
@@ -334,7 +336,7 @@ class node_id_handshake : public message
 public:
 	node_id_handshake (bool &, rai::stream &, rai::message_header const &);
 	node_id_handshake (boost::optional<rai::block_hash>, boost::optional<std::pair<rai::account, rai::signature>>);
-	bool deserialize (rai::stream &) override;
+	bool deserialize (rai::stream &);
 	void serialize (rai::stream &) override;
 	void visit (rai::message_visitor &) const override;
 	bool operator== (rai::node_id_handshake const &) const;
