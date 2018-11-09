@@ -2010,6 +2010,17 @@ std::pair<std::unique_ptr<rai::pending_key>, std::unique_ptr<rai::pending_info>>
 		{
 			if (deduplication.count (info.source) != 0)
 			{
+				/*
+				 * If the deduplication map gets too
+				 * large, clear it out.  This may
+				 * result in some duplicates getting
+				 * sent to the client, but we do not
+				 * want to commit too much memory
+				 */
+				if (deduplication.size () > 4096)
+				{
+					deduplication.clear ();
+				}
 				continue;
 			}
 

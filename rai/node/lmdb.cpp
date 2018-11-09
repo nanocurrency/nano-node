@@ -1829,12 +1829,12 @@ void rai::mdb_store::checksum_del (rai::transaction const & transaction_a, uint6
 
 void rai::mdb_store::flush (rai::transaction const & transaction_a)
 {
-	std::unordered_map<rai::account, std::shared_ptr<rai::vote>> sequence_cache_l;
 	{
 		std::lock_guard<std::mutex> lock (cache_mutex);
-		sequence_cache_l.swap (vote_cache);
+		vote_cache_l1.swap (vote_cache_l2);
+		vote_cache_l1.clear ();
 	}
-	for (auto i (sequence_cache_l.begin ()), n (sequence_cache_l.end ()); i != n; ++i)
+	for (auto i (vote_cache_l2.begin ()), n (vote_cache_l2.end ()); i != n; ++i)
 	{
 		std::vector<uint8_t> vector;
 		{
@@ -1849,8 +1849,17 @@ std::shared_ptr<rai::vote> rai::mdb_store::vote_current (rai::transaction const 
 {
 	assert (!cache_mutex.try_lock ());
 	std::shared_ptr<rai::vote> result;
-	auto existing (vote_cache.find (account_a));
-	if (existing != vote_cache.end ())
+	auto existing (vote_cache_l1.find (account_a));
+	auto have_existing (true);
+	if (existing == vote_cache_l1.end ())
+	{
+		existing = vote_cache_l2.find (account_a);
+		if (existing == vote_cache_l2.end ())
+		{
+			have_existing = false;
+		}
+	}
+	if (have_existing)
 	{
 		result = existing->second;
 	}
@@ -1867,7 +1876,7 @@ std::shared_ptr<rai::vote> rai::mdb_store::vote_generate (rai::transaction const
 	auto result (vote_current (transaction_a, account_a));
 	uint64_t sequence ((result ? result->sequence : 0) + 1);
 	result = std::make_shared<rai::vote> (account_a, key_a, sequence, block_a);
-	vote_cache[account_a] = result;
+	vote_cache_l1[account_a] = result;
 	return result;
 }
 
@@ -1877,7 +1886,7 @@ std::shared_ptr<rai::vote> rai::mdb_store::vote_generate (rai::transaction const
 	auto result (vote_current (transaction_a, account_a));
 	uint64_t sequence ((result ? result->sequence : 0) + 1);
 	result = std::make_shared<rai::vote> (account_a, key_a, sequence, blocks_a);
-	vote_cache[account_a] = result;
+	vote_cache_l1[account_a] = result;
 	return result;
 }
 
@@ -1890,7 +1899,7 @@ std::shared_ptr<rai::vote> rai::mdb_store::vote_max (rai::transaction const & tr
 	{
 		result = current;
 	}
-	vote_cache[vote_a->account] = result;
+	vote_cache_l1[vote_a->account] = result;
 	return result;
 }
 
