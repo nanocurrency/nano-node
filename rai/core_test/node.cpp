@@ -638,15 +638,21 @@ TEST (node, fork_publish)
 		auto existing (node1.active.roots.find (send1->root ()));
 		ASSERT_NE (node1.active.roots.end (), existing);
 		auto election (existing->election);
-		auto transaction (node1.store.tx_begin ());
-		election->compute_rep_votes (transaction);
-		node1.vote_processor.flush ();
-		ASSERT_EQ (2, election->last_votes.size ());
+		system.deadline_set (1s);
+		// Wait until the genesis rep activated & makes vote
+		while (election->last_votes.size () != 2)
+		{
+			auto transaction (node1.store.tx_begin ());
+			election->compute_rep_votes (transaction);
+			node1.vote_processor.flush ();
+			ASSERT_NO_ERROR (system.poll ());
+		}
 		node1.process_active (send2);
 		node1.block_processor.flush ();
 		auto existing1 (election->last_votes.find (rai::test_genesis_key.pub));
 		ASSERT_NE (election->last_votes.end (), existing1);
 		ASSERT_EQ (send1->hash (), existing1->second.hash);
+		auto transaction (node1.store.tx_begin ());
 		auto winner (*election->tally (transaction).begin ());
 		ASSERT_EQ (*send1, *winner.second);
 		ASSERT_EQ (rai::genesis_amount - 100, winner.first);
@@ -1194,11 +1200,16 @@ TEST (node, rep_self_vote)
 	active.start (block0);
 	auto existing (active.roots.find (block0->root ()));
 	ASSERT_NE (active.roots.end (), existing);
-	auto transaction (node0->store.tx_begin ());
-	existing->election->compute_rep_votes (transaction);
-	node0->vote_processor.flush ();
+	system.deadline_set (1s);
+	// Wait until representatives are activated & make vote
+	while (existing->election->last_votes.size () != 3)
+	{
+		auto transaction (node0->store.tx_begin ());
+		existing->election->compute_rep_votes (transaction);
+		node0->vote_processor.flush ();
+		ASSERT_NO_ERROR (system.poll ());
+	}
 	auto & rep_votes (existing->election->last_votes);
-	ASSERT_EQ (3, rep_votes.size ());
 	ASSERT_NE (rep_votes.end (), rep_votes.find (rai::test_genesis_key.pub));
 	ASSERT_NE (rep_votes.end (), rep_votes.find (rep_big.pub));
 }
