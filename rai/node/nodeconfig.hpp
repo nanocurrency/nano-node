@@ -41,6 +41,7 @@ public:
 	uint16_t callback_port;
 	std::string callback_target;
 	int lmdb_max_dbs;
+	bool allow_local_peers;
 	rai::stat_config stat_config;
 	rai::uint256_union epoch_block_link;
 	rai::account epoch_block_signer;
