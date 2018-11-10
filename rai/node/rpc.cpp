@@ -1894,6 +1894,7 @@ void rai::rpc_handler::ledger ()
 					response_a.put ("balance", balance);
 					response_a.put ("modified_timestamp", std::to_string (info.modified));
 					response_a.put ("block_count", std::to_string (info.block_count));
+					response_a.put ("account_version", info.epoch == rai::epoch::epoch_1 ? "1" : "0");
 					if (representative)
 					{
 						auto block (node.store.block_get (transaction, info.rep_block));
@@ -1942,6 +1943,7 @@ void rai::rpc_handler::ledger ()
 				response_a.put ("balance", balance);
 				response_a.put ("modified_timestamp", std::to_string (info.modified));
 				response_a.put ("block_count", std::to_string (info.block_count));
+				response_a.put ("account_version", info.epoch == rai::epoch::epoch_1 ? "1" : "0");
 				if (representative)
 				{
 					auto block (node.store.block_get (transaction, info.rep_block));
@@ -3275,6 +3277,7 @@ void rai::rpc_handler::wallet_ledger ()
 					entry.put ("balance", balance);
 					entry.put ("modified_timestamp", std::to_string (info.modified));
 					entry.put ("block_count", std::to_string (info.block_count));
+					entry.put ("account_version", info.epoch == rai::epoch::epoch_1 ? "1" : "0");
 					if (representative)
 					{
 						auto block (node.store.block_get (transaction, info.rep_block));
