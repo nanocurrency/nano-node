@@ -1299,13 +1299,13 @@ vote_uniquer (block_uniquer)
 	peers.disconnect_observer = [this]() {
 		observers.disconnect.notify ();
 	};
-	observers.blocks.add ([this](std::shared_ptr<rai::block> block_a, rai::account const & account_a, rai::amount const & amount_a, bool is_state_send_a) {
-		if (this->block_arrival.recent (block_a->hash ()))
-		{
-			auto node_l (shared_from_this ());
-			background ([node_l, block_a, account_a, amount_a, is_state_send_a]() {
-				if (!node_l->config.callback_address.empty ())
-				{
+	if (!config.callback_address.empty ())
+	{
+		observers.blocks.add ([this](std::shared_ptr<rai::block> block_a, rai::account const & account_a, rai::amount const & amount_a, bool is_state_send_a) {
+			if (this->block_arrival.recent (block_a->hash ()))
+			{
+				auto node_l (shared_from_this ());
+				background ([node_l, block_a, account_a, amount_a, is_state_send_a]() {
 					boost::property_tree::ptree event;
 					event.add ("account", account_a.to_account ());
 					event.add ("hash", block_a->hash ().to_string ());
@@ -1405,10 +1405,10 @@ vote_uniquer (block_uniquer)
 							node_l->stats.inc (rai::stat::type::error, rai::stat::detail::http_callback, rai::stat::dir::out);
 						}
 					});
-				}
-			});
-		}
-	});
+				});
+			}
+		});
+	}
 	observers.endpoint.add ([this](rai::endpoint const & endpoint_a) {
 		this->network.send_keepalive (endpoint_a);
 		rep_query (*this, endpoint_a);
