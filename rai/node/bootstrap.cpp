@@ -37,6 +37,7 @@ void rai::socket::async_read (std::shared_ptr<std::vector<uint8_t>> buffer_a, si
 	auto this_l (shared_from_this ());
 	start ();
 	boost::asio::async_read (socket_m, boost::asio::buffer (buffer_a->data (), size_a), [this_l, callback_a](boost::system::error_code const & ec, size_t size_a) {
+		this_l->node->stats.add (rai::stat::type::traffic_bootstrap, rai::stat::dir::in, size_a);
 		this_l->stop ();
 		callback_a (ec, size_a);
 	});
@@ -47,6 +48,7 @@ void rai::socket::async_write (std::shared_ptr<std::vector<uint8_t>> buffer_a, s
 	auto this_l (shared_from_this ());
 	start ();
 	boost::asio::async_write (socket_m, boost::asio::buffer (buffer_a->data (), buffer_a->size ()), [this_l, callback_a, buffer_a](boost::system::error_code const & ec, size_t size_a) {
+		this_l->node->stats.add (rai::stat::type::traffic_bootstrap, rai::stat::dir::out, size_a);
 		this_l->stop ();
 		callback_a (ec, size_a);
 	});
@@ -2008,6 +2010,17 @@ std::pair<std::unique_ptr<rai::pending_key>, std::unique_ptr<rai::pending_info>>
 		{
 			if (deduplication.count (info.source) != 0)
 			{
+				/*
+				 * If the deduplication map gets too
+				 * large, clear it out.  This may
+				 * result in some duplicates getting
+				 * sent to the client, but we do not
+				 * want to commit too much memory
+				 */
+				if (deduplication.size () > 4096)
+				{
+					deduplication.clear ();
+				}
 				continue;
 			}
 

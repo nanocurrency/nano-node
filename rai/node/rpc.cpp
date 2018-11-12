@@ -3729,6 +3729,11 @@ std::string filter_request (boost::property_tree::ptree tree_a)
 	std::stringstream stream;
 	boost::property_tree::write_json (stream, tree_a, false);
 	result = stream.str ();
+	// removing std::endl
+	if (result.length () > 1)
+	{
+		result.pop_back ();
+	}
 	return result;
 }
 }
