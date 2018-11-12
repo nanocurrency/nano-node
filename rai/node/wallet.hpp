@@ -156,7 +156,7 @@ public:
 	rai::wallet_store store;
 	rai::wallets & wallets;
 	std::mutex representatives_mutex;
-	std::unordered_set <rai::account> representatives;
+	std::unordered_set<rai::account> representatives;
 };
 class node;
 

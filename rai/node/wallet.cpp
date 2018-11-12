@@ -1391,7 +1391,7 @@ void rai::wallets::foreach_representative (rai::transaction const & transaction_
 		for (auto i (items.begin ()), n (items.end ()); i != n; ++i)
 		{
 			auto & wallet (*i->second);
-			std::lock_guard <std::mutex> lock (wallet.representatives_mutex);
+			std::lock_guard<std::mutex> lock (wallet.representatives_mutex);
 			for (auto ii (wallet.representatives.begin ()), nn (wallet.representatives.end ()); ii != nn; ++ii)
 			{
 				rai::account account (*ii);
@@ -1469,7 +1469,7 @@ void rai::wallets::clear_send_ids (rai::transaction const & transaction_a)
 
 void rai::wallets::compute_reps ()
 {
-	auto ledger_transaction (node.store.tx_begin_read());
+	auto ledger_transaction (node.store.tx_begin_read ());
 	auto transaction (tx_begin_read ());
 	for (auto i (items.begin ()), n (items.end ()); i != n; ++i)
 	{
@@ -1483,7 +1483,7 @@ void rai::wallets::compute_reps ()
 				representatives_l.insert (account);
 			}
 		}
-		std::lock_guard <std::mutex> lock (wallet.representatives_mutex);
+		std::lock_guard<std::mutex> lock (wallet.representatives_mutex);
 		wallet.representatives.swap (representatives_l);
 	}
 }
@@ -1493,8 +1493,7 @@ void rai::wallets::ongoing_compute_reps ()
 	compute_reps ();
 	auto & node_l (node);
 	auto compute_delay (rai::rai_network == rai::rai_networks::rai_test_network ? std::chrono::milliseconds (10) : std::chrono::milliseconds (15 * 60 * 1000)); // Representation drifts quickly on the test network but very slowly on the live network
-	node.alarm.add (std::chrono::steady_clock::now () + compute_delay, [&node_l] ()
-	{
+	node.alarm.add (std::chrono::steady_clock::now () + compute_delay, [&node_l]() {
 		node_l.wallets.ongoing_compute_reps ();
 	});
 }

@@ -416,27 +416,26 @@ TEST (wallets, rep_scan)
 		wallet->deterministic_insert (transaction);
 	}
 	auto begin (std::chrono::steady_clock::now ());
-	node.wallets.foreach_representative (transaction, [] (rai::public_key const & pub_a, rai::raw_key const & prv_a)
-	{
+	node.wallets.foreach_representative (transaction, [](rai::public_key const & pub_a, rai::raw_key const & prv_a) {
 	});
 	ASSERT_LT (std::chrono::steady_clock::now () - begin, std::chrono::milliseconds (5));
 
-TEST (node, mass_vote_by_hash)
-{
-	rai::system system (24000, 1);
-	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
-	rai::genesis genesis;
-	rai::block_hash previous (genesis.hash ());
-	rai::keypair key;
-	std::vector<std::shared_ptr<rai::state_block>> blocks;
-	for (auto i (0); i < 10000; ++i)
+	TEST (node, mass_vote_by_hash)
 	{
-		auto block (std::make_shared<rai::state_block> (rai::test_genesis_key.pub, previous, rai::test_genesis_key.pub, rai::genesis_amount - (i + 1) * rai::Gxrb_ratio, key.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (previous)));
-		previous = block->hash ();
-		blocks.push_back (block);
+		rai::system system (24000, 1);
+		system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+		rai::genesis genesis;
+		rai::block_hash previous (genesis.hash ());
+		rai::keypair key;
+		std::vector<std::shared_ptr<rai::state_block>> blocks;
+		for (auto i (0); i < 10000; ++i)
+		{
+			auto block (std::make_shared<rai::state_block> (rai::test_genesis_key.pub, previous, rai::test_genesis_key.pub, rai::genesis_amount - (i + 1) * rai::Gxrb_ratio, key.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (previous)));
+			previous = block->hash ();
+			blocks.push_back (block);
+		}
+		for (auto i (blocks.begin ()), n (blocks.end ()); i != n; ++i)
+		{
+			system.nodes[0]->block_processor.add (*i, std::chrono::steady_clock::now ());
+		}
 	}
-	for (auto i (blocks.begin ()), n (blocks.end ()); i != n; ++i)
-	{
-		system.nodes[0]->block_processor.add (*i, std::chrono::steady_clock::now ());
-	}
-}
