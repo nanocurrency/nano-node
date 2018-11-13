@@ -2868,7 +2868,7 @@ void rai::active_transactions::announce_votes (std::unique_lock<std::mutex> & lo
 				/* Escalation for long unconfirmed elections
 				Start new elections for previous block & source
 				if there are less than 100 active elections */
-				if (i->announcements % announcement_long == 1 && roots_size < 100)
+				if (i->announcements % announcement_long == 1 && roots_size < 100 && rai::rai_network != rai::rai_networks::rai_test_network)
 				{
 					std::shared_ptr<rai::block> previous;
 					auto previous_hash (election_l->status.winner->previous ());
