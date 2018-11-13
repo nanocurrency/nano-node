@@ -3011,15 +3011,14 @@ void rai::active_transactions::announce_loop ()
 
 void rai::active_transactions::stop ()
 {
+	std::unique_lock<std::mutex> lock (mutex);
+	while (!started)
 	{
-		std::unique_lock<std::mutex> lock (mutex);
-		while (!started)
-		{
-			condition.wait (lock);
-		}
-		stopped = true;
-		condition.notify_all ();
+		condition.wait (lock);
 	}
+	stopped = true;
+	condition.notify_all ();
+	lock.unlock ();
 	if (thread.joinable ())
 	{
 		thread.join ();
