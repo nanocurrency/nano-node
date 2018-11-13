@@ -794,9 +794,6 @@ void rai::vote_processor::process_loop ()
 				 * there are a sufficient number of items for it to be relevant
 				 */
 				log_this_iteration = true;
-			}
-			if (log_this_iteration)
-			{
 				start_time = std::chrono::steady_clock::now ();
 			}
 			active = true;
@@ -826,20 +823,8 @@ void rai::vote_processor::process_loop ()
 					 * the results are probably not useful as well,
 					 * so don't spam the logs.
 					 */
-					log_this_iteration = false;
+					BOOST_LOG (node.log) << boost::str (boost::format ("Processed %1% votes in %2% milliseconds (rate of %3% votes per second)") % votes_l.size () % elapsed_time_ms_int % ((votes_l.size () * 1000ULL) / elapsed_time_ms_int));
 				}
-			}
-			if (log_this_iteration)
-			{
-				if (elapsed_time_ms_int == 0)
-				{
-					/*
-					 * If the time took less than 1ms, round up
-					 * to avoid floating point errors in division
-					 */
-					elapsed_time_ms_int = 1;
-				}
-				BOOST_LOG (node.log) << boost::str (boost::format ("Processed %1% votes in %2% milliseconds (rate of %3% votes per second)") % votes_l.size () % elapsed_time_ms_int % ((votes_l.size () * 1000ULL) / elapsed_time_ms_int));
 			}
 		}
 		else
