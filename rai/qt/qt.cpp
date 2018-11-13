@@ -809,16 +809,18 @@ void rai_qt::stats_viewer::refresh_stats ()
 				detail = "total";
 			}
 
-			if (type == "traffic")
+			if (type == "traffic" || type == "traffic_bootstrap")
 			{
 				const std::vector<std::string> units = { " bytes", " KB", " MB", " GB", " TB", " PB" };
 				double bytes = std::stod (value);
-				auto index = std::min (units.size () - 1, static_cast<size_t> (std::floor (std::log2 (bytes) / 10)));
+				auto index = bytes == 0 ? 0 : std::min (units.size () - 1, static_cast<size_t> (std::floor (std::log2 (bytes) / 10)));
 				std::string unit = units[index];
 				bytes /= std::pow (1024, index);
 
+				// Only show decimals from MB and up
+				int precision = index < 2 ? 0 : 2;
 				std::stringstream numstream;
-				numstream << std::fixed << std::setprecision (2) << bytes;
+				numstream << std::fixed << std::setprecision (precision) << bytes;
 				value = numstream.str () + unit;
 			}
 
