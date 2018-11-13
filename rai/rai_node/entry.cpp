@@ -139,7 +139,7 @@ int main (int argc, char * const * argv)
 			{
 				rai::account_info info (i->second);
 				rai::block_hash rep_block (node.node->ledger.representative_calculated (transaction, info.head));
-				std::unique_ptr<rai::block> block (node.node->store.block_get (transaction, rep_block));
+				auto block (node.node->store.block_get (transaction, rep_block));
 				calculated[block->representative ()] += info.balance.number ();
 			}
 			total = 0;

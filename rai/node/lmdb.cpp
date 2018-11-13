@@ -26,6 +26,7 @@ rai::mdb_env::mdb_env (bool & error_a, boost::filesystem::path const & path_a, i
 			// It seems if there's ever more threads than mdb_env_set_maxreaders has read slots available, we get failures on transaction creation unless MDB_NOTLS is specified
 			// This can happen if something like 256 io_threads are specified in the node config
 			auto status4 (mdb_env_open (environment, path_a.string ().c_str (), MDB_NOSUBDIR | MDB_NOTLS, 00600));
+			release_assert (status4 == 0);
 			error_a = status4 != 0;
 		}
 		else
@@ -1076,9 +1077,8 @@ void rai::mdb_store::clear (MDB_dbi db_a)
 
 rai::uint128_t rai::mdb_store::block_balance (rai::transaction const & transaction_a, rai::block_hash const & hash_a)
 {
-	balance_visitor visitor (transaction_a, *this);
-	visitor.compute (hash_a);
-	return visitor.balance;
+	summation_visitor visitor (transaction_a, *this);
+	return visitor.compute_balance (hash_a);
 }
 
 rai::epoch rai::mdb_store::block_version (rai::transaction const & transaction_a, rai::block_hash const & hash_a)
@@ -1226,7 +1226,7 @@ MDB_val rai::mdb_store::block_raw_get (rai::transaction const & transaction_a, r
 }
 
 template <typename T>
-std::unique_ptr<rai::block> rai::mdb_store::block_random (rai::transaction const & transaction_a, MDB_dbi database)
+std::shared_ptr<rai::block> rai::mdb_store::block_random (rai::transaction const & transaction_a, MDB_dbi database)
 {
 	rai::block_hash hash;
 	rai::random_pool.GenerateBlock (hash.bytes.data (), hash.bytes.size ());
@@ -1240,11 +1240,11 @@ std::unique_ptr<rai::block> rai::mdb_store::block_random (rai::transaction const
 	return block_get (transaction_a, rai::block_hash (existing->first));
 }
 
-std::unique_ptr<rai::block> rai::mdb_store::block_random (rai::transaction const & transaction_a)
+std::shared_ptr<rai::block> rai::mdb_store::block_random (rai::transaction const & transaction_a)
 {
 	auto count (block_count (transaction_a));
 	auto region (rai::random_pool.GenerateWord32 (0, count.sum () - 1));
-	std::unique_ptr<rai::block> result;
+	std::shared_ptr<rai::block> result;
 	if (region < count.send)
 	{
 		result = block_random<rai::send_block> (transaction_a, send_blocks);
@@ -1315,11 +1315,11 @@ void rai::mdb_store::block_successor_clear (rai::transaction const & transaction
 	block_put (transaction_a, hash_a, *block, 0, version);
 }
 
-std::unique_ptr<rai::block> rai::mdb_store::block_get (rai::transaction const & transaction_a, rai::block_hash const & hash_a)
+std::shared_ptr<rai::block> rai::mdb_store::block_get (rai::transaction const & transaction_a, rai::block_hash const & hash_a)
 {
 	rai::block_type type;
 	auto value (block_raw_get (transaction_a, hash_a, type));
-	std::unique_ptr<rai::block> result;
+	std::shared_ptr<rai::block> result;
 	if (value.mv_size != 0)
 	{
 		rai::bufferstream stream (reinterpret_cast<uint8_t const *> (value.mv_data), value.mv_size);
@@ -1830,12 +1830,12 @@ void rai::mdb_store::checksum_del (rai::transaction const & transaction_a, uint6
 
 void rai::mdb_store::flush (rai::transaction const & transaction_a)
 {
-	std::unordered_map<rai::account, std::shared_ptr<rai::vote>> sequence_cache_l;
 	{
 		std::lock_guard<std::mutex> lock (cache_mutex);
-		sequence_cache_l.swap (vote_cache);
+		vote_cache_l1.swap (vote_cache_l2);
+		vote_cache_l1.clear ();
 	}
-	for (auto i (sequence_cache_l.begin ()), n (sequence_cache_l.end ()); i != n; ++i)
+	for (auto i (vote_cache_l2.begin ()), n (vote_cache_l2.end ()); i != n; ++i)
 	{
 		std::vector<uint8_t> vector;
 		{
@@ -1850,8 +1850,17 @@ std::shared_ptr<rai::vote> rai::mdb_store::vote_current (rai::transaction const 
 {
 	assert (!cache_mutex.try_lock ());
 	std::shared_ptr<rai::vote> result;
-	auto existing (vote_cache.find (account_a));
-	if (existing != vote_cache.end ())
+	auto existing (vote_cache_l1.find (account_a));
+	auto have_existing (true);
+	if (existing == vote_cache_l1.end ())
+	{
+		existing = vote_cache_l2.find (account_a);
+		if (existing == vote_cache_l2.end ())
+		{
+			have_existing = false;
+		}
+	}
+	if (have_existing)
 	{
 		result = existing->second;
 	}
@@ -1868,7 +1877,7 @@ std::shared_ptr<rai::vote> rai::mdb_store::vote_generate (rai::transaction const
 	auto result (vote_current (transaction_a, account_a));
 	uint64_t sequence ((result ? result->sequence : 0) + 1);
 	result = std::make_shared<rai::vote> (account_a, key_a, sequence, block_a);
-	vote_cache[account_a] = result;
+	vote_cache_l1[account_a] = result;
 	return result;
 }
 
@@ -1878,7 +1887,7 @@ std::shared_ptr<rai::vote> rai::mdb_store::vote_generate (rai::transaction const
 	auto result (vote_current (transaction_a, account_a));
 	uint64_t sequence ((result ? result->sequence : 0) + 1);
 	result = std::make_shared<rai::vote> (account_a, key_a, sequence, blocks_a);
-	vote_cache[account_a] = result;
+	vote_cache_l1[account_a] = result;
 	return result;
 }
 
@@ -1891,7 +1900,7 @@ std::shared_ptr<rai::vote> rai::mdb_store::vote_max (rai::transaction const & tr
 	{
 		result = current;
 	}
-	vote_cache[vote_a->account] = result;
+	vote_cache_l1[vote_a->account] = result;
 	return result;
 }
 
