@@ -257,7 +257,7 @@ bool confirm_block (rai::transaction const & transaction_a, rai::node & node_a, 
 	bool result (false);
 	if (node_a.config.enable_voting)
 	{
-		node_a.wallets.foreach_representative (transaction_a, [&result, &block_a, &list_a, &node_a, &transaction_a](rai::public_key const & pub_a, rai::raw_key const & prv_a) {
+		node_a.wallets.foreach_representative (transaction_a, [&result, &block_a, &list_a, &node_a, &transaction_a, also_publish](rai::public_key const & pub_a, rai::raw_key const & prv_a) {
 			result = true;
 			auto hash (block_a->hash ());
 			auto vote (node_a.store.vote_generate (transaction_a, pub_a, prv_a, std::vector<rai::block_hash> (1, hash)));
@@ -269,6 +269,7 @@ bool confirm_block (rai::transaction const & transaction_a, rai::node & node_a, 
 			}
 			rai::publish publish (block_a);
 			std::shared_ptr<std::vector<uint8_t>> publish_bytes (new std::vector<uint8_t>);
+			if (also_publish)
 			{
 				rai::vectorstream stream (*publish_bytes);
 				publish.serialize (stream);
@@ -276,7 +277,10 @@ bool confirm_block (rai::transaction const & transaction_a, rai::node & node_a, 
 			for (auto j (list_a.begin ()), m (list_a.end ()); j != m; ++j)
 			{
 				node_a.network.confirm_send (confirm, vote_bytes, *j);
-				node_a.network.republish (hash, publish_bytes, *j);
+				if (also_publish)
+				{
+					node_a.network.republish (hash, publish_bytes, *j);
+				}
 			}
 		});
 	}
