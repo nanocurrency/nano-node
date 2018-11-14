@@ -1381,11 +1381,12 @@ void rai::vote_processor::process_loop ()
 			votes_l.swap (votes);
 			active = true;
 			lock.unlock ();
+			verify_votes (votes_l);
 			{
 				rai::transaction transaction (node.store.environment, false);
 				for (auto & i : votes_l)
 				{
-					vote_blocking (transaction, i.first, i.second);
+					vote_blocking (transaction, i.first, i.second, true);
 				}
 			}
 			lock.lock ();
@@ -1410,11 +1411,49 @@ void rai::vote_processor::vote (std::shared_ptr<rai::vote> vote_a, rai::endpoint
 	}
 }
 
-rai::vote_code rai::vote_processor::vote_blocking (MDB_txn * transaction_a, std::shared_ptr<rai::vote> vote_a, rai::endpoint endpoint_a)
+void rai::vote_processor::verify_votes (std::deque<std::pair<std::shared_ptr<rai::vote>, rai::endpoint>> & votes_a)
+{
+	auto size (votes_a.size ());
+	std::vector<unsigned char const *> messages;
+	messages.reserve (size);
+	std::vector<rai::uint256_union> hashes;
+	hashes.reserve (size);
+	std::vector<size_t> lengths (size, sizeof (rai::uint256_union));
+	std::vector<unsigned char const *> pub_keys;
+	pub_keys.reserve (size);
+	std::vector<unsigned char const *> signatures;
+	signatures.reserve (size);
+	std::vector<int> verifications;
+	verifications.resize (size);
+	for (auto & vote : votes_a)
+	{
+		hashes.push_back (vote.first->hash ());
+		messages.push_back (hashes.back ().bytes.data ());
+		pub_keys.push_back (vote.first->account.bytes.data ());
+		signatures.push_back (vote.first->signature.bytes.data ());
+	}
+	/* Verifications is vector if signatures check results
+	validate_message_batch returing "true" if there are at least 1 invalid signature */
+	rai::validate_message_batch (messages.data (), lengths.data (), pub_keys.data (), signatures.data (), size, verifications.data ());
+	std::remove_reference_t<decltype (votes_a)> result;
+	auto i (0);
+	for (auto & vote : votes_a)
+	{
+		assert (verifications[i] == 1 || verifications[i] == 0);
+		if (verifications[i] == 1)
+		{
+			result.push_back (vote);
+		}
+		++i;
+	}
+	votes_a.swap (result);
+}
+
+rai::vote_code rai::vote_processor::vote_blocking (MDB_txn * transaction_a, std::shared_ptr<rai::vote> vote_a, rai::endpoint endpoint_a, bool validated)
 {
 	assert (endpoint_a.address ().is_v6 ());
 	auto result (rai::vote_code::invalid);
-	if (!vote_a->validate ())
+	if (validated || !vote_a->validate ())
 	{
 		result = rai::vote_code::replay;
 		auto max_vote (node.store.vote_max (transaction_a, vote_a));
