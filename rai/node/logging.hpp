@@ -56,5 +56,6 @@ public:
 	uintmax_t max_size;
 	uintmax_t rotation_size;
 	boost::log::sources::logger_mt log;
+	static constexpr int json_version = 5;
 };
 }
