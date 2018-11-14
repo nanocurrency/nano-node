@@ -812,10 +812,19 @@ void rai::vote_processor::process_loop ()
 			active = true;
 			lock.unlock ();
 			{
+				std::unique_lock<std::mutex> active_single_lock (node.active.mutex);
 				auto transaction (node.store.tx_begin_read ());
+				uint64_t count (1);
 				for (auto & i : votes_l)
 				{
 					vote_blocking (transaction, i.first, i.second);
+					// Free active_transactions mutex each 100 processed votes
+					if (count % 100 == 0)
+					{
+						active_single_lock.unlock ();
+						active_single_lock.lock ();
+					}
+					count++;
 				}
 			}
 			lock.lock ();
@@ -858,15 +867,17 @@ void rai::vote_processor::vote (std::shared_ptr<rai::vote> vote_a, rai::endpoint
 	}
 }
 
+// node.active.mutex lock required
 rai::vote_code rai::vote_processor::vote_blocking (rai::transaction const & transaction_a, std::shared_ptr<rai::vote> vote_a, rai::endpoint endpoint_a)
 {
 	assert (endpoint_a.address ().is_v6 ());
+	assert (!node.active.mutex.try_lock ());
 	auto result (rai::vote_code::invalid);
 	if (!vote_a->validate ())
 	{
 		auto max_vote (node.store.vote_max (transaction_a, vote_a));
 		result = rai::vote_code::replay;
-		if (!node.active.vote (vote_a))
+		if (!node.active.vote (vote_a, true))
 		{
 			result = rai::vote_code::vote;
 		}
@@ -1480,7 +1491,7 @@ vote_uniquer (block_uniquer)
 				{
 					BOOST_LOG (log) << boost::str (boost::format ("Found a representative at %1%") % endpoint_a);
 					// Rebroadcasting all active votes to new representative
-					auto blocks (this->active.list_blocks ());
+					auto blocks (this->active.list_blocks (true));
 					for (auto i (blocks.begin ()), n (blocks.end ()); i != n; ++i)
 					{
 						if (*i != nullptr)
@@ -3086,13 +3097,17 @@ bool rai::active_transactions::add (std::pair<std::shared_ptr<rai::block>, std::
 }
 
 // Validate a vote and apply it to the current election if one exists
-bool rai::active_transactions::vote (std::shared_ptr<rai::vote> vote_a)
+bool rai::active_transactions::vote (std::shared_ptr<rai::vote> vote_a, bool single_lock)
 {
 	std::shared_ptr<rai::election> election;
 	bool replay (false);
 	bool processed (false);
 	{
-		std::lock_guard<std::mutex> lock (mutex);
+		std::unique_lock<std::mutex> lock;
+		if (!single_lock)
+		{
+			lock = std::unique_lock<std::mutex> (mutex);
+		}
 		for (auto vote_block : vote_a->blocks)
 		{
 			rai::election_vote_result result;
@@ -3132,10 +3147,14 @@ bool rai::active_transactions::active (rai::block const & block_a)
 }
 
 // List of active blocks in elections
-std::deque<std::shared_ptr<rai::block>> rai::active_transactions::list_blocks ()
+std::deque<std::shared_ptr<rai::block>> rai::active_transactions::list_blocks (bool single_lock)
 {
 	std::deque<std::shared_ptr<rai::block>> result;
-	std::lock_guard<std::mutex> lock (mutex);
+	std::unique_lock<std::mutex> lock;
+	if (!single_lock)
+	{
+		lock = std::unique_lock<std::mutex> (mutex);
+	}
 	for (auto i (roots.begin ()), n (roots.end ()); i != n; ++i)
 	{
 		result.push_back (i->election->status.winner);
