@@ -65,7 +65,7 @@ namespace thread_role
 		 */
 		assert(thread_role_name_string.size () < 16);
 
-		rai::thread_role::set_name (thread_role_name_string);
+		rai::thread_role::set_name(thread_role_name_string);
 
 		rai::thread_role::current_thread_role = role;
 	}
