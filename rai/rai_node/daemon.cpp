@@ -14,7 +14,7 @@ opencl_enable (false)
 
 void rai_daemon::daemon_config::serialize_json (boost::property_tree::ptree & tree_a)
 {
-	tree_a.put ("version", "2");
+	tree_a.put ("version", std::to_string (json_version));
 	tree_a.put ("rpc_enable", rpc_enable);
 	boost::property_tree::ptree rpc_l;
 	rpc.serialize_json (rpc_l);
@@ -66,6 +66,7 @@ bool rai_daemon::daemon_config::deserialize_json (bool & upgraded_a, boost::prop
 
 bool rai_daemon::daemon_config::upgrade_json (unsigned version_a, boost::property_tree::ptree & tree_a)
 {
+	tree_a.put ("version", std::to_string (json_version));
 	auto result (false);
 	switch (version_a)
 	{
@@ -83,7 +84,6 @@ bool rai_daemon::daemon_config::upgrade_json (unsigned version_a, boost::propert
 				opencl.serialize_json (opencl_l);
 				tree_a.put_child ("opencl", opencl_l);
 			}
-			tree_a.put ("version", "2");
 			result = true;
 		}
 		case 2:
