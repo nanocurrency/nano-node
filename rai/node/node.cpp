@@ -868,7 +868,6 @@ void rai::vote_processor::vote (std::shared_ptr<rai::vote> vote_a, rai::endpoint
 	}
 }
 
-<<<<<<< HEAD
 void rai::vote_processor::verify_votes (std::deque<std::pair<std::shared_ptr<rai::vote>, rai::endpoint>> & votes_a)
 {
 	auto size (votes_a.size ());
