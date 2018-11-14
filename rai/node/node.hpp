@@ -342,7 +342,8 @@ public:
 	vote_processor (rai::node &);
 	void vote (std::shared_ptr<rai::vote>, rai::endpoint);
 	// node.active.mutex lock required
-	rai::vote_code vote_blocking (rai::transaction const &, std::shared_ptr<rai::vote>, rai::endpoint);
+	rai::vote_code vote_blocking (rai::transaction const &, std::shared_ptr<rai::vote>, rai::endpoint, bool = false);
+	void verify_votes (std::deque<std::pair<std::shared_ptr<rai::vote>, rai::endpoint>> &);
 	void flush ();
 	rai::node & node;
 	void stop ();
