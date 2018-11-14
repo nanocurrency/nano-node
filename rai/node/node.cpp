@@ -892,8 +892,8 @@ void rai::vote_processor::verify_votes (std::deque<std::pair<std::shared_ptr<rai
 	}
 	/* Verifications is vector if signatures check results
 	validate_message_batch returing "true" if there are at least 1 invalid signature */
-	auto code (rai::validate_message_batch (messages.data (), lengths.data (), pub_keys.data (), signatures.data (), size, verifications.data ()));
-	std::deque<std::pair<std::shared_ptr<rai::vote>, rai::endpoint>> result;
+	rai::validate_message_batch (messages.data (), lengths.data (), pub_keys.data (), signatures.data (), size, verifications.data ());
+	decltype (vote_a) result;
 	auto i (0);
 	for (auto & vote : votes_a)
 	{
