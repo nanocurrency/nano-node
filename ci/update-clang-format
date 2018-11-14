@@ -11,7 +11,7 @@ retval='1'
 rm -f .clang-format
 cp .clang-format.base .clang-format
 for try in {1..10}; do
-	errors="$(clang-format -dump-config 2>&1 >/dev/null)"
+	errors="$(clang-format -dump-config 2>&1 >/dev/null)" || :
 	if [ -z "${errors}" ]; then
 		retval='0'
 
