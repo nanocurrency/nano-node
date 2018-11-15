@@ -61,7 +61,7 @@ block_processor_batch_max_time (std::chrono::milliseconds (5000))
 
 void rai::node_config::serialize_json (boost::property_tree::ptree & tree_a) const
 {
-	tree_a.put ("version", "15");
+	tree_a.put ("version", std::to_string (json_version));
 	tree_a.put ("peering_port", std::to_string (peering_port));
 	tree_a.put ("bootstrap_fraction_numerator", std::to_string (bootstrap_fraction_numerator));
 	tree_a.put ("receive_minimum", receive_minimum.to_string_dec ());
@@ -108,10 +108,11 @@ void rai::node_config::serialize_json (boost::property_tree::ptree & tree_a) con
 	tree_a.put ("block_processor_batch_max_time", block_processor_batch_max_time.count ());
 }
 
-bool rai::node_config::upgrade_json (unsigned version, boost::property_tree::ptree & tree_a)
+bool rai::node_config::upgrade_json (unsigned version_a, boost::property_tree::ptree & tree_a)
 {
+	tree_a.put ("version", std::to_string (json_version));
 	auto result (false);
-	switch (version)
+	switch (version_a)
 	{
 		case 1:
 		{
@@ -127,8 +128,6 @@ bool rai::node_config::upgrade_json (unsigned version, boost::property_tree::ptr
 			}
 			tree_a.erase ("preconfigured_representatives");
 			tree_a.add_child ("preconfigured_representatives", reps);
-			tree_a.erase ("version");
-			tree_a.put ("version", "2");
 			result = true;
 		}
 		case 2:
@@ -137,87 +136,61 @@ bool rai::node_config::upgrade_json (unsigned version, boost::property_tree::ptr
 			tree_a.put ("password_fanout", std::to_string (1024));
 			tree_a.put ("io_threads", std::to_string (io_threads));
 			tree_a.put ("work_threads", std::to_string (work_threads));
-			tree_a.erase ("version");
-			tree_a.put ("version", "3");
 			result = true;
 		}
 		case 3:
 			tree_a.erase ("receive_minimum");
 			tree_a.put ("receive_minimum", rai::xrb_ratio.convert_to<std::string> ());
-			tree_a.erase ("version");
-			tree_a.put ("version", "4");
 			result = true;
 		case 4:
 			tree_a.erase ("receive_minimum");
 			tree_a.put ("receive_minimum", rai::xrb_ratio.convert_to<std::string> ());
-			tree_a.erase ("version");
-			tree_a.put ("version", "5");
 			result = true;
 		case 5:
 			tree_a.put ("enable_voting", enable_voting);
 			tree_a.erase ("packet_delay_microseconds");
 			tree_a.erase ("rebroadcast_delay");
 			tree_a.erase ("creation_rebroadcast");
-			tree_a.erase ("version");
-			tree_a.put ("version", "6");
 			result = true;
 		case 6:
 			tree_a.put ("bootstrap_connections", 16);
 			tree_a.put ("callback_address", "");
 			tree_a.put ("callback_port", "0");
 			tree_a.put ("callback_target", "");
-			tree_a.erase ("version");
-			tree_a.put ("version", "7");
 			result = true;
 		case 7:
 			tree_a.put ("lmdb_max_dbs", "128");
-			tree_a.erase ("version");
-			tree_a.put ("version", "8");
 			result = true;
 		case 8:
 			tree_a.put ("bootstrap_connections_max", "64");
-			tree_a.erase ("version");
-			tree_a.put ("version", "9");
 			result = true;
 		case 9:
 			tree_a.put ("state_block_parse_canary", rai::block_hash (0).to_string ());
 			tree_a.put ("state_block_generate_canary", rai::block_hash (0).to_string ());
-			tree_a.erase ("version");
-			tree_a.put ("version", "10");
 			result = true;
 		case 10:
 			tree_a.put ("online_weight_minimum", online_weight_minimum.to_string_dec ());
 			tree_a.put ("online_weight_quorom", std::to_string (online_weight_quorum));
 			tree_a.erase ("inactive_supply");
-			tree_a.erase ("version");
-			tree_a.put ("version", "11");
 			result = true;
 		case 11:
 		{
 			auto online_weight_quorum_l (tree_a.get<std::string> ("online_weight_quorom"));
 			tree_a.erase ("online_weight_quorom");
 			tree_a.put ("online_weight_quorum", online_weight_quorum_l);
-			tree_a.erase ("version");
-			tree_a.put ("version", "12");
 			result = true;
 		}
 		case 12:
 			tree_a.erase ("state_block_parse_canary");
 			tree_a.erase ("state_block_generate_canary");
-			tree_a.erase ("version");
-			tree_a.put ("version", "13");
 			result = true;
 		case 13:
 			tree_a.put ("generate_hash_votes_at", "0");
-			tree_a.erase ("version");
-			tree_a.put ("version", "14");
 			result = true;
 		case 14:
 			tree_a.put ("network_threads", std::to_string (network_threads));
 			tree_a.erase ("generate_hash_votes_at");
 			tree_a.put ("block_processor_batch_max_time", block_processor_batch_max_time.count ());
-			tree_a.erase ("version");
-			tree_a.put ("version", "15");
 			result = true;
 		case 15:
 			break;

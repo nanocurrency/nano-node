@@ -1824,6 +1824,7 @@ TEST (node, fork_invalid_block_signature_vote_by_hash)
 	auto vote (std::make_shared<rai::vote> (rai::test_genesis_key.pub, rai::test_genesis_key.prv, 0, vote_blocks));
 	{
 		auto transaction (system.nodes[0]->store.tx_begin_read ());
+		std::unique_lock<std::mutex> lock (system.nodes[0]->active.mutex);
 		system.nodes[0]->vote_processor.vote_blocking (transaction, vote, system.nodes[0]->network.endpoint ());
 	}
 	while (system.nodes[0]->block (send1->hash ()))
