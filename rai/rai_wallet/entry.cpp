@@ -23,6 +23,7 @@ public:
 	}
 	bool upgrade_json (unsigned version_a, boost::property_tree::ptree & tree_a)
 	{
+		tree_a.put ("version", std::to_string (json_version));
 		auto result (false);
 		switch (version_a)
 		{
@@ -33,7 +34,6 @@ public:
 				tree_a.erase ("account");
 				tree_a.put ("account", account.to_account ());
 				tree_a.erase ("version");
-				tree_a.put ("version", "2");
 				result = true;
 			}
 			case 2:
@@ -43,7 +43,6 @@ public:
 				tree_a.put ("rpc_enable", "false");
 				tree_a.put_child ("rpc", rpc_l);
 				tree_a.erase ("version");
-				tree_a.put ("version", "3");
 				result = true;
 			}
 			case 3:
@@ -60,7 +59,6 @@ public:
 					opencl.serialize_json (opencl_l);
 					tree_a.put_child ("opencl", opencl_l);
 				}
-				tree_a.put ("version", "4");
 				result = true;
 			}
 			case 4:
@@ -119,7 +117,7 @@ public:
 	{
 		std::string wallet_string;
 		wallet.encode_hex (wallet_string);
-		tree_a.put ("version", "4");
+		tree_a.put ("version", std::to_string (json_version));
 		tree_a.put ("wallet", wallet_string);
 		tree_a.put ("account", account.to_account ());
 		boost::property_tree::ptree node_l;
@@ -159,6 +157,7 @@ public:
 	rai::rpc_config rpc;
 	bool opencl_enable;
 	rai::opencl_config opencl;
+	static constexpr int json_version = 4;
 };
 
 namespace

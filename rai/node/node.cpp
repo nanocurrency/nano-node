@@ -257,7 +257,7 @@ bool confirm_block (rai::transaction const & transaction_a, rai::node & node_a, 
 	bool result (false);
 	if (node_a.config.enable_voting)
 	{
-		node_a.wallets.foreach_representative (transaction_a, [&result, &block_a, &list_a, &node_a, &transaction_a](rai::public_key const & pub_a, rai::raw_key const & prv_a) {
+		node_a.wallets.foreach_representative (transaction_a, [&result, &block_a, &list_a, &node_a, &transaction_a, also_publish](rai::public_key const & pub_a, rai::raw_key const & prv_a) {
 			result = true;
 			auto hash (block_a->hash ());
 			auto vote (node_a.store.vote_generate (transaction_a, pub_a, prv_a, std::vector<rai::block_hash> (1, hash)));
@@ -269,6 +269,7 @@ bool confirm_block (rai::transaction const & transaction_a, rai::node & node_a, 
 			}
 			rai::publish publish (block_a);
 			std::shared_ptr<std::vector<uint8_t>> publish_bytes (new std::vector<uint8_t>);
+			if (also_publish)
 			{
 				rai::vectorstream stream (*publish_bytes);
 				publish.serialize (stream);
@@ -276,7 +277,10 @@ bool confirm_block (rai::transaction const & transaction_a, rai::node & node_a, 
 			for (auto j (list_a.begin ()), m (list_a.end ()); j != m; ++j)
 			{
 				node_a.network.confirm_send (confirm, vote_bytes, *j);
-				node_a.network.republish (hash, publish_bytes, *j);
+				if (also_publish)
+				{
+					node_a.network.republish (hash, publish_bytes, *j);
+				}
 			}
 		});
 	}
@@ -779,6 +783,12 @@ thread ([this]() {
 
 void rai::vote_processor::process_loop ()
 {
+	std::chrono::steady_clock::time_point start_time, end_time;
+	std::chrono::steady_clock::duration elapsed_time;
+	std::chrono::milliseconds elapsed_time_ms;
+	uint64_t elapsed_time_ms_int;
+	bool log_this_iteration;
+
 	std::unique_lock<std::mutex> lock (mutex);
 	started = true;
 	condition.notify_all ();
@@ -788,18 +798,57 @@ void rai::vote_processor::process_loop ()
 		{
 			std::deque<std::pair<std::shared_ptr<rai::vote>, rai::endpoint>> votes_l;
 			votes_l.swap (votes);
+	
+			log_this_iteration = false;
+			if (node.config.logging.network_logging () && votes_l.size () > 50)
+			{
+				/*
+				 * Only log the timing information for this iteration if
+				 * there are a sufficient number of items for it to be relevant
+				 */
+				log_this_iteration = true;
+				start_time = std::chrono::steady_clock::now ();
+			}
 			active = true;
 			lock.unlock ();
+			verify_votes (votes_l);
 			{
+				std::unique_lock<std::mutex> active_single_lock (node.active.mutex);
 				auto transaction (node.store.tx_begin_read ());
+				uint64_t count (1);
 				for (auto & i : votes_l)
 				{
-					vote_blocking (transaction, i.first, i.second);
+					vote_blocking (transaction, i.first, i.second, true);
+					// Free active_transactions mutex each 100 processed votes
+					if (count % 100 == 0)
+					{
+						active_single_lock.unlock ();
+						active_single_lock.lock ();
+					}
+					count++;
 				}
 			}
 			lock.lock ();
 			active = false;
 			condition.notify_all ();
+
+			if (log_this_iteration)
+			{
+				end_time = std::chrono::steady_clock::now ();
+				elapsed_time = end_time - start_time;
+				elapsed_time_ms = std::chrono::duration_cast<std::chrono::milliseconds> (elapsed_time);
+				elapsed_time_ms_int = elapsed_time_ms.count ();
+	
+				if (elapsed_time_ms_int < 100)
+				{
+					/*
+					 * If the time spent was less than 100ms then
+					 * the results are probably not useful as well,
+					 * so don't spam the logs.
+					 */
+					BOOST_LOG (node.log) << boost::str (boost::format ("Processed %1% votes in %2% milliseconds (rate of %3% votes per second)") % votes_l.size () % elapsed_time_ms_int % ((votes_l.size () * 1000ULL) / elapsed_time_ms_int));
+				}
+			}
 		}
 		else
 		{
@@ -819,15 +868,55 @@ void rai::vote_processor::vote (std::shared_ptr<rai::vote> vote_a, rai::endpoint
 	}
 }
 
-rai::vote_code rai::vote_processor::vote_blocking (rai::transaction const & transaction_a, std::shared_ptr<rai::vote> vote_a, rai::endpoint endpoint_a)
+void rai::vote_processor::verify_votes (std::deque<std::pair<std::shared_ptr<rai::vote>, rai::endpoint>> & votes_a)
+{
+	auto size (votes_a.size ());
+	std::vector<unsigned char const *> messages;
+	messages.reserve (size);
+	std::vector<rai::uint256_union> hashes;
+	hashes.reserve (size);
+	std::vector<size_t> lengths (size, sizeof (rai::uint256_union));
+	std::vector<unsigned char const *> pub_keys;
+	pub_keys.reserve (size);
+	std::vector<unsigned char const *> signatures;
+	signatures.reserve (size);
+	std::vector<int> verifications;
+	verifications.resize (size);
+	for (auto & vote : votes_a)
+	{
+		hashes.push_back (vote.first->hash ());
+		messages.push_back (hashes.back ().bytes.data ());
+		pub_keys.push_back (vote.first->account.bytes.data ());
+		signatures.push_back (vote.first->signature.bytes.data ());
+	}
+	/* Verifications is vector if signatures check results
+	validate_message_batch returing "true" if there are at least 1 invalid signature */
+	rai::validate_message_batch (messages.data (), lengths.data (), pub_keys.data (), signatures.data (), size, verifications.data ());
+	std::remove_reference_t<decltype (votes_a)> result;
+	auto i (0);
+	for (auto & vote : votes_a)
+	{
+		assert (verifications[i] == 1 || verifications[i] == 0);
+		if (verifications[i] == 1)
+		{
+			result.push_back (vote);
+		}
+		++i;
+	}
+	votes_a.swap (result);
+}
+
+// node.active.mutex lock required
+rai::vote_code rai::vote_processor::vote_blocking (rai::transaction const & transaction_a, std::shared_ptr<rai::vote> vote_a, rai::endpoint endpoint_a, bool validated)
 {
 	assert (endpoint_a.address ().is_v6 ());
+	assert (!node.active.mutex.try_lock ());
 	auto result (rai::vote_code::invalid);
-	if (!vote_a->validate ())
+	if (validated || !vote_a->validate ())
 	{
 		auto max_vote (node.store.vote_max (transaction_a, vote_a));
 		result = rai::vote_code::replay;
-		if (!node.active.vote (vote_a))
+		if (!node.active.vote (vote_a, true))
 		{
 			result = rai::vote_code::vote;
 		}
@@ -1299,13 +1388,13 @@ vote_uniquer (block_uniquer)
 	peers.disconnect_observer = [this]() {
 		observers.disconnect.notify ();
 	};
-	observers.blocks.add ([this](std::shared_ptr<rai::block> block_a, rai::account const & account_a, rai::amount const & amount_a, bool is_state_send_a) {
-		if (this->block_arrival.recent (block_a->hash ()))
-		{
-			auto node_l (shared_from_this ());
-			background ([node_l, block_a, account_a, amount_a, is_state_send_a]() {
-				if (!node_l->config.callback_address.empty ())
-				{
+	if (!config.callback_address.empty ())
+	{
+		observers.blocks.add ([this](std::shared_ptr<rai::block> block_a, rai::account const & account_a, rai::amount const & amount_a, bool is_state_send_a) {
+			if (this->block_arrival.recent (block_a->hash ()))
+			{
+				auto node_l (shared_from_this ());
+				background ([node_l, block_a, account_a, amount_a, is_state_send_a]() {
 					boost::property_tree::ptree event;
 					event.add ("account", account_a.to_account ());
 					event.add ("hash", block_a->hash ().to_string ());
@@ -1405,10 +1494,10 @@ vote_uniquer (block_uniquer)
 							node_l->stats.inc (rai::stat::type::error, rai::stat::detail::http_callback, rai::stat::dir::out);
 						}
 					});
-				}
-			});
-		}
-	});
+				});
+			}
+		});
+	}
 	observers.endpoint.add ([this](rai::endpoint const & endpoint_a) {
 		this->network.send_keepalive (endpoint_a);
 		rep_query (*this, endpoint_a);
@@ -1441,7 +1530,7 @@ vote_uniquer (block_uniquer)
 				{
 					BOOST_LOG (log) << boost::str (boost::format ("Found a representative at %1%") % endpoint_a);
 					// Rebroadcasting all active votes to new representative
-					auto blocks (this->active.list_blocks ());
+					auto blocks (this->active.list_blocks (true));
 					for (auto i (blocks.begin ()), n (blocks.end ()); i != n; ++i)
 					{
 						if (*i != nullptr)
@@ -3000,15 +3089,14 @@ void rai::active_transactions::announce_loop ()
 
 void rai::active_transactions::stop ()
 {
+	std::unique_lock<std::mutex> lock (mutex);
+	while (!started)
 	{
-		std::unique_lock<std::mutex> lock (mutex);
-		while (!started)
-		{
-			condition.wait (lock);
-		}
-		stopped = true;
-		condition.notify_all ();
+		condition.wait (lock);
 	}
+	stopped = true;
+	condition.notify_all ();
+	lock.unlock ();
 	if (thread.joinable ())
 	{
 		thread.join ();
@@ -3048,13 +3136,17 @@ bool rai::active_transactions::add (std::pair<std::shared_ptr<rai::block>, std::
 }
 
 // Validate a vote and apply it to the current election if one exists
-bool rai::active_transactions::vote (std::shared_ptr<rai::vote> vote_a)
+bool rai::active_transactions::vote (std::shared_ptr<rai::vote> vote_a, bool single_lock)
 {
 	std::shared_ptr<rai::election> election;
 	bool replay (false);
 	bool processed (false);
 	{
-		std::lock_guard<std::mutex> lock (mutex);
+		std::unique_lock<std::mutex> lock;
+		if (!single_lock)
+		{
+			lock = std::unique_lock<std::mutex> (mutex);
+		}
 		for (auto vote_block : vote_a->blocks)
 		{
 			rai::election_vote_result result;
@@ -3094,10 +3186,14 @@ bool rai::active_transactions::active (rai::block const & block_a)
 }
 
 // List of active blocks in elections
-std::deque<std::shared_ptr<rai::block>> rai::active_transactions::list_blocks ()
+std::deque<std::shared_ptr<rai::block>> rai::active_transactions::list_blocks (bool single_lock)
 {
 	std::deque<std::shared_ptr<rai::block>> result;
-	std::lock_guard<std::mutex> lock (mutex);
+	std::unique_lock<std::mutex> lock;
+	if (!single_lock)
+	{
+		lock = std::unique_lock<std::mutex> (mutex);
+	}
 	for (auto i (roots.begin ()), n (roots.end ()); i != n; ++i)
 	{
 		result.push_back (i->election->status.winner);
