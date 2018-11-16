@@ -1800,3 +1800,48 @@ TEST (node, fork_invalid_block_signature_vote_by_hash)
 	}
 	ASSERT_EQ (system.nodes[0]->block (send2.hash ())->block_signature (), send2.block_signature ());
 }
+
+TEST (node, confirm_req_active)
+{
+	rai::system system (24000, 2);
+	rai::keypair key1;
+	system.wallet (0)->insert_adhoc (key1.prv);
+	rai::genesis genesis;
+	auto amount (rai::genesis_amount / 100);
+	std::shared_ptr<rai::block> send1 (std::make_shared<rai::send_block> (genesis.hash (), key1.pub, rai::genesis_amount - amount, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (genesis.hash ())));
+	system.nodes[0]->process_active (send1);
+	system.deadline_set (5s);
+	while (!system.nodes[0]->block (send1->hash ()))
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	// Force a receive to assign the stake
+	system.wallet (0)->receive_async (send1, key1.pub, amount, [](std::shared_ptr<rai::block>) {});
+	while (!system.nodes[1]->active.active (*send1))
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	while (system.nodes[1]->stats.count (rai::stat::type::message, rai::stat::detail::confirm_ack, rai::stat::dir::in) == 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	for (size_t i = 0; i < 20; ++i)
+	{
+		system.nodes[1]->network.broadcast_confirm_req (send1);
+	}
+	while (system.nodes[0]->stats.count (rai::stat::type::message, rai::stat::detail::confirm_req, rai::stat::dir::in) < 20)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	while (system.nodes[1]->stats.count (rai::stat::type::message, rai::stat::detail::confirm_ack, rai::stat::dir::in) < 20)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	{
+		rai::transaction transaction (system.nodes[0]->store.environment, false);
+		std::lock_guard<std::mutex> guard (system.nodes[0]->store.cache_mutex);
+		auto vote (system.nodes[0]->store.vote_current (transaction, key1.pub));
+		ASSERT_NE (vote, nullptr);
+		ASSERT_LT (vote->sequence, 20);
+	}
+}

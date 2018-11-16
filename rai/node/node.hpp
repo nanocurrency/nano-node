@@ -73,6 +73,7 @@ public:
 	void abort ();
 	rai::node & node;
 	std::unordered_map<rai::account, rai::vote_info> last_votes;
+	std::unordered_map<rai::account, std::shared_ptr<rai::vote>> our_last_votes;
 	std::unordered_map<rai::block_hash, std::shared_ptr<rai::block>> blocks;
 	rai::block_hash root;
 	rai::election_status status;
