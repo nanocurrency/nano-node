@@ -965,7 +965,7 @@ TEST (node, port_mapping)
 	(void)end;
 	//while (std::chrono::steady_clock::now () < end)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 }
 
