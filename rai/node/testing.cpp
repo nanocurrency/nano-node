@@ -43,9 +43,9 @@ work (1, nullptr)
 	for (auto i (nodes.begin ()), j (nodes.begin () + 1), n (nodes.end ()); j != n; ++i, ++j)
 	{
 		auto starting1 ((*i)->peers.size ());
-		auto new1 (starting1);
+		decltype (starting1) new1;
 		auto starting2 ((*j)->peers.size ());
-		auto new2 (starting2);
+		decltype (starting2) new2;
 		(*j)->network.send_keepalive ((*i)->network.endpoint ());
 		do
 		{
