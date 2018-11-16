@@ -21,6 +21,7 @@ ConstructorInitializerIndentWidth: 0
 ContinuationIndentWidth: 0
 KeepEmptyLinesAtTheStartOfBlocks: false
 IndentCaseLabels: true
+SpaceBeforeCpp11BracedList: false
 BraceWrapping:
   AfterEnum: true
   AfterStruct: true
