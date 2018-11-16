@@ -229,7 +229,7 @@ TEST (node, auto_bootstrap)
 	system.nodes.push_back (node1);
 	while (!node1->bootstrap_initiator.in_progress ())
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	system.deadline_set (10s);
 	while (node1->balance (key2.pub) != system.nodes[0]->config.receive_minimum.number ())
@@ -1000,7 +1000,7 @@ TEST (node, fork_no_vote_quorum)
 	node2.network.confirm_send (confirm, bytes, node3.network.endpoint ());
 	while (node3.stats.count (rai::stat::type::message, rai::stat::detail::confirm_ack, rai::stat::dir::in) < 3)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_TRUE (node1.latest (rai::test_genesis_key.pub) == send1.hash ());
 	ASSERT_TRUE (node2.latest (rai::test_genesis_key.pub) == send1.hash ());
@@ -1165,7 +1165,7 @@ TEST (node, broadcast_elected)
 	//std::cerr << "fork1: " << fork1.hash ().to_string () << std::endl;
 	while (!node0->ledger.block_exists (fork0->hash ()) || !node1->ledger.block_exists (fork0->hash ()))
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	system.deadline_set (50s);
 	while (!node2->ledger.block_exists (fork0->hash ()))
