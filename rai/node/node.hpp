@@ -71,14 +71,13 @@ public:
 	std::atomic<bool> confirmed;
 	bool stopped;
 	std::unordered_map<rai::block_hash, rai::uint128_t> last_tally;
+	unsigned announcements;
 };
 class conflict_info
 {
 public:
 	rai::block_hash root;
 	std::shared_ptr<rai::election> election;
-	// Number of announcements in a row for this fork
-	long int announcements;
 	std::pair<std::shared_ptr<rai::block>, std::shared_ptr<rai::block>> confirm_req_options;
 };
 // Core class for determining consensus

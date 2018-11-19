@@ -2668,7 +2668,8 @@ node (node_a),
 root (block_a->root ()),
 status ({ block_a, 0 }),
 confirmed (false),
-stopped (false)
+stopped (false),
+announcements (0)
 {
 	last_votes.insert (std::make_pair (rai::not_an_account, rai::vote_info{ std::chrono::steady_clock::now (), 0, block_a->hash () }));
 	blocks.insert (std::make_pair (block_a->hash (), block_a));
@@ -2925,12 +2926,9 @@ void rai::active_transactions::announce_votes (std::unique_lock<std::mutex> & lo
 	auto roots_size (roots.size ());
 	for (auto i (roots.begin ()), n (roots.end ()); i != n; ++i)
 	{
-		roots.modify (i, [](rai::conflict_info & info_a) {
-			++info_a.announcements;
-		});
 		lock_a.unlock ();
 		auto election_l (i->election);
-		if ((election_l->confirmed || election_l->stopped) && i->announcements >= announcement_min - 1)
+		if ((election_l->confirmed || election_l->stopped) && i->election->announcements >= announcement_min - 1)
 		{
 			if (election_l->confirmed)
 			{
@@ -2944,12 +2942,12 @@ void rai::active_transactions::announce_votes (std::unique_lock<std::mutex> & lo
 		}
 		else
 		{
-			if (i->announcements > announcement_long)
+			if (i->election->announcements > announcement_long)
 			{
 				++unconfirmed_count;
-				unconfirmed_announcements += i->announcements;
+				unconfirmed_announcements += i->election->announcements;
 				// Log votes for very long unconfirmed elections
-				if (i->announcements % 50 == 1)
+				if (i->election->announcements % 50 == 1)
 				{
 					auto tally_l (election_l->tally (transaction));
 					election_l->log_votes (tally_l);
@@ -2957,7 +2955,7 @@ void rai::active_transactions::announce_votes (std::unique_lock<std::mutex> & lo
 				/* Escalation for long unconfirmed elections
 				Start new elections for previous block & source
 				if there are less than 100 active elections */
-				if (i->announcements % announcement_long == 1 && roots_size < 100)
+				if (i->election->announcements % announcement_long == 1 && roots_size < 100)
 				{
 					std::shared_ptr<rai::block> previous;
 					auto previous_hash (election_l->status.winner->previous ());
@@ -2985,7 +2983,7 @@ void rai::active_transactions::announce_votes (std::unique_lock<std::mutex> & lo
 					}
 				}
 			}
-			if (i->announcements < announcement_long || i->announcements % announcement_long == 1)
+			if (i->election->announcements < announcement_long || i->election->announcements % announcement_long == 1)
 			{
 				if (node.ledger.could_fit (transaction, *election_l->status.winner))
 				{
@@ -2994,13 +2992,13 @@ void rai::active_transactions::announce_votes (std::unique_lock<std::mutex> & lo
 				}
 				else
 				{
-					if (i->announcements != 0)
+					if (i->election->announcements != 0)
 					{
 						election_l->stop ();
 					}
 				}
 			}
-			if (i->announcements % 4 == 1)
+			if (i->election->announcements % 4 == 1)
 			{
 				auto reps (std::make_shared<std::vector<rai::peer_information>> (node.peers.representatives (std::numeric_limits<size_t>::max ())));
 				std::unordered_set<rai::account> probable_reps;
@@ -3043,6 +3041,7 @@ void rai::active_transactions::announce_votes (std::unique_lock<std::mutex> & lo
 				}
 			}
 		}
+		++election_l->announcements;
 		lock_a.lock ();
 	}
 	// Rebroadcast unconfirmed blocks
@@ -3127,7 +3126,7 @@ bool rai::active_transactions::add (std::pair<std::shared_ptr<rai::block>, std::
 		if (existing == roots.end ())
 		{
 			auto election (std::make_shared<rai::election> (node, primary_block, confirmation_action_a));
-			roots.insert (rai::conflict_info{ root, election, -1, blocks_a });
+			roots.insert (rai::conflict_info{ root, election, blocks_a });
 			successors.insert (std::make_pair (primary_block->hash (), election));
 		}
 		error = existing != roots.end ();
