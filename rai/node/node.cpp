@@ -888,8 +888,15 @@ void rai::vote_processor::vote (std::shared_ptr<rai::vote> vote_a, rai::endpoint
 	std::lock_guard<std::mutex> lock (mutex);
 	if (!stopped)
 	{
-		votes.push_back (std::make_pair (vote_a, endpoint_a));
-		condition.notify_all ();
+		if (votes.size () < 256 * 1024)
+		{
+			votes.push_back (std::make_pair (vote_a, endpoint_a));
+			condition.notify_all ();
+		}
+		else if (node.config.logging.vote_logging ())
+		{
+			BOOST_LOG (node.log) << "Votes overflow";
+		}
 	}
 }
 
