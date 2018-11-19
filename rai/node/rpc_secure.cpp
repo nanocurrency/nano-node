@@ -97,9 +97,10 @@ void rai::rpc_secure::accept ()
 {
 	auto connection (std::make_shared<rai::rpc_connection_secure> (node, *this));
 	acceptor.async_accept (connection->socket, [this, connection](boost::system::error_code const & ec) {
+		accept ();
+
 		if (!ec)
 		{
-			accept ();
 			connection->parse_connection ();
 		}
 		else
