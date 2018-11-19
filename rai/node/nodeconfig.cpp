@@ -199,7 +199,7 @@ bool rai::node_config::upgrade_json (unsigned version_a, boost::property_tree::p
 			tree_a.erase ("version");
 			tree_a.put ("version", "16");
 			result = true;
-    case 16:
+		case 16:
 			break;
 		default:
 			throw std::runtime_error ("Unknown node_config version");
