@@ -236,7 +236,7 @@ public:
 	// List of all peers
 	std::deque<rai::endpoint> list ();
 	std::map<rai::endpoint, unsigned> list_version ();
-	std::vector<peer_information> list_vector ();
+	std::vector<peer_information> list_vector (size_t);
 	// A list of random peers sized for the configured rebroadcast fanout
 	std::deque<rai::endpoint> list_fanout ();
 	// Get the next peer for attempting bootstrap
@@ -454,6 +454,7 @@ public:
 	void send_node_id_handshake (rai::endpoint const &, boost::optional<rai::uint256_union> const & query, boost::optional<rai::uint256_union> const & respond_to);
 	void broadcast_confirm_req (std::shared_ptr<rai::block>);
 	void broadcast_confirm_req_base (std::shared_ptr<rai::block>, std::shared_ptr<std::vector<rai::peer_information>>, unsigned, bool = false);
+	void broadcast_confirm_req_batch (std::deque<std::pair<std::shared_ptr<rai::block>, std::shared_ptr<std::vector<rai::peer_information>>>>, unsigned = broadcast_interval_ms);
 	void send_confirm_req (rai::endpoint const &, std::shared_ptr<rai::block>);
 	void send_buffer (uint8_t const *, size_t, rai::endpoint const &, std::function<void(boost::system::error_code const &, size_t)>);
 	rai::endpoint endpoint ();
