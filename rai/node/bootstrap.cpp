@@ -294,14 +294,14 @@ void rai::frontier_req_client::received_frontier (boost::system::error_code cons
 			while (!current.is_zero () && current < account)
 			{
 				// We know about an account they don't.
-				unsynced (info.head, 0);
+				unsynced (frontier, 0);
 				next (transaction);
 			}
 			if (!current.is_zero ())
 			{
 				if (account == current)
 				{
-					if (latest == info.head)
+					if (latest == frontier)
 					{
 						// In sync
 					}
@@ -310,11 +310,11 @@ void rai::frontier_req_client::received_frontier (boost::system::error_code cons
 						if (connection->node->store.block_exists (transaction, latest))
 						{
 							// We know about a block they don't.
-							unsynced (info.head, latest);
+							unsynced (frontier, latest);
 						}
 						else
 						{
-							connection->attempt->add_pull (rai::pull_info (account, latest, info.head));
+							connection->attempt->add_pull (rai::pull_info (account, latest, frontier));
 							// Either we're behind or there's a fork we differ on
 							// Either way, bulk pushing will probably not be effective
 							bulk_push_cost += 5;
@@ -339,7 +339,7 @@ void rai::frontier_req_client::received_frontier (boost::system::error_code cons
 			while (!current.is_zero ())
 			{
 				// We know about an account they don't.
-				unsynced (info.head, 0);
+				unsynced (frontier, 0);
 				next (transaction);
 			}
 			if (connection->node->config.logging.bulk_pull_logging ())
@@ -369,16 +369,27 @@ void rai::frontier_req_client::received_frontier (boost::system::error_code cons
 
 void rai::frontier_req_client::next (rai::transaction const & transaction_a)
 {
-	auto iterator (connection->node->store.latest_begin (transaction_a, rai::uint256_union (current.number () + 1)));
-	if (iterator != connection->node->store.latest_end ())
+	// Filling accounts deque to prevent often read transactions
+	if (accounts.empty ())
 	{
-		current = rai::account (iterator->first);
-		info = rai::account_info (iterator->second);
+		size_t max_size (128);
+		for (auto i (connection->node->store.latest_begin (transaction_a, current.number () + 1)), n (connection->node->store.latest_end ()); i != n && accounts.size () != max_size; ++i)
+		{
+			rai::account_info info (i->second);
+			accounts.push_back (std::make_pair (rai::account (i->first), info.head));
+		}
+		/* If loop breaks before max_size, then latest_end () is reached
+		Add empty record to finish frontier_req_server */
+		if (accounts.size () != max_size)
+		{
+			accounts.push_back (std::make_pair (rai::account (0), rai::block_hash (0)));
+		}
 	}
-	else
-	{
-		current.clear ();
-	}
+	// Retrieving accounts from deque
+	auto account_pair (accounts.front ());
+	accounts.pop_front ();
+	current = account_pair.first;
+	frontier = account_pair.second;
 }
 
 rai::bulk_pull_client::bulk_pull_client (std::shared_ptr<rai::bootstrap_client> connection_a, rai::pull_info const & pull_a) :
@@ -2286,24 +2297,11 @@ void rai::bulk_push_server::received_block (boost::system::error_code const & ec
 rai::frontier_req_server::frontier_req_server (std::shared_ptr<rai::bootstrap_server> const & connection_a, std::unique_ptr<rai::frontier_req> request_a) :
 connection (connection_a),
 current (request_a->start.number () - 1),
-info (0, 0, 0, 0, 0, 0, rai::epoch::epoch_0),
+frontier (0),
 request (std::move (request_a)),
 send_buffer (std::make_shared<std::vector<uint8_t>> ())
 {
 	next ();
-	skip_old ();
-}
-
-void rai::frontier_req_server::skip_old ()
-{
-	if (request->age != std::numeric_limits<decltype (request->age)>::max ())
-	{
-		auto now (rai::seconds_since_epoch ());
-		while (!current.is_zero () && (now - info.modified) >= request->age)
-		{
-			next ();
-		}
-	}
 }
 
 void rai::frontier_req_server::send_next ()
@@ -2314,12 +2312,12 @@ void rai::frontier_req_server::send_next ()
 			send_buffer->clear ();
 			rai::vectorstream stream (*send_buffer);
 			write (stream, current.bytes);
-			write (stream, info.head.bytes);
+			write (stream, frontier.bytes);
 		}
 		auto this_l (shared_from_this ());
 		if (connection->node->config.logging.bulk_pull_logging ())
 		{
-			BOOST_LOG (connection->node->log) << boost::str (boost::format ("Sending frontier for %1% %2%") % current.to_account () % info.head.to_string ());
+			BOOST_LOG (connection->node->log) << boost::str (boost::format ("Sending frontier for %1% %2%") % current.to_account () % frontier.to_string ());
 		}
 		next ();
 		connection->socket->async_write (send_buffer, [this_l](boost::system::error_code const & ec, size_t size_a) {
@@ -2383,15 +2381,31 @@ void rai::frontier_req_server::sent_action (boost::system::error_code const & ec
 
 void rai::frontier_req_server::next ()
 {
-	auto transaction (connection->node->store.tx_begin_read ());
-	auto iterator (connection->node->store.latest_begin (transaction, current.number () + 1));
-	if (iterator != connection->node->store.latest_end ())
+	// Filling accounts deque to prevent often read transactions
+	if (accounts.empty ())
 	{
-		current = rai::uint256_union (iterator->first);
-		info = rai::account_info (iterator->second);
+		auto now (rai::seconds_since_epoch ());
+		bool skip_old (request->age != std::numeric_limits<decltype (request->age)>::max ());
+		size_t max_size (128);
+		auto transaction (connection->node->store.tx_begin_read ());
+		for (auto i (connection->node->store.latest_begin (transaction, current.number () + 1)), n (connection->node->store.latest_end ()); i != n && accounts.size () != max_size; ++i)
+		{
+			rai::account_info info (i->second);
+			if (!skip_old || (now - info.modified) <= request->age)
+			{
+				accounts.push_back (std::make_pair (rai::account (i->first), info.head));
+			}
+		}
+		/* If loop breaks before max_size, then latest_end () is reached
+		Add empty record to finish frontier_req_server */
+		if (accounts.size () != max_size)
+		{
+			accounts.push_back (std::make_pair (rai::account (0), rai::block_hash (0)));
+		}
 	}
-	else
-	{
-		current.clear ();
-	}
+	// Retrieving accounts from deque
+	auto account_pair (accounts.front ());
+	accounts.pop_front ();
+	current = account_pair.first;
+	frontier = account_pair.second;
 }

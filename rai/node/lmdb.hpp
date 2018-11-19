@@ -80,7 +80,7 @@ public:
 	operator MDB_val const & () const;
 	MDB_val value;
 	std::shared_ptr<std::vector<uint8_t>> buffer;
-	rai::epoch epoch;
+	rai::epoch epoch{ rai::epoch::unspecified };
 };
 class block_store;
 

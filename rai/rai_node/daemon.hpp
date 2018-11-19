@@ -20,5 +20,6 @@ public:
 	rai::node_config node;
 	bool opencl_enable;
 	rai::opencl_config opencl;
+	static constexpr int json_version = 2;
 };
 }

@@ -71,14 +71,13 @@ public:
 	std::atomic<bool> confirmed;
 	bool stopped;
 	std::unordered_map<rai::block_hash, rai::uint128_t> last_tally;
+	unsigned announcements;
 };
 class conflict_info
 {
 public:
 	rai::block_hash root;
 	std::shared_ptr<rai::election> election;
-	// Number of announcements in a row for this fork
-	long int announcements;
 	std::pair<std::shared_ptr<rai::block>, std::shared_ptr<rai::block>> confirm_req_options;
 };
 // Core class for determining consensus
@@ -98,10 +97,10 @@ public:
 	bool add (std::pair<std::shared_ptr<rai::block>, std::shared_ptr<rai::block>>, std::function<void(std::shared_ptr<rai::block>)> const & = [](std::shared_ptr<rai::block>) {});
 	// If this returns true, the vote is a replay
 	// If this returns false, the vote may or may not be a replay
-	bool vote (std::shared_ptr<rai::vote>);
+	bool vote (std::shared_ptr<rai::vote>, bool = false);
 	// Is the root of this block in the roots container
 	bool active (rai::block const &);
-	std::deque<std::shared_ptr<rai::block>> list_blocks ();
+	std::deque<std::shared_ptr<rai::block>> list_blocks (bool = false);
 	void erase (rai::block const &);
 	void stop ();
 	bool publish (std::shared_ptr<rai::block> block_a);
@@ -303,6 +302,7 @@ public:
 	void send_node_id_handshake (rai::endpoint const &, boost::optional<rai::uint256_union> const & query, boost::optional<rai::uint256_union> const & respond_to);
 	void broadcast_confirm_req (std::shared_ptr<rai::block>);
 	void broadcast_confirm_req_base (std::shared_ptr<rai::block>, std::shared_ptr<std::vector<rai::peer_information>>, unsigned, bool = false);
+	void broadcast_confirm_req_batch (std::deque<std::pair<std::shared_ptr<rai::block>, std::shared_ptr<std::vector<rai::peer_information>>>>, unsigned = broadcast_interval_ms);
 	void send_confirm_req (rai::endpoint const &, std::shared_ptr<rai::block>);
 	void send_buffer (uint8_t const *, size_t, rai::endpoint const &, std::function<void(boost::system::error_code const &, size_t)>);
 	rai::endpoint endpoint ();
@@ -334,14 +334,15 @@ public:
 	rai::observer_set<rai::account const &, bool> account_balance;
 	rai::observer_set<rai::endpoint const &> endpoint;
 	rai::observer_set<> disconnect;
-	rai::observer_set<> started;
 };
 class vote_processor
 {
 public:
 	vote_processor (rai::node &);
 	void vote (std::shared_ptr<rai::vote>, rai::endpoint);
-	rai::vote_code vote_blocking (rai::transaction const &, std::shared_ptr<rai::vote>, rai::endpoint);
+	// node.active.mutex lock required
+	rai::vote_code vote_blocking (rai::transaction const &, std::shared_ptr<rai::vote>, rai::endpoint, bool = false);
+	void verify_votes (std::deque<std::pair<std::shared_ptr<rai::vote>, rai::endpoint>> &);
 	void flush ();
 	rai::node & node;
 	void stop ();

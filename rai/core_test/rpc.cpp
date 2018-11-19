@@ -84,9 +84,10 @@ TEST (rpc, account_balance)
 	request.put ("action", "account_balance");
 	request.put ("account", rai::test_genesis_key.pub.to_account ());
 	test_response response (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
 	std::string balance_text (response.json.get<std::string> ("balance"));
@@ -104,9 +105,10 @@ TEST (rpc, account_block_count)
 	request.put ("action", "account_block_count");
 	request.put ("account", rai::test_genesis_key.pub.to_account ());
 	test_response response (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
 	std::string block_count_text (response.json.get<std::string> ("block_count"));
@@ -122,9 +124,10 @@ TEST (rpc, account_create)
 	request.put ("action", "account_create");
 	request.put ("wallet", system.nodes[0]->wallets.items.begin ()->first.to_string ());
 	test_response response (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
 	auto account_text (response.json.get<std::string> ("account"));
@@ -147,9 +150,10 @@ TEST (rpc, account_weight)
 	request.put ("action", "account_weight");
 	request.put ("account", key.pub.to_account ());
 	test_response response (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
 	std::string balance_text (response.json.get<std::string> ("weight"));
@@ -169,9 +173,10 @@ TEST (rpc, wallet_contains)
 	request.put ("action", "wallet_contains");
 	request.put ("account", rai::test_genesis_key.pub.to_account ());
 	test_response response (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
 	std::string exists_text (response.json.get<std::string> ("exists"));
@@ -190,9 +195,10 @@ TEST (rpc, wallet_doesnt_contain)
 	request.put ("action", "wallet_contains");
 	request.put ("account", rai::test_genesis_key.pub.to_account ());
 	test_response response (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
 	std::string exists_text (response.json.get<std::string> ("exists"));
@@ -209,9 +215,10 @@ TEST (rpc, validate_account_number)
 	request.put ("action", "validate_account_number");
 	request.put ("account", rai::test_genesis_key.pub.to_account ());
 	test_response response (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	std::string exists_text (response.json.get<std::string> ("valid"));
 	ASSERT_EQ ("1", exists_text);
@@ -230,9 +237,10 @@ TEST (rpc, validate_account_invalid)
 	request.put ("action", "validate_account_number");
 	request.put ("account", account);
 	test_response response (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
 	std::string exists_text (response.json.get<std::string> ("valid"));
@@ -261,9 +269,10 @@ TEST (rpc, send)
 		}
 	});
 	test_response response (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
 	std::string block_text (response.json.get<std::string> ("block"));
@@ -296,9 +305,10 @@ TEST (rpc, send_fail)
 		}
 	});
 	test_response response (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	done = true;
 	ASSERT_EQ (response.json.get<std::string> ("error"), "Error generating block");
@@ -359,9 +369,10 @@ TEST (rpc, send_idempotent)
 	request.put ("amount", (rai::genesis_amount - (rai::genesis_amount / 4)).convert_to<std::string> ());
 	request.put ("id", "123abc");
 	test_response response (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
 	std::string block_text (response.json.get<std::string> ("block"));
@@ -370,9 +381,10 @@ TEST (rpc, send_idempotent)
 	ASSERT_TRUE (system.nodes[0]->ledger.block_exists (block));
 	ASSERT_EQ (system.nodes[0]->balance (rai::test_genesis_key.pub), rai::genesis_amount / 4);
 	test_response response2 (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response2.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response2.status);
 	ASSERT_EQ ("", response2.json.get<std::string> ("error", ""));
@@ -381,9 +393,10 @@ TEST (rpc, send_idempotent)
 	request.erase ("id");
 	request.put ("id", "456def");
 	test_response response3 (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response3.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response3.status);
 	ASSERT_EQ (response3.json.get<std::string> ("error"), "Insufficient balance");
@@ -397,9 +410,10 @@ TEST (rpc, stop)
 	boost::property_tree::ptree request;
 	request.put ("action", "stop");
 	test_response response (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	};
 	ASSERT_FALSE (system.nodes[0]->network.on);
 }
@@ -419,9 +433,10 @@ TEST (rpc, wallet_add)
 	request.put ("action", "wallet_add");
 	request.put ("key", key_text);
 	test_response response (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
 	std::string account_text1 (response.json.get<std::string> ("account"));
@@ -440,9 +455,10 @@ TEST (rpc, wallet_password_valid)
 	request.put ("wallet", wallet);
 	request.put ("action", "password_valid");
 	test_response response (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
 	std::string account_text1 (response.json.get<std::string> ("valid"));
@@ -461,9 +477,10 @@ TEST (rpc, wallet_password_change)
 	request.put ("action", "password_change");
 	request.put ("password", "test");
 	test_response response (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
 	std::string account_text1 (response.json.get<std::string> ("changed"));
@@ -496,9 +513,10 @@ TEST (rpc, wallet_password_enter)
 	request.put ("action", "password_enter");
 	request.put ("password", "");
 	test_response response (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
 	std::string account_text1 (response.json.get<std::string> ("valid"));
@@ -516,9 +534,10 @@ TEST (rpc, wallet_representative)
 	request.put ("wallet", wallet);
 	request.put ("action", "wallet_representative");
 	test_response response (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
 	std::string account_text1 (response.json.get<std::string> ("representative"));
@@ -538,9 +557,10 @@ TEST (rpc, wallet_representative_set)
 	request.put ("action", "wallet_representative_set");
 	request.put ("representative", key.pub.to_account ());
 	test_response response (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
 	auto transaction (system.nodes[0]->wallets.tx_begin ());
@@ -561,9 +581,10 @@ TEST (rpc, account_list)
 	request.put ("wallet", wallet);
 	request.put ("action", "account_list");
 	test_response response (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
 	auto & accounts_node (response.json.get_child ("accounts"));
@@ -594,9 +615,10 @@ TEST (rpc, wallet_key_valid)
 	request.put ("wallet", wallet);
 	request.put ("action", "wallet_key_valid");
 	test_response response (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
 	std::string exists_text (response.json.get<std::string> ("valid"));
@@ -611,9 +633,10 @@ TEST (rpc, wallet_create)
 	boost::property_tree::ptree request;
 	request.put ("action", "wallet_create");
 	test_response response (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
 	std::string wallet_text (response.json.get<std::string> ("wallet"));
@@ -632,9 +655,10 @@ TEST (rpc, wallet_export)
 	request.put ("action", "wallet_export");
 	request.put ("wallet", system.nodes[0]->wallets.items.begin ()->first.to_string ());
 	test_response response (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
 	std::string wallet_json (response.json.get<std::string> ("json"));
@@ -657,9 +681,10 @@ TEST (rpc, wallet_destroy)
 	request.put ("action", "wallet_destroy");
 	request.put ("wallet", wallet_id.to_string ());
 	test_response response (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
 	ASSERT_EQ (system.nodes[0]->wallets.items.end (), system.nodes[0]->wallets.items.find (wallet_id));
@@ -687,9 +712,10 @@ TEST (rpc, account_move)
 	keys.push_back (std::make_pair ("", entry));
 	request.add_child ("accounts", keys);
 	test_response response (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
 	ASSERT_EQ ("1", response.json.get<std::string> ("moved"));
@@ -708,9 +734,10 @@ TEST (rpc, block)
 	request.put ("action", "block");
 	request.put ("hash", system.nodes[0]->latest (rai::genesis_account).to_string ());
 	test_response response (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
 	auto contents (response.json.get<std::string> ("contents"));
@@ -727,9 +754,10 @@ TEST (rpc, block_account)
 	request.put ("action", "block_account");
 	request.put ("hash", genesis.hash ().to_string ());
 	test_response response (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
 	std::string account_text (response.json.get<std::string> ("account"));
@@ -753,9 +781,10 @@ TEST (rpc, chain)
 	request.put ("block", block->hash ().to_string ());
 	request.put ("count", std::to_string (std::numeric_limits<uint64_t>::max ()));
 	test_response response (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
 	auto & blocks_node (response.json.get_child ("blocks"));
@@ -785,9 +814,10 @@ TEST (rpc, chain_limit)
 	request.put ("block", block->hash ().to_string ());
 	request.put ("count", 1);
 	test_response response (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
 	auto & blocks_node (response.json.get_child ("blocks"));
@@ -821,9 +851,10 @@ TEST (rpc, frontier)
 	request.put ("account", rai::account (0).to_account ());
 	request.put ("count", std::to_string (std::numeric_limits<uint64_t>::max ()));
 	test_response response (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
 	auto & frontiers_node (response.json.get_child ("frontiers"));
@@ -861,9 +892,10 @@ TEST (rpc, frontier_limited)
 	request.put ("account", rai::account (0).to_account ());
 	request.put ("count", std::to_string (100));
 	test_response response (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
 	auto & frontiers_node (response.json.get_child ("frontiers"));
@@ -891,9 +923,10 @@ TEST (rpc, frontier_startpoint)
 	request.put ("account", source.begin ()->first.to_account ());
 	request.put ("count", std::to_string (1));
 	test_response response (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
 	auto & frontiers_node (response.json.get_child ("frontiers"));
@@ -929,9 +962,10 @@ TEST (rpc, history)
 	request.put ("hash", uchange.hash ().to_string ());
 	request.put ("count", 100);
 	test_response response (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
 	std::vector<std::tuple<std::string, std::string, std::string, std::string>> history_l;
@@ -981,9 +1015,10 @@ TEST (rpc, history_count)
 	request.put ("hash", receive->hash ().to_string ());
 	request.put ("count", 1);
 	test_response response (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
 	auto & history_node (response.json.get_child ("history"));
@@ -1005,9 +1040,10 @@ TEST (rpc, process_block)
 	send.serialize_json (json);
 	request.put ("block", json);
 	test_response response (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
 	system.deadline_set (10s);
@@ -1035,9 +1071,10 @@ TEST (rpc, process_block_no_work)
 	send.serialize_json (json);
 	request.put ("block", json);
 	test_response response (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
 	ASSERT_FALSE (response.json.get<std::string> ("error", "").empty ());
@@ -1058,9 +1095,10 @@ TEST (rpc, process_republish)
 	send.serialize_json (json);
 	request.put ("block", json);
 	test_response response (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
 	system.deadline_set (10s);
@@ -1088,9 +1126,10 @@ TEST (rpc, keepalive)
 	ASSERT_FALSE (system.nodes[0]->peers.known_peer (node1->network.endpoint ()));
 	ASSERT_EQ (0, system.nodes[0]->peers.size ());
 	test_response response (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
 	system.deadline_set (10s);
@@ -1116,9 +1155,10 @@ TEST (rpc, payment_init)
 	request.put ("action", "payment_init");
 	request.put ("wallet", wallet_id.pub.to_string ());
 	test_response response (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
 	ASSERT_EQ ("Ready", response.json.get<std::string> ("status"));
@@ -1138,9 +1178,10 @@ TEST (rpc, payment_begin_end)
 	request1.put ("action", "payment_begin");
 	request1.put ("wallet", wallet_id.pub.to_string ());
 	test_response response1 (request1, rpc, system.service);
+	system.deadline_set (5s);
 	while (response1.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response1.status);
 	auto account_text (response1.json.get<std::string> ("account"));
@@ -1172,9 +1213,10 @@ TEST (rpc, payment_begin_end)
 	request2.put ("wallet", wallet_id.pub.to_string ());
 	request2.put ("account", account.to_account ());
 	test_response response2 (request2, rpc, system.service);
+	system.deadline_set (5s);
 	while (response2.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response2.status);
 	ASSERT_TRUE (wallet->exists (account));
@@ -1199,9 +1241,10 @@ TEST (rpc, payment_end_nonempty)
 	request1.put ("wallet", wallet_id.to_string ());
 	request1.put ("account", rai::test_genesis_key.pub.to_account ());
 	test_response response1 (request1, rpc, system.service);
+	system.deadline_set (5s);
 	while (response1.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response1.status);
 	ASSERT_FALSE (response1.json.get<std::string> ("error", "").empty ());
@@ -1222,9 +1265,10 @@ TEST (rpc, payment_zero_balance)
 	request1.put ("action", "payment_begin");
 	request1.put ("wallet", wallet_id.to_string ());
 	test_response response1 (request1, rpc, system.service);
+	system.deadline_set (5s);
 	while (response1.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response1.status);
 	auto account_text (response1.json.get<std::string> ("account"));
@@ -1247,9 +1291,10 @@ TEST (rpc, payment_begin_reuse)
 	request1.put ("action", "payment_begin");
 	request1.put ("wallet", wallet_id.pub.to_string ());
 	test_response response1 (request1, rpc, system.service);
+	system.deadline_set (5s);
 	while (response1.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response1.status);
 	auto account_text (response1.json.get<std::string> ("account"));
@@ -1262,17 +1307,19 @@ TEST (rpc, payment_begin_reuse)
 	request2.put ("wallet", wallet_id.pub.to_string ());
 	request2.put ("account", account.to_account ());
 	test_response response2 (request2, rpc, system.service);
+	system.deadline_set (5s);
 	while (response2.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response2.status);
 	ASSERT_TRUE (wallet->exists (account));
 	ASSERT_NE (wallet->free_accounts.end (), wallet->free_accounts.find (account));
 	test_response response3 (request1, rpc, system.service);
+	system.deadline_set (5s);
 	while (response3.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response3.status);
 	auto account2_text (response1.json.get<std::string> ("account"));
@@ -1300,9 +1347,10 @@ TEST (rpc, payment_begin_locked)
 	request1.put ("action", "payment_begin");
 	request1.put ("wallet", wallet_id.pub.to_string ());
 	test_response response1 (request1, rpc, system.service);
+	system.deadline_set (5s);
 	while (response1.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response1.status);
 	ASSERT_FALSE (response1.json.get<std::string> ("error", "").empty ());
@@ -1324,9 +1372,10 @@ TEST (rpc, payment_wait)
 	request1.put ("amount", rai::amount (rai::Mxrb_ratio).to_string_dec ());
 	request1.put ("timeout", "100");
 	test_response response1 (request1, rpc, system.service);
+	system.deadline_set (5s);
 	while (response1.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response1.status);
 	ASSERT_EQ ("nothing", response1.json.get<std::string> ("status"));
@@ -1338,15 +1387,16 @@ TEST (rpc, payment_wait)
 	test_response response2 (request1, rpc, system.service);
 	while (response2.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response2.status);
 	ASSERT_EQ ("success", response2.json.get<std::string> ("status"));
 	request1.put ("amount", rai::amount (rai::Mxrb_ratio * 2).to_string_dec ());
 	test_response response3 (request1, rpc, system.service);
+	system.deadline_set (5s);
 	while (response3.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response3.status);
 	ASSERT_EQ ("success", response2.json.get<std::string> ("status"));
@@ -1361,9 +1411,10 @@ TEST (rpc, peers)
 	boost::property_tree::ptree request;
 	request.put ("action", "peers");
 	test_response response (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
 	auto & peers_node (response.json.get_child ("peers"));
@@ -1376,9 +1427,10 @@ TEST (rpc, pending)
 	rai::keypair key1;
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	auto block1 (system.wallet (0)->send_action (rai::test_genesis_key.pub, key1.pub, 100));
+	system.deadline_set (5s);
 	while (system.nodes[0]->active.active (*block1))
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	rai::rpc rpc (system.service, *system.nodes[0], rai::rpc_config (true));
 	rpc.start ();
@@ -1387,9 +1439,10 @@ TEST (rpc, pending)
 	request.put ("account", key1.pub.to_account ());
 	request.put ("count", "100");
 	test_response response (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
 	auto & blocks_node (response.json.get_child ("blocks"));
@@ -1398,9 +1451,10 @@ TEST (rpc, pending)
 	ASSERT_EQ (block1->hash (), hash1);
 	request.put ("threshold", "100"); // Threshold test
 	test_response response0 (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response0.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response0.status);
 	blocks_node = response0.json.get_child ("blocks");
@@ -1423,7 +1477,7 @@ TEST (rpc, pending)
 	test_response response1 (request, rpc, system.service);
 	while (response1.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response1.status);
 	blocks_node = response1.json.get_child ("blocks");
@@ -1432,9 +1486,10 @@ TEST (rpc, pending)
 	request.put ("source", "true");
 	request.put ("min_version", "true");
 	test_response response2 (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response2.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response2.status);
 	blocks_node = response2.json.get_child ("blocks");
@@ -1491,9 +1546,10 @@ TEST (rpc, search_pending)
 	request.put ("action", "search_pending");
 	request.put ("wallet", wallet);
 	test_response response (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
 	system.deadline_set (10s);
@@ -1516,9 +1572,10 @@ TEST (rpc, version)
 	boost::property_tree::ptree request1;
 	request1.put ("action", "version");
 	test_response response1 (request1, rpc, system.service);
+	system.deadline_set (5s);
 	while (response1.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response1.status);
 	ASSERT_EQ ("1", response1.json.get<std::string> ("rpc_version"));
@@ -1551,9 +1608,10 @@ TEST (rpc, work_generate)
 	request1.put ("action", "work_generate");
 	request1.put ("hash", hash1.to_string ());
 	test_response response1 (request1, rpc, system.service);
+	system.deadline_set (5s);
 	while (response1.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response1.status);
 	auto work1 (response1.json.get<std::string> ("work"));
@@ -1611,9 +1669,10 @@ TEST (rpc, work_peer_bad)
 	node2.work_generate (hash1, [&work](uint64_t work_a) {
 		work = work_a;
 	});
+	system.deadline_set (5s);
 	while (rai::work_validate (hash1, work))
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 }
 
@@ -1634,9 +1693,10 @@ TEST (rpc, work_peer_one)
 	node2.work_generate (key1.pub, [&work](uint64_t work_a) {
 		work = work_a;
 	});
+	system.deadline_set (5s);
 	while (rai::work_validate (key1.pub, work))
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 }
 
@@ -1694,9 +1754,10 @@ TEST (rpc, block_count)
 	boost::property_tree::ptree request1;
 	request1.put ("action", "block_count");
 	test_response response1 (request1, rpc, system.service);
+	system.deadline_set (5s);
 	while (response1.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response1.status);
 	ASSERT_EQ ("1", response1.json.get<std::string> ("count"));
@@ -1713,9 +1774,10 @@ TEST (rpc, frontier_count)
 	boost::property_tree::ptree request1;
 	request1.put ("action", "frontier_count");
 	test_response response1 (request1, rpc, system.service);
+	system.deadline_set (5s);
 	while (response1.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response1.status);
 	ASSERT_EQ ("1", response1.json.get<std::string> ("count"));
@@ -1731,9 +1793,10 @@ TEST (rpc, account_count)
 	boost::property_tree::ptree request1;
 	request1.put ("action", "account_count");
 	test_response response1 (request1, rpc, system.service);
+	system.deadline_set (5s);
 	while (response1.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response1.status);
 	ASSERT_EQ ("1", response1.json.get<std::string> ("count"));
@@ -1749,9 +1812,10 @@ TEST (rpc, available_supply)
 	boost::property_tree::ptree request1;
 	request1.put ("action", "available_supply");
 	test_response response1 (request1, rpc, system.service);
+	system.deadline_set (5s);
 	while (response1.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response1.status);
 	ASSERT_EQ ("0", response1.json.get<std::string> ("available"));
@@ -1759,17 +1823,19 @@ TEST (rpc, available_supply)
 	rai::keypair key;
 	auto block (system.wallet (0)->send_action (rai::test_genesis_key.pub, key.pub, 1));
 	test_response response2 (request1, rpc, system.service);
+	system.deadline_set (5s);
 	while (response2.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response2.status);
 	ASSERT_EQ ("1", response2.json.get<std::string> ("available"));
 	auto block2 (system.wallet (0)->send_action (rai::test_genesis_key.pub, 0, 100)); // Sending to burning 0 account
 	test_response response3 (request1, rpc, system.service);
+	system.deadline_set (5s);
 	while (response3.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response3.status);
 	ASSERT_EQ ("1", response3.json.get<std::string> ("available"));
@@ -1786,9 +1852,10 @@ TEST (rpc, mrai_to_raw)
 	request1.put ("action", "mrai_to_raw");
 	request1.put ("amount", "1");
 	test_response response1 (request1, rpc, system.service);
+	system.deadline_set (5s);
 	while (response1.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response1.status);
 	ASSERT_EQ (rai::Mxrb_ratio.convert_to<std::string> (), response1.json.get<std::string> ("amount"));
@@ -1805,9 +1872,10 @@ TEST (rpc, mrai_from_raw)
 	request1.put ("action", "mrai_from_raw");
 	request1.put ("amount", rai::Mxrb_ratio.convert_to<std::string> ());
 	test_response response1 (request1, rpc, system.service);
+	system.deadline_set (5s);
 	while (response1.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response1.status);
 	ASSERT_EQ ("1", response1.json.get<std::string> ("amount"));
@@ -1824,9 +1892,10 @@ TEST (rpc, krai_to_raw)
 	request1.put ("action", "krai_to_raw");
 	request1.put ("amount", "1");
 	test_response response1 (request1, rpc, system.service);
+	system.deadline_set (5s);
 	while (response1.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response1.status);
 	ASSERT_EQ (rai::kxrb_ratio.convert_to<std::string> (), response1.json.get<std::string> ("amount"));
@@ -1843,9 +1912,10 @@ TEST (rpc, krai_from_raw)
 	request1.put ("action", "krai_from_raw");
 	request1.put ("amount", rai::kxrb_ratio.convert_to<std::string> ());
 	test_response response1 (request1, rpc, system.service);
+	system.deadline_set (5s);
 	while (response1.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response1.status);
 	ASSERT_EQ ("1", response1.json.get<std::string> ("amount"));
@@ -1862,9 +1932,10 @@ TEST (rpc, rai_to_raw)
 	request1.put ("action", "rai_to_raw");
 	request1.put ("amount", "1");
 	test_response response1 (request1, rpc, system.service);
+	system.deadline_set (5s);
 	while (response1.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response1.status);
 	ASSERT_EQ (rai::xrb_ratio.convert_to<std::string> (), response1.json.get<std::string> ("amount"));
@@ -1881,9 +1952,10 @@ TEST (rpc, rai_from_raw)
 	request1.put ("action", "rai_from_raw");
 	request1.put ("amount", rai::xrb_ratio.convert_to<std::string> ());
 	test_response response1 (request1, rpc, system.service);
+	system.deadline_set (5s);
 	while (response1.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response1.status);
 	ASSERT_EQ ("1", response1.json.get<std::string> ("amount"));
@@ -1899,9 +1971,10 @@ TEST (rpc, account_representative)
 	request.put ("account", rai::genesis_account.to_account ());
 	request.put ("action", "account_representative");
 	test_response response (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
 	std::string account_text1 (response.json.get<std::string> ("representative"));
@@ -1921,9 +1994,10 @@ TEST (rpc, account_representative_set)
 	request.put ("wallet", system.nodes[0]->wallets.items.begin ()->first.to_string ());
 	request.put ("action", "account_representative_set");
 	test_response response (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
 	std::string block_text1 (response.json.get<std::string> ("block"));
@@ -2080,9 +2154,10 @@ TEST (rpc, work_validate)
 	request.put ("hash", hash.to_string ());
 	request.put ("work", rai::to_string_hex (work1));
 	test_response response1 (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response1.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response1.status);
 	std::string validate_text1 (response1.json.get<std::string> ("valid"));
@@ -2090,9 +2165,10 @@ TEST (rpc, work_validate)
 	uint64_t work2 (0);
 	request.put ("work", rai::to_string_hex (work2));
 	test_response response2 (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response2.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response2.status);
 	std::string validate_text2 (response2.json.get<std::string> ("valid"));
@@ -2115,9 +2191,10 @@ TEST (rpc, successors)
 	request.put ("block", genesis.to_string ());
 	request.put ("count", std::to_string (std::numeric_limits<uint64_t>::max ()));
 	test_response response (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
 	auto & blocks_node (response.json.get_child ("blocks"));
@@ -2171,9 +2248,10 @@ TEST (rpc, republish)
 	request.put ("action", "republish");
 	request.put ("hash", send.hash ().to_string ());
 	test_response response (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
 	system.deadline_set (10s);
@@ -2193,9 +2271,11 @@ TEST (rpc, republish)
 	request.put ("hash", genesis.hash ().to_string ());
 	request.put ("count", 1);
 	test_response response1 (request, rpc, system.service);
+	system.deadline_set (5s);
+	system.deadline_set (5s);
 	while (response1.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response1.status);
 	blocks_node = response1.json.get_child ("blocks");
@@ -2212,7 +2292,7 @@ TEST (rpc, republish)
 	test_response response2 (request, rpc, system.service);
 	while (response2.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response2.status);
 	blocks_node = response2.json.get_child ("blocks");
@@ -2277,9 +2357,10 @@ TEST (rpc, accounts_balances)
 	peers_l.push_back (std::make_pair ("", entry));
 	request.add_child ("accounts", peers_l);
 	test_response response (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
 	for (auto & balances : response.json.get_child ("balances"))
@@ -2307,9 +2388,10 @@ TEST (rpc, accounts_frontiers)
 	peers_l.push_back (std::make_pair ("", entry));
 	request.add_child ("accounts", peers_l);
 	test_response response (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
 	for (auto & frontiers : response.json.get_child ("frontiers"))
@@ -2328,11 +2410,10 @@ TEST (rpc, accounts_pending)
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	auto block1 (system.wallet (0)->send_action (rai::test_genesis_key.pub, key1.pub, 100));
 	auto iterations (0);
+	system.deadline_set (5s);
 	while (system.nodes[0]->active.active (*block1))
 	{
-		system.poll ();
-		++iterations;
-		ASSERT_LT (iterations, 200);
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	rai::rpc rpc (system.service, *system.nodes[0], rai::rpc_config (true));
 	rpc.start ();
@@ -2345,9 +2426,10 @@ TEST (rpc, accounts_pending)
 	request.add_child ("accounts", peers_l);
 	request.put ("count", "100");
 	test_response response (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
 	for (auto & blocks : response.json.get_child ("blocks"))
@@ -2359,9 +2441,10 @@ TEST (rpc, accounts_pending)
 	}
 	request.put ("threshold", "100"); // Threshold test
 	test_response response1 (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response1.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response1.status);
 	std::unordered_map<rai::block_hash, rai::uint128_union> blocks;
@@ -2383,9 +2466,10 @@ TEST (rpc, accounts_pending)
 	ASSERT_EQ (blocks[block1->hash ()], 100);
 	request.put ("source", "true");
 	test_response response2 (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response2.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response2.status);
 	std::unordered_map<rai::block_hash, rai::uint128_union> amounts;
@@ -2419,9 +2503,10 @@ TEST (rpc, blocks)
 	peers_l.push_back (std::make_pair ("", entry));
 	request.add_child ("hashes", peers_l);
 	test_response response (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
 	for (auto & blocks : response.json.get_child ("blocks"))
@@ -2452,9 +2537,10 @@ TEST (rpc, wallet_info)
 	request.put ("action", "wallet_info");
 	request.put ("wallet", system.nodes[0]->wallets.items.begin ()->first.to_string ());
 	test_response response (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
 	std::string balance_text (response.json.get<std::string> ("balance"));
@@ -2523,9 +2609,10 @@ TEST (rpc, pending_exists)
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	auto hash0 (system.nodes[0]->latest (rai::genesis_account));
 	auto block1 (system.wallet (0)->send_action (rai::test_genesis_key.pub, key1.pub, 100));
+	system.deadline_set (5s);
 	while (system.nodes[0]->active.active (*block1))
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	rai::rpc rpc (system.service, *system.nodes[0], rai::rpc_config (true));
 	rpc.start ();
@@ -2533,18 +2620,20 @@ TEST (rpc, pending_exists)
 	request.put ("action", "pending_exists");
 	request.put ("hash", hash0.to_string ());
 	test_response response0 (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response0.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response0.status);
 	std::string exists_text (response0.json.get<std::string> ("exists"));
 	ASSERT_EQ ("0", exists_text);
 	request.put ("hash", block1->hash ().to_string ());
 	test_response response1 (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response1.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response1.status);
 	std::string exists_text1 (response1.json.get<std::string> ("exists"));
@@ -2658,9 +2747,10 @@ TEST (rpc, receive_minimum)
 	boost::property_tree::ptree request;
 	request.put ("action", "receive_minimum");
 	test_response response (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
 	std::string amount (response.json.get<std::string> ("amount"));
@@ -2677,9 +2767,10 @@ TEST (rpc, receive_minimum_set)
 	request.put ("amount", "100");
 	ASSERT_NE (system.nodes[0]->config.receive_minimum.to_string_dec (), "100");
 	test_response response (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
 	std::string success (response.json.get<std::string> ("success"));
@@ -2699,9 +2790,10 @@ TEST (rpc, work_get)
 	request.put ("wallet", system.nodes[0]->wallets.items.begin ()->first.to_string ());
 	request.put ("account", rai::test_genesis_key.pub.to_account ());
 	test_response response (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
 	std::string work_text (response.json.get<std::string> ("work"));
@@ -2722,9 +2814,10 @@ TEST (rpc, wallet_work_get)
 	request.put ("action", "wallet_work_get");
 	request.put ("wallet", system.nodes[0]->wallets.items.begin ()->first.to_string ());
 	test_response response (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
 	auto transaction (system.nodes[0]->store.tx_begin ());
@@ -2752,9 +2845,10 @@ TEST (rpc, work_set)
 	request.put ("account", rai::test_genesis_key.pub.to_account ());
 	request.put ("work", rai::to_string_hex (work0));
 	test_response response (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
 	std::string success (response.json.get<std::string> ("success"));
@@ -2777,9 +2871,10 @@ TEST (rpc, search_pending_all)
 	boost::property_tree::ptree request;
 	request.put ("action", "search_pending_all");
 	test_response response (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
 	system.deadline_set (10s);
@@ -2815,9 +2910,10 @@ TEST (rpc, wallet_republish)
 	request.put ("wallet", system.nodes[0]->wallets.items.begin ()->first.to_string ());
 	request.put ("count", 1);
 	test_response response (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
 	auto & blocks_node (response.json.get_child ("blocks"));
@@ -2849,9 +2945,10 @@ TEST (rpc, delegators)
 	request.put ("action", "delegators");
 	request.put ("account", rai::test_genesis_key.pub.to_account ());
 	test_response response (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
 	auto & delegators_node (response.json.get_child ("delegators"));
@@ -2883,9 +2980,10 @@ TEST (rpc, delegators_count)
 	request.put ("action", "delegators_count");
 	request.put ("account", rai::test_genesis_key.pub.to_account ());
 	test_response response (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
 	std::string count (response.json.get<std::string> ("count"));
@@ -2911,9 +3009,10 @@ TEST (rpc, account_info)
 	request.put ("action", "account_info");
 	request.put ("account", rai::test_genesis_key.pub.to_account ());
 	test_response response (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
 	std::string frontier (response.json.get<std::string> ("frontier"));
@@ -2940,9 +3039,10 @@ TEST (rpc, account_info)
 	request.put ("pending", "1");
 	request.put ("representative", "1");
 	test_response response2 (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response2.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	std::string weight2 (response2.json.get<std::string> ("weight"));
 	ASSERT_EQ ("100", weight2);
@@ -2965,9 +3065,10 @@ TEST (rpc, blocks_info)
 	peers_l.push_back (std::make_pair ("", entry));
 	request.add_child ("hashes", peers_l);
 	test_response response (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
 	for (auto & blocks : response.json.get_child ("blocks"))
@@ -2992,9 +3093,10 @@ TEST (rpc, blocks_info)
 	request.put ("pending", "1");
 	request.put ("balance", "true");
 	test_response response2 (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response2.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response2.status);
 	for (auto & blocks : response2.json.get_child ("blocks"))
@@ -3021,9 +3123,10 @@ TEST (rpc, work_peers_all)
 	request.put ("address", "::1");
 	request.put ("port", "0");
 	test_response response (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
 	std::string success (response.json.get<std::string> ("success", ""));
@@ -3031,9 +3134,10 @@ TEST (rpc, work_peers_all)
 	boost::property_tree::ptree request1;
 	request1.put ("action", "work_peers");
 	test_response response1 (request1, rpc, system.service);
+	system.deadline_set (5s);
 	while (response1.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response1.status);
 	auto & peers_node (response1.json.get_child ("work_peers"));
@@ -3047,17 +3151,19 @@ TEST (rpc, work_peers_all)
 	boost::property_tree::ptree request2;
 	request2.put ("action", "work_peers_clear");
 	test_response response2 (request2, rpc, system.service);
+	system.deadline_set (5s);
 	while (response2.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response2.status);
 	success = response2.json.get<std::string> ("success", "");
 	ASSERT_TRUE (success.empty ());
 	test_response response3 (request1, rpc, system.service);
+	system.deadline_set (5s);
 	while (response3.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response3.status);
 	peers_node = response3.json.get_child ("work_peers");
@@ -3077,9 +3183,10 @@ TEST (rpc, block_count_type)
 	boost::property_tree::ptree request;
 	request.put ("action", "block_count_type");
 	test_response response (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
 	std::string send_count (response.json.get<std::string> ("send"));
@@ -3115,9 +3222,10 @@ TEST (rpc, ledger)
 	request.put ("sorting", "1");
 	request.put ("count", "1");
 	test_response response (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	for (auto & accounts : response.json.get_child ("accounts"))
 	{
@@ -3147,9 +3255,10 @@ TEST (rpc, ledger)
 	request.put ("pending", "1");
 	request.put ("representative", "true");
 	test_response response2 (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response2.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	for (auto & accounts : response2.json.get_child ("accounts"))
 	{
@@ -3175,9 +3284,10 @@ TEST (rpc, accounts_create)
 	request.put ("wallet", system.nodes[0]->wallets.items.begin ()->first.to_string ());
 	request.put ("count", "8");
 	test_response response (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
 	auto & accounts (response.json.get_child ("accounts"));
@@ -3216,9 +3326,10 @@ TEST (rpc, block_create)
 	request.put ("destination", key.pub.to_account ());
 	request.put ("work", rai::to_string_hex (send_work));
 	test_response response (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
 	std::string send_hash (response.json.get<std::string> ("hash"));
@@ -3240,9 +3351,10 @@ TEST (rpc, block_create)
 	request1.put ("source", send.hash ().to_string ());
 	request1.put ("work", rai::to_string_hex (open_work));
 	test_response response1 (request1, rpc, system.service);
+	system.deadline_set (5s);
 	while (response1.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response1.status);
 	std::string open_hash (response1.json.get<std::string> ("hash"));
@@ -3255,9 +3367,10 @@ TEST (rpc, block_create)
 	ASSERT_EQ (rai::process_result::progress, system.nodes[0]->process (open).code);
 	request1.put ("representative", key.pub.to_account ());
 	test_response response2 (request1, rpc, system.service);
+	system.deadline_set (5s);
 	while (response2.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response2.status);
 	std::string open2_hash (response2.json.get<std::string> ("hash"));
@@ -3267,9 +3380,10 @@ TEST (rpc, block_create)
 	request1.put ("type", "change");
 	request1.put ("work", rai::to_string_hex (change_work));
 	test_response response4 (request1, rpc, system.service);
+	system.deadline_set (5s);
 	while (response4.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response4.status);
 	std::string change_hash (response4.json.get<std::string> ("hash"));
@@ -3291,9 +3405,10 @@ TEST (rpc, block_create)
 	request2.put ("previous", change.hash ().to_string ());
 	request2.put ("work", rai::to_string_hex (node1.work_generate_blocking (change.hash ())));
 	test_response response5 (request2, rpc, system.service);
+	system.deadline_set (5s);
 	while (response5.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response5.status);
 	std::string receive_hash (response4.json.get<std::string> ("hash"));
@@ -3326,9 +3441,10 @@ TEST (rpc, block_create_state)
 	rai::rpc rpc (system.service, *system.nodes[0], rai::rpc_config (true));
 	rpc.start ();
 	test_response response (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
 	std::string state_hash (response.json.get<std::string> ("hash"));
@@ -3365,9 +3481,10 @@ TEST (rpc, block_create_state_open)
 	rai::rpc rpc (system.service, *system.nodes[0], rai::rpc_config (true));
 	rpc.start ();
 	test_response response (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
 	std::string state_hash (response.json.get<std::string> ("hash"));
@@ -3411,9 +3528,10 @@ TEST (rpc, block_create_state_request_work)
 		rai::rpc rpc (system.service, *system.nodes[0], rai::rpc_config (true));
 		rpc.start ();
 		test_response response (request, rpc, system.service);
+		system.deadline_set (5s);
 		while (response.status == 0)
 		{
-			system.poll ();
+			ASSERT_NO_ERROR (system.poll ());
 		}
 		ASSERT_EQ (200, response.status);
 		boost::property_tree::ptree block_l;
@@ -3440,9 +3558,10 @@ TEST (rpc, block_hash)
 	send.serialize_json (json);
 	request.put ("block", json);
 	test_response response (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
 	std::string send_hash (response.json.get<std::string> ("hash"));
@@ -3464,9 +3583,10 @@ TEST (rpc, wallet_lock)
 	request.put ("wallet", wallet);
 	request.put ("action", "wallet_lock");
 	test_response response (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
 	std::string account_text1 (response.json.get<std::string> ("locked"));
@@ -3486,9 +3606,10 @@ TEST (rpc, wallet_locked)
 	request.put ("wallet", wallet);
 	request.put ("action", "wallet_locked");
 	test_response response (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
 	std::string account_text1 (response.json.get<std::string> ("locked"));
@@ -3510,9 +3631,10 @@ TEST (rpc, wallet_create_fail)
 	boost::property_tree::ptree request;
 	request.put ("action", "wallet_create");
 	test_response response (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ ("Failed to create wallet. Increase lmdb_max_dbs in node config", response.json.get<std::string> ("error"));
 }
@@ -3538,9 +3660,10 @@ TEST (rpc, wallet_ledger)
 	request.put ("sorting", "1");
 	request.put ("count", "1");
 	test_response response (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	for (auto & accounts : response.json.get_child ("accounts"))
 	{
@@ -3570,9 +3693,10 @@ TEST (rpc, wallet_ledger)
 	request.put ("pending", "1");
 	request.put ("representative", "false");
 	test_response response2 (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response2.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	for (auto & accounts : response2.json.get_child ("accounts"))
 	{
@@ -3603,9 +3727,10 @@ TEST (rpc, wallet_add_watch)
 	peers_l.push_back (std::make_pair ("", entry));
 	request.add_child ("accounts", peers_l);
 	test_response response (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
 	std::string success (response.json.get<std::string> ("success"));
@@ -3629,9 +3754,11 @@ TEST (rpc, online_reps)
 	boost::property_tree::ptree request;
 	request.put ("action", "representatives_online");
 	test_response response (request, rpc, system.service);
+	system.deadline_set (5s);
+	system.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
 	auto representatives (response.json.get_child ("representatives"));
@@ -3645,7 +3772,7 @@ TEST (rpc, online_reps)
 	test_response response2 (request, rpc, system.service);
 	while (response2.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	auto representatives2 (response2.json.get_child ("representatives"));
 	auto item2 (representatives2.begin ());
@@ -3662,9 +3789,10 @@ TEST (rpc, online_reps)
 	ASSERT_NE (nullptr, receive);
 	auto change (system.wallet (1)->change_action (rai::test_genesis_key.pub, new_rep));
 	ASSERT_NE (nullptr, change);
+	system.deadline_set (5s);
 	while (system.nodes[1]->online_reps.list ().size () != 2)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	boost::property_tree::ptree child_rep;
 	child_rep.put ("", new_rep.to_account ());
@@ -3672,9 +3800,10 @@ TEST (rpc, online_reps)
 	filtered_accounts.push_back (std::make_pair ("", child_rep));
 	request.add_child ("accounts", filtered_accounts);
 	test_response response3 (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response3.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	auto representatives3 (response3.json.get_child ("representatives"));
 	auto item3 (representatives3.begin ());
@@ -3700,9 +3829,10 @@ TEST (rpc, confirmation_history)
 	boost::property_tree::ptree request;
 	request.put ("action", "confirmation_history");
 	test_response response (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
 	auto representatives (response.json.get_child ("confirmations"));
@@ -3734,9 +3864,10 @@ TEST (rpc, block_confirm)
 	request.put ("action", "block_confirm");
 	request.put ("hash", send1->hash ().to_string ());
 	test_response response (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
 	ASSERT_EQ ("1", response.json.get<std::string> ("started"));
@@ -3752,9 +3883,10 @@ TEST (rpc, block_confirm_absent)
 	request.put ("action", "block_confirm");
 	request.put ("hash", "0");
 	test_response response (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
 	ASSERT_EQ ("Block not found", response.json.get<std::string> ("error"));
@@ -3768,9 +3900,10 @@ TEST (rpc, node_id)
 	boost::property_tree::ptree request;
 	request.put ("action", "node_id");
 	test_response response (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
 	auto transaction (system.nodes[0]->store.tx_begin_read ());
@@ -3792,9 +3925,10 @@ TEST (rpc, node_id_delete)
 	boost::property_tree::ptree request;
 	request.put ("action", "node_id_delete");
 	test_response response (request, rpc, system.service);
+	system.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
 	ASSERT_EQ ("1", response.json.get<std::string> ("deleted"));
