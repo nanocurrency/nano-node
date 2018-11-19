@@ -334,7 +334,6 @@ public:
 	rai::observer_set<rai::account const &, bool> account_balance;
 	rai::observer_set<rai::endpoint const &> endpoint;
 	rai::observer_set<> disconnect;
-	rai::observer_set<> started;
 };
 class vote_processor
 {

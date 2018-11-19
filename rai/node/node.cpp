@@ -1777,7 +1777,6 @@ void rai::node::start ()
 	online_reps.recalculate_stake ();
 	port_mapping.start ();
 	add_initial_peers ();
-	observers.started.notify ();
 }
 
 void rai::node::stop ()

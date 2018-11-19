@@ -1389,25 +1389,6 @@ TEST (node, no_voting)
 	ASSERT_EQ (0, node1.stats.count (rai::stat::type::message, rai::stat::detail::confirm_ack, rai::stat::dir::in));
 }
 
-TEST (node, start_observer)
-{
-	rai::node_init init;
-	auto service (boost::make_shared<boost::asio::io_service> ());
-	rai::alarm alarm (*service);
-	auto path (rai::unique_path ());
-	rai::logging logging;
-	logging.init (path);
-	rai::work_pool work (std::numeric_limits<unsigned>::max (), nullptr);
-	auto node (std::make_shared<rai::node> (init, *service, 0, path, alarm, logging, work));
-	auto started (false);
-	node->observers.started.add ([&started]() {
-		started = true;
-	});
-	node->start ();
-	ASSERT_TRUE (started);
-	node->stop ();
-}
-
 TEST (node, send_callback)
 {
 	rai::system system (24000, 1);
