@@ -107,7 +107,7 @@ std::map<rai::endpoint, unsigned> rai::peer_container::list_version ()
 	return result;
 }
 
-std::vector<rai::peer_information> rai::peer_container::list_vector ()
+std::vector<rai::peer_information> rai::peer_container::list_vector (size_t count_a)
 {
 	std::vector<peer_information> result;
 	std::lock_guard<std::mutex> lock (mutex);
@@ -116,6 +116,10 @@ std::vector<rai::peer_information> rai::peer_container::list_vector ()
 		result.push_back (*i);
 	}
 	std::random_shuffle (result.begin (), result.end ());
+	if (result.size () > count_a)
+	{
+		result.resize (count_a, rai::peer_information (rai::endpoint{}, 0));
+	}
 	return result;
 }
 
