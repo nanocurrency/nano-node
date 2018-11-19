@@ -893,9 +893,13 @@ void rai::vote_processor::vote (std::shared_ptr<rai::vote> vote_a, rai::endpoint
 			votes.push_back (std::make_pair (vote_a, endpoint_a));
 			condition.notify_all ();
 		}
-		else if (node.config.logging.vote_logging ())
+		else
 		{
-			BOOST_LOG (node.log) << "Votes overflow";
+			node.stats.inc (rai::stat::type::vote, rai::stat::detail::vote_overflow);
+			if (node.config.logging.vote_logging ())
+			{
+				BOOST_LOG (node.log) << "Votes overflow";
+			}
 		}
 	}
 }
