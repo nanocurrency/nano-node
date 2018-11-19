@@ -2988,9 +2988,6 @@ void rai::active_transactions::announce_votes (std::unique_lock<std::mutex> & lo
 	auto roots_size (roots.size ());
 	for (auto i (roots.get<1> ().begin ()), n (roots.get<1> ().end ()); i != n; ++i)
 	{
-		roots.get<1> ().modify (i, [](rai::conflict_info & info_a) {
-			++info_a.announcements;
-		});
 		lock_a.unlock ();
 		auto election_l (i->election);
 		if ((election_l->confirmed || election_l->stopped) && i->election->announcements >= announcement_min - 1)
@@ -3106,6 +3103,7 @@ void rai::active_transactions::announce_votes (std::unique_lock<std::mutex> & lo
 				}
 			}
 		}
+		++election_l->announcements;
 		lock_a.lock ();
 	}
 	// Rebroadcast unconfirmed blocks

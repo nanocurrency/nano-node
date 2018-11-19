@@ -77,8 +77,6 @@ public:
 	rai::block_hash root;
 	uint64_t difficulty;
 	std::shared_ptr<rai::election> election;
-	// Number of announcements in a row for this fork
-	long int announcements;
 };
 // Core class for determining consensus
 // Holds all active blocks i.e. recently added blocks that need confirmation
