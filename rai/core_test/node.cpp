@@ -195,7 +195,7 @@ TEST (node, node_receive_quorum)
 	{
 		auto info (system.nodes[0]->active.roots.find (previous));
 		ASSERT_NE (system.nodes[0]->active.roots.end (), info);
-		done = info->announcements > rai::active_transactions::announcement_min;
+		done = info->election->announcements > rai::active_transactions::announcement_min;
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	rai::system system2 (24001, 1);
@@ -1646,7 +1646,7 @@ TEST (node, confirm_quorum)
 		ASSERT_FALSE (system.nodes[0]->active.roots.empty ());
 		auto info (system.nodes[0]->active.roots.find (send1->hash ()));
 		ASSERT_NE (system.nodes[0]->active.roots.end (), info);
-		done = info->announcements > rai::active_transactions::announcement_min;
+		done = info->election->announcements > rai::active_transactions::announcement_min;
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (0, system.nodes[0]->balance (rai::test_genesis_key.pub));
