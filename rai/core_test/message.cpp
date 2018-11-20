@@ -54,7 +54,7 @@ TEST (message, publish_serialization)
 	ASSERT_EQ (rai::protocol_version, bytes[3]);
 	ASSERT_EQ (rai::protocol_version_min, bytes[4]);
 	ASSERT_EQ (static_cast<uint8_t> (rai::message_type::publish), bytes[5]);
-	ASSERT_EQ (0x00, bytes[6]);  // extensions
+	ASSERT_EQ (0x00, bytes[6]); // extensions
 	ASSERT_EQ (static_cast<uint8_t> (rai::block_type::send), bytes[7]);
 	rai::bufferstream stream (bytes.data (), bytes.size ());
 	auto error (false);
