@@ -196,8 +196,6 @@ bool rai::node_config::upgrade_json (unsigned version_a, boost::property_tree::p
 			result = true;
 		case 15:
 			tree_a.put ("allow_local_peers", allow_local_peers);
-			tree_a.erase ("version");
-			tree_a.put ("version", "16");
 			result = true;
 		case 16:
 			break;
