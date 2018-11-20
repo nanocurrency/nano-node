@@ -26,14 +26,13 @@ variables:
   script:
     - ./ci/build-gitlab.sh
 
-#Disabled until we can look at the build script
-.Arch Linux:
+Arch Linux:
   <<: *linux_cfg
   stage: build
-  image: pritunl/archlinux:latest
+  image: base/devel:latest
 
   before_script:
-    - pacman --noconfirm -Syu base-devel qt5-tools xorg-server-xvfb clang clang-tools-extra cmake boost boost-libs ninja lsb-release
+    - pacman --noconfirm -Syu qt5-tools xorg-server-xvfb clang clang-tools-extra cmake boost boost-libs ninja lsb-release
 
   script:
     - mkdir -p csa_results/
