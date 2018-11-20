@@ -465,9 +465,9 @@ public:
 	void backup_wallet ();
 	void search_pending ();
 	int price (rai::uint128_t const &, int);
-	void work_generate_blocking (rai::block &);
-	uint64_t work_generate_blocking (rai::uint256_union const &);
-	void work_generate (rai::uint256_union const &, std::function<void(uint64_t)>);
+	void work_generate_blocking (rai::block &, uint64_t = rai::work_pool::publish_threshold);
+	uint64_t work_generate_blocking (rai::uint256_union const &, uint64_t = rai::work_pool::publish_threshold);
+	void work_generate (rai::uint256_union const &, std::function<void(uint64_t)>, uint64_t = rai::work_pool::publish_threshold);
 	void add_initial_peers ();
 	void block_confirm (std::shared_ptr<rai::block>);
 	void process_fork (rai::transaction const &, std::shared_ptr<rai::block>);
