@@ -79,7 +79,6 @@ class conflict_info
 public:
 	rai::block_hash root;
 	std::shared_ptr<rai::election> election;
-	std::pair<std::shared_ptr<rai::block>, std::shared_ptr<rai::block>> confirm_req_options;
 };
 // Core class for determining consensus
 // Holds all active blocks i.e. recently added blocks that need confirmation
@@ -91,11 +90,6 @@ public:
 	// Start an election for a block
 	// Call action with confirmed block, may be different than what we started with
 	bool start (std::shared_ptr<rai::block>, std::function<void(std::shared_ptr<rai::block>)> const & = [](std::shared_ptr<rai::block>) {});
-	// Also supply alternatives to block, to confirm_req reps with if the boolean argument is true
-	// Should only be used for old elections
-	// The first block should be the one in the ledger
-	bool start (std::pair<std::shared_ptr<rai::block>, std::shared_ptr<rai::block>>, std::function<void(std::shared_ptr<rai::block>)> const & = [](std::shared_ptr<rai::block>) {});
-	bool add (std::pair<std::shared_ptr<rai::block>, std::shared_ptr<rai::block>>, std::function<void(std::shared_ptr<rai::block>)> const & = [](std::shared_ptr<rai::block>) {});
 	// If this returns true, the vote is a replay
 	// If this returns false, the vote may or may not be a replay
 	bool vote (std::shared_ptr<rai::vote>, bool = false);
@@ -124,6 +118,8 @@ public:
 	static size_t constexpr election_history_size = 2048;
 
 private:
+	// Call action with confirmed block, may be different than what we started with
+	bool add (std::shared_ptr<rai::block>, std::function<void(std::shared_ptr<rai::block>)> const & = [](std::shared_ptr<rai::block>) {});
 	void announce_loop ();
 	void announce_votes (std::unique_lock<std::mutex> &);
 	std::condition_variable condition;
