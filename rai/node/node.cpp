@@ -1715,7 +1715,14 @@ void rai::gap_cache::vote (std::shared_ptr<rai::vote> vote_a)
 							{
 								BOOST_LOG (node_l->log) << boost::str (boost::format ("Missing block %1% which has enough votes to warrant lazy bootstrapping it") % hash.to_string ());
 							}
-							node_l->bootstrap_initiator.bootstrap_lazy (hash);
+							if (!node_l->config.disable_lazy_bootstrap)
+							{
+								node_l->bootstrap_initiator.bootstrap_lazy (hash);
+							}
+							else
+							{
+								node_l->bootstrap_initiator.bootstrap ();
+							}
 						}
 					});
 				}
