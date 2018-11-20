@@ -110,8 +110,7 @@ TEST (work, difficulty)
 	{
 		work1 = pool.generate (root, difficulty1);
 		rai::work_validate (root, work1, &nonce1);
-	}
-	while (nonce1 > difficulty2);
+	} while (nonce1 > difficulty2);
 	ASSERT_GT (nonce1, difficulty1);
 	uint64_t work2 (0);
 	uint64_t nonce2 (0);
@@ -119,7 +118,6 @@ TEST (work, difficulty)
 	{
 		work2 = pool.generate (root, difficulty2);
 		rai::work_validate (root, work2, &nonce2);
-	}
-	while (nonce2 > difficulty3);
+	} while (nonce2 > difficulty3);
 	ASSERT_GT (nonce2, difficulty2);
 }

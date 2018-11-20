@@ -2215,7 +2215,8 @@ public:
 					auto callback_l (callback);
 					node->work.generate (root, [callback_l](boost::optional<uint64_t> const & work_a) {
 						callback_l (work_a.value ());
-					}, difficulty);
+					},
+					difficulty);
 				}
 				else
 				{
@@ -2228,7 +2229,7 @@ public:
 					auto callback_l (callback);
 					std::weak_ptr<rai::node> node_w (node);
 					auto next_backoff (std::min (backoff * 2, (unsigned int)60 * 5));
-					node->alarm.add (now + std::chrono::seconds (backoff), [node_w, root_l, callback_l, next_backoff, difficulty = difficulty] {
+					node->alarm.add (now + std::chrono::seconds (backoff), [ node_w, root_l, callback_l, next_backoff, difficulty = difficulty ] {
 						if (auto node_l = node_w.lock ())
 						{
 							auto work_generation (std::make_shared<distributed_work> (next_backoff, node_l, root_l, callback_l, difficulty));
@@ -2273,7 +2274,8 @@ uint64_t rai::node::work_generate_blocking (rai::uint256_union const & hash_a, u
 	std::promise<uint64_t> promise;
 	work_generate (hash_a, [&promise](uint64_t work_a) {
 		promise.set_value (work_a);
-	}, difficulty_a);
+	},
+	difficulty_a);
 	return promise.get_future ().get ();
 }
 
