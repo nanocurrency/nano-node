@@ -367,7 +367,7 @@ class block_processor;
 class signature_checker
 {
 public:
-	signature_checker (rai::block_processor &);
+	signature_checker (rai::node &);
 	~signature_checker ();
 	void add (std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point);
 	void stop ();
@@ -377,8 +377,8 @@ private:
 	void run ();
 	void verify ();
 	std::deque<std::pair<std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point>> blocks;
-	std::deque<std::pair<std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point>> checking;
-	rai::block_processor & processor;
+	std::deque<std::pair<std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point>> blocks_back;
+	rai::node & node;
 	bool started;
 	bool stopped;
 	std::mutex mutex;
@@ -405,6 +405,7 @@ public:
 	rai::process_return process_receive_one (rai::transaction const &, std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point = std::chrono::steady_clock::now (), bool = false);
 
 private:
+	void add_validated (std::pair<std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point>);
 	void queue_unchecked (rai::transaction const &, rai::block_hash const &);
 	void process_receive_many (std::unique_lock<std::mutex> &);
 	bool stopped;
@@ -416,7 +417,6 @@ private:
 	std::condition_variable condition;
 	rai::node & node;
 	rai::vote_generator generator;
-	rai::signature_checker checker;
 	std::mutex mutex;
 };
 class node : public std::enable_shared_from_this<rai::node>
@@ -482,6 +482,7 @@ public:
 	rai::node_observers observers;
 	rai::wallets wallets;
 	rai::port_mapping port_mapping;
+	rai::signature_checker checker;
 	rai::vote_processor vote_processor;
 	rai::rep_crawler rep_crawler;
 	unsigned warmed_up;

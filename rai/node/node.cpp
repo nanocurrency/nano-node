@@ -1013,8 +1013,8 @@ bool rai::rep_crawler::exists (rai::block_hash const & hash_a)
 	return active.count (hash_a) != 0;
 }
 
-rai::signature_checker::signature_checker (rai::block_processor & processor_a) :
-processor (processor_a),
+rai::signature_checker::signature_checker (rai::node & node_a) :
+node (node_a),
 started (false),
 stopped (false),
 thread ([this]() { run (); })
@@ -1053,7 +1053,7 @@ void rai::signature_checker::stop ()
 void rai::signature_checker::flush ()
 {
 	std::unique_lock<std::mutex> lock (mutex);
-	while (!stopped && (!blocks.empty () || !checking.empty ()))
+	while (!stopped && (!blocks.empty () || !blocks_back.empty ()))
 	{
 		condition.wait (lock);
 	}
@@ -1061,7 +1061,7 @@ void rai::signature_checker::flush ()
 
 void rai::signature_checker::verify ()
 {
-	auto size (checking.size ());
+	auto size (blocks_back.size ());
 	std::vector<rai::uint256_union> hashes;
 	hashes.reserve (size);
 	std::vector<unsigned char const *> messages;
@@ -1076,7 +1076,7 @@ void rai::signature_checker::verify ()
 	verifications.resize (size);
 	for (auto i (0); i < size; ++i)
 	{
-		auto & block (static_cast<rai::state_block &> (*checking[i].first));
+		auto & block (static_cast<rai::state_block &> (*blocks_back[i].first));
 		hashes.push_back (block.hash ());
 		messages.push_back (hashes.back ().bytes.data ());
 		lengths.push_back (sizeof (decltype (hashes)::value_type));
@@ -1087,18 +1087,16 @@ void rai::signature_checker::verify ()
 	 validate_message_batch returing "true" if there are at least 1 invalid signature */
 	auto code (rai::validate_message_batch (messages.data (), lengths.data (), pub_keys.data (), signatures.data (), size, verifications.data ()));
 	(void)code;
-	std::lock_guard<std::mutex> lock (processor.mutex);
 	for (auto i (0); i < size; ++i)
 	{
 		assert (verifications[i] == 1 || verifications[i] == 0);
 		if (verifications[i] == 1)
 		{
-			processor.blocks.push_back (checking.front ());
+			node.block_processor.add_validated (blocks_back.front ());
 		}
-		checking.pop_front ();
+		blocks_back.pop_front ();
 	}
-	processor.condition.notify_all ();
-	assert (checking.empty ());
+	assert (blocks_back.empty ());
 }
 
 void rai::signature_checker::run ()
@@ -1111,7 +1109,7 @@ void rai::signature_checker::run ()
 	{
 		if (!blocks.empty ())
 		{
-			checking.swap (blocks);
+			blocks_back.swap (blocks);
 			lock.unlock ();
 			verify ();
 			lock.lock ();
@@ -1129,8 +1127,7 @@ stopped (false),
 active (false),
 next_log (std::chrono::steady_clock::now ()),
 node (node_a),
-generator (node_a, rai::rai_network == rai::rai_networks::rai_test_network ? std::chrono::milliseconds (10) : std::chrono::milliseconds (500)),
-checker (*this)
+generator (node_a, rai::rai_network == rai::rai_networks::rai_test_network ? std::chrono::milliseconds (10) : std::chrono::milliseconds (500))
 {
 }
 
@@ -1142,7 +1139,6 @@ rai::block_processor::~block_processor ()
 void rai::block_processor::stop ()
 {
 	generator.stop ();
-	checker.stop ();
 	std::lock_guard<std::mutex> lock (mutex);
 	stopped = true;
 	condition.notify_all ();
@@ -1150,7 +1146,7 @@ void rai::block_processor::stop ()
 
 void rai::block_processor::flush ()
 {
-	checker.flush ();
+	node.checker.flush ();
 	std::unique_lock<std::mutex> lock (mutex);
 	while (!stopped && (have_blocks () || active))
 	{
@@ -1173,7 +1169,7 @@ void rai::block_processor::add (std::shared_ptr<rai::block> block_a, std::chrono
 		{
 			if (block_a->type () == rai::block_type::state && !node.ledger.is_epoch_link (block_a->link ()))
 			{
-				checker.add (block_a, origination);
+				node.checker.add (block_a, origination);
 			}
 			else
 			{
@@ -1408,6 +1404,13 @@ rai::process_return rai::block_processor::process_receive_one (rai::transaction 
 	return result;
 }
 
+void rai::block_processor::add_validated (std::pair<std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point> item_a)
+{
+	std::lock_guard <std::mutex> lock (mutex);
+	blocks.push_back (item_a);
+	condition.notify_all ();
+}
+
 void rai::block_processor::queue_unchecked (rai::transaction const & transaction_a, rai::block_hash const & hash_a)
 {
 	auto cached (node.store.unchecked_get (transaction_a, hash_a));
@@ -1442,6 +1445,7 @@ peers (network.endpoint ()),
 application_path (application_path_a),
 wallets (init_a.block_store_init, *this),
 port_mapping (*this),
+checker (*this),
 vote_processor (*this),
 warmed_up (0),
 block_processor (*this),
@@ -1864,6 +1868,7 @@ void rai::node::stop ()
 	bootstrap_initiator.stop ();
 	bootstrap.stop ();
 	port_mapping.stop ();
+	checker.stop ();
 	vote_processor.stop ();
 	wallets.stop ();
 }
