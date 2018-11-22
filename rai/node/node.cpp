@@ -1955,7 +1955,7 @@ void rai::node::ongoing_rep_crawl ()
 void rai::node::ongoing_rep_calculation ()
 {
 	auto now (std::chrono::steady_clock::now ());
-	vote_processor.calculate_weights ()
+	vote_processor.calculate_weights ();
 	std::weak_ptr<rai::node> node_w (shared_from_this ());
 	// Repeat in 10 minutes
 	alarm.add (now + std::chrono::seconds (10 * 60), [node_w]() {
