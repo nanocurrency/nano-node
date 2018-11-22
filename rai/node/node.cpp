@@ -871,19 +871,19 @@ void rai::vote_processor::vote (std::shared_ptr<rai::vote> vote_a, rai::endpoint
 			process = true;
 		}
 		// Level 1
-		else if ((votes.size () < 112 * 1024) && representatves_1.find (vote_a->account) != representatves_1.end ())
+		else if (votes.size () < 112 * 1024)
 		{
-			process = true;
+			process = (representatves_1.find (vote_a->account) != representatves_1.end ());
 		}
 		// Level 2
-		else if ((votes.size () < 128 * 1024) && representatves_2.find (vote_a->account) != representatves_2.end ())
+		else if (votes.size () < 128 * 1024)
 		{
-			process = true;
+			process = (representatves_2.find (vote_a->account) != representatves_2.end ());
 		}
 		// Level 3
-		else if ((votes.size () < 144 * 1024) && representatves_3.find (vote_a->account) != representatves_3.end ())
+		else if (votes.size () < 144 * 1024)
 		{
-			process = true;
+			process = (representatves_3.find (vote_a->account) != representatves_3.end ());
 		}
 		if (process)
 		{
