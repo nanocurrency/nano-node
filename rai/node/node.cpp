@@ -863,7 +863,29 @@ void rai::vote_processor::vote (std::shared_ptr<rai::vote> vote_a, rai::endpoint
 	std::lock_guard<std::mutex> lock (mutex);
 	if (!stopped)
 	{
-		if (votes.size () < 256 * 1024)
+		bool process (false);
+		// Random early delection levels
+		// Level 0
+		if (votes.size () < 96 * 1024)
+		{
+			process = true;
+		}
+		// Level 1
+		else if ((votes.size () < 112 * 1024) && representatves_1.find (vote_a->account) != representatves_1.end ())
+		{
+			process = true;
+		}
+		// Level 2
+		else if ((votes.size () < 128 * 1024) && representatves_2.find (vote_a->account) != representatves_2.end ())
+		{
+			process = true;
+		}
+		// Level 3
+		else if ((votes.size () < 144 * 1024) && representatves_3.find (vote_a->account) != representatves_3.end ())
+		{
+			process = true;
+		}
+		if (process)
 		{
 			votes.push_back (std::make_pair (vote_a, endpoint_a));
 			condition.notify_all ();
@@ -992,6 +1014,36 @@ void rai::vote_processor::flush ()
 	while (active || !votes.empty ())
 	{
 		condition.wait (lock);
+	}
+}
+
+void rai::vote_processor::calculate_weights ()
+{
+	std::unique_lock<std::mutex> lock (mutex);
+	if (!stopped)
+	{
+		representatives_1.clear ();
+		representatives_2.clear ();
+		representatives_3.clear ();
+		auto supply (node.online_reps.online_stake ());
+		auto transaction (node.store.tx_begin_read ());
+		for (auto i (node.store.representation_begin (transaction)), n (node.store.representation_end ()); i != n; ++i)
+		{
+			rai::account representative (i->first);
+			auto weight (node.ledger.weight (transaction, representative));
+			if (weight > supply / 1000) // 0.1% or above (level 1)
+			{
+				representatives_1.insert (representative);
+				if (weight > supply / 100) // 1% or above (level 2)
+				{
+					representatives_2.insert (representative);
+					if (weight > supply / 20) // 5% or above (level 3)
+					{
+						representatives_3.insert (representative);
+					}
+				}
+			}
+		}
 	}
 }
 
@@ -1775,6 +1827,7 @@ void rai::node::start ()
 	ongoing_bootstrap ();
 	ongoing_store_flush ();
 	ongoing_rep_crawl ();
+	ongoing_rep_calculation ();
 	bootstrap.start ();
 	backup_wallet ();
 	search_pending ();
@@ -1897,6 +1950,20 @@ void rai::node::ongoing_rep_crawl ()
 			}
 		});
 	}
+}
+
+void rai::node::ongoing_rep_calculation ()
+{
+	auto now (std::chrono::steady_clock::now ());
+	vote_processor.calculate_weights ()
+	std::weak_ptr<rai::node> node_w (shared_from_this ());
+	// Repeat in 10 minutes
+	alarm.add (now + std::chrono::seconds (10 * 60), [node_w]() {
+		if (auto node_l = node_w.lock ())
+		{
+			node_l->ongoing_rep_calculation ();
+		}
+	});
 }
 
 void rai::node::ongoing_bootstrap ()
