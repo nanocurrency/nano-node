@@ -863,28 +863,37 @@ void rai::vote_processor::vote (std::shared_ptr<rai::vote> vote_a, rai::endpoint
 	std::lock_guard<std::mutex> lock (mutex);
 	if (!stopped)
 	{
-		bool process (rai::rai_network == rai::rai_networks::rai_test_network);
+		bool process (false);
 		/* Random early delection levels
-		Always process votes for test network
-		Level 0 */
-		if (votes.size () < 96 * 1024)
+		Always process votes for test network (process = true)
+		Stop processing with max 144 * 1024 votes */
+		if (rai::rai_network != rai::rai_networks::rai_test_network)
 		{
+			// Level 0 (< 0.1%)
+			if (votes.size () < 96 * 1024)
+			{
+				process = true;
+			}
+			// Level 1 (0.1-1%)
+			else if (votes.size () < 112 * 1024)
+			{
+				process = (representatives_1.find (vote_a->account) != representatives_1.end ());
+			}
+			// Level 2 (1-5%)
+			else if (votes.size () < 128 * 1024)
+			{
+				process = (representatives_2.find (vote_a->account) != representatives_2.end ());
+			}
+			// Level 3 (> 5%)
+			else if (votes.size () < 144 * 1024)
+			{
+				process = (representatives_3.find (vote_a->account) != representatives_3.end ());
+			}
+		}
+		else
+		{
+			// Process for test network
 			process = true;
-		}
-		// Level 1
-		else if (votes.size () < 112 * 1024)
-		{
-			process = (representatives_1.find (vote_a->account) != representatives_1.end ());
-		}
-		// Level 2
-		else if (votes.size () < 128 * 1024)
-		{
-			process = (representatives_2.find (vote_a->account) != representatives_2.end ());
-		}
-		// Level 3
-		else if (votes.size () < 144 * 1024)
-		{
-			process = (representatives_3.find (vote_a->account) != representatives_3.end ());
 		}
 		if (process)
 		{
