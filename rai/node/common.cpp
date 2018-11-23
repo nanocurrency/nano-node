@@ -5,8 +5,6 @@
 #include <rai/node/wallet.hpp>
 
 std::array<uint8_t, 2> constexpr rai::message_header::magic_number;
-size_t constexpr rai::message_header::ipv4_only_position;
-size_t constexpr rai::message_header::bootstrap_server_position;
 std::bitset<16> constexpr rai::message_header::block_type_mask;
 
 rai::message_header::message_header (rai::message_type type_a) :
@@ -72,16 +70,6 @@ void rai::message_header::block_type_set (rai::block_type type_a)
 {
 	extensions &= ~block_type_mask;
 	extensions |= std::bitset<16> (static_cast<unsigned long long> (type_a) << 8);
-}
-
-bool rai::message_header::ipv4_only ()
-{
-	return extensions.test (ipv4_only_position);
-}
-
-void rai::message_header::ipv4_only_set (bool value_a)
-{
-	extensions.set (ipv4_only_position, value_a);
 }
 
 // MTU - IP header - UDP header
@@ -742,11 +730,11 @@ response (response)
 {
 	if (query)
 	{
-		header.extensions.set (query_flag);
+		set_query_flag (true);
 	}
 	if (response)
 	{
-		header.extensions.set (response_flag);
+		set_response_flag (true);
 	}
 }
 
@@ -754,7 +742,7 @@ bool rai::node_id_handshake::deserialize (rai::stream & stream_a)
 {
 	auto result (false);
 	assert (header.type == rai::message_type::node_id_handshake);
-	if (!result && header.extensions.test (query_flag))
+	if (!result && is_query_flag ())
 	{
 		rai::uint256_union query_hash;
 		result = read (stream_a, query_hash);
@@ -763,7 +751,7 @@ bool rai::node_id_handshake::deserialize (rai::stream & stream_a)
 			query = query_hash;
 		}
 	}
-	if (!result && header.extensions.test (response_flag))
+	if (!result && is_response_flag ())
 	{
 		rai::account response_account;
 		result = read (stream_a, response_account);
@@ -798,6 +786,26 @@ bool rai::node_id_handshake::operator== (rai::node_id_handshake const & other_a)
 {
 	auto result (*query == *other_a.query && *response == *other_a.response);
 	return result;
+}
+
+bool rai::node_id_handshake::is_query_flag () const
+{
+	return header.extensions.test (query_flag);
+}
+
+void rai::node_id_handshake::set_query_flag (bool value_a)
+{
+	header.extensions.set (query_flag, value_a);
+}
+
+bool rai::node_id_handshake::is_response_flag () const
+{
+	return header.extensions.test (response_flag);
+}
+
+void rai::node_id_handshake::set_response_flag (bool value_a)
+{
+	header.extensions.set (response_flag, value_a);
 }
 
 void rai::node_id_handshake::visit (rai::message_visitor & visitor_a) const

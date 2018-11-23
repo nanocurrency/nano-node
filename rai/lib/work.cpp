@@ -5,14 +5,19 @@
 
 #include <future>
 
-bool rai::work_validate (rai::block_hash const & root_a, uint64_t work_a)
+bool rai::work_validate (rai::block_hash const & root_a, uint64_t work_a, uint64_t * difficulty_a)
 {
-	return rai::work_value (root_a, work_a) < rai::work_pool::publish_threshold;
+	auto value (rai::work_value (root_a, work_a));
+	if (difficulty_a != nullptr)
+	{
+		*difficulty_a = value;
+	}
+	return value < rai::work_pool::publish_threshold;
 }
 
-bool rai::work_validate (rai::block const & block_a)
+bool rai::work_validate (rai::block const & block_a, uint64_t * difficulty_a)
 {
-	return work_validate (block_a.root (), block_a.block_work ());
+	return work_validate (block_a.root (), block_a.block_work (), difficulty_a);
 }
 
 uint64_t rai::work_value (rai::block_hash const & root_a, uint64_t work_a)
@@ -80,17 +85,17 @@ void rai::work_pool::loop (uint64_t thread)
 			lock.unlock ();
 			output = 0;
 			// ticket != ticket_l indicates a different thread found a solution and we should stop
-			while (ticket == ticket_l && output < rai::work_pool::publish_threshold)
+			while (ticket == ticket_l && output < current_l.difficulty)
 			{
 				// Don't query main memory every iteration in order to reduce memory bus traffic
 				// All operations here operate on stack memory
 				// Count iterations down to zero since comparing to zero is easier than comparing to another number
 				unsigned iteration (256);
-				while (iteration && output < rai::work_pool::publish_threshold)
+				while (iteration && output < current_l.difficulty)
 				{
 					work = rng.next ();
 					blake2b_update (&hash, reinterpret_cast<uint8_t *> (&work), sizeof (work));
-					blake2b_update (&hash, current_l.first.bytes.data (), current_l.first.bytes.size ());
+					blake2b_update (&hash, current_l.item.bytes.data (), current_l.item.bytes.size ());
 					blake2b_final (&hash, reinterpret_cast<uint8_t *> (&output), sizeof (output));
 					blake2b_init (&hash, sizeof (output));
 					iteration -= 1;
@@ -101,12 +106,12 @@ void rai::work_pool::loop (uint64_t thread)
 			{
 				// If the ticket matches what we started with, we're the ones that found the solution
 				assert (output >= rai::work_pool::publish_threshold);
-				assert (work_value (current_l.first, work) == output);
+				assert (work_value (current_l.item, work) == output);
 				// Signal other threads to stop their work next time they check ticket
 				++ticket;
 				pending.pop_front ();
 				lock.unlock ();
-				current_l.second (work);
+				current_l.callback (work);
 				lock.lock ();
 			}
 			else
@@ -127,16 +132,16 @@ void rai::work_pool::cancel (rai::uint256_union const & root_a)
 	std::lock_guard<std::mutex> lock (mutex);
 	if (!pending.empty ())
 	{
-		if (pending.front ().first == root_a)
+		if (pending.front ().item == root_a)
 		{
 			++ticket;
 		}
 	}
 	pending.remove_if ([&root_a](decltype (pending)::value_type const & item_a) {
 		bool result;
-		if (item_a.first == root_a)
+		if (item_a.item == root_a)
 		{
-			item_a.second (boost::none);
+			item_a.callback (boost::none);
 			result = true;
 		}
 		else
@@ -154,7 +159,7 @@ void rai::work_pool::stop ()
 	producer_condition.notify_all ();
 }
 
-void rai::work_pool::generate (rai::uint256_union const & root_a, std::function<void(boost::optional<uint64_t> const &)> callback_a)
+void rai::work_pool::generate (rai::uint256_union const & root_a, std::function<void(boost::optional<uint64_t> const &)> callback_a, uint64_t difficulty_a)
 {
 	assert (!root_a.is_zero ());
 	boost::optional<uint64_t> result;
@@ -165,7 +170,7 @@ void rai::work_pool::generate (rai::uint256_union const & root_a, std::function<
 	if (!result)
 	{
 		std::lock_guard<std::mutex> lock (mutex);
-		pending.push_back (std::make_pair (root_a, callback_a));
+		pending.push_back ({ root_a, callback_a, difficulty_a });
 		producer_condition.notify_all ();
 	}
 	else
@@ -174,12 +179,13 @@ void rai::work_pool::generate (rai::uint256_union const & root_a, std::function<
 	}
 }
 
-uint64_t rai::work_pool::generate (rai::uint256_union const & hash_a)
+uint64_t rai::work_pool::generate (rai::uint256_union const & hash_a, uint64_t difficulty_a)
 {
 	std::promise<boost::optional<uint64_t>> work;
 	generate (hash_a, [&work](boost::optional<uint64_t> work_a) {
 		work.set_value (work_a);
-	});
+	},
+	difficulty_a);
 	auto result (work.get_future ().get ());
 	return result.value ();
 }

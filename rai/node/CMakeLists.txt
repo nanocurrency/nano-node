@@ -22,6 +22,7 @@ add_library (node
 	cli.hpp
 	cli.cpp
 	common.cpp
+	common.hpp
 	lmdb.cpp
 	lmdb.hpp
 	logging.cpp
@@ -55,6 +56,7 @@ target_link_libraries (node
 	libminiupnpc-static
 	argon2
 	lmdb
+	${OPENSSL_LIBRARIES}
 	Boost::filesystem
 	Boost::log
 	Boost::log_setup
