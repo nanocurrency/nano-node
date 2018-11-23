@@ -609,7 +609,16 @@ public:
 
 void rai::network::receive_action (rai::udp_data * data_a)
 {
-	if (!rai::reserved_address (data_a->endpoint, false) && data_a->endpoint != endpoint ())
+	auto allowed_sender (true);
+	if (data_a->endpoint == endpoint ())
+	{
+		allowed_sender = false;
+	}
+	else if (rai::reserved_address (data_a->endpoint, false) && !node.config.allow_local_peers)
+	{
+		allowed_sender = false;
+	}
+	if (allowed_sender)
 	{
 		network_message_visitor visitor (node, data_a->endpoint);
 		rai::message_parser parser (node.block_uniquer, node.vote_uniquer, visitor, node.work);
