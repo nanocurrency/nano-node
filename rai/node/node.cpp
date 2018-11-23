@@ -3173,7 +3173,7 @@ void rai::active_transactions::announce_loop ()
 	{
 		announce_votes (lock);
 		unsigned extra_delay ((rai::rai_network == rai::rai_networks::rai_test_network) ? 0 : roots.size () * node.network.broadcast_interval_ms * 3 / 2);
-		condition.wait_for (lock, std::chrono::milliseconds (announce_interval_ms + extra_delay);
+		condition.wait_for (lock, std::chrono::milliseconds (announce_interval_ms + extra_delay));
 	}
 }
 
