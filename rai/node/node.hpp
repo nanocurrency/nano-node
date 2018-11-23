@@ -340,12 +340,17 @@ public:
 	rai::vote_code vote_blocking (rai::transaction const &, std::shared_ptr<rai::vote>, rai::endpoint, bool = false);
 	void verify_votes (std::deque<std::pair<std::shared_ptr<rai::vote>, rai::endpoint>> &);
 	void flush ();
+	void calculate_weights ();
 	rai::node & node;
 	void stop ();
 
 private:
 	void process_loop ();
 	std::deque<std::pair<std::shared_ptr<rai::vote>, rai::endpoint>> votes;
+	// Representatives levels for random early detection
+	std::unordered_set<rai::account> representatives_1;
+	std::unordered_set<rai::account> representatives_2;
+	std::unordered_set<rai::account> representatives_3;
 	std::condition_variable condition;
 	std::mutex mutex;
 	bool started;
@@ -428,6 +433,7 @@ public:
 	void ongoing_keepalive ();
 	void ongoing_syn_cookie_cleanup ();
 	void ongoing_rep_crawl ();
+	void ongoing_rep_calculation ();
 	void ongoing_bootstrap ();
 	void ongoing_store_flush ();
 	void backup_wallet ();
