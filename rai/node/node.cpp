@@ -863,9 +863,10 @@ void rai::vote_processor::vote (std::shared_ptr<rai::vote> vote_a, rai::endpoint
 	std::lock_guard<std::mutex> lock (mutex);
 	if (!stopped)
 	{
-		bool process (false);
-		// Random early delection levels
-		// Level 0
+		bool process (rai::rai_network == rai::rai_networks::rai_test_network);
+		/* Random early delection levels
+		Always process votes for test network
+		Level 0 */
 		if (votes.size () < 96 * 1024)
 		{
 			process = true;
