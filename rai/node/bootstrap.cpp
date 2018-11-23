@@ -2298,6 +2298,7 @@ rai::frontier_req_server::frontier_req_server (std::shared_ptr<rai::bootstrap_se
 connection (connection_a),
 current (request_a->start.number () - 1),
 frontier (0),
+count (0),
 request (std::move (request_a)),
 send_buffer (std::make_shared<std::vector<uint8_t>> ())
 {
@@ -2306,7 +2307,7 @@ send_buffer (std::make_shared<std::vector<uint8_t>> ())
 
 void rai::frontier_req_server::send_next ()
 {
-	if (!current.is_zero ())
+	if (!current.is_zero () && count <= request->count)
 	{
 		{
 			send_buffer->clear ();
@@ -2368,6 +2369,7 @@ void rai::frontier_req_server::sent_action (boost::system::error_code const & ec
 {
 	if (!ec)
 	{
+		count++;
 		send_next ();
 	}
 	else
