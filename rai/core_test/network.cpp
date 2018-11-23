@@ -755,14 +755,14 @@ TEST (frontier_req, end)
 TEST (frontier_req, count)
 {
 	rai::system system (24000, 1);
-	auto & node1 (*system0.nodes[0]);
+	auto & node1 (*system.nodes[0]);
 	rai::genesis genesis;
 	// Public key FB93... after genesis in accounts table
 	rai::keypair key1 ("ED5AE0A6505B14B67435C29FD9FEEBC26F597D147BC92F6D795FFAD7AFD3D967");
-	auto send1 (std::make_shared<rai::state_block> (rai::test_genesis_key.pub, genesis.hash (), rai::test_genesis_key.pub, rai::genesis_amount - rai::Gxrb_ratio, key1.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
-	node1.work_generate_blocking (*send1);
+	rai::state_block send1 (rai::test_genesis_key.pub, genesis.hash (), rai::test_genesis_key.pub, rai::genesis_amount - rai::Gxrb_ratio, key1.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
+	node1.work_generate_blocking (send1);
 	ASSERT_EQ (rai::process_result::progress, node1.process (send1).code);
-	auto receive1 (std::make_shared<rai::state_block> (key1.pub, 0, rai::test_genesis_key.pub, rai::Gxrb_ratio, send1->hash (), key1.prv, key1.pub, 0));
+	rai::state_block receive1 (key1.pub, 0, rai::test_genesis_key.pub, rai::Gxrb_ratio, send1.hash (), key1.prv, key1.pub, 0);
 	node1.work_generate_blocking (receive1);
 	ASSERT_EQ (rai::process_result::progress, node1.process (receive1).code);
 	auto connection (std::make_shared<rai::bootstrap_server> (nullptr, system.nodes[0]));
@@ -773,7 +773,7 @@ TEST (frontier_req, count)
 	connection->requests.push (std::unique_ptr<rai::message>{});
 	auto request (std::make_shared<rai::frontier_req_server> (connection, std::move (req)));
 	ASSERT_EQ (rai::test_genesis_key.pub, request->current);
-	ASSERT_EQ (send1->hash (), request->frontier);
+	ASSERT_EQ (send1.hash (), request->frontier);
 }
 
 TEST (frontier_req, time_bound)
