@@ -540,12 +540,39 @@ public:
 		// Don't load nodes with disabled voting
 		if (node.config.enable_voting)
 		{
-			auto transaction (node.store.tx_begin_read ());
-			auto successor (node.ledger.successor (transaction, message_a.block->root ()));
-			if (successor != nullptr)
+			std::lock_guard<std::mutex> active_lock (node.active.mutex);
+			auto active_it (node.active.roots.get<0> ().find (message_a.block->root ()));
+			if (active_it != node.active.roots.get<0> ().end ())
 			{
-				auto same_block (successor->hash () == message_a.block->hash ());
-				confirm_block (transaction, node, sender, std::move (successor), !same_block);
+				// Replay votes in response to a confirm_req for an active block
+				for (auto & it : active_it->election->our_last_votes)
+				{
+					rai::confirm_ack confirm (it.second);
+					std::shared_ptr<std::vector<uint8_t>> vote_bytes (new std::vector<uint8_t>);
+					{
+						rai::vectorstream stream (*vote_bytes);
+						confirm.serialize (stream);
+					}
+					node.network.confirm_send (confirm, vote_bytes, sender);
+				}
+				rai::publish publish (active_it->election->status.winner);
+				std::shared_ptr<std::vector<uint8_t>> publish_bytes (new std::vector<uint8_t>);
+				{
+					rai::vectorstream stream (*publish_bytes);
+					publish.serialize (stream);
+				}
+				node.network.republish (publish.block->hash (), publish_bytes, sender);
+			}
+			else
+			{
+				// Generating new vote
+				auto transaction (node.store.tx_begin_read ());
+				auto successor (node.ledger.successor (transaction, message_a.block->root ()));
+				if (successor != nullptr)
+				{
+					auto same_block (successor->hash () == message_a.block->hash ());
+					confirm_block (transaction, node, sender, std::move (successor), !same_block);
+				}
 			}
 		}
 	}
@@ -2717,6 +2744,7 @@ void rai::election::compute_rep_votes (rai::transaction const & transaction_a)
 	{
 		node.wallets.foreach_representative (transaction_a, [this, &transaction_a](rai::public_key const & pub_a, rai::raw_key const & prv_a) {
 			auto vote (this->node.store.vote_generate (transaction_a, pub_a, prv_a, status.winner));
+			this->our_last_votes[pub_a] = vote;
 			this->node.vote_processor.vote (vote, this->node.network.endpoint ());
 		});
 	}
