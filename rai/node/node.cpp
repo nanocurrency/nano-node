@@ -3047,6 +3047,12 @@ void rai::active_transactions::announce_votes (std::unique_lock<std::mutex> & lo
 							}
 						}
 					}
+					/* Regenerate votes for long unconfirmed blocks
+					Useful for tests & large representatives */
+					if (node.config.enable_voting && election_l->our_last_votes.empty ())
+					{
+						node.block_processor.generator.add (election_l->status.winner->hash ());
+					}
 				}
 			}
 			if (i->election->announcements < announcement_long || i->election->announcements % announcement_long == 1)
