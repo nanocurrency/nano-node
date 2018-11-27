@@ -540,7 +540,7 @@ public:
 		// Don't load nodes with disabled voting
 		if (node.config.enable_voting)
 		{
-			std::lock_guard<std::mutex> active_lock (node.active.mutex);
+			std::unique_lock<std::mutex> active_lock (node.active.mutex);
 			auto active_it (node.active.roots.get<0> ().find (message_a.block->root ()));
 			if (active_it != node.active.roots.get<0> ().end ())
 			{
@@ -556,6 +556,7 @@ public:
 					node.network.confirm_send (confirm, vote_bytes, sender);
 				}
 				rai::publish publish (active_it->election->status.winner);
+				active_lock.unlock ();
 				std::shared_ptr<std::vector<uint8_t>> publish_bytes (new std::vector<uint8_t>);
 				{
 					rai::vectorstream stream (*publish_bytes);
@@ -565,6 +566,7 @@ public:
 			}
 			else
 			{
+				active_lock.unlock ();
 				// Generating new vote
 				auto transaction (node.store.tx_begin_read ());
 				auto successor (node.ledger.successor (transaction, message_a.block->root ()));
