@@ -55,7 +55,7 @@ void rai::vote_generator::send (std::unique_lock<std::mutex> & lock_a)
 				auto existing (this->node.active.successors.find (hash));
 				if (existing != this->node.active.successors.end ())
 				{
-					existing->second->our_last_votes[pub_a] = vote;;
+					existing->second->our_last_votes[pub_a] = vote;
 				}
 			}
 			lock.unlock ();
