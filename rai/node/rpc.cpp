@@ -1751,7 +1751,7 @@ void rai::rpc_handler::account_history ()
 	{
 		if (!hash.decode_hex (*head_str))
 		{
-			if (node.store.block_get (transaction, hash))
+			if (node.store.block_exists (transaction, hash))
 			{
 				account = node.ledger.account (transaction, hash);
 			}
