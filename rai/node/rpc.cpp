@@ -2806,6 +2806,11 @@ void rai::rpc_handler::send ()
 	rpc_control_impl ();
 	auto wallet (wallet_impl ());
 	auto amount (amount_impl ());
+	// Sending 0 amount is invalid with state blocks
+	if (!ec && amount.is_zero ())
+	{
+		ec = nano::error_common::invalid_amount;
+	}
 	if (!ec)
 	{
 		std::string source_text (request.get<std::string> ("source"));

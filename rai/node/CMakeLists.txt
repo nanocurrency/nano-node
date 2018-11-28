@@ -55,6 +55,7 @@ target_link_libraries (node
 	libminiupnpc-static
 	argon2
 	lmdb
+	${OPENSSL_LIBRARIES}
 	Boost::filesystem
 	Boost::log
 	Boost::log_setup
