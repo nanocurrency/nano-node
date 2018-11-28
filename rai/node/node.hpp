@@ -398,8 +398,6 @@ private:
 // This class isolates block insertion from other operations like servicing network operations
 class block_processor
 {
-	friend class rai::signature_checker;
-
 public:
 	block_processor (rai::node &);
 	~block_processor ();
@@ -414,7 +412,6 @@ public:
 	rai::process_return process_receive_one (rai::transaction const &, std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point = std::chrono::steady_clock::now (), bool = false);
 
 private:
-	void add_validated (std::pair<std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point>);
 	void queue_unchecked (rai::transaction const &, rai::block_hash const &);
 	void verify_state_blocks (std::unique_lock<std::mutex> &);
 	void process_receive_many (std::unique_lock<std::mutex> &);

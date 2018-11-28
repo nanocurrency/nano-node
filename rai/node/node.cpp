@@ -1421,13 +1421,6 @@ rai::process_return rai::block_processor::process_receive_one (rai::transaction 
 	return result;
 }
 
-void rai::block_processor::add_validated (std::pair<std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point> item_a)
-{
-	std::lock_guard<std::mutex> lock (mutex);
-	blocks.push_back (item_a);
-	condition.notify_all ();
-}
-
 void rai::block_processor::queue_unchecked (rai::transaction const & transaction_a, rai::block_hash const & hash_a)
 {
 	auto cached (node.store.unchecked_get (transaction_a, hash_a));
