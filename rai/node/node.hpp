@@ -364,21 +364,30 @@ public:
 	std::unordered_set<rai::block_hash> active;
 };
 class block_processor;
+class signature_check_set
+{
+public:
+	size_t size;
+	unsigned char const ** messages;
+	size_t * message_lengths;
+	unsigned char const ** pub_keys;
+	unsigned char const ** signatures;
+	int * verifications;
+	std::promise<void> * promise;
+};
 class signature_checker
 {
 public:
-	signature_checker (rai::node &);
+	signature_checker ();
 	~signature_checker ();
-	void add (std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point);
+	void add (signature_check_set &);
 	void stop ();
 	void flush ();
 
 private:
 	void run ();
-	void verify ();
-	std::deque<std::pair<std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point>> blocks;
-	std::deque<std::pair<std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point>> blocks_back;
-	rai::node & node;
+	void verify (rai::signature_check_set & check_a);
+	std::deque<rai::signature_check_set> checks;
 	bool started;
 	bool stopped;
 	std::mutex mutex;
@@ -407,10 +416,12 @@ public:
 private:
 	void add_validated (std::pair<std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point>);
 	void queue_unchecked (rai::transaction const &, rai::block_hash const &);
+	void verify_state_blocks (std::unique_lock<std::mutex> &);
 	void process_receive_many (std::unique_lock<std::mutex> &);
 	bool stopped;
 	bool active;
 	std::chrono::steady_clock::time_point next_log;
+	std::deque<std::pair<std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point>> state_blocks;
 	std::deque<std::pair<std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point>> blocks;
 	std::unordered_set<rai::block_hash> blocks_hashes;
 	std::deque<std::shared_ptr<rai::block>> forced;
