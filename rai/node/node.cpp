@@ -1703,7 +1703,19 @@ void rai::gap_cache::vote (std::shared_ptr<rai::vote> vote_a)
 				{
 					tally += node.ledger.weight (transaction, voter);
 				}
-				if (tally > bootstrap_threshold (transaction))
+				bool start_bootstrap (false);
+				if (!node.config.disable_lazy_bootstrap)
+				{
+					if (tally >= config.online_weight_minimum.number ())
+					{
+						start_bootstrap = true;
+					}
+				}
+				else if (tally > bootstrap_threshold (transaction))
+				{
+					start_bootstrap = true;
+				}
+				if (start_bootstrap)
 				{
 					auto node_l (node.shared ());
 					auto now (std::chrono::steady_clock::now ());
