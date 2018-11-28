@@ -900,8 +900,8 @@ void rai::vote_processor::verify_votes (std::deque<std::pair<std::shared_ptr<rai
 		pub_keys.push_back (vote.first->account.bytes.data ());
 		signatures.push_back (vote.first->signature.bytes.data ());
 	}
-	std::promise <void> promise;
-	rai::signature_check_set check = { size, messages.data (), lengths.data (), pub_keys.data (), signatures.data (), verifications.data (), &promise};
+	std::promise<void> promise;
+	rai::signature_check_set check = { size, messages.data (), lengths.data (), pub_keys.data (), signatures.data (), verifications.data (), &promise };
 	node.checker.add (check);
 	promise.get_future ().wait ();
 	std::remove_reference_t<decltype (votes_a)> result;
@@ -1065,7 +1065,7 @@ void rai::signature_checker::verify (rai::signature_check_set & check_a)
 	 validate_message_batch returing "true" if there are at least 1 invalid signature */
 	auto code (rai::validate_message_batch (check_a.messages, check_a.message_lengths, check_a.pub_keys, check_a.signatures, check_a.size, check_a.verifications));
 	(void)code;
-	release_assert (std::all_of(check_a.verifications, check_a.verifications + check_a.size, [] (int verification) { return verification == 0 || verification == 1; }));
+	release_assert (std::all_of (check_a.verifications, check_a.verifications + check_a.size, [](int verification) { return verification == 0 || verification == 1; }));
 	check_a.promise->set_value ();
 }
 
@@ -1230,8 +1230,8 @@ void rai::block_processor::verify_state_blocks (std::unique_lock<std::mutex> & l
 		pub_keys.push_back (block.hashables.account.bytes.data ());
 		signatures.push_back (block.signature.bytes.data ());
 	}
-	std::promise <void> promise;
-	rai::signature_check_set check = {size, messages.data (), lengths.data (), pub_keys.data (), signatures.data (), verifications.data (), &promise};
+	std::promise<void> promise;
+	rai::signature_check_set check = { size, messages.data (), lengths.data (), pub_keys.data (), signatures.data (), verifications.data (), &promise };
 	node.checker.add (check);
 	promise.get_future ().wait ();
 	lock_a.lock ();
@@ -1423,7 +1423,7 @@ rai::process_return rai::block_processor::process_receive_one (rai::transaction 
 
 void rai::block_processor::add_validated (std::pair<std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point> item_a)
 {
-	std::lock_guard <std::mutex> lock (mutex);
+	std::lock_guard<std::mutex> lock (mutex);
 	blocks.push_back (item_a);
 	condition.notify_all ();
 }
