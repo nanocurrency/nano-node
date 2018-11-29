@@ -41,6 +41,7 @@ namespace thread_role
 		wallet_actions,
 		bootstrap_initiator,
 		voting,
+		signature_checking,
 	};
 	rai::thread_role::name get (void);
 	void set (rai::thread_role::name);
