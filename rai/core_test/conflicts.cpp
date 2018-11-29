@@ -8,9 +8,9 @@ TEST (conflicts, start_stop)
 	rai::genesis genesis;
 	rai::keypair key1;
 	auto send1 (std::make_shared<rai::send_block> (genesis.hash (), key1.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
+	node1.work_generate_blocking (*send1);
 	ASSERT_EQ (rai::process_result::progress, node1.process (*send1).code);
 	ASSERT_EQ (0, node1.active.roots.size ());
-	auto node_l (system.nodes[0]);
 	node1.active.start (send1);
 	ASSERT_EQ (1, node1.active.roots.size ());
 	auto root1 (send1->root ());
@@ -28,8 +28,8 @@ TEST (conflicts, add_existing)
 	rai::genesis genesis;
 	rai::keypair key1;
 	auto send1 (std::make_shared<rai::send_block> (genesis.hash (), key1.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
+	node1.work_generate_blocking (*send1);
 	ASSERT_EQ (rai::process_result::progress, node1.process (*send1).code);
-	auto node_l (system.nodes[0]);
 	node1.active.start (send1);
 	rai::keypair key2;
 	auto send2 (std::make_shared<rai::send_block> (genesis.hash (), key2.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
@@ -51,11 +51,12 @@ TEST (conflicts, add_two)
 	rai::genesis genesis;
 	rai::keypair key1;
 	auto send1 (std::make_shared<rai::send_block> (genesis.hash (), key1.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
+	node1.work_generate_blocking (*send1);
 	ASSERT_EQ (rai::process_result::progress, node1.process (*send1).code);
-	auto node_l (system.nodes[0]);
 	node1.active.start (send1);
 	rai::keypair key2;
 	auto send2 (std::make_shared<rai::send_block> (send1->hash (), key2.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
+	node1.work_generate_blocking (*send2);
 	ASSERT_EQ (rai::process_result::progress, node1.process (*send2).code);
 	node1.active.start (send2);
 	ASSERT_EQ (2, node1.active.roots.size ());
