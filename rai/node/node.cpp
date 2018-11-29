@@ -1420,6 +1420,7 @@ rai::process_return rai::block_processor::process_receive_one (rai::transaction 
 				BOOST_LOG (node.log) << boost::str (boost::format ("Old for: %1%") % block_a->hash ().to_string ());
 			}
 			queue_unchecked (transaction_a, hash);
+			node.active.update_difficulty (*block_a);
 			break;
 		}
 		case rai::process_result::bad_signature:
@@ -1925,10 +1926,8 @@ void rai::network::confirm_send (rai::confirm_ack const & confirm_a, std::shared
 
 void rai::node::process_active (std::shared_ptr<rai::block> incoming)
 {
-	if (!block_arrival.add (incoming->hash ()))
-	{
-		block_processor.add (incoming, std::chrono::steady_clock::now ());
-	}
+	block_arrival.add (incoming->hash ());
+	block_processor.add (incoming, std::chrono::steady_clock::now ());
 }
 
 rai::process_return rai::node::process (rai::block const & block_a)
@@ -3119,7 +3118,7 @@ void rai::active_transactions::announce_votes (std::unique_lock<std::mutex> & lo
 	std::deque<std::pair<std::shared_ptr<rai::block>, std::shared_ptr<std::vector<rai::peer_information>>>> confirm_req_bundle;
 
 	auto roots_size (roots.size ());
-	for (auto i (roots.begin ()), n (roots.end ()); i != n; ++i)
+	for (auto i (roots.get<1> ().begin ()), n (roots.get<1> ().end ()); i != n; ++i)
 	{
 		lock_a.unlock ();
 		auto election_l (i->election);
@@ -3310,7 +3309,10 @@ bool rai::active_transactions::add (std::shared_ptr<rai::block> block_a, std::fu
 		if (existing == roots.end ())
 		{
 			auto election (std::make_shared<rai::election> (node, block_a, confirmation_action_a));
-			roots.insert (rai::conflict_info{ root, election });
+			uint64_t difficulty (0);
+			auto error (rai::work_validate (*block_a, &difficulty));
+			release_assert (!error);
+			roots.insert (rai::conflict_info{ root, difficulty, election });
 			blocks.insert (std::make_pair (block_a->hash (), election));
 		}
 		error = existing != roots.end ();
@@ -3366,6 +3368,21 @@ bool rai::active_transactions::active (rai::block const & block_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	return roots.find (block_a.root ()) != roots.end ();
+}
+
+void rai::active_transactions::update_difficulty (rai::block const & block_a)
+{
+	std::lock_guard<std::mutex> lock (mutex);
+	auto existing (roots.find (block_a.root ()));
+	if (existing != roots.end ())
+	{
+		uint64_t difficulty;
+		auto error (rai::work_validate (block_a, &difficulty));
+		assert (!error);
+		roots.modify (existing, [difficulty](rai::conflict_info & info_a) {
+			info_a.difficulty = difficulty;
+		});
+	}
 }
 
 // List of active blocks in elections
