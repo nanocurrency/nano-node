@@ -105,7 +105,7 @@ public:
 	bool lazy_mode;
 	std::mutex mutex;
 	std::condition_variable condition;
-// Lazy bootstrap
+	// Lazy bootstrap
 	std::unordered_set<rai::block_hash> lazy_blocks;
 	std::unordered_map<rai::block_hash, std::shared_ptr<rai::state_block>> lazy_state_unknown;
 	std::unordered_set<rai::block_hash> lazy_keys;
