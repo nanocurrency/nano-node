@@ -1706,7 +1706,7 @@ void rai::gap_cache::vote (std::shared_ptr<rai::vote> vote_a)
 				bool start_bootstrap (false);
 				if (!node.config.disable_lazy_bootstrap)
 				{
-					if (tally >= config.online_weight_minimum.number ())
+					if (tally >= node.config.online_weight_minimum.number ())
 					{
 						start_bootstrap = true;
 					}
