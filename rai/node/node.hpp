@@ -78,6 +78,7 @@ class conflict_info
 {
 public:
 	rai::block_hash root;
+	uint64_t difficulty;
 	std::shared_ptr<rai::election> election;
 };
 // Core class for determining consensus
@@ -95,6 +96,7 @@ public:
 	bool vote (std::shared_ptr<rai::vote>, bool = false);
 	// Is the root of this block in the roots container
 	bool active (rai::block const &);
+	void update_difficulty (rai::block const &);
 	std::deque<std::shared_ptr<rai::block>> list_blocks (bool = false);
 	void erase (rai::block const &);
 	void stop ();
@@ -102,7 +104,11 @@ public:
 	boost::multi_index_container<
 	rai::conflict_info,
 	boost::multi_index::indexed_by<
-	boost::multi_index::hashed_unique<boost::multi_index::member<rai::conflict_info, rai::block_hash, &rai::conflict_info::root>>>>
+	boost::multi_index::hashed_unique<
+	boost::multi_index::member<rai::conflict_info, rai::block_hash, &rai::conflict_info::root>>,
+	boost::multi_index::ordered_non_unique<
+	boost::multi_index::member<rai::conflict_info, uint64_t, &rai::conflict_info::difficulty>,
+	std::greater<uint64_t>>>>
 	roots;
 	std::unordered_map<rai::block_hash, std::shared_ptr<rai::election>> successors;
 	std::deque<rai::election_status> confirmed;
