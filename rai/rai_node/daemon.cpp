@@ -94,7 +94,7 @@ bool rai_daemon::daemon_config::upgrade_json (unsigned version_a, boost::propert
 	return result;
 }
 
-void rai_daemon::daemon::run (boost::filesystem::path const & data_path)
+void rai_daemon::daemon::run (boost::filesystem::path const & data_path, bool disable_lazy_bootstrap)
 {
 	boost::system::error_code error_chmod;
 	boost::filesystem::create_directories (data_path);
@@ -128,6 +128,7 @@ void rai_daemon::daemon::run (boost::filesystem::path const & data_path)
 				{
 					rpc->start ();
 				}
+				config.node.disable_lazy_bootstrap = disable_lazy_bootstrap;
 				runner = std::make_unique<rai::thread_runner> (service, node->config.io_threads);
 				runner->join ();
 			}

@@ -1855,7 +1855,19 @@ void rai::gap_cache::vote (std::shared_ptr<rai::vote> vote_a)
 				{
 					tally += node.ledger.weight (transaction, voter);
 				}
-				if (tally > bootstrap_threshold (transaction))
+				bool start_bootstrap (false);
+				if (!node.config.disable_lazy_bootstrap)
+				{
+					if (tally >= node.config.online_weight_minimum.number ())
+					{
+						start_bootstrap = true;
+					}
+				}
+				else if (tally > bootstrap_threshold (transaction))
+				{
+					start_bootstrap = true;
+				}
+				if (start_bootstrap)
 				{
 					auto node_l (node.shared ());
 					auto now (std::chrono::steady_clock::now ());
@@ -1865,9 +1877,16 @@ void rai::gap_cache::vote (std::shared_ptr<rai::vote> vote_a)
 						{
 							if (!node_l->bootstrap_initiator.in_progress ())
 							{
-								BOOST_LOG (node_l->log) << boost::str (boost::format ("Missing block %1% which has enough votes to warrant bootstrapping it") % hash.to_string ());
+								BOOST_LOG (node_l->log) << boost::str (boost::format ("Missing block %1% which has enough votes to warrant lazy bootstrapping it") % hash.to_string ());
 							}
-							node_l->bootstrap_initiator.bootstrap ();
+							if (!node_l->config.disable_lazy_bootstrap)
+							{
+								node_l->bootstrap_initiator.bootstrap_lazy (hash);
+							}
+							else
+							{
+								node_l->bootstrap_initiator.bootstrap ();
+							}
 						}
 					});
 				}

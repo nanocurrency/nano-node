@@ -6,7 +6,7 @@ namespace rai_daemon
 class daemon
 {
 public:
-	void run (boost::filesystem::path const &);
+	void run (boost::filesystem::path const &, bool = false);
 };
 class daemon_config
 {
