@@ -19,12 +19,17 @@ TEST (signature_checker, many)
 	rai::signature_checker checker;
 	std::promise<void> promise;
 	std::vector<rai::uint256_union> hashes;
-	std::vector<unsigned char const *> messages;
-	std::vector<size_t> lengths;
-	std::vector<unsigned char const *> pub_keys;
-	std::vector<unsigned char const *> signatures;
-	std::vector<int> verifications;
 	size_t size (1000);
+	hashes.reserve (size);
+	std::vector<unsigned char const *> messages;
+	messages.reserve (size);
+	std::vector<size_t> lengths;
+	lengths.reserve (size);
+	std::vector<unsigned char const *> pub_keys;
+	pub_keys.reserve (size);
+	std::vector<unsigned char const *> signatures;
+	signatures.reserve (size);
+	std::vector<int> verifications;
 	verifications.resize (size);
 	for (auto i (0); i < size; ++i)
 	{
