@@ -1795,7 +1795,14 @@ void rai::rpc_handler::account_history ()
 	{
 		if (!hash.decode_hex (*head_str))
 		{
-			account = node.ledger.account (transaction, hash);
+			if (node.store.block_exists (transaction, hash))
+			{
+				account = node.ledger.account (transaction, hash);
+			}
+			else
+			{
+				ec = nano::error_blocks::not_found;
+			}
 		}
 		else
 		{

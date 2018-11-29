@@ -798,6 +798,7 @@ rai::account rai::ledger::account (rai::transaction const & transaction_a, rai::
 	rai::block_hash successor (1);
 	rai::block_info block_info;
 	auto block (store.block_get (transaction_a, hash));
+	assert (block);
 	while (!successor.is_zero () && block->type () != rai::block_type::state && store.block_info_get (transaction_a, successor, block_info))
 	{
 		successor = store.block_successor (transaction_a, hash);
