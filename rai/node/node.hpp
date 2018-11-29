@@ -65,6 +65,7 @@ public:
 	void stop ();
 	rai::node & node;
 	std::unordered_map<rai::account, rai::vote_info> last_votes;
+	std::unordered_map<rai::account, std::shared_ptr<rai::vote>> our_last_votes;
 	std::unordered_map<rai::block_hash, std::shared_ptr<rai::block>> blocks;
 	rai::block_hash root;
 	rai::election_status status;
@@ -383,6 +384,7 @@ public:
 	bool have_blocks ();
 	void process_blocks ();
 	rai::process_return process_receive_one (rai::transaction const &, std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point = std::chrono::steady_clock::now (), bool = false);
+	rai::vote_generator generator;
 
 private:
 	void queue_unchecked (rai::transaction const &, rai::block_hash const &);
@@ -397,7 +399,6 @@ private:
 	std::deque<std::shared_ptr<rai::block>> forced;
 	std::condition_variable condition;
 	rai::node & node;
-	rai::vote_generator generator;
 	std::mutex mutex;
 };
 class node : public std::enable_shared_from_this<rai::node>
