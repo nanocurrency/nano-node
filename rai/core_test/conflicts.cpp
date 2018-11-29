@@ -148,3 +148,28 @@ TEST (vote_uniquer, cleanup)
 		ASSERT_LT (iterations++, 200);
 	}
 }
+
+TEST (conflicts, reprioritize)
+{
+	rai::system system (24000, 1);
+	auto & node1 (*system.nodes[0]);
+	rai::genesis genesis;
+	rai::keypair key1;
+	auto send1 (std::make_shared<rai::send_block> (genesis.hash (), key1.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
+	node1.work_generate_blocking (*send1);
+	uint64_t difficulty1;
+	rai::work_validate (*send1, &difficulty1);
+	node1.process_active (send1);
+	node1.block_processor.flush ();
+	auto existing1 (node1.active.roots.find (send1->root ()));
+	ASSERT_NE (node1.active.roots.end (), existing1);
+	ASSERT_EQ (difficulty1, existing1->difficulty);
+	node1.work_generate_blocking (*send1, difficulty1);
+	uint64_t difficulty2;
+	rai::work_validate (*send1, &difficulty2);
+	node1.process_active (send1);
+	node1.block_processor.flush ();
+	auto existing2 (node1.active.roots.find (send1->root ()));
+	ASSERT_NE (node1.active.roots.end (), existing2);
+	ASSERT_EQ (difficulty2, existing2->difficulty);
+}
