@@ -154,11 +154,7 @@ void rai::network::send_keepalive (rai::endpoint const & endpoint_a)
 	assert (endpoint_a.address ().is_v6 ());
 	rai::keepalive message;
 	node.peers.random_fill (message.peers);
-	std::shared_ptr<std::vector<uint8_t>> bytes (new std::vector<uint8_t>);
-	{
-		rai::vectorstream stream (*bytes);
-		message.serialize (stream);
-	}
+	auto bytes = message.to_bytes ();
 	if (node.config.logging.network_keepalive_logging ())
 	{
 		BOOST_LOG (node.log) << boost::str (boost::format ("Keepalive req sent to %1%") % endpoint_a);
@@ -207,11 +203,7 @@ void rai::network::send_node_id_handshake (rai::endpoint const & endpoint_a, boo
 		assert (!rai::validate_message (response->first, *respond_to, response->second));
 	}
 	rai::node_id_handshake message (query, response);
-	std::shared_ptr<std::vector<uint8_t>> bytes (new std::vector<uint8_t>);
-	{
-		rai::vectorstream stream (*bytes);
-		message.serialize (stream);
-	}
+	auto bytes = message.to_bytes ();
 	if (node.config.logging.network_node_id_handshake_logging ())
 	{
 		BOOST_LOG (node.log) << boost::str (boost::format ("Node ID handshake sent with node ID %1% to %2%: query %3%, respond_to %4% (signature %5%)") % node.node_id.pub.to_account () % endpoint_a % (query ? query->to_string () : std::string ("[none]")) % (respond_to ? respond_to->to_string () : std::string ("[none]")) % (response ? response->second.to_string () : std::string ("[none]")));
@@ -262,17 +254,12 @@ bool confirm_block (rai::transaction const & transaction_a, rai::node & node_a, 
 			auto hash (block_a->hash ());
 			auto vote (node_a.store.vote_generate (transaction_a, pub_a, prv_a, std::vector<rai::block_hash> (1, hash)));
 			rai::confirm_ack confirm (vote);
-			std::shared_ptr<std::vector<uint8_t>> vote_bytes (new std::vector<uint8_t>);
-			{
-				rai::vectorstream stream (*vote_bytes);
-				confirm.serialize (stream);
-			}
+			auto vote_bytes = confirm.to_bytes ();
 			rai::publish publish (block_a);
-			std::shared_ptr<std::vector<uint8_t>> publish_bytes (new std::vector<uint8_t>);
+			std::shared_ptr<std::vector<uint8_t>> publish_bytes;
 			if (also_publish)
 			{
-				rai::vectorstream stream (*publish_bytes);
-				publish.serialize (stream);
+				publish_bytes = publish.to_bytes ();
 			}
 			for (auto j (list_a.begin ()), m (list_a.end ()); j != m; ++j)
 			{
@@ -301,11 +288,7 @@ void rai::network::republish_block (std::shared_ptr<rai::block> block)
 	auto hash (block->hash ());
 	auto list (node.peers.list_fanout ());
 	rai::publish message (block);
-	std::shared_ptr<std::vector<uint8_t>> bytes (new std::vector<uint8_t>);
-	{
-		rai::vectorstream stream (*bytes);
-		message.serialize (stream);
-	}
+	auto bytes = message.to_bytes ();
 	for (auto i (list.begin ()), n (list.end ()); i != n; ++i)
 	{
 		republish (hash, bytes, *i);
@@ -343,11 +326,7 @@ void rai::network::republish_block_batch (std::deque<std::shared_ptr<rai::block>
 void rai::network::republish_vote (std::shared_ptr<rai::vote> vote_a)
 {
 	rai::confirm_ack confirm (vote_a);
-	std::shared_ptr<std::vector<uint8_t>> bytes (new std::vector<uint8_t>);
-	{
-		rai::vectorstream stream (*bytes);
-		confirm.serialize (stream);
-	}
+	auto bytes = confirm.to_bytes ();
 	auto list (node.peers.list_fanout ());
 	for (auto j (list.begin ()), m (list.end ()); j != m; ++j)
 	{
@@ -438,11 +417,7 @@ void rai::network::broadcast_confirm_req_batch (std::deque<std::pair<std::shared
 void rai::network::send_confirm_req (rai::endpoint const & endpoint_a, std::shared_ptr<rai::block> block)
 {
 	rai::confirm_req message (block);
-	std::shared_ptr<std::vector<uint8_t>> bytes (new std::vector<uint8_t>);
-	{
-		rai::vectorstream stream (*bytes);
-		message.serialize (stream);
-	}
+	auto bytes = message.to_bytes ();
 	if (node.config.logging.network_message_logging ())
 	{
 		BOOST_LOG (node.log) << boost::str (boost::format ("Sending confirm req to %1%") % endpoint_a);
@@ -967,12 +942,7 @@ rai::vote_code rai::vote_processor::vote_blocking (rai::transaction const & tran
 				if (max_vote->sequence > vote_a->sequence + 10000)
 				{
 					rai::confirm_ack confirm (max_vote);
-					std::shared_ptr<std::vector<uint8_t>> bytes (new std::vector<uint8_t>);
-					{
-						rai::vectorstream stream (*bytes);
-						confirm.serialize (stream);
-					}
-					node.network.confirm_send (confirm, bytes, endpoint_a);
+					node.network.confirm_send (confirm, confirm.to_bytes (), endpoint_a);
 				}
 				break;
 			case rai::vote_code::invalid:
@@ -1733,7 +1703,19 @@ void rai::gap_cache::vote (std::shared_ptr<rai::vote> vote_a)
 				{
 					tally += node.ledger.weight (transaction, voter);
 				}
-				if (tally > bootstrap_threshold (transaction))
+				bool start_bootstrap (false);
+				if (!node.config.disable_lazy_bootstrap)
+				{
+					if (tally >= node.config.online_weight_minimum.number ())
+					{
+						start_bootstrap = true;
+					}
+				}
+				else if (tally > bootstrap_threshold (transaction))
+				{
+					start_bootstrap = true;
+				}
+				if (start_bootstrap)
 				{
 					auto node_l (node.shared ());
 					auto now (std::chrono::steady_clock::now ());
@@ -1743,9 +1725,16 @@ void rai::gap_cache::vote (std::shared_ptr<rai::vote> vote_a)
 						{
 							if (!node_l->bootstrap_initiator.in_progress ())
 							{
-								BOOST_LOG (node_l->log) << boost::str (boost::format ("Missing block %1% which has enough votes to warrant bootstrapping it") % hash.to_string ());
+								BOOST_LOG (node_l->log) << boost::str (boost::format ("Missing block %1% which has enough votes to warrant lazy bootstrapping it") % hash.to_string ());
 							}
-							node_l->bootstrap_initiator.bootstrap ();
+							if (!node_l->config.disable_lazy_bootstrap)
+							{
+								node_l->bootstrap_initiator.bootstrap_lazy (hash);
+							}
+							else
+							{
+								node_l->bootstrap_initiator.bootstrap ();
+							}
 						}
 					});
 				}
@@ -1811,7 +1800,6 @@ void rai::node::start ()
 	online_reps.recalculate_stake ();
 	port_mapping.start ();
 	add_initial_peers ();
-	observers.started.notify ();
 }
 
 void rai::node::stop ()
