@@ -1189,17 +1189,18 @@ bool rai::bootstrap_attempt::lazy_finished ()
 	bool result (true);
 	auto transaction (node->store.tx_begin_read ());
 	std::unique_lock<std::mutex> lock (lazy_mutex);
-	for (auto & hash : lazy_keys)
+	for (auto it (lazy_keys.begin ()), end (lazy_keys.end ()); it != end;)
 	{
-		if (node->store.block_exists (transaction, hash))
+		if (node->store.block_exists (transaction, *it))
 		{
 			// Could be not safe enough
-			lazy_keys.erase (hash);
+			it = lazy_keys.erase (it);
 		}
 		else
 		{
 			result = false;
 			break;
+			// No need to increment `it` as we break above.
 		}
 	}
 	return result;
