@@ -941,9 +941,10 @@ void rai::vote_processor::verify_votes (std::deque<std::pair<std::shared_ptr<rai
 		pub_keys.push_back (vote.first->account.bytes.data ());
 		signatures.push_back (vote.first->signature.bytes.data ());
 	}
-	/* Verifications is vector if signatures check results
-	validate_message_batch returing "true" if there are at least 1 invalid signature */
-	rai::validate_message_batch (messages.data (), lengths.data (), pub_keys.data (), signatures.data (), size, verifications.data ());
+	std::promise<void> promise;
+	rai::signature_check_set check = { size, messages.data (), lengths.data (), pub_keys.data (), signatures.data (), verifications.data (), &promise };
+	node.checker.add (check);
+	promise.get_future ().wait ();
 	std::remove_reference_t<decltype (votes_a)> result;
 	auto i (0);
 	for (auto & vote : votes_a)
@@ -1084,6 +1085,85 @@ bool rai::rep_crawler::exists (rai::block_hash const & hash_a)
 	return active.count (hash_a) != 0;
 }
 
+rai::signature_checker::signature_checker () :
+started (false),
+stopped (false),
+thread ([this]() { run (); })
+{
+	std::unique_lock<std::mutex> lock (mutex);
+	while (!started)
+	{
+		condition.wait (lock);
+	}
+}
+
+rai::signature_checker::~signature_checker ()
+{
+	stop ();
+}
+
+void rai::signature_checker::add (rai::signature_check_set & check_a)
+{
+	std::lock_guard<std::mutex> lock (mutex);
+	checks.push_back (check_a);
+	condition.notify_all ();
+}
+
+void rai::signature_checker::stop ()
+{
+	std::unique_lock<std::mutex> lock (mutex);
+	stopped = true;
+	lock.unlock ();
+	condition.notify_all ();
+	if (thread.joinable ())
+	{
+		thread.join ();
+	}
+}
+
+void rai::signature_checker::flush ()
+{
+	std::unique_lock<std::mutex> lock (mutex);
+	while (!stopped && !checks.empty ())
+	{
+		condition.wait (lock);
+	}
+}
+
+void rai::signature_checker::verify (rai::signature_check_set & check_a)
+{
+	/* Verifications is vector if signatures check results
+	 validate_message_batch returing "true" if there are at least 1 invalid signature */
+	auto code (rai::validate_message_batch (check_a.messages, check_a.message_lengths, check_a.pub_keys, check_a.signatures, check_a.size, check_a.verifications));
+	(void)code;
+	release_assert (std::all_of (check_a.verifications, check_a.verifications + check_a.size, [](int verification) { return verification == 0 || verification == 1; }));
+	check_a.promise->set_value ();
+}
+
+void rai::signature_checker::run ()
+{
+	rai::thread_role::set (rai::thread_role::name::signature_checking);
+	std::unique_lock<std::mutex> lock (mutex);
+	started = true;
+	condition.notify_all ();
+	while (!stopped)
+	{
+		if (!checks.empty ())
+		{
+			auto check (checks.front ());
+			checks.pop_front ();
+			lock.unlock ();
+			verify (check);
+			lock.lock ();
+			condition.notify_all ();
+		}
+		else
+		{
+			condition.wait (lock);
+		}
+	}
+}
+
 rai::block_processor::block_processor (rai::node & node_a) :
 stopped (false),
 active (false),
@@ -1108,6 +1188,7 @@ void rai::block_processor::stop ()
 
 void rai::block_processor::flush ()
 {
+	node.checker.flush ();
 	std::unique_lock<std::mutex> lock (mutex);
 	while (!stopped && (have_blocks () || active))
 	{
@@ -1210,7 +1291,7 @@ void rai::block_processor::verify_state_blocks (std::unique_lock<std::mutex> & l
 	std::vector<unsigned char const *> signatures;
 	signatures.reserve (size);
 	std::vector<int> verifications;
-	verifications.resize (size);
+	verifications.resize (size, 0);
 	for (auto i (0); i < size; ++i)
 	{
 		auto & block (static_cast<rai::state_block &> (*items[i].first));
@@ -1220,10 +1301,10 @@ void rai::block_processor::verify_state_blocks (std::unique_lock<std::mutex> & l
 		pub_keys.push_back (block.hashables.account.bytes.data ());
 		signatures.push_back (block.signature.bytes.data ());
 	}
-	/* Verifications is vector if signatures check results
-	validate_message_batch returing "true" if there are at least 1 invalid signature */
-	auto code (rai::validate_message_batch (messages.data (), lengths.data (), pub_keys.data (), signatures.data (), size, verifications.data ()));
-	(void)code;
+	std::promise<void> promise;
+	rai::signature_check_set check = { size, messages.data (), lengths.data (), pub_keys.data (), signatures.data (), verifications.data (), &promise };
+	node.checker.add (check);
+	promise.get_future ().wait ();
 	lock_a.lock ();
 	for (auto i (0); i < size; ++i)
 	{
@@ -1339,6 +1420,7 @@ rai::process_return rai::block_processor::process_receive_one (rai::transaction 
 				BOOST_LOG (node.log) << boost::str (boost::format ("Old for: %1%") % block_a->hash ().to_string ());
 			}
 			queue_unchecked (transaction_a, hash);
+			node.active.update_difficulty (*block_a);
 			break;
 		}
 		case rai::process_result::bad_signature:
@@ -1774,7 +1856,19 @@ void rai::gap_cache::vote (std::shared_ptr<rai::vote> vote_a)
 				{
 					tally += node.ledger.weight (transaction, voter);
 				}
-				if (tally > bootstrap_threshold (transaction))
+				bool start_bootstrap (false);
+				if (!node.config.disable_lazy_bootstrap)
+				{
+					if (tally >= node.config.online_weight_minimum.number ())
+					{
+						start_bootstrap = true;
+					}
+				}
+				else if (tally > bootstrap_threshold (transaction))
+				{
+					start_bootstrap = true;
+				}
+				if (start_bootstrap)
 				{
 					auto node_l (node.shared ());
 					auto now (std::chrono::steady_clock::now ());
@@ -1784,9 +1878,16 @@ void rai::gap_cache::vote (std::shared_ptr<rai::vote> vote_a)
 						{
 							if (!node_l->bootstrap_initiator.in_progress ())
 							{
-								BOOST_LOG (node_l->log) << boost::str (boost::format ("Missing block %1% which has enough votes to warrant bootstrapping it") % hash.to_string ());
+								BOOST_LOG (node_l->log) << boost::str (boost::format ("Missing block %1% which has enough votes to warrant lazy bootstrapping it") % hash.to_string ());
 							}
-							node_l->bootstrap_initiator.bootstrap ();
+							if (!node_l->config.disable_lazy_bootstrap)
+							{
+								node_l->bootstrap_initiator.bootstrap_lazy (hash);
+							}
+							else
+							{
+								node_l->bootstrap_initiator.bootstrap ();
+							}
 						}
 					});
 				}
@@ -1825,10 +1926,8 @@ void rai::network::confirm_send (rai::confirm_ack const & confirm_a, std::shared
 
 void rai::node::process_active (std::shared_ptr<rai::block> incoming)
 {
-	if (!block_arrival.add (incoming->hash ()))
-	{
-		block_processor.add (incoming, std::chrono::steady_clock::now ());
-	}
+	block_arrival.add (incoming->hash ());
+	block_processor.add (incoming, std::chrono::steady_clock::now ());
 }
 
 rai::process_return rai::node::process (rai::block const & block_a)
@@ -1868,6 +1967,7 @@ void rai::node::stop ()
 	bootstrap_initiator.stop ();
 	bootstrap.stop ();
 	port_mapping.stop ();
+	checker.stop ();
 	vote_processor.stop ();
 	wallets.stop ();
 }
@@ -3018,7 +3118,7 @@ void rai::active_transactions::announce_votes (std::unique_lock<std::mutex> & lo
 	std::deque<std::pair<std::shared_ptr<rai::block>, std::shared_ptr<std::vector<rai::peer_information>>>> confirm_req_bundle;
 
 	auto roots_size (roots.size ());
-	for (auto i (roots.begin ()), n (roots.end ()); i != n; ++i)
+	for (auto i (roots.get<1> ().begin ()), n (roots.get<1> ().end ()); i != n; ++i)
 	{
 		lock_a.unlock ();
 		auto election_l (i->election);
@@ -3210,7 +3310,10 @@ bool rai::active_transactions::add (std::shared_ptr<rai::block> block_a, std::fu
 		if (existing == roots.end ())
 		{
 			auto election (std::make_shared<rai::election> (node, block_a, confirmation_action_a));
-			roots.insert (rai::conflict_info{ root, election });
+			uint64_t difficulty (0);
+			auto error (rai::work_validate (*block_a, &difficulty));
+			release_assert (!error);
+			roots.insert (rai::conflict_info{ root, difficulty, election });
 			blocks.insert (std::make_pair (block_a->hash (), election));
 		}
 		error = existing != roots.end ();
@@ -3266,6 +3369,21 @@ bool rai::active_transactions::active (rai::block const & block_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	return roots.find (block_a.root ()) != roots.end ();
+}
+
+void rai::active_transactions::update_difficulty (rai::block const & block_a)
+{
+	std::lock_guard<std::mutex> lock (mutex);
+	auto existing (roots.find (block_a.root ()));
+	if (existing != roots.end ())
+	{
+		uint64_t difficulty;
+		auto error (rai::work_validate (block_a, &difficulty));
+		assert (!error);
+		roots.modify (existing, [difficulty](rai::conflict_info & info_a) {
+			info_a.difficulty = difficulty;
+		});
+	}
 }
 
 // List of active blocks in elections

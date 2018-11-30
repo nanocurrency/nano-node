@@ -21,6 +21,7 @@ int main (int argc, char * const * argv)
 		("help", "Print out options")
 		("version", "Prints out version")
 		("daemon", "Start node daemon")
+		("disable_lazy_bootstrap", "Disables lazy bootstrap")
 		("debug_block_count", "Display the number of block")
 		("debug_bootstrap_generate", "Generate bootstrap sequence of blocks")
 		("debug_dump_representatives", "List representatives and weights")
@@ -61,7 +62,7 @@ int main (int argc, char * const * argv)
 		if (vm.count ("daemon") > 0)
 		{
 			rai_daemon::daemon daemon;
-			daemon.run (data_path);
+			daemon.run (data_path, vm.count ("disable_lazy_bootstrap") > 0);
 		}
 		else if (vm.count ("debug_block_count"))
 		{

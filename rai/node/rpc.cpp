@@ -1340,6 +1340,50 @@ void rai::rpc_handler::bootstrap_any ()
 	response_errors ();
 }
 
+void rai::rpc_handler::bootstrap_lazy ()
+{
+	rpc_control_impl ();
+	auto hash (hash_impl ());
+	const bool force = request.get<bool> ("force", false);
+	if (!ec)
+	{
+		node.bootstrap_initiator.bootstrap_lazy (hash, force);
+		response_l.put ("started", "1");
+	}
+	response_errors ();
+}
+
+/*
+ * @warning This is an internal/diagnostic RPC, do not rely on its interface being stable
+ */
+void rai::rpc_handler::bootstrap_status ()
+{
+	auto attempt (node.bootstrap_initiator.current_attempt ());
+	if (attempt != nullptr)
+	{
+		response_l.put ("clients", std::to_string (attempt->clients.size ()));
+		response_l.put ("pulls", std::to_string (attempt->pulls.size ()));
+		response_l.put ("pulling", std::to_string (attempt->pulling));
+		response_l.put ("connections", std::to_string (attempt->connections));
+		response_l.put ("idle", std::to_string (attempt->idle.size ()));
+		response_l.put ("target_connections", std::to_string (attempt->target_connections (attempt->pulls.size ())));
+		response_l.put ("lazy_mode", attempt->lazy_mode);
+		response_l.put ("lazy_blocks", std::to_string (attempt->lazy_blocks.size ()));
+		response_l.put ("lazy_state_unknown", std::to_string (attempt->lazy_state_unknown.size ()));
+		response_l.put ("lazy_pulls", std::to_string (attempt->lazy_pulls.size ()));
+		response_l.put ("lazy_keys", std::to_string (attempt->lazy_keys.size ()));
+		if (!attempt->lazy_keys.empty ())
+		{
+			response_l.put ("lazy_key_1", (*(attempt->lazy_keys.begin ())).to_string ());
+		}
+	}
+	else
+	{
+		response_l.put ("active", "0");
+	}
+	response_errors ();
+}
+
 void rai::rpc_handler::chain (bool successors)
 {
 	auto hash (hash_impl ("block"));
@@ -1751,7 +1795,14 @@ void rai::rpc_handler::account_history ()
 	{
 		if (!hash.decode_hex (*head_str))
 		{
-			account = node.ledger.account (transaction, hash);
+			if (node.store.block_exists (transaction, hash))
+			{
+				account = node.ledger.account (transaction, hash);
+			}
+			else
+			{
+				ec = nano::error_blocks::not_found;
+			}
 		}
 		else
 		{
@@ -2762,6 +2813,11 @@ void rai::rpc_handler::send ()
 	rpc_control_impl ();
 	auto wallet (wallet_impl ());
 	auto amount (amount_impl ());
+	// Sending 0 amount is invalid with state blocks
+	if (!ec && amount.is_zero ())
+	{
+		ec = nano::error_common::invalid_amount;
+	}
 	if (!ec)
 	{
 		std::string source_text (request.get<std::string> ("source"));
@@ -3906,6 +3962,14 @@ void rai::rpc_handler::process_request ()
 			else if (action == "bootstrap_any")
 			{
 				bootstrap_any ();
+			}
+			else if (action == "bootstrap_lazy")
+			{
+				bootstrap_lazy ();
+			}
+			else if (action == "bootstrap_status")
+			{
+				bootstrap_status ();
 			}
 			else if (action == "chain")
 			{
