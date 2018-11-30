@@ -286,12 +286,14 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 		}
 		else
 		{
+			splash->hide ();
 			show_error ("Error initializing node");
 		}
 		update_config (config, config_path, config_file);
 	}
 	else
 	{
+		splash->hide ();
 		show_error ("Error deserializing config: " + json.get_error ().get_message ());
 	}
 	return result;
