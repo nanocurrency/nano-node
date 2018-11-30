@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include <nano/core_test/testutil.hpp>
+#include <nano/lib/jsonconfig.hpp>
 #include <nano/node/testing.hpp>
 #include <nano/node/working.hpp>
 
@@ -428,7 +429,7 @@ TEST (logging, serialization)
 	logging1.work_generation_time_value = !logging1.work_generation_time_value;
 	logging1.log_to_cerr_value = !logging1.log_to_cerr_value;
 	logging1.max_size = 10;
-	boost::property_tree::ptree tree;
+	nano::jsonconfig tree;
 	logging1.serialize_json (tree);
 	nano::logging logging2;
 	logging2.init (path);
@@ -460,7 +461,7 @@ TEST (logging, upgrade_v1_v2)
 	logging1.init (path1);
 	nano::logging logging2;
 	logging2.init (path2);
-	boost::property_tree::ptree tree;
+	nano::jsonconfig tree;
 	logging1.serialize_json (tree);
 	tree.erase ("version");
 	tree.erase ("vote");
@@ -499,7 +500,7 @@ TEST (node_config, serialization)
 	config1.callback_port = 10;
 	config1.callback_target = "test";
 	config1.lmdb_max_dbs = 256;
-	boost::property_tree::ptree tree;
+	nano::jsonconfig tree;
 	config1.serialize_json (tree);
 	nano::logging logging2;
 	logging2.init (path);
@@ -541,27 +542,27 @@ TEST (node_config, v1_v2_upgrade)
 	auto path (nano::unique_path ());
 	nano::logging logging1;
 	logging1.init (path);
-	boost::property_tree::ptree tree;
+	nano::jsonconfig tree;
 	tree.put ("peering_port", std::to_string (0));
 	tree.put ("packet_delay_microseconds", std::to_string (0));
 	tree.put ("bootstrap_fraction_numerator", std::to_string (0));
 	tree.put ("creation_rebroadcast", std::to_string (0));
 	tree.put ("rebroadcast_delay", std::to_string (0));
 	tree.put ("receive_minimum", nano::amount (0).to_string_dec ());
-	boost::property_tree::ptree logging_l;
+	nano::jsonconfig logging_l;
 	logging1.serialize_json (logging_l);
-	tree.add_child ("logging", logging_l);
-	boost::property_tree::ptree preconfigured_peers_l;
-	tree.add_child ("preconfigured_peers", preconfigured_peers_l);
-	boost::property_tree::ptree preconfigured_representatives_l;
-	tree.add_child ("preconfigured_representatives", preconfigured_representatives_l);
+	tree.put_child ("logging", logging_l);
+	nano::jsonconfig preconfigured_peers_l;
+	tree.put_child ("preconfigured_peers", preconfigured_peers_l);
+	nano::jsonconfig preconfigured_representatives_l;
+	tree.put_child ("preconfigured_representatives", preconfigured_representatives_l);
 	bool upgraded (false);
 	nano::node_config config1;
 	config1.logging.init (path);
-	ASSERT_FALSE (tree.get_child_optional ("work_peers"));
+	ASSERT_FALSE (tree.get_optional_child ("work_peers"));
 	config1.deserialize_json (upgraded, tree);
 	ASSERT_TRUE (upgraded);
-	ASSERT_TRUE (!!tree.get_child_optional ("work_peers"));
+	ASSERT_TRUE (!!tree.get_optional_child ("work_peers"));
 }
 
 TEST (node_config, v2_v3_upgrade)
@@ -569,7 +570,7 @@ TEST (node_config, v2_v3_upgrade)
 	auto path (nano::unique_path ());
 	nano::logging logging1;
 	logging1.init (path);
-	boost::property_tree::ptree tree;
+	nano::jsonconfig tree;
 	tree.put ("peering_port", std::to_string (0));
 	tree.put ("packet_delay_microseconds", std::to_string (0));
 	tree.put ("bootstrap_fraction_numerator", std::to_string (0));
@@ -577,18 +578,16 @@ TEST (node_config, v2_v3_upgrade)
 	tree.put ("rebroadcast_delay", std::to_string (0));
 	tree.put ("receive_minimum", nano::amount (0).to_string_dec ());
 	tree.put ("version", "2");
-	boost::property_tree::ptree logging_l;
+	nano::jsonconfig logging_l;
 	logging1.serialize_json (logging_l);
-	tree.add_child ("logging", logging_l);
-	boost::property_tree::ptree preconfigured_peers_l;
-	tree.add_child ("preconfigured_peers", preconfigured_peers_l);
-	boost::property_tree::ptree preconfigured_representatives_l;
-	boost::property_tree::ptree entry;
-	entry.put ("", "TR6ZJ4pdp6HC76xMRpVDny5x2s8AEbrhFue3NKVxYYdmKuTEib");
-	preconfigured_representatives_l.push_back (std::make_pair ("", entry));
-	tree.add_child ("preconfigured_representatives", preconfigured_representatives_l);
-	boost::property_tree::ptree work_peers_l;
-	tree.add_child ("work_peers", work_peers_l);
+	tree.put_child ("logging", logging_l);
+	nano::jsonconfig preconfigured_peers_l;
+	tree.put_child ("preconfigured_peers", preconfigured_peers_l);
+	nano::jsonconfig preconfigured_representatives_l;
+	preconfigured_representatives_l.push ("TR6ZJ4pdp6HC76xMRpVDny5x2s8AEbrhFue3NKVxYYdmKuTEib");
+	tree.put_child ("preconfigured_representatives", preconfigured_representatives_l);
+	nano::jsonconfig work_peers_l;
+	tree.put_child ("work_peers", work_peers_l);
 	bool upgraded (false);
 	nano::node_config config1;
 	config1.logging.init (path);

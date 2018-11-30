@@ -1,7 +1,8 @@
 #pragma once
 
-#include <boost/property_tree/ptree.hpp>
 #include <chrono>
+#include <nano/lib/errors.hpp>
+#include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/node/logging.hpp>
 #include <nano/node/stats.hpp>
@@ -17,9 +18,9 @@ class node_config
 public:
 	node_config ();
 	node_config (uint16_t, nano::logging const &);
-	void serialize_json (boost::property_tree::ptree &) const;
-	bool deserialize_json (bool &, boost::property_tree::ptree &);
-	bool upgrade_json (unsigned, boost::property_tree::ptree &);
+	nano::error serialize_json (nano::jsonconfig &) const;
+	nano::error deserialize_json (bool &, nano::jsonconfig &);
+	bool upgrade_json (unsigned, nano::jsonconfig &);
 	nano::account random_representative ();
 	uint16_t peering_port;
 	nano::logging logging;
@@ -49,7 +50,10 @@ public:
 	static std::chrono::seconds constexpr keepalive_period = std::chrono::seconds (60);
 	static std::chrono::seconds constexpr keepalive_cutoff = keepalive_period * 5;
 	static std::chrono::minutes constexpr wallet_backup_interval = std::chrono::minutes (5);
-	static constexpr int json_version = 16;
+	inline constexpr int json_version () const
+	{
+		return 16;
+	}
 };
 
 class node_flags

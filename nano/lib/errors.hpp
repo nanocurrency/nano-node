@@ -1,5 +1,6 @@
 #pragma once
 
+#include <boost/system/error_code.hpp>
 #include <nano/lib/expected.hpp>
 #include <string>
 #include <system_error>
@@ -10,24 +11,11 @@ using tl::make_unexpected;
 
 namespace nano
 {
-/** Returns the error code if non-zero, otherwise the value */
-template <class T>
-auto either (T && value, std::error_code ec) -> expected<typename std::remove_reference<T>::type, std::error_code>
-{
-	if (ec)
-	{
-		return make_unexpected (ec);
-	}
-	else
-	{
-		return std::move (value);
-	}
-}
-
 /** Common error codes */
 enum class error_common
 {
 	generic = 1,
+	exception,
 	account_not_found,
 	account_not_found_wallet,
 	account_exists,
@@ -57,6 +45,7 @@ enum class error_common
 	invalid_index,
 	invalid_ip_address,
 	invalid_port,
+	invalid_type_conversion,
 	invalid_work,
 	insufficient_balance,
 	numeric_conversion,
@@ -125,6 +114,29 @@ enum class error_process
 	block_position, // This block cannot follow the previous block
 	other
 };
+
+/** config.json deserialization related errors */
+enum class error_config
+{
+	generic = 1,
+	invalid_value,
+	missing_value,
+};
+
+} // nano namespace
+
+/** Returns the error code if non-zero, otherwise the value */
+template <class T>
+auto either (T && value, std::error_code ec) -> expected<typename std::remove_reference<T>::type, std::error_code>
+{
+	if (ec)
+	{
+		return make_unexpected (ec);
+	}
+	else
+	{
+		return std::move (value);
+	}
 }
 
 // Convenience macro to implement the standard boilerplate for using std::error_code with enums
@@ -172,3 +184,302 @@ REGISTER_ERROR_CODES (nano, error_common);
 REGISTER_ERROR_CODES (nano, error_blocks);
 REGISTER_ERROR_CODES (nano, error_rpc);
 REGISTER_ERROR_CODES (nano, error_process);
+REGISTER_ERROR_CODES (nano, error_config);
+
+/* boost->std error_code bridge */
+namespace nano
+{
+namespace error_conversion
+{
+	const std::error_category & generic_category ();
+}
+}
+
+namespace std
+{
+template <>
+struct is_error_code_enum<boost::system::errc::errc_t>
+: public std::true_type
+{
+};
+
+inline std::error_code make_error_code (boost::system::errc::errc_t e)
+{
+	return std::error_code (static_cast<int> (e),
+	::nano::error_conversion::generic_category ());
+}
+}
+namespace nano
+{
+namespace error_conversion
+{
+	namespace detail
+	{
+		class generic_category : public std::error_category
+		{
+		public:
+			virtual const char * name () const noexcept override
+			{
+				return boost::system::generic_category ().name ();
+			}
+			virtual std::string message (int value) const override
+			{
+				return boost::system::generic_category ().message (value);
+			}
+		};
+	}
+	inline const std::error_category & generic_category ()
+	{
+		static detail::generic_category instance;
+		return instance;
+	}
+
+	inline std::error_code convert (const boost::system::error_code & error)
+	{
+		if (error.category () == boost::system::generic_category ())
+		{
+			return std::error_code (error.value (),
+			nano::error_conversion::generic_category ());
+		}
+		assert (false);
+
+		return nano::error_common::invalid_type_conversion;
+	}
+}
+}
+
+namespace nano
+{
+/** Adapter for std/boost::error_code, std::exception and bool flags to facilitate unified error handling */
+class error
+{
+public:
+	error () = default;
+	error (nano::error const & error_a)
+	{
+		code = error_a.code;
+		message = error_a.message;
+	}
+
+	error (nano::error && error_a)
+	{
+		code = error_a.code;
+		message = std::move (error_a.message);
+	}
+
+	error (std::error_code code_a)
+	{
+		code = code_a;
+	}
+
+	error (std::string message_a)
+	{
+		code = nano::error_common::generic;
+		message = message_a;
+	}
+
+	error (std::exception const & exception_a)
+	{
+		code = nano::error_common::exception;
+		message = exception_a.what ();
+	}
+
+	inline error & operator= (nano::error const & err_a)
+	{
+		code = err_a.code;
+		message = err_a.message;
+		return *this;
+	}
+
+	inline error & operator= (nano::error && err_a)
+	{
+		code = err_a.code;
+		message = std::move (err_a.message);
+		return *this;
+	}
+
+	/** Assign error code */
+	inline error & operator= (const std::error_code code_a)
+	{
+		code = code_a;
+		message.clear ();
+		return *this;
+	}
+
+	/** Assign boost error code (as converted to std::error_code) */
+	inline error & operator= (const boost::system::error_code & code_a)
+	{
+		code = nano::error_conversion::convert (code_a);
+		message.clear ();
+		return *this;
+	}
+
+	/** Assign boost error code (as converted to std::error_code) */
+	inline error & operator= (const boost::system::errc::errc_t & code_a)
+	{
+		code = nano::error_conversion::convert (boost::system::errc::make_error_code (code_a));
+		message.clear ();
+		return *this;
+	}
+
+	/** Set the error to nano::error_common::generic and the error message to \p message_a */
+	inline error & operator= (const std::string message_a)
+	{
+		code = nano::error_common::generic;
+		message = message_a;
+		return *this;
+	}
+
+	/** Set the error to nano::error_common::generic. */
+	inline error & operator= (bool is_error)
+	{
+		if (is_error)
+		{
+			code = nano::error_common::generic;
+		}
+		message.clear ();
+		return *this;
+	}
+
+	/** Sets the error to nano::error_common::exception and adopts the exception error message. */
+	inline error & operator= (std::exception const & exception_a)
+	{
+		code = nano::error_common::exception;
+		message = exception_a.what ();
+		return *this;
+	}
+
+	/** Return true if this#error_code equals the parameter */
+	inline bool operator== (const std::error_code code_a)
+	{
+		return code == code_a;
+	}
+
+	/** Return true if this#error_code equals the parameter */
+	inline bool operator== (const boost::system::error_code code_a)
+	{
+		return code.value () == code_a.value ();
+	}
+
+	/** Call the function iff the current error is zero */
+	inline error & then (std::function<nano::error &()> next)
+	{
+		return code ? *this : next ();
+	}
+
+	/** If the current error is one of the listed codes, reset the error code */
+	template <typename... ErrorCode>
+	error & accept (ErrorCode... err)
+	{
+		// Convert variadic arguments to std::error_code
+		auto codes = { std::error_code (err)... };
+		for (auto code_l : codes)
+		{
+			if (code == code_l)
+			{
+				code.clear ();
+				break;
+			}
+		}
+		return *this;
+	}
+
+	/** Implicit error_code conversion */
+	inline operator std::error_code () const
+	{
+		return code;
+	}
+
+	/** Implicit bool conversion; true if there's an error */
+	inline operator bool () const
+	{
+		return code.value () != 0;
+	}
+
+	/** Implicit string conversion; returns the error message or an empty string. */
+	inline operator std::string () const
+	{
+		return get_message ();
+	}
+
+	/**
+	 * Get error message, or an empty string if there's no error. If a custom error message is set,
+	 * that will be returned, otherwise the error_code#message() is returned.
+	 */
+	inline std::string get_message () const
+	{
+		std::string res = message;
+		if (code && res.size () == 0)
+		{
+			res = code.message ();
+		}
+		return res;
+	}
+
+	/** Set an error message, but only if the error code is already set */
+	inline error & on_error (std::string message_a)
+	{
+		if (code)
+		{
+			message = message_a;
+		}
+		return *this;
+	}
+
+	/** Set an error message if the current error code matches \p code_a */
+	inline error & on_error (std::error_code code_a, std::string message_a)
+	{
+		if (code == code_a)
+		{
+			message = message_a;
+		}
+		return *this;
+	}
+
+	/** Set an error message and an error code */
+	inline error & set (std::string message_a, std::error_code code_a = nano::error_common::generic)
+	{
+		message = message_a;
+		code = code_a;
+		return *this;
+	}
+
+	/** Set a custom error message. If the error code is not set, it will be set to nano::error_common::generic. */
+	inline error & set_message (std::string message_a)
+	{
+		if (!code)
+		{
+			code = nano::error_common::generic;
+		}
+		message = message_a;
+		return *this;
+	}
+
+	/** Clear an errors */
+	inline error & clear ()
+	{
+		code.clear ();
+		message.clear ();
+		return *this;
+	}
+
+private:
+	std::error_code code;
+	std::string message;
+};
+
+/**
+ * A type that manages a nano::error.
+ * The default return type is nano::error&, though shared_ptr<nano::error> is a good option cases
+ * where shared error state is desirable.
+ */
+template <typename RET_TYPE = nano::error &>
+class error_aware
+{
+	static_assert (std::is_same<RET_TYPE, nano::error &>::value || std::is_same<RET_TYPE, std::shared_ptr<nano::error>>::value, "Must be nano::error& or shared_ptr<nano::error>");
+
+public:
+	/** Returns the error object managed by this object */
+	virtual RET_TYPE get_error () = 0;
+};
+}

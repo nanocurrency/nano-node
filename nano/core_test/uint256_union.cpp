@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include <nano/lib/interface.h>
+#include <nano/lib/jsonconfig.hpp>
 #include <nano/secure/common.hpp>
 
 namespace
@@ -430,21 +431,20 @@ TEST (uint256_union, operator_less_than)
 class json_upgrade_test
 {
 public:
-	bool deserialize_json (bool & upgraded, boost::property_tree::ptree & tree_a)
+	nano::error deserialize_json (bool & upgraded, nano::jsonconfig & json)
 	{
-		auto error (false);
-		if (!tree_a.empty ())
+		if (!json.empty ())
 		{
-			auto text_l (tree_a.get<std::string> ("thing"));
+			auto text_l (json.get<std::string> ("thing"));
 			if (text_l == "junktest")
 			{
 				upgraded = true;
 				text_l = "changed";
-				tree_a.put ("thing", text_l);
+				json.put ("thing", text_l);
 			}
 			if (text_l == "error")
 			{
-				error = true;
+				json.get_error () = nano::error_common::generic;
 			}
 			text = text_l;
 		}
@@ -452,9 +452,9 @@ public:
 		{
 			upgraded = true;
 			text = "created";
-			tree_a.put ("thing", text);
+			json.put ("thing", text);
 		}
-		return error;
+		return json.get_error ();
 	}
 	std::string text;
 };
@@ -463,45 +463,45 @@ TEST (json, fetch_object)
 {
 	auto path1 (nano::unique_path ());
 	std::fstream stream1;
-	nano::open_or_create (stream1, path1.string ());
+	nano::jsonconfig json;
+	json.open_or_create (stream1, path1.string ());
 	stream1 << "{ \"thing\": \"junktest\" }";
 	stream1.close ();
-	nano::open_or_create (stream1, path1.string ());
+	json.open_or_create (stream1, path1.string ());
 	json_upgrade_test object1;
-	auto error1 (nano::fetch_object (object1, path1));
-	ASSERT_FALSE (error1);
+	ASSERT_FALSE (json.read_and_update (object1, path1, stream1));
 	ASSERT_EQ ("changed", object1.text);
-	boost::property_tree::ptree tree1;
 	stream1.close ();
-	nano::open_or_create (stream1, path1.string ());
-	boost::property_tree::read_json (stream1, tree1);
-	ASSERT_EQ ("changed", tree1.get<std::string> ("thing"));
+	nano::jsonconfig json1;
+	json1.open_or_create (stream1, path1.string ());
+	json1.read (stream1);
+	ASSERT_EQ ("changed", json1.get<std::string> ("thing"));
 	std::string string2 ("{ \"thing\": \"junktest2\" }");
 	std::stringstream stream2 (string2);
 	json_upgrade_test object2;
-	auto error2 (nano::fetch_object (object2, stream2));
-	ASSERT_FALSE (error2);
+	nano::jsonconfig json2;
+	ASSERT_FALSE (json2.read_and_update (object2, stream2));
 	ASSERT_EQ ("junktest2", object2.text);
 	ASSERT_EQ ("{ \"thing\": \"junktest2\" }", string2);
 	std::string string3 ("{ \"thing\": \"error\" }");
 	std::stringstream stream3 (string3);
 	json_upgrade_test object3;
-	auto error3 (nano::fetch_object (object3, stream3));
-	ASSERT_TRUE (error3);
+	ASSERT_TRUE (json.read_and_update (object3, stream3));
 	auto path2 (nano::unique_path ());
 	std::fstream stream4;
-	nano::open_or_create (stream4, path2.string ());
+	nano::jsonconfig json3;
+	json3.open_or_create (stream4, path2.string ());
 	json_upgrade_test object4;
-	auto error4 (nano::fetch_object (object4, path2));
-	ASSERT_FALSE (error4);
+	ASSERT_FALSE (json3.read_and_update (object4, path2, stream4));
 	ASSERT_EQ ("created", object4.text);
-	boost::property_tree::ptree tree2;
 	stream4.close ();
-	nano::open_or_create (stream4, path2.string ());
-	boost::property_tree::read_json (stream4, tree2);
-	ASSERT_EQ ("created", tree2.get<std::string> ("thing"));
+	nano::jsonconfig json4;
+	json4.open_or_create (stream4, path2.string ());
+	json4.read (stream4);
+	ASSERT_EQ ("created", json4.get<std::string> ("thing"));
 }
 
+/*
 TEST (json, DISABLED_fetch_write_fail)
 {
 	std::string string4 ("");
@@ -510,6 +510,7 @@ TEST (json, DISABLED_fetch_write_fail)
 	auto error4 (nano::fetch_object (object4, stream4));
 	ASSERT_TRUE (error4);
 }
+*/
 
 TEST (uint64_t, parse)
 {

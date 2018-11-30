@@ -512,37 +512,20 @@ threads (threads_a)
 {
 }
 
-void nano::opencl_config::serialize_json (boost::property_tree::ptree & tree_a) const
+nano::error nano::opencl_config::serialize_json (nano::jsonconfig & json) const
 {
-	tree_a.put ("platform", std::to_string (platform));
-	tree_a.put ("device", std::to_string (device));
-	tree_a.put ("threads", std::to_string (threads));
+	json.put ("platform", std::to_string (platform));
+	json.put ("device", std::to_string (device));
+	json.put ("threads", std::to_string (threads));
+	return json.get_error ();
 }
 
-bool nano::opencl_config::deserialize_json (boost::property_tree::ptree const & tree_a)
+nano::error nano::opencl_config::deserialize_json (nano::jsonconfig & json)
 {
-	auto result (false);
-	try
-	{
-		auto platform_l (tree_a.get<std::string> ("platform"));
-		auto device_l (tree_a.get<std::string> ("device"));
-		auto threads_l (tree_a.get<std::string> ("threads"));
-		try
-		{
-			platform = std::stoull (platform_l);
-			device = std::stoull (device_l);
-			threads = std::stoull (threads_l);
-		}
-		catch (std::logic_error const &)
-		{
-			result = true;
-		}
-	}
-	catch (std::runtime_error const &)
-	{
-		result = true;
-	}
-	return result;
+	json.get_optional<unsigned> ("platform", platform);
+	json.get_optional<unsigned> ("device", device);
+	json.get_optional<unsigned> ("threads", threads);
+	return json.get_error ();
 }
 
 nano::opencl_work::opencl_work (bool & error_a, nano::opencl_config const & config_a, nano::opencl_environment & environment_a, nano::logging & logging_a) :
