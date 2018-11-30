@@ -3149,7 +3149,7 @@ void rai::active_transactions::announce_votes (std::unique_lock<std::mutex> & lo
 				/* Escalation for long unconfirmed elections
 				Start new elections for previous block & source
 				if there are less than 100 active elections */
-				if (i->election->announcements % announcement_long == 1 && roots_size < 100)
+				if (i->election->announcements % announcement_long == 1 && roots_size < 100 && rai::rai_network != rai::rai_networks::rai_test_network)
 				{
 					std::shared_ptr<rai::block> previous;
 					auto previous_hash (election_l->status.winner->previous ());
@@ -3272,7 +3272,8 @@ void rai::active_transactions::announce_loop ()
 	while (!stopped)
 	{
 		announce_votes (lock);
-		condition.wait_for (lock, std::chrono::milliseconds (announce_interval_ms + roots.size () * node.network.broadcast_interval_ms * 3 / 2));
+		unsigned extra_delay ((rai::rai_network == rai::rai_networks::rai_test_network) ? 0 : roots.size () * node.network.broadcast_interval_ms * 3 / 2);
+		condition.wait_for (lock, std::chrono::milliseconds (announce_interval_ms + extra_delay));
 	}
 }
 
