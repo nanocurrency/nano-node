@@ -19,6 +19,7 @@ scriptDir="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 function make_source () {
 	git clone --recursive --single-branch --branch releases/v${VERSION_MAJOR} https://github.com/nanocurrency/raiblocks nano-$VERSION
 	cd nano-$VERSION
+	git pull --tags
 	COUNT=`git tag -l "${TAG}" | wc -l`
 	if [ "$COUNT" -eq 0 ]; then
 		echo "tag $TAG not found"
@@ -28,7 +29,7 @@ function make_source () {
 	fi
 	# XXX:TODO: Update spec file with version information
 	source_information
-	rm -fr .git* .clang-format .travis.yml appveyor.yml asan_blacklist ci docker util
+	rm -fr .git* .clang-format* .travis.yml appveyor.yml asan_blacklist ci docker util
 	find . -type f ! -print 2>/dev/null | egrep -v '^\./(MD5SUMS|SHA256SUMS)$' | sort -u | sed s/'^\.\/'/''/ | sed 's/ /\\ /g' | xargs openssl md5 | sed 's@MD5(\(.*\))= \([0-9a-f]*\)@\2  \1@' > MD5SUMS 2>/dev/null
 	find . -type f ! -print 2>/dev/null | egrep -v '^\./(SHA256SUMS)$' | sort -u | sed s/'^\.\/'/''/ | sed 's/ /\\ /g' | xargs openssl sha1 -sha256 | sed 's@SHA256(\(.*\))= \([0-9a-f]*\)@\2  \1@' > SHA256SUMS 2>/dev/null
 	tarball_creation

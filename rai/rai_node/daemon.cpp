@@ -14,7 +14,7 @@ opencl_enable (false)
 
 void rai_daemon::daemon_config::serialize_json (boost::property_tree::ptree & tree_a)
 {
-	tree_a.put ("version", "2");
+	tree_a.put ("version", std::to_string (json_version));
 	tree_a.put ("rpc_enable", rpc_enable);
 	boost::property_tree::ptree rpc_l;
 	rpc.serialize_json (rpc_l);
@@ -66,6 +66,7 @@ bool rai_daemon::daemon_config::deserialize_json (bool & upgraded_a, boost::prop
 
 bool rai_daemon::daemon_config::upgrade_json (unsigned version_a, boost::property_tree::ptree & tree_a)
 {
+	tree_a.put ("version", std::to_string (json_version));
 	auto result (false);
 	switch (version_a)
 	{
@@ -83,7 +84,6 @@ bool rai_daemon::daemon_config::upgrade_json (unsigned version_a, boost::propert
 				opencl.serialize_json (opencl_l);
 				tree_a.put_child ("opencl", opencl_l);
 			}
-			tree_a.put ("version", "2");
 			result = true;
 		}
 		case 2:
@@ -94,7 +94,7 @@ bool rai_daemon::daemon_config::upgrade_json (unsigned version_a, boost::propert
 	return result;
 }
 
-void rai_daemon::daemon::run (boost::filesystem::path const & data_path)
+void rai_daemon::daemon::run (boost::filesystem::path const & data_path, bool disable_lazy_bootstrap)
 {
 	boost::system::error_code error_chmod;
 	boost::filesystem::create_directories (data_path);
@@ -128,6 +128,7 @@ void rai_daemon::daemon::run (boost::filesystem::path const & data_path)
 				{
 					rpc->start ();
 				}
+				config.node.disable_lazy_bootstrap = disable_lazy_bootstrap;
 				runner = std::make_unique<rai::thread_runner> (service, node->config.io_threads);
 				runner->join ();
 			}

@@ -131,7 +131,7 @@ public:
 			ledger.store.pending_del (transaction, key);
 			ledger.stats.inc (rai::stat::type::rollback, rai::stat::detail::send);
 		}
-		else if (!block_a.hashables.link.is_zero () && block_a.hashables.link != ledger.epoch_link)
+		else if (!block_a.hashables.link.is_zero () && !ledger.is_epoch_link (block_a.hashables.link))
 		{
 			auto source_version (ledger.store.block_version (transaction, block_a.hashables.link));
 			rai::pending_info pending_info (ledger.account (transaction, block_a.hashables.link), block_a.hashables.balance.number () - balance, source_version);
@@ -165,7 +165,7 @@ public:
 class ledger_processor : public rai::block_visitor
 {
 public:
-	ledger_processor (rai::ledger &, rai::transaction const &);
+	ledger_processor (rai::ledger &, rai::transaction const &, bool = false);
 	virtual ~ledger_processor () = default;
 	void send_block (rai::send_block const &) override;
 	void receive_block (rai::receive_block const &) override;
@@ -176,6 +176,7 @@ public:
 	void epoch_block_impl (rai::state_block const &);
 	rai::ledger & ledger;
 	rai::transaction const & transaction;
+	bool valid_signature;
 	rai::process_return result;
 };
 
@@ -184,7 +185,7 @@ void ledger_processor::state_block (rai::state_block const & block_a)
 	result.code = rai::process_result::progress;
 	auto is_epoch_block (false);
 	// Check if this is an epoch block
-	if (!ledger.epoch_link.is_zero () && block_a.hashables.link == ledger.epoch_link)
+	if (!ledger.epoch_link.is_zero () && ledger.is_epoch_link (block_a.hashables.link))
 	{
 		rai::amount prev_balance (0);
 		if (!block_a.hashables.previous.is_zero ())
@@ -220,7 +221,11 @@ void ledger_processor::state_block_impl (rai::state_block const & block_a)
 	result.code = existing ? rai::process_result::old : rai::process_result::progress; // Have we seen this block before? (Unambiguous)
 	if (result.code == rai::process_result::progress)
 	{
-		result.code = validate_message (block_a.hashables.account, hash, block_a.signature) ? rai::process_result::bad_signature : rai::process_result::progress; // Is this block signed correctly (Unambiguous)
+		// Revalidate blocks with epoch links
+		if (!valid_signature || ledger.is_epoch_link (block_a.hashables.link))
+		{
+			result.code = validate_message (block_a.hashables.account, hash, block_a.signature) ? rai::process_result::bad_signature : rai::process_result::progress; // Is this block signed correctly (Unambiguous)
+		}
 		if (result.code == rai::process_result::progress)
 		{
 			result.code = block_a.hashables.account.is_zero () ? rai::process_result::opened_burn_account : rai::process_result::progress; // Is this for the burn account? (Unambiguous)
@@ -586,9 +591,10 @@ void ledger_processor::open_block (rai::open_block const & block_a)
 	}
 }
 
-ledger_processor::ledger_processor (rai::ledger & ledger_a, rai::transaction const & transaction_a) :
+ledger_processor::ledger_processor (rai::ledger & ledger_a, rai::transaction const & transaction_a, bool valid_signature_a) :
 ledger (ledger_a),
-transaction (transaction_a)
+transaction (transaction_a),
+valid_signature (valid_signature_a)
 {
 }
 } // namespace
@@ -617,9 +623,8 @@ epoch_signer (epoch_signer_a)
 // Balance for account containing hash
 rai::uint128_t rai::ledger::balance (rai::transaction const & transaction_a, rai::block_hash const & hash_a)
 {
-	rai::balance_visitor visitor (transaction_a, store);
-	visitor.compute (hash_a);
-	return visitor.balance;
+	rai::summation_visitor visitor (transaction_a, store);
+	return visitor.compute_balance (hash_a);
 }
 
 // Balance for an account by account number
@@ -652,9 +657,9 @@ rai::uint128_t rai::ledger::account_pending (rai::transaction const & transactio
 	return result;
 }
 
-rai::process_return rai::ledger::process (rai::transaction const & transaction_a, rai::block const & block_a)
+rai::process_return rai::ledger::process (rai::transaction const & transaction_a, rai::block const & block_a, bool valid_signature)
 {
-	ledger_processor processor (*this, transaction_a);
+	ledger_processor processor (*this, transaction_a, valid_signature);
 	block_a.visit (processor);
 	return processor.result;
 }
@@ -729,6 +734,13 @@ rai::block_hash rai::ledger::block_destination (rai::transaction const & transac
 
 rai::block_hash rai::ledger::block_source (rai::transaction const & transaction_a, rai::block const & block_a)
 {
+	/*
+	 * block_source() requires that the previous block of the block
+	 * passed in exist in the database.  This is because it will try
+	 * to check account balances to determine if it is a send block.
+	 */
+	assert (block_a.previous ().is_zero () || store.block_exists (transaction_a, block_a.previous ()));
+
 	// If block_a.source () is nonzero, then we have our source.
 	// However, universal blocks will always return zero.
 	rai::block_hash result (block_a.source ());
@@ -785,7 +797,8 @@ rai::account rai::ledger::account (rai::transaction const & transaction_a, rai::
 	auto hash (hash_a);
 	rai::block_hash successor (1);
 	rai::block_info block_info;
-	std::unique_ptr<rai::block> block (store.block_get (transaction_a, hash));
+	auto block (store.block_get (transaction_a, hash));
+	assert (block);
 	while (!successor.is_zero () && block->type () != rai::block_type::state && store.block_info_get (transaction_a, successor, block_info))
 	{
 		successor = store.block_successor (transaction_a, hash);
@@ -815,9 +828,8 @@ rai::account rai::ledger::account (rai::transaction const & transaction_a, rai::
 // Return amount decrease or increase for block
 rai::uint128_t rai::ledger::amount (rai::transaction const & transaction_a, rai::block_hash const & hash_a)
 {
-	amount_visitor amount (transaction_a, store);
-	amount.compute (hash_a);
-	return amount.amount;
+	summation_visitor amount (transaction_a, store);
+	return amount.compute_amount (hash_a);
 }
 
 // Return latest block for account
@@ -968,7 +980,7 @@ void rai::ledger::change_latest (rai::transaction const & transaction_a, rai::ac
 	}
 }
 
-std::unique_ptr<rai::block> rai::ledger::successor (rai::transaction const & transaction_a, rai::uint256_union const & root_a)
+std::shared_ptr<rai::block> rai::ledger::successor (rai::transaction const & transaction_a, rai::uint256_union const & root_a)
 {
 	rai::block_hash successor (0);
 	if (store.account_exists (transaction_a, root_a))
@@ -982,7 +994,7 @@ std::unique_ptr<rai::block> rai::ledger::successor (rai::transaction const & tra
 	{
 		successor = store.block_successor (transaction_a, root_a);
 	}
-	std::unique_ptr<rai::block> result;
+	std::shared_ptr<rai::block> result;
 	if (!successor.is_zero ())
 	{
 		result = store.block_get (transaction_a, successor);
@@ -991,12 +1003,12 @@ std::unique_ptr<rai::block> rai::ledger::successor (rai::transaction const & tra
 	return result;
 }
 
-std::unique_ptr<rai::block> rai::ledger::forked_block (rai::transaction const & transaction_a, rai::block const & block_a)
+std::shared_ptr<rai::block> rai::ledger::forked_block (rai::transaction const & transaction_a, rai::block const & block_a)
 {
 	assert (!store.block_exists (transaction_a, block_a.hash ()));
 	auto root (block_a.root ());
 	assert (store.block_exists (transaction_a, root) || store.account_exists (transaction_a, root));
-	std::unique_ptr<rai::block> result (store.block_get (transaction_a, store.block_successor (transaction_a, root)));
+	auto result (store.block_get (transaction_a, store.block_successor (transaction_a, root)));
 	if (result == nullptr)
 	{
 		rai::account_info info;

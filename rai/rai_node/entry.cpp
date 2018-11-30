@@ -21,6 +21,7 @@ int main (int argc, char * const * argv)
 		("help", "Print out options")
 		("version", "Prints out version")
 		("daemon", "Start node daemon")
+		("disable_lazy_bootstrap", "Disables lazy bootstrap")
 		("debug_block_count", "Display the number of block")
 		("debug_bootstrap_generate", "Generate bootstrap sequence of blocks")
 		("debug_dump_representatives", "List representatives and weights")
@@ -31,6 +32,7 @@ int main (int argc, char * const * argv)
 		("debug_profile_verify", "Profile work verification")
 		("debug_profile_kdf", "Profile kdf function")
 		("debug_verify_profile", "Profile signature verification")
+		("debug_verify_profile_batch", "Profile batch signature verification")
 		("debug_profile_sign", "Profile signature generation")
 		("debug_profile_process", "Profile active blocks processing (only for rai_test_network)")
 		("debug_validate_blocks", "Check all blocks for correct hash, signature, work value")
@@ -59,7 +61,7 @@ int main (int argc, char * const * argv)
 		if (vm.count ("daemon") > 0)
 		{
 			rai_daemon::daemon daemon;
-			daemon.run (data_path);
+			daemon.run (data_path, vm.count ("disable_lazy_bootstrap") > 0);
 		}
 		else if (vm.count ("debug_block_count"))
 		{
@@ -138,7 +140,7 @@ int main (int argc, char * const * argv)
 			{
 				rai::account_info info (i->second);
 				rai::block_hash rep_block (node.node->ledger.representative_calculated (transaction, info.head));
-				std::unique_ptr<rai::block> block (node.node->store.block_get (transaction, rep_block));
+				auto block (node.node->store.block_get (transaction, rep_block));
 				calculated[block->representative ()] += info.balance.number ();
 			}
 			total = 0;
@@ -169,6 +171,7 @@ int main (int argc, char * const * argv)
 			{
 				auto begin1 (std::chrono::high_resolution_clock::now ());
 				auto success (argon2_hash (1, rai::wallet_store::kdf_work, 1, password.data (), password.size (), salt.bytes.data (), salt.bytes.size (), result.bytes.data (), result.bytes.size (), NULL, 0, Argon2_d, 0x10));
+				(void)success;
 				auto end1 (std::chrono::high_resolution_clock::now ());
 				std::cerr << boost::str (boost::format ("Derivation time: %1%us\n") % std::chrono::duration_cast<std::chrono::microseconds> (end1 - begin1).count ());
 			}
@@ -310,6 +313,23 @@ int main (int argc, char * const * argv)
 			}
 			auto end (std::chrono::high_resolution_clock::now ());
 			std::cerr << "Signature verifications " << std::chrono::duration_cast<std::chrono::microseconds> (end - begin).count () << std::endl;
+		}
+		else if (vm.count ("debug_verify_profile_batch"))
+		{
+			rai::keypair key;
+			size_t batch_count (1000);
+			rai::uint256_union message;
+			rai::uint512_union signature (rai::sign_message (key.prv, key.pub, message));
+			std::vector<unsigned char const *> messages (batch_count, message.bytes.data ());
+			std::vector<size_t> lengths (batch_count, sizeof (message));
+			std::vector<unsigned char const *> pub_keys (batch_count, key.pub.bytes.data ());
+			std::vector<unsigned char const *> signatures (batch_count, signature.bytes.data ());
+			std::vector<int> verifications;
+			verifications.resize (batch_count);
+			auto begin (std::chrono::high_resolution_clock::now ());
+			rai::validate_message_batch (messages.data (), lengths.data (), pub_keys.data (), signatures.data (), batch_count, verifications.data ());
+			auto end (std::chrono::high_resolution_clock::now ());
+			std::cerr << "Batch signature verifications " << std::chrono::duration_cast<std::chrono::microseconds> (end - begin).count () << std::endl;
 		}
 		else if (vm.count ("debug_profile_sign"))
 		{
@@ -454,7 +474,7 @@ int main (int argc, char * const * argv)
 							{
 								prev_balance = node.node->ledger.balance (transaction, state_block.hashables.previous);
 							}
-							if (state_block.hashables.link == node.node->ledger.epoch_link && state_block.hashables.balance == prev_balance)
+							if (node.node->ledger.is_epoch_link (state_block.hashables.link) && state_block.hashables.balance == prev_balance)
 							{
 								invalid = validate_message (node.node->ledger.epoch_signer, hash, block->block_signature ());
 							}

@@ -2,7 +2,6 @@
 
 #include <rai/secure/common.hpp>
 
-struct MDB_txn;
 namespace rai
 {
 class block_store;
@@ -25,8 +24,8 @@ public:
 	rai::uint128_t account_balance (rai::transaction const &, rai::account const &);
 	rai::uint128_t account_pending (rai::transaction const &, rai::account const &);
 	rai::uint128_t weight (rai::transaction const &, rai::account const &);
-	std::unique_ptr<rai::block> successor (rai::transaction const &, rai::block_hash const &);
-	std::unique_ptr<rai::block> forked_block (rai::transaction const &, rai::block const &);
+	std::shared_ptr<rai::block> successor (rai::transaction const &, rai::block_hash const &);
+	std::shared_ptr<rai::block> forked_block (rai::transaction const &, rai::block const &);
 	rai::block_hash latest (rai::transaction const &, rai::account const &);
 	rai::block_hash latest_root (rai::transaction const &, rai::account const &);
 	rai::block_hash representative (rai::transaction const &, rai::block_hash const &);
@@ -37,7 +36,7 @@ public:
 	bool is_send (rai::transaction const &, rai::state_block const &);
 	rai::block_hash block_destination (rai::transaction const &, rai::block const &);
 	rai::block_hash block_source (rai::transaction const &, rai::block const &);
-	rai::process_return process (rai::transaction const &, rai::block const &);
+	rai::process_return process (rai::transaction const &, rai::block const &, bool = false);
 	void rollback (rai::transaction const &, rai::block_hash const &);
 	void change_latest (rai::transaction const &, rai::account const &, rai::block_hash const &, rai::account const &, rai::uint128_union const &, uint64_t, bool = false, rai::epoch = rai::epoch::epoch_0);
 	void checksum_update (rai::transaction const &, rai::block_hash const &);
