@@ -24,8 +24,7 @@ bootstrap_connections (4),
 bootstrap_connections_max (64),
 callback_port (0),
 lmdb_max_dbs (128),
-block_processor_batch_max_time (std::chrono::milliseconds (5000)),
-vote_minimum (rai::Gxrb_ratio)
+block_processor_batch_max_time (std::chrono::milliseconds (5000))
 {
 	const char * epoch_message ("epoch v1 block");
 	strncpy ((char *)epoch_block_link.bytes.data (), epoch_message, epoch_block_link.bytes.size ());
@@ -107,7 +106,6 @@ void rai::node_config::serialize_json (boost::property_tree::ptree & tree_a) con
 	tree_a.put ("callback_target", callback_target);
 	tree_a.put ("lmdb_max_dbs", lmdb_max_dbs);
 	tree_a.put ("block_processor_batch_max_time", block_processor_batch_max_time.count ());
-	tree_a.put ("vote_minimum", vote_minimum.to_string_dec ());
 }
 
 bool rai::node_config::upgrade_json (unsigned version, boost::property_tree::ptree & tree_a)
@@ -218,7 +216,6 @@ bool rai::node_config::upgrade_json (unsigned version, boost::property_tree::ptr
 			tree_a.put ("network_threads", std::to_string (network_threads));
 			tree_a.erase ("generate_hash_votes_at");
 			tree_a.put ("block_processor_batch_max_time", block_processor_batch_max_time.count ());
-			tree_a.put ("vote_minimum", vote_minimum.to_string_dec ());
 			tree_a.erase ("version");
 			tree_a.put ("version", "15");
 			result = true;
