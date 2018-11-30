@@ -195,7 +195,7 @@ TEST (node, node_receive_quorum)
 	{
 		auto info (system.nodes[0]->active.roots.find (previous));
 		ASSERT_NE (system.nodes[0]->active.roots.end (), info);
-		done = info->announcements > rai::active_transactions::announcement_min;
+		done = info->election->announcements > rai::active_transactions::announcement_min;
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	rai::system system2 (24001, 1);
@@ -229,7 +229,7 @@ TEST (node, auto_bootstrap)
 	system.nodes.push_back (node1);
 	while (!node1->bootstrap_initiator.in_progress ())
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	system.deadline_set (10s);
 	while (node1->balance (key2.pub) != system.nodes[0]->config.receive_minimum.number ())
@@ -1006,7 +1006,7 @@ TEST (node, fork_no_vote_quorum)
 	node2.network.confirm_send (confirm, bytes, node3.network.endpoint ());
 	while (node3.stats.count (rai::stat::type::message, rai::stat::detail::confirm_ack, rai::stat::dir::in) < 3)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_TRUE (node1.latest (rai::test_genesis_key.pub) == send1.hash ());
 	ASSERT_TRUE (node2.latest (rai::test_genesis_key.pub) == send1.hash ());
@@ -1171,7 +1171,7 @@ TEST (node, broadcast_elected)
 	//std::cerr << "fork1: " << fork1.hash ().to_string () << std::endl;
 	while (!node0->ledger.block_exists (fork0->hash ()) || !node1->ledger.block_exists (fork0->hash ()))
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	system.deadline_set (50s);
 	while (!node2->ledger.block_exists (fork0->hash ()))
@@ -1398,25 +1398,6 @@ TEST (node, no_voting)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (0, node1.stats.count (rai::stat::type::message, rai::stat::detail::confirm_ack, rai::stat::dir::in));
-}
-
-TEST (node, start_observer)
-{
-	rai::node_init init;
-	auto service (boost::make_shared<boost::asio::io_service> ());
-	rai::alarm alarm (*service);
-	auto path (rai::unique_path ());
-	rai::logging logging;
-	logging.init (path);
-	rai::work_pool work (std::numeric_limits<unsigned>::max (), nullptr);
-	auto node (std::make_shared<rai::node> (init, *service, 0, path, alarm, logging, work));
-	auto started (false);
-	node->observers.started.add ([&started]() {
-		started = true;
-	});
-	node->start ();
-	ASSERT_TRUE (started);
-	node->stop ();
 }
 
 TEST (node, send_callback)
@@ -1657,7 +1638,7 @@ TEST (node, confirm_quorum)
 		ASSERT_FALSE (system.nodes[0]->active.roots.empty ());
 		auto info (system.nodes[0]->active.roots.find (send1->hash ()));
 		ASSERT_NE (system.nodes[0]->active.roots.end (), info);
-		done = info->announcements > rai::active_transactions::announcement_min;
+		done = info->election->announcements > rai::active_transactions::announcement_min;
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (0, system.nodes[0]->balance (rai::test_genesis_key.pub));
@@ -1835,6 +1816,7 @@ TEST (node, fork_invalid_block_signature_vote_by_hash)
 	auto vote (std::make_shared<rai::vote> (rai::test_genesis_key.pub, rai::test_genesis_key.prv, 0, vote_blocks));
 	{
 		auto transaction (system.nodes[0]->store.tx_begin_read ());
+		std::unique_lock<std::mutex> lock (system.nodes[0]->active.mutex);
 		system.nodes[0]->vote_processor.vote_blocking (transaction, vote, system.nodes[0]->network.endpoint ());
 	}
 	while (system.nodes[0]->block (send1->hash ()))

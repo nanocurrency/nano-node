@@ -42,9 +42,6 @@ TEST (message, publish_serialization)
 {
 	rai::publish publish (std::make_shared<rai::send_block> (0, 1, 2, rai::keypair ().prv, 4, 5));
 	ASSERT_EQ (rai::block_type::send, publish.header.block_type ());
-	ASSERT_FALSE (publish.header.ipv4_only ());
-	publish.header.ipv4_only_set (true);
-	ASSERT_TRUE (publish.header.ipv4_only ());
 	std::vector<uint8_t> bytes;
 	{
 		rai::vectorstream stream (bytes);
@@ -57,7 +54,7 @@ TEST (message, publish_serialization)
 	ASSERT_EQ (rai::protocol_version, bytes[3]);
 	ASSERT_EQ (rai::protocol_version_min, bytes[4]);
 	ASSERT_EQ (static_cast<uint8_t> (rai::message_type::publish), bytes[5]);
-	ASSERT_EQ (0x02, bytes[6]);
+	ASSERT_EQ (0x00, bytes[6]); // extensions
 	ASSERT_EQ (static_cast<uint8_t> (rai::block_type::send), bytes[7]);
 	rai::bufferstream stream (bytes.data (), bytes.size ());
 	auto error (false);

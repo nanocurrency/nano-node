@@ -82,6 +82,12 @@ public:
 	unsigned target_connections (size_t pulls_remaining);
 	bool should_log ();
 	void add_bulk_push_target (rai::block_hash const &, rai::block_hash const &);
+	bool process_block (std::shared_ptr<rai::block>);
+	void lazy_run ();
+	void lazy_start (rai::block_hash const &);
+	void lazy_add (rai::block_hash const &);
+	bool lazy_finished ();
+	void lazy_pull_flush ();
 	std::chrono::steady_clock::time_point next_log;
 	std::deque<std::weak_ptr<rai::bootstrap_client>> clients;
 	std::weak_ptr<rai::bootstrap_client> connection_frontier_request;
@@ -96,8 +102,15 @@ public:
 	std::atomic<uint64_t> total_blocks;
 	std::vector<std::pair<rai::block_hash, rai::block_hash>> bulk_push_targets;
 	bool stopped;
+	bool lazy_mode;
 	std::mutex mutex;
 	std::condition_variable condition;
+	// Lazy bootstrap
+	std::unordered_set<rai::block_hash> lazy_blocks;
+	std::unordered_map<rai::block_hash, std::shared_ptr<rai::state_block>> lazy_state_unknown;
+	std::unordered_set<rai::block_hash> lazy_keys;
+	std::deque<rai::block_hash> lazy_pulls;
+	std::mutex lazy_mutex;
 };
 class frontier_req_client : public std::enable_shared_from_this<rai::frontier_req_client>
 {
@@ -113,7 +126,7 @@ public:
 	void insert_pull (rai::pull_info const &);
 	std::shared_ptr<rai::bootstrap_client> connection;
 	rai::account current;
-	rai::account_info info;
+	rai::block_hash frontier;
 	unsigned count;
 	rai::account landing;
 	rai::account faucet;
@@ -121,6 +134,7 @@ public:
 	std::promise<bool> promise;
 	/** A very rough estimate of the cost of `bulk_push`ing missing blocks */
 	uint64_t bulk_push_cost;
+	std::deque<std::pair<rai::account, rai::block_hash>> accounts;
 };
 class bulk_pull_client : public std::enable_shared_from_this<rai::bulk_pull_client>
 {
@@ -176,6 +190,7 @@ public:
 	~bootstrap_initiator ();
 	void bootstrap (rai::endpoint const &, bool add_to_peers = true);
 	void bootstrap ();
+	void bootstrap_lazy (rai::block_hash const &, bool = false);
 	void run_bootstrap ();
 	void notify_listeners (bool);
 	void add_observer (std::function<void(bool)> const &);
@@ -300,7 +315,6 @@ class frontier_req_server : public std::enable_shared_from_this<rai::frontier_re
 {
 public:
 	frontier_req_server (std::shared_ptr<rai::bootstrap_server> const &, std::unique_ptr<rai::frontier_req>);
-	void skip_old ();
 	void send_next ();
 	void sent_action (boost::system::error_code const &, size_t);
 	void send_finished ();
@@ -308,9 +322,10 @@ public:
 	void next ();
 	std::shared_ptr<rai::bootstrap_server> connection;
 	rai::account current;
-	rai::account_info info;
+	rai::block_hash frontier;
 	std::unique_ptr<rai::frontier_req> request;
 	std::shared_ptr<std::vector<uint8_t>> send_buffer;
 	size_t count;
+	std::deque<std::pair<rai::account, rai::block_hash>> accounts;
 };
 }

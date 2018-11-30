@@ -706,6 +706,37 @@ TEST (bootstrap_processor, push_one)
 	node1->stop ();
 }
 
+TEST (bootstrap_processor, lazy_hash)
+{
+	rai::system system (24000, 1);
+	rai::node_init init1;
+	rai::genesis genesis;
+	rai::keypair key1;
+	rai::keypair key2;
+	// Generating test chain
+	auto send1 (std::make_shared<rai::state_block> (rai::test_genesis_key.pub, genesis.hash (), rai::test_genesis_key.pub, rai::genesis_amount - rai::Gxrb_ratio, key1.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.nodes[0]->work_generate_blocking (genesis.hash ())));
+	auto receive1 (std::make_shared<rai::state_block> (key1.pub, 0, key1.pub, rai::Gxrb_ratio, send1->hash (), key1.prv, key1.pub, system.nodes[0]->work_generate_blocking (key1.pub)));
+	auto send2 (std::make_shared<rai::state_block> (key1.pub, receive1->hash (), key1.pub, 0, key2.pub, key1.prv, key1.pub, system.nodes[0]->work_generate_blocking (receive1->hash ())));
+	auto receive2 (std::make_shared<rai::state_block> (key2.pub, 0, key2.pub, rai::Gxrb_ratio, send2->hash (), key2.prv, key2.pub, system.nodes[0]->work_generate_blocking (key2.pub)));
+	// Processing test chain
+	system.nodes[0]->block_processor.add (send1, std::chrono::steady_clock::time_point ());
+	system.nodes[0]->block_processor.add (receive1, std::chrono::steady_clock::time_point ());
+	system.nodes[0]->block_processor.add (send2, std::chrono::steady_clock::time_point ());
+	system.nodes[0]->block_processor.add (receive2, std::chrono::steady_clock::time_point ());
+	system.nodes[0]->block_processor.flush ();
+	// Start lazy bootstrap with last block in chain known
+	auto node1 (std::make_shared<rai::node> (init1, system.service, 24001, rai::unique_path (), system.alarm, system.logging, system.work));
+	node1->peers.insert (system.nodes[0]->network.endpoint (), rai::protocol_version);
+	node1->bootstrap_initiator.bootstrap_lazy (receive2->hash ());
+	// Check processed blocks
+	system.deadline_set (10s);
+	while (node1->balance (key2.pub) == 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	node1->stop ();
+}
+
 TEST (frontier_req_response, DISABLED_destruction)
 {
 	{
@@ -736,7 +767,7 @@ TEST (frontier_req, begin)
 	auto request (std::make_shared<rai::frontier_req_server> (connection, std::move (req)));
 	ASSERT_EQ (rai::test_genesis_key.pub, request->current);
 	rai::genesis genesis;
-	ASSERT_EQ (genesis.hash (), request->info.head);
+	ASSERT_EQ (genesis.hash (), request->frontier);
 }
 
 TEST (frontier_req, end)
@@ -752,6 +783,30 @@ TEST (frontier_req, end)
 	ASSERT_TRUE (request->current.is_zero ());
 }
 
+TEST (frontier_req, count)
+{
+	rai::system system (24000, 1);
+	auto & node1 (*system.nodes[0]);
+	rai::genesis genesis;
+	// Public key FB93... after genesis in accounts table
+	rai::keypair key1 ("ED5AE0A6505B14B67435C29FD9FEEBC26F597D147BC92F6D795FFAD7AFD3D967");
+	rai::state_block send1 (rai::test_genesis_key.pub, genesis.hash (), rai::test_genesis_key.pub, rai::genesis_amount - rai::Gxrb_ratio, key1.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
+	node1.work_generate_blocking (send1);
+	ASSERT_EQ (rai::process_result::progress, node1.process (send1).code);
+	rai::state_block receive1 (key1.pub, 0, rai::test_genesis_key.pub, rai::Gxrb_ratio, send1.hash (), key1.prv, key1.pub, 0);
+	node1.work_generate_blocking (receive1);
+	ASSERT_EQ (rai::process_result::progress, node1.process (receive1).code);
+	auto connection (std::make_shared<rai::bootstrap_server> (nullptr, system.nodes[0]));
+	std::unique_ptr<rai::frontier_req> req (new rai::frontier_req);
+	req->start.clear ();
+	req->age = std::numeric_limits<decltype (req->age)>::max ();
+	req->count = 1;
+	connection->requests.push (std::unique_ptr<rai::message>{});
+	auto request (std::make_shared<rai::frontier_req_server> (connection, std::move (req)));
+	ASSERT_EQ (rai::test_genesis_key.pub, request->current);
+	ASSERT_EQ (send1.hash (), request->frontier);
+}
+
 TEST (frontier_req, time_bound)
 {
 	rai::system system (24000, 1);
@@ -762,7 +817,17 @@ TEST (frontier_req, time_bound)
 	req->count = std::numeric_limits<decltype (req->count)>::max ();
 	connection->requests.push (std::unique_ptr<rai::message>{});
 	auto request (std::make_shared<rai::frontier_req_server> (connection, std::move (req)));
-	ASSERT_TRUE (request->current.is_zero ());
+	ASSERT_EQ (rai::test_genesis_key.pub, request->current);
+	// Wait for next second when age of account will be > 0 seconds
+	std::this_thread::sleep_for (std::chrono::milliseconds (1001));
+	std::unique_ptr<rai::frontier_req> req2 (new rai::frontier_req);
+	req2->start.clear ();
+	req2->age = 0;
+	req2->count = std::numeric_limits<decltype (req->count)>::max ();
+	auto connection2 (std::make_shared<rai::bootstrap_server> (nullptr, system.nodes[0]));
+	connection2->requests.push (std::unique_ptr<rai::message>{});
+	auto request2 (std::make_shared<rai::frontier_req_server> (connection, std::move (req2)));
+	ASSERT_TRUE (request2->current.is_zero ());
 }
 
 TEST (frontier_req, time_cutoff)
@@ -771,13 +836,23 @@ TEST (frontier_req, time_cutoff)
 	auto connection (std::make_shared<rai::bootstrap_server> (nullptr, system.nodes[0]));
 	std::unique_ptr<rai::frontier_req> req (new rai::frontier_req);
 	req->start.clear ();
-	req->age = 10;
+	req->age = 3;
 	req->count = std::numeric_limits<decltype (req->count)>::max ();
 	connection->requests.push (std::unique_ptr<rai::message>{});
 	auto request (std::make_shared<rai::frontier_req_server> (connection, std::move (req)));
 	ASSERT_EQ (rai::test_genesis_key.pub, request->current);
 	rai::genesis genesis;
-	ASSERT_EQ (genesis.hash (), request->info.head);
+	ASSERT_EQ (genesis.hash (), request->frontier);
+	// Wait 4 seconds when age of account will be > 3 seconds
+	std::this_thread::sleep_for (std::chrono::milliseconds (4001));
+	std::unique_ptr<rai::frontier_req> req2 (new rai::frontier_req);
+	req2->start.clear ();
+	req2->age = 3;
+	req2->count = std::numeric_limits<decltype (req->count)>::max ();
+	auto connection2 (std::make_shared<rai::bootstrap_server> (nullptr, system.nodes[0]));
+	connection2->requests.push (std::unique_ptr<rai::message>{});
+	auto request2 (std::make_shared<rai::frontier_req_server> (connection, std::move (req2)));
+	ASSERT_TRUE (request2->frontier.is_zero ());
 }
 
 TEST (bulk, genesis)
@@ -945,7 +1020,7 @@ TEST (node, port_mapping)
 	(void)end;
 	//while (std::chrono::steady_clock::now () < end)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 }
 

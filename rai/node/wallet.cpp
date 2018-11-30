@@ -12,6 +12,8 @@
 
 #include <future>
 
+uint64_t const rai::work_pool::publish_threshold;
+
 rai::uint256_union rai::wallet_store::check (rai::transaction const & transaction_a)
 {
 	rai::wallet_value value (entry_get_raw (transaction_a, rai::wallet_store::check_special));
