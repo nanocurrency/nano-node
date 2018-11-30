@@ -1,7 +1,7 @@
 cmake_minimum_required (VERSION 3.4)
 project (rai)
 
-set (CPACK_PACKAGE_VERSION_MAJOR "17")
+set (CPACK_PACKAGE_VERSION_MAJOR "18")
 set (CPACK_PACKAGE_VERSION_MINOR "0")
 set (CPACK_PACKAGE_VERSION_PATCH "0")
 if (DEFINED GIT_COMMIT)
@@ -101,7 +101,7 @@ SET( CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${PLATFORM_LINK_FLAGS}" )
 
 if (RAIBLOCKS_SECURE_RPC)
 	find_package (OpenSSL 1.0 REQUIRED)
-	#include_directories(${OPENSSL_INCLUDE_DIR})
+	include_directories(${OPENSSL_INCLUDE_DIR})
 	add_definitions (-DRAIBLOCKS_SECURE_RPC)
 	message("OpenSSL include dir: ${OPENSSL_INCLUDE_DIR}")
 	message("OpenSSL libraries: ${OPENSSL_LIBRARIES}")

@@ -5,8 +5,6 @@
 #include <rai/node/wallet.hpp>
 
 std::array<uint8_t, 2> constexpr rai::message_header::magic_number;
-size_t constexpr rai::message_header::ipv4_only_position;
-size_t constexpr rai::message_header::bootstrap_server_position;
 std::bitset<16> constexpr rai::message_header::block_type_mask;
 
 rai::message_header::message_header (rai::message_type type_a) :
@@ -25,7 +23,7 @@ rai::message_header::message_header (bool & error_a, rai::stream & stream_a)
 	}
 }
 
-void rai::message_header::serialize (rai::stream & stream_a)
+void rai::message_header::serialize (rai::stream & stream_a) const
 {
 	rai::write (stream_a, rai::message_header::magic_number);
 	rai::write (stream_a, version_max);
@@ -72,16 +70,6 @@ void rai::message_header::block_type_set (rai::block_type type_a)
 {
 	extensions &= ~block_type_mask;
 	extensions |= std::bitset<16> (static_cast<unsigned long long> (type_a) << 8);
-}
-
-bool rai::message_header::ipv4_only ()
-{
-	return extensions.test (ipv4_only_position);
-}
-
-void rai::message_header::ipv4_only_set (bool value_a)
-{
-	extensions.set (ipv4_only_position, value_a);
 }
 
 // MTU - IP header - UDP header
@@ -352,7 +340,7 @@ void rai::keepalive::visit (rai::message_visitor & visitor_a) const
 	visitor_a.keepalive (*this);
 }
 
-void rai::keepalive::serialize (rai::stream & stream_a)
+void rai::keepalive::serialize (rai::stream & stream_a) const
 {
 	header.serialize (stream_a);
 	for (auto i (peers.begin ()), j (peers.end ()); i != j; ++i)
@@ -413,7 +401,7 @@ bool rai::publish::deserialize (rai::stream & stream_a, rai::block_uniquer * uni
 	return result;
 }
 
-void rai::publish::serialize (rai::stream & stream_a)
+void rai::publish::serialize (rai::stream & stream_a) const
 {
 	assert (block != nullptr);
 	header.serialize (stream_a);
@@ -503,7 +491,7 @@ void rai::confirm_req::visit (rai::message_visitor & visitor_a) const
 	visitor_a.confirm_req (*this);
 }
 
-void rai::confirm_req::serialize (rai::stream & stream_a)
+void rai::confirm_req::serialize (rai::stream & stream_a) const
 {
 	header.serialize (stream_a);
 	if (header.block_type () == rai::block_type::not_a_block)
@@ -587,7 +575,7 @@ bool rai::confirm_ack::deserialize (rai::stream & stream_a, rai::vote_uniquer * 
 	return result;
 }
 
-void rai::confirm_ack::serialize (rai::stream & stream_a)
+void rai::confirm_ack::serialize (rai::stream & stream_a) const
 {
 	assert (header.block_type () == rai::block_type::not_a_block || header.block_type () == rai::block_type::send || header.block_type () == rai::block_type::receive || header.block_type () == rai::block_type::open || header.block_type () == rai::block_type::change || header.block_type () == rai::block_type::state);
 	header.serialize (stream_a);
@@ -634,7 +622,7 @@ bool rai::frontier_req::deserialize (rai::stream & stream_a)
 	return result;
 }
 
-void rai::frontier_req::serialize (rai::stream & stream_a)
+void rai::frontier_req::serialize (rai::stream & stream_a) const
 {
 	header.serialize (stream_a);
 	write (stream_a, start.bytes);
@@ -682,7 +670,7 @@ bool rai::bulk_pull::deserialize (rai::stream & stream_a)
 	return result;
 }
 
-void rai::bulk_pull::serialize (rai::stream & stream_a)
+void rai::bulk_pull::serialize (rai::stream & stream_a) const
 {
 	header.serialize (stream_a);
 	write (stream_a, start);
@@ -723,7 +711,7 @@ bool rai::bulk_pull_account::deserialize (rai::stream & stream_a)
 	return result;
 }
 
-void rai::bulk_pull_account::serialize (rai::stream & stream_a)
+void rai::bulk_pull_account::serialize (rai::stream & stream_a) const
 {
 	header.serialize (stream_a);
 	write (stream_a, account);
@@ -769,7 +757,7 @@ bool rai::bulk_pull_blocks::deserialize (rai::stream & stream_a)
 	return result;
 }
 
-void rai::bulk_pull_blocks::serialize (rai::stream & stream_a)
+void rai::bulk_pull_blocks::serialize (rai::stream & stream_a) const
 {
 	header.serialize (stream_a);
 	write (stream_a, min_hash);
@@ -794,7 +782,7 @@ bool rai::bulk_push::deserialize (rai::stream & stream_a)
 	return false;
 }
 
-void rai::bulk_push::serialize (rai::stream & stream_a)
+void rai::bulk_push::serialize (rai::stream & stream_a) const
 {
 	header.serialize (stream_a);
 }
@@ -822,11 +810,11 @@ response (response)
 {
 	if (query)
 	{
-		header.extensions.set (query_flag);
+		set_query_flag (true);
 	}
 	if (response)
 	{
-		header.extensions.set (response_flag);
+		set_response_flag (true);
 	}
 }
 
@@ -834,7 +822,7 @@ bool rai::node_id_handshake::deserialize (rai::stream & stream_a)
 {
 	auto result (false);
 	assert (header.type == rai::message_type::node_id_handshake);
-	if (!result && header.extensions.test (query_flag))
+	if (!result && is_query_flag ())
 	{
 		rai::uint256_union query_hash;
 		result = read (stream_a, query_hash);
@@ -843,7 +831,7 @@ bool rai::node_id_handshake::deserialize (rai::stream & stream_a)
 			query = query_hash;
 		}
 	}
-	if (!result && header.extensions.test (response_flag))
+	if (!result && is_response_flag ())
 	{
 		rai::account response_account;
 		result = read (stream_a, response_account);
@@ -860,7 +848,7 @@ bool rai::node_id_handshake::deserialize (rai::stream & stream_a)
 	return result;
 }
 
-void rai::node_id_handshake::serialize (rai::stream & stream_a)
+void rai::node_id_handshake::serialize (rai::stream & stream_a) const
 {
 	header.serialize (stream_a);
 	if (query)
@@ -878,6 +866,26 @@ bool rai::node_id_handshake::operator== (rai::node_id_handshake const & other_a)
 {
 	auto result (*query == *other_a.query && *response == *other_a.response);
 	return result;
+}
+
+bool rai::node_id_handshake::is_query_flag () const
+{
+	return header.extensions.test (query_flag);
+}
+
+void rai::node_id_handshake::set_query_flag (bool value_a)
+{
+	header.extensions.set (query_flag, value_a);
+}
+
+bool rai::node_id_handshake::is_response_flag () const
+{
+	return header.extensions.test (response_flag);
+}
+
+void rai::node_id_handshake::set_response_flag (bool value_a)
+{
+	header.extensions.set (response_flag, value_a);
 }
 
 void rai::node_id_handshake::visit (rai::message_visitor & visitor_a) const

@@ -107,7 +107,7 @@ std::map<rai::endpoint, unsigned> rai::peer_container::list_version ()
 	return result;
 }
 
-std::vector<rai::peer_information> rai::peer_container::list_vector ()
+std::vector<rai::peer_information> rai::peer_container::list_vector (size_t count_a)
 {
 	std::vector<peer_information> result;
 	std::lock_guard<std::mutex> lock (mutex);
@@ -116,6 +116,10 @@ std::vector<rai::peer_information> rai::peer_container::list_vector ()
 		result.push_back (*i);
 	}
 	std::random_shuffle (result.begin (), result.end ());
+	if (result.size () > count_a)
+	{
+		result.resize (count_a, rai::peer_information (rai::endpoint{}, 0));
+	}
 	return result;
 }
 
@@ -325,9 +329,9 @@ size_t rai::peer_container::size_sqrt ()
 	return result;
 }
 
-rai::uint128_t rai::peer_container::total_weight ()
+std::vector<rai::peer_information> rai::peer_container::list_probable_rep_weights ()
 {
-	rai::uint128_t result (0);
+	std::vector<rai::peer_information> result;
 	std::unordered_set<rai::account> probable_reps;
 	std::lock_guard<std::mutex> lock (mutex);
 	for (auto i (peers.get<6> ().begin ()), n (peers.get<6> ().end ()); i != n; ++i)
@@ -335,9 +339,22 @@ rai::uint128_t rai::peer_container::total_weight ()
 		// Calculate if representative isn't recorded for several IP addresses
 		if (probable_reps.find (i->probable_rep_account) == probable_reps.end ())
 		{
-			result = result + i->rep_weight.number ();
+			if (!i->rep_weight.number ().is_zero ())
+			{
+				result.push_back (*i);
+			}
 			probable_reps.insert (i->probable_rep_account);
 		}
+	}
+	return result;
+}
+
+rai::uint128_t rai::peer_container::total_weight ()
+{
+	rai::uint128_t result (0);
+	for (auto & entry : list_probable_rep_weights ())
+	{
+		result = result + entry.rep_weight.number ();
 	}
 	return result;
 }
