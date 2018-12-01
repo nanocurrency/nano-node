@@ -35,13 +35,14 @@ function milestones () {
 	) | sort -rV
 }
 
-function milestone_to_tag_date () {
-	local milestone
+function tag_to_tag_date () {
+	local tag
 	local tag_url
 
-	milestone="$1"
+	tag="$1"
 
-	tag_url="$(_curl "https://api.github.com/repos/${repository}/git/refs/tags/${milestone}" | jq -r '.object.url')" || return 1
+	tag_url="$(_curl "https://api.github.com/repos/${repository}/git/refs/tags/${tag}" | jq -r 'if (type == "object") then . else .[] end | select(.ref=="refs/tags/'"${tag}"'") | .object.url')" || return 1
+echo "${tag_url}" >&2
 	_curl "${tag_url}" | jq -r '.tagger.date | fromdateiso8601 | strftime("%Y-%m-%d")' 2>/dev/null || \
 		_curl "${tag_url}" | jq -r '.committer.date | fromdateiso8601 | strftime("%Y-%m-%d")' || return 1
 }
@@ -78,7 +79,7 @@ function print_item () {
 function changelog () {
 	local repository start_tag flags_list
 	local milestones_info previous_milestones previous_milestone
-	local milestone_name previous_milestone_name milestone_date
+	local milestone_name previous_milestone_name milestone_date tag_name
 	local itemToTags itemToName itemURL categoryIds categoryId
 	local majorIds item_url item_id item_name item_tags skip_item
 	local category is_major breaking
@@ -119,12 +120,16 @@ function changelog () {
 	else
 		start_output='true'
 	fi
+	start_tag_check="$(echo "${start_tag}" | sed 's@RC[0-9]*$@@')"
 	while IFS=$'\t' read -r milestone_name milestone_id; do
-		echo "Processing milestone: ${milestone_name}..." >&2
+		echo "Processing milestone: ${milestone_name} ..." >&2
 
+		tag_name="${milestone_name}"
 		if [ "${start_output}" = 'false' ]; then
-			if [ "${milestone_name}" = "${start_tag}" ]; then
+			if [ "${milestone_name}" = "${start_tag_check}" ]; then
 				start_output='true'
+
+				tag_name="${start_tag}"
 			fi
 		fi
 
@@ -132,16 +137,16 @@ function changelog () {
 			continue
 		fi
 
-		milestone_date="$(milestone_to_tag_date "${milestone_name}")" || milestone_date=''
+		milestone_date="$(tag_to_tag_date "${tag_name}")" || milestone_date=''
 		previous_milestone_name="${previous_milestones[${milestone_name}]}"
 		if [ -z "${milestone_date}" -o -z "${previous_milestone_name}" ]; then
 			continue
 		fi
 
-		echo "## Release [${milestone_name}](https://github.com/nanocurrency/raiblocks/tree/${milestone_name}) (${milestone_date})"
+		echo "## Release [${tag_name}](https://github.com/nanocurrency/raiblocks/tree/${tag_name}) (${milestone_date})"
 		echo ""
 
-		echo "[Full Changelog](https://github.com/nanocurrency/raiblocks/compare/${previous_milestone_name}...${milestone_name})"
+		echo "[Full Changelog](https://github.com/nanocurrency/raiblocks/compare/${previous_milestone_name}...${tag_name})"
 		echo ""
 
 		unset itemToTags itemToName itemURL categoryIds
