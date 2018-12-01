@@ -54,8 +54,19 @@ function parts_of_milestone () {
 	milestone_id="$2"
 
 	for state in closed open; do
-		_curl "https://api.github.com/repos/${repository}/issues?milestone=${milestone_id}&state=${state}" | \
-			jq -r '.[] | [.html_url, .number, .title, (.labels[] | .name)] | @tsv' || return 1
+		page='0'
+		while true; do
+			page=$[${page} + 1]
+			data="$(_curl "https://api.github.com/repos/${repository}/issues?milestone=${milestone_id}&state=${state}&page=${page}")"
+
+			item_count="$(echo "${data}" | jq -r '. | length')"
+			if [ "${item_count}" = '0' ]; then
+				break
+			fi
+
+			echo "${data}" | \
+				jq -r '.[] | [.html_url, .number, .title, (.labels[] | .name)] | @tsv' || return 1
+		done
 	done
 }
 
