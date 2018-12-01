@@ -42,7 +42,6 @@ function tag_to_tag_date () {
 	tag="$1"
 
 	tag_url="$(_curl "https://api.github.com/repos/${repository}/git/refs/tags/${tag}" | jq -r 'if (type == "object") then . else .[] end | select(.ref=="refs/tags/'"${tag}"'") | .object.url')" || return 1
-echo "${tag_url}" >&2
 	_curl "${tag_url}" | jq -r '.tagger.date | fromdateiso8601 | strftime("%Y-%m-%d")' 2>/dev/null || \
 		_curl "${tag_url}" | jq -r '.committer.date | fromdateiso8601 | strftime("%Y-%m-%d")' || return 1
 }
