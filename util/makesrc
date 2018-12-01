@@ -35,16 +35,18 @@ function make_source () {
 	tarball_creation
 }
 function source_information () {
-	local version_no_rc
-	local changelog_args
-
-	version_no_rc="$(echo "${VERSION}" | sed 's@RC[0-9]*$@@')"
-
 	DATE=`git log --tags --simplify-by-decoration --pretty="format:%ai %d" | head -1 |cut -d " " -f1-3`
 	COMMIT=`git log | head -1 | cut -d " " -f 2`
 	TAG_DATE=`TZ=UTC date -d"$DATE" +%s`
 
-	"${scriptDir}/changelog_generator" nanocurrency/raiblocks "V${version_no_rc}"
+	case "${VERSION}" in
+		*RC*)
+			"${scriptDir}/changelog_generator" nanocurrency/raiblocks "V${VERSION}" only
+			;;
+		*)
+			"${scriptDir}/changelog_generator" nanocurrency/raiblocks "V${VERSION}"
+			;;
+	esac
 
 	if [ ! -s CHANGELOG.md ]; then
 		echo "CHANGELOG not generated"
