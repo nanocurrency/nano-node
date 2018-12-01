@@ -93,9 +93,9 @@ public:
 
 			if (wallet.decode_hex (wallet_l))
 			{
-				json.get_error ().set ("Invalid wallet. Must be a hexidecimal number.");
+				json.get_error ().set ("Invalid wallet id. Did you open a node daemon config?");
 			}
-			if (account.decode_account (account_l))
+			else if (account.decode_account (account_l))
 			{
 				json.get_error ().set ("Invalid account");
 			}

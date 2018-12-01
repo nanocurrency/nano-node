@@ -65,8 +65,8 @@ block_processor_batch_max_time (std::chrono::milliseconds (5000))
 nano::error nano::node_config::serialize_json (nano::jsonconfig & json) const
 {
 	json.put ("version", json_version ());
-	json.put ("peering_port", std::to_string (peering_port));
-	json.put ("bootstrap_fraction_numerator", std::to_string (bootstrap_fraction_numerator));
+	json.put ("peering_port", peering_port);
+	json.put ("bootstrap_fraction_numerator", bootstrap_fraction_numerator);
 	json.put ("receive_minimum", receive_minimum.to_string_dec ());
 
 	nano::jsonconfig logging_l;
@@ -94,16 +94,16 @@ nano::error nano::node_config::serialize_json (nano::jsonconfig & json) const
 	json.put_child ("preconfigured_representatives", preconfigured_representatives_l);
 
 	json.put ("online_weight_minimum", online_weight_minimum.to_string_dec ());
-	json.put ("online_weight_quorum", std::to_string (online_weight_quorum));
-	json.put ("password_fanout", std::to_string (password_fanout));
-	json.put ("io_threads", std::to_string (io_threads));
-	json.put ("network_threads", std::to_string (network_threads));
-	json.put ("work_threads", std::to_string (work_threads));
+	json.put ("online_weight_quorum", online_weight_quorum);
+	json.put ("password_fanout", password_fanout);
+	json.put ("io_threads", io_threads);
+	json.put ("network_threads", network_threads);
+	json.put ("work_threads", work_threads);
 	json.put ("enable_voting", enable_voting);
 	json.put ("bootstrap_connections", bootstrap_connections);
 	json.put ("bootstrap_connections_max", bootstrap_connections_max);
 	json.put ("callback_address", callback_address);
-	json.put ("callback_port", std::to_string (callback_port));
+	json.put ("callback_port", callback_port);
 	json.put ("callback_target", callback_target);
 	json.put ("lmdb_max_dbs", lmdb_max_dbs);
 	json.put ("block_processor_batch_max_time", block_processor_batch_max_time.count ());
@@ -156,11 +156,11 @@ bool nano::node_config::upgrade_json (unsigned version_a, nano::jsonconfig & jso
 		case 6:
 			json.put ("bootstrap_connections", 16);
 			json.put ("callback_address", "");
-			json.put ("callback_port", "0");
+			json.put ("callback_port", 0);
 			json.put ("callback_target", "");
 			upgraded = true;
 		case 7:
-			json.put ("lmdb_max_dbs", "128");
+			json.put ("lmdb_max_dbs", 128);
 			upgraded = true;
 		case 8:
 			json.put ("bootstrap_connections_max", "64");
@@ -188,7 +188,7 @@ bool nano::node_config::upgrade_json (unsigned version_a, nano::jsonconfig & jso
 			json.erase ("state_block_generate_canary");
 			upgraded = true;
 		case 13:
-			json.put ("generate_hash_votes_at", "0");
+			json.put ("generate_hash_votes_at", 0);
 			upgraded = true;
 		case 14:
 			json.put ("network_threads", std::to_string (network_threads));
@@ -210,11 +210,11 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 {
 	try
 	{
-		auto version_l (json.get_optional<std::string> ("version"));
+		auto version_l (json.get_optional<unsigned> ("version"));
 		if (!version_l)
 		{
-			json.put ("version", "1");
-			version_l = "1";
+			version_l = 1;
+			json.put ("version", version_l);
 			auto work_peers_l (json.get_optional_child ("work_peers"));
 			if (!work_peers_l)
 			{
@@ -224,7 +224,7 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 			upgraded_a = true;
 		}
 
-		upgraded_a |= upgrade_json (std::stoull (version_l.get ()), json);
+		upgraded_a |= upgrade_json (version_l.get (), json);
 
 		auto logging_l (json.get_required_child ("logging"));
 		logging.deserialize_json (upgraded_a, logging_l);

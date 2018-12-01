@@ -514,9 +514,9 @@ threads (threads_a)
 
 nano::error nano::opencl_config::serialize_json (nano::jsonconfig & json) const
 {
-	json.put ("platform", std::to_string (platform));
-	json.put ("device", std::to_string (device));
-	json.put ("threads", std::to_string (threads));
+	json.put ("platform", platform);
+	json.put ("device", device);
+	json.put ("threads", threads);
 	return json.get_error ();
 }
 

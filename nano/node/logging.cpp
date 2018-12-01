@@ -79,11 +79,11 @@ bool nano::logging::upgrade_json (unsigned version_a, nano::jsonconfig & json)
 			json.put ("vote", vote_logging_value);
 			upgraded_l = true;
 		case 2:
-			json.put ("rotation_size", "4194304");
-			json.put ("flush", "true");
+			json.put ("rotation_size", rotation_size);
+			json.put ("flush", true);
 			upgraded_l = true;
 		case 3:
-			json.put ("network_node_id_handshake", "false");
+			json.put ("network_node_id_handshake", false);
 			upgraded_l = true;
 		case 4:
 			json.put ("upnp_details", "false");
