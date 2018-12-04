@@ -1152,18 +1152,17 @@ void rai::bootstrap_attempt::lazy_start (rai::block_hash const & hash_a)
 {
 	std::unique_lock<std::mutex> lock (lazy_mutex);
 	// Add start blocks
-	if (lazy_keys.find (hash_a) == lazy_keys.end ())
+	if (lazy_keys.find (hash_a) == lazy_keys.end () && lazy_blocks.find (hash_a) == lazy_blocks.end ())
 	{
 		lazy_keys.insert (hash_a);
+		lazy_pulls.push_back (hash_a);
 	}
-	lazy_add (hash_a);
 }
 
 void rai::bootstrap_attempt::lazy_add (rai::block_hash const & hash_a)
 {
 	// Add only unknown blocks
 	assert (!lazy_mutex.try_lock ());
-
 	if (lazy_blocks.find (hash_a) == lazy_blocks.end ())
 	{
 		lazy_pulls.push_back (hash_a);
