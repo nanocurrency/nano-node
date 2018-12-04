@@ -397,7 +397,6 @@ connection (connection_a),
 pull (pull_a)
 {
 	std::lock_guard<std::mutex> mutex (connection->attempt->mutex);
-	++connection->attempt->pulling;
 	connection->attempt->condition.notify_all ();
 }
 
@@ -809,6 +808,7 @@ void rai::bootstrap_attempt::request_pull (std::unique_lock<std::mutex> & lock_a
 	{
 		auto pull (pulls.front ());
 		pulls.pop_front ();
+		++pulling;
 		// The bulk_pull_client destructor attempt to requeue_pull which can cause a deadlock if this is the last reference
 		// Dispatch request in an external thread in case it needs to be destroyed
 		node->background ([connection_l, pull]() {
@@ -1204,9 +1204,9 @@ bool rai::bootstrap_attempt::lazy_finished ()
 		}
 	}
 	// Finish lazy bootstrap without lazy pulls (in combination with still_pulling ())
-	if (!result)
+	if (!result && lazy_pulls.empty ())
 	{
-		result = lazy_pulls.empty ();
+		result = true;
 	}
 	return result;
 }
