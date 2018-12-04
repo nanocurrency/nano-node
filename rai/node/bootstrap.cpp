@@ -899,6 +899,7 @@ void rai::bootstrap_attempt::run ()
 		if (!lazy_keys.empty ())
 		{
 			lock.unlock ();
+			lazy_mode = true;
 			lazy_run ();
 			lock.lock ();
 		}
