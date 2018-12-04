@@ -1203,6 +1203,11 @@ bool rai::bootstrap_attempt::lazy_finished ()
 			// No need to increment `it` as we break above.
 		}
 	}
+	// Finish lazy bootstrap without lazy pulls (in combination with still_pulling ())
+	if (!result)
+	{
+		result = lazy_pulls.empty ();
+	}
 	return result;
 }
 
