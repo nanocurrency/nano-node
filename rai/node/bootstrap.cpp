@@ -1210,11 +1210,11 @@ void rai::bootstrap_attempt::lazy_run ()
 {
 	populate_connections ();
 	auto start_time (std::chrono::steady_clock::now ());
-	auto max_time (std::chrono::milliseconds (30 * 60 * 1000));
+	auto max_time (std::chrono::minutes (30));
 	std::unique_lock<std::mutex> lock (mutex);
 	while ((still_pulling () || !lazy_finished ()) && std::chrono::steady_clock::now () - start_time < max_time)
 	{
-		while (still_pulling ())
+		while (still_pulling () && std::chrono::steady_clock::now () - start_time < max_time)
 		{
 			if (!pulls.empty ())
 			{
