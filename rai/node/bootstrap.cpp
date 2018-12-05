@@ -1439,7 +1439,7 @@ void rai::bootstrap_initiator::bootstrap_lazy (rai::block_hash const & hash_a, b
 			condition.wait (lock);
 		}
 	}
-	node.stats.inc (rai::stat::type::bootstrap, rai::stat::detail::initiate, rai::stat::dir::out);
+	node.stats.inc (rai::stat::type::bootstrap, rai::stat::detail::initiate_lazy, rai::stat::dir::out);
 	if (attempt == nullptr)
 	{
 		attempt = std::make_shared<rai::bootstrap_attempt> (node.shared ());
