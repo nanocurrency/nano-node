@@ -82,7 +82,7 @@ public:
 	unsigned target_connections (size_t pulls_remaining);
 	bool should_log ();
 	void add_bulk_push_target (rai::block_hash const &, rai::block_hash const &);
-	bool process_block (std::shared_ptr<rai::block>);
+	bool process_block (std::shared_ptr<rai::block>, uint64_t);
 	void lazy_run ();
 	void lazy_start (rai::block_hash const &);
 	void lazy_add (rai::block_hash const &);
@@ -149,6 +149,7 @@ public:
 	std::shared_ptr<rai::bootstrap_client> connection;
 	rai::block_hash expected;
 	rai::pull_info pull;
+	uint64_t total_blocks;
 };
 class bootstrap_client : public std::enable_shared_from_this<bootstrap_client>
 {

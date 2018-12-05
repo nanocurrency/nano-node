@@ -557,7 +557,8 @@ void rai::bulk_pull_client::received_block (boost::system::error_code const & ec
 				connection->start_time = std::chrono::steady_clock::now ();
 			}
 			connection->attempt->total_blocks++;
-			bool stop_pull (connection->attempt->process_block (block));
+			total_blocks++;
+			bool stop_pull (connection->attempt->process_block (block, total_blocks));
 			if (!stop_pull && !connection->hard_stop.load ())
 			{
 				receive_block ();
@@ -1253,7 +1254,7 @@ void rai::bootstrap_attempt::lazy_run ()
 	idle.clear ();
 }
 
-bool rai::bootstrap_attempt::process_block (std::shared_ptr<rai::block> block_a)
+bool rai::bootstrap_attempt::process_block (std::shared_ptr<rai::block> block_a, uint64_t total_blocks)
 {
 	bool stop_pull (false);
 	if (lazy_mode)
@@ -1310,14 +1311,22 @@ bool rai::bootstrap_attempt::process_block (std::shared_ptr<rai::block> block_a)
 			{
 				// Disabled until server rewrite
 				// stop_pull = true;
-				auto account (node->ledger.account (transaction, hash));
-				rai::account_info info;
-				if (!node->store.account_get (transaction, account, info))
+				// Force drop lazy bootstrap connection for long bulk_pull
+				if (total_blocks > 512)
 				{
-					// Force drop lazy bootstrap connection for long chains to prevent high bandwidth usage
-					if (info.block_count > 256)
+					stop_pull = true;
+				}
+				else
+				{
+					auto account (node->ledger.account (transaction, hash));
+					rai::account_info info;
+					if (!node->store.account_get (transaction, account, info))
 					{
-						stop_pull = true;
+						// Force drop lazy bootstrap connection for long chains to prevent high bandwidth usage
+						if (info.block_count > 256)
+						{
+							stop_pull = true;
+						}
 					}
 				}
 			}
@@ -1357,6 +1366,11 @@ bool rai::bootstrap_attempt::process_block (std::shared_ptr<rai::block> block_a)
 		{
 			// Disabled until server rewrite
 			// stop_pull = true;
+			// Force drop lazy bootstrap connection for long bulk_pull
+			if (total_blocks > 512)
+			{
+				stop_pull = true;
+			}
 		}
 	}
 	else
