@@ -481,6 +481,7 @@ public:
 	rai::uint128_t delta ();
 	boost::asio::io_service & service;
 	rai::node_config config;
+	rai::node_flags flags;
 	rai::alarm & alarm;
 	rai::work_pool & work;
 	boost::log::sources::logger_mt log;

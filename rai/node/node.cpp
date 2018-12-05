@@ -1815,7 +1815,7 @@ void rai::gap_cache::vote (std::shared_ptr<rai::vote> vote_a)
 					tally += node.ledger.weight (transaction, voter);
 				}
 				bool start_bootstrap (false);
-				if (!node.config.disable_lazy_bootstrap)
+				if (!node.flags.disable_lazy_bootstrap || node.flags.disable_legacy_bootstrap)
 				{
 					if (tally >= node.config.online_weight_minimum.number ())
 					{
@@ -1838,7 +1838,7 @@ void rai::gap_cache::vote (std::shared_ptr<rai::vote> vote_a)
 							{
 								BOOST_LOG (node_l->log) << boost::str (boost::format ("Missing block %1% which has enough votes to warrant lazy bootstrapping it") % hash.to_string ());
 							}
-							if (!node_l->config.disable_lazy_bootstrap)
+							if (!node_l->flags.disable_lazy_bootstrap || node_l->flags.disable_legacy_bootstrap)
 							{
 								node_l->bootstrap_initiator.bootstrap_lazy (hash);
 							}
@@ -1900,7 +1900,10 @@ void rai::node::start ()
 	network.start ();
 	ongoing_keepalive ();
 	ongoing_syn_cookie_cleanup ();
-	ongoing_bootstrap ();
+	if (!flags.disable_legacy_bootstrap)
+	{
+		ongoing_bootstrap ();
+	}
 	ongoing_store_flush ();
 	ongoing_rep_crawl ();
 	bootstrap.start ();
