@@ -811,6 +811,16 @@ void rai::bootstrap_attempt::request_pull (std::unique_lock<std::mutex> & lock_a
 	{
 		auto pull (pulls.front ());
 		pulls.pop_front ();
+		if (lazy_mode)
+		{
+			// Check if pull is obsolete (head was processed)
+			std::unique_lock<std::mutex> lock (lazy_mutex);
+			while (!pulls.empty () && !pull.head.is_zero () && lazy_blocks.find (pull.head) != lazy_blocks.end ())
+			{
+				pull = pulls.front ();
+				pulls.pop_front ();
+			}
+		}
 		++pulling;
 		// The bulk_pull_client destructor attempt to requeue_pull which can cause a deadlock if this is the last reference
 		// Dispatch request in an external thread in case it needs to be destroyed
