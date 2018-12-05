@@ -218,6 +218,7 @@ public:
 
 		// bootstrap, callback
 		initiate,
+		initiate_lazy,
 
 		// bootstrap specific
 		bulk_pull,
