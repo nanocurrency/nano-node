@@ -548,9 +548,11 @@ void rai::bulk_pull_client::received_block (boost::system::error_code const & ec
 				block->serialize_json (block_l);
 				BOOST_LOG (connection->node->log) << boost::str (boost::format ("Pulled block %1% %2%") % hash.to_string () % block_l);
 			}
+			bool block_expected (false);
 			if (hash == expected)
 			{
 				expected = block->previous ();
+				block_expected = true;
 			}
 			if (connection->block_count++ == 0)
 			{
@@ -558,12 +560,12 @@ void rai::bulk_pull_client::received_block (boost::system::error_code const & ec
 			}
 			connection->attempt->total_blocks++;
 			total_blocks++;
-			bool stop_pull (connection->attempt->process_block (block, total_blocks));
+			bool stop_pull (connection->attempt->process_block (block, total_blocks, block_expected));
 			if (!stop_pull && !connection->hard_stop.load ())
 			{
 				receive_block ();
 			}
-			else if (stop_pull && expected == block->previous ())
+			else if (stop_pull && block_expected)
 			{
 				expected = pull.end;
 				connection->attempt->pool_connection (connection);
@@ -1254,10 +1256,10 @@ void rai::bootstrap_attempt::lazy_run ()
 	idle.clear ();
 }
 
-bool rai::bootstrap_attempt::process_block (std::shared_ptr<rai::block> block_a, uint64_t total_blocks)
+bool rai::bootstrap_attempt::process_block (std::shared_ptr<rai::block> block_a, uint64_t total_blocks, bool block_expected)
 {
 	bool stop_pull (false);
-	if (lazy_mode)
+	if (lazy_mode && block_expected)
 	{
 		auto hash (block_a->hash ());
 		std::unique_lock<std::mutex> lock (lazy_mutex);
@@ -1372,6 +1374,11 @@ bool rai::bootstrap_attempt::process_block (std::shared_ptr<rai::block> block_a,
 				stop_pull = true;
 			}
 		}
+	}
+	else if (lazy_mode)
+	{
+		// Drop connection with unexpected block for lazy bootstrap
+		stop_pull = true;
 	}
 	else
 	{

@@ -82,7 +82,7 @@ public:
 	unsigned target_connections (size_t pulls_remaining);
 	bool should_log ();
 	void add_bulk_push_target (rai::block_hash const &, rai::block_hash const &);
-	bool process_block (std::shared_ptr<rai::block>, uint64_t);
+	bool process_block (std::shared_ptr<rai::block>, uint64_t, bool);
 	void lazy_run ();
 	void lazy_start (rai::block_hash const &);
 	void lazy_add (rai::block_hash const &);
