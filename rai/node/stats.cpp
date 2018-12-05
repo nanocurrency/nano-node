@@ -400,6 +400,9 @@ std::string rai::stat::detail_to_string (uint32_t key)
 		case rai::stat::detail::initiate:
 			res = "initiate";
 			break;
+		case rai::stat::detail::initiate_lazy:
+			res = "initiate_lazy";
+			break;
 		case rai::stat::detail::insufficient_work:
 			res = "insufficient_work";
 			break;
