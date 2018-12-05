@@ -397,7 +397,6 @@ connection (connection_a),
 pull (pull_a)
 {
 	std::lock_guard<std::mutex> mutex (connection->attempt->mutex);
-	++connection->attempt->pulling;
 	connection->attempt->condition.notify_all ();
 }
 
@@ -809,6 +808,7 @@ void rai::bootstrap_attempt::request_pull (std::unique_lock<std::mutex> & lock_a
 	{
 		auto pull (pulls.front ());
 		pulls.pop_front ();
+		++pulling;
 		// The bulk_pull_client destructor attempt to requeue_pull which can cause a deadlock if this is the last reference
 		// Dispatch request in an external thread in case it needs to be destroyed
 		node->background ([connection_l, pull]() {
@@ -899,6 +899,7 @@ void rai::bootstrap_attempt::run ()
 		if (!lazy_keys.empty ())
 		{
 			lock.unlock ();
+			lazy_mode = true;
 			lazy_run ();
 			lock.lock ();
 		}
@@ -1151,19 +1152,18 @@ void rai::bootstrap_attempt::add_bulk_push_target (rai::block_hash const & head,
 void rai::bootstrap_attempt::lazy_start (rai::block_hash const & hash_a)
 {
 	std::unique_lock<std::mutex> lock (lazy_mutex);
-	// Add start blocks
-	if (lazy_keys.find (hash_a) == lazy_keys.end ())
+	// Add start blocks, limit 1024
+	if (lazy_keys.size () < 1024 && lazy_keys.find (hash_a) == lazy_keys.end () && lazy_blocks.find (hash_a) == lazy_blocks.end ())
 	{
 		lazy_keys.insert (hash_a);
+		lazy_pulls.push_back (hash_a);
 	}
-	lazy_add (hash_a);
 }
 
 void rai::bootstrap_attempt::lazy_add (rai::block_hash const & hash_a)
 {
 	// Add only unknown blocks
 	assert (!lazy_mutex.try_lock ());
-
 	if (lazy_blocks.find (hash_a) == lazy_blocks.end ())
 	{
 		lazy_pulls.push_back (hash_a);
@@ -1203,6 +1203,11 @@ bool rai::bootstrap_attempt::lazy_finished ()
 			// No need to increment `it` as we break above.
 		}
 	}
+	// Finish lazy bootstrap without lazy pulls (in combination with still_pulling ())
+	if (!result && lazy_pulls.empty ())
+	{
+		result = true;
+	}
 	return result;
 }
 
@@ -1210,11 +1215,11 @@ void rai::bootstrap_attempt::lazy_run ()
 {
 	populate_connections ();
 	auto start_time (std::chrono::steady_clock::now ());
-	auto max_time (std::chrono::milliseconds (30 * 60 * 1000));
+	auto max_time (std::chrono::minutes (30));
 	std::unique_lock<std::mutex> lock (mutex);
 	while ((still_pulling () || !lazy_finished ()) && std::chrono::steady_clock::now () - start_time < max_time)
 	{
-		while (still_pulling ())
+		while (still_pulling () && std::chrono::steady_clock::now () - start_time < max_time)
 		{
 			if (!pulls.empty ())
 			{
@@ -1305,6 +1310,16 @@ bool rai::bootstrap_attempt::process_block (std::shared_ptr<rai::block> block_a)
 			{
 				// Disabled until server rewrite
 				// stop_pull = true;
+				auto account (node->ledger.account (transaction, hash));
+				rai::account_info info;
+				if (!node->store.account_get (transaction, account, info))
+				{
+					// Force drop lazy bootstrap connection for long chains to prevent high bandwidth usage
+					if (info.block_count > 256)
+					{
+						stop_pull = true;
+					}
+				}
 			}
 			//Search unknown state blocks balances
 			auto find_state (lazy_state_unknown.find (hash));
