@@ -743,14 +743,7 @@ lazy_stopped (0),
 stopped (false),
 lazy_mode (false)
 {
-	if (lazy_mode)
-	{
-		BOOST_LOG (node->log) << "Starting lazy-bootstrap attempt";
-	}
-	else
-	{
-		BOOST_LOG (node->log) << "Starting bootstrap attempt";
-	}
+	BOOST_LOG (node->log) << "Starting bootstrap attempt";
 	node->bootstrap_initiator.notify_listeners (true);
 }
 
