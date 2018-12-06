@@ -570,6 +570,10 @@ void rai::bulk_pull_client::received_block (boost::system::error_code const & ec
 				expected = pull.end;
 				connection->attempt->pool_connection (connection);
 			}
+			if (stop_pull)
+			{
+				connection->attempt->lazy_stopped++;
+			}
 		}
 		else
 		{
@@ -735,6 +739,7 @@ pulling (0),
 node (node_a),
 account_count (0),
 total_blocks (0),
+lazy_stopped (0),
 stopped (false),
 lazy_mode (false)
 {

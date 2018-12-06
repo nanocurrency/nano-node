@@ -100,6 +100,7 @@ public:
 	std::shared_ptr<rai::node> node;
 	std::atomic<unsigned> account_count;
 	std::atomic<uint64_t> total_blocks;
+	std::atomic<uint64_t> lazy_stopped;
 	std::vector<std::pair<rai::block_hash, rai::block_hash>> bulk_push_targets;
 	bool stopped;
 	bool lazy_mode;
