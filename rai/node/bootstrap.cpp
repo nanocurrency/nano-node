@@ -1232,6 +1232,7 @@ void rai::bootstrap_attempt::lazy_run ()
 	std::unique_lock<std::mutex> lock (mutex);
 	while ((still_pulling () || !lazy_finished ()) && std::chrono::steady_clock::now () - start_time < max_time)
 	{
+		unsigned iterations (0);
 		while (still_pulling () && std::chrono::steady_clock::now () - start_time < max_time)
 		{
 			if (!pulls.empty ())
@@ -1248,6 +1249,14 @@ void rai::bootstrap_attempt::lazy_run ()
 			else
 			{
 				condition.wait (lock);
+			}
+			++iterations;
+			// Flushing lazy pulls
+			if (iterations % 100 == 0)
+			{
+				lock.unlock ();
+				lazy_pull_flush ();
+				lock.lock ();
 			}
 		}
 		// Flushing may resolve forks which can add more pulls
