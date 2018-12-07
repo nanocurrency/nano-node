@@ -594,8 +594,8 @@ bool rai::bulk_pull::deserialize (rai::stream & stream_a)
 		if (!result)
 		{
 			if (is_count_present ()) {
-				uint8_t count_buffer[8];
-				static_assert (sizeof (count) < (sizeof (count_buffer) - 1), "count must fit within buffer");
+				std::array<uint8_t, extended_parameters_size> count_buffer;
+				static_assert (sizeof (count) < (count_buffer.size () - 1), "count must fit within buffer");
 
 				result = read (stream_a, count_buffer);
 				if (count_buffer[0] != 0)
@@ -604,7 +604,7 @@ bool rai::bulk_pull::deserialize (rai::stream & stream_a)
 				}
 				else
 				{
-					memcpy (&count, count_buffer + 1, sizeof (count));
+					memcpy (&count, count_buffer.data () + 1, sizeof (count));
 					boost::endian::little_to_native_inplace (count);
 				}
 			}
@@ -634,12 +634,14 @@ void rai::bulk_pull::serialize (rai::stream & stream_a) const
 	write (stream_a, end);
 
 	if (is_count_present ()) {
-		uint8_t count_buffer[8] =  {0};
+		std::array<uint8_t, extended_parameters_size> count_buffer{{0}};
 		decltype (count) count_little_endian;
-		static_assert (sizeof (count_little_endian) < (sizeof (count_buffer) - 1), "count must fit within buffer");
+		static_assert (sizeof (count_little_endian) < (count_buffer.size () - 1), "count must fit within buffer");
+		static_assert (sizeof (count_little_endian) == 4, "count must be exactly 32-bits");
+		static_assert (count_buffer.size () == 8, "count buffer must be exactly 8 bytes");
 
 		count_little_endian = boost::endian::native_to_little (count);
-		memcpy (count_buffer + 1, &count_little_endian, sizeof (count_little_endian));
+		memcpy (count_buffer.data () + 1, &count_little_endian, sizeof (count_little_endian));
 
 		write (stream_a, count_buffer);
 	}

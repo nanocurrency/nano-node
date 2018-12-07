@@ -305,6 +305,7 @@ public:
 	bool is_count_present () const;
 	void set_count_present (bool);
 	static size_t constexpr count_present_flag = 0;
+	static size_t constexpr extended_parameters_size = 8;
 };
 class bulk_pull_account : public message
 {
