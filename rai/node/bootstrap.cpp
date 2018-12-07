@@ -832,7 +832,7 @@ void rai::bootstrap_attempt::request_pull (std::unique_lock<std::mutex> & lock_a
 void rai::bootstrap_attempt::request_push (std::unique_lock<std::mutex> & lock_a)
 {
 	bool error (false);
-	if (auto connection_shared = connection_frontier_request.lock ())
+	if (!stopped && auto connection_shared = connection_frontier_request.lock ())
 	{
 		auto client (std::make_shared<rai::bulk_push_client> (connection_shared));
 		client->start ();
@@ -1198,10 +1198,10 @@ void rai::bootstrap_attempt::lazy_pull_flush ()
 
 bool rai::bootstrap_attempt::lazy_finished ()
 {
-	bool result (true);
+	bool result (!stopped);
 	auto transaction (node->store.tx_begin_read ());
 	std::unique_lock<std::mutex> lock (lazy_mutex);
-	for (auto it (lazy_keys.begin ()), end (lazy_keys.end ()); it != end;)
+	for (auto it (lazy_keys.begin ()), end (lazy_keys.end ()); it != end && !stopped;)
 	{
 		if (node->store.block_exists (transaction, *it))
 		{
@@ -1216,7 +1216,7 @@ bool rai::bootstrap_attempt::lazy_finished ()
 		}
 	}
 	// Finish lazy bootstrap without lazy pulls (in combination with still_pulling ())
-	if (!result && lazy_pulls.empty ())
+	if (!result && !stopped && lazy_pulls.empty ())
 	{
 		result = true;
 	}
