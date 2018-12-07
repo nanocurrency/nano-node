@@ -53,10 +53,11 @@ class pull_info
 {
 public:
 	pull_info ();
-	pull_info (rai::account const &, rai::block_hash const &, rai::block_hash const &);
+	pull_info (rai::account const &, rai::block_hash const &, rai::block_hash const &, decltype (rai::bulk_pull::count) = 0);
 	rai::account account;
 	rai::block_hash head;
 	rai::block_hash end;
+	decltype (rai::bulk_pull::count) count;
 	unsigned attempts;
 };
 class frontier_req_client;

@@ -424,6 +424,9 @@ void rai::bulk_pull_client::request ()
 	rai::bulk_pull req;
 	req.start = pull.account;
 	req.end = pull.end;
+	req.count = pull.count;
+	req.set_count_present (pull.count != 0);
+
 	auto buffer (std::make_shared<std::vector<uint8_t>> ());
 	{
 		rai::vectorstream stream (*buffer);
@@ -714,15 +717,17 @@ void rai::bulk_push_client::push_block (rai::block const & block_a)
 rai::pull_info::pull_info () :
 account (0),
 end (0),
-attempts (0)
+attempts (0),
+count (0)
 {
 }
 
-rai::pull_info::pull_info (rai::account const & account_a, rai::block_hash const & head_a, rai::block_hash const & end_a) :
+rai::pull_info::pull_info (rai::account const & account_a, rai::block_hash const & head_a, rai::block_hash const & end_a, decltype (rai::pull_info::count) count_a) :
 account (account_a),
 head (head_a),
 end (end_a),
-attempts (0)
+attempts (0),
+count (count_a)
 {
 }
 
