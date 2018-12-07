@@ -301,6 +301,7 @@ public:
 class bulk_pull : public message
 {
 public:
+	typedef uint32_t count_t;
 	bulk_pull ();
 	bulk_pull (bool &, rai::stream &, rai::message_header const &);
 	bool deserialize (rai::stream &);
@@ -308,7 +309,7 @@ public:
 	void visit (rai::message_visitor &) const override;
 	rai::uint256_union start;
 	rai::block_hash end;
-	uint32_t count;
+	count_t count;
 	bool is_count_present () const;
 	void set_count_present (bool);
 	static size_t constexpr count_present_flag = rai::message_header::bulk_pull_count_present_flag;

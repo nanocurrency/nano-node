@@ -722,7 +722,7 @@ count (0)
 {
 }
 
-rai::pull_info::pull_info (rai::account const & account_a, rai::block_hash const & head_a, rai::block_hash const & end_a, decltype (rai::pull_info::count) count_a) :
+rai::pull_info::pull_info (rai::account const & account_a, rai::block_hash const & head_a, rai::block_hash const & end_a, count_t count_a) :
 account (account_a),
 head (head_a),
 end (end_a),

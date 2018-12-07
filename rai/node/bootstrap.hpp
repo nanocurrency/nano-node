@@ -52,12 +52,13 @@ class bootstrap_client;
 class pull_info
 {
 public:
+	typedef rai::bulk_pull::count_t count_t;
 	pull_info ();
-	pull_info (rai::account const &, rai::block_hash const &, rai::block_hash const &, decltype (rai::bulk_pull::count) = 0);
+	pull_info (rai::account const &, rai::block_hash const &, rai::block_hash const &, count_t = 0);
 	rai::account account;
 	rai::block_hash head;
 	rai::block_hash end;
-	decltype (rai::bulk_pull::count) count;
+	count_t count;
 	unsigned attempts;
 };
 class frontier_req_client;
@@ -264,8 +265,8 @@ public:
 	std::shared_ptr<std::vector<uint8_t>> send_buffer;
 	rai::block_hash current;
 	bool include_start;
-	decltype (rai::bulk_pull::count) max_count;
-	decltype (rai::bulk_pull::count) sent_count;
+	rai::bulk_pull::count_t max_count;
+	rai::bulk_pull::count_t sent_count;
 };
 class bulk_pull_account;
 class bulk_pull_account_server : public std::enable_shared_from_this<rai::bulk_pull_account_server>
