@@ -1163,8 +1163,9 @@ void rai::bootstrap_attempt::add_bulk_push_target (rai::block_hash const & head,
 void rai::bootstrap_attempt::lazy_start (rai::block_hash const & hash_a)
 {
 	std::unique_lock<std::mutex> lock (lazy_mutex);
-	// Add start blocks, limit 1024
-	if (lazy_keys.size () < 1024 && lazy_keys.find (hash_a) == lazy_keys.end () && lazy_blocks.find (hash_a) == lazy_blocks.end ())
+	// Add start blocks, limit 1024 (32k with disabled legacy bootstrap)
+	size_t max_keys (node->flags.disable_legacy_bootstrap ? 32 * 1024 : 1024);
+	if (lazy_keys.size () < max_keys && lazy_keys.find (hash_a) == lazy_keys.end () && lazy_blocks.find (hash_a) == lazy_blocks.end ())
 	{
 		lazy_keys.insert (hash_a);
 		lazy_pulls.push_back (hash_a);
