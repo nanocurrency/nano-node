@@ -1336,19 +1336,6 @@ bool rai::bootstrap_attempt::process_block (std::shared_ptr<rai::block> block_a,
 				{
 					stop_pull = true;
 				}
-				else
-				{
-					auto account (node->ledger.account (transaction, hash));
-					rai::account_info info;
-					if (!node->store.account_get (transaction, account, info))
-					{
-						// Force drop lazy bootstrap connection for long chains to prevent high bandwidth usage
-						if (info.block_count > 256)
-						{
-							stop_pull = true;
-						}
-					}
-				}
 			}
 			//Search unknown state blocks balances
 			auto find_state (lazy_state_unknown.find (hash));
