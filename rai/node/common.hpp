@@ -172,6 +172,13 @@ public:
 	std::bitset<16> extensions;
 	//static size_t constexpr ipv4_only_position = 1;  // Not in use, deprecated, was conflicting
 	//static size_t constexpr bootstrap_server_position = 2;  // Not in use, deprecated
+	/*
+	 * A better approach might be to return the size of the message
+	 * payload based on the header
+	 */
+	static size_t constexpr bulk_pull_count_present_flag = 0;
+	bool bulk_pull_is_count_present () const;
+
 	static std::bitset<16> constexpr block_type_mask = std::bitset<16> (0x0f00);
 	inline bool valid_magic () const
 	{
@@ -304,7 +311,7 @@ public:
 	uint32_t count;
 	bool is_count_present () const;
 	void set_count_present (bool);
-	static size_t constexpr count_present_flag = 0;
+	static size_t constexpr count_present_flag = rai::message_header::bulk_pull_count_present_flag;
 	static size_t constexpr extended_parameters_size = 8;
 };
 class bulk_pull_account : public message

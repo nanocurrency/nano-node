@@ -74,6 +74,20 @@ void rai::message_header::block_type_set (rai::block_type type_a)
 	extensions |= std::bitset<16> (static_cast<unsigned long long> (type_a) << 8);
 }
 
+bool rai::message_header::bulk_pull_is_count_present () const
+{
+	auto result (false);
+	if (type == rai::message_type::bulk_pull)
+	{
+		if (extensions.test (bulk_pull_count_present_flag))
+		{
+			result = true;
+		}
+	}
+
+	return result;
+}
+
 // MTU - IP header - UDP header
 const size_t rai::message_parser::max_safe_udp_message_size = 508;
 
