@@ -1949,7 +1949,10 @@ void rai::node::start ()
 	ongoing_store_flush ();
 	ongoing_rep_crawl ();
 	ongoing_rep_calculation ();
-	bootstrap.start ();
+	if (!flags.disable_bootstrap_listener)
+	{
+		bootstrap.start ();
+	}
 	backup_wallet ();
 	search_pending ();
 	online_reps.recalculate_stake ();
