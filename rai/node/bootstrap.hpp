@@ -263,6 +263,8 @@ public:
 	std::shared_ptr<std::vector<uint8_t>> send_buffer;
 	rai::block_hash current;
 	bool include_start;
+	decltype(rai::bulk_pull::count) max_count;
+	decltype(rai::bulk_pull::count) sent_count;
 };
 class bulk_pull_account;
 class bulk_pull_account_server : public std::enable_shared_from_this<rai::bulk_pull_account_server>
