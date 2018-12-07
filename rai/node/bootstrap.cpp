@@ -1991,7 +1991,6 @@ std::shared_ptr<rai::block> rai::bulk_pull_server::get_next ()
 		send_current = false;
 	}
 
-
 	if (send_current)
 	{
 		auto transaction (connection->node->store.tx_begin_read ());
