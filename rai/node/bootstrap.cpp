@@ -1198,7 +1198,7 @@ void rai::bootstrap_attempt::lazy_pull_flush ()
 
 bool rai::bootstrap_attempt::lazy_finished ()
 {
-	bool result (!stopped);
+	bool result (true);
 	auto transaction (node->store.tx_begin_read ());
 	std::unique_lock<std::mutex> lock (lazy_mutex);
 	for (auto it (lazy_keys.begin ()), end (lazy_keys.end ()); it != end && !stopped;)
@@ -1216,7 +1216,7 @@ bool rai::bootstrap_attempt::lazy_finished ()
 		}
 	}
 	// Finish lazy bootstrap without lazy pulls (in combination with still_pulling ())
-	if (!result && !stopped && lazy_pulls.empty ())
+	if (!result && lazy_pulls.empty ())
 	{
 		result = true;
 	}
