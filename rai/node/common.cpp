@@ -4,6 +4,8 @@
 #include <rai/lib/work.hpp>
 #include <rai/node/wallet.hpp>
 
+#include <boost/endian/conversion.hpp>
+
 std::array<uint8_t, 2> constexpr rai::message_header::magic_number;
 std::bitset<16> constexpr rai::message_header::block_type_mask;
 
@@ -561,12 +563,14 @@ bool rai::frontier_req::operator== (rai::frontier_req const & other_a) const
 }
 
 rai::bulk_pull::bulk_pull () :
-message (rai::message_type::bulk_pull)
+message (rai::message_type::bulk_pull),
+count (0)
 {
 }
 
 rai::bulk_pull::bulk_pull (bool & error_a, rai::stream & stream_a, rai::message_header const & header_a) :
-message (header_a)
+message (header_a),
+count (0)
 {
 	if (!error_a)
 	{
@@ -586,15 +590,69 @@ bool rai::bulk_pull::deserialize (rai::stream & stream_a)
 	if (!result)
 	{
 		result = read (stream_a, end);
+
+		if (!result)
+		{
+			if (is_count_present ()) {
+				uint8_t count_buffer[8];
+				static_assert (sizeof (count) < (sizeof (count_buffer) - 1), "count must fit within buffer");
+
+				result = read (stream_a, count_buffer);
+				if (count_buffer[0] != 0)
+				{
+					result = true;
+				}
+				else
+				{
+					memcpy (&count, count_buffer + 1, sizeof (count));
+					boost::endian::little_to_native_inplace (count);
+				}
+			}
+			else
+			{
+				count = 0;
+			}
+		}
 	}
 	return result;
 }
 
 void rai::bulk_pull::serialize (rai::stream & stream_a) const
 {
+	/*
+	 * Ensure the "count_present" flag is set if there
+	 * is a limit specifed.  Additionally, do not allow
+	 * the "count_present" flag with a value of 0, since
+	 * that is a sentinel which we use to mean "all blocks"
+	 * and that is the behavior of not having the flag set
+	 * so it is wasteful to do this.
+	 */
+	assert ((count == 0 && !is_count_present ()) || (count != 0 && is_count_present ()));
+
 	header.serialize (stream_a);
 	write (stream_a, start);
 	write (stream_a, end);
+
+	if (is_count_present ()) {
+		uint8_t count_buffer[8] =  {0};
+		decltype (count) count_little_endian;
+		static_assert (sizeof (count_little_endian) < (sizeof (count_buffer) - 1), "count must fit within buffer");
+
+		count_little_endian = boost::endian::native_to_little (count);
+		memcpy (count_buffer + 1, &count_little_endian, sizeof (count_little_endian));
+
+		write (stream_a, count_buffer);
+	}
+}
+
+bool rai::bulk_pull::is_count_present () const
+{
+	return header.extensions.test (count_present_flag);
+}
+
+void rai::bulk_pull::set_count_present (bool value_a)
+{
+	header.extensions.set (count_present_flag, value_a);
 }
 
 rai::bulk_pull_account::bulk_pull_account () :

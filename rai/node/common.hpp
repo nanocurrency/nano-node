@@ -301,6 +301,10 @@ public:
 	void visit (rai::message_visitor &) const override;
 	rai::uint256_union start;
 	rai::block_hash end;
+	uint32_t count;
+	bool is_count_present () const;
+	void set_count_present (bool);
+	static size_t constexpr count_present_flag = 0;
 };
 class bulk_pull_account : public message
 {
