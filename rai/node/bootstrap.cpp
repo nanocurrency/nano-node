@@ -1692,7 +1692,7 @@ void rai::bootstrap_server::receive_bulk_pull_action (boost::system::error_code 
 		{
 			if (node->config.logging.bulk_pull_logging ())
 			{
-				BOOST_LOG (node->log) << boost::str (boost::format ("Received bulk pull for %1% down to %2%, maximum of %3%") % request->start.to_string () % request->end.to_string () % request->count);
+				BOOST_LOG (node->log) << boost::str (boost::format ("Received bulk pull for %1% down to %2%, maximum of %3%") % request->start.to_string () % request->end.to_string () % (request->count ? request->count : std::numeric_limits<double>::infinity ()));
 			}
 			add_request (std::unique_ptr<rai::message> (request.release ()));
 			receive ();
