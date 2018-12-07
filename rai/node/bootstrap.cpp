@@ -2016,7 +2016,16 @@ void rai::bulk_pull_server::sent_action (boost::system::error_code const & ec, s
 {
 	if (!ec)
 	{
-		send_next ();
+		sent_count++;
+
+		if (max_count != 0 && sent_count < max_count)
+		{
+			send_next ();
+		}
+		else
+		{
+			send_finished ();
+		}
 	}
 	else
 	{
