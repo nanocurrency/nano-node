@@ -607,7 +607,8 @@ bool rai::bulk_pull::deserialize (rai::stream & stream_a)
 
 		if (!result)
 		{
-			if (is_count_present ()) {
+			if (is_count_present ())
+			{
 				std::array<uint8_t, extended_parameters_size> count_buffer;
 				static_assert (sizeof (count) < (count_buffer.size () - 1), "count must fit within buffer");
 
@@ -647,8 +648,9 @@ void rai::bulk_pull::serialize (rai::stream & stream_a) const
 	write (stream_a, start);
 	write (stream_a, end);
 
-	if (is_count_present ()) {
-		std::array<uint8_t, extended_parameters_size> count_buffer{{0}};
+	if (is_count_present ())
+	{
+		std::array<uint8_t, extended_parameters_size> count_buffer{ { 0 } };
 		decltype (count) count_little_endian;
 		static_assert (sizeof (count_little_endian) < (count_buffer.size () - 1), "count must fit within buffer");
 
