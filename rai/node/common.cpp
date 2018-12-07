@@ -637,8 +637,6 @@ void rai::bulk_pull::serialize (rai::stream & stream_a) const
 		std::array<uint8_t, extended_parameters_size> count_buffer{{0}};
 		decltype (count) count_little_endian;
 		static_assert (sizeof (count_little_endian) < (count_buffer.size () - 1), "count must fit within buffer");
-		static_assert (sizeof (count_little_endian) == 4, "count must be exactly 32-bits");
-		static_assert (count_buffer.size () == 8, "count buffer must be exactly 8 bytes");
 
 		count_little_endian = boost::endian::native_to_little (count);
 		memcpy (count_buffer.data () + 1, &count_little_endian, sizeof (count_little_endian));
