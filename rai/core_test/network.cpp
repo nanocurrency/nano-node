@@ -515,6 +515,37 @@ TEST (bulk_pull, by_block_single)
 	ASSERT_EQ (nullptr, block);
 }
 
+TEST (bulk_pull, count_limit)
+{
+	rai::system system (24000, 1);
+	rai::genesis genesis;
+
+	auto send1 (std::make_shared<rai::send_block> (system.nodes[0]->latest (rai::test_genesis_key.pub), rai::test_genesis_key.pub, 1, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (system.nodes[0]->latest (rai::test_genesis_key.pub))));
+	ASSERT_EQ (rai::process_result::progress, system.nodes[0]->process (*send1).code);
+	auto receive1 (std::make_shared<rai::receive_block> (send1->hash (), send1->hash (), rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (send1->hash ())));
+	ASSERT_EQ (rai::process_result::progress, system.nodes[0]->process (*receive1).code);
+
+	auto connection (std::make_shared<rai::bootstrap_server> (nullptr, system.nodes[0]));
+	std::unique_ptr<rai::bulk_pull> req (new rai::bulk_pull{});
+	req->start = receive1->hash ();
+	req->set_count_present (true);
+	req->count = 2;
+	connection->requests.push (std::unique_ptr<rai::message>{});
+	auto request (std::make_shared<rai::bulk_pull_server> (connection, std::move (req)));
+
+	ASSERT_EQ (request->max_count, 2);
+	ASSERT_EQ (request->sent_count, 0);
+
+	auto block (request->get_next ());
+	ASSERT_EQ (receive1->hash (), block->hash ());
+
+	block = request->get_next ();
+	ASSERT_EQ (send1->hash (), block->hash ());
+
+	block = request->get_next ();
+	ASSERT_EQ (nullptr, block);
+}
+
 TEST (bootstrap_processor, DISABLED_process_none)
 {
 	rai::system system (24000, 1);
