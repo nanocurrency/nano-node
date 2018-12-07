@@ -1981,6 +1981,17 @@ std::shared_ptr<rai::block> rai::bulk_pull_server::get_next ()
 		set_current_to_end = true;
 	}
 
+	/*
+	 * Account for how many blocks we have provided.  If this
+	 * exceeds the requested maximum, return an empty object
+	 * to signal the end of results
+	 */
+	if (max_count != 0 && sent_count >= max_count)
+	{
+		send_current = false;
+	}
+
+
 	if (send_current)
 	{
 		auto transaction (connection->node->store.tx_begin_read ());
@@ -2001,6 +2012,8 @@ std::shared_ptr<rai::block> rai::bulk_pull_server::get_next ()
 		{
 			current = request->end;
 		}
+
+		sent_count++;
 	}
 
 	/*
@@ -2016,16 +2029,7 @@ void rai::bulk_pull_server::sent_action (boost::system::error_code const & ec, s
 {
 	if (!ec)
 	{
-		sent_count++;
-
-		if (max_count != 0 && sent_count < max_count)
-		{
-			send_next ();
-		}
-		else
-		{
-			send_finished ();
-		}
+		send_next ();
 	}
 	else
 	{
