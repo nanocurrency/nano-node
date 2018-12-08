@@ -1424,15 +1424,6 @@ bool rai::bootstrap_attempt::process_block (std::shared_ptr<rai::block> block_a,
 			{
 				stop_pull = true;
 			}
-			auto previous_cache (lazy_balances.find (previous));
-			if (previous_cache != lazy_balances.end ())
-			{
-				if (previous_cache->second <= balance)
-				{
-					lazy_add (link);
-				}
-				lazy_balances.erase (previous_cache);
-			}
 		}
 	}
 	else if (lazy_mode)
