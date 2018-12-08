@@ -1293,23 +1293,34 @@ bool rai::bootstrap_attempt::process_block (std::shared_ptr<rai::block> block_a,
 			auto transaction (node->store.tx_begin_read ());
 			if (!node->store.block_exists (transaction, hash))
 			{
-				lazy_blocks.insert (hash);
+				rai::uint128_t balance (std::numeric_limits<rai::uint128_t>::max ());
 				node->block_processor.add (block_a, std::chrono::steady_clock::time_point ());
 				// Search for new dependencies
 				if (!block_a->source ().is_zero () && !node->store.block_exists (transaction, block_a->source ()))
 				{
 					lazy_add (block_a->source ());
 				}
+				else if (block_a->type () == rai::block_type::send)
+				{
+					// Calculate balance for legacy send blocks
+					std::shared_ptr<rai::send_block> block_l (std::static_pointer_cast<rai::send_block> (block_a));
+					if (block_l != nullptr)
+					{
+						balance = block_l->hashables.balance.number ();
+					}
+				}
 				else if (block_a->type () == rai::block_type::state)
 				{
 					std::shared_ptr<rai::state_block> block_l (std::static_pointer_cast<rai::state_block> (block_a));
 					if (block_l != nullptr)
 					{
+						balance = block_l->hashables.balance.number ();
 						rai::block_hash link (block_l->hashables.link);
 						// If link is not epoch link or 0. And if block from link unknown
 						if (!link.is_zero () && link != node->ledger.epoch_link && lazy_blocks.find (link) == lazy_blocks.end () && !node->store.block_exists (transaction, link))
 						{
 							rai::block_hash previous (block_l->hashables.previous);
+							auto previous_cache (lazy_blocks.find (previous));
 							// If state block previous is 0 then source block required
 							if (previous.is_zero ())
 							{
@@ -1319,19 +1330,28 @@ bool rai::bootstrap_attempt::process_block (std::shared_ptr<rai::block> block_a,
 							else if (node->store.block_exists (transaction, previous))
 							{
 								rai::amount prev_balance (node->ledger.balance (transaction, previous));
-								if (prev_balance.number () <= block_l->hashables.balance.number ())
+								if (prev_balance.number () <= balance)
+								{
+									lazy_add (link);
+								}
+							}
+							// Search balance of already processed previous blocks
+							else if (previous_cache != lazy_blocks.end ())
+							{
+								if (previous_cache->second <= balance)
 								{
 									lazy_add (link);
 								}
 							}
 							// Insert in unknown state blocks if previous wasn't already processed
-							else if (lazy_blocks.find (previous) == lazy_blocks.end ())
+							else
 							{
 								lazy_state_unknown.insert (std::make_pair (previous, block_l));
 							}
 						}
 					}
 				}
+				lazy_blocks.insert (std::make_pair (hash, balance));
 			}
 			// Drop bulk_pull if block is already known (ledger)
 			else
