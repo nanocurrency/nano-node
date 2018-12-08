@@ -837,7 +837,7 @@ void rai::bootstrap_attempt::request_pull (std::unique_lock<std::mutex> & lock_a
 void rai::bootstrap_attempt::request_push (std::unique_lock<std::mutex> & lock_a)
 {
 	bool error (false);
-	if (!stopped && auto connection_shared = connection_frontier_request.lock ())
+	if (auto connection_shared = connection_frontier_request.lock ())
 	{
 		auto client (std::make_shared<rai::bulk_push_client> (connection_shared));
 		client->start ();
@@ -911,6 +911,7 @@ void rai::bootstrap_attempt::run ()
 	if (!stopped)
 	{
 		BOOST_LOG (node->log) << "Completed pulls";
+		request_push (lock);
 		// Start lazy bootstrap if some lazy keys were inserted
 		if (!lazy_keys.empty ())
 		{
@@ -920,7 +921,6 @@ void rai::bootstrap_attempt::run ()
 			lock.lock ();
 		}
 	}
-	request_push (lock);
 	stopped = true;
 	condition.notify_all ();
 	idle.clear ();
