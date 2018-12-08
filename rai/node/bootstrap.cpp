@@ -1304,23 +1304,25 @@ bool rai::bootstrap_attempt::process_block (std::shared_ptr<rai::block> block_a,
 						// If link is not epoch link or 0. And if block from link unknown
 						if (!link.is_zero () && link != node->ledger.epoch_link && lazy_blocks.find (link) == lazy_blocks.end () && !node->store.block_exists (transaction, link))
 						{
+							rai::block_hash previous (block_l->hashables.previous);
 							// If state block previous is 0 then source block required
-							if (block_l->hashables.previous.is_zero ())
+							if (previous.is_zero ())
 							{
 								lazy_add (link);
 							}
 							// In other cases previous block balance required to find out subtype of state block
-							else if (node->store.block_exists (transaction, block_l->hashables.previous))
+							else if (node->store.block_exists (transaction, previous))
 							{
-								rai::amount prev_balance (node->ledger.balance (transaction, block_l->hashables.previous));
+								rai::amount prev_balance (node->ledger.balance (transaction, previous));
 								if (prev_balance.number () <= block_l->hashables.balance.number ())
 								{
 									lazy_add (link);
 								}
 							}
-							else
+							// Insert in unknown state blocks if previous wasn't already processed
+							else if (lazy_blocks.find (previous) == lazy_blocks.end ())
 							{
-								lazy_state_unknown.insert (std::make_pair (block_l->hashables.previous, block_l));
+								lazy_state_unknown.insert (std::make_pair (previous, block_l));
 							}
 						}
 					}
