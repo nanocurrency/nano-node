@@ -1747,7 +1747,7 @@ void rai::node::process_fork (rai::transaction const & transaction_a, std::share
 				    if (auto this_l = this_w.lock ())
 				    {
 					    auto attempt (this_l->bootstrap_initiator.current_attempt ());
-					    if (attempt)
+					    if (attempt && !attempt->lazy_mode)
 					    {
 						    auto transaction (this_l->store.tx_begin_read ());
 						    auto account (this_l->ledger.store.frontier_get (transaction, root));
