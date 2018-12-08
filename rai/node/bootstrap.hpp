@@ -113,7 +113,7 @@ public:
 	std::unordered_set<rai::block_hash> lazy_keys;
 	std::deque<rai::block_hash> lazy_pulls;
 	std::atomic<uint64_t> lazy_stopped;
-	uint64_t lazy_max_pull_blocks = 512;
+	uint64_t lazy_max_pull_blocks = (rai::rai_network == rai::rai_networks::rai_test_network) ? 2 : 512;
 	std::mutex lazy_mutex;
 };
 class frontier_req_client : public std::enable_shared_from_this<rai::frontier_req_client>

@@ -394,6 +394,7 @@ void rai::frontier_req_client::next (rai::transaction const & transaction_a)
 
 rai::bulk_pull_client::bulk_pull_client (std::shared_ptr<rai::bootstrap_client> connection_a, rai::pull_info const & pull_a) :
 connection (connection_a),
+total_blocks (0),
 pull (pull_a)
 {
 	std::lock_guard<std::mutex> mutex (connection->attempt->mutex);
@@ -403,9 +404,13 @@ pull (pull_a)
 rai::bulk_pull_client::~bulk_pull_client ()
 {
 	// If received end block is not expected end block
-	if (expected != pull.end && (total_blocks < pull.count || pull.count == 0))
+	if (expected != pull.end)
 	{
 		pull.head = expected;
+		if (connection->attempt->lazy_mode)
+		{
+			pull.account = expected;
+		}
 		connection->attempt->requeue_pull (pull);
 		if (connection->node->config.logging.bulk_pull_logging ())
 		{
