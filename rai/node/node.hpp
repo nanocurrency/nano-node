@@ -29,6 +29,7 @@ class election_status
 public:
 	std::shared_ptr<rai::block> winner;
 	rai::amount tally;
+	std::chrono::duration<double> election_duration;
 };
 class vote_info
 {
@@ -67,6 +68,7 @@ public:
 	std::unordered_map<rai::account, rai::vote_info> last_votes;
 	std::unordered_map<rai::block_hash, std::shared_ptr<rai::block>> blocks;
 	rai::block_hash root;
+	std::chrono::steady_clock::time_point election_start;
 	rai::election_status status;
 	std::atomic<bool> confirmed;
 	bool stopped;

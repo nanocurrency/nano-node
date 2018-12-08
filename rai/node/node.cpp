@@ -2860,6 +2860,7 @@ rai::election::election (rai::node & node_a, std::shared_ptr<rai::block> block_a
 confirmation_action (confirmation_action_a),
 node (node_a),
 root (block_a->root ()),
+election_start (std::chrono::steady_clock::now ()),
 status ({ block_a, 0 }),
 confirmed (false),
 stopped (false),
@@ -2884,6 +2885,7 @@ void rai::election::confirm_once (rai::transaction const & transaction_a)
 {
 	if (!confirmed.exchange (true))
 	{
+		status.election_duration = std::chrono::duration_cast<std::chrono::duration<double>> (std::chrono::steady_clock::now () - election_start);
 		auto winner_l (status.winner);
 		auto node_l (node.shared ());
 		auto confirmation_action_l (confirmation_action);
