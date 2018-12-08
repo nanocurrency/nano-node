@@ -1355,7 +1355,7 @@ bool rai::bootstrap_attempt::process_block (std::shared_ptr<rai::block> block_a,
 							// Insert in unknown state blocks if previous wasn't already processed
 							else
 							{
-								lazy_state_unknown.insert (std::make_pair (previous, block_l));
+								lazy_state_unknown.insert (std::make_pair (previous, std::make_pair (link, balance)));
 							}
 						}
 					}
@@ -1393,18 +1393,18 @@ bool rai::bootstrap_attempt::process_block (std::shared_ptr<rai::block> block_a,
 				if (block_a->type () == rai::block_type::state)
 				{
 					std::shared_ptr<rai::state_block> block_l (std::static_pointer_cast<rai::state_block> (block_a));
-					if (block_l->hashables.balance.number () <= next_block->hashables.balance.number ())
+					if (block_l->hashables.balance.number () <= next_block.second)
 					{
-						lazy_add (next_block->hashables.link);
+						lazy_add (next_block.first);
 					}
 				}
 				// Retrieve balance for previous legacy send blocks
 				else if (block_a->type () == rai::block_type::send)
 				{
 					std::shared_ptr<rai::send_block> block_l (std::static_pointer_cast<rai::send_block> (block_a));
-					if (block_l->hashables.balance.number () <= next_block->hashables.balance.number ())
+					if (block_l->hashables.balance.number () <= next_block.second)
 					{
-						lazy_add (next_block->hashables.link);
+						lazy_add (next_block.first);
 					}
 				}
 				// Weak assumption for other legacy block types
