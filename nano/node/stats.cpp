@@ -316,6 +316,9 @@ std::string nano::stat::type_to_string (uint32_t key)
 	std::string res;
 	switch (type)
 	{
+		case nano::stat::type::ipc:
+			res = "ipc";
+			break;
 		case nano::stat::type::block:
 			res = "block";
 			break;
@@ -409,6 +412,9 @@ std::string nano::stat::detail_to_string (uint32_t key)
 			break;
 		case nano::stat::detail::insufficient_work:
 			res = "insufficient_work";
+			break;
+		case nano::stat::detail::invocations:
+			res = "invocations";
 			break;
 		case nano::stat::detail::keepalive:
 			res = "keepalive";

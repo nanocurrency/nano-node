@@ -188,6 +188,7 @@ public:
 		vote,
 		http_callback,
 		peering,
+		ipc,
 		udp
 	};
 
@@ -248,6 +249,9 @@ public:
 		invalid_confirm_ack_message,
 		invalid_node_id_handshake_message,
 		outdated_version,
+
+		// ipc
+		invocations,
 
 		// peering
 		handshake,

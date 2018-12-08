@@ -315,6 +315,12 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		auto block_processor_batch_max_time_l (json.get<unsigned long> ("block_processor_batch_max_time"));
 		block_processor_batch_max_time = std::chrono::milliseconds (block_processor_batch_max_time_l);
 
+		auto ipc_config_l (json.get_optional_child ("ipc"));
+		if (ipc_config_l)
+		{
+			ipc_config.deserialize_json (ipc_config_l.get ());
+		}
+
 		json.get<uint16_t> ("peering_port", peering_port);
 		json.get<unsigned> ("bootstrap_fraction_numerator", bootstrap_fraction_numerator);
 		json.get<unsigned> ("online_weight_quorum", online_weight_quorum);
