@@ -1325,7 +1325,6 @@ bool rai::bootstrap_attempt::process_block (std::shared_ptr<rai::block> block_a,
 						if (!link.is_zero () && link != node->ledger.epoch_link && lazy_blocks.find (link) == lazy_blocks.end () && !node->store.block_exists (transaction, link))
 						{
 							rai::block_hash previous (block_l->hashables.previous);
-							auto previous_cache (lazy_blocks.find (previous));
 							// If state block previous is 0 then source block required
 							if (previous.is_zero ())
 							{
@@ -1341,11 +1340,16 @@ bool rai::bootstrap_attempt::process_block (std::shared_ptr<rai::block> block_a,
 								}
 							}
 							// Search balance of already processed previous blocks
-							else if (previous_cache != lazy_blocks.end ())
+							else if (lazy_blocks.find (previous) != lazy_blocks.end ())
 							{
-								if (previous_cache->second <= balance)
+								auto previous_balance (lazy_balances.find (previous));
+								if (previous_balance != lazy_balances.end ())
 								{
-									lazy_add (link);
+									if (previous_balance->second <= balance)
+									{
+										lazy_add (link);
+									}
+									lazy_balances.erase (previous_balance);
 								}
 							}
 							// Insert in unknown state blocks if previous wasn't already processed
@@ -1356,7 +1360,17 @@ bool rai::bootstrap_attempt::process_block (std::shared_ptr<rai::block> block_a,
 						}
 					}
 				}
-				lazy_blocks.insert (std::make_pair (hash, balance));
+				lazy_blocks.insert (hash);
+				// Adding lazy balances
+				if (total_blocks == 0)
+				{
+					lazy_balances.insert (std::make_pair (hash, balance));
+				}
+				// Removing lazy balances
+				if (!block_a->previous ().is_zero () && lazy_balances.find (block_a->previous ()) != lazy_balances.end ())
+				{
+					lazy_balances.erase (block_a->previous ());
+				}
 			}
 			// Drop bulk_pull if block is already known (ledger)
 			else
@@ -1409,6 +1423,15 @@ bool rai::bootstrap_attempt::process_block (std::shared_ptr<rai::block> block_a,
 			if (total_blocks > lazy_max_pull_blocks)
 			{
 				stop_pull = true;
+			}
+			auto previous_cache (lazy_balances.find (previous));
+			if (previous_cache != lazy_balances.end ())
+			{
+				if (previous_cache->second <= balance)
+				{
+					lazy_add (link);
+				}
+				lazy_balances.erase (previous_cache);
 			}
 		}
 	}
