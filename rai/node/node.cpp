@@ -1747,7 +1747,7 @@ void rai::node::process_fork (rai::transaction const & transaction_a, std::share
 				    if (auto this_l = this_w.lock ())
 				    {
 					    auto attempt (this_l->bootstrap_initiator.current_attempt ());
-					    if (attempt)
+					    if (attempt && !attempt->lazy_mode)
 					    {
 						    auto transaction (this_l->store.tx_begin_read ());
 						    auto account (this_l->ledger.store.frontier_get (transaction, root));
@@ -1815,14 +1815,14 @@ void rai::gap_cache::vote (std::shared_ptr<rai::vote> vote_a)
 					tally += node.ledger.weight (transaction, voter);
 				}
 				bool start_bootstrap (false);
-				if (!node.config.disable_lazy_bootstrap)
+				if (!node.flags.disable_lazy_bootstrap)
 				{
 					if (tally >= node.config.online_weight_minimum.number ())
 					{
 						start_bootstrap = true;
 					}
 				}
-				else if (tally > bootstrap_threshold (transaction))
+				else if (!node.flags.disable_legacy_bootstrap && tally > bootstrap_threshold (transaction))
 				{
 					start_bootstrap = true;
 				}
@@ -1838,11 +1838,11 @@ void rai::gap_cache::vote (std::shared_ptr<rai::vote> vote_a)
 							{
 								BOOST_LOG (node_l->log) << boost::str (boost::format ("Missing block %1% which has enough votes to warrant lazy bootstrapping it") % hash.to_string ());
 							}
-							if (!node_l->config.disable_lazy_bootstrap)
+							if (!node_l->flags.disable_lazy_bootstrap)
 							{
 								node_l->bootstrap_initiator.bootstrap_lazy (hash);
 							}
-							else
+							else if (!node_l->flags.disable_legacy_bootstrap)
 							{
 								node_l->bootstrap_initiator.bootstrap ();
 							}
@@ -1900,10 +1900,16 @@ void rai::node::start ()
 	network.start ();
 	ongoing_keepalive ();
 	ongoing_syn_cookie_cleanup ();
-	ongoing_bootstrap ();
+	if (!flags.disable_legacy_bootstrap)
+	{
+		ongoing_bootstrap ();
+	}
 	ongoing_store_flush ();
 	ongoing_rep_crawl ();
-	bootstrap.start ();
+	if (!flags.disable_bootstrap_listener)
+	{
+		bootstrap.start ();
+	}
 	backup_wallet ();
 	search_pending ();
 	online_reps.recalculate_stake ();

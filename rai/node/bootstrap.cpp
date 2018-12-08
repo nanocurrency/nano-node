@@ -394,10 +394,10 @@ void rai::frontier_req_client::next (rai::transaction const & transaction_a)
 
 rai::bulk_pull_client::bulk_pull_client (std::shared_ptr<rai::bootstrap_client> connection_a, rai::pull_info const & pull_a) :
 connection (connection_a),
+total_blocks (0),
 pull (pull_a)
 {
 	std::lock_guard<std::mutex> mutex (connection->attempt->mutex);
-	++connection->attempt->pulling;
 	connection->attempt->condition.notify_all ();
 }
 
@@ -407,6 +407,10 @@ rai::bulk_pull_client::~bulk_pull_client ()
 	if (expected != pull.end)
 	{
 		pull.head = expected;
+		if (connection->attempt->lazy_mode)
+		{
+			pull.account = expected;
+		}
 		connection->attempt->requeue_pull (pull);
 		if (connection->node->config.logging.bulk_pull_logging ())
 		{
@@ -552,24 +556,31 @@ void rai::bulk_pull_client::received_block (boost::system::error_code const & ec
 				block->serialize_json (block_l);
 				BOOST_LOG (connection->node->log) << boost::str (boost::format ("Pulled block %1% %2%") % hash.to_string () % block_l);
 			}
+			bool block_expected (false);
 			if (hash == expected)
 			{
 				expected = block->previous ();
+				block_expected = true;
 			}
 			if (connection->block_count++ == 0)
 			{
 				connection->start_time = std::chrono::steady_clock::now ();
 			}
 			connection->attempt->total_blocks++;
-			bool stop_pull (connection->attempt->process_block (block));
+			total_blocks++;
+			bool stop_pull (connection->attempt->process_block (block, total_blocks, block_expected));
 			if (!stop_pull && !connection->hard_stop.load ())
 			{
 				receive_block ();
 			}
-			else if (stop_pull && expected == block->previous ())
+			else if (stop_pull && block_expected)
 			{
 				expected = pull.end;
 				connection->attempt->pool_connection (connection);
+			}
+			if (stop_pull)
+			{
+				connection->attempt->lazy_stopped++;
 			}
 		}
 		else
@@ -738,17 +749,11 @@ pulling (0),
 node (node_a),
 account_count (0),
 total_blocks (0),
+lazy_stopped (0),
 stopped (false),
 lazy_mode (false)
 {
-	if (lazy_mode)
-	{
-		BOOST_LOG (node->log) << "Starting lazy-bootstrap attempt";
-	}
-	else
-	{
-		BOOST_LOG (node->log) << "Starting bootstrap attempt";
-	}
+	BOOST_LOG (node->log) << "Starting bootstrap attempt";
 	node->bootstrap_initiator.notify_listeners (true);
 }
 
@@ -814,6 +819,17 @@ void rai::bootstrap_attempt::request_pull (std::unique_lock<std::mutex> & lock_a
 	{
 		auto pull (pulls.front ());
 		pulls.pop_front ();
+		if (lazy_mode)
+		{
+			// Check if pull is obsolete (head was processed)
+			std::unique_lock<std::mutex> lock (lazy_mutex);
+			while (!pulls.empty () && !pull.head.is_zero () && lazy_blocks.find (pull.head) != lazy_blocks.end ())
+			{
+				pull = pulls.front ();
+				pulls.pop_front ();
+			}
+		}
+		++pulling;
 		// The bulk_pull_client destructor attempt to requeue_pull which can cause a deadlock if this is the last reference
 		// Dispatch request in an external thread in case it needs to be destroyed
 		node->background ([connection_l, pull]() {
@@ -900,15 +916,16 @@ void rai::bootstrap_attempt::run ()
 	if (!stopped)
 	{
 		BOOST_LOG (node->log) << "Completed pulls";
+		request_push (lock);
 		// Start lazy bootstrap if some lazy keys were inserted
 		if (!lazy_keys.empty ())
 		{
 			lock.unlock ();
+			lazy_mode = true;
 			lazy_run ();
 			lock.lock ();
 		}
 	}
-	request_push (lock);
 	stopped = true;
 	condition.notify_all ();
 	idle.clear ();
@@ -1156,19 +1173,19 @@ void rai::bootstrap_attempt::add_bulk_push_target (rai::block_hash const & head,
 void rai::bootstrap_attempt::lazy_start (rai::block_hash const & hash_a)
 {
 	std::unique_lock<std::mutex> lock (lazy_mutex);
-	// Add start blocks
-	if (lazy_keys.find (hash_a) == lazy_keys.end ())
+	// Add start blocks, limit 1024 (32k with disabled legacy bootstrap)
+	size_t max_keys (node->flags.disable_legacy_bootstrap ? 32 * 1024 : 1024);
+	if (lazy_keys.size () < max_keys && lazy_keys.find (hash_a) == lazy_keys.end () && lazy_blocks.find (hash_a) == lazy_blocks.end ())
 	{
 		lazy_keys.insert (hash_a);
+		lazy_pulls.push_back (hash_a);
 	}
-	lazy_add (hash_a);
 }
 
 void rai::bootstrap_attempt::lazy_add (rai::block_hash const & hash_a)
 {
 	// Add only unknown blocks
 	assert (!lazy_mutex.try_lock ());
-
 	if (lazy_blocks.find (hash_a) == lazy_blocks.end ())
 	{
 		lazy_pulls.push_back (hash_a);
@@ -1183,7 +1200,7 @@ void rai::bootstrap_attempt::lazy_pull_flush ()
 		// Recheck if block was already processed
 		if (lazy_blocks.find (pull_start) == lazy_blocks.end ())
 		{
-			add_pull (rai::pull_info (pull_start, pull_start, rai::block_hash (0)));
+			add_pull (rai::pull_info (pull_start, pull_start, rai::block_hash (0), lazy_max_pull_blocks));
 		}
 	}
 	lazy_pulls.clear ();
@@ -1194,7 +1211,7 @@ bool rai::bootstrap_attempt::lazy_finished ()
 	bool result (true);
 	auto transaction (node->store.tx_begin_read ());
 	std::unique_lock<std::mutex> lock (lazy_mutex);
-	for (auto it (lazy_keys.begin ()), end (lazy_keys.end ()); it != end;)
+	for (auto it (lazy_keys.begin ()), end (lazy_keys.end ()); it != end && !stopped;)
 	{
 		if (node->store.block_exists (transaction, *it))
 		{
@@ -1208,6 +1225,11 @@ bool rai::bootstrap_attempt::lazy_finished ()
 			// No need to increment `it` as we break above.
 		}
 	}
+	// Finish lazy bootstrap without lazy pulls (in combination with still_pulling ())
+	if (!result && lazy_pulls.empty ())
+	{
+		result = true;
+	}
 	return result;
 }
 
@@ -1215,11 +1237,12 @@ void rai::bootstrap_attempt::lazy_run ()
 {
 	populate_connections ();
 	auto start_time (std::chrono::steady_clock::now ());
-	auto max_time (std::chrono::milliseconds (30 * 60 * 1000));
+	auto max_time (std::chrono::minutes (node->flags.disable_legacy_bootstrap ? 48 * 60 : 30));
 	std::unique_lock<std::mutex> lock (mutex);
 	while ((still_pulling () || !lazy_finished ()) && std::chrono::steady_clock::now () - start_time < max_time)
 	{
-		while (still_pulling ())
+		unsigned iterations (0);
+		while (still_pulling () && std::chrono::steady_clock::now () - start_time < max_time)
 		{
 			if (!pulls.empty ())
 			{
@@ -1235,6 +1258,14 @@ void rai::bootstrap_attempt::lazy_run ()
 			else
 			{
 				condition.wait (lock);
+			}
+			++iterations;
+			// Flushing lazy pulls
+			if (iterations % 100 == 0)
+			{
+				lock.unlock ();
+				lazy_pull_flush ();
+				lock.lock ();
 			}
 		}
 		// Flushing may resolve forks which can add more pulls
@@ -1253,10 +1284,10 @@ void rai::bootstrap_attempt::lazy_run ()
 	idle.clear ();
 }
 
-bool rai::bootstrap_attempt::process_block (std::shared_ptr<rai::block> block_a)
+bool rai::bootstrap_attempt::process_block (std::shared_ptr<rai::block> block_a, uint64_t total_blocks, bool block_expected)
 {
 	bool stop_pull (false);
-	if (lazy_mode)
+	if (lazy_mode && block_expected)
 	{
 		auto hash (block_a->hash ());
 		std::unique_lock<std::mutex> lock (lazy_mutex);
@@ -1267,42 +1298,78 @@ bool rai::bootstrap_attempt::process_block (std::shared_ptr<rai::block> block_a)
 			auto transaction (node->store.tx_begin_read ());
 			if (!node->store.block_exists (transaction, hash))
 			{
-				lazy_blocks.insert (hash);
+				rai::uint128_t balance (std::numeric_limits<rai::uint128_t>::max ());
 				node->block_processor.add (block_a, std::chrono::steady_clock::time_point ());
 				// Search for new dependencies
 				if (!block_a->source ().is_zero () && !node->store.block_exists (transaction, block_a->source ()))
 				{
 					lazy_add (block_a->source ());
 				}
+				else if (block_a->type () == rai::block_type::send)
+				{
+					// Calculate balance for legacy send blocks
+					std::shared_ptr<rai::send_block> block_l (std::static_pointer_cast<rai::send_block> (block_a));
+					if (block_l != nullptr)
+					{
+						balance = block_l->hashables.balance.number ();
+					}
+				}
 				else if (block_a->type () == rai::block_type::state)
 				{
 					std::shared_ptr<rai::state_block> block_l (std::static_pointer_cast<rai::state_block> (block_a));
 					if (block_l != nullptr)
 					{
+						balance = block_l->hashables.balance.number ();
 						rai::block_hash link (block_l->hashables.link);
 						// If link is not epoch link or 0. And if block from link unknown
 						if (!link.is_zero () && link != node->ledger.epoch_link && lazy_blocks.find (link) == lazy_blocks.end () && !node->store.block_exists (transaction, link))
 						{
+							rai::block_hash previous (block_l->hashables.previous);
 							// If state block previous is 0 then source block required
-							if (block_l->hashables.previous.is_zero ())
+							if (previous.is_zero ())
 							{
 								lazy_add (link);
 							}
 							// In other cases previous block balance required to find out subtype of state block
-							else if (node->store.block_exists (transaction, block_l->hashables.previous))
+							else if (node->store.block_exists (transaction, previous))
 							{
-								rai::amount prev_balance (node->ledger.balance (transaction, block_l->hashables.previous));
-								if (prev_balance.number () <= block_l->hashables.balance.number ())
+								rai::amount prev_balance (node->ledger.balance (transaction, previous));
+								if (prev_balance.number () <= balance)
 								{
 									lazy_add (link);
 								}
 							}
+							// Search balance of already processed previous blocks
+							else if (lazy_blocks.find (previous) != lazy_blocks.end ())
+							{
+								auto previous_balance (lazy_balances.find (previous));
+								if (previous_balance != lazy_balances.end ())
+								{
+									if (previous_balance->second <= balance)
+									{
+										lazy_add (link);
+									}
+									lazy_balances.erase (previous_balance);
+								}
+							}
+							// Insert in unknown state blocks if previous wasn't already processed
 							else
 							{
-								lazy_state_unknown.insert (std::make_pair (block_l->hashables.previous, block_l));
+								lazy_state_unknown.insert (std::make_pair (previous, std::make_pair (link, balance)));
 							}
 						}
 					}
+				}
+				lazy_blocks.insert (hash);
+				// Adding lazy balances
+				if (total_blocks == 0)
+				{
+					lazy_balances.insert (std::make_pair (hash, balance));
+				}
+				// Removing lazy balances
+				if (!block_a->previous ().is_zero () && lazy_balances.find (block_a->previous ()) != lazy_balances.end ())
+				{
+					lazy_balances.erase (block_a->previous ());
 				}
 			}
 			// Drop bulk_pull if block is already known (ledger)
@@ -1310,6 +1377,11 @@ bool rai::bootstrap_attempt::process_block (std::shared_ptr<rai::block> block_a)
 			{
 				// Disabled until server rewrite
 				// stop_pull = true;
+				// Force drop lazy bootstrap connection for long bulk_pull
+				if (total_blocks > lazy_max_pull_blocks)
+				{
+					stop_pull = true;
+				}
 			}
 			//Search unknown state blocks balances
 			auto find_state (lazy_state_unknown.find (hash));
@@ -1321,18 +1393,18 @@ bool rai::bootstrap_attempt::process_block (std::shared_ptr<rai::block> block_a)
 				if (block_a->type () == rai::block_type::state)
 				{
 					std::shared_ptr<rai::state_block> block_l (std::static_pointer_cast<rai::state_block> (block_a));
-					if (block_l->hashables.balance.number () <= next_block->hashables.balance.number ())
+					if (block_l->hashables.balance.number () <= next_block.second)
 					{
-						lazy_add (next_block->hashables.link);
+						lazy_add (next_block.first);
 					}
 				}
 				// Retrieve balance for previous legacy send blocks
 				else if (block_a->type () == rai::block_type::send)
 				{
 					std::shared_ptr<rai::send_block> block_l (std::static_pointer_cast<rai::send_block> (block_a));
-					if (block_l->hashables.balance.number () <= next_block->hashables.balance.number ())
+					if (block_l->hashables.balance.number () <= next_block.second)
 					{
-						lazy_add (next_block->hashables.link);
+						lazy_add (next_block.first);
 					}
 				}
 				// Weak assumption for other legacy block types
@@ -1347,7 +1419,17 @@ bool rai::bootstrap_attempt::process_block (std::shared_ptr<rai::block> block_a)
 		{
 			// Disabled until server rewrite
 			// stop_pull = true;
+			// Force drop lazy bootstrap connection for long bulk_pull
+			if (total_blocks > lazy_max_pull_blocks)
+			{
+				stop_pull = true;
+			}
 		}
+	}
+	else if (lazy_mode)
+	{
+		// Drop connection with unexpected block for lazy bootstrap
+		stop_pull = true;
 	}
 	else
 	{
