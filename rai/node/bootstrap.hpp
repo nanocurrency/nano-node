@@ -108,8 +108,9 @@ public:
 	std::mutex mutex;
 	std::condition_variable condition;
 	// Lazy bootstrap
-	std::unordered_map<rai::block_hash, rai::uint128_t> lazy_blocks;
+	std::unordered_set<rai::block_hash> lazy_blocks;
 	std::unordered_map<rai::block_hash, std::shared_ptr<rai::state_block>> lazy_state_unknown;
+	std::unordered_map<rai::block_hash, rai::uint128_t> lazy_balances;
 	std::unordered_set<rai::block_hash> lazy_keys;
 	std::deque<rai::block_hash> lazy_pulls;
 	std::atomic<uint64_t> lazy_stopped;

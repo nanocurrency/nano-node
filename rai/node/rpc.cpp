@@ -1373,6 +1373,7 @@ void rai::rpc_handler::bootstrap_status ()
 		response_l.put ("lazy_mode", attempt->lazy_mode);
 		response_l.put ("lazy_blocks", std::to_string (attempt->lazy_blocks.size ()));
 		response_l.put ("lazy_state_unknown", std::to_string (attempt->lazy_state_unknown.size ()));
+		response_l.put ("lazy_balances", std::to_string (attempt->lazy_balances.size ()));
 		response_l.put ("lazy_pulls", std::to_string (attempt->lazy_pulls.size ()));
 		response_l.put ("lazy_stopped", std::to_string (attempt->lazy_stopped));
 		response_l.put ("lazy_keys", std::to_string (attempt->lazy_keys.size ()));
