@@ -423,6 +423,9 @@ void rai::bulk_pull_client::request ()
 	rai::bulk_pull req;
 	req.start = pull.account;
 	req.end = pull.end;
+	req.count = pull.count;
+	req.set_count_present (pull.count != 0);
+
 	auto buffer (std::make_shared<std::vector<uint8_t>> ());
 	{
 		rai::vectorstream stream (*buffer);
@@ -720,15 +723,17 @@ void rai::bulk_push_client::push_block (rai::block const & block_a)
 rai::pull_info::pull_info () :
 account (0),
 end (0),
-attempts (0)
+attempts (0),
+count (0)
 {
 }
 
-rai::pull_info::pull_info (rai::account const & account_a, rai::block_hash const & head_a, rai::block_hash const & end_a) :
+rai::pull_info::pull_info (rai::account const & account_a, rai::block_hash const & head_a, rai::block_hash const & end_a, count_t count_a) :
 account (account_a),
 head (head_a),
 end (end_a),
-attempts (0)
+attempts (0),
+count (count_a)
 {
 }
 
@@ -1644,9 +1649,20 @@ void rai::bootstrap_server::receive_header_action (boost::system::error_code con
 			{
 				case rai::message_type::bulk_pull:
 				{
+					uint32_t extended_size;
 					node->stats.inc (rai::stat::type::bootstrap, rai::stat::detail::bulk_pull, rai::stat::dir::in);
+
+					if (header.bulk_pull_is_count_present ())
+					{
+						extended_size = rai::bulk_pull::extended_parameters_size;
+					}
+					else
+					{
+						extended_size = 0;
+					}
+
 					auto this_l (shared_from_this ());
-					socket->async_read (receive_buffer, sizeof (rai::uint256_union) + sizeof (rai::uint256_union), [this_l, header](boost::system::error_code const & ec, size_t size_a) {
+					socket->async_read (receive_buffer, sizeof (rai::uint256_union) + sizeof (rai::uint256_union) + extended_size, [this_l, header](boost::system::error_code const & ec, size_t size_a) {
 						this_l->receive_bulk_pull_action (ec, size_a, header);
 					});
 					break;
@@ -1713,13 +1729,13 @@ void rai::bootstrap_server::receive_bulk_pull_action (boost::system::error_code 
 	if (!ec)
 	{
 		auto error (false);
-		rai::bufferstream stream (receive_buffer->data (), sizeof (rai::uint256_union) + sizeof (rai::uint256_union));
+		rai::bufferstream stream (receive_buffer->data (), size_a);
 		std::unique_ptr<rai::bulk_pull> request (new rai::bulk_pull (error, stream, header_a));
 		if (!error)
 		{
 			if (node->config.logging.bulk_pull_logging ())
 			{
-				BOOST_LOG (node->log) << boost::str (boost::format ("Received bulk pull for %1% down to %2%") % request->start.to_string () % request->end.to_string ());
+				BOOST_LOG (node->log) << boost::str (boost::format ("Received bulk pull for %1% down to %2%, maximum of %3%") % request->start.to_string () % request->end.to_string () % (request->count ? request->count : std::numeric_limits<double>::infinity ()));
 			}
 			add_request (std::unique_ptr<rai::message> (request.release ()));
 			receive ();
@@ -1947,6 +1963,16 @@ void rai::bulk_pull_server::set_current_end ()
 			}
 		}
 	}
+
+	sent_count = 0;
+	if (request->is_count_present ())
+	{
+		max_count = request->count;
+	}
+	else
+	{
+		max_count = 0;
+	}
 }
 
 void rai::bulk_pull_server::send_next ()
@@ -2003,6 +2029,16 @@ std::shared_ptr<rai::block> rai::bulk_pull_server::get_next ()
 		set_current_to_end = true;
 	}
 
+	/*
+	 * Account for how many blocks we have provided.  If this
+	 * exceeds the requested maximum, return an empty object
+	 * to signal the end of results
+	 */
+	if (max_count != 0 && sent_count >= max_count)
+	{
+		send_current = false;
+	}
+
 	if (send_current)
 	{
 		auto transaction (connection->node->store.tx_begin_read ());
@@ -2023,6 +2059,8 @@ std::shared_ptr<rai::block> rai::bulk_pull_server::get_next ()
 		{
 			current = request->end;
 		}
+
+		sent_count++;
 	}
 
 	/*
