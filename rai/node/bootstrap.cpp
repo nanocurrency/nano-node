@@ -403,7 +403,7 @@ pull (pull_a)
 rai::bulk_pull_client::~bulk_pull_client ()
 {
 	// If received end block is not expected end block
-	if (expected != pull.end)
+	if (expected != pull.end && (total_blocks < pull.count || pull.count == 0))
 	{
 		pull.head = expected;
 		connection->attempt->requeue_pull (pull);
@@ -1195,7 +1195,7 @@ void rai::bootstrap_attempt::lazy_pull_flush ()
 		// Recheck if block was already processed
 		if (lazy_blocks.find (pull_start) == lazy_blocks.end ())
 		{
-			add_pull (rai::pull_info (pull_start, pull_start, rai::block_hash (0)));
+			add_pull (rai::pull_info (pull_start, pull_start, rai::block_hash (0), lazy_max_pull_blocks));
 		}
 	}
 	lazy_pulls.clear ();
@@ -1339,7 +1339,7 @@ bool rai::bootstrap_attempt::process_block (std::shared_ptr<rai::block> block_a,
 				// Disabled until server rewrite
 				// stop_pull = true;
 				// Force drop lazy bootstrap connection for long bulk_pull
-				if (total_blocks > 512)
+				if (total_blocks > lazy_max_pull_blocks)
 				{
 					stop_pull = true;
 				}
@@ -1381,7 +1381,7 @@ bool rai::bootstrap_attempt::process_block (std::shared_ptr<rai::block> block_a,
 			// Disabled until server rewrite
 			// stop_pull = true;
 			// Force drop lazy bootstrap connection for long bulk_pull
-			if (total_blocks > 512)
+			if (total_blocks > lazy_max_pull_blocks)
 			{
 				stop_pull = true;
 			}
