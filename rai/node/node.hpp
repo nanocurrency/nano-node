@@ -176,6 +176,7 @@ public:
 	boost::multi_index::hashed_unique<boost::multi_index::member<gap_information, rai::block_hash, &gap_information::hash>>>>
 	blocks;
 	size_t const max = 256;
+	size_t const lazy_min_blocks = (rai::rai_network == rai::rai_networks::rai_live_network) ? 15000000 : (rai::rai_network == rai::rai_networks::rai_beta_network) ? 4475000 : 0;
 	std::mutex mutex;
 	rai::node & node;
 };
