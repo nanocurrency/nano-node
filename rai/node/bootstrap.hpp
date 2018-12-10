@@ -89,6 +89,7 @@ public:
 	void lazy_start (rai::block_hash const &);
 	void lazy_add (rai::block_hash const &);
 	bool lazy_finished ();
+	bool lazy_overflow ();
 	void lazy_pull_flush ();
 	std::chrono::steady_clock::time_point next_log;
 	std::deque<std::weak_ptr<rai::bootstrap_client>> clients;
@@ -115,6 +116,7 @@ public:
 	std::deque<rai::block_hash> lazy_pulls;
 	std::atomic<uint64_t> lazy_stopped;
 	uint64_t lazy_max_pull_blocks = (rai::rai_network == rai::rai_networks::rai_test_network) ? 2 : 512;
+	size_t lazy_max_blocks = 128 * 1024;
 	std::mutex lazy_mutex;
 };
 class frontier_req_client : public std::enable_shared_from_this<rai::frontier_req_client>
