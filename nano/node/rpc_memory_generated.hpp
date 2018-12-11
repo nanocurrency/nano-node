@@ -1,55 +1,9 @@
 		while (true)
 		{
-			if (!node.active.mutex.try_lock ())
+			if (std::try_lock (node.active.mutex, node.alarm.mutex, node.block_processor.mutex, node.bootstrap.mutex, node.bootstrap_initiator.mutex, node.gap_cache.mutex, node.vote_processor.mutex) == -1)
 			{
-				continue;
+				break;
 			}
-			if (!node.alarm.mutex.try_lock ())
-			{
-				node.active.mutex.unlock ();
-				continue;
-			}
-			if (!node.block_processor.mutex.try_lock ())
-			{
-				node.active.mutex.unlock ();
-				node.alarm.mutex.unlock ();
-				continue;
-			}
-			if (!node.bootstrap.mutex.try_lock ())
-			{
-				node.active.mutex.unlock ();
-				node.alarm.mutex.unlock ();
-				node.block_processor.mutex.unlock ();
-				continue;
-			}
-			if (!node.bootstrap_initiator.mutex.try_lock ())
-			{
-				node.active.mutex.unlock ();
-				node.alarm.mutex.unlock ();
-				node.block_processor.mutex.unlock ();
-				node.bootstrap.mutex.unlock ();
-				continue;
-			}
-			if (!node.gap_cache.mutex.try_lock ())
-			{
-				node.active.mutex.unlock ();
-				node.alarm.mutex.unlock ();
-				node.block_processor.mutex.unlock ();
-				node.bootstrap.mutex.unlock ();
-				node.bootstrap_initiator.mutex.unlock ();
-				continue;
-			}
-			if (!node.vote_processor.mutex.try_lock ())
-			{
-				node.active.mutex.unlock ();
-				node.alarm.mutex.unlock ();
-				node.block_processor.mutex.unlock ();
-				node.bootstrap.mutex.unlock ();
-				node.bootstrap_initiator.mutex.unlock ();
-				node.gap_cache.mutex.unlock ();
-				continue;
-			}
-			break;
 		}
 		response_l.put ("node.gap_cache.blocks", node.gap_cache.blocks.size ());
 		response_l.put ("node.active.roots", node.active.roots.size ());

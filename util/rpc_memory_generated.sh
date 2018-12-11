@@ -184,19 +184,17 @@ memory_information="$(echo "${memory_information}" | grep -v '^MUTEX=')"
 if [ "${#mutexes[@]}" -gt 0 ]; then
 	echo $'\t\t'"while (true)"
 	echo $'\t\t'"{"
+
+	echo -n $'\t\t\t'"if (std::try_lock ("
+	seperator=''
 	for mutex in "${mutexes[@]}"; do
-		echo $'\t\t\t'"if (!${mutex}.try_lock ())"
-		echo $'\t\t\t'"{"
-		for unlockMutex in "${mutexes[@]}"; do
-			if [ "${unlockMutex}" = "${mutex}" ]; then
-				break;
-			fi
-			echo $'\t\t\t\t'"${unlockMutex}.unlock ();"
-		done
-		echo $'\t\t\t\t'"continue;"
-		echo $'\t\t\t'"}"
+		echo -n "${seperator}${mutex}"
+		seperator=', '
 	done
-	echo $'\t\t\t'"break;"
+	echo ') == -1)'
+	echo $'\t\t\t'"{"
+	echo $'\t\t\t\t'"break;"
+	echo $'\t\t\t'"}"
 	echo $'\t\t'"}"
 fi
 
