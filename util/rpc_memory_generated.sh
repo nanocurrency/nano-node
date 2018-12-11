@@ -118,14 +118,13 @@ function emit_memory_information () {
 						*_function)
 							;;
 						*.lazy_*)
-							mutex="lazy_mutex"
+							# XXX:TODO: Disabled mutex until we do something saner
+							#mutex="lazy_mutex"
 							;;
 						*)
 							mutex="mutex"
 							;;
 					esac
-					# XXX:TODO: Disabled mutex until we do something saner
-					mutex=''
 
 					output="${name}size ()";
 					;;
@@ -134,7 +133,7 @@ function emit_memory_information () {
 			if [ -n "${output}" ]; then
 				if [ -n "${mutex}" ]; then
 					mutex="$(echo "${name}" | sed 's@\.\([^.]*\)\.$@@').${mutex}"
-					echo $'\t\t'"${mutex}.lock ();"
+					echo "MUTEX=${mutex}"
 				fi
 
 				nullCheck="${output}"
@@ -151,7 +150,8 @@ function emit_memory_information () {
 						continue
 					fi
 
-					echo $'\t\t'"${addTabs}if (${nullCheck}) {"
+					echo $'\t\t'"${addTabs}if (${nullCheck})"
+					echo $'\t\t'"${addTabs}{"
 					addTabs+=$'\t'
 				done <<<"${nullable}"
 
@@ -165,10 +165,6 @@ function emit_memory_information () {
 					addTabs="${addTabs:1}"
 					echo $'\t\t'"${addTabs}}"
 				done <<<"${nullable}"
-
-				if [ -n "${mutex}" ]; then
-					echo $'\t\t'"${mutex}.unlock ();"
-				fi
 			fi
 		else
 			echo "${output}"
@@ -176,4 +172,36 @@ function emit_memory_information () {
 	done
 }
 
-emit_memory_information nano::node node.
+memory_information="$(emit_memory_information nano::node node.)"
+
+mutexes=(
+	$(
+		echo "${memory_information}" | awk '/^MUTEX=/{ sub(/^MUTEX=/, ""); print }' | sort -u
+	)
+)
+memory_information="$(echo "${memory_information}" | grep -v '^MUTEX=')"
+
+if [ "${#mutexes[@]}" -gt 0 ]; then
+	echo $'\t\t'"while (true)"
+	echo $'\t\t'"{"
+	for mutex in "${mutexes[@]}"; do
+		echo $'\t\t\t'"if (!${mutex}.try_lock ())"
+		echo $'\t\t\t'"{"
+		for unlockMutex in "${mutexes[@]}"; do
+			if [ "${unlockMutex}" = "${mutex}" ]; then
+				break;
+			fi
+			echo $'\t\t\t\t'"${unlockMutex}.unlock ();"
+		done
+		echo $'\t\t\t\t'"continue;"
+		echo $'\t\t\t'"}"
+	done
+	echo $'\t\t\t'"break;"
+	echo $'\t\t'"}"
+fi
+
+echo "${memory_information}"
+
+for mutex in "${mutexes[@]}"; do
+	echo $'\t\t'"${mutex}.unlock ();"
+done
