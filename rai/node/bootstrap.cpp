@@ -918,7 +918,7 @@ void rai::bootstrap_attempt::run ()
 		BOOST_LOG (node->log) << "Completed pulls";
 		request_push (lock);
 		// Start lazy bootstrap if some lazy keys were inserted
-		if (!lazy_keys.empty ())
+		if (!lazy_keys.empty () && !node->flags.disable_lazy_bootstrap)
 		{
 			lock.unlock ();
 			lazy_mode = true;
@@ -1294,7 +1294,7 @@ void rai::bootstrap_attempt::lazy_run ()
 		BOOST_LOG (node->log) << "Completed lazy pulls";
 		// Fallback to legacy bootstrap
 		std::unique_lock<std::mutex> lazy_lock (lazy_mutex);
-		if (!lazy_keys.empty ())
+		if (!lazy_keys.empty () && !node->flags.disable_legacy_bootstrap)
 		{
 			pulls.clear ();
 			lock.unlock ();
