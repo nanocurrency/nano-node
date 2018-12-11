@@ -150,12 +150,12 @@ function emit_memory_information () {
 						continue
 					fi
 
-					echo $'\t\t'"${addTabs}if (${nullCheck})"
-					echo $'\t\t'"${addTabs}{"
+					echo "${addTabs}if (${nullCheck})"
+					echo "${addTabs}{"
 					addTabs+=$'\t'
 				done <<<"${nullable}"
 
-				echo $'\t\t'"${addTabs}response_l.put (\"${printName}\", ${output});"
+				echo "${addTabs}response_l.put (\"${printName}\", ${output});"
 
 				while IFS='' read -r nullCheck; do
 					if [ -z "${nullCheck}" ]; then
@@ -163,7 +163,7 @@ function emit_memory_information () {
 					fi
 
 					addTabs="${addTabs:1}"
-					echo $'\t\t'"${addTabs}}"
+					echo "${addTabs}}"
 				done <<<"${nullable}"
 			fi
 		else
@@ -182,24 +182,24 @@ mutexes=(
 memory_information="$(echo "${memory_information}" | grep -v '^MUTEX=')"
 
 if [ "${#mutexes[@]}" -gt 0 ]; then
-	echo $'\t\t'"while (true)"
-	echo $'\t\t'"{"
+	echo "while (true)"
+	echo "{"
 
-	echo -n $'\t\t\t'"if (std::try_lock ("
+	echo -n $'\t'"if (std::try_lock ("
 	seperator=''
 	for mutex in "${mutexes[@]}"; do
 		echo -n "${seperator}${mutex}"
 		seperator=', '
 	done
 	echo ') == -1)'
-	echo $'\t\t\t'"{"
-	echo $'\t\t\t\t'"break;"
-	echo $'\t\t\t'"}"
-	echo $'\t\t'"}"
+	echo $'\t'"{"
+	echo $'\t\t'"break;"
+	echo $'\t'"}"
+	echo "}"
 fi
 
 echo "${memory_information}"
 
 for mutex in "${mutexes[@]}"; do
-	echo $'\t\t'"${mutex}.unlock ();"
+	echo "${mutex}.unlock ();"
 done
