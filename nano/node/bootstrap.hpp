@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nano/node/common.hpp>
+#include <nano/node/rpc.hpp>
 #include <nano/secure/blockstore.hpp>
 #include <nano/secure/ledger.hpp>
 
@@ -207,6 +208,7 @@ public:
 	void stop ();
 
 private:
+	friend void nano::rpc_handler::memory ();
 	nano::node & node;
 	std::shared_ptr<nano::bootstrap_attempt> attempt;
 	bool stopped;

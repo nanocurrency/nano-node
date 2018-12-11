@@ -6,6 +6,7 @@
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/peers.hpp>
 #include <nano/node/portmapping.hpp>
+#include <nano/node/rpc.hpp>
 #include <nano/node/stats.hpp>
 #include <nano/node/voting.hpp>
 #include <nano/node/wallet.hpp>
@@ -356,6 +357,7 @@ public:
 	void stop ();
 
 private:
+	friend void nano::rpc_handler::memory ();
 	void process_loop ();
 	std::deque<std::pair<std::shared_ptr<nano::vote>, nano::endpoint>> votes;
 	// Representatives levels for random early detection
@@ -428,6 +430,7 @@ public:
 	nano::process_return process_receive_one (nano::transaction const &, std::shared_ptr<nano::block>, std::chrono::steady_clock::time_point = std::chrono::steady_clock::now (), bool = false);
 
 private:
+	friend void nano::rpc_handler::memory ();
 	void queue_unchecked (nano::transaction const &, nano::block_hash const &);
 	void verify_state_blocks (std::unique_lock<std::mutex> &, size_t = std::numeric_limits<size_t>::max ());
 	void process_receive_many (std::unique_lock<std::mutex> &);
