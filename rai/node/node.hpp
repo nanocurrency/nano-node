@@ -298,7 +298,8 @@ public:
 	void rpc_action (boost::system::error_code const &, size_t);
 	void republish_vote (std::shared_ptr<rai::vote>);
 	void republish_block (std::shared_ptr<rai::block>);
-	static unsigned const broadcast_interval_ms = (rai::rai_network == rai::rai_networks::rai_test_network) ? 10 : 50;
+	static unsigned const broadcast_interval_ms = (rai::rai_network == rai::rai_networks::rai_test_network) ? 10 : 20;
+	static size_t const max_broadcast_queue = 500;
 	void republish_block_batch (std::deque<std::shared_ptr<rai::block>>, unsigned = broadcast_interval_ms);
 	void republish (rai::block_hash const &, std::shared_ptr<std::vector<uint8_t>>, rai::endpoint);
 	void confirm_send (rai::confirm_ack const &, std::shared_ptr<std::vector<uint8_t>>, rai::endpoint const &);

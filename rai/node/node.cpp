@@ -3141,7 +3141,10 @@ void rai::active_transactions::announce_votes (std::unique_lock<std::mutex> & lo
 				if (node.ledger.could_fit (transaction, *election_l->status.winner))
 				{
 					// Broadcast winner
-					rebroadcast_bundle.push_back (election_l->status.winner);
+					if (rebroadcast_bundle.size () < max_broadcast_queue)
+					{
+						rebroadcast_bundle.push_back (election_l->status.winner);
+					}
 				}
 				else
 				{
@@ -3181,9 +3184,12 @@ void rai::active_transactions::announce_votes (std::unique_lock<std::mutex> & lo
 						}
 					}
 				}
-				if ((!reps->empty () && total_weight > node.config.online_weight_minimum.number ()) || roots.size () > 5)
+				if ((!reps->empty () && total_weight > node.config.online_weight_minimum.number ()) || roots_size > 5)
 				{
-					confirm_req_bundle.push_back (std::make_pair (i->election->status.winner, reps));
+					if (confirm_req_bundle.size () < max_broadcast_queue)
+					{
+						confirm_req_bundle.push_back (std::make_pair (i->election->status.winner, reps));
+					}
 				}
 				else
 				{
@@ -3238,7 +3244,7 @@ void rai::active_transactions::announce_loop ()
 	while (!stopped)
 	{
 		announce_votes (lock);
-		condition.wait_for (lock, std::chrono::milliseconds (announce_interval_ms + roots.size () * node.network.broadcast_interval_ms * 3 / 2));
+		condition.wait_for (lock, std::chrono::milliseconds (announce_interval_ms + (std::min (roots.size (), max_broadcast_queue) * node.network.broadcast_interval_ms * 5 / 2));
 	}
 }
 
