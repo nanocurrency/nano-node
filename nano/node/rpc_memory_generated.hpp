@@ -1,0 +1,18 @@
+		node.gap_cache.mutex.lock ();
+		response_l.put ("node.gap_cache.blocks", node.gap_cache.blocks.size ());
+		node.gap_cache.mutex.unlock ();
+		node.active.mutex.lock ();
+		response_l.put ("node.active.roots", node.active.roots.size ());
+		node.active.mutex.unlock ();
+		node.active.mutex.lock ();
+		response_l.put ("node.active.blocks", node.active.blocks.size ());
+		node.active.mutex.unlock ();
+		node.active.mutex.lock ();
+		response_l.put ("node.active.confirmed", node.active.confirmed.size ());
+		node.active.mutex.unlock ();
+		node.bootstrap.mutex.lock ();
+		response_l.put ("node.bootstrap.connections", node.bootstrap.connections.size ());
+		node.bootstrap.mutex.unlock ();
+		node.alarm.mutex.lock ();
+		response_l.put ("node.alarm.operations", node.alarm.operations.size ());
+		node.alarm.mutex.unlock ();

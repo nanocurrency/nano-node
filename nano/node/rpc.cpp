@@ -2079,6 +2079,19 @@ void nano::rpc_handler::mrai_to_raw (nano::uint128_t ratio)
 /*
  * @warning This is an internal/diagnostic RPC, do not rely on its interface being stable
  */
+void nano::rpc_handler::memory ()
+{
+	rpc_control_impl ();
+	if (!ec)
+	{
+#include <nano/node/rpc_memory_generated.hpp>
+	}
+	response_errors ();
+}
+
+/*
+ * @warning This is an internal/diagnostic RPC, do not rely on its interface being stable
+ */
 void nano::rpc_handler::node_id ()
 {
 	rpc_control_impl ();
@@ -4063,6 +4076,10 @@ void nano::rpc_handler::process_request ()
 			else if (action == "mrai_to_raw")
 			{
 				mrai_to_raw ();
+			}
+			else if (action == "memory")
+			{
+				memory ();
 			}
 			else if (action == "node_id")
 			{
