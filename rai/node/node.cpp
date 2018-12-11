@@ -3244,7 +3244,7 @@ void rai::active_transactions::announce_loop ()
 	while (!stopped)
 	{
 		announce_votes (lock);
-		condition.wait_for (lock, std::chrono::milliseconds (announce_interval_ms + (std::min (roots.size (), max_broadcast_queue) * node.network.broadcast_interval_ms * 5 / 2));
+		condition.wait_for (lock, std::chrono::milliseconds (announce_interval_ms + (std::min (roots.size (), max_broadcast_queue) * node.network.broadcast_interval_ms * 5 / 2)));
 	}
 }
 
