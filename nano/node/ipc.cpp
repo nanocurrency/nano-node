@@ -26,6 +26,7 @@ std::string nano::error_ipc_messages::message (int ev) const
 		case nano::error_ipc::invalid_preamble:
 			return "Invalid preamble";
 	}
+	return "Invalid error";
 }
 void nano::ipc::ipc_config::serialize_json (nano::jsonconfig & json)
 {
