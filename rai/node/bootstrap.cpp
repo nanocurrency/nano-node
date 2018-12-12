@@ -16,13 +16,14 @@ constexpr unsigned bulk_push_cost_limit = 200;
 
 rai::socket::socket (std::shared_ptr<rai::node> node_a) :
 socket_m (node_a->service),
-ticket (0),
+cutoff (std::numeric_limits<uint64_t>::max ()),
 node (node_a)
 {
 }
 
 void rai::socket::async_connect (rai::tcp_endpoint const & endpoint_a, std::function<void(boost::system::error_code const &)> callback_a)
 {
+	checkup ();
 	auto this_l (shared_from_this ());
 	start ();
 	socket_m.async_connect (endpoint_a, [this_l, callback_a](boost::system::error_code const & ec) {
@@ -56,27 +57,12 @@ void rai::socket::async_write (std::shared_ptr<std::vector<uint8_t>> buffer_a, s
 
 void rai::socket::start (std::chrono::steady_clock::time_point timeout_a)
 {
-	auto ticket_l (++ticket);
-	std::weak_ptr<rai::socket> this_w (shared_from_this ());
-	node->alarm.add (timeout_a, [this_w, ticket_l]() {
-		if (auto this_l = this_w.lock ())
-		{
-			if (this_l->ticket == ticket_l)
-			{
-				if (this_l->node->config.logging.bulk_pull_logging ())
-				{
-					BOOST_LOG (this_l->node->log) << boost::str (boost::format ("Disconnecting from %1% due to timeout") % this_l->remote_endpoint ());
-				}
-
-				this_l->close ();
-			}
-		}
-	});
+	cutoff = timeout_a.time_since_epoch ().count ();
 }
 
 void rai::socket::stop ()
 {
-	++ticket;
+	cutoff = std::numeric_limits<uint64_t>::max ();
 }
 
 void rai::socket::close ()
@@ -85,6 +71,28 @@ void rai::socket::close ()
 	{
 		socket_m.close ();
 	}
+}
+
+void rai::socket::checkup ()
+{
+	std::weak_ptr<rai::socket> this_w (shared_from_this ());
+	node->alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (10), [this_w]() {
+		if (auto this_l = this_w.lock ())
+		{
+			if (this_l->cutoff != std::numeric_limits<uint64_t>::max () && this_l->cutoff < std::chrono::steady_clock::now ().time_since_epoch ().count ())
+			{
+				if (this_l->node->config.logging.bulk_pull_logging ())
+				{
+					BOOST_LOG (this_l->node->log) << boost::str (boost::format ("Disconnecting from %1% due to timeout") % this_l->remote_endpoint ());
+				}
+				this_l->close ();
+			}
+			else
+			{
+				this_l->checkup ();
+			}
+		}
+	});
 }
 
 rai::tcp_endpoint rai::socket::remote_endpoint ()
