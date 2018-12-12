@@ -124,7 +124,7 @@ public:
 	static unsigned constexpr announcement_long = 20;
 	static unsigned constexpr announce_interval_ms = (rai::rai_network == rai::rai_networks::rai_test_network) ? 10 : 16000;
 	static size_t constexpr election_history_size = 2048;
-	static size_t const max_broadcast_queue = 1000;
+	static size_t constexpr max_broadcast_queue = 1000;
 
 private:
 	// Call action with confirmed block, may be different than what we started with
