@@ -2910,8 +2910,8 @@ void rai::election::confirm_back (rai::transaction const & transaction_a)
 	{
 		if (!hash.is_zero () && !node.ledger.is_epoch_link (hash))
 		{
-			auto existing (node.active.successors.find (hash));
-			if (existing != node.active.successors.end () && !existing->second->confirmed && !existing->second->stopped && existing->second->blocks.size () == 1)
+			auto existing (node.active.blocks.find (hash));
+			if (existing != node.active.blocks.end () && !existing->second->confirmed && !existing->second->stopped && existing->second->blocks.size () == 1)
 			{
 				existing->second->confirm_once (transaction_a);
 			}
