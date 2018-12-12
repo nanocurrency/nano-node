@@ -23,6 +23,7 @@ std::chrono::seconds constexpr rai::node::search_pending_interval;
 int constexpr rai::port_mapping::mapping_timeout;
 int constexpr rai::port_mapping::check_timeout;
 unsigned constexpr rai::active_transactions::announce_interval_ms;
+size_t constexpr rai::active_transactions::max_broadcast_queue;
 size_t constexpr rai::block_arrival::arrival_size_min;
 std::chrono::seconds constexpr rai::block_arrival::arrival_time_min;
 
