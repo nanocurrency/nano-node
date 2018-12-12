@@ -1,10 +1,4 @@
-while (true)
-{
-	if (std::try_lock (node.active.mutex, node.alarm.mutex, node.block_processor.mutex, node.bootstrap.mutex, node.bootstrap_initiator.mutex, node.gap_cache.mutex, node.vote_processor.mutex) == -1)
-	{
-		break;
-	}
-}
+std::lock (node.active.mutex, node.alarm.mutex, node.block_processor.mutex, node.bootstrap.mutex, node.bootstrap_initiator.mutex, node.gap_cache.mutex, node.vote_processor.mutex);
 response_l.put ("node.gap_cache.blocks", node.gap_cache.blocks.size ());
 response_l.put ("node.active.roots", node.active.roots.size ());
 response_l.put ("node.active.blocks", node.active.blocks.size ());
