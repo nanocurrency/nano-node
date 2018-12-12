@@ -2836,7 +2836,7 @@ void rai::election::confirm_once (rai::transaction const & transaction_a)
 {
 	if (!confirmed.exchange (true))
 	{
-		status.election_duration = std::chrono::duration_cast<std::chrono::duration<double>> (std::chrono::steady_clock::now () - election_start);
+		status.election_duration = std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::steady_clock::now () - election_start);
 		auto winner_l (status.winner);
 		auto node_l (node.shared ());
 		auto confirmation_action_l (confirmation_action);

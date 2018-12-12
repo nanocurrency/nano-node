@@ -1446,7 +1446,7 @@ void rai::rpc_handler::confirmation_history ()
 {
 	boost::property_tree::ptree elections;
 	boost::property_tree::ptree confirmation_stats;
-	std::chrono::duration<double> running_total (0);
+	std::chrono::milliseconds running_total (0);
 	{
 		std::lock_guard<std::mutex> lock (node.active.mutex);
 		for (auto i (node.active.confirmed.begin ()), n (node.active.confirmed.end ()); i != n; ++i)
