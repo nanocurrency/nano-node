@@ -2946,16 +2946,9 @@ void nano::rpc_handler::stats ()
 	{
 		ec = nano::error_rpc::invalid_missing_type;
 	}
-	if (!ec)
+	if (!ec && use_sink)
 	{
-		if (use_sink)
-		{
-			response (*static_cast<boost::property_tree::ptree *> (sink->to_object ()));
-		}
-		else
-		{
-			response_errors ();
-		}
+		response (*static_cast<boost::property_tree::ptree *> (sink->to_object ()));
 	}
 	else
 	{
