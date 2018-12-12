@@ -2844,6 +2844,23 @@ void rai::election::confirm_once (rai::transaction const & transaction_a)
 			node_l->process_confirmed (winner_l);
 			confirmation_action_l (winner_l);
 		});
+		confirm_back (transaction_a);
+	}
+}
+
+void rai::election::confirm_back (rai::transaction const & transaction_a)
+{
+	std::vector<rai::block_hash> hashes = { status.winner->previous (), status.winner->source (), status.winner->link () };
+	for (auto & hash : hashes)
+	{
+		if (!hash.is_zero () && !node.ledger.is_epoch_link (hash))
+		{
+			auto existing (node.active.successors.find (hash));
+			if (existing != node.active.successors.end () && !existing->second->confirmed && !existing->second->stopped && existing->second->blocks.size () == 1)
+			{
+				existing->second->confirm_once (transaction_a);
+			}
+		}
 	}
 }
 
