@@ -1340,7 +1340,7 @@ rai::process_return rai::block_processor::process_receive_one (rai::transaction 
 				block_a->serialize_json (block);
 				BOOST_LOG (node.log) << boost::str (boost::format ("Processing block %1%: %2%") % hash.to_string () % block);
 			}
-			if (node.block_arrival.recent (hash))
+			if (origination != std::chrono::steady_clock::time_point () && node.block_arrival.recent (hash))
 			{
 				node.active.start (block_a);
 				if (node.config.enable_voting)
@@ -1348,7 +1348,7 @@ rai::process_return rai::block_processor::process_receive_one (rai::transaction 
 					generator.add (hash);
 				}
 			}
-			queue_unchecked (transaction_a, hash);
+			queue_unchecked (transaction_a, hash, origination);
 			break;
 		}
 		case rai::process_result::gap_previous:
@@ -1377,7 +1377,7 @@ rai::process_return rai::block_processor::process_receive_one (rai::transaction 
 			{
 				BOOST_LOG (node.log) << boost::str (boost::format ("Old for: %1%") % block_a->hash ().to_string ());
 			}
-			queue_unchecked (transaction_a, hash);
+			queue_unchecked (transaction_a, hash, origination);
 			node.active.update_difficulty (*block_a);
 			break;
 		}
@@ -1451,13 +1451,13 @@ rai::process_return rai::block_processor::process_receive_one (rai::transaction 
 	return result;
 }
 
-void rai::block_processor::queue_unchecked (rai::transaction const & transaction_a, rai::block_hash const & hash_a)
+void rai::block_processor::queue_unchecked (rai::transaction const & transaction_a, rai::block_hash const & hash_a, std::chrono::steady_clock::time_point origination)
 {
 	auto cached (node.store.unchecked_get (transaction_a, hash_a));
 	for (auto i (cached.begin ()), n (cached.end ()); i != n; ++i)
 	{
 		node.store.unchecked_del (transaction_a, hash_a, *i);
-		add (*i, std::chrono::steady_clock::time_point ());
+		add (*i, origination);
 	}
 	std::lock_guard<std::mutex> lock (node.gap_cache.mutex);
 	node.gap_cache.blocks.get<1> ().erase (hash_a);

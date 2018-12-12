@@ -423,7 +423,7 @@ public:
 	rai::vote_generator generator;
 
 private:
-	void queue_unchecked (rai::transaction const &, rai::block_hash const &);
+	void queue_unchecked (rai::transaction const &, rai::block_hash const &, std::chrono::steady_clock::time_point);
 	void verify_state_blocks (std::unique_lock<std::mutex> &);
 	void process_receive_many (std::unique_lock<std::mutex> &);
 	bool stopped;
