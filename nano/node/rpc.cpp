@@ -2079,19 +2079,6 @@ void nano::rpc_handler::mrai_to_raw (nano::uint128_t ratio)
 /*
  * @warning This is an internal/diagnostic RPC, do not rely on its interface being stable
  */
-void nano::rpc_handler::memory ()
-{
-	rpc_control_impl ();
-	if (!ec)
-	{
-#include <nano/node/rpc_memory_generated.hpp>
-	}
-	response_errors ();
-}
-
-/*
- * @warning This is an internal/diagnostic RPC, do not rely on its interface being stable
- */
 void nano::rpc_handler::node_id ()
 {
 	rpc_control_impl ();
@@ -2940,13 +2927,20 @@ void nano::rpc_handler::stats ()
 {
 	auto sink = node.stats.log_sink_json ();
 	std::string type (request.get<std::string> ("type", ""));
+	bool use_sink = false;
 	if (type == "counters")
 	{
 		node.stats.log_counters (*sink);
+		use_sink = true;
 	}
 	else if (type == "samples")
 	{
 		node.stats.log_samples (*sink);
+		use_sink = true;
+	}
+	else if (type == "objects")
+	{
+#include <nano/node/rpc_stats_objects_generated.hpp>
 	}
 	else
 	{
@@ -2954,7 +2948,14 @@ void nano::rpc_handler::stats ()
 	}
 	if (!ec)
 	{
-		response (*static_cast<boost::property_tree::ptree *> (sink->to_object ()));
+		if (use_sink)
+		{
+			response (*static_cast<boost::property_tree::ptree *> (sink->to_object ()));
+		}
+		else
+		{
+			response_errors ();
+		}
 	}
 	else
 	{
@@ -4076,10 +4077,6 @@ void nano::rpc_handler::process_request ()
 			else if (action == "mrai_to_raw")
 			{
 				mrai_to_raw ();
-			}
-			else if (action == "memory")
-			{
-				memory ();
 			}
 			else if (action == "node_id")
 			{

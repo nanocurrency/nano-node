@@ -208,7 +208,7 @@ public:
 	void stop ();
 
 private:
-	friend void nano::rpc_handler::memory ();
+	friend void nano::rpc_handler::stats ();
 	nano::node & node;
 	std::shared_ptr<nano::bootstrap_attempt> attempt;
 	bool stopped;

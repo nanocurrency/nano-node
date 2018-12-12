@@ -88,12 +88,13 @@ _EOF_
 }
 
 function emit_memory_information () {
-	local startAtType startAtName
+	local responseObject startAtType startAtName
 	local type name printName
 	local output
 
-	startAtType="$1"
-	startAtName="$2"
+	responseObject="$1"
+	startAtType="$2"
+	startAtName="$3"
 
 	emit_members "${startAtType}" | while read -r type name; do
 		case "${name}" in
@@ -105,7 +106,7 @@ function emit_memory_information () {
 				;;
 		esac
 
-		output="$(emit_memory_information "${type}" "${name}")"
+		output="$(emit_memory_information "${responseObject}" "${type}" "${name}")"
 
 		if [ -z "${output}" ]; then
 			printName="$(echo "${name}" | sed 's@ *()@_function@;s@->@.@g;s@\.$@@')"
@@ -155,7 +156,7 @@ function emit_memory_information () {
 					addTabs+=$'\t'
 				done <<<"${nullable}"
 
-				echo "${addTabs}response_l.put (\"${printName}\", ${output});"
+				echo "${addTabs}${responseObject}.put (\"${printName}\", ${output});"
 
 				while IFS='' read -r nullCheck; do
 					if [ -z "${nullCheck}" ]; then
@@ -172,7 +173,16 @@ function emit_memory_information () {
 	done
 }
 
-memory_information="$(emit_memory_information nano::node node.)"
+# XXX:TODO: Hardcoded the response object for now
+set -- response_l
+if [ "$#" != '1' ]; then
+	echo "Usage: rpc_memory_generated.sh <responseObjectName>" >&2
+	exit 1
+fi
+
+responseObject="$1"
+
+memory_information="$(emit_memory_information "${responseObject}" nano::node node.)"
 
 mutexes=(
 	$(
