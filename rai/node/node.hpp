@@ -50,7 +50,6 @@ class election : public std::enable_shared_from_this<rai::election>
 {
 	std::function<void(std::shared_ptr<rai::block>)> confirmation_action;
 	void confirm_once (rai::transaction const &);
-	void confirm_back (rai::transaction const &);
 
 public:
 	election (rai::node &, std::shared_ptr<rai::block>, std::function<void(std::shared_ptr<rai::block>)> const &);
