@@ -848,7 +848,7 @@ void rai::vote_processor::process_loop ()
 				elapsed_time_ms = std::chrono::duration_cast<std::chrono::milliseconds> (elapsed_time);
 				elapsed_time_ms_int = elapsed_time_ms.count ();
 
-				if (elapsed_time_ms_int < 100)
+				if (elapsed_time_ms_int >= 100)
 				{
 					/*
 					 * If the time spent was less than 100ms then
