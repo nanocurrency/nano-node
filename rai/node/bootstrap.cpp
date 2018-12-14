@@ -926,7 +926,7 @@ void rai::bootstrap_attempt::run ()
 		BOOST_LOG (node->log) << "Completed pulls";
 		request_push (lock);
 		// Start lazy bootstrap if some lazy keys were inserted
-		if (!lazy_keys.empty ())
+		if (!lazy_keys.empty () && !node->flags.disable_lazy_bootstrap)
 		{
 			lock.unlock ();
 			lazy_mode = true;
@@ -1247,10 +1247,10 @@ void rai::bootstrap_attempt::lazy_run ()
 	auto start_time (std::chrono::steady_clock::now ());
 	auto max_time (std::chrono::minutes (node->flags.disable_legacy_bootstrap ? 48 * 60 : 30));
 	std::unique_lock<std::mutex> lock (mutex);
-	while ((still_pulling () || !lazy_finished ()) && std::chrono::steady_clock::now () - start_time < max_time)
+	while ((still_pulling () || !lazy_finished ()) && lazy_stopped < lazy_max_stopped && std::chrono::steady_clock::now () - start_time < max_time)
 	{
 		unsigned iterations (0);
-		while (still_pulling () && std::chrono::steady_clock::now () - start_time < max_time)
+		while (still_pulling () && lazy_stopped < lazy_max_stopped && std::chrono::steady_clock::now () - start_time < max_time)
 		{
 			if (!pulls.empty ())
 			{
@@ -1286,6 +1286,23 @@ void rai::bootstrap_attempt::lazy_run ()
 	if (!stopped)
 	{
 		BOOST_LOG (node->log) << "Completed lazy pulls";
+		// Fallback to legacy bootstrap
+		std::unique_lock<std::mutex> lazy_lock (lazy_mutex);
+		if (!lazy_keys.empty () && !node->flags.disable_legacy_bootstrap)
+		{
+			pulls.clear ();
+			lock.unlock ();
+			lazy_blocks.clear ();
+			lazy_keys.clear ();
+			lazy_pulls.clear ();
+			lazy_state_unknown.clear ();
+			lazy_balances.clear ();
+			lazy_stopped = 0;
+			lazy_mode = false;
+			lazy_lock.unlock ();
+			run ();
+			lock.lock ();
+		}
 	}
 	stopped = true;
 	condition.notify_all ();
