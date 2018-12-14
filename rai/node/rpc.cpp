@@ -1454,7 +1454,7 @@ void rai::rpc_handler::confirmation_history ()
 			boost::property_tree::ptree election;
 			election.put ("hash", i->winner->hash ().to_string ());
 			election.put ("duration", i->election_duration.count ());
-			election.put ("time", i->election_end.time_since_epoch().count());
+			election.put ("time", i->election_end.time_since_epoch ().count ());
 			election.put ("tally", i->tally.to_string_dec ());
 			elections.push_back (std::make_pair ("", election));
 			running_total += i->election_duration;
