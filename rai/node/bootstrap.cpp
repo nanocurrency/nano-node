@@ -1241,30 +1241,16 @@ bool rai::bootstrap_attempt::lazy_finished ()
 	return result;
 }
 
-bool rai::bootstrap_attempt::lazy_overflow ()
-{
-	bool result (false);
-	if (!node->flags.disable_legacy_bootstrap)
-	{
-		std::lock_guard<std::mutex> lock (lazy_mutex);
-		if (lazy_blocks.size () > lazy_max_blocks)
-		{
-			result = true;
-		}
-	}
-	return result;
-}
-
 void rai::bootstrap_attempt::lazy_run ()
 {
 	populate_connections ();
 	auto start_time (std::chrono::steady_clock::now ());
 	auto max_time (std::chrono::minutes (node->flags.disable_legacy_bootstrap ? 48 * 60 : 30));
 	std::unique_lock<std::mutex> lock (mutex);
-	while ((still_pulling () || !lazy_finished ()) && !lazy_overflow () && std::chrono::steady_clock::now () - start_time < max_time)
+	while ((still_pulling () || !lazy_finished ()) && lazy_stopped < lazy_max_stopped && std::chrono::steady_clock::now () - start_time < max_time)
 	{
 		unsigned iterations (0);
-		while (still_pulling () && !lazy_overflow () && std::chrono::steady_clock::now () - start_time < max_time)
+		while (still_pulling () && lazy_stopped < lazy_max_stopped && std::chrono::steady_clock::now () - start_time < max_time)
 		{
 			if (!pulls.empty ())
 			{
