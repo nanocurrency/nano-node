@@ -29,6 +29,7 @@ class election_status
 public:
 	std::shared_ptr<rai::block> winner;
 	rai::amount tally;
+	std::chrono::steady_clock::time_point election_end;
 	std::chrono::milliseconds election_duration;
 };
 class vote_info
