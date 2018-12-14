@@ -69,6 +69,14 @@ void rai::socket::close ()
 {
 	if (socket_m.is_open ())
 	{
+		try
+		{
+			socket_m.shutdown (boost::asio::ip::tcp::socket::shutdown_both);
+		}
+		catch (...)
+		{
+			/* Ignore spurious exceptions; shutdown is best effort. */
+		}
 		socket_m.close ();
 	}
 }
