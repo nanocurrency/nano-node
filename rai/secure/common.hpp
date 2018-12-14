@@ -1,5 +1,6 @@
 #pragma once
 
+#include <rai/lib/blockbuilders.hpp>
 #include <rai/lib/blocks.hpp>
 #include <rai/secure/utility.hpp>
 

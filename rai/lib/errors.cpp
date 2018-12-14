@@ -14,6 +14,16 @@ std::string nano::error_common_messages::message (int ev) const
 			return "Account not found in wallet";
 		case nano::error_common::bad_account_number:
 			return "Bad account number";
+		case nano::error_common::bad_balance:
+			return "Bad balance";
+		case nano::error_common::bad_link:
+			return "Bad link value";
+		case nano::error_common::bad_previous:
+			return "Bad previous hash";
+		case nano::error_common::bad_representative_number:
+			return "Bad representative";
+		case nano::error_common::bad_source:
+			return "Bad source";
 		case nano::error_common::bad_private_key:
 			return "Bad private key";
 		case nano::error_common::bad_public_key:

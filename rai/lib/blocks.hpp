@@ -73,6 +73,7 @@ public:
 class send_hashables
 {
 public:
+	send_hashables () = default;
 	send_hashables (rai::account const &, rai::block_hash const &, rai::amount const &);
 	send_hashables (bool &, rai::stream &);
 	send_hashables (bool &, boost::property_tree::ptree const &);
@@ -84,6 +85,7 @@ public:
 class send_block : public rai::block
 {
 public:
+	send_block () = default;
 	send_block (rai::block_hash const &, rai::account const &, rai::amount const &, rai::raw_key const &, rai::public_key const &, uint64_t);
 	send_block (bool &, rai::stream &);
 	send_block (bool &, boost::property_tree::ptree const &);
@@ -116,6 +118,7 @@ public:
 class receive_hashables
 {
 public:
+	receive_hashables () = default;
 	receive_hashables (rai::block_hash const &, rai::block_hash const &);
 	receive_hashables (bool &, rai::stream &);
 	receive_hashables (bool &, boost::property_tree::ptree const &);
@@ -126,6 +129,7 @@ public:
 class receive_block : public rai::block
 {
 public:
+	receive_block () = default;
 	receive_block (rai::block_hash const &, rai::block_hash const &, rai::raw_key const &, rai::public_key const &, uint64_t);
 	receive_block (bool &, rai::stream &);
 	receive_block (bool &, boost::property_tree::ptree const &);
@@ -158,6 +162,7 @@ public:
 class open_hashables
 {
 public:
+	open_hashables () = default;
 	open_hashables (rai::block_hash const &, rai::account const &, rai::account const &);
 	open_hashables (bool &, rai::stream &);
 	open_hashables (bool &, boost::property_tree::ptree const &);
@@ -169,6 +174,7 @@ public:
 class open_block : public rai::block
 {
 public:
+	open_block () = default;
 	open_block (rai::block_hash const &, rai::account const &, rai::account const &, rai::raw_key const &, rai::public_key const &, uint64_t);
 	open_block (rai::block_hash const &, rai::account const &, rai::account const &, std::nullptr_t);
 	open_block (bool &, rai::stream &);
@@ -202,6 +208,7 @@ public:
 class change_hashables
 {
 public:
+	change_hashables () = default;
 	change_hashables (rai::block_hash const &, rai::account const &);
 	change_hashables (bool &, rai::stream &);
 	change_hashables (bool &, boost::property_tree::ptree const &);
@@ -212,6 +219,7 @@ public:
 class change_block : public rai::block
 {
 public:
+	change_block () = default;
 	change_block (rai::block_hash const &, rai::account const &, rai::raw_key const &, rai::public_key const &, uint64_t);
 	change_block (bool &, rai::stream &);
 	change_block (bool &, boost::property_tree::ptree const &);
@@ -244,6 +252,7 @@ public:
 class state_hashables
 {
 public:
+	state_hashables () = default;
 	state_hashables (rai::account const &, rai::block_hash const &, rai::account const &, rai::amount const &, rai::uint256_union const &);
 	state_hashables (bool &, rai::stream &);
 	state_hashables (bool &, boost::property_tree::ptree const &);
@@ -266,6 +275,7 @@ public:
 class state_block : public rai::block
 {
 public:
+	state_block () = default;
 	state_block (rai::account const &, rai::block_hash const &, rai::account const &, rai::amount const &, rai::uint256_union const &, rai::raw_key const &, rai::public_key const &, uint64_t);
 	state_block (bool &, rai::stream &);
 	state_block (bool &, boost::property_tree::ptree const &);
