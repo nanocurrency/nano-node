@@ -868,7 +868,7 @@ void rai::vote_processor::process_loop ()
 				elapsed_time_ms = std::chrono::duration_cast<std::chrono::milliseconds> (elapsed_time);
 				elapsed_time_ms_int = elapsed_time_ms.count ();
 
-				if (elapsed_time_ms_int < 100)
+				if (elapsed_time_ms_int >= 100)
 				{
 					/*
 					 * If the time spent was less than 100ms then
@@ -1157,7 +1157,7 @@ void rai::block_processor::flush ()
 bool rai::block_processor::full ()
 {
 	std::unique_lock<std::mutex> lock (mutex);
-	return blocks.size () > 16384;
+	return (blocks.size () + state_blocks.size ()) > 16384;
 }
 
 void rai::block_processor::add (std::shared_ptr<rai::block> block_a, std::chrono::steady_clock::time_point origination)
@@ -1285,9 +1285,9 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 	// Processing blocks
 	while ((!blocks.empty () || !forced.empty ()) && std::chrono::steady_clock::now () - start_time < node.config.block_processor_batch_max_time)
 	{
-		if (blocks.size () > 64 && should_log ())
+		if ((blocks.size () + state_blocks.size ()) > 64 && should_log ())
 		{
-			BOOST_LOG (node.log) << boost::str (boost::format ("%1% blocks in processing queue") % blocks.size ());
+			BOOST_LOG (node.log) << boost::str (boost::format ("%1% blocks in processing queue") % (blocks.size () + state_blocks.size ()));
 		}
 		std::pair<std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point> block;
 		bool force (false);
@@ -2364,7 +2364,7 @@ public:
 					auto callback_l (callback);
 					std::weak_ptr<rai::node> node_w (node);
 					auto next_backoff (std::min (backoff * 2, (unsigned int)60 * 5));
-					node->alarm.add (now + std::chrono::seconds (backoff), [node_w, root_l, callback_l, next_backoff, difficulty = difficulty] {
+					node->alarm.add (now + std::chrono::seconds (backoff), [ node_w, root_l, callback_l, next_backoff, difficulty = difficulty ] {
 						if (auto node_l = node_w.lock ())
 						{
 							auto work_generation (std::make_shared<distributed_work> (next_backoff, node_l, root_l, callback_l, difficulty));
@@ -2836,7 +2836,7 @@ void rai::election::confirm_once (rai::transaction const & transaction_a)
 {
 	if (!confirmed.exchange (true))
 	{
-		status.election_duration = std::chrono::duration_cast<std::chrono::duration<double>> (std::chrono::steady_clock::now () - election_start);
+		status.election_duration = std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::steady_clock::now () - election_start);
 		auto winner_l (status.winner);
 		auto node_l (node.shared ());
 		auto confirmation_action_l (confirmation_action);

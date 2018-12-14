@@ -34,11 +34,12 @@ public:
 	void start (std::chrono::steady_clock::time_point = std::chrono::steady_clock::now () + std::chrono::seconds (5));
 	void stop ();
 	void close ();
+	void checkup ();
 	rai::tcp_endpoint remote_endpoint ();
 	boost::asio::ip::tcp::socket socket_m;
 
 private:
-	std::atomic<unsigned> ticket;
+	std::atomic<uint64_t> cutoff;
 	std::shared_ptr<rai::node> node;
 };
 
