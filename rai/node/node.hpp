@@ -124,6 +124,7 @@ public:
 	static unsigned constexpr announcement_long = 20;
 	static unsigned constexpr announce_interval_ms = (rai::rai_network == rai::rai_networks::rai_test_network) ? 10 : 16000;
 	static size_t constexpr election_history_size = 2048;
+	static size_t constexpr max_broadcast_queue = 1000;
 
 private:
 	// Call action with confirmed block, may be different than what we started with
@@ -298,7 +299,7 @@ public:
 	void rpc_action (boost::system::error_code const &, size_t);
 	void republish_vote (std::shared_ptr<rai::vote>);
 	void republish_block (std::shared_ptr<rai::block>);
-	static unsigned const broadcast_interval_ms = (rai::rai_network == rai::rai_networks::rai_test_network) ? 10 : 50;
+	static unsigned const broadcast_interval_ms = 10;
 	void republish_block_batch (std::deque<std::shared_ptr<rai::block>>, unsigned = broadcast_interval_ms);
 	void republish (rai::block_hash const &, std::shared_ptr<std::vector<uint8_t>>, rai::endpoint);
 	void confirm_send (rai::confirm_ack const &, std::shared_ptr<std::vector<uint8_t>>, rai::endpoint const &);
