@@ -2566,20 +2566,30 @@ connection (connection_a)
 
 void rai::bulk_push_server::receive ()
 {
-	auto this_l (shared_from_this ());
-	connection->socket->async_read (receive_buffer, 1, [this_l](boost::system::error_code const & ec, size_t size_a) {
-		if (!ec)
+	if (connection->node->bootstrap_initiator.in_progress ())
+	{
+		if (connection->node->config.logging.bulk_pull_logging ())
 		{
-			this_l->received_type ();
+			BOOST_LOG (connection->node->log) << "Aborting bulk_push because a bootstrap attempt is in progress";
 		}
-		else
-		{
-			if (this_l->connection->node->config.logging.bulk_pull_logging ())
+	}
+	else
+	{
+		auto this_l (shared_from_this ());
+		connection->socket->async_read (receive_buffer, 1, [this_l](boost::system::error_code const & ec, size_t size_a) {
+			if (!ec)
 			{
-				BOOST_LOG (this_l->connection->node->log) << boost::str (boost::format ("Error receiving block type: %1%") % ec.message ());
+				this_l->received_type ();
 			}
-		}
-	});
+			else
+			{
+				if (this_l->connection->node->config.logging.bulk_pull_logging ())
+				{
+					BOOST_LOG (this_l->connection->node->log) << boost::str (boost::format ("Error receiving block type: %1%") % ec.message ());
+				}
+			}
+		});
+	}
 }
 
 void rai::bulk_push_server::received_type ()
