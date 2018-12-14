@@ -1199,7 +1199,7 @@ void rai::block_processor::flush ()
 bool rai::block_processor::full ()
 {
 	std::unique_lock<std::mutex> lock (mutex);
-	return blocks.size () > 16384;
+	return (blocks.size () + state_blocks.size ()) > 16384;
 }
 
 void rai::block_processor::add (std::shared_ptr<rai::block> block_a, std::chrono::steady_clock::time_point origination)
@@ -1327,9 +1327,9 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 	// Processing blocks
 	while ((!blocks.empty () || !forced.empty ()) && std::chrono::steady_clock::now () - start_time < node.config.block_processor_batch_max_time)
 	{
-		if (blocks.size () > 64 && should_log ())
+		if ((blocks.size () + state_blocks.size ()) > 64 && should_log ())
 		{
-			BOOST_LOG (node.log) << boost::str (boost::format ("%1% blocks in processing queue") % blocks.size ());
+			BOOST_LOG (node.log) << boost::str (boost::format ("%1% blocks in processing queue") % (blocks.size () + state_blocks.size ()));
 		}
 		std::pair<std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point> block;
 		bool force (false);
