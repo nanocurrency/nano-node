@@ -1966,13 +1966,13 @@ void rai::node::stop ()
 	{
 		block_processor_thread.join ();
 	}
+	vote_processor.stop ();
 	active.stop ();
 	network.stop ();
 	bootstrap_initiator.stop ();
 	bootstrap.stop ();
 	port_mapping.stop ();
 	checker.stop ();
-	vote_processor.stop ();
 	wallets.stop ();
 }
 
@@ -3321,6 +3321,7 @@ void rai::active_transactions::stop ()
 	{
 		thread.join ();
 	}
+	lock.lock ();
 	roots.clear ();
 }
 
