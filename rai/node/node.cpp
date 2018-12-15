@@ -1202,14 +1202,14 @@ bool rai::block_processor::full ()
 	return (blocks.size () + state_blocks.size ()) > 16384;
 }
 
-void rai::block_processor::add (std::shared_ptr<rai::block> block_a, std::chrono::steady_clock::time_point origination)
+void rai::block_processor::add (std::shared_ptr<rai::block> block_a, std::chrono::steady_clock::time_point origination, bool unchecked)
 {
 	if (!rai::work_validate (block_a->root (), block_a->block_work ()))
 	{
 		std::lock_guard<std::mutex> lock (mutex);
 		if (blocks_hashes.find (block_a->hash ()) == blocks_hashes.end ())
 		{
-			if (block_a->type () == rai::block_type::state && !node.ledger.is_epoch_link (block_a->link ()))
+			if (block_a->type () == rai::block_type::state && !node.ledger.is_epoch_link (block_a->link ()) && !unchecked)
 			{
 				state_blocks.push_back (std::make_pair (block_a, origination));
 			}
@@ -1499,7 +1499,7 @@ void rai::block_processor::queue_unchecked (rai::transaction const & transaction
 	for (auto i (cached.begin ()), n (cached.end ()); i != n; ++i)
 	{
 		node.store.unchecked_del (transaction_a, hash_a, *i);
-		add (*i, std::chrono::steady_clock::time_point ());
+		add (*i, std::chrono::steady_clock::time_point (), true);
 	}
 	std::lock_guard<std::mutex> lock (node.gap_cache.mutex);
 	node.gap_cache.blocks.get<1> ().erase (hash_a);
