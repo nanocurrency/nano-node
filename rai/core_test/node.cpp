@@ -1842,11 +1842,6 @@ TEST (node, block_processor_signatures)
 	auto send5 (std::make_shared<rai::state_block> (rai::test_genesis_key.pub, send3->hash (), rai::test_genesis_key.pub, rai::genesis_amount - 5 * rai::Gxrb_ratio, key3.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
 	node1.work_generate_blocking (*send5);
 	send5->signature.bytes[31] ^= 0x1;
-	// Invalid signature to unchecked
-	{
-		auto transaction (node1.store.tx_begin_write ());
-		node1.store.unchecked_put (transaction, send5->previous (), send5);
-	}
 	auto receive1 (std::make_shared<rai::state_block> (key1.pub, 0, rai::test_genesis_key.pub, rai::Gxrb_ratio, send1->hash (), key1.prv, key1.pub, 0));
 	node1.work_generate_blocking (*receive1);
 	auto receive2 (std::make_shared<rai::state_block> (key2.pub, 0, rai::test_genesis_key.pub, rai::Gxrb_ratio, send2->hash (), key2.prv, key2.pub, 0));
