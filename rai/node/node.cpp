@@ -757,8 +757,10 @@ void rai::alarm::run ()
 
 void rai::alarm::add (std::chrono::steady_clock::time_point const & wakeup_a, std::function<void()> const & operation)
 {
-	std::lock_guard<std::mutex> lock (mutex);
-	operations.push (rai::operation ({ wakeup_a, operation }));
+	{
+		std::lock_guard<std::mutex> lock (mutex);
+		operations.push (rai::operation ({ wakeup_a, operation }));
+	}
 	condition.notify_all ();
 }
 
@@ -1020,8 +1022,8 @@ void rai::vote_processor::stop ()
 	{
 		std::lock_guard<std::mutex> lock (mutex);
 		stopped = true;
-		condition.notify_all ();
 	}
+	condition.notify_all ();
 	if (thread.joinable ())
 	{
 		thread.join ();
@@ -1104,8 +1106,10 @@ rai::signature_checker::~signature_checker ()
 
 void rai::signature_checker::add (rai::signature_check_set & check_a)
 {
-	std::lock_guard<std::mutex> lock (mutex);
-	checks.push_back (check_a);
+	{
+		std::lock_guard<std::mutex> lock (mutex);
+		checks.push_back (check_a);
+	}
 	condition.notify_all ();
 }
 
@@ -1181,8 +1185,10 @@ rai::block_processor::~block_processor ()
 void rai::block_processor::stop ()
 {
 	generator.stop ();
-	std::lock_guard<std::mutex> lock (mutex);
-	stopped = true;
+	{
+		std::lock_guard<std::mutex> lock (mutex);
+		stopped = true;
+	}
 	condition.notify_all ();
 }
 
@@ -1229,8 +1235,10 @@ void rai::block_processor::add (std::shared_ptr<rai::block> block_a, std::chrono
 
 void rai::block_processor::force (std::shared_ptr<rai::block> block_a)
 {
-	std::lock_guard<std::mutex> lock (mutex);
-	forced.push_back (block_a);
+	{
+		std::lock_guard<std::mutex> lock (mutex);
+		forced.push_back (block_a);
+	}
 	condition.notify_all ();
 }
 
@@ -3311,14 +3319,15 @@ void rai::active_transactions::announce_loop ()
 
 void rai::active_transactions::stop ()
 {
-	std::unique_lock<std::mutex> lock (mutex);
-	while (!started)
 	{
-		condition.wait (lock);
+		std::unique_lock<std::mutex> lock (mutex);
+		while (!started)
+		{
+			condition.wait (lock);
+		}
+		stopped = true;
 	}
-	stopped = true;
 	condition.notify_all ();
-	lock.unlock ();
 	if (thread.joinable ())
 	{
 		thread.join ();
@@ -3596,8 +3605,10 @@ rai::udp_data * rai::udp_buffer::allocate ()
 void rai::udp_buffer::enqueue (rai::udp_data * data_a)
 {
 	assert (data_a != nullptr);
-	std::lock_guard<std::mutex> lock (mutex);
-	full.push_back (data_a);
+	{
+		std::lock_guard<std::mutex> lock (mutex);
+		full.push_back (data_a);
+	}
 	condition.notify_one ();
 }
 rai::udp_data * rai::udp_buffer::dequeue ()
@@ -3618,13 +3629,17 @@ rai::udp_data * rai::udp_buffer::dequeue ()
 void rai::udp_buffer::release (rai::udp_data * data_a)
 {
 	assert (data_a != nullptr);
-	std::lock_guard<std::mutex> lock (mutex);
-	free.push_back (data_a);
+	{
+		std::lock_guard<std::mutex> lock (mutex);
+		free.push_back (data_a);
+	}
 	condition.notify_one ();
 }
 void rai::udp_buffer::stop ()
 {
-	std::lock_guard<std::mutex> lock (mutex);
-	stopped = true;
+	{
+		std::lock_guard<std::mutex> lock (mutex);
+		stopped = true;
+	}
 	condition.notify_all ();
 }
