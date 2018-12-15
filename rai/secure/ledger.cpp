@@ -228,6 +228,7 @@ void ledger_processor::state_block_impl (rai::state_block const & block_a)
 		}
 		if (result.code == rai::process_result::progress)
 		{
+			assert (!validate_message (block_a.hashables.account, hash, block_a.signature));
 			result.code = block_a.hashables.account.is_zero () ? rai::process_result::opened_burn_account : rai::process_result::progress; // Is this for the burn account? (Unambiguous)
 			if (result.code == rai::process_result::progress)
 			{
