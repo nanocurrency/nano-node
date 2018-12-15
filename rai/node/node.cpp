@@ -2364,7 +2364,7 @@ public:
 					auto callback_l (callback);
 					std::weak_ptr<rai::node> node_w (node);
 					auto next_backoff (std::min (backoff * 2, (unsigned int)60 * 5));
-					node->alarm.add (now + std::chrono::seconds (backoff), [ node_w, root_l, callback_l, next_backoff, difficulty = difficulty ] {
+					node->alarm.add (now + std::chrono::seconds (backoff), [node_w, root_l, callback_l, next_backoff, difficulty = difficulty] {
 						if (auto node_l = node_w.lock ())
 						{
 							auto work_generation (std::make_shared<distributed_work> (next_backoff, node_l, root_l, callback_l, difficulty));
@@ -2836,7 +2836,7 @@ void rai::election::confirm_once (rai::transaction const & transaction_a)
 {
 	if (!confirmed.exchange (true))
 	{
-		status.election_end = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch());
+		status.election_end = std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ());
 		status.election_duration = std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::steady_clock::now () - election_start);
 		auto winner_l (status.winner);
 		auto node_l (node.shared ());
