@@ -54,8 +54,10 @@ TEST (alarm, one)
 	std::mutex mutex;
 	std::condition_variable condition;
 	alarm.add (std::chrono::steady_clock::now (), [&]() {
-		std::lock_guard<std::mutex> lock (mutex);
-		done = true;
+		{
+			std::lock_guard<std::mutex> lock (mutex);
+			done = true;
+		}
 		condition.notify_one ();
 	});
 	boost::asio::io_service::work work (service);
@@ -76,8 +78,10 @@ TEST (alarm, many)
 	for (auto i (0); i < 50; ++i)
 	{
 		alarm.add (std::chrono::steady_clock::now (), [&]() {
-			std::lock_guard<std::mutex> lock (mutex);
-			count += 1;
+			{
+				std::lock_guard<std::mutex> lock (mutex);
+				count += 1;
+			}
 			condition.notify_one ();
 		});
 	}
