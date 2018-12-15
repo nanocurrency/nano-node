@@ -1533,11 +1533,11 @@ void rai::bootstrap_initiator::bootstrap_lazy (rai::block_hash const & hash_a, b
 		std::unique_lock<std::mutex> lock (mutex);
 		if (force)
 		{
-				while (attempt != nullptr)
-				{
-						attempt->stop ();
-						condition.wait (lock);
-				}
+			while (attempt != nullptr)
+			{
+				attempt->stop ();
+				condition.wait (lock);
+			}
 		}
 		node.stats.inc (rai::stat::type::bootstrap, rai::stat::detail::initiate_lazy, rai::stat::dir::out);
 		if (attempt == nullptr)
