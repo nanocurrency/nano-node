@@ -802,7 +802,11 @@ void rai::vote_processor::process_loop ()
 
 	std::unique_lock<std::mutex> lock (mutex);
 	started = true;
+
+	lock.unlock ();
 	condition.notify_all ();
+	lock.lock ();
+
 	while (!stopped)
 	{
 		if (!votes.empty ())
@@ -841,7 +845,10 @@ void rai::vote_processor::process_loop ()
 			}
 			lock.lock ();
 			active = false;
+
+			lock.unlock ();
 			condition.notify_all ();
+			lock.lock ();
 
 			if (log_this_iteration)
 			{
@@ -871,7 +878,7 @@ void rai::vote_processor::process_loop ()
 void rai::vote_processor::vote (std::shared_ptr<rai::vote> vote_a, rai::endpoint endpoint_a)
 {
 	assert (endpoint_a.address ().is_v6 ());
-	std::lock_guard<std::mutex> lock (mutex);
+	std::unique_lock<std::mutex> lock (mutex);
 	if (!stopped)
 	{
 		bool process (false);
@@ -909,7 +916,10 @@ void rai::vote_processor::vote (std::shared_ptr<rai::vote> vote_a, rai::endpoint
 		if (process)
 		{
 			votes.push_back (std::make_pair (vote_a, endpoint_a));
+
+			lock.unlock ();
 			condition.notify_all ();
+			lock.lock ();
 		}
 		else
 		{
@@ -1149,7 +1159,11 @@ void rai::signature_checker::run ()
 	rai::thread_role::set (rai::thread_role::name::signature_checking);
 	std::unique_lock<std::mutex> lock (mutex);
 	started = true;
+
+	lock.unlock ();
 	condition.notify_all ();
+	lock.lock ();
+
 	while (!stopped)
 	{
 		if (!checks.empty ())
@@ -1158,8 +1172,8 @@ void rai::signature_checker::run ()
 			checks.pop_front ();
 			lock.unlock ();
 			verify (check);
-			lock.lock ();
 			condition.notify_all ();
+			lock.lock ();
 		}
 		else
 		{
@@ -1212,16 +1226,18 @@ void rai::block_processor::add (std::shared_ptr<rai::block> block_a, std::chrono
 {
 	if (!rai::work_validate (block_a->root (), block_a->block_work ()))
 	{
-		std::lock_guard<std::mutex> lock (mutex);
-		if (blocks_hashes.find (block_a->hash ()) == blocks_hashes.end ())
 		{
-			if (block_a->type () == rai::block_type::state && !node.ledger.is_epoch_link (block_a->link ()))
+			std::lock_guard<std::mutex> lock (mutex);
+			if (blocks_hashes.find (block_a->hash ()) == blocks_hashes.end ())
 			{
-				state_blocks.push_back (std::make_pair (block_a, origination));
-			}
-			else
-			{
-				blocks.push_back (std::make_pair (block_a, origination));
+				if (block_a->type () == rai::block_type::state && !node.ledger.is_epoch_link (block_a->link ()))
+				{
+					state_blocks.push_back (std::make_pair (block_a, origination));
+				}
+				else
+				{
+					blocks.push_back (std::make_pair (block_a, origination));
+				}
 			}
 			condition.notify_all ();
 		}
@@ -1257,7 +1273,10 @@ void rai::block_processor::process_blocks ()
 		}
 		else
 		{
+			lock.unlock ();
 			condition.notify_all ();
+			lock.lock ();
+
 			condition.wait (lock);
 		}
 	}
@@ -3308,7 +3327,11 @@ void rai::active_transactions::announce_loop ()
 {
 	std::unique_lock<std::mutex> lock (mutex);
 	started = true;
+
+	lock.unlock ();
 	condition.notify_all ();
+	lock.lock ();
+
 	while (!stopped)
 	{
 		announce_votes (lock);
