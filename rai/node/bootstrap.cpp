@@ -433,8 +433,10 @@ rai::bulk_pull_client::~bulk_pull_client ()
 			BOOST_LOG (connection->node->log) << boost::str (boost::format ("Bulk pull end block is not expected %1% for account %2%") % pull.end.to_string () % pull.account.to_account ());
 		}
 	}
-	std::lock_guard<std::mutex> mutex (connection->attempt->mutex);
-	--connection->attempt->pulling;
+	{
+		std::lock_guard<std::mutex> mutex (connection->attempt->mutex);
+		--connection->attempt->pulling;
+	}
 	connection->attempt->condition.notify_all ();
 }
 
@@ -1108,8 +1110,10 @@ void rai::bootstrap_attempt::add_connection (rai::endpoint const & endpoint_a)
 
 void rai::bootstrap_attempt::pool_connection (std::shared_ptr<rai::bootstrap_client> client_a)
 {
-	std::lock_guard<std::mutex> lock (mutex);
-	idle.push_front (client_a);
+	{
+		std::lock_guard<std::mutex> lock (mutex);
+		idle.push_front (client_a);
+	}
 	condition.notify_all ();
 }
 
@@ -1149,8 +1153,10 @@ void rai::bootstrap_attempt::stop ()
 
 void rai::bootstrap_attempt::add_pull (rai::pull_info const & pull)
 {
-	std::lock_guard<std::mutex> lock (mutex);
-	pulls.push_back (pull);
+	{
+		std::lock_guard<std::mutex> lock (mutex);
+		pulls.push_back (pull);
+	}
 	condition.notify_all ();
 }
 
@@ -1165,10 +1171,12 @@ void rai::bootstrap_attempt::requeue_pull (rai::pull_info const & pull_a)
 	}
 	else if (lazy_mode)
 	{
-		// Retry for lazy pulls (not weak state block link assumptions)
-		std::lock_guard<std::mutex> lock (mutex);
-		pull.attempts++;
-		pulls.push_back (pull);
+		{
+			// Retry for lazy pulls (not weak state block link assumptions)
+			std::lock_guard<std::mutex> lock (mutex);
+			pull.attempts++;
+			pulls.push_back (pull);
+		}
 		condition.notify_all ();
 	}
 	else
@@ -1521,22 +1529,24 @@ void rai::bootstrap_initiator::bootstrap (rai::endpoint const & endpoint_a, bool
 
 void rai::bootstrap_initiator::bootstrap_lazy (rai::block_hash const & hash_a, bool force)
 {
-	std::unique_lock<std::mutex> lock (mutex);
-	if (force)
 	{
-		while (attempt != nullptr)
+		std::unique_lock<std::mutex> lock (mutex);
+		if (force)
 		{
-			attempt->stop ();
-			condition.wait (lock);
+				while (attempt != nullptr)
+				{
+						attempt->stop ();
+						condition.wait (lock);
+				}
 		}
+		node.stats.inc (rai::stat::type::bootstrap, rai::stat::detail::initiate_lazy, rai::stat::dir::out);
+		if (attempt == nullptr)
+		{
+			attempt = std::make_shared<rai::bootstrap_attempt> (node.shared ());
+			attempt->lazy_mode = true;
+		}
+		attempt->lazy_start (hash_a);
 	}
-	node.stats.inc (rai::stat::type::bootstrap, rai::stat::detail::initiate_lazy, rai::stat::dir::out);
-	if (attempt == nullptr)
-	{
-		attempt = std::make_shared<rai::bootstrap_attempt> (node.shared ());
-		attempt->lazy_mode = true;
-	}
-	attempt->lazy_start (hash_a);
 	condition.notify_all ();
 }
 
@@ -1586,11 +1596,13 @@ std::shared_ptr<rai::bootstrap_attempt> rai::bootstrap_initiator::current_attemp
 
 void rai::bootstrap_initiator::stop ()
 {
-	std::unique_lock<std::mutex> lock (mutex);
-	stopped = true;
-	if (attempt != nullptr)
 	{
-		attempt->stop ();
+		std::unique_lock<std::mutex> lock (mutex);
+		stopped = true;
+		if (attempt != nullptr)
+		{
+			attempt->stop ();
+		}
 	}
 	condition.notify_all ();
 }
