@@ -275,7 +275,6 @@ bool confirm_block (rai::transaction const & transaction_a, rai::node & node_a, 
 	return result;
 }
 
-template <>
 bool confirm_block (rai::transaction const & transaction_a, rai::node & node_a, rai::endpoint & peer_a, std::shared_ptr<rai::block> block_a, bool also_publish)
 {
 	std::array<rai::endpoint, 1> endpoints;
@@ -456,7 +455,6 @@ void rep_query (rai::node & node_a, T const & peers_a)
 	});
 }
 
-template <>
 void rep_query (rai::node & node_a, rai::endpoint const & peers_a)
 {
 	std::array<rai::endpoint, 1> peers;
