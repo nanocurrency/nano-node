@@ -13,7 +13,7 @@ boostVersion='1.66'
 while getopts 'hmcCkpvB:' OPT; do
 	case "${OPT}" in
 		h)
-			echo "Usage: bootstrap_boost.sh [-hmcCkpv]"
+			echo "Usage: bootstrap_boost.sh [-hmcCkpv] [-B <boostVersion>]"
 			echo "   -h                 This help"
 			echo "   -m                 Build a minimal set of libraries needed for Nano"
 			echo "   -c                 Use Clang"
