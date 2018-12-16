@@ -860,7 +860,7 @@ void rai::bootstrap_attempt::request_push (std::unique_lock<std::mutex> & lock_a
 			future = client->promise.get_future ();
 		}
 		lock_a.unlock ();
-		error = consume_future (future);// This is out of scope of `client' so when the last reference via boost::asio::io_service is lost and the client is destroyed, the future throws an exception.
+		error = consume_future (future); // This is out of scope of `client' so when the last reference via boost::asio::io_service is lost and the client is destroyed, the future throws an exception.
 		lock_a.lock ();
 	}
 	if (node->config.logging.network_logging ())
