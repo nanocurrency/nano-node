@@ -737,6 +737,13 @@ void rai::bulk_push_client::push_block (rai::block const & block_a)
 			{
 				BOOST_LOG (this_l->connection->node->log) << boost::str (boost::format ("Error sending block during bulk push: %1%") % ec.message ());
 			}
+			try
+			{
+				this_l->promise.set_value (true);
+			}
+			catch (std::future_error &)
+			{
+			}
 		}
 	});
 }
