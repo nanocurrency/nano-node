@@ -9,7 +9,7 @@ debugLevel=0
 buildCArgs=()
 buildCXXArgs=()
 buildLDArgs=()
-boostVersion='1.66'
+boostVersion='1.69'
 while getopts 'hmcCkpvB:' OPT; do
 	case "${OPT}" in
 		h)
