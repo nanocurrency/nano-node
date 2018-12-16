@@ -4,9 +4,15 @@ set -o errexit
 set -o xtrace
 
 bootstrapArgs=()
+buildArgs=()
 useClang='false'
+useLibCXX='false'
 keepArchive='false'
-while getopts 'mck' OPT; do
+debugLevel=0
+buildCArgs=()
+buildCXXArgs=()
+buildLDArgs=()
+while getopts 'mcCkpv' OPT; do
 	case "${OPT}" in
 		m)
 			bootstrapArgs+=('--with-libraries=thread,log,filesystem,program_options')
@@ -14,8 +20,18 @@ while getopts 'mck' OPT; do
 		c)
 			useClang='true'
 			;;
+		C)
+			useLibCXX='true'
+			;;
 		k)
 			keepArchive='true'
+			;;
+		p)
+			buildCXXArgs+=(-fPIC)
+			buildCArgs+=(-fPIC)
+			;;
+		v)
+			debugLevel=$[$debugLevel + 1]
 			;;
 	esac
 done
@@ -32,6 +48,11 @@ fi
 
 if [ "${useClang}" = 'true' ]; then
 	bootstrapArgs+=(--with-toolset=clang)
+	buildArgs+=(toolset=clang)
+	if [ "${useLibCXX}" = 'true' ]; then
+		buildCXXArgs+=(-stdlib=libc++)
+		buildLDArgs+=(-stdlib=libc++)
+	fi
 fi
 
 BOOST_BASENAME=boost_1_66_0
@@ -53,12 +74,24 @@ else
 	keepArchive='true'
 fi
 
+if [ -n  "${buildCArgs[*]}" ]; then
+	buildArgs+=(cflags="${buildCArgs[*]}")
+fi
+
+if [ -n  "${buildCXXArgs[*]}" ]; then
+	buildArgs+=(cxxflags="${buildCXXArgs[*]}")
+fi
+
+if [ -n  "${buildLDArgs[*]}" ]; then
+	buildArgs+=(linkflags="${buildLDArgs[*]}")
+fi
+
 rm -rf "${BOOST_BASENAME}"
 tar xf "${BOOST_ARCHIVE}"
 
 pushd "${BOOST_BASENAME}"
 ./bootstrap.sh "${bootstrapArgs[@]}"
-./b2 -d0 --prefix="${BOOST_ROOT}" link=static install
+./b2 -d${debugLevel} --prefix="${BOOST_ROOT}" link=static "${buildArgs[@]}" install
 popd
 
 rm -rf "${BOOST_BASENAME}"
