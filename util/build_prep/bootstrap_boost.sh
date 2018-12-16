@@ -1,8 +1,5 @@
 #!/usr/bin/env bash
 
-set -o errexit
-set -o xtrace
-
 bootstrapArgs=()
 buildArgs=()
 useClang='false'
@@ -12,8 +9,20 @@ debugLevel=0
 buildCArgs=()
 buildCXXArgs=()
 buildLDArgs=()
-while getopts 'mcCkpv' OPT; do
+while getopts 'hmcCkpv' OPT; do
 	case "${OPT}" in
+		h)
+			echo "Usage: bootstrap_boost.sh [-hmcCkpv]"
+			echo "   -h                 This help"
+			echo "   -m                 Build a minimal set of libraries needed for Nano"
+			echo "   -c                 Use Clang"
+			echo "   -C                 Use libc++ when using Clang"
+			echo "   -k                 Keep the downloaded archive file"
+			echo "   -p                 Build a PIC version of the objects"
+			echo "   -v                 Increase debug level, may be repeated to increase it"
+			echo "                      further"
+			exit 0
+			;;
 		m)
 			bootstrapArgs+=('--with-libraries=thread,log,filesystem,program_options')
 			;;
@@ -33,8 +42,14 @@ while getopts 'mcCkpv' OPT; do
 		v)
 			debugLevel=$[$debugLevel + 1]
 			;;
+		B)
+			boostVersion="${OPTARG}"
+			;;
 	esac
 done
+
+set -o errexit
+set -o xtrace
 
 if ! c++ --version >/dev/null 2>/dev/null; then
 	useClang='true'
