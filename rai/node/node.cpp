@@ -35,8 +35,8 @@ extern size_t rai_bootstrap_weights_size;
 
 rai::network::network (rai::node & node_a, uint16_t port) :
 buffer_container (node_a.stats, rai::network::buffer_size, 4096), // 2Mb receive buffer
-socket (node_a.service, rai::endpoint (boost::asio::ip::address_v6::any (), port)),
-resolver (node_a.service),
+socket (node_a.io_ctx, rai::endpoint (boost::asio::ip::address_v6::any (), port)),
+resolver (node_a.io_ctx),
 node (node_a),
 on (true)
 {
@@ -704,8 +704,8 @@ bool rai::operation::operator> (rai::operation const & other_a) const
 	return wakeup > other_a.wakeup;
 }
 
-rai::alarm::alarm (boost::asio::io_service & service_a) :
-service (service_a),
+rai::alarm::alarm (boost::asio::io_context & io_ctx_a) :
+io_ctx (io_ctx_a),
 thread ([this]() {
 	rai::thread_role::set (rai::thread_role::name::alarm);
 	run ();
@@ -732,7 +732,7 @@ void rai::alarm::run ()
 			{
 				if (operation.wakeup <= std::chrono::steady_clock::now ())
 				{
-					service.post (operation.function);
+					io_ctx.post (operation.function);
 					operations.pop ();
 				}
 				else
@@ -1530,13 +1530,13 @@ void rai::block_processor::queue_unchecked (rai::transaction const & transaction
 	node.gap_cache.blocks.get<1> ().erase (hash_a);
 }
 
-rai::node::node (rai::node_init & init_a, boost::asio::io_service & service_a, uint16_t peering_port_a, boost::filesystem::path const & application_path_a, rai::alarm & alarm_a, rai::logging const & logging_a, rai::work_pool & work_a) :
-node (init_a, service_a, application_path_a, alarm_a, rai::node_config (peering_port_a, logging_a), work_a)
+rai::node::node (rai::node_init & init_a, boost::asio::io_context & io_ctx_a, uint16_t peering_port_a, boost::filesystem::path const & application_path_a, rai::alarm & alarm_a, rai::logging const & logging_a, rai::work_pool & work_a) :
+node (init_a, io_ctx_a, application_path_a, alarm_a, rai::node_config (peering_port_a, logging_a), work_a)
 {
 }
 
-rai::node::node (rai::node_init & init_a, boost::asio::io_service & service_a, boost::filesystem::path const & application_path_a, rai::alarm & alarm_a, rai::node_config const & config_a, rai::work_pool & work_a) :
-service (service_a),
+rai::node::node (rai::node_init & init_a, boost::asio::io_context & io_ctx_a, boost::filesystem::path const & application_path_a, rai::alarm & alarm_a, rai::node_config const & config_a, rai::work_pool & work_a) :
+io_ctx (io_ctx_a),
 config (config_a),
 alarm (alarm_a),
 work (work_a),
@@ -1547,7 +1547,7 @@ ledger (store, stats, config.epoch_block_link, config.epoch_block_signer),
 active (*this),
 network (*this, config.peering_port),
 bootstrap_initiator (*this),
-bootstrap (service_a, config.peering_port, *this),
+bootstrap (io_ctx_a, config.peering_port, *this),
 peers (network.endpoint ()),
 application_path (application_path_a),
 wallets (init_a.block_store_init, *this),
@@ -1597,13 +1597,13 @@ vote_uniquer (block_uniquer)
 					auto address (node_l->config.callback_address);
 					auto port (node_l->config.callback_port);
 					auto target (std::make_shared<std::string> (node_l->config.callback_target));
-					auto resolver (std::make_shared<boost::asio::ip::tcp::resolver> (node_l->service));
+					auto resolver (std::make_shared<boost::asio::ip::tcp::resolver> (node_l->io_ctx));
 					resolver->async_resolve (boost::asio::ip::tcp::resolver::query (address, std::to_string (port)), [node_l, address, port, target, body, resolver](boost::system::error_code const & ec, boost::asio::ip::tcp::resolver::iterator i_a) {
 						if (!ec)
 						{
 							for (auto i (i_a), n (boost::asio::ip::tcp::resolver::iterator{}); i != n; ++i)
 							{
-								auto sock (std::make_shared<boost::asio::ip::tcp::socket> (node_l->service));
+								auto sock (std::make_shared<boost::asio::ip::tcp::socket> (node_l->io_ctx));
 								sock->async_connect (i->endpoint (), [node_l, target, body, sock, address, port](boost::system::error_code const & ec) {
 									if (!ec)
 									{
@@ -2200,10 +2200,10 @@ namespace
 class work_request
 {
 public:
-	work_request (boost::asio::io_service & service_a, boost::asio::ip::address address_a, uint16_t port_a) :
+	work_request (boost::asio::io_context & io_ctx_a, boost::asio::ip::address address_a, uint16_t port_a) :
 	address (address_a),
 	port (port_a),
-	socket (service_a)
+	socket (io_ctx_a)
 	{
 	}
 	boost::asio::ip::address address;
@@ -2280,7 +2280,7 @@ public:
 				auto host (i.first);
 				auto service (i.second);
 				node->background ([this_l, host, service]() {
-					auto connection (std::make_shared<work_request> (this_l->node->service, host, service));
+					auto connection (std::make_shared<work_request> (this_l->node->io_ctx, host, service));
 					connection->socket.async_connect (rai::tcp_endpoint (host, service), [this_l, connection](boost::system::error_code const & ec) {
 						if (!ec)
 						{
@@ -2366,7 +2366,7 @@ public:
 				request.version (11);
 				request.body () = request_string;
 				request.prepare_payload ();
-				auto socket (std::make_shared<boost::asio::ip::tcp::socket> (this_l->node->service));
+				auto socket (std::make_shared<boost::asio::ip::tcp::socket> (this_l->node->io_ctx));
 				boost::beast::http::async_write (*socket, request, [socket](boost::system::error_code const & ec, size_t bytes_transferred) {
 				});
 			});
@@ -3517,24 +3517,24 @@ int rai::node::store_version ()
 	return store.version_get (transaction);
 }
 
-rai::thread_runner::thread_runner (boost::asio::io_service & service_a, unsigned service_threads_a)
+rai::thread_runner::thread_runner (boost::asio::io_context & io_ctx_a, unsigned service_threads_a)
 {
 	boost::thread::attributes attrs;
 	rai::thread_attributes::set (attrs);
 	for (auto i (0); i < service_threads_a; ++i)
 	{
-		threads.push_back (boost::thread (attrs, [&service_a]() {
+		threads.push_back (boost::thread (attrs, [&io_ctx_a]() {
 			rai::thread_role::set (rai::thread_role::name::io);
 			try
 			{
-				service_a.run ();
+				io_ctx_a.run ();
 			}
 			catch (...)
 			{
 #ifndef NDEBUG
 				/*
 				 * In a release build, catch and swallow the
-				 * service exception, in debug mode pass it
+				 * io_context exception, in debug mode pass it
 				 * on
 				 */
 				throw;
@@ -3562,8 +3562,8 @@ void rai::thread_runner::join ()
 
 rai::inactive_node::inactive_node (boost::filesystem::path const & path) :
 path (path),
-service (std::make_shared<boost::asio::io_service> ()),
-alarm (*service),
+io_context (std::make_shared<boost::asio::io_context> ()),
+alarm (*io_context),
 work (1, nullptr)
 {
 	boost::system::error_code error_chmod;
@@ -3575,7 +3575,7 @@ work (1, nullptr)
 	rai::set_secure_perm_directory (path, error_chmod);
 	logging.max_size = std::numeric_limits<std::uintmax_t>::max ();
 	logging.init (path);
-	node = std::make_shared<rai::node> (init, *service, 24000, path, alarm, logging, work);
+	node = std::make_shared<rai::node> (init, *io_context, 24000, path, alarm, logging, work);
 }
 
 rai::inactive_node::~inactive_node ()

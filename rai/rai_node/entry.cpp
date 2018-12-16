@@ -369,7 +369,7 @@ int main (int argc, char * const * argv)
 				rai::logging logging;
 				auto path (rai::unique_path ());
 				logging.init (path);
-				auto node (std::make_shared<rai::node> (init, system.service, 24001, path, system.alarm, logging, work));
+				auto node (std::make_shared<rai::node> (init, system.io_ctx, 24001, path, system.alarm, logging, work));
 				rai::block_hash genesis_latest (node->latest (rai::test_genesis_key.pub));
 				rai::uint128_t genesis_balance (std::numeric_limits<rai::uint128_t>::max ());
 				// Generating keys
@@ -445,7 +445,7 @@ int main (int argc, char * const * argv)
 				rai::logging logging;
 				auto path (rai::unique_path ());
 				logging.init (path);
-				auto node (std::make_shared<rai::node> (init, system.service, 24001, path, system.alarm, logging, work));
+				auto node (std::make_shared<rai::node> (init, system.io_ctx, 24001, path, system.alarm, logging, work));
 				rai::block_hash genesis_latest (node->latest (rai::test_genesis_key.pub));
 				rai::uint128_t genesis_balance (std::numeric_limits<rai::uint128_t>::max ());
 				// Generating keys

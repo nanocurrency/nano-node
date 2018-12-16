@@ -880,7 +880,7 @@ TEST (wallet, send_race)
 TEST (wallet, password_race)
 {
 	rai::system system (24000, 1);
-	rai::thread_runner runner (system.service, system.nodes[0]->config.io_threads);
+	rai::thread_runner runner (system.io_ctx, system.nodes[0]->config.io_threads);
 	auto wallet = system.wallet (0);
 	system.nodes[0]->background ([&wallet]() {
 		for (int i = 0; i < 100; i++)
@@ -907,7 +907,7 @@ TEST (wallet, password_race)
 TEST (wallet, password_race_corrupt_seed)
 {
 	rai::system system (24000, 1);
-	rai::thread_runner runner (system.service, system.nodes[0]->config.io_threads);
+	rai::thread_runner runner (system.io_ctx, system.nodes[0]->config.io_threads);
 	auto wallet = system.wallet (0);
 	rai::raw_key seed;
 	{

@@ -48,8 +48,8 @@ TEST (processor_service, bad_receive_signature)
 
 TEST (alarm, one)
 {
-	boost::asio::io_service service;
-	rai::alarm alarm (service);
+	boost::asio::io_context io_ctx;
+	rai::alarm alarm (io_ctx);
 	std::atomic<bool> done (false);
 	std::mutex mutex;
 	std::condition_variable condition;
@@ -60,18 +60,18 @@ TEST (alarm, one)
 		}
 		condition.notify_one ();
 	});
-	boost::asio::io_service::work work (service);
-	boost::thread thread ([&service]() { service.run (); });
+	boost::asio::io_context::work work (io_ctx);
+	boost::thread thread ([&io_ctx]() { io_ctx.run (); });
 	std::unique_lock<std::mutex> unique (mutex);
 	condition.wait (unique, [&]() { return !!done; });
-	service.stop ();
+	io_ctx.stop ();
 	thread.join ();
 }
 
 TEST (alarm, many)
 {
-	boost::asio::io_service service;
-	rai::alarm alarm (service);
+	boost::asio::io_context io_ctx;
+	rai::alarm alarm (io_ctx);
 	std::atomic<int> count (0);
 	std::mutex mutex;
 	std::condition_variable condition;
@@ -85,15 +85,15 @@ TEST (alarm, many)
 			condition.notify_one ();
 		});
 	}
-	boost::asio::io_service::work work (service);
+	boost::asio::io_context::work work (io_ctx);
 	std::vector<boost::thread> threads;
 	for (auto i (0); i < 50; ++i)
 	{
-		threads.push_back (boost::thread ([&service]() { service.run (); }));
+		threads.push_back (boost::thread ([&io_ctx]() { io_ctx.run (); }));
 	}
 	std::unique_lock<std::mutex> unique (mutex);
 	condition.wait (unique, [&]() { return count == 50; });
-	service.stop ();
+	io_ctx.stop ();
 	for (auto i (threads.begin ()), j (threads.end ()); i != j; ++i)
 	{
 		i->join ();
@@ -102,8 +102,8 @@ TEST (alarm, many)
 
 TEST (alarm, top_execution)
 {
-	boost::asio::io_service service;
-	rai::alarm alarm (service);
+	boost::asio::io_context io_ctx;
+	rai::alarm alarm (io_ctx);
 	int value1 (0);
 	int value2 (0);
 	std::mutex mutex;
@@ -118,14 +118,14 @@ TEST (alarm, top_execution)
 		value2 = 2;
 		promise.set_value (false);
 	});
-	boost::asio::io_service::work work (service);
-	boost::thread thread ([&service]() {
-		service.run ();
+	boost::asio::io_context::work work (io_ctx);
+	boost::thread thread ([&io_ctx]() {
+		io_ctx.run ();
 	});
 	promise.get_future ().get ();
 	std::lock_guard<std::mutex> lock (mutex);
 	ASSERT_EQ (1, value1);
 	ASSERT_EQ (2, value2);
-	service.stop ();
+	io_ctx.stop ();
 	thread.join ();
 }
