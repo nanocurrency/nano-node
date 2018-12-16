@@ -410,8 +410,8 @@ void rai::frontier_req_client::next (rai::transaction const & transaction_a)
 
 rai::bulk_pull_client::bulk_pull_client (std::shared_ptr<rai::bootstrap_client> connection_a, rai::pull_info const & pull_a) :
 connection (connection_a),
-total_blocks (0),
-pull (pull_a)
+pull (pull_a),
+total_blocks (0)
 {
 	std::lock_guard<std::mutex> mutex (connection->attempt->mutex);
 	connection->attempt->condition.notify_all ();
@@ -746,8 +746,8 @@ void rai::bulk_push_client::push_block (rai::block const & block_a)
 rai::pull_info::pull_info () :
 account (0),
 end (0),
-attempts (0),
-count (0)
+count (0),
+attempts (0)
 {
 }
 
@@ -755,8 +755,8 @@ rai::pull_info::pull_info (rai::account const & account_a, rai::block_hash const
 account (account_a),
 head (head_a),
 end (end_a),
-attempts (0),
-count (count_a)
+count (count_a),
+attempts (0)
 {
 }
 
@@ -767,9 +767,9 @@ pulling (0),
 node (node_a),
 account_count (0),
 total_blocks (0),
-lazy_stopped (0),
 stopped (false),
-lazy_mode (false)
+lazy_mode (false),
+lazy_stopped (0)
 {
 	BOOST_LOG (node->log) << "Starting bootstrap attempt";
 	node->bootstrap_initiator.notify_listeners (true);
@@ -2719,9 +2719,9 @@ rai::frontier_req_server::frontier_req_server (std::shared_ptr<rai::bootstrap_se
 connection (connection_a),
 current (request_a->start.number () - 1),
 frontier (0),
-count (0),
 request (std::move (request_a)),
-send_buffer (std::make_shared<std::vector<uint8_t>> ())
+send_buffer (std::make_shared<std::vector<uint8_t>> ()),
+count (0)
 {
 	next ();
 }
