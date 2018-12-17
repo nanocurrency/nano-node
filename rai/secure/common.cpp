@@ -8,6 +8,7 @@
 #include <boost/property_tree/json_parser.hpp>
 
 #include <queue>
+#include <random>
 
 #include <ed25519-donna/ed25519.h>
 
@@ -673,20 +674,60 @@ std::shared_ptr<rai::vote> rai::vote_uniquer::unique (std::shared_ptr<rai::vote>
 		{
 			existing = vote_a;
 		}
-		for (auto i (0); i < cleanup_count; ++i)
+
+		/*
+		 * Because we cannot adjust the range of
+		 * a distribution after we have created it
+		 * we only attempt to cleanup if there are
+		 * more items than we need to cleanup.
+		 *
+		 * This will exclude the "cleanup_count"
+		 * items at the "end" of the set, but
+		 * it's not a significant amount.
+		 */
+		if (votes.size () > (cleanup_count + 1))
 		{
-			rai::uint256_union random;
-			rai::random_pool.GenerateBlock (random.bytes.data (), random.bytes.size ());
-			auto existing (votes.find (random));
-			if (existing == votes.end ())
+			std::default_random_engine generator;
+			std::uniform_int_distribution<unsigned> distribution (0, votes.size () - cleanup_count - 1);
+
+			/*
+			 * Search up to 1/10th of the items in the set
+			 * for freeable entries, but atleast the number
+			 * of items to be cleaned up.
+			 */
+			unsigned max_retries = votes.size () / 10;
+			if (cleanup_count > max_retries)
 			{
-				existing = votes.begin ();
+				max_retries = cleanup_count;
 			}
-			if (existing != votes.end ())
+
+			for (auto i (0), retries (0); i < cleanup_count && retries < max_retries; ++i, ++retries)
 			{
+				/*
+				 * Select a random item from the set
+				 */
+				auto existing (std::next (std::begin (votes), distribution (generator)));
+				if (existing == votes.end ())
+				{
+					existing = votes.begin ();
+					if (existing == votes.end ())
+					{
+						/*
+						 * The set is now empty, nothing
+						 * more to do.
+						 */
+						break;
+					}
+				}
+
 				if (auto block_l = existing->second.lock ())
 				{
-					// Still live
+					/*
+					 * This object still has shared_ptr
+					 * references, keep searching
+					 */
+					--i;
+					continue;
 				}
 				else
 				{
