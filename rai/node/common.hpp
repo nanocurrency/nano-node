@@ -19,7 +19,10 @@ bool parse_endpoint (std::string const &, rai::endpoint &);
 bool parse_tcp_endpoint (std::string const &, rai::tcp_endpoint &);
 bool reserved_address (rai::endpoint const &, bool);
 }
-static uint64_t endpoint_hash_raw (rai::endpoint const & endpoint_a)
+
+namespace
+{
+uint64_t endpoint_hash_raw (rai::endpoint const & endpoint_a)
 {
 	assert (endpoint_a.address ().is_v6 ());
 	rai::uint128_union address;
@@ -32,7 +35,7 @@ static uint64_t endpoint_hash_raw (rai::endpoint const & endpoint_a)
 	auto result (XXH64_digest (&hash));
 	return result;
 }
-static uint64_t ip_address_hash_raw (boost::asio::ip::address const & ip_a)
+uint64_t ip_address_hash_raw (boost::asio::ip::address const & ip_a)
 {
 	assert (ip_a.is_v6 ());
 	rai::uint128_union bytes;
@@ -44,8 +47,6 @@ static uint64_t ip_address_hash_raw (boost::asio::ip::address const & ip_a)
 	return result;
 }
 
-namespace std
-{
 template <size_t size>
 struct endpoint_hash
 {
@@ -68,6 +69,10 @@ struct endpoint_hash<4>
 		return result;
 	}
 };
+}
+
+namespace std
+{
 template <>
 struct hash<rai::endpoint>
 {

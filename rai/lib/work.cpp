@@ -154,8 +154,10 @@ void rai::work_pool::cancel (rai::uint256_union const & root_a)
 
 void rai::work_pool::stop ()
 {
-	std::lock_guard<std::mutex> lock (mutex);
-	done = true;
+	{
+		std::lock_guard<std::mutex> lock (mutex);
+		done = true;
+	}
 	producer_condition.notify_all ();
 }
 
@@ -169,8 +171,10 @@ void rai::work_pool::generate (rai::uint256_union const & root_a, std::function<
 	}
 	if (!result)
 	{
-		std::lock_guard<std::mutex> lock (mutex);
-		pending.push_back ({ root_a, callback_a, difficulty_a });
+		{
+			std::lock_guard<std::mutex> lock (mutex);
+			pending.push_back ({ root_a, callback_a, difficulty_a });
+		}
 		producer_condition.notify_all ();
 	}
 	else

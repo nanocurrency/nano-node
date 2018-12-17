@@ -410,8 +410,8 @@ void rai::frontier_req_client::next (rai::transaction const & transaction_a)
 
 rai::bulk_pull_client::bulk_pull_client (std::shared_ptr<rai::bootstrap_client> connection_a, rai::pull_info const & pull_a) :
 connection (connection_a),
-total_blocks (0),
-pull (pull_a)
+pull (pull_a),
+total_blocks (0)
 {
 	std::lock_guard<std::mutex> mutex (connection->attempt->mutex);
 	connection->attempt->condition.notify_all ();
@@ -433,8 +433,10 @@ rai::bulk_pull_client::~bulk_pull_client ()
 			BOOST_LOG (connection->node->log) << boost::str (boost::format ("Bulk pull end block is not expected %1% for account %2%") % pull.end.to_string () % pull.account.to_account ());
 		}
 	}
-	std::lock_guard<std::mutex> mutex (connection->attempt->mutex);
-	--connection->attempt->pulling;
+	{
+		std::lock_guard<std::mutex> mutex (connection->attempt->mutex);
+		--connection->attempt->pulling;
+	}
 	connection->attempt->condition.notify_all ();
 }
 
@@ -744,8 +746,8 @@ void rai::bulk_push_client::push_block (rai::block const & block_a)
 rai::pull_info::pull_info () :
 account (0),
 end (0),
-attempts (0),
-count (0)
+count (0),
+attempts (0)
 {
 }
 
@@ -753,8 +755,8 @@ rai::pull_info::pull_info (rai::account const & account_a, rai::block_hash const
 account (account_a),
 head (head_a),
 end (end_a),
-attempts (0),
-count (count_a)
+count (count_a),
+attempts (0)
 {
 }
 
@@ -765,9 +767,9 @@ pulling (0),
 node (node_a),
 account_count (0),
 total_blocks (0),
-lazy_stopped (0),
 stopped (false),
-lazy_mode (false)
+lazy_mode (false),
+lazy_stopped (0)
 {
 	BOOST_LOG (node->log) << "Starting bootstrap attempt";
 	node->bootstrap_initiator.notify_listeners (true);
@@ -807,7 +809,7 @@ bool rai::bootstrap_attempt::request_frontier (std::unique_lock<std::mutex> & lo
 			future = client->promise.get_future ();
 		}
 		lock_a.unlock ();
-		result = consume_future (future);
+		result = consume_future (future); // This is out of scope of `client' so when the last reference via boost::asio::io_service is lost and the client is destroyed, the future throws an exception.
 		lock_a.lock ();
 		if (result)
 		{
@@ -860,12 +862,15 @@ void rai::bootstrap_attempt::request_push (std::unique_lock<std::mutex> & lock_a
 	bool error (false);
 	if (auto connection_shared = connection_frontier_request.lock ())
 	{
-		auto client (std::make_shared<rai::bulk_push_client> (connection_shared));
-		client->start ();
-		push = client;
-		auto future (client->promise.get_future ());
+		std::future<bool> future;
+		{
+			auto client (std::make_shared<rai::bulk_push_client> (connection_shared));
+			client->start ();
+			push = client;
+			future = client->promise.get_future ();
+		}
 		lock_a.unlock ();
-		error = consume_future (future);
+		error = consume_future (future); // This is out of scope of `client' so when the last reference via boost::asio::io_service is lost and the client is destroyed, the future throws an exception.
 		lock_a.lock ();
 	}
 	if (node->config.logging.network_logging ())
@@ -1108,8 +1113,10 @@ void rai::bootstrap_attempt::add_connection (rai::endpoint const & endpoint_a)
 
 void rai::bootstrap_attempt::pool_connection (std::shared_ptr<rai::bootstrap_client> client_a)
 {
-	std::lock_guard<std::mutex> lock (mutex);
-	idle.push_front (client_a);
+	{
+		std::lock_guard<std::mutex> lock (mutex);
+		idle.push_front (client_a);
+	}
 	condition.notify_all ();
 }
 
@@ -1149,8 +1156,10 @@ void rai::bootstrap_attempt::stop ()
 
 void rai::bootstrap_attempt::add_pull (rai::pull_info const & pull)
 {
-	std::lock_guard<std::mutex> lock (mutex);
-	pulls.push_back (pull);
+	{
+		std::lock_guard<std::mutex> lock (mutex);
+		pulls.push_back (pull);
+	}
 	condition.notify_all ();
 }
 
@@ -1165,10 +1174,12 @@ void rai::bootstrap_attempt::requeue_pull (rai::pull_info const & pull_a)
 	}
 	else if (lazy_mode)
 	{
-		// Retry for lazy pulls (not weak state block link assumptions)
-		std::lock_guard<std::mutex> lock (mutex);
-		pull.attempts++;
-		pulls.push_back (pull);
+		{
+			// Retry for lazy pulls (not weak state block link assumptions)
+			std::lock_guard<std::mutex> lock (mutex);
+			pull.attempts++;
+			pulls.push_back (pull);
+		}
 		condition.notify_all ();
 	}
 	else
@@ -1521,22 +1532,24 @@ void rai::bootstrap_initiator::bootstrap (rai::endpoint const & endpoint_a, bool
 
 void rai::bootstrap_initiator::bootstrap_lazy (rai::block_hash const & hash_a, bool force)
 {
-	std::unique_lock<std::mutex> lock (mutex);
-	if (force)
 	{
-		while (attempt != nullptr)
+		std::unique_lock<std::mutex> lock (mutex);
+		if (force)
 		{
-			attempt->stop ();
-			condition.wait (lock);
+			while (attempt != nullptr)
+			{
+				attempt->stop ();
+				condition.wait (lock);
+			}
 		}
+		node.stats.inc (rai::stat::type::bootstrap, rai::stat::detail::initiate_lazy, rai::stat::dir::out);
+		if (attempt == nullptr)
+		{
+			attempt = std::make_shared<rai::bootstrap_attempt> (node.shared ());
+			attempt->lazy_mode = true;
+		}
+		attempt->lazy_start (hash_a);
 	}
-	node.stats.inc (rai::stat::type::bootstrap, rai::stat::detail::initiate_lazy, rai::stat::dir::out);
-	if (attempt == nullptr)
-	{
-		attempt = std::make_shared<rai::bootstrap_attempt> (node.shared ());
-		attempt->lazy_mode = true;
-	}
-	attempt->lazy_start (hash_a);
 	condition.notify_all ();
 }
 
@@ -1586,11 +1599,13 @@ std::shared_ptr<rai::bootstrap_attempt> rai::bootstrap_initiator::current_attemp
 
 void rai::bootstrap_initiator::stop ()
 {
-	std::unique_lock<std::mutex> lock (mutex);
-	stopped = true;
-	if (attempt != nullptr)
 	{
-		attempt->stop ();
+		std::unique_lock<std::mutex> lock (mutex);
+		stopped = true;
+		if (attempt != nullptr)
+		{
+			attempt->stop ();
+		}
 	}
 	condition.notify_all ();
 }
@@ -2704,9 +2719,9 @@ rai::frontier_req_server::frontier_req_server (std::shared_ptr<rai::bootstrap_se
 connection (connection_a),
 current (request_a->start.number () - 1),
 frontier (0),
-count (0),
 request (std::move (request_a)),
-send_buffer (std::make_shared<std::vector<uint8_t>> ())
+send_buffer (std::make_shared<std::vector<uint8_t>> ()),
+count (0)
 {
 	next ();
 }

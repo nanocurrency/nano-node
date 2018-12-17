@@ -18,8 +18,10 @@ thread ([this]() { run (); })
 
 void rai::vote_generator::add (rai::block_hash const & hash_a)
 {
-	std::lock_guard<std::mutex> lock (mutex);
-	hashes.push_back (hash_a);
+	{
+		std::lock_guard<std::mutex> lock (mutex);
+		hashes.push_back (hash_a);
+	}
 	condition.notify_all ();
 }
 
@@ -27,8 +29,10 @@ void rai::vote_generator::stop ()
 {
 	std::unique_lock<std::mutex> lock (mutex);
 	stopped = true;
-	condition.notify_all ();
+
 	lock.unlock ();
+	condition.notify_all ();
+
 	if (thread.joinable ())
 	{
 		thread.join ();
@@ -60,7 +64,9 @@ void rai::vote_generator::run ()
 	rai::thread_role::set (rai::thread_role::name::voting);
 	std::unique_lock<std::mutex> lock (mutex);
 	started = true;
+	lock.unlock ();
 	condition.notify_all ();
+	lock.lock ();
 	auto min (std::numeric_limits<std::chrono::steady_clock::time_point>::min ());
 	auto cutoff (min);
 	while (!stopped)
