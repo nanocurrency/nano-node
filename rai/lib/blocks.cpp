@@ -1,10 +1,10 @@
 #include <rai/lib/blocks.hpp>
+#include <rai/lib/numbers.hpp>
 
 #include <boost/endian/conversion.hpp>
 
 #include <xxhash/xxhash.h>
 
-#include <cstdlib>
 
 /** Compare blocks, first by type, then content. This is an optimization over dynamic_cast, which is very slow on some platforms. */
 namespace
@@ -1566,11 +1566,9 @@ std::shared_ptr<rai::block> rai::block_uniquer::unique (std::shared_ptr<rai::blo
 		{
 			existing = block_a;
 		}
-
-		unsigned random_offset;
 		for (auto i (0); i < cleanup_count && blocks.size () > 0; ++i)
 		{
-			random_offset = std::rand () % blocks.size ();
+			auto random_offset (rai::random_pool.GenerateWord32(0, blocks.size () - 1));
 			auto existing (std::next (blocks.begin (), random_offset));
 			if (existing == blocks.end ())
 			{

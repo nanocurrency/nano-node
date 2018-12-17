@@ -1,13 +1,13 @@
 #include <rai/secure/common.hpp>
 
 #include <rai/lib/interface.h>
+#include <rai/lib/numbers.hpp>
 #include <rai/node/common.hpp>
 #include <rai/secure/blockstore.hpp>
 #include <rai/secure/versioning.hpp>
 
 #include <boost/property_tree/json_parser.hpp>
 
-#include <cstdlib>
 #include <queue>
 
 #include <ed25519-donna/ed25519.h>
@@ -674,11 +674,9 @@ std::shared_ptr<rai::vote> rai::vote_uniquer::unique (std::shared_ptr<rai::vote>
 		{
 			existing = vote_a;
 		}
-
-		unsigned random_offset;
 		for (auto i (0); i < cleanup_count && votes.size () > 0; ++i)
 		{
-			random_offset = std::rand () % votes.size ();
+			auto random_offset (rai::random_pool.GenerateWord32(0, votes.size () - 1));
 			auto existing (std::next (votes.begin (), random_offset));
 			if (existing == votes.end ())
 			{
