@@ -5,7 +5,6 @@
 
 #include <xxhash/xxhash.h>
 
-
 /** Compare blocks, first by type, then content. This is an optimization over dynamic_cast, which is very slow on some platforms. */
 namespace
 {
