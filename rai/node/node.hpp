@@ -29,6 +29,7 @@ class election_status
 public:
 	std::shared_ptr<rai::block> winner;
 	rai::amount tally;
+	std::chrono::milliseconds election_end;
 	std::chrono::milliseconds election_duration;
 };
 class vote_info
@@ -113,7 +114,7 @@ public:
 	boost::multi_index::member<rai::conflict_info, uint64_t, &rai::conflict_info::difficulty>,
 	std::greater<uint64_t>>>>
 	roots;
-	std::unordered_map<rai::block_hash, std::shared_ptr<rai::election>> successors;
+	std::unordered_map<rai::block_hash, std::shared_ptr<rai::election>> blocks;
 	std::deque<rai::election_status> confirmed;
 	rai::node & node;
 	std::mutex mutex;
@@ -125,6 +126,7 @@ public:
 	static unsigned constexpr announcement_long = 20;
 	static unsigned constexpr announce_interval_ms = (rai::rai_network == rai::rai_networks::rai_test_network) ? 10 : 16000;
 	static size_t constexpr election_history_size = 2048;
+	static size_t constexpr max_broadcast_queue = 1000;
 
 private:
 	// Call action with confirmed block, may be different than what we started with
@@ -299,7 +301,7 @@ public:
 	void rpc_action (boost::system::error_code const &, size_t);
 	void republish_vote (std::shared_ptr<rai::vote>);
 	void republish_block (std::shared_ptr<rai::block>);
-	static unsigned const broadcast_interval_ms = (rai::rai_network == rai::rai_networks::rai_test_network) ? 10 : 50;
+	static unsigned const broadcast_interval_ms = 10;
 	void republish_block_batch (std::deque<std::shared_ptr<rai::block>>, unsigned = broadcast_interval_ms);
 	void republish (rai::block_hash const &, std::shared_ptr<std::vector<uint8_t>>, rai::endpoint);
 	void confirm_send (rai::confirm_ack const &, std::shared_ptr<std::vector<uint8_t>>, rai::endpoint const &);
@@ -350,12 +352,17 @@ public:
 	rai::vote_code vote_blocking (rai::transaction const &, std::shared_ptr<rai::vote>, rai::endpoint, bool = false);
 	void verify_votes (std::deque<std::pair<std::shared_ptr<rai::vote>, rai::endpoint>> &);
 	void flush ();
+	void calculate_weights ();
 	rai::node & node;
 	void stop ();
 
 private:
 	void process_loop ();
 	std::deque<std::pair<std::shared_ptr<rai::vote>, rai::endpoint>> votes;
+	// Representatives levels for random early detection
+	std::unordered_set<rai::account> representatives_1;
+	std::unordered_set<rai::account> representatives_2;
+	std::unordered_set<rai::account> representatives_3;
 	std::condition_variable condition;
 	std::mutex mutex;
 	bool started;
@@ -469,6 +476,7 @@ public:
 	void ongoing_keepalive ();
 	void ongoing_syn_cookie_cleanup ();
 	void ongoing_rep_crawl ();
+	void ongoing_rep_calculation ();
 	void ongoing_bootstrap ();
 	void ongoing_store_flush ();
 	void backup_wallet ();

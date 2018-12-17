@@ -19,6 +19,7 @@ scriptDir="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 function make_source () {
 	git clone --recursive --single-branch --branch releases/v${VERSION_MAJOR} https://github.com/nanocurrency/raiblocks nano-$VERSION
 	cd nano-$VERSION
+	git pull --tags
 	COUNT=`git tag -l "${TAG}" | wc -l`
 	if [ "$COUNT" -eq 0 ]; then
 		echo "tag $TAG not found"

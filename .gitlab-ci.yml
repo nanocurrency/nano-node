@@ -26,7 +26,6 @@ variables:
   script:
     - ./ci/build-gitlab.sh
 
-
 Arch Linux:
   <<: *linux_cfg
   stage: build

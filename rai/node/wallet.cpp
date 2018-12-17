@@ -1377,8 +1377,10 @@ void rai::wallets::do_wallet_actions ()
 
 void rai::wallets::queue_wallet_action (rai::uint128_t const & amount_a, std::shared_ptr<rai::wallet> wallet_a, std::function<void(rai::wallet &)> const & action_a)
 {
-	std::lock_guard<std::mutex> lock (mutex);
-	actions.insert (std::make_pair (amount_a, std::make_pair (wallet_a, std::move (action_a))));
+	{
+		std::lock_guard<std::mutex> lock (mutex);
+		actions.insert (std::make_pair (amount_a, std::make_pair (wallet_a, std::move (action_a))));
+	}
 	condition.notify_all ();
 }
 

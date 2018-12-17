@@ -23,6 +23,7 @@ std::chrono::seconds constexpr rai::node::search_pending_interval;
 int constexpr rai::port_mapping::mapping_timeout;
 int constexpr rai::port_mapping::check_timeout;
 unsigned constexpr rai::active_transactions::announce_interval_ms;
+size_t constexpr rai::active_transactions::max_broadcast_queue;
 size_t constexpr rai::block_arrival::arrival_size_min;
 std::chrono::seconds constexpr rai::block_arrival::arrival_time_min;
 
@@ -274,7 +275,6 @@ bool confirm_block (rai::transaction const & transaction_a, rai::node & node_a, 
 	return result;
 }
 
-template <>
 bool confirm_block (rai::transaction const & transaction_a, rai::node & node_a, rai::endpoint & peer_a, std::shared_ptr<rai::block> block_a, bool also_publish)
 {
 	std::array<rai::endpoint, 1> endpoints;
@@ -376,8 +376,7 @@ void rai::network::broadcast_confirm_req_base (std::shared_ptr<rai::block> block
 	}
 	if (!endpoints_a->empty ())
 	{
-		delay_a += 50;
-		delay_a += std::rand () % 50;
+		delay_a += std::rand () % broadcast_interval_ms;
 
 		std::weak_ptr<rai::node> node_w (node.shared ());
 		node.alarm.add (std::chrono::steady_clock::now () + std::chrono::milliseconds (delay_a), [node_w, block_a, endpoints_a, delay_a]() {
@@ -456,7 +455,6 @@ void rep_query (rai::node & node_a, T const & peers_a)
 	});
 }
 
-template <>
 void rep_query (rai::node & node_a, rai::endpoint const & peers_a)
 {
 	std::array<rai::endpoint, 1> peers;
@@ -638,7 +636,16 @@ public:
 
 void rai::network::receive_action (rai::udp_data * data_a)
 {
-	if (!rai::reserved_address (data_a->endpoint, false) && data_a->endpoint != endpoint ())
+	auto allowed_sender (true);
+	if (data_a->endpoint == endpoint ())
+	{
+		allowed_sender = false;
+	}
+	else if (rai::reserved_address (data_a->endpoint, false) && !node.config.allow_local_peers)
+	{
+		allowed_sender = false;
+	}
+	if (allowed_sender)
 	{
 		network_message_visitor visitor (node, data_a->endpoint);
 		rai::message_parser parser (node.block_uniquer, node.vote_uniquer, visitor, node.work);
@@ -777,8 +784,10 @@ void rai::alarm::run ()
 
 void rai::alarm::add (std::chrono::steady_clock::time_point const & wakeup_a, std::function<void()> const & operation)
 {
-	std::lock_guard<std::mutex> lock (mutex);
-	operations.push (rai::operation ({ wakeup_a, operation }));
+	{
+		std::lock_guard<std::mutex> lock (mutex);
+		operations.push (rai::operation ({ wakeup_a, operation }));
+	}
 	condition.notify_all ();
 }
 
@@ -820,7 +829,11 @@ void rai::vote_processor::process_loop ()
 
 	std::unique_lock<std::mutex> lock (mutex);
 	started = true;
+
+	lock.unlock ();
 	condition.notify_all ();
+	lock.lock ();
+
 	while (!stopped)
 	{
 		if (!votes.empty ())
@@ -859,7 +872,10 @@ void rai::vote_processor::process_loop ()
 			}
 			lock.lock ();
 			active = false;
+
+			lock.unlock ();
 			condition.notify_all ();
+			lock.lock ();
 
 			if (log_this_iteration)
 			{
@@ -868,7 +884,7 @@ void rai::vote_processor::process_loop ()
 				elapsed_time_ms = std::chrono::duration_cast<std::chrono::milliseconds> (elapsed_time);
 				elapsed_time_ms_int = elapsed_time_ms.count ();
 
-				if (elapsed_time_ms_int < 100)
+				if (elapsed_time_ms_int >= 100)
 				{
 					/*
 					 * If the time spent was less than 100ms then
@@ -889,13 +905,48 @@ void rai::vote_processor::process_loop ()
 void rai::vote_processor::vote (std::shared_ptr<rai::vote> vote_a, rai::endpoint endpoint_a)
 {
 	assert (endpoint_a.address ().is_v6 ());
-	std::lock_guard<std::mutex> lock (mutex);
+	std::unique_lock<std::mutex> lock (mutex);
 	if (!stopped)
 	{
-		if (votes.size () < 256 * 1024)
+		bool process (false);
+		/* Random early delection levels
+		Always process votes for test network (process = true)
+		Stop processing with max 144 * 1024 votes */
+		if (rai::rai_network != rai::rai_networks::rai_test_network)
+		{
+			// Level 0 (< 0.1%)
+			if (votes.size () < 96 * 1024)
+			{
+				process = true;
+			}
+			// Level 1 (0.1-1%)
+			else if (votes.size () < 112 * 1024)
+			{
+				process = (representatives_1.find (vote_a->account) != representatives_1.end ());
+			}
+			// Level 2 (1-5%)
+			else if (votes.size () < 128 * 1024)
+			{
+				process = (representatives_2.find (vote_a->account) != representatives_2.end ());
+			}
+			// Level 3 (> 5%)
+			else if (votes.size () < 144 * 1024)
+			{
+				process = (representatives_3.find (vote_a->account) != representatives_3.end ());
+			}
+		}
+		else
+		{
+			// Process for test network
+			process = true;
+		}
+		if (process)
 		{
 			votes.push_back (std::make_pair (vote_a, endpoint_a));
+
+			lock.unlock ();
 			condition.notify_all ();
+			lock.lock ();
 		}
 		else
 		{
@@ -1008,8 +1059,8 @@ void rai::vote_processor::stop ()
 	{
 		std::lock_guard<std::mutex> lock (mutex);
 		stopped = true;
-		condition.notify_all ();
 	}
+	condition.notify_all ();
 	if (thread.joinable ())
 	{
 		thread.join ();
@@ -1022,6 +1073,36 @@ void rai::vote_processor::flush ()
 	while (active || !votes.empty ())
 	{
 		condition.wait (lock);
+	}
+}
+
+void rai::vote_processor::calculate_weights ()
+{
+	std::unique_lock<std::mutex> lock (mutex);
+	if (!stopped)
+	{
+		representatives_1.clear ();
+		representatives_2.clear ();
+		representatives_3.clear ();
+		auto supply (node.online_reps.online_stake ());
+		auto transaction (node.store.tx_begin_read ());
+		for (auto i (node.store.representation_begin (transaction)), n (node.store.representation_end ()); i != n; ++i)
+		{
+			rai::account representative (i->first);
+			auto weight (node.ledger.weight (transaction, representative));
+			if (weight > supply / 1000) // 0.1% or above (level 1)
+			{
+				representatives_1.insert (representative);
+				if (weight > supply / 100) // 1% or above (level 2)
+				{
+					representatives_2.insert (representative);
+					if (weight > supply / 20) // 5% or above (level 3)
+					{
+						representatives_3.insert (representative);
+					}
+				}
+			}
+		}
 	}
 }
 
@@ -1062,8 +1143,10 @@ rai::signature_checker::~signature_checker ()
 
 void rai::signature_checker::add (rai::signature_check_set & check_a)
 {
-	std::lock_guard<std::mutex> lock (mutex);
-	checks.push_back (check_a);
+	{
+		std::lock_guard<std::mutex> lock (mutex);
+		checks.push_back (check_a);
+	}
 	condition.notify_all ();
 }
 
@@ -1103,7 +1186,11 @@ void rai::signature_checker::run ()
 	rai::thread_role::set (rai::thread_role::name::signature_checking);
 	std::unique_lock<std::mutex> lock (mutex);
 	started = true;
+
+	lock.unlock ();
 	condition.notify_all ();
+	lock.lock ();
+
 	while (!stopped)
 	{
 		if (!checks.empty ())
@@ -1112,8 +1199,8 @@ void rai::signature_checker::run ()
 			checks.pop_front ();
 			lock.unlock ();
 			verify (check);
-			lock.lock ();
 			condition.notify_all ();
+			lock.lock ();
 		}
 		else
 		{
@@ -1139,8 +1226,10 @@ rai::block_processor::~block_processor ()
 void rai::block_processor::stop ()
 {
 	generator.stop ();
-	std::lock_guard<std::mutex> lock (mutex);
-	stopped = true;
+	{
+		std::lock_guard<std::mutex> lock (mutex);
+		stopped = true;
+	}
 	condition.notify_all ();
 }
 
@@ -1157,23 +1246,25 @@ void rai::block_processor::flush ()
 bool rai::block_processor::full ()
 {
 	std::unique_lock<std::mutex> lock (mutex);
-	return blocks.size () > 16384;
+	return (blocks.size () + state_blocks.size ()) > 16384;
 }
 
 void rai::block_processor::add (std::shared_ptr<rai::block> block_a, std::chrono::steady_clock::time_point origination)
 {
 	if (!rai::work_validate (block_a->root (), block_a->block_work ()))
 	{
-		std::lock_guard<std::mutex> lock (mutex);
-		if (blocks_hashes.find (block_a->hash ()) == blocks_hashes.end ())
 		{
-			if (block_a->type () == rai::block_type::state && !node.ledger.is_epoch_link (block_a->link ()))
+			std::lock_guard<std::mutex> lock (mutex);
+			if (blocks_hashes.find (block_a->hash ()) == blocks_hashes.end ())
 			{
-				state_blocks.push_back (std::make_pair (block_a, origination));
-			}
-			else
-			{
-				blocks.push_back (std::make_pair (block_a, origination));
+				if (block_a->type () == rai::block_type::state && !node.ledger.is_epoch_link (block_a->link ()))
+				{
+					state_blocks.push_back (std::make_pair (block_a, origination));
+				}
+				else
+				{
+					blocks.push_back (std::make_pair (block_a, origination));
+				}
 			}
 			condition.notify_all ();
 		}
@@ -1187,8 +1278,10 @@ void rai::block_processor::add (std::shared_ptr<rai::block> block_a, std::chrono
 
 void rai::block_processor::force (std::shared_ptr<rai::block> block_a)
 {
-	std::lock_guard<std::mutex> lock (mutex);
-	forced.push_back (block_a);
+	{
+		std::lock_guard<std::mutex> lock (mutex);
+		forced.push_back (block_a);
+	}
 	condition.notify_all ();
 }
 
@@ -1207,7 +1300,10 @@ void rai::block_processor::process_blocks ()
 		}
 		else
 		{
+			lock.unlock ();
 			condition.notify_all ();
+			lock.lock ();
+
 			condition.wait (lock);
 		}
 	}
@@ -1285,9 +1381,9 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 	// Processing blocks
 	while ((!blocks.empty () || !forced.empty ()) && std::chrono::steady_clock::now () - start_time < node.config.block_processor_batch_max_time)
 	{
-		if (blocks.size () > 64 && should_log ())
+		if ((blocks.size () + state_blocks.size ()) > 64 && should_log ())
 		{
-			BOOST_LOG (node.log) << boost::str (boost::format ("%1% blocks in processing queue") % blocks.size ());
+			BOOST_LOG (node.log) << boost::str (boost::format ("%1% blocks in processing queue") % (blocks.size () + state_blocks.size ()));
 		}
 		std::pair<std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point> block;
 		bool force (false);
@@ -1906,6 +2002,7 @@ void rai::node::start ()
 	}
 	ongoing_store_flush ();
 	ongoing_rep_crawl ();
+	ongoing_rep_calculation ();
 	if (!flags.disable_bootstrap_listener)
 	{
 		bootstrap.start ();
@@ -1925,13 +2022,13 @@ void rai::node::stop ()
 	{
 		block_processor_thread.join ();
 	}
+	vote_processor.stop ();
 	active.stop ();
 	network.stop ();
 	bootstrap_initiator.stop ();
 	bootstrap.stop ();
 	port_mapping.stop ();
 	checker.stop ();
-	vote_processor.stop ();
 	wallets.stop ();
 }
 
@@ -2032,6 +2129,19 @@ void rai::node::ongoing_rep_crawl ()
 			}
 		});
 	}
+}
+
+void rai::node::ongoing_rep_calculation ()
+{
+	auto now (std::chrono::steady_clock::now ());
+	vote_processor.calculate_weights ();
+	std::weak_ptr<rai::node> node_w (shared_from_this ());
+	alarm.add (now + std::chrono::minutes (10), [node_w]() {
+		if (auto node_l = node_w.lock ())
+		{
+			node_l->ongoing_rep_calculation ();
+		}
+	});
 }
 
 void rai::node::ongoing_bootstrap ()
@@ -2364,7 +2474,7 @@ public:
 					auto callback_l (callback);
 					std::weak_ptr<rai::node> node_w (node);
 					auto next_backoff (std::min (backoff * 2, (unsigned int)60 * 5));
-					node->alarm.add (now + std::chrono::seconds (backoff), [node_w, root_l, callback_l, next_backoff, difficulty = difficulty] {
+					node->alarm.add (now + std::chrono::seconds (backoff), [ node_w, root_l, callback_l, next_backoff, difficulty = difficulty ] {
 						if (auto node_l = node_w.lock ())
 						{
 							auto work_generation (std::make_shared<distributed_work> (next_backoff, node_l, root_l, callback_l, difficulty));
@@ -2836,6 +2946,7 @@ void rai::election::confirm_once (rai::transaction const & transaction_a)
 {
 	if (!confirmed.exchange (true))
 	{
+		status.election_end = std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ());
 		status.election_duration = std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::steady_clock::now () - election_start);
 		auto winner_l (status.winner);
 		auto node_l (node.shared ());
@@ -2855,8 +2966,8 @@ void rai::election::confirm_back (rai::transaction const & transaction_a)
 	{
 		if (!hash.is_zero () && !node.ledger.is_epoch_link (hash))
 		{
-			auto existing (node.active.successors.find (hash));
-			if (existing != node.active.successors.end () && !existing->second->confirmed && !existing->second->stopped && existing->second->blocks.size () == 1)
+			auto existing (node.active.blocks.find (hash));
+			if (existing != node.active.blocks.end () && !existing->second->confirmed && !existing->second->stopped && existing->second->blocks.size () == 1)
 			{
 				existing->second->confirm_once (transaction_a);
 			}
@@ -3119,7 +3230,7 @@ void rai::active_transactions::announce_votes (std::unique_lock<std::mutex> & lo
 				/* Escalation for long unconfirmed elections
 				Start new elections for previous block & source
 				if there are less than 100 active elections */
-				if (i->election->announcements % announcement_long == 1 && roots_size < 100)
+				if (i->election->announcements % announcement_long == 1 && roots_size < 100 && rai::rai_network != rai::rai_networks::rai_test_network)
 				{
 					std::shared_ptr<rai::block> previous;
 					auto previous_hash (election_l->status.winner->previous ());
@@ -3158,7 +3269,10 @@ void rai::active_transactions::announce_votes (std::unique_lock<std::mutex> & lo
 				if (node.ledger.could_fit (transaction, *election_l->status.winner))
 				{
 					// Broadcast winner
-					rebroadcast_bundle.push_back (election_l->status.winner);
+					if (rebroadcast_bundle.size () < max_broadcast_queue)
+					{
+						rebroadcast_bundle.push_back (election_l->status.winner);
+					}
 				}
 				else
 				{
@@ -3198,9 +3312,12 @@ void rai::active_transactions::announce_votes (std::unique_lock<std::mutex> & lo
 						}
 					}
 				}
-				if ((!reps->empty () && total_weight > node.config.online_weight_minimum.number ()) || roots.size () > 5)
+				if ((!reps->empty () && total_weight > node.config.online_weight_minimum.number ()) || roots_size > 5)
 				{
-					confirm_req_bundle.push_back (std::make_pair (i->election->status.winner, reps));
+					if (confirm_req_bundle.size () < max_broadcast_queue)
+					{
+						confirm_req_bundle.push_back (std::make_pair (i->election->status.winner, reps));
+					}
 				}
 				else
 				{
@@ -3226,20 +3343,13 @@ void rai::active_transactions::announce_votes (std::unique_lock<std::mutex> & lo
 	{
 		auto root_it (roots.find (*i));
 		assert (root_it != roots.end ());
-		for (auto successor : root_it->election->blocks)
+		for (auto & block : root_it->election->blocks)
 		{
-			auto successor_it (successors.find (successor.first));
-			if (successor_it != successors.end ())
-			{
-				assert (successor_it->second == root_it->election);
-				successors.erase (successor_it);
-			}
-			else
-			{
-				assert (false && "election successor not in active_transactions blocks table");
-			}
+			auto erased (blocks.erase (block.first));
+			(void)erased;
+			assert (erased == 1);
 		}
-		roots.erase (root_it);
+		roots.erase (*i);
 	}
 	if (unconfirmed_count > 0)
 	{
@@ -3251,11 +3361,16 @@ void rai::active_transactions::announce_loop ()
 {
 	std::unique_lock<std::mutex> lock (mutex);
 	started = true;
+
+	lock.unlock ();
 	condition.notify_all ();
+	lock.lock ();
+
 	while (!stopped)
 	{
 		announce_votes (lock);
-		condition.wait_for (lock, std::chrono::milliseconds (announce_interval_ms + roots.size () * node.network.broadcast_interval_ms * 3 / 2));
+		unsigned extra_delay (std::min (roots.size (), max_broadcast_queue) * node.network.broadcast_interval_ms * 2);
+		condition.wait_for (lock, std::chrono::milliseconds (announce_interval_ms + extra_delay));
 	}
 }
 
@@ -3267,12 +3382,13 @@ void rai::active_transactions::stop ()
 		condition.wait (lock);
 	}
 	stopped = true;
-	condition.notify_all ();
 	lock.unlock ();
+	condition.notify_all ();
 	if (thread.joinable ())
 	{
 		thread.join ();
 	}
+	lock.lock ();
 	roots.clear ();
 }
 
@@ -3296,7 +3412,7 @@ bool rai::active_transactions::add (std::shared_ptr<rai::block> block_a, std::fu
 			auto error (rai::work_validate (*block_a, &difficulty));
 			release_assert (!error);
 			roots.insert (rai::conflict_info{ root, difficulty, election });
-			successors.insert (std::make_pair (block_a->hash (), election));
+			blocks.insert (std::make_pair (block_a->hash (), election));
 		}
 		error = existing != roots.end ();
 	}
@@ -3321,8 +3437,8 @@ bool rai::active_transactions::vote (std::shared_ptr<rai::vote> vote_a, bool sin
 			if (vote_block.which ())
 			{
 				auto block_hash (boost::get<rai::block_hash> (vote_block));
-				auto existing (successors.find (block_hash));
-				if (existing != successors.end ())
+				auto existing (blocks.find (block_hash));
+				if (existing != blocks.end ())
 				{
 					result = existing->second->vote (vote_a->account, vote_a->sequence, block_hash);
 				}
@@ -3425,7 +3541,7 @@ bool rai::active_transactions::publish (std::shared_ptr<rai::block> block_a)
 		result = existing->election->publish (block_a);
 		if (!result)
 		{
-			successors.insert (std::make_pair (block_a->hash (), existing->election));
+			blocks.insert (std::make_pair (block_a->hash (), existing->election));
 		}
 	}
 	return result;
@@ -3546,8 +3662,10 @@ rai::udp_data * rai::udp_buffer::allocate ()
 void rai::udp_buffer::enqueue (rai::udp_data * data_a)
 {
 	assert (data_a != nullptr);
-	std::lock_guard<std::mutex> lock (mutex);
-	full.push_back (data_a);
+	{
+		std::lock_guard<std::mutex> lock (mutex);
+		full.push_back (data_a);
+	}
 	condition.notify_one ();
 }
 rai::udp_data * rai::udp_buffer::dequeue ()
@@ -3568,13 +3686,17 @@ rai::udp_data * rai::udp_buffer::dequeue ()
 void rai::udp_buffer::release (rai::udp_data * data_a)
 {
 	assert (data_a != nullptr);
-	std::lock_guard<std::mutex> lock (mutex);
-	free.push_back (data_a);
+	{
+		std::lock_guard<std::mutex> lock (mutex);
+		free.push_back (data_a);
+	}
 	condition.notify_one ();
 }
 void rai::udp_buffer::stop ()
 {
-	std::lock_guard<std::mutex> lock (mutex);
-	stopped = true;
+	{
+		std::lock_guard<std::mutex> lock (mutex);
+		stopped = true;
+	}
 	condition.notify_all ();
 }

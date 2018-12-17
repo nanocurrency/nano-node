@@ -34,11 +34,12 @@ public:
 	void start (std::chrono::steady_clock::time_point = std::chrono::steady_clock::now () + std::chrono::seconds (5));
 	void stop ();
 	void close ();
+	void checkup ();
 	rai::tcp_endpoint remote_endpoint ();
 	boost::asio::ip::tcp::socket socket_m;
 
 private:
-	std::atomic<unsigned> ticket;
+	std::atomic<uint64_t> cutoff;
 	std::shared_ptr<rai::node> node;
 };
 
@@ -115,6 +116,7 @@ public:
 	std::deque<rai::block_hash> lazy_pulls;
 	std::atomic<uint64_t> lazy_stopped;
 	uint64_t lazy_max_pull_blocks = (rai::rai_network == rai::rai_networks::rai_test_network) ? 2 : 512;
+	uint64_t lazy_max_stopped = 256;
 	std::mutex lazy_mutex;
 };
 class frontier_req_client : public std::enable_shared_from_this<rai::frontier_req_client>

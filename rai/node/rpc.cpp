@@ -1454,6 +1454,7 @@ void rai::rpc_handler::confirmation_history ()
 			boost::property_tree::ptree election;
 			election.put ("hash", i->winner->hash ().to_string ());
 			election.put ("duration", i->election_duration.count ());
+			election.put ("time", i->election_end.count ());
 			election.put ("tally", i->tally.to_string_dec ());
 			elections.push_back (std::make_pair ("", election));
 			running_total += i->election_duration;
@@ -1810,7 +1811,14 @@ void rai::rpc_handler::account_history ()
 	{
 		if (!hash.decode_hex (*head_str))
 		{
-			account = node.ledger.account (transaction, hash);
+			if (node.store.block_exists (transaction, hash))
+			{
+				account = node.ledger.account (transaction, hash);
+			}
+			else
+			{
+				ec = nano::error_blocks::not_found;
+			}
 		}
 		else
 		{
