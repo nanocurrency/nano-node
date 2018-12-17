@@ -7,6 +7,7 @@
 
 #include <boost/property_tree/json_parser.hpp>
 
+#include <cstdlib>
 #include <queue>
 
 #include <ed25519-donna/ed25519.h>
@@ -673,11 +674,12 @@ std::shared_ptr<rai::vote> rai::vote_uniquer::unique (std::shared_ptr<rai::vote>
 		{
 			existing = vote_a;
 		}
-		for (auto i (0); i < cleanup_count; ++i)
+
+		unsigned random_offset;
+		for (auto i (0); i < cleanup_count && votes.size () > 0; ++i)
 		{
-			rai::uint256_union random;
-			rai::random_pool.GenerateBlock (random.bytes.data (), random.bytes.size ());
-			auto existing (votes.find (random));
+			random_offset = std::rand () % votes.size ();
+			auto existing (std::next (votes.begin (), random_offset));
 			if (existing == votes.end ())
 			{
 				existing = votes.begin ();
