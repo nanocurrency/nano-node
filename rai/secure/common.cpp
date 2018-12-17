@@ -676,7 +676,7 @@ std::shared_ptr<rai::vote> rai::vote_uniquer::unique (std::shared_ptr<rai::vote>
 		}
 		for (auto i (0); i < cleanup_count && votes.size () > 0; ++i)
 		{
-			auto random_offset (rai::random_pool.GenerateWord32(0, votes.size () - 1));
+			auto random_offset (rai::random_pool.GenerateWord32 (0, votes.size () - 1));
 			auto existing (std::next (votes.begin (), random_offset));
 			if (existing == votes.end ())
 			{
