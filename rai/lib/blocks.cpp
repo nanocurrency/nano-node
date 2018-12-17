@@ -4,6 +4,8 @@
 
 #include <xxhash/xxhash.h>
 
+#include <cstdlib>
+
 /** Compare blocks, first by type, then content. This is an optimization over dynamic_cast, which is very slow on some platforms. */
 namespace
 {
@@ -1564,11 +1566,12 @@ std::shared_ptr<rai::block> rai::block_uniquer::unique (std::shared_ptr<rai::blo
 		{
 			existing = block_a;
 		}
-		for (auto i (0); i < cleanup_count; ++i)
+
+		unsigned random_offset;
+		for (auto i (0); i < cleanup_count && blocks.size () > 0; ++i)
 		{
-			rai::uint256_union random;
-			rai::random_pool.GenerateBlock (random.bytes.data (), random.bytes.size ());
-			auto existing (blocks.find (random));
+			random_offset = std::rand () % blocks.size ();
+			auto existing (std::next (blocks.begin (), random_offset));
 			if (existing == blocks.end ())
 			{
 				existing = blocks.begin ();
