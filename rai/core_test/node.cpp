@@ -363,10 +363,7 @@ TEST (node, unlock_search)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	system.wallet (0)->insert_adhoc (key2.prv);
-	{
-		std::lock_guard<std::recursive_mutex> lock (system.wallet (0)->store.mutex);
-		system.wallet (0)->store.password.value_set (rai::keypair ().prv);
-	}
+	system.wallet (0)->store.password.value_set (rai::keypair ().prv);
 	auto node (system.nodes[0]);
 	{
 		auto transaction (system.wallet (0)->wallets.tx_begin (true));
