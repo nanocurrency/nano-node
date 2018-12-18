@@ -215,9 +215,10 @@ public:
 	void unchecked_put (rai::transaction const &, rai::unchecked_key const &, std::shared_ptr<rai::block> const &) override;
 	void unchecked_put (rai::transaction const &, rai::block_hash const &, std::shared_ptr<rai::block> const &) override;
 	std::vector<std::shared_ptr<rai::block>> unchecked_get (rai::transaction const &, rai::block_hash const &) override;
+	bool unchecked_exists (rai::transaction const &, rai::unchecked_key const &) override;
 	void unchecked_del (rai::transaction const &, rai::unchecked_key const &) override;
 	rai::store_iterator<rai::unchecked_key, std::shared_ptr<rai::block>> unchecked_begin (rai::transaction const &) override;
-	rai::store_iterator<rai::unchecked_key, std::shared_ptr<rai::block>> unchecked_begin (rai::transaction const &, rai::block_hash const &) override;
+	rai::store_iterator<rai::unchecked_key, std::shared_ptr<rai::block>> unchecked_begin (rai::transaction const &, rai::unchecked_key const &) override;
 	rai::store_iterator<rai::unchecked_key, std::shared_ptr<rai::block>> unchecked_end () override;
 	size_t unchecked_count (rai::transaction const &) override;
 

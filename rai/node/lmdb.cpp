@@ -694,9 +694,9 @@ rai::store_iterator<rai::unchecked_key, std::shared_ptr<rai::block>> rai::mdb_st
 	return result;
 }
 
-rai::store_iterator<rai::unchecked_key, std::shared_ptr<rai::block>> rai::mdb_store::unchecked_begin (rai::transaction const & transaction_a, rai::block_hash const & hash_a)
+rai::store_iterator<rai::unchecked_key, std::shared_ptr<rai::block>> rai::mdb_store::unchecked_begin (rai::transaction const & transaction_a, rai::unchecked_key const & key_a)
 {
-	rai::store_iterator<rai::unchecked_key, std::shared_ptr<rai::block>> result (std::make_unique<rai::mdb_iterator<rai::unchecked_key, std::shared_ptr<rai::block>>> (transaction_a, unchecked, rai::mdb_val (rai::unchecked_key (hash_a, 0))));
+	rai::store_iterator<rai::unchecked_key, std::shared_ptr<rai::block>> result (std::make_unique<rai::mdb_iterator<rai::unchecked_key, std::shared_ptr<rai::block>>> (transaction_a, unchecked, rai::mdb_val (key_a)));
 	return result;
 }
 
@@ -1770,12 +1770,18 @@ std::shared_ptr<rai::vote> rai::mdb_store::vote_get (rai::transaction const & tr
 std::vector<std::shared_ptr<rai::block>> rai::mdb_store::unchecked_get (rai::transaction const & transaction_a, rai::block_hash const & hash_a)
 {
 	std::vector<std::shared_ptr<rai::block>> result;
-	for (auto i (unchecked_begin (transaction_a, hash_a)), n (unchecked_end ()); i != n && rai::block_hash (i->first.key ()) == hash_a; ++i)
+	for (auto i (unchecked_begin (transaction_a, rai::unchecked_key (hash_a, 0))), n (unchecked_end ()); i != n && rai::block_hash (i->first.key ()) == hash_a; ++i)
 	{
 		std::shared_ptr<rai::block> block (i->second);
 		result.push_back (block);
 	}
 	return result;
+}
+
+bool rai::mdb_store::unchecked_exists (rai::transaction const & transaction_a, rai::unchecked_key const & key_a)
+{
+	auto iterator (unchecked_begin (transaction_a, key_a));
+	return iterator != unchecked_end () && rai::unchecked_key (iterator->first) == key_a;
 }
 
 void rai::mdb_store::unchecked_del (rai::transaction const & transaction_a, rai::unchecked_key const & key_a)
