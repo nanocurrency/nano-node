@@ -867,6 +867,8 @@ void rai::mdb_store::do_upgrades (rai::transaction const & transaction_a)
 		case 10:
 			upgrade_v10_to_v11 (transaction_a);
 		case 11:
+			upgrade_v11_to_v12 (transaction_a);
+		case 12:
 			break;
 		default:
 			assert (false);
@@ -1066,6 +1068,13 @@ void rai::mdb_store::upgrade_v10_to_v11 (rai::transaction const & transaction_a)
 	MDB_dbi unsynced;
 	mdb_dbi_open (env.tx (transaction_a), "unsynced", MDB_CREATE | MDB_DUPSORT, &unsynced);
 	mdb_drop (env.tx (transaction_a), unsynced, 1);
+}
+
+void rai::mdb_store::upgrade_v11_to_v12 (rai::transaction const & transaction_a)
+{
+	//version_put (transaction_a, 12);
+	mdb_drop (env.tx (transaction_a), unchecked, 1);
+	mdb_dbi_open (env.tx (transaction_a), "unchecked", MDB_CREATE, &unchecked);
 }
 
 void rai::mdb_store::clear (MDB_dbi db_a)
