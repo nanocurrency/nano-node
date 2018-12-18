@@ -1231,11 +1231,22 @@ bool rai::block_processor::have_blocks ()
 	return !blocks.empty () || !forced.empty () || !state_blocks.empty ();
 }
 
-void rai::block_processor::verify_state_blocks (std::unique_lock<std::mutex> & lock_a)
+void rai::block_processor::verify_state_blocks (std::unique_lock<std::mutex> & lock_a, size_t max_count)
 {
 	lock_a.lock ();
 	std::deque<std::pair<std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point>> items;
-	items.swap (state_blocks);
+	if (max_count == std::numeric_limits<size_t>::max () || max_count >= state_blocks.size ())
+	{
+		items.swap (state_blocks);
+	}
+	else
+	{
+		auto keep_size (state_blocks.size () - max_count);
+		items.resize (keep_size);
+		std::swap_ranges (state_blocks.end () - keep_size, state_blocks.end (), items.begin ());
+		state_blocks.resize (max_count);
+		items.swap (state_blocks);
+	}
 	lock_a.unlock ();
 	auto size (items.size ());
 	std::vector<rai::uint256_union> hashes;
@@ -1303,14 +1314,6 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 			forced.pop_front ();
 			force = true;
 		}
-		/* Verify more state blocks if blocks deque is empty
-		Because verification is long process, avoid large deque verification inside of write transaction */
-		bool start_verification (blocks.empty () && !state_blocks.empty ());
-		lock_a.unlock ();
-		if (start_verification)
-		{
-			verify_state_blocks (lock_a, 2048);
-		}
 		auto hash (block.first->hash ());
 		if (force)
 		{
@@ -1328,6 +1331,15 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 		auto process_result (process_receive_one (transaction, block.first, block.second, validated_state_block));
 		(void)process_result;
 		lock_a.lock ();
+		/* Verify more state blocks if blocks deque is empty
+		Because verification is long process, avoid large deque verification inside of write transaction */
+		bool start_verification (blocks.empty () && !state_blocks.empty ());
+		if (start_verification)
+		{
+			lock_a.unlock ();
+			verify_state_blocks (lock_a, 2048);
+			lock_a.lock ();
+		}
 	}
 	lock_a.unlock ();
 }
