@@ -1233,7 +1233,6 @@ bool rai::block_processor::have_blocks ()
 
 void rai::block_processor::verify_state_blocks (std::unique_lock<std::mutex> & lock_a, size_t max_count)
 {
-	lock_a.lock ();
 	std::deque<std::pair<std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point>> items;
 	if (max_count == std::numeric_limits<size_t>::max () || max_count >= state_blocks.size ())
 	{
@@ -1284,12 +1283,16 @@ void rai::block_processor::verify_state_blocks (std::unique_lock<std::mutex> & l
 		}
 		items.pop_front ();
 	}
-	lock_a.unlock ();
 }
 
 void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & lock_a)
 {
-	verify_state_blocks (lock_a);
+	lock_a.lock ();
+	if (!state_blocks.empty ())
+	{
+		verify_state_blocks (lock_a);
+	}
+	lock_a.unlock ();
 	auto transaction (node.store.tx_begin_write ());
 	auto start_time (std::chrono::steady_clock::now ());
 	lock_a.lock ();
@@ -1314,6 +1317,7 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 			forced.pop_front ();
 			force = true;
 		}
+		lock_a.unlock ();
 		auto hash (block.first->hash ());
 		if (force)
 		{
@@ -1333,12 +1337,9 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 		lock_a.lock ();
 		/* Verify more state blocks if blocks deque is empty
 		Because verification is long process, avoid large deque verification inside of write transaction */
-		bool start_verification (blocks.empty () && !state_blocks.empty ());
-		if (start_verification)
+		if (blocks.empty () && !state_blocks.empty ())
 		{
-			lock_a.unlock ();
 			verify_state_blocks (lock_a, 2048);
-			lock_a.lock ();
 		}
 	}
 	lock_a.unlock ();
