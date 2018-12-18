@@ -1377,13 +1377,13 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 	lock_a.lock ();
 	// Processing blocks
 	auto first_time (true);
-	unsigned number_of_blocks_processed (0);
+	unsigned number_of_blocks_processed (0), number_of_forced_processed (0);
 	while ((!blocks.empty () || !forced.empty ()) && std::chrono::steady_clock::now () - start_time < node.config.block_processor_batch_max_time)
 	{
 		if (should_log (first_time))
 		{
 			first_time = false;
-			BOOST_LOG (node.log) << boost::str (boost::format ("%1% blocks (+ %2% state blocks) in processing queue") % blocks.size () % state_blocks.size ());
+			BOOST_LOG (node.log) << boost::str (boost::format ("%1% blocks (+ %2% state blocks) (+ %3% forced) in processing queue") % blocks.size () % state_blocks.size () % forced.size ());
 		}
 		std::pair<std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point> block;
 		bool force (false);
@@ -1398,6 +1398,7 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 			block = std::make_pair (forced.front (), std::chrono::steady_clock::now ());
 			forced.pop_front ();
 			force = true;
+			number_of_forced_processed++;
 		}
 		lock_a.unlock ();
 		auto hash (block.first->hash ());
@@ -1433,7 +1434,7 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 		auto elapsed_time_ms (std::chrono::duration_cast<std::chrono::milliseconds> (end_time - start_time));
 		auto elapsed_time_ms_int (elapsed_time_ms.count ());
 
-		BOOST_LOG (node.log) << boost::str (boost::format ("Processed %1% blocks in %2% milliseconds") % number_of_blocks_processed % elapsed_time_ms_int);
+		BOOST_LOG (node.log) << boost::str (boost::format ("Processed %1% blocks (%2% blocks were forced) in %3% milliseconds") % number_of_blocks_processed % number_of_forced_processed % elapsed_time_ms_int);
 	}
 }
 
