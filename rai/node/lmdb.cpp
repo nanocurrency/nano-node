@@ -1072,7 +1072,7 @@ void rai::mdb_store::upgrade_v10_to_v11 (rai::transaction const & transaction_a)
 
 void rai::mdb_store::upgrade_v11_to_v12 (rai::transaction const & transaction_a)
 {
-	//version_put (transaction_a, 12);
+	version_put (transaction_a, 12);
 	mdb_drop (env.tx (transaction_a), unchecked, 1);
 	mdb_dbi_open (env.tx (transaction_a), "unchecked", MDB_CREATE, &unchecked);
 }
