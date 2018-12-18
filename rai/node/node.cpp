@@ -1272,6 +1272,14 @@ void rai::block_processor::process_blocks ()
 			if (elapsed_time < min_time_between_calls)
 			{
 				lock.unlock ();
+				if (node.config.logging.timing_logging ())
+				{
+					auto sleep_time_ms (std::chrono::duration_cast<std::chrono::milliseconds> (min_time_between_calls - elapsed_time));
+					auto sleep_time_ms_int (sleep_time_ms.count ());
+
+					BOOST_LOG (node.log) << boost::str (boost::format ("Sleeping thread for %1% milliseconds") % sleep_time_ms_int);
+					
+				}
 				std::this_thread::sleep_for (min_time_between_calls - elapsed_time);
 				lock.lock ();
 			}
