@@ -696,7 +696,7 @@ rai::store_iterator<rai::unchecked_key, std::shared_ptr<rai::block>> rai::mdb_st
 
 rai::store_iterator<rai::unchecked_key, std::shared_ptr<rai::block>> rai::mdb_store::unchecked_begin (rai::transaction const & transaction_a, rai::block_hash const & hash_a)
 {
-	rai::store_iterator<rai::unchecked_key, std::shared_ptr<rai::block>> result (std::make_unique<rai::mdb_iterator<rai::unchecked_key, std::shared_ptr<rai::block>>> (transaction_a, unchecked, rai::mdb_val (rai::unchecked_key (hash_a, 0 ))));
+	rai::store_iterator<rai::unchecked_key, std::shared_ptr<rai::block>> result (std::make_unique<rai::mdb_iterator<rai::unchecked_key, std::shared_ptr<rai::block>>> (transaction_a, unchecked, rai::mdb_val (rai::unchecked_key (hash_a, 0))));
 	return result;
 }
 
