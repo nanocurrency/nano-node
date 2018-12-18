@@ -1380,7 +1380,7 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 	unsigned number_of_blocks_processed (0), number_of_forced_processed (0);
 	while ((!blocks.empty () || !forced.empty ()) && std::chrono::steady_clock::now () - start_time < node.config.block_processor_batch_max_time)
 	{
-		auto log_this_record (false)
+		auto log_this_record (false);
 		if (node.config.logging.timing_logging ())
 		{
 			if (should_log (first_time))
