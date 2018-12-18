@@ -1275,7 +1275,7 @@ void nano::block_processor::process_blocks ()
 			condition.notify_all ();
 			lock.lock ();
 
-			condition.wait (lock);
+			condition.wait_for (lock, std::chrono::milliseconds (1000));
 		}
 	}
 }
