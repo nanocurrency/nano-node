@@ -1280,11 +1280,11 @@ void rai::block_processor::process_blocks ()
 	}
 }
 
-bool rai::block_processor::should_log ()
+bool rai::block_processor::should_log (bool first_time)
 {
 	auto result (false);
 	auto now (std::chrono::steady_clock::now ());
-	if (next_log < now)
+	if (first_time || next_log < now)
 	{
 		next_log = now + std::chrono::seconds (15);
 		result = true;
@@ -1301,6 +1301,7 @@ bool rai::block_processor::have_blocks ()
 void rai::block_processor::verify_state_blocks (std::unique_lock<std::mutex> & lock_a, size_t max_count)
 {
 	assert (!mutex.try_lock ());
+	auto start_time (std::chrono::steady_clock::now ());
 	std::deque<std::pair<std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point>> items;
 	if (max_count == std::numeric_limits<size_t>::max () || max_count >= state_blocks.size ())
 	{
@@ -1351,6 +1352,14 @@ void rai::block_processor::verify_state_blocks (std::unique_lock<std::mutex> & l
 		}
 		items.pop_front ();
 	}
+	if (node.config.logging.timing_logging ())
+	{
+		auto end_time (std::chrono::steady_clock::now ());
+		auto elapsed_time_ms (std::chrono::duration_cast<std::chrono::milliseconds> (end_time - start_time));
+		auto elapsed_time_ms_int (elapsed_time_ms.count ());
+
+		BOOST_LOG (node.log) << boost::str (boost::format ("Batch verified %1% state blocks in %2% milliseconds") % size % elapsed_time_ms_int);
+	}
 }
 
 void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & lock_a)
@@ -1367,11 +1376,14 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 	start_time = std::chrono::steady_clock::now ();
 	lock_a.lock ();
 	// Processing blocks
+	auto first_time (true);
+	unsigned number_of_blocks_processed (0);
 	while ((!blocks.empty () || !forced.empty ()) && std::chrono::steady_clock::now () - start_time < node.config.block_processor_batch_max_time)
 	{
-		if ((blocks.size () + state_blocks.size ()) > 64 && should_log ())
+		if (should_log (first_time))
 		{
-			BOOST_LOG (node.log) << boost::str (boost::format ("%1% blocks in processing queue") % (blocks.size () + state_blocks.size ()));
+			first_time = false;
+			BOOST_LOG (node.log) << boost::str (boost::format ("%1% blocks (+ %2% state blocks) in processing queue") % blocks.size () % state_blocks.size ());
 		}
 		std::pair<std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point> block;
 		bool force (false);
@@ -1403,6 +1415,7 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 		Because of that we should set set validated_state_block as "false" for forced state blocks (!force) */
 		bool validated_state_block (!force && block.first->type () == rai::block_type::state);
 		auto process_result (process_receive_one (transaction, block.first, block.second, validated_state_block));
+		number_of_blocks_processed++;
 		(void)process_result;
 		lock_a.lock ();
 		/* Verify more state blocks if blocks deque is empty
@@ -1413,6 +1426,15 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 		}
 	}
 	lock_a.unlock ();
+
+	if (node.config.logging.timing_logging ())
+	{
+		auto end_time (std::chrono::steady_clock::now ());
+		auto elapsed_time_ms (std::chrono::duration_cast<std::chrono::milliseconds> (end_time - start_time));
+		auto elapsed_time_ms_int (elapsed_time_ms.count ());
+
+		BOOST_LOG (node.log) << boost::str (boost::format ("Processed %1% blocks in %2% milliseconds") % number_of_blocks_processed % elapsed_time_ms_int);
+	}
 }
 
 rai::process_return rai::block_processor::process_receive_one (rai::transaction const & transaction_a, std::shared_ptr<rai::block> block_a, std::chrono::steady_clock::time_point origination, bool validated_state_block)
