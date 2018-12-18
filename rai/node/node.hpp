@@ -386,7 +386,7 @@ public:
 	bool full ();
 	void add (std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point);
 	void force (std::shared_ptr<rai::block>);
-	bool should_log ();
+	bool should_log (bool);
 	bool have_blocks ();
 	void process_blocks ();
 	rai::process_return process_receive_one (rai::transaction const &, std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point = std::chrono::steady_clock::now (), bool = false);
