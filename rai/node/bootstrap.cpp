@@ -799,7 +799,7 @@ bool rai::bootstrap_attempt::request_frontier (std::unique_lock<std::mutex> & lo
 			future = client->promise.get_future ();
 		}
 		lock_a.unlock ();
-		result = consume_future (future);
+		result = consume_future (future); // This is out of scope of `client' so when the last reference via boost::asio::io_service is lost and the client is destroyed, the future throws an exception.
 		lock_a.lock ();
 		if (result)
 		{
@@ -852,12 +852,15 @@ void rai::bootstrap_attempt::request_push (std::unique_lock<std::mutex> & lock_a
 	bool error (false);
 	if (auto connection_shared = connection_frontier_request.lock ())
 	{
-		auto client (std::make_shared<rai::bulk_push_client> (connection_shared));
-		client->start ();
-		push = client;
-		auto future (client->promise.get_future ());
+		std::future<bool> future;
+		{
+			auto client (std::make_shared<rai::bulk_push_client> (connection_shared));
+			client->start ();
+			push = client;
+			future = client->promise.get_future ();
+		}
 		lock_a.unlock ();
-		error = consume_future (future);
+		error = consume_future (future); // This is out of scope of `client' so when the last reference via boost::asio::io_service is lost and the client is destroyed, the future throws an exception.
 		lock_a.lock ();
 	}
 	if (node->config.logging.network_logging ())
@@ -926,7 +929,7 @@ void rai::bootstrap_attempt::run ()
 		BOOST_LOG (node->log) << "Completed pulls";
 		request_push (lock);
 		// Start lazy bootstrap if some lazy keys were inserted
-		if (!lazy_keys.empty ())
+		if (!lazy_keys.empty () && !node->flags.disable_lazy_bootstrap)
 		{
 			lock.unlock ();
 			lazy_mode = true;
@@ -1247,10 +1250,10 @@ void rai::bootstrap_attempt::lazy_run ()
 	auto start_time (std::chrono::steady_clock::now ());
 	auto max_time (std::chrono::minutes (node->flags.disable_legacy_bootstrap ? 48 * 60 : 30));
 	std::unique_lock<std::mutex> lock (mutex);
-	while ((still_pulling () || !lazy_finished ()) && std::chrono::steady_clock::now () - start_time < max_time)
+	while ((still_pulling () || !lazy_finished ()) && lazy_stopped < lazy_max_stopped && std::chrono::steady_clock::now () - start_time < max_time)
 	{
 		unsigned iterations (0);
-		while (still_pulling () && std::chrono::steady_clock::now () - start_time < max_time)
+		while (still_pulling () && lazy_stopped < lazy_max_stopped && std::chrono::steady_clock::now () - start_time < max_time)
 		{
 			if (!pulls.empty ())
 			{
@@ -1286,6 +1289,23 @@ void rai::bootstrap_attempt::lazy_run ()
 	if (!stopped)
 	{
 		BOOST_LOG (node->log) << "Completed lazy pulls";
+		// Fallback to legacy bootstrap
+		std::unique_lock<std::mutex> lazy_lock (lazy_mutex);
+		if (!lazy_keys.empty () && !node->flags.disable_legacy_bootstrap)
+		{
+			pulls.clear ();
+			lock.unlock ();
+			lazy_blocks.clear ();
+			lazy_keys.clear ();
+			lazy_pulls.clear ();
+			lazy_state_unknown.clear ();
+			lazy_balances.clear ();
+			lazy_stopped = 0;
+			lazy_mode = false;
+			lazy_lock.unlock ();
+			run ();
+			lock.lock ();
+		}
 	}
 	stopped = true;
 	condition.notify_all ();
@@ -2566,20 +2586,30 @@ connection (connection_a)
 
 void rai::bulk_push_server::receive ()
 {
-	auto this_l (shared_from_this ());
-	connection->socket->async_read (receive_buffer, 1, [this_l](boost::system::error_code const & ec, size_t size_a) {
-		if (!ec)
+	if (connection->node->bootstrap_initiator.in_progress ())
+	{
+		if (connection->node->config.logging.bulk_pull_logging ())
 		{
-			this_l->received_type ();
+			BOOST_LOG (connection->node->log) << "Aborting bulk_push because a bootstrap attempt is in progress";
 		}
-		else
-		{
-			if (this_l->connection->node->config.logging.bulk_pull_logging ())
+	}
+	else
+	{
+		auto this_l (shared_from_this ());
+		connection->socket->async_read (receive_buffer, 1, [this_l](boost::system::error_code const & ec, size_t size_a) {
+			if (!ec)
 			{
-				BOOST_LOG (this_l->connection->node->log) << boost::str (boost::format ("Error receiving block type: %1%") % ec.message ());
+				this_l->received_type ();
 			}
-		}
-	});
+			else
+			{
+				if (this_l->connection->node->config.logging.bulk_pull_logging ())
+				{
+					BOOST_LOG (this_l->connection->node->log) << boost::str (boost::format ("Error receiving block type: %1%") % ec.message ());
+				}
+			}
+		});
+	}
 }
 
 void rai::bulk_push_server::received_type ()

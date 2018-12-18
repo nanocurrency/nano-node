@@ -1944,33 +1944,3 @@ TEST (node, confirm_req_active)
 		ASSERT_LT (vote->sequence, 20);
 	}
 }
-
-TEST (node, confirm_back)
-{
-	rai::system system (24000, 1);
-	rai::keypair key;
-	auto & node (*system.nodes[0]);
-	rai::genesis genesis;
-	auto genesis_start_balance (node.balance (rai::test_genesis_key.pub));
-	auto send1 (std::make_shared<rai::send_block> (genesis.hash (), key.pub, genesis_start_balance - 1, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (genesis.hash ())));
-	auto open (std::make_shared<rai::state_block> (key.pub, 0, key.pub, 1, send1->hash (), key.prv, key.pub, system.work.generate (key.pub)));
-	auto send2 (std::make_shared<rai::state_block> (key.pub, open->hash (), key.pub, 0, rai::test_genesis_key.pub, key.prv, key.pub, system.work.generate (open->hash ())));
-	node.process_active (send1);
-	node.process_active (open);
-	node.process_active (send2);
-	node.block_processor.flush ();
-	ASSERT_EQ (3, node.active.roots.size ());
-	std::vector<rai::block_hash> vote_blocks;
-	vote_blocks.push_back (send2->hash ());
-	auto vote (std::make_shared<rai::vote> (rai::test_genesis_key.pub, rai::test_genesis_key.prv, 0, vote_blocks));
-	{
-		auto transaction (node.store.tx_begin_read ());
-		std::unique_lock<std::mutex> lock (node.active.mutex);
-		node.vote_processor.vote_blocking (transaction, vote, node.network.endpoint ());
-	}
-	system.deadline_set (10s);
-	while (!node.active.roots.empty ())
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
-}

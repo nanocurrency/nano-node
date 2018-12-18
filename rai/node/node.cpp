@@ -23,6 +23,7 @@ std::chrono::seconds constexpr rai::node::search_pending_interval;
 int constexpr rai::port_mapping::mapping_timeout;
 int constexpr rai::port_mapping::check_timeout;
 unsigned constexpr rai::active_transactions::announce_interval_ms;
+size_t constexpr rai::active_transactions::max_broadcast_queue;
 size_t constexpr rai::block_arrival::arrival_size_min;
 std::chrono::seconds constexpr rai::block_arrival::arrival_time_min;
 
@@ -376,8 +377,7 @@ void rai::network::broadcast_confirm_req_base (std::shared_ptr<rai::block> block
 	}
 	if (!endpoints_a->empty ())
 	{
-		delay_a += 50;
-		delay_a += std::rand () % 50;
+		delay_a += std::rand () % broadcast_interval_ms;
 
 		std::weak_ptr<rai::node> node_w (node.shared ());
 		node.alarm.add (std::chrono::steady_clock::now () + std::chrono::milliseconds (delay_a), [node_w, block_a, endpoints_a, delay_a]() {
@@ -868,7 +868,7 @@ void rai::vote_processor::process_loop ()
 				elapsed_time_ms = std::chrono::duration_cast<std::chrono::milliseconds> (elapsed_time);
 				elapsed_time_ms_int = elapsed_time_ms.count ();
 
-				if (elapsed_time_ms_int < 100)
+				if (elapsed_time_ms_int >= 100)
 				{
 					/*
 					 * If the time spent was less than 100ms then
@@ -1157,7 +1157,7 @@ void rai::block_processor::flush ()
 bool rai::block_processor::full ()
 {
 	std::unique_lock<std::mutex> lock (mutex);
-	return blocks.size () > 16384;
+	return (blocks.size () + state_blocks.size ()) > 16384;
 }
 
 void rai::block_processor::add (std::shared_ptr<rai::block> block_a, std::chrono::steady_clock::time_point origination)
@@ -1285,9 +1285,9 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 	// Processing blocks
 	while ((!blocks.empty () || !forced.empty ()) && std::chrono::steady_clock::now () - start_time < node.config.block_processor_batch_max_time)
 	{
-		if (blocks.size () > 64 && should_log ())
+		if ((blocks.size () + state_blocks.size ()) > 64 && should_log ())
 		{
-			BOOST_LOG (node.log) << boost::str (boost::format ("%1% blocks in processing queue") % blocks.size ());
+			BOOST_LOG (node.log) << boost::str (boost::format ("%1% blocks in processing queue") % (blocks.size () + state_blocks.size ()));
 		}
 		std::pair<std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point> block;
 		bool force (false);
@@ -1932,13 +1932,13 @@ void rai::node::stop ()
 	{
 		block_processor_thread.join ();
 	}
+	vote_processor.stop ();
 	active.stop ();
 	network.stop ();
 	bootstrap_initiator.stop ();
 	bootstrap.stop ();
 	port_mapping.stop ();
 	checker.stop ();
-	vote_processor.stop ();
 	wallets.stop ();
 }
 
@@ -2843,6 +2843,7 @@ void rai::election::confirm_once (rai::transaction const & transaction_a)
 {
 	if (!confirmed.exchange (true))
 	{
+		status.election_end = std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ());
 		status.election_duration = std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::steady_clock::now () - election_start);
 		auto winner_l (status.winner);
 		auto node_l (node.shared ());
@@ -2851,23 +2852,6 @@ void rai::election::confirm_once (rai::transaction const & transaction_a)
 			node_l->process_confirmed (winner_l);
 			confirmation_action_l (winner_l);
 		});
-		confirm_back (transaction_a);
-	}
-}
-
-void rai::election::confirm_back (rai::transaction const & transaction_a)
-{
-	std::vector<rai::block_hash> hashes = { status.winner->previous (), status.winner->source (), status.winner->link () };
-	for (auto & hash : hashes)
-	{
-		if (!hash.is_zero () && !node.ledger.is_epoch_link (hash))
-		{
-			auto existing (node.active.successors.find (hash));
-			if (existing != node.active.successors.end () && !existing->second->confirmed && !existing->second->stopped && existing->second->blocks.size () == 1)
-			{
-				existing->second->confirm_once (transaction_a);
-			}
-		}
 	}
 }
 
@@ -3165,7 +3149,10 @@ void rai::active_transactions::announce_votes (std::unique_lock<std::mutex> & lo
 				if (node.ledger.could_fit (transaction, *election_l->status.winner))
 				{
 					// Broadcast winner
-					rebroadcast_bundle.push_back (election_l->status.winner);
+					if (rebroadcast_bundle.size () < max_broadcast_queue)
+					{
+						rebroadcast_bundle.push_back (election_l->status.winner);
+					}
 				}
 				else
 				{
@@ -3205,9 +3192,12 @@ void rai::active_transactions::announce_votes (std::unique_lock<std::mutex> & lo
 						}
 					}
 				}
-				if ((!reps->empty () && total_weight > node.config.online_weight_minimum.number ()) || roots.size () > 5)
+				if ((!reps->empty () && total_weight > node.config.online_weight_minimum.number ()) || roots_size > 5)
 				{
-					confirm_req_bundle.push_back (std::make_pair (i->election->status.winner, reps));
+					if (confirm_req_bundle.size () < max_broadcast_queue)
+					{
+						confirm_req_bundle.push_back (std::make_pair (i->election->status.winner, reps));
+					}
 				}
 				else
 				{
@@ -3262,7 +3252,7 @@ void rai::active_transactions::announce_loop ()
 	while (!stopped)
 	{
 		announce_votes (lock);
-		condition.wait_for (lock, std::chrono::milliseconds (announce_interval_ms + roots.size () * node.network.broadcast_interval_ms * 3 / 2));
+		condition.wait_for (lock, std::chrono::milliseconds (announce_interval_ms + (std::min (roots.size (), max_broadcast_queue) * node.network.broadcast_interval_ms * 2)));
 	}
 }
 
@@ -3280,6 +3270,7 @@ void rai::active_transactions::stop ()
 	{
 		thread.join ();
 	}
+	lock.lock ();
 	roots.clear ();
 }
 

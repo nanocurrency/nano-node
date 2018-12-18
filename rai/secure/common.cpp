@@ -1,6 +1,7 @@
 #include <rai/secure/common.hpp>
 
 #include <rai/lib/interface.h>
+#include <rai/lib/numbers.hpp>
 #include <rai/node/common.hpp>
 #include <rai/secure/blockstore.hpp>
 #include <rai/secure/versioning.hpp>
@@ -673,11 +674,10 @@ std::shared_ptr<rai::vote> rai::vote_uniquer::unique (std::shared_ptr<rai::vote>
 		{
 			existing = vote_a;
 		}
-		for (auto i (0); i < cleanup_count; ++i)
+		for (auto i (0); i < cleanup_count && votes.size () > 0; ++i)
 		{
-			rai::uint256_union random;
-			rai::random_pool.GenerateBlock (random.bytes.data (), random.bytes.size ());
-			auto existing (votes.find (random));
+			auto random_offset (rai::random_pool.GenerateWord32 (0, votes.size () - 1));
+			auto existing (std::next (votes.begin (), random_offset));
 			if (existing == votes.end ())
 			{
 				existing = votes.begin ();
