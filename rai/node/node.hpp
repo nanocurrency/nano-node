@@ -429,7 +429,7 @@ public:
 
 private:
 	void queue_unchecked (rai::transaction const &, rai::block_hash const &);
-	void verify_state_blocks (std::unique_lock<std::mutex> &);
+	void verify_state_blocks (std::unique_lock<std::mutex> &, size_t = std::numeric_limits<size_t>::max ());
 	void process_receive_many (std::unique_lock<std::mutex> &);
 	bool stopped;
 	bool active;
