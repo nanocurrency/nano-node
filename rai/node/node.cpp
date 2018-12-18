@@ -1380,7 +1380,7 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 	unsigned number_of_blocks_processed (0), number_of_forced_processed (0);
 	while ((!blocks.empty () || !forced.empty ()) && std::chrono::steady_clock::now () - start_time < node.config.block_processor_batch_max_time)
 	{
-		if (should_log (first_time))
+		if ((should_log (first_time) && first_time) || ((blocks.size () + state_blocks.size () + forced.size ()) > 64 && should_log (false)))
 		{
 			first_time = false;
 			BOOST_LOG (node.log) << boost::str (boost::format ("%1% blocks (+ %2% state blocks) (+ %3% forced) in processing queue") % blocks.size () % state_blocks.size () % forced.size ());
