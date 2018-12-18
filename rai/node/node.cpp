@@ -1233,6 +1233,7 @@ bool rai::block_processor::have_blocks ()
 
 void rai::block_processor::verify_state_blocks (std::unique_lock<std::mutex> & lock_a, size_t max_count)
 {
+	assert (!mutex.try_lock ());
 	std::deque<std::pair<std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point>> items;
 	if (max_count == std::numeric_limits<size_t>::max () || max_count >= state_blocks.size ())
 	{
