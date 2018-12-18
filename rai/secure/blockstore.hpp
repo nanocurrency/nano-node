@@ -200,6 +200,7 @@ public:
 	virtual std::shared_ptr<rai::block> block_random (rai::transaction const &) = 0;
 	virtual void block_del (rai::transaction const &, rai::block_hash const &) = 0;
 	virtual bool block_exists (rai::transaction const &, rai::block_hash const &) = 0;
+	virtual bool block_exists (rai::transaction const &, rai::block_type, rai::block_hash const &) = 0;
 	virtual rai::block_counts block_count (rai::transaction const &) = 0;
 	virtual bool root_exists (rai::transaction const &, rai::uint256_union const &) = 0;
 

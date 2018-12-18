@@ -1360,44 +1360,72 @@ void rai::mdb_store::block_del (rai::transaction const & transaction_a, rai::blo
 	}
 }
 
-bool rai::mdb_store::block_exists (rai::transaction const & transaction_a, rai::block_hash const & hash_a)
+bool rai::mdb_store::block_exists (rai::transaction const & transaction_a, rai::block_type type, rai::block_hash const & hash_a)
 {
-	auto exists (true);
+	auto exists (false);
 	rai::mdb_val junk;
-	auto status (mdb_get (env.tx (transaction_a), send_blocks, rai::mdb_val (hash_a), junk));
-	assert (status == 0 || status == MDB_NOTFOUND);
-	exists = status == 0;
-	if (!exists)
+
+	switch (type)
 	{
-		auto status (mdb_get (env.tx (transaction_a), receive_blocks, rai::mdb_val (hash_a), junk));
-		release_assert (status == 0 || status == MDB_NOTFOUND);
-		exists = status == 0;
-		if (!exists)
+		case rai::block_type::send:
+		{
+			auto status (mdb_get (env.tx (transaction_a), send_blocks, rai::mdb_val (hash_a), junk));
+			assert (status == 0 || status == MDB_NOTFOUND);
+			exists = status == 0;
+			break;
+		}
+		case rai::block_type::receive:
+		{
+			auto status (mdb_get (env.tx (transaction_a), receive_blocks, rai::mdb_val (hash_a), junk));
+			release_assert (status == 0 || status == MDB_NOTFOUND);
+			exists = status == 0;
+			break;
+		}
+		case rai::block_type::open:
 		{
 			auto status (mdb_get (env.tx (transaction_a), open_blocks, rai::mdb_val (hash_a), junk));
 			release_assert (status == 0 || status == MDB_NOTFOUND);
 			exists = status == 0;
+			break;
+		}
+		case rai::block_type::change:
+		{
+			auto status (mdb_get (env.tx (transaction_a), change_blocks, rai::mdb_val (hash_a), junk));
+			release_assert (status == 0 || status == MDB_NOTFOUND);
+			exists = status == 0;
+			break;
+		}
+		case rai::block_type::state:
+		{
+			auto status (mdb_get (env.tx (transaction_a), state_blocks_v0, rai::mdb_val (hash_a), junk));
+			release_assert (status == 0 || status == MDB_NOTFOUND);
+			exists = status == 0;
 			if (!exists)
 			{
-				auto status (mdb_get (env.tx (transaction_a), change_blocks, rai::mdb_val (hash_a), junk));
+				auto status (mdb_get (env.tx (transaction_a), state_blocks_v1, rai::mdb_val (hash_a), junk));
 				release_assert (status == 0 || status == MDB_NOTFOUND);
 				exists = status == 0;
-				if (!exists)
-				{
-					auto status (mdb_get (env.tx (transaction_a), state_blocks_v0, rai::mdb_val (hash_a), junk));
-					release_assert (status == 0 || status == MDB_NOTFOUND);
-					exists = status == 0;
-					if (!exists)
-					{
-						auto status (mdb_get (env.tx (transaction_a), state_blocks_v1, rai::mdb_val (hash_a), junk));
-						release_assert (status == 0 || status == MDB_NOTFOUND);
-						exists = status == 0;
-					}
-				}
 			}
+			break;
 		}
+		case rai::block_type::invalid:
+		case rai::block_type::not_a_block:
+			break;
 	}
+
 	return exists;
+}
+
+bool rai::mdb_store::block_exists (rai::transaction const & tx_a, rai::block_hash const & hash_a)
+{
+	// clang-format off
+	return
+		block_exists (tx_a, rai::block_type::send, hash_a) ||
+		block_exists (tx_a, rai::block_type::receive, hash_a) ||
+		block_exists (tx_a, rai::block_type::open, hash_a) ||
+		block_exists (tx_a, rai::block_type::change, hash_a) ||
+		block_exists (tx_a, rai::block_type::state, hash_a);
+	// clang-format on
 }
 
 rai::block_counts rai::mdb_store::block_count (rai::transaction const & transaction_a)
