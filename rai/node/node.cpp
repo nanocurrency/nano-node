@@ -1268,7 +1268,7 @@ void rai::block_processor::process_blocks ()
 		{
 			now = std::chrono::steady_clock::now ();
 
-			elapsed_time = std::chrono::duration_cast<std::chrono::seconds> (now - last_run);
+			elapsed_time = std::chrono::duration_cast<std::chrono::milliseconds> (now - last_run);
 			if (elapsed_time < min_time_between_calls)
 			{
 				lock.unlock ();
