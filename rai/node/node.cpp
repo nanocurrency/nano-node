@@ -1305,11 +1305,11 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 		}
 		/* Verify more state blocks if blocks deque is empty
 		Because verification is long process, avoid large deque verification inside of write transaction */
-		bool start_verification (blocks.empty () && !state_blocks.empty () && state_blocks.size () < 2048);
+		bool start_verification (blocks.empty () && !state_blocks.empty ());
 		lock_a.unlock ();
 		if (start_verification)
 		{
-			verify_state_blocks (lock_a);
+			verify_state_blocks (lock_a, 2048);
 		}
 		auto hash (block.first->hash ());
 		if (force)
