@@ -1289,13 +1289,15 @@ void rai::block_processor::verify_state_blocks (std::unique_lock<std::mutex> & l
 void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & lock_a)
 {
 	lock_a.lock ();
-	if (!state_blocks.empty ())
+	auto start_time (std::chrono::steady_clock::now ());
+	// Limit state blocks verification time
+	while (!state_blocks.empty () && std::chrono::steady_clock::now () - start_time < std::chrono::seconds (2))
 	{
-		verify_state_blocks (lock_a);
+		verify_state_blocks (lock_a, 2048);
 	}
 	lock_a.unlock ();
 	auto transaction (node.store.tx_begin_write ());
-	auto start_time (std::chrono::steady_clock::now ());
+	start_time = std::chrono::steady_clock::now ();
 	lock_a.lock ();
 	// Processing blocks
 	while ((!blocks.empty () || !forced.empty ()) && std::chrono::steady_clock::now () - start_time < node.config.block_processor_batch_max_time)
@@ -1340,7 +1342,7 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 		Because verification is long process, avoid large deque verification inside of write transaction */
 		if (blocks.empty () && !state_blocks.empty ())
 		{
-			verify_state_blocks (lock_a, 2048);
+			verify_state_blocks (lock_a, 256);
 		}
 	}
 	lock_a.unlock ();
