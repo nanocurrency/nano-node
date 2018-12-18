@@ -1258,11 +1258,25 @@ void rai::block_processor::force (std::shared_ptr<rai::block> block_a)
 
 void rai::block_processor::process_blocks ()
 {
+	std::chrono::steady_clock::time_point now, last_run;
+	std::chrono::milliseconds elapsed_time, min_time_between_calls (100);
+
 	std::unique_lock<std::mutex> lock (mutex);
 	while (!stopped)
 	{
 		if (have_blocks ())
 		{
+			now = std::chrono::steady_clock::now ();
+
+			elapsed_time = std::chrono::duration_cast<std::chrono::seconds> (now - last_run);
+			if (elapsed_time < min_time_between_calls)
+			{
+				lock.unlock ();
+				std::this_thread::sleep_for (min_time_between_calls - elapsed_time);
+				lock.lock ();
+			}
+			last_run = now;
+
 			active = true;
 			lock.unlock ();
 			process_receive_many (lock);
