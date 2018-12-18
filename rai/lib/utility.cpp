@@ -55,9 +55,6 @@ namespace thread_role
 			case rai::thread_role::name::voting:
 				thread_role_name_string = "Voting";
 				break;
-			case rai::thread_role::name::signature_checking:
-				thread_role_name_string = "Signature check";
-				break;
 		}
 
 		/*

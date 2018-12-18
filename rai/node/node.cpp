@@ -929,10 +929,9 @@ void rai::vote_processor::verify_votes (std::deque<std::pair<std::shared_ptr<rai
 		pub_keys.push_back (vote.first->account.bytes.data ());
 		signatures.push_back (vote.first->signature.bytes.data ());
 	}
-	std::promise<void> promise;
-	rai::signature_check_set check = { size, messages.data (), lengths.data (), pub_keys.data (), signatures.data (), verifications.data (), &promise };
-	node.checker.add (check);
-	promise.get_future ().wait ();
+	/* Verifications is vector if signatures check results
+	validate_message_batch returing "true" if there are at least 1 invalid signature */
+	rai::validate_message_batch (messages.data (), lengths.data (), pub_keys.data (), signatures.data (), size, verifications.data ());
 	std::remove_reference_t<decltype (votes_a)> result;
 	auto i (0);
 	for (auto & vote : votes_a)
@@ -1043,85 +1042,6 @@ bool rai::rep_crawler::exists (rai::block_hash const & hash_a)
 	return active.count (hash_a) != 0;
 }
 
-rai::signature_checker::signature_checker () :
-started (false),
-stopped (false),
-thread ([this]() { run (); })
-{
-	std::unique_lock<std::mutex> lock (mutex);
-	while (!started)
-	{
-		condition.wait (lock);
-	}
-}
-
-rai::signature_checker::~signature_checker ()
-{
-	stop ();
-}
-
-void rai::signature_checker::add (rai::signature_check_set & check_a)
-{
-	std::lock_guard<std::mutex> lock (mutex);
-	checks.push_back (check_a);
-	condition.notify_all ();
-}
-
-void rai::signature_checker::stop ()
-{
-	std::unique_lock<std::mutex> lock (mutex);
-	stopped = true;
-	lock.unlock ();
-	condition.notify_all ();
-	if (thread.joinable ())
-	{
-		thread.join ();
-	}
-}
-
-void rai::signature_checker::flush ()
-{
-	std::unique_lock<std::mutex> lock (mutex);
-	while (!stopped && !checks.empty ())
-	{
-		condition.wait (lock);
-	}
-}
-
-void rai::signature_checker::verify (rai::signature_check_set & check_a)
-{
-	/* Verifications is vector if signatures check results
-	 validate_message_batch returing "true" if there are at least 1 invalid signature */
-	auto code (rai::validate_message_batch (check_a.messages, check_a.message_lengths, check_a.pub_keys, check_a.signatures, check_a.size, check_a.verifications));
-	(void)code;
-	release_assert (std::all_of (check_a.verifications, check_a.verifications + check_a.size, [](int verification) { return verification == 0 || verification == 1; }));
-	check_a.promise->set_value ();
-}
-
-void rai::signature_checker::run ()
-{
-	rai::thread_role::set (rai::thread_role::name::signature_checking);
-	std::unique_lock<std::mutex> lock (mutex);
-	started = true;
-	condition.notify_all ();
-	while (!stopped)
-	{
-		if (!checks.empty ())
-		{
-			auto check (checks.front ());
-			checks.pop_front ();
-			lock.unlock ();
-			verify (check);
-			lock.lock ();
-			condition.notify_all ();
-		}
-		else
-		{
-			condition.wait (lock);
-		}
-	}
-}
-
 rai::block_processor::block_processor (rai::node & node_a) :
 stopped (false),
 active (false),
@@ -1146,7 +1066,6 @@ void rai::block_processor::stop ()
 
 void rai::block_processor::flush ()
 {
-	node.checker.flush ();
 	std::unique_lock<std::mutex> lock (mutex);
 	while (!stopped && (have_blocks () || active))
 	{
@@ -1260,7 +1179,7 @@ void rai::block_processor::verify_state_blocks (std::unique_lock<std::mutex> & l
 	std::vector<unsigned char const *> signatures;
 	signatures.reserve (size);
 	std::vector<int> verifications;
-	verifications.resize (size, 0);
+	verifications.resize (size);
 	for (auto i (0); i < size; ++i)
 	{
 		auto & block (static_cast<rai::state_block &> (*items[i].first));
@@ -1270,10 +1189,10 @@ void rai::block_processor::verify_state_blocks (std::unique_lock<std::mutex> & l
 		pub_keys.push_back (block.hashables.account.bytes.data ());
 		signatures.push_back (block.signature.bytes.data ());
 	}
-	std::promise<void> promise;
-	rai::signature_check_set check = { size, messages.data (), lengths.data (), pub_keys.data (), signatures.data (), verifications.data (), &promise };
-	node.checker.add (check);
-	promise.get_future ().wait ();
+	/* Verifications is vector if signatures check results
+	validate_message_batch returing "true" if there are at least 1 invalid signature */
+	auto code (rai::validate_message_batch (messages.data (), lengths.data (), pub_keys.data (), signatures.data (), size, verifications.data ()));
+	(void)code;
 	lock_a.lock ();
 	for (auto i (0); i < size; ++i)
 	{
@@ -1954,7 +1873,7 @@ void rai::node::stop ()
 	bootstrap_initiator.stop ();
 	bootstrap.stop ();
 	port_mapping.stop ();
-	checker.stop ();
+	vote_processor.stop ();
 	wallets.stop ();
 }
 
