@@ -1340,7 +1340,7 @@ bool rai::bootstrap_attempt::process_block (std::shared_ptr<rai::block> block_a,
 		{
 			// Search block in ledger (old)
 			auto transaction (node->store.tx_begin_read ());
-			if (!node->store.block_exists (transaction, hash))
+			if (!node->store.block_exists (transaction, block_a->type (), hash))
 			{
 				rai::uint128_t balance (std::numeric_limits<rai::uint128_t>::max ());
 				node->block_processor.add (block_a, std::chrono::steady_clock::time_point ());
