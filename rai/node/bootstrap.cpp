@@ -411,7 +411,8 @@ void rai::frontier_req_client::next (rai::transaction const & transaction_a)
 rai::bulk_pull_client::bulk_pull_client (std::shared_ptr<rai::bootstrap_client> connection_a, rai::pull_info const & pull_a) :
 connection (connection_a),
 pull (pull_a),
-total_blocks (0)
+total_blocks (0),
+unexpected_count (0)
 {
 	std::lock_guard<std::mutex> mutex (connection->attempt->mutex);
 	connection->attempt->condition.notify_all ();
@@ -580,6 +581,10 @@ void rai::bulk_pull_client::received_block (boost::system::error_code const & ec
 				expected = block->previous ();
 				block_expected = true;
 			}
+			else
+			{
+				unexpected_count++;
+			}
 			if (connection->block_count++ == 0)
 			{
 				connection->start_time = std::chrono::steady_clock::now ();
@@ -589,7 +594,13 @@ void rai::bulk_pull_client::received_block (boost::system::error_code const & ec
 			bool stop_pull (connection->attempt->process_block (block, total_blocks, block_expected));
 			if (!stop_pull && !connection->hard_stop.load ())
 			{
-				receive_block ();
+				/* Process block in lazy pull if not stopped
+				Stop usual pull request with unexpected block & more than 16k blocks processed
+				to prevent spam */
+				if (connection->attempt->lazy_mode || unexpected_count < 16384)
+				{
+					receive_block ();
+				}
 			}
 			else if (stop_pull && block_expected)
 			{
