@@ -240,7 +240,7 @@ TEST (bootstrap, simple)
 	auto block3 (store.unchecked_get (transaction, block1->previous ()));
 	ASSERT_FALSE (block3.empty ());
 	ASSERT_EQ (*block1, *block3[0]);
-	store.unchecked_del (transaction, block1->previous (), block1);
+	store.unchecked_del (transaction, rai::unchecked_key (block1->previous (), block1->hash ()));
 	auto block4 (store.unchecked_get (transaction, block1->previous ()));
 	ASSERT_TRUE (block4.empty ());
 }
@@ -391,9 +391,9 @@ TEST (block_store, one_bootstrap)
 	auto begin (store.unchecked_begin (transaction));
 	auto end (store.unchecked_end ());
 	ASSERT_NE (end, begin);
-	rai::uint256_union hash1 (begin->first);
+	rai::uint256_union hash1 (begin->first.key ());
 	ASSERT_EQ (block1->hash (), hash1);
-	auto blocks (store.unchecked_get (transaction, rai::block_hash (begin->first)));
+	auto blocks (store.unchecked_get (transaction, hash1));
 	ASSERT_EQ (1, blocks.size ());
 	auto block2 (blocks[0]);
 	ASSERT_EQ (*block1, *block2);
@@ -877,7 +877,7 @@ TEST (block_store, upgrade_v6_v7)
 }
 
 // Databases need to be dropped in order to convert to dupsort compatible
-TEST (block_store, change_dupsort)
+TEST (block_store, DISABLED_change_dupsort) // Unchecked is no longer dupsort table
 {
 	auto path (rai::unique_path ());
 	bool init (false);

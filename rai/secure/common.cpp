@@ -299,6 +299,11 @@ bool rai::pending_key::operator== (rai::pending_key const & other_a) const
 	return account == other_a.account && hash == other_a.hash;
 }
 
+rai::block_hash rai::pending_key::key () const
+{
+	return account;
+}
+
 rai::block_info::block_info () :
 account (0),
 balance (0)

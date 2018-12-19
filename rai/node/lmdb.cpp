@@ -688,21 +688,21 @@ rai::store_iterator<rai::account, rai::uint128_union> rai::mdb_store::representa
 	return result;
 }
 
-rai::store_iterator<rai::block_hash, std::shared_ptr<rai::block>> rai::mdb_store::unchecked_begin (rai::transaction const & transaction_a)
+rai::store_iterator<rai::unchecked_key, std::shared_ptr<rai::block>> rai::mdb_store::unchecked_begin (rai::transaction const & transaction_a)
 {
-	rai::store_iterator<rai::block_hash, std::shared_ptr<rai::block>> result (std::make_unique<rai::mdb_iterator<rai::account, std::shared_ptr<rai::block>>> (transaction_a, unchecked));
+	rai::store_iterator<rai::unchecked_key, std::shared_ptr<rai::block>> result (std::make_unique<rai::mdb_iterator<rai::unchecked_key, std::shared_ptr<rai::block>>> (transaction_a, unchecked));
 	return result;
 }
 
-rai::store_iterator<rai::block_hash, std::shared_ptr<rai::block>> rai::mdb_store::unchecked_begin (rai::transaction const & transaction_a, rai::block_hash const & hash_a)
+rai::store_iterator<rai::unchecked_key, std::shared_ptr<rai::block>> rai::mdb_store::unchecked_begin (rai::transaction const & transaction_a, rai::unchecked_key const & key_a)
 {
-	rai::store_iterator<rai::block_hash, std::shared_ptr<rai::block>> result (std::make_unique<rai::mdb_iterator<rai::block_hash, std::shared_ptr<rai::block>>> (transaction_a, unchecked, rai::mdb_val (hash_a)));
+	rai::store_iterator<rai::unchecked_key, std::shared_ptr<rai::block>> result (std::make_unique<rai::mdb_iterator<rai::unchecked_key, std::shared_ptr<rai::block>>> (transaction_a, unchecked, rai::mdb_val (key_a)));
 	return result;
 }
 
-rai::store_iterator<rai::block_hash, std::shared_ptr<rai::block>> rai::mdb_store::unchecked_end ()
+rai::store_iterator<rai::unchecked_key, std::shared_ptr<rai::block>> rai::mdb_store::unchecked_end ()
 {
-	rai::store_iterator<rai::block_hash, std::shared_ptr<rai::block>> result (nullptr);
+	rai::store_iterator<rai::unchecked_key, std::shared_ptr<rai::block>> result (nullptr);
 	return result;
 }
 
@@ -752,7 +752,7 @@ meta (0)
 		error_a |= mdb_dbi_open (env.tx (transaction), "pending_v1", MDB_CREATE, &pending_v1) != 0;
 		error_a |= mdb_dbi_open (env.tx (transaction), "blocks_info", MDB_CREATE, &blocks_info) != 0;
 		error_a |= mdb_dbi_open (env.tx (transaction), "representation", MDB_CREATE, &representation) != 0;
-		error_a |= mdb_dbi_open (env.tx (transaction), "unchecked", MDB_CREATE | MDB_DUPSORT, &unchecked) != 0;
+		error_a |= mdb_dbi_open (env.tx (transaction), "unchecked", MDB_CREATE, &unchecked) != 0;
 		error_a |= mdb_dbi_open (env.tx (transaction), "checksum", MDB_CREATE, &checksum) != 0;
 		error_a |= mdb_dbi_open (env.tx (transaction), "vote", MDB_CREATE, &vote) != 0;
 		error_a |= mdb_dbi_open (env.tx (transaction), "meta", MDB_CREATE, &meta) != 0;
@@ -867,6 +867,8 @@ void rai::mdb_store::do_upgrades (rai::transaction const & transaction_a)
 		case 10:
 			upgrade_v10_to_v11 (transaction_a);
 		case 11:
+			upgrade_v11_to_v12 (transaction_a);
+		case 12:
 			break;
 		default:
 			assert (false);
@@ -1066,6 +1068,13 @@ void rai::mdb_store::upgrade_v10_to_v11 (rai::transaction const & transaction_a)
 	MDB_dbi unsynced;
 	mdb_dbi_open (env.tx (transaction_a), "unsynced", MDB_CREATE | MDB_DUPSORT, &unsynced);
 	mdb_drop (env.tx (transaction_a), unsynced, 1);
+}
+
+void rai::mdb_store::upgrade_v11_to_v12 (rai::transaction const & transaction_a)
+{
+	version_put (transaction_a, 12);
+	mdb_drop (env.tx (transaction_a), unchecked, 1);
+	mdb_dbi_open (env.tx (transaction_a), "unchecked", MDB_CREATE, &unchecked);
 }
 
 void rai::mdb_store::clear (MDB_dbi db_a)
@@ -1731,26 +1740,17 @@ void rai::mdb_store::unchecked_clear (rai::transaction const & transaction_a)
 	release_assert (status == 0);
 }
 
+void rai::mdb_store::unchecked_put (rai::transaction const & transaction_a, rai::unchecked_key const & key_a, std::shared_ptr<rai::block> const & block_a)
+{
+	mdb_val block (block_a);
+	auto status (mdb_put (env.tx (transaction_a), unchecked, rai::mdb_val (key_a), block, 0));
+	release_assert (status == 0);
+}
+
 void rai::mdb_store::unchecked_put (rai::transaction const & transaction_a, rai::block_hash const & hash_a, std::shared_ptr<rai::block> const & block_a)
 {
-	// Checking if same unchecked block is already in database
-	bool exists (false);
-	auto block_hash (block_a->hash ());
-	auto cached (unchecked_get (transaction_a, hash_a));
-	for (auto i (cached.begin ()), n (cached.end ()); i != n && !exists; ++i)
-	{
-		if ((*i)->hash () == block_hash)
-		{
-			exists = true;
-		}
-	}
-	// Inserting block if it wasn't found in database
-	if (!exists)
-	{
-		mdb_val block (block_a);
-		auto status (mdb_put (env.tx (transaction_a), unchecked, rai::mdb_val (hash_a), block, 0));
-		release_assert (status == 0);
-	}
+	rai::unchecked_key key (hash_a, block_a->hash ());
+	unchecked_put (transaction_a, key, block_a);
 }
 
 std::shared_ptr<rai::vote> rai::mdb_store::vote_get (rai::transaction const & transaction_a, rai::account const & account_a)
@@ -1770,7 +1770,7 @@ std::shared_ptr<rai::vote> rai::mdb_store::vote_get (rai::transaction const & tr
 std::vector<std::shared_ptr<rai::block>> rai::mdb_store::unchecked_get (rai::transaction const & transaction_a, rai::block_hash const & hash_a)
 {
 	std::vector<std::shared_ptr<rai::block>> result;
-	for (auto i (unchecked_begin (transaction_a, hash_a)), n (unchecked_end ()); i != n && rai::block_hash (i->first) == hash_a; ++i)
+	for (auto i (unchecked_begin (transaction_a, rai::unchecked_key (hash_a, 0))), n (unchecked_end ()); i != n && rai::block_hash (i->first.key ()) == hash_a; ++i)
 	{
 		std::shared_ptr<rai::block> block (i->second);
 		result.push_back (block);
@@ -1778,10 +1778,15 @@ std::vector<std::shared_ptr<rai::block>> rai::mdb_store::unchecked_get (rai::tra
 	return result;
 }
 
-void rai::mdb_store::unchecked_del (rai::transaction const & transaction_a, rai::block_hash const & hash_a, std::shared_ptr<rai::block> block_a)
+bool rai::mdb_store::unchecked_exists (rai::transaction const & transaction_a, rai::unchecked_key const & key_a)
 {
-	rai::mdb_val block (block_a);
-	auto status (mdb_del (env.tx (transaction_a), unchecked, rai::mdb_val (hash_a), block));
+	auto iterator (unchecked_begin (transaction_a, key_a));
+	return iterator != unchecked_end () && rai::unchecked_key (iterator->first) == key_a;
+}
+
+void rai::mdb_store::unchecked_del (rai::transaction const & transaction_a, rai::unchecked_key const & key_a)
+{
+	auto status (mdb_del (env.tx (transaction_a), unchecked, rai::mdb_val (key_a), nullptr));
 	release_assert (status == 0 || status == MDB_NOTFOUND);
 }
 
