@@ -159,6 +159,7 @@ public:
 	std::shared_ptr<rai::block> block_random (rai::transaction const &) override;
 	void block_del (rai::transaction const &, rai::block_hash const &) override;
 	bool block_exists (rai::transaction const &, rai::block_hash const &) override;
+	bool block_exists (rai::transaction const &, rai::block_type, rai::block_hash const &) override;
 	rai::block_counts block_count (rai::transaction const &) override;
 	bool root_exists (rai::transaction const &, rai::uint256_union const &) override;
 

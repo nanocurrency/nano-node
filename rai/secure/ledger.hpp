@@ -31,6 +31,7 @@ public:
 	rai::block_hash representative (rai::transaction const &, rai::block_hash const &);
 	rai::block_hash representative_calculated (rai::transaction const &, rai::block_hash const &);
 	bool block_exists (rai::block_hash const &);
+	bool block_exists (rai::block_type, rai::block_hash const &);
 	std::string block_text (char const *);
 	std::string block_text (rai::block_hash const &);
 	bool is_send (rai::transaction const &, rai::state_block const &);

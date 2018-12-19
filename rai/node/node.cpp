@@ -1866,7 +1866,7 @@ void rai::node::send_keepalive (rai::endpoint const & endpoint_a)
 void rai::node::process_fork (rai::transaction const & transaction_a, std::shared_ptr<rai::block> block_a)
 {
 	auto root (block_a->root ());
-	if (!store.block_exists (transaction_a, block_a->hash ()) && store.root_exists (transaction_a, block_a->root ()))
+	if (!store.block_exists (transaction_a, block_a->type (), block_a->hash ()) && store.root_exists (transaction_a, block_a->root ()))
 	{
 		std::shared_ptr<rai::block> ledger_block (ledger.forked_block (transaction_a, *block_a));
 		if (ledger_block)
@@ -2645,13 +2645,13 @@ public:
 void rai::node::process_confirmed (std::shared_ptr<rai::block> block_a)
 {
 	auto hash (block_a->hash ());
-	bool exists (ledger.block_exists (hash));
+	bool exists (ledger.block_exists (block_a->type (), hash));
 	// Attempt to process confirmed block if it's not in ledger yet
 	if (!exists)
 	{
 		auto transaction (store.tx_begin_write ());
 		block_processor.process_receive_one (transaction, block_a);
-		exists = store.block_exists (transaction, hash);
+		exists = store.block_exists (transaction, block_a->type (), hash);
 	}
 	if (exists)
 	{
