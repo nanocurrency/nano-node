@@ -307,11 +307,11 @@ rai::block_hash rai::pending_key::key () const
 rai::unchecked_info::unchecked_info () :
 block (nullptr),
 modified (0),
-verified (false)
+verified (rai::signature_verification::unknown)
 {
 }
 
-rai::unchecked_info::unchecked_info (std::shared_ptr<rai::block> block_a, uint64_t modified_a, bool verified_a) :
+rai::unchecked_info::unchecked_info (std::shared_ptr<rai::block> block_a, uint64_t modified_a, rai::signature_verification verified_a) :
 block (block_a),
 modified (modified_a),
 verified (verified_a)

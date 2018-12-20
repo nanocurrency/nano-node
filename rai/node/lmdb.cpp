@@ -1796,7 +1796,7 @@ void rai::mdb_store::unchecked_put (rai::transaction const & transaction_a, rai:
 void rai::mdb_store::unchecked_put (rai::transaction const & transaction_a, rai::block_hash const & hash_a, std::shared_ptr<rai::block> const & block_a)
 {
 	rai::unchecked_key key (hash_a, block_a->hash ());
-	rai::unchecked_info info (block_a, rai::seconds_since_epoch (), false);
+	rai::unchecked_info info (block_a, rai::seconds_since_epoch (), rai::signature_verification::unknown);
 	unchecked_put (transaction_a, key, info);
 }
 

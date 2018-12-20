@@ -420,12 +420,12 @@ public:
 	void stop ();
 	void flush ();
 	bool full ();
-	void add (std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point, bool = false);
+	void add (std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point, rai::signature_verification = rai::signature_verification::unknown);
 	void force (std::shared_ptr<rai::block>);
 	bool should_log (bool);
 	bool have_blocks ();
 	void process_blocks ();
-	rai::process_return process_receive_one (rai::transaction const &, std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point = std::chrono::steady_clock::now (), bool = false);
+	rai::process_return process_receive_one (rai::transaction const &, std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point = std::chrono::steady_clock::now (), rai::signature_verification = rai::signature_verification::unknown);
 
 private:
 	void queue_unchecked (rai::transaction const &, rai::block_hash const &);
@@ -435,7 +435,7 @@ private:
 	bool active;
 	std::chrono::steady_clock::time_point next_log;
 	std::deque<std::pair<std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point>> state_blocks;
-	std::deque<std::pair<std::shared_ptr<rai::block>, std::pair<std::chrono::steady_clock::time_point, bool>>> blocks;
+	std::deque<std::pair<std::shared_ptr<rai::block>, std::pair<std::chrono::steady_clock::time_point, rai::signature_verification>>> blocks;
 	std::unordered_set<rai::block_hash> blocks_hashes;
 	std::deque<std::shared_ptr<rai::block>> forced;
 	std::condition_variable condition;

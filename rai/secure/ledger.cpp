@@ -165,7 +165,7 @@ public:
 class ledger_processor : public rai::block_visitor
 {
 public:
-	ledger_processor (rai::ledger &, rai::transaction const &, bool = false);
+	ledger_processor (rai::ledger &, rai::transaction const &, rai::signature_verification = rai::signature_verification::unknown);
 	virtual ~ledger_processor () = default;
 	void send_block (rai::send_block const &) override;
 	void receive_block (rai::receive_block const &) override;
@@ -176,7 +176,7 @@ public:
 	void epoch_block_impl (rai::state_block const &);
 	rai::ledger & ledger;
 	rai::transaction const & transaction;
-	bool valid_signature;
+	rai::signature_verification verification;
 	rai::process_return result;
 };
 
@@ -190,10 +190,19 @@ void ledger_processor::state_block (rai::state_block const & block_a)
 		rai::amount prev_balance (0);
 		if (!block_a.hashables.previous.is_zero ())
 		{
-			result.code = ledger.store.block_exists (transaction, block_a.hashables.previous) ? rai::process_result::progress : rai::process_result::gap_previous;
+			result.code = ledger.store.block_exists (transaction, block_a.hashables.previous) ? rai::process_result::progress : rai::process_result::gap_previous_epoch;
 			if (result.code == rai::process_result::progress)
 			{
 				prev_balance = ledger.balance (transaction, block_a.hashables.previous);
+			}
+			else if (verification != rai::signature_verification::valid_epoch)
+			{
+				result.code = validate_message (ledger.epoch_signer, block_a.hash (), block_a.signature) ? rai::process_result::bad_signature : rai::process_result::gap_previous_epoch; // Is this block signed correctly (Unambiguous)
+				// Check for possible regular state blocks with epoch link (send subtype)
+				if (result.code == rai::process_result::bad_signature)
+				{
+					result.code = (verification == rai::signature_verification::valid || validate_message (block_a.hashables.account, block_a.hash (), block_a.signature)) ? rai::process_result::bad_signature : rai::process_result::gap_previous;
+				}
 			}
 		}
 		if (block_a.hashables.balance == prev_balance)
@@ -221,8 +230,8 @@ void ledger_processor::state_block_impl (rai::state_block const & block_a)
 	result.code = existing ? rai::process_result::old : rai::process_result::progress; // Have we seen this block before? (Unambiguous)
 	if (result.code == rai::process_result::progress)
 	{
-		// Validate block if not verified outside of ledger (state blocks with epoch link ccan be verified as epoch blocks before)
-		if (!valid_signature || ledger.is_epoch_link (block_a.hashables.link))
+		// Validate block if not verified outside of ledger
+		if (verification != rai::signature_verification::valid)
 		{
 			result.code = validate_message (block_a.hashables.account, hash, block_a.signature) ? rai::process_result::bad_signature : rai::process_result::progress; // Is this block signed correctly (Unambiguous)
 		}
@@ -332,7 +341,11 @@ void ledger_processor::epoch_block_impl (rai::state_block const & block_a)
 	result.code = existing ? rai::process_result::old : rai::process_result::progress; // Have we seen this block before? (Unambiguous)
 	if (result.code == rai::process_result::progress)
 	{
-		result.code = validate_message (ledger.epoch_signer, hash, block_a.signature) ? rai::process_result::bad_signature : rai::process_result::progress; // Is this block signed correctly (Unambiguous)
+		// Validate block if not verified outside of ledger
+		if (verification != rai::signature_verification::valid_epoch)
+		{
+			result.code = validate_message (ledger.epoch_signer, hash, block_a.signature) ? rai::process_result::bad_signature : rai::process_result::progress; // Is this block signed correctly (Unambiguous)
+		}
 		if (result.code == rai::process_result::progress)
 		{
 			result.code = block_a.hashables.account.is_zero () ? rai::process_result::opened_burn_account : rai::process_result::progress; // Is this for the burn account? (Unambiguous)
@@ -346,7 +359,7 @@ void ledger_processor::epoch_block_impl (rai::state_block const & block_a)
 					result.code = block_a.hashables.previous.is_zero () ? rai::process_result::fork : rai::process_result::progress; // Has this account already been opened? (Ambigious)
 					if (result.code == rai::process_result::progress)
 					{
-						result.code = ledger.store.block_exists (transaction, block_a.hashables.previous) ? rai::process_result::progress : rai::process_result::gap_previous; // Does the previous block exist in the ledger? (Unambigious)
+						result.code = ledger.store.block_exists (transaction, block_a.hashables.previous) ? rai::process_result::progress : rai::process_result::gap_previous_epoch; // Does the previous block exist in the ledger? (Unambigious)
 						if (result.code == rai::process_result::progress)
 						{
 							result.code = block_a.hashables.previous == info.head ? rai::process_result::progress : rai::process_result::fork; // Is the previous block the account's head block? (Ambigious)
@@ -496,7 +509,7 @@ void ledger_processor::receive_block (rai::receive_block const & block_a)
 				if (result.code == rai::process_result::progress)
 				{
 					// Validate block if not verified outside of ledger
-					if (!valid_signature)
+					if (verification != rai::signature_verification::valid)
 					{
 						result.code = validate_message (account, hash, block_a.signature) ? rai::process_result::bad_signature : rai::process_result::progress; // Is the signature valid (Malformed)
 					}
@@ -554,7 +567,7 @@ void ledger_processor::open_block (rai::open_block const & block_a)
 	if (result.code == rai::process_result::progress)
 	{
 		// Validate block if not verified outside of ledger
-		if (!valid_signature)
+		if (verification != rai::signature_verification::valid)
 		{
 			result.code = validate_message (block_a.hashables.account, hash, block_a.signature) ? rai::process_result::bad_signature : rai::process_result::progress; // Is the signature valid (Malformed)
 		}
@@ -599,10 +612,10 @@ void ledger_processor::open_block (rai::open_block const & block_a)
 	}
 }
 
-ledger_processor::ledger_processor (rai::ledger & ledger_a, rai::transaction const & transaction_a, bool valid_signature_a) :
+ledger_processor::ledger_processor (rai::ledger & ledger_a, rai::transaction const & transaction_a, rai::signature_verification verification_a) :
 ledger (ledger_a),
 transaction (transaction_a),
-valid_signature (valid_signature_a)
+verification (verification_a)
 {
 }
 } // namespace
@@ -665,9 +678,9 @@ rai::uint128_t rai::ledger::account_pending (rai::transaction const & transactio
 	return result;
 }
 
-rai::process_return rai::ledger::process (rai::transaction const & transaction_a, rai::block const & block_a, bool valid_signature)
+rai::process_return rai::ledger::process (rai::transaction const & transaction_a, rai::block const & block_a, rai::signature_verification verification)
 {
-	ledger_processor processor (*this, transaction_a, valid_signature);
+	ledger_processor processor (*this, transaction_a, verification);
 	block_a.visit (processor);
 	return processor.result;
 }

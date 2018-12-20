@@ -116,20 +116,30 @@ public:
 using unchecked_key = pending_key;
 
 /**
+ * Tag for block signature verification result
+ */
+enum class signature_verification : uint8_t
+{
+	unknown = 0,
+	invalid = 1,
+	valid = 2,
+	valid_epoch = 3 // Valid for epoch blocks
+};
+/**
  * Information on an unchecked block
  */
 class unchecked_info
 {
 public:
 	unchecked_info ();
-	unchecked_info (std::shared_ptr<rai::block>, uint64_t, bool = false);
+	unchecked_info (std::shared_ptr<rai::block>, uint64_t, rai::signature_verification = rai::signature_verification::unknown);
 	void serialize (rai::stream &) const;
 	bool deserialize (rai::stream &);
 	bool operator== (rai::unchecked_info const &) const;
 	std::shared_ptr<rai::block> block;
 	/** Seconds since posix epoch */
 	uint64_t modified;
-	bool verified;
+	rai::signature_verification verified;
 };
 
 class block_info
@@ -229,7 +239,8 @@ enum class process_result
 	opened_burn_account, // The impossible happened, someone found the private key associated with the public key '0'.
 	balance_mismatch, // Balance and amount delta don't match
 	representative_mismatch, // Representative is changed when it is not allowed
-	block_position // This block cannot follow the previous block
+	block_position, // This block cannot follow the previous block
+	gap_previous_epoch // Block marked as previous is unknown for epoch block
 };
 class process_return
 {

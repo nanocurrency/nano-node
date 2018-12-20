@@ -1220,7 +1220,7 @@ bool rai::block_processor::full ()
 	return (blocks.size () + state_blocks.size ()) > 16384;
 }
 
-void rai::block_processor::add (std::shared_ptr<rai::block> block_a, std::chrono::steady_clock::time_point origination, bool verified)
+void rai::block_processor::add (std::shared_ptr<rai::block> block_a, std::chrono::steady_clock::time_point origination, rai::signature_verification verified)
 {
 	if (!rai::work_validate (block_a->root (), block_a->block_work ()))
 	{
@@ -1228,7 +1228,7 @@ void rai::block_processor::add (std::shared_ptr<rai::block> block_a, std::chrono
 			std::lock_guard<std::mutex> lock (mutex);
 			if (blocks_hashes.find (block_a->hash ()) == blocks_hashes.end ())
 			{
-				if (!verified && block_a->type () == rai::block_type::state && !node.ledger.is_epoch_link (block_a->link ()))
+				if (verified != rai::signature_verification::valid && block_a->type () == rai::block_type::state && !node.ledger.is_epoch_link (block_a->link ()))
 				{
 					state_blocks.push_back (std::make_pair (block_a, origination));
 				}
@@ -1349,7 +1349,7 @@ void rai::block_processor::verify_state_blocks (std::unique_lock<std::mutex> & l
 		if (verifications[i] == 1)
 		{
 			auto item (items.front ());
-			blocks.push_back (std::make_pair (item.first, std::make_pair (item.second, true)));
+			blocks.push_back (std::make_pair (item.first, std::make_pair (item.second, rai::signature_verification::valid)));
 		}
 		items.pop_front ();
 	}
@@ -1402,7 +1402,7 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 			first_time = false;
 			BOOST_LOG (node.log) << boost::str (boost::format ("%1% blocks (+ %2% state blocks) (+ %3% forced) in processing queue") % blocks.size () % state_blocks.size () % forced.size ());
 		}
-		std::pair<std::shared_ptr<rai::block>, std::pair<std::chrono::steady_clock::time_point, bool>> block;
+		std::pair<std::shared_ptr<rai::block>, std::pair<std::chrono::steady_clock::time_point, rai::signature_verification>> block;
 		bool force (false);
 		if (forced.empty ())
 		{
@@ -1412,7 +1412,7 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 		}
 		else
 		{
-			block = std::make_pair (forced.front (), std::make_pair (std::chrono::steady_clock::now (), false));
+			block = std::make_pair (forced.front (), std::make_pair (std::chrono::steady_clock::now (), rai::signature_verification::unknown));
 			forced.pop_front ();
 			force = true;
 			number_of_forced_processed++;
@@ -1452,11 +1452,11 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 	}
 }
 
-rai::process_return rai::block_processor::process_receive_one (rai::transaction const & transaction_a, std::shared_ptr<rai::block> block_a, std::chrono::steady_clock::time_point origination, bool verified_block)
+rai::process_return rai::block_processor::process_receive_one (rai::transaction const & transaction_a, std::shared_ptr<rai::block> block_a, std::chrono::steady_clock::time_point origination, rai::signature_verification verification)
 {
 	rai::process_return result;
 	auto hash (block_a->hash ());
-	result = node.ledger.process (transaction_a, *block_a, verified_block);
+	result = node.ledger.process (transaction_a, *block_a, verification);
 	switch (result.code)
 	{
 		case rai::process_result::progress:
@@ -1484,7 +1484,23 @@ rai::process_return rai::block_processor::process_receive_one (rai::transaction 
 			{
 				BOOST_LOG (node.log) << boost::str (boost::format ("Gap previous for: %1%") % hash.to_string ());
 			}
-			node.store.unchecked_put (transaction_a, rai::unchecked_key (block_a->previous (), block_a->hash ()), rai::unchecked_info (block_a , rai::seconds_since_epoch (), verified_block));
+			// Only state blocks signatures can be verified without previous block. All state blocks are verified before assigning code rai::process_result::gap_previous
+			if (block_a->type () == rai::block_type::state)
+			{
+				verification = rai::signature_verification::valid;
+			}
+			node.store.unchecked_put (transaction_a, rai::unchecked_key (block_a->previous (), block_a->hash ()), rai::unchecked_info (block_a , rai::seconds_since_epoch (), verification));
+			node.gap_cache.add (transaction_a, block_a);
+			break;
+		}
+		case rai::process_result::gap_previous_epoch:
+		{
+			if (node.config.logging.ledger_logging ())
+			{
+				BOOST_LOG (node.log) << boost::str (boost::format ("Gap previous for epoch: %1%") % hash.to_string ());
+			}
+			// Only verified epoch state blocks can receive code rai::process_result::gap_previous_epoch
+			node.store.unchecked_put (transaction_a, rai::unchecked_key (block_a->previous (), block_a->hash ()), rai::unchecked_info (block_a , rai::seconds_since_epoch (), rai::signature_verification::valid_epoch));
 			node.gap_cache.add (transaction_a, block_a);
 			break;
 		}
@@ -1495,7 +1511,7 @@ rai::process_return rai::block_processor::process_receive_one (rai::transaction 
 				BOOST_LOG (node.log) << boost::str (boost::format ("Gap source for: %1%") % hash.to_string ());
 			}
 			// State, receive, open blocks verify signature before assigning code rai::process_result::gap_source 
-			node.store.unchecked_put (transaction_a, rai::unchecked_key (node.ledger.block_source (transaction_a, *block_a), block_a->hash ()), rai::unchecked_info (block_a , rai::seconds_since_epoch (), true));
+			node.store.unchecked_put (transaction_a, rai::unchecked_key (node.ledger.block_source (transaction_a, *block_a), block_a->hash ()), rai::unchecked_info (block_a , rai::seconds_since_epoch (), rai::signature_verification::valid));
 			node.gap_cache.add (transaction_a, block_a);
 			break;
 		}
