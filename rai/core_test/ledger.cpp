@@ -2432,3 +2432,165 @@ TEST (ledger, could_fit)
 	ASSERT_EQ (rai::process_result::progress, ledger.process (transaction, epoch1).code);
 	ASSERT_TRUE (ledger.could_fit (transaction, epoch1));
 }
+
+TEST (ledger, unchecked_epoch)
+{
+	rai::system system (24000, 1);
+	auto & node1 (*system.nodes[0]);
+	rai::genesis genesis;
+	rai::keypair destination;
+	auto send1 (std::make_shared<rai::state_block> (rai::genesis_account, genesis.hash (), rai::genesis_account, rai::genesis_amount - rai::Gxrb_ratio, destination.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
+	node1.work_generate_blocking (*send1);
+	auto open1 (std::make_shared<rai::state_block> (destination.pub, 0, destination.pub, rai::Gxrb_ratio, send1->hash (), destination.prv, destination.pub, 0));
+	node1.work_generate_blocking (*open1);
+	auto epoch1 (std::make_shared<rai::state_block> (destination.pub, open1->hash (), destination.pub, rai::Gxrb_ratio, node1.ledger.epoch_link, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
+	node1.work_generate_blocking (*epoch1);
+	node1.block_processor.add (epoch1, std::chrono::steady_clock::time_point ());
+	node1.block_processor.flush ();
+	{
+		auto transaction (node1.store.tx_begin ());
+		auto unchecked_count (node1.store.unchecked_count (transaction));
+		ASSERT_EQ (unchecked_count, 1);
+		auto blocks (node1.store.unchecked_get (transaction, epoch1->previous ()));
+		ASSERT_EQ (blocks.size (), 1);
+		ASSERT_EQ (blocks[0].verified, rai::signature_verification::valid_epoch);
+	}
+	node1.block_processor.add (send1, std::chrono::steady_clock::time_point ());
+	node1.block_processor.add (open1, std::chrono::steady_clock::time_point ());
+	node1.block_processor.flush ();
+	{
+		auto transaction (node1.store.tx_begin ());
+		ASSERT_TRUE (node1.store.block_exists (transaction, epoch1->hash ()));
+		auto unchecked_count (node1.store.unchecked_count (transaction));
+		ASSERT_EQ (unchecked_count, 0);
+		rai::account_info info;
+		ASSERT_FALSE (node1.store.account_get (transaction, destination.pub, info));
+		ASSERT_EQ (info.epoch, rai::epoch::epoch_1);
+	}
+}
+
+TEST (ledger, unchecked_epoch_invalid)
+{
+	rai::system system (24000, 1);
+	auto & node1 (*system.nodes[0]);
+	rai::genesis genesis;
+	rai::keypair destination;
+	auto send1 (std::make_shared<rai::state_block> (rai::genesis_account, genesis.hash (), rai::genesis_account, rai::genesis_amount - rai::Gxrb_ratio, destination.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
+	node1.work_generate_blocking (*send1);
+	auto open1 (std::make_shared<rai::state_block> (destination.pub, 0, destination.pub, rai::Gxrb_ratio, send1->hash (), destination.prv, destination.pub, 0));
+	node1.work_generate_blocking (*open1);
+	// Epoch block with account own signature
+	auto epoch1 (std::make_shared<rai::state_block> (destination.pub, open1->hash (), destination.pub, rai::Gxrb_ratio, node1.ledger.epoch_link, destination.prv, destination.pub, 0));
+	node1.work_generate_blocking (*epoch1);
+	// Pseudo epoch block (send subtype, destination - epoch link)
+	auto epoch2 (std::make_shared<rai::state_block> (destination.pub, open1->hash (), destination.pub, rai::Gxrb_ratio - 1, node1.ledger.epoch_link, destination.prv, destination.pub, 0));
+	node1.work_generate_blocking (*epoch2);
+	node1.block_processor.add (epoch1, std::chrono::steady_clock::time_point ());
+	node1.block_processor.add (epoch2, std::chrono::steady_clock::time_point ());
+	node1.block_processor.flush ();
+	{
+		auto transaction (node1.store.tx_begin ());
+		auto unchecked_count (node1.store.unchecked_count (transaction));
+		ASSERT_EQ (unchecked_count, 2);
+		auto blocks (node1.store.unchecked_get (transaction, epoch1->previous ()));
+		ASSERT_EQ (blocks.size (), 2);
+		ASSERT_EQ (blocks[0].verified, rai::signature_verification::valid);
+		ASSERT_EQ (blocks[1].verified, rai::signature_verification::valid);
+	}
+	node1.block_processor.add (send1, std::chrono::steady_clock::time_point ());
+	node1.block_processor.add (open1, std::chrono::steady_clock::time_point ());
+	node1.block_processor.flush ();
+	{
+		auto transaction (node1.store.tx_begin ());
+		ASSERT_FALSE (node1.store.block_exists (transaction, epoch1->hash ()));
+		ASSERT_TRUE (node1.store.block_exists (transaction, epoch2->hash ()));
+		ASSERT_TRUE (node1.active.roots.empty ());
+		auto unchecked_count (node1.store.unchecked_count (transaction));
+		ASSERT_EQ (unchecked_count, 0);
+		rai::account_info info;
+		ASSERT_FALSE (node1.store.account_get (transaction, destination.pub, info));
+		ASSERT_NE (info.epoch, rai::epoch::epoch_1);
+	}
+}
+
+TEST (ledger, unchecked_open)
+{
+	rai::system system (24000, 1);
+	auto & node1 (*system.nodes[0]);
+	rai::genesis genesis;
+	rai::keypair destination;
+	auto send1 (std::make_shared<rai::state_block> (rai::genesis_account, genesis.hash (), rai::genesis_account, rai::genesis_amount - rai::Gxrb_ratio, destination.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
+	node1.work_generate_blocking (*send1);
+	auto open1 (std::make_shared<rai::open_block> (send1->hash (), destination.pub, destination.pub, destination.prv, destination.pub, 0));
+	node1.work_generate_blocking (*open1);
+	// Invalid signature for open block
+	auto open2 (std::make_shared<rai::open_block> (send1->hash (), rai::test_genesis_key.pub, destination.pub, destination.prv, destination.pub, 0));
+	node1.work_generate_blocking (*open2);
+	open2->signature.bytes[0] ^= 1;
+	node1.block_processor.add (open1, std::chrono::steady_clock::time_point ());
+	node1.block_processor.add (open2, std::chrono::steady_clock::time_point ());
+	node1.block_processor.flush ();
+	{
+		auto transaction (node1.store.tx_begin ());
+		auto unchecked_count (node1.store.unchecked_count (transaction));
+		ASSERT_EQ (unchecked_count, 1);
+		auto blocks (node1.store.unchecked_get (transaction, open1->source ()));
+		ASSERT_EQ (blocks.size (), 1);
+		ASSERT_EQ (blocks[0].verified, rai::signature_verification::valid);
+	}
+	node1.block_processor.add (send1, std::chrono::steady_clock::time_point ());
+	node1.block_processor.flush ();
+	{
+		auto transaction (node1.store.tx_begin ());
+		ASSERT_TRUE (node1.store.block_exists (transaction, open1->hash ()));
+		auto unchecked_count (node1.store.unchecked_count (transaction));
+		ASSERT_EQ (unchecked_count, 0);
+	}
+}
+
+TEST (ledger, unchecked_receive)
+{
+	rai::system system (24000, 1);
+	auto & node1 (*system.nodes[0]);
+	rai::genesis genesis;
+	rai::keypair destination;
+	auto send1 (std::make_shared<rai::state_block> (rai::genesis_account, genesis.hash (), rai::genesis_account, rai::genesis_amount - rai::Gxrb_ratio, destination.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
+	node1.work_generate_blocking (*send1);
+	auto send2 (std::make_shared<rai::state_block> (rai::genesis_account, send1->hash (), rai::genesis_account, rai::genesis_amount - 2 * rai::Gxrb_ratio, destination.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
+	node1.work_generate_blocking (*send2);
+	auto open1 (std::make_shared<rai::open_block> (send1->hash (), destination.pub, destination.pub, destination.prv, destination.pub, 0));
+	node1.work_generate_blocking (*open1);
+	auto receive1 (std::make_shared<rai::receive_block> (open1->hash (), send2->hash (), destination.prv, destination.pub, 0));
+	node1.work_generate_blocking (*receive1);
+	node1.block_processor.add (send1, std::chrono::steady_clock::time_point ());
+	node1.block_processor.add (receive1, std::chrono::steady_clock::time_point ());
+	node1.block_processor.flush ();
+	// Previous block for receive1 is unknown, signature cannot be validated
+	{
+		auto transaction (node1.store.tx_begin ());
+		auto unchecked_count (node1.store.unchecked_count (transaction));
+		ASSERT_EQ (unchecked_count, 1);
+		auto blocks (node1.store.unchecked_get (transaction, receive1->previous ()));
+		ASSERT_EQ (blocks.size (), 1);
+		ASSERT_EQ (blocks[0].verified, rai::signature_verification::unknown);
+	}
+	node1.block_processor.add (open1, std::chrono::steady_clock::time_point ());
+	node1.block_processor.flush ();
+	// Previous block for receive1 is known, signature was validated
+	{
+		auto transaction (node1.store.tx_begin ());
+		auto unchecked_count (node1.store.unchecked_count (transaction));
+		ASSERT_EQ (unchecked_count, 1);
+		auto blocks (node1.store.unchecked_get (transaction, receive1->source ()));
+		ASSERT_EQ (blocks.size (), 1);
+		ASSERT_EQ (blocks[0].verified, rai::signature_verification::valid);
+	}
+	node1.block_processor.add (send2, std::chrono::steady_clock::time_point ());
+	node1.block_processor.flush ();
+	{
+		auto transaction (node1.store.tx_begin ());
+		ASSERT_TRUE (node1.store.block_exists (transaction, receive1->hash ()));
+		auto unchecked_count (node1.store.unchecked_count (transaction));
+		ASSERT_EQ (unchecked_count, 0);
+	}
+}
