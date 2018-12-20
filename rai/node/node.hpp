@@ -420,7 +420,7 @@ public:
 	void stop ();
 	void flush ();
 	bool full ();
-	void add (std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point);
+	void add (std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point, bool = false);
 	void force (std::shared_ptr<rai::block>);
 	bool should_log (bool);
 	bool have_blocks ();
@@ -435,7 +435,7 @@ private:
 	bool active;
 	std::chrono::steady_clock::time_point next_log;
 	std::deque<std::pair<std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point>> state_blocks;
-	std::deque<std::pair<std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point>> blocks;
+	std::deque<std::pair<std::shared_ptr<rai::block>, std::pair<std::chrono::steady_clock::time_point, bool>>> blocks;
 	std::unordered_set<rai::block_hash> blocks_hashes;
 	std::deque<std::shared_ptr<rai::block>> forced;
 	std::condition_variable condition;

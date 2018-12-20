@@ -304,6 +304,48 @@ rai::block_hash rai::pending_key::key () const
 	return account;
 }
 
+rai::unchecked_info::unchecked_info () :
+block (nullptr),
+modified (0),
+verified (false)
+{
+}
+
+rai::unchecked_info::unchecked_info (std::shared_ptr<rai::block> block_a, uint64_t modified_a, bool verified_a) :
+block (block_a),
+modified (modified_a),
+verified (verified_a)
+{
+}
+
+void rai::unchecked_info::serialize (rai::stream & stream_a) const
+{
+	assert (block != nullptr);
+	rai::serialize_block (stream_a, *block);
+	write (stream_a, modified);
+	write (stream_a, verified);
+}
+
+bool rai::unchecked_info::deserialize (rai::stream & stream_a)
+{
+	block = rai::deserialize_block (stream_a);
+	bool error (block == nullptr);
+	if (!error)
+	{
+		error = read (stream_a, modified);
+		if (!error)
+		{
+			error = read (stream_a, verified);
+		}
+	}
+	return error;
+}
+
+bool rai::unchecked_info::operator== (rai::unchecked_info const & other_a) const
+{
+	return block->hash () == other_a.block->hash () && modified == other_a.modified && verified == other_a.verified;
+}
+
 rai::block_info::block_info () :
 account (0),
 balance (0)

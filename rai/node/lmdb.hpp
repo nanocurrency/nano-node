@@ -53,6 +53,7 @@ public:
 	mdb_val (MDB_val const &, rai::epoch = rai::epoch::unspecified);
 	mdb_val (rai::pending_info const &);
 	mdb_val (rai::pending_key const &);
+	mdb_val (rai::unchecked_info const &);
 	mdb_val (size_t, void *);
 	mdb_val (rai::uint128_union const &);
 	mdb_val (rai::uint256_union const &);
@@ -64,6 +65,7 @@ public:
 	explicit operator rai::block_info () const;
 	explicit operator rai::pending_info () const;
 	explicit operator rai::pending_key () const;
+	explicit operator rai::unchecked_info () const;
 	explicit operator rai::uint128_union () const;
 	explicit operator rai::uint256_union () const;
 	explicit operator std::array<char, 64> () const;
@@ -213,14 +215,14 @@ public:
 	rai::store_iterator<rai::account, rai::uint128_union> representation_end () override;
 
 	void unchecked_clear (rai::transaction const &) override;
-	void unchecked_put (rai::transaction const &, rai::unchecked_key const &, std::shared_ptr<rai::block> const &) override;
+	void unchecked_put (rai::transaction const &, rai::unchecked_key const &, rai::unchecked_info const &) override;
 	void unchecked_put (rai::transaction const &, rai::block_hash const &, std::shared_ptr<rai::block> const &) override;
-	std::vector<std::shared_ptr<rai::block>> unchecked_get (rai::transaction const &, rai::block_hash const &) override;
+	std::vector<rai::unchecked_info> unchecked_get (rai::transaction const &, rai::block_hash const &) override;
 	bool unchecked_exists (rai::transaction const &, rai::unchecked_key const &) override;
 	void unchecked_del (rai::transaction const &, rai::unchecked_key const &) override;
-	rai::store_iterator<rai::unchecked_key, std::shared_ptr<rai::block>> unchecked_begin (rai::transaction const &) override;
-	rai::store_iterator<rai::unchecked_key, std::shared_ptr<rai::block>> unchecked_begin (rai::transaction const &, rai::unchecked_key const &) override;
-	rai::store_iterator<rai::unchecked_key, std::shared_ptr<rai::block>> unchecked_end () override;
+	rai::store_iterator<rai::unchecked_key, rai::unchecked_info> unchecked_begin (rai::transaction const &) override;
+	rai::store_iterator<rai::unchecked_key, rai::unchecked_info> unchecked_begin (rai::transaction const &, rai::unchecked_key const &) override;
+	rai::store_iterator<rai::unchecked_key, rai::unchecked_info> unchecked_end () override;
 	size_t unchecked_count (rai::transaction const &) override;
 
 	void checksum_put (rai::transaction const &, uint64_t, uint8_t, rai::checksum const &) override;

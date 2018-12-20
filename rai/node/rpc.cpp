@@ -2973,10 +2973,10 @@ void rai::rpc_handler::unchecked ()
 		auto transaction (node.store.tx_begin_read ());
 		for (auto i (node.store.unchecked_begin (transaction)), n (node.store.unchecked_end ()); i != n && unchecked.size () < count; ++i)
 		{
-			auto block (i->second);
+			rai::unchecked_info info (i->second);
 			std::string contents;
-			block->serialize_json (contents);
-			unchecked.put (block->hash ().to_string (), contents);
+			info.block->serialize_json (contents);
+			unchecked.put (info.block->hash ().to_string (), contents);
 		}
 		response_l.add_child ("blocks", unchecked);
 	}
@@ -3003,11 +3003,11 @@ void rai::rpc_handler::unchecked_get ()
 		auto transaction (node.store.tx_begin_read ());
 		for (auto i (node.store.unchecked_begin (transaction)), n (node.store.unchecked_end ()); i != n; ++i)
 		{
-			std::shared_ptr<rai::block> block (i->second);
-			if (block->hash () == hash)
+			if (i->first.hash == hash)
 			{
+				rai::unchecked_info info (i->second);
 				std::string contents;
-				block->serialize_json (contents);
+				info.block->serialize_json (contents);
 				response_l.put ("contents", contents);
 				break;
 			}
@@ -3039,11 +3039,11 @@ void rai::rpc_handler::unchecked_keys ()
 		for (auto i (node.store.unchecked_begin (transaction, rai::unchecked_key (key, 0))), n (node.store.unchecked_end ()); i != n && unchecked.size () < count; ++i)
 		{
 			boost::property_tree::ptree entry;
-			auto block (i->second);
+			rai::unchecked_info info (i->second);
 			std::string contents;
-			block->serialize_json (contents);
+			info.block->serialize_json (contents);
 			entry.put ("key", rai::block_hash (i->first.key ()).to_string ());
-			entry.put ("hash", block->hash ().to_string ());
+			entry.put ("hash", info.block->hash ().to_string ());
 			entry.put ("contents", contents);
 			unchecked.push_back (std::make_pair ("", entry));
 		}

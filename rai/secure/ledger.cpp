@@ -221,7 +221,7 @@ void ledger_processor::state_block_impl (rai::state_block const & block_a)
 	result.code = existing ? rai::process_result::old : rai::process_result::progress; // Have we seen this block before? (Unambiguous)
 	if (result.code == rai::process_result::progress)
 	{
-		// Revalidate blocks with epoch links
+		// Validate block if not verified outside of ledger (state blocks with epoch link ccan be verified as epoch blocks before)
 		if (!valid_signature || ledger.is_epoch_link (block_a.hashables.link))
 		{
 			result.code = validate_message (block_a.hashables.account, hash, block_a.signature) ? rai::process_result::bad_signature : rai::process_result::progress; // Is this block signed correctly (Unambiguous)
@@ -491,14 +491,18 @@ void ledger_processor::receive_block (rai::receive_block const & block_a)
 			result.code = block_a.valid_predecessor (*previous) ? rai::process_result::progress : rai::process_result::block_position;
 			if (result.code == rai::process_result::progress)
 			{
-				result.code = ledger.store.block_exists (transaction, block_a.hashables.source) ? rai::process_result::progress : rai::process_result::gap_source; // Have we seen the source block already? (Harmless)
+				auto account (ledger.store.frontier_get (transaction, block_a.hashables.previous));
+				result.code = account.is_zero () ? rai::process_result::gap_previous : rai::process_result::progress; //Have we seen the previous block? No entries for account at all (Harmless)
 				if (result.code == rai::process_result::progress)
 				{
-					auto account (ledger.store.frontier_get (transaction, block_a.hashables.previous));
-					result.code = account.is_zero () ? rai::process_result::gap_previous : rai::process_result::progress; //Have we seen the previous block? No entries for account at all (Harmless)
+					// Validate block if not verified outside of ledger
+					if (!valid_signature)
+					{
+						result.code = validate_message (account, hash, block_a.signature) ? rai::process_result::bad_signature : rai::process_result::progress; // Is the signature valid (Malformed)
+					}
 					if (result.code == rai::process_result::progress)
 					{
-						result.code = rai::validate_message (account, hash, block_a.signature) ? rai::process_result::bad_signature : rai::process_result::progress; // Is the signature valid (Malformed)
+						result.code = ledger.store.block_exists (transaction, block_a.hashables.source) ? rai::process_result::progress : rai::process_result::gap_source; // Have we seen the source block already? (Harmless)
 						if (result.code == rai::process_result::progress)
 						{
 							rai::account_info info;
@@ -532,10 +536,10 @@ void ledger_processor::receive_block (rai::receive_block const & block_a)
 							}
 						}
 					}
-					else
-					{
-						result.code = ledger.store.block_exists (transaction, block_a.hashables.previous) ? rai::process_result::fork : rai::process_result::gap_previous; // If we have the block but it's not the latest we have a signed fork (Malicious)
-					}
+				}
+				else
+				{
+					result.code = ledger.store.block_exists (transaction, block_a.hashables.previous) ? rai::process_result::fork : rai::process_result::gap_previous; // If we have the block but it's not the latest we have a signed fork (Malicious)
 				}
 			}
 		}
@@ -549,11 +553,15 @@ void ledger_processor::open_block (rai::open_block const & block_a)
 	result.code = existing ? rai::process_result::old : rai::process_result::progress; // Have we seen this block already? (Harmless)
 	if (result.code == rai::process_result::progress)
 	{
-		auto source_missing (!ledger.store.block_exists (transaction, block_a.hashables.source));
-		result.code = source_missing ? rai::process_result::gap_source : rai::process_result::progress; // Have we seen the source block? (Harmless)
+		// Validate block if not verified outside of ledger
+		if (!valid_signature)
+		{
+			result.code = validate_message (block_a.hashables.account, hash, block_a.signature) ? rai::process_result::bad_signature : rai::process_result::progress; // Is the signature valid (Malformed)
+		}
 		if (result.code == rai::process_result::progress)
 		{
-			result.code = rai::validate_message (block_a.hashables.account, hash, block_a.signature) ? rai::process_result::bad_signature : rai::process_result::progress; // Is the signature valid (Malformed)
+			auto source_missing (!ledger.store.block_exists (transaction, block_a.hashables.source));
+			result.code = source_missing ? rai::process_result::gap_source : rai::process_result::progress; // Have we seen the source block? (Harmless)
 			if (result.code == rai::process_result::progress)
 			{
 				rai::account_info info;
