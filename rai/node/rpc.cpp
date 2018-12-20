@@ -3044,6 +3044,7 @@ void rai::rpc_handler::unchecked_keys ()
 			info.block->serialize_json (contents);
 			entry.put ("key", rai::block_hash (i->first.key ()).to_string ());
 			entry.put ("hash", info.block->hash ().to_string ());
+			entry.put ("modified_timestamp", std::to_string (info.modified));
 			entry.put ("contents", contents);
 			unchecked.push_back (std::make_pair ("", entry));
 		}
