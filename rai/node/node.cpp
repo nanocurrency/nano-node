@@ -1511,7 +1511,7 @@ rai::process_return rai::block_processor::process_receive_one (rai::transaction 
 			{
 				BOOST_LOG (node.log) << boost::str (boost::format ("Gap source for: %1%") % hash.to_string ());
 			}
-			// State, receive, open blocks verify signature before assigning code rai::process_result::gap_source 
+			// State, receive, open blocks verify signature before assigning code rai::process_result::gap_source
 			node.store.unchecked_put (transaction_a, rai::unchecked_key (node.ledger.block_source (transaction_a, *block_a), block_a->hash ()), rai::unchecked_info (block_a, rai::seconds_since_epoch (), rai::signature_verification::valid));
 			node.gap_cache.add (transaction_a, block_a);
 			break;
