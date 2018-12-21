@@ -568,7 +568,7 @@ TEST (ledger, DISABLED_checksum_range)
 TEST (system, DISABLED_generate_send_existing)
 {
 	rai::system system (24000, 1);
-	rai::thread_runner runner (system.service, system.nodes[0]->config.io_threads);
+	rai::thread_runner runner (system.io_ctx, system.nodes[0]->config.io_threads);
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	rai::keypair stake_preserver;
 	auto send_block (system.wallet (0)->send_action (rai::genesis_account, stake_preserver.pub, rai::genesis_amount / 3 * 2, true));
@@ -614,7 +614,7 @@ TEST (system, DISABLED_generate_send_existing)
 TEST (system, generate_send_new)
 {
 	rai::system system (24000, 1);
-	rai::thread_runner runner (system.service, system.nodes[0]->config.io_threads);
+	rai::thread_runner runner (system.io_ctx, system.nodes[0]->config.io_threads);
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	{
 		auto transaction (system.nodes[0]->store.tx_begin ());
