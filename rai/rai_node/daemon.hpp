@@ -6,7 +6,7 @@ namespace rai_daemon
 class daemon
 {
 public:
-	void run (boost::filesystem::path const &);
+	void run (boost::filesystem::path const &, rai::node_flags const & flags);
 };
 class daemon_config
 {
@@ -20,5 +20,6 @@ public:
 	rai::node_config node;
 	bool opencl_enable;
 	rai::opencl_config opencl;
+	static constexpr int json_version = 2;
 };
 }

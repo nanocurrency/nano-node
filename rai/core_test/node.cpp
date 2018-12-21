@@ -38,6 +38,7 @@ TEST (node, password_fanout)
 	rai::alarm alarm (*service);
 	auto path (rai::unique_path ());
 	rai::node_config config;
+	config.peering_port = 24000;
 	config.logging.init (path);
 	rai::work_pool work (std::numeric_limits<unsigned>::max (), nullptr);
 	config.password_fanout = 10;
@@ -147,9 +148,9 @@ TEST (node, send_out_of_order)
 	rai::send_block send1 (genesis.hash (), key2.pub, std::numeric_limits<rai::uint128_t>::max () - system.nodes[0]->config.receive_minimum.number (), rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (genesis.hash ()));
 	rai::send_block send2 (send1.hash (), key2.pub, std::numeric_limits<rai::uint128_t>::max () - system.nodes[0]->config.receive_minimum.number () * 2, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (send1.hash ()));
 	rai::send_block send3 (send2.hash (), key2.pub, std::numeric_limits<rai::uint128_t>::max () - system.nodes[0]->config.receive_minimum.number () * 3, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (send2.hash ()));
-	system.nodes[0]->process_active (std::unique_ptr<rai::block> (new rai::send_block (send3)));
-	system.nodes[0]->process_active (std::unique_ptr<rai::block> (new rai::send_block (send2)));
-	system.nodes[0]->process_active (std::unique_ptr<rai::block> (new rai::send_block (send1)));
+	system.nodes[0]->process_active (std::make_shared<rai::send_block> (send3));
+	system.nodes[0]->process_active (std::make_shared<rai::send_block> (send2));
+	system.nodes[0]->process_active (std::make_shared<rai::send_block> (send1));
 	system.deadline_set (10s);
 	while (std::any_of (system.nodes.begin (), system.nodes.end (), [&](std::shared_ptr<rai::node> const & node_a) { return node_a->balance (rai::test_genesis_key.pub) != rai::genesis_amount - system.nodes[0]->config.receive_minimum.number () * 3; }))
 	{
@@ -162,15 +163,18 @@ TEST (node, quick_confirm)
 	rai::system system (24000, 1);
 	rai::keypair key;
 	rai::block_hash previous (system.nodes[0]->latest (rai::test_genesis_key.pub));
+	auto genesis_start_balance (system.nodes[0]->balance (rai::test_genesis_key.pub));
 	system.wallet (0)->insert_adhoc (key.prv);
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
-	auto send (std::make_shared<rai::send_block> (previous, key.pub, system.nodes[0]->delta () + 1, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (previous)));
+	auto send (std::make_shared<rai::send_block> (previous, key.pub, system.nodes[0]->config.online_weight_minimum.number () + 1, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (previous)));
 	system.nodes[0]->process_active (send);
 	system.deadline_set (10s);
 	while (system.nodes[0]->balance (key.pub).is_zero ())
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
+	ASSERT_EQ (system.nodes[0]->balance (rai::test_genesis_key.pub), system.nodes[0]->config.online_weight_minimum.number () + 1);
+	ASSERT_EQ (system.nodes[0]->balance (key.pub), genesis_start_balance - (system.nodes[0]->config.online_weight_minimum.number () + 1));
 }
 
 TEST (node, node_receive_quorum)
@@ -191,14 +195,17 @@ TEST (node, node_receive_quorum)
 	{
 		auto info (system.nodes[0]->active.roots.find (previous));
 		ASSERT_NE (system.nodes[0]->active.roots.end (), info);
-		done = info->announcements > rai::active_transactions::announcement_min;
+		done = info->election->announcements > rai::active_transactions::announcement_min;
 		ASSERT_NO_ERROR (system.poll ());
 	}
+	rai::system system2 (24001, 1);
+	system2.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	ASSERT_TRUE (system.nodes[0]->balance (key.pub).is_zero ());
-	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	system.nodes[0]->network.send_keepalive (system2.nodes[0]->network.endpoint ());
 	while (system.nodes[0]->balance (key.pub).is_zero ())
 	{
 		ASSERT_NO_ERROR (system.poll ());
+		ASSERT_NO_ERROR (system2.poll ());
 	}
 }
 
@@ -219,9 +226,10 @@ TEST (node, auto_bootstrap)
 	ASSERT_FALSE (init1.error ());
 	node1->network.send_keepalive (system.nodes[0]->network.endpoint ());
 	node1->start ();
+	system.nodes.push_back (node1);
 	while (!node1->bootstrap_initiator.in_progress ())
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	system.deadline_set (10s);
 	while (node1->balance (key2.pub) != system.nodes[0]->config.receive_minimum.number ())
@@ -248,6 +256,7 @@ TEST (node, auto_bootstrap_reverse)
 	ASSERT_NE (nullptr, system.wallet (0)->send_action (rai::test_genesis_key.pub, key2.pub, system.nodes[0]->config.receive_minimum.number ()));
 	system.nodes[0]->network.send_keepalive (node1->network.endpoint ());
 	node1->start ();
+	system.nodes.push_back (node1);
 	system.deadline_set (10s);
 	while (node1->balance (key2.pub) != system.nodes[0]->config.receive_minimum.number ())
 	{
@@ -263,7 +272,7 @@ TEST (node, receive_gap)
 	ASSERT_EQ (0, node1.gap_cache.blocks.size ());
 	auto block (std::make_shared<rai::send_block> (5, 1, 2, rai::keypair ().prv, 4, 0));
 	node1.work_generate_blocking (*block);
-	rai::confirm_req message (block);
+	rai::publish message (block);
 	node1.process_message (message, node1.network.endpoint ());
 	node1.block_processor.flush ();
 	ASSERT_EQ (1, node1.gap_cache.blocks.size ());
@@ -380,6 +389,7 @@ TEST (node, connect_after_junk)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	node1->start ();
+	system.nodes.push_back (node1);
 	node1->network.send_keepalive (system.nodes[0]->network.endpoint ());
 	system.deadline_set (10s);
 	while (node1->peers.empty ())
@@ -600,7 +610,7 @@ TEST (node, confirm_locked)
 	auto transaction (system.nodes[0]->store.tx_begin ());
 	system.wallet (0)->enter_password (transaction, "1");
 	auto block (std::make_shared<rai::send_block> (0, 0, 0, rai::keypair ().prv, 0, 0));
-	system.nodes[0]->network.republish_block (transaction, block);
+	system.nodes[0]->network.republish_block (block);
 }
 
 TEST (node_config, random_rep)
@@ -693,7 +703,7 @@ TEST (node, fork_keep)
 	auto transaction0 (system.nodes[0]->store.tx_begin ());
 	auto transaction1 (system.nodes[1]->store.tx_begin ());
 	// The vote should be in agreement with what we already have.
-	auto winner (*votes1->tally (transaction0).begin ());
+	auto winner (*votes1->tally (transaction1).begin ());
 	ASSERT_EQ (*send1, *winner.second);
 	ASSERT_EQ (rai::genesis_amount - 100, winner.first);
 	ASSERT_TRUE (system.nodes[0]->store.block_exists (transaction0, send1->hash ()));
@@ -738,17 +748,20 @@ TEST (node, fork_flip)
 		ASSERT_TRUE (node2.store.block_exists (transaction, publish2.block->hash ()));
 	}
 	system.deadline_set (10s);
-	while (votes1->last_votes.size () == 1)
+	auto done (false);
+	while (!done)
 	{
 		ASSERT_NO_ERROR (system.poll ());
+		done = node2.ledger.block_exists (publish1.block->hash ());
 	}
-	auto transaction (system.nodes[0]->store.tx_begin ());
-	auto winner (*votes1->tally (transaction).begin ());
+	auto transaction1 (system.nodes[0]->store.tx_begin ());
+	auto transaction2 (system.nodes[1]->store.tx_begin ());
+	auto winner (*votes1->tally (transaction2).begin ());
 	ASSERT_EQ (*publish1.block, *winner.second);
 	ASSERT_EQ (rai::genesis_amount - 100, winner.first);
-	ASSERT_TRUE (node1.store.block_exists (transaction, publish1.block->hash ()));
-	ASSERT_TRUE (node2.store.block_exists (transaction, publish1.block->hash ()));
-	ASSERT_FALSE (node2.store.block_exists (transaction, publish2.block->hash ()));
+	ASSERT_TRUE (node1.store.block_exists (transaction1, publish1.block->hash ()));
+	ASSERT_TRUE (node2.store.block_exists (transaction2, publish1.block->hash ()));
+	ASSERT_FALSE (node2.store.block_exists (transaction2, publish2.block->hash ()));
 }
 
 TEST (node, fork_multi_flip)
@@ -794,18 +807,21 @@ TEST (node, fork_multi_flip)
 		ASSERT_TRUE (node2.store.block_exists (transaction, publish3.block->hash ()));
 	}
 	system.deadline_set (10s);
-	while (votes1->last_votes.size () == 1)
+	auto done (false);
+	while (!done)
 	{
 		ASSERT_NO_ERROR (system.poll ());
+		done = node2.ledger.block_exists (publish1.block->hash ());
 	}
-	auto transaction (system.nodes[0]->store.tx_begin ());
-	auto winner (*votes1->tally (transaction).begin ());
+	auto transaction1 (system.nodes[0]->store.tx_begin ());
+	auto transaction2 (system.nodes[1]->store.tx_begin ());
+	auto winner (*votes1->tally (transaction2).begin ());
 	ASSERT_EQ (*publish1.block, *winner.second);
 	ASSERT_EQ (rai::genesis_amount - 100, winner.first);
-	ASSERT_TRUE (node1.store.block_exists (transaction, publish1.block->hash ()));
-	ASSERT_TRUE (node2.store.block_exists (transaction, publish1.block->hash ()));
-	ASSERT_FALSE (node2.store.block_exists (transaction, publish2.block->hash ()));
-	ASSERT_FALSE (node2.store.block_exists (transaction, publish3.block->hash ()));
+	ASSERT_TRUE (node1.store.block_exists (transaction1, publish1.block->hash ()));
+	ASSERT_TRUE (node2.store.block_exists (transaction2, publish1.block->hash ()));
+	ASSERT_FALSE (node2.store.block_exists (transaction2, publish2.block->hash ()));
+	ASSERT_FALSE (node2.store.block_exists (transaction2, publish3.block->hash ()));
 }
 
 // Blocks that are no longer actively being voted on should be able to be evicted through bootstrapping.
@@ -917,13 +933,15 @@ TEST (node, fork_open_flip)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	auto transaction (system.nodes[0]->store.tx_begin ());
-	auto winner (*votes1->tally (transaction).begin ());
+	node2.block_processor.flush ();
+	auto transaction1 (system.nodes[0]->store.tx_begin ());
+	auto transaction2 (system.nodes[1]->store.tx_begin ());
+	auto winner (*votes1->tally (transaction2).begin ());
 	ASSERT_EQ (*open1, *winner.second);
 	ASSERT_EQ (rai::genesis_amount - 1, winner.first);
-	ASSERT_TRUE (node1.store.block_exists (transaction, open1->hash ()));
-	ASSERT_TRUE (node2.store.block_exists (transaction, open1->hash ()));
-	ASSERT_FALSE (node2.store.block_exists (transaction, open2->hash ()));
+	ASSERT_TRUE (node1.store.block_exists (transaction1, open1->hash ()));
+	ASSERT_TRUE (node2.store.block_exists (transaction2, open1->hash ()));
+	ASSERT_FALSE (node2.store.block_exists (transaction2, open2->hash ()));
 }
 
 TEST (node, coherent_observer)
@@ -982,7 +1000,7 @@ TEST (node, fork_no_vote_quorum)
 	node2.network.confirm_send (confirm, bytes, node3.network.endpoint ());
 	while (node3.stats.count (rai::stat::type::message, rai::stat::detail::confirm_ack, rai::stat::dir::in) < 3)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_TRUE (node1.latest (rai::test_genesis_key.pub) == send1.hash ());
 	ASSERT_TRUE (node2.latest (rai::test_genesis_key.pub) == send1.hash ());
@@ -1147,7 +1165,7 @@ TEST (node, broadcast_elected)
 	//std::cerr << "fork1: " << fork1.hash ().to_string () << std::endl;
 	while (!node0->ledger.block_exists (fork0->hash ()) || !node1->ledger.block_exists (fork0->hash ()))
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	system.deadline_set (50s);
 	while (!node2->ledger.block_exists (fork0->hash ()))
@@ -1371,25 +1389,6 @@ TEST (node, no_voting)
 	ASSERT_EQ (0, node1.stats.count (rai::stat::type::message, rai::stat::detail::confirm_ack, rai::stat::dir::in));
 }
 
-TEST (node, start_observer)
-{
-	rai::node_init init;
-	auto service (boost::make_shared<boost::asio::io_service> ());
-	rai::alarm alarm (*service);
-	auto path (rai::unique_path ());
-	rai::logging logging;
-	logging.init (path);
-	rai::work_pool work (std::numeric_limits<unsigned>::max (), nullptr);
-	auto node (std::make_shared<rai::node> (init, *service, 0, path, alarm, logging, work));
-	auto started (false);
-	node->observers.started.add ([&started]() {
-		started = true;
-	});
-	node->start ();
-	ASSERT_TRUE (started);
-	node->stop ();
-}
-
 TEST (node, send_callback)
 {
 	rai::system system (24000, 1);
@@ -1525,15 +1524,30 @@ TEST (node, online_reps)
 
 TEST (node, block_confirm)
 {
-	rai::system system (24000, 1);
+	rai::system system (24000, 2);
 	rai::genesis genesis;
-	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
-	auto send1 (std::make_shared<rai::state_block> (rai::test_genesis_key.pub, genesis.hash (), rai::test_genesis_key.pub, rai::genesis_amount - rai::Gxrb_ratio, rai::test_genesis_key.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.nodes[0]->work_generate_blocking (genesis.hash ())));
+	rai::keypair key;
+	system.wallet (1)->insert_adhoc (rai::test_genesis_key.prv);
+	auto send1 (std::make_shared<rai::state_block> (rai::test_genesis_key.pub, genesis.hash (), rai::test_genesis_key.pub, rai::genesis_amount - rai::Gxrb_ratio, key.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.nodes[0]->work_generate_blocking (genesis.hash ())));
+	system.nodes[0]->block_processor.add (send1, std::chrono::steady_clock::now ());
+	system.nodes[1]->block_processor.add (send1, std::chrono::steady_clock::now ());
+	system.deadline_set (std::chrono::seconds (5));
+	while (!system.nodes[0]->ledger.block_exists (send1->hash ()) || !system.nodes[1]->ledger.block_exists (send1->hash ()))
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_TRUE (system.nodes[0]->ledger.block_exists (send1->hash ()));
+	ASSERT_TRUE (system.nodes[1]->ledger.block_exists (send1->hash ()));
+	auto send2 (std::make_shared<rai::state_block> (rai::test_genesis_key.pub, send1->hash (), rai::test_genesis_key.pub, rai::genesis_amount - rai::Gxrb_ratio * 2, key.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.nodes[0]->work_generate_blocking (send1->hash ())));
 	{
 		auto transaction (system.nodes[0]->store.tx_begin (true));
-		ASSERT_EQ (rai::process_result::progress, system.nodes[0]->ledger.process (transaction, *send1).code);
+		ASSERT_EQ (rai::process_result::progress, system.nodes[0]->ledger.process (transaction, *send2).code);
 	}
-	system.nodes[0]->block_confirm (send1);
+	{
+		auto transaction (system.nodes[1]->store.tx_begin (true));
+		ASSERT_EQ (rai::process_result::progress, system.nodes[1]->ledger.process (transaction, *send2).code);
+	}
+	system.nodes[0]->block_confirm (send2);
 	ASSERT_TRUE (system.nodes[0]->active.confirmed.empty ());
 	system.deadline_set (10s);
 	while (system.nodes[0]->active.confirmed.empty ())
@@ -1595,12 +1609,13 @@ TEST (node, confirm_quorum)
 	rai::genesis genesis;
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	// Put greater than online_weight_minimum in pending so quorum can't be reached
-	auto send1 (std::make_shared<rai::state_block> (rai::test_genesis_key.pub, genesis.hash (), rai::test_genesis_key.pub, rai::Gxrb_ratio, rai::test_genesis_key.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.nodes[0]->work_generate_blocking (genesis.hash ())));
+	rai::uint128_union new_balance (system.nodes[0]->config.online_weight_minimum.number () - rai::Gxrb_ratio);
+	auto send1 (std::make_shared<rai::state_block> (rai::test_genesis_key.pub, genesis.hash (), rai::test_genesis_key.pub, new_balance, rai::test_genesis_key.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.nodes[0]->work_generate_blocking (genesis.hash ())));
 	{
 		auto transaction (system.nodes[0]->store.tx_begin (true));
 		ASSERT_EQ (rai::process_result::progress, system.nodes[0]->ledger.process (transaction, *send1).code);
 	}
-	system.wallet (0)->send_action (rai::test_genesis_key.pub, rai::test_genesis_key.pub, rai::Gxrb_ratio);
+	system.wallet (0)->send_action (rai::test_genesis_key.pub, rai::test_genesis_key.pub, new_balance.number ());
 	system.deadline_set (10s);
 	while (system.nodes[0]->active.roots.empty ())
 	{
@@ -1612,7 +1627,7 @@ TEST (node, confirm_quorum)
 		ASSERT_FALSE (system.nodes[0]->active.roots.empty ());
 		auto info (system.nodes[0]->active.roots.find (send1->hash ()));
 		ASSERT_NE (system.nodes[0]->active.roots.end (), info);
-		done = info->announcements > rai::active_transactions::announcement_min;
+		done = info->election->announcements > rai::active_transactions::announcement_min;
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (0, system.nodes[0]->balance (rai::test_genesis_key.pub));
@@ -1624,35 +1639,289 @@ TEST (node, vote_republish)
 	rai::keypair key2;
 	system.wallet (1)->insert_adhoc (key2.prv);
 	rai::genesis genesis;
-	rai::send_block send1 (genesis.hash (), key2.pub, std::numeric_limits<rai::uint128_t>::max () - system.nodes[0]->config.receive_minimum.number (), rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (genesis.hash ()));
-	rai::send_block send2 (genesis.hash (), key2.pub, std::numeric_limits<rai::uint128_t>::max () - system.nodes[0]->config.receive_minimum.number () * 2, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (genesis.hash ()));
-	system.nodes[0]->process_active (std::unique_ptr<rai::block> (new rai::send_block (send1)));
+	auto send1 (std::make_shared<rai::send_block> (genesis.hash (), key2.pub, std::numeric_limits<rai::uint128_t>::max () - system.nodes[0]->config.receive_minimum.number (), rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (genesis.hash ())));
+	auto send2 (std::make_shared<rai::send_block> (genesis.hash (), key2.pub, std::numeric_limits<rai::uint128_t>::max () - system.nodes[0]->config.receive_minimum.number () * 2, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (genesis.hash ())));
+	system.nodes[0]->process_active (send1);
 	system.deadline_set (5s);
-	while (!system.nodes[1]->block (send1.hash ()))
+	while (!system.nodes[1]->block (send1->hash ()))
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	system.nodes[0]->active.publish (std::unique_ptr<rai::block> (new rai::send_block (send2)));
-	auto vote (std::make_shared<rai::vote> (rai::test_genesis_key.pub, rai::test_genesis_key.prv, 0, std::unique_ptr<rai::block> (new rai::send_block (send2))));
-	ASSERT_TRUE (system.nodes[0]->active.active (send1));
-	ASSERT_TRUE (system.nodes[1]->active.active (send1));
+	system.nodes[0]->active.publish (send2);
+	auto vote (std::make_shared<rai::vote> (rai::test_genesis_key.pub, rai::test_genesis_key.prv, 0, send2));
+	ASSERT_TRUE (system.nodes[0]->active.active (*send1));
+	ASSERT_TRUE (system.nodes[1]->active.active (*send1));
 	system.nodes[0]->vote_processor.vote (vote, system.nodes[0]->network.endpoint ());
-	while (!system.nodes[0]->block (send2.hash ()))
+	while (!system.nodes[0]->block (send2->hash ()))
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	while (!system.nodes[1]->block (send2.hash ()))
+	while (!system.nodes[1]->block (send2->hash ()))
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	ASSERT_FALSE (system.nodes[0]->block (send1.hash ()));
-	ASSERT_FALSE (system.nodes[1]->block (send1.hash ()));
+	ASSERT_FALSE (system.nodes[0]->block (send1->hash ()));
+	ASSERT_FALSE (system.nodes[1]->block (send1->hash ()));
 	system.deadline_set (5s);
 	while (system.nodes[1]->balance (key2.pub) != system.nodes[0]->config.receive_minimum.number () * 2)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	while (system.nodes[0]->balance (key2.pub) != system.nodes[0]->config.receive_minimum.number () * 2)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+}
+
+TEST (node, vote_by_hash_republish)
+{
+	rai::system system (24000, 2);
+	rai::keypair key2;
+	system.wallet (1)->insert_adhoc (key2.prv);
+	rai::genesis genesis;
+	auto send1 (std::make_shared<rai::send_block> (genesis.hash (), key2.pub, std::numeric_limits<rai::uint128_t>::max () - system.nodes[0]->config.receive_minimum.number (), rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (genesis.hash ())));
+	auto send2 (std::make_shared<rai::send_block> (genesis.hash (), key2.pub, std::numeric_limits<rai::uint128_t>::max () - system.nodes[0]->config.receive_minimum.number () * 2, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (genesis.hash ())));
+	system.nodes[0]->process_active (send1);
+	system.deadline_set (5s);
+	while (!system.nodes[1]->block (send1->hash ()))
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	system.nodes[0]->active.publish (send2);
+	std::vector<rai::block_hash> vote_blocks;
+	vote_blocks.push_back (send2->hash ());
+	auto vote (std::make_shared<rai::vote> (rai::test_genesis_key.pub, rai::test_genesis_key.prv, 0, vote_blocks));
+	ASSERT_TRUE (system.nodes[0]->active.active (*send1));
+	ASSERT_TRUE (system.nodes[1]->active.active (*send1));
+	system.nodes[0]->vote_processor.vote (vote, system.nodes[0]->network.endpoint ());
+	while (!system.nodes[0]->block (send2->hash ()))
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	while (!system.nodes[1]->block (send2->hash ()))
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_FALSE (system.nodes[0]->block (send1->hash ()));
+	ASSERT_FALSE (system.nodes[1]->block (send1->hash ()));
+	system.deadline_set (5s);
+	while (system.nodes[1]->balance (key2.pub) != system.nodes[0]->config.receive_minimum.number () * 2)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	while (system.nodes[0]->balance (key2.pub) != system.nodes[0]->config.receive_minimum.number () * 2)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+}
+
+TEST (node, vote_by_hash_epoch_block_republish)
+{
+	rai::system system (24000, 2);
+	rai::keypair key2;
+	system.wallet (1)->insert_adhoc (key2.prv);
+	rai::keypair epoch_signer;
+	system.nodes[0]->ledger.epoch_signer = epoch_signer.pub;
+	system.nodes[1]->ledger.epoch_signer = epoch_signer.pub;
+	rai::genesis genesis;
+	auto send1 (std::make_shared<rai::send_block> (genesis.hash (), key2.pub, std::numeric_limits<rai::uint128_t>::max () - system.nodes[0]->config.receive_minimum.number (), rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (genesis.hash ())));
+	auto epoch1 (std::make_shared<rai::state_block> (rai::genesis_account, genesis.hash (), rai::genesis_account, rai::genesis_amount, system.nodes[0]->ledger.epoch_link, epoch_signer.prv, epoch_signer.pub, system.work.generate (genesis.hash ())));
+	system.nodes[0]->process_active (send1);
+	system.deadline_set (5s);
+	while (!system.nodes[1]->block (send1->hash ()))
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	system.nodes[0]->active.publish (epoch1);
+	std::vector<rai::block_hash> vote_blocks;
+	vote_blocks.push_back (epoch1->hash ());
+	auto vote (std::make_shared<rai::vote> (rai::test_genesis_key.pub, rai::test_genesis_key.prv, 0, vote_blocks));
+	ASSERT_TRUE (system.nodes[0]->active.active (*send1));
+	ASSERT_TRUE (system.nodes[1]->active.active (*send1));
+	system.nodes[0]->vote_processor.vote (vote, system.nodes[0]->network.endpoint ());
+	while (!system.nodes[0]->block (epoch1->hash ()))
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	while (!system.nodes[1]->block (epoch1->hash ()))
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_FALSE (system.nodes[0]->block (send1->hash ()));
+	ASSERT_FALSE (system.nodes[1]->block (send1->hash ()));
+}
+
+TEST (node, fork_invalid_block_signature)
+{
+	rai::system system (24000, 2);
+	rai::keypair key2;
+	rai::genesis genesis;
+	auto send1 (std::make_shared<rai::send_block> (genesis.hash (), key2.pub, std::numeric_limits<rai::uint128_t>::max () - system.nodes[0]->config.receive_minimum.number (), rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (genesis.hash ())));
+	auto send2 (std::make_shared<rai::send_block> (genesis.hash (), key2.pub, std::numeric_limits<rai::uint128_t>::max () - system.nodes[0]->config.receive_minimum.number () * 2, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (genesis.hash ())));
+	auto send2_corrupt (std::make_shared<rai::send_block> (*send2));
+	send2_corrupt->signature = rai::signature (123);
+	system.nodes[0]->process_active (send1);
+	system.deadline_set (5s);
+	while (!system.nodes[0]->block (send1->hash ()))
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	auto vote (std::make_shared<rai::vote> (rai::test_genesis_key.pub, rai::test_genesis_key.prv, 0, send2));
+	auto vote_corrupt (std::make_shared<rai::vote> (rai::test_genesis_key.pub, rai::test_genesis_key.prv, 0, send2_corrupt));
+	system.nodes[1]->network.republish_vote (vote_corrupt);
+	ASSERT_NO_ERROR (system.poll ());
+	system.nodes[1]->network.republish_vote (vote);
+	while (system.nodes[0]->block (send1->hash ()))
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	while (!system.nodes[0]->block (send2->hash ()))
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (system.nodes[0]->block (send2->hash ())->block_signature (), send2->block_signature ());
+}
+
+TEST (node, fork_invalid_block_signature_vote_by_hash)
+{
+	rai::system system (24000, 1);
+	rai::keypair key2;
+	rai::genesis genesis;
+	auto send1 (std::make_shared<rai::send_block> (genesis.hash (), key2.pub, std::numeric_limits<rai::uint128_t>::max () - system.nodes[0]->config.receive_minimum.number (), rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (genesis.hash ())));
+	auto send2 (std::make_shared<rai::send_block> (genesis.hash (), key2.pub, std::numeric_limits<rai::uint128_t>::max () - system.nodes[0]->config.receive_minimum.number () * 2, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (genesis.hash ())));
+	auto send2_corrupt (std::make_shared<rai::send_block> (*send2));
+	send2_corrupt->signature = rai::signature (123);
+	system.nodes[0]->process_active (send1);
+	system.deadline_set (5s);
+	while (!system.nodes[0]->block (send1->hash ()))
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	system.nodes[0]->active.publish (send2_corrupt);
+	ASSERT_NO_ERROR (system.poll ());
+	system.nodes[0]->active.publish (send2);
+	std::vector<rai::block_hash> vote_blocks;
+	vote_blocks.push_back (send2->hash ());
+	auto vote (std::make_shared<rai::vote> (rai::test_genesis_key.pub, rai::test_genesis_key.prv, 0, vote_blocks));
+	{
+		auto transaction (system.nodes[0]->store.tx_begin_read ());
+		std::unique_lock<std::mutex> lock (system.nodes[0]->active.mutex);
+		system.nodes[0]->vote_processor.vote_blocking (transaction, vote, system.nodes[0]->network.endpoint ());
+	}
+	while (system.nodes[0]->block (send1->hash ()))
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	while (!system.nodes[0]->block (send2->hash ()))
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (system.nodes[0]->block (send2->hash ())->block_signature (), send2->block_signature ());
+}
+
+TEST (node, block_processor_signatures)
+{
+	rai::system system0 (24000, 1);
+	auto & node1 (*system0.nodes[0]);
+	system0.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	rai::block_hash latest (system0.nodes[0]->latest (rai::test_genesis_key.pub));
+	rai::keypair key1;
+	auto send1 (std::make_shared<rai::state_block> (rai::test_genesis_key.pub, latest, rai::test_genesis_key.pub, rai::genesis_amount - rai::Gxrb_ratio, key1.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
+	node1.work_generate_blocking (*send1);
+	rai::keypair key2;
+	auto send2 (std::make_shared<rai::state_block> (rai::test_genesis_key.pub, send1->hash (), rai::test_genesis_key.pub, rai::genesis_amount - 2 * rai::Gxrb_ratio, key2.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
+	node1.work_generate_blocking (*send2);
+	rai::keypair key3;
+	auto send3 (std::make_shared<rai::state_block> (rai::test_genesis_key.pub, send2->hash (), rai::test_genesis_key.pub, rai::genesis_amount - 3 * rai::Gxrb_ratio, key3.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
+	node1.work_generate_blocking (*send3);
+	// Invalid signature bit
+	auto send4 (std::make_shared<rai::state_block> (rai::test_genesis_key.pub, send3->hash (), rai::test_genesis_key.pub, rai::genesis_amount - 4 * rai::Gxrb_ratio, key3.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
+	node1.work_generate_blocking (*send4);
+	send4->signature.bytes[32] ^= 0x1;
+	// Invalid signature bit (force)
+	auto send5 (std::make_shared<rai::state_block> (rai::test_genesis_key.pub, send3->hash (), rai::test_genesis_key.pub, rai::genesis_amount - 5 * rai::Gxrb_ratio, key3.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
+	node1.work_generate_blocking (*send5);
+	send5->signature.bytes[31] ^= 0x1;
+	// Invalid signature to unchecked
+	{
+		auto transaction (node1.store.tx_begin_write ());
+		node1.store.unchecked_put (transaction, send5->previous (), send5);
+	}
+	auto receive1 (std::make_shared<rai::state_block> (key1.pub, 0, rai::test_genesis_key.pub, rai::Gxrb_ratio, send1->hash (), key1.prv, key1.pub, 0));
+	node1.work_generate_blocking (*receive1);
+	auto receive2 (std::make_shared<rai::state_block> (key2.pub, 0, rai::test_genesis_key.pub, rai::Gxrb_ratio, send2->hash (), key2.prv, key2.pub, 0));
+	node1.work_generate_blocking (*receive2);
+	// Invalid private key
+	auto receive3 (std::make_shared<rai::state_block> (key3.pub, 0, rai::test_genesis_key.pub, rai::Gxrb_ratio, send3->hash (), key2.prv, key3.pub, 0));
+	node1.work_generate_blocking (*receive3);
+	node1.process_active (send1);
+	node1.process_active (send2);
+	node1.process_active (send3);
+	node1.process_active (send4);
+	node1.process_active (receive1);
+	node1.process_active (receive2);
+	node1.process_active (receive3);
+	node1.block_processor.flush ();
+	node1.block_processor.force (send5);
+	node1.block_processor.flush ();
+	auto transaction (node1.store.tx_begin_read ());
+	ASSERT_TRUE (node1.store.block_exists (transaction, send1->hash ()));
+	ASSERT_TRUE (node1.store.block_exists (transaction, send2->hash ()));
+	ASSERT_TRUE (node1.store.block_exists (transaction, send3->hash ()));
+	ASSERT_FALSE (node1.store.block_exists (transaction, send4->hash ()));
+	ASSERT_FALSE (node1.store.block_exists (transaction, send5->hash ()));
+	ASSERT_TRUE (node1.store.block_exists (transaction, receive1->hash ()));
+	ASSERT_TRUE (node1.store.block_exists (transaction, receive2->hash ()));
+	ASSERT_FALSE (node1.store.block_exists (transaction, receive3->hash ()));
+}
+
+/*
+ *  State blocks go through a different signature path, ensure invalidly signed state blocks are rejected
+ */
+TEST (node, block_processor_reject_state)
+{
+	rai::system system (24000, 1);
+	auto & node (*system.nodes[0]);
+	rai::genesis genesis;
+	auto send1 (std::make_shared<rai::state_block> (rai::test_genesis_key.pub, genesis.hash (), rai::test_genesis_key.pub, rai::genesis_amount - rai::Gxrb_ratio, rai::test_genesis_key.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
+	node.work_generate_blocking (*send1);
+	send1->signature.bytes[0] ^= 1;
+	ASSERT_FALSE (node.ledger.block_exists (send1->hash ()));
+	node.process_active (send1);
+	node.block_processor.flush ();
+	ASSERT_FALSE (node.ledger.block_exists (send1->hash ()));
+	auto send2 (std::make_shared<rai::state_block> (rai::test_genesis_key.pub, genesis.hash (), rai::test_genesis_key.pub, rai::genesis_amount - 2 * rai::Gxrb_ratio, rai::test_genesis_key.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
+	node.work_generate_blocking (*send2);
+	node.process_active (send2);
+	node.block_processor.flush ();
+	ASSERT_TRUE (node.ledger.block_exists (send2->hash ()));
+}
+
+TEST (node, confirm_back)
+{
+	rai::system system (24000, 1);
+	rai::keypair key;
+	auto & node (*system.nodes[0]);
+	rai::genesis genesis;
+	auto genesis_start_balance (node.balance (rai::test_genesis_key.pub));
+	auto send1 (std::make_shared<rai::send_block> (genesis.hash (), key.pub, genesis_start_balance - 1, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (genesis.hash ())));
+	auto open (std::make_shared<rai::state_block> (key.pub, 0, key.pub, 1, send1->hash (), key.prv, key.pub, system.work.generate (key.pub)));
+	auto send2 (std::make_shared<rai::state_block> (key.pub, open->hash (), key.pub, 0, rai::test_genesis_key.pub, key.prv, key.pub, system.work.generate (open->hash ())));
+	node.process_active (send1);
+	node.process_active (open);
+	node.process_active (send2);
+	node.block_processor.flush ();
+	ASSERT_EQ (3, node.active.roots.size ());
+	std::vector<rai::block_hash> vote_blocks;
+	vote_blocks.push_back (send2->hash ());
+	auto vote (std::make_shared<rai::vote> (rai::test_genesis_key.pub, rai::test_genesis_key.prv, 0, vote_blocks));
+	{
+		auto transaction (node.store.tx_begin_read ());
+		std::unique_lock<std::mutex> lock (node.active.mutex);
+		node.vote_processor.vote_blocking (transaction, vote, node.network.endpoint ());
+	}
+	system.deadline_set (10s);
+	while (!node.active.roots.empty ())
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}

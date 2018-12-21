@@ -32,6 +32,7 @@ void rai::add_node_options (boost::program_options::options_description & descri
 	("unchecked_clear", "Clear unchecked blocks")
 	("data_path", boost::program_options::value<std::string> (), "Use the supplied path as the data directory")
 	("delete_node_id", "Delete the node ID in the database")
+	("clear_send_ids", "Remove all send IDs from the database (dangerous: not intended for production use)")
 	("diagnostics", "Run internal diagnostics")
 	("key_create", "Generates a adhoc random keypair and prints it to stdout")
 	("key_expand", "Derive public key and account number from <key>")
@@ -50,7 +51,8 @@ void rai::add_node_options (boost::program_options::options_description & descri
 	("file", boost::program_options::value<std::string> (), "Defines <file> for other commands")
 	("key", boost::program_options::value<std::string> (), "Defines the <key> for other commands, hex")
 	("password", boost::program_options::value<std::string> (), "Defines <password> for other commands")
-	("wallet", boost::program_options::value<std::string> (), "Defines <wallet> for other commands");
+	("wallet", boost::program_options::value<std::string> (), "Defines <wallet> for other commands")
+	("force", boost::program_options::value<bool>(), "Bool to force command if allowed");
 	// clang-format on
 }
 
@@ -159,6 +161,11 @@ std::error_code rai::handle_node_options (boost::program_options::variables_map 
 					auto transaction (node.node->store.tx_begin_write ());
 					node.node->store.delete_node_id (transaction);
 				}
+				if (vm.count ("clear_send_ids"))
+				{
+					auto transaction (node.node->store.tx_begin_write ());
+					node.node->wallets.clear_send_ids (transaction);
+				}
 				success = node.node->copy_with_compaction (vacuum_path);
 			}
 
@@ -171,6 +178,10 @@ std::error_code rai::handle_node_options (boost::program_options::variables_map 
 				boost::filesystem::rename (vacuum_path, source_path);
 				std::cout << "Vacuum completed" << std::endl;
 			}
+			else
+			{
+				std::cerr << "Vacuum failed (copy_with_compaction returned false)" << std::endl;
+			}
 		}
 		catch (const boost::filesystem::filesystem_error & ex)
 		{
@@ -178,7 +189,7 @@ std::error_code rai::handle_node_options (boost::program_options::variables_map 
 		}
 		catch (...)
 		{
-			std::cerr << "Vacuum failed" << std::endl;
+			std::cerr << "Vacuum failed (unknown reason)" << std::endl;
 		}
 	}
 	else if (vm.count ("snapshot"))
@@ -206,11 +217,20 @@ std::error_code rai::handle_node_options (boost::program_options::variables_map 
 					auto transaction (node.node->store.tx_begin_write ());
 					node.node->store.delete_node_id (transaction);
 				}
+				if (vm.count ("clear_send_ids"))
+				{
+					auto transaction (node.node->store.tx_begin_write ());
+					node.node->wallets.clear_send_ids (transaction);
+				}
 				success = node.node->copy_with_compaction (snapshot_path);
 			}
 			if (success)
 			{
 				std::cout << "Snapshot completed, This can be found at " << snapshot_path << std::endl;
+			}
+			else
+			{
+				std::cerr << "Snapshot Failed (copy_with_compaction returned false)" << std::endl;
 			}
 		}
 		catch (const boost::filesystem::filesystem_error & ex)
@@ -219,7 +239,7 @@ std::error_code rai::handle_node_options (boost::program_options::variables_map 
 		}
 		catch (...)
 		{
-			std::cerr << "Snapshot Failed" << std::endl;
+			std::cerr << "Snapshot Failed (unknown reason)" << std::endl;
 		}
 	}
 	else if (vm.count ("unchecked_clear"))
@@ -237,6 +257,14 @@ std::error_code rai::handle_node_options (boost::program_options::variables_map 
 		auto transaction (node.node->store.tx_begin_write ());
 		node.node->store.delete_node_id (transaction);
 		std::cerr << "Deleted Node ID" << std::endl;
+	}
+	else if (vm.count ("clear_send_ids"))
+	{
+		boost::filesystem::path data_path = vm.count ("data_path") ? boost::filesystem::path (vm["data_path"].as<std::string> ()) : rai::working_path ();
+		inactive_node node (data_path);
+		auto transaction (node.node->store.tx_begin_write ());
+		node.node->wallets.clear_send_ids (transaction);
+		std::cerr << "Send IDs deleted" << std::endl;
 	}
 	else if (vm.count ("diagnostics"))
 	{
@@ -434,6 +462,10 @@ std::error_code rai::handle_node_options (boost::program_options::variables_map 
 							auto error (existing->second->store.fetch (transaction, account, key));
 							assert (!error);
 							std::cout << boost::str (boost::format ("Pub: %1% Prv: %2%\n") % account.to_account () % key.data.to_string ());
+							if (rai::pub_key (key.data) != account)
+							{
+								std::cerr << boost::str (boost::format ("Invalid private key %1%\n") % key.data.to_string ());
+							}
 						}
 					}
 					else
@@ -494,6 +526,7 @@ std::error_code rai::handle_node_options (boost::program_options::variables_map 
 	{
 		if (vm.count ("file") == 1)
 		{
+			bool forced (false);
 			std::string filename (vm["file"].as<std::string> ());
 			std::ifstream stream;
 			stream.open (filename.c_str ());
@@ -505,6 +538,10 @@ std::error_code rai::handle_node_options (boost::program_options::variables_map 
 				if (vm.count ("password") == 1)
 				{
 					password = vm["password"].as<std::string> ();
+				}
+				if (vm.count ("force") == 1)
+				{
+					forced = vm["force"].as<bool> ();
 				}
 				if (vm.count ("wallet") == 1)
 				{
@@ -523,8 +560,21 @@ std::error_code rai::handle_node_options (boost::program_options::variables_map 
 						}
 						else
 						{
-							std::cerr << "Wallet doesn't exist\n";
-							ec = rai::error_cli::invalid_arguments;
+							if (!forced)
+							{
+								std::cerr << "Wallet doesn't exist\n";
+								ec = rai::error_cli::invalid_arguments;
+							}
+							else
+							{
+								node.node->wallets.create (wallet_id);
+								auto existing (node.node->wallets.items.find (wallet_id));
+								if (existing->second->import (contents.str (), password))
+								{
+									std::cerr << "Unable to import wallet\n";
+									ec = rai::error_cli::invalid_arguments;
+								}
+							}
 						}
 					}
 					else

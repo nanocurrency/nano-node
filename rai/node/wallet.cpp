@@ -1,3 +1,4 @@
+#include <rai/lib/utility.hpp>
 #include <rai/node/wallet.hpp>
 
 #include <rai/node/node.hpp>
@@ -10,6 +11,8 @@
 #include <boost/polymorphic_cast.hpp>
 
 #include <future>
+
+uint64_t const rai::work_pool::publish_threshold;
 
 rai::uint256_union rai::wallet_store::check (rai::transaction const & transaction_a)
 {
@@ -533,7 +536,7 @@ void rai::wallet_store::write_backup (rai::transaction const & transaction_a, bo
 	{
 		// Set permissions to 600
 		boost::system::error_code ec;
-		boost::filesystem::permissions (path_a, boost::filesystem::perms::owner_read | boost::filesystem::perms::owner_write, ec);
+		rai::set_secure_perm_file (path_a, ec);
 
 		std::string json;
 		serialize_json (transaction_a, json);
@@ -572,7 +575,14 @@ bool rai::wallet_store::import (rai::transaction const & transaction_a, rai::wal
 		result = result | error;
 		if (!result)
 		{
-			insert_adhoc (transaction_a, prv);
+			if (!prv.data.is_zero ())
+			{
+				insert_adhoc (transaction_a, prv);
+			}
+			else
+			{
+				insert_watch (transaction_a, rai::uint256_union (i->first));
+			}
 			other_a.erase (transaction_a, rai::uint256_union (i->first));
 		}
 	}
@@ -855,6 +865,7 @@ void rai::wallet_store::destroy (rai::transaction const & transaction_a)
 {
 	auto status (mdb_drop (tx (transaction_a), handle, 1));
 	assert (status == 0);
+	handle = 0;
 }
 
 std::shared_ptr<rai::block> rai::wallet::receive_action (rai::block const & send_a, rai::account const & representative_a, rai::uint128_union const & amount_a, bool generate_work_a)
@@ -986,7 +997,7 @@ std::shared_ptr<rai::block> rai::wallet::send_action (rai::account const & sourc
 				if (block != nullptr)
 				{
 					cached_block = true;
-					wallets.node.network.republish_block (transaction, block);
+					wallets.node.network.republish_block (block);
 				}
 			}
 			else if (status != MDB_NOTFOUND)
@@ -1057,8 +1068,8 @@ bool rai::wallet::change_sync (rai::account const & source_a, rai::account const
 
 void rai::wallet::change_async (rai::account const & source_a, rai::account const & representative_a, std::function<void(std::shared_ptr<rai::block>)> const & action_a, bool generate_work_a)
 {
-	wallets.node.wallets.queue_wallet_action (rai::wallets::high_priority, [this, source_a, representative_a, action_a, generate_work_a]() {
-		auto block (change_action (source_a, representative_a, generate_work_a));
+	wallets.node.wallets.queue_wallet_action (rai::wallets::high_priority, shared_from_this (), [source_a, representative_a, action_a, generate_work_a](rai::wallet & wallet_a) {
+		auto block (wallet_a.change_action (source_a, representative_a, generate_work_a));
 		action_a (block);
 	});
 }
@@ -1076,8 +1087,8 @@ bool rai::wallet::receive_sync (std::shared_ptr<rai::block> block_a, rai::accoun
 void rai::wallet::receive_async (std::shared_ptr<rai::block> block_a, rai::account const & representative_a, rai::uint128_t const & amount_a, std::function<void(std::shared_ptr<rai::block>)> const & action_a, bool generate_work_a)
 {
 	//assert (dynamic_cast<rai::send_block *> (block_a.get ()) != nullptr);
-	wallets.node.wallets.queue_wallet_action (amount_a, [this, block_a, representative_a, amount_a, action_a, generate_work_a]() {
-		auto block (receive_action (*static_cast<rai::block *> (block_a.get ()), representative_a, amount_a, generate_work_a));
+	wallets.node.wallets.queue_wallet_action (amount_a, shared_from_this (), [block_a, representative_a, amount_a, action_a, generate_work_a](rai::wallet & wallet_a) {
+		auto block (wallet_a.receive_action (*static_cast<rai::block *> (block_a.get ()), representative_a, amount_a, generate_work_a));
 		action_a (block);
 	});
 }
@@ -1094,8 +1105,8 @@ rai::block_hash rai::wallet::send_sync (rai::account const & source_a, rai::acco
 
 void rai::wallet::send_async (rai::account const & source_a, rai::account const & account_a, rai::uint128_t const & amount_a, std::function<void(std::shared_ptr<rai::block>)> const & action_a, bool generate_work_a, boost::optional<std::string> id_a)
 {
-	wallets.node.wallets.queue_wallet_action (rai::wallets::high_priority, [this, source_a, account_a, amount_a, action_a, generate_work_a, id_a]() {
-		auto block (send_action (source_a, account_a, amount_a, generate_work_a, id_a));
+	wallets.node.wallets.queue_wallet_action (rai::wallets::high_priority, shared_from_this (), [source_a, account_a, amount_a, action_a, generate_work_a, id_a](rai::wallet & wallet_a) {
+		auto block (wallet_a.send_action (source_a, account_a, amount_a, generate_work_a, id_a));
 		action_a (block);
 	});
 }
@@ -1118,9 +1129,8 @@ void rai::wallet::work_update (rai::transaction const & transaction_a, rai::acco
 
 void rai::wallet::work_ensure (rai::account const & account_a, rai::block_hash const & hash_a)
 {
-	auto this_l (shared_from_this ());
-	wallets.node.wallets.queue_wallet_action (rai::wallets::generate_priority, [this_l, account_a, hash_a] {
-		this_l->work_cache_blocking (account_a, hash_a);
+	wallets.node.wallets.queue_wallet_action (rai::wallets::generate_priority, shared_from_this (), [account_a, hash_a](rai::wallet & wallet_a) {
+		wallet_a.work_cache_blocking (account_a, hash_a);
 	});
 }
 
@@ -1138,7 +1148,7 @@ bool rai::wallet::search_pending ()
 			// Don't search pending for watch-only accounts
 			if (!rai::wallet_value (i->second).key.is_zero ())
 			{
-				for (auto j (wallets.node.store.pending_begin (transaction, rai::pending_key (account, 0))), m (wallets.node.store.pending_begin (transaction, rai::pending_key (account.number () + 1, 0))); j != m; ++j)
+				for (auto j (wallets.node.store.pending_begin (transaction, rai::pending_key (account, 0))); rai::pending_key (j->first).account == account; ++j)
 				{
 					rai::pending_key key (j->first);
 					auto hash (key.hash);
@@ -1192,8 +1202,7 @@ rai::public_key rai::wallet::change_seed (rai::transaction const & transaction_a
 		else
 		{
 			// Check if there are pending blocks for account
-			rai::account end (pair.pub.number () + 1);
-			for (auto ii (wallets.node.store.pending_begin (transaction_a, rai::pending_key (pair.pub, 0))), nn (wallets.node.store.pending_begin (transaction_a, rai::pending_key (end, 0))); ii != nn; ++ii)
+			for (auto ii (wallets.node.store.pending_begin (transaction_a, rai::pending_key (pair.pub, 0))); rai::pending_key (ii->first).account == pair.pub; ++ii)
 			{
 				count = i;
 				n = i + 64 + (i / 64);
@@ -1208,6 +1217,11 @@ rai::public_key rai::wallet::change_seed (rai::transaction const & transaction_a
 	}
 
 	return account;
+}
+
+bool rai::wallet::live ()
+{
+	return store.handle != 0;
 }
 
 void rai::wallet::work_cache_blocking (rai::account const & account_a, rai::block_hash const & root_a)
@@ -1230,7 +1244,10 @@ observer ([](bool) {}),
 node (node_a),
 env (boost::polymorphic_downcast<rai::mdb_store *> (node_a.store_impl.get ())->env),
 stopped (false),
-thread ([this]() { do_wallet_actions (); })
+thread ([this]() {
+	rai::thread_role::set (rai::thread_role::name::wallet_actions);
+	do_wallet_actions ();
+})
 {
 	if (!error_a)
 	{
@@ -1322,6 +1339,7 @@ void rai::wallets::search_pending_all ()
 
 void rai::wallets::destroy (rai::uint256_union const & id_a)
 {
+	std::lock_guard<std::mutex> lock (mutex);
 	auto transaction (node.store.tx_begin_write ());
 	auto existing (items.find (id_a));
 	assert (existing != items.end ());
@@ -1338,13 +1356,17 @@ void rai::wallets::do_wallet_actions ()
 		if (!actions.empty ())
 		{
 			auto first (actions.begin ());
-			auto current (std::move (first->second));
+			auto wallet (first->second.first);
+			auto current (std::move (first->second.second));
 			actions.erase (first);
-			lock.unlock ();
-			observer (true);
-			current ();
-			observer (false);
-			lock.lock ();
+			if (wallet->live ())
+			{
+				lock.unlock ();
+				observer (true);
+				current (*wallet);
+				observer (false);
+				lock.lock ();
+			}
 		}
 		else
 		{
@@ -1353,10 +1375,12 @@ void rai::wallets::do_wallet_actions ()
 	}
 }
 
-void rai::wallets::queue_wallet_action (rai::uint128_t const & amount_a, std::function<void()> const & action_a)
+void rai::wallets::queue_wallet_action (rai::uint128_t const & amount_a, std::shared_ptr<rai::wallet> wallet_a, std::function<void(rai::wallet &)> const & action_a)
 {
-	std::lock_guard<std::mutex> lock (mutex);
-	actions.insert (std::make_pair (amount_a, std::move (action_a)));
+	{
+		std::lock_guard<std::mutex> lock (mutex);
+		actions.insert (std::make_pair (amount_a, std::make_pair (wallet_a, std::move (action_a))));
+	}
 	condition.notify_all ();
 }
 
@@ -1406,8 +1430,9 @@ void rai::wallets::stop ()
 	{
 		std::lock_guard<std::mutex> lock (mutex);
 		stopped = true;
-		condition.notify_all ();
+		actions.clear ();
 	}
+	condition.notify_all ();
 	if (thread.joinable ())
 	{
 		thread.join ();
@@ -1427,6 +1452,12 @@ rai::transaction rai::wallets::tx_begin_read ()
 rai::transaction rai::wallets::tx_begin (bool write_a)
 {
 	return env.tx_begin (write_a);
+}
+
+void rai::wallets::clear_send_ids (rai::transaction const & transaction_a)
+{
+	auto status (mdb_drop (env.tx (transaction_a), send_action_ids, 0));
+	assert (status == 0);
 }
 
 rai::uint128_t const rai::wallets::generate_priority = std::numeric_limits<rai::uint128_t>::max ();

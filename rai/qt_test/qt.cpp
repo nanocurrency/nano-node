@@ -71,7 +71,7 @@ TEST (wallet, startup_balance)
 	wallet_l->insert_adhoc (key.prv);
 	auto wallet (std::make_shared<rai_qt::wallet> (*test_application, processor, *system.nodes[0], wallet_l, key.pub));
 	wallet->start ();
-	ASSERT_EQ ("Balance: 0 XRB", wallet->self.balance_label->text ().toStdString ());
+	ASSERT_EQ ("Balance: 0 NANO", wallet->self.balance_label->text ().toStdString ());
 }
 
 TEST (wallet, select_account)
@@ -93,6 +93,7 @@ TEST (wallet, select_account)
 	QTest::mouseClick (wallet->accounts.use_account, Qt::LeftButton);
 	auto key4 (wallet->account);
 	ASSERT_NE (key3, key4);
+	ASSERT_EQ (key2, key4);
 }
 
 TEST (wallet, main)
@@ -392,7 +393,7 @@ TEST (wallet, create_open_receive)
 	wallet->client_window->show ();
 	QTest::mouseClick (wallet->show_advanced, Qt::LeftButton);
 	QTest::mouseClick (wallet->advanced.create_block, Qt::LeftButton);
-	QTest::mouseClick (wallet->block_creation.open, Qt::LeftButton);
+	wallet->block_creation.open->click ();
 	QTest::keyClicks (wallet->block_creation.source, latest1.to_string ().c_str ());
 	QTest::keyClicks (wallet->block_creation.representative, rai::test_genesis_key.pub.to_account ().c_str ());
 	QTest::mouseClick (wallet->block_creation.create, Qt::LeftButton);
@@ -637,7 +638,7 @@ TEST (wallet, change_seed)
 	rai_qt::eventloop_processor processor;
 	rai::system system (24000, 1);
 	auto key1 (system.wallet (0)->deterministic_insert ());
-	auto key3 (system.wallet (0)->deterministic_insert ());
+	system.wallet (0)->deterministic_insert ();
 	rai::raw_key seed3;
 	{
 		auto transaction (system.wallet (0)->wallets.tx_begin ());

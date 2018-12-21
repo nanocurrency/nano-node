@@ -1,3 +1,4 @@
+#include <rai/lib/utility.hpp>
 #include <rai/node/cli.hpp>
 #include <rai/node/rpc.hpp>
 #include <rai/node/working.hpp>
@@ -22,6 +23,7 @@ public:
 	}
 	bool upgrade_json (unsigned version_a, boost::property_tree::ptree & tree_a)
 	{
+		tree_a.put ("version", std::to_string (json_version));
 		auto result (false);
 		switch (version_a)
 		{
@@ -32,7 +34,6 @@ public:
 				tree_a.erase ("account");
 				tree_a.put ("account", account.to_account ());
 				tree_a.erase ("version");
-				tree_a.put ("version", "2");
 				result = true;
 			}
 			case 2:
@@ -42,7 +43,6 @@ public:
 				tree_a.put ("rpc_enable", "false");
 				tree_a.put_child ("rpc", rpc_l);
 				tree_a.erase ("version");
-				tree_a.put ("version", "3");
 				result = true;
 			}
 			case 3:
@@ -59,7 +59,6 @@ public:
 					opencl.serialize_json (opencl_l);
 					tree_a.put_child ("opencl", opencl_l);
 				}
-				tree_a.put ("version", "4");
 				result = true;
 			}
 			case 4:
@@ -118,10 +117,12 @@ public:
 	{
 		std::string wallet_string;
 		wallet.encode_hex (wallet_string);
-		tree_a.put ("version", "4");
+		tree_a.put ("version", std::to_string (json_version));
 		tree_a.put ("wallet", wallet_string);
 		tree_a.put ("account", account.to_account ());
 		boost::property_tree::ptree node_l;
+		node.enable_voting = false;
+		node.bootstrap_connections_max = 4;
 		node.serialize_json (node_l);
 		tree_a.add_child ("node", node_l);
 		boost::property_tree::ptree rpc_l;
@@ -156,6 +157,7 @@ public:
 	rai::rpc_config rpc;
 	bool opencl_enable;
 	rai::opencl_config opencl;
+	static constexpr int json_version = 4;
 };
 
 namespace
@@ -190,7 +192,9 @@ bool update_config (qt_wallet_config & config_a, boost::filesystem::path const &
 int run_wallet (QApplication & application, int argc, char * const * argv, boost::filesystem::path const & data_path)
 {
 	rai_qt::eventloop_processor processor;
+	boost::system::error_code error_chmod;
 	boost::filesystem::create_directories (data_path);
+	rai::set_secure_perm_directory (data_path, error_chmod);
 	QPixmap pixmap (":/logo.png");
 	QSplashScreen * splash = new QSplashScreen (pixmap);
 	splash->show ();
@@ -203,6 +207,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 	std::fstream config_file;
 	auto error (rai::fetch_object (config, config_path, config_file));
 	config_file.close ();
+	rai::set_secure_perm_file (config_path, error_chmod);
 	if (!error)
 	{
 		boost::asio::io_service service;
@@ -285,6 +290,8 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 
 int main (int argc, char * const * argv)
 {
+	rai::set_umask ();
+
 	try
 	{
 		QApplication application (argc, const_cast<char **> (argv));

@@ -25,9 +25,16 @@ struct hash<rai::uint256_union>
 }
 namespace rai
 {
-const uint8_t protocol_version = 0x0d;
-const uint8_t protocol_version_min = 0x07;
+const uint8_t protocol_version = 0x0f;
+const uint8_t protocol_version_min = 0x0d;
 const uint8_t node_id_version = 0x0c;
+
+/*
+ * Do not bootstrap from nodes older than this version.
+ * Also, on the beta network do not process messages from
+ * nodes older than this version.
+ */
+const uint8_t protocol_version_reasonable_min = 0x0d;
 
 /**
  * A key pair. The private key is generated from the random pool, or passed in
@@ -103,7 +110,11 @@ public:
 	bool operator== (rai::pending_key const &) const;
 	rai::account account;
 	rai::block_hash hash;
+	rai::block_hash key () const;
 };
+// Internally unchecked_key is equal to pending_key (2x uint256_union)
+using unchecked_key = pending_key;
+
 class block_info
 {
 public:
@@ -139,17 +150,18 @@ class vote
 public:
 	vote () = default;
 	vote (rai::vote const &);
-	vote (bool &, rai::stream &);
-	vote (bool &, rai::stream &, rai::block_type);
+	vote (bool &, rai::stream &, rai::block_uniquer * = nullptr);
+	vote (bool &, rai::stream &, rai::block_type, rai::block_uniquer * = nullptr);
 	vote (rai::account const &, rai::raw_key const &, uint64_t, std::shared_ptr<rai::block>);
 	vote (rai::account const &, rai::raw_key const &, uint64_t, std::vector<rai::block_hash>);
 	std::string hashes_string () const;
 	rai::uint256_union hash () const;
+	rai::uint256_union full_hash () const;
 	bool operator== (rai::vote const &) const;
 	bool operator!= (rai::vote const &) const;
 	void serialize (rai::stream &, rai::block_type);
 	void serialize (rai::stream &);
-	bool deserialize (rai::stream &);
+	bool deserialize (rai::stream &, rai::block_uniquer * = nullptr);
 	bool validate ();
 	boost::transform_iterator<rai::iterate_vote_blocks_as_hash, rai::vote_blocks_vec_iter> begin () const;
 	boost::transform_iterator<rai::iterate_vote_blocks_as_hash, rai::vote_blocks_vec_iter> end () const;
@@ -163,6 +175,22 @@ public:
 	// Signature of sequence + block hashes
 	rai::signature signature;
 	static const std::string hash_prefix;
+};
+/**
+ * This class serves to find and return unique variants of a vote in order to minimize memory usage
+ */
+class vote_uniquer
+{
+public:
+	vote_uniquer (rai::block_uniquer &);
+	std::shared_ptr<rai::vote> unique (std::shared_ptr<rai::vote>);
+	size_t size ();
+
+private:
+	rai::block_uniquer & uniquer;
+	std::mutex mutex;
+	std::unordered_map<rai::uint256_union, std::weak_ptr<rai::vote>> votes;
+	static unsigned constexpr cleanup_count = 2;
 };
 enum class vote_code
 {
@@ -222,6 +250,6 @@ class genesis
 public:
 	explicit genesis ();
 	rai::block_hash hash () const;
-	std::unique_ptr<rai::open_block> open;
+	std::shared_ptr<rai::block> open;
 };
 }

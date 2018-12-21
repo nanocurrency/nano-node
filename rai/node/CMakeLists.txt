@@ -22,12 +22,21 @@ add_library (node
 	cli.hpp
 	cli.cpp
 	common.cpp
+	common.hpp
 	lmdb.cpp
 	lmdb.hpp
+	logging.cpp
+	logging.hpp
+	nodeconfig.hpp
+	nodeconfig.cpp
 	node.hpp
 	node.cpp
 	openclwork.cpp
 	openclwork.hpp
+	peers.cpp
+	peers.hpp
+	portmapping.hpp
+	portmapping.cpp
 	rpc.hpp
 	rpc.cpp
 	testing.hpp
@@ -36,6 +45,8 @@ add_library (node
 	wallet.cpp
 	stats.hpp
 	stats.cpp
+	voting.hpp
+	voting.cpp
 	working.hpp
 	xorshift.hpp)
 
@@ -45,6 +56,7 @@ target_link_libraries (node
 	libminiupnpc-static
 	argon2
 	lmdb
+	${OPENSSL_LIBRARIES}
 	Boost::filesystem
 	Boost::log
 	Boost::log_setup

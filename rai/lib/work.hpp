@@ -1,6 +1,7 @@
 #pragma once
 
 #include <boost/optional.hpp>
+#include <boost/thread/thread.hpp>
 #include <rai/lib/config.hpp>
 #include <rai/lib/numbers.hpp>
 #include <rai/lib/utility.hpp>
@@ -13,10 +14,17 @@
 namespace rai
 {
 class block;
-bool work_validate (rai::block_hash const &, uint64_t);
-bool work_validate (rai::block const &);
+bool work_validate (rai::block_hash const &, uint64_t, uint64_t * = nullptr);
+bool work_validate (rai::block const &, uint64_t * = nullptr);
 uint64_t work_value (rai::block_hash const &, uint64_t);
 class opencl_work;
+class work_item
+{
+public:
+	rai::uint256_union item;
+	std::function<void(boost::optional<uint64_t> const &)> callback;
+	uint64_t difficulty;
+};
 class work_pool
 {
 public:
@@ -25,12 +33,12 @@ public:
 	void loop (uint64_t);
 	void stop ();
 	void cancel (rai::uint256_union const &);
-	void generate (rai::uint256_union const &, std::function<void(boost::optional<uint64_t> const &)>);
-	uint64_t generate (rai::uint256_union const &);
+	void generate (rai::uint256_union const &, std::function<void(boost::optional<uint64_t> const &)>, uint64_t = rai::work_pool::publish_threshold);
+	uint64_t generate (rai::uint256_union const &, uint64_t = rai::work_pool::publish_threshold);
 	std::atomic<int> ticket;
 	bool done;
-	std::vector<std::thread> threads;
-	std::list<std::pair<rai::uint256_union, std::function<void(boost::optional<uint64_t> const &)>>> pending;
+	std::vector<boost::thread> threads;
+	std::list<rai::work_item> pending;
 	std::mutex mutex;
 	std::condition_variable producer_condition;
 	std::function<boost::optional<uint64_t> (rai::uint256_union const &)> opencl;

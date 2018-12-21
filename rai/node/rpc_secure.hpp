@@ -14,7 +14,7 @@ public:
 	rpc_secure (boost::asio::io_service & service_a, rai::node & node_a, rai::rpc_config const & config_a);
 
 	/** Starts accepting connections */
-	virtual void accept () override;
+	void accept () override;
 
 	/** Installs the server certificate, key and DH, and optionally sets up client certificate verification */
 	void load_certs (boost::asio::ssl::context & ctx);
@@ -37,8 +37,8 @@ class rpc_connection_secure : public rpc_connection
 {
 public:
 	rpc_connection_secure (rai::node &, rai::rpc_secure &);
-	virtual void parse_connection () override;
-	virtual void read () override;
+	void parse_connection () override;
+	void read () override;
 	/** The TLS handshake callback */
 	void handle_handshake (const boost::system::error_code & error);
 	/** The TLS async shutdown callback */

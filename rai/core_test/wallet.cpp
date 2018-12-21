@@ -171,7 +171,7 @@ TEST (wallet, send_async)
 	rai::system system (24000, 1);
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	rai::keypair key2;
-	std::thread thread ([&system]() {
+	boost::thread thread ([&system]() {
 		system.deadline_set (10s);
 		while (!system.nodes[0]->balance (rai::test_genesis_key.pub).is_zero ())
 		{

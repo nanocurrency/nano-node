@@ -1,3 +1,4 @@
+#include <rai/lib/utility.hpp>
 #include <rai/node/cli.hpp>
 #include <rai/node/node.hpp>
 #include <rai/node/testing.hpp>
@@ -10,6 +11,8 @@
 
 int main (int argc, char * const * argv)
 {
+	rai::set_umask ();
+
 	boost::program_options::options_description description ("Command line options");
 	rai::add_node_options (description);
 
@@ -18,6 +21,9 @@ int main (int argc, char * const * argv)
 		("help", "Print out options")
 		("version", "Prints out version")
 		("daemon", "Start node daemon")
+		("disable_lazy_bootstrap", "Disables lazy bootstrap")
+		("disable_legacy_bootstrap", "Disables legacy bootstrap")
+		("disable_bootstrap_listener", "Disables bootstrap listener (incoming connections)")
 		("debug_block_count", "Display the number of block")
 		("debug_bootstrap_generate", "Generate bootstrap sequence of blocks")
 		("debug_dump_representatives", "List representatives and weights")
@@ -28,8 +34,10 @@ int main (int argc, char * const * argv)
 		("debug_profile_verify", "Profile work verification")
 		("debug_profile_kdf", "Profile kdf function")
 		("debug_verify_profile", "Profile signature verification")
+		("debug_verify_profile_batch", "Profile batch signature verification")
 		("debug_profile_sign", "Profile signature generation")
 		("debug_profile_process", "Profile active blocks processing (only for rai_test_network)")
+		("debug_profile_votes", "Profile votes processing (only for rai_test_network)")
 		("debug_validate_blocks", "Check all blocks for correct hash, signature, work value")
 		("platform", boost::program_options::value<std::string> (), "Defines the <platform> for OpenCL commands")
 		("device", boost::program_options::value<std::string> (), "Defines <device> for OpenCL command")
@@ -56,7 +64,11 @@ int main (int argc, char * const * argv)
 		if (vm.count ("daemon") > 0)
 		{
 			rai_daemon::daemon daemon;
-			daemon.run (data_path);
+			rai::node_flags flags;
+			flags.disable_lazy_bootstrap = (vm.count ("disable_lazy_bootstrap") > 0);
+			flags.disable_legacy_bootstrap = (vm.count ("disable_legacy_bootstrap") > 0);
+			flags.disable_bootstrap_listener = (vm.count ("disable_bootstrap_listener") > 0);
+			daemon.run (data_path, flags);
 		}
 		else if (vm.count ("debug_block_count"))
 		{
@@ -135,7 +147,7 @@ int main (int argc, char * const * argv)
 			{
 				rai::account_info info (i->second);
 				rai::block_hash rep_block (node.node->ledger.representative_calculated (transaction, info.head));
-				std::unique_ptr<rai::block> block (node.node->store.block_get (transaction, rep_block));
+				auto block (node.node->store.block_get (transaction, rep_block));
 				calculated[block->representative ()] += info.balance.number ();
 			}
 			total = 0;
@@ -166,6 +178,7 @@ int main (int argc, char * const * argv)
 			{
 				auto begin1 (std::chrono::high_resolution_clock::now ());
 				auto success (argon2_hash (1, rai::wallet_store::kdf_work, 1, password.data (), password.size (), salt.bytes.data (), salt.bytes.size (), result.bytes.data (), result.bytes.size (), NULL, 0, Argon2_d, 0x10));
+				(void)success;
 				auto end1 (std::chrono::high_resolution_clock::now ());
 				std::cerr << boost::str (boost::format ("Derivation time: %1%us\n") % std::chrono::duration_cast<std::chrono::microseconds> (end1 - begin1).count ());
 			}
@@ -308,6 +321,23 @@ int main (int argc, char * const * argv)
 			auto end (std::chrono::high_resolution_clock::now ());
 			std::cerr << "Signature verifications " << std::chrono::duration_cast<std::chrono::microseconds> (end - begin).count () << std::endl;
 		}
+		else if (vm.count ("debug_verify_profile_batch"))
+		{
+			rai::keypair key;
+			size_t batch_count (1000);
+			rai::uint256_union message;
+			rai::uint512_union signature (rai::sign_message (key.prv, key.pub, message));
+			std::vector<unsigned char const *> messages (batch_count, message.bytes.data ());
+			std::vector<size_t> lengths (batch_count, sizeof (message));
+			std::vector<unsigned char const *> pub_keys (batch_count, key.pub.bytes.data ());
+			std::vector<unsigned char const *> signatures (batch_count, signature.bytes.data ());
+			std::vector<int> verifications;
+			verifications.resize (batch_count);
+			auto begin (std::chrono::high_resolution_clock::now ());
+			rai::validate_message_batch (messages.data (), lengths.data (), pub_keys.data (), signatures.data (), batch_count, verifications.data ());
+			auto end (std::chrono::high_resolution_clock::now ());
+			std::cerr << "Batch signature verifications " << std::chrono::duration_cast<std::chrono::microseconds> (end - begin).count () << std::endl;
+		}
 		else if (vm.count ("debug_profile_sign"))
 		{
 			std::cerr << "Starting blocks signing profiling\n";
@@ -401,6 +431,89 @@ int main (int argc, char * const * argv)
 				std::cerr << "For this test ACTIVE_NETWORK should be rai_test_network" << std::endl;
 			}
 		}
+		else if (vm.count ("debug_profile_votes"))
+		{
+			if (rai::rai_network == rai::rai_networks::rai_test_network)
+			{
+				size_t num_elections (40000);
+				size_t num_representatives (25);
+				size_t max_votes (num_elections * num_representatives); // 40,000 * 25 = 1,000,000 votes
+				std::cerr << boost::str (boost::format ("Starting pregenerating %1% votes\n") % max_votes);
+				rai::system system (24000, 1);
+				rai::node_init init;
+				rai::work_pool work (std::numeric_limits<unsigned>::max (), nullptr);
+				rai::logging logging;
+				auto path (rai::unique_path ());
+				logging.init (path);
+				auto node (std::make_shared<rai::node> (init, system.service, 24001, path, system.alarm, logging, work));
+				rai::block_hash genesis_latest (node->latest (rai::test_genesis_key.pub));
+				rai::uint128_t genesis_balance (std::numeric_limits<rai::uint128_t>::max ());
+				// Generating keys
+				std::vector<rai::keypair> keys (num_representatives);
+				rai::uint128_t balance ((node->config.online_weight_minimum.number () / num_representatives) + 1);
+				for (auto i (0); i != num_representatives; ++i)
+				{
+					auto transaction (node->store.tx_begin_write ());
+					genesis_balance = genesis_balance - balance;
+					rai::state_block send (rai::test_genesis_key.pub, genesis_latest, rai::test_genesis_key.pub, genesis_balance, keys[i].pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, work.generate (genesis_latest));
+					genesis_latest = send.hash ();
+					node->ledger.process (transaction, send);
+					rai::state_block open (keys[i].pub, 0, keys[i].pub, balance, genesis_latest, keys[i].prv, keys[i].pub, work.generate (keys[i].pub));
+					node->ledger.process (transaction, open);
+				}
+				// Generating blocks
+				std::deque<std::shared_ptr<rai::block>> blocks;
+				for (auto i (0); i != num_elections; ++i)
+				{
+					genesis_balance = genesis_balance - 1;
+					rai::keypair destination;
+					auto send (std::make_shared<rai::state_block> (rai::test_genesis_key.pub, genesis_latest, rai::test_genesis_key.pub, genesis_balance, destination.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, work.generate (genesis_latest)));
+					genesis_latest = send->hash ();
+					blocks.push_back (send);
+				}
+				// Generating votes
+				std::deque<std::shared_ptr<rai::vote>> votes;
+				for (auto j (0); j != num_representatives; ++j)
+				{
+					uint64_t sequence (1);
+					for (auto & i : blocks)
+					{
+						auto vote (std::make_shared<rai::vote> (keys[j].pub, keys[j].prv, sequence, std::vector<rai::block_hash> (1, i->hash ())));
+						votes.push_back (vote);
+						sequence++;
+					}
+				}
+				// Processing block & start elections
+				while (!blocks.empty ())
+				{
+					auto block (blocks.front ());
+					node->process_active (block);
+					blocks.pop_front ();
+				}
+				node->block_processor.flush ();
+				// Processing votes
+				std::cerr << boost::str (boost::format ("Starting processing %1% votes\n") % max_votes);
+				auto begin (std::chrono::high_resolution_clock::now ());
+				while (!votes.empty ())
+				{
+					auto vote (votes.front ());
+					node->vote_processor.vote (vote, node->network.endpoint ());
+					votes.pop_front ();
+				}
+				while (!node->active.roots.empty ())
+				{
+					std::this_thread::sleep_for (std::chrono::milliseconds (100));
+				}
+				auto end (std::chrono::high_resolution_clock::now ());
+				auto time (std::chrono::duration_cast<std::chrono::microseconds> (end - begin).count ());
+				node->stop ();
+				std::cerr << boost::str (boost::format ("%|1$ 12d| us \n%2% votes per second\n") % time % (max_votes * 1000000 / time));
+			}
+			else
+			{
+				std::cerr << "For this test ACTIVE_NETWORK should be rai_test_network" << std::endl;
+			}
+		}
 		else if (vm.count ("debug_validate_blocks"))
 		{
 			rai::inactive_node node (data_path);
@@ -412,7 +525,7 @@ int main (int argc, char * const * argv)
 				++count;
 				if ((count % 20000) == 0)
 				{
-					std::cerr << boost::str (boost::format ("%1% accounts validated\n") % count);
+					std::cout << boost::str (boost::format ("%1% accounts validated\n") % count);
 				}
 				rai::account_info info (i->second);
 				rai::account account (i->first);
@@ -451,7 +564,7 @@ int main (int argc, char * const * argv)
 							{
 								prev_balance = node.node->ledger.balance (transaction, state_block.hashables.previous);
 							}
-							if (state_block.hashables.link == node.node->ledger.epoch_link && state_block.hashables.balance == prev_balance)
+							if (node.node->ledger.is_epoch_link (state_block.hashables.link) && state_block.hashables.balance == prev_balance)
 							{
 								invalid = validate_message (node.node->ledger.epoch_signer, hash, block->block_signature ());
 							}
@@ -470,6 +583,61 @@ int main (int argc, char * const * argv)
 					hash = node.node->store.block_successor (transaction, hash);
 				}
 			}
+			std::cout << boost::str (boost::format ("%1% accounts validated\n") % count);
+			count = 0;
+			for (auto i (node.node->store.pending_begin (transaction)), n (node.node->store.pending_end ()); i != n; ++i)
+			{
+				++count;
+				if ((count % 50000) == 0)
+				{
+					std::cout << boost::str (boost::format ("%1% pending blocks validated\n") % count);
+				}
+				rai::pending_key key (i->first);
+				rai::pending_info info (i->second);
+				// Check block existance
+				auto block (node.node->store.block_get (transaction, key.hash));
+				if (block == nullptr)
+				{
+					std::cerr << boost::str (boost::format ("Pending block not existing %1%\n") % key.hash.to_string ());
+				}
+				else
+				{
+					// Check if pending destination is correct
+					rai::account destination (0);
+					if (auto state = dynamic_cast<rai::state_block *> (block.get ()))
+					{
+						if (node.node->ledger.is_send (transaction, *state))
+						{
+							destination = state->hashables.link;
+						}
+					}
+					else if (auto send = dynamic_cast<rai::send_block *> (block.get ()))
+					{
+						destination = send->hashables.destination;
+					}
+					else
+					{
+						std::cerr << boost::str (boost::format ("Incorrect type for pending block %1%\n") % key.hash.to_string ());
+					}
+					if (key.account != destination)
+					{
+						std::cerr << boost::str (boost::format ("Incorrect destination for pending block %1%\n") % key.hash.to_string ());
+					}
+					// Check if pending source is correct
+					auto account (node.node->ledger.account (transaction, key.hash));
+					if (info.source != account)
+					{
+						std::cerr << boost::str (boost::format ("Incorrect source for pending block %1%\n") % key.hash.to_string ());
+					}
+					// Check if pending amount is correct
+					auto amount (node.node->ledger.amount (transaction, key.hash));
+					if (info.amount != amount)
+					{
+						std::cerr << boost::str (boost::format ("Incorrect amount for pending block %1%\n") % key.hash.to_string ());
+					}
+				}
+			}
+			std::cout << boost::str (boost::format ("%1% pending blocks validated\n") % count);
 		}
 		else if (vm.count ("version"))
 		{

@@ -1,3 +1,4 @@
+#include <rai/lib/utility.hpp>
 #include <rai/rai_node/daemon.hpp>
 
 #include <boost/property_tree/json_parser.hpp>
@@ -13,7 +14,7 @@ opencl_enable (false)
 
 void rai_daemon::daemon_config::serialize_json (boost::property_tree::ptree & tree_a)
 {
-	tree_a.put ("version", "2");
+	tree_a.put ("version", std::to_string (json_version));
 	tree_a.put ("rpc_enable", rpc_enable);
 	boost::property_tree::ptree rpc_l;
 	rpc.serialize_json (rpc_l);
@@ -65,6 +66,7 @@ bool rai_daemon::daemon_config::deserialize_json (bool & upgraded_a, boost::prop
 
 bool rai_daemon::daemon_config::upgrade_json (unsigned version_a, boost::property_tree::ptree & tree_a)
 {
+	tree_a.put ("version", std::to_string (json_version));
 	auto result (false);
 	switch (version_a)
 	{
@@ -82,7 +84,6 @@ bool rai_daemon::daemon_config::upgrade_json (unsigned version_a, boost::propert
 				opencl.serialize_json (opencl_l);
 				tree_a.put_child ("opencl", opencl_l);
 			}
-			tree_a.put ("version", "2");
 			result = true;
 		}
 		case 2:
@@ -93,14 +94,17 @@ bool rai_daemon::daemon_config::upgrade_json (unsigned version_a, boost::propert
 	return result;
 }
 
-void rai_daemon::daemon::run (boost::filesystem::path const & data_path)
+void rai_daemon::daemon::run (boost::filesystem::path const & data_path, rai::node_flags const & flags)
 {
+	boost::system::error_code error_chmod;
 	boost::filesystem::create_directories (data_path);
 	rai_daemon::daemon_config config;
+	rai::set_secure_perm_directory (data_path, error_chmod);
 	auto config_path ((data_path / "config.json"));
 	std::fstream config_file;
 	std::unique_ptr<rai::thread_runner> runner;
 	auto error (rai::fetch_object (config, config_path, config_file));
+	rai::set_secure_perm_file (config_path, error_chmod);
 	if (!error)
 	{
 		config.node.logging.init (data_path);
@@ -118,6 +122,7 @@ void rai_daemon::daemon::run (boost::filesystem::path const & data_path)
 			auto node (std::make_shared<rai::node> (init, service, data_path, alarm, config.node, opencl_work));
 			if (!init.error ())
 			{
+				node->flags = flags;
 				node->start ();
 				std::unique_ptr<rai::rpc> rpc = get_rpc (service, *node, config.rpc);
 				if (rpc && config.rpc_enable)

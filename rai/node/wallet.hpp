@@ -1,5 +1,6 @@
 #pragma once
 
+#include <boost/thread/thread.hpp>
 #include <rai/node/common.hpp>
 #include <rai/node/lmdb.hpp>
 #include <rai/node/openclwork.hpp>
@@ -149,6 +150,7 @@ public:
 	void init_free_accounts (rai::transaction const &);
 	/** Changes the wallet seed and returns the first account */
 	rai::public_key change_seed (rai::transaction const & transaction_a, rai::raw_key const & prv_a);
+	bool live ();
 	std::unordered_set<rai::account> free_accounts;
 	std::function<void(bool, bool)> lock_observer;
 	rai::wallet_store store;
@@ -171,13 +173,14 @@ public:
 	void search_pending_all ();
 	void destroy (rai::uint256_union const &);
 	void do_wallet_actions ();
-	void queue_wallet_action (rai::uint128_t const &, std::function<void()> const &);
+	void queue_wallet_action (rai::uint128_t const &, std::shared_ptr<rai::wallet>, std::function<void(rai::wallet &)> const &);
 	void foreach_representative (rai::transaction const &, std::function<void(rai::public_key const &, rai::raw_key const &)> const &);
 	bool exists (rai::transaction const &, rai::public_key const &);
 	void stop ();
+	void clear_send_ids (rai::transaction const &);
 	std::function<void(bool)> observer;
 	std::unordered_map<rai::uint256_union, std::shared_ptr<rai::wallet>> items;
-	std::multimap<rai::uint128_t, std::function<void()>, std::greater<rai::uint128_t>> actions;
+	std::multimap<rai::uint128_t, std::pair<std::shared_ptr<rai::wallet>, std::function<void(rai::wallet &)>>, std::greater<rai::uint128_t>> actions;
 	std::mutex mutex;
 	std::condition_variable condition;
 	rai::kdf kdf;
@@ -186,7 +189,7 @@ public:
 	rai::node & node;
 	rai::mdb_env & env;
 	bool stopped;
-	std::thread thread;
+	boost::thread thread;
 	static rai::uint128_t const generate_priority;
 	static rai::uint128_t const high_priority;
 
