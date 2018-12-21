@@ -461,7 +461,7 @@ TEST (block_builder, zeroed_state_block)
 	rai::keypair key;
 	// Make sure manually- and builder constructed all-zero blocks have equal hashes, and check signature.
 	auto zero_block_manual (std::make_shared<rai::state_block> (0, 0, 0, 0, 0, key.prv, key.pub, 0));
-	auto zero_block_build = builder.state ().clear ().sign (key.prv, key.pub).build ();
+	auto zero_block_build = builder.state ().zero ().sign (key.prv, key.pub).build ();
 	ASSERT_TRUE (zero_block_manual->hash () == zero_block_build->hash ());
 	ASSERT_FALSE (rai::validate_message (key.pub, zero_block_build->hash (), zero_block_build->signature));
 }
@@ -482,6 +482,23 @@ TEST (block_builder, state)
 	ASSERT_EQ (block->hash ().to_string (), "2D243F8F92CDD0AD94A1D456A6B15F3BE7A6FCBD98D4C5831D06D15C818CD81F");
 }
 
+TEST (block_builder, state_missing_rep)
+{
+	// Test against a random hash from the live network
+	std::error_code ec;
+	rai::block_builder builder;
+	auto block = builder
+	             .state ()
+	             .account_address ("xrb_15nhh1kzw3x8ohez6s75wy3jr6dqgq65oaede1fzk5hqxk4j8ehz7iqtb3to")
+	             .previous_hex ("FEFBCE274E75148AB31FF63EFB3082EF1126BF72BF3FA9C76A97FD5A9F0EBEC5")
+	             .balance_dec ("2251569974100400000000000000000000")
+	             .link_hex ("E16DD58C1EFA8B521545B0A74375AA994D9FC43828A4266D75ECF57F07A7EE86")
+	             .sign_zero ()
+	             .work (0)
+	             .build (ec);
+	ASSERT_EQ (ec, nano::error_common::missing_representative);
+}
+
 TEST (block_builder, state_equality)
 {
 	std::error_code ec;
@@ -499,6 +516,7 @@ TEST (block_builder, state_equality)
 	              .representative (key2.pub)
 	              .balance (2)
 	              .link (4)
+	              .sign (key1.prv, key1.pub)
 	              .work (5)
 	              .build (ec);
 
@@ -523,7 +541,7 @@ TEST (block_builder, state_errors)
 	builder.state ().account_hex ("xrb_bad").build (ec);
 	ASSERT_EQ (ec, nano::error_common::bad_account_number);
 
-	builder.state ().account_address ("xrb_1111111111111111111111111111111111111111111111111111hifc8npp").build (ec);
+	builder.state ().zero ().account_address ("xrb_1111111111111111111111111111111111111111111111111111hifc8npp").build (ec);
 	ASSERT_NO_ERROR (ec);
 }
 
@@ -556,6 +574,7 @@ TEST (block_builder, open_equality)
 	              .source (1)
 	              .account (key2.pub)
 	              .representative (key1.pub)
+	              .sign (key1.prv, key1.pub)
 	              .work (5)
 	              .build (ec);
 
@@ -590,6 +609,7 @@ TEST (block_builder, change_equality)
 	              .change ()
 	              .previous (1)
 	              .representative (key1.pub)
+	              .sign (key1.prv, key1.pub)
 	              .work (5)
 	              .build (ec);
 
@@ -626,6 +646,7 @@ TEST (block_builder, send_equality)
 	              .previous (1)
 	              .destination (key1.pub)
 	              .balance (2)
+	              .sign (key1.prv, key1.pub)
 	              .work (5)
 	              .build (ec);
 
@@ -648,6 +669,7 @@ TEST (block_builder, receive_equality)
 	              .receive ()
 	              .previous (1)
 	              .source (2)
+	              .sign (key1.prv, key1.pub)
 	              .work (5)
 	              .build (ec);
 

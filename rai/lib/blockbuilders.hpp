@@ -6,14 +6,51 @@
 
 namespace rai
 {
-/** Base type for block builder implementations */
-template <typename BLOCKTYPE>
+/** Flags to track builder state */
+enum class build_flags : uint8_t
+{
+	signature_present = 1,
+	work_present = 2,
+	account_present = 4,
+	balance_present = 8,
+	/* link also covers source and destination for legacy blocks */
+	link_present = 16,
+	previous_present = 32,
+	representative_present = 64
+};
+
+inline rai::build_flags operator| (rai::build_flags a, rai::build_flags b)
+{
+	return static_cast<rai::build_flags> (static_cast<uint8_t> (a) | static_cast<uint8_t> (b));
+}
+inline uint8_t operator| (uint8_t a, rai::build_flags b)
+{
+	return static_cast<uint8_t> (a | static_cast<uint8_t> (b));
+}
+inline uint8_t operator& (uint8_t a, rai::build_flags b)
+{
+	return static_cast<uint8_t> (a & static_cast<uint8_t> (b));
+}
+inline uint8_t operator|= (uint8_t & a, rai::build_flags b)
+{
+	return a = static_cast<uint8_t> (a | static_cast<uint8_t> (b));
+}
+
+/**
+ * Base type for block builder implementations. We employ static polymorphism
+ * to pass validation through subtypes without incurring the vtable cost.
+ */
+template <typename BLOCKTYPE, typename BUILDER>
 class abstract_builder
 {
 public:
 	/** Returns the built block as a unique_ptr */
 	inline std::unique_ptr<BLOCKTYPE> build ()
 	{
+		if (!ec)
+		{
+			static_cast<BUILDER *> (this)->validate ();
+		}
 		assert (!ec);
 		return std::move (block);
 	}
@@ -21,6 +58,10 @@ public:
 	/** Returns the built block as a unique_ptr. Any errors are placed in \p ec */
 	inline std::unique_ptr<BLOCKTYPE> build (std::error_code & ec)
 	{
+		if (!this->ec)
+		{
+			static_cast<BUILDER *> (this)->validate ();
+		}
 		ec = this->ec;
 		return std::move (block);
 	}
@@ -29,6 +70,7 @@ public:
 	inline abstract_builder & work (uint64_t work)
 	{
 		block->work = work;
+		build_state |= build_flags::work_present;
 		return *this;
 	}
 
@@ -36,45 +78,57 @@ public:
 	inline abstract_builder & sign (rai::raw_key const & private_key, rai::public_key const & public_key)
 	{
 		block->signature = rai::sign_message (private_key, public_key, block->hash ());
+		build_state |= build_flags::signature_present;
 		return *this;
 	}
 
-	/**
-	 * Prepares a new block to be built, allowing a builder to be reused.
-	 * It is not necessary to call this explicitely if the block_builder#<blocktype>()
-	 * functions are called for each new block. However, if the builder returned by e.g.
-	 * block_builder#state() is saved in a variable and reused, reset() must be called
-	 * to prepare a new block.
-	 */
-	inline void reset ()
+	/** Set signature to zero to pass build() validation, allowing block to be signed at a later point. This is mostly useful for tests. */
+	inline abstract_builder & sign_zero ()
 	{
-		block = std::make_unique<BLOCKTYPE> ();
-		ec.clear ();
+		block->signature.clear ();
+		build_state |= build_flags::signature_present;
+		return *this;
 	}
 
 protected:
 	abstract_builder ()
 	{
-		reset ();
+	}
+
+	/** Create a new block and resets the internal builder state */
+	inline void construct_block ()
+	{
+		block = std::make_unique<BLOCKTYPE> ();
+		ec.clear ();
+		build_state = 0;
 	}
 
 	/** The block we're building. Clients can convert this to shared_ptr as needed. */
 	std::unique_ptr<BLOCKTYPE> block;
 
 	/**
-	 * Set if any build functions fail. This will be output via the build_ functions,
-	 * or cause an assert for the parameter-less overloads.
+	 * Set if any builder functions fail. This will be output via the build(std::error_code) function,
+	 * or cause an assert for the parameter-less overload.
 	 */
 	std::error_code ec;
+
+	/** Bitset to track build state */
+	uint8_t build_state{ 0 };
+
+	/** Required field shared by all block types*/
+	uint8_t base_fields = static_cast<uint8_t> (rai::build_flags::work_present | rai::build_flags::signature_present);
 };
 
 /** Builder for state blocks */
-class state_block_builder : public abstract_builder<rai::state_block>
+class state_block_builder : public abstract_builder<rai::state_block, state_block_builder>
 {
 public:
-	state_block_builder () = default;
+	/** Creates a state block builder by calling make_block() */
+	state_block_builder ();
+	/** Creates a new block with fields, signature and work set to sentinel values. All fields must be set or zeroed for build() to succeed. */
+	state_block_builder & make_block ();
 	/** Sets all hashables, signature and work to zero. */
-	state_block_builder & clear ();
+	state_block_builder & zero ();
 	/** Set account */
 	state_block_builder & account (rai::account account);
 	/** Set account from hex representation of public key */
@@ -103,15 +157,24 @@ public:
 	state_block_builder & link_hex (std::string link_hex);
 	/** Set link from an xrb_ or nano_ address */
 	state_block_builder & link_address (std::string link_address);
+
+private:
+	/** Provides validation for build() */
+	void validate ();
+	uint8_t required_fields = base_fields | static_cast<uint8_t> (rai::build_flags::account_present | rai::build_flags::balance_present | rai::build_flags::link_present | rai::build_flags::previous_present | rai::build_flags::representative_present);
+	friend class abstract_builder;
 };
 
 /** Builder for open blocks */
-class open_block_builder : public abstract_builder<rai::open_block>
+class open_block_builder : public abstract_builder<rai::open_block, open_block_builder>
 {
 public:
-	open_block_builder () = default;
+	/** Creates an open block builder by calling make_block() */
+	open_block_builder ();
+	/** Creates a new block with fields, signature and work set to sentinel values. All fields must be set or zeroed for build() to succeed. */
+	open_block_builder & make_block ();
 	/** Sets all hashables, signature and work to zero. */
-	open_block_builder & clear ();
+	open_block_builder & zero ();
 	/** Set account */
 	open_block_builder & account (rai::account account);
 	/** Set account from hex representation of public key */
@@ -128,15 +191,24 @@ public:
 	open_block_builder & source (rai::block_hash source);
 	/** Set source block hash from hex representation */
 	open_block_builder & source_hex (std::string source_hex);
+
+private:
+	/** Provides validation for build() */
+	void validate ();
+	uint8_t required_fields = base_fields | static_cast<uint8_t> (rai::build_flags::account_present | rai::build_flags::representative_present | rai::build_flags::link_present);
+	friend class abstract_builder;
 };
 
 /** Builder for change blocks */
-class change_block_builder : public abstract_builder<rai::change_block>
+class change_block_builder : public abstract_builder<rai::change_block, change_block_builder>
 {
 public:
-	change_block_builder () = default;
+	/** Create a change block builder by calling make_block() */
+	change_block_builder ();
+	/** Creates a new block with fields, signature and work set to sentinel values. All fields must be set or zeroed for build() to succeed. */
+	change_block_builder & make_block ();
 	/** Sets all hashables, signature and work to zero. */
-	change_block_builder & clear ();
+	change_block_builder & zero ();
 	/** Set representative */
 	change_block_builder & representative (rai::account account);
 	/** Set representative from hex representation of public key */
@@ -147,15 +219,24 @@ public:
 	change_block_builder & previous (rai::block_hash previous);
 	/** Set previous block hash from hex representation */
 	change_block_builder & previous_hex (std::string previous_hex);
+
+private:
+	/** Provides validation for build() */
+	void validate ();
+	uint8_t required_fields = base_fields | static_cast<uint8_t> (rai::build_flags::previous_present | rai::build_flags::representative_present);
+	friend class abstract_builder;
 };
 
 /** Builder for send blocks */
-class send_block_builder : public abstract_builder<rai::send_block>
+class send_block_builder : public abstract_builder<rai::send_block, send_block_builder>
 {
 public:
-	send_block_builder () = default;
+	/** Creates a send block builder by calling make_block() */
+	send_block_builder ();
+	/** Creates a new block with fields, signature and work set to sentinel values. All fields must be set or zeroed for build() to succeed. */
+	send_block_builder & make_block ();
 	/** Sets all hashables, signature and work to zero. */
-	send_block_builder & clear ();
+	send_block_builder & zero ();
 	/** Set destination */
 	send_block_builder & destination (rai::account account);
 	/** Set destination from hex representation of public key */
@@ -172,15 +253,24 @@ public:
 	send_block_builder & balance_dec (std::string balance_decimal);
 	/** Set balance from hex string */
 	send_block_builder & balance_hex (std::string balance_hex);
+
+private:
+	/** Provides validation for build() */
+	void validate ();
+	uint8_t required_fields = base_fields | static_cast<uint8_t> (build_flags::previous_present | build_flags::link_present | build_flags::balance_present);
+	friend class abstract_builder;
 };
 
 /** Builder for receive blocks */
-class receive_block_builder : public abstract_builder<rai::receive_block>
+class receive_block_builder : public abstract_builder<rai::receive_block, receive_block_builder>
 {
 public:
-	receive_block_builder () = default;
+	/** Creates a receive block by calling make_block() */
+	receive_block_builder ();
+	/** Creates a new block with fields, signature and work set to sentinel values. All fields must be set or zeroed for build() to succeed. */
+	receive_block_builder & make_block ();
 	/** Sets all hashables, signature and work to zero. */
-	receive_block_builder & clear ();
+	receive_block_builder & zero ();
 	/** Set previous block hash */
 	receive_block_builder & previous (rai::block_hash previous);
 	/** Set previous block hash from hex representation */
@@ -189,6 +279,12 @@ public:
 	receive_block_builder & source (rai::block_hash source);
 	/** Set source block hash from hex representation */
 	receive_block_builder & source_hex (std::string source_hex);
+
+private:
+	/** Provides validation for build() */
+	void validate ();
+	uint8_t required_fields = base_fields | static_cast<uint8_t> (build_flags::previous_present | build_flags::link_present);
+	friend class abstract_builder;
 };
 
 /** Block builder to simplify construction of the various block types */
@@ -198,35 +294,35 @@ public:
 	/** Prepares a new state block and returns a block builder */
 	inline rai::state_block_builder & state ()
 	{
-		state_builder.reset ();
+		state_builder.make_block ();
 		return state_builder;
 	}
 
 	/** Prepares a new open block and returns a block builder */
 	inline rai::open_block_builder & open ()
 	{
-		open_builder.reset ();
+		open_builder.make_block ();
 		return open_builder;
 	}
 
 	/** Prepares a new change block and returns a block builder */
 	inline rai::change_block_builder & change ()
 	{
-		change_builder.reset ();
+		change_builder.make_block ();
 		return change_builder;
 	}
 
 	/** Prepares a new send block and returns a block builder */
 	inline rai::send_block_builder & send ()
 	{
-		send_builder.reset ();
+		send_builder.make_block ();
 		return send_builder;
 	}
 
 	/** Prepares a new receive block and returns a block builder */
 	inline rai::receive_block_builder & receive ()
 	{
-		receive_builder.reset ();
+		receive_builder.make_block ();
 		return receive_builder;
 	}
 
