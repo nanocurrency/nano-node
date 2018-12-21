@@ -190,18 +190,19 @@ void ledger_processor::state_block (rai::state_block const & block_a)
 		rai::amount prev_balance (0);
 		if (!block_a.hashables.previous.is_zero ())
 		{
-			result.code = ledger.store.block_exists (transaction, block_a.hashables.previous) ? rai::process_result::progress : rai::process_result::gap_previous_epoch;
+			result.code = ledger.store.block_exists (transaction, block_a.hashables.previous) ? rai::process_result::progress : rai::process_result::gap_previous;
+			result.verified = verification;
 			if (result.code == rai::process_result::progress)
 			{
 				prev_balance = ledger.balance (transaction, block_a.hashables.previous);
 			}
-			else if (verification != rai::signature_verification::valid_epoch)
+			else if (result.verified == rai::signature_verification::unknown)
 			{
-				result.code = validate_message (ledger.epoch_signer, block_a.hash (), block_a.signature) ? rai::process_result::bad_signature : rai::process_result::gap_previous_epoch; // Is this block signed correctly (Unambiguous)
+				result.verified = validate_message (ledger.epoch_signer, block_a.hash (), block_a.signature) ? rai::signature_verification::unknown : rai::signature_verification::valid_epoch; // Is epoch block signed correctly
 				// Check for possible regular state blocks with epoch link (send subtype)
-				if (result.code == rai::process_result::bad_signature)
+				if (result.verified == rai::signature_verification::unknown)
 				{
-					result.code = (verification == rai::signature_verification::valid || validate_message (block_a.hashables.account, block_a.hash (), block_a.signature)) ? rai::process_result::bad_signature : rai::process_result::gap_previous;
+					result.verified = validate_message (block_a.hashables.account, block_a.hash (), block_a.signature) ? rai::signature_verification::invalid : rai::signature_verification::valid;
 				}
 			}
 		}
@@ -238,6 +239,7 @@ void ledger_processor::state_block_impl (rai::state_block const & block_a)
 		if (result.code == rai::process_result::progress)
 		{
 			assert (!validate_message (block_a.hashables.account, hash, block_a.signature));
+			result.verified = rai::signature_verification::valid;
 			result.code = block_a.hashables.account.is_zero () ? rai::process_result::opened_burn_account : rai::process_result::progress; // Is this for the burn account? (Unambiguous)
 			if (result.code == rai::process_result::progress)
 			{
@@ -350,6 +352,7 @@ void ledger_processor::epoch_block_impl (rai::state_block const & block_a)
 		if (result.code == rai::process_result::progress)
 		{
 			assert (!validate_message (ledger.epoch_signer, hash, block_a.signature));
+			result.verified = rai::signature_verification::valid_epoch;
 			result.code = block_a.hashables.account.is_zero () ? rai::process_result::opened_burn_account : rai::process_result::progress; // Is this for the burn account? (Unambiguous)
 			if (result.code == rai::process_result::progress)
 			{
@@ -361,7 +364,7 @@ void ledger_processor::epoch_block_impl (rai::state_block const & block_a)
 					result.code = block_a.hashables.previous.is_zero () ? rai::process_result::fork : rai::process_result::progress; // Has this account already been opened? (Ambigious)
 					if (result.code == rai::process_result::progress)
 					{
-						result.code = ledger.store.block_exists (transaction, block_a.hashables.previous) ? rai::process_result::progress : rai::process_result::gap_previous_epoch; // Does the previous block exist in the ledger? (Unambigious)
+						result.code = ledger.store.block_exists (transaction, block_a.hashables.previous) ? rai::process_result::progress : rai::process_result::gap_previous; // Does the previous block exist in the ledger? (Unambigious)
 						if (result.code == rai::process_result::progress)
 						{
 							result.code = block_a.hashables.previous == info.head ? rai::process_result::progress : rai::process_result::fork; // Is the previous block the account's head block? (Ambigious)
@@ -428,6 +431,7 @@ void ledger_processor::change_block (rai::change_block const & block_a)
 					result.code = validate_message (account, hash, block_a.signature) ? rai::process_result::bad_signature : rai::process_result::progress; // Is this block signed correctly (Malformed)
 					if (result.code == rai::process_result::progress)
 					{
+						result.verified = rai::signature_verification::valid;
 						ledger.store.block_put (transaction, hash, block_a);
 						auto balance (ledger.balance (transaction, block_a.hashables.previous));
 						ledger.store.representation_add (transaction, hash, balance);
@@ -466,6 +470,7 @@ void ledger_processor::send_block (rai::send_block const & block_a)
 					result.code = validate_message (account, hash, block_a.signature) ? rai::process_result::bad_signature : rai::process_result::progress; // Is this block signed correctly (Malformed)
 					if (result.code == rai::process_result::progress)
 					{
+						result.verified = rai::signature_verification::valid;
 						rai::account_info info;
 						auto latest_error (ledger.store.account_get (transaction, account, info));
 						assert (!latest_error);
@@ -518,6 +523,7 @@ void ledger_processor::receive_block (rai::receive_block const & block_a)
 					if (result.code == rai::process_result::progress)
 					{
 						assert (!validate_message (account, hash, block_a.signature));
+						result.verified = rai::signature_verification::valid;
 						result.code = (ledger.store.block_exists (transaction, rai::block_type::send, block_a.hashables.source) || ledger.store.block_exists (transaction, rai::block_type::state, block_a.hashables.source)) ? rai::process_result::progress : rai::process_result::gap_source; // Have we seen the source block already? (Harmless)
 						if (result.code == rai::process_result::progress)
 						{
@@ -577,6 +583,7 @@ void ledger_processor::open_block (rai::open_block const & block_a)
 		if (result.code == rai::process_result::progress)
 		{
 			assert (!validate_message (block_a.hashables.account, hash, block_a.signature));
+			result.verified = rai::signature_verification::valid;
 			auto source_missing (!ledger.store.block_exists (transaction, rai::block_type::send, block_a.hashables.source) && !ledger.store.block_exists (transaction, rai::block_type::state, block_a.hashables.source));
 			result.code = source_missing ? rai::process_result::gap_source : rai::process_result::progress; // Have we seen the source block? (Harmless)
 			if (result.code == rai::process_result::progress)
@@ -621,6 +628,7 @@ ledger (ledger_a),
 transaction (transaction_a),
 verification (verification_a)
 {
+	result.verified = rai::signature_verification::unknown;
 }
 } // namespace
 

@@ -239,8 +239,7 @@ enum class process_result
 	opened_burn_account, // The impossible happened, someone found the private key associated with the public key '0'.
 	balance_mismatch, // Balance and amount delta don't match
 	representative_mismatch, // Representative is changed when it is not allowed
-	block_position, // This block cannot follow the previous block
-	gap_previous_epoch // Block marked as previous is unknown for epoch block
+	block_position // This block cannot follow the previous block
 };
 class process_return
 {
@@ -250,6 +249,7 @@ public:
 	rai::amount amount;
 	rai::account pending_account;
 	boost::optional<bool> state_is_send;
+	rai::signature_verification verified;
 };
 enum class tally_result
 {
