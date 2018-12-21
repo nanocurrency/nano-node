@@ -237,6 +237,7 @@ void ledger_processor::state_block_impl (rai::state_block const & block_a)
 		}
 		if (result.code == rai::process_result::progress)
 		{
+			assert (!validate_message (block_a.hashables.account, hash, block_a.signature));
 			result.code = block_a.hashables.account.is_zero () ? rai::process_result::opened_burn_account : rai::process_result::progress; // Is this for the burn account? (Unambiguous)
 			if (result.code == rai::process_result::progress)
 			{
@@ -348,6 +349,7 @@ void ledger_processor::epoch_block_impl (rai::state_block const & block_a)
 		}
 		if (result.code == rai::process_result::progress)
 		{
+			assert (!validate_message (ledger.epoch_signer, hash, block_a.signature));
 			result.code = block_a.hashables.account.is_zero () ? rai::process_result::opened_burn_account : rai::process_result::progress; // Is this for the burn account? (Unambiguous)
 			if (result.code == rai::process_result::progress)
 			{
@@ -515,6 +517,7 @@ void ledger_processor::receive_block (rai::receive_block const & block_a)
 					}
 					if (result.code == rai::process_result::progress)
 					{
+						assert (!validate_message (account, hash, block_a.signature));
 						result.code = (ledger.store.block_exists (transaction, rai::block_type::send, block_a.hashables.source) || ledger.store.block_exists (transaction, rai::block_type::state, block_a.hashables.source)) ? rai::process_result::progress : rai::process_result::gap_source; // Have we seen the source block already? (Harmless)
 						if (result.code == rai::process_result::progress)
 						{
@@ -573,6 +576,7 @@ void ledger_processor::open_block (rai::open_block const & block_a)
 		}
 		if (result.code == rai::process_result::progress)
 		{
+			assert (!validate_message (block_a.hashables.account, hash, block_a.signature));
 			auto source_missing (!ledger.store.block_exists (transaction, rai::block_type::send, block_a.hashables.source) && !ledger.store.block_exists (transaction, rai::block_type::state, block_a.hashables.source));
 			result.code = source_missing ? rai::process_result::gap_source : rai::process_result::progress; // Have we seen the source block? (Harmless)
 			if (result.code == rai::process_result::progress)
