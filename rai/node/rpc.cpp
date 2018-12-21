@@ -122,8 +122,8 @@ bool rai::rpc_config::deserialize_json (boost::property_tree::ptree const & tree
 	return result;
 }
 
-rai::rpc::rpc (boost::asio::io_service & service_a, rai::node & node_a, rai::rpc_config const & config_a) :
-acceptor (service_a),
+rai::rpc::rpc (boost::asio::io_context & io_ctx_a, rai::node & node_a, rai::rpc_config const & config_a) :
+acceptor (io_ctx_a),
 config (config_a),
 node (node_a)
 {
@@ -3714,7 +3714,7 @@ void rai::rpc_handler::work_peers_clear ()
 rai::rpc_connection::rpc_connection (rai::node & node_a, rai::rpc & rpc_a) :
 node (node_a.shared ()),
 rpc (rpc_a),
-socket (node_a.service)
+socket (node_a.io_ctx)
 {
 	responded.clear ();
 }
@@ -4392,21 +4392,21 @@ void rai::payment_observer::complete (rai::payment_status status)
 	}
 }
 
-std::unique_ptr<rai::rpc> rai::get_rpc (boost::asio::io_service & service_a, rai::node & node_a, rai::rpc_config const & config_a)
+std::unique_ptr<rai::rpc> rai::get_rpc (boost::asio::io_context & io_ctx_a, rai::node & node_a, rai::rpc_config const & config_a)
 {
 	std::unique_ptr<rpc> impl;
 
 	if (config_a.secure.enable)
 	{
 #ifdef RAIBLOCKS_SECURE_RPC
-		impl.reset (new rpc_secure (service_a, node_a, config_a));
+		impl.reset (new rpc_secure (io_ctx_a, node_a, config_a));
 #else
 		std::cerr << "RPC configured for TLS, but the node is not compiled with TLS support" << std::endl;
 #endif
 	}
 	else
 	{
-		impl.reset (new rpc (service_a, node_a, config_a));
+		impl.reset (new rpc (io_ctx_a, node_a, config_a));
 	}
 
 	return impl;

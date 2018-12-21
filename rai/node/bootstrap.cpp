@@ -15,7 +15,7 @@ constexpr unsigned bootstrap_max_new_connections = 10;
 constexpr unsigned bulk_push_cost_limit = 200;
 
 rai::socket::socket (std::shared_ptr<rai::node> node_a) :
-socket_m (node_a->service),
+socket_m (node_a->io_ctx),
 cutoff (std::numeric_limits<uint64_t>::max ()),
 node (node_a)
 {
@@ -809,7 +809,7 @@ bool rai::bootstrap_attempt::request_frontier (std::unique_lock<std::mutex> & lo
 			future = client->promise.get_future ();
 		}
 		lock_a.unlock ();
-		result = consume_future (future); // This is out of scope of `client' so when the last reference via boost::asio::io_service is lost and the client is destroyed, the future throws an exception.
+		result = consume_future (future); // This is out of scope of `client' so when the last reference via boost::asio::io_context is lost and the client is destroyed, the future throws an exception.
 		lock_a.lock ();
 		if (result)
 		{
@@ -870,7 +870,7 @@ void rai::bootstrap_attempt::request_push (std::unique_lock<std::mutex> & lock_a
 			future = client->promise.get_future ();
 		}
 		lock_a.unlock ();
-		error = consume_future (future); // This is out of scope of `client' so when the last reference via boost::asio::io_service is lost and the client is destroyed, the future throws an exception.
+		error = consume_future (future); // This is out of scope of `client' so when the last reference via boost::asio::io_context is lost and the client is destroyed, the future throws an exception.
 		lock_a.lock ();
 	}
 	if (node->config.logging.network_logging ())
@@ -1618,10 +1618,10 @@ void rai::bootstrap_initiator::notify_listeners (bool in_progress_a)
 	}
 }
 
-rai::bootstrap_listener::bootstrap_listener (boost::asio::io_service & service_a, uint16_t port_a, rai::node & node_a) :
-acceptor (service_a),
+rai::bootstrap_listener::bootstrap_listener (boost::asio::io_context & io_ctx_a, uint16_t port_a, rai::node & node_a) :
+acceptor (io_ctx_a),
 local (boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v6::any (), port_a)),
-service (service_a),
+io_ctx (io_ctx_a),
 node (node_a)
 {
 }
