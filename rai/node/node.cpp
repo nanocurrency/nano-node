@@ -20,6 +20,7 @@ std::chrono::seconds constexpr rai::node::cutoff;
 std::chrono::seconds constexpr rai::node::syn_cookie_cutoff;
 std::chrono::minutes constexpr rai::node::backup_interval;
 std::chrono::seconds constexpr rai::node::search_pending_interval;
+std::chrono::hours constexpr rai::node::unchecked_cleaning_interval;
 int constexpr rai::port_mapping::mapping_timeout;
 int constexpr rai::port_mapping::check_timeout;
 unsigned constexpr rai::active_transactions::announce_interval_ms;
@@ -2060,6 +2061,10 @@ void rai::node::start ()
 	online_reps.recalculate_stake ();
 	port_mapping.start ();
 	add_initial_peers ();
+	if (!flags.disable_unchecked_cleaning)
+	{
+		unchecked_cleaning ();
+	}
 }
 
 void rai::node::stop ()
@@ -2253,6 +2258,44 @@ void rai::node::search_pending ()
 	auto this_l (shared ());
 	alarm.add (std::chrono::steady_clock::now () + search_pending_interval, [this_l]() {
 		this_l->search_pending ();
+	});
+}
+
+void rai::node::unchecked_cleaning ()
+{
+	std::deque<rai::unchecked_key> cleaning;
+	// Collect old unchecked keys
+	if (!bootstrap_initiator.in_progress ())
+	{
+		auto now (rai::seconds_since_epoch ());
+		auto transaction (store.tx_begin_read ());
+		// Max 32k records to clean, max 30 seconds reading to prevent slow i/ systems start issues
+		for (auto i (store.unchecked_begin (transaction)), n (store.unchecked_end ()); i != n && cleaning.size () < 32 * 1024 && rai::seconds_since_epoch () - now < 30; ++i)
+		{
+			rai::unchecked_key key (i->first);
+			rai::unchecked_info info (i->second);
+			if ((now - info.modified) > unchecked_cutoff.count ())
+			{
+				cleaning.push_back (key);
+			}
+		}
+	}
+	// Delete old unchecked keys in batches
+	while (!cleaning.empty () && !bootstrap_initiator.in_progress ())
+	{
+		size_t deleted_count (0);
+		auto transaction (store.tx_begin_write ());
+		while (deleted_count++ < 1024 && !cleaning.empty ())
+		{
+			auto key (cleaning.front ());
+			cleaning.pop_front ();
+			store.unchecked_del (transaction, key);
+		}
+	}
+	cleaning.clear ();
+	auto this_l (shared ());
+	alarm.add (std::chrono::steady_clock::now () + unchecked_cleaning_interval, [this_l]() {
+		this_l->unchecked_cleaning ();
 	});
 }
 
