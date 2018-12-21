@@ -1280,11 +1280,11 @@ void rai::block_processor::process_blocks ()
 	}
 }
 
-bool rai::block_processor::should_log ()
+bool rai::block_processor::should_log (bool first_time)
 {
 	auto result (false);
 	auto now (std::chrono::steady_clock::now ());
-	if (next_log < now)
+	if (first_time || next_log < now)
 	{
 		next_log = now + std::chrono::seconds (15);
 		result = true;
@@ -1298,11 +1298,23 @@ bool rai::block_processor::have_blocks ()
 	return !blocks.empty () || !forced.empty () || !state_blocks.empty ();
 }
 
-void rai::block_processor::verify_state_blocks (std::unique_lock<std::mutex> & lock_a)
+void rai::block_processor::verify_state_blocks (std::unique_lock<std::mutex> & lock_a, size_t max_count)
 {
-	lock_a.lock ();
+	assert (!mutex.try_lock ());
+	auto start_time (std::chrono::steady_clock::now ());
 	std::deque<std::pair<std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point>> items;
-	items.swap (state_blocks);
+	if (max_count == std::numeric_limits<size_t>::max () || max_count >= state_blocks.size ())
+	{
+		items.swap (state_blocks);
+	}
+	else
+	{
+		auto keep_size (state_blocks.size () - max_count);
+		items.resize (keep_size);
+		std::swap_ranges (state_blocks.end () - keep_size, state_blocks.end (), items.begin ());
+		state_blocks.resize (max_count);
+		items.swap (state_blocks);
+	}
 	lock_a.unlock ();
 	auto size (items.size ());
 	std::vector<rai::uint256_union> hashes;
@@ -1340,21 +1352,54 @@ void rai::block_processor::verify_state_blocks (std::unique_lock<std::mutex> & l
 		}
 		items.pop_front ();
 	}
-	lock_a.unlock ();
+	if (node.config.logging.timing_logging ())
+	{
+		auto end_time (std::chrono::steady_clock::now ());
+		auto elapsed_time_ms (std::chrono::duration_cast<std::chrono::milliseconds> (end_time - start_time));
+		auto elapsed_time_ms_int (elapsed_time_ms.count ());
+
+		BOOST_LOG (node.log) << boost::str (boost::format ("Batch verified %1% state blocks in %2% milliseconds") % size % elapsed_time_ms_int);
+	}
 }
 
 void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & lock_a)
 {
-	verify_state_blocks (lock_a);
-	auto transaction (node.store.tx_begin_write ());
+	lock_a.lock ();
 	auto start_time (std::chrono::steady_clock::now ());
+	// Limit state blocks verification time
+	while (!state_blocks.empty () && std::chrono::steady_clock::now () - start_time < std::chrono::seconds (2))
+	{
+		verify_state_blocks (lock_a, 2048);
+	}
+	lock_a.unlock ();
+	auto transaction (node.store.tx_begin_write ());
+	start_time = std::chrono::steady_clock::now ();
 	lock_a.lock ();
 	// Processing blocks
+	auto first_time (true);
+	unsigned number_of_blocks_processed (0), number_of_forced_processed (0);
 	while ((!blocks.empty () || !forced.empty ()) && std::chrono::steady_clock::now () - start_time < node.config.block_processor_batch_max_time)
 	{
-		if ((blocks.size () + state_blocks.size ()) > 64 && should_log ())
+		auto log_this_record (false);
+		if (node.config.logging.timing_logging ())
 		{
-			BOOST_LOG (node.log) << boost::str (boost::format ("%1% blocks in processing queue") % (blocks.size () + state_blocks.size ()));
+			if (should_log (first_time))
+			{
+				log_this_record = true;
+			}
+		}
+		else
+		{
+			if (((blocks.size () + state_blocks.size () + forced.size ()) > 64 && should_log (false)))
+			{
+				log_this_record = true;
+			}
+		}
+
+		if (log_this_record)
+		{
+			first_time = false;
+			BOOST_LOG (node.log) << boost::str (boost::format ("%1% blocks (+ %2% state blocks) (+ %3% forced) in processing queue") % blocks.size () % state_blocks.size () % forced.size ());
 		}
 		std::pair<std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point> block;
 		bool force (false);
@@ -1369,6 +1414,7 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 			block = std::make_pair (forced.front (), std::chrono::steady_clock::now ());
 			forced.pop_front ();
 			force = true;
+			number_of_forced_processed++;
 		}
 		lock_a.unlock ();
 		auto hash (block.first->hash ());
@@ -1386,10 +1432,26 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 		Because of that we should set set validated_state_block as "false" for forced state blocks (!force) */
 		bool validated_state_block (!force && block.first->type () == rai::block_type::state);
 		auto process_result (process_receive_one (transaction, block.first, block.second, validated_state_block));
+		number_of_blocks_processed++;
 		(void)process_result;
 		lock_a.lock ();
+		/* Verify more state blocks if blocks deque is empty
+		Because verification is long process, avoid large deque verification inside of write transaction */
+		if (blocks.empty () && !state_blocks.empty ())
+		{
+			verify_state_blocks (lock_a, 256);
+		}
 	}
 	lock_a.unlock ();
+
+	if (node.config.logging.timing_logging ())
+	{
+		auto end_time (std::chrono::steady_clock::now ());
+		auto elapsed_time_ms (std::chrono::duration_cast<std::chrono::milliseconds> (end_time - start_time));
+		auto elapsed_time_ms_int (elapsed_time_ms.count ());
+
+		BOOST_LOG (node.log) << boost::str (boost::format ("Processed %1% blocks (%2% blocks were forced) in %3% milliseconds") % number_of_blocks_processed % number_of_forced_processed % elapsed_time_ms_int);
+	}
 }
 
 rai::process_return rai::block_processor::process_receive_one (rai::transaction const & transaction_a, std::shared_ptr<rai::block> block_a, std::chrono::steady_clock::time_point origination, bool validated_state_block)
@@ -1523,7 +1585,7 @@ void rai::block_processor::queue_unchecked (rai::transaction const & transaction
 	auto cached (node.store.unchecked_get (transaction_a, hash_a));
 	for (auto i (cached.begin ()), n (cached.end ()); i != n; ++i)
 	{
-		node.store.unchecked_del (transaction_a, hash_a, *i);
+		node.store.unchecked_del (transaction_a, rai::unchecked_key (hash_a, (*i)->hash ()));
 		add (*i, std::chrono::steady_clock::time_point ());
 	}
 	std::lock_guard<std::mutex> lock (node.gap_cache.mutex);
@@ -1804,7 +1866,7 @@ void rai::node::send_keepalive (rai::endpoint const & endpoint_a)
 void rai::node::process_fork (rai::transaction const & transaction_a, std::shared_ptr<rai::block> block_a)
 {
 	auto root (block_a->root ());
-	if (!store.block_exists (transaction_a, block_a->hash ()) && store.root_exists (transaction_a, block_a->root ()))
+	if (!store.block_exists (transaction_a, block_a->type (), block_a->hash ()) && store.root_exists (transaction_a, block_a->root ()))
 	{
 		std::shared_ptr<rai::block> ledger_block (ledger.forked_block (transaction_a, *block_a));
 		if (ledger_block)
@@ -2583,13 +2645,13 @@ public:
 void rai::node::process_confirmed (std::shared_ptr<rai::block> block_a)
 {
 	auto hash (block_a->hash ());
-	bool exists (ledger.block_exists (hash));
+	bool exists (ledger.block_exists (block_a->type (), hash));
 	// Attempt to process confirmed block if it's not in ledger yet
 	if (!exists)
 	{
 		auto transaction (store.tx_begin_write ());
 		block_processor.process_receive_one (transaction, block_a);
-		exists = store.block_exists (transaction, hash);
+		exists = store.block_exists (transaction, block_a->type (), hash);
 	}
 	if (exists)
 	{
@@ -2916,7 +2978,7 @@ void rai::election::confirm_once (rai::transaction const & transaction_a)
 {
 	if (!confirmed.exchange (true))
 	{
-		status.election_end = std::chrono::steady_clock::now ();
+		status.election_end = std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ());
 		status.election_duration = std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::steady_clock::now () - election_start);
 		auto winner_l (status.winner);
 		auto node_l (node.shared ());

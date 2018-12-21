@@ -29,7 +29,7 @@ class election_status
 public:
 	std::shared_ptr<rai::block> winner;
 	rai::amount tally;
-	std::chrono::steady_clock::time_point election_end;
+	std::chrono::milliseconds election_end;
 	std::chrono::milliseconds election_duration;
 };
 class vote_info
@@ -422,14 +422,14 @@ public:
 	bool full ();
 	void add (std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point);
 	void force (std::shared_ptr<rai::block>);
-	bool should_log ();
+	bool should_log (bool);
 	bool have_blocks ();
 	void process_blocks ();
 	rai::process_return process_receive_one (rai::transaction const &, std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point = std::chrono::steady_clock::now (), bool = false);
 
 private:
 	void queue_unchecked (rai::transaction const &, rai::block_hash const &);
-	void verify_state_blocks (std::unique_lock<std::mutex> &);
+	void verify_state_blocks (std::unique_lock<std::mutex> &, size_t = std::numeric_limits<size_t>::max ());
 	void process_receive_many (std::unique_lock<std::mutex> &);
 	bool stopped;
 	bool active;

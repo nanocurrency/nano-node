@@ -1454,7 +1454,7 @@ void rai::rpc_handler::confirmation_history ()
 			boost::property_tree::ptree election;
 			election.put ("hash", i->winner->hash ().to_string ());
 			election.put ("duration", i->election_duration.count ());
-			election.put ("time", i->election_end.time_since_epoch ().count ());
+			election.put ("time", i->election_end.count ());
 			election.put ("tally", i->tally.to_string_dec ());
 			elections.push_back (std::make_pair ("", election));
 			running_total += i->election_duration;
@@ -3036,13 +3036,13 @@ void rai::rpc_handler::unchecked_keys ()
 	{
 		boost::property_tree::ptree unchecked;
 		auto transaction (node.store.tx_begin_read ());
-		for (auto i (node.store.unchecked_begin (transaction, key)), n (node.store.unchecked_end ()); i != n && unchecked.size () < count; ++i)
+		for (auto i (node.store.unchecked_begin (transaction, rai::unchecked_key (key, 0))), n (node.store.unchecked_end ()); i != n && unchecked.size () < count; ++i)
 		{
 			boost::property_tree::ptree entry;
 			auto block (i->second);
 			std::string contents;
 			block->serialize_json (contents);
-			entry.put ("key", rai::block_hash (i->first).to_string ());
+			entry.put ("key", rai::block_hash (i->first.key ()).to_string ());
 			entry.put ("hash", block->hash ().to_string ());
 			entry.put ("contents", contents);
 			unchecked.push_back (std::make_pair ("", entry));
