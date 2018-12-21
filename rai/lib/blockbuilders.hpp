@@ -162,6 +162,7 @@ private:
 	/** Provides validation for build() */
 	void validate ();
 	uint8_t required_fields = base_fields | static_cast<uint8_t> (rai::build_flags::account_present | rai::build_flags::balance_present | rai::build_flags::link_present | rai::build_flags::previous_present | rai::build_flags::representative_present);
+	template <typename BLOCKTYPE, typename BUILDER>
 	friend class abstract_builder;
 };
 
@@ -196,6 +197,7 @@ private:
 	/** Provides validation for build() */
 	void validate ();
 	uint8_t required_fields = base_fields | static_cast<uint8_t> (rai::build_flags::account_present | rai::build_flags::representative_present | rai::build_flags::link_present);
+	template <typename BLOCKTYPE, typename BUILDER>
 	friend class abstract_builder;
 };
 
@@ -224,6 +226,7 @@ private:
 	/** Provides validation for build() */
 	void validate ();
 	uint8_t required_fields = base_fields | static_cast<uint8_t> (rai::build_flags::previous_present | rai::build_flags::representative_present);
+	template <typename BLOCKTYPE, typename BUILDER>
 	friend class abstract_builder;
 };
 
@@ -258,6 +261,7 @@ private:
 	/** Provides validation for build() */
 	void validate ();
 	uint8_t required_fields = base_fields | static_cast<uint8_t> (build_flags::previous_present | build_flags::link_present | build_flags::balance_present);
+	template <typename BLOCKTYPE, typename BUILDER>
 	friend class abstract_builder;
 };
 
@@ -284,6 +288,7 @@ private:
 	/** Provides validation for build() */
 	void validate ();
 	uint8_t required_fields = base_fields | static_cast<uint8_t> (build_flags::previous_present | build_flags::link_present);
+	template <typename BLOCKTYPE, typename BUILDER>
 	friend class abstract_builder;
 };
 
