@@ -157,13 +157,11 @@ public:
 	state_block_builder & link_hex (std::string link_hex);
 	/** Set link from an xrb_ or nano_ address */
 	state_block_builder & link_address (std::string link_address);
-
-private:
 	/** Provides validation for build() */
 	void validate ();
+
+private:
 	uint8_t required_fields = base_fields | static_cast<uint8_t> (rai::build_flags::account_present | rai::build_flags::balance_present | rai::build_flags::link_present | rai::build_flags::previous_present | rai::build_flags::representative_present);
-	template <typename BLOCKTYPE, typename BUILDER>
-	friend class abstract_builder;
 };
 
 /** Builder for open blocks */
@@ -192,13 +190,11 @@ public:
 	open_block_builder & source (rai::block_hash source);
 	/** Set source block hash from hex representation */
 	open_block_builder & source_hex (std::string source_hex);
-
-private:
 	/** Provides validation for build() */
 	void validate ();
+
+private:
 	uint8_t required_fields = base_fields | static_cast<uint8_t> (rai::build_flags::account_present | rai::build_flags::representative_present | rai::build_flags::link_present);
-	template <typename BLOCKTYPE, typename BUILDER>
-	friend class abstract_builder;
 };
 
 /** Builder for change blocks */
@@ -221,13 +217,11 @@ public:
 	change_block_builder & previous (rai::block_hash previous);
 	/** Set previous block hash from hex representation */
 	change_block_builder & previous_hex (std::string previous_hex);
-
-private:
 	/** Provides validation for build() */
 	void validate ();
+
+private:
 	uint8_t required_fields = base_fields | static_cast<uint8_t> (rai::build_flags::previous_present | rai::build_flags::representative_present);
-	template <typename BLOCKTYPE, typename BUILDER>
-	friend class abstract_builder;
 };
 
 /** Builder for send blocks */
@@ -256,13 +250,11 @@ public:
 	send_block_builder & balance_dec (std::string balance_decimal);
 	/** Set balance from hex string */
 	send_block_builder & balance_hex (std::string balance_hex);
-
-private:
 	/** Provides validation for build() */
 	void validate ();
+
+private:
 	uint8_t required_fields = base_fields | static_cast<uint8_t> (build_flags::previous_present | build_flags::link_present | build_flags::balance_present);
-	template <typename BLOCKTYPE, typename BUILDER>
-	friend class abstract_builder;
 };
 
 /** Builder for receive blocks */
@@ -283,13 +275,11 @@ public:
 	receive_block_builder & source (rai::block_hash source);
 	/** Set source block hash from hex representation */
 	receive_block_builder & source_hex (std::string source_hex);
-
-private:
 	/** Provides validation for build() */
 	void validate ();
+
+private:
 	uint8_t required_fields = base_fields | static_cast<uint8_t> (build_flags::previous_present | build_flags::link_present);
-	template <typename BLOCKTYPE, typename BUILDER>
-	friend class abstract_builder;
 };
 
 /** Block builder to simplify construction of the various block types */
