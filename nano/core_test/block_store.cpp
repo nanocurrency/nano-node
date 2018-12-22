@@ -26,7 +26,8 @@ TEST (block_store, add_item)
 	auto latest1 (store.block_get (transaction, hash1));
 	ASSERT_EQ (nullptr, latest1);
 	ASSERT_FALSE (store.block_exists (transaction, hash1));
-	store.block_put (transaction, hash1, block);
+	nano::block_sideband sideband (nano::block_type::open, 0, 0, 0, 0);
+	store.block_put (transaction, hash1, block, sideband);
 	auto latest2 (store.block_get (transaction, hash1));
 	ASSERT_NE (nullptr, latest2);
 	ASSERT_EQ (block, *latest2);
@@ -35,6 +36,28 @@ TEST (block_store, add_item)
 	store.block_del (transaction, hash1);
 	auto latest3 (store.block_get (transaction, hash1));
 	ASSERT_EQ (nullptr, latest3);
+}
+
+TEST (block_store, clear_successor)
+{
+	bool init (false);
+	nano::mdb_store store (init, nano::unique_path ());
+	ASSERT_TRUE (!init);
+	nano::open_block block1 (0, 1, 0, nano::keypair ().prv, 0, 0);
+	auto transaction (store.tx_begin (true));
+	nano::block_sideband sideband (nano::block_type::open, 0, 0, 0, 0);
+	store.block_put (transaction, block1.hash (), block1, sideband);
+	nano::open_block block2 (0, 2, 0, nano::keypair ().prv, 0, 0);
+	store.block_put (transaction, block2.hash (), block2, sideband);
+	ASSERT_NE (nullptr, store.block_get (transaction, block1.hash (), &sideband));
+	ASSERT_EQ (0, sideband.successor.number ());
+	sideband.successor = block2.hash ();
+	store.block_put (transaction, block1.hash (), block1, sideband);
+	ASSERT_NE (nullptr, store.block_get (transaction, block1.hash (), &sideband));
+	ASSERT_EQ (block2.hash (), sideband.successor);
+	store.block_successor_clear (transaction, block1.hash ());
+	ASSERT_NE (nullptr, store.block_get (transaction, block1.hash (), &sideband));
+	ASSERT_EQ (0, sideband.successor.number ());
 }
 
 TEST (block_store, add_nonempty_block)
@@ -49,7 +72,8 @@ TEST (block_store, add_nonempty_block)
 	auto transaction (store.tx_begin (true));
 	auto latest1 (store.block_get (transaction, hash1));
 	ASSERT_EQ (nullptr, latest1);
-	store.block_put (transaction, hash1, block);
+	nano::block_sideband sideband (nano::block_type::open, 0, 0, 0, 0);
+	store.block_put (transaction, hash1, block, sideband);
 	auto latest2 (store.block_get (transaction, hash1));
 	ASSERT_NE (nullptr, latest2);
 	ASSERT_EQ (block, *latest2);
@@ -73,8 +97,10 @@ TEST (block_store, add_two_items)
 	block2.signature = nano::sign_message (key1.prv, key1.pub, hash2);
 	auto latest2 (store.block_get (transaction, hash2));
 	ASSERT_EQ (nullptr, latest2);
-	store.block_put (transaction, hash1, block);
-	store.block_put (transaction, hash2, block2);
+	nano::block_sideband sideband (nano::block_type::open, 0, 0, 0, 0);
+	store.block_put (transaction, hash1, block, sideband);
+	nano::block_sideband sideband2 (nano::block_type::open, 0, 0, 0, 0);
+	store.block_put (transaction, hash2, block2, sideband2);
 	auto latest3 (store.block_get (transaction, hash1));
 	ASSERT_NE (nullptr, latest3);
 	ASSERT_EQ (block, *latest3);
@@ -93,12 +119,14 @@ TEST (block_store, add_receive)
 	nano::keypair key2;
 	nano::open_block block1 (0, 1, 0, nano::keypair ().prv, 0, 0);
 	auto transaction (store.tx_begin (true));
-	store.block_put (transaction, block1.hash (), block1);
+	nano::block_sideband sideband1 (nano::block_type::open, 0, 0, 0, 0);
+	store.block_put (transaction, block1.hash (), block1, sideband1);
 	nano::receive_block block (block1.hash (), 1, nano::keypair ().prv, 2, 3);
 	nano::block_hash hash1 (block.hash ());
 	auto latest1 (store.block_get (transaction, hash1));
 	ASSERT_EQ (nullptr, latest1);
-	store.block_put (transaction, hash1, block);
+	nano::block_sideband sideband (nano::block_type::receive, 0, 0, 0, 0);
+	store.block_put (transaction, hash1, block, sideband);
 	auto latest2 (store.block_get (transaction, hash1));
 	ASSERT_NE (nullptr, latest2);
 	ASSERT_EQ (block, *latest2);
@@ -364,7 +392,8 @@ TEST (block_store, one_block)
 	ASSERT_TRUE (!init);
 	nano::open_block block1 (0, 1, 0, nano::keypair ().prv, 0, 0);
 	auto transaction (store.tx_begin (true));
-	store.block_put (transaction, block1.hash (), block1);
+	nano::block_sideband sideband (nano::block_type::open, 0, 0, 0, 0);
+	store.block_put (transaction, block1.hash (), block1, sideband);
 	ASSERT_TRUE (store.block_exists (transaction, block1.hash ()));
 }
 
@@ -459,11 +488,13 @@ TEST (block_store, two_block)
 	hashes.push_back (block1.hash ());
 	blocks.push_back (block1);
 	auto transaction (store.tx_begin (true));
-	store.block_put (transaction, hashes[0], block1);
+	nano::block_sideband sideband1 (nano::block_type::open, 0, 0, 0, 0);
+	store.block_put (transaction, hashes[0], block1, sideband1);
 	nano::open_block block2 (0, 1, 2, nano::keypair ().prv, 0, 0);
 	hashes.push_back (block2.hash ());
 	blocks.push_back (block2);
-	store.block_put (transaction, hashes[1], block2);
+	nano::block_sideband sideband2 (nano::block_type::open, 0, 0, 0, 0);
+	store.block_put (transaction, hashes[1], block2, sideband2);
 	ASSERT_TRUE (store.block_exists (transaction, block1.hash ()));
 	ASSERT_TRUE (store.block_exists (transaction, block2.hash ()));
 }
@@ -635,8 +666,10 @@ TEST (block_store, block_replace)
 	nano::send_block send1 (0, 0, 0, nano::keypair ().prv, 0, 1);
 	nano::send_block send2 (0, 0, 0, nano::keypair ().prv, 0, 2);
 	auto transaction (store.tx_begin (true));
-	store.block_put (transaction, 0, send1);
-	store.block_put (transaction, 0, send2);
+	nano::block_sideband sideband1 (nano::block_type::send, 0, 0, 0, 0);
+	store.block_put (transaction, 0, send1, sideband1);
+	nano::block_sideband sideband2 (nano::block_type::send, 0, 0, 0, 0);
+	store.block_put (transaction, 0, send2, sideband2);
 	auto block3 (store.block_get (transaction, 0));
 	ASSERT_NE (nullptr, block3);
 	ASSERT_EQ (2, block3->block_work ());
@@ -651,7 +684,8 @@ TEST (block_store, block_count)
 	ASSERT_EQ (0, store.block_count (transaction).sum ());
 	nano::open_block block (0, 1, 0, nano::keypair ().prv, 0, 0);
 	nano::uint256_union hash1 (block.hash ());
-	store.block_put (transaction, hash1, block);
+	nano::block_sideband sideband (nano::block_type::open, 0, 0, 0, 0);
+	store.block_put (transaction, hash1, block, sideband);
 	ASSERT_EQ (1, store.block_count (transaction).sum ());
 }
 
@@ -1068,7 +1102,8 @@ TEST (block_store, state_block)
 	nano::keypair key1;
 	nano::state_block block1 (1, genesis.hash (), 3, 4, 6, key1.prv, key1.pub, 7);
 	ASSERT_EQ (nano::block_type::state, block1.type ());
-	store.block_put (transaction, block1.hash (), block1);
+	nano::block_sideband sideband1 (nano::block_type::state, 0, 0, 0, 0);
+	store.block_put (transaction, block1.hash (), block1, sideband1);
 	ASSERT_TRUE (store.block_exists (transaction, block1.hash ()));
 	auto block2 (store.block_get (transaction, block1.hash ()));
 	ASSERT_NE (nullptr, block2);

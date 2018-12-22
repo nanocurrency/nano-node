@@ -8,10 +8,14 @@ namespace nano
 class block_sideband
 {
 public:
-	block_sideband (nano::block_type, nano::block_hash const &, nano::amount const &, uint64_t);
+	block_sideband () = default;
+	block_sideband (nano::block_type, nano::account const &, nano::block_hash const &, nano::amount const &, uint64_t);
 	void serialize (nano::stream &) const;
+	bool deserialize (nano::stream &);
+	static size_t size (nano::block_type);
 	nano::block_type type;
 	nano::block_hash successor;
+	nano::account account;
 	nano::amount balance;
 	uint64_t height;
 };
@@ -203,10 +207,10 @@ class block_store
 public:
 	virtual ~block_store () = default;
 	virtual void initialize (nano::transaction const &, nano::genesis const &) = 0;
-	virtual void block_put (nano::transaction const &, nano::block_hash const &, nano::block const &, nano::block_hash const & = nano::block_hash (0), nano::epoch version = nano::epoch::epoch_0) = 0;
+	virtual void block_put (nano::transaction const &, nano::block_hash const &, nano::block const &, nano::block_sideband const &, nano::epoch version = nano::epoch::epoch_0) = 0;
 	virtual nano::block_hash block_successor (nano::transaction const &, nano::block_hash const &) = 0;
 	virtual void block_successor_clear (nano::transaction const &, nano::block_hash const &) = 0;
-	virtual std::shared_ptr<nano::block> block_get (nano::transaction const &, nano::block_hash const &) = 0;
+	virtual std::shared_ptr<nano::block> block_get (nano::transaction const &, nano::block_hash const &, nano::block_sideband * = nullptr) = 0;
 	virtual std::shared_ptr<nano::block> block_random (nano::transaction const &) = 0;
 	virtual void block_del (nano::transaction const &, nano::block_hash const &) = 0;
 	virtual bool block_exists (nano::transaction const &, nano::block_hash const &) = 0;

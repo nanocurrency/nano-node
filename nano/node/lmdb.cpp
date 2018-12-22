@@ -318,7 +318,7 @@ public:
 		auto version (store.block_version (transaction, block_a.previous ()));
 		assert (value.mv_size != 0);
 		std::vector<uint8_t> data (static_cast<uint8_t *> (value.mv_data), static_cast<uint8_t *> (value.mv_data) + value.mv_size);
-		std::copy (hash.bytes.begin (), hash.bytes.end (), data.end () - hash.bytes.size ());
+		std::copy (hash.bytes.begin (), hash.bytes.end (), data.end () - nano::block_sideband::size (type));
 		store.block_raw_put (transaction, store.block_database (type, version), block_a.previous (), nano::mdb_val (data.size (), data.data ()));
 	}
 	void send_block (nano::send_block const & block_a) override
@@ -784,7 +784,8 @@ void nano::mdb_store::initialize (nano::transaction const & transaction_a, nano:
 	auto hash_l (genesis_a.hash ());
 	assert (latest_v0_begin (transaction_a) == latest_v0_end ());
 	assert (latest_v1_begin (transaction_a) == latest_v1_end ());
-	block_put (transaction_a, hash_l, *genesis_a.open);
+	nano::block_sideband sideband (nano::block_type::open, nano::genesis_account, 0, nano::genesis_amount, 0);
+	block_put (transaction_a, hash_l, *genesis_a.open, sideband);
 	account_put (transaction_a, genesis_account, { hash_l, genesis_a.open->hash (), genesis_a.open->hash (), std::numeric_limits<nano::uint128_t>::max (), nano::seconds_since_epoch (), 1, nano::epoch::epoch_0 });
 	representation_put (transaction_a, genesis_account, std::numeric_limits<nano::uint128_t>::max ());
 	checksum_put (transaction_a, 0, 0, hash_l);
@@ -958,7 +959,23 @@ void nano::mdb_store::upgrade_v4_to_v5 (nano::transaction const & transaction_a)
 			auto hash (block->hash ());
 			if (block_successor (transaction_a, hash).is_zero () && !successor.is_zero ())
 			{
-				block_put (transaction_a, hash, *block, successor);
+				std::vector<uint8_t> vector;
+				{
+					nano::vectorstream stream (vector);
+					block->serialize (stream);
+					nano::write (stream, successor.bytes);
+				}
+				block_raw_put (transaction_a, block_database (block->type (), nano::epoch::epoch_0), hash, { vector.size (), vector.data () });
+				if (!block->previous ().is_zero ())
+				{
+					nano::block_type type;
+					auto value (block_raw_get (transaction_a, block->previous (), type));
+					auto version (block_version (transaction_a, block->previous ()));
+					assert (value.mv_size != 0);
+					std::vector<uint8_t> data (static_cast<uint8_t *> (value.mv_data), static_cast<uint8_t *> (value.mv_data) + value.mv_size);
+					std::copy (hash.bytes.begin (), hash.bytes.end (), data.end () - nano::block_sideband::size (type));
+					block_raw_put (transaction_a, block_database (type, version), block->previous (), nano::mdb_val (data.size (), data.data ()));
+				}
 			}
 			successor = hash;
 			block = block_get (transaction_a, block->previous ());
@@ -1158,14 +1175,15 @@ void nano::mdb_store::block_raw_put (nano::transaction const & transaction_a, MD
 	release_assert (status2 == 0);
 }
 
-void nano::mdb_store::block_put (nano::transaction const & transaction_a, nano::block_hash const & hash_a, nano::block const & block_a, nano::block_hash const & successor_a, nano::epoch epoch_a)
+void nano::mdb_store::block_put (nano::transaction const & transaction_a, nano::block_hash const & hash_a, nano::block const & block_a, nano::block_sideband const & sideband_a, nano::epoch epoch_a)
 {
-	assert (successor_a.is_zero () || block_exists (transaction_a, successor_a));
+	assert (block_a.type () == sideband_a.type);
+	assert (sideband_a.successor.is_zero () || block_exists (transaction_a, sideband_a.successor));
 	std::vector<uint8_t> vector;
 	{
 		nano::vectorstream stream (vector);
 		block_a.serialize (stream);
-		nano::write (stream, successor_a.bytes);
+		sideband_a.serialize (stream);
 	}
 	block_raw_put (transaction_a, block_database (block_a.type (), epoch_a), hash_a, { vector.size (), vector.data () });
 	nano::block_predecessor_set predecessor (transaction_a, *this);
@@ -1306,7 +1324,7 @@ nano::block_hash nano::mdb_store::block_successor (nano::transaction const & tra
 	if (value.mv_size != 0)
 	{
 		assert (value.mv_size >= result.bytes.size ());
-		nano::bufferstream stream (reinterpret_cast<uint8_t const *> (value.mv_data) + value.mv_size - result.bytes.size (), result.bytes.size ());
+		nano::bufferstream stream (reinterpret_cast<uint8_t const *> (value.mv_data) + value.mv_size - nano::block_sideband::size (type), result.bytes.size ());
 		auto error (nano::read (stream, result.bytes));
 		assert (!error);
 	}
@@ -1319,12 +1337,14 @@ nano::block_hash nano::mdb_store::block_successor (nano::transaction const & tra
 
 void nano::mdb_store::block_successor_clear (nano::transaction const & transaction_a, nano::block_hash const & hash_a)
 {
-	auto block (block_get (transaction_a, hash_a));
+	nano::block_sideband sideband;
+	auto block (block_get (transaction_a, hash_a, &sideband));
 	auto version (block_version (transaction_a, hash_a));
-	block_put (transaction_a, hash_a, *block, 0, version);
+	sideband.successor = 0;
+	block_put (transaction_a, hash_a, *block, sideband, version);
 }
 
-std::shared_ptr<nano::block> nano::mdb_store::block_get (nano::transaction const & transaction_a, nano::block_hash const & hash_a)
+std::shared_ptr<nano::block> nano::mdb_store::block_get (nano::transaction const & transaction_a, nano::block_hash const & hash_a, nano::block_sideband * sideband_a)
 {
 	nano::block_type type;
 	auto value (block_raw_get (transaction_a, hash_a, type));
@@ -1334,6 +1354,13 @@ std::shared_ptr<nano::block> nano::mdb_store::block_get (nano::transaction const
 		nano::bufferstream stream (reinterpret_cast<uint8_t const *> (value.mv_data), value.mv_size);
 		result = nano::deserialize_block (stream, type);
 		assert (result != nullptr);
+		if (sideband_a)
+		{
+			sideband_a->type = type;
+			auto error (sideband_a->deserialize (stream));
+			sideband_a->type = result->type ();
+			assert (!error);
+		}
 	}
 	return result;
 }

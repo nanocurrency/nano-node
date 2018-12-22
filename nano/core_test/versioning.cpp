@@ -14,7 +14,8 @@ TEST (versioning, account_info_v1)
 		nano::mdb_store store (error, file);
 		ASSERT_FALSE (error);
 		auto transaction (store.tx_begin (true));
-		store.block_put (transaction, open.hash (), open);
+		nano::block_sideband sideband (nano::block_type::open, 0, 0, 0, 0);
+		store.block_put (transaction, open.hash (), open, sideband);
 		auto status (mdb_put (store.env.tx (transaction), store.accounts_v0, nano::mdb_val (account), v1.val (), 0));
 		ASSERT_EQ (0, status);
 		store.version_put (transaction, 1);
