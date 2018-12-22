@@ -1,6 +1,7 @@
 #pragma once
 
 #include <boost/system/error_code.hpp>
+#include <memory>
 #include <nano/lib/expected.hpp>
 #include <string>
 #include <system_error>
@@ -470,7 +471,7 @@ private:
 
 /**
  * A type that manages a nano::error.
- * The default return type is nano::error&, though shared_ptr<nano::error> is a good option cases
+ * The default return type is nano::error&, though shared_ptr<nano::error> is a good option in cases
  * where shared error state is desirable.
  */
 template <typename RET_TYPE = nano::error &>
