@@ -5,6 +5,16 @@
 
 namespace nano
 {
+class block_sideband
+{
+public:
+	block_sideband (nano::block_type, nano::block_hash const &, nano::amount const &, uint64_t);
+	void serialize (nano::stream &) const;
+	nano::block_type type;
+	nano::block_hash successor;
+	nano::amount balance;
+	uint64_t height;
+};
 class transaction;
 class block_store;
 
