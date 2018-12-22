@@ -1229,7 +1229,7 @@ void rai::block_processor::add (std::shared_ptr<rai::block> block_a, std::chrono
 			std::lock_guard<std::mutex> lock (mutex);
 			if (blocks_hashes.find (block_a->hash ()) == blocks_hashes.end ())
 			{
-				if (verified != rai::signature_verification::valid && block_a->type () == rai::block_type::state && !node.ledger.is_epoch_link (block_a->link ()))
+				if (verified != rai::signature_verification::valid && verified != rai::signature_verification::valid_epoch && block_a->type () == rai::block_type::state)
 				{
 					state_blocks.push_back (std::make_pair (block_a, origination));
 				}
@@ -1336,7 +1336,7 @@ void rai::block_processor::verify_state_blocks (std::unique_lock<std::mutex> & l
 		hashes.push_back (block.hash ());
 		messages.push_back (hashes.back ().bytes.data ());
 		lengths.push_back (sizeof (decltype (hashes)::value_type));
-		pub_keys.push_back (block.hashables.account.bytes.data ());
+		pub_keys.push_back (node.ledger.is_epoch_link (block.hashables.link) ? node.ledger.epoch_signer.bytes.data () : block.hashables.account.bytes.data ());
 		signatures.push_back (block.signature.bytes.data ());
 	}
 	std::promise<void> promise;
@@ -1347,9 +1347,23 @@ void rai::block_processor::verify_state_blocks (std::unique_lock<std::mutex> & l
 	for (auto i (0); i < size; ++i)
 	{
 		assert (verifications[i] == 1 || verifications[i] == 0);
-		if (verifications[i] == 1)
+		auto item (items.front ());
+		if (!item.first->link ().is_zero () && node.ledger.is_epoch_link (item.first->link ()))
 		{
-			auto item (items.front ());
+			// Epoch blocks
+			if (verifications[i] == 1)
+			{
+				blocks.push_back (std::make_pair (item.first, std::make_pair (item.second, rai::signature_verification::valid_epoch)));
+			}
+			else
+			{
+				// Possible regular state blocks with epoch link (send subtype)
+				blocks.push_back (std::make_pair (item.first, std::make_pair (item.second, rai::signature_verification::unknown)));
+			}
+		}
+		else if (verifications[i] == 1)
+		{
+			// Non epoch blocks
 			blocks.push_back (std::make_pair (item.first, std::make_pair (item.second, rai::signature_verification::valid)));
 		}
 		items.pop_front ();

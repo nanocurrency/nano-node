@@ -198,11 +198,15 @@ void ledger_processor::state_block (rai::state_block const & block_a)
 			}
 			else if (result.verified == rai::signature_verification::unknown)
 			{
-				result.verified = validate_message (ledger.epoch_signer, block_a.hash (), block_a.signature) ? rai::signature_verification::unknown : rai::signature_verification::valid_epoch; // Is epoch block signed correctly
 				// Check for possible regular state blocks with epoch link (send subtype)
+				result.verified = validate_message (block_a.hashables.account, block_a.hash (), block_a.signature) ? rai::signature_verification::unknown : rai::signature_verification::valid;
 				if (result.verified == rai::signature_verification::unknown)
 				{
-					result.verified = validate_message (block_a.hashables.account, block_a.hash (), block_a.signature) ? rai::signature_verification::invalid : rai::signature_verification::valid;
+					result.verified = validate_message (ledger.epoch_signer, block_a.hash (), block_a.signature) ? rai::signature_verification::invalid : rai::signature_verification::valid_epoch; // Is epoch block signed correctly
+				}
+				if (result.verified == rai::signature_verification::invalid)
+				{
+					result.code = rai::process_result::bad_signature;
 				}
 			}
 		}
