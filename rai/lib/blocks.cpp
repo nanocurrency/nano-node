@@ -348,6 +348,11 @@ rai::account rai::send_block::representative () const
 	return 0;
 }
 
+rai::account rai::send_block::account () const
+{
+	return 0;
+}
+
 rai::signature rai::send_block::block_signature () const
 {
 	return signature;
@@ -607,6 +612,11 @@ rai::account rai::open_block::representative () const
 	return hashables.representative;
 }
 
+rai::account rai::open_block::account () const
+{
+	return hashables.account;
+}
+
 rai::signature rai::open_block::block_signature () const
 {
 	return signature;
@@ -846,6 +856,11 @@ rai::block_hash rai::change_block::link () const
 rai::account rai::change_block::representative () const
 {
 	return hashables.representative;
+}
+
+rai::account rai::change_block::account () const
+{
+	return 0;
 }
 
 rai::signature rai::change_block::block_signature () const
@@ -1150,6 +1165,11 @@ rai::block_hash rai::state_block::link () const
 rai::account rai::state_block::representative () const
 {
 	return hashables.representative;
+}
+
+rai::account rai::state_block::account () const
+{
+	return hashables.account;
 }
 
 rai::signature rai::state_block::block_signature () const
@@ -1491,6 +1511,11 @@ rai::block_hash rai::receive_block::link () const
 }
 
 rai::account rai::receive_block::representative () const
+{
+	return 0;
+}
+
+rai::account rai::receive_block::account () const
 {
 	return 0;
 }

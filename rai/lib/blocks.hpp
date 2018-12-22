@@ -60,6 +60,7 @@ public:
 	// Link field for state blocks, zero otherwise.
 	virtual rai::block_hash link () const = 0;
 	virtual rai::account representative () const = 0;
+	virtual rai::account account () const = 0;
 	virtual void serialize (rai::stream &) const = 0;
 	virtual void serialize_json (std::string &) const = 0;
 	virtual void visit (rai::block_visitor &) const = 0;
@@ -97,6 +98,7 @@ public:
 	rai::block_hash root () const override;
 	rai::block_hash link () const override;
 	rai::account representative () const override;
+	rai::account account () const override;
 	void serialize (rai::stream &) const override;
 	void serialize_json (std::string &) const override;
 	bool deserialize (rai::stream &);
@@ -139,6 +141,7 @@ public:
 	rai::block_hash root () const override;
 	rai::block_hash link () const override;
 	rai::account representative () const override;
+	rai::account account () const override;
 	void serialize (rai::stream &) const override;
 	void serialize_json (std::string &) const override;
 	bool deserialize (rai::stream &);
@@ -183,6 +186,7 @@ public:
 	rai::block_hash root () const override;
 	rai::block_hash link () const override;
 	rai::account representative () const override;
+	rai::account account () const override;
 	void serialize (rai::stream &) const override;
 	void serialize_json (std::string &) const override;
 	bool deserialize (rai::stream &);
@@ -225,6 +229,7 @@ public:
 	rai::block_hash root () const override;
 	rai::block_hash link () const override;
 	rai::account representative () const override;
+	rai::account account () const override;
 	void serialize (rai::stream &) const override;
 	void serialize_json (std::string &) const override;
 	bool deserialize (rai::stream &);
@@ -279,6 +284,7 @@ public:
 	rai::block_hash root () const override;
 	rai::block_hash link () const override;
 	rai::account representative () const override;
+	rai::account account () const override;
 	void serialize (rai::stream &) const override;
 	void serialize_json (std::string &) const override;
 	bool deserialize (rai::stream &);
