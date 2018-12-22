@@ -146,14 +146,14 @@ void balance_hex_impl (std::string const & balance_hex, std::error_code & ec, BL
 }
 
 /* The cost of looking up the error_code map is only taken if field-presence checks fail */
-std::unordered_map<rai::build_flags, std::error_code> ec_map = {
-	{ rai::build_flags::account_present, nano::error_common::missing_account },
-	{ rai::build_flags::balance_present, nano::error_common::missing_balance },
-	{ rai::build_flags::link_present, nano::error_common::missing_link },
-	{ rai::build_flags::previous_present, nano::error_common::missing_previous },
-	{ rai::build_flags::representative_present, nano::error_common::missing_representative },
-	{ rai::build_flags::signature_present, nano::error_common::missing_signature },
-	{ rai::build_flags::work_present, nano::error_common::missing_work }
+std::unordered_map<uint8_t, std::error_code> ec_map = {
+	{ static_cast<uint8_t> (rai::build_flags::account_present), nano::error_common::missing_account },
+	{ static_cast<uint8_t> (rai::build_flags::balance_present), nano::error_common::missing_balance },
+	{ static_cast<uint8_t> (rai::build_flags::link_present), nano::error_common::missing_link },
+	{ static_cast<uint8_t> (rai::build_flags::previous_present), nano::error_common::missing_previous },
+	{ static_cast<uint8_t> (rai::build_flags::representative_present), nano::error_common::missing_representative },
+	{ static_cast<uint8_t> (rai::build_flags::signature_present), nano::error_common::missing_signature },
+	{ static_cast<uint8_t> (rai::build_flags::work_present), nano::error_common::missing_work }
 };
 
 /** Find first set bit as a mask, e.g. 10101000 => 0x08. Returns -1 if no bit is set. */
@@ -185,8 +185,8 @@ std::error_code check_fields_set (uint8_t block_all_flags, uint8_t build_state)
 	{
 		// Convert the first bit set to a field mask and look up the error code.
 		auto build_flags_mask = ffs_mask (res);
-		assert (ec_map.find (static_cast<rai::build_flags> (build_flags_mask)) != ec_map.end ());
-		ec = ec_map[static_cast<rai::build_flags> (build_flags_mask)];
+		assert (ec_map.find (build_flags_mask) != ec_map.end ());
+		ec = ec_map[build_flags_mask];
 	}
 	return ec;
 }
