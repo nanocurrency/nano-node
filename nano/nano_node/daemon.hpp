@@ -25,7 +25,7 @@ public:
 	nano::node_config node;
 	bool opencl_enable;
 	nano::opencl_config opencl;
-	inline constexpr int json_version ()
+	inline int json_version () const
 	{
 		return 2;
 	}

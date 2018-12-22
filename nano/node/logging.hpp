@@ -59,7 +59,7 @@ public:
 	uintmax_t max_size;
 	uintmax_t rotation_size;
 	boost::log::sources::logger_mt log;
-	inline constexpr int json_version () const
+	inline int json_version () const
 	{
 		return 5;
 	}

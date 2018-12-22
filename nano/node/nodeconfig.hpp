@@ -50,7 +50,7 @@ public:
 	static std::chrono::seconds constexpr keepalive_period = std::chrono::seconds (60);
 	static std::chrono::seconds constexpr keepalive_cutoff = keepalive_period * 5;
 	static std::chrono::minutes constexpr wallet_backup_interval = std::chrono::minutes (5);
-	inline constexpr int json_version () const
+	inline int json_version () const
 	{
 		return 16;
 	}

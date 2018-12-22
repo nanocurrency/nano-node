@@ -162,7 +162,7 @@ public:
 	nano::rpc_config rpc;
 	bool opencl_enable;
 	nano::opencl_config opencl;
-	constexpr int json_version () const
+	inline int json_version () const
 	{
 		return 4;
 	}
