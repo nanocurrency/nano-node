@@ -3325,9 +3325,9 @@ void rai::active_transactions::announce_votes (std::unique_lock<std::mutex> & lo
 					}
 					if (rep_votes.find (rep_acct) != rep_votes.end ())
 					{
-						if (j + 1 == reps->end())
+						if (j + 1 == reps->end ())
 						{
-							reps->pop_back();
+							reps->pop_back ();
 							break;
 						}
 
