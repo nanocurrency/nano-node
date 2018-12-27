@@ -210,7 +210,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 	rai::set_secure_perm_file (config_path, error_chmod);
 	if (!error)
 	{
-		boost::asio::io_service service;
+		boost::asio::io_context io_ctx;
 		config.node.logging.init (data_path);
 		std::shared_ptr<rai::node> node;
 		std::shared_ptr<rai_qt::wallet> gui;
@@ -220,9 +220,9 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 			return opencl->generate_work (root_a);
 		}
 		                                                      : std::function<boost::optional<uint64_t> (rai::uint256_union const &)> (nullptr));
-		rai::alarm alarm (service);
+		rai::alarm alarm (io_ctx);
 		rai::node_init init;
-		node = std::make_shared<rai::node> (init, service, data_path, alarm, config.node, work);
+		node = std::make_shared<rai::node> (init, io_ctx, data_path, alarm, config.node, work);
 		if (!init.error ())
 		{
 			auto wallet (node->wallets.open (config.wallet));
@@ -256,12 +256,12 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 			assert (wallet->exists (config.account));
 			update_config (config, config_path, config_file);
 			node->start ();
-			std::unique_ptr<rai::rpc> rpc = get_rpc (service, *node, config.rpc);
+			std::unique_ptr<rai::rpc> rpc = get_rpc (io_ctx, *node, config.rpc);
 			if (rpc && config.rpc_enable)
 			{
 				rpc->start ();
 			}
-			rai::thread_runner runner (service, node->config.io_threads);
+			rai::thread_runner runner (io_ctx, node->config.io_threads);
 			QObject::connect (&application, &QApplication::aboutToQuit, [&]() {
 				rpc->stop ();
 				node->stop ();

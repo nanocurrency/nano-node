@@ -25,8 +25,7 @@ bootstrap_connections_max (64),
 callback_port (0),
 lmdb_max_dbs (128),
 allow_local_peers (false),
-block_processor_batch_max_time (std::chrono::milliseconds (5000)),
-disable_lazy_bootstrap (false)
+block_processor_batch_max_time (std::chrono::milliseconds (5000))
 {
 	const char * epoch_message ("epoch v1 block");
 	strncpy ((char *)epoch_block_link.bytes.data (), epoch_message, epoch_block_link.bytes.size ());
@@ -325,4 +324,11 @@ rai::account rai::node_config::random_representative ()
 	size_t index (rai::random_pool.GenerateWord32 (0, preconfigured_representatives.size () - 1));
 	auto result (preconfigured_representatives[index]);
 	return result;
+}
+
+rai::node_flags::node_flags () :
+disable_lazy_bootstrap (false),
+disable_legacy_bootstrap (false),
+disable_bootstrap_listener (false)
+{
 }

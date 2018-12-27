@@ -19,7 +19,10 @@ bool parse_endpoint (std::string const &, rai::endpoint &);
 bool parse_tcp_endpoint (std::string const &, rai::tcp_endpoint &);
 bool reserved_address (rai::endpoint const &, bool);
 }
-static uint64_t endpoint_hash_raw (rai::endpoint const & endpoint_a)
+
+namespace
+{
+uint64_t endpoint_hash_raw (rai::endpoint const & endpoint_a)
 {
 	assert (endpoint_a.address ().is_v6 ());
 	rai::uint128_union address;
@@ -32,7 +35,7 @@ static uint64_t endpoint_hash_raw (rai::endpoint const & endpoint_a)
 	auto result (XXH64_digest (&hash));
 	return result;
 }
-static uint64_t ip_address_hash_raw (boost::asio::ip::address const & ip_a)
+uint64_t ip_address_hash_raw (boost::asio::ip::address const & ip_a)
 {
 	assert (ip_a.is_v6 ());
 	rai::uint128_union bytes;
@@ -44,8 +47,6 @@ static uint64_t ip_address_hash_raw (boost::asio::ip::address const & ip_a)
 	return result;
 }
 
-namespace std
-{
 template <size_t size>
 struct endpoint_hash
 {
@@ -68,6 +69,10 @@ struct endpoint_hash<4>
 		return result;
 	}
 };
+}
+
+namespace std
+{
 template <>
 struct hash<rai::endpoint>
 {
@@ -172,6 +177,13 @@ public:
 	std::bitset<16> extensions;
 	//static size_t constexpr ipv4_only_position = 1;  // Not in use, deprecated, was conflicting
 	//static size_t constexpr bootstrap_server_position = 2;  // Not in use, deprecated
+	/*
+	 * A better approach might be to return the size of the message
+	 * payload based on the header
+	 */
+	static size_t constexpr bulk_pull_count_present_flag = 0;
+	bool bulk_pull_is_count_present () const;
+
 	static std::bitset<16> constexpr block_type_mask = std::bitset<16> (0x0f00);
 	inline bool valid_magic () const
 	{
@@ -294,6 +306,7 @@ public:
 class bulk_pull : public message
 {
 public:
+	typedef uint32_t count_t;
 	bulk_pull ();
 	bulk_pull (bool &, rai::stream &, rai::message_header const &);
 	bool deserialize (rai::stream &);
@@ -301,6 +314,11 @@ public:
 	void visit (rai::message_visitor &) const override;
 	rai::uint256_union start;
 	rai::block_hash end;
+	count_t count;
+	bool is_count_present () const;
+	void set_count_present (bool);
+	static size_t constexpr count_present_flag = rai::message_header::bulk_pull_count_present_flag;
+	static size_t constexpr extended_parameters_size = 8;
 };
 class bulk_pull_account : public message
 {

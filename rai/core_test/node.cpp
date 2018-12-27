@@ -13,14 +13,14 @@ TEST (node, stop)
 	rai::system system (24000, 1);
 	ASSERT_NE (system.nodes[0]->wallets.items.end (), system.nodes[0]->wallets.items.begin ());
 	system.nodes[0]->stop ();
-	system.service.run ();
+	system.io_ctx.run ();
 	ASSERT_TRUE (true);
 }
 
 TEST (node, block_store_path_failure)
 {
 	rai::node_init init;
-	auto service (boost::make_shared<boost::asio::io_service> ());
+	auto service (boost::make_shared<boost::asio::io_context> ());
 	rai::alarm alarm (*service);
 	auto path (rai::unique_path ());
 	rai::logging logging;
@@ -34,7 +34,7 @@ TEST (node, block_store_path_failure)
 TEST (node, password_fanout)
 {
 	rai::node_init init;
-	auto service (boost::make_shared<boost::asio::io_service> ());
+	auto service (boost::make_shared<boost::asio::io_context> ());
 	rai::alarm alarm (*service);
 	auto path (rai::unique_path ());
 	rai::node_config config;
@@ -222,7 +222,7 @@ TEST (node, auto_bootstrap)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	rai::node_init init1;
-	auto node1 (std::make_shared<rai::node> (init1, system.service, 24001, rai::unique_path (), system.alarm, system.logging, system.work));
+	auto node1 (std::make_shared<rai::node> (init1, system.io_ctx, 24001, rai::unique_path (), system.alarm, system.logging, system.work));
 	ASSERT_FALSE (init1.error ());
 	node1->network.send_keepalive (system.nodes[0]->network.endpoint ());
 	node1->start ();
@@ -251,7 +251,7 @@ TEST (node, auto_bootstrap_reverse)
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	system.wallet (0)->insert_adhoc (key2.prv);
 	rai::node_init init1;
-	auto node1 (std::make_shared<rai::node> (init1, system.service, 24001, rai::unique_path (), system.alarm, system.logging, system.work));
+	auto node1 (std::make_shared<rai::node> (init1, system.io_ctx, 24001, rai::unique_path (), system.alarm, system.logging, system.work));
 	ASSERT_FALSE (init1.error ());
 	ASSERT_NE (nullptr, system.wallet (0)->send_action (rai::test_genesis_key.pub, key2.pub, system.nodes[0]->config.receive_minimum.number ()));
 	system.nodes[0]->network.send_keepalive (node1->network.endpoint ());
@@ -380,7 +380,7 @@ TEST (node, connect_after_junk)
 {
 	rai::system system (24000, 1);
 	rai::node_init init1;
-	auto node1 (std::make_shared<rai::node> (init1, system.service, 24001, rai::unique_path (), system.alarm, system.logging, system.work));
+	auto node1 (std::make_shared<rai::node> (init1, system.io_ctx, 24001, rai::unique_path (), system.alarm, system.logging, system.work));
 	uint64_t junk (0);
 	node1->network.socket.async_send_to (boost::asio::buffer (&junk, sizeof (junk)), system.nodes[0]->network.endpoint (), [](boost::system::error_code const &, size_t) {});
 	system.deadline_set (10s);
@@ -1895,4 +1895,34 @@ TEST (node, block_processor_reject_state)
 	node.process_active (send2);
 	node.block_processor.flush ();
 	ASSERT_TRUE (node.ledger.block_exists (send2->hash ()));
+}
+
+TEST (node, confirm_back)
+{
+	rai::system system (24000, 1);
+	rai::keypair key;
+	auto & node (*system.nodes[0]);
+	rai::genesis genesis;
+	auto genesis_start_balance (node.balance (rai::test_genesis_key.pub));
+	auto send1 (std::make_shared<rai::send_block> (genesis.hash (), key.pub, genesis_start_balance - 1, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (genesis.hash ())));
+	auto open (std::make_shared<rai::state_block> (key.pub, 0, key.pub, 1, send1->hash (), key.prv, key.pub, system.work.generate (key.pub)));
+	auto send2 (std::make_shared<rai::state_block> (key.pub, open->hash (), key.pub, 0, rai::test_genesis_key.pub, key.prv, key.pub, system.work.generate (open->hash ())));
+	node.process_active (send1);
+	node.process_active (open);
+	node.process_active (send2);
+	node.block_processor.flush ();
+	ASSERT_EQ (3, node.active.roots.size ());
+	std::vector<rai::block_hash> vote_blocks;
+	vote_blocks.push_back (send2->hash ());
+	auto vote (std::make_shared<rai::vote> (rai::test_genesis_key.pub, rai::test_genesis_key.prv, 0, vote_blocks));
+	{
+		auto transaction (node.store.tx_begin_read ());
+		std::unique_lock<std::mutex> lock (node.active.mutex);
+		node.vote_processor.vote_blocking (transaction, vote, node.network.endpoint ());
+	}
+	system.deadline_set (10s);
+	while (!node.active.roots.empty ())
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
 }

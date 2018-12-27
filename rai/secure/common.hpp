@@ -110,7 +110,11 @@ public:
 	bool operator== (rai::pending_key const &) const;
 	rai::account account;
 	rai::block_hash hash;
+	rai::block_hash key () const;
 };
+// Internally unchecked_key is equal to pending_key (2x uint256_union)
+using unchecked_key = pending_key;
+
 class block_info
 {
 public:
