@@ -532,7 +532,7 @@ namespace
 template <typename Union, typename Bound>
 void assert_union_types ()
 {
-	static_assert ((std::is_same_v<Union, rai::uint128_union> && std::is_same_v<Bound, rai::uint128_t>) || (std::is_same_v<Union, rai::uint256_union> && std::is_same_v<Bound, rai::uint256_t>) || (std::is_same_v<Union, rai::uint512_union> && std::is_same_v<Bound, rai::uint512_t>),
+	static_assert ((std::is_same<Union, rai::uint128_union>::value && std::is_same<Bound, rai::uint128_t>::value) || (std::is_same<Union, rai::uint256_union>::value && std::is_same<Bound, rai::uint256_t>::value) || (std::is_same<Union, rai::uint512_union>::value && std::is_same<Bound, rai::uint512_t>::value),
 	"Union type needs to be consistent with the lower/upper Bound type");
 }
 

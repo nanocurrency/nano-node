@@ -290,10 +290,10 @@ bool rai::uint512_union::operator== (rai::uint512_union const & other_a) const
 	return bytes == other_a.bytes;
 }
 
-rai::uint512_union::uint512_union(rai::uint512_t const & number_a)
+rai::uint512_union::uint512_union (rai::uint512_t const & number_a)
 {
-	bytes.fill(0);
-	boost::multiprecision::export_bits (number_a, bytes.rbegin(), 8, false);
+	bytes.fill (0);
+	boost::multiprecision::export_bits (number_a, bytes.rbegin (), 8, false);
 }
 
 void rai::uint512_union::clear ()
@@ -304,7 +304,7 @@ void rai::uint512_union::clear ()
 rai::uint512_t rai::uint512_union::number () const
 {
 	rai::uint512_t result;
-	boost::multiprecision::import_bits(result, bytes.begin(), bytes.end(), false);
+	boost::multiprecision::import_bits (result, bytes.begin (), bytes.end (), false);
 	return result;
 }
 
@@ -434,8 +434,8 @@ rai::uint128_union::uint128_union (uint64_t value_a)
 
 rai::uint128_union::uint128_union (rai::uint128_t const & number_a)
 {
-	bytes.fill(0);
-	boost::multiprecision::export_bits(number_a, bytes.rbegin(), 8, false);
+	bytes.fill (0);
+	boost::multiprecision::export_bits (number_a, bytes.rbegin (), 8, false);
 }
 
 bool rai::uint128_union::operator== (rai::uint128_union const & other_a) const
