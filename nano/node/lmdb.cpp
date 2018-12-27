@@ -1324,7 +1324,18 @@ nano::block_hash nano::mdb_store::block_successor (nano::transaction const & tra
 	if (value.mv_size != 0)
 	{
 		assert (value.mv_size >= result.bytes.size ());
-		nano::bufferstream stream (reinterpret_cast<uint8_t const *> (value.mv_data) + value.mv_size - nano::block_sideband::size (type), result.bytes.size ());
+		uint8_t const * offset;
+		if (value.mv_size == nano::block::size (type) + nano::block_sideband::size (type))
+		{
+			offset = reinterpret_cast<uint8_t const *> (value.mv_data) + value.mv_size - nano::block_sideband::size (type);
+		}
+		else
+		{
+			// Read old successor-only sideband
+			assert (value.mv_size = nano::block::size (type) + result.bytes.size ());
+			offset = reinterpret_cast<uint8_t const *> (value.mv_data) + value.mv_size - result.bytes.size ();
+		}
+		nano::bufferstream stream (offset, result.bytes.size ());
 		auto error (nano::read (stream, result.bytes));
 		assert (!error);
 	}
@@ -1357,9 +1368,21 @@ std::shared_ptr<nano::block> nano::mdb_store::block_get (nano::transaction const
 		if (sideband_a)
 		{
 			sideband_a->type = type;
-			auto error (sideband_a->deserialize (stream));
-			sideband_a->type = result->type ();
-			assert (!error);
+			auto position (stream.pubseekoff (0, std::ios_base::cur));
+			if (value.mv_size - position == nano::block_sideband::size (type))
+			{
+				auto error (sideband_a->deserialize (stream));
+				assert (!error);
+			}
+			else
+			{
+				// Reconstruct sideband data for block.
+				assert (value.mv_size - position == sizeof (nano::uint256_union));
+				sideband_a->account = block_account (transaction_a, hash_a);
+				sideband_a->balance = block_balance (transaction_a, hash_a);
+				sideband_a->successor = block_successor (transaction_a, hash_a);
+				sideband_a->height = 0;
+			}
 		}
 	}
 	return result;
@@ -1497,6 +1520,41 @@ nano::block_counts nano::mdb_store::block_count (nano::transaction const & trans
 bool nano::mdb_store::root_exists (nano::transaction const & transaction_a, nano::uint256_union const & root_a)
 {
 	return block_exists (transaction_a, root_a) || account_exists (transaction_a, root_a);
+}
+
+// Return account containing hash
+nano::account nano::mdb_store::block_account (nano::transaction const & transaction_a, nano::block_hash const & hash_a)
+{
+	nano::account result;
+	auto hash (hash_a);
+	nano::block_hash successor (1);
+	nano::block_info block_info;
+	auto block (block_get (transaction_a, hash));
+	assert (block);
+	while (!successor.is_zero () && block->type () != nano::block_type::state && block_info_get (transaction_a, successor, block_info))
+	{
+		successor = block_successor (transaction_a, hash);
+		if (!successor.is_zero ())
+		{
+			hash = successor;
+			block = block_get (transaction_a, hash);
+		}
+	}
+	if (block->type () == nano::block_type::state)
+	{
+		auto state_block (dynamic_cast<nano::state_block *> (block.get ()));
+		result = state_block->hashables.account;
+	}
+	else if (successor.is_zero ())
+	{
+		result = frontier_get (transaction_a, hash);
+	}
+	else
+	{
+		result = block_info.account;
+	}
+	assert (!result.is_zero ());
+	return result;
 }
 
 void nano::mdb_store::account_del (nano::transaction const & transaction_a, nano::account const & account_a)

@@ -806,36 +806,7 @@ void nano::ledger::rollback (nano::transaction const & transaction_a, nano::bloc
 // Return account containing hash
 nano::account nano::ledger::account (nano::transaction const & transaction_a, nano::block_hash const & hash_a)
 {
-	nano::account result;
-	auto hash (hash_a);
-	nano::block_hash successor (1);
-	nano::block_info block_info;
-	auto block (store.block_get (transaction_a, hash));
-	assert (block);
-	while (!successor.is_zero () && block->type () != nano::block_type::state && store.block_info_get (transaction_a, successor, block_info))
-	{
-		successor = store.block_successor (transaction_a, hash);
-		if (!successor.is_zero ())
-		{
-			hash = successor;
-			block = store.block_get (transaction_a, hash);
-		}
-	}
-	if (block->type () == nano::block_type::state)
-	{
-		auto state_block (dynamic_cast<nano::state_block *> (block.get ()));
-		result = state_block->hashables.account;
-	}
-	else if (successor.is_zero ())
-	{
-		result = store.frontier_get (transaction_a, hash);
-	}
-	else
-	{
-		result = block_info.account;
-	}
-	assert (!result.is_zero ());
-	return result;
+	return store.block_account (transaction_a, hash_a);
 }
 
 // Return amount decrease or increase for block

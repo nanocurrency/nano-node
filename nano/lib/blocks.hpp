@@ -69,6 +69,7 @@ public:
 	virtual void signature_set (nano::uint512_union const &) = 0;
 	virtual ~block () = default;
 	virtual bool valid_predecessor (nano::block const &) const = 0;
+	static size_t size (nano::block_type);
 };
 class send_hashables
 {
