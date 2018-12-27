@@ -3683,11 +3683,12 @@ void rai::thread_runner::join ()
 	}
 }
 
-rai::inactive_node::inactive_node (boost::filesystem::path const & path) :
+rai::inactive_node::inactive_node (boost::filesystem::path const & path, uint16_t peering_port_a) :
 path (path),
 io_context (std::make_shared<boost::asio::io_context> ()),
 alarm (*io_context),
-work (1, nullptr)
+work (1, nullptr),
+peering_port (peering_port_a)
 {
 	boost::system::error_code error_chmod;
 
@@ -3698,7 +3699,7 @@ work (1, nullptr)
 	rai::set_secure_perm_directory (path, error_chmod);
 	logging.max_size = std::numeric_limits<std::uintmax_t>::max ();
 	logging.init (path);
-	node = std::make_shared<rai::node> (init, *io_context, 24000, path, alarm, logging, work);
+	node = std::make_shared<rai::node> (init, *io_context, peering_port, path, alarm, logging, work);
 }
 
 rai::inactive_node::~inactive_node ()

@@ -36,6 +36,7 @@ int main (int argc, char * const * argv)
 		("debug_profile_kdf", "Profile kdf function")
 		("debug_verify_profile", "Profile signature verification")
 		("debug_verify_profile_batch", "Profile batch signature verification")
+		("debug_profile_bootstrap", "Profile bootstrap style blocks processing (at least 10GB of free storage space required)")
 		("debug_profile_sign", "Profile signature generation")
 		("debug_profile_process", "Profile active blocks processing (only for rai_test_network)")
 		("debug_profile_votes", "Profile votes processing (only for rai_test_network)")
@@ -640,6 +641,59 @@ int main (int argc, char * const * argv)
 				}
 			}
 			std::cout << boost::str (boost::format ("%1% pending blocks validated\n") % count);
+		}
+		else if (vm.count ("debug_profile_bootstrap"))
+		{
+			rai::inactive_node node2 (rai::unique_path (), 24001);
+			rai::genesis genesis;
+			auto begin (std::chrono::high_resolution_clock::now ());
+			uint64_t block_count (0);
+			size_t count (0);
+			{
+				rai::inactive_node node (data_path, 24000);
+				auto transaction (node.node->store.tx_begin ());
+				block_count = node.node->store.block_count (transaction).sum ();
+				std::cout << boost::str (boost::format ("Performing bootstrap emulation, %1% blocks in ledger...") % block_count) << std::endl;
+				for (auto i (node.node->store.latest_begin (transaction)), n (node.node->store.latest_end ()); i != n; ++i)
+				{
+					rai::account_info info (i->second);
+					auto hash (info.head);
+					while (!hash.is_zero ())
+					{
+						// Retrieving block data
+						auto block (node.node->store.block_get (transaction, hash));
+						if (block != nullptr)
+						{
+							++count;
+							if ((count % 100000) == 0)
+							{
+								std::cout << boost::str (boost::format ("%1% blocks retrieved") % count) << std::endl;
+							}
+							node2.node->block_processor.add (block, std::chrono::steady_clock::time_point ());
+							// Retrieving previous block hash
+							hash = block->previous ();
+						}
+					}
+				}
+			}
+			count = 0;
+			uint64_t block_count_2 (0);
+			while (block_count_2 != block_count)
+			{
+				std::this_thread::sleep_for (std::chrono::seconds (1));
+				auto transaction_2 (node2.node->store.tx_begin ());
+				block_count_2 = node2.node->store.block_count (transaction_2).sum ();
+				if ((count % 60) == 0)
+				{
+					std::cout << boost::str (boost::format ("%1% (%2%) blocks processed") % block_count_2 % node2.node->store.unchecked_count (transaction_2)) << std::endl;
+				}
+				count++;
+			}
+			auto end (std::chrono::high_resolution_clock::now ());
+			auto time (std::chrono::duration_cast<std::chrono::microseconds> (end - begin).count ());
+			auto seconds (time / 1000000);
+			rai::remove_temporary_directories ();
+			std::cout << boost::str (boost::format ("%|1$ 12d| seconds \n%2% blocks per second") % seconds % (block_count / seconds)) << std::endl;
 		}
 		else if (vm.count ("version"))
 		{

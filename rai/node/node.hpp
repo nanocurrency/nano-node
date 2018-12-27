@@ -542,7 +542,7 @@ public:
 class inactive_node
 {
 public:
-	inactive_node (boost::filesystem::path const & path = rai::working_path ());
+	inactive_node (boost::filesystem::path const & path = rai::working_path (), uint16_t = 24000);
 	~inactive_node ();
 	boost::filesystem::path path;
 	std::shared_ptr<boost::asio::io_context> io_context;
@@ -550,6 +550,7 @@ public:
 	rai::logging logging;
 	rai::node_init init;
 	rai::work_pool work;
+	uint16_t peering_port;
 	std::shared_ptr<rai::node> node;
 };
 }
