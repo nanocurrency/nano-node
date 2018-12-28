@@ -1,4 +1,4 @@
-#include <rai/node/stats.hpp>
+#include <nano/node/stats.hpp>
 
 #include <boost/asio.hpp>
 #include <boost/format.hpp>
@@ -9,7 +9,7 @@
 #include <sstream>
 #include <tuple>
 
-bool rai::stat_config::deserialize_json (boost::property_tree::ptree & tree_a)
+bool nano::stat_config::deserialize_json (boost::property_tree::ptree & tree_a)
 {
 	bool error = false;
 
@@ -38,13 +38,13 @@ bool rai::stat_config::deserialize_json (boost::property_tree::ptree & tree_a)
 	return error;
 }
 
-std::string rai::stat_log_sink::tm_to_string (tm & tm)
+std::string nano::stat_log_sink::tm_to_string (tm & tm)
 {
 	return (boost::format ("%04d.%02d.%02d %02d:%02d:%02d") % (1900 + tm.tm_year) % (tm.tm_mon + 1) % tm.tm_mday % tm.tm_hour % tm.tm_min % tm.tm_sec).str ();
 }
 
 /** JSON sink. The resulting JSON object is provided as both a property_tree::ptree (to_object) and a string (to_string) */
-class json_writer : public rai::stat_log_sink
+class json_writer : public nano::stat_log_sink
 {
 	boost::property_tree::ptree tree;
 	boost::property_tree::ptree entries;
@@ -100,7 +100,7 @@ private:
 };
 
 /** File sink with rotation support */
-class file_writer : public rai::stat_log_sink
+class file_writer : public nano::stat_log_sink
 {
 public:
 	std::ofstream log;
@@ -140,29 +140,29 @@ public:
 	}
 };
 
-rai::stat::stat (rai::stat_config config) :
+nano::stat::stat (nano::stat_config config) :
 config (config)
 {
 }
 
-std::shared_ptr<rai::stat_entry> rai::stat::get_entry (uint32_t key)
+std::shared_ptr<nano::stat_entry> nano::stat::get_entry (uint32_t key)
 {
 	return get_entry (key, config.interval, config.capacity);
 }
 
-std::shared_ptr<rai::stat_entry> rai::stat::get_entry (uint32_t key, size_t interval, size_t capacity)
+std::shared_ptr<nano::stat_entry> nano::stat::get_entry (uint32_t key, size_t interval, size_t capacity)
 {
 	std::unique_lock<std::mutex> lock (stat_mutex);
 	return get_entry_impl (key, interval, capacity);
 }
 
-std::shared_ptr<rai::stat_entry> rai::stat::get_entry_impl (uint32_t key, size_t interval, size_t capacity)
+std::shared_ptr<nano::stat_entry> nano::stat::get_entry_impl (uint32_t key, size_t interval, size_t capacity)
 {
-	std::shared_ptr<rai::stat_entry> res;
+	std::shared_ptr<nano::stat_entry> res;
 	auto entry = entries.find (key);
 	if (entry == entries.end ())
 	{
-		res = entries.insert (std::make_pair (key, std::make_shared<rai::stat_entry> (capacity, interval))).first->second;
+		res = entries.insert (std::make_pair (key, std::make_shared<nano::stat_entry> (capacity, interval))).first->second;
 	}
 	else
 	{
@@ -172,23 +172,23 @@ std::shared_ptr<rai::stat_entry> rai::stat::get_entry_impl (uint32_t key, size_t
 	return res;
 }
 
-std::unique_ptr<rai::stat_log_sink> rai::stat::log_sink_json ()
+std::unique_ptr<nano::stat_log_sink> nano::stat::log_sink_json ()
 {
 	return std::make_unique<json_writer> ();
 }
 
-std::unique_ptr<rai::stat_log_sink> log_sink_file (std::string filename)
+std::unique_ptr<nano::stat_log_sink> log_sink_file (std::string filename)
 {
 	return std::make_unique<file_writer> (filename);
 }
 
-void rai::stat::log_counters (stat_log_sink & sink)
+void nano::stat::log_counters (stat_log_sink & sink)
 {
 	std::unique_lock<std::mutex> lock (stat_mutex);
 	log_counters_impl (sink);
 }
 
-void rai::stat::log_counters_impl (stat_log_sink & sink)
+void nano::stat::log_counters_impl (stat_log_sink & sink)
 {
 	sink.begin ();
 	if (sink.entries () >= config.log_rotation_count)
@@ -217,13 +217,13 @@ void rai::stat::log_counters_impl (stat_log_sink & sink)
 	sink.finalize ();
 }
 
-void rai::stat::log_samples (stat_log_sink & sink)
+void nano::stat::log_samples (stat_log_sink & sink)
 {
 	std::unique_lock<std::mutex> lock (stat_mutex);
 	log_samples_impl (sink);
 }
 
-void rai::stat::log_samples_impl (stat_log_sink & sink)
+void nano::stat::log_samples_impl (stat_log_sink & sink)
 {
 	sink.begin ();
 	if (sink.entries () >= config.log_rotation_count)
@@ -255,7 +255,7 @@ void rai::stat::log_samples_impl (stat_log_sink & sink)
 	sink.finalize ();
 }
 
-void rai::stat::update (uint32_t key_a, uint64_t value)
+void nano::stat::update (uint32_t key_a, uint64_t value)
 {
 	static file_writer log_count (config.log_counters_filename);
 	static file_writer log_sample (config.log_samples_filename);
@@ -309,192 +309,192 @@ void rai::stat::update (uint32_t key_a, uint64_t value)
 	}
 }
 
-std::string rai::stat::type_to_string (uint32_t key)
+std::string nano::stat::type_to_string (uint32_t key)
 {
 	auto type = static_cast<stat::type> (key >> 16 & 0x000000ff);
 	std::string res;
 	switch (type)
 	{
-		case rai::stat::type::block:
+		case nano::stat::type::block:
 			res = "block";
 			break;
-		case rai::stat::type::bootstrap:
+		case nano::stat::type::bootstrap:
 			res = "bootstrap";
 			break;
-		case rai::stat::type::error:
+		case nano::stat::type::error:
 			res = "error";
 			break;
-		case rai::stat::type::http_callback:
+		case nano::stat::type::http_callback:
 			res = "http_callback";
 			break;
-		case rai::stat::type::ledger:
+		case nano::stat::type::ledger:
 			res = "ledger";
 			break;
-		case rai::stat::type::udp:
+		case nano::stat::type::udp:
 			res = "udp";
 			break;
-		case rai::stat::type::peering:
+		case nano::stat::type::peering:
 			res = "peering";
 			break;
-		case rai::stat::type::rollback:
+		case nano::stat::type::rollback:
 			res = "rollback";
 			break;
-		case rai::stat::type::traffic:
+		case nano::stat::type::traffic:
 			res = "traffic";
 			break;
-		case rai::stat::type::traffic_bootstrap:
+		case nano::stat::type::traffic_bootstrap:
 			res = "traffic_bootstrap";
 			break;
-		case rai::stat::type::vote:
+		case nano::stat::type::vote:
 			res = "vote";
 			break;
-		case rai::stat::type::message:
+		case nano::stat::type::message:
 			res = "message";
 			break;
 	}
 	return res;
 }
 
-std::string rai::stat::detail_to_string (uint32_t key)
+std::string nano::stat::detail_to_string (uint32_t key)
 {
 	auto detail = static_cast<stat::detail> (key >> 8 & 0x000000ff);
 	std::string res;
 	switch (detail)
 	{
-		case rai::stat::detail::all:
+		case nano::stat::detail::all:
 			res = "all";
 			break;
-		case rai::stat::detail::bad_sender:
+		case nano::stat::detail::bad_sender:
 			res = "bad_sender";
 			break;
-		case rai::stat::detail::bulk_pull:
+		case nano::stat::detail::bulk_pull:
 			res = "bulk_pull";
 			break;
-		case rai::stat::detail::bulk_pull_account:
+		case nano::stat::detail::bulk_pull_account:
 			res = "bulk_pull_account";
 			break;
-		case rai::stat::detail::bulk_push:
+		case nano::stat::detail::bulk_push:
 			res = "bulk_push";
 			break;
-		case rai::stat::detail::change:
+		case nano::stat::detail::change:
 			res = "change";
 			break;
-		case rai::stat::detail::confirm_ack:
+		case nano::stat::detail::confirm_ack:
 			res = "confirm_ack";
 			break;
-		case rai::stat::detail::node_id_handshake:
+		case nano::stat::detail::node_id_handshake:
 			res = "node_id_handshake";
 			break;
-		case rai::stat::detail::confirm_req:
+		case nano::stat::detail::confirm_req:
 			res = "confirm_req";
 			break;
-		case rai::stat::detail::frontier_req:
+		case nano::stat::detail::frontier_req:
 			res = "frontier_req";
 			break;
-		case rai::stat::detail::handshake:
+		case nano::stat::detail::handshake:
 			res = "handshake";
 			break;
-		case rai::stat::detail::http_callback:
+		case nano::stat::detail::http_callback:
 			res = "http_callback";
 			break;
-		case rai::stat::detail::initiate:
+		case nano::stat::detail::initiate:
 			res = "initiate";
 			break;
-		case rai::stat::detail::initiate_lazy:
+		case nano::stat::detail::initiate_lazy:
 			res = "initiate_lazy";
 			break;
-		case rai::stat::detail::insufficient_work:
+		case nano::stat::detail::insufficient_work:
 			res = "insufficient_work";
 			break;
-		case rai::stat::detail::keepalive:
+		case nano::stat::detail::keepalive:
 			res = "keepalive";
 			break;
-		case rai::stat::detail::open:
+		case nano::stat::detail::open:
 			res = "open";
 			break;
-		case rai::stat::detail::publish:
+		case nano::stat::detail::publish:
 			res = "publish";
 			break;
-		case rai::stat::detail::receive:
+		case nano::stat::detail::receive:
 			res = "receive";
 			break;
-		case rai::stat::detail::republish_vote:
+		case nano::stat::detail::republish_vote:
 			res = "republish_vote";
 			break;
-		case rai::stat::detail::send:
+		case nano::stat::detail::send:
 			res = "send";
 			break;
-		case rai::stat::detail::state_block:
+		case nano::stat::detail::state_block:
 			res = "state_block";
 			break;
-		case rai::stat::detail::epoch_block:
+		case nano::stat::detail::epoch_block:
 			res = "epoch_block";
 			break;
-		case rai::stat::detail::vote_valid:
+		case nano::stat::detail::vote_valid:
 			res = "vote_valid";
 			break;
-		case rai::stat::detail::vote_replay:
+		case nano::stat::detail::vote_replay:
 			res = "vote_replay";
 			break;
-		case rai::stat::detail::vote_invalid:
+		case nano::stat::detail::vote_invalid:
 			res = "vote_invalid";
 			break;
-		case rai::stat::detail::vote_overflow:
+		case nano::stat::detail::vote_overflow:
 			res = "vote_overflow";
 			break;
-		case rai::stat::detail::blocking:
+		case nano::stat::detail::blocking:
 			res = "blocking";
 			break;
-		case rai::stat::detail::overflow:
+		case nano::stat::detail::overflow:
 			res = "overflow";
 			break;
-		case rai::stat::detail::unreachable_host:
+		case nano::stat::detail::unreachable_host:
 			res = "unreachable_host";
 			break;
-		case rai::stat::detail::invalid_magic:
+		case nano::stat::detail::invalid_magic:
 			res = "invalid_magic";
 			break;
-		case rai::stat::detail::invalid_network:
+		case nano::stat::detail::invalid_network:
 			res = "invalid_network";
 			break;
-		case rai::stat::detail::invalid_header:
+		case nano::stat::detail::invalid_header:
 			res = "invalid_header";
 			break;
-		case rai::stat::detail::invalid_message_type:
+		case nano::stat::detail::invalid_message_type:
 			res = "invalid_message_type";
 			break;
-		case rai::stat::detail::invalid_keepalive_message:
+		case nano::stat::detail::invalid_keepalive_message:
 			res = "invalid_keepalive_message";
 			break;
-		case rai::stat::detail::invalid_publish_message:
+		case nano::stat::detail::invalid_publish_message:
 			res = "invalid_publish_message";
 			break;
-		case rai::stat::detail::invalid_confirm_req_message:
+		case nano::stat::detail::invalid_confirm_req_message:
 			res = "invalid_confirm_req_message";
 			break;
-		case rai::stat::detail::invalid_confirm_ack_message:
+		case nano::stat::detail::invalid_confirm_ack_message:
 			res = "invalid_confirm_ack_message";
 			break;
-		case rai::stat::detail::invalid_node_id_handshake_message:
+		case nano::stat::detail::invalid_node_id_handshake_message:
 			res = "invalid_node_id_handshake_message";
 			break;
-		case rai::stat::detail::outdated_version:
+		case nano::stat::detail::outdated_version:
 			res = "outdated_version";
 			break;
 	}
 	return res;
 }
 
-std::string rai::stat::dir_to_string (uint32_t key)
+std::string nano::stat::dir_to_string (uint32_t key)
 {
 	auto dir = static_cast<stat::dir> (key & 0x000000ff);
 	std::string res;
 	switch (dir)
 	{
-		case rai::stat::dir::in:
+		case nano::stat::dir::in:
 			res = "in";
 			break;
-		case rai::stat::dir::out:
+		case nano::stat::dir::out:
 			res = "out";
 			break;
 	}

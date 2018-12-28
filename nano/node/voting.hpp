@@ -1,6 +1,6 @@
 #pragma once
 
-#include <rai/lib/numbers.hpp>
+#include <nano/lib/numbers.hpp>
 
 #include <boost/thread.hpp>
 
@@ -8,23 +8,23 @@
 #include <deque>
 #include <mutex>
 
-namespace rai
+namespace nano
 {
 class node;
 class vote_generator
 {
 public:
-	vote_generator (rai::node &, std::chrono::milliseconds);
-	void add (rai::block_hash const &);
+	vote_generator (nano::node &, std::chrono::milliseconds);
+	void add (nano::block_hash const &);
 	void stop ();
 
 private:
 	void run ();
 	void send (std::unique_lock<std::mutex> &);
-	rai::node & node;
+	nano::node & node;
 	std::mutex mutex;
 	std::condition_variable condition;
-	std::deque<rai::block_hash> hashes;
+	std::deque<nano::block_hash> hashes;
 	std::chrono::milliseconds wait;
 	bool stopped;
 	bool started;

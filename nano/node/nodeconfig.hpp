@@ -2,12 +2,12 @@
 
 #include <boost/property_tree/ptree.hpp>
 #include <chrono>
-#include <rai/lib/numbers.hpp>
-#include <rai/node/logging.hpp>
-#include <rai/node/stats.hpp>
+#include <nano/lib/numbers.hpp>
+#include <nano/node/logging.hpp>
+#include <nano/node/stats.hpp>
 #include <vector>
 
-namespace rai
+namespace nano
 {
 /**
  * Node configuration
@@ -16,19 +16,19 @@ class node_config
 {
 public:
 	node_config ();
-	node_config (uint16_t, rai::logging const &);
+	node_config (uint16_t, nano::logging const &);
 	void serialize_json (boost::property_tree::ptree &) const;
 	bool deserialize_json (bool &, boost::property_tree::ptree &);
 	bool upgrade_json (unsigned, boost::property_tree::ptree &);
-	rai::account random_representative ();
+	nano::account random_representative ();
 	uint16_t peering_port;
-	rai::logging logging;
+	nano::logging logging;
 	std::vector<std::pair<std::string, uint16_t>> work_peers;
 	std::vector<std::string> preconfigured_peers;
-	std::vector<rai::account> preconfigured_representatives;
+	std::vector<nano::account> preconfigured_representatives;
 	unsigned bootstrap_fraction_numerator;
-	rai::amount receive_minimum;
-	rai::amount online_weight_minimum;
+	nano::amount receive_minimum;
+	nano::amount online_weight_minimum;
 	unsigned online_weight_quorum;
 	unsigned password_fanout;
 	unsigned io_threads;
@@ -42,9 +42,9 @@ public:
 	std::string callback_target;
 	int lmdb_max_dbs;
 	bool allow_local_peers;
-	rai::stat_config stat_config;
-	rai::uint256_union epoch_block_link;
-	rai::account epoch_block_signer;
+	nano::stat_config stat_config;
+	nano::uint256_union epoch_block_link;
+	nano::account epoch_block_signer;
 	std::chrono::milliseconds block_processor_batch_max_time;
 	static std::chrono::seconds constexpr keepalive_period = std::chrono::seconds (60);
 	static std::chrono::seconds constexpr keepalive_cutoff = keepalive_period * 5;

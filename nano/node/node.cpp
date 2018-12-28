@@ -1,9 +1,9 @@
-#include <rai/node/node.hpp>
+#include <nano/node/node.hpp>
 
-#include <rai/lib/interface.h>
-#include <rai/lib/utility.hpp>
-#include <rai/node/common.hpp>
-#include <rai/node/rpc.hpp>
+#include <nano/lib/interface.h>
+#include <nano/lib/utility.hpp>
+#include <nano/node/common.hpp>
+#include <nano/node/rpc.hpp>
 
 #include <algorithm>
 #include <cstdlib>
@@ -13,39 +13,39 @@
 #include <boost/polymorphic_cast.hpp>
 #include <boost/property_tree/json_parser.hpp>
 
-double constexpr rai::node::price_max;
-double constexpr rai::node::free_cutoff;
-std::chrono::seconds constexpr rai::node::period;
-std::chrono::seconds constexpr rai::node::cutoff;
-std::chrono::seconds constexpr rai::node::syn_cookie_cutoff;
-std::chrono::minutes constexpr rai::node::backup_interval;
-std::chrono::seconds constexpr rai::node::search_pending_interval;
-int constexpr rai::port_mapping::mapping_timeout;
-int constexpr rai::port_mapping::check_timeout;
-unsigned constexpr rai::active_transactions::announce_interval_ms;
-size_t constexpr rai::active_transactions::max_broadcast_queue;
-size_t constexpr rai::block_arrival::arrival_size_min;
-std::chrono::seconds constexpr rai::block_arrival::arrival_time_min;
+double constexpr nano::node::price_max;
+double constexpr nano::node::free_cutoff;
+std::chrono::seconds constexpr nano::node::period;
+std::chrono::seconds constexpr nano::node::cutoff;
+std::chrono::seconds constexpr nano::node::syn_cookie_cutoff;
+std::chrono::minutes constexpr nano::node::backup_interval;
+std::chrono::seconds constexpr nano::node::search_pending_interval;
+int constexpr nano::port_mapping::mapping_timeout;
+int constexpr nano::port_mapping::check_timeout;
+unsigned constexpr nano::active_transactions::announce_interval_ms;
+size_t constexpr nano::active_transactions::max_broadcast_queue;
+size_t constexpr nano::block_arrival::arrival_size_min;
+std::chrono::seconds constexpr nano::block_arrival::arrival_time_min;
 
-namespace rai
+namespace nano
 {
-extern unsigned char rai_bootstrap_weights[];
-extern size_t rai_bootstrap_weights_size;
+extern unsigned char nano_bootstrap_weights[];
+extern size_t nano_bootstrap_weights_size;
 }
 
-rai::network::network (rai::node & node_a, uint16_t port) :
-buffer_container (node_a.stats, rai::network::buffer_size, 4096), // 2Mb receive buffer
-socket (node_a.io_ctx, rai::endpoint (boost::asio::ip::address_v6::any (), port)),
+nano::network::network (nano::node & node_a, uint16_t port) :
+buffer_container (node_a.stats, nano::network::buffer_size, 4096), // 2Mb receive buffer
+socket (node_a.io_ctx, nano::endpoint (boost::asio::ip::address_v6::any (), port)),
 resolver (node_a.io_ctx),
 node (node_a),
 on (true)
 {
 	boost::thread::attributes attrs;
-	rai::thread_attributes::set (attrs);
+	nano::thread_attributes::set (attrs);
 	for (size_t i = 0; i < node.config.network_threads; ++i)
 	{
 		packet_processing_threads.push_back (boost::thread (attrs, [this]() {
-			rai::thread_role::set (rai::thread_role::name::packet_processing);
+			nano::thread_role::set (nano::thread_role::name::packet_processing);
 			try
 			{
 				process_packets ();
@@ -78,7 +78,7 @@ on (true)
 	}
 }
 
-rai::network::~network ()
+nano::network::~network ()
 {
 	for (auto & thread : packet_processing_threads)
 	{
@@ -86,7 +86,7 @@ rai::network::~network ()
 	}
 }
 
-void rai::network::start ()
+void nano::network::start ()
 {
 	for (size_t i = 0; i < node.config.io_threads; ++i)
 	{
@@ -94,7 +94,7 @@ void rai::network::start ()
 	}
 }
 
-void rai::network::receive ()
+void nano::network::receive ()
 {
 	if (node.config.logging.network_packet_logging ())
 	{
@@ -102,7 +102,7 @@ void rai::network::receive ()
 	}
 	std::unique_lock<std::mutex> lock (socket_mutex);
 	auto data (buffer_container.allocate ());
-	socket.async_receive_from (boost::asio::buffer (data->buffer, rai::network::buffer_size), data->endpoint, [this, data](boost::system::error_code const & error, size_t size_a) {
+	socket.async_receive_from (boost::asio::buffer (data->buffer, nano::network::buffer_size), data->endpoint, [this, data](boost::system::error_code const & error, size_t size_a) {
 		if (!error && this->on)
 		{
 			data->size = size_a;
@@ -127,7 +127,7 @@ void rai::network::receive ()
 	});
 }
 
-void rai::network::process_packets ()
+void nano::network::process_packets ()
 {
 	while (on)
 	{
@@ -142,7 +142,7 @@ void rai::network::process_packets ()
 	}
 }
 
-void rai::network::stop ()
+void nano::network::stop ()
 {
 	on = false;
 	socket.close ();
@@ -150,17 +150,17 @@ void rai::network::stop ()
 	buffer_container.stop ();
 }
 
-void rai::network::send_keepalive (rai::endpoint const & endpoint_a)
+void nano::network::send_keepalive (nano::endpoint const & endpoint_a)
 {
 	assert (endpoint_a.address ().is_v6 ());
-	rai::keepalive message;
+	nano::keepalive message;
 	node.peers.random_fill (message.peers);
 	auto bytes = message.to_bytes ();
 	if (node.config.logging.network_keepalive_logging ())
 	{
 		BOOST_LOG (node.log) << boost::str (boost::format ("Keepalive req sent to %1%") % endpoint_a);
 	}
-	std::weak_ptr<rai::node> node_w (node.shared ());
+	std::weak_ptr<nano::node> node_w (node.shared ());
 	send_buffer (bytes->data (), bytes->size (), endpoint_a, [bytes, node_w, endpoint_a](boost::system::error_code const & ec, size_t) {
 		if (auto node_l = node_w.lock ())
 		{
@@ -170,13 +170,13 @@ void rai::network::send_keepalive (rai::endpoint const & endpoint_a)
 			}
 			else
 			{
-				node_l->stats.inc (rai::stat::type::message, rai::stat::detail::keepalive, rai::stat::dir::out);
+				node_l->stats.inc (nano::stat::type::message, nano::stat::detail::keepalive, nano::stat::dir::out);
 			}
 		}
 	});
 }
 
-void rai::node::keepalive (std::string const & address_a, uint16_t port_a)
+void nano::node::keepalive (std::string const & address_a, uint16_t port_a)
 {
 	auto node_l (shared_from_this ());
 	network.resolver.async_resolve (boost::asio::ip::udp::resolver::query (address_a, std::to_string (port_a)), [node_l, address_a, port_a](boost::system::error_code const & ec, boost::asio::ip::udp::resolver::iterator i_a) {
@@ -184,7 +184,7 @@ void rai::node::keepalive (std::string const & address_a, uint16_t port_a)
 		{
 			for (auto i (i_a), n (boost::asio::ip::udp::resolver::iterator{}); i != n; ++i)
 			{
-				node_l->send_keepalive (rai::map_endpoint_to_v6 (i->endpoint ()));
+				node_l->send_keepalive (nano::map_endpoint_to_v6 (i->endpoint ()));
 			}
 		}
 		else
@@ -194,23 +194,23 @@ void rai::node::keepalive (std::string const & address_a, uint16_t port_a)
 	});
 }
 
-void rai::network::send_node_id_handshake (rai::endpoint const & endpoint_a, boost::optional<rai::uint256_union> const & query, boost::optional<rai::uint256_union> const & respond_to)
+void nano::network::send_node_id_handshake (nano::endpoint const & endpoint_a, boost::optional<nano::uint256_union> const & query, boost::optional<nano::uint256_union> const & respond_to)
 {
 	assert (endpoint_a.address ().is_v6 ());
-	boost::optional<std::pair<rai::account, rai::signature>> response (boost::none);
+	boost::optional<std::pair<nano::account, nano::signature>> response (boost::none);
 	if (respond_to)
 	{
-		response = std::make_pair (node.node_id.pub, rai::sign_message (node.node_id.prv, node.node_id.pub, *respond_to));
-		assert (!rai::validate_message (response->first, *respond_to, response->second));
+		response = std::make_pair (node.node_id.pub, nano::sign_message (node.node_id.prv, node.node_id.pub, *respond_to));
+		assert (!nano::validate_message (response->first, *respond_to, response->second));
 	}
-	rai::node_id_handshake message (query, response);
+	nano::node_id_handshake message (query, response);
 	auto bytes = message.to_bytes ();
 	if (node.config.logging.network_node_id_handshake_logging ())
 	{
 		BOOST_LOG (node.log) << boost::str (boost::format ("Node ID handshake sent with node ID %1% to %2%: query %3%, respond_to %4% (signature %5%)") % node.node_id.pub.to_account () % endpoint_a % (query ? query->to_string () : std::string ("[none]")) % (respond_to ? respond_to->to_string () : std::string ("[none]")) % (response ? response->second.to_string () : std::string ("[none]")));
 	}
-	node.stats.inc (rai::stat::type::message, rai::stat::detail::node_id_handshake, rai::stat::dir::out);
-	std::weak_ptr<rai::node> node_w (node.shared ());
+	node.stats.inc (nano::stat::type::message, nano::stat::detail::node_id_handshake, nano::stat::dir::out);
+	std::weak_ptr<nano::node> node_w (node.shared ());
 	send_buffer (bytes->data (), bytes->size (), endpoint_a, [bytes, node_w, endpoint_a](boost::system::error_code const & ec, size_t) {
 		if (auto node_l = node_w.lock ())
 		{
@@ -222,13 +222,13 @@ void rai::network::send_node_id_handshake (rai::endpoint const & endpoint_a, boo
 	});
 }
 
-void rai::network::republish (rai::block_hash const & hash_a, std::shared_ptr<std::vector<uint8_t>> buffer_a, rai::endpoint endpoint_a)
+void nano::network::republish (nano::block_hash const & hash_a, std::shared_ptr<std::vector<uint8_t>> buffer_a, nano::endpoint endpoint_a)
 {
 	if (node.config.logging.network_publish_logging ())
 	{
 		BOOST_LOG (node.log) << boost::str (boost::format ("Publishing %1% to %2%") % hash_a.to_string () % endpoint_a);
 	}
-	std::weak_ptr<rai::node> node_w (node.shared ());
+	std::weak_ptr<nano::node> node_w (node.shared ());
 	send_buffer (buffer_a->data (), buffer_a->size (), endpoint_a, [buffer_a, node_w, endpoint_a](boost::system::error_code const & ec, size_t size) {
 		if (auto node_l = node_w.lock ())
 		{
@@ -238,25 +238,25 @@ void rai::network::republish (rai::block_hash const & hash_a, std::shared_ptr<st
 			}
 			else
 			{
-				node_l->stats.inc (rai::stat::type::message, rai::stat::detail::publish, rai::stat::dir::out);
+				node_l->stats.inc (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::out);
 			}
 		}
 	});
 }
 
 template <typename T>
-bool confirm_block (rai::transaction const & transaction_a, rai::node & node_a, T & list_a, std::shared_ptr<rai::block> block_a, bool also_publish)
+bool confirm_block (nano::transaction const & transaction_a, nano::node & node_a, T & list_a, std::shared_ptr<nano::block> block_a, bool also_publish)
 {
 	bool result (false);
 	if (node_a.config.enable_voting)
 	{
-		node_a.wallets.foreach_representative (transaction_a, [&result, &block_a, &list_a, &node_a, &transaction_a, also_publish](rai::public_key const & pub_a, rai::raw_key const & prv_a) {
+		node_a.wallets.foreach_representative (transaction_a, [&result, &block_a, &list_a, &node_a, &transaction_a, also_publish](nano::public_key const & pub_a, nano::raw_key const & prv_a) {
 			result = true;
 			auto hash (block_a->hash ());
-			auto vote (node_a.store.vote_generate (transaction_a, pub_a, prv_a, std::vector<rai::block_hash> (1, hash)));
-			rai::confirm_ack confirm (vote);
+			auto vote (node_a.store.vote_generate (transaction_a, pub_a, prv_a, std::vector<nano::block_hash> (1, hash)));
+			nano::confirm_ack confirm (vote);
 			auto vote_bytes = confirm.to_bytes ();
-			rai::publish publish (block_a);
+			nano::publish publish (block_a);
 			std::shared_ptr<std::vector<uint8_t>> publish_bytes;
 			if (also_publish)
 			{
@@ -275,19 +275,19 @@ bool confirm_block (rai::transaction const & transaction_a, rai::node & node_a, 
 	return result;
 }
 
-bool confirm_block (rai::transaction const & transaction_a, rai::node & node_a, rai::endpoint & peer_a, std::shared_ptr<rai::block> block_a, bool also_publish)
+bool confirm_block (nano::transaction const & transaction_a, nano::node & node_a, nano::endpoint & peer_a, std::shared_ptr<nano::block> block_a, bool also_publish)
 {
-	std::array<rai::endpoint, 1> endpoints;
+	std::array<nano::endpoint, 1> endpoints;
 	endpoints[0] = peer_a;
 	auto result (confirm_block (transaction_a, node_a, endpoints, std::move (block_a), also_publish));
 	return result;
 }
 
-void rai::network::republish_block (std::shared_ptr<rai::block> block)
+void nano::network::republish_block (std::shared_ptr<nano::block> block)
 {
 	auto hash (block->hash ());
 	auto list (node.peers.list_fanout ());
-	rai::publish message (block);
+	nano::publish message (block);
 	auto bytes = message.to_bytes ();
 	for (auto i (list.begin ()), n (list.end ()); i != n; ++i)
 	{
@@ -299,14 +299,14 @@ void rai::network::republish_block (std::shared_ptr<rai::block> block)
 	}
 }
 
-void rai::network::republish_block_batch (std::deque<std::shared_ptr<rai::block>> blocks_a, unsigned delay_a)
+void nano::network::republish_block_batch (std::deque<std::shared_ptr<nano::block>> blocks_a, unsigned delay_a)
 {
 	auto block (blocks_a.front ());
 	blocks_a.pop_front ();
 	republish_block (block);
 	if (!blocks_a.empty ())
 	{
-		std::weak_ptr<rai::node> node_w (node.shared ());
+		std::weak_ptr<nano::node> node_w (node.shared ());
 		node.alarm.add (std::chrono::steady_clock::now () + std::chrono::milliseconds (delay_a + std::rand () % delay_a), [node_w, blocks_a, delay_a]() {
 			if (auto node_l = node_w.lock ())
 			{
@@ -323,9 +323,9 @@ void rai::network::republish_block_batch (std::deque<std::shared_ptr<rai::block>
 //    This prevents rapid publishing of votes with increasing sequence numbers.
 //
 // These rules are implemented by the caller, not this function.
-void rai::network::republish_vote (std::shared_ptr<rai::vote> vote_a)
+void nano::network::republish_vote (std::shared_ptr<nano::vote> vote_a)
 {
-	rai::confirm_ack confirm (vote_a);
+	nano::confirm_ack confirm (vote_a);
 	auto bytes = confirm.to_bytes ();
 	auto list (node.peers.list_fanout ());
 	for (auto j (list.begin ()), m (list.end ()); j != m; ++j)
@@ -334,13 +334,13 @@ void rai::network::republish_vote (std::shared_ptr<rai::vote> vote_a)
 	}
 }
 
-void rai::network::broadcast_confirm_req (std::shared_ptr<rai::block> block_a)
+void nano::network::broadcast_confirm_req (std::shared_ptr<nano::block> block_a)
 {
-	auto list (std::make_shared<std::vector<rai::peer_information>> (node.peers.representatives (std::numeric_limits<size_t>::max ())));
+	auto list (std::make_shared<std::vector<nano::peer_information>> (node.peers.representatives (std::numeric_limits<size_t>::max ())));
 	if (list->empty () || node.peers.total_weight () < node.config.online_weight_minimum.number ())
 	{
 		// broadcast request to all peers
-		list = std::make_shared<std::vector<rai::peer_information>> (node.peers.list_vector (100));
+		list = std::make_shared<std::vector<nano::peer_information>> (node.peers.list_vector (100));
 	}
 
 	/*
@@ -360,7 +360,7 @@ void rai::network::broadcast_confirm_req (std::shared_ptr<rai::block> block_a)
 	broadcast_confirm_req_base (block_a, list, 0);
 }
 
-void rai::network::broadcast_confirm_req_base (std::shared_ptr<rai::block> block_a, std::shared_ptr<std::vector<rai::peer_information>> endpoints_a, unsigned delay_a, bool resumption)
+void nano::network::broadcast_confirm_req_base (std::shared_ptr<nano::block> block_a, std::shared_ptr<std::vector<nano::peer_information>> endpoints_a, unsigned delay_a, bool resumption)
 {
 	const size_t max_reps = 10;
 	if (!resumption && node.config.logging.network_logging ())
@@ -378,7 +378,7 @@ void rai::network::broadcast_confirm_req_base (std::shared_ptr<rai::block> block
 	{
 		delay_a += std::rand () % broadcast_interval_ms;
 
-		std::weak_ptr<rai::node> node_w (node.shared ());
+		std::weak_ptr<nano::node> node_w (node.shared ());
 		node.alarm.add (std::chrono::steady_clock::now () + std::chrono::milliseconds (delay_a), [node_w, block_a, endpoints_a, delay_a]() {
 			if (auto node_l = node_w.lock ())
 			{
@@ -388,7 +388,7 @@ void rai::network::broadcast_confirm_req_base (std::shared_ptr<rai::block> block
 	}
 }
 
-void rai::network::broadcast_confirm_req_batch (std::deque<std::pair<std::shared_ptr<rai::block>, std::shared_ptr<std::vector<rai::peer_information>>>> deque_a, unsigned delay_a)
+void nano::network::broadcast_confirm_req_batch (std::deque<std::pair<std::shared_ptr<nano::block>, std::shared_ptr<std::vector<nano::peer_information>>>> deque_a, unsigned delay_a)
 {
 	auto pair (deque_a.front ());
 	deque_a.pop_front ();
@@ -403,7 +403,7 @@ void rai::network::broadcast_confirm_req_batch (std::deque<std::pair<std::shared
 	Broadcast with random delay between delay_a & 2*delay_a */
 	if (!deque_a.empty ())
 	{
-		std::weak_ptr<rai::node> node_w (node.shared ());
+		std::weak_ptr<nano::node> node_w (node.shared ());
 		node.alarm.add (std::chrono::steady_clock::now () + std::chrono::milliseconds (delay_a + std::rand () % delay_a), [node_w, deque_a, delay_a]() {
 			if (auto node_l = node_w.lock ())
 			{
@@ -413,16 +413,16 @@ void rai::network::broadcast_confirm_req_batch (std::deque<std::pair<std::shared
 	}
 }
 
-void rai::network::send_confirm_req (rai::endpoint const & endpoint_a, std::shared_ptr<rai::block> block)
+void nano::network::send_confirm_req (nano::endpoint const & endpoint_a, std::shared_ptr<nano::block> block)
 {
-	rai::confirm_req message (block);
+	nano::confirm_req message (block);
 	auto bytes = message.to_bytes ();
 	if (node.config.logging.network_message_logging ())
 	{
 		BOOST_LOG (node.log) << boost::str (boost::format ("Sending confirm req to %1%") % endpoint_a);
 	}
-	std::weak_ptr<rai::node> node_w (node.shared ());
-	node.stats.inc (rai::stat::type::message, rai::stat::detail::confirm_req, rai::stat::dir::out);
+	std::weak_ptr<nano::node> node_w (node.shared ());
+	node.stats.inc (nano::stat::type::message, nano::stat::detail::confirm_req, nano::stat::dir::out);
 	send_buffer (bytes->data (), bytes->size (), endpoint_a, [bytes, node_w](boost::system::error_code const & ec, size_t size) {
 		if (auto node_l = node_w.lock ())
 		{
@@ -435,10 +435,10 @@ void rai::network::send_confirm_req (rai::endpoint const & endpoint_a, std::shar
 }
 
 template <typename T>
-void rep_query (rai::node & node_a, T const & peers_a)
+void rep_query (nano::node & node_a, T const & peers_a)
 {
 	auto transaction (node_a.store.tx_begin_read ());
-	std::shared_ptr<rai::block> block (node_a.store.block_random (transaction));
+	std::shared_ptr<nano::block> block (node_a.store.block_random (transaction));
 	auto hash (block->hash ());
 	node_a.rep_crawler.add (hash);
 	for (auto i (peers_a.begin ()), n (peers_a.end ()); i != n; ++i)
@@ -446,7 +446,7 @@ void rep_query (rai::node & node_a, T const & peers_a)
 		node_a.peers.rep_request (*i);
 		node_a.network.send_confirm_req (*i, block);
 	}
-	std::weak_ptr<rai::node> node_w (node_a.shared ());
+	std::weak_ptr<nano::node> node_w (node_a.shared ());
 	node_a.alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (5), [node_w, hash]() {
 		if (auto node_l = node_w.lock ())
 		{
@@ -455,34 +455,34 @@ void rep_query (rai::node & node_a, T const & peers_a)
 	});
 }
 
-void rep_query (rai::node & node_a, rai::endpoint const & peers_a)
+void rep_query (nano::node & node_a, nano::endpoint const & peers_a)
 {
-	std::array<rai::endpoint, 1> peers;
+	std::array<nano::endpoint, 1> peers;
 	peers[0] = peers_a;
 	rep_query (node_a, peers);
 }
 
 namespace
 {
-class network_message_visitor : public rai::message_visitor
+class network_message_visitor : public nano::message_visitor
 {
 public:
-	network_message_visitor (rai::node & node_a, rai::endpoint const & sender_a) :
+	network_message_visitor (nano::node & node_a, nano::endpoint const & sender_a) :
 	node (node_a),
 	sender (sender_a)
 	{
 	}
 	virtual ~network_message_visitor () = default;
-	void keepalive (rai::keepalive const & message_a) override
+	void keepalive (nano::keepalive const & message_a) override
 	{
 		if (node.config.logging.network_keepalive_logging ())
 		{
 			BOOST_LOG (node.log) << boost::str (boost::format ("Received keepalive message from %1%") % sender);
 		}
-		node.stats.inc (rai::stat::type::message, rai::stat::detail::keepalive, rai::stat::dir::in);
+		node.stats.inc (nano::stat::type::message, nano::stat::detail::keepalive, nano::stat::dir::in);
 		if (node.peers.contacted (sender, message_a.header.version_using))
 		{
-			auto endpoint_l (rai::map_endpoint_to_v6 (sender));
+			auto endpoint_l (nano::map_endpoint_to_v6 (sender));
 			auto cookie (node.peers.assign_syn_cookie (endpoint_l));
 			if (cookie)
 			{
@@ -491,24 +491,24 @@ public:
 		}
 		node.network.merge_peers (message_a.peers);
 	}
-	void publish (rai::publish const & message_a) override
+	void publish (nano::publish const & message_a) override
 	{
 		if (node.config.logging.network_message_logging ())
 		{
 			BOOST_LOG (node.log) << boost::str (boost::format ("Publish message from %1% for %2%") % sender % message_a.block->hash ().to_string ());
 		}
-		node.stats.inc (rai::stat::type::message, rai::stat::detail::publish, rai::stat::dir::in);
+		node.stats.inc (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::in);
 		node.peers.contacted (sender, message_a.header.version_using);
 		node.process_active (message_a.block);
 		node.active.publish (message_a.block);
 	}
-	void confirm_req (rai::confirm_req const & message_a) override
+	void confirm_req (nano::confirm_req const & message_a) override
 	{
 		if (node.config.logging.network_message_logging ())
 		{
 			BOOST_LOG (node.log) << boost::str (boost::format ("Confirm_req message from %1% for %2%") % sender % message_a.block->hash ().to_string ());
 		}
-		node.stats.inc (rai::stat::type::message, rai::stat::detail::confirm_req, rai::stat::dir::in);
+		node.stats.inc (nano::stat::type::message, nano::stat::detail::confirm_req, nano::stat::dir::in);
 		node.peers.contacted (sender, message_a.header.version_using);
 		// Don't load nodes with disabled voting
 		if (node.config.enable_voting)
@@ -522,55 +522,55 @@ public:
 			}
 		}
 	}
-	void confirm_ack (rai::confirm_ack const & message_a) override
+	void confirm_ack (nano::confirm_ack const & message_a) override
 	{
 		if (node.config.logging.network_message_logging ())
 		{
 			BOOST_LOG (node.log) << boost::str (boost::format ("Received confirm_ack message from %1% for %2%sequence %3%") % sender % message_a.vote->hashes_string () % std::to_string (message_a.vote->sequence));
 		}
-		node.stats.inc (rai::stat::type::message, rai::stat::detail::confirm_ack, rai::stat::dir::in);
+		node.stats.inc (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::in);
 		node.peers.contacted (sender, message_a.header.version_using);
 		for (auto & vote_block : message_a.vote->blocks)
 		{
 			if (!vote_block.which ())
 			{
-				auto block (boost::get<std::shared_ptr<rai::block>> (vote_block));
+				auto block (boost::get<std::shared_ptr<nano::block>> (vote_block));
 				node.process_active (block);
 				node.active.publish (block);
 			}
 		}
 		node.vote_processor.vote (message_a.vote, sender);
 	}
-	void bulk_pull (rai::bulk_pull const &) override
+	void bulk_pull (nano::bulk_pull const &) override
 	{
 		assert (false);
 	}
-	void bulk_pull_account (rai::bulk_pull_account const &) override
+	void bulk_pull_account (nano::bulk_pull_account const &) override
 	{
 		assert (false);
 	}
-	void bulk_pull_blocks (rai::bulk_pull_blocks const &) override
+	void bulk_pull_blocks (nano::bulk_pull_blocks const &) override
 	{
 		assert (false);
 	}
-	void bulk_push (rai::bulk_push const &) override
+	void bulk_push (nano::bulk_push const &) override
 	{
 		assert (false);
 	}
-	void frontier_req (rai::frontier_req const &) override
+	void frontier_req (nano::frontier_req const &) override
 	{
 		assert (false);
 	}
-	void node_id_handshake (rai::node_id_handshake const & message_a) override
+	void node_id_handshake (nano::node_id_handshake const & message_a) override
 	{
 		if (node.config.logging.network_node_id_handshake_logging ())
 		{
 			BOOST_LOG (node.log) << boost::str (boost::format ("Received node_id_handshake message from %1% with query %2% and response account %3%") % sender % (message_a.query ? message_a.query->to_string () : std::string ("[none]")) % (message_a.response ? message_a.response->first.to_account () : std::string ("[none]")));
 		}
-		node.stats.inc (rai::stat::type::message, rai::stat::detail::node_id_handshake, rai::stat::dir::in);
-		auto endpoint_l (rai::map_endpoint_to_v6 (sender));
-		boost::optional<rai::uint256_union> out_query;
-		boost::optional<rai::uint256_union> out_respond_to;
+		node.stats.inc (nano::stat::type::message, nano::stat::detail::node_id_handshake, nano::stat::dir::in);
+		auto endpoint_l (nano::map_endpoint_to_v6 (sender));
+		boost::optional<nano::uint256_union> out_query;
+		boost::optional<nano::uint256_union> out_respond_to;
 		if (message_a.query)
 		{
 			out_respond_to = message_a.query;
@@ -600,68 +600,68 @@ public:
 			node.network.send_node_id_handshake (sender, out_query, out_respond_to);
 		}
 	}
-	rai::node & node;
-	rai::endpoint sender;
+	nano::node & node;
+	nano::endpoint sender;
 };
 }
 
-void rai::network::receive_action (rai::udp_data * data_a)
+void nano::network::receive_action (nano::udp_data * data_a)
 {
 	auto allowed_sender (true);
 	if (data_a->endpoint == endpoint ())
 	{
 		allowed_sender = false;
 	}
-	else if (rai::reserved_address (data_a->endpoint, false) && !node.config.allow_local_peers)
+	else if (nano::reserved_address (data_a->endpoint, false) && !node.config.allow_local_peers)
 	{
 		allowed_sender = false;
 	}
 	if (allowed_sender)
 	{
 		network_message_visitor visitor (node, data_a->endpoint);
-		rai::message_parser parser (node.block_uniquer, node.vote_uniquer, visitor, node.work);
+		nano::message_parser parser (node.block_uniquer, node.vote_uniquer, visitor, node.work);
 		parser.deserialize_buffer (data_a->buffer, data_a->size);
-		if (parser.status != rai::message_parser::parse_status::success)
+		if (parser.status != nano::message_parser::parse_status::success)
 		{
-			node.stats.inc (rai::stat::type::error);
+			node.stats.inc (nano::stat::type::error);
 
 			switch (parser.status)
 			{
-				case rai::message_parser::parse_status::insufficient_work:
+				case nano::message_parser::parse_status::insufficient_work:
 					// We've already increment error count, update detail only
-					node.stats.inc_detail_only (rai::stat::type::error, rai::stat::detail::insufficient_work);
+					node.stats.inc_detail_only (nano::stat::type::error, nano::stat::detail::insufficient_work);
 					break;
-				case rai::message_parser::parse_status::invalid_magic:
-					node.stats.inc (rai::stat::type::udp, rai::stat::detail::invalid_magic);
+				case nano::message_parser::parse_status::invalid_magic:
+					node.stats.inc (nano::stat::type::udp, nano::stat::detail::invalid_magic);
 					break;
-				case rai::message_parser::parse_status::invalid_network:
-					node.stats.inc (rai::stat::type::udp, rai::stat::detail::invalid_network);
+				case nano::message_parser::parse_status::invalid_network:
+					node.stats.inc (nano::stat::type::udp, nano::stat::detail::invalid_network);
 					break;
-				case rai::message_parser::parse_status::invalid_header:
-					node.stats.inc (rai::stat::type::udp, rai::stat::detail::invalid_header);
+				case nano::message_parser::parse_status::invalid_header:
+					node.stats.inc (nano::stat::type::udp, nano::stat::detail::invalid_header);
 					break;
-				case rai::message_parser::parse_status::invalid_message_type:
-					node.stats.inc (rai::stat::type::udp, rai::stat::detail::invalid_message_type);
+				case nano::message_parser::parse_status::invalid_message_type:
+					node.stats.inc (nano::stat::type::udp, nano::stat::detail::invalid_message_type);
 					break;
-				case rai::message_parser::parse_status::invalid_keepalive_message:
-					node.stats.inc (rai::stat::type::udp, rai::stat::detail::invalid_keepalive_message);
+				case nano::message_parser::parse_status::invalid_keepalive_message:
+					node.stats.inc (nano::stat::type::udp, nano::stat::detail::invalid_keepalive_message);
 					break;
-				case rai::message_parser::parse_status::invalid_publish_message:
-					node.stats.inc (rai::stat::type::udp, rai::stat::detail::invalid_publish_message);
+				case nano::message_parser::parse_status::invalid_publish_message:
+					node.stats.inc (nano::stat::type::udp, nano::stat::detail::invalid_publish_message);
 					break;
-				case rai::message_parser::parse_status::invalid_confirm_req_message:
-					node.stats.inc (rai::stat::type::udp, rai::stat::detail::invalid_confirm_req_message);
+				case nano::message_parser::parse_status::invalid_confirm_req_message:
+					node.stats.inc (nano::stat::type::udp, nano::stat::detail::invalid_confirm_req_message);
 					break;
-				case rai::message_parser::parse_status::invalid_confirm_ack_message:
-					node.stats.inc (rai::stat::type::udp, rai::stat::detail::invalid_confirm_ack_message);
+				case nano::message_parser::parse_status::invalid_confirm_ack_message:
+					node.stats.inc (nano::stat::type::udp, nano::stat::detail::invalid_confirm_ack_message);
 					break;
-				case rai::message_parser::parse_status::invalid_node_id_handshake_message:
-					node.stats.inc (rai::stat::type::udp, rai::stat::detail::invalid_node_id_handshake_message);
+				case nano::message_parser::parse_status::invalid_node_id_handshake_message:
+					node.stats.inc (nano::stat::type::udp, nano::stat::detail::invalid_node_id_handshake_message);
 					break;
-				case rai::message_parser::parse_status::outdated_version:
-					node.stats.inc (rai::stat::type::udp, rai::stat::detail::outdated_version);
+				case nano::message_parser::parse_status::outdated_version:
+					node.stats.inc (nano::stat::type::udp, nano::stat::detail::outdated_version);
 					break;
-				case rai::message_parser::parse_status::success:
+				case nano::message_parser::parse_status::success:
 					/* Already checked, unreachable */
 					break;
 			}
@@ -673,7 +673,7 @@ void rai::network::receive_action (rai::udp_data * data_a)
 		}
 		else
 		{
-			node.stats.add (rai::stat::type::traffic, rai::stat::dir::in, data_a->size);
+			node.stats.add (nano::stat::type::traffic, nano::stat::dir::in, data_a->size);
 		}
 	}
 	else
@@ -683,12 +683,12 @@ void rai::network::receive_action (rai::udp_data * data_a)
 			BOOST_LOG (node.log) << boost::str (boost::format ("Reserved sender %1%") % data_a->endpoint.address ().to_string ());
 		}
 
-		node.stats.inc_detail_only (rai::stat::type::error, rai::stat::detail::bad_sender);
+		node.stats.inc_detail_only (nano::stat::type::error, nano::stat::detail::bad_sender);
 	}
 }
 
 // Send keepalives to all the peers we've been notified of
-void rai::network::merge_peers (std::array<rai::endpoint, 8> const & peers_a)
+void nano::network::merge_peers (std::array<nano::endpoint, 8> const & peers_a)
 {
 	for (auto i (peers_a.begin ()), j (peers_a.end ()); i != j; ++i)
 	{
@@ -699,27 +699,27 @@ void rai::network::merge_peers (std::array<rai::endpoint, 8> const & peers_a)
 	}
 }
 
-bool rai::operation::operator> (rai::operation const & other_a) const
+bool nano::operation::operator> (nano::operation const & other_a) const
 {
 	return wakeup > other_a.wakeup;
 }
 
-rai::alarm::alarm (boost::asio::io_context & io_ctx_a) :
+nano::alarm::alarm (boost::asio::io_context & io_ctx_a) :
 io_ctx (io_ctx_a),
 thread ([this]() {
-	rai::thread_role::set (rai::thread_role::name::alarm);
+	nano::thread_role::set (nano::thread_role::name::alarm);
 	run ();
 })
 {
 }
 
-rai::alarm::~alarm ()
+nano::alarm::~alarm ()
 {
 	add (std::chrono::steady_clock::now (), nullptr);
 	thread.join ();
 }
 
-void rai::alarm::run ()
+void nano::alarm::run ()
 {
 	std::unique_lock<std::mutex> lock (mutex);
 	auto done (false);
@@ -753,33 +753,33 @@ void rai::alarm::run ()
 	}
 }
 
-void rai::alarm::add (std::chrono::steady_clock::time_point const & wakeup_a, std::function<void()> const & operation)
+void nano::alarm::add (std::chrono::steady_clock::time_point const & wakeup_a, std::function<void()> const & operation)
 {
 	{
 		std::lock_guard<std::mutex> lock (mutex);
-		operations.push (rai::operation ({ wakeup_a, operation }));
+		operations.push (nano::operation ({ wakeup_a, operation }));
 	}
 	condition.notify_all ();
 }
 
-rai::node_init::node_init () :
+nano::node_init::node_init () :
 block_store_init (false),
 wallet_init (false)
 {
 }
 
-bool rai::node_init::error ()
+bool nano::node_init::error ()
 {
 	return block_store_init || wallet_init;
 }
 
-rai::vote_processor::vote_processor (rai::node & node_a) :
+nano::vote_processor::vote_processor (nano::node & node_a) :
 node (node_a),
 started (false),
 stopped (false),
 active (false),
 thread ([this]() {
-	rai::thread_role::set (rai::thread_role::name::vote_processing);
+	nano::thread_role::set (nano::thread_role::name::vote_processing);
 	process_loop ();
 })
 {
@@ -790,7 +790,7 @@ thread ([this]() {
 	}
 }
 
-void rai::vote_processor::process_loop ()
+void nano::vote_processor::process_loop ()
 {
 	std::chrono::steady_clock::time_point start_time, end_time;
 	std::chrono::steady_clock::duration elapsed_time;
@@ -809,7 +809,7 @@ void rai::vote_processor::process_loop ()
 	{
 		if (!votes.empty ())
 		{
-			std::deque<std::pair<std::shared_ptr<rai::vote>, rai::endpoint>> votes_l;
+			std::deque<std::pair<std::shared_ptr<nano::vote>, nano::endpoint>> votes_l;
 			votes_l.swap (votes);
 
 			log_this_iteration = false;
@@ -873,7 +873,7 @@ void rai::vote_processor::process_loop ()
 	}
 }
 
-void rai::vote_processor::vote (std::shared_ptr<rai::vote> vote_a, rai::endpoint endpoint_a)
+void nano::vote_processor::vote (std::shared_ptr<nano::vote> vote_a, nano::endpoint endpoint_a)
 {
 	assert (endpoint_a.address ().is_v6 ());
 	std::unique_lock<std::mutex> lock (mutex);
@@ -883,7 +883,7 @@ void rai::vote_processor::vote (std::shared_ptr<rai::vote> vote_a, rai::endpoint
 		/* Random early delection levels
 		Always process votes for test network (process = true)
 		Stop processing with max 144 * 1024 votes */
-		if (rai::rai_network != rai::rai_networks::rai_test_network)
+		if (nano::nano_network != nano::nano_networks::nano_test_network)
 		{
 			// Level 0 (< 0.1%)
 			if (votes.size () < 96 * 1024)
@@ -921,7 +921,7 @@ void rai::vote_processor::vote (std::shared_ptr<rai::vote> vote_a, rai::endpoint
 		}
 		else
 		{
-			node.stats.inc (rai::stat::type::vote, rai::stat::detail::vote_overflow);
+			node.stats.inc (nano::stat::type::vote, nano::stat::detail::vote_overflow);
 			if (node.config.logging.vote_logging ())
 			{
 				BOOST_LOG (node.log) << "Votes overflow";
@@ -930,14 +930,14 @@ void rai::vote_processor::vote (std::shared_ptr<rai::vote> vote_a, rai::endpoint
 	}
 }
 
-void rai::vote_processor::verify_votes (std::deque<std::pair<std::shared_ptr<rai::vote>, rai::endpoint>> & votes_a)
+void nano::vote_processor::verify_votes (std::deque<std::pair<std::shared_ptr<nano::vote>, nano::endpoint>> & votes_a)
 {
 	auto size (votes_a.size ());
 	std::vector<unsigned char const *> messages;
 	messages.reserve (size);
-	std::vector<rai::uint256_union> hashes;
+	std::vector<nano::uint256_union> hashes;
 	hashes.reserve (size);
-	std::vector<size_t> lengths (size, sizeof (rai::uint256_union));
+	std::vector<size_t> lengths (size, sizeof (nano::uint256_union));
 	std::vector<unsigned char const *> pub_keys;
 	pub_keys.reserve (size);
 	std::vector<unsigned char const *> signatures;
@@ -952,7 +952,7 @@ void rai::vote_processor::verify_votes (std::deque<std::pair<std::shared_ptr<rai
 		signatures.push_back (vote.first->signature.bytes.data ());
 	}
 	std::promise<void> promise;
-	rai::signature_check_set check = { size, messages.data (), lengths.data (), pub_keys.data (), signatures.data (), verifications.data (), &promise };
+	nano::signature_check_set check = { size, messages.data (), lengths.data (), pub_keys.data (), signatures.data (), verifications.data (), &promise };
 	node.checker.add (check);
 	promise.get_future ().wait ();
 	std::remove_reference_t<decltype (votes_a)> result;
@@ -970,34 +970,34 @@ void rai::vote_processor::verify_votes (std::deque<std::pair<std::shared_ptr<rai
 }
 
 // node.active.mutex lock required
-rai::vote_code rai::vote_processor::vote_blocking (rai::transaction const & transaction_a, std::shared_ptr<rai::vote> vote_a, rai::endpoint endpoint_a, bool validated)
+nano::vote_code nano::vote_processor::vote_blocking (nano::transaction const & transaction_a, std::shared_ptr<nano::vote> vote_a, nano::endpoint endpoint_a, bool validated)
 {
 	assert (endpoint_a.address ().is_v6 ());
 	assert (!node.active.mutex.try_lock ());
-	auto result (rai::vote_code::invalid);
+	auto result (nano::vote_code::invalid);
 	if (validated || !vote_a->validate ())
 	{
 		auto max_vote (node.store.vote_max (transaction_a, vote_a));
-		result = rai::vote_code::replay;
+		result = nano::vote_code::replay;
 		if (!node.active.vote (vote_a, true))
 		{
-			result = rai::vote_code::vote;
+			result = nano::vote_code::vote;
 		}
 		switch (result)
 		{
-			case rai::vote_code::vote:
+			case nano::vote_code::vote:
 				node.observers.vote.notify (transaction_a, vote_a, endpoint_a);
-			case rai::vote_code::replay:
+			case nano::vote_code::replay:
 				// This tries to assist rep nodes that have lost track of their highest sequence number by replaying our highest known vote back to them
 				// Only do this if the sequence number is significantly different to account for network reordering
 				// Amplify attack considerations: We're sending out a confirm_ack in response to a confirm_ack for no net traffic increase
 				if (max_vote->sequence > vote_a->sequence + 10000)
 				{
-					rai::confirm_ack confirm (max_vote);
+					nano::confirm_ack confirm (max_vote);
 					node.network.confirm_send (confirm, confirm.to_bytes (), endpoint_a);
 				}
 				break;
-			case rai::vote_code::invalid:
+			case nano::vote_code::invalid:
 				assert (false);
 				break;
 		}
@@ -1005,17 +1005,17 @@ rai::vote_code rai::vote_processor::vote_blocking (rai::transaction const & tran
 	std::string status;
 	switch (result)
 	{
-		case rai::vote_code::invalid:
+		case nano::vote_code::invalid:
 			status = "Invalid";
-			node.stats.inc (rai::stat::type::vote, rai::stat::detail::vote_invalid);
+			node.stats.inc (nano::stat::type::vote, nano::stat::detail::vote_invalid);
 			break;
-		case rai::vote_code::replay:
+		case nano::vote_code::replay:
 			status = "Replay";
-			node.stats.inc (rai::stat::type::vote, rai::stat::detail::vote_replay);
+			node.stats.inc (nano::stat::type::vote, nano::stat::detail::vote_replay);
 			break;
-		case rai::vote_code::vote:
+		case nano::vote_code::vote:
 			status = "Vote";
-			node.stats.inc (rai::stat::type::vote, rai::stat::detail::vote_valid);
+			node.stats.inc (nano::stat::type::vote, nano::stat::detail::vote_valid);
 			break;
 	}
 	if (node.config.logging.vote_logging ())
@@ -1025,7 +1025,7 @@ rai::vote_code rai::vote_processor::vote_blocking (rai::transaction const & tran
 	return result;
 }
 
-void rai::vote_processor::stop ()
+void nano::vote_processor::stop ()
 {
 	{
 		std::lock_guard<std::mutex> lock (mutex);
@@ -1038,7 +1038,7 @@ void rai::vote_processor::stop ()
 	}
 }
 
-void rai::vote_processor::flush ()
+void nano::vote_processor::flush ()
 {
 	std::unique_lock<std::mutex> lock (mutex);
 	while (active || !votes.empty ())
@@ -1047,7 +1047,7 @@ void rai::vote_processor::flush ()
 	}
 }
 
-void rai::vote_processor::calculate_weights ()
+void nano::vote_processor::calculate_weights ()
 {
 	std::unique_lock<std::mutex> lock (mutex);
 	if (!stopped)
@@ -1059,7 +1059,7 @@ void rai::vote_processor::calculate_weights ()
 		auto transaction (node.store.tx_begin_read ());
 		for (auto i (node.store.representation_begin (transaction)), n (node.store.representation_end ()); i != n; ++i)
 		{
-			rai::account representative (i->first);
+			nano::account representative (i->first);
 			auto weight (node.ledger.weight (transaction, representative));
 			if (weight > supply / 1000) // 0.1% or above (level 1)
 			{
@@ -1077,25 +1077,25 @@ void rai::vote_processor::calculate_weights ()
 	}
 }
 
-void rai::rep_crawler::add (rai::block_hash const & hash_a)
+void nano::rep_crawler::add (nano::block_hash const & hash_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	active.insert (hash_a);
 }
 
-void rai::rep_crawler::remove (rai::block_hash const & hash_a)
+void nano::rep_crawler::remove (nano::block_hash const & hash_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	active.erase (hash_a);
 }
 
-bool rai::rep_crawler::exists (rai::block_hash const & hash_a)
+bool nano::rep_crawler::exists (nano::block_hash const & hash_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	return active.count (hash_a) != 0;
 }
 
-rai::signature_checker::signature_checker () :
+nano::signature_checker::signature_checker () :
 started (false),
 stopped (false),
 thread ([this]() { run (); })
@@ -1107,12 +1107,12 @@ thread ([this]() { run (); })
 	}
 }
 
-rai::signature_checker::~signature_checker ()
+nano::signature_checker::~signature_checker ()
 {
 	stop ();
 }
 
-void rai::signature_checker::add (rai::signature_check_set & check_a)
+void nano::signature_checker::add (nano::signature_check_set & check_a)
 {
 	{
 		std::lock_guard<std::mutex> lock (mutex);
@@ -1121,7 +1121,7 @@ void rai::signature_checker::add (rai::signature_check_set & check_a)
 	condition.notify_all ();
 }
 
-void rai::signature_checker::stop ()
+void nano::signature_checker::stop ()
 {
 	std::unique_lock<std::mutex> lock (mutex);
 	stopped = true;
@@ -1133,7 +1133,7 @@ void rai::signature_checker::stop ()
 	}
 }
 
-void rai::signature_checker::flush ()
+void nano::signature_checker::flush ()
 {
 	std::unique_lock<std::mutex> lock (mutex);
 	while (!stopped && !checks.empty ())
@@ -1142,19 +1142,19 @@ void rai::signature_checker::flush ()
 	}
 }
 
-void rai::signature_checker::verify (rai::signature_check_set & check_a)
+void nano::signature_checker::verify (nano::signature_check_set & check_a)
 {
 	/* Verifications is vector if signatures check results
 	 validate_message_batch returing "true" if there are at least 1 invalid signature */
-	auto code (rai::validate_message_batch (check_a.messages, check_a.message_lengths, check_a.pub_keys, check_a.signatures, check_a.size, check_a.verifications));
+	auto code (nano::validate_message_batch (check_a.messages, check_a.message_lengths, check_a.pub_keys, check_a.signatures, check_a.size, check_a.verifications));
 	(void)code;
 	release_assert (std::all_of (check_a.verifications, check_a.verifications + check_a.size, [](int verification) { return verification == 0 || verification == 1; }));
 	check_a.promise->set_value ();
 }
 
-void rai::signature_checker::run ()
+void nano::signature_checker::run ()
 {
-	rai::thread_role::set (rai::thread_role::name::signature_checking);
+	nano::thread_role::set (nano::thread_role::name::signature_checking);
 	std::unique_lock<std::mutex> lock (mutex);
 	started = true;
 
@@ -1180,21 +1180,21 @@ void rai::signature_checker::run ()
 	}
 }
 
-rai::block_processor::block_processor (rai::node & node_a) :
+nano::block_processor::block_processor (nano::node & node_a) :
 stopped (false),
 active (false),
 next_log (std::chrono::steady_clock::now ()),
 node (node_a),
-generator (node_a, rai::rai_network == rai::rai_networks::rai_test_network ? std::chrono::milliseconds (10) : std::chrono::milliseconds (500))
+generator (node_a, nano::nano_network == nano::nano_networks::nano_test_network ? std::chrono::milliseconds (10) : std::chrono::milliseconds (500))
 {
 }
 
-rai::block_processor::~block_processor ()
+nano::block_processor::~block_processor ()
 {
 	stop ();
 }
 
-void rai::block_processor::stop ()
+void nano::block_processor::stop ()
 {
 	generator.stop ();
 	{
@@ -1204,7 +1204,7 @@ void rai::block_processor::stop ()
 	condition.notify_all ();
 }
 
-void rai::block_processor::flush ()
+void nano::block_processor::flush ()
 {
 	node.checker.flush ();
 	std::unique_lock<std::mutex> lock (mutex);
@@ -1214,21 +1214,21 @@ void rai::block_processor::flush ()
 	}
 }
 
-bool rai::block_processor::full ()
+bool nano::block_processor::full ()
 {
 	std::unique_lock<std::mutex> lock (mutex);
 	return (blocks.size () + state_blocks.size ()) > 16384;
 }
 
-void rai::block_processor::add (std::shared_ptr<rai::block> block_a, std::chrono::steady_clock::time_point origination)
+void nano::block_processor::add (std::shared_ptr<nano::block> block_a, std::chrono::steady_clock::time_point origination)
 {
-	if (!rai::work_validate (block_a->root (), block_a->block_work ()))
+	if (!nano::work_validate (block_a->root (), block_a->block_work ()))
 	{
 		{
 			std::lock_guard<std::mutex> lock (mutex);
 			if (blocks_hashes.find (block_a->hash ()) == blocks_hashes.end ())
 			{
-				if (block_a->type () == rai::block_type::state && !node.ledger.is_epoch_link (block_a->link ()))
+				if (block_a->type () == nano::block_type::state && !node.ledger.is_epoch_link (block_a->link ()))
 				{
 					state_blocks.push_back (std::make_pair (block_a, origination));
 				}
@@ -1242,12 +1242,12 @@ void rai::block_processor::add (std::shared_ptr<rai::block> block_a, std::chrono
 	}
 	else
 	{
-		BOOST_LOG (node.log) << "rai::block_processor::add called for hash " << block_a->hash ().to_string () << " with invalid work " << rai::to_string_hex (block_a->block_work ());
-		assert (false && "rai::block_processor::add called with invalid work");
+		BOOST_LOG (node.log) << "nano::block_processor::add called for hash " << block_a->hash ().to_string () << " with invalid work " << nano::to_string_hex (block_a->block_work ());
+		assert (false && "nano::block_processor::add called with invalid work");
 	}
 }
 
-void rai::block_processor::force (std::shared_ptr<rai::block> block_a)
+void nano::block_processor::force (std::shared_ptr<nano::block> block_a)
 {
 	{
 		std::lock_guard<std::mutex> lock (mutex);
@@ -1256,7 +1256,7 @@ void rai::block_processor::force (std::shared_ptr<rai::block> block_a)
 	condition.notify_all ();
 }
 
-void rai::block_processor::process_blocks ()
+void nano::block_processor::process_blocks ()
 {
 	std::unique_lock<std::mutex> lock (mutex);
 	while (!stopped)
@@ -1280,7 +1280,7 @@ void rai::block_processor::process_blocks ()
 	}
 }
 
-bool rai::block_processor::should_log (bool first_time)
+bool nano::block_processor::should_log (bool first_time)
 {
 	auto result (false);
 	auto now (std::chrono::steady_clock::now ());
@@ -1292,17 +1292,17 @@ bool rai::block_processor::should_log (bool first_time)
 	return result;
 }
 
-bool rai::block_processor::have_blocks ()
+bool nano::block_processor::have_blocks ()
 {
 	assert (!mutex.try_lock ());
 	return !blocks.empty () || !forced.empty () || !state_blocks.empty ();
 }
 
-void rai::block_processor::verify_state_blocks (std::unique_lock<std::mutex> & lock_a, size_t max_count)
+void nano::block_processor::verify_state_blocks (std::unique_lock<std::mutex> & lock_a, size_t max_count)
 {
 	assert (!mutex.try_lock ());
 	auto start_time (std::chrono::steady_clock::now ());
-	std::deque<std::pair<std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point>> items;
+	std::deque<std::pair<std::shared_ptr<nano::block>, std::chrono::steady_clock::time_point>> items;
 	if (max_count == std::numeric_limits<size_t>::max () || max_count >= state_blocks.size ())
 	{
 		items.swap (state_blocks);
@@ -1317,7 +1317,7 @@ void rai::block_processor::verify_state_blocks (std::unique_lock<std::mutex> & l
 	}
 	lock_a.unlock ();
 	auto size (items.size ());
-	std::vector<rai::uint256_union> hashes;
+	std::vector<nano::uint256_union> hashes;
 	hashes.reserve (size);
 	std::vector<unsigned char const *> messages;
 	messages.reserve (size);
@@ -1331,7 +1331,7 @@ void rai::block_processor::verify_state_blocks (std::unique_lock<std::mutex> & l
 	verifications.resize (size, 0);
 	for (auto i (0); i < size; ++i)
 	{
-		auto & block (static_cast<rai::state_block &> (*items[i].first));
+		auto & block (static_cast<nano::state_block &> (*items[i].first));
 		hashes.push_back (block.hash ());
 		messages.push_back (hashes.back ().bytes.data ());
 		lengths.push_back (sizeof (decltype (hashes)::value_type));
@@ -1339,7 +1339,7 @@ void rai::block_processor::verify_state_blocks (std::unique_lock<std::mutex> & l
 		signatures.push_back (block.signature.bytes.data ());
 	}
 	std::promise<void> promise;
-	rai::signature_check_set check = { size, messages.data (), lengths.data (), pub_keys.data (), signatures.data (), verifications.data (), &promise };
+	nano::signature_check_set check = { size, messages.data (), lengths.data (), pub_keys.data (), signatures.data (), verifications.data (), &promise };
 	node.checker.add (check);
 	promise.get_future ().wait ();
 	lock_a.lock ();
@@ -1362,7 +1362,7 @@ void rai::block_processor::verify_state_blocks (std::unique_lock<std::mutex> & l
 	}
 }
 
-void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & lock_a)
+void nano::block_processor::process_receive_many (std::unique_lock<std::mutex> & lock_a)
 {
 	lock_a.lock ();
 	auto start_time (std::chrono::steady_clock::now ());
@@ -1401,7 +1401,7 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 			first_time = false;
 			BOOST_LOG (node.log) << boost::str (boost::format ("%1% blocks (+ %2% state blocks) (+ %3% forced) in processing queue") % blocks.size () % state_blocks.size () % forced.size ());
 		}
-		std::pair<std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point> block;
+		std::pair<std::shared_ptr<nano::block>, std::chrono::steady_clock::time_point> block;
 		bool force (false);
 		if (forced.empty ())
 		{
@@ -1430,7 +1430,7 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 		}
 		/* Forced state blocks are not validated in verify_state_blocks () function
 		Because of that we should set set validated_state_block as "false" for forced state blocks (!force) */
-		bool validated_state_block (!force && block.first->type () == rai::block_type::state);
+		bool validated_state_block (!force && block.first->type () == nano::block_type::state);
 		auto process_result (process_receive_one (transaction, block.first, block.second, validated_state_block));
 		number_of_blocks_processed++;
 		(void)process_result;
@@ -1454,14 +1454,14 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 	}
 }
 
-rai::process_return rai::block_processor::process_receive_one (rai::transaction const & transaction_a, std::shared_ptr<rai::block> block_a, std::chrono::steady_clock::time_point origination, bool validated_state_block)
+nano::process_return nano::block_processor::process_receive_one (nano::transaction const & transaction_a, std::shared_ptr<nano::block> block_a, std::chrono::steady_clock::time_point origination, bool validated_state_block)
 {
-	rai::process_return result;
+	nano::process_return result;
 	auto hash (block_a->hash ());
 	result = node.ledger.process (transaction_a, *block_a, validated_state_block);
 	switch (result.code)
 	{
-		case rai::process_result::progress:
+		case nano::process_result::progress:
 		{
 			if (node.config.logging.ledger_logging ())
 			{
@@ -1480,7 +1480,7 @@ rai::process_return rai::block_processor::process_receive_one (rai::transaction 
 			queue_unchecked (transaction_a, hash);
 			break;
 		}
-		case rai::process_result::gap_previous:
+		case nano::process_result::gap_previous:
 		{
 			if (node.config.logging.ledger_logging ())
 			{
@@ -1490,7 +1490,7 @@ rai::process_return rai::block_processor::process_receive_one (rai::transaction 
 			node.gap_cache.add (transaction_a, block_a);
 			break;
 		}
-		case rai::process_result::gap_source:
+		case nano::process_result::gap_source:
 		{
 			if (node.config.logging.ledger_logging ())
 			{
@@ -1500,7 +1500,7 @@ rai::process_return rai::block_processor::process_receive_one (rai::transaction 
 			node.gap_cache.add (transaction_a, block_a);
 			break;
 		}
-		case rai::process_result::old:
+		case nano::process_result::old:
 		{
 			if (node.config.logging.ledger_duplicate_logging ())
 			{
@@ -1510,7 +1510,7 @@ rai::process_return rai::block_processor::process_receive_one (rai::transaction 
 			node.active.update_difficulty (*block_a);
 			break;
 		}
-		case rai::process_result::bad_signature:
+		case nano::process_result::bad_signature:
 		{
 			if (node.config.logging.ledger_logging ())
 			{
@@ -1518,7 +1518,7 @@ rai::process_return rai::block_processor::process_receive_one (rai::transaction 
 			}
 			break;
 		}
-		case rai::process_result::negative_spend:
+		case nano::process_result::negative_spend:
 		{
 			if (node.config.logging.ledger_logging ())
 			{
@@ -1526,7 +1526,7 @@ rai::process_return rai::block_processor::process_receive_one (rai::transaction 
 			}
 			break;
 		}
-		case rai::process_result::unreceivable:
+		case nano::process_result::unreceivable:
 		{
 			if (node.config.logging.ledger_logging ())
 			{
@@ -1534,7 +1534,7 @@ rai::process_return rai::block_processor::process_receive_one (rai::transaction 
 			}
 			break;
 		}
-		case rai::process_result::fork:
+		case nano::process_result::fork:
 		{
 			if (origination < std::chrono::steady_clock::now () - std::chrono::seconds (15))
 			{
@@ -1547,12 +1547,12 @@ rai::process_return rai::block_processor::process_receive_one (rai::transaction 
 			}
 			break;
 		}
-		case rai::process_result::opened_burn_account:
+		case nano::process_result::opened_burn_account:
 		{
 			BOOST_LOG (node.log) << boost::str (boost::format ("*** Rejecting open block for burn account ***: %1%") % hash.to_string ());
 			break;
 		}
-		case rai::process_result::balance_mismatch:
+		case nano::process_result::balance_mismatch:
 		{
 			if (node.config.logging.ledger_logging ())
 			{
@@ -1560,7 +1560,7 @@ rai::process_return rai::block_processor::process_receive_one (rai::transaction 
 			}
 			break;
 		}
-		case rai::process_result::representative_mismatch:
+		case nano::process_result::representative_mismatch:
 		{
 			if (node.config.logging.ledger_logging ())
 			{
@@ -1568,7 +1568,7 @@ rai::process_return rai::block_processor::process_receive_one (rai::transaction 
 			}
 			break;
 		}
-		case rai::process_result::block_position:
+		case nano::process_result::block_position:
 		{
 			if (node.config.logging.ledger_logging ())
 			{
@@ -1580,29 +1580,29 @@ rai::process_return rai::block_processor::process_receive_one (rai::transaction 
 	return result;
 }
 
-void rai::block_processor::queue_unchecked (rai::transaction const & transaction_a, rai::block_hash const & hash_a)
+void nano::block_processor::queue_unchecked (nano::transaction const & transaction_a, nano::block_hash const & hash_a)
 {
 	auto cached (node.store.unchecked_get (transaction_a, hash_a));
 	for (auto i (cached.begin ()), n (cached.end ()); i != n; ++i)
 	{
-		node.store.unchecked_del (transaction_a, rai::unchecked_key (hash_a, (*i)->hash ()));
+		node.store.unchecked_del (transaction_a, nano::unchecked_key (hash_a, (*i)->hash ()));
 		add (*i, std::chrono::steady_clock::time_point ());
 	}
 	std::lock_guard<std::mutex> lock (node.gap_cache.mutex);
 	node.gap_cache.blocks.get<1> ().erase (hash_a);
 }
 
-rai::node::node (rai::node_init & init_a, boost::asio::io_context & io_ctx_a, uint16_t peering_port_a, boost::filesystem::path const & application_path_a, rai::alarm & alarm_a, rai::logging const & logging_a, rai::work_pool & work_a) :
-node (init_a, io_ctx_a, application_path_a, alarm_a, rai::node_config (peering_port_a, logging_a), work_a)
+nano::node::node (nano::node_init & init_a, boost::asio::io_context & io_ctx_a, uint16_t peering_port_a, boost::filesystem::path const & application_path_a, nano::alarm & alarm_a, nano::logging const & logging_a, nano::work_pool & work_a) :
+node (init_a, io_ctx_a, application_path_a, alarm_a, nano::node_config (peering_port_a, logging_a), work_a)
 {
 }
 
-rai::node::node (rai::node_init & init_a, boost::asio::io_context & io_ctx_a, boost::filesystem::path const & application_path_a, rai::alarm & alarm_a, rai::node_config const & config_a, rai::work_pool & work_a) :
+nano::node::node (nano::node_init & init_a, boost::asio::io_context & io_ctx_a, boost::filesystem::path const & application_path_a, nano::alarm & alarm_a, nano::node_config const & config_a, nano::work_pool & work_a) :
 io_ctx (io_ctx_a),
 config (config_a),
 alarm (alarm_a),
 work (work_a),
-store_impl (std::make_unique<rai::mdb_store> (init_a.block_store_init, application_path_a / "data.ldb", config_a.lmdb_max_dbs)),
+store_impl (std::make_unique<nano::mdb_store> (init_a.block_store_init, application_path_a / "data.ldb", config_a.lmdb_max_dbs)),
 store (*store_impl),
 gap_cache (*this),
 ledger (store, stats, config.epoch_block_link, config.epoch_block_signer),
@@ -1618,7 +1618,7 @@ vote_processor (*this),
 warmed_up (0),
 block_processor (*this),
 block_processor_thread ([this]() {
-	rai::thread_role::set (rai::thread_role::name::block_processing);
+	nano::thread_role::set (nano::thread_role::name::block_processing);
 	this->block_processor.process_blocks ();
 }),
 online_reps (*this),
@@ -1628,7 +1628,7 @@ vote_uniquer (block_uniquer)
 	wallets.observer = [this](bool active) {
 		observers.wallet.notify (active);
 	};
-	peers.peer_observer = [this](rai::endpoint const & endpoint_a) {
+	peers.peer_observer = [this](nano::endpoint const & endpoint_a) {
 		observers.endpoint.notify (endpoint_a);
 	};
 	peers.disconnect_observer = [this]() {
@@ -1636,7 +1636,7 @@ vote_uniquer (block_uniquer)
 	};
 	if (!config.callback_address.empty ())
 	{
-		observers.blocks.add ([this](std::shared_ptr<rai::block> block_a, rai::account const & account_a, rai::amount const & amount_a, bool is_state_send_a) {
+		observers.blocks.add ([this](std::shared_ptr<nano::block> block_a, nano::account const & account_a, nano::amount const & amount_a, bool is_state_send_a) {
 			if (this->block_arrival.recent (block_a->hash ()))
 			{
 				auto node_l (shared_from_this ());
@@ -1689,7 +1689,7 @@ vote_uniquer (block_uniquer)
 													{
 														if (resp->result () == boost::beast::http::status::ok)
 														{
-															node_l->stats.inc (rai::stat::type::http_callback, rai::stat::detail::initiate, rai::stat::dir::out);
+															node_l->stats.inc (nano::stat::type::http_callback, nano::stat::detail::initiate, nano::stat::dir::out);
 														}
 														else
 														{
@@ -1697,7 +1697,7 @@ vote_uniquer (block_uniquer)
 															{
 																BOOST_LOG (node_l->log) << boost::str (boost::format ("Callback to %1%:%2% failed with status: %3%") % address % port % resp->result ());
 															}
-															node_l->stats.inc (rai::stat::type::error, rai::stat::detail::http_callback, rai::stat::dir::out);
+															node_l->stats.inc (nano::stat::type::error, nano::stat::detail::http_callback, nano::stat::dir::out);
 														}
 													}
 													else
@@ -1706,7 +1706,7 @@ vote_uniquer (block_uniquer)
 														{
 															BOOST_LOG (node_l->log) << boost::str (boost::format ("Unable complete callback: %1%:%2%: %3%") % address % port % ec.message ());
 														}
-														node_l->stats.inc (rai::stat::type::error, rai::stat::detail::http_callback, rai::stat::dir::out);
+														node_l->stats.inc (nano::stat::type::error, nano::stat::detail::http_callback, nano::stat::dir::out);
 													};
 												});
 											}
@@ -1716,7 +1716,7 @@ vote_uniquer (block_uniquer)
 												{
 													BOOST_LOG (node_l->log) << boost::str (boost::format ("Unable to send callback: %1%:%2%: %3%") % address % port % ec.message ());
 												}
-												node_l->stats.inc (rai::stat::type::error, rai::stat::detail::http_callback, rai::stat::dir::out);
+												node_l->stats.inc (nano::stat::type::error, nano::stat::detail::http_callback, nano::stat::dir::out);
 											}
 										});
 									}
@@ -1726,7 +1726,7 @@ vote_uniquer (block_uniquer)
 										{
 											BOOST_LOG (node_l->log) << boost::str (boost::format ("Unable to connect to callback address: %1%:%2%: %3%") % address % port % ec.message ());
 										}
-										node_l->stats.inc (rai::stat::type::error, rai::stat::detail::http_callback, rai::stat::dir::out);
+										node_l->stats.inc (nano::stat::type::error, nano::stat::detail::http_callback, nano::stat::dir::out);
 									}
 								});
 							}
@@ -1737,23 +1737,23 @@ vote_uniquer (block_uniquer)
 							{
 								BOOST_LOG (node_l->log) << boost::str (boost::format ("Error resolving callback: %1%:%2%: %3%") % address % port % ec.message ());
 							}
-							node_l->stats.inc (rai::stat::type::error, rai::stat::detail::http_callback, rai::stat::dir::out);
+							node_l->stats.inc (nano::stat::type::error, nano::stat::detail::http_callback, nano::stat::dir::out);
 						}
 					});
 				});
 			}
 		});
 	}
-	observers.endpoint.add ([this](rai::endpoint const & endpoint_a) {
+	observers.endpoint.add ([this](nano::endpoint const & endpoint_a) {
 		this->network.send_keepalive (endpoint_a);
 		rep_query (*this, endpoint_a);
 	});
-	observers.vote.add ([this](rai::transaction const & transaction, std::shared_ptr<rai::vote> vote_a, rai::endpoint const & endpoint_a) {
+	observers.vote.add ([this](nano::transaction const & transaction, std::shared_ptr<nano::vote> vote_a, nano::endpoint const & endpoint_a) {
 		assert (endpoint_a.address ().is_v6 ());
 		this->gap_cache.vote (vote_a);
 		this->online_reps.vote (vote_a);
-		rai::uint128_t rep_weight;
-		rai::uint128_t min_rep_weight;
+		nano::uint128_t rep_weight;
+		nano::uint128_t min_rep_weight;
 		{
 			rep_weight = ledger.weight (transaction, vote_a->account);
 			min_rep_weight = online_reps.online_stake () / 1000;
@@ -1788,7 +1788,7 @@ vote_uniquer (block_uniquer)
 			}
 		}
 	});
-	BOOST_LOG (log) << "Node starting, version: " << RAIBLOCKS_VERSION_MAJOR << "." << RAIBLOCKS_VERSION_MINOR;
+	BOOST_LOG (log) << "Node starting, version: " << NANO_VERSION_MAJOR << "." << NANO_VERSION_MINOR;
 	BOOST_LOG (log) << boost::str (boost::format ("Work pool running %1% threads") % work.threads.size ());
 	if (!init_a.error ())
 	{
@@ -1796,7 +1796,7 @@ vote_uniquer (block_uniquer)
 		{
 			BOOST_LOG (log) << "Constructing node";
 		}
-		rai::genesis genesis;
+		nano::genesis genesis;
 		auto transaction (store.tx_begin_write ());
 		if (store.latest_begin (transaction) == store.latest_end ())
 		{
@@ -1809,15 +1809,15 @@ vote_uniquer (block_uniquer)
 			std::exit (1);
 		}
 
-		node_id = rai::keypair (store.get_node_id (transaction));
+		node_id = nano::keypair (store.get_node_id (transaction));
 		BOOST_LOG (log) << "Node ID: " << node_id.pub.to_account ();
 	}
 	peers.online_weight_minimum = config.online_weight_minimum.number ();
-	if (rai::rai_network == rai::rai_networks::rai_live_network || rai::rai_network == rai::rai_networks::rai_beta_network)
+	if (nano::nano_network == nano::nano_networks::nano_live_network || nano::nano_network == nano::nano_networks::nano_beta_network)
 	{
-		rai::bufferstream weight_stream ((const uint8_t *)rai_bootstrap_weights, rai_bootstrap_weights_size);
-		rai::uint128_union block_height;
-		if (!rai::read (weight_stream, block_height))
+		nano::bufferstream weight_stream ((const uint8_t *)nano_bootstrap_weights, nano_bootstrap_weights_size);
+		nano::uint128_union block_height;
+		if (!nano::read (weight_stream, block_height))
 		{
 			auto max_blocks = (uint64_t)block_height.number ();
 			auto transaction (store.tx_begin_read ());
@@ -1826,13 +1826,13 @@ vote_uniquer (block_uniquer)
 				ledger.bootstrap_weight_max_blocks = max_blocks;
 				while (true)
 				{
-					rai::account account;
-					if (rai::read (weight_stream, account.bytes))
+					nano::account account;
+					if (nano::read (weight_stream, account.bytes))
 					{
 						break;
 					}
-					rai::amount weight;
-					if (rai::read (weight_stream, weight.bytes))
+					nano::amount weight;
+					if (nano::read (weight_stream, weight.bytes))
 					{
 						break;
 					}
@@ -1844,7 +1844,7 @@ vote_uniquer (block_uniquer)
 	}
 }
 
-rai::node::~node ()
+nano::node::~node ()
 {
 	if (config.logging.node_lifetime_tracing ())
 	{
@@ -1853,26 +1853,26 @@ rai::node::~node ()
 	stop ();
 }
 
-bool rai::node::copy_with_compaction (boost::filesystem::path const & destination_file)
+bool nano::node::copy_with_compaction (boost::filesystem::path const & destination_file)
 {
-	return !mdb_env_copy2 (boost::polymorphic_downcast<rai::mdb_store *> (store_impl.get ())->env.environment, destination_file.string ().c_str (), MDB_CP_COMPACT);
+	return !mdb_env_copy2 (boost::polymorphic_downcast<nano::mdb_store *> (store_impl.get ())->env.environment, destination_file.string ().c_str (), MDB_CP_COMPACT);
 }
 
-void rai::node::send_keepalive (rai::endpoint const & endpoint_a)
+void nano::node::send_keepalive (nano::endpoint const & endpoint_a)
 {
-	network.send_keepalive (rai::map_endpoint_to_v6 (endpoint_a));
+	network.send_keepalive (nano::map_endpoint_to_v6 (endpoint_a));
 }
 
-void rai::node::process_fork (rai::transaction const & transaction_a, std::shared_ptr<rai::block> block_a)
+void nano::node::process_fork (nano::transaction const & transaction_a, std::shared_ptr<nano::block> block_a)
 {
 	auto root (block_a->root ());
 	if (!store.block_exists (transaction_a, block_a->type (), block_a->hash ()) && store.root_exists (transaction_a, block_a->root ()))
 	{
-		std::shared_ptr<rai::block> ledger_block (ledger.forked_block (transaction_a, *block_a));
+		std::shared_ptr<nano::block> ledger_block (ledger.forked_block (transaction_a, *block_a));
 		if (ledger_block)
 		{
-			std::weak_ptr<rai::node> this_w (shared_from_this ());
-			if (!active.start (ledger_block, [this_w, root](std::shared_ptr<rai::block>) {
+			std::weak_ptr<nano::node> this_w (shared_from_this ());
+			if (!active.start (ledger_block, [this_w, root](std::shared_ptr<nano::block>) {
 				    if (auto this_l = this_w.lock ())
 				    {
 					    auto attempt (this_l->bootstrap_initiator.current_attempt ());
@@ -1882,11 +1882,11 @@ void rai::node::process_fork (rai::transaction const & transaction_a, std::share
 						    auto account (this_l->ledger.store.frontier_get (transaction, root));
 						    if (!account.is_zero ())
 						    {
-							    attempt->requeue_pull (rai::pull_info (account, root, root));
+							    attempt->requeue_pull (nano::pull_info (account, root, root));
 						    }
 						    else if (this_l->ledger.store.account_exists (transaction, root))
 						    {
-							    attempt->requeue_pull (rai::pull_info (root, rai::block_hash (0), rai::block_hash (0)));
+							    attempt->requeue_pull (nano::pull_info (root, nano::block_hash (0), nano::block_hash (0)));
 						    }
 					    }
 				    }
@@ -1899,25 +1899,25 @@ void rai::node::process_fork (rai::transaction const & transaction_a, std::share
 	}
 }
 
-rai::gap_cache::gap_cache (rai::node & node_a) :
+nano::gap_cache::gap_cache (nano::node & node_a) :
 node (node_a)
 {
 }
 
-void rai::gap_cache::add (rai::transaction const & transaction_a, std::shared_ptr<rai::block> block_a)
+void nano::gap_cache::add (nano::transaction const & transaction_a, std::shared_ptr<nano::block> block_a)
 {
 	auto hash (block_a->hash ());
 	std::lock_guard<std::mutex> lock (mutex);
 	auto existing (blocks.get<1> ().find (hash));
 	if (existing != blocks.get<1> ().end ())
 	{
-		blocks.get<1> ().modify (existing, [](rai::gap_information & info) {
+		blocks.get<1> ().modify (existing, [](nano::gap_information & info) {
 			info.arrival = std::chrono::steady_clock::now ();
 		});
 	}
 	else
 	{
-		blocks.insert ({ std::chrono::steady_clock::now (), hash, std::unordered_set<rai::account> () });
+		blocks.insert ({ std::chrono::steady_clock::now (), hash, std::unordered_set<nano::account> () });
 		if (blocks.size () > max)
 		{
 			blocks.get<0> ().erase (blocks.get<0> ().begin ());
@@ -1925,7 +1925,7 @@ void rai::gap_cache::add (rai::transaction const & transaction_a, std::shared_pt
 	}
 }
 
-void rai::gap_cache::vote (std::shared_ptr<rai::vote> vote_a)
+void nano::gap_cache::vote (std::shared_ptr<nano::vote> vote_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	auto transaction (node.store.tx_begin_read ());
@@ -1935,7 +1935,7 @@ void rai::gap_cache::vote (std::shared_ptr<rai::vote> vote_a)
 		if (existing != blocks.get<1> ().end ())
 		{
 			auto is_new (false);
-			blocks.get<1> ().modify (existing, [&](rai::gap_information & info) { is_new = info.voters.insert (vote_a->account).second; });
+			blocks.get<1> ().modify (existing, [&](nano::gap_information & info) { is_new = info.voters.insert (vote_a->account).second; });
 			if (is_new)
 			{
 				uint128_t tally;
@@ -1959,7 +1959,7 @@ void rai::gap_cache::vote (std::shared_ptr<rai::vote> vote_a)
 				{
 					auto node_l (node.shared ());
 					auto now (std::chrono::steady_clock::now ());
-					node.alarm.add (rai::rai_network == rai::rai_networks::rai_test_network ? now + std::chrono::milliseconds (5) : now + std::chrono::seconds (5), [node_l, hash]() {
+					node.alarm.add (nano::nano_network == nano::nano_networks::nano_test_network ? now + std::chrono::milliseconds (5) : now + std::chrono::seconds (5), [node_l, hash]() {
 						auto transaction (node_l->store.tx_begin_read ());
 						if (!node_l->store.block_exists (transaction, hash))
 						{
@@ -1983,19 +1983,19 @@ void rai::gap_cache::vote (std::shared_ptr<rai::vote> vote_a)
 	}
 }
 
-rai::uint128_t rai::gap_cache::bootstrap_threshold (rai::transaction const & transaction_a)
+nano::uint128_t nano::gap_cache::bootstrap_threshold (nano::transaction const & transaction_a)
 {
 	auto result ((node.online_reps.online_stake () / 256) * node.config.bootstrap_fraction_numerator);
 	return result;
 }
 
-void rai::network::confirm_send (rai::confirm_ack const & confirm_a, std::shared_ptr<std::vector<uint8_t>> bytes_a, rai::endpoint const & endpoint_a)
+void nano::network::confirm_send (nano::confirm_ack const & confirm_a, std::shared_ptr<std::vector<uint8_t>> bytes_a, nano::endpoint const & endpoint_a)
 {
 	if (node.config.logging.network_publish_logging ())
 	{
 		BOOST_LOG (node.log) << boost::str (boost::format ("Sending confirm_ack for block(s) %1%to %2% sequence %3%") % confirm_a.vote->hashes_string () % endpoint_a % std::to_string (confirm_a.vote->sequence));
 	}
-	std::weak_ptr<rai::node> node_w (node.shared ());
+	std::weak_ptr<nano::node> node_w (node.shared ());
 	node.network.send_buffer (bytes_a->data (), bytes_a->size (), endpoint_a, [bytes_a, node_w, endpoint_a](boost::system::error_code const & ec, size_t size_a) {
 		if (auto node_l = node_w.lock ())
 		{
@@ -2005,26 +2005,26 @@ void rai::network::confirm_send (rai::confirm_ack const & confirm_a, std::shared
 			}
 			else
 			{
-				node_l->stats.inc (rai::stat::type::message, rai::stat::detail::confirm_ack, rai::stat::dir::out);
+				node_l->stats.inc (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::out);
 			}
 		}
 	});
 }
 
-void rai::node::process_active (std::shared_ptr<rai::block> incoming)
+void nano::node::process_active (std::shared_ptr<nano::block> incoming)
 {
 	block_arrival.add (incoming->hash ());
 	block_processor.add (incoming, std::chrono::steady_clock::now ());
 }
 
-rai::process_return rai::node::process (rai::block const & block_a)
+nano::process_return nano::node::process (nano::block const & block_a)
 {
 	auto transaction (store.tx_begin_write ());
 	auto result (ledger.process (transaction, block_a));
 	return result;
 }
 
-void rai::node::start ()
+void nano::node::start ()
 {
 	network.start ();
 	ongoing_keepalive ();
@@ -2050,7 +2050,7 @@ void rai::node::start ()
 	add_initial_peers ();
 }
 
-void rai::node::stop ()
+void nano::node::stop ()
 {
 	BOOST_LOG (log) << "Node stopping";
 	block_processor.stop ();
@@ -2068,52 +2068,52 @@ void rai::node::stop ()
 	wallets.stop ();
 }
 
-void rai::node::keepalive_preconfigured (std::vector<std::string> const & peers_a)
+void nano::node::keepalive_preconfigured (std::vector<std::string> const & peers_a)
 {
 	for (auto i (peers_a.begin ()), n (peers_a.end ()); i != n; ++i)
 	{
-		keepalive (*i, rai::network::node_port);
+		keepalive (*i, nano::network::node_port);
 	}
 }
 
-rai::block_hash rai::node::latest (rai::account const & account_a)
+nano::block_hash nano::node::latest (nano::account const & account_a)
 {
 	auto transaction (store.tx_begin_read ());
 	return ledger.latest (transaction, account_a);
 }
 
-rai::uint128_t rai::node::balance (rai::account const & account_a)
+nano::uint128_t nano::node::balance (nano::account const & account_a)
 {
 	auto transaction (store.tx_begin_read ());
 	return ledger.account_balance (transaction, account_a);
 }
 
-std::shared_ptr<rai::block> rai::node::block (rai::block_hash const & hash_a)
+std::shared_ptr<nano::block> nano::node::block (nano::block_hash const & hash_a)
 {
 	auto transaction (store.tx_begin_read ());
 	return store.block_get (transaction, hash_a);
 }
 
-std::pair<rai::uint128_t, rai::uint128_t> rai::node::balance_pending (rai::account const & account_a)
+std::pair<nano::uint128_t, nano::uint128_t> nano::node::balance_pending (nano::account const & account_a)
 {
-	std::pair<rai::uint128_t, rai::uint128_t> result;
+	std::pair<nano::uint128_t, nano::uint128_t> result;
 	auto transaction (store.tx_begin_read ());
 	result.first = ledger.account_balance (transaction, account_a);
 	result.second = ledger.account_pending (transaction, account_a);
 	return result;
 }
 
-rai::uint128_t rai::node::weight (rai::account const & account_a)
+nano::uint128_t nano::node::weight (nano::account const & account_a)
 {
 	auto transaction (store.tx_begin_read ());
 	return ledger.weight (transaction, account_a);
 }
 
-rai::account rai::node::representative (rai::account const & account_a)
+nano::account nano::node::representative (nano::account const & account_a)
 {
 	auto transaction (store.tx_begin_read ());
-	rai::account_info info;
-	rai::account result (0);
+	nano::account_info info;
+	nano::account result (0);
 	if (!store.account_get (transaction, account_a, info))
 	{
 		result = info.rep_block;
@@ -2121,7 +2121,7 @@ rai::account rai::node::representative (rai::account const & account_a)
 	return result;
 }
 
-void rai::node::ongoing_keepalive ()
+void nano::node::ongoing_keepalive ()
 {
 	keepalive_preconfigured (config.preconfigured_peers);
 	auto peers_l (peers.purge_list (std::chrono::steady_clock::now () - cutoff));
@@ -2129,7 +2129,7 @@ void rai::node::ongoing_keepalive ()
 	{
 		network.send_keepalive (i->endpoint);
 	}
-	std::weak_ptr<rai::node> node_w (shared_from_this ());
+	std::weak_ptr<nano::node> node_w (shared_from_this ());
 	alarm.add (std::chrono::steady_clock::now () + period, [node_w]() {
 		if (auto node_l = node_w.lock ())
 		{
@@ -2138,10 +2138,10 @@ void rai::node::ongoing_keepalive ()
 	});
 }
 
-void rai::node::ongoing_syn_cookie_cleanup ()
+void nano::node::ongoing_syn_cookie_cleanup ()
 {
 	peers.purge_syn_cookies (std::chrono::steady_clock::now () - syn_cookie_cutoff);
-	std::weak_ptr<rai::node> node_w (shared_from_this ());
+	std::weak_ptr<nano::node> node_w (shared_from_this ());
 	alarm.add (std::chrono::steady_clock::now () + (syn_cookie_cutoff * 2), [node_w]() {
 		if (auto node_l = node_w.lock ())
 		{
@@ -2150,14 +2150,14 @@ void rai::node::ongoing_syn_cookie_cleanup ()
 	});
 }
 
-void rai::node::ongoing_rep_crawl ()
+void nano::node::ongoing_rep_crawl ()
 {
 	auto now (std::chrono::steady_clock::now ());
 	auto peers_l (peers.rep_crawl ());
 	rep_query (*this, peers_l);
 	if (network.on)
 	{
-		std::weak_ptr<rai::node> node_w (shared_from_this ());
+		std::weak_ptr<nano::node> node_w (shared_from_this ());
 		alarm.add (now + std::chrono::seconds (4), [node_w]() {
 			if (auto node_l = node_w.lock ())
 			{
@@ -2167,11 +2167,11 @@ void rai::node::ongoing_rep_crawl ()
 	}
 }
 
-void rai::node::ongoing_rep_calculation ()
+void nano::node::ongoing_rep_calculation ()
 {
 	auto now (std::chrono::steady_clock::now ());
 	vote_processor.calculate_weights ();
-	std::weak_ptr<rai::node> node_w (shared_from_this ());
+	std::weak_ptr<nano::node> node_w (shared_from_this ());
 	alarm.add (now + std::chrono::minutes (10), [node_w]() {
 		if (auto node_l = node_w.lock ())
 		{
@@ -2180,7 +2180,7 @@ void rai::node::ongoing_rep_calculation ()
 	});
 }
 
-void rai::node::ongoing_bootstrap ()
+void nano::node::ongoing_bootstrap ()
 {
 	auto next_wakeup (300);
 	if (warmed_up < 3)
@@ -2193,7 +2193,7 @@ void rai::node::ongoing_bootstrap ()
 		}
 	}
 	bootstrap_initiator.bootstrap ();
-	std::weak_ptr<rai::node> node_w (shared_from_this ());
+	std::weak_ptr<nano::node> node_w (shared_from_this ());
 	alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (next_wakeup), [node_w]() {
 		if (auto node_l = node_w.lock ())
 		{
@@ -2202,13 +2202,13 @@ void rai::node::ongoing_bootstrap ()
 	});
 }
 
-void rai::node::ongoing_store_flush ()
+void nano::node::ongoing_store_flush ()
 {
 	{
 		auto transaction (store.tx_begin_write ());
 		store.flush (transaction);
 	}
-	std::weak_ptr<rai::node> node_w (shared_from_this ());
+	std::weak_ptr<nano::node> node_w (shared_from_this ());
 	alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (5), [node_w]() {
 		if (auto node_l = node_w.lock ())
 		{
@@ -2217,7 +2217,7 @@ void rai::node::ongoing_store_flush ()
 	});
 }
 
-void rai::node::backup_wallet ()
+void nano::node::backup_wallet ()
 {
 	auto transaction (store.tx_begin_read ());
 	for (auto i (wallets.items.begin ()), n (wallets.items.end ()); i != n; ++i)
@@ -2226,7 +2226,7 @@ void rai::node::backup_wallet ()
 		auto backup_path (application_path / "backup");
 
 		boost::filesystem::create_directories (backup_path);
-		rai::set_secure_perm_directory (backup_path, error_chmod);
+		nano::set_secure_perm_directory (backup_path, error_chmod);
 		i->second->store.write_backup (transaction, backup_path / (i->first.to_string () + ".json"));
 	}
 	auto this_l (shared ());
@@ -2235,7 +2235,7 @@ void rai::node::backup_wallet ()
 	});
 }
 
-void rai::node::search_pending ()
+void nano::node::search_pending ()
 {
 	wallets.search_pending_all ();
 	auto this_l (shared ());
@@ -2244,15 +2244,15 @@ void rai::node::search_pending ()
 	});
 }
 
-int rai::node::price (rai::uint128_t const & balance_a, int amount_a)
+int nano::node::price (nano::uint128_t const & balance_a, int amount_a)
 {
-	assert (balance_a >= amount_a * rai::Gxrb_ratio);
+	assert (balance_a >= amount_a * nano::Gxrb_ratio);
 	auto balance_l (balance_a);
 	double result (0.0);
 	for (auto i (0); i < amount_a; ++i)
 	{
-		balance_l -= rai::Gxrb_ratio;
-		auto balance_scaled ((balance_l / rai::Mxrb_ratio).convert_to<double> ());
+		balance_l -= nano::Gxrb_ratio;
+		auto balance_scaled ((balance_l / nano::Mxrb_ratio).convert_to<double> ());
 		auto units (balance_scaled / 1000.0);
 		auto unit_price (((free_cutoff - units) / free_cutoff) * price_max);
 		result += std::min (std::max (0.0, unit_price), price_max);
@@ -2280,12 +2280,12 @@ public:
 class distributed_work : public std::enable_shared_from_this<distributed_work>
 {
 public:
-	distributed_work (std::shared_ptr<rai::node> const & node_a, rai::block_hash const & root_a, std::function<void(uint64_t)> callback_a, uint64_t difficulty_a) :
+	distributed_work (std::shared_ptr<nano::node> const & node_a, nano::block_hash const & root_a, std::function<void(uint64_t)> callback_a, uint64_t difficulty_a) :
 	distributed_work (1, node_a, root_a, callback_a, difficulty_a)
 	{
 		assert (node_a != nullptr);
 	}
-	distributed_work (unsigned int backoff_a, std::shared_ptr<rai::node> const & node_a, rai::block_hash const & root_a, std::function<void(uint64_t)> callback_a, uint64_t difficulty_a) :
+	distributed_work (unsigned int backoff_a, std::shared_ptr<nano::node> const & node_a, nano::block_hash const & root_a, std::function<void(uint64_t)> callback_a, uint64_t difficulty_a) :
 	callback (callback_a),
 	backoff (backoff_a),
 	node (node_a),
@@ -2346,7 +2346,7 @@ public:
 				auto service (i.second);
 				node->background ([this_l, host, service]() {
 					auto connection (std::make_shared<work_request> (this_l->node->io_ctx, host, service));
-					connection->socket.async_connect (rai::tcp_endpoint (host, service), [this_l, connection](boost::system::error_code const & ec) {
+					connection->socket.async_connect (nano::tcp_endpoint (host, service), [this_l, connection](boost::system::error_code const & ec) {
 						if (!ec)
 						{
 							std::string request_string;
@@ -2448,9 +2448,9 @@ public:
 			boost::property_tree::read_json (istream, result);
 			auto work_text (result.get<std::string> ("work"));
 			uint64_t work;
-			if (!rai::from_string_hex (work_text, work))
+			if (!nano::from_string_hex (work_text, work))
 			{
-				if (!rai::work_validate (root, work))
+				if (!nano::work_validate (root, work))
 				{
 					set_once (work);
 					stop ();
@@ -2508,9 +2508,9 @@ public:
 					auto now (std::chrono::steady_clock::now ());
 					auto root_l (root);
 					auto callback_l (callback);
-					std::weak_ptr<rai::node> node_w (node);
+					std::weak_ptr<nano::node> node_w (node);
 					auto next_backoff (std::min (backoff * 2, (unsigned int)60 * 5));
-					node->alarm.add (now + std::chrono::seconds (backoff), [ node_w, root_l, callback_l, next_backoff, difficulty = difficulty ] {
+					node->alarm.add (now + std::chrono::seconds (backoff), [node_w, root_l, callback_l, next_backoff, difficulty = difficulty] {
 						if (auto node_l = node_w.lock ())
 						{
 							auto work_generation (std::make_shared<distributed_work> (next_backoff, node_l, root_l, callback_l, difficulty));
@@ -2529,8 +2529,8 @@ public:
 	}
 	std::function<void(uint64_t)> callback;
 	unsigned int backoff; // in seconds
-	std::shared_ptr<rai::node> node;
-	rai::block_hash root;
+	std::shared_ptr<nano::node> node;
+	nano::block_hash root;
 	std::mutex mutex;
 	std::map<boost::asio::ip::address, uint16_t> outstanding;
 	std::vector<std::pair<std::string, uint16_t>> need_resolve;
@@ -2539,18 +2539,18 @@ public:
 };
 }
 
-void rai::node::work_generate_blocking (rai::block & block_a, uint64_t difficulty_a)
+void nano::node::work_generate_blocking (nano::block & block_a, uint64_t difficulty_a)
 {
 	block_a.block_work_set (work_generate_blocking (block_a.root (), difficulty_a));
 }
 
-void rai::node::work_generate (rai::uint256_union const & hash_a, std::function<void(uint64_t)> callback_a, uint64_t difficulty_a)
+void nano::node::work_generate (nano::uint256_union const & hash_a, std::function<void(uint64_t)> callback_a, uint64_t difficulty_a)
 {
 	auto work_generation (std::make_shared<distributed_work> (shared (), hash_a, callback_a, difficulty_a));
 	work_generation->start ();
 }
 
-uint64_t rai::node::work_generate_blocking (rai::uint256_union const & hash_a, uint64_t difficulty_a)
+uint64_t nano::node::work_generate_blocking (nano::uint256_union const & hash_a, uint64_t difficulty_a)
 {
 	std::promise<uint64_t> promise;
 	work_generate (hash_a, [&promise](uint64_t work_a) {
@@ -2560,17 +2560,17 @@ uint64_t rai::node::work_generate_blocking (rai::uint256_union const & hash_a, u
 	return promise.get_future ().get ();
 }
 
-void rai::node::add_initial_peers ()
+void nano::node::add_initial_peers ()
 {
 }
 
-void rai::node::block_confirm (std::shared_ptr<rai::block> block_a)
+void nano::node::block_confirm (std::shared_ptr<nano::block> block_a)
 {
 	active.start (block_a);
 	network.broadcast_confirm_req (block_a);
 }
 
-rai::uint128_t rai::node::delta ()
+nano::uint128_t nano::node::delta ()
 {
 	auto result ((online_reps.online_stake () / 100) * config.online_weight_quorum);
 	return result;
@@ -2578,10 +2578,10 @@ rai::uint128_t rai::node::delta ()
 
 namespace
 {
-class confirmed_visitor : public rai::block_visitor
+class confirmed_visitor : public nano::block_visitor
 {
 public:
-	confirmed_visitor (rai::transaction const & transaction_a, rai::node & node_a, std::shared_ptr<rai::block> block_a, rai::block_hash const & hash_a) :
+	confirmed_visitor (nano::transaction const & transaction_a, nano::node & node_a, std::shared_ptr<nano::block> block_a, nano::block_hash const & hash_a) :
 	transaction (transaction_a),
 	node (node_a),
 	block (block_a),
@@ -2589,22 +2589,22 @@ public:
 	{
 	}
 	virtual ~confirmed_visitor () = default;
-	void scan_receivable (rai::account const & account_a)
+	void scan_receivable (nano::account const & account_a)
 	{
 		for (auto i (node.wallets.items.begin ()), n (node.wallets.items.end ()); i != n; ++i)
 		{
 			auto wallet (i->second);
 			if (wallet->store.exists (transaction, account_a))
 			{
-				rai::account representative;
-				rai::pending_info pending;
+				nano::account representative;
+				nano::pending_info pending;
 				representative = wallet->store.representative (transaction);
-				auto error (node.store.pending_get (transaction, rai::pending_key (account_a, hash), pending));
+				auto error (node.store.pending_get (transaction, nano::pending_key (account_a, hash), pending));
 				if (!error)
 				{
 					auto node_l (node.shared ());
 					auto amount (pending.amount.number ());
-					wallet->receive_async (block, representative, amount, [](std::shared_ptr<rai::block>) {});
+					wallet->receive_async (block, representative, amount, [](std::shared_ptr<nano::block>) {});
 				}
 				else
 				{
@@ -2621,31 +2621,31 @@ public:
 			}
 		}
 	}
-	void state_block (rai::state_block const & block_a) override
+	void state_block (nano::state_block const & block_a) override
 	{
 		scan_receivable (block_a.hashables.link);
 	}
-	void send_block (rai::send_block const & block_a) override
+	void send_block (nano::send_block const & block_a) override
 	{
 		scan_receivable (block_a.hashables.destination);
 	}
-	void receive_block (rai::receive_block const &) override
+	void receive_block (nano::receive_block const &) override
 	{
 	}
-	void open_block (rai::open_block const &) override
+	void open_block (nano::open_block const &) override
 	{
 	}
-	void change_block (rai::change_block const &) override
+	void change_block (nano::change_block const &) override
 	{
 	}
-	rai::transaction const & transaction;
-	rai::node & node;
-	std::shared_ptr<rai::block> block;
-	rai::block_hash const & hash;
+	nano::transaction const & transaction;
+	nano::node & node;
+	std::shared_ptr<nano::block> block;
+	nano::block_hash const & hash;
 };
 }
 
-void rai::node::process_confirmed (std::shared_ptr<rai::block> block_a)
+void nano::node::process_confirmed (std::shared_ptr<nano::block> block_a)
 {
 	auto hash (block_a->hash ());
 	bool exists (ledger.block_exists (block_a->type (), hash));
@@ -2664,13 +2664,13 @@ void rai::node::process_confirmed (std::shared_ptr<rai::block> block_a)
 		auto account (ledger.account (transaction, hash));
 		auto amount (ledger.amount (transaction, hash));
 		bool is_state_send (false);
-		rai::account pending_account (0);
-		if (auto state = dynamic_cast<rai::state_block *> (block_a.get ()))
+		nano::account pending_account (0);
+		if (auto state = dynamic_cast<nano::state_block *> (block_a.get ()))
 		{
 			is_state_send = ledger.is_send (transaction, *state);
 			pending_account = state->hashables.link;
 		}
-		if (auto send = dynamic_cast<rai::send_block *> (block_a.get ()))
+		if (auto send = dynamic_cast<nano::send_block *> (block_a.get ()))
 		{
 			pending_account = send->hashables.destination;
 		}
@@ -2686,13 +2686,13 @@ void rai::node::process_confirmed (std::shared_ptr<rai::block> block_a)
 	}
 }
 
-void rai::node::process_message (rai::message & message_a, rai::endpoint const & sender_a)
+void nano::node::process_message (nano::message & message_a, nano::endpoint const & sender_a)
 {
 	network_message_visitor visitor (*this, sender_a);
 	message_a.visit (visitor);
 }
 
-rai::endpoint rai::network::endpoint ()
+nano::endpoint nano::network::endpoint ()
 {
 	boost::system::error_code ec;
 	auto port (socket.local_endpoint (ec).port ());
@@ -2700,19 +2700,19 @@ rai::endpoint rai::network::endpoint ()
 	{
 		BOOST_LOG (node.log) << "Unable to retrieve port: " << ec.message ();
 	}
-	return rai::endpoint (boost::asio::ip::address_v6::loopback (), port);
+	return nano::endpoint (boost::asio::ip::address_v6::loopback (), port);
 }
 
-bool rai::block_arrival::add (rai::block_hash const & hash_a)
+bool nano::block_arrival::add (nano::block_hash const & hash_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	auto now (std::chrono::steady_clock::now ());
-	auto inserted (arrival.insert (rai::block_arrival_info{ now, hash_a }));
+	auto inserted (arrival.insert (nano::block_arrival_info{ now, hash_a }));
 	auto result (!inserted.second);
 	return result;
 }
 
-bool rai::block_arrival::recent (rai::block_hash const & hash_a)
+bool nano::block_arrival::recent (nano::block_hash const & hash_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	auto now (std::chrono::steady_clock::now ());
@@ -2723,19 +2723,19 @@ bool rai::block_arrival::recent (rai::block_hash const & hash_a)
 	return arrival.get<1> ().find (hash_a) != arrival.get<1> ().end ();
 }
 
-rai::online_reps::online_reps (rai::node & node) :
+nano::online_reps::online_reps (nano::node & node) :
 node (node)
 {
 }
 
-void rai::online_reps::vote (std::shared_ptr<rai::vote> const & vote_a)
+void nano::online_reps::vote (std::shared_ptr<nano::vote> const & vote_a)
 {
 	auto rep (vote_a->account);
 	std::lock_guard<std::mutex> lock (mutex);
 	auto now (std::chrono::steady_clock::now ());
 	auto transaction (node.store.tx_begin_read ());
 	auto current (reps.begin ());
-	while (current != reps.end () && current->last_heard + std::chrono::seconds (rai::node::cutoff) < now)
+	while (current != reps.end () && current->last_heard + std::chrono::seconds (nano::node::cutoff) < now)
 	{
 		auto old_stake (online_stake_total);
 		online_stake_total -= node.ledger.weight (transaction, current->representative);
@@ -2747,7 +2747,7 @@ void rai::online_reps::vote (std::shared_ptr<rai::vote> const & vote_a)
 		current = reps.erase (current);
 	}
 	auto rep_it (reps.get<1> ().find (rep));
-	auto info (rai::rep_last_heard_info{ now, rep });
+	auto info (nano::rep_last_heard_info{ now, rep });
 	if (rep_it == reps.get<1> ().end ())
 	{
 		auto old_stake (online_stake_total);
@@ -2755,7 +2755,7 @@ void rai::online_reps::vote (std::shared_ptr<rai::vote> const & vote_a)
 		if (online_stake_total < old_stake)
 		{
 			// overflow
-			online_stake_total = std::numeric_limits<rai::uint128_t>::max ();
+			online_stake_total = std::numeric_limits<nano::uint128_t>::max ();
 		}
 		reps.insert (info);
 	}
@@ -2765,7 +2765,7 @@ void rai::online_reps::vote (std::shared_ptr<rai::vote> const & vote_a)
 	}
 }
 
-void rai::online_reps::recalculate_stake ()
+void nano::online_reps::recalculate_stake ()
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	online_stake_total = 0;
@@ -2775,7 +2775,7 @@ void rai::online_reps::recalculate_stake ()
 		online_stake_total += node.ledger.weight (transaction, it.representative);
 	}
 	auto now (std::chrono::steady_clock::now ());
-	std::weak_ptr<rai::node> node_w (node.shared ());
+	std::weak_ptr<nano::node> node_w (node.shared ());
 	node.alarm.add (now + std::chrono::minutes (5), [node_w]() {
 		if (auto node_l = node_w.lock ())
 		{
@@ -2784,15 +2784,15 @@ void rai::online_reps::recalculate_stake ()
 	});
 }
 
-rai::uint128_t rai::online_reps::online_stake ()
+nano::uint128_t nano::online_reps::online_stake ()
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	return std::max (online_stake_total, node.config.online_weight_minimum.number ());
 }
 
-std::vector<rai::account> rai::online_reps::list ()
+std::vector<nano::account> nano::online_reps::list ()
 {
-	std::vector<rai::account> result;
+	std::vector<nano::account> result;
 	std::lock_guard<std::mutex> lock (mutex);
 	for (auto i (reps.begin ()), n (reps.end ()); i != n; ++i)
 	{
@@ -2809,7 +2809,7 @@ boost::asio::ip::address_v6 mapped_from_v4_bytes (unsigned long address_a)
 }
 }
 
-bool rai::reserved_address (rai::endpoint const & endpoint_a, bool blacklist_loopback)
+bool nano::reserved_address (nano::endpoint const & endpoint_a, bool blacklist_loopback)
 {
 	assert (endpoint_a.address ().is_v6 ());
 	auto bytes (endpoint_a.address ().to_v6 ());
@@ -2888,7 +2888,7 @@ bool rai::reserved_address (rai::endpoint const & endpoint_a, bool blacklist_loo
 	{
 		result = true;
 	}
-	else if (rai::rai_network == rai::rai_networks::rai_live_network)
+	else if (nano::nano_network == nano::nano_networks::nano_live_network)
 	{
 		if (bytes >= rfc1918_1_min && bytes <= rfc1918_1_max)
 		{
@@ -2914,7 +2914,7 @@ bool rai::reserved_address (rai::endpoint const & endpoint_a, bool blacklist_loo
 	return result;
 }
 
-void rai::network::send_buffer (uint8_t const * data_a, size_t size_a, rai::endpoint const & endpoint_a, std::function<void(boost::system::error_code const &, size_t)> callback_a)
+void nano::network::send_buffer (uint8_t const * data_a, size_t size_a, nano::endpoint const & endpoint_a, std::function<void(boost::system::error_code const &, size_t)> callback_a)
 {
 	std::unique_lock<std::mutex> lock (socket_mutex);
 	if (node.config.logging.network_packet_logging ())
@@ -2923,10 +2923,10 @@ void rai::network::send_buffer (uint8_t const * data_a, size_t size_a, rai::endp
 	}
 	socket.async_send_to (boost::asio::buffer (data_a, size_a), endpoint_a, [this, callback_a](boost::system::error_code const & ec, size_t size_a) {
 		callback_a (ec, size_a);
-		this->node.stats.add (rai::stat::type::traffic, rai::stat::dir::out, size_a);
+		this->node.stats.add (nano::stat::type::traffic, nano::stat::dir::out, size_a);
 		if (ec == boost::system::errc::host_unreachable)
 		{
-			this->node.stats.inc (rai::stat::type::error, rai::stat::detail::unreachable_host, rai::stat::dir::out);
+			this->node.stats.inc (nano::stat::type::error, nano::stat::detail::unreachable_host, nano::stat::dir::out);
 		}
 		if (this->node.config.logging.network_packet_logging ())
 		{
@@ -2935,24 +2935,24 @@ void rai::network::send_buffer (uint8_t const * data_a, size_t size_a, rai::endp
 	});
 }
 
-std::shared_ptr<rai::node> rai::node::shared ()
+std::shared_ptr<nano::node> nano::node::shared ()
 {
 	return shared_from_this ();
 }
 
-rai::election_vote_result::election_vote_result () :
+nano::election_vote_result::election_vote_result () :
 replay (false),
 processed (false)
 {
 }
 
-rai::election_vote_result::election_vote_result (bool replay_a, bool processed_a)
+nano::election_vote_result::election_vote_result (bool replay_a, bool processed_a)
 {
 	replay = replay_a;
 	processed = processed_a;
 }
 
-rai::election::election (rai::node & node_a, std::shared_ptr<rai::block> block_a, std::function<void(std::shared_ptr<rai::block>)> const & confirmation_action_a) :
+nano::election::election (nano::node & node_a, std::shared_ptr<nano::block> block_a, std::function<void(std::shared_ptr<nano::block>)> const & confirmation_action_a) :
 confirmation_action (confirmation_action_a),
 node (node_a),
 root (block_a->root ()),
@@ -2962,22 +2962,22 @@ confirmed (false),
 stopped (false),
 announcements (0)
 {
-	last_votes.insert (std::make_pair (rai::not_an_account, rai::vote_info{ std::chrono::steady_clock::now (), 0, block_a->hash () }));
+	last_votes.insert (std::make_pair (nano::not_an_account, nano::vote_info{ std::chrono::steady_clock::now (), 0, block_a->hash () }));
 	blocks.insert (std::make_pair (block_a->hash (), block_a));
 }
 
-void rai::election::compute_rep_votes (rai::transaction const & transaction_a)
+void nano::election::compute_rep_votes (nano::transaction const & transaction_a)
 {
 	if (node.config.enable_voting)
 	{
-		node.wallets.foreach_representative (transaction_a, [this, &transaction_a](rai::public_key const & pub_a, rai::raw_key const & prv_a) {
+		node.wallets.foreach_representative (transaction_a, [this, &transaction_a](nano::public_key const & pub_a, nano::raw_key const & prv_a) {
 			auto vote (this->node.store.vote_generate (transaction_a, pub_a, prv_a, status.winner));
 			this->node.vote_processor.vote (vote, this->node.network.endpoint ());
 		});
 	}
 }
 
-void rai::election::confirm_once (rai::transaction const & transaction_a)
+void nano::election::confirm_once (nano::transaction const & transaction_a)
 {
 	if (!confirmed.exchange (true))
 	{
@@ -2994,9 +2994,9 @@ void rai::election::confirm_once (rai::transaction const & transaction_a)
 	}
 }
 
-void rai::election::confirm_back (rai::transaction const & transaction_a)
+void nano::election::confirm_back (nano::transaction const & transaction_a)
 {
-	std::vector<rai::block_hash> hashes = { status.winner->previous (), status.winner->source (), status.winner->link () };
+	std::vector<nano::block_hash> hashes = { status.winner->previous (), status.winner->source (), status.winner->link () };
 	for (auto & hash : hashes)
 	{
 		if (!hash.is_zero () && !node.ledger.is_epoch_link (hash))
@@ -3010,12 +3010,12 @@ void rai::election::confirm_back (rai::transaction const & transaction_a)
 	}
 }
 
-void rai::election::stop ()
+void nano::election::stop ()
 {
 	stopped = true;
 }
 
-bool rai::election::have_quorum (rai::tally_t const & tally_a, rai::uint128_t tally_sum)
+bool nano::election::have_quorum (nano::tally_t const & tally_a, nano::uint128_t tally_sum)
 {
 	bool result = false;
 	if (tally_sum >= node.config.online_weight_minimum.number ())
@@ -3030,15 +3030,15 @@ bool rai::election::have_quorum (rai::tally_t const & tally_a, rai::uint128_t ta
 	return result;
 }
 
-rai::tally_t rai::election::tally (rai::transaction const & transaction_a)
+nano::tally_t nano::election::tally (nano::transaction const & transaction_a)
 {
-	std::unordered_map<rai::block_hash, rai::uint128_t> block_weights;
+	std::unordered_map<nano::block_hash, nano::uint128_t> block_weights;
 	for (auto vote_info : last_votes)
 	{
 		block_weights[vote_info.second.hash] += node.ledger.weight (transaction_a, vote_info.first);
 	}
 	last_tally = block_weights;
-	rai::tally_t result;
+	nano::tally_t result;
 	for (auto item : block_weights)
 	{
 		auto block (blocks.find (item.first));
@@ -3050,14 +3050,14 @@ rai::tally_t rai::election::tally (rai::transaction const & transaction_a)
 	return result;
 }
 
-void rai::election::confirm_if_quorum (rai::transaction const & transaction_a)
+void nano::election::confirm_if_quorum (nano::transaction const & transaction_a)
 {
 	auto tally_l (tally (transaction_a));
 	assert (tally_l.size () > 0);
 	auto winner (tally_l.begin ());
 	auto block_l (winner->second);
 	status.tally = winner->first;
-	rai::uint128_t sum (0);
+	nano::uint128_t sum (0);
 	for (auto & i : tally_l)
 	{
 		sum += i.first;
@@ -3078,7 +3078,7 @@ void rai::election::confirm_if_quorum (rai::transaction const & transaction_a)
 	}
 }
 
-void rai::election::log_votes (rai::tally_t const & tally_a)
+void nano::election::log_votes (nano::tally_t const & tally_a)
 {
 	std::stringstream tally;
 	tally << boost::str (boost::format ("\nVote tally for root %1%") % status.winner->root ().to_string ());
@@ -3093,7 +3093,7 @@ void rai::election::log_votes (rai::tally_t const & tally_a)
 	BOOST_LOG (node.log) << tally.str ();
 }
 
-rai::election_vote_result rai::election::vote (rai::account rep, uint64_t sequence, rai::block_hash block_hash)
+nano::election_vote_result nano::election::vote (nano::account rep, uint64_t sequence, nano::block_hash block_hash)
 {
 	// see republish_vote documentation for an explanation of these rules
 	auto transaction (node.store.tx_begin_read ());
@@ -3101,7 +3101,7 @@ rai::election_vote_result rai::election::vote (rai::account rep, uint64_t sequen
 	auto supply (node.online_reps.online_stake ());
 	auto weight (node.ledger.weight (transaction, rep));
 	auto should_process (false);
-	if (rai::rai_network == rai::rai_networks::rai_test_network || weight > supply / 1000) // 0.1% or above
+	if (nano::nano_network == nano::nano_networks::nano_test_network || weight > supply / 1000) // 0.1% or above
 	{
 		unsigned int cooldown;
 		if (weight < supply / 100) // 0.1% to 1%
@@ -3145,13 +3145,13 @@ rai::election_vote_result rai::election::vote (rai::account rep, uint64_t sequen
 			}
 		}
 	}
-	return rai::election_vote_result (replay, should_process);
+	return nano::election_vote_result (replay, should_process);
 }
 
-bool rai::node::validate_block_by_previous (rai::transaction const & transaction, std::shared_ptr<rai::block> block_a)
+bool nano::node::validate_block_by_previous (nano::transaction const & transaction, std::shared_ptr<nano::block> block_a)
 {
 	bool result (false);
-	rai::account account;
+	nano::account account;
 	if (!block_a->previous ().is_zero ())
 	{
 		if (store.block_exists (transaction, block_a->previous ()))
@@ -3167,10 +3167,10 @@ bool rai::node::validate_block_by_previous (rai::transaction const & transaction
 	{
 		account = block_a->root ();
 	}
-	if (!result && block_a->type () == rai::block_type::state)
+	if (!result && block_a->type () == nano::block_type::state)
 	{
-		std::shared_ptr<rai::state_block> block_l (std::static_pointer_cast<rai::state_block> (block_a));
-		rai::amount prev_balance (0);
+		std::shared_ptr<nano::state_block> block_l (std::static_pointer_cast<nano::state_block> (block_a));
+		nano::amount prev_balance (0);
 		if (!block_l->hashables.previous.is_zero ())
 		{
 			if (store.block_exists (transaction, block_l->hashables.previous))
@@ -3190,14 +3190,14 @@ bool rai::node::validate_block_by_previous (rai::transaction const & transaction
 			}
 		}
 	}
-	if (!result && (account.is_zero () || rai::validate_message (account, block_a->hash (), block_a->block_signature ())))
+	if (!result && (account.is_zero () || nano::validate_message (account, block_a->hash (), block_a->block_signature ())))
 	{
 		result = true;
 	}
 	return result;
 }
 
-bool rai::election::publish (std::shared_ptr<rai::block> block_a)
+bool nano::election::publish (std::shared_ptr<nano::block> block_a)
 {
 	auto result (false);
 	if (blocks.size () >= 10)
@@ -3224,14 +3224,14 @@ bool rai::election::publish (std::shared_ptr<rai::block> block_a)
 	return result;
 }
 
-void rai::active_transactions::announce_votes (std::unique_lock<std::mutex> & lock_a)
+void nano::active_transactions::announce_votes (std::unique_lock<std::mutex> & lock_a)
 {
-	std::unordered_set<rai::block_hash> inactive;
+	std::unordered_set<nano::block_hash> inactive;
 	auto transaction (node.store.tx_begin_read ());
 	unsigned unconfirmed_count (0);
 	unsigned unconfirmed_announcements (0);
-	std::deque<std::shared_ptr<rai::block>> rebroadcast_bundle;
-	std::deque<std::pair<std::shared_ptr<rai::block>, std::shared_ptr<std::vector<rai::peer_information>>>> confirm_req_bundle;
+	std::deque<std::shared_ptr<nano::block>> rebroadcast_bundle;
+	std::deque<std::pair<std::shared_ptr<nano::block>, std::shared_ptr<std::vector<nano::peer_information>>>> confirm_req_bundle;
 
 	auto roots_size (roots.size ());
 	for (auto i (roots.get<1> ().begin ()), n (roots.get<1> ().end ()); i != n; ++i)
@@ -3265,9 +3265,9 @@ void rai::active_transactions::announce_votes (std::unique_lock<std::mutex> & lo
 				/* Escalation for long unconfirmed elections
 				Start new elections for previous block & source
 				if there are less than 100 active elections */
-				if (i->election->announcements % announcement_long == 1 && roots_size < 100 && rai::rai_network != rai::rai_networks::rai_test_network)
+				if (i->election->announcements % announcement_long == 1 && roots_size < 100 && nano::nano_network != nano::nano_networks::nano_test_network)
 				{
-					std::shared_ptr<rai::block> previous;
+					std::shared_ptr<nano::block> previous;
 					auto previous_hash (election_l->status.winner->previous ());
 					if (!previous_hash.is_zero ())
 					{
@@ -3313,9 +3313,9 @@ void rai::active_transactions::announce_votes (std::unique_lock<std::mutex> & lo
 			}
 			if (i->election->announcements % 4 == 1)
 			{
-				auto reps (std::make_shared<std::vector<rai::peer_information>> (node.peers.representatives (std::numeric_limits<size_t>::max ())));
-				std::unordered_set<rai::account> probable_reps;
-				rai::uint128_t total_weight (0);
+				auto reps (std::make_shared<std::vector<nano::peer_information>> (node.peers.representatives (std::numeric_limits<size_t>::max ())));
+				std::unordered_set<nano::account> probable_reps;
+				nano::uint128_t total_weight (0);
 				for (auto j (reps->begin ()), m (reps->end ()); j != m;)
 				{
 					auto & rep_votes (i->election->last_votes);
@@ -3357,7 +3357,7 @@ void rai::active_transactions::announce_votes (std::unique_lock<std::mutex> & lo
 				else
 				{
 					// broadcast request to all peers
-					confirm_req_bundle.push_back (std::make_pair (i->election->status.winner, std::make_shared<std::vector<rai::peer_information>> (node.peers.list_vector (100))));
+					confirm_req_bundle.push_back (std::make_pair (i->election->status.winner, std::make_shared<std::vector<nano::peer_information>> (node.peers.list_vector (100))));
 				}
 			}
 		}
@@ -3392,7 +3392,7 @@ void rai::active_transactions::announce_votes (std::unique_lock<std::mutex> & lo
 	}
 }
 
-void rai::active_transactions::announce_loop ()
+void nano::active_transactions::announce_loop ()
 {
 	std::unique_lock<std::mutex> lock (mutex);
 	started = true;
@@ -3409,7 +3409,7 @@ void rai::active_transactions::announce_loop ()
 	}
 }
 
-void rai::active_transactions::stop ()
+void nano::active_transactions::stop ()
 {
 	std::unique_lock<std::mutex> lock (mutex);
 	while (!started)
@@ -3427,13 +3427,13 @@ void rai::active_transactions::stop ()
 	roots.clear ();
 }
 
-bool rai::active_transactions::start (std::shared_ptr<rai::block> block_a, std::function<void(std::shared_ptr<rai::block>)> const & confirmation_action_a)
+bool nano::active_transactions::start (std::shared_ptr<nano::block> block_a, std::function<void(std::shared_ptr<nano::block>)> const & confirmation_action_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	return add (block_a, confirmation_action_a);
 }
 
-bool rai::active_transactions::add (std::shared_ptr<rai::block> block_a, std::function<void(std::shared_ptr<rai::block>)> const & confirmation_action_a)
+bool nano::active_transactions::add (std::shared_ptr<nano::block> block_a, std::function<void(std::shared_ptr<nano::block>)> const & confirmation_action_a)
 {
 	auto error (true);
 	if (!stopped)
@@ -3442,11 +3442,11 @@ bool rai::active_transactions::add (std::shared_ptr<rai::block> block_a, std::fu
 		auto existing (roots.find (root));
 		if (existing == roots.end ())
 		{
-			auto election (std::make_shared<rai::election> (node, block_a, confirmation_action_a));
+			auto election (std::make_shared<nano::election> (node, block_a, confirmation_action_a));
 			uint64_t difficulty (0);
-			auto error (rai::work_validate (*block_a, &difficulty));
+			auto error (nano::work_validate (*block_a, &difficulty));
 			release_assert (!error);
-			roots.insert (rai::conflict_info{ root, difficulty, election });
+			roots.insert (nano::conflict_info{ root, difficulty, election });
 			blocks.insert (std::make_pair (block_a->hash (), election));
 		}
 		error = existing != roots.end ();
@@ -3455,9 +3455,9 @@ bool rai::active_transactions::add (std::shared_ptr<rai::block> block_a, std::fu
 }
 
 // Validate a vote and apply it to the current election if one exists
-bool rai::active_transactions::vote (std::shared_ptr<rai::vote> vote_a, bool single_lock)
+bool nano::active_transactions::vote (std::shared_ptr<nano::vote> vote_a, bool single_lock)
 {
-	std::shared_ptr<rai::election> election;
+	std::shared_ptr<nano::election> election;
 	bool replay (false);
 	bool processed (false);
 	{
@@ -3468,10 +3468,10 @@ bool rai::active_transactions::vote (std::shared_ptr<rai::vote> vote_a, bool sin
 		}
 		for (auto vote_block : vote_a->blocks)
 		{
-			rai::election_vote_result result;
+			nano::election_vote_result result;
 			if (vote_block.which ())
 			{
-				auto block_hash (boost::get<rai::block_hash> (vote_block));
+				auto block_hash (boost::get<nano::block_hash> (vote_block));
 				auto existing (blocks.find (block_hash));
 				if (existing != blocks.end ())
 				{
@@ -3480,7 +3480,7 @@ bool rai::active_transactions::vote (std::shared_ptr<rai::vote> vote_a, bool sin
 			}
 			else
 			{
-				auto block (boost::get<std::shared_ptr<rai::block>> (vote_block));
+				auto block (boost::get<std::shared_ptr<nano::block>> (vote_block));
 				auto existing (roots.find (block->root ()));
 				if (existing != roots.end ())
 				{
@@ -3498,31 +3498,31 @@ bool rai::active_transactions::vote (std::shared_ptr<rai::vote> vote_a, bool sin
 	return replay;
 }
 
-bool rai::active_transactions::active (rai::block const & block_a)
+bool nano::active_transactions::active (nano::block const & block_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	return roots.find (block_a.root ()) != roots.end ();
 }
 
-void rai::active_transactions::update_difficulty (rai::block const & block_a)
+void nano::active_transactions::update_difficulty (nano::block const & block_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	auto existing (roots.find (block_a.root ()));
 	if (existing != roots.end ())
 	{
 		uint64_t difficulty;
-		auto error (rai::work_validate (block_a, &difficulty));
+		auto error (nano::work_validate (block_a, &difficulty));
 		assert (!error);
-		roots.modify (existing, [difficulty](rai::conflict_info & info_a) {
+		roots.modify (existing, [difficulty](nano::conflict_info & info_a) {
 			info_a.difficulty = difficulty;
 		});
 	}
 }
 
 // List of active blocks in elections
-std::deque<std::shared_ptr<rai::block>> rai::active_transactions::list_blocks (bool single_lock)
+std::deque<std::shared_ptr<nano::block>> nano::active_transactions::list_blocks (bool single_lock)
 {
-	std::deque<std::shared_ptr<rai::block>> result;
+	std::deque<std::shared_ptr<nano::block>> result;
 	std::unique_lock<std::mutex> lock;
 	if (!single_lock)
 	{
@@ -3535,7 +3535,7 @@ std::deque<std::shared_ptr<rai::block>> rai::active_transactions::list_blocks (b
 	return result;
 }
 
-void rai::active_transactions::erase (rai::block const & block_a)
+void nano::active_transactions::erase (nano::block const & block_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	if (roots.find (block_a.root ()) != roots.end ())
@@ -3545,12 +3545,12 @@ void rai::active_transactions::erase (rai::block const & block_a)
 	}
 }
 
-rai::active_transactions::active_transactions (rai::node & node_a) :
+nano::active_transactions::active_transactions (nano::node & node_a) :
 node (node_a),
 started (false),
 stopped (false),
 thread ([this]() {
-	rai::thread_role::set (rai::thread_role::name::announce_loop);
+	nano::thread_role::set (nano::thread_role::name::announce_loop);
 	announce_loop ();
 })
 {
@@ -3561,12 +3561,12 @@ thread ([this]() {
 	}
 }
 
-rai::active_transactions::~active_transactions ()
+nano::active_transactions::~active_transactions ()
 {
 	stop ();
 }
 
-bool rai::active_transactions::publish (std::shared_ptr<rai::block> block_a)
+bool nano::active_transactions::publish (std::shared_ptr<nano::block> block_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	auto existing (roots.find (block_a->root ()));
@@ -3582,20 +3582,20 @@ bool rai::active_transactions::publish (std::shared_ptr<rai::block> block_a)
 	return result;
 }
 
-int rai::node::store_version ()
+int nano::node::store_version ()
 {
 	auto transaction (store.tx_begin_read ());
 	return store.version_get (transaction);
 }
 
-rai::thread_runner::thread_runner (boost::asio::io_context & io_ctx_a, unsigned service_threads_a)
+nano::thread_runner::thread_runner (boost::asio::io_context & io_ctx_a, unsigned service_threads_a)
 {
 	boost::thread::attributes attrs;
-	rai::thread_attributes::set (attrs);
+	nano::thread_attributes::set (attrs);
 	for (auto i (0); i < service_threads_a; ++i)
 	{
 		threads.push_back (boost::thread (attrs, [&io_ctx_a]() {
-			rai::thread_role::set (rai::thread_role::name::io);
+			nano::thread_role::set (nano::thread_role::name::io);
 			try
 			{
 				io_ctx_a.run ();
@@ -3615,12 +3615,12 @@ rai::thread_runner::thread_runner (boost::asio::io_context & io_ctx_a, unsigned 
 	}
 }
 
-rai::thread_runner::~thread_runner ()
+nano::thread_runner::~thread_runner ()
 {
 	join ();
 }
 
-void rai::thread_runner::join ()
+void nano::thread_runner::join ()
 {
 	for (auto & i : threads)
 	{
@@ -3631,7 +3631,7 @@ void rai::thread_runner::join ()
 	}
 }
 
-rai::inactive_node::inactive_node (boost::filesystem::path const & path, uint16_t peering_port_a) :
+nano::inactive_node::inactive_node (boost::filesystem::path const & path, uint16_t peering_port_a) :
 path (path),
 io_context (std::make_shared<boost::asio::io_context> ()),
 alarm (*io_context),
@@ -3644,18 +3644,18 @@ peering_port (peering_port_a)
 	 * @warning May throw a filesystem exception
 	 */
 	boost::filesystem::create_directories (path);
-	rai::set_secure_perm_directory (path, error_chmod);
+	nano::set_secure_perm_directory (path, error_chmod);
 	logging.max_size = std::numeric_limits<std::uintmax_t>::max ();
 	logging.init (path);
-	node = std::make_shared<rai::node> (init, *io_context, peering_port, path, alarm, logging, work);
+	node = std::make_shared<nano::node> (init, *io_context, peering_port, path, alarm, logging, work);
 }
 
-rai::inactive_node::~inactive_node ()
+nano::inactive_node::~inactive_node ()
 {
 	node->stop ();
 }
 
-rai::udp_buffer::udp_buffer (rai::stat & stats, size_t size, size_t count) :
+nano::udp_buffer::udp_buffer (nano::stat & stats, size_t size, size_t count) :
 stats (stats),
 free (count),
 full (count),
@@ -3669,19 +3669,19 @@ stopped (false)
 	auto entry_data (entries.data ());
 	for (auto i (0); i < count; ++i, ++entry_data)
 	{
-		*entry_data = { slab_data + i * size, 0, rai::endpoint () };
+		*entry_data = { slab_data + i * size, 0, nano::endpoint () };
 		free.push_back (entry_data);
 	}
 }
-rai::udp_data * rai::udp_buffer::allocate ()
+nano::udp_data * nano::udp_buffer::allocate ()
 {
 	std::unique_lock<std::mutex> lock (mutex);
 	while (!stopped && free.empty () && full.empty ())
 	{
-		stats.inc (rai::stat::type::udp, rai::stat::detail::blocking, rai::stat::dir::in);
+		stats.inc (nano::stat::type::udp, nano::stat::detail::blocking, nano::stat::dir::in);
 		condition.wait (lock);
 	}
-	rai::udp_data * result (nullptr);
+	nano::udp_data * result (nullptr);
 	if (!free.empty ())
 	{
 		result = free.front ();
@@ -3691,11 +3691,11 @@ rai::udp_data * rai::udp_buffer::allocate ()
 	{
 		result = full.front ();
 		full.pop_front ();
-		stats.inc (rai::stat::type::udp, rai::stat::detail::overflow, rai::stat::dir::in);
+		stats.inc (nano::stat::type::udp, nano::stat::detail::overflow, nano::stat::dir::in);
 	}
 	return result;
 }
-void rai::udp_buffer::enqueue (rai::udp_data * data_a)
+void nano::udp_buffer::enqueue (nano::udp_data * data_a)
 {
 	assert (data_a != nullptr);
 	{
@@ -3704,14 +3704,14 @@ void rai::udp_buffer::enqueue (rai::udp_data * data_a)
 	}
 	condition.notify_all ();
 }
-rai::udp_data * rai::udp_buffer::dequeue ()
+nano::udp_data * nano::udp_buffer::dequeue ()
 {
 	std::unique_lock<std::mutex> lock (mutex);
 	while (!stopped && full.empty ())
 	{
 		condition.wait (lock);
 	}
-	rai::udp_data * result (nullptr);
+	nano::udp_data * result (nullptr);
 	if (!full.empty ())
 	{
 		result = full.front ();
@@ -3719,7 +3719,7 @@ rai::udp_data * rai::udp_buffer::dequeue ()
 	}
 	return result;
 }
-void rai::udp_buffer::release (rai::udp_data * data_a)
+void nano::udp_buffer::release (nano::udp_data * data_a)
 {
 	assert (data_a != nullptr);
 	{
@@ -3728,7 +3728,7 @@ void rai::udp_buffer::release (rai::udp_data * data_a)
 	}
 	condition.notify_all ();
 }
-void rai::udp_buffer::stop ()
+void nano::udp_buffer::stop ()
 {
 	{
 		std::lock_guard<std::mutex> lock (mutex);

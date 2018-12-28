@@ -1,8 +1,8 @@
-#include <rai/lib/utility.hpp>
-#include <rai/node/cli.hpp>
-#include <rai/node/node.hpp>
-#include <rai/node/testing.hpp>
-#include <rai/rai_node/daemon.hpp>
+#include <nano/lib/utility.hpp>
+#include <nano/nano_node/daemon.hpp>
+#include <nano/node/cli.hpp>
+#include <nano/node/node.hpp>
+#include <nano/node/testing.hpp>
 
 #include <argon2.h>
 
@@ -11,10 +11,10 @@
 
 int main (int argc, char * const * argv)
 {
-	rai::set_umask ();
+	nano::set_umask ();
 
 	boost::program_options::options_description description ("Command line options");
-	rai::add_node_options (description);
+	nano::add_node_options (description);
 
 	// clang-format off
 	description.add_options ()
@@ -38,8 +38,8 @@ int main (int argc, char * const * argv)
 		("debug_verify_profile_batch", "Profile batch signature verification")
 		("debug_profile_bootstrap", "Profile bootstrap style blocks processing (at least 10GB of free storage space required)")
 		("debug_profile_sign", "Profile signature generation")
-		("debug_profile_process", "Profile active blocks processing (only for rai_test_network)")
-		("debug_profile_votes", "Profile votes processing (only for rai_test_network)")
+		("debug_profile_process", "Profile active blocks processing (only for nano_test_network)")
+		("debug_profile_votes", "Profile votes processing (only for nano_test_network)")
 		("debug_validate_blocks", "Check all blocks for correct hash, signature, work value")
 		("platform", boost::program_options::value<std::string> (), "Defines the <platform> for OpenCL commands")
 		("device", boost::program_options::value<std::string> (), "Defines <device> for OpenCL command")
@@ -58,15 +58,15 @@ int main (int argc, char * const * argv)
 	}
 	boost::program_options::notify (vm);
 	int result (0);
-	boost::filesystem::path data_path = vm.count ("data_path") ? boost::filesystem::path (vm["data_path"].as<std::string> ()) : rai::working_path ();
-	auto ec = rai::handle_node_options (vm);
+	boost::filesystem::path data_path = vm.count ("data_path") ? boost::filesystem::path (vm["data_path"].as<std::string> ()) : nano::working_path ();
+	auto ec = nano::handle_node_options (vm);
 
-	if (ec == rai::error_cli::unknown_command)
+	if (ec == nano::error_cli::unknown_command)
 	{
 		if (vm.count ("daemon") > 0)
 		{
-			rai_daemon::daemon daemon;
-			rai::node_flags flags;
+			nano_daemon::daemon daemon;
+			nano::node_flags flags;
 			flags.disable_backup = (vm.count ("disable_backup") > 0);
 			flags.disable_lazy_bootstrap = (vm.count ("disable_lazy_bootstrap") > 0);
 			flags.disable_legacy_bootstrap = (vm.count ("disable_legacy_bootstrap") > 0);
@@ -75,7 +75,7 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_block_count"))
 		{
-			rai::inactive_node node (data_path);
+			nano::inactive_node node (data_path);
 			auto transaction (node.node->store.tx_begin ());
 			std::cout << boost::str (boost::format ("Block count: %1%\n") % node.node->store.block_count (transaction).sum ());
 		}
@@ -83,38 +83,38 @@ int main (int argc, char * const * argv)
 		{
 			if (vm.count ("key") == 1)
 			{
-				rai::uint256_union key;
+				nano::uint256_union key;
 				if (!key.decode_hex (vm["key"].as<std::string> ()))
 				{
-					rai::keypair genesis (key.to_string ());
-					rai::work_pool work (std::numeric_limits<unsigned>::max (), nullptr);
+					nano::keypair genesis (key.to_string ());
+					nano::work_pool work (std::numeric_limits<unsigned>::max (), nullptr);
 					std::cout << "Genesis: " << genesis.prv.data.to_string () << std::endl
 					          << "Public: " << genesis.pub.to_string () << std::endl
 					          << "Account: " << genesis.pub.to_account () << std::endl;
-					rai::keypair landing;
+					nano::keypair landing;
 					std::cout << "Landing: " << landing.prv.data.to_string () << std::endl
 					          << "Public: " << landing.pub.to_string () << std::endl
 					          << "Account: " << landing.pub.to_account () << std::endl;
 					for (auto i (0); i != 32; ++i)
 					{
-						rai::keypair rep;
+						nano::keypair rep;
 						std::cout << "Rep" << i << ": " << rep.prv.data.to_string () << std::endl
 						          << "Public: " << rep.pub.to_string () << std::endl
 						          << "Account: " << rep.pub.to_account () << std::endl;
 					}
-					rai::uint128_t balance (std::numeric_limits<rai::uint128_t>::max ());
-					rai::open_block genesis_block (genesis.pub, genesis.pub, genesis.pub, genesis.prv, genesis.pub, work.generate (genesis.pub));
+					nano::uint128_t balance (std::numeric_limits<nano::uint128_t>::max ());
+					nano::open_block genesis_block (genesis.pub, genesis.pub, genesis.pub, genesis.prv, genesis.pub, work.generate (genesis.pub));
 					std::cout << genesis_block.to_json ();
-					rai::block_hash previous (genesis_block.hash ());
+					nano::block_hash previous (genesis_block.hash ());
 					for (auto i (0); i != 8; ++i)
 					{
-						rai::uint128_t yearly_distribution (rai::uint128_t (1) << (127 - (i == 7 ? 6 : i)));
+						nano::uint128_t yearly_distribution (nano::uint128_t (1) << (127 - (i == 7 ? 6 : i)));
 						auto weekly_distribution (yearly_distribution / 52);
 						for (auto j (0); j != 52; ++j)
 						{
 							assert (balance > weekly_distribution);
 							balance = balance < (weekly_distribution * 2) ? 0 : balance - weekly_distribution;
-							rai::send_block send (previous, landing.pub, balance, genesis.prv, genesis.pub, work.generate (previous));
+							nano::send_block send (previous, landing.pub, balance, genesis.prv, genesis.pub, work.generate (previous));
 							previous = send.hash ();
 							std::cout << send.to_json ();
 							std::cout.flush ();
@@ -135,21 +135,21 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_dump_representatives"))
 		{
-			rai::inactive_node node (data_path);
+			nano::inactive_node node (data_path);
 			auto transaction (node.node->store.tx_begin ());
-			rai::uint128_t total;
+			nano::uint128_t total;
 			for (auto i (node.node->store.representation_begin (transaction)), n (node.node->store.representation_end ()); i != n; ++i)
 			{
-				rai::account account (i->first);
+				nano::account account (i->first);
 				auto amount (node.node->store.representation_get (transaction, account));
 				total += amount;
 				std::cout << boost::str (boost::format ("%1% %2% %3%\n") % account.to_account () % amount.convert_to<std::string> () % total.convert_to<std::string> ());
 			}
-			std::map<rai::account, rai::uint128_t> calculated;
+			std::map<nano::account, nano::uint128_t> calculated;
 			for (auto i (node.node->store.latest_begin (transaction)), n (node.node->store.latest_end ()); i != n; ++i)
 			{
-				rai::account_info info (i->second);
-				rai::block_hash rep_block (node.node->ledger.representative_calculated (transaction, info.head));
+				nano::account_info info (i->second);
+				nano::block_hash rep_block (node.node->ledger.representative_calculated (transaction, info.head));
 				auto block (node.node->store.block_get (transaction, rep_block));
 				calculated[block->representative ()] += info.balance.number ();
 			}
@@ -162,25 +162,25 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_account_count"))
 		{
-			rai::inactive_node node (data_path);
+			nano::inactive_node node (data_path);
 			auto transaction (node.node->store.tx_begin ());
 			std::cout << boost::str (boost::format ("Frontier count: %1%\n") % node.node->store.account_count (transaction));
 		}
 		else if (vm.count ("debug_mass_activity"))
 		{
-			rai::system system (24000, 1);
+			nano::system system (24000, 1);
 			size_t count (1000000);
 			system.generate_mass_activity (count, *system.nodes[0]);
 		}
 		else if (vm.count ("debug_profile_kdf"))
 		{
-			rai::uint256_union result;
-			rai::uint256_union salt (0);
+			nano::uint256_union result;
+			nano::uint256_union salt (0);
 			std::string password ("");
 			for (; true;)
 			{
 				auto begin1 (std::chrono::high_resolution_clock::now ());
-				auto success (argon2_hash (1, rai::wallet_store::kdf_work, 1, password.data (), password.size (), salt.bytes.data (), salt.bytes.size (), result.bytes.data (), result.bytes.size (), NULL, 0, Argon2_d, 0x10));
+				auto success (argon2_hash (1, nano::wallet_store::kdf_work, 1, password.data (), password.size (), salt.bytes.data (), salt.bytes.size (), result.bytes.data (), result.bytes.size (), NULL, 0, Argon2_d, 0x10));
 				(void)success;
 				auto end1 (std::chrono::high_resolution_clock::now ());
 				std::cerr << boost::str (boost::format ("Derivation time: %1%us\n") % std::chrono::duration_cast<std::chrono::microseconds> (end1 - begin1).count ());
@@ -188,8 +188,8 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_profile_generate"))
 		{
-			rai::work_pool work (std::numeric_limits<unsigned>::max (), nullptr);
-			rai::change_block block (0, 0, rai::keypair ().prv, 0, 0);
+			nano::work_pool work (std::numeric_limits<unsigned>::max (), nullptr);
+			nano::change_block block (0, 0, nano::keypair ().prv, 0, 0);
 			std::cerr << "Starting generation profiling\n";
 			for (uint64_t i (0); true; ++i)
 			{
@@ -203,7 +203,7 @@ int main (int argc, char * const * argv)
 		else if (vm.count ("debug_opencl"))
 		{
 			bool error (false);
-			rai::opencl_environment environment (error);
+			nano::opencl_environment environment (error);
 			if (!error)
 			{
 				unsigned short platform (0);
@@ -253,13 +253,13 @@ int main (int argc, char * const * argv)
 						error |= device >= environment.platforms[platform].devices.size ();
 						if (!error)
 						{
-							rai::logging logging;
-							auto opencl (rai::opencl_work::create (true, { platform, device, threads }, logging));
-							rai::work_pool work_pool (std::numeric_limits<unsigned>::max (), opencl ? [&opencl](rai::uint256_union const & root_a) {
+							nano::logging logging;
+							auto opencl (nano::opencl_work::create (true, { platform, device, threads }, logging));
+							nano::work_pool work_pool (std::numeric_limits<unsigned>::max (), opencl ? [&opencl](nano::uint256_union const & root_a) {
 								return opencl->generate_work (root_a);
 							}
-							                                                                        : std::function<boost::optional<uint64_t> (rai::uint256_union const &)> (nullptr));
-							rai::change_block block (0, 0, rai::keypair ().prv, 0, 0);
+							                                                                         : std::function<boost::optional<uint64_t> (nano::uint256_union const &)> (nullptr));
+							nano::change_block block (0, 0, nano::keypair ().prv, 0, 0);
 							std::cerr << boost::str (boost::format ("Starting OpenCL generation profiling. Platform: %1%. Device: %2%. Threads: %3%\n") % platform % device % threads);
 							for (uint64_t i (0); true; ++i)
 							{
@@ -293,8 +293,8 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_profile_verify"))
 		{
-			rai::work_pool work (std::numeric_limits<unsigned>::max (), nullptr);
-			rai::change_block block (0, 0, rai::keypair ().prv, 0, 0);
+			nano::work_pool work (std::numeric_limits<unsigned>::max (), nullptr);
+			nano::change_block block (0, 0, nano::keypair ().prv, 0, 0);
 			std::cerr << "Starting verification profiling\n";
 			for (uint64_t i (0); true; ++i)
 			{
@@ -304,7 +304,7 @@ int main (int argc, char * const * argv)
 				{
 					block.hashables.previous.qwords[0] += 1;
 					block.block_work_set (t);
-					rai::work_validate (block);
+					nano::work_validate (block);
 				}
 				auto end1 (std::chrono::high_resolution_clock::now ());
 				std::cerr << boost::str (boost::format ("%|1$ 12d|\n") % std::chrono::duration_cast<std::chrono::microseconds> (end1 - begin1).count ());
@@ -312,24 +312,24 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_verify_profile"))
 		{
-			rai::keypair key;
-			rai::uint256_union message;
-			rai::uint512_union signature;
-			signature = rai::sign_message (key.prv, key.pub, message);
+			nano::keypair key;
+			nano::uint256_union message;
+			nano::uint512_union signature;
+			signature = nano::sign_message (key.prv, key.pub, message);
 			auto begin (std::chrono::high_resolution_clock::now ());
 			for (auto i (0u); i < 1000; ++i)
 			{
-				rai::validate_message (key.pub, message, signature);
+				nano::validate_message (key.pub, message, signature);
 			}
 			auto end (std::chrono::high_resolution_clock::now ());
 			std::cerr << "Signature verifications " << std::chrono::duration_cast<std::chrono::microseconds> (end - begin).count () << std::endl;
 		}
 		else if (vm.count ("debug_verify_profile_batch"))
 		{
-			rai::keypair key;
+			nano::keypair key;
 			size_t batch_count (1000);
-			rai::uint256_union message;
-			rai::uint512_union signature (rai::sign_message (key.prv, key.pub, message));
+			nano::uint256_union message;
+			nano::uint512_union signature (nano::sign_message (key.prv, key.pub, message));
 			std::vector<unsigned char const *> messages (batch_count, message.bytes.data ());
 			std::vector<size_t> lengths (batch_count, sizeof (message));
 			std::vector<unsigned char const *> pub_keys (batch_count, key.pub.bytes.data ());
@@ -337,7 +337,7 @@ int main (int argc, char * const * argv)
 			std::vector<int> verifications;
 			verifications.resize (batch_count);
 			auto begin (std::chrono::high_resolution_clock::now ());
-			rai::validate_message_batch (messages.data (), lengths.data (), pub_keys.data (), signatures.data (), batch_count, verifications.data ());
+			nano::validate_message_batch (messages.data (), lengths.data (), pub_keys.data (), signatures.data (), batch_count, verifications.data ());
 			auto end (std::chrono::high_resolution_clock::now ());
 			std::cerr << "Batch signature verifications " << std::chrono::duration_cast<std::chrono::microseconds> (end - begin).count () << std::endl;
 		}
@@ -346,12 +346,12 @@ int main (int argc, char * const * argv)
 			std::cerr << "Starting blocks signing profiling\n";
 			for (uint64_t i (0); true; ++i)
 			{
-				rai::keypair key;
-				rai::block_hash latest (0);
+				nano::keypair key;
+				nano::block_hash latest (0);
 				auto begin1 (std::chrono::high_resolution_clock::now ());
 				for (uint64_t balance (0); balance < 1000; ++balance)
 				{
-					rai::send_block send (latest, key.pub, balance, key.prv, key.pub, 0);
+					nano::send_block send (latest, key.pub, balance, key.prv, key.pub, 0);
 					latest = send.hash ();
 				}
 				auto end1 (std::chrono::high_resolution_clock::now ());
@@ -360,34 +360,34 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_profile_process"))
 		{
-			if (rai::rai_network == rai::rai_networks::rai_test_network)
+			if (nano::nano_network == nano::nano_networks::nano_test_network)
 			{
 				size_t num_accounts (100000);
 				size_t num_interations (5); // 100,000 * 5 * 2 = 1,000,000 blocks
 				size_t max_blocks (2 * num_accounts * num_interations + num_accounts * 2); //  1,000,000 + 2* 100,000 = 1,200,000 blocks
 				std::cerr << boost::str (boost::format ("Starting pregenerating %1% blocks\n") % max_blocks);
-				rai::system system (24000, 1);
-				rai::node_init init;
-				rai::work_pool work (std::numeric_limits<unsigned>::max (), nullptr);
-				rai::logging logging;
-				auto path (rai::unique_path ());
+				nano::system system (24000, 1);
+				nano::node_init init;
+				nano::work_pool work (std::numeric_limits<unsigned>::max (), nullptr);
+				nano::logging logging;
+				auto path (nano::unique_path ());
 				logging.init (path);
-				auto node (std::make_shared<rai::node> (init, system.io_ctx, 24001, path, system.alarm, logging, work));
-				rai::block_hash genesis_latest (node->latest (rai::test_genesis_key.pub));
-				rai::uint128_t genesis_balance (std::numeric_limits<rai::uint128_t>::max ());
+				auto node (std::make_shared<nano::node> (init, system.io_ctx, 24001, path, system.alarm, logging, work));
+				nano::block_hash genesis_latest (node->latest (nano::test_genesis_key.pub));
+				nano::uint128_t genesis_balance (std::numeric_limits<nano::uint128_t>::max ());
 				// Generating keys
-				std::vector<rai::keypair> keys (num_accounts);
-				std::vector<rai::block_hash> frontiers (num_accounts);
-				std::vector<rai::uint128_t> balances (num_accounts, 1000000000);
+				std::vector<nano::keypair> keys (num_accounts);
+				std::vector<nano::block_hash> frontiers (num_accounts);
+				std::vector<nano::uint128_t> balances (num_accounts, 1000000000);
 				// Generating blocks
-				std::deque<std::shared_ptr<rai::block>> blocks;
+				std::deque<std::shared_ptr<nano::block>> blocks;
 				for (auto i (0); i != num_accounts; ++i)
 				{
 					genesis_balance = genesis_balance - 1000000000;
-					auto send (std::make_shared<rai::state_block> (rai::test_genesis_key.pub, genesis_latest, rai::test_genesis_key.pub, genesis_balance, keys[i].pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, work.generate (genesis_latest)));
+					auto send (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis_latest, nano::test_genesis_key.pub, genesis_balance, keys[i].pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, work.generate (genesis_latest)));
 					genesis_latest = send->hash ();
 					blocks.push_back (std::move (send));
-					auto open (std::make_shared<rai::state_block> (keys[i].pub, 0, keys[i].pub, balances[i], genesis_latest, keys[i].prv, keys[i].pub, work.generate (keys[i].pub)));
+					auto open (std::make_shared<nano::state_block> (keys[i].pub, 0, keys[i].pub, balances[i], genesis_latest, keys[i].prv, keys[i].pub, work.generate (keys[i].pub)));
 					frontiers[i] = open->hash ();
 					blocks.push_back (std::move (open));
 				}
@@ -398,12 +398,12 @@ int main (int argc, char * const * argv)
 						size_t other (num_accounts - j - 1);
 						// Sending to other account
 						--balances[j];
-						auto send (std::make_shared<rai::state_block> (keys[j].pub, frontiers[j], keys[j].pub, balances[j], keys[other].pub, keys[j].prv, keys[j].pub, work.generate (frontiers[j])));
+						auto send (std::make_shared<nano::state_block> (keys[j].pub, frontiers[j], keys[j].pub, balances[j], keys[other].pub, keys[j].prv, keys[j].pub, work.generate (frontiers[j])));
 						frontiers[j] = send->hash ();
 						blocks.push_back (std::move (send));
 						// Receiving
 						++balances[other];
-						auto receive (std::make_shared<rai::state_block> (keys[other].pub, frontiers[other], keys[other].pub, balances[other], frontiers[j], keys[other].prv, keys[other].pub, work.generate (frontiers[other])));
+						auto receive (std::make_shared<nano::state_block> (keys[other].pub, frontiers[other], keys[other].pub, balances[other], frontiers[j], keys[other].prv, keys[other].pub, work.generate (frontiers[other])));
 						frontiers[other] = receive->hash ();
 						blocks.push_back (std::move (receive));
 					}
@@ -431,57 +431,57 @@ int main (int argc, char * const * argv)
 			}
 			else
 			{
-				std::cerr << "For this test ACTIVE_NETWORK should be rai_test_network" << std::endl;
+				std::cerr << "For this test ACTIVE_NETWORK should be nano_test_network" << std::endl;
 			}
 		}
 		else if (vm.count ("debug_profile_votes"))
 		{
-			if (rai::rai_network == rai::rai_networks::rai_test_network)
+			if (nano::nano_network == nano::nano_networks::nano_test_network)
 			{
 				size_t num_elections (40000);
 				size_t num_representatives (25);
 				size_t max_votes (num_elections * num_representatives); // 40,000 * 25 = 1,000,000 votes
 				std::cerr << boost::str (boost::format ("Starting pregenerating %1% votes\n") % max_votes);
-				rai::system system (24000, 1);
-				rai::node_init init;
-				rai::work_pool work (std::numeric_limits<unsigned>::max (), nullptr);
-				rai::logging logging;
-				auto path (rai::unique_path ());
+				nano::system system (24000, 1);
+				nano::node_init init;
+				nano::work_pool work (std::numeric_limits<unsigned>::max (), nullptr);
+				nano::logging logging;
+				auto path (nano::unique_path ());
 				logging.init (path);
-				auto node (std::make_shared<rai::node> (init, system.io_ctx, 24001, path, system.alarm, logging, work));
-				rai::block_hash genesis_latest (node->latest (rai::test_genesis_key.pub));
-				rai::uint128_t genesis_balance (std::numeric_limits<rai::uint128_t>::max ());
+				auto node (std::make_shared<nano::node> (init, system.io_ctx, 24001, path, system.alarm, logging, work));
+				nano::block_hash genesis_latest (node->latest (nano::test_genesis_key.pub));
+				nano::uint128_t genesis_balance (std::numeric_limits<nano::uint128_t>::max ());
 				// Generating keys
-				std::vector<rai::keypair> keys (num_representatives);
-				rai::uint128_t balance ((node->config.online_weight_minimum.number () / num_representatives) + 1);
+				std::vector<nano::keypair> keys (num_representatives);
+				nano::uint128_t balance ((node->config.online_weight_minimum.number () / num_representatives) + 1);
 				for (auto i (0); i != num_representatives; ++i)
 				{
 					auto transaction (node->store.tx_begin_write ());
 					genesis_balance = genesis_balance - balance;
-					rai::state_block send (rai::test_genesis_key.pub, genesis_latest, rai::test_genesis_key.pub, genesis_balance, keys[i].pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, work.generate (genesis_latest));
+					nano::state_block send (nano::test_genesis_key.pub, genesis_latest, nano::test_genesis_key.pub, genesis_balance, keys[i].pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, work.generate (genesis_latest));
 					genesis_latest = send.hash ();
 					node->ledger.process (transaction, send);
-					rai::state_block open (keys[i].pub, 0, keys[i].pub, balance, genesis_latest, keys[i].prv, keys[i].pub, work.generate (keys[i].pub));
+					nano::state_block open (keys[i].pub, 0, keys[i].pub, balance, genesis_latest, keys[i].prv, keys[i].pub, work.generate (keys[i].pub));
 					node->ledger.process (transaction, open);
 				}
 				// Generating blocks
-				std::deque<std::shared_ptr<rai::block>> blocks;
+				std::deque<std::shared_ptr<nano::block>> blocks;
 				for (auto i (0); i != num_elections; ++i)
 				{
 					genesis_balance = genesis_balance - 1;
-					rai::keypair destination;
-					auto send (std::make_shared<rai::state_block> (rai::test_genesis_key.pub, genesis_latest, rai::test_genesis_key.pub, genesis_balance, destination.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, work.generate (genesis_latest)));
+					nano::keypair destination;
+					auto send (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis_latest, nano::test_genesis_key.pub, genesis_balance, destination.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, work.generate (genesis_latest)));
 					genesis_latest = send->hash ();
 					blocks.push_back (send);
 				}
 				// Generating votes
-				std::deque<std::shared_ptr<rai::vote>> votes;
+				std::deque<std::shared_ptr<nano::vote>> votes;
 				for (auto j (0); j != num_representatives; ++j)
 				{
 					uint64_t sequence (1);
 					for (auto & i : blocks)
 					{
-						auto vote (std::make_shared<rai::vote> (keys[j].pub, keys[j].prv, sequence, std::vector<rai::block_hash> (1, i->hash ())));
+						auto vote (std::make_shared<nano::vote> (keys[j].pub, keys[j].prv, sequence, std::vector<nano::block_hash> (1, i->hash ())));
 						votes.push_back (vote);
 						sequence++;
 					}
@@ -514,12 +514,12 @@ int main (int argc, char * const * argv)
 			}
 			else
 			{
-				std::cerr << "For this test ACTIVE_NETWORK should be rai_test_network" << std::endl;
+				std::cerr << "For this test ACTIVE_NETWORK should be nano_test_network" << std::endl;
 			}
 		}
 		else if (vm.count ("debug_validate_blocks"))
 		{
-			rai::inactive_node node (data_path);
+			nano::inactive_node node (data_path);
 			auto transaction (node.node->store.tx_begin ());
 			std::cerr << boost::str (boost::format ("Performing blocks hash, signature, work validation...\n"));
 			size_t count (0);
@@ -530,16 +530,16 @@ int main (int argc, char * const * argv)
 				{
 					std::cout << boost::str (boost::format ("%1% accounts validated\n") % count);
 				}
-				rai::account_info info (i->second);
-				rai::account account (i->first);
+				nano::account_info info (i->second);
+				nano::account account (i->first);
 				auto hash (info.open_block);
-				rai::block_hash calculated_hash (0);
+				nano::block_hash calculated_hash (0);
 				while (!hash.is_zero ())
 				{
 					// Retrieving block data
 					auto block (node.node->store.block_get (transaction, hash));
 					// Check for state & open blocks if account field is correct
-					if ((block->type () == rai::block_type::open && block->root () != account) || (block->type () == rai::block_type::state && static_cast<rai::state_block const &> (*block.get ()).hashables.account != account))
+					if ((block->type () == nano::block_type::open && block->root () != account) || (block->type () == nano::block_type::state && static_cast<nano::state_block const &> (*block.get ()).hashables.account != account))
 					{
 						std::cerr << boost::str (boost::format ("Incorrect account field for block %1%\n") % hash.to_string ());
 					}
@@ -559,10 +559,10 @@ int main (int argc, char * const * argv)
 					{
 						bool invalid (true);
 						// Epoch blocks
-						if (!node.node->ledger.epoch_link.is_zero () && block->type () == rai::block_type::state)
+						if (!node.node->ledger.epoch_link.is_zero () && block->type () == nano::block_type::state)
 						{
-							auto & state_block (static_cast<rai::state_block &> (*block.get ()));
-							rai::amount prev_balance (0);
+							auto & state_block (static_cast<nano::state_block &> (*block.get ()));
+							nano::amount prev_balance (0);
 							if (!state_block.hashables.previous.is_zero ())
 							{
 								prev_balance = node.node->ledger.balance (transaction, state_block.hashables.previous);
@@ -578,9 +578,9 @@ int main (int argc, char * const * argv)
 						}
 					}
 					// Check if block work value is correct
-					if (rai::work_validate (*block.get ()))
+					if (nano::work_validate (*block.get ()))
 					{
-						std::cerr << boost::str (boost::format ("Invalid work for block %1% value: %2%\n") % hash.to_string () % rai::to_string_hex (block->block_work ()));
+						std::cerr << boost::str (boost::format ("Invalid work for block %1% value: %2%\n") % hash.to_string () % nano::to_string_hex (block->block_work ()));
 					}
 					// Retrieving successor block hash
 					hash = node.node->store.block_successor (transaction, hash);
@@ -595,8 +595,8 @@ int main (int argc, char * const * argv)
 				{
 					std::cout << boost::str (boost::format ("%1% pending blocks validated\n") % count);
 				}
-				rai::pending_key key (i->first);
-				rai::pending_info info (i->second);
+				nano::pending_key key (i->first);
+				nano::pending_info info (i->second);
 				// Check block existance
 				auto block (node.node->store.block_get (transaction, key.hash));
 				if (block == nullptr)
@@ -606,15 +606,15 @@ int main (int argc, char * const * argv)
 				else
 				{
 					// Check if pending destination is correct
-					rai::account destination (0);
-					if (auto state = dynamic_cast<rai::state_block *> (block.get ()))
+					nano::account destination (0);
+					if (auto state = dynamic_cast<nano::state_block *> (block.get ()))
 					{
 						if (node.node->ledger.is_send (transaction, *state))
 						{
 							destination = state->hashables.link;
 						}
 					}
-					else if (auto send = dynamic_cast<rai::send_block *> (block.get ()))
+					else if (auto send = dynamic_cast<nano::send_block *> (block.get ()))
 					{
 						destination = send->hashables.destination;
 					}
@@ -644,19 +644,19 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_profile_bootstrap"))
 		{
-			rai::inactive_node node2 (rai::unique_path (), 24001);
-			rai::genesis genesis;
+			nano::inactive_node node2 (nano::unique_path (), 24001);
+			nano::genesis genesis;
 			auto begin (std::chrono::high_resolution_clock::now ());
 			uint64_t block_count (0);
 			size_t count (0);
 			{
-				rai::inactive_node node (data_path, 24000);
+				nano::inactive_node node (data_path, 24000);
 				auto transaction (node.node->store.tx_begin ());
 				block_count = node.node->store.block_count (transaction).sum ();
 				std::cout << boost::str (boost::format ("Performing bootstrap emulation, %1% blocks in ledger...") % block_count) << std::endl;
 				for (auto i (node.node->store.latest_begin (transaction)), n (node.node->store.latest_end ()); i != n; ++i)
 				{
-					rai::account_info info (i->second);
+					nano::account_info info (i->second);
 					auto hash (info.head);
 					while (!hash.is_zero ())
 					{
@@ -692,12 +692,12 @@ int main (int argc, char * const * argv)
 			auto end (std::chrono::high_resolution_clock::now ());
 			auto time (std::chrono::duration_cast<std::chrono::microseconds> (end - begin).count ());
 			auto seconds (time / 1000000);
-			rai::remove_temporary_directories ();
+			nano::remove_temporary_directories ();
 			std::cout << boost::str (boost::format ("%|1$ 12d| seconds \n%2% blocks per second") % seconds % (block_count / seconds)) << std::endl;
 		}
 		else if (vm.count ("version"))
 		{
-			std::cout << "Version " << RAIBLOCKS_VERSION_MAJOR << "." << RAIBLOCKS_VERSION_MINOR << std::endl;
+			std::cout << "Version " << NANO_VERSION_MAJOR << "." << NANO_VERSION_MINOR << std::endl;
 		}
 		else
 		{

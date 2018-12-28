@@ -1,16 +1,16 @@
-#include <rai/node/peers.hpp>
+#include <nano/node/peers.hpp>
 
-rai::endpoint rai::map_endpoint_to_v6 (rai::endpoint const & endpoint_a)
+nano::endpoint nano::map_endpoint_to_v6 (nano::endpoint const & endpoint_a)
 {
 	auto endpoint_l (endpoint_a);
 	if (endpoint_l.address ().is_v4 ())
 	{
-		endpoint_l = rai::endpoint (boost::asio::ip::address_v6::v4_mapped (endpoint_l.address ().to_v4 ()), endpoint_l.port ());
+		endpoint_l = nano::endpoint (boost::asio::ip::address_v6::v4_mapped (endpoint_l.address ().to_v4 ()), endpoint_l.port ());
 	}
 	return endpoint_l;
 }
 
-rai::peer_information::peer_information (rai::endpoint const & endpoint_a, unsigned network_version_a) :
+nano::peer_information::peer_information (nano::endpoint const & endpoint_a, unsigned network_version_a) :
 endpoint (endpoint_a),
 ip_address (endpoint_a.address ()),
 last_contact (std::chrono::steady_clock::now ()),
@@ -24,7 +24,7 @@ node_id ()
 {
 }
 
-rai::peer_information::peer_information (rai::endpoint const & endpoint_a, std::chrono::steady_clock::time_point const & last_contact_a, std::chrono::steady_clock::time_point const & last_attempt_a) :
+nano::peer_information::peer_information (nano::endpoint const & endpoint_a, std::chrono::steady_clock::time_point const & last_contact_a, std::chrono::steady_clock::time_point const & last_attempt_a) :
 endpoint (endpoint_a),
 ip_address (endpoint_a.address ()),
 last_contact (last_contact_a),
@@ -33,23 +33,23 @@ last_bootstrap_attempt (std::chrono::steady_clock::time_point ()),
 last_rep_request (std::chrono::steady_clock::time_point ()),
 last_rep_response (std::chrono::steady_clock::time_point ()),
 rep_weight (0),
-network_version (rai::protocol_version),
+network_version (nano::protocol_version),
 node_id ()
 {
 }
 
-rai::peer_container::peer_container (rai::endpoint const & self_a) :
+nano::peer_container::peer_container (nano::endpoint const & self_a) :
 self (self_a),
-peer_observer ([](rai::endpoint const &) {}),
+peer_observer ([](nano::endpoint const &) {}),
 disconnect_observer ([]() {})
 {
 }
 
-bool rai::peer_container::contacted (rai::endpoint const & endpoint_a, unsigned version_a)
+bool nano::peer_container::contacted (nano::endpoint const & endpoint_a, unsigned version_a)
 {
-	auto endpoint_l (rai::map_endpoint_to_v6 (endpoint_a));
+	auto endpoint_l (nano::map_endpoint_to_v6 (endpoint_a));
 	auto should_handshake (false);
-	if (version_a < rai::node_id_version)
+	if (version_a < nano::node_id_version)
 	{
 		insert (endpoint_l, version_a);
 	}
@@ -57,7 +57,7 @@ bool rai::peer_container::contacted (rai::endpoint const & endpoint_a, unsigned 
 	{
 		std::lock_guard<std::mutex> lock (mutex);
 
-		if (peers.get<rai::peer_by_ip_addr> ().count (endpoint_l.address ()) < max_peers_per_ip)
+		if (peers.get<nano::peer_by_ip_addr> ().count (endpoint_l.address ()) < max_peers_per_ip)
 		{
 			should_handshake = true;
 		}
@@ -65,7 +65,7 @@ bool rai::peer_container::contacted (rai::endpoint const & endpoint_a, unsigned 
 	return should_handshake;
 }
 
-bool rai::peer_container::known_peer (rai::endpoint const & endpoint_a)
+bool nano::peer_container::known_peer (nano::endpoint const & endpoint_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	auto existing (peers.find (endpoint_a));
@@ -73,10 +73,10 @@ bool rai::peer_container::known_peer (rai::endpoint const & endpoint_a)
 }
 
 // Simulating with sqrt_broadcast_simulate shows we only need to broadcast to sqrt(total_peers) random peers in order to successfully publish to everyone with high probability
-std::deque<rai::endpoint> rai::peer_container::list_fanout ()
+std::deque<nano::endpoint> nano::peer_container::list_fanout ()
 {
 	auto peers (random_set (size_sqrt ()));
-	std::deque<rai::endpoint> result;
+	std::deque<nano::endpoint> result;
 	for (auto i (peers.begin ()), n (peers.end ()); i != n; ++i)
 	{
 		result.push_back (*i);
@@ -84,9 +84,9 @@ std::deque<rai::endpoint> rai::peer_container::list_fanout ()
 	return result;
 }
 
-std::deque<rai::endpoint> rai::peer_container::list ()
+std::deque<nano::endpoint> nano::peer_container::list ()
 {
-	std::deque<rai::endpoint> result;
+	std::deque<nano::endpoint> result;
 	std::lock_guard<std::mutex> lock (mutex);
 	for (auto i (peers.begin ()), j (peers.end ()); i != j; ++i)
 	{
@@ -96,18 +96,18 @@ std::deque<rai::endpoint> rai::peer_container::list ()
 	return result;
 }
 
-std::map<rai::endpoint, unsigned> rai::peer_container::list_version ()
+std::map<nano::endpoint, unsigned> nano::peer_container::list_version ()
 {
-	std::map<rai::endpoint, unsigned> result;
+	std::map<nano::endpoint, unsigned> result;
 	std::lock_guard<std::mutex> lock (mutex);
 	for (auto i (peers.begin ()), j (peers.end ()); i != j; ++i)
 	{
-		result.insert (std::pair<rai::endpoint, unsigned> (i->endpoint, i->network_version));
+		result.insert (std::pair<nano::endpoint, unsigned> (i->endpoint, i->network_version));
 	}
 	return result;
 }
 
-std::vector<rai::peer_information> rai::peer_container::list_vector (size_t count_a)
+std::vector<nano::peer_information> nano::peer_container::list_vector (size_t count_a)
 {
 	std::vector<peer_information> result;
 	std::lock_guard<std::mutex> lock (mutex);
@@ -118,14 +118,14 @@ std::vector<rai::peer_information> rai::peer_container::list_vector (size_t coun
 	std::random_shuffle (result.begin (), result.end ());
 	if (result.size () > count_a)
 	{
-		result.resize (count_a, rai::peer_information (rai::endpoint{}, 0));
+		result.resize (count_a, nano::peer_information (nano::endpoint{}, 0));
 	}
 	return result;
 }
 
-rai::endpoint rai::peer_container::bootstrap_peer ()
+nano::endpoint nano::peer_container::bootstrap_peer ()
 {
-	rai::endpoint result (boost::asio::ip::address_v6::any (), 0);
+	nano::endpoint result (boost::asio::ip::address_v6::any (), 0);
 	std::lock_guard<std::mutex> lock (mutex);
 	;
 	for (auto i (peers.get<4> ().begin ()), n (peers.get<4> ().end ()); i != n;)
@@ -133,7 +133,7 @@ rai::endpoint rai::peer_container::bootstrap_peer ()
 		if (i->network_version >= protocol_version_reasonable_min)
 		{
 			result = i->endpoint;
-			peers.get<4> ().modify (i, [](rai::peer_information & peer_a) {
+			peers.get<4> ().modify (i, [](nano::peer_information & peer_a) {
 				peer_a.last_bootstrap_attempt = std::chrono::steady_clock::now ();
 			});
 			i = n;
@@ -146,18 +146,18 @@ rai::endpoint rai::peer_container::bootstrap_peer ()
 	return result;
 }
 
-boost::optional<rai::uint256_union> rai::peer_container::assign_syn_cookie (rai::endpoint const & endpoint)
+boost::optional<nano::uint256_union> nano::peer_container::assign_syn_cookie (nano::endpoint const & endpoint)
 {
 	auto ip_addr (endpoint.address ());
 	assert (ip_addr.is_v6 ());
 	std::unique_lock<std::mutex> lock (syn_cookie_mutex);
 	unsigned & ip_cookies = syn_cookies_per_ip[ip_addr];
-	boost::optional<rai::uint256_union> result;
+	boost::optional<nano::uint256_union> result;
 	if (ip_cookies < max_peers_per_ip)
 	{
 		if (syn_cookies.find (endpoint) == syn_cookies.end ())
 		{
-			rai::uint256_union query;
+			nano::uint256_union query;
 			random_pool.GenerateBlock (query.bytes.data (), query.bytes.size ());
 			syn_cookie_info info{ query, std::chrono::steady_clock::now () };
 			syn_cookies[endpoint] = info;
@@ -168,14 +168,14 @@ boost::optional<rai::uint256_union> rai::peer_container::assign_syn_cookie (rai:
 	return result;
 }
 
-bool rai::peer_container::validate_syn_cookie (rai::endpoint const & endpoint, rai::account node_id, rai::signature sig)
+bool nano::peer_container::validate_syn_cookie (nano::endpoint const & endpoint, nano::account node_id, nano::signature sig)
 {
 	auto ip_addr (endpoint.address ());
 	assert (ip_addr.is_v6 ());
 	std::unique_lock<std::mutex> lock (syn_cookie_mutex);
 	auto result (true);
 	auto cookie_it (syn_cookies.find (endpoint));
-	if (cookie_it != syn_cookies.end () && !rai::validate_message (node_id, cookie_it->second.cookie, sig))
+	if (cookie_it != syn_cookies.end () && !nano::validate_message (node_id, cookie_it->second.cookie, sig))
 	{
 		result = false;
 		syn_cookies.erase (cookie_it);
@@ -192,9 +192,9 @@ bool rai::peer_container::validate_syn_cookie (rai::endpoint const & endpoint, r
 	return result;
 }
 
-std::unordered_set<rai::endpoint> rai::peer_container::random_set (size_t count_a)
+std::unordered_set<nano::endpoint> nano::peer_container::random_set (size_t count_a)
 {
-	std::unordered_set<rai::endpoint> result;
+	std::unordered_set<nano::endpoint> result;
 	result.reserve (count_a);
 	std::lock_guard<std::mutex> lock (mutex);
 	// Stop trying to fill result with random samples after this many attempts
@@ -218,11 +218,11 @@ std::unordered_set<rai::endpoint> rai::peer_container::random_set (size_t count_
 	return result;
 }
 
-void rai::peer_container::random_fill (std::array<rai::endpoint, 8> & target_a)
+void nano::peer_container::random_fill (std::array<nano::endpoint, 8> & target_a)
 {
 	auto peers (random_set (target_a.size ()));
 	assert (peers.size () <= target_a.size ());
-	auto endpoint (rai::endpoint (boost::asio::ip::address_v6{}, 0));
+	auto endpoint (nano::endpoint (boost::asio::ip::address_v6{}, 0));
 	assert (endpoint.address ().is_v6 ());
 	std::fill (target_a.begin (), target_a.end (), endpoint);
 	auto j (target_a.begin ());
@@ -235,7 +235,7 @@ void rai::peer_container::random_fill (std::array<rai::endpoint, 8> & target_a)
 }
 
 // Request a list of the top known representatives
-std::vector<rai::peer_information> rai::peer_container::representatives (size_t count_a)
+std::vector<nano::peer_information> nano::peer_container::representatives (size_t count_a)
 {
 	std::vector<peer_information> result;
 	result.reserve (std::min (count_a, size_t (16)));
@@ -250,7 +250,7 @@ std::vector<rai::peer_information> rai::peer_container::representatives (size_t 
 	return result;
 }
 
-void rai::peer_container::purge_syn_cookies (std::chrono::steady_clock::time_point const & cutoff)
+void nano::peer_container::purge_syn_cookies (std::chrono::steady_clock::time_point const & cutoff)
 {
 	std::lock_guard<std::mutex> lock (syn_cookie_mutex);
 	auto it (syn_cookies.begin ());
@@ -277,9 +277,9 @@ void rai::peer_container::purge_syn_cookies (std::chrono::steady_clock::time_poi
 	}
 }
 
-std::vector<rai::peer_information> rai::peer_container::purge_list (std::chrono::steady_clock::time_point const & cutoff)
+std::vector<nano::peer_information> nano::peer_container::purge_list (std::chrono::steady_clock::time_point const & cutoff)
 {
-	std::vector<rai::peer_information> result;
+	std::vector<nano::peer_information> result;
 	{
 		std::lock_guard<std::mutex> lock (mutex);
 		auto pivot (peers.get<1> ().lower_bound (cutoff));
@@ -288,7 +288,7 @@ std::vector<rai::peer_information> rai::peer_container::purge_list (std::chrono:
 		peers.get<1> ().erase (peers.get<1> ().begin (), pivot);
 		for (auto i (peers.begin ()), n (peers.end ()); i != n; ++i)
 		{
-			peers.modify (i, [](rai::peer_information & info) { info.last_attempt = std::chrono::steady_clock::now (); });
+			peers.modify (i, [](nano::peer_information & info) { info.last_attempt = std::chrono::steady_clock::now (); });
 		}
 
 		// Remove keepalive attempt tracking for attempts older than cutoff
@@ -302,9 +302,9 @@ std::vector<rai::peer_information> rai::peer_container::purge_list (std::chrono:
 	return result;
 }
 
-std::vector<rai::endpoint> rai::peer_container::rep_crawl ()
+std::vector<nano::endpoint> nano::peer_container::rep_crawl ()
 {
-	std::vector<rai::endpoint> result;
+	std::vector<nano::endpoint> result;
 	// If there is enough observed peers weight, crawl 10 peers. Otherwise - 40
 	uint16_t max_count = (total_weight () > online_weight_minimum) ? 10 : 40;
 	result.reserve (max_count);
@@ -317,22 +317,22 @@ std::vector<rai::endpoint> rai::peer_container::rep_crawl ()
 	return result;
 }
 
-size_t rai::peer_container::size ()
+size_t nano::peer_container::size ()
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	return peers.size ();
 }
 
-size_t rai::peer_container::size_sqrt ()
+size_t nano::peer_container::size_sqrt ()
 {
 	auto result (std::ceil (std::sqrt (size ())));
 	return result;
 }
 
-std::vector<rai::peer_information> rai::peer_container::list_probable_rep_weights ()
+std::vector<nano::peer_information> nano::peer_container::list_probable_rep_weights ()
 {
-	std::vector<rai::peer_information> result;
-	std::unordered_set<rai::account> probable_reps;
+	std::vector<nano::peer_information> result;
+	std::unordered_set<nano::account> probable_reps;
 	std::lock_guard<std::mutex> lock (mutex);
 	for (auto i (peers.get<6> ().begin ()), n (peers.get<6> ().end ()); i != n; ++i)
 	{
@@ -349,9 +349,9 @@ std::vector<rai::peer_information> rai::peer_container::list_probable_rep_weight
 	return result;
 }
 
-rai::uint128_t rai::peer_container::total_weight ()
+nano::uint128_t nano::peer_container::total_weight ()
 {
-	rai::uint128_t result (0);
+	nano::uint128_t result (0);
 	for (auto & entry : list_probable_rep_weights ())
 	{
 		result = result + entry.rep_weight.number ();
@@ -359,19 +359,19 @@ rai::uint128_t rai::peer_container::total_weight ()
 	return result;
 }
 
-bool rai::peer_container::empty ()
+bool nano::peer_container::empty ()
 {
 	return size () == 0;
 }
 
-bool rai::peer_container::not_a_peer (rai::endpoint const & endpoint_a, bool blacklist_loopback)
+bool nano::peer_container::not_a_peer (nano::endpoint const & endpoint_a, bool blacklist_loopback)
 {
 	bool result (false);
 	if (endpoint_a.address ().to_v6 ().is_unspecified ())
 	{
 		result = true;
 	}
-	else if (rai::reserved_address (endpoint_a, blacklist_loopback))
+	else if (nano::reserved_address (endpoint_a, blacklist_loopback))
 	{
 		result = true;
 	}
@@ -382,7 +382,7 @@ bool rai::peer_container::not_a_peer (rai::endpoint const & endpoint_a, bool bla
 	return result;
 }
 
-bool rai::peer_container::rep_response (rai::endpoint const & endpoint_a, rai::account const & rep_account_a, rai::amount const & weight_a)
+bool nano::peer_container::rep_response (nano::endpoint const & endpoint_a, nano::account const & rep_account_a, nano::amount const & weight_a)
 {
 	assert (endpoint_a.address ().is_v6 ());
 	auto updated (false);
@@ -390,7 +390,7 @@ bool rai::peer_container::rep_response (rai::endpoint const & endpoint_a, rai::a
 	auto existing (peers.find (endpoint_a));
 	if (existing != peers.end ())
 	{
-		peers.modify (existing, [weight_a, &updated, rep_account_a](rai::peer_information & info) {
+		peers.modify (existing, [weight_a, &updated, rep_account_a](nano::peer_information & info) {
 			info.last_rep_response = std::chrono::steady_clock::now ();
 			if (info.rep_weight < weight_a)
 			{
@@ -403,25 +403,25 @@ bool rai::peer_container::rep_response (rai::endpoint const & endpoint_a, rai::a
 	return updated;
 }
 
-void rai::peer_container::rep_request (rai::endpoint const & endpoint_a)
+void nano::peer_container::rep_request (nano::endpoint const & endpoint_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	auto existing (peers.find (endpoint_a));
 	if (existing != peers.end ())
 	{
-		peers.modify (existing, [](rai::peer_information & info) {
+		peers.modify (existing, [](nano::peer_information & info) {
 			info.last_rep_request = std::chrono::steady_clock::now ();
 		});
 	}
 }
 
-bool rai::peer_container::reachout (rai::endpoint const & endpoint_a)
+bool nano::peer_container::reachout (nano::endpoint const & endpoint_a)
 {
 	// Don't contact invalid IPs
 	bool error = not_a_peer (endpoint_a, false);
 	if (!error)
 	{
-		auto endpoint_l (rai::map_endpoint_to_v6 (endpoint_a));
+		auto endpoint_l (nano::map_endpoint_to_v6 (endpoint_a));
 		// Don't keepalive to nodes that already sent us something
 		error |= known_peer (endpoint_l);
 		std::lock_guard<std::mutex> lock (mutex);
@@ -432,20 +432,20 @@ bool rai::peer_container::reachout (rai::endpoint const & endpoint_a)
 	return error;
 }
 
-bool rai::peer_container::insert (rai::endpoint const & endpoint_a, unsigned version_a)
+bool nano::peer_container::insert (nano::endpoint const & endpoint_a, unsigned version_a)
 {
 	assert (endpoint_a.address ().is_v6 ());
 	auto unknown (false);
 	auto result (not_a_peer (endpoint_a, false));
 	if (!result)
 	{
-		if (version_a >= rai::protocol_version_min)
+		if (version_a >= nano::protocol_version_min)
 		{
 			std::lock_guard<std::mutex> lock (mutex);
 			auto existing (peers.find (endpoint_a));
 			if (existing != peers.end ())
 			{
-				peers.modify (existing, [](rai::peer_information & info) {
+				peers.modify (existing, [](nano::peer_information & info) {
 					info.last_contact = std::chrono::steady_clock::now ();
 				});
 				result = true;
@@ -453,9 +453,9 @@ bool rai::peer_container::insert (rai::endpoint const & endpoint_a, unsigned ver
 			else
 			{
 				unknown = true;
-				if (!result && rai_network != rai_networks::rai_test_network)
+				if (!result && nano_network != nano_networks::nano_test_network)
 				{
-					auto ip_peers (peers.get<rai::peer_by_ip_addr> ().count (endpoint_a.address ()));
+					auto ip_peers (peers.get<nano::peer_by_ip_addr> ().count (endpoint_a.address ()));
 					if (ip_peers >= max_peers_per_ip)
 					{
 						result = true;
@@ -463,7 +463,7 @@ bool rai::peer_container::insert (rai::endpoint const & endpoint_a, unsigned ver
 				}
 				if (!result)
 				{
-					peers.insert (rai::peer_information (endpoint_a, version_a));
+					peers.insert (nano::peer_information (endpoint_a, version_a));
 				}
 			}
 		}

@@ -3,9 +3,9 @@
 #include <boost/asio/ip/address_v4.hpp>
 #include <miniupnpc.h>
 #include <mutex>
-#include <rai/lib/config.hpp>
+#include <nano/lib/config.hpp>
 
-namespace rai
+namespace nano
 {
 class node;
 
@@ -24,7 +24,7 @@ public:
 class port_mapping
 {
 public:
-	port_mapping (rai::node &);
+	port_mapping (nano::node &);
 	void start ();
 	void stop ();
 	void refresh_devices ();
@@ -36,7 +36,7 @@ private:
 	void check_mapping_loop ();
 	int check_mapping ();
 	std::mutex mutex;
-	rai::node & node;
+	nano::node & node;
 	/** List of all UPnP devices */
 	UPNPDev * devices;
 	/** UPnP collected url information */
@@ -44,8 +44,8 @@ private:
 	/** UPnP state */
 	IGDdatas data;
 	/** Timeouts are primes so they infrequently happen at the same time */
-	static int constexpr mapping_timeout = rai::rai_network == rai::rai_networks::rai_test_network ? 53 : 3593;
-	static int constexpr check_timeout = rai::rai_network == rai::rai_networks::rai_test_network ? 17 : 53;
+	static int constexpr mapping_timeout = nano::nano_network == nano::nano_networks::nano_test_network ? 53 : 3593;
+	static int constexpr check_timeout = nano::nano_network == nano::nano_networks::nano_test_network ? 17 : 53;
 	boost::asio::ip::address_v4 address;
 	std::array<mapping_protocol, 2> protocols;
 	uint64_t check_count;

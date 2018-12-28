@@ -1,4 +1,4 @@
-if (RAIBLOCKS_SECURE_RPC)
+if (NANO_SECURE_RPC OR RAIBLOCKS_SECURE_RPC)
 	set (secure_rpc_sources rpc_secure.cpp rpc_secure.hpp)
 endif ()
 
@@ -52,7 +52,7 @@ add_library (node
 
 target_link_libraries (node
 	secure
-	rai_lib
+	nano_lib
 	libminiupnpc-static
 	argon2
 	lmdb
@@ -69,5 +69,5 @@ target_link_libraries (node
 
 target_compile_definitions(node
 	PRIVATE
-		-DRAIBLOCKS_VERSION_MAJOR=${CPACK_PACKAGE_VERSION_MAJOR}
-		-DRAIBLOCKS_VERSION_MINOR=${CPACK_PACKAGE_VERSION_MINOR})
+		-DNANO_VERSION_MAJOR=${CPACK_PACKAGE_VERSION_MAJOR}
+		-DNANO_VERSION_MINOR=${CPACK_PACKAGE_VERSION_MINOR})

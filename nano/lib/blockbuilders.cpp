@@ -1,6 +1,6 @@
 #include <cryptopp/osrng.h>
-#include <rai/lib/blockbuilders.hpp>
-#include <rai/secure/common.hpp>
+#include <nano/lib/blockbuilders.hpp>
+#include <nano/secure/common.hpp>
 #include <unordered_map>
 
 namespace
@@ -8,7 +8,7 @@ namespace
 template <typename BLOCKTYPE>
 void previous_hex_impl (std::string const & previous_hex, std::error_code & ec, BLOCKTYPE & block)
 {
-	rai::block_hash previous;
+	nano::block_hash previous;
 	if (!previous.decode_hex (previous_hex))
 	{
 		block->hashables.previous = previous;
@@ -22,7 +22,7 @@ void previous_hex_impl (std::string const & previous_hex, std::error_code & ec, 
 template <typename BLOCKTYPE>
 void account_hex_impl (std::string const & account_hex, std::error_code & ec, BLOCKTYPE & block)
 {
-	rai::account account;
+	nano::account account;
 	if (!account.decode_hex (account_hex))
 	{
 		block->hashables.account = account;
@@ -36,7 +36,7 @@ void account_hex_impl (std::string const & account_hex, std::error_code & ec, BL
 template <typename BLOCKTYPE>
 void account_address_impl (std::string const & address, std::error_code & ec, BLOCKTYPE & block)
 {
-	rai::account account;
+	nano::account account;
 	if (!account.decode_account (address))
 	{
 		block->hashables.account = account;
@@ -50,7 +50,7 @@ void account_address_impl (std::string const & address, std::error_code & ec, BL
 template <typename BLOCKTYPE>
 void representative_hex_impl (std::string const & account_hex, std::error_code & ec, BLOCKTYPE & block)
 {
-	rai::account account;
+	nano::account account;
 	if (!account.decode_hex (account_hex))
 	{
 		block->hashables.representative = account;
@@ -64,7 +64,7 @@ void representative_hex_impl (std::string const & account_hex, std::error_code &
 template <typename BLOCKTYPE>
 void representative_address_impl (std::string const & address, std::error_code & ec, BLOCKTYPE & block)
 {
-	rai::account account;
+	nano::account account;
 	if (!account.decode_account (address))
 	{
 		block->hashables.representative = account;
@@ -78,7 +78,7 @@ void representative_address_impl (std::string const & address, std::error_code &
 template <typename BLOCKTYPE>
 void destination_hex_impl (std::string const & account_hex, std::error_code & ec, BLOCKTYPE & block)
 {
-	rai::account account;
+	nano::account account;
 	if (!account.decode_hex (account_hex))
 	{
 		block->hashables.destination = account;
@@ -92,7 +92,7 @@ void destination_hex_impl (std::string const & account_hex, std::error_code & ec
 template <typename BLOCKTYPE>
 void destination_address_impl (std::string const & address, std::error_code & ec, BLOCKTYPE & block)
 {
-	rai::account account;
+	nano::account account;
 	if (!account.decode_account (address))
 	{
 		block->hashables.destination = account;
@@ -106,7 +106,7 @@ void destination_address_impl (std::string const & address, std::error_code & ec
 template <typename BLOCKTYPE>
 void source_hex_impl (std::string const & source_hex, std::error_code & ec, BLOCKTYPE & block)
 {
-	rai::block_hash source;
+	nano::block_hash source;
 	if (!source.decode_hex (source_hex))
 	{
 		block->hashables.source = source;
@@ -120,7 +120,7 @@ void source_hex_impl (std::string const & source_hex, std::error_code & ec, BLOC
 template <typename BLOCKTYPE>
 void balance_dec_impl (std::string const & balance_decimal, std::error_code & ec, BLOCKTYPE & block)
 {
-	rai::amount balance;
+	nano::amount balance;
 	if (!balance.decode_dec (balance_decimal))
 	{
 		block->hashables.balance = balance;
@@ -134,7 +134,7 @@ void balance_dec_impl (std::string const & balance_decimal, std::error_code & ec
 template <typename BLOCKTYPE>
 void balance_hex_impl (std::string const & balance_hex, std::error_code & ec, BLOCKTYPE & block)
 {
-	rai::amount balance;
+	nano::amount balance;
 	if (!balance.decode_hex (balance_hex))
 	{
 		block->hashables.balance = balance;
@@ -147,13 +147,13 @@ void balance_hex_impl (std::string const & balance_hex, std::error_code & ec, BL
 
 /* The cost of looking up the error_code map is only taken if field-presence checks fail */
 std::unordered_map<uint8_t, std::error_code> ec_map = {
-	{ static_cast<uint8_t> (rai::build_flags::account_present), nano::error_common::missing_account },
-	{ static_cast<uint8_t> (rai::build_flags::balance_present), nano::error_common::missing_balance },
-	{ static_cast<uint8_t> (rai::build_flags::link_present), nano::error_common::missing_link },
-	{ static_cast<uint8_t> (rai::build_flags::previous_present), nano::error_common::missing_previous },
-	{ static_cast<uint8_t> (rai::build_flags::representative_present), nano::error_common::missing_representative },
-	{ static_cast<uint8_t> (rai::build_flags::signature_present), nano::error_common::missing_signature },
-	{ static_cast<uint8_t> (rai::build_flags::work_present), nano::error_common::missing_work }
+	{ static_cast<uint8_t> (nano::build_flags::account_present), nano::error_common::missing_account },
+	{ static_cast<uint8_t> (nano::build_flags::balance_present), nano::error_common::missing_balance },
+	{ static_cast<uint8_t> (nano::build_flags::link_present), nano::error_common::missing_link },
+	{ static_cast<uint8_t> (nano::build_flags::previous_present), nano::error_common::missing_previous },
+	{ static_cast<uint8_t> (nano::build_flags::representative_present), nano::error_common::missing_representative },
+	{ static_cast<uint8_t> (nano::build_flags::signature_present), nano::error_common::missing_signature },
+	{ static_cast<uint8_t> (nano::build_flags::work_present), nano::error_common::missing_work }
 };
 
 /** Find first set bit as a mask, e.g. 10101000 => 0x08. Returns -1 if no bit is set. */
@@ -192,18 +192,18 @@ std::error_code check_fields_set (uint8_t block_all_flags, uint8_t build_state)
 }
 } // anonymous namespace
 
-rai::state_block_builder::state_block_builder ()
+nano::state_block_builder::state_block_builder ()
 {
 	make_block ();
 }
 
-rai::state_block_builder & rai::state_block_builder::make_block ()
+nano::state_block_builder & nano::state_block_builder::make_block ()
 {
 	construct_block ();
 	return *this;
 }
 
-void rai::state_block_builder::validate ()
+void nano::state_block_builder::validate ()
 {
 	if (!ec)
 	{
@@ -211,7 +211,7 @@ void rai::state_block_builder::validate ()
 	}
 }
 
-rai::state_block_builder & rai::state_block_builder::zero ()
+nano::state_block_builder & nano::state_block_builder::zero ()
 {
 	block->work = uint64_t (0);
 	block->signature.clear ();
@@ -224,93 +224,93 @@ rai::state_block_builder & rai::state_block_builder::zero ()
 	return *this;
 }
 
-rai::state_block_builder & rai::state_block_builder::account (rai::account account)
+nano::state_block_builder & nano::state_block_builder::account (nano::account account)
 {
 	block->hashables.account = account;
 	build_state |= build_flags::account_present;
 	return *this;
 }
 
-rai::state_block_builder & rai::state_block_builder::account_hex (std::string account_hex)
+nano::state_block_builder & nano::state_block_builder::account_hex (std::string account_hex)
 {
 	account_hex_impl (account_hex, ec, block);
 	build_state |= build_flags::account_present;
 	return *this;
 }
 
-rai::state_block_builder & rai::state_block_builder::account_address (std::string address)
+nano::state_block_builder & nano::state_block_builder::account_address (std::string address)
 {
 	account_address_impl (address, ec, block);
 	build_state |= build_flags::account_present;
 	return *this;
 }
 
-rai::state_block_builder & rai::state_block_builder::representative (rai::account account)
+nano::state_block_builder & nano::state_block_builder::representative (nano::account account)
 {
 	block->hashables.representative = account;
 	build_state |= build_flags::representative_present;
 	return *this;
 }
 
-rai::state_block_builder & rai::state_block_builder::representative_hex (std::string account_hex)
+nano::state_block_builder & nano::state_block_builder::representative_hex (std::string account_hex)
 {
 	representative_hex_impl (account_hex, ec, block);
 	build_state |= build_flags::representative_present;
 	return *this;
 }
 
-rai::state_block_builder & rai::state_block_builder::representative_address (std::string address)
+nano::state_block_builder & nano::state_block_builder::representative_address (std::string address)
 {
 	representative_address_impl (address, ec, block);
 	build_state |= build_flags::representative_present;
 	return *this;
 }
 
-rai::state_block_builder & rai::state_block_builder::previous (rai::block_hash previous)
+nano::state_block_builder & nano::state_block_builder::previous (nano::block_hash previous)
 {
 	block->hashables.previous = previous;
 	build_state |= build_flags::previous_present;
 	return *this;
 }
 
-rai::state_block_builder & rai::state_block_builder::previous_hex (std::string previous_hex)
+nano::state_block_builder & nano::state_block_builder::previous_hex (std::string previous_hex)
 {
 	previous_hex_impl (previous_hex, ec, block);
 	build_state |= build_flags::previous_present;
 	return *this;
 }
 
-rai::state_block_builder & rai::state_block_builder::balance (rai::amount balance)
+nano::state_block_builder & nano::state_block_builder::balance (nano::amount balance)
 {
 	block->hashables.balance = balance;
 	build_state |= build_flags::balance_present;
 	return *this;
 }
 
-rai::state_block_builder & rai::state_block_builder::balance_dec (std::string balance_decimal)
+nano::state_block_builder & nano::state_block_builder::balance_dec (std::string balance_decimal)
 {
 	balance_dec_impl (balance_decimal, ec, block);
 	build_state |= build_flags::balance_present;
 	return *this;
 }
 
-rai::state_block_builder & rai::state_block_builder::balance_hex (std::string balance_hex)
+nano::state_block_builder & nano::state_block_builder::balance_hex (std::string balance_hex)
 {
 	balance_hex_impl (balance_hex, ec, block);
 	build_state |= build_flags::balance_present;
 	return *this;
 }
 
-rai::state_block_builder & rai::state_block_builder::link (rai::uint256_union link)
+nano::state_block_builder & nano::state_block_builder::link (nano::uint256_union link)
 {
 	block->hashables.link = link;
 	build_state |= build_flags::link_present;
 	return *this;
 }
 
-rai::state_block_builder & rai::state_block_builder::link_hex (std::string link_hex)
+nano::state_block_builder & nano::state_block_builder::link_hex (std::string link_hex)
 {
-	rai::uint256_union link;
+	nano::uint256_union link;
 	if (!link.decode_hex (link_hex))
 	{
 		block->hashables.link = link;
@@ -323,9 +323,9 @@ rai::state_block_builder & rai::state_block_builder::link_hex (std::string link_
 	return *this;
 }
 
-rai::state_block_builder & rai::state_block_builder::link_address (std::string link_address)
+nano::state_block_builder & nano::state_block_builder::link_address (std::string link_address)
 {
-	rai::account link;
+	nano::account link;
 	if (!link.decode_account (link_address))
 	{
 		block->hashables.link = link;
@@ -338,18 +338,18 @@ rai::state_block_builder & rai::state_block_builder::link_address (std::string l
 	return *this;
 }
 
-rai::open_block_builder::open_block_builder ()
+nano::open_block_builder::open_block_builder ()
 {
 	make_block ();
 }
 
-rai::open_block_builder & rai::open_block_builder::make_block ()
+nano::open_block_builder & nano::open_block_builder::make_block ()
 {
 	construct_block ();
 	return *this;
 }
 
-void rai::open_block_builder::validate ()
+void nano::open_block_builder::validate ()
 {
 	if (!ec)
 	{
@@ -357,7 +357,7 @@ void rai::open_block_builder::validate ()
 	}
 }
 
-rai::open_block_builder & rai::open_block_builder::zero ()
+nano::open_block_builder & nano::open_block_builder::zero ()
 {
 	block->work = uint64_t (0);
 	block->signature.clear ();
@@ -368,74 +368,74 @@ rai::open_block_builder & rai::open_block_builder::zero ()
 	return *this;
 }
 
-rai::open_block_builder & rai::open_block_builder::account (rai::account account)
+nano::open_block_builder & nano::open_block_builder::account (nano::account account)
 {
 	block->hashables.account = account;
 	build_state |= build_flags::account_present;
 	return *this;
 }
 
-rai::open_block_builder & rai::open_block_builder::account_hex (std::string account_hex)
+nano::open_block_builder & nano::open_block_builder::account_hex (std::string account_hex)
 {
 	account_hex_impl (account_hex, ec, block);
 	build_state |= build_flags::account_present;
 	return *this;
 }
 
-rai::open_block_builder & rai::open_block_builder::account_address (std::string address)
+nano::open_block_builder & nano::open_block_builder::account_address (std::string address)
 {
 	account_address_impl (address, ec, block);
 	build_state |= build_flags::account_present;
 	return *this;
 }
 
-rai::open_block_builder & rai::open_block_builder::representative (rai::account account)
+nano::open_block_builder & nano::open_block_builder::representative (nano::account account)
 {
 	block->hashables.representative = account;
 	build_state |= build_flags::representative_present;
 	return *this;
 }
 
-rai::open_block_builder & rai::open_block_builder::representative_hex (std::string account_hex)
+nano::open_block_builder & nano::open_block_builder::representative_hex (std::string account_hex)
 {
 	representative_hex_impl (account_hex, ec, block);
 	build_state |= build_flags::representative_present;
 	return *this;
 }
 
-rai::open_block_builder & rai::open_block_builder::representative_address (std::string address)
+nano::open_block_builder & nano::open_block_builder::representative_address (std::string address)
 {
 	representative_address_impl (address, ec, block);
 	build_state |= build_flags::representative_present;
 	return *this;
 }
 
-rai::open_block_builder & rai::open_block_builder::source (rai::block_hash source)
+nano::open_block_builder & nano::open_block_builder::source (nano::block_hash source)
 {
 	block->hashables.source = source;
 	build_state |= build_flags::link_present;
 	return *this;
 }
 
-rai::open_block_builder & rai::open_block_builder::source_hex (std::string source_hex)
+nano::open_block_builder & nano::open_block_builder::source_hex (std::string source_hex)
 {
 	source_hex_impl (source_hex, ec, block);
 	build_state |= build_flags::link_present;
 	return *this;
 }
 
-rai::change_block_builder::change_block_builder ()
+nano::change_block_builder::change_block_builder ()
 {
 	make_block ();
 }
 
-rai::change_block_builder & rai::change_block_builder::make_block ()
+nano::change_block_builder & nano::change_block_builder::make_block ()
 {
 	construct_block ();
 	return *this;
 }
 
-void rai::change_block_builder::validate ()
+void nano::change_block_builder::validate ()
 {
 	if (!ec)
 	{
@@ -443,7 +443,7 @@ void rai::change_block_builder::validate ()
 	}
 }
 
-rai::change_block_builder & rai::change_block_builder::zero ()
+nano::change_block_builder & nano::change_block_builder::zero ()
 {
 	block->work = uint64_t (0);
 	block->signature.clear ();
@@ -453,53 +453,53 @@ rai::change_block_builder & rai::change_block_builder::zero ()
 	return *this;
 }
 
-rai::change_block_builder & rai::change_block_builder::representative (rai::account account)
+nano::change_block_builder & nano::change_block_builder::representative (nano::account account)
 {
 	block->hashables.representative = account;
 	build_state |= build_flags::representative_present;
 	return *this;
 }
 
-rai::change_block_builder & rai::change_block_builder::representative_hex (std::string account_hex)
+nano::change_block_builder & nano::change_block_builder::representative_hex (std::string account_hex)
 {
 	representative_hex_impl (account_hex, ec, block);
 	build_state |= build_flags::representative_present;
 	return *this;
 }
 
-rai::change_block_builder & rai::change_block_builder::representative_address (std::string address)
+nano::change_block_builder & nano::change_block_builder::representative_address (std::string address)
 {
 	representative_address_impl (address, ec, block);
 	build_state |= build_flags::representative_present;
 	return *this;
 }
 
-rai::change_block_builder & rai::change_block_builder::previous (rai::block_hash previous)
+nano::change_block_builder & nano::change_block_builder::previous (nano::block_hash previous)
 {
 	block->hashables.previous = previous;
 	build_state |= build_flags::previous_present;
 	return *this;
 }
 
-rai::change_block_builder & rai::change_block_builder::previous_hex (std::string previous_hex)
+nano::change_block_builder & nano::change_block_builder::previous_hex (std::string previous_hex)
 {
 	previous_hex_impl (previous_hex, ec, block);
 	build_state |= build_flags::previous_present;
 	return *this;
 }
 
-rai::send_block_builder::send_block_builder ()
+nano::send_block_builder::send_block_builder ()
 {
 	make_block ();
 }
 
-rai::send_block_builder & rai::send_block_builder::make_block ()
+nano::send_block_builder & nano::send_block_builder::make_block ()
 {
 	construct_block ();
 	return *this;
 }
 
-void rai::send_block_builder::validate ()
+void nano::send_block_builder::validate ()
 {
 	if (!ec)
 	{
@@ -507,7 +507,7 @@ void rai::send_block_builder::validate ()
 	}
 }
 
-rai::send_block_builder & rai::send_block_builder::zero ()
+nano::send_block_builder & nano::send_block_builder::zero ()
 {
 	block->work = uint64_t (0);
 	block->signature.clear ();
@@ -518,74 +518,74 @@ rai::send_block_builder & rai::send_block_builder::zero ()
 	return *this;
 }
 
-rai::send_block_builder & rai::send_block_builder::destination (rai::account account)
+nano::send_block_builder & nano::send_block_builder::destination (nano::account account)
 {
 	block->hashables.destination = account;
 	build_state |= build_flags::link_present;
 	return *this;
 }
 
-rai::send_block_builder & rai::send_block_builder::destination_hex (std::string account_hex)
+nano::send_block_builder & nano::send_block_builder::destination_hex (std::string account_hex)
 {
 	destination_hex_impl (account_hex, ec, block);
 	build_state |= build_flags::link_present;
 	return *this;
 }
 
-rai::send_block_builder & rai::send_block_builder::destination_address (std::string address)
+nano::send_block_builder & nano::send_block_builder::destination_address (std::string address)
 {
 	destination_address_impl (address, ec, block);
 	build_state |= build_flags::link_present;
 	return *this;
 }
 
-rai::send_block_builder & rai::send_block_builder::previous (rai::block_hash previous)
+nano::send_block_builder & nano::send_block_builder::previous (nano::block_hash previous)
 {
 	block->hashables.previous = previous;
 	build_state |= build_flags::previous_present;
 	return *this;
 }
 
-rai::send_block_builder & rai::send_block_builder::previous_hex (std::string previous_hex)
+nano::send_block_builder & nano::send_block_builder::previous_hex (std::string previous_hex)
 {
 	previous_hex_impl (previous_hex, ec, block);
 	build_state |= build_flags::previous_present;
 	return *this;
 }
 
-rai::send_block_builder & rai::send_block_builder::balance (rai::amount balance)
+nano::send_block_builder & nano::send_block_builder::balance (nano::amount balance)
 {
 	block->hashables.balance = balance;
 	build_state |= build_flags::balance_present;
 	return *this;
 }
 
-rai::send_block_builder & rai::send_block_builder::balance_dec (std::string balance_decimal)
+nano::send_block_builder & nano::send_block_builder::balance_dec (std::string balance_decimal)
 {
 	balance_dec_impl (balance_decimal, ec, block);
 	build_state |= build_flags::balance_present;
 	return *this;
 }
 
-rai::send_block_builder & rai::send_block_builder::balance_hex (std::string balance_hex)
+nano::send_block_builder & nano::send_block_builder::balance_hex (std::string balance_hex)
 {
 	balance_hex_impl (balance_hex, ec, block);
 	build_state |= build_flags::balance_present;
 	return *this;
 }
 
-rai::receive_block_builder::receive_block_builder ()
+nano::receive_block_builder::receive_block_builder ()
 {
 	make_block ();
 }
 
-rai::receive_block_builder & rai::receive_block_builder::make_block ()
+nano::receive_block_builder & nano::receive_block_builder::make_block ()
 {
 	construct_block ();
 	return *this;
 }
 
-void rai::receive_block_builder::validate ()
+void nano::receive_block_builder::validate ()
 {
 	if (!ec)
 	{
@@ -593,7 +593,7 @@ void rai::receive_block_builder::validate ()
 	}
 }
 
-rai::receive_block_builder & rai::receive_block_builder::zero ()
+nano::receive_block_builder & nano::receive_block_builder::zero ()
 {
 	block->work = uint64_t (0);
 	block->signature.clear ();
@@ -603,28 +603,28 @@ rai::receive_block_builder & rai::receive_block_builder::zero ()
 	return *this;
 }
 
-rai::receive_block_builder & rai::receive_block_builder::previous (rai::block_hash previous)
+nano::receive_block_builder & nano::receive_block_builder::previous (nano::block_hash previous)
 {
 	block->hashables.previous = previous;
 	build_state |= build_flags::previous_present;
 	return *this;
 }
 
-rai::receive_block_builder & rai::receive_block_builder::previous_hex (std::string previous_hex)
+nano::receive_block_builder & nano::receive_block_builder::previous_hex (std::string previous_hex)
 {
 	previous_hex_impl (previous_hex, ec, block);
 	build_state |= build_flags::previous_present;
 	return *this;
 }
 
-rai::receive_block_builder & rai::receive_block_builder::source (rai::block_hash source)
+nano::receive_block_builder & nano::receive_block_builder::source (nano::block_hash source)
 {
 	block->hashables.source = source;
 	build_state |= build_flags::link_present;
 	return *this;
 }
 
-rai::receive_block_builder & rai::receive_block_builder::source_hex (std::string source_hex)
+nano::receive_block_builder & nano::receive_block_builder::source_hex (std::string source_hex)
 {
 	source_hex_impl (source_hex, ec, block);
 	build_state |= build_flags::link_present;

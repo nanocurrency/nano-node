@@ -5,10 +5,10 @@
 #include <boost/beast.hpp>
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
-#include <rai/secure/utility.hpp>
+#include <nano/secure/utility.hpp>
 #include <unordered_map>
 
-namespace rai
+namespace nano
 {
 void error_response (std::function<void(boost::property_tree::ptree const &)> response_a, std::string const & message_a);
 class node;
@@ -65,57 +65,57 @@ class payment_observer;
 class rpc
 {
 public:
-	rpc (boost::asio::io_context &, rai::node &, rai::rpc_config const &);
+	rpc (boost::asio::io_context &, nano::node &, nano::rpc_config const &);
 	virtual ~rpc () = default;
 	void start ();
 	virtual void accept ();
 	void stop ();
-	void observer_action (rai::account const &);
+	void observer_action (nano::account const &);
 	boost::asio::ip::tcp::acceptor acceptor;
 	std::mutex mutex;
-	std::unordered_map<rai::account, std::shared_ptr<rai::payment_observer>> payment_observers;
-	rai::rpc_config config;
-	rai::node & node;
+	std::unordered_map<nano::account, std::shared_ptr<nano::payment_observer>> payment_observers;
+	nano::rpc_config config;
+	nano::node & node;
 	bool on;
-	static uint16_t const rpc_port = rai::rai_network == rai::rai_networks::rai_live_network ? 7076 : 55000;
+	static uint16_t const rpc_port = nano::nano_network == nano::nano_networks::nano_live_network ? 7076 : 55000;
 };
-class rpc_connection : public std::enable_shared_from_this<rai::rpc_connection>
+class rpc_connection : public std::enable_shared_from_this<nano::rpc_connection>
 {
 public:
-	rpc_connection (rai::node &, rai::rpc &);
+	rpc_connection (nano::node &, nano::rpc &);
 	virtual ~rpc_connection () = default;
 	virtual void parse_connection ();
 	virtual void read ();
 	virtual void write_result (std::string body, unsigned version);
-	std::shared_ptr<rai::node> node;
-	rai::rpc & rpc;
+	std::shared_ptr<nano::node> node;
+	nano::rpc & rpc;
 	boost::asio::ip::tcp::socket socket;
 	boost::beast::flat_buffer buffer;
 	boost::beast::http::request<boost::beast::http::string_body> request;
 	boost::beast::http::response<boost::beast::http::string_body> res;
 	std::atomic_flag responded;
 };
-class payment_observer : public std::enable_shared_from_this<rai::payment_observer>
+class payment_observer : public std::enable_shared_from_this<nano::payment_observer>
 {
 public:
-	payment_observer (std::function<void(boost::property_tree::ptree const &)> const &, rai::rpc &, rai::account const &, rai::amount const &);
+	payment_observer (std::function<void(boost::property_tree::ptree const &)> const &, nano::rpc &, nano::account const &, nano::amount const &);
 	~payment_observer ();
 	void start (uint64_t);
 	void observe ();
 	void timeout ();
-	void complete (rai::payment_status);
+	void complete (nano::payment_status);
 	std::mutex mutex;
 	std::condition_variable condition;
-	rai::rpc & rpc;
-	rai::account account;
-	rai::amount amount;
+	nano::rpc & rpc;
+	nano::account account;
+	nano::amount amount;
 	std::function<void(boost::property_tree::ptree const &)> response;
 	std::atomic_flag completed;
 };
-class rpc_handler : public std::enable_shared_from_this<rai::rpc_handler>
+class rpc_handler : public std::enable_shared_from_this<nano::rpc_handler>
 {
 public:
-	rpc_handler (rai::node &, rai::rpc &, std::string const &, std::string const &, std::function<void(boost::property_tree::ptree const &)> const &);
+	rpc_handler (nano::node &, nano::rpc &, std::string const &, std::string const &, std::function<void(boost::property_tree::ptree const &)> const &);
 	void process_request ();
 	void account_balance ();
 	void account_block_count ();
@@ -163,8 +163,8 @@ public:
 	void key_create ();
 	void key_expand ();
 	void ledger ();
-	void mrai_to_raw (rai::uint128_t = rai::Mxrb_ratio);
-	void mrai_from_raw (rai::uint128_t = rai::Mxrb_ratio);
+	void mrai_to_raw (nano::uint128_t = nano::Mxrb_ratio);
+	void mrai_from_raw (nano::uint128_t = nano::Mxrb_ratio);
 	void node_id ();
 	void node_id_delete ();
 	void password_change ();
@@ -223,23 +223,23 @@ public:
 	void work_peers_clear ();
 	std::string body;
 	std::string request_id;
-	rai::node & node;
-	rai::rpc & rpc;
+	nano::node & node;
+	nano::rpc & rpc;
 	boost::property_tree::ptree request;
 	std::function<void(boost::property_tree::ptree const &)> response;
 	void response_errors ();
 	std::error_code ec;
 	boost::property_tree::ptree response_l;
-	std::shared_ptr<rai::wallet> wallet_impl ();
-	rai::account account_impl (std::string = "");
-	rai::amount amount_impl ();
-	rai::block_hash hash_impl (std::string = "hash");
-	rai::amount threshold_optional_impl ();
+	std::shared_ptr<nano::wallet> wallet_impl ();
+	nano::account account_impl (std::string = "");
+	nano::amount amount_impl ();
+	nano::block_hash hash_impl (std::string = "hash");
+	nano::amount threshold_optional_impl ();
 	uint64_t work_optional_impl ();
 	uint64_t count_impl ();
 	uint64_t count_optional_impl (uint64_t = std::numeric_limits<uint64_t>::max ());
 	bool rpc_control_impl ();
 };
 /** Returns the correct RPC implementation based on TLS configuration */
-std::unique_ptr<rai::rpc> get_rpc (boost::asio::io_context & io_ctx_a, rai::node & node_a, rai::rpc_config const & config_a);
+std::unique_ptr<nano::rpc> get_rpc (boost::asio::io_context & io_ctx_a, nano::node & node_a, nano::rpc_config const & config_a);
 }

@@ -9,7 +9,7 @@
 #include <thread>
 #include <vector>
 
-namespace rai
+namespace nano
 {
 // Lower priority of calling work generating thread
 void work_thread_reprioritize ();
@@ -43,8 +43,8 @@ namespace thread_role
 		voting,
 		signature_checking,
 	};
-	rai::thread_role::name get (void);
-	void set (rai::thread_role::name);
+	nano::thread_role::name get (void);
+	void set (nano::thread_role::name);
 	void set_name (std::string);
 }
 

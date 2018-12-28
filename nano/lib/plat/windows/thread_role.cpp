@@ -1,11 +1,11 @@
 #include <windows.h>
 
+#include <nano/lib/utility.hpp>
 #include <processthreadsapi.h>
-#include <rai/lib/utility.hpp>
 
 typedef HRESULT (*SetThreadDescription_t) (HANDLE, PCWSTR);
 
-void rai::thread_role::set_name (std::string thread_name)
+void nano::thread_role::set_name (std::string thread_name)
 {
 	SetThreadDescription_t SetThreadDescription_local;
 

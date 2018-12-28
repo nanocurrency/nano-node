@@ -1,17 +1,17 @@
 #pragma once
 #include <boost/asio/ssl/context.hpp>
 #include <boost/asio/ssl/stream.hpp>
-#include <rai/node/rpc.hpp>
+#include <nano/node/rpc.hpp>
 
-namespace rai
+namespace nano
 {
 /**
- * Specialization of rai::rpc with TLS support
+ * Specialization of nano::rpc with TLS support
  */
 class rpc_secure : public rpc
 {
 public:
-	rpc_secure (boost::asio::io_service & service_a, rai::node & node_a, rai::rpc_config const & config_a);
+	rpc_secure (boost::asio::io_service & service_a, nano::node & node_a, nano::rpc_config const & config_a);
 
 	/** Starts accepting connections */
 	void accept () override;
@@ -30,13 +30,13 @@ public:
 };
 
 /**
- * Specialization of rai::rpc_connection for establishing TLS connections.
+ * Specialization of nano::rpc_connection for establishing TLS connections.
  * Handshakes with client certificates are supported.
  */
 class rpc_connection_secure : public rpc_connection
 {
 public:
-	rpc_connection_secure (rai::node &, rai::rpc_secure &);
+	rpc_connection_secure (nano::node &, nano::rpc_secure &);
 	void parse_connection () override;
 	void read () override;
 	/** The TLS handshake callback */

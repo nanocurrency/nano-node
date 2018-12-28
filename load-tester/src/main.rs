@@ -428,7 +428,7 @@ fn run(params: Parameters) -> Result<()> {
 
 fn main() {
     env_logger::init();
-    let matches = clap::App::new("raiblocks-load-tester")
+    let matches = clap::App::new("nano-load-tester")
         .version(env!("CARGO_PKG_VERSION"))
         .arg(
             Arg::with_name("node_count")
@@ -442,13 +442,13 @@ fn main() {
             Arg::with_name("tmp_dir")
                 .long("tmp-dir")
                 .value_name("PATH")
-                .help("The path to a temporary directory for rai_node data"),
+                .help("The path to a temporary directory for nano_node data"),
         )
         .arg(
             Arg::with_name("node_path")
                 .value_name("PATH")
                 .required(true)
-                .help("The path to the rai_node to test"),
+                .help("The path to the nano_node to test"),
         )
         .arg(
             Arg::with_name("send_count")

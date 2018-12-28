@@ -11,7 +11,7 @@ else ()
 endif ()
 
 # Embed bootstrap representative weights in executable
-if (${ACTIVE_NETWORK} MATCHES "rai_beta_network")
+if (${ACTIVE_NETWORK} MATCHES "nano_beta_network")
 	set (REP_WEIGHTS_BIN_NAME "rep_weights_beta.bin")
 else ()
 	set (REP_WEIGHTS_BIN_NAME "rep_weights_live.bin")
@@ -20,9 +20,9 @@ endif ()
 file (READ ${CMAKE_SOURCE_DIR}/${REP_WEIGHTS_BIN_NAME} filedata HEX)
 string (REGEX REPLACE "(..)" "0x\\1," filedata ${filedata})
 file (WRITE ${CMAKE_BINARY_DIR}/bootstrap_weights.cpp "#include <cstddef>\n"
-	"namespace rai {\n"
-	"	unsigned char rai_bootstrap_weights[] = {${filedata} 0x00};\n"
-	"	size_t rai_bootstrap_weights_size = sizeof(rai_bootstrap_weights) - 1;\n"
+	"namespace nano {\n"
+	"	unsigned char nano_bootstrap_weights[] = {${filedata} 0x00};\n"
+	"	size_t nano_bootstrap_weights_size = sizeof(nano_bootstrap_weights) - 1;\n"
 	"}\n")
 
 add_library (secure
@@ -41,7 +41,7 @@ add_library (secure
 
 target_link_libraries(secure
 	ed25519
-	rai_lib
+	nano_lib
 	lmdb
 	Boost::boost
 	Boost::system

@@ -1,5 +1,5 @@
-#include <rai/rai_wallet/icon.hpp>
+#include <nano/nano_wallet/icon.hpp>
 
-void rai::set_application_icon (QApplication &)
+void nano::set_application_icon (QApplication &)
 {
 }

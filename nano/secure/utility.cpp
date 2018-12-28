@@ -1,36 +1,36 @@
-#include <rai/secure/utility.hpp>
+#include <nano/secure/utility.hpp>
 
-#include <rai/lib/interface.h>
-#include <rai/node/working.hpp>
+#include <nano/lib/interface.h>
+#include <nano/node/working.hpp>
 
 static std::vector<boost::filesystem::path> all_unique_paths;
 
-boost::filesystem::path rai::working_path ()
+boost::filesystem::path nano::working_path ()
 {
-	auto result (rai::app_path ());
-	switch (rai::rai_network)
+	auto result (nano::app_path ());
+	switch (nano::nano_network)
 	{
-		case rai::rai_networks::rai_test_network:
-			result /= "RaiBlocksTest";
+		case nano::nano_networks::nano_test_network:
+			result /= "NanoTest";
 			break;
-		case rai::rai_networks::rai_beta_network:
-			result /= "RaiBlocksBeta";
+		case nano::nano_networks::nano_beta_network:
+			result /= "NanoBeta";
 			break;
-		case rai::rai_networks::rai_live_network:
-			result /= "RaiBlocks";
+		case nano::nano_networks::nano_live_network:
+			result /= "Nano";
 			break;
 	}
 	return result;
 }
 
-boost::filesystem::path rai::unique_path ()
+boost::filesystem::path nano::unique_path ()
 {
 	auto result (working_path () / boost::filesystem::unique_path ());
 	all_unique_paths.push_back (result);
 	return result;
 }
 
-std::vector<boost::filesystem::path> rai::remove_temporary_directories ()
+std::vector<boost::filesystem::path> nano::remove_temporary_directories ()
 {
 	for (auto & path : all_unique_paths)
 	{
@@ -53,7 +53,7 @@ std::vector<boost::filesystem::path> rai::remove_temporary_directories ()
 	return all_unique_paths;
 }
 
-void rai::open_or_create (std::fstream & stream_a, std::string const & path_a)
+void nano::open_or_create (std::fstream & stream_a, std::string const & path_a)
 {
 	stream_a.open (path_a, std::ios_base::in);
 	if (stream_a.fail ())

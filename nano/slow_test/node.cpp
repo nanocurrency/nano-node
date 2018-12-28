@@ -1,12 +1,12 @@
 #include <gtest/gtest.h>
-#include <rai/node/testing.hpp>
+#include <nano/node/testing.hpp>
 
 #include <thread>
 
 TEST (system, generate_mass_activity)
 {
-	rai::system system (24000, 1);
-	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	nano::system system (24000, 1);
+	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	size_t count (20);
 	system.generate_mass_activity (count, *system.nodes[0]);
 	size_t accounts (0);
@@ -19,9 +19,9 @@ TEST (system, generate_mass_activity)
 
 TEST (system, generate_mass_activity_long)
 {
-	rai::system system (24000, 1);
-	rai::thread_runner runner (system.io_ctx, system.nodes[0]->config.io_threads);
-	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	nano::system system (24000, 1);
+	nano::thread_runner runner (system.io_ctx, system.nodes[0]->config.io_threads);
+	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	size_t count (1000000000);
 	system.generate_mass_activity (count, *system.nodes[0]);
 	size_t accounts (0);
@@ -38,14 +38,14 @@ TEST (system, receive_while_synchronizing)
 {
 	std::vector<boost::thread> threads;
 	{
-		rai::system system (24000, 1);
-		rai::thread_runner runner (system.io_ctx, system.nodes[0]->config.io_threads);
-		system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+		nano::system system (24000, 1);
+		nano::thread_runner runner (system.io_ctx, system.nodes[0]->config.io_threads);
+		system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 		size_t count (1000);
 		system.generate_mass_activity (count, *system.nodes[0]);
-		rai::keypair key;
-		rai::node_init init1;
-		auto node1 (std::make_shared<rai::node> (init1, system.io_ctx, 24001, rai::unique_path (), system.alarm, system.logging, system.work));
+		nano::keypair key;
+		nano::node_init init1;
+		auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, 24001, nano::unique_path (), system.alarm, system.logging, system.work));
 		ASSERT_FALSE (init1.error ());
 		node1->network.send_keepalive (system.nodes[0]->network.endpoint ());
 		auto wallet (node1->wallets.create (1));
@@ -53,7 +53,7 @@ TEST (system, receive_while_synchronizing)
 		node1->start ();
 		system.nodes.push_back (node1);
 		system.alarm.add (std::chrono::steady_clock::now () + std::chrono::milliseconds (200), ([&system, &key]() {
-			auto hash (system.wallet (0)->send_sync (rai::test_genesis_key.pub, key.pub, system.nodes[0]->config.receive_minimum.number ()));
+			auto hash (system.wallet (0)->send_sync (nano::test_genesis_key.pub, key.pub, system.nodes[0]->config.receive_minimum.number ()));
 			auto transaction (system.nodes[0]->store.tx_begin ());
 			auto block (system.nodes[0]->store.block_get (transaction, hash));
 			std::string block_text;
@@ -76,29 +76,29 @@ TEST (system, receive_while_synchronizing)
 TEST (ledger, deep_account_compute)
 {
 	bool init (false);
-	rai::mdb_store store (init, rai::unique_path ());
+	nano::mdb_store store (init, nano::unique_path ());
 	ASSERT_FALSE (init);
-	rai::stat stats;
-	rai::ledger ledger (store, stats);
-	rai::genesis genesis;
+	nano::stat stats;
+	nano::ledger ledger (store, stats);
+	nano::genesis genesis;
 	auto transaction (store.tx_begin (true));
 	store.initialize (transaction, genesis);
-	rai::keypair key;
-	auto balance (rai::genesis_amount - 1);
-	rai::send_block send (genesis.hash (), key.pub, balance, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
-	ASSERT_EQ (rai::process_result::progress, ledger.process (transaction, send).code);
-	rai::open_block open (send.hash (), rai::test_genesis_key.pub, key.pub, key.prv, key.pub, 0);
-	ASSERT_EQ (rai::process_result::progress, ledger.process (transaction, open).code);
+	nano::keypair key;
+	auto balance (nano::genesis_amount - 1);
+	nano::send_block send (genesis.hash (), key.pub, balance, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
+	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send).code);
+	nano::open_block open (send.hash (), nano::test_genesis_key.pub, key.pub, key.prv, key.pub, 0);
+	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, open).code);
 	auto sprevious (send.hash ());
 	auto rprevious (open.hash ());
 	for (auto i (0), n (100000); i != n; ++i)
 	{
 		balance -= 1;
-		rai::send_block send (sprevious, key.pub, balance, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
-		ASSERT_EQ (rai::process_result::progress, ledger.process (transaction, send).code);
+		nano::send_block send (sprevious, key.pub, balance, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
+		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send).code);
 		sprevious = send.hash ();
-		rai::receive_block receive (rprevious, send.hash (), key.prv, key.pub, 0);
-		ASSERT_EQ (rai::process_result::progress, ledger.process (transaction, receive).code);
+		nano::receive_block receive (rprevious, send.hash (), key.prv, key.pub, 0);
+		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, receive).code);
 		rprevious = receive.hash ();
 		if (i % 100 == 0)
 		{
@@ -115,20 +115,20 @@ TEST (wallet, multithreaded_send)
 {
 	std::vector<boost::thread> threads;
 	{
-		rai::system system (24000, 1);
-		rai::keypair key;
+		nano::system system (24000, 1);
+		nano::keypair key;
 		auto wallet_l (system.wallet (0));
-		wallet_l->insert_adhoc (rai::test_genesis_key.prv);
+		wallet_l->insert_adhoc (nano::test_genesis_key.prv);
 		for (auto i (0); i < 20; ++i)
 		{
 			threads.push_back (boost::thread ([wallet_l, &key]() {
 				for (auto i (0); i < 1000; ++i)
 				{
-					wallet_l->send_action (rai::test_genesis_key.pub, key.pub, 1000);
+					wallet_l->send_action (nano::test_genesis_key.pub, key.pub, 1000);
 				}
 			}));
 		}
-		while (system.nodes[0]->balance (rai::test_genesis_key.pub) != (rai::genesis_amount - 20 * 1000 * 1000))
+		while (system.nodes[0]->balance (nano::test_genesis_key.pub) != (nano::genesis_amount - 20 * 1000 * 1000))
 		{
 			system.poll ();
 		}
@@ -141,7 +141,7 @@ TEST (wallet, multithreaded_send)
 
 TEST (store, load)
 {
-	rai::system system (24000, 1);
+	nano::system system (24000, 1);
 	std::vector<boost::thread> threads;
 	for (auto i (0); i < 100; ++i)
 	{
@@ -151,9 +151,9 @@ TEST (store, load)
 				auto transaction (system.nodes[0]->store.tx_begin (true));
 				for (auto j (0); j != 10; ++j)
 				{
-					rai::block_hash hash;
-					rai::random_pool.GenerateBlock (hash.bytes.data (), hash.bytes.size ());
-					system.nodes[0]->store.account_put (transaction, hash, rai::account_info ());
+					nano::block_hash hash;
+					nano::random_pool.GenerateBlock (hash.bytes.data (), hash.bytes.size ());
+					system.nodes[0]->store.account_put (transaction, hash, nano::account_info ());
 				}
 			}
 		}));
@@ -166,26 +166,26 @@ TEST (store, load)
 
 TEST (node, fork_storm)
 {
-	rai::system system (24000, 64);
-	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
-	auto previous (system.nodes[0]->latest (rai::test_genesis_key.pub));
-	auto balance (system.nodes[0]->balance (rai::test_genesis_key.pub));
+	nano::system system (24000, 64);
+	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
+	auto previous (system.nodes[0]->latest (nano::test_genesis_key.pub));
+	auto balance (system.nodes[0]->balance (nano::test_genesis_key.pub));
 	ASSERT_FALSE (previous.is_zero ());
 	for (auto j (0); j != system.nodes.size (); ++j)
 	{
 		balance -= 1;
-		rai::keypair key;
-		rai::send_block send (previous, key.pub, balance, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
+		nano::keypair key;
+		nano::send_block send (previous, key.pub, balance, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
 		previous = send.hash ();
 		for (auto i (0); i != system.nodes.size (); ++i)
 		{
 			auto send_result (system.nodes[i]->process (send));
-			ASSERT_EQ (rai::process_result::progress, send_result.code);
-			rai::keypair rep;
-			auto open (std::make_shared<rai::open_block> (previous, rep.pub, key.pub, key.prv, key.pub, 0));
+			ASSERT_EQ (nano::process_result::progress, send_result.code);
+			nano::keypair rep;
+			auto open (std::make_shared<nano::open_block> (previous, rep.pub, key.pub, key.prv, key.pub, 0));
 			system.nodes[i]->work_generate_blocking (*open);
 			auto open_result (system.nodes[i]->process (*open));
-			ASSERT_EQ (rai::process_result::progress, open_result.code);
+			ASSERT_EQ (nano::process_result::progress, open_result.code);
 			auto transaction (system.nodes[i]->store.tx_begin ());
 			system.nodes[i]->network.republish_block (open);
 		}
@@ -199,7 +199,7 @@ TEST (node, fork_storm)
 	{
 		empty = 0;
 		single = 0;
-		std::for_each (system.nodes.begin (), system.nodes.end (), [&](std::shared_ptr<rai::node> const & node_a) {
+		std::for_each (system.nodes.begin (), system.nodes.end (), [&](std::shared_ptr<nano::node> const & node_a) {
 			if (node_a->active.roots.empty ())
 			{
 				++empty;
@@ -323,7 +323,7 @@ TEST (broadcast, sqrt_broadcast_simulate)
 					for (auto j (0); j != broadcast_count; ++j)
 					{
 						++message_count;
-						auto entry (rai::random_pool.GenerateWord32 (0, node_count - 1));
+						auto entry (nano::random_pool.GenerateWord32 (0, node_count - 1));
 						switch (nodes[entry])
 						{
 							case 0:
@@ -355,10 +355,10 @@ TEST (broadcast, sqrt_broadcast_simulate)
 TEST (peer_container, random_set)
 {
 	auto loopback (boost::asio::ip::address_v6::loopback ());
-	rai::peer_container container (rai::endpoint (loopback, 24000));
+	nano::peer_container container (nano::endpoint (loopback, 24000));
 	for (auto i (0); i < 200; ++i)
 	{
-		container.contacted (rai::endpoint (loopback, 24001 + i), 0);
+		container.contacted (nano::endpoint (loopback, 24001 + i), 0);
 	}
 	auto old (std::chrono::steady_clock::now ());
 	for (auto i (0); i < 10000; ++i)
@@ -380,9 +380,9 @@ TEST (peer_container, random_set)
 
 TEST (store, unchecked_load)
 {
-	rai::system system (24000, 1);
+	nano::system system (24000, 1);
 	auto & node (*system.nodes[0]);
-	auto block (std::make_shared<rai::send_block> (0, 0, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
+	auto block (std::make_shared<nano::send_block> (0, 0, 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
 	for (auto i (0); i < 1000000; ++i)
 	{
 		auto transaction (node.store.tx_begin (true));
@@ -395,27 +395,27 @@ TEST (store, unchecked_load)
 
 TEST (store, vote_load)
 {
-	rai::system system (24000, 1);
+	nano::system system (24000, 1);
 	auto & node (*system.nodes[0]);
-	auto block (std::make_shared<rai::send_block> (0, 0, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0));
+	auto block (std::make_shared<nano::send_block> (0, 0, 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
 	for (auto i (0); i < 1000000; ++i)
 	{
-		auto vote (std::make_shared<rai::vote> (rai::test_genesis_key.pub, rai::test_genesis_key.prv, i, block));
+		auto vote (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, i, block));
 		node.vote_processor.vote (vote, system.nodes[0]->network.endpoint ());
 	}
 }
 
 TEST (node, mass_vote_by_hash)
 {
-	rai::system system (24000, 1);
-	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
-	rai::genesis genesis;
-	rai::block_hash previous (genesis.hash ());
-	rai::keypair key;
-	std::vector<std::shared_ptr<rai::state_block>> blocks;
+	nano::system system (24000, 1);
+	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
+	nano::genesis genesis;
+	nano::block_hash previous (genesis.hash ());
+	nano::keypair key;
+	std::vector<std::shared_ptr<nano::state_block>> blocks;
 	for (auto i (0); i < 10000; ++i)
 	{
-		auto block (std::make_shared<rai::state_block> (rai::test_genesis_key.pub, previous, rai::test_genesis_key.pub, rai::genesis_amount - (i + 1) * rai::Gxrb_ratio, key.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (previous)));
+		auto block (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, previous, nano::test_genesis_key.pub, nano::genesis_amount - (i + 1) * nano::Gxrb_ratio, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (previous)));
 		previous = block->hash ();
 		blocks.push_back (block);
 	}

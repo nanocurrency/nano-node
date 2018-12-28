@@ -1,9 +1,9 @@
-#include <rai/node/working.hpp>
+#include <nano/node/working.hpp>
 
 #include <pwd.h>
 #include <sys/types.h>
 
-namespace rai
+namespace nano
 {
 boost::filesystem::path app_path ()
 {

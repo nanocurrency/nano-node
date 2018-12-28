@@ -1,5 +1,5 @@
-#include <rai/lib/blocks.hpp>
-#include <rai/lib/numbers.hpp>
+#include <nano/lib/blocks.hpp>
+#include <nano/lib/numbers.hpp>
 
 #include <boost/endian/conversion.hpp>
 
@@ -9,14 +9,14 @@
 namespace
 {
 template <typename T>
-bool blocks_equal (T const & first, rai::block const & second)
+bool blocks_equal (T const & first, nano::block const & second)
 {
-	static_assert (std::is_base_of<rai::block, T>::value, "Input parameter is not a block type");
+	static_assert (std::is_base_of<nano::block, T>::value, "Input parameter is not a block type");
 	return (first.type () == second.type ()) && (static_cast<T const &> (second)) == first;
 }
 }
 
-std::string rai::to_string_hex (uint64_t value_a)
+std::string nano::to_string_hex (uint64_t value_a)
 {
 	std::stringstream stream;
 	stream << std::hex << std::noshowbase << std::setw (16) << std::setfill ('0');
@@ -24,7 +24,7 @@ std::string rai::to_string_hex (uint64_t value_a)
 	return stream.str ();
 }
 
-bool rai::from_string_hex (std::string const & value_a, uint64_t & target_a)
+bool nano::from_string_hex (std::string const & value_a, uint64_t & target_a)
 {
 	auto error (value_a.empty ());
 	if (!error)
@@ -53,16 +53,16 @@ bool rai::from_string_hex (std::string const & value_a, uint64_t & target_a)
 	return error;
 }
 
-std::string rai::block::to_json ()
+std::string nano::block::to_json ()
 {
 	std::string result;
 	serialize_json (result);
 	return result;
 }
 
-rai::block_hash rai::block::hash () const
+nano::block_hash nano::block::hash () const
 {
-	rai::uint256_union result;
+	nano::uint256_union result;
 	blake2b_state hash_l;
 	auto status (blake2b_init (&hash_l, sizeof (result.bytes)));
 	assert (status == 0);
@@ -72,9 +72,9 @@ rai::block_hash rai::block::hash () const
 	return result;
 }
 
-rai::block_hash rai::block::full_hash () const
+nano::block_hash nano::block::full_hash () const
 {
-	rai::block_hash result;
+	nano::block_hash result;
 	blake2b_state state;
 	blake2b_init (&state, sizeof (result.bytes));
 	blake2b_update (&state, hash ().bytes.data (), sizeof (hash ()));
@@ -86,47 +86,47 @@ rai::block_hash rai::block::full_hash () const
 	return result;
 }
 
-void rai::send_block::visit (rai::block_visitor & visitor_a) const
+void nano::send_block::visit (nano::block_visitor & visitor_a) const
 {
 	visitor_a.send_block (*this);
 }
 
-void rai::send_block::hash (blake2b_state & hash_a) const
+void nano::send_block::hash (blake2b_state & hash_a) const
 {
 	hashables.hash (hash_a);
 }
 
-uint64_t rai::send_block::block_work () const
+uint64_t nano::send_block::block_work () const
 {
 	return work;
 }
 
-void rai::send_block::block_work_set (uint64_t work_a)
+void nano::send_block::block_work_set (uint64_t work_a)
 {
 	work = work_a;
 }
 
-rai::send_hashables::send_hashables (rai::block_hash const & previous_a, rai::account const & destination_a, rai::amount const & balance_a) :
+nano::send_hashables::send_hashables (nano::block_hash const & previous_a, nano::account const & destination_a, nano::amount const & balance_a) :
 previous (previous_a),
 destination (destination_a),
 balance (balance_a)
 {
 }
 
-rai::send_hashables::send_hashables (bool & error_a, rai::stream & stream_a)
+nano::send_hashables::send_hashables (bool & error_a, nano::stream & stream_a)
 {
-	error_a = rai::read (stream_a, previous.bytes);
+	error_a = nano::read (stream_a, previous.bytes);
 	if (!error_a)
 	{
-		error_a = rai::read (stream_a, destination.bytes);
+		error_a = nano::read (stream_a, destination.bytes);
 		if (!error_a)
 		{
-			error_a = rai::read (stream_a, balance.bytes);
+			error_a = nano::read (stream_a, balance.bytes);
 		}
 	}
 }
 
-rai::send_hashables::send_hashables (bool & error_a, boost::property_tree::ptree const & tree_a)
+nano::send_hashables::send_hashables (bool & error_a, boost::property_tree::ptree const & tree_a)
 {
 	try
 	{
@@ -149,7 +149,7 @@ rai::send_hashables::send_hashables (bool & error_a, boost::property_tree::ptree
 	}
 }
 
-void rai::send_hashables::hash (blake2b_state & hash_a) const
+void nano::send_hashables::hash (blake2b_state & hash_a) const
 {
 	auto status (blake2b_update (&hash_a, previous.bytes.data (), sizeof (previous.bytes)));
 	assert (status == 0);
@@ -159,7 +159,7 @@ void rai::send_hashables::hash (blake2b_state & hash_a) const
 	assert (status == 0);
 }
 
-void rai::send_block::serialize (rai::stream & stream_a) const
+void nano::send_block::serialize (nano::stream & stream_a) const
 {
 	write (stream_a, hashables.previous.bytes);
 	write (stream_a, hashables.destination.bytes);
@@ -168,7 +168,7 @@ void rai::send_block::serialize (rai::stream & stream_a) const
 	write (stream_a, work);
 }
 
-void rai::send_block::serialize_json (std::string & string_a) const
+void nano::send_block::serialize_json (std::string & string_a) const
 {
 	boost::property_tree::ptree tree;
 	tree.put ("type", "send");
@@ -181,14 +181,14 @@ void rai::send_block::serialize_json (std::string & string_a) const
 	tree.put ("balance", balance);
 	std::string signature_l;
 	signature.encode_hex (signature_l);
-	tree.put ("work", rai::to_string_hex (work));
+	tree.put ("work", nano::to_string_hex (work));
 	tree.put ("signature", signature_l);
 	std::stringstream ostream;
 	boost::property_tree::write_json (ostream, tree);
 	string_a = ostream.str ();
 }
 
-bool rai::send_block::deserialize (rai::stream & stream_a)
+bool nano::send_block::deserialize (nano::stream & stream_a)
 {
 	auto error (false);
 	error = read (stream_a, hashables.previous.bytes);
@@ -211,7 +211,7 @@ bool rai::send_block::deserialize (rai::stream & stream_a)
 	return error;
 }
 
-bool rai::send_block::deserialize_json (boost::property_tree::ptree const & tree_a)
+bool nano::send_block::deserialize_json (boost::property_tree::ptree const & tree_a)
 {
 	auto error (false);
 	try
@@ -231,7 +231,7 @@ bool rai::send_block::deserialize_json (boost::property_tree::ptree const & tree
 				error = hashables.balance.decode_hex (balance_l);
 				if (!error)
 				{
-					error = rai::from_string_hex (work_l, work);
+					error = nano::from_string_hex (work_l, work);
 					if (!error)
 					{
 						error = signature.decode_hex (signature_l);
@@ -247,27 +247,27 @@ bool rai::send_block::deserialize_json (boost::property_tree::ptree const & tree
 	return error;
 }
 
-rai::send_block::send_block (rai::block_hash const & previous_a, rai::account const & destination_a, rai::amount const & balance_a, rai::raw_key const & prv_a, rai::public_key const & pub_a, uint64_t work_a) :
+nano::send_block::send_block (nano::block_hash const & previous_a, nano::account const & destination_a, nano::amount const & balance_a, nano::raw_key const & prv_a, nano::public_key const & pub_a, uint64_t work_a) :
 hashables (previous_a, destination_a, balance_a),
-signature (rai::sign_message (prv_a, pub_a, hash ())),
+signature (nano::sign_message (prv_a, pub_a, hash ())),
 work (work_a)
 {
 }
 
-rai::send_block::send_block (bool & error_a, rai::stream & stream_a) :
+nano::send_block::send_block (bool & error_a, nano::stream & stream_a) :
 hashables (error_a, stream_a)
 {
 	if (!error_a)
 	{
-		error_a = rai::read (stream_a, signature.bytes);
+		error_a = nano::read (stream_a, signature.bytes);
 		if (!error_a)
 		{
-			error_a = rai::read (stream_a, work);
+			error_a = nano::read (stream_a, work);
 		}
 	}
 }
 
-rai::send_block::send_block (bool & error_a, boost::property_tree::ptree const & tree_a) :
+nano::send_block::send_block (bool & error_a, boost::property_tree::ptree const & tree_a) :
 hashables (error_a, tree_a)
 {
 	if (!error_a)
@@ -279,7 +279,7 @@ hashables (error_a, tree_a)
 			error_a = signature.decode_hex (signature_l);
 			if (!error_a)
 			{
-				error_a = rai::from_string_hex (work_l, work);
+				error_a = nano::from_string_hex (work_l, work);
 			}
 		}
 		catch (std::runtime_error const &)
@@ -289,20 +289,20 @@ hashables (error_a, tree_a)
 	}
 }
 
-bool rai::send_block::operator== (rai::block const & other_a) const
+bool nano::send_block::operator== (nano::block const & other_a) const
 {
 	return blocks_equal (*this, other_a);
 }
 
-bool rai::send_block::valid_predecessor (rai::block const & block_a) const
+bool nano::send_block::valid_predecessor (nano::block const & block_a) const
 {
 	bool result;
 	switch (block_a.type ())
 	{
-		case rai::block_type::send:
-		case rai::block_type::receive:
-		case rai::block_type::open:
-		case rai::block_type::change:
+		case nano::block_type::send:
+		case nano::block_type::receive:
+		case nano::block_type::open:
+		case nano::block_type::change:
 			result = true;
 			break;
 		default:
@@ -312,73 +312,73 @@ bool rai::send_block::valid_predecessor (rai::block const & block_a) const
 	return result;
 }
 
-rai::block_type rai::send_block::type () const
+nano::block_type nano::send_block::type () const
 {
-	return rai::block_type::send;
+	return nano::block_type::send;
 }
 
-bool rai::send_block::operator== (rai::send_block const & other_a) const
+bool nano::send_block::operator== (nano::send_block const & other_a) const
 {
 	auto result (hashables.destination == other_a.hashables.destination && hashables.previous == other_a.hashables.previous && hashables.balance == other_a.hashables.balance && work == other_a.work && signature == other_a.signature);
 	return result;
 }
 
-rai::block_hash rai::send_block::previous () const
+nano::block_hash nano::send_block::previous () const
 {
 	return hashables.previous;
 }
 
-rai::block_hash rai::send_block::source () const
+nano::block_hash nano::send_block::source () const
 {
 	return 0;
 }
 
-rai::block_hash rai::send_block::root () const
+nano::block_hash nano::send_block::root () const
 {
 	return hashables.previous;
 }
 
-rai::block_hash rai::send_block::link () const
+nano::block_hash nano::send_block::link () const
 {
 	return 0;
 }
 
-rai::account rai::send_block::representative () const
+nano::account nano::send_block::representative () const
 {
 	return 0;
 }
 
-rai::signature rai::send_block::block_signature () const
+nano::signature nano::send_block::block_signature () const
 {
 	return signature;
 }
 
-void rai::send_block::signature_set (rai::uint512_union const & signature_a)
+void nano::send_block::signature_set (nano::uint512_union const & signature_a)
 {
 	signature = signature_a;
 }
 
-rai::open_hashables::open_hashables (rai::block_hash const & source_a, rai::account const & representative_a, rai::account const & account_a) :
+nano::open_hashables::open_hashables (nano::block_hash const & source_a, nano::account const & representative_a, nano::account const & account_a) :
 source (source_a),
 representative (representative_a),
 account (account_a)
 {
 }
 
-rai::open_hashables::open_hashables (bool & error_a, rai::stream & stream_a)
+nano::open_hashables::open_hashables (bool & error_a, nano::stream & stream_a)
 {
-	error_a = rai::read (stream_a, source.bytes);
+	error_a = nano::read (stream_a, source.bytes);
 	if (!error_a)
 	{
-		error_a = rai::read (stream_a, representative.bytes);
+		error_a = nano::read (stream_a, representative.bytes);
 		if (!error_a)
 		{
-			error_a = rai::read (stream_a, account.bytes);
+			error_a = nano::read (stream_a, account.bytes);
 		}
 	}
 }
 
-rai::open_hashables::open_hashables (bool & error_a, boost::property_tree::ptree const & tree_a)
+nano::open_hashables::open_hashables (bool & error_a, boost::property_tree::ptree const & tree_a)
 {
 	try
 	{
@@ -401,42 +401,42 @@ rai::open_hashables::open_hashables (bool & error_a, boost::property_tree::ptree
 	}
 }
 
-void rai::open_hashables::hash (blake2b_state & hash_a) const
+void nano::open_hashables::hash (blake2b_state & hash_a) const
 {
 	blake2b_update (&hash_a, source.bytes.data (), sizeof (source.bytes));
 	blake2b_update (&hash_a, representative.bytes.data (), sizeof (representative.bytes));
 	blake2b_update (&hash_a, account.bytes.data (), sizeof (account.bytes));
 }
 
-rai::open_block::open_block (rai::block_hash const & source_a, rai::account const & representative_a, rai::account const & account_a, rai::raw_key const & prv_a, rai::public_key const & pub_a, uint64_t work_a) :
+nano::open_block::open_block (nano::block_hash const & source_a, nano::account const & representative_a, nano::account const & account_a, nano::raw_key const & prv_a, nano::public_key const & pub_a, uint64_t work_a) :
 hashables (source_a, representative_a, account_a),
-signature (rai::sign_message (prv_a, pub_a, hash ())),
+signature (nano::sign_message (prv_a, pub_a, hash ())),
 work (work_a)
 {
 	assert (!representative_a.is_zero ());
 }
 
-rai::open_block::open_block (rai::block_hash const & source_a, rai::account const & representative_a, rai::account const & account_a, std::nullptr_t) :
+nano::open_block::open_block (nano::block_hash const & source_a, nano::account const & representative_a, nano::account const & account_a, std::nullptr_t) :
 hashables (source_a, representative_a, account_a),
 work (0)
 {
 	signature.clear ();
 }
 
-rai::open_block::open_block (bool & error_a, rai::stream & stream_a) :
+nano::open_block::open_block (bool & error_a, nano::stream & stream_a) :
 hashables (error_a, stream_a)
 {
 	if (!error_a)
 	{
-		error_a = rai::read (stream_a, signature);
+		error_a = nano::read (stream_a, signature);
 		if (!error_a)
 		{
-			error_a = rai::read (stream_a, work);
+			error_a = nano::read (stream_a, work);
 		}
 	}
 }
 
-rai::open_block::open_block (bool & error_a, boost::property_tree::ptree const & tree_a) :
+nano::open_block::open_block (bool & error_a, boost::property_tree::ptree const & tree_a) :
 hashables (error_a, tree_a)
 {
 	if (!error_a)
@@ -445,7 +445,7 @@ hashables (error_a, tree_a)
 		{
 			auto work_l (tree_a.get<std::string> ("work"));
 			auto signature_l (tree_a.get<std::string> ("signature"));
-			error_a = rai::from_string_hex (work_l, work);
+			error_a = nano::from_string_hex (work_l, work);
 			if (!error_a)
 			{
 				error_a = signature.decode_hex (signature_l);
@@ -458,28 +458,28 @@ hashables (error_a, tree_a)
 	}
 }
 
-void rai::open_block::hash (blake2b_state & hash_a) const
+void nano::open_block::hash (blake2b_state & hash_a) const
 {
 	hashables.hash (hash_a);
 }
 
-uint64_t rai::open_block::block_work () const
+uint64_t nano::open_block::block_work () const
 {
 	return work;
 }
 
-void rai::open_block::block_work_set (uint64_t work_a)
+void nano::open_block::block_work_set (uint64_t work_a)
 {
 	work = work_a;
 }
 
-rai::block_hash rai::open_block::previous () const
+nano::block_hash nano::open_block::previous () const
 {
-	rai::block_hash result (0);
+	nano::block_hash result (0);
 	return result;
 }
 
-void rai::open_block::serialize (rai::stream & stream_a) const
+void nano::open_block::serialize (nano::stream & stream_a) const
 {
 	write (stream_a, hashables.source);
 	write (stream_a, hashables.representative);
@@ -488,7 +488,7 @@ void rai::open_block::serialize (rai::stream & stream_a) const
 	write (stream_a, work);
 }
 
-void rai::open_block::serialize_json (std::string & string_a) const
+void nano::open_block::serialize_json (std::string & string_a) const
 {
 	boost::property_tree::ptree tree;
 	tree.put ("type", "open");
@@ -497,14 +497,14 @@ void rai::open_block::serialize_json (std::string & string_a) const
 	tree.put ("account", hashables.account.to_account ());
 	std::string signature_l;
 	signature.encode_hex (signature_l);
-	tree.put ("work", rai::to_string_hex (work));
+	tree.put ("work", nano::to_string_hex (work));
 	tree.put ("signature", signature_l);
 	std::stringstream ostream;
 	boost::property_tree::write_json (ostream, tree);
 	string_a = ostream.str ();
 }
 
-bool rai::open_block::deserialize (rai::stream & stream_a)
+bool nano::open_block::deserialize (nano::stream & stream_a)
 {
 	auto error (read (stream_a, hashables.source));
 	if (!error)
@@ -526,7 +526,7 @@ bool rai::open_block::deserialize (rai::stream & stream_a)
 	return error;
 }
 
-bool rai::open_block::deserialize_json (boost::property_tree::ptree const & tree_a)
+bool nano::open_block::deserialize_json (boost::property_tree::ptree const & tree_a)
 {
 	auto error (false);
 	try
@@ -546,7 +546,7 @@ bool rai::open_block::deserialize_json (boost::property_tree::ptree const & tree
 				error = hashables.account.decode_hex (account_l);
 				if (!error)
 				{
-					error = rai::from_string_hex (work_l, work);
+					error = nano::from_string_hex (work_l, work);
 					if (!error)
 					{
 						error = signature.decode_hex (signature_l);
@@ -562,77 +562,77 @@ bool rai::open_block::deserialize_json (boost::property_tree::ptree const & tree
 	return error;
 }
 
-void rai::open_block::visit (rai::block_visitor & visitor_a) const
+void nano::open_block::visit (nano::block_visitor & visitor_a) const
 {
 	visitor_a.open_block (*this);
 }
 
-rai::block_type rai::open_block::type () const
+nano::block_type nano::open_block::type () const
 {
-	return rai::block_type::open;
+	return nano::block_type::open;
 }
 
-bool rai::open_block::operator== (rai::block const & other_a) const
+bool nano::open_block::operator== (nano::block const & other_a) const
 {
 	return blocks_equal (*this, other_a);
 }
 
-bool rai::open_block::operator== (rai::open_block const & other_a) const
+bool nano::open_block::operator== (nano::open_block const & other_a) const
 {
 	return hashables.source == other_a.hashables.source && hashables.representative == other_a.hashables.representative && hashables.account == other_a.hashables.account && work == other_a.work && signature == other_a.signature;
 }
 
-bool rai::open_block::valid_predecessor (rai::block const & block_a) const
+bool nano::open_block::valid_predecessor (nano::block const & block_a) const
 {
 	return false;
 }
 
-rai::block_hash rai::open_block::source () const
+nano::block_hash nano::open_block::source () const
 {
 	return hashables.source;
 }
 
-rai::block_hash rai::open_block::root () const
+nano::block_hash nano::open_block::root () const
 {
 	return hashables.account;
 }
 
-rai::block_hash rai::open_block::link () const
+nano::block_hash nano::open_block::link () const
 {
 	return 0;
 }
 
-rai::account rai::open_block::representative () const
+nano::account nano::open_block::representative () const
 {
 	return hashables.representative;
 }
 
-rai::signature rai::open_block::block_signature () const
+nano::signature nano::open_block::block_signature () const
 {
 	return signature;
 }
 
-void rai::open_block::signature_set (rai::uint512_union const & signature_a)
+void nano::open_block::signature_set (nano::uint512_union const & signature_a)
 {
 	signature = signature_a;
 }
 
-rai::change_hashables::change_hashables (rai::block_hash const & previous_a, rai::account const & representative_a) :
+nano::change_hashables::change_hashables (nano::block_hash const & previous_a, nano::account const & representative_a) :
 previous (previous_a),
 representative (representative_a)
 {
 }
 
-rai::change_hashables::change_hashables (bool & error_a, rai::stream & stream_a)
+nano::change_hashables::change_hashables (bool & error_a, nano::stream & stream_a)
 {
-	error_a = rai::read (stream_a, previous);
+	error_a = nano::read (stream_a, previous);
 	if (!error_a)
 	{
-		error_a = rai::read (stream_a, representative);
+		error_a = nano::read (stream_a, representative);
 	}
 }
 
-rai::change_hashables::change_hashables (bool & error_a, boost::property_tree::ptree const & tree_a)
+nano::change_hashables::change_hashables (bool & error_a, boost::property_tree::ptree const & tree_a)
 {
 	try
 	{
@@ -650,33 +650,33 @@ rai::change_hashables::change_hashables (bool & error_a, boost::property_tree::p
 	}
 }
 
-void rai::change_hashables::hash (blake2b_state & hash_a) const
+void nano::change_hashables::hash (blake2b_state & hash_a) const
 {
 	blake2b_update (&hash_a, previous.bytes.data (), sizeof (previous.bytes));
 	blake2b_update (&hash_a, representative.bytes.data (), sizeof (representative.bytes));
 }
 
-rai::change_block::change_block (rai::block_hash const & previous_a, rai::account const & representative_a, rai::raw_key const & prv_a, rai::public_key const & pub_a, uint64_t work_a) :
+nano::change_block::change_block (nano::block_hash const & previous_a, nano::account const & representative_a, nano::raw_key const & prv_a, nano::public_key const & pub_a, uint64_t work_a) :
 hashables (previous_a, representative_a),
-signature (rai::sign_message (prv_a, pub_a, hash ())),
+signature (nano::sign_message (prv_a, pub_a, hash ())),
 work (work_a)
 {
 }
 
-rai::change_block::change_block (bool & error_a, rai::stream & stream_a) :
+nano::change_block::change_block (bool & error_a, nano::stream & stream_a) :
 hashables (error_a, stream_a)
 {
 	if (!error_a)
 	{
-		error_a = rai::read (stream_a, signature);
+		error_a = nano::read (stream_a, signature);
 		if (!error_a)
 		{
-			error_a = rai::read (stream_a, work);
+			error_a = nano::read (stream_a, work);
 		}
 	}
 }
 
-rai::change_block::change_block (bool & error_a, boost::property_tree::ptree const & tree_a) :
+nano::change_block::change_block (bool & error_a, boost::property_tree::ptree const & tree_a) :
 hashables (error_a, tree_a)
 {
 	if (!error_a)
@@ -685,7 +685,7 @@ hashables (error_a, tree_a)
 		{
 			auto work_l (tree_a.get<std::string> ("work"));
 			auto signature_l (tree_a.get<std::string> ("signature"));
-			error_a = rai::from_string_hex (work_l, work);
+			error_a = nano::from_string_hex (work_l, work);
 			if (!error_a)
 			{
 				error_a = signature.decode_hex (signature_l);
@@ -698,27 +698,27 @@ hashables (error_a, tree_a)
 	}
 }
 
-void rai::change_block::hash (blake2b_state & hash_a) const
+void nano::change_block::hash (blake2b_state & hash_a) const
 {
 	hashables.hash (hash_a);
 }
 
-uint64_t rai::change_block::block_work () const
+uint64_t nano::change_block::block_work () const
 {
 	return work;
 }
 
-void rai::change_block::block_work_set (uint64_t work_a)
+void nano::change_block::block_work_set (uint64_t work_a)
 {
 	work = work_a;
 }
 
-rai::block_hash rai::change_block::previous () const
+nano::block_hash nano::change_block::previous () const
 {
 	return hashables.previous;
 }
 
-void rai::change_block::serialize (rai::stream & stream_a) const
+void nano::change_block::serialize (nano::stream & stream_a) const
 {
 	write (stream_a, hashables.previous);
 	write (stream_a, hashables.representative);
@@ -726,13 +726,13 @@ void rai::change_block::serialize (rai::stream & stream_a) const
 	write (stream_a, work);
 }
 
-void rai::change_block::serialize_json (std::string & string_a) const
+void nano::change_block::serialize_json (std::string & string_a) const
 {
 	boost::property_tree::ptree tree;
 	tree.put ("type", "change");
 	tree.put ("previous", hashables.previous.to_string ());
 	tree.put ("representative", representative ().to_account ());
-	tree.put ("work", rai::to_string_hex (work));
+	tree.put ("work", nano::to_string_hex (work));
 	std::string signature_l;
 	signature.encode_hex (signature_l);
 	tree.put ("signature", signature_l);
@@ -741,7 +741,7 @@ void rai::change_block::serialize_json (std::string & string_a) const
 	string_a = ostream.str ();
 }
 
-bool rai::change_block::deserialize (rai::stream & stream_a)
+bool nano::change_block::deserialize (nano::stream & stream_a)
 {
 	auto error (read (stream_a, hashables.previous));
 	if (!error)
@@ -759,7 +759,7 @@ bool rai::change_block::deserialize (rai::stream & stream_a)
 	return error;
 }
 
-bool rai::change_block::deserialize_json (boost::property_tree::ptree const & tree_a)
+bool nano::change_block::deserialize_json (boost::property_tree::ptree const & tree_a)
 {
 	auto error (false);
 	try
@@ -775,7 +775,7 @@ bool rai::change_block::deserialize_json (boost::property_tree::ptree const & tr
 			error = hashables.representative.decode_hex (representative_l);
 			if (!error)
 			{
-				error = rai::from_string_hex (work_l, work);
+				error = nano::from_string_hex (work_l, work);
 				if (!error)
 				{
 					error = signature.decode_hex (signature_l);
@@ -790,35 +790,35 @@ bool rai::change_block::deserialize_json (boost::property_tree::ptree const & tr
 	return error;
 }
 
-void rai::change_block::visit (rai::block_visitor & visitor_a) const
+void nano::change_block::visit (nano::block_visitor & visitor_a) const
 {
 	visitor_a.change_block (*this);
 }
 
-rai::block_type rai::change_block::type () const
+nano::block_type nano::change_block::type () const
 {
-	return rai::block_type::change;
+	return nano::block_type::change;
 }
 
-bool rai::change_block::operator== (rai::block const & other_a) const
+bool nano::change_block::operator== (nano::block const & other_a) const
 {
 	return blocks_equal (*this, other_a);
 }
 
-bool rai::change_block::operator== (rai::change_block const & other_a) const
+bool nano::change_block::operator== (nano::change_block const & other_a) const
 {
 	return hashables.previous == other_a.hashables.previous && hashables.representative == other_a.hashables.representative && work == other_a.work && signature == other_a.signature;
 }
 
-bool rai::change_block::valid_predecessor (rai::block const & block_a) const
+bool nano::change_block::valid_predecessor (nano::block const & block_a) const
 {
 	bool result;
 	switch (block_a.type ())
 	{
-		case rai::block_type::send:
-		case rai::block_type::receive:
-		case rai::block_type::open:
-		case rai::block_type::change:
+		case nano::block_type::send:
+		case nano::block_type::receive:
+		case nano::block_type::open:
+		case nano::block_type::change:
 			result = true;
 			break;
 		default:
@@ -828,37 +828,37 @@ bool rai::change_block::valid_predecessor (rai::block const & block_a) const
 	return result;
 }
 
-rai::block_hash rai::change_block::source () const
+nano::block_hash nano::change_block::source () const
 {
 	return 0;
 }
 
-rai::block_hash rai::change_block::root () const
+nano::block_hash nano::change_block::root () const
 {
 	return hashables.previous;
 }
 
-rai::block_hash rai::change_block::link () const
+nano::block_hash nano::change_block::link () const
 {
 	return 0;
 }
 
-rai::account rai::change_block::representative () const
+nano::account nano::change_block::representative () const
 {
 	return hashables.representative;
 }
 
-rai::signature rai::change_block::block_signature () const
+nano::signature nano::change_block::block_signature () const
 {
 	return signature;
 }
 
-void rai::change_block::signature_set (rai::uint512_union const & signature_a)
+void nano::change_block::signature_set (nano::uint512_union const & signature_a)
 {
 	signature = signature_a;
 }
 
-rai::state_hashables::state_hashables (rai::account const & account_a, rai::block_hash const & previous_a, rai::account const & representative_a, rai::amount const & balance_a, rai::uint256_union const & link_a) :
+nano::state_hashables::state_hashables (nano::account const & account_a, nano::block_hash const & previous_a, nano::account const & representative_a, nano::amount const & balance_a, nano::uint256_union const & link_a) :
 account (account_a),
 previous (previous_a),
 representative (representative_a),
@@ -867,28 +867,28 @@ link (link_a)
 {
 }
 
-rai::state_hashables::state_hashables (bool & error_a, rai::stream & stream_a)
+nano::state_hashables::state_hashables (bool & error_a, nano::stream & stream_a)
 {
-	error_a = rai::read (stream_a, account);
+	error_a = nano::read (stream_a, account);
 	if (!error_a)
 	{
-		error_a = rai::read (stream_a, previous);
+		error_a = nano::read (stream_a, previous);
 		if (!error_a)
 		{
-			error_a = rai::read (stream_a, representative);
+			error_a = nano::read (stream_a, representative);
 			if (!error_a)
 			{
-				error_a = rai::read (stream_a, balance);
+				error_a = nano::read (stream_a, balance);
 				if (!error_a)
 				{
-					error_a = rai::read (stream_a, link);
+					error_a = nano::read (stream_a, link);
 				}
 			}
 		}
 	}
 }
 
-rai::state_hashables::state_hashables (bool & error_a, boost::property_tree::ptree const & tree_a)
+nano::state_hashables::state_hashables (bool & error_a, boost::property_tree::ptree const & tree_a)
 {
 	try
 	{
@@ -921,7 +921,7 @@ rai::state_hashables::state_hashables (bool & error_a, boost::property_tree::ptr
 	}
 }
 
-void rai::state_hashables::hash (blake2b_state & hash_a) const
+void nano::state_hashables::hash (blake2b_state & hash_a) const
 {
 	blake2b_update (&hash_a, account.bytes.data (), sizeof (account.bytes));
 	blake2b_update (&hash_a, previous.bytes.data (), sizeof (previous.bytes));
@@ -930,28 +930,28 @@ void rai::state_hashables::hash (blake2b_state & hash_a) const
 	blake2b_update (&hash_a, link.bytes.data (), sizeof (link.bytes));
 }
 
-rai::state_block::state_block (rai::account const & account_a, rai::block_hash const & previous_a, rai::account const & representative_a, rai::amount const & balance_a, rai::uint256_union const & link_a, rai::raw_key const & prv_a, rai::public_key const & pub_a, uint64_t work_a) :
+nano::state_block::state_block (nano::account const & account_a, nano::block_hash const & previous_a, nano::account const & representative_a, nano::amount const & balance_a, nano::uint256_union const & link_a, nano::raw_key const & prv_a, nano::public_key const & pub_a, uint64_t work_a) :
 hashables (account_a, previous_a, representative_a, balance_a, link_a),
-signature (rai::sign_message (prv_a, pub_a, hash ())),
+signature (nano::sign_message (prv_a, pub_a, hash ())),
 work (work_a)
 {
 }
 
-rai::state_block::state_block (bool & error_a, rai::stream & stream_a) :
+nano::state_block::state_block (bool & error_a, nano::stream & stream_a) :
 hashables (error_a, stream_a)
 {
 	if (!error_a)
 	{
-		error_a = rai::read (stream_a, signature);
+		error_a = nano::read (stream_a, signature);
 		if (!error_a)
 		{
-			error_a = rai::read (stream_a, work);
+			error_a = nano::read (stream_a, work);
 			boost::endian::big_to_native_inplace (work);
 		}
 	}
 }
 
-rai::state_block::state_block (bool & error_a, boost::property_tree::ptree const & tree_a) :
+nano::state_block::state_block (bool & error_a, boost::property_tree::ptree const & tree_a) :
 hashables (error_a, tree_a)
 {
 	if (!error_a)
@@ -964,7 +964,7 @@ hashables (error_a, tree_a)
 			error_a = type_l != "state";
 			if (!error_a)
 			{
-				error_a = rai::from_string_hex (work_l, work);
+				error_a = nano::from_string_hex (work_l, work);
 				if (!error_a)
 				{
 					error_a = signature.decode_hex (signature_l);
@@ -978,29 +978,29 @@ hashables (error_a, tree_a)
 	}
 }
 
-void rai::state_block::hash (blake2b_state & hash_a) const
+void nano::state_block::hash (blake2b_state & hash_a) const
 {
-	rai::uint256_union preamble (static_cast<uint64_t> (rai::block_type::state));
+	nano::uint256_union preamble (static_cast<uint64_t> (nano::block_type::state));
 	blake2b_update (&hash_a, preamble.bytes.data (), preamble.bytes.size ());
 	hashables.hash (hash_a);
 }
 
-uint64_t rai::state_block::block_work () const
+uint64_t nano::state_block::block_work () const
 {
 	return work;
 }
 
-void rai::state_block::block_work_set (uint64_t work_a)
+void nano::state_block::block_work_set (uint64_t work_a)
 {
 	work = work_a;
 }
 
-rai::block_hash rai::state_block::previous () const
+nano::block_hash nano::state_block::previous () const
 {
 	return hashables.previous;
 }
 
-void rai::state_block::serialize (rai::stream & stream_a) const
+void nano::state_block::serialize (nano::stream & stream_a) const
 {
 	write (stream_a, hashables.account);
 	write (stream_a, hashables.previous);
@@ -1011,7 +1011,7 @@ void rai::state_block::serialize (rai::stream & stream_a) const
 	write (stream_a, boost::endian::native_to_big (work));
 }
 
-void rai::state_block::serialize_json (std::string & string_a) const
+void nano::state_block::serialize_json (std::string & string_a) const
 {
 	boost::property_tree::ptree tree;
 	tree.put ("type", "state");
@@ -1024,13 +1024,13 @@ void rai::state_block::serialize_json (std::string & string_a) const
 	std::string signature_l;
 	signature.encode_hex (signature_l);
 	tree.put ("signature", signature_l);
-	tree.put ("work", rai::to_string_hex (work));
+	tree.put ("work", nano::to_string_hex (work));
 	std::stringstream ostream;
 	boost::property_tree::write_json (ostream, tree);
 	string_a = ostream.str ();
 }
 
-bool rai::state_block::deserialize (rai::stream & stream_a)
+bool nano::state_block::deserialize (nano::stream & stream_a)
 {
 	auto error (read (stream_a, hashables.account));
 	if (!error)
@@ -1061,7 +1061,7 @@ bool rai::state_block::deserialize (rai::stream & stream_a)
 	return error;
 }
 
-bool rai::state_block::deserialize_json (boost::property_tree::ptree const & tree_a)
+bool nano::state_block::deserialize_json (boost::property_tree::ptree const & tree_a)
 {
 	auto error (false);
 	try
@@ -1089,7 +1089,7 @@ bool rai::state_block::deserialize_json (boost::property_tree::ptree const & tre
 						error = hashables.link.decode_account (link_l) && hashables.link.decode_hex (link_l);
 						if (!error)
 						{
-							error = rai::from_string_hex (work_l, work);
+							error = nano::from_string_hex (work_l, work);
 							if (!error)
 							{
 								error = signature.decode_hex (signature_l);
@@ -1107,71 +1107,71 @@ bool rai::state_block::deserialize_json (boost::property_tree::ptree const & tre
 	return error;
 }
 
-void rai::state_block::visit (rai::block_visitor & visitor_a) const
+void nano::state_block::visit (nano::block_visitor & visitor_a) const
 {
 	visitor_a.state_block (*this);
 }
 
-rai::block_type rai::state_block::type () const
+nano::block_type nano::state_block::type () const
 {
-	return rai::block_type::state;
+	return nano::block_type::state;
 }
 
-bool rai::state_block::operator== (rai::block const & other_a) const
+bool nano::state_block::operator== (nano::block const & other_a) const
 {
 	return blocks_equal (*this, other_a);
 }
 
-bool rai::state_block::operator== (rai::state_block const & other_a) const
+bool nano::state_block::operator== (nano::state_block const & other_a) const
 {
 	return hashables.account == other_a.hashables.account && hashables.previous == other_a.hashables.previous && hashables.representative == other_a.hashables.representative && hashables.balance == other_a.hashables.balance && hashables.link == other_a.hashables.link && signature == other_a.signature && work == other_a.work;
 }
 
-bool rai::state_block::valid_predecessor (rai::block const & block_a) const
+bool nano::state_block::valid_predecessor (nano::block const & block_a) const
 {
 	return true;
 }
 
-rai::block_hash rai::state_block::source () const
+nano::block_hash nano::state_block::source () const
 {
 	return 0;
 }
 
-rai::block_hash rai::state_block::root () const
+nano::block_hash nano::state_block::root () const
 {
 	return !hashables.previous.is_zero () ? hashables.previous : hashables.account;
 }
 
-rai::block_hash rai::state_block::link () const
+nano::block_hash nano::state_block::link () const
 {
 	return hashables.link;
 }
 
-rai::account rai::state_block::representative () const
+nano::account nano::state_block::representative () const
 {
 	return hashables.representative;
 }
 
-rai::signature rai::state_block::block_signature () const
+nano::signature nano::state_block::block_signature () const
 {
 	return signature;
 }
 
-void rai::state_block::signature_set (rai::uint512_union const & signature_a)
+void nano::state_block::signature_set (nano::uint512_union const & signature_a)
 {
 	signature = signature_a;
 }
 
-std::shared_ptr<rai::block> rai::deserialize_block_json (boost::property_tree::ptree const & tree_a, rai::block_uniquer * uniquer_a)
+std::shared_ptr<nano::block> nano::deserialize_block_json (boost::property_tree::ptree const & tree_a, nano::block_uniquer * uniquer_a)
 {
-	std::shared_ptr<rai::block> result;
+	std::shared_ptr<nano::block> result;
 	try
 	{
 		auto type (tree_a.get<std::string> ("type"));
 		if (type == "receive")
 		{
 			bool error (false);
-			std::unique_ptr<rai::receive_block> obj (new rai::receive_block (error, tree_a));
+			std::unique_ptr<nano::receive_block> obj (new nano::receive_block (error, tree_a));
 			if (!error)
 			{
 				result = std::move (obj);
@@ -1180,7 +1180,7 @@ std::shared_ptr<rai::block> rai::deserialize_block_json (boost::property_tree::p
 		else if (type == "send")
 		{
 			bool error (false);
-			std::unique_ptr<rai::send_block> obj (new rai::send_block (error, tree_a));
+			std::unique_ptr<nano::send_block> obj (new nano::send_block (error, tree_a));
 			if (!error)
 			{
 				result = std::move (obj);
@@ -1189,7 +1189,7 @@ std::shared_ptr<rai::block> rai::deserialize_block_json (boost::property_tree::p
 		else if (type == "open")
 		{
 			bool error (false);
-			std::unique_ptr<rai::open_block> obj (new rai::open_block (error, tree_a));
+			std::unique_ptr<nano::open_block> obj (new nano::open_block (error, tree_a));
 			if (!error)
 			{
 				result = std::move (obj);
@@ -1198,7 +1198,7 @@ std::shared_ptr<rai::block> rai::deserialize_block_json (boost::property_tree::p
 		else if (type == "change")
 		{
 			bool error (false);
-			std::unique_ptr<rai::change_block> obj (new rai::change_block (error, tree_a));
+			std::unique_ptr<nano::change_block> obj (new nano::change_block (error, tree_a));
 			if (!error)
 			{
 				result = std::move (obj);
@@ -1207,7 +1207,7 @@ std::shared_ptr<rai::block> rai::deserialize_block_json (boost::property_tree::p
 		else if (type == "state")
 		{
 			bool error (false);
-			std::unique_ptr<rai::state_block> obj (new rai::state_block (error, tree_a));
+			std::unique_ptr<nano::state_block> obj (new nano::state_block (error, tree_a));
 			if (!error)
 			{
 				result = std::move (obj);
@@ -1224,67 +1224,67 @@ std::shared_ptr<rai::block> rai::deserialize_block_json (boost::property_tree::p
 	return result;
 }
 
-std::shared_ptr<rai::block> rai::deserialize_block (rai::stream & stream_a, rai::block_uniquer * uniquer_a)
+std::shared_ptr<nano::block> nano::deserialize_block (nano::stream & stream_a, nano::block_uniquer * uniquer_a)
 {
-	rai::block_type type;
+	nano::block_type type;
 	auto error (read (stream_a, type));
-	std::shared_ptr<rai::block> result;
+	std::shared_ptr<nano::block> result;
 	if (!error)
 	{
-		result = rai::deserialize_block (stream_a, type);
+		result = nano::deserialize_block (stream_a, type);
 	}
 	return result;
 }
 
-std::shared_ptr<rai::block> rai::deserialize_block (rai::stream & stream_a, rai::block_type type_a, rai::block_uniquer * uniquer_a)
+std::shared_ptr<nano::block> nano::deserialize_block (nano::stream & stream_a, nano::block_type type_a, nano::block_uniquer * uniquer_a)
 {
-	std::shared_ptr<rai::block> result;
+	std::shared_ptr<nano::block> result;
 	switch (type_a)
 	{
-		case rai::block_type::receive:
+		case nano::block_type::receive:
 		{
 			bool error (false);
-			std::unique_ptr<rai::receive_block> obj (new rai::receive_block (error, stream_a));
+			std::unique_ptr<nano::receive_block> obj (new nano::receive_block (error, stream_a));
 			if (!error)
 			{
 				result = std::move (obj);
 			}
 			break;
 		}
-		case rai::block_type::send:
+		case nano::block_type::send:
 		{
 			bool error (false);
-			std::unique_ptr<rai::send_block> obj (new rai::send_block (error, stream_a));
+			std::unique_ptr<nano::send_block> obj (new nano::send_block (error, stream_a));
 			if (!error)
 			{
 				result = std::move (obj);
 			}
 			break;
 		}
-		case rai::block_type::open:
+		case nano::block_type::open:
 		{
 			bool error (false);
-			std::unique_ptr<rai::open_block> obj (new rai::open_block (error, stream_a));
+			std::unique_ptr<nano::open_block> obj (new nano::open_block (error, stream_a));
 			if (!error)
 			{
 				result = std::move (obj);
 			}
 			break;
 		}
-		case rai::block_type::change:
+		case nano::block_type::change:
 		{
 			bool error (false);
-			std::unique_ptr<rai::change_block> obj (new rai::change_block (error, stream_a));
+			std::unique_ptr<nano::change_block> obj (new nano::change_block (error, stream_a));
 			if (!error)
 			{
 				result = std::move (obj);
 			}
 			break;
 		}
-		case rai::block_type::state:
+		case nano::block_type::state:
 		{
 			bool error (false);
-			std::unique_ptr<rai::state_block> obj (new rai::state_block (error, stream_a));
+			std::unique_ptr<nano::state_block> obj (new nano::state_block (error, stream_a));
 			if (!error)
 			{
 				result = std::move (obj);
@@ -1302,18 +1302,18 @@ std::shared_ptr<rai::block> rai::deserialize_block (rai::stream & stream_a, rai:
 	return result;
 }
 
-void rai::receive_block::visit (rai::block_visitor & visitor_a) const
+void nano::receive_block::visit (nano::block_visitor & visitor_a) const
 {
 	visitor_a.receive_block (*this);
 }
 
-bool rai::receive_block::operator== (rai::receive_block const & other_a) const
+bool nano::receive_block::operator== (nano::receive_block const & other_a) const
 {
 	auto result (hashables.previous == other_a.hashables.previous && hashables.source == other_a.hashables.source && work == other_a.work && signature == other_a.signature);
 	return result;
 }
 
-bool rai::receive_block::deserialize (rai::stream & stream_a)
+bool nano::receive_block::deserialize (nano::stream & stream_a)
 {
 	auto error (false);
 	error = read (stream_a, hashables.previous.bytes);
@@ -1332,7 +1332,7 @@ bool rai::receive_block::deserialize (rai::stream & stream_a)
 	return error;
 }
 
-bool rai::receive_block::deserialize_json (boost::property_tree::ptree const & tree_a)
+bool nano::receive_block::deserialize_json (boost::property_tree::ptree const & tree_a)
 {
 	auto error (false);
 	try
@@ -1348,7 +1348,7 @@ bool rai::receive_block::deserialize_json (boost::property_tree::ptree const & t
 			error = hashables.source.decode_hex (source_l);
 			if (!error)
 			{
-				error = rai::from_string_hex (work_l, work);
+				error = nano::from_string_hex (work_l, work);
 				if (!error)
 				{
 					error = signature.decode_hex (signature_l);
@@ -1363,7 +1363,7 @@ bool rai::receive_block::deserialize_json (boost::property_tree::ptree const & t
 	return error;
 }
 
-void rai::receive_block::serialize (rai::stream & stream_a) const
+void nano::receive_block::serialize (nano::stream & stream_a) const
 {
 	write (stream_a, hashables.previous.bytes);
 	write (stream_a, hashables.source.bytes);
@@ -1371,7 +1371,7 @@ void rai::receive_block::serialize (rai::stream & stream_a) const
 	write (stream_a, work);
 }
 
-void rai::receive_block::serialize_json (std::string & string_a) const
+void nano::receive_block::serialize_json (std::string & string_a) const
 {
 	boost::property_tree::ptree tree;
 	tree.put ("type", "receive");
@@ -1383,34 +1383,34 @@ void rai::receive_block::serialize_json (std::string & string_a) const
 	tree.put ("source", source);
 	std::string signature_l;
 	signature.encode_hex (signature_l);
-	tree.put ("work", rai::to_string_hex (work));
+	tree.put ("work", nano::to_string_hex (work));
 	tree.put ("signature", signature_l);
 	std::stringstream ostream;
 	boost::property_tree::write_json (ostream, tree);
 	string_a = ostream.str ();
 }
 
-rai::receive_block::receive_block (rai::block_hash const & previous_a, rai::block_hash const & source_a, rai::raw_key const & prv_a, rai::public_key const & pub_a, uint64_t work_a) :
+nano::receive_block::receive_block (nano::block_hash const & previous_a, nano::block_hash const & source_a, nano::raw_key const & prv_a, nano::public_key const & pub_a, uint64_t work_a) :
 hashables (previous_a, source_a),
-signature (rai::sign_message (prv_a, pub_a, hash ())),
+signature (nano::sign_message (prv_a, pub_a, hash ())),
 work (work_a)
 {
 }
 
-rai::receive_block::receive_block (bool & error_a, rai::stream & stream_a) :
+nano::receive_block::receive_block (bool & error_a, nano::stream & stream_a) :
 hashables (error_a, stream_a)
 {
 	if (!error_a)
 	{
-		error_a = rai::read (stream_a, signature);
+		error_a = nano::read (stream_a, signature);
 		if (!error_a)
 		{
-			error_a = rai::read (stream_a, work);
+			error_a = nano::read (stream_a, work);
 		}
 	}
 }
 
-rai::receive_block::receive_block (bool & error_a, boost::property_tree::ptree const & tree_a) :
+nano::receive_block::receive_block (bool & error_a, boost::property_tree::ptree const & tree_a) :
 hashables (error_a, tree_a)
 {
 	if (!error_a)
@@ -1422,7 +1422,7 @@ hashables (error_a, tree_a)
 			error_a = signature.decode_hex (signature_l);
 			if (!error_a)
 			{
-				error_a = rai::from_string_hex (work_l, work);
+				error_a = nano::from_string_hex (work_l, work);
 			}
 		}
 		catch (std::runtime_error const &)
@@ -1432,35 +1432,35 @@ hashables (error_a, tree_a)
 	}
 }
 
-void rai::receive_block::hash (blake2b_state & hash_a) const
+void nano::receive_block::hash (blake2b_state & hash_a) const
 {
 	hashables.hash (hash_a);
 }
 
-uint64_t rai::receive_block::block_work () const
+uint64_t nano::receive_block::block_work () const
 {
 	return work;
 }
 
-void rai::receive_block::block_work_set (uint64_t work_a)
+void nano::receive_block::block_work_set (uint64_t work_a)
 {
 	work = work_a;
 }
 
-bool rai::receive_block::operator== (rai::block const & other_a) const
+bool nano::receive_block::operator== (nano::block const & other_a) const
 {
 	return blocks_equal (*this, other_a);
 }
 
-bool rai::receive_block::valid_predecessor (rai::block const & block_a) const
+bool nano::receive_block::valid_predecessor (nano::block const & block_a) const
 {
 	bool result;
 	switch (block_a.type ())
 	{
-		case rai::block_type::send:
-		case rai::block_type::receive:
-		case rai::block_type::open:
-		case rai::block_type::change:
+		case nano::block_type::send:
+		case nano::block_type::receive:
+		case nano::block_type::open:
+		case nano::block_type::change:
 			result = true;
 			break;
 		default:
@@ -1470,62 +1470,62 @@ bool rai::receive_block::valid_predecessor (rai::block const & block_a) const
 	return result;
 }
 
-rai::block_hash rai::receive_block::previous () const
+nano::block_hash nano::receive_block::previous () const
 {
 	return hashables.previous;
 }
 
-rai::block_hash rai::receive_block::source () const
+nano::block_hash nano::receive_block::source () const
 {
 	return hashables.source;
 }
 
-rai::block_hash rai::receive_block::root () const
+nano::block_hash nano::receive_block::root () const
 {
 	return hashables.previous;
 }
 
-rai::block_hash rai::receive_block::link () const
+nano::block_hash nano::receive_block::link () const
 {
 	return 0;
 }
 
-rai::account rai::receive_block::representative () const
+nano::account nano::receive_block::representative () const
 {
 	return 0;
 }
 
-rai::signature rai::receive_block::block_signature () const
+nano::signature nano::receive_block::block_signature () const
 {
 	return signature;
 }
 
-void rai::receive_block::signature_set (rai::uint512_union const & signature_a)
+void nano::receive_block::signature_set (nano::uint512_union const & signature_a)
 {
 	signature = signature_a;
 }
 
-rai::block_type rai::receive_block::type () const
+nano::block_type nano::receive_block::type () const
 {
-	return rai::block_type::receive;
+	return nano::block_type::receive;
 }
 
-rai::receive_hashables::receive_hashables (rai::block_hash const & previous_a, rai::block_hash const & source_a) :
+nano::receive_hashables::receive_hashables (nano::block_hash const & previous_a, nano::block_hash const & source_a) :
 previous (previous_a),
 source (source_a)
 {
 }
 
-rai::receive_hashables::receive_hashables (bool & error_a, rai::stream & stream_a)
+nano::receive_hashables::receive_hashables (bool & error_a, nano::stream & stream_a)
 {
-	error_a = rai::read (stream_a, previous.bytes);
+	error_a = nano::read (stream_a, previous.bytes);
 	if (!error_a)
 	{
-		error_a = rai::read (stream_a, source.bytes);
+		error_a = nano::read (stream_a, source.bytes);
 	}
 }
 
-rai::receive_hashables::receive_hashables (bool & error_a, boost::property_tree::ptree const & tree_a)
+nano::receive_hashables::receive_hashables (bool & error_a, boost::property_tree::ptree const & tree_a)
 {
 	try
 	{
@@ -1543,18 +1543,18 @@ rai::receive_hashables::receive_hashables (bool & error_a, boost::property_tree:
 	}
 }
 
-void rai::receive_hashables::hash (blake2b_state & hash_a) const
+void nano::receive_hashables::hash (blake2b_state & hash_a) const
 {
 	blake2b_update (&hash_a, previous.bytes.data (), sizeof (previous.bytes));
 	blake2b_update (&hash_a, source.bytes.data (), sizeof (source.bytes));
 }
 
-std::shared_ptr<rai::block> rai::block_uniquer::unique (std::shared_ptr<rai::block> block_a)
+std::shared_ptr<nano::block> nano::block_uniquer::unique (std::shared_ptr<nano::block> block_a)
 {
 	auto result (block_a);
 	if (result != nullptr)
 	{
-		rai::uint256_union key (block_a->full_hash ());
+		nano::uint256_union key (block_a->full_hash ());
 		std::lock_guard<std::mutex> lock (mutex);
 		auto & existing (blocks[key]);
 		if (auto block_l = existing.lock ())
@@ -1567,7 +1567,7 @@ std::shared_ptr<rai::block> rai::block_uniquer::unique (std::shared_ptr<rai::blo
 		}
 		for (auto i (0); i < cleanup_count && blocks.size () > 0; ++i)
 		{
-			auto random_offset (rai::random_pool.GenerateWord32 (0, blocks.size () - 1));
+			auto random_offset (nano::random_pool.GenerateWord32 (0, blocks.size () - 1));
 			auto existing (std::next (blocks.begin (), random_offset));
 			if (existing == blocks.end ())
 			{
@@ -1589,7 +1589,7 @@ std::shared_ptr<rai::block> rai::block_uniquer::unique (std::shared_ptr<rai::blo
 	return result;
 }
 
-size_t rai::block_uniquer::size ()
+size_t nano::block_uniquer::size ()
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	return blocks.size ();

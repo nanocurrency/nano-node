@@ -1,8 +1,8 @@
 #pragma once
 
-#include <rai/secure/common.hpp>
+#include <nano/secure/common.hpp>
 
-namespace rai
+namespace nano
 {
 boost::filesystem::path app_path ();
 }

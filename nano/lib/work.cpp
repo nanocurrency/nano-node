@@ -1,26 +1,26 @@
-#include <rai/lib/work.hpp>
+#include <nano/lib/work.hpp>
 
-#include <rai/lib/blocks.hpp>
-#include <rai/node/xorshift.hpp>
+#include <nano/lib/blocks.hpp>
+#include <nano/node/xorshift.hpp>
 
 #include <future>
 
-bool rai::work_validate (rai::block_hash const & root_a, uint64_t work_a, uint64_t * difficulty_a)
+bool nano::work_validate (nano::block_hash const & root_a, uint64_t work_a, uint64_t * difficulty_a)
 {
-	auto value (rai::work_value (root_a, work_a));
+	auto value (nano::work_value (root_a, work_a));
 	if (difficulty_a != nullptr)
 	{
 		*difficulty_a = value;
 	}
-	return value < rai::work_pool::publish_threshold;
+	return value < nano::work_pool::publish_threshold;
 }
 
-bool rai::work_validate (rai::block const & block_a, uint64_t * difficulty_a)
+bool nano::work_validate (nano::block const & block_a, uint64_t * difficulty_a)
 {
 	return work_validate (block_a.root (), block_a.block_work (), difficulty_a);
 }
 
-uint64_t rai::work_value (rai::block_hash const & root_a, uint64_t work_a)
+uint64_t nano::work_value (nano::block_hash const & root_a, uint64_t work_a)
 {
 	uint64_t result;
 	blake2b_state hash;
@@ -31,27 +31,27 @@ uint64_t rai::work_value (rai::block_hash const & root_a, uint64_t work_a)
 	return result;
 }
 
-rai::work_pool::work_pool (unsigned max_threads_a, std::function<boost::optional<uint64_t> (rai::uint256_union const &)> opencl_a) :
+nano::work_pool::work_pool (unsigned max_threads_a, std::function<boost::optional<uint64_t> (nano::uint256_union const &)> opencl_a) :
 ticket (0),
 done (false),
 opencl (opencl_a)
 {
 	static_assert (ATOMIC_INT_LOCK_FREE == 2, "Atomic int needed");
 	boost::thread::attributes attrs;
-	rai::thread_attributes::set (attrs);
-	auto count (rai::rai_network == rai::rai_networks::rai_test_network ? 1 : std::min (max_threads_a, std::max (1u, boost::thread::hardware_concurrency ())));
+	nano::thread_attributes::set (attrs);
+	auto count (nano::nano_network == nano::nano_networks::nano_test_network ? 1 : std::min (max_threads_a, std::max (1u, boost::thread::hardware_concurrency ())));
 	for (auto i (0); i < count; ++i)
 	{
 		auto thread (boost::thread (attrs, [this, i]() {
-			rai::thread_role::set (rai::thread_role::name::work);
-			rai::work_thread_reprioritize ();
+			nano::thread_role::set (nano::thread_role::name::work);
+			nano::work_thread_reprioritize ();
 			loop (i);
 		}));
 		threads.push_back (std::move (thread));
 	}
 }
 
-rai::work_pool::~work_pool ()
+nano::work_pool::~work_pool ()
 {
 	stop ();
 	for (auto & i : threads)
@@ -60,11 +60,11 @@ rai::work_pool::~work_pool ()
 	}
 }
 
-void rai::work_pool::loop (uint64_t thread)
+void nano::work_pool::loop (uint64_t thread)
 {
 	// Quick RNG for work attempts.
 	xorshift1024star rng;
-	rai::random_pool.GenerateBlock (reinterpret_cast<uint8_t *> (rng.s.data ()), rng.s.size () * sizeof (decltype (rng.s)::value_type));
+	nano::random_pool.GenerateBlock (reinterpret_cast<uint8_t *> (rng.s.data ()), rng.s.size () * sizeof (decltype (rng.s)::value_type));
 	uint64_t work;
 	uint64_t output;
 	blake2b_state hash;
@@ -105,7 +105,7 @@ void rai::work_pool::loop (uint64_t thread)
 			if (ticket == ticket_l)
 			{
 				// If the ticket matches what we started with, we're the ones that found the solution
-				assert (output >= rai::work_pool::publish_threshold);
+				assert (output >= nano::work_pool::publish_threshold);
 				assert (work_value (current_l.item, work) == output);
 				// Signal other threads to stop their work next time they check ticket
 				++ticket;
@@ -127,7 +127,7 @@ void rai::work_pool::loop (uint64_t thread)
 	}
 }
 
-void rai::work_pool::cancel (rai::uint256_union const & root_a)
+void nano::work_pool::cancel (nano::uint256_union const & root_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	if (!pending.empty ())
@@ -152,7 +152,7 @@ void rai::work_pool::cancel (rai::uint256_union const & root_a)
 	});
 }
 
-void rai::work_pool::stop ()
+void nano::work_pool::stop ()
 {
 	{
 		std::lock_guard<std::mutex> lock (mutex);
@@ -161,7 +161,7 @@ void rai::work_pool::stop ()
 	producer_condition.notify_all ();
 }
 
-void rai::work_pool::generate (rai::uint256_union const & root_a, std::function<void(boost::optional<uint64_t> const &)> callback_a, uint64_t difficulty_a)
+void nano::work_pool::generate (nano::uint256_union const & root_a, std::function<void(boost::optional<uint64_t> const &)> callback_a, uint64_t difficulty_a)
 {
 	assert (!root_a.is_zero ());
 	boost::optional<uint64_t> result;
@@ -183,7 +183,7 @@ void rai::work_pool::generate (rai::uint256_union const & root_a, std::function<
 	}
 }
 
-uint64_t rai::work_pool::generate (rai::uint256_union const & hash_a, uint64_t difficulty_a)
+uint64_t nano::work_pool::generate (nano::uint256_union const & hash_a, uint64_t difficulty_a)
 {
 	std::promise<boost::optional<uint64_t>> work;
 	generate (hash_a, [&work](boost::optional<uint64_t> work_a) {

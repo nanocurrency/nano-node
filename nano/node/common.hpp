@@ -1,7 +1,7 @@
 #pragma once
 
-#include <rai/lib/interface.h>
-#include <rai/secure/common.hpp>
+#include <nano/lib/interface.h>
+#include <nano/secure/common.hpp>
 
 #include <boost/asio.hpp>
 
@@ -9,23 +9,23 @@
 
 #include <xxhash/xxhash.h>
 
-namespace rai
+namespace nano
 {
 using endpoint = boost::asio::ip::udp::endpoint;
 bool parse_port (std::string const &, uint16_t &);
 bool parse_address_port (std::string const &, boost::asio::ip::address &, uint16_t &);
 using tcp_endpoint = boost::asio::ip::tcp::endpoint;
-bool parse_endpoint (std::string const &, rai::endpoint &);
-bool parse_tcp_endpoint (std::string const &, rai::tcp_endpoint &);
-bool reserved_address (rai::endpoint const &, bool);
+bool parse_endpoint (std::string const &, nano::endpoint &);
+bool parse_tcp_endpoint (std::string const &, nano::tcp_endpoint &);
+bool reserved_address (nano::endpoint const &, bool);
 }
 
 namespace
 {
-uint64_t endpoint_hash_raw (rai::endpoint const & endpoint_a)
+uint64_t endpoint_hash_raw (nano::endpoint const & endpoint_a)
 {
 	assert (endpoint_a.address ().is_v6 ());
-	rai::uint128_union address;
+	nano::uint128_union address;
 	address.bytes = endpoint_a.address ().to_v6 ().to_bytes ();
 	XXH64_state_t hash;
 	XXH64_reset (&hash, 0);
@@ -38,7 +38,7 @@ uint64_t endpoint_hash_raw (rai::endpoint const & endpoint_a)
 uint64_t ip_address_hash_raw (boost::asio::ip::address const & ip_a)
 {
 	assert (ip_a.is_v6 ());
-	rai::uint128_union bytes;
+	nano::uint128_union bytes;
 	bytes.bytes = ip_a.to_v6 ().to_bytes ();
 	XXH64_state_t hash;
 	XXH64_reset (&hash, 0);
@@ -54,7 +54,7 @@ struct endpoint_hash
 template <>
 struct endpoint_hash<8>
 {
-	size_t operator() (rai::endpoint const & endpoint_a) const
+	size_t operator() (nano::endpoint const & endpoint_a) const
 	{
 		return endpoint_hash_raw (endpoint_a);
 	}
@@ -62,7 +62,7 @@ struct endpoint_hash<8>
 template <>
 struct endpoint_hash<4>
 {
-	size_t operator() (rai::endpoint const & endpoint_a) const
+	size_t operator() (nano::endpoint const & endpoint_a) const
 	{
 		uint64_t big (endpoint_hash_raw (endpoint_a));
 		uint32_t result (static_cast<uint32_t> (big) ^ static_cast<uint32_t> (big >> 32));
@@ -74,9 +74,9 @@ struct endpoint_hash<4>
 namespace std
 {
 template <>
-struct hash<rai::endpoint>
+struct hash<::nano::endpoint>
 {
-	size_t operator() (rai::endpoint const & endpoint_a) const
+	size_t operator() (::nano::endpoint const & endpoint_a) const
 	{
 		endpoint_hash<sizeof (size_t)> ehash;
 		return ehash (endpoint_a);
@@ -117,17 +117,17 @@ struct hash<boost::asio::ip::address>
 namespace boost
 {
 template <>
-struct hash<rai::endpoint>
+struct hash<::nano::endpoint>
 {
-	size_t operator() (rai::endpoint const & endpoint_a) const
+	size_t operator() (::nano::endpoint const & endpoint_a) const
 	{
-		std::hash<rai::endpoint> hash;
+		std::hash<::nano::endpoint> hash;
 		return hash (endpoint_a);
 	}
 };
 }
 
-namespace rai
+namespace nano
 {
 /**
  * Message types are serialized to the network and existing values must thus never change as
@@ -163,17 +163,17 @@ class message_visitor;
 class message_header
 {
 public:
-	message_header (rai::message_type);
-	message_header (bool &, rai::stream &);
-	void serialize (rai::stream &) const;
-	bool deserialize (rai::stream &);
-	rai::block_type block_type () const;
-	void block_type_set (rai::block_type);
-	static std::array<uint8_t, 2> constexpr magic_number = rai::rai_network == rai::rai_networks::rai_test_network ? std::array<uint8_t, 2>{ { 'R', 'A' } } : rai::rai_network == rai::rai_networks::rai_beta_network ? std::array<uint8_t, 2>{ { 'R', 'B' } } : std::array<uint8_t, 2>{ { 'R', 'C' } };
+	message_header (nano::message_type);
+	message_header (bool &, nano::stream &);
+	void serialize (nano::stream &) const;
+	bool deserialize (nano::stream &);
+	nano::block_type block_type () const;
+	void block_type_set (nano::block_type);
+	static std::array<uint8_t, 2> constexpr magic_number = nano::nano_network == nano::nano_networks::nano_test_network ? std::array<uint8_t, 2>{ { 'R', 'A' } } : nano::nano_network == nano::nano_networks::nano_beta_network ? std::array<uint8_t, 2>{ { 'R', 'B' } } : std::array<uint8_t, 2>{ { 'R', 'C' } };
 	uint8_t version_max;
 	uint8_t version_using;
 	uint8_t version_min;
-	rai::message_type type;
+	nano::message_type type;
 	std::bitset<16> extensions;
 	//static size_t constexpr ipv4_only_position = 1;  // Not in use, deprecated, was conflicting
 	//static size_t constexpr bootstrap_server_position = 2;  // Not in use, deprecated
@@ -191,25 +191,25 @@ public:
 	}
 	inline bool valid_network () const
 	{
-		return (magic_number[1] - 'A') == static_cast<int> (rai::rai_network);
+		return (magic_number[1] - 'A') == static_cast<int> (nano::nano_network);
 	}
 };
 class message
 {
 public:
-	message (rai::message_type);
-	message (rai::message_header const &);
+	message (nano::message_type);
+	message (nano::message_header const &);
 	virtual ~message () = default;
-	virtual void serialize (rai::stream &) const = 0;
-	virtual void visit (rai::message_visitor &) const = 0;
+	virtual void serialize (nano::stream &) const = 0;
+	virtual void visit (nano::message_visitor &) const = 0;
 	virtual inline std::shared_ptr<std::vector<uint8_t>> to_bytes () const
 	{
 		std::shared_ptr<std::vector<uint8_t>> bytes (new std::vector<uint8_t>);
-		rai::vectorstream stream (*bytes);
+		nano::vectorstream stream (*bytes);
 		serialize (stream);
 		return bytes;
 	}
-	rai::message_header header;
+	nano::message_header header;
 };
 class work_pool;
 class message_parser
@@ -230,18 +230,18 @@ public:
 		invalid_magic,
 		invalid_network
 	};
-	message_parser (rai::block_uniquer &, rai::vote_uniquer &, rai::message_visitor &, rai::work_pool &);
+	message_parser (nano::block_uniquer &, nano::vote_uniquer &, nano::message_visitor &, nano::work_pool &);
 	void deserialize_buffer (uint8_t const *, size_t);
-	void deserialize_keepalive (rai::stream &, rai::message_header const &);
-	void deserialize_publish (rai::stream &, rai::message_header const &);
-	void deserialize_confirm_req (rai::stream &, rai::message_header const &);
-	void deserialize_confirm_ack (rai::stream &, rai::message_header const &);
-	void deserialize_node_id_handshake (rai::stream &, rai::message_header const &);
-	bool at_end (rai::stream &);
-	rai::block_uniquer & block_uniquer;
-	rai::vote_uniquer & vote_uniquer;
-	rai::message_visitor & visitor;
-	rai::work_pool & pool;
+	void deserialize_keepalive (nano::stream &, nano::message_header const &);
+	void deserialize_publish (nano::stream &, nano::message_header const &);
+	void deserialize_confirm_req (nano::stream &, nano::message_header const &);
+	void deserialize_confirm_ack (nano::stream &, nano::message_header const &);
+	void deserialize_node_id_handshake (nano::stream &, nano::message_header const &);
+	bool at_end (nano::stream &);
+	nano::block_uniquer & block_uniquer;
+	nano::vote_uniquer & vote_uniquer;
+	nano::message_visitor & visitor;
+	nano::work_pool & pool;
 	parse_status status;
 	std::string status_string ();
 	static const size_t max_safe_udp_message_size;
@@ -249,57 +249,57 @@ public:
 class keepalive : public message
 {
 public:
-	keepalive (bool &, rai::stream &, rai::message_header const &);
+	keepalive (bool &, nano::stream &, nano::message_header const &);
 	keepalive ();
-	void visit (rai::message_visitor &) const override;
-	bool deserialize (rai::stream &);
-	void serialize (rai::stream &) const override;
-	bool operator== (rai::keepalive const &) const;
-	std::array<rai::endpoint, 8> peers;
+	void visit (nano::message_visitor &) const override;
+	bool deserialize (nano::stream &);
+	void serialize (nano::stream &) const override;
+	bool operator== (nano::keepalive const &) const;
+	std::array<nano::endpoint, 8> peers;
 };
 class publish : public message
 {
 public:
-	publish (bool &, rai::stream &, rai::message_header const &, rai::block_uniquer * = nullptr);
-	publish (std::shared_ptr<rai::block>);
-	void visit (rai::message_visitor &) const override;
-	bool deserialize (rai::stream &, rai::block_uniquer * = nullptr);
-	void serialize (rai::stream &) const override;
-	bool operator== (rai::publish const &) const;
-	std::shared_ptr<rai::block> block;
+	publish (bool &, nano::stream &, nano::message_header const &, nano::block_uniquer * = nullptr);
+	publish (std::shared_ptr<nano::block>);
+	void visit (nano::message_visitor &) const override;
+	bool deserialize (nano::stream &, nano::block_uniquer * = nullptr);
+	void serialize (nano::stream &) const override;
+	bool operator== (nano::publish const &) const;
+	std::shared_ptr<nano::block> block;
 };
 class confirm_req : public message
 {
 public:
-	confirm_req (bool &, rai::stream &, rai::message_header const &, rai::block_uniquer * = nullptr);
-	confirm_req (std::shared_ptr<rai::block>);
-	bool deserialize (rai::stream &, rai::block_uniquer * = nullptr);
-	void serialize (rai::stream &) const override;
-	void visit (rai::message_visitor &) const override;
-	bool operator== (rai::confirm_req const &) const;
-	std::shared_ptr<rai::block> block;
+	confirm_req (bool &, nano::stream &, nano::message_header const &, nano::block_uniquer * = nullptr);
+	confirm_req (std::shared_ptr<nano::block>);
+	bool deserialize (nano::stream &, nano::block_uniquer * = nullptr);
+	void serialize (nano::stream &) const override;
+	void visit (nano::message_visitor &) const override;
+	bool operator== (nano::confirm_req const &) const;
+	std::shared_ptr<nano::block> block;
 };
 class confirm_ack : public message
 {
 public:
-	confirm_ack (bool &, rai::stream &, rai::message_header const &, rai::vote_uniquer * = nullptr);
-	confirm_ack (std::shared_ptr<rai::vote>);
-	bool deserialize (rai::stream &, rai::vote_uniquer * = nullptr);
-	void serialize (rai::stream &) const override;
-	void visit (rai::message_visitor &) const override;
-	bool operator== (rai::confirm_ack const &) const;
-	std::shared_ptr<rai::vote> vote;
+	confirm_ack (bool &, nano::stream &, nano::message_header const &, nano::vote_uniquer * = nullptr);
+	confirm_ack (std::shared_ptr<nano::vote>);
+	bool deserialize (nano::stream &, nano::vote_uniquer * = nullptr);
+	void serialize (nano::stream &) const override;
+	void visit (nano::message_visitor &) const override;
+	bool operator== (nano::confirm_ack const &) const;
+	std::shared_ptr<nano::vote> vote;
 };
 class frontier_req : public message
 {
 public:
 	frontier_req ();
-	frontier_req (bool &, rai::stream &, rai::message_header const &);
-	bool deserialize (rai::stream &);
-	void serialize (rai::stream &) const override;
-	void visit (rai::message_visitor &) const override;
-	bool operator== (rai::frontier_req const &) const;
-	rai::account start;
+	frontier_req (bool &, nano::stream &, nano::message_header const &);
+	bool deserialize (nano::stream &);
+	void serialize (nano::stream &) const override;
+	void visit (nano::message_visitor &) const override;
+	bool operator== (nano::frontier_req const &) const;
+	nano::account start;
 	uint32_t age;
 	uint32_t count;
 };
@@ -308,40 +308,40 @@ class bulk_pull : public message
 public:
 	typedef uint32_t count_t;
 	bulk_pull ();
-	bulk_pull (bool &, rai::stream &, rai::message_header const &);
-	bool deserialize (rai::stream &);
-	void serialize (rai::stream &) const override;
-	void visit (rai::message_visitor &) const override;
-	rai::uint256_union start;
-	rai::block_hash end;
+	bulk_pull (bool &, nano::stream &, nano::message_header const &);
+	bool deserialize (nano::stream &);
+	void serialize (nano::stream &) const override;
+	void visit (nano::message_visitor &) const override;
+	nano::uint256_union start;
+	nano::block_hash end;
 	count_t count;
 	bool is_count_present () const;
 	void set_count_present (bool);
-	static size_t constexpr count_present_flag = rai::message_header::bulk_pull_count_present_flag;
+	static size_t constexpr count_present_flag = nano::message_header::bulk_pull_count_present_flag;
 	static size_t constexpr extended_parameters_size = 8;
 };
 class bulk_pull_account : public message
 {
 public:
 	bulk_pull_account ();
-	bulk_pull_account (bool &, rai::stream &, rai::message_header const &);
-	bool deserialize (rai::stream &);
-	void serialize (rai::stream &) const override;
-	void visit (rai::message_visitor &) const override;
-	rai::uint256_union account;
-	rai::uint128_union minimum_amount;
+	bulk_pull_account (bool &, nano::stream &, nano::message_header const &);
+	bool deserialize (nano::stream &);
+	void serialize (nano::stream &) const override;
+	void visit (nano::message_visitor &) const override;
+	nano::uint256_union account;
+	nano::uint128_union minimum_amount;
 	bulk_pull_account_flags flags;
 };
 class bulk_pull_blocks : public message
 {
 public:
 	bulk_pull_blocks ();
-	bulk_pull_blocks (bool &, rai::stream &, rai::message_header const &);
-	bool deserialize (rai::stream &);
-	void serialize (rai::stream &) const override;
-	void visit (rai::message_visitor &) const override;
-	rai::block_hash min_hash;
-	rai::block_hash max_hash;
+	bulk_pull_blocks (bool &, nano::stream &, nano::message_header const &);
+	bool deserialize (nano::stream &);
+	void serialize (nano::stream &) const override;
+	void visit (nano::message_visitor &) const override;
+	nano::block_hash min_hash;
+	nano::block_hash max_hash;
 	bulk_pull_blocks_mode mode;
 	uint32_t max_count;
 };
@@ -349,42 +349,42 @@ class bulk_push : public message
 {
 public:
 	bulk_push ();
-	bulk_push (rai::message_header const &);
-	bool deserialize (rai::stream &);
-	void serialize (rai::stream &) const override;
-	void visit (rai::message_visitor &) const override;
+	bulk_push (nano::message_header const &);
+	bool deserialize (nano::stream &);
+	void serialize (nano::stream &) const override;
+	void visit (nano::message_visitor &) const override;
 };
 class node_id_handshake : public message
 {
 public:
-	node_id_handshake (bool &, rai::stream &, rai::message_header const &);
-	node_id_handshake (boost::optional<rai::block_hash>, boost::optional<std::pair<rai::account, rai::signature>>);
-	bool deserialize (rai::stream &);
-	void serialize (rai::stream &) const override;
-	void visit (rai::message_visitor &) const override;
-	bool operator== (rai::node_id_handshake const &) const;
+	node_id_handshake (bool &, nano::stream &, nano::message_header const &);
+	node_id_handshake (boost::optional<nano::block_hash>, boost::optional<std::pair<nano::account, nano::signature>>);
+	bool deserialize (nano::stream &);
+	void serialize (nano::stream &) const override;
+	void visit (nano::message_visitor &) const override;
+	bool operator== (nano::node_id_handshake const &) const;
 	bool is_query_flag () const;
 	void set_query_flag (bool);
 	bool is_response_flag () const;
 	void set_response_flag (bool);
-	boost::optional<rai::uint256_union> query;
-	boost::optional<std::pair<rai::account, rai::signature>> response;
+	boost::optional<nano::uint256_union> query;
+	boost::optional<std::pair<nano::account, nano::signature>> response;
 	static size_t constexpr query_flag = 0;
 	static size_t constexpr response_flag = 1;
 };
 class message_visitor
 {
 public:
-	virtual void keepalive (rai::keepalive const &) = 0;
-	virtual void publish (rai::publish const &) = 0;
-	virtual void confirm_req (rai::confirm_req const &) = 0;
-	virtual void confirm_ack (rai::confirm_ack const &) = 0;
-	virtual void bulk_pull (rai::bulk_pull const &) = 0;
-	virtual void bulk_pull_account (rai::bulk_pull_account const &) = 0;
-	virtual void bulk_pull_blocks (rai::bulk_pull_blocks const &) = 0;
-	virtual void bulk_push (rai::bulk_push const &) = 0;
-	virtual void frontier_req (rai::frontier_req const &) = 0;
-	virtual void node_id_handshake (rai::node_id_handshake const &) = 0;
+	virtual void keepalive (nano::keepalive const &) = 0;
+	virtual void publish (nano::publish const &) = 0;
+	virtual void confirm_req (nano::confirm_req const &) = 0;
+	virtual void confirm_ack (nano::confirm_ack const &) = 0;
+	virtual void bulk_pull (nano::bulk_pull const &) = 0;
+	virtual void bulk_pull_account (nano::bulk_pull_account const &) = 0;
+	virtual void bulk_pull_blocks (nano::bulk_pull_blocks const &) = 0;
+	virtual void bulk_push (nano::bulk_push const &) = 0;
+	virtual void frontier_req (nano::frontier_req const &) = 0;
+	virtual void node_id_handshake (nano::node_id_handshake const &) = 0;
 	virtual ~message_visitor ();
 };
 

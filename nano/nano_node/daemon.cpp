@@ -1,18 +1,18 @@
-#include <rai/lib/utility.hpp>
-#include <rai/rai_node/daemon.hpp>
+#include <nano/lib/utility.hpp>
+#include <nano/nano_node/daemon.hpp>
 
 #include <boost/property_tree/json_parser.hpp>
 #include <fstream>
 #include <iostream>
-#include <rai/node/working.hpp>
+#include <nano/node/working.hpp>
 
-rai_daemon::daemon_config::daemon_config () :
+nano_daemon::daemon_config::daemon_config () :
 rpc_enable (false),
 opencl_enable (false)
 {
 }
 
-void rai_daemon::daemon_config::serialize_json (boost::property_tree::ptree & tree_a)
+void nano_daemon::daemon_config::serialize_json (boost::property_tree::ptree & tree_a)
 {
 	tree_a.put ("version", std::to_string (json_version));
 	tree_a.put ("rpc_enable", rpc_enable);
@@ -28,7 +28,7 @@ void rai_daemon::daemon_config::serialize_json (boost::property_tree::ptree & tr
 	tree_a.add_child ("opencl", opencl_l);
 }
 
-bool rai_daemon::daemon_config::deserialize_json (bool & upgraded_a, boost::property_tree::ptree & tree_a)
+bool nano_daemon::daemon_config::deserialize_json (bool & upgraded_a, boost::property_tree::ptree & tree_a)
 {
 	auto error (false);
 	try
@@ -64,7 +64,7 @@ bool rai_daemon::daemon_config::deserialize_json (bool & upgraded_a, boost::prop
 	return error;
 }
 
-bool rai_daemon::daemon_config::upgrade_json (unsigned version_a, boost::property_tree::ptree & tree_a)
+bool nano_daemon::daemon_config::upgrade_json (unsigned version_a, boost::property_tree::ptree & tree_a)
 {
 	tree_a.put ("version", std::to_string (json_version));
 	auto result (false);
@@ -94,42 +94,42 @@ bool rai_daemon::daemon_config::upgrade_json (unsigned version_a, boost::propert
 	return result;
 }
 
-void rai_daemon::daemon::run (boost::filesystem::path const & data_path, rai::node_flags const & flags)
+void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::node_flags const & flags)
 {
 	boost::system::error_code error_chmod;
 	boost::filesystem::create_directories (data_path);
-	rai_daemon::daemon_config config;
-	rai::set_secure_perm_directory (data_path, error_chmod);
+	nano_daemon::daemon_config config;
+	nano::set_secure_perm_directory (data_path, error_chmod);
 	auto config_path ((data_path / "config.json"));
 	std::fstream config_file;
-	std::unique_ptr<rai::thread_runner> runner;
-	auto error (rai::fetch_object (config, config_path, config_file));
-	rai::set_secure_perm_file (config_path, error_chmod);
+	std::unique_ptr<nano::thread_runner> runner;
+	auto error (nano::fetch_object (config, config_path, config_file));
+	nano::set_secure_perm_file (config_path, error_chmod);
 	if (!error)
 	{
 		config.node.logging.init (data_path);
 		config_file.close ();
 		boost::asio::io_context io_ctx;
-		auto opencl (rai::opencl_work::create (config.opencl_enable, config.opencl, config.node.logging));
-		rai::work_pool opencl_work (config.node.work_threads, opencl ? [&opencl](rai::uint256_union const & root_a) {
+		auto opencl (nano::opencl_work::create (config.opencl_enable, config.opencl, config.node.logging));
+		nano::work_pool opencl_work (config.node.work_threads, opencl ? [&opencl](nano::uint256_union const & root_a) {
 			return opencl->generate_work (root_a);
 		}
-		                                                             : std::function<boost::optional<uint64_t> (rai::uint256_union const &)> (nullptr));
-		rai::alarm alarm (io_ctx);
-		rai::node_init init;
+		                                                              : std::function<boost::optional<uint64_t> (nano::uint256_union const &)> (nullptr));
+		nano::alarm alarm (io_ctx);
+		nano::node_init init;
 		try
 		{
-			auto node (std::make_shared<rai::node> (init, io_ctx, data_path, alarm, config.node, opencl_work));
+			auto node (std::make_shared<nano::node> (init, io_ctx, data_path, alarm, config.node, opencl_work));
 			if (!init.error ())
 			{
 				node->flags = flags;
 				node->start ();
-				std::unique_ptr<rai::rpc> rpc = get_rpc (io_ctx, *node, config.rpc);
+				std::unique_ptr<nano::rpc> rpc = get_rpc (io_ctx, *node, config.rpc);
 				if (rpc && config.rpc_enable)
 				{
 					rpc->start ();
 				}
-				runner = std::make_unique<rai::thread_runner> (io_ctx, node->config.io_threads);
+				runner = std::make_unique<nano::thread_runner> (io_ctx, node->config.io_threads);
 				runner->join ();
 			}
 			else

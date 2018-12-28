@@ -1,8 +1,8 @@
-#include <rai/node/node.hpp>
-#include <rai/node/portmapping.hpp>
+#include <nano/node/node.hpp>
+#include <nano/node/portmapping.hpp>
 #include <upnpcommands.h>
 
-rai::port_mapping::port_mapping (rai::node & node_a) :
+nano::port_mapping::port_mapping (nano::node & node_a) :
 node (node_a),
 devices (nullptr),
 protocols ({ { { "TCP", 0, boost::asio::ip::address_v4::any (), 0 }, { "UDP", 0, boost::asio::ip::address_v4::any (), 0 } } }),
@@ -13,14 +13,14 @@ on (false)
 	data = { { 0 } };
 }
 
-void rai::port_mapping::start ()
+void nano::port_mapping::start ()
 {
 	check_mapping_loop ();
 }
 
-void rai::port_mapping::refresh_devices ()
+void nano::port_mapping::refresh_devices ()
 {
-	if (rai::rai_network != rai::rai_networks::rai_test_network)
+	if (nano::nano_network != nano::nano_networks::nano_test_network)
 	{
 		std::lock_guard<std::mutex> lock (mutex);
 		int discover_error = 0;
@@ -48,9 +48,9 @@ void rai::port_mapping::refresh_devices ()
 	}
 }
 
-void rai::port_mapping::refresh_mapping ()
+void nano::port_mapping::refresh_mapping ()
 {
-	if (rai::rai_network != rai::rai_networks::rai_test_network)
+	if (nano::nano_network != nano::nano_networks::nano_test_network)
 	{
 		std::lock_guard<std::mutex> lock (mutex);
 		auto node_port (std::to_string (node.network.endpoint ().port ()));
@@ -77,10 +77,10 @@ void rai::port_mapping::refresh_mapping ()
 	}
 }
 
-int rai::port_mapping::check_mapping ()
+int nano::port_mapping::check_mapping ()
 {
 	int result (3600);
-	if (rai::rai_network != rai::rai_networks::rai_test_network)
+	if (nano::nano_network != nano::nano_networks::nano_test_network)
 	{
 		// Long discovery time and fast setup/teardown make this impractical for testing
 		std::lock_guard<std::mutex> lock (mutex);
@@ -122,7 +122,7 @@ int rai::port_mapping::check_mapping ()
 	return result;
 }
 
-void rai::port_mapping::check_mapping_loop ()
+void nano::port_mapping::check_mapping_loop ()
 {
 	int wait_duration = check_timeout;
 	refresh_devices ();
@@ -153,7 +153,7 @@ void rai::port_mapping::check_mapping_loop ()
 	}
 }
 
-void rai::port_mapping::stop ()
+void nano::port_mapping::stop ()
 {
 	on = false;
 	std::lock_guard<std::mutex> lock (mutex);

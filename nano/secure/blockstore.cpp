@@ -1,16 +1,16 @@
-#include <rai/node/common.hpp>
-#include <rai/node/wallet.hpp>
-#include <rai/secure/blockstore.hpp>
+#include <nano/node/common.hpp>
+#include <nano/node/wallet.hpp>
+#include <nano/secure/blockstore.hpp>
 
 #include <boost/polymorphic_cast.hpp>
 
-rai::summation_visitor::summation_visitor (rai::transaction const & transaction_a, rai::block_store & store_a) :
+nano::summation_visitor::summation_visitor (nano::transaction const & transaction_a, nano::block_store & store_a) :
 transaction (transaction_a),
 store (store_a)
 {
 }
 
-void rai::summation_visitor::send_block (rai::send_block const & block_a)
+void nano::summation_visitor::send_block (nano::send_block const & block_a)
 {
 	assert (current->type != summation_type::invalid && current != nullptr);
 	if (current->type == summation_type::amount)
@@ -26,7 +26,7 @@ void rai::summation_visitor::send_block (rai::send_block const & block_a)
 	}
 }
 
-void rai::summation_visitor::state_block (rai::state_block const & block_a)
+void nano::summation_visitor::state_block (nano::state_block const & block_a)
 {
 	assert (current->type != summation_type::invalid && current != nullptr);
 	sum_set (block_a.hashables.balance.number ());
@@ -41,7 +41,7 @@ void rai::summation_visitor::state_block (rai::state_block const & block_a)
 	}
 }
 
-void rai::summation_visitor::receive_block (rai::receive_block const & block_a)
+void nano::summation_visitor::receive_block (nano::receive_block const & block_a)
 {
 	assert (current->type != summation_type::invalid && current != nullptr);
 	if (current->type == summation_type::amount)
@@ -50,7 +50,7 @@ void rai::summation_visitor::receive_block (rai::receive_block const & block_a)
 	}
 	else
 	{
-		rai::block_info block_info;
+		nano::block_info block_info;
 		if (!store.block_info_get (transaction, block_a.hash (), block_info))
 		{
 			sum_add (block_info.balance.number ());
@@ -64,18 +64,18 @@ void rai::summation_visitor::receive_block (rai::receive_block const & block_a)
 	}
 }
 
-void rai::summation_visitor::open_block (rai::open_block const & block_a)
+void nano::summation_visitor::open_block (nano::open_block const & block_a)
 {
 	assert (current->type != summation_type::invalid && current != nullptr);
 	if (current->type == summation_type::amount)
 	{
-		if (block_a.hashables.source != rai::genesis_account)
+		if (block_a.hashables.source != nano::genesis_account)
 		{
 			current->amount_hash = block_a.hashables.source;
 		}
 		else
 		{
-			sum_set (rai::genesis_amount);
+			sum_set (nano::genesis_amount);
 			current->amount_hash = 0;
 		}
 	}
@@ -86,7 +86,7 @@ void rai::summation_visitor::open_block (rai::open_block const & block_a)
 	}
 }
 
-void rai::summation_visitor::change_block (rai::change_block const & block_a)
+void nano::summation_visitor::change_block (nano::change_block const & block_a)
 {
 	assert (current->type != summation_type::invalid && current != nullptr);
 	if (current->type == summation_type::amount)
@@ -96,7 +96,7 @@ void rai::summation_visitor::change_block (rai::change_block const & block_a)
 	}
 	else
 	{
-		rai::block_info block_info;
+		nano::block_info block_info;
 		if (!store.block_info_get (transaction, block_a.hash (), block_info))
 		{
 			sum_add (block_info.balance.number ());
@@ -109,25 +109,25 @@ void rai::summation_visitor::change_block (rai::change_block const & block_a)
 	}
 }
 
-rai::summation_visitor::frame rai::summation_visitor::push (rai::summation_visitor::summation_type type_a, rai::block_hash const & hash_a)
+nano::summation_visitor::frame nano::summation_visitor::push (nano::summation_visitor::summation_type type_a, nano::block_hash const & hash_a)
 {
 	frames.emplace (type_a, type_a == summation_type::balance ? hash_a : 0, type_a == summation_type::amount ? hash_a : 0);
 	return frames.top ();
 }
 
-void rai::summation_visitor::sum_add (rai::uint128_t addend_a)
+void nano::summation_visitor::sum_add (nano::uint128_t addend_a)
 {
 	current->sum += addend_a;
 	result = current->sum;
 }
 
-void rai::summation_visitor::sum_set (rai::uint128_t value_a)
+void nano::summation_visitor::sum_set (nano::uint128_t value_a)
 {
 	current->sum = value_a;
 	result = current->sum;
 }
 
-rai::uint128_t rai::summation_visitor::compute_internal (rai::summation_visitor::summation_type type_a, rai::block_hash const & hash_a)
+nano::uint128_t nano::summation_visitor::compute_internal (nano::summation_visitor::summation_type type_a, nano::block_hash const & hash_a)
 {
 	push (type_a, hash_a);
 
@@ -190,9 +190,9 @@ rai::uint128_t rai::summation_visitor::compute_internal (rai::summation_visitor:
 					}
 					else
 					{
-						if (current->amount_hash == rai::genesis_account)
+						if (current->amount_hash == nano::genesis_account)
 						{
-							sum_set (std::numeric_limits<rai::uint128_t>::max ());
+							sum_set (std::numeric_limits<nano::uint128_t>::max ());
 							current->amount_hash = 0;
 						}
 						else
@@ -219,7 +219,7 @@ rai::uint128_t rai::summation_visitor::compute_internal (rai::summation_visitor:
 	return result;
 }
 
-void rai::summation_visitor::epilogue ()
+void nano::summation_visitor::epilogue ()
 {
 	if (!current->awaiting_result)
 	{
@@ -231,24 +231,24 @@ void rai::summation_visitor::epilogue ()
 	}
 }
 
-rai::uint128_t rai::summation_visitor::compute_amount (rai::block_hash const & block_hash)
+nano::uint128_t nano::summation_visitor::compute_amount (nano::block_hash const & block_hash)
 {
 	return compute_internal (summation_type::amount, block_hash);
 }
 
-rai::uint128_t rai::summation_visitor::compute_balance (rai::block_hash const & block_hash)
+nano::uint128_t nano::summation_visitor::compute_balance (nano::block_hash const & block_hash)
 {
 	return compute_internal (summation_type::balance, block_hash);
 }
 
-rai::representative_visitor::representative_visitor (rai::transaction const & transaction_a, rai::block_store & store_a) :
+nano::representative_visitor::representative_visitor (nano::transaction const & transaction_a, nano::block_store & store_a) :
 transaction (transaction_a),
 store (store_a),
 result (0)
 {
 }
 
-void rai::representative_visitor::compute (rai::block_hash const & hash_a)
+void nano::representative_visitor::compute (nano::block_hash const & hash_a)
 {
 	current = hash_a;
 	while (result.is_zero ())
@@ -259,27 +259,27 @@ void rai::representative_visitor::compute (rai::block_hash const & hash_a)
 	}
 }
 
-void rai::representative_visitor::send_block (rai::send_block const & block_a)
+void nano::representative_visitor::send_block (nano::send_block const & block_a)
 {
 	current = block_a.previous ();
 }
 
-void rai::representative_visitor::receive_block (rai::receive_block const & block_a)
+void nano::representative_visitor::receive_block (nano::receive_block const & block_a)
 {
 	current = block_a.previous ();
 }
 
-void rai::representative_visitor::open_block (rai::open_block const & block_a)
+void nano::representative_visitor::open_block (nano::open_block const & block_a)
 {
 	result = block_a.hash ();
 }
 
-void rai::representative_visitor::change_block (rai::change_block const & block_a)
+void nano::representative_visitor::change_block (nano::change_block const & block_a)
 {
 	result = block_a.hash ();
 }
 
-void rai::representative_visitor::state_block (rai::state_block const & block_a)
+void nano::representative_visitor::state_block (nano::state_block const & block_a)
 {
 	result = block_a.hash ();
 }

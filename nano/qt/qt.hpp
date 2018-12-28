@@ -1,6 +1,6 @@
 #pragma once
 
-#include <rai/node/node.hpp>
+#include <nano/node/node.hpp>
 
 #include <boost/thread.hpp>
 
@@ -9,7 +9,7 @@
 #include <QtGui>
 #include <QtWidgets>
 
-namespace rai_qt
+namespace nano_qt
 {
 static const QString saved_ratio_key = "settings/ratio";
 class wallet;
@@ -27,7 +27,7 @@ public:
 class settings
 {
 public:
-	settings (rai_qt::wallet &);
+	settings (nano_qt::wallet &);
 	void refresh_representative ();
 	void activate ();
 	void update_locked (bool, bool);
@@ -45,12 +45,12 @@ public:
 	QLineEdit * new_representative;
 	QPushButton * change_rep;
 	QPushButton * back;
-	rai_qt::wallet & wallet;
+	nano_qt::wallet & wallet;
 };
 class advanced_actions
 {
 public:
-	advanced_actions (rai_qt::wallet &);
+	advanced_actions (nano_qt::wallet &);
 	QWidget * window;
 	QVBoxLayout * layout;
 	QPushButton * show_ledger;
@@ -91,7 +91,7 @@ public:
 	QPushButton * peers_refresh;
 	QPushButton * peers_back;
 
-	rai_qt::wallet & wallet;
+	nano_qt::wallet & wallet;
 
 private:
 	void refresh_ledger ();
@@ -101,19 +101,19 @@ private:
 class block_entry
 {
 public:
-	block_entry (rai_qt::wallet &);
+	block_entry (nano_qt::wallet &);
 	QWidget * window;
 	QVBoxLayout * layout;
 	QPlainTextEdit * block;
 	QLabel * status;
 	QPushButton * process;
 	QPushButton * back;
-	rai_qt::wallet & wallet;
+	nano_qt::wallet & wallet;
 };
 class block_creation
 {
 public:
-	block_creation (rai_qt::wallet &);
+	block_creation (nano_qt::wallet &);
 	void deactivate_all ();
 	void activate_send ();
 	void activate_receive ();
@@ -145,13 +145,13 @@ public:
 	QLabel * status;
 	QPushButton * create;
 	QPushButton * back;
-	rai_qt::wallet & wallet;
+	nano_qt::wallet & wallet;
 };
 class self_pane
 {
 public:
-	self_pane (rai_qt::wallet &, rai::account const &);
-	void set_balance_text (std::pair<rai::uint128_t, rai::uint128_t>);
+	self_pane (nano_qt::wallet &, nano::account const &);
+	void set_balance_text (std::pair<nano::uint128_t, nano::uint128_t>);
 	QWidget * window;
 	QVBoxLayout * layout;
 	QHBoxLayout * self_layout;
@@ -165,12 +165,12 @@ public:
 	QWidget * balance_window;
 	QHBoxLayout * balance_layout;
 	QLabel * balance_label;
-	rai_qt::wallet & wallet;
+	nano_qt::wallet & wallet;
 };
 class accounts
 {
 public:
-	accounts (rai_qt::wallet &);
+	accounts (nano_qt::wallet &);
 	void refresh ();
 	void refresh_wallet_balance ();
 	QLabel * wallet_balance_label;
@@ -186,12 +186,12 @@ public:
 	QLineEdit * account_key_line;
 	QPushButton * account_key_button;
 	QPushButton * back;
-	rai_qt::wallet & wallet;
+	nano_qt::wallet & wallet;
 };
 class import
 {
 public:
-	import (rai_qt::wallet &);
+	import (nano_qt::wallet &);
 	QWidget * window;
 	QVBoxLayout * layout;
 	QLabel * seed_label;
@@ -206,12 +206,12 @@ public:
 	QLineEdit * password;
 	QPushButton * perform;
 	QPushButton * back;
-	rai_qt::wallet & wallet;
+	nano_qt::wallet & wallet;
 };
 class history
 {
 public:
-	history (rai::ledger &, rai::account const &, rai_qt::wallet &);
+	history (nano::ledger &, nano::account const &, nano_qt::wallet &);
 	void refresh ();
 	QWidget * window;
 	QVBoxLayout * layout;
@@ -221,15 +221,15 @@ public:
 	QHBoxLayout * tx_layout;
 	QLabel * tx_label;
 	QSpinBox * tx_count;
-	rai::ledger & ledger;
-	rai::account const & account;
-	rai_qt::wallet & wallet;
+	nano::ledger & ledger;
+	nano::account const & account;
+	nano_qt::wallet & wallet;
 };
 class block_viewer
 {
 public:
-	block_viewer (rai_qt::wallet &);
-	void rebroadcast_action (rai::uint256_union const &);
+	block_viewer (nano_qt::wallet &);
+	void rebroadcast_action (nano::uint256_union const &);
 	QWidget * window;
 	QVBoxLayout * layout;
 	QLabel * hash_label;
@@ -241,12 +241,12 @@ public:
 	QPushButton * retrieve;
 	QPushButton * rebroadcast;
 	QPushButton * back;
-	rai_qt::wallet & wallet;
+	nano_qt::wallet & wallet;
 };
 class account_viewer
 {
 public:
-	account_viewer (rai_qt::wallet &);
+	account_viewer (nano_qt::wallet &);
 	QWidget * window;
 	QVBoxLayout * layout;
 	QLabel * account_label;
@@ -255,22 +255,22 @@ public:
 	QWidget * balance_window;
 	QHBoxLayout * balance_layout;
 	QLabel * balance_label;
-	rai_qt::history history;
+	nano_qt::history history;
 	QPushButton * back;
-	rai::account account;
-	rai_qt::wallet & wallet;
+	nano::account account;
+	nano_qt::wallet & wallet;
 };
 class stats_viewer
 {
 public:
-	stats_viewer (rai_qt::wallet &);
+	stats_viewer (nano_qt::wallet &);
 	QWidget * window;
 	QVBoxLayout * layout;
 	QPushButton * refresh;
 	QStandardItemModel * model;
 	QTableView * view;
 	QPushButton * back;
-	rai_qt::wallet & wallet;
+	nano_qt::wallet & wallet;
 	void refresh_stats ();
 };
 enum class status_types
@@ -287,41 +287,41 @@ enum class status_types
 class status
 {
 public:
-	status (rai_qt::wallet &);
-	void erase (rai_qt::status_types);
-	void insert (rai_qt::status_types);
+	status (nano_qt::wallet &);
+	void erase (nano_qt::status_types);
+	void insert (nano_qt::status_types);
 	void set_text ();
 	std::string text ();
 	std::string color ();
-	std::set<rai_qt::status_types> active;
-	rai_qt::wallet & wallet;
+	std::set<nano_qt::status_types> active;
+	nano_qt::wallet & wallet;
 };
-class wallet : public std::enable_shared_from_this<rai_qt::wallet>
+class wallet : public std::enable_shared_from_this<nano_qt::wallet>
 {
 public:
-	wallet (QApplication &, rai_qt::eventloop_processor &, rai::node &, std::shared_ptr<rai::wallet>, rai::account &);
+	wallet (QApplication &, nano_qt::eventloop_processor &, nano::node &, std::shared_ptr<nano::wallet>, nano::account &);
 	void start ();
 	void refresh ();
 	void update_connected ();
 	void empty_password ();
-	void change_rendering_ratio (rai::uint128_t const &);
-	std::string format_balance (rai::uint128_t const &) const;
-	rai::uint128_t rendering_ratio;
-	rai::node & node;
-	std::shared_ptr<rai::wallet> wallet_m;
-	rai::account & account;
-	rai_qt::eventloop_processor & processor;
-	rai_qt::history history;
-	rai_qt::accounts accounts;
-	rai_qt::self_pane self;
-	rai_qt::settings settings;
-	rai_qt::advanced_actions advanced;
-	rai_qt::block_creation block_creation;
-	rai_qt::block_entry block_entry;
-	rai_qt::block_viewer block_viewer;
-	rai_qt::account_viewer account_viewer;
-	rai_qt::stats_viewer stats_viewer;
-	rai_qt::import import;
+	void change_rendering_ratio (nano::uint128_t const &);
+	std::string format_balance (nano::uint128_t const &) const;
+	nano::uint128_t rendering_ratio;
+	nano::node & node;
+	std::shared_ptr<nano::wallet> wallet_m;
+	nano::account & account;
+	nano_qt::eventloop_processor & processor;
+	nano_qt::history history;
+	nano_qt::accounts accounts;
+	nano_qt::self_pane self;
+	nano_qt::settings settings;
+	nano_qt::advanced_actions advanced;
+	nano_qt::block_creation block_creation;
+	nano_qt::block_entry block_entry;
+	nano_qt::block_viewer block_viewer;
+	nano_qt::account_viewer account_viewer;
+	nano_qt::stats_viewer stats_viewer;
+	nano_qt::import import;
 
 	QApplication & application;
 	QLabel * status;
@@ -348,7 +348,7 @@ public:
 	QPushButton * send_blocks_send;
 	QPushButton * send_blocks_back;
 
-	rai_qt::status active_status;
+	nano_qt::status active_status;
 	void pop_main_stack ();
 	void push_main_stack (QWidget *);
 	void ongoing_refresh ();

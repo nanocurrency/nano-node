@@ -1,7 +1,7 @@
-#include <rai/node/node.hpp>
-#include <rai/node/rpc_secure.hpp>
+#include <nano/node/node.hpp>
+#include <nano/node/rpc_secure.hpp>
 
-bool rai::rpc_secure::on_verify_certificate (bool preverified, boost::asio::ssl::verify_context & ctx)
+bool nano::rpc_secure::on_verify_certificate (bool preverified, boost::asio::ssl::verify_context & ctx)
 {
 	X509_STORE_CTX * cts = ctx.native_handle ();
 	auto error (X509_STORE_CTX_get_error (cts));
@@ -56,7 +56,7 @@ bool rai::rpc_secure::on_verify_certificate (bool preverified, boost::asio::ssl:
 	return preverified;
 }
 
-void rai::rpc_secure::load_certs (boost::asio::ssl::context & context_a)
+void nano::rpc_secure::load_certs (boost::asio::ssl::context & context_a)
 {
 	// This is called if the key is password protected
 	context_a.set_password_callback (
@@ -88,16 +88,16 @@ void rai::rpc_secure::load_certs (boost::asio::ssl::context & context_a)
 	}
 }
 
-rai::rpc_secure::rpc_secure (boost::asio::io_service & service_a, rai::node & node_a, rai::rpc_config const & config_a) :
+nano::rpc_secure::rpc_secure (boost::asio::io_service & service_a, nano::node & node_a, nano::rpc_config const & config_a) :
 rpc (service_a, node_a, config_a),
 ssl_context (boost::asio::ssl::context::tlsv12_server)
 {
 	load_certs (ssl_context);
 }
 
-void rai::rpc_secure::accept ()
+void nano::rpc_secure::accept ()
 {
-	auto connection (std::make_shared<rai::rpc_connection_secure> (node, *this));
+	auto connection (std::make_shared<nano::rpc_connection_secure> (node, *this));
 	acceptor.async_accept (connection->socket, [this, connection](boost::system::error_code const & ec) {
 		if (acceptor.is_open ())
 		{
@@ -114,29 +114,29 @@ void rai::rpc_secure::accept ()
 	});
 }
 
-rai::rpc_connection_secure::rpc_connection_secure (rai::node & node_a, rai::rpc_secure & rpc_a) :
-rai::rpc_connection (node_a, rpc_a),
+nano::rpc_connection_secure::rpc_connection_secure (nano::node & node_a, nano::rpc_secure & rpc_a) :
+nano::rpc_connection (node_a, rpc_a),
 stream (socket, rpc_a.ssl_context)
 {
 }
 
-void rai::rpc_connection_secure::parse_connection ()
+void nano::rpc_connection_secure::parse_connection ()
 {
 	// Perform the SSL handshake
-	auto this_l = std::static_pointer_cast<rai::rpc_connection_secure> (shared_from_this ());
+	auto this_l = std::static_pointer_cast<nano::rpc_connection_secure> (shared_from_this ());
 	stream.async_handshake (boost::asio::ssl::stream_base::server,
 	[this_l](auto & ec) {
 		this_l->handle_handshake (ec);
 	});
 }
 
-void rai::rpc_connection_secure::on_shutdown (const boost::system::error_code & error)
+void nano::rpc_connection_secure::on_shutdown (const boost::system::error_code & error)
 {
 	// No-op. We initiate the shutdown (since the RPC server kills the connection after each request)
 	// and we'll thus get an expected EOF error. If the client disconnects, a short-read error will be expected.
 }
 
-void rai::rpc_connection_secure::handle_handshake (const boost::system::error_code & error)
+void nano::rpc_connection_secure::handle_handshake (const boost::system::error_code & error)
 {
 	if (!error)
 	{
@@ -148,9 +148,9 @@ void rai::rpc_connection_secure::handle_handshake (const boost::system::error_co
 	}
 }
 
-void rai::rpc_connection_secure::read ()
+void nano::rpc_connection_secure::read ()
 {
-	auto this_l (std::static_pointer_cast<rai::rpc_connection_secure> (shared_from_this ()));
+	auto this_l (std::static_pointer_cast<nano::rpc_connection_secure> (shared_from_this ()));
 	boost::beast::http::async_read (stream, buffer, request, [this_l](boost::system::error_code const & ec, size_t bytes_transferred) {
 		if (!ec)
 		{
@@ -179,7 +179,7 @@ void rai::rpc_connection_secure::read ()
 
 				if (this_l->request.method () == boost::beast::http::verb::post)
 				{
-					auto handler (std::make_shared<rai::rpc_handler> (*this_l->node, this_l->rpc, this_l->request.body (), request_id, response_handler));
+					auto handler (std::make_shared<nano::rpc_handler> (*this_l->node, this_l->rpc, this_l->request.body (), request_id, response_handler));
 					handler->process_request ();
 				}
 				else

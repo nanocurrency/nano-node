@@ -8,7 +8,7 @@
 
 #define FATAL_LOG_PREFIX "FATAL ERROR: "
 
-namespace rai
+namespace nano
 {
 class logging
 {

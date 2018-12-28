@@ -1,8 +1,8 @@
-#include <rai/lib/utility.hpp>
+#include <nano/lib/utility.hpp>
 
 #include <pthread.h>
 
-void rai::work_thread_reprioritize ()
+void nano::work_thread_reprioritize ()
 {
 	auto handle (pthread_self ());
 	int policy;

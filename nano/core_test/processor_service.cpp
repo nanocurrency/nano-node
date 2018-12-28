@@ -1,5 +1,5 @@
 #include <gtest/gtest.h>
-#include <rai/node/node.hpp>
+#include <nano/node/node.hpp>
 
 #include <atomic>
 #include <condition_variable>
@@ -9,47 +9,47 @@
 TEST (processor_service, bad_send_signature)
 {
 	bool init (false);
-	rai::mdb_store store (init, rai::unique_path ());
+	nano::mdb_store store (init, nano::unique_path ());
 	ASSERT_FALSE (init);
-	rai::stat stats;
-	rai::ledger ledger (store, stats);
-	rai::genesis genesis;
+	nano::stat stats;
+	nano::ledger ledger (store, stats);
+	nano::genesis genesis;
 	auto transaction (store.tx_begin (true));
 	store.initialize (transaction, genesis);
-	rai::account_info info1;
-	ASSERT_FALSE (store.account_get (transaction, rai::test_genesis_key.pub, info1));
-	rai::keypair key2;
-	rai::send_block send (info1.head, rai::test_genesis_key.pub, 50, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
+	nano::account_info info1;
+	ASSERT_FALSE (store.account_get (transaction, nano::test_genesis_key.pub, info1));
+	nano::keypair key2;
+	nano::send_block send (info1.head, nano::test_genesis_key.pub, 50, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
 	send.signature.bytes[32] ^= 0x1;
-	ASSERT_EQ (rai::process_result::bad_signature, ledger.process (transaction, send).code);
+	ASSERT_EQ (nano::process_result::bad_signature, ledger.process (transaction, send).code);
 }
 
 TEST (processor_service, bad_receive_signature)
 {
 	bool init (false);
-	rai::mdb_store store (init, rai::unique_path ());
+	nano::mdb_store store (init, nano::unique_path ());
 	ASSERT_FALSE (init);
-	rai::stat stats;
-	rai::ledger ledger (store, stats);
-	rai::genesis genesis;
+	nano::stat stats;
+	nano::ledger ledger (store, stats);
+	nano::genesis genesis;
 	auto transaction (store.tx_begin (true));
 	store.initialize (transaction, genesis);
-	rai::account_info info1;
-	ASSERT_FALSE (store.account_get (transaction, rai::test_genesis_key.pub, info1));
-	rai::send_block send (info1.head, rai::test_genesis_key.pub, 50, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
-	rai::block_hash hash1 (send.hash ());
-	ASSERT_EQ (rai::process_result::progress, ledger.process (transaction, send).code);
-	rai::account_info info2;
-	ASSERT_FALSE (store.account_get (transaction, rai::test_genesis_key.pub, info2));
-	rai::receive_block receive (hash1, hash1, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
+	nano::account_info info1;
+	ASSERT_FALSE (store.account_get (transaction, nano::test_genesis_key.pub, info1));
+	nano::send_block send (info1.head, nano::test_genesis_key.pub, 50, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
+	nano::block_hash hash1 (send.hash ());
+	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send).code);
+	nano::account_info info2;
+	ASSERT_FALSE (store.account_get (transaction, nano::test_genesis_key.pub, info2));
+	nano::receive_block receive (hash1, hash1, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
 	receive.signature.bytes[32] ^= 0x1;
-	ASSERT_EQ (rai::process_result::bad_signature, ledger.process (transaction, receive).code);
+	ASSERT_EQ (nano::process_result::bad_signature, ledger.process (transaction, receive).code);
 }
 
 TEST (alarm, one)
 {
 	boost::asio::io_context io_ctx;
-	rai::alarm alarm (io_ctx);
+	nano::alarm alarm (io_ctx);
 	std::atomic<bool> done (false);
 	std::mutex mutex;
 	std::condition_variable condition;
@@ -71,7 +71,7 @@ TEST (alarm, one)
 TEST (alarm, many)
 {
 	boost::asio::io_context io_ctx;
-	rai::alarm alarm (io_ctx);
+	nano::alarm alarm (io_ctx);
 	std::atomic<int> count (0);
 	std::mutex mutex;
 	std::condition_variable condition;
@@ -103,7 +103,7 @@ TEST (alarm, many)
 TEST (alarm, top_execution)
 {
 	boost::asio::io_context io_ctx;
-	rai::alarm alarm (io_ctx);
+	nano::alarm alarm (io_ctx);
 	int value1 (0);
 	int value2 (0);
 	std::mutex mutex;

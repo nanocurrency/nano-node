@@ -1,26 +1,26 @@
-#include <rai/lib/interface.h>
-#include <rai/node/cli.hpp>
-#include <rai/node/common.hpp>
-#include <rai/node/node.hpp>
+#include <nano/lib/interface.h>
+#include <nano/node/cli.hpp>
+#include <nano/node/common.hpp>
+#include <nano/node/node.hpp>
 
-std::string rai::error_cli_messages::message (int ev) const
+std::string nano::error_cli_messages::message (int ev) const
 {
-	switch (static_cast<rai::error_cli> (ev))
+	switch (static_cast<nano::error_cli> (ev))
 	{
-		case rai::error_cli::generic:
+		case nano::error_cli::generic:
 			return "Unknown error";
-		case rai::error_cli::parse_error:
+		case nano::error_cli::parse_error:
 			return "Coud not parse command line";
-		case rai::error_cli::invalid_arguments:
+		case nano::error_cli::invalid_arguments:
 			return "Invalid arguments";
-		case rai::error_cli::unknown_command:
+		case nano::error_cli::unknown_command:
 			return "Unknown command";
 	}
 
 	return "Invalid error code";
 }
 
-void rai::add_node_options (boost::program_options::options_description & description_a)
+void nano::add_node_options (boost::program_options::options_description & description_a)
 {
 	// clang-format off
 	description_a.add_options ()
@@ -56,16 +56,16 @@ void rai::add_node_options (boost::program_options::options_description & descri
 	// clang-format on
 }
 
-std::error_code rai::handle_node_options (boost::program_options::variables_map & vm)
+std::error_code nano::handle_node_options (boost::program_options::variables_map & vm)
 {
 	std::error_code ec;
 
-	boost::filesystem::path data_path = vm.count ("data_path") ? boost::filesystem::path (vm["data_path"].as<std::string> ()) : rai::working_path ();
+	boost::filesystem::path data_path = vm.count ("data_path") ? boost::filesystem::path (vm["data_path"].as<std::string> ()) : nano::working_path ();
 	if (vm.count ("account_create"))
 	{
 		if (vm.count ("wallet") == 1)
 		{
-			rai::uint256_union wallet_id;
+			nano::uint256_union wallet_id;
 			if (!wallet_id.decode_hex (vm["wallet"].as<std::string> ()))
 			{
 				std::string password;
@@ -86,53 +86,53 @@ std::error_code rai::handle_node_options (boost::program_options::variables_map 
 					else
 					{
 						std::cerr << "Invalid password\n";
-						ec = rai::error_cli::invalid_arguments;
+						ec = nano::error_cli::invalid_arguments;
 					}
 				}
 				else
 				{
 					std::cerr << "Wallet doesn't exist\n";
-					ec = rai::error_cli::invalid_arguments;
+					ec = nano::error_cli::invalid_arguments;
 				}
 			}
 			else
 			{
 				std::cerr << "Invalid wallet id\n";
-				ec = rai::error_cli::invalid_arguments;
+				ec = nano::error_cli::invalid_arguments;
 			}
 		}
 		else
 		{
 			std::cerr << "wallet_add command requires one <wallet> option and one <key> option and optionally one <password> option\n";
-			ec = rai::error_cli::invalid_arguments;
+			ec = nano::error_cli::invalid_arguments;
 		}
 	}
 	else if (vm.count ("account_get") > 0)
 	{
 		if (vm.count ("key") == 1)
 		{
-			rai::uint256_union pub;
+			nano::uint256_union pub;
 			pub.decode_hex (vm["key"].as<std::string> ());
 			std::cout << "Account: " << pub.to_account () << std::endl;
 		}
 		else
 		{
 			std::cerr << "account comand requires one <key> option\n";
-			ec = rai::error_cli::invalid_arguments;
+			ec = nano::error_cli::invalid_arguments;
 		}
 	}
 	else if (vm.count ("account_key") > 0)
 	{
 		if (vm.count ("account") == 1)
 		{
-			rai::uint256_union account;
+			nano::uint256_union account;
 			account.decode_account (vm["account"].as<std::string> ());
 			std::cout << "Hex: " << account.to_string () << std::endl;
 		}
 		else
 		{
 			std::cerr << "account_key command requires one <account> option\n";
-			ec = rai::error_cli::invalid_arguments;
+			ec = nano::error_cli::invalid_arguments;
 		}
 	}
 	else if (vm.count ("vacuum") > 0)
@@ -196,7 +196,7 @@ std::error_code rai::handle_node_options (boost::program_options::variables_map 
 	{
 		try
 		{
-			boost::filesystem::path data_path = vm.count ("data_path") ? boost::filesystem::path (vm["data_path"].as<std::string> ()) : rai::working_path ();
+			boost::filesystem::path data_path = vm.count ("data_path") ? boost::filesystem::path (vm["data_path"].as<std::string> ()) : nano::working_path ();
 
 			auto source_path = data_path / "data.ldb";
 			auto snapshot_path = data_path / "snapshot.ldb";
@@ -244,7 +244,7 @@ std::error_code rai::handle_node_options (boost::program_options::variables_map 
 	}
 	else if (vm.count ("unchecked_clear"))
 	{
-		boost::filesystem::path data_path = vm.count ("data_path") ? boost::filesystem::path (vm["data_path"].as<std::string> ()) : rai::working_path ();
+		boost::filesystem::path data_path = vm.count ("data_path") ? boost::filesystem::path (vm["data_path"].as<std::string> ()) : nano::working_path ();
 		inactive_node node (data_path);
 		auto transaction (node.node->store.tx_begin_write ());
 		node.node->store.unchecked_clear (transaction);
@@ -252,7 +252,7 @@ std::error_code rai::handle_node_options (boost::program_options::variables_map 
 	}
 	else if (vm.count ("delete_node_id"))
 	{
-		boost::filesystem::path data_path = vm.count ("data_path") ? boost::filesystem::path (vm["data_path"].as<std::string> ()) : rai::working_path ();
+		boost::filesystem::path data_path = vm.count ("data_path") ? boost::filesystem::path (vm["data_path"].as<std::string> ()) : nano::working_path ();
 		inactive_node node (data_path);
 		auto transaction (node.node->store.tx_begin_write ());
 		node.node->store.delete_node_id (transaction);
@@ -260,7 +260,7 @@ std::error_code rai::handle_node_options (boost::program_options::variables_map 
 	}
 	else if (vm.count ("clear_send_ids"))
 	{
-		boost::filesystem::path data_path = vm.count ("data_path") ? boost::filesystem::path (vm["data_path"].as<std::string> ()) : rai::working_path ();
+		boost::filesystem::path data_path = vm.count ("data_path") ? boost::filesystem::path (vm["data_path"].as<std::string> ()) : nano::working_path ();
 		inactive_node node (data_path);
 		auto transaction (node.node->store.tx_begin_write ());
 		node.node->wallets.clear_send_ids (transaction);
@@ -270,18 +270,18 @@ std::error_code rai::handle_node_options (boost::program_options::variables_map 
 	{
 		inactive_node node (data_path);
 		std::cout << "Testing hash function" << std::endl;
-		rai::raw_key key;
+		nano::raw_key key;
 		key.data.clear ();
-		rai::send_block send (0, 0, 0, key, 0, 0);
+		nano::send_block send (0, 0, 0, key, 0, 0);
 		std::cout << "Testing key derivation function" << std::endl;
-		rai::raw_key junk1;
+		nano::raw_key junk1;
 		junk1.data.clear ();
-		rai::uint256_union junk2 (0);
-		rai::kdf kdf;
+		nano::uint256_union junk2 (0);
+		nano::kdf kdf;
 		kdf.phs (junk1, "", junk2);
 		std::cout << "Dumping OpenCL information" << std::endl;
 		bool error (false);
-		rai::opencl_environment environment (error);
+		nano::opencl_environment environment (error);
 		if (!error)
 		{
 			environment.dump (std::cout);
@@ -296,7 +296,7 @@ std::error_code rai::handle_node_options (boost::program_options::variables_map 
 	}
 	else if (vm.count ("key_create"))
 	{
-		rai::keypair pair;
+		nano::keypair pair;
 		std::cout << "Private: " << pair.prv.data.to_string () << std::endl
 		          << "Public: " << pair.pub.to_string () << std::endl
 		          << "Account: " << pair.pub.to_account () << std::endl;
@@ -305,9 +305,9 @@ std::error_code rai::handle_node_options (boost::program_options::variables_map 
 	{
 		if (vm.count ("key") == 1)
 		{
-			rai::uint256_union prv;
+			nano::uint256_union prv;
 			prv.decode_hex (vm["key"].as<std::string> ());
-			rai::uint256_union pub (rai::pub_key (prv));
+			nano::uint256_union pub (nano::pub_key (prv));
 			std::cout << "Private: " << prv.to_string () << std::endl
 			          << "Public: " << pub.to_string () << std::endl
 			          << "Account: " << pub.to_account () << std::endl;
@@ -315,14 +315,14 @@ std::error_code rai::handle_node_options (boost::program_options::variables_map 
 		else
 		{
 			std::cerr << "key_expand command requires one <key> option\n";
-			ec = rai::error_cli::invalid_arguments;
+			ec = nano::error_cli::invalid_arguments;
 		}
 	}
 	else if (vm.count ("wallet_add_adhoc"))
 	{
 		if (vm.count ("wallet") == 1 && vm.count ("key") == 1)
 		{
-			rai::uint256_union wallet_id;
+			nano::uint256_union wallet_id;
 			if (!wallet_id.decode_hex (vm["wallet"].as<std::string> ()))
 			{
 				std::string password;
@@ -337,7 +337,7 @@ std::error_code rai::handle_node_options (boost::program_options::variables_map 
 					auto transaction (wallet->wallets.tx_begin_write ());
 					if (!wallet->enter_password (transaction, password))
 					{
-						rai::raw_key key;
+						nano::raw_key key;
 						if (!key.data.decode_hex (vm["key"].as<std::string> ()))
 						{
 							wallet->store.insert_adhoc (transaction, key);
@@ -345,38 +345,38 @@ std::error_code rai::handle_node_options (boost::program_options::variables_map 
 						else
 						{
 							std::cerr << "Invalid key\n";
-							ec = rai::error_cli::invalid_arguments;
+							ec = nano::error_cli::invalid_arguments;
 						}
 					}
 					else
 					{
 						std::cerr << "Invalid password\n";
-						ec = rai::error_cli::invalid_arguments;
+						ec = nano::error_cli::invalid_arguments;
 					}
 				}
 				else
 				{
 					std::cerr << "Wallet doesn't exist\n";
-					ec = rai::error_cli::invalid_arguments;
+					ec = nano::error_cli::invalid_arguments;
 				}
 			}
 			else
 			{
 				std::cerr << "Invalid wallet id\n";
-				ec = rai::error_cli::invalid_arguments;
+				ec = nano::error_cli::invalid_arguments;
 			}
 		}
 		else
 		{
 			std::cerr << "wallet_add command requires one <wallet> option and one <key> option and optionally one <password> option\n";
-			ec = rai::error_cli::invalid_arguments;
+			ec = nano::error_cli::invalid_arguments;
 		}
 	}
 	else if (vm.count ("wallet_change_seed"))
 	{
 		if (vm.count ("wallet") == 1 && vm.count ("key") == 1)
 		{
-			rai::uint256_union wallet_id;
+			nano::uint256_union wallet_id;
 			if (!wallet_id.decode_hex (vm["wallet"].as<std::string> ()))
 			{
 				std::string password;
@@ -391,7 +391,7 @@ std::error_code rai::handle_node_options (boost::program_options::variables_map 
 					auto transaction (wallet->wallets.tx_begin_write ());
 					if (!wallet->enter_password (transaction, password))
 					{
-						rai::raw_key key;
+						nano::raw_key key;
 						if (!key.data.decode_hex (vm["key"].as<std::string> ()))
 						{
 							wallet->change_seed (transaction, key);
@@ -399,37 +399,37 @@ std::error_code rai::handle_node_options (boost::program_options::variables_map 
 						else
 						{
 							std::cerr << "Invalid key\n";
-							ec = rai::error_cli::invalid_arguments;
+							ec = nano::error_cli::invalid_arguments;
 						}
 					}
 					else
 					{
 						std::cerr << "Invalid password\n";
-						ec = rai::error_cli::invalid_arguments;
+						ec = nano::error_cli::invalid_arguments;
 					}
 				}
 				else
 				{
 					std::cerr << "Wallet doesn't exist\n";
-					ec = rai::error_cli::invalid_arguments;
+					ec = nano::error_cli::invalid_arguments;
 				}
 			}
 			else
 			{
 				std::cerr << "Invalid wallet id\n";
-				ec = rai::error_cli::invalid_arguments;
+				ec = nano::error_cli::invalid_arguments;
 			}
 		}
 		else
 		{
 			std::cerr << "wallet_add command requires one <wallet> option and one <key> option and optionally one <password> option\n";
-			ec = rai::error_cli::invalid_arguments;
+			ec = nano::error_cli::invalid_arguments;
 		}
 	}
 	else if (vm.count ("wallet_create"))
 	{
 		inactive_node node (data_path);
-		rai::keypair key;
+		nano::keypair key;
 		std::cout << key.pub.to_string () << std::endl;
 		auto wallet (node.node->wallets.create (key.pub));
 	}
@@ -442,7 +442,7 @@ std::error_code rai::handle_node_options (boost::program_options::variables_map 
 			{
 				password = vm["password"].as<std::string> ();
 			}
-			rai::uint256_union wallet_id;
+			nano::uint256_union wallet_id;
 			if (!wallet_id.decode_hex (vm["wallet"].as<std::string> ()))
 			{
 				inactive_node node (data_path);
@@ -452,17 +452,17 @@ std::error_code rai::handle_node_options (boost::program_options::variables_map 
 					auto transaction (existing->second->wallets.tx_begin_write ());
 					if (!existing->second->enter_password (transaction, password))
 					{
-						rai::raw_key seed;
+						nano::raw_key seed;
 						existing->second->store.seed (seed, transaction);
 						std::cout << boost::str (boost::format ("Seed: %1%\n") % seed.data.to_string ());
 						for (auto i (existing->second->store.begin (transaction)), m (existing->second->store.end ()); i != m; ++i)
 						{
-							rai::account account (i->first);
-							rai::raw_key key;
+							nano::account account (i->first);
+							nano::raw_key key;
 							auto error (existing->second->store.fetch (transaction, account, key));
 							assert (!error);
 							std::cout << boost::str (boost::format ("Pub: %1% Prv: %2%\n") % account.to_account () % key.data.to_string ());
-							if (rai::pub_key (key.data) != account)
+							if (nano::pub_key (key.data) != account)
 							{
 								std::cerr << boost::str (boost::format ("Invalid private key %1%\n") % key.data.to_string ());
 							}
@@ -471,32 +471,32 @@ std::error_code rai::handle_node_options (boost::program_options::variables_map 
 					else
 					{
 						std::cerr << "Invalid password\n";
-						ec = rai::error_cli::invalid_arguments;
+						ec = nano::error_cli::invalid_arguments;
 					}
 				}
 				else
 				{
 					std::cerr << "Wallet doesn't exist\n";
-					ec = rai::error_cli::invalid_arguments;
+					ec = nano::error_cli::invalid_arguments;
 				}
 			}
 			else
 			{
 				std::cerr << "Invalid wallet id\n";
-				ec = rai::error_cli::invalid_arguments;
+				ec = nano::error_cli::invalid_arguments;
 			}
 		}
 		else
 		{
 			std::cerr << "wallet_decrypt_unsafe requires one <wallet> option\n";
-			ec = rai::error_cli::invalid_arguments;
+			ec = nano::error_cli::invalid_arguments;
 		}
 	}
 	else if (vm.count ("wallet_destroy"))
 	{
 		if (vm.count ("wallet") == 1)
 		{
-			rai::uint256_union wallet_id;
+			nano::uint256_union wallet_id;
 			if (!wallet_id.decode_hex (vm["wallet"].as<std::string> ()))
 			{
 				inactive_node node (data_path);
@@ -507,19 +507,19 @@ std::error_code rai::handle_node_options (boost::program_options::variables_map 
 				else
 				{
 					std::cerr << "Wallet doesn't exist\n";
-					ec = rai::error_cli::invalid_arguments;
+					ec = nano::error_cli::invalid_arguments;
 				}
 			}
 			else
 			{
 				std::cerr << "Invalid wallet id\n";
-				ec = rai::error_cli::invalid_arguments;
+				ec = nano::error_cli::invalid_arguments;
 			}
 		}
 		else
 		{
 			std::cerr << "wallet_destroy requires one <wallet> option\n";
-			ec = rai::error_cli::invalid_arguments;
+			ec = nano::error_cli::invalid_arguments;
 		}
 	}
 	else if (vm.count ("wallet_import"))
@@ -545,7 +545,7 @@ std::error_code rai::handle_node_options (boost::program_options::variables_map 
 				}
 				if (vm.count ("wallet") == 1)
 				{
-					rai::uint256_union wallet_id;
+					nano::uint256_union wallet_id;
 					if (!wallet_id.decode_hex (vm["wallet"].as<std::string> ()))
 					{
 						inactive_node node (data_path);
@@ -555,7 +555,7 @@ std::error_code rai::handle_node_options (boost::program_options::variables_map 
 							if (existing->second->import (contents.str (), password))
 							{
 								std::cerr << "Unable to import wallet\n";
-								ec = rai::error_cli::invalid_arguments;
+								ec = nano::error_cli::invalid_arguments;
 							}
 						}
 						else
@@ -563,7 +563,7 @@ std::error_code rai::handle_node_options (boost::program_options::variables_map 
 							if (!forced)
 							{
 								std::cerr << "Wallet doesn't exist\n";
-								ec = rai::error_cli::invalid_arguments;
+								ec = nano::error_cli::invalid_arguments;
 							}
 							else
 							{
@@ -572,7 +572,7 @@ std::error_code rai::handle_node_options (boost::program_options::variables_map 
 								if (existing->second->import (contents.str (), password))
 								{
 									std::cerr << "Unable to import wallet\n";
-									ec = rai::error_cli::invalid_arguments;
+									ec = nano::error_cli::invalid_arguments;
 								}
 							}
 						}
@@ -580,25 +580,25 @@ std::error_code rai::handle_node_options (boost::program_options::variables_map 
 					else
 					{
 						std::cerr << "Invalid wallet id\n";
-						ec = rai::error_cli::invalid_arguments;
+						ec = nano::error_cli::invalid_arguments;
 					}
 				}
 				else
 				{
 					std::cerr << "wallet_import requires one <wallet> option\n";
-					ec = rai::error_cli::invalid_arguments;
+					ec = nano::error_cli::invalid_arguments;
 				}
 			}
 			else
 			{
 				std::cerr << "Unable to open <file>\n";
-				ec = rai::error_cli::invalid_arguments;
+				ec = nano::error_cli::invalid_arguments;
 			}
 		}
 		else
 		{
 			std::cerr << "wallet_import requires one <file> option\n";
-			ec = rai::error_cli::invalid_arguments;
+			ec = nano::error_cli::invalid_arguments;
 		}
 	}
 	else if (vm.count ("wallet_list"))
@@ -610,7 +610,7 @@ std::error_code rai::handle_node_options (boost::program_options::variables_map 
 			auto transaction (i->second->wallets.tx_begin_read ());
 			for (auto j (i->second->store.begin (transaction)), m (i->second->store.end ()); j != m; ++j)
 			{
-				std::cout << rai::uint256_union (j->first).to_account () << '\n';
+				std::cout << nano::uint256_union (j->first).to_account () << '\n';
 			}
 		}
 	}
@@ -619,13 +619,13 @@ std::error_code rai::handle_node_options (boost::program_options::variables_map 
 		if (vm.count ("wallet") == 1 && vm.count ("account") == 1)
 		{
 			inactive_node node (data_path);
-			rai::uint256_union wallet_id;
+			nano::uint256_union wallet_id;
 			if (!wallet_id.decode_hex (vm["wallet"].as<std::string> ()))
 			{
 				auto wallet (node.node->wallets.items.find (wallet_id));
 				if (wallet != node.node->wallets.items.end ())
 				{
-					rai::account account_id;
+					nano::account account_id;
 					if (!account_id.decode_account (vm["account"].as<std::string> ()))
 					{
 						auto transaction (wallet->second->wallets.tx_begin_write ());
@@ -637,38 +637,38 @@ std::error_code rai::handle_node_options (boost::program_options::variables_map 
 						else
 						{
 							std::cerr << "Account not found in wallet\n";
-							ec = rai::error_cli::invalid_arguments;
+							ec = nano::error_cli::invalid_arguments;
 						}
 					}
 					else
 					{
 						std::cerr << "Invalid account id\n";
-						ec = rai::error_cli::invalid_arguments;
+						ec = nano::error_cli::invalid_arguments;
 					}
 				}
 				else
 				{
 					std::cerr << "Wallet not found\n";
-					ec = rai::error_cli::invalid_arguments;
+					ec = nano::error_cli::invalid_arguments;
 				}
 			}
 			else
 			{
 				std::cerr << "Invalid wallet id\n";
-				ec = rai::error_cli::invalid_arguments;
+				ec = nano::error_cli::invalid_arguments;
 			}
 		}
 		else
 		{
 			std::cerr << "wallet_remove command requires one <wallet> and one <account> option\n";
-			ec = rai::error_cli::invalid_arguments;
+			ec = nano::error_cli::invalid_arguments;
 		}
 	}
 	else if (vm.count ("wallet_representative_get"))
 	{
 		if (vm.count ("wallet") == 1)
 		{
-			rai::uint256_union wallet_id;
+			nano::uint256_union wallet_id;
 			if (!wallet_id.decode_hex (vm["wallet"].as<std::string> ()))
 			{
 				inactive_node node (data_path);
@@ -682,19 +682,19 @@ std::error_code rai::handle_node_options (boost::program_options::variables_map 
 				else
 				{
 					std::cerr << "Wallet not found\n";
-					ec = rai::error_cli::invalid_arguments;
+					ec = nano::error_cli::invalid_arguments;
 				}
 			}
 			else
 			{
 				std::cerr << "Invalid wallet id\n";
-				ec = rai::error_cli::invalid_arguments;
+				ec = nano::error_cli::invalid_arguments;
 			}
 		}
 		else
 		{
 			std::cerr << "wallet_representative_get requires one <wallet> option\n";
-			ec = rai::error_cli::invalid_arguments;
+			ec = nano::error_cli::invalid_arguments;
 		}
 	}
 	else if (vm.count ("wallet_representative_set"))
@@ -703,10 +703,10 @@ std::error_code rai::handle_node_options (boost::program_options::variables_map 
 		{
 			if (vm.count ("account") == 1)
 			{
-				rai::uint256_union wallet_id;
+				nano::uint256_union wallet_id;
 				if (!wallet_id.decode_hex (vm["wallet"].as<std::string> ()))
 				{
-					rai::account account;
+					nano::account account;
 					if (!account.decode_account (vm["account"].as<std::string> ()))
 					{
 						inactive_node node (data_path);
@@ -719,31 +719,31 @@ std::error_code rai::handle_node_options (boost::program_options::variables_map 
 						else
 						{
 							std::cerr << "Wallet not found\n";
-							ec = rai::error_cli::invalid_arguments;
+							ec = nano::error_cli::invalid_arguments;
 						}
 					}
 					else
 					{
 						std::cerr << "Invalid account\n";
-						ec = rai::error_cli::invalid_arguments;
+						ec = nano::error_cli::invalid_arguments;
 					}
 				}
 				else
 				{
 					std::cerr << "Invalid wallet id\n";
-					ec = rai::error_cli::invalid_arguments;
+					ec = nano::error_cli::invalid_arguments;
 				}
 			}
 			else
 			{
 				std::cerr << "wallet_representative_set requires one <account> option\n";
-				ec = rai::error_cli::invalid_arguments;
+				ec = nano::error_cli::invalid_arguments;
 			}
 		}
 		else
 		{
 			std::cerr << "wallet_representative_set requires one <wallet> option\n";
-			ec = rai::error_cli::invalid_arguments;
+			ec = nano::error_cli::invalid_arguments;
 		}
 	}
 	else if (vm.count ("vote_dump") == 1)
@@ -758,7 +758,7 @@ std::error_code rai::handle_node_options (boost::program_options::variables_map 
 	}
 	else
 	{
-		ec = rai::error_cli::unknown_command;
+		ec = nano::error_cli::unknown_command;
 	}
 
 	return ec;

@@ -1,8 +1,8 @@
 #pragma once
 
-#include <rai/secure/common.hpp>
+#include <nano/secure/common.hpp>
 
-namespace rai
+namespace nano
 {
 class block_store;
 class stat;
@@ -10,48 +10,48 @@ class stat;
 class shared_ptr_block_hash
 {
 public:
-	size_t operator() (std::shared_ptr<rai::block> const &) const;
-	bool operator() (std::shared_ptr<rai::block> const &, std::shared_ptr<rai::block> const &) const;
+	size_t operator() (std::shared_ptr<nano::block> const &) const;
+	bool operator() (std::shared_ptr<nano::block> const &, std::shared_ptr<nano::block> const &) const;
 };
-using tally_t = std::map<rai::uint128_t, std::shared_ptr<rai::block>, std::greater<rai::uint128_t>>;
+using tally_t = std::map<nano::uint128_t, std::shared_ptr<nano::block>, std::greater<nano::uint128_t>>;
 class ledger
 {
 public:
-	ledger (rai::block_store &, rai::stat &, rai::uint256_union const & = 1, rai::account const & = 0);
-	rai::account account (rai::transaction const &, rai::block_hash const &);
-	rai::uint128_t amount (rai::transaction const &, rai::block_hash const &);
-	rai::uint128_t balance (rai::transaction const &, rai::block_hash const &);
-	rai::uint128_t account_balance (rai::transaction const &, rai::account const &);
-	rai::uint128_t account_pending (rai::transaction const &, rai::account const &);
-	rai::uint128_t weight (rai::transaction const &, rai::account const &);
-	std::shared_ptr<rai::block> successor (rai::transaction const &, rai::block_hash const &);
-	std::shared_ptr<rai::block> forked_block (rai::transaction const &, rai::block const &);
-	rai::block_hash latest (rai::transaction const &, rai::account const &);
-	rai::block_hash latest_root (rai::transaction const &, rai::account const &);
-	rai::block_hash representative (rai::transaction const &, rai::block_hash const &);
-	rai::block_hash representative_calculated (rai::transaction const &, rai::block_hash const &);
-	bool block_exists (rai::block_hash const &);
-	bool block_exists (rai::block_type, rai::block_hash const &);
+	ledger (nano::block_store &, nano::stat &, nano::uint256_union const & = 1, nano::account const & = 0);
+	nano::account account (nano::transaction const &, nano::block_hash const &);
+	nano::uint128_t amount (nano::transaction const &, nano::block_hash const &);
+	nano::uint128_t balance (nano::transaction const &, nano::block_hash const &);
+	nano::uint128_t account_balance (nano::transaction const &, nano::account const &);
+	nano::uint128_t account_pending (nano::transaction const &, nano::account const &);
+	nano::uint128_t weight (nano::transaction const &, nano::account const &);
+	std::shared_ptr<nano::block> successor (nano::transaction const &, nano::block_hash const &);
+	std::shared_ptr<nano::block> forked_block (nano::transaction const &, nano::block const &);
+	nano::block_hash latest (nano::transaction const &, nano::account const &);
+	nano::block_hash latest_root (nano::transaction const &, nano::account const &);
+	nano::block_hash representative (nano::transaction const &, nano::block_hash const &);
+	nano::block_hash representative_calculated (nano::transaction const &, nano::block_hash const &);
+	bool block_exists (nano::block_hash const &);
+	bool block_exists (nano::block_type, nano::block_hash const &);
 	std::string block_text (char const *);
-	std::string block_text (rai::block_hash const &);
-	bool is_send (rai::transaction const &, rai::state_block const &);
-	rai::block_hash block_destination (rai::transaction const &, rai::block const &);
-	rai::block_hash block_source (rai::transaction const &, rai::block const &);
-	rai::process_return process (rai::transaction const &, rai::block const &, bool = false);
-	void rollback (rai::transaction const &, rai::block_hash const &);
-	void change_latest (rai::transaction const &, rai::account const &, rai::block_hash const &, rai::account const &, rai::uint128_union const &, uint64_t, bool = false, rai::epoch = rai::epoch::epoch_0);
-	void checksum_update (rai::transaction const &, rai::block_hash const &);
-	rai::checksum checksum (rai::transaction const &, rai::account const &, rai::account const &);
-	void dump_account_chain (rai::account const &);
-	bool could_fit (rai::transaction const &, rai::block const &);
-	bool is_epoch_link (rai::uint256_union const &);
-	static rai::uint128_t const unit;
-	rai::block_store & store;
-	rai::stat & stats;
-	std::unordered_map<rai::account, rai::uint128_t> bootstrap_weights;
+	std::string block_text (nano::block_hash const &);
+	bool is_send (nano::transaction const &, nano::state_block const &);
+	nano::block_hash block_destination (nano::transaction const &, nano::block const &);
+	nano::block_hash block_source (nano::transaction const &, nano::block const &);
+	nano::process_return process (nano::transaction const &, nano::block const &, bool = false);
+	void rollback (nano::transaction const &, nano::block_hash const &);
+	void change_latest (nano::transaction const &, nano::account const &, nano::block_hash const &, nano::account const &, nano::uint128_union const &, uint64_t, bool = false, nano::epoch = nano::epoch::epoch_0);
+	void checksum_update (nano::transaction const &, nano::block_hash const &);
+	nano::checksum checksum (nano::transaction const &, nano::account const &, nano::account const &);
+	void dump_account_chain (nano::account const &);
+	bool could_fit (nano::transaction const &, nano::block const &);
+	bool is_epoch_link (nano::uint256_union const &);
+	static nano::uint128_t const unit;
+	nano::block_store & store;
+	nano::stat & stats;
+	std::unordered_map<nano::account, nano::uint128_t> bootstrap_weights;
 	uint64_t bootstrap_weight_max_blocks;
 	std::atomic<bool> check_bootstrap_weights;
-	rai::uint256_union epoch_link;
-	rai::account epoch_signer;
+	nano::uint256_union epoch_link;
+	nano::account epoch_signer;
 };
 };

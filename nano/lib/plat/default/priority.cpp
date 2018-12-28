@@ -1,5 +1,5 @@
-#include <rai/lib/utility.hpp>
+#include <nano/lib/utility.hpp>
 
-void rai::work_thread_reprioritize ()
+void nano::work_thread_reprioritize ()
 {
 }

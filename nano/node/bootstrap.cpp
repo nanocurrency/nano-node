@@ -1,7 +1,7 @@
-#include <rai/node/bootstrap.hpp>
+#include <nano/node/bootstrap.hpp>
 
-#include <rai/node/common.hpp>
-#include <rai/node/node.hpp>
+#include <nano/node/common.hpp>
+#include <nano/node/node.hpp>
 
 #include <boost/log/trivial.hpp>
 
@@ -14,14 +14,14 @@ constexpr double bootstrap_minimum_termination_time_sec = 30.0;
 constexpr unsigned bootstrap_max_new_connections = 10;
 constexpr unsigned bulk_push_cost_limit = 200;
 
-rai::socket::socket (std::shared_ptr<rai::node> node_a) :
+nano::socket::socket (std::shared_ptr<nano::node> node_a) :
 socket_m (node_a->io_ctx),
 cutoff (std::numeric_limits<uint64_t>::max ()),
 node (node_a)
 {
 }
 
-void rai::socket::async_connect (rai::tcp_endpoint const & endpoint_a, std::function<void(boost::system::error_code const &)> callback_a)
+void nano::socket::async_connect (nano::tcp_endpoint const & endpoint_a, std::function<void(boost::system::error_code const &)> callback_a)
 {
 	checkup ();
 	auto this_l (shared_from_this ());
@@ -32,40 +32,40 @@ void rai::socket::async_connect (rai::tcp_endpoint const & endpoint_a, std::func
 	});
 }
 
-void rai::socket::async_read (std::shared_ptr<std::vector<uint8_t>> buffer_a, size_t size_a, std::function<void(boost::system::error_code const &, size_t)> callback_a)
+void nano::socket::async_read (std::shared_ptr<std::vector<uint8_t>> buffer_a, size_t size_a, std::function<void(boost::system::error_code const &, size_t)> callback_a)
 {
 	assert (size_a <= buffer_a->size ());
 	auto this_l (shared_from_this ());
 	start ();
 	boost::asio::async_read (socket_m, boost::asio::buffer (buffer_a->data (), size_a), [this_l, callback_a](boost::system::error_code const & ec, size_t size_a) {
-		this_l->node->stats.add (rai::stat::type::traffic_bootstrap, rai::stat::dir::in, size_a);
+		this_l->node->stats.add (nano::stat::type::traffic_bootstrap, nano::stat::dir::in, size_a);
 		this_l->stop ();
 		callback_a (ec, size_a);
 	});
 }
 
-void rai::socket::async_write (std::shared_ptr<std::vector<uint8_t>> buffer_a, std::function<void(boost::system::error_code const &, size_t)> callback_a)
+void nano::socket::async_write (std::shared_ptr<std::vector<uint8_t>> buffer_a, std::function<void(boost::system::error_code const &, size_t)> callback_a)
 {
 	auto this_l (shared_from_this ());
 	start ();
 	boost::asio::async_write (socket_m, boost::asio::buffer (buffer_a->data (), buffer_a->size ()), [this_l, callback_a, buffer_a](boost::system::error_code const & ec, size_t size_a) {
-		this_l->node->stats.add (rai::stat::type::traffic_bootstrap, rai::stat::dir::out, size_a);
+		this_l->node->stats.add (nano::stat::type::traffic_bootstrap, nano::stat::dir::out, size_a);
 		this_l->stop ();
 		callback_a (ec, size_a);
 	});
 }
 
-void rai::socket::start (std::chrono::steady_clock::time_point timeout_a)
+void nano::socket::start (std::chrono::steady_clock::time_point timeout_a)
 {
 	cutoff = timeout_a.time_since_epoch ().count ();
 }
 
-void rai::socket::stop ()
+void nano::socket::stop ()
 {
 	cutoff = std::numeric_limits<uint64_t>::max ();
 }
 
-void rai::socket::close ()
+void nano::socket::close ()
 {
 	if (socket_m.is_open ())
 	{
@@ -81,9 +81,9 @@ void rai::socket::close ()
 	}
 }
 
-void rai::socket::checkup ()
+void nano::socket::checkup ()
 {
-	std::weak_ptr<rai::socket> this_w (shared_from_this ());
+	std::weak_ptr<nano::socket> this_w (shared_from_this ());
 	node->alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (10), [this_w]() {
 		if (auto this_l = this_w.lock ())
 		{
@@ -103,9 +103,9 @@ void rai::socket::checkup ()
 	});
 }
 
-rai::tcp_endpoint rai::socket::remote_endpoint ()
+nano::tcp_endpoint nano::socket::remote_endpoint ()
 {
-	rai::tcp_endpoint endpoint;
+	nano::tcp_endpoint endpoint;
 
 	if (socket_m.is_open ())
 	{
@@ -117,10 +117,10 @@ rai::tcp_endpoint rai::socket::remote_endpoint ()
 	return endpoint;
 }
 
-rai::bootstrap_client::bootstrap_client (std::shared_ptr<rai::node> node_a, std::shared_ptr<rai::bootstrap_attempt> attempt_a, rai::tcp_endpoint const & endpoint_a) :
+nano::bootstrap_client::bootstrap_client (std::shared_ptr<nano::node> node_a, std::shared_ptr<nano::bootstrap_attempt> attempt_a, nano::tcp_endpoint const & endpoint_a) :
 node (node_a),
 attempt (attempt_a),
-socket (std::make_shared<rai::socket> (node_a)),
+socket (std::make_shared<nano::socket> (node_a)),
 receive_buffer (std::make_shared<std::vector<uint8_t>> ()),
 endpoint (endpoint_a),
 start_time (std::chrono::steady_clock::now ()),
@@ -132,23 +132,23 @@ hard_stop (false)
 	receive_buffer->resize (256);
 }
 
-rai::bootstrap_client::~bootstrap_client ()
+nano::bootstrap_client::~bootstrap_client ()
 {
 	--attempt->connections;
 }
 
-double rai::bootstrap_client::block_rate () const
+double nano::bootstrap_client::block_rate () const
 {
 	auto elapsed = elapsed_seconds ();
 	return elapsed > 0.0 ? (double)block_count.load () / elapsed : 0.0;
 }
 
-double rai::bootstrap_client::elapsed_seconds () const
+double nano::bootstrap_client::elapsed_seconds () const
 {
 	return std::chrono::duration_cast<std::chrono::duration<double>> (std::chrono::steady_clock::now () - start_time).count ();
 }
 
-void rai::bootstrap_client::stop (bool force)
+void nano::bootstrap_client::stop (bool force)
 {
 	pending_stop = true;
 	if (force)
@@ -157,7 +157,7 @@ void rai::bootstrap_client::stop (bool force)
 	}
 }
 
-void rai::bootstrap_client::run ()
+void nano::bootstrap_client::run ()
 {
 	auto this_l (shared_from_this ());
 	socket->async_connect (endpoint, [this_l](boost::system::error_code const & ec) {
@@ -190,15 +190,15 @@ void rai::bootstrap_client::run ()
 	});
 }
 
-void rai::frontier_req_client::run ()
+void nano::frontier_req_client::run ()
 {
-	std::unique_ptr<rai::frontier_req> request (new rai::frontier_req);
+	std::unique_ptr<nano::frontier_req> request (new nano::frontier_req);
 	request->start.clear ();
 	request->age = std::numeric_limits<decltype (request->age)>::max ();
 	request->count = std::numeric_limits<decltype (request->count)>::max ();
 	auto send_buffer (std::make_shared<std::vector<uint8_t>> ());
 	{
-		rai::vectorstream stream (*send_buffer);
+		nano::vectorstream stream (*send_buffer);
 		request->serialize (stream);
 	}
 	auto this_l (shared_from_this ());
@@ -217,12 +217,12 @@ void rai::frontier_req_client::run ()
 	});
 }
 
-std::shared_ptr<rai::bootstrap_client> rai::bootstrap_client::shared ()
+std::shared_ptr<nano::bootstrap_client> nano::bootstrap_client::shared ()
 {
 	return shared_from_this ();
 }
 
-rai::frontier_req_client::frontier_req_client (std::shared_ptr<rai::bootstrap_client> connection_a) :
+nano::frontier_req_client::frontier_req_client (std::shared_ptr<nano::bootstrap_client> connection_a) :
 connection (connection_a),
 current (0),
 count (0),
@@ -232,14 +232,14 @@ bulk_push_cost (0)
 	next (transaction);
 }
 
-rai::frontier_req_client::~frontier_req_client ()
+nano::frontier_req_client::~frontier_req_client ()
 {
 }
 
-void rai::frontier_req_client::receive_frontier ()
+void nano::frontier_req_client::receive_frontier ()
 {
 	auto this_l (shared_from_this ());
-	size_t size_l (sizeof (rai::uint256_union) + sizeof (rai::uint256_union));
+	size_t size_l (sizeof (nano::uint256_union) + sizeof (nano::uint256_union));
 	connection->socket->async_read (connection->receive_buffer, size_l, [this_l, size_l](boost::system::error_code const & ec, size_t size_a) {
 		// An issue with asio is that sometimes, instead of reporting a bad file descriptor during disconnect,
 		// we simply get a size of 0.
@@ -257,7 +257,7 @@ void rai::frontier_req_client::receive_frontier ()
 	});
 }
 
-void rai::frontier_req_client::unsynced (rai::block_hash const & head, rai::block_hash const & end)
+void nano::frontier_req_client::unsynced (nano::block_hash const & head, nano::block_hash const & end)
 {
 	if (bulk_push_cost < bulk_push_cost_limit)
 	{
@@ -273,18 +273,18 @@ void rai::frontier_req_client::unsynced (rai::block_hash const & head, rai::bloc
 	}
 }
 
-void rai::frontier_req_client::received_frontier (boost::system::error_code const & ec, size_t size_a)
+void nano::frontier_req_client::received_frontier (boost::system::error_code const & ec, size_t size_a)
 {
 	if (!ec)
 	{
-		assert (size_a == sizeof (rai::uint256_union) + sizeof (rai::uint256_union));
-		rai::account account;
-		rai::bufferstream account_stream (connection->receive_buffer->data (), sizeof (rai::uint256_union));
-		auto error1 (rai::read (account_stream, account));
+		assert (size_a == sizeof (nano::uint256_union) + sizeof (nano::uint256_union));
+		nano::account account;
+		nano::bufferstream account_stream (connection->receive_buffer->data (), sizeof (nano::uint256_union));
+		auto error1 (nano::read (account_stream, account));
 		assert (!error1);
-		rai::block_hash latest;
-		rai::bufferstream latest_stream (connection->receive_buffer->data () + sizeof (rai::uint256_union), sizeof (rai::uint256_union));
-		auto error2 (rai::read (latest_stream, latest));
+		nano::block_hash latest;
+		nano::bufferstream latest_stream (connection->receive_buffer->data () + sizeof (nano::uint256_union), sizeof (nano::uint256_union));
+		auto error2 (nano::read (latest_stream, latest));
 		assert (!error2);
 		if (count == 0)
 		{
@@ -330,7 +330,7 @@ void rai::frontier_req_client::received_frontier (boost::system::error_code cons
 						}
 						else
 						{
-							connection->attempt->add_pull (rai::pull_info (account, latest, frontier));
+							connection->attempt->add_pull (nano::pull_info (account, latest, frontier));
 							// Either we're behind or there's a fork we differ on
 							// Either way, bulk pushing will probably not be effective
 							bulk_push_cost += 5;
@@ -341,12 +341,12 @@ void rai::frontier_req_client::received_frontier (boost::system::error_code cons
 				else
 				{
 					assert (account < current);
-					connection->attempt->add_pull (rai::pull_info (account, latest, rai::block_hash (0)));
+					connection->attempt->add_pull (nano::pull_info (account, latest, nano::block_hash (0)));
 				}
 			}
 			else
 			{
-				connection->attempt->add_pull (rai::pull_info (account, latest, rai::block_hash (0)));
+				connection->attempt->add_pull (nano::pull_info (account, latest, nano::block_hash (0)));
 			}
 			receive_frontier ();
 		}
@@ -383,7 +383,7 @@ void rai::frontier_req_client::received_frontier (boost::system::error_code cons
 	}
 }
 
-void rai::frontier_req_client::next (rai::transaction const & transaction_a)
+void nano::frontier_req_client::next (nano::transaction const & transaction_a)
 {
 	// Filling accounts deque to prevent often read transactions
 	if (accounts.empty ())
@@ -391,14 +391,14 @@ void rai::frontier_req_client::next (rai::transaction const & transaction_a)
 		size_t max_size (128);
 		for (auto i (connection->node->store.latest_begin (transaction_a, current.number () + 1)), n (connection->node->store.latest_end ()); i != n && accounts.size () != max_size; ++i)
 		{
-			rai::account_info info (i->second);
-			accounts.push_back (std::make_pair (rai::account (i->first), info.head));
+			nano::account_info info (i->second);
+			accounts.push_back (std::make_pair (nano::account (i->first), info.head));
 		}
 		/* If loop breaks before max_size, then latest_end () is reached
 		Add empty record to finish frontier_req_server */
 		if (accounts.size () != max_size)
 		{
-			accounts.push_back (std::make_pair (rai::account (0), rai::block_hash (0)));
+			accounts.push_back (std::make_pair (nano::account (0), nano::block_hash (0)));
 		}
 	}
 	// Retrieving accounts from deque
@@ -408,7 +408,7 @@ void rai::frontier_req_client::next (rai::transaction const & transaction_a)
 	frontier = account_pair.second;
 }
 
-rai::bulk_pull_client::bulk_pull_client (std::shared_ptr<rai::bootstrap_client> connection_a, rai::pull_info const & pull_a) :
+nano::bulk_pull_client::bulk_pull_client (std::shared_ptr<nano::bootstrap_client> connection_a, nano::pull_info const & pull_a) :
 connection (connection_a),
 pull (pull_a),
 total_blocks (0)
@@ -417,7 +417,7 @@ total_blocks (0)
 	connection->attempt->condition.notify_all ();
 }
 
-rai::bulk_pull_client::~bulk_pull_client ()
+nano::bulk_pull_client::~bulk_pull_client ()
 {
 	// If received end block is not expected end block
 	if (expected != pull.end)
@@ -440,10 +440,10 @@ rai::bulk_pull_client::~bulk_pull_client ()
 	connection->attempt->condition.notify_all ();
 }
 
-void rai::bulk_pull_client::request ()
+void nano::bulk_pull_client::request ()
 {
 	expected = pull.head;
-	rai::bulk_pull req;
+	nano::bulk_pull req;
 	req.start = pull.account;
 	req.end = pull.end;
 	req.count = pull.count;
@@ -451,7 +451,7 @@ void rai::bulk_pull_client::request ()
 
 	auto buffer (std::make_shared<std::vector<uint8_t>> ());
 	{
-		rai::vectorstream stream (*buffer);
+		nano::vectorstream stream (*buffer);
 		req.serialize (stream);
 	}
 	if (connection->node->config.logging.bulk_pull_logging ())
@@ -480,7 +480,7 @@ void rai::bulk_pull_client::request ()
 	});
 }
 
-void rai::bulk_pull_client::receive_block ()
+void nano::bulk_pull_client::receive_block ()
 {
 	auto this_l (shared_from_this ());
 	connection->socket->async_read (connection->receive_buffer, 1, [this_l](boost::system::error_code const & ec, size_t size_a) {
@@ -498,48 +498,48 @@ void rai::bulk_pull_client::receive_block ()
 	});
 }
 
-void rai::bulk_pull_client::received_type ()
+void nano::bulk_pull_client::received_type ()
 {
 	auto this_l (shared_from_this ());
-	rai::block_type type (static_cast<rai::block_type> (connection->receive_buffer->data ()[0]));
+	nano::block_type type (static_cast<nano::block_type> (connection->receive_buffer->data ()[0]));
 	switch (type)
 	{
-		case rai::block_type::send:
+		case nano::block_type::send:
 		{
-			connection->socket->async_read (connection->receive_buffer, rai::send_block::size, [this_l, type](boost::system::error_code const & ec, size_t size_a) {
+			connection->socket->async_read (connection->receive_buffer, nano::send_block::size, [this_l, type](boost::system::error_code const & ec, size_t size_a) {
 				this_l->received_block (ec, size_a, type);
 			});
 			break;
 		}
-		case rai::block_type::receive:
+		case nano::block_type::receive:
 		{
-			connection->socket->async_read (connection->receive_buffer, rai::receive_block::size, [this_l, type](boost::system::error_code const & ec, size_t size_a) {
+			connection->socket->async_read (connection->receive_buffer, nano::receive_block::size, [this_l, type](boost::system::error_code const & ec, size_t size_a) {
 				this_l->received_block (ec, size_a, type);
 			});
 			break;
 		}
-		case rai::block_type::open:
+		case nano::block_type::open:
 		{
-			connection->socket->async_read (connection->receive_buffer, rai::open_block::size, [this_l, type](boost::system::error_code const & ec, size_t size_a) {
+			connection->socket->async_read (connection->receive_buffer, nano::open_block::size, [this_l, type](boost::system::error_code const & ec, size_t size_a) {
 				this_l->received_block (ec, size_a, type);
 			});
 			break;
 		}
-		case rai::block_type::change:
+		case nano::block_type::change:
 		{
-			connection->socket->async_read (connection->receive_buffer, rai::change_block::size, [this_l, type](boost::system::error_code const & ec, size_t size_a) {
+			connection->socket->async_read (connection->receive_buffer, nano::change_block::size, [this_l, type](boost::system::error_code const & ec, size_t size_a) {
 				this_l->received_block (ec, size_a, type);
 			});
 			break;
 		}
-		case rai::block_type::state:
+		case nano::block_type::state:
 		{
-			connection->socket->async_read (connection->receive_buffer, rai::state_block::size, [this_l, type](boost::system::error_code const & ec, size_t size_a) {
+			connection->socket->async_read (connection->receive_buffer, nano::state_block::size, [this_l, type](boost::system::error_code const & ec, size_t size_a) {
 				this_l->received_block (ec, size_a, type);
 			});
 			break;
 		}
-		case rai::block_type::not_a_block:
+		case nano::block_type::not_a_block:
 		{
 			// Avoid re-using slow peers, or peers that sent the wrong blocks.
 			if (!connection->pending_stop && expected == pull.end)
@@ -559,13 +559,13 @@ void rai::bulk_pull_client::received_type ()
 	}
 }
 
-void rai::bulk_pull_client::received_block (boost::system::error_code const & ec, size_t size_a, rai::block_type type_a)
+void nano::bulk_pull_client::received_block (boost::system::error_code const & ec, size_t size_a, nano::block_type type_a)
 {
 	if (!ec)
 	{
-		rai::bufferstream stream (connection->receive_buffer->data (), size_a);
-		std::shared_ptr<rai::block> block (rai::deserialize_block (stream, type_a));
-		if (block != nullptr && !rai::work_validate (*block))
+		nano::bufferstream stream (connection->receive_buffer->data (), size_a);
+		std::shared_ptr<nano::block> block (nano::deserialize_block (stream, type_a));
+		if (block != nullptr && !nano::work_validate (*block))
 		{
 			auto hash (block->hash ());
 			if (connection->node->config.logging.bulk_pull_logging ())
@@ -618,21 +618,21 @@ void rai::bulk_pull_client::received_block (boost::system::error_code const & ec
 	}
 }
 
-rai::bulk_push_client::bulk_push_client (std::shared_ptr<rai::bootstrap_client> const & connection_a) :
+nano::bulk_push_client::bulk_push_client (std::shared_ptr<nano::bootstrap_client> const & connection_a) :
 connection (connection_a)
 {
 }
 
-rai::bulk_push_client::~bulk_push_client ()
+nano::bulk_push_client::~bulk_push_client ()
 {
 }
 
-void rai::bulk_push_client::start ()
+void nano::bulk_push_client::start ()
 {
-	rai::bulk_push message;
+	nano::bulk_push message;
 	auto buffer (std::make_shared<std::vector<uint8_t>> ());
 	{
-		rai::vectorstream stream (*buffer);
+		nano::vectorstream stream (*buffer);
 		message.serialize (stream);
 	}
 	auto this_l (shared_from_this ());
@@ -652,9 +652,9 @@ void rai::bulk_push_client::start ()
 	});
 }
 
-void rai::bulk_push_client::push (rai::transaction const & transaction_a)
+void nano::bulk_push_client::push (nano::transaction const & transaction_a)
 {
-	std::shared_ptr<rai::block> block;
+	std::shared_ptr<nano::block> block;
 	bool finished (false);
 	while (block == nullptr && !finished)
 	{
@@ -676,7 +676,7 @@ void rai::bulk_push_client::push (rai::transaction const & transaction_a)
 			block = connection->node->store.block_get (transaction_a, current_target.first);
 			if (block == nullptr)
 			{
-				current_target.first = rai::block_hash (0);
+				current_target.first = nano::block_hash (0);
 			}
 			else
 			{
@@ -698,11 +698,11 @@ void rai::bulk_push_client::push (rai::transaction const & transaction_a)
 	}
 }
 
-void rai::bulk_push_client::send_finished ()
+void nano::bulk_push_client::send_finished ()
 {
 	auto buffer (std::make_shared<std::vector<uint8_t>> ());
-	buffer->push_back (static_cast<uint8_t> (rai::block_type::not_a_block));
-	connection->node->stats.inc (rai::stat::type::bootstrap, rai::stat::detail::bulk_push, rai::stat::dir::out);
+	buffer->push_back (static_cast<uint8_t> (nano::block_type::not_a_block));
+	connection->node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::bulk_push, nano::stat::dir::out);
 	if (connection->node->config.logging.network_logging ())
 	{
 		BOOST_LOG (connection->node->log) << "Bulk push finished";
@@ -719,12 +719,12 @@ void rai::bulk_push_client::send_finished ()
 	});
 }
 
-void rai::bulk_push_client::push_block (rai::block const & block_a)
+void nano::bulk_push_client::push_block (nano::block const & block_a)
 {
 	auto buffer (std::make_shared<std::vector<uint8_t>> ());
 	{
-		rai::vectorstream stream (*buffer);
-		rai::serialize_block (stream, block_a);
+		nano::vectorstream stream (*buffer);
+		nano::serialize_block (stream, block_a);
 	}
 	auto this_l (shared_from_this ());
 	connection->socket->async_write (buffer, [this_l](boost::system::error_code const & ec, size_t size_a) {
@@ -743,7 +743,7 @@ void rai::bulk_push_client::push_block (rai::block const & block_a)
 	});
 }
 
-rai::pull_info::pull_info () :
+nano::pull_info::pull_info () :
 account (0),
 end (0),
 count (0),
@@ -751,7 +751,7 @@ attempts (0)
 {
 }
 
-rai::pull_info::pull_info (rai::account const & account_a, rai::block_hash const & head_a, rai::block_hash const & end_a, count_t count_a) :
+nano::pull_info::pull_info (nano::account const & account_a, nano::block_hash const & head_a, nano::block_hash const & end_a, count_t count_a) :
 account (account_a),
 head (head_a),
 end (end_a),
@@ -760,7 +760,7 @@ attempts (0)
 {
 }
 
-rai::bootstrap_attempt::bootstrap_attempt (std::shared_ptr<rai::node> node_a) :
+nano::bootstrap_attempt::bootstrap_attempt (std::shared_ptr<nano::node> node_a) :
 next_log (std::chrono::steady_clock::now ()),
 connections (0),
 pulling (0),
@@ -775,13 +775,13 @@ lazy_stopped (0)
 	node->bootstrap_initiator.notify_listeners (true);
 }
 
-rai::bootstrap_attempt::~bootstrap_attempt ()
+nano::bootstrap_attempt::~bootstrap_attempt ()
 {
 	BOOST_LOG (node->log) << "Exiting bootstrap attempt";
 	node->bootstrap_initiator.notify_listeners (false);
 }
 
-bool rai::bootstrap_attempt::should_log ()
+bool nano::bootstrap_attempt::should_log ()
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	auto result (false);
@@ -794,7 +794,7 @@ bool rai::bootstrap_attempt::should_log ()
 	return result;
 }
 
-bool rai::bootstrap_attempt::request_frontier (std::unique_lock<std::mutex> & lock_a)
+bool nano::bootstrap_attempt::request_frontier (std::unique_lock<std::mutex> & lock_a)
 {
 	auto result (true);
 	auto connection_l (connection (lock_a));
@@ -803,7 +803,7 @@ bool rai::bootstrap_attempt::request_frontier (std::unique_lock<std::mutex> & lo
 	{
 		std::future<bool> future;
 		{
-			auto client (std::make_shared<rai::frontier_req_client> (connection_l));
+			auto client (std::make_shared<nano::frontier_req_client> (connection_l));
 			client->run ();
 			frontiers = client;
 			future = client->promise.get_future ();
@@ -830,7 +830,7 @@ bool rai::bootstrap_attempt::request_frontier (std::unique_lock<std::mutex> & lo
 	return result;
 }
 
-void rai::bootstrap_attempt::request_pull (std::unique_lock<std::mutex> & lock_a)
+void nano::bootstrap_attempt::request_pull (std::unique_lock<std::mutex> & lock_a)
 {
 	auto connection_l (connection (lock_a));
 	if (connection_l)
@@ -851,20 +851,20 @@ void rai::bootstrap_attempt::request_pull (std::unique_lock<std::mutex> & lock_a
 		// The bulk_pull_client destructor attempt to requeue_pull which can cause a deadlock if this is the last reference
 		// Dispatch request in an external thread in case it needs to be destroyed
 		node->background ([connection_l, pull]() {
-			auto client (std::make_shared<rai::bulk_pull_client> (connection_l, pull));
+			auto client (std::make_shared<nano::bulk_pull_client> (connection_l, pull));
 			client->request ();
 		});
 	}
 }
 
-void rai::bootstrap_attempt::request_push (std::unique_lock<std::mutex> & lock_a)
+void nano::bootstrap_attempt::request_push (std::unique_lock<std::mutex> & lock_a)
 {
 	bool error (false);
 	if (auto connection_shared = connection_frontier_request.lock ())
 	{
 		std::future<bool> future;
 		{
-			auto client (std::make_shared<rai::bulk_push_client> (connection_shared));
+			auto client (std::make_shared<nano::bulk_push_client> (connection_shared));
 			client->start ();
 			push = client;
 			future = client->promise.get_future ();
@@ -883,7 +883,7 @@ void rai::bootstrap_attempt::request_push (std::unique_lock<std::mutex> & lock_a
 	}
 }
 
-bool rai::bootstrap_attempt::still_pulling ()
+bool nano::bootstrap_attempt::still_pulling ()
 {
 	assert (!mutex.try_lock ());
 	auto running (!stopped);
@@ -892,7 +892,7 @@ bool rai::bootstrap_attempt::still_pulling ()
 	return running && (more_pulls || still_pulling);
 }
 
-void rai::bootstrap_attempt::run ()
+void nano::bootstrap_attempt::run ()
 {
 	populate_connections ();
 	std::unique_lock<std::mutex> lock (mutex);
@@ -904,7 +904,7 @@ void rai::bootstrap_attempt::run ()
 	// Shuffle pulls.
 	for (int i = pulls.size () - 1; i > 0; i--)
 	{
-		auto k = rai::random_pool.GenerateWord32 (0, i);
+		auto k = nano::random_pool.GenerateWord32 (0, i);
 		std::swap (pulls[i], pulls[k]);
 	}
 	while (still_pulling ())
@@ -952,13 +952,13 @@ void rai::bootstrap_attempt::run ()
 	idle.clear ();
 }
 
-std::shared_ptr<rai::bootstrap_client> rai::bootstrap_attempt::connection (std::unique_lock<std::mutex> & lock_a)
+std::shared_ptr<nano::bootstrap_client> nano::bootstrap_attempt::connection (std::unique_lock<std::mutex> & lock_a)
 {
 	while (!stopped && idle.empty ())
 	{
 		condition.wait (lock_a);
 	}
-	std::shared_ptr<rai::bootstrap_client> result;
+	std::shared_ptr<nano::bootstrap_client> result;
 	if (!idle.empty ())
 	{
 		result = idle.back ();
@@ -967,7 +967,7 @@ std::shared_ptr<rai::bootstrap_client> rai::bootstrap_attempt::connection (std::
 	return result;
 }
 
-bool rai::bootstrap_attempt::consume_future (std::future<bool> & future_a)
+bool nano::bootstrap_attempt::consume_future (std::future<bool> & future_a)
 {
 	bool result;
 	try
@@ -983,13 +983,13 @@ bool rai::bootstrap_attempt::consume_future (std::future<bool> & future_a)
 
 struct block_rate_cmp
 {
-	bool operator() (const std::shared_ptr<rai::bootstrap_client> & lhs, const std::shared_ptr<rai::bootstrap_client> & rhs) const
+	bool operator() (const std::shared_ptr<nano::bootstrap_client> & lhs, const std::shared_ptr<nano::bootstrap_client> & rhs) const
 	{
 		return lhs->block_rate () > rhs->block_rate ();
 	}
 };
 
-unsigned rai::bootstrap_attempt::target_connections (size_t pulls_remaining)
+unsigned nano::bootstrap_attempt::target_connections (size_t pulls_remaining)
 {
 	if (node->config.bootstrap_connections >= node->config.bootstrap_connections_max)
 	{
@@ -1002,11 +1002,11 @@ unsigned rai::bootstrap_attempt::target_connections (size_t pulls_remaining)
 	return std::max (1U, (unsigned)(target + 0.5f));
 }
 
-void rai::bootstrap_attempt::populate_connections ()
+void nano::bootstrap_attempt::populate_connections ()
 {
 	double rate_sum = 0.0;
 	size_t num_pulls = 0;
-	std::priority_queue<std::shared_ptr<rai::bootstrap_client>, std::vector<std::shared_ptr<rai::bootstrap_client>>, block_rate_cmp> sorted_connections;
+	std::priority_queue<std::shared_ptr<nano::bootstrap_client>, std::vector<std::shared_ptr<nano::bootstrap_client>>, block_rate_cmp> sorted_connections;
 	{
 		std::unique_lock<std::mutex> lock (mutex);
 		num_pulls = pulls.size ();
@@ -1078,9 +1078,9 @@ void rai::bootstrap_attempt::populate_connections ()
 		for (int i = 0; i < delta; i++)
 		{
 			auto peer (node->peers.bootstrap_peer ());
-			if (peer != rai::endpoint (boost::asio::ip::address_v6::any (), 0))
+			if (peer != nano::endpoint (boost::asio::ip::address_v6::any (), 0))
 			{
-				auto client (std::make_shared<rai::bootstrap_client> (node, shared_from_this (), rai::tcp_endpoint (peer.address (), peer.port ())));
+				auto client (std::make_shared<nano::bootstrap_client> (node, shared_from_this (), nano::tcp_endpoint (peer.address (), peer.port ())));
 				client->run ();
 				std::lock_guard<std::mutex> lock (mutex);
 				clients.push_back (client);
@@ -1095,7 +1095,7 @@ void rai::bootstrap_attempt::populate_connections ()
 	}
 	if (!stopped)
 	{
-		std::weak_ptr<rai::bootstrap_attempt> this_w (shared_from_this ());
+		std::weak_ptr<nano::bootstrap_attempt> this_w (shared_from_this ());
 		node->alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (1), [this_w]() {
 			if (auto this_l = this_w.lock ())
 			{
@@ -1105,13 +1105,13 @@ void rai::bootstrap_attempt::populate_connections ()
 	}
 }
 
-void rai::bootstrap_attempt::add_connection (rai::endpoint const & endpoint_a)
+void nano::bootstrap_attempt::add_connection (nano::endpoint const & endpoint_a)
 {
-	auto client (std::make_shared<rai::bootstrap_client> (node, shared_from_this (), rai::tcp_endpoint (endpoint_a.address (), endpoint_a.port ())));
+	auto client (std::make_shared<nano::bootstrap_client> (node, shared_from_this (), nano::tcp_endpoint (endpoint_a.address (), endpoint_a.port ())));
 	client->run ();
 }
 
-void rai::bootstrap_attempt::pool_connection (std::shared_ptr<rai::bootstrap_client> client_a)
+void nano::bootstrap_attempt::pool_connection (std::shared_ptr<nano::bootstrap_client> client_a)
 {
 	{
 		std::lock_guard<std::mutex> lock (mutex);
@@ -1120,7 +1120,7 @@ void rai::bootstrap_attempt::pool_connection (std::shared_ptr<rai::bootstrap_cli
 	condition.notify_all ();
 }
 
-void rai::bootstrap_attempt::stop ()
+void nano::bootstrap_attempt::stop ()
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	stopped = true;
@@ -1154,7 +1154,7 @@ void rai::bootstrap_attempt::stop ()
 	}
 }
 
-void rai::bootstrap_attempt::add_pull (rai::pull_info const & pull)
+void nano::bootstrap_attempt::add_pull (nano::pull_info const & pull)
 {
 	{
 		std::lock_guard<std::mutex> lock (mutex);
@@ -1163,7 +1163,7 @@ void rai::bootstrap_attempt::add_pull (rai::pull_info const & pull)
 	condition.notify_all ();
 }
 
-void rai::bootstrap_attempt::requeue_pull (rai::pull_info const & pull_a)
+void nano::bootstrap_attempt::requeue_pull (nano::pull_info const & pull_a)
 {
 	auto pull (pull_a);
 	if (++pull.attempts < bootstrap_frontier_retry_limit)
@@ -1191,13 +1191,13 @@ void rai::bootstrap_attempt::requeue_pull (rai::pull_info const & pull_a)
 	}
 }
 
-void rai::bootstrap_attempt::add_bulk_push_target (rai::block_hash const & head, rai::block_hash const & end)
+void nano::bootstrap_attempt::add_bulk_push_target (nano::block_hash const & head, nano::block_hash const & end)
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	bulk_push_targets.push_back (std::make_pair (head, end));
 }
 
-void rai::bootstrap_attempt::lazy_start (rai::block_hash const & hash_a)
+void nano::bootstrap_attempt::lazy_start (nano::block_hash const & hash_a)
 {
 	std::unique_lock<std::mutex> lock (lazy_mutex);
 	// Add start blocks, limit 1024 (32k with disabled legacy bootstrap)
@@ -1209,7 +1209,7 @@ void rai::bootstrap_attempt::lazy_start (rai::block_hash const & hash_a)
 	}
 }
 
-void rai::bootstrap_attempt::lazy_add (rai::block_hash const & hash_a)
+void nano::bootstrap_attempt::lazy_add (nano::block_hash const & hash_a)
 {
 	// Add only unknown blocks
 	assert (!lazy_mutex.try_lock ());
@@ -1219,7 +1219,7 @@ void rai::bootstrap_attempt::lazy_add (rai::block_hash const & hash_a)
 	}
 }
 
-void rai::bootstrap_attempt::lazy_pull_flush ()
+void nano::bootstrap_attempt::lazy_pull_flush ()
 {
 	std::unique_lock<std::mutex> lock (lazy_mutex);
 	for (auto & pull_start : lazy_pulls)
@@ -1227,13 +1227,13 @@ void rai::bootstrap_attempt::lazy_pull_flush ()
 		// Recheck if block was already processed
 		if (lazy_blocks.find (pull_start) == lazy_blocks.end ())
 		{
-			add_pull (rai::pull_info (pull_start, pull_start, rai::block_hash (0), lazy_max_pull_blocks));
+			add_pull (nano::pull_info (pull_start, pull_start, nano::block_hash (0), lazy_max_pull_blocks));
 		}
 	}
 	lazy_pulls.clear ();
 }
 
-bool rai::bootstrap_attempt::lazy_finished ()
+bool nano::bootstrap_attempt::lazy_finished ()
 {
 	bool result (true);
 	auto transaction (node->store.tx_begin_read ());
@@ -1260,7 +1260,7 @@ bool rai::bootstrap_attempt::lazy_finished ()
 	return result;
 }
 
-void rai::bootstrap_attempt::lazy_run ()
+void nano::bootstrap_attempt::lazy_run ()
 {
 	populate_connections ();
 	auto start_time (std::chrono::steady_clock::now ());
@@ -1328,7 +1328,7 @@ void rai::bootstrap_attempt::lazy_run ()
 	idle.clear ();
 }
 
-bool rai::bootstrap_attempt::process_block (std::shared_ptr<rai::block> block_a, uint64_t total_blocks, bool block_expected)
+bool nano::bootstrap_attempt::process_block (std::shared_ptr<nano::block> block_a, uint64_t total_blocks, bool block_expected)
 {
 	bool stop_pull (false);
 	if (lazy_mode && block_expected)
@@ -1342,33 +1342,33 @@ bool rai::bootstrap_attempt::process_block (std::shared_ptr<rai::block> block_a,
 			auto transaction (node->store.tx_begin_read ());
 			if (!node->store.block_exists (transaction, block_a->type (), hash))
 			{
-				rai::uint128_t balance (std::numeric_limits<rai::uint128_t>::max ());
+				nano::uint128_t balance (std::numeric_limits<nano::uint128_t>::max ());
 				node->block_processor.add (block_a, std::chrono::steady_clock::time_point ());
 				// Search for new dependencies
 				if (!block_a->source ().is_zero () && !node->store.block_exists (transaction, block_a->source ()))
 				{
 					lazy_add (block_a->source ());
 				}
-				else if (block_a->type () == rai::block_type::send)
+				else if (block_a->type () == nano::block_type::send)
 				{
 					// Calculate balance for legacy send blocks
-					std::shared_ptr<rai::send_block> block_l (std::static_pointer_cast<rai::send_block> (block_a));
+					std::shared_ptr<nano::send_block> block_l (std::static_pointer_cast<nano::send_block> (block_a));
 					if (block_l != nullptr)
 					{
 						balance = block_l->hashables.balance.number ();
 					}
 				}
-				else if (block_a->type () == rai::block_type::state)
+				else if (block_a->type () == nano::block_type::state)
 				{
-					std::shared_ptr<rai::state_block> block_l (std::static_pointer_cast<rai::state_block> (block_a));
+					std::shared_ptr<nano::state_block> block_l (std::static_pointer_cast<nano::state_block> (block_a));
 					if (block_l != nullptr)
 					{
 						balance = block_l->hashables.balance.number ();
-						rai::block_hash link (block_l->hashables.link);
+						nano::block_hash link (block_l->hashables.link);
 						// If link is not epoch link or 0. And if block from link unknown
 						if (!link.is_zero () && link != node->ledger.epoch_link && lazy_blocks.find (link) == lazy_blocks.end () && !node->store.block_exists (transaction, link))
 						{
-							rai::block_hash previous (block_l->hashables.previous);
+							nano::block_hash previous (block_l->hashables.previous);
 							// If state block previous is 0 then source block required
 							if (previous.is_zero ())
 							{
@@ -1377,7 +1377,7 @@ bool rai::bootstrap_attempt::process_block (std::shared_ptr<rai::block> block_a,
 							// In other cases previous block balance required to find out subtype of state block
 							else if (node->store.block_exists (transaction, previous))
 							{
-								rai::amount prev_balance (node->ledger.balance (transaction, previous));
+								nano::amount prev_balance (node->ledger.balance (transaction, previous));
 								if (prev_balance.number () <= balance)
 								{
 									lazy_add (link);
@@ -1434,18 +1434,18 @@ bool rai::bootstrap_attempt::process_block (std::shared_ptr<rai::block> block_a,
 				auto next_block (find_state->second);
 				lazy_state_unknown.erase (hash);
 				// Retrieve balance for previous state blocks
-				if (block_a->type () == rai::block_type::state)
+				if (block_a->type () == nano::block_type::state)
 				{
-					std::shared_ptr<rai::state_block> block_l (std::static_pointer_cast<rai::state_block> (block_a));
+					std::shared_ptr<nano::state_block> block_l (std::static_pointer_cast<nano::state_block> (block_a));
 					if (block_l->hashables.balance.number () <= next_block.second)
 					{
 						lazy_add (next_block.first);
 					}
 				}
 				// Retrieve balance for previous legacy send blocks
-				else if (block_a->type () == rai::block_type::send)
+				else if (block_a->type () == nano::block_type::send)
 				{
-					std::shared_ptr<rai::send_block> block_l (std::static_pointer_cast<rai::send_block> (block_a));
+					std::shared_ptr<nano::send_block> block_l (std::static_pointer_cast<nano::send_block> (block_a));
 					if (block_l->hashables.balance.number () <= next_block.second)
 					{
 						lazy_add (next_block.first);
@@ -1482,38 +1482,38 @@ bool rai::bootstrap_attempt::process_block (std::shared_ptr<rai::block> block_a,
 	return stop_pull;
 }
 
-rai::bootstrap_initiator::bootstrap_initiator (rai::node & node_a) :
+nano::bootstrap_initiator::bootstrap_initiator (nano::node & node_a) :
 node (node_a),
 stopped (false),
 thread ([this]() {
-	rai::thread_role::set (rai::thread_role::name::bootstrap_initiator);
+	nano::thread_role::set (nano::thread_role::name::bootstrap_initiator);
 	run_bootstrap ();
 })
 {
 }
 
-rai::bootstrap_initiator::~bootstrap_initiator ()
+nano::bootstrap_initiator::~bootstrap_initiator ()
 {
 	stop ();
 	thread.join ();
 }
 
-void rai::bootstrap_initiator::bootstrap ()
+void nano::bootstrap_initiator::bootstrap ()
 {
 	std::unique_lock<std::mutex> lock (mutex);
 	if (!stopped && attempt == nullptr)
 	{
-		node.stats.inc (rai::stat::type::bootstrap, rai::stat::detail::initiate, rai::stat::dir::out);
-		attempt = std::make_shared<rai::bootstrap_attempt> (node.shared ());
+		node.stats.inc (nano::stat::type::bootstrap, nano::stat::detail::initiate, nano::stat::dir::out);
+		attempt = std::make_shared<nano::bootstrap_attempt> (node.shared ());
 		condition.notify_all ();
 	}
 }
 
-void rai::bootstrap_initiator::bootstrap (rai::endpoint const & endpoint_a, bool add_to_peers)
+void nano::bootstrap_initiator::bootstrap (nano::endpoint const & endpoint_a, bool add_to_peers)
 {
 	if (add_to_peers)
 	{
-		node.peers.insert (rai::map_endpoint_to_v6 (endpoint_a), rai::protocol_version);
+		node.peers.insert (nano::map_endpoint_to_v6 (endpoint_a), nano::protocol_version);
 	}
 	std::unique_lock<std::mutex> lock (mutex);
 	if (!stopped)
@@ -1523,14 +1523,14 @@ void rai::bootstrap_initiator::bootstrap (rai::endpoint const & endpoint_a, bool
 			attempt->stop ();
 			condition.wait (lock);
 		}
-		node.stats.inc (rai::stat::type::bootstrap, rai::stat::detail::initiate, rai::stat::dir::out);
-		attempt = std::make_shared<rai::bootstrap_attempt> (node.shared ());
+		node.stats.inc (nano::stat::type::bootstrap, nano::stat::detail::initiate, nano::stat::dir::out);
+		attempt = std::make_shared<nano::bootstrap_attempt> (node.shared ());
 		attempt->add_connection (endpoint_a);
 		condition.notify_all ();
 	}
 }
 
-void rai::bootstrap_initiator::bootstrap_lazy (rai::block_hash const & hash_a, bool force)
+void nano::bootstrap_initiator::bootstrap_lazy (nano::block_hash const & hash_a, bool force)
 {
 	{
 		std::unique_lock<std::mutex> lock (mutex);
@@ -1542,10 +1542,10 @@ void rai::bootstrap_initiator::bootstrap_lazy (rai::block_hash const & hash_a, b
 				condition.wait (lock);
 			}
 		}
-		node.stats.inc (rai::stat::type::bootstrap, rai::stat::detail::initiate_lazy, rai::stat::dir::out);
+		node.stats.inc (nano::stat::type::bootstrap, nano::stat::detail::initiate_lazy, nano::stat::dir::out);
 		if (attempt == nullptr)
 		{
-			attempt = std::make_shared<rai::bootstrap_attempt> (node.shared ());
+			attempt = std::make_shared<nano::bootstrap_attempt> (node.shared ());
 			attempt->lazy_mode = true;
 		}
 		attempt->lazy_start (hash_a);
@@ -1553,7 +1553,7 @@ void rai::bootstrap_initiator::bootstrap_lazy (rai::block_hash const & hash_a, b
 	condition.notify_all ();
 }
 
-void rai::bootstrap_initiator::run_bootstrap ()
+void nano::bootstrap_initiator::run_bootstrap ()
 {
 	std::unique_lock<std::mutex> lock (mutex);
 	while (!stopped)
@@ -1580,24 +1580,24 @@ void rai::bootstrap_initiator::run_bootstrap ()
 	}
 }
 
-void rai::bootstrap_initiator::add_observer (std::function<void(bool)> const & observer_a)
+void nano::bootstrap_initiator::add_observer (std::function<void(bool)> const & observer_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	observers.push_back (observer_a);
 }
 
-bool rai::bootstrap_initiator::in_progress ()
+bool nano::bootstrap_initiator::in_progress ()
 {
 	return current_attempt () != nullptr;
 }
 
-std::shared_ptr<rai::bootstrap_attempt> rai::bootstrap_initiator::current_attempt ()
+std::shared_ptr<nano::bootstrap_attempt> nano::bootstrap_initiator::current_attempt ()
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	return attempt;
 }
 
-void rai::bootstrap_initiator::stop ()
+void nano::bootstrap_initiator::stop ()
 {
 	{
 		std::unique_lock<std::mutex> lock (mutex);
@@ -1610,7 +1610,7 @@ void rai::bootstrap_initiator::stop ()
 	condition.notify_all ();
 }
 
-void rai::bootstrap_initiator::notify_listeners (bool in_progress_a)
+void nano::bootstrap_initiator::notify_listeners (bool in_progress_a)
 {
 	for (auto & i : observers)
 	{
@@ -1618,7 +1618,7 @@ void rai::bootstrap_initiator::notify_listeners (bool in_progress_a)
 	}
 }
 
-rai::bootstrap_listener::bootstrap_listener (boost::asio::io_context & io_ctx_a, uint16_t port_a, rai::node & node_a) :
+nano::bootstrap_listener::bootstrap_listener (boost::asio::io_context & io_ctx_a, uint16_t port_a, nano::node & node_a) :
 acceptor (io_ctx_a),
 local (boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v6::any (), port_a)),
 io_ctx (io_ctx_a),
@@ -1626,7 +1626,7 @@ node (node_a)
 {
 }
 
-void rai::bootstrap_listener::start ()
+void nano::bootstrap_listener::start ()
 {
 	acceptor.open (local.protocol ());
 	acceptor.set_option (boost::asio::ip::tcp::acceptor::reuse_address (true));
@@ -1643,7 +1643,7 @@ void rai::bootstrap_listener::start ()
 	accept_connection ();
 }
 
-void rai::bootstrap_listener::stop ()
+void nano::bootstrap_listener::stop ()
 {
 	decltype (connections) connections_l;
 	{
@@ -1662,20 +1662,20 @@ void rai::bootstrap_listener::stop ()
 	}
 }
 
-void rai::bootstrap_listener::accept_connection ()
+void nano::bootstrap_listener::accept_connection ()
 {
-	auto socket (std::make_shared<rai::socket> (node.shared ()));
+	auto socket (std::make_shared<nano::socket> (node.shared ()));
 	acceptor.async_accept (socket->socket_m, [this, socket](boost::system::error_code const & ec) {
 		accept_action (ec, socket);
 	});
 }
 
-void rai::bootstrap_listener::accept_action (boost::system::error_code const & ec, std::shared_ptr<rai::socket> socket_a)
+void nano::bootstrap_listener::accept_action (boost::system::error_code const & ec, std::shared_ptr<nano::socket> socket_a)
 {
 	if (!ec)
 	{
 		accept_connection ();
-		auto connection (std::make_shared<rai::bootstrap_server> (socket_a, node.shared ()));
+		auto connection (std::make_shared<nano::bootstrap_server> (socket_a, node.shared ()));
 		{
 			std::lock_guard<std::mutex> lock (mutex);
 			if (connections.size () < node.config.bootstrap_connections_max && acceptor.is_open ())
@@ -1691,12 +1691,12 @@ void rai::bootstrap_listener::accept_action (boost::system::error_code const & e
 	}
 }
 
-boost::asio::ip::tcp::endpoint rai::bootstrap_listener::endpoint ()
+boost::asio::ip::tcp::endpoint nano::bootstrap_listener::endpoint ()
 {
 	return boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v6::loopback (), local.port ());
 }
 
-rai::bootstrap_server::~bootstrap_server ()
+nano::bootstrap_server::~bootstrap_server ()
 {
 	if (node->config.logging.bulk_pull_logging ())
 	{
@@ -1706,7 +1706,7 @@ rai::bootstrap_server::~bootstrap_server ()
 	node->bootstrap.connections.erase (this);
 }
 
-rai::bootstrap_server::bootstrap_server (std::shared_ptr<rai::socket> socket_a, std::shared_ptr<rai::node> node_a) :
+nano::bootstrap_server::bootstrap_server (std::shared_ptr<nano::socket> socket_a, std::shared_ptr<nano::node> node_a) :
 receive_buffer (std::make_shared<std::vector<uint8_t>> ()),
 socket (socket_a),
 node (node_a)
@@ -1714,7 +1714,7 @@ node (node_a)
 	receive_buffer->resize (128);
 }
 
-void rai::bootstrap_server::receive ()
+void nano::bootstrap_server::receive ()
 {
 	auto this_l (shared_from_this ());
 	socket->async_read (receive_buffer, 8, [this_l](boost::system::error_code const & ec, size_t size_a) {
@@ -1722,26 +1722,26 @@ void rai::bootstrap_server::receive ()
 	});
 }
 
-void rai::bootstrap_server::receive_header_action (boost::system::error_code const & ec, size_t size_a)
+void nano::bootstrap_server::receive_header_action (boost::system::error_code const & ec, size_t size_a)
 {
 	if (!ec)
 	{
 		assert (size_a == 8);
-		rai::bufferstream type_stream (receive_buffer->data (), size_a);
+		nano::bufferstream type_stream (receive_buffer->data (), size_a);
 		auto error (false);
-		rai::message_header header (error, type_stream);
+		nano::message_header header (error, type_stream);
 		if (!error)
 		{
 			switch (header.type)
 			{
-				case rai::message_type::bulk_pull:
+				case nano::message_type::bulk_pull:
 				{
 					uint32_t extended_size;
-					node->stats.inc (rai::stat::type::bootstrap, rai::stat::detail::bulk_pull, rai::stat::dir::in);
+					node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::bulk_pull, nano::stat::dir::in);
 
 					if (header.bulk_pull_is_count_present ())
 					{
-						extended_size = rai::bulk_pull::extended_parameters_size;
+						extended_size = nano::bulk_pull::extended_parameters_size;
 					}
 					else
 					{
@@ -1749,21 +1749,21 @@ void rai::bootstrap_server::receive_header_action (boost::system::error_code con
 					}
 
 					auto this_l (shared_from_this ());
-					socket->async_read (receive_buffer, sizeof (rai::uint256_union) + sizeof (rai::uint256_union) + extended_size, [this_l, header](boost::system::error_code const & ec, size_t size_a) {
+					socket->async_read (receive_buffer, sizeof (nano::uint256_union) + sizeof (nano::uint256_union) + extended_size, [this_l, header](boost::system::error_code const & ec, size_t size_a) {
 						this_l->receive_bulk_pull_action (ec, size_a, header);
 					});
 					break;
 				}
-				case rai::message_type::bulk_pull_account:
+				case nano::message_type::bulk_pull_account:
 				{
-					node->stats.inc (rai::stat::type::bootstrap, rai::stat::detail::bulk_pull_account, rai::stat::dir::in);
+					node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::bulk_pull_account, nano::stat::dir::in);
 					auto this_l (shared_from_this ());
-					socket->async_read (receive_buffer, sizeof (rai::uint256_union) + sizeof (rai::uint128_union) + sizeof (uint8_t), [this_l, header](boost::system::error_code const & ec, size_t size_a) {
+					socket->async_read (receive_buffer, sizeof (nano::uint256_union) + sizeof (nano::uint128_union) + sizeof (uint8_t), [this_l, header](boost::system::error_code const & ec, size_t size_a) {
 						this_l->receive_bulk_pull_account_action (ec, size_a, header);
 					});
 					break;
 				}
-				case rai::message_type::bulk_pull_blocks:
+				case nano::message_type::bulk_pull_blocks:
 				{
 					if (node->config.logging.network_logging ())
 					{
@@ -1771,24 +1771,24 @@ void rai::bootstrap_server::receive_header_action (boost::system::error_code con
 					}
 
 					auto this_l (shared_from_this ());
-					socket->async_read (receive_buffer, sizeof (rai::uint256_union) + sizeof (rai::uint256_union) + sizeof (bulk_pull_blocks_mode) + sizeof (uint32_t), [this_l, header](boost::system::error_code const & ec, size_t size_a) {
+					socket->async_read (receive_buffer, sizeof (nano::uint256_union) + sizeof (nano::uint256_union) + sizeof (bulk_pull_blocks_mode) + sizeof (uint32_t), [this_l, header](boost::system::error_code const & ec, size_t size_a) {
 						this_l->receive_bulk_pull_blocks_action (ec, size_a, header);
 					});
 					break;
 				}
-				case rai::message_type::frontier_req:
+				case nano::message_type::frontier_req:
 				{
-					node->stats.inc (rai::stat::type::bootstrap, rai::stat::detail::frontier_req, rai::stat::dir::in);
+					node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::frontier_req, nano::stat::dir::in);
 					auto this_l (shared_from_this ());
-					socket->async_read (receive_buffer, sizeof (rai::uint256_union) + sizeof (uint32_t) + sizeof (uint32_t), [this_l, header](boost::system::error_code const & ec, size_t size_a) {
+					socket->async_read (receive_buffer, sizeof (nano::uint256_union) + sizeof (uint32_t) + sizeof (uint32_t), [this_l, header](boost::system::error_code const & ec, size_t size_a) {
 						this_l->receive_frontier_req_action (ec, size_a, header);
 					});
 					break;
 				}
-				case rai::message_type::bulk_push:
+				case nano::message_type::bulk_push:
 				{
-					node->stats.inc (rai::stat::type::bootstrap, rai::stat::detail::bulk_push, rai::stat::dir::in);
-					add_request (std::unique_ptr<rai::message> (new rai::bulk_push (header)));
+					node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::bulk_push, nano::stat::dir::in);
+					add_request (std::unique_ptr<nano::message> (new nano::bulk_push (header)));
 					break;
 				}
 				default:
@@ -1811,78 +1811,78 @@ void rai::bootstrap_server::receive_header_action (boost::system::error_code con
 	}
 }
 
-void rai::bootstrap_server::receive_bulk_pull_action (boost::system::error_code const & ec, size_t size_a, rai::message_header const & header_a)
+void nano::bootstrap_server::receive_bulk_pull_action (boost::system::error_code const & ec, size_t size_a, nano::message_header const & header_a)
 {
 	if (!ec)
 	{
 		auto error (false);
-		rai::bufferstream stream (receive_buffer->data (), size_a);
-		std::unique_ptr<rai::bulk_pull> request (new rai::bulk_pull (error, stream, header_a));
+		nano::bufferstream stream (receive_buffer->data (), size_a);
+		std::unique_ptr<nano::bulk_pull> request (new nano::bulk_pull (error, stream, header_a));
 		if (!error)
 		{
 			if (node->config.logging.bulk_pull_logging ())
 			{
 				BOOST_LOG (node->log) << boost::str (boost::format ("Received bulk pull for %1% down to %2%, maximum of %3%") % request->start.to_string () % request->end.to_string () % (request->count ? request->count : std::numeric_limits<double>::infinity ()));
 			}
-			add_request (std::unique_ptr<rai::message> (request.release ()));
+			add_request (std::unique_ptr<nano::message> (request.release ()));
 			receive ();
 		}
 	}
 }
 
-void rai::bootstrap_server::receive_bulk_pull_account_action (boost::system::error_code const & ec, size_t size_a, rai::message_header const & header_a)
+void nano::bootstrap_server::receive_bulk_pull_account_action (boost::system::error_code const & ec, size_t size_a, nano::message_header const & header_a)
 {
 	if (!ec)
 	{
 		auto error (false);
-		assert (size_a == (sizeof (rai::uint256_union) + sizeof (rai::uint128_union) + sizeof (uint8_t)));
-		rai::bufferstream stream (receive_buffer->data (), size_a);
-		std::unique_ptr<rai::bulk_pull_account> request (new rai::bulk_pull_account (error, stream, header_a));
+		assert (size_a == (sizeof (nano::uint256_union) + sizeof (nano::uint128_union) + sizeof (uint8_t)));
+		nano::bufferstream stream (receive_buffer->data (), size_a);
+		std::unique_ptr<nano::bulk_pull_account> request (new nano::bulk_pull_account (error, stream, header_a));
 		if (!error)
 		{
 			if (node->config.logging.bulk_pull_logging ())
 			{
-				BOOST_LOG (node->log) << boost::str (boost::format ("Received bulk pull account for %1% with a minimum amount of %2%") % request->account.to_account () % rai::amount (request->minimum_amount).format_balance (rai::Mxrb_ratio, 10, true));
+				BOOST_LOG (node->log) << boost::str (boost::format ("Received bulk pull account for %1% with a minimum amount of %2%") % request->account.to_account () % nano::amount (request->minimum_amount).format_balance (nano::Mxrb_ratio, 10, true));
 			}
-			add_request (std::unique_ptr<rai::message> (request.release ()));
+			add_request (std::unique_ptr<nano::message> (request.release ()));
 			receive ();
 		}
 	}
 }
 
-void rai::bootstrap_server::receive_bulk_pull_blocks_action (boost::system::error_code const & ec, size_t size_a, rai::message_header const & header_a)
+void nano::bootstrap_server::receive_bulk_pull_blocks_action (boost::system::error_code const & ec, size_t size_a, nano::message_header const & header_a)
 {
 	if (!ec)
 	{
 		auto error (false);
-		rai::bufferstream stream (receive_buffer->data (), sizeof (rai::uint256_union) + sizeof (rai::uint256_union) + sizeof (bulk_pull_blocks_mode) + sizeof (uint32_t));
-		std::unique_ptr<rai::bulk_pull_blocks> request (new rai::bulk_pull_blocks (error, stream, header_a));
+		nano::bufferstream stream (receive_buffer->data (), sizeof (nano::uint256_union) + sizeof (nano::uint256_union) + sizeof (bulk_pull_blocks_mode) + sizeof (uint32_t));
+		std::unique_ptr<nano::bulk_pull_blocks> request (new nano::bulk_pull_blocks (error, stream, header_a));
 		if (!error)
 		{
 			if (node->config.logging.bulk_pull_logging ())
 			{
 				BOOST_LOG (node->log) << boost::str (boost::format ("Received deprecated bulk pull blocks for %1% to %2%") % request->min_hash.to_string () % request->max_hash.to_string ());
 			}
-			add_request (std::unique_ptr<rai::message> (request.release ()));
+			add_request (std::unique_ptr<nano::message> (request.release ()));
 			receive ();
 		}
 	}
 }
 
-void rai::bootstrap_server::receive_frontier_req_action (boost::system::error_code const & ec, size_t size_a, rai::message_header const & header_a)
+void nano::bootstrap_server::receive_frontier_req_action (boost::system::error_code const & ec, size_t size_a, nano::message_header const & header_a)
 {
 	if (!ec)
 	{
 		auto error (false);
-		rai::bufferstream stream (receive_buffer->data (), sizeof (rai::uint256_union) + sizeof (uint32_t) + sizeof (uint32_t));
-		std::unique_ptr<rai::frontier_req> request (new rai::frontier_req (error, stream, header_a));
+		nano::bufferstream stream (receive_buffer->data (), sizeof (nano::uint256_union) + sizeof (uint32_t) + sizeof (uint32_t));
+		std::unique_ptr<nano::frontier_req> request (new nano::frontier_req (error, stream, header_a));
 		if (!error)
 		{
 			if (node->config.logging.bulk_pull_logging ())
 			{
 				BOOST_LOG (node->log) << boost::str (boost::format ("Received frontier request for %1% with age %2%") % request->start.to_string () % request->age);
 			}
-			add_request (std::unique_ptr<rai::message> (request.release ()));
+			add_request (std::unique_ptr<nano::message> (request.release ()));
 			receive ();
 		}
 	}
@@ -1895,7 +1895,7 @@ void rai::bootstrap_server::receive_frontier_req_action (boost::system::error_co
 	}
 }
 
-void rai::bootstrap_server::add_request (std::unique_ptr<rai::message> message_a)
+void nano::bootstrap_server::add_request (std::unique_ptr<nano::message> message_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	auto start (requests.empty ());
@@ -1906,7 +1906,7 @@ void rai::bootstrap_server::add_request (std::unique_ptr<rai::message> message_a
 	}
 }
 
-void rai::bootstrap_server::finish_request ()
+void nano::bootstrap_server::finish_request ()
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	requests.pop ();
@@ -1918,64 +1918,64 @@ void rai::bootstrap_server::finish_request ()
 
 namespace
 {
-class request_response_visitor : public rai::message_visitor
+class request_response_visitor : public nano::message_visitor
 {
 public:
-	request_response_visitor (std::shared_ptr<rai::bootstrap_server> connection_a) :
+	request_response_visitor (std::shared_ptr<nano::bootstrap_server> connection_a) :
 	connection (connection_a)
 	{
 	}
 	virtual ~request_response_visitor () = default;
-	void keepalive (rai::keepalive const &) override
+	void keepalive (nano::keepalive const &) override
 	{
 		assert (false);
 	}
-	void publish (rai::publish const &) override
+	void publish (nano::publish const &) override
 	{
 		assert (false);
 	}
-	void confirm_req (rai::confirm_req const &) override
+	void confirm_req (nano::confirm_req const &) override
 	{
 		assert (false);
 	}
-	void confirm_ack (rai::confirm_ack const &) override
+	void confirm_ack (nano::confirm_ack const &) override
 	{
 		assert (false);
 	}
-	void bulk_pull (rai::bulk_pull const &) override
+	void bulk_pull (nano::bulk_pull const &) override
 	{
-		auto response (std::make_shared<rai::bulk_pull_server> (connection, std::unique_ptr<rai::bulk_pull> (static_cast<rai::bulk_pull *> (connection->requests.front ().release ()))));
+		auto response (std::make_shared<nano::bulk_pull_server> (connection, std::unique_ptr<nano::bulk_pull> (static_cast<nano::bulk_pull *> (connection->requests.front ().release ()))));
 		response->send_next ();
 	}
-	void bulk_pull_account (rai::bulk_pull_account const &) override
+	void bulk_pull_account (nano::bulk_pull_account const &) override
 	{
-		auto response (std::make_shared<rai::bulk_pull_account_server> (connection, std::unique_ptr<rai::bulk_pull_account> (static_cast<rai::bulk_pull_account *> (connection->requests.front ().release ()))));
+		auto response (std::make_shared<nano::bulk_pull_account_server> (connection, std::unique_ptr<nano::bulk_pull_account> (static_cast<nano::bulk_pull_account *> (connection->requests.front ().release ()))));
 		response->send_frontier ();
 	}
-	void bulk_pull_blocks (rai::bulk_pull_blocks const &) override
+	void bulk_pull_blocks (nano::bulk_pull_blocks const &) override
 	{
-		auto response (std::make_shared<rai::bulk_pull_blocks_server> (connection, std::unique_ptr<rai::bulk_pull_blocks> (static_cast<rai::bulk_pull_blocks *> (connection->requests.front ().release ()))));
+		auto response (std::make_shared<nano::bulk_pull_blocks_server> (connection, std::unique_ptr<nano::bulk_pull_blocks> (static_cast<nano::bulk_pull_blocks *> (connection->requests.front ().release ()))));
 		response->send_next ();
 	}
-	void bulk_push (rai::bulk_push const &) override
+	void bulk_push (nano::bulk_push const &) override
 	{
-		auto response (std::make_shared<rai::bulk_push_server> (connection));
+		auto response (std::make_shared<nano::bulk_push_server> (connection));
 		response->receive ();
 	}
-	void frontier_req (rai::frontier_req const &) override
+	void frontier_req (nano::frontier_req const &) override
 	{
-		auto response (std::make_shared<rai::frontier_req_server> (connection, std::unique_ptr<rai::frontier_req> (static_cast<rai::frontier_req *> (connection->requests.front ().release ()))));
+		auto response (std::make_shared<nano::frontier_req_server> (connection, std::unique_ptr<nano::frontier_req> (static_cast<nano::frontier_req *> (connection->requests.front ().release ()))));
 		response->send_next ();
 	}
-	void node_id_handshake (rai::node_id_handshake const &) override
+	void node_id_handshake (nano::node_id_handshake const &) override
 	{
 		assert (false);
 	}
-	std::shared_ptr<rai::bootstrap_server> connection;
+	std::shared_ptr<nano::bootstrap_server> connection;
 };
 }
 
-void rai::bootstrap_server::run_next ()
+void nano::bootstrap_server::run_next ()
 {
 	assert (!requests.empty ());
 	request_response_visitor visitor (shared_from_this ());
@@ -1997,7 +1997,7 @@ void rai::bootstrap_server::run_next ()
  * range will be exclusive of the frontier for that account with
  * a range of (frontier, end)
  */
-void rai::bulk_pull_server::set_current_end ()
+void nano::bulk_pull_server::set_current_end ()
 {
 	include_start = false;
 	assert (request != nullptr);
@@ -2023,7 +2023,7 @@ void rai::bulk_pull_server::set_current_end ()
 	}
 	else
 	{
-		rai::account_info info;
+		nano::account_info info;
 		auto no_address (connection->node->store.account_get (transaction, request->start, info));
 		if (no_address)
 		{
@@ -2062,15 +2062,15 @@ void rai::bulk_pull_server::set_current_end ()
 	}
 }
 
-void rai::bulk_pull_server::send_next ()
+void nano::bulk_pull_server::send_next ()
 {
 	auto block (get_next ());
 	if (block != nullptr)
 	{
 		{
 			send_buffer->clear ();
-			rai::vectorstream stream (*send_buffer);
-			rai::serialize_block (stream, *block);
+			nano::vectorstream stream (*send_buffer);
+			nano::serialize_block (stream, *block);
 		}
 		auto this_l (shared_from_this ());
 		if (connection->node->config.logging.bulk_pull_logging ())
@@ -2087,9 +2087,9 @@ void rai::bulk_pull_server::send_next ()
 	}
 }
 
-std::shared_ptr<rai::block> rai::bulk_pull_server::get_next ()
+std::shared_ptr<nano::block> nano::bulk_pull_server::get_next ()
 {
-	std::shared_ptr<rai::block> result;
+	std::shared_ptr<nano::block> result;
 	bool send_current = false, set_current_to_end = false;
 
 	/*
@@ -2159,7 +2159,7 @@ std::shared_ptr<rai::block> rai::bulk_pull_server::get_next ()
 	return result;
 }
 
-void rai::bulk_pull_server::sent_action (boost::system::error_code const & ec, size_t size_a)
+void nano::bulk_pull_server::sent_action (boost::system::error_code const & ec, size_t size_a)
 {
 	if (!ec)
 	{
@@ -2174,10 +2174,10 @@ void rai::bulk_pull_server::sent_action (boost::system::error_code const & ec, s
 	}
 }
 
-void rai::bulk_pull_server::send_finished ()
+void nano::bulk_pull_server::send_finished ()
 {
 	send_buffer->clear ();
-	send_buffer->push_back (static_cast<uint8_t> (rai::block_type::not_a_block));
+	send_buffer->push_back (static_cast<uint8_t> (nano::block_type::not_a_block));
 	auto this_l (shared_from_this ());
 	if (connection->node->config.logging.bulk_pull_logging ())
 	{
@@ -2188,7 +2188,7 @@ void rai::bulk_pull_server::send_finished ()
 	});
 }
 
-void rai::bulk_pull_server::no_block_sent (boost::system::error_code const & ec, size_t size_a)
+void nano::bulk_pull_server::no_block_sent (boost::system::error_code const & ec, size_t size_a)
 {
 	if (!ec)
 	{
@@ -2204,7 +2204,7 @@ void rai::bulk_pull_server::no_block_sent (boost::system::error_code const & ec,
 	}
 }
 
-rai::bulk_pull_server::bulk_pull_server (std::shared_ptr<rai::bootstrap_server> const & connection_a, std::unique_ptr<rai::bulk_pull> request_a) :
+nano::bulk_pull_server::bulk_pull_server (std::shared_ptr<nano::bootstrap_server> const & connection_a, std::unique_ptr<nano::bulk_pull> request_a) :
 connection (connection_a),
 request (std::move (request_a)),
 send_buffer (std::make_shared<std::vector<uint8_t>> ())
@@ -2215,7 +2215,7 @@ send_buffer (std::make_shared<std::vector<uint8_t>> ())
 /**
  * Bulk pull blocks related to an account
  */
-void rai::bulk_pull_account_server::set_params ()
+void nano::bulk_pull_account_server::set_params ()
 {
 	assert (request != nullptr);
 
@@ -2225,11 +2225,11 @@ void rai::bulk_pull_account_server::set_params ()
 	invalid_request = false;
 	pending_include_address = false;
 	pending_address_only = false;
-	if (request->flags == rai::bulk_pull_account_flags::pending_address_only)
+	if (request->flags == nano::bulk_pull_account_flags::pending_address_only)
 	{
 		pending_address_only = true;
 	}
-	else if (request->flags == rai::bulk_pull_account_flags::pending_hash_amount_and_address)
+	else if (request->flags == nano::bulk_pull_account_flags::pending_hash_amount_and_address)
 	{
 		/**
 		 ** This is the same as "pending_hash_and_amount" but with the
@@ -2237,7 +2237,7 @@ void rai::bulk_pull_account_server::set_params ()
 		 **/
 		pending_include_address = true;
 	}
-	else if (request->flags == rai::bulk_pull_account_flags::pending_hash_and_amount)
+	else if (request->flags == nano::bulk_pull_account_flags::pending_hash_and_amount)
 	{
 		/** The defaults are set above **/
 	}
@@ -2260,7 +2260,7 @@ void rai::bulk_pull_account_server::set_params ()
 	current_key.hash = 0;
 }
 
-void rai::bulk_pull_account_server::send_frontier ()
+void nano::bulk_pull_account_server::send_frontier ()
 {
 	/*
 	 * This function is really the entry point into this class,
@@ -2287,14 +2287,14 @@ void rai::bulk_pull_account_server::send_frontier ()
 	 **/
 	auto account_frontier_hash (connection->node->ledger.latest (stream_transaction, request->account));
 	auto account_frontier_balance_int (connection->node->ledger.account_balance (stream_transaction, request->account));
-	rai::uint128_union account_frontier_balance (account_frontier_balance_int);
+	nano::uint128_union account_frontier_balance (account_frontier_balance_int);
 
 	/**
 	 ** Write the frontier block hash and balance into a buffer
 	 **/
 	send_buffer->clear ();
 	{
-		rai::vectorstream output_stream (*send_buffer);
+		nano::vectorstream output_stream (*send_buffer);
 
 		write (output_stream, account_frontier_hash.bytes);
 		write (output_stream, account_frontier_balance.bytes);
@@ -2309,7 +2309,7 @@ void rai::bulk_pull_account_server::send_frontier ()
 	});
 }
 
-void rai::bulk_pull_account_server::send_next_block ()
+void nano::bulk_pull_account_server::send_next_block ()
 {
 	/*
 	 * Get the next item from the queue, it is a tuple with the key (which
@@ -2328,7 +2328,7 @@ void rai::bulk_pull_account_server::send_next_block ()
 
 		if (pending_address_only)
 		{
-			rai::vectorstream output_stream (*send_buffer);
+			nano::vectorstream output_stream (*send_buffer);
 
 			if (connection->node->config.logging.bulk_pull_logging ())
 			{
@@ -2339,7 +2339,7 @@ void rai::bulk_pull_account_server::send_next_block ()
 		}
 		else
 		{
-			rai::vectorstream output_stream (*send_buffer);
+			nano::vectorstream output_stream (*send_buffer);
 
 			if (connection->node->config.logging.bulk_pull_logging ())
 			{
@@ -2377,9 +2377,9 @@ void rai::bulk_pull_account_server::send_next_block ()
 	}
 }
 
-std::pair<std::unique_ptr<rai::pending_key>, std::unique_ptr<rai::pending_info>> rai::bulk_pull_account_server::get_next ()
+std::pair<std::unique_ptr<nano::pending_key>, std::unique_ptr<nano::pending_info>> nano::bulk_pull_account_server::get_next ()
 {
-	std::pair<std::unique_ptr<rai::pending_key>, std::unique_ptr<rai::pending_info>> result;
+	std::pair<std::unique_ptr<nano::pending_key>, std::unique_ptr<nano::pending_info>> result;
 
 	while (true)
 	{
@@ -2391,13 +2391,13 @@ std::pair<std::unique_ptr<rai::pending_key>, std::unique_ptr<rai::pending_info>>
 		auto stream_transaction (connection->node->store.tx_begin_read ());
 		auto stream (connection->node->store.pending_begin (stream_transaction, current_key));
 
-		if (stream == rai::store_iterator<rai::pending_key, rai::pending_info> (nullptr))
+		if (stream == nano::store_iterator<nano::pending_key, nano::pending_info> (nullptr))
 		{
 			break;
 		}
 
-		rai::pending_key key (stream->first);
-		rai::pending_info info (stream->second);
+		nano::pending_key key (stream->first);
+		nano::pending_info info (stream->second);
 
 		/*
 		 * Get the key for the next value, to use in the next call or iteration
@@ -2449,8 +2449,8 @@ std::pair<std::unique_ptr<rai::pending_key>, std::unique_ptr<rai::pending_info>>
 			deduplication.insert ({ info.source, true });
 		}
 
-		result.first = std::unique_ptr<rai::pending_key> (new rai::pending_key (key));
-		result.second = std::unique_ptr<rai::pending_info> (new rai::pending_info (info));
+		result.first = std::unique_ptr<nano::pending_key> (new nano::pending_key (key));
+		result.second = std::unique_ptr<nano::pending_info> (new nano::pending_info (info));
 
 		break;
 	}
@@ -2458,7 +2458,7 @@ std::pair<std::unique_ptr<rai::pending_key>, std::unique_ptr<rai::pending_info>>
 	return result;
 }
 
-void rai::bulk_pull_account_server::sent_action (boost::system::error_code const & ec, size_t size_a)
+void nano::bulk_pull_account_server::sent_action (boost::system::error_code const & ec, size_t size_a)
 {
 	if (!ec)
 	{
@@ -2473,7 +2473,7 @@ void rai::bulk_pull_account_server::sent_action (boost::system::error_code const
 	}
 }
 
-void rai::bulk_pull_account_server::send_finished ()
+void nano::bulk_pull_account_server::send_finished ()
 {
 	/*
 	 * The "bulk_pull_account" final sequence is a final block of all
@@ -2486,9 +2486,9 @@ void rai::bulk_pull_account_server::send_finished ()
 	send_buffer->clear ();
 
 	{
-		rai::vectorstream output_stream (*send_buffer);
-		rai::uint256_union account_zero (0);
-		rai::uint128_union balance_zero (0);
+		nano::vectorstream output_stream (*send_buffer);
+		nano::uint256_union account_zero (0);
+		nano::uint128_union balance_zero (0);
 
 		write (output_stream, account_zero.bytes);
 
@@ -2514,7 +2514,7 @@ void rai::bulk_pull_account_server::send_finished ()
 	});
 }
 
-void rai::bulk_pull_account_server::complete (boost::system::error_code const & ec, size_t size_a)
+void nano::bulk_pull_account_server::complete (boost::system::error_code const & ec, size_t size_a)
 {
 	if (!ec)
 	{
@@ -2545,7 +2545,7 @@ void rai::bulk_pull_account_server::complete (boost::system::error_code const & 
 	}
 }
 
-rai::bulk_pull_account_server::bulk_pull_account_server (std::shared_ptr<rai::bootstrap_server> const & connection_a, std::unique_ptr<rai::bulk_pull_account> request_a) :
+nano::bulk_pull_account_server::bulk_pull_account_server (std::shared_ptr<nano::bootstrap_server> const & connection_a, std::unique_ptr<nano::bulk_pull_account> request_a) :
 connection (connection_a),
 request (std::move (request_a)),
 send_buffer (std::make_shared<std::vector<uint8_t>> ()),
@@ -2560,27 +2560,27 @@ current_key (0, 0)
 /**
  * DEPRECATED
  */
-void rai::bulk_pull_blocks_server::set_params ()
+void nano::bulk_pull_blocks_server::set_params ()
 {
 	assert (request != nullptr);
 }
 
-void rai::bulk_pull_blocks_server::send_next ()
+void nano::bulk_pull_blocks_server::send_next ()
 {
 	send_finished ();
 }
 
-void rai::bulk_pull_blocks_server::send_finished ()
+void nano::bulk_pull_blocks_server::send_finished ()
 {
 	send_buffer->clear ();
-	send_buffer->push_back (static_cast<uint8_t> (rai::block_type::not_a_block));
+	send_buffer->push_back (static_cast<uint8_t> (nano::block_type::not_a_block));
 	auto this_l (shared_from_this ());
 	connection->socket->async_write (send_buffer, [this_l](boost::system::error_code const & ec, size_t size_a) {
 		this_l->no_block_sent (ec, size_a);
 	});
 }
 
-void rai::bulk_pull_blocks_server::no_block_sent (boost::system::error_code const & ec, size_t size_a)
+void nano::bulk_pull_blocks_server::no_block_sent (boost::system::error_code const & ec, size_t size_a)
 {
 	if (!ec)
 	{
@@ -2589,7 +2589,7 @@ void rai::bulk_pull_blocks_server::no_block_sent (boost::system::error_code cons
 	}
 }
 
-rai::bulk_pull_blocks_server::bulk_pull_blocks_server (std::shared_ptr<rai::bootstrap_server> const & connection_a, std::unique_ptr<rai::bulk_pull_blocks> request_a) :
+nano::bulk_pull_blocks_server::bulk_pull_blocks_server (std::shared_ptr<nano::bootstrap_server> const & connection_a, std::unique_ptr<nano::bulk_pull_blocks> request_a) :
 connection (connection_a),
 request (std::move (request_a)),
 send_buffer (std::make_shared<std::vector<uint8_t>> ())
@@ -2597,14 +2597,14 @@ send_buffer (std::make_shared<std::vector<uint8_t>> ())
 	set_params ();
 }
 
-rai::bulk_push_server::bulk_push_server (std::shared_ptr<rai::bootstrap_server> const & connection_a) :
+nano::bulk_push_server::bulk_push_server (std::shared_ptr<nano::bootstrap_server> const & connection_a) :
 receive_buffer (std::make_shared<std::vector<uint8_t>> ()),
 connection (connection_a)
 {
 	receive_buffer->resize (256);
 }
 
-void rai::bulk_push_server::receive ()
+void nano::bulk_push_server::receive ()
 {
 	if (connection->node->bootstrap_initiator.in_progress ())
 	{
@@ -2632,53 +2632,53 @@ void rai::bulk_push_server::receive ()
 	}
 }
 
-void rai::bulk_push_server::received_type ()
+void nano::bulk_push_server::received_type ()
 {
 	auto this_l (shared_from_this ());
-	rai::block_type type (static_cast<rai::block_type> (receive_buffer->data ()[0]));
+	nano::block_type type (static_cast<nano::block_type> (receive_buffer->data ()[0]));
 	switch (type)
 	{
-		case rai::block_type::send:
+		case nano::block_type::send:
 		{
-			connection->node->stats.inc (rai::stat::type::bootstrap, rai::stat::detail::send, rai::stat::dir::in);
-			connection->socket->async_read (receive_buffer, rai::send_block::size, [this_l, type](boost::system::error_code const & ec, size_t size_a) {
+			connection->node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::send, nano::stat::dir::in);
+			connection->socket->async_read (receive_buffer, nano::send_block::size, [this_l, type](boost::system::error_code const & ec, size_t size_a) {
 				this_l->received_block (ec, size_a, type);
 			});
 			break;
 		}
-		case rai::block_type::receive:
+		case nano::block_type::receive:
 		{
-			connection->node->stats.inc (rai::stat::type::bootstrap, rai::stat::detail::receive, rai::stat::dir::in);
-			connection->socket->async_read (receive_buffer, rai::receive_block::size, [this_l, type](boost::system::error_code const & ec, size_t size_a) {
+			connection->node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::receive, nano::stat::dir::in);
+			connection->socket->async_read (receive_buffer, nano::receive_block::size, [this_l, type](boost::system::error_code const & ec, size_t size_a) {
 				this_l->received_block (ec, size_a, type);
 			});
 			break;
 		}
-		case rai::block_type::open:
+		case nano::block_type::open:
 		{
-			connection->node->stats.inc (rai::stat::type::bootstrap, rai::stat::detail::open, rai::stat::dir::in);
-			connection->socket->async_read (receive_buffer, rai::open_block::size, [this_l, type](boost::system::error_code const & ec, size_t size_a) {
+			connection->node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::open, nano::stat::dir::in);
+			connection->socket->async_read (receive_buffer, nano::open_block::size, [this_l, type](boost::system::error_code const & ec, size_t size_a) {
 				this_l->received_block (ec, size_a, type);
 			});
 			break;
 		}
-		case rai::block_type::change:
+		case nano::block_type::change:
 		{
-			connection->node->stats.inc (rai::stat::type::bootstrap, rai::stat::detail::change, rai::stat::dir::in);
-			connection->socket->async_read (receive_buffer, rai::change_block::size, [this_l, type](boost::system::error_code const & ec, size_t size_a) {
+			connection->node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::change, nano::stat::dir::in);
+			connection->socket->async_read (receive_buffer, nano::change_block::size, [this_l, type](boost::system::error_code const & ec, size_t size_a) {
 				this_l->received_block (ec, size_a, type);
 			});
 			break;
 		}
-		case rai::block_type::state:
+		case nano::block_type::state:
 		{
-			connection->node->stats.inc (rai::stat::type::bootstrap, rai::stat::detail::state_block, rai::stat::dir::in);
-			connection->socket->async_read (receive_buffer, rai::state_block::size, [this_l, type](boost::system::error_code const & ec, size_t size_a) {
+			connection->node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::state_block, nano::stat::dir::in);
+			connection->socket->async_read (receive_buffer, nano::state_block::size, [this_l, type](boost::system::error_code const & ec, size_t size_a) {
 				this_l->received_block (ec, size_a, type);
 			});
 			break;
 		}
-		case rai::block_type::not_a_block:
+		case nano::block_type::not_a_block:
 		{
 			connection->finish_request ();
 			break;
@@ -2694,13 +2694,13 @@ void rai::bulk_push_server::received_type ()
 	}
 }
 
-void rai::bulk_push_server::received_block (boost::system::error_code const & ec, size_t size_a, rai::block_type type_a)
+void nano::bulk_push_server::received_block (boost::system::error_code const & ec, size_t size_a, nano::block_type type_a)
 {
 	if (!ec)
 	{
-		rai::bufferstream stream (receive_buffer->data (), size_a);
-		auto block (rai::deserialize_block (stream, type_a));
-		if (block != nullptr && !rai::work_validate (*block))
+		nano::bufferstream stream (receive_buffer->data (), size_a);
+		auto block (nano::deserialize_block (stream, type_a));
+		if (block != nullptr && !nano::work_validate (*block))
 		{
 			connection->node->process_active (std::move (block));
 			receive ();
@@ -2715,7 +2715,7 @@ void rai::bulk_push_server::received_block (boost::system::error_code const & ec
 	}
 }
 
-rai::frontier_req_server::frontier_req_server (std::shared_ptr<rai::bootstrap_server> const & connection_a, std::unique_ptr<rai::frontier_req> request_a) :
+nano::frontier_req_server::frontier_req_server (std::shared_ptr<nano::bootstrap_server> const & connection_a, std::unique_ptr<nano::frontier_req> request_a) :
 connection (connection_a),
 current (request_a->start.number () - 1),
 frontier (0),
@@ -2726,13 +2726,13 @@ count (0)
 	next ();
 }
 
-void rai::frontier_req_server::send_next ()
+void nano::frontier_req_server::send_next ()
 {
 	if (!current.is_zero () && count <= request->count)
 	{
 		{
 			send_buffer->clear ();
-			rai::vectorstream stream (*send_buffer);
+			nano::vectorstream stream (*send_buffer);
 			write (stream, current.bytes);
 			write (stream, frontier.bytes);
 		}
@@ -2752,12 +2752,12 @@ void rai::frontier_req_server::send_next ()
 	}
 }
 
-void rai::frontier_req_server::send_finished ()
+void nano::frontier_req_server::send_finished ()
 {
 	{
 		send_buffer->clear ();
-		rai::vectorstream stream (*send_buffer);
-		rai::uint256_union zero (0);
+		nano::vectorstream stream (*send_buffer);
+		nano::uint256_union zero (0);
 		write (stream, zero.bytes);
 		write (stream, zero.bytes);
 	}
@@ -2771,7 +2771,7 @@ void rai::frontier_req_server::send_finished ()
 	});
 }
 
-void rai::frontier_req_server::no_block_sent (boost::system::error_code const & ec, size_t size_a)
+void nano::frontier_req_server::no_block_sent (boost::system::error_code const & ec, size_t size_a)
 {
 	if (!ec)
 	{
@@ -2786,7 +2786,7 @@ void rai::frontier_req_server::no_block_sent (boost::system::error_code const & 
 	}
 }
 
-void rai::frontier_req_server::sent_action (boost::system::error_code const & ec, size_t size_a)
+void nano::frontier_req_server::sent_action (boost::system::error_code const & ec, size_t size_a)
 {
 	if (!ec)
 	{
@@ -2802,28 +2802,28 @@ void rai::frontier_req_server::sent_action (boost::system::error_code const & ec
 	}
 }
 
-void rai::frontier_req_server::next ()
+void nano::frontier_req_server::next ()
 {
 	// Filling accounts deque to prevent often read transactions
 	if (accounts.empty ())
 	{
-		auto now (rai::seconds_since_epoch ());
+		auto now (nano::seconds_since_epoch ());
 		bool skip_old (request->age != std::numeric_limits<decltype (request->age)>::max ());
 		size_t max_size (128);
 		auto transaction (connection->node->store.tx_begin_read ());
 		for (auto i (connection->node->store.latest_begin (transaction, current.number () + 1)), n (connection->node->store.latest_end ()); i != n && accounts.size () != max_size; ++i)
 		{
-			rai::account_info info (i->second);
+			nano::account_info info (i->second);
 			if (!skip_old || (now - info.modified) <= request->age)
 			{
-				accounts.push_back (std::make_pair (rai::account (i->first), info.head));
+				accounts.push_back (std::make_pair (nano::account (i->first), info.head));
 			}
 		}
 		/* If loop breaks before max_size, then latest_end () is reached
 		Add empty record to finish frontier_req_server */
 		if (accounts.size () != max_size)
 		{
-			accounts.push_back (std::make_pair (rai::account (0), rai::block_hash (0)));
+			accounts.push_back (std::make_pair (nano::account (0), nano::block_hash (0)));
 		}
 	}
 	// Retrieving accounts from deque

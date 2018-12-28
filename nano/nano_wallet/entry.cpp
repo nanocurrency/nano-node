@@ -1,9 +1,9 @@
-#include <rai/lib/utility.hpp>
-#include <rai/node/cli.hpp>
-#include <rai/node/rpc.hpp>
-#include <rai/node/working.hpp>
-#include <rai/qt/qt.hpp>
-#include <rai/rai_wallet/icon.hpp>
+#include <nano/lib/utility.hpp>
+#include <nano/nano_wallet/icon.hpp>
+#include <nano/node/cli.hpp>
+#include <nano/node/rpc.hpp>
+#include <nano/node/working.hpp>
+#include <nano/qt/qt.hpp>
 
 #include <boost/make_shared.hpp>
 #include <boost/program_options.hpp>
@@ -18,7 +18,7 @@ public:
 	rpc_enable (false),
 	opencl_enable (false)
 	{
-		rai::random_pool.GenerateBlock (wallet.bytes.data (), wallet.bytes.size ());
+		nano::random_pool.GenerateBlock (wallet.bytes.data (), wallet.bytes.size ());
 		assert (!wallet.is_zero ());
 	}
 	bool upgrade_json (unsigned version_a, boost::property_tree::ptree & tree_a)
@@ -29,7 +29,7 @@ public:
 		{
 			case 1:
 			{
-				rai::account account;
+				nano::account account;
 				account.decode_account (tree_a.get<std::string> ("account"));
 				tree_a.erase ("account");
 				tree_a.put ("account", account.to_account ());
@@ -97,7 +97,7 @@ public:
 				error |= opencl.deserialize_json (opencl_l);
 				if (wallet.is_zero ())
 				{
-					rai::random_pool.GenerateBlock (wallet.bytes.data (), wallet.bytes.size ());
+					nano::random_pool.GenerateBlock (wallet.bytes.data (), wallet.bytes.size ());
 					upgraded_a = true;
 				}
 			}
@@ -150,13 +150,13 @@ public:
 		}
 		return result;
 	}
-	rai::uint256_union wallet;
-	rai::account account;
-	rai::node_config node;
+	nano::uint256_union wallet;
+	nano::account account;
+	nano::node_config node;
 	bool rpc_enable;
-	rai::rpc_config rpc;
+	nano::rpc_config rpc;
 	bool opencl_enable;
-	rai::opencl_config opencl;
+	nano::opencl_config opencl;
 	static constexpr int json_version = 4;
 };
 
@@ -174,7 +174,7 @@ bool update_config (qt_wallet_config & config_a, boost::filesystem::path const &
 	auto account (config_a.account);
 	auto wallet (config_a.wallet);
 	auto error (false);
-	if (!rai::fetch_object (config_a, config_path_a, config_file_a))
+	if (!nano::fetch_object (config_a, config_path_a, config_file_a))
 	{
 		if (account != config_a.account || wallet != config_a.wallet)
 		{
@@ -189,12 +189,12 @@ bool update_config (qt_wallet_config & config_a, boost::filesystem::path const &
 }
 }
 
-int run_wallet (QApplication & application, int argc, char * const * argv, boost::filesystem::path const & data_path, rai::node_flags const & flags)
+int run_wallet (QApplication & application, int argc, char * const * argv, boost::filesystem::path const & data_path, nano::node_flags const & flags)
 {
-	rai_qt::eventloop_processor processor;
+	nano_qt::eventloop_processor processor;
 	boost::system::error_code error_chmod;
 	boost::filesystem::create_directories (data_path);
-	rai::set_secure_perm_directory (data_path, error_chmod);
+	nano::set_secure_perm_directory (data_path, error_chmod);
 	QPixmap pixmap (":/logo.png");
 	QSplashScreen * splash = new QSplashScreen (pixmap);
 	splash->show ();
@@ -205,24 +205,24 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 	auto config_path ((data_path / "config.json"));
 	int result (0);
 	std::fstream config_file;
-	auto error (rai::fetch_object (config, config_path, config_file));
+	auto error (nano::fetch_object (config, config_path, config_file));
 	config_file.close ();
-	rai::set_secure_perm_file (config_path, error_chmod);
+	nano::set_secure_perm_file (config_path, error_chmod);
 	if (!error)
 	{
 		boost::asio::io_context io_ctx;
 		config.node.logging.init (data_path);
-		std::shared_ptr<rai::node> node;
-		std::shared_ptr<rai_qt::wallet> gui;
-		rai::set_application_icon (application);
-		auto opencl (rai::opencl_work::create (config.opencl_enable, config.opencl, config.node.logging));
-		rai::work_pool work (config.node.work_threads, opencl ? [&opencl](rai::uint256_union const & root_a) {
+		std::shared_ptr<nano::node> node;
+		std::shared_ptr<nano_qt::wallet> gui;
+		nano::set_application_icon (application);
+		auto opencl (nano::opencl_work::create (config.opencl_enable, config.opencl, config.node.logging));
+		nano::work_pool work (config.node.work_threads, opencl ? [&opencl](nano::uint256_union const & root_a) {
 			return opencl->generate_work (root_a);
 		}
-		                                                      : std::function<boost::optional<uint64_t> (rai::uint256_union const &)> (nullptr));
-		rai::alarm alarm (io_ctx);
-		rai::node_init init;
-		node = std::make_shared<rai::node> (init, io_ctx, data_path, alarm, config.node, work);
+		                                                       : std::function<boost::optional<uint64_t> (nano::uint256_union const &)> (nullptr));
+		nano::alarm alarm (io_ctx);
+		nano::node_init init;
+		node = std::make_shared<nano::node> (init, io_ctx, data_path, alarm, config.node, work);
 		if (!init.error ())
 		{
 			auto wallet (node->wallets.open (config.wallet));
@@ -245,7 +245,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 				auto existing (wallet->store.begin (transaction));
 				if (existing != wallet->store.end ())
 				{
-					rai::uint256_union account (existing->first);
+					nano::uint256_union account (existing->first);
 					config.account = account;
 				}
 				else
@@ -256,18 +256,18 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 			assert (wallet->exists (config.account));
 			update_config (config, config_path, config_file);
 			node->start ();
-			std::unique_ptr<rai::rpc> rpc = get_rpc (io_ctx, *node, config.rpc);
+			std::unique_ptr<nano::rpc> rpc = get_rpc (io_ctx, *node, config.rpc);
 			if (rpc && config.rpc_enable)
 			{
 				rpc->start ();
 			}
-			rai::thread_runner runner (io_ctx, node->config.io_threads);
+			nano::thread_runner runner (io_ctx, node->config.io_threads);
 			QObject::connect (&application, &QApplication::aboutToQuit, [&]() {
 				rpc->stop ();
 				node->stop ();
 			});
-			application.postEvent (&processor, new rai_qt::eventloop_event ([&]() {
-				gui = std::make_shared<rai_qt::wallet> (application, processor, *node, wallet, config.account);
+			application.postEvent (&processor, new nano_qt::eventloop_event ([&]() {
+				gui = std::make_shared<nano_qt::wallet> (application, processor, *node, wallet, config.account);
 				splash->close ();
 				gui->start ();
 				gui->client_window->show ();
@@ -290,20 +290,20 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 
 int main (int argc, char * const * argv)
 {
-	rai::set_umask ();
+	nano::set_umask ();
 
 	try
 	{
 		QApplication application (argc, const_cast<char **> (argv));
 		boost::program_options::options_description description ("Command line options");
 		description.add_options () ("help", "Print out options");
-		rai::add_node_options (description);
+		nano::add_node_options (description);
 		boost::program_options::variables_map vm;
 		boost::program_options::store (boost::program_options::command_line_parser (argc, argv).options (description).allow_unregistered ().run (), vm);
 		boost::program_options::notify (vm);
 		int result (0);
-		auto ec = rai::handle_node_options (vm);
-		if (ec == rai::error_cli::unknown_command)
+		auto ec = nano::handle_node_options (vm);
+		if (ec == nano::error_cli::unknown_command)
 		{
 			if (vm.count ("help") != 0)
 			{
@@ -321,9 +321,9 @@ int main (int argc, char * const * argv)
 					}
 					else
 					{
-						data_path = rai::working_path ();
+						data_path = nano::working_path ();
 					}
-					rai::node_flags flags;
+					nano::node_flags flags;
 					flags.disable_backup = (vm.count ("disable_backup") > 0);
 					flags.disable_lazy_bootstrap = (vm.count ("disable_lazy_bootstrap") > 0);
 					flags.disable_legacy_bootstrap = (vm.count ("disable_legacy_bootstrap") > 0);

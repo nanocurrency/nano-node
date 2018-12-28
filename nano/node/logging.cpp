@@ -2,9 +2,9 @@
 #include <boost/log/utility/setup/common_attributes.hpp>
 #include <boost/log/utility/setup/console.hpp>
 #include <boost/log/utility/setup/file.hpp>
-#include <rai/node/logging.hpp>
+#include <nano/node/logging.hpp>
 
-rai::logging::logging () :
+nano::logging::logging () :
 ledger_logging_value (false),
 ledger_duplicate_logging_value (false),
 vote_logging_value (false),
@@ -28,7 +28,7 @@ rotation_size (4 * 1024 * 1024)
 {
 }
 
-void rai::logging::init (boost::filesystem::path const & application_path_a)
+void nano::logging::init (boost::filesystem::path const & application_path_a)
 {
 	static std::atomic_flag logging_already_added = ATOMIC_FLAG_INIT;
 	if (!logging_already_added.test_and_set ())
@@ -42,7 +42,7 @@ void rai::logging::init (boost::filesystem::path const & application_path_a)
 	}
 }
 
-void rai::logging::serialize_json (boost::property_tree::ptree & tree_a) const
+void nano::logging::serialize_json (boost::property_tree::ptree & tree_a) const
 {
 	tree_a.put ("version", std::to_string (json_version));
 	tree_a.put ("ledger", ledger_logging_value);
@@ -67,7 +67,7 @@ void rai::logging::serialize_json (boost::property_tree::ptree & tree_a) const
 	tree_a.put ("flush", flush);
 }
 
-bool rai::logging::upgrade_json (unsigned version_a, boost::property_tree::ptree & tree_a)
+bool nano::logging::upgrade_json (unsigned version_a, boost::property_tree::ptree & tree_a)
 {
 	tree_a.put ("version", std::to_string (json_version));
 	auto result (false);
@@ -96,7 +96,7 @@ bool rai::logging::upgrade_json (unsigned version_a, boost::property_tree::ptree
 	return result;
 }
 
-bool rai::logging::deserialize_json (bool & upgraded_a, boost::property_tree::ptree & tree_a)
+bool nano::logging::deserialize_json (bool & upgraded_a, boost::property_tree::ptree & tree_a)
 {
 	auto result (false);
 	try
@@ -142,92 +142,92 @@ bool rai::logging::deserialize_json (bool & upgraded_a, boost::property_tree::pt
 	return result;
 }
 
-bool rai::logging::ledger_logging () const
+bool nano::logging::ledger_logging () const
 {
 	return ledger_logging_value;
 }
 
-bool rai::logging::ledger_duplicate_logging () const
+bool nano::logging::ledger_duplicate_logging () const
 {
 	return ledger_logging () && ledger_duplicate_logging_value;
 }
 
-bool rai::logging::vote_logging () const
+bool nano::logging::vote_logging () const
 {
 	return vote_logging_value;
 }
 
-bool rai::logging::network_logging () const
+bool nano::logging::network_logging () const
 {
 	return network_logging_value;
 }
 
-bool rai::logging::network_message_logging () const
+bool nano::logging::network_message_logging () const
 {
 	return network_logging () && network_message_logging_value;
 }
 
-bool rai::logging::network_publish_logging () const
+bool nano::logging::network_publish_logging () const
 {
 	return network_logging () && network_publish_logging_value;
 }
 
-bool rai::logging::network_packet_logging () const
+bool nano::logging::network_packet_logging () const
 {
 	return network_logging () && network_packet_logging_value;
 }
 
-bool rai::logging::network_keepalive_logging () const
+bool nano::logging::network_keepalive_logging () const
 {
 	return network_logging () && network_keepalive_logging_value;
 }
 
-bool rai::logging::network_node_id_handshake_logging () const
+bool nano::logging::network_node_id_handshake_logging () const
 {
 	return network_logging () && network_node_id_handshake_logging_value;
 }
 
-bool rai::logging::node_lifetime_tracing () const
+bool nano::logging::node_lifetime_tracing () const
 {
 	return node_lifetime_tracing_value;
 }
 
-bool rai::logging::insufficient_work_logging () const
+bool nano::logging::insufficient_work_logging () const
 {
 	return network_logging () && insufficient_work_logging_value;
 }
 
-bool rai::logging::log_rpc () const
+bool nano::logging::log_rpc () const
 {
 	return network_logging () && log_rpc_value;
 }
 
-bool rai::logging::bulk_pull_logging () const
+bool nano::logging::bulk_pull_logging () const
 {
 	return network_logging () && bulk_pull_logging_value;
 }
 
-bool rai::logging::callback_logging () const
+bool nano::logging::callback_logging () const
 {
 	return network_logging ();
 }
 
-bool rai::logging::work_generation_time () const
+bool nano::logging::work_generation_time () const
 {
 	return work_generation_time_value;
 }
 
-bool rai::logging::upnp_details_logging () const
+bool nano::logging::upnp_details_logging () const
 {
 	return upnp_details_logging_value;
 }
 
-bool rai::logging::timing_logging () const
+bool nano::logging::timing_logging () const
 {
 	return timing_logging_value;
 }
 
-bool rai::logging::log_to_cerr () const
+bool nano::logging::log_to_cerr () const
 {
 	return log_to_cerr_value;
 }

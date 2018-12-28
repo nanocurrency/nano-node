@@ -1,10 +1,10 @@
-#include <rai/secure/common.hpp>
+#include <nano/secure/common.hpp>
 
-#include <rai/lib/interface.h>
-#include <rai/lib/numbers.hpp>
-#include <rai/node/common.hpp>
-#include <rai/secure/blockstore.hpp>
-#include <rai/secure/versioning.hpp>
+#include <nano/lib/interface.h>
+#include <nano/lib/numbers.hpp>
+#include <nano/node/common.hpp>
+#include <nano/secure/blockstore.hpp>
+#include <nano/secure/versioning.hpp>
 
 #include <boost/property_tree/json_parser.hpp>
 
@@ -52,15 +52,15 @@ public:
 	ledger_constants () :
 	zero_key ("0"),
 	test_genesis_key (test_private_key_data),
-	rai_test_account (test_public_key_data),
-	rai_beta_account (beta_public_key_data),
-	rai_live_account (live_public_key_data),
-	rai_test_genesis (test_genesis_data),
-	rai_beta_genesis (beta_genesis_data),
-	rai_live_genesis (live_genesis_data),
-	genesis_account (rai::rai_network == rai::rai_networks::rai_test_network ? rai_test_account : rai::rai_network == rai::rai_networks::rai_beta_network ? rai_beta_account : rai_live_account),
-	genesis_block (rai::rai_network == rai::rai_networks::rai_test_network ? rai_test_genesis : rai::rai_network == rai::rai_networks::rai_beta_network ? rai_beta_genesis : rai_live_genesis),
-	genesis_amount (std::numeric_limits<rai::uint128_t>::max ()),
+	nano_test_account (test_public_key_data),
+	nano_beta_account (beta_public_key_data),
+	nano_live_account (live_public_key_data),
+	nano_test_genesis (test_genesis_data),
+	nano_beta_genesis (beta_genesis_data),
+	nano_live_genesis (live_genesis_data),
+	genesis_account (nano::nano_network == nano::nano_networks::nano_test_network ? nano_test_account : nano::nano_network == nano::nano_networks::nano_beta_network ? nano_beta_account : nano_live_account),
+	genesis_block (nano::nano_network == nano::nano_networks::nano_test_network ? nano_test_genesis : nano::nano_network == nano::nano_networks::nano_beta_network ? nano_beta_genesis : nano_live_genesis),
+	genesis_amount (std::numeric_limits<nano::uint128_t>::max ()),
 	burn_account (0)
 	{
 		CryptoPP::AutoSeededRandomPool random_pool;
@@ -68,62 +68,62 @@ public:
 		random_pool.GenerateBlock (not_a_block.bytes.data (), not_a_block.bytes.size ());
 		random_pool.GenerateBlock (not_an_account.bytes.data (), not_an_account.bytes.size ());
 	}
-	rai::keypair zero_key;
-	rai::keypair test_genesis_key;
-	rai::account rai_test_account;
-	rai::account rai_beta_account;
-	rai::account rai_live_account;
-	std::string rai_test_genesis;
-	std::string rai_beta_genesis;
-	std::string rai_live_genesis;
-	rai::account genesis_account;
+	nano::keypair zero_key;
+	nano::keypair test_genesis_key;
+	nano::account nano_test_account;
+	nano::account nano_beta_account;
+	nano::account nano_live_account;
+	std::string nano_test_genesis;
+	std::string nano_beta_genesis;
+	std::string nano_live_genesis;
+	nano::account genesis_account;
 	std::string genesis_block;
-	rai::uint128_t genesis_amount;
-	rai::block_hash not_a_block;
-	rai::account not_an_account;
-	rai::account burn_account;
+	nano::uint128_t genesis_amount;
+	nano::block_hash not_a_block;
+	nano::account not_an_account;
+	nano::account burn_account;
 };
 ledger_constants globals;
 }
 
-size_t constexpr rai::send_block::size;
-size_t constexpr rai::receive_block::size;
-size_t constexpr rai::open_block::size;
-size_t constexpr rai::change_block::size;
-size_t constexpr rai::state_block::size;
+size_t constexpr nano::send_block::size;
+size_t constexpr nano::receive_block::size;
+size_t constexpr nano::open_block::size;
+size_t constexpr nano::change_block::size;
+size_t constexpr nano::state_block::size;
 
-rai::keypair const & rai::zero_key (globals.zero_key);
-rai::keypair const & rai::test_genesis_key (globals.test_genesis_key);
-rai::account const & rai::rai_test_account (globals.rai_test_account);
-rai::account const & rai::rai_beta_account (globals.rai_beta_account);
-rai::account const & rai::rai_live_account (globals.rai_live_account);
-std::string const & rai::rai_test_genesis (globals.rai_test_genesis);
-std::string const & rai::rai_beta_genesis (globals.rai_beta_genesis);
-std::string const & rai::rai_live_genesis (globals.rai_live_genesis);
+nano::keypair const & nano::zero_key (globals.zero_key);
+nano::keypair const & nano::test_genesis_key (globals.test_genesis_key);
+nano::account const & nano::nano_test_account (globals.nano_test_account);
+nano::account const & nano::nano_beta_account (globals.nano_beta_account);
+nano::account const & nano::nano_live_account (globals.nano_live_account);
+std::string const & nano::nano_test_genesis (globals.nano_test_genesis);
+std::string const & nano::nano_beta_genesis (globals.nano_beta_genesis);
+std::string const & nano::nano_live_genesis (globals.nano_live_genesis);
 
-rai::account const & rai::genesis_account (globals.genesis_account);
-std::string const & rai::genesis_block (globals.genesis_block);
-rai::uint128_t const & rai::genesis_amount (globals.genesis_amount);
-rai::block_hash const & rai::not_a_block (globals.not_a_block);
-rai::block_hash const & rai::not_an_account (globals.not_an_account);
-rai::account const & rai::burn_account (globals.burn_account);
+nano::account const & nano::genesis_account (globals.genesis_account);
+std::string const & nano::genesis_block (globals.genesis_block);
+nano::uint128_t const & nano::genesis_amount (globals.genesis_amount);
+nano::block_hash const & nano::not_a_block (globals.not_a_block);
+nano::block_hash const & nano::not_an_account (globals.not_an_account);
+nano::account const & nano::burn_account (globals.burn_account);
 
 // Create a new random keypair
-rai::keypair::keypair ()
+nano::keypair::keypair ()
 {
 	random_pool.GenerateBlock (prv.data.bytes.data (), prv.data.bytes.size ());
 	ed25519_publickey (prv.data.bytes.data (), pub.bytes.data ());
 }
 
 // Create a keypair given a private key
-rai::keypair::keypair (rai::raw_key && prv_a) :
+nano::keypair::keypair (nano::raw_key && prv_a) :
 prv (std::move (prv_a))
 {
 	ed25519_publickey (prv.data.bytes.data (), pub.bytes.data ());
 }
 
 // Create a keypair given a hex string of the private key
-rai::keypair::keypair (std::string const & prv_a)
+nano::keypair::keypair (std::string const & prv_a)
 {
 	auto error (prv.data.decode_hex (prv_a));
 	assert (!error);
@@ -131,24 +131,24 @@ rai::keypair::keypair (std::string const & prv_a)
 }
 
 // Serialize a block prefixed with an 8-bit typecode
-void rai::serialize_block (rai::stream & stream_a, rai::block const & block_a)
+void nano::serialize_block (nano::stream & stream_a, nano::block const & block_a)
 {
 	write (stream_a, block_a.type ());
 	block_a.serialize (stream_a);
 }
 
-rai::account_info::account_info () :
+nano::account_info::account_info () :
 head (0),
 rep_block (0),
 open_block (0),
 balance (0),
 modified (0),
 block_count (0),
-epoch (rai::epoch::epoch_0)
+epoch (nano::epoch::epoch_0)
 {
 }
 
-rai::account_info::account_info (rai::block_hash const & head_a, rai::block_hash const & rep_block_a, rai::block_hash const & open_block_a, rai::amount const & balance_a, uint64_t modified_a, uint64_t block_count_a, rai::epoch epoch_a) :
+nano::account_info::account_info (nano::block_hash const & head_a, nano::block_hash const & rep_block_a, nano::block_hash const & open_block_a, nano::amount const & balance_a, uint64_t modified_a, uint64_t block_count_a, nano::epoch epoch_a) :
 head (head_a),
 rep_block (rep_block_a),
 open_block (open_block_a),
@@ -159,7 +159,7 @@ epoch (epoch_a)
 {
 }
 
-void rai::account_info::serialize (rai::stream & stream_a) const
+void nano::account_info::serialize (nano::stream & stream_a) const
 {
 	write (stream_a, head.bytes);
 	write (stream_a, rep_block.bytes);
@@ -169,7 +169,7 @@ void rai::account_info::serialize (rai::stream & stream_a) const
 	write (stream_a, block_count);
 }
 
-bool rai::account_info::deserialize (rai::stream & stream_a)
+bool nano::account_info::deserialize (nano::stream & stream_a)
 {
 	auto error (read (stream_a, head.bytes));
 	if (!error)
@@ -195,17 +195,17 @@ bool rai::account_info::deserialize (rai::stream & stream_a)
 	return error;
 }
 
-bool rai::account_info::operator== (rai::account_info const & other_a) const
+bool nano::account_info::operator== (nano::account_info const & other_a) const
 {
 	return head == other_a.head && rep_block == other_a.rep_block && open_block == other_a.open_block && balance == other_a.balance && modified == other_a.modified && block_count == other_a.block_count && epoch == other_a.epoch;
 }
 
-bool rai::account_info::operator!= (rai::account_info const & other_a) const
+bool nano::account_info::operator!= (nano::account_info const & other_a) const
 {
 	return !(*this == other_a);
 }
 
-size_t rai::account_info::db_size () const
+size_t nano::account_info::db_size () const
 {
 	assert (reinterpret_cast<const uint8_t *> (this) == reinterpret_cast<const uint8_t *> (&head));
 	assert (reinterpret_cast<const uint8_t *> (&head) + sizeof (head) == reinterpret_cast<const uint8_t *> (&rep_block));
@@ -216,7 +216,7 @@ size_t rai::account_info::db_size () const
 	return sizeof (head) + sizeof (rep_block) + sizeof (open_block) + sizeof (balance) + sizeof (modified) + sizeof (block_count);
 }
 
-rai::block_counts::block_counts () :
+nano::block_counts::block_counts () :
 send (0),
 receive (0),
 open (0),
@@ -226,118 +226,118 @@ state_v1 (0)
 {
 }
 
-size_t rai::block_counts::sum ()
+size_t nano::block_counts::sum ()
 {
 	return send + receive + open + change + state_v0 + state_v1;
 }
 
-rai::pending_info::pending_info () :
+nano::pending_info::pending_info () :
 source (0),
 amount (0),
-epoch (rai::epoch::epoch_0)
+epoch (nano::epoch::epoch_0)
 {
 }
 
-rai::pending_info::pending_info (rai::account const & source_a, rai::amount const & amount_a, rai::epoch epoch_a) :
+nano::pending_info::pending_info (nano::account const & source_a, nano::amount const & amount_a, nano::epoch epoch_a) :
 source (source_a),
 amount (amount_a),
 epoch (epoch_a)
 {
 }
 
-void rai::pending_info::serialize (rai::stream & stream_a) const
+void nano::pending_info::serialize (nano::stream & stream_a) const
 {
-	rai::write (stream_a, source.bytes);
-	rai::write (stream_a, amount.bytes);
+	nano::write (stream_a, source.bytes);
+	nano::write (stream_a, amount.bytes);
 }
 
-bool rai::pending_info::deserialize (rai::stream & stream_a)
+bool nano::pending_info::deserialize (nano::stream & stream_a)
 {
-	auto result (rai::read (stream_a, source.bytes));
+	auto result (nano::read (stream_a, source.bytes));
 	if (!result)
 	{
-		result = rai::read (stream_a, amount.bytes);
+		result = nano::read (stream_a, amount.bytes);
 	}
 	return result;
 }
 
-bool rai::pending_info::operator== (rai::pending_info const & other_a) const
+bool nano::pending_info::operator== (nano::pending_info const & other_a) const
 {
 	return source == other_a.source && amount == other_a.amount && epoch == other_a.epoch;
 }
 
-rai::pending_key::pending_key () :
+nano::pending_key::pending_key () :
 account (0),
 hash (0)
 {
 }
 
-rai::pending_key::pending_key (rai::account const & account_a, rai::block_hash const & hash_a) :
+nano::pending_key::pending_key (nano::account const & account_a, nano::block_hash const & hash_a) :
 account (account_a),
 hash (hash_a)
 {
 }
 
-void rai::pending_key::serialize (rai::stream & stream_a) const
+void nano::pending_key::serialize (nano::stream & stream_a) const
 {
-	rai::write (stream_a, account.bytes);
-	rai::write (stream_a, hash.bytes);
+	nano::write (stream_a, account.bytes);
+	nano::write (stream_a, hash.bytes);
 }
 
-bool rai::pending_key::deserialize (rai::stream & stream_a)
+bool nano::pending_key::deserialize (nano::stream & stream_a)
 {
-	auto error (rai::read (stream_a, account.bytes));
+	auto error (nano::read (stream_a, account.bytes));
 	if (!error)
 	{
-		error = rai::read (stream_a, hash.bytes);
+		error = nano::read (stream_a, hash.bytes);
 	}
 	return error;
 }
 
-bool rai::pending_key::operator== (rai::pending_key const & other_a) const
+bool nano::pending_key::operator== (nano::pending_key const & other_a) const
 {
 	return account == other_a.account && hash == other_a.hash;
 }
 
-rai::block_hash rai::pending_key::key () const
+nano::block_hash nano::pending_key::key () const
 {
 	return account;
 }
 
-rai::block_info::block_info () :
+nano::block_info::block_info () :
 account (0),
 balance (0)
 {
 }
 
-rai::block_info::block_info (rai::account const & account_a, rai::amount const & balance_a) :
+nano::block_info::block_info (nano::account const & account_a, nano::amount const & balance_a) :
 account (account_a),
 balance (balance_a)
 {
 }
 
-void rai::block_info::serialize (rai::stream & stream_a) const
+void nano::block_info::serialize (nano::stream & stream_a) const
 {
-	rai::write (stream_a, account.bytes);
-	rai::write (stream_a, balance.bytes);
+	nano::write (stream_a, account.bytes);
+	nano::write (stream_a, balance.bytes);
 }
 
-bool rai::block_info::deserialize (rai::stream & stream_a)
+bool nano::block_info::deserialize (nano::stream & stream_a)
 {
-	auto error (rai::read (stream_a, account.bytes));
+	auto error (nano::read (stream_a, account.bytes));
 	if (!error)
 	{
-		error = rai::read (stream_a, balance.bytes);
+		error = nano::read (stream_a, balance.bytes);
 	}
 	return error;
 }
 
-bool rai::block_info::operator== (rai::block_info const & other_a) const
+bool nano::block_info::operator== (nano::block_info const & other_a) const
 {
 	return account == other_a.account && balance == other_a.balance;
 }
 
-bool rai::vote::operator== (rai::vote const & other_a) const
+bool nano::vote::operator== (nano::vote const & other_a) const
 {
 	auto blocks_equal (true);
 	if (blocks.size () != other_a.blocks.size ())
@@ -356,14 +356,14 @@ bool rai::vote::operator== (rai::vote const & other_a) const
 			}
 			else if (block.which ())
 			{
-				if (boost::get<rai::block_hash> (block) != boost::get<rai::block_hash> (other_block))
+				if (boost::get<nano::block_hash> (block) != boost::get<nano::block_hash> (other_block))
 				{
 					blocks_equal = false;
 				}
 			}
 			else
 			{
-				if (!(*boost::get<std::shared_ptr<rai::block>> (block) == *boost::get<std::shared_ptr<rai::block>> (other_block)))
+				if (!(*boost::get<std::shared_ptr<nano::block>> (block) == *boost::get<std::shared_ptr<nano::block>> (other_block)))
 				{
 					blocks_equal = false;
 				}
@@ -373,12 +373,12 @@ bool rai::vote::operator== (rai::vote const & other_a) const
 	return sequence == other_a.sequence && blocks_equal && account == other_a.account && signature == other_a.signature;
 }
 
-bool rai::vote::operator!= (rai::vote const & other_a) const
+bool nano::vote::operator!= (nano::vote const & other_a) const
 {
 	return !(*this == other_a);
 }
 
-std::string rai::vote::to_json () const
+std::string nano::vote::to_json () const
 {
 	std::stringstream stream;
 	boost::property_tree::ptree tree;
@@ -390,11 +390,11 @@ std::string rai::vote::to_json () const
 	{
 		if (block.which ())
 		{
-			blocks_tree.put ("", boost::get<std::shared_ptr<rai::block>> (block)->to_json ());
+			blocks_tree.put ("", boost::get<std::shared_ptr<nano::block>> (block)->to_json ());
 		}
 		else
 		{
-			blocks_tree.put ("", boost::get<std::shared_ptr<rai::block>> (block)->hash ().to_string ());
+			blocks_tree.put ("", boost::get<std::shared_ptr<nano::block>> (block)->hash ().to_string ());
 		}
 	}
 	tree.add_child ("blocks", blocks_tree);
@@ -402,7 +402,7 @@ std::string rai::vote::to_json () const
 	return stream.str ();
 }
 
-rai::vote::vote (rai::vote const & other_a) :
+nano::vote::vote (nano::vote const & other_a) :
 sequence (other_a.sequence),
 blocks (other_a.blocks),
 account (other_a.account),
@@ -410,30 +410,30 @@ signature (other_a.signature)
 {
 }
 
-rai::vote::vote (bool & error_a, rai::stream & stream_a, rai::block_uniquer * uniquer_a)
+nano::vote::vote (bool & error_a, nano::stream & stream_a, nano::block_uniquer * uniquer_a)
 {
 	error_a = deserialize (stream_a, uniquer_a);
 }
 
-rai::vote::vote (bool & error_a, rai::stream & stream_a, rai::block_type type_a, rai::block_uniquer * uniquer_a)
+nano::vote::vote (bool & error_a, nano::stream & stream_a, nano::block_type type_a, nano::block_uniquer * uniquer_a)
 {
 	if (!error_a)
 	{
-		error_a = rai::read (stream_a, account.bytes);
+		error_a = nano::read (stream_a, account.bytes);
 		if (!error_a)
 		{
-			error_a = rai::read (stream_a, signature.bytes);
+			error_a = nano::read (stream_a, signature.bytes);
 			if (!error_a)
 			{
-				error_a = rai::read (stream_a, sequence);
+				error_a = nano::read (stream_a, sequence);
 				if (!error_a)
 				{
 					while (!error_a && stream_a.in_avail () > 0)
 					{
-						if (type_a == rai::block_type::not_a_block)
+						if (type_a == nano::block_type::not_a_block)
 						{
-							rai::block_hash block_hash;
-							error_a = rai::read (stream_a, block_hash);
+							nano::block_hash block_hash;
+							error_a = nano::read (stream_a, block_hash);
 							if (!error_a)
 							{
 								blocks.push_back (block_hash);
@@ -441,7 +441,7 @@ rai::vote::vote (bool & error_a, rai::stream & stream_a, rai::block_type type_a,
 						}
 						else
 						{
-							std::shared_ptr<rai::block> block (rai::deserialize_block (stream_a, type_a, uniquer_a));
+							std::shared_ptr<nano::block> block (nano::deserialize_block (stream_a, type_a, uniquer_a));
 							error_a = block == nullptr;
 							if (!error_a)
 							{
@@ -459,15 +459,15 @@ rai::vote::vote (bool & error_a, rai::stream & stream_a, rai::block_type type_a,
 	}
 }
 
-rai::vote::vote (rai::account const & account_a, rai::raw_key const & prv_a, uint64_t sequence_a, std::shared_ptr<rai::block> block_a) :
+nano::vote::vote (nano::account const & account_a, nano::raw_key const & prv_a, uint64_t sequence_a, std::shared_ptr<nano::block> block_a) :
 sequence (sequence_a),
 blocks (1, block_a),
 account (account_a),
-signature (rai::sign_message (prv_a, account_a, hash ()))
+signature (nano::sign_message (prv_a, account_a, hash ()))
 {
 }
 
-rai::vote::vote (rai::account const & account_a, rai::raw_key const & prv_a, uint64_t sequence_a, std::vector<rai::block_hash> blocks_a) :
+nano::vote::vote (nano::account const & account_a, nano::raw_key const & prv_a, uint64_t sequence_a, std::vector<nano::block_hash> blocks_a) :
 sequence (sequence_a),
 account (account_a)
 {
@@ -477,10 +477,10 @@ account (account_a)
 	{
 		blocks.push_back (hash);
 	}
-	signature = rai::sign_message (prv_a, account_a, hash ());
+	signature = nano::sign_message (prv_a, account_a, hash ());
 }
 
-std::string rai::vote::hashes_string () const
+std::string nano::vote::hashes_string () const
 {
 	std::string result;
 	for (auto hash : *this)
@@ -491,11 +491,11 @@ std::string rai::vote::hashes_string () const
 	return result;
 }
 
-const std::string rai::vote::hash_prefix = "vote ";
+const std::string nano::vote::hash_prefix = "vote ";
 
-rai::uint256_union rai::vote::hash () const
+nano::uint256_union nano::vote::hash () const
 {
-	rai::uint256_union result;
+	nano::uint256_union result;
 	blake2b_state hash;
 	blake2b_init (&hash, sizeof (result.bytes));
 	if (blocks.size () > 1 || (blocks.size () > 0 && blocks[0].which ()))
@@ -517,9 +517,9 @@ rai::uint256_union rai::vote::hash () const
 	return result;
 }
 
-rai::uint256_union rai::vote::full_hash () const
+nano::uint256_union nano::vote::full_hash () const
 {
-	rai::uint256_union result;
+	nano::uint256_union result;
 	blake2b_state state;
 	blake2b_init (&state, sizeof (result.bytes));
 	blake2b_update (&state, hash ().bytes.data (), sizeof (hash ().bytes));
@@ -529,7 +529,7 @@ rai::uint256_union rai::vote::full_hash () const
 	return result;
 }
 
-void rai::vote::serialize (rai::stream & stream_a, rai::block_type type)
+void nano::vote::serialize (nano::stream & stream_a, nano::block_type type)
 {
 	write (stream_a, account);
 	write (stream_a, signature);
@@ -538,24 +538,24 @@ void rai::vote::serialize (rai::stream & stream_a, rai::block_type type)
 	{
 		if (block.which ())
 		{
-			assert (type == rai::block_type::not_a_block);
-			write (stream_a, boost::get<rai::block_hash> (block));
+			assert (type == nano::block_type::not_a_block);
+			write (stream_a, boost::get<nano::block_hash> (block));
 		}
 		else
 		{
-			if (type == rai::block_type::not_a_block)
+			if (type == nano::block_type::not_a_block)
 			{
-				write (stream_a, boost::get<std::shared_ptr<rai::block>> (block)->hash ());
+				write (stream_a, boost::get<std::shared_ptr<nano::block>> (block)->hash ());
 			}
 			else
 			{
-				boost::get<std::shared_ptr<rai::block>> (block)->serialize (stream_a);
+				boost::get<std::shared_ptr<nano::block>> (block)->serialize (stream_a);
 			}
 		}
 	}
 }
 
-void rai::vote::serialize (rai::stream & stream_a)
+void nano::vote::serialize (nano::stream & stream_a)
 {
 	write (stream_a, account);
 	write (stream_a, signature);
@@ -564,17 +564,17 @@ void rai::vote::serialize (rai::stream & stream_a)
 	{
 		if (block.which ())
 		{
-			write (stream_a, rai::block_type::not_a_block);
-			write (stream_a, boost::get<rai::block_hash> (block));
+			write (stream_a, nano::block_type::not_a_block);
+			write (stream_a, boost::get<nano::block_hash> (block));
 		}
 		else
 		{
-			rai::serialize_block (stream_a, *boost::get<std::shared_ptr<rai::block>> (block));
+			nano::serialize_block (stream_a, *boost::get<std::shared_ptr<nano::block>> (block));
 		}
 	}
 }
 
-bool rai::vote::deserialize (rai::stream & stream_a, rai::block_uniquer * uniquer_a)
+bool nano::vote::deserialize (nano::stream & stream_a, nano::block_uniquer * uniquer_a)
 {
 	auto result (read (stream_a, account));
 	if (!result)
@@ -585,10 +585,10 @@ bool rai::vote::deserialize (rai::stream & stream_a, rai::block_uniquer * unique
 			result = read (stream_a, sequence);
 			if (!result)
 			{
-				rai::block_type type;
+				nano::block_type type;
 				while (!result)
 				{
-					if (rai::read (stream_a, type))
+					if (nano::read (stream_a, type))
 					{
 						if (blocks.empty ())
 						{
@@ -598,10 +598,10 @@ bool rai::vote::deserialize (rai::stream & stream_a, rai::block_uniquer * unique
 					}
 					if (!result)
 					{
-						if (type == rai::block_type::not_a_block)
+						if (type == nano::block_type::not_a_block)
 						{
-							rai::block_hash block_hash;
-							result = rai::read (stream_a, block_hash);
+							nano::block_hash block_hash;
+							result = nano::read (stream_a, block_hash);
 							if (!result)
 							{
 								blocks.push_back (block_hash);
@@ -609,7 +609,7 @@ bool rai::vote::deserialize (rai::stream & stream_a, rai::block_uniquer * unique
 						}
 						else
 						{
-							std::shared_ptr<rai::block> block (rai::deserialize_block (stream_a, type, uniquer_a));
+							std::shared_ptr<nano::block> block (nano::deserialize_block (stream_a, type, uniquer_a));
 							result = block == nullptr;
 							if (!result)
 							{
@@ -624,51 +624,51 @@ bool rai::vote::deserialize (rai::stream & stream_a, rai::block_uniquer * unique
 	return result;
 }
 
-bool rai::vote::validate ()
+bool nano::vote::validate ()
 {
-	auto result (rai::validate_message (account, hash (), signature));
+	auto result (nano::validate_message (account, hash (), signature));
 	return result;
 }
 
-rai::block_hash rai::iterate_vote_blocks_as_hash::operator() (boost::variant<std::shared_ptr<rai::block>, rai::block_hash> const & item) const
+nano::block_hash nano::iterate_vote_blocks_as_hash::operator() (boost::variant<std::shared_ptr<nano::block>, nano::block_hash> const & item) const
 {
-	rai::block_hash result;
+	nano::block_hash result;
 	if (item.which ())
 	{
-		result = boost::get<rai::block_hash> (item);
+		result = boost::get<nano::block_hash> (item);
 	}
 	else
 	{
-		result = boost::get<std::shared_ptr<rai::block>> (item)->hash ();
+		result = boost::get<std::shared_ptr<nano::block>> (item)->hash ();
 	}
 	return result;
 }
 
-boost::transform_iterator<rai::iterate_vote_blocks_as_hash, rai::vote_blocks_vec_iter> rai::vote::begin () const
+boost::transform_iterator<nano::iterate_vote_blocks_as_hash, nano::vote_blocks_vec_iter> nano::vote::begin () const
 {
-	return boost::transform_iterator<rai::iterate_vote_blocks_as_hash, rai::vote_blocks_vec_iter> (blocks.begin (), rai::iterate_vote_blocks_as_hash ());
+	return boost::transform_iterator<nano::iterate_vote_blocks_as_hash, nano::vote_blocks_vec_iter> (blocks.begin (), nano::iterate_vote_blocks_as_hash ());
 }
 
-boost::transform_iterator<rai::iterate_vote_blocks_as_hash, rai::vote_blocks_vec_iter> rai::vote::end () const
+boost::transform_iterator<nano::iterate_vote_blocks_as_hash, nano::vote_blocks_vec_iter> nano::vote::end () const
 {
-	return boost::transform_iterator<rai::iterate_vote_blocks_as_hash, rai::vote_blocks_vec_iter> (blocks.end (), rai::iterate_vote_blocks_as_hash ());
+	return boost::transform_iterator<nano::iterate_vote_blocks_as_hash, nano::vote_blocks_vec_iter> (blocks.end (), nano::iterate_vote_blocks_as_hash ());
 }
 
-rai::vote_uniquer::vote_uniquer (rai::block_uniquer & uniquer_a) :
+nano::vote_uniquer::vote_uniquer (nano::block_uniquer & uniquer_a) :
 uniquer (uniquer_a)
 {
 }
 
-std::shared_ptr<rai::vote> rai::vote_uniquer::unique (std::shared_ptr<rai::vote> vote_a)
+std::shared_ptr<nano::vote> nano::vote_uniquer::unique (std::shared_ptr<nano::vote> vote_a)
 {
 	auto result (vote_a);
 	if (result != nullptr)
 	{
 		if (!result->blocks[0].which ())
 		{
-			result->blocks[0] = uniquer.unique (boost::get<std::shared_ptr<rai::block>> (result->blocks[0]));
+			result->blocks[0] = uniquer.unique (boost::get<std::shared_ptr<nano::block>> (result->blocks[0]));
 		}
-		rai::uint256_union key (vote_a->full_hash ());
+		nano::uint256_union key (vote_a->full_hash ());
 		std::lock_guard<std::mutex> lock (mutex);
 		auto & existing (votes[key]);
 		if (auto block_l = existing.lock ())
@@ -681,7 +681,7 @@ std::shared_ptr<rai::vote> rai::vote_uniquer::unique (std::shared_ptr<rai::vote>
 		}
 		for (auto i (0); i < cleanup_count && votes.size () > 0; ++i)
 		{
-			auto random_offset (rai::random_pool.GenerateWord32 (0, votes.size () - 1));
+			auto random_offset (nano::random_pool.GenerateWord32 (0, votes.size () - 1));
 			auto existing (std::next (votes.begin (), random_offset));
 			if (existing == votes.end ())
 			{
@@ -703,22 +703,22 @@ std::shared_ptr<rai::vote> rai::vote_uniquer::unique (std::shared_ptr<rai::vote>
 	return result;
 }
 
-size_t rai::vote_uniquer::size ()
+size_t nano::vote_uniquer::size ()
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	return votes.size ();
 }
 
-rai::genesis::genesis ()
+nano::genesis::genesis ()
 {
 	boost::property_tree::ptree tree;
-	std::stringstream istream (rai::genesis_block);
+	std::stringstream istream (nano::genesis_block);
 	boost::property_tree::read_json (istream, tree);
-	open = rai::deserialize_block_json (tree);
+	open = nano::deserialize_block_json (tree);
 	assert (open != nullptr);
 }
 
-rai::block_hash rai::genesis::hash () const
+nano::block_hash nano::genesis::hash () const
 {
 	return open->hash ();
 }

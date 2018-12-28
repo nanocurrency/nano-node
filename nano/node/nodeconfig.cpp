@@ -1,19 +1,19 @@
-#include <rai/node/nodeconfig.hpp>
+#include <nano/node/nodeconfig.hpp>
 // NOTE: to reduce compile times, this include can be replaced by more narrow includes
-// once rai::network is factored out of node.{c|h}pp
-#include <rai/node/node.hpp>
+// once nano::network is factored out of node.{c|h}pp
+#include <nano/node/node.hpp>
 
-rai::node_config::node_config () :
-node_config (rai::network::node_port, rai::logging ())
+nano::node_config::node_config () :
+node_config (nano::network::node_port, nano::logging ())
 {
 }
 
-rai::node_config::node_config (uint16_t peering_port_a, rai::logging const & logging_a) :
+nano::node_config::node_config (uint16_t peering_port_a, nano::logging const & logging_a) :
 peering_port (peering_port_a),
 logging (logging_a),
 bootstrap_fraction_numerator (1),
-receive_minimum (rai::xrb_ratio),
-online_weight_minimum (60000 * rai::Gxrb_ratio),
+receive_minimum (nano::xrb_ratio),
+online_weight_minimum (60000 * nano::Gxrb_ratio),
 online_weight_quorum (50),
 password_fanout (1024),
 io_threads (std::max<unsigned> (4, boost::thread::hardware_concurrency ())),
@@ -29,30 +29,30 @@ block_processor_batch_max_time (std::chrono::milliseconds (5000))
 {
 	const char * epoch_message ("epoch v1 block");
 	strncpy ((char *)epoch_block_link.bytes.data (), epoch_message, epoch_block_link.bytes.size ());
-	epoch_block_signer = rai::genesis_account;
-	switch (rai::rai_network)
+	epoch_block_signer = nano::genesis_account;
+	switch (nano::nano_network)
 	{
-		case rai::rai_networks::rai_test_network:
-			preconfigured_representatives.push_back (rai::genesis_account);
+		case nano::nano_networks::nano_test_network:
+			preconfigured_representatives.push_back (nano::genesis_account);
 			break;
-		case rai::rai_networks::rai_beta_network:
+		case nano::nano_networks::nano_beta_network:
 			preconfigured_peers.push_back ("rai-beta.raiblocks.net");
-			preconfigured_representatives.push_back (rai::account ("A59A47CC4F593E75AE9AD653FDA9358E2F7898D9ACC8C60E80D0495CE20FBA9F"));
-			preconfigured_representatives.push_back (rai::account ("259A4011E6CAD1069A97C02C3C1F2AAA32BC093C8D82EE1334F937A4BE803071"));
-			preconfigured_representatives.push_back (rai::account ("259A40656144FAA16D2A8516F7BE9C74A63C6CA399960EDB747D144ABB0F7ABD"));
-			preconfigured_representatives.push_back (rai::account ("259A40A92FA42E2240805DE8618EC4627F0BA41937160B4CFF7F5335FD1933DF"));
-			preconfigured_representatives.push_back (rai::account ("259A40FF3262E273EC451E873C4CDF8513330425B38860D882A16BCC74DA9B73"));
+			preconfigured_representatives.push_back (nano::account ("A59A47CC4F593E75AE9AD653FDA9358E2F7898D9ACC8C60E80D0495CE20FBA9F"));
+			preconfigured_representatives.push_back (nano::account ("259A4011E6CAD1069A97C02C3C1F2AAA32BC093C8D82EE1334F937A4BE803071"));
+			preconfigured_representatives.push_back (nano::account ("259A40656144FAA16D2A8516F7BE9C74A63C6CA399960EDB747D144ABB0F7ABD"));
+			preconfigured_representatives.push_back (nano::account ("259A40A92FA42E2240805DE8618EC4627F0BA41937160B4CFF7F5335FD1933DF"));
+			preconfigured_representatives.push_back (nano::account ("259A40FF3262E273EC451E873C4CDF8513330425B38860D882A16BCC74DA9B73"));
 			break;
-		case rai::rai_networks::rai_live_network:
+		case nano::nano_networks::nano_live_network:
 			preconfigured_peers.push_back ("rai.raiblocks.net");
-			preconfigured_representatives.push_back (rai::account ("A30E0A32ED41C8607AA9212843392E853FCBCB4E7CB194E35C94F07F91DE59EF"));
-			preconfigured_representatives.push_back (rai::account ("67556D31DDFC2A440BF6147501449B4CB9572278D034EE686A6BEE29851681DF"));
-			preconfigured_representatives.push_back (rai::account ("5C2FBB148E006A8E8BA7A75DD86C9FE00C83F5FFDBFD76EAA09531071436B6AF"));
-			preconfigured_representatives.push_back (rai::account ("AE7AC63990DAAAF2A69BF11C913B928844BF5012355456F2F164166464024B29"));
-			preconfigured_representatives.push_back (rai::account ("BD6267D6ECD8038327D2BCC0850BDF8F56EC0414912207E81BCF90DFAC8A4AAA"));
-			preconfigured_representatives.push_back (rai::account ("2399A083C600AA0572F5E36247D978FCFC840405F8D4B6D33161C0066A55F431"));
-			preconfigured_representatives.push_back (rai::account ("2298FAB7C61058E77EA554CB93EDEEDA0692CBFCC540AB213B2836B29029E23A"));
-			preconfigured_representatives.push_back (rai::account ("3FE80B4BC842E82C1C18ABFEEC47EA989E63953BC82AC411F304D13833D52A56"));
+			preconfigured_representatives.push_back (nano::account ("A30E0A32ED41C8607AA9212843392E853FCBCB4E7CB194E35C94F07F91DE59EF"));
+			preconfigured_representatives.push_back (nano::account ("67556D31DDFC2A440BF6147501449B4CB9572278D034EE686A6BEE29851681DF"));
+			preconfigured_representatives.push_back (nano::account ("5C2FBB148E006A8E8BA7A75DD86C9FE00C83F5FFDBFD76EAA09531071436B6AF"));
+			preconfigured_representatives.push_back (nano::account ("AE7AC63990DAAAF2A69BF11C913B928844BF5012355456F2F164166464024B29"));
+			preconfigured_representatives.push_back (nano::account ("BD6267D6ECD8038327D2BCC0850BDF8F56EC0414912207E81BCF90DFAC8A4AAA"));
+			preconfigured_representatives.push_back (nano::account ("2399A083C600AA0572F5E36247D978FCFC840405F8D4B6D33161C0066A55F431"));
+			preconfigured_representatives.push_back (nano::account ("2298FAB7C61058E77EA554CB93EDEEDA0692CBFCC540AB213B2836B29029E23A"));
+			preconfigured_representatives.push_back (nano::account ("3FE80B4BC842E82C1C18ABFEEC47EA989E63953BC82AC411F304D13833D52A56"));
 			break;
 		default:
 			assert (false);
@@ -60,7 +60,7 @@ block_processor_batch_max_time (std::chrono::milliseconds (5000))
 	}
 }
 
-void rai::node_config::serialize_json (boost::property_tree::ptree & tree_a) const
+void nano::node_config::serialize_json (boost::property_tree::ptree & tree_a) const
 {
 	tree_a.put ("version", std::to_string (json_version));
 	tree_a.put ("peering_port", std::to_string (peering_port));
@@ -110,7 +110,7 @@ void rai::node_config::serialize_json (boost::property_tree::ptree & tree_a) con
 	tree_a.put ("allow_local_peers", allow_local_peers);
 }
 
-bool rai::node_config::upgrade_json (unsigned version_a, boost::property_tree::ptree & tree_a)
+bool nano::node_config::upgrade_json (unsigned version_a, boost::property_tree::ptree & tree_a)
 {
 	tree_a.put ("version", std::to_string (json_version));
 	auto result (false);
@@ -122,7 +122,7 @@ bool rai::node_config::upgrade_json (unsigned version_a, boost::property_tree::p
 			boost::property_tree::ptree reps;
 			for (auto i (reps_l.begin ()), n (reps_l.end ()); i != n; ++i)
 			{
-				rai::uint256_union account;
+				nano::uint256_union account;
 				account.decode_account (i->second.get<std::string> (""));
 				boost::property_tree::ptree entry;
 				entry.put ("", account.to_account ());
@@ -134,7 +134,7 @@ bool rai::node_config::upgrade_json (unsigned version_a, boost::property_tree::p
 		}
 		case 2:
 		{
-			tree_a.put ("inactive_supply", rai::uint128_union (0).to_string_dec ());
+			tree_a.put ("inactive_supply", nano::uint128_union (0).to_string_dec ());
 			tree_a.put ("password_fanout", std::to_string (1024));
 			tree_a.put ("io_threads", std::to_string (io_threads));
 			tree_a.put ("work_threads", std::to_string (work_threads));
@@ -142,11 +142,11 @@ bool rai::node_config::upgrade_json (unsigned version_a, boost::property_tree::p
 		}
 		case 3:
 			tree_a.erase ("receive_minimum");
-			tree_a.put ("receive_minimum", rai::xrb_ratio.convert_to<std::string> ());
+			tree_a.put ("receive_minimum", nano::xrb_ratio.convert_to<std::string> ());
 			result = true;
 		case 4:
 			tree_a.erase ("receive_minimum");
-			tree_a.put ("receive_minimum", rai::xrb_ratio.convert_to<std::string> ());
+			tree_a.put ("receive_minimum", nano::xrb_ratio.convert_to<std::string> ());
 			result = true;
 		case 5:
 			tree_a.put ("enable_voting", enable_voting);
@@ -167,8 +167,8 @@ bool rai::node_config::upgrade_json (unsigned version_a, boost::property_tree::p
 			tree_a.put ("bootstrap_connections_max", "64");
 			result = true;
 		case 9:
-			tree_a.put ("state_block_parse_canary", rai::block_hash (0).to_string ());
-			tree_a.put ("state_block_generate_canary", rai::block_hash (0).to_string ());
+			tree_a.put ("state_block_parse_canary", nano::block_hash (0).to_string ());
+			tree_a.put ("state_block_generate_canary", nano::block_hash (0).to_string ());
 			result = true;
 		case 10:
 			tree_a.put ("online_weight_minimum", online_weight_minimum.to_string_dec ());
@@ -205,7 +205,7 @@ bool rai::node_config::upgrade_json (unsigned version_a, boost::property_tree::p
 	return result;
 }
 
-bool rai::node_config::deserialize_json (bool & upgraded_a, boost::property_tree::ptree & tree_a)
+bool nano::node_config::deserialize_json (bool & upgraded_a, boost::property_tree::ptree & tree_a)
 {
 	auto result (false);
 	try
@@ -257,7 +257,7 @@ bool rai::node_config::deserialize_json (bool & upgraded_a, boost::property_tree
 		preconfigured_representatives.clear ();
 		for (auto i (preconfigured_representatives_l.begin ()), n (preconfigured_representatives_l.end ()); i != n; ++i)
 		{
-			rai::account representative (0);
+			nano::account representative (0);
 			result = result || representative.decode_account (i->second.get<std::string> (""));
 			preconfigured_representatives.push_back (representative);
 		}
@@ -318,15 +318,15 @@ bool rai::node_config::deserialize_json (bool & upgraded_a, boost::property_tree
 	return result;
 }
 
-rai::account rai::node_config::random_representative ()
+nano::account nano::node_config::random_representative ()
 {
 	assert (preconfigured_representatives.size () > 0);
-	size_t index (rai::random_pool.GenerateWord32 (0, preconfigured_representatives.size () - 1));
+	size_t index (nano::random_pool.GenerateWord32 (0, preconfigured_representatives.size () - 1));
 	auto result (preconfigured_representatives[index]);
 	return result;
 }
 
-rai::node_flags::node_flags () :
+nano::node_flags::node_flags () :
 disable_backup (false),
 disable_lazy_bootstrap (false),
 disable_legacy_bootstrap (false),

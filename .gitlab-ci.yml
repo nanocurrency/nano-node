@@ -1,4 +1,4 @@
-## Raiblocks CI config
+## Nano CI config
 
 image: ubuntu:xenial
 

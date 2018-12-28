@@ -1,4 +1,4 @@
-#include <rai/node/openclwork.hpp>
+#include <nano/node/openclwork.hpp>
 
 #include <dlfcn.h>
 

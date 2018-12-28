@@ -1,6 +1,6 @@
 #pragma once
 
-#include <rai/node/xorshift.hpp>
+#include <nano/node/xorshift.hpp>
 
 #include <boost/optional.hpp>
 #include <boost/property_tree/ptree.hpp>
@@ -16,7 +16,7 @@
 #include <CL/cl.h>
 #endif
 
-namespace rai
+namespace nano
 {
 class logging;
 class opencl_platform
@@ -30,7 +30,7 @@ class opencl_environment
 public:
 	opencl_environment (bool &);
 	void dump (std::ostream & stream);
-	std::vector<rai::opencl_platform> platforms;
+	std::vector<nano::opencl_platform> platforms;
 };
 union uint256_union;
 class work_pool;
@@ -48,11 +48,11 @@ public:
 class opencl_work
 {
 public:
-	opencl_work (bool &, rai::opencl_config const &, rai::opencl_environment &, rai::logging &);
+	opencl_work (bool &, nano::opencl_config const &, nano::opencl_environment &, nano::logging &);
 	~opencl_work ();
-	boost::optional<uint64_t> generate_work (rai::uint256_union const &);
-	static std::unique_ptr<opencl_work> create (bool, rai::opencl_config const &, rai::logging &);
-	rai::opencl_config const & config;
+	boost::optional<uint64_t> generate_work (nano::uint256_union const &);
+	static std::unique_ptr<opencl_work> create (bool, nano::opencl_config const &, nano::logging &);
+	nano::opencl_config const & config;
 	std::mutex mutex;
 	cl_context context;
 	cl_mem attempt_buffer;
@@ -61,7 +61,7 @@ public:
 	cl_program program;
 	cl_kernel kernel;
 	cl_command_queue queue;
-	rai::xorshift1024star rand;
-	rai::logging & logging;
+	nano::xorshift1024star rand;
+	nano::logging & logging;
 };
 }

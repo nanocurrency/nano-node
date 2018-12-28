@@ -4,22 +4,22 @@
 
 #include <lmdb/libraries/liblmdb/lmdb.h>
 
-#include <rai/lib/numbers.hpp>
-#include <rai/secure/blockstore.hpp>
-#include <rai/secure/common.hpp>
+#include <nano/lib/numbers.hpp>
+#include <nano/secure/blockstore.hpp>
+#include <nano/secure/common.hpp>
 
-namespace rai
+namespace nano
 {
 class mdb_env;
 class mdb_txn : public transaction_impl
 {
 public:
-	mdb_txn (rai::mdb_env const &, bool = false);
-	mdb_txn (rai::mdb_txn const &) = delete;
-	mdb_txn (rai::mdb_txn &&) = default;
+	mdb_txn (nano::mdb_env const &, bool = false);
+	mdb_txn (nano::mdb_txn const &) = delete;
+	mdb_txn (nano::mdb_txn &&) = default;
 	~mdb_txn ();
-	rai::mdb_txn & operator= (rai::mdb_txn const &) = delete;
-	rai::mdb_txn & operator= (rai::mdb_txn &&) = default;
+	nano::mdb_txn & operator= (nano::mdb_txn const &) = delete;
+	nano::mdb_txn & operator= (nano::mdb_txn &&) = default;
 	operator MDB_txn * () const;
 	MDB_txn * handle;
 };
@@ -32,8 +32,8 @@ public:
 	mdb_env (bool &, boost::filesystem::path const &, int max_dbs = 128);
 	~mdb_env ();
 	operator MDB_env * () const;
-	rai::transaction tx_begin (bool = false) const;
-	MDB_txn * tx (rai::transaction const &) const;
+	nano::transaction tx_begin (bool = false) const;
+	MDB_txn * tx (nano::transaction const &) const;
 	MDB_env * environment;
 };
 
@@ -47,40 +47,40 @@ public:
 	{
 		dummy
 	};
-	mdb_val (rai::epoch = rai::epoch::unspecified);
-	mdb_val (rai::account_info const &);
-	mdb_val (rai::block_info const &);
-	mdb_val (MDB_val const &, rai::epoch = rai::epoch::unspecified);
-	mdb_val (rai::pending_info const &);
-	mdb_val (rai::pending_key const &);
+	mdb_val (nano::epoch = nano::epoch::unspecified);
+	mdb_val (nano::account_info const &);
+	mdb_val (nano::block_info const &);
+	mdb_val (MDB_val const &, nano::epoch = nano::epoch::unspecified);
+	mdb_val (nano::pending_info const &);
+	mdb_val (nano::pending_key const &);
 	mdb_val (size_t, void *);
-	mdb_val (rai::uint128_union const &);
-	mdb_val (rai::uint256_union const &);
-	mdb_val (std::shared_ptr<rai::block> const &);
-	mdb_val (std::shared_ptr<rai::vote> const &);
+	mdb_val (nano::uint128_union const &);
+	mdb_val (nano::uint256_union const &);
+	mdb_val (std::shared_ptr<nano::block> const &);
+	mdb_val (std::shared_ptr<nano::vote> const &);
 	void * data () const;
 	size_t size () const;
-	explicit operator rai::account_info () const;
-	explicit operator rai::block_info () const;
-	explicit operator rai::pending_info () const;
-	explicit operator rai::pending_key () const;
-	explicit operator rai::uint128_union () const;
-	explicit operator rai::uint256_union () const;
+	explicit operator nano::account_info () const;
+	explicit operator nano::block_info () const;
+	explicit operator nano::pending_info () const;
+	explicit operator nano::pending_key () const;
+	explicit operator nano::uint128_union () const;
+	explicit operator nano::uint256_union () const;
 	explicit operator std::array<char, 64> () const;
 	explicit operator no_value () const;
-	explicit operator std::shared_ptr<rai::block> () const;
-	explicit operator std::shared_ptr<rai::send_block> () const;
-	explicit operator std::shared_ptr<rai::receive_block> () const;
-	explicit operator std::shared_ptr<rai::open_block> () const;
-	explicit operator std::shared_ptr<rai::change_block> () const;
-	explicit operator std::shared_ptr<rai::state_block> () const;
-	explicit operator std::shared_ptr<rai::vote> () const;
+	explicit operator std::shared_ptr<nano::block> () const;
+	explicit operator std::shared_ptr<nano::send_block> () const;
+	explicit operator std::shared_ptr<nano::receive_block> () const;
+	explicit operator std::shared_ptr<nano::open_block> () const;
+	explicit operator std::shared_ptr<nano::change_block> () const;
+	explicit operator std::shared_ptr<nano::state_block> () const;
+	explicit operator std::shared_ptr<nano::vote> () const;
 	explicit operator uint64_t () const;
 	operator MDB_val * () const;
 	operator MDB_val const & () const;
 	MDB_val value;
 	std::shared_ptr<std::vector<uint8_t>> buffer;
-	rai::epoch epoch{ rai::epoch::unspecified };
+	nano::epoch epoch{ nano::epoch::unspecified };
 };
 class block_store;
 
@@ -88,25 +88,25 @@ template <typename T, typename U>
 class mdb_iterator : public store_iterator_impl<T, U>
 {
 public:
-	mdb_iterator (rai::transaction const & transaction_a, MDB_dbi db_a, rai::epoch = rai::epoch::unspecified);
-	mdb_iterator (std::nullptr_t, rai::epoch = rai::epoch::unspecified);
-	mdb_iterator (rai::transaction const & transaction_a, MDB_dbi db_a, MDB_val const & val_a, rai::epoch = rai::epoch::unspecified);
-	mdb_iterator (rai::mdb_iterator<T, U> && other_a);
-	mdb_iterator (rai::mdb_iterator<T, U> const &) = delete;
+	mdb_iterator (nano::transaction const & transaction_a, MDB_dbi db_a, nano::epoch = nano::epoch::unspecified);
+	mdb_iterator (std::nullptr_t, nano::epoch = nano::epoch::unspecified);
+	mdb_iterator (nano::transaction const & transaction_a, MDB_dbi db_a, MDB_val const & val_a, nano::epoch = nano::epoch::unspecified);
+	mdb_iterator (nano::mdb_iterator<T, U> && other_a);
+	mdb_iterator (nano::mdb_iterator<T, U> const &) = delete;
 	~mdb_iterator ();
-	rai::store_iterator_impl<T, U> & operator++ () override;
-	std::pair<rai::mdb_val, rai::mdb_val> * operator-> ();
-	bool operator== (rai::store_iterator_impl<T, U> const & other_a) const override;
+	nano::store_iterator_impl<T, U> & operator++ () override;
+	std::pair<nano::mdb_val, nano::mdb_val> * operator-> ();
+	bool operator== (nano::store_iterator_impl<T, U> const & other_a) const override;
 	bool is_end_sentinal () const override;
 	void fill (std::pair<T, U> &) const override;
 	void clear ();
-	rai::mdb_iterator<T, U> & operator= (rai::mdb_iterator<T, U> && other_a);
-	rai::store_iterator_impl<T, U> & operator= (rai::store_iterator_impl<T, U> const &) = delete;
+	nano::mdb_iterator<T, U> & operator= (nano::mdb_iterator<T, U> && other_a);
+	nano::store_iterator_impl<T, U> & operator= (nano::store_iterator_impl<T, U> const &) = delete;
 	MDB_cursor * cursor;
-	std::pair<rai::mdb_val, rai::mdb_val> current;
+	std::pair<nano::mdb_val, nano::mdb_val> current;
 
 private:
-	MDB_txn * tx (rai::transaction const &) const;
+	MDB_txn * tx (nano::transaction const &) const;
 };
 
 /**
@@ -116,25 +116,25 @@ template <typename T, typename U>
 class mdb_merge_iterator : public store_iterator_impl<T, U>
 {
 public:
-	mdb_merge_iterator (rai::transaction const &, MDB_dbi, MDB_dbi);
+	mdb_merge_iterator (nano::transaction const &, MDB_dbi, MDB_dbi);
 	mdb_merge_iterator (std::nullptr_t);
-	mdb_merge_iterator (rai::transaction const &, MDB_dbi, MDB_dbi, MDB_val const &);
-	mdb_merge_iterator (rai::mdb_merge_iterator<T, U> &&);
-	mdb_merge_iterator (rai::mdb_merge_iterator<T, U> const &) = delete;
+	mdb_merge_iterator (nano::transaction const &, MDB_dbi, MDB_dbi, MDB_val const &);
+	mdb_merge_iterator (nano::mdb_merge_iterator<T, U> &&);
+	mdb_merge_iterator (nano::mdb_merge_iterator<T, U> const &) = delete;
 	~mdb_merge_iterator ();
-	rai::store_iterator_impl<T, U> & operator++ () override;
-	std::pair<rai::mdb_val, rai::mdb_val> * operator-> ();
-	bool operator== (rai::store_iterator_impl<T, U> const &) const override;
+	nano::store_iterator_impl<T, U> & operator++ () override;
+	std::pair<nano::mdb_val, nano::mdb_val> * operator-> ();
+	bool operator== (nano::store_iterator_impl<T, U> const &) const override;
 	bool is_end_sentinal () const override;
 	void fill (std::pair<T, U> &) const override;
 	void clear ();
-	rai::mdb_merge_iterator<T, U> & operator= (rai::mdb_merge_iterator<T, U> &&) = default;
-	rai::mdb_merge_iterator<T, U> & operator= (rai::mdb_merge_iterator<T, U> const &) = delete;
+	nano::mdb_merge_iterator<T, U> & operator= (nano::mdb_merge_iterator<T, U> &&) = default;
+	nano::mdb_merge_iterator<T, U> & operator= (nano::mdb_merge_iterator<T, U> const &) = delete;
 
 private:
-	rai::mdb_iterator<T, U> & least_iterator () const;
-	std::unique_ptr<rai::mdb_iterator<T, U>> impl1;
-	std::unique_ptr<rai::mdb_iterator<T, U>> impl2;
+	nano::mdb_iterator<T, U> & least_iterator () const;
+	std::unique_ptr<nano::mdb_iterator<T, U>> impl1;
+	std::unique_ptr<nano::mdb_iterator<T, U>> impl2;
 };
 
 /**
@@ -142,248 +142,248 @@ private:
  */
 class mdb_store : public block_store
 {
-	friend class rai::block_predecessor_set;
+	friend class nano::block_predecessor_set;
 
 public:
 	mdb_store (bool &, boost::filesystem::path const &, int lmdb_max_dbs = 128);
 
-	rai::transaction tx_begin_write () override;
-	rai::transaction tx_begin_read () override;
-	rai::transaction tx_begin (bool write = false) override;
+	nano::transaction tx_begin_write () override;
+	nano::transaction tx_begin_read () override;
+	nano::transaction tx_begin (bool write = false) override;
 
-	void initialize (rai::transaction const &, rai::genesis const &) override;
-	void block_put (rai::transaction const &, rai::block_hash const &, rai::block const &, rai::block_hash const & = rai::block_hash (0), rai::epoch version = rai::epoch::epoch_0) override;
-	rai::block_hash block_successor (rai::transaction const &, rai::block_hash const &) override;
-	void block_successor_clear (rai::transaction const &, rai::block_hash const &) override;
-	std::shared_ptr<rai::block> block_get (rai::transaction const &, rai::block_hash const &) override;
-	std::shared_ptr<rai::block> block_random (rai::transaction const &) override;
-	void block_del (rai::transaction const &, rai::block_hash const &) override;
-	bool block_exists (rai::transaction const &, rai::block_hash const &) override;
-	bool block_exists (rai::transaction const &, rai::block_type, rai::block_hash const &) override;
-	rai::block_counts block_count (rai::transaction const &) override;
-	bool root_exists (rai::transaction const &, rai::uint256_union const &) override;
+	void initialize (nano::transaction const &, nano::genesis const &) override;
+	void block_put (nano::transaction const &, nano::block_hash const &, nano::block const &, nano::block_hash const & = nano::block_hash (0), nano::epoch version = nano::epoch::epoch_0) override;
+	nano::block_hash block_successor (nano::transaction const &, nano::block_hash const &) override;
+	void block_successor_clear (nano::transaction const &, nano::block_hash const &) override;
+	std::shared_ptr<nano::block> block_get (nano::transaction const &, nano::block_hash const &) override;
+	std::shared_ptr<nano::block> block_random (nano::transaction const &) override;
+	void block_del (nano::transaction const &, nano::block_hash const &) override;
+	bool block_exists (nano::transaction const &, nano::block_hash const &) override;
+	bool block_exists (nano::transaction const &, nano::block_type, nano::block_hash const &) override;
+	nano::block_counts block_count (nano::transaction const &) override;
+	bool root_exists (nano::transaction const &, nano::uint256_union const &) override;
 
-	void frontier_put (rai::transaction const &, rai::block_hash const &, rai::account const &) override;
-	rai::account frontier_get (rai::transaction const &, rai::block_hash const &) override;
-	void frontier_del (rai::transaction const &, rai::block_hash const &) override;
+	void frontier_put (nano::transaction const &, nano::block_hash const &, nano::account const &) override;
+	nano::account frontier_get (nano::transaction const &, nano::block_hash const &) override;
+	void frontier_del (nano::transaction const &, nano::block_hash const &) override;
 
-	void account_put (rai::transaction const &, rai::account const &, rai::account_info const &) override;
-	bool account_get (rai::transaction const &, rai::account const &, rai::account_info &) override;
-	void account_del (rai::transaction const &, rai::account const &) override;
-	bool account_exists (rai::transaction const &, rai::account const &) override;
-	size_t account_count (rai::transaction const &) override;
-	rai::store_iterator<rai::account, rai::account_info> latest_v0_begin (rai::transaction const &, rai::account const &) override;
-	rai::store_iterator<rai::account, rai::account_info> latest_v0_begin (rai::transaction const &) override;
-	rai::store_iterator<rai::account, rai::account_info> latest_v0_end () override;
-	rai::store_iterator<rai::account, rai::account_info> latest_v1_begin (rai::transaction const &, rai::account const &) override;
-	rai::store_iterator<rai::account, rai::account_info> latest_v1_begin (rai::transaction const &) override;
-	rai::store_iterator<rai::account, rai::account_info> latest_v1_end () override;
-	rai::store_iterator<rai::account, rai::account_info> latest_begin (rai::transaction const &, rai::account const &) override;
-	rai::store_iterator<rai::account, rai::account_info> latest_begin (rai::transaction const &) override;
-	rai::store_iterator<rai::account, rai::account_info> latest_end () override;
+	void account_put (nano::transaction const &, nano::account const &, nano::account_info const &) override;
+	bool account_get (nano::transaction const &, nano::account const &, nano::account_info &) override;
+	void account_del (nano::transaction const &, nano::account const &) override;
+	bool account_exists (nano::transaction const &, nano::account const &) override;
+	size_t account_count (nano::transaction const &) override;
+	nano::store_iterator<nano::account, nano::account_info> latest_v0_begin (nano::transaction const &, nano::account const &) override;
+	nano::store_iterator<nano::account, nano::account_info> latest_v0_begin (nano::transaction const &) override;
+	nano::store_iterator<nano::account, nano::account_info> latest_v0_end () override;
+	nano::store_iterator<nano::account, nano::account_info> latest_v1_begin (nano::transaction const &, nano::account const &) override;
+	nano::store_iterator<nano::account, nano::account_info> latest_v1_begin (nano::transaction const &) override;
+	nano::store_iterator<nano::account, nano::account_info> latest_v1_end () override;
+	nano::store_iterator<nano::account, nano::account_info> latest_begin (nano::transaction const &, nano::account const &) override;
+	nano::store_iterator<nano::account, nano::account_info> latest_begin (nano::transaction const &) override;
+	nano::store_iterator<nano::account, nano::account_info> latest_end () override;
 
-	void pending_put (rai::transaction const &, rai::pending_key const &, rai::pending_info const &) override;
-	void pending_del (rai::transaction const &, rai::pending_key const &) override;
-	bool pending_get (rai::transaction const &, rai::pending_key const &, rai::pending_info &) override;
-	bool pending_exists (rai::transaction const &, rai::pending_key const &) override;
-	rai::store_iterator<rai::pending_key, rai::pending_info> pending_v0_begin (rai::transaction const &, rai::pending_key const &) override;
-	rai::store_iterator<rai::pending_key, rai::pending_info> pending_v0_begin (rai::transaction const &) override;
-	rai::store_iterator<rai::pending_key, rai::pending_info> pending_v0_end () override;
-	rai::store_iterator<rai::pending_key, rai::pending_info> pending_v1_begin (rai::transaction const &, rai::pending_key const &) override;
-	rai::store_iterator<rai::pending_key, rai::pending_info> pending_v1_begin (rai::transaction const &) override;
-	rai::store_iterator<rai::pending_key, rai::pending_info> pending_v1_end () override;
-	rai::store_iterator<rai::pending_key, rai::pending_info> pending_begin (rai::transaction const &, rai::pending_key const &) override;
-	rai::store_iterator<rai::pending_key, rai::pending_info> pending_begin (rai::transaction const &) override;
-	rai::store_iterator<rai::pending_key, rai::pending_info> pending_end () override;
+	void pending_put (nano::transaction const &, nano::pending_key const &, nano::pending_info const &) override;
+	void pending_del (nano::transaction const &, nano::pending_key const &) override;
+	bool pending_get (nano::transaction const &, nano::pending_key const &, nano::pending_info &) override;
+	bool pending_exists (nano::transaction const &, nano::pending_key const &) override;
+	nano::store_iterator<nano::pending_key, nano::pending_info> pending_v0_begin (nano::transaction const &, nano::pending_key const &) override;
+	nano::store_iterator<nano::pending_key, nano::pending_info> pending_v0_begin (nano::transaction const &) override;
+	nano::store_iterator<nano::pending_key, nano::pending_info> pending_v0_end () override;
+	nano::store_iterator<nano::pending_key, nano::pending_info> pending_v1_begin (nano::transaction const &, nano::pending_key const &) override;
+	nano::store_iterator<nano::pending_key, nano::pending_info> pending_v1_begin (nano::transaction const &) override;
+	nano::store_iterator<nano::pending_key, nano::pending_info> pending_v1_end () override;
+	nano::store_iterator<nano::pending_key, nano::pending_info> pending_begin (nano::transaction const &, nano::pending_key const &) override;
+	nano::store_iterator<nano::pending_key, nano::pending_info> pending_begin (nano::transaction const &) override;
+	nano::store_iterator<nano::pending_key, nano::pending_info> pending_end () override;
 
-	void block_info_put (rai::transaction const &, rai::block_hash const &, rai::block_info const &) override;
-	void block_info_del (rai::transaction const &, rai::block_hash const &) override;
-	bool block_info_get (rai::transaction const &, rai::block_hash const &, rai::block_info &) override;
-	bool block_info_exists (rai::transaction const &, rai::block_hash const &) override;
-	rai::store_iterator<rai::block_hash, rai::block_info> block_info_begin (rai::transaction const &, rai::block_hash const &) override;
-	rai::store_iterator<rai::block_hash, rai::block_info> block_info_begin (rai::transaction const &) override;
-	rai::store_iterator<rai::block_hash, rai::block_info> block_info_end () override;
-	rai::uint128_t block_balance (rai::transaction const &, rai::block_hash const &) override;
-	rai::epoch block_version (rai::transaction const &, rai::block_hash const &) override;
+	void block_info_put (nano::transaction const &, nano::block_hash const &, nano::block_info const &) override;
+	void block_info_del (nano::transaction const &, nano::block_hash const &) override;
+	bool block_info_get (nano::transaction const &, nano::block_hash const &, nano::block_info &) override;
+	bool block_info_exists (nano::transaction const &, nano::block_hash const &) override;
+	nano::store_iterator<nano::block_hash, nano::block_info> block_info_begin (nano::transaction const &, nano::block_hash const &) override;
+	nano::store_iterator<nano::block_hash, nano::block_info> block_info_begin (nano::transaction const &) override;
+	nano::store_iterator<nano::block_hash, nano::block_info> block_info_end () override;
+	nano::uint128_t block_balance (nano::transaction const &, nano::block_hash const &) override;
+	nano::epoch block_version (nano::transaction const &, nano::block_hash const &) override;
 
-	rai::uint128_t representation_get (rai::transaction const &, rai::account const &) override;
-	void representation_put (rai::transaction const &, rai::account const &, rai::uint128_t const &) override;
-	void representation_add (rai::transaction const &, rai::account const &, rai::uint128_t const &) override;
-	rai::store_iterator<rai::account, rai::uint128_union> representation_begin (rai::transaction const &) override;
-	rai::store_iterator<rai::account, rai::uint128_union> representation_end () override;
+	nano::uint128_t representation_get (nano::transaction const &, nano::account const &) override;
+	void representation_put (nano::transaction const &, nano::account const &, nano::uint128_t const &) override;
+	void representation_add (nano::transaction const &, nano::account const &, nano::uint128_t const &) override;
+	nano::store_iterator<nano::account, nano::uint128_union> representation_begin (nano::transaction const &) override;
+	nano::store_iterator<nano::account, nano::uint128_union> representation_end () override;
 
-	void unchecked_clear (rai::transaction const &) override;
-	void unchecked_put (rai::transaction const &, rai::unchecked_key const &, std::shared_ptr<rai::block> const &) override;
-	void unchecked_put (rai::transaction const &, rai::block_hash const &, std::shared_ptr<rai::block> const &) override;
-	std::vector<std::shared_ptr<rai::block>> unchecked_get (rai::transaction const &, rai::block_hash const &) override;
-	bool unchecked_exists (rai::transaction const &, rai::unchecked_key const &) override;
-	void unchecked_del (rai::transaction const &, rai::unchecked_key const &) override;
-	rai::store_iterator<rai::unchecked_key, std::shared_ptr<rai::block>> unchecked_begin (rai::transaction const &) override;
-	rai::store_iterator<rai::unchecked_key, std::shared_ptr<rai::block>> unchecked_begin (rai::transaction const &, rai::unchecked_key const &) override;
-	rai::store_iterator<rai::unchecked_key, std::shared_ptr<rai::block>> unchecked_end () override;
-	size_t unchecked_count (rai::transaction const &) override;
+	void unchecked_clear (nano::transaction const &) override;
+	void unchecked_put (nano::transaction const &, nano::unchecked_key const &, std::shared_ptr<nano::block> const &) override;
+	void unchecked_put (nano::transaction const &, nano::block_hash const &, std::shared_ptr<nano::block> const &) override;
+	std::vector<std::shared_ptr<nano::block>> unchecked_get (nano::transaction const &, nano::block_hash const &) override;
+	bool unchecked_exists (nano::transaction const &, nano::unchecked_key const &) override;
+	void unchecked_del (nano::transaction const &, nano::unchecked_key const &) override;
+	nano::store_iterator<nano::unchecked_key, std::shared_ptr<nano::block>> unchecked_begin (nano::transaction const &) override;
+	nano::store_iterator<nano::unchecked_key, std::shared_ptr<nano::block>> unchecked_begin (nano::transaction const &, nano::unchecked_key const &) override;
+	nano::store_iterator<nano::unchecked_key, std::shared_ptr<nano::block>> unchecked_end () override;
+	size_t unchecked_count (nano::transaction const &) override;
 
-	void checksum_put (rai::transaction const &, uint64_t, uint8_t, rai::checksum const &) override;
-	bool checksum_get (rai::transaction const &, uint64_t, uint8_t, rai::checksum &) override;
-	void checksum_del (rai::transaction const &, uint64_t, uint8_t) override;
+	void checksum_put (nano::transaction const &, uint64_t, uint8_t, nano::checksum const &) override;
+	bool checksum_get (nano::transaction const &, uint64_t, uint8_t, nano::checksum &) override;
+	void checksum_del (nano::transaction const &, uint64_t, uint8_t) override;
 
 	// Return latest vote for an account from store
-	std::shared_ptr<rai::vote> vote_get (rai::transaction const &, rai::account const &) override;
+	std::shared_ptr<nano::vote> vote_get (nano::transaction const &, nano::account const &) override;
 	// Populate vote with the next sequence number
-	std::shared_ptr<rai::vote> vote_generate (rai::transaction const &, rai::account const &, rai::raw_key const &, std::shared_ptr<rai::block>) override;
-	std::shared_ptr<rai::vote> vote_generate (rai::transaction const &, rai::account const &, rai::raw_key const &, std::vector<rai::block_hash>) override;
+	std::shared_ptr<nano::vote> vote_generate (nano::transaction const &, nano::account const &, nano::raw_key const &, std::shared_ptr<nano::block>) override;
+	std::shared_ptr<nano::vote> vote_generate (nano::transaction const &, nano::account const &, nano::raw_key const &, std::vector<nano::block_hash>) override;
 	// Return either vote or the stored vote with a higher sequence number
-	std::shared_ptr<rai::vote> vote_max (rai::transaction const &, std::shared_ptr<rai::vote>) override;
+	std::shared_ptr<nano::vote> vote_max (nano::transaction const &, std::shared_ptr<nano::vote>) override;
 	// Return latest vote for an account considering the vote cache
-	std::shared_ptr<rai::vote> vote_current (rai::transaction const &, rai::account const &) override;
-	void flush (rai::transaction const &) override;
-	rai::store_iterator<rai::account, std::shared_ptr<rai::vote>> vote_begin (rai::transaction const &) override;
-	rai::store_iterator<rai::account, std::shared_ptr<rai::vote>> vote_end () override;
+	std::shared_ptr<nano::vote> vote_current (nano::transaction const &, nano::account const &) override;
+	void flush (nano::transaction const &) override;
+	nano::store_iterator<nano::account, std::shared_ptr<nano::vote>> vote_begin (nano::transaction const &) override;
+	nano::store_iterator<nano::account, std::shared_ptr<nano::vote>> vote_end () override;
 	std::mutex cache_mutex;
-	std::unordered_map<rai::account, std::shared_ptr<rai::vote>> vote_cache_l1;
-	std::unordered_map<rai::account, std::shared_ptr<rai::vote>> vote_cache_l2;
+	std::unordered_map<nano::account, std::shared_ptr<nano::vote>> vote_cache_l1;
+	std::unordered_map<nano::account, std::shared_ptr<nano::vote>> vote_cache_l2;
 
-	void version_put (rai::transaction const &, int) override;
-	int version_get (rai::transaction const &) override;
-	void do_upgrades (rai::transaction const &);
-	void upgrade_v1_to_v2 (rai::transaction const &);
-	void upgrade_v2_to_v3 (rai::transaction const &);
-	void upgrade_v3_to_v4 (rai::transaction const &);
-	void upgrade_v4_to_v5 (rai::transaction const &);
-	void upgrade_v5_to_v6 (rai::transaction const &);
-	void upgrade_v6_to_v7 (rai::transaction const &);
-	void upgrade_v7_to_v8 (rai::transaction const &);
-	void upgrade_v8_to_v9 (rai::transaction const &);
-	void upgrade_v9_to_v10 (rai::transaction const &);
-	void upgrade_v10_to_v11 (rai::transaction const &);
-	void upgrade_v11_to_v12 (rai::transaction const &);
+	void version_put (nano::transaction const &, int) override;
+	int version_get (nano::transaction const &) override;
+	void do_upgrades (nano::transaction const &);
+	void upgrade_v1_to_v2 (nano::transaction const &);
+	void upgrade_v2_to_v3 (nano::transaction const &);
+	void upgrade_v3_to_v4 (nano::transaction const &);
+	void upgrade_v4_to_v5 (nano::transaction const &);
+	void upgrade_v5_to_v6 (nano::transaction const &);
+	void upgrade_v6_to_v7 (nano::transaction const &);
+	void upgrade_v7_to_v8 (nano::transaction const &);
+	void upgrade_v8_to_v9 (nano::transaction const &);
+	void upgrade_v9_to_v10 (nano::transaction const &);
+	void upgrade_v10_to_v11 (nano::transaction const &);
+	void upgrade_v11_to_v12 (nano::transaction const &);
 
 	// Requires a write transaction
-	rai::raw_key get_node_id (rai::transaction const &) override;
+	nano::raw_key get_node_id (nano::transaction const &) override;
 
 	/** Deletes the node ID from the store */
-	void delete_node_id (rai::transaction const &) override;
+	void delete_node_id (nano::transaction const &) override;
 
-	rai::mdb_env env;
+	nano::mdb_env env;
 
 	/**
 	 * Maps head block to owning account
-	 * rai::block_hash -> rai::account
+	 * nano::block_hash -> nano::account
 	 */
 	MDB_dbi frontiers;
 
 	/**
 	 * Maps account v1 to account information, head, rep, open, balance, timestamp and block count.
-	 * rai::account -> rai::block_hash, rai::block_hash, rai::block_hash, rai::amount, uint64_t, uint64_t
+	 * nano::account -> nano::block_hash, nano::block_hash, nano::block_hash, nano::amount, uint64_t, uint64_t
 	 */
 	MDB_dbi accounts_v0;
 
 	/**
 	 * Maps account v0 to account information, head, rep, open, balance, timestamp and block count.
-	 * rai::account -> rai::block_hash, rai::block_hash, rai::block_hash, rai::amount, uint64_t, uint64_t
+	 * nano::account -> nano::block_hash, nano::block_hash, nano::block_hash, nano::amount, uint64_t, uint64_t
 	 */
 	MDB_dbi accounts_v1;
 
 	/**
 	 * Maps block hash to send block.
-	 * rai::block_hash -> rai::send_block
+	 * nano::block_hash -> nano::send_block
 	 */
 	MDB_dbi send_blocks;
 
 	/**
 	 * Maps block hash to receive block.
-	 * rai::block_hash -> rai::receive_block
+	 * nano::block_hash -> nano::receive_block
 	 */
 	MDB_dbi receive_blocks;
 
 	/**
 	 * Maps block hash to open block.
-	 * rai::block_hash -> rai::open_block
+	 * nano::block_hash -> nano::open_block
 	 */
 	MDB_dbi open_blocks;
 
 	/**
 	 * Maps block hash to change block.
-	 * rai::block_hash -> rai::change_block
+	 * nano::block_hash -> nano::change_block
 	 */
 	MDB_dbi change_blocks;
 
 	/**
 	 * Maps block hash to v0 state block.
-	 * rai::block_hash -> rai::state_block
+	 * nano::block_hash -> nano::state_block
 	 */
 	MDB_dbi state_blocks_v0;
 
 	/**
 	 * Maps block hash to v1 state block.
-	 * rai::block_hash -> rai::state_block
+	 * nano::block_hash -> nano::state_block
 	 */
 	MDB_dbi state_blocks_v1;
 
 	/**
 	 * Maps min_version 0 (destination account, pending block) to (source account, amount).
-	 * rai::account, rai::block_hash -> rai::account, rai::amount
+	 * nano::account, nano::block_hash -> nano::account, nano::amount
 	 */
 	MDB_dbi pending_v0;
 
 	/**
 	 * Maps min_version 1 (destination account, pending block) to (source account, amount).
-	 * rai::account, rai::block_hash -> rai::account, rai::amount
+	 * nano::account, nano::block_hash -> nano::account, nano::amount
 	 */
 	MDB_dbi pending_v1;
 
 	/**
 	 * Maps block hash to account and balance.
-	 * block_hash -> rai::account, rai::amount
+	 * block_hash -> nano::account, nano::amount
 	 */
 	MDB_dbi blocks_info;
 
 	/**
 	 * Representative weights.
-	 * rai::account -> rai::uint128_t
+	 * nano::account -> nano::uint128_t
 	 */
 	MDB_dbi representation;
 
 	/**
 	 * Unchecked bootstrap blocks.
-	 * rai::block_hash -> rai::block
+	 * nano::block_hash -> nano::block
 	 */
 	MDB_dbi unchecked;
 
 	/**
 	 * Mapping of region to checksum.
-	 * (uint56_t, uint8_t) -> rai::block_hash
+	 * (uint56_t, uint8_t) -> nano::block_hash
 	 */
 	MDB_dbi checksum;
 
 	/**
 	 * Highest vote observed for account.
-	 * rai::account -> uint64_t
+	 * nano::account -> uint64_t
 	 */
 	MDB_dbi vote;
 
 	/**
 	 * Meta information about block store, such as versions.
-	 * rai::uint256_union (arbitrary key) -> blob
+	 * nano::uint256_union (arbitrary key) -> blob
 	 */
 	MDB_dbi meta;
 
 private:
-	MDB_dbi block_database (rai::block_type, rai::epoch);
+	MDB_dbi block_database (nano::block_type, nano::epoch);
 	template <typename T>
-	std::shared_ptr<rai::block> block_random (rai::transaction const &, MDB_dbi);
-	MDB_val block_raw_get (rai::transaction const &, rai::block_hash const &, rai::block_type &);
-	void block_raw_put (rai::transaction const &, MDB_dbi, rai::block_hash const &, MDB_val);
+	std::shared_ptr<nano::block> block_random (nano::transaction const &, MDB_dbi);
+	MDB_val block_raw_get (nano::transaction const &, nano::block_hash const &, nano::block_type &);
+	void block_raw_put (nano::transaction const &, MDB_dbi, nano::block_hash const &, MDB_val);
 	void clear (MDB_dbi);
 };
 class wallet_value
 {
 public:
 	wallet_value () = default;
-	wallet_value (rai::mdb_val const &);
-	wallet_value (rai::uint256_union const &, uint64_t);
-	rai::mdb_val val () const;
-	rai::private_key key;
+	wallet_value (nano::mdb_val const &);
+	wallet_value (nano::uint256_union const &, uint64_t);
+	nano::mdb_val val () const;
+	nano::private_key key;
 	uint64_t work;
 };
 }

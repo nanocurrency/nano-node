@@ -12,11 +12,11 @@
 
 #include <cryptopp/osrng.h>
 
-#include <rai/lib/config.hpp>
-#include <rai/lib/interface.h>
-#include <rai/lib/numbers.hpp>
+#include <nano/lib/config.hpp>
+#include <nano/lib/interface.h>
+#include <nano/lib/numbers.hpp>
 
-namespace rai
+namespace nano
 {
 using bufferstream = boost::iostreams::stream_buffer<boost::iostreams::basic_array_source<uint8_t>>;
 using vectorstream = boost::iostreams::stream_buffer<boost::iostreams::back_insert_device<std::vector<uint8_t>>>;
@@ -61,7 +61,7 @@ template <typename T>
 bool fetch_object (T & object, boost::filesystem::path const & path_a, std::fstream & stream_a)
 {
 	bool error (false);
-	rai::open_or_create (stream_a, path_a.string ());
+	nano::open_or_create (stream_a, path_a.string ());
 	if (!stream_a.fail ())
 	{
 		boost::property_tree::ptree tree;

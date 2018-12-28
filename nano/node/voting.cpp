@@ -1,8 +1,8 @@
-#include <rai/node/voting.hpp>
+#include <nano/node/voting.hpp>
 
-#include <rai/node/node.hpp>
+#include <nano/node/node.hpp>
 
-rai::vote_generator::vote_generator (rai::node & node_a, std::chrono::milliseconds wait_a) :
+nano::vote_generator::vote_generator (nano::node & node_a, std::chrono::milliseconds wait_a) :
 node (node_a),
 wait (wait_a),
 stopped (false),
@@ -16,7 +16,7 @@ thread ([this]() { run (); })
 	}
 }
 
-void rai::vote_generator::add (rai::block_hash const & hash_a)
+void nano::vote_generator::add (nano::block_hash const & hash_a)
 {
 	{
 		std::lock_guard<std::mutex> lock (mutex);
@@ -25,7 +25,7 @@ void rai::vote_generator::add (rai::block_hash const & hash_a)
 	condition.notify_all ();
 }
 
-void rai::vote_generator::stop ()
+void nano::vote_generator::stop ()
 {
 	std::unique_lock<std::mutex> lock (mutex);
 	stopped = true;
@@ -39,9 +39,9 @@ void rai::vote_generator::stop ()
 	}
 }
 
-void rai::vote_generator::send (std::unique_lock<std::mutex> & lock_a)
+void nano::vote_generator::send (std::unique_lock<std::mutex> & lock_a)
 {
-	std::vector<rai::block_hash> hashes_l;
+	std::vector<nano::block_hash> hashes_l;
 	hashes_l.reserve (12);
 	while (!hashes.empty () && hashes_l.size () < 12)
 	{
@@ -51,7 +51,7 @@ void rai::vote_generator::send (std::unique_lock<std::mutex> & lock_a)
 	lock_a.unlock ();
 	{
 		auto transaction (node.store.tx_begin_read ());
-		node.wallets.foreach_representative (transaction, [this, &hashes_l, &transaction](rai::public_key const & pub_a, rai::raw_key const & prv_a) {
+		node.wallets.foreach_representative (transaction, [this, &hashes_l, &transaction](nano::public_key const & pub_a, nano::raw_key const & prv_a) {
 			auto vote (this->node.store.vote_generate (transaction, pub_a, prv_a, hashes_l));
 			this->node.vote_processor.vote (vote, this->node.network.endpoint ());
 		});
@@ -59,9 +59,9 @@ void rai::vote_generator::send (std::unique_lock<std::mutex> & lock_a)
 	lock_a.lock ();
 }
 
-void rai::vote_generator::run ()
+void nano::vote_generator::run ()
 {
-	rai::thread_role::set (rai::thread_role::name::voting);
+	nano::thread_role::set (nano::thread_role::name::voting);
 	std::unique_lock<std::mutex> lock (mutex);
 	started = true;
 	lock.unlock ();

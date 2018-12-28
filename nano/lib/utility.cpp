@@ -1,61 +1,61 @@
 #include <iostream>
-#include <rai/lib/utility.hpp>
+#include <nano/lib/utility.hpp>
 
-namespace rai
+namespace nano
 {
 namespace thread_role
 {
 	/*
-	 * rai::thread_role namespace
+	 * nano::thread_role namespace
 	 *
 	 * Manage thread role
 	 */
-	static thread_local rai::thread_role::name current_thread_role = rai::thread_role::name::unknown;
-	rai::thread_role::name get (void)
+	static thread_local nano::thread_role::name current_thread_role = nano::thread_role::name::unknown;
+	nano::thread_role::name get (void)
 	{
 		return current_thread_role;
 	}
 
-	void set (rai::thread_role::name role)
+	void set (nano::thread_role::name role)
 	{
 		std::string thread_role_name_string;
 
 		switch (role)
 		{
-			case rai::thread_role::name::unknown:
+			case nano::thread_role::name::unknown:
 				thread_role_name_string = "<unknown>";
 				break;
-			case rai::thread_role::name::io:
+			case nano::thread_role::name::io:
 				thread_role_name_string = "I/O";
 				break;
-			case rai::thread_role::name::work:
+			case nano::thread_role::name::work:
 				thread_role_name_string = "Work pool";
 				break;
-			case rai::thread_role::name::packet_processing:
+			case nano::thread_role::name::packet_processing:
 				thread_role_name_string = "Pkt processing";
 				break;
-			case rai::thread_role::name::alarm:
+			case nano::thread_role::name::alarm:
 				thread_role_name_string = "Alarm";
 				break;
-			case rai::thread_role::name::vote_processing:
+			case nano::thread_role::name::vote_processing:
 				thread_role_name_string = "Vote processing";
 				break;
-			case rai::thread_role::name::block_processing:
+			case nano::thread_role::name::block_processing:
 				thread_role_name_string = "Blck processing";
 				break;
-			case rai::thread_role::name::announce_loop:
+			case nano::thread_role::name::announce_loop:
 				thread_role_name_string = "Announce loop";
 				break;
-			case rai::thread_role::name::wallet_actions:
+			case nano::thread_role::name::wallet_actions:
 				thread_role_name_string = "Wallet actions";
 				break;
-			case rai::thread_role::name::bootstrap_initiator:
+			case nano::thread_role::name::bootstrap_initiator:
 				thread_role_name_string = "Bootstrap init";
 				break;
-			case rai::thread_role::name::voting:
+			case nano::thread_role::name::voting:
 				thread_role_name_string = "Voting";
 				break;
-			case rai::thread_role::name::signature_checking:
+			case nano::thread_role::name::signature_checking:
 				thread_role_name_string = "Signature check";
 				break;
 		}
@@ -68,14 +68,14 @@ namespace thread_role
 		 */
 		assert (thread_role_name_string.size () < 16);
 
-		rai::thread_role::set_name (thread_role_name_string);
+		nano::thread_role::set_name (thread_role_name_string);
 
-		rai::thread_role::current_thread_role = role;
+		nano::thread_role::current_thread_role = role;
 	}
 }
 }
 
-void rai::thread_attributes::set (boost::thread::attributes & attrs)
+void nano::thread_attributes::set (boost::thread::attributes & attrs)
 {
 	auto attrs_l (&attrs);
 	attrs_l->set_stack_size (8000000); //8MB
