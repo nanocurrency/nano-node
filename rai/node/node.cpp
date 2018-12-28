@@ -2040,7 +2040,10 @@ void rai::node::start ()
 	{
 		bootstrap.start ();
 	}
-	backup_wallet ();
+	if (!flags.disable_backup)
+	{
+		backup_wallet ();
+	}
 	search_pending ();
 	online_reps.recalculate_stake ();
 	port_mapping.start ();
