@@ -256,9 +256,9 @@ public:
 class udp_buffer
 {
 public:
+	// Stats - Statistics
 	// Size - Size of each individual buffer
 	// Count - Number of buffers to allocate
-	// Stats - Statistics
 	udp_buffer (rai::stat & stats, size_t, size_t);
 	// Return a buffer where UDP data can be put
 	// Method will attempt to return the first free buffer
