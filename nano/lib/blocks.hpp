@@ -60,6 +60,7 @@ public:
 	// Link field for state blocks, zero otherwise.
 	virtual nano::block_hash link () const = 0;
 	virtual nano::account representative () const = 0;
+	virtual nano::account account () const = 0;
 	virtual void serialize (nano::stream &) const = 0;
 	virtual void serialize_json (std::string &) const = 0;
 	virtual void visit (nano::block_visitor &) const = 0;
@@ -99,6 +100,7 @@ public:
 	nano::block_hash root () const override;
 	nano::block_hash link () const override;
 	nano::account representative () const override;
+	nano::account account () const override;
 	void serialize (nano::stream &) const override;
 	void serialize_json (std::string &) const override;
 	bool deserialize (nano::stream &);
@@ -143,6 +145,7 @@ public:
 	nano::block_hash root () const override;
 	nano::block_hash link () const override;
 	nano::account representative () const override;
+	nano::account account () const override;
 	void serialize (nano::stream &) const override;
 	void serialize_json (std::string &) const override;
 	bool deserialize (nano::stream &);
@@ -189,6 +192,7 @@ public:
 	nano::block_hash root () const override;
 	nano::block_hash link () const override;
 	nano::account representative () const override;
+	nano::account account () const override;
 	void serialize (nano::stream &) const override;
 	void serialize_json (std::string &) const override;
 	bool deserialize (nano::stream &);
@@ -233,6 +237,7 @@ public:
 	nano::block_hash root () const override;
 	nano::block_hash link () const override;
 	nano::account representative () const override;
+	nano::account account () const override;
 	void serialize (nano::stream &) const override;
 	void serialize_json (std::string &) const override;
 	bool deserialize (nano::stream &);
@@ -289,6 +294,7 @@ public:
 	nano::block_hash root () const override;
 	nano::block_hash link () const override;
 	nano::account representative () const override;
+	nano::account account () const override;
 	void serialize (nano::stream &) const override;
 	void serialize_json (std::string &) const override;
 	bool deserialize (nano::stream &);
