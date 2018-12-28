@@ -30,8 +30,8 @@
 core_test
 !core_test/
 qt_test
-rai_node
-rai_wallet
+nano_node
+nano_wallet
 slow_test
 
 # IDEs
