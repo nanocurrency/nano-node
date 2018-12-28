@@ -12,7 +12,7 @@
 
 Nano's goal is to become _"a global currency with instantaneous transactions and zero fees over a secure, decentralized network."_
 
-We've applied the philosophy of _"do one thing and do it well"_, we are focused on building the best medium for value exchange in the world.
+We've applied the philosophy of _"do one thing and do it well."_ We are focused on building the best medium for value exchange in the world.
 
 ---
 
@@ -27,12 +27,12 @@ For more information, see [Nano.org](https://nano.org/) or read the [whitepaper]
 
 ### Guides & Documentation
 
-* [White Paper](https://nano.org/en/whitepaper)
+* [Whitepaper](https://nano.org/en/whitepaper)
 * [Build Instructions](https://github.com/nanocurrency/raiblocks/wiki/Build-Instructions)
 * [Command Line Interface](https://github.com/nanocurrency/raiblocks/wiki/Command-line-interface)
 * [RPC Protocol](https://github.com/nanocurrency/raiblocks/wiki/RPC-protocol)
 * [Wallet Design](https://github.com/nanocurrency/raiblocks/wiki/Wallet-design)
-* [Block Lattice](https://github.com/nanocurrency/raiblocks/wiki/Block-lattice)
+* [Block-Lattice](https://github.com/nanocurrency/raiblocks/wiki/Block-lattice)
 * [Design Features](https://github.com/nanocurrency/raiblocks/wiki/Design-features)
 
 ### Links & Resources
@@ -43,7 +43,7 @@ For more information, see [Nano.org](https://nano.org/) or read the [whitepaper]
 * [Reddit](https://reddit.com/r/nanocurrency)
 * [Medium](https://medium.com/nanocurrency)
 * [Twitter](https://twitter.com/nano)
-* [Forum](https://forum.raiblocks.net/)
+* [Forum](https://forum.nano.org/)
 * [GitHub wiki](https://github.com/nanocurrency/raiblocks/wiki)
 
 ### Want to Contribute?
@@ -53,4 +53,4 @@ Please see the [contributors guide](https://github.com/nanocurrency/raiblocks/wi
 ### Contact us
 
 We want to hear about any trouble, success, delight, or pain you experience when
-using Nano. Let us know by [filing an issue](https://github.com/nanocurrency/raiblocks/issues), joining us in [reddit](https://reddit.com/r/nanocurrency), or joining us in [Discord](https://chat.nano.org/).
+using Nano. Let us know by [filing an issue](https://github.com/nanocurrency/raiblocks/issues), joining us on [reddit](https://reddit.com/r/nanocurrency), or joining us on [Discord](https://chat.nano.org/).
