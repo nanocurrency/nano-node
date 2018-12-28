@@ -868,6 +868,7 @@ TEST (block_store, upgrade_v5_v6)
 		bool init (false);
 		nano::mdb_store store (init, path);
 		ASSERT_FALSE (init);
+		store.stop ();
 		auto transaction (store.tx_begin (true));
 		nano::genesis genesis;
 		store.initialize (transaction, genesis);
@@ -1116,4 +1117,51 @@ TEST (block_store, state_block)
 	auto count2 (store.block_count (transaction));
 	ASSERT_EQ (0, count2.state_v0);
 	ASSERT_EQ (0, count2.state_v1);
+}
+
+TEST (block_store, upgrade_sideband_genesis)
+{
+	bool error (false);
+	nano::genesis genesis;
+	auto path (nano::unique_path ());
+	{
+		nano::mdb_store store (error, path);
+		ASSERT_FALSE (error);
+		auto transaction (store.tx_begin (true));
+		store.initialize (transaction, genesis);
+		nano::block_sideband sideband;
+		auto genesis_hash (genesis.hash ());
+		auto genesis_block (store.block_get (transaction, genesis.hash (), &sideband));
+		ASSERT_NE (nullptr, genesis_block);
+		ASSERT_EQ (0, sideband.height);
+		std::vector<uint8_t> vector;
+		{
+			nano::vectorstream stream (vector);
+			genesis_block->serialize (stream);
+			nano::block_hash successor (0);
+			nano::write (stream, successor);
+		}
+		MDB_val val ({ vector.size (), vector.data () });
+		auto status2 (mdb_put (store.env.tx (transaction), store.open_blocks, nano::mdb_val (genesis_hash), &val, 0));
+		ASSERT_EQ (0, status2);
+		auto genesis_block2 (store.block_get (transaction, genesis.hash (), &sideband));
+		ASSERT_NE (nullptr, genesis_block);
+		ASSERT_EQ (std::numeric_limits<uint64_t>::max (), sideband.height);
+		store.version_put (transaction, 11);
+	}
+	nano::mdb_store store (error, path);
+	ASSERT_FALSE (error);
+	auto done (false);
+	auto iterations (0);
+	while (!done)
+	{
+		std::this_thread::sleep_for (std::chrono::seconds (0));
+		auto transaction (store.tx_begin (true));
+		nano::block_sideband sideband;
+		auto genesis_block (store.block_get (transaction, genesis.hash (), &sideband));
+		ASSERT_NE (nullptr, genesis_block);
+		done = sideband.height == 0;
+		ASSERT_LT (iterations, 200);
+		++iterations;
+	}
 }

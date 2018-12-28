@@ -8,6 +8,8 @@
 #include <nano/secure/blockstore.hpp>
 #include <nano/secure/common.hpp>
 
+#include <thread>
+
 namespace nano
 {
 class mdb_env;
@@ -146,6 +148,7 @@ class mdb_store : public block_store
 
 public:
 	mdb_store (bool &, boost::filesystem::path const &, int lmdb_max_dbs = 128);
+	~mdb_store ();
 
 	nano::transaction tx_begin_write () override;
 	nano::transaction tx_begin_read () override;
@@ -246,7 +249,7 @@ public:
 
 	void version_put (nano::transaction const &, int) override;
 	int version_get (nano::transaction const &) override;
-	void do_upgrades (nano::transaction const &);
+	void do_upgrades (nano::transaction const &, bool &);
 	void upgrade_v1_to_v2 (nano::transaction const &);
 	void upgrade_v2_to_v3 (nano::transaction const &);
 	void upgrade_v3_to_v4 (nano::transaction const &);
@@ -257,13 +260,16 @@ public:
 	void upgrade_v8_to_v9 (nano::transaction const &);
 	void upgrade_v9_to_v10 (nano::transaction const &);
 	void upgrade_v10_to_v11 (nano::transaction const &);
-	void upgrade_v11_to_v12 (nano::transaction const &);
+	void do_slow_upgrades ();
+	void upgrade_v11_to_v12 ();
 
 	// Requires a write transaction
 	nano::raw_key get_node_id (nano::transaction const &) override;
 
 	/** Deletes the node ID from the store */
 	void delete_node_id (nano::transaction const &) override;
+
+	void stop ();
 
 	nano::mdb_env env;
 
@@ -376,6 +382,8 @@ private:
 	MDB_val block_raw_get (nano::transaction const &, nano::block_hash const &, nano::block_type &);
 	void block_raw_put (nano::transaction const &, MDB_dbi, nano::block_hash const &, MDB_val);
 	void clear (MDB_dbi);
+	bool stopped;
+	std::thread upgrades;
 };
 class wallet_value
 {

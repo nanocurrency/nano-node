@@ -734,8 +734,10 @@ representation (0),
 unchecked (0),
 checksum (0),
 vote (0),
-meta (0)
+meta (0),
+stopped (false)
 {
+	auto slow_upgrade (false);
 	if (!error_a)
 	{
 		auto transaction (tx_begin_write ());
@@ -758,9 +760,29 @@ meta (0)
 		error_a |= mdb_dbi_open (env.tx (transaction), "meta", MDB_CREATE, &meta) != 0;
 		if (!error_a)
 		{
-			do_upgrades (transaction);
+			do_upgrades (transaction, slow_upgrade);
 			checksum_put (transaction, 0, 0, 0);
 		}
+	}
+	if (slow_upgrade)
+	{
+		upgrades = std::thread ([this]() {
+			do_slow_upgrades ();
+		});
+	}
+}
+
+nano::mdb_store::~mdb_store ()
+{
+	stop ();
+}
+
+void nano::mdb_store::stop ()
+{
+	stopped = true;
+	if (upgrades.joinable ())
+	{
+		upgrades.join ();
 	}
 }
 
@@ -843,7 +865,7 @@ void nano::mdb_store::delete_node_id (nano::transaction const & transaction_a)
 	assert (!error || error == MDB_NOTFOUND);
 }
 
-void nano::mdb_store::do_upgrades (nano::transaction const & transaction_a)
+void nano::mdb_store::do_upgrades (nano::transaction const & transaction_a, bool & slow_upgrade)
 {
 	switch (version_get (transaction_a))
 	{
@@ -868,7 +890,7 @@ void nano::mdb_store::do_upgrades (nano::transaction const & transaction_a)
 		case 10:
 			upgrade_v10_to_v11 (transaction_a);
 		case 11:
-			upgrade_v11_to_v12 (transaction_a);
+			slow_upgrade = true;
 		case 12:
 			break;
 		default:
@@ -1087,11 +1109,75 @@ void nano::mdb_store::upgrade_v10_to_v11 (nano::transaction const & transaction_
 	mdb_drop (env.tx (transaction_a), unsynced, 1);
 }
 
-void nano::mdb_store::upgrade_v11_to_v12 (nano::transaction const & transaction_a)
+void nano::mdb_store::do_slow_upgrades ()
 {
-	version_put (transaction_a, 12);
-	mdb_drop (env.tx (transaction_a), unchecked, 1);
-	mdb_dbi_open (env.tx (transaction_a), "unchecked", MDB_CREATE, &unchecked);
+	int version;
+	{
+		nano::transaction transaction (tx_begin_read ());
+		version = version_get (transaction);
+	}
+	switch (version)
+	{
+		case 0:
+		case 1:
+		case 2:
+		case 3:
+		case 4:
+		case 5:
+		case 6:
+		case 7:
+		case 8:
+		case 9:
+		case 10:
+			break;
+		case 11:
+			upgrade_v11_to_v12 ();
+		case 12:
+			break;
+		default:
+			assert (false);
+			break;
+	}
+}
+
+void nano::mdb_store::upgrade_v11_to_v12 ()
+{
+	size_t count (0);
+	size_t const max (16384);
+	nano::account account (0);
+	auto transaction (tx_begin_write ());
+	while (!stopped && account != nano::not_an_account)
+	{
+		auto current (latest_begin (transaction, account));
+		if (current != latest_end ())
+		{
+			auto hash (current->second.open_block);
+			uint64_t height (0);
+			nano::block_sideband sideband;
+			while (!stopped && !hash.is_zero ())
+			{
+				if (count == max)
+				{
+					auto tx (boost::polymorphic_downcast<nano::mdb_txn *> (transaction.impl.get ()));
+					auto status0 (mdb_txn_commit (*tx));
+					release_assert (status0 == MDB_SUCCESS);
+					auto status1 (mdb_txn_begin (env, nullptr, 0, &tx->handle));
+					release_assert (status1 == MDB_SUCCESS);
+					count = 0;
+				}
+				auto block (block_get (transaction, hash, &sideband));
+				sideband.height = height++;
+				block_put (transaction, hash, *block, sideband);
+				hash = sideband.successor;
+				++count;
+			}
+			account = current->first.number () + 1;
+		}
+		else
+		{
+			account = nano::not_an_account;
+		}
+	}
 }
 
 void nano::mdb_store::clear (MDB_dbi db_a)
@@ -1381,7 +1467,7 @@ std::shared_ptr<nano::block> nano::mdb_store::block_get (nano::transaction const
 				sideband_a->account = block_account (transaction_a, hash_a);
 				sideband_a->balance = block_balance (transaction_a, hash_a);
 				sideband_a->successor = block_successor (transaction_a, hash_a);
-				sideband_a->height = 0;
+				sideband_a->height = std::numeric_limits<uint64_t>::max ();
 			}
 		}
 	}
