@@ -129,12 +129,8 @@ bool rai::uint256_union::decode_account (std::string const & source_a)
 
 rai::uint256_union::uint256_union (rai::uint256_t const & number_a)
 {
-	rai::uint256_t number_l (number_a);
-	for (auto i (bytes.rbegin ()), n (bytes.rend ()); i != n; ++i)
-	{
-		*i = static_cast<uint8_t> (number_l & static_cast<uint8_t> (0xff));
-		number_l >>= 8;
-	}
+	bytes.fill (0);
+	boost::multiprecision::export_bits (number_a, bytes.rbegin (), 8, false);
 }
 
 bool rai::uint256_union::operator== (rai::uint256_union const & other_a) const
@@ -164,7 +160,7 @@ std::string rai::uint256_union::to_string () const
 
 bool rai::uint256_union::operator< (rai::uint256_union const & other_a) const
 {
-	return number () < other_a.number ();
+	return std::memcmp (bytes.data (), other_a.bytes.data (), 32) < 0;
 }
 
 rai::uint256_union & rai::uint256_union::operator^= (rai::uint256_union const & other_a)
@@ -203,13 +199,7 @@ void rai::uint256_union::clear ()
 rai::uint256_t rai::uint256_union::number () const
 {
 	rai::uint256_t result;
-	auto shift (0);
-	for (auto i (bytes.begin ()), n (bytes.end ()); i != n; ++i)
-	{
-		result <<= shift;
-		result |= *i;
-		shift = 8;
-	}
+	boost::multiprecision::import_bits (result, bytes.begin (), bytes.end (), false);
 	return result;
 }
 
@@ -302,12 +292,8 @@ bool rai::uint512_union::operator== (rai::uint512_union const & other_a) const
 
 rai::uint512_union::uint512_union (rai::uint512_t const & number_a)
 {
-	rai::uint512_t number_l (number_a);
-	for (auto i (bytes.rbegin ()), n (bytes.rend ()); i != n; ++i)
-	{
-		*i = static_cast<uint8_t> (number_l & static_cast<uint8_t> (0xff));
-		number_l >>= 8;
-	}
+	bytes.fill (0);
+	boost::multiprecision::export_bits (number_a, bytes.rbegin (), 8, false);
 }
 
 bool rai::uint512_union::is_zero () const
@@ -324,13 +310,7 @@ void rai::uint512_union::clear ()
 rai::uint512_t rai::uint512_union::number () const
 {
 	rai::uint512_t result;
-	auto shift (0);
-	for (auto i (bytes.begin ()), n (bytes.end ()); i != n; ++i)
-	{
-		result <<= shift;
-		result |= *i;
-		shift = 8;
-	}
+	boost::multiprecision::import_bits (result, bytes.begin (), bytes.end (), false);
 	return result;
 }
 
@@ -458,14 +438,10 @@ rai::uint128_union::uint128_union (uint64_t value_a)
 	*this = rai::uint128_t (value_a);
 }
 
-rai::uint128_union::uint128_union (rai::uint128_t const & value_a)
+rai::uint128_union::uint128_union (rai::uint128_t const & number_a)
 {
-	rai::uint128_t number_l (value_a);
-	for (auto i (bytes.rbegin ()), n (bytes.rend ()); i != n; ++i)
-	{
-		*i = static_cast<uint8_t> (number_l & static_cast<uint8_t> (0xff));
-		number_l >>= 8;
-	}
+	bytes.fill (0);
+	boost::multiprecision::export_bits (number_a, bytes.rbegin (), 8, false);
 }
 
 bool rai::uint128_union::operator== (rai::uint128_union const & other_a) const
@@ -480,24 +456,18 @@ bool rai::uint128_union::operator!= (rai::uint128_union const & other_a) const
 
 bool rai::uint128_union::operator< (rai::uint128_union const & other_a) const
 {
-	return number () < other_a.number ();
+	return std::memcmp (bytes.data (), other_a.bytes.data (), 16) < 0;
 }
 
 bool rai::uint128_union::operator> (rai::uint128_union const & other_a) const
 {
-	return number () > other_a.number ();
+	return std::memcmp (bytes.data (), other_a.bytes.data (), 16) > 0;
 }
 
 rai::uint128_t rai::uint128_union::number () const
 {
 	rai::uint128_t result;
-	auto shift (0);
-	for (auto i (bytes.begin ()), n (bytes.end ()); i != n; ++i)
-	{
-		result <<= shift;
-		result |= *i;
-		shift = 8;
-	}
+	boost::multiprecision::import_bits (result, bytes.begin (), bytes.end (), false);
 	return result;
 }
 

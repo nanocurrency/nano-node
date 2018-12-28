@@ -3,6 +3,24 @@
 #include <rai/lib/interface.h>
 #include <rai/secure/common.hpp>
 
+namespace
+{
+template <typename Union, typename Bound>
+void assert_union_types ();
+
+template <typename Union, typename Bound>
+void test_union_operator_less_than ();
+
+template <typename Num>
+void check_operator_less_than (Num lhs, Num rhs);
+
+template <typename Union, typename Bound>
+void test_union_operator_greater_than ();
+
+template <typename Num>
+void check_operator_greater_than (Num lhs, Num rhs);
+}
+
 TEST (uint128_union, decode_dec)
 {
 	rai::uint128_union value;
@@ -41,6 +59,16 @@ TEST (uint128_union, decode_dec_overflow)
 	std::string text ("340282366920938463463374607431768211456");
 	auto error (value.decode_dec (text));
 	ASSERT_TRUE (error);
+}
+
+TEST (uint128_union, operator_less_than)
+{
+	test_union_operator_less_than<rai::uint128_union, rai::uint128_t> ();
+}
+
+TEST (uint128_union, operator_greater_than)
+{
+	test_union_operator_greater_than<rai::uint128_union, rai::uint128_t> ();
 }
 
 struct test_punct : std::moneypunct<char>
@@ -394,6 +422,11 @@ TEST (uint256_union, bounds)
 	ASSERT_TRUE (key.decode_account (bad2));
 }
 
+TEST (uint256_union, operator_less_than)
+{
+	test_union_operator_less_than<rai::uint256_union, rai::uint256_t> ();
+}
+
 class json_upgrade_test
 {
 public:
@@ -492,4 +525,72 @@ TEST (uint64_t, parse)
 	ASSERT_TRUE (rai::from_string_hex ("ffffffffffffffff0", value3));
 	uint64_t value4 (1);
 	ASSERT_TRUE (rai::from_string_hex ("", value4));
+}
+
+namespace
+{
+template <typename Union, typename Bound>
+void assert_union_types ()
+{
+	static_assert ((std::is_same<Union, rai::uint128_union>::value && std::is_same<Bound, rai::uint128_t>::value) || (std::is_same<Union, rai::uint256_union>::value && std::is_same<Bound, rai::uint256_t>::value) || (std::is_same<Union, rai::uint512_union>::value && std::is_same<Bound, rai::uint512_t>::value),
+	"Union type needs to be consistent with the lower/upper Bound type");
+}
+
+template <typename Union, typename Bound>
+void test_union_operator_less_than ()
+{
+	assert_union_types<Union, Bound> ();
+
+	// Small
+	check_operator_less_than (Union (123), Union (124));
+	check_operator_less_than (Union (124), Union (125));
+
+	// Medium
+	check_operator_less_than (Union (std::numeric_limits<uint16_t>::max () - 1), Union (std::numeric_limits<uint16_t>::max () + 1));
+	check_operator_less_than (Union (std::numeric_limits<uint32_t>::max () - 12345678), Union (std::numeric_limits<uint32_t>::max () - 123456));
+
+	// Large
+	check_operator_less_than (Union (std::numeric_limits<uint64_t>::max () - 555555555555), Union (std::numeric_limits<uint64_t>::max () - 1));
+
+	// Boundary values
+	check_operator_less_than (Union (std::numeric_limits<Bound>::min ()), Union (std::numeric_limits<Bound>::max ()));
+}
+
+template <typename Num>
+void check_operator_less_than (Num lhs, Num rhs)
+{
+	ASSERT_TRUE (lhs < rhs);
+	ASSERT_FALSE (rhs < lhs);
+	ASSERT_FALSE (lhs < lhs);
+	ASSERT_FALSE (rhs < rhs);
+}
+
+template <typename Union, typename Bound>
+void test_union_operator_greater_than ()
+{
+	assert_union_types<Union, Bound> ();
+
+	// Small
+	check_operator_greater_than (Union (124), Union (123));
+	check_operator_greater_than (Union (125), Union (124));
+
+	// Medium
+	check_operator_greater_than (Union (std::numeric_limits<uint16_t>::max () + 1), Union (std::numeric_limits<uint16_t>::max () - 1));
+	check_operator_greater_than (Union (std::numeric_limits<uint32_t>::max () - 123456), Union (std::numeric_limits<uint32_t>::max () - 12345678));
+
+	// Large
+	check_operator_greater_than (Union (std::numeric_limits<uint64_t>::max () - 1), Union (std::numeric_limits<uint64_t>::max () - 555555555555));
+
+	// Boundary values
+	check_operator_greater_than (Union (std::numeric_limits<Bound>::max ()), Union (std::numeric_limits<Bound>::min ()));
+}
+
+template <typename Num>
+void check_operator_greater_than (Num lhs, Num rhs)
+{
+	ASSERT_TRUE (lhs > rhs);
+	ASSERT_FALSE (rhs > lhs);
+	ASSERT_FALSE (lhs > lhs);
+	ASSERT_FALSE (rhs > rhs);
+}
 }
