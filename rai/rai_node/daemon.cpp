@@ -6,7 +6,7 @@
 #include <iostream>
 #include <rai/node/working.hpp>
 
-rai_daemon::daemon_config::daemon_config (boost::filesystem::path const & application_path_a) :
+rai_daemon::daemon_config::daemon_config () :
 rpc_enable (false),
 opencl_enable (false)
 {
@@ -98,8 +98,8 @@ void rai_daemon::daemon::run (boost::filesystem::path const & data_path, rai::no
 {
 	boost::system::error_code error_chmod;
 	boost::filesystem::create_directories (data_path);
+	rai_daemon::daemon_config config;
 	rai::set_secure_perm_directory (data_path, error_chmod);
-	rai_daemon::daemon_config config (data_path);
 	auto config_path ((data_path / "config.json"));
 	std::fstream config_file;
 	std::unique_ptr<rai::thread_runner> runner;
