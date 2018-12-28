@@ -3943,7 +3943,7 @@ TEST (rpc, sign_hash)
 	rai::keypair key;
 	auto & node1 (*system.nodes[0]);
 	rai::state_block send (rai::genesis_account, node1.latest (rai::test_genesis_key.pub), rai::genesis_account, rai::genesis_amount - rai::Gxrb_ratio, key.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
-	rai::rpc rpc (system.service, node1, rai::rpc_config (true));
+	rai::rpc rpc (system.io_ctx, node1, rai::rpc_config (true));
 	rpc.start ();
 	boost::property_tree::ptree request;
 	request.put ("action", "sign_hash");
@@ -3967,7 +3967,7 @@ TEST (rpc, sign_block)
 	rai::keypair key;
 	auto & node1 (*system.nodes[0]);
 	rai::state_block send (rai::genesis_account, node1.latest (rai::test_genesis_key.pub), rai::genesis_account, rai::genesis_amount - rai::Gxrb_ratio, key.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
-	rai::rpc rpc (system.service, node1, rai::rpc_config (true));
+	rai::rpc rpc (system.io_ctx, node1, rai::rpc_config (true));
 	rpc.start ();
 	boost::property_tree::ptree request;
 	request.put ("action", "sign_block");
