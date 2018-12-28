@@ -151,7 +151,7 @@ class self_pane
 {
 public:
 	self_pane (rai_qt::wallet &, rai::account const &);
-	void refresh_balance ();
+	void set_balance_text (std::pair<rai::uint128_t, rai::uint128_t>);
 	QWidget * window;
 	QVBoxLayout * layout;
 	QHBoxLayout * self_layout;
@@ -351,5 +351,7 @@ public:
 	rai_qt::status active_status;
 	void pop_main_stack ();
 	void push_main_stack (QWidget *);
+	void ongoing_refresh ();
+	std::atomic<bool> needs_balance_refresh;
 };
 }
