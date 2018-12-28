@@ -33,6 +33,7 @@ block_processor_batch_max_time (std::chrono::milliseconds (5000))
 	switch (nano::nano_network)
 	{
 		case nano::nano_networks::nano_test_network:
+			enable_voting = true;
 			preconfigured_representatives.push_back (nano::genesis_account);
 			break;
 		case nano::nano_networks::nano_beta_network:
