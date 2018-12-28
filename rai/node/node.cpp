@@ -3542,7 +3542,7 @@ void rai::udp_buffer::enqueue (rai::udp_data * data_a)
 	assert (data_a != nullptr);
 	std::lock_guard<std::mutex> lock (mutex);
 	full.push_back (data_a);
-	condition.notify_one ();
+	condition.notify_all ();
 }
 rai::udp_data * rai::udp_buffer::dequeue ()
 {
@@ -3564,7 +3564,7 @@ void rai::udp_buffer::release (rai::udp_data * data_a)
 	assert (data_a != nullptr);
 	std::lock_guard<std::mutex> lock (mutex);
 	free.push_back (data_a);
-	condition.notify_one ();
+	condition.notify_all ();
 }
 void rai::udp_buffer::stop ()
 {
