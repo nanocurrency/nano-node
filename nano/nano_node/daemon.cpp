@@ -145,7 +145,6 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 					rpc->start (config.rpc_enable);
 				}
 				nano::ipc::ipc_server ipc (*node, *rpc);
-				config.node.disable_lazy_bootstrap = disable_lazy_bootstrap;
 				runner = std::make_unique<nano::thread_runner> (io_ctx, node->config.io_threads);
 				runner->join ();
 			}
