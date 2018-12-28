@@ -1115,7 +1115,10 @@ void rai::bootstrap_attempt::pool_connection (std::shared_ptr<rai::bootstrap_cli
 {
 	{
 		std::lock_guard<std::mutex> lock (mutex);
-		idle.push_front (client_a);
+		if (!stopped && !client_a->pending_stop)
+		{
+			idle.push_front (client_a);
+		}
 	}
 	condition.notify_all ();
 }
