@@ -54,7 +54,7 @@ bool nano::block_sideband::deserialize (nano::stream & stream_a)
 		result |= nano::read (stream_a, account.bytes);
 	}
 	result |= nano::read (stream_a, height);
-	boost::endian::big_to_native (height);
+	boost::endian::big_to_native_inplace (height);
 	if (type == nano::block_type::receive || type == nano::block_type::change || type == nano::block_type::open)
 	{
 		nano::read (stream_a, balance.bytes);

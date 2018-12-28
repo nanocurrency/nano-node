@@ -15,6 +15,29 @@ TEST (block_store, construction)
 	ASSERT_GT (now, 1408074640);
 }
 
+TEST (block_store, sideband_serialization)
+{
+	nano::block_sideband sideband1;
+	sideband1.type = nano::block_type::receive;
+	sideband1.account = 1;
+	sideband1.balance = 2;
+	sideband1.height = 3;
+	sideband1.successor = 4;
+	std::vector<uint8_t> vector;
+	{
+		nano::vectorstream stream1 (vector);
+		sideband1.serialize (stream1);
+	}
+	nano::bufferstream stream2 (vector.data (), vector.size ());
+	nano::block_sideband sideband2;
+	sideband2.type = nano::block_type::receive;
+	ASSERT_FALSE (sideband2.deserialize (stream2));
+	ASSERT_EQ (sideband1.account, sideband2.account);
+	ASSERT_EQ (sideband1.balance, sideband2.balance);
+	ASSERT_EQ (sideband1.height, sideband2.height);
+	ASSERT_EQ (sideband1.successor, sideband2.successor);
+}
+
 TEST (block_store, add_item)
 {
 	bool init (false);
@@ -1161,6 +1184,67 @@ TEST (block_store, upgrade_sideband_genesis)
 		auto genesis_block (store.block_get (transaction, genesis.hash (), &sideband));
 		ASSERT_NE (nullptr, genesis_block);
 		done = sideband.height == 0;
+		ASSERT_LT (iterations, 200);
+		++iterations;
+	}
+}
+
+TEST (block_store, upgrade_sideband_two_blocks)
+{
+	bool error (false);
+	nano::genesis genesis;
+	nano::block_hash hash2;
+	auto path (nano::unique_path ());
+	{
+		nano::mdb_store store (error, path);
+		ASSERT_FALSE (error);
+		auto transaction (store.tx_begin (true));
+		store.initialize (transaction, genesis);
+		nano::state_block block (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
+		hash2 = block.hash ();
+		nano::block_sideband sideband;
+		sideband.height = 0;
+		sideband.successor = 0;
+		sideband.type = block.type ();
+		store.block_put (transaction, hash2, block, sideband);
+		auto genesis_block (store.block_get (transaction, genesis.hash (), &sideband));
+		ASSERT_NE (nullptr, genesis_block);
+		ASSERT_EQ (0, sideband.height);
+		auto rewrite_old = [&store, &transaction](nano::block & block_a, nano::block_hash const & successor_a, MDB_dbi db_a) {
+			std::vector<uint8_t> vector;
+			{
+				nano::vectorstream stream (vector);
+				block_a.serialize (stream);
+				nano::write (stream, successor_a);
+			}
+			MDB_val val ({ vector.size (), vector.data () });
+			auto hash (block_a.hash ());
+			auto status2 (mdb_put (store.env.tx (transaction), db_a, nano::mdb_val (hash), &val, 0));
+			ASSERT_EQ (0, status2);
+			nano::block_sideband sideband;
+			auto block2 (store.block_get (transaction, block_a.hash (), &sideband));
+			ASSERT_NE (nullptr, block2);
+			ASSERT_EQ (std::numeric_limits<uint64_t>::max (), sideband.height);
+		};
+		rewrite_old (*genesis_block, hash2, store.open_blocks);
+		rewrite_old (block, 0, store.state_blocks_v0);
+		store.version_put (transaction, 11);
+	}
+	nano::mdb_store store (error, path);
+	ASSERT_FALSE (error);
+	auto done (false);
+	auto iterations (0);
+	while (!done)
+	{
+		std::this_thread::sleep_for (std::chrono::seconds (0));
+		auto transaction (store.tx_begin (true));
+		nano::block_sideband sideband;
+		auto genesis_block (store.block_get (transaction, genesis.hash (), &sideband));
+		ASSERT_NE (nullptr, genesis_block);
+		nano::block_sideband sideband2;
+		auto block2 (store.block_get (transaction, hash2, &sideband2));
+		ASSERT_NE (nullptr, block2);
+		done = sideband.height == 0 && sideband2.height == 1;
 		ASSERT_LT (iterations, 200);
 		++iterations;
 	}
