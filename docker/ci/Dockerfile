@@ -14,16 +14,17 @@ WORKDIR "/tmp"
 RUN wget -qO ${BOOST_BASENAME}.tar.gz ${BOOST_URL} && \
     tar xzf ${BOOST_BASENAME}.tar.gz && \
     cd ${BOOST_BASENAME} && \
-    ./bootstrap.sh && \
+    ./bootstrap.sh --with-libraries=thread,log,filesystem,program_options && \
     ./b2 -d0 link=static install && \
     rm -rf ${BOOST_BASENAME} && \
     rm -f ${BOOST_BASENAME}.tar.gz && \
     cd ..
 
+RUN apt-get remove wget
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-RUN apt-get install -yq \
+RUN apt-get update -qq && apt-get install -yqq \
     qt5-default \
     valgrind \
     xorg xvfb xauth xfonts-100dpi xfonts-75dpi xfonts-scalable xfonts-cyrillic \
