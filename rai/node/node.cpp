@@ -2230,7 +2230,8 @@ void rai::node::backup_wallet ()
 		i->second->store.write_backup (transaction, backup_path / (i->first.to_string () + ".json"));
 	}
 	auto this_l (shared ());
-		alarm.add (std::chrono::steady_clock::now () + backup_interval, [this_l]() {			this_l->backup_wallet ();
+	alarm.add (std::chrono::steady_clock::now () + backup_interval, [this_l]() {
+		this_l->backup_wallet ();
 	});
 }
 
