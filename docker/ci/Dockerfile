@@ -9,16 +9,8 @@ RUN apt-get update -qq && apt-get install -yqq \
     g++ \
     wget
 
-WORKDIR "/tmp"
-
-RUN wget -qO ${BOOST_BASENAME}.tar.gz ${BOOST_URL} && \
-    tar xzf ${BOOST_BASENAME}.tar.gz && \
-    cd ${BOOST_BASENAME} && \
-    ./bootstrap.sh --with-libraries=thread,log,filesystem,program_options && \
-    ./b2 -d0 link=static install && \
-    rm -rf ${BOOST_BASENAME} && \
-    rm -f ${BOOST_BASENAME}.tar.gz && \
-    cd ..
+ADD util/build_prep/bootstrap_boost.sh bootstrap_boost.sh
+RUN ./bootstrap_boost.sh -m
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -28,4 +20,3 @@ RUN apt-get update -qq && apt-get install -yqq \
     xorg xvfb xauth xfonts-100dpi xfonts-75dpi xfonts-scalable xfonts-cyrillic \
     cargo
 
-RUN rm -rf /tmp/*
