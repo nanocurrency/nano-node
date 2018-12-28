@@ -1,16 +1,16 @@
 FROM ubuntu:16.04
 
-ENV BOOST_BASENAME=boost_1_66_0 \
-    BOOST_URL=https://netix.dl.sourceforge.net/project/boost/boost/1.66.0/boost_1_66_0.tar.gz
-
 RUN apt-get update -qq && apt-get install -yqq \
     build-essential \
     cmake \
     g++ \
-    wget
+    wget \
+    python
 
+ENV BOOST_ROOT=/usr/local
 ADD util/build_prep/bootstrap_boost.sh bootstrap_boost.sh
-RUN ./bootstrap_boost.sh -m
+RUN ./bootstrap_boost.sh -m -B 1.66
+RUN rm bootstrap_boost.sh
 
 ENV DEBIAN_FRONTEND=noninteractive
 
