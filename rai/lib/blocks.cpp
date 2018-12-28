@@ -1,4 +1,5 @@
 #include <rai/lib/blocks.hpp>
+#include <rai/lib/numbers.hpp>
 
 #include <boost/endian/conversion.hpp>
 
@@ -1564,11 +1565,10 @@ std::shared_ptr<rai::block> rai::block_uniquer::unique (std::shared_ptr<rai::blo
 		{
 			existing = block_a;
 		}
-		for (auto i (0); i < cleanup_count; ++i)
+		for (auto i (0); i < cleanup_count && blocks.size () > 0; ++i)
 		{
-			rai::uint256_union random;
-			rai::random_pool.GenerateBlock (random.bytes.data (), random.bytes.size ());
-			auto existing (blocks.find (random));
+			auto random_offset (rai::random_pool.GenerateWord32 (0, blocks.size () - 1));
+			auto existing (std::next (blocks.begin (), random_offset));
 			if (existing == blocks.end ())
 			{
 				existing = blocks.begin ();
