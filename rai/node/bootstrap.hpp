@@ -34,11 +34,12 @@ public:
 	void start (std::chrono::steady_clock::time_point = std::chrono::steady_clock::now () + std::chrono::seconds (5));
 	void stop ();
 	void close ();
+	void checkup ();
 	rai::tcp_endpoint remote_endpoint ();
 	boost::asio::ip::tcp::socket socket_m;
 
 private:
-	std::atomic<unsigned> ticket;
+	std::atomic<uint64_t> cutoff;
 	std::shared_ptr<rai::node> node;
 };
 
@@ -52,11 +53,13 @@ class bootstrap_client;
 class pull_info
 {
 public:
+	typedef rai::bulk_pull::count_t count_t;
 	pull_info ();
-	pull_info (rai::account const &, rai::block_hash const &, rai::block_hash const &);
+	pull_info (rai::account const &, rai::block_hash const &, rai::block_hash const &, count_t = 0);
 	rai::account account;
 	rai::block_hash head;
 	rai::block_hash end;
+	count_t count;
 	unsigned attempts;
 };
 class frontier_req_client;
@@ -82,6 +85,12 @@ public:
 	unsigned target_connections (size_t pulls_remaining);
 	bool should_log ();
 	void add_bulk_push_target (rai::block_hash const &, rai::block_hash const &);
+	bool process_block (std::shared_ptr<rai::block>, uint64_t, bool);
+	void lazy_run ();
+	void lazy_start (rai::block_hash const &);
+	void lazy_add (rai::block_hash const &);
+	bool lazy_finished ();
+	void lazy_pull_flush ();
 	std::chrono::steady_clock::time_point next_log;
 	std::deque<std::weak_ptr<rai::bootstrap_client>> clients;
 	std::weak_ptr<rai::bootstrap_client> connection_frontier_request;
@@ -96,8 +105,19 @@ public:
 	std::atomic<uint64_t> total_blocks;
 	std::vector<std::pair<rai::block_hash, rai::block_hash>> bulk_push_targets;
 	bool stopped;
+	bool lazy_mode;
 	std::mutex mutex;
 	std::condition_variable condition;
+	// Lazy bootstrap
+	std::unordered_set<rai::block_hash> lazy_blocks;
+	std::unordered_map<rai::block_hash, std::pair<rai::block_hash, rai::uint128_t>> lazy_state_unknown;
+	std::unordered_map<rai::block_hash, rai::uint128_t> lazy_balances;
+	std::unordered_set<rai::block_hash> lazy_keys;
+	std::deque<rai::block_hash> lazy_pulls;
+	std::atomic<uint64_t> lazy_stopped;
+	uint64_t lazy_max_pull_blocks = (rai::rai_network == rai::rai_networks::rai_test_network) ? 2 : 512;
+	uint64_t lazy_max_stopped = 256;
+	std::mutex lazy_mutex;
 };
 class frontier_req_client : public std::enable_shared_from_this<rai::frontier_req_client>
 {
@@ -113,7 +133,7 @@ public:
 	void insert_pull (rai::pull_info const &);
 	std::shared_ptr<rai::bootstrap_client> connection;
 	rai::account current;
-	rai::account_info info;
+	rai::block_hash frontier;
 	unsigned count;
 	rai::account landing;
 	rai::account faucet;
@@ -121,6 +141,7 @@ public:
 	std::promise<bool> promise;
 	/** A very rough estimate of the cost of `bulk_push`ing missing blocks */
 	uint64_t bulk_push_cost;
+	std::deque<std::pair<rai::account, rai::block_hash>> accounts;
 };
 class bulk_pull_client : public std::enable_shared_from_this<rai::bulk_pull_client>
 {
@@ -135,6 +156,7 @@ public:
 	std::shared_ptr<rai::bootstrap_client> connection;
 	rai::block_hash expected;
 	rai::pull_info pull;
+	uint64_t total_blocks;
 };
 class bootstrap_client : public std::enable_shared_from_this<bootstrap_client>
 {
@@ -176,6 +198,7 @@ public:
 	~bootstrap_initiator ();
 	void bootstrap (rai::endpoint const &, bool add_to_peers = true);
 	void bootstrap ();
+	void bootstrap_lazy (rai::block_hash const &, bool = false);
 	void run_bootstrap ();
 	void notify_listeners (bool);
 	void add_observer (std::function<void(bool)> const &);
@@ -196,7 +219,7 @@ class bootstrap_server;
 class bootstrap_listener
 {
 public:
-	bootstrap_listener (boost::asio::io_service &, uint16_t, rai::node &);
+	bootstrap_listener (boost::asio::io_context &, uint16_t, rai::node &);
 	void start ();
 	void stop ();
 	void accept_connection ();
@@ -206,7 +229,7 @@ public:
 	rai::tcp_endpoint endpoint ();
 	boost::asio::ip::tcp::acceptor acceptor;
 	rai::tcp_endpoint local;
-	boost::asio::io_service & service;
+	boost::asio::io_context & io_ctx;
 	rai::node & node;
 	bool on;
 };
@@ -238,7 +261,7 @@ class bulk_pull_server : public std::enable_shared_from_this<rai::bulk_pull_serv
 public:
 	bulk_pull_server (std::shared_ptr<rai::bootstrap_server> const &, std::unique_ptr<rai::bulk_pull>);
 	void set_current_end ();
-	std::unique_ptr<rai::block> get_next ();
+	std::shared_ptr<rai::block> get_next ();
 	void send_next ();
 	void sent_action (boost::system::error_code const &, size_t);
 	void send_finished ();
@@ -248,6 +271,8 @@ public:
 	std::shared_ptr<std::vector<uint8_t>> send_buffer;
 	rai::block_hash current;
 	bool include_start;
+	rai::bulk_pull::count_t max_count;
+	rai::bulk_pull::count_t sent_count;
 };
 class bulk_pull_account;
 class bulk_pull_account_server : public std::enable_shared_from_this<rai::bulk_pull_account_server>
@@ -276,7 +301,7 @@ class bulk_pull_blocks_server : public std::enable_shared_from_this<rai::bulk_pu
 public:
 	bulk_pull_blocks_server (std::shared_ptr<rai::bootstrap_server> const &, std::unique_ptr<rai::bulk_pull_blocks>);
 	void set_params ();
-	std::unique_ptr<rai::block> get_next ();
+	std::shared_ptr<rai::block> get_next ();
 	void send_next ();
 	void send_finished ();
 	void no_block_sent (boost::system::error_code const &, size_t);
@@ -300,7 +325,6 @@ class frontier_req_server : public std::enable_shared_from_this<rai::frontier_re
 {
 public:
 	frontier_req_server (std::shared_ptr<rai::bootstrap_server> const &, std::unique_ptr<rai::frontier_req>);
-	void skip_old ();
 	void send_next ();
 	void sent_action (boost::system::error_code const &, size_t);
 	void send_finished ();
@@ -308,9 +332,10 @@ public:
 	void next ();
 	std::shared_ptr<rai::bootstrap_server> connection;
 	rai::account current;
-	rai::account_info info;
+	rai::block_hash frontier;
 	std::unique_ptr<rai::frontier_req> request;
 	std::shared_ptr<std::vector<uint8_t>> send_buffer;
 	size_t count;
+	std::deque<std::pair<rai::account, rai::block_hash>> accounts;
 };
 }

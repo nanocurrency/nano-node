@@ -342,6 +342,9 @@ std::string rai::stat::type_to_string (uint32_t key)
 		case rai::stat::type::traffic:
 			res = "traffic";
 			break;
+		case rai::stat::type::traffic_bootstrap:
+			res = "traffic_bootstrap";
+			break;
 		case rai::stat::type::vote:
 			res = "vote";
 			break;
@@ -397,6 +400,9 @@ std::string rai::stat::detail_to_string (uint32_t key)
 		case rai::stat::detail::initiate:
 			res = "initiate";
 			break;
+		case rai::stat::detail::initiate_lazy:
+			res = "initiate_lazy";
+			break;
 		case rai::stat::detail::insufficient_work:
 			res = "insufficient_work";
 			break;
@@ -433,11 +439,17 @@ std::string rai::stat::detail_to_string (uint32_t key)
 		case rai::stat::detail::vote_invalid:
 			res = "vote_invalid";
 			break;
+		case rai::stat::detail::vote_overflow:
+			res = "vote_overflow";
+			break;
 		case rai::stat::detail::blocking:
 			res = "blocking";
 			break;
 		case rai::stat::detail::overflow:
 			res = "overflow";
+			break;
+		case rai::stat::detail::unreachable_host:
+			res = "unreachable_host";
 			break;
 		case rai::stat::detail::invalid_magic:
 			res = "invalid_magic";

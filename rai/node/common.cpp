@@ -4,9 +4,9 @@
 #include <rai/lib/work.hpp>
 #include <rai/node/wallet.hpp>
 
+#include <boost/endian/conversion.hpp>
+
 std::array<uint8_t, 2> constexpr rai::message_header::magic_number;
-size_t constexpr rai::message_header::ipv4_only_position;
-size_t constexpr rai::message_header::bootstrap_server_position;
 std::bitset<16> constexpr rai::message_header::block_type_mask;
 
 rai::message_header::message_header (rai::message_type type_a) :
@@ -25,7 +25,7 @@ rai::message_header::message_header (bool & error_a, rai::stream & stream_a)
 	}
 }
 
-void rai::message_header::serialize (rai::stream & stream_a)
+void rai::message_header::serialize (rai::stream & stream_a) const
 {
 	rai::write (stream_a, rai::message_header::magic_number);
 	rai::write (stream_a, version_max);
@@ -74,14 +74,18 @@ void rai::message_header::block_type_set (rai::block_type type_a)
 	extensions |= std::bitset<16> (static_cast<unsigned long long> (type_a) << 8);
 }
 
-bool rai::message_header::ipv4_only ()
+bool rai::message_header::bulk_pull_is_count_present () const
 {
-	return extensions.test (ipv4_only_position);
-}
+	auto result (false);
+	if (type == rai::message_type::bulk_pull)
+	{
+		if (extensions.test (bulk_pull_count_present_flag))
+		{
+			result = true;
+		}
+	}
 
-void rai::message_header::ipv4_only_set (bool value_a)
-{
-	extensions.set (ipv4_only_position, value_a);
+	return result;
 }
 
 // MTU - IP header - UDP header
@@ -146,7 +150,9 @@ std::string rai::message_parser::status_string ()
 	return "[unknown parse_status]";
 }
 
-rai::message_parser::message_parser (rai::message_visitor & visitor_a, rai::work_pool & pool_a) :
+rai::message_parser::message_parser (rai::block_uniquer & block_uniquer_a, rai::vote_uniquer & vote_uniquer_a, rai::message_visitor & visitor_a, rai::work_pool & pool_a) :
+block_uniquer (block_uniquer_a),
+vote_uniquer (vote_uniquer_a),
 visitor (visitor_a),
 pool (pool_a),
 status (parse_status::success)
@@ -237,7 +243,7 @@ void rai::message_parser::deserialize_keepalive (rai::stream & stream_a, rai::me
 void rai::message_parser::deserialize_publish (rai::stream & stream_a, rai::message_header const & header_a)
 {
 	auto error (false);
-	rai::publish incoming (error, stream_a, header_a);
+	rai::publish incoming (error, stream_a, header_a, &block_uniquer);
 	if (!error && at_end (stream_a))
 	{
 		if (!rai::work_validate (*incoming.block))
@@ -258,7 +264,7 @@ void rai::message_parser::deserialize_publish (rai::stream & stream_a, rai::mess
 void rai::message_parser::deserialize_confirm_req (rai::stream & stream_a, rai::message_header const & header_a)
 {
 	auto error (false);
-	rai::confirm_req incoming (error, stream_a, header_a);
+	rai::confirm_req incoming (error, stream_a, header_a, &block_uniquer);
 	if (!error && at_end (stream_a))
 	{
 		if (!rai::work_validate (*incoming.block))
@@ -279,7 +285,7 @@ void rai::message_parser::deserialize_confirm_req (rai::stream & stream_a, rai::
 void rai::message_parser::deserialize_confirm_ack (rai::stream & stream_a, rai::message_header const & header_a)
 {
 	auto error (false);
-	rai::confirm_ack incoming (error, stream_a, header_a);
+	rai::confirm_ack incoming (error, stream_a, header_a, &vote_uniquer);
 	if (!error && at_end (stream_a))
 	{
 		for (auto & vote_block : incoming.vote->blocks)
@@ -350,7 +356,7 @@ void rai::keepalive::visit (rai::message_visitor & visitor_a) const
 	visitor_a.keepalive (*this);
 }
 
-void rai::keepalive::serialize (rai::stream & stream_a)
+void rai::keepalive::serialize (rai::stream & stream_a) const
 {
 	header.serialize (stream_a);
 	for (auto i (peers.begin ()), j (peers.end ()); i != j; ++i)
@@ -387,12 +393,12 @@ bool rai::keepalive::operator== (rai::keepalive const & other_a) const
 	return peers == other_a.peers;
 }
 
-rai::publish::publish (bool & error_a, rai::stream & stream_a, rai::message_header const & header_a) :
+rai::publish::publish (bool & error_a, rai::stream & stream_a, rai::message_header const & header_a, rai::block_uniquer * uniquer_a) :
 message (header_a)
 {
 	if (!error_a)
 	{
-		error_a = deserialize (stream_a);
+		error_a = deserialize (stream_a, uniquer_a);
 	}
 }
 
@@ -403,15 +409,15 @@ block (block_a)
 	header.block_type_set (block->type ());
 }
 
-bool rai::publish::deserialize (rai::stream & stream_a)
+bool rai::publish::deserialize (rai::stream & stream_a, rai::block_uniquer * uniquer_a)
 {
 	assert (header.type == rai::message_type::publish);
-	block = rai::deserialize_block (stream_a, header.block_type ());
+	block = rai::deserialize_block (stream_a, header.block_type (), uniquer_a);
 	auto result (block == nullptr);
 	return result;
 }
 
-void rai::publish::serialize (rai::stream & stream_a)
+void rai::publish::serialize (rai::stream & stream_a) const
 {
 	assert (block != nullptr);
 	header.serialize (stream_a);
@@ -428,12 +434,12 @@ bool rai::publish::operator== (rai::publish const & other_a) const
 	return *block == *other_a.block;
 }
 
-rai::confirm_req::confirm_req (bool & error_a, rai::stream & stream_a, rai::message_header const & header_a) :
+rai::confirm_req::confirm_req (bool & error_a, rai::stream & stream_a, rai::message_header const & header_a, rai::block_uniquer * uniquer_a) :
 message (header_a)
 {
 	if (!error_a)
 	{
-		error_a = deserialize (stream_a);
+		error_a = deserialize (stream_a, uniquer_a);
 	}
 }
 
@@ -444,10 +450,10 @@ block (block_a)
 	header.block_type_set (block->type ());
 }
 
-bool rai::confirm_req::deserialize (rai::stream & stream_a)
+bool rai::confirm_req::deserialize (rai::stream & stream_a, rai::block_uniquer * uniquer_a)
 {
 	assert (header.type == rai::message_type::confirm_req);
-	block = rai::deserialize_block (stream_a, header.block_type ());
+	block = rai::deserialize_block (stream_a, header.block_type (), uniquer_a);
 	auto result (block == nullptr);
 	return result;
 }
@@ -457,7 +463,7 @@ void rai::confirm_req::visit (rai::message_visitor & visitor_a) const
 	visitor_a.confirm_req (*this);
 }
 
-void rai::confirm_req::serialize (rai::stream & stream_a)
+void rai::confirm_req::serialize (rai::stream & stream_a) const
 {
 	assert (block != nullptr);
 	header.serialize (stream_a);
@@ -469,10 +475,14 @@ bool rai::confirm_req::operator== (rai::confirm_req const & other_a) const
 	return *block == *other_a.block;
 }
 
-rai::confirm_ack::confirm_ack (bool & error_a, rai::stream & stream_a, rai::message_header const & header_a) :
+rai::confirm_ack::confirm_ack (bool & error_a, rai::stream & stream_a, rai::message_header const & header_a, rai::vote_uniquer * uniquer_a) :
 message (header_a),
 vote (std::make_shared<rai::vote> (error_a, stream_a, header.block_type ()))
 {
+	if (uniquer_a)
+	{
+		vote = uniquer_a->unique (vote);
+	}
 }
 
 rai::confirm_ack::confirm_ack (std::shared_ptr<rai::vote> vote_a) :
@@ -490,14 +500,18 @@ vote (vote_a)
 	}
 }
 
-bool rai::confirm_ack::deserialize (rai::stream & stream_a)
+bool rai::confirm_ack::deserialize (rai::stream & stream_a, rai::vote_uniquer * uniquer_a)
 {
 	assert (header.type == rai::message_type::confirm_ack);
 	auto result (vote->deserialize (stream_a));
+	if (uniquer_a)
+	{
+		vote = uniquer_a->unique (vote);
+	}
 	return result;
 }
 
-void rai::confirm_ack::serialize (rai::stream & stream_a)
+void rai::confirm_ack::serialize (rai::stream & stream_a) const
 {
 	assert (header.block_type () == rai::block_type::not_a_block || header.block_type () == rai::block_type::send || header.block_type () == rai::block_type::receive || header.block_type () == rai::block_type::open || header.block_type () == rai::block_type::change || header.block_type () == rai::block_type::state);
 	header.serialize (stream_a);
@@ -544,7 +558,7 @@ bool rai::frontier_req::deserialize (rai::stream & stream_a)
 	return result;
 }
 
-void rai::frontier_req::serialize (rai::stream & stream_a)
+void rai::frontier_req::serialize (rai::stream & stream_a) const
 {
 	header.serialize (stream_a);
 	write (stream_a, start.bytes);
@@ -563,12 +577,14 @@ bool rai::frontier_req::operator== (rai::frontier_req const & other_a) const
 }
 
 rai::bulk_pull::bulk_pull () :
-message (rai::message_type::bulk_pull)
+message (rai::message_type::bulk_pull),
+count (0)
 {
 }
 
 rai::bulk_pull::bulk_pull (bool & error_a, rai::stream & stream_a, rai::message_header const & header_a) :
-message (header_a)
+message (header_a),
+count (0)
 {
 	if (!error_a)
 	{
@@ -588,15 +604,71 @@ bool rai::bulk_pull::deserialize (rai::stream & stream_a)
 	if (!result)
 	{
 		result = read (stream_a, end);
+
+		if (!result)
+		{
+			if (is_count_present ())
+			{
+				std::array<uint8_t, extended_parameters_size> count_buffer;
+				static_assert (sizeof (count) < (count_buffer.size () - 1), "count must fit within buffer");
+
+				result = read (stream_a, count_buffer);
+				if (count_buffer[0] != 0)
+				{
+					result = true;
+				}
+				else
+				{
+					memcpy (&count, count_buffer.data () + 1, sizeof (count));
+					boost::endian::little_to_native_inplace (count);
+				}
+			}
+			else
+			{
+				count = 0;
+			}
+		}
 	}
 	return result;
 }
 
-void rai::bulk_pull::serialize (rai::stream & stream_a)
+void rai::bulk_pull::serialize (rai::stream & stream_a) const
 {
+	/*
+	 * Ensure the "count_present" flag is set if there
+	 * is a limit specifed.  Additionally, do not allow
+	 * the "count_present" flag with a value of 0, since
+	 * that is a sentinel which we use to mean "all blocks"
+	 * and that is the behavior of not having the flag set
+	 * so it is wasteful to do this.
+	 */
+	assert ((count == 0 && !is_count_present ()) || (count != 0 && is_count_present ()));
+
 	header.serialize (stream_a);
 	write (stream_a, start);
 	write (stream_a, end);
+
+	if (is_count_present ())
+	{
+		std::array<uint8_t, extended_parameters_size> count_buffer{ { 0 } };
+		decltype (count) count_little_endian;
+		static_assert (sizeof (count_little_endian) < (count_buffer.size () - 1), "count must fit within buffer");
+
+		count_little_endian = boost::endian::native_to_little (count);
+		memcpy (count_buffer.data () + 1, &count_little_endian, sizeof (count_little_endian));
+
+		write (stream_a, count_buffer);
+	}
+}
+
+bool rai::bulk_pull::is_count_present () const
+{
+	return header.extensions.test (count_present_flag);
+}
+
+void rai::bulk_pull::set_count_present (bool value_a)
+{
+	header.extensions.set (count_present_flag, value_a);
 }
 
 rai::bulk_pull_account::bulk_pull_account () :
@@ -633,7 +705,7 @@ bool rai::bulk_pull_account::deserialize (rai::stream & stream_a)
 	return result;
 }
 
-void rai::bulk_pull_account::serialize (rai::stream & stream_a)
+void rai::bulk_pull_account::serialize (rai::stream & stream_a) const
 {
 	header.serialize (stream_a);
 	write (stream_a, account);
@@ -679,7 +751,7 @@ bool rai::bulk_pull_blocks::deserialize (rai::stream & stream_a)
 	return result;
 }
 
-void rai::bulk_pull_blocks::serialize (rai::stream & stream_a)
+void rai::bulk_pull_blocks::serialize (rai::stream & stream_a) const
 {
 	header.serialize (stream_a);
 	write (stream_a, min_hash);
@@ -704,7 +776,7 @@ bool rai::bulk_push::deserialize (rai::stream & stream_a)
 	return false;
 }
 
-void rai::bulk_push::serialize (rai::stream & stream_a)
+void rai::bulk_push::serialize (rai::stream & stream_a) const
 {
 	header.serialize (stream_a);
 }
@@ -732,11 +804,11 @@ response (response)
 {
 	if (query)
 	{
-		header.extensions.set (query_flag);
+		set_query_flag (true);
 	}
 	if (response)
 	{
-		header.extensions.set (response_flag);
+		set_response_flag (true);
 	}
 }
 
@@ -744,7 +816,7 @@ bool rai::node_id_handshake::deserialize (rai::stream & stream_a)
 {
 	auto result (false);
 	assert (header.type == rai::message_type::node_id_handshake);
-	if (!result && header.extensions.test (query_flag))
+	if (!result && is_query_flag ())
 	{
 		rai::uint256_union query_hash;
 		result = read (stream_a, query_hash);
@@ -753,7 +825,7 @@ bool rai::node_id_handshake::deserialize (rai::stream & stream_a)
 			query = query_hash;
 		}
 	}
-	if (!result && header.extensions.test (response_flag))
+	if (!result && is_response_flag ())
 	{
 		rai::account response_account;
 		result = read (stream_a, response_account);
@@ -770,7 +842,7 @@ bool rai::node_id_handshake::deserialize (rai::stream & stream_a)
 	return result;
 }
 
-void rai::node_id_handshake::serialize (rai::stream & stream_a)
+void rai::node_id_handshake::serialize (rai::stream & stream_a) const
 {
 	header.serialize (stream_a);
 	if (query)
@@ -788,6 +860,26 @@ bool rai::node_id_handshake::operator== (rai::node_id_handshake const & other_a)
 {
 	auto result (*query == *other_a.query && *response == *other_a.response);
 	return result;
+}
+
+bool rai::node_id_handshake::is_query_flag () const
+{
+	return header.extensions.test (query_flag);
+}
+
+void rai::node_id_handshake::set_query_flag (bool value_a)
+{
+	header.extensions.set (query_flag, value_a);
+}
+
+bool rai::node_id_handshake::is_response_flag () const
+{
+	return header.extensions.test (response_flag);
+}
+
+void rai::node_id_handshake::set_response_flag (bool value_a)
+{
+	header.extensions.set (response_flag, value_a);
 }
 
 void rai::node_id_handshake::visit (rai::message_visitor & visitor_a) const

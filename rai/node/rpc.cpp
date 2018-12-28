@@ -122,8 +122,8 @@ bool rai::rpc_config::deserialize_json (boost::property_tree::ptree const & tree
 	return result;
 }
 
-rai::rpc::rpc (boost::asio::io_service & service_a, rai::node & node_a, rai::rpc_config const & config_a) :
-acceptor (service_a),
+rai::rpc::rpc (boost::asio::io_context & io_ctx_a, rai::node & node_a, rai::rpc_config const & config_a) :
+acceptor (io_ctx_a),
 config (config_a),
 node (node_a)
 {
@@ -155,9 +155,12 @@ void rai::rpc::accept ()
 {
 	auto connection (std::make_shared<rai::rpc_connection> (node, *this));
 	acceptor.async_accept (connection->socket, [this, connection](boost::system::error_code const & ec) {
-		if (!ec)
+		if (acceptor.is_open ())
 		{
 			accept ();
+		}
+		if (!ec)
+		{
 			connection->parse_connection ();
 		}
 		else
@@ -174,10 +177,10 @@ void rai::rpc::stop ()
 
 rai::rpc_handler::rpc_handler (rai::node & node_a, rai::rpc & rpc_a, std::string const & body_a, std::string const & request_id_a, std::function<void(boost::property_tree::ptree const &)> const & response_a) :
 body (body_a),
+request_id (request_id_a),
 node (node_a),
 rpc (rpc_a),
-response (response_a),
-request_id (request_id_a)
+response (response_a)
 {
 }
 
@@ -545,7 +548,7 @@ void rai::rpc_handler::account_move ()
 				for (auto i (accounts_text.begin ()), n (accounts_text.end ()); i != n; ++i)
 				{
 					rai::public_key account;
-					account.decode_hex (i->second.get<std::string> (""));
+					account.decode_account (i->second.get<std::string> (""));
 					accounts.push_back (account);
 				}
 				auto transaction (node.store.tx_begin_write ());
@@ -935,7 +938,7 @@ void rai::rpc_handler::blocks_info ()
 					if (source)
 					{
 						rai::block_hash source_hash (node.ledger.block_source (transaction, *block));
-						std::unique_ptr<rai::block> block_a (node.store.block_get (transaction, source_hash));
+						auto block_a (node.store.block_get (transaction, source_hash));
 						if (block_a != nullptr)
 						{
 							auto source_account (node.ledger.account (transaction, source_hash));
@@ -1339,6 +1342,53 @@ void rai::rpc_handler::bootstrap_any ()
 	response_errors ();
 }
 
+void rai::rpc_handler::bootstrap_lazy ()
+{
+	rpc_control_impl ();
+	auto hash (hash_impl ());
+	const bool force = request.get<bool> ("force", false);
+	if (!ec)
+	{
+		node.bootstrap_initiator.bootstrap_lazy (hash, force);
+		response_l.put ("started", "1");
+	}
+	response_errors ();
+}
+
+/*
+ * @warning This is an internal/diagnostic RPC, do not rely on its interface being stable
+ */
+void rai::rpc_handler::bootstrap_status ()
+{
+	auto attempt (node.bootstrap_initiator.current_attempt ());
+	if (attempt != nullptr)
+	{
+		response_l.put ("clients", std::to_string (attempt->clients.size ()));
+		response_l.put ("pulls", std::to_string (attempt->pulls.size ()));
+		response_l.put ("pulling", std::to_string (attempt->pulling));
+		response_l.put ("connections", std::to_string (attempt->connections));
+		response_l.put ("idle", std::to_string (attempt->idle.size ()));
+		response_l.put ("target_connections", std::to_string (attempt->target_connections (attempt->pulls.size ())));
+		response_l.put ("total_blocks", std::to_string (attempt->total_blocks));
+		response_l.put ("lazy_mode", attempt->lazy_mode);
+		response_l.put ("lazy_blocks", std::to_string (attempt->lazy_blocks.size ()));
+		response_l.put ("lazy_state_unknown", std::to_string (attempt->lazy_state_unknown.size ()));
+		response_l.put ("lazy_balances", std::to_string (attempt->lazy_balances.size ()));
+		response_l.put ("lazy_pulls", std::to_string (attempt->lazy_pulls.size ()));
+		response_l.put ("lazy_stopped", std::to_string (attempt->lazy_stopped));
+		response_l.put ("lazy_keys", std::to_string (attempt->lazy_keys.size ()));
+		if (!attempt->lazy_keys.empty ())
+		{
+			response_l.put ("lazy_key_1", (*(attempt->lazy_keys.begin ())).to_string ());
+		}
+	}
+	else
+	{
+		response_l.put ("active", "0");
+	}
+	response_errors ();
+}
+
 void rai::rpc_handler::chain (bool successors)
 {
 	auto hash (hash_impl ("block"));
@@ -1380,7 +1430,7 @@ void rai::rpc_handler::confirmation_active ()
 		std::lock_guard<std::mutex> lock (node.active.mutex);
 		for (auto i (node.active.roots.begin ()), n (node.active.roots.end ()); i != n; ++i)
 		{
-			if (i->announcements >= announcements)
+			if (i->election->announcements >= announcements && !i->election->confirmed && !i->election->stopped)
 			{
 				boost::property_tree::ptree entry;
 				entry.put ("", i->root.to_string ());
@@ -1395,16 +1445,27 @@ void rai::rpc_handler::confirmation_active ()
 void rai::rpc_handler::confirmation_history ()
 {
 	boost::property_tree::ptree elections;
+	boost::property_tree::ptree confirmation_stats;
+	std::chrono::milliseconds running_total (0);
 	{
 		std::lock_guard<std::mutex> lock (node.active.mutex);
 		for (auto i (node.active.confirmed.begin ()), n (node.active.confirmed.end ()); i != n; ++i)
 		{
 			boost::property_tree::ptree election;
 			election.put ("hash", i->winner->hash ().to_string ());
+			election.put ("duration", i->election_duration.count ());
+			election.put ("time", i->election_end.count ());
 			election.put ("tally", i->tally.to_string_dec ());
 			elections.push_back (std::make_pair ("", election));
+			running_total += i->election_duration;
 		}
 	}
+	confirmation_stats.put ("count", elections.size ());
+	if (elections.size () >= 1)
+	{
+		confirmation_stats.put ("average", (running_total.count ()) / elections.size ());
+	}
+	response_l.add_child ("confirmation_stats", confirmation_stats);
 	response_l.add_child ("confirmations", elections);
 	response_errors ();
 }
@@ -1421,7 +1482,7 @@ void rai::rpc_handler::confirmation_info ()
 		auto conflict_info (node.active.roots.find (root));
 		if (conflict_info != node.active.roots.end ())
 		{
-			response_l.put ("announcements", std::to_string (conflict_info->announcements));
+			response_l.put ("announcements", std::to_string (conflict_info->election->announcements));
 			auto election (conflict_info->election);
 			rai::uint128_t total (0);
 			response_l.put ("last_winner", election->status.winner->hash ().to_string ());
@@ -1483,6 +1544,19 @@ void rai::rpc_handler::confirmation_quorum ()
 	response_l.put ("online_weight_minimum", node.config.online_weight_minimum.to_string_dec ());
 	response_l.put ("online_stake_total", node.online_reps.online_stake_total.convert_to<std::string> ());
 	response_l.put ("peers_stake_total", node.peers.total_weight ().convert_to<std::string> ());
+	if (request.get<bool> ("peer_details", false))
+	{
+		boost::property_tree::ptree peers;
+		for (auto & peer : node.peers.list_probable_rep_weights ())
+		{
+			boost::property_tree::ptree peer_node;
+			peer_node.put ("account", peer.probable_rep_account.to_account ());
+			peer_node.put ("ip", peer.ip_address.to_string ());
+			peer_node.put ("weight", peer.rep_weight.to_string_dec ());
+			peers.push_back (std::make_pair ("", peer_node));
+		}
+		response_l.add_child ("peers", peers);
+	}
 	response_errors ();
 }
 
@@ -1695,7 +1769,7 @@ public:
 					tree.put ("subtype", "change");
 				}
 			}
-			else if (balance == previous_balance && !handler.node.ledger.epoch_link.is_zero () && block_a.hashables.link == handler.node.ledger.epoch_link)
+			else if (balance == previous_balance && !handler.node.ledger.epoch_link.is_zero () && handler.node.ledger.is_epoch_link (block_a.hashables.link))
 			{
 				if (raw)
 				{
@@ -1737,7 +1811,14 @@ void rai::rpc_handler::account_history ()
 	{
 		if (!hash.decode_hex (*head_str))
 		{
-			account = node.ledger.account (transaction, hash);
+			if (node.store.block_exists (transaction, hash))
+			{
+				account = node.ledger.account (transaction, hash);
+			}
+			else
+			{
+				ec = nano::error_blocks::not_found;
+			}
 		}
 		else
 		{
@@ -1991,6 +2072,36 @@ void rai::rpc_handler::mrai_to_raw (rai::uint128_t ratio)
 		{
 			ec = nano::error_common::invalid_amount_big;
 		}
+	}
+	response_errors ();
+}
+
+/*
+ * @warning This is an internal/diagnostic RPC, do not rely on its interface being stable
+ */
+void rai::rpc_handler::node_id ()
+{
+	rpc_control_impl ();
+	if (!ec)
+	{
+		response_l.put ("private", node.node_id.prv.data.to_string ());
+		response_l.put ("public", node.node_id.pub.to_string ());
+		response_l.put ("as_account", node.node_id.pub.to_account ());
+	}
+	response_errors ();
+}
+
+/*
+ * @warning This is an internal/diagnostic RPC, do not rely on its interface being stable
+ */
+void rai::rpc_handler::node_id_delete ()
+{
+	rpc_control_impl ();
+	if (!ec)
+	{
+		auto transaction (node.store.tx_begin_write ());
+		node.store.delete_node_id (transaction);
+		response_l.put ("deleted", "1");
 	}
 	response_errors ();
 }
@@ -2528,13 +2639,58 @@ void rai::rpc_handler::representatives ()
 
 void rai::rpc_handler::representatives_online ()
 {
-	boost::property_tree::ptree representatives;
-	auto reps (node.online_reps.list ());
-	for (auto & i : reps)
+	const auto accounts_node = request.get_child_optional ("accounts");
+	const bool weight = request.get<bool> ("weight", false);
+	std::vector<rai::public_key> accounts_to_filter;
+	if (accounts_node.is_initialized ())
 	{
-		representatives.put (i.to_account (), "");
+		for (auto & a : (*accounts_node))
+		{
+			rai::public_key account;
+			auto error (account.decode_account (a.second.get<std::string> ("")));
+			if (!error)
+			{
+				accounts_to_filter.push_back (account);
+			}
+			else
+			{
+				ec = nano::error_common::bad_account_number;
+				break;
+			}
+		}
 	}
-	response_l.add_child ("representatives", representatives);
+	if (!ec)
+	{
+		boost::property_tree::ptree representatives;
+		auto reps (node.online_reps.list ());
+		for (auto & i : reps)
+		{
+			if (accounts_node.is_initialized ())
+			{
+				if (accounts_to_filter.empty ())
+				{
+					break;
+				}
+				auto found_acc = std::find (accounts_to_filter.begin (), accounts_to_filter.end (), i);
+				if (found_acc == accounts_to_filter.end ())
+				{
+					continue;
+				}
+				else
+				{
+					accounts_to_filter.erase (found_acc);
+				}
+			}
+			boost::property_tree::ptree weight_node;
+			if (weight)
+			{
+				auto account_weight (node.weight (i));
+				weight_node.put ("weight", account_weight.convert_to<std::string> ());
+			}
+			representatives.add_child (i.to_account (), weight_node);
+		}
+		response_l.add_child ("representatives", representatives);
+	}
 	response_errors ();
 }
 
@@ -2574,7 +2730,7 @@ void rai::rpc_handler::republish ()
 				if (sources != 0) // Republish source chain
 				{
 					rai::block_hash source (node.ledger.block_source (transaction, *block));
-					std::unique_ptr<rai::block> block_a (node.store.block_get (transaction, source));
+					auto block_a (node.store.block_get (transaction, source));
 					std::vector<rai::block_hash> hashes;
 					while (block_a != nullptr && hashes.size () < sources)
 					{
@@ -2605,7 +2761,7 @@ void rai::rpc_handler::republish ()
 						if (!node.store.pending_exists (transaction, rai::pending_key (destination, hash)))
 						{
 							rai::block_hash previous (node.ledger.latest (transaction, destination));
-							std::unique_ptr<rai::block> block_d (node.store.block_get (transaction, previous));
+							auto block_d (node.store.block_get (transaction, previous));
 							rai::block_hash source;
 							std::vector<rai::block_hash> hashes;
 							while (block_d != nullptr && hash != source)
@@ -2673,6 +2829,11 @@ void rai::rpc_handler::send ()
 	rpc_control_impl ();
 	auto wallet (wallet_impl ());
 	auto amount (amount_impl ());
+	// Sending 0 amount is invalid with state blocks
+	if (!ec && amount.is_zero ())
+	{
+		ec = nano::error_common::invalid_amount;
+	}
 	if (!ec)
 	{
 		std::string source_text (request.get<std::string> ("source"));
@@ -2875,13 +3036,13 @@ void rai::rpc_handler::unchecked_keys ()
 	{
 		boost::property_tree::ptree unchecked;
 		auto transaction (node.store.tx_begin_read ());
-		for (auto i (node.store.unchecked_begin (transaction, key)), n (node.store.unchecked_end ()); i != n && unchecked.size () < count; ++i)
+		for (auto i (node.store.unchecked_begin (transaction, rai::unchecked_key (key, 0))), n (node.store.unchecked_end ()); i != n && unchecked.size () < count; ++i)
 		{
 			boost::property_tree::ptree entry;
 			auto block (i->second);
 			std::string contents;
 			block->serialize_json (contents);
-			entry.put ("key", rai::block_hash (i->first).to_string ());
+			entry.put ("key", rai::block_hash (i->first.key ()).to_string ());
 			entry.put ("hash", block->hash ().to_string ());
 			entry.put ("contents", contents);
 			unchecked.push_back (std::make_pair ("", entry));
@@ -3351,7 +3512,7 @@ void rai::rpc_handler::wallet_republish ()
 		{
 			rai::account account (i->first);
 			auto latest (node.ledger.latest (transaction, account));
-			std::unique_ptr<rai::block> block;
+			std::shared_ptr<rai::block> block;
 			std::vector<rai::block_hash> hashes;
 			while (!latest.is_zero () && hashes.size () < count)
 			{
@@ -3388,6 +3549,7 @@ void rai::rpc_handler::wallet_work_get ()
 			rai::account account (i->first);
 			uint64_t work (0);
 			auto error_work (wallet->store.work_get (transaction, account, work));
+			(void)error_work;
 			works.put (account.to_account (), rai::to_string_hex (work));
 		}
 		response_l.add_child ("works", works);
@@ -3454,6 +3616,7 @@ void rai::rpc_handler::work_get ()
 		{
 			uint64_t work (0);
 			auto error_work (wallet->store.work_get (transaction, account, work));
+			(void)error_work;
 			response_l.put ("work", rai::to_string_hex (work));
 		}
 		else
@@ -3550,7 +3713,7 @@ void rai::rpc_handler::work_peers_clear ()
 rai::rpc_connection::rpc_connection (rai::node & node_a, rai::rpc & rpc_a) :
 node (node_a.shared ()),
 rpc (rpc_a),
-socket (node_a.service)
+socket (node_a.io_ctx)
 {
 	responded.clear ();
 }
@@ -3624,11 +3787,40 @@ void rai::rpc_connection::read ()
 
 namespace
 {
-void reprocess_body (std::string & body, boost::property_tree::ptree & tree_a)
+std::string filter_request (boost::property_tree::ptree tree_a)
 {
+	// Replace password
+	boost::optional<std::string> password_text (tree_a.get_optional<std::string> ("password"));
+	if (password_text.is_initialized ())
+	{
+		tree_a.put ("password", "password");
+	}
+	// Save first 2 symbols of wallet, key, seed
+	boost::optional<std::string> wallet_text (tree_a.get_optional<std::string> ("wallet"));
+	if (wallet_text.is_initialized () && wallet_text.get ().length () > 2)
+	{
+		tree_a.put ("wallet", wallet_text.get ().replace (wallet_text.get ().begin () + 2, wallet_text.get ().end (), wallet_text.get ().length () - 2, 'X'));
+	}
+	boost::optional<std::string> key_text (tree_a.get_optional<std::string> ("key"));
+	if (key_text.is_initialized () && key_text.get ().length () > 2)
+	{
+		tree_a.put ("key", key_text.get ().replace (key_text.get ().begin () + 2, key_text.get ().end (), key_text.get ().length () - 2, 'X'));
+	}
+	boost::optional<std::string> seed_text (tree_a.get_optional<std::string> ("seed"));
+	if (seed_text.is_initialized () && seed_text.get ().length () > 2)
+	{
+		tree_a.put ("seed", seed_text.get ().replace (seed_text.get ().begin () + 2, seed_text.get ().end (), seed_text.get ().length () - 2, 'X'));
+	}
+	std::string result;
 	std::stringstream stream;
-	boost::property_tree::write_json (stream, tree_a);
-	body = stream.str ();
+	boost::property_tree::write_json (stream, tree_a, false);
+	result = stream.str ();
+	// removing std::endl
+	if (result.length () > 1)
+	{
+		result.pop_back ();
+	}
+	return result;
 }
 }
 
@@ -3659,27 +3851,9 @@ void rai::rpc_handler::process_request ()
 			std::stringstream istream (body);
 			boost::property_tree::read_json (istream, request);
 			std::string action (request.get<std::string> ("action"));
-			if (action == "password_enter")
-			{
-				password_enter ();
-				request.erase ("password");
-				reprocess_body (body, request);
-			}
-			else if (action == "password_change")
-			{
-				password_change ();
-				request.erase ("password");
-				reprocess_body (body, request);
-			}
-			else if (action == "wallet_unlock")
-			{
-				password_enter ();
-				request.erase ("password");
-				reprocess_body (body, request);
-			}
 			if (node.config.logging.log_rpc ())
 			{
-				BOOST_LOG (node.log) << boost::str (boost::format ("%1% ") % request_id) << body;
+				BOOST_LOG (node.log) << boost::str (boost::format ("%1% ") % request_id) << filter_request (request);
 			}
 			if (action == "account_balance")
 			{
@@ -3805,6 +3979,14 @@ void rai::rpc_handler::process_request ()
 			{
 				bootstrap_any ();
 			}
+			else if (action == "bootstrap_lazy")
+			{
+				bootstrap_lazy ();
+			}
+			else if (action == "bootstrap_status")
+			{
+				bootstrap_status ();
+			}
 			else if (action == "chain")
 			{
 				chain ();
@@ -3882,13 +4064,21 @@ void rai::rpc_handler::process_request ()
 			{
 				mrai_to_raw ();
 			}
+			else if (action == "node_id")
+			{
+				node_id ();
+			}
+			else if (action == "node_id_delete")
+			{
+				node_id_delete ();
+			}
 			else if (action == "password_change")
 			{
-				// Processed before logging
+				password_change ();
 			}
 			else if (action == "password_enter")
 			{
-				// Processed before logging
+				password_enter ();
 			}
 			else if (action == "password_valid")
 			{
@@ -4081,7 +4271,7 @@ void rai::rpc_handler::process_request ()
 			}
 			else if (action == "wallet_unlock")
 			{
-				// Processed before logging
+				password_enter ();
 			}
 			else if (action == "wallet_work_get")
 			{
@@ -4201,21 +4391,21 @@ void rai::payment_observer::complete (rai::payment_status status)
 	}
 }
 
-std::unique_ptr<rai::rpc> rai::get_rpc (boost::asio::io_service & service_a, rai::node & node_a, rai::rpc_config const & config_a)
+std::unique_ptr<rai::rpc> rai::get_rpc (boost::asio::io_context & io_ctx_a, rai::node & node_a, rai::rpc_config const & config_a)
 {
 	std::unique_ptr<rpc> impl;
 
 	if (config_a.secure.enable)
 	{
 #ifdef RAIBLOCKS_SECURE_RPC
-		impl.reset (new rpc_secure (service_a, node_a, config_a));
+		impl.reset (new rpc_secure (io_ctx_a, node_a, config_a));
 #else
 		std::cerr << "RPC configured for TLS, but the node is not compiled with TLS support" << std::endl;
 #endif
 	}
 	else
 	{
-		impl.reset (new rpc (service_a, node_a, config_a));
+		impl.reset (new rpc (io_ctx_a, node_a, config_a));
 	}
 
 	return impl;

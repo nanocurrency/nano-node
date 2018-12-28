@@ -82,7 +82,9 @@ void rai::rpc_secure::load_certs (boost::asio::ssl::context & context_a)
 	{
 		context_a.set_verify_mode (boost::asio::ssl::verify_fail_if_no_peer_cert | boost::asio::ssl::verify_peer);
 		context_a.add_verify_path (config.secure.client_certs_path);
-		context_a.set_verify_callback (boost::bind (&rai::rpc_secure::on_verify_certificate, this, _1, _2));
+		context_a.set_verify_callback ([this](auto preverified, auto & ctx) {
+			return on_verify_certificate (preverified, ctx);
+		});
 	}
 }
 
@@ -97,9 +99,12 @@ void rai::rpc_secure::accept ()
 {
 	auto connection (std::make_shared<rai::rpc_connection_secure> (node, *this));
 	acceptor.async_accept (connection->socket, [this, connection](boost::system::error_code const & ec) {
-		if (!ec)
+		if (acceptor.is_open ())
 		{
 			accept ();
+		}
+		if (!ec)
+		{
 			connection->parse_connection ();
 		}
 		else
@@ -118,11 +123,11 @@ stream (socket, rpc_a.ssl_context)
 void rai::rpc_connection_secure::parse_connection ()
 {
 	// Perform the SSL handshake
+	auto this_l = std::static_pointer_cast<rai::rpc_connection_secure> (shared_from_this ());
 	stream.async_handshake (boost::asio::ssl::stream_base::server,
-	std::bind (
-	&rai::rpc_connection_secure::handle_handshake,
-	std::static_pointer_cast<rai::rpc_connection_secure> (shared_from_this ()),
-	std::placeholders::_1));
+	[this_l](auto & ec) {
+		this_l->handle_handshake (ec);
+	});
 }
 
 void rai::rpc_connection_secure::on_shutdown (const boost::system::error_code & error)
@@ -161,11 +166,9 @@ void rai::rpc_connection_secure::read ()
 					this_l->write_result (body, version);
 					boost::beast::http::async_write (this_l->stream, this_l->res, [this_l](boost::system::error_code const & ec, size_t bytes_transferred) {
 						// Perform the SSL shutdown
-						this_l->stream.async_shutdown (
-						std::bind (
-						&rai::rpc_connection_secure::on_shutdown,
-						this_l,
-						std::placeholders::_1));
+						this_l->stream.async_shutdown ([this_l](auto const & ec_shutdown) {
+							this_l->on_shutdown (ec_shutdown);
+						});
 					});
 
 					if (this_l->node->config.logging.log_rpc ())

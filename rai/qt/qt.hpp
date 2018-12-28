@@ -11,6 +11,7 @@
 
 namespace rai_qt
 {
+static const QString saved_ratio_key = "settings/ratio";
 class wallet;
 class eventloop_processor : public QObject
 {
@@ -66,9 +67,9 @@ public:
 	QHBoxLayout * scale_layout;
 	QLabel * scale_label;
 	QButtonGroup * ratio_group;
-	QRadioButton * mrai;
-	QRadioButton * krai;
-	QRadioButton * rai;
+	QRadioButton * mnano_unit;
+	QRadioButton * knano_unit;
+	QRadioButton * nano_unit;
 	QPushButton * back;
 
 	QWidget * ledger_window;

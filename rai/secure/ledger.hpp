@@ -2,7 +2,6 @@
 
 #include <rai/secure/common.hpp>
 
-struct MDB_txn;
 namespace rai
 {
 class block_store;
@@ -25,13 +24,14 @@ public:
 	rai::uint128_t account_balance (rai::transaction const &, rai::account const &);
 	rai::uint128_t account_pending (rai::transaction const &, rai::account const &);
 	rai::uint128_t weight (rai::transaction const &, rai::account const &);
-	std::unique_ptr<rai::block> successor (rai::transaction const &, rai::block_hash const &);
-	std::unique_ptr<rai::block> forked_block (rai::transaction const &, rai::block const &);
+	std::shared_ptr<rai::block> successor (rai::transaction const &, rai::block_hash const &);
+	std::shared_ptr<rai::block> forked_block (rai::transaction const &, rai::block const &);
 	rai::block_hash latest (rai::transaction const &, rai::account const &);
 	rai::block_hash latest_root (rai::transaction const &, rai::account const &);
 	rai::block_hash representative (rai::transaction const &, rai::block_hash const &);
 	rai::block_hash representative_calculated (rai::transaction const &, rai::block_hash const &);
 	bool block_exists (rai::block_hash const &);
+	bool block_exists (rai::block_type, rai::block_hash const &);
 	std::string block_text (char const *);
 	std::string block_text (rai::block_hash const &);
 	bool is_send (rai::transaction const &, rai::state_block const &);

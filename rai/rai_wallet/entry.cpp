@@ -23,6 +23,7 @@ public:
 	}
 	bool upgrade_json (unsigned version_a, boost::property_tree::ptree & tree_a)
 	{
+		tree_a.put ("version", std::to_string (json_version));
 		auto result (false);
 		switch (version_a)
 		{
@@ -33,7 +34,6 @@ public:
 				tree_a.erase ("account");
 				tree_a.put ("account", account.to_account ());
 				tree_a.erase ("version");
-				tree_a.put ("version", "2");
 				result = true;
 			}
 			case 2:
@@ -43,7 +43,6 @@ public:
 				tree_a.put ("rpc_enable", "false");
 				tree_a.put_child ("rpc", rpc_l);
 				tree_a.erase ("version");
-				tree_a.put ("version", "3");
 				result = true;
 			}
 			case 3:
@@ -60,7 +59,6 @@ public:
 					opencl.serialize_json (opencl_l);
 					tree_a.put_child ("opencl", opencl_l);
 				}
-				tree_a.put ("version", "4");
 				result = true;
 			}
 			case 4:
@@ -119,7 +117,7 @@ public:
 	{
 		std::string wallet_string;
 		wallet.encode_hex (wallet_string);
-		tree_a.put ("version", "4");
+		tree_a.put ("version", std::to_string (json_version));
 		tree_a.put ("wallet", wallet_string);
 		tree_a.put ("account", account.to_account ());
 		boost::property_tree::ptree node_l;
@@ -159,6 +157,7 @@ public:
 	rai::rpc_config rpc;
 	bool opencl_enable;
 	rai::opencl_config opencl;
+	static constexpr int json_version = 4;
 };
 
 namespace
@@ -211,7 +210,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 	rai::set_secure_perm_file (config_path, error_chmod);
 	if (!error)
 	{
-		boost::asio::io_service service;
+		boost::asio::io_context io_ctx;
 		config.node.logging.init (data_path);
 		std::shared_ptr<rai::node> node;
 		std::shared_ptr<rai_qt::wallet> gui;
@@ -221,9 +220,9 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 			return opencl->generate_work (root_a);
 		}
 		                                                      : std::function<boost::optional<uint64_t> (rai::uint256_union const &)> (nullptr));
-		rai::alarm alarm (service);
+		rai::alarm alarm (io_ctx);
 		rai::node_init init;
-		node = std::make_shared<rai::node> (init, service, data_path, alarm, config.node, work);
+		node = std::make_shared<rai::node> (init, io_ctx, data_path, alarm, config.node, work);
 		if (!init.error ())
 		{
 			auto wallet (node->wallets.open (config.wallet));
@@ -257,12 +256,12 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 			assert (wallet->exists (config.account));
 			update_config (config, config_path, config_file);
 			node->start ();
-			std::unique_ptr<rai::rpc> rpc = get_rpc (service, *node, config.rpc);
+			std::unique_ptr<rai::rpc> rpc = get_rpc (io_ctx, *node, config.rpc);
 			if (rpc && config.rpc_enable)
 			{
 				rpc->start ();
 			}
-			rai::thread_runner runner (service, node->config.io_threads);
+			rai::thread_runner runner (io_ctx, node->config.io_threads);
 			QObject::connect (&application, &QApplication::aboutToQuit, [&]() {
 				rpc->stop ();
 				node->stop ();

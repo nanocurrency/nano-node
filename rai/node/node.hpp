@@ -4,8 +4,10 @@
 #include <rai/node/bootstrap.hpp>
 #include <rai/node/logging.hpp>
 #include <rai/node/nodeconfig.hpp>
+#include <rai/node/peers.hpp>
 #include <rai/node/portmapping.hpp>
 #include <rai/node/stats.hpp>
+#include <rai/node/voting.hpp>
 #include <rai/node/wallet.hpp>
 #include <rai/secure/ledger.hpp>
 
@@ -19,24 +21,16 @@
 #include <boost/multi_index_container.hpp>
 #include <boost/thread/thread.hpp>
 
-namespace boost
-{
-namespace program_options
-{
-	class options_description;
-	class variables_map;
-}
-}
-
 namespace rai
 {
-rai::endpoint map_endpoint_to_v6 (rai::endpoint const &);
 class node;
 class election_status
 {
 public:
 	std::shared_ptr<rai::block> winner;
 	rai::amount tally;
+	std::chrono::milliseconds election_end;
+	std::chrono::milliseconds election_duration;
 };
 class vote_info
 {
@@ -57,6 +51,7 @@ class election : public std::enable_shared_from_this<rai::election>
 {
 	std::function<void(std::shared_ptr<rai::block>)> confirmation_action;
 	void confirm_once (rai::transaction const &);
+	void confirm_back (rai::transaction const &);
 
 public:
 	election (rai::node &, std::shared_ptr<rai::block>, std::function<void(std::shared_ptr<rai::block>)> const &);
@@ -70,24 +65,24 @@ public:
 	void confirm_if_quorum (rai::transaction const &);
 	void log_votes (rai::tally_t const &);
 	bool publish (std::shared_ptr<rai::block> block_a);
-	void abort ();
+	void stop ();
 	rai::node & node;
 	std::unordered_map<rai::account, rai::vote_info> last_votes;
 	std::unordered_map<rai::block_hash, std::shared_ptr<rai::block>> blocks;
 	rai::block_hash root;
+	std::chrono::steady_clock::time_point election_start;
 	rai::election_status status;
 	std::atomic<bool> confirmed;
-	bool aborted;
+	bool stopped;
 	std::unordered_map<rai::block_hash, rai::uint128_t> last_tally;
+	unsigned announcements;
 };
 class conflict_info
 {
 public:
 	rai::block_hash root;
+	uint64_t difficulty;
 	std::shared_ptr<rai::election> election;
-	// Number of announcements in a row for this fork
-	unsigned announcements;
-	std::pair<std::shared_ptr<rai::block>, std::shared_ptr<rai::block>> confirm_req_options;
 };
 // Core class for determining consensus
 // Holds all active blocks i.e. recently added blocks that need confirmation
@@ -99,26 +94,26 @@ public:
 	// Start an election for a block
 	// Call action with confirmed block, may be different than what we started with
 	bool start (std::shared_ptr<rai::block>, std::function<void(std::shared_ptr<rai::block>)> const & = [](std::shared_ptr<rai::block>) {});
-	// Also supply alternatives to block, to confirm_req reps with if the boolean argument is true
-	// Should only be used for old elections
-	// The first block should be the one in the ledger
-	bool start (std::pair<std::shared_ptr<rai::block>, std::shared_ptr<rai::block>>, std::function<void(std::shared_ptr<rai::block>)> const & = [](std::shared_ptr<rai::block>) {});
-	bool add (std::pair<std::shared_ptr<rai::block>, std::shared_ptr<rai::block>>, std::function<void(std::shared_ptr<rai::block>)> const & = [](std::shared_ptr<rai::block>) {});
 	// If this returns true, the vote is a replay
 	// If this returns false, the vote may or may not be a replay
-	bool vote (std::shared_ptr<rai::vote>);
+	bool vote (std::shared_ptr<rai::vote>, bool = false);
 	// Is the root of this block in the roots container
 	bool active (rai::block const &);
-	std::deque<std::shared_ptr<rai::block>> list_blocks ();
+	void update_difficulty (rai::block const &);
+	std::deque<std::shared_ptr<rai::block>> list_blocks (bool = false);
 	void erase (rai::block const &);
 	void stop ();
 	bool publish (std::shared_ptr<rai::block> block_a);
 	boost::multi_index_container<
 	rai::conflict_info,
 	boost::multi_index::indexed_by<
-	boost::multi_index::hashed_unique<boost::multi_index::member<rai::conflict_info, rai::block_hash, &rai::conflict_info::root>>>>
+	boost::multi_index::hashed_unique<
+	boost::multi_index::member<rai::conflict_info, rai::block_hash, &rai::conflict_info::root>>,
+	boost::multi_index::ordered_non_unique<
+	boost::multi_index::member<rai::conflict_info, uint64_t, &rai::conflict_info::difficulty>,
+	std::greater<uint64_t>>>>
 	roots;
-	std::unordered_map<rai::block_hash, std::shared_ptr<rai::election>> successors;
+	std::unordered_map<rai::block_hash, std::shared_ptr<rai::election>> blocks;
 	std::deque<rai::election_status> confirmed;
 	rai::node & node;
 	std::mutex mutex;
@@ -130,10 +125,13 @@ public:
 	static unsigned constexpr announcement_long = 20;
 	static unsigned constexpr announce_interval_ms = (rai::rai_network == rai::rai_networks::rai_test_network) ? 10 : 16000;
 	static size_t constexpr election_history_size = 2048;
+	static size_t constexpr max_broadcast_queue = 1000;
 
 private:
+	// Call action with confirmed block, may be different than what we started with
+	bool add (std::shared_ptr<rai::block>, std::function<void(std::shared_ptr<rai::block>)> const & = [](std::shared_ptr<rai::block>) {});
 	void announce_loop ();
-	void announce_votes ();
+	void announce_votes (std::unique_lock<std::mutex> &);
 	std::condition_variable condition;
 	bool started;
 	bool stopped;
@@ -149,11 +147,11 @@ public:
 class alarm
 {
 public:
-	alarm (boost::asio::io_service &);
+	alarm (boost::asio::io_context &);
 	~alarm ();
 	void add (std::chrono::steady_clock::time_point const &, std::function<void()> const &);
 	void run ();
-	boost::asio::io_service & service;
+	boost::asio::io_context & io_ctx;
 	std::mutex mutex;
 	std::condition_variable condition;
 	std::priority_queue<operation, std::vector<operation>, std::greater<operation>> operations;
@@ -184,119 +182,6 @@ public:
 	rai::node & node;
 };
 class work_pool;
-class peer_information
-{
-public:
-	peer_information (rai::endpoint const &, unsigned);
-	peer_information (rai::endpoint const &, std::chrono::steady_clock::time_point const &, std::chrono::steady_clock::time_point const &);
-	rai::endpoint endpoint;
-	boost::asio::ip::address ip_address;
-	std::chrono::steady_clock::time_point last_contact;
-	std::chrono::steady_clock::time_point last_attempt;
-	std::chrono::steady_clock::time_point last_bootstrap_attempt;
-	std::chrono::steady_clock::time_point last_rep_request;
-	std::chrono::steady_clock::time_point last_rep_response;
-	rai::amount rep_weight;
-	rai::account probable_rep_account;
-	unsigned network_version;
-	boost::optional<rai::account> node_id;
-};
-class peer_attempt
-{
-public:
-	rai::endpoint endpoint;
-	std::chrono::steady_clock::time_point last_attempt;
-};
-class syn_cookie_info
-{
-public:
-	rai::uint256_union cookie;
-	std::chrono::steady_clock::time_point created_at;
-};
-class peer_by_ip_addr
-{
-};
-class peer_container
-{
-public:
-	peer_container (rai::endpoint const &);
-	// We were contacted by endpoint, update peers
-	// Returns true if a Node ID handshake should begin
-	bool contacted (rai::endpoint const &, unsigned);
-	// Unassigned, reserved, self
-	bool not_a_peer (rai::endpoint const &, bool);
-	// Returns true if peer was already known
-	bool known_peer (rai::endpoint const &);
-	// Notify of peer we received from
-	bool insert (rai::endpoint const &, unsigned);
-	std::unordered_set<rai::endpoint> random_set (size_t);
-	void random_fill (std::array<rai::endpoint, 8> &);
-	// Request a list of the top known representatives
-	std::vector<peer_information> representatives (size_t);
-	// List of all peers
-	std::deque<rai::endpoint> list ();
-	std::map<rai::endpoint, unsigned> list_version ();
-	std::vector<peer_information> list_vector ();
-	// A list of random peers sized for the configured rebroadcast fanout
-	std::deque<rai::endpoint> list_fanout ();
-	// Get the next peer for attempting bootstrap
-	rai::endpoint bootstrap_peer ();
-	// Purge any peer where last_contact < time_point and return what was left
-	std::vector<rai::peer_information> purge_list (std::chrono::steady_clock::time_point const &);
-	void purge_syn_cookies (std::chrono::steady_clock::time_point const &);
-	std::vector<rai::endpoint> rep_crawl ();
-	bool rep_response (rai::endpoint const &, rai::account const &, rai::amount const &);
-	void rep_request (rai::endpoint const &);
-	// Should we reach out to this endpoint with a keepalive message
-	bool reachout (rai::endpoint const &);
-	// Returns boost::none if the IP is rate capped on syn cookie requests,
-	// or if the endpoint already has a syn cookie query
-	boost::optional<rai::uint256_union> assign_syn_cookie (rai::endpoint const &);
-	// Returns false if valid, true if invalid (true on error convention)
-	// Also removes the syn cookie from the store if valid
-	bool validate_syn_cookie (rai::endpoint const &, rai::account, rai::signature);
-	size_t size ();
-	size_t size_sqrt ();
-	rai::uint128_t total_weight ();
-	rai::uint128_t online_weight_minimum;
-	bool empty ();
-	std::mutex mutex;
-	rai::endpoint self;
-	boost::multi_index_container<
-	peer_information,
-	boost::multi_index::indexed_by<
-	boost::multi_index::hashed_unique<boost::multi_index::member<peer_information, rai::endpoint, &peer_information::endpoint>>,
-	boost::multi_index::ordered_non_unique<boost::multi_index::member<peer_information, std::chrono::steady_clock::time_point, &peer_information::last_contact>>,
-	boost::multi_index::ordered_non_unique<boost::multi_index::member<peer_information, std::chrono::steady_clock::time_point, &peer_information::last_attempt>, std::greater<std::chrono::steady_clock::time_point>>,
-	boost::multi_index::random_access<>,
-	boost::multi_index::ordered_non_unique<boost::multi_index::member<peer_information, std::chrono::steady_clock::time_point, &peer_information::last_bootstrap_attempt>>,
-	boost::multi_index::ordered_non_unique<boost::multi_index::member<peer_information, std::chrono::steady_clock::time_point, &peer_information::last_rep_request>>,
-	boost::multi_index::ordered_non_unique<boost::multi_index::member<peer_information, rai::amount, &peer_information::rep_weight>, std::greater<rai::amount>>,
-	boost::multi_index::ordered_non_unique<boost::multi_index::tag<peer_by_ip_addr>, boost::multi_index::member<peer_information, boost::asio::ip::address, &peer_information::ip_address>>>>
-	peers;
-	boost::multi_index_container<
-	peer_attempt,
-	boost::multi_index::indexed_by<
-	boost::multi_index::hashed_unique<boost::multi_index::member<peer_attempt, rai::endpoint, &peer_attempt::endpoint>>,
-	boost::multi_index::ordered_non_unique<boost::multi_index::member<peer_attempt, std::chrono::steady_clock::time_point, &peer_attempt::last_attempt>>>>
-	attempts;
-	std::mutex syn_cookie_mutex;
-	std::unordered_map<rai::endpoint, syn_cookie_info> syn_cookies;
-	std::unordered_map<boost::asio::ip::address, unsigned> syn_cookies_per_ip;
-	// Number of peers that don't support node ID
-	size_t legacy_peers;
-	// Called when a new peer is observed
-	std::function<void(rai::endpoint const &)> peer_observer;
-	std::function<void()> disconnect_observer;
-	// Number of peers to crawl for being a rep every period
-	static size_t constexpr peers_per_crawl = 8;
-	// Maximum number of peers per IP (includes legacy peers)
-	static size_t constexpr max_peers_per_ip = 10;
-	// Maximum number of legacy peers per IP
-	static size_t constexpr max_legacy_peers_per_ip = 5;
-	// Maximum number of peers that don't support node ID
-	static size_t constexpr max_legacy_peers = 500;
-};
 class send_info
 {
 public:
@@ -343,7 +228,7 @@ public:
 	void recalculate_stake ();
 	rai::uint128_t online_stake ();
 	rai::uint128_t online_stake_total;
-	std::deque<rai::account> list ();
+	std::vector<rai::account> list ();
 	boost::multi_index_container<
 	rai::rep_last_heard_info,
 	boost::multi_index::indexed_by<
@@ -415,16 +300,16 @@ public:
 	void rpc_action (boost::system::error_code const &, size_t);
 	void republish_vote (std::shared_ptr<rai::vote>);
 	void republish_block (std::shared_ptr<rai::block>);
-	static unsigned const broadcast_interval_ms = (rai::rai_network == rai::rai_networks::rai_test_network) ? 10 : 50;
+	static unsigned const broadcast_interval_ms = 10;
 	void republish_block_batch (std::deque<std::shared_ptr<rai::block>>, unsigned = broadcast_interval_ms);
 	void republish (rai::block_hash const &, std::shared_ptr<std::vector<uint8_t>>, rai::endpoint);
-	void publish_broadcast (std::vector<rai::peer_information> &, std::unique_ptr<rai::block>);
 	void confirm_send (rai::confirm_ack const &, std::shared_ptr<std::vector<uint8_t>>, rai::endpoint const &);
 	void merge_peers (std::array<rai::endpoint, 8> const &);
 	void send_keepalive (rai::endpoint const &);
 	void send_node_id_handshake (rai::endpoint const &, boost::optional<rai::uint256_union> const & query, boost::optional<rai::uint256_union> const & respond_to);
 	void broadcast_confirm_req (std::shared_ptr<rai::block>);
 	void broadcast_confirm_req_base (std::shared_ptr<rai::block>, std::shared_ptr<std::vector<rai::peer_information>>, unsigned, bool = false);
+	void broadcast_confirm_req_batch (std::deque<std::pair<std::shared_ptr<rai::block>, std::shared_ptr<std::vector<rai::peer_information>>>>, unsigned = broadcast_interval_ms);
 	void send_confirm_req (rai::endpoint const &, std::shared_ptr<rai::block>);
 	void send_buffer (uint8_t const *, size_t, rai::endpoint const &, std::function<void(boost::system::error_code const &, size_t)>);
 	rai::endpoint endpoint ();
@@ -456,21 +341,27 @@ public:
 	rai::observer_set<rai::account const &, bool> account_balance;
 	rai::observer_set<rai::endpoint const &> endpoint;
 	rai::observer_set<> disconnect;
-	rai::observer_set<> started;
 };
 class vote_processor
 {
 public:
 	vote_processor (rai::node &);
 	void vote (std::shared_ptr<rai::vote>, rai::endpoint);
-	rai::vote_code vote_blocking (rai::transaction const &, std::shared_ptr<rai::vote>, rai::endpoint);
+	// node.active.mutex lock required
+	rai::vote_code vote_blocking (rai::transaction const &, std::shared_ptr<rai::vote>, rai::endpoint, bool = false);
+	void verify_votes (std::deque<std::pair<std::shared_ptr<rai::vote>, rai::endpoint>> &);
 	void flush ();
+	void calculate_weights ();
 	rai::node & node;
 	void stop ();
 
 private:
 	void process_loop ();
 	std::deque<std::pair<std::shared_ptr<rai::vote>, rai::endpoint>> votes;
+	// Representatives levels for random early detection
+	std::unordered_set<rai::account> representatives_1;
+	std::unordered_set<rai::account> representatives_2;
+	std::unordered_set<rai::account> representatives_3;
 	std::condition_variable condition;
 	std::mutex mutex;
 	bool started;
@@ -488,6 +379,37 @@ public:
 	std::mutex mutex;
 	std::unordered_set<rai::block_hash> active;
 };
+class block_processor;
+class signature_check_set
+{
+public:
+	size_t size;
+	unsigned char const ** messages;
+	size_t * message_lengths;
+	unsigned char const ** pub_keys;
+	unsigned char const ** signatures;
+	int * verifications;
+	std::promise<void> * promise;
+};
+class signature_checker
+{
+public:
+	signature_checker ();
+	~signature_checker ();
+	void add (signature_check_set &);
+	void stop ();
+	void flush ();
+
+private:
+	void run ();
+	void verify (rai::signature_check_set & check_a);
+	std::deque<rai::signature_check_set> checks;
+	bool started;
+	bool stopped;
+	std::mutex mutex;
+	std::condition_variable condition;
+	std::thread thread;
+};
 // Processing blocks is a potentially long IO operation
 // This class isolates block insertion from other operations like servicing network operations
 class block_processor
@@ -500,37 +422,37 @@ public:
 	bool full ();
 	void add (std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point);
 	void force (std::shared_ptr<rai::block>);
-	bool should_log ();
+	bool should_log (bool);
 	bool have_blocks ();
 	void process_blocks ();
 	rai::process_return process_receive_one (rai::transaction const &, std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point = std::chrono::steady_clock::now (), bool = false);
 
 private:
 	void queue_unchecked (rai::transaction const &, rai::block_hash const &);
+	void verify_state_blocks (std::unique_lock<std::mutex> &, size_t = std::numeric_limits<size_t>::max ());
 	void process_receive_many (std::unique_lock<std::mutex> &);
-	void verify_state_blocks (std::unique_lock<std::mutex> &);
 	bool stopped;
 	bool active;
 	std::chrono::steady_clock::time_point next_log;
-	std::deque<std::pair<std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point>> blocks;
 	std::deque<std::pair<std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point>> state_blocks;
+	std::deque<std::pair<std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point>> blocks;
 	std::unordered_set<rai::block_hash> blocks_hashes;
 	std::deque<std::shared_ptr<rai::block>> forced;
-	std::deque<std::shared_ptr<rai::block>> processed_active;
 	std::condition_variable condition;
 	rai::node & node;
+	rai::vote_generator generator;
 	std::mutex mutex;
 };
 class node : public std::enable_shared_from_this<rai::node>
 {
 public:
-	node (rai::node_init &, boost::asio::io_service &, uint16_t, boost::filesystem::path const &, rai::alarm &, rai::logging const &, rai::work_pool &);
-	node (rai::node_init &, boost::asio::io_service &, boost::filesystem::path const &, rai::alarm &, rai::node_config const &, rai::work_pool &);
+	node (rai::node_init &, boost::asio::io_context &, uint16_t, boost::filesystem::path const &, rai::alarm &, rai::logging const &, rai::work_pool &);
+	node (rai::node_init &, boost::asio::io_context &, boost::filesystem::path const &, rai::alarm &, rai::node_config const &, rai::work_pool &);
 	~node ();
 	template <typename T>
 	void background (T action_a)
 	{
-		alarm.service.post (action_a);
+		alarm.io_ctx.post (action_a);
 	}
 	void send_keepalive (rai::endpoint const &);
 	bool copy_with_compaction (boost::filesystem::path const &);
@@ -546,28 +468,30 @@ public:
 	void keepalive_preconfigured (std::vector<std::string> const &);
 	rai::block_hash latest (rai::account const &);
 	rai::uint128_t balance (rai::account const &);
-	std::unique_ptr<rai::block> block (rai::block_hash const &);
+	std::shared_ptr<rai::block> block (rai::block_hash const &);
 	std::pair<rai::uint128_t, rai::uint128_t> balance_pending (rai::account const &);
 	rai::uint128_t weight (rai::account const &);
 	rai::account representative (rai::account const &);
 	void ongoing_keepalive ();
 	void ongoing_syn_cookie_cleanup ();
 	void ongoing_rep_crawl ();
+	void ongoing_rep_calculation ();
 	void ongoing_bootstrap ();
 	void ongoing_store_flush ();
 	void backup_wallet ();
 	void search_pending ();
 	int price (rai::uint128_t const &, int);
-	void work_generate_blocking (rai::block &);
-	uint64_t work_generate_blocking (rai::uint256_union const &);
-	void work_generate (rai::uint256_union const &, std::function<void(uint64_t)>);
+	void work_generate_blocking (rai::block &, uint64_t = rai::work_pool::publish_threshold);
+	uint64_t work_generate_blocking (rai::uint256_union const &, uint64_t = rai::work_pool::publish_threshold);
+	void work_generate (rai::uint256_union const &, std::function<void(uint64_t)>, uint64_t = rai::work_pool::publish_threshold);
 	void add_initial_peers ();
 	void block_confirm (std::shared_ptr<rai::block>);
 	void process_fork (rai::transaction const &, std::shared_ptr<rai::block>);
 	bool validate_block_by_previous (rai::transaction const &, std::shared_ptr<rai::block>);
 	rai::uint128_t delta ();
-	boost::asio::io_service & service;
+	boost::asio::io_context & io_ctx;
 	rai::node_config config;
+	rai::node_flags flags;
 	rai::alarm & alarm;
 	rai::work_pool & work;
 	boost::log::sources::logger_mt log;
@@ -584,6 +508,7 @@ public:
 	rai::node_observers observers;
 	rai::wallets wallets;
 	rai::port_mapping port_mapping;
+	rai::signature_checker checker;
 	rai::vote_processor vote_processor;
 	rai::rep_crawler rep_crawler;
 	unsigned warmed_up;
@@ -593,6 +518,8 @@ public:
 	rai::online_reps online_reps;
 	rai::stat stats;
 	rai::keypair node_id;
+	rai::block_uniquer block_uniquer;
+	rai::vote_uniquer vote_uniquer;
 	static double constexpr price_max = 16.0;
 	static double constexpr free_cutoff = 1024.0;
 	static std::chrono::seconds constexpr period = std::chrono::seconds (60);
@@ -604,7 +531,7 @@ public:
 class thread_runner
 {
 public:
-	thread_runner (boost::asio::io_service &, unsigned);
+	thread_runner (boost::asio::io_context &, unsigned);
 	~thread_runner ();
 	void join ();
 	std::vector<boost::thread> threads;
@@ -612,14 +539,15 @@ public:
 class inactive_node
 {
 public:
-	inactive_node (boost::filesystem::path const & path = rai::working_path ());
+	inactive_node (boost::filesystem::path const & path = rai::working_path (), uint16_t = 24000);
 	~inactive_node ();
 	boost::filesystem::path path;
-	std::shared_ptr<boost::asio::io_service> service;
+	std::shared_ptr<boost::asio::io_context> io_context;
 	rai::alarm alarm;
 	rai::logging logging;
 	rai::node_init init;
 	rai::work_pool work;
+	uint16_t peering_port;
 	std::shared_ptr<rai::node> node;
 };
 }
