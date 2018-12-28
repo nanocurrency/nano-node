@@ -44,13 +44,13 @@ run_tests() {
         TIMEOUT_TIME_ARG=""
     fi
 
-    if [ "$(date +%s)" -lt 1545350400 ]; then
-        tries=(1 2 3 4 5 6 7 8 9)
+    if [ "$(date +%s)" -lt 1555718400 ]; then
+        tries=(_initial_ 1 2 3 4 5 6 7 8 9)
     else
-        tries=()
+        tries=(_initial_)
     fi
 
-    for try in _initial_ "${tries[@]}"; do
+    for try in "${tries[@]}"; do
         if [ "${try}" != '_initial_' ]; then
             echo "core_test failed: ${core_test_res}, retrying (try=${try})"
 

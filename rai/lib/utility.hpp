@@ -2,6 +2,7 @@
 
 #include <boost/filesystem.hpp>
 #include <boost/system/error_code.hpp>
+#include <boost/thread/thread.hpp>
 
 #include <functional>
 #include <mutex>
@@ -39,10 +40,17 @@ namespace thread_role
 		announce_loop,
 		wallet_actions,
 		bootstrap_initiator,
+		voting,
+		signature_checking,
 	};
 	rai::thread_role::name get (void);
 	void set (rai::thread_role::name);
 	void set_name (std::string);
+}
+
+namespace thread_attributes
+{
+	void set (boost::thread::attributes &);
 }
 
 template <typename... T>

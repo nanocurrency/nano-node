@@ -125,7 +125,7 @@ char * xrb_work_transaction (const char * transaction)
 		auto block (rai::deserialize_block_json (block_l));
 		if (block != nullptr)
 		{
-			rai::work_pool pool (std::thread::hardware_concurrency ());
+			rai::work_pool pool (boost::thread::hardware_concurrency ());
 			auto work (pool.generate (block->root ()));
 			block->block_work_set (work);
 			auto json (block->to_json ());

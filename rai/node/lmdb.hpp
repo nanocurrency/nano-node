@@ -80,7 +80,7 @@ public:
 	operator MDB_val const & () const;
 	MDB_val value;
 	std::shared_ptr<std::vector<uint8_t>> buffer;
-	rai::epoch epoch;
+	rai::epoch epoch{ rai::epoch::unspecified };
 };
 class block_store;
 
@@ -155,10 +155,11 @@ public:
 	void block_put (rai::transaction const &, rai::block_hash const &, rai::block const &, rai::block_hash const & = rai::block_hash (0), rai::epoch version = rai::epoch::epoch_0) override;
 	rai::block_hash block_successor (rai::transaction const &, rai::block_hash const &) override;
 	void block_successor_clear (rai::transaction const &, rai::block_hash const &) override;
-	std::unique_ptr<rai::block> block_get (rai::transaction const &, rai::block_hash const &) override;
-	std::unique_ptr<rai::block> block_random (rai::transaction const &) override;
+	std::shared_ptr<rai::block> block_get (rai::transaction const &, rai::block_hash const &) override;
+	std::shared_ptr<rai::block> block_random (rai::transaction const &) override;
 	void block_del (rai::transaction const &, rai::block_hash const &) override;
 	bool block_exists (rai::transaction const &, rai::block_hash const &) override;
+	bool block_exists (rai::transaction const &, rai::block_type, rai::block_hash const &) override;
 	rai::block_counts block_count (rai::transaction const &) override;
 	bool root_exists (rai::transaction const &, rai::uint256_union const &) override;
 
@@ -212,12 +213,14 @@ public:
 	rai::store_iterator<rai::account, rai::uint128_union> representation_end () override;
 
 	void unchecked_clear (rai::transaction const &) override;
+	void unchecked_put (rai::transaction const &, rai::unchecked_key const &, std::shared_ptr<rai::block> const &) override;
 	void unchecked_put (rai::transaction const &, rai::block_hash const &, std::shared_ptr<rai::block> const &) override;
 	std::vector<std::shared_ptr<rai::block>> unchecked_get (rai::transaction const &, rai::block_hash const &) override;
-	void unchecked_del (rai::transaction const &, rai::block_hash const &, std::shared_ptr<rai::block>) override;
-	rai::store_iterator<rai::block_hash, std::shared_ptr<rai::block>> unchecked_begin (rai::transaction const &) override;
-	rai::store_iterator<rai::block_hash, std::shared_ptr<rai::block>> unchecked_begin (rai::transaction const &, rai::block_hash const &) override;
-	rai::store_iterator<rai::block_hash, std::shared_ptr<rai::block>> unchecked_end () override;
+	bool unchecked_exists (rai::transaction const &, rai::unchecked_key const &) override;
+	void unchecked_del (rai::transaction const &, rai::unchecked_key const &) override;
+	rai::store_iterator<rai::unchecked_key, std::shared_ptr<rai::block>> unchecked_begin (rai::transaction const &) override;
+	rai::store_iterator<rai::unchecked_key, std::shared_ptr<rai::block>> unchecked_begin (rai::transaction const &, rai::unchecked_key const &) override;
+	rai::store_iterator<rai::unchecked_key, std::shared_ptr<rai::block>> unchecked_end () override;
 	size_t unchecked_count (rai::transaction const &) override;
 
 	void checksum_put (rai::transaction const &, uint64_t, uint8_t, rai::checksum const &) override;
@@ -237,7 +240,8 @@ public:
 	rai::store_iterator<rai::account, std::shared_ptr<rai::vote>> vote_begin (rai::transaction const &) override;
 	rai::store_iterator<rai::account, std::shared_ptr<rai::vote>> vote_end () override;
 	std::mutex cache_mutex;
-	std::unordered_map<rai::account, std::shared_ptr<rai::vote>> vote_cache;
+	std::unordered_map<rai::account, std::shared_ptr<rai::vote>> vote_cache_l1;
+	std::unordered_map<rai::account, std::shared_ptr<rai::vote>> vote_cache_l2;
 
 	void version_put (rai::transaction const &, int) override;
 	int version_get (rai::transaction const &) override;
@@ -367,7 +371,7 @@ public:
 private:
 	MDB_dbi block_database (rai::block_type, rai::epoch);
 	template <typename T>
-	std::unique_ptr<rai::block> block_random (rai::transaction const &, MDB_dbi);
+	std::shared_ptr<rai::block> block_random (rai::transaction const &, MDB_dbi);
 	MDB_val block_raw_get (rai::transaction const &, rai::block_hash const &, rai::block_type &);
 	void block_raw_put (rai::transaction const &, MDB_dbi, rai::block_hash const &, MDB_val);
 	void clear (MDB_dbi);

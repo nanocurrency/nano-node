@@ -20,7 +20,7 @@ TEST (system, generate_mass_activity)
 TEST (system, generate_mass_activity_long)
 {
 	rai::system system (24000, 1);
-	rai::thread_runner runner (system.service, system.nodes[0]->config.io_threads);
+	rai::thread_runner runner (system.io_ctx, system.nodes[0]->config.io_threads);
 	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 	size_t count (1000000000);
 	system.generate_mass_activity (count, *system.nodes[0]);
@@ -36,21 +36,22 @@ TEST (system, generate_mass_activity_long)
 
 TEST (system, receive_while_synchronizing)
 {
-	std::vector<std::thread> threads;
+	std::vector<boost::thread> threads;
 	{
 		rai::system system (24000, 1);
-		rai::thread_runner runner (system.service, system.nodes[0]->config.io_threads);
+		rai::thread_runner runner (system.io_ctx, system.nodes[0]->config.io_threads);
 		system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
 		size_t count (1000);
 		system.generate_mass_activity (count, *system.nodes[0]);
 		rai::keypair key;
 		rai::node_init init1;
-		auto node1 (std::make_shared<rai::node> (init1, system.service, 24001, rai::unique_path (), system.alarm, system.logging, system.work));
+		auto node1 (std::make_shared<rai::node> (init1, system.io_ctx, 24001, rai::unique_path (), system.alarm, system.logging, system.work));
 		ASSERT_FALSE (init1.error ());
 		node1->network.send_keepalive (system.nodes[0]->network.endpoint ());
 		auto wallet (node1->wallets.create (1));
 		ASSERT_EQ (key.pub, wallet->insert_adhoc (key.prv));
 		node1->start ();
+		system.nodes.push_back (node1);
 		system.alarm.add (std::chrono::steady_clock::now () + std::chrono::milliseconds (200), ([&system, &key]() {
 			auto hash (system.wallet (0)->send_sync (rai::test_genesis_key.pub, key.pub, system.nodes[0]->config.receive_minimum.number ()));
 			auto transaction (system.nodes[0]->store.tx_begin ());
@@ -112,7 +113,7 @@ TEST (ledger, deep_account_compute)
 
 TEST (wallet, multithreaded_send)
 {
-	std::vector<std::thread> threads;
+	std::vector<boost::thread> threads;
 	{
 		rai::system system (24000, 1);
 		rai::keypair key;
@@ -120,7 +121,7 @@ TEST (wallet, multithreaded_send)
 		wallet_l->insert_adhoc (rai::test_genesis_key.prv);
 		for (auto i (0); i < 20; ++i)
 		{
-			threads.push_back (std::thread ([wallet_l, &key]() {
+			threads.push_back (boost::thread ([wallet_l, &key]() {
 				for (auto i (0); i < 1000; ++i)
 				{
 					wallet_l->send_action (rai::test_genesis_key.pub, key.pub, 1000);
@@ -141,10 +142,10 @@ TEST (wallet, multithreaded_send)
 TEST (store, load)
 {
 	rai::system system (24000, 1);
-	std::vector<std::thread> threads;
+	std::vector<boost::thread> threads;
 	for (auto i (0); i < 100; ++i)
 	{
-		threads.push_back (std::thread ([&system]() {
+		threads.push_back (boost::thread ([&system]() {
 			for (auto i (0); i != 1000; ++i)
 			{
 				auto transaction (system.nodes[0]->store.tx_begin (true));
@@ -293,6 +294,7 @@ TEST (broadcast, world_broadcast_simulate)
 		}
 	}
 	auto count (heard_count (nodes));
+	(void)count;
 	printf ("");
 }
 
@@ -346,6 +348,7 @@ TEST (broadcast, sqrt_broadcast_simulate)
 		}
 	}
 	auto count (heard_count (nodes));
+	(void)count;
 	printf ("");
 }
 
@@ -368,8 +371,11 @@ TEST (peer_container, random_set)
 		auto list (container.random_set (15));
 	}
 	auto end (std::chrono::steady_clock::now ());
+	(void)end;
 	auto old_ms (std::chrono::duration_cast<std::chrono::milliseconds> (current - old));
+	(void)old_ms;
 	auto new_ms (std::chrono::duration_cast<std::chrono::milliseconds> (end - current));
+	(void)new_ms;
 }
 
 TEST (store, unchecked_load)
@@ -384,6 +390,7 @@ TEST (store, unchecked_load)
 	}
 	auto transaction (node.store.tx_begin ());
 	auto count (node.store.unchecked_count (transaction));
+	(void)count;
 }
 
 TEST (store, vote_load)
@@ -395,5 +402,25 @@ TEST (store, vote_load)
 	{
 		auto vote (std::make_shared<rai::vote> (rai::test_genesis_key.pub, rai::test_genesis_key.prv, i, block));
 		node.vote_processor.vote (vote, system.nodes[0]->network.endpoint ());
+	}
+}
+
+TEST (node, mass_vote_by_hash)
+{
+	rai::system system (24000, 1);
+	system.wallet (0)->insert_adhoc (rai::test_genesis_key.prv);
+	rai::genesis genesis;
+	rai::block_hash previous (genesis.hash ());
+	rai::keypair key;
+	std::vector<std::shared_ptr<rai::state_block>> blocks;
+	for (auto i (0); i < 10000; ++i)
+	{
+		auto block (std::make_shared<rai::state_block> (rai::test_genesis_key.pub, previous, rai::test_genesis_key.pub, rai::genesis_amount - (i + 1) * rai::Gxrb_ratio, key.pub, rai::test_genesis_key.prv, rai::test_genesis_key.pub, system.work.generate (previous)));
+		previous = block->hash ();
+		blocks.push_back (block);
+	}
+	for (auto i (blocks.begin ()), n (blocks.end ()); i != n; ++i)
+	{
+		system.nodes[0]->block_processor.add (*i, std::chrono::steady_clock::now ());
 	}
 }
