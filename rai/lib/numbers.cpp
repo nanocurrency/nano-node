@@ -310,6 +310,12 @@ rai::uint512_union::uint512_union (rai::uint512_t const & number_a)
 	}
 }
 
+bool rai::uint512_union::is_zero () const
+{
+	return qwords[0] == 0 && qwords[1] == 0 && qwords[2] == 0 && qwords[3] == 0
+	&& qwords[4] == 0 && qwords[5] == 0 && qwords[6] == 0 && qwords[7] == 0;
+}
+
 void rai::uint512_union::clear ()
 {
 	bytes.fill (0);

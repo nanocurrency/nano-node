@@ -119,6 +119,7 @@ union uint512_union
 	std::array<uint64_t, 8> qwords;
 	std::array<uint256_union, 2> uint256s;
 	void clear ();
+	bool is_zero () const;
 	rai::uint512_t number () const;
 	std::string to_string () const;
 };

@@ -6,6 +6,20 @@ std::string nano::error_common_messages::message (int ev) const
 	{
 		case nano::error_common::generic:
 			return "Unknown error";
+		case nano::error_common::missing_account:
+			return "Missing account";
+		case nano::error_common::missing_balance:
+			return "Missing balance";
+		case nano::error_common::missing_link:
+			return "Missing link, source or destination";
+		case nano::error_common::missing_previous:
+			return "Missing previous";
+		case nano::error_common::missing_representative:
+			return "Missing representative";
+		case nano::error_common::missing_signature:
+			return "Missing signature";
+		case nano::error_common::missing_work:
+			return "Missing work";
 		case nano::error_common::account_exists:
 			return "Account already exists";
 		case nano::error_common::account_not_found:
@@ -14,6 +28,18 @@ std::string nano::error_common_messages::message (int ev) const
 			return "Account not found in wallet";
 		case nano::error_common::bad_account_number:
 			return "Bad account number";
+		case nano::error_common::bad_balance:
+			return "Bad balance";
+		case nano::error_common::bad_link:
+			return "Bad link value";
+		case nano::error_common::bad_previous:
+			return "Bad previous hash";
+		case nano::error_common::bad_representative_number:
+			return "Bad representative";
+		case nano::error_common::bad_source:
+			return "Bad source";
+		case nano::error_common::bad_signature:
+			return "Bad signature";
 		case nano::error_common::bad_private_key:
 			return "Bad private key";
 		case nano::error_common::bad_public_key:

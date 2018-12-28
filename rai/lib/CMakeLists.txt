@@ -15,6 +15,8 @@ add_library (rai_lib
 	errors.hpp
 	errors.cpp
 	expected.hpp
+	blockbuilders.cpp
+	blockbuilders.hpp
 	blocks.cpp
 	blocks.hpp
 	config.hpp
