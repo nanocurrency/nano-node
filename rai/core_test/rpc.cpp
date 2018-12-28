@@ -3994,4 +3994,3 @@ TEST (rpc, sign_block)
 	ASSERT_NE (block->block_signature (), send.block_signature ());
 	ASSERT_EQ (block->hash (), send.hash ());
 }
-
