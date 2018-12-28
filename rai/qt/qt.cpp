@@ -106,13 +106,12 @@ wallet (wallet_a)
 	});
 }
 
-void rai_qt::self_pane::refresh_balance ()
+void rai_qt::self_pane::set_balance_text (std::pair<rai::uint128_t, rai::uint128_t> balance_a)
 {
-	auto balance (wallet.node.balance_pending (wallet.account));
-	auto final_text (std::string ("Balance: ") + wallet.format_balance (balance.first));
-	if (!balance.second.is_zero ())
+	auto final_text (std::string ("Balance: ") + wallet.format_balance (balance_a.first));
+	if (!balance_a.second.is_zero ())
 	{
-		final_text += "\nPending: " + wallet.format_balance (balance.second);
+		final_text += "\nPending: " + wallet.format_balance (balance_a.second);
 	}
 	wallet.self.balance_label->setText (QString (final_text.c_str ()));
 }
@@ -153,6 +152,7 @@ wallet (wallet_a)
 	layout->addWidget (account_key_button);
 	layout->addWidget (back);
 	window->setLayout (layout);
+
 	QObject::connect (use_account, &QPushButton::released, [this]() {
 		auto selection (view->selectionModel ()->selection ().indexes ());
 		if (selection.size () == 1)
@@ -1045,8 +1045,44 @@ active_status (*this)
 	refresh ();
 }
 
+void rai_qt::wallet::ongoing_refresh ()
+{
+	std::weak_ptr<rai_qt::wallet> wallet_w (shared_from_this ());
+
+	// Update balance if needed. This happens on an alarm thread, which posts back to the UI
+	// to do the actual rendering. This avoid UI lockups as balance_pending may take several
+	// seconds if there's a lot of pending transactions.
+	if (needs_balance_refresh)
+	{
+		needs_balance_refresh = false;
+		auto balance_l (node.balance_pending (account));
+		application.postEvent (&processor, new eventloop_event ([wallet_w, balance_l]() {
+			if (auto this_l = wallet_w.lock ())
+			{
+				this_l->self.set_balance_text (balance_l);
+			}
+		}));
+	}
+
+	// Updates the status line periodically with bootstrap status and block counts.
+	application.postEvent (&processor, new eventloop_event ([wallet_w]() {
+		if (auto this_l = wallet_w.lock ())
+		{
+			this_l->active_status.set_text ();
+		}
+	}));
+
+	node.alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (5), [wallet_w]() {
+		if (auto wallet_l = wallet_w.lock ())
+		{
+			wallet_l->ongoing_refresh ();
+		}
+	});
+}
+
 void rai_qt::wallet::start ()
 {
+	ongoing_refresh ();
 	std::weak_ptr<rai_qt::wallet> this_w (shared_from_this ());
 	QObject::connect (settings_button, &QPushButton::released, [this_w]() {
 		if (auto this_l = this_w.lock ())
@@ -1250,15 +1286,7 @@ void rai_qt::wallet::start ()
 	node.observers.account_balance.add ([this_w](rai::account const & account_a, bool is_pending) {
 		if (auto this_l = this_w.lock ())
 		{
-			this_l->application.postEvent (&this_l->processor, new eventloop_event ([this_w, account_a]() {
-				if (auto this_l = this_w.lock ())
-				{
-					if (account_a == this_l->account)
-					{
-						this_l->self.refresh_balance ();
-					}
-				}
-			}));
+			this_l->needs_balance_refresh = this_l->needs_balance_refresh || account_a == this_l->account;
 		}
 	});
 	node.observers.wallet.add ([this_w](bool active_a) {
@@ -1358,7 +1386,7 @@ void rai_qt::wallet::refresh ()
 		assert (wallet_m->store.exists (transaction, account));
 	}
 	self.account_text->setText (QString (account.to_account ().c_str ()));
-	self.refresh_balance ();
+	needs_balance_refresh = true;
 	accounts.refresh ();
 	history.refresh ();
 	account_viewer.history.refresh ();
@@ -1841,10 +1869,10 @@ wallet (wallet_a)
 		this->wallet.pop_main_stack ();
 	});
 	QObject::connect (search_for_receivables, &QPushButton::released, [this]() {
-		this->wallet.wallet_m->search_pending ();
+		std::thread ([this] { this->wallet.wallet_m->search_pending (); }).detach ();
 	});
 	QObject::connect (bootstrap, &QPushButton::released, [this]() {
-		this->wallet.node.bootstrap_initiator.bootstrap ();
+		std::thread ([this] { this->wallet.node.bootstrap_initiator.bootstrap (); }).detach ();
 	});
 	QObject::connect (create_block, &QPushButton::released, [this]() {
 		this->wallet.push_main_stack (this->wallet.block_creation.window);
