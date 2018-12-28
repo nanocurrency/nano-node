@@ -198,9 +198,11 @@ bool rai::node_config::upgrade_json (unsigned version_a, boost::property_tree::p
 			result = true;
 		case 15:
 			tree_a.put ("allow_local_peers", allow_local_peers);
-			tree_a.put ("vote_minimum", vote_minimum.to_string_dec ());
 			result = true;
 		case 16:
+			tree_a.put ("vote_minimum", vote_minimum.to_string_dec ());
+			result = true;
+		case 17:
 			break;
 		default:
 			throw std::runtime_error ("Unknown node_config version");
