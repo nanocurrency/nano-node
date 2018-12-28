@@ -190,7 +190,7 @@ bool update_config (qt_wallet_config & config_a, boost::filesystem::path const &
 }
 }
 
-int run_wallet (QApplication & application, int argc, char * const * argv, boost::filesystem::path const & data_path, bool backup_enable = true)
+int run_wallet (QApplication & application, int argc, char * const * argv, boost::filesystem::path const & data_path)
 {
 	rai_qt::eventloop_processor processor;
 	boost::system::error_code error_chmod;
@@ -324,7 +324,7 @@ int main (int argc, char * const * argv)
 					{
 						data_path = rai::working_path ();
 					}
-					result = run_wallet (application, argc, argv, data_path, vm.count ("backup_disable") == 0);
+					result = run_wallet (application, argc, argv, data_path);
 				}
 				catch (std::exception const & e)
 				{

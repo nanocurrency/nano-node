@@ -1269,19 +1269,18 @@ void rai::block_processor::queue_unchecked (rai::transaction const & transaction
 	node.gap_cache.blocks.get<1> ().erase (hash_a);
 }
 
-rai::node::node (rai::node_init & init_a, boost::asio::io_service & service_a, uint16_t peering_port_a, boost::filesystem::path const & application_path_a, rai::alarm & alarm_a, rai::logging const & logging_a, rai::work_pool & work_a, bool backup_a) :
-node (init_a, service_a, application_path_a, alarm_a, rai::node_config (peering_port_a, logging_a), work_a, backup_a)
+rai::node::node (rai::node_init & init_a, boost::asio::io_service & service_a, uint16_t peering_port_a, boost::filesystem::path const & application_path_a, rai::alarm & alarm_a, rai::logging const & logging_a, rai::work_pool & work_a) :
+node (init_a, service_a, application_path_a, alarm_a, rai::node_config (peering_port_a, logging_a), work_a)
 {
 }
 
-rai::node::node (rai::node_init & init_a, boost::asio::io_service & service_a, boost::filesystem::path const & application_path_a, rai::alarm & alarm_a, rai::node_config const & config_a, rai::work_pool & work_a, bool backup_a) :
+rai::node::node (rai::node_init & init_a, boost::asio::io_service & service_a, boost::filesystem::path const & application_path_a, rai::alarm & alarm_a, rai::node_config const & config_a, rai::work_pool & work_a) :
 service (service_a),
 config (config_a),
 alarm (alarm_a),
 work (work_a),
 store_impl (std::make_unique<rai::mdb_store> (init_a.block_store_init, application_path_a / "data.ldb", config_a.lmdb_max_dbs)),
 store (*store_impl),
-backup_enable (backup_a),
 gap_cache (*this),
 ledger (store, stats, config.epoch_block_link, config.epoch_block_signer),
 active (*this),

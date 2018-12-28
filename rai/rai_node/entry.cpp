@@ -61,7 +61,7 @@ int main (int argc, char * const * argv)
 		if (vm.count ("daemon") > 0)
 		{
 			rai_daemon::daemon daemon;
-			daemon.run (data_path, vm.count ("backup_disable") == 0);
+			daemon.run (data_path);
 		}
 		else if (vm.count ("debug_block_count"))
 		{

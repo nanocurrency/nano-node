@@ -524,8 +524,8 @@ private:
 class node : public std::enable_shared_from_this<rai::node>
 {
 public:
-	node (rai::node_init &, boost::asio::io_service &, uint16_t, boost::filesystem::path const &, rai::alarm &, rai::logging const &, rai::work_pool &, bool = true);
-	node (rai::node_init &, boost::asio::io_service &, boost::filesystem::path const &, rai::alarm &, rai::node_config const &, rai::work_pool &, bool = true);
+	node (rai::node_init &, boost::asio::io_service &, uint16_t, boost::filesystem::path const &, rai::alarm &, rai::logging const &, rai::work_pool &);
+	node (rai::node_init &, boost::asio::io_service &, boost::filesystem::path const &, rai::alarm &, rai::node_config const &, rai::work_pool &);
 	~node ();
 	template <typename T>
 	void background (T action_a)
@@ -556,7 +556,6 @@ public:
 	void ongoing_bootstrap ();
 	void ongoing_store_flush ();
 	void backup_wallet ();
-	bool backup_enable;
 	void search_pending ();
 	int price (rai::uint128_t const &, int);
 	void work_generate_blocking (rai::block &);
