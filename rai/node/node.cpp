@@ -2040,7 +2040,10 @@ void rai::node::start ()
 	{
 		bootstrap.start ();
 	}
-	backup_wallet ();
+	if (!flags.disable_backup)
+	{
+		backup_wallet ();
+	}
 	search_pending ();
 	online_reps.recalculate_stake ();
 	port_mapping.start ();
@@ -2216,23 +2219,19 @@ void rai::node::ongoing_store_flush ()
 
 void rai::node::backup_wallet ()
 {
-	if (backup_enable)
+	auto transaction (store.tx_begin_read ());
+	for (auto i (wallets.items.begin ()), n (wallets.items.end ()); i != n; ++i)
 	{
-		auto transaction (store.tx_begin_read ());
-		for (auto i (wallets.items.begin ()), n (wallets.items.end ()); i != n; ++i)
-		{
-			boost::system::error_code error_chmod;
-			auto backup_path (application_path / "backup");
+		boost::system::error_code error_chmod;
+		auto backup_path (application_path / "backup");
 
-			boost::filesystem::create_directories (backup_path);
-			rai::set_secure_perm_directory (backup_path, error_chmod);
-			i->second->store.write_backup (transaction, backup_path / (i->first.to_string () + ".json"));
-		}
-		auto this_l (shared ());
-		alarm.add (std::chrono::steady_clock::now () + backup_interval, [this_l]() {
-			this_l->backup_wallet ();
-		});
+		boost::filesystem::create_directories (backup_path);
+		rai::set_secure_perm_directory (backup_path, error_chmod);
+		i->second->store.write_backup (transaction, backup_path / (i->first.to_string () + ".json"));
 	}
+	auto this_l (shared ());
+		alarm.add (std::chrono::steady_clock::now () + backup_interval, [this_l]() {			this_l->backup_wallet ();
+	});
 }
 
 void rai::node::search_pending ()

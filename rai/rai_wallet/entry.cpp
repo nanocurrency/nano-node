@@ -189,7 +189,7 @@ bool update_config (qt_wallet_config & config_a, boost::filesystem::path const &
 }
 }
 
-int run_wallet (QApplication & application, int argc, char * const * argv, boost::filesystem::path const & data_path)
+int run_wallet (QApplication & application, int argc, char * const * argv, boost::filesystem::path const & data_path, rai::node_flags const & flags)
 {
 	rai_qt::eventloop_processor processor;
 	boost::system::error_code error_chmod;
@@ -323,7 +323,12 @@ int main (int argc, char * const * argv)
 					{
 						data_path = rai::working_path ();
 					}
-					result = run_wallet (application, argc, argv, data_path);
+					rai::node_flags flags;
+					flags.disable_backup = (vm.count ("disable_backup") > 0);
+					flags.disable_lazy_bootstrap = (vm.count ("disable_lazy_bootstrap") > 0);
+					flags.disable_legacy_bootstrap = (vm.count ("disable_legacy_bootstrap") > 0);
+					flags.disable_bootstrap_listener = (vm.count ("disable_bootstrap_listener") > 0);
+					result = run_wallet (application, argc, argv, data_path, flags);
 				}
 				catch (std::exception const & e)
 				{
