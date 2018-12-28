@@ -906,10 +906,10 @@ std::string rai_qt::status::text ()
 			break;
 	}
 
-	result += ", Block: ";
+	result += ", Blocks: ";
 	if (unchecked != 0 && wallet.node.bootstrap_initiator.in_progress ())
 	{
-		count_string += " (" + std::to_string (unchecked) + ")";
+		count_string += ", Queued: " + std::to_string (unchecked);
 	}
 	result += count_string.c_str ();
 
