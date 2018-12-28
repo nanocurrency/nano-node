@@ -64,7 +64,7 @@ fi
 echo "All verified."
 echo ""
 echo "Next steps:"
-echo "    cmake -DBOOST_ROOT=${boost_dir} -DRAIBLOCKS_GUI=ON ${cmake_add} <dir>"
+echo "    cmake -DBOOST_ROOT=${boost_dir} -DNANO_GUI=ON ${cmake_add} <dir>"
 echo "    cpack -G \"TBZ2\""
 
 exit 0
