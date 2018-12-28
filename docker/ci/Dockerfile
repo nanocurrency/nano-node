@@ -20,8 +20,6 @@ RUN wget -qO ${BOOST_BASENAME}.tar.gz ${BOOST_URL} && \
     rm -f ${BOOST_BASENAME}.tar.gz && \
     cd ..
 
-RUN apt-get remove wget
-
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update -qq && apt-get install -yqq \
