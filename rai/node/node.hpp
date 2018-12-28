@@ -147,11 +147,11 @@ public:
 class alarm
 {
 public:
-	alarm (boost::asio::io_service &);
+	alarm (boost::asio::io_context &);
 	~alarm ();
 	void add (std::chrono::steady_clock::time_point const &, std::function<void()> const &);
 	void run ();
-	boost::asio::io_service & service;
+	boost::asio::io_context & io_ctx;
 	std::mutex mutex;
 	std::condition_variable condition;
 	std::priority_queue<operation, std::vector<operation>, std::greater<operation>> operations;
@@ -422,14 +422,14 @@ public:
 	bool full ();
 	void add (std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point);
 	void force (std::shared_ptr<rai::block>);
-	bool should_log ();
+	bool should_log (bool);
 	bool have_blocks ();
 	void process_blocks ();
 	rai::process_return process_receive_one (rai::transaction const &, std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point = std::chrono::steady_clock::now (), bool = false);
 
 private:
 	void queue_unchecked (rai::transaction const &, rai::block_hash const &, std::chrono::steady_clock::time_point);
-	void verify_state_blocks (std::unique_lock<std::mutex> &);
+	void verify_state_blocks (std::unique_lock<std::mutex> &, size_t = std::numeric_limits<size_t>::max ());
 	void process_receive_many (std::unique_lock<std::mutex> &);
 	bool stopped;
 	bool active;
@@ -446,13 +446,13 @@ private:
 class node : public std::enable_shared_from_this<rai::node>
 {
 public:
-	node (rai::node_init &, boost::asio::io_service &, uint16_t, boost::filesystem::path const &, rai::alarm &, rai::logging const &, rai::work_pool &);
-	node (rai::node_init &, boost::asio::io_service &, boost::filesystem::path const &, rai::alarm &, rai::node_config const &, rai::work_pool &);
+	node (rai::node_init &, boost::asio::io_context &, uint16_t, boost::filesystem::path const &, rai::alarm &, rai::logging const &, rai::work_pool &);
+	node (rai::node_init &, boost::asio::io_context &, boost::filesystem::path const &, rai::alarm &, rai::node_config const &, rai::work_pool &);
 	~node ();
 	template <typename T>
 	void background (T action_a)
 	{
-		alarm.service.post (action_a);
+		alarm.io_ctx.post (action_a);
 	}
 	void send_keepalive (rai::endpoint const &);
 	bool copy_with_compaction (boost::filesystem::path const &);
@@ -489,7 +489,7 @@ public:
 	void process_fork (rai::transaction const &, std::shared_ptr<rai::block>);
 	bool validate_block_by_previous (rai::transaction const &, std::shared_ptr<rai::block>);
 	rai::uint128_t delta ();
-	boost::asio::io_service & service;
+	boost::asio::io_context & io_ctx;
 	rai::node_config config;
 	rai::node_flags flags;
 	rai::alarm & alarm;
@@ -531,7 +531,7 @@ public:
 class thread_runner
 {
 public:
-	thread_runner (boost::asio::io_service &, unsigned);
+	thread_runner (boost::asio::io_context &, unsigned);
 	~thread_runner ();
 	void join ();
 	std::vector<boost::thread> threads;
@@ -539,14 +539,15 @@ public:
 class inactive_node
 {
 public:
-	inactive_node (boost::filesystem::path const & path = rai::working_path ());
+	inactive_node (boost::filesystem::path const & path = rai::working_path (), uint16_t = 24000);
 	~inactive_node ();
 	boost::filesystem::path path;
-	std::shared_ptr<boost::asio::io_service> service;
+	std::shared_ptr<boost::asio::io_context> io_context;
 	rai::alarm alarm;
 	rai::logging logging;
 	rai::node_init init;
 	rai::work_pool work;
+	uint16_t peering_port;
 	std::shared_ptr<rai::node> node;
 };
 }

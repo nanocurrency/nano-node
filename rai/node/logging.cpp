@@ -20,6 +20,7 @@ log_rpc_value (true),
 bulk_pull_logging_value (false),
 work_generation_time_value (true),
 upnp_details_logging_value (false),
+timing_logging_value (false),
 log_to_cerr_value (false),
 flush (true),
 max_size (16 * 1024 * 1024),
@@ -59,6 +60,7 @@ void rai::logging::serialize_json (boost::property_tree::ptree & tree_a) const
 	tree_a.put ("bulk_pull", bulk_pull_logging_value);
 	tree_a.put ("work_generation_time", work_generation_time_value);
 	tree_a.put ("upnp_details", upnp_details_logging_value);
+	tree_a.put ("timing", timing_logging_value);
 	tree_a.put ("log_to_cerr", log_to_cerr_value);
 	tree_a.put ("max_size", max_size);
 	tree_a.put ("rotation_size", rotation_size);
@@ -83,6 +85,7 @@ bool rai::logging::upgrade_json (unsigned version_a, boost::property_tree::ptree
 			result = true;
 		case 4:
 			tree_a.put ("upnp_details", "false");
+			tree_a.put ("timing", "false");
 			result = true;
 		case 5:
 			break;
@@ -126,6 +129,7 @@ bool rai::logging::deserialize_json (bool & upgraded_a, boost::property_tree::pt
 		bulk_pull_logging_value = tree_a.get<bool> ("bulk_pull");
 		work_generation_time_value = tree_a.get<bool> ("work_generation_time");
 		upnp_details_logging_value = tree_a.get<bool> ("upnp_details");
+		timing_logging_value = tree_a.get<bool> ("timing");
 		log_to_cerr_value = tree_a.get<bool> ("log_to_cerr");
 		max_size = tree_a.get<uintmax_t> ("max_size");
 		rotation_size = tree_a.get<uintmax_t> ("rotation_size", 4194304);
@@ -216,6 +220,11 @@ bool rai::logging::work_generation_time () const
 bool rai::logging::upnp_details_logging () const
 {
 	return upnp_details_logging_value;
+}
+
+bool rai::logging::timing_logging () const
+{
+	return timing_logging_value;
 }
 
 bool rai::logging::log_to_cerr () const

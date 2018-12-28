@@ -18,7 +18,7 @@ std::string rai::error_system_messages::message (int ev) const
 }
 
 rai::system::system (uint16_t port_a, size_t count_a) :
-alarm (service),
+alarm (io_ctx),
 work (1, nullptr)
 {
 	auto scale_str = std::getenv ("DEADLINE_SCALE_FACTOR");
@@ -32,7 +32,7 @@ work (1, nullptr)
 	{
 		rai::node_init init;
 		rai::node_config config (port_a + i, logging);
-		auto node (std::make_shared<rai::node> (init, service, rai::unique_path (), alarm, config, work));
+		auto node (std::make_shared<rai::node> (init, io_ctx, rai::unique_path (), alarm, config, work));
 		assert (!init.error ());
 		node->start ();
 		rai::uint256_union wallet;
@@ -105,7 +105,7 @@ void rai::system::deadline_set (std::chrono::duration<double, std::nano> const &
 std::error_code rai::system::poll (std::chrono::nanoseconds const & wait_time)
 {
 	std::error_code ec;
-	service.run_one_for (wait_time);
+	io_ctx.run_one_for (wait_time);
 
 	if (std::chrono::steady_clock::now () > deadline)
 	{

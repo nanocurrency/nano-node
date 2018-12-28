@@ -65,7 +65,7 @@ class payment_observer;
 class rpc
 {
 public:
-	rpc (boost::asio::io_service &, rai::node &, rai::rpc_config const &);
+	rpc (boost::asio::io_context &, rai::node &, rai::rpc_config const &);
 	virtual ~rpc () = default;
 	void start ();
 	virtual void accept ();
@@ -241,5 +241,5 @@ public:
 	bool rpc_control_impl ();
 };
 /** Returns the correct RPC implementation based on TLS configuration */
-std::unique_ptr<rai::rpc> get_rpc (boost::asio::io_service & service_a, rai::node & node_a, rai::rpc_config const & config_a);
+std::unique_ptr<rai::rpc> get_rpc (boost::asio::io_context & io_ctx_a, rai::node & node_a, rai::rpc_config const & config_a);
 }

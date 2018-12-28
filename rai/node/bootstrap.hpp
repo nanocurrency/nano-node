@@ -219,7 +219,7 @@ class bootstrap_server;
 class bootstrap_listener
 {
 public:
-	bootstrap_listener (boost::asio::io_service &, uint16_t, rai::node &);
+	bootstrap_listener (boost::asio::io_context &, uint16_t, rai::node &);
 	void start ();
 	void stop ();
 	void accept_connection ();
@@ -229,7 +229,7 @@ public:
 	rai::tcp_endpoint endpoint ();
 	boost::asio::ip::tcp::acceptor acceptor;
 	rai::tcp_endpoint local;
-	boost::asio::io_service & service;
+	boost::asio::io_context & io_ctx;
 	rai::node & node;
 	bool on;
 };

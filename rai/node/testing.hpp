@@ -38,7 +38,7 @@ public:
 	std::error_code poll (const std::chrono::nanoseconds & sleep_time = std::chrono::milliseconds (50));
 	void stop ();
 	void deadline_set (const std::chrono::duration<double, std::nano> & delta);
-	boost::asio::io_service service;
+	boost::asio::io_context io_ctx;
 	rai::alarm alarm;
 	std::vector<std::shared_ptr<rai::node>> nodes;
 	rai::logging logging;

@@ -35,8 +35,8 @@ extern size_t rai_bootstrap_weights_size;
 
 rai::network::network (rai::node & node_a, uint16_t port) :
 buffer_container (node_a.stats, rai::network::buffer_size, 4096), // 2Mb receive buffer
-socket (node_a.service, rai::endpoint (boost::asio::ip::address_v6::any (), port)),
-resolver (node_a.service),
+socket (node_a.io_ctx, rai::endpoint (boost::asio::ip::address_v6::any (), port)),
+resolver (node_a.io_ctx),
 node (node_a),
 on (true)
 {
@@ -704,8 +704,8 @@ bool rai::operation::operator> (rai::operation const & other_a) const
 	return wakeup > other_a.wakeup;
 }
 
-rai::alarm::alarm (boost::asio::io_service & service_a) :
-service (service_a),
+rai::alarm::alarm (boost::asio::io_context & io_ctx_a) :
+io_ctx (io_ctx_a),
 thread ([this]() {
 	rai::thread_role::set (rai::thread_role::name::alarm);
 	run ();
@@ -732,7 +732,7 @@ void rai::alarm::run ()
 			{
 				if (operation.wakeup <= std::chrono::steady_clock::now ())
 				{
-					service.post (operation.function);
+					io_ctx.post (operation.function);
 					operations.pop ();
 				}
 				else
@@ -1280,11 +1280,11 @@ void rai::block_processor::process_blocks ()
 	}
 }
 
-bool rai::block_processor::should_log ()
+bool rai::block_processor::should_log (bool first_time)
 {
 	auto result (false);
 	auto now (std::chrono::steady_clock::now ());
-	if (next_log < now)
+	if (first_time || next_log < now)
 	{
 		next_log = now + std::chrono::seconds (15);
 		result = true;
@@ -1298,11 +1298,23 @@ bool rai::block_processor::have_blocks ()
 	return !blocks.empty () || !forced.empty () || !state_blocks.empty ();
 }
 
-void rai::block_processor::verify_state_blocks (std::unique_lock<std::mutex> & lock_a)
+void rai::block_processor::verify_state_blocks (std::unique_lock<std::mutex> & lock_a, size_t max_count)
 {
-	lock_a.lock ();
+	assert (!mutex.try_lock ());
+	auto start_time (std::chrono::steady_clock::now ());
 	std::deque<std::pair<std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point>> items;
-	items.swap (state_blocks);
+	if (max_count == std::numeric_limits<size_t>::max () || max_count >= state_blocks.size ())
+	{
+		items.swap (state_blocks);
+	}
+	else
+	{
+		auto keep_size (state_blocks.size () - max_count);
+		items.resize (keep_size);
+		std::swap_ranges (state_blocks.end () - keep_size, state_blocks.end (), items.begin ());
+		state_blocks.resize (max_count);
+		items.swap (state_blocks);
+	}
 	lock_a.unlock ();
 	auto size (items.size ());
 	std::vector<rai::uint256_union> hashes;
@@ -1340,21 +1352,54 @@ void rai::block_processor::verify_state_blocks (std::unique_lock<std::mutex> & l
 		}
 		items.pop_front ();
 	}
-	lock_a.unlock ();
+	if (node.config.logging.timing_logging ())
+	{
+		auto end_time (std::chrono::steady_clock::now ());
+		auto elapsed_time_ms (std::chrono::duration_cast<std::chrono::milliseconds> (end_time - start_time));
+		auto elapsed_time_ms_int (elapsed_time_ms.count ());
+
+		BOOST_LOG (node.log) << boost::str (boost::format ("Batch verified %1% state blocks in %2% milliseconds") % size % elapsed_time_ms_int);
+	}
 }
 
 void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & lock_a)
 {
-	verify_state_blocks (lock_a);
-	auto transaction (node.store.tx_begin_write ());
+	lock_a.lock ();
 	auto start_time (std::chrono::steady_clock::now ());
+	// Limit state blocks verification time
+	while (!state_blocks.empty () && std::chrono::steady_clock::now () - start_time < std::chrono::seconds (2))
+	{
+		verify_state_blocks (lock_a, 2048);
+	}
+	lock_a.unlock ();
+	auto transaction (node.store.tx_begin_write ());
+	start_time = std::chrono::steady_clock::now ();
 	lock_a.lock ();
 	// Processing blocks
+	auto first_time (true);
+	unsigned number_of_blocks_processed (0), number_of_forced_processed (0);
 	while ((!blocks.empty () || !forced.empty ()) && std::chrono::steady_clock::now () - start_time < node.config.block_processor_batch_max_time)
 	{
-		if ((blocks.size () + state_blocks.size ()) > 64 && should_log ())
+		auto log_this_record (false);
+		if (node.config.logging.timing_logging ())
 		{
-			BOOST_LOG (node.log) << boost::str (boost::format ("%1% blocks in processing queue") % (blocks.size () + state_blocks.size ()));
+			if (should_log (first_time))
+			{
+				log_this_record = true;
+			}
+		}
+		else
+		{
+			if (((blocks.size () + state_blocks.size () + forced.size ()) > 64 && should_log (false)))
+			{
+				log_this_record = true;
+			}
+		}
+
+		if (log_this_record)
+		{
+			first_time = false;
+			BOOST_LOG (node.log) << boost::str (boost::format ("%1% blocks (+ %2% state blocks) (+ %3% forced) in processing queue") % blocks.size () % state_blocks.size () % forced.size ());
 		}
 		std::pair<std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point> block;
 		bool force (false);
@@ -1369,6 +1414,7 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 			block = std::make_pair (forced.front (), std::chrono::steady_clock::now ());
 			forced.pop_front ();
 			force = true;
+			number_of_forced_processed++;
 		}
 		lock_a.unlock ();
 		auto hash (block.first->hash ());
@@ -1386,10 +1432,26 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 		Because of that we should set set validated_state_block as "false" for forced state blocks (!force) */
 		bool validated_state_block (!force && block.first->type () == rai::block_type::state);
 		auto process_result (process_receive_one (transaction, block.first, block.second, validated_state_block));
+		number_of_blocks_processed++;
 		(void)process_result;
 		lock_a.lock ();
+		/* Verify more state blocks if blocks deque is empty
+		Because verification is long process, avoid large deque verification inside of write transaction */
+		if (blocks.empty () && !state_blocks.empty ())
+		{
+			verify_state_blocks (lock_a, 256);
+		}
 	}
 	lock_a.unlock ();
+
+	if (node.config.logging.timing_logging ())
+	{
+		auto end_time (std::chrono::steady_clock::now ());
+		auto elapsed_time_ms (std::chrono::duration_cast<std::chrono::milliseconds> (end_time - start_time));
+		auto elapsed_time_ms_int (elapsed_time_ms.count ());
+
+		BOOST_LOG (node.log) << boost::str (boost::format ("Processed %1% blocks (%2% blocks were forced) in %3% milliseconds") % number_of_blocks_processed % number_of_forced_processed % elapsed_time_ms_int);
+	}
 }
 
 rai::process_return rai::block_processor::process_receive_one (rai::transaction const & transaction_a, std::shared_ptr<rai::block> block_a, std::chrono::steady_clock::time_point origination, bool validated_state_block)
@@ -1523,20 +1585,20 @@ void rai::block_processor::queue_unchecked (rai::transaction const & transaction
 	auto cached (node.store.unchecked_get (transaction_a, hash_a));
 	for (auto i (cached.begin ()), n (cached.end ()); i != n; ++i)
 	{
-		node.store.unchecked_del (transaction_a, hash_a, *i);
+		node.store.unchecked_del (transaction_a, rai::unchecked_key (hash_a, (*i)->hash ()));
 		add (*i, origination);
 	}
 	std::lock_guard<std::mutex> lock (node.gap_cache.mutex);
 	node.gap_cache.blocks.get<1> ().erase (hash_a);
 }
 
-rai::node::node (rai::node_init & init_a, boost::asio::io_service & service_a, uint16_t peering_port_a, boost::filesystem::path const & application_path_a, rai::alarm & alarm_a, rai::logging const & logging_a, rai::work_pool & work_a) :
-node (init_a, service_a, application_path_a, alarm_a, rai::node_config (peering_port_a, logging_a), work_a)
+rai::node::node (rai::node_init & init_a, boost::asio::io_context & io_ctx_a, uint16_t peering_port_a, boost::filesystem::path const & application_path_a, rai::alarm & alarm_a, rai::logging const & logging_a, rai::work_pool & work_a) :
+node (init_a, io_ctx_a, application_path_a, alarm_a, rai::node_config (peering_port_a, logging_a), work_a)
 {
 }
 
-rai::node::node (rai::node_init & init_a, boost::asio::io_service & service_a, boost::filesystem::path const & application_path_a, rai::alarm & alarm_a, rai::node_config const & config_a, rai::work_pool & work_a) :
-service (service_a),
+rai::node::node (rai::node_init & init_a, boost::asio::io_context & io_ctx_a, boost::filesystem::path const & application_path_a, rai::alarm & alarm_a, rai::node_config const & config_a, rai::work_pool & work_a) :
+io_ctx (io_ctx_a),
 config (config_a),
 alarm (alarm_a),
 work (work_a),
@@ -1547,7 +1609,7 @@ ledger (store, stats, config.epoch_block_link, config.epoch_block_signer),
 active (*this),
 network (*this, config.peering_port),
 bootstrap_initiator (*this),
-bootstrap (service_a, config.peering_port, *this),
+bootstrap (io_ctx_a, config.peering_port, *this),
 peers (network.endpoint ()),
 application_path (application_path_a),
 wallets (init_a.block_store_init, *this),
@@ -1597,13 +1659,13 @@ vote_uniquer (block_uniquer)
 					auto address (node_l->config.callback_address);
 					auto port (node_l->config.callback_port);
 					auto target (std::make_shared<std::string> (node_l->config.callback_target));
-					auto resolver (std::make_shared<boost::asio::ip::tcp::resolver> (node_l->service));
+					auto resolver (std::make_shared<boost::asio::ip::tcp::resolver> (node_l->io_ctx));
 					resolver->async_resolve (boost::asio::ip::tcp::resolver::query (address, std::to_string (port)), [node_l, address, port, target, body, resolver](boost::system::error_code const & ec, boost::asio::ip::tcp::resolver::iterator i_a) {
 						if (!ec)
 						{
 							for (auto i (i_a), n (boost::asio::ip::tcp::resolver::iterator{}); i != n; ++i)
 							{
-								auto sock (std::make_shared<boost::asio::ip::tcp::socket> (node_l->service));
+								auto sock (std::make_shared<boost::asio::ip::tcp::socket> (node_l->io_ctx));
 								sock->async_connect (i->endpoint (), [node_l, target, body, sock, address, port](boost::system::error_code const & ec) {
 									if (!ec)
 									{
@@ -1804,7 +1866,7 @@ void rai::node::send_keepalive (rai::endpoint const & endpoint_a)
 void rai::node::process_fork (rai::transaction const & transaction_a, std::shared_ptr<rai::block> block_a)
 {
 	auto root (block_a->root ());
-	if (!store.block_exists (transaction_a, block_a->hash ()) && store.root_exists (transaction_a, block_a->root ()))
+	if (!store.block_exists (transaction_a, block_a->type (), block_a->hash ()) && store.root_exists (transaction_a, block_a->root ()))
 	{
 		std::shared_ptr<rai::block> ledger_block (ledger.forked_block (transaction_a, *block_a));
 		if (ledger_block)
@@ -2200,10 +2262,10 @@ namespace
 class work_request
 {
 public:
-	work_request (boost::asio::io_service & service_a, boost::asio::ip::address address_a, uint16_t port_a) :
+	work_request (boost::asio::io_context & io_ctx_a, boost::asio::ip::address address_a, uint16_t port_a) :
 	address (address_a),
 	port (port_a),
-	socket (service_a)
+	socket (io_ctx_a)
 	{
 	}
 	boost::asio::ip::address address;
@@ -2280,7 +2342,7 @@ public:
 				auto host (i.first);
 				auto service (i.second);
 				node->background ([this_l, host, service]() {
-					auto connection (std::make_shared<work_request> (this_l->node->service, host, service));
+					auto connection (std::make_shared<work_request> (this_l->node->io_ctx, host, service));
 					connection->socket.async_connect (rai::tcp_endpoint (host, service), [this_l, connection](boost::system::error_code const & ec) {
 						if (!ec)
 						{
@@ -2366,7 +2428,7 @@ public:
 				request.version (11);
 				request.body () = request_string;
 				request.prepare_payload ();
-				auto socket (std::make_shared<boost::asio::ip::tcp::socket> (this_l->node->service));
+				auto socket (std::make_shared<boost::asio::ip::tcp::socket> (this_l->node->io_ctx));
 				boost::beast::http::async_write (*socket, request, [socket](boost::system::error_code const & ec, size_t bytes_transferred) {
 				});
 			});
@@ -2583,13 +2645,13 @@ public:
 void rai::node::process_confirmed (std::shared_ptr<rai::block> block_a)
 {
 	auto hash (block_a->hash ());
-	bool exists (ledger.block_exists (hash));
+	bool exists (ledger.block_exists (block_a->type (), hash));
 	// Attempt to process confirmed block if it's not in ledger yet
 	if (!exists)
 	{
 		auto transaction (store.tx_begin_write ());
 		block_processor.process_receive_one (transaction, block_a);
-		exists = store.block_exists (transaction, hash);
+		exists = store.block_exists (transaction, block_a->type (), hash);
 	}
 	if (exists)
 	{
@@ -3517,24 +3579,24 @@ int rai::node::store_version ()
 	return store.version_get (transaction);
 }
 
-rai::thread_runner::thread_runner (boost::asio::io_service & service_a, unsigned service_threads_a)
+rai::thread_runner::thread_runner (boost::asio::io_context & io_ctx_a, unsigned service_threads_a)
 {
 	boost::thread::attributes attrs;
 	rai::thread_attributes::set (attrs);
 	for (auto i (0); i < service_threads_a; ++i)
 	{
-		threads.push_back (boost::thread (attrs, [&service_a]() {
+		threads.push_back (boost::thread (attrs, [&io_ctx_a]() {
 			rai::thread_role::set (rai::thread_role::name::io);
 			try
 			{
-				service_a.run ();
+				io_ctx_a.run ();
 			}
 			catch (...)
 			{
 #ifndef NDEBUG
 				/*
 				 * In a release build, catch and swallow the
-				 * service exception, in debug mode pass it
+				 * io_context exception, in debug mode pass it
 				 * on
 				 */
 				throw;
@@ -3560,11 +3622,12 @@ void rai::thread_runner::join ()
 	}
 }
 
-rai::inactive_node::inactive_node (boost::filesystem::path const & path) :
+rai::inactive_node::inactive_node (boost::filesystem::path const & path, uint16_t peering_port_a) :
 path (path),
-service (std::make_shared<boost::asio::io_service> ()),
-alarm (*service),
-work (1, nullptr)
+io_context (std::make_shared<boost::asio::io_context> ()),
+alarm (*io_context),
+work (1, nullptr),
+peering_port (peering_port_a)
 {
 	boost::system::error_code error_chmod;
 
@@ -3575,7 +3638,7 @@ work (1, nullptr)
 	rai::set_secure_perm_directory (path, error_chmod);
 	logging.max_size = std::numeric_limits<std::uintmax_t>::max ();
 	logging.init (path);
-	node = std::make_shared<rai::node> (init, *service, 24000, path, alarm, logging, work);
+	node = std::make_shared<rai::node> (init, *io_context, peering_port, path, alarm, logging, work);
 }
 
 rai::inactive_node::~inactive_node ()

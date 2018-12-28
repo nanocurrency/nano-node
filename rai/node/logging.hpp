@@ -29,6 +29,7 @@ public:
 	bool node_lifetime_tracing () const;
 	bool insufficient_work_logging () const;
 	bool upnp_details_logging () const;
+	bool timing_logging () const;
 	bool log_rpc () const;
 	bool bulk_pull_logging () const;
 	bool callback_logging () const;
@@ -51,6 +52,7 @@ public:
 	bool bulk_pull_logging_value;
 	bool work_generation_time_value;
 	bool upnp_details_logging_value;
+	bool timing_logging_value;
 	bool log_to_cerr_value;
 	bool flush;
 	uintmax_t max_size;

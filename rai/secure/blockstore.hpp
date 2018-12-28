@@ -200,6 +200,7 @@ public:
 	virtual std::shared_ptr<rai::block> block_random (rai::transaction const &) = 0;
 	virtual void block_del (rai::transaction const &, rai::block_hash const &) = 0;
 	virtual bool block_exists (rai::transaction const &, rai::block_hash const &) = 0;
+	virtual bool block_exists (rai::transaction const &, rai::block_type, rai::block_hash const &) = 0;
 	virtual rai::block_counts block_count (rai::transaction const &) = 0;
 	virtual bool root_exists (rai::transaction const &, rai::uint256_union const &) = 0;
 
@@ -254,12 +255,14 @@ public:
 	virtual rai::store_iterator<rai::account, rai::uint128_union> representation_end () = 0;
 
 	virtual void unchecked_clear (rai::transaction const &) = 0;
+	virtual void unchecked_put (rai::transaction const &, rai::unchecked_key const &, std::shared_ptr<rai::block> const &) = 0;
 	virtual void unchecked_put (rai::transaction const &, rai::block_hash const &, std::shared_ptr<rai::block> const &) = 0;
 	virtual std::vector<std::shared_ptr<rai::block>> unchecked_get (rai::transaction const &, rai::block_hash const &) = 0;
-	virtual void unchecked_del (rai::transaction const &, rai::block_hash const &, std::shared_ptr<rai::block>) = 0;
-	virtual rai::store_iterator<rai::block_hash, std::shared_ptr<rai::block>> unchecked_begin (rai::transaction const &) = 0;
-	virtual rai::store_iterator<rai::block_hash, std::shared_ptr<rai::block>> unchecked_begin (rai::transaction const &, rai::block_hash const &) = 0;
-	virtual rai::store_iterator<rai::block_hash, std::shared_ptr<rai::block>> unchecked_end () = 0;
+	virtual bool unchecked_exists (rai::transaction const &, rai::unchecked_key const &) = 0;
+	virtual void unchecked_del (rai::transaction const &, rai::unchecked_key const &) = 0;
+	virtual rai::store_iterator<rai::unchecked_key, std::shared_ptr<rai::block>> unchecked_begin (rai::transaction const &) = 0;
+	virtual rai::store_iterator<rai::unchecked_key, std::shared_ptr<rai::block>> unchecked_begin (rai::transaction const &, rai::unchecked_key const &) = 0;
+	virtual rai::store_iterator<rai::unchecked_key, std::shared_ptr<rai::block>> unchecked_end () = 0;
 	virtual size_t unchecked_count (rai::transaction const &) = 0;
 
 	virtual void checksum_put (rai::transaction const &, uint64_t, uint8_t, rai::checksum const &) = 0;

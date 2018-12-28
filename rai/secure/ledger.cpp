@@ -217,7 +217,7 @@ void ledger_processor::state_block (rai::state_block const & block_a)
 void ledger_processor::state_block_impl (rai::state_block const & block_a)
 {
 	auto hash (block_a.hash ());
-	auto existing (ledger.store.block_exists (transaction, hash));
+	auto existing (ledger.store.block_exists (transaction, block_a.type (), hash));
 	result.code = existing ? rai::process_result::old : rai::process_result::progress; // Have we seen this block before? (Unambiguous)
 	if (result.code == rai::process_result::progress)
 	{
@@ -267,7 +267,7 @@ void ledger_processor::state_block_impl (rai::state_block const & block_a)
 					{
 						if (!block_a.hashables.link.is_zero ())
 						{
-							result.code = ledger.store.block_exists (transaction, block_a.hashables.link) ? rai::process_result::progress : rai::process_result::gap_source; // Have we seen the source block already? (Harmless)
+							result.code = (ledger.store.block_exists (transaction, rai::block_type::state, block_a.hashables.link) || ledger.store.block_exists (transaction, rai::block_type::send, block_a.hashables.link)) ? rai::process_result::progress : rai::process_result::gap_source; // Have we seen the source block already? (Harmless)
 							if (result.code == rai::process_result::progress)
 							{
 								rai::pending_key key (block_a.hashables.account, block_a.hashables.link);
@@ -328,7 +328,7 @@ void ledger_processor::state_block_impl (rai::state_block const & block_a)
 void ledger_processor::epoch_block_impl (rai::state_block const & block_a)
 {
 	auto hash (block_a.hash ());
-	auto existing (ledger.store.block_exists (transaction, hash));
+	auto existing (ledger.store.block_exists (transaction, block_a.type (), hash));
 	result.code = existing ? rai::process_result::old : rai::process_result::progress; // Have we seen this block before? (Unambiguous)
 	if (result.code == rai::process_result::progress)
 	{
@@ -391,7 +391,7 @@ void ledger_processor::epoch_block_impl (rai::state_block const & block_a)
 void ledger_processor::change_block (rai::change_block const & block_a)
 {
 	auto hash (block_a.hash ());
-	auto existing (ledger.store.block_exists (transaction, hash));
+	auto existing (ledger.store.block_exists (transaction, block_a.type (), hash));
 	result.code = existing ? rai::process_result::old : rai::process_result::progress; // Have we seen this block before? (Harmless)
 	if (result.code == rai::process_result::progress)
 	{
@@ -433,7 +433,7 @@ void ledger_processor::change_block (rai::change_block const & block_a)
 void ledger_processor::send_block (rai::send_block const & block_a)
 {
 	auto hash (block_a.hash ());
-	auto existing (ledger.store.block_exists (transaction, hash));
+	auto existing (ledger.store.block_exists (transaction, block_a.type (), hash));
 	result.code = existing ? rai::process_result::old : rai::process_result::progress; // Have we seen this block before? (Harmless)
 	if (result.code == rai::process_result::progress)
 	{
@@ -480,7 +480,7 @@ void ledger_processor::send_block (rai::send_block const & block_a)
 void ledger_processor::receive_block (rai::receive_block const & block_a)
 {
 	auto hash (block_a.hash ());
-	auto existing (ledger.store.block_exists (transaction, hash));
+	auto existing (ledger.store.block_exists (transaction, block_a.type (), hash));
 	result.code = existing ? rai::process_result::old : rai::process_result::progress; // Have we seen this block already?  (Harmless)
 	if (result.code == rai::process_result::progress)
 	{
@@ -491,7 +491,7 @@ void ledger_processor::receive_block (rai::receive_block const & block_a)
 			result.code = block_a.valid_predecessor (*previous) ? rai::process_result::progress : rai::process_result::block_position;
 			if (result.code == rai::process_result::progress)
 			{
-				result.code = ledger.store.block_exists (transaction, block_a.hashables.source) ? rai::process_result::progress : rai::process_result::gap_source; // Have we seen the source block already? (Harmless)
+				result.code = (ledger.store.block_exists (transaction, rai::block_type::send, block_a.hashables.source) || ledger.store.block_exists (transaction, rai::block_type::state, block_a.hashables.source)) ? rai::process_result::progress : rai::process_result::gap_source; // Have we seen the source block already? (Harmless)
 				if (result.code == rai::process_result::progress)
 				{
 					auto account (ledger.store.frontier_get (transaction, block_a.hashables.previous));
@@ -545,11 +545,11 @@ void ledger_processor::receive_block (rai::receive_block const & block_a)
 void ledger_processor::open_block (rai::open_block const & block_a)
 {
 	auto hash (block_a.hash ());
-	auto existing (ledger.store.block_exists (transaction, hash));
+	auto existing (ledger.store.block_exists (transaction, block_a.type (), hash));
 	result.code = existing ? rai::process_result::old : rai::process_result::progress; // Have we seen this block already? (Harmless)
 	if (result.code == rai::process_result::progress)
 	{
-		auto source_missing (!ledger.store.block_exists (transaction, block_a.hashables.source));
+		auto source_missing (!ledger.store.block_exists (transaction, rai::block_type::send, block_a.hashables.source) && !ledger.store.block_exists (transaction, rai::block_type::state, block_a.hashables.source));
 		result.code = source_missing ? rai::process_result::gap_source : rai::process_result::progress; // Have we seen the source block? (Harmless)
 		if (result.code == rai::process_result::progress)
 		{
@@ -682,6 +682,13 @@ bool rai::ledger::block_exists (rai::block_hash const & hash_a)
 {
 	auto transaction (store.tx_begin_read ());
 	auto result (store.block_exists (transaction, hash_a));
+	return result;
+}
+
+bool rai::ledger::block_exists (rai::block_type type, rai::block_hash const & hash_a)
+{
+	auto transaction (store.tx_begin_read ());
+	auto result (store.block_exists (transaction, type, hash_a));
 	return result;
 }
 
@@ -1005,7 +1012,7 @@ std::shared_ptr<rai::block> rai::ledger::successor (rai::transaction const & tra
 
 std::shared_ptr<rai::block> rai::ledger::forked_block (rai::transaction const & transaction_a, rai::block const & block_a)
 {
-	assert (!store.block_exists (transaction_a, block_a.hash ()));
+	assert (!store.block_exists (transaction_a, block_a.type (), block_a.hash ()));
 	auto root (block_a.root ());
 	assert (store.block_exists (transaction_a, root) || store.account_exists (transaction_a, root));
 	auto result (store.block_get (transaction_a, store.block_successor (transaction_a, root)));
