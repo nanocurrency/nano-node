@@ -1207,6 +1207,32 @@ void nano::mdb_store::clear (MDB_dbi db_a)
 
 nano::uint128_t nano::mdb_store::block_balance (nano::transaction const & transaction_a, nano::block_hash const & hash_a)
 {
+	nano::block_sideband sideband;
+	auto block (block_get (transaction_a, hash_a, &sideband));
+	nano::uint128_t result;
+	switch (block->type ())
+	{
+		case nano::block_type::open:
+		case nano::block_type::receive:
+		case nano::block_type::change:
+			result = sideband.balance.number ();
+			break;
+		case nano::block_type::send:
+			result = boost::polymorphic_downcast<nano::send_block *> (block.get ())->hashables.balance.number ();
+			break;
+		case nano::block_type::state:
+			result = boost::polymorphic_downcast<nano::state_block *> (block.get ())->hashables.balance.number ();
+			break;
+		case nano::block_type::invalid:
+		case nano::block_type::not_a_block:
+			release_assert (false);
+			break;
+	}
+	return result;
+}
+
+nano::uint128_t nano::mdb_store::block_balance_computed (nano::transaction const & transaction_a, nano::block_hash const & hash_a)
+{
 	summation_visitor visitor (transaction_a, *this);
 	return visitor.compute_balance (hash_a);
 }
@@ -1493,7 +1519,7 @@ std::shared_ptr<nano::block> nano::mdb_store::block_get (nano::transaction const
 				// Reconstruct sideband data for block.
 				assert (value.mv_size - position == sizeof (nano::uint256_union));
 				sideband_a->account = block_account_computed (transaction_a, hash_a);
-				sideband_a->balance = block_balance (transaction_a, hash_a);
+				sideband_a->balance = block_balance_computed (transaction_a, hash_a);
 				sideband_a->successor = block_successor (transaction_a, hash_a);
 				sideband_a->height = std::numeric_limits<uint64_t>::max ();
 			}
@@ -1660,7 +1686,6 @@ nano::account nano::mdb_store::block_account (nano::transaction const & transact
 			break;
 	}
 	return result;
-	;
 }
 
 // Return account containing hash

@@ -379,6 +379,7 @@ public:
 
 private:
 	nano::account block_account_computed (nano::transaction const &, nano::block_hash const &);
+	nano::uint128_t block_balance_computed (nano::transaction const &, nano::block_hash const &);
 	MDB_dbi block_database (nano::block_type, nano::epoch);
 	template <typename T>
 	std::shared_ptr<nano::block> block_random (nano::transaction const &, MDB_dbi);
