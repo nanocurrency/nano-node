@@ -1502,7 +1502,7 @@ void nano::wallets::ongoing_compute_reps ()
 {
 	compute_reps ();
 	auto & node_l (node);
-	auto compute_delay (nano::rai_network == nano::rai_networks::rai_test_network ? std::chrono::milliseconds (10) : std::chrono::milliseconds (15 * 60 * 1000)); // Representation drifts quickly on the test network but very slowly on the live network
+	auto compute_delay (nano::nano_network == nano::nano_networks::nano_test_network ? std::chrono::milliseconds (10) : std::chrono::milliseconds (15 * 60 * 1000)); // Representation drifts quickly on the test network but very slowly on the live network
 	node.alarm.add (std::chrono::steady_clock::now () + compute_delay, [&node_l]() {
 		node_l.wallets.ongoing_compute_reps ();
 	});

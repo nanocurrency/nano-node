@@ -155,6 +155,8 @@ public:
 	std::function<void(bool, bool)> lock_observer;
 	nano::wallet_store store;
 	nano::wallets & wallets;
+	std::mutex representatives_mutex;
+	std::unordered_set<nano::account> representatives;
 };
 class node;
 
@@ -178,6 +180,8 @@ public:
 	bool exists (nano::transaction const &, nano::public_key const &);
 	void stop ();
 	void clear_send_ids (nano::transaction const &);
+	void compute_reps ();
+	void ongoing_compute_reps ();
 	std::function<void(bool)> observer;
 	std::unordered_map<nano::uint256_union, std::shared_ptr<nano::wallet>> items;
 	std::multimap<nano::uint128_t, std::pair<std::shared_ptr<nano::wallet>, std::function<void(nano::wallet &)>>, std::greater<nano::uint128_t>> actions;
