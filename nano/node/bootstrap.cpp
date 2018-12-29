@@ -1115,7 +1115,10 @@ void nano::bootstrap_attempt::pool_connection (std::shared_ptr<nano::bootstrap_c
 {
 	{
 		std::lock_guard<std::mutex> lock (mutex);
-		idle.push_front (client_a);
+		if (!stopped && !client_a->pending_stop)
+		{
+			idle.push_front (client_a);
+		}
 	}
 	condition.notify_all ();
 }
