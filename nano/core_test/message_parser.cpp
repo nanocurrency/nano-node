@@ -138,32 +138,32 @@ TEST (message_parser, exact_confirm_req_size)
 
 TEST (message_parser, exact_confirm_req_hash_size)
 {
-	rai::system system (24000, 1);
+	nano::system system (24000, 1);
 	test_visitor visitor;
-	rai::message_parser parser (visitor, system.work);
-	auto block (std::unique_ptr<rai::send_block> (new rai::send_block (1, 1, 2, rai::keypair ().prv, 4, system.work.generate (1))));
-	rai::confirm_req message (block->hash (), block->root ());
+	nano::message_parser parser (visitor, system.work);
+	auto block (std::unique_ptr<nano::send_block> (new nano::send_block (1, 1, 2, nano::keypair ().prv, 4, system.work.generate (1))));
+	nano::confirm_req message (block->hash (), block->root ());
 	std::vector<uint8_t> bytes;
 	{
-		rai::vectorstream stream (bytes);
+		nano::vectorstream stream (bytes);
 		message.serialize (stream);
 	}
 	ASSERT_EQ (0, visitor.confirm_req_count);
-	ASSERT_EQ (parser.status, rai::message_parser::parse_status::success);
+	ASSERT_EQ (parser.status, nano::message_parser::parse_status::success);
 	auto error (false);
-	rai::bufferstream stream1 (bytes.data (), bytes.size ());
-	rai::message_header header1 (error, stream1);
+	nano::bufferstream stream1 (bytes.data (), bytes.size ());
+	nano::message_header header1 (error, stream1);
 	ASSERT_FALSE (error);
 	parser.deserialize_confirm_req (stream1, header1);
 	ASSERT_EQ (1, visitor.confirm_req_count);
-	ASSERT_EQ (parser.status, rai::message_parser::parse_status::success);
+	ASSERT_EQ (parser.status, nano::message_parser::parse_status::success);
 	bytes.push_back (0);
-	rai::bufferstream stream2 (bytes.data (), bytes.size ());
-	rai::message_header header2 (error, stream2);
+	nano::bufferstream stream2 (bytes.data (), bytes.size ());
+	nano::message_header header2 (error, stream2);
 	ASSERT_FALSE (error);
 	parser.deserialize_confirm_req (stream2, header2);
 	//ASSERT_EQ (1, visitor.confirm_req_count);
-	//ASSERT_NE (parser.status, rai::message_parser::parse_status::success);
+	//ASSERT_NE (parser.status, nano::message_parser::parse_status::success);
 }
 
 TEST (message_parser, exact_publish_size)
