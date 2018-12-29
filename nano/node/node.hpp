@@ -420,12 +420,12 @@ public:
 	void stop ();
 	void flush ();
 	bool full ();
-	void add (std::shared_ptr<nano::block>, std::chrono::steady_clock::time_point);
+	void add (std::shared_ptr<nano::block>, std::chrono::steady_clock::time_point, nano::signature_verification = nano::signature_verification::unknown);
 	void force (std::shared_ptr<nano::block>);
 	bool should_log (bool);
 	bool have_blocks ();
 	void process_blocks ();
-	nano::process_return process_receive_one (nano::transaction const &, std::shared_ptr<nano::block>, std::chrono::steady_clock::time_point = std::chrono::steady_clock::now (), bool = false);
+	nano::process_return process_receive_one (nano::transaction const &, std::shared_ptr<nano::block>, std::chrono::steady_clock::time_point = std::chrono::steady_clock::now (), nano::signature_verification = nano::signature_verification::unknown);
 
 private:
 	void queue_unchecked (nano::transaction const &, nano::block_hash const &);
@@ -435,7 +435,7 @@ private:
 	bool active;
 	std::chrono::steady_clock::time_point next_log;
 	std::deque<std::pair<std::shared_ptr<nano::block>, std::chrono::steady_clock::time_point>> state_blocks;
-	std::deque<std::pair<std::shared_ptr<nano::block>, std::chrono::steady_clock::time_point>> blocks;
+	std::deque<std::pair<std::shared_ptr<nano::block>, std::pair<std::chrono::steady_clock::time_point, nano::signature_verification>>> blocks;
 	std::unordered_set<nano::block_hash> blocks_hashes;
 	std::deque<std::shared_ptr<nano::block>> forced;
 	std::condition_variable condition;
@@ -480,6 +480,7 @@ public:
 	void ongoing_store_flush ();
 	void backup_wallet ();
 	void search_pending ();
+	void unchecked_cleaning ();
 	int price (nano::uint128_t const &, int);
 	void work_generate_blocking (nano::block &, uint64_t = nano::work_pool::publish_threshold);
 	uint64_t work_generate_blocking (nano::uint256_union const &, uint64_t = nano::work_pool::publish_threshold);
@@ -527,6 +528,8 @@ public:
 	static std::chrono::seconds constexpr syn_cookie_cutoff = std::chrono::seconds (5);
 	static std::chrono::minutes constexpr backup_interval = std::chrono::minutes (5);
 	static std::chrono::seconds constexpr search_pending_interval = (nano::nano_network == nano::nano_networks::nano_test_network) ? std::chrono::seconds (1) : std::chrono::seconds (5 * 60);
+	static std::chrono::hours constexpr unchecked_cleaning_interval = std::chrono::hours (2);
+	std::chrono::seconds unchecked_cutoff = std::chrono::seconds (7 * 24 * 60 * 60); // Week
 };
 class thread_runner
 {

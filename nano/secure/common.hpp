@@ -134,14 +134,14 @@ class unchecked_info
 {
 public:
 	unchecked_info ();
-	unchecked_info (std::shared_ptr<nano::block>, uint64_t, bool = false);
+	unchecked_info (std::shared_ptr<nano::block>, uint64_t, nano::signature_verification = nano::signature_verification::unknown);
 	void serialize (nano::stream &) const;
 	bool deserialize (nano::stream &);
 	bool operator== (nano::unchecked_info const &) const;
 	std::shared_ptr<nano::block> block;
 	/** Seconds since posix epoch */
 	uint64_t modified;
-	bool verified;
+	nano::signature_verification verified;
 };
 
 class block_info
@@ -251,6 +251,7 @@ public:
 	nano::amount amount;
 	nano::account pending_account;
 	boost::optional<bool> state_is_send;
+	nano::signature_verification verified;
 };
 enum class tally_result
 {
