@@ -752,10 +752,7 @@ stopped (false)
 		error_a |= mdb_dbi_open (env.tx (transaction), "state_v1", MDB_CREATE, &state_blocks_v1) != 0;
 		error_a |= mdb_dbi_open (env.tx (transaction), "pending", MDB_CREATE, &pending_v0) != 0;
 		error_a |= mdb_dbi_open (env.tx (transaction), "pending_v1", MDB_CREATE, &pending_v1) != 0;
-		if (!full_sideband (transaction))
-		{
-			error_a |= mdb_dbi_open (env.tx (transaction), "blocks_info", MDB_CREATE, &blocks_info) != 0;
-		}
+		error_a |= mdb_dbi_open (env.tx (transaction), "blocks_info", MDB_CREATE, &blocks_info) != 0;
 		error_a |= mdb_dbi_open (env.tx (transaction), "representation", MDB_CREATE, &representation) != 0;
 		error_a |= mdb_dbi_open (env.tx (transaction), "unchecked", MDB_CREATE, &unchecked) != 0;
 		error_a |= mdb_dbi_open (env.tx (transaction), "checksum", MDB_CREATE, &checksum) != 0;
@@ -1202,9 +1199,6 @@ void nano::mdb_store::upgrade_v11_to_v12 ()
 			account = nano::not_an_account;
 		}
 	}
-	auto status (mdb_drop (env.tx (transaction), blocks_info, 1));
-	assert (status == MDB_SUCCESS);
-	blocks_info = 0;
 	version_put (transaction, 12);
 }
 
@@ -1972,28 +1966,24 @@ nano::store_iterator<nano::pending_key, nano::pending_info> nano::mdb_store::pen
 
 void nano::mdb_store::block_info_put (nano::transaction const & transaction_a, nano::block_hash const & hash_a, nano::block_info const & block_info_a)
 {
-	assert (!full_sideband (transaction_a));
 	auto status (mdb_put (env.tx (transaction_a), blocks_info, nano::mdb_val (hash_a), nano::mdb_val (block_info_a), 0));
 	release_assert (status == 0);
 }
 
 void nano::mdb_store::block_info_del (nano::transaction const & transaction_a, nano::block_hash const & hash_a)
 {
-	assert (!full_sideband (transaction_a));
 	auto status (mdb_del (env.tx (transaction_a), blocks_info, nano::mdb_val (hash_a), nullptr));
 	release_assert (status == 0);
 }
 
 bool nano::mdb_store::block_info_exists (nano::transaction const & transaction_a, nano::block_hash const & hash_a)
 {
-	assert (!full_sideband (transaction_a));
 	auto iterator (block_info_begin (transaction_a, hash_a));
 	return iterator != block_info_end () && nano::block_hash (iterator->first) == hash_a;
 }
 
 bool nano::mdb_store::block_info_get (nano::transaction const & transaction_a, nano::block_hash const & hash_a, nano::block_info & block_info_a)
 {
-	assert (!full_sideband (transaction_a));
 	nano::mdb_val value;
 	auto status (mdb_get (env.tx (transaction_a), blocks_info, nano::mdb_val (hash_a), value));
 	release_assert (status == 0 || status == MDB_NOTFOUND);
