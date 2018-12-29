@@ -1172,7 +1172,7 @@ void nano::mdb_store::upgrade_v11_to_v12 ()
 					auto tx (boost::polymorphic_downcast<nano::mdb_txn *> (transaction.impl.get ()));
 					auto status0 (mdb_txn_commit (*tx));
 					release_assert (status0 == MDB_SUCCESS);
-					std::this_thread::sleep_for (std::chrono::seconds (1));
+					std::this_thread::yield ();
 					auto status1 (mdb_txn_begin (env, nullptr, 0, &tx->handle));
 					release_assert (status1 == MDB_SUCCESS);
 					count = 0;
@@ -1180,7 +1180,6 @@ void nano::mdb_store::upgrade_v11_to_v12 ()
 				auto block (block_get (transaction, hash, &sideband));
 				assert (block != nullptr);
 				sideband.height = height++;
-				//std::cerr << boost::str (boost::format ("Rewriting %1%, successor: %2%\n") % hash.to_string () % sideband.successor.to_string ());
 				block_put (transaction, hash, *block, sideband);
 				hash = sideband.successor;
 				++count;
@@ -1446,7 +1445,7 @@ nano::block_hash nano::mdb_store::block_successor (nano::transaction const & tra
 	if (value.mv_size != 0)
 	{
 		assert (value.mv_size >= result.bytes.size ());
-		nano::bufferstream stream (reinterpret_cast<uint8_t const *> (value.mv_data) + block_successor_offset(transaction_a, value, type), result.bytes.size ());
+		nano::bufferstream stream (reinterpret_cast<uint8_t const *> (value.mv_data) + block_successor_offset (transaction_a, value, type), result.bytes.size ());
 		auto error (nano::read (stream, result.bytes));
 		assert (!error);
 	}
