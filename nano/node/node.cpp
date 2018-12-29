@@ -641,7 +641,7 @@ public:
 						}
 						else
 						{
-							republish_block (std::move (successor), sender);
+							node.network.republish_block (std::move (successor), sender);
 						}
 					}
 				}
