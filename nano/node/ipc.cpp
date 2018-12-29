@@ -144,30 +144,31 @@ public:
 
 		// This is called when the nano::rpc_handler#process_request is done. We convert to
 		// json and writes the response to the ipc socket with a length prefix.
-		auto response_handler ([this, start](boost::property_tree::ptree const & tree_a) {
+		auto self_l (this->shared_from_this ());
+		auto response_handler ([self_l, start](boost::property_tree::ptree const & tree_a) {
 			std::stringstream ostream;
 			boost::property_tree::write_json (ostream, tree_a);
 			ostream.flush ();
-			request_body = ostream.str ();
+			self_l->request_body = ostream.str ();
 
-			uint32_t size_response = boost::endian::native_to_big ((uint32_t)request_body.size ());
+			uint32_t size_response = boost::endian::native_to_big ((uint32_t)self_l->request_body.size ());
 			std::vector<boost::asio::mutable_buffer> bufs = {
 				boost::asio::buffer (&size_response, 4),
-				boost::asio::buffer (request_body)
+				boost::asio::buffer (self_l->request_body)
 			};
 
-			this->timer_start (this->config_transport.io_timeout);
-			boost::asio::async_write (this->socket, bufs,
-			writer_strand.wrap (
+			self_l->timer_start (self_l->config_transport.io_timeout);
+			boost::asio::async_write (self_l->socket, bufs,
+			self_l->writer_strand.wrap (
 			boost::bind (
 			&session::handle_write,
-			this->shared_from_this (),
+			self_l,
 			boost::asio::placeholders::error,
 			boost::asio::placeholders::bytes_transferred)));
 
-			if (this->node.config.logging.log_rpc ())
+			if (self_l->node.config.logging.log_rpc ())
 			{
-				BOOST_LOG (this->node.log) << boost::str (boost::format ("IPC/RPC request %1% completed in: %2% microseconds") % request_id_str % std::chrono::duration_cast<std::chrono::microseconds> (std::chrono::steady_clock::now () - start).count ());
+				BOOST_LOG (self_l->node.log) << boost::str (boost::format ("IPC/RPC request %1% completed in: %2% microseconds") % self_l->request_id_str % std::chrono::duration_cast<std::chrono::microseconds> (std::chrono::steady_clock::now () - start).count ());
 			}
 		});
 
