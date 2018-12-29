@@ -3949,7 +3949,7 @@ TEST (rpc, sign_hash)
 	request.put ("action", "sign_hash");
 	request.put ("hash", send.hash ().to_string ());
 	request.put ("key", key.prv.data.to_string ());
-	test_response response (request, rpc, system.service);
+	test_response response (request, rpc, system.io_ctx);
 	while (response.status == 0)
 	{
 		system.poll ();
@@ -3979,7 +3979,7 @@ TEST (rpc, sign_block)
 	std::string json;
 	send.serialize_json (json);
 	request.put ("block", json);
-	test_response response (request, rpc, system.service);
+	test_response response (request, rpc, system.io_ctx);
 	while (response.status == 0)
 	{
 		system.poll ();
