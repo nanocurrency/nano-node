@@ -3481,7 +3481,7 @@ void nano::active_transactions::announce_votes (std::unique_lock<std::mutex> & l
 				if ((!reps->empty () && total_weight > node.config.online_weight_minimum.number ()) || roots_size > 5)
 				{
 					// broadcast_confirm_req_base modifies reps, so we clone it once to avoid aliasing
-					if (nano::rai_network != nano::rai_networks::rai_test_network)
+					if (nano::nano_network != nano::nano_networks::nano_test_network)
 					{
 						if (confirm_req_bundle.size () < max_broadcast_queue)
 						{
@@ -3511,7 +3511,7 @@ void nano::active_transactions::announce_votes (std::unique_lock<std::mutex> & l
 				}
 				else
 				{
-					if (nano::rai_network != nano::rai_networks::rai_test_network)
+					if (nano::nano_network != nano::nano_networks::nano_test_network)
 					{
 						confirm_req_bundle.push_back (std::make_pair (i->election->status.winner, std::make_shared<std::vector<nano::peer_information>> (node.peers.list_vector (100))));
 					}
@@ -3544,7 +3544,7 @@ void nano::active_transactions::announce_votes (std::unique_lock<std::mutex> & l
 		node.network.republish_block_batch (rebroadcast_bundle);
 	}
 	// Batch confirmation request
-	if (nano::rai_network != nano::rai_networks::rai_live_network && !requests_bundle.empty ())
+	if (nano::nano_network != nano::nano_networks::nano_live_network && !requests_bundle.empty ())
 	{
 		node.network.broadcast_confirm_req_batch (requests_bundle, 50);
 	}
