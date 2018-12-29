@@ -1492,11 +1492,13 @@ nano::block_hash nano::mdb_store::block_successor (nano::transaction const & tra
 
 void nano::mdb_store::block_successor_clear (nano::transaction const & transaction_a, nano::block_hash const & hash_a)
 {
-	nano::block_sideband sideband;
-	auto block (block_get (transaction_a, hash_a, &sideband));
+	nano::block_type type;
+	auto value (block_raw_get (transaction_a, hash_a, type));
 	auto version (block_version (transaction_a, hash_a));
-	sideband.successor = 0;
-	block_put (transaction_a, hash_a, *block, sideband, version);
+	assert (value.mv_size != 0);
+	std::vector<uint8_t> data (static_cast<uint8_t *> (value.mv_data), static_cast<uint8_t *> (value.mv_data) + value.mv_size);
+	std::fill_n (data.begin () + block_successor_offset (transaction_a, value, type), sizeof (nano::uint256_union), 0);
+	block_raw_put (transaction_a, block_database (type, version), hash_a, nano::mdb_val (data.size (), data.data ()));
 }
 
 std::shared_ptr<nano::block> nano::mdb_store::block_get (nano::transaction const & transaction_a, nano::block_hash const & hash_a, nano::block_sideband * sideband_a)
