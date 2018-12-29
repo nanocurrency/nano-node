@@ -629,8 +629,7 @@ epoch_signer (epoch_signer_a)
 // Balance for account containing hash
 nano::uint128_t nano::ledger::balance (nano::transaction const & transaction_a, nano::block_hash const & hash_a)
 {
-	nano::summation_visitor visitor (transaction_a, store);
-	return visitor.compute_balance (hash_a);
+	return hash_a.is_zero () ? 0 : store.block_balance (transaction_a, hash_a);
 }
 
 // Balance for an account by account number
