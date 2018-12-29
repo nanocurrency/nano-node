@@ -156,6 +156,7 @@ public:
 
 	void initialize (nano::transaction const &, nano::genesis const &) override;
 	void block_put (nano::transaction const &, nano::block_hash const &, nano::block const &, nano::block_sideband const &, nano::epoch version = nano::epoch::epoch_0) override;
+	size_t block_successor_offset (nano::transaction const &, MDB_val, nano::block_type);
 	nano::block_hash block_successor (nano::transaction const &, nano::block_hash const &) override;
 	void block_successor_clear (nano::transaction const &, nano::block_hash const &) override;
 	std::shared_ptr<nano::block> block_get (nano::transaction const &, nano::block_hash const &, nano::block_sideband * = nullptr) override;
@@ -249,6 +250,7 @@ public:
 
 	void version_put (nano::transaction const &, int) override;
 	int version_get (nano::transaction const &) override;
+	bool full_sideband (nano::transaction const &);
 	void do_upgrades (nano::transaction const &, bool &);
 	void upgrade_v1_to_v2 (nano::transaction const &);
 	void upgrade_v2_to_v3 (nano::transaction const &);

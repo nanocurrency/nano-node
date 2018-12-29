@@ -318,7 +318,7 @@ public:
 		auto version (store.block_version (transaction, block_a.previous ()));
 		assert (value.mv_size != 0);
 		std::vector<uint8_t> data (static_cast<uint8_t *> (value.mv_data), static_cast<uint8_t *> (value.mv_data) + value.mv_size);
-		std::copy (hash.bytes.begin (), hash.bytes.end (), data.end () - nano::block_sideband::size (type));
+		std::copy (hash.bytes.begin (), hash.bytes.end (), data.begin () + store.block_successor_offset (transaction, value, type));
 		store.block_raw_put (transaction, store.block_database (type, version), block_a.previous (), nano::mdb_val (data.size (), data.data ()));
 	}
 	void send_block (nano::send_block const & block_a) override
@@ -767,6 +767,7 @@ stopped (false)
 	if (slow_upgrade)
 	{
 		upgrades = std::thread ([this]() {
+			nano::thread_role::set (nano::thread_role::name::slow_db_upgrade);
 			do_slow_upgrades ();
 		});
 	}
@@ -1143,24 +1144,35 @@ void nano::mdb_store::do_slow_upgrades ()
 void nano::mdb_store::upgrade_v11_to_v12 ()
 {
 	size_t count (0);
-	size_t const max (16384);
+	size_t const max (1024);
 	nano::account account (0);
 	auto transaction (tx_begin_write ());
 	while (!stopped && account != nano::not_an_account)
 	{
-		auto current (latest_begin (transaction, account));
-		if (current != latest_end ())
+		nano::account first (0);
+		nano::account_info second;
 		{
-			auto hash (current->second.open_block);
+			auto current (latest_begin (transaction, account));
+			if (current != latest_end ())
+			{
+				first = current->first;
+				second = current->second;
+			}
+		}
+		if (!first.is_zero ())
+		{
+			auto hash (second.open_block);
 			uint64_t height (0);
 			nano::block_sideband sideband;
 			while (!stopped && !hash.is_zero ())
 			{
 				if (count == max)
 				{
+					std::cerr << boost::str (boost::format ("Upgrading account %1%\n") % first.to_account ());
 					auto tx (boost::polymorphic_downcast<nano::mdb_txn *> (transaction.impl.get ()));
 					auto status0 (mdb_txn_commit (*tx));
 					release_assert (status0 == MDB_SUCCESS);
+					std::this_thread::sleep_for (std::chrono::seconds (1));
 					auto status1 (mdb_txn_begin (env, nullptr, 0, &tx->handle));
 					release_assert (status1 == MDB_SUCCESS);
 					count = 0;
@@ -1168,11 +1180,12 @@ void nano::mdb_store::upgrade_v11_to_v12 ()
 				auto block (block_get (transaction, hash, &sideband));
 				assert (block != nullptr);
 				sideband.height = height++;
+				//std::cerr << boost::str (boost::format ("Rewriting %1%, successor: %2%\n") % hash.to_string () % sideband.successor.to_string ());
 				block_put (transaction, hash, *block, sideband);
 				hash = sideband.successor;
 				++count;
 			}
-			account = current->first.number () + 1;
+			account = first.number () + 1;
 		}
 		else
 		{
@@ -1404,6 +1417,27 @@ std::shared_ptr<nano::block> nano::mdb_store::block_random (nano::transaction co
 	return result;
 }
 
+bool nano::mdb_store::full_sideband (nano::transaction const & transaction_a)
+{
+	return version_get (transaction_a) > 11;
+}
+
+size_t nano::mdb_store::block_successor_offset (nano::transaction const & transaction_a, MDB_val entry_a, nano::block_type type_a)
+{
+	size_t result;
+	if (full_sideband (transaction_a) || entry_a.mv_size == nano::block::size (type_a) + nano::block_sideband::size (type_a))
+	{
+		result = entry_a.mv_size - nano::block_sideband::size (type_a);
+	}
+	else
+	{
+		// Read old successor-only sideband
+		assert (entry_a.mv_size = nano::block::size (type_a) + sizeof (nano::uint256_union));
+		result = entry_a.mv_size - sizeof (nano::uint256_union);
+	}
+	return result;
+}
+
 nano::block_hash nano::mdb_store::block_successor (nano::transaction const & transaction_a, nano::block_hash const & hash_a)
 {
 	nano::block_type type;
@@ -1412,18 +1446,7 @@ nano::block_hash nano::mdb_store::block_successor (nano::transaction const & tra
 	if (value.mv_size != 0)
 	{
 		assert (value.mv_size >= result.bytes.size ());
-		uint8_t const * offset;
-		if (value.mv_size == nano::block::size (type) + nano::block_sideband::size (type))
-		{
-			offset = reinterpret_cast<uint8_t const *> (value.mv_data) + value.mv_size - nano::block_sideband::size (type);
-		}
-		else
-		{
-			// Read old successor-only sideband
-			assert (value.mv_size = nano::block::size (type) + result.bytes.size ());
-			offset = reinterpret_cast<uint8_t const *> (value.mv_data) + value.mv_size - result.bytes.size ();
-		}
-		nano::bufferstream stream (offset, result.bytes.size ());
+		nano::bufferstream stream (reinterpret_cast<uint8_t const *> (value.mv_data) + block_successor_offset(transaction_a, value, type), result.bytes.size ());
 		auto error (nano::read (stream, result.bytes));
 		assert (!error);
 	}

@@ -42,6 +42,7 @@ namespace thread_role
 		bootstrap_initiator,
 		voting,
 		signature_checking,
+		slow_db_upgrade,
 	};
 	nano::thread_role::name get (void);
 	void set (nano::thread_role::name);

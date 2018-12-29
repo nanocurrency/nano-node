@@ -13,6 +13,7 @@ TEST (versioning, account_info_v1)
 		auto error (false);
 		nano::mdb_store store (error, file);
 		ASSERT_FALSE (error);
+		store.stop ();
 		auto transaction (store.tx_begin (true));
 		nano::block_sideband sideband (nano::block_type::open, 0, 0, 0, 0);
 		store.block_put (transaction, open.hash (), open, sideband);
