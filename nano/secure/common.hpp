@@ -123,11 +123,11 @@ class unchecked_info
 {
 public:
 	unchecked_info ();
-	unchecked_info (std::shared_ptr<rai::block>, uint64_t, bool = false);
-	void serialize (rai::stream &) const;
-	bool deserialize (rai::stream &);
-	bool operator== (rai::unchecked_info const &) const;
-	std::shared_ptr<rai::block> block;
+	unchecked_info (std::shared_ptr<nano::block>, uint64_t, bool = false);
+	void serialize (nano::stream &) const;
+	bool deserialize (nano::stream &);
+	bool operator== (nano::unchecked_info const &) const;
+	std::shared_ptr<nano::block> block;
 	/** Seconds since posix epoch */
 	uint64_t modified;
 	bool verified;
