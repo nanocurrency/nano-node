@@ -1237,6 +1237,7 @@ nano::uint128_t nano::mdb_store::block_balance (nano::transaction const & transa
 
 nano::uint128_t nano::mdb_store::block_balance_computed (nano::transaction const & transaction_a, nano::block_hash const & hash_a)
 {
+	assert (!full_sideband (transaction_a));
 	summation_visitor visitor (transaction_a, *this);
 	return visitor.compute_balance (hash_a);
 }
@@ -1455,10 +1456,15 @@ bool nano::mdb_store::full_sideband (nano::transaction const & transaction_a)
 	return version_get (transaction_a) > 11;
 }
 
+bool nano::mdb_store::entry_has_sideband (MDB_val entry_a, nano::block_type type_a)
+{
+	return entry_a.mv_size == nano::block::size (type_a) + nano::block_sideband::size (type_a);
+}
+
 size_t nano::mdb_store::block_successor_offset (nano::transaction const & transaction_a, MDB_val entry_a, nano::block_type type_a)
 {
 	size_t result;
-	if (full_sideband (transaction_a) || entry_a.mv_size == nano::block::size (type_a) + nano::block_sideband::size (type_a))
+	if (full_sideband (transaction_a) || entry_has_sideband (entry_a, type_a))
 	{
 		result = entry_a.mv_size - nano::block_sideband::size (type_a);
 	}
@@ -1514,8 +1520,7 @@ std::shared_ptr<nano::block> nano::mdb_store::block_get (nano::transaction const
 		if (sideband_a)
 		{
 			sideband_a->type = type;
-			auto position (stream.pubseekoff (0, std::ios_base::cur));
-			if (value.mv_size - position == nano::block_sideband::size (type))
+			if (full_sideband (transaction_a) || entry_has_sideband (value, type))
 			{
 				auto error (sideband_a->deserialize (stream));
 				assert (!error);
@@ -1523,7 +1528,6 @@ std::shared_ptr<nano::block> nano::mdb_store::block_get (nano::transaction const
 			else
 			{
 				// Reconstruct sideband data for block.
-				assert (value.mv_size - position == sizeof (nano::uint256_union));
 				sideband_a->account = block_account_computed (transaction_a, hash_a);
 				sideband_a->balance = block_balance_computed (transaction_a, hash_a);
 				sideband_a->successor = block_successor (transaction_a, hash_a);
@@ -1697,6 +1701,7 @@ nano::account nano::mdb_store::block_account (nano::transaction const & transact
 // Return account containing hash
 nano::account nano::mdb_store::block_account_computed (nano::transaction const & transaction_a, nano::block_hash const & hash_a)
 {
+	assert (!full_sideband (transaction_a));
 	nano::account result;
 	auto hash (hash_a);
 	nano::block_hash successor (1);

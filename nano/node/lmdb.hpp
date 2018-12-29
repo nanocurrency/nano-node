@@ -250,7 +250,6 @@ public:
 
 	void version_put (nano::transaction const &, int) override;
 	int version_get (nano::transaction const &) override;
-	bool full_sideband (nano::transaction const &);
 	void do_upgrades (nano::transaction const &, bool &);
 	void upgrade_v1_to_v2 (nano::transaction const &);
 	void upgrade_v2_to_v3 (nano::transaction const &);
@@ -378,6 +377,8 @@ public:
 	MDB_dbi meta;
 
 private:
+	bool full_sideband (nano::transaction const &);
+	bool entry_has_sideband (MDB_val, nano::block_type);
 	nano::account block_account_computed (nano::transaction const &, nano::block_hash const &);
 	nano::uint128_t block_balance_computed (nano::transaction const &, nano::block_hash const &);
 	MDB_dbi block_database (nano::block_type, nano::epoch);
