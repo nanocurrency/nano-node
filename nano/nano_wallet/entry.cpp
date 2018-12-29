@@ -302,6 +302,16 @@ int main (int argc, char * const * argv)
 		boost::program_options::store (boost::program_options::command_line_parser (argc, argv).options (description).allow_unregistered ().run (), vm);
 		boost::program_options::notify (vm);
 		int result (0);
+
+		if (!vm.count ("data_path"))
+		{
+			std::string error_string;
+			if (!nano::migrate_working_path (error_string))
+			{
+				throw std::runtime_error (error_string);
+			}
+		}
+
 		auto ec = nano::handle_node_options (vm);
 		if (ec == nano::error_cli::unknown_command)
 		{
