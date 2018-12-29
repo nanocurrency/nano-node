@@ -178,12 +178,12 @@ add_library (cryptopp
 	crypto/cryptopp/randpool.cpp
 	crypto/cryptopp/rdtables.cpp
 	crypto/cryptopp/rijndael.cpp
-	crypto/cryptopp/rijndael-simd.cpp
+	crypto/cryptopp/rijndael_simd.cpp
 	crypto/cryptopp/rng.cpp
 	crypto/cryptopp/sha.cpp
-	crypto/cryptopp/sha-simd.cpp
+	crypto/cryptopp/sha_simd.cpp
 	crypto/cryptopp/simple.cpp
-	crypto/cryptopp/sse-simd.cpp
+	crypto/cryptopp/sse_simd.cpp
 	${CRYPTOPP_WIN})
 add_definitions(-DCRYPTOPP_DISABLE_SHANI)
 
