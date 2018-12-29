@@ -1492,7 +1492,7 @@ std::shared_ptr<nano::block> nano::mdb_store::block_get (nano::transaction const
 			{
 				// Reconstruct sideband data for block.
 				assert (value.mv_size - position == sizeof (nano::uint256_union));
-				sideband_a->account = block_account (transaction_a, hash_a);
+				sideband_a->account = block_account_computed (transaction_a, hash_a);
 				sideband_a->balance = block_balance (transaction_a, hash_a);
 				sideband_a->successor = block_successor (transaction_a, hash_a);
 				sideband_a->height = std::numeric_limits<uint64_t>::max ();
@@ -1636,8 +1636,35 @@ bool nano::mdb_store::root_exists (nano::transaction const & transaction_a, nano
 	return block_exists (transaction_a, root_a) || account_exists (transaction_a, root_a);
 }
 
-// Return account containing hash
 nano::account nano::mdb_store::block_account (nano::transaction const & transaction_a, nano::block_hash const & hash_a)
+{
+	nano::block_sideband sideband;
+	auto block (block_get (transaction_a, hash_a, &sideband));
+	nano::account result;
+	switch (block->type ())
+	{
+		case nano::block_type::send:
+		case nano::block_type::receive:
+		case nano::block_type::change:
+			result = sideband.account;
+			break;
+		case nano::block_type::open:
+			result = boost::polymorphic_downcast<nano::open_block *> (block.get ())->hashables.account;
+			break;
+		case nano::block_type::state:
+			result = boost::polymorphic_downcast<nano::state_block *> (block.get ())->hashables.account;
+			break;
+		case nano::block_type::invalid:
+		case nano::block_type::not_a_block:
+			release_assert (false);
+			break;
+	}
+	return result;
+	;
+}
+
+// Return account containing hash
+nano::account nano::mdb_store::block_account_computed (nano::transaction const & transaction_a, nano::block_hash const & hash_a)
 {
 	nano::account result;
 	auto hash (hash_a);
