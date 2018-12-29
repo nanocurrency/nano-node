@@ -1,5 +1,5 @@
 [package]
-name = "raiblocks-load-tester"
+name = "nano-load-tester"
 version = "0.1.0"
 
 [dependencies]
