@@ -232,8 +232,8 @@ public:
 	// Populate vote with the next sequence number
 	std::shared_ptr<nano::vote> vote_generate (nano::transaction const &, nano::account const &, nano::raw_key const &, std::shared_ptr<nano::block>) override;
 	std::shared_ptr<nano::vote> vote_generate (nano::transaction const &, nano::account const &, nano::raw_key const &, std::vector<nano::block_hash>) override;
-	// Return either vote or the stored vote with a higher sequence number
-	std::shared_ptr<nano::vote> vote_max (nano::transaction const &, std::shared_ptr<nano::vote>) override;
+	// Return the stored vote & update the vote cache
+	std::shared_ptr<nano::vote> vote_current_update (nano::transaction const &, std::shared_ptr<nano::vote>) override;
 	// Return latest vote for an account considering the vote cache
 	std::shared_ptr<nano::vote> vote_current (nano::transaction const &, nano::account const &) override;
 	void flush (nano::transaction const &) override;

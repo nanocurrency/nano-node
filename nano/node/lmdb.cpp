@@ -1924,17 +1924,15 @@ std::shared_ptr<nano::vote> nano::mdb_store::vote_generate (nano::transaction co
 	return result;
 }
 
-std::shared_ptr<nano::vote> nano::mdb_store::vote_max (nano::transaction const & transaction_a, std::shared_ptr<nano::vote> vote_a)
+std::shared_ptr<nano::vote> nano::mdb_store::vote_current_update (nano::transaction const & transaction_a, std::shared_ptr<nano::vote> vote_a)
 {
 	std::lock_guard<std::mutex> lock (cache_mutex);
 	auto current (vote_current (transaction_a, vote_a->account));
-	auto result (vote_a);
-	if (current != nullptr && current->sequence > result->sequence)
+	if (current != nullptr && current->sequence > vote_a->sequence)
 	{
-		result = current;
+		vote_cache_l1[vote_a->account] = vote_a;
 	}
-	vote_cache_l1[vote_a->account] = result;
-	return result;
+	return current;
 }
 
 nano::store_iterator<nano::account, nano::account_info> nano::mdb_store::latest_begin (nano::transaction const & transaction_a, nano::account const & account_a)
