@@ -59,8 +59,8 @@ int main (int argc, char * const * argv)
 	boost::program_options::notify (vm);
 	int result (0);
 
-	auto data_path_it = vm.find("data_path");
-	if (data_path_it == vm.end())
+	auto data_path_it = vm.find ("data_path");
+	if (data_path_it == vm.end ())
 	{
 		std::string error_string;
 		if (!nano::migrate_working_path (error_string))
@@ -71,7 +71,7 @@ int main (int argc, char * const * argv)
 		}
 	}
 
-	boost::filesystem::path data_path((data_path_it != vm.end()) ? data_path_it->second.as<std::string> () : nano::working_path ());
+	boost::filesystem::path data_path ((data_path_it != vm.end ()) ? data_path_it->second.as<std::string> () : nano::working_path ());
 	auto ec = nano::handle_node_options (vm);
 
 	if (ec == nano::error_cli::unknown_command)
@@ -94,8 +94,8 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_bootstrap_generate"))
 		{
-			auto key_it = vm.find("key");
-			if (key_it != vm.end())
+			auto key_it = vm.find ("key");
+			if (key_it != vm.end ())
 			{
 				nano::uint256_union key;
 				if (!key.decode_hex (key_it->second.as<std::string> ()))
@@ -222,8 +222,8 @@ int main (int argc, char * const * argv)
 			if (!error)
 			{
 				unsigned short platform (0);
-				auto platform_it = vm.find("platform");
-				if (platform_it != vm.end())
+				auto platform_it = vm.find ("platform");
+				if (platform_it != vm.end ())
 				{
 					try
 					{
@@ -236,8 +236,8 @@ int main (int argc, char * const * argv)
 					}
 				}
 				unsigned short device (0);
-				auto device_it = vm.find("device");
-				if (device_it != vm.end())
+				auto device_it = vm.find ("device");
+				if (device_it != vm.end ())
 				{
 					try
 					{
@@ -250,8 +250,8 @@ int main (int argc, char * const * argv)
 					}
 				}
 				unsigned threads (1024 * 1024);
-				auto threads_it = vm.find("threads");
-				if (threads_it != vm.end())
+				auto threads_it = vm.find ("threads");
+				if (threads_it != vm.end ())
 				{
 					try
 					{
