@@ -107,7 +107,6 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 	if (!error)
 	{
 		config.node.logging.init (data_path);
-		config_file.close ();
 		boost::asio::io_context io_ctx;
 		auto opencl (nano::opencl_work::create (config.opencl_enable, config.opencl, config.node.logging));
 		nano::work_pool opencl_work (config.node.work_threads, opencl ? [&opencl](nano::uint256_union const & root_a) {
