@@ -3,7 +3,7 @@
 #include <nano/lib/numbers.hpp>
 
 #include <assert.h>
-#include <blake2/blake2.h>
+#include <crypto/blake2/blake2.h>
 #include <boost/property_tree/json_parser.hpp>
 #include <streambuf>
 #include <unordered_map>
