@@ -1650,8 +1650,9 @@ nano::account nano::mdb_store::block_account (nano::transaction const & transact
 		successor = block_successor (transaction_a, hash);
 		if (!successor.is_zero ())
 		{
+			block = block_get (transaction_a, successor);
+			assert (block != nullptr);
 			hash = successor;
-			block = block_get (transaction_a, hash);
 		}
 	}
 	if (block->type () == nano::block_type::state)
