@@ -1143,8 +1143,8 @@ void nano::mdb_store::do_slow_upgrades ()
 
 void nano::mdb_store::upgrade_v11_to_v12 ()
 {
-	size_t count (0);
-	size_t const max (1024);
+	size_t cost (0);
+	size_t const max (16384);
 	nano::account account (0);
 	auto transaction (tx_begin_write ());
 	while (!stopped && account != nano::not_an_account)
@@ -1166,7 +1166,7 @@ void nano::mdb_store::upgrade_v11_to_v12 ()
 			nano::block_sideband sideband;
 			while (!stopped && !hash.is_zero ())
 			{
-				if (count == max)
+				if (cost >= max)
 				{
 					std::cerr << boost::str (boost::format ("Upgrading account %1%\n") % first.to_account ());
 					auto tx (boost::polymorphic_downcast<nano::mdb_txn *> (transaction.impl.get ()));
@@ -1175,7 +1175,7 @@ void nano::mdb_store::upgrade_v11_to_v12 ()
 					std::this_thread::yield ();
 					auto status1 (mdb_txn_begin (env, nullptr, 0, &tx->handle));
 					release_assert (status1 == MDB_SUCCESS);
-					count = 0;
+					cost = 0;
 				}
 				auto block (block_get (transaction, hash, &sideband));
 				assert (block != nullptr);
@@ -1183,7 +1183,11 @@ void nano::mdb_store::upgrade_v11_to_v12 ()
 				{
 					sideband.height = height;
 					block_put (transaction, hash, *block, sideband);
-					++count;
+					cost += 16;
+				}
+				else
+				{
+					cost += 1;
 				}
 				hash = sideband.successor;
 				++height;
