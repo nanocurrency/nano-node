@@ -2433,7 +2433,6 @@ TEST (ledger, could_fit)
 	ASSERT_TRUE (ledger.could_fit (transaction, epoch1));
 }
 
-
 TEST (ledger, unchecked_epoch)
 {
 	nano::system system (24000, 1);
