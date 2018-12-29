@@ -59,6 +59,18 @@ int main (int argc, char * const * argv)
 	}
 	boost::program_options::notify (vm);
 	int result (0);
+
+	if (!vm.count ("data_path"))
+	{
+		std::string error_string;
+		if (!nano::migrate_working_path (error_string))
+		{
+			std::cerr << error_string << std::endl;
+
+			return 1;
+		}
+	}
+
 	boost::filesystem::path data_path = vm.count ("data_path") ? boost::filesystem::path (vm["data_path"].as<std::string> ()) : nano::working_path ();
 	auto ec = nano::handle_node_options (vm);
 
