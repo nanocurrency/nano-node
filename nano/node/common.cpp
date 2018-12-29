@@ -477,7 +477,7 @@ bool nano::confirm_req::deserialize (nano::stream & stream_a, nano::block_unique
 		for (auto i (0); i != count && !result; ++i)
 		{
 			nano::block_hash block_hash (0);
-			nano::block_hash root_hash (0); 
+			nano::block_hash root_hash (0);
 			result = read (stream_a, block_hash);
 			if (!result && !block_hash.is_zero ())
 			{
