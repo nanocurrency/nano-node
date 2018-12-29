@@ -116,6 +116,23 @@ public:
 // Internally unchecked_key is equal to pending_key (2x uint256_union)
 using unchecked_key = pending_key;
 
+/**
+ * Information on an unchecked block
+ */
+class unchecked_info
+{
+public:
+	unchecked_info ();
+	unchecked_info (std::shared_ptr<rai::block>, uint64_t, bool = false);
+	void serialize (rai::stream &) const;
+	bool deserialize (rai::stream &);
+	bool operator== (rai::unchecked_info const &) const;
+	std::shared_ptr<rai::block> block;
+	/** Seconds since posix epoch */
+	uint64_t modified;
+	bool verified;
+};
+
 class block_info
 {
 public:
