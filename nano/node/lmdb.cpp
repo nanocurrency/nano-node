@@ -1714,19 +1714,28 @@ nano::account nano::mdb_store::block_account_computed (nano::transaction const &
 		}
 		else
 		{
-			nano::block_info block_info;
-			if (!block_info_get (transaction_a, hash, block_info))
+			nano::block_type type;
+			auto value (block_raw_get (transaction_a, block->previous (), type));
+			if (entry_has_sideband (value, type))
 			{
-				result = block_info.account;
+				result = block_account (transaction_a, block->previous ());
 			}
 			else
 			{
-				result = frontier_get (transaction_a, hash);
-				if (result.is_zero ())
+				nano::block_info block_info;
+				if (!block_info_get (transaction_a, hash, block_info))
 				{
-					auto successor (block_successor (transaction_a, hash));
-					assert (!successor.is_zero ());
-					hash = successor;
+					result = block_info.account;
+				}
+				else
+				{
+					result = frontier_get (transaction_a, hash);
+					if (result.is_zero ())
+					{
+						auto successor (block_successor (transaction_a, hash));
+						assert (!successor.is_zero ());
+						hash = successor;
+					}
 				}
 			}
 		}
