@@ -143,6 +143,15 @@ if (WIN32)
 	enable_language(ASM)
 	enable_language(ASM_MASM)
 endif ()
+# Some Clang cannot handle mixed asm with positional arguments, where the
+# body is Intel style with no prefix and the templates are AT&T style.
+# See: crypto/cryptopp/config.h
+# Also see https://bugs.llvm.org/show_bug.cgi?id=39895
+if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+	add_definitions(-DCRYPTOPP_DISABLE_MIXED_ASM)
+endif()
+add_definitions(-DCRYPTOPP_DISABLE_SHANI)
+
 set (CRYPTOPP_LIBRARY cryptopp)
 add_library (cryptopp
 	crypto/cryptopp/algparam.cpp
@@ -184,7 +193,6 @@ add_library (cryptopp
 	crypto/cryptopp/simple.cpp
 	crypto/cryptopp/sse_simd.cpp
 	${CRYPTOPP_WIN})
-add_definitions(-DCRYPTOPP_DISABLE_SHANI)
 
 if (NANO_SIMD_OPTIMIZATIONS OR RAIBLOCKS_SIMD_OPTIMIZATIONS)
 	set (ARGON_CORE crypto/phc-winner-argon2/src/opt.c)
