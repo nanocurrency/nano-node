@@ -117,6 +117,17 @@ public:
 using unchecked_key = pending_key;
 
 /**
+ * Tag for block signature verification result
+ */
+enum class signature_verification : uint8_t
+{
+	unknown = 0,
+	invalid = 1,
+	valid = 2,
+	valid_epoch = 3 // Valid for epoch blocks
+};
+
+/**
  * Information on an unchecked block
  */
 class unchecked_info
