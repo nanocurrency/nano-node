@@ -1179,10 +1179,14 @@ void nano::mdb_store::upgrade_v11_to_v12 ()
 				}
 				auto block (block_get (transaction, hash, &sideband));
 				assert (block != nullptr);
-				sideband.height = height++;
-				block_put (transaction, hash, *block, sideband);
+				if (sideband.height == std::numeric_limits<uint64_t>::max ())
+				{
+					sideband.height = height;
+					block_put (transaction, hash, *block, sideband);
+					++count;
+				}
 				hash = sideband.successor;
-				++count;
+				++height;
 			}
 			account = first.number () + 1;
 		}
