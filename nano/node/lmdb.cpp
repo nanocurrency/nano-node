@@ -1168,7 +1168,7 @@ void nano::mdb_store::upgrade_v11_to_v12 ()
 			{
 				if (cost >= max)
 				{
-					std::cerr << boost::str (boost::format ("Upgrading account %1%\n") % first.to_account ());
+					std::cerr << boost::str (boost::format ("Upgrading %1%\n") % first.to_account ().substr (0, 16));
 					auto tx (boost::polymorphic_downcast<nano::mdb_txn *> (transaction.impl.get ()));
 					auto status0 (mdb_txn_commit (*tx));
 					release_assert (status0 == MDB_SUCCESS);
@@ -1702,34 +1702,34 @@ nano::account nano::mdb_store::block_account (nano::transaction const & transact
 nano::account nano::mdb_store::block_account_computed (nano::transaction const & transaction_a, nano::block_hash const & hash_a)
 {
 	assert (!full_sideband (transaction_a));
-	nano::account result;
+	nano::account result (0);
 	auto hash (hash_a);
-	nano::block_hash successor (1);
-	nano::block_info block_info;
-	auto block (block_get (transaction_a, hash));
-	assert (block);
-	while (!successor.is_zero () && block->type () != nano::block_type::state && block_info_get (transaction_a, successor, block_info))
+	while (result.is_zero ())
 	{
-		successor = block_successor (transaction_a, hash);
-		if (!successor.is_zero ())
+		auto block (block_get (transaction_a, hash));
+		assert (block);
+		if (block->type () == nano::block_type::state)
 		{
-			block = block_get (transaction_a, successor);
-			assert (block != nullptr);
-			hash = successor;
+			result = boost::polymorphic_downcast<nano::state_block *> (block.get ())->hashables.account;
 		}
-	}
-	if (block->type () == nano::block_type::state)
-	{
-		auto state_block (dynamic_cast<nano::state_block *> (block.get ()));
-		result = state_block->hashables.account;
-	}
-	else if (successor.is_zero ())
-	{
-		result = frontier_get (transaction_a, hash);
-	}
-	else
-	{
-		result = block_info.account;
+		else
+		{
+			nano::block_info block_info;
+			if (!block_info_get (transaction_a, hash, block_info))
+			{
+				result = block_info.account;
+			}
+			else
+			{
+				result = frontier_get (transaction_a, hash);
+				if (result.is_zero ())
+				{
+					auto successor (block_successor (transaction_a, hash));
+					assert (!successor.is_zero ());
+					hash = successor;
+				}
+			}
+		}
 	}
 	assert (!result.is_zero ());
 	return result;
