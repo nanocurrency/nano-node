@@ -124,6 +124,8 @@ public:
 	// Threshold to start logging blocks haven't yet been confirmed
 	static unsigned constexpr announcement_long = 20;
 	static unsigned constexpr announce_interval_ms = (nano::nano_network == nano::nano_networks::nano_test_network) ? 10 : 16000;
+	// Delay required for average network propagartion before requesting confirmation
+	static unsigned constexpr confirmation_request_delay_ms = 1500;
 	static size_t constexpr election_history_size = 2048;
 	static size_t constexpr max_broadcast_queue = 1000;
 
