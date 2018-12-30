@@ -92,7 +92,7 @@ std::deque<nano::endpoint> nano::peer_container::list ()
 	{
 		result.push_back (i->endpoint);
 	}
-	std::random_shuffle (result.begin (), result.end ());
+	random_pool.Shuffle (result.begin (), result.end ());
 	return result;
 }
 
@@ -115,7 +115,7 @@ std::vector<nano::peer_information> nano::peer_container::list_vector (size_t co
 	{
 		result.push_back (*i);
 	}
-	std::random_shuffle (result.begin (), result.end ());
+	random_pool.Shuffle (result.begin (), result.end ());
 	if (result.size () > count_a)
 	{
 		result.resize (count_a, nano::peer_information (nano::endpoint{}, 0));
