@@ -340,8 +340,8 @@ void nano::network::broadcast_confirm_req (std::shared_ptr<nano::block> block_a)
 	auto list (std::make_shared<std::vector<nano::peer_information>> (node.peers.representatives (std::numeric_limits<size_t>::max ())));
 	if (list->empty () || node.peers.total_weight () < node.config.online_weight_minimum.number ())
 	{
-		// broadcast request to all peers
-		list = std::make_shared<std::vector<nano::peer_information>> (node.peers.list_vector (100));
+		// broadcast request to all peers (with max limit 2 * sqrt (peers count))
+		list = std::make_shared<std::vector<nano::peer_information>> (node.peers.list_vector (2 * node.peers.size_sqrt ()));
 	}
 
 	/*
