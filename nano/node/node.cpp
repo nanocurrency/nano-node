@@ -3452,7 +3452,7 @@ bool nano::active_transactions::add (std::shared_ptr<nano::block> block_a, std::
 		}
 		error = existing != roots.end ();
 	}
-	if (!error)
+	if (!error && roots.size () < max_broadcast_queue)
 	{
 		// Broadcast new block
 		node.network.republish_block (block_a);
