@@ -23,7 +23,7 @@ std::chrono::seconds constexpr nano::node::search_pending_interval;
 int constexpr nano::port_mapping::mapping_timeout;
 int constexpr nano::port_mapping::check_timeout;
 unsigned constexpr nano::active_transactions::announce_interval_ms;
-unsigned constexpr nano::active_transactions::confirmation_request_delay_ms;
+std::chrono::milliseconds constexpr nano::active_transactions::confirmation_request_delay;
 size_t constexpr nano::active_transactions::max_broadcast_queue;
 size_t constexpr nano::block_arrival::arrival_size_min;
 std::chrono::seconds constexpr nano::block_arrival::arrival_time_min;
@@ -3458,7 +3458,7 @@ bool nano::active_transactions::add (std::shared_ptr<nano::block> block_a, std::
 		node.network.republish_block (block_a);
 		// Request confirmation for new block
 		std::weak_ptr<nano::node> node_w (node.shared ());
-		node.alarm.add (std::chrono::steady_clock::now () + std::chrono::milliseconds (confirmation_request_delay_ms), [node_w, block_a]() {
+		node.alarm.add (std::chrono::steady_clock::now () + confirmation_request_delay, [node_w, block_a]() {
 			if (auto node_l = node_w.lock ())
 			{
 				node_l->network.broadcast_confirm_req (block_a);
