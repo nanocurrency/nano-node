@@ -811,8 +811,19 @@ nano::account nano::ledger::account (nano::transaction const & transaction_a, na
 // Return amount decrease or increase for block
 nano::uint128_t nano::ledger::amount (nano::transaction const & transaction_a, nano::block_hash const & hash_a)
 {
-	summation_visitor amount (transaction_a, store);
-	return amount.compute_amount (hash_a);
+	nano::uint128_t result;
+	if (hash_a != nano::genesis_account)
+	{
+		auto block (store.block_get (transaction_a, hash_a));
+		auto block_balance (balance (transaction_a, hash_a));
+		auto previous_balance (balance (transaction_a, block->previous ()));
+		result = block_balance > previous_balance ? block_balance - previous_balance : previous_balance - block_balance;
+	}
+	else
+	{
+		result = nano::genesis_amount;
+	}
+	return result;
 }
 
 // Return latest block for account
