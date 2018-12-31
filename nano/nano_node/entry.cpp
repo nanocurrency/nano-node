@@ -58,7 +58,20 @@ int main (int argc, char * const * argv)
 	}
 	boost::program_options::notify (vm);
 	int result (0);
-	boost::filesystem::path data_path = vm.count ("data_path") ? boost::filesystem::path (vm["data_path"].as<std::string> ()) : nano::working_path ();
+
+	auto data_path_it = vm.find ("data_path");
+	if (data_path_it == vm.end ())
+	{
+		std::string error_string;
+		if (!nano::migrate_working_path (error_string))
+		{
+			std::cerr << error_string << std::endl;
+
+			return 1;
+		}
+	}
+
+	boost::filesystem::path data_path ((data_path_it != vm.end ()) ? data_path_it->second.as<std::string> () : nano::working_path ());
 	auto ec = nano::handle_node_options (vm);
 
 	if (ec == nano::error_cli::unknown_command)
@@ -81,30 +94,32 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_bootstrap_generate"))
 		{
-			if (vm.count ("key") == 1)
+			auto key_it = vm.find ("key");
+			if (key_it != vm.end ())
 			{
 				nano::uint256_union key;
-				if (!key.decode_hex (vm["key"].as<std::string> ()))
+				if (!key.decode_hex (key_it->second.as<std::string> ()))
 				{
 					nano::keypair genesis (key.to_string ());
 					nano::work_pool work (std::numeric_limits<unsigned>::max (), nullptr);
-					std::cout << "Genesis: " << genesis.prv.data.to_string () << std::endl
-					          << "Public: " << genesis.pub.to_string () << std::endl
-					          << "Account: " << genesis.pub.to_account () << std::endl;
+					std::cout << "Genesis: " << genesis.prv.data.to_string () << "\n"
+					          << "Public: " << genesis.pub.to_string () << "\n"
+					          << "Account: " << genesis.pub.to_account () << "\n";
 					nano::keypair landing;
-					std::cout << "Landing: " << landing.prv.data.to_string () << std::endl
-					          << "Public: " << landing.pub.to_string () << std::endl
-					          << "Account: " << landing.pub.to_account () << std::endl;
+					std::cout << "Landing: " << landing.prv.data.to_string () << "\n"
+					          << "Public: " << landing.pub.to_string () << "\n"
+					          << "Account: " << landing.pub.to_account () << "\n";
 					for (auto i (0); i != 32; ++i)
 					{
 						nano::keypair rep;
-						std::cout << "Rep" << i << ": " << rep.prv.data.to_string () << std::endl
-						          << "Public: " << rep.pub.to_string () << std::endl
-						          << "Account: " << rep.pub.to_account () << std::endl;
+						std::cout << "Rep" << i << ": " << rep.prv.data.to_string () << "\n"
+						          << "Public: " << rep.pub.to_string () << "\n"
+						          << "Account: " << rep.pub.to_account () << "\n";
 					}
 					nano::uint128_t balance (std::numeric_limits<nano::uint128_t>::max ());
 					nano::open_block genesis_block (genesis.pub, genesis.pub, genesis.pub, genesis.prv, genesis.pub, work.generate (genesis.pub));
 					std::cout << genesis_block.to_json ();
+					std::cout.flush ();
 					nano::block_hash previous (genesis_block.hash ());
 					for (auto i (0); i != 8; ++i)
 					{
@@ -169,7 +184,7 @@ int main (int argc, char * const * argv)
 		else if (vm.count ("debug_mass_activity"))
 		{
 			nano::system system (24000, 1);
-			size_t count (1000000);
+			uint32_t count (1000000);
 			system.generate_mass_activity (count, *system.nodes[0]);
 		}
 		else if (vm.count ("debug_profile_kdf"))
@@ -177,7 +192,7 @@ int main (int argc, char * const * argv)
 			nano::uint256_union result;
 			nano::uint256_union salt (0);
 			std::string password ("");
-			for (; true;)
+			while (true)
 			{
 				auto begin1 (std::chrono::high_resolution_clock::now ());
 				auto success (argon2_hash (1, nano::wallet_store::kdf_work, 1, password.data (), password.size (), salt.bytes.data (), salt.bytes.size (), result.bytes.data (), result.bytes.size (), NULL, 0, Argon2_d, 0x10));
@@ -191,7 +206,7 @@ int main (int argc, char * const * argv)
 			nano::work_pool work (std::numeric_limits<unsigned>::max (), nullptr);
 			nano::change_block block (0, 0, nano::keypair ().prv, 0, 0);
 			std::cerr << "Starting generation profiling\n";
-			for (uint64_t i (0); true; ++i)
+			while (true)
 			{
 				block.hashables.previous.qwords[0] += 1;
 				auto begin1 (std::chrono::high_resolution_clock::now ());
@@ -207,39 +222,42 @@ int main (int argc, char * const * argv)
 			if (!error)
 			{
 				unsigned short platform (0);
-				if (vm.count ("platform") == 1)
+				auto platform_it = vm.find ("platform");
+				if (platform_it != vm.end ())
 				{
 					try
 					{
-						platform = boost::lexical_cast<unsigned short> (vm["platform"].as<std::string> ());
+						platform = boost::lexical_cast<unsigned short> (platform_it->second.as<std::string> ());
 					}
-					catch (boost::bad_lexical_cast & e)
+					catch (boost::bad_lexical_cast &)
 					{
 						std::cerr << "Invalid platform id\n";
 						result = -1;
 					}
 				}
 				unsigned short device (0);
-				if (vm.count ("device") == 1)
+				auto device_it = vm.find ("device");
+				if (device_it != vm.end ())
 				{
 					try
 					{
-						device = boost::lexical_cast<unsigned short> (vm["device"].as<std::string> ());
+						device = boost::lexical_cast<unsigned short> (device_it->second.as<std::string> ());
 					}
-					catch (boost::bad_lexical_cast & e)
+					catch (boost::bad_lexical_cast &)
 					{
 						std::cerr << "Invalid device id\n";
 						result = -1;
 					}
 				}
 				unsigned threads (1024 * 1024);
-				if (vm.count ("threads") == 1)
+				auto threads_it = vm.find ("threads");
+				if (threads_it != vm.end ())
 				{
 					try
 					{
-						threads = boost::lexical_cast<unsigned> (vm["threads"].as<std::string> ());
+						threads = boost::lexical_cast<unsigned> (threads_it->second.as<std::string> ());
 					}
-					catch (boost::bad_lexical_cast & e)
+					catch (boost::bad_lexical_cast &)
 					{
 						std::cerr << "Invalid threads count\n";
 						result = -1;
@@ -296,7 +314,7 @@ int main (int argc, char * const * argv)
 			nano::work_pool work (std::numeric_limits<unsigned>::max (), nullptr);
 			nano::change_block block (0, 0, nano::keypair ().prv, 0, 0);
 			std::cerr << "Starting verification profiling\n";
-			for (uint64_t i (0); true; ++i)
+			while (true)
 			{
 				block.hashables.previous.qwords[0] += 1;
 				auto begin1 (std::chrono::high_resolution_clock::now ());
@@ -344,7 +362,7 @@ int main (int argc, char * const * argv)
 		else if (vm.count ("debug_profile_sign"))
 		{
 			std::cerr << "Starting blocks signing profiling\n";
-			for (uint64_t i (0); true; ++i)
+			while (true)
 			{
 				nano::keypair key;
 				nano::block_hash latest (0);
