@@ -468,7 +468,7 @@ TEST (json, fetch_object)
 	stream1.close ();
 	nano::open_or_create (stream1, path1.string ());
 	json_upgrade_test object1;
-	auto error1 (nano::fetch_object (object1, path1, stream1));
+	auto error1 (nano::fetch_object (object1, path1));
 	ASSERT_FALSE (error1);
 	ASSERT_EQ ("changed", object1.text);
 	boost::property_tree::ptree tree1;
@@ -492,7 +492,7 @@ TEST (json, fetch_object)
 	std::fstream stream4;
 	nano::open_or_create (stream4, path2.string ());
 	json_upgrade_test object4;
-	auto error4 (nano::fetch_object (object4, path2, stream4));
+	auto error4 (nano::fetch_object (object4, path2));
 	ASSERT_FALSE (error4);
 	ASSERT_EQ ("created", object4.text);
 	boost::property_tree::ptree tree2;
