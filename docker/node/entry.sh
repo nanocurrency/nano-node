@@ -66,4 +66,10 @@ while true; do
 		nano_node --daemon &
 		pid="$!"
 	fi
-done > "${logfile}" 2>&1
+
+	if [ "$(stat -c '%s' "${logfile}")" -gt 4194304 ]; then
+		cp "${logfile}" "${logfile}.old"
+		: > "${logfile}"
+		echo "$(date) Rotated log file"
+	fi
+done >> "${logfile}" 2>&1
