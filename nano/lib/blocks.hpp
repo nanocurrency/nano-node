@@ -54,12 +54,12 @@ public:
 	// Previous block in account's chain, zero for open block
 	virtual nano::block_hash previous () const = 0;
 	// Source block for open/receive blocks, zero otherwise.
-	virtual nano::block_hash source () const = 0;
+	virtual nano::block_hash source () const;
 	// Previous block or account number for open blocks
 	virtual nano::block_hash root () const = 0;
 	// Link field for state blocks, zero otherwise.
-	virtual nano::block_hash link () const = 0;
-	virtual nano::account representative () const = 0;
+	virtual nano::block_hash link () const;
+	virtual nano::account representative () const;
 	virtual void serialize (nano::stream &) const = 0;
 	virtual void serialize_json (std::string &) const = 0;
 	virtual void visit (nano::block_visitor &) const = 0;
@@ -96,10 +96,7 @@ public:
 	uint64_t block_work () const override;
 	void block_work_set (uint64_t) override;
 	nano::block_hash previous () const override;
-	nano::block_hash source () const override;
 	nano::block_hash root () const override;
-	nano::block_hash link () const override;
-	nano::account representative () const override;
 	void serialize (nano::stream &) const override;
 	void serialize_json (std::string &) const override;
 	bool deserialize (nano::stream &);
@@ -142,8 +139,6 @@ public:
 	nano::block_hash previous () const override;
 	nano::block_hash source () const override;
 	nano::block_hash root () const override;
-	nano::block_hash link () const override;
-	nano::account representative () const override;
 	void serialize (nano::stream &) const override;
 	void serialize_json (std::string &) const override;
 	bool deserialize (nano::stream &);
@@ -188,7 +183,6 @@ public:
 	nano::block_hash previous () const override;
 	nano::block_hash source () const override;
 	nano::block_hash root () const override;
-	nano::block_hash link () const override;
 	nano::account representative () const override;
 	void serialize (nano::stream &) const override;
 	void serialize_json (std::string &) const override;
@@ -230,9 +224,7 @@ public:
 	uint64_t block_work () const override;
 	void block_work_set (uint64_t) override;
 	nano::block_hash previous () const override;
-	nano::block_hash source () const override;
 	nano::block_hash root () const override;
-	nano::block_hash link () const override;
 	nano::account representative () const override;
 	void serialize (nano::stream &) const override;
 	void serialize_json (std::string &) const override;
@@ -286,7 +278,6 @@ public:
 	uint64_t block_work () const override;
 	void block_work_set (uint64_t) override;
 	nano::block_hash previous () const override;
-	nano::block_hash source () const override;
 	nano::block_hash root () const override;
 	nano::block_hash link () const override;
 	nano::account representative () const override;

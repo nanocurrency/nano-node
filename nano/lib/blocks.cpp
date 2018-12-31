@@ -114,6 +114,21 @@ nano::block_hash nano::block::full_hash () const
 	return result;
 }
 
+nano::account nano::block::representative () const
+{
+	return 0;
+}
+
+nano::block_hash nano::block::source () const
+{
+	return 0;
+}
+
+nano::block_hash nano::block::link () const
+{
+	return 0;
+}
+
 void nano::send_block::visit (nano::block_visitor & visitor_a) const
 {
 	visitor_a.send_block (*this);
@@ -356,24 +371,9 @@ nano::block_hash nano::send_block::previous () const
 	return hashables.previous;
 }
 
-nano::block_hash nano::send_block::source () const
-{
-	return 0;
-}
-
 nano::block_hash nano::send_block::root () const
 {
 	return hashables.previous;
-}
-
-nano::block_hash nano::send_block::link () const
-{
-	return 0;
-}
-
-nano::account nano::send_block::representative () const
-{
-	return 0;
 }
 
 nano::signature nano::send_block::block_signature () const
@@ -625,11 +625,6 @@ nano::block_hash nano::open_block::root () const
 	return hashables.account;
 }
 
-nano::block_hash nano::open_block::link () const
-{
-	return 0;
-}
-
 nano::account nano::open_block::representative () const
 {
 	return hashables.representative;
@@ -856,19 +851,9 @@ bool nano::change_block::valid_predecessor (nano::block const & block_a) const
 	return result;
 }
 
-nano::block_hash nano::change_block::source () const
-{
-	return 0;
-}
-
 nano::block_hash nano::change_block::root () const
 {
 	return hashables.previous;
-}
-
-nano::block_hash nano::change_block::link () const
-{
-	return 0;
 }
 
 nano::account nano::change_block::representative () const
@@ -1158,11 +1143,6 @@ bool nano::state_block::operator== (nano::state_block const & other_a) const
 bool nano::state_block::valid_predecessor (nano::block const & block_a) const
 {
 	return true;
-}
-
-nano::block_hash nano::state_block::source () const
-{
-	return 0;
 }
 
 nano::block_hash nano::state_block::root () const
@@ -1511,16 +1491,6 @@ nano::block_hash nano::receive_block::source () const
 nano::block_hash nano::receive_block::root () const
 {
 	return hashables.previous;
-}
-
-nano::block_hash nano::receive_block::link () const
-{
-	return 0;
-}
-
-nano::account nano::receive_block::representative () const
-{
-	return 0;
 }
 
 nano::signature nano::receive_block::block_signature () const
