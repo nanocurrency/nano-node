@@ -44,18 +44,18 @@ run_tests() {
         TIMEOUT_TIME_ARG=""
     fi
 
-    if [ "$(date +%s)" -lt 1545350400 ]; then
-        tries=(1 2 3 4 5 6 7 8 9)
+    if [ "$(date +%s)" -lt 1555718400 ]; then
+        tries=(_initial_ 1 2 3 4 5 6 7 8 9)
     else
-        tries=()
+        tries=(_initial_)
     fi
 
-    for try in _initial_ "${tries[@]}"; do
+    for try in "${tries[@]}"; do
         if [ "${try}" != '_initial_' ]; then
             echo "core_test failed: ${core_test_res}, retrying (try=${try})"
 
             # Wait a while for sockets to be all cleaned up by the kernel
-            sleep $[10 + (${RANDOM} % 30)]
+            sleep $[60 + (${RANDOM} % 30)]
         fi
 
         ${TIMEOUT_CMD} ${TIMEOUT_TIME_ARG} ${TIMEOUT_SEC-${TIMEOUT_DEFAULT}} ./core_test
@@ -68,7 +68,7 @@ run_tests() {
     xvfb_run_ ./qt_test
     qt_test_res=${?}
 
-    ${TIMEOUT_CMD} ${TIMEOUT_TIME_ARG} ${TIMEOUT_SEC-${TIMEOUT_DEFAULT}} ./load_test ./rai_node -s 150
+    ${TIMEOUT_CMD} ${TIMEOUT_TIME_ARG} ${TIMEOUT_SEC-${TIMEOUT_DEFAULT}} ./load_test ./nano_node -s 150
     load_test_res=${?}
 
     echo "Core Test return code: ${core_test_res}"

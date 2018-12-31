@@ -1,7 +1,7 @@
 cmake_minimum_required (VERSION 3.4)
-project (rai)
+project (nano-core)
 
-set (CPACK_PACKAGE_VERSION_MAJOR "17")
+set (CPACK_PACKAGE_VERSION_MAJOR "18")
 set (CPACK_PACKAGE_VERSION_MINOR "0")
 set (CPACK_PACKAGE_VERSION_PATCH "0")
 if (DEFINED GIT_COMMIT)
@@ -13,16 +13,16 @@ set(CMAKE_INSTALL_RPATH "@executable_path/../Frameworks")
 # Create all libraries and executables in the root binary dir
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
-set (RAIBLOCKS_GUI OFF CACHE BOOL "")
-set (RAIBLOCKS_TEST OFF CACHE BOOL "")
-set (RAIBLOCKS_SECURE_RPC OFF CACHE BOOL "")
+set (NANO_GUI OFF CACHE BOOL "")
+set (NANO_TEST OFF CACHE BOOL "")
+set (NANO_SECURE_RPC OFF CACHE BOOL "")
 
-option(RAIBLOCKS_ASAN_INT "Enable ASan+UBSan+Integer overflow" OFF)
-option(RAIBLOCKS_ASAN "Enable ASan+UBSan" OFF)
-option(RAIBLOCKS_SIMD_OPTIMIZATIONS "Enable CPU-specific SIMD optimizations (SSE/AVX or NEON, e.g.)" OFF)
+option(NANO_ASAN_INT "Enable ASan+UBSan+Integer overflow" OFF)
+option(NANO_ASAN "Enable ASan+UBSan" OFF)
+option(NANO_SIMD_OPTIMIZATIONS "Enable CPU-specific SIMD optimizations (SSE/AVX or NEON, e.g.)" OFF)
 
-SET (ACTIVE_NETWORK rai_live_network CACHE STRING "Selects which network parameters are used")
-set_property (CACHE ACTIVE_NETWORK PROPERTY STRINGS rai_test_network rai_beta_network rai_live_network)
+SET (ACTIVE_NETWORK nano_live_network CACHE STRING "Selects which network parameters are used")
+set_property (CACHE ACTIVE_NETWORK PROPERTY STRINGS nano_test_network nano_beta_network nano_live_network)
 
 if(NOT CMAKE_BUILD_TYPE)
 	set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose the type of build, options are: Debug Release RelWithDebInfo MinSizeRel." FORCE)
@@ -41,19 +41,19 @@ if (WIN32)
 					-DMINIUPNP_STATICLIB)
 else ()
 	add_compile_options(-Werror=switch)
-	if (RAIBLOCKS_ASAN)
+	if (NANO_ASAN OR RAIBLOCKS_ASAN)
 		add_compile_options(-fsanitize=address,undefined)
 		add_definitions(-DED25519_NO_INLINE_ASM)
-	elseif (RAIBLOCKS_ASAN_INT)
+	elseif (NANO_ASAN_INT OR RAIBLOCKS_ASAN_INT)
 		add_compile_options(-fsanitize=address,undefined,integer)
 		add_definitions(-DED25519_NO_INLINE_ASM)
-	elseif (RAIBLOCKS_TSAN)
+	elseif (NANO_TSAN OR RAIBLOCKS_TSAN)
 		add_compile_options(-fsanitize=thread)
 		add_definitions(-DED25519_NO_INLINE_ASM)
 	endif()
 
 	IF (CMAKE_SYSTEM_PROCESSOR MATCHES "^(i.86|x86(_64)?)$")
-		if (RAIBLOCKS_SIMD_OPTIMIZATIONS)
+		if (NANO_SIMD_OPTIMIZATIONS OR RAIBLOCKS_SIMD_OPTIMIZATIONS)
 			add_compile_options(-msse4)
 		elseif(CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
 			add_compile_options(-msse2)
@@ -85,24 +85,24 @@ endif ()
 if (APPLE)
 	set (PLATFORM_LINK_FLAGS "-framework Foundation -framework OpenCL")
 elseif (WIN32)
-	set (PLATFORM_LINK_FLAGS "/STACK:8000000") #provides 8MB default stack size for linux on windows
+	set (PLATFORM_LINK_FLAGS "") 
 else ()
 	set (PLATFORM_LINK_FLAGS "-static-libgcc -static-libstdc++")
-	if (RAIBLOCKS_ASAN)
+	if (NANO_ASAN OR RAIBLOCKS_ASAN)
 		set (PLATFORM_LINK_FLAGS "${PLATFORM_LINK_FLAGS} -fsanitize=address,undefined")
-	elseif (RAIBLOCKS_ASAN_INT)
+	elseif (NANO_ASAN_INT OR RAIBLOCKS_ASAN_INT)
 		set (PLATFORM_LINK_FLAGS "${PLATFORM_LINK_FLAGS} -fsanitize=address,undefined,integer")
-	elseif (RAIBLOCKS_TSAN)
+	elseif (NANO_TSAN OR RAIBLOCKS_TSAN)
 		set (PLATFORM_LINK_FLAGS "${PLATFORM_LINK_FLAGS} -fsanitize=thread")
 	endif()
 endif ()
 
 SET( CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${PLATFORM_LINK_FLAGS}" )
 
-if (RAIBLOCKS_SECURE_RPC)
+if (NANO_SECURE_RPC OR RAIBLOCKS_SECURE_RPC)
 	find_package (OpenSSL 1.0 REQUIRED)
-	#include_directories(${OPENSSL_INCLUDE_DIR})
-	add_definitions (-DRAIBLOCKS_SECURE_RPC)
+	include_directories(${OPENSSL_INCLUDE_DIR})
+	add_definitions (-DNANO_SECURE_RPC)
 	message("OpenSSL include dir: ${OPENSSL_INCLUDE_DIR}")
 	message("OpenSSL libraries: ${OPENSSL_LIBRARIES}")
 	message("OpenSSL lib: ${OPENSSL_SSL_LIBRARY}")
@@ -134,7 +134,7 @@ set_target_properties(libminiupnpc-static PROPERTIES INTERFACE_INCLUDE_DIRECTORI
 set (BUILD_SHARED OFF CACHE BOOL "")
 set (BUILD_TESTING OFF CACHE BOOL "")
 set (USE_INTERMEDIATE_OBJECTS_TARGET OFF CACHE BOOL "")
-if (CRYPTOPP_CUSTOM OR NOT RAIBLOCKS_SIMD_OPTIMIZATIONS)
+if (CRYPTOPP_CUSTOM OR NOT (NANO_SIMD_OPTIMIZATIONS OR RAIBLOCKS_SIMD_OPTIMIZATIONS))
 	set (CRYPTOPP_LIBRARY cryptopp)
 	add_library (cryptopp
 		cryptopp/algparam.cpp
@@ -227,12 +227,12 @@ add_library (blake2
 
 target_compile_definitions(blake2 PRIVATE -D__SSE2__)
 
-add_subdirectory(rai/secure)
-add_subdirectory(rai/lib)
-add_subdirectory(rai/node)
-add_subdirectory(rai/rai_node)
+add_subdirectory(nano/secure)
+add_subdirectory(nano/lib)
+add_subdirectory(nano/node)
+add_subdirectory(nano/nano_node)
 
-if (RAIBLOCKS_TEST)
+if (NANO_TEST OR RAIBLOCKS_TEST)
     if(WIN32)
         if(MSVC_VERSION)
             if(MSVC_VERSION GREATER_EQUAL 1910)
@@ -252,11 +252,11 @@ if (RAIBLOCKS_TEST)
 	set_target_properties(gtest PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
 		"${CMAKE_SOURCE_DIR}/gtest/include")
 
-	add_subdirectory(rai/core_test)
-	add_subdirectory(rai/slow_test)
+	add_subdirectory(nano/core_test)
+	add_subdirectory(nano/slow_test)
 endif ()
 
-if (RAIBLOCKS_GUI)
+if (NANO_GUI OR RAIBLOCKS_GUI)
 	if (WIN32)
 		set (PLATFORM_QT_PACKAGES WinExtras)
 	else ()
@@ -266,16 +266,16 @@ if (RAIBLOCKS_GUI)
 	find_package (Qt5 COMPONENTS Core Gui Widgets Test ${PLATFORM_QT_PACKAGES})
 
 	add_library (qt
-		rai/qt/qt.cpp
-		rai/qt/qt.hpp)
+		nano/qt/qt.cpp
+		nano/qt/qt.hpp)
 
 	target_link_libraries(qt
-		secure rai_lib node libminiupnpc-static Qt5::Gui Qt5::Widgets)
+		secure nano_lib node libminiupnpc-static Qt5::Gui Qt5::Widgets)
 
 	target_compile_definitions(qt
 		PRIVATE
-		-DRAIBLOCKS_VERSION_MAJOR=${CPACK_PACKAGE_VERSION_MAJOR}
-		-DRAIBLOCKS_VERSION_MINOR=${CPACK_PACKAGE_VERSION_MINOR})
+		-DNANO_VERSION_MAJOR=${CPACK_PACKAGE_VERSION_MAJOR}
+		-DNANO_VERSION_MINOR=${CPACK_PACKAGE_VERSION_MINOR})
 
 	if (WIN32)
 		set (PLATFORM_GUI_TARGET_PROPERTIES WIN32)
@@ -284,13 +284,13 @@ if (RAIBLOCKS_GUI)
 	endif ()
 
 	if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-		set (PLATFORM_WALLET_SOURCE rai/rai_wallet/plat/default/icon.cpp)
+		set (PLATFORM_WALLET_SOURCE nano/nano_wallet/plat/default/icon.cpp)
 	elseif (${CMAKE_SYSTEM_NAME} MATCHES "Windows")
-		set (PLATFORM_WALLET_SOURCE rai/rai_wallet/plat/windows/icon.cpp RaiBlocks.rc)
+		set (PLATFORM_WALLET_SOURCE nano/nano_wallet/plat/windows/icon.cpp Nano.rc)
 	elseif (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-		set (PLATFORM_WALLET_SOURCE rai/rai_wallet/plat/default/icon.cpp)
+		set (PLATFORM_WALLET_SOURCE nano/nano_wallet/plat/default/icon.cpp)
 	elseif (${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
-		set (PLATFORM_WALLET_SOURCE rai/rai_wallet/plat/default/icon.cpp)
+		set (PLATFORM_WALLET_SOURCE nano/nano_wallet/plat/default/icon.cpp)
 	else ()
 		error ("Unknown platform: ${CMAKE_SYSTEM_NAME}")
 	endif ()
@@ -299,8 +299,8 @@ if (RAIBLOCKS_GUI)
 
 	add_executable (nano_wallet ${PLATFORM_GUI_TARGET_PROPERTIES}
 		${PLATFORM_WALLET_SOURCE}
-		rai/rai_wallet/entry.cpp
-		rai/rai_wallet/icon.hpp
+		nano/nano_wallet/entry.cpp
+		nano/nano_wallet/icon.hpp
 		${RES})
 
 	target_link_libraries (nano_wallet
@@ -312,16 +312,16 @@ if (RAIBLOCKS_GUI)
 	endif()
 
 	add_executable (qt_system
-		rai/qt_system/entry.cpp)
+		nano/qt_system/entry.cpp)
 
 	target_link_libraries (qt_system qt node Qt5::Gui Qt5::Widgets)
 
 	set_target_properties (qt nano_wallet qt_system PROPERTIES COMPILE_FLAGS "-DQT_NO_KEYWORDS -DBOOST_ASIO_HAS_STD_ARRAY=1")
 
-	if (RAIBLOCKS_TEST)
+	if (NANO_TEST OR RAIBLOCKS_TEST)
 		add_executable (qt_test
-			rai/qt_test/entry.cpp
-			rai/qt_test/qt.cpp)
+			nano/qt_test/entry.cpp
+			nano/qt_test/qt.cpp)
 
 		target_link_libraries(qt_test gtest gtest_main qt Qt5::Test)
 
@@ -338,7 +338,7 @@ if (RAIBLOCKS_GUI)
 		install (DIRECTORY ${Qt5_DIR}/../../QtTest.framework DESTINATION Nano.app/Contents/Frameworks)
 		install (DIRECTORY ${Qt5_DIR}/../../QtWidgets.framework DESTINATION Nano.app/Contents/Frameworks)
 		install (FILES "${Qt5_DIR}/../../../plugins/platforms/libqcocoa.dylib" DESTINATION Nano.app/Contents/PlugIns/platforms)
-		install (FILES RaiBlocks.icns DESTINATION Nano.app/Contents/Resources)
+		install (FILES Nano.icns DESTINATION Nano.app/Contents/Resources)
 	elseif (WIN32)
 		if ("${CMAKE_SIZEOF_VOID_P}" EQUAL "8")
 			set (WIN_REDIST vc_redist.x64.exe)
@@ -346,7 +346,7 @@ if (RAIBLOCKS_GUI)
 			set (WIN_REDIST vc_redist.x86.exe)
 		endif ()
 		set (CPACK_NSIS_EXTRA_INSTALL_COMMANDS "ExecWait '\\\"$INSTDIR\\\\${WIN_REDIST}\\\" /quiet /norestart'")
-		set (CPACK_NSIS_MUI_ICON ${CMAKE_SOURCE_DIR}/RaiBlocks.ico)
+		set (CPACK_NSIS_MUI_ICON ${CMAKE_SOURCE_DIR}/Nano.ico)
 		set (CPACK_NSIS_DISPLAY_NAME "Nano")
 		set (CPACK_PACKAGE_NAME "Nano_Installer")
 		set (CPACK_NSIS_PACKAGE_NAME "Nano ${CPACK_PACKAGE_VERSION_MAJOR}.${CPACK_PACKAGE_VERSION_MINOR}.${CPACK_PACKAGE_VERSION_PATCH}")
