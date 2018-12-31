@@ -44,7 +44,7 @@ uint8_t account_decode (char value)
 void nano::uint256_union::encode_account (std::string & destination_a) const
 {
 	assert (destination_a.empty ());
-	destination_a.reserve (64);
+	destination_a.reserve (65);
 	uint64_t check (0);
 	blake2b_state hash;
 	blake2b_init (&hash, 5);
@@ -59,7 +59,7 @@ void nano::uint256_union::encode_account (std::string & destination_a) const
 		number_l >>= 5;
 		destination_a.push_back (account_encode (r));
 	}
-	destination_a.append ("_brx"); // xrb_
+	destination_a.append ("_onan"); // nano_
 	std::reverse (destination_a.begin (), destination_a.end ());
 }
 
