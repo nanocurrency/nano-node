@@ -699,8 +699,8 @@ nano::store_iterator<nano::account, std::shared_ptr<nano::vote>> nano::mdb_store
 }
 
 nano::mdb_store::mdb_store (bool & error_a, nano::logging & logging_a, boost::filesystem::path const & path_a, int lmdb_max_dbs) :
-env (error_a, path_a, lmdb_max_dbs),
 logging (logging_a),
+env (error_a, path_a, lmdb_max_dbs),
 frontiers (0),
 accounts_v0 (0),
 accounts_v1 (0),
@@ -1138,7 +1138,7 @@ void nano::mdb_store::upgrade_v11_to_v12 ()
 			{
 				if (cost >= max)
 				{
-					std::cerr << boost::str (boost::format ("Upgrading %1%... height %2%\n") % first.to_account ().substr (0, 16) % std::to_string (height));
+					BOOST_LOG (logging.log) << boost::str (boost::format ("Upgrading account %1%... height %2%") % first.to_account ().substr (0, 16) % std::to_string (height));
 					auto tx (boost::polymorphic_downcast<nano::mdb_txn *> (transaction.impl.get ()));
 					auto status0 (mdb_txn_commit (*tx));
 					release_assert (status0 == MDB_SUCCESS);
@@ -1171,7 +1171,7 @@ void nano::mdb_store::upgrade_v11_to_v12 ()
 	}
 	if (account == nano::not_an_account)
 	{
-		std::cerr << boost::str (boost::format ("Completed sideband upgrade\n"));
+		BOOST_LOG (logging.log) << boost::str (boost::format ("Completed sideband upgrade"));
 		version_put (transaction, 12);
 	}
 }
