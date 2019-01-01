@@ -1155,7 +1155,10 @@ void nano::mdb_store::upgrade_v11_to_v12 ()
 			account = nano::not_an_account;
 		}
 	}
-	version_put (transaction, 12);
+	if (account == nano::not_an_account)
+	{
+		version_put (transaction, 12);
+	}
 }
 
 void nano::mdb_store::clear (MDB_dbi db_a)
