@@ -8,8 +8,9 @@
 
 TEST (processor_service, bad_send_signature)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_FALSE (init);
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
@@ -26,8 +27,9 @@ TEST (processor_service, bad_send_signature)
 
 TEST (processor_service, bad_receive_signature)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_FALSE (init);
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
