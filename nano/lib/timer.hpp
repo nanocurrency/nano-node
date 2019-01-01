@@ -2,7 +2,7 @@
 
 namespace nano
 {
-enum timer_state
+enum class timer_state
 {
 	started,
 	stopped
@@ -102,6 +102,14 @@ public:
 		return ticks;
 	}
 
+	/**
+	 * Return current units.
+	 */
+	UNIT value ()
+	{
+		return ticks;
+	}
+
 	/** Returns the duration in UNIT since the timer was last started. */
 	UNIT since_start ()
 	{
@@ -171,8 +179,7 @@ public:
 	/** Returns the SI unit string */
 	std::string unit () const
 	{
-		UNIT u;
-		return typed_unit (u);
+		return typed_unit<UNIT> ();
 	}
 
 	nano::timer_state current_state () const
@@ -190,38 +197,38 @@ private:
 	UNIT minimum{ UNIT::zero () };
 	unsigned measurements{ 0 };
 
-	template <typename U = UNIT>
-	std::string typed_unit (typename std::enable_if<std::is_same<U, std::chrono::nanoseconds>::value, std::chrono::nanoseconds>::type dummy) const
+	template <typename U, std::enable_if_t<std::is_same<U, std::chrono::nanoseconds>::value> * = nullptr>
+	std::string typed_unit () const
 	{
 		return "nanoseconds";
 	}
 
-	template <typename U = UNIT>
-	std::string typed_unit (typename std::enable_if<std::is_same<U, std::chrono::microseconds>::value, std::chrono::microseconds>::type dummy) const
+	template <typename U, std::enable_if_t<std::is_same<U, std::chrono::microseconds>::value> * = nullptr>
+	std::string typed_unit () const
 	{
 		return "microseconds";
 	}
 
-	template <typename U = UNIT>
-	std::string typed_unit (typename std::enable_if<std::is_same<U, std::chrono::milliseconds>::value, std::chrono::milliseconds>::type dummy) const
+	template <typename U, std::enable_if_t<std::is_same<U, std::chrono::milliseconds>::value> * = nullptr>
+	std::string typed_unit () const
 	{
 		return "milliseconds";
 	}
 
-	template <typename U = UNIT>
-	std::string typed_unit (typename std::enable_if<std::is_same<U, std::chrono::seconds>::value, std::chrono::seconds>::type dummy) const
+	template <typename U, std::enable_if_t<std::is_same<U, std::chrono::seconds>::value> * = nullptr>
+	std::string typed_unit () const
 	{
 		return "seconds";
 	}
 
-	template <typename U = UNIT>
-	std::string typed_unit (typename std::enable_if<std::is_same<U, std::chrono::minutes>::value, std::chrono::minutes>::type dummy) const
+	template <typename U, std::enable_if_t<std::is_same<U, std::chrono::minutes>::value> * = nullptr>
+	std::string typed_unit () const
 	{
 		return "minutes";
 	}
 
-	template <typename U = UNIT>
-	std::string typed_unit (typename std::enable_if<std::is_same<U, std::chrono::hours>::value, std::chrono::hours>::type dummy) const
+	template <typename U, std::enable_if_t<std::is_same<U, std::chrono::hours>::value> * = nullptr>
+	std::string typed_unit () const
 	{
 		return "hours";
 	}
