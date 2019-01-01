@@ -734,12 +734,15 @@ stopped (false)
 		error_a |= mdb_dbi_open (env.tx (transaction), "state_v1", MDB_CREATE, &state_blocks_v1) != 0;
 		error_a |= mdb_dbi_open (env.tx (transaction), "pending", MDB_CREATE, &pending_v0) != 0;
 		error_a |= mdb_dbi_open (env.tx (transaction), "pending_v1", MDB_CREATE, &pending_v1) != 0;
-		error_a |= mdb_dbi_open (env.tx (transaction), "blocks_info", MDB_CREATE, &blocks_info) != 0;
 		error_a |= mdb_dbi_open (env.tx (transaction), "representation", MDB_CREATE, &representation) != 0;
 		error_a |= mdb_dbi_open (env.tx (transaction), "unchecked", MDB_CREATE, &unchecked) != 0;
 		error_a |= mdb_dbi_open (env.tx (transaction), "checksum", MDB_CREATE, &checksum) != 0;
 		error_a |= mdb_dbi_open (env.tx (transaction), "vote", MDB_CREATE, &vote) != 0;
 		error_a |= mdb_dbi_open (env.tx (transaction), "meta", MDB_CREATE, &meta) != 0;
+		if (!full_sideband (transaction))
+		{
+			error_a |= mdb_dbi_open (env.tx (transaction), "blocks_info", MDB_CREATE, &blocks_info) != 0;
+		}
 		if (!error_a)
 		{
 			do_upgrades (transaction, slow_upgrade);
@@ -803,6 +806,16 @@ void nano::mdb_store::version_put (nano::transaction const & transaction_a, int 
 	nano::uint256_union version_value (version_a);
 	auto status (mdb_put (env.tx (transaction_a), meta, nano::mdb_val (version_key), nano::mdb_val (version_value), 0));
 	release_assert (status == 0);
+	if (blocks_info == 0 && !full_sideband (transaction_a))
+	{
+		auto status (mdb_dbi_open (env.tx (transaction_a), "blocks_info", MDB_CREATE, &blocks_info));
+		release_assert (status == MDB_SUCCESS);
+	}
+	if (blocks_info != 0 && full_sideband (transaction_a))
+	{
+		auto status (mdb_drop (env.tx (transaction_a), blocks_info, 1));
+		release_assert (status == MDB_SUCCESS);
+	}
 }
 
 int nano::mdb_store::version_get (nano::transaction const & transaction_a)
@@ -1124,7 +1137,7 @@ void nano::mdb_store::upgrade_v11_to_v12 ()
 			{
 				if (cost >= max)
 				{
-					std::cerr << boost::str (boost::format ("Upgrading %1%\n") % first.to_account ().substr (0, 16));
+					std::cerr << boost::str (boost::format ("Upgrading %1%... height %2%\n") % first.to_account ().substr (0, 16) % std::to_string (height));
 					auto tx (boost::polymorphic_downcast<nano::mdb_txn *> (transaction.impl.get ()));
 					auto status0 (mdb_txn_commit (*tx));
 					release_assert (status0 == MDB_SUCCESS);
@@ -1157,6 +1170,7 @@ void nano::mdb_store::upgrade_v11_to_v12 ()
 	}
 	if (account == nano::not_an_account)
 	{
+		std::cerr << boost::str (boost::format ("Completed sideband upgrade\n"));
 		version_put (transaction, 12);
 	}
 }
@@ -1918,6 +1932,7 @@ nano::store_iterator<nano::pending_key, nano::pending_info> nano::mdb_store::pen
 
 bool nano::mdb_store::block_info_get (nano::transaction const & transaction_a, nano::block_hash const & hash_a, nano::block_info & block_info_a)
 {
+	assert (!full_sideband (transaction_a));
 	nano::mdb_val value;
 	auto status (mdb_get (env.tx (transaction_a), blocks_info, nano::mdb_val (hash_a), value));
 	release_assert (status == 0 || status == MDB_NOTFOUND);
