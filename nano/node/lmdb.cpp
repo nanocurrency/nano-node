@@ -1635,25 +1635,12 @@ nano::account nano::mdb_store::block_account (nano::transaction const & transact
 {
 	nano::block_sideband sideband;
 	auto block (block_get (transaction_a, hash_a, &sideband));
-	nano::account result;
-	switch (block->type ())
+	nano::account result (block->account ());
+	if (result.is_zero ())
 	{
-		case nano::block_type::send:
-		case nano::block_type::receive:
-		case nano::block_type::change:
-			result = sideband.account;
-			break;
-		case nano::block_type::open:
-			result = boost::polymorphic_downcast<nano::open_block *> (block.get ())->hashables.account;
-			break;
-		case nano::block_type::state:
-			result = boost::polymorphic_downcast<nano::state_block *> (block.get ())->hashables.account;
-			break;
-		case nano::block_type::invalid:
-		case nano::block_type::not_a_block:
-			release_assert (false);
-			break;
+		result = sideband.account;
 	}
+	assert (!result.is_zero ());
 	return result;
 }
 
