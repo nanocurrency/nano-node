@@ -658,24 +658,6 @@ template class nano::mdb_iterator<nano::uint256_union, std::shared_ptr<nano::vot
 template class nano::mdb_iterator<nano::uint256_union, nano::wallet_value>;
 template class nano::mdb_iterator<std::array<char, 64>, nano::mdb_val::no_value>;
 
-nano::store_iterator<nano::block_hash, nano::block_info> nano::mdb_store::block_info_begin (nano::transaction const & transaction_a, nano::block_hash const & hash_a)
-{
-	nano::store_iterator<nano::block_hash, nano::block_info> result (std::make_unique<nano::mdb_iterator<nano::block_hash, nano::block_info>> (transaction_a, blocks_info, nano::mdb_val (hash_a)));
-	return result;
-}
-
-nano::store_iterator<nano::block_hash, nano::block_info> nano::mdb_store::block_info_begin (nano::transaction const & transaction_a)
-{
-	nano::store_iterator<nano::block_hash, nano::block_info> result (std::make_unique<nano::mdb_iterator<nano::block_hash, nano::block_info>> (transaction_a, blocks_info));
-	return result;
-}
-
-nano::store_iterator<nano::block_hash, nano::block_info> nano::mdb_store::block_info_end ()
-{
-	nano::store_iterator<nano::block_hash, nano::block_info> result (nullptr);
-	return result;
-}
-
 nano::store_iterator<nano::account, nano::uint128_union> nano::mdb_store::representation_begin (nano::transaction const & transaction_a)
 {
 	nano::store_iterator<nano::account, nano::uint128_union> result (std::make_unique<nano::mdb_iterator<nano::account, nano::uint128_union>> (transaction_a, representation));
@@ -1074,32 +1056,6 @@ void nano::mdb_store::upgrade_v8_to_v9 (nano::transaction const & transaction_a)
 
 void nano::mdb_store::upgrade_v9_to_v10 (nano::transaction const & transaction_a)
 {
-	//std::cerr << boost::str (boost::format ("Performing database upgrade to version 10...\n"));
-	version_put (transaction_a, 10);
-	for (auto i (latest_v0_begin (transaction_a)), n (latest_v0_end ()); i != n; ++i)
-	{
-		nano::account_info info (i->second);
-		if (info.block_count >= block_info_max)
-		{
-			nano::account account (i->first);
-			//std::cerr << boost::str (boost::format ("Upgrading account %1%...\n") % account.to_account ());
-			size_t block_count (1);
-			auto hash (info.open_block);
-			while (!hash.is_zero ())
-			{
-				if ((block_count % block_info_max) == 0)
-				{
-					nano::block_info block_info;
-					block_info.account = account;
-					nano::amount balance (block_balance (transaction_a, hash));
-					block_info.balance = balance;
-					block_info_put (transaction_a, hash, block_info);
-				}
-				hash = block_successor (transaction_a, hash);
-				++block_count;
-			}
-		}
-	}
 }
 
 void nano::mdb_store::upgrade_v10_to_v11 (nano::transaction const & transaction_a)
@@ -1708,13 +1664,10 @@ nano::account nano::mdb_store::block_account_computed (nano::transaction const &
 	{
 		auto block (block_get (transaction_a, hash));
 		assert (block);
-		if (block->type () == nano::block_type::state)
+		result = block->account ();
+		if (result.is_zero ())
 		{
-			result = boost::polymorphic_downcast<nano::state_block *> (block.get ())->hashables.account;
-		}
-		else
-		{
-			nano::block_type type;
+			auto type (nano::block_type::invalid);
 			auto value (block_raw_get (transaction_a, block->previous (), type));
 			if (entry_has_sideband (value, type))
 			{
@@ -1971,24 +1924,6 @@ nano::store_iterator<nano::pending_key, nano::pending_info> nano::mdb_store::pen
 {
 	nano::store_iterator<nano::pending_key, nano::pending_info> result (nullptr);
 	return result;
-}
-
-void nano::mdb_store::block_info_put (nano::transaction const & transaction_a, nano::block_hash const & hash_a, nano::block_info const & block_info_a)
-{
-	auto status (mdb_put (env.tx (transaction_a), blocks_info, nano::mdb_val (hash_a), nano::mdb_val (block_info_a), 0));
-	release_assert (status == 0);
-}
-
-void nano::mdb_store::block_info_del (nano::transaction const & transaction_a, nano::block_hash const & hash_a)
-{
-	auto status (mdb_del (env.tx (transaction_a), blocks_info, nano::mdb_val (hash_a), nullptr));
-	release_assert (status == 0);
-}
-
-bool nano::mdb_store::block_info_exists (nano::transaction const & transaction_a, nano::block_hash const & hash_a)
-{
-	auto iterator (block_info_begin (transaction_a, hash_a));
-	return iterator != block_info_end () && nano::block_hash (iterator->first) == hash_a;
 }
 
 bool nano::mdb_store::block_info_get (nano::transaction const & transaction_a, nano::block_hash const & hash_a, nano::block_info & block_info_a)

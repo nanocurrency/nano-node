@@ -1078,52 +1078,6 @@ TEST (block_store, upgrade_v8_v9)
 	ASSERT_EQ (10, vote->sequence);
 }
 
-TEST (block_store, upgrade_v9_v10)
-{
-	auto path (nano::unique_path ());
-	nano::block_hash hash (0);
-	{
-		bool init (false);
-		nano::mdb_store store (init, path);
-		ASSERT_FALSE (init);
-		store.stop ();
-		auto transaction (store.tx_begin (true));
-		nano::genesis genesis;
-		nano::stat stats;
-		nano::ledger ledger (store, stats);
-		store.initialize (transaction, genesis);
-		store.version_put (transaction, 9);
-		nano::account_info info;
-		store.account_get (transaction, nano::test_genesis_key.pub, info);
-		nano::keypair key0;
-		nano::uint128_t balance (nano::genesis_amount);
-		hash = info.head;
-		for (auto i (1); i < 32; ++i) // Making 31 send blocks (+ 1 open = 32 total)
-		{
-			balance = balance - nano::Gxrb_ratio;
-			nano::send_block block0 (hash, key0.pub, balance, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
-			ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, block0).code);
-			hash = block0.hash ();
-		}
-		nano::block_info block_info_auto; // Checking automatic block_info creation for block 32
-		store.block_info_get (transaction, hash, block_info_auto);
-		ASSERT_EQ (block_info_auto.account, nano::test_genesis_key.pub);
-		ASSERT_EQ (block_info_auto.balance.number (), balance);
-		ASSERT_EQ (0, mdb_drop (store.env.tx (transaction), store.blocks_info, 0)); // Cleaning blocks_info subdatabase
-		bool block_info_exists (store.block_info_exists (transaction, hash));
-		ASSERT_EQ (block_info_exists, 0); // Checking if automatic block_info is deleted
-	}
-	bool init (false);
-	nano::mdb_store store (init, path);
-	ASSERT_FALSE (init);
-	auto transaction (store.tx_begin ());
-	ASSERT_LT (9, store.version_get (transaction));
-	nano::block_info block_info;
-	store.block_info_get (transaction, hash, block_info);
-	ASSERT_EQ (block_info.account, nano::test_genesis_key.pub);
-	ASSERT_EQ (block_info.balance.number (), nano::genesis_amount - nano::Gxrb_ratio * 31);
-}
-
 TEST (block_store, state_block)
 {
 	bool error (false);
@@ -1349,4 +1303,21 @@ TEST (block_store, upgrade_sideband_rollback_old)
 	ASSERT_TRUE (store.block_exists (transaction, block2.hash ()));
 	ledger.rollback (transaction, block2.hash ());
 	ASSERT_FALSE (store.block_exists (transaction, block2.hash ()));
+}
+
+// Account for an open block should be retrievable
+TEST (block_store, legacy_account_computed)
+{
+	bool init (false);
+	nano::mdb_store store (init, nano::unique_path ());
+	ASSERT_TRUE (!init);
+	store.stop ();
+	nano::stat stats;
+	nano::ledger ledger (store, stats);
+	nano::genesis genesis;
+	auto transaction (store.tx_begin (true));
+	store.initialize (transaction, genesis);
+	store.version_put (transaction, 11);
+	write_legacy_sideband (store, transaction, *genesis.open, 0, store.open_blocks);
+	ASSERT_EQ (nano::genesis_account, ledger.account (transaction, genesis.hash ()));
 }

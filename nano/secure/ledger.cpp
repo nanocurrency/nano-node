@@ -36,10 +36,6 @@ public:
 		ledger.store.frontier_del (transaction, hash);
 		ledger.store.frontier_put (transaction, block_a.hashables.previous, pending.source);
 		ledger.store.block_successor_clear (transaction, block_a.hashables.previous);
-		if (!(info.block_count % ledger.store.block_info_max))
-		{
-			ledger.store.block_info_del (transaction, hash);
-		}
 		ledger.stats.inc (nano::stat::type::rollback, nano::stat::detail::send);
 	}
 	void receive_block (nano::receive_block const & block_a) override
@@ -59,10 +55,6 @@ public:
 		ledger.store.frontier_del (transaction, hash);
 		ledger.store.frontier_put (transaction, block_a.hashables.previous, destination_account);
 		ledger.store.block_successor_clear (transaction, block_a.hashables.previous);
-		if (!(info.block_count % ledger.store.block_info_max))
-		{
-			ledger.store.block_info_del (transaction, hash);
-		}
 		ledger.stats.inc (nano::stat::type::rollback, nano::stat::detail::receive);
 	}
 	void open_block (nano::open_block const & block_a) override
@@ -94,10 +86,6 @@ public:
 		ledger.store.frontier_del (transaction, hash);
 		ledger.store.frontier_put (transaction, block_a.hashables.previous, account);
 		ledger.store.block_successor_clear (transaction, block_a.hashables.previous);
-		if (!(info.block_count % ledger.store.block_info_max))
-		{
-			ledger.store.block_info_del (transaction, hash);
-		}
 		ledger.stats.inc (nano::stat::type::rollback, nano::stat::detail::change);
 	}
 	void state_block (nano::state_block const & block_a) override
@@ -959,13 +947,6 @@ void nano::ledger::change_latest (nano::transaction const & transaction_a, nano:
 		}
 		info.epoch = epoch_a;
 		store.account_put (transaction_a, account_a, info);
-		if (!(block_count_a % store.block_info_max) && !is_state)
-		{
-			nano::block_info block_info;
-			block_info.account = account_a;
-			block_info.balance = balance_a;
-			store.block_info_put (transaction_a, hash_a, block_info);
-		}
 		checksum_update (transaction_a, hash_a);
 	}
 	else

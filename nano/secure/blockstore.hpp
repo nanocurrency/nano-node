@@ -252,16 +252,9 @@ public:
 	virtual nano::store_iterator<nano::pending_key, nano::pending_info> pending_begin (nano::transaction const &) = 0;
 	virtual nano::store_iterator<nano::pending_key, nano::pending_info> pending_end () = 0;
 
-	virtual void block_info_put (nano::transaction const &, nano::block_hash const &, nano::block_info const &) = 0;
-	virtual void block_info_del (nano::transaction const &, nano::block_hash const &) = 0;
 	virtual bool block_info_get (nano::transaction const &, nano::block_hash const &, nano::block_info &) = 0;
-	virtual bool block_info_exists (nano::transaction const &, nano::block_hash const &) = 0;
-	virtual nano::store_iterator<nano::block_hash, nano::block_info> block_info_begin (nano::transaction const &, nano::block_hash const &) = 0;
-	virtual nano::store_iterator<nano::block_hash, nano::block_info> block_info_begin (nano::transaction const &) = 0;
-	virtual nano::store_iterator<nano::block_hash, nano::block_info> block_info_end () = 0;
 	virtual nano::uint128_t block_balance (nano::transaction const &, nano::block_hash const &) = 0;
 	virtual nano::epoch block_version (nano::transaction const &, nano::block_hash const &) = 0;
-	static size_t const block_info_max = 32;
 
 	virtual nano::uint128_t representation_get (nano::transaction const &, nano::account const &) = 0;
 	virtual void representation_put (nano::transaction const &, nano::account const &, nano::uint128_t const &) = 0;

@@ -201,13 +201,7 @@ public:
 	nano::store_iterator<nano::pending_key, nano::pending_info> pending_begin (nano::transaction const &) override;
 	nano::store_iterator<nano::pending_key, nano::pending_info> pending_end () override;
 
-	void block_info_put (nano::transaction const &, nano::block_hash const &, nano::block_info const &) override;
-	void block_info_del (nano::transaction const &, nano::block_hash const &) override;
 	bool block_info_get (nano::transaction const &, nano::block_hash const &, nano::block_info &) override;
-	bool block_info_exists (nano::transaction const &, nano::block_hash const &) override;
-	nano::store_iterator<nano::block_hash, nano::block_info> block_info_begin (nano::transaction const &, nano::block_hash const &) override;
-	nano::store_iterator<nano::block_hash, nano::block_info> block_info_begin (nano::transaction const &) override;
-	nano::store_iterator<nano::block_hash, nano::block_info> block_info_end () override;
 	nano::uint128_t block_balance (nano::transaction const &, nano::block_hash const &) override;
 	nano::epoch block_version (nano::transaction const &, nano::block_hash const &) override;
 
