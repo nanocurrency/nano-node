@@ -3486,8 +3486,36 @@ void nano::rpc_handler::wallet_representative_set ()
 		nano::account representative;
 		if (!representative.decode_account (representative_text))
 		{
-			auto transaction (node.store.tx_begin_write ());
-			wallet->store.representative_set (transaction, representative);
+			{
+				auto transaction (node.store.tx_begin_write ());
+				wallet->store.representative_set (transaction, representative);
+			}
+			// Change representative for all wallet accounts
+			if (request.get<bool> ("force", false))
+			{
+				std::deque<nano::account> accounts;
+				{
+					auto transaction (node.store.tx_begin_read ());
+					for (auto i (wallet->store.begin (transaction)), n (wallet->store.end ()); i != n; ++i)
+					{
+						nano::account account (i->first);
+						nano::account_info info;
+						if (!node.store.account_get (transaction, account, info))
+						{
+							auto block (node.store.block_get (transaction, info.rep_block));
+							assert (block != nullptr);
+							if (block->representative () != representative)
+							{
+								accounts.push_back (account);
+							}
+						}
+					}
+				}
+				for (auto & account : accounts)
+				{
+					wallet->change_async (account, representative, [](std::shared_ptr<nano::block>) {}, false);
+				}
+			}
 			response_l.put ("set", "1");
 		}
 		else
