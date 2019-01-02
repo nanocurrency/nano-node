@@ -1646,7 +1646,7 @@ TEST (node, local_votes_cache)
 	auto send2 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, send1->hash (), nano::test_genesis_key.pub, nano::genesis_amount - 2 * nano::Gxrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, node.work_generate_blocking (send1->hash ())));
 	auto send3 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, send2->hash (), nano::test_genesis_key.pub, nano::genesis_amount - 3 * nano::Gxrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, node.work_generate_blocking (send2->hash ())));
 	{
-		nano::transaction transaction (node.store.environment, nullptr, true);
+		auto transaction (node.store.tx_begin (true));
 		ASSERT_EQ (nano::process_result::progress, node.ledger.process (transaction, *send1).code);
 		ASSERT_EQ (nano::process_result::progress, node.ledger.process (transaction, *send2).code);
 	}
@@ -1658,14 +1658,14 @@ TEST (node, local_votes_cache)
 		node.process_message (message2, node.network.endpoint ());
 	}
 	{
-		std::lock_guard<std::mutex> lock (node.store.cache_mutex);
-		nano::transaction transaction (node.store.environment, nullptr, false);
+		std::lock_guard<std::mutex> lock (boost::polymorphic_downcast<nano::mdb_store *> (node.store_impl.get ())->cache_mutex);
+		auto transaction (node.store.tx_begin (false));
 		auto current_vote (node.store.vote_current (transaction, nano::test_genesis_key.pub));
 		ASSERT_EQ (current_vote->sequence, 2);
 	}
 	// Max cache
 	{
-		nano::transaction transaction (node.store.environment, nullptr, true);
+		auto transaction (node.store.tx_begin (true));
 		ASSERT_EQ (nano::process_result::progress, node.ledger.process (transaction, *send3).code);
 	}
 	nano::confirm_req message3 (send3);
@@ -1674,14 +1674,14 @@ TEST (node, local_votes_cache)
 		node.process_message (message3, node.network.endpoint ());
 	}
 	{
-		std::lock_guard<std::mutex> lock (node.store.cache_mutex);
-		nano::transaction transaction (node.store.environment, nullptr, false);
+		std::lock_guard<std::mutex> lock (boost::polymorphic_downcast<nano::mdb_store *> (node.store_impl.get ())->cache_mutex);
+		auto transaction (node.store.tx_begin (false));
 		auto current_vote (node.store.vote_current (transaction, nano::test_genesis_key.pub));
 		ASSERT_EQ (current_vote->sequence, 3);
 	}
-	ASSERT_TRUE (node.block_processor.generator.cache_find (send1).empty ());
-	ASSERT_FALSE (node.block_processor.generator.cache_find (send2).empty ());
-	ASSERT_FALSE (node.block_processor.generator.cache_find (send3).empty ());
+	ASSERT_TRUE (node.block_processor.generator.cache_find (send1->hash ()).empty ());
+	ASSERT_FALSE (node.block_processor.generator.cache_find (send2->hash ()).empty ());
+	ASSERT_FALSE (node.block_processor.generator.cache_find (send3->hash ()).empty ());
 }
 
 TEST (node, vote_republish)

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nano/lib/numbers.hpp>
+#include <nano/secure/common.hpp>
 
 #include <boost/thread.hpp>
 
@@ -18,7 +19,7 @@ public:
 	void add (nano::block_hash const &);
 	void stop ();
 	void cache_add (std::shared_ptr<nano::vote> const &);
-	std::vector<std::shared_ptr<nano::vote>> cache_find (nano::block_hash const &)
+	std::vector<std::shared_ptr<nano::vote>> cache_find (nano::block_hash const &);
 
 private:
 	void run ();

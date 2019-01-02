@@ -42,8 +42,9 @@ void nano::vote_generator::stop ()
 void nano::vote_generator::cache_add (std::shared_ptr<nano::vote> const & vote_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
-	for (auto & hash : vote_a->blocks)
+	for (auto & block : vote_a->blocks)
 	{
+		auto hash (boost::get<nano::block_hash> (block));
 		auto existing (votes_cache.find (hash));
 		if (existing == votes_cache.end ())
 		{
@@ -70,10 +71,10 @@ std::vector<std::shared_ptr<nano::vote>> nano::vote_generator::cache_find (nano:
 {
 	std::vector<std::shared_ptr<nano::vote>> result;
 	std::lock_guard<std::mutex> lock (mutex);
-	auto existing (votes_cache.find (hash));
+	auto existing (votes_cache.find (hash_a));
 	if (existing == votes_cache.end ())
 	{
-		result = existing.second;
+		result = existing->second;
 	}
 	return result;
 }

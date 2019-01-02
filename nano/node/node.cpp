@@ -250,14 +250,14 @@ bool confirm_block (nano::transaction const & transaction_a, nano::node & node_a
 	bool result (false);
 	if (node_a.config.enable_voting)
 	{
+		auto hash (block_a->hash ());
 		// Search in cache
-		auto votes (node_a.block_processor.generator.cache_find (block_a->hash ()));
+		auto votes (node_a.block_processor.generator.cache_find (hash));
 		if (votes.empty ())
 		{
 			// Generate new vote
-			node_a.wallets.foreach_representative (transaction_a, [&result, &block_a, &list_a, &node_a, &transaction_a](nano::public_key const & pub_a, nano::raw_key const & prv_a) {
+			node_a.wallets.foreach_representative (transaction_a, [&result, &block_a, &list_a, &node_a, &transaction_a, &hash](nano::public_key const & pub_a, nano::raw_key const & prv_a) {
 				result = true;
-				auto hash (block_a->hash ());
 				auto vote (node_a.store.vote_generate (transaction_a, pub_a, prv_a, std::vector<nano::block_hash> (1, hash)));
 				nano::confirm_ack confirm (vote);
 				auto vote_bytes = confirm.to_bytes ();
@@ -281,16 +281,16 @@ bool confirm_block (nano::transaction const & transaction_a, nano::node & node_a
 				}
 			}
 		}
-	}
-	// Republish if required
-	if (also_publish)
-	{
-		nano::publish publish (block_a);
-		std::shared_ptr<std::vector<uint8_t>> publish_bytes;
-		publish_bytes = publish.to_bytes ();
-		for (auto j (list_a.begin ()), m (list_a.end ()); j != m; ++j)
+		// Republish if required
+		if (also_publish)
 		{
-			node_a.network.republish (hash, publish_bytes, *j);
+			nano::publish publish (block_a);
+			std::shared_ptr<std::vector<uint8_t>> publish_bytes;
+			publish_bytes = publish.to_bytes ();
+			for (auto j (list_a.begin ()), m (list_a.end ()); j != m; ++j)
+			{
+				node_a.network.republish (hash, publish_bytes, *j);
+			}
 		}
 	}
 	return result;
