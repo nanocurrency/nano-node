@@ -174,6 +174,10 @@ void nano::message_parser::deserialize_buffer (uint8_t const * buffer_a, size_t 
 			{
 				status = parse_status::outdated_version;
 			}
+			else if (header.version_using < nano::protocol_version_min)
+			{
+				status = parse_status::outdated_version;
+			}
 			else if (!header.valid_magic ())
 			{
 				status = parse_status::invalid_magic;
