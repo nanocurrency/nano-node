@@ -2571,7 +2571,7 @@ void nano::node::block_confirm (std::shared_ptr<nano::block> block_a)
 	// Calculate votes for local representatives
 	if (config.enable_voting && active.active (*block_a))
 	{
-		generator.add (hash);
+		generator.add (block_a->hash ());
 	}
 }
 
