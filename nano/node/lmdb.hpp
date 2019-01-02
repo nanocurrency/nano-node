@@ -5,6 +5,7 @@
 #include <lmdb/libraries/liblmdb/lmdb.h>
 
 #include <nano/lib/numbers.hpp>
+#include <nano/node/logging.hpp>
 #include <nano/secure/blockstore.hpp>
 #include <nano/secure/common.hpp>
 
@@ -137,6 +138,7 @@ private:
 	std::unique_ptr<nano::mdb_iterator<T, U>> impl2;
 };
 
+class logging;
 /**
  * mdb implementation of the block store
  */
@@ -145,7 +147,7 @@ class mdb_store : public block_store
 	friend class nano::block_predecessor_set;
 
 public:
-	mdb_store (bool &, boost::filesystem::path const &, int lmdb_max_dbs = 128);
+	mdb_store (bool &, nano::logging &, boost::filesystem::path const &, int lmdb_max_dbs = 128);
 
 	nano::transaction tx_begin_write () override;
 	nano::transaction tx_begin_read () override;
@@ -263,6 +265,8 @@ public:
 
 	/** Deletes the node ID from the store */
 	void delete_node_id (nano::transaction const &) override;
+
+	nano::logging & logging;
 
 	nano::mdb_env env;
 
