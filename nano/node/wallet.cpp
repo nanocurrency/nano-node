@@ -1230,7 +1230,13 @@ void nano::wallet::work_cache_blocking (nano::account const & account_a, nano::b
 	auto work (wallets.node.work_generate_blocking (root_a));
 	if (wallets.node.config.logging.work_generation_time ())
 	{
-		BOOST_LOG (wallets.node.log) << "Work generation complete: " << (std::chrono::duration_cast<std::chrono::microseconds> (std::chrono::steady_clock::now () - begin).count ()) << " us";
+		/*
+		 * The difficulty parameter is the second parameter for `work_generate_blocking()`,
+		 * currently we don't supply one so we must fetch the default value.
+		 */
+		auto difficulty (nano::work_pool::publish_threshold);
+
+		BOOST_LOG (wallets.node.log) << "Work generation for " << root_a.to_string () << ", with a difficulty of " << difficulty << " complete: " << (std::chrono::duration_cast<std::chrono::microseconds> (std::chrono::steady_clock::now () - begin).count ()) << " us";
 	}
 	auto transaction (wallets.tx_begin_write ());
 	if (store.exists (transaction, account_a))
