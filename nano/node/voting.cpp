@@ -39,6 +39,45 @@ void nano::vote_generator::stop ()
 	}
 }
 
+void nano::vote_generator::cache_add (std::shared_ptr<nano::vote> const & vote_a)
+{
+	std::lock_guard<std::mutex> lock (mutex);
+	for (auto & hash : vote_a->blocks)
+	{
+		auto existing (votes_cache.find (hash));
+		if (existing == votes_cache.end ())
+		{
+			// Clean old votes
+			if (cache_order.size () >= max_cache)
+			{
+				auto old_hash (cache_order.front ());
+				cache_order.pop_front ();
+				votes_cache.erase (old_hash);
+			}
+			// Insert new votes (new hash)
+			votes_cache.insert (std::make_pair (hash, std::vector<std::shared_ptr<nano::vote>> (1, vote_a)));
+			cache_order.push_back (hash);
+		}
+		else
+		{
+			// Insert new votes (old hash)
+			existing->second.push_back (vote_a);
+		}
+	}
+}
+
+std::vector<std::shared_ptr<nano::vote>> nano::vote_generator::cache_find (nano::block_hash const & hash_a)
+{
+	std::vector<std::shared_ptr<nano::vote>> result;
+	std::lock_guard<std::mutex> lock (mutex);
+	auto existing (votes_cache.find (hash));
+	if (existing == votes_cache.end ())
+	{
+		result = existing.second;
+	}
+	return result;
+}
+
 void nano::vote_generator::send (std::unique_lock<std::mutex> & lock_a)
 {
 	std::vector<nano::block_hash> hashes_l;
@@ -54,6 +93,7 @@ void nano::vote_generator::send (std::unique_lock<std::mutex> & lock_a)
 		node.wallets.foreach_representative (transaction, [this, &hashes_l, &transaction](nano::public_key const & pub_a, nano::raw_key const & prv_a) {
 			auto vote (this->node.store.vote_generate (transaction, pub_a, prv_a, hashes_l));
 			this->node.vote_processor.vote (vote, this->node.network.endpoint ());
+			this->cache_add (vote);
 		});
 	}
 	lock_a.lock ();
