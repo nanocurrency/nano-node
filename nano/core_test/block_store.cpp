@@ -722,12 +722,18 @@ TEST (block_store, sequence_increment)
 	ASSERT_EQ (2, vote4->sequence);
 	vote1->sequence = 20;
 	store.vote_current_update (transaction, vote1);
-	auto seq5 (store.vote_current (transaction, vote1->account));
-	ASSERT_EQ (20, seq5->sequence);
+	{
+		std::lock_guard<std::mutex> lock (boost::polymorphic_downcast<nano::mdb_store *> (system.nodes[0]->store_impl.get ())->cache_mutex);
+		auto seq5 (store.vote_current (transaction, vote1->account));
+		ASSERT_EQ (20, seq5->sequence);
+	}
 	vote3->sequence = 30;
 	store.vote_current_update (transaction, vote3);
-	auto seq6 (store.vote_current (transaction, vote3->account));
-	ASSERT_EQ (30, seq6->sequence);
+	{
+		std::lock_guard<std::mutex> lock (boost::polymorphic_downcast<nano::mdb_store *> (system.nodes[0]->store_impl.get ())->cache_mutex);
+		auto seq6 (store.vote_current (transaction, vote3->account));
+		ASSERT_EQ (30, seq6->sequence);
+	}
 	auto vote5 (store.vote_generate (transaction, key1.pub, key1.prv, block1));
 	ASSERT_EQ (21, vote5->sequence);
 	auto vote6 (store.vote_generate (transaction, key2.pub, key2.prv, block1));
