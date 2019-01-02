@@ -58,6 +58,9 @@ namespace thread_role
 			case nano::thread_role::name::signature_checking:
 				thread_role_name_string = "Signature check";
 				break;
+			case nano::thread_role::name::slow_db_upgrade:
+				thread_role_name_string = "Slow db upgrade";
+				break;
 		}
 
 		/*

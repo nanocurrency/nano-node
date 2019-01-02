@@ -4,6 +4,69 @@
 
 #include <boost/polymorphic_cast.hpp>
 
+#include <boost/endian/conversion.hpp>
+
+nano::block_sideband::block_sideband (nano::block_type type_a, nano::account const & account_a, nano::block_hash const & successor_a, nano::amount const & balance_a, uint64_t height_a, uint64_t timestamp_a) :
+type (type_a),
+successor (successor_a),
+account (account_a),
+balance (balance_a),
+height (height_a),
+timestamp (timestamp_a)
+{
+}
+
+size_t nano::block_sideband::size (nano::block_type type_a)
+{
+	size_t result (0);
+	result += sizeof (successor);
+	if (type_a != nano::block_type::state)
+	{
+		result += sizeof (account);
+	}
+	result += sizeof (height);
+	if (type_a == nano::block_type::receive || type_a == nano::block_type::change || type_a == nano::block_type::open)
+	{
+		result += sizeof (balance);
+	}
+	result += sizeof (timestamp);
+	return result;
+}
+
+void nano::block_sideband::serialize (nano::stream & stream_a) const
+{
+	nano::write (stream_a, successor.bytes);
+	if (type != nano::block_type::state)
+	{
+		nano::write (stream_a, account.bytes);
+	}
+	nano::write (stream_a, boost::endian::native_to_big (height));
+	if (type == nano::block_type::receive || type == nano::block_type::change || type == nano::block_type::open)
+	{
+		nano::write (stream_a, balance.bytes);
+	}
+	nano::write (stream_a, boost::endian::native_to_big (timestamp));
+}
+
+bool nano::block_sideband::deserialize (nano::stream & stream_a)
+{
+	bool result (false);
+	result |= nano::read (stream_a, successor.bytes);
+	if (type != nano::block_type::state)
+	{
+		result |= nano::read (stream_a, account.bytes);
+	}
+	result |= nano::read (stream_a, height);
+	boost::endian::big_to_native_inplace (height);
+	if (type == nano::block_type::receive || type == nano::block_type::change || type == nano::block_type::open)
+	{
+		nano::read (stream_a, balance.bytes);
+	}
+	result |= nano::read (stream_a, timestamp);
+	boost::endian::big_to_native_inplace (timestamp);
+	return result;
+}
+
 nano::summation_visitor::summation_visitor (nano::transaction const & transaction_a, nano::block_store & store_a) :
 transaction (transaction_a),
 store (store_a)
