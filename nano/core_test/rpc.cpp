@@ -580,7 +580,7 @@ TEST (rpc, wallet_representative_set_force)
 	nano::keypair key;
 	request.put ("action", "wallet_representative_set");
 	request.put ("representative", key.pub.to_account ());
-	request.put ("force", true);
+	request.put ("update_existing_accounts", true);
 	test_response response (request, rpc, system.io_ctx);
 	system.deadline_set (5s);
 	while (response.status == 0)

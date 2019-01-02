@@ -3491,7 +3491,7 @@ void nano::rpc_handler::wallet_representative_set ()
 				wallet->store.representative_set (transaction, representative);
 			}
 			// Change representative for all wallet accounts
-			if (request.get<bool> ("force", false))
+			if (request.get<bool> ("update_existing_accounts", false))
 			{
 				std::deque<nano::account> accounts;
 				{
