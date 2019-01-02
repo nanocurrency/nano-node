@@ -51,15 +51,16 @@ public:
 	virtual void hash (blake2b_state &) const = 0;
 	virtual uint64_t block_work () const = 0;
 	virtual void block_work_set (uint64_t) = 0;
+	virtual nano::account account () const;
 	// Previous block in account's chain, zero for open block
 	virtual nano::block_hash previous () const = 0;
 	// Source block for open/receive blocks, zero otherwise.
-	virtual nano::block_hash source () const = 0;
+	virtual nano::block_hash source () const;
 	// Previous block or account number for open blocks
 	virtual nano::block_hash root () const = 0;
 	// Link field for state blocks, zero otherwise.
-	virtual nano::block_hash link () const = 0;
-	virtual nano::account representative () const = 0;
+	virtual nano::block_hash link () const;
+	virtual nano::account representative () const;
 	virtual void serialize (nano::stream &) const = 0;
 	virtual void serialize_json (std::string &) const = 0;
 	virtual void visit (nano::block_visitor &) const = 0;
@@ -81,6 +82,7 @@ public:
 	nano::block_hash previous;
 	nano::account destination;
 	nano::amount balance;
+	static size_t constexpr size = sizeof (previous) + sizeof (destination) + sizeof (balance);
 };
 class send_block : public nano::block
 {
@@ -95,10 +97,7 @@ public:
 	uint64_t block_work () const override;
 	void block_work_set (uint64_t) override;
 	nano::block_hash previous () const override;
-	nano::block_hash source () const override;
 	nano::block_hash root () const override;
-	nano::block_hash link () const override;
-	nano::account representative () const override;
 	void serialize (nano::stream &) const override;
 	void serialize_json (std::string &) const override;
 	bool deserialize (nano::stream &);
@@ -110,10 +109,10 @@ public:
 	bool operator== (nano::block const &) const override;
 	bool operator== (nano::send_block const &) const;
 	bool valid_predecessor (nano::block const &) const override;
-	static size_t constexpr size = sizeof (nano::account) + sizeof (nano::block_hash) + sizeof (nano::amount) + sizeof (nano::signature) + sizeof (uint64_t);
 	send_hashables hashables;
 	nano::signature signature;
 	uint64_t work;
+	static size_t constexpr size = nano::send_hashables::size + sizeof (signature) + sizeof (work);
 };
 class receive_hashables
 {
@@ -125,6 +124,7 @@ public:
 	void hash (blake2b_state &) const;
 	nano::block_hash previous;
 	nano::block_hash source;
+	static size_t constexpr size = sizeof (previous) + sizeof (source);
 };
 class receive_block : public nano::block
 {
@@ -141,8 +141,6 @@ public:
 	nano::block_hash previous () const override;
 	nano::block_hash source () const override;
 	nano::block_hash root () const override;
-	nano::block_hash link () const override;
-	nano::account representative () const override;
 	void serialize (nano::stream &) const override;
 	void serialize_json (std::string &) const override;
 	bool deserialize (nano::stream &);
@@ -154,10 +152,10 @@ public:
 	bool operator== (nano::block const &) const override;
 	bool operator== (nano::receive_block const &) const;
 	bool valid_predecessor (nano::block const &) const override;
-	static size_t constexpr size = sizeof (nano::block_hash) + sizeof (nano::block_hash) + sizeof (nano::signature) + sizeof (uint64_t);
 	receive_hashables hashables;
 	nano::signature signature;
 	uint64_t work;
+	static size_t constexpr size = nano::receive_hashables::size + sizeof (signature) + sizeof (work);
 };
 class open_hashables
 {
@@ -170,6 +168,7 @@ public:
 	nano::block_hash source;
 	nano::account representative;
 	nano::account account;
+	static size_t constexpr size = sizeof (source) + sizeof (representative) + sizeof (account);
 };
 class open_block : public nano::block
 {
@@ -185,9 +184,9 @@ public:
 	uint64_t block_work () const override;
 	void block_work_set (uint64_t) override;
 	nano::block_hash previous () const override;
+	nano::account account () const override;
 	nano::block_hash source () const override;
 	nano::block_hash root () const override;
-	nano::block_hash link () const override;
 	nano::account representative () const override;
 	void serialize (nano::stream &) const override;
 	void serialize_json (std::string &) const override;
@@ -200,10 +199,10 @@ public:
 	bool operator== (nano::block const &) const override;
 	bool operator== (nano::open_block const &) const;
 	bool valid_predecessor (nano::block const &) const override;
-	static size_t constexpr size = sizeof (nano::block_hash) + sizeof (nano::account) + sizeof (nano::account) + sizeof (nano::signature) + sizeof (uint64_t);
 	nano::open_hashables hashables;
 	nano::signature signature;
 	uint64_t work;
+	static size_t constexpr size = nano::open_hashables::size + sizeof (signature) + sizeof (work);
 };
 class change_hashables
 {
@@ -215,6 +214,7 @@ public:
 	void hash (blake2b_state &) const;
 	nano::block_hash previous;
 	nano::account representative;
+	static size_t constexpr size = sizeof (previous) + sizeof (representative);
 };
 class change_block : public nano::block
 {
@@ -229,9 +229,7 @@ public:
 	uint64_t block_work () const override;
 	void block_work_set (uint64_t) override;
 	nano::block_hash previous () const override;
-	nano::block_hash source () const override;
 	nano::block_hash root () const override;
-	nano::block_hash link () const override;
 	nano::account representative () const override;
 	void serialize (nano::stream &) const override;
 	void serialize_json (std::string &) const override;
@@ -244,10 +242,10 @@ public:
 	bool operator== (nano::block const &) const override;
 	bool operator== (nano::change_block const &) const;
 	bool valid_predecessor (nano::block const &) const override;
-	static size_t constexpr size = sizeof (nano::block_hash) + sizeof (nano::account) + sizeof (nano::signature) + sizeof (uint64_t);
 	nano::change_hashables hashables;
 	nano::signature signature;
 	uint64_t work;
+	static size_t constexpr size = nano::change_hashables::size + sizeof (signature) + sizeof (work);
 };
 class state_hashables
 {
@@ -271,6 +269,8 @@ public:
 	nano::amount balance;
 	// Link field contains source block_hash if receiving, destination account if sending
 	nano::uint256_union link;
+	// Serialized size
+	static size_t constexpr size = sizeof (account) + sizeof (previous) + sizeof (representative) + sizeof (balance) + sizeof (link);
 };
 class state_block : public nano::block
 {
@@ -285,7 +285,7 @@ public:
 	uint64_t block_work () const override;
 	void block_work_set (uint64_t) override;
 	nano::block_hash previous () const override;
-	nano::block_hash source () const override;
+	nano::account account () const override;
 	nano::block_hash root () const override;
 	nano::block_hash link () const override;
 	nano::account representative () const override;
@@ -300,10 +300,10 @@ public:
 	bool operator== (nano::block const &) const override;
 	bool operator== (nano::state_block const &) const;
 	bool valid_predecessor (nano::block const &) const override;
-	static size_t constexpr size = sizeof (nano::account) + sizeof (nano::block_hash) + sizeof (nano::account) + sizeof (nano::amount) + sizeof (nano::uint256_union) + sizeof (nano::signature) + sizeof (uint64_t);
 	nano::state_hashables hashables;
 	nano::signature signature;
 	uint64_t work;
+	static size_t constexpr size = nano::state_hashables::size + sizeof (signature) + sizeof (work);
 };
 class block_visitor
 {
