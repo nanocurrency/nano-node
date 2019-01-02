@@ -101,6 +101,11 @@ nano::block_hash nano::block::link () const
 	return 0;
 }
 
+nano::account nano::block::account () const
+{
+	return 0;
+}
+
 void nano::send_block::visit (nano::block_visitor & visitor_a) const
 {
 	visitor_a.send_block (*this);
@@ -477,6 +482,11 @@ nano::block_hash nano::open_block::previous () const
 {
 	nano::block_hash result (0);
 	return result;
+}
+
+nano::account nano::open_block::account () const
+{
+	return hashables.account;
 }
 
 void nano::open_block::serialize (nano::stream & stream_a) const
@@ -983,6 +993,11 @@ void nano::state_block::block_work_set (uint64_t work_a)
 nano::block_hash nano::state_block::previous () const
 {
 	return hashables.previous;
+}
+
+nano::account nano::state_block::account () const
+{
+	return hashables.account;
 }
 
 void nano::state_block::serialize (nano::stream & stream_a) const

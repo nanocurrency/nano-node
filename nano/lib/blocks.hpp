@@ -51,6 +51,7 @@ public:
 	virtual void hash (blake2b_state &) const = 0;
 	virtual uint64_t block_work () const = 0;
 	virtual void block_work_set (uint64_t) = 0;
+	virtual nano::account account () const;
 	// Previous block in account's chain, zero for open block
 	virtual nano::block_hash previous () const = 0;
 	// Source block for open/receive blocks, zero otherwise.
@@ -183,6 +184,7 @@ public:
 	uint64_t block_work () const override;
 	void block_work_set (uint64_t) override;
 	nano::block_hash previous () const override;
+	nano::account account () const override;
 	nano::block_hash source () const override;
 	nano::block_hash root () const override;
 	nano::account representative () const override;
@@ -283,6 +285,7 @@ public:
 	uint64_t block_work () const override;
 	void block_work_set (uint64_t) override;
 	nano::block_hash previous () const override;
+	nano::account account () const override;
 	nano::block_hash root () const override;
 	nano::block_hash link () const override;
 	nano::account representative () const override;
