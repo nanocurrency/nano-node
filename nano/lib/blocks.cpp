@@ -612,11 +612,6 @@ nano::account nano::open_block::representative () const
 	return hashables.representative;
 }
 
-nano::account nano::open_block::account () const
-{
-	return hashables.account;
-}
-
 nano::signature nano::open_block::block_signature () const
 {
 	return signature;
@@ -846,11 +841,6 @@ nano::block_hash nano::change_block::root () const
 nano::account nano::change_block::representative () const
 {
 	return hashables.representative;
-}
-
-nano::account nano::change_block::account () const
-{
-	return 0;
 }
 
 nano::signature nano::change_block::block_signature () const
@@ -1155,11 +1145,6 @@ nano::block_hash nano::state_block::link () const
 nano::account nano::state_block::representative () const
 {
 	return hashables.representative;
-}
-
-nano::account nano::state_block::account () const
-{
-	return hashables.account;
 }
 
 nano::signature nano::state_block::block_signature () const

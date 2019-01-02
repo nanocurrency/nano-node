@@ -188,7 +188,6 @@ public:
 	nano::block_hash source () const override;
 	nano::block_hash root () const override;
 	nano::account representative () const override;
-	nano::account account () const override;
 	void serialize (nano::stream &) const override;
 	void serialize_json (std::string &) const override;
 	bool deserialize (nano::stream &);
@@ -232,7 +231,6 @@ public:
 	nano::block_hash previous () const override;
 	nano::block_hash root () const override;
 	nano::account representative () const override;
-	nano::account account () const override;
 	void serialize (nano::stream &) const override;
 	void serialize_json (std::string &) const override;
 	bool deserialize (nano::stream &);
@@ -291,7 +289,6 @@ public:
 	nano::block_hash root () const override;
 	nano::block_hash link () const override;
 	nano::account representative () const override;
-	nano::account account () const override;
 	void serialize (nano::stream &) const override;
 	void serialize_json (std::string &) const override;
 	bool deserialize (nano::stream &);
