@@ -723,14 +723,14 @@ TEST (block_store, sequence_increment)
 	vote1->sequence = 20;
 	store.vote_current_update (transaction, vote1);
 	{
-		std::lock_guard<std::mutex> lock (boost::polymorphic_downcast<nano::mdb_store *> (system.nodes[0]->store_impl.get ())->cache_mutex);
+		std::lock_guard<std::mutex> lock (store.cache_mutex);
 		auto seq5 (store.vote_current (transaction, vote1->account));
 		ASSERT_EQ (20, seq5->sequence);
 	}
 	vote3->sequence = 30;
 	store.vote_current_update (transaction, vote3);
 	{
-		std::lock_guard<std::mutex> lock (boost::polymorphic_downcast<nano::mdb_store *> (system.nodes[0]->store_impl.get ())->cache_mutex);
+		std::lock_guard<std::mutex> lock (store.cache_mutex);
 		auto seq6 (store.vote_current (transaction, vote3->account));
 		ASSERT_EQ (30, seq6->sequence);
 	}
