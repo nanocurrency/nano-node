@@ -125,7 +125,7 @@ public:
 	static unsigned constexpr announcement_long = 20;
 	static unsigned constexpr announce_interval_ms = (nano::nano_network == nano::nano_networks::nano_test_network) ? 10 : 16000;
 	// Delay required for average network propagartion before requesting confirmation
-	static std::chrono::milliseconds constexpr confirmation_request_delay {1500};
+	static std::chrono::milliseconds constexpr confirmation_request_delay{ 1500 };
 	static size_t constexpr election_history_size = 2048;
 	static size_t constexpr max_broadcast_queue = 1000;
 
