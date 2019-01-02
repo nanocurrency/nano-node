@@ -1256,20 +1256,39 @@ TEST (bulk_pull_account, basics)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	auto connection (std::make_shared<nano::bootstrap_server> (nullptr, system.nodes[0]));
-	std::unique_ptr<nano::bulk_pull_account> req (new nano::bulk_pull_account{});
-	req->account = key1.pub;
-	req->minimum_amount = 5;
-	req->flags = nano::bulk_pull_account_flags ();
-	connection->requests.push (std::unique_ptr<nano::message>{});
-	auto request (std::make_shared<nano::bulk_pull_account_server> (connection, std::move (req)));
-	ASSERT_FALSE (request->invalid_request);
-	ASSERT_FALSE (request->pending_include_address);
-	ASSERT_FALSE (request->pending_address_only);
-	ASSERT_EQ (request->current_key.account, key1.pub);
-	ASSERT_EQ (request->current_key.hash, 0);
-	auto block_data (request->get_next ());
-	ASSERT_EQ (send2->hash (), block_data.first.get ()->hash);
-	ASSERT_EQ (nano::uint128_union (10), block_data.second.get ()->amount);
-	ASSERT_EQ (nano::genesis_account, block_data.second.get ()->source);
-	ASSERT_EQ (nullptr, request->get_next ().first.get ());
+
+	{
+		std::unique_ptr<nano::bulk_pull_account> req (new nano::bulk_pull_account{});
+		req->account = key1.pub;
+		req->minimum_amount = 5;
+		req->flags = nano::bulk_pull_account_flags ();
+		connection->requests.push (std::unique_ptr<nano::message>{});
+		auto request (std::make_shared<nano::bulk_pull_account_server> (connection, std::move (req)));
+		ASSERT_FALSE (request->invalid_request);
+		ASSERT_FALSE (request->pending_include_address);
+		ASSERT_FALSE (request->pending_address_only);
+		ASSERT_EQ (request->current_key.account, key1.pub);
+		ASSERT_EQ (request->current_key.hash, 0);
+		auto block_data (request->get_next ());
+		ASSERT_EQ (send2->hash (), block_data.first.get ()->hash);
+		ASSERT_EQ (nano::uint128_union (10), block_data.second.get ()->amount);
+		ASSERT_EQ (nano::genesis_account, block_data.second.get ()->source);
+		ASSERT_EQ (nullptr, request->get_next ().first.get ());
+	}
+
+	{
+		std::unique_ptr<nano::bulk_pull_account> req (new nano::bulk_pull_account{});
+		req->account = key1.pub;
+		req->minimum_amount = 0;
+		req->flags = nano::bulk_pull_account_flags::pending_address_only;
+		auto request (std::make_shared<nano::bulk_pull_account_server> (connection, std::move (req)));
+		ASSERT_TRUE (request->pending_address_only);
+		auto block_data (request->get_next ());
+		ASSERT_NE (nullptr, block_data.first.get ());
+		ASSERT_NE (nullptr, block_data.second.get ());
+		ASSERT_EQ (nano::genesis_account, block_data.second.get ()->source);
+		block_data = request->get_next ();
+		ASSERT_EQ (nullptr, block_data.first.get ());
+		ASSERT_EQ (nullptr, block_data.second.get ());
+	}
 }
