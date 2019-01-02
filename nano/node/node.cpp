@@ -2568,6 +2568,16 @@ void nano::node::block_confirm (std::shared_ptr<nano::block> block_a)
 {
 	active.start (block_a);
 	network.broadcast_confirm_req (block_a);
+	{
+		// Calculate votes for local representatives
+		std::lock_guard<std::mutex> lock (active.mutex);
+		auto existing (active.blocks.find (block_a->hash ()));
+		if (existing != active.blocks.end ())
+		{
+			auto transaction (store.tx_begin_read ());
+			existing->second->compute_rep_votes (transaction);
+		}
+	}
 }
 
 nano::uint128_t nano::node::delta ()
