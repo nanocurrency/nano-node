@@ -101,14 +101,12 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 	nano_daemon::daemon_config config;
 	nano::set_secure_perm_directory (data_path, error_chmod);
 	auto config_path ((data_path / "config.json"));
-	std::fstream config_file;
 	std::unique_ptr<nano::thread_runner> runner;
-	auto error (nano::fetch_object (config, config_path, config_file));
+	auto error (nano::fetch_object (config, config_path));
 	nano::set_secure_perm_file (config_path, error_chmod);
 	if (!error)
 	{
 		config.node.logging.init (data_path);
-		config_file.close ();
 		boost::asio::io_context io_ctx;
 		auto opencl (nano::opencl_work::create (config.opencl_enable, config.opencl, config.node.logging));
 		nano::work_pool opencl_work (config.node.work_threads, opencl ? [&opencl](nano::uint256_union const & root_a) {

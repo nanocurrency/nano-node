@@ -465,7 +465,7 @@ TEST (history, short_text)
 		account = system.account (transaction, 0);
 	}
 	auto wallet (std::make_shared<nano_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, system.nodes[0]->config.logging, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	nano::genesis genesis;
 	nano::ledger ledger (store, system.nodes[0]->stats);

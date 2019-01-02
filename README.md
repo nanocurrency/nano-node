@@ -43,7 +43,6 @@ For more information, see [Nano.org](https://nano.org/) or read the [whitepaper]
 * [Reddit](https://reddit.com/r/nanocurrency)
 * [Medium](https://medium.com/nanocurrency)
 * [Twitter](https://twitter.com/nano)
-* [Forum](https://forum.nano.org/)
 * [GitHub wiki](https://github.com/nanocurrency/raiblocks/wiki)
 
 ### Want to Contribute?
