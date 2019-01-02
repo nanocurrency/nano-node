@@ -72,7 +72,7 @@ std::vector<std::shared_ptr<nano::vote>> nano::vote_generator::cache_find (nano:
 	std::vector<std::shared_ptr<nano::vote>> result;
 	std::lock_guard<std::mutex> lock (mutex);
 	auto existing (votes_cache.find (hash_a));
-	if (existing == votes_cache.end ())
+	if (existing != votes_cache.end ())
 	{
 		result = existing->second;
 	}
