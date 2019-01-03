@@ -77,7 +77,6 @@ nano::public_key nano::wallet_store::deterministic_insert (nano::transaction con
 
 nano::public_key nano::wallet_store::deterministic_insert (nano::transaction const & transaction_a, uint32_t const index)
 {
-	auto curr_index (deterministic_index_get (transaction_a));
 	nano::raw_key prv;
 	deterministic_key (prv, transaction_a, index);
 	nano::public_key result (nano::pub_key (prv.data));
