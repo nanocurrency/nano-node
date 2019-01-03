@@ -121,6 +121,7 @@ public:
 	void account_block_count ();
 	void account_count ();
 	void account_create ();
+	void account_create_index ();
 	void account_get ();
 	void account_history ();
 	void account_info ();
