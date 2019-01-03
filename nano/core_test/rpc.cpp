@@ -147,7 +147,7 @@ TEST (rpc, account_create)
 	nano::uint256_union account1;
 	ASSERT_FALSE (account1.decode_account (account_text1));
 	ASSERT_TRUE (system.wallet (0)->exists (account1));
-	request.put ("index", max_index+1);
+	request.put ("index", max_index + 1);
 	test_response response2 (request, rpc, system.io_ctx);
 	system.deadline_set (5s);
 	while (response2.status == 0)
