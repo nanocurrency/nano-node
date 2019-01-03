@@ -314,7 +314,18 @@ TEST (account, encode_zero)
 	nano::uint256_union number0 (0);
 	std::string str0;
 	number0.encode_account (str0);
-	ASSERT_EQ (64, str0.size ());
+
+	/*
+	 * Handle different lengths for "xrb_" prefixed and "nano_" prefixed accounts
+	 */
+	if (str0[0] == 'x')
+	{
+		ASSERT_EQ (64, str0.size ());
+	}
+	else
+	{
+		ASSERT_EQ (65, str0.size ());
+	}
 	nano::uint256_union number1;
 	ASSERT_FALSE (number1.decode_account (str0));
 	ASSERT_EQ (number0, number1);
@@ -326,7 +337,19 @@ TEST (account, encode_all)
 	number0.decode_hex ("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 	std::string str0;
 	number0.encode_account (str0);
-	ASSERT_EQ (64, str0.size ());
+
+	/*
+	 * Handle different lengths for "xrb_" prefixed and "nano_" prefixed accounts
+	 */
+	if (str0[0] == 'x')
+	{
+		ASSERT_EQ (64, str0.size ());
+	}
+	else
+	{
+		ASSERT_EQ (65, str0.size ());
+	}
+
 	nano::uint256_union number1;
 	ASSERT_FALSE (number1.decode_account (str0));
 	ASSERT_EQ (number0, number1);
