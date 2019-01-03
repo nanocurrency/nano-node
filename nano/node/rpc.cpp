@@ -432,13 +432,13 @@ void nano::rpc_handler::account_create ()
 		if (index_text.is_initialized ())
 		{
 			uint64_t index;
-			if (decode_unsigned (index_text.get (), index) || index > (uint64_t)std::numeric_limits<uint32_t>::max ())
+			if (decode_unsigned (index_text.get (), index) || index > uint64_t (std::numeric_limits<uint32_t>::max ()))
 			{
 				ec = nano::error_common::invalid_index;
 			}
 			else
 			{
-				new_key = wallet->deterministic_insert ((uint32_t)index, generate_work);
+				new_key = wallet->deterministic_insert (uint32_t (index), generate_work);
 			}
 		}
 		else
