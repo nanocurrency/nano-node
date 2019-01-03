@@ -1823,8 +1823,6 @@ void nano::node::do_rpc_callback (boost::asio::ip::tcp::resolver::iterator i_a, 
 										BOOST_LOG (node_l->log) << boost::str (boost::format ("Callback to %1%:%2% failed with status: %3%") % address % port % resp->result ());
 									}
 									node_l->stats.inc (nano::stat::type::error, nano::stat::detail::http_callback, nano::stat::dir::out);
-									++i_a;
-									node_l->do_rpc_callback (i_a, address, port, target, body, resolver);
 								}
 							}
 							else
@@ -1834,8 +1832,6 @@ void nano::node::do_rpc_callback (boost::asio::ip::tcp::resolver::iterator i_a, 
 									BOOST_LOG (node_l->log) << boost::str (boost::format ("Unable complete callback: %1%:%2%: %3%") % address % port % ec.message ());
 								}
 								node_l->stats.inc (nano::stat::type::error, nano::stat::detail::http_callback, nano::stat::dir::out);
-								++i_a;
-								node_l->do_rpc_callback (i_a, address, port, target, body, resolver);
 							};
 						});
 					}
@@ -1846,8 +1842,6 @@ void nano::node::do_rpc_callback (boost::asio::ip::tcp::resolver::iterator i_a, 
 							BOOST_LOG (node_l->log) << boost::str (boost::format ("Unable to send callback: %1%:%2%: %3%") % address % port % ec.message ());
 						}
 						node_l->stats.inc (nano::stat::type::error, nano::stat::detail::http_callback, nano::stat::dir::out);
-						++i_a;
-						node_l->do_rpc_callback (i_a, address, port, target, body, resolver);
 					}
 				});
 			}
