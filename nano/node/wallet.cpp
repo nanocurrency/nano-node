@@ -1395,6 +1395,7 @@ void nano::wallets::foreach_representative (nano::transaction const & transactio
 	for (auto i (items.begin ()), n (items.end ()); i != n; ++i)
 	{
 		auto & wallet (*i->second);
+		std::lock_guard<std::recursive_mutex> lock (wallet.store.mutex);
 		for (auto j (wallet.store.begin (transaction_a)), m (wallet.store.end ()); j != m; ++j)
 		{
 			nano::account account (j->first);

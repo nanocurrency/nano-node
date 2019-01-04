@@ -74,6 +74,6 @@ Can you please provide the Nano logs for further analysis.
 
 How to find Nano logs:
     
-https://github.com/nanocurrency/raiblocks/wiki/Log-files
+https://github.com/nanocurrency/nano-node/wiki/Log-files
 
 -->

@@ -10,8 +10,9 @@ using namespace std::chrono_literals;
 // Init returns an error if it can't open files at the path
 TEST (ledger, store_error)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, boost::filesystem::path ("///"));
+	nano::mdb_store store (init, logging, boost::filesystem::path ("///"));
 	ASSERT_FALSE (!init);
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
@@ -20,8 +21,9 @@ TEST (ledger, store_error)
 // Ledger can be initialized and returns a basic query for an empty account
 TEST (ledger, empty)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
@@ -34,8 +36,9 @@ TEST (ledger, empty)
 // Genesis account should have the max balance on empty initialization
 TEST (ledger, genesis_balance)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
@@ -56,8 +59,9 @@ TEST (ledger, genesis_balance)
 // Make sure the checksum is the same when ledger reloaded
 TEST (ledger, checksum_persistence)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	nano::uint256_union checksum1;
 	nano::uint256_union max;
@@ -95,8 +99,9 @@ TEST (system, system_genesis)
 // Create a send block and publish it.
 TEST (ledger, process_send)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
@@ -188,8 +193,9 @@ TEST (ledger, process_send)
 
 TEST (ledger, process_receive)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
@@ -245,8 +251,9 @@ TEST (ledger, process_receive)
 
 TEST (ledger, rollback_receiver)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
@@ -283,8 +290,9 @@ TEST (ledger, rollback_receiver)
 
 TEST (ledger, rollback_representation)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
@@ -336,8 +344,9 @@ TEST (ledger, rollback_representation)
 
 TEST (ledger, receive_rollback)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
@@ -353,8 +362,9 @@ TEST (ledger, receive_rollback)
 
 TEST (ledger, process_duplicate)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
@@ -375,8 +385,9 @@ TEST (ledger, process_duplicate)
 
 TEST (ledger, representative_genesis)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
@@ -390,8 +401,9 @@ TEST (ledger, representative_genesis)
 
 TEST (ledger, weight)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
@@ -403,8 +415,9 @@ TEST (ledger, weight)
 
 TEST (ledger, representative_change)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
@@ -441,8 +454,9 @@ TEST (ledger, representative_change)
 
 TEST (ledger, send_fork)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
@@ -461,8 +475,9 @@ TEST (ledger, send_fork)
 
 TEST (ledger, receive_fork)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
@@ -487,8 +502,9 @@ TEST (ledger, receive_fork)
 
 TEST (ledger, open_fork)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
@@ -509,8 +525,9 @@ TEST (ledger, open_fork)
 
 TEST (ledger, checksum_single)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	nano::genesis genesis;
 	auto transaction (store.tx_begin (true));
@@ -529,8 +546,9 @@ TEST (ledger, checksum_single)
 
 TEST (ledger, checksum_two)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	nano::genesis genesis;
 	auto transaction (store.tx_begin (true));
@@ -550,8 +568,9 @@ TEST (ledger, checksum_two)
 
 TEST (ledger, DISABLED_checksum_range)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
@@ -664,8 +683,9 @@ TEST (system, generate_send_new)
 
 TEST (ledger, representation)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
@@ -737,8 +757,9 @@ TEST (ledger, representation)
 
 TEST (ledger, double_open)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
@@ -756,8 +777,9 @@ TEST (ledger, double_open)
 
 TEST (ledegr, double_receive)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
@@ -1007,8 +1029,9 @@ TEST (ledger, successor)
 
 TEST (ledger, fail_change_old)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_FALSE (init);
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
@@ -1025,8 +1048,9 @@ TEST (ledger, fail_change_old)
 
 TEST (ledger, fail_change_gap_previous)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_FALSE (init);
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
@@ -1041,8 +1065,9 @@ TEST (ledger, fail_change_gap_previous)
 
 TEST (ledger, fail_change_bad_signature)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_FALSE (init);
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
@@ -1057,8 +1082,9 @@ TEST (ledger, fail_change_bad_signature)
 
 TEST (ledger, fail_change_fork)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_FALSE (init);
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
@@ -1077,8 +1103,9 @@ TEST (ledger, fail_change_fork)
 
 TEST (ledger, fail_send_old)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_FALSE (init);
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
@@ -1095,8 +1122,9 @@ TEST (ledger, fail_send_old)
 
 TEST (ledger, fail_send_gap_previous)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_FALSE (init);
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
@@ -1111,8 +1139,9 @@ TEST (ledger, fail_send_gap_previous)
 
 TEST (ledger, fail_send_bad_signature)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_FALSE (init);
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
@@ -1127,8 +1156,9 @@ TEST (ledger, fail_send_bad_signature)
 
 TEST (ledger, fail_send_negative_spend)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_FALSE (init);
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
@@ -1145,8 +1175,9 @@ TEST (ledger, fail_send_negative_spend)
 
 TEST (ledger, fail_send_fork)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_FALSE (init);
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
@@ -1163,8 +1194,9 @@ TEST (ledger, fail_send_fork)
 
 TEST (ledger, fail_open_old)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_FALSE (init);
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
@@ -1181,8 +1213,9 @@ TEST (ledger, fail_open_old)
 
 TEST (ledger, fail_open_gap_source)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_FALSE (init);
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
@@ -1197,8 +1230,9 @@ TEST (ledger, fail_open_gap_source)
 
 TEST (ledger, fail_open_bad_signature)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_FALSE (init);
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
@@ -1215,8 +1249,9 @@ TEST (ledger, fail_open_bad_signature)
 
 TEST (ledger, fail_open_fork_previous)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_FALSE (init);
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
@@ -1236,8 +1271,9 @@ TEST (ledger, fail_open_fork_previous)
 
 TEST (ledger, fail_open_account_mismatch)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_FALSE (init);
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
@@ -1254,8 +1290,9 @@ TEST (ledger, fail_open_account_mismatch)
 
 TEST (ledger, fail_receive_old)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_FALSE (init);
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
@@ -1276,8 +1313,9 @@ TEST (ledger, fail_receive_old)
 
 TEST (ledger, fail_receive_gap_source)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_FALSE (init);
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
@@ -1301,8 +1339,9 @@ TEST (ledger, fail_receive_gap_source)
 
 TEST (ledger, fail_receive_overreceive)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_FALSE (init);
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
@@ -1323,8 +1362,9 @@ TEST (ledger, fail_receive_overreceive)
 
 TEST (ledger, fail_receive_bad_signature)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_FALSE (init);
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
@@ -1348,8 +1388,9 @@ TEST (ledger, fail_receive_bad_signature)
 
 TEST (ledger, fail_receive_gap_previous_opened)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_FALSE (init);
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
@@ -1373,8 +1414,9 @@ TEST (ledger, fail_receive_gap_previous_opened)
 
 TEST (ledger, fail_receive_gap_previous_unopened)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_FALSE (init);
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
@@ -1395,8 +1437,9 @@ TEST (ledger, fail_receive_gap_previous_unopened)
 
 TEST (ledger, fail_receive_fork_previous)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_FALSE (init);
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
@@ -1424,8 +1467,9 @@ TEST (ledger, fail_receive_fork_previous)
 
 TEST (ledger, fail_receive_received_source)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_FALSE (init);
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
@@ -1459,8 +1503,9 @@ TEST (ledger, fail_receive_received_source)
 
 TEST (ledger, latest_empty)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_FALSE (init);
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
@@ -1472,8 +1517,9 @@ TEST (ledger, latest_empty)
 
 TEST (ledger, latest_root)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_FALSE (init);
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
@@ -1490,8 +1536,9 @@ TEST (ledger, latest_root)
 
 TEST (ledger, change_representative_move_representation)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
@@ -1515,8 +1562,9 @@ TEST (ledger, change_representative_move_representation)
 
 TEST (ledger, send_open_receive_rollback)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
@@ -1573,8 +1621,9 @@ TEST (ledger, send_open_receive_rollback)
 
 TEST (ledger, bootstrap_rep_weight)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
@@ -1608,8 +1657,9 @@ TEST (ledger, bootstrap_rep_weight)
 
 TEST (ledger, block_destination_source)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
@@ -1653,8 +1703,9 @@ TEST (ledger, block_destination_source)
 
 TEST (ledger, state_account)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
@@ -1668,8 +1719,9 @@ TEST (ledger, state_account)
 
 TEST (ledger, state_send_receive)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
@@ -1700,8 +1752,9 @@ TEST (ledger, state_send_receive)
 
 TEST (ledger, state_receive)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
@@ -1730,8 +1783,9 @@ TEST (ledger, state_receive)
 
 TEST (ledger, state_rep_change)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
@@ -1753,8 +1807,9 @@ TEST (ledger, state_rep_change)
 
 TEST (ledger, state_open)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
@@ -1787,8 +1842,9 @@ TEST (ledger, state_open)
 // Make sure old block types can't be inserted after a state block.
 TEST (ledger, send_after_state_fail)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
@@ -1804,8 +1860,9 @@ TEST (ledger, send_after_state_fail)
 // Make sure old block types can't be inserted after a state block.
 TEST (ledger, receive_after_state_fail)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
@@ -1821,8 +1878,9 @@ TEST (ledger, receive_after_state_fail)
 // Make sure old block types can't be inserted after a state block.
 TEST (ledger, change_after_state_fail)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
@@ -1838,8 +1896,9 @@ TEST (ledger, change_after_state_fail)
 
 TEST (ledger, state_unreceivable_fail)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
@@ -1861,8 +1920,9 @@ TEST (ledger, state_unreceivable_fail)
 
 TEST (ledger, state_receive_bad_amount_fail)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
@@ -1884,8 +1944,9 @@ TEST (ledger, state_receive_bad_amount_fail)
 
 TEST (ledger, state_no_link_amount_fail)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
@@ -1901,8 +1962,9 @@ TEST (ledger, state_no_link_amount_fail)
 
 TEST (ledger, state_receive_wrong_account_fail)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
@@ -1925,8 +1987,9 @@ TEST (ledger, state_receive_wrong_account_fail)
 
 TEST (ledger, state_open_state_fork)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
@@ -1945,8 +2008,9 @@ TEST (ledger, state_open_state_fork)
 
 TEST (ledger, state_state_open_fork)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
@@ -1965,8 +2029,9 @@ TEST (ledger, state_state_open_fork)
 
 TEST (ledger, state_open_previous_fail)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
@@ -1982,8 +2047,9 @@ TEST (ledger, state_open_previous_fail)
 
 TEST (ledger, state_open_source_fail)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
@@ -1999,8 +2065,9 @@ TEST (ledger, state_open_source_fail)
 
 TEST (ledger, state_send_change)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
@@ -2022,8 +2089,9 @@ TEST (ledger, state_send_change)
 
 TEST (ledger, state_receive_change)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
@@ -2054,8 +2122,9 @@ TEST (ledger, state_receive_change)
 
 TEST (ledger, state_open_old)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
@@ -2074,8 +2143,9 @@ TEST (ledger, state_open_old)
 
 TEST (ledger, state_receive_old)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
@@ -2098,8 +2168,9 @@ TEST (ledger, state_receive_old)
 
 TEST (ledger, state_rollback_send)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
@@ -2128,8 +2199,9 @@ TEST (ledger, state_rollback_send)
 
 TEST (ledger, state_rollback_receive)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
@@ -2153,8 +2225,9 @@ TEST (ledger, state_rollback_receive)
 
 TEST (ledger, state_rollback_received_send)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
@@ -2179,8 +2252,9 @@ TEST (ledger, state_rollback_received_send)
 
 TEST (ledger, state_rep_change_rollback)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
@@ -2199,8 +2273,9 @@ TEST (ledger, state_rep_change_rollback)
 
 TEST (ledger, state_open_rollback)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
@@ -2224,8 +2299,9 @@ TEST (ledger, state_open_rollback)
 
 TEST (ledger, state_send_change_rollback)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
@@ -2244,8 +2320,9 @@ TEST (ledger, state_send_change_rollback)
 
 TEST (ledger, state_receive_change_rollback)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
@@ -2266,8 +2343,9 @@ TEST (ledger, state_receive_change_rollback)
 
 TEST (ledger, epoch_blocks_general)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	nano::stat stats;
 	nano::keypair epoch_key;
@@ -2312,8 +2390,9 @@ TEST (ledger, epoch_blocks_general)
 
 TEST (ledger, epoch_blocks_receive_upgrade)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	nano::stat stats;
 	nano::keypair epoch_key;
@@ -2352,8 +2431,9 @@ TEST (ledger, epoch_blocks_receive_upgrade)
 
 TEST (ledger, epoch_blocks_fork)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	nano::stat stats;
 	nano::keypair epoch_key;
@@ -2370,8 +2450,9 @@ TEST (ledger, epoch_blocks_fork)
 
 TEST (ledger, could_fit)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	nano::stat stats;
 	nano::keypair epoch_key;

@@ -1,5 +1,5 @@
 cmake_minimum_required (VERSION 3.4)
-project (nano-core)
+project (nano-node)
 
 set (CPACK_PACKAGE_VERSION_MAJOR "18")
 set (CPACK_PACKAGE_VERSION_MINOR "0")

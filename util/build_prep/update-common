@@ -31,6 +31,7 @@ for file in */prep.sh.in; do
 			# Print out the bootstrap_boost
 			print "function bootstrap_boost () {"
 			print "\t("
+			print "\t\tset +u"
 			print "\t\tmkdir -p \"${KEEP_AROUND_DIRECTORY}\" || exit 1"
 			print "\t\tcd \"${KEEP_AROUND_DIRECTORY}\" || exit 1"
 			while (getline <"bootstrap_boost.sh") {

@@ -86,6 +86,26 @@ nano::block_hash nano::block::full_hash () const
 	return result;
 }
 
+nano::account nano::block::representative () const
+{
+	return 0;
+}
+
+nano::block_hash nano::block::source () const
+{
+	return 0;
+}
+
+nano::block_hash nano::block::link () const
+{
+	return 0;
+}
+
+nano::account nano::block::account () const
+{
+	return 0;
+}
+
 void nano::send_block::visit (nano::block_visitor & visitor_a) const
 {
 	visitor_a.send_block (*this);
@@ -328,24 +348,9 @@ nano::block_hash nano::send_block::previous () const
 	return hashables.previous;
 }
 
-nano::block_hash nano::send_block::source () const
-{
-	return 0;
-}
-
 nano::block_hash nano::send_block::root () const
 {
 	return hashables.previous;
-}
-
-nano::block_hash nano::send_block::link () const
-{
-	return 0;
-}
-
-nano::account nano::send_block::representative () const
-{
-	return 0;
 }
 
 nano::signature nano::send_block::block_signature () const
@@ -479,6 +484,11 @@ nano::block_hash nano::open_block::previous () const
 	return result;
 }
 
+nano::account nano::open_block::account () const
+{
+	return hashables.account;
+}
+
 void nano::open_block::serialize (nano::stream & stream_a) const
 {
 	write (stream_a, hashables.source);
@@ -595,11 +605,6 @@ nano::block_hash nano::open_block::source () const
 nano::block_hash nano::open_block::root () const
 {
 	return hashables.account;
-}
-
-nano::block_hash nano::open_block::link () const
-{
-	return 0;
 }
 
 nano::account nano::open_block::representative () const
@@ -828,19 +833,9 @@ bool nano::change_block::valid_predecessor (nano::block const & block_a) const
 	return result;
 }
 
-nano::block_hash nano::change_block::source () const
-{
-	return 0;
-}
-
 nano::block_hash nano::change_block::root () const
 {
 	return hashables.previous;
-}
-
-nano::block_hash nano::change_block::link () const
-{
-	return 0;
 }
 
 nano::account nano::change_block::representative () const
@@ -1000,6 +995,11 @@ nano::block_hash nano::state_block::previous () const
 	return hashables.previous;
 }
 
+nano::account nano::state_block::account () const
+{
+	return hashables.account;
+}
+
 void nano::state_block::serialize (nano::stream & stream_a) const
 {
 	write (stream_a, hashables.account);
@@ -1130,11 +1130,6 @@ bool nano::state_block::operator== (nano::state_block const & other_a) const
 bool nano::state_block::valid_predecessor (nano::block const & block_a) const
 {
 	return true;
-}
-
-nano::block_hash nano::state_block::source () const
-{
-	return 0;
 }
 
 nano::block_hash nano::state_block::root () const
@@ -1432,6 +1427,34 @@ hashables (error_a, tree_a)
 	}
 }
 
+size_t nano::block::size (nano::block_type type_a)
+{
+	size_t result (0);
+	switch (type_a)
+	{
+		case nano::block_type::invalid:
+		case nano::block_type::not_a_block:
+			assert (false);
+			break;
+		case nano::block_type::send:
+			result = nano::send_block::size;
+			break;
+		case nano::block_type::receive:
+			result = nano::receive_block::size;
+			break;
+		case nano::block_type::change:
+			result = nano::change_block::size;
+			break;
+		case nano::block_type::open:
+			result = nano::open_block::size;
+			break;
+		case nano::block_type::state:
+			result = nano::state_block::size;
+			break;
+	}
+	return result;
+}
+
 void nano::receive_block::hash (blake2b_state & hash_a) const
 {
 	hashables.hash (hash_a);
@@ -1483,16 +1506,6 @@ nano::block_hash nano::receive_block::source () const
 nano::block_hash nano::receive_block::root () const
 {
 	return hashables.previous;
-}
-
-nano::block_hash nano::receive_block::link () const
-{
-	return 0;
-}
-
-nano::account nano::receive_block::representative () const
-{
-	return 0;
 }
 
 nano::signature nano::receive_block::block_signature () const
