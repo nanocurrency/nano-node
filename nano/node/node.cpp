@@ -1472,34 +1472,21 @@ nano::process_return nano::block_processor::process_receive_one (nano::transacti
 			}
 			if (node.block_arrival.recent (hash))
 			{
-				bool error (node.active.start (block_a));
+				node.active.start (block_a);
 				if (node.config.enable_voting)
 				{
 					generator.add (hash);
 				}
-				if (!error)
-				{
-					// Check elections size overflow
-					size_t roots_size (0);
+				// Broadcast new block
+				node.network.republish_block (block_a);
+				// Request confirmation for new block with delay
+				std::weak_ptr<nano::node> node_w (node.shared ());
+				node.alarm.add (std::chrono::steady_clock::now () + confirmation_request_delay, [node_w, block_a]() {
+					if (auto node_l = node_w.lock ())
 					{
-						std::lock_guard<std::mutex> lock (node.active.mutex);
-						roots_size = node.active.roots.size ();
+						node_l->network.broadcast_confirm_req (block_a);
 					}
-					// Disable fast broadcast in overflow mode
-					if (roots_size < node.active.max_broadcast_queue)
-					{
-						// Broadcast new block
-						node.network.republish_block (block_a);
-						// Request confirmation for new block with delay
-						std::weak_ptr<nano::node> node_w (node.shared ());
-						node.alarm.add (std::chrono::steady_clock::now () + confirmation_request_delay, [node_w, block_a]() {
-							if (auto node_l = node_w.lock ())
-							{
-								node_l->network.broadcast_confirm_req (block_a);
-							}
-						});
-					}
-				}
+				});
 			}
 			queue_unchecked (transaction_a, hash);
 			break;
