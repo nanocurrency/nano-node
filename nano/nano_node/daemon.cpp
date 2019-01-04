@@ -122,7 +122,7 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 			{
 				node->flags = flags;
 				node->start ();
-				std::unique_ptr<nano::rpc> rpc = get_rpc (io_ctx, *node, config.rpc);
+				std::unique_ptr<nano::rpc> rpc = get_rpc (io_ctx, *node, config.rpc, config);
 				if (rpc && config.rpc_enable)
 				{
 					rpc->start ();

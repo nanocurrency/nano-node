@@ -3,6 +3,7 @@
 
 #include <nano/lib/interface.h>
 #include <nano/node/node.hpp>
+#include <nano/nano_node/daemon.hpp>
 
 #ifdef NANO_SECURE_RPC
 #include <nano/node/rpc_secure.hpp>
@@ -122,10 +123,11 @@ bool nano::rpc_config::deserialize_json (boost::property_tree::ptree const & tre
 	return result;
 }
 
-nano::rpc::rpc (boost::asio::io_context & io_ctx_a, nano::node & node_a, nano::rpc_config const & config_a) :
+nano::rpc::rpc (boost::asio::io_context & io_ctx_a, nano::node & node_a, nano::rpc_config const & config_a, nano_daemon::daemon_config & daemon_config_a) :
 acceptor (io_ctx_a),
 config (config_a),
-node (node_a)
+node (node_a),
+config_daemon (daemon_config_a)
 {
 }
 
@@ -1413,6 +1415,18 @@ void nano::rpc_handler::chain (bool successors)
 			}
 		}
 		response_l.add_child ("blocks", blocks);
+	}
+	response_errors ();
+}
+
+void nano::rpc_handler::config ()
+{
+	rpc_control_impl ();
+	if (!ec)
+	{
+		boost::property_tree::ptree full_config;
+		rpc.config_daemon.serialize_json(full_config);
+		response_l.add_child ("config", full_config);
 	}
 	response_errors ();
 }
@@ -4019,6 +4033,10 @@ void nano::rpc_handler::process_request ()
 			{
 				chain ();
 			}
+			else if (action == "config")
+			{
+				config ();
+			}
 			else if (action == "delegators")
 			{
 				delegators ();
@@ -4419,21 +4437,21 @@ void nano::payment_observer::complete (nano::payment_status status)
 	}
 }
 
-std::unique_ptr<nano::rpc> nano::get_rpc (boost::asio::io_context & io_ctx_a, nano::node & node_a, nano::rpc_config const & config_a)
+std::unique_ptr<nano::rpc> nano::get_rpc (boost::asio::io_context & io_ctx_a, nano::node & node_a, nano::rpc_config const & config_a, nano_daemon::daemon_config & daemon_config_a)
 {
 	std::unique_ptr<rpc> impl;
 
 	if (config_a.secure.enable)
 	{
 #ifdef NANO_SECURE_RPC
-		impl.reset (new rpc_secure (io_ctx_a, node_a, config_a));
+		impl.reset (new rpc_secure (io_ctx_a, node_a, config_a, daemon_config_a));
 #else
 		std::cerr << "RPC configured for TLS, but the node is not compiled with TLS support" << std::endl;
 #endif
 	}
 	else
 	{
-		impl.reset (new rpc (io_ctx_a, node_a, config_a));
+		impl.reset (new rpc (io_ctx_a, node_a, config_a, daemon_config_a));
 	}
 
 	return impl;

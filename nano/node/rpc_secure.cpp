@@ -88,8 +88,8 @@ void nano::rpc_secure::load_certs (boost::asio::ssl::context & context_a)
 	}
 }
 
-nano::rpc_secure::rpc_secure (boost::asio::io_service & service_a, nano::node & node_a, nano::rpc_config const & config_a) :
-rpc (service_a, node_a, config_a),
+nano::rpc_secure::rpc_secure (boost::asio::io_service & service_a, nano::node & node_a, nano::rpc_config const & config_a, nano_daemon::daemon_config & daemon_config_a) :
+rpc (service_a, node_a, config_a, daemon_config_a),
 ssl_context (boost::asio::ssl::context::tlsv12_server)
 {
 	load_certs (ssl_context);

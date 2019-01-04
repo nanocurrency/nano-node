@@ -8,6 +8,10 @@
 #include <nano/secure/utility.hpp>
 #include <unordered_map>
 
+namespace nano_daemon
+{
+	class daemon_config;
+}
 namespace nano
 {
 void error_response (std::function<void(boost::property_tree::ptree const &)> response_a, std::string const & message_a);
@@ -65,7 +69,7 @@ class payment_observer;
 class rpc
 {
 public:
-	rpc (boost::asio::io_context &, nano::node &, nano::rpc_config const &);
+	rpc (boost::asio::io_context &, nano::node &, nano::rpc_config const &, nano_daemon::daemon_config &);
 	virtual ~rpc () = default;
 	void start ();
 	virtual void accept ();
@@ -74,6 +78,7 @@ public:
 	boost::asio::ip::tcp::acceptor acceptor;
 	std::mutex mutex;
 	std::unordered_map<nano::account, std::shared_ptr<nano::payment_observer>> payment_observers;
+	nano_daemon::daemon_config & config_daemon;
 	nano::rpc_config config;
 	nano::node & node;
 	bool on;
@@ -150,6 +155,7 @@ public:
 	void bootstrap_lazy ();
 	void bootstrap_status ();
 	void chain (bool = false);
+	void config ();
 	void confirmation_active ();
 	void confirmation_history ();
 	void confirmation_info ();
@@ -241,5 +247,5 @@ public:
 	bool rpc_control_impl ();
 };
 /** Returns the correct RPC implementation based on TLS configuration */
-std::unique_ptr<nano::rpc> get_rpc (boost::asio::io_context & io_ctx_a, nano::node & node_a, nano::rpc_config const & config_a);
+std::unique_ptr<nano::rpc> get_rpc (boost::asio::io_context & io_ctx_a, nano::node & node_a, nano::rpc_config const & config_a, nano_daemon::daemon_config & daemon_a);
 }
