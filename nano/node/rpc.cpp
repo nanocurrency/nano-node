@@ -2076,6 +2076,18 @@ void nano::rpc_handler::mrai_to_raw (nano::uint128_t ratio)
 	response_errors ();
 }
 
+void nano::rpc_handler::node_config ()
+{
+	rpc_control_impl ();
+	if (!ec)
+	{
+		boost::property_tree::ptree config;
+		node.config.serialize_json (config);
+		response_l.add_child ("node", config);
+	}
+	response_errors ();
+}
+
 /*
  * @warning This is an internal/diagnostic RPC, do not rely on its interface being stable
  */
@@ -4018,6 +4030,10 @@ void nano::rpc_handler::process_request ()
 			else if (action == "chain")
 			{
 				chain ();
+			}
+			else if (action == "node_config")
+			{
+				node_config ();
 			}
 			else if (action == "delegators")
 			{
