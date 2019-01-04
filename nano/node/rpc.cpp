@@ -1846,7 +1846,8 @@ void nano::rpc_handler::account_history ()
 		{
 			boost::property_tree::ptree history;
 			response_l.put ("account", account.to_account ());
-			auto block (node.store.block_get (transaction, hash));
+			nano::block_sideband sideband;
+			auto block (node.store.block_get (transaction, hash, &sideband));
 			while (block != nullptr && count > 0)
 			{
 				if (offset > 0)
@@ -1860,18 +1861,19 @@ void nano::rpc_handler::account_history ()
 					block->visit (visitor);
 					if (!entry.empty ())
 					{
-						entry.put ("hash", hash.to_string ());
 						if (output_raw)
 						{
 							entry.put ("work", nano::to_string_hex (block->block_work ()));
 							entry.put ("signature", block->block_signature ().to_string ());
 						}
+						entry.put ("local_timestamp", std::to_string (sideband.timestamp));
+						entry.put ("hash", hash.to_string ());
 						history.push_back (std::make_pair ("", entry));
 						--count;
 					}
 				}
 				hash = block->previous ();
-				block = node.store.block_get (transaction, hash);
+				block = node.store.block_get (transaction, hash, &sideband);
 			}
 			response_l.add_child ("history", history);
 			if (!hash.is_zero ())
