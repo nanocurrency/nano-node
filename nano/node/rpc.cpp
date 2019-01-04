@@ -822,15 +822,22 @@ void nano::rpc_handler::available_supply ()
 	response_errors ();
 }
 
-void nano::rpc_handler::block ()
+void nano::rpc_handler::block_info ()
 {
 	auto hash (hash_impl ());
 	if (!ec)
 	{
+		nano::block_sideband sideband;
 		auto transaction (node.store.tx_begin_read ());
-		auto block (node.store.block_get (transaction, hash));
+		auto block (node.store.block_get (transaction, hash, &sideband));
 		if (block != nullptr)
 		{
+			response_l.put ("block_account", sideband.account.to_account ());
+			auto amount (node.ledger.amount (transaction, hash));
+			response_l.put ("amount", amount.convert_to<std::string> ());
+			response_l.put ("balance", sideband.balance.convert_to<std::string> ());
+			response_l.put ("height", std::to_string (sideband.height));
+			response_l.put ("local_timestamp", std::to_string (sideband.timestamp));
 			std::string contents;
 			block->serialize_json (contents);
 			response_l.put ("contents", contents);
@@ -3958,7 +3965,11 @@ void nano::rpc_handler::process_request ()
 			}
 			else if (action == "block")
 			{
-				block ();
+				block_info ();
+			}
+			else if (action == "block_info")
+			{
+				block_info ();
 			}
 			else if (action == "block_confirm")
 			{
