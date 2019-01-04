@@ -23,10 +23,10 @@ std::chrono::seconds constexpr nano::node::search_pending_interval;
 int constexpr nano::port_mapping::mapping_timeout;
 int constexpr nano::port_mapping::check_timeout;
 unsigned constexpr nano::active_transactions::announce_interval_ms;
-std::chrono::milliseconds constexpr nano::active_transactions::confirmation_request_delay;
 size_t constexpr nano::active_transactions::max_broadcast_queue;
 size_t constexpr nano::block_arrival::arrival_size_min;
 std::chrono::seconds constexpr nano::block_arrival::arrival_time_min;
+std::chrono::milliseconds constexpr nano::block_processor::confirmation_request_delay;
 
 namespace nano
 {
@@ -1472,10 +1472,33 @@ nano::process_return nano::block_processor::process_receive_one (nano::transacti
 			}
 			if (node.block_arrival.recent (hash))
 			{
-				node.active.start (block_a);
+				bool error (node.active.start (block_a));
 				if (node.config.enable_voting)
 				{
 					generator.add (hash);
+				}
+				if (!error)
+				{
+					// Check elections size overflow
+					size_t roots_size (0);
+					{
+						std::lock_guard<std::mutex> lock (node.active.mutex);
+						roots_size = node.active.roots.size ();
+					}
+					// Disable fast broadcast in overflow mode
+					if (roots_size < node.active.max_broadcast_queue)
+					{
+						// Broadcast new block
+						node.network.republish_block (block_a);
+						// Request confirmation for new block with delay
+						std::weak_ptr<nano::node> node_w (node.shared ());
+						node.alarm.add (std::chrono::steady_clock::now () + confirmation_request_delay, [node_w, block_a]() {
+							if (auto node_l = node_w.lock ())
+							{
+								node_l->network.broadcast_confirm_req (block_a);
+							}
+						});
+					}
 				}
 			}
 			queue_unchecked (transaction_a, hash);
@@ -3451,19 +3474,6 @@ bool nano::active_transactions::add (std::shared_ptr<nano::block> block_a, std::
 			blocks.insert (std::make_pair (block_a->hash (), election));
 		}
 		error = existing != roots.end ();
-	}
-	if (!error && roots.size () < max_broadcast_queue)
-	{
-		// Broadcast new block
-		node.network.republish_block (block_a);
-		// Request confirmation for new block
-		std::weak_ptr<nano::node> node_w (node.shared ());
-		node.alarm.add (std::chrono::steady_clock::now () + confirmation_request_delay, [node_w, block_a]() {
-			if (auto node_l = node_w.lock ())
-			{
-				node_l->network.broadcast_confirm_req (block_a);
-			}
-		});
 	}
 	return error;
 }

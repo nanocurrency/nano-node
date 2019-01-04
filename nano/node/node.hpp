@@ -124,8 +124,6 @@ public:
 	// Threshold to start logging blocks haven't yet been confirmed
 	static unsigned constexpr announcement_long = 20;
 	static unsigned constexpr announce_interval_ms = (nano::nano_network == nano::nano_networks::nano_test_network) ? 10 : 16000;
-	// Delay required for average network propagartion before requesting confirmation
-	static std::chrono::milliseconds constexpr confirmation_request_delay{ 1500 };
 	static size_t constexpr election_history_size = 2048;
 	static size_t constexpr max_broadcast_queue = 1000;
 
@@ -428,6 +426,8 @@ public:
 	bool have_blocks ();
 	void process_blocks ();
 	nano::process_return process_receive_one (nano::transaction const &, std::shared_ptr<nano::block>, std::chrono::steady_clock::time_point = std::chrono::steady_clock::now (), bool = false);
+	// Delay required for average network propagartion before requesting confirmation
+	static std::chrono::milliseconds constexpr confirmation_request_delay{ 1500 };
 
 private:
 	void queue_unchecked (nano::transaction const &, nano::block_hash const &);
