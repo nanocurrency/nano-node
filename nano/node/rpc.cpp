@@ -902,7 +902,6 @@ void nano::rpc_handler::blocks_info ()
 {
 	const bool pending = request.get<bool> ("pending", false);
 	const bool source = request.get<bool> ("source", false);
-	const bool balance = request.get<bool> ("balance", false);
 	std::vector<std::string> hashes;
 	boost::property_tree::ptree blocks;
 	auto transaction (node.store.tx_begin_read ());
@@ -914,14 +913,17 @@ void nano::rpc_handler::blocks_info ()
 			nano::uint256_union hash;
 			if (!hash.decode_hex (hash_text))
 			{
-				auto block (node.store.block_get (transaction, hash));
+				nano::block_sideband sideband;
+				auto block (node.store.block_get (transaction, hash, &sideband));
 				if (block != nullptr)
 				{
 					boost::property_tree::ptree entry;
-					auto account (node.ledger.account (transaction, hash));
-					entry.put ("block_account", account.to_account ());
+					entry.put ("block_account", sideband.account.to_account ());
 					auto amount (node.ledger.amount (transaction, hash));
 					entry.put ("amount", amount.convert_to<std::string> ());
+					entry.put ("balance", sideband.balance.convert_to<std::string> ());
+					entry.put ("height", std::to_string (sideband.height));
+					entry.put ("local_timestamp", std::to_string (sideband.timestamp));
 					std::string contents;
 					block->serialize_json (contents);
 					entry.put ("contents", contents);
@@ -948,11 +950,6 @@ void nano::rpc_handler::blocks_info ()
 						{
 							entry.put ("source_account", "0");
 						}
-					}
-					if (balance)
-					{
-						auto balance (node.ledger.balance (transaction, hash));
-						entry.put ("balance", balance.convert_to<std::string> ());
 					}
 					blocks.push_back (std::make_pair (hash_text, entry));
 				}
