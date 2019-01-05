@@ -429,12 +429,12 @@ public:
 	bool should_log (bool);
 	bool have_blocks ();
 	void process_blocks ();
-	nano::process_return process_receive_one (nano::transaction const &, std::shared_ptr<nano::block>, std::chrono::steady_clock::time_point = std::chrono::steady_clock::now (), bool = false);
+	nano::process_return process_one (nano::transaction const &, std::shared_ptr<nano::block>, std::chrono::steady_clock::time_point = std::chrono::steady_clock::now (), bool = false);
 
 private:
 	void queue_unchecked (nano::transaction const &, nano::block_hash const &);
 	void verify_state_blocks (std::unique_lock<std::mutex> &, size_t = std::numeric_limits<size_t>::max ());
-	void process_receive_many (std::unique_lock<std::mutex> &);
+	void process_batch (std::unique_lock<std::mutex> &);
 	bool stopped;
 	bool active;
 	std::chrono::steady_clock::time_point next_log;

@@ -1395,7 +1395,7 @@ void nano::block_processor::process_blocks ()
 		{
 			active = true;
 			lock.unlock ();
-			process_receive_many (lock);
+			process_batch (lock);
 			lock.lock ();
 			active = false;
 		}
@@ -1492,7 +1492,7 @@ void nano::block_processor::verify_state_blocks (std::unique_lock<std::mutex> & 
 	}
 }
 
-void nano::block_processor::process_receive_many (std::unique_lock<std::mutex> & lock_a)
+void nano::block_processor::process_batch (std::unique_lock<std::mutex> & lock_a)
 {
 	lock_a.lock ();
 	auto start_time (std::chrono::steady_clock::now ());
@@ -1561,7 +1561,7 @@ void nano::block_processor::process_receive_many (std::unique_lock<std::mutex> &
 		/* Forced state blocks are not validated in verify_state_blocks () function
 		Because of that we should set set validated_state_block as "false" for forced state blocks (!force) */
 		bool validated_state_block (!force && block.first->type () == nano::block_type::state);
-		auto process_result (process_receive_one (transaction, block.first, block.second, validated_state_block));
+		auto process_result (process_one (transaction, block.first, block.second, validated_state_block));
 		number_of_blocks_processed++;
 		(void)process_result;
 		lock_a.lock ();
@@ -1584,7 +1584,7 @@ void nano::block_processor::process_receive_many (std::unique_lock<std::mutex> &
 	}
 }
 
-nano::process_return nano::block_processor::process_receive_one (nano::transaction const & transaction_a, std::shared_ptr<nano::block> block_a, std::chrono::steady_clock::time_point origination, bool validated_state_block)
+nano::process_return nano::block_processor::process_one (nano::transaction const & transaction_a, std::shared_ptr<nano::block> block_a, std::chrono::steady_clock::time_point origination, bool validated_state_block)
 {
 	nano::process_return result;
 	auto hash (block_a->hash ());
@@ -2783,7 +2783,7 @@ void nano::node::process_confirmed (std::shared_ptr<nano::block> block_a)
 	if (!exists)
 	{
 		auto transaction (store.tx_begin_write ());
-		block_processor.process_receive_one (transaction, block_a);
+		block_processor.process_one (transaction, block_a);
 		exists = store.block_exists (transaction, block_a->type (), hash);
 	}
 	if (exists)

@@ -26,7 +26,7 @@ TEST (interface, xrb_uint256_to_string)
 TEST (interface, xrb_uint256_to_address)
 {
 	nano::uint256_union zero (0);
-	char text[65] = { 0 };
+	char text[66] = { 0 };
 	xrb_uint256_to_address (zero.bytes.data (), text);
 	ASSERT_STREQ ("xrb_1111111111111111111111111111111111111111111111111111hifc8npp", text);
 }
