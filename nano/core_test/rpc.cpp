@@ -3932,6 +3932,22 @@ TEST (rpc, block_confirm_absent)
 	ASSERT_EQ ("Block not found", response.json.get<std::string> ("error"));
 }
 
+TEST (rpc, node_config)
+{
+	nano::system system (24000, 1);
+	nano::rpc rpc (system.io_ctx, *system.nodes[0], nano::rpc_config (true));
+	rpc.start ();
+	boost::property_tree::ptree request;
+	request.put ("action", "node_config");
+	test_response response (request, rpc, system.io_ctx);
+	system.deadline_set (5s);
+	while (response.status == 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (200, response.status);
+}
+
 TEST (rpc, node_id)
 {
 	nano::system system (24000, 1);
