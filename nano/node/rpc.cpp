@@ -832,10 +832,12 @@ void nano::rpc_handler::block_info ()
 		auto block (node.store.block_get (transaction, hash, &sideband));
 		if (block != nullptr)
 		{
-			response_l.put ("block_account", sideband.account.to_account ());
+			nano::account account (block->account ().is_zero () ? sideband.account : block->account ());
+			response_l.put ("block_account", account.to_account ());
 			auto amount (node.ledger.amount (transaction, hash));
 			response_l.put ("amount", amount.convert_to<std::string> ());
-			response_l.put ("balance", sideband.balance.number ().convert_to<std::string> ());
+			auto balance (node.ledger.balance (transaction, hash));
+			response_l.put ("balance", balance.convert_to<std::string> ());
 			response_l.put ("height", std::to_string (sideband.height));
 			response_l.put ("local_timestamp", std::to_string (sideband.timestamp));
 			std::string contents;
@@ -925,10 +927,12 @@ void nano::rpc_handler::blocks_info ()
 				if (block != nullptr)
 				{
 					boost::property_tree::ptree entry;
-					entry.put ("block_account", sideband.account.to_account ());
+					nano::account account (block->account ().is_zero () ? sideband.account : block->account ());
+					entry.put ("block_account", account.to_account ());
 					auto amount (node.ledger.amount (transaction, hash));
 					entry.put ("amount", amount.convert_to<std::string> ());
-					entry.put ("balance", sideband.balance.number ().convert_to<std::string> ());
+					auto balance (node.ledger.balance (transaction, hash));
+					entry.put ("balance", balance.convert_to<std::string> ());
 					entry.put ("height", std::to_string (sideband.height));
 					entry.put ("local_timestamp", std::to_string (sideband.timestamp));
 					std::string contents;
