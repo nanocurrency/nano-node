@@ -394,6 +394,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 						nano::raw_key key;
 						if (!key.data.decode_hex (vm["key"].as<std::string> ()))
 						{
+							std::cout << "Changing seed and caching work. Please wait..." << std::endl;
 							wallet->change_seed (transaction, key);
 						}
 						else

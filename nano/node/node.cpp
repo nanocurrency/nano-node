@@ -1265,7 +1265,7 @@ void nano::block_processor::process_blocks ()
 		{
 			active = true;
 			lock.unlock ();
-			process_receive_many (lock);
+			process_batch (lock);
 			lock.lock ();
 			active = false;
 		}
@@ -1362,7 +1362,7 @@ void nano::block_processor::verify_state_blocks (std::unique_lock<std::mutex> & 
 	}
 }
 
-void nano::block_processor::process_receive_many (std::unique_lock<std::mutex> & lock_a)
+void nano::block_processor::process_batch (std::unique_lock<std::mutex> & lock_a)
 {
 	lock_a.lock ();
 	auto start_time (std::chrono::steady_clock::now ());
@@ -1431,7 +1431,7 @@ void nano::block_processor::process_receive_many (std::unique_lock<std::mutex> &
 		/* Forced state blocks are not validated in verify_state_blocks () function
 		Because of that we should set set validated_state_block as "false" for forced state blocks (!force) */
 		bool validated_state_block (!force && block.first->type () == nano::block_type::state);
-		auto process_result (process_receive_one (transaction, block.first, block.second, validated_state_block));
+		auto process_result (process_one (transaction, block.first, block.second, validated_state_block));
 		number_of_blocks_processed++;
 		(void)process_result;
 		lock_a.lock ();
@@ -1454,7 +1454,7 @@ void nano::block_processor::process_receive_many (std::unique_lock<std::mutex> &
 	}
 }
 
-nano::process_return nano::block_processor::process_receive_one (nano::transaction const & transaction_a, std::shared_ptr<nano::block> block_a, std::chrono::steady_clock::time_point origination, bool validated_state_block)
+nano::process_return nano::block_processor::process_one (nano::transaction const & transaction_a, std::shared_ptr<nano::block> block_a, std::chrono::steady_clock::time_point origination, bool validated_state_block)
 {
 	nano::process_return result;
 	auto hash (block_a->hash ());
@@ -1602,7 +1602,7 @@ io_ctx (io_ctx_a),
 config (config_a),
 alarm (alarm_a),
 work (work_a),
-store_impl (std::make_unique<nano::mdb_store> (init_a.block_store_init, application_path_a / "data.ldb", config_a.lmdb_max_dbs)),
+store_impl (std::make_unique<nano::mdb_store> (init_a.block_store_init, config.logging, application_path_a / "data.ldb", config_a.lmdb_max_dbs)),
 store (*store_impl),
 gap_cache (*this),
 ledger (store, stats, config.epoch_block_link, config.epoch_block_signer),
@@ -2510,7 +2510,7 @@ public:
 					auto callback_l (callback);
 					std::weak_ptr<nano::node> node_w (node);
 					auto next_backoff (std::min (backoff * 2, (unsigned int)60 * 5));
-					node->alarm.add (now + std::chrono::seconds (backoff), [node_w, root_l, callback_l, next_backoff, difficulty = difficulty] {
+					node->alarm.add (now + std::chrono::seconds (backoff), [ node_w, root_l, callback_l, next_backoff, difficulty = difficulty ] {
 						if (auto node_l = node_w.lock ())
 						{
 							auto work_generation (std::make_shared<distributed_work> (next_backoff, node_l, root_l, callback_l, difficulty));
@@ -2653,7 +2653,7 @@ void nano::node::process_confirmed (std::shared_ptr<nano::block> block_a)
 	if (!exists)
 	{
 		auto transaction (store.tx_begin_write ());
-		block_processor.process_receive_one (transaction, block_a);
+		block_processor.process_one (transaction, block_a);
 		exists = store.block_exists (transaction, block_a->type (), hash);
 	}
 	if (exists)
