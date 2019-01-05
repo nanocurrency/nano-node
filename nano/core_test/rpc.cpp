@@ -3972,7 +3972,7 @@ TEST (rpc, node_config)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response2.status);
-	ASSERT_EQ (flush, response2.json.get<bool> ("value"));
+	ASSERT_EQ (flush, response2.json.get<bool> ("flush"));
 }
 
 TEST (rpc, node_id)

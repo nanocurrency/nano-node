@@ -2096,7 +2096,21 @@ void nano::rpc_handler::node_config ()
 				auto property = config.get_optional<std::string> (*path);
 				if (property.is_initialized ())
 				{
-					response_l.add ("value", *property);
+					const std::size_t last_separator (path->find_last_of ("."));
+					// Empty response if separator is at the end
+					if (last_separator != (path->size () - 1))
+					{
+						// No separators
+						if (last_separator == std::string::npos)
+						{
+							response_l.put (*path, *property);
+						}
+						// With separator(s), get leaf property name
+						else
+						{
+							response_l.put (path->substr (last_separator + 1), *property);
+						}
+					}
 				}
 			}
 		}
