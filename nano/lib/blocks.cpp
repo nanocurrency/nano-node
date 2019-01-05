@@ -1427,6 +1427,34 @@ hashables (error_a, tree_a)
 	}
 }
 
+size_t nano::block::size (nano::block_type type_a)
+{
+	size_t result (0);
+	switch (type_a)
+	{
+		case nano::block_type::invalid:
+		case nano::block_type::not_a_block:
+			assert (false);
+			break;
+		case nano::block_type::send:
+			result = nano::send_block::size;
+			break;
+		case nano::block_type::receive:
+			result = nano::receive_block::size;
+			break;
+		case nano::block_type::change:
+			result = nano::change_block::size;
+			break;
+		case nano::block_type::open:
+			result = nano::open_block::size;
+			break;
+		case nano::block_type::state:
+			result = nano::state_block::size;
+			break;
+	}
+	return result;
+}
+
 void nano::receive_block::hash (blake2b_state & hash_a) const
 {
 	hashables.hash (hash_a);
