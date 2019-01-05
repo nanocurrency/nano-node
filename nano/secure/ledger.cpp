@@ -346,16 +346,12 @@ void ledger_processor::epoch_block_impl (nano::state_block const & block_a)
 					result.code = block_a.hashables.previous.is_zero () ? nano::process_result::fork : nano::process_result::progress; // Has this account already been opened? (Ambigious)
 					if (result.code == nano::process_result::progress)
 					{
-						result.code = ledger.store.block_exists (transaction, block_a.hashables.previous) ? nano::process_result::progress : nano::process_result::gap_previous; // Does the previous block exist in the ledger? (Unambigious)
+						result.code = block_a.hashables.previous == info.head ? nano::process_result::progress : nano::process_result::fork; // Is the previous block the account's head block? (Ambigious)
 						if (result.code == nano::process_result::progress)
 						{
-							result.code = block_a.hashables.previous == info.head ? nano::process_result::progress : nano::process_result::fork; // Is the previous block the account's head block? (Ambigious)
-							if (result.code == nano::process_result::progress)
-							{
-								auto last_rep_block (ledger.store.block_get (transaction, info.rep_block));
-								assert (last_rep_block != nullptr);
-								result.code = block_a.hashables.representative == last_rep_block->representative () ? nano::process_result::progress : nano::process_result::representative_mismatch;
-							}
+							auto last_rep_block (ledger.store.block_get (transaction, info.rep_block));
+							assert (last_rep_block != nullptr);
+							result.code = block_a.hashables.representative == last_rep_block->representative () ? nano::process_result::progress : nano::process_result::representative_mismatch;
 						}
 					}
 				}
