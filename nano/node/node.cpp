@@ -540,7 +540,7 @@ public:
 				auto block (boost::get<std::shared_ptr<nano::block>> (vote_block));
 				if (!node.block_processor.full ())
 				{
-					node.process_active (message_a.block);
+					node.process_active (block);
 				}
 				node.active.publish (block);
 			}
