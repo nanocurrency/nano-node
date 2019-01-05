@@ -337,7 +337,7 @@ void nano::network::republish_vote (std::shared_ptr<nano::vote> vote_a)
 void nano::network::broadcast_confirm_req (std::shared_ptr<nano::block> block_a)
 {
 	auto list (std::make_shared<std::vector<nano::peer_information>> (node.peers.representatives (std::numeric_limits<size_t>::max ())));
-	if (list->empty () || node.peers.total_weight () < node.delta ())
+	if (list->empty () || node.peers.total_weight () < node.config.online_weight_minimum.number ())
 	{
 		// broadcast request to all peers
 		list = std::make_shared<std::vector<nano::peer_information>> (node.peers.list_vector (100));
@@ -1946,7 +1946,7 @@ void nano::gap_cache::vote (std::shared_ptr<nano::vote> vote_a)
 				bool start_bootstrap (false);
 				if (!node.flags.disable_lazy_bootstrap)
 				{
-					if (tally >= node.delta ())
+					if (tally >= node.config.online_weight_minimum.number ())
 					{
 						start_bootstrap = true;
 					}
@@ -3018,7 +3018,7 @@ void nano::election::stop ()
 bool nano::election::have_quorum (nano::tally_t const & tally_a, nano::uint128_t tally_sum)
 {
 	bool result = false;
-	if (tally_sum >= node.delta ())
+	if (tally_sum >= node.config.online_weight_minimum.number ())
 	{
 		auto i (tally_a.begin ());
 		auto first (i->first);
@@ -3062,7 +3062,7 @@ void nano::election::confirm_if_quorum (nano::transaction const & transaction_a)
 	{
 		sum += i.first;
 	}
-	if (sum >= node.delta () && block_l->hash () != status.winner->hash ())
+	if (sum >= node.config.online_weight_minimum.number () && block_l->hash () != status.winner->hash ())
 	{
 		auto node_l (node.shared ());
 		node_l->block_processor.force (block_l);
@@ -3347,7 +3347,7 @@ void nano::active_transactions::announce_votes (std::unique_lock<std::mutex> & l
 						}
 					}
 				}
-				if ((!reps->empty () && total_weight > node.delta ()) || roots_size > 5)
+				if ((!reps->empty () && total_weight > node.config.online_weight_minimum.number ()) || roots_size > 5)
 				{
 					if (confirm_req_bundle.size () < max_broadcast_queue)
 					{
