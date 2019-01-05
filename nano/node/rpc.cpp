@@ -1,5 +1,4 @@
 #include <boost/algorithm/string.hpp>
-#include <boost/property_tree/exceptions.hpp>
 #include <nano/node/rpc.hpp>
 
 #include <nano/lib/interface.h>
@@ -2084,45 +2083,20 @@ void nano::rpc_handler::node_config ()
 	{
 		boost::property_tree::ptree config;
 		node.config.serialize_json (config);
-
-		const auto opt_key (request.get_optional<std::string> ("attribute"));
-		if (opt_key.is_initialized ())
+		boost::optional<std::string> path (request.get_optional<std::string> ("path"));
+		if (path.is_initialized () && path->size () > 0)
 		{
-			const auto key (opt_key. get());
-			if (key == "logging")
+			auto child = config.get_child_optional (*path);
+			if (child.is_initialized () && child->size () > 0)
 			{
-				boost::property_tree::ptree logging_config;
-				node.config.logging.serialize_json (logging_config);
-				response_l.add_child (key, logging_config);
+				response_l.add_child (*path, *child);
 			}
-
 			else
 			{
-				try
+				auto property = config.get_optional<std::string> (*path);
+				if (property.is_initialized ())
 				{
-					const std::string attribute (config.get<std::string> (key));
-					const std::size_t last_separator (key.find_last_of ("."));
-					// Covers the case of a separator at the end (e.g. "logging.rpc.")
-					if (last_separator == key.size () - 1)
-					{
-						ec = nano::error_rpc::invalid_attribute;
-					}
-					else
-					{
-						// No separator
-						if (last_separator == std::string::npos)
-						{
-							response_l.put (key, attribute);
-						}
-						else
-						{
-							response_l.put (key.substr (last_separator + 1), attribute);
-						}
-					}
-				}
-				catch (boost::property_tree::ptree_error const & err)
-				{
-					ec = nano::error_rpc::invalid_attribute;
+					response_l.add ("value", *property);
 				}
 			}
 		}

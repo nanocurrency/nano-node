@@ -3937,15 +3937,42 @@ TEST (rpc, node_config)
 	nano::system system (24000, 1);
 	nano::rpc rpc (system.io_ctx, *system.nodes[0], nano::rpc_config (true));
 	rpc.start ();
-	boost::property_tree::ptree request;
-	request.put ("action", "node_config");
-	test_response response (request, rpc, system.io_ctx);
+	const unsigned work_threads (rpc.node.config.work_threads + 10);
+	rpc.node.config.work_threads += 10;
+	boost::property_tree::ptree request0;
+	request0.put ("action", "node_config");
+	test_response response0 (request0, rpc, system.io_ctx);
 	system.deadline_set (5s);
-	while (response.status == 0)
+	while (response0.status == 0)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	ASSERT_EQ (200, response.status);
+	ASSERT_EQ (200, response0.status);
+	ASSERT_EQ (work_threads, response0.json.get<unsigned> ("node.work_threads"));
+	const bool flush (!rpc.node.config.logging.flush);
+	rpc.node.config.logging.flush = !rpc.node.config.logging.flush;
+	boost::property_tree::ptree request1;
+	request1.put ("action", "node_config");
+	request1.put ("path", "logging");
+	test_response response1 (request1, rpc, system.io_ctx);
+	system.deadline_set (5s);
+	while (response1.status == 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (200, response1.status);
+	ASSERT_EQ (flush, response1.json.get<bool> ("logging.flush"));
+	boost::property_tree::ptree request2;
+	request2.put ("action", "node_config");
+	request2.put ("path", "logging.flush");
+	test_response response2 (request2, rpc, system.io_ctx);
+	system.deadline_set (5s);
+	while (response2.status == 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (200, response2.status);
+	ASSERT_EQ (flush, response2.json.get<bool> ("value"));
 }
 
 TEST (rpc, node_id)
