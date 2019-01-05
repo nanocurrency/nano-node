@@ -835,7 +835,7 @@ void nano::rpc_handler::block_info ()
 			response_l.put ("block_account", sideband.account.to_account ());
 			auto amount (node.ledger.amount (transaction, hash));
 			response_l.put ("amount", amount.convert_to<std::string> ());
-			response_l.put ("balance", sideband.balance.convert_to<std::string> ());
+			response_l.put ("balance", sideband.balance.number ().convert_to<std::string> ());
 			response_l.put ("height", std::to_string (sideband.height));
 			response_l.put ("local_timestamp", std::to_string (sideband.timestamp));
 			std::string contents;
@@ -928,7 +928,7 @@ void nano::rpc_handler::blocks_info ()
 					entry.put ("block_account", sideband.account.to_account ());
 					auto amount (node.ledger.amount (transaction, hash));
 					entry.put ("amount", amount.convert_to<std::string> ());
-					entry.put ("balance", sideband.balance.convert_to<std::string> ());
+					entry.put ("balance", sideband.balance.number ().convert_to<std::string> ());
 					entry.put ("height", std::to_string (sideband.height));
 					entry.put ("local_timestamp", std::to_string (sideband.timestamp));
 					std::string contents;
