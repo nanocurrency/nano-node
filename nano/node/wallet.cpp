@@ -1111,8 +1111,8 @@ nano::block_hash nano::wallet::send_sync (nano::account const & source_a, nano::
 
 void nano::wallet::send_async (nano::account const & source_a, nano::account const & account_a, nano::uint128_t const & amount_a, std::function<void(std::shared_ptr<nano::block>)> const & action_a, uint64_t work_a, bool generate_work_a, boost::optional<std::string> id_a)
 {
-	wallets.node.wallets.queue_wallet_action (nano::wallets::high_priority, shared_from_this (), [source_a, account_a, amount_a, action_a, uint64_t work_a, generate_work_a, id_a](nano::wallet & wallet_a) {
-		auto block (wallet_a.send_action (source_a, account_a, amount_a, uint64_t work_a, generate_work_a, id_a));
+	wallets.node.wallets.queue_wallet_action (nano::wallets::high_priority, shared_from_this (), [source_a, account_a, amount_a, action_a, work_a, generate_work_a, id_a](nano::wallet & wallet_a) {
+		auto block (wallet_a.send_action (source_a, account_a, amount_a, work_a, generate_work_a, id_a));
 		action_a (block);
 	});
 }
