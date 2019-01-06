@@ -654,6 +654,7 @@ void nano::rpc_handler::account_representative_set ()
 			}
 			if (!ec)
 			{
+				bool generate_work (work == 0); // Disable work generation is "work" option was provided
 				auto response_a (response);
 				wallet->change_async (account, representative, [response_a](std::shared_ptr<nano::block> block) {
 					nano::block_hash hash (0);
@@ -665,7 +666,7 @@ void nano::rpc_handler::account_representative_set ()
 					response_l.put ("block", hash.to_string ());
 					response_a (response_l);
 				},
-				work, work == 0);
+				work, generate_work);
 			}
 		}
 		else
@@ -2527,6 +2528,7 @@ void nano::rpc_handler::receive ()
 						}
 						if (!ec)
 						{
+							bool generate_work (work == 0); // Disable work generation is "work" option was provided
 							auto response_a (response);
 							wallet->receive_async (std::move (block), account, nano::genesis_amount, [response_a](std::shared_ptr<nano::block> block_a) {
 								nano::uint256_union hash_a (0);
@@ -2538,7 +2540,7 @@ void nano::rpc_handler::receive ()
 								response_l.put ("block", hash_a.to_string ());
 								response_a (response_l);
 							},
-							work, work == 0);
+							work, generate_work);
 						}
 					}
 					else
@@ -2866,6 +2868,7 @@ void nano::rpc_handler::send ()
 				}
 				if (!ec)
 				{
+					bool generate_work (work == 0); // Disable work generation is "work" option was provided
 					boost::optional<std::string> send_id (request.get_optional<std::string> ("id"));
 					auto rpc_l (shared_from_this ());
 					auto response_a (response);
@@ -2890,7 +2893,7 @@ void nano::rpc_handler::send ()
 							}
 						}
 					},
-					work, work == 0, send_id);
+					work, generate_work, send_id);
 				}
 			}
 			else
