@@ -66,6 +66,7 @@ public:
 	void log_votes (nano::tally_t const &);
 	bool publish (std::shared_ptr<nano::block> block_a);
 	void stop ();
+	void log_rebroadcast (nano::block_hash const &);
 	nano::node & node;
 	std::unordered_map<nano::account, nano::vote_info> last_votes;
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> blocks;
@@ -76,6 +77,7 @@ public:
 	bool stopped;
 	std::unordered_map<nano::block_hash, nano::uint128_t> last_tally;
 	unsigned announcements;
+	std::chrono::system_clock::time_point start;
 };
 class conflict_info
 {
@@ -104,6 +106,7 @@ public:
 	void erase (nano::block const &);
 	void stop ();
 	bool publish (std::shared_ptr<nano::block> block_a);
+	void log_rebroadcast (nano::block_hash const &);
 	boost::multi_index_container<
 	nano::conflict_info,
 	boost::multi_index::indexed_by<
@@ -431,6 +434,7 @@ private:
 	void queue_unchecked (nano::transaction const &, nano::block_hash const &, std::chrono::steady_clock::time_point = std::chrono::steady_clock::time_point ());
 	void verify_state_blocks (std::unique_lock<std::mutex> &, size_t = std::numeric_limits<size_t>::max ());
 	void process_batch (std::unique_lock<std::mutex> &);
+	void process_live (nano::block_hash const &, std::shared_ptr<nano::block>);
 	bool stopped;
 	bool active;
 	std::chrono::steady_clock::time_point next_log;

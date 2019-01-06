@@ -230,7 +230,7 @@ void nano::network::republish (nano::block_hash const & hash_a, std::shared_ptr<
 		BOOST_LOG (node.log) << boost::str (boost::format ("Publishing %1% to %2%") % hash_a.to_string () % endpoint_a);
 	}
 	std::weak_ptr<nano::node> node_w (node.shared ());
-	send_buffer (buffer_a->data (), buffer_a->size (), endpoint_a, [buffer_a, node_w, endpoint_a](boost::system::error_code const & ec, size_t size) {
+	send_buffer (buffer_a->data (), buffer_a->size (), endpoint_a, [buffer_a, node_w, endpoint_a, hash_a](boost::system::error_code const & ec, size_t size) {
 		if (auto node_l = node_w.lock ())
 		{
 			if (ec && node_l->config.logging.network_logging ())
@@ -239,6 +239,7 @@ void nano::network::republish (nano::block_hash const & hash_a, std::shared_ptr<
 			}
 			else
 			{
+				//node_l->active.log_rebroadcast (hash_a);
 				node_l->stats.inc (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::out);
 			}
 		}
@@ -1448,6 +1449,19 @@ void nano::block_processor::process_batch (std::unique_lock<std::mutex> & lock_a
 	}
 }
 
+void nano::block_processor::process_live (nano::block_hash const & hash_a, std::shared_ptr<nano::block> block_a)
+{
+	// Start collecting quorum on block
+	node.active.start (block_a);
+	// Announce block contents to the network
+	node.network.republish_block (block_a);
+	if (node.config.enable_voting)
+	{
+		// Announce our weighted vote to the network
+		generator.add (hash_a);
+	}
+}
+
 nano::process_return nano::block_processor::process_one (nano::transaction const & transaction_a, std::shared_ptr<nano::block> block_a, std::chrono::steady_clock::time_point origination, bool validated_state_block)
 {
 	nano::process_return result;
@@ -1465,11 +1479,7 @@ nano::process_return nano::block_processor::process_one (nano::transaction const
 			}
 			if (origination != std::chrono::steady_clock::time_point () && node.block_arrival.recent (hash))
 			{
-				node.active.start (block_a);
-				if (node.config.enable_voting)
-				{
-					generator.add (hash);
-				}
+				process_live (hash, block_a);
 			}
 			queue_unchecked (transaction_a, hash, origination);
 			break;
@@ -2960,7 +2970,8 @@ election_start (std::chrono::steady_clock::now ()),
 status ({ block_a, 0 }),
 confirmed (false),
 stopped (false),
-announcements (0)
+announcements (0),
+start (std::chrono::system_clock::now ())
 {
 	last_votes.insert (std::make_pair (nano::not_an_account, nano::vote_info{ std::chrono::steady_clock::now (), 0, block_a->hash () }));
 	blocks.insert (std::make_pair (block_a->hash (), block_a));
@@ -3013,6 +3024,16 @@ void nano::election::confirm_back (nano::transaction const & transaction_a)
 void nano::election::stop ()
 {
 	stopped = true;
+}
+
+void nano::election::log_rebroadcast (nano::block_hash const & hash_a)
+{
+	if (start != std::numeric_limits<std::chrono::system_clock::time_point>::min ())
+	{
+		auto gap (std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now () - start));
+		std::cerr << boost::str (boost::format ("Rebroadcasting %1% after %2%ms\n") % root.to_string () % std::to_string (gap.count ()));
+		start = std::numeric_limits<std::chrono::system_clock::time_point>::min ();
+	}
 }
 
 bool nano::election::have_quorum (nano::tally_t const & tally_a, nano::uint128_t tally_sum)
@@ -3580,6 +3601,16 @@ bool nano::active_transactions::publish (std::shared_ptr<nano::block> block_a)
 		}
 	}
 	return result;
+}
+
+void nano::active_transactions::log_rebroadcast (nano::block_hash const & hash_a)
+{
+	std::lock_guard<std::mutex> lock (mutex);
+	auto existing (blocks.find (hash_a));
+	if (existing != blocks.end ())
+	{
+		existing->second->log_rebroadcast (hash_a);
+	}
 }
 
 int nano::node::store_version ()
