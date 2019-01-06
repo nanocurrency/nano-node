@@ -533,8 +533,8 @@ public:
 	nano::online_reps online_reps;
 	nano::stat stats;
 	nano::keypair node_id;
-	nano::block_uniquer block_uniquer;
-	nano::vote_uniquer vote_uniquer;
+	std::unique_ptr<nano::factory<nano::block>> block_uniquer;
+	std::unique_ptr<nano::factory<nano::vote>> vote_uniquer;
 	const std::chrono::steady_clock::time_point startup_time;
 	static double constexpr price_max = 16.0;
 	static double constexpr free_cutoff = 1024.0;

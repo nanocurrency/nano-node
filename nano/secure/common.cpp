@@ -1,5 +1,6 @@
 #include <nano/secure/common.hpp>
 
+#include <nano/lib/factory.hpp>
 #include <nano/lib/interface.h>
 #include <nano/lib/numbers.hpp>
 #include <nano/node/common.hpp>
@@ -410,12 +411,12 @@ signature (other_a.signature)
 {
 }
 
-nano::vote::vote (bool & error_a, nano::stream & stream_a, nano::block_uniquer * uniquer_a)
+nano::vote::vote (bool & error_a, nano::stream & stream_a, nano::factory<nano::block> * uniquer_a)
 {
 	error_a = deserialize (stream_a, uniquer_a);
 }
 
-nano::vote::vote (bool & error_a, nano::stream & stream_a, nano::block_type type_a, nano::block_uniquer * uniquer_a)
+nano::vote::vote (bool & error_a, nano::stream & stream_a, nano::block_type type_a, nano::factory<nano::block> * uniquer_a)
 {
 	if (!error_a)
 	{
@@ -574,7 +575,7 @@ void nano::vote::serialize (nano::stream & stream_a)
 	}
 }
 
-bool nano::vote::deserialize (nano::stream & stream_a, nano::block_uniquer * uniquer_a)
+bool nano::vote::deserialize (nano::stream & stream_a, nano::factory<nano::block> * uniquer_a)
 {
 	auto result (read (stream_a, account));
 	if (!result)
@@ -652,61 +653,6 @@ boost::transform_iterator<nano::iterate_vote_blocks_as_hash, nano::vote_blocks_v
 boost::transform_iterator<nano::iterate_vote_blocks_as_hash, nano::vote_blocks_vec_iter> nano::vote::end () const
 {
 	return boost::transform_iterator<nano::iterate_vote_blocks_as_hash, nano::vote_blocks_vec_iter> (blocks.end (), nano::iterate_vote_blocks_as_hash ());
-}
-
-nano::vote_uniquer::vote_uniquer (nano::block_uniquer & uniquer_a) :
-uniquer (uniquer_a)
-{
-}
-
-std::shared_ptr<nano::vote> nano::vote_uniquer::unique (std::shared_ptr<nano::vote> vote_a)
-{
-	auto result (vote_a);
-	if (result != nullptr)
-	{
-		if (!result->blocks[0].which ())
-		{
-			result->blocks[0] = uniquer.unique (boost::get<std::shared_ptr<nano::block>> (result->blocks[0]));
-		}
-		nano::uint256_union key (vote_a->full_hash ());
-		std::lock_guard<std::mutex> lock (mutex);
-		auto & existing (votes[key]);
-		if (auto block_l = existing.lock ())
-		{
-			result = block_l;
-		}
-		else
-		{
-			existing = vote_a;
-		}
-		for (auto i (0); i < cleanup_count && votes.size () > 0; ++i)
-		{
-			auto random_offset (nano::random_pool.GenerateWord32 (0, votes.size () - 1));
-			auto existing (std::next (votes.begin (), random_offset));
-			if (existing == votes.end ())
-			{
-				existing = votes.begin ();
-			}
-			if (existing != votes.end ())
-			{
-				if (auto block_l = existing->second.lock ())
-				{
-					// Still live
-				}
-				else
-				{
-					votes.erase (existing);
-				}
-			}
-		}
-	}
-	return result;
-}
-
-size_t nano::vote_uniquer::size ()
-{
-	std::lock_guard<std::mutex> lock (mutex);
-	return votes.size ();
 }
 
 nano::genesis::genesis ()

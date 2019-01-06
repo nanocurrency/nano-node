@@ -160,8 +160,8 @@ class vote
 public:
 	vote () = default;
 	vote (nano::vote const &);
-	vote (bool &, nano::stream &, nano::block_uniquer * = nullptr);
-	vote (bool &, nano::stream &, nano::block_type, nano::block_uniquer * = nullptr);
+	vote (bool &, nano::stream &, nano::factory<nano::block> * = nullptr);
+	vote (bool &, nano::stream &, nano::block_type, nano::factory<nano::block> * = nullptr);
 	vote (nano::account const &, nano::raw_key const &, uint64_t, std::shared_ptr<nano::block>);
 	vote (nano::account const &, nano::raw_key const &, uint64_t, std::vector<nano::block_hash>);
 	std::string hashes_string () const;
@@ -171,7 +171,7 @@ public:
 	bool operator!= (nano::vote const &) const;
 	void serialize (nano::stream &, nano::block_type);
 	void serialize (nano::stream &);
-	bool deserialize (nano::stream &, nano::block_uniquer * = nullptr);
+	bool deserialize (nano::stream &, nano::factory<nano::block> * = nullptr);
 	bool validate ();
 	boost::transform_iterator<nano::iterate_vote_blocks_as_hash, nano::vote_blocks_vec_iter> begin () const;
 	boost::transform_iterator<nano::iterate_vote_blocks_as_hash, nano::vote_blocks_vec_iter> end () const;
@@ -186,22 +186,7 @@ public:
 	nano::signature signature;
 	static const std::string hash_prefix;
 };
-/**
- * This class serves to find and return unique variants of a vote in order to minimize memory usage
- */
-class vote_uniquer
-{
-public:
-	vote_uniquer (nano::block_uniquer &);
-	std::shared_ptr<nano::vote> unique (std::shared_ptr<nano::vote>);
-	size_t size ();
 
-private:
-	nano::block_uniquer & uniquer;
-	std::mutex mutex;
-	std::unordered_map<nano::uint256_union, std::weak_ptr<nano::vote>> votes;
-	static unsigned constexpr cleanup_count = 2;
-};
 enum class vote_code
 {
 	invalid, // Vote is not signed correctly

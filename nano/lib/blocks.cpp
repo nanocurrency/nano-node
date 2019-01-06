@@ -1,4 +1,6 @@
+#include <boost/endian/conversion.hpp>
 #include <nano/lib/blocks.hpp>
+#include <nano/lib/factory.hpp>
 #include <nano/lib/numbers.hpp>
 
 #include <boost/endian/conversion.hpp>
@@ -1157,7 +1159,7 @@ void nano::state_block::signature_set (nano::uint512_union const & signature_a)
 	signature = signature_a;
 }
 
-std::shared_ptr<nano::block> nano::deserialize_block_json (boost::property_tree::ptree const & tree_a, nano::block_uniquer * uniquer_a)
+std::shared_ptr<nano::block> nano::deserialize_block_json (boost::property_tree::ptree const & tree_a, nano::factory<nano::block> * uniquer_a)
 {
 	std::shared_ptr<nano::block> result;
 	try
@@ -1219,7 +1221,7 @@ std::shared_ptr<nano::block> nano::deserialize_block_json (boost::property_tree:
 	return result;
 }
 
-std::shared_ptr<nano::block> nano::deserialize_block (nano::stream & stream_a, nano::block_uniquer * uniquer_a)
+std::shared_ptr<nano::block> nano::deserialize_block (nano::stream & stream_a, nano::factory<nano::block> * uniquer_a)
 {
 	nano::block_type type;
 	auto error (read (stream_a, type));
@@ -1231,7 +1233,7 @@ std::shared_ptr<nano::block> nano::deserialize_block (nano::stream & stream_a, n
 	return result;
 }
 
-std::shared_ptr<nano::block> nano::deserialize_block (nano::stream & stream_a, nano::block_type type_a, nano::block_uniquer * uniquer_a)
+std::shared_ptr<nano::block> nano::deserialize_block (nano::stream & stream_a, nano::block_type type_a, nano::factory<nano::block> * factory_a)
 {
 	std::shared_ptr<nano::block> result;
 	switch (type_a)
@@ -1239,7 +1241,7 @@ std::shared_ptr<nano::block> nano::deserialize_block (nano::stream & stream_a, n
 		case nano::block_type::receive:
 		{
 			bool error (false);
-			std::unique_ptr<nano::receive_block> obj (new nano::receive_block (error, stream_a));
+			auto obj (nano::make_or_get<nano::receive_block> (factory_a, error, stream_a));
 			if (!error)
 			{
 				result = std::move (obj);
@@ -1249,7 +1251,7 @@ std::shared_ptr<nano::block> nano::deserialize_block (nano::stream & stream_a, n
 		case nano::block_type::send:
 		{
 			bool error (false);
-			std::unique_ptr<nano::send_block> obj (new nano::send_block (error, stream_a));
+			auto obj (nano::make_or_get<nano::send_block> (factory_a, error, stream_a));
 			if (!error)
 			{
 				result = std::move (obj);
@@ -1259,7 +1261,7 @@ std::shared_ptr<nano::block> nano::deserialize_block (nano::stream & stream_a, n
 		case nano::block_type::open:
 		{
 			bool error (false);
-			std::unique_ptr<nano::open_block> obj (new nano::open_block (error, stream_a));
+			auto obj (nano::make_or_get<nano::open_block> (factory_a, error, stream_a));
 			if (!error)
 			{
 				result = std::move (obj);
@@ -1269,7 +1271,7 @@ std::shared_ptr<nano::block> nano::deserialize_block (nano::stream & stream_a, n
 		case nano::block_type::change:
 		{
 			bool error (false);
-			std::unique_ptr<nano::change_block> obj (new nano::change_block (error, stream_a));
+			auto obj (nano::make_or_get<nano::change_block> (factory_a, error, stream_a));
 			if (!error)
 			{
 				result = std::move (obj);
@@ -1279,7 +1281,7 @@ std::shared_ptr<nano::block> nano::deserialize_block (nano::stream & stream_a, n
 		case nano::block_type::state:
 		{
 			bool error (false);
-			std::unique_ptr<nano::state_block> obj (new nano::state_block (error, stream_a));
+			auto obj (nano::make_or_get<nano::state_block> (factory_a, error, stream_a));
 			if (!error)
 			{
 				result = std::move (obj);
@@ -1290,10 +1292,10 @@ std::shared_ptr<nano::block> nano::deserialize_block (nano::stream & stream_a, n
 			assert (false);
 			break;
 	}
-	if (uniquer_a != nullptr)
+	/*if (factory_a != nullptr)
 	{
-		result = uniquer_a->unique (result);
-	}
+		result = factory_a->unique (result);
+	}*/
 	return result;
 }
 
@@ -1398,9 +1400,11 @@ hashables (error_a, stream_a)
 	if (!error_a)
 	{
 		error_a = nano::read (stream_a, signature);
+		assert (!error_a);
 		if (!error_a)
 		{
 			error_a = nano::read (stream_a, work);
+			assert (!error_a);
 		}
 	}
 }
@@ -1560,50 +1564,4 @@ void nano::receive_hashables::hash (blake2b_state & hash_a) const
 {
 	blake2b_update (&hash_a, previous.bytes.data (), sizeof (previous.bytes));
 	blake2b_update (&hash_a, source.bytes.data (), sizeof (source.bytes));
-}
-
-std::shared_ptr<nano::block> nano::block_uniquer::unique (std::shared_ptr<nano::block> block_a)
-{
-	auto result (block_a);
-	if (result != nullptr)
-	{
-		nano::uint256_union key (block_a->full_hash ());
-		std::lock_guard<std::mutex> lock (mutex);
-		auto & existing (blocks[key]);
-		if (auto block_l = existing.lock ())
-		{
-			result = block_l;
-		}
-		else
-		{
-			existing = block_a;
-		}
-		for (auto i (0); i < cleanup_count && blocks.size () > 0; ++i)
-		{
-			auto random_offset (nano::random_pool.GenerateWord32 (0, blocks.size () - 1));
-			auto existing (std::next (blocks.begin (), random_offset));
-			if (existing == blocks.end ())
-			{
-				existing = blocks.begin ();
-			}
-			if (existing != blocks.end ())
-			{
-				if (auto block_l = existing->second.lock ())
-				{
-					// Still live
-				}
-				else
-				{
-					blocks.erase (existing);
-				}
-			}
-		}
-	}
-	return result;
-}
-
-size_t nano::block_uniquer::size ()
-{
-	std::lock_guard<std::mutex> lock (mutex);
-	return blocks.size ();
 }

@@ -10,6 +10,8 @@
 
 namespace nano
 {
+template <typename V>
+class factory;
 std::string to_string_hex (uint64_t);
 bool from_string_hex (std::string const &, uint64_t &);
 // We operate on streams of uint8_t by convention
@@ -319,7 +321,7 @@ public:
 /**
  * This class serves to find and return unique variants of a block in order to minimize memory usage
  */
-class block_uniquer
+/*class block_uniquer
 {
 public:
 	std::shared_ptr<nano::block> unique (std::shared_ptr<nano::block>);
@@ -329,9 +331,9 @@ private:
 	std::mutex mutex;
 	std::unordered_map<nano::uint256_union, std::weak_ptr<nano::block>> blocks;
 	static unsigned constexpr cleanup_count = 2;
-};
-std::shared_ptr<nano::block> deserialize_block (nano::stream &, nano::block_uniquer * = nullptr);
-std::shared_ptr<nano::block> deserialize_block (nano::stream &, nano::block_type, nano::block_uniquer * = nullptr);
-std::shared_ptr<nano::block> deserialize_block_json (boost::property_tree::ptree const &, nano::block_uniquer * = nullptr);
+};*/
+std::shared_ptr<nano::block> deserialize_block (nano::stream &, nano::factory<nano::block> * = nullptr);
+std::shared_ptr<nano::block> deserialize_block (nano::stream &, nano::block_type, nano::factory<nano::block> * = nullptr);
+std::shared_ptr<nano::block> deserialize_block_json (boost::property_tree::ptree const &, nano::factory<nano::block> * = nullptr);
 void serialize_block (nano::stream &, nano::block const &);
 }

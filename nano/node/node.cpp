@@ -1,5 +1,6 @@
 #include <nano/node/node.hpp>
 
+#include <nano/lib/factory.hpp>
 #include <nano/lib/interface.h>
 #include <nano/lib/timer.hpp>
 #include <nano/lib/utility.hpp>
@@ -627,7 +628,7 @@ void nano::network::receive_action (nano::udp_data * data_a)
 	if (allowed_sender)
 	{
 		network_message_visitor visitor (node, data_a->endpoint);
-		nano::message_parser parser (node.block_uniquer, node.vote_uniquer, visitor, node.work);
+		nano::message_parser parser (*node.block_uniquer, *node.vote_uniquer, visitor, node.work);
 		parser.deserialize_buffer (data_a->buffer, data_a->size);
 		if (parser.status != nano::message_parser::parse_status::success)
 		{
@@ -1649,7 +1650,8 @@ block_processor_thread ([this]() {
 }),
 online_reps (*this),
 stats (config.stat_config),
-vote_uniquer (block_uniquer),
+block_uniquer (std::make_unique<nano::factory<nano::block>> ()),
+vote_uniquer (std::make_unique<nano::factory<nano::vote>> ()),
 startup_time (std::chrono::steady_clock::now ())
 {
 	wallets.observer = [this](bool active) {

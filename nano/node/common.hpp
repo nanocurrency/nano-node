@@ -254,7 +254,7 @@ public:
 		invalid_magic,
 		invalid_network
 	};
-	message_parser (nano::block_uniquer &, nano::vote_uniquer &, nano::message_visitor &, nano::work_pool &);
+	message_parser (nano::factory<nano::block> &, nano::factory<nano::vote> &, nano::message_visitor &, nano::work_pool &);
 	void deserialize_buffer (uint8_t const *, size_t);
 	void deserialize_keepalive (nano::stream &, nano::message_header const &);
 	void deserialize_publish (nano::stream &, nano::message_header const &);
@@ -262,8 +262,8 @@ public:
 	void deserialize_confirm_ack (nano::stream &, nano::message_header const &);
 	void deserialize_node_id_handshake (nano::stream &, nano::message_header const &);
 	bool at_end (nano::stream &);
-	nano::block_uniquer & block_uniquer;
-	nano::vote_uniquer & vote_uniquer;
+	nano::factory<nano::block> & block_uniquer;
+	nano::factory<nano::vote> & vote_uniquer;
 	nano::message_visitor & visitor;
 	nano::work_pool & pool;
 	parse_status status;
@@ -284,10 +284,10 @@ public:
 class publish : public message
 {
 public:
-	publish (bool &, nano::stream &, nano::message_header const &, nano::block_uniquer * = nullptr);
+	publish (bool &, nano::stream &, nano::message_header const &, nano::factory<nano::block> * = nullptr);
 	publish (std::shared_ptr<nano::block>);
 	void visit (nano::message_visitor &) const override;
-	bool deserialize (nano::stream &, nano::block_uniquer * = nullptr);
+	bool deserialize (nano::stream &, nano::factory<nano::block> * = nullptr);
 	void serialize (nano::stream &) const override;
 	bool operator== (nano::publish const &) const;
 	std::shared_ptr<nano::block> block;
@@ -295,9 +295,9 @@ public:
 class confirm_req : public message
 {
 public:
-	confirm_req (bool &, nano::stream &, nano::message_header const &, nano::block_uniquer * = nullptr);
+	confirm_req (bool &, nano::stream &, nano::message_header const &, nano::factory<nano::block> * = nullptr);
 	confirm_req (std::shared_ptr<nano::block>);
-	bool deserialize (nano::stream &, nano::block_uniquer * = nullptr);
+	bool deserialize (nano::stream &, nano::factory<nano::block> * = nullptr);
 	void serialize (nano::stream &) const override;
 	void visit (nano::message_visitor &) const override;
 	bool operator== (nano::confirm_req const &) const;
@@ -306,9 +306,9 @@ public:
 class confirm_ack : public message
 {
 public:
-	confirm_ack (bool &, nano::stream &, nano::message_header const &, nano::vote_uniquer * = nullptr);
+	confirm_ack (bool &, nano::stream &, nano::message_header const &, nano::factory<nano::vote> * = nullptr);
 	confirm_ack (std::shared_ptr<nano::vote>);
-	bool deserialize (nano::stream &, nano::vote_uniquer * = nullptr);
+	bool deserialize (nano::stream &, nano::factory<nano::vote> * = nullptr);
 	void serialize (nano::stream &) const override;
 	void visit (nano::message_visitor &) const override;
 	bool operator== (nano::confirm_ack const &) const;
