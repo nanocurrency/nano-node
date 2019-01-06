@@ -637,11 +637,7 @@ void nano::rpc_handler::account_representative_set ()
 					nano::account_info info;
 					if (!node.store.account_get (transaction, account, info))
 					{
-						if (!nano::work_validate (info.head, work))
-						{
-							wallet->store.work_put (transaction, account, work);
-						}
-						else
+						if (nano::work_validate (info.head, work))
 						{
 							ec = nano::error_common::invalid_work;
 						}
@@ -669,7 +665,7 @@ void nano::rpc_handler::account_representative_set ()
 					response_l.put ("block", hash.to_string ());
 					response_a (response_l);
 				},
-				work == 0);
+				work, work == 0);
 			}
 		}
 		else
@@ -2524,12 +2520,7 @@ void nano::rpc_handler::receive ()
 							{
 								head = account;
 							}
-							if (!nano::work_validate (head, work))
-							{
-								auto transaction_a (node.store.tx_begin_write ());
-								wallet->store.work_put (transaction_a, account, work);
-							}
-							else
+							if (nano::work_validate (head, work))
 							{
 								ec = nano::error_common::invalid_work;
 							}
@@ -2547,7 +2538,7 @@ void nano::rpc_handler::receive ()
 								response_l.put ("block", hash_a.to_string ());
 								response_a (response_l);
 							},
-							work == 0);
+							work, work == 0);
 						}
 					}
 					else
@@ -2848,7 +2839,7 @@ void nano::rpc_handler::send ()
 				nano::uint128_t balance (0);
 				if (!ec)
 				{
-					auto transaction (node.store.tx_begin (work != 0)); // false if no "work" in request, true if work > 0
+					auto transaction (node.store.tx_begin_read ());
 					if (wallet->store.valid_password (transaction))
 					{
 						nano::account_info info;
@@ -2862,11 +2853,7 @@ void nano::rpc_handler::send ()
 						}
 						if (!ec && work)
 						{
-							if (!nano::work_validate (info.head, work))
-							{
-								wallet->store.work_put (transaction, source, work);
-							}
-							else
+							if (nano::work_validate (info.head, work))
 							{
 								ec = nano::error_common::invalid_work;
 							}
@@ -2903,7 +2890,7 @@ void nano::rpc_handler::send ()
 							}
 						}
 					},
-					work == 0, send_id);
+					work, work == 0, send_id);
 				}
 			}
 			else
@@ -3513,7 +3500,7 @@ void nano::rpc_handler::wallet_representative_set ()
 				}
 				for (auto & account : accounts)
 				{
-					wallet->change_async (account, representative, [](std::shared_ptr<nano::block>) {}, false);
+					wallet->change_async (account, representative, [](std::shared_ptr<nano::block>) {}, 0, false);
 				}
 			}
 			response_l.put ("set", "1");
