@@ -926,6 +926,7 @@ std::shared_ptr<nano::block> nano::wallet::receive_action (nano::block const & s
 	{
 		if (nano::work_validate (*block))
 		{
+			BOOST_LOG (wallets.node.log) << boost::str (boost::format ("Cached or provided work for block %1% account %2% is invalid, regenerating") % block->hash ().to_string () % account.to_account ());
 			wallets.node.work_generate_blocking (*block);
 		}
 		wallets.node.process_active (block);
@@ -966,6 +967,7 @@ std::shared_ptr<nano::block> nano::wallet::change_action (nano::account const & 
 	{
 		if (nano::work_validate (*block))
 		{
+			BOOST_LOG (wallets.node.log) << boost::str (boost::format ("Cached or provided work for block %1% account %2% is invalid, regenerating") % block->hash ().to_string () % source_a.to_account ());
 			wallets.node.work_generate_blocking (*block);
 		}
 		wallets.node.process_active (block);
@@ -1050,6 +1052,7 @@ std::shared_ptr<nano::block> nano::wallet::send_action (nano::account const & so
 	{
 		if (nano::work_validate (*block))
 		{
+			BOOST_LOG (wallets.node.log) << boost::str (boost::format ("Cached or provided work for block %1% account %2% is invalid, regenerating") % block->hash ().to_string () % account_a.to_account ());
 			wallets.node.work_generate_blocking (*block);
 		}
 		wallets.node.process_active (block);
