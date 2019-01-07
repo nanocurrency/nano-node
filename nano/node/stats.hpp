@@ -180,6 +180,8 @@ public:
 		traffic,
 		traffic_bootstrap,
 		error,
+		block_factory,
+		vote_factory,
 		message,
 		block,
 		ledger,
@@ -249,6 +251,13 @@ public:
 		invalid_confirm_ack_message,
 		invalid_node_id_handshake_message,
 		outdated_version,
+		
+		// block/vote_factory specific
+		unique_factory_cache_hit,
+		unique_factory_cache_miss,
+		unique_factory_size,
+		unique_factory_created,
+		unique_factory_erased,
 
 		// peering
 		handshake,
@@ -337,6 +346,36 @@ public:
 			update (key & no_detail_mask, value);
 		}
 	}
+	
+	inline void erase (stat::type type, stat::detail detail, stat::dir dir, uint64_t value, bool detail_only = false)
+	{
+		constexpr uint32_t no_detail_mask = 0xffff00ff;
+		uint32_t key = key_of (type, detail, dir);
+		
+		std::unique_lock<std::mutex> lock (stat_mutex);
+		entries.erase (key);
+		
+		// Optionally update at type-level as well
+		if (!detail_only && (key & no_detail_mask) != key)
+		{
+			entries.erase (key & no_detail_mask);
+		}
+	}
+
+	/**
+	 * Set \p value, replacing any existing value.
+	 *
+	 * @param type Main statistics type
+	 * @param detail Detail type, or detail::none to register on type-level only
+	 * @param dir Direction
+	 * @param value The value to set
+	 * @param detail_only If true, only update the detail-level counter
+	 */
+	void set (stat::type type, stat::detail detail, stat::dir dir, uint64_t value, bool detail_only = false)
+	{
+		erase (type, detail, dir, value, detail_only);
+		add (type, detail, dir, value, detail_only);
+	}
 
 	/**
 	 * Add a sampling observer for a given counter.
@@ -420,6 +459,8 @@ private:
 	 * @value Amount to add to the counter
 	 */
 	void update (uint32_t key, uint64_t value);
+	
+	void erase_entry (uint32_t key);
 
 	/** Unlocked implementation of log_counters() to avoid using recursive locking */
 	void log_counters_impl (stat_log_sink & sink);

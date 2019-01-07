@@ -1625,6 +1625,8 @@ node (init_a, io_ctx_a, application_path_a, alarm_a, nano::node_config (peering_
 }
 
 nano::node::node (nano::node_init & init_a, boost::asio::io_context & io_ctx_a, boost::filesystem::path const & application_path_a, nano::alarm & alarm_a, nano::node_config const & config_a, nano::work_pool & work_a) :
+block_uniquer (),
+vote_uniquer (),
 io_ctx (io_ctx_a),
 config (config_a),
 alarm (alarm_a),
@@ -1649,15 +1651,10 @@ block_processor_thread ([this]() {
 	this->block_processor.process_blocks ();
 }),
 online_reps (*this),
-stats (config.stat_config),
-<<<<<<< HEAD
+stats (config.stat_config)
 block_uniquer (std::make_unique<nano::factory<nano::block>> ()),
 vote_uniquer (std::make_unique<nano::factory<nano::vote>> ()),
 startup_time (std::chrono::steady_clock::now ())
-=======
-block_uniquer (),
-vote_uniquer (&block_uniquer)
->>>>>>> Make block uniquer an ctor argument. Rename to unique_factory.
 {
 	wallets.observer = [this](bool active) {
 		observers.wallet.notify (active);
@@ -3662,6 +3659,25 @@ int nano::node::store_version ()
 {
 	auto transaction (store.tx_begin_read ());
 	return store.version_get (transaction);
+}
+
+void nano::node::update_stats ()
+{
+	// We imbue factory stats only when stats are requested. The unique_factory keeps internal stats
+	// with very low overhead.
+	auto block_stats (block_uniquer.get_stats ());
+	stats.set(nano::stat::type::block_factory, nano::stat::detail::unique_factory_size, nano::stat::dir::in, block_stats.size);
+	stats.set(nano::stat::type::block_factory, nano::stat::detail::unique_factory_cache_hit, nano::stat::dir::in, block_stats.cache_hit);
+	stats.set(nano::stat::type::block_factory, nano::stat::detail::unique_factory_cache_miss, nano::stat::dir::in, block_stats.cache_miss);
+	stats.set(nano::stat::type::block_factory, nano::stat::detail::unique_factory_created, nano::stat::dir::in, block_stats.created);
+	stats.set(nano::stat::type::block_factory, nano::stat::detail::unique_factory_erased, nano::stat::dir::in, block_stats.erased);
+	auto vote_stats (vote_uniquer.get_stats ());
+	stats.set(nano::stat::type::vote_factory, nano::stat::detail::unique_factory_size, nano::stat::dir::in, vote_stats.size);
+	stats.set(nano::stat::type::vote_factory, nano::stat::detail::unique_factory_cache_hit, nano::stat::dir::in, vote_stats.cache_hit);
+	stats.set(nano::stat::type::vote_factory, nano::stat::detail::unique_factory_cache_miss, nano::stat::dir::in, vote_stats.cache_miss);
+	stats.set(nano::stat::type::vote_factory, nano::stat::detail::unique_factory_created, nano::stat::dir::in, vote_stats.created);
+	stats.set(nano::stat::type::vote_factory, nano::stat::detail::unique_factory_erased, nano::stat::dir::in, vote_stats.erased);
+
 }
 
 nano::thread_runner::thread_runner (boost::asio::io_context & io_ctx_a, unsigned service_threads_a)

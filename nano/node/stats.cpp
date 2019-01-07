@@ -325,6 +325,12 @@ std::string nano::stat::type_to_string (uint32_t key)
 		case nano::stat::type::error:
 			res = "error";
 			break;
+		case nano::stat::type::block_factory:
+			res = "block_factory";
+			break;
+		case nano::stat::type::vote_factory:
+			res = "vote_factory";
+			break;
 		case nano::stat::type::http_callback:
 			res = "http_callback";
 			break;
@@ -364,6 +370,21 @@ std::string nano::stat::detail_to_string (uint32_t key)
 	{
 		case nano::stat::detail::all:
 			res = "all";
+			break;
+		case nano::stat::detail::unique_factory_cache_hit:
+			res = "cache_hit";
+			break;
+		case nano::stat::detail::unique_factory_cache_miss:
+			res = "cache_miss";
+			break;
+		case nano::stat::detail::unique_factory_size:
+			res = "size";
+			break;
+		case nano::stat::detail::unique_factory_created:
+			res = "created";
+			break;
+		case nano::stat::detail::unique_factory_erased:
+			res = "erased";
 			break;
 		case nano::stat::detail::bad_sender:
 			res = "bad_sender";

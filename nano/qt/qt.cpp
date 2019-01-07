@@ -801,6 +801,7 @@ void nano_qt::stats_viewer::refresh_stats ()
 {
 	model->removeRows (0, model->rowCount ());
 
+	wallet.node.update_stats ();
 	auto sink = wallet.node.stats.log_sink_json ();
 	wallet.node.stats.log_counters (*sink);
 	auto json = static_cast<boost::property_tree::ptree *> (sink->to_object ());

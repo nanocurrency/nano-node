@@ -2956,6 +2956,7 @@ void nano::rpc_handler::send ()
 
 void nano::rpc_handler::stats ()
 {
+	node.update_stats ();
 	auto sink = node.stats.log_sink_json ();
 	std::string type (request.get<std::string> ("type", ""));
 	if (type == "counters")
