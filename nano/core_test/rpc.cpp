@@ -3937,8 +3937,8 @@ TEST (rpc, node_config)
 	nano::system system (24000, 1);
 	nano::rpc rpc (system.io_ctx, *system.nodes[0], nano::rpc_config (true));
 	rpc.start ();
-	const unsigned work_threads (rpc.node.config.work_threads + 10);
 	rpc.node.config.work_threads += 10;
+	const unsigned work_threads (rpc.node.config.work_threads);
 	boost::property_tree::ptree request0;
 	request0.put ("action", "node_config");
 	test_response response0 (request0, rpc, system.io_ctx);
@@ -3949,8 +3949,8 @@ TEST (rpc, node_config)
 	}
 	ASSERT_EQ (200, response0.status);
 	ASSERT_EQ (work_threads, response0.json.get<unsigned> ("node.work_threads"));
-	const bool flush (!rpc.node.config.logging.flush);
 	rpc.node.config.logging.flush = !rpc.node.config.logging.flush;
+	const bool flush (rpc.node.config.logging.flush);
 	boost::property_tree::ptree request1;
 	request1.put ("action", "node_config");
 	request1.put ("path", "logging");
@@ -3973,6 +3973,17 @@ TEST (rpc, node_config)
 	}
 	ASSERT_EQ (200, response2.status);
 	ASSERT_EQ (flush, response2.json.get<bool> ("flush"));
+	boost::property_tree::ptree request3;
+	request3.put ("action", "node_config");
+	request3.put ("path", "invalid_path_111");
+	test_response response3 (request3, rpc, system.io_ctx);
+	system.deadline_set (5s);
+	while (response3.status == 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (200, response3.status);
+	ASSERT_EQ ("Empty response", response3.json.get<std::string> ("error"));
 }
 
 TEST (rpc, node_id)
