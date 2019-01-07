@@ -1,7 +1,7 @@
 #pragma once
 
-#include <nano/lib/work.hpp>
 #include <nano/lib/unique_factory.hpp>
+#include <nano/lib/work.hpp>
 #include <nano/node/bootstrap.hpp>
 #include <nano/node/logging.hpp>
 #include <nano/node/nodeconfig.hpp>

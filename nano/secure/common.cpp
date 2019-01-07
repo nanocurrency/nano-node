@@ -1,8 +1,8 @@
 #include <nano/secure/common.hpp>
 
-#include <nano/lib/unique_factory.hpp>
 #include <nano/lib/interface.h>
 #include <nano/lib/numbers.hpp>
+#include <nano/lib/unique_factory.hpp>
 #include <nano/node/common.hpp>
 #include <nano/secure/blockstore.hpp>
 #include <nano/secure/versioning.hpp>

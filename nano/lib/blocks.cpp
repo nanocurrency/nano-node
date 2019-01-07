@@ -1,7 +1,7 @@
 #include <boost/endian/conversion.hpp>
 #include <nano/lib/blocks.hpp>
-#include <nano/lib/unique_factory.hpp>
 #include <nano/lib/numbers.hpp>
+#include <nano/lib/unique_factory.hpp>
 
 #include <boost/endian/conversion.hpp>
 

@@ -20,14 +20,15 @@ template <typename V>
 class unique_factory
 {
 	friend class unique_factory<nano::vote>;
+
 private:
 	std::unordered_map<decltype (std::declval<V> ().full_hash ()), std::weak_ptr<V>> cache;
 	std::mutex cache_mutex;
-	unique_factory<nano::block>* block_uniquer {nullptr};
+	unique_factory<nano::block> * block_uniquer{ nullptr };
 
 public:
-	
-	unique_factory (unique_factory<nano::block>* block_uniquer_a = nullptr) : block_uniquer (block_uniquer_a)
+	unique_factory (unique_factory<nano::block> * block_uniquer_a = nullptr) :
+	block_uniquer (block_uniquer_a)
 	{
 	}
 
@@ -67,7 +68,6 @@ public:
 	unsigned erased{ 0 };
 
 private:
-	
 	template <typename U = V, std::enable_if_t<std::is_same<std::shared_ptr<U>, std::shared_ptr<nano::vote>>::value> * = nullptr>
 	std::shared_ptr<nano::vote> unique (std::shared_ptr<nano::vote> obj)
 	{
@@ -77,7 +77,7 @@ private:
 		}
 		return obj ? index (obj) : obj;
 	}
-	
+
 	template <typename U = V, std::enable_if_t<std::is_same<std::shared_ptr<U>, std::shared_ptr<nano::block>>::value> * = nullptr>
 	std::shared_ptr<nano::block> unique (std::shared_ptr<nano::block> obj)
 	{

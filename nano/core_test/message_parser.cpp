@@ -102,7 +102,7 @@ TEST (message_parser, exact_confirm_req_size)
 {
 	nano::system system (24000, 1);
 	test_visitor visitor;
-	nano::unique_fact	ory<nano::block> block_uniquer;
+	nano::unique_factory<nano::block> block_uniquer;
 	nano::unique_factory<nano::vote> vote_uniquer (&block_uniquer);
 	nano::message_parser parser (block_uniquer, vote_uniquer, visitor, system.work);
 	auto block (std::make_shared<nano::send_block> (1, 1, 2, nano::keypair ().prv, 4, system.work.generate (1)));
