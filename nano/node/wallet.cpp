@@ -1180,40 +1180,42 @@ void nano::wallet::init_free_accounts (nano::transaction const & transaction_a)
 	}
 }
 
-nano::public_key nano::wallet::change_seed (nano::transaction const & transaction_a, nano::raw_key const & prv_a)
+nano::public_key nano::wallet::change_seed (nano::transaction const & transaction_a, nano::raw_key const & prv_a, uint32_t count)
 {
 	store.seed_set (transaction_a, prv_a);
 	auto account = deterministic_insert (transaction_a);
-	uint32_t count (0);
-	for (uint32_t i (1), n (64); i < n; ++i)
+	if (count == 0)
 	{
-		nano::raw_key prv;
-		store.deterministic_key (prv, transaction_a, i);
-		nano::keypair pair (prv.data.to_string ());
-		// Check if account received at least 1 block
-		auto latest (wallets.node.ledger.latest (transaction_a, pair.pub));
-		if (!latest.is_zero ())
+		for (uint32_t i (1), n (64); i < n; ++i)
 		{
-			count = i;
-			// i + 64 - Check additional 64 accounts
-			// i/64 - Check additional accounts for large wallets. I.e. 64000/64 = 1000 accounts to check
-			n = i + 64 + (i / 64);
-		}
-		else
-		{
-			// Check if there are pending blocks for account
-			for (auto ii (wallets.node.store.pending_begin (transaction_a, nano::pending_key (pair.pub, 0))); nano::pending_key (ii->first).account == pair.pub; ++ii)
+			nano::raw_key prv;
+			store.deterministic_key (prv, transaction_a, i);
+			nano::keypair pair (prv.data.to_string ());
+			// Check if account received at least 1 block
+			auto latest (wallets.node.ledger.latest (transaction_a, pair.pub));
+			if (!latest.is_zero ())
 			{
 				count = i;
+				// i + 64 - Check additional 64 accounts
+				// i/64 - Check additional accounts for large wallets. I.e. 64000/64 = 1000 accounts to check
 				n = i + 64 + (i / 64);
-				break;
+			}
+			else
+			{
+				// Check if there are pending blocks for account
+				for (auto ii (wallets.node.store.pending_begin (transaction_a, nano::pending_key (pair.pub, 0))); nano::pending_key (ii->first).account == pair.pub; ++ii)
+				{
+					count = i;
+					n = i + 64 + (i / 64);
+					break;
+				}
 			}
 		}
 	}
 	for (uint32_t i (0); i < count; ++i)
 	{
-		// Generate work for first 4 accounts only to prevent weak CPU nodes stuck
-		account = deterministic_insert (transaction_a, i < 4);
+		// Generate work for first 2 accounts only to prevent weak CPU nodes stuck
+		account = deterministic_insert (transaction_a, i < 2);
 	}
 
 	return account;
