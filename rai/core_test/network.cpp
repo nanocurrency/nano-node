@@ -116,6 +116,39 @@ TEST (network, keepalive_ipv4)
 	node1->stop ();
 }
 
+TEST (network, last_contacted)
+{
+	rai::system system (24000, 1);
+	auto list1 (system.nodes[0]->peers.list ());
+	ASSERT_EQ (0, list1.size ());
+	rai::node_init init1;
+	auto node1 (std::make_shared<rai::node> (init1, system.service, 24001, rai::unique_path (), system.alarm, system.logging, system.work));
+	node1->start ();
+	system.nodes.push_back (node1);
+	node1->send_keepalive (rai::endpoint (boost::asio::ip::address_v4::loopback (), 24000));
+	system.deadline_set (10s);
+
+	// Wait until the handshake is complete
+	while (system.nodes[0]->peers.size () < 1)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (system.nodes[0]->peers.size (), 1);
+
+	// Make sure last_contact gets updated on receiving a non-handshake message
+	auto timestamp_before_keepalive = system.nodes[0]->peers.list_vector (1).front ().last_contact;
+	node1->send_keepalive (rai::endpoint (boost::asio::ip::address_v4::loopback (), 24000));
+	while (system.nodes[0]->stats.count (rai::stat::type::message, rai::stat::detail::keepalive, rai::stat::dir::in) < 2)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (system.nodes[0]->peers.size (), 1);
+	auto timestamp_after_keepalive = system.nodes[0]->peers.list_vector (1).front ().last_contact;
+	ASSERT_GT (timestamp_after_keepalive, timestamp_before_keepalive);
+
+	node1->stop ();
+}
+
 TEST (network, multi_keepalive)
 {
 	rai::system system (24000, 1);

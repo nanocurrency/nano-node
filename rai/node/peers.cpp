@@ -62,6 +62,17 @@ bool rai::peer_container::contacted (rai::endpoint const & endpoint_a, unsigned 
 			should_handshake = true;
 		}
 	}
+	else
+	{
+		std::lock_guard<std::mutex> lock (mutex);
+		auto existing (peers.find (endpoint_a));
+		if (existing != peers.end ())
+		{
+			peers.modify (existing, [](rai::peer_information & info) {
+				info.last_contact = std::chrono::steady_clock::now ();
+			});
+		}
+	}
 	return should_handshake;
 }
 
