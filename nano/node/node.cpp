@@ -1,6 +1,7 @@
 #include <nano/node/node.hpp>
 
 #include <nano/lib/interface.h>
+#include <nano/lib/timer.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/rpc.hpp>
@@ -1301,7 +1302,7 @@ bool nano::block_processor::have_blocks ()
 void nano::block_processor::verify_state_blocks (std::unique_lock<std::mutex> & lock_a, size_t max_count)
 {
 	assert (!mutex.try_lock ());
-	auto start_time (std::chrono::steady_clock::now ());
+	nano::timer<std::chrono::milliseconds> timer_l (nano::timer_state::started);
 	std::deque<std::pair<std::shared_ptr<nano::block>, std::chrono::steady_clock::time_point>> items;
 	if (max_count == std::numeric_limits<size_t>::max () || max_count >= state_blocks.size ())
 	{
@@ -1354,31 +1355,28 @@ void nano::block_processor::verify_state_blocks (std::unique_lock<std::mutex> & 
 	}
 	if (node.config.logging.timing_logging ())
 	{
-		auto end_time (std::chrono::steady_clock::now ());
-		auto elapsed_time_ms (std::chrono::duration_cast<std::chrono::milliseconds> (end_time - start_time));
-		auto elapsed_time_ms_int (elapsed_time_ms.count ());
-
-		BOOST_LOG (node.log) << boost::str (boost::format ("Batch verified %1% state blocks in %2% milliseconds") % size % elapsed_time_ms_int);
+		BOOST_LOG (node.log) << boost::str (boost::format ("Batch verified %1% state blocks in %2% %3%") % size % timer_l.stop ().count () % timer_l.unit ());
 	}
 }
 
 void nano::block_processor::process_batch (std::unique_lock<std::mutex> & lock_a)
 {
+	nano::timer<std::chrono::milliseconds> timer_l;
 	lock_a.lock ();
-	auto start_time (std::chrono::steady_clock::now ());
+	timer_l.start ();
 	// Limit state blocks verification time
-	while (!state_blocks.empty () && std::chrono::steady_clock::now () - start_time < std::chrono::seconds (2))
+	while (!state_blocks.empty () && timer_l.before_deadline (std::chrono::seconds (2)))
 	{
 		verify_state_blocks (lock_a, 2048);
 	}
 	lock_a.unlock ();
 	auto transaction (node.store.tx_begin_write ());
-	start_time = std::chrono::steady_clock::now ();
+	timer_l.restart ();
 	lock_a.lock ();
 	// Processing blocks
 	auto first_time (true);
 	unsigned number_of_blocks_processed (0), number_of_forced_processed (0);
-	while ((!blocks.empty () || !forced.empty ()) && std::chrono::steady_clock::now () - start_time < node.config.block_processor_batch_max_time)
+	while ((!blocks.empty () || !forced.empty ()) && timer_l.before_deadline (node.config.block_processor_batch_max_time))
 	{
 		auto log_this_record (false);
 		if (node.config.logging.timing_logging ())
@@ -1446,11 +1444,7 @@ void nano::block_processor::process_batch (std::unique_lock<std::mutex> & lock_a
 
 	if (node.config.logging.timing_logging ())
 	{
-		auto end_time (std::chrono::steady_clock::now ());
-		auto elapsed_time_ms (std::chrono::duration_cast<std::chrono::milliseconds> (end_time - start_time));
-		auto elapsed_time_ms_int (elapsed_time_ms.count ());
-
-		BOOST_LOG (node.log) << boost::str (boost::format ("Processed %1% blocks (%2% blocks were forced) in %3% milliseconds") % number_of_blocks_processed % number_of_forced_processed % elapsed_time_ms_int);
+		BOOST_LOG (node.log) << boost::str (boost::format ("Processed %1% blocks (%2% blocks were forced) in %3% %4%") % number_of_blocks_processed % number_of_forced_processed % timer_l.stop ().count () % timer_l.unit ());
 	}
 }
 
