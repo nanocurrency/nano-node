@@ -348,7 +348,7 @@ TEST (uint256_union, decode_account_variations)
 		nano::uint256_union pub;
 		xrb_key_account (key.data.bytes.data (), pub.bytes.data ());
 
-		char account[65] = { 0 };
+		char account[66] = { 0 };
 		xrb_uint256_to_address (pub.bytes.data (), account);
 
 		// Replace first digit after xrb_ with '0'..'9', make sure only one of them is valid

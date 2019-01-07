@@ -427,14 +427,35 @@ void nano::rpc_handler::account_create ()
 	if (!ec)
 	{
 		const bool generate_work = request.get<bool> ("work", true);
-		nano::account new_key (wallet->deterministic_insert (generate_work));
-		if (!new_key.is_zero ())
+		nano::account new_key;
+		auto index_text (request.get_optional<std::string> ("index"));
+		if (index_text.is_initialized ())
 		{
-			response_l.put ("account", new_key.to_account ());
+			uint64_t index;
+			if (decode_unsigned (index_text.get (), index) || index > static_cast<uint64_t> (std::numeric_limits<uint32_t>::max ()))
+			{
+				ec = nano::error_common::invalid_index;
+			}
+			else
+			{
+				new_key = wallet->deterministic_insert (static_cast<uint32_t> (index), generate_work);
+			}
 		}
 		else
 		{
-			ec = nano::error_common::wallet_locked;
+			new_key = wallet->deterministic_insert (generate_work);
+		}
+
+		if (!ec)
+		{
+			if (!new_key.is_zero ())
+			{
+				response_l.put ("account", new_key.to_account ());
+			}
+			else
+			{
+				ec = nano::error_common::wallet_locked;
+			}
 		}
 	}
 	response_errors ();
@@ -2409,7 +2430,7 @@ void nano::rpc_handler::process ()
 			nano::process_return result;
 			{
 				auto transaction (node.store.tx_begin_write ());
-				result = node.block_processor.process_receive_one (transaction, block, std::chrono::steady_clock::time_point ());
+				result = node.block_processor.process_one (transaction, block, std::chrono::steady_clock::time_point ());
 			}
 			switch (result.code)
 			{
@@ -3487,8 +3508,36 @@ void nano::rpc_handler::wallet_representative_set ()
 		nano::account representative;
 		if (!representative.decode_account (representative_text))
 		{
-			auto transaction (node.store.tx_begin_write ());
-			wallet->store.representative_set (transaction, representative);
+			{
+				auto transaction (node.store.tx_begin_write ());
+				wallet->store.representative_set (transaction, representative);
+			}
+			// Change representative for all wallet accounts
+			if (request.get<bool> ("update_existing_accounts", false))
+			{
+				std::vector<nano::account> accounts;
+				{
+					auto transaction (node.store.tx_begin_read ());
+					for (auto i (wallet->store.begin (transaction)), n (wallet->store.end ()); i != n; ++i)
+					{
+						nano::account account (i->first);
+						nano::account_info info;
+						if (!node.store.account_get (transaction, account, info))
+						{
+							auto block (node.store.block_get (transaction, info.rep_block));
+							assert (block != nullptr);
+							if (block->representative () != representative)
+							{
+								accounts.push_back (account);
+							}
+						}
+					}
+				}
+				for (auto & account : accounts)
+				{
+					wallet->change_async (account, representative, [](std::shared_ptr<nano::block>) {}, false);
+				}
+			}
 			response_l.put ("set", "1");
 		}
 		else

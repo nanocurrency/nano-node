@@ -123,17 +123,39 @@ TEST (rpc, account_create)
 	boost::property_tree::ptree request;
 	request.put ("action", "account_create");
 	request.put ("wallet", system.nodes[0]->wallets.items.begin ()->first.to_string ());
-	test_response response (request, rpc, system.io_ctx);
+	test_response response0 (request, rpc, system.io_ctx);
 	system.deadline_set (5s);
-	while (response.status == 0)
+	while (response0.status == 0)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	ASSERT_EQ (200, response.status);
-	auto account_text (response.json.get<std::string> ("account"));
-	nano::uint256_union account;
-	ASSERT_FALSE (account.decode_account (account_text));
-	ASSERT_TRUE (system.wallet (0)->exists (account));
+	ASSERT_EQ (200, response0.status);
+	auto account_text0 (response0.json.get<std::string> ("account"));
+	nano::uint256_union account0;
+	ASSERT_FALSE (account0.decode_account (account_text0));
+	ASSERT_TRUE (system.wallet (0)->exists (account0));
+	uint64_t max_index (std::numeric_limits<uint32_t>::max ());
+	request.put ("index", max_index);
+	test_response response1 (request, rpc, system.io_ctx);
+	system.deadline_set (5s);
+	while (response1.status == 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (200, response1.status);
+	auto account_text1 (response1.json.get<std::string> ("account"));
+	nano::uint256_union account1;
+	ASSERT_FALSE (account1.decode_account (account_text1));
+	ASSERT_TRUE (system.wallet (0)->exists (account1));
+	request.put ("index", max_index + 1);
+	test_response response2 (request, rpc, system.io_ctx);
+	system.deadline_set (5s);
+	while (response2.status == 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (200, response2.status);
+	ASSERT_EQ (response2.json.get<std::string> ("error"), "Invalid index");
 }
 
 TEST (rpc, account_weight)
@@ -565,6 +587,46 @@ TEST (rpc, wallet_representative_set)
 	ASSERT_EQ (200, response.status);
 	auto transaction (system.nodes[0]->wallets.tx_begin ());
 	ASSERT_EQ (key.pub, system.nodes[0]->wallets.items.begin ()->second->store.representative (transaction));
+}
+
+TEST (rpc, wallet_representative_set_force)
+{
+	nano::system system (24000, 1);
+	nano::rpc rpc (system.io_ctx, *system.nodes[0], nano::rpc_config (true));
+	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
+	rpc.start ();
+	boost::property_tree::ptree request;
+	std::string wallet;
+	system.nodes[0]->wallets.items.begin ()->first.encode_hex (wallet);
+	request.put ("wallet", wallet);
+	nano::keypair key;
+	request.put ("action", "wallet_representative_set");
+	request.put ("representative", key.pub.to_account ());
+	request.put ("update_existing_accounts", true);
+	test_response response (request, rpc, system.io_ctx);
+	system.deadline_set (5s);
+	while (response.status == 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (200, response.status);
+	{
+		auto transaction (system.nodes[0]->wallets.tx_begin ());
+		ASSERT_EQ (key.pub, system.nodes[0]->wallets.items.begin ()->second->store.representative (transaction));
+	}
+	nano::account representative (0);
+	while (representative != key.pub)
+	{
+		auto transaction (system.nodes[0]->store.tx_begin_read ());
+		nano::account_info info;
+		if (!system.nodes[0]->store.account_get (transaction, nano::test_genesis_key.pub, info))
+		{
+			auto block (system.nodes[0]->store.block_get (transaction, info.rep_block));
+			assert (block != nullptr);
+			representative = block->representative ();
+		}
+		ASSERT_NO_ERROR (system.poll ());
+	}
 }
 
 TEST (rpc, account_list)
