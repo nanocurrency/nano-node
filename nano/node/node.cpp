@@ -1657,73 +1657,7 @@ vote_uniquer (block_uniquer)
 					resolver->async_resolve (boost::asio::ip::tcp::resolver::query (address, std::to_string (port)), [node_l, address, port, target, body, resolver](boost::system::error_code const & ec, boost::asio::ip::tcp::resolver::iterator i_a) {
 						if (!ec)
 						{
-							for (auto i (i_a), n (boost::asio::ip::tcp::resolver::iterator{}); i != n; ++i)
-							{
-								auto sock (std::make_shared<boost::asio::ip::tcp::socket> (node_l->io_ctx));
-								sock->async_connect (i->endpoint (), [node_l, target, body, sock, address, port](boost::system::error_code const & ec) {
-									if (!ec)
-									{
-										auto req (std::make_shared<boost::beast::http::request<boost::beast::http::string_body>> ());
-										req->method (boost::beast::http::verb::post);
-										req->target (*target);
-										req->version (11);
-										req->insert (boost::beast::http::field::host, address);
-										req->insert (boost::beast::http::field::content_type, "application/json");
-										req->body () = *body;
-										//req->prepare (*req);
-										//boost::beast::http::prepare(req);
-										req->prepare_payload ();
-										boost::beast::http::async_write (*sock, *req, [node_l, sock, address, port, req](boost::system::error_code const & ec, size_t bytes_transferred) {
-											if (!ec)
-											{
-												auto sb (std::make_shared<boost::beast::flat_buffer> ());
-												auto resp (std::make_shared<boost::beast::http::response<boost::beast::http::string_body>> ());
-												boost::beast::http::async_read (*sock, *sb, *resp, [node_l, sb, resp, sock, address, port](boost::system::error_code const & ec, size_t bytes_transferred) {
-													if (!ec)
-													{
-														if (resp->result () == boost::beast::http::status::ok)
-														{
-															node_l->stats.inc (nano::stat::type::http_callback, nano::stat::detail::initiate, nano::stat::dir::out);
-														}
-														else
-														{
-															if (node_l->config.logging.callback_logging ())
-															{
-																BOOST_LOG (node_l->log) << boost::str (boost::format ("Callback to %1%:%2% failed with status: %3%") % address % port % resp->result ());
-															}
-															node_l->stats.inc (nano::stat::type::error, nano::stat::detail::http_callback, nano::stat::dir::out);
-														}
-													}
-													else
-													{
-														if (node_l->config.logging.callback_logging ())
-														{
-															BOOST_LOG (node_l->log) << boost::str (boost::format ("Unable complete callback: %1%:%2%: %3%") % address % port % ec.message ());
-														}
-														node_l->stats.inc (nano::stat::type::error, nano::stat::detail::http_callback, nano::stat::dir::out);
-													};
-												});
-											}
-											else
-											{
-												if (node_l->config.logging.callback_logging ())
-												{
-													BOOST_LOG (node_l->log) << boost::str (boost::format ("Unable to send callback: %1%:%2%: %3%") % address % port % ec.message ());
-												}
-												node_l->stats.inc (nano::stat::type::error, nano::stat::detail::http_callback, nano::stat::dir::out);
-											}
-										});
-									}
-									else
-									{
-										if (node_l->config.logging.callback_logging ())
-										{
-											BOOST_LOG (node_l->log) << boost::str (boost::format ("Unable to connect to callback address: %1%:%2%: %3%") % address % port % ec.message ());
-										}
-										node_l->stats.inc (nano::stat::type::error, nano::stat::detail::http_callback, nano::stat::dir::out);
-									}
-								});
-							}
+							node_l->do_rpc_callback (i_a, address, port, target, body, resolver);
 						}
 						else
 						{
@@ -1845,6 +1779,78 @@ nano::node::~node ()
 		BOOST_LOG (log) << "Destructing node";
 	}
 	stop ();
+}
+
+void nano::node::do_rpc_callback (boost::asio::ip::tcp::resolver::iterator i_a, std::string const & address, uint16_t port, std::shared_ptr<std::string> target, std::shared_ptr<std::string> body, std::shared_ptr<boost::asio::ip::tcp::resolver> resolver)
+{
+	if (i_a != boost::asio::ip::tcp::resolver::iterator{})
+	{
+		auto node_l (shared_from_this ());
+		auto sock (std::make_shared<boost::asio::ip::tcp::socket> (node_l->io_ctx));
+		sock->async_connect (i_a->endpoint (), [node_l, target, body, sock, address, port, i_a, resolver](boost::system::error_code const & ec) mutable {
+			if (!ec)
+			{
+				auto req (std::make_shared<boost::beast::http::request<boost::beast::http::string_body>> ());
+				req->method (boost::beast::http::verb::post);
+				req->target (*target);
+				req->version (11);
+				req->insert (boost::beast::http::field::host, address);
+				req->insert (boost::beast::http::field::content_type, "application/json");
+				req->body () = *body;
+				req->prepare_payload ();
+				boost::beast::http::async_write (*sock, *req, [node_l, sock, address, port, req, i_a, target, body, resolver](boost::system::error_code const & ec, size_t bytes_transferred) mutable {
+					if (!ec)
+					{
+						auto sb (std::make_shared<boost::beast::flat_buffer> ());
+						auto resp (std::make_shared<boost::beast::http::response<boost::beast::http::string_body>> ());
+						boost::beast::http::async_read (*sock, *sb, *resp, [node_l, sb, resp, sock, address, port, i_a, target, body, resolver](boost::system::error_code const & ec, size_t bytes_transferred) mutable {
+							if (!ec)
+							{
+								if (resp->result () == boost::beast::http::status::ok)
+								{
+									node_l->stats.inc (nano::stat::type::http_callback, nano::stat::detail::initiate, nano::stat::dir::out);
+								}
+								else
+								{
+									if (node_l->config.logging.callback_logging ())
+									{
+										BOOST_LOG (node_l->log) << boost::str (boost::format ("Callback to %1%:%2% failed with status: %3%") % address % port % resp->result ());
+									}
+									node_l->stats.inc (nano::stat::type::error, nano::stat::detail::http_callback, nano::stat::dir::out);
+								}
+							}
+							else
+							{
+								if (node_l->config.logging.callback_logging ())
+								{
+									BOOST_LOG (node_l->log) << boost::str (boost::format ("Unable complete callback: %1%:%2%: %3%") % address % port % ec.message ());
+								}
+								node_l->stats.inc (nano::stat::type::error, nano::stat::detail::http_callback, nano::stat::dir::out);
+							};
+						});
+					}
+					else
+					{
+						if (node_l->config.logging.callback_logging ())
+						{
+							BOOST_LOG (node_l->log) << boost::str (boost::format ("Unable to send callback: %1%:%2%: %3%") % address % port % ec.message ());
+						}
+						node_l->stats.inc (nano::stat::type::error, nano::stat::detail::http_callback, nano::stat::dir::out);
+					}
+				});
+			}
+			else
+			{
+				if (node_l->config.logging.callback_logging ())
+				{
+					BOOST_LOG (node_l->log) << boost::str (boost::format ("Unable to connect to callback address: %1%:%2%: %3%") % address % port % ec.message ());
+				}
+				node_l->stats.inc (nano::stat::type::error, nano::stat::detail::http_callback, nano::stat::dir::out);
+				++i_a;
+				node_l->do_rpc_callback (i_a, address, port, target, body, resolver);
+			}
+		});
+	}
 }
 
 bool nano::node::copy_with_compaction (boost::filesystem::path const & destination_file)
