@@ -20,7 +20,7 @@ add_library (nano_lib
 	blocks.cpp
 	blocks.hpp
 	config.hpp
-	factory.hpp
+	unique_factory.hpp
 	interface.cpp
 	interface.h
 	jsonconfig.hpp

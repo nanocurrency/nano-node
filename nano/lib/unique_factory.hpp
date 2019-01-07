@@ -14,20 +14,20 @@ class block;
 /**
  * Thread safe flyweight factory for votes and blocks. Type V must have a full_hash() member.
  * This is basically a hash consing provider to save memory by disposing equivalent
- * objects.
+ * objects.C
  */
 template <typename V>
-class factory
+class unique_factory
 {
 private:
 	std::unordered_map<decltype (std::declval<V> ().full_hash ()), std::weak_ptr<V>> cache;
 	std::mutex cache_mutex;
+	unique_factory<nano::block>* block_uniquer {nullptr};
 
 public:
-	~factory ()
+	
+	unique_factory (unique_factory<nano::block>* block_uniquer_a = nullptr) : block_uniquer (block_uniquer_a)
 	{
-		std::unique_lock<std::mutex> lock (cache_mutex);
-		cache.clear ();
 	}
 
 	size_t size () const
@@ -37,19 +37,12 @@ public:
 	}
 
 	template <typename U = V, std::enable_if_t<std::is_same<std::shared_ptr<U>, std::shared_ptr<nano::vote>>::value> * = nullptr>
-	factory<nano::block> & block_uniquer ()
-	{
-		static factory<nano::block> f;
-		return f;
-	}
-
-	template <typename U = V, std::enable_if_t<std::is_same<std::shared_ptr<U>, std::shared_ptr<nano::vote>>::value> * = nullptr>
 	std::shared_ptr<nano::vote> unique (std::shared_ptr<nano::vote> obj)
 	{
 		// TODO: no point in doing this is there's an existing instances
-		if (!obj->blocks[0].which ())
+		if (block_uniquer && !obj->blocks[0].which ())
 		{
-			obj->blocks[0] = block_uniquer ().unique (boost::get<std::shared_ptr<nano::block>> (obj->blocks[0]));
+			obj->blocks[0] = block_uniquer->unique (boost::get<std::shared_ptr<nano::block>> (obj->blocks[0]));
 		}
 		return unique_internal (obj);
 	}
@@ -133,7 +126,7 @@ private:
 };
 
 template <typename T, typename... Args>
-std::shared_ptr<T> make_or_get (nano::factory<nano::block> * factory, Args &&... args)
+std::shared_ptr<T> make_or_get (nano::unique_factory<nano::block> * factory, Args &&... args)
 {
 	std::shared_ptr<T> val;
 	if (factory)
@@ -147,7 +140,7 @@ std::shared_ptr<T> make_or_get (nano::factory<nano::block> * factory, Args &&...
 	return val;
 }
 template <typename T, typename... Args>
-std::shared_ptr<T> make_or_get (nano::factory<nano::vote> * factory, Args &&... args)
+std::shared_ptr<T> make_or_get (nano::unique_factory<nano::vote> * factory, Args &&... args)
 {
 	return (factory) ? factory->make_or_get (std::forward<Args> (args)...) : std::make_shared<T> (std::forward<Args> (args)...);
 }

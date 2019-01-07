@@ -1,6 +1,6 @@
 #include <boost/endian/conversion.hpp>
 #include <nano/lib/blocks.hpp>
-#include <nano/lib/factory.hpp>
+#include <nano/lib/unique_factory.hpp>
 #include <nano/lib/numbers.hpp>
 
 #include <boost/endian/conversion.hpp>
@@ -1159,7 +1159,7 @@ void nano::state_block::signature_set (nano::uint512_union const & signature_a)
 	signature = signature_a;
 }
 
-std::shared_ptr<nano::block> nano::deserialize_block_json (boost::property_tree::ptree const & tree_a, nano::factory<nano::block> * uniquer_a)
+std::shared_ptr<nano::block> nano::deserialize_block_json (boost::property_tree::ptree const & tree_a, nano::unique_factory<nano::block> * uniquer_a)
 {
 	std::shared_ptr<nano::block> result;
 	try
@@ -1221,7 +1221,7 @@ std::shared_ptr<nano::block> nano::deserialize_block_json (boost::property_tree:
 	return result;
 }
 
-std::shared_ptr<nano::block> nano::deserialize_block (nano::stream & stream_a, nano::factory<nano::block> * uniquer_a)
+std::shared_ptr<nano::block> nano::deserialize_block (nano::stream & stream_a, nano::unique_factory<nano::block> * uniquer_a)
 {
 	nano::block_type type;
 	auto error (read (stream_a, type));
@@ -1233,7 +1233,7 @@ std::shared_ptr<nano::block> nano::deserialize_block (nano::stream & stream_a, n
 	return result;
 }
 
-std::shared_ptr<nano::block> nano::deserialize_block (nano::stream & stream_a, nano::block_type type_a, nano::factory<nano::block> * factory_a)
+std::shared_ptr<nano::block> nano::deserialize_block (nano::stream & stream_a, nano::block_type type_a, nano::unique_factory<nano::block> * factory_a)
 {
 	std::shared_ptr<nano::block> result;
 	switch (type_a)

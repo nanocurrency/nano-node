@@ -1,7 +1,7 @@
 
 #include <nano/node/common.hpp>
 
-#include <nano/lib/factory.hpp>
+#include <nano/lib/unique_factory.hpp>
 #include <nano/lib/work.hpp>
 #include <nano/node/wallet.hpp>
 
@@ -182,7 +182,7 @@ std::string nano::message_parser::status_string ()
 	return "[unknown parse_status]";
 }
 
-nano::message_parser::message_parser (nano::factory<nano::block> & block_uniquer_a, nano::factory<nano::vote> & vote_uniquer_a, nano::message_visitor & visitor_a, nano::work_pool & pool_a) :
+nano::message_parser::message_parser (nano::unique_factory<nano::block> & block_uniquer_a, nano::unique_factory<nano::vote> & vote_uniquer_a, nano::message_visitor & visitor_a, nano::work_pool & pool_a) :
 block_uniquer (block_uniquer_a),
 vote_uniquer (vote_uniquer_a),
 visitor (visitor_a),
@@ -429,7 +429,7 @@ bool nano::keepalive::operator== (nano::keepalive const & other_a) const
 	return peers == other_a.peers;
 }
 
-nano::publish::publish (bool & error_a, nano::stream & stream_a, nano::message_header const & header_a, nano::factory<nano::block> * uniquer_a) :
+nano::publish::publish (bool & error_a, nano::stream & stream_a, nano::message_header const & header_a, nano::unique_factory<nano::block> * uniquer_a) :
 message (header_a)
 {
 	if (!error_a)
@@ -445,7 +445,7 @@ block (block_a)
 	header.block_type_set (block->type ());
 }
 
-bool nano::publish::deserialize (nano::stream & stream_a, nano::factory<nano::block> * uniquer_a)
+bool nano::publish::deserialize (nano::stream & stream_a, nano::unique_factory<nano::block> * uniquer_a)
 {
 	assert (header.type == nano::message_type::publish);
 	block = nano::deserialize_block (stream_a, header.block_type (), uniquer_a);
@@ -470,7 +470,7 @@ bool nano::publish::operator== (nano::publish const & other_a) const
 	return *block == *other_a.block;
 }
 
-nano::confirm_req::confirm_req (bool & error_a, nano::stream & stream_a, nano::message_header const & header_a, nano::factory<nano::block> * uniquer_a) :
+nano::confirm_req::confirm_req (bool & error_a, nano::stream & stream_a, nano::message_header const & header_a, nano::unique_factory<nano::block> * uniquer_a) :
 message (header_a)
 {
 	if (!error_a)
@@ -486,7 +486,7 @@ block (block_a)
 	header.block_type_set (block->type ());
 }
 
-bool nano::confirm_req::deserialize (nano::stream & stream_a, nano::factory<nano::block> * uniquer_a)
+bool nano::confirm_req::deserialize (nano::stream & stream_a, nano::unique_factory<nano::block> * uniquer_a)
 {
 	assert (header.type == nano::message_type::confirm_req);
 	block = nano::deserialize_block (stream_a, header.block_type (), uniquer_a);
@@ -511,7 +511,7 @@ bool nano::confirm_req::operator== (nano::confirm_req const & other_a) const
 	return *block == *other_a.block;
 }
 
-nano::confirm_ack::confirm_ack (bool & error_a, nano::stream & stream_a, nano::message_header const & header_a, nano::factory<nano::vote> * uniquer_a) :
+nano::confirm_ack::confirm_ack (bool & error_a, nano::stream & stream_a, nano::message_header const & header_a, nano::unique_factory<nano::vote> * uniquer_a) :
 message (header_a),
 vote (std::make_shared<nano::vote> (error_a, stream_a, header.block_type ()))
 {
@@ -536,7 +536,7 @@ vote (vote_a)
 	}
 }
 
-bool nano::confirm_ack::deserialize (nano::stream & stream_a, nano::factory<nano::vote> * uniquer_a)
+bool nano::confirm_ack::deserialize (nano::stream & stream_a, nano::unique_factory<nano::vote> * uniquer_a)
 {
 	assert (header.type == nano::message_type::confirm_ack);
 	auto result (vote->deserialize (stream_a));

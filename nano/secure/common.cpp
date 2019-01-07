@@ -1,6 +1,6 @@
 #include <nano/secure/common.hpp>
 
-#include <nano/lib/factory.hpp>
+#include <nano/lib/unique_factory.hpp>
 #include <nano/lib/interface.h>
 #include <nano/lib/numbers.hpp>
 #include <nano/node/common.hpp>
@@ -411,12 +411,12 @@ signature (other_a.signature)
 {
 }
 
-nano::vote::vote (bool & error_a, nano::stream & stream_a, nano::factory<nano::block> * uniquer_a)
+nano::vote::vote (bool & error_a, nano::stream & stream_a, nano::unique_factory<nano::block> * uniquer_a)
 {
 	error_a = deserialize (stream_a, uniquer_a);
 }
 
-nano::vote::vote (bool & error_a, nano::stream & stream_a, nano::block_type type_a, nano::factory<nano::block> * uniquer_a)
+nano::vote::vote (bool & error_a, nano::stream & stream_a, nano::block_type type_a, nano::unique_factory<nano::block> * uniquer_a)
 {
 	if (!error_a)
 	{
@@ -575,7 +575,7 @@ void nano::vote::serialize (nano::stream & stream_a)
 	}
 }
 
-bool nano::vote::deserialize (nano::stream & stream_a, nano::factory<nano::block> * uniquer_a)
+bool nano::vote::deserialize (nano::stream & stream_a, nano::unique_factory<nano::block> * uniquer_a)
 {
 	auto result (read (stream_a, account));
 	if (!result)

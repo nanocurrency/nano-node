@@ -160,8 +160,8 @@ class vote
 public:
 	vote () = default;
 	vote (nano::vote const &);
-	vote (bool &, nano::stream &, nano::factory<nano::block> * = nullptr);
-	vote (bool &, nano::stream &, nano::block_type, nano::factory<nano::block> * = nullptr);
+	vote (bool &, nano::stream &, nano::unique_factory<nano::block> * = nullptr);
+	vote (bool &, nano::stream &, nano::block_type, nano::unique_factory<nano::block> * = nullptr);
 	vote (nano::account const &, nano::raw_key const &, uint64_t, std::shared_ptr<nano::block>);
 	vote (nano::account const &, nano::raw_key const &, uint64_t, std::vector<nano::block_hash>);
 	std::string hashes_string () const;
@@ -171,7 +171,7 @@ public:
 	bool operator!= (nano::vote const &) const;
 	void serialize (nano::stream &, nano::block_type);
 	void serialize (nano::stream &);
-	bool deserialize (nano::stream &, nano::factory<nano::block> * = nullptr);
+	bool deserialize (nano::stream &, nano::unique_factory<nano::block> * = nullptr);
 	bool validate ();
 	boost::transform_iterator<nano::iterate_vote_blocks_as_hash, nano::vote_blocks_vec_iter> begin () const;
 	boost::transform_iterator<nano::iterate_vote_blocks_as_hash, nano::vote_blocks_vec_iter> end () const;
