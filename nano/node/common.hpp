@@ -27,7 +27,7 @@ uint64_t endpoint_hash_raw (nano::endpoint const & endpoint_a)
 	assert (endpoint_a.address ().is_v6 ());
 	nano::uint128_union address;
 	address.bytes = endpoint_a.address ().to_v6 ().to_bytes ();
-	XXH64_state_t* const state = XXH64_createState();
+	XXH64_state_t * const state = XXH64_createState ();
 	XXH64_reset (state, 0);
 	XXH64_update (state, address.bytes.data (), address.bytes.size ());
 	auto port (endpoint_a.port ());
