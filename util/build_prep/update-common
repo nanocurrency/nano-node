@@ -1,0 +1,72 @@
+#! /usr/bin/env bash
+
+cd "$(dirname "${BASH_SOURCE[0]}")" || exit 1
+
+for file in */prep.sh.in; do
+	outfile="$(echo "${file}" | sed 's@\.in$@@')"
+	if ! grep '^#* *-----BEGIN COMMON\.SH-----$' "${file}" >/dev/null 2>/dev/null; then
+		echo "Skipping \"${file}\"..."
+
+		continue
+	fi
+
+	echo "Updating \"${outfile}\"..."
+
+	rm -f "${file}.new"
+	awk -v insideCommon=0 '
+		/^#* *-----BEGIN COMMON\.SH-----$/{
+			insideCommon = 1;
+			print;
+		}
+
+		/^#* *-----END COMMON\.SH-----$/{
+			# Save the current line
+			terminator = $0;
+
+			# Print out a notification to not edit the
+			# individual scripts
+			print "# DO NOT EDIT THIS SECTION, INSTEAD EDIT ../common.sh";
+			print ""
+
+			# Print out the bootstrap_boost
+			print "function bootstrap_boost () {"
+			print "\t("
+			print "\t\tset +u"
+			print "\t\tmkdir -p \"${KEEP_AROUND_DIRECTORY}\" || exit 1"
+			print "\t\tcd \"${KEEP_AROUND_DIRECTORY}\" || exit 1"
+			while (getline <"bootstrap_boost.sh") {
+				print;
+			}
+			close("bootstrap_boost.sh");
+			print "\t)"
+			print "}"
+			print ""
+
+			# Print out the common script
+			while (getline <"common.sh") {
+				print;
+			}
+			close("common.sh");
+
+			insideCommon = 0;
+
+			$0 = terminator;
+		}
+
+		{
+			# Skip over the existing contents
+			if (insideCommon == 1) {
+				next;
+			}
+
+			print;
+		}
+	' < "${file}" > "${file}.new"
+
+	rm -f "${outfile}"
+
+	cat "${file}.new" > "${outfile}"
+	rm -f "${file}.new"
+
+	chmod 755 "${outfile}"
+done

@@ -380,7 +380,7 @@ version = "0.3.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
-name = "raiblocks-load-tester"
+name = "nano-load-tester"
 version = "0.1.0"
 dependencies = [
  "clap 2.29.2 (registry+https://github.com/rust-lang/crates.io-index)",
