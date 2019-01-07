@@ -410,7 +410,7 @@ TEST (state_block, hashing)
 	block.hashables.link.bytes[0] ^= 0x1;
 	ASSERT_EQ (hash, block.hash ());
 }
-
+/*
 TEST (block_uniquer, null)
 {
 	nano::block_uniquer uniquer;
@@ -453,7 +453,7 @@ TEST (block_uniquer, cleanup)
 		ASSERT_LT (iterations++, 200);
 	}
 }
-
+*/
 TEST (block_builder, zeroed_state_block)
 {
 	std::error_code ec;

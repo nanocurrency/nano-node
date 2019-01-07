@@ -14,11 +14,12 @@ class block;
 /**
  * Thread safe flyweight factory for votes and blocks. Type V must have a full_hash() member.
  * This is basically a hash consing provider to save memory by disposing equivalent
- * objects.C
+ * objects.
  */
 template <typename V>
 class unique_factory
 {
+	friend class unique_factory<nano::vote>;
 private:
 	std::unordered_map<decltype (std::declval<V> ().full_hash ()), std::weak_ptr<V>> cache;
 	std::mutex cache_mutex;
@@ -34,35 +35,6 @@ public:
 	{
 		std::unique_lock<std::mutex> lock (cache_mutex);
 		return cache.size ();
-	}
-
-	template <typename U = V, std::enable_if_t<std::is_same<std::shared_ptr<U>, std::shared_ptr<nano::vote>>::value> * = nullptr>
-	std::shared_ptr<nano::vote> unique (std::shared_ptr<nano::vote> obj)
-	{
-		// TODO: no point in doing this is there's an existing instances
-		if (block_uniquer && !obj->blocks[0].which ())
-		{
-			obj->blocks[0] = block_uniquer->unique (boost::get<std::shared_ptr<nano::block>> (obj->blocks[0]));
-		}
-		return unique_internal (obj);
-	}
-
-	template <typename U = V, std::enable_if_t<std::is_same<std::shared_ptr<U>, std::shared_ptr<nano::block>>::value> * = nullptr>
-	std::shared_ptr<nano::block> unique (std::shared_ptr<nano::block> obj)
-	{
-		return unique_internal (obj);
-	}
-
-	std::shared_ptr<V> unique_internal (std::shared_ptr<V> obj)
-	{
-		// Precondition
-		if (obj == nullptr)
-		{
-			return obj;
-		}
-
-		std::lock_guard<std::mutex> lock (cache_mutex);
-		return index_unlocked (obj);
 	}
 
 	template <typename T = V, typename... Args>
@@ -85,7 +57,31 @@ public:
 		// The deleter locks, and it may get called when we go out of scope (if an equivalent object exists,
 		// which means index() does not put obj into the cache)
 		lock.unlock ();
-		return index<T> (obj);
+		//return index<T> (obj);
+		return std::dynamic_pointer_cast<T> (unique (obj));
+	}
+
+	unsigned cache_hit{ 0 };
+	unsigned cache_miss{ 0 };
+	unsigned created{ 0 };
+	unsigned erased{ 0 };
+
+private:
+	
+	template <typename U = V, std::enable_if_t<std::is_same<std::shared_ptr<U>, std::shared_ptr<nano::vote>>::value> * = nullptr>
+	std::shared_ptr<nano::vote> unique (std::shared_ptr<nano::vote> obj)
+	{
+		if (block_uniquer && obj && !obj->blocks[0].which ())
+		{
+			obj->blocks[0] = block_uniquer->unique (boost::get<std::shared_ptr<nano::block>> (obj->blocks[0]));
+		}
+		return obj ? index (obj) : obj;
+	}
+	
+	template <typename U = V, std::enable_if_t<std::is_same<std::shared_ptr<U>, std::shared_ptr<nano::block>>::value> * = nullptr>
+	std::shared_ptr<nano::block> unique (std::shared_ptr<nano::block> obj)
+	{
+		return obj ? index (obj) : obj;
 	}
 
 	/**
@@ -96,18 +92,6 @@ public:
 	std::shared_ptr<T> index (std::shared_ptr<T> obj)
 	{
 		std::lock_guard<std::mutex> lock (cache_mutex);
-		return index_unlocked (obj);
-	}
-
-	unsigned cache_hit{ 0 };
-	unsigned cache_miss{ 0 };
-	unsigned created{ 0 };
-	unsigned erased{ 0 };
-
-private:
-	template <typename T = V>
-	std::shared_ptr<T> index_unlocked (std::shared_ptr<T> obj)
-	{
 		auto key = obj->full_hash ();
 		auto & weak_entry = cache[key];
 		std::shared_ptr<T> sp = std::dynamic_pointer_cast<T> (weak_entry.lock ());

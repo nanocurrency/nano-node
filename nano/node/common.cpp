@@ -513,12 +513,8 @@ bool nano::confirm_req::operator== (nano::confirm_req const & other_a) const
 
 nano::confirm_ack::confirm_ack (bool & error_a, nano::stream & stream_a, nano::message_header const & header_a, nano::unique_factory<nano::vote> * uniquer_a) :
 message (header_a),
-vote (std::make_shared<nano::vote> (error_a, stream_a, header.block_type ()))
+vote (nano::make_or_get<nano::vote> (uniquer_a, error_a, stream_a, header.block_type ()))
 {
-	if (uniquer_a)
-	{
-		vote = uniquer_a->unique (vote);
-	}
 }
 
 nano::confirm_ack::confirm_ack (std::shared_ptr<nano::vote> vote_a) :
@@ -534,17 +530,6 @@ vote (vote_a)
 	{
 		header.block_type_set (boost::get<std::shared_ptr<nano::block>> (first_vote_block)->type ());
 	}
-}
-
-bool nano::confirm_ack::deserialize (nano::stream & stream_a, nano::unique_factory<nano::vote> * uniquer_a)
-{
-	assert (header.type == nano::message_type::confirm_ack);
-	auto result (vote->deserialize (stream_a));
-	if (uniquer_a)
-	{
-		vote = uniquer_a->unique (vote);
-	}
-	return result;
 }
 
 void nano::confirm_ack::serialize (nano::stream & stream_a) const

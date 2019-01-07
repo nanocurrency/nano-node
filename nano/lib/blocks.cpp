@@ -1168,7 +1168,7 @@ std::shared_ptr<nano::block> nano::deserialize_block_json (boost::property_tree:
 		if (type == "receive")
 		{
 			bool error (false);
-			std::unique_ptr<nano::receive_block> obj (new nano::receive_block (error, tree_a));
+			auto obj (nano::make_or_get<nano::receive_block> (uniquer_a, error, tree_a));
 			if (!error)
 			{
 				result = std::move (obj);
@@ -1177,7 +1177,7 @@ std::shared_ptr<nano::block> nano::deserialize_block_json (boost::property_tree:
 		else if (type == "send")
 		{
 			bool error (false);
-			std::unique_ptr<nano::send_block> obj (new nano::send_block (error, tree_a));
+			auto obj (nano::make_or_get<nano::send_block> (uniquer_a, error, tree_a));
 			if (!error)
 			{
 				result = std::move (obj);
@@ -1186,7 +1186,7 @@ std::shared_ptr<nano::block> nano::deserialize_block_json (boost::property_tree:
 		else if (type == "open")
 		{
 			bool error (false);
-			std::unique_ptr<nano::open_block> obj (new nano::open_block (error, tree_a));
+			auto obj (nano::make_or_get<nano::open_block> (uniquer_a, error, tree_a));
 			if (!error)
 			{
 				result = std::move (obj);
@@ -1195,7 +1195,7 @@ std::shared_ptr<nano::block> nano::deserialize_block_json (boost::property_tree:
 		else if (type == "change")
 		{
 			bool error (false);
-			std::unique_ptr<nano::change_block> obj (new nano::change_block (error, tree_a));
+			auto obj (nano::make_or_get<nano::change_block> (uniquer_a, error, tree_a));
 			if (!error)
 			{
 				result = std::move (obj);
@@ -1204,7 +1204,7 @@ std::shared_ptr<nano::block> nano::deserialize_block_json (boost::property_tree:
 		else if (type == "state")
 		{
 			bool error (false);
-			std::unique_ptr<nano::state_block> obj (new nano::state_block (error, tree_a));
+			auto obj (nano::make_or_get<nano::state_block> (uniquer_a, error, tree_a));
 			if (!error)
 			{
 				result = std::move (obj);
@@ -1214,10 +1214,7 @@ std::shared_ptr<nano::block> nano::deserialize_block_json (boost::property_tree:
 	catch (std::runtime_error const &)
 	{
 	}
-	if (uniquer_a != nullptr)
-	{
-		result = uniquer_a->unique (result);
-	}
+
 	return result;
 }
 
@@ -1233,7 +1230,7 @@ std::shared_ptr<nano::block> nano::deserialize_block (nano::stream & stream_a, n
 	return result;
 }
 
-std::shared_ptr<nano::block> nano::deserialize_block (nano::stream & stream_a, nano::block_type type_a, nano::unique_factory<nano::block> * factory_a)
+std::shared_ptr<nano::block> nano::deserialize_block (nano::stream & stream_a, nano::block_type type_a, nano::unique_factory<nano::block> * uniquer_a)
 {
 	std::shared_ptr<nano::block> result;
 	switch (type_a)
@@ -1241,50 +1238,50 @@ std::shared_ptr<nano::block> nano::deserialize_block (nano::stream & stream_a, n
 		case nano::block_type::receive:
 		{
 			bool error (false);
-			auto obj (nano::make_or_get<nano::receive_block> (factory_a, error, stream_a));
+			auto obj (nano::make_or_get<nano::receive_block> (uniquer_a, error, stream_a));
 			if (!error)
 			{
-				result = std::move (obj);
+				result = obj;
 			}
 			break;
 		}
 		case nano::block_type::send:
 		{
 			bool error (false);
-			auto obj (nano::make_or_get<nano::send_block> (factory_a, error, stream_a));
+			auto obj (nano::make_or_get<nano::send_block> (uniquer_a, error, stream_a));
 			if (!error)
 			{
-				result = std::move (obj);
+				result = obj;
 			}
 			break;
 		}
 		case nano::block_type::open:
 		{
 			bool error (false);
-			auto obj (nano::make_or_get<nano::open_block> (factory_a, error, stream_a));
+			auto obj (nano::make_or_get<nano::open_block> (uniquer_a, error, stream_a));
 			if (!error)
 			{
-				result = std::move (obj);
+				result = obj;
 			}
 			break;
 		}
 		case nano::block_type::change:
 		{
 			bool error (false);
-			auto obj (nano::make_or_get<nano::change_block> (factory_a, error, stream_a));
+			auto obj (nano::make_or_get<nano::change_block> (uniquer_a, error, stream_a));
 			if (!error)
 			{
-				result = std::move (obj);
+				result = obj;
 			}
 			break;
 		}
 		case nano::block_type::state:
 		{
 			bool error (false);
-			auto obj (nano::make_or_get<nano::state_block> (factory_a, error, stream_a));
+			auto obj (nano::make_or_get<nano::state_block> (uniquer_a, error, stream_a));
 			if (!error)
 			{
-				result = std::move (obj);
+				result = obj;
 			}
 			break;
 		}
@@ -1292,10 +1289,6 @@ std::shared_ptr<nano::block> nano::deserialize_block (nano::stream & stream_a, n
 			assert (false);
 			break;
 	}
-	/*if (factory_a != nullptr)
-	{
-		result = factory_a->unique (result);
-	}*/
 	return result;
 }
 

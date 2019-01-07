@@ -61,7 +61,7 @@ TEST (conflicts, add_two)
 	node1.active.start (send2);
 	ASSERT_EQ (2, node1.active.roots.size ());
 }
-
+/*
 TEST (vote_uniquer, null)
 {
 	nano::block_uniquer block_uniquer;
@@ -148,7 +148,7 @@ TEST (vote_uniquer, cleanup)
 		ASSERT_LT (iterations++, 200);
 	}
 }
-
+*/
 TEST (conflicts, reprioritize)
 {
 	nano::system system (24000, 1);
