@@ -153,10 +153,10 @@ function changelog () {
 			continue
 		fi
 
-		echo "## Release [${tag_name}](https://github.com/nanocurrency/raiblocks/tree/${tag_name}) (${milestone_date})"
+		echo "## Release [${tag_name}](https://github.com/nanocurrency/nano-node/tree/${tag_name}) (${milestone_date})"
 		echo ""
 
-		echo "[Full Changelog](https://github.com/nanocurrency/raiblocks/compare/${previous_milestone_name}...${tag_name})"
+		echo "[Full Changelog](https://github.com/nanocurrency/nano-node/compare/${previous_milestone_name}...${tag_name})"
 		echo ""
 
 		unset itemToTags itemToName itemURL categoryIds
