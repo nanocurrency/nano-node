@@ -1237,6 +1237,7 @@ void nano::block_processor::add (std::shared_ptr<nano::block> block_a, std::chro
 				{
 					blocks.push_back (std::make_pair (block_a, origination));
 				}
+				blocks_hashes.insert (block_a->hash ());
 			}
 			condition.notify_all ();
 		}
