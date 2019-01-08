@@ -707,6 +707,34 @@ TEST (rpc, wallet_create)
 	ASSERT_NE (system.nodes[0]->wallets.items.end (), system.nodes[0]->wallets.items.find (wallet_id));
 }
 
+TEST (rpc, wallet_create_seed)
+{
+	nano::system system (24000, 1);
+	nano::rpc rpc (system.io_ctx, *system.nodes[0], nano::rpc_config (true));
+	rpc.start ();
+	boost::property_tree::ptree request;
+	request.put ("action", "wallet_create");
+	nano::keypair seed;
+	request.put ("seed", seed.pub.to_string ());
+	test_response response (request, rpc, system.io_ctx);
+	while (response.status == 0)
+	{
+		system.poll ();
+	}
+	ASSERT_EQ (200, response.status);
+	std::string wallet_text (response.json.get<std::string> ("wallet"));
+	nano::uint256_union wallet_id;
+	ASSERT_FALSE (wallet_id.decode_hex (wallet_text));
+	auto wallet (system.nodes[0]->wallets.items.find (wallet_id));
+	ASSERT_NE (system.nodes[0]->wallets.items.end (), wallet);
+	{
+		auto transaction (system.nodes[0]->store.tx_begin ());
+		nano::raw_key seed0;
+		wallet->second->store.seed (seed0, transaction);
+		ASSERT_EQ (seed.pub, seed0.data);
+	}
+}
+
 TEST (rpc, wallet_export)
 {
 	nano::system system (24000, 1);
