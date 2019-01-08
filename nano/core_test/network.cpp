@@ -116,6 +116,39 @@ TEST (network, keepalive_ipv4)
 	node1->stop ();
 }
 
+TEST (network, last_contacted)
+{
+	nano::system system (24000, 1);
+	auto list1 (system.nodes[0]->peers.list ());
+	ASSERT_EQ (0, list1.size ());
+	nano::node_init init1;
+	auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, 24001, nano::unique_path (), system.alarm, system.logging, system.work));
+	node1->start ();
+	system.nodes.push_back (node1);
+	node1->send_keepalive (nano::endpoint (boost::asio::ip::address_v4::loopback (), 24000));
+	system.deadline_set (10s);
+
+	// Wait until the handshake is complete
+	while (system.nodes[0]->peers.size () < 1)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (system.nodes[0]->peers.size (), 1);
+
+	// Make sure last_contact gets updated on receiving a non-handshake message
+	auto timestamp_before_keepalive = system.nodes[0]->peers.list_vector (1).front ().last_contact;
+	node1->send_keepalive (nano::endpoint (boost::asio::ip::address_v4::loopback (), 24000));
+	while (system.nodes[0]->stats.count (nano::stat::type::message, nano::stat::detail::keepalive, nano::stat::dir::in) < 2)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (system.nodes[0]->peers.size (), 1);
+	auto timestamp_after_keepalive = system.nodes[0]->peers.list_vector (1).front ().last_contact;
+	ASSERT_GT (timestamp_after_keepalive, timestamp_before_keepalive);
+
+	node1->stop ();
+}
+
 TEST (network, multi_keepalive)
 {
 	nano::system system (24000, 1);
