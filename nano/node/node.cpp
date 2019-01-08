@@ -3664,20 +3664,20 @@ int nano::node::store_version ()
 void nano::node::update_stats ()
 {
 	// We imbue factory stats only when stats are requested. The unique_factory keeps internal stats
-	// with very low overhead.
+	// with lower overhead than calling updating statistics directly.
 	auto block_stats (block_uniquer.get_stats ());
 	stats.set(nano::stat::type::block_factory, nano::stat::detail::unique_factory_size, nano::stat::dir::in, block_stats.size);
 	stats.set(nano::stat::type::block_factory, nano::stat::detail::unique_factory_cache_hit, nano::stat::dir::in, block_stats.cache_hit);
 	stats.set(nano::stat::type::block_factory, nano::stat::detail::unique_factory_cache_miss, nano::stat::dir::in, block_stats.cache_miss);
 	stats.set(nano::stat::type::block_factory, nano::stat::detail::unique_factory_created, nano::stat::dir::in, block_stats.created);
 	stats.set(nano::stat::type::block_factory, nano::stat::detail::unique_factory_erased, nano::stat::dir::in, block_stats.erased);
+
 	auto vote_stats (vote_uniquer.get_stats ());
 	stats.set(nano::stat::type::vote_factory, nano::stat::detail::unique_factory_size, nano::stat::dir::in, vote_stats.size);
 	stats.set(nano::stat::type::vote_factory, nano::stat::detail::unique_factory_cache_hit, nano::stat::dir::in, vote_stats.cache_hit);
 	stats.set(nano::stat::type::vote_factory, nano::stat::detail::unique_factory_cache_miss, nano::stat::dir::in, vote_stats.cache_miss);
 	stats.set(nano::stat::type::vote_factory, nano::stat::detail::unique_factory_created, nano::stat::dir::in, vote_stats.created);
 	stats.set(nano::stat::type::vote_factory, nano::stat::detail::unique_factory_erased, nano::stat::dir::in, vote_stats.erased);
-
 }
 
 nano::thread_runner::thread_runner (boost::asio::io_context & io_ctx_a, unsigned service_threads_a)
