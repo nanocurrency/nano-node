@@ -1310,6 +1310,7 @@ void nano::block_processor::verify_state_blocks (std::unique_lock<std::mutex> & 
 	}
 	else if (state_blocks.size () < 4 * max_count)
 	{
+		// For max_count = 256 || 2048 items.push_back (state_blocks.front ()) becoming more effective around (state_blocks.size () == 4 * max_count)
 		auto keep_size (state_blocks.size () - max_count);
 		items.resize (keep_size);
 		std::swap_ranges (state_blocks.end () - keep_size, state_blocks.end (), items.begin ());
