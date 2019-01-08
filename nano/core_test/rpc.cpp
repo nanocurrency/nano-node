@@ -733,6 +733,10 @@ TEST (rpc, wallet_create_seed)
 		wallet->second->store.seed (seed0, transaction);
 		ASSERT_EQ (seed.pub, seed0.data);
 	}
+	auto account_text (response.json.get<std::string> ("account"));
+	nano::uint256_union account;
+	ASSERT_FALSE (account.decode_account (account_text));
+	ASSERT_TRUE (system.wallet (0)->exists (account));
 }
 
 TEST (rpc, wallet_export)

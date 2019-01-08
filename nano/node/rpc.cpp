@@ -3282,7 +3282,7 @@ void nano::rpc_handler::wallet_create ()
 			{
 				auto transaction_w (node.store.tx_begin_write ());
 				nano::public_key account (wallet->change_seed (transaction_w, seed));
-				response_l.put ("account", account.to_string ());
+				response_l.put ("account", account.to_account ());
 			}
 		}
 	}
