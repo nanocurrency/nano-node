@@ -103,6 +103,7 @@ public:
 	std::shared_ptr<nano::node> node;
 	std::atomic<unsigned> account_count;
 	std::atomic<uint64_t> total_blocks;
+	std::atomic<unsigned> runs_count;
 	std::vector<std::pair<nano::block_hash, nano::block_hash>> bulk_push_targets;
 	bool stopped;
 	bool lazy_mode;
