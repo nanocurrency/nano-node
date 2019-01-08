@@ -3200,7 +3200,7 @@ void nano::rpc_handler::wallet_change_seed ()
 		nano::raw_key seed;
 		if (!seed.data.decode_hex (seed_text))
 		{
-			uint32_t count (request.get_optional<uint32_t> ("accounts").get_value_or (0));
+			auto count (count_optional_impl ());
 			auto transaction (node.store.tx_begin_write ());
 			if (wallet->store.valid_password (transaction))
 			{

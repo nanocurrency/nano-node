@@ -1215,7 +1215,7 @@ nano::public_key nano::wallet::change_seed (nano::transaction const & transactio
 	for (uint32_t i (0); i < count; ++i)
 	{
 		// Generate work for first 2 accounts only to prevent weak CPU nodes stuck
-		account = deterministic_insert (transaction_a, i < 2);
+		account = deterministic_insert (transaction_a, false);
 	}
 
 	return account;
