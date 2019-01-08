@@ -767,10 +767,10 @@ pulling (0),
 node (node_a),
 account_count (0),
 total_blocks (0),
+runs_count (0),
 stopped (false),
 lazy_mode (false),
-lazy_stopped (0),
-runs_count (0)
+lazy_stopped (0)
 {
 	BOOST_LOG (node->log) << "Starting bootstrap attempt";
 	node->bootstrap_initiator.notify_listeners (true);
