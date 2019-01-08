@@ -62,6 +62,17 @@ bool nano::peer_container::contacted (nano::endpoint const & endpoint_a, unsigne
 			should_handshake = true;
 		}
 	}
+	else
+	{
+		std::lock_guard<std::mutex> lock (mutex);
+		auto existing (peers.find (endpoint_a));
+		if (existing != peers.end ())
+		{
+			peers.modify (existing, [](nano::peer_information & info) {
+				info.last_contact = std::chrono::steady_clock::now ();
+			});
+		}
+	}
 	return should_handshake;
 }
 

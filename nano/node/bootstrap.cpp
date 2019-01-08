@@ -1115,7 +1115,10 @@ void nano::bootstrap_attempt::pool_connection (std::shared_ptr<nano::bootstrap_c
 {
 	{
 		std::lock_guard<std::mutex> lock (mutex);
-		idle.push_front (client_a);
+		if (!stopped && !client_a->pending_stop)
+		{
+			idle.push_front (client_a);
+		}
 	}
 	condition.notify_all ();
 }
@@ -2430,7 +2433,7 @@ std::pair<std::unique_ptr<nano::pending_key>, std::unique_ptr<nano::pending_info
 		 */
 		if (pending_address_only)
 		{
-			if (deduplication.count (info.source) != 0)
+			if (!deduplication.insert (info.source).second)
 			{
 				/*
 				 * If the deduplication map gets too
@@ -2445,8 +2448,6 @@ std::pair<std::unique_ptr<nano::pending_key>, std::unique_ptr<nano::pending_info
 				}
 				continue;
 			}
-
-			deduplication.insert ({ info.source, true });
 		}
 
 		result.first = std::unique_ptr<nano::pending_key> (new nano::pending_key (key));

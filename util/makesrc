@@ -6,7 +6,7 @@
 
 if [ -e $1 ]; then
 	echo "makesrc <tag>" >&2
-	echo "    tag      valid <tag> for nanocurrency/raiblocks" >&2
+	echo "    tag      valid <tag> for nanocurrency/nano-node" >&2
 	exit 1
 fi
 
@@ -17,7 +17,7 @@ VERSION_MAJOR=`echo $VERSION |cut -d "." -f 1`
 scriptDir="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 
 function make_source () {
-	git clone --recursive --single-branch --branch releases/v${VERSION_MAJOR} https://github.com/nanocurrency/raiblocks nano-$VERSION
+	git clone --recursive --single-branch --branch releases/v${VERSION_MAJOR} https://github.com/nanocurrency/nano-node nano-$VERSION
 	cd nano-$VERSION
 	git pull --tags
 	COUNT=`git tag -l "${TAG}" | wc -l`
@@ -41,10 +41,10 @@ function source_information () {
 
 	case "${VERSION}" in
 		*RC*)
-			"${scriptDir}/changelog_generator" nanocurrency/raiblocks "V${VERSION}" only
+			"${scriptDir}/changelog_generator" nanocurrency/nano-node "V${VERSION}" only
 			;;
 		*)
-			"${scriptDir}/changelog_generator" nanocurrency/raiblocks "V${VERSION}"
+			"${scriptDir}/changelog_generator" nanocurrency/nano-node "V${VERSION}"
 			;;
 	esac
 
