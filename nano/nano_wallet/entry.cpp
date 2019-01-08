@@ -336,6 +336,7 @@ int main (int argc, char * const * argv)
 					flags.disable_backup = (vm.count ("disable_backup") > 0);
 					flags.disable_lazy_bootstrap = (vm.count ("disable_lazy_bootstrap") > 0);
 					flags.disable_legacy_bootstrap = (vm.count ("disable_legacy_bootstrap") > 0);
+					flags.disable_wallet_bootstrap = (vm.count ("disable_wallet_bootstrap") > 0);
 					flags.disable_bootstrap_listener = (vm.count ("disable_bootstrap_listener") > 0);
 					result = run_wallet (application, argc, argv, data_path, flags);
 				}

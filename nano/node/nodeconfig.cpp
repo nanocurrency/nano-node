@@ -331,6 +331,7 @@ nano::node_flags::node_flags () :
 disable_backup (false),
 disable_lazy_bootstrap (false),
 disable_legacy_bootstrap (false),
+disable_wallet_bootstrap (false),
 disable_bootstrap_listener (false)
 {
 }

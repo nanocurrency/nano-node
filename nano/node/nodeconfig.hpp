@@ -59,6 +59,7 @@ public:
 	bool disable_backup;
 	bool disable_lazy_bootstrap;
 	bool disable_legacy_bootstrap;
+	bool disable_wallet_bootstrap;
 	bool disable_bootstrap_listener;
 };
 }
