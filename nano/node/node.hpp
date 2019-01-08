@@ -428,7 +428,7 @@ public:
 	nano::process_return process_one (nano::transaction const &, std::shared_ptr<nano::block>, std::chrono::steady_clock::time_point = std::chrono::steady_clock::now (), bool = false);
 
 private:
-	void queue_unchecked (nano::transaction const &, nano::block_hash const &);
+	void queue_unchecked (nano::transaction const &, nano::block_hash const &, std::chrono::steady_clock::time_point = std::chrono::steady_clock::time_point ());
 	void verify_state_blocks (std::unique_lock<std::mutex> &, size_t = std::numeric_limits<size_t>::max ());
 	void process_batch (std::unique_lock<std::mutex> &);
 	bool stopped;
@@ -488,6 +488,7 @@ public:
 	void block_confirm (std::shared_ptr<nano::block>);
 	void process_fork (nano::transaction const &, std::shared_ptr<nano::block>);
 	bool validate_block_by_previous (nano::transaction const &, std::shared_ptr<nano::block>);
+	void do_rpc_callback (boost::asio::ip::tcp::resolver::iterator i_a, std::string const &, uint16_t, std::shared_ptr<std::string>, std::shared_ptr<std::string>, std::shared_ptr<boost::asio::ip::tcp::resolver>);
 	nano::uint128_t delta ();
 	boost::asio::io_context & io_ctx;
 	nano::node_config config;
