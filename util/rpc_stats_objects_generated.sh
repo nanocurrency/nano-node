@@ -7,51 +7,51 @@ function emit_members () {
 	class="$1"
 
 	case "${class}" in
-		'nano::node')
+		'rai::node')
 			cat << \_EOF_
-nano::gap_cache gap_cache
-nano::ledger ledger
-nano::active_transactions active
-nano::network network
-nano::bootstrap_initiator bootstrap_initiator
-nano::bootstrap_listener bootstrap
-nano::peer_container peers
-nano::node_observers observers
-nano::signature_checker checker
-nano::vote_processor vote_processor
-nano::rep_crawler rep_crawler
-nano::block_processor block_processor
-nano::block_arrival block_arrival
-nano::online_reps online_reps
-nano::stat stats
-nano::block_uniquer block_uniquer
-nano::vote_uniquer vote_uniquer
-nano::alarm alarm
+rai::gap_cache gap_cache
+rai::ledger ledger
+rai::active_transactions active
+rai::network network
+rai::bootstrap_initiator bootstrap_initiator
+rai::bootstrap_listener bootstrap
+rai::peer_container peers
+rai::node_observers observers
+rai::signature_checker checker
+rai::vote_processor vote_processor
+rai::rep_crawler rep_crawler
+rai::block_processor block_processor
+rai::block_arrival block_arrival
+rai::online_reps online_reps
+rai::stat stats
+rai::block_uniquer block_uniquer
+rai::vote_uniquer vote_uniquer
+rai::alarm alarm
 _EOF_
 			;;
-		'nano::gap_cache')
+		'rai::gap_cache')
 			cat << \_EOF_
 boost::multi_index_container blocks
 _EOF_
 			;;
-		'nano::active_transactions')
+		'rai::active_transactions')
 			cat << \_EOF_
 boost::multi_index_container roots
-std::unordered_map blocks
 std::deque confirmed
+std::unordered_map successors
 _EOF_
 			;;
-		'nano::bootstrap_listener')
+		'rai::bootstrap_listener')
 			cat << \_EOF_
 std::unordered_map connections
 _EOF_
 			;;
-		'nano::bootstrap_initiator')
+		'rai::bootstrap_initiator')
 			cat << \_EOF_
-nano::bootstrap_attempt *attempt
+rai::bootstrap_attempt *attempt
 _EOF_
 			;;
-		'nano::bootstrap_attempt')
+		'rai::bootstrap_attempt')
 			cat << \_EOF_
 std::deque clients
 std::deque pulls
@@ -63,12 +63,12 @@ std::unordered_set lazy_keys
 std::deque lazy_pulls
 _EOF_
 			;;
-		'nano::alarm')
+		'rai::alarm')
 			cat << \_EOF_
 std::priority_queue operations
 _EOF_
 			;;
-		'nano::block_processor')
+		'rai::block_processor')
 			cat << \_EOF_
 std::deque state_blocks
 std::deque blocks
@@ -76,12 +76,29 @@ std::unordered_set blocks_hashes
 std::deque forced
 _EOF_
 			;;
-		'nano::vote_processor')
+		'rai::vote_processor')
 			cat << \_EOF_
 std::deque votes
-std::unordered_set representatives_1
-std::unordered_set representatives_2
-std::unordered_set representatives_3
+_EOF_
+			;;
+		'rai::rep_crawler')
+			cat << \_EOF_
+std::unordered_set active
+_EOF_
+			;;
+		'rai::signature_checker')
+			cat << \_EOF_
+std::deque checks
+_EOF_
+			;;
+		'rai::block_arrival')
+			cat << \_EOF_
+boost::multi_index_container arrival
+_EOF_
+			;;
+		'rai::vote_uniquer')
+			cat << \_EOF_
+std::unordered_map votes
 _EOF_
 			;;
 	esac
@@ -112,6 +129,7 @@ function emit_memory_information () {
 			printName="$(echo "${name}" | sed 's@ *()@_function@;s@->@.@g;s@\.$@@')"
 
 			mutex=''
+			totalSizeOutput=''
 			case "${type}" in
 				'boost::multi_index_container'|'std::priority_queue'|'std::deque'|'std::unordered_map'|'std::vector'|'std::unordered_set')
 					# XXX:TODO: Find mutex name dynamically
@@ -119,11 +137,12 @@ function emit_memory_information () {
 						*_function)
 							;;
 						*.lazy_*)
-							# XXX:TODO: Disabled mutex until we do something saner
-							#mutex="lazy_mutex"
+							mutex="lazy_mutex"
+							mutex="${startAtName}${mutex}"
 							;;
 						*)
 							mutex="mutex"
+							mutex="${startAtName}${mutex}"
 							;;
 					esac
 
@@ -131,46 +150,69 @@ function emit_memory_information () {
 					;;
 			esac
 
+			case "${type}" in
+				'std::priority_queue')
+					#totalSizeOutput="sizeof(*$(echo "${name}" | sed -r 's@(->|\.)$@@') * ${output})"
+					;;
+				'boost::multi_index_container'|'std::deque'|'std::unordered_map'|'std::unordered_set'|'std::vector')
+					totalSizeOutput="sizeof(*${name}begin ()) * ${output}"
+					;;
+			esac
+
 			if [ -n "${output}" ]; then
+				if [ -z "${totalSizeOutput}" ]; then
+					totalSizeOutput='"<unknown>"'
+				fi
 				if [ -n "${mutex}" ]; then
-					mutex="$(echo "${name}" | sed 's@\.\([^.]*\)\.$@@').${mutex}"
 					echo "MUTEX=${mutex}"
 				fi
 
-				nullCheck="${output}"
-				nullable="$(
-					while [[ "${nullCheck}" =~ '->' ]]; do
-						nullCheck="$(echo "${nullCheck}" | sed 's@->[^-]*$@@')"
-						echo "${nullCheck}"
-					done | tac
-				)"
-
-				addTabs=""
-				while IFS='' read -r nullCheck; do
-					if [ -z "${nullCheck}" ]; then
-						continue
-					fi
-
-					echo "${addTabs}if (${nullCheck})"
-					echo "${addTabs}{"
-					addTabs+=$'\t'
-				done <<<"${nullable}"
-
-				echo "${addTabs}${responseObject}.put (\"${printName}\", ${output});"
-
-				while IFS='' read -r nullCheck; do
-					if [ -z "${nullCheck}" ]; then
-						continue
-					fi
-
-					addTabs="${addTabs:1}"
-					echo "${addTabs}}"
-				done <<<"${nullable}"
+				guard_nullable "${output}" "${responseObject}.put (\"${printName}.count\", ${output});"$'\n'"${responseObject}.put (\"${printName}.size\", ${totalSizeOutput});"
 			fi
 		else
 			echo "${output}"
 		fi
 	done
+}
+
+function guard_nullable () {
+	local start code addTabs
+	local nullCheck nullable line
+
+	start="$1"
+	code="$2"
+	addTabs="$3"
+
+	nullCheck="${start}"
+	nullable="$(
+		while [[ "${nullCheck}" =~ '->' ]]; do
+			nullCheck="$(echo "${nullCheck}" | sed 's@->[^-]*$@@')"
+			echo "${nullCheck}"
+		done | tac
+	)"
+
+	while IFS='' read -r nullCheck; do
+		if [ -z "${nullCheck}" ]; then
+			continue
+		fi
+
+		echo "${addTabs}if (${nullCheck})"
+		echo "${addTabs}{"
+		addTabs+=$'\t'
+	done <<<"${nullable}"
+
+	while IFS='' read -r line; do
+		echo "${addTabs}${line}"
+	done <<<"${code}"
+
+	while IFS='' read -r nullCheck; do
+		if [ -z "${nullCheck}" ]; then
+			continue
+		fi
+
+		addTabs="${addTabs:1}"
+		echo "${addTabs}}"
+	done <<<"${nullable}"
 }
 
 # XXX:TODO: Hardcoded the response object for now
@@ -182,7 +224,7 @@ fi
 
 responseObject="$1"
 
-memory_information="$(emit_memory_information "${responseObject}" nano::node node.)"
+memory_information="$(emit_memory_information "${responseObject}" rai::node node.)"
 
 mutexes=(
 	$(
@@ -192,17 +234,55 @@ mutexes=(
 memory_information="$(echo "${memory_information}" | grep -v '^MUTEX=')"
 
 if [ "${#mutexes[@]}" -gt 0 ]; then
-	echo -n "std::lock ("
+	echo 'while (true)'
+	echo '{'
+	echo -n $'\t'"if (std::try_lock ("
 	seperator=''
 	for mutex in "${mutexes[@]}"; do
+		if [[ "${mutex}" =~ "->" ]]; then
+			continue;
+		fi
+
 		echo -n "${seperator}${mutex}"
 		seperator=', '
 	done
-	echo ');'
+	echo ') != -1)'
+	echo $'\t{'
+	echo $'\t\tcontinue;'
+	echo $'\t}'
+	for mutex in "${mutexes[@]}"; do
+		if ! [[ "${mutex}" =~ "->" ]]; then
+			continue;
+		fi
+
+		unlock=''
+		for unlockMutex in "${mutexes[@]}"; do
+			if [[ "${unlockMutex}" =~ "->" ]]; then
+				continue;
+			fi
+
+			unlock+=$'\t'"${unlockMutex}.unlock ();"$'\n'
+		done
+		for unlockMutex in "${mutexes[@]}"; do
+			if ! [[ "${unlockMutex}" =~ "->" ]]; then
+				continue;
+			fi
+
+			if [ "${unlockMutex}" = "${mutex}" ]; then
+				break
+			fi
+
+			unlock+="$(guard_nullable "${unlockMutex}" "${unlockMutex}.unlock ();" $'\t')"$'\n'
+		done
+
+		guard_nullable "${mutex}" "if (!${mutex}.try_lock ())"$'\n{\n'"${unlock}"$'\tcontinue;\n}' $'\t'
+	done
+	echo $'\tbreak;'
+	echo '}'
 fi
 
 echo "${memory_information}"
 
 for mutex in "${mutexes[@]}"; do
-	echo "${mutex}.unlock ();"
+	guard_nullable "${mutex}" "${mutex}.unlock ();"
 done
