@@ -16,6 +16,7 @@ add_executable (core_test
 	peer_container.cpp
 	rpc.cpp
 	signing.cpp
+	timer.cpp
 	uint256_union.cpp
 	versioning.cpp
 	wallet.cpp
