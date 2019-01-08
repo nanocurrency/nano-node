@@ -427,14 +427,35 @@ void nano::rpc_handler::account_create ()
 	if (!ec)
 	{
 		const bool generate_work = request.get<bool> ("work", true);
-		nano::account new_key (wallet->deterministic_insert (generate_work));
-		if (!new_key.is_zero ())
+		nano::account new_key;
+		auto index_text (request.get_optional<std::string> ("index"));
+		if (index_text.is_initialized ())
 		{
-			response_l.put ("account", new_key.to_account ());
+			uint64_t index;
+			if (decode_unsigned (index_text.get (), index) || index > static_cast<uint64_t> (std::numeric_limits<uint32_t>::max ()))
+			{
+				ec = nano::error_common::invalid_index;
+			}
+			else
+			{
+				new_key = wallet->deterministic_insert (static_cast<uint32_t> (index), generate_work);
+			}
 		}
 		else
 		{
-			ec = nano::error_common::wallet_locked;
+			new_key = wallet->deterministic_insert (generate_work);
+		}
+
+		if (!ec)
+		{
+			if (!new_key.is_zero ())
+			{
+				response_l.put ("account", new_key.to_account ());
+			}
+			else
+			{
+				ec = nano::error_common::wallet_locked;
+			}
 		}
 	}
 	response_errors ();
