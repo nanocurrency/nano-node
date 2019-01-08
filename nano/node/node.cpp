@@ -1308,13 +1308,22 @@ void nano::block_processor::verify_state_blocks (std::unique_lock<std::mutex> & 
 	{
 		items.swap (state_blocks);
 	}
-	else
+	else if (state_blocks.size () < 4 * max_count)
 	{
 		auto keep_size (state_blocks.size () - max_count);
 		items.resize (keep_size);
 		std::swap_ranges (state_blocks.end () - keep_size, state_blocks.end (), items.begin ());
 		state_blocks.resize (max_count);
 		items.swap (state_blocks);
+	}
+	else
+	{
+		for (auto i (0); i < max_count; i++)
+		{
+			auto item (state_blocks.front ());
+			state_blocks.pop_front ();
+			items.push_back (item);
+		}
 	}
 	lock_a.unlock ();
 	auto size (items.size ());
