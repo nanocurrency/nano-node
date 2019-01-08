@@ -20,27 +20,27 @@ class block;
 template <typename BaseType>
 class unique_factory
 {
-private:
-	std::unordered_map<decltype (std::declval<BaseType> ().full_hash ()), std::weak_ptr<BaseType>> cache;
-	std::mutex cache_mutex;
-
 public:
-
 	/** Low overhead stats which are imbued into nano::stats when requested */
 	class factory_stats
 	{
 	public:
+		/** Numnber of objects in the index. */
 		size_t size {0};
+		/** Number of uniquing operations, i.e when an equivalent object existed in the index when calling make_or_get. */
 		size_t cache_hit{ 0 };
+		/** Number of index insertions, i.e. an equivalent object did not exist in the index when calling make_or_get. */
 		size_t cache_miss{ 0 };
+		/** Number of objects instantiated through make_or_get */
 		size_t created{ 0 };
+		/** Number of index evictions through the custom deleter */
 		size_t erased{ 0 };
 	} stats;
 
 	factory_stats get_stats ()
 	{
-		std::unique_lock<std::mutex> lock (cache_mutex);
-		stats.size = cache.size ();
+		std::unique_lock<std::mutex> lock (index_mutex);
+		stats.size = index.size ();
 		return stats;
 	}
 
@@ -48,11 +48,11 @@ public:
 	template <typename ConcreteType, typename... Args>
 	std::shared_ptr<ConcreteType> make_or_get (Args &&... args)
 	{
-		std::unique_lock<std::mutex> lock (cache_mutex);
+		std::unique_lock<std::mutex> lock (index_mutex);
 		auto deleter = [this](ConcreteType * w) {
 			{
-				std::lock_guard<std::mutex> lock (cache_mutex);
-				this->cache.erase (w->full_hash ());
+				std::lock_guard<std::mutex> lock (index_mutex);
+				this->index.erase (w->full_hash ());
 				++this->stats.erased;
 			}
 			// Delete outside lock to avoid deadlock if the deleted object has the last
@@ -67,23 +67,24 @@ public:
 		++stats.created;
 
 		// The deleter locks, and it may get called when we go out of scope (if an equivalent object exists,
-		// which means index() does not put obj into the cache)
+		// which means index() does not put obj into the index)
 		lock.unlock ();
-		return index (obj);
+		return enlist (obj);
 	}
 
 private:
-
+	std::unordered_map<decltype (std::declval<BaseType> ().full_hash ()), std::weak_ptr<BaseType>> index;
+	std::mutex index_mutex;
 	/**
-	 * Called to enlist the fully constructed object in the cache. That is, \p obj#full_hash must return a valid value.
+	 * Called to enlist the fully constructed object in the index. That is, \p obj#full_hash must return a valid value.
 	 * @return If an object with the same full_hash is already indexed, return that. Otherwise \p obj is returned.
 	 */
 	template <typename ConcreteType>
-	std::shared_ptr<ConcreteType> index (std::shared_ptr<ConcreteType> obj)
+	std::shared_ptr<ConcreteType> enlist (std::shared_ptr<ConcreteType> obj)
 	{
-		std::lock_guard<std::mutex> lock (cache_mutex);
+		std::lock_guard<std::mutex> lock (index_mutex);
 		auto key = obj->full_hash ();
-		auto & weak_entry = cache[key];
+		auto & weak_entry = index[key];
 		std::shared_ptr<ConcreteType> sp = std::dynamic_pointer_cast<ConcreteType> (weak_entry.lock ());
 		if (!sp)
 		{
