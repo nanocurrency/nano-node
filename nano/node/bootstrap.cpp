@@ -748,7 +748,6 @@ connection (connection_a),
 account (account_a),
 total_blocks (0)
 {
-	std::lock_guard<std::mutex> mutex (connection->attempt->mutex);
 	connection->attempt->condition.notify_all ();
 }
 
