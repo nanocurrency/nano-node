@@ -306,13 +306,15 @@ nano::block_hash nano::pending_key::key () const
 
 nano::unchecked_info::unchecked_info () :
 block (nullptr),
+account (0),
 modified (0),
 verified (nano::signature_verification::unknown)
 {
 }
 
-nano::unchecked_info::unchecked_info (std::shared_ptr<nano::block> block_a, uint64_t modified_a, nano::signature_verification verified_a) :
+nano::unchecked_info::unchecked_info (std::shared_ptr<nano::block> block_a, nano::account const & account_a, uint64_t modified_a, nano::signature_verification verified_a) :
 block (block_a),
+account (account_a),
 modified (modified_a),
 verified (verified_a)
 {
@@ -322,6 +324,7 @@ void nano::unchecked_info::serialize (nano::stream & stream_a) const
 {
 	assert (block != nullptr);
 	nano::serialize_block (stream_a, *block);
+	nano::write (stream_a, account.bytes);
 	nano::write (stream_a, boost::endian::native_to_big (modified));
 	nano::write (stream_a, verified);
 }
@@ -332,11 +335,15 @@ bool nano::unchecked_info::deserialize (nano::stream & stream_a)
 	bool error (block == nullptr);
 	if (!error)
 	{
-		error = nano::read (stream_a, modified);
-		boost::endian::big_to_native_inplace (modified);
+		error = nano::read (stream_a, account.bytes);
 		if (!error)
 		{
-			error = nano::read (stream_a, verified);
+			error = nano::read (stream_a, modified);
+			boost::endian::big_to_native_inplace (modified);
+			if (!error)
+			{
+				error = nano::read (stream_a, verified);
+			}
 		}
 	}
 	return error;
@@ -344,7 +351,7 @@ bool nano::unchecked_info::deserialize (nano::stream & stream_a)
 
 bool nano::unchecked_info::operator== (nano::unchecked_info const & other_a) const
 {
-	return block->hash () == other_a.block->hash () && modified == other_a.modified && verified == other_a.verified;
+	return block->hash () == other_a.block->hash () && account == other_a.account && modified == other_a.modified && verified == other_a.verified;
 }
 
 nano::block_info::block_info () :

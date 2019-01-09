@@ -411,6 +411,7 @@ void nano::frontier_req_client::next (nano::transaction const & transaction_a)
 nano::bulk_pull_client::bulk_pull_client (std::shared_ptr<nano::bootstrap_client> connection_a, nano::pull_info const & pull_a) :
 connection (connection_a),
 pull (pull_a),
+known_account (0),
 total_blocks (0)
 {
 	std::lock_guard<std::mutex> mutex (connection->attempt->mutex);
@@ -573,12 +574,18 @@ void nano::bulk_pull_client::received_block (boost::system::error_code const & e
 				std::string block_l;
 				block->serialize_json (block_l);
 				BOOST_LOG (connection->node->log) << boost::str (boost::format ("Pulled block %1% %2%") % hash.to_string () % block_l);
-			}
+			}// Is block expected?
 			bool block_expected (false);
 			if (hash == expected)
 			{
 				expected = block->previous ();
 				block_expected = true;
+			}
+			/* If block is 1st & expected, we can validate account
+			All excected blocks after that are guaranteed to have same account */
+			if (total_blocks == 0 && block_expected)
+			{
+				known_account = block->account ();
 			}
 			if (connection->block_count++ == 0)
 			{
@@ -586,7 +593,7 @@ void nano::bulk_pull_client::received_block (boost::system::error_code const & e
 			}
 			connection->attempt->total_blocks++;
 			total_blocks++;
-			bool stop_pull (connection->attempt->process_block (block, total_blocks, block_expected));
+			bool stop_pull (connection->attempt->process_block (block, known_account, total_blocks, block_expected));
 			if (!stop_pull && !connection->hard_stop.load ())
 			{
 				receive_block ();
@@ -1331,7 +1338,7 @@ void nano::bootstrap_attempt::lazy_run ()
 	idle.clear ();
 }
 
-bool nano::bootstrap_attempt::process_block (std::shared_ptr<nano::block> block_a, uint64_t total_blocks, bool block_expected)
+bool nano::bootstrap_attempt::process_block (std::shared_ptr<nano::block> block_a, nano::account const & known_account_a, uint64_t total_blocks, bool block_expected)
 {
 	bool stop_pull (false);
 	if (lazy_mode && block_expected)
@@ -1346,7 +1353,8 @@ bool nano::bootstrap_attempt::process_block (std::shared_ptr<nano::block> block_
 			if (!node->store.block_exists (transaction, block_a->type (), hash))
 			{
 				nano::uint128_t balance (std::numeric_limits<nano::uint128_t>::max ());
-				node->block_processor.add (block_a, std::chrono::steady_clock::time_point ());
+				nano::unchecked_info info (block_a, known_account_a, 0, nano::signature_verification::unknown);
+				node->block_processor.add (info);
 				// Search for new dependencies
 				if (!block_a->source ().is_zero () && !node->store.block_exists (transaction, block_a->source ()))
 				{
@@ -1480,7 +1488,8 @@ bool nano::bootstrap_attempt::process_block (std::shared_ptr<nano::block> block_
 	}
 	else
 	{
-		node->block_processor.add (block_a, std::chrono::steady_clock::time_point ());
+		nano::unchecked_info info (block_a, known_account_a, 0, nano::signature_verification::unknown);
+		node->block_processor.add (info);
 	}
 	return stop_pull;
 }

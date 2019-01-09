@@ -1222,21 +1222,27 @@ bool nano::block_processor::full ()
 	return (blocks.size () + state_blocks.size ()) > 16384;
 }
 
-void nano::block_processor::add (std::shared_ptr<nano::block> block_a, std::chrono::steady_clock::time_point origination, nano::signature_verification verified)
+void nano::block_processor::add (std::shared_ptr<nano::block> block_a, std::chrono::steady_clock::time_point origination)
 {
-	if (!nano::work_validate (block_a->root (), block_a->block_work ()))
+	nano::unchecked_info info (block_a, 0, std::chrono::duration_cast<std::chrono::seconds> (origination).count (), nano::signature_verification::unknown);
+	add (info);
+}
+
+void nano::block_processor::add (nano::unchecked_info const & info_a)
+{
+	if (!nano::work_validate (info_a.block->root (), info_a.block->block_work ()))
 	{
 		{
 			std::lock_guard<std::mutex> lock (mutex);
-			if (blocks_hashes.find (block_a->hash ()) == blocks_hashes.end ())
+			if (blocks_hashes.find (info_a.block->hash ()) == blocks_hashes.end ())
 			{
-				if (verified != nano::signature_verification::valid && verified != nano::signature_verification::valid_epoch && (block_a->type () == nano::block_type::state || block_a->type () == nano::block_type::open))
+				if (info_a.verified == nano::signature_verification::unknown || info_a.block->type () == nano::block_type::state || info_a.block->type () == nano::block_type::open || !info_a.account.is_zero ())
 				{
-					state_blocks.push_back (std::make_pair (block_a, origination));
+					blocks.push_back (info_a);
 				}
 				else
 				{
-					blocks.push_back (std::make_pair (block_a, std::make_pair (origination, verified)));
+					state_blocks.push_back (info_a);
 				}
 			}
 			condition.notify_all ();
@@ -1244,7 +1250,7 @@ void nano::block_processor::add (std::shared_ptr<nano::block> block_a, std::chro
 	}
 	else
 	{
-		BOOST_LOG (node.log) << "nano::block_processor::add called for hash " << block_a->hash ().to_string () << " with invalid work " << nano::to_string_hex (block_a->block_work ());
+		BOOST_LOG (node.log) << "nano::block_processor::add called for hash " << info_a.block->hash ().to_string () << " with invalid work " << nano::to_string_hex (info_a.block->block_work ());
 		assert (false && "nano::block_processor::add called with invalid work");
 	}
 }
@@ -1304,7 +1310,7 @@ void nano::block_processor::verify_state_blocks (std::unique_lock<std::mutex> & 
 {
 	assert (!mutex.try_lock ());
 	nano::timer<std::chrono::milliseconds> timer_l (nano::timer_state::started);
-	std::deque<std::pair<std::shared_ptr<nano::block>, std::chrono::steady_clock::time_point>> items;
+	std::deque<nano::unchecked_info> items;
 	if (max_count == std::numeric_limits<size_t>::max () || max_count >= state_blocks.size ())
 	{
 		items.swap (state_blocks);
@@ -1337,11 +1343,21 @@ void nano::block_processor::verify_state_blocks (std::unique_lock<std::mutex> & 
 	verifications.resize (size, 0);
 	for (auto i (0); i < size; ++i)
 	{
-		auto block (items[i].first);
+		auto item (items[i]);
+		auto block (item.block);
 		hashes.push_back (block->hash ());
 		messages.push_back (hashes.back ().bytes.data ());
 		lengths.push_back (sizeof (decltype (hashes)::value_type));
-		accounts.push_back ((!block->link ().is_zero () && node.ledger.is_epoch_link (block->link ())) ? node.ledger.epoch_signer : block->account ());
+		nano::account account (block->account ());
+		if (!block->link ().is_zero () && node.ledger.is_epoch_link (block->link ()))
+		{
+			account = node.ledger.epoch_signer
+		}
+		else if (!item.account.is_zero ())
+		{
+			account = item.account;
+		}
+		accounts.push_back (account);
 		pub_keys.push_back (accounts.back ().bytes.data ());
 		blocks_signatures.push_back (block->block_signature ());
 		signatures.push_back (blocks_signatures.back ().bytes.data ());
@@ -1421,26 +1437,26 @@ void nano::block_processor::process_batch (std::unique_lock<std::mutex> & lock_a
 			first_time = false;
 			BOOST_LOG (node.log) << boost::str (boost::format ("%1% blocks (+ %2% state blocks) (+ %3% forced) in processing queue") % blocks.size () % state_blocks.size () % forced.size ());
 		}
-		std::pair<std::shared_ptr<nano::block>, std::pair<std::chrono::steady_clock::time_point, nano::signature_verification>> block;
+		nano::unchecked_info info;
 		bool force (false);
 		if (forced.empty ())
 		{
-			block = blocks.front ();
+			info = blocks.front ();
 			blocks.pop_front ();
-			blocks_hashes.erase (block.first->hash ());
+			blocks_hashes.erase (info.block->hash ());
 		}
 		else
 		{
-			block = std::make_pair (forced.front (), std::make_pair (std::chrono::steady_clock::now (), nano::signature_verification::unknown));
+			info = nano::unchecked_info (forced.front (), 0, nano::seconds_since_epoch (), nano::signature_verification::unknown);
 			forced.pop_front ();
 			force = true;
 			number_of_forced_processed++;
 		}
 		lock_a.unlock ();
-		auto hash (block.first->hash ());
+		auto hash (info.block->hash ());
 		if (force)
 		{
-			auto successor (node.ledger.successor (transaction, block.first->root ()));
+			auto successor (node.ledger.successor (transaction, info.block->root ()));
 			if (successor != nullptr && successor->hash () != hash)
 			{
 				// Replace our block with the winner and roll back any dependent blocks
@@ -1451,7 +1467,7 @@ void nano::block_processor::process_batch (std::unique_lock<std::mutex> & lock_a
 		number_of_blocks_processed++;
 		if (!node.ledger.store.unchecked_hash_exists (transaction, hash))
 		{
-			auto process_result (process_one (transaction, block.first, block.second.first, block.second.second));
+			auto process_result (process_one (transaction, info));
 			(void)process_result;
 		}
 		lock_a.lock ();
@@ -1470,11 +1486,12 @@ void nano::block_processor::process_batch (std::unique_lock<std::mutex> & lock_a
 	}
 }
 
-nano::process_return nano::block_processor::process_one (nano::transaction const & transaction_a, std::shared_ptr<nano::block> block_a, std::chrono::steady_clock::time_point origination, nano::signature_verification verification)
+nano::process_return nano::block_processor::process_one (nano::transaction const & transaction_a, nano::unchecked_info info_a)
 {
 	nano::process_return result;
-	auto hash (block_a->hash ());
-	result = node.ledger.process (transaction_a, *block_a, verification);
+	auto hash (info.block->hash ());
+	result = node.ledger.process (transaction_a, *(info.block), info.account, info.verification);
+	release_assert (!info.account.is_zero () && info.account != result.account);
 	switch (result.code)
 	{
 		case nano::process_result::progress:
@@ -1482,18 +1499,18 @@ nano::process_return nano::block_processor::process_one (nano::transaction const
 			if (node.config.logging.ledger_logging ())
 			{
 				std::string block;
-				block_a->serialize_json (block);
+				info.block->serialize_json (block);
 				BOOST_LOG (node.log) << boost::str (boost::format ("Processing block %1%: %2%") % hash.to_string () % block);
 			}
-			if (origination != std::chrono::steady_clock::time_point () && node.block_arrival.recent (hash))
+			if (std::chrono::seconds (info.modified) < std::chrono::steady_clock::now () - node.block_arrival.arrival_time_min && node.block_arrival.recent (hash))
 			{
-				node.active.start (block_a);
+				node.active.start (info.block);
 				if (node.config.enable_voting)
 				{
 					generator.add (hash);
 				}
 			}
-			queue_unchecked (transaction_a, hash, origination);
+			queue_unchecked (transaction_a, hash);
 			break;
 		}
 		case nano::process_result::gap_previous:
@@ -1502,8 +1519,13 @@ nano::process_return nano::block_processor::process_one (nano::transaction const
 			{
 				BOOST_LOG (node.log) << boost::str (boost::format ("Gap previous for: %1%") % hash.to_string ());
 			}
-			node.store.unchecked_put (transaction_a, nano::unchecked_key (block_a->previous (), block_a->hash ()), nano::unchecked_info (block_a, nano::seconds_since_epoch (), result.verified));
-			node.gap_cache.add (transaction_a, block_a);
+			info.verifiaction = result.verified;
+			if (info.modified == 0)
+			{
+				info.modified = nano::seconds_since_epoch ()
+			}
+			node.store.unchecked_put (transaction_a, nano::unchecked_key (info.block->previous (), hash), info);
+			node.gap_cache.add (transaction_a, info.block);
 			break;
 		}
 		case nano::process_result::gap_source:
@@ -1512,18 +1534,23 @@ nano::process_return nano::block_processor::process_one (nano::transaction const
 			{
 				BOOST_LOG (node.log) << boost::str (boost::format ("Gap source for: %1%") % hash.to_string ());
 			}
-			node.store.unchecked_put (transaction_a, nano::unchecked_key (node.ledger.block_source (transaction_a, *block_a), block_a->hash ()), nano::unchecked_info (block_a, nano::seconds_since_epoch (), result.verified));
-			node.gap_cache.add (transaction_a, block_a);
+			info.verifiaction = result.verified;
+			if (info.modified == 0)
+			{
+				info.modified = nano::seconds_since_epoch ()
+			}
+			node.store.unchecked_put (transaction_a, nano::unchecked_key (node.ledger.block_source (transaction_a, *block_a), hash), info);
+			node.gap_cache.add (transaction_a, info.block);
 			break;
 		}
 		case nano::process_result::old:
 		{
 			if (node.config.logging.ledger_duplicate_logging ())
 			{
-				BOOST_LOG (node.log) << boost::str (boost::format ("Old for: %1%") % block_a->hash ().to_string ());
+				BOOST_LOG (node.log) << boost::str (boost::format ("Old for: %1%") % hash.to_string ());
 			}
-			queue_unchecked (transaction_a, hash, origination);
-			node.active.update_difficulty (*block_a);
+			queue_unchecked (transaction_a, hash);
+			node.active.update_difficulty (*(info.block));
 			break;
 		}
 		case nano::process_result::bad_signature:
@@ -1552,14 +1579,14 @@ nano::process_return nano::block_processor::process_one (nano::transaction const
 		}
 		case nano::process_result::fork:
 		{
-			if (origination < std::chrono::steady_clock::now () - std::chrono::seconds (15))
+			if (std::chrono::seconds (info.modified) < std::chrono::steady_clock::now () - std::chrono::seconds (15))
 			{
 				// Only let the bootstrap attempt know about forked blocks that not originate recently.
-				node.process_fork (transaction_a, block_a);
+				node.process_fork (transaction_a, info.block);
 			}
 			if (node.config.logging.ledger_logging ())
 			{
-				BOOST_LOG (node.log) << boost::str (boost::format ("Fork for: %1% root: %2%") % hash.to_string () % block_a->root ().to_string ());
+				BOOST_LOG (node.log) << boost::str (boost::format ("Fork for: %1% root: %2%") % hash.to_string () % info.block->root ().to_string ());
 			}
 			break;
 		}
@@ -1588,7 +1615,7 @@ nano::process_return nano::block_processor::process_one (nano::transaction const
 		{
 			if (node.config.logging.ledger_logging ())
 			{
-				BOOST_LOG (node.log) << boost::str (boost::format ("Block %1% cannot follow predecessor %2%") % hash.to_string () % block_a->previous ().to_string ());
+				BOOST_LOG (node.log) << boost::str (boost::format ("Block %1% cannot follow predecessor %2%") % hash.to_string () % info.block->previous ().to_string ());
 			}
 			break;
 		}
@@ -1596,13 +1623,20 @@ nano::process_return nano::block_processor::process_one (nano::transaction const
 	return result;
 }
 
-void nano::block_processor::queue_unchecked (nano::transaction const & transaction_a, nano::block_hash const & hash_a, std::chrono::steady_clock::time_point origination)
+nano::process_return nano::block_processor::process_one (nano::transaction const & transaction_a, std::shared_ptr<nano::block> block_a)
+{
+	nano::unchecked_info (block_a, block_a->account (), 0, nano::signature_verification::unknown);
+	auto result (transaction_a, info);
+	return result;
+}
+
+void nano::block_processor::queue_unchecked (nano::transaction const & transaction_a, nano::block_hash const & hash_a)
 {
 	auto unchecked_blocks (node.store.unchecked_get (transaction_a, hash_a));
 	for (auto & info : unchecked_blocks)
 	{
 		node.store.unchecked_del (transaction_a, nano::unchecked_key (hash_a, info.block->hash ()));
-		add (info.block, origination, info.verified);
+		add (info);
 	}
 	std::lock_guard<std::mutex> lock (node.gap_cache.mutex);
 	node.gap_cache.blocks.get<1> ().erase (hash_a);

@@ -85,7 +85,7 @@ public:
 	unsigned target_connections (size_t pulls_remaining);
 	bool should_log ();
 	void add_bulk_push_target (nano::block_hash const &, nano::block_hash const &);
-	bool process_block (std::shared_ptr<nano::block>, uint64_t, bool);
+	bool process_block (std::shared_ptr<nano::block>, nano::account const &, uint64_t, bool);
 	void lazy_run ();
 	void lazy_start (nano::block_hash const &);
 	void lazy_add (nano::block_hash const &);
@@ -155,6 +155,7 @@ public:
 	nano::block_hash first ();
 	std::shared_ptr<nano::bootstrap_client> connection;
 	nano::block_hash expected;
+	nano::account known_account;
 	nano::pull_info pull;
 	uint64_t total_blocks;
 };

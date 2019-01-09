@@ -136,11 +136,12 @@ class unchecked_info
 {
 public:
 	unchecked_info ();
-	unchecked_info (std::shared_ptr<nano::block>, uint64_t, nano::signature_verification = nano::signature_verification::unknown);
+	unchecked_info (std::shared_ptr<nano::block>, nano::account const &, uint64_t, nano::signature_verification = nano::signature_verification::unknown);
 	void serialize (nano::stream &) const;
 	bool deserialize (nano::stream &);
 	bool operator== (nano::unchecked_info const &) const;
 	std::shared_ptr<nano::block> block;
+	nano::account account;
 	/** Seconds since posix epoch */
 	uint64_t modified;
 	nano::signature_verification verified;

@@ -420,22 +420,24 @@ public:
 	void stop ();
 	void flush ();
 	bool full ();
-	void add (std::shared_ptr<nano::block>, std::chrono::steady_clock::time_point, nano::signature_verification = nano::signature_verification::unknown);
+	void add (nano::unchecked_info const &);
+	void add (std::shared_ptr<nano::block>, std::chrono::steady_clock::time_point);
 	void force (std::shared_ptr<nano::block>);
 	bool should_log (bool);
 	bool have_blocks ();
 	void process_blocks ();
-	nano::process_return process_one (nano::transaction const &, std::shared_ptr<nano::block>, std::chrono::steady_clock::time_point = std::chrono::steady_clock::now (), nano::signature_verification = nano::signature_verification::unknown);
+	nano::process_return process_one (nano::transaction const &, nano::unchecked_info);
+	nano::process_return process_one (nano::transaction const &, std::shared_ptr<nano::block>);
 
 private:
-	void queue_unchecked (nano::transaction const &, nano::block_hash const &, std::chrono::steady_clock::time_point = std::chrono::steady_clock::time_point ());
+	void queue_unchecked (nano::transaction const &, nano::block_hash const &);
 	void verify_state_blocks (std::unique_lock<std::mutex> &, size_t = std::numeric_limits<size_t>::max ());
 	void process_batch (std::unique_lock<std::mutex> &);
 	bool stopped;
 	bool active;
 	std::chrono::steady_clock::time_point next_log;
-	std::deque<std::pair<std::shared_ptr<nano::block>, std::chrono::steady_clock::time_point>> state_blocks;
-	std::deque<std::pair<std::shared_ptr<nano::block>, std::pair<std::chrono::steady_clock::time_point, nano::signature_verification>>> blocks;
+	std::deque<nano::unchecked_info> state_blocks;
+	std::deque<nano::unchecked_info> blocks;
 	std::unordered_set<nano::block_hash> blocks_hashes;
 	std::deque<std::shared_ptr<nano::block>> forced;
 	std::condition_variable condition;
