@@ -1222,9 +1222,9 @@ bool nano::block_processor::full ()
 	return (blocks.size () + state_blocks.size ()) > 16384;
 }
 
-void nano::block_processor::add (std::shared_ptr<nano::block> block_a, std::chrono::steady_clock::time_point origination)
+void nano::block_processor::add (std::shared_ptr<nano::block> block_a, uint64_t origination)
 {
-	nano::unchecked_info info (block_a, 0, std::chrono::duration_cast<std::chrono::seconds> (origination).count (), nano::signature_verification::unknown);
+	nano::unchecked_info info (block_a, 0, origination, nano::signature_verification::unknown);
 	add (info);
 }
 
@@ -2070,7 +2070,7 @@ void nano::network::confirm_send (nano::confirm_ack const & confirm_a, std::shar
 void nano::node::process_active (std::shared_ptr<nano::block> incoming)
 {
 	block_arrival.add (incoming->hash ());
-	block_processor.add (incoming, std::chrono::steady_clock::now ());
+	block_processor.add (incoming, nano::seconds_since_epoch ());
 }
 
 nano::process_return nano::node::process (nano::block const & block_a)

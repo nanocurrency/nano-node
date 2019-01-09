@@ -421,7 +421,7 @@ public:
 	void flush ();
 	bool full ();
 	void add (nano::unchecked_info const &);
-	void add (std::shared_ptr<nano::block>, std::chrono::steady_clock::time_point);
+	void add (std::shared_ptr<nano::block>, uint64_t = 0);
 	void force (std::shared_ptr<nano::block>);
 	bool should_log (bool);
 	bool have_blocks ();

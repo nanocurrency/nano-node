@@ -842,9 +842,9 @@ TEST (node, fork_bootstrap_flip)
 	nano::keypair key2;
 	auto send2 (std::make_shared<nano::send_block> (latest, key2.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system0.work.generate (latest)));
 	// Insert but don't rebroadcast, simulating settled blocks
-	node1.block_processor.add (send1, std::chrono::steady_clock::now ());
+	node1.block_processor.add (send1, nano::seconds_since_epoch ());
 	node1.block_processor.flush ();
-	node2.block_processor.add (send2, std::chrono::steady_clock::now ());
+	node2.block_processor.add (send2, nano::seconds_since_epoch ());
 	node2.block_processor.flush ();
 	{
 		auto transaction (node2.store.tx_begin ());
@@ -1532,8 +1532,8 @@ TEST (node, block_confirm)
 	nano::keypair key;
 	system.wallet (1)->insert_adhoc (nano::test_genesis_key.prv);
 	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.nodes[0]->work_generate_blocking (genesis.hash ())));
-	system.nodes[0]->block_processor.add (send1, std::chrono::steady_clock::now ());
-	system.nodes[1]->block_processor.add (send1, std::chrono::steady_clock::now ());
+	system.nodes[0]->block_processor.add (send1, nano::seconds_since_epoch ());
+	system.nodes[1]->block_processor.add (send1, nano::seconds_since_epoch ());
 	system.deadline_set (std::chrono::seconds (5));
 	while (!system.nodes[0]->ledger.block_exists (send1->hash ()) || !system.nodes[1]->ledger.block_exists (send1->hash ()))
 	{

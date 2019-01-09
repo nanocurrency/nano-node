@@ -2526,7 +2526,7 @@ TEST (ledger, unchecked_epoch)
 	node1.work_generate_blocking (*open1);
 	auto epoch1 (std::make_shared<nano::state_block> (destination.pub, open1->hash (), destination.pub, nano::Gxrb_ratio, node1.ledger.epoch_link, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
 	node1.work_generate_blocking (*epoch1);
-	node1.block_processor.add (epoch1, std::chrono::steady_clock::time_point ());
+	node1.block_processor.add (epoch1);
 	node1.block_processor.flush ();
 	{
 		auto transaction (node1.store.tx_begin ());
@@ -2536,8 +2536,8 @@ TEST (ledger, unchecked_epoch)
 		ASSERT_EQ (blocks.size (), 1);
 		ASSERT_EQ (blocks[0].verified, nano::signature_verification::valid_epoch);
 	}
-	node1.block_processor.add (send1, std::chrono::steady_clock::time_point ());
-	node1.block_processor.add (open1, std::chrono::steady_clock::time_point ());
+	node1.block_processor.add (send1);
+	node1.block_processor.add (open1);
 	node1.block_processor.flush ();
 	{
 		auto transaction (node1.store.tx_begin ());
@@ -2566,8 +2566,8 @@ TEST (ledger, unchecked_epoch_invalid)
 	// Pseudo epoch block (send subtype, destination - epoch link)
 	auto epoch2 (std::make_shared<nano::state_block> (destination.pub, open1->hash (), destination.pub, nano::Gxrb_ratio - 1, node1.ledger.epoch_link, destination.prv, destination.pub, 0));
 	node1.work_generate_blocking (*epoch2);
-	node1.block_processor.add (epoch1, std::chrono::steady_clock::time_point ());
-	node1.block_processor.add (epoch2, std::chrono::steady_clock::time_point ());
+	node1.block_processor.add (epoch1);
+	node1.block_processor.add (epoch2);
 	node1.block_processor.flush ();
 	{
 		auto transaction (node1.store.tx_begin ());
@@ -2578,8 +2578,8 @@ TEST (ledger, unchecked_epoch_invalid)
 		ASSERT_EQ (blocks[0].verified, nano::signature_verification::valid);
 		ASSERT_EQ (blocks[1].verified, nano::signature_verification::valid);
 	}
-	node1.block_processor.add (send1, std::chrono::steady_clock::time_point ());
-	node1.block_processor.add (open1, std::chrono::steady_clock::time_point ());
+	node1.block_processor.add (send1);
+	node1.block_processor.add (open1);
 	node1.block_processor.flush ();
 	{
 		auto transaction (node1.store.tx_begin ());
@@ -2608,8 +2608,8 @@ TEST (ledger, unchecked_open)
 	auto open2 (std::make_shared<nano::open_block> (send1->hash (), nano::test_genesis_key.pub, destination.pub, destination.prv, destination.pub, 0));
 	node1.work_generate_blocking (*open2);
 	open2->signature.bytes[0] ^= 1;
-	node1.block_processor.add (open1, std::chrono::steady_clock::time_point ());
-	node1.block_processor.add (open2, std::chrono::steady_clock::time_point ());
+	node1.block_processor.add (open1);
+	node1.block_processor.add (open2);
 	node1.block_processor.flush ();
 	{
 		auto transaction (node1.store.tx_begin ());
@@ -2619,7 +2619,7 @@ TEST (ledger, unchecked_open)
 		ASSERT_EQ (blocks.size (), 1);
 		ASSERT_EQ (blocks[0].verified, nano::signature_verification::valid);
 	}
-	node1.block_processor.add (send1, std::chrono::steady_clock::time_point ());
+	node1.block_processor.add (send1);
 	node1.block_processor.flush ();
 	{
 		auto transaction (node1.store.tx_begin ());
@@ -2643,8 +2643,8 @@ TEST (ledger, unchecked_receive)
 	node1.work_generate_blocking (*open1);
 	auto receive1 (std::make_shared<nano::receive_block> (open1->hash (), send2->hash (), destination.prv, destination.pub, 0));
 	node1.work_generate_blocking (*receive1);
-	node1.block_processor.add (send1, std::chrono::steady_clock::time_point ());
-	node1.block_processor.add (receive1, std::chrono::steady_clock::time_point ());
+	node1.block_processor.add (send1);
+	node1.block_processor.add (receive1);
 	node1.block_processor.flush ();
 	// Previous block for receive1 is unknown, signature cannot be validated
 	{
@@ -2655,7 +2655,7 @@ TEST (ledger, unchecked_receive)
 		ASSERT_EQ (blocks.size (), 1);
 		ASSERT_EQ (blocks[0].verified, nano::signature_verification::unknown);
 	}
-	node1.block_processor.add (open1, std::chrono::steady_clock::time_point ());
+	node1.block_processor.add (open1);
 	node1.block_processor.flush ();
 	// Previous block for receive1 is known, signature was validated
 	{
@@ -2666,7 +2666,7 @@ TEST (ledger, unchecked_receive)
 		ASSERT_EQ (blocks.size (), 1);
 		ASSERT_EQ (blocks[0].verified, nano::signature_verification::valid);
 	}
-	node1.block_processor.add (send2, std::chrono::steady_clock::time_point ());
+	node1.block_processor.add (send2);
 	node1.block_processor.flush ();
 	{
 		auto transaction (node1.store.tx_begin ());

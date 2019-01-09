@@ -689,7 +689,7 @@ int main (int argc, char * const * argv)
 							{
 								std::cout << boost::str (boost::format ("%1% blocks retrieved") % count) << std::endl;
 							}
-							node2.node->block_processor.add (block, std::chrono::steady_clock::time_point ());
+							node2.node->block_processor.add (block);
 							// Retrieving previous block hash
 							hash = block->previous ();
 						}

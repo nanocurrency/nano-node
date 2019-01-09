@@ -783,10 +783,10 @@ TEST (bootstrap_processor, lazy_hash)
 	auto send2 (std::make_shared<nano::state_block> (key1.pub, receive1->hash (), key1.pub, 0, key2.pub, key1.prv, key1.pub, system.nodes[0]->work_generate_blocking (receive1->hash ())));
 	auto receive2 (std::make_shared<nano::state_block> (key2.pub, 0, key2.pub, nano::Gxrb_ratio, send2->hash (), key2.prv, key2.pub, system.nodes[0]->work_generate_blocking (key2.pub)));
 	// Processing test chain
-	system.nodes[0]->block_processor.add (send1, std::chrono::steady_clock::time_point ());
-	system.nodes[0]->block_processor.add (receive1, std::chrono::steady_clock::time_point ());
-	system.nodes[0]->block_processor.add (send2, std::chrono::steady_clock::time_point ());
-	system.nodes[0]->block_processor.add (receive2, std::chrono::steady_clock::time_point ());
+	system.nodes[0]->block_processor.add (send1);
+	system.nodes[0]->block_processor.add (receive1);
+	system.nodes[0]->block_processor.add (send2);
+	system.nodes[0]->block_processor.add (receive2);
 	system.nodes[0]->block_processor.flush ();
 	// Start lazy bootstrap with last block in chain known
 	auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, 24001, nano::unique_path (), system.alarm, system.logging, system.work));
@@ -817,13 +817,13 @@ TEST (bootstrap_processor, lazy_max_pull_count)
 	auto change2 (std::make_shared<nano::state_block> (key2.pub, change1->hash (), nano::test_genesis_key.pub, nano::Gxrb_ratio, 0, key2.prv, key2.pub, system.nodes[0]->work_generate_blocking (change1->hash ())));
 	auto change3 (std::make_shared<nano::state_block> (key2.pub, change2->hash (), key2.pub, nano::Gxrb_ratio, 0, key2.prv, key2.pub, system.nodes[0]->work_generate_blocking (change2->hash ())));
 	// Processing test chain
-	system.nodes[0]->block_processor.add (send1, std::chrono::steady_clock::time_point ());
-	system.nodes[0]->block_processor.add (receive1, std::chrono::steady_clock::time_point ());
-	system.nodes[0]->block_processor.add (send2, std::chrono::steady_clock::time_point ());
-	system.nodes[0]->block_processor.add (receive2, std::chrono::steady_clock::time_point ());
-	system.nodes[0]->block_processor.add (change1, std::chrono::steady_clock::time_point ());
-	system.nodes[0]->block_processor.add (change2, std::chrono::steady_clock::time_point ());
-	system.nodes[0]->block_processor.add (change3, std::chrono::steady_clock::time_point ());
+	system.nodes[0]->block_processor.add (send1);
+	system.nodes[0]->block_processor.add (receive1);
+	system.nodes[0]->block_processor.add (send2);
+	system.nodes[0]->block_processor.add (receive2);
+	system.nodes[0]->block_processor.add (change1);
+	system.nodes[0]->block_processor.add (change2);
+	system.nodes[0]->block_processor.add (change3);
 	system.nodes[0]->block_processor.flush ();
 	// Start lazy bootstrap with last block in chain known
 	auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, 24001, nano::unique_path (), system.alarm, system.logging, system.work));
