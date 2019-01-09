@@ -2510,6 +2510,7 @@ public:
 					auto callback_l (callback);
 					std::weak_ptr<nano::node> node_w (node);
 					auto next_backoff (std::min (backoff * 2, (unsigned int)60 * 5));
+					// clang-format off
 					node->alarm.add (now + std::chrono::seconds (backoff), [ node_w, root_l, callback_l, next_backoff, difficulty = difficulty ] {
 						if (auto node_l = node_w.lock ())
 						{
@@ -2517,6 +2518,7 @@ public:
 							work_generation->start ();
 						}
 					});
+					// clang-format on
 				}
 			}
 		}
