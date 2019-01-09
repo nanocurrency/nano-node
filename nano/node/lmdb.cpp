@@ -752,6 +752,7 @@ pending_v1 (0),
 blocks_info (0),
 representation (0),
 unchecked (0),
+unchecked_hash (0),
 checksum (0),
 vote (0),
 meta (0)
