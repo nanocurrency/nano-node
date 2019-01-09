@@ -410,7 +410,7 @@ int main (int argc, char * const * argv)
 					            .representative (nano::test_genesis_key.pub)
 					            .balance (genesis_balance)
 					            .link (keys[i].pub)
-					            .sign (nano::test_genesis_key.prv, nano::test_genesis_key.pub)
+					            .sign (keys[i].prv, keys[i].pub)
 					            .work (work.generate (genesis_latest))
 					            .build ();
 
