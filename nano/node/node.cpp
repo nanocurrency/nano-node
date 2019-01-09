@@ -1316,45 +1316,48 @@ void nano::block_processor::verify_state_blocks (nano::transaction const & trans
 			items.push_back (item);
 		}
 	}
-	auto size (items.size ());
-	std::vector<nano::uint256_union> hashes;
-	hashes.reserve (size);
-	std::vector<unsigned char const *> messages;
-	messages.reserve (size);
-	std::vector<size_t> lengths;
-	lengths.reserve (size);
-	std::vector<unsigned char const *> pub_keys;
-	pub_keys.reserve (size);
-	std::vector<unsigned char const *> signatures;
-	signatures.reserve (size);
-	std::vector<int> verifications;
-	verifications.resize (size, 0);
-	for (auto i (0); i < size; ++i)
+	if (!items.empty ())
 	{
-		auto & block (static_cast<nano::state_block &> (*items[i].first));
-		hashes.push_back (block.hash ());
-		messages.push_back (hashes.back ().bytes.data ());
-		lengths.push_back (sizeof (decltype (hashes)::value_type));
-		pub_keys.push_back (block.hashables.account.bytes.data ());
-		signatures.push_back (block.signature.bytes.data ());
-	}
-	std::promise<void> promise;
-	nano::signature_check_set check = { size, messages.data (), lengths.data (), pub_keys.data (), signatures.data (), verifications.data (), &promise };
-	node.checker.add (check);
-	promise.get_future ().wait ();
-	lock_a.lock ();
-	for (auto i (0); i < size; ++i)
-	{
-		assert (verifications[i] == 1 || verifications[i] == 0);
-		if (verifications[i] == 1)
+		auto size (items.size ());
+		std::vector<nano::uint256_union> hashes;
+		hashes.reserve (size);
+		std::vector<unsigned char const *> messages;
+		messages.reserve (size);
+		std::vector<size_t> lengths;
+		lengths.reserve (size);
+		std::vector<unsigned char const *> pub_keys;
+		pub_keys.reserve (size);
+		std::vector<unsigned char const *> signatures;
+		signatures.reserve (size);
+		std::vector<int> verifications;
+		verifications.resize (size, 0);
+		for (auto i (0); i < size; ++i)
 		{
-			blocks.push_back (items.front ());
+			auto & block (static_cast<nano::state_block &> (*items[i].first));
+			hashes.push_back (block.hash ());
+			messages.push_back (hashes.back ().bytes.data ());
+			lengths.push_back (sizeof (decltype (hashes)::value_type));
+			pub_keys.push_back (block.hashables.account.bytes.data ());
+			signatures.push_back (block.signature.bytes.data ());
 		}
-		items.pop_front ();
-	}
-	if (node.config.logging.timing_logging ())
-	{
-		BOOST_LOG (node.log) << boost::str (boost::format ("Batch verified %1% state blocks in %2% %3%") % size % timer_l.stop ().count () % timer_l.unit ());
+		std::promise<void> promise;
+		nano::signature_check_set check = { size, messages.data (), lengths.data (), pub_keys.data (), signatures.data (), verifications.data (), &promise };
+		node.checker.add (check);
+		promise.get_future ().wait ();
+		lock_a.lock ();
+		for (auto i (0); i < size; ++i)
+		{
+			assert (verifications[i] == 1 || verifications[i] == 0);
+			if (verifications[i] == 1)
+			{
+				blocks.push_back (items.front ());
+			}
+			items.pop_front ();
+		}
+		if (node.config.logging.timing_logging ())
+		{
+			BOOST_LOG (node.log) << boost::str (boost::format ("Batch verified %1% state blocks in %2% %3%") % size % timer_l.stop ().count () % timer_l.unit ());
+		}
 	}
 }
 
