@@ -322,8 +322,8 @@ void nano::unchecked_info::serialize (nano::stream & stream_a) const
 {
 	assert (block != nullptr);
 	nano::serialize_block (stream_a, *block);
-	write (stream_a, modified);
-	write (stream_a, verified);
+	nano::write (stream_a, boost::endian::native_to_big (modified));
+	nano::write (stream_a, boost::endian::native_to_big (verified));
 }
 
 bool nano::unchecked_info::deserialize (nano::stream & stream_a)
@@ -332,10 +332,12 @@ bool nano::unchecked_info::deserialize (nano::stream & stream_a)
 	bool error (block == nullptr);
 	if (!error)
 	{
-		error = read (stream_a, modified);
+		error = nano::read (stream_a, modified);
+		boost::endian::big_to_native_inplace (modified);
 		if (!error)
 		{
-			error = read (stream_a, verified);
+			error = nano::read (stream_a, verified);
+			boost::endian::big_to_native_inplace (verified);
 		}
 	}
 	return error;
