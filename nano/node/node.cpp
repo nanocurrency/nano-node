@@ -1448,9 +1448,12 @@ void nano::block_processor::process_batch (std::unique_lock<std::mutex> & lock_a
 				node.ledger.rollback (transaction, successor->hash ());
 			}
 		}
-		auto process_result (process_one (transaction, block.first, block.second.first, block.second.second));
 		number_of_blocks_processed++;
-		(void)process_result;
+		if (!node.ledger.store.unchecked_hash_exists (unchecked_put, hash))
+		{
+			auto process_result (process_one (transaction, block.first, block.second.first, block.second.second));
+			(void)process_result;
+		}
 		lock_a.lock ();
 		/* Verify more state blocks if blocks deque is empty
 		Because verification is long process, avoid large deque verification inside of write transaction */
