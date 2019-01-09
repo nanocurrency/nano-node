@@ -1238,11 +1238,11 @@ void nano::block_processor::add (nano::unchecked_info const & info_a)
 			{
 				if (info_a.verified == nano::signature_verification::unknown && (info_a.block->type () == nano::block_type::state || info_a.block->type () == nano::block_type::open || !info_a.account.is_zero ()))
 				{
-					blocks.push_back (info_a);
+					state_blocks.push_back (info_a);
 				}
 				else
 				{
-					state_blocks.push_back (info_a);
+					blocks.push_back (info_a);
 				}
 			}
 			condition.notify_all ();
