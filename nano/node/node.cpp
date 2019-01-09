@@ -1311,7 +1311,7 @@ void nano::block_processor::verify_state_blocks (nano::transaction const & trans
 	{
 		auto item (items_l1.front ());
 		items_l1.pop_front ();
-		if (!ledger.store.block_exists (transaction, item.first->type (), item.first->hash ()))
+		if (!node.ledger.store.block_exists (transaction, item.first->type (), item.first->hash ()))
 		{
 			items.push_back (item);
 		}
