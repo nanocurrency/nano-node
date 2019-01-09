@@ -1161,5 +1161,5 @@ TEST (block_store, unchecked_hash)
 	ASSERT_EQ (1, count);
 	auto unchecked_info (store.unchecked_hash_get (transaction, block1.hash ()));
 	ASSERT_EQ (block1, *(unchecked_info.block));
-	ASSERT_EQ (nano::signature_verification::unknown, unchecked_info.verified);
+	ASSERT_EQ (nano::signature_verification::valid, unchecked_info.verified);
 }
