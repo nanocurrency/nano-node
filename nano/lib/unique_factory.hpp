@@ -3,8 +3,8 @@
 #include <iostream>
 #include <memory>
 #include <mutex>
-#include <unordered_map>
 #include <nano/secure/common.hpp>
+#include <unordered_map>
 
 namespace nano
 {
@@ -18,7 +18,7 @@ class block;
  * @note BaseType must have a full_hash() member.
  */
 template <typename BaseType>
-class unique_factory
+class unique_factory final
 {
 public:
 	/** Low overhead stats which are imbued into nano::stats when requested */
@@ -26,7 +26,7 @@ public:
 	{
 	public:
 		/** Numnber of objects in the index. */
-		size_t size {0};
+		size_t size{ 0 };
 		/** Number of uniquing operations, i.e when an equivalent object existed in the index when calling make_or_get. */
 		size_t cache_hit{ 0 };
 		/** Number of index insertions, i.e. an equivalent object did not exist in the index when calling make_or_get. */
@@ -51,9 +51,15 @@ public:
 		std::unique_lock<std::mutex> lock (index_mutex);
 		auto deleter = [this](ConcreteType * w) {
 			{
-				std::lock_guard<std::mutex> lock (index_mutex);
-				this->index.erase (w->full_hash ());
-				++this->stats.erased;
+				try
+				{
+					std::lock_guard<std::mutex> lock (index_mutex);
+					this->index.erase (w->full_hash ());
+					++this->stats.erased;
+				}
+				catch (...)
+				{
+				}
 			}
 			// Delete outside lock to avoid deadlock if the deleted object has the last
 			// reference to another factory object.

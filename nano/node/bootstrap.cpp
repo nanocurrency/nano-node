@@ -566,7 +566,7 @@ void nano::bulk_pull_client::received_block (boost::system::error_code const & e
 	if (!ec)
 	{
 		nano::bufferstream stream (connection->receive_buffer->data (), size_a);
-		std::shared_ptr<nano::block> block (nano::deserialize_block (stream, type_a));
+		std::shared_ptr<nano::block> block (nano::deserialize_block (stream, type_a, &connection->node->block_uniquer));
 		if (block != nullptr && !nano::work_validate (*block))
 		{
 			auto hash (block->hash ());
@@ -2874,7 +2874,7 @@ void nano::bulk_push_server::received_block (boost::system::error_code const & e
 	if (!ec)
 	{
 		nano::bufferstream stream (receive_buffer->data (), size_a);
-		auto block (nano::deserialize_block (stream, type_a));
+		auto block (nano::deserialize_block (stream, type_a, &connection->node->block_uniquer));
 		if (block != nullptr && !nano::work_validate (*block))
 		{
 			connection->node->process_active (std::move (block));

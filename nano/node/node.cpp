@@ -1,8 +1,8 @@
 #include <nano/node/node.hpp>
 
-#include <nano/lib/unique_factory.hpp>
 #include <nano/lib/interface.h>
 #include <nano/lib/timer.hpp>
+#include <nano/lib/unique_factory.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/rpc.hpp>
@@ -1651,9 +1651,7 @@ block_processor_thread ([this]() {
 	this->block_processor.process_blocks ();
 }),
 online_reps (*this),
-stats (config.stat_config)
-block_uniquer (std::make_unique<nano::factory<nano::block>> ()),
-vote_uniquer (std::make_unique<nano::factory<nano::vote>> ()),
+stats (config.stat_config),
 startup_time (std::chrono::steady_clock::now ())
 {
 	wallets.observer = [this](bool active) {
@@ -3666,18 +3664,18 @@ void nano::node::update_stats ()
 	// We imbue factory stats only when stats are requested. The unique_factory keeps internal stats
 	// with lower overhead than calling updating statistics directly.
 	auto block_stats (block_uniquer.get_stats ());
-	stats.set(nano::stat::type::block_factory, nano::stat::detail::unique_factory_size, nano::stat::dir::in, block_stats.size);
-	stats.set(nano::stat::type::block_factory, nano::stat::detail::unique_factory_cache_hit, nano::stat::dir::in, block_stats.cache_hit);
-	stats.set(nano::stat::type::block_factory, nano::stat::detail::unique_factory_cache_miss, nano::stat::dir::in, block_stats.cache_miss);
-	stats.set(nano::stat::type::block_factory, nano::stat::detail::unique_factory_created, nano::stat::dir::in, block_stats.created);
-	stats.set(nano::stat::type::block_factory, nano::stat::detail::unique_factory_erased, nano::stat::dir::in, block_stats.erased);
+	stats.set (nano::stat::type::block_factory, nano::stat::detail::unique_factory_size, nano::stat::dir::in, block_stats.size);
+	stats.set (nano::stat::type::block_factory, nano::stat::detail::unique_factory_cache_hit, nano::stat::dir::in, block_stats.cache_hit);
+	stats.set (nano::stat::type::block_factory, nano::stat::detail::unique_factory_cache_miss, nano::stat::dir::in, block_stats.cache_miss);
+	stats.set (nano::stat::type::block_factory, nano::stat::detail::unique_factory_created, nano::stat::dir::in, block_stats.created);
+	stats.set (nano::stat::type::block_factory, nano::stat::detail::unique_factory_erased, nano::stat::dir::in, block_stats.erased);
 
 	auto vote_stats (vote_uniquer.get_stats ());
-	stats.set(nano::stat::type::vote_factory, nano::stat::detail::unique_factory_size, nano::stat::dir::in, vote_stats.size);
-	stats.set(nano::stat::type::vote_factory, nano::stat::detail::unique_factory_cache_hit, nano::stat::dir::in, vote_stats.cache_hit);
-	stats.set(nano::stat::type::vote_factory, nano::stat::detail::unique_factory_cache_miss, nano::stat::dir::in, vote_stats.cache_miss);
-	stats.set(nano::stat::type::vote_factory, nano::stat::detail::unique_factory_created, nano::stat::dir::in, vote_stats.created);
-	stats.set(nano::stat::type::vote_factory, nano::stat::detail::unique_factory_erased, nano::stat::dir::in, vote_stats.erased);
+	stats.set (nano::stat::type::vote_factory, nano::stat::detail::unique_factory_size, nano::stat::dir::in, vote_stats.size);
+	stats.set (nano::stat::type::vote_factory, nano::stat::detail::unique_factory_cache_hit, nano::stat::dir::in, vote_stats.cache_hit);
+	stats.set (nano::stat::type::vote_factory, nano::stat::detail::unique_factory_cache_miss, nano::stat::dir::in, vote_stats.cache_miss);
+	stats.set (nano::stat::type::vote_factory, nano::stat::detail::unique_factory_created, nano::stat::dir::in, vote_stats.created);
+	stats.set (nano::stat::type::vote_factory, nano::stat::detail::unique_factory_erased, nano::stat::dir::in, vote_stats.erased);
 }
 
 nano::thread_runner::thread_runner (boost::asio::io_context & io_ctx_a, unsigned service_threads_a)

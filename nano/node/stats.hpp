@@ -251,7 +251,7 @@ public:
 		invalid_confirm_ack_message,
 		invalid_node_id_handshake_message,
 		outdated_version,
-		
+
 		// block/vote_factory specific
 		unique_factory_cache_hit,
 		unique_factory_cache_miss,
@@ -346,15 +346,15 @@ public:
 			update (key & no_detail_mask, value);
 		}
 	}
-	
+
 	inline void erase (stat::type type, stat::detail detail, stat::dir dir, uint64_t value, bool detail_only = false)
 	{
 		constexpr uint32_t no_detail_mask = 0xffff00ff;
 		uint32_t key = key_of (type, detail, dir);
-		
+
 		std::unique_lock<std::mutex> lock (stat_mutex);
 		entries.erase (key);
-		
+
 		// Optionally update at type-level as well
 		if (!detail_only && (key & no_detail_mask) != key)
 		{
@@ -459,7 +459,7 @@ private:
 	 * @value Amount to add to the counter
 	 */
 	void update (uint32_t key, uint64_t value);
-	
+
 	void erase_entry (uint32_t key);
 
 	/** Unlocked implementation of log_counters() to avoid using recursive locking */

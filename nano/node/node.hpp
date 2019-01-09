@@ -504,7 +504,7 @@ public:
 	void process_fork (nano::transaction const &, std::shared_ptr<nano::block>);
 	bool validate_block_by_previous (nano::transaction const &, std::shared_ptr<nano::block>);
 	void do_rpc_callback (boost::asio::ip::tcp::resolver::iterator i_a, std::string const &, uint16_t, std::shared_ptr<std::string>, std::shared_ptr<std::string>, std::shared_ptr<boost::asio::ip::tcp::resolver>);
-	void update_stats();
+	void update_stats ();
 	nano::uint128_t delta ();
 	nano::unique_factory<nano::block> block_uniquer;
 	nano::unique_factory<nano::vote> vote_uniquer;
@@ -537,12 +537,7 @@ public:
 	nano::online_reps online_reps;
 	nano::stat stats;
 	nano::keypair node_id;
-<<<<<<< HEAD
-	std::unique_ptr<nano::factory<nano::block>> block_uniquer;
-	std::unique_ptr<nano::factory<nano::vote>> vote_uniquer;
 	const std::chrono::steady_clock::time_point startup_time;
-=======
->>>>>>> Make block uniquer an ctor argument. Rename to unique_factory.
 	static double constexpr price_max = 16.0;
 	static double constexpr free_cutoff = 1024.0;
 	static std::chrono::seconds constexpr period = std::chrono::seconds (60);

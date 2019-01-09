@@ -1225,7 +1225,7 @@ std::shared_ptr<nano::block> nano::deserialize_block (nano::stream & stream_a, n
 	std::shared_ptr<nano::block> result;
 	if (!error)
 	{
-		result = nano::deserialize_block (stream_a, type);
+		result = nano::deserialize_block (stream_a, type, uniquer_a);
 	}
 	return result;
 }
