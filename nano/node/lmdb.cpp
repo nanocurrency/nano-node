@@ -1803,8 +1803,13 @@ void nano::mdb_store::unchecked_clear (nano::transaction const & transaction_a)
 void nano::mdb_store::unchecked_put (nano::transaction const & transaction_a, nano::unchecked_key const & key_a, nano::unchecked_info const & info_a)
 {
 	auto status (mdb_put (env.tx (transaction_a), unchecked, nano::mdb_val (key_a), nano::mdb_val (info_a), 0));
-	auto status2 (mdb_put (env.tx (transaction_a), unchecked_hash, nano::mdb_val (key_a.hash), nano::mdb_val (key_a.key ()), 0));
-	release_assert (status == 0 && status2 == 0);
+	release_assert (status == 0);
+	// Put hashes to lookup table only for verified blocks
+	if (info_a.verified == nano::signature_verification::valid || info_a.verified == nano::signature_verification::valid_epoch)
+	{
+		auto status2 (mdb_put (env.tx (transaction_a), unchecked_hash, nano::mdb_val (key_a.hash), nano::mdb_val (key_a.key ()), 0));
+		release_assert (status2 == 0);
+	}
 }
 
 void nano::mdb_store::unchecked_put (nano::transaction const & transaction_a, nano::block_hash const & hash_a, std::shared_ptr<nano::block> const & block_a)
