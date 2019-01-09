@@ -122,7 +122,7 @@ public:
 		return *error;
 	}
 	/** Open confiruation file, create if necessary */
-	inline void open_or_create (std::fstream & stream_a, std::string const & path_a)
+	void open_or_create (std::fstream & stream_a, std::string const & path_a)
 	{
 		stream_a.open (path_a, std::ios_base::in);
 		if (stream_a.fail ())
@@ -134,19 +134,19 @@ public:
 	}
 
 	/** Returns the boost property node managed by this instance */
-	inline boost::property_tree::ptree & get_tree ()
+	boost::property_tree::ptree const & get_tree ()
 	{
 		return tree;
 	}
 
 	/** Returns true if the property tree node is empty */
-	inline bool empty ()
+	bool empty () const
 	{
 		return tree.empty ();
 	}
 
 	/** Optionally returns the given child node */
-	inline jsonconfig & get_optional_child (std::string const & key_a, boost::optional<jsonconfig> & child_config)
+	jsonconfig & get_optional_child (std::string const & key_a, boost::optional<jsonconfig> & child_config)
 	{
 		auto child = tree.get_child_optional (key_a);
 		if (child)
@@ -156,7 +156,7 @@ public:
 		return *this;
 	}
 
-	inline boost::optional<jsonconfig> get_optional_child (std::string const & key_a)
+	boost::optional<jsonconfig> get_optional_child (std::string const & key_a)
 	{
 		boost::optional<jsonconfig> child_config;
 		auto child = tree.get_child_optional (key_a);
@@ -167,7 +167,7 @@ public:
 		return child_config;
 	}
 
-	inline jsonconfig & get_required_child (std::string const & key_a, jsonconfig & child_config /*out*/)
+	jsonconfig & get_required_child (std::string const & key_a, jsonconfig & child_config /*out*/)
 	{
 		auto child = tree.get_child_optional (key_a);
 		if (child)
@@ -183,20 +183,20 @@ public:
 		return *this;
 	}
 
-	inline jsonconfig get_required_child (std::string const & key_a)
+	jsonconfig get_required_child (std::string const & key_a)
 	{
 		jsonconfig child_config;
 		get_required_child (key_a, child_config);
 		return child_config;
 	}
 
-	inline jsonconfig & put_child (std::string const & key_a, nano::jsonconfig & conf_a)
+	jsonconfig & put_child (std::string const & key_a, nano::jsonconfig & conf_a)
 	{
 		tree.add_child (key_a, conf_a.get_tree ());
 		return *this;
 	}
 
-	inline jsonconfig & replace_child (std::string const & key_a, nano::jsonconfig & conf_a)
+	jsonconfig & replace_child (std::string const & key_a, nano::jsonconfig & conf_a)
 	{
 		conf_a.erase (key_a);
 		conf_a.put_child (key_a, conf_a);
@@ -205,7 +205,7 @@ public:
 
 	/** Set value for the given key. Any existing value will be overwritten. */
 	template <typename T>
-	jsonconfig & put (std::string key, T const & value)
+	jsonconfig & put (std::string const & key, T const & value)
 	{
 		tree.put (key, value);
 		return *this;
@@ -213,7 +213,7 @@ public:
 
 	/** Push array element */
 	template <typename T>
-	inline jsonconfig & push (T const & value)
+	jsonconfig & push (T const & value)
 	{
 		boost::property_tree::ptree entry;
 		entry.put ("", value);
@@ -225,31 +225,31 @@ public:
 	template <typename T>
 	jsonconfig & array_entries (std::function<void(T)> callback)
 	{
-		for (auto i (tree.begin ()), n (tree.end ()); i != n; ++i)
+		for (auto & entry : tree)
 		{
-			callback (i->second.get<T> (""));
+			callback (entry.second.get<T> (""));
 		}
 		return *this;
 	}
 
 	/** Returns true if \p key_a is present */
-	bool has_key (std::string key_a)
+	bool has_key (std::string const & key_a)
 	{
 		return tree.find (key_a) != tree.not_found ();
 	}
 
 	/** Erase the property of given key */
-	jsonconfig & erase (std::string key_a)
+	jsonconfig & erase (std::string const & key_a)
 	{
 		tree.erase (key_a);
 		return *this;
 	}
 
-	/** Get optional, using \p defaultValue if \p key is missing. */
+	/** Get optional, using \p default_value if \p key is missing. */
 	template <typename T>
-	jsonconfig & get_optional (std::string key, T & target, T defaultValue)
+	jsonconfig & get_optional (std::string const & key, T & target, T default_value)
 	{
-		get_config<T> (true, key, target, defaultValue);
+		get_config<T> (true, key, target, default_value);
 		return *this;
 	}
 
@@ -258,7 +258,7 @@ public:
 	 * @return May return nano::error_config::invalid_value
 	 */
 	template <typename T>
-	jsonconfig & get_optional (std::string key, T & target)
+	jsonconfig & get_optional (std::string const & key, T & target)
 	{
 		get_config<T> (true, key, target, target);
 		return *this;
@@ -266,12 +266,12 @@ public:
 
 	/** Return a boost::optional<T> for the given key */
 	template <typename T>
-	boost::optional<T> get_optional (std::string key)
+	boost::optional<T> get_optional (std::string const & key)
 	{
 		boost::optional<T> res;
 		if (has_key (key))
 		{
-			T target;
+			T target{};
 			get_config<T> (true, key, target, target);
 			res = target;
 		}
@@ -280,7 +280,7 @@ public:
 
 	/** Get value, using the current value of \p target as the default if \p key is missing. */
 	template <typename T>
-	jsonconfig & get (std::string key, T & target)
+	jsonconfig & get (std::string const & key, T & target)
 	{
 		get_config<T> (true, key, target, target);
 		return *this;
@@ -291,7 +291,7 @@ public:
 	 * @note May set nano::error_config::missing_value if \p key is missing, nano::error_config::invalid_value if value is invalid.
 	 */
 	template <typename T>
-	T get (std::string key)
+	T get (std::string const & key)
 	{
 		T target{};
 		get_config<T> (true, key, target, target);
@@ -303,14 +303,14 @@ public:
 	 * @note May set nano::error_config::missing_value if \p key is missing, nano::error_config::invalid_value if value is invalid.
 	 */
 	template <typename T>
-	jsonconfig & get_required (std::string key, T & target)
+	jsonconfig & get_required (std::string const & key, T & target)
 	{
 		get_config<T> (false, key, target);
 		return *this;
 	}
 
 	/** Turn on or off automatic error message generation */
-	inline void set_auto_error_message (bool auto_a)
+	void set_auto_error_message (bool auto_a)
 	{
 		auto_error_message = auto_a;
 	}
@@ -320,7 +320,7 @@ public:
 		return *error;
 	}
 
-	void write (std::ostream & stream_a)
+	void write (std::ostream & stream_a) const
 	{
 		boost::property_tree::write_json (stream_a, tree);
 	}
@@ -358,7 +358,7 @@ protected:
 		}
 	}
 	template <typename T, typename = std::enable_if_t<nano::is_lexical_castable<T>::value>>
-	jsonconfig & get_config (bool optional, std::string key, T & target, T defaultValue = T ())
+	jsonconfig & get_config (bool optional, std::string key, T & target, T default_value = T ())
 	{
 		try
 		{
@@ -376,7 +376,7 @@ protected:
 			}
 			else
 			{
-				target = defaultValue;
+				target = default_value;
 			}
 		}
 		catch (std::runtime_error & ex)
@@ -388,7 +388,7 @@ protected:
 
 	// boost's lexical cast doesn't handle (u)int8_t
 	template <typename T, typename = std::enable_if_t<std::is_same<T, uint8_t>::value>>
-	jsonconfig & get_config (bool optional, std::string key, uint8_t & target, uint8_t defaultValue = T ())
+	jsonconfig & get_config (bool optional, std::string key, uint8_t & target, uint8_t default_value = T ())
 	{
 		int64_t tmp;
 		try
@@ -411,7 +411,7 @@ protected:
 			}
 			else
 			{
-				target = defaultValue;
+				target = default_value;
 			}
 		}
 		catch (std::runtime_error & ex)
@@ -422,9 +422,9 @@ protected:
 	}
 
 	template <typename T, typename = std::enable_if_t<std::is_same<T, bool>::value>>
-	jsonconfig & get_config (bool optional, std::string key, bool & target, bool defaultValue = false)
+	jsonconfig & get_config (bool optional, std::string key, bool & target, bool default_value = false)
 	{
-		auto bool_conv = [&](std::string val) {
+		auto bool_conv = [this, &target, &key, optional](std::string val) {
 			if (val == "true")
 			{
 				target = true;
@@ -451,7 +451,7 @@ protected:
 			}
 			else
 			{
-				target = defaultValue;
+				target = default_value;
 			}
 		}
 		catch (std::runtime_error & ex)
@@ -462,7 +462,7 @@ protected:
 	}
 
 	template <typename T, typename = std::enable_if_t<std::is_same<T, boost::asio::ip::address_v6>::value>>
-	jsonconfig & get_config (bool optional, std::string key, boost::asio::ip::address_v6 & target, boost::asio::ip::address_v6 defaultValue = T ())
+	jsonconfig & get_config (bool optional, std::string key, boost::asio::ip::address_v6 & target, boost::asio::ip::address_v6 default_value = T ())
 	{
 		try
 		{
@@ -482,7 +482,7 @@ protected:
 			}
 			else
 			{
-				target = defaultValue;
+				target = default_value;
 			}
 		}
 		return *this;

@@ -128,7 +128,7 @@ enum class error_config
 
 /** Returns the error code if non-zero, otherwise the value */
 template <class T>
-auto either (T && value, std::error_code ec) -> expected<typename std::remove_reference<T>::type, std::error_code>
+auto either (T && value, std::error_code ec) -> expected<typename std::remove_reference_t<T>, std::error_code>
 {
 	if (ec)
 	{
@@ -256,16 +256,14 @@ class error
 {
 public:
 	error () = default;
-	error (nano::error const & error_a)
+	error (nano::error const & error_a) :
+	code (error_a.code), message (error_a.message)
 	{
-		code = error_a.code;
-		message = error_a.message;
 	}
 
-	error (nano::error && error_a)
+	error (nano::error && error_a) :
+	code (error_a.code), message (std::move (error_a.message))
 	{
-		code = error_a.code;
-		message = std::move (error_a.message);
 	}
 
 	error (std::error_code code_a)
@@ -276,7 +274,7 @@ public:
 	error (std::string message_a)
 	{
 		code = nano::error_common::generic;
-		message = message_a;
+		message = std::move (message_a);
 	}
 
 	error (std::exception const & exception_a)
@@ -327,7 +325,7 @@ public:
 	inline error & operator= (const std::string message_a)
 	{
 		code = nano::error_common::generic;
-		message = message_a;
+		message = std::move (message_a);
 		return *this;
 	}
 
@@ -422,7 +420,7 @@ public:
 	{
 		if (code)
 		{
-			message = message_a;
+			message = std::move (message_a);
 		}
 		return *this;
 	}
@@ -432,7 +430,7 @@ public:
 	{
 		if (code == code_a)
 		{
-			message = message_a;
+			message = std::move (message_a);
 		}
 		return *this;
 	}
@@ -452,7 +450,7 @@ public:
 		{
 			code = nano::error_common::generic;
 		}
-		message = message_a;
+		message = std::move (message_a);
 		return *this;
 	}
 

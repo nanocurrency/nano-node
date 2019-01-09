@@ -16,10 +16,10 @@ public:
 	nano::error deserialize_json (bool &, nano::jsonconfig &);
 	nano::error serialize_json (nano::jsonconfig &);
 	/** 
-	 * Returns true if an upgrade occurred 
-	 * @param version_a The version to upgrade to.
+	 * Returns true if an upgrade occurred
+	 * @param version The version to upgrade to.
 	 */
-	bool upgrade_json (unsigned version_a, nano::jsonconfig &);
+	bool upgrade_json (unsigned version, nano::jsonconfig & config);
 	bool rpc_enable;
 	nano::rpc_config rpc;
 	nano::node_config node;
