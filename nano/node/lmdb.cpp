@@ -1851,6 +1851,7 @@ nano::unchecked_info nano::mdb_store::unchecked_hash_get (nano::transaction cons
 		nano::bufferstream stream (reinterpret_cast<uint8_t const *> (value.data ()), value.size ());
 		auto error (nano::read (stream, key));
 		assert (!error);
+		nano::mdb_val value2;
 		auto status2 (mdb_get (env.tx (transaction_a), unchecked, nano::mdb_val (nano::unchecked_key (hash_a, key)), value2));
 		release_assert (status2 == 0);
 		result = value2;
