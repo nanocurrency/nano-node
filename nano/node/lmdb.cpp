@@ -773,6 +773,7 @@ meta (0)
 		error_a |= mdb_dbi_open (env.tx (transaction), "blocks_info", MDB_CREATE, &blocks_info) != 0;
 		error_a |= mdb_dbi_open (env.tx (transaction), "representation", MDB_CREATE, &representation) != 0;
 		error_a |= mdb_dbi_open (env.tx (transaction), "unchecked", MDB_CREATE, &unchecked) != 0;
+		error_a |= mdb_dbi_open (env.tx (transaction), "unchecked_hash", MDB_CREATE, &unchecked_hash) != 0;
 		error_a |= mdb_dbi_open (env.tx (transaction), "checksum", MDB_CREATE, &checksum) != 0;
 		error_a |= mdb_dbi_open (env.tx (transaction), "vote", MDB_CREATE, &vote) != 0;
 		error_a |= mdb_dbi_open (env.tx (transaction), "meta", MDB_CREATE, &meta) != 0;
@@ -1794,13 +1795,15 @@ void nano::mdb_store::representation_put (nano::transaction const & transaction_
 void nano::mdb_store::unchecked_clear (nano::transaction const & transaction_a)
 {
 	auto status (mdb_drop (env.tx (transaction_a), unchecked, 0));
-	release_assert (status == 0);
+	auto status2 (mdb_drop (env.tx (transaction_a), unchecked_hash, 0));
+	release_assert (status == 0 && status2 == 0);
 }
 
 void nano::mdb_store::unchecked_put (nano::transaction const & transaction_a, nano::unchecked_key const & key_a, nano::unchecked_info const & info_a)
 {
 	auto status (mdb_put (env.tx (transaction_a), unchecked, nano::mdb_val (key_a), nano::mdb_val (info_a), 0));
-	release_assert (status == 0);
+	auto status2 (mdb_put (env.tx (transaction_a), unchecked_hash, nano::mdb_val (key_a.key ()), nano::mdb_val (key_a.hash), 0));
+	release_assert (status == 0 && status2 == 0);
 }
 
 void nano::mdb_store::unchecked_put (nano::transaction const & transaction_a, nano::block_hash const & hash_a, std::shared_ptr<nano::block> const & block_a)
@@ -1835,16 +1838,50 @@ std::vector<nano::unchecked_info> nano::mdb_store::unchecked_get (nano::transact
 	return result;
 }
 
+nano::unchecked_info nano::mdb_store::unchecked_hash_get (nano::transaction const & transaction_a, nano::block_hash const & hash_a)
+{
+	nano::mdb_val value;
+	auto status (mdb_get (env.tx (transaction_a), unchecked_hash, nano::mdb_val (hash_a), value));
+	release_assert (status == 0 || status == MDB_NOTFOUND);
+	nano::unchecked_info result;
+	if (status == 0)
+	{
+		nano::block_hash key;
+		nano::bufferstream stream (reinterpret_cast<uint8_t const *> (value.data ()), value.size ());
+		auto error (nano::read (stream, key));
+		assert (!error);
+		auto status2 (mdb_get (env.tx (transaction_a), unchecked, nano::mdb_val (nano::unchecked_key (hash_a, key)), value2));
+		release_assert (status2 == 0);
+		result = value2;
+		assert (result.block != nullptr);
+	}
+	return result;
+}
+
 bool nano::mdb_store::unchecked_exists (nano::transaction const & transaction_a, nano::unchecked_key const & key_a)
 {
 	auto iterator (unchecked_begin (transaction_a, key_a));
 	return iterator != unchecked_end () && nano::unchecked_key (iterator->first) == key_a;
 }
 
+bool nano::mdb_store::unchecked_hash_exists (nano::transaction const & transaction_a, nano::block_hash const & hash_a)
+{
+	bool result (false);
+	auto status (mdb_get (env.tx (transaction_a), unchecked_hash, nano::mdb_val (hash_a), nullptr));
+	release_assert (status == 0 || status == MDB_NOTFOUND);
+	if (status == 0)
+	{
+		result = true;
+	}
+	return result;
+}
+
 void nano::mdb_store::unchecked_del (nano::transaction const & transaction_a, nano::unchecked_key const & key_a)
 {
 	auto status (mdb_del (env.tx (transaction_a), unchecked, nano::mdb_val (key_a), nullptr));
 	release_assert (status == 0 || status == MDB_NOTFOUND);
+	auto status2 (mdb_del (env.tx (transaction_a), unchecked_hash, nano::mdb_val (key_a.hash), nullptr));
+	release_assert (status2 == 0 || status2 == MDB_NOTFOUND);
 }
 
 size_t nano::mdb_store::unchecked_count (nano::transaction const & transaction_a)
