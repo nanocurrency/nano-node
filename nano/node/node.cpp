@@ -1493,11 +1493,11 @@ nano::process_return nano::block_processor::process_one (nano::transaction const
 	nano::process_return result;
 	auto hash (info_a.block->hash ());
 	result = node.ledger.process (transaction_a, *(info_a.block), info_a.verified);
-	release_assert (info_a.account.is_zero () || info_a.account == result.account);
 	switch (result.code)
 	{
 		case nano::process_result::progress:
 		{
+			release_assert (info_a.account.is_zero () || info_a.account == result.account);
 			if (node.config.logging.ledger_logging ())
 			{
 				std::string block;
