@@ -1844,7 +1844,6 @@ nano::unchecked_info nano::mdb_store::unchecked_hash_get (nano::transaction cons
 	nano::mdb_val value;
 	auto status (mdb_get (env.tx (transaction_a), unchecked_hash, nano::mdb_val (hash_a), value));
 	release_assert (status == 0 || status == MDB_NOTFOUND);
-	nano::unchecked_info result;
 	if (status == 0)
 	{
 		nano::block_hash key;
@@ -1854,10 +1853,12 @@ nano::unchecked_info nano::mdb_store::unchecked_hash_get (nano::transaction cons
 		nano::mdb_val value2;
 		auto status2 (mdb_get (env.tx (transaction_a), unchecked, nano::mdb_val (nano::unchecked_key (hash_a, key)), value2));
 		release_assert (status2 == 0);
-		result = value2;
+		nano::unchecked_info result (value2);
 		assert (result.block != nullptr);
+		return result;
 	}
-	return result;
+	nano::unchecked_info empty;
+	return empty;
 }
 
 bool nano::mdb_store::unchecked_exists (nano::transaction const & transaction_a, nano::unchecked_key const & key_a)
