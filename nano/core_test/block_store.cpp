@@ -1155,7 +1155,7 @@ TEST (block_store, unchecked_hash)
 	store.unchecked_put (transaction, genesis.hash (), std::make_shared<nano::state_block> (block1));
 	ASSERT_TRUE (store.unchecked_exists (transaction, nano::unchecked_key (genesis.hash (), block1.hash ())));
 	ASSERT_FALSE (store.unchecked_hash_exists (transaction, block1.hash ()));
-	store.unchecked_put (transaction, nano::unchecked_key (genesis.hash (), block1.hash ()), nano::unchecked_info (std::make_shared<nano::state_block> (block1), nano::seconds_since_epoch (), nano::signature_verification::valid));
+	store.unchecked_put (transaction, nano::unchecked_key (genesis.hash (), block1.hash ()), nano::unchecked_info (std::make_shared<nano::state_block> (block1), 0, nano::seconds_since_epoch (), nano::signature_verification::valid));
 	ASSERT_TRUE (store.unchecked_hash_exists (transaction, block1.hash ()));
 	auto count (store.unchecked_count (transaction));
 	ASSERT_EQ (1, count);
