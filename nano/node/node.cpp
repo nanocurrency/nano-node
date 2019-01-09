@@ -1299,24 +1299,23 @@ bool nano::block_processor::have_blocks ()
 	return !blocks.empty () || !forced.empty () || !state_blocks.empty ();
 }
 
-void nano::block_processor::verify_state_blocks (std::unique_lock<std::mutex> & lock_a, size_t max_count)
+void nano::block_processor::verify_state_blocks (nano::transaction const & transaction_a, std::unique_lock<std::mutex> & lock_a, size_t max_count)
 {
 	assert (!mutex.try_lock ());
 	nano::timer<std::chrono::milliseconds> timer_l (nano::timer_state::started);
 	std::deque<std::pair<std::shared_ptr<nano::block>, std::chrono::steady_clock::time_point>> items;
-	if (max_count == std::numeric_limits<size_t>::max () || max_count >= state_blocks.size ())
-	{
-		items.swap (state_blocks);
-	}
-	else
-	{
-		auto keep_size (state_blocks.size () - max_count);
-		items.resize (keep_size);
-		std::swap_ranges (state_blocks.end () - keep_size, state_blocks.end (), items.begin ());
-		state_blocks.resize (max_count);
-		items.swap (state_blocks);
-	}
+	std::deque<std::pair<std::shared_ptr<nano::block>, std::chrono::steady_clock::time_point>> items_l1;
+	items_l1.swap (state_blocks);
 	lock_a.unlock ();
+	for (auto i (0); i < max_count; i++)
+	{
+		auto item (items_l1.front ());
+		items_l1.pop_front ();
+		if (!ledger.store.block_exists (transaction, item.first->type (), item.first->hash ()))
+		{
+			items.push_back (item);
+		}
+	}
 	auto size (items.size ());
 	std::vector<nano::uint256_union> hashes;
 	hashes.reserve (size);
@@ -1365,9 +1364,13 @@ void nano::block_processor::process_batch (std::unique_lock<std::mutex> & lock_a
 	lock_a.lock ();
 	timer_l.start ();
 	// Limit state blocks verification time
-	while (!state_blocks.empty () && timer_l.before_deadline (std::chrono::seconds (2)))
+	if (!state_blocks.empty ())
 	{
-		verify_state_blocks (lock_a, 2048);
+		auto transaction (node.store.tx_begin_read ());
+		while (!state_blocks.empty () && timer_l.before_deadline (std::chrono::seconds (2)))
+		{
+			verify_state_blocks (transaction, lock_a, 2048);
+		}
 	}
 	lock_a.unlock ();
 	auto transaction (node.store.tx_begin_write ());
@@ -1437,7 +1440,7 @@ void nano::block_processor::process_batch (std::unique_lock<std::mutex> & lock_a
 		Because verification is long process, avoid large deque verification inside of write transaction */
 		if (blocks.empty () && !state_blocks.empty ())
 		{
-			verify_state_blocks (lock_a, 256);
+			verify_state_blocks (transaction, lock_a, 256);
 		}
 	}
 	lock_a.unlock ();
