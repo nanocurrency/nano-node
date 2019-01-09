@@ -1803,7 +1803,7 @@ void nano::mdb_store::unchecked_clear (nano::transaction const & transaction_a)
 void nano::mdb_store::unchecked_put (nano::transaction const & transaction_a, nano::unchecked_key const & key_a, nano::unchecked_info const & info_a)
 {
 	auto status (mdb_put (env.tx (transaction_a), unchecked, nano::mdb_val (key_a), nano::mdb_val (info_a), 0));
-	auto status2 (mdb_put (env.tx (transaction_a), unchecked_hash, nano::mdb_val (key_a.key ()), nano::mdb_val (key_a.hash), 0));
+	auto status2 (mdb_put (env.tx (transaction_a), unchecked_hash, nano::mdb_val (key_a.hash), nano::mdb_val (key_a.key ()), 0));
 	release_assert (status == 0 && status2 == 0);
 }
 
@@ -1851,7 +1851,7 @@ nano::unchecked_info nano::mdb_store::unchecked_hash_get (nano::transaction cons
 		auto error (nano::read (stream, key));
 		assert (!error);
 		nano::mdb_val value2;
-		auto status2 (mdb_get (env.tx (transaction_a), unchecked, nano::mdb_val (nano::unchecked_key (hash_a, key)), value2));
+		auto status2 (mdb_get (env.tx (transaction_a), unchecked, nano::mdb_val (nano::unchecked_key (key, hash_a)), value2));
 		release_assert (status2 == 0);
 		nano::unchecked_info result (value2);
 		assert (result.block != nullptr);
@@ -1870,7 +1870,8 @@ bool nano::mdb_store::unchecked_exists (nano::transaction const & transaction_a,
 bool nano::mdb_store::unchecked_hash_exists (nano::transaction const & transaction_a, nano::block_hash const & hash_a)
 {
 	bool result (false);
-	auto status (mdb_get (env.tx (transaction_a), unchecked_hash, nano::mdb_val (hash_a), nullptr));
+	nano::mdb_val junk;
+	auto status (mdb_get (env.tx (transaction_a), unchecked_hash, nano::mdb_val (hash_a), junk));
 	release_assert (status == 0 || status == MDB_NOTFOUND);
 	if (status == 0)
 	{
