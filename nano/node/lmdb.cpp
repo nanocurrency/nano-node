@@ -1138,7 +1138,7 @@ void nano::mdb_store::upgrade_v11_to_v12 ()
 			{
 				if (cost >= max)
 				{
-					BOOST_LOG (logging.log) << boost::str (boost::format ("Upgrading account %1%... height %2%") % first.to_account ().substr (0, 16) % std::to_string (height));
+					BOOST_LOG (logging.log) << boost::str (boost::format ("Upgrading sideband information for account %1%... height %2%") % first.to_account ().substr (0, 24) % std::to_string (height));
 					auto tx (boost::polymorphic_downcast<nano::mdb_txn *> (transaction.impl.get ()));
 					auto status0 (mdb_txn_commit (*tx));
 					release_assert (status0 == MDB_SUCCESS);
@@ -1506,6 +1506,7 @@ std::shared_ptr<nano::block> nano::mdb_store::block_get (nano::transaction const
 				sideband_a->balance = block_balance_computed (transaction_a, hash_a);
 				sideband_a->successor = block_successor (transaction_a, hash_a);
 				sideband_a->height = std::numeric_limits<uint64_t>::max ();
+				sideband_a->timestamp = std::numeric_limits<uint64_t>::max ();
 			}
 		}
 	}
