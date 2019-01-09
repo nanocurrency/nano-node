@@ -354,10 +354,16 @@ public:
 	MDB_dbi representation;
 
 	/**
-	 * Unchecked bootstrap blocks.
-	 * nano::block_hash -> nano::block
+	 * Unchecked bootstrap blocks info.
+	 * nano::block_hash -> nano::unchecked_info
 	 */
 	MDB_dbi unchecked;
+
+	/**
+	 * Unchecked bootstrap blocks hashes.
+	 * nano::block_hash -> nano::block_hash
+	 */
+	MDB_dbi unchecked_hash;
 
 	/**
 	 * Mapping of region to checksum.
