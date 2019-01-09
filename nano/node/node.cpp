@@ -1449,7 +1449,7 @@ void nano::block_processor::process_batch (std::unique_lock<std::mutex> & lock_a
 			}
 		}
 		number_of_blocks_processed++;
-		if (!node.ledger.store.unchecked_hash_exists (unchecked_put, hash))
+		if (!node.ledger.store.unchecked_hash_exists (transaction, hash))
 		{
 			auto process_result (process_one (transaction, block.first, block.second.first, block.second.second));
 			(void)process_result;
