@@ -1393,6 +1393,17 @@ bool nano::bootstrap_attempt::lazy_finished ()
 	return result;
 }
 
+void nano::bootstrap_attempt::lazy_clear ()
+{
+	assert (!lazy_mutex.try_lock ());
+	lazy_blocks.clear ();
+	lazy_keys.clear ();
+	lazy_pulls.clear ();
+	lazy_state_unknown.clear ();
+	lazy_balances.clear ();
+	lazy_stopped = 0;
+}
+
 void nano::bootstrap_attempt::lazy_run ()
 {
 	populate_connections ();
@@ -1438,17 +1449,23 @@ void nano::bootstrap_attempt::lazy_run ()
 	if (!stopped)
 	{
 		BOOST_LOG (node->log) << "Completed lazy pulls";
-		// Fallback to legacy bootstrap
 		std::unique_lock<std::mutex> lazy_lock (lazy_mutex);
-		if (!lazy_keys.empty () && !node->flags.disable_legacy_bootstrap)
+		// Start wallet lazy bootstrap if required
+		if (!wallet_accounts.empty () && !node->flags.disable_wallet_bootstrap)
 		{
 			pulls.clear ();
-			lazy_blocks.clear ();
-			lazy_keys.clear ();
-			lazy_pulls.clear ();
-			lazy_state_unknown.clear ();
-			lazy_balances.clear ();
-			lazy_stopped = 0;
+			lazy_clear ();
+			mode = nano::bootstrap_mode::wallet_lazy;
+			lock.unlock ();
+			lazy_lock.unlock ();
+			wallet_run ();
+			lock.lock ();
+		}
+		// Fallback to legacy bootstrap
+		else if (!lazy_keys.empty () && !node->flags.disable_legacy_bootstrap)
+		{
+			pulls.clear ();
+			lazy_clear ();
 			mode = nano::bootstrap_mode::legacy;
 			lock.unlock ();
 			lazy_lock.unlock ();
