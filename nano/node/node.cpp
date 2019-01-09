@@ -1375,20 +1375,20 @@ void nano::block_processor::verify_state_blocks (std::unique_lock<std::mutex> & 
 			// Epoch blocks
 			if (verifications[i] == 1)
 			{
-				item.verification = nano::signature_verification::valid_epoch;
+				item.verified = nano::signature_verification::valid_epoch;
 				blocks.push_back (item);
 			}
 			else
 			{
 				// Possible regular state blocks with epoch link (send subtype)
-				item.verification = nano::signature_verification::unknown;
+				item.verified = nano::signature_verification::unknown;
 				blocks.push_back (item);
 			}
 		}
 		else if (verifications[i] == 1)
 		{
 			// Non epoch blocks
-			item.verification = nano::signature_verification::valid;
+			item.verified = nano::signature_verification::valid;
 			blocks.push_back (item);
 		}
 		items.pop_front ();
@@ -1504,7 +1504,7 @@ nano::process_return nano::block_processor::process_one (nano::transaction const
 				info_a.block->serialize_json (block);
 				BOOST_LOG (node.log) << boost::str (boost::format ("Processing block %1%: %2%") % hash.to_string () % block);
 			}
-			if (std::chrono::seconds (info_a.modified) < std::chrono::steady_clock::now () - node.block_arrival.arrival_time_min && node.block_arrival.recent (hash))
+			if (info_a.modified > nano::seconds_since_epoch () - 300 && node.block_arrival.recent (hash))
 			{
 				node.active.start (info_a.block);
 				if (node.config.enable_voting)
@@ -1521,7 +1521,7 @@ nano::process_return nano::block_processor::process_one (nano::transaction const
 			{
 				BOOST_LOG (node.log) << boost::str (boost::format ("Gap previous for: %1%") % hash.to_string ());
 			}
-			info_a.verifiaction = result.verified;
+			info_a.verified = result.verified;
 			if (info_a.modified == 0)
 			{
 				info_a.modified = nano::seconds_since_epoch ()
@@ -1536,7 +1536,7 @@ nano::process_return nano::block_processor::process_one (nano::transaction const
 			{
 				BOOST_LOG (node.log) << boost::str (boost::format ("Gap source for: %1%") % hash.to_string ());
 			}
-			info_a.verifiaction = result.verified;
+			info_a.verified = result.verified;
 			if (info_a.modified == 0)
 			{
 				info_a.modified = nano::seconds_since_epoch ()
@@ -1581,7 +1581,7 @@ nano::process_return nano::block_processor::process_one (nano::transaction const
 		}
 		case nano::process_result::fork:
 		{
-			if (std::chrono::seconds (info_a.modified) < std::chrono::steady_clock::now () - std::chrono::seconds (15))
+			if (info_a.modified < nano::seconds_since_epoch () - 15)
 			{
 				// Only let the bootstrap attempt know about forked blocks that not originate recently.
 				node.process_fork (transaction_a, info_a.block);
@@ -1628,7 +1628,7 @@ nano::process_return nano::block_processor::process_one (nano::transaction const
 nano::process_return nano::block_processor::process_one (nano::transaction const & transaction_a, std::shared_ptr<nano::block> block_a)
 {
 	nano::unchecked_info info (block_a, block_a->account (), 0, nano::signature_verification::unknown);
-	auto result (transaction_a, info);
+	auto result (process_one (transaction_a, info));
 	return result;
 }
 
