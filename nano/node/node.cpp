@@ -1236,7 +1236,7 @@ void nano::block_processor::add (nano::unchecked_info const & info_a)
 			std::lock_guard<std::mutex> lock (mutex);
 			if (blocks_hashes.find (info_a.block->hash ()) == blocks_hashes.end ())
 			{
-				if (info_a.verified == nano::signature_verification::unknown || info_a.block->type () == nano::block_type::state || info_a.block->type () == nano::block_type::open || !info_a.account.is_zero ())
+				if (info_a.verified == nano::signature_verification::unknown && (info_a.block->type () == nano::block_type::state || info_a.block->type () == nano::block_type::open || !info_a.account.is_zero ()))
 				{
 					blocks.push_back (info_a);
 				}
