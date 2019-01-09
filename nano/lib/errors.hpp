@@ -283,14 +283,14 @@ public:
 		message = exception_a.what ();
 	}
 
-	inline error & operator= (nano::error const & err_a)
+	error & operator= (nano::error const & err_a)
 	{
 		code = err_a.code;
 		message = err_a.message;
 		return *this;
 	}
 
-	inline error & operator= (nano::error && err_a)
+	error & operator= (nano::error && err_a)
 	{
 		code = err_a.code;
 		message = std::move (err_a.message);
@@ -298,7 +298,7 @@ public:
 	}
 
 	/** Assign error code */
-	inline error & operator= (const std::error_code code_a)
+	error & operator= (const std::error_code code_a)
 	{
 		code = code_a;
 		message.clear ();
@@ -306,7 +306,7 @@ public:
 	}
 
 	/** Assign boost error code (as converted to std::error_code) */
-	inline error & operator= (const boost::system::error_code & code_a)
+	error & operator= (const boost::system::error_code & code_a)
 	{
 		code = nano::error_conversion::convert (code_a);
 		message.clear ();
@@ -314,7 +314,7 @@ public:
 	}
 
 	/** Assign boost error code (as converted to std::error_code) */
-	inline error & operator= (const boost::system::errc::errc_t & code_a)
+	error & operator= (const boost::system::errc::errc_t & code_a)
 	{
 		code = nano::error_conversion::convert (boost::system::errc::make_error_code (code_a));
 		message.clear ();
@@ -322,7 +322,7 @@ public:
 	}
 
 	/** Set the error to nano::error_common::generic and the error message to \p message_a */
-	inline error & operator= (const std::string message_a)
+	error & operator= (const std::string message_a)
 	{
 		code = nano::error_common::generic;
 		message = std::move (message_a);
@@ -330,7 +330,7 @@ public:
 	}
 
 	/** Set the error to nano::error_common::generic. */
-	inline error & operator= (bool is_error)
+	error & operator= (bool is_error)
 	{
 		if (is_error)
 		{
@@ -341,7 +341,7 @@ public:
 	}
 
 	/** Sets the error to nano::error_common::exception and adopts the exception error message. */
-	inline error & operator= (std::exception const & exception_a)
+	error & operator= (std::exception const & exception_a)
 	{
 		code = nano::error_common::exception;
 		message = exception_a.what ();
@@ -349,19 +349,19 @@ public:
 	}
 
 	/** Return true if this#error_code equals the parameter */
-	inline bool operator== (const std::error_code code_a)
+	bool operator== (const std::error_code code_a)
 	{
 		return code == code_a;
 	}
 
 	/** Return true if this#error_code equals the parameter */
-	inline bool operator== (const boost::system::error_code code_a)
+	bool operator== (const boost::system::error_code code_a)
 	{
 		return code.value () == code_a.value ();
 	}
 
 	/** Call the function iff the current error is zero */
-	inline error & then (std::function<nano::error &()> next)
+	error & then (std::function<nano::error &()> next)
 	{
 		return code ? *this : next ();
 	}
@@ -384,19 +384,19 @@ public:
 	}
 
 	/** Implicit error_code conversion */
-	inline operator std::error_code () const
+	operator std::error_code () const
 	{
 		return code;
 	}
 
 	/** Implicit bool conversion; true if there's an error */
-	inline operator bool () const
+	operator bool () const
 	{
 		return code.value () != 0;
 	}
 
 	/** Implicit string conversion; returns the error message or an empty string. */
-	inline operator std::string () const
+	operator std::string () const
 	{
 		return get_message ();
 	}
@@ -405,10 +405,10 @@ public:
 	 * Get error message, or an empty string if there's no error. If a custom error message is set,
 	 * that will be returned, otherwise the error_code#message() is returned.
 	 */
-	inline std::string get_message () const
+	std::string get_message () const
 	{
 		std::string res = message;
-		if (code && res.size () == 0)
+		if (code && res.empty ())
 		{
 			res = code.message ();
 		}
@@ -416,7 +416,7 @@ public:
 	}
 
 	/** Set an error message, but only if the error code is already set */
-	inline error & on_error (std::string message_a)
+	error & on_error (std::string message_a)
 	{
 		if (code)
 		{
@@ -426,7 +426,7 @@ public:
 	}
 
 	/** Set an error message if the current error code matches \p code_a */
-	inline error & on_error (std::error_code code_a, std::string message_a)
+	error & on_error (std::error_code code_a, std::string message_a)
 	{
 		if (code == code_a)
 		{
@@ -436,7 +436,7 @@ public:
 	}
 
 	/** Set an error message and an error code */
-	inline error & set (std::string message_a, std::error_code code_a = nano::error_common::generic)
+	error & set (std::string message_a, std::error_code code_a = nano::error_common::generic)
 	{
 		message = message_a;
 		code = code_a;
@@ -444,7 +444,7 @@ public:
 	}
 
 	/** Set a custom error message. If the error code is not set, it will be set to nano::error_common::generic. */
-	inline error & set_message (std::string message_a)
+	error & set_message (std::string message_a)
 	{
 		if (!code)
 		{
@@ -455,7 +455,7 @@ public:
 	}
 
 	/** Clear an errors */
-	inline error & clear ()
+	error & clear ()
 	{
 		code.clear ();
 		message.clear ();
