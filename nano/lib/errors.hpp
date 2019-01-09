@@ -372,14 +372,11 @@ public:
 	{
 		// Convert variadic arguments to std::error_code
 		auto codes = { std::error_code (err)... };
-		for (auto code_l : codes)
+		if (std::any_of (codes.begin (), codes.end (), [this, &codes](auto & code_a) { return code == code_a; }))
 		{
-			if (code == code_l)
-			{
-				code.clear ();
-				break;
-			}
+			code.clear ();
 		}
+
 		return *this;
 	}
 
