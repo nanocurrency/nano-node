@@ -56,13 +56,13 @@ public:
 	}
 
 	/** Returns the built block as a unique_ptr. Any errors are placed in \p ec */
-	inline std::unique_ptr<BLOCKTYPE> build (std::error_code & ec)
+	inline std::unique_ptr<BLOCKTYPE> build (std::error_code & ec_a)
 	{
 		if (!this->ec)
 		{
 			static_cast<BUILDER *> (this)->validate ();
 		}
-		ec = this->ec;
+		ec_a = this->ec;
 		return std::move (block);
 	}
 

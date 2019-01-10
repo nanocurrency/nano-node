@@ -1009,12 +1009,12 @@ void nano::mdb_store::upgrade_v7_to_v8 (nano::transaction const & transaction_a)
 void nano::mdb_store::upgrade_v8_to_v9 (nano::transaction const & transaction_a)
 {
 	version_put (transaction_a, 9);
-	MDB_dbi sequence;
-	mdb_dbi_open (env.tx (transaction_a), "sequence", MDB_CREATE | MDB_DUPSORT, &sequence);
+	MDB_dbi mdi_sequence;
+	mdb_dbi_open (env.tx (transaction_a), "sequence", MDB_CREATE | MDB_DUPSORT, &mdi_sequence);
 	nano::genesis genesis;
 	std::shared_ptr<nano::block> block (std::move (genesis.open));
 	nano::keypair junk;
-	for (nano::mdb_iterator<nano::account, uint64_t> i (transaction_a, sequence), n (nano::mdb_iterator<nano::account, uint64_t> (nullptr)); i != n; ++i)
+	for (nano::mdb_iterator<nano::account, uint64_t> i (transaction_a, mdi_sequence), n (nano::mdb_iterator<nano::account, uint64_t> (nullptr)); i != n; ++i)
 	{
 		nano::bufferstream stream (reinterpret_cast<uint8_t const *> (i->second.data ()), i->second.size ());
 		uint64_t sequence;
@@ -1023,14 +1023,14 @@ void nano::mdb_store::upgrade_v8_to_v9 (nano::transaction const & transaction_a)
 		nano::vote dummy (nano::account (i->first), junk.prv, sequence, block);
 		std::vector<uint8_t> vector;
 		{
-			nano::vectorstream stream (vector);
-			dummy.serialize (stream);
+			nano::vectorstream dummy_stream (vector);
+			dummy.serialize (dummy_stream);
 		}
 		auto status1 (mdb_put (env.tx (transaction_a), vote, nano::mdb_val (i->first), nano::mdb_val (vector.size (), vector.data ()), 0));
 		release_assert (status1 == 0);
 		assert (!error);
 	}
-	mdb_drop (env.tx (transaction_a), sequence, 1);
+	mdb_drop (env.tx (transaction_a), mdi_sequence, 1);
 }
 
 void nano::mdb_store::upgrade_v9_to_v10 (nano::transaction const & transaction_a)
@@ -1181,23 +1181,23 @@ MDB_val nano::mdb_store::block_raw_get (nano::transaction const & transaction_a,
 	release_assert (status == 0 || status == MDB_NOTFOUND);
 	if (status != 0)
 	{
-		auto status (mdb_get (env.tx (transaction_a), receive_blocks, nano::mdb_val (hash_a), result));
+		status = mdb_get (env.tx (transaction_a), receive_blocks, nano::mdb_val (hash_a), result);
 		release_assert (status == 0 || status == MDB_NOTFOUND);
 		if (status != 0)
 		{
-			auto status (mdb_get (env.tx (transaction_a), open_blocks, nano::mdb_val (hash_a), result));
+			status = mdb_get (env.tx (transaction_a), open_blocks, nano::mdb_val (hash_a), result);
 			release_assert (status == 0 || status == MDB_NOTFOUND);
 			if (status != 0)
 			{
-				auto status (mdb_get (env.tx (transaction_a), change_blocks, nano::mdb_val (hash_a), result));
+				status = mdb_get (env.tx (transaction_a), change_blocks, nano::mdb_val (hash_a), result);
 				release_assert (status == 0 || status == MDB_NOTFOUND);
 				if (status != 0)
 				{
-					auto status (mdb_get (env.tx (transaction_a), state_blocks_v0, nano::mdb_val (hash_a), result));
+					status = mdb_get (env.tx (transaction_a), state_blocks_v0, nano::mdb_val (hash_a), result);
 					release_assert (status == 0 || status == MDB_NOTFOUND);
 					if (status != 0)
 					{
-						auto status (mdb_get (env.tx (transaction_a), state_blocks_v1, nano::mdb_val (hash_a), result));
+						status = mdb_get (env.tx (transaction_a), state_blocks_v1, nano::mdb_val (hash_a), result);
 						release_assert (status == 0 || status == MDB_NOTFOUND);
 						if (status != 0)
 						{
@@ -1354,23 +1354,23 @@ void nano::mdb_store::block_del (nano::transaction const & transaction_a, nano::
 	release_assert (status == 0 || status == MDB_NOTFOUND);
 	if (status != 0)
 	{
-		auto status (mdb_del (env.tx (transaction_a), state_blocks_v0, nano::mdb_val (hash_a), nullptr));
+		status = mdb_del (env.tx (transaction_a), state_blocks_v0, nano::mdb_val (hash_a), nullptr);
 		release_assert (status == 0 || status == MDB_NOTFOUND);
 		if (status != 0)
 		{
-			auto status (mdb_del (env.tx (transaction_a), send_blocks, nano::mdb_val (hash_a), nullptr));
+			status = mdb_del (env.tx (transaction_a), send_blocks, nano::mdb_val (hash_a), nullptr);
 			release_assert (status == 0 || status == MDB_NOTFOUND);
 			if (status != 0)
 			{
-				auto status (mdb_del (env.tx (transaction_a), receive_blocks, nano::mdb_val (hash_a), nullptr));
+				status = mdb_del (env.tx (transaction_a), receive_blocks, nano::mdb_val (hash_a), nullptr);
 				release_assert (status == 0 || status == MDB_NOTFOUND);
 				if (status != 0)
 				{
-					auto status (mdb_del (env.tx (transaction_a), open_blocks, nano::mdb_val (hash_a), nullptr));
+					status = mdb_del (env.tx (transaction_a), open_blocks, nano::mdb_val (hash_a), nullptr);
 					release_assert (status == 0 || status == MDB_NOTFOUND);
 					if (status != 0)
 					{
-						auto status (mdb_del (env.tx (transaction_a), change_blocks, nano::mdb_val (hash_a), nullptr));
+						status = mdb_del (env.tx (transaction_a), change_blocks, nano::mdb_val (hash_a), nullptr);
 						release_assert (status == 0);
 					}
 				}
@@ -1421,7 +1421,7 @@ bool nano::mdb_store::block_exists (nano::transaction const & transaction_a, nan
 			exists = status == 0;
 			if (!exists)
 			{
-				auto status (mdb_get (env.tx (transaction_a), state_blocks_v1, nano::mdb_val (hash_a), junk));
+				status = mdb_get (env.tx (transaction_a), state_blocks_v1, nano::mdb_val (hash_a), junk);
 				release_assert (status == 0 || status == MDB_NOTFOUND);
 				exists = status == 0;
 			}

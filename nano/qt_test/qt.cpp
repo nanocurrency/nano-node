@@ -456,9 +456,9 @@ TEST (history, short_text)
 {
 	bool init (false);
 	nano_qt::eventloop_processor processor;
-	nano::keypair key;
+	nano::keypair key_l;
 	nano::system system (24000, 1);
-	system.wallet (0)->insert_adhoc (key.prv);
+	system.wallet (0)->insert_adhoc (key_l.prv);
 	nano::account account;
 	{
 		auto transaction (system.nodes[0]->store.tx_begin ());

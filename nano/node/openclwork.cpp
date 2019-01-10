@@ -446,9 +446,9 @@ void nano::opencl_environment::dump (std::ostream & stream)
 		}
 		for (auto j (i->devices.begin ()), m (i->devices.end ()); j != m; ++j)
 		{
-			std::vector<unsigned> queries = { CL_DEVICE_NAME, CL_DEVICE_VENDOR, CL_DEVICE_PROFILE };
+			std::vector<unsigned> device_queries = { CL_DEVICE_NAME, CL_DEVICE_VENDOR, CL_DEVICE_PROFILE };
 			stream << "Device: " << j - i->devices.begin () << std::endl;
-			for (auto k (queries.begin ()), o (queries.end ()); k != o; ++k)
+			for (auto k (device_queries.begin ()), o (device_queries.end ()); k != o; ++k)
 			{
 				size_t platformInfoCount = 0;
 				clGetDeviceInfo (*j, *k, 0, nullptr, &platformInfoCount);

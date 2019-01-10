@@ -393,14 +393,14 @@ TEST (fan, change)
 
 TEST (wallet, reopen_default_password)
 {
-	bool init;
-	nano::mdb_env env (init, nano::unique_path ());
+	bool init_l;
+	nano::mdb_env env (init_l, nano::unique_path ());
 	nano::transaction transaction (env.tx_begin (true));
-	ASSERT_FALSE (init);
+	ASSERT_FALSE (init_l);
 	nano::kdf kdf;
 	{
-		nano::wallet_store wallet (init, kdf, transaction, nano::genesis_account, 1, "0");
-		ASSERT_FALSE (init);
+		nano::wallet_store wallet (init_l, kdf, transaction, nano::genesis_account, 1, "0");
+		ASSERT_FALSE (init_l);
 		ASSERT_TRUE (wallet.valid_password (transaction));
 	}
 	{
@@ -410,8 +410,8 @@ TEST (wallet, reopen_default_password)
 		ASSERT_TRUE (wallet.valid_password (transaction));
 	}
 	{
-		nano::wallet_store wallet (init, kdf, transaction, nano::genesis_account, 1, "0");
-		ASSERT_FALSE (init);
+		nano::wallet_store wallet (init_l, kdf, transaction, nano::genesis_account, 1, "0");
+		ASSERT_FALSE (init_l);
 		wallet.rekey (transaction, "");
 		ASSERT_TRUE (wallet.valid_password (transaction));
 	}
@@ -633,8 +633,8 @@ TEST (wallet, work_generate)
 	nano::keypair key;
 	wallet->send_action (nano::test_genesis_key.pub, key.pub, 100);
 	system.deadline_set (10s);
-	auto transaction (system.nodes[0]->store.tx_begin ());
-	while (system.nodes[0]->ledger.account_balance (transaction, nano::test_genesis_key.pub) == amount1)
+	auto transaction_l (system.nodes[0]->store.tx_begin ());
+	while (system.nodes[0]->ledger.account_balance (transaction_l, nano::test_genesis_key.pub) == amount1)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}

@@ -86,9 +86,9 @@ bool nano::peer_container::known_peer (nano::endpoint const & endpoint_a)
 // Simulating with sqrt_broadcast_simulate shows we only need to broadcast to sqrt(total_peers) random peers in order to successfully publish to everyone with high probability
 std::deque<nano::endpoint> nano::peer_container::list_fanout ()
 {
-	auto peers (random_set (size_sqrt ()));
+	auto peers_l (random_set (size_sqrt ()));
 	std::deque<nano::endpoint> result;
-	for (auto i (peers.begin ()), n (peers.end ()); i != n; ++i)
+	for (auto i (peers_l.begin ()), n (peers_l.end ()); i != n; ++i)
 	{
 		result.push_back (*i);
 	}
@@ -231,13 +231,13 @@ std::unordered_set<nano::endpoint> nano::peer_container::random_set (size_t coun
 
 void nano::peer_container::random_fill (std::array<nano::endpoint, 8> & target_a)
 {
-	auto peers (random_set (target_a.size ()));
-	assert (peers.size () <= target_a.size ());
+	auto peers_l (random_set (target_a.size ()));
+	assert (peers_l.size () <= target_a.size ());
 	auto endpoint (nano::endpoint (boost::asio::ip::address_v6{}, 0));
 	assert (endpoint.address ().is_v6 ());
 	std::fill (target_a.begin (), target_a.end (), endpoint);
 	auto j (target_a.begin ());
-	for (auto i (peers.begin ()), n (peers.end ()); i != n; ++i, ++j)
+	for (auto i (peers_l.begin ()), n (peers_l.end ()); i != n; ++i, ++j)
 	{
 		assert (i->address ().is_v6 ());
 		assert (j < target_a.end ());

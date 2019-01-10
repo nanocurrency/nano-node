@@ -650,16 +650,16 @@ wallet (wallet_a)
 		}
 	});
 	QObject::connect (rebroadcast, &QPushButton::released, [this]() {
-		nano::block_hash block;
-		auto error (block.decode_hex (hash->text ().toStdString ()));
+		nano::block_hash block_l;
+		auto error (block_l.decode_hex (hash->text ().toStdString ()));
 		if (!error)
 		{
 			auto transaction (this->wallet.node.store.tx_begin_read ());
-			if (this->wallet.node.store.block_exists (transaction, block))
+			if (this->wallet.node.store.block_exists (transaction, block_l))
 			{
 				rebroadcast->setEnabled (false);
-				this->wallet.node.background ([this, block]() {
-					rebroadcast_action (block);
+				this->wallet.node.background ([this, block_l]() {
+					rebroadcast_action (block_l);
 				});
 			}
 		}
@@ -676,17 +676,17 @@ void nano_qt::block_viewer::rebroadcast_action (nano::uint256_union const & hash
 {
 	auto done (true);
 	auto transaction (wallet.node.ledger.store.tx_begin_read ());
-	auto block (wallet.node.store.block_get (transaction, hash_a));
-	if (block != nullptr)
+	auto block_l (wallet.node.store.block_get (transaction, hash_a));
+	if (block_l != nullptr)
 	{
-		wallet.node.network.republish_block (std::move (block));
-		auto successor (wallet.node.store.block_successor (transaction, hash_a));
-		if (!successor.is_zero ())
+		wallet.node.network.republish_block (std::move (block_l));
+		auto successor_l (wallet.node.store.block_successor (transaction, hash_a));
+		if (!successor_l.is_zero ())
 		{
 			done = false;
-			wallet.node.alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (1), [this, successor]() {
-				this->wallet.application.postEvent (&this->wallet.processor, new eventloop_event ([this, successor]() {
-					rebroadcast_action (successor);
+			wallet.node.alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (1), [this, successor_l]() {
+				this->wallet.application.postEvent (&this->wallet.processor, new eventloop_event ([this, successor_l]() {
+					rebroadcast_action (successor_l);
 				}));
 			});
 		}
@@ -2190,14 +2190,14 @@ void nano_qt::block_creation::create_send ()
 					if (amount_l.number () <= balance)
 					{
 						nano::account_info info;
-						auto error (wallet.node.store.account_get (transaction, account_l, info));
-						assert (!error);
+						auto account_error (wallet.node.store.account_get (transaction, account_l, info));
+						assert (!account_error);
 						auto rep_block (wallet.node.store.block_get (transaction, info.rep_block));
 						assert (rep_block != nullptr);
-						nano::state_block send (account_l, info.head, rep_block->representative (), balance - amount_l.number (), destination_l, key, account_l, 0);
-						wallet.node.work_generate_blocking (send);
+						nano::state_block send_block_l (account_l, info.head, rep_block->representative (), balance - amount_l.number (), destination_l, key, account_l, 0);
+						wallet.node.work_generate_blocking (send_block_l);
 						std::string block_l;
-						send.serialize_json (block_l);
+						send_block_l.serialize_json (block_l);
 						block->setPlainText (QString (block_l.c_str ()));
 						show_label_ok (*status);
 						status->setText ("Created block");
@@ -2243,28 +2243,28 @@ void nano_qt::block_creation::create_receive ()
 		auto block_l (wallet.node.store.block_get (transaction, source_l));
 		if (block_l != nullptr)
 		{
-			auto destination (wallet.node.ledger.block_destination (transaction, *block_l));
-			if (!destination.is_zero ())
+			auto destination_l (wallet.node.ledger.block_destination (transaction, *block_l));
+			if (!destination_l.is_zero ())
 			{
-				nano::pending_key pending_key (destination, source_l);
+				nano::pending_key pending_key (destination_l, source_l);
 				nano::pending_info pending;
 				if (!wallet.node.store.pending_get (transaction, pending_key, pending))
 				{
 					nano::account_info info;
-					auto error (wallet.node.store.account_get (transaction, pending_key.account, info));
-					if (!error)
+					auto error_account (wallet.node.store.account_get (transaction, pending_key.account, info));
+					if (!error_account)
 					{
 						nano::raw_key key;
-						auto error (wallet.wallet_m->store.fetch (transaction, pending_key.account, key));
-						if (!error)
+						auto error_fetch (wallet.wallet_m->store.fetch (transaction, pending_key.account, key));
+						if (!error_fetch)
 						{
 							auto rep_block (wallet.node.store.block_get (transaction, info.rep_block));
 							assert (rep_block != nullptr);
-							nano::state_block receive (pending_key.account, info.head, rep_block->representative (), info.balance.number () + pending.amount.number (), source_l, key, pending_key.account, 0);
-							wallet.node.work_generate_blocking (receive);
-							std::string block_l;
-							receive.serialize_json (block_l);
-							block->setPlainText (QString (block_l.c_str ()));
+							nano::state_block receive_l (pending_key.account, info.head, rep_block->representative (), info.balance.number () + pending.amount.number (), source_l, key, pending_key.account, 0);
+							wallet.node.work_generate_blocking (receive_l);
+							std::string block_serialized_l;
+							receive_l.serialize_json (block_serialized_l);
+							block->setPlainText (QString (block_serialized_l.c_str ()));
 							show_label_ok (*status);
 							status->setText ("Created block");
 						}
@@ -2317,17 +2317,17 @@ void nano_qt::block_creation::create_change ()
 		{
 			auto transaction (wallet.node.store.tx_begin_read ());
 			nano::account_info info;
-			auto error (wallet.node.store.account_get (transaction, account_l, info));
-			if (!error)
+			auto error_account (wallet.node.store.account_get (transaction, account_l, info));
+			if (!error_account)
 			{
 				nano::raw_key key;
-				auto error (wallet.wallet_m->store.fetch (transaction, account_l, key));
-				if (!error)
+				auto fetch_error (wallet.wallet_m->store.fetch (transaction, account_l, key));
+				if (!fetch_error)
 				{
-					nano::state_block change (account_l, info.head, representative_l, info.balance, 0, key, account_l, 0);
-					wallet.node.work_generate_blocking (change);
+					nano::state_block change_l (account_l, info.head, representative_l, info.balance, 0, key, account_l, 0);
+					wallet.node.work_generate_blocking (change_l);
 					std::string block_l;
-					change.serialize_json (block_l);
+					change_l.serialize_json (block_l);
 					block->setPlainText (QString (block_l.c_str ()));
 					show_label_ok (*status);
 					status->setText ("Created block");
@@ -2371,26 +2371,26 @@ void nano_qt::block_creation::create_open ()
 			auto block_l (wallet.node.store.block_get (transaction, source_l));
 			if (block_l != nullptr)
 			{
-				auto destination (wallet.node.ledger.block_destination (transaction, *block_l));
-				if (!destination.is_zero ())
+				auto destination_l (wallet.node.ledger.block_destination (transaction, *block_l));
+				if (!destination_l.is_zero ())
 				{
-					nano::pending_key pending_key (destination, source_l);
+					nano::pending_key pending_key (destination_l, source_l);
 					nano::pending_info pending;
 					if (!wallet.node.store.pending_get (transaction, pending_key, pending))
 					{
 						nano::account_info info;
-						auto error (wallet.node.store.account_get (transaction, pending_key.account, info));
-						if (error)
+						auto error_account (wallet.node.store.account_get (transaction, pending_key.account, info));
+						if (error_account)
 						{
 							nano::raw_key key;
-							auto error (wallet.wallet_m->store.fetch (transaction, pending_key.account, key));
-							if (!error)
+							auto error_fetch (wallet.wallet_m->store.fetch (transaction, pending_key.account, key));
+							if (!error_fetch)
 							{
-								nano::state_block open (pending_key.account, 0, representative_l, pending.amount, source_l, key, pending_key.account, 0);
-								wallet.node.work_generate_blocking (open);
-								std::string block_l;
-								open.serialize_json (block_l);
-								block->setPlainText (QString (block_l.c_str ()));
+								nano::state_block open_l (pending_key.account, 0, representative_l, pending.amount, source_l, key, pending_key.account, 0);
+								wallet.node.work_generate_blocking (open_l);
+								std::string block_serialized_l;
+								open_l.serialize_json (block_serialized_l);
+								block->setPlainText (QString (block_serialized_l.c_str ()));
 								show_label_ok (*status);
 								status->setText ("Created block");
 							}

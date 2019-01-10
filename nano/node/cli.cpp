@@ -60,7 +60,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 {
 	std::error_code ec;
 
-	boost::filesystem::path data_path = vm.count ("data_path") ? boost::filesystem::path (vm["data_path"].as<std::string> ()) : nano::working_path ();
+	boost::filesystem::path data_path_l = vm.count ("data_path") ? boost::filesystem::path (vm["data_path"].as<std::string> ()) : nano::working_path ();
 	if (vm.count ("account_create"))
 	{
 		if (vm.count ("wallet") == 1)
@@ -73,7 +73,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 				{
 					password = vm["password"].as<std::string> ();
 				}
-				inactive_node node (data_path);
+				inactive_node node (data_path_l);
 				auto wallet (node.node->wallets.open (wallet_id));
 				if (wallet != nullptr)
 				{
@@ -139,18 +139,18 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	{
 		try
 		{
-			auto vacuum_path = data_path / "vacuumed.ldb";
-			auto source_path = data_path / "data.ldb";
-			auto backup_path = data_path / "backup.vacuum.ldb";
+			auto vacuum_path = data_path_l / "vacuumed.ldb";
+			auto source_path = data_path_l / "data.ldb";
+			auto backup_path = data_path_l / "backup.vacuum.ldb";
 
-			std::cout << "Vacuuming database copy in " << data_path << std::endl;
+			std::cout << "Vacuuming database copy in " << data_path_l << std::endl;
 			std::cout << "This may take a while..." << std::endl;
 
 			// Scope the node so the mdb environment gets cleaned up properly before
 			// the original file is replaced with the vacuumed file.
 			bool success = false;
 			{
-				inactive_node node (data_path);
+				inactive_node node (data_path_l);
 				if (vm.count ("unchecked_clear"))
 				{
 					auto transaction (node.node->store.tx_begin_write ());
@@ -268,7 +268,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	}
 	else if (vm.count ("diagnostics"))
 	{
-		inactive_node node (data_path);
+		inactive_node node (data_path_l);
 		std::cout << "Testing hash function" << std::endl;
 		nano::raw_key key;
 		key.data.clear ();
@@ -330,7 +330,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 				{
 					password = vm["password"].as<std::string> ();
 				}
-				inactive_node node (data_path);
+				inactive_node node (data_path_l);
 				auto wallet (node.node->wallets.open (wallet_id));
 				if (wallet != nullptr)
 				{
@@ -384,7 +384,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 				{
 					password = vm["password"].as<std::string> ();
 				}
-				inactive_node node (data_path);
+				inactive_node node (data_path_l);
 				auto wallet (node.node->wallets.open (wallet_id));
 				if (wallet != nullptr)
 				{
@@ -429,7 +429,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	}
 	else if (vm.count ("wallet_create"))
 	{
-		inactive_node node (data_path);
+		inactive_node node (data_path_l);
 		nano::keypair key;
 		std::cout << key.pub.to_string () << std::endl;
 		auto wallet (node.node->wallets.create (key.pub));
@@ -446,7 +446,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 			nano::uint256_union wallet_id;
 			if (!wallet_id.decode_hex (vm["wallet"].as<std::string> ()))
 			{
-				inactive_node node (data_path);
+				inactive_node node (data_path_l);
 				auto existing (node.node->wallets.items.find (wallet_id));
 				if (existing != node.node->wallets.items.end ())
 				{
@@ -500,7 +500,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 			nano::uint256_union wallet_id;
 			if (!wallet_id.decode_hex (vm["wallet"].as<std::string> ()))
 			{
-				inactive_node node (data_path);
+				inactive_node node (data_path_l);
 				if (node.node->wallets.items.find (wallet_id) != node.node->wallets.items.end ())
 				{
 					node.node->wallets.destroy (wallet_id);
@@ -549,7 +549,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 					nano::uint256_union wallet_id;
 					if (!wallet_id.decode_hex (vm["wallet"].as<std::string> ()))
 					{
-						inactive_node node (data_path);
+						inactive_node node (data_path_l);
 						auto existing (node.node->wallets.items.find (wallet_id));
 						if (existing != node.node->wallets.items.end ())
 						{
@@ -569,8 +569,8 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 							else
 							{
 								node.node->wallets.create (wallet_id);
-								auto existing (node.node->wallets.items.find (wallet_id));
-								if (existing->second->import (contents.str (), password))
+								auto existing_forced (node.node->wallets.items.find (wallet_id));
+								if (existing_forced->second->import (contents.str (), password))
 								{
 									std::cerr << "Unable to import wallet\n";
 									ec = nano::error_cli::invalid_arguments;
@@ -604,7 +604,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	}
 	else if (vm.count ("wallet_list"))
 	{
-		inactive_node node (data_path);
+		inactive_node node (data_path_l);
 		for (auto i (node.node->wallets.items.begin ()), n (node.node->wallets.items.end ()); i != n; ++i)
 		{
 			std::cout << boost::str (boost::format ("Wallet ID: %1%\n") % i->first.to_string ());
@@ -619,7 +619,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	{
 		if (vm.count ("wallet") == 1 && vm.count ("account") == 1)
 		{
-			inactive_node node (data_path);
+			inactive_node node (data_path_l);
 			nano::uint256_union wallet_id;
 			if (!wallet_id.decode_hex (vm["wallet"].as<std::string> ()))
 			{
@@ -672,7 +672,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 			nano::uint256_union wallet_id;
 			if (!wallet_id.decode_hex (vm["wallet"].as<std::string> ()))
 			{
-				inactive_node node (data_path);
+				inactive_node node (data_path_l);
 				auto wallet (node.node->wallets.items.find (wallet_id));
 				if (wallet != node.node->wallets.items.end ())
 				{
@@ -710,7 +710,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 					nano::account account;
 					if (!account.decode_account (vm["account"].as<std::string> ()))
 					{
-						inactive_node node (data_path);
+						inactive_node node (data_path_l);
 						auto wallet (node.node->wallets.items.find (wallet_id));
 						if (wallet != node.node->wallets.items.end ())
 						{
@@ -749,7 +749,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	}
 	else if (vm.count ("vote_dump") == 1)
 	{
-		inactive_node node (data_path);
+		inactive_node node (data_path_l);
 		auto transaction (node.node->store.tx_begin_read ());
 		for (auto i (node.node->store.vote_begin (transaction)), n (node.node->store.vote_end ()); i != n; ++i)
 		{

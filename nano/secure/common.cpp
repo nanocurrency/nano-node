@@ -670,14 +670,14 @@ std::shared_ptr<nano::vote> nano::vote_uniquer::unique (std::shared_ptr<nano::vo
 		}
 		nano::uint256_union key (vote_a->full_hash ());
 		std::lock_guard<std::mutex> lock (mutex);
-		auto & existing (votes[key]);
-		if (auto block_l = existing.lock ())
+		auto & existing_vote (votes[key]);
+		if (auto block_l = existing_vote.lock ())
 		{
 			result = block_l;
 		}
 		else
 		{
-			existing = vote_a;
+			existing_vote = vote_a;
 		}
 		for (auto i (0); i < cleanup_count && votes.size () > 0; ++i)
 		{

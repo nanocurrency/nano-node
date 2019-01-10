@@ -304,8 +304,8 @@ void ledger_processor::state_block_impl (nano::state_block const & block_a)
 					if (is_send)
 					{
 						nano::pending_key key (block_a.hashables.link, hash);
-						nano::pending_info info (block_a.hashables.account, result.amount.number (), epoch);
-						ledger.store.pending_put (transaction, key, info);
+						nano::pending_info pending_info (block_a.hashables.account, result.amount.number (), epoch);
+						ledger.store.pending_put (transaction, key, pending_info);
 					}
 					else if (!block_a.hashables.link.is_zero ())
 					{

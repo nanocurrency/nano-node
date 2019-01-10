@@ -1569,14 +1569,14 @@ std::shared_ptr<nano::block> nano::block_uniquer::unique (std::shared_ptr<nano::
 	{
 		nano::uint256_union key (block_a->full_hash ());
 		std::lock_guard<std::mutex> lock (mutex);
-		auto & existing (blocks[key]);
-		if (auto block_l = existing.lock ())
+		auto & existing_block (blocks[key]);
+		if (auto block_l = existing_block.lock ())
 		{
 			result = block_l;
 		}
 		else
 		{
-			existing = block_a;
+			existing_block = block_a;
 		}
 		for (auto i (0); i < cleanup_count && blocks.size () > 0; ++i)
 		{

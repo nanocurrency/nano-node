@@ -1331,7 +1331,7 @@ void nano::bootstrap_attempt::lazy_run ()
 	idle.clear ();
 }
 
-bool nano::bootstrap_attempt::process_block (std::shared_ptr<nano::block> block_a, uint64_t total_blocks, bool block_expected)
+bool nano::bootstrap_attempt::process_block (std::shared_ptr<nano::block> block_a, uint64_t total_blocks_l, bool block_expected)
 {
 	bool stop_pull (false);
 	if (lazy_mode && block_expected)
@@ -1409,7 +1409,7 @@ bool nano::bootstrap_attempt::process_block (std::shared_ptr<nano::block> block_
 				}
 				lazy_blocks.insert (hash);
 				// Adding lazy balances
-				if (total_blocks == 0)
+				if (total_blocks_l == 0)
 				{
 					lazy_balances.insert (std::make_pair (hash, balance));
 				}
@@ -1425,7 +1425,7 @@ bool nano::bootstrap_attempt::process_block (std::shared_ptr<nano::block> block_
 				// Disabled until server rewrite
 				// stop_pull = true;
 				// Force drop lazy bootstrap connection for long bulk_pull
-				if (total_blocks > lazy_max_pull_blocks)
+				if (total_blocks_l > lazy_max_pull_blocks)
 				{
 					stop_pull = true;
 				}
@@ -1467,7 +1467,7 @@ bool nano::bootstrap_attempt::process_block (std::shared_ptr<nano::block> block_
 			// Disabled until server rewrite
 			// stop_pull = true;
 			// Force drop lazy bootstrap connection for long bulk_pull
-			if (total_blocks > lazy_max_pull_blocks)
+			if (total_blocks_l > lazy_max_pull_blocks)
 			{
 				stop_pull = true;
 			}

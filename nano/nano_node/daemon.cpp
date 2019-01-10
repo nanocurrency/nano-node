@@ -80,9 +80,9 @@ bool nano_daemon::daemon_config::upgrade_json (unsigned version_a, boost::proper
 			auto opencl_l (tree_a.get_child_optional ("opencl"));
 			if (!opencl_l)
 			{
-				boost::property_tree::ptree opencl_l;
-				opencl.serialize_json (opencl_l);
-				tree_a.put_child ("opencl", opencl_l);
+				boost::property_tree::ptree opencl_child;
+				opencl.serialize_json (opencl_child);
+				tree_a.put_child ("opencl", opencl_child);
 			}
 			result = true;
 		}

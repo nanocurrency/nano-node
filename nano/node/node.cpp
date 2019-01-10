@@ -1619,8 +1619,8 @@ online_reps (*this),
 stats (config.stat_config),
 vote_uniquer (block_uniquer)
 {
-	wallets.observer = [this](bool active) {
-		observers.wallet.notify (active);
+	wallets.observer = [this](bool active_l) {
+		observers.wallet.notify (active_l);
 	};
 	peers.peer_observer = [this](nano::endpoint const & endpoint_a) {
 		observers.endpoint.notify (endpoint_a);
@@ -3446,8 +3446,8 @@ bool nano::active_transactions::add (std::shared_ptr<nano::block> block_a, std::
 		{
 			auto election (std::make_shared<nano::election> (node, block_a, confirmation_action_a));
 			uint64_t difficulty (0);
-			auto error (nano::work_validate (*block_a, &difficulty));
-			release_assert (!error);
+			auto validate_error (nano::work_validate (*block_a, &difficulty));
+			release_assert (!validate_error);
 			roots.insert (nano::conflict_info{ root, difficulty, election });
 			blocks.insert (std::make_pair (block_a->hash (), election));
 		}

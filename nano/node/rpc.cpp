@@ -558,10 +558,10 @@ void nano::rpc_handler::account_move ()
 	{
 		std::string source_text (request.get<std::string> ("source"));
 		auto accounts_text (request.get_child ("accounts"));
-		nano::uint256_union source;
-		if (!source.decode_hex (source_text))
+		nano::uint256_union source_l;
+		if (!source_l.decode_hex (source_text))
 		{
-			auto existing (node.wallets.items.find (source));
+			auto existing (node.wallets.items.find (source_l));
 			if (existing != node.wallets.items.end ())
 			{
 				auto source (existing->second);
@@ -686,9 +686,9 @@ void nano::rpc_handler::account_representative_set ()
 					{
 						hash = block->hash ();
 					}
-					boost::property_tree::ptree response_l;
-					response_l.put ("block", hash.to_string ());
-					response_a (response_l);
+					boost::property_tree::ptree block_l;
+					block_l.put ("block", hash.to_string ());
+					response_a (block_l);
 				},
 				work == 0);
 			}
@@ -886,7 +886,6 @@ void nano::rpc_handler::block_confirm ()
 
 void nano::rpc_handler::blocks ()
 {
-	std::vector<std::string> hashes;
 	boost::property_tree::ptree blocks;
 	auto transaction (node.store.tx_begin_read ());
 	for (boost::property_tree::ptree::value_type & hashes : request.get_child ("hashes"))
@@ -924,7 +923,6 @@ void nano::rpc_handler::blocks_info ()
 	const bool pending = request.get<bool> ("pending", false);
 	const bool source = request.get<bool> ("source", false);
 	const bool balance = request.get<bool> ("balance", false);
-	std::vector<std::string> hashes;
 	boost::property_tree::ptree blocks;
 	auto transaction (node.store.tx_begin_read ());
 	for (boost::property_tree::ptree::value_type & hashes : request.get_child ("hashes"))
@@ -972,8 +970,8 @@ void nano::rpc_handler::blocks_info ()
 					}
 					if (balance)
 					{
-						auto balance (node.ledger.balance (transaction, hash));
-						entry.put ("balance", balance.convert_to<std::string> ());
+						auto balance_l (node.ledger.balance (transaction, hash));
+						entry.put ("balance", balance_l.convert_to<std::string> ());
 					}
 					blocks.push_back (std::make_pair (hash_text, entry));
 				}
@@ -1493,8 +1491,8 @@ void nano::rpc_handler::confirmation_history ()
 
 void nano::rpc_handler::confirmation_info ()
 {
-	const bool representatives = request.get<bool> ("representatives", false);
-	const bool contents = request.get<bool> ("contents", true);
+	const bool representatives_l = request.get<bool> ("representatives", false);
+	const bool contents_l = request.get<bool> ("contents", true);
 	std::string root_text (request.get<std::string> ("root"));
 	nano::block_hash root;
 	if (!root.decode_hex (root_text))
@@ -1516,13 +1514,13 @@ void nano::rpc_handler::confirmation_info ()
 				auto tally (i->first);
 				entry.put ("tally", tally.convert_to<std::string> ());
 				total += tally;
-				if (contents)
+				if (contents_l)
 				{
-					std::string contents;
-					i->second->serialize_json (contents);
-					entry.put ("contents", contents);
+					std::string contents_serialized;
+					i->second->serialize_json (contents_serialized);
+					entry.put ("contents", contents_serialized);
 				}
-				if (representatives)
+				if (representatives_l)
 				{
 					std::multimap<nano::uint128_t, nano::account, std::greater<nano::uint128_t>> representatives;
 					for (auto ii (election->last_votes.begin ()), nn (election->last_votes.end ()); ii != nn; ++ii)
@@ -2276,11 +2274,11 @@ void nano::rpc_handler::payment_begin ()
 	nano::uint256_union id;
 	if (!id.decode_hex (id_text))
 	{
-		auto existing (node.wallets.items.find (id));
-		if (existing != node.wallets.items.end ())
+		auto existing_l (node.wallets.items.find (id));
+		if (existing_l != node.wallets.items.end ())
 		{
 			auto transaction (node.store.tx_begin_write ());
-			std::shared_ptr<nano::wallet> wallet (existing->second);
+			std::shared_ptr<nano::wallet> wallet (existing_l->second);
 			if (wallet->store.valid_password (transaction))
 			{
 				nano::account account (0);
@@ -2564,9 +2562,9 @@ void nano::rpc_handler::receive ()
 								{
 									hash_a = block_a->hash ();
 								}
-								boost::property_tree::ptree response_l;
-								response_l.put ("block", hash_a.to_string ());
-								response_a (response_l);
+								boost::property_tree::ptree block_l;
+								block_l.put ("block", hash_a.to_string ());
+								response_a (block_l);
 							},
 							work == 0);
 						}
@@ -2907,9 +2905,9 @@ void nano::rpc_handler::send ()
 						if (block_a != nullptr)
 						{
 							nano::uint256_union hash (block_a->hash ());
-							boost::property_tree::ptree response_l;
-							response_l.put ("block", hash.to_string ());
-							response_a (response_l);
+							boost::property_tree::ptree block_l;
+							block_l.put ("block", hash.to_string ());
+							response_a (block_l);
 						}
 						else
 						{
@@ -2919,8 +2917,8 @@ void nano::rpc_handler::send ()
 							}
 							else
 							{
-								std::error_code ec (nano::error_common::insufficient_balance);
-								error_response (response_a, ec.message ());
+								std::error_code ec_balance (nano::error_common::insufficient_balance);
+								error_response (response_a, ec_balance.message ());
 							}
 						}
 					},
@@ -3617,9 +3615,9 @@ void nano::rpc_handler::work_generate ()
 		auto callback = [rpc_l](boost::optional<uint64_t> const & work_a) {
 			if (work_a)
 			{
-				boost::property_tree::ptree response_l;
-				response_l.put ("work", nano::to_string_hex (work_a.value ()));
-				rpc_l->response (response_l);
+				boost::property_tree::ptree work_l;
+				work_l.put ("work", nano::to_string_hex (work_a.value ()));
+				rpc_l->response (work_l);
 			}
 			else
 			{

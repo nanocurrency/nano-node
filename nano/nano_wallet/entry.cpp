@@ -29,10 +29,10 @@ public:
 		{
 			case 1:
 			{
-				nano::account account;
-				account.decode_account (tree_a.get<std::string> ("account"));
+				nano::account account_l;
+				account_l.decode_account (tree_a.get<std::string> ("account"));
 				tree_a.erase ("account");
-				tree_a.put ("account", account.to_account ());
+				tree_a.put ("account", account_l.to_account ());
 				tree_a.erase ("version");
 				result = true;
 			}
@@ -55,9 +55,9 @@ public:
 				auto opencl_l (tree_a.get_child_optional ("opencl"));
 				if (!opencl_l)
 				{
-					boost::property_tree::ptree opencl_l;
-					opencl.serialize_json (opencl_l);
-					tree_a.put_child ("opencl", opencl_l);
+					boost::property_tree::ptree opencl_child_l;
+					opencl.serialize_json (opencl_child_l);
+					tree_a.put_child ("opencl", opencl_child_l);
 				}
 				result = true;
 			}

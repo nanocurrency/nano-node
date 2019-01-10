@@ -85,17 +85,17 @@ TEST (ledger, deep_account_compute)
 	auto transaction (store.tx_begin (true));
 	store.initialize (transaction, genesis);
 	nano::keypair key;
-	auto balance (nano::genesis_amount - 1);
-	nano::send_block send (genesis.hash (), key.pub, balance, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
-	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send).code);
-	nano::open_block open (send.hash (), nano::test_genesis_key.pub, key.pub, key.prv, key.pub, 0);
+	auto balance_l (nano::genesis_amount - 1);
+	nano::send_block send_l (genesis.hash (), key.pub, balance_l, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
+	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send_l).code);
+	nano::open_block open (send_l.hash (), nano::test_genesis_key.pub, key.pub, key.prv, key.pub, 0);
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, open).code);
-	auto sprevious (send.hash ());
+	auto sprevious (send_l.hash ());
 	auto rprevious (open.hash ());
 	for (auto i (0), n (100000); i != n; ++i)
 	{
-		balance -= 1;
-		nano::send_block send (sprevious, key.pub, balance, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
+		balance_l -= 1;
+		nano::send_block send (sprevious, key.pub, balance_l, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
 		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send).code);
 		sprevious = send.hash ();
 		nano::receive_block receive (rprevious, send.hash (), key.prv, key.pub, 0);

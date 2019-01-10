@@ -110,16 +110,16 @@ void nano::wallet_store::deterministic_index_set (nano::transaction const & tran
 
 void nano::wallet_store::deterministic_clear (nano::transaction const & transaction_a)
 {
-	nano::uint256_union key (0);
+	nano::uint256_union key_l (0);
 	for (auto i (begin (transaction_a)), n (end ()); i != n;)
 	{
 		switch (key_type (nano::wallet_value (i->second)))
 		{
 			case nano::key_type::deterministic:
 			{
-				nano::uint256_union key (i->first);
-				erase (transaction_a, key);
-				i = begin (transaction_a, key);
+				nano::uint256_union deterministic_key_l (i->first);
+				erase (transaction_a, deterministic_key_l);
+				i = begin (transaction_a, deterministic_key_l);
 				break;
 			}
 			default:
@@ -643,12 +643,12 @@ void nano::wallet_store::upgrade_v1_v2 (nano::transaction const & transaction_a)
 	assert (version (transaction_a) == 1);
 	nano::raw_key zero_password;
 	nano::wallet_value value (entry_get_raw (transaction_a, nano::wallet_store::wallet_key_special));
-	nano::raw_key kdf;
-	kdf.data.clear ();
-	zero_password.decrypt (value.key, kdf, salt (transaction_a).owords[0]);
-	derive_key (kdf, transaction_a, "");
+	nano::raw_key kdf_l;
+	kdf_l.data.clear ();
+	zero_password.decrypt (value.key, kdf_l, salt (transaction_a).owords[0]);
+	derive_key (kdf_l, transaction_a, "");
 	nano::raw_key empty_password;
-	empty_password.decrypt (value.key, kdf, salt (transaction_a).owords[0]);
+	empty_password.decrypt (value.key, kdf_l, salt (transaction_a).owords[0]);
 	for (auto i (begin (transaction_a)), n (end ()); i != n; ++i)
 	{
 		nano::public_key key (i->first);
@@ -656,10 +656,10 @@ void nano::wallet_store::upgrade_v1_v2 (nano::transaction const & transaction_a)
 		if (fetch (transaction_a, key, prv))
 		{
 			// Key failed to decrypt despite valid password
-			nano::wallet_value data (entry_get_raw (transaction_a, key));
-			prv.decrypt (data.key, zero_password, salt (transaction_a).owords[0]);
-			nano::public_key compare (nano::pub_key (prv.data));
-			if (compare == key)
+			nano::wallet_value data_l (entry_get_raw (transaction_a, key));
+			prv.decrypt (data_l.key, zero_password, salt (transaction_a).owords[0]);
+			nano::public_key compare_l (nano::pub_key (prv.data));
+			if (compare_l == key)
 			{
 				// If we successfully decrypted it, rewrite the key back with the correct wallet key
 				insert_adhoc (transaction_a, prv);
@@ -697,10 +697,10 @@ void nano::wallet_store::upgrade_v3_v4 (nano::transaction const & transaction_a)
 	version_put (transaction_a, 4);
 	assert (valid_password (transaction_a));
 	nano::raw_key seed;
-	nano::wallet_value value (entry_get_raw (transaction_a, nano::wallet_store::seed_special));
+	nano::wallet_value value_l (entry_get_raw (transaction_a, nano::wallet_store::seed_special));
 	nano::raw_key password_l;
 	wallet_key (password_l, transaction_a);
-	seed.decrypt (value.key, password_l, salt (transaction_a).owords[0]);
+	seed.decrypt (value_l.key, password_l, salt (transaction_a).owords[0]);
 	nano::uint256_union ciphertext;
 	ciphertext.encrypt (seed, password_l, salt (transaction_a).owords[seed_iv_index]);
 	entry_put_raw (transaction_a, nano::wallet_store::seed_special, nano::wallet_value (ciphertext, 0));
@@ -1163,19 +1163,19 @@ void nano::wallet::work_ensure (nano::account const & account_a, nano::block_has
 
 bool nano::wallet::search_pending ()
 {
-	auto transaction (wallets.tx_begin_read ());
-	auto result (!store.valid_password (transaction));
+	auto tx_wallets_l (wallets.tx_begin_read ());
+	auto result (!store.valid_password (tx_wallets_l));
 	if (!result)
 	{
 		BOOST_LOG (wallets.node.log) << "Beginning pending block search";
-		for (auto i (store.begin (transaction)), n (store.end ()); i != n; ++i)
+		for (auto i (store.begin (tx_wallets_l)), n (store.end ()); i != n; ++i)
 		{
-			auto transaction (wallets.node.store.tx_begin_read ());
+			auto tx_store (wallets.node.store.tx_begin_read ());
 			nano::account account (i->first);
 			// Don't search pending for watch-only accounts
 			if (!nano::wallet_value (i->second).key.is_zero ())
 			{
-				for (auto j (wallets.node.store.pending_begin (transaction, nano::pending_key (account, 0))); nano::pending_key (j->first).account == account; ++j)
+				for (auto j (wallets.node.store.pending_begin (tx_store, nano::pending_key (account, 0))); nano::pending_key (j->first).account == account; ++j)
 				{
 					nano::pending_key key (j->first);
 					auto hash (key.hash);
@@ -1184,7 +1184,7 @@ bool nano::wallet::search_pending ()
 					if (wallets.node.config.receive_minimum.number () <= amount)
 					{
 						BOOST_LOG (wallets.node.log) << boost::str (boost::format ("Found a pending block %1% for account %2%") % hash.to_string () % pending.source.to_account ());
-						wallets.node.block_confirm (wallets.node.store.block_get (transaction, hash));
+						wallets.node.block_confirm (wallets.node.store.block_get (tx_store, hash));
 					}
 				}
 			}

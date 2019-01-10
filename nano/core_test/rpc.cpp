@@ -3567,11 +3567,11 @@ TEST (rpc, block_create_state_open)
 // Missing "work" parameter should cause work to be generated for us.
 TEST (rpc, block_create_state_request_work)
 {
-	nano::genesis genesis;
+	nano::genesis genesis_l;
 
 	// Test work generation for state blocks both with and without previous (in the latter
 	// case, the account will be used for work generation)
-	std::vector<std::string> previous_test_input{ genesis.hash ().to_string (), std::string ("0") };
+	std::vector<std::string> previous_test_input{ genesis_l.hash ().to_string (), std::string ("0") };
 	for (auto previous : previous_test_input)
 	{
 		nano::system system (24000, 1);

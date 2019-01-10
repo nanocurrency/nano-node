@@ -270,8 +270,8 @@ void nano::stat::update (uint32_t key_a, uint64_t value)
 	entry->counter.add (value);
 	entry->count_observers.notify (old, entry->counter.value);
 
-	std::chrono::duration<double, std::milli> duration = now - log_last_count_writeout;
-	if (config.log_interval_counters > 0 && duration.count () > config.log_interval_counters)
+	std::chrono::duration<double, std::milli> duration_l = now - log_last_count_writeout;
+	if (config.log_interval_counters > 0 && duration_l.count () > config.log_interval_counters)
 	{
 		log_counters_impl (log_count);
 		log_last_count_writeout = now;
