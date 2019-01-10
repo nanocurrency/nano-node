@@ -24,6 +24,7 @@ add_library (nano_lib
 	interface.h
 	numbers.cpp
 	numbers.hpp
+	timer.hpp
 	utility.cpp
 	utility.hpp
 	work.hpp
