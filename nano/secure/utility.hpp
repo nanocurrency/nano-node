@@ -21,7 +21,9 @@ namespace nano
 using bufferstream = boost::iostreams::stream_buffer<boost::iostreams::basic_array_source<uint8_t>>;
 using vectorstream = boost::iostreams::stream_buffer<boost::iostreams::back_insert_device<std::vector<uint8_t>>>;
 // OS-specific way of finding a path to a home directory.
-boost::filesystem::path working_path ();
+boost::filesystem::path working_path (bool = false);
+// Function to migrate working_path() from above from RaiBlocks to Nano
+bool migrate_working_path (std::string &);
 // Get a unique path within the home directory, used for testing.
 // Any directories created at this location will be removed when a test finishes.
 boost::filesystem::path unique_path ();
@@ -58,44 +60,50 @@ bool fetch_object (T & object, std::iostream & stream_a)
 }
 // Reads a json object from the stream and if was changed, write the object back to the stream
 template <typename T>
-bool fetch_object (T & object, boost::filesystem::path const & path_a, std::fstream & stream_a)
+bool fetch_object (T & object, boost::filesystem::path const & path_a)
 {
 	bool error (false);
-	nano::open_or_create (stream_a, path_a.string ());
-	if (!stream_a.fail ())
+	std::fstream config_file;
+	nano::open_or_create (config_file, path_a.string ());
+
+	if (!config_file.fail ())
 	{
 		boost::property_tree::ptree tree;
 		try
 		{
-			boost::property_tree::read_json (stream_a, tree);
+			boost::property_tree::read_json (config_file, tree);
 		}
 		catch (std::runtime_error const &)
 		{
-			auto pos (stream_a.tellg ());
+			auto pos (config_file.tellg ());
 			if (pos != std::streampos (0))
 			{
 				error = true;
 			}
 		}
+
+		config_file.close ();
+
 		if (!error)
 		{
 			auto updated (false);
 			error = object.deserialize_json (updated, tree);
 			if (!error && updated)
 			{
-				stream_a.close ();
-				stream_a.open (path_a.string (), std::ios_base::out | std::ios_base::trunc);
+				config_file.open (path_a.string (), std::ios_base::out | std::ios_base::trunc);
 				try
 				{
-					boost::property_tree::write_json (stream_a, tree);
+					boost::property_tree::write_json (config_file, tree);
 				}
 				catch (std::runtime_error const &)
 				{
 					error = true;
 				}
+				config_file.close ();
 			}
 		}
 	}
+
 	return error;
 }
 }

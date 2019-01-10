@@ -75,6 +75,18 @@ nano::public_key nano::wallet_store::deterministic_insert (nano::transaction con
 	return result;
 }
 
+nano::public_key nano::wallet_store::deterministic_insert (nano::transaction const & transaction_a, uint32_t const index)
+{
+	nano::raw_key prv;
+	deterministic_key (prv, transaction_a, index);
+	nano::public_key result (nano::pub_key (prv.data));
+	uint64_t marker (1);
+	marker <<= 32;
+	marker |= index;
+	entry_put_raw (transaction_a, result, nano::wallet_value (nano::uint256_union (marker), 0));
+	return result;
+}
+
 void nano::wallet_store::deterministic_key (nano::raw_key & prv_a, nano::transaction const & transaction_a, uint32_t index_a)
 {
 	assert (valid_password (transaction_a));
@@ -792,6 +804,21 @@ nano::public_key nano::wallet::deterministic_insert (nano::transaction const & t
 	return key;
 }
 
+nano::public_key nano::wallet::deterministic_insert (uint32_t const index, bool generate_work_a)
+{
+	auto transaction (wallets.tx_begin_write ());
+	nano::public_key key (0);
+	if (store.valid_password (transaction))
+	{
+		key = store.deterministic_insert (transaction, index);
+		if (generate_work_a)
+		{
+			work_ensure (key, key);
+		}
+	}
+	return key;
+}
+
 nano::public_key nano::wallet::deterministic_insert (bool generate_work_a)
 {
 	auto transaction (wallets.tx_begin_write ());
@@ -1230,7 +1257,13 @@ void nano::wallet::work_cache_blocking (nano::account const & account_a, nano::b
 	auto work (wallets.node.work_generate_blocking (root_a));
 	if (wallets.node.config.logging.work_generation_time ())
 	{
-		BOOST_LOG (wallets.node.log) << "Work generation complete: " << (std::chrono::duration_cast<std::chrono::microseconds> (std::chrono::steady_clock::now () - begin).count ()) << " us";
+		/*
+		 * The difficulty parameter is the second parameter for `work_generate_blocking()`,
+		 * currently we don't supply one so we must fetch the default value.
+		 */
+		auto difficulty (nano::work_pool::publish_threshold);
+
+		BOOST_LOG (wallets.node.log) << "Work generation for " << root_a.to_string () << ", with a difficulty of " << difficulty << " complete: " << (std::chrono::duration_cast<std::chrono::microseconds> (std::chrono::steady_clock::now () - begin).count ()) << " us";
 	}
 	auto transaction (wallets.tx_begin_write ());
 	if (store.exists (transaction, account_a))
@@ -1389,6 +1422,7 @@ void nano::wallets::foreach_representative (nano::transaction const & transactio
 	for (auto i (items.begin ()), n (items.end ()); i != n; ++i)
 	{
 		auto & wallet (*i->second);
+		std::lock_guard<std::recursive_mutex> lock (wallet.store.mutex);
 		for (auto j (wallet.store.begin (transaction_a)), m (wallet.store.end ()); j != m; ++j)
 		{
 			nano::account account (j->first);

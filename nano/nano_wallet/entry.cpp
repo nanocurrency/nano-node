@@ -174,13 +174,12 @@ bool update_config (qt_wallet_config & config_a, boost::filesystem::path const &
 	auto account (config_a.account);
 	auto wallet (config_a.wallet);
 	auto error (false);
-	if (!nano::fetch_object (config_a, config_path_a, config_file_a))
+	if (!nano::fetch_object (config_a, config_path_a))
 	{
 		if (account != config_a.account || wallet != config_a.wallet)
 		{
 			config_a.account = account;
 			config_a.wallet = wallet;
-			config_file_a.close ();
 			config_file_a.open (config_path_a.string (), std::ios_base::out | std::ios_base::trunc);
 			error = config_a.serialize_json_stream (config_file_a);
 		}
@@ -205,7 +204,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 	auto config_path ((data_path / "config.json"));
 	int result (0);
 	std::fstream config_file;
-	auto error (nano::fetch_object (config, config_path, config_file));
+	auto error (nano::fetch_object (config, config_path));
 	config_file.close ();
 	nano::set_secure_perm_file (config_path, error_chmod);
 	if (!error)
@@ -302,6 +301,16 @@ int main (int argc, char * const * argv)
 		boost::program_options::store (boost::program_options::command_line_parser (argc, argv).options (description).allow_unregistered ().run (), vm);
 		boost::program_options::notify (vm);
 		int result (0);
+
+		if (!vm.count ("data_path"))
+		{
+			std::string error_string;
+			if (!nano::migrate_working_path (error_string))
+			{
+				throw std::runtime_error (error_string);
+			}
+		}
+
 		auto ec = nano::handle_node_options (vm);
 		if (ec == nano::error_cli::unknown_command)
 		{

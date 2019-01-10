@@ -19,7 +19,7 @@ password_fanout (1024),
 io_threads (std::max<unsigned> (4, boost::thread::hardware_concurrency ())),
 network_threads (std::max<unsigned> (4, boost::thread::hardware_concurrency ())),
 work_threads (std::max<unsigned> (4, boost::thread::hardware_concurrency ())),
-enable_voting (true),
+enable_voting (false),
 bootstrap_connections (4),
 bootstrap_connections_max (64),
 callback_port (0),
@@ -33,6 +33,7 @@ block_processor_batch_max_time (std::chrono::milliseconds (5000))
 	switch (nano::nano_network)
 	{
 		case nano::nano_networks::nano_test_network:
+			enable_voting = true;
 			preconfigured_representatives.push_back (nano::genesis_account);
 			break;
 		case nano::nano_networks::nano_beta_network:
