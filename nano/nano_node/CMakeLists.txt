@@ -1,3 +1,5 @@
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror=shadow")
+
 add_executable (nano_node
 	daemon.cpp
 	daemon.hpp

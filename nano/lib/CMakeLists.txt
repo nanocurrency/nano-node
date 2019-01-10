@@ -1,3 +1,5 @@
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror=shadow")
+
 if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 	set (platform_sources plat/default/priority.cpp plat/posix/perms.cpp plat/darwin/thread_role.cpp)
 elseif (${CMAKE_SYSTEM_NAME} MATCHES "Windows")

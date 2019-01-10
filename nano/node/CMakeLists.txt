@@ -49,6 +49,7 @@ add_library (node
 	voting.cpp
 	working.hpp
 	xorshift.hpp)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror=shadow")
 
 target_link_libraries (node
 	secure
