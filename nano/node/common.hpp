@@ -121,8 +121,8 @@ struct hash<::nano::endpoint>
 {
 	size_t operator() (::nano::endpoint const & endpoint_a) const
 	{
-		std::hash<::nano::endpoint> hash;
-		return hash (endpoint_a);
+		std::hash<::nano::endpoint> hash_l;
+		return hash_l (endpoint_a);
 	}
 };
 }
@@ -205,8 +205,8 @@ public:
 	virtual inline std::shared_ptr<std::vector<uint8_t>> to_bytes () const
 	{
 		std::shared_ptr<std::vector<uint8_t>> bytes (new std::vector<uint8_t>);
-		nano::vectorstream stream (*bytes);
-		serialize (stream);
+		nano::vectorstream stream_l (*bytes);
+		serialize (stream_l);
 		return bytes;
 	}
 	nano::message_header header;
