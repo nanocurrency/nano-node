@@ -428,6 +428,21 @@ TEST (uint256_union, operator_less_than)
 	test_union_operator_less_than<nano::uint256_union, nano::uint256_t> ();
 }
 
+class json_initial_value_test
+{
+public:
+	json_initial_value_test (std::string text_a) :
+	text (text_a)
+	{
+	}
+	nano::error serialize_json (nano::jsonconfig & json)
+	{
+		json.put ("thing", text);
+		return json.get_error ();
+	}
+	std::string text;
+};
+
 class json_upgrade_test
 {
 public:
@@ -436,7 +451,7 @@ public:
 		if (!json.empty ())
 		{
 			auto text_l (json.get<std::string> ("thing"));
-			if (text_l == "junktest")
+			if (text_l == "junktest" || text_l == "created")
 			{
 				upgraded = true;
 				text_l = "changed";
@@ -459,58 +474,35 @@ public:
 	std::string text;
 };
 
-TEST (json, fetch_object)
+/** Both create and upgrade via read_and_update() */
+TEST (json, create_and_upgrade)
 {
-	auto path1 (nano::unique_path ());
-	std::fstream stream1;
+	auto path (nano::unique_path ());
 	nano::jsonconfig json;
-	json.open_or_create (stream1, path1.string ());
-	stream1 << "{ \"thing\": \"junktest\" }";
-	stream1.close ();
-	json.open_or_create (stream1, path1.string ());
 	json_upgrade_test object1;
-	ASSERT_FALSE (json.read_and_update (object1, path1, stream1));
-	ASSERT_EQ ("changed", object1.text);
-	stream1.close ();
-	nano::jsonconfig json1;
-	json1.open_or_create (stream1, path1.string ());
-	json1.read (stream1);
-	ASSERT_EQ ("changed", json1.get<std::string> ("thing"));
-	std::string string2 ("{ \"thing\": \"junktest2\" }");
-	std::stringstream stream2 (string2);
-	json_upgrade_test object2;
+	ASSERT_FALSE (json.read_and_update (object1, path));
+	ASSERT_EQ ("created", object1.text);
+
 	nano::jsonconfig json2;
-	ASSERT_FALSE (json2.read_and_update (object2, stream2));
-	ASSERT_EQ ("junktest2", object2.text);
-	ASSERT_EQ ("{ \"thing\": \"junktest2\" }", string2);
-	std::string string3 ("{ \"thing\": \"error\" }");
-	std::stringstream stream3 (string3);
-	json_upgrade_test object3;
-	ASSERT_TRUE (json.read_and_update (object3, stream3));
-	auto path2 (nano::unique_path ());
-	std::fstream stream4;
-	nano::jsonconfig json3;
-	json3.open_or_create (stream4, path2.string ());
-	json_upgrade_test object4;
-	ASSERT_FALSE (json3.read_and_update (object4, path2, stream4));
-	ASSERT_EQ ("created", object4.text);
-	stream4.close ();
-	nano::jsonconfig json4;
-	json4.open_or_create (stream4, path2.string ());
-	json4.read (stream4);
-	ASSERT_EQ ("created", json4.get<std::string> ("thing"));
+	json_upgrade_test object2;
+	ASSERT_FALSE (json2.read_and_update (object2, path));
+	ASSERT_EQ ("changed", object2.text);
 }
 
-/*
-TEST (json, DISABLED_fetch_write_fail)
+/** Create config manually, then upgrade via read_and_update() with multiple calls to test idempotence */
+TEST (json, upgrade_from_existing)
 {
-	std::string string4 ("");
-	std::stringstream stream4 (string4, std::ios_base::in);
-	json_upgrade_test object4;
-	auto error4 (nano::fetch_object (object4, stream4));
-	ASSERT_TRUE (error4);
+	auto path (nano::unique_path ());
+	nano::jsonconfig json;
+	json_initial_value_test junktest ("junktest");
+	junktest.serialize_json (json);
+	json.write (path);
+	json_upgrade_test object1;
+	ASSERT_FALSE (json.read_and_update (object1, path));
+	ASSERT_EQ ("changed", object1.text);
+	ASSERT_FALSE (json.read_and_update (object1, path));
+	ASSERT_EQ ("changed", object1.text);
 }
-*/
 
 TEST (uint64_t, parse)
 {

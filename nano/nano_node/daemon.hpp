@@ -18,6 +18,7 @@ public:
 	/** 
 	 * Returns true if an upgrade occurred
 	 * @param version The version to upgrade to.
+	 * @param config Configuration to upgrade.
 	 */
 	bool upgrade_json (unsigned version, nano::jsonconfig & config);
 	bool rpc_enable;

@@ -59,68 +59,64 @@ public:
 	 * @return nano::error&, including a descriptive error message if the config file is malformed.
 	 */
 	template <typename T>
-	nano::error & read_and_update (T & object, boost::filesystem::path const & path_a, std::fstream & stream_a)
+	nano::error & read_and_update (T & object, boost::filesystem::path const & path_a)
 	{
-		open_or_create (stream_a, path_a.string ());
-		if (!stream_a.fail ())
+		std::fstream stream;
+		open_or_create (stream, path_a.string ());
+		if (!stream.fail ())
 		{
 			try
 			{
-				boost::property_tree::read_json (stream_a, tree);
+				boost::property_tree::read_json (stream, tree);
 			}
 			catch (std::runtime_error const & ex)
 			{
-				auto pos (stream_a.tellg ());
+				auto pos (stream.tellg ());
 				if (pos != std::streampos (0))
 				{
 					*error = ex;
 				}
 			}
+			stream.close ();
 			if (!*error)
 			{
 				auto updated (false);
 				*error = object.deserialize_json (updated, *this);
 				if (!*error && updated)
 				{
-					stream_a.close ();
-					stream_a.open (path_a.string (), std::ios_base::out | std::ios_base::trunc);
+					stream.open (path_a.string (), std::ios_base::out | std::ios_base::trunc);
 					try
 					{
-						boost::property_tree::write_json (stream_a, tree);
+						boost::property_tree::write_json (stream, tree);
 					}
 					catch (std::runtime_error const & ex)
 					{
 						*error = ex;
 					}
+					stream.close ();
 				}
 			}
 		}
 		return *error;
 	}
-	template <typename T>
-	nano::error & read_and_update (T & object, std::iostream & stream_a)
+
+	void write (boost::filesystem::path const & path_a)
 	{
-		assert (stream_a.tellg () == std::streampos (0) || stream_a.tellg () == std::streampos (-1));
-		assert (stream_a.tellp () == std::streampos (0) || stream_a.tellp () == std::streampos (-1));
-		try
-		{
-			boost::property_tree::read_json (stream_a, tree);
-		}
-		catch (std::runtime_error const & ex)
-		{
-			auto pos (stream_a.tellg ());
-			if (pos != std::streampos (0))
-			{
-				*error = ex;
-			}
-		}
-		if (!*error)
-		{
-			auto updated (false);
-			*error = object.deserialize_json (updated, *this);
-		}
-		return *error;
+		std::fstream stream;
+		open_or_create (stream, path_a.string ());
+		write (stream);
 	}
+
+	void write (std::ostream & stream_a) const
+	{
+		boost::property_tree::write_json (stream_a, tree);
+	}
+
+	void read (std::istream & stream_a)
+	{
+		boost::property_tree::read_json (stream_a, tree);
+	}
+
 	/** Open confiruation file, create if necessary */
 	void open_or_create (std::fstream & stream_a, std::string const & path_a)
 	{
@@ -318,16 +314,6 @@ public:
 	nano::error & get_error () override
 	{
 		return *error;
-	}
-
-	void write (std::ostream & stream_a) const
-	{
-		boost::property_tree::write_json (stream_a, tree);
-	}
-
-	void read (std::istream & stream_a)
-	{
-		boost::property_tree::read_json (stream_a, tree);
 	}
 
 protected:

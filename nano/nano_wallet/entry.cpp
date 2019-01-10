@@ -148,8 +148,9 @@ public:
 			serialize_json (json);
 			json.write (stream_a);
 		}
-		catch (std::runtime_error const &)
+		catch (std::runtime_error const & ex)
 		{
+			std::cerr << ex.what () << std::endl;
 			result = true;
 		}
 		return result;
@@ -177,20 +178,23 @@ void show_error (std::string const & message_a)
 	message.show ();
 	message.exec ();
 }
-bool update_config (qt_wallet_config & config_a, boost::filesystem::path const & config_path_a, std::fstream & config_file_a)
+bool update_config (qt_wallet_config & config_a, boost::filesystem::path const & config_path_a)
 {
 	auto account (config_a.account);
 	auto wallet (config_a.wallet);
 	auto error (false);
 	nano::jsonconfig config;
-	if (!config.read_and_update (config_a, config_path_a, config_file_a))
+	if (!config.read_and_update (config_a, config_path_a))
 	{
 		if (account != config_a.account || wallet != config_a.wallet)
 		{
 			config_a.account = account;
 			config_a.wallet = wallet;
-			config_file_a.open (config_path_a.string (), std::ios_base::out | std::ios_base::trunc);
-			error = config_a.serialize_json_stream (config_file_a);
+
+			// Update json file with new account and/or wallet values
+			std::fstream config_file;
+			config_file.open (config_path_a.string (), std::ios_base::out | std::ios_base::trunc);
+			error = config_a.serialize_json_stream (config_file);
 		}
 	}
 	return error;
@@ -212,10 +216,8 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 	qt_wallet_config config (data_path);
 	auto config_path ((data_path / "config.json"));
 	int result (0);
-	std::fstream config_file;
 	nano::jsonconfig json;
-	auto error (json.read_and_update (config, config_path, config_file));
-	config_file.close ();
+	auto error (json.read_and_update (config, config_path));
 	nano::set_secure_perm_file (config_path, error_chmod);
 	if (!error)
 	{
@@ -263,7 +265,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 				}
 			}
 			assert (wallet->exists (config.account));
-			update_config (config, config_path, config_file);
+			update_config (config, config_path);
 			node->start ();
 			std::unique_ptr<nano::rpc> rpc = get_rpc (io_ctx, *node, config.rpc);
 			if (rpc && config.rpc_enable)
@@ -289,7 +291,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 			splash->hide ();
 			show_error ("Error initializing node");
 		}
-		update_config (config, config_path, config_file);
+		update_config (config, config_path);
 	}
 	else
 	{

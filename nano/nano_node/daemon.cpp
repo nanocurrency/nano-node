@@ -120,10 +120,9 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 	nano_daemon::daemon_config config;
 	nano::set_secure_perm_directory (data_path, error_chmod);
 	auto config_path ((data_path / "config.json"));
-	std::fstream config_file;
 	std::unique_ptr<nano::thread_runner> runner;
 	nano::jsonconfig json;
-	auto error (json.read_and_update (config, config_path, config_file));
+	auto error (json.read_and_update (config, config_path));
 	nano::set_secure_perm_file (config_path, error_chmod);
 	if (!error)
 	{
