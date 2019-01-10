@@ -352,7 +352,7 @@ void nano::network::broadcast_confirm_req (std::shared_ptr<nano::block> block_a)
 	 * if the votes for a block have not arrived in time.
 	 */
 	const size_t max_endpoints = 32;
-	std::random_shuffle (list->begin (), list->end ());
+	random_pool.Shuffle (list->begin (), list->end ());
 	if (list->size () > max_endpoints)
 	{
 		list->erase (list->begin () + max_endpoints, list->end ());
@@ -1243,6 +1243,7 @@ void nano::block_processor::add (std::shared_ptr<nano::block> block_a, std::chro
 				{
 					blocks.push_back (std::make_pair (block_a, origination));
 				}
+				blocks_hashes.insert (block_a->hash ());
 			}
 			condition.notify_all ();
 		}
@@ -2516,6 +2517,7 @@ public:
 					auto callback_l (callback);
 					std::weak_ptr<nano::node> node_w (node);
 					auto next_backoff (std::min (backoff * 2, (unsigned int)60 * 5));
+					// clang-format off
 					node->alarm.add (now + std::chrono::seconds (backoff), [ node_w, root_l, callback_l, next_backoff, difficulty = difficulty ] {
 						if (auto node_l = node_w.lock ())
 						{
@@ -2523,6 +2525,7 @@ public:
 							work_generation->start ();
 						}
 					});
+					// clang-format on
 				}
 			}
 		}
@@ -2983,8 +2986,9 @@ void nano::election::compute_rep_votes (nano::transaction const & transaction_a)
 	}
 }
 
-void nano::election::confirm_once (nano::transaction const & transaction_a)
+void nano::election::confirm_once (nano::transaction const & transaction_a, uint8_t & depth_a)
 {
+	depth_a++;
 	if (!confirmed.exchange (true))
 	{
 		status.election_end = std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ());
@@ -2996,21 +3000,22 @@ void nano::election::confirm_once (nano::transaction const & transaction_a)
 			node_l->process_confirmed (winner_l);
 			confirmation_action_l (winner_l);
 		});
-		confirm_back (transaction_a);
+		confirm_back (transaction_a, depth_a);
 	}
 }
 
-void nano::election::confirm_back (nano::transaction const & transaction_a)
+void nano::election::confirm_back (nano::transaction const & transaction_a, uint8_t & depth_a)
 {
 	std::vector<nano::block_hash> hashes = { status.winner->previous (), status.winner->source (), status.winner->link () };
 	for (auto & hash : hashes)
 	{
-		if (!hash.is_zero () && !node.ledger.is_epoch_link (hash))
+		// Depth is limited to 200
+		if (!hash.is_zero () && !node.ledger.is_epoch_link (hash) && depth_a < 200)
 		{
 			auto existing (node.active.blocks.find (hash));
 			if (existing != node.active.blocks.end () && !existing->second->confirmed && !existing->second->stopped && existing->second->blocks.size () == 1)
 			{
-				existing->second->confirm_once (transaction_a);
+				existing->second->confirm_once (transaction_a, depth_a);
 			}
 		}
 	}
@@ -3080,7 +3085,8 @@ void nano::election::confirm_if_quorum (nano::transaction const & transaction_a)
 		{
 			log_votes (tally_l);
 		}
-		confirm_once (transaction_a);
+		uint8_t depth (0);
+		confirm_once (transaction_a, depth);
 	}
 }
 
