@@ -19,8 +19,8 @@ struct hash<::nano::uint256_union>
 {
 	size_t operator() (::nano::uint256_union const & value_a) const
 	{
-		std::hash<::nano::uint256_union> hash;
-		return hash (value_a);
+		std::hash<::nano::uint256_union> hash_l;
+		return hash_l (value_a);
 	}
 };
 }

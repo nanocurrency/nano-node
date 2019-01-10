@@ -75,9 +75,9 @@ public:
 	}
 
 	/** Sign the block using the \p private_key and \p public_key */
-	inline abstract_builder & sign (nano::raw_key const & private_key, nano::public_key const & public_key)
+	inline abstract_builder & sign (nano::raw_key const & private_key_a, nano::public_key const & public_key_a)
 	{
-		block->signature = nano::sign_message (private_key, public_key, block->hash ());
+		block->signature = nano::sign_message (private_key_a, public_key_a, block->hash ());
 		build_state |= build_flags::signature_present;
 		return *this;
 	}
