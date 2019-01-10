@@ -57,6 +57,7 @@ public:
 	void seed_set (nano::transaction const &, nano::raw_key const &);
 	nano::key_type key_type (nano::wallet_value const &);
 	nano::public_key deterministic_insert (nano::transaction const &);
+	nano::public_key deterministic_insert (nano::transaction const &, uint32_t const);
 	void deterministic_key (nano::raw_key &, nano::transaction const &, uint32_t);
 	uint32_t deterministic_index_get (nano::transaction const &);
 	void deterministic_index_set (nano::transaction const &, uint32_t);
@@ -132,6 +133,7 @@ public:
 	nano::public_key insert_adhoc (nano::transaction const &, nano::raw_key const &, bool = true);
 	void insert_watch (nano::transaction const &, nano::public_key const &);
 	nano::public_key deterministic_insert (nano::transaction const &, bool = true);
+	nano::public_key deterministic_insert (uint32_t, bool = true);
 	nano::public_key deterministic_insert (bool = true);
 	bool exists (nano::public_key const &);
 	bool import (std::string const &, std::string const &);

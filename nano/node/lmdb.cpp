@@ -318,7 +318,7 @@ public:
 		auto version (store.block_version (transaction, block_a.previous ()));
 		assert (value.mv_size != 0);
 		std::vector<uint8_t> data (static_cast<uint8_t *> (value.mv_data), static_cast<uint8_t *> (value.mv_data) + value.mv_size);
-		std::copy (hash.bytes.begin (), hash.bytes.end (), data.end () - hash.bytes.size ());
+		std::copy (hash.bytes.begin (), hash.bytes.end (), data.begin () + store.block_successor_offset (transaction, value, type));
 		store.block_raw_put (transaction, store.block_database (type, version), block_a.previous (), nano::mdb_val (data.size (), data.data ()));
 	}
 	void send_block (nano::send_block const & block_a) override
@@ -716,7 +716,8 @@ nano::store_iterator<nano::account, std::shared_ptr<nano::vote>> nano::mdb_store
 	return nano::store_iterator<nano::account, std::shared_ptr<nano::vote>> (nullptr);
 }
 
-nano::mdb_store::mdb_store (bool & error_a, boost::filesystem::path const & path_a, int lmdb_max_dbs) :
+nano::mdb_store::mdb_store (bool & error_a, nano::logging & logging_a, boost::filesystem::path const & path_a, int lmdb_max_dbs) :
+logging (logging_a),
 env (error_a, path_a, lmdb_max_dbs),
 frontiers (0),
 accounts_v0 (0),
@@ -1298,6 +1299,15 @@ std::shared_ptr<nano::block> nano::mdb_store::block_random (nano::transaction co
 	return result;
 }
 
+size_t nano::mdb_store::block_successor_offset (nano::transaction const &, MDB_val entry_a, nano::block_type type_a)
+{
+	size_t result;
+	// Read old successor-only sideband
+	assert (entry_a.mv_size = nano::block::size (type_a) + sizeof (nano::uint256_union));
+	result = entry_a.mv_size - sizeof (nano::uint256_union);
+	return result;
+}
+
 nano::block_hash nano::mdb_store::block_successor (nano::transaction const & transaction_a, nano::block_hash const & hash_a)
 {
 	nano::block_type type;
@@ -1306,7 +1316,7 @@ nano::block_hash nano::mdb_store::block_successor (nano::transaction const & tra
 	if (value.mv_size != 0)
 	{
 		assert (value.mv_size >= result.bytes.size ());
-		nano::bufferstream stream (reinterpret_cast<uint8_t const *> (value.mv_data) + value.mv_size - result.bytes.size (), result.bytes.size ());
+		nano::bufferstream stream (reinterpret_cast<uint8_t const *> (value.mv_data) + block_successor_offset (transaction_a, value, type), result.bytes.size ());
 		auto error (nano::read (stream, result.bytes));
 		assert (!error);
 	}

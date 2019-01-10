@@ -18,13 +18,13 @@ extern "C" {
 void xrb_uint128_to_dec (xrb_uint128 source, char * destination)
 {
 	auto const & number (*reinterpret_cast<nano::uint128_union *> (source));
-	strncpy (destination, number.to_string_dec ().c_str (), 32);
+	strncpy (destination, number.to_string_dec ().c_str (), 40);
 }
 
 void xrb_uint256_to_string (xrb_uint256 source, char * destination)
 {
 	auto const & number (*reinterpret_cast<nano::uint256_union *> (source));
-	strncpy (destination, number.to_string ().c_str (), 64);
+	strncpy (destination, number.to_string ().c_str (), 65);
 }
 
 void xrb_uint256_to_address (xrb_uint256 source, char * destination)
@@ -36,7 +36,7 @@ void xrb_uint256_to_address (xrb_uint256 source, char * destination)
 void xrb_uint512_to_string (xrb_uint512 source, char * destination)
 {
 	auto const & number (*reinterpret_cast<nano::uint512_union *> (source));
-	strncpy (destination, number.to_string ().c_str (), 128);
+	strncpy (destination, number.to_string ().c_str (), 129);
 }
 
 int xrb_uint128_from_dec (const char * source, xrb_uint128 destination)

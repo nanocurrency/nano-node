@@ -5,6 +5,7 @@
 #include <lmdb/libraries/liblmdb/lmdb.h>
 
 #include <nano/lib/numbers.hpp>
+#include <nano/node/logging.hpp>
 #include <nano/secure/blockstore.hpp>
 #include <nano/secure/common.hpp>
 
@@ -137,6 +138,7 @@ private:
 	std::unique_ptr<nano::mdb_iterator<T, U>> impl2;
 };
 
+class logging;
 /**
  * mdb implementation of the block store
  */
@@ -145,7 +147,7 @@ class mdb_store : public block_store
 	friend class nano::block_predecessor_set;
 
 public:
-	mdb_store (bool &, boost::filesystem::path const &, int lmdb_max_dbs = 128);
+	mdb_store (bool &, nano::logging &, boost::filesystem::path const &, int lmdb_max_dbs = 128);
 
 	nano::transaction tx_begin_write () override;
 	nano::transaction tx_begin_read () override;
@@ -153,6 +155,7 @@ public:
 
 	void initialize (nano::transaction const &, nano::genesis const &) override;
 	void block_put (nano::transaction const &, nano::block_hash const &, nano::block const &, nano::block_hash const & = nano::block_hash (0), nano::epoch version = nano::epoch::epoch_0) override;
+	size_t block_successor_offset (nano::transaction const &, MDB_val, nano::block_type);
 	nano::block_hash block_successor (nano::transaction const &, nano::block_hash const &) override;
 	void block_successor_clear (nano::transaction const &, nano::block_hash const &) override;
 	std::shared_ptr<nano::block> block_get (nano::transaction const &, nano::block_hash const &) override;
@@ -263,6 +266,8 @@ public:
 
 	/** Deletes the node ID from the store */
 	void delete_node_id (nano::transaction const &) override;
+
+	nano::logging & logging;
 
 	nano::mdb_env env;
 

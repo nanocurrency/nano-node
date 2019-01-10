@@ -289,7 +289,7 @@ public:
 	std::shared_ptr<nano::bootstrap_server> connection;
 	std::unique_ptr<nano::bulk_pull_account> request;
 	std::shared_ptr<std::vector<uint8_t>> send_buffer;
-	std::unordered_map<nano::uint256_union, bool> deduplication;
+	std::unordered_set<nano::uint256_union> deduplication;
 	nano::pending_key current_key;
 	bool pending_address_only;
 	bool pending_include_address;

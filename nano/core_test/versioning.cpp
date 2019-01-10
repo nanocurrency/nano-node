@@ -10,8 +10,9 @@ TEST (versioning, account_info_v1)
 	nano::open_block open (1, 2, 3, nullptr);
 	nano::account_info_v1 v1 (open.hash (), open.hash (), 3, 4);
 	{
+		nano::logging logging;
 		auto error (false);
-		nano::mdb_store store (error, file);
+		nano::mdb_store store (error, logging, file);
 		ASSERT_FALSE (error);
 		auto transaction (store.tx_begin (true));
 		store.block_put (transaction, open.hash (), open);
@@ -20,8 +21,9 @@ TEST (versioning, account_info_v1)
 		store.version_put (transaction, 1);
 	}
 	{
+		nano::logging logging;
 		auto error (false);
-		nano::mdb_store store (error, file);
+		nano::mdb_store store (error, logging, file);
 		ASSERT_FALSE (error);
 		auto transaction (store.tx_begin ());
 		nano::account_info v2;

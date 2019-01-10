@@ -75,8 +75,9 @@ TEST (system, receive_while_synchronizing)
 
 TEST (ledger, deep_account_compute)
 {
+	nano::logging logging;
 	bool init (false);
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, logging, nano::unique_path ());
 	ASSERT_FALSE (init);
 	nano::stat stats;
 	nano::ledger ledger (store, stats);

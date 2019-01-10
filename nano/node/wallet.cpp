@@ -75,6 +75,18 @@ nano::public_key nano::wallet_store::deterministic_insert (nano::transaction con
 	return result;
 }
 
+nano::public_key nano::wallet_store::deterministic_insert (nano::transaction const & transaction_a, uint32_t const index)
+{
+	nano::raw_key prv;
+	deterministic_key (prv, transaction_a, index);
+	nano::public_key result (nano::pub_key (prv.data));
+	uint64_t marker (1);
+	marker <<= 32;
+	marker |= index;
+	entry_put_raw (transaction_a, result, nano::wallet_value (nano::uint256_union (marker), 0));
+	return result;
+}
+
 void nano::wallet_store::deterministic_key (nano::raw_key & prv_a, nano::transaction const & transaction_a, uint32_t index_a)
 {
 	assert (valid_password (transaction_a));
@@ -792,6 +804,21 @@ nano::public_key nano::wallet::deterministic_insert (nano::transaction const & t
 		{
 			std::lock_guard<std::mutex> lock (representatives_mutex);
 			representatives.insert (key);
+		}
+	}
+	return key;
+}
+
+nano::public_key nano::wallet::deterministic_insert (uint32_t const index, bool generate_work_a)
+{
+	auto transaction (wallets.tx_begin_write ());
+	nano::public_key key (0);
+	if (store.valid_password (transaction))
+	{
+		key = store.deterministic_insert (transaction, index);
+		if (generate_work_a)
+		{
+			work_ensure (key, key);
 		}
 	}
 	return key;
