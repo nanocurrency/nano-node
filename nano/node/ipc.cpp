@@ -10,6 +10,7 @@
 #include <cstdio>
 #include <fstream>
 #include <iostream>
+#include <nano/lib/timer.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/ipc.hpp>
 #include <nano/node/node.hpp>
@@ -60,19 +61,28 @@ bool nano::ipc::ipc_config::deserialize_json (nano::jsonconfig & tree_a)
 	return error;
 }
 
-/** A client session that manages its own lifetime */
+/**
+ * A session represents a client connection over which multiple requests/reponses are transmittet.
+ */
 template <typename SOCKET_TYPE>
 class session : public std::enable_shared_from_this<session<SOCKET_TYPE>>
 {
 public:
 	session (nano::ipc::ipc_server & server_a, boost::asio::io_context & io_context_a, nano::ipc::ipc_config_transport & config_transport_a) :
-	server (server_a), node (server_a.node), io_context (io_context_a), socket (io_context_a), writer_strand (io_context_a), io_timer (io_context_a), config_transport (config_transport_a)
+	server (server_a), node (server_a.node), session_id (server_a.id_dispenser.fetch_add (1)), io_context (io_context_a), socket (io_context_a), io_timer (io_context_a), config_transport (config_transport_a)
 	{
+		if (node.config.logging.log_rpc ())
+		{
+			BOOST_LOG (node.log) << "IPC: created session with id: " << session_id;
+		}
 	}
 
 	~session ()
 	{
-		BOOST_LOG (node.log) << "IPC: session ended";
+		if (node.config.logging.log_rpc ())
+		{
+			BOOST_LOG (node.log) << "IPC: ended session with id: " << session_id;
+		}
 	}
 
 	SOCKET_TYPE & get_socket ()
@@ -97,27 +107,21 @@ public:
 	void async_read_exactly (void * buff_a, size_t size_a, std::chrono::seconds timeout_a, std::function<void()> callback_a)
 	{
 		timer_start (timeout_a);
+
+		auto this_l (this->shared_from_this ());
 		boost::asio::async_read (socket,
 		boost::asio::buffer (buff_a, size_a),
 		boost::asio::transfer_exactly (size_a),
-		boost::bind (&session::handle_read_or_error,
-		this->shared_from_this (),
-		callback_a,
-		boost::asio::placeholders::error,
-		boost::asio::placeholders::bytes_transferred));
-	}
-
-	void handle_read_or_error (std::function<void()> callback_a, const boost::system::error_code & error_a, size_t bytes_transferred_a)
-	{
-		timer_cancel ();
-		if ((boost::asio::error::connection_aborted == error_a) || (boost::asio::error::connection_reset == error_a))
-		{
-			BOOST_LOG (node.log) << boost::str (boost::format ("IPC: error reading %1% ") % error_a.message ());
-		}
-		else if (bytes_transferred_a > 0)
-		{
-			callback_a ();
-		}
+		[this_l, callback_a](boost::system::error_code const & ec, size_t bytes_transferred_a) {
+			if (ec == boost::asio::error::connection_aborted || ec == boost::asio::error::connection_reset)
+			{
+				BOOST_LOG (this_l->node.log) << boost::str (boost::format ("IPC: error reading %1% ") % ec.message ());
+			}
+			else if (bytes_transferred_a > 0)
+			{
+				callback_a ();
+			}
+		});
 	}
 
 	/**
@@ -140,36 +144,40 @@ public:
 	/** Handler for payloads of type nano::ipc_encoding::json_legacy */
 	void rpc_handle_query ()
 	{
-		auto start (std::chrono::steady_clock::now ());
-		request_id_str = (boost::str (boost::format ("%1%") % boost::io::group (std::hex, std::showbase, request_id.fetch_add (1))));
+		session_timer.restart ();
+		auto request_id_l (std::to_string (server.id_dispenser.fetch_add (1)));
 
 		// This is called when the nano::rpc_handler#process_request is done. We convert to
 		// json and write the response to the ipc socket with a length prefix.
-		auto self_l (this->shared_from_this ());
-		auto response_handler ([self_l, start](boost::property_tree::ptree const & tree_a) {
+		auto this_l (this->shared_from_this ());
+		auto response_handler_l ([this_l, request_id_l](boost::property_tree::ptree const & tree_a) {
 			std::stringstream ostream;
 			boost::property_tree::write_json (ostream, tree_a);
 			ostream.flush ();
-			self_l->request_body = ostream.str ();
+			std::string request_body = ostream.str ();
 
-			uint32_t size_response = boost::endian::native_to_big ((uint32_t)self_l->request_body.size ());
+			uint32_t size_response = boost::endian::native_to_big ((uint32_t)request_body.size ());
 			std::vector<boost::asio::mutable_buffer> bufs = {
 				boost::asio::buffer (&size_response, sizeof (size_response)),
-				boost::asio::buffer (self_l->request_body)
+				boost::asio::buffer (request_body)
 			};
 
-			self_l->timer_start (std::chrono::seconds (self_l->config_transport.io_timeout));
-			boost::asio::async_write (self_l->socket, bufs,
-			self_l->writer_strand.wrap (
-			boost::bind (
-			&session::handle_write,
-			self_l,
-			boost::asio::placeholders::error,
-			boost::asio::placeholders::bytes_transferred)));
+			this_l->timer_start (std::chrono::seconds (this_l->config_transport.io_timeout));
+			boost::asio::async_write (this_l->socket, bufs, [this_l](boost::system::error_code const & error_a, size_t size_a) {
+				this_l->timer_cancel ();
+				if (!error_a)
+				{
+					this_l->read_next_request ();
+				}
+				else
+				{
+					BOOST_LOG (this_l->node.log) << "IPC: Write failed: " << error_a.message ();
+				}
+			});
 
-			if (self_l->node.config.logging.log_rpc ())
+			if (this_l->node.config.logging.log_rpc ())
 			{
-				BOOST_LOG (self_l->node.log) << boost::str (boost::format ("IPC/RPC request %1% completed in: %2% microseconds") % self_l->request_id_str % std::chrono::duration_cast<std::chrono::microseconds> (std::chrono::steady_clock::now () - start).count ());
+				BOOST_LOG (this_l->node.log) << boost::str (boost::format ("IPC/RPC request %1% completed in: %2% %3%") % request_id_l % this_l->session_timer.stop ().count () % this_l->session_timer.unit ());
 			}
 		});
 
@@ -177,8 +185,8 @@ public:
 		auto body (std::string ((char *)buffer.data (), buffer.size ()));
 
 		// Note that if the rpc action is async, the shared_ptr<rpc_handler> lifetime will be extended by the action handler
-		auto handler (std::make_shared<nano::rpc_handler> (node, server.rpc, body, request_id_str, response_handler));
-		handler->process_request ();
+		nano::rpc_handler handler (node, server.rpc, body, request_id_l, response_handler_l);
+		handler.process_request ();
 	}
 
 	/** Async request reader */
@@ -223,13 +231,13 @@ public:
 protected:
 	/**
 	 * Start IO timer.
-	 * @param timeout_t Seconds to wait. To wait indefinitely, use std::numeric_limits<size_t>::max().
+	 * @param timeout_a Seconds to wait. To wait indefinitely, use std::chrono::seconds::max ()
 	 */
-	void timer_start (std::chrono::seconds timeout_t)
+	void timer_start (std::chrono::seconds timeout_a)
 	{
-		if (timeout_t < std::chrono::seconds::max ())
+		if (timeout_a < std::chrono::seconds::max ())
 		{
-			io_timer.expires_from_now (boost::posix_time::seconds (timeout_t.count ()));
+			io_timer.expires_from_now (boost::posix_time::seconds (timeout_a.count ()));
 			io_timer.async_wait ([this](const boost::system::error_code & ec) {
 				if (!ec)
 				{
@@ -255,10 +263,11 @@ private:
 	nano::ipc::ipc_server & server;
 	nano::node & node;
 
-	// Request data for ipc_encoding::json_legacy payloads
-	std::atomic<int> request_id{ 0 };
-	std::string request_body;
-	std::string request_id_str;
+	/** Unique session id used for logging */
+	uint64_t session_id;
+
+	/** Timer for measuring operations */
+	nano::timer<std::chrono::microseconds> session_timer;
 
 	/**
 	 * IO context from node, or per-transport, depending on configuration.
@@ -270,14 +279,8 @@ private:
 	/** A socket of the given asio type */
 	SOCKET_TYPE socket;
 
-	/**
-	 * Allow multiple threads to write simultaniously. This allows for future extensions like
-	 * async callback feeds without locking.
-	 */
-	boost::asio::io_context::strand writer_strand;
-
 	/** Buffer sizes are read into this */
-	uint32_t buffer_size = 0;
+	uint32_t buffer_size{ 0 };
 
 	/** Buffer used to store data received from the client */
 	std::vector<uint8_t> buffer;
@@ -294,65 +297,61 @@ template <typename ACCEPTOR_TYPE, typename SOCKET_TYPE, typename ENDPOINT_TYPE>
 class socket_transport : public nano::ipc::transport
 {
 public:
-	socket_transport (nano::ipc::ipc_server & server_a, ENDPOINT_TYPE ep, nano::ipc::ipc_config_transport & config_transport_a, int concurrency_a) :
+	socket_transport (nano::ipc::ipc_server & server_a, ENDPOINT_TYPE endpoint_a, nano::ipc::ipc_config_transport & config_transport_a, int concurrency_a) :
 	server (server_a), config_transport (config_transport_a)
 	{
 		// Using a per-transport event dispatcher?
 		if (concurrency_a > 0)
 		{
-			io_context = std::make_unique<boost::asio::io_context> ();
+			io_ctx = std::make_unique<boost::asio::io_context> ();
 		}
 
 		boost::asio::socket_base::reuse_address option (true);
 		boost::asio::socket_base::keep_alive option_keepalive (true);
-		acceptor = std::make_unique<ACCEPTOR_TYPE> (context (), ep);
+		acceptor = std::make_unique<ACCEPTOR_TYPE> (context (), endpoint_a);
 		acceptor->set_option (option);
 		acceptor->set_option (option_keepalive);
 		accept ();
 
-		// Start serving IO requests. If concurrency is 0, the node's thread pool is used instead.
+		// Start serving IO requests. If concurrency_a is 0, the node's thread pool/io_context is used instead.
 		// A separate io_context for domain sockets may facilitate better performance on some systems.
 		if (concurrency_a > 0)
 		{
-			runner = std::make_unique<nano::thread_runner> (*io_context, concurrency_a);
+			runner = std::make_unique<nano::thread_runner> (*io_ctx, concurrency_a);
 		}
 	}
 
 	boost::asio::io_context & context () const
 	{
-		return io_context ? *io_context : server.node.io_ctx;
+		return io_ctx ? *io_ctx : server.node.io_ctx;
 	}
 
 	void accept ()
 	{
-		std::shared_ptr<session<SOCKET_TYPE>> new_session (new session<SOCKET_TYPE> (server, io_context ? *io_context : server.node.io_ctx, config_transport));
+		// Prepare the next session
+		auto new_session (std::make_shared<session<SOCKET_TYPE>> (server, context (), config_transport));
 
-		acceptor->async_accept (new_session->get_socket (),
-		boost::bind (&socket_transport::handle_accept, this, new_session,
-		boost::asio::placeholders::error));
-	}
+		acceptor->async_accept (new_session->get_socket (), [this, new_session](boost::system::error_code const & ec) {
+			if (!ec)
+			{
+				new_session->read_next_request ();
+			}
+			else
+			{
+				BOOST_LOG (server.node.log) << "IPC acceptor error: " << ec.message ();
+			}
 
-	void handle_accept (std::shared_ptr<session<SOCKET_TYPE>> new_session_a, const boost::system::error_code & error_a)
-	{
-		if (!error_a)
-		{
-			new_session_a->read_next_request ();
-		}
-		else
-		{
-			BOOST_LOG (server.node.log) << "IPC acceptor error: " << error_a.message ();
-		}
-
-		if (acceptor->is_open ())
-		{
-			accept ();
-		}
+			if (acceptor->is_open () && ec != boost::asio::error::operation_aborted)
+			{
+				this->accept ();
+			}
+		});
 	}
 
 	void stop ()
 	{
 		acceptor->close ();
-		io_context->stop ();
+		io_ctx->stop ();
 
 		if (runner)
 		{
@@ -364,7 +363,7 @@ private:
 	nano::ipc::ipc_server & server;
 	nano::ipc::ipc_config_transport & config_transport;
 	std::unique_ptr<nano::thread_runner> runner;
-	std::unique_ptr<boost::asio::io_context> io_context;
+	std::unique_ptr<boost::asio::io_context> io_ctx;
 	std::unique_ptr<ACCEPTOR_TYPE> acceptor;
 };
 

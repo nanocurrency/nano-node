@@ -22,7 +22,7 @@ enum class error_ipc
 	invalid_preamble = 2,
 };
 
-/** Payload encodings, add protobuf, etc as needed. */
+/** Payload encodings; add protobuf, etc as needed. */
 enum class ipc_encoding : uint8_t
 {
 	json_legacy = 1
@@ -80,7 +80,7 @@ namespace ipc
 		ipc_config_tcp_socket transport_tcp;
 	};
 
-	/** IPC server */
+	/** The IPC server accepts connections on one or more configured transports */
 	class ipc_server
 	{
 	public:
@@ -90,6 +90,9 @@ namespace ipc
 
 		nano::node & node;
 		nano::rpc & rpc;
+
+		/** Unique counter/id shared across sessions */
+		std::atomic<uint64_t> id_dispenser{ 0 };
 
 	private:
 		std::atomic<bool> stopped;
