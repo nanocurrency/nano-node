@@ -185,11 +185,11 @@ public:
 	bool bulk_pull_is_count_present () const;
 
 	static std::bitset<16> constexpr block_type_mask = std::bitset<16> (0x0f00);
-	inline bool valid_magic () const
+	bool valid_magic () const
 	{
 		return magic_number[0] == 'R' && magic_number[1] >= 'A' && magic_number[1] <= 'C';
 	}
-	inline bool valid_network () const
+	bool valid_network () const
 	{
 		return (magic_number[1] - 'A') == static_cast<int> (nano::nano_network);
 	}
