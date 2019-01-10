@@ -3,10 +3,9 @@
 #include <iostream>
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/utility.hpp>
-#include <nano/nano_node/daemon.hpp>b
+#include <nano/nano_node/daemon.hpp>
 #include <nano/node/ipc.hpp>
 #include <nano/node/working.hpp>
-#include <nano/nano_node/daemon.hpp>
 
 nano_daemon::daemon_config::daemon_config () :
 rpc_enable (false),
