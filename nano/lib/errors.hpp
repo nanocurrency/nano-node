@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <boost/system/error_code.hpp>
 #include <memory>
 #include <nano/lib/expected.hpp>
