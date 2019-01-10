@@ -1360,6 +1360,10 @@ void nano::block_processor::verify_state_blocks (nano::transaction const & trans
 			BOOST_LOG (node.log) << boost::str (boost::format ("Batch verified %1% state blocks in %2% %3%") % size % timer_l.stop ().count () % timer_l.unit ());
 		}
 	}
+	else
+	{
+		lock_a.lock ();
+	}
 }
 
 void nano::block_processor::process_batch (std::unique_lock<std::mutex> & lock_a)
