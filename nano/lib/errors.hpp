@@ -257,15 +257,8 @@ class error
 {
 public:
 	error () = default;
-	error (nano::error const & error_a) :
-	code (error_a.code), message (error_a.message)
-	{
-	}
-
-	error (nano::error && error_a) :
-	code (error_a.code), message (std::move (error_a.message))
-	{
-	}
+	error (nano::error const & error_a) = default;
+	error (nano::error && error_a) = default;
 
 	error (std::error_code code_a)
 	{
@@ -382,19 +375,19 @@ public:
 	}
 
 	/** Implicit error_code conversion */
-	operator std::error_code () const
+	explicit operator std::error_code () const
 	{
 		return code;
 	}
 
 	/** Implicit bool conversion; true if there's an error */
-	operator bool () const
+	explicit operator bool () const
 	{
 		return code.value () != 0;
 	}
 
 	/** Implicit string conversion; returns the error message or an empty string. */
-	operator std::string () const
+	explicit operator std::string () const
 	{
 		return get_message ();
 	}
