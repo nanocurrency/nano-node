@@ -621,13 +621,10 @@ int main (int argc, char * const * argv)
 				command_l << rpc_input_l;
 			}
 
-			std::mutex rpc_mutex_l;
-			std::atomic<bool> done_l (false);
-			std::condition_variable cond_l;
-			auto response_handler_l ([&cond_l, &done_l](boost::property_tree::ptree const & tree_a) {
+			auto response_handler_l ([](boost::property_tree::ptree const & tree_a) {
 				boost::property_tree::write_json (std::cout, tree_a);
-				done_l = true;
-				cond_l.notify_one ();
+				// Terminate as soon as we have the result, even if background threads (like work generation) are running.
+				std::exit (0);
 			});
 
 			nano::inactive_node inactive_node_l (data_path);
@@ -637,8 +634,6 @@ int main (int argc, char * const * argv)
 			std::string req_id_l ("1");
 			nano::rpc_handler handler_l (*inactive_node_l.node, *rpc_l, command_l.str (), req_id_l, response_handler_l);
 			handler_l.process_request ();
-			std::unique_lock<std::mutex> lock_l (rpc_mutex_l);
-			cond_l.wait (lock_l, [&done_l]() { return !!done_l; });
 		}
 		else if (vm.count ("debug_validate_blocks"))
 		{
