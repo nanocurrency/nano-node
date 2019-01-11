@@ -1,5 +1,3 @@
-#include <condition_variable>
-#include <mutex>
 #include <nano/lib/utility.hpp>
 #include <nano/nano_node/daemon.hpp>
 #include <nano/node/cli.hpp>
