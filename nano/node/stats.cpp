@@ -38,9 +38,9 @@ bool nano::stat_config::deserialize_json (boost::property_tree::ptree & tree_a)
 	return error;
 }
 
-std::string nano::stat_log_sink::tm_to_string (tm & tm)
+std::string nano::stat_log_sink::tm_to_string (tm & tm_a)
 {
-	return (boost::format ("%04d.%02d.%02d %02d:%02d:%02d") % (1900 + tm.tm_year) % (tm.tm_mon + 1) % tm.tm_mday % tm.tm_hour % tm.tm_min % tm.tm_sec).str ();
+	return (boost::format ("%04d.%02d.%02d %02d:%02d:%02d") % (1900 + tm_a.tm_year) % (tm_a.tm_mon + 1) % tm_a.tm_mday % tm_a.tm_hour % tm_a.tm_min % tm_a.tm_sec).str ();
 }
 
 /** JSON sink. The resulting JSON object is provided as both a property_tree::ptree (to_object) and a string (to_string) */
@@ -60,22 +60,22 @@ public:
 		tree.clear ();
 	}
 
-	void write_header (std::string header, std::chrono::system_clock::time_point & walltime) override
+	void write_header (std::string header_a, std::chrono::system_clock::time_point & walltime_a) override
 	{
-		std::time_t now = std::chrono::system_clock::to_time_t (walltime);
+		std::time_t now = std::chrono::system_clock::to_time_t (walltime_a);
 		tm tm = *localtime (&now);
-		tree.put ("type", header);
+		tree.put ("type", header_a);
 		tree.put ("created", tm_to_string (tm));
 	}
 
-	void write_entry (tm & tm, std::string type, std::string detail, std::string dir, uint64_t value) override
+	void write_entry (tm & tm_a, std::string type_a, std::string detail_a, std::string dir_a, uint64_t value_a) override
 	{
 		boost::property_tree::ptree entry;
-		entry.put ("time", boost::format ("%02d:%02d:%02d") % tm.tm_hour % tm.tm_min % tm.tm_sec);
-		entry.put ("type", type);
-		entry.put ("detail", detail);
-		entry.put ("dir", dir);
-		entry.put ("value", value);
+		entry.put ("time", boost::format ("%02d:%02d:%02d") % tm_a.tm_hour % tm_a.tm_min % tm_a.tm_sec);
+		entry.put ("type", type_a);
+		entry.put ("detail", detail_a);
+		entry.put ("dir", dir_a);
+		entry.put ("value", value_a);
 		entries.push_back (std::make_pair ("", entry));
 	}
 
@@ -106,8 +106,8 @@ public:
 	std::ofstream log;
 	std::string filename;
 
-	file_writer (std::string filename) :
-	filename (filename)
+	file_writer (std::string filename_a) :
+	filename (filename_a)
 	{
 		log.open (filename.c_str (), std::ofstream::out);
 	}
@@ -120,16 +120,16 @@ public:
 		return log;
 	}
 
-	void write_header (std::string header, std::chrono::system_clock::time_point & walltime) override
+	void write_header (std::string header_a, std::chrono::system_clock::time_point & walltime_a) override
 	{
-		std::time_t now = std::chrono::system_clock::to_time_t (walltime);
-		tm tm = *localtime (&now);
-		log << header << "," << boost::format ("%04d.%02d.%02d %02d:%02d:%02d") % (1900 + tm.tm_year) % (tm.tm_mon + 1) % tm.tm_mday % tm.tm_hour % tm.tm_min % tm.tm_sec << std::endl;
+		std::time_t now = std::chrono::system_clock::to_time_t (walltime_a);
+		tm tm_l = *localtime (&now);
+		log << header_a << "," << boost::format ("%04d.%02d.%02d %02d:%02d:%02d") % (1900 + tm_l.tm_year) % (tm_l.tm_mon + 1) % tm_l.tm_mday % tm_l.tm_hour % tm_l.tm_min % tm_l.tm_sec << std::endl;
 	}
 
-	void write_entry (tm & tm, std::string type, std::string detail, std::string dir, uint64_t value) override
+	void write_entry (tm & tm_a, std::string type_a, std::string detail_a, std::string dir_a, uint64_t value_a) override
 	{
-		log << boost::format ("%02d:%02d:%02d") % tm.tm_hour % tm.tm_min % tm.tm_sec << "," << type << "," << detail << "," << dir << "," << value << std::endl;
+		log << boost::format ("%02d:%02d:%02d") % tm_a.tm_hour % tm_a.tm_min % tm_a.tm_sec << "," << type_a << "," << detail_a << "," << dir_a << "," << value_a << std::endl;
 	}
 
 	void rotate () override
@@ -140,29 +140,29 @@ public:
 	}
 };
 
-nano::stat::stat (nano::stat_config config) :
-config (config)
+nano::stat::stat (nano::stat_config config_a) :
+config (config_a)
 {
 }
 
-std::shared_ptr<nano::stat_entry> nano::stat::get_entry (uint32_t key)
+std::shared_ptr<nano::stat_entry> nano::stat::get_entry (uint32_t key_a)
 {
-	return get_entry (key, config.interval, config.capacity);
+	return get_entry (key_a, config.interval, config.capacity);
 }
 
-std::shared_ptr<nano::stat_entry> nano::stat::get_entry (uint32_t key, size_t interval, size_t capacity)
+std::shared_ptr<nano::stat_entry> nano::stat::get_entry (uint32_t key_a, size_t interval_a, size_t capacity)
 {
 	std::unique_lock<std::mutex> lock (stat_mutex);
-	return get_entry_impl (key, interval, capacity);
+	return get_entry_impl (key_a, interval_a, capacity);
 }
 
-std::shared_ptr<nano::stat_entry> nano::stat::get_entry_impl (uint32_t key, size_t interval, size_t capacity)
+std::shared_ptr<nano::stat_entry> nano::stat::get_entry_impl (uint32_t key_a, size_t interval_a, size_t capacity_a)
 {
 	std::shared_ptr<nano::stat_entry> res;
-	auto entry = entries.find (key);
+	auto entry = entries.find (key_a);
 	if (entry == entries.end ())
 	{
-		res = entries.insert (std::make_pair (key, std::make_shared<nano::stat_entry> (capacity, interval))).first->second;
+		res = entries.insert (std::make_pair (key_a, std::make_shared<nano::stat_entry> (capacity_a, interval_a))).first->second;
 	}
 	else
 	{
@@ -177,29 +177,29 @@ std::unique_ptr<nano::stat_log_sink> nano::stat::log_sink_json ()
 	return std::make_unique<json_writer> ();
 }
 
-std::unique_ptr<nano::stat_log_sink> log_sink_file (std::string filename)
+std::unique_ptr<nano::stat_log_sink> log_sink_file (std::string filename_a)
 {
-	return std::make_unique<file_writer> (filename);
+	return std::make_unique<file_writer> (filename_a);
 }
 
-void nano::stat::log_counters (stat_log_sink & sink)
+void nano::stat::log_counters (stat_log_sink & sink_a)
 {
 	std::unique_lock<std::mutex> lock (stat_mutex);
-	log_counters_impl (sink);
+	log_counters_impl (sink_a);
 }
 
-void nano::stat::log_counters_impl (stat_log_sink & sink)
+void nano::stat::log_counters_impl (stat_log_sink & sink_a)
 {
-	sink.begin ();
-	if (sink.entries () >= config.log_rotation_count)
+	sink_a.begin ();
+	if (sink_a.entries () >= config.log_rotation_count)
 	{
-		sink.rotate ();
+		sink_a.rotate ();
 	}
 
 	if (config.log_headers)
 	{
 		auto walltime (std::chrono::system_clock::now ());
-		sink.write_header ("counters", walltime);
+		sink_a.write_header ("counters", walltime);
 	}
 
 	for (auto & it : entries)
@@ -211,30 +211,30 @@ void nano::stat::log_counters_impl (stat_log_sink & sink)
 		std::string type = type_to_string (key);
 		std::string detail = detail_to_string (key);
 		std::string dir = dir_to_string (key);
-		sink.write_entry (local_tm, type, detail, dir, it.second->counter.value);
+		sink_a.write_entry (local_tm, type, detail, dir, it.second->counter.value);
 	}
-	sink.entries ()++;
-	sink.finalize ();
+	sink_a.entries ()++;
+	sink_a.finalize ();
 }
 
-void nano::stat::log_samples (stat_log_sink & sink)
+void nano::stat::log_samples (stat_log_sink & sink_a)
 {
 	std::unique_lock<std::mutex> lock (stat_mutex);
-	log_samples_impl (sink);
+	log_samples_impl (sink_a);
 }
 
-void nano::stat::log_samples_impl (stat_log_sink & sink)
+void nano::stat::log_samples_impl (stat_log_sink & sink_a)
 {
-	sink.begin ();
-	if (sink.entries () >= config.log_rotation_count)
+	sink_a.begin ();
+	if (sink_a.entries () >= config.log_rotation_count)
 	{
-		sink.rotate ();
+		sink_a.rotate ();
 	}
 
 	if (config.log_headers)
 	{
 		auto walltime (std::chrono::system_clock::now ());
-		sink.write_header ("samples", walltime);
+		sink_a.write_header ("samples", walltime);
 	}
 
 	for (auto & it : entries)
@@ -248,14 +248,14 @@ void nano::stat::log_samples_impl (stat_log_sink & sink)
 		{
 			std::time_t time = std::chrono::system_clock::to_time_t (datapoint.timestamp);
 			tm local_tm = *localtime (&time);
-			sink.write_entry (local_tm, type, detail, dir, datapoint.value);
+			sink_a.write_entry (local_tm, type, detail, dir, datapoint.value);
 		}
 	}
-	sink.entries ()++;
-	sink.finalize ();
+	sink_a.entries ()++;
+	sink_a.finalize ();
 }
 
-void nano::stat::update (uint32_t key_a, uint64_t value)
+void nano::stat::update (uint32_t key_a, uint64_t value_a)
 {
 	static file_writer log_count (config.log_counters_filename);
 	static file_writer log_sample (config.log_samples_filename);
@@ -267,7 +267,7 @@ void nano::stat::update (uint32_t key_a, uint64_t value)
 
 	// Counters
 	auto old (entry->counter.value);
-	entry->counter.add (value);
+	entry->counter.add (value_a);
 	entry->count_observers.notify (old, entry->counter.value);
 
 	std::chrono::duration<double, std::milli> duration_l = now - log_last_count_writeout;
@@ -280,7 +280,7 @@ void nano::stat::update (uint32_t key_a, uint64_t value)
 	// Samples
 	if (config.sampling_enabled && entry->sample_interval > 0)
 	{
-		entry->sample_current.add (value, false);
+		entry->sample_current.add (value_a, false);
 
 		std::chrono::duration<double, std::milli> duration = now - entry->sample_start_time;
 		if (duration.count () > entry->sample_interval)
@@ -309,9 +309,9 @@ void nano::stat::update (uint32_t key_a, uint64_t value)
 	}
 }
 
-std::string nano::stat::type_to_string (uint32_t key)
+std::string nano::stat::type_to_string (uint32_t key_a)
 {
-	auto type = static_cast<stat::type> (key >> 16 & 0x000000ff);
+	auto type = static_cast<stat::type> (key_a >> 16 & 0x000000ff);
 	std::string res;
 	switch (type)
 	{
@@ -355,9 +355,9 @@ std::string nano::stat::type_to_string (uint32_t key)
 	return res;
 }
 
-std::string nano::stat::detail_to_string (uint32_t key)
+std::string nano::stat::detail_to_string (uint32_t key_a)
 {
-	auto detail = static_cast<stat::detail> (key >> 8 & 0x000000ff);
+	auto detail = static_cast<stat::detail> (key_a >> 8 & 0x000000ff);
 	std::string res;
 	switch (detail)
 	{
@@ -485,9 +485,9 @@ std::string nano::stat::detail_to_string (uint32_t key)
 	return res;
 }
 
-std::string nano::stat::dir_to_string (uint32_t key)
+std::string nano::stat::dir_to_string (uint32_t key_a)
 {
-	auto dir = static_cast<stat::dir> (key & 0x000000ff);
+	auto dir = static_cast<stat::dir> (key_a & 0x000000ff);
 	std::string res;
 	switch (dir)
 	{

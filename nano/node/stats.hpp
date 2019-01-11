@@ -63,10 +63,10 @@ public:
 	std::chrono::system_clock::time_point timestamp{ std::chrono::system_clock::now () };
 
 	/** Add \addend to the current value and optionally update the timestamp */
-	inline void add (uint64_t addend, bool update_timestamp = true)
+	inline void add (uint64_t addend_a, bool update_timestamp_a = true)
 	{
-		value += addend;
-		if (update_timestamp)
+		value += addend_a;
+		if (update_timestamp_a)
 		{
 			timestamp = std::chrono::system_clock::now ();
 		}
@@ -77,8 +77,8 @@ public:
 class stat_entry
 {
 public:
-	stat_entry (size_t capacity, size_t interval) :
-	samples (capacity), sample_interval (interval)
+	stat_entry (size_t capacity_a, size_t interval_a) :
+	samples (capacity_a), sample_interval (interval_a)
 	{
 	}
 
@@ -124,12 +124,12 @@ public:
 	}
 
 	/** Write a header enrty to the log */
-	virtual void write_header (std::string header, std::chrono::system_clock::time_point & walltime)
+	virtual void write_header (std::string header_a, std::chrono::system_clock::time_point & walltime_a)
 	{
 	}
 
 	/** Write a counter or sampling entry to the log */
-	virtual void write_entry (tm & tm, std::string type, std::string detail, std::string dir, uint64_t value)
+	virtual void write_entry (tm & tm_a, std::string type_a, std::string detail_a, std::string dir_a, uint64_t value_a)
 	{
 	}
 
@@ -266,48 +266,48 @@ public:
 	 * Initialize stats with a config.
 	 * @param config Configuration object; deserialized from config.json
 	 */
-	stat (nano::stat_config config);
+	stat (nano::stat_config config_a);
 
 	/**
 	 * Call this to override the default sample interval and capacity, for a specific stat entry.
 	 * This must be called before any stat entries are added, as part of the node initialiation.
 	 */
-	inline void configure (stat::type type, stat::detail detail, stat::dir dir, size_t interval, size_t capacity)
+	inline void configure (stat::type type_a, stat::detail detail_a, stat::dir dir_a, size_t interval_a, size_t capacity_a)
 	{
-		get_entry (key_of (type, detail, dir), interval, capacity);
+		get_entry (key_of (type_a, detail_a, dir_a), interval_a, capacity_a);
 	}
 
 	/**
 	 * Disables sampling for a given type/detail/dir combination
 	 */
-	inline void disable_sampling (stat::type type, stat::detail detail, stat::dir dir)
+	inline void disable_sampling (stat::type type_a, stat::detail detail_a, stat::dir dir_a)
 	{
-		auto entry = get_entry (key_of (type, detail, dir));
+		auto entry = get_entry (key_of (type_a, detail_a, dir_a));
 		entry->sample_interval = 0;
 	}
 
 	/** Increments the given counter */
-	inline void inc (stat::type type, stat::dir dir = stat::dir::in)
+	inline void inc (stat::type type_a, stat::dir dir_a = stat::dir::in)
 	{
-		add (type, dir, 1);
+		add (type_a, dir_a, 1);
 	}
 
 	/** Increments the counter for \detail, but doesn't update at the type level */
-	inline void inc_detail_only (stat::type type, stat::detail detail, stat::dir dir = stat::dir::in)
+	inline void inc_detail_only (stat::type type_a, stat::detail detail_a, stat::dir dir_a = stat::dir::in)
 	{
-		add (type, detail, dir, 1);
+		add (type_a, detail_a, dir_a, 1);
 	}
 
 	/** Increments the given counter */
-	inline void inc (stat::type type, stat::detail detail, stat::dir dir = stat::dir::in)
+	inline void inc (stat::type type_a, stat::detail detail_a, stat::dir dir_a = stat::dir::in)
 	{
-		add (type, detail, dir, 1);
+		add (type_a, detail_a, dir_a, 1);
 	}
 
 	/** Adds \p value to the given counter */
-	inline void add (stat::type type, stat::dir dir, uint64_t value)
+	inline void add (stat::type type_a, stat::dir dir_a, uint64_t value_a)
 	{
-		add (type, detail::all, dir, value);
+		add (type_a, detail::all, dir_a, value_a);
 	}
 
 	/**
@@ -320,17 +320,17 @@ public:
 	 * @param value The amount to add
 	 * @param detail_only If true, only update the detail-level counter
 	 */
-	inline void add (stat::type type, stat::detail detail, stat::dir dir, uint64_t value, bool detail_only = false)
+	inline void add (stat::type type_a, stat::detail detail_a, stat::dir dir_a, uint64_t value_a, bool detail_only_a = false)
 	{
 		constexpr uint32_t no_detail_mask = 0xffff00ff;
-		uint32_t key = key_of (type, detail, dir);
+		uint32_t key = key_of (type_a, detail_a, dir_a);
 
-		update (key, value);
+		update (key, value_a);
 
 		// Optionally update at type-level as well
-		if (!detail_only && (key & no_detail_mask) != key)
+		if (!detail_only_a && (key & no_detail_mask) != key)
 		{
-			update (key & no_detail_mask, value);
+			update (key & no_detail_mask, value_a);
 		}
 	}
 
@@ -340,14 +340,14 @@ public:
 	 * To avoid recursion, the observer callback must only use the received data point snapshop, not query the stat object.
 	 * @param observer The observer receives a snapshot of the current samples.
 	 */
-	inline void observe_sample (stat::type type, stat::detail detail, stat::dir dir, std::function<void(boost::circular_buffer<stat_datapoint> &)> observer)
+	inline void observe_sample (stat::type type_a, stat::detail detail_a, stat::dir dir_a, std::function<void(boost::circular_buffer<stat_datapoint> &)> observer_a)
 	{
-		get_entry (key_of (type, detail, dir))->sample_observers.add (observer);
+		get_entry (key_of (type_a, detail_a, dir_a))->sample_observers.add (observer_a);
 	}
 
-	inline void observe_sample (stat::type type, stat::dir dir, std::function<void(boost::circular_buffer<stat_datapoint> &)> observer)
+	inline void observe_sample (stat::type type_a, stat::dir dir_a, std::function<void(boost::circular_buffer<stat_datapoint> &)> observer_a)
 	{
-		observe_sample (type, stat::detail::all, dir, observer);
+		observe_sample (type_a, stat::detail::all, dir_a, observer_a);
 	}
 
 	/**
@@ -355,73 +355,73 @@ public:
 	 * To avoid recursion, the observer callback must only use the received counts, not query the stat object.
 	 * @param observer The observer receives the old and the new count.
 	 */
-	inline void observe_count (stat::type type, stat::detail detail, stat::dir dir, std::function<void(uint64_t, uint64_t)> observer)
+	inline void observe_count (stat::type type_a, stat::detail detail_a, stat::dir dir_a, std::function<void(uint64_t, uint64_t)> observer_a)
 	{
-		get_entry (key_of (type, detail, dir))->count_observers.add (observer);
+		get_entry (key_of (type_a, detail_a, dir_a))->count_observers.add (observer_a);
 	}
 
 	/** Returns a potentially empty list of the last N samples, where N is determined by the 'capacity' configuration */
-	inline boost::circular_buffer<stat_datapoint> * samples (stat::type type, stat::detail detail, stat::dir dir)
+	inline boost::circular_buffer<stat_datapoint> * samples (stat::type type_a, stat::detail detail_a, stat::dir dir_a)
 	{
-		return &get_entry (key_of (type, detail, dir))->samples;
+		return &get_entry (key_of (type_a, detail_a, dir_a))->samples;
 	}
 
 	/** Returns current value for the given counter at the type level */
-	inline uint64_t count (stat::type type, stat::dir dir = stat::dir::in)
+	inline uint64_t count (stat::type type_a, stat::dir dir_a = stat::dir::in)
 	{
-		return count (type, stat::detail::all, dir);
+		return count (type_a, stat::detail::all, dir_a);
 	}
 
 	/** Returns current value for the given counter at the detail level */
-	inline uint64_t count (stat::type type, stat::detail detail, stat::dir dir = stat::dir::in)
+	inline uint64_t count (stat::type type_a, stat::detail detail_a, stat::dir dir_a = stat::dir::in)
 	{
-		return get_entry (key_of (type, detail, dir))->counter.value;
+		return get_entry (key_of (type_a, detail_a, dir_a))->counter.value;
 	}
 
 	/** Log counters to the given log link */
-	void log_counters (stat_log_sink & sink);
+	void log_counters (stat_log_sink & sink_a);
 
 	/** Log samples to the given log sink */
-	void log_samples (stat_log_sink & sink);
+	void log_samples (stat_log_sink & sink_a);
 
 	/** Returns a new JSON log sink */
 	std::unique_ptr<stat_log_sink> log_sink_json ();
 
 	/** Returns a new file log sink */
-	std::unique_ptr<stat_log_sink> log_sink_file (std::string filename);
+	std::unique_ptr<stat_log_sink> log_sink_file (std::string filename_a);
 
 private:
-	static std::string type_to_string (uint32_t key);
-	static std::string detail_to_string (uint32_t key);
-	static std::string dir_to_string (uint32_t key);
+	static std::string type_to_string (uint32_t key_a);
+	static std::string detail_to_string (uint32_t key_a);
+	static std::string dir_to_string (uint32_t key_a);
 
 	/** Constructs a key given type, detail and direction. This is used as input to update(...) and get_entry(...) */
-	inline uint32_t key_of (stat::type type, stat::detail detail, stat::dir dir) const
+	inline uint32_t key_of (stat::type type_a, stat::detail detail_a, stat::dir dir_a) const
 	{
-		return static_cast<uint8_t> (type) << 16 | static_cast<uint8_t> (detail) << 8 | static_cast<uint8_t> (dir);
+		return static_cast<uint8_t> (type_a) << 16 | static_cast<uint8_t> (detail_a) << 8 | static_cast<uint8_t> (dir_a);
 	}
 
 	/** Get entry for key, creating a new entry if necessary, using interval and sample count from config */
-	std::shared_ptr<nano::stat_entry> get_entry (uint32_t key);
+	std::shared_ptr<nano::stat_entry> get_entry (uint32_t key_a);
 
 	/** Get entry for key, creating a new entry if necessary */
-	std::shared_ptr<nano::stat_entry> get_entry (uint32_t key, size_t sample_interval, size_t max_samples);
+	std::shared_ptr<nano::stat_entry> get_entry (uint32_t key_a, size_t sample_interval_a, size_t max_samples_a);
 
 	/** Unlocked implementation of get_entry() */
-	std::shared_ptr<nano::stat_entry> get_entry_impl (uint32_t key, size_t sample_interval, size_t max_samples);
+	std::shared_ptr<nano::stat_entry> get_entry_impl (uint32_t key_a, size_t sample_interval_a, size_t max_samples_a);
 
 	/**
 	 * Update count and sample and call any observers on the key
 	 * @param key a key constructor from stat::type, stat::detail and stat::direction
 	 * @value Amount to add to the counter
 	 */
-	void update (uint32_t key, uint64_t value);
+	void update (uint32_t key_a, uint64_t value_a);
 
 	/** Unlocked implementation of log_counters() to avoid using recursive locking */
-	void log_counters_impl (stat_log_sink & sink);
+	void log_counters_impl (stat_log_sink & sink_a);
 
 	/** Unlocked implementation of log_samples() to avoid using recursive locking */
-	void log_samples_impl (stat_log_sink & sink);
+	void log_samples_impl (stat_log_sink & sink_a);
 
 	/** Configuration deserialized from config.json */
 	nano::stat_config config;
