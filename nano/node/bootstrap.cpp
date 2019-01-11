@@ -574,7 +574,8 @@ void nano::bulk_pull_client::received_block (boost::system::error_code const & e
 				std::string block_l;
 				block->serialize_json (block_l);
 				BOOST_LOG (connection->node->log) << boost::str (boost::format ("Pulled block %1% %2%") % hash.to_string () % block_l);
-			}// Is block expected?
+			}
+			// Is block expected?
 			bool block_expected (false);
 			if (hash == expected)
 			{

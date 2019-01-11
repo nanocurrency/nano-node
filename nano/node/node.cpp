@@ -1233,8 +1233,9 @@ void nano::block_processor::add (nano::unchecked_info const & info_a)
 	if (!nano::work_validate (info_a.block->root (), info_a.block->block_work ()))
 	{
 		{
+			nano::block_hash hash (info_a.block->hash ());
 			std::lock_guard<std::mutex> lock (mutex);
-			if (blocks_hashes.find (info_a.block->hash ()) == blocks_hashes.end ())
+			if (blocks_hashes.find (hash) == blocks_hashes.end ())
 			{
 				if (info_a.verified == nano::signature_verification::unknown && (info_a.block->type () == nano::block_type::state || info_a.block->type () == nano::block_type::open || !info_a.account.is_zero ()))
 				{
@@ -1244,7 +1245,7 @@ void nano::block_processor::add (nano::unchecked_info const & info_a)
 				{
 					blocks.push_back (info_a);
 				}
-				blocks_hashes.insert (block_a->hash ());
+				blocks_hashes.insert (hash);
 			}
 			condition.notify_all ();
 		}
