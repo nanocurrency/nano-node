@@ -202,7 +202,7 @@ public:
 	virtual ~message () = default;
 	virtual void serialize (nano::stream &) const = 0;
 	virtual void visit (nano::message_visitor &) const = 0;
-	virtual inline std::shared_ptr<std::vector<uint8_t>> to_bytes () const
+	virtual std::shared_ptr<std::vector<uint8_t>> to_bytes () const
 	{
 		std::shared_ptr<std::vector<uint8_t>> bytes (new std::vector<uint8_t>);
 		nano::vectorstream stream (*bytes);
