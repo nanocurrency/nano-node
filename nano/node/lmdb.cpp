@@ -752,7 +752,6 @@ pending_v1 (0),
 blocks_info (0),
 representation (0),
 unchecked (0),
-unchecked_hash (0),
 checksum (0),
 vote (0),
 meta (0)
@@ -774,7 +773,6 @@ meta (0)
 		error_a |= mdb_dbi_open (env.tx (transaction), "blocks_info", MDB_CREATE, &blocks_info) != 0;
 		error_a |= mdb_dbi_open (env.tx (transaction), "representation", MDB_CREATE, &representation) != 0;
 		error_a |= mdb_dbi_open (env.tx (transaction), "unchecked", MDB_CREATE, &unchecked) != 0;
-		error_a |= mdb_dbi_open (env.tx (transaction), "unchecked_hash", MDB_CREATE, &unchecked_hash) != 0;
 		error_a |= mdb_dbi_open (env.tx (transaction), "checksum", MDB_CREATE, &checksum) != 0;
 		error_a |= mdb_dbi_open (env.tx (transaction), "vote", MDB_CREATE, &vote) != 0;
 		error_a |= mdb_dbi_open (env.tx (transaction), "meta", MDB_CREATE, &meta) != 0;
@@ -1796,20 +1794,13 @@ void nano::mdb_store::representation_put (nano::transaction const & transaction_
 void nano::mdb_store::unchecked_clear (nano::transaction const & transaction_a)
 {
 	auto status (mdb_drop (env.tx (transaction_a), unchecked, 0));
-	auto status2 (mdb_drop (env.tx (transaction_a), unchecked_hash, 0));
-	release_assert (status == 0 && status2 == 0);
+	release_assert (status == 0);
 }
 
 void nano::mdb_store::unchecked_put (nano::transaction const & transaction_a, nano::unchecked_key const & key_a, nano::unchecked_info const & info_a)
 {
 	auto status (mdb_put (env.tx (transaction_a), unchecked, nano::mdb_val (key_a), nano::mdb_val (info_a), 0));
 	release_assert (status == 0);
-	// Put hashes to lookup table only for verified blocks
-	if (info_a.verified == nano::signature_verification::valid || info_a.verified == nano::signature_verification::valid_epoch)
-	{
-		auto status2 (mdb_put (env.tx (transaction_a), unchecked_hash, nano::mdb_val (key_a.hash), nano::mdb_val (key_a.key ()), 0));
-		release_assert (status2 == 0);
-	}
 }
 
 void nano::mdb_store::unchecked_put (nano::transaction const & transaction_a, nano::block_hash const & hash_a, std::shared_ptr<nano::block> const & block_a)
@@ -1844,53 +1835,16 @@ std::vector<nano::unchecked_info> nano::mdb_store::unchecked_get (nano::transact
 	return result;
 }
 
-nano::unchecked_info nano::mdb_store::unchecked_hash_get (nano::transaction const & transaction_a, nano::block_hash const & hash_a)
-{
-	nano::mdb_val value;
-	auto status (mdb_get (env.tx (transaction_a), unchecked_hash, nano::mdb_val (hash_a), value));
-	release_assert (status == 0 || status == MDB_NOTFOUND);
-	if (status == 0)
-	{
-		nano::block_hash key;
-		nano::bufferstream stream (reinterpret_cast<uint8_t const *> (value.data ()), value.size ());
-		auto error (nano::read (stream, key));
-		assert (!error);
-		nano::mdb_val value2;
-		auto status2 (mdb_get (env.tx (transaction_a), unchecked, nano::mdb_val (nano::unchecked_key (key, hash_a)), value2));
-		release_assert (status2 == 0);
-		nano::unchecked_info result (value2);
-		assert (result.block != nullptr);
-		return result;
-	}
-	nano::unchecked_info empty;
-	return empty;
-}
-
 bool nano::mdb_store::unchecked_exists (nano::transaction const & transaction_a, nano::unchecked_key const & key_a)
 {
 	auto iterator (unchecked_begin (transaction_a, key_a));
 	return iterator != unchecked_end () && nano::unchecked_key (iterator->first) == key_a;
 }
 
-bool nano::mdb_store::unchecked_hash_exists (nano::transaction const & transaction_a, nano::block_hash const & hash_a)
-{
-	bool result (false);
-	nano::mdb_val junk;
-	auto status (mdb_get (env.tx (transaction_a), unchecked_hash, nano::mdb_val (hash_a), junk));
-	release_assert (status == 0 || status == MDB_NOTFOUND);
-	if (status == 0)
-	{
-		result = true;
-	}
-	return result;
-}
-
 void nano::mdb_store::unchecked_del (nano::transaction const & transaction_a, nano::unchecked_key const & key_a)
 {
 	auto status (mdb_del (env.tx (transaction_a), unchecked, nano::mdb_val (key_a), nullptr));
 	release_assert (status == 0 || status == MDB_NOTFOUND);
-	auto status2 (mdb_del (env.tx (transaction_a), unchecked_hash, nano::mdb_val (key_a.hash), nullptr));
-	release_assert (status2 == 0 || status2 == MDB_NOTFOUND);
 }
 
 size_t nano::mdb_store::unchecked_count (nano::transaction const & transaction_a)

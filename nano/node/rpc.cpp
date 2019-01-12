@@ -3022,13 +3022,18 @@ void nano::rpc_handler::unchecked_get ()
 	if (!ec)
 	{
 		auto transaction (node.store.tx_begin_read ());
-		auto info (node.store.unchecked_hash_get (transaction, hash));
-		if (info.block != nullptr)
+		for (auto i (node.store.unchecked_begin (transaction)), n (node.store.unchecked_end ()); i != n; ++i)
 		{
-			response_l.put ("modified_timestamp", std::to_string (info.modified));
-			std::string contents;
-			info.block->serialize_json (contents);
-			response_l.put ("contents", contents);
+			nano::unchecked_key key (i->first)
+			if (key.hash == hash)
+			{
+				nano::unchecked_info info (i->second);
+				response_l.put ("modified_timestamp", std::to_string (info.modified));
+				std::string contents;
+				info.block->serialize_json (contents);
+				response_l.put ("contents", contents);
+				break;
+			}
 		}
 		if (response_l.empty ())
 		{

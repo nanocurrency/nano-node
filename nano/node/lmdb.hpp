@@ -221,9 +221,7 @@ public:
 	void unchecked_put (nano::transaction const &, nano::unchecked_key const &, nano::unchecked_info const &) override;
 	void unchecked_put (nano::transaction const &, nano::block_hash const &, std::shared_ptr<nano::block> const &) override;
 	std::vector<nano::unchecked_info> unchecked_get (nano::transaction const &, nano::block_hash const &) override;
-	nano::unchecked_info unchecked_hash_get (nano::transaction const &, nano::block_hash const &) override;
 	bool unchecked_exists (nano::transaction const &, nano::unchecked_key const &) override;
-	bool unchecked_hash_exists (nano::transaction const &, nano::block_hash const &) override;
 	void unchecked_del (nano::transaction const &, nano::unchecked_key const &) override;
 	nano::store_iterator<nano::unchecked_key, nano::unchecked_info> unchecked_begin (nano::transaction const &) override;
 	nano::store_iterator<nano::unchecked_key, nano::unchecked_info> unchecked_begin (nano::transaction const &, nano::unchecked_key const &) override;
@@ -358,12 +356,6 @@ public:
 	 * nano::block_hash -> nano::unchecked_info
 	 */
 	MDB_dbi unchecked;
-
-	/**
-	 * Unchecked bootstrap blocks hashes.
-	 * nano::block_hash -> nano::block_hash
-	 */
-	MDB_dbi unchecked_hash;
 
 	/**
 	 * Mapping of region to checksum.

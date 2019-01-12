@@ -1139,27 +1139,3 @@ TEST (block_store, state_block)
 	ASSERT_EQ (0, count2.state_v0);
 	ASSERT_EQ (0, count2.state_v1);
 }
-
-TEST (block_store, unchecked_hash)
-{
-	nano::logging logging;
-	bool error (false);
-	nano::mdb_store store (error, logging, nano::unique_path ());
-	ASSERT_FALSE (error);
-	nano::genesis genesis;
-	auto transaction (store.tx_begin (true));
-	store.initialize (transaction, genesis);
-	nano::keypair key1;
-	nano::state_block block1 (1, genesis.hash (), 3, 4, 6, key1.prv, key1.pub, 7);
-	ASSERT_EQ (nano::block_type::state, block1.type ());
-	store.unchecked_put (transaction, genesis.hash (), std::make_shared<nano::state_block> (block1));
-	ASSERT_TRUE (store.unchecked_exists (transaction, nano::unchecked_key (genesis.hash (), block1.hash ())));
-	ASSERT_FALSE (store.unchecked_hash_exists (transaction, block1.hash ()));
-	store.unchecked_put (transaction, nano::unchecked_key (genesis.hash (), block1.hash ()), nano::unchecked_info (std::make_shared<nano::state_block> (block1), 0, nano::seconds_since_epoch (), nano::signature_verification::valid));
-	ASSERT_TRUE (store.unchecked_hash_exists (transaction, block1.hash ()));
-	auto count (store.unchecked_count (transaction));
-	ASSERT_EQ (1, count);
-	auto unchecked_info (store.unchecked_hash_get (transaction, block1.hash ()));
-	ASSERT_EQ (block1, *(unchecked_info.block));
-	ASSERT_EQ (nano::signature_verification::valid, unchecked_info.verified);
-}
