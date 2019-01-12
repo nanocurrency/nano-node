@@ -1305,18 +1305,16 @@ void nano::block_processor::verify_state_blocks (nano::transaction const & trans
 	assert (!mutex.try_lock ());
 	nano::timer<std::chrono::milliseconds> timer_l (nano::timer_state::started);
 	std::deque<std::pair<std::shared_ptr<nano::block>, std::chrono::steady_clock::time_point>> items;
-	std::deque<std::pair<std::shared_ptr<nano::block>, std::chrono::steady_clock::time_point>> items_l1;
-	items_l1.swap (state_blocks);
-	lock_a.unlock ();
 	for (auto i (0); i < max_count && !items_l1.empty (); i++)
 	{
-		auto item (items_l1.front ());
-		items_l1.pop_front ();
+		auto item (state_blocks.front ());
+		state_blocks.pop_front ();
 		if (!node.ledger.store.block_exists (transaction_a, item.first->type (), item.first->hash ()))
 		{
 			items.push_back (item);
 		}
 	}
+	lock_a.unlock ();
 	if (!items.empty ())
 	{
 		auto size (items.size ());
