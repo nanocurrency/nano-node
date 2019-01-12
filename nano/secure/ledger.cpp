@@ -236,7 +236,7 @@ void ledger_processor::state_block_impl (nano::state_block const & block_a)
 	if (result.code == nano::process_result::progress)
 	{
 		// Validate block if not verified outside of ledger
-		if (verification != nano::signature_verification::valid)
+		if (result.verified != nano::signature_verification::valid)
 		{
 			result.code = validate_message (block_a.hashables.account, hash, block_a.signature) ? nano::process_result::bad_signature : nano::process_result::progress; // Is this block signed correctly (Unambiguous)
 		}
@@ -349,7 +349,7 @@ void ledger_processor::epoch_block_impl (nano::state_block const & block_a)
 	if (result.code == nano::process_result::progress)
 	{
 		// Validate block if not verified outside of ledger
-		if (verification != nano::signature_verification::valid_epoch)
+		if (result.verified != nano::signature_verification::valid_epoch)
 		{
 			result.code = validate_message (ledger.epoch_signer, hash, block_a.signature) ? nano::process_result::bad_signature : nano::process_result::progress; // Is this block signed correctly (Unambiguous)
 		}
@@ -432,9 +432,14 @@ void ledger_processor::change_block (nano::change_block const & block_a)
 					auto latest_error (ledger.store.account_get (transaction, account, info));
 					assert (!latest_error);
 					assert (info.head == block_a.hashables.previous);
-					result.code = validate_message (account, hash, block_a.signature) ? nano::process_result::bad_signature : nano::process_result::progress; // Is this block signed correctly (Malformed)
+					// Validate block if not verified outside of ledger
+					if (result.verified != nano::signature_verification::valid)
+					{
+						result.code = validate_message (account, hash, block_a.signature) ? nano::process_result::bad_signature : nano::process_result::progress; // Is this block signed correctly (Malformed)
+					}
 					if (result.code == nano::process_result::progress)
 					{
+						assert (!validate_message (account, hash, block_a.signature));
 						result.verified = nano::signature_verification::valid;
 						ledger.store.block_put (transaction, hash, block_a);
 						auto balance (ledger.balance (transaction, block_a.hashables.previous));
@@ -471,9 +476,14 @@ void ledger_processor::send_block (nano::send_block const & block_a)
 				result.code = account.is_zero () ? nano::process_result::fork : nano::process_result::progress;
 				if (result.code == nano::process_result::progress)
 				{
-					result.code = validate_message (account, hash, block_a.signature) ? nano::process_result::bad_signature : nano::process_result::progress; // Is this block signed correctly (Malformed)
+					// Validate block if not verified outside of ledger
+					if (result.verified != nano::signature_verification::valid)
+					{
+						result.code = validate_message (account, hash, block_a.signature) ? nano::process_result::bad_signature : nano::process_result::progress; // Is this block signed correctly (Malformed)
+					}
 					if (result.code == nano::process_result::progress)
 					{
+						assert (!validate_message (account, hash, block_a.signature));
 						result.verified = nano::signature_verification::valid;
 						nano::account_info info;
 						auto latest_error (ledger.store.account_get (transaction, account, info));
@@ -520,7 +530,7 @@ void ledger_processor::receive_block (nano::receive_block const & block_a)
 				if (result.code == nano::process_result::progress)
 				{
 					// Validate block if not verified outside of ledger
-					if (verification != nano::signature_verification::valid)
+					if (result.verified != nano::signature_verification::valid)
 					{
 						result.code = validate_message (account, hash, block_a.signature) ? nano::process_result::bad_signature : nano::process_result::progress; // Is the signature valid (Malformed)
 					}
@@ -580,7 +590,7 @@ void ledger_processor::open_block (nano::open_block const & block_a)
 	if (result.code == nano::process_result::progress)
 	{
 		// Validate block if not verified outside of ledger
-		if (verification != nano::signature_verification::valid)
+		if (result.verified != nano::signature_verification::valid)
 		{
 			result.code = validate_message (block_a.hashables.account, hash, block_a.signature) ? nano::process_result::bad_signature : nano::process_result::progress; // Is the signature valid (Malformed)
 		}
@@ -632,7 +642,7 @@ ledger (ledger_a),
 transaction (transaction_a),
 verification (verification_a)
 {
-	result.verified = nano::signature_verification::unknown;
+	result.verified = verification;
 }
 } // namespace
 
