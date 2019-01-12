@@ -1072,6 +1072,9 @@ void nano::mdb_store::upgrade_v11_to_v12 (nano::transaction const & transaction_
 	version_put (transaction_a, 12);
 	mdb_drop (env.tx (transaction_a), unchecked, 1);
 	mdb_dbi_open (env.tx (transaction_a), "unchecked", MDB_CREATE, &unchecked);
+	MDB_dbi checksum;
+	mdb_dbi_open (env.tx (transaction_a), "checksum", MDB_CREATE, &checksum);
+	mdb_drop (env.tx (transaction_a), checksum, 1);
 }
 
 void nano::mdb_store::clear (MDB_dbi db_a)
