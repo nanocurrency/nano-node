@@ -864,14 +864,6 @@ nano::block_hash nano::ledger::latest_root (nano::transaction const & transactio
 	return result;
 }
 
-nano::checksum nano::ledger::checksum (nano::transaction const & transaction_a, nano::account const & begin_a, nano::account const & end_a)
-{
-	nano::checksum result;
-	auto error (store.checksum_get (transaction_a, 0, 0, result));
-	assert (!error);
-	return result;
-}
-
 void nano::ledger::dump_account_chain (nano::account const & account_a)
 {
 	auto transaction (store.tx_begin_read ());
@@ -936,24 +928,11 @@ bool nano::ledger::is_epoch_link (nano::uint256_union const & link_a)
 	return link_a == epoch_link;
 }
 
-void nano::ledger::checksum_update (nano::transaction const & transaction_a, nano::block_hash const & hash_a)
-{
-	nano::checksum value;
-	auto error (store.checksum_get (transaction_a, 0, 0, value));
-	assert (!error);
-	value ^= hash_a;
-	store.checksum_put (transaction_a, 0, 0, value);
-}
-
 void nano::ledger::change_latest (nano::transaction const & transaction_a, nano::account const & account_a, nano::block_hash const & hash_a, nano::block_hash const & rep_block_a, nano::amount const & balance_a, uint64_t block_count_a, bool is_state, nano::epoch epoch_a)
 {
 	nano::account_info info;
 	auto exists (!store.account_get (transaction_a, account_a, info));
-	if (exists)
-	{
-		checksum_update (transaction_a, info.head);
-	}
-	else
+	if (!exists)
 	{
 		assert (store.block_get (transaction_a, hash_a)->previous ().is_zero ());
 		info.open_block = hash_a;
@@ -979,7 +958,6 @@ void nano::ledger::change_latest (nano::transaction const & transaction_a, nano:
 			block_info.balance = balance_a;
 			store.block_info_put (transaction_a, hash_a, block_info);
 		}
-		checksum_update (transaction_a, hash_a);
 	}
 	else
 	{

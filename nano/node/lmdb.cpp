@@ -733,7 +733,6 @@ pending_v1 (0),
 blocks_info (0),
 representation (0),
 unchecked (0),
-checksum (0),
 vote (0),
 meta (0)
 {
@@ -754,13 +753,11 @@ meta (0)
 		error_a |= mdb_dbi_open (env.tx (transaction), "blocks_info", MDB_CREATE, &blocks_info) != 0;
 		error_a |= mdb_dbi_open (env.tx (transaction), "representation", MDB_CREATE, &representation) != 0;
 		error_a |= mdb_dbi_open (env.tx (transaction), "unchecked", MDB_CREATE, &unchecked) != 0;
-		error_a |= mdb_dbi_open (env.tx (transaction), "checksum", MDB_CREATE, &checksum) != 0;
 		error_a |= mdb_dbi_open (env.tx (transaction), "vote", MDB_CREATE, &vote) != 0;
 		error_a |= mdb_dbi_open (env.tx (transaction), "meta", MDB_CREATE, &meta) != 0;
 		if (!error_a)
 		{
 			do_upgrades (transaction);
-			checksum_put (transaction, 0, 0, 0);
 		}
 	}
 }
@@ -788,7 +785,6 @@ void nano::mdb_store::initialize (nano::transaction const & transaction_a, nano:
 	block_put (transaction_a, hash_l, *genesis_a.open);
 	account_put (transaction_a, genesis_account, { hash_l, genesis_a.open->hash (), genesis_a.open->hash (), std::numeric_limits<nano::uint128_t>::max (), nano::seconds_since_epoch (), 1, nano::epoch::epoch_0 });
 	representation_put (transaction_a, genesis_account, std::numeric_limits<nano::uint128_t>::max ());
-	checksum_put (transaction_a, 0, 0, hash_l);
 	frontier_put (transaction_a, hash_l, genesis_account);
 }
 
@@ -1835,40 +1831,6 @@ size_t nano::mdb_store::unchecked_count (nano::transaction const & transaction_a
 	release_assert (status == 0);
 	auto result (unchecked_stats.ms_entries);
 	return result;
-}
-
-void nano::mdb_store::checksum_put (nano::transaction const & transaction_a, uint64_t prefix, uint8_t mask, nano::uint256_union const & hash_a)
-{
-	assert ((prefix & 0xff) == 0);
-	uint64_t key (prefix | mask);
-	auto status (mdb_put (env.tx (transaction_a), checksum, nano::mdb_val (sizeof (key), &key), nano::mdb_val (hash_a), 0));
-	release_assert (status == 0);
-}
-
-bool nano::mdb_store::checksum_get (nano::transaction const & transaction_a, uint64_t prefix, uint8_t mask, nano::uint256_union & hash_a)
-{
-	assert ((prefix & 0xff) == 0);
-	uint64_t key (prefix | mask);
-	nano::mdb_val value;
-	auto status (mdb_get (env.tx (transaction_a), checksum, nano::mdb_val (sizeof (key), &key), value));
-	release_assert (status == 0 || status == MDB_NOTFOUND);
-	bool result (true);
-	if (status == 0)
-	{
-		result = false;
-		nano::bufferstream stream (reinterpret_cast<uint8_t const *> (value.data ()), value.size ());
-		auto error (nano::read (stream, hash_a));
-		assert (!error);
-	}
-	return result;
-}
-
-void nano::mdb_store::checksum_del (nano::transaction const & transaction_a, uint64_t prefix, uint8_t mask)
-{
-	assert ((prefix & 0xff) == 0);
-	uint64_t key (prefix | mask);
-	auto status (mdb_del (env.tx (transaction_a), checksum, nano::mdb_val (sizeof (key), &key), nullptr));
-	release_assert (status == 0);
 }
 
 void nano::mdb_store::flush (nano::transaction const & transaction_a)

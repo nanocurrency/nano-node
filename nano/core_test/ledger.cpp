@@ -56,35 +56,6 @@ TEST (ledger, genesis_balance)
 	ASSERT_LT (nano::seconds_since_epoch () - info.modified, 10);
 }
 
-// Make sure the checksum is the same when ledger reloaded
-TEST (ledger, checksum_persistence)
-{
-	nano::logging logging;
-	bool init (false);
-	nano::mdb_store store (init, logging, nano::unique_path ());
-	ASSERT_TRUE (!init);
-	nano::uint256_union checksum1;
-	nano::uint256_union max;
-	max.qwords[0] = 0;
-	max.qwords[0] = ~max.qwords[0];
-	max.qwords[1] = 0;
-	max.qwords[1] = ~max.qwords[1];
-	max.qwords[2] = 0;
-	max.qwords[2] = ~max.qwords[2];
-	max.qwords[3] = 0;
-	max.qwords[3] = ~max.qwords[3];
-	nano::stat stats;
-	auto transaction (store.tx_begin (true));
-	{
-		nano::ledger ledger (store, stats);
-		nano::genesis genesis;
-		store.initialize (transaction, genesis);
-		checksum1 = ledger.checksum (transaction, 0, max);
-	}
-	nano::ledger ledger (store, stats);
-	ASSERT_EQ (checksum1, ledger.checksum (transaction, 0, max));
-}
-
 // All nodes in the system should agree on the genesis balance
 TEST (system, system_genesis)
 {
@@ -521,67 +492,6 @@ TEST (ledger, open_fork)
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, block2).code);
 	nano::open_block block3 (block.hash (), key3.pub, key2.pub, key2.prv, key2.pub, 0);
 	ASSERT_EQ (nano::process_result::fork, ledger.process (transaction, block3).code);
-}
-
-TEST (ledger, checksum_single)
-{
-	nano::logging logging;
-	bool init (false);
-	nano::mdb_store store (init, logging, nano::unique_path ());
-	ASSERT_TRUE (!init);
-	nano::genesis genesis;
-	auto transaction (store.tx_begin (true));
-	nano::stat stats;
-	nano::ledger ledger (store, stats);
-	store.initialize (transaction, genesis);
-	store.checksum_put (transaction, 0, 0, genesis.hash ());
-	ASSERT_EQ (genesis.hash (), ledger.checksum (transaction, 0, std::numeric_limits<nano::uint256_t>::max ()));
-	nano::change_block block1 (ledger.latest (transaction, nano::test_genesis_key.pub), nano::account (1), nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
-	nano::checksum check1 (ledger.checksum (transaction, 0, std::numeric_limits<nano::uint256_t>::max ()));
-	ASSERT_EQ (genesis.hash (), check1);
-	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, block1).code);
-	nano::checksum check2 (ledger.checksum (transaction, 0, std::numeric_limits<nano::uint256_t>::max ()));
-	ASSERT_EQ (block1.hash (), check2);
-}
-
-TEST (ledger, checksum_two)
-{
-	nano::logging logging;
-	bool init (false);
-	nano::mdb_store store (init, logging, nano::unique_path ());
-	ASSERT_TRUE (!init);
-	nano::genesis genesis;
-	auto transaction (store.tx_begin (true));
-	nano::stat stats;
-	nano::ledger ledger (store, stats);
-	store.initialize (transaction, genesis);
-	store.checksum_put (transaction, 0, 0, genesis.hash ());
-	nano::keypair key2;
-	nano::send_block block1 (ledger.latest (transaction, nano::test_genesis_key.pub), key2.pub, 100, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
-	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, block1).code);
-	nano::checksum check1 (ledger.checksum (transaction, 0, std::numeric_limits<nano::uint256_t>::max ()));
-	nano::open_block block2 (block1.hash (), 1, key2.pub, key2.prv, key2.pub, 0);
-	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, block2).code);
-	nano::checksum check2 (ledger.checksum (transaction, 0, std::numeric_limits<nano::uint256_t>::max ()));
-	ASSERT_EQ (check1, check2 ^ block2.hash ());
-}
-
-TEST (ledger, DISABLED_checksum_range)
-{
-	nano::logging logging;
-	bool init (false);
-	nano::mdb_store store (init, logging, nano::unique_path ());
-	ASSERT_TRUE (!init);
-	nano::stat stats;
-	nano::ledger ledger (store, stats);
-	auto transaction (store.tx_begin ());
-	nano::checksum check1 (ledger.checksum (transaction, 0, std::numeric_limits<nano::uint256_t>::max ()));
-	ASSERT_TRUE (check1.is_zero ());
-	nano::block_hash hash1 (42);
-	nano::checksum check2 (ledger.checksum (transaction, 0, 42));
-	ASSERT_TRUE (check2.is_zero ());
-	nano::checksum check3 (ledger.checksum (transaction, 42, std::numeric_limits<nano::uint256_t>::max ()));
-	ASSERT_EQ (hash1, check3);
 }
 
 TEST (system, DISABLED_generate_send_existing)
