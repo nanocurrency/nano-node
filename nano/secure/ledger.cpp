@@ -191,7 +191,6 @@ void ledger_processor::state_block (nano::state_block const & block_a)
 		if (!block_a.hashables.previous.is_zero ())
 		{
 			result.code = ledger.store.block_exists (transaction, block_a.hashables.previous) ? nano::process_result::progress : nano::process_result::gap_previous;
-			result.verified = verification;
 			if (result.code == nano::process_result::progress)
 			{
 				prev_balance = ledger.balance (transaction, block_a.hashables.previous);
