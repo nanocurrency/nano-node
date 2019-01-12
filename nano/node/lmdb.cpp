@@ -782,7 +782,7 @@ meta (0)
 			checksum_put (transaction, 0, 0, 0);
 			if (drop_unchecked)
 			{
-				unchecked_clear ();
+				unchecked_clear (transaction);
 			}
 		}
 	}
