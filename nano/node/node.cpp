@@ -1305,7 +1305,7 @@ void nano::block_processor::verify_state_blocks (nano::transaction const & trans
 	assert (!mutex.try_lock ());
 	nano::timer<std::chrono::milliseconds> timer_l (nano::timer_state::started);
 	std::deque<std::pair<std::shared_ptr<nano::block>, std::chrono::steady_clock::time_point>> items;
-	for (auto i (0); i < max_count && !items_l1.empty (); i++)
+	for (auto i (0); i < max_count && !state_blocks.empty (); i++)
 	{
 		auto item (state_blocks.front ());
 		state_blocks.pop_front ();
