@@ -735,7 +735,7 @@ nano::store_iterator<nano::account, std::shared_ptr<nano::vote>> nano::mdb_store
 	return nano::store_iterator<nano::account, std::shared_ptr<nano::vote>> (nullptr);
 }
 
-nano::mdb_store::mdb_store (bool & error_a, nano::logging & logging_a, boost::filesystem::path const & path_a, int lmdb_max_dbs) :
+nano::mdb_store::mdb_store (bool & error_a, nano::logging & logging_a, boost::filesystem::path const & path_a, int lmdb_max_dbs, bool drop_unchecked) :
 logging (logging_a),
 env (error_a, path_a, lmdb_max_dbs),
 frontiers (0),
@@ -780,6 +780,10 @@ meta (0)
 		{
 			do_upgrades (transaction);
 			checksum_put (transaction, 0, 0, 0);
+			if (drop_unchecked)
+			{
+				unchecked_clear ();
+			}
 		}
 	}
 }

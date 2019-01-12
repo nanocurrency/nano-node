@@ -117,7 +117,7 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 		nano::node_init init;
 		try
 		{
-			auto node (std::make_shared<nano::node> (init, io_ctx, data_path, alarm, config.node, opencl_work));
+			auto node (std::make_shared<nano::node> (init, io_ctx, data_path, alarm, config.node, opencl_work, true));
 			if (!init.error ())
 			{
 				node->flags = flags;

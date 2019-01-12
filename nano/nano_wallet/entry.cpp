@@ -221,7 +221,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 		                                                       : std::function<boost::optional<uint64_t> (nano::uint256_union const &)> (nullptr));
 		nano::alarm alarm (io_ctx);
 		nano::node_init init;
-		node = std::make_shared<nano::node> (init, io_ctx, data_path, alarm, config.node, work);
+		node = std::make_shared<nano::node> (init, io_ctx, data_path, alarm, config.node, work, true);
 		if (!init.error ())
 		{
 			auto wallet (node->wallets.open (config.wallet));
