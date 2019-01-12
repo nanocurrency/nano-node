@@ -3024,7 +3024,7 @@ void nano::rpc_handler::unchecked_get ()
 		auto transaction (node.store.tx_begin_read ());
 		for (auto i (node.store.unchecked_begin (transaction)), n (node.store.unchecked_end ()); i != n; ++i)
 		{
-			nano::unchecked_key key (i->first)
+			nano::unchecked_key key (i->first);
 			if (key.hash == hash)
 			{
 				nano::unchecked_info info (i->second);
