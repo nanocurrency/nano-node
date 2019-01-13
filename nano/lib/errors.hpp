@@ -8,7 +8,6 @@
 #include <string>
 #include <system_error>
 #include <type_traits>
-#include <boost/type_index.hpp>
 
 using tl::expected;
 using tl::make_unexpected;
@@ -147,7 +146,7 @@ class deserialization_error : public std::runtime_error
 {
 public:
 	deserialization_error (const char * what, std::string && type_str_a) :
-	std::runtime_error (what), type_str (std::move(type_str_a))
+	std::runtime_error (what), type_str (std::move (type_str_a))
 	{
 	}
 
