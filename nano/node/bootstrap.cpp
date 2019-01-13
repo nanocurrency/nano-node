@@ -14,9 +14,6 @@ constexpr double bootstrap_minimum_termination_time_sec = 30.0;
 constexpr unsigned bootstrap_max_new_connections = 10;
 constexpr unsigned bulk_push_cost_limit = 200;
 
-size_t constexpr nano::frontier_req::size;
-size_t constexpr nano::bulk_pull_blocks::size;
-size_t constexpr nano::bulk_pull_account::size;
 size_t constexpr nano::frontier_req_client::size_frontier;
 
 nano::socket::socket (std::shared_ptr<nano::node> node_a) :
