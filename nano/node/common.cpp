@@ -455,19 +455,19 @@ block (block_a)
 	header.block_type_set (block->type ());
 }
 
+void nano::publish::serialize (nano::stream & stream_a) const
+{
+	assert (block != nullptr);
+	header.serialize (stream_a);
+	block->serialize (stream_a);
+}
+
 bool nano::publish::deserialize (nano::stream & stream_a, nano::block_uniquer * uniquer_a)
 {
 	assert (header.type == nano::message_type::publish);
 	block = nano::deserialize_block (stream_a, header.block_type (), uniquer_a);
 	auto result (block == nullptr);
 	return result;
-}
-
-void nano::publish::serialize (nano::stream & stream_a) const
-{
-	assert (block != nullptr);
-	header.serialize (stream_a);
-	block->serialize (stream_a);
 }
 
 void nano::publish::visit (nano::message_visitor & visitor_a) const
@@ -628,6 +628,13 @@ vote (vote_a)
 	}
 }
 
+void nano::confirm_ack::serialize (nano::stream & stream_a) const
+{
+	assert (header.block_type () == nano::block_type::not_a_block || header.block_type () == nano::block_type::send || header.block_type () == nano::block_type::receive || header.block_type () == nano::block_type::open || header.block_type () == nano::block_type::change || header.block_type () == nano::block_type::state);
+	header.serialize (stream_a);
+	vote->serialize (stream_a, header.block_type ());
+}
+
 bool nano::confirm_ack::deserialize (nano::stream & stream_a, nano::vote_uniquer * uniquer_a)
 {
 	assert (header.type == nano::message_type::confirm_ack);
@@ -637,13 +644,6 @@ bool nano::confirm_ack::deserialize (nano::stream & stream_a, nano::vote_uniquer
 		vote = uniquer_a->unique (vote);
 	}
 	return result;
-}
-
-void nano::confirm_ack::serialize (nano::stream & stream_a) const
-{
-	assert (header.block_type () == nano::block_type::not_a_block || header.block_type () == nano::block_type::send || header.block_type () == nano::block_type::receive || header.block_type () == nano::block_type::open || header.block_type () == nano::block_type::change || header.block_type () == nano::block_type::state);
-	header.serialize (stream_a);
-	vote->serialize (stream_a, header.block_type ());
 }
 
 bool nano::confirm_ack::operator== (nano::confirm_ack const & other_a) const
@@ -941,9 +941,9 @@ bool nano::node_id_handshake::deserialize (nano::stream & stream_a)
 			response = std::make_pair (response_account, response_signature);
 		}
 	}
-	catch (std::exception const & ex)
+	catch (nano::deserialization_error const & ex)
 	{
-		std::cerr << ex.what () << "\n";
+		std::cerr << deserialization_error_message<message_header> (ex.get_type_str ()) << "\n";
 		error = true;
 	}
 

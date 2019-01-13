@@ -112,8 +112,8 @@ public:
 	nano::block_hash previous () const override;
 	nano::block_hash root () const override;
 	void serialize (nano::stream &) const override;
-	void serialize_json (std::string &) const override;
 	bool deserialize (nano::stream &);
+	void serialize_json (std::string &) const override;
 	bool deserialize_json (boost::property_tree::ptree const &);
 	void visit (nano::block_visitor &) const override;
 	nano::block_type type () const override;
@@ -155,8 +155,8 @@ public:
 	nano::block_hash source () const override;
 	nano::block_hash root () const override;
 	void serialize (nano::stream &) const override;
-	void serialize_json (std::string &) const override;
 	bool deserialize (nano::stream &);
+	void serialize_json (std::string &) const override;
 	bool deserialize_json (boost::property_tree::ptree const &);
 	void visit (nano::block_visitor &) const override;
 	nano::block_type type () const override;
@@ -202,8 +202,8 @@ public:
 	nano::block_hash root () const override;
 	nano::account representative () const override;
 	void serialize (nano::stream &) const override;
-	void serialize_json (std::string &) const override;
 	bool deserialize (nano::stream &);
+	void serialize_json (std::string &) const override;
 	bool deserialize_json (boost::property_tree::ptree const &);
 	void visit (nano::block_visitor &) const override;
 	nano::block_type type () const override;
@@ -245,8 +245,8 @@ public:
 	nano::block_hash root () const override;
 	nano::account representative () const override;
 	void serialize (nano::stream &) const override;
-	void serialize_json (std::string &) const override;
 	bool deserialize (nano::stream &);
+	void serialize_json (std::string &) const override;
 	bool deserialize_json (boost::property_tree::ptree const &);
 	void visit (nano::block_visitor &) const override;
 	nano::block_type type () const override;
@@ -303,8 +303,8 @@ public:
 	nano::block_hash link () const override;
 	nano::account representative () const override;
 	void serialize (nano::stream &) const override;
-	void serialize_json (std::string &) const override;
 	bool deserialize (nano::stream &);
+	void serialize_json (std::string &) const override;
 	bool deserialize_json (boost::property_tree::ptree const &);
 	void visit (nano::block_visitor &) const override;
 	nano::block_type type () const override;

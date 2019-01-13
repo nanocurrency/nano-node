@@ -145,8 +145,8 @@ auto either (T && value, std::error_code ec) -> expected<typename std::remove_re
 class deserialization_error : public std::runtime_error
 {
 public:
-	deserialization_error (const char * what, const std::string & type_str_a) :
-	std::runtime_error (what), type_str (type_str_a)
+	deserialization_error (const char * what, std::string && type_str_a) :
+	std::runtime_error (what), type_str (std::move(type_str_a))
 	{
 	}
 
@@ -160,9 +160,9 @@ private:
 };
 
 template <typename Type>
-std::string deserialization_error_message (const std::string & member)
+std::string deserialization_error_message (const std::string & member_type)
 {
-	return boost::str (boost::format ("Error deserializing member %1% of %2%") % member % boost::typeindex::type_id<Type> ().pretty_name ());
+	return boost::str (boost::format ("Error deserializing member type %1% of %2%") % member_type % boost::typeindex::type_id<Type> ().pretty_name ());
 }
 } // nano namespace
 
