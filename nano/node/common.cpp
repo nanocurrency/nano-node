@@ -45,7 +45,7 @@ bool nano::message_header::deserialize (nano::stream & stream_a)
 		read (stream_a, magic_number_l);
 		if (magic_number_l != magic_number)
 		{
-			throw nano::deserialization_error ("Magic numbers do not match", boost::typeindex::type_id<decltype (magic_number)> ().pretty_name ());
+			throw std::runtime_error ("Magic numbers do not match");
 		}
 
 		nano::read (stream_a, version_max);
@@ -55,9 +55,8 @@ bool nano::message_header::deserialize (nano::stream & stream_a)
 		nano::read (stream_a, extensions_l);
 		extensions = extensions_l;
 	}
-	catch (nano::deserialization_error const & ex)
+	catch (std::runtime_error const &)
 	{
-		std::cerr << deserialization_error_message<message_header> (ex.get_type_str ()) << "\n";
 		error = true;
 	}
 
@@ -689,9 +688,8 @@ bool nano::frontier_req::deserialize (nano::stream & stream_a)
 		nano::read (stream_a, age);
 		nano::read (stream_a, count);
 	}
-	catch (nano::deserialization_error const & ex)
+	catch (std::runtime_error const &)
 	{
-		std::cerr << deserialization_error_message<frontier_req> (ex.get_type_str ()) << "\n";
 		error = true;
 	}
 
@@ -788,9 +786,8 @@ bool nano::bulk_pull::deserialize (nano::stream & stream_a)
 			count = 0;
 		}
 	}
-	catch (nano::deserialization_error const & ex)
+	catch (std::runtime_error const &)
 	{
-		std::cerr << deserialization_error_message<bulk_pull> (ex.get_type_str ()) << "\n";
 		error = true;
 	}
 
@@ -844,9 +841,8 @@ bool nano::bulk_pull_account::deserialize (nano::stream & stream_a)
 		nano::read (stream_a, minimum_amount);
 		nano::read (stream_a, flags);
 	}
-	catch (nano::deserialization_error const & ex)
+	catch (std::runtime_error const &)
 	{
-		std::cerr << deserialization_error_message<bulk_pull_account> (ex.get_type_str ()) << "\n";
 		error = true;
 	}
 
@@ -941,9 +937,8 @@ bool nano::node_id_handshake::deserialize (nano::stream & stream_a)
 			response = std::make_pair (response_account, response_signature);
 		}
 	}
-	catch (nano::deserialization_error const & ex)
+	catch (std::runtime_error const &)
 	{
-		std::cerr << deserialization_error_message<message_header> (ex.get_type_str ()) << "\n";
 		error = true;
 	}
 

@@ -141,29 +141,6 @@ auto either (T && value, std::error_code ec) -> expected<typename std::remove_re
 		return std::move (value);
 	}
 }
-
-class deserialization_error : public std::runtime_error
-{
-public:
-	deserialization_error (const char * what, std::string && type_str_a) :
-	std::runtime_error (what), type_str (std::move (type_str_a))
-	{
-	}
-
-	const std::string get_type_str () const
-	{
-		return type_str;
-	}
-
-private:
-	std::string type_str;
-};
-
-template <typename Type>
-std::string deserialization_error_message (const std::string & member_type)
-{
-	return boost::str (boost::format ("Error deserializing member type %1% of %2%") % member_type % boost::typeindex::type_id<Type> ().pretty_name ());
-}
 } // nano namespace
 
 // Convenience macro to implement the standard boilerplate for using std::error_code with enums

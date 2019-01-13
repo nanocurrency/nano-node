@@ -1,6 +1,5 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/numbers.hpp>
-#include <nano/lib/errors.hpp>
 
 #include <boost/endian/conversion.hpp>
 
@@ -170,9 +169,8 @@ nano::send_hashables::send_hashables (bool & error_a, nano::stream & stream_a)
 		nano::read (stream_a, destination.bytes);
 		nano::read (stream_a, balance.bytes);
 	}
-	catch (nano::deserialization_error const & ex)
+	catch (std::runtime_error const &)
 	{
-		std::cerr << deserialization_error_message<send_hashables> (ex.get_type_str ()) << "\n";
 		error_a = true;
 	}
 }
@@ -309,9 +307,8 @@ hashables (error_a, stream_a)
 		nano::read (stream_a, signature.bytes);
 		nano::read (stream_a, work);
 	}
-	catch (nano::deserialization_error const & ex)
+	catch (std::runtime_error const &)
 	{
-		std::cerr << deserialization_error_message<send_block> (ex.get_type_str ()) << "\n";
 		error_a = true;
 	}
 }
@@ -407,9 +404,8 @@ nano::open_hashables::open_hashables (bool & error_a, nano::stream & stream_a)
 		nano::read (stream_a, representative.bytes);
 		nano::read (stream_a, account.bytes);
 	}
-	catch (nano::deserialization_error const & ex)
+	catch (std::runtime_error const &)
 	{
-		std::cerr << deserialization_error_message<open_hashables> (ex.get_type_str ()) << "\n";
 		error_a = true;
 	}
 }
@@ -469,9 +465,8 @@ hashables (error_a, stream_a)
 			nano::read (stream_a, signature);
 			nano::read (stream_a, work);
 		}
-		catch (nano::deserialization_error const & ex)
+		catch (std::runtime_error const &)
 		{
-			std::cerr << deserialization_error_message<open_block> (ex.get_type_str ()) << "\n";
 			error_a = true;
 		}
 	}
@@ -668,9 +663,8 @@ nano::change_hashables::change_hashables (bool & error_a, nano::stream & stream_
 		nano::read (stream_a, previous);
 		nano::read (stream_a, representative);
 	}
-	catch (nano::deserialization_error const & ex)
+	catch (std::runtime_error const &)
 	{
-		std::cerr << deserialization_error_message<change_hashables> (ex.get_type_str ()) << "\n";
 		error_a = true;
 	}
 }
@@ -714,9 +708,8 @@ hashables (error_a, stream_a)
 		nano::read (stream_a, signature);
 		nano::read (stream_a, work);
 	}
-	catch (nano::deserialization_error const & ex)
+	catch (std::runtime_error const &)
 	{
-		std::cerr << deserialization_error_message<change_block> (ex.get_type_str ()) << "\n";
 		error_a = true;
 	}
 }
@@ -781,9 +774,8 @@ bool nano::change_block::deserialize (nano::stream & stream_a)
 		read (stream_a, signature);
 		read (stream_a, work);
 	}
-	catch (nano::deserialization_error const & ex)
+	catch (std::runtime_error const &)
 	{
-		std::cerr << deserialization_error_message<change_block> (ex.get_type_str ()) << "\n";
 		error = true;
 	}
 
@@ -913,9 +905,8 @@ nano::state_hashables::state_hashables (bool & error_a, nano::stream & stream_a)
 		nano::read (stream_a, balance);
 		nano::read (stream_a, link);
 	}
-	catch (nano::deserialization_error const & ex)
+	catch (std::runtime_error const &)
 	{
-		std::cerr << deserialization_error_message<state_hashables> (ex.get_type_str ()) << "\n";
 		error_a = true;
 	}
 }
@@ -978,9 +969,8 @@ hashables (error_a, stream_a)
 		nano::read (stream_a, work);
 		boost::endian::big_to_native_inplace (work);
 	}
-	catch (nano::deserialization_error const & ex)
+	catch (std::runtime_error const &)
 	{
-		std::cerr << deserialization_error_message<state_block> (ex.get_type_str ()) << "\n";
 		error_a = true;
 	}
 }
@@ -1064,9 +1054,8 @@ bool nano::state_block::deserialize (nano::stream & stream_a)
 		read (stream_a, work);
 		boost::endian::big_to_native_inplace (work);
 	}
-	catch (nano::deserialization_error const & ex)
+	catch (std::runtime_error const &)
 	{
-		std::cerr << deserialization_error_message<state_block> (ex.get_type_str ()) << "\n";
 		error = true;
 	}
 
@@ -1357,9 +1346,8 @@ bool nano::receive_block::deserialize (nano::stream & stream_a)
 		read (stream_a, signature.bytes);
 		read (stream_a, work);
 	}
-	catch (nano::deserialization_error const & ex)
+	catch (std::runtime_error const &)
 	{
-		std::cerr << deserialization_error_message<receive_block> (ex.get_type_str ()) << "\n";
 		error = true;
 	}
 
@@ -1431,9 +1419,8 @@ hashables (error_a, stream_a)
 		nano::read (stream_a, signature);
 		nano::read (stream_a, work);
 	}
-	catch (nano::deserialization_error const & ex)
+	catch (std::runtime_error const &)
 	{
-		std::cerr << deserialization_error_message<receive_block> (ex.get_type_str ()) << "\n";
 		error_a = true;
 	}
 }
@@ -1541,9 +1528,8 @@ nano::receive_hashables::receive_hashables (bool & error_a, nano::stream & strea
 		nano::read (stream_a, previous.bytes);
 		nano::read (stream_a, source.bytes);
 	}
-	catch (nano::deserialization_error const & ex)
+	catch (std::runtime_error const &)
 	{
-		std::cerr << deserialization_error_message<receive_hashables> (ex.get_type_str ()) << "\n";
 		error_a = true;
 	}
 }

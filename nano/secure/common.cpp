@@ -181,9 +181,8 @@ bool nano::account_info::deserialize (nano::stream & stream_a)
 		nano::read (stream_a, modified);
 		nano::read (stream_a, block_count);
 	}
-	catch (nano::deserialization_error const & ex)
+	catch (std::runtime_error const &)
 	{
-		std::cerr << deserialization_error_message<account_info> (ex.get_type_str ()) << "\n";
 		error = true;
 	}
 
@@ -254,9 +253,8 @@ bool nano::pending_info::deserialize (nano::stream & stream_a)
 		nano::read (stream_a, source.bytes);
 		nano::read (stream_a, amount.bytes);
 	}
-	catch (nano::deserialization_error const & ex)
+	catch (std::runtime_error const &)
 	{
-		std::cerr << deserialization_error_message<pending_info> (ex.get_type_str ()) << "\n";
 		error = true;
 	}
 
@@ -294,9 +292,8 @@ bool nano::pending_key::deserialize (nano::stream & stream_a)
 		nano::read (stream_a, account.bytes);
 		nano::read (stream_a, hash.bytes);
 	}
-	catch (nano::deserialization_error const & ex)
+	catch (std::runtime_error const &)
 	{
-		std::cerr << deserialization_error_message<pending_key> (ex.get_type_str ()) << "\n";
 		error = true;
 	}
 
@@ -339,9 +336,8 @@ bool nano::block_info::deserialize (nano::stream & stream_a)
 		nano::read (stream_a, account.bytes);
 		nano::read (stream_a, balance.bytes);
 	}
-	catch (nano::deserialization_error const & ex)
+	catch (std::runtime_error const &)
 	{
-		std::cerr << deserialization_error_message<block_info> (ex.get_type_str ()) << "\n";
 		error = true;
 	}
 
@@ -452,15 +448,14 @@ nano::vote::vote (bool & error_a, nano::stream & stream_a, nano::block_type type
 				std::shared_ptr<nano::block> block (nano::deserialize_block (stream_a, type_a, uniquer_a));
 				if (block == nullptr)
 				{
-					throw nano::deserialization_error ("Block is null", "nano::block");
+					throw std::runtime_error ("Block is null");
 				}
 				blocks.push_back (block);
 			}
 		}
 	}
-	catch (nano::deserialization_error const & ex)
+	catch (std::runtime_error const &)
 	{
-		std::cerr << deserialization_error_message<vote> (ex.get_type_str ()) << "\n";
 		error_a = true;
 	}
 
@@ -615,16 +610,15 @@ bool nano::vote::deserialize (nano::stream & stream_a, nano::block_uniquer * uni
 				std::shared_ptr<nano::block> block (nano::deserialize_block (stream_a, type, uniquer_a));
 				if (block == nullptr)
 				{
-					throw nano::deserialization_error ("Block is empty", "nano::block");
+					throw std::runtime_error ("Block is empty");
 				}
 
 				blocks.push_back (block);
 			}
 		}
 	}
-	catch (nano::deserialization_error const & ex)
+	catch (std::runtime_error const &)
 	{
-		std::cerr << deserialization_error_message<vote> (ex.get_type_str ()) << "\n";
 		error = true;
 	}
 

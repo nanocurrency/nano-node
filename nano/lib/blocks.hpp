@@ -25,12 +25,12 @@ bool try_read (nano::stream & stream_a, T & value)
 }
 // A wrapper of try_read which throws if there is an error
 template <typename T>
-void read (nano::stream & stream_a, T & value) throw (nano::deserialization_error)
+void read (nano::stream & stream_a, T & value) throw (std::runtime_error)
 {
 	auto error = try_read (stream_a, value);
 	if (error)
 	{
-		throw nano::deserialization_error ("Failed to read type", boost::typeindex::type_id<T> ().pretty_name ());
+		throw std::runtime_error ("Failed to read type");
 	}
 }
 

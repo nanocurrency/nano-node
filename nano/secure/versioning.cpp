@@ -41,9 +41,8 @@ bool nano::account_info_v1::deserialize (nano::stream & stream_a)
 		read (stream_a, balance.bytes);
 		read (stream_a, modified);
 	}
-	catch (nano::deserialization_error const & ex)
+	catch (std::runtime_error const &)
 	{
-		std::cerr << deserialization_error_message<account_info_v1> (ex.get_type_str ()) << "\n";
 		error = true;
 	}
 
@@ -92,9 +91,8 @@ bool nano::pending_info_v3::deserialize (nano::stream & stream_a)
 		read (stream_a, amount.bytes);
 		read (stream_a, destination.bytes);
 	}
-	catch (nano::deserialization_error const & ex)
+	catch (std::runtime_error const &)
 	{
-		std::cerr << deserialization_error_message<pending_info_v3> (ex.get_type_str ()) << "\n";
 		error = true;
 	}
 
@@ -156,9 +154,8 @@ bool nano::account_info_v5::deserialize (nano::stream & stream_a)
 		read (stream_a, balance.bytes);
 		read (stream_a, modified);
 	}
-	catch (nano::deserialization_error const & ex)
+	catch (std::runtime_error const &)
 	{
-		std::cerr << deserialization_error_message<account_info_v5> (ex.get_type_str ()) << "\n";
 		error = true;
 	}
 
