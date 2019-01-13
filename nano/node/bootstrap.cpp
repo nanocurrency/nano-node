@@ -1832,7 +1832,7 @@ void nano::bootstrap_server::receive_bulk_pull_account_action (boost::system::er
 	if (!ec)
 	{
 		auto error (false);
-		assert (size_a == nano::bulk_pull_account::size);
+		assert (size_a == header_a.payload_length_bytes ());
 		nano::bufferstream stream (receive_buffer->data (), size_a);
 		std::unique_ptr<nano::bulk_pull_account> request (new nano::bulk_pull_account (error, stream, header_a));
 		if (!error)
