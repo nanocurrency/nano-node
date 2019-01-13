@@ -128,8 +128,6 @@ enum class error_config
 	missing_value,
 };
 
-} // nano namespace
-
 /** Returns the error code if non-zero, otherwise the value */
 template <class T>
 auto either (T && value, std::error_code ec) -> expected<typename std::remove_reference_t<T>, std::error_code>
@@ -143,6 +141,30 @@ auto either (T && value, std::error_code ec) -> expected<typename std::remove_re
 		return std::move (value);
 	}
 }
+
+class deserialization_error : public std::runtime_error
+{
+public:
+	deserialization_error (const char * what, const std::string & type_str_a) :
+	std::runtime_error (what), type_str (type_str_a)
+	{
+	}
+
+	const std::string get_type_str () const
+	{
+		return type_str;
+	}
+
+private:
+	std::string type_str;
+};
+
+template <typename Type>
+std::string deserialization_error_message (const std::string & member)
+{
+	return boost::str (boost::format ("Error deserializing member %1% of %2%") % member % boost::typeindex::type_id<Type> ().pretty_name ());
+}
+} // nano namespace
 
 // Convenience macro to implement the standard boilerplate for using std::error_code with enums
 // Use this at the end of any header defining one or more error code enums.

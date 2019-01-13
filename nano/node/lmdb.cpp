@@ -190,7 +190,8 @@ nano::mdb_val::operator std::array<char, 64> () const
 {
 	nano::bufferstream stream (reinterpret_cast<uint8_t const *> (value.mv_data), value.mv_size);
 	std::array<char, 64> result;
-	nano::read (stream, result);
+	auto error = nano::try_read (stream, result);
+	assert (!error);
 	return result;
 }
 
@@ -264,7 +265,7 @@ nano::mdb_val::operator uint64_t () const
 {
 	uint64_t result;
 	nano::bufferstream stream (reinterpret_cast<uint8_t const *> (value.mv_data), value.mv_size);
-	auto error (nano::read (stream, result));
+	auto error (nano::try_read (stream, result));
 	assert (!error);
 	return result;
 }
@@ -840,7 +841,7 @@ nano::raw_key nano::mdb_store::get_node_id (nano::transaction const & transactio
 	if (!error)
 	{
 		nano::bufferstream stream (reinterpret_cast<uint8_t const *> (value.data ()), value.size ());
-		error = nano::read (stream, node_id.data);
+		error = nano::try_read (stream, node_id.data);
 		assert (!error);
 	}
 	if (error)
@@ -1055,7 +1056,7 @@ void nano::mdb_store::upgrade_v8_to_v9 (nano::transaction const & transaction_a)
 	{
 		nano::bufferstream stream (reinterpret_cast<uint8_t const *> (i->second.data ()), i->second.size ());
 		uint64_t sequence;
-		auto error (nano::read (stream, sequence));
+		auto error (nano::try_read (stream, sequence));
 		// Create a dummy vote with the same sequence number for easy upgrading.  This won't have a valid signature.
 		nano::vote dummy (nano::account (i->first), junk.prv, sequence, block);
 		std::vector<uint8_t> vector;
@@ -1474,7 +1475,7 @@ nano::block_hash nano::mdb_store::block_successor (nano::transaction const & tra
 	{
 		assert (value.mv_size >= result.bytes.size ());
 		nano::bufferstream stream (reinterpret_cast<uint8_t const *> (value.mv_data) + block_successor_offset (transaction_a, value, type), result.bytes.size ());
-		auto error (nano::read (stream, result.bytes));
+		auto error (nano::try_read (stream, result.bytes));
 		assert (!error);
 	}
 	else
@@ -1958,9 +1959,9 @@ bool nano::mdb_store::block_info_get (nano::transaction const & transaction_a, n
 		result = false;
 		assert (value.size () == sizeof (block_info_a.account.bytes) + sizeof (block_info_a.balance.bytes));
 		nano::bufferstream stream (reinterpret_cast<uint8_t const *> (value.data ()), value.size ());
-		auto error1 (nano::read (stream, block_info_a.account));
+		auto error1 (nano::try_read (stream, block_info_a.account));
 		assert (!error1);
-		auto error2 (nano::read (stream, block_info_a.balance));
+		auto error2 (nano::try_read (stream, block_info_a.balance));
 		assert (!error2);
 	}
 	return result;
@@ -1976,7 +1977,7 @@ nano::uint128_t nano::mdb_store::representation_get (nano::transaction const & t
 	{
 		nano::uint128_union rep;
 		nano::bufferstream stream (reinterpret_cast<uint8_t const *> (value.data ()), value.size ());
-		auto error (nano::read (stream, rep));
+		auto error (nano::try_read (stream, rep));
 		assert (!error);
 		result = rep.number ();
 	}

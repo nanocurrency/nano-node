@@ -57,26 +57,34 @@ void nano::block_sideband::serialize (nano::stream & stream_a) const
 bool nano::block_sideband::deserialize (nano::stream & stream_a)
 {
 	bool result (false);
-	result |= nano::read (stream_a, successor.bytes);
-	if (type != nano::block_type::state && type != nano::block_type::open)
+	try
 	{
-		result |= nano::read (stream_a, account.bytes);
+		nano::read (stream_a, successor.bytes);
+		if (type != nano::block_type::state && type != nano::block_type::open)
+		{
+			nano::read (stream_a, account.bytes);
+		}
+		if (type != nano::block_type::open)
+		{
+			nano::read (stream_a, height);
+			boost::endian::big_to_native_inplace (height);
+		}
+		else
+		{
+			height = 0;
+		}
+		if (type == nano::block_type::receive || type == nano::block_type::change || type == nano::block_type::open)
+		{
+			nano::read (stream_a, balance.bytes);
+		}
+		nano::read (stream_a, timestamp);
+		boost::endian::big_to_native_inplace (timestamp);
 	}
-	if (type != nano::block_type::open)
+	catch (std::runtime_error &)
 	{
-		result |= nano::read (stream_a, height);
-		boost::endian::big_to_native_inplace (height);
+		result = true;
 	}
-	else
-	{
-		height = 0;
-	}
-	if (type == nano::block_type::receive || type == nano::block_type::change || type == nano::block_type::open)
-	{
-		nano::read (stream_a, balance.bytes);
-	}
-	result |= nano::read (stream_a, timestamp);
-	boost::endian::big_to_native_inplace (timestamp);
+
 	return result;
 }
 

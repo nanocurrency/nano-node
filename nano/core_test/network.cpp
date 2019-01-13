@@ -1106,7 +1106,7 @@ TEST (network, ipv6)
 	ASSERT_EQ (0xff, bytes1[11]);
 	std::array<uint8_t, 16> bytes2;
 	nano::bufferstream stream (bytes1.data (), bytes1.size ());
-	nano::read (stream, bytes2);
+	nano::try_read (stream, bytes2);
 	nano::endpoint endpoint2 (boost::asio::ip::address_v6 (bytes2), 16384);
 	ASSERT_EQ (endpoint1, endpoint2);
 }

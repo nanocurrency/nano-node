@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nano/lib/numbers.hpp>
+#include <nano/lib/errors.hpp>
 
 #include <boost/property_tree/json_parser.hpp>
 #include <cassert>
@@ -16,12 +17,23 @@ bool from_string_hex (std::string const &, uint64_t &);
 using stream = std::basic_streambuf<uint8_t>;
 // Read a raw byte stream the size of `T' and fill value.
 template <typename T>
-bool read (nano::stream & stream_a, T & value)
+bool try_read (nano::stream & stream_a, T & value)
 {
 	static_assert (std::is_pod<T>::value, "Can't stream read non-standard layout types");
 	auto amount_read (stream_a.sgetn (reinterpret_cast<uint8_t *> (&value), sizeof (value)));
 	return amount_read != sizeof (value);
 }
+// A wrapper of try_read which throws if there is an error
+template <typename T>
+void read (nano::stream & stream_a, T & value) throw (nano::deserialization_error)
+{
+	auto error = try_read (stream_a, value);
+	if (error)
+	{
+		throw nano::deserialization_error ("Failed to read type", boost::typeindex::type_id<T> ().pretty_name ());
+	}
+}
+
 template <typename T>
 void write (nano::stream & stream_a, T const & value)
 {
