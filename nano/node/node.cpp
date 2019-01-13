@@ -1434,7 +1434,7 @@ void nano::block_processor::process_batch (std::unique_lock<std::mutex> & lock_a
 					// Possible election winner change
 					rolled_back.get<1> ().erase (hash);
 					// Prevent overflow
-					while (rolled_back.size () > rolled_back_max)
+					if (rolled_back.size () > rolled_back_max)
 					{
 						rolled_back.erase (rolled_back.begin ());
 					}

@@ -450,7 +450,7 @@ private:
 	boost::multi_index::ordered_non_unique<boost::multi_index::member<nano::rolled_hash, std::chrono::steady_clock::time_point, &nano::rolled_hash::time>>,
 	boost::multi_index::hashed_unique<boost::multi_index::member<nano::rolled_hash, nano::block_hash, &nano::rolled_hash::hash>>>>
 	rolled_back;
-	size_t rolled_back_max = 1024;
+	static size_t const rolled_back_max = 1024;
 	std::condition_variable condition;
 	nano::node & node;
 	nano::vote_generator generator;
