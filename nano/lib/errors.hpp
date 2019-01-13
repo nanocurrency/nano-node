@@ -8,6 +8,7 @@
 #include <string>
 #include <system_error>
 #include <type_traits>
+#include <boost/type_index.hpp>
 
 using tl::expected;
 using tl::make_unexpected;

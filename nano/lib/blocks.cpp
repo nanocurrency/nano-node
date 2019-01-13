@@ -781,8 +781,9 @@ bool nano::change_block::deserialize (nano::stream & stream_a)
 		read (stream_a, signature);
 		read (stream_a, work);
 	}
-	catch (std::exception const &)
+	catch (nano::deserialization_error const & ex)
 	{
+		std::cerr << deserialization_error_message<change_block> (ex.get_type_str ()) << "\n";
 		error = true;
 	}
 

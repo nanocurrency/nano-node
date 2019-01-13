@@ -1,7 +1,7 @@
 #pragma once
 
-#include <nano/lib/numbers.hpp>
 #include <nano/lib/errors.hpp>
+#include <nano/lib/numbers.hpp>
 
 #include <boost/property_tree/json_parser.hpp>
 #include <cassert>
