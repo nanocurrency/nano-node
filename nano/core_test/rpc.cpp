@@ -4019,7 +4019,8 @@ TEST (rpc, wallet_history)
 	boost::property_tree::ptree request;
 	request.put ("action", "wallet_history");
 	request.put ("wallet", system.nodes[0]->wallets.items.begin ()->first.to_string ());
-	test_response response (request, rpc, system.service);
+	test_response respone (request, rpc, system.io_ctx);
+	system.deadline_set (5s);
 	while (response.status == 0)
 	{
 		system.poll ();
