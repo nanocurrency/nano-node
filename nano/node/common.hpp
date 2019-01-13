@@ -175,14 +175,16 @@ public:
 	uint8_t version_min;
 	nano::message_type type;
 	std::bitset<16> extensions;
-	//static size_t constexpr ipv4_only_position = 1;  // Not in use, deprecated, was conflicting
-	//static size_t constexpr bootstrap_server_position = 2;  // Not in use, deprecated
+
 	/*
 	 * A better approach might be to return the size of the message
 	 * payload based on the header
 	 */
 	static size_t constexpr bulk_pull_count_present_flag = 0;
 	bool bulk_pull_is_count_present () const;
+
+	/** Size of the payload in bytes. For some messages, the payload size is based on header flags. */
+	size_t payload_length_bytes ();
 
 	static std::bitset<16> constexpr block_type_mask = std::bitset<16> (0x0f00);
 	bool valid_magic () const
@@ -320,10 +322,7 @@ public:
 	void set_count_present (bool);
 	static size_t constexpr count_present_flag = nano::message_header::bulk_pull_count_present_flag;
 	static size_t constexpr extended_parameters_size = 8;
-	static size_t size (bool extendended_params_present)
-	{
-		return sizeof (start) + sizeof (end) + (extendended_params_present ? extended_parameters_size : 0);
-	}
+	static size_t constexpr size = sizeof (start) + sizeof (end);
 };
 class bulk_pull_account : public message
 {

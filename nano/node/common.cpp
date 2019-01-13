@@ -88,6 +88,41 @@ bool nano::message_header::bulk_pull_is_count_present () const
 	return result;
 }
 
+size_t nano::message_header::payload_length_bytes ()
+{
+	switch (type)
+	{
+		case nano::message_type::bulk_pull:
+		{
+			return nano::bulk_pull::size + (bulk_pull_is_count_present () ? nano::bulk_pull::extended_parameters_size : 0);
+		}
+		case nano::message_type::bulk_pull_blocks:
+		{
+			return nano::bulk_pull_blocks::size;
+		}
+		case nano::message_type::bulk_push:
+		{
+			// bulk_push doesn't have a payload
+			return 0;
+		}
+		case nano::message_type::frontier_req:
+		{
+			return nano::frontier_req::size;
+		}
+		case nano::message_type::bulk_pull_account:
+		{
+			return nano::bulk_pull_account::size;
+		}
+		// Add realtime network messages once they get framing support; currently the
+		// realtime messages all fit in a datagram from which they're deserialized.
+		default:
+		{
+			assert (false);
+			return 0;
+		}
+	}
+}
+
 // MTU - IP header - UDP header
 const size_t nano::message_parser::max_safe_udp_message_size = 508;
 
@@ -609,17 +644,17 @@ bool nano::bulk_pull::deserialize (nano::stream & stream_a)
 		{
 			if (is_count_present ())
 			{
-				std::array<uint8_t, extended_parameters_size> count_buffer;
-				static_assert (sizeof (count) < (count_buffer.size () - 1), "count must fit within buffer");
+				std::array<uint8_t, extended_parameters_size> extended_parameters_buffers;
+				static_assert (sizeof (count) < (extended_parameters_buffers.size () - 1), "count must fit within buffer");
 
-				result = read (stream_a, count_buffer);
-				if (count_buffer[0] != 0)
+				result = read (stream_a, extended_parameters_buffers);
+				if (extended_parameters_buffers[0] != 0)
 				{
 					result = true;
 				}
 				else
 				{
-					memcpy (&count, count_buffer.data () + 1, sizeof (count));
+					memcpy (&count, extended_parameters_buffers.data () + 1, sizeof (count));
 					boost::endian::little_to_native_inplace (count);
 				}
 			}

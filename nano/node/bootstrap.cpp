@@ -1746,7 +1746,7 @@ void nano::bootstrap_server::receive_header_action (boost::system::error_code co
 					node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::bulk_pull, nano::stat::dir::in);
 
 					auto this_l (shared_from_this ());
-					socket->async_read (receive_buffer, nano::bulk_pull::size (header.bulk_pull_is_count_present ()), [this_l, header](boost::system::error_code const & ec, size_t size_a) {
+					socket->async_read (receive_buffer, header.payload_length_bytes (), [this_l, header](boost::system::error_code const & ec, size_t size_a) {
 						this_l->receive_bulk_pull_action (ec, size_a, header);
 					});
 					break;
@@ -1755,7 +1755,7 @@ void nano::bootstrap_server::receive_header_action (boost::system::error_code co
 				{
 					node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::bulk_pull_account, nano::stat::dir::in);
 					auto this_l (shared_from_this ());
-					socket->async_read (receive_buffer, nano::bulk_pull_account::size, [this_l, header](boost::system::error_code const & ec, size_t size_a) {
+					socket->async_read (receive_buffer, header.payload_length_bytes (), [this_l, header](boost::system::error_code const & ec, size_t size_a) {
 						this_l->receive_bulk_pull_account_action (ec, size_a, header);
 					});
 					break;
@@ -1768,7 +1768,7 @@ void nano::bootstrap_server::receive_header_action (boost::system::error_code co
 					}
 
 					auto this_l (shared_from_this ());
-					socket->async_read (receive_buffer, nano::bulk_pull_blocks::size, [this_l, header](boost::system::error_code const & ec, size_t size_a) {
+					socket->async_read (receive_buffer, header.payload_length_bytes (), [this_l, header](boost::system::error_code const & ec, size_t size_a) {
 						this_l->receive_bulk_pull_blocks_action (ec, size_a, header);
 					});
 					break;
@@ -1777,7 +1777,7 @@ void nano::bootstrap_server::receive_header_action (boost::system::error_code co
 				{
 					node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::frontier_req, nano::stat::dir::in);
 					auto this_l (shared_from_this ());
-					socket->async_read (receive_buffer, nano::frontier_req::size, [this_l, header](boost::system::error_code const & ec, size_t size_a) {
+					socket->async_read (receive_buffer, header.payload_length_bytes (), [this_l, header](boost::system::error_code const & ec, size_t size_a) {
 						this_l->receive_frontier_req_action (ec, size_a, header);
 					});
 					break;
