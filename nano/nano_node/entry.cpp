@@ -26,6 +26,7 @@ int main (int argc, char * const * argv)
 		("disable_legacy_bootstrap", "Disables legacy bootstrap")
 		("disable_bootstrap_listener", "Disables bootstrap listener (incoming connections)")
 		("disable_unchecked_cleaning", "Disables periodic cleaning of old records from unchecked table")
+		("fast_bootstrap", "Increase bootstrap speed for high end nodes with higher limits")
 		("debug_block_count", "Display the number of block")
 		("debug_bootstrap_generate", "Generate bootstrap sequence of blocks")
 		("debug_dump_representatives", "List representatives and weights")
@@ -86,6 +87,7 @@ int main (int argc, char * const * argv)
 			flags.disable_legacy_bootstrap = (vm.count ("disable_legacy_bootstrap") > 0);
 			flags.disable_bootstrap_listener = (vm.count ("disable_bootstrap_listener") > 0);
 			flags.disable_unchecked_cleaning = (vm.count ("disable_unchecked_cleaning") > 0);
+			flags.fast_bootstrap = (vm.count ("fast_bootstrap") > 0);
 			daemon.run (data_path, flags);
 		}
 		else if (vm.count ("debug_block_count"))

@@ -1218,8 +1218,9 @@ void nano::block_processor::flush ()
 
 bool nano::block_processor::full ()
 {
+	size_t full_size (node.flags.fast_bootstrap ? 1024 * 1024 : 16384);
 	std::unique_lock<std::mutex> lock (mutex);
-	return (blocks.size () + state_blocks.size ()) > 16384;
+	return (blocks.size () + state_blocks.size ()) > full_size;
 }
 
 void nano::block_processor::add (std::shared_ptr<nano::block> block_a, uint64_t origination)
@@ -1407,9 +1408,10 @@ void nano::block_processor::process_batch (std::unique_lock<std::mutex> & lock_a
 	lock_a.lock ();
 	timer_l.start ();
 	// Limit state blocks verification time
+	size_t max_verification_batch (node.flags.fast_bootstrap ? 512 * 1024 : 2048);
 	while (!state_blocks.empty () && timer_l.before_deadline (std::chrono::seconds (2)))
 	{
-		verify_state_blocks (lock_a, 2048);
+		verify_state_blocks (lock_a, max_verification_batch);
 	}
 	lock_a.unlock ();
 	auto transaction (node.store.tx_begin_write ());
@@ -1418,7 +1420,7 @@ void nano::block_processor::process_batch (std::unique_lock<std::mutex> & lock_a
 	// Processing blocks
 	auto first_time (true);
 	unsigned number_of_blocks_processed (0), number_of_forced_processed (0);
-	while ((!blocks.empty () || !forced.empty ()) && timer_l.before_deadline (node.config.block_processor_batch_max_time))
+	while ((!blocks.empty () || !forced.empty ()) && (timer_l.before_deadline (node.config.block_processor_batch_max_time) || (node.flags.fast_bootstrap && number_of_blocks_processed < 256 * 1024)))
 	{
 		auto log_this_record (false);
 		if (node.config.logging.timing_logging ())
@@ -1636,7 +1638,10 @@ void nano::block_processor::queue_unchecked (nano::transaction const & transacti
 	auto unchecked_blocks (node.store.unchecked_get (transaction_a, hash_a));
 	for (auto & info : unchecked_blocks)
 	{
-		node.store.unchecked_del (transaction_a, nano::unchecked_key (hash_a, info.block->hash ()));
+		if (!node.flags.fast_bootstrap)
+		{
+			node.store.unchecked_del (transaction_a, nano::unchecked_key (hash_a, info.block->hash ()));
+		}
 		add (info);
 	}
 	std::lock_guard<std::mutex> lock (node.gap_cache.mutex);
@@ -2329,7 +2334,7 @@ void nano::node::unchecked_cleaning ()
 	{
 		size_t deleted_count (0);
 		auto transaction (store.tx_begin_write ());
-		while (deleted_count++ < 1024 && !cleaning.empty ())
+		while (deleted_count++ < 2 * 1024 && !cleaning.empty ())
 		{
 			auto key (cleaning.front ());
 			cleaning.pop_front ();

@@ -531,7 +531,7 @@ public:
 	static std::chrono::seconds constexpr syn_cookie_cutoff = std::chrono::seconds (5);
 	static std::chrono::minutes constexpr backup_interval = std::chrono::minutes (5);
 	static std::chrono::seconds constexpr search_pending_interval = (nano::nano_network == nano::nano_networks::nano_test_network) ? std::chrono::seconds (1) : std::chrono::seconds (5 * 60);
-	static std::chrono::hours constexpr unchecked_cleaning_interval = std::chrono::hours (12);
+	static std::chrono::hours constexpr unchecked_cleaning_interval = std::chrono::hours (2);
 	std::chrono::seconds unchecked_cutoff = std::chrono::seconds (7 * 24 * 60 * 60); // Week
 };
 class thread_runner

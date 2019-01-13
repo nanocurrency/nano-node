@@ -61,5 +61,6 @@ public:
 	bool disable_legacy_bootstrap;
 	bool disable_bootstrap_listener;
 	bool disable_unchecked_cleaning;
+	bool fast_bootstrap;
 };
 }
