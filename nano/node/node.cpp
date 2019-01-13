@@ -1408,7 +1408,7 @@ void nano::block_processor::process_batch (std::unique_lock<std::mutex> & lock_a
 	lock_a.lock ();
 	timer_l.start ();
 	// Limit state blocks verification time
-	size_t max_verification_batch (node.flags.fast_bootstrap ? 512 * 1024 : 2048);
+	size_t max_verification_batch (node.flags.fast_bootstrap ? std::numeric_limits<size_t>::max () : 2048);
 	while (!state_blocks.empty () && timer_l.before_deadline (std::chrono::seconds (2)))
 	{
 		verify_state_blocks (lock_a, max_verification_batch);
