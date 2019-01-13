@@ -53,7 +53,7 @@ bool nano::from_string_hex (std::string const & value_a, uint64_t & target_a)
 	return error;
 }
 
-std::string nano::block::to_json ()
+std::string nano::block::to_json () const
 {
 	std::string result;
 	serialize_json (result);

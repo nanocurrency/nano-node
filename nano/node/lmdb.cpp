@@ -1152,7 +1152,7 @@ void nano::mdb_store::upgrade_v11_to_v12 ()
 				if (sideband.height == std::numeric_limits<uint64_t>::max ())
 				{
 					sideband.height = height;
-					block_put (transaction, hash, *block, sideband);
+					block_put (transaction, hash, *block, sideband, block_version (transaction, hash));
 					cost += 16;
 				}
 				else

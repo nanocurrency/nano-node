@@ -1213,7 +1213,7 @@ TEST (block_store, upgrade_sideband_genesis)
 	auto iterations (0);
 	while (!done)
 	{
-		std::this_thread::sleep_for (std::chrono::seconds (10));
+		std::this_thread::sleep_for (std::chrono::milliseconds (10));
 		auto transaction (store.tx_begin (false));
 		done = store.version_get (transaction) == 12;
 		ASSERT_LT (iterations, 200);
@@ -1255,7 +1255,7 @@ TEST (block_store, upgrade_sideband_two_blocks)
 	auto iterations (0);
 	while (!done)
 	{
-		std::this_thread::sleep_for (std::chrono::seconds (10));
+		std::this_thread::sleep_for (std::chrono::milliseconds (10));
 		auto transaction (store.tx_begin (false));
 		done = store.version_get (transaction) == 12;
 		ASSERT_LT (iterations, 200);
@@ -1307,7 +1307,7 @@ TEST (block_store, upgrade_sideband_two_accounts)
 	auto iterations (0);
 	while (!done)
 	{
-		std::this_thread::sleep_for (std::chrono::seconds (10));
+		std::this_thread::sleep_for (std::chrono::milliseconds (10));
 		auto transaction (store.tx_begin (false));
 		done = store.version_get (transaction) == 12;
 		ASSERT_LT (iterations, 200);
@@ -1387,4 +1387,53 @@ TEST (block_store, legacy_account_computed)
 	store.version_put (transaction, 11);
 	write_legacy_sideband (store, transaction, *genesis.open, 0, store.open_blocks);
 	ASSERT_EQ (nano::genesis_account, ledger.account (transaction, genesis.hash ()));
+}
+
+TEST (block_store, upgrade_sideband_epoch)
+{
+	bool error (false);
+	nano::genesis genesis;
+	nano::block_hash hash2;
+	nano::block_hash hash3;
+	auto path (nano::unique_path ());
+	{
+		nano::logging logging;
+		nano::mdb_store store (error, logging, path);
+		ASSERT_FALSE (error);
+		store.stop ();
+		nano::stat stat;
+		nano::ledger ledger (store, stat, 42, nano::test_genesis_key.pub);
+		auto transaction (store.tx_begin (true));
+		store.version_put (transaction, 11);
+		store.initialize (transaction, genesis);
+		nano::state_block block1 (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount, 42, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
+		hash2 = block1.hash ();
+		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, block1).code);
+		ASSERT_EQ (nano::epoch::epoch_1, store.block_version (transaction, hash2));
+		write_legacy_sideband (store, transaction, *genesis.open, hash2, store.open_blocks);
+		write_legacy_sideband (store, transaction, block1, 0, store.state_blocks_v1);
+	}
+	nano::logging logging;
+	nano::mdb_store store (error, logging, path);
+	nano::stat stat;
+	nano::ledger ledger (store, stat, 42, nano::test_genesis_key.pub);
+	ASSERT_FALSE (error);
+	auto done (false);
+	auto iterations (0);
+	while (!done)
+	{
+		std::this_thread::sleep_for (std::chrono::milliseconds (10));
+		auto transaction (store.tx_begin (false));
+		done = store.version_get (transaction) == 12;
+		ASSERT_LT (iterations, 200);
+		++iterations;
+	}
+	auto transaction (store.tx_begin_write ());
+	ASSERT_EQ (nano::epoch::epoch_1, store.block_version (transaction, hash2));
+	nano::block_sideband sideband;
+	auto block1 (store.block_get (transaction, hash2, &sideband));
+	ASSERT_NE (std::numeric_limits<uint64_t>::max (), sideband.height);
+	nano::state_block block2 (nano::test_genesis_key.pub, hash2, nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
+	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, block2).code);
+	ASSERT_EQ (nano::epoch::epoch_1, store.block_version (transaction, block2.hash ()));
 }
