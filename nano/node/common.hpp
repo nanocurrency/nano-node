@@ -302,6 +302,7 @@ public:
 	nano::account start;
 	uint32_t age;
 	uint32_t count;
+	static size_t constexpr size = sizeof (start) + sizeof (age) + sizeof (count);
 };
 class bulk_pull : public message
 {
@@ -319,6 +320,10 @@ public:
 	void set_count_present (bool);
 	static size_t constexpr count_present_flag = nano::message_header::bulk_pull_count_present_flag;
 	static size_t constexpr extended_parameters_size = 8;
+	static size_t size (bool extendended_params_present)
+	{
+		return sizeof (start) + sizeof (end) + (extendended_params_present ? extended_parameters_size : 0);
+	}
 };
 class bulk_pull_account : public message
 {
@@ -331,6 +336,7 @@ public:
 	nano::uint256_union account;
 	nano::uint128_union minimum_amount;
 	bulk_pull_account_flags flags;
+	static size_t constexpr size = sizeof (account) + sizeof (minimum_amount) + sizeof (bulk_pull_account_flags);
 };
 class bulk_pull_blocks : public message
 {
@@ -344,6 +350,7 @@ public:
 	nano::block_hash max_hash;
 	bulk_pull_blocks_mode mode;
 	uint32_t max_count;
+	static size_t constexpr size = sizeof (min_hash) + sizeof (max_hash) + sizeof (mode) + sizeof (max_count);
 };
 class bulk_push : public message
 {
