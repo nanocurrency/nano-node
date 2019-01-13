@@ -176,15 +176,11 @@ public:
 	nano::message_type type;
 	std::bitset<16> extensions;
 
-	/*
-	 * A better approach might be to return the size of the message
-	 * payload based on the header
-	 */
 	static size_t constexpr bulk_pull_count_present_flag = 0;
 	bool bulk_pull_is_count_present () const;
 
 	/** Size of the payload in bytes. For some messages, the payload size is based on header flags. */
-	size_t payload_length_bytes ();
+	size_t payload_length_bytes () const;
 
 	static std::bitset<16> constexpr block_type_mask = std::bitset<16> (0x0f00);
 	bool valid_magic () const

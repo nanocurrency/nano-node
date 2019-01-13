@@ -283,11 +283,11 @@ void nano::frontier_req_client::received_frontier (boost::system::error_code con
 	{
 		assert (size_a == nano::frontier_req_client::size_frontier);
 		nano::account account;
-		nano::bufferstream account_stream (connection->receive_buffer->data (), sizeof (nano::account));
+		nano::bufferstream account_stream (connection->receive_buffer->data (), sizeof (account));
 		auto error1 (nano::read (account_stream, account));
 		assert (!error1);
 		nano::block_hash latest;
-		nano::bufferstream latest_stream (connection->receive_buffer->data () + sizeof (nano::account), sizeof (nano::block_hash));
+		nano::bufferstream latest_stream (connection->receive_buffer->data () + sizeof (account), sizeof (latest));
 		auto error2 (nano::read (latest_stream, latest));
 		assert (!error2);
 		if (count == 0)
@@ -1852,7 +1852,7 @@ void nano::bootstrap_server::receive_bulk_pull_blocks_action (boost::system::err
 	if (!ec)
 	{
 		auto error (false);
-		nano::bufferstream stream (receive_buffer->data (), nano::bulk_pull_blocks::size);
+		nano::bufferstream stream (receive_buffer->data (), header_a.payload_length_bytes ());
 		std::unique_ptr<nano::bulk_pull_blocks> request (new nano::bulk_pull_blocks (error, stream, header_a));
 		if (!error)
 		{
@@ -1871,7 +1871,7 @@ void nano::bootstrap_server::receive_frontier_req_action (boost::system::error_c
 	if (!ec)
 	{
 		auto error (false);
-		nano::bufferstream stream (receive_buffer->data (), nano::frontier_req::size);
+		nano::bufferstream stream (receive_buffer->data (), header_a.payload_length_bytes ());
 		std::unique_ptr<nano::frontier_req> request (new nano::frontier_req (error, stream, header_a));
 		if (!error)
 		{

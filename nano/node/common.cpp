@@ -88,7 +88,7 @@ bool nano::message_header::bulk_pull_is_count_present () const
 	return result;
 }
 
-size_t nano::message_header::payload_length_bytes ()
+size_t nano::message_header::payload_length_bytes () const
 {
 	switch (type)
 	{
