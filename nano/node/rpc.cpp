@@ -2683,6 +2683,7 @@ void nano::rpc_handler::representatives_online ()
 	if (!ec)
 	{
 		boost::property_tree::ptree representatives;
+		auto transaction (node.store.tx_begin_read ());
 		auto reps (node.online_reps.list ());
 		for (auto & i : reps)
 		{
@@ -2702,13 +2703,19 @@ void nano::rpc_handler::representatives_online ()
 					accounts_to_filter.erase (found_acc);
 				}
 			}
-			boost::property_tree::ptree weight_node;
 			if (weight)
 			{
-				auto account_weight (node.weight (i));
+				boost::property_tree::ptree weight_node;
+				auto account_weight (node.ledger.weight (transaction, i));
 				weight_node.put ("weight", account_weight.convert_to<std::string> ());
+				representatives.add_child (i.to_account (), weight_node);
 			}
-			representatives.add_child (i.to_account (), weight_node);
+			else
+			{
+				boost::property_tree::ptree entry;
+				entry.put ("", i.to_account ());
+				representatives.push_back (std::make_pair ("", entry));
+			}
 		}
 		response_l.add_child ("representatives", representatives);
 	}
