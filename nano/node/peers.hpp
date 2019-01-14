@@ -72,7 +72,7 @@ public:
 	// Returns true if peer was already known
 	bool known_peer (nano::endpoint const &);
 	// Notify of peer we received from
-	bool insert (nano::endpoint const &, unsigned);
+	bool insert (nano::endpoint const &, unsigned, bool = false);
 	std::unordered_set<nano::endpoint> random_set (size_t);
 	void random_fill (std::array<nano::endpoint, 8> &);
 	// Request a list of the top known representatives
