@@ -1083,8 +1083,9 @@ void rai::block_processor::add (std::shared_ptr<rai::block> block_a, std::chrono
 {
 	if (!rai::work_validate (block_a->root (), block_a->block_work ()))
 	{
+		auto hash (block_a->hash ());
 		std::lock_guard<std::mutex> lock (mutex);
-		if (blocks_hashes.find (block_a->hash ()) == blocks_hashes.end ())
+		if (blocks_hashes.find (hash) == blocks_hashes.end () && rolled_back.get<1> ().find (hash) == rolled_back.get<1> ().end ())
 		{
 			if (block_a->type () == rai::block_type::state && !node.ledger.is_epoch_link (block_a->link ()))
 			{
@@ -1094,8 +1095,9 @@ void rai::block_processor::add (std::shared_ptr<rai::block> block_a, std::chrono
 			{
 				blocks.push_back (std::make_pair (block_a, origination));
 			}
-			condition.notify_all ();
+			blocks_hashes.insert (hash);
 		}
+		condition.notify_all ();
 	}
 	else
 	{
@@ -1278,6 +1280,20 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 				// Replace our block with the winner and roll back any dependent blocks
 				BOOST_LOG (node.log) << boost::str (boost::format ("Rolling back %1% and replacing with %2%") % successor->hash ().to_string () % hash.to_string ());
 				node.ledger.rollback (transaction, successor->hash ());
+				lock_a.lock ();
+				// Prevent rolled back blocks second insertion
+				auto inserted (rolled_back.insert (rai::rolled_hash{ std::chrono::steady_clock::now (), successor->hash () }));
+				if (inserted.second)
+				{
+					// Possible election winner change
+					rolled_back.get<1> ().erase (hash);
+					// Prevent overflow
+					if (rolled_back.size () > rolled_back_max)
+					{
+						rolled_back.erase (rolled_back.begin ());
+					}
+				}
+				lock_a.unlock ();
 			}
 		}
 		/* Forced state blocks are not validated in verify_state_blocks () function

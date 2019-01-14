@@ -373,6 +373,12 @@ public:
 	std::mutex mutex;
 	std::unordered_set<rai::block_hash> active;
 };
+class rolled_hash
+{
+public:
+	std::chrono::steady_clock::time_point time;
+	rai::block_hash hash;
+};
 // Processing blocks is a potentially long IO operation
 // This class isolates block insertion from other operations like servicing network operations
 class block_processor
@@ -403,6 +409,13 @@ private:
 	std::deque<std::pair<std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point>> state_blocks;
 	std::unordered_set<rai::block_hash> blocks_hashes;
 	std::deque<std::shared_ptr<rai::block>> forced;
+	boost::multi_index_container<
+	rai::rolled_hash,
+	boost::multi_index::indexed_by<
+	boost::multi_index::ordered_non_unique<boost::multi_index::member<rai::rolled_hash, std::chrono::steady_clock::time_point, &rai::rolled_hash::time>>,
+	boost::multi_index::hashed_unique<boost::multi_index::member<rai::rolled_hash, rai::block_hash, &rai::rolled_hash::hash>>>>
+	rolled_back;
+	static size_t const rolled_back_max = 1024;
 	std::condition_variable condition;
 	rai::node & node;
 	std::mutex mutex;
