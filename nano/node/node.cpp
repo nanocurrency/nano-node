@@ -500,7 +500,10 @@ public:
 		}
 		node.stats.inc (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::in);
 		node.peers.contacted (sender, message_a.header.version_using);
-		node.process_active (message_a.block);
+		if (!node.block_processor.full ())
+		{
+			node.process_active (message_a.block);
+		}
 		node.active.publish (message_a.block);
 	}
 	void confirm_req (nano::confirm_req const & message_a) override
@@ -536,7 +539,10 @@ public:
 			if (!vote_block.which ())
 			{
 				auto block (boost::get<std::shared_ptr<nano::block>> (vote_block));
-				node.process_active (block);
+				if (!node.block_processor.full ())
+				{
+					node.process_active (block);
+				}
 				node.active.publish (block);
 			}
 		}
@@ -1218,7 +1224,7 @@ void nano::block_processor::flush ()
 bool nano::block_processor::full ()
 {
 	std::unique_lock<std::mutex> lock (mutex);
-	return (blocks.size () + state_blocks.size ()) > 16384;
+	return (blocks.size () + state_blocks.size ()) > 65536;
 }
 
 void nano::block_processor::add (std::shared_ptr<nano::block> block_a, std::chrono::steady_clock::time_point origination)
