@@ -3187,10 +3187,11 @@ void nano::rpc_handler::wallet_change_seed ()
 		nano::raw_key seed;
 		if (!seed.data.decode_hex (seed_text))
 		{
+			auto count (count_optional_impl ());
 			auto transaction (node.store.tx_begin_write ());
 			if (wallet->store.valid_password (transaction))
 			{
-				wallet->change_seed (transaction, seed);
+				wallet->change_seed (transaction, seed, count);
 				response_l.put ("success", "");
 			}
 			else
