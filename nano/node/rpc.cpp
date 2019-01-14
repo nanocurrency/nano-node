@@ -503,7 +503,7 @@ void nano::rpc_handler::account_list ()
 	if (!ec)
 	{
 		boost::property_tree::ptree accounts;
-		auto transaction (node.store.tx_begin_read ());
+		auto transaction (node.wallets.tx_begin_read ());
 		for (auto i (wallet->store.begin (transaction)), j (wallet->store.end ()); i != j; ++i)
 		{
 			boost::property_tree::ptree entry;
@@ -537,7 +537,7 @@ void nano::rpc_handler::account_move ()
 					account.decode_account (i->second.get<std::string> (""));
 					accounts.push_back (account);
 				}
-				auto transaction (node.store.tx_begin_write ());
+				auto transaction (node.wallets.tx_begin_write ());
 				auto error (wallet->store.move (transaction, source->store, accounts));
 				response_l.put ("moved", error ? "0" : "1");
 			}
@@ -561,7 +561,7 @@ void nano::rpc_handler::account_remove ()
 	auto account (account_impl ());
 	if (!ec)
 	{
-		auto transaction (node.store.tx_begin_write ());
+		auto transaction (node.wallets.tx_begin_write ());
 		if (wallet->store.valid_password (transaction))
 		{
 			if (wallet->store.find (transaction, account) != wallet->store.end ())
@@ -1068,14 +1068,15 @@ void nano::rpc_handler::block_create ()
 			auto existing (node.wallets.items.find (wallet));
 			if (existing != node.wallets.items.end ())
 			{
-				auto transaction (node.store.tx_begin_read ());
+				auto transaction (node.wallets.tx_begin_read ());
+				auto block_transaction (node.store.tx_begin_read ());
 				if (existing->second->store.valid_password (transaction))
 				{
 					if (existing->second->store.find (transaction, account) != existing->second->store.end ())
 					{
 						existing->second->store.fetch (transaction, account, prv);
-						previous = node.ledger.latest (transaction, account);
-						balance = node.ledger.account_balance (transaction, account);
+						previous = node.ledger.latest (block_transaction, account);
+						balance = node.ledger.account_balance (block_transaction, account);
 					}
 					else
 					{
@@ -2098,7 +2099,7 @@ void nano::rpc_handler::password_change ()
 	auto wallet (wallet_impl ());
 	if (!ec)
 	{
-		auto transaction (node.store.tx_begin_write ());
+		auto transaction (node.wallets.tx_begin_write ());
 		std::string password_text (request.get<std::string> ("password"));
 		auto error (wallet->store.rekey (transaction, password_text));
 		response_l.put ("changed", error ? "0" : "1");
@@ -2124,7 +2125,7 @@ void nano::rpc_handler::password_valid (bool wallet_locked)
 	auto wallet (wallet_impl ());
 	if (!ec)
 	{
-		auto transaction (node.store.tx_begin_read ());
+		auto transaction (node.wallets.tx_begin_read ());
 		auto valid (wallet->store.valid_password (transaction));
 		if (!wallet_locked)
 		{
@@ -2244,7 +2245,7 @@ void nano::rpc_handler::payment_begin ()
 		auto existing (node.wallets.items.find (id));
 		if (existing != node.wallets.items.end ())
 		{
-			auto transaction (node.store.tx_begin_write ());
+			auto transaction (node.wallets.tx_begin_write ());
 			std::shared_ptr<nano::wallet> wallet (existing->second);
 			if (wallet->store.valid_password (transaction))
 			{
@@ -2263,7 +2264,8 @@ void nano::rpc_handler::payment_begin ()
 						}
 						else
 						{
-							if (!node.ledger.account_balance (transaction, account).is_zero ())
+							auto block_transaction (node.store.tx_begin_read ());
+							if (!node.ledger.account_balance (block_transaction, account).is_zero ())
 							{
 								BOOST_LOG (node.log) << boost::str (boost::format ("Skipping account %1% for use as a transaction account: non-zero balance") % account.to_account ());
 								account.clear ();
@@ -2307,7 +2309,7 @@ void nano::rpc_handler::payment_init ()
 	auto wallet (wallet_impl ());
 	if (!ec)
 	{
-		auto transaction (node.store.tx_begin_write ());
+		auto transaction (node.wallets.tx_begin_write ());
 		if (wallet->store.valid_password (transaction))
 		{
 			wallet->init_free_accounts (transaction);
@@ -2327,11 +2329,12 @@ void nano::rpc_handler::payment_end ()
 	auto wallet (wallet_impl ());
 	if (!ec)
 	{
-		auto transaction (node.store.tx_begin_read ());
+		auto transaction (node.wallets.tx_begin_read ());
+		auto block_transaction (node.store.tx_begin_read ());
 		auto existing (wallet->store.find (transaction, account));
 		if (existing != wallet->store.end ())
 		{
-			if (node.ledger.account_balance (transaction, account).is_zero ())
+			if (node.ledger.account_balance (block_transaction, account).is_zero ())
 			{
 				wallet->free_accounts.insert (account);
 				response_l.put ("ended", "1");
@@ -2834,11 +2837,12 @@ void nano::rpc_handler::send ()
 				nano::uint128_t balance (0);
 				if (!ec)
 				{
-					auto transaction (node.store.tx_begin (work != 0)); // false if no "work" in request, true if work > 0
+					auto transaction (node.wallets.tx_begin (work != 0)); // false if no "work" in request, true if work > 0
+					auto block_transaction (node.store.tx_begin_read ());
 					if (wallet->store.valid_password (transaction))
 					{
 						nano::account_info info;
-						if (!node.store.account_get (transaction, source, info))
+						if (!node.store.account_get (block_transaction, source, info))
 						{
 							balance = (info.balance).number ();
 						}
@@ -3091,7 +3095,7 @@ void nano::rpc_handler::wallet_add_watch ()
 	auto wallet (wallet_impl ());
 	if (!ec)
 	{
-		auto transaction (node.store.tx_begin_write ());
+		auto transaction (node.wallets.tx_begin_write ());
 		if (wallet->store.valid_password (transaction))
 		{
 			for (auto & accounts : request.get_child ("accounts"))
@@ -3122,12 +3126,13 @@ void nano::rpc_handler::wallet_info ()
 		uint64_t count (0);
 		uint64_t deterministic_count (0);
 		uint64_t adhoc_count (0);
-		auto transaction (node.store.tx_begin_read ());
+		auto transaction (node.wallets.tx_begin_read ());
+		auto block_transaction (node.store.tx_begin_read ());
 		for (auto i (wallet->store.begin (transaction)), n (wallet->store.end ()); i != n; ++i)
 		{
 			nano::account account (i->first);
-			balance = balance + node.ledger.account_balance (transaction, account);
-			pending = pending + node.ledger.account_pending (transaction, account);
+			balance = balance + node.ledger.account_balance (block_transaction, account);
+			pending = pending + node.ledger.account_pending (block_transaction, account);
 			nano::key_type key_type (wallet->store.key_type (i->second));
 			if (key_type == nano::key_type::deterministic)
 			{
@@ -3157,15 +3162,16 @@ void nano::rpc_handler::wallet_balances ()
 	if (!ec)
 	{
 		boost::property_tree::ptree balances;
-		auto transaction (node.store.tx_begin_read ());
+		auto transaction (node.wallets.tx_begin_read ());
+		auto block_transaction (node.store.tx_begin_read ());
 		for (auto i (wallet->store.begin (transaction)), n (wallet->store.end ()); i != n; ++i)
 		{
 			nano::account account (i->first);
-			nano::uint128_t balance = node.ledger.account_balance (transaction, account);
+			nano::uint128_t balance = node.ledger.account_balance (block_transaction, account);
 			if (balance >= threshold.number ())
 			{
 				boost::property_tree::ptree entry;
-				nano::uint128_t pending = node.ledger.account_pending (transaction, account);
+				nano::uint128_t pending = node.ledger.account_pending (block_transaction, account);
 				entry.put ("balance", balance.convert_to<std::string> ());
 				entry.put ("pending", pending.convert_to<std::string> ());
 				balances.push_back (std::make_pair (account.to_account (), entry));
@@ -3187,7 +3193,7 @@ void nano::rpc_handler::wallet_change_seed ()
 		if (!seed.data.decode_hex (seed_text))
 		{
 			auto count (count_optional_impl (0));
-			auto transaction (node.store.tx_begin_write ());
+			auto transaction (node.wallets.tx_begin_write ());
 			if (wallet->store.valid_password (transaction))
 			{
 				wallet->change_seed (transaction, seed, count);
@@ -3212,7 +3218,7 @@ void nano::rpc_handler::wallet_contains ()
 	auto wallet (wallet_impl ());
 	if (!ec)
 	{
-		auto transaction (node.store.tx_begin_read ());
+		auto transaction (node.wallets.tx_begin_read ());
 		auto exists (wallet->store.find (transaction, account) != wallet->store.end ());
 		response_l.put ("exists", exists ? "1" : "0");
 	}
@@ -3274,7 +3280,7 @@ void nano::rpc_handler::wallet_export ()
 	auto wallet (wallet_impl ());
 	if (!ec)
 	{
-		auto transaction (node.store.tx_begin_read ());
+		auto transaction (node.wallets.tx_begin_read ());
 		std::string json;
 		wallet->store.serialize_json (transaction, json);
 		response_l.put ("json", json);
@@ -3288,11 +3294,12 @@ void nano::rpc_handler::wallet_frontiers ()
 	if (!ec)
 	{
 		boost::property_tree::ptree frontiers;
-		auto transaction (node.store.tx_begin_read ());
+		auto transaction (node.wallets.tx_begin_read ());
+		auto block_transaction (node.store.tx_begin_read ());
 		for (auto i (wallet->store.begin (transaction)), n (wallet->store.end ()); i != n; ++i)
 		{
 			nano::account account (i->first);
-			auto latest (node.ledger.latest (transaction, account));
+			auto latest (node.ledger.latest (block_transaction, account));
 			if (!latest.is_zero ())
 			{
 				frontiers.put (account.to_account (), latest.to_string ());
@@ -3308,7 +3315,7 @@ void nano::rpc_handler::wallet_key_valid ()
 	auto wallet (wallet_impl ());
 	if (!ec)
 	{
-		auto transaction (node.store.tx_begin_read ());
+		auto transaction (node.wallets.tx_begin_read ());
 		auto valid (wallet->store.valid_password (transaction));
 		response_l.put ("valid", valid ? "1" : "0");
 	}
@@ -3330,12 +3337,13 @@ void nano::rpc_handler::wallet_ledger ()
 	if (!ec)
 	{
 		boost::property_tree::ptree accounts;
-		auto transaction (node.store.tx_begin_read ());
+		auto transaction (node.wallets.tx_begin_read ());
+		auto block_transaction (node.store.tx_begin_read ());
 		for (auto i (wallet->store.begin (transaction)), n (wallet->store.end ()); i != n; ++i)
 		{
 			nano::account account (i->first);
 			nano::account_info info;
-			if (!node.store.account_get (transaction, account, info))
+			if (!node.store.account_get (block_transaction, account, info))
 			{
 				if (info.modified >= modified_since)
 				{
@@ -3350,18 +3358,18 @@ void nano::rpc_handler::wallet_ledger ()
 					entry.put ("block_count", std::to_string (info.block_count));
 					if (representative)
 					{
-						auto block (node.store.block_get (transaction, info.rep_block));
+						auto block (node.store.block_get (block_transaction, info.rep_block));
 						assert (block != nullptr);
 						entry.put ("representative", block->representative ().to_account ());
 					}
 					if (weight)
 					{
-						auto account_weight (node.ledger.weight (transaction, account));
+						auto account_weight (node.ledger.weight (block_transaction, account));
 						entry.put ("weight", account_weight.convert_to<std::string> ());
 					}
 					if (pending)
 					{
-						auto account_pending (node.ledger.account_pending (transaction, account));
+						auto account_pending (node.ledger.account_pending (block_transaction, account));
 						entry.put ("pending", account_pending.convert_to<std::string> ());
 					}
 					accounts.push_back (std::make_pair (account.to_account (), entry));
@@ -3398,15 +3406,16 @@ void nano::rpc_handler::wallet_pending ()
 	if (!ec)
 	{
 		boost::property_tree::ptree pending;
-		auto transaction (node.store.tx_begin_read ());
+		auto transaction (node.wallets.tx_begin_read ());
+		auto block_transaction (node.store.tx_begin_read ());
 		for (auto i (wallet->store.begin (transaction)), n (wallet->store.end ()); i != n; ++i)
 		{
 			nano::account account (i->first);
 			boost::property_tree::ptree peers_l;
-			for (auto ii (node.store.pending_begin (transaction, nano::pending_key (account, 0))); nano::pending_key (ii->first).account == account && peers_l.size () < count; ++ii)
+			for (auto ii (node.store.pending_begin (block_transaction, nano::pending_key (account, 0))); nano::pending_key (ii->first).account == account && peers_l.size () < count; ++ii)
 			{
 				nano::pending_key key (ii->first);
-				std::shared_ptr<nano::block> block (include_active ? nullptr : node.store.block_get (transaction, key.hash));
+				std::shared_ptr<nano::block> block (include_active ? nullptr : node.store.block_get (block_transaction, key.hash));
 				if (include_active || (block && !node.active.active (*block)))
 				{
 					if (threshold.is_zero () && !source)
@@ -3457,7 +3466,7 @@ void nano::rpc_handler::wallet_representative ()
 	auto wallet (wallet_impl ());
 	if (!ec)
 	{
-		auto transaction (node.store.tx_begin_read ());
+		auto transaction (node.wallets.tx_begin_read ());
 		response_l.put ("representative", wallet->store.representative (transaction).to_account ());
 	}
 	response_errors ();
@@ -3474,7 +3483,7 @@ void nano::rpc_handler::wallet_representative_set ()
 		if (!representative.decode_account (representative_text))
 		{
 			{
-				auto transaction (node.store.tx_begin_write ());
+				auto transaction (node.wallets.tx_begin_write ());
 				wallet->store.representative_set (transaction, representative);
 			}
 			// Change representative for all wallet accounts
@@ -3482,14 +3491,15 @@ void nano::rpc_handler::wallet_representative_set ()
 			{
 				std::vector<nano::account> accounts;
 				{
-					auto transaction (node.store.tx_begin_read ());
+					auto transaction (node.wallets.tx_begin_read ());
+					auto block_transaction (node.store.tx_begin_write ());
 					for (auto i (wallet->store.begin (transaction)), n (wallet->store.end ()); i != n; ++i)
 					{
 						nano::account account (i->first);
 						nano::account_info info;
-						if (!node.store.account_get (transaction, account, info))
+						if (!node.store.account_get (block_transaction, account, info))
 						{
-							auto block (node.store.block_get (transaction, info.rep_block));
+							auto block (node.store.block_get (block_transaction, info.rep_block));
 							assert (block != nullptr);
 							if (block->representative () != representative)
 							{
@@ -3522,23 +3532,24 @@ void nano::rpc_handler::wallet_republish ()
 	{
 		boost::property_tree::ptree blocks;
 		std::deque<std::shared_ptr<nano::block>> republish_bundle;
-		auto transaction (node.store.tx_begin_read ());
+		auto transaction (node.wallets.tx_begin_read ());
+		auto block_transaction (node.store.tx_begin_read ());
 		for (auto i (wallet->store.begin (transaction)), n (wallet->store.end ()); i != n; ++i)
 		{
 			nano::account account (i->first);
-			auto latest (node.ledger.latest (transaction, account));
+			auto latest (node.ledger.latest (block_transaction, account));
 			std::shared_ptr<nano::block> block;
 			std::vector<nano::block_hash> hashes;
 			while (!latest.is_zero () && hashes.size () < count)
 			{
 				hashes.push_back (latest);
-				block = node.store.block_get (transaction, latest);
+				block = node.store.block_get (block_transaction, latest);
 				latest = block->previous ();
 			}
 			std::reverse (hashes.begin (), hashes.end ());
 			for (auto & hash : hashes)
 			{
-				block = node.store.block_get (transaction, hash);
+				block = node.store.block_get (block_transaction, hash);
 				republish_bundle.push_back (std::move (block));
 				boost::property_tree::ptree entry;
 				entry.put ("", hash.to_string ());
@@ -3558,7 +3569,7 @@ void nano::rpc_handler::wallet_work_get ()
 	if (!ec)
 	{
 		boost::property_tree::ptree works;
-		auto transaction (node.store.tx_begin_read ());
+		auto transaction (node.wallets.tx_begin_read ());
 		for (auto i (wallet->store.begin (transaction)), n (wallet->store.end ()); i != n; ++i)
 		{
 			nano::account account (i->first);
@@ -3626,7 +3637,7 @@ void nano::rpc_handler::work_get ()
 	auto account (account_impl ());
 	if (!ec)
 	{
-		auto transaction (node.store.tx_begin_read ());
+		auto transaction (node.wallets.tx_begin_read ());
 		if (wallet->store.find (transaction, account) != wallet->store.end ())
 		{
 			uint64_t work (0);
@@ -3650,7 +3661,7 @@ void nano::rpc_handler::work_set ()
 	auto work (work_optional_impl ());
 	if (!ec)
 	{
-		auto transaction (node.store.tx_begin_write ());
+		auto transaction (node.wallets.tx_begin_write ());
 		if (wallet->store.find (transaction, account) != wallet->store.end ())
 		{
 			wallet->store.work_put (transaction, account, work);

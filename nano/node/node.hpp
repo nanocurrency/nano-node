@@ -329,6 +329,7 @@ public:
 	node_init ();
 	bool error ();
 	bool block_store_init;
+	bool wallets_store_init;
 	bool wallet_init;
 };
 class node_observers
@@ -510,6 +511,8 @@ public:
 	boost::log::sources::logger_mt log;
 	std::unique_ptr<nano::block_store> store_impl;
 	nano::block_store & store;
+	std::unique_ptr<nano::wallets_store> wallets_store_impl;
+	nano::wallets_store & wallets_store;
 	nano::gap_cache gap_cache;
 	nano::ledger ledger;
 	nano::active_transactions active;
@@ -519,6 +522,7 @@ public:
 	nano::peer_container peers;
 	boost::filesystem::path application_path;
 	nano::node_observers observers;
+	nano::wallets wallets_old;
 	nano::wallets wallets;
 	nano::port_mapping port_mapping;
 	nano::signature_checker checker;

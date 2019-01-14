@@ -1628,7 +1628,10 @@ bootstrap_initiator (*this),
 bootstrap (io_ctx_a, config.peering_port, *this),
 peers (network.endpoint ()),
 application_path (application_path_a),
-wallets (init_a.block_store_init, *this),
+wallets_store_impl (std::make_unique<nano::mdb_wallets_store> (init_a.wallets_store_init, application_path_a / "wallets.ldb", config_a.lmdb_max_dbs)),
+wallets_store (*wallets_store_impl),
+wallets (init_a.wallet_init, *this),
+wallets_old (init_a.wallets_store_init, *this, boost::polymorphic_downcast<nano::mdb_store *> (store_impl.get ())->env),
 port_mapping (*this),
 vote_processor (*this),
 warmed_up (0),
@@ -1641,6 +1644,33 @@ online_reps (*this),
 stats (config.stat_config),
 vote_uniquer (block_uniquer)
 {
+	auto transaction (store.tx_begin_read ());
+	if (store.version_get (transaction) < 13)
+	{
+		BOOST_LOG (log) << "Migrating Wallet Store";
+		for (auto & old_wallet : wallets_old.items)
+		{
+			auto wallet_new (wallets.open (old_wallet.first));
+			if (wallet_new == nullptr)
+			{
+				wallets.items[old_wallet.first] = wallets.create (old_wallet.first);
+				wallet_new = wallets.open (old_wallet.first);
+			}
+			auto transaction_old (wallets_old.tx_begin_read ());
+			auto transaction_new (wallets.tx_begin_write ());
+			BOOST_LOG (log) << "Migrating " << old_wallet.first.to_string ();
+			for (nano::store_iterator<nano::uint256_union, nano::wallet_value> i (std::make_unique<nano::mdb_iterator<nano::uint256_union, nano::wallet_value>> (transaction_old, old_wallet.second->store.handle)), n (nullptr); i != n; ++i)
+			{
+				auto value (old_wallet.second->store.entry_get_raw (transaction_old, i->first));
+				wallet_new->store.entry_put_raw (transaction_new, i->first, value);
+			}
+			wallet_new->store.version_put (transaction_new, 5);
+			BOOST_LOG (log) << old_wallet.first.to_string () << " Migration Complete";
+		}
+		auto transaction (store.tx_begin_write ());
+		store.version_put (transaction, 13);
+		BOOST_LOG (log) << "Wallet Store Migration Complete";
+	}
 	wallets.observer = [this](bool active) {
 		observers.wallet.notify (active);
 	};
@@ -2241,7 +2271,7 @@ void nano::node::ongoing_store_flush ()
 
 void nano::node::backup_wallet ()
 {
-	auto transaction (store.tx_begin_read ());
+	auto transaction (wallets.tx_begin_read ());
 	for (auto i (wallets.items.begin ()), n (wallets.items.end ()); i != n; ++i)
 	{
 		boost::system::error_code error_chmod;
@@ -2618,11 +2648,12 @@ public:
 		for (auto i (node.wallets.items.begin ()), n (node.wallets.items.end ()); i != n; ++i)
 		{
 			auto wallet (i->second);
-			if (wallet->store.exists (transaction, account_a))
+			auto transaction_l (node.wallets.tx_begin_read ());
+			if (wallet->store.exists (transaction_l, account_a))
 			{
 				nano::account representative;
 				nano::pending_info pending;
-				representative = wallet->store.representative (transaction);
+				representative = wallet->store.representative (transaction_l);
 				auto error (node.store.pending_get (transaction, nano::pending_key (account_a, hash), pending));
 				if (!error)
 				{

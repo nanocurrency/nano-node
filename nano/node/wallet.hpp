@@ -1,15 +1,12 @@
 #pragma once
 
 #include <boost/thread/thread.hpp>
-#include <nano/node/common.hpp>
 #include <nano/node/lmdb.hpp>
 #include <nano/node/openclwork.hpp>
 #include <nano/secure/blockstore.hpp>
 #include <nano/secure/common.hpp>
 
 #include <mutex>
-#include <queue>
-#include <thread>
 #include <unordered_set>
 
 namespace nano
@@ -90,13 +87,15 @@ public:
 	void upgrade_v1_v2 (nano::transaction const &);
 	void upgrade_v2_v3 (nano::transaction const &);
 	void upgrade_v3_v4 (nano::transaction const &);
+	void upgrade_v4_v5 (nano::transaction const &);
 	nano::fan password;
 	nano::fan wallet_key_mem;
 	static unsigned const version_1 = 1;
 	static unsigned const version_2 = 2;
 	static unsigned const version_3 = 3;
 	static unsigned const version_4 = 4;
-	unsigned const version_current = version_4;
+	static unsigned const version_5 = 5;
+	unsigned const version_current = version_5;
 	static nano::uint256_union const version_special;
 	static nano::uint256_union const wallet_key_special;
 	static nano::uint256_union const salt_special;
@@ -168,6 +167,7 @@ class wallets
 {
 public:
 	wallets (bool &, nano::node &);
+	wallets (bool &, nano::node &, nano::mdb_env &);
 	~wallets ();
 	std::shared_ptr<nano::wallet> open (nano::uint256_union const &);
 	std::shared_ptr<nano::wallet> create (nano::uint256_union const &);
@@ -206,5 +206,16 @@ public:
 	 * @param write If true, start a read-write transaction
 	 */
 	nano::transaction tx_begin (bool write = false);
+};
+class wallets_store
+{
+public:
+	virtual ~wallets_store () = default;
+};
+class mdb_wallets_store : public wallets_store
+{
+public:
+	mdb_wallets_store (bool &, boost::filesystem::path const &, int lmdb_max_dbs = 128);
+	nano::mdb_env environment;
 };
 }

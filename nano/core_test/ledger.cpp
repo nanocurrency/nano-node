@@ -593,7 +593,7 @@ TEST (system, DISABLED_generate_send_existing)
 	auto send_block (system.wallet (0)->send_action (nano::genesis_account, stake_preserver.pub, nano::genesis_amount / 3 * 2, true));
 	nano::account_info info1;
 	{
-		auto transaction (system.wallet (0)->wallets.tx_begin ());
+		auto transaction (system.nodes[0]->store.tx_begin ());
 		ASSERT_FALSE (system.nodes[0]->store.account_get (transaction, nano::test_genesis_key.pub, info1));
 	}
 	std::vector<nano::account> accounts;
@@ -609,7 +609,7 @@ TEST (system, DISABLED_generate_send_existing)
 	ASSERT_GT (system.nodes[0]->balance (stake_preserver.pub), system.nodes[0]->balance (nano::genesis_account));
 	nano::account_info info2;
 	{
-		auto transaction (system.wallet (0)->wallets.tx_begin ());
+		auto transaction (system.nodes[0]->store.tx_begin ());
 		ASSERT_FALSE (system.nodes[0]->store.account_get (transaction, nano::test_genesis_key.pub, info2));
 	}
 	ASSERT_NE (info1.head, info2.head);
@@ -617,13 +617,13 @@ TEST (system, DISABLED_generate_send_existing)
 	while (info2.block_count < info1.block_count + 2)
 	{
 		ASSERT_NO_ERROR (system.poll ());
-		auto transaction (system.wallet (0)->wallets.tx_begin ());
+		auto transaction (system.nodes[0]->store.tx_begin ());
 		ASSERT_FALSE (system.nodes[0]->store.account_get (transaction, nano::test_genesis_key.pub, info2));
 	}
 	ASSERT_EQ (info1.block_count + 2, info2.block_count);
 	ASSERT_EQ (info2.balance, nano::genesis_amount / 3);
 	{
-		auto transaction (system.wallet (0)->wallets.tx_begin ());
+		auto transaction (system.nodes[0]->store.tx_begin ());
 		ASSERT_NE (system.nodes[0]->ledger.amount (transaction, info2.head), 0);
 	}
 	system.stop ();
@@ -656,7 +656,7 @@ TEST (system, generate_send_new)
 	system.generate_send_new (*system.nodes[0], accounts);
 	nano::account new_account (0);
 	{
-		auto transaction (system.nodes[0]->store.tx_begin ());
+		auto transaction (system.nodes[0]->wallets.tx_begin ());
 		auto iterator2 (system.wallet (0)->store.begin (transaction));
 		if (nano::uint256_union (iterator2->first) != nano::test_genesis_key.pub)
 		{
