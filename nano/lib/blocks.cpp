@@ -302,14 +302,17 @@ work (work_a)
 nano::send_block::send_block (bool & error_a, nano::stream & stream_a) :
 hashables (error_a, stream_a)
 {
-	try
+	if (!error_a)
 	{
-		nano::read (stream_a, signature.bytes);
-		nano::read (stream_a, work);
-	}
-	catch (std::runtime_error const &)
-	{
-		error_a = true;
+		try
+		{
+			nano::read (stream_a, signature.bytes);
+			nano::read (stream_a, work);
+		}
+		catch (std::runtime_error const &)
+		{
+			error_a = true;
+		}
 	}
 }
 
@@ -703,14 +706,17 @@ work (work_a)
 nano::change_block::change_block (bool & error_a, nano::stream & stream_a) :
 hashables (error_a, stream_a)
 {
-	try
+	if (!error_a)
 	{
-		nano::read (stream_a, signature);
-		nano::read (stream_a, work);
-	}
-	catch (std::runtime_error const &)
-	{
-		error_a = true;
+		try
+		{
+			nano::read (stream_a, signature);
+			nano::read (stream_a, work);
+		}
+		catch (std::runtime_error const &)
+		{
+			error_a = true;
+		}
 	}
 }
 
@@ -963,15 +969,18 @@ work (work_a)
 nano::state_block::state_block (bool & error_a, nano::stream & stream_a) :
 hashables (error_a, stream_a)
 {
-	try
+	if (!error_a)
 	{
-		nano::read (stream_a, signature);
-		nano::read (stream_a, work);
-		boost::endian::big_to_native_inplace (work);
-	}
-	catch (std::runtime_error const &)
-	{
-		error_a = true;
+		try
+		{
+			nano::read (stream_a, signature);
+			nano::read (stream_a, work);
+			boost::endian::big_to_native_inplace (work);
+		}
+		catch (std::runtime_error const &)
+		{
+			error_a = true;
+		}
 	}
 }
 
@@ -1414,14 +1423,17 @@ work (work_a)
 nano::receive_block::receive_block (bool & error_a, nano::stream & stream_a) :
 hashables (error_a, stream_a)
 {
-	try
+	if (error_a)
 	{
-		nano::read (stream_a, signature);
-		nano::read (stream_a, work);
-	}
-	catch (std::runtime_error const &)
-	{
-		error_a = true;
+		try
+		{
+			nano::read (stream_a, signature);
+			nano::read (stream_a, work);
+		}
+		catch (std::runtime_error const &)
+		{
+			error_a = true;
+		}
 	}
 }
 
