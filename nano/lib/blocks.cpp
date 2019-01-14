@@ -1423,7 +1423,7 @@ work (work_a)
 nano::receive_block::receive_block (bool & error_a, nano::stream & stream_a) :
 hashables (error_a, stream_a)
 {
-	if (error_a)
+	if (!error_a)
 	{
 		try
 		{
