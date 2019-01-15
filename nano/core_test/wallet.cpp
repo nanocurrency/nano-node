@@ -968,3 +968,62 @@ TEST (wallet, password_race_corrupt_seed)
 		}
 	}
 }
+
+TEST (wallet, change_seed)
+{
+	nano::system system (24000, 1);
+	auto wallet (system.wallet (0));
+	wallet->enter_initial_password ();
+	nano::raw_key seed1;
+	seed1.data = 1;
+	nano::public_key pub;
+	uint32_t index (4);
+	nano::raw_key prv;
+	nano::deterministic_key (seed1.data, index, prv.data);
+	pub = nano::pub_key (prv.data);
+	wallet->insert_adhoc (nano::test_genesis_key.prv, false);
+	auto block (wallet->send_action (nano::test_genesis_key.pub, pub, 100));
+	ASSERT_NE (nullptr, block);
+	system.nodes[0]->block_processor.flush ();
+	{
+		auto transaction (wallet->wallets.tx_begin_write ());
+		wallet->change_seed (transaction, seed1);
+		nano::raw_key seed2;
+		wallet->store.seed (seed2, transaction);
+		ASSERT_EQ (seed1, seed2);
+		ASSERT_EQ (index + 1, wallet->store.deterministic_index_get (transaction));
+	}
+	ASSERT_TRUE (wallet->exists (pub));
+}
+
+TEST (wallet, deterministic_restore)
+{
+	nano::system system (24000, 1);
+	auto wallet (system.wallet (0));
+	wallet->enter_initial_password ();
+	nano::raw_key seed1;
+	seed1.data = 1;
+	nano::public_key pub;
+	uint32_t index (4);
+	{
+		auto transaction (wallet->wallets.tx_begin_write ());
+		wallet->change_seed (transaction, seed1);
+		nano::raw_key seed2;
+		wallet->store.seed (seed2, transaction);
+		ASSERT_EQ (seed1, seed2);
+		ASSERT_EQ (1, wallet->store.deterministic_index_get (transaction));
+		nano::raw_key prv;
+		nano::deterministic_key (seed1.data, index, prv.data);
+		pub = nano::pub_key (prv.data);
+	}
+	wallet->insert_adhoc (nano::test_genesis_key.prv, false);
+	auto block (wallet->send_action (nano::test_genesis_key.pub, pub, 100));
+	ASSERT_NE (nullptr, block);
+	system.nodes[0]->block_processor.flush ();
+	{
+		auto transaction (wallet->wallets.tx_begin_write ());
+		wallet->deterministic_restore (transaction);
+		ASSERT_EQ (index + 1, wallet->store.deterministic_index_get (transaction));
+	}
+	ASSERT_TRUE (wallet->exists (pub));
+}

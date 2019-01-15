@@ -150,8 +150,10 @@ public:
 	void work_ensure (nano::account const &, nano::block_hash const &);
 	bool search_pending ();
 	void init_free_accounts (nano::transaction const &);
+	uint32_t deterministic_check (nano::transaction const & transaction_a, uint32_t index);
 	/** Changes the wallet seed and returns the first account */
-	nano::public_key change_seed (nano::transaction const & transaction_a, nano::raw_key const & prv_a, uint32_t = 0);
+	nano::public_key change_seed (nano::transaction const & transaction_a, nano::raw_key const & prv_a, uint32_t count = 0);
+	void deterministic_restore (nano::transaction const & transaction_a);
 	bool live ();
 	std::unordered_set<nano::account> free_accounts;
 	std::function<void(bool, bool)> lock_observer;

@@ -385,6 +385,11 @@ wallet (wallet_a)
 					{
 						this->wallet.account = this->wallet.wallet_m->change_seed (transaction, seed_l);
 						successful = true;
+						// Pending check for accounts to restore if bootstrap is in progress
+						if (this->wallet.node.bootstrap_initiator.in_progress ())
+						{
+							this->wallet.needs_deterministic_restore = true;
+						}
 					}
 					else
 					{
@@ -988,7 +993,8 @@ send_count_label (new QLabel ("Amount:")),
 send_count (new QLineEdit),
 send_blocks_send (new QPushButton ("Send")),
 send_blocks_back (new QPushButton ("Back")),
-active_status (*this)
+active_status (*this),
+needs_deterministic_restore (false)
 {
 	update_connected ();
 	empty_password ();
@@ -1342,6 +1348,13 @@ void nano_qt::wallet::start ()
 					else
 					{
 						this_l->active_status.erase (nano_qt::status_types::synchronizing);
+						// Check for accounts to restore
+						if (this_l->needs_deterministic_restore)
+						{
+							this_l->needs_deterministic_restore = false;
+							auto transaction (this_l->wallet_m->wallets.tx_begin_write ());
+							this_l->wallet_m->deterministic_restore (transaction);
+						}
 					}
 				}
 			}));
