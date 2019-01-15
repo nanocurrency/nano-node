@@ -189,7 +189,7 @@ void nano::node::keepalive (std::string const & address_a, uint16_t port_a, bool
 				node_l->send_keepalive (endpoint);
 				if (preconfigured_peer_a)
 				{
-					node_l->peers.insert (endpoint, rai::protocol_version, true);
+					node_l->peers.insert (endpoint, nano::protocol_version, true);
 				}
 			}
 		}
