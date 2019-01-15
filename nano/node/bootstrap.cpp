@@ -1007,13 +1007,17 @@ void nano::bootstrap_attempt::populate_connections ()
 	double rate_sum = 0.0;
 	size_t num_pulls = 0;
 	std::priority_queue<std::shared_ptr<nano::bootstrap_client>, std::vector<std::shared_ptr<nano::bootstrap_client>>, block_rate_cmp> sorted_connections;
+	std::unordered_set<nano::tcp_endpoint> endpoints;
 	{
 		std::unique_lock<std::mutex> lock (mutex);
 		num_pulls = pulls.size ();
+		std::deque<std::weak_ptr<nano::bootstrap_client>> new_clients;
 		for (auto & c : clients)
 		{
 			if (auto client = c.lock ())
 			{
+				new_clients.push_back (client);
+				endpoints.insert (client->endpoint);
 				double elapsed_sec = client->elapsed_seconds ();
 				auto blocks_per_sec = client->block_rate ();
 				rate_sum += blocks_per_sec;
@@ -1034,6 +1038,8 @@ void nano::bootstrap_attempt::populate_connections ()
 				}
 			}
 		}
+		// Cleanup expired clients
+		clients.swap (new_clients);
 	}
 
 	auto target = target_connections (num_pulls);
@@ -1078,9 +1084,10 @@ void nano::bootstrap_attempt::populate_connections ()
 		for (int i = 0; i < delta; i++)
 		{
 			auto peer (node->peers.bootstrap_peer ());
-			if (peer != nano::endpoint (boost::asio::ip::address_v6::any (), 0))
+			auto endpoint (nano::tcp_endpoint (peer.address (), peer.port ()));
+			if (peer != nano::endpoint (boost::asio::ip::address_v6::any (), 0) && enpoints.find (endpoint) == enpoints.end ())
 			{
-				auto client (std::make_shared<nano::bootstrap_client> (node, shared_from_this (), nano::tcp_endpoint (peer.address (), peer.port ())));
+				auto client (std::make_shared<nano::bootstrap_client> (node, shared_from_this (), endpoint));
 				client->run ();
 				std::lock_guard<std::mutex> lock (mutex);
 				clients.push_back (client);
