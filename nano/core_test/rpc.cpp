@@ -2162,9 +2162,10 @@ TEST (rpc, wallet_change_seed)
 	request.put ("wallet", system0.nodes[0]->wallets.items.begin ()->first.to_string ());
 	request.put ("seed", seed.pub.to_string ());
 	test_response response (request, rpc, system0.io_ctx);
+	system0.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system0.poll ();
+		ASSERT_NO_ERROR (system0.poll ());
 	}
 	ASSERT_EQ (200, response.status);
 	{
