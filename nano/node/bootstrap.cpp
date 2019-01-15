@@ -1085,7 +1085,7 @@ void nano::bootstrap_attempt::populate_connections ()
 		{
 			auto peer (node->peers.bootstrap_peer ());
 			auto endpoint (nano::tcp_endpoint (peer.address (), peer.port ()));
-			if (peer != nano::endpoint (boost::asio::ip::address_v6::any (), 0) && enpoints.find (endpoint) == enpoints.end ())
+			if (peer != nano::endpoint (boost::asio::ip::address_v6::any (), 0) && endpoints.find (endpoint) == endpoints.end ())
 			{
 				auto client (std::make_shared<nano::bootstrap_client> (node, shared_from_this (), endpoint));
 				client->run ();
