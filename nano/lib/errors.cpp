@@ -154,6 +154,8 @@ std::string nano::error_rpc_messages::message (int ev) const
 			return "Invalid root hash";
 		case nano::error_rpc::invalid_sources:
 			return "Invalid sources number";
+		case nano::error_rpc::invalid_timestamp:
+			return "Invalid timestamp";
 		case nano::error_rpc::payment_account_balance:
 			return "Account has non-zero balance";
 		case nano::error_rpc::payment_unable_create_account:

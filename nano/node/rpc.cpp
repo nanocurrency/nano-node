@@ -1981,7 +1981,10 @@ void nano::rpc_handler::ledger ()
 		boost::optional<std::string> modified_since_text (request.get_optional<std::string> ("modified_since"));
 		if (modified_since_text.is_initialized ())
 		{
-			modified_since = strtoul (modified_since_text.get ().c_str (), NULL, 10);
+			if (decode_unsigned (modified_since_text.get (), modified_since))
+			{
+				ec = nano::error_rpc::invalid_timestamp;
+			}
 		}
 		const bool sorting = request.get<bool> ("sorting", false);
 		const bool representative = request.get<bool> ("representative", false);
@@ -3353,7 +3356,10 @@ void nano::rpc_handler::wallet_history ()
 	boost::optional<std::string> modified_since_text (request.get_optional<std::string> ("modified_since"));
 	if (modified_since_text.is_initialized ())
 	{
-		modified_since = strtoul (modified_since_text.get ().c_str (), NULL, 10);
+		if (decode_unsigned (modified_since_text.get (), modified_since))
+		{
+			ec = nano::error_rpc::invalid_timestamp;
+		}
 	}
 	auto wallet (wallet_impl ());
 	if (!ec)
