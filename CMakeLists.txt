@@ -156,6 +156,7 @@ endif ()
 # Also see https://bugs.llvm.org/show_bug.cgi?id=39895
 if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 	add_definitions(-DCRYPTOPP_DISABLE_MIXED_ASM)
+	message("CryptoPP disabled mixed ASM for Clang")
 endif ()
 add_definitions(-DCRYPTOPP_DISABLE_SHANI)
 
