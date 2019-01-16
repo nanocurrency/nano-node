@@ -23,7 +23,7 @@ std::chrono::minutes constexpr nano::node::backup_interval;
 std::chrono::seconds constexpr nano::node::search_pending_interval;
 int constexpr nano::port_mapping::mapping_timeout;
 int constexpr nano::port_mapping::check_timeout;
-unsigned constexpr nano::active_transactions::announce_interval_ms;
+unsigned constexpr nano::active_transactions::request_interval_ms;
 size_t constexpr nano::active_transactions::max_broadcast_queue;
 size_t constexpr nano::block_arrival::arrival_size_min;
 std::chrono::seconds constexpr nano::block_arrival::arrival_time_min;
@@ -3251,7 +3251,7 @@ bool nano::election::publish (std::shared_ptr<nano::block> block_a)
 	return result;
 }
 
-void nano::active_transactions::announce_votes (std::unique_lock<std::mutex> & lock_a)
+void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & lock_a)
 {
 	std::unordered_set<nano::block_hash> inactive;
 	auto transaction (node.store.tx_begin_read ());
@@ -3419,7 +3419,7 @@ void nano::active_transactions::announce_votes (std::unique_lock<std::mutex> & l
 	}
 }
 
-void nano::active_transactions::announce_loop ()
+void nano::active_transactions::request_loop ()
 {
 	std::unique_lock<std::mutex> lock (mutex);
 	started = true;
@@ -3430,9 +3430,9 @@ void nano::active_transactions::announce_loop ()
 
 	while (!stopped)
 	{
-		announce_votes (lock);
+		request_confirm (lock);
 		unsigned extra_delay (std::min (roots.size (), max_broadcast_queue) * node.network.broadcast_interval_ms * 2);
-		condition.wait_for (lock, std::chrono::milliseconds (announce_interval_ms + extra_delay));
+		condition.wait_for (lock, std::chrono::milliseconds (request_interval_ms + extra_delay));
 	}
 }
 
@@ -3577,8 +3577,8 @@ node (node_a),
 started (false),
 stopped (false),
 thread ([this]() {
-	nano::thread_role::set (nano::thread_role::name::announce_loop);
-	announce_loop ();
+	nano::thread_role::set (nano::thread_role::name::request_loop);
+	request_loop ();
 })
 {
 	std::unique_lock<std::mutex> lock (mutex);

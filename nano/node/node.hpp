@@ -123,15 +123,15 @@ public:
 	static unsigned constexpr announcement_min = 2;
 	// Threshold to start logging blocks haven't yet been confirmed
 	static unsigned constexpr announcement_long = 20;
-	static unsigned constexpr announce_interval_ms = (nano::nano_network == nano::nano_networks::nano_test_network) ? 10 : 16000;
+	static unsigned constexpr request_interval_ms = (nano::nano_network == nano::nano_networks::nano_test_network) ? 10 : 16000;
 	static size_t constexpr election_history_size = 2048;
 	static size_t constexpr max_broadcast_queue = 1000;
 
 private:
 	// Call action with confirmed block, may be different than what we started with
 	bool add (std::shared_ptr<nano::block>, std::function<void(std::shared_ptr<nano::block>)> const & = [](std::shared_ptr<nano::block>) {});
-	void announce_loop ();
-	void announce_votes (std::unique_lock<std::mutex> &);
+	void request_loop ();
+	void request_confirm (std::unique_lock<std::mutex> &);
 	std::condition_variable condition;
 	bool started;
 	bool stopped;
