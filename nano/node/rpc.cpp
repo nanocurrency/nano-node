@@ -2912,10 +2912,30 @@ void nano::rpc_handler::send ()
 	}
 }
 
-void nano::rpc_handler::sign_hash ()
+void nano::rpc_handler::sign ()
 {
 	// Retrieving hash
-	auto hash (hash_impl ());
+	nano::block_hash hash (0);
+	boost::optional<std::string> hash_text (request.get_optional<std::string> ("hash"));
+	if (hash_text.is_initialized ())
+	{
+		hash = hash_impl ();
+	}
+	// Retrieving block
+	std::shared_ptr<nano::block> block;
+	boost::optional<std::string> block_text (request.get_optional<std::string> ("block"));
+	if (!ec && block_text.is_initialized ())
+	{
+		block = block_impl ();
+		if (block != nullptr)
+		{
+			hash = block->hash ();
+		}
+	}
+	if (!ec && hash.is_zero ())
+	{
+		ec = nano::error_blocks::invalid_block;
+	}
 	if (!ec)
 	{
 		nano::raw_key prv;
@@ -2956,63 +2976,13 @@ void nano::rpc_handler::sign_hash ()
 			nano::public_key pub (nano::pub_key (prv.data));
 			nano::signature signature (nano::sign_message (prv, pub, hash));
 			response_l.put ("signature", signature.to_string ());
-		}
-		else
-		{
-			ec = nano::error_rpc::block_create_key_required;
-		}
-	}
-	response_errors ();
-}
-
-void nano::rpc_handler::sign_block ()
-{
-	// Retrieving block
-	auto block (block_impl ());
-	if (!ec)
-	{
-		nano::raw_key prv;
-		prv.data.clear ();
-		// Retrieving private key from request
-		boost::optional<std::string> key_text (request.get_optional<std::string> ("key"));
-		if (key_text.is_initialized ())
-		{
-			if (prv.data.decode_hex (key_text.get ()))
+			if (block != nullptr)
 			{
-				ec = nano::error_common::bad_private_key;
+				block->signature_set (signature);
+				std::string contents;
+				block->serialize_json (contents);
+				response_l.put ("block", contents);
 			}
-		}
-		else
-		{
-			// Retrieving private key from wallet
-			boost::optional<std::string> account_text (request.get_optional<std::string> ("account"));
-			boost::optional<std::string> wallet_text (request.get_optional<std::string> ("wallet"));
-			if (wallet_text.is_initialized () && account_text.is_initialized ())
-			{
-				auto account (account_impl ());
-				auto wallet (wallet_impl ());
-				if (!ec)
-				{
-					auto transaction (node.store.tx_begin_read ());
-					wallet_locked_impl (transaction, wallet);
-					wallet_account_impl (transaction, wallet, account);
-					if (!ec)
-					{
-						wallet->store.fetch (transaction, account, prv);
-					}
-				}
-			}
-		}
-		// Signing
-		if (prv.data != 0)
-		{
-			nano::public_key pub (nano::pub_key (prv.data));
-			nano::signature signature (nano::sign_message (prv, pub, block->hash ()));
-			block->signature_set (signature);
-			std::string contents;
-			block->serialize_json (contents);
-			response_l.put ("block", contents);
-			response_l.put ("signature", signature.to_string ());
 		}
 		else
 		{
@@ -4282,13 +4252,9 @@ void nano::rpc_handler::process_request ()
 			{
 				send ();
 			}
-			else if (action == "sign_block")
+			else if (action == "sign")
 			{
-				sign_block ();
-			}
-			else if (action == "sign_hash")
-			{
-				sign_hash ();
+				sign ();
 			}
 			else if (action == "stats")
 			{

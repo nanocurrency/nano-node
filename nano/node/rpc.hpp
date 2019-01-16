@@ -191,8 +191,7 @@ public:
 	void search_pending ();
 	void search_pending_all ();
 	void send ();
-	void sign_block ();
-	void sign_hash ();
+	void sign ();
 	void stats ();
 	void stop ();
 	void unchecked ();
