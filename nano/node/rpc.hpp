@@ -6,8 +6,10 @@
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
 #include <nano/lib/blocks.hpp>
-#include <nano/secure/blockstore.hpp>
+#include <nano/lib/errors.hpp>
+#include <nano/lib/jsonconfig.hpp>
 #include <nano/secure/utility.hpp>
+#include <nano/secure/blockstore.hpp>
 #include <unordered_map>
 
 namespace nano
@@ -19,8 +21,8 @@ class rpc_secure_config
 {
 public:
 	rpc_secure_config ();
-	void serialize_json (boost::property_tree::ptree &) const;
-	bool deserialize_json (boost::property_tree::ptree const &);
+	nano::error serialize_json (nano::jsonconfig &) const;
+	nano::error deserialize_json (nano::jsonconfig &);
 
 	/** If true, enable TLS */
 	bool enable;
@@ -42,8 +44,8 @@ class rpc_config
 public:
 	rpc_config ();
 	rpc_config (bool);
-	void serialize_json (boost::property_tree::ptree &) const;
-	bool deserialize_json (boost::property_tree::ptree const &);
+	nano::error serialize_json (nano::jsonconfig &) const;
+	nano::error deserialize_json (nano::jsonconfig &);
 	boost::asio::ip::address_v6 address;
 	uint16_t port;
 	bool enable_control;

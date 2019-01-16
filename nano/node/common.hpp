@@ -69,19 +69,6 @@ struct endpoint_hash<4>
 		return result;
 	}
 };
-}
-
-namespace std
-{
-template <>
-struct hash<::nano::endpoint>
-{
-	size_t operator() (::nano::endpoint const & endpoint_a) const
-	{
-		endpoint_hash<sizeof (size_t)> ehash;
-		return ehash (endpoint_a);
-	}
-};
 template <size_t size>
 struct ip_address_hash
 {
@@ -102,6 +89,19 @@ struct ip_address_hash<4>
 		uint64_t big (ip_address_hash_raw (ip_address_a));
 		uint32_t result (static_cast<uint32_t> (big) ^ static_cast<uint32_t> (big >> 32));
 		return result;
+	}
+};
+}
+
+namespace std
+{
+template <>
+struct hash<::nano::endpoint>
+{
+	size_t operator() (::nano::endpoint const & endpoint_a) const
+	{
+		endpoint_hash<sizeof (size_t)> ehash;
+		return ehash (endpoint_a);
 	}
 };
 template <>
@@ -185,11 +185,11 @@ public:
 	bool bulk_pull_is_count_present () const;
 
 	static std::bitset<16> constexpr block_type_mask = std::bitset<16> (0x0f00);
-	inline bool valid_magic () const
+	bool valid_magic () const
 	{
 		return magic_number[0] == 'R' && magic_number[1] >= 'A' && magic_number[1] <= 'C';
 	}
-	inline bool valid_network () const
+	bool valid_network () const
 	{
 		return (magic_number[1] - 'A') == static_cast<int> (nano::nano_network);
 	}
@@ -202,7 +202,7 @@ public:
 	virtual ~message () = default;
 	virtual void serialize (nano::stream &) const = 0;
 	virtual void visit (nano::message_visitor &) const = 0;
-	virtual inline std::shared_ptr<std::vector<uint8_t>> to_bytes () const
+	virtual std::shared_ptr<std::vector<uint8_t>> to_bytes () const
 	{
 		std::shared_ptr<std::vector<uint8_t>> bytes (new std::vector<uint8_t>);
 		nano::vectorstream stream (*bytes);

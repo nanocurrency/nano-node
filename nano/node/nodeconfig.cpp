@@ -1,3 +1,4 @@
+#include <nano/lib/jsonconfig.hpp>
 #include <nano/node/nodeconfig.hpp>
 // NOTE: to reduce compile times, this include can be replaced by more narrow includes
 // once nano::network is factored out of node.{c|h}pp
@@ -19,7 +20,7 @@ password_fanout (1024),
 io_threads (std::max<unsigned> (4, boost::thread::hardware_concurrency ())),
 network_threads (std::max<unsigned> (4, boost::thread::hardware_concurrency ())),
 work_threads (std::max<unsigned> (4, boost::thread::hardware_concurrency ())),
-enable_voting (true),
+enable_voting (false),
 bootstrap_connections (4),
 bootstrap_connections_max (64),
 callback_port (0),
@@ -33,6 +34,7 @@ block_processor_batch_max_time (std::chrono::milliseconds (5000))
 	switch (nano::nano_network)
 	{
 		case nano::nano_networks::nano_test_network:
+			enable_voting = true;
 			preconfigured_representatives.push_back (nano::genesis_account);
 			break;
 		case nano::nano_networks::nano_beta_network:
@@ -60,262 +62,270 @@ block_processor_batch_max_time (std::chrono::milliseconds (5000))
 	}
 }
 
-void nano::node_config::serialize_json (boost::property_tree::ptree & tree_a) const
+nano::error nano::node_config::serialize_json (nano::jsonconfig & json) const
 {
-	tree_a.put ("version", std::to_string (json_version));
-	tree_a.put ("peering_port", std::to_string (peering_port));
-	tree_a.put ("bootstrap_fraction_numerator", std::to_string (bootstrap_fraction_numerator));
-	tree_a.put ("receive_minimum", receive_minimum.to_string_dec ());
-	boost::property_tree::ptree logging_l;
+	json.put ("version", json_version ());
+	json.put ("peering_port", peering_port);
+	json.put ("bootstrap_fraction_numerator", bootstrap_fraction_numerator);
+	json.put ("receive_minimum", receive_minimum.to_string_dec ());
+
+	nano::jsonconfig logging_l;
 	logging.serialize_json (logging_l);
-	tree_a.add_child ("logging", logging_l);
-	boost::property_tree::ptree work_peers_l;
+	json.put_child ("logging", logging_l);
+
+	nano::jsonconfig work_peers_l;
 	for (auto i (work_peers.begin ()), n (work_peers.end ()); i != n; ++i)
 	{
-		boost::property_tree::ptree entry;
-		entry.put ("", boost::str (boost::format ("%1%:%2%") % i->first % i->second));
-		work_peers_l.push_back (std::make_pair ("", entry));
+		work_peers_l.push (boost::str (boost::format ("%1%:%2%") % i->first % i->second));
 	}
-	tree_a.add_child ("work_peers", work_peers_l);
-	boost::property_tree::ptree preconfigured_peers_l;
+	json.put_child ("work_peers", work_peers_l);
+	nano::jsonconfig preconfigured_peers_l;
 	for (auto i (preconfigured_peers.begin ()), n (preconfigured_peers.end ()); i != n; ++i)
 	{
-		boost::property_tree::ptree entry;
-		entry.put ("", *i);
-		preconfigured_peers_l.push_back (std::make_pair ("", entry));
+		preconfigured_peers_l.push (*i);
 	}
-	tree_a.add_child ("preconfigured_peers", preconfigured_peers_l);
-	boost::property_tree::ptree preconfigured_representatives_l;
+	json.put_child ("preconfigured_peers", preconfigured_peers_l);
+
+	nano::jsonconfig preconfigured_representatives_l;
 	for (auto i (preconfigured_representatives.begin ()), n (preconfigured_representatives.end ()); i != n; ++i)
 	{
-		boost::property_tree::ptree entry;
-		entry.put ("", i->to_account ());
-		preconfigured_representatives_l.push_back (std::make_pair ("", entry));
+		preconfigured_representatives_l.push (i->to_account ());
 	}
-	tree_a.add_child ("preconfigured_representatives", preconfigured_representatives_l);
-	tree_a.put ("online_weight_minimum", online_weight_minimum.to_string_dec ());
-	tree_a.put ("online_weight_quorum", std::to_string (online_weight_quorum));
-	tree_a.put ("password_fanout", std::to_string (password_fanout));
-	tree_a.put ("io_threads", std::to_string (io_threads));
-	tree_a.put ("network_threads", std::to_string (network_threads));
-	tree_a.put ("work_threads", std::to_string (work_threads));
-	tree_a.put ("enable_voting", enable_voting);
-	tree_a.put ("bootstrap_connections", bootstrap_connections);
-	tree_a.put ("bootstrap_connections_max", bootstrap_connections_max);
-	tree_a.put ("callback_address", callback_address);
-	tree_a.put ("callback_port", std::to_string (callback_port));
-	tree_a.put ("callback_target", callback_target);
-	tree_a.put ("lmdb_max_dbs", lmdb_max_dbs);
-	tree_a.put ("block_processor_batch_max_time", block_processor_batch_max_time.count ());
-	tree_a.put ("allow_local_peers", allow_local_peers);
+	json.put_child ("preconfigured_representatives", preconfigured_representatives_l);
+
+	json.put ("online_weight_minimum", online_weight_minimum.to_string_dec ());
+	json.put ("online_weight_quorum", online_weight_quorum);
+	json.put ("password_fanout", password_fanout);
+	json.put ("io_threads", io_threads);
+	json.put ("network_threads", network_threads);
+	json.put ("work_threads", work_threads);
+	json.put ("enable_voting", enable_voting);
+	json.put ("bootstrap_connections", bootstrap_connections);
+	json.put ("bootstrap_connections_max", bootstrap_connections_max);
+	json.put ("callback_address", callback_address);
+	json.put ("callback_port", callback_port);
+	json.put ("callback_target", callback_target);
+	json.put ("lmdb_max_dbs", lmdb_max_dbs);
+	json.put ("block_processor_batch_max_time", block_processor_batch_max_time.count ());
+	json.put ("allow_local_peers", allow_local_peers);
+	return json.get_error ();
 }
 
-bool nano::node_config::upgrade_json (unsigned version_a, boost::property_tree::ptree & tree_a)
+bool nano::node_config::upgrade_json (unsigned version_a, nano::jsonconfig & json)
 {
-	tree_a.put ("version", std::to_string (json_version));
-	auto result (false);
+	json.put ("version", json_version ());
+	auto upgraded (false);
 	switch (version_a)
 	{
 		case 1:
 		{
-			auto reps_l (tree_a.get_child ("preconfigured_representatives"));
-			boost::property_tree::ptree reps;
-			for (auto i (reps_l.begin ()), n (reps_l.end ()); i != n; ++i)
-			{
+			nano::jsonconfig reps_l;
+			json.get_required_child ("preconfigured_representatives", reps_l);
+			nano::jsonconfig reps;
+			reps_l.array_entries<std::string> ([&reps](std::string entry) {
 				nano::uint256_union account;
-				account.decode_account (i->second.get<std::string> (""));
-				boost::property_tree::ptree entry;
-				entry.put ("", account.to_account ());
-				reps.push_back (std::make_pair ("", entry));
-			}
-			tree_a.erase ("preconfigured_representatives");
-			tree_a.add_child ("preconfigured_representatives", reps);
-			result = true;
+				account.decode_account (entry);
+				reps.push (account.to_account ());
+			});
+
+			json.replace_child ("preconfigured_representatives", reps);
+			upgraded = true;
 		}
 		case 2:
 		{
-			tree_a.put ("inactive_supply", nano::uint128_union (0).to_string_dec ());
-			tree_a.put ("password_fanout", std::to_string (1024));
-			tree_a.put ("io_threads", std::to_string (io_threads));
-			tree_a.put ("work_threads", std::to_string (work_threads));
-			result = true;
+			json.put ("inactive_supply", nano::uint128_union (0).to_string_dec ());
+			json.put ("password_fanout", std::to_string (1024));
+			json.put ("io_threads", std::to_string (io_threads));
+			json.put ("work_threads", std::to_string (work_threads));
+			upgraded = true;
 		}
 		case 3:
-			tree_a.erase ("receive_minimum");
-			tree_a.put ("receive_minimum", nano::xrb_ratio.convert_to<std::string> ());
-			result = true;
+			json.erase ("receive_minimum");
+			json.put ("receive_minimum", nano::xrb_ratio.convert_to<std::string> ());
+			upgraded = true;
 		case 4:
-			tree_a.erase ("receive_minimum");
-			tree_a.put ("receive_minimum", nano::xrb_ratio.convert_to<std::string> ());
-			result = true;
+			json.erase ("receive_minimum");
+			json.put ("receive_minimum", nano::xrb_ratio.convert_to<std::string> ());
+			upgraded = true;
 		case 5:
-			tree_a.put ("enable_voting", enable_voting);
-			tree_a.erase ("packet_delay_microseconds");
-			tree_a.erase ("rebroadcast_delay");
-			tree_a.erase ("creation_rebroadcast");
-			result = true;
+			json.put ("enable_voting", enable_voting);
+			json.erase ("packet_delay_microseconds");
+			json.erase ("rebroadcast_delay");
+			json.erase ("creation_rebroadcast");
+			upgraded = true;
 		case 6:
-			tree_a.put ("bootstrap_connections", 16);
-			tree_a.put ("callback_address", "");
-			tree_a.put ("callback_port", "0");
-			tree_a.put ("callback_target", "");
-			result = true;
+			json.put ("bootstrap_connections", 16);
+			json.put ("callback_address", "");
+			json.put ("callback_port", 0);
+			json.put ("callback_target", "");
+			upgraded = true;
 		case 7:
-			tree_a.put ("lmdb_max_dbs", "128");
-			result = true;
+			json.put ("lmdb_max_dbs", 128);
+			upgraded = true;
 		case 8:
-			tree_a.put ("bootstrap_connections_max", "64");
-			result = true;
+			json.put ("bootstrap_connections_max", "64");
+			upgraded = true;
 		case 9:
-			tree_a.put ("state_block_parse_canary", nano::block_hash (0).to_string ());
-			tree_a.put ("state_block_generate_canary", nano::block_hash (0).to_string ());
-			result = true;
+			json.put ("state_block_parse_canary", nano::block_hash (0).to_string ());
+			json.put ("state_block_generate_canary", nano::block_hash (0).to_string ());
+			upgraded = true;
 		case 10:
-			tree_a.put ("online_weight_minimum", online_weight_minimum.to_string_dec ());
-			tree_a.put ("online_weight_quorom", std::to_string (online_weight_quorum));
-			tree_a.erase ("inactive_supply");
-			result = true;
+			json.put ("online_weight_minimum", online_weight_minimum.to_string_dec ());
+			json.put ("online_weight_quorom", std::to_string (online_weight_quorum));
+			json.erase ("inactive_supply");
+			upgraded = true;
 		case 11:
 		{
-			auto online_weight_quorum_l (tree_a.get<std::string> ("online_weight_quorom"));
-			tree_a.erase ("online_weight_quorom");
-			tree_a.put ("online_weight_quorum", online_weight_quorum_l);
-			result = true;
+			// Rename
+			std::string online_weight_quorum_l;
+			json.get<std::string> ("online_weight_quorom", online_weight_quorum_l);
+			json.erase ("online_weight_quorom");
+			json.put ("online_weight_quorum", online_weight_quorum_l);
+			upgraded = true;
 		}
 		case 12:
-			tree_a.erase ("state_block_parse_canary");
-			tree_a.erase ("state_block_generate_canary");
-			result = true;
+			json.erase ("state_block_parse_canary");
+			json.erase ("state_block_generate_canary");
+			upgraded = true;
 		case 13:
-			tree_a.put ("generate_hash_votes_at", "0");
-			result = true;
+			json.put ("generate_hash_votes_at", 0);
+			upgraded = true;
 		case 14:
-			tree_a.put ("network_threads", std::to_string (network_threads));
-			tree_a.erase ("generate_hash_votes_at");
-			tree_a.put ("block_processor_batch_max_time", block_processor_batch_max_time.count ());
-			result = true;
+			json.put ("network_threads", std::to_string (network_threads));
+			json.erase ("generate_hash_votes_at");
+			json.put ("block_processor_batch_max_time", block_processor_batch_max_time.count ());
+			upgraded = true;
 		case 15:
-			tree_a.put ("allow_local_peers", allow_local_peers);
-			result = true;
+			json.put ("allow_local_peers", allow_local_peers);
+			upgraded = true;
 		case 16:
 			break;
 		default:
 			throw std::runtime_error ("Unknown node_config version");
 	}
-	return result;
+	return upgraded;
 }
 
-bool nano::node_config::deserialize_json (bool & upgraded_a, boost::property_tree::ptree & tree_a)
+nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonconfig & json)
 {
-	auto result (false);
 	try
 	{
-		auto version_l (tree_a.get_optional<std::string> ("version"));
+		auto version_l (json.get_optional<unsigned> ("version"));
 		if (!version_l)
 		{
-			tree_a.put ("version", "1");
-			version_l = "1";
-			auto work_peers_l (tree_a.get_child_optional ("work_peers"));
+			version_l = 1;
+			json.put ("version", version_l);
+			auto work_peers_l (json.get_optional_child ("work_peers"));
 			if (!work_peers_l)
 			{
-				tree_a.add_child ("work_peers", boost::property_tree::ptree ());
+				nano::jsonconfig empty;
+				json.put_child ("work_peers", empty);
 			}
 			upgraded_a = true;
 		}
-		upgraded_a |= upgrade_json (std::stoull (version_l.get ()), tree_a);
-		auto peering_port_l (tree_a.get<std::string> ("peering_port"));
-		auto bootstrap_fraction_numerator_l (tree_a.get<std::string> ("bootstrap_fraction_numerator"));
-		auto receive_minimum_l (tree_a.get<std::string> ("receive_minimum"));
-		auto & logging_l (tree_a.get_child ("logging"));
+
+		upgraded_a |= upgrade_json (version_l.get (), json);
+
+		auto logging_l (json.get_required_child ("logging"));
+		logging.deserialize_json (upgraded_a, logging_l);
+
 		work_peers.clear ();
-		auto work_peers_l (tree_a.get_child ("work_peers"));
-		for (auto i (work_peers_l.begin ()), n (work_peers_l.end ()); i != n; ++i)
-		{
-			auto work_peer (i->second.get<std::string> (""));
-			auto port_position (work_peer.rfind (':'));
-			result |= port_position == -1;
+		auto work_peers_l (json.get_required_child ("work_peers"));
+		work_peers_l.array_entries<std::string> ([this](std::string entry) {
+			auto port_position (entry.rfind (':'));
+			bool result = port_position == -1;
 			if (!result)
 			{
-				auto port_str (work_peer.substr (port_position + 1));
+				auto port_str (entry.substr (port_position + 1));
 				uint16_t port;
 				result |= parse_port (port_str, port);
 				if (!result)
 				{
-					auto address (work_peer.substr (0, port_position));
-					work_peers.push_back (std::make_pair (address, port));
+					auto address (entry.substr (0, port_position));
+					this->work_peers.push_back (std::make_pair (address, port));
 				}
 			}
-		}
-		auto preconfigured_peers_l (tree_a.get_child ("preconfigured_peers"));
+		});
+
+		nano::jsonconfig preconfigured_peers_l;
+		json.get_required_child ("preconfigured_peers", preconfigured_peers_l);
 		preconfigured_peers.clear ();
-		for (auto i (preconfigured_peers_l.begin ()), n (preconfigured_peers_l.end ()); i != n; ++i)
-		{
-			auto bootstrap_peer (i->second.get<std::string> (""));
-			preconfigured_peers.push_back (bootstrap_peer);
-		}
-		auto preconfigured_representatives_l (tree_a.get_child ("preconfigured_representatives"));
+		preconfigured_peers_l.array_entries<std::string> ([this](std::string entry) {
+			preconfigured_peers.push_back (entry);
+		});
+
+		nano::jsonconfig preconfigured_representatives_l;
+		json.get_required_child ("preconfigured_representatives", preconfigured_representatives_l);
 		preconfigured_representatives.clear ();
-		for (auto i (preconfigured_representatives_l.begin ()), n (preconfigured_representatives_l.end ()); i != n; ++i)
-		{
+		preconfigured_representatives_l.array_entries<std::string> ([this, &json](std::string entry) {
 			nano::account representative (0);
-			result = result || representative.decode_account (i->second.get<std::string> (""));
+			if (representative.decode_account (entry))
+			{
+				json.get_error ().set ("Invalid representative account: " + entry);
+			}
 			preconfigured_representatives.push_back (representative);
-		}
+		});
+
 		if (preconfigured_representatives.empty ())
 		{
-			result = true;
+			json.get_error ().set ("At least one representative account must be set");
 		}
-		auto stat_config_l (tree_a.get_child_optional ("statistics"));
+		auto stat_config_l (json.get_optional_child ("statistics"));
 		if (stat_config_l)
 		{
-			result |= stat_config.deserialize_json (stat_config_l.get ());
+			stat_config.deserialize_json (stat_config_l.get ());
 		}
-		auto online_weight_minimum_l (tree_a.get<std::string> ("online_weight_minimum"));
-		auto online_weight_quorum_l (tree_a.get<std::string> ("online_weight_quorum"));
-		auto password_fanout_l (tree_a.get<std::string> ("password_fanout"));
-		auto io_threads_l (tree_a.get<std::string> ("io_threads"));
-		auto work_threads_l (tree_a.get<std::string> ("work_threads"));
-		enable_voting = tree_a.get<bool> ("enable_voting");
-		auto bootstrap_connections_l (tree_a.get<std::string> ("bootstrap_connections"));
-		auto bootstrap_connections_max_l (tree_a.get<std::string> ("bootstrap_connections_max"));
-		callback_address = tree_a.get<std::string> ("callback_address");
-		auto callback_port_l (tree_a.get<std::string> ("callback_port"));
-		callback_target = tree_a.get<std::string> ("callback_target");
-		auto lmdb_max_dbs_l = tree_a.get<std::string> ("lmdb_max_dbs");
-		result |= parse_port (callback_port_l, callback_port);
-		auto block_processor_batch_max_time_l = tree_a.get<std::string> ("block_processor_batch_max_time");
-		try
+
+		auto receive_minimum_l (json.get<std::string> ("receive_minimum"));
+		if (receive_minimum.decode_dec (receive_minimum_l))
 		{
-			peering_port = std::stoul (peering_port_l);
-			bootstrap_fraction_numerator = std::stoul (bootstrap_fraction_numerator_l);
-			password_fanout = std::stoul (password_fanout_l);
-			io_threads = std::stoul (io_threads_l);
-			network_threads = tree_a.get<unsigned> ("network_threads", network_threads);
-			work_threads = std::stoul (work_threads_l);
-			bootstrap_connections = std::stoul (bootstrap_connections_l);
-			bootstrap_connections_max = std::stoul (bootstrap_connections_max_l);
-			lmdb_max_dbs = std::stoi (lmdb_max_dbs_l);
-			online_weight_quorum = std::stoul (online_weight_quorum_l);
-			block_processor_batch_max_time = std::chrono::milliseconds (std::stoul (block_processor_batch_max_time_l));
-			result |= peering_port > std::numeric_limits<uint16_t>::max ();
-			result |= logging.deserialize_json (upgraded_a, logging_l);
-			result |= receive_minimum.decode_dec (receive_minimum_l);
-			result |= online_weight_minimum.decode_dec (online_weight_minimum_l);
-			result |= online_weight_quorum > 100;
-			result |= password_fanout < 16;
-			result |= password_fanout > 1024 * 1024;
-			result |= io_threads == 0;
+			json.get_error ().set ("receive_minimum contains an invalid decimal amount");
 		}
-		catch (std::logic_error const &)
+
+		auto online_weight_minimum_l (json.get<std::string> ("online_weight_minimum"));
+		if (online_weight_minimum.decode_dec (online_weight_minimum_l))
 		{
-			result = true;
+			json.get_error ().set ("online_weight_minimum contains an invalid decimal amount");
+		}
+
+		auto block_processor_batch_max_time_l (json.get<unsigned long> ("block_processor_batch_max_time"));
+		block_processor_batch_max_time = std::chrono::milliseconds (block_processor_batch_max_time_l);
+
+		json.get<uint16_t> ("peering_port", peering_port);
+		json.get<unsigned> ("bootstrap_fraction_numerator", bootstrap_fraction_numerator);
+		json.get<unsigned> ("online_weight_quorum", online_weight_quorum);
+		json.get<unsigned> ("password_fanout", password_fanout);
+		json.get<unsigned> ("io_threads", io_threads);
+		json.get<unsigned> ("work_threads", work_threads);
+		json.get<unsigned> ("network_threads", network_threads);
+		json.get<unsigned> ("bootstrap_connections", bootstrap_connections);
+		json.get<unsigned> ("bootstrap_connections_max", bootstrap_connections_max);
+		json.get<std::string> ("callback_address", callback_address);
+		json.get<uint16_t> ("callback_port", callback_port);
+		json.get<std::string> ("callback_target", callback_target);
+		json.get<int> ("lmdb_max_dbs", lmdb_max_dbs);
+		json.get<bool> ("enable_voting", enable_voting);
+
+		// Validate ranges
+
+		if (online_weight_quorum > 100)
+		{
+			json.get_error ().set ("online_weight_quorum must be less than 100");
+		}
+		if (password_fanout < 16 || password_fanout > 1024 * 1024)
+		{
+			json.get_error ().set ("password_fanout must a number between 16 and 1048576");
+		}
+		if (io_threads == 0)
+		{
+			json.get_error ().set ("io_threads must be non-zero");
 		}
 	}
-	catch (std::runtime_error const &)
+	catch (std::runtime_error const & ex)
 	{
-		result = true;
+		json.get_error ().set (ex.what ());
 	}
-	return result;
+	return json.get_error ();
 }
 
 nano::account nano::node_config::random_representative ()

@@ -116,6 +116,39 @@ TEST (network, keepalive_ipv4)
 	node1->stop ();
 }
 
+TEST (network, last_contacted)
+{
+	nano::system system (24000, 1);
+	auto list1 (system.nodes[0]->peers.list ());
+	ASSERT_EQ (0, list1.size ());
+	nano::node_init init1;
+	auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, 24001, nano::unique_path (), system.alarm, system.logging, system.work));
+	node1->start ();
+	system.nodes.push_back (node1);
+	node1->send_keepalive (nano::endpoint (boost::asio::ip::address_v4::loopback (), 24000));
+	system.deadline_set (10s);
+
+	// Wait until the handshake is complete
+	while (system.nodes[0]->peers.size () < 1)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (system.nodes[0]->peers.size (), 1);
+
+	// Make sure last_contact gets updated on receiving a non-handshake message
+	auto timestamp_before_keepalive = system.nodes[0]->peers.list_vector (1).front ().last_contact;
+	node1->send_keepalive (nano::endpoint (boost::asio::ip::address_v4::loopback (), 24000));
+	while (system.nodes[0]->stats.count (nano::stat::type::message, nano::stat::detail::keepalive, nano::stat::dir::in) < 2)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (system.nodes[0]->peers.size (), 1);
+	auto timestamp_after_keepalive = system.nodes[0]->peers.list_vector (1).front ().last_contact;
+	ASSERT_GT (timestamp_after_keepalive, timestamp_before_keepalive);
+
+	node1->stop ();
+}
+
 TEST (network, multi_keepalive)
 {
 	nano::system system (24000, 1);
@@ -1256,20 +1289,39 @@ TEST (bulk_pull_account, basics)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	auto connection (std::make_shared<nano::bootstrap_server> (nullptr, system.nodes[0]));
-	std::unique_ptr<nano::bulk_pull_account> req (new nano::bulk_pull_account{});
-	req->account = key1.pub;
-	req->minimum_amount = 5;
-	req->flags = nano::bulk_pull_account_flags ();
-	connection->requests.push (std::unique_ptr<nano::message>{});
-	auto request (std::make_shared<nano::bulk_pull_account_server> (connection, std::move (req)));
-	ASSERT_FALSE (request->invalid_request);
-	ASSERT_FALSE (request->pending_include_address);
-	ASSERT_FALSE (request->pending_address_only);
-	ASSERT_EQ (request->current_key.account, key1.pub);
-	ASSERT_EQ (request->current_key.hash, 0);
-	auto block_data (request->get_next ());
-	ASSERT_EQ (send2->hash (), block_data.first.get ()->hash);
-	ASSERT_EQ (nano::uint128_union (10), block_data.second.get ()->amount);
-	ASSERT_EQ (nano::genesis_account, block_data.second.get ()->source);
-	ASSERT_EQ (nullptr, request->get_next ().first.get ());
+
+	{
+		std::unique_ptr<nano::bulk_pull_account> req (new nano::bulk_pull_account{});
+		req->account = key1.pub;
+		req->minimum_amount = 5;
+		req->flags = nano::bulk_pull_account_flags ();
+		connection->requests.push (std::unique_ptr<nano::message>{});
+		auto request (std::make_shared<nano::bulk_pull_account_server> (connection, std::move (req)));
+		ASSERT_FALSE (request->invalid_request);
+		ASSERT_FALSE (request->pending_include_address);
+		ASSERT_FALSE (request->pending_address_only);
+		ASSERT_EQ (request->current_key.account, key1.pub);
+		ASSERT_EQ (request->current_key.hash, 0);
+		auto block_data (request->get_next ());
+		ASSERT_EQ (send2->hash (), block_data.first.get ()->hash);
+		ASSERT_EQ (nano::uint128_union (10), block_data.second.get ()->amount);
+		ASSERT_EQ (nano::genesis_account, block_data.second.get ()->source);
+		ASSERT_EQ (nullptr, request->get_next ().first.get ());
+	}
+
+	{
+		std::unique_ptr<nano::bulk_pull_account> req (new nano::bulk_pull_account{});
+		req->account = key1.pub;
+		req->minimum_amount = 0;
+		req->flags = nano::bulk_pull_account_flags::pending_address_only;
+		auto request (std::make_shared<nano::bulk_pull_account_server> (connection, std::move (req)));
+		ASSERT_TRUE (request->pending_address_only);
+		auto block_data (request->get_next ());
+		ASSERT_NE (nullptr, block_data.first.get ());
+		ASSERT_NE (nullptr, block_data.second.get ());
+		ASSERT_EQ (nano::genesis_account, block_data.second.get ()->source);
+		block_data = request->get_next ();
+		ASSERT_EQ (nullptr, block_data.first.get ());
+		ASSERT_EQ (nullptr, block_data.second.get ());
+	}
 }

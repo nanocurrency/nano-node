@@ -1,6 +1,7 @@
 #include <nano/node/node.hpp>
 
 #include <nano/lib/interface.h>
+#include <nano/lib/timer.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/rpc.hpp>
@@ -351,7 +352,7 @@ void nano::network::broadcast_confirm_req (std::shared_ptr<nano::block> block_a)
 	 * if the votes for a block have not arrived in time.
 	 */
 	const size_t max_endpoints = 32;
-	std::random_shuffle (list->begin (), list->end ());
+	random_pool.Shuffle (list->begin (), list->end ());
 	if (list->size () > max_endpoints)
 	{
 		list->erase (list->begin () + max_endpoints, list->end ());
@@ -499,7 +500,10 @@ public:
 		}
 		node.stats.inc (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::in);
 		node.peers.contacted (sender, message_a.header.version_using);
-		node.process_active (message_a.block);
+		if (!node.block_processor.full ())
+		{
+			node.process_active (message_a.block);
+		}
 		node.active.publish (message_a.block);
 	}
 	void confirm_req (nano::confirm_req const & message_a) override
@@ -535,7 +539,10 @@ public:
 			if (!vote_block.which ())
 			{
 				auto block (boost::get<std::shared_ptr<nano::block>> (vote_block));
-				node.process_active (block);
+				if (!node.block_processor.full ())
+				{
+					node.process_active (block);
+				}
 				node.active.publish (block);
 			}
 		}
@@ -1217,7 +1224,7 @@ void nano::block_processor::flush ()
 bool nano::block_processor::full ()
 {
 	std::unique_lock<std::mutex> lock (mutex);
-	return (blocks.size () + state_blocks.size ()) > 16384;
+	return (blocks.size () + state_blocks.size ()) > 65536;
 }
 
 void nano::block_processor::add (std::shared_ptr<nano::block> block_a, std::chrono::steady_clock::time_point origination)
@@ -1225,8 +1232,9 @@ void nano::block_processor::add (std::shared_ptr<nano::block> block_a, std::chro
 	if (!nano::work_validate (block_a->root (), block_a->block_work ()))
 	{
 		{
+			auto hash (block_a->hash ());
 			std::lock_guard<std::mutex> lock (mutex);
-			if (blocks_hashes.find (block_a->hash ()) == blocks_hashes.end ())
+			if (blocks_hashes.find (hash) == blocks_hashes.end () && rolled_back.get<1> ().find (hash) == rolled_back.get<1> ().end ())
 			{
 				if (block_a->type () == nano::block_type::state && !node.ledger.is_epoch_link (block_a->link ()))
 				{
@@ -1236,6 +1244,7 @@ void nano::block_processor::add (std::shared_ptr<nano::block> block_a, std::chro
 				{
 					blocks.push_back (std::make_pair (block_a, origination));
 				}
+				blocks_hashes.insert (hash);
 			}
 			condition.notify_all ();
 		}
@@ -1265,7 +1274,7 @@ void nano::block_processor::process_blocks ()
 		{
 			active = true;
 			lock.unlock ();
-			process_receive_many (lock);
+			process_batch (lock);
 			lock.lock ();
 			active = false;
 		}
@@ -1301,7 +1310,7 @@ bool nano::block_processor::have_blocks ()
 void nano::block_processor::verify_state_blocks (std::unique_lock<std::mutex> & lock_a, size_t max_count)
 {
 	assert (!mutex.try_lock ());
-	auto start_time (std::chrono::steady_clock::now ());
+	nano::timer<std::chrono::milliseconds> timer_l (nano::timer_state::started);
 	std::deque<std::pair<std::shared_ptr<nano::block>, std::chrono::steady_clock::time_point>> items;
 	if (max_count == std::numeric_limits<size_t>::max () || max_count >= state_blocks.size ())
 	{
@@ -1354,31 +1363,28 @@ void nano::block_processor::verify_state_blocks (std::unique_lock<std::mutex> & 
 	}
 	if (node.config.logging.timing_logging ())
 	{
-		auto end_time (std::chrono::steady_clock::now ());
-		auto elapsed_time_ms (std::chrono::duration_cast<std::chrono::milliseconds> (end_time - start_time));
-		auto elapsed_time_ms_int (elapsed_time_ms.count ());
-
-		BOOST_LOG (node.log) << boost::str (boost::format ("Batch verified %1% state blocks in %2% milliseconds") % size % elapsed_time_ms_int);
+		BOOST_LOG (node.log) << boost::str (boost::format ("Batch verified %1% state blocks in %2% %3%") % size % timer_l.stop ().count () % timer_l.unit ());
 	}
 }
 
-void nano::block_processor::process_receive_many (std::unique_lock<std::mutex> & lock_a)
+void nano::block_processor::process_batch (std::unique_lock<std::mutex> & lock_a)
 {
+	nano::timer<std::chrono::milliseconds> timer_l;
 	lock_a.lock ();
-	auto start_time (std::chrono::steady_clock::now ());
+	timer_l.start ();
 	// Limit state blocks verification time
-	while (!state_blocks.empty () && std::chrono::steady_clock::now () - start_time < std::chrono::seconds (2))
+	while (!state_blocks.empty () && timer_l.before_deadline (std::chrono::seconds (2)))
 	{
 		verify_state_blocks (lock_a, 2048);
 	}
 	lock_a.unlock ();
 	auto transaction (node.store.tx_begin_write ());
-	start_time = std::chrono::steady_clock::now ();
+	timer_l.restart ();
 	lock_a.lock ();
 	// Processing blocks
 	auto first_time (true);
 	unsigned number_of_blocks_processed (0), number_of_forced_processed (0);
-	while ((!blocks.empty () || !forced.empty ()) && std::chrono::steady_clock::now () - start_time < node.config.block_processor_batch_max_time)
+	while ((!blocks.empty () || !forced.empty ()) && timer_l.before_deadline (node.config.block_processor_batch_max_time))
 	{
 		auto log_this_record (false);
 		if (node.config.logging.timing_logging ())
@@ -1426,12 +1432,26 @@ void nano::block_processor::process_receive_many (std::unique_lock<std::mutex> &
 				// Replace our block with the winner and roll back any dependent blocks
 				BOOST_LOG (node.log) << boost::str (boost::format ("Rolling back %1% and replacing with %2%") % successor->hash ().to_string () % hash.to_string ());
 				node.ledger.rollback (transaction, successor->hash ());
+				lock_a.lock ();
+				// Prevent rolled back blocks second insertion
+				auto inserted (rolled_back.insert (nano::rolled_hash{ std::chrono::steady_clock::now (), successor->hash () }));
+				if (inserted.second)
+				{
+					// Possible election winner change
+					rolled_back.get<1> ().erase (hash);
+					// Prevent overflow
+					if (rolled_back.size () > rolled_back_max)
+					{
+						rolled_back.erase (rolled_back.begin ());
+					}
+				}
+				lock_a.unlock ();
 			}
 		}
 		/* Forced state blocks are not validated in verify_state_blocks () function
 		Because of that we should set set validated_state_block as "false" for forced state blocks (!force) */
 		bool validated_state_block (!force && block.first->type () == nano::block_type::state);
-		auto process_result (process_receive_one (transaction, block.first, block.second, validated_state_block));
+		auto process_result (process_one (transaction, block.first, block.second, validated_state_block));
 		number_of_blocks_processed++;
 		(void)process_result;
 		lock_a.lock ();
@@ -1446,15 +1466,11 @@ void nano::block_processor::process_receive_many (std::unique_lock<std::mutex> &
 
 	if (node.config.logging.timing_logging ())
 	{
-		auto end_time (std::chrono::steady_clock::now ());
-		auto elapsed_time_ms (std::chrono::duration_cast<std::chrono::milliseconds> (end_time - start_time));
-		auto elapsed_time_ms_int (elapsed_time_ms.count ());
-
-		BOOST_LOG (node.log) << boost::str (boost::format ("Processed %1% blocks (%2% blocks were forced) in %3% milliseconds") % number_of_blocks_processed % number_of_forced_processed % elapsed_time_ms_int);
+		BOOST_LOG (node.log) << boost::str (boost::format ("Processed %1% blocks (%2% blocks were forced) in %3% %4%") % number_of_blocks_processed % number_of_forced_processed % timer_l.stop ().count () % timer_l.unit ());
 	}
 }
 
-nano::process_return nano::block_processor::process_receive_one (nano::transaction const & transaction_a, std::shared_ptr<nano::block> block_a, std::chrono::steady_clock::time_point origination, bool validated_state_block)
+nano::process_return nano::block_processor::process_one (nano::transaction const & transaction_a, std::shared_ptr<nano::block> block_a, std::chrono::steady_clock::time_point origination, bool validated_state_block)
 {
 	nano::process_return result;
 	auto hash (block_a->hash ());
@@ -1469,7 +1485,7 @@ nano::process_return nano::block_processor::process_receive_one (nano::transacti
 				block_a->serialize_json (block);
 				BOOST_LOG (node.log) << boost::str (boost::format ("Processing block %1%: %2%") % hash.to_string () % block);
 			}
-			if (node.block_arrival.recent (hash))
+			if (origination != std::chrono::steady_clock::time_point () && node.block_arrival.recent (hash))
 			{
 				node.active.start (block_a);
 				if (node.config.enable_voting)
@@ -1477,7 +1493,7 @@ nano::process_return nano::block_processor::process_receive_one (nano::transacti
 					generator.add (hash);
 				}
 			}
-			queue_unchecked (transaction_a, hash);
+			queue_unchecked (transaction_a, hash, origination);
 			break;
 		}
 		case nano::process_result::gap_previous:
@@ -1506,7 +1522,7 @@ nano::process_return nano::block_processor::process_receive_one (nano::transacti
 			{
 				BOOST_LOG (node.log) << boost::str (boost::format ("Old for: %1%") % block_a->hash ().to_string ());
 			}
-			queue_unchecked (transaction_a, hash);
+			queue_unchecked (transaction_a, hash, origination);
 			node.active.update_difficulty (*block_a);
 			break;
 		}
@@ -1580,13 +1596,13 @@ nano::process_return nano::block_processor::process_receive_one (nano::transacti
 	return result;
 }
 
-void nano::block_processor::queue_unchecked (nano::transaction const & transaction_a, nano::block_hash const & hash_a)
+void nano::block_processor::queue_unchecked (nano::transaction const & transaction_a, nano::block_hash const & hash_a, std::chrono::steady_clock::time_point origination)
 {
 	auto cached (node.store.unchecked_get (transaction_a, hash_a));
 	for (auto i (cached.begin ()), n (cached.end ()); i != n; ++i)
 	{
 		node.store.unchecked_del (transaction_a, nano::unchecked_key (hash_a, (*i)->hash ()));
-		add (*i, std::chrono::steady_clock::time_point ());
+		add (*i, origination);
 	}
 	std::lock_guard<std::mutex> lock (node.gap_cache.mutex);
 	node.gap_cache.blocks.get<1> ().erase (hash_a);
@@ -1602,7 +1618,7 @@ io_ctx (io_ctx_a),
 config (config_a),
 alarm (alarm_a),
 work (work_a),
-store_impl (std::make_unique<nano::mdb_store> (init_a.block_store_init, application_path_a / "data.ldb", config_a.lmdb_max_dbs)),
+store_impl (std::make_unique<nano::mdb_store> (init_a.block_store_init, config.logging, application_path_a / "data.ldb", config_a.lmdb_max_dbs)),
 store (*store_impl),
 gap_cache (*this),
 ledger (store, stats, config.epoch_block_link, config.epoch_block_signer),
@@ -1663,73 +1679,7 @@ vote_uniquer (block_uniquer)
 					resolver->async_resolve (boost::asio::ip::tcp::resolver::query (address, std::to_string (port)), [node_l, address, port, target, body, resolver](boost::system::error_code const & ec, boost::asio::ip::tcp::resolver::iterator i_a) {
 						if (!ec)
 						{
-							for (auto i (i_a), n (boost::asio::ip::tcp::resolver::iterator{}); i != n; ++i)
-							{
-								auto sock (std::make_shared<boost::asio::ip::tcp::socket> (node_l->io_ctx));
-								sock->async_connect (i->endpoint (), [node_l, target, body, sock, address, port](boost::system::error_code const & ec) {
-									if (!ec)
-									{
-										auto req (std::make_shared<boost::beast::http::request<boost::beast::http::string_body>> ());
-										req->method (boost::beast::http::verb::post);
-										req->target (*target);
-										req->version (11);
-										req->insert (boost::beast::http::field::host, address);
-										req->insert (boost::beast::http::field::content_type, "application/json");
-										req->body () = *body;
-										//req->prepare (*req);
-										//boost::beast::http::prepare(req);
-										req->prepare_payload ();
-										boost::beast::http::async_write (*sock, *req, [node_l, sock, address, port, req](boost::system::error_code const & ec, size_t bytes_transferred) {
-											if (!ec)
-											{
-												auto sb (std::make_shared<boost::beast::flat_buffer> ());
-												auto resp (std::make_shared<boost::beast::http::response<boost::beast::http::string_body>> ());
-												boost::beast::http::async_read (*sock, *sb, *resp, [node_l, sb, resp, sock, address, port](boost::system::error_code const & ec, size_t bytes_transferred) {
-													if (!ec)
-													{
-														if (resp->result () == boost::beast::http::status::ok)
-														{
-															node_l->stats.inc (nano::stat::type::http_callback, nano::stat::detail::initiate, nano::stat::dir::out);
-														}
-														else
-														{
-															if (node_l->config.logging.callback_logging ())
-															{
-																BOOST_LOG (node_l->log) << boost::str (boost::format ("Callback to %1%:%2% failed with status: %3%") % address % port % resp->result ());
-															}
-															node_l->stats.inc (nano::stat::type::error, nano::stat::detail::http_callback, nano::stat::dir::out);
-														}
-													}
-													else
-													{
-														if (node_l->config.logging.callback_logging ())
-														{
-															BOOST_LOG (node_l->log) << boost::str (boost::format ("Unable complete callback: %1%:%2%: %3%") % address % port % ec.message ());
-														}
-														node_l->stats.inc (nano::stat::type::error, nano::stat::detail::http_callback, nano::stat::dir::out);
-													};
-												});
-											}
-											else
-											{
-												if (node_l->config.logging.callback_logging ())
-												{
-													BOOST_LOG (node_l->log) << boost::str (boost::format ("Unable to send callback: %1%:%2%: %3%") % address % port % ec.message ());
-												}
-												node_l->stats.inc (nano::stat::type::error, nano::stat::detail::http_callback, nano::stat::dir::out);
-											}
-										});
-									}
-									else
-									{
-										if (node_l->config.logging.callback_logging ())
-										{
-											BOOST_LOG (node_l->log) << boost::str (boost::format ("Unable to connect to callback address: %1%:%2%: %3%") % address % port % ec.message ());
-										}
-										node_l->stats.inc (nano::stat::type::error, nano::stat::detail::http_callback, nano::stat::dir::out);
-									}
-								});
-							}
+							node_l->do_rpc_callback (i_a, address, port, target, body, resolver);
 						}
 						else
 						{
@@ -1851,6 +1801,78 @@ nano::node::~node ()
 		BOOST_LOG (log) << "Destructing node";
 	}
 	stop ();
+}
+
+void nano::node::do_rpc_callback (boost::asio::ip::tcp::resolver::iterator i_a, std::string const & address, uint16_t port, std::shared_ptr<std::string> target, std::shared_ptr<std::string> body, std::shared_ptr<boost::asio::ip::tcp::resolver> resolver)
+{
+	if (i_a != boost::asio::ip::tcp::resolver::iterator{})
+	{
+		auto node_l (shared_from_this ());
+		auto sock (std::make_shared<boost::asio::ip::tcp::socket> (node_l->io_ctx));
+		sock->async_connect (i_a->endpoint (), [node_l, target, body, sock, address, port, i_a, resolver](boost::system::error_code const & ec) mutable {
+			if (!ec)
+			{
+				auto req (std::make_shared<boost::beast::http::request<boost::beast::http::string_body>> ());
+				req->method (boost::beast::http::verb::post);
+				req->target (*target);
+				req->version (11);
+				req->insert (boost::beast::http::field::host, address);
+				req->insert (boost::beast::http::field::content_type, "application/json");
+				req->body () = *body;
+				req->prepare_payload ();
+				boost::beast::http::async_write (*sock, *req, [node_l, sock, address, port, req, i_a, target, body, resolver](boost::system::error_code const & ec, size_t bytes_transferred) mutable {
+					if (!ec)
+					{
+						auto sb (std::make_shared<boost::beast::flat_buffer> ());
+						auto resp (std::make_shared<boost::beast::http::response<boost::beast::http::string_body>> ());
+						boost::beast::http::async_read (*sock, *sb, *resp, [node_l, sb, resp, sock, address, port, i_a, target, body, resolver](boost::system::error_code const & ec, size_t bytes_transferred) mutable {
+							if (!ec)
+							{
+								if (resp->result () == boost::beast::http::status::ok)
+								{
+									node_l->stats.inc (nano::stat::type::http_callback, nano::stat::detail::initiate, nano::stat::dir::out);
+								}
+								else
+								{
+									if (node_l->config.logging.callback_logging ())
+									{
+										BOOST_LOG (node_l->log) << boost::str (boost::format ("Callback to %1%:%2% failed with status: %3%") % address % port % resp->result ());
+									}
+									node_l->stats.inc (nano::stat::type::error, nano::stat::detail::http_callback, nano::stat::dir::out);
+								}
+							}
+							else
+							{
+								if (node_l->config.logging.callback_logging ())
+								{
+									BOOST_LOG (node_l->log) << boost::str (boost::format ("Unable complete callback: %1%:%2%: %3%") % address % port % ec.message ());
+								}
+								node_l->stats.inc (nano::stat::type::error, nano::stat::detail::http_callback, nano::stat::dir::out);
+							};
+						});
+					}
+					else
+					{
+						if (node_l->config.logging.callback_logging ())
+						{
+							BOOST_LOG (node_l->log) << boost::str (boost::format ("Unable to send callback: %1%:%2%: %3%") % address % port % ec.message ());
+						}
+						node_l->stats.inc (nano::stat::type::error, nano::stat::detail::http_callback, nano::stat::dir::out);
+					}
+				});
+			}
+			else
+			{
+				if (node_l->config.logging.callback_logging ())
+				{
+					BOOST_LOG (node_l->log) << boost::str (boost::format ("Unable to connect to callback address: %1%:%2%: %3%") % address % port % ec.message ());
+				}
+				node_l->stats.inc (nano::stat::type::error, nano::stat::detail::http_callback, nano::stat::dir::out);
+				++i_a;
+				node_l->do_rpc_callback (i_a, address, port, target, body, resolver);
+			}
+		});
+	}
 }
 
 bool nano::node::copy_with_compaction (boost::filesystem::path const & destination_file)
@@ -2510,13 +2532,15 @@ public:
 					auto callback_l (callback);
 					std::weak_ptr<nano::node> node_w (node);
 					auto next_backoff (std::min (backoff * 2, (unsigned int)60 * 5));
-					node->alarm.add (now + std::chrono::seconds (backoff), [node_w, root_l, callback_l, next_backoff, difficulty = difficulty] {
+					// clang-format off
+					node->alarm.add (now + std::chrono::seconds (backoff), [ node_w, root_l, callback_l, next_backoff, difficulty = difficulty ] {
 						if (auto node_l = node_w.lock ())
 						{
 							auto work_generation (std::make_shared<distributed_work> (next_backoff, node_l, root_l, callback_l, difficulty));
 							work_generation->start ();
 						}
 					});
+					// clang-format on
 				}
 			}
 		}
@@ -2653,7 +2677,7 @@ void nano::node::process_confirmed (std::shared_ptr<nano::block> block_a)
 	if (!exists)
 	{
 		auto transaction (store.tx_begin_write ());
-		block_processor.process_receive_one (transaction, block_a);
+		block_processor.process_one (transaction, block_a);
 		exists = store.block_exists (transaction, block_a->type (), hash);
 	}
 	if (exists)
@@ -2977,8 +3001,9 @@ void nano::election::compute_rep_votes (nano::transaction const & transaction_a)
 	}
 }
 
-void nano::election::confirm_once (nano::transaction const & transaction_a)
+void nano::election::confirm_once (nano::transaction const & transaction_a, uint8_t & depth_a)
 {
+	depth_a++;
 	if (!confirmed.exchange (true))
 	{
 		status.election_end = std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ());
@@ -2990,21 +3015,22 @@ void nano::election::confirm_once (nano::transaction const & transaction_a)
 			node_l->process_confirmed (winner_l);
 			confirmation_action_l (winner_l);
 		});
-		confirm_back (transaction_a);
+		confirm_back (transaction_a, depth_a);
 	}
 }
 
-void nano::election::confirm_back (nano::transaction const & transaction_a)
+void nano::election::confirm_back (nano::transaction const & transaction_a, uint8_t & depth_a)
 {
 	std::vector<nano::block_hash> hashes = { status.winner->previous (), status.winner->source (), status.winner->link () };
 	for (auto & hash : hashes)
 	{
-		if (!hash.is_zero () && !node.ledger.is_epoch_link (hash))
+		// Depth is limited to 200
+		if (!hash.is_zero () && !node.ledger.is_epoch_link (hash) && depth_a < 200)
 		{
 			auto existing (node.active.blocks.find (hash));
 			if (existing != node.active.blocks.end () && !existing->second->confirmed && !existing->second->stopped && existing->second->blocks.size () == 1)
 			{
-				existing->second->confirm_once (transaction_a);
+				existing->second->confirm_once (transaction_a, depth_a);
 			}
 		}
 	}
@@ -3074,7 +3100,8 @@ void nano::election::confirm_if_quorum (nano::transaction const & transaction_a)
 		{
 			log_votes (tally_l);
 		}
-		confirm_once (transaction_a);
+		uint8_t depth (0);
+		confirm_once (transaction_a, depth);
 	}
 }
 

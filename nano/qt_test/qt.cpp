@@ -43,7 +43,7 @@ TEST (wallet, status)
 	auto wallet_has = [wallet](nano_qt::status_types status_ty) {
 		return wallet->active_status.active.find (status_ty) != wallet->active_status.active.end ();
 	};
-	ASSERT_EQ ("Status: Disconnected, Block: 1", wallet->status->text ().toStdString ());
+	ASSERT_EQ ("Status: Disconnected, Blocks: 1", wallet->status->text ().toStdString ());
 	system.nodes[0]->peers.insert (nano::endpoint (boost::asio::ip::address_v6::loopback (), 10000), 0);
 	// Because of the wallet "vulnerable" message, this won't be the message displayed.
 	// However, it will still be part of the status set.
@@ -227,7 +227,7 @@ TEST (wallet, enter_password)
 	QTest::mouseClick (wallet->settings.lock_toggle, Qt::LeftButton);
 	QTest::mouseClick (wallet->settings.lock_toggle, Qt::LeftButton);
 	test_application->processEvents ();
-	ASSERT_EQ ("Status: Wallet password empty, Block: 1", wallet->status->text ().toStdString ());
+	ASSERT_EQ ("Status: Wallet password empty, Blocks: 1", wallet->status->text ().toStdString ());
 	{
 		auto transaction (system.nodes[0]->store.tx_begin (true));
 		ASSERT_FALSE (system.wallet (0)->store.rekey (transaction, "abc"));
@@ -235,12 +235,12 @@ TEST (wallet, enter_password)
 	QTest::mouseClick (wallet->settings_button, Qt::LeftButton);
 	QTest::mouseClick (wallet->settings.lock_toggle, Qt::LeftButton);
 	test_application->processEvents ();
-	ASSERT_EQ ("Status: Wallet locked, Block: 1", wallet->status->text ().toStdString ());
+	ASSERT_EQ ("Status: Wallet locked, Blocks: 1", wallet->status->text ().toStdString ());
 	wallet->settings.new_password->setText ("");
 	QTest::keyClicks (wallet->settings.password, "abc");
 	QTest::mouseClick (wallet->settings.lock_toggle, Qt::LeftButton);
 	test_application->processEvents ();
-	ASSERT_EQ ("Status: Running, Block: 1", wallet->status->text ().toStdString ());
+	ASSERT_EQ ("Status: Running, Blocks: 1", wallet->status->text ().toStdString ());
 	ASSERT_EQ ("", wallet->settings.password->text ());
 }
 
@@ -465,7 +465,7 @@ TEST (history, short_text)
 		account = system.account (transaction, 0);
 	}
 	auto wallet (std::make_shared<nano_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
-	nano::mdb_store store (init, nano::unique_path ());
+	nano::mdb_store store (init, system.nodes[0]->config.logging, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	nano::genesis genesis;
 	nano::ledger ledger (store, system.nodes[0]->stats);
