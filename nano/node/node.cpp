@@ -500,7 +500,10 @@ public:
 		}
 		node.stats.inc (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::in);
 		node.peers.contacted (sender, message_a.header.version_using);
-		node.process_active (message_a.block);
+		if (!node.block_processor.full ())
+		{
+			node.process_active (message_a.block);
+		}
 		node.active.publish (message_a.block);
 	}
 	void confirm_req (nano::confirm_req const & message_a) override
@@ -536,7 +539,10 @@ public:
 			if (!vote_block.which ())
 			{
 				auto block (boost::get<std::shared_ptr<nano::block>> (vote_block));
-				node.process_active (block);
+				if (!node.block_processor.full ())
+				{
+					node.process_active (block);
+				}
 				node.active.publish (block);
 			}
 		}
@@ -1218,7 +1224,7 @@ void nano::block_processor::flush ()
 bool nano::block_processor::full ()
 {
 	std::unique_lock<std::mutex> lock (mutex);
-	return (blocks.size () + state_blocks.size ()) > 16384;
+	return (blocks.size () + state_blocks.size ()) > 65536;
 }
 
 void nano::block_processor::add (std::shared_ptr<nano::block> block_a, std::chrono::steady_clock::time_point origination)
@@ -1226,8 +1232,9 @@ void nano::block_processor::add (std::shared_ptr<nano::block> block_a, std::chro
 	if (!nano::work_validate (block_a->root (), block_a->block_work ()))
 	{
 		{
+			auto hash (block_a->hash ());
 			std::lock_guard<std::mutex> lock (mutex);
-			if (blocks_hashes.find (block_a->hash ()) == blocks_hashes.end ())
+			if (blocks_hashes.find (hash) == blocks_hashes.end () && rolled_back.get<1> ().find (hash) == rolled_back.get<1> ().end ())
 			{
 				if (block_a->type () == nano::block_type::state && !node.ledger.is_epoch_link (block_a->link ()))
 				{
@@ -1237,7 +1244,7 @@ void nano::block_processor::add (std::shared_ptr<nano::block> block_a, std::chro
 				{
 					blocks.push_back (std::make_pair (block_a, origination));
 				}
-				blocks_hashes.insert (block_a->hash ());
+				blocks_hashes.insert (hash);
 			}
 			condition.notify_all ();
 		}
@@ -1425,6 +1432,20 @@ void nano::block_processor::process_batch (std::unique_lock<std::mutex> & lock_a
 				// Replace our block with the winner and roll back any dependent blocks
 				BOOST_LOG (node.log) << boost::str (boost::format ("Rolling back %1% and replacing with %2%") % successor->hash ().to_string () % hash.to_string ());
 				node.ledger.rollback (transaction, successor->hash ());
+				lock_a.lock ();
+				// Prevent rolled back blocks second insertion
+				auto inserted (rolled_back.insert (nano::rolled_hash{ std::chrono::steady_clock::now (), successor->hash () }));
+				if (inserted.second)
+				{
+					// Possible election winner change
+					rolled_back.get<1> ().erase (hash);
+					// Prevent overflow
+					if (rolled_back.size () > rolled_back_max)
+					{
+						rolled_back.erase (rolled_back.begin ());
+					}
+				}
+				lock_a.unlock ();
 			}
 		}
 		/* Forced state blocks are not validated in verify_state_blocks () function

@@ -410,6 +410,12 @@ private:
 	std::condition_variable condition;
 	std::thread thread;
 };
+class rolled_hash
+{
+public:
+	std::chrono::steady_clock::time_point time;
+	nano::block_hash hash;
+};
 // Processing blocks is a potentially long IO operation
 // This class isolates block insertion from other operations like servicing network operations
 class block_processor
@@ -438,6 +444,13 @@ private:
 	std::deque<std::pair<std::shared_ptr<nano::block>, std::chrono::steady_clock::time_point>> blocks;
 	std::unordered_set<nano::block_hash> blocks_hashes;
 	std::deque<std::shared_ptr<nano::block>> forced;
+	boost::multi_index_container<
+	nano::rolled_hash,
+	boost::multi_index::indexed_by<
+	boost::multi_index::ordered_non_unique<boost::multi_index::member<nano::rolled_hash, std::chrono::steady_clock::time_point, &nano::rolled_hash::time>>,
+	boost::multi_index::hashed_unique<boost::multi_index::member<nano::rolled_hash, nano::block_hash, &nano::rolled_hash::hash>>>>
+	rolled_back;
+	static size_t const rolled_back_max = 1024;
 	std::condition_variable condition;
 	nano::node & node;
 	nano::vote_generator generator;
