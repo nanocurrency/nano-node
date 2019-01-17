@@ -47,7 +47,7 @@ namespace ipc
 	public:
 		bool enabled{ false };
 		size_t io_timeout{ 15 };
-		size_t io_threads{std::max (4u, std::thread::hardware_concurrency ())};
+		size_t io_threads{ std::max (4u, std::thread::hardware_concurrency ()) };
 	};
 
 	/** Domain socket specific transport config */
@@ -74,8 +74,8 @@ namespace ipc
 	{
 	public:
 		/** Reads the JSON "ipc" node from the config, if present */
-		bool deserialize_json (nano::jsonconfig & json_a);
-		void serialize_json (nano::jsonconfig & json);
+		nano::error deserialize_json (nano::jsonconfig & json_a);
+		nano::error serialize_json (nano::jsonconfig & json) const;
 		ipc_config_domain_socket transport_domain;
 		ipc_config_tcp_socket transport_tcp;
 	};

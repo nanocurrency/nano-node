@@ -30,16 +30,28 @@ std::string nano::error_ipc_messages::message (int error_code_a) const
 	}
 	return "Invalid error";
 }
-void nano::ipc::ipc_config::serialize_json (nano::jsonconfig & json)
+nano::error nano::ipc::ipc_config::serialize_json (nano::jsonconfig & json) const
 {
-	
+	nano::jsonconfig tcp_l;
+	tcp_l.put ("io_threads", transport_tcp.io_threads);
+	tcp_l.put ("enable", transport_tcp.enabled);
+	tcp_l.put ("address", transport_tcp.address);
+	tcp_l.put ("port", transport_tcp.port);
+	tcp_l.put ("io_timeout", transport_tcp.io_timeout);
+	json.put_child ("tcp", tcp_l);
+
+	nano::jsonconfig domain_l;
+	domain_l.put ("io_threads", transport_domain.io_threads);
+	domain_l.put ("enable", transport_domain.enabled);
+	domain_l.put ("path", transport_domain.path);
+	domain_l.put ("io_timeout", transport_domain.io_timeout);
+	json.put_child ("domain", domain_l);
+	return json.get_error ();
 }
 
-bool nano::ipc::ipc_config::deserialize_json (nano::jsonconfig & tree_a)
+nano::error nano::ipc::ipc_config::deserialize_json (nano::jsonconfig & json)
 {
-	bool error = false;
-
-	auto tcp_l (tree_a.get_optional_child ("tcp"));
+	auto tcp_l (json.get_optional_child ("tcp"));
 	if (tcp_l)
 	{
 		tcp_l->get<size_t> ("io_threads", transport_tcp.io_threads);
@@ -49,7 +61,7 @@ bool nano::ipc::ipc_config::deserialize_json (nano::jsonconfig & tree_a)
 		tcp_l->get<size_t> ("io_timeout", transport_tcp.io_timeout);
 	}
 
-	auto domain_l (tree_a.get_optional_child ("local"));
+	auto domain_l (json.get_optional_child ("local"));
 	if (domain_l)
 	{
 		domain_l->get<size_t> ("io_threads", transport_domain.io_threads);
@@ -58,7 +70,7 @@ bool nano::ipc::ipc_config::deserialize_json (nano::jsonconfig & tree_a)
 		domain_l->get<size_t> ("io_timeout", transport_domain.io_timeout);
 	}
 
-	return error;
+	return json.get_error ();
 }
 
 /**
