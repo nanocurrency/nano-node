@@ -106,8 +106,7 @@ nano::error nano::logging::deserialize_json (bool & upgraded_a, nano::jsonconfig
 		version_l = 1;
 		json.put ("version", version_l);
 
-		boost::optional<nano::jsonconfig> work_peers_l;
-		json.get_optional_child ("work_peers", work_peers_l);
+		auto work_peers_l (json.get_optional_child ("work_peers"));
 		if (!work_peers_l)
 		{
 			nano::jsonconfig peers;
