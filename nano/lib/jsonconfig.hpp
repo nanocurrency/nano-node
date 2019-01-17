@@ -168,8 +168,10 @@ public:
 	{
 		tree = other_a.tree;
 		error = other_a.error;
+		auto_error_message = other_a.auto_error_message;
 		return *this;
 	}
+
 	jsonconfig & get_required_child (std::string const & key_a, jsonconfig & child_config /*out*/)
 	{
 		auto child = tree.get_child_optional (key_a);
