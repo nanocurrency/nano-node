@@ -167,7 +167,7 @@ class gap_cache
 {
 public:
 	gap_cache (nano::node &);
-	void add (nano::transaction const &, std::shared_ptr<nano::block>);
+	void add (nano::transaction const &, nano::block_hash const &, std::chrono::steady_clock::time_point = std::chrono::steady_clock::now ());
 	void vote (std::shared_ptr<nano::vote>);
 	nano::uint128_t bootstrap_threshold (nano::transaction const &);
 	boost::multi_index_container<
@@ -492,6 +492,7 @@ public:
 	void ongoing_store_flush ();
 	void backup_wallet ();
 	void search_pending ();
+	void bootstrap_wallet ();
 	int price (nano::uint128_t const &, int);
 	void work_generate_blocking (nano::block &, uint64_t = nano::work_pool::publish_threshold);
 	uint64_t work_generate_blocking (nano::uint256_union const &, uint64_t = nano::work_pool::publish_threshold);

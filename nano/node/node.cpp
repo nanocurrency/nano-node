@@ -1503,7 +1503,7 @@ nano::process_return nano::block_processor::process_one (nano::transaction const
 				BOOST_LOG (node.log) << boost::str (boost::format ("Gap previous for: %1%") % hash.to_string ());
 			}
 			node.store.unchecked_put (transaction_a, block_a->previous (), block_a);
-			node.gap_cache.add (transaction_a, block_a);
+			node.gap_cache.add (transaction_a, hash);
 			break;
 		}
 		case nano::process_result::gap_source:
@@ -1513,7 +1513,7 @@ nano::process_return nano::block_processor::process_one (nano::transaction const
 				BOOST_LOG (node.log) << boost::str (boost::format ("Gap source for: %1%") % hash.to_string ());
 			}
 			node.store.unchecked_put (transaction_a, node.ledger.block_source (transaction_a, *block_a), block_a);
-			node.gap_cache.add (transaction_a, block_a);
+			node.gap_cache.add (transaction_a, hash);
 			break;
 		}
 		case nano::process_result::old:
@@ -1898,7 +1898,7 @@ void nano::node::process_fork (nano::transaction const & transaction_a, std::sha
 				    if (auto this_l = this_w.lock ())
 				    {
 					    auto attempt (this_l->bootstrap_initiator.current_attempt ());
-					    if (attempt && !attempt->lazy_mode)
+					    if (attempt && attempt->mode == nano::bootstrap_mode::legacy)
 					    {
 						    auto transaction (this_l->store.tx_begin_read ());
 						    auto account (this_l->ledger.store.frontier_get (transaction, root));
@@ -1926,20 +1926,19 @@ node (node_a)
 {
 }
 
-void nano::gap_cache::add (nano::transaction const & transaction_a, std::shared_ptr<nano::block> block_a)
+void nano::gap_cache::add (nano::transaction const & transaction_a, nano::block_hash const & hash_a, std::chrono::steady_clock::time_point time_point_a)
 {
-	auto hash (block_a->hash ());
 	std::lock_guard<std::mutex> lock (mutex);
-	auto existing (blocks.get<1> ().find (hash));
+	auto existing (blocks.get<1> ().find (hash_a));
 	if (existing != blocks.get<1> ().end ())
 	{
-		blocks.get<1> ().modify (existing, [](nano::gap_information & info) {
-			info.arrival = std::chrono::steady_clock::now ();
+		blocks.get<1> ().modify (existing, [time_point_a](nano::gap_information & info) {
+			info.arrival = time_point_a;
 		});
 	}
 	else
 	{
-		blocks.insert ({ std::chrono::steady_clock::now (), hash, std::unordered_set<nano::account> () });
+		blocks.insert ({ time_point_a, hash_a, std::unordered_set<nano::account> () });
 		if (blocks.size () > max)
 		{
 			blocks.get<0> ().erase (blocks.get<0> ().begin ());
@@ -2067,6 +2066,14 @@ void nano::node::start ()
 		backup_wallet ();
 	}
 	search_pending ();
+	if (!flags.disable_wallet_bootstrap)
+	{
+		// Delay to start wallet lazy bootstrap
+		auto this_l (shared ());
+		alarm.add (std::chrono::steady_clock::now () + std::chrono::minutes (1), [this_l]() {
+			this_l->bootstrap_wallet ();
+		});
+	}
 	online_reps.recalculate_stake ();
 	port_mapping.start ();
 	add_initial_peers ();
@@ -2264,6 +2271,26 @@ void nano::node::search_pending ()
 	alarm.add (std::chrono::steady_clock::now () + search_pending_interval, [this_l]() {
 		this_l->search_pending ();
 	});
+}
+
+void nano::node::bootstrap_wallet ()
+{
+	std::deque<nano::account> accounts;
+	{
+		std::lock_guard<std::mutex> lock (wallets.mutex);
+		auto transaction (store.tx_begin_read ());
+		for (auto i (wallets.items.begin ()), n (wallets.items.end ()); i != n && accounts.size () < 128; ++i)
+		{
+			auto & wallet (*i->second);
+			std::lock_guard<std::recursive_mutex> wallet_lock (wallet.store.mutex);
+			for (auto j (wallet.store.begin (transaction)), m (wallet.store.end ()); j != m && accounts.size () < 128; ++j)
+			{
+				nano::account account (j->first);
+				accounts.push_back (account);
+			}
+		}
+	}
+	bootstrap_initiator.bootstrap_wallet (accounts);
 }
 
 int nano::node::price (nano::uint128_t const & balance_a, int amount_a)
