@@ -142,50 +142,15 @@ public:
 		return tree.empty ();
 	}
 
-	/** Optionally returns the given child node */
-	jsonconfig & get_optional_child (std::string const & key_a, boost::optional<jsonconfig> & child_config)
-	{
-		auto child = tree.get_child_optional (key_a);
-		if (child)
-		{
-			child_config = jsonconfig (child.get (), error);
-		}
-		return *this;
-	}
-
 	boost::optional<jsonconfig> get_optional_child (std::string const & key_a)
 	{
 		boost::optional<jsonconfig> child_config;
 		auto child = tree.get_child_optional (key_a);
 		if (child)
 		{
-			child_config = jsonconfig (child.get (), error);
+			return jsonconfig (child.get (), error);
 		}
 		return child_config;
-	}
-
-	jsonconfig & operator= (jsonconfig const & other_a)
-	{
-		tree = other_a.tree;
-		error = other_a.error;
-		auto_error_message = other_a.auto_error_message;
-		return *this;
-	}
-
-	jsonconfig & get_required_child (std::string const & key_a, jsonconfig & child_config /*out*/)
-	{
-		auto child = tree.get_child_optional (key_a);
-		if (child)
-		{
-			child_config = jsonconfig (child.get (), error);
-		}
-		else if (!*error)
-		{
-			*error = nano::error_config::missing_value;
-			error->set_message ("Missing configuration node: " + key_a);
-		}
-
-		return *this;
 	}
 
 	jsonconfig get_required_child (std::string const & key_a)
