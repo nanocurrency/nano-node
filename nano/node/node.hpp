@@ -50,8 +50,8 @@ public:
 class election : public std::enable_shared_from_this<nano::election>
 {
 	std::function<void(std::shared_ptr<nano::block>)> confirmation_action;
-	void confirm_once (nano::transaction const &);
-	void confirm_back (nano::transaction const &);
+	void confirm_once (nano::transaction const &, uint8_t &);
+	void confirm_back (nano::transaction const &, uint8_t &);
 
 public:
 	election (nano::node &, std::shared_ptr<nano::block>, std::function<void(std::shared_ptr<nano::block>)> const &);
@@ -69,7 +69,6 @@ public:
 	nano::node & node;
 	std::unordered_map<nano::account, nano::vote_info> last_votes;
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> blocks;
-	nano::block_hash root;
 	std::chrono::steady_clock::time_point election_start;
 	nano::election_status status;
 	std::atomic<bool> confirmed;
@@ -80,7 +79,7 @@ public:
 class conflict_info
 {
 public:
-	nano::block_hash root;
+	nano::uint512_union root;
 	uint64_t difficulty;
 	std::shared_ptr<nano::election> election;
 };
@@ -108,7 +107,7 @@ public:
 	nano::conflict_info,
 	boost::multi_index::indexed_by<
 	boost::multi_index::hashed_unique<
-	boost::multi_index::member<nano::conflict_info, nano::block_hash, &nano::conflict_info::root>>,
+	boost::multi_index::member<nano::conflict_info, nano::uint512_union, &nano::conflict_info::root>>,
 	boost::multi_index::ordered_non_unique<
 	boost::multi_index::member<nano::conflict_info, uint64_t, &nano::conflict_info::difficulty>,
 	std::greater<uint64_t>>>>
@@ -410,6 +409,12 @@ private:
 	std::condition_variable condition;
 	std::thread thread;
 };
+class rolled_hash
+{
+public:
+	std::chrono::steady_clock::time_point time;
+	nano::block_hash hash;
+};
 // Processing blocks is a potentially long IO operation
 // This class isolates block insertion from other operations like servicing network operations
 class block_processor
@@ -440,6 +445,13 @@ private:
 	std::deque<std::pair<std::shared_ptr<nano::block>, std::chrono::steady_clock::time_point>> blocks;
 	std::unordered_set<nano::block_hash> blocks_hashes;
 	std::deque<std::shared_ptr<nano::block>> forced;
+	boost::multi_index_container<
+	nano::rolled_hash,
+	boost::multi_index::indexed_by<
+	boost::multi_index::ordered_non_unique<boost::multi_index::member<nano::rolled_hash, std::chrono::steady_clock::time_point, &nano::rolled_hash::time>>,
+	boost::multi_index::hashed_unique<boost::multi_index::member<nano::rolled_hash, nano::block_hash, &nano::rolled_hash::hash>>>>
+	rolled_back;
+	static size_t const rolled_back_max = 1024;
 	std::condition_variable condition;
 	nano::node & node;
 	nano::vote_generator generator;

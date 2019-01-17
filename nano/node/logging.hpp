@@ -3,8 +3,9 @@
 #include <boost/filesystem.hpp>
 #include <boost/log/sources/logger.hpp>
 #include <boost/log/trivial.hpp>
-#include <boost/property_tree/ptree.hpp>
 #include <cstdint>
+#include <nano/lib/errors.hpp>
+#include <nano/lib/jsonconfig.hpp>
 
 #define FATAL_LOG_PREFIX "FATAL ERROR: "
 
@@ -14,9 +15,9 @@ class logging
 {
 public:
 	logging ();
-	void serialize_json (boost::property_tree::ptree &) const;
-	bool deserialize_json (bool &, boost::property_tree::ptree &);
-	bool upgrade_json (unsigned, boost::property_tree::ptree &);
+	nano::error serialize_json (nano::jsonconfig &) const;
+	nano::error deserialize_json (bool &, nano::jsonconfig &);
+	bool upgrade_json (unsigned, nano::jsonconfig &);
 	bool ledger_logging () const;
 	bool ledger_duplicate_logging () const;
 	bool vote_logging () const;
@@ -58,6 +59,9 @@ public:
 	uintmax_t max_size;
 	uintmax_t rotation_size;
 	boost::log::sources::logger_mt log;
-	static constexpr int json_version = 5;
+	int json_version () const
+	{
+		return 5;
+	}
 };
 }

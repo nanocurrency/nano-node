@@ -353,7 +353,7 @@ void nano::network::broadcast_confirm_req (std::shared_ptr<nano::block> block_a)
 	 * if the votes for a block have not arrived in time.
 	 */
 	const size_t max_endpoints = 32;
-	std::random_shuffle (list->begin (), list->end ());
+	random_pool.Shuffle (list->begin (), list->end ());
 	if (list->size () > max_endpoints)
 	{
 		list->erase (list->begin () + max_endpoints, list->end ());
@@ -501,7 +501,10 @@ public:
 		}
 		node.stats.inc (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::in);
 		node.peers.contacted (sender, message_a.header.version_using);
-		node.process_active (message_a.block);
+		if (!node.block_processor.full ())
+		{
+			node.process_active (message_a.block);
+		}
 		node.active.publish (message_a.block);
 	}
 	void confirm_req (nano::confirm_req const & message_a) override
@@ -516,7 +519,7 @@ public:
 		if (node.config.enable_voting)
 		{
 			auto transaction (node.store.tx_begin_read ());
-			auto successor (node.ledger.successor (transaction, message_a.block->root ()));
+			auto successor (node.ledger.successor (transaction, nano::uint512_union (message_a.block->previous (), message_a.block->root ())));
 			if (successor != nullptr)
 			{
 				auto same_block (successor->hash () == message_a.block->hash ());
@@ -537,7 +540,10 @@ public:
 			if (!vote_block.which ())
 			{
 				auto block (boost::get<std::shared_ptr<nano::block>> (vote_block));
-				node.process_active (block);
+				if (!node.block_processor.full ())
+				{
+					node.process_active (block);
+				}
 				node.active.publish (block);
 			}
 		}
@@ -1219,7 +1225,7 @@ void nano::block_processor::flush ()
 bool nano::block_processor::full ()
 {
 	std::unique_lock<std::mutex> lock (mutex);
-	return (blocks.size () + state_blocks.size ()) > 16384;
+	return (blocks.size () + state_blocks.size ()) > 65536;
 }
 
 void nano::block_processor::add (std::shared_ptr<nano::block> block_a, std::chrono::steady_clock::time_point origination)
@@ -1227,8 +1233,9 @@ void nano::block_processor::add (std::shared_ptr<nano::block> block_a, std::chro
 	if (!nano::work_validate (block_a->root (), block_a->block_work ()))
 	{
 		{
+			auto hash (block_a->hash ());
 			std::lock_guard<std::mutex> lock (mutex);
-			if (blocks_hashes.find (block_a->hash ()) == blocks_hashes.end ())
+			if (blocks_hashes.find (hash) == blocks_hashes.end () && rolled_back.get<1> ().find (hash) == rolled_back.get<1> ().end ())
 			{
 				if (block_a->type () == nano::block_type::state && !node.ledger.is_epoch_link (block_a->link ()))
 				{
@@ -1238,6 +1245,7 @@ void nano::block_processor::add (std::shared_ptr<nano::block> block_a, std::chro
 				{
 					blocks.push_back (std::make_pair (block_a, origination));
 				}
+				blocks_hashes.insert (hash);
 			}
 			condition.notify_all ();
 		}
@@ -1419,12 +1427,26 @@ void nano::block_processor::process_batch (std::unique_lock<std::mutex> & lock_a
 		auto hash (block.first->hash ());
 		if (force)
 		{
-			auto successor (node.ledger.successor (transaction, block.first->root ()));
+			auto successor (node.ledger.successor (transaction, nano::uint512_union (block.first->previous (), block.first->root ())));
 			if (successor != nullptr && successor->hash () != hash)
 			{
 				// Replace our block with the winner and roll back any dependent blocks
 				BOOST_LOG (node.log) << boost::str (boost::format ("Rolling back %1% and replacing with %2%") % successor->hash ().to_string () % hash.to_string ());
 				node.ledger.rollback (transaction, successor->hash ());
+				lock_a.lock ();
+				// Prevent rolled back blocks second insertion
+				auto inserted (rolled_back.insert (nano::rolled_hash{ std::chrono::steady_clock::now (), successor->hash () }));
+				if (inserted.second)
+				{
+					// Possible election winner change
+					rolled_back.get<1> ().erase (hash);
+					// Prevent overflow
+					if (rolled_back.size () > rolled_back_max)
+					{
+						rolled_back.erase (rolled_back.begin ());
+					}
+				}
+				lock_a.unlock ();
 			}
 		}
 		/* Forced state blocks are not validated in verify_state_blocks () function
@@ -2521,6 +2543,7 @@ public:
 					auto callback_l (callback);
 					std::weak_ptr<nano::node> node_w (node);
 					auto next_backoff (std::min (backoff * 2, (unsigned int)60 * 5));
+					// clang-format off
 					node->alarm.add (now + std::chrono::seconds (backoff), [ node_w, root_l, callback_l, next_backoff, difficulty = difficulty ] {
 						if (auto node_l = node_w.lock ())
 						{
@@ -2528,6 +2551,7 @@ public:
 							work_generation->start ();
 						}
 					});
+					// clang-format on
 				}
 			}
 		}
@@ -2966,7 +2990,6 @@ nano::election_vote_result::election_vote_result (bool replay_a, bool processed_
 nano::election::election (nano::node & node_a, std::shared_ptr<nano::block> block_a, std::function<void(std::shared_ptr<nano::block>)> const & confirmation_action_a) :
 confirmation_action (confirmation_action_a),
 node (node_a),
-root (block_a->root ()),
 election_start (std::chrono::steady_clock::now ()),
 status ({ block_a, 0 }),
 confirmed (false),
@@ -2988,8 +3011,9 @@ void nano::election::compute_rep_votes (nano::transaction const & transaction_a)
 	}
 }
 
-void nano::election::confirm_once (nano::transaction const & transaction_a)
+void nano::election::confirm_once (nano::transaction const & transaction_a, uint8_t & depth_a)
 {
+	depth_a++;
 	if (!confirmed.exchange (true))
 	{
 		status.election_end = std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ());
@@ -3001,21 +3025,22 @@ void nano::election::confirm_once (nano::transaction const & transaction_a)
 			node_l->process_confirmed (winner_l);
 			confirmation_action_l (winner_l);
 		});
-		confirm_back (transaction_a);
+		confirm_back (transaction_a, depth_a);
 	}
 }
 
-void nano::election::confirm_back (nano::transaction const & transaction_a)
+void nano::election::confirm_back (nano::transaction const & transaction_a, uint8_t & depth_a)
 {
 	std::vector<nano::block_hash> hashes = { status.winner->previous (), status.winner->source (), status.winner->link () };
 	for (auto & hash : hashes)
 	{
-		if (!hash.is_zero () && !node.ledger.is_epoch_link (hash))
+		// Depth is limited to 200
+		if (!hash.is_zero () && !node.ledger.is_epoch_link (hash) && depth_a < 200)
 		{
 			auto existing (node.active.blocks.find (hash));
 			if (existing != node.active.blocks.end () && !existing->second->confirmed && !existing->second->stopped && existing->second->blocks.size () == 1)
 			{
-				existing->second->confirm_once (transaction_a);
+				existing->second->confirm_once (transaction_a, depth_a);
 			}
 		}
 	}
@@ -3085,7 +3110,8 @@ void nano::election::confirm_if_quorum (nano::transaction const & transaction_a)
 		{
 			log_votes (tally_l);
 		}
-		confirm_once (transaction_a);
+		uint8_t depth (0);
+		confirm_once (transaction_a, depth);
 	}
 }
 
@@ -3237,7 +3263,7 @@ bool nano::election::publish (std::shared_ptr<nano::block> block_a)
 
 void nano::active_transactions::announce_votes (std::unique_lock<std::mutex> & lock_a)
 {
-	std::unordered_set<nano::block_hash> inactive;
+	std::unordered_set<nano::uint512_union> inactive;
 	auto transaction (node.store.tx_begin_read ());
 	unsigned unconfirmed_count (0);
 	unsigned unconfirmed_announcements (0);
@@ -3247,6 +3273,7 @@ void nano::active_transactions::announce_votes (std::unique_lock<std::mutex> & l
 	auto roots_size (roots.size ());
 	for (auto i (roots.get<1> ().begin ()), n (roots.get<1> ().end ()); i != n; ++i)
 	{
+		auto root (i->root);
 		lock_a.unlock ();
 		auto election_l (i->election);
 		if ((election_l->confirmed || election_l->stopped) && i->election->announcements >= announcement_min - 1)
@@ -3259,7 +3286,7 @@ void nano::active_transactions::announce_votes (std::unique_lock<std::mutex> & l
 					confirmed.pop_front ();
 				}
 			}
-			inactive.insert (election_l->root);
+			inactive.insert (root);
 		}
 		else
 		{
@@ -3449,7 +3476,7 @@ bool nano::active_transactions::add (std::shared_ptr<nano::block> block_a, std::
 	auto error (true);
 	if (!stopped)
 	{
-		auto root (block_a->root ());
+		auto root (nano::uint512_union (block_a->previous (), block_a->root ()));
 		auto existing (roots.find (root));
 		if (existing == roots.end ())
 		{
@@ -3492,7 +3519,7 @@ bool nano::active_transactions::vote (std::shared_ptr<nano::vote> vote_a, bool s
 			else
 			{
 				auto block (boost::get<std::shared_ptr<nano::block>> (vote_block));
-				auto existing (roots.find (block->root ()));
+				auto existing (roots.find (nano::uint512_union (block->previous (), block->root ())));
 				if (existing != roots.end ())
 				{
 					result = existing->election->vote (vote_a->account, vote_a->sequence, block->hash ());
@@ -3512,13 +3539,13 @@ bool nano::active_transactions::vote (std::shared_ptr<nano::vote> vote_a, bool s
 bool nano::active_transactions::active (nano::block const & block_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
-	return roots.find (block_a.root ()) != roots.end ();
+	return roots.find (nano::uint512_union (block_a.previous (), block_a.root ())) != roots.end ();
 }
 
 void nano::active_transactions::update_difficulty (nano::block const & block_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
-	auto existing (roots.find (block_a.root ()));
+	auto existing (roots.find (nano::uint512_union (block_a.previous (), block_a.root ())));
 	if (existing != roots.end ())
 	{
 		uint64_t difficulty;
@@ -3549,9 +3576,9 @@ std::deque<std::shared_ptr<nano::block>> nano::active_transactions::list_blocks 
 void nano::active_transactions::erase (nano::block const & block_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
-	if (roots.find (block_a.root ()) != roots.end ())
+	if (roots.find (nano::uint512_union (block_a.previous (), block_a.root ())) != roots.end ())
 	{
-		roots.erase (block_a.root ());
+		roots.erase (nano::uint512_union (block_a.previous (), block_a.root ()));
 		BOOST_LOG (node.log) << boost::str (boost::format ("Election erased for block block %1% root %2%") % block_a.hash ().to_string () % block_a.root ().to_string ());
 	}
 }
@@ -3580,7 +3607,7 @@ nano::active_transactions::~active_transactions ()
 bool nano::active_transactions::publish (std::shared_ptr<nano::block> block_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
-	auto existing (roots.find (block_a->root ()));
+	auto existing (roots.find (nano::uint512_union (block_a->previous (), block_a->root ())));
 	auto result (true);
 	if (existing != roots.end ())
 	{
