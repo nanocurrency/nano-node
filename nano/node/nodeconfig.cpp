@@ -200,8 +200,8 @@ bool nano::node_config::upgrade_json (unsigned version_a, nano::jsonconfig & jso
 			json.put ("allow_local_peers", allow_local_peers);
 			upgraded = true;
 		case 16:
-			tree_a.put ("vote_minimum", vote_minimum.to_string_dec ());
-			result = true;
+			json.put ("vote_minimum", vote_minimum.to_string_dec ());
+			upgraded = true;
 		case 17:
 			break;
 		default:
