@@ -72,8 +72,7 @@ nano::error nano::rpc_config::serialize_json (nano::jsonconfig & json) const
 
 nano::error nano::rpc_config::deserialize_json (nano::jsonconfig & json)
 {
-	boost::optional<nano::jsonconfig> rpc_secure_l;
-	json.get_optional_child ("secure", rpc_secure_l);
+	auto rpc_secure_l (json.get_optional_child ("secure"));
 	if (rpc_secure_l)
 	{
 		secure.deserialize_json (*rpc_secure_l);
