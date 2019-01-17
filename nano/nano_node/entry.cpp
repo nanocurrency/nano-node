@@ -24,6 +24,7 @@ int main (int argc, char * const * argv)
 		("disable_backup", "Disable wallet automatic backups")
 		("disable_lazy_bootstrap", "Disables lazy bootstrap")
 		("disable_legacy_bootstrap", "Disables legacy bootstrap")
+		("disable_wallet_bootstrap", "Disables wallet lazy bootstrap")
 		("disable_bootstrap_listener", "Disables bootstrap listener (incoming connections)")
 		("debug_block_count", "Display the number of block")
 		("debug_bootstrap_generate", "Generate bootstrap sequence of blocks")
@@ -83,6 +84,7 @@ int main (int argc, char * const * argv)
 			flags.disable_backup = (vm.count ("disable_backup") > 0);
 			flags.disable_lazy_bootstrap = (vm.count ("disable_lazy_bootstrap") > 0);
 			flags.disable_legacy_bootstrap = (vm.count ("disable_legacy_bootstrap") > 0);
+			flags.disable_wallet_bootstrap = (vm.count ("disable_wallet_bootstrap") > 0);
 			flags.disable_bootstrap_listener = (vm.count ("disable_bootstrap_listener") > 0);
 			daemon.run (data_path, flags);
 		}
