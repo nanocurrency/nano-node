@@ -12,6 +12,13 @@
 namespace nano
 {
 class node;
+class cached_votes
+{
+public:
+	std::chrono::steady_clock::time_point time;
+	nano::block_hash hash;
+	std::vector<std::shared_ptr<nano::vote>> votes;
+};
 class vote_generator
 {
 public:
@@ -28,8 +35,12 @@ private:
 	std::mutex mutex;
 	std::condition_variable condition;
 	std::deque<nano::block_hash> hashes;
-	std::unordered_map<nano::block_hash, std::vector<std::shared_ptr<nano::vote>>> votes_cache;
-	std::deque<nano::block_hash> cache_order;
+	boost::multi_index_container<
+	nano::cached_votes,
+	boost::multi_index::indexed_by<
+	boost::multi_index::ordered_non_unique<boost::multi_index::member<nano::cached_votes, std::chrono::steady_clock::time_point, &nano::cached_votes::time>>,
+	boost::multi_index::hashed_unique<boost::multi_index::member<nano::cached_votes, nano::block_hash, &nano::cached_votes::hash>>>>
+	votes_cache;
 	size_t max_cache = (nano::nano_network == nano::nano_networks::nano_test_network) ? 2 : 1000;
 	std::chrono::milliseconds wait;
 	bool stopped;

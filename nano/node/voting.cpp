@@ -45,24 +45,24 @@ void nano::vote_generator::cache_add (std::shared_ptr<nano::vote> const & vote_a
 	for (auto & block : vote_a->blocks)
 	{
 		auto hash (boost::get<nano::block_hash> (block));
-		auto existing (votes_cache.find (hash));
-		if (existing == votes_cache.end ())
+		auto existing (votes_cache.get<1> ().find (hash));
+		if (existing == votes_cache.get<1> ().end ())
 		{
 			// Clean old votes
-			if (cache_order.size () >= max_cache)
+			if (votes_cache.size () >= max_cache)
 			{
-				auto old_hash (cache_order.front ());
-				cache_order.pop_front ();
-				votes_cache.erase (old_hash);
+				votes_cache.erase (votes_cache.begin ());
 			}
 			// Insert new votes (new hash)
-			votes_cache.insert (std::make_pair (hash, std::vector<std::shared_ptr<nano::vote>> (1, vote_a)));
-			cache_order.push_back (hash);
+			auto inserted (votes_cache.insert (nano::cached_votes{ std::chrono::steady_clock::now (), successor->hash (), std::vector<std::shared_ptr<nano::vote>> (1, vote_a) }));
+			assert (inserted.second);
 		}
 		else
 		{
 			// Insert new votes (old hash)
-			existing->second.push_back (vote_a);
+			votes_cache.modify (existing, [vote_a](nano::cached_votes & cache_a) {
+				cache_a.votes.push_back (vote_a);
+			});
 		}
 	}
 }
