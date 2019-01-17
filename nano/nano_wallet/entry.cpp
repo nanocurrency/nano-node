@@ -1,3 +1,5 @@
+#include <nano/lib/errors.hpp>
+#include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/nano_wallet/icon.hpp>
 #include <nano/node/cli.hpp>
@@ -21,135 +23,148 @@ public:
 		nano::random_pool.GenerateBlock (wallet.bytes.data (), wallet.bytes.size ());
 		assert (!wallet.is_zero ());
 	}
-	bool upgrade_json (unsigned version_a, boost::property_tree::ptree & tree_a)
+	bool upgrade_json (unsigned version_a, nano::jsonconfig & json)
 	{
-		tree_a.put ("version", std::to_string (json_version));
-		auto result (false);
+		json.put ("version", json_version ());
+		auto upgraded (false);
 		switch (version_a)
 		{
 			case 1:
 			{
 				nano::account account;
-				account.decode_account (tree_a.get<std::string> ("account"));
-				tree_a.erase ("account");
-				tree_a.put ("account", account.to_account ());
-				tree_a.erase ("version");
-				result = true;
+				account.decode_account (json.get<std::string> ("account"));
+				json.erase ("account");
+				json.put ("account", account.to_account ());
+				json.erase ("version");
+				upgraded = true;
 			}
 			case 2:
 			{
-				boost::property_tree::ptree rpc_l;
+				nano::jsonconfig rpc_l;
 				rpc.serialize_json (rpc_l);
-				tree_a.put ("rpc_enable", "false");
-				tree_a.put_child ("rpc", rpc_l);
-				tree_a.erase ("version");
-				result = true;
+				json.put ("rpc_enable", "false");
+				json.put_child ("rpc", rpc_l);
+				json.erase ("version");
+				upgraded = true;
 			}
 			case 3:
 			{
-				auto opencl_enable_l (tree_a.get_optional<bool> ("opencl_enable"));
+				auto opencl_enable_l (json.get_optional<bool> ("opencl_enable"));
 				if (!opencl_enable_l)
 				{
-					tree_a.put ("opencl_enable", "false");
+					json.put ("opencl_enable", "false");
 				}
-				auto opencl_l (tree_a.get_child_optional ("opencl"));
+				auto opencl_l (json.get_optional_child ("opencl"));
 				if (!opencl_l)
 				{
-					boost::property_tree::ptree opencl_l;
+					nano::jsonconfig opencl_l;
 					opencl.serialize_json (opencl_l);
-					tree_a.put_child ("opencl", opencl_l);
+					json.put_child ("opencl", opencl_l);
 				}
-				result = true;
+				upgraded = true;
 			}
 			case 4:
 				break;
 			default:
 				throw std::runtime_error ("Unknown qt_wallet_config version");
 		}
-		return result;
+		return upgraded;
 	}
-	bool deserialize_json (bool & upgraded_a, boost::property_tree::ptree & tree_a)
+
+	nano::error deserialize_json (bool & upgraded_a, nano::jsonconfig & json)
 	{
-		auto error (false);
-		if (!tree_a.empty ())
+		if (!json.empty ())
 		{
-			auto version_l (tree_a.get_optional<std::string> ("version"));
+			auto version_l (json.get_optional<unsigned> ("version"));
 			if (!version_l)
 			{
-				tree_a.put ("version", "1");
-				version_l = "1";
+				version_l = 1;
+				json.put ("version", version_l.get ());
 				upgraded_a = true;
 			}
-			upgraded_a |= upgrade_json (std::stoull (version_l.get ()), tree_a);
-			auto wallet_l (tree_a.get<std::string> ("wallet"));
-			auto account_l (tree_a.get<std::string> ("account"));
-			auto & node_l (tree_a.get_child ("node"));
-			rpc_enable = tree_a.get<bool> ("rpc_enable");
-			auto & rpc_l (tree_a.get_child ("rpc"));
-			opencl_enable = tree_a.get<bool> ("opencl_enable");
-			auto & opencl_l (tree_a.get_child ("opencl"));
-			try
+			upgraded_a |= upgrade_json (version_l.get (), json);
+			auto wallet_l (json.get<std::string> ("wallet"));
+			auto account_l (json.get<std::string> ("account"));
+			auto node_l (json.get_required_child ("node"));
+			rpc_enable = json.get<bool> ("rpc_enable");
+			auto rpc_l (json.get_required_child ("rpc"));
+			opencl_enable = json.get<bool> ("opencl_enable");
+			auto opencl_l (json.get_required_child ("opencl"));
+
+			if (wallet.decode_hex (wallet_l))
 			{
-				error |= wallet.decode_hex (wallet_l);
-				error |= account.decode_account (account_l);
-				error |= node.deserialize_json (upgraded_a, node_l);
-				error |= rpc.deserialize_json (rpc_l);
-				error |= opencl.deserialize_json (opencl_l);
-				if (wallet.is_zero ())
-				{
-					nano::random_pool.GenerateBlock (wallet.bytes.data (), wallet.bytes.size ());
-					upgraded_a = true;
-				}
+				json.get_error ().set ("Invalid wallet id. Did you open a node daemon config?");
 			}
-			catch (std::logic_error const &)
+			else if (account.decode_account (account_l))
 			{
-				error = true;
+				json.get_error ().set ("Invalid account");
+			}
+			if (!node_l.get_error ())
+			{
+				node.deserialize_json (upgraded_a, node_l);
+			}
+			if (!rpc_l.get_error ())
+			{
+				rpc.deserialize_json (rpc_l);
+			}
+			if (!opencl_l.get_error ())
+			{
+				opencl.deserialize_json (opencl_l);
+			}
+			if (wallet.is_zero ())
+			{
+				nano::random_pool.GenerateBlock (wallet.bytes.data (), wallet.bytes.size ());
+				upgraded_a = true;
 			}
 		}
 		else
 		{
-			serialize_json (tree_a);
+			serialize_json (json);
 			upgraded_a = true;
 		}
-		return error;
+		return json.get_error ();
 	}
-	void serialize_json (boost::property_tree::ptree & tree_a)
+
+	void serialize_json (nano::jsonconfig & json)
 	{
 		std::string wallet_string;
 		wallet.encode_hex (wallet_string);
-		tree_a.put ("version", std::to_string (json_version));
-		tree_a.put ("wallet", wallet_string);
-		tree_a.put ("account", account.to_account ());
-		boost::property_tree::ptree node_l;
+		json.put ("version", json_version ());
+		json.put ("wallet", wallet_string);
+		json.put ("account", account.to_account ());
+		nano::jsonconfig node_l;
 		node.enable_voting = false;
 		node.bootstrap_connections_max = 4;
 		node.serialize_json (node_l);
-		tree_a.add_child ("node", node_l);
-		boost::property_tree::ptree rpc_l;
+		json.put_child ("node", node_l);
+		nano::jsonconfig rpc_l;
 		rpc.serialize_json (rpc_l);
-		tree_a.add_child ("rpc", rpc_l);
-		tree_a.put ("rpc_enable", rpc_enable);
-		tree_a.put ("opencl_enable", opencl_enable);
-		boost::property_tree::ptree opencl_l;
+		json.put_child ("rpc", rpc_l);
+		json.put ("rpc_enable", rpc_enable);
+		json.put ("opencl_enable", opencl_enable);
+		nano::jsonconfig opencl_l;
 		opencl.serialize_json (opencl_l);
-		tree_a.add_child ("opencl", opencl_l);
+		json.put_child ("opencl", opencl_l);
 	}
+
 	bool serialize_json_stream (std::ostream & stream_a)
 	{
 		auto result (false);
 		stream_a.seekp (0);
 		try
 		{
-			boost::property_tree::ptree tree;
-			serialize_json (tree);
-			boost::property_tree::write_json (stream_a, tree);
+			nano::jsonconfig json;
+			serialize_json (json);
+			json.write (stream_a);
 		}
-		catch (std::runtime_error const &)
+		catch (std::runtime_error const & ex)
 		{
+			std::cerr << ex.what () << std::endl;
 			result = true;
 		}
 		return result;
 	}
+
 	nano::uint256_union wallet;
 	nano::account account;
 	nano::node_config node;
@@ -157,7 +172,10 @@ public:
 	nano::rpc_config rpc;
 	bool opencl_enable;
 	nano::opencl_config opencl;
-	static constexpr int json_version = 4;
+	int json_version () const
+	{
+		return 4;
+	}
 };
 
 namespace
@@ -169,19 +187,23 @@ void show_error (std::string const & message_a)
 	message.show ();
 	message.exec ();
 }
-bool update_config (qt_wallet_config & config_a, boost::filesystem::path const & config_path_a, std::fstream & config_file_a)
+bool update_config (qt_wallet_config & config_a, boost::filesystem::path const & config_path_a)
 {
 	auto account (config_a.account);
 	auto wallet (config_a.wallet);
 	auto error (false);
-	if (!nano::fetch_object (config_a, config_path_a))
+	nano::jsonconfig config;
+	if (!config.read_and_update (config_a, config_path_a))
 	{
 		if (account != config_a.account || wallet != config_a.wallet)
 		{
 			config_a.account = account;
 			config_a.wallet = wallet;
-			config_file_a.open (config_path_a.string (), std::ios_base::out | std::ios_base::trunc);
-			error = config_a.serialize_json_stream (config_file_a);
+
+			// Update json file with new account and/or wallet values
+			std::fstream config_file;
+			config_file.open (config_path_a.string (), std::ios_base::out | std::ios_base::trunc);
+			error = config_a.serialize_json_stream (config_file);
 		}
 	}
 	return error;
@@ -203,9 +225,8 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 	qt_wallet_config config (data_path);
 	auto config_path ((data_path / "config.json"));
 	int result (0);
-	std::fstream config_file;
-	auto error (nano::fetch_object (config, config_path));
-	config_file.close ();
+	nano::jsonconfig json;
+	auto error (json.read_and_update (config, config_path));
 	nano::set_secure_perm_file (config_path, error_chmod);
 	if (!error)
 	{
@@ -253,7 +274,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 				}
 			}
 			assert (wallet->exists (config.account));
-			update_config (config, config_path, config_file);
+			update_config (config, config_path);
 			node->start ();
 			std::unique_ptr<nano::rpc> rpc = get_rpc (io_ctx, *node, config.rpc);
 			if (rpc && config.rpc_enable)
@@ -276,13 +297,15 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 		}
 		else
 		{
+			splash->hide ();
 			show_error ("Error initializing node");
 		}
-		update_config (config, config_path, config_file);
+		update_config (config, config_path);
 	}
 	else
 	{
-		show_error ("Error deserializing config");
+		splash->hide ();
+		show_error ("Error deserializing config: " + json.get_error ().get_message ());
 	}
 	return result;
 }

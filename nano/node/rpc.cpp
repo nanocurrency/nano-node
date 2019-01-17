@@ -1,8 +1,7 @@
 #include <boost/algorithm/string.hpp>
-#include <nano/node/rpc.hpp>
-
 #include <nano/lib/interface.h>
 #include <nano/node/node.hpp>
+#include <nano/node/rpc.hpp>
 
 #ifdef NANO_SECURE_RPC
 #include <nano/node/rpc_secure.hpp>
@@ -16,35 +15,28 @@ verbose_logging (false)
 {
 }
 
-void nano::rpc_secure_config::serialize_json (boost::property_tree::ptree & tree_a) const
+nano::error nano::rpc_secure_config::serialize_json (nano::jsonconfig & json) const
 {
-	tree_a.put ("enable", enable);
-	tree_a.put ("verbose_logging", verbose_logging);
-	tree_a.put ("server_key_passphrase", server_key_passphrase);
-	tree_a.put ("server_cert_path", server_cert_path);
-	tree_a.put ("server_key_path", server_key_path);
-	tree_a.put ("server_dh_path", server_dh_path);
-	tree_a.put ("client_certs_path", client_certs_path);
+	json.put ("enable", enable);
+	json.put ("verbose_logging", verbose_logging);
+	json.put ("server_key_passphrase", server_key_passphrase);
+	json.put ("server_cert_path", server_cert_path);
+	json.put ("server_key_path", server_key_path);
+	json.put ("server_dh_path", server_dh_path);
+	json.put ("client_certs_path", client_certs_path);
+	return json.get_error ();
 }
 
-bool nano::rpc_secure_config::deserialize_json (boost::property_tree::ptree const & tree_a)
+nano::error nano::rpc_secure_config::deserialize_json (nano::jsonconfig & json)
 {
-	auto error (false);
-	try
-	{
-		enable = tree_a.get<bool> ("enable");
-		verbose_logging = tree_a.get<bool> ("verbose_logging");
-		server_key_passphrase = tree_a.get<std::string> ("server_key_passphrase");
-		server_cert_path = tree_a.get<std::string> ("server_cert_path");
-		server_key_path = tree_a.get<std::string> ("server_key_path");
-		server_dh_path = tree_a.get<std::string> ("server_dh_path");
-		client_certs_path = tree_a.get<std::string> ("client_certs_path");
-	}
-	catch (std::runtime_error const &)
-	{
-		error = true;
-	}
-	return error;
+	json.get_required<bool> ("enable", enable);
+	json.get_required<bool> ("verbose_logging", verbose_logging);
+	json.get_required<std::string> ("server_key_passphrase", server_key_passphrase);
+	json.get_required<std::string> ("server_cert_path", server_cert_path);
+	json.get_required<std::string> ("server_key_path", server_key_path);
+	json.get_required<std::string> ("server_dh_path", server_dh_path);
+	json.get_required<std::string> ("client_certs_path", client_certs_path);
+	return json.get_error ();
 }
 
 nano::rpc_config::rpc_config () :
@@ -67,59 +59,32 @@ max_json_depth (20)
 {
 }
 
-void nano::rpc_config::serialize_json (boost::property_tree::ptree & tree_a) const
+nano::error nano::rpc_config::serialize_json (nano::jsonconfig & json) const
 {
-	tree_a.put ("address", address.to_string ());
-	tree_a.put ("port", std::to_string (port));
-	tree_a.put ("enable_control", enable_control);
-	tree_a.put ("frontier_request_limit", frontier_request_limit);
-	tree_a.put ("chain_request_limit", chain_request_limit);
-	tree_a.put ("max_json_depth", max_json_depth);
+	json.put ("address", address.to_string ());
+	json.put ("port", port);
+	json.put ("enable_control", enable_control);
+	json.put ("frontier_request_limit", frontier_request_limit);
+	json.put ("chain_request_limit", chain_request_limit);
+	json.put ("max_json_depth", max_json_depth);
+	return json.get_error ();
 }
 
-bool nano::rpc_config::deserialize_json (boost::property_tree::ptree const & tree_a)
+nano::error nano::rpc_config::deserialize_json (nano::jsonconfig & json)
 {
-	auto result (false);
-	try
+	auto rpc_secure_l (json.get_optional_child ("secure"));
+	if (rpc_secure_l)
 	{
-		auto rpc_secure_l (tree_a.get_child_optional ("secure"));
-		if (rpc_secure_l)
-		{
-			result = secure.deserialize_json (rpc_secure_l.get ());
-		}
+		secure.deserialize_json (*rpc_secure_l);
+	}
 
-		if (!result)
-		{
-			auto address_l (tree_a.get<std::string> ("address"));
-			auto port_l (tree_a.get<std::string> ("port"));
-			enable_control = tree_a.get<bool> ("enable_control");
-			auto frontier_request_limit_l (tree_a.get<std::string> ("frontier_request_limit"));
-			auto chain_request_limit_l (tree_a.get<std::string> ("chain_request_limit"));
-			max_json_depth = tree_a.get<uint8_t> ("max_json_depth", max_json_depth);
-			try
-			{
-				port = std::stoul (port_l);
-				result = port > std::numeric_limits<uint16_t>::max ();
-				frontier_request_limit = std::stoull (frontier_request_limit_l);
-				chain_request_limit = std::stoull (chain_request_limit_l);
-			}
-			catch (std::logic_error const &)
-			{
-				result = true;
-			}
-			boost::system::error_code ec;
-			address = boost::asio::ip::address_v6::from_string (address_l, ec);
-			if (ec)
-			{
-				result = true;
-			}
-		}
-	}
-	catch (std::runtime_error const &)
-	{
-		result = true;
-	}
-	return result;
+	json.get_required<boost::asio::ip::address_v6> ("address", address);
+	json.get_optional<uint16_t> ("port", port);
+	json.get_optional<bool> ("enable_control", enable_control);
+	json.get_optional<uint64_t> ("frontier_request_limit", frontier_request_limit);
+	json.get_optional<uint64_t> ("chain_request_limit", chain_request_limit);
+	json.get_optional<uint8_t> ("max_json_depth", max_json_depth);
+	return json.get_error ();
 }
 
 nano::rpc::rpc (boost::asio::io_context & io_ctx_a, nano::node & node_a, nano::rpc_config const & config_a) :
@@ -1509,7 +1474,7 @@ void nano::rpc_handler::confirmation_info ()
 	const bool representatives = request.get<bool> ("representatives", false);
 	const bool contents = request.get<bool> ("contents", true);
 	std::string root_text (request.get<std::string> ("root"));
-	nano::block_hash root;
+	nano::uint512_union root;
 	if (!root.decode_hex (root_text))
 	{
 		std::lock_guard<std::mutex> lock (node.active.mutex);
@@ -3234,10 +3199,11 @@ void nano::rpc_handler::wallet_change_seed ()
 		nano::raw_key seed;
 		if (!seed.data.decode_hex (seed_text))
 		{
+			auto count (count_optional_impl (0));
 			auto transaction (node.store.tx_begin_write ());
 			if (wallet->store.valid_password (transaction))
 			{
-				wallet->change_seed (transaction, seed);
+				wallet->change_seed (transaction, seed, count);
 				response_l.put ("success", "");
 			}
 			else

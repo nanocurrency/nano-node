@@ -2,6 +2,7 @@
 #include <boost/log/utility/setup/common_attributes.hpp>
 #include <boost/log/utility/setup/console.hpp>
 #include <boost/log/utility/setup/file.hpp>
+#include <boost/property_tree/ptree.hpp>
 #include <nano/node/logging.hpp>
 
 nano::logging::logging () :
@@ -42,104 +43,105 @@ void nano::logging::init (boost::filesystem::path const & application_path_a)
 	}
 }
 
-void nano::logging::serialize_json (boost::property_tree::ptree & tree_a) const
+nano::error nano::logging::serialize_json (nano::jsonconfig & json) const
 {
-	tree_a.put ("version", std::to_string (json_version));
-	tree_a.put ("ledger", ledger_logging_value);
-	tree_a.put ("ledger_duplicate", ledger_duplicate_logging_value);
-	tree_a.put ("vote", vote_logging_value);
-	tree_a.put ("network", network_logging_value);
-	tree_a.put ("network_message", network_message_logging_value);
-	tree_a.put ("network_publish", network_publish_logging_value);
-	tree_a.put ("network_packet", network_packet_logging_value);
-	tree_a.put ("network_keepalive", network_keepalive_logging_value);
-	tree_a.put ("network_node_id_handshake", network_node_id_handshake_logging_value);
-	tree_a.put ("node_lifetime_tracing", node_lifetime_tracing_value);
-	tree_a.put ("insufficient_work", insufficient_work_logging_value);
-	tree_a.put ("log_rpc", log_rpc_value);
-	tree_a.put ("bulk_pull", bulk_pull_logging_value);
-	tree_a.put ("work_generation_time", work_generation_time_value);
-	tree_a.put ("upnp_details", upnp_details_logging_value);
-	tree_a.put ("timing", timing_logging_value);
-	tree_a.put ("log_to_cerr", log_to_cerr_value);
-	tree_a.put ("max_size", max_size);
-	tree_a.put ("rotation_size", rotation_size);
-	tree_a.put ("flush", flush);
+	json.put ("version", json_version ());
+	json.put ("ledger", ledger_logging_value);
+	json.put ("ledger_duplicate", ledger_duplicate_logging_value);
+	json.put ("vote", vote_logging_value);
+	json.put ("network", network_logging_value);
+	json.put ("network_message", network_message_logging_value);
+	json.put ("network_publish", network_publish_logging_value);
+	json.put ("network_packet", network_packet_logging_value);
+	json.put ("network_keepalive", network_keepalive_logging_value);
+	json.put ("network_node_id_handshake", network_node_id_handshake_logging_value);
+	json.put ("node_lifetime_tracing", node_lifetime_tracing_value);
+	json.put ("insufficient_work", insufficient_work_logging_value);
+	json.put ("log_rpc", log_rpc_value);
+	json.put ("bulk_pull", bulk_pull_logging_value);
+	json.put ("work_generation_time", work_generation_time_value);
+	json.put ("upnp_details", upnp_details_logging_value);
+	json.put ("timing", timing_logging_value);
+	json.put ("log_to_cerr", log_to_cerr_value);
+	json.put ("max_size", max_size);
+	json.put ("rotation_size", rotation_size);
+	json.put ("flush", flush);
+	return json.get_error ();
 }
 
-bool nano::logging::upgrade_json (unsigned version_a, boost::property_tree::ptree & tree_a)
+bool nano::logging::upgrade_json (unsigned version_a, nano::jsonconfig & json)
 {
-	tree_a.put ("version", std::to_string (json_version));
-	auto result (false);
+	json.put ("version", json_version ());
+	auto upgraded_l (false);
 	switch (version_a)
 	{
 		case 1:
-			tree_a.put ("vote", vote_logging_value);
-			result = true;
+			json.put ("vote", vote_logging_value);
+			upgraded_l = true;
 		case 2:
-			tree_a.put ("rotation_size", "4194304");
-			tree_a.put ("flush", "true");
-			result = true;
+			json.put ("rotation_size", rotation_size);
+			json.put ("flush", true);
+			upgraded_l = true;
 		case 3:
-			tree_a.put ("network_node_id_handshake", "false");
-			result = true;
+			json.put ("network_node_id_handshake", false);
+			upgraded_l = true;
 		case 4:
-			tree_a.put ("upnp_details", "false");
-			tree_a.put ("timing", "false");
-			result = true;
+			json.put ("upnp_details", "false");
+			json.put ("timing", "false");
+			upgraded_l = true;
 		case 5:
 			break;
 		default:
 			throw std::runtime_error ("Unknown logging_config version");
 			break;
 	}
-	return result;
+	return upgraded_l;
 }
 
-bool nano::logging::deserialize_json (bool & upgraded_a, boost::property_tree::ptree & tree_a)
+nano::error nano::logging::deserialize_json (bool & upgraded_a, nano::jsonconfig & json)
 {
-	auto result (false);
-	try
+	int version_l;
+	if (!json.has_key ("version"))
 	{
-		auto version_l (tree_a.get_optional<std::string> ("version"));
-		if (!version_l)
+		version_l = 1;
+		json.put ("version", version_l);
+
+		auto work_peers_l (json.get_optional_child ("work_peers"));
+		if (!work_peers_l)
 		{
-			tree_a.put ("version", "1");
-			version_l = "1";
-			auto work_peers_l (tree_a.get_child_optional ("work_peers"));
-			if (!work_peers_l)
-			{
-				tree_a.add_child ("work_peers", boost::property_tree::ptree ());
-			}
-			upgraded_a = true;
+			nano::jsonconfig peers;
+			json.put_child ("work_peers", peers);
 		}
-		upgraded_a |= upgrade_json (std::stoull (version_l.get ()), tree_a);
-		ledger_logging_value = tree_a.get<bool> ("ledger");
-		ledger_duplicate_logging_value = tree_a.get<bool> ("ledger_duplicate");
-		vote_logging_value = tree_a.get<bool> ("vote");
-		network_logging_value = tree_a.get<bool> ("network");
-		network_message_logging_value = tree_a.get<bool> ("network_message");
-		network_publish_logging_value = tree_a.get<bool> ("network_publish");
-		network_packet_logging_value = tree_a.get<bool> ("network_packet");
-		network_keepalive_logging_value = tree_a.get<bool> ("network_keepalive");
-		network_node_id_handshake_logging_value = tree_a.get<bool> ("network_node_id_handshake");
-		node_lifetime_tracing_value = tree_a.get<bool> ("node_lifetime_tracing");
-		insufficient_work_logging_value = tree_a.get<bool> ("insufficient_work");
-		log_rpc_value = tree_a.get<bool> ("log_rpc");
-		bulk_pull_logging_value = tree_a.get<bool> ("bulk_pull");
-		work_generation_time_value = tree_a.get<bool> ("work_generation_time");
-		upnp_details_logging_value = tree_a.get<bool> ("upnp_details");
-		timing_logging_value = tree_a.get<bool> ("timing");
-		log_to_cerr_value = tree_a.get<bool> ("log_to_cerr");
-		max_size = tree_a.get<uintmax_t> ("max_size");
-		rotation_size = tree_a.get<uintmax_t> ("rotation_size", 4194304);
-		flush = tree_a.get<bool> ("flush", true);
+		upgraded_a = true;
 	}
-	catch (std::runtime_error const &)
+	else
 	{
-		result = true;
+		json.get_required<int> ("version", version_l);
 	}
-	return result;
+
+	upgraded_a |= upgrade_json (version_l, json);
+	json.get<bool> ("ledger", ledger_logging_value);
+	json.get<bool> ("ledger_duplicate", ledger_duplicate_logging_value);
+	json.get<bool> ("vote", vote_logging_value);
+	json.get<bool> ("network", network_logging_value);
+	json.get<bool> ("network_message", network_message_logging_value);
+	json.get<bool> ("network_publish", network_publish_logging_value);
+	json.get<bool> ("network_packet", network_packet_logging_value);
+	json.get<bool> ("network_keepalive", network_keepalive_logging_value);
+	json.get<bool> ("network_node_id_handshake", network_node_id_handshake_logging_value);
+	json.get<bool> ("node_lifetime_tracing", node_lifetime_tracing_value);
+	json.get<bool> ("insufficient_work", insufficient_work_logging_value);
+	json.get<bool> ("log_rpc", log_rpc_value);
+	json.get<bool> ("bulk_pull", bulk_pull_logging_value);
+	json.get<bool> ("work_generation_time", work_generation_time_value);
+	json.get<bool> ("upnp_details", upnp_details_logging_value);
+	json.get<bool> ("timing", timing_logging_value);
+	json.get<bool> ("log_to_cerr", log_to_cerr_value);
+	json.get<bool> ("flush", flush);
+	json.get<uintmax_t> ("max_size", max_size);
+	json.get<uintmax_t> ("rotation_size", rotation_size);
+
+	return json.get_error ();
 }
 
 bool nano::logging::ledger_logging () const
