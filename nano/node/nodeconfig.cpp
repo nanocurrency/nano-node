@@ -119,8 +119,7 @@ bool nano::node_config::upgrade_json (unsigned version_a, nano::jsonconfig & jso
 	{
 		case 1:
 		{
-			nano::jsonconfig reps_l;
-			json.get_required_child ("preconfigured_representatives", reps_l);
+			auto reps_l (json.get_required_child ("preconfigured_representatives"));
 			nano::jsonconfig reps;
 			reps_l.array_entries<std::string> ([&reps](std::string entry) {
 				nano::uint256_union account;
@@ -247,15 +246,13 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 			}
 		});
 
-		nano::jsonconfig preconfigured_peers_l;
-		json.get_required_child ("preconfigured_peers", preconfigured_peers_l);
+		auto preconfigured_peers_l (json.get_required_child ("preconfigured_peers"));
 		preconfigured_peers.clear ();
 		preconfigured_peers_l.array_entries<std::string> ([this](std::string entry) {
 			preconfigured_peers.push_back (entry);
 		});
 
-		nano::jsonconfig preconfigured_representatives_l;
-		json.get_required_child ("preconfigured_representatives", preconfigured_representatives_l);
+		auto preconfigured_representatives_l (json.get_required_child ("preconfigured_representatives"));
 		preconfigured_representatives.clear ();
 		preconfigured_representatives_l.array_entries<std::string> ([this, &json](std::string entry) {
 			nano::account representative (0);
