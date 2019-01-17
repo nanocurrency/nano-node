@@ -22,9 +22,14 @@ enum class error_ipc
 	invalid_preamble = 2,
 };
 
-/** Payload encodings; add protobuf, etc as needed. */
+/**
+ * Payload encodings; add protobuf, flatbuffers and so on as needed.
+ * The IPC framing format is preamble followed by an encoding specific payload.
+ * Preamble is uint8_t {'N', encoding_type, reserved, reserved}. Reserved bytes must be zero.
+ */
 enum class ipc_encoding : uint8_t
 {
+	/** json_legacy request format is: preamble followed by 32-bit BE payload length. Response is 32-bit BE payload length followed by payload. */
 	json_legacy = 1
 };
 
