@@ -43,8 +43,8 @@ namespace thread_role
 			case nano::thread_role::name::block_processing:
 				thread_role_name_string = "Blck processing";
 				break;
-			case nano::thread_role::name::announce_loop:
-				thread_role_name_string = "Announce loop";
+			case nano::thread_role::name::request_loop:
+				thread_role_name_string = "Request loop";
 				break;
 			case nano::thread_role::name::wallet_actions:
 				thread_role_name_string = "Wallet actions";
