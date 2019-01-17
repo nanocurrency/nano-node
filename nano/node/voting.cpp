@@ -54,13 +54,13 @@ void nano::vote_generator::cache_add (std::shared_ptr<nano::vote> const & vote_a
 				votes_cache.erase (votes_cache.begin ());
 			}
 			// Insert new votes (new hash)
-			auto inserted (votes_cache.insert (nano::cached_votes{ std::chrono::steady_clock::now (), successor->hash (), std::vector<std::shared_ptr<nano::vote>> (1, vote_a) }));
+			auto inserted (votes_cache.insert (nano::cached_votes{ std::chrono::steady_clock::now (), hash, std::vector<std::shared_ptr<nano::vote>> (1, vote_a) }));
 			assert (inserted.second);
 		}
 		else
 		{
 			// Insert new votes (old hash)
-			votes_cache.modify (existing, [vote_a](nano::cached_votes & cache_a) {
+			votes_cache.get<1> ().modify (existing, [vote_a](nano::cached_votes & cache_a) {
 				cache_a.votes.push_back (vote_a);
 			});
 		}
@@ -71,10 +71,10 @@ std::vector<std::shared_ptr<nano::vote>> nano::vote_generator::cache_find (nano:
 {
 	std::vector<std::shared_ptr<nano::vote>> result;
 	std::lock_guard<std::mutex> lock (mutex);
-	auto existing (votes_cache.find (hash_a));
-	if (existing != votes_cache.end ())
+	auto existing (votes_cache.get<1> ().find (hash_a));
+	if (existing != votes_cache.get<1> ().end ())
 	{
-		result = existing->second;
+		result = existing->votes;
 	}
 	return result;
 }
