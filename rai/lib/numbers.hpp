@@ -108,6 +108,7 @@ public:
 union uint512_union
 {
 	uint512_union () = default;
+	uint512_union (rai::uint256_union const &, rai::uint256_union const &);
 	uint512_union (rai::uint512_t const &);
 	bool operator== (rai::uint512_union const &) const;
 	bool operator!= (rai::uint512_union const &) const;
@@ -148,6 +149,14 @@ struct hash<rai::uint256_t>
 	size_t operator() (rai::uint256_t const & number_a) const
 	{
 		return number_a.convert_to<size_t> ();
+	}
+};
+template <>
+struct hash<::rai::uint512_union>
+{
+	size_t operator() (::rai::uint512_union const & data_a) const
+	{
+		return *reinterpret_cast<size_t const *> (data_a.bytes.data ());
 	}
 };
 }

@@ -193,7 +193,7 @@ TEST (node, node_receive_quorum)
 	auto done (false);
 	while (!done)
 	{
-		auto info (system.nodes[0]->active.roots.find (previous));
+		auto info (system.nodes[0]->active.roots.find (rai::uint512_union (previous, previous)));
 		ASSERT_NE (system.nodes[0]->active.roots.end (), info);
 		done = info->election->announcements > rai::active_transactions::announcement_min;
 		ASSERT_NO_ERROR (system.poll ());
@@ -644,7 +644,7 @@ TEST (node, fork_publish)
 		node1.process_active (send1);
 		node1.block_processor.flush ();
 		ASSERT_EQ (1, node1.active.roots.size ());
-		auto existing (node1.active.roots.find (send1->root ()));
+		auto existing (node1.active.roots.find (rai::uint512_union (send1->previous (), send1->root ())));
 		ASSERT_NE (node1.active.roots.end (), existing);
 		auto election (existing->election);
 		auto transaction (node1.store.tx_begin ());
@@ -686,7 +686,7 @@ TEST (node, fork_keep)
 	node1.block_processor.flush ();
 	node2.process_active (send2);
 	node2.block_processor.flush ();
-	auto conflict (node2.active.roots.find (genesis.hash ()));
+	auto conflict (node2.active.roots.find (rai::uint512_union (genesis.hash (), genesis.hash ())));
 	ASSERT_NE (node2.active.roots.end (), conflict);
 	auto votes1 (conflict->election);
 	ASSERT_NE (nullptr, votes1);
@@ -737,7 +737,7 @@ TEST (node, fork_flip)
 	node1.block_processor.flush ();
 	node2.process_message (publish1, node2.network.endpoint ());
 	node2.block_processor.flush ();
-	auto conflict (node2.active.roots.find (genesis.hash ()));
+	auto conflict (node2.active.roots.find (rai::uint512_union (genesis.hash (), genesis.hash ())));
 	ASSERT_NE (node2.active.roots.end (), conflict);
 	auto votes1 (conflict->election);
 	ASSERT_NE (nullptr, votes1);
@@ -795,7 +795,7 @@ TEST (node, fork_multi_flip)
 	node1.block_processor.flush ();
 	node2.process_message (publish1, node2.network.endpoint ());
 	node2.block_processor.flush ();
-	auto conflict (node2.active.roots.find (genesis.hash ()));
+	auto conflict (node2.active.roots.find (rai::uint512_union (genesis.hash (), genesis.hash ())));
 	ASSERT_NE (node2.active.roots.end (), conflict);
 	auto votes1 (conflict->election);
 	ASSERT_NE (nullptr, votes1);
@@ -923,7 +923,7 @@ TEST (node, fork_open_flip)
 	node1.block_processor.flush ();
 	node2.process_active (open1);
 	node2.block_processor.flush ();
-	auto conflict (node2.active.roots.find (open1->root ()));
+	auto conflict (node2.active.roots.find (rai::uint512_union (open1->previous (), open1->root ())));
 	ASSERT_NE (node2.active.roots.end (), conflict);
 	auto votes1 (conflict->election);
 	ASSERT_NE (nullptr, votes1);
@@ -1201,7 +1201,7 @@ TEST (node, rep_self_vote)
 	ASSERT_EQ (rai::process_result::progress, node0->process (*block0).code);
 	auto & active (node0->active);
 	active.start (block0);
-	auto existing (active.roots.find (block0->root ()));
+	auto existing (active.roots.find (rai::uint512_union (block0->previous (), block0->root ())));
 	ASSERT_NE (active.roots.end (), existing);
 	auto transaction (node0->store.tx_begin ());
 	existing->election->compute_rep_votes (transaction);
@@ -1628,7 +1628,7 @@ TEST (node, confirm_quorum)
 	while (!done)
 	{
 		ASSERT_FALSE (system.nodes[0]->active.roots.empty ());
-		auto info (system.nodes[0]->active.roots.find (send1->hash ()));
+		auto info (system.nodes[0]->active.roots.find (rai::uint512_union (send1->hash (), send1->hash ())));
 		ASSERT_NE (system.nodes[0]->active.roots.end (), info);
 		done = info->election->announcements > rai::active_transactions::announcement_min;
 		ASSERT_NO_ERROR (system.poll ());

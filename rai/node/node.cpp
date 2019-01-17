@@ -516,7 +516,7 @@ public:
 		if (node.config.enable_voting)
 		{
 			std::unique_lock<std::mutex> active_lock (node.active.mutex);
-			auto active_it (node.active.roots.get<0> ().find (message_a.block->root ()));
+			auto active_it (node.active.roots.get<0> ().find (rai::uint512_union (message_a.block->previous (), message_a.block->root ())));
 			if (active_it != node.active.roots.get<0> ().end ())
 			{
 				// Replay votes in response to a confirm_req for an active block
@@ -544,7 +544,7 @@ public:
 				active_lock.unlock ();
 				// Generating new vote
 				auto transaction (node.store.tx_begin_read ());
-				auto successor (node.ledger.successor (transaction, message_a.block->root ()));
+				auto successor (node.ledger.successor (transaction, rai::uint512_union (message_a.block->previous (), message_a.block->root ())));
 				if (successor != nullptr)
 				{
 					auto same_block (successor->hash () == message_a.block->hash ());
@@ -1272,7 +1272,7 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 		auto hash (block.first->hash ());
 		if (force)
 		{
-			auto successor (node.ledger.successor (transaction, block.first->root ()));
+			auto successor (node.ledger.successor (transaction, rai::uint512_union (block.first->previous (), block.first->root ())));
 			if (successor != nullptr && successor->hash () != hash)
 			{
 				// Replace our block with the winner and roll back any dependent blocks
@@ -2790,7 +2790,6 @@ rai::election_vote_result::election_vote_result (bool replay_a, bool processed_a
 rai::election::election (rai::node & node_a, std::shared_ptr<rai::block> block_a, std::function<void(std::shared_ptr<rai::block>)> const & confirmation_action_a) :
 confirmation_action (confirmation_action_a),
 node (node_a),
-root (block_a->root ()),
 election_start (std::chrono::steady_clock::now ()),
 status ({ block_a, 0 }),
 confirmed (false),
@@ -3045,7 +3044,7 @@ bool rai::election::publish (std::shared_ptr<rai::block> block_a)
 
 void rai::active_transactions::announce_votes (std::unique_lock<std::mutex> & lock_a)
 {
-	std::unordered_set<rai::block_hash> inactive;
+	std::unordered_set<rai::uint512_union> inactive;
 	auto transaction (node.store.tx_begin_read ());
 	unsigned unconfirmed_count (0);
 	unsigned unconfirmed_announcements (0);
@@ -3055,6 +3054,7 @@ void rai::active_transactions::announce_votes (std::unique_lock<std::mutex> & lo
 	auto roots_size (roots.size ());
 	for (auto i (roots.get<1> ().begin ()), n (roots.get<1> ().end ()); i != n; ++i)
 	{
+		auto root (i->root);
 		lock_a.unlock ();
 		auto election_l (i->election);
 		if ((election_l->confirmed || election_l->stopped) && i->election->announcements >= announcement_min - 1)
@@ -3067,7 +3067,7 @@ void rai::active_transactions::announce_votes (std::unique_lock<std::mutex> & lo
 					confirmed.pop_front ();
 				}
 			}
-			inactive.insert (election_l->root);
+			inactive.insert (root);
 		}
 		else
 		{
@@ -3259,7 +3259,7 @@ bool rai::active_transactions::add (std::shared_ptr<rai::block> block_a, std::fu
 	auto error (true);
 	if (!stopped)
 	{
-		auto root (block_a->root ());
+		auto root (rai::uint512_union (block_a->previous (), block_a->root ()));
 		auto existing (roots.find (root));
 		if (existing == roots.end ())
 		{
@@ -3302,7 +3302,7 @@ bool rai::active_transactions::vote (std::shared_ptr<rai::vote> vote_a, bool sin
 			else
 			{
 				auto block (boost::get<std::shared_ptr<rai::block>> (vote_block));
-				auto existing (roots.find (block->root ()));
+				auto existing (roots.find (rai::uint512_union (block->previous (), block->root ())));
 				if (existing != roots.end ())
 				{
 					result = existing->election->vote (vote_a->account, vote_a->sequence, block->hash ());
@@ -3322,13 +3322,13 @@ bool rai::active_transactions::vote (std::shared_ptr<rai::vote> vote_a, bool sin
 bool rai::active_transactions::active (rai::block const & block_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
-	return roots.find (block_a.root ()) != roots.end ();
+	return roots.find (rai::uint512_union (block_a.previous (), block_a.root ())) != roots.end ();
 }
 
 void rai::active_transactions::update_difficulty (rai::block const & block_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
-	auto existing (roots.find (block_a.root ()));
+	auto existing (roots.find (rai::uint512_union (block_a.previous (), block_a.root ())));
 	if (existing != roots.end ())
 	{
 		uint64_t difficulty;
@@ -3359,9 +3359,9 @@ std::deque<std::shared_ptr<rai::block>> rai::active_transactions::list_blocks (b
 void rai::active_transactions::erase (rai::block const & block_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
-	if (roots.find (block_a.root ()) != roots.end ())
+	if (roots.find (rai::uint512_union (block_a.previous (), block_a.root ())) != roots.end ())
 	{
-		roots.erase (block_a.root ());
+		roots.erase (rai::uint512_union (block_a.previous (), block_a.root ()));
 		BOOST_LOG (node.log) << boost::str (boost::format ("Election erased for block block %1% root %2%") % block_a.hash ().to_string () % block_a.root ().to_string ());
 	}
 }
@@ -3390,7 +3390,7 @@ rai::active_transactions::~active_transactions ()
 bool rai::active_transactions::publish (std::shared_ptr<rai::block> block_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
-	auto existing (roots.find (block_a->root ()));
+	auto existing (roots.find (rai::uint512_union (block_a->previous (), block_a->root ())));
 	auto result (true);
 	if (existing != roots.end ())
 	{

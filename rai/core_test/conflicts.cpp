@@ -14,7 +14,7 @@ TEST (conflicts, start_stop)
 	node1.active.start (send1);
 	ASSERT_EQ (1, node1.active.roots.size ());
 	auto root1 (send1->root ());
-	auto existing1 (node1.active.roots.find (root1));
+	auto existing1 (node1.active.roots.find (rai::uint512_union (send1->previous (), root1)));
 	ASSERT_NE (node1.active.roots.end (), existing1);
 	auto votes1 (existing1->election);
 	ASSERT_NE (nullptr, votes1);
@@ -38,7 +38,7 @@ TEST (conflicts, add_existing)
 	auto vote1 (std::make_shared<rai::vote> (key2.pub, key2.prv, 0, send2));
 	node1.active.vote (vote1);
 	ASSERT_EQ (1, node1.active.roots.size ());
-	auto votes1 (node1.active.roots.find (send2->root ())->election);
+	auto votes1 (node1.active.roots.find (rai::uint512_union (send2->previous (), send2->root ()))->election);
 	ASSERT_NE (nullptr, votes1);
 	ASSERT_EQ (2, votes1->last_votes.size ());
 	ASSERT_NE (votes1->last_votes.end (), votes1->last_votes.find (key2.pub));
@@ -161,7 +161,7 @@ TEST (conflicts, reprioritize)
 	rai::work_validate (*send1, &difficulty1);
 	node1.process_active (send1);
 	node1.block_processor.flush ();
-	auto existing1 (node1.active.roots.find (send1->root ()));
+	auto existing1 (node1.active.roots.find (rai::uint512_union (send1->previous (), send1->root ())));
 	ASSERT_NE (node1.active.roots.end (), existing1);
 	ASSERT_EQ (difficulty1, existing1->difficulty);
 	node1.work_generate_blocking (*send1, difficulty1);
@@ -169,7 +169,7 @@ TEST (conflicts, reprioritize)
 	rai::work_validate (*send1, &difficulty2);
 	node1.process_active (send1);
 	node1.block_processor.flush ();
-	auto existing2 (node1.active.roots.find (send1->root ()));
+	auto existing2 (node1.active.roots.find (rai::uint512_union (send1->previous (), send1->root ())));
 	ASSERT_NE (node1.active.roots.end (), existing2);
 	ASSERT_EQ (difficulty2, existing2->difficulty);
 }

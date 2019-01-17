@@ -300,6 +300,12 @@ bool rai::uint512_union::operator== (rai::uint512_union const & other_a) const
 	return bytes == other_a.bytes;
 }
 
+rai::uint512_union::uint512_union (rai::uint256_union const & upper, rai::uint256_union const & lower)
+{
+	uint256s[0] = upper;
+	uint256s[1] = lower;
+}
+
 rai::uint512_union::uint512_union (rai::uint512_t const & number_a)
 {
 	rai::uint512_t number_l (number_a);

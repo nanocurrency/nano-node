@@ -785,7 +785,7 @@ TEST (votes, check_signature)
 	ASSERT_EQ (rai::process_result::progress, node1.ledger.process (transaction, *send1).code);
 	auto node_l (system.nodes[0]);
 	node1.active.start (send1);
-	auto votes1 (node1.active.roots.find (send1->root ())->election);
+	auto votes1 (node1.active.roots.find (rai::uint512_union (send1->previous (), send1->root ()))->election);
 	ASSERT_EQ (1, votes1->last_votes.size ());
 	std::unique_lock<std::mutex> lock (node1.active.mutex);
 	auto vote1 (std::make_shared<rai::vote> (rai::test_genesis_key.pub, rai::test_genesis_key.prv, 1, send1));
@@ -807,7 +807,7 @@ TEST (votes, add_one)
 	auto transaction (node1.store.tx_begin (true));
 	ASSERT_EQ (rai::process_result::progress, node1.ledger.process (transaction, *send1).code);
 	node1.active.start (send1);
-	auto votes1 (node1.active.roots.find (send1->root ())->election);
+	auto votes1 (node1.active.roots.find (rai::uint512_union (send1->previous (), send1->root ()))->election);
 	ASSERT_EQ (1, votes1->last_votes.size ());
 	auto vote1 (std::make_shared<rai::vote> (rai::test_genesis_key.pub, rai::test_genesis_key.prv, 1, send1));
 	ASSERT_FALSE (node1.active.vote (vote1));
@@ -833,7 +833,7 @@ TEST (votes, add_two)
 	auto transaction (node1.store.tx_begin (true));
 	ASSERT_EQ (rai::process_result::progress, node1.ledger.process (transaction, *send1).code);
 	node1.active.start (send1);
-	auto votes1 (node1.active.roots.find (send1->root ())->election);
+	auto votes1 (node1.active.roots.find (rai::uint512_union (send1->previous (), send1->root ()))->election);
 	auto vote1 (std::make_shared<rai::vote> (rai::test_genesis_key.pub, rai::test_genesis_key.prv, 1, send1));
 	ASSERT_FALSE (node1.active.vote (vote1));
 	rai::keypair key2;
@@ -861,7 +861,7 @@ TEST (votes, add_existing)
 	auto transaction (node1.store.tx_begin (true));
 	ASSERT_EQ (rai::process_result::progress, node1.ledger.process (transaction, *send1).code);
 	node1.active.start (send1);
-	auto votes1 (node1.active.roots.find (send1->root ())->election);
+	auto votes1 (node1.active.roots.find (rai::uint512_union (send1->previous (), send1->root ()))->election);
 	auto vote1 (std::make_shared<rai::vote> (rai::test_genesis_key.pub, rai::test_genesis_key.prv, 1, send1));
 	ASSERT_FALSE (node1.active.vote (vote1));
 	ASSERT_FALSE (node1.active.publish (send1));
@@ -897,7 +897,7 @@ TEST (votes, add_old)
 	auto transaction (node1.store.tx_begin (true));
 	ASSERT_EQ (rai::process_result::progress, node1.ledger.process (transaction, *send1).code);
 	node1.active.start (send1);
-	auto votes1 (node1.active.roots.find (send1->root ())->election);
+	auto votes1 (node1.active.roots.find (rai::uint512_union (send1->previous (), send1->root ()))->election);
 	auto vote1 (std::make_shared<rai::vote> (rai::test_genesis_key.pub, rai::test_genesis_key.prv, 2, send1));
 	std::unique_lock<std::mutex> lock (node1.active.mutex);
 	node1.vote_processor.vote_blocking (transaction, vote1, node1.network.endpoint ());
@@ -932,8 +932,8 @@ TEST (votes, add_old_different_account)
 	ASSERT_EQ (rai::process_result::progress, node1.ledger.process (transaction, *send2).code);
 	node1.active.start (send1);
 	node1.active.start (send2);
-	auto votes1 (node1.active.roots.find (send1->root ())->election);
-	auto votes2 (node1.active.roots.find (send2->root ())->election);
+	auto votes1 (node1.active.roots.find (rai::uint512_union (send1->previous (), send1->root ()))->election);
+	auto votes2 (node1.active.roots.find (rai::uint512_union (send2->previous (), send2->root ()))->election);
 	ASSERT_EQ (1, votes1->last_votes.size ());
 	ASSERT_EQ (1, votes2->last_votes.size ());
 	auto vote1 (std::make_shared<rai::vote> (rai::test_genesis_key.pub, rai::test_genesis_key.prv, 2, send1));
@@ -972,7 +972,7 @@ TEST (votes, add_cooldown)
 	auto transaction (node1.store.tx_begin (true));
 	ASSERT_EQ (rai::process_result::progress, node1.ledger.process (transaction, *send1).code);
 	node1.active.start (send1);
-	auto votes1 (node1.active.roots.find (send1->root ())->election);
+	auto votes1 (node1.active.roots.find (rai::uint512_union (send1->previous (), send1->root ()))->election);
 	auto vote1 (std::make_shared<rai::vote> (rai::test_genesis_key.pub, rai::test_genesis_key.prv, 1, send1));
 	std::unique_lock<std::mutex> lock (node1.active.mutex);
 	node1.vote_processor.vote_blocking (transaction, vote1, node1.network.endpoint ());
@@ -1000,9 +1000,9 @@ TEST (ledger, successor)
 	rai::send_block send1 (genesis.hash (), key1.pub, 0, rai::test_genesis_key.prv, rai::test_genesis_key.pub, 0);
 	auto transaction (system.nodes[0]->store.tx_begin (true));
 	ASSERT_EQ (rai::process_result::progress, system.nodes[0]->ledger.process (transaction, send1).code);
-	ASSERT_EQ (send1, *system.nodes[0]->ledger.successor (transaction, genesis.hash ()));
-	ASSERT_EQ (*genesis.open, *system.nodes[0]->ledger.successor (transaction, genesis.open->root ()));
-	ASSERT_EQ (nullptr, system.nodes[0]->ledger.successor (transaction, 0));
+	ASSERT_EQ (send1, *system.nodes[0]->ledger.successor (transaction, rai::uint512_union (genesis.hash (), 0)));
+	ASSERT_EQ (*genesis.open, *system.nodes[0]->ledger.successor (transaction, rai::uint512_union (genesis.open->previous (), genesis.open->root ())));
+	ASSERT_EQ (nullptr, system.nodes[0]->ledger.successor (transaction, rai::uint512_union (0)));
 }
 
 TEST (ledger, fail_change_old)

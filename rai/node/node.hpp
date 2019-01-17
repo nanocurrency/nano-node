@@ -69,7 +69,6 @@ public:
 	std::unordered_map<rai::account, rai::vote_info> last_votes;
 	std::unordered_map<rai::account, std::shared_ptr<rai::vote>> our_last_votes;
 	std::unordered_map<rai::block_hash, std::shared_ptr<rai::block>> blocks;
-	rai::block_hash root;
 	std::chrono::steady_clock::time_point election_start;
 	rai::election_status status;
 	std::atomic<bool> confirmed;
@@ -80,7 +79,7 @@ public:
 class conflict_info
 {
 public:
-	rai::block_hash root;
+	rai::uint512_union root;
 	uint64_t difficulty;
 	std::shared_ptr<rai::election> election;
 };
@@ -108,7 +107,7 @@ public:
 	rai::conflict_info,
 	boost::multi_index::indexed_by<
 	boost::multi_index::hashed_unique<
-	boost::multi_index::member<rai::conflict_info, rai::block_hash, &rai::conflict_info::root>>,
+	boost::multi_index::member<rai::conflict_info, rai::uint512_union, &rai::conflict_info::root>>,
 	boost::multi_index::ordered_non_unique<
 	boost::multi_index::member<rai::conflict_info, uint64_t, &rai::conflict_info::difficulty>,
 	std::greater<uint64_t>>>>

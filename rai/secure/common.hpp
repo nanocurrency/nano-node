@@ -22,6 +22,15 @@ struct hash<rai::uint256_union>
 		return hash (value_a);
 	}
 };
+template <>
+struct hash<::rai::uint512_union>
+{
+	size_t operator() (::rai::uint512_union const & value_a) const
+	{
+		std::hash<::rai::uint512_union> hash;
+		return hash (value_a);
+	}
+};
 }
 namespace rai
 {

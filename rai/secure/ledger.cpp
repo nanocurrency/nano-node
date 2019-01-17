@@ -979,19 +979,19 @@ void rai::ledger::change_latest (rai::transaction const & transaction_a, rai::ac
 	}
 }
 
-std::shared_ptr<rai::block> rai::ledger::successor (rai::transaction const & transaction_a, rai::uint256_union const & root_a)
+std::shared_ptr<rai::block> rai::ledger::successor (rai::transaction const & transaction_a, rai::uint512_union const & root_a)
 {
 	rai::block_hash successor (0);
-	if (store.account_exists (transaction_a, root_a))
+	if (root_a.uint256s[0].is_zero () && store.account_exists (transaction_a, root_a.uint256s[1]))
 	{
 		rai::account_info info;
-		auto error (store.account_get (transaction_a, root_a, info));
+		auto error (store.account_get (transaction_a, root_a.uint256s[1], info));
 		assert (!error);
 		successor = info.open_block;
 	}
 	else
 	{
-		successor = store.block_successor (transaction_a, root_a);
+		successor = store.block_successor (transaction_a, root_a.uint256s[0]);
 	}
 	std::shared_ptr<rai::block> result;
 	if (!successor.is_zero ())

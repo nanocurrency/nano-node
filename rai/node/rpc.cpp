@@ -1475,7 +1475,7 @@ void rai::rpc_handler::confirmation_info ()
 	const bool representatives = request.get<bool> ("representatives", false);
 	const bool contents = request.get<bool> ("contents", true);
 	std::string root_text (request.get<std::string> ("root"));
-	rai::block_hash root;
+	rai::uint512_union root;
 	if (!root.decode_hex (root_text))
 	{
 		std::lock_guard<std::mutex> lock (node.active.mutex);
