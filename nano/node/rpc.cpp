@@ -1357,7 +1357,20 @@ void nano::rpc_handler::bootstrap_status ()
 		response_l.put ("target_connections", std::to_string (attempt->target_connections (attempt->pulls.size ())));
 		response_l.put ("total_blocks", std::to_string (attempt->total_blocks));
 		response_l.put ("runs_count", std::to_string (attempt->runs_count));
-		response_l.put ("lazy_mode", attempt->lazy_mode);
+		std::string mode_text;
+		if (attempt->mode == nano::bootstrap_mode::legacy)
+		{
+			mode_text = "legacy";
+		}
+		else if (attempt->mode == nano::bootstrap_mode::lazy)
+		{
+			mode_text = "lazy";
+		}
+		else if (attempt->mode == nano::bootstrap_mode::wallet_lazy)
+		{
+			mode_text = "wallet_lazy";
+		}
+		response_l.put ("mode", mode_text);
 		response_l.put ("lazy_blocks", std::to_string (attempt->lazy_blocks.size ()));
 		response_l.put ("lazy_state_unknown", std::to_string (attempt->lazy_state_unknown.size ()));
 		response_l.put ("lazy_balances", std::to_string (attempt->lazy_balances.size ()));

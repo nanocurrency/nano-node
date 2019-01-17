@@ -62,8 +62,15 @@ public:
 	count_t count;
 	unsigned attempts;
 };
+enum class bootstrap_mode
+{
+	legacy,
+	lazy,
+	wallet_lazy
+};
 class frontier_req_client;
 class bulk_push_client;
+class bulk_pull_account_client;
 class bootstrap_attempt : public std::enable_shared_from_this<bootstrap_attempt>
 {
 public:
@@ -91,6 +98,12 @@ public:
 	void lazy_add (nano::block_hash const &);
 	bool lazy_finished ();
 	void lazy_pull_flush ();
+	void lazy_clear ();
+	void request_pending (std::unique_lock<std::mutex> &);
+	void requeue_pending (nano::account const &);
+	void wallet_run ();
+	void wallet_start (std::deque<nano::account> &);
+	bool wallet_finished ();
 	std::chrono::steady_clock::time_point next_log;
 	std::deque<std::weak_ptr<nano::bootstrap_client>> clients;
 	std::weak_ptr<nano::bootstrap_client> connection_frontier_request;
@@ -106,7 +119,7 @@ public:
 	std::atomic<unsigned> runs_count;
 	std::vector<std::pair<nano::block_hash, nano::block_hash>> bulk_push_targets;
 	bool stopped;
-	bool lazy_mode;
+	nano::bootstrap_mode mode;
 	std::mutex mutex;
 	std::condition_variable condition;
 	// Lazy bootstrap
@@ -119,6 +132,8 @@ public:
 	uint64_t lazy_max_pull_blocks = (nano::nano_network == nano::nano_networks::nano_test_network) ? 2 : 512;
 	uint64_t lazy_max_stopped = 256;
 	std::mutex lazy_mutex;
+	// Wallet lazy bootstrap
+	std::deque<nano::account> wallet_accounts;
 };
 class frontier_req_client : public std::enable_shared_from_this<nano::frontier_req_client>
 {
@@ -158,6 +173,7 @@ public:
 	nano::block_hash expected;
 	nano::pull_info pull;
 	uint64_t total_blocks;
+	uint64_t unexpected_count;
 };
 class bootstrap_client : public std::enable_shared_from_this<bootstrap_client>
 {
@@ -192,6 +208,17 @@ public:
 	std::promise<bool> promise;
 	std::pair<nano::block_hash, nano::block_hash> current_target;
 };
+class bulk_pull_account_client : public std::enable_shared_from_this<nano::bulk_pull_account_client>
+{
+public:
+	bulk_pull_account_client (std::shared_ptr<nano::bootstrap_client>, nano::account const &);
+	~bulk_pull_account_client ();
+	void request ();
+	void receive_pending ();
+	std::shared_ptr<nano::bootstrap_client> connection;
+	nano::account account;
+	uint64_t total_blocks;
+};
 class bootstrap_initiator
 {
 public:
@@ -200,6 +227,7 @@ public:
 	void bootstrap (nano::endpoint const &, bool add_to_peers = true);
 	void bootstrap ();
 	void bootstrap_lazy (nano::block_hash const &, bool = false);
+	void bootstrap_wallet (std::deque<nano::account> &);
 	void run_bootstrap ();
 	void notify_listeners (bool);
 	void add_observer (std::function<void(bool)> const &);
