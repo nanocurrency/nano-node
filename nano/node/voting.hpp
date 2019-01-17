@@ -3,7 +3,6 @@
 #include <nano/lib/numbers.hpp>
 #include <nano/secure/common.hpp>
 
-
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/member.hpp>
 #include <boost/multi_index/ordered_index.hpp>
