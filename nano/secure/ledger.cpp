@@ -987,19 +987,19 @@ void nano::ledger::change_latest (nano::transaction const & transaction_a, nano:
 	}
 }
 
-std::shared_ptr<nano::block> nano::ledger::successor (nano::transaction const & transaction_a, nano::uint256_union const & root_a)
+std::shared_ptr<nano::block> nano::ledger::successor (nano::transaction const & transaction_a, nano::uint512_union const & root_a)
 {
 	nano::block_hash successor (0);
-	if (store.account_exists (transaction_a, root_a))
+	if (root_a.uint256s[0].is_zero () && store.account_exists (transaction_a, root_a.uint256s[1]))
 	{
 		nano::account_info info;
-		auto error (store.account_get (transaction_a, root_a, info));
+		auto error (store.account_get (transaction_a, root_a.uint256s[1], info));
 		assert (!error);
 		successor = info.open_block;
 	}
 	else
 	{
-		successor = store.block_successor (transaction_a, root_a);
+		successor = store.block_successor (transaction_a, root_a.uint256s[0]);
 	}
 	std::shared_ptr<nano::block> result;
 	if (!successor.is_zero ())
