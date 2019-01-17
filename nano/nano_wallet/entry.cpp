@@ -99,9 +99,18 @@ public:
 			{
 				json.get_error ().set ("Invalid account");
 			}
-			node.deserialize_json (upgraded_a, node_l);
-			rpc.deserialize_json (rpc_l);
-			opencl.deserialize_json (opencl_l);
+			if (!node_l.get_error ())
+			{
+				node.deserialize_json (upgraded_a, node_l);
+			}
+			if (!rpc_l.get_error ())
+			{
+				rpc.deserialize_json (rpc_l);
+			}
+			if (!opencl_l.get_error ())
+			{
+				opencl.deserialize_json (opencl_l);
+			}
 			if (wallet.is_zero ())
 			{
 				nano::random_pool.GenerateBlock (wallet.bytes.data (), wallet.bytes.size ());

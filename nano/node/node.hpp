@@ -69,7 +69,6 @@ public:
 	nano::node & node;
 	std::unordered_map<nano::account, nano::vote_info> last_votes;
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> blocks;
-	nano::block_hash root;
 	std::chrono::steady_clock::time_point election_start;
 	nano::election_status status;
 	std::atomic<bool> confirmed;
@@ -80,7 +79,7 @@ public:
 class conflict_info
 {
 public:
-	nano::block_hash root;
+	nano::uint512_union root;
 	uint64_t difficulty;
 	std::shared_ptr<nano::election> election;
 };
@@ -108,7 +107,7 @@ public:
 	nano::conflict_info,
 	boost::multi_index::indexed_by<
 	boost::multi_index::hashed_unique<
-	boost::multi_index::member<nano::conflict_info, nano::block_hash, &nano::conflict_info::root>>,
+	boost::multi_index::member<nano::conflict_info, nano::uint512_union, &nano::conflict_info::root>>,
 	boost::multi_index::ordered_non_unique<
 	boost::multi_index::member<nano::conflict_info, uint64_t, &nano::conflict_info::difficulty>,
 	std::greater<uint64_t>>>>

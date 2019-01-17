@@ -45,13 +45,11 @@ nano::error nano_daemon::daemon_config::deserialize_json (bool & upgraded_a, nan
 			upgraded_a |= upgrade_json (version_l, json);
 
 			json.get_optional<bool> ("rpc_enable", rpc_enable);
-			nano::jsonconfig rpc_l;
-			json.get_required_child ("rpc", rpc_l);
+			auto rpc_l (json.get_required_child ("rpc"));
 
 			if (!rpc.deserialize_json (rpc_l))
 			{
-				nano::jsonconfig node_l;
-				json.get_required_child ("node", node_l);
+				auto node_l (json.get_required_child ("node"));
 				if (!json.get_error ())
 				{
 					node.deserialize_json (upgraded_a, node_l);
@@ -60,8 +58,7 @@ nano::error nano_daemon::daemon_config::deserialize_json (bool & upgraded_a, nan
 			if (!json.get_error ())
 			{
 				json.get_required<bool> ("opencl_enable", opencl_enable);
-				nano::jsonconfig opencl_l;
-				json.get_required_child ("opencl", opencl_l);
+				auto opencl_l (json.get_required_child ("opencl"));
 				if (!json.get_error ())
 				{
 					opencl.deserialize_json (opencl_l);
@@ -95,8 +92,7 @@ bool nano_daemon::daemon_config::upgrade_json (unsigned version_a, nano::jsoncon
 			{
 				json.put ("opencl_enable", false);
 			}
-			boost::optional<nano::jsonconfig> opencl_l;
-			json.get_optional_child ("opencl", opencl_l);
+			auto opencl_l (json.get_optional_child ("opencl"));
 			if (!opencl_l)
 			{
 				nano::jsonconfig opencl_l;
