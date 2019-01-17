@@ -77,6 +77,10 @@ wallet (wallet_a)
 	{
 		network = "Beta";
 	}
+	else if (nano::nano_network == nano::nano_networks::nano_test_network)
+	{
+		network = "Test";
+	}
 	version = new QLabel (boost::str (boost::format ("Version %1%.%2% %3% network") % NANO_VERSION_MAJOR % NANO_VERSION_MINOR % network).c_str ());
 	self_layout->addWidget (your_account_label);
 	self_layout->addStretch ();
