@@ -484,6 +484,16 @@ TEST (node, price)
 	ASSERT_EQ (0, price4);
 }
 
+TEST (node, confirm_locked)
+{
+	nano::system system (24000, 1);
+	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
+	auto transaction (system.nodes[0]->store.tx_begin ());
+	system.wallet (0)->enter_password (transaction, "1");
+	auto block (std::make_shared<nano::send_block> (0, 0, 0, nano::keypair ().prv, 0, 0));
+	system.nodes[0]->network.republish_block (block);
+}
+
 TEST (node_config, serialization)
 {
 	auto path (nano::unique_path ());
@@ -605,14 +615,24 @@ TEST (node_config, v2_v3_upgrade)
 	ASSERT_GT (std::stoull (version), 2);
 }
 
-TEST (node, confirm_locked)
+// Regression test to ensure that deserializing includes changes doen via get_required_child
+TEST (node_config, required_child)
 {
-	nano::system system (24000, 1);
-	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
-	auto transaction (system.nodes[0]->store.tx_begin ());
-	system.wallet (0)->enter_password (transaction, "1");
-	auto block (std::make_shared<nano::send_block> (0, 0, 0, nano::keypair ().prv, 0, 0));
-	system.nodes[0]->network.republish_block (block);
+	auto path (nano::unique_path ());
+	nano::logging logging1;
+	nano::logging logging2;
+	logging1.init (path);
+	nano::jsonconfig tree;
+
+	nano::jsonconfig logging_l;
+	logging1.serialize_json (logging_l);
+	tree.put_child ("logging", logging_l);
+	auto child_l (tree.get_required_child ("logging"));
+	child_l.put<bool> ("flush", !logging1.flush);
+	bool upgraded;
+	logging2.deserialize_json (upgraded, child_l);
+
+	ASSERT_NE (logging1.flush, logging2.flush);
 }
 
 TEST (node_config, random_rep)
@@ -623,6 +643,82 @@ TEST (node_config, random_rep)
 	nano::node_config config1 (100, logging1);
 	auto rep (config1.random_representative ());
 	ASSERT_NE (config1.preconfigured_representatives.end (), std::find (config1.preconfigured_representatives.begin (), config1.preconfigured_representatives.end (), rep));
+}
+
+class json_initial_value_test
+{
+public:
+	json_initial_value_test (std::string text_a) :
+	text (std::move (text_a))
+	{
+	}
+	nano::error serialize_json (nano::jsonconfig & json)
+	{
+		json.put ("thing", text);
+		return json.get_error ();
+	}
+	std::string text;
+};
+
+class json_upgrade_test
+{
+public:
+	nano::error deserialize_json (bool & upgraded, nano::jsonconfig & json)
+	{
+		if (!json.empty ())
+		{
+			auto text_l (json.get<std::string> ("thing"));
+			if (text_l == "junktest" || text_l == "created")
+			{
+				upgraded = true;
+				text_l = "changed";
+				json.put ("thing", text_l);
+			}
+			if (text_l == "error")
+			{
+				json.get_error () = nano::error_common::generic;
+			}
+			text = text_l;
+		}
+		else
+		{
+			upgraded = true;
+			text = "created";
+			json.put ("thing", text);
+		}
+		return json.get_error ();
+	}
+	std::string text;
+};
+
+/** Both create and upgrade via read_and_update() */
+TEST (json, create_and_upgrade)
+{
+	auto path (nano::unique_path ());
+	nano::jsonconfig json;
+	json_upgrade_test object1;
+	ASSERT_FALSE (json.read_and_update (object1, path));
+	ASSERT_EQ ("created", object1.text);
+
+	nano::jsonconfig json2;
+	json_upgrade_test object2;
+	ASSERT_FALSE (json2.read_and_update (object2, path));
+	ASSERT_EQ ("changed", object2.text);
+}
+
+/** Create config manually, then upgrade via read_and_update() with multiple calls to test idempotence */
+TEST (json, upgrade_from_existing)
+{
+	auto path (nano::unique_path ());
+	nano::jsonconfig json;
+	json_initial_value_test junktest ("junktest");
+	junktest.serialize_json (json);
+	json.write (path);
+	json_upgrade_test object1;
+	ASSERT_FALSE (json.read_and_update (object1, path));
+	ASSERT_EQ ("changed", object1.text);
+	ASSERT_FALSE (json.read_and_update (object1, path));
+	ASSERT_EQ ("changed", object1.text);
 }
 
 TEST (node, fork_publish)
