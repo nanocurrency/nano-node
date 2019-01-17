@@ -85,7 +85,7 @@ public:
 			upgraded_a |= upgrade_json (version_l.get (), json);
 			auto wallet_l (json.get<std::string> ("wallet"));
 			auto account_l (json.get<std::string> ("account"));
-			auto node_l (json.get_optional_child ("node"));
+			auto node_l (json.get_required_child ("node"));
 			rpc_enable = json.get<bool> ("rpc_enable");
 			auto rpc_l (json.get_required_child ("rpc"));
 			opencl_enable = json.get<bool> ("opencl_enable");
