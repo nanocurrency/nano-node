@@ -1,9 +1,10 @@
 #pragma once
 
-#include <nano/node/xorshift.hpp>
-
 #include <boost/optional.hpp>
 #include <boost/property_tree/ptree.hpp>
+#include <nano/lib/errors.hpp>
+#include <nano/lib/jsonconfig.hpp>
+#include <nano/node/xorshift.hpp>
 
 #include <map>
 #include <mutex>
@@ -39,8 +40,8 @@ class opencl_config
 public:
 	opencl_config ();
 	opencl_config (unsigned, unsigned, unsigned);
-	void serialize_json (boost::property_tree::ptree &) const;
-	bool deserialize_json (boost::property_tree::ptree const &);
+	nano::error serialize_json (nano::jsonconfig &) const;
+	nano::error deserialize_json (nano::jsonconfig &);
 	unsigned platform;
 	unsigned device;
 	unsigned threads;
