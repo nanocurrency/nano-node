@@ -4010,7 +4010,7 @@ TEST (rpc, sign_hash)
 	nano::rpc rpc (system.io_ctx, node1, nano::rpc_config (true));
 	rpc.start ();
 	boost::property_tree::ptree request;
-	request.put ("action", "sign_hash");
+	request.put ("action", "sign");
 	request.put ("hash", send.hash ().to_string ());
 	request.put ("key", key.prv.data.to_string ());
 	test_response response (request, rpc, system.io_ctx);
@@ -4019,8 +4019,16 @@ TEST (rpc, sign_hash)
 		system.poll ();
 	}
 	ASSERT_EQ (200, response.status);
+	ASSERT_EQ (response.json.get<std::string> ("error"), (nano::error_rpc::sign_hash_disabled).message ());
+	rpc.config.enable_sign_hash = true;
+	test_response response2 (request, rpc, system.io_ctx);
+	while (response2.status == 0)
+	{
+		system.poll ();
+	}
+	ASSERT_EQ (200, response2.status);
 	nano::signature signature;
-	std::string signature_text (response.json.get<std::string> ("signature"));
+	std::string signature_text (response2.json.get<std::string> ("signature"));
 	ASSERT_FALSE (signature.decode_hex (signature_text));
 	ASSERT_FALSE (nano::validate_message (key.pub, send.hash (), signature));
 }
@@ -4034,7 +4042,7 @@ TEST (rpc, sign_block)
 	nano::rpc rpc (system.io_ctx, node1, nano::rpc_config (true));
 	rpc.start ();
 	boost::property_tree::ptree request;
-	request.put ("action", "sign_block");
+	request.put ("action", "sign");
 	system.wallet (0)->insert_adhoc (key.prv);
 	std::string wallet;
 	system.nodes[0]->wallets.items.begin ()->first.encode_hex (wallet);

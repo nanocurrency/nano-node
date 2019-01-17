@@ -53,6 +53,7 @@ public:
 	uint64_t chain_request_limit;
 	rpc_secure_config secure;
 	uint8_t max_json_depth;
+	bool enable_sign_hash;
 };
 enum class payment_status
 {

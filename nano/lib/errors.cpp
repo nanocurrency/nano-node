@@ -164,6 +164,8 @@ std::string nano::error_rpc_messages::message (int ev) const
 			return "Unable to create transaction account";
 		case nano::error_rpc::rpc_control_disabled:
 			return "RPC control is disabled";
+		case nano::error_rpc::sign_hash_disabled:
+			return "Signing by block hash is disabled";
 		case nano::error_rpc::source_not_found:
 			return "Source not found";
 	}

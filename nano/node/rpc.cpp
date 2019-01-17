@@ -55,7 +55,8 @@ port (nano::rpc::rpc_port),
 enable_control (enable_control_a),
 frontier_request_limit (16384),
 chain_request_limit (16384),
-max_json_depth (20)
+max_json_depth (20),
+enable_sign_hash (false)
 {
 }
 
@@ -67,6 +68,7 @@ nano::error nano::rpc_config::serialize_json (nano::jsonconfig & json) const
 	json.put ("frontier_request_limit", frontier_request_limit);
 	json.put ("chain_request_limit", chain_request_limit);
 	json.put ("max_json_depth", max_json_depth);
+	json.put ("enable_sign_hash", enable_sign_hash);
 	return json.get_error ();
 }
 
@@ -84,6 +86,7 @@ nano::error nano::rpc_config::deserialize_json (nano::jsonconfig & json)
 	json.get_optional<uint64_t> ("frontier_request_limit", frontier_request_limit);
 	json.get_optional<uint64_t> ("chain_request_limit", chain_request_limit);
 	json.get_optional<uint8_t> ("max_json_depth", max_json_depth);
+	json.get_optional<bool> ("enable_sign_hash", enable_sign_hash);
 	return json.get_error ();
 }
 
@@ -2944,9 +2947,15 @@ void nano::rpc_handler::sign ()
 			hash = block->hash ();
 		}
 	}
+	// Hash or block are not initialized
 	if (!ec && hash.is_zero ())
 	{
 		ec = nano::error_blocks::invalid_block;
+	}
+	// Hash is initialized without config permission
+	else if (!ec && !hash.is_zero && block == nullptr && !rpc.config.enable_sign_hash)
+	{
+		ec = nano::error_rpc::sign_hash_disabled;
 	}
 	if (!ec)
 	{
