@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include <nano/lib/jsonconfig.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/wallet.hpp>
 
@@ -88,7 +89,7 @@ TEST (work, opencl_config)
 	config1.platform = 1;
 	config1.device = 2;
 	config1.threads = 3;
-	boost::property_tree::ptree tree;
+	nano::jsonconfig tree;
 	config1.serialize_json (tree);
 	nano::opencl_config config2;
 	ASSERT_FALSE (config2.deserialize_json (tree));
