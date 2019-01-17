@@ -615,7 +615,7 @@ TEST (node_config, v2_v3_upgrade)
 	ASSERT_GT (std::stoull (version), 2);
 }
 
-// Regression test to ensure that deserializing includes changes doen via get_required_child
+// Regression test to ensure that deserializing includes changes node via get_required_child
 TEST (node_config, required_child)
 {
 	auto path (nano::unique_path ());
