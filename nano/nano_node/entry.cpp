@@ -24,6 +24,7 @@ int main (int argc, char * const * argv)
 		("disable_backup", "Disable wallet automatic backups")
 		("disable_lazy_bootstrap", "Disables lazy bootstrap")
 		("disable_legacy_bootstrap", "Disables legacy bootstrap")
+		("disable_wallet_bootstrap", "Disables wallet lazy bootstrap")
 		("disable_bootstrap_listener", "Disables bootstrap listener (incoming connections)")
 		("disable_unchecked_cleaning", "Disables periodic cleaning of old records from unchecked table")
 		("fast_bootstrap", "Increase bootstrap speed for high end nodes with higher limits")
@@ -85,6 +86,7 @@ int main (int argc, char * const * argv)
 			flags.disable_backup = (vm.count ("disable_backup") > 0);
 			flags.disable_lazy_bootstrap = (vm.count ("disable_lazy_bootstrap") > 0);
 			flags.disable_legacy_bootstrap = (vm.count ("disable_legacy_bootstrap") > 0);
+			flags.disable_wallet_bootstrap = (vm.count ("disable_wallet_bootstrap") > 0);
 			flags.disable_bootstrap_listener = (vm.count ("disable_bootstrap_listener") > 0);
 			flags.disable_unchecked_cleaning = (vm.count ("disable_unchecked_cleaning") > 0);
 			flags.fast_bootstrap = (vm.count ("fast_bootstrap") > 0);

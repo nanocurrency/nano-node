@@ -37,7 +37,7 @@ namespace thread_role
 		alarm,
 		vote_processing,
 		block_processing,
-		announce_loop,
+		request_loop,
 		wallet_actions,
 		bootstrap_initiator,
 		voting,
