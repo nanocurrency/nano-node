@@ -38,6 +38,11 @@ node_id ()
 {
 }
 
+bool nano::peer_information::operator< (nano::peer_information const & peer_information_a) const
+{
+	return endpoint < peer_information_a.endpoint;
+}
+
 nano::peer_container::peer_container (nano::endpoint const & self_a) :
 self (self_a),
 peer_observer ([](nano::endpoint const &) {}),
@@ -104,17 +109,6 @@ std::deque<nano::endpoint> nano::peer_container::list ()
 		result.push_back (i->endpoint);
 	}
 	random_pool.Shuffle (result.begin (), result.end ());
-	return result;
-}
-
-std::map<nano::endpoint, unsigned> nano::peer_container::list_version ()
-{
-	std::map<nano::endpoint, unsigned> result;
-	std::lock_guard<std::mutex> lock (mutex);
-	for (auto i (peers.begin ()), j (peers.end ()); i != j; ++i)
-	{
-		result.insert (std::pair<nano::endpoint, unsigned> (i->endpoint, i->network_version));
-	}
 	return result;
 }
 

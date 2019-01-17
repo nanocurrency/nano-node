@@ -57,6 +57,7 @@ public:
 	nano::account probable_rep_account;
 	unsigned network_version;
 	boost::optional<nano::account> node_id;
+	bool operator< (nano::peer_information const &) const;
 };
 
 /** Manages a set of disovered peers */
@@ -79,7 +80,6 @@ public:
 	std::vector<peer_information> representatives (size_t);
 	// List of all peers
 	std::deque<nano::endpoint> list ();
-	std::map<nano::endpoint, unsigned> list_version ();
 	std::vector<peer_information> list_vector (size_t);
 	// A list of random peers sized for the configured rebroadcast fanout
 	std::deque<nano::endpoint> list_fanout ();
