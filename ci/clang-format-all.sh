@@ -1,4 +1,8 @@
 #!/bin/bash
 
+set -e
+
 REPO_ROOT=$(git rev-parse --show-toplevel)
-find ${REPO_ROOT}/rai -iname '*.h' -o -iname '*.hpp' -o -iname '*.cpp' | xargs clang-format -i
+cd "${REPO_ROOT}"
+./ci/update-clang-format
+find nano -iname '*.h' -o -iname '*.hpp' -o -iname '*.cpp' | xargs clang-format -i

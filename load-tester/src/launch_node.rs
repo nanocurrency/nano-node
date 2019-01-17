@@ -22,18 +22,18 @@ const RPC_PORT_START: u64 = 55000;
 const PEERING_PORT_START: u64 = 54000;
 
 pub fn launch_node(
-    rai_node: &Path,
+    nano_node: &Path,
     tmp_dir: &Path,
     handle: Handle,
     i: u64,
 ) -> Result<(Child, RpcClient)> {
-    let data_dir = tmp_dir.join(format!("RaiBlocks_load_test_{}", i));
+    let data_dir = tmp_dir.join(format!("Nano_load_test_{}", i));
     match fs::create_dir(&data_dir) {
         Ok(_) => {}
         Err(ref e) if e.kind() == io::ErrorKind::AlreadyExists => {
             let _ = fs::remove_file(data_dir.join("data.ldb"));
         }
-        r => r.chain_err(|| "failed to create rai_node data directory")?,
+        r => r.chain_err(|| "failed to create nano_node data directory")?,
     }
     let rpc_port = RPC_PORT_START + i;
     let peering_port = PEERING_PORT_START + i;
@@ -97,12 +97,12 @@ pub fn launch_node(
         File::create(data_dir.join("config.json")).chain_err(|| "failed to create config.json")?;
     serde_json::to_writer_pretty(config_writer, &config)
         .chain_err(|| "failed to write config.json")?;
-    let child = Command::new(rai_node)
+    let child = Command::new(nano_node)
         .arg("--data_path")
         .arg(&data_dir)
         .arg("--daemon")
         .spawn_async(&handle)
-        .chain_err(|| "failed to spawn rai_node")?;
+        .chain_err(|| "failed to spawn nano_node")?;
     let rpc_client = RpcClient::new(
         handle,
         format!("http://[::1]:{}/", rpc_port).parse().unwrap(),
@@ -119,7 +119,7 @@ pub fn connect_node<C: Connect>(
         "action": "keepalive",
         "address": "::1",
         "port": PEERING_PORT_START + i,
-    })).then(|x| x.chain_err(|| "failed to call rai_node RPC"))
+    })).then(|x| x.chain_err(|| "failed to call nano_node RPC"))
             .map(|_| ()),
     ) as _
 }
