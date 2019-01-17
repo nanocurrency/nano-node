@@ -99,9 +99,9 @@ public:
 			{
 				json.get_error ().set ("Invalid account");
 			}
-			if (!node_l->get_error ())
+			if (!node_l.get_error ())
 			{
-				node.deserialize_json (upgraded_a, *node_l);
+				node.deserialize_json (upgraded_a, node_l);
 			}
 			if (!rpc_l.get_error ())
 			{
