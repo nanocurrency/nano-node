@@ -72,7 +72,12 @@ balance_label (new QLabel),
 wallet (wallet_a)
 {
 	your_account_label->setStyleSheet ("font-weight: bold;");
-	version = new QLabel (boost::str (boost::format ("Version %1%.%2%") % NANO_VERSION_MAJOR % NANO_VERSION_MINOR).c_str ());
+	std::string network = "Live";
+	if (nano::nano_network == nano::nano_networks::nano_beta_network)
+	{
+		network = "Beta";
+	}
+	version = new QLabel (boost::str (boost::format ("Version %1%.%2% %3% network") % NANO_VERSION_MAJOR % NANO_VERSION_MINOR % network).c_str ());
 	self_layout->addWidget (your_account_label);
 	self_layout->addStretch ();
 	self_layout->addWidget (version);
