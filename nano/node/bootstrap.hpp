@@ -172,6 +172,7 @@ public:
 	nano::block_hash expected;
 	nano::pull_info pull;
 	uint64_t total_blocks;
+	uint64_t unexpected_count;
 };
 class bootstrap_client : public std::enable_shared_from_this<bootstrap_client>
 {
