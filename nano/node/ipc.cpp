@@ -18,17 +18,36 @@
 #include <thread>
 
 using namespace boost::log;
-
-std::string nano::error_ipc_messages::message (int error_code_a) const
+namespace
 {
-	switch (static_cast<nano::error_ipc> (error_code_a))
-	{
-		case nano::error_ipc::generic:
-			return "Unknown error";
-		case nano::error_ipc::invalid_preamble:
-			return "Invalid preamble";
-	}
-	return "Invalid error";
+/**
+ * Payload encodings; add protobuf, flatbuffers and so on as needed.
+ */
+enum class payload_encoding : uint8_t
+{
+	/**
+	 * json_legacy request format is: preamble followed by 32-bit BE payload length.
+	 * Response is 32-bit BE payload length followed by payload.
+	 */
+	json_legacy = 1
+};
+
+/**
+ * The IPC framing format is preamble followed by an encoding specific payload.
+ * Preamble is uint8_t {'N', encoding_type, reserved, reserved}. Reserved bytes must be zero.
+ * @note This is intentionally not an enum class as the values are only used as vector indices.
+ */
+enum preamble_offset
+{
+	/** Always 'N' */
+	lead = 0,
+	/** One of the payload_encoding values */
+	encoding = 1,
+	/** Always zero */
+	reserved_1 = 2,
+	/** Always zero */
+	reserved_2 = 3,
+};
 }
 nano::error nano::ipc::ipc_config::serialize_json (nano::jsonconfig & json) const
 {
@@ -45,7 +64,7 @@ nano::error nano::ipc::ipc_config::serialize_json (nano::jsonconfig & json) cons
 	domain_l.put ("enable", transport_domain.enabled);
 	domain_l.put ("path", transport_domain.path);
 	domain_l.put ("io_timeout", transport_domain.io_timeout);
-	json.put_child ("domain", domain_l);
+	json.put_child ("local", domain_l);
 	return json.get_error ();
 }
 
@@ -83,7 +102,7 @@ public:
 	session (nano::ipc::ipc_server & server_a, boost::asio::io_context & io_context_a, nano::ipc::ipc_config_transport & config_transport_a) :
 	server (server_a), node (server_a.node), session_id (server_a.id_dispenser.fetch_add (1)), io_context (io_context_a), socket (io_context_a), io_timer (io_context_a), config_transport (config_transport_a)
 	{
-		if (node.config.logging.log_rpc ())
+		if (node.config.logging.log_ipc ())
 		{
 			BOOST_LOG (node.log) << "IPC: created session with id: " << session_id;
 		}
@@ -91,7 +110,7 @@ public:
 
 	~session ()
 	{
-		if (node.config.logging.log_rpc ())
+		if (node.config.logging.log_ipc ())
 		{
 			BOOST_LOG (node.log) << "IPC: ended session with id: " << session_id;
 		}
@@ -127,7 +146,10 @@ public:
 		[this_l, callback_a](boost::system::error_code const & ec, size_t bytes_transferred_a) {
 			if (ec == boost::asio::error::connection_aborted || ec == boost::asio::error::connection_reset)
 			{
-				BOOST_LOG (this_l->node.log) << boost::str (boost::format ("IPC: error reading %1% ") % ec.message ());
+				if (this_l->node.config.logging.log_ipc ())
+				{
+					BOOST_LOG (this_l->node.log) << boost::str (boost::format ("IPC: error reading %1% ") % ec.message ());
+				}
 			}
 			else if (bytes_transferred_a > 0)
 			{
@@ -138,7 +160,6 @@ public:
 
 	/**
 	 * Write callback. If no error occurs, the session starts waiting for another request.
-	 * Clients are expected to implement reconnect logic.
 	 */
 	void handle_write (const boost::system::error_code & error_a, size_t bytes_transferred_a)
 	{
@@ -147,13 +168,13 @@ public:
 		{
 			read_next_request ();
 		}
-		else
+		else if (node.config.logging.log_ipc ())
 		{
 			BOOST_LOG (node.log) << "IPC: Write failed: " << error_a.message ();
 		}
 	}
 
-	/** Handler for payloads of type nano::ipc_encoding::json_legacy */
+	/** Handler for payload_encoding::json_legacy */
 	void rpc_handle_query ()
 	{
 		session_timer.restart ();
@@ -181,13 +202,13 @@ public:
 				{
 					this_l->read_next_request ();
 				}
-				else
+				else if (this_l->node.config.logging.log_ipc ())
 				{
 					BOOST_LOG (this_l->node.log) << "IPC: Write failed: " << error_a.message ();
 				}
 			});
 
-			if (this_l->node.config.logging.log_rpc ())
+			if (this_l->node.config.logging.log_ipc ())
 			{
 				BOOST_LOG (this_l->node.log) << boost::str (boost::format ("IPC/RPC request %1% completed in: %2% %3%") % request_id_l % this_l->session_timer.stop ().count () % this_l->session_timer.unit ());
 			}
@@ -206,27 +227,30 @@ public:
 	{
 		auto this_l = this->shared_from_this ();
 
-		// Await next request indefinitely.
-		// The request format is four bytes; ['N', payload-type, reserved, reserved]
+		// Await next request indefinitely. The request format is as follows:
+		//    u8['N', payload-type, reserved, reserved] <type-specific payload>
 		buffer.resize (sizeof (buffer_size));
 		async_read_exactly (buffer.data (), buffer.size (), std::chrono::seconds::max (), [this_l]() {
-			if (this_l->buffer[0] != 'N')
+			if (this_l->buffer[preamble_offset::lead] != 'N' || this_l->buffer[preamble_offset::reserved_1] != 0 || this_l->buffer[preamble_offset::reserved_2] != 0)
 			{
-				BOOST_LOG (this_l->node.log) << "IPC: Invalid preamble";
+				if (this_l->node.config.logging.log_ipc ())
+				{
+					BOOST_LOG (this_l->node.log) << "IPC: Invalid preamble";
+				}
 			}
-			else if (this_l->buffer[1] == static_cast<uint8_t> (nano::ipc_encoding::json_legacy))
+			else if (this_l->buffer[preamble_offset::encoding] == static_cast<uint8_t> (payload_encoding::json_legacy))
 			{
-				// Length of query
+				// Length of payload
 				this_l->async_read_exactly (&this_l->buffer_size, sizeof (this_l->buffer_size), [this_l]() {
 					boost::endian::big_to_native_inplace (this_l->buffer_size);
 					this_l->buffer.resize (this_l->buffer_size);
-					// Query
+					// Payload (ptree compliant JSON string)
 					this_l->async_read_exactly (this_l->buffer.data (), this_l->buffer_size, [this_l]() {
 						this_l->rpc_handle_query ();
 					});
 				});
 			}
-			else
+			else if (this_l->node.config.logging.log_ipc ())
 			{
 				BOOST_LOG (this_l->node.log) << "IPC: Unsupported payload encoding";
 			}
@@ -262,7 +286,10 @@ protected:
 	void timer_expired ()
 	{
 		close ();
-		BOOST_LOG (node.log) << "IPC: IO timeout";
+		if (node.config.logging.log_ipc ())
+		{
+			BOOST_LOG (node.log) << "IPC: IO timeout";
+		}
 	}
 
 	void timer_cancel ()
@@ -283,8 +310,7 @@ private:
 
 	/**
 	 * IO context from node, or per-transport, depending on configuration.
-	 * Certain transport configurations (tcp+ssl) may scale better if they use a
-	 * separate context.
+	 * Certain transports may scale better if they use a separate context.
 	 */
 	boost::asio::io_context & io_context;
 
@@ -350,7 +376,7 @@ public:
 			}
 			else
 			{
-				BOOST_LOG (server.node.log) << "IPC acceptor error: " << ec.message ();
+				BOOST_LOG (server.node.log) << "IPC: acceptor error: " << ec.message ();
 			}
 
 			if (acceptor->is_open () && ec != boost::asio::error::operation_aborted)

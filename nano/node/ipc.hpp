@@ -15,24 +15,6 @@ class rpc;
 
 namespace nano
 {
-/** IPC errors. Do not change or reuse enum values as these propagate to clients. */
-enum class error_ipc
-{
-	generic = 1,
-	invalid_preamble = 2,
-};
-
-/**
- * Payload encodings; add protobuf, flatbuffers and so on as needed.
- * The IPC framing format is preamble followed by an encoding specific payload.
- * Preamble is uint8_t {'N', encoding_type, reserved, reserved}. Reserved bytes must be zero.
- */
-enum class ipc_encoding : uint8_t
-{
-	/** json_legacy request format is: preamble followed by 32-bit BE payload length. Response is 32-bit BE payload length followed by payload. */
-	json_legacy = 1
-};
-
 namespace ipc
 {
 	/** Removes domain socket files on startup and shutdown */
@@ -78,7 +60,6 @@ namespace ipc
 	class ipc_config
 	{
 	public:
-		/** Reads the JSON "ipc" node from the config, if present */
 		nano::error deserialize_json (nano::jsonconfig & json_a);
 		nano::error serialize_json (nano::jsonconfig & json) const;
 		ipc_config_domain_socket transport_domain;
@@ -106,5 +87,3 @@ namespace ipc
 	};
 }
 }
-
-REGISTER_ERROR_CODES (nano, error_ipc)
