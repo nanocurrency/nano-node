@@ -6,6 +6,8 @@
 #include <chrono>
 #include <map>
 #include <memory>
+#include <nano/lib/errors.hpp>
+#include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/utility.hpp>
 #include <string>
 #include <unordered_map>
@@ -23,7 +25,7 @@ class stat_config
 {
 public:
 	/** Reads the JSON statistics node */
-	bool deserialize_json (boost::property_tree::ptree & tree_a);
+	nano::error deserialize_json (nano::jsonconfig & json);
 
 	/** If true, sampling of counters is enabled */
 	bool sampling_enabled{ false };

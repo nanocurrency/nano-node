@@ -22,6 +22,7 @@ add_library (nano_lib
 	config.hpp
 	interface.cpp
 	interface.h
+	jsonconfig.hpp
 	numbers.cpp
 	numbers.hpp
 	timer.hpp
