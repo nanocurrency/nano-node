@@ -597,7 +597,7 @@ void nano::bulk_pull_client::received_block (boost::system::error_code const & e
 				/* Process block in lazy pull if not stopped
 				Stop usual pull request with unexpected block & more than 16k blocks processed
 				to prevent spam */
-				if (connection->attempt->lazy_mode || unexpected_count < 16384)
+				if (connection->attempt->mode != nano::bootstrap_mode::legacy || unexpected_count < 16384)
 				{
 					receive_block ();
 				}
