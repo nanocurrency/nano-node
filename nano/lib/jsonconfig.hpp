@@ -40,12 +40,13 @@ template <> inline std::string type_desc<boost::asio::ip::address_v6> (void) { r
 class jsonconfig : public nano::error_aware<>
 {
 public:
-	jsonconfig ()
+	jsonconfig () :
+	tree (tree_default)
 	{
 		error = std::make_shared<nano::error> ();
 	}
 
-	jsonconfig (boost::property_tree::ptree const & tree_a, std::shared_ptr<nano::error> error_a = nullptr) :
+	jsonconfig (boost::property_tree::ptree & tree_a, std::shared_ptr<nano::error> error_a = nullptr) :
 	tree (tree_a), error (error_a)
 	{
 		if (!error)
@@ -141,49 +142,26 @@ public:
 		return tree.empty ();
 	}
 
-	/** Optionally returns the given child node */
-	jsonconfig & get_optional_child (std::string const & key_a, boost::optional<jsonconfig> & child_config)
-	{
-		auto child = tree.get_child_optional (key_a);
-		if (child)
-		{
-			child_config = jsonconfig (child.get (), error);
-		}
-		return *this;
-	}
-
 	boost::optional<jsonconfig> get_optional_child (std::string const & key_a)
 	{
 		boost::optional<jsonconfig> child_config;
 		auto child = tree.get_child_optional (key_a);
 		if (child)
 		{
-			child_config = jsonconfig (child.get (), error);
+			return jsonconfig (child.get (), error);
 		}
 		return child_config;
-	}
-
-	jsonconfig & get_required_child (std::string const & key_a, jsonconfig & child_config /*out*/)
-	{
-		auto child = tree.get_child_optional (key_a);
-		if (child)
-		{
-			child_config = jsonconfig (child.get (), error);
-		}
-		else if (!*error)
-		{
-			*error = nano::error_config::missing_value;
-			error->set_message ("Missing configuration node: " + key_a);
-		}
-
-		return *this;
 	}
 
 	jsonconfig get_required_child (std::string const & key_a)
 	{
-		jsonconfig child_config;
-		get_required_child (key_a, child_config);
-		return child_config;
+		auto child = tree.get_child_optional (key_a);
+		if (!child)
+		{
+			*error = nano::error_config::missing_value;
+			error->set_message ("Missing configuration node: " + key_a);
+		}
+		return child ? jsonconfig (child.get (), error) : *this;
 	}
 
 	jsonconfig & put_child (std::string const & key_a, nano::jsonconfig & conf_a)
@@ -476,8 +454,8 @@ protected:
 
 private:
 	/** The property node being managed */
-	boost::property_tree::ptree tree;
-
+	boost::property_tree::ptree & tree;
+	boost::property_tree::ptree tree_default;
 	/** If set, automatically construct error messages based on parameters and type information. */
 	bool auto_error_message{ true };
 

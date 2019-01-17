@@ -72,8 +72,7 @@ nano::error nano::rpc_config::serialize_json (nano::jsonconfig & json) const
 
 nano::error nano::rpc_config::deserialize_json (nano::jsonconfig & json)
 {
-	boost::optional<nano::jsonconfig> rpc_secure_l;
-	json.get_optional_child ("secure", rpc_secure_l);
+	auto rpc_secure_l (json.get_optional_child ("secure"));
 	if (rpc_secure_l)
 	{
 		secure.deserialize_json (*rpc_secure_l);
@@ -1462,7 +1461,7 @@ void nano::rpc_handler::confirmation_info ()
 	const bool representatives = request.get<bool> ("representatives", false);
 	const bool contents = request.get<bool> ("contents", true);
 	std::string root_text (request.get<std::string> ("root"));
-	nano::block_hash root;
+	nano::uint512_union root;
 	if (!root.decode_hex (root_text))
 	{
 		std::lock_guard<std::mutex> lock (node.active.mutex);
@@ -3187,7 +3186,7 @@ void nano::rpc_handler::wallet_change_seed ()
 		nano::raw_key seed;
 		if (!seed.data.decode_hex (seed_text))
 		{
-			auto count (count_optional_impl ());
+			auto count (count_optional_impl (0));
 			auto transaction (node.store.tx_begin_write ());
 			if (wallet->store.valid_password (transaction))
 			{
