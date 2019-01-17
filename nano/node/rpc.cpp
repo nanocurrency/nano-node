@@ -2953,7 +2953,7 @@ void nano::rpc_handler::sign ()
 		ec = nano::error_blocks::invalid_block;
 	}
 	// Hash is initialized without config permission
-	else if (!ec && !hash.is_zero && block == nullptr && !rpc.config.enable_sign_hash)
+	else if (!ec && !hash.is_zero () && block == nullptr && !rpc.config.enable_sign_hash)
 	{
 		ec = nano::error_rpc::sign_hash_disabled;
 	}

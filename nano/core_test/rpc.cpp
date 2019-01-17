@@ -4019,7 +4019,8 @@ TEST (rpc, sign_hash)
 		system.poll ();
 	}
 	ASSERT_EQ (200, response.status);
-	ASSERT_EQ (response.json.get<std::string> ("error"), (nano::error_rpc::sign_hash_disabled).message ());
+	std::error_code ec (nano::error_rpc::sign_hash_disabled);
+	ASSERT_EQ (response.json.get<std::string> ("error"), ec.message ());
 	rpc.config.enable_sign_hash = true;
 	test_response response2 (request, rpc, system.io_ctx);
 	while (response2.status == 0)
