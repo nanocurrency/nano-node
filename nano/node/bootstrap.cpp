@@ -1713,6 +1713,7 @@ void nano::bootstrap_attempt::wallet_run ()
 		// Start lazy bootstrap if some lazy keys were inserted
 		if (!lazy_keys.empty ())
 		{
+			runs_count++;
 			lock.unlock ();
 			lazy_run ();
 			lock.lock ();
