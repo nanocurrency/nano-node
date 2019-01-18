@@ -6,6 +6,7 @@
 #include <boost/property_tree/ptree.hpp>
 #include <boost/thread.hpp>
 #include <nano/core_test/testutil.hpp>
+#include <nano/lib/jsonconfig.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/rpc.hpp>
 #include <nano/node/testing.hpp>
@@ -1578,7 +1579,7 @@ TEST (rpc_config, serialization)
 	config1.enable_control = true;
 	config1.frontier_request_limit = 8192;
 	config1.chain_request_limit = 4096;
-	boost::property_tree::ptree tree;
+	nano::jsonconfig tree;
 	config1.serialize_json (tree);
 	nano::rpc_config config2;
 	ASSERT_NE (config2.address, config1.address);
@@ -2161,9 +2162,10 @@ TEST (rpc, wallet_change_seed)
 	request.put ("wallet", system0.nodes[0]->wallets.items.begin ()->first.to_string ());
 	request.put ("seed", seed.pub.to_string ());
 	test_response response (request, rpc, system0.io_ctx);
+	system0.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system0.poll ();
+		ASSERT_NO_ERROR (system0.poll ());
 	}
 	ASSERT_EQ (200, response.status);
 	{

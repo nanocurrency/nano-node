@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include <nano/core_test/testutil.hpp>
+#include <nano/lib/jsonconfig.hpp>
 #include <nano/node/testing.hpp>
 #include <nano/node/working.hpp>
 
@@ -193,7 +194,7 @@ TEST (node, node_receive_quorum)
 	auto done (false);
 	while (!done)
 	{
-		auto info (system.nodes[0]->active.roots.find (previous));
+		auto info (system.nodes[0]->active.roots.find (nano::uint512_union (previous, previous)));
 		ASSERT_NE (system.nodes[0]->active.roots.end (), info);
 		done = info->election->announcements > nano::active_transactions::announcement_min;
 		ASSERT_NO_ERROR (system.poll ());
@@ -428,7 +429,7 @@ TEST (logging, serialization)
 	logging1.work_generation_time_value = !logging1.work_generation_time_value;
 	logging1.log_to_cerr_value = !logging1.log_to_cerr_value;
 	logging1.max_size = 10;
-	boost::property_tree::ptree tree;
+	nano::jsonconfig tree;
 	logging1.serialize_json (tree);
 	nano::logging logging2;
 	logging2.init (path);
@@ -460,7 +461,7 @@ TEST (logging, upgrade_v1_v2)
 	logging1.init (path1);
 	nano::logging logging2;
 	logging2.init (path2);
-	boost::property_tree::ptree tree;
+	nano::jsonconfig tree;
 	logging1.serialize_json (tree);
 	tree.erase ("version");
 	tree.erase ("vote");
@@ -483,6 +484,16 @@ TEST (node, price)
 	ASSERT_EQ (0, price4);
 }
 
+TEST (node, confirm_locked)
+{
+	nano::system system (24000, 1);
+	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
+	auto transaction (system.nodes[0]->store.tx_begin ());
+	system.wallet (0)->enter_password (transaction, "1");
+	auto block (std::make_shared<nano::send_block> (0, 0, 0, nano::keypair ().prv, 0, 0));
+	system.nodes[0]->network.republish_block (block);
+}
+
 TEST (node_config, serialization)
 {
 	auto path (nano::unique_path ());
@@ -499,7 +510,7 @@ TEST (node_config, serialization)
 	config1.callback_port = 10;
 	config1.callback_target = "test";
 	config1.lmdb_max_dbs = 256;
-	boost::property_tree::ptree tree;
+	nano::jsonconfig tree;
 	config1.serialize_json (tree);
 	nano::logging logging2;
 	logging2.init (path);
@@ -541,27 +552,27 @@ TEST (node_config, v1_v2_upgrade)
 	auto path (nano::unique_path ());
 	nano::logging logging1;
 	logging1.init (path);
-	boost::property_tree::ptree tree;
+	nano::jsonconfig tree;
 	tree.put ("peering_port", std::to_string (0));
 	tree.put ("packet_delay_microseconds", std::to_string (0));
 	tree.put ("bootstrap_fraction_numerator", std::to_string (0));
 	tree.put ("creation_rebroadcast", std::to_string (0));
 	tree.put ("rebroadcast_delay", std::to_string (0));
 	tree.put ("receive_minimum", nano::amount (0).to_string_dec ());
-	boost::property_tree::ptree logging_l;
+	nano::jsonconfig logging_l;
 	logging1.serialize_json (logging_l);
-	tree.add_child ("logging", logging_l);
-	boost::property_tree::ptree preconfigured_peers_l;
-	tree.add_child ("preconfigured_peers", preconfigured_peers_l);
-	boost::property_tree::ptree preconfigured_representatives_l;
-	tree.add_child ("preconfigured_representatives", preconfigured_representatives_l);
+	tree.put_child ("logging", logging_l);
+	nano::jsonconfig preconfigured_peers_l;
+	tree.put_child ("preconfigured_peers", preconfigured_peers_l);
+	nano::jsonconfig preconfigured_representatives_l;
+	tree.put_child ("preconfigured_representatives", preconfigured_representatives_l);
 	bool upgraded (false);
 	nano::node_config config1;
 	config1.logging.init (path);
-	ASSERT_FALSE (tree.get_child_optional ("work_peers"));
+	ASSERT_FALSE (tree.get_optional_child ("work_peers"));
 	config1.deserialize_json (upgraded, tree);
 	ASSERT_TRUE (upgraded);
-	ASSERT_TRUE (!!tree.get_child_optional ("work_peers"));
+	ASSERT_TRUE (!!tree.get_optional_child ("work_peers"));
 }
 
 TEST (node_config, v2_v3_upgrade)
@@ -569,7 +580,7 @@ TEST (node_config, v2_v3_upgrade)
 	auto path (nano::unique_path ());
 	nano::logging logging1;
 	logging1.init (path);
-	boost::property_tree::ptree tree;
+	nano::jsonconfig tree;
 	tree.put ("peering_port", std::to_string (0));
 	tree.put ("packet_delay_microseconds", std::to_string (0));
 	tree.put ("bootstrap_fraction_numerator", std::to_string (0));
@@ -577,18 +588,16 @@ TEST (node_config, v2_v3_upgrade)
 	tree.put ("rebroadcast_delay", std::to_string (0));
 	tree.put ("receive_minimum", nano::amount (0).to_string_dec ());
 	tree.put ("version", "2");
-	boost::property_tree::ptree logging_l;
+	nano::jsonconfig logging_l;
 	logging1.serialize_json (logging_l);
-	tree.add_child ("logging", logging_l);
-	boost::property_tree::ptree preconfigured_peers_l;
-	tree.add_child ("preconfigured_peers", preconfigured_peers_l);
-	boost::property_tree::ptree preconfigured_representatives_l;
-	boost::property_tree::ptree entry;
-	entry.put ("", "TR6ZJ4pdp6HC76xMRpVDny5x2s8AEbrhFue3NKVxYYdmKuTEib");
-	preconfigured_representatives_l.push_back (std::make_pair ("", entry));
-	tree.add_child ("preconfigured_representatives", preconfigured_representatives_l);
-	boost::property_tree::ptree work_peers_l;
-	tree.add_child ("work_peers", work_peers_l);
+	tree.put_child ("logging", logging_l);
+	nano::jsonconfig preconfigured_peers_l;
+	tree.put_child ("preconfigured_peers", preconfigured_peers_l);
+	nano::jsonconfig preconfigured_representatives_l;
+	preconfigured_representatives_l.push ("TR6ZJ4pdp6HC76xMRpVDny5x2s8AEbrhFue3NKVxYYdmKuTEib");
+	tree.put_child ("preconfigured_representatives", preconfigured_representatives_l);
+	nano::jsonconfig work_peers_l;
+	tree.put_child ("work_peers", work_peers_l);
 	bool upgraded (false);
 	nano::node_config config1;
 	config1.logging.init (path);
@@ -606,14 +615,24 @@ TEST (node_config, v2_v3_upgrade)
 	ASSERT_GT (std::stoull (version), 2);
 }
 
-TEST (node, confirm_locked)
+// Regression test to ensure that deserializing includes changes node via get_required_child
+TEST (node_config, required_child)
 {
-	nano::system system (24000, 1);
-	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
-	auto transaction (system.nodes[0]->store.tx_begin ());
-	system.wallet (0)->enter_password (transaction, "1");
-	auto block (std::make_shared<nano::send_block> (0, 0, 0, nano::keypair ().prv, 0, 0));
-	system.nodes[0]->network.republish_block (block);
+	auto path (nano::unique_path ());
+	nano::logging logging1;
+	nano::logging logging2;
+	logging1.init (path);
+	nano::jsonconfig tree;
+
+	nano::jsonconfig logging_l;
+	logging1.serialize_json (logging_l);
+	tree.put_child ("logging", logging_l);
+	auto child_l (tree.get_required_child ("logging"));
+	child_l.put<bool> ("flush", !logging1.flush);
+	bool upgraded;
+	logging2.deserialize_json (upgraded, child_l);
+
+	ASSERT_NE (logging1.flush, logging2.flush);
 }
 
 TEST (node_config, random_rep)
@@ -624,6 +643,82 @@ TEST (node_config, random_rep)
 	nano::node_config config1 (100, logging1);
 	auto rep (config1.random_representative ());
 	ASSERT_NE (config1.preconfigured_representatives.end (), std::find (config1.preconfigured_representatives.begin (), config1.preconfigured_representatives.end (), rep));
+}
+
+class json_initial_value_test
+{
+public:
+	json_initial_value_test (std::string text_a) :
+	text (std::move (text_a))
+	{
+	}
+	nano::error serialize_json (nano::jsonconfig & json)
+	{
+		json.put ("thing", text);
+		return json.get_error ();
+	}
+	std::string text;
+};
+
+class json_upgrade_test
+{
+public:
+	nano::error deserialize_json (bool & upgraded, nano::jsonconfig & json)
+	{
+		if (!json.empty ())
+		{
+			auto text_l (json.get<std::string> ("thing"));
+			if (text_l == "junktest" || text_l == "created")
+			{
+				upgraded = true;
+				text_l = "changed";
+				json.put ("thing", text_l);
+			}
+			if (text_l == "error")
+			{
+				json.get_error () = nano::error_common::generic;
+			}
+			text = text_l;
+		}
+		else
+		{
+			upgraded = true;
+			text = "created";
+			json.put ("thing", text);
+		}
+		return json.get_error ();
+	}
+	std::string text;
+};
+
+/** Both create and upgrade via read_and_update() */
+TEST (json, create_and_upgrade)
+{
+	auto path (nano::unique_path ());
+	nano::jsonconfig json;
+	json_upgrade_test object1;
+	ASSERT_FALSE (json.read_and_update (object1, path));
+	ASSERT_EQ ("created", object1.text);
+
+	nano::jsonconfig json2;
+	json_upgrade_test object2;
+	ASSERT_FALSE (json2.read_and_update (object2, path));
+	ASSERT_EQ ("changed", object2.text);
+}
+
+/** Create config manually, then upgrade via read_and_update() with multiple calls to test idempotence */
+TEST (json, upgrade_from_existing)
+{
+	auto path (nano::unique_path ());
+	nano::jsonconfig json;
+	json_initial_value_test junktest ("junktest");
+	junktest.serialize_json (json);
+	json.write (path);
+	json_upgrade_test object1;
+	ASSERT_FALSE (json.read_and_update (object1, path));
+	ASSERT_EQ ("changed", object1.text);
+	ASSERT_FALSE (json.read_and_update (object1, path));
+	ASSERT_EQ ("changed", object1.text);
 }
 
 TEST (node, fork_publish)
@@ -644,7 +739,7 @@ TEST (node, fork_publish)
 		node1.process_active (send1);
 		node1.block_processor.flush ();
 		ASSERT_EQ (1, node1.active.roots.size ());
-		auto existing (node1.active.roots.find (send1->root ()));
+		auto existing (node1.active.roots.find (nano::uint512_union (send1->previous (), send1->root ())));
 		ASSERT_NE (node1.active.roots.end (), existing);
 		auto election (existing->election);
 		auto transaction (node1.store.tx_begin ());
@@ -686,7 +781,7 @@ TEST (node, fork_keep)
 	node1.block_processor.flush ();
 	node2.process_active (send2);
 	node2.block_processor.flush ();
-	auto conflict (node2.active.roots.find (genesis.hash ()));
+	auto conflict (node2.active.roots.find (nano::uint512_union (genesis.hash (), genesis.hash ())));
 	ASSERT_NE (node2.active.roots.end (), conflict);
 	auto votes1 (conflict->election);
 	ASSERT_NE (nullptr, votes1);
@@ -737,7 +832,7 @@ TEST (node, fork_flip)
 	node1.block_processor.flush ();
 	node2.process_message (publish1, node2.network.endpoint ());
 	node2.block_processor.flush ();
-	auto conflict (node2.active.roots.find (genesis.hash ()));
+	auto conflict (node2.active.roots.find (nano::uint512_union (genesis.hash (), genesis.hash ())));
 	ASSERT_NE (node2.active.roots.end (), conflict);
 	auto votes1 (conflict->election);
 	ASSERT_NE (nullptr, votes1);
@@ -795,7 +890,7 @@ TEST (node, fork_multi_flip)
 	node1.block_processor.flush ();
 	node2.process_message (publish1, node2.network.endpoint ());
 	node2.block_processor.flush ();
-	auto conflict (node2.active.roots.find (genesis.hash ()));
+	auto conflict (node2.active.roots.find (nano::uint512_union (genesis.hash (), genesis.hash ())));
 	ASSERT_NE (node2.active.roots.end (), conflict);
 	auto votes1 (conflict->election);
 	ASSERT_NE (nullptr, votes1);
@@ -923,7 +1018,7 @@ TEST (node, fork_open_flip)
 	node1.block_processor.flush ();
 	node2.process_active (open1);
 	node2.block_processor.flush ();
-	auto conflict (node2.active.roots.find (open1->root ()));
+	auto conflict (node2.active.roots.find (nano::uint512_union (open1->previous (), open1->root ())));
 	ASSERT_NE (node2.active.roots.end (), conflict);
 	auto votes1 (conflict->election);
 	ASSERT_NE (nullptr, votes1);
@@ -1201,7 +1296,7 @@ TEST (node, rep_self_vote)
 	ASSERT_EQ (nano::process_result::progress, node0->process (*block0).code);
 	auto & active (node0->active);
 	active.start (block0);
-	auto existing (active.roots.find (block0->root ()));
+	auto existing (active.roots.find (nano::uint512_union (block0->previous (), block0->root ())));
 	ASSERT_NE (active.roots.end (), existing);
 	auto transaction (node0->store.tx_begin ());
 	existing->election->compute_rep_votes (transaction);
@@ -1628,7 +1723,7 @@ TEST (node, confirm_quorum)
 	while (!done)
 	{
 		ASSERT_FALSE (system.nodes[0]->active.roots.empty ());
-		auto info (system.nodes[0]->active.roots.find (send1->hash ()));
+		auto info (system.nodes[0]->active.roots.find (nano::uint512_union (send1->hash (), send1->hash ())));
 		ASSERT_NE (system.nodes[0]->active.roots.end (), info);
 		done = info->election->announcements > nano::active_transactions::announcement_min;
 		ASSERT_NO_ERROR (system.poll ());
@@ -1898,6 +1993,31 @@ TEST (node, block_processor_reject_state)
 	node.process_active (send2);
 	node.block_processor.flush ();
 	ASSERT_TRUE (node.ledger.block_exists (send2->hash ()));
+}
+
+TEST (node, block_processor_reject_rolled_back)
+{
+	nano::system system (24000, 1);
+	auto & node (*system.nodes[0]);
+	nano::genesis genesis;
+	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
+	node.work_generate_blocking (*send1);
+	node.block_processor.add (send1, std::chrono::steady_clock::time_point ());
+	node.block_processor.flush ();
+	ASSERT_TRUE (node.ledger.block_exists (send1->hash ()));
+	auto send2 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - 2 * nano::Gxrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
+	node.work_generate_blocking (*send2);
+	// Force block send2 & rolling back block send1
+	node.block_processor.force (send2);
+	node.block_processor.flush ();
+	ASSERT_FALSE (node.ledger.block_exists (send1->hash ()));
+	ASSERT_TRUE (node.ledger.block_exists (send2->hash ()));
+	ASSERT_TRUE (node.active.roots.empty ());
+	// Block send1 cannot be processed & start fork resolution election
+	node.block_processor.add (send1, std::chrono::steady_clock::time_point ());
+	node.block_processor.flush ();
+	ASSERT_FALSE (node.ledger.block_exists (send1->hash ()));
+	ASSERT_TRUE (node.active.roots.empty ());
 }
 
 TEST (node, confirm_back)
