@@ -505,7 +505,7 @@ void nano::network::send_confirm_req (nano::endpoint const & endpoint_a, std::sh
 	});
 }
 
-void nano::network::send_confirm_req_hashes (nano::endpoint const & endpoint_a, std::vector<std::pair<nano::block_hash, nano::block_hash>> const & roots_hashes_a)
+void nano::network::send_confirm_req_hashes (nano::endpoint const & endpoint_a, std::vector<std::pair<nano::block_hash, nano::uint512_union>> const & roots_hashes_a)
 {
 	nano::confirm_req message (roots_hashes_a);
 	std::shared_ptr<std::vector<uint8_t>> bytes (new std::vector<uint8_t>);
@@ -625,12 +625,8 @@ public:
 				auto successor (node.ledger.successor (transaction, nano::uint512_union (message_a.block->previous (), message_a.block->root ())));
 				if (successor != nullptr)
 				{
-					auto successor (node.ledger.successor (transaction, message_a.block->root ()));
-					if (successor != nullptr)
-					{
-						auto same_block (successor->hash () == message_a.block->hash ());
-						confirm_block (transaction, node, sender, std::move (successor), !same_block);
-					}
+					auto same_block (successor->hash () == message_a.block->hash ());
+					confirm_block (transaction, node, sender, std::move (successor), !same_block);
 				}
 			}
 			else if (!message_a.roots_hashes.empty ())
@@ -3423,7 +3419,7 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 	auto transaction (node.store.tx_begin_read ());
 	unsigned unconfirmed_count (0);
 	unsigned unconfirmed_announcements (0);
-	std::unordered_map<nano::endpoint, std::vector<std::pair<nano::block_hash, nano::block_hash>>> requests_bundle;
+	std::unordered_map<nano::endpoint, std::vector<std::pair<nano::block_hash, nano::uint512_union>>> requests_bundle;
 	std::deque<std::shared_ptr<nano::block>> rebroadcast_bundle;
 	std::deque<std::pair<std::shared_ptr<nano::block>, std::shared_ptr<std::vector<nano::peer_information>>>> confirm_req_bundle;
 
@@ -3561,7 +3557,7 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 							auto root_hash (std::make_pair (block->hash (), nano::uint512_union (block->previous (), block->root ())));
 							if (rep_request == requests_bundle.end ())
 							{
-								std::vector<std::pair<nano::block_hash, nano::block_hash>> insert_vector (1, root_hash);
+								std::vector<std::pair<nano::block_hash, nano::uint512_union>> insert_vector (1, root_hash);
 								if (requests_bundle.size () < max_broadcast_queue * 2)
 								{
 									requests_bundle.insert (std::make_pair (j->endpoint, insert_vector));
@@ -3589,7 +3585,7 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 							auto root_hash (std::make_pair (block->hash (), nano::uint512_union (block->previous (), block->root ())));
 							if (rep_request == requests_bundle.end ())
 							{
-								std::vector<std::pair<nano::block_hash, nano::block_hash>> insert_vector (1, root_hash);
+								std::vector<std::pair<nano::block_hash, nano::uint512_union>> insert_vector (1, root_hash);
 								requests_bundle.insert (std::make_pair (j->endpoint, insert_vector));
 							}
 							else

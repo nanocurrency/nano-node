@@ -474,7 +474,7 @@ bool nano::confirm_req::deserialize (nano::stream & stream_a, nano::block_unique
 	{
 		uint8_t count (0);
 		result = read (stream_a, count);
-		std::bitset<count> roots_previous;
+		bool roots_previous[32] = { false };
 		result = read (stream_a, roots_previous);
 		for (auto i (0); i != count && !result; ++i)
 		{
@@ -487,7 +487,7 @@ bool nano::confirm_req::deserialize (nano::stream & stream_a, nano::block_unique
 				if (!result && !root.is_zero ())
 				{
 					nano::uint512_union root_uint512 (roots_previous[i] ? root : 0, root);
-					roots_hashes.push_back (std::make_pair (block_hash, root));
+					roots_hashes.push_back (std::make_pair (block_hash, root_uint512));
 				}
 			}
 		}
@@ -521,7 +521,7 @@ void nano::confirm_req::serialize (nano::stream & stream_a) const
 		/* Calculate uint512_union roots status
 		true = previous == root
 		false = previous == 0 */
-		std::bitset<count> roots_previous;
+		bool roots_previous[32] = { false };
 		for (auto i (0); i != count; ++i)
 		{
 			roots_previous[i] = !roots_hashes[i].second.uint256s[0].is_zero ();
