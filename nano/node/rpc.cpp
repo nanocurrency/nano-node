@@ -2155,7 +2155,7 @@ void nano::rpc_handler::peers ()
 {
 	boost::property_tree::ptree peers_l;
 	const bool deprecated = request.get<bool> ("deprecated", false);
-	auto peers_list (node.peers.list_vector ());
+	auto peers_list (node.peers.list_vector (std::numeric_limits<size_t>::max ()));
 	std::sort (peers_list.begin (), peers_list.end ());
 	for (auto i (peers_list.begin ()), n (peers_list.end ()); i != n; ++i)
 	{

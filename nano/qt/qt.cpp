@@ -1901,7 +1901,7 @@ wallet (wallet_a)
 void nano_qt::advanced_actions::refresh_peers ()
 {
 	peers_model->removeRows (0, peers_model->rowCount ());
-	auto list (wallet.node.peers.list_vector ());
+	auto list (wallet.node.peers.list_vector (std::numeric_limits<size_t>::max ()));
 	std::sort (list.begin (), list.end ());
 	for (auto i (list.begin ()), n (list.end ()); i != n; ++i)
 	{

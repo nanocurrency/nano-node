@@ -44,7 +44,7 @@ public:
 class peer_information
 {
 public:
-	peer_information (nano::endpoint const &, unsigned);
+	peer_information (nano::endpoint const &, unsigned, boost::optional<nano::account> = boost::none);
 	peer_information (nano::endpoint const &, std::chrono::steady_clock::time_point const &, std::chrono::steady_clock::time_point const &);
 	nano::endpoint endpoint;
 	boost::asio::ip::address ip_address;
@@ -73,7 +73,7 @@ public:
 	// Returns true if peer was already known
 	bool known_peer (nano::endpoint const &);
 	// Notify of peer we received from
-	bool insert (nano::endpoint const &, unsigned);
+	bool insert (nano::endpoint const &, unsigned, boost::optional<nano::account> = boost::none);
 	std::unordered_set<nano::endpoint> random_set (size_t);
 	void random_fill (std::array<nano::endpoint, 8> &);
 	// Request a list of the top known representatives
