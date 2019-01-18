@@ -352,7 +352,7 @@ TEST (block, confirm_req_hash_serialization)
 	ASSERT_EQ (req.roots_hashes, req2.roots_hashes);
 }
 
-TEST (block, confirm_req_hash_bacth_serialization)
+TEST (block, confirm_req_hash_batch_serialization)
 {
 	nano::keypair key;
 	nano::keypair representative;
