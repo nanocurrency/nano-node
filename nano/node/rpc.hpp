@@ -8,8 +8,8 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/errors.hpp>
 #include <nano/lib/jsonconfig.hpp>
-#include <nano/secure/utility.hpp>
 #include <nano/secure/blockstore.hpp>
+#include <nano/secure/utility.hpp>
 #include <unordered_map>
 
 namespace nano
