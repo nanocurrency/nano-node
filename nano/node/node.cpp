@@ -1397,7 +1397,7 @@ void nano::block_processor::verify_state_blocks (nano::transaction const & trans
 				item.verified = nano::signature_verification::valid;
 				blocks.push_back (item);
 			}
-			items.pop_front ()
+			items.pop_front ();
 		}
 		if (node.config.logging.timing_logging ())
 		{
