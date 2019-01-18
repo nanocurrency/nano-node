@@ -1152,67 +1152,71 @@ bool rai::block_processor::have_blocks ()
 	return !blocks.empty () || !forced.empty () || !state_blocks.empty ();
 }
 
-void rai::block_processor::verify_state_blocks (std::unique_lock<std::mutex> & lock_a, size_t max_count)
+void rai::block_processor::verify_state_blocks (rai::transaction const & transaction_a, std::unique_lock<std::mutex> & lock_a, size_t max_count)
 {
 	assert (!mutex.try_lock ());
 	auto start_time (std::chrono::steady_clock::now ());
 	std::deque<std::pair<std::shared_ptr<rai::block>, std::chrono::steady_clock::time_point>> items;
-	if (max_count == std::numeric_limits<size_t>::max () || max_count >= state_blocks.size ())
+	for (auto i (0); i < max_count && !state_blocks.empty (); i++)
 	{
-		items.swap (state_blocks);
+		auto item (state_blocks.front ());
+		state_blocks.pop_front ();
+		if (!node.ledger.store.block_exists (transaction_a, item.first->hash ()))
+		{
+			items.push_back (item);
+		}
+	}
+	lock_a.unlock ();
+	if (!items.empty ())
+	{
+		auto size (items.size ());
+		std::vector<rai::uint256_union> hashes;
+		hashes.reserve (size);
+		std::vector<unsigned char const *> messages;
+		messages.reserve (size);
+		std::vector<size_t> lengths;
+		lengths.reserve (size);
+		std::vector<unsigned char const *> pub_keys;
+		pub_keys.reserve (size);
+		std::vector<unsigned char const *> signatures;
+		signatures.reserve (size);
+		std::vector<int> verifications;
+		verifications.resize (size);
+		for (auto i (0); i < size; ++i)
+		{
+			auto & block (static_cast<rai::state_block &> (*items[i].first));
+			hashes.push_back (block.hash ());
+			messages.push_back (hashes.back ().bytes.data ());
+			lengths.push_back (sizeof (decltype (hashes)::value_type));
+			pub_keys.push_back (block.hashables.account.bytes.data ());
+			signatures.push_back (block.signature.bytes.data ());
+		}
+		/* Verifications is vector if signatures check results
+		validate_message_batch returing "true" if there are at least 1 invalid signature */
+		auto code (rai::validate_message_batch (messages.data (), lengths.data (), pub_keys.data (), signatures.data (), size, verifications.data ()));
+		(void)code;
+		lock_a.lock ();
+		for (auto i (0); i < size; ++i)
+		{
+			assert (verifications[i] == 1 || verifications[i] == 0);
+			if (verifications[i] == 1)
+			{
+				blocks.push_back (items.front ());
+			}
+			items.pop_front ();
+		}
+		if (node.config.logging.timing_logging ())
+		{
+			auto end_time (std::chrono::steady_clock::now ());
+			auto elapsed_time_ms (std::chrono::duration_cast<std::chrono::milliseconds> (end_time - start_time));
+			auto elapsed_time_ms_int (elapsed_time_ms.count ());
+
+			BOOST_LOG (node.log) << boost::str (boost::format ("Batch verified %1% state blocks in %2% milliseconds") % size % elapsed_time_ms_int);
+		}
 	}
 	else
 	{
-		auto keep_size (state_blocks.size () - max_count);
-		items.resize (keep_size);
-		std::swap_ranges (state_blocks.end () - keep_size, state_blocks.end (), items.begin ());
-		state_blocks.resize (max_count);
-		items.swap (state_blocks);
-	}
-	lock_a.unlock ();
-	auto size (items.size ());
-	std::vector<rai::uint256_union> hashes;
-	hashes.reserve (size);
-	std::vector<unsigned char const *> messages;
-	messages.reserve (size);
-	std::vector<size_t> lengths;
-	lengths.reserve (size);
-	std::vector<unsigned char const *> pub_keys;
-	pub_keys.reserve (size);
-	std::vector<unsigned char const *> signatures;
-	signatures.reserve (size);
-	std::vector<int> verifications;
-	verifications.resize (size);
-	for (auto i (0); i < size; ++i)
-	{
-		auto & block (static_cast<rai::state_block &> (*items[i].first));
-		hashes.push_back (block.hash ());
-		messages.push_back (hashes.back ().bytes.data ());
-		lengths.push_back (sizeof (decltype (hashes)::value_type));
-		pub_keys.push_back (block.hashables.account.bytes.data ());
-		signatures.push_back (block.signature.bytes.data ());
-	}
-	/* Verifications is vector if signatures check results
-	validate_message_batch returing "true" if there are at least 1 invalid signature */
-	auto code (rai::validate_message_batch (messages.data (), lengths.data (), pub_keys.data (), signatures.data (), size, verifications.data ()));
-	(void)code;
-	lock_a.lock ();
-	for (auto i (0); i < size; ++i)
-	{
-		assert (verifications[i] == 1 || verifications[i] == 0);
-		if (verifications[i] == 1)
-		{
-			blocks.push_back (items.front ());
-		}
-		items.pop_front ();
-	}
-	if (node.config.logging.timing_logging ())
-	{
-		auto end_time (std::chrono::steady_clock::now ());
-		auto elapsed_time_ms (std::chrono::duration_cast<std::chrono::milliseconds> (end_time - start_time));
-		auto elapsed_time_ms_int (elapsed_time_ms.count ());
-
-		BOOST_LOG (node.log) << boost::str (boost::format ("Batch verified %1% state blocks in %2% milliseconds") % size % elapsed_time_ms_int);
+		lock_a.lock ();
 	}
 }
 
@@ -1221,9 +1225,13 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 	lock_a.lock ();
 	auto start_time (std::chrono::steady_clock::now ());
 	// Limit state blocks verification time
-	while (!state_blocks.empty () && std::chrono::steady_clock::now () - start_time < std::chrono::seconds (2))
+	if (!state_blocks.empty ())
 	{
-		verify_state_blocks (lock_a, 2048);
+		auto transaction (node.store.tx_begin_read ());
+		while (!state_blocks.empty () && std::chrono::steady_clock::now () - start_time < std::chrono::seconds (2))
+		{
+			verify_state_blocks (transaction, lock_a, 2048);
+		}
 	}
 	lock_a.unlock ();
 	auto transaction (node.store.tx_begin_write ());
@@ -1307,7 +1315,7 @@ void rai::block_processor::process_receive_many (std::unique_lock<std::mutex> & 
 		Because verification is long process, avoid large deque verification inside of write transaction */
 		if (blocks.empty () && !state_blocks.empty ())
 		{
-			verify_state_blocks (lock_a, 256);
+			verify_state_blocks (transaction, lock_a, 256);
 		}
 	}
 	lock_a.unlock ();
