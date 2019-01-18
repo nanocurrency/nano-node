@@ -474,6 +474,7 @@ bool nano::confirm_req::deserialize (nano::stream & stream_a, nano::block_unique
 	{
 		uint8_t count (0);
 		result = read (stream_a, count);
+		assert (count <= 32);
 		bool roots_previous[32] = { false };
 		result = read (stream_a, roots_previous);
 		for (auto i (0); i != count && !result; ++i)
@@ -518,6 +519,7 @@ void nano::confirm_req::serialize (nano::stream & stream_a) const
 		// Calculate size
 		uint8_t count (roots_hashes.size ());
 		write (stream_a, count);
+		assert (count <= 32);
 		/* Calculate uint512_union roots status
 		true = previous == root
 		false = previous == 0 */
