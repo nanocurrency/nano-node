@@ -221,6 +221,7 @@ public:
 		// bootstrap, callback
 		initiate,
 		initiate_lazy,
+		initiate_wallet_lazy,
 
 		// bootstrap specific
 		bulk_pull,

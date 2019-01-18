@@ -99,9 +99,18 @@ public:
 			{
 				json.get_error ().set ("Invalid account");
 			}
-			node.deserialize_json (upgraded_a, node_l);
-			rpc.deserialize_json (rpc_l);
-			opencl.deserialize_json (opencl_l);
+			if (!node_l.get_error ())
+			{
+				node.deserialize_json (upgraded_a, node_l);
+			}
+			if (!rpc_l.get_error ())
+			{
+				rpc.deserialize_json (rpc_l);
+			}
+			if (!opencl_l.get_error ())
+			{
+				opencl.deserialize_json (opencl_l);
+			}
 			if (wallet.is_zero ())
 			{
 				nano::random_pool.GenerateBlock (wallet.bytes.data (), wallet.bytes.size ());
@@ -350,6 +359,7 @@ int main (int argc, char * const * argv)
 					flags.disable_backup = (vm.count ("disable_backup") > 0);
 					flags.disable_lazy_bootstrap = (vm.count ("disable_lazy_bootstrap") > 0);
 					flags.disable_legacy_bootstrap = (vm.count ("disable_legacy_bootstrap") > 0);
+					flags.disable_wallet_bootstrap = (vm.count ("disable_wallet_bootstrap") > 0);
 					flags.disable_bootstrap_listener = (vm.count ("disable_bootstrap_listener") > 0);
 					result = run_wallet (application, argc, argv, data_path, flags);
 				}
