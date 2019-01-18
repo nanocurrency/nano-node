@@ -23,6 +23,15 @@ struct hash<::nano::uint256_union>
 		return hash (value_a);
 	}
 };
+template <>
+struct hash<::nano::uint512_union>
+{
+	size_t operator() (::nano::uint512_union const & value_a) const
+	{
+		std::hash<::nano::uint512_union> hash;
+		return hash (value_a);
+	}
+};
 }
 namespace nano
 {

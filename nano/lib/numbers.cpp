@@ -290,6 +290,12 @@ bool nano::uint512_union::operator== (nano::uint512_union const & other_a) const
 	return bytes == other_a.bytes;
 }
 
+nano::uint512_union::uint512_union (nano::uint256_union const & upper, nano::uint256_union const & lower)
+{
+	uint256s[0] = upper;
+	uint256s[1] = lower;
+}
+
 nano::uint512_union::uint512_union (nano::uint512_t const & number_a)
 {
 	bytes.fill (0);

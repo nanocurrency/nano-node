@@ -72,8 +72,7 @@ nano::error nano::rpc_config::serialize_json (nano::jsonconfig & json) const
 
 nano::error nano::rpc_config::deserialize_json (nano::jsonconfig & json)
 {
-	boost::optional<nano::jsonconfig> rpc_secure_l;
-	json.get_optional_child ("secure", rpc_secure_l);
+	auto rpc_secure_l (json.get_optional_child ("secure"));
 	if (rpc_secure_l)
 	{
 		secure.deserialize_json (*rpc_secure_l);
@@ -1357,7 +1356,20 @@ void nano::rpc_handler::bootstrap_status ()
 		response_l.put ("idle", std::to_string (attempt->idle.size ()));
 		response_l.put ("target_connections", std::to_string (attempt->target_connections (attempt->pulls.size ())));
 		response_l.put ("total_blocks", std::to_string (attempt->total_blocks));
-		response_l.put ("lazy_mode", attempt->lazy_mode);
+		std::string mode_text;
+		if (attempt->mode == nano::bootstrap_mode::legacy)
+		{
+			mode_text = "legacy";
+		}
+		else if (attempt->mode == nano::bootstrap_mode::lazy)
+		{
+			mode_text = "lazy";
+		}
+		else if (attempt->mode == nano::bootstrap_mode::wallet_lazy)
+		{
+			mode_text = "wallet_lazy";
+		}
+		response_l.put ("mode", mode_text);
 		response_l.put ("lazy_blocks", std::to_string (attempt->lazy_blocks.size ()));
 		response_l.put ("lazy_state_unknown", std::to_string (attempt->lazy_state_unknown.size ()));
 		response_l.put ("lazy_balances", std::to_string (attempt->lazy_balances.size ()));
@@ -1462,7 +1474,7 @@ void nano::rpc_handler::confirmation_info ()
 	const bool representatives = request.get<bool> ("representatives", false);
 	const bool contents = request.get<bool> ("contents", true);
 	std::string root_text (request.get<std::string> ("root"));
-	nano::block_hash root;
+	nano::uint512_union root;
 	if (!root.decode_hex (root_text))
 	{
 		std::lock_guard<std::mutex> lock (node.active.mutex);
