@@ -1343,6 +1343,8 @@ void nano::block_processor::verify_state_blocks (nano::transaction const & trans
 		accounts.reserve (size);
 		std::vector<unsigned char const *> pub_keys;
 		pub_keys.reserve (size);
+		std::vector<nano::uint512_union> blocks_signatures;
+		blocks_signatures.reserve (size);
 		std::vector<unsigned char const *> signatures;
 		signatures.reserve (size);
 		std::vector<int> verifications;
