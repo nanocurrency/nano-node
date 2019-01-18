@@ -590,6 +590,7 @@ void nano::bulk_pull_client::received_block (boost::system::error_code const & e
 			if (total_blocks == 0 && block_expected)
 			{
 				known_account = block->account ();
+			}
 			if (connection->block_count++ == 0)
 			{
 				connection->start_time = std::chrono::steady_clock::now ();
