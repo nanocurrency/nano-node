@@ -280,7 +280,8 @@ public:
 	void visit (nano::message_visitor &) const override;
 	bool operator== (nano::confirm_req const &) const;
 	std::shared_ptr<nano::block> block;
-	std::vector<std::pair<nano::block_hash, nano::block_hash>> roots_hashes;
+	std::vector<std::pair<nano::block_hash, nano::uint512_union>> roots_hashes;
+	std::bitset<8> roots_previous;
 	std::string roots_string () const;
 };
 class confirm_ack : public message

@@ -337,7 +337,7 @@ TEST (block, confirm_req_hash_serialization)
 	nano::keypair key1;
 	nano::keypair key2;
 	auto block (std::unique_ptr<nano::send_block> (new nano::send_block (1, key2.pub, 200, nano::keypair ().prv, 2, 3)));
-	nano::confirm_req req (block->hash (), block->root ());
+	nano::confirm_req req (block->hash (), nano::uint512_union (block->previous (), block->root ()));
 	std::vector<uint8_t> bytes;
 	{
 		nano::vectorstream stream (bytes);

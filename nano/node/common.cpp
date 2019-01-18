@@ -449,7 +449,7 @@ block (block_a)
 {
 	header.block_type_set (block->type ());
 }
-nano::confirm_req::confirm_req (std::vector<std::pair<nano::block_hash, nano::block_hash>> const & roots_hashes_a) :
+nano::confirm_req::confirm_req (std::vector<std::pair<nano::block_hash, nano::uint512_union>> const & roots_hashes_a) :
 message (nano::message_type::confirm_req),
 roots_hashes (roots_hashes_a)
 {
@@ -457,9 +457,9 @@ roots_hashes (roots_hashes_a)
 	header.block_type_set (nano::block_type::not_a_block);
 }
 
-nano::confirm_req::confirm_req (nano::block_hash const & hash_a, nano::block_hash const & root_a) :
+nano::confirm_req::confirm_req (nano::block_hash const & hash_a, nano::uint512_union const & root_a) :
 message (nano::message_type::confirm_req),
-roots_hashes (std::vector<std::pair<nano::block_hash, nano::block_hash>> (1, std::make_pair (hash_a, root_a)))
+roots_hashes (std::vector<std::pair<nano::block_hash, nano::uint512_union>> (1, std::make_pair (hash_a, root_a)))
 {
 	assert (!roots_hashes.empty ());
 	// not_a_block (1) block type for hashes + roots request
@@ -474,17 +474,20 @@ bool nano::confirm_req::deserialize (nano::stream & stream_a, nano::block_unique
 	{
 		uint8_t count (0);
 		result = read (stream_a, count);
+		std::bitset<count> roots_previous;
+		result = read (stream_a, roots_previous);
 		for (auto i (0); i != count && !result; ++i)
 		{
 			nano::block_hash block_hash (0);
-			nano::block_hash root_hash (0);
+			nano::block_hash root (0);
 			result = read (stream_a, block_hash);
 			if (!result && !block_hash.is_zero ())
 			{
-				result = read (stream_a, root_hash);
-				if (!result && !root_hash.is_zero ())
+				result = read (stream_a, root);
+				if (!result && !root.is_zero ())
 				{
-					roots_hashes.push_back (std::make_pair (block_hash, root_hash));
+					nano::uint512_union root_uint512 (roots_previous[i] ? root : 0, root);
+					roots_hashes.push_back (std::make_pair (block_hash, root));
 				}
 			}
 		}
@@ -512,12 +515,24 @@ void nano::confirm_req::serialize (nano::stream & stream_a) const
 	if (header.block_type () == nano::block_type::not_a_block)
 	{
 		assert (!roots_hashes.empty ());
+		// Calculate size
 		uint8_t count (roots_hashes.size ());
 		write (stream_a, count);
+		/* Calculate uint512_union roots status
+		true = previous == root
+		false = previous == 0 */
+		std::bitset<count> roots_previous;
+		for (auto i (0); i != count; ++i)
+		{
+			roots_previous[i] = !roots_hashes[i].second.uint256s[0].is_zero ();
+			assert (roots_hashes[i].second.uint256s[0].is_zero () || roots_hashes[i].second.uint256s[0] == roots_hashes[i].second.uint256s[1]);
+		}
+		write (stream_a, roots_previous);
+		// Write hashes & roots
 		for (auto root_hash : roots_hashes)
 		{
 			write (stream_a, root_hash.first);
-			write (stream_a, root_hash.second);
+			write (stream_a, root_hash.second.uint256s[1]);
 		}
 	}
 	else

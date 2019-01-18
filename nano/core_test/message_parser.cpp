@@ -144,7 +144,7 @@ TEST (message_parser, exact_confirm_req_hash_size)
 	nano::vote_uniquer vote_uniquer (block_uniquer);
 	nano::message_parser parser (block_uniquer, vote_uniquer, visitor, system.work);
 	auto block (std::unique_ptr<nano::send_block> (new nano::send_block (1, 1, 2, nano::keypair ().prv, 4, system.work.generate (1))));
-	nano::confirm_req message (block->hash (), block->root ());
+	nano::confirm_req message (block->hash (), nano::uint512_union (block->previous (), block->root ()));
 	std::vector<uint8_t> bytes;
 	{
 		nano::vectorstream stream (bytes);

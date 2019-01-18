@@ -422,7 +422,7 @@ void nano::network::broadcast_confirm_req_base (std::shared_ptr<nano::block> blo
 	}
 }
 
-void nano::network::broadcast_confirm_req_batch (std::unordered_map<nano::endpoint, std::vector<std::pair<nano::block_hash, nano::block_hash>>> request_bundle_a, unsigned delay_a, bool resumption)
+void nano::network::broadcast_confirm_req_batch (std::unordered_map<nano::endpoint, std::vector<std::pair<nano::block_hash, nano::uint512_union>>> request_bundle_a, unsigned delay_a, bool resumption)
 {
 	const size_t max_reps = 10;
 	if (!resumption && node.config.logging.network_logging ())
@@ -434,7 +434,7 @@ void nano::network::broadcast_confirm_req_batch (std::unordered_map<nano::endpoi
 	{
 		auto j (request_bundle_a.begin ());
 		count++;
-		std::vector<std::pair<nano::block_hash, nano::block_hash>> roots_hashes;
+		std::vector<std::pair<nano::block_hash, nano::uint512_union>> roots_hashes;
 		// Limit max request size hash + root to 7 pairs
 		while (roots_hashes.size () < 7 && !j->second.empty ())
 		{
@@ -3557,7 +3557,8 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 						for (auto j (reps->begin ()), m (reps->end ()); j != m; j++)
 						{
 							auto rep_request (requests_bundle.find (j->endpoint));
-							auto root_hash (std::make_pair (i->election->status.winner->hash (), i->election->status.winner->root ()));
+							auto block (i->election->status.winner);
+							auto root_hash (std::make_pair (block->hash (), nano::uint512_union (block->previous (), block->root ())));
 							if (rep_request == requests_bundle.end ())
 							{
 								std::vector<std::pair<nano::block_hash, nano::block_hash>> insert_vector (1, root_hash);
@@ -3584,7 +3585,8 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 						for (auto j (reps->begin ()), m (reps->end ()); j != m; j++)
 						{
 							auto rep_request (requests_bundle.find (j->endpoint));
-							auto root_hash (std::make_pair (i->election->status.winner->hash (), i->election->status.winner->root ()));
+							auto block (i->election->status.winner);
+							auto root_hash (std::make_pair (block->hash (), nano::uint512_union (block->previous (), block->root ())));
 							if (rep_request == requests_bundle.end ())
 							{
 								std::vector<std::pair<nano::block_hash, nano::block_hash>> insert_vector (1, root_hash);
