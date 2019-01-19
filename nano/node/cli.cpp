@@ -38,6 +38,7 @@ void nano::add_node_options (boost::program_options::options_description & descr
 	("key_expand", "Derive public key and account number from <key>")
 	("wallet_add_adhoc", "Insert <key> in to <wallet>")
 	("wallet_create", "Creates a new wallet and prints the ID")
+	("wallet_create_import_seed", "Creates a new wallet and imports <key> as seed for a new wallet")
 	("wallet_change_seed", "Changes seed for <wallet> to <key>")
 	("wallet_decrypt_unsafe", "Decrypts <wallet> using <password>, !!THIS WILL PRINT YOUR PRIVATE KEY TO STDOUT!!")
 	("wallet_destroy", "Destroys <wallet> and all keys it contains")
@@ -433,6 +434,40 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		nano::keypair key;
 		std::cout << key.pub.to_string () << std::endl;
 		auto wallet (node.node->wallets.create (key.pub));
+	}
+	else if (vm.count ("wallet_create_import_seed"))
+	{
+		if (vm.count ("key") == 1)
+		{
+			nano::raw_key key;
+			if (!key.data.decode_hex (vm["key"].as<std::string> ()))
+			{
+				inactive_node node (data_path);
+				nano::keypair wallet_key;
+				auto wallet (node.node->wallets.create (wallet_key.pub));
+				if (wallet != nullptr)
+				{
+					auto transaction (wallet->wallets.tx_begin_write ());
+					wallet->change_seed (transaction, key);
+					std::cout << wallet_key.pub.to_string () << std::endl;
+				}
+				else
+				{
+					std::cerr << "Wallet creation error\n";
+					ec = nano::error_cli::invalid_arguments;
+				}
+			}
+			else
+			{
+				std::cerr << "Invalid key\n";
+				ec = nano::error_cli::invalid_arguments;
+			}
+		}
+		else
+		{
+			std::cerr << "wallet_create_import_seed command requires one <key> option\n";
+			ec = nano::error_cli::invalid_arguments;
+		}
 	}
 	else if (vm.count ("wallet_decrypt_unsafe"))
 	{
