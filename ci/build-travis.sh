@@ -12,24 +12,25 @@ mkdir build
 pushd build
 
 if [[ ${ASAN_INT-0} -eq 1 ]]; then
-    SANITIZERS="-DRAIBLOCKS_ASAN_INT=ON"
+    SANITIZERS="-DNANO_ASAN_INT=ON"
 elif [[ ${ASAN-0} -eq 1 ]]; then
-    SANITIZERS="-DRAIBLOCKS_ASAN=ON"
+    SANITIZERS="-DNANO_ASAN=ON"
 elif [[ ${TSAN-0} -eq 1 ]]; then
-    SANITIZERS="-DRAIBLOCKS_TSAN=ON"
+    SANITIZERS="-DNANO_TSAN=ON"
 else
     SANITIZERS=""
 fi
 
 cmake \
     -G'Unix Makefiles' \
-    -DACTIVE_NETWORK=rai_test_network \
-    -DRAIBLOCKS_TEST=ON \
-    -DRAIBLOCKS_GUI=ON \
+    -DACTIVE_NETWORK=nano_test_network \
+    -DNANO_TEST=ON \
+    -DNANO_GUI=ON \
     -DCMAKE_BUILD_TYPE=Debug \
     -DCMAKE_VERBOSE_MAKEFILE=ON \
     -DBOOST_ROOT=/usr/local \
     -DQt5_DIR=${qt_dir} \
+    -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
     ${SANITIZERS} \
     ..
 
@@ -42,15 +43,9 @@ fi
 
 popd
 
-if [[ "$OSTYPE" == "darwin"* ]]; then
-    TRUE_CMD=gtrue
-else
-    TRUE_CMD=true
-fi
-
 pushd load-tester
 cargo build --release
 popd
-cp ./load-tester/target/release/raiblocks-load-tester ./build/load_test
+cp ./load-tester/target/release/nano-load-tester ./build/load_test
 
-./ci/test.sh ./build || ${TRUE_CMD}
+./ci/test.sh ./build
