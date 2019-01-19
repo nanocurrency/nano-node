@@ -2125,11 +2125,12 @@ TEST (node, peers)
 	auto node (std::make_shared<nano::node> (init, system.io_ctx, 24001, nano::unique_path (), system.alarm, system.logging, system.work));
 	system.nodes.push_back (node);
 
+	nano::endpoint_key endpoint_key{ system.nodes.front ()->network.endpoint ().address ().to_v6 ().to_bytes (), system.nodes.front ()->network.endpoint ().port () };
 	auto & store = system.nodes.back ()->store;
 	{
 		// Add a peer to the database
 		auto transaction (store.tx_begin_write ());
-		store.peer_put (transaction, nano::endpoint_key{ system.nodes.front ()->network.endpoint ().address ().to_v6 ().to_bytes (), system.nodes.front ()->network.endpoint ().port () });
+		store.peer_put (transaction, endpoint_key);
 
 		// Add a peer which is not contactable
 		store.peer_put (transaction, nano::endpoint_key{ boost::asio::ip::address_v6::any ().to_bytes (), 55555 });
@@ -2137,7 +2138,7 @@ TEST (node, peers)
 
 	node->start ();
 	system.deadline_set (10s);
-	while (system.nodes.back ()->peers.size () != 1)
+	while (system.nodes.back ()->peers.empty ())
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
@@ -2152,15 +2153,18 @@ TEST (node, peers)
 	system.nodes.front ()->stop ();
 
 	system.deadline_set (10s);
-	auto transaction (store.tx_begin_read ());
-	while (system.nodes.back ()->peers.size () == 1 || store.peer_count (transaction) == 1)
+	while (system.nodes.back ()->peers.size () == 1)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
 
-	// Confirm that it is no longer in the store
 	ASSERT_TRUE (system.nodes.back ()->peers.empty ());
-	ASSERT_EQ (store.peer_count (transaction), 0);
+
+	// Uncontactable peer should not be stored
+	auto transaction (store.tx_begin_read ());
+	ASSERT_EQ (store.peer_count (transaction), 1);
+	ASSERT_TRUE (store.peer_exists (transaction, endpoint_key));
+
 	node->stop ();
 }
 
