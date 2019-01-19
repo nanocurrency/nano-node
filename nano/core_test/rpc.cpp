@@ -939,7 +939,7 @@ TEST (rpc, frontier_limited)
 	nano::system system (24000, 1);
 	std::unordered_map<nano::account, nano::block_hash> source;
 	{
-		auto transaction (system.nodes[0]->wallets.tx_begin (true));
+		auto transaction (system.nodes[0]->store.tx_begin (true));
 		for (auto i (0); i < 1000; ++i)
 		{
 			nano::keypair key;
