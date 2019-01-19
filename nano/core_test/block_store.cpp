@@ -1417,3 +1417,42 @@ TEST (block_store, upgrade_sideband_epoch)
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, block2).code);
 	ASSERT_EQ (nano::epoch::epoch_1, store.block_version (transaction, block2.hash ()));
 }
+
+TEST (block_store, peers)
+{
+	nano::logging logging;
+	auto init (false);
+	nano::mdb_store store (init, logging, nano::unique_path ());
+	ASSERT_TRUE (!init);
+
+	auto transaction (store.tx_begin_write ());
+	nano::endpoint_key endpoint (boost::asio::ip::address_v6::any ().to_bytes (), 100);
+
+	// Confirm that the store is empty
+	ASSERT_FALSE (store.peer_exists (transaction, endpoint));
+	ASSERT_EQ (store.peer_count (transaction), 0);
+
+	// Add one, confirm that it can be found
+	store.peer_put (transaction, endpoint);
+	ASSERT_TRUE (store.peer_exists (transaction, endpoint));
+	ASSERT_EQ (store.peer_count (transaction), 1);
+
+	// Add another one and check that it (and the existing one) can be found
+	nano::endpoint_key endpoint1 (boost::asio::ip::address_v6::any ().to_bytes (), 101);
+	store.peer_put (transaction, endpoint1);
+	ASSERT_TRUE (store.peer_exists (transaction, endpoint1)); // Check new peer is here
+	ASSERT_TRUE (store.peer_exists (transaction, endpoint)); // Check first peer is still here
+	ASSERT_EQ (store.peer_count (transaction), 2);
+
+	// Delete the first one
+	store.peer_del (transaction, endpoint1);
+	ASSERT_TRUE (store.peer_exists (transaction, endpoint)); // Check first peer is still here
+	ASSERT_EQ (store.peer_count (transaction), 1);
+
+	// Delete original one
+	store.peer_del (transaction, endpoint);
+	ASSERT_EQ (store.peer_count (transaction), 0);
+
+	// Delete one that doesn't exist, also confirm it doesn't fall over
+	ASSERT_FALSE (store.peer_exists (transaction, endpoint1));
+}

@@ -2115,6 +2115,55 @@ TEST (node, confirm_back)
 	}
 }
 
+TEST (node, peers)
+{
+	nano::system system (24000, 1);
+	auto list (system.nodes.front ()->peers.list ());
+	ASSERT_TRUE (list.empty ());
+
+	nano::node_init init;
+	auto node (std::make_shared<nano::node> (init, system.io_ctx, 24001, nano::unique_path (), system.alarm, system.logging, system.work));
+	system.nodes.push_back (node);
+
+	auto & store = system.nodes.back ()->store;
+	{
+		// Add a peer to the database
+		auto transaction (store.tx_begin_write ());
+		store.peer_put (transaction, nano::endpoint_key{ system.nodes.front ()->network.endpoint ().address ().to_v6 ().to_bytes (), system.nodes.front ()->network.endpoint ().port () });
+
+		// Add a peer which is not contactable
+		store.peer_put (transaction, nano::endpoint_key{ boost::asio::ip::address_v6::any ().to_bytes (), 55555 });
+	}
+
+	node->start ();
+	system.deadline_set (10s);
+	while (system.nodes.back ()->peers.size () != 1)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+
+	// Confirm that the peers match with the endpoints we are expecting
+	ASSERT_EQ (1, system.nodes.front ()->peers.list ().size ());
+	ASSERT_EQ (system.nodes.front ()->peers.list ().front (), system.nodes.back ()->network.endpoint ());
+	ASSERT_EQ (1, node->peers.list ().size ());
+	ASSERT_EQ (system.nodes.back ()->peers.list ().front (), system.nodes.front ()->network.endpoint ());
+
+	// Stop the peer node and check that it is removed from the store
+	system.nodes.front ()->stop ();
+
+	system.deadline_set (10s);
+	auto transaction (store.tx_begin_read ());
+	while (system.nodes.back ()->peers.size () == 1 || store.peer_count (transaction) == 1)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+
+	// Confirm that it is no longer in the store
+	ASSERT_TRUE (system.nodes.back ()->peers.empty ());
+	ASSERT_EQ (store.peer_count (transaction), 0);
+	node->stop ();
+}
+
 namespace
 {
 void add_required_children_node_config_tree (nano::jsonconfig & tree)

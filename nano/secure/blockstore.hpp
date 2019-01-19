@@ -290,6 +290,14 @@ public:
 	virtual void version_put (nano::transaction const &, int) = 0;
 	virtual int version_get (nano::transaction const &) = 0;
 
+	virtual void peer_put (nano::transaction const & transaction_a, nano::endpoint_key const & endpoint_a) = 0;
+	virtual void peer_del (nano::transaction const & transaction_a, nano::endpoint_key const & endpoint_a) = 0;
+	virtual bool peer_exists (nano::transaction const & transaction_a, nano::endpoint_key const & endpoint_a) const = 0;
+	virtual size_t peer_count (nano::transaction const & transaction_a) const = 0;
+	virtual void peer_clear (nano::transaction const & transaction_a) = 0;
+	virtual nano::store_iterator<nano::endpoint_key, nano::no_value> peers_begin (nano::transaction const & transaction_a) = 0;
+	virtual nano::store_iterator<nano::endpoint_key, nano::no_value> peers_end () = 0;
+
 	// Requires a write transaction
 	virtual nano::raw_key get_node_id (nano::transaction const &) = 0;
 

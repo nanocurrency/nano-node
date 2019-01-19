@@ -304,6 +304,31 @@ nano::block_hash nano::pending_key::key () const
 	return account;
 }
 
+nano::endpoint_key::endpoint_key (const std::array<uint8_t, 16> & address_a, uint16_t port_a) :
+address (address_a), port (port_a)
+{
+}
+
+void nano::endpoint_key::serialize (nano::stream & stream_a) const
+{
+	write (stream_a, address);
+	write (stream_a, port);
+}
+
+bool nano::endpoint_key::deserialize (nano::stream & stream_a)
+{
+	std::array<uint8_t, 16> address;
+	uint16_t port;
+
+	auto error (nano::read (stream_a, address));
+	if (!error)
+	{
+		error = nano::read (stream_a, port);
+	}
+
+	return error;
+}
+
 nano::block_info::block_info () :
 account (0),
 balance (0)

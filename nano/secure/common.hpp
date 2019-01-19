@@ -122,6 +122,24 @@ public:
 	nano::block_hash hash;
 	nano::block_hash key () const;
 };
+
+class endpoint_key
+{
+public:
+	endpoint_key () = default;
+	endpoint_key (const std::array<uint8_t, 16> & address_a, uint16_t port_a);
+	void serialize (nano::stream &) const;
+	bool deserialize (nano::stream &);
+
+	std::array<uint8_t, 16> address;
+	uint16_t port{ 0 };
+};
+
+enum class no_value
+{
+	dummy
+};
+
 // Internally unchecked_key is equal to pending_key (2x uint256_union)
 using unchecked_key = pending_key;
 

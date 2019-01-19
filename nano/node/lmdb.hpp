@@ -46,10 +46,6 @@ public:
 class mdb_val
 {
 public:
-	enum class no_value
-	{
-		dummy
-	};
 	mdb_val (nano::epoch = nano::epoch::unspecified);
 	mdb_val (nano::account_info const &);
 	mdb_val (nano::block_info const &);
@@ -59,6 +55,7 @@ public:
 	mdb_val (size_t, void *);
 	mdb_val (nano::uint128_union const &);
 	mdb_val (nano::uint256_union const &);
+	mdb_val (nano::endpoint_key const &);
 	mdb_val (std::shared_ptr<nano::block> const &);
 	mdb_val (std::shared_ptr<nano::vote> const &);
 	void * data () const;
@@ -70,7 +67,8 @@ public:
 	explicit operator nano::uint128_union () const;
 	explicit operator nano::uint256_union () const;
 	explicit operator std::array<char, 64> () const;
-	explicit operator no_value () const;
+	explicit operator nano::endpoint_key () const;
+	explicit operator nano::no_value () const;
 	explicit operator std::shared_ptr<nano::block> () const;
 	explicit operator std::shared_ptr<nano::send_block> () const;
 	explicit operator std::shared_ptr<nano::receive_block> () const;
@@ -264,6 +262,15 @@ public:
 	/** Deletes the node ID from the store */
 	void delete_node_id (nano::transaction const &) override;
 
+	void peer_put (nano::transaction const & transaction_a, nano::endpoint_key const & endpoint_a);
+	bool peer_exists (nano::transaction const & transaction_a, nano::endpoint_key const & endpoint_a) const;
+	void peer_del (nano::transaction const & transaction_a, nano::endpoint_key const & endpoint_a);
+	size_t peer_count (nano::transaction const & transaction_a) const;
+	void peer_clear (nano::transaction const & transaction_a);
+
+	nano::store_iterator<nano::endpoint_key, nano::no_value> peers_begin (nano::transaction const & transaction_a);
+	nano::store_iterator<nano::endpoint_key, nano::no_value> peers_end ();
+
 	void stop ();
 
 	nano::logging & logging;
@@ -274,97 +281,103 @@ public:
 	 * Maps head block to owning account
 	 * nano::block_hash -> nano::account
 	 */
-	MDB_dbi frontiers;
+	MDB_dbi frontiers{ 0 };
 
 	/**
 	 * Maps account v1 to account information, head, rep, open, balance, timestamp and block count.
 	 * nano::account -> nano::block_hash, nano::block_hash, nano::block_hash, nano::amount, uint64_t, uint64_t
 	 */
-	MDB_dbi accounts_v0;
+	MDB_dbi accounts_v0{ 0 };
 
 	/**
 	 * Maps account v0 to account information, head, rep, open, balance, timestamp and block count.
 	 * nano::account -> nano::block_hash, nano::block_hash, nano::block_hash, nano::amount, uint64_t, uint64_t
 	 */
-	MDB_dbi accounts_v1;
+	MDB_dbi accounts_v1{ 0 };
 
 	/**
 	 * Maps block hash to send block.
 	 * nano::block_hash -> nano::send_block
 	 */
-	MDB_dbi send_blocks;
+	MDB_dbi send_blocks{ 0 };
 
 	/**
 	 * Maps block hash to receive block.
 	 * nano::block_hash -> nano::receive_block
 	 */
-	MDB_dbi receive_blocks;
+	MDB_dbi receive_blocks{ 0 };
 
 	/**
 	 * Maps block hash to open block.
 	 * nano::block_hash -> nano::open_block
 	 */
-	MDB_dbi open_blocks;
+	MDB_dbi open_blocks{ 0 };
 
 	/**
 	 * Maps block hash to change block.
 	 * nano::block_hash -> nano::change_block
 	 */
-	MDB_dbi change_blocks;
+	MDB_dbi change_blocks{ 0 };
 
 	/**
 	 * Maps block hash to v0 state block.
 	 * nano::block_hash -> nano::state_block
 	 */
-	MDB_dbi state_blocks_v0;
+	MDB_dbi state_blocks_v0{ 0 };
 
 	/**
 	 * Maps block hash to v1 state block.
 	 * nano::block_hash -> nano::state_block
 	 */
-	MDB_dbi state_blocks_v1;
+	MDB_dbi state_blocks_v1{ 0 };
 
 	/**
 	 * Maps min_version 0 (destination account, pending block) to (source account, amount).
 	 * nano::account, nano::block_hash -> nano::account, nano::amount
 	 */
-	MDB_dbi pending_v0;
+	MDB_dbi pending_v0{ 0 };
 
 	/**
 	 * Maps min_version 1 (destination account, pending block) to (source account, amount).
 	 * nano::account, nano::block_hash -> nano::account, nano::amount
 	 */
-	MDB_dbi pending_v1;
+	MDB_dbi pending_v1{ 0 };
 
 	/**
 	 * Maps block hash to account and balance.
 	 * block_hash -> nano::account, nano::amount
 	 */
-	MDB_dbi blocks_info;
+	MDB_dbi blocks_info{ 0 };
 
 	/**
 	 * Representative weights.
 	 * nano::account -> nano::uint128_t
 	 */
-	MDB_dbi representation;
+	MDB_dbi representation{ 0 };
 
 	/**
 	 * Unchecked bootstrap blocks.
 	 * nano::block_hash -> nano::block
 	 */
-	MDB_dbi unchecked;
+	MDB_dbi unchecked{ 0 };
 
 	/**
 	 * Highest vote observed for account.
 	 * nano::account -> uint64_t
 	 */
-	MDB_dbi vote;
+	MDB_dbi vote{ 0 };
 
 	/**
 	 * Meta information about block store, such as versions.
 	 * nano::uint256_union (arbitrary key) -> blob
 	 */
-	MDB_dbi meta;
+	MDB_dbi meta{ 0 };
+
+	/*
+	 * Endpoints for peers
+	 * nano::endpoint_key -> no_value
+	*/
+	MDB_dbi peers{ 0 };
 
 private:
 	bool entry_has_sideband (MDB_val, nano::block_type);

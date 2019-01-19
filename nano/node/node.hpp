@@ -492,6 +492,7 @@ public:
 	void ongoing_rep_calculation ();
 	void ongoing_bootstrap ();
 	void ongoing_store_flush ();
+	void ongoing_peer_store ();
 	void backup_wallet ();
 	void search_pending ();
 	void bootstrap_wallet ();
@@ -541,11 +542,12 @@ public:
 	const std::chrono::steady_clock::time_point startup_time;
 	static double constexpr price_max = 16.0;
 	static double constexpr free_cutoff = 1024.0;
-	static std::chrono::seconds constexpr period = std::chrono::seconds (60);
+	static std::chrono::seconds constexpr period = (nano::nano_network == nano::nano_networks::nano_test_network) ? std::chrono::seconds (1) : std::chrono::seconds (60);
 	static std::chrono::seconds constexpr cutoff = period * 5;
 	static std::chrono::seconds constexpr syn_cookie_cutoff = std::chrono::seconds (5);
 	static std::chrono::minutes constexpr backup_interval = std::chrono::minutes (5);
 	static std::chrono::seconds constexpr search_pending_interval = (nano::nano_network == nano::nano_networks::nano_test_network) ? std::chrono::seconds (1) : std::chrono::seconds (5 * 60);
+	static std::chrono::seconds constexpr peer_interval = search_pending_interval;
 };
 class thread_runner
 {
