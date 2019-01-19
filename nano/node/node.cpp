@@ -2264,13 +2264,17 @@ void nano::node::ongoing_store_flush ()
 
 void nano::node::ongoing_peer_store ()
 {
-	// Clear all peers then refresh with a new list of peers
-	auto transaction (store.tx_begin_write ());
-	store.peer_clear (transaction);
-	for (const auto & endpoint : peers.list ())
+	auto endpoint_peers = peers.list ();
+	if (!endpoint_peers.empty ())
 	{
-		nano::endpoint_key endpoint_key (endpoint.address ().to_v6 ().to_bytes (), endpoint.port ());
-		store.peer_put (transaction, std::move (endpoint_key));
+		// Clear all peers then refresh with the current list of peers
+		auto transaction (store.tx_begin_write ());
+		store.peer_clear (transaction);
+		for (const auto & endpoint : endpoint_peers)
+		{
+			nano::endpoint_key endpoint_key (endpoint.address ().to_v6 ().to_bytes (), endpoint.port ());
+			store.peer_put (transaction, std::move (endpoint_key));
+		}
 	}
 
 	std::weak_ptr<nano::node> node_w (shared_from_this ());

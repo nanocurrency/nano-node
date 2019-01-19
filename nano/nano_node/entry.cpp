@@ -45,6 +45,7 @@ int main (int argc, char * const * argv)
 		("debug_profile_votes", "Profile votes processing (only for nano_test_network)")
 		("debug_rpc", "Read an RPC command from stdin and invoke it. Network operations will have no effect.")
 		("debug_validate_blocks", "Check all blocks for correct hash, signature, work value")
+		("debug_peers", "Display peer IPv6:port connections")
 		("platform", boost::program_options::value<std::string> (), "Defines the <platform> for OpenCL commands")
 		("device", boost::program_options::value<std::string> (), "Defines <device> for OpenCL command")
 		("threads", boost::program_options::value<std::string> (), "Defines <threads> count for OpenCL command");
@@ -812,6 +813,16 @@ int main (int argc, char * const * argv)
 			auto seconds (time / 1000000);
 			nano::remove_temporary_directories ();
 			std::cout << boost::str (boost::format ("%|1$ 12d| seconds \n%2% blocks per second") % seconds % (block_count / seconds)) << std::endl;
+		}
+		else if (vm.count ("debug_peers"))
+		{
+			nano::inactive_node node (data_path);
+			auto transaction (node.node->store.tx_begin ());
+
+			for (auto i (node.node->store.peers_begin (transaction)), n (node.node->store.peers_end ()); i != n; ++i)
+			{
+				std::cout << boost::str (boost::format ("%1%\n") % nano::endpoint (boost::asio::ip::address_v6 (i->first.address), i->first.port));
+			}
 		}
 		else if (vm.count ("version"))
 		{

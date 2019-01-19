@@ -892,12 +892,14 @@ void nano::mdb_store::peer_clear (nano::transaction const & transaction_a)
 
 nano::store_iterator<nano::endpoint_key, nano::no_value> nano::mdb_store::peers_begin (nano::transaction const & transaction_a)
 {
-	return std::make_unique<nano::mdb_iterator<nano::endpoint_key, nano::no_value>> (transaction_a, peers);
+	nano::store_iterator<nano::endpoint_key, nano::no_value> result (std::make_unique<nano::mdb_iterator<nano::endpoint_key, nano::no_value>> (transaction_a, peers));
+	return result;
 }
 
 nano::store_iterator<nano::endpoint_key, nano::no_value> nano::mdb_store::peers_end ()
 {
-	return nano::store_iterator<nano::endpoint_key, nano::no_value> (nullptr);
+	nano::store_iterator<nano::endpoint_key, nano::no_value> result (nano::store_iterator<nano::endpoint_key, nano::no_value> (nullptr));
+	return result;
 }
 
 void nano::mdb_store::do_upgrades (nano::transaction const & transaction_a)
