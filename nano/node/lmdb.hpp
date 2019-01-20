@@ -30,7 +30,7 @@ public:
 class mdb_env
 {
 public:
-	mdb_env (bool &, boost::filesystem::path const &, int max_dbs = 128);
+	mdb_env (bool &, boost::filesystem::path const &, int max_dbs = 128, size_t map_size = 128ULL * 1024 * 1024 * 1024);
 	~mdb_env ();
 	operator MDB_env * () const;
 	nano::transaction tx_begin (bool = false) const;
@@ -228,10 +228,6 @@ public:
 	nano::store_iterator<nano::unchecked_key, nano::unchecked_info> unchecked_end () override;
 	size_t unchecked_count (nano::transaction const &) override;
 
-	void checksum_put (nano::transaction const &, uint64_t, uint8_t, nano::checksum const &) override;
-	bool checksum_get (nano::transaction const &, uint64_t, uint8_t, nano::checksum &) override;
-	void checksum_del (nano::transaction const &, uint64_t, uint8_t) override;
-
 	// Return latest vote for an account from store
 	std::shared_ptr<nano::vote> vote_get (nano::transaction const &, nano::account const &) override;
 	// Populate vote with the next sequence number
@@ -356,12 +352,6 @@ public:
 	 * nano::block_hash -> nano::unchecked_info
 	 */
 	MDB_dbi unchecked;
-
-	/**
-	 * Mapping of region to checksum.
-	 * (uint56_t, uint8_t) -> nano::block_hash
-	 */
-	MDB_dbi checksum;
 
 	/**
 	 * Highest vote observed for account.

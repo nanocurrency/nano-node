@@ -265,10 +265,6 @@ public:
 	virtual nano::store_iterator<nano::unchecked_key, nano::unchecked_info> unchecked_end () = 0;
 	virtual size_t unchecked_count (nano::transaction const &) = 0;
 
-	virtual void checksum_put (nano::transaction const &, uint64_t, uint8_t, nano::checksum const &) = 0;
-	virtual bool checksum_get (nano::transaction const &, uint64_t, uint8_t, nano::checksum &) = 0;
-	virtual void checksum_del (nano::transaction const &, uint64_t, uint8_t) = 0;
-
 	// Return latest vote for an account from store
 	virtual std::shared_ptr<nano::vote> vote_get (nano::transaction const &, nano::account const &) = 0;
 	// Populate vote with the next sequence number

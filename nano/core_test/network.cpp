@@ -363,7 +363,7 @@ TEST (network, receive_weight_change)
 	nano::keypair key2;
 	system.wallet (1)->insert_adhoc (key2.prv);
 	{
-		auto transaction (system.nodes[1]->store.tx_begin (true));
+		auto transaction (system.nodes[1]->wallets.tx_begin (true));
 		system.wallet (1)->store.representative_set (transaction, key2.pub);
 	}
 	ASSERT_NE (nullptr, system.wallet (0)->send_action (nano::test_genesis_key.pub, key2.pub, system.nodes[0]->config.receive_minimum.number ()));
