@@ -54,7 +54,7 @@ else ()
 		add_definitions(-DED25519_NO_INLINE_ASM)
 	endif()
 
-	IF (CMAKE_SYSTEM_PROCESSOR MATCHES "^(i.86|x86(_64)?)$")
+	if (CMAKE_SYSTEM_PROCESSOR MATCHES "^(i.86|x86(_64)?)$")
 		if (NANO_SIMD_OPTIMIZATIONS OR RAIBLOCKS_SIMD_OPTIMIZATIONS)
 			add_compile_options(-msse4)
 			if (ENABLE_AES)
@@ -64,7 +64,7 @@ else ()
 			endif ()
 			# Fix failing builds after commit https://github.com/weidai11/cryptopp/commit/df9fa62205f2d341e2b1b26595a3a1b6377c60c5
 			add_definitions(-DCRYPTOPP_DISABLE_CLMUL)
-		elseif(CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
+		elseif (CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
 			add_compile_options(-msse2)
 			add_definitions(-DCRYPTOPP_DISABLE_SSSE3
 							-DCRYPTOPP_DISABLE_AESNI
@@ -152,6 +152,10 @@ if (WIN32)
 					crypto/cryptopp/x64masm.asm)
 	enable_language(ASM)
 	enable_language(ASM_MASM)
+	# similar to SSE2 settings
+	add_definitions(-DCRYPTOPP_DISABLE_SSSE3
+					-DCRYPTOPP_DISABLE_AESNI
+					-DCRYPTOPP_DISABLE_CLMUL)
 endif ()
 # Some Clang cannot handle mixed asm with positional arguments, where the
 # body is Intel style with no prefix and the templates are AT&T style.
