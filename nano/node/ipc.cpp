@@ -581,15 +581,21 @@ public:
 		return err;
 	}
 
-	channel & channel ()
+	channel & get_channel ()
 	{
-		return tcp_client ? static_cast<class channel &> (*tcp_client) : static_cast<class channel &> (*domain_client);
+#if defined(BOOST_ASIO_HAS_LOCAL_SOCKETS)
+		return tcp_client ? static_cast<channel &> (*tcp_client) : static_cast<channel &> (*domain_client);
+#else
+		return static_cast<channel &> (*tcp_client);
+#endif
 	}
 
 private:
 	boost::asio::io_context & io_ctx;
 	std::shared_ptr<socket_client<boost::asio::ip::tcp::socket, boost::asio::ip::tcp::endpoint>> tcp_client;
+#if defined(BOOST_ASIO_HAS_LOCAL_SOCKETS)
 	std::shared_ptr<socket_client<boost::asio::local::stream_protocol::socket, boost::asio::local::stream_protocol::endpoint>> domain_client;
+#endif
 };
 
 nano::ipc::ipc_client::ipc_client (boost::asio::io_context & io_ctx_a) :
@@ -626,7 +632,7 @@ nano::error nano::ipc::ipc_client::connect (std::string host, uint16_t port)
 void nano::ipc::ipc_client::async_write (std::shared_ptr<std::vector<uint8_t>> buffer_a, std::function<void(nano::error, size_t)> callback_a)
 {
 	auto client (boost::polymorphic_downcast<client_impl *> (impl.get ()));
-	client->channel ().async_write (buffer_a, [callback_a](const boost::system::error_code & ec_a, size_t bytes_written_a) {
+	client->get_channel ().async_write (buffer_a, [callback_a](const boost::system::error_code & ec_a, size_t bytes_written_a) {
 		callback_a (nano::error (ec_a), bytes_written_a);
 	});
 }
@@ -634,7 +640,7 @@ void nano::ipc::ipc_client::async_write (std::shared_ptr<std::vector<uint8_t>> b
 void nano::ipc::ipc_client::async_read (std::shared_ptr<std::vector<uint8_t>> buffer_a, size_t size_a, std::function<void(nano::error, size_t)> callback_a)
 {
 	auto client (boost::polymorphic_downcast<client_impl *> (impl.get ()));
-	client->channel ().async_read (buffer_a, size_a, [callback_a](const boost::system::error_code & ec_a, size_t bytes_read_a) {
+	client->get_channel ().async_read (buffer_a, size_a, [callback_a](const boost::system::error_code & ec_a, size_t bytes_read_a) {
 		callback_a (nano::error (ec_a), bytes_read_a);
 	});
 }
