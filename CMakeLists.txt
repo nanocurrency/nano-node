@@ -162,10 +162,8 @@ endif ()
 # See: crypto/cryptopp/config.h
 # Also see https://bugs.llvm.org/show_bug.cgi?id=39895
 if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-	if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS 5.0 OR CMAKE_CXX_COMPILER_ID MATCHES "AppleClang")
-		add_definitions(-DCRYPTOPP_DISABLE_MIXED_ASM -DCRYPTOPP_DISABLE_ASM)
-		message("CryptoPP disabled ASM for Clang ${CMAKE_CXX_COMPILER_VERSION}")
-	endif ()
+	add_definitions(-DCRYPTOPP_DISABLE_MIXED_ASM -DCRYPTOPP_DISABLE_ASM)
+	message("CryptoPP with disabled ASM for ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}")
 endif ()
 add_definitions(-DCRYPTOPP_DISABLE_SHANI)
 
