@@ -62,10 +62,13 @@ else ()
 			else ()
 				add_definitions(-DCRYPTOPP_DISABLE_AESNI)
 			endif ()
+			# Fix failing builds after commit https://github.com/weidai11/cryptopp/commit/df9fa62205f2d341e2b1b26595a3a1b6377c60c5
+			add_definitions(-DCRYPTOPP_DISABLE_CLMUL)
 		elseif(CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
 			add_compile_options(-msse2)
 			add_definitions(-DCRYPTOPP_DISABLE_SSSE3
-							-DCRYPTOPP_DISABLE_AESNI)
+							-DCRYPTOPP_DISABLE_AESNI
+							-DCRYPTOPP_DISABLE_CLMUL)
 		endif()
 
 		if (ENABLE_AVX2)
