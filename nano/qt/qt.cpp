@@ -253,13 +253,14 @@ wallet (wallet_a)
 void nano_qt::accounts::refresh_wallet_balance ()
 {
 	auto transaction (this->wallet.wallet_m->wallets.tx_begin_read ());
+	auto block_transaction (this->wallet.node.store.tx_begin_read ());
 	nano::uint128_t balance (0);
 	nano::uint128_t pending (0);
 	for (auto i (this->wallet.wallet_m->store.begin (transaction)), j (this->wallet.wallet_m->store.end ()); i != j; ++i)
 	{
 		nano::public_key key (i->first);
-		balance = balance + (this->wallet.node.ledger.account_balance (transaction, key));
-		pending = pending + (this->wallet.node.ledger.account_pending (transaction, key));
+		balance = balance + (this->wallet.node.ledger.account_balance (block_transaction, key));
+		pending = pending + (this->wallet.node.ledger.account_pending (block_transaction, key));
 	}
 	auto final_text (std::string ("Balance: ") + wallet.format_balance (balance));
 	if (!pending.is_zero ())
@@ -278,11 +279,12 @@ void nano_qt::accounts::refresh ()
 {
 	model->removeRows (0, model->rowCount ());
 	auto transaction (wallet.wallet_m->wallets.tx_begin_read ());
+	auto block_transaction (this->wallet.node.store.tx_begin_read ());
 	QBrush brush;
 	for (auto i (wallet.wallet_m->store.begin (transaction)), j (wallet.wallet_m->store.end ()); i != j; ++i)
 	{
 		nano::public_key key (i->first);
-		auto balance_amount (wallet.node.ledger.account_balance (transaction, key));
+		auto balance_amount (wallet.node.ledger.account_balance (block_transaction, key));
 		bool display (true);
 		switch (wallet.wallet_m->store.key_type (i->second))
 		{
@@ -1666,7 +1668,8 @@ void nano_qt::settings::refresh_representative ()
 	}
 	else
 	{
-		current_representative->setText (this->wallet.wallet_m->store.representative (transaction).to_account ().c_str ());
+		auto wallet_transaction (this->wallet.wallet_m->wallets.tx_begin_read ());
+		current_representative->setText (this->wallet.wallet_m->store.representative (wallet_transaction).to_account ().c_str ());
 	}
 }
 
@@ -2182,17 +2185,18 @@ void nano_qt::block_creation::create_send ()
 			error = destination_l.decode_account (destination->text ().toStdString ());
 			if (!error)
 			{
-				auto transaction (wallet.node.store.tx_begin_read ());
+				auto transaction (wallet.node.wallets.tx_begin_read ());
+				auto block_transaction (wallet.node.store.tx_begin_read ());
 				nano::raw_key key;
 				if (!wallet.wallet_m->store.fetch (transaction, account_l, key))
 				{
-					auto balance (wallet.node.ledger.account_balance (transaction, account_l));
+					auto balance (wallet.node.ledger.account_balance (block_transaction, account_l));
 					if (amount_l.number () <= balance)
 					{
 						nano::account_info info;
-						auto error (wallet.node.store.account_get (transaction, account_l, info));
+						auto error (wallet.node.store.account_get (block_transaction, account_l, info));
 						assert (!error);
-						auto rep_block (wallet.node.store.block_get (transaction, info.rep_block));
+						auto rep_block (wallet.node.store.block_get (block_transaction, info.rep_block));
 						assert (rep_block != nullptr);
 						nano::state_block send (account_l, info.head, rep_block->representative (), balance - amount_l.number (), destination_l, key, account_l, 0);
 						wallet.node.work_generate_blocking (send);
@@ -2239,26 +2243,27 @@ void nano_qt::block_creation::create_receive ()
 	auto error (source_l.decode_hex (source->text ().toStdString ()));
 	if (!error)
 	{
-		auto transaction (wallet.node.store.tx_begin_read ());
-		auto block_l (wallet.node.store.block_get (transaction, source_l));
+		auto transaction (wallet.node.wallets.tx_begin_read ());
+		auto block_transaction (wallet.node.store.tx_begin_read ());
+		auto block_l (wallet.node.store.block_get (block_transaction, source_l));
 		if (block_l != nullptr)
 		{
-			auto destination (wallet.node.ledger.block_destination (transaction, *block_l));
+			auto destination (wallet.node.ledger.block_destination (block_transaction, *block_l));
 			if (!destination.is_zero ())
 			{
 				nano::pending_key pending_key (destination, source_l);
 				nano::pending_info pending;
-				if (!wallet.node.store.pending_get (transaction, pending_key, pending))
+				if (!wallet.node.store.pending_get (block_transaction, pending_key, pending))
 				{
 					nano::account_info info;
-					auto error (wallet.node.store.account_get (transaction, pending_key.account, info));
+					auto error (wallet.node.store.account_get (block_transaction, pending_key.account, info));
 					if (!error)
 					{
 						nano::raw_key key;
 						auto error (wallet.wallet_m->store.fetch (transaction, pending_key.account, key));
 						if (!error)
 						{
-							auto rep_block (wallet.node.store.block_get (transaction, info.rep_block));
+							auto rep_block (wallet.node.store.block_get (block_transaction, info.rep_block));
 							assert (rep_block != nullptr);
 							nano::state_block receive (pending_key.account, info.head, rep_block->representative (), info.balance.number () + pending.amount.number (), source_l, key, pending_key.account, 0);
 							wallet.node.work_generate_blocking (receive);
@@ -2315,9 +2320,10 @@ void nano_qt::block_creation::create_change ()
 		error = representative_l.decode_account (representative->text ().toStdString ());
 		if (!error)
 		{
-			auto transaction (wallet.node.store.tx_begin_read ());
+			auto transaction (wallet.node.wallets.tx_begin_read ());
+			auto block_transaction (wallet.node.store.tx_begin_read ());
 			nano::account_info info;
-			auto error (wallet.node.store.account_get (transaction, account_l, info));
+			auto error (wallet.node.store.account_get (block_transaction, account_l, info));
 			if (!error)
 			{
 				nano::raw_key key;
@@ -2367,19 +2373,20 @@ void nano_qt::block_creation::create_open ()
 		error = representative_l.decode_account (representative->text ().toStdString ());
 		if (!error)
 		{
-			auto transaction (wallet.node.store.tx_begin_read ());
-			auto block_l (wallet.node.store.block_get (transaction, source_l));
+			auto transaction (wallet.node.wallets.tx_begin_read ());
+			auto block_transaction (wallet.node.store.tx_begin_read ());
+			auto block_l (wallet.node.store.block_get (block_transaction, source_l));
 			if (block_l != nullptr)
 			{
-				auto destination (wallet.node.ledger.block_destination (transaction, *block_l));
+				auto destination (wallet.node.ledger.block_destination (block_transaction, *block_l));
 				if (!destination.is_zero ())
 				{
 					nano::pending_key pending_key (destination, source_l);
 					nano::pending_info pending;
-					if (!wallet.node.store.pending_get (transaction, pending_key, pending))
+					if (!wallet.node.store.pending_get (block_transaction, pending_key, pending))
 					{
 						nano::account_info info;
-						auto error (wallet.node.store.account_get (transaction, pending_key.account, info));
+						auto error (wallet.node.store.account_get (block_transaction, pending_key.account, info));
 						if (error)
 						{
 							nano::raw_key key;

@@ -8,7 +8,7 @@
 
 #include <queue>
 
-nano::mdb_env::mdb_env (bool & error_a, boost::filesystem::path const & path_a, int max_dbs)
+nano::mdb_env::mdb_env (bool & error_a, boost::filesystem::path const & path_a, int max_dbs, size_t map_size_a)
 {
 	boost::system::error_code error_mkdir, error_chmod;
 	if (path_a.has_parent_path ())
@@ -21,7 +21,7 @@ nano::mdb_env::mdb_env (bool & error_a, boost::filesystem::path const & path_a, 
 			release_assert (status1 == 0);
 			auto status2 (mdb_env_set_maxdbs (environment, max_dbs));
 			release_assert (status2 == 0);
-			auto status3 (mdb_env_set_mapsize (environment, 1ULL * 1024 * 1024 * 1024 * 128)); // 128 Gigabyte
+			auto status3 (mdb_env_set_mapsize (environment, map_size_a));
 			release_assert (status3 == 0);
 			// It seems if there's ever more threads than mdb_env_set_maxreaders has read slots available, we get failures on transaction creation unless MDB_NOTLS is specified
 			// This can happen if something like 256 io_threads are specified in the node config
