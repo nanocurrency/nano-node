@@ -2853,10 +2853,6 @@ void nano::rpc_handler::send ()
 							if (!node.store.account_get (block_transaction, source, info))
 							{
 								balance = (info.balance).number ();
-								if (balance < amount.number ())
-								{
-									ec = nano::error_common::insufficient_balance;
-								}
 							}
 							else
 							{
@@ -2896,7 +2892,15 @@ void nano::rpc_handler::send ()
 						}
 						else
 						{
-							error_response (response_a, "Error generating block");
+							if (balance >= amount.number ())
+							{
+								error_response (response_a, "Error generating block");
+							}
+							else
+							{
+								std::error_code ec (nano::error_common::insufficient_balance);
+								error_response (response_a, ec.message ());
+							}
 						}
 					},
 					work, generate_work, send_id);
