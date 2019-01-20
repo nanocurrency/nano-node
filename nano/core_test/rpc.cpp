@@ -729,7 +729,7 @@ TEST (rpc, wallet_create_seed)
 	auto wallet (system.nodes[0]->wallets.items.find (wallet_id));
 	ASSERT_NE (system.nodes[0]->wallets.items.end (), wallet);
 	{
-		auto transaction (system.nodes[0]->store.tx_begin ());
+		auto transaction (system.nodes[0]->wallets.tx_begin_read ());
 		nano::raw_key seed0;
 		wallet->second->store.seed (seed0, transaction);
 		ASSERT_EQ (seed.pub, seed0.data);
