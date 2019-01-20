@@ -434,7 +434,7 @@ public:
 
 private:
 	void queue_unchecked (nano::transaction const &, nano::block_hash const &, std::chrono::steady_clock::time_point = std::chrono::steady_clock::time_point ());
-	void verify_state_blocks (std::unique_lock<std::mutex> &, size_t = std::numeric_limits<size_t>::max ());
+	void verify_state_blocks (nano::transaction const & transaction_a, std::unique_lock<std::mutex> &, size_t = std::numeric_limits<size_t>::max ());
 	void process_batch (std::unique_lock<std::mutex> &);
 	bool stopped;
 	bool active;
