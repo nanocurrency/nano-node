@@ -226,10 +226,6 @@ public:
 	nano::store_iterator<nano::unchecked_key, std::shared_ptr<nano::block>> unchecked_end () override;
 	size_t unchecked_count (nano::transaction const &) override;
 
-	void checksum_put (nano::transaction const &, uint64_t, uint8_t, nano::checksum const &) override;
-	bool checksum_get (nano::transaction const &, uint64_t, uint8_t, nano::checksum &) override;
-	void checksum_del (nano::transaction const &, uint64_t, uint8_t) override;
-
 	// Return latest vote for an account from store
 	std::shared_ptr<nano::vote> vote_get (nano::transaction const &, nano::account const &) override;
 	// Populate vote with the next sequence number
@@ -354,12 +350,6 @@ public:
 	 * nano::block_hash -> nano::block
 	 */
 	MDB_dbi unchecked;
-
-	/**
-	 * Mapping of region to checksum.
-	 * (uint56_t, uint8_t) -> nano::block_hash
-	 */
-	MDB_dbi checksum;
 
 	/**
 	 * Highest vote observed for account.
