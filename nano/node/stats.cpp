@@ -404,6 +404,9 @@ std::string nano::stat::detail_to_string (uint32_t key)
 		case nano::stat::detail::initiate_lazy:
 			res = "initiate_lazy";
 			break;
+		case nano::stat::detail::initiate_wallet_lazy:
+			res = "initiate_wallet_lazy";
+			break;
 		case nano::stat::detail::insufficient_work:
 			res = "insufficient_work";
 			break;

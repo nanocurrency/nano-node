@@ -608,7 +608,7 @@ TEST (wallet, work)
 	system.deadline_set (10s);
 	while (!done)
 	{
-		nano::transaction transaction (system.nodes[0]->store.tx_begin ());
+		nano::transaction transaction (system.wallet (0)->wallets.tx_begin ());
 		uint64_t work (0);
 		if (!wallet->store.work_get (transaction, nano::test_genesis_key.pub, work))
 		{
@@ -627,7 +627,7 @@ TEST (wallet, work_generate)
 	wallet->insert_adhoc (nano::test_genesis_key.prv);
 	nano::account account1;
 	{
-		nano::transaction transaction (system.nodes[0]->store.tx_begin ());
+		nano::transaction transaction (system.nodes[0]->wallets.tx_begin ());
 		account1 = system.account (transaction, 0);
 	}
 	nano::keypair key;
@@ -643,8 +643,9 @@ TEST (wallet, work_generate)
 	while (again)
 	{
 		ASSERT_NO_ERROR (system.poll ());
-		auto transaction (system.nodes[0]->store.tx_begin ());
-		again = wallet->store.work_get (transaction, account1, work1) || nano::work_validate (system.nodes[0]->ledger.latest_root (transaction, account1), work1);
+		auto block_transaction (system.nodes[0]->store.tx_begin ());
+		auto transaction (system.wallet (0)->wallets.tx_begin ());
+		again = wallet->store.work_get (transaction, account1, work1) || nano::work_validate (system.nodes[0]->ledger.latest_root (block_transaction, account1), work1);
 	}
 }
 
@@ -859,7 +860,7 @@ TEST (wallet, no_work)
 	ASSERT_NE (nullptr, block);
 	ASSERT_NE (0, block->block_work ());
 	ASSERT_FALSE (nano::work_validate (block->root (), block->block_work ()));
-	auto transaction (system.nodes[0]->store.tx_begin ());
+	auto transaction (system.wallet (0)->wallets.tx_begin ());
 	uint64_t cached_work (0);
 	system.wallet (0)->store.work_get (transaction, nano::test_genesis_key.pub, cached_work);
 	ASSERT_EQ (0, cached_work);
