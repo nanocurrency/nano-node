@@ -38,7 +38,6 @@ cmake \
 if [[ "$OS" == 'Linux' ]]; then
     cmake --build ${PWD} -- -j2
 else
-    sudo sysctl -a | grep machdep.cpu # for macOS
     sudo cmake --build ${PWD} -- -j2
 fi
 
