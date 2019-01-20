@@ -3,6 +3,7 @@ add_executable (core_test
 	block.cpp
 	block_store.cpp
 	interface.cpp
+	ipc.cpp
 	conflicts.cpp
 	daemon.cpp
 	entry.cpp
