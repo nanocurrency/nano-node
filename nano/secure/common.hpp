@@ -137,7 +137,7 @@ public:
 	/*
 	 * @return The ipv6 address in network byte order
 	 */
-	const std::array<uint8_t, 16>& address_bytes() const;
+	const std::array<uint8_t, 16> & address_bytes () const;
 
 	/*
 	 * @return The port in host byte order
