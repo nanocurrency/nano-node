@@ -615,6 +615,59 @@ TEST (node_config, v2_v3_upgrade)
 	ASSERT_GT (std::stoull (version), 2);
 }
 
+TEST (node_config, v16_v17_upgrade)
+{
+	auto test_upgrade = [](auto old_preconfigured_peers_url, auto new_preconfigured_peers_url) {
+		auto path (nano::unique_path ());
+		nano::logging logging;
+		logging.init (path);
+		nano::jsonconfig tree;
+		tree.put ("peering_port", std::to_string (0));
+		tree.put ("packet_delay_microseconds", std::to_string (0));
+		tree.put ("bootstrap_fraction_numerator", std::to_string (0));
+		tree.put ("creation_rebroadcast", std::to_string (0));
+		tree.put ("rebroadcast_delay", std::to_string (0));
+		tree.put ("receive_minimum", nano::amount (0).to_string_dec ());
+		tree.put ("version", "16");
+
+		const char * dummy_peer = "127.5.2.1";
+
+		nano::jsonconfig preconfigured_peers_json;
+		preconfigured_peers_json.push (old_preconfigured_peers_url);
+		preconfigured_peers_json.push (dummy_peer);
+		tree.put_child ("preconfigured_peers", preconfigured_peers_json);
+
+		nano::jsonconfig logging_json;
+		logging.serialize_json (logging_json);
+		tree.put_child ("logging", logging_json);
+
+		auto upgraded (false);
+		nano::node_config config;
+		config.logging.init (path);
+		config.deserialize_json (upgraded, tree);
+		ASSERT_TRUE (upgraded);
+		auto version (tree.get<std::string> ("version"));
+
+		auto read_preconfigured_peers_json (tree.get_required_child ("preconfigured_peers"));
+		std::vector<std::string> preconfigured_peers;
+		read_preconfigured_peers_json.array_entries<std::string> ([&preconfigured_peers](const auto & entry) {
+			preconfigured_peers.push_back (entry);
+		});
+
+		// Check that the new peer is updated while the other peer is untouched
+		ASSERT_EQ (preconfigured_peers.size (), 2);
+		ASSERT_EQ (preconfigured_peers.front (), new_preconfigured_peers_url);
+		ASSERT_EQ (preconfigured_peers.back (), dummy_peer);
+
+		// Check version is updated
+		ASSERT_GT (std::stoull (version), 16);
+	};
+
+	// Check that upgrades work with both
+	test_upgrade ("rai.raiblocks.net", "peering.nano.org");
+	test_upgrade ("rai-beta.raiblocks.net", "peering-beta.nano.org");
+}
+
 // Regression test to ensure that deserializing includes changes node via get_required_child
 TEST (node_config, required_child)
 {

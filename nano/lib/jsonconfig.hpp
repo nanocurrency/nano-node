@@ -172,8 +172,8 @@ public:
 
 	jsonconfig & replace_child (std::string const & key_a, nano::jsonconfig & conf_a)
 	{
-		conf_a.erase (key_a);
-		conf_a.put_child (key_a, conf_a);
+		tree.erase (key_a);
+		put_child (key_a, conf_a);
 		return *this;
 	}
 
@@ -332,7 +332,7 @@ protected:
 				conditionally_set_error<T> (nano::error_config::invalid_value, optional, key);
 			}
 		}
-		catch (boost::property_tree::ptree_bad_path const & ex)
+		catch (boost::property_tree::ptree_bad_path const &)
 		{
 			if (!optional)
 			{
@@ -407,7 +407,7 @@ protected:
 			auto val (tree.get<std::string> (key));
 			bool_conv (val);
 		}
-		catch (boost::property_tree::ptree_bad_path const & ex)
+		catch (boost::property_tree::ptree_bad_path const &)
 		{
 			if (!optional)
 			{

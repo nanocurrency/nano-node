@@ -4,6 +4,13 @@
 // once nano::network is factored out of node.{c|h}pp
 #include <nano/node/node.hpp>
 
+namespace
+{
+const char * preconfigured_peers_key = "preconfigured_peers";
+const char * default_beta_peer_network = "peering-beta.nano.org";
+const char * default_live_peer_network = "peering.nano.org";
+}
+
 nano::node_config::node_config () :
 node_config (nano::network::node_port, nano::logging ())
 {
@@ -38,23 +45,23 @@ block_processor_batch_max_time (std::chrono::milliseconds (5000))
 			preconfigured_representatives.push_back (nano::genesis_account);
 			break;
 		case nano::nano_networks::nano_beta_network:
-			preconfigured_peers.push_back ("rai-beta.raiblocks.net");
-			preconfigured_representatives.push_back (nano::account ("A59A47CC4F593E75AE9AD653FDA9358E2F7898D9ACC8C60E80D0495CE20FBA9F"));
-			preconfigured_representatives.push_back (nano::account ("259A4011E6CAD1069A97C02C3C1F2AAA32BC093C8D82EE1334F937A4BE803071"));
-			preconfigured_representatives.push_back (nano::account ("259A40656144FAA16D2A8516F7BE9C74A63C6CA399960EDB747D144ABB0F7ABD"));
-			preconfigured_representatives.push_back (nano::account ("259A40A92FA42E2240805DE8618EC4627F0BA41937160B4CFF7F5335FD1933DF"));
-			preconfigured_representatives.push_back (nano::account ("259A40FF3262E273EC451E873C4CDF8513330425B38860D882A16BCC74DA9B73"));
+			preconfigured_peers.push_back (default_beta_peer_network);
+			preconfigured_representatives.emplace_back ("A59A47CC4F593E75AE9AD653FDA9358E2F7898D9ACC8C60E80D0495CE20FBA9F");
+			preconfigured_representatives.emplace_back ("259A4011E6CAD1069A97C02C3C1F2AAA32BC093C8D82EE1334F937A4BE803071");
+			preconfigured_representatives.emplace_back ("259A40656144FAA16D2A8516F7BE9C74A63C6CA399960EDB747D144ABB0F7ABD");
+			preconfigured_representatives.emplace_back ("259A40A92FA42E2240805DE8618EC4627F0BA41937160B4CFF7F5335FD1933DF");
+			preconfigured_representatives.emplace_back ("259A40FF3262E273EC451E873C4CDF8513330425B38860D882A16BCC74DA9B73");
 			break;
 		case nano::nano_networks::nano_live_network:
-			preconfigured_peers.push_back ("rai.raiblocks.net");
-			preconfigured_representatives.push_back (nano::account ("A30E0A32ED41C8607AA9212843392E853FCBCB4E7CB194E35C94F07F91DE59EF"));
-			preconfigured_representatives.push_back (nano::account ("67556D31DDFC2A440BF6147501449B4CB9572278D034EE686A6BEE29851681DF"));
-			preconfigured_representatives.push_back (nano::account ("5C2FBB148E006A8E8BA7A75DD86C9FE00C83F5FFDBFD76EAA09531071436B6AF"));
-			preconfigured_representatives.push_back (nano::account ("AE7AC63990DAAAF2A69BF11C913B928844BF5012355456F2F164166464024B29"));
-			preconfigured_representatives.push_back (nano::account ("BD6267D6ECD8038327D2BCC0850BDF8F56EC0414912207E81BCF90DFAC8A4AAA"));
-			preconfigured_representatives.push_back (nano::account ("2399A083C600AA0572F5E36247D978FCFC840405F8D4B6D33161C0066A55F431"));
-			preconfigured_representatives.push_back (nano::account ("2298FAB7C61058E77EA554CB93EDEEDA0692CBFCC540AB213B2836B29029E23A"));
-			preconfigured_representatives.push_back (nano::account ("3FE80B4BC842E82C1C18ABFEEC47EA989E63953BC82AC411F304D13833D52A56"));
+			preconfigured_peers.push_back (default_live_peer_network);
+			preconfigured_representatives.emplace_back ("A30E0A32ED41C8607AA9212843392E853FCBCB4E7CB194E35C94F07F91DE59EF");
+			preconfigured_representatives.emplace_back ("67556D31DDFC2A440BF6147501449B4CB9572278D034EE686A6BEE29851681DF");
+			preconfigured_representatives.emplace_back ("5C2FBB148E006A8E8BA7A75DD86C9FE00C83F5FFDBFD76EAA09531071436B6AF");
+			preconfigured_representatives.emplace_back ("AE7AC63990DAAAF2A69BF11C913B928844BF5012355456F2F164166464024B29");
+			preconfigured_representatives.emplace_back ("BD6267D6ECD8038327D2BCC0850BDF8F56EC0414912207E81BCF90DFAC8A4AAA");
+			preconfigured_representatives.emplace_back ("2399A083C600AA0572F5E36247D978FCFC840405F8D4B6D33161C0066A55F431");
+			preconfigured_representatives.emplace_back ("2298FAB7C61058E77EA554CB93EDEEDA0692CBFCC540AB213B2836B29029E23A");
+			preconfigured_representatives.emplace_back ("3FE80B4BC842E82C1C18ABFEEC47EA989E63953BC82AC411F304D13833D52A56");
 			break;
 		default:
 			assert (false);
@@ -84,7 +91,7 @@ nano::error nano::node_config::serialize_json (nano::jsonconfig & json) const
 	{
 		preconfigured_peers_l.push (*i);
 	}
-	json.put_child ("preconfigured_peers", preconfigured_peers_l);
+	json.put_child (preconfigured_peers_key, preconfigured_peers_l);
 
 	nano::jsonconfig preconfigured_representatives_l;
 	for (auto i (preconfigured_representatives.begin ()), n (preconfigured_representatives.end ()); i != n; ++i)
@@ -198,6 +205,27 @@ bool nano::node_config::upgrade_json (unsigned version_a, nano::jsonconfig & jso
 			json.put ("allow_local_peers", allow_local_peers);
 			upgraded = true;
 		case 16:
+		{
+			// Update to the new preconfigured_peers url for rebrand if it is found (rai -> nano)
+			auto reps_l (json.get_required_child (preconfigured_peers_key));
+			nano::jsonconfig peers;
+			reps_l.array_entries<std::string> ([&peers](std::string entry) {
+				if (entry == "rai-beta.raiblocks.net")
+				{
+					entry = default_beta_peer_network;
+				}
+				else if (entry == "rai.raiblocks.net")
+				{
+					entry = default_live_peer_network;
+				}
+
+				peers.push (std::move (entry));
+			});
+
+			json.replace_child (preconfigured_peers_key, peers);
+			upgraded = true;
+		}
+		case 17:
 			break;
 		default:
 			throw std::runtime_error ("Unknown node_config version");
@@ -246,7 +274,7 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 			}
 		});
 
-		auto preconfigured_peers_l (json.get_required_child ("preconfigured_peers"));
+		auto preconfigured_peers_l (json.get_required_child (preconfigured_peers_key));
 		preconfigured_peers.clear ();
 		preconfigured_peers_l.array_entries<std::string> ([this](std::string entry) {
 			preconfigured_peers.push_back (entry);
