@@ -44,6 +44,40 @@ TEST (signature_checker, many)
 	promise.get_future ().wait ();
 }
 
+TEST (signature_checker, many_threaded)
+{
+	nano::keypair key;
+	nano::state_block block (key.pub, 0, key.pub, 0, 0, key.prv, key.pub, 0);
+	nano::signature_checker checker;
+	std::promise<void> promise;
+	std::vector<nano::uint256_union> hashes;
+	// The threaded version runs if size > 1000, so we trigger it by
+	// increasing size, test is otherwise the same as the many one above
+	size_t size (1001);
+	hashes.reserve (size);
+	std::vector<unsigned char const *> messages;
+	messages.reserve (size);
+	std::vector<size_t> lengths;
+	lengths.reserve (size);
+	std::vector<unsigned char const *> pub_keys;
+	pub_keys.reserve (size);
+	std::vector<unsigned char const *> signatures;
+	signatures.reserve (size);
+	std::vector<int> verifications;
+	verifications.resize (size);
+	for (auto i (0); i < size; ++i)
+	{
+		hashes.push_back (block.hash ());
+		messages.push_back (hashes.back ().bytes.data ());
+		lengths.push_back (sizeof (decltype (hashes)::value_type));
+		pub_keys.push_back (block.hashables.account.bytes.data ());
+		signatures.push_back (block.signature.bytes.data ());
+	}
+	nano::signature_check_set check = { size, messages.data (), lengths.data (), pub_keys.data (), signatures.data (), verifications.data (), &promise };
+	checker.add (check);
+	promise.get_future ().wait ();
+}
+
 TEST (signature_checker, one)
 {
 	nano::keypair key;
