@@ -1153,7 +1153,7 @@ void nano::signature_checker::verify (nano::signature_check_set & check_a)
 {
 	if (check_a.size > 1000)
 	{
-		unsigned int nr_threads = std::thread::hardware_concurrency();
+		unsigned int nr_threads = std::thread::hardware_concurrency ();
 		std::vector<std::future<bool>> futures;
 		unsigned int batch_size = check_a.size / nr_threads;
 		unsigned int overflow = check_a.size % nr_threads;
@@ -1178,31 +1178,25 @@ void nano::signature_checker::verify (nano::signature_check_set & check_a)
 			}
 
 			futures.push_back (std::async (std::launch::async,
-																		 [&]() -> bool {
-																			 /* Verifications is vector if signatures check results
-																					validate_message_batch returing "true" if there are at least 1 invalid signature */
-																			 auto code (nano::validate_message_batch (check_a.messages, check_a.message_lengths,
-																																								check_a.pub_keys, check_a.signatures,
-																																								size, check_a.verifications + from));
-																			 (void)code;
+			[&]() -> bool {
+				auto code (nano::validate_message_batch (check_a.messages, check_a.message_lengths,
+				check_a.pub_keys, check_a.signatures,
+				size, check_a.verifications + from));
+				(void)code;
 
-																			 return std::all_of (check_a.verifications + from, check_a.verifications + from + size,
-																													 [](int verification) { return verification == 0 || verification == 1; });
-																		 }));
+				return std::all_of (check_a.verifications + from, check_a.verifications + from + size,
+				[](int verification) { return verification == 0 || verification == 1; });
+			}));
 		}
 
-		release_assert (std::all_of (futures.begin(), futures.end(),
-																 [](auto & f) -> bool {
-																	 return f.get();
-																 }));
+		release_assert (std::all_of (futures.begin (), futures.end (),
+		[](auto & f) -> bool { return f.get (); }));
 	}
 	else
 	{
 		/* Verifications is vector if signatures check results
 			 validate_message_batch returing "true" if there are at least 1 invalid signature */
-		auto code (nano::validate_message_batch (check_a.messages, check_a.message_lengths,
-																						 check_a.pub_keys, check_a.signatures,
-																						 check_a.size, check_a.verifications));
+		auto code (nano::validate_message_batch (check_a.messages, check_a.message_lengths, check_a.pub_keys, check_a.signatures, check_a.size, check_a.verifications));
 		(void)code;
 		release_assert (std::all_of (check_a.verifications, check_a.verifications + check_a.size, [](int verification) { return verification == 0 || verification == 1; }));
 	}
