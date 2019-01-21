@@ -6,6 +6,7 @@
 #include <nano/secure/blockstore.hpp>
 #include <nano/secure/versioning.hpp>
 
+#include <boost/endian/conversion.hpp>
 #include <boost/property_tree/json_parser.hpp>
 
 #include <queue>
@@ -305,28 +306,18 @@ nano::block_hash nano::pending_key::key () const
 }
 
 nano::endpoint_key::endpoint_key (const std::array<uint8_t, 16> & address_a, uint16_t port_a) :
-address (address_a), port (port_a)
+address (address_a), network_port (boost::endian::native_to_big (port_a))
 {
 }
 
-void nano::endpoint_key::serialize (nano::stream & stream_a) const
+const std::array<uint8_t, 16> & nano::endpoint_key::address_bytes () const
 {
-	write (stream_a, address);
-	write (stream_a, port);
+	return address;
 }
 
-bool nano::endpoint_key::deserialize (nano::stream & stream_a)
+uint16_t nano::endpoint_key::port () const
 {
-	std::array<uint8_t, 16> address;
-	uint16_t port;
-
-	auto error (nano::read (stream_a, address));
-	if (!error)
-	{
-		error = nano::read (stream_a, port);
-	}
-
-	return error;
+	return boost::endian::big_to_native (network_port);
 }
 
 nano::block_info::block_info () :

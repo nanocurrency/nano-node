@@ -2125,7 +2125,8 @@ TEST (node, peers)
 	auto node (std::make_shared<nano::node> (init, system.io_ctx, 24001, nano::unique_path (), system.alarm, system.logging, system.work));
 	system.nodes.push_back (node);
 
-	nano::endpoint_key endpoint_key{ system.nodes.front ()->network.endpoint ().address ().to_v6 ().to_bytes (), system.nodes.front ()->network.endpoint ().port () };
+	auto endpoint = system.nodes.front ()->network.endpoint ();
+	nano::endpoint_key endpoint_key{ endpoint.address ().to_v6 ().to_bytes (), endpoint.port () };
 	auto & store = system.nodes.back ()->store;
 	{
 		// Add a peer to the database

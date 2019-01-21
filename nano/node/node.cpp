@@ -2659,7 +2659,7 @@ void nano::node::add_initial_peers ()
 	auto transaction (store.tx_begin_read ());
 	for (auto i (store.peers_begin (transaction)), n (store.peers_end ()); i != n; ++i)
 	{
-		nano::endpoint endpoint (boost::asio::ip::address_v6 (i->first.address), i->first.port);
+		nano::endpoint endpoint (boost::asio::ip::address_v6 (i->first.address_bytes ()), i->first.port ());
 		if (!peers.reachout (endpoint))
 		{
 			send_keepalive (endpoint);
