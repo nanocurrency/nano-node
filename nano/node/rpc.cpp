@@ -337,6 +337,19 @@ uint64_t nano::rpc_handler::count_optional_impl (uint64_t result)
 	return result;
 }
 
+uint64_t nano::rpc_handler::offset_optional_impl (uint64_t result)
+{
+	boost::optional<std::string> offset_text (request.get_optional<std::string> ("offset"));
+	if (!ec && offset_text.is_initialized ())
+	{
+		if (decode_unsigned (offset_text.get (), result))
+		{
+			ec = nano::error_rpc::invalid_offset;
+		}
+	}
+	return result;
+}
+
 bool nano::rpc_handler::rpc_control_impl ()
 {
 	bool result (false);
@@ -1391,8 +1404,10 @@ void nano::rpc_handler::bootstrap_status ()
 
 void nano::rpc_handler::chain (bool successors)
 {
+	successors = successors || request.get<bool> ("reverse", false);
 	auto hash (hash_impl ("block"));
 	auto count (count_impl ());
+	auto offset (offset_optional_impl (0));
 	if (!ec)
 	{
 		boost::property_tree::ptree blocks;
@@ -1402,9 +1417,16 @@ void nano::rpc_handler::chain (bool successors)
 			auto block_l (node.store.block_get (transaction, hash));
 			if (block_l != nullptr)
 			{
-				boost::property_tree::ptree entry;
-				entry.put ("", hash.to_string ());
-				blocks.push_back (std::make_pair ("", entry));
+				if (offset > 0)
+				{
+					--offset;
+				}
+				else
+				{
+					boost::property_tree::ptree entry;
+					entry.put ("", hash.to_string ());
+					blocks.push_back (std::make_pair ("", entry));
+				}
 				hash = successors ? node.store.block_successor (transaction, hash) : block_l->previous ();
 			}
 			else
@@ -1834,50 +1856,42 @@ void nano::rpc_handler::account_history ()
 		}
 	}
 	auto count (count_impl ());
+	auto offset (offset_optional_impl (0));
 	if (!ec)
 	{
-		uint64_t offset = 0;
-		auto offset_text (request.get_optional<std::string> ("offset"));
-		if (!offset_text || !decode_unsigned (*offset_text, offset))
+		boost::property_tree::ptree history;
+		response_l.put ("account", account.to_account ());
+		auto block (node.store.block_get (transaction, hash));
+		while (block != nullptr && count > 0)
 		{
-			boost::property_tree::ptree history;
-			response_l.put ("account", account.to_account ());
-			auto block (node.store.block_get (transaction, hash));
-			while (block != nullptr && count > 0)
+			if (offset > 0)
 			{
-				if (offset > 0)
+				--offset;
+			}
+			else
+			{
+				boost::property_tree::ptree entry;
+				history_visitor visitor (*this, output_raw, transaction, entry, hash);
+				block->visit (visitor);
+				if (!entry.empty ())
 				{
-					--offset;
-				}
-				else
-				{
-					boost::property_tree::ptree entry;
-					history_visitor visitor (*this, output_raw, transaction, entry, hash);
-					block->visit (visitor);
-					if (!entry.empty ())
+					entry.put ("hash", hash.to_string ());
+					if (output_raw)
 					{
-						entry.put ("hash", hash.to_string ());
-						if (output_raw)
-						{
-							entry.put ("work", nano::to_string_hex (block->block_work ()));
-							entry.put ("signature", block->block_signature ().to_string ());
-						}
-						history.push_back (std::make_pair ("", entry));
-						--count;
+						entry.put ("work", nano::to_string_hex (block->block_work ()));
+						entry.put ("signature", block->block_signature ().to_string ());
 					}
+					history.push_back (std::make_pair ("", entry));
+					--count;
 				}
-				hash = block->previous ();
-				block = node.store.block_get (transaction, hash);
 			}
-			response_l.add_child ("history", history);
-			if (!hash.is_zero ())
-			{
-				response_l.put ("previous", hash.to_string ());
-			}
+			hash = block->previous ();
+			block = node.store.block_get (transaction, hash);
 		}
-		else
+		response_l.add_child ("history", history);
+		if (!hash.is_zero ())
 		{
-			ec = nano::error_rpc::invalid_offset;
+			response_l.put ("previous", hash.to_string ());
 		}
 	}
 	response_errors ();
