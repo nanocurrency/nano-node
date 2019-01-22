@@ -3664,10 +3664,6 @@ nano::thread_runner::thread_runner (boost::asio::io_context & io_ctx_a, unsigned
 			{
 				io_ctx_a.run ();
 			}
-			catch (std::exception const & ex)
-			{
-				std::cerr << ex.what () << std::endl;
-			}
 			catch (...)
 			{
 #ifndef NDEBUG

@@ -94,7 +94,6 @@ namespace ipc
 		std::atomic<uint64_t> id_dispenser{ 0 };
 
 	private:
-		std::atomic<bool> stopped;
 		std::unique_ptr<dsock_file_remover> file_remover;
 		std::vector<std::shared_ptr<nano::ipc::transport>> transports;
 	};
@@ -113,13 +112,13 @@ namespace ipc
 		~ipc_client ();
 
 		/** Connect to a domain socket */
-		nano::error connect (std::string path);
+		nano::error connect (std::string const & path);
 
 		/** Connect to a tcp socket synchronously */
-		nano::error connect (std::string host, uint16_t port);
+		nano::error connect (std::string const & host, uint16_t port);
 
 		/** Connect to a tcp socket asynchronously */
-		void async_connect (std::string host, uint16_t port, std::function<void(nano::error)> callback);
+		void async_connect (std::string const & host, uint16_t port, std::function<void(nano::error)> callback);
 
 		/** Write buffer asynchronously */
 		void async_write (std::shared_ptr<std::vector<uint8_t>> buffer_a, std::function<void(nano::error, size_t)> callback_a);
@@ -131,7 +130,7 @@ namespace ipc
 		 * Returns a buffer with an IPC preamble for the given \p encoding_a followed by the payload. Depending on encoding,
 		 * the buffer may contain a payload length or end sentinel.
 		 */
-		std::shared_ptr<std::vector<uint8_t>> prepare_request (nano::ipc::payload_encoding encoding_a, std::string payload_a);
+		std::shared_ptr<std::vector<uint8_t>> prepare_request (nano::ipc::payload_encoding encoding_a, std::string const & payload_a);
 
 	private:
 		boost::asio::io_context & io_ctx;
@@ -149,7 +148,7 @@ namespace ipc
 		{
 		}
 		/** Calls the RPC server via IPC and waits for the result. The client must be connected. */
-		std::string request (std::string rpc_action_a);
+		std::string request (std::string const & rpc_action_a);
 	};
 }
 }

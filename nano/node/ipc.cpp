@@ -400,7 +400,7 @@ private:
 class nano::ipc::dsock_file_remover
 {
 public:
-	dsock_file_remover (std::string file_a) :
+	dsock_file_remover (std::string const & file_a) :
 	filename (file_a)
 	{
 		std::remove (filename.c_str ());
@@ -413,8 +413,7 @@ public:
 };
 
 nano::ipc::ipc_server::ipc_server (nano::node & node_a, nano::rpc & rpc_a) :
-node (node_a), rpc (rpc_a),
-stopped (false)
+node (node_a), rpc (rpc_a)
 {
 	try
 	{
@@ -455,7 +454,6 @@ void nano::ipc::ipc_server::stop ()
 	{
 		transport->stop ();
 	}
-	stopped = true;
 }
 
 /** Socket agnostic IO interface */
@@ -476,7 +474,7 @@ public:
 	{
 	}
 
-	void async_resolve (std::string host_a, uint16_t port_a, std::function<void(boost::system::error_code const &, boost::asio::ip::tcp::endpoint)> callback_a)
+	void async_resolve (std::string const & host_a, uint16_t port_a, std::function<void(boost::system::error_code const &, boost::asio::ip::tcp::endpoint)> callback_a)
 	{
 		this->timer_start (io_timeout);
 		resolver.async_resolve (boost::asio::ip::tcp::resolver::query (host_a, std::to_string (port_a)), [this, callback_a](boost::system::error_code const & ec, boost::asio::ip::tcp::resolver::iterator endpoint_iterator_a) {
@@ -506,7 +504,6 @@ public:
 	void async_read (std::shared_ptr<std::vector<uint8_t>> buffer_a, size_t size_a, std::function<void(boost::system::error_code const &, size_t)> callback_a) override
 	{
 		this->timer_start (io_timeout);
-		//buffer_a->clear ();
 		buffer_a->resize (size_a);
 		boost::asio::async_read (socket, boost::asio::buffer (buffer_a->data (), size_a), [this, callback_a](boost::system::error_code const & ec, size_t size_a) {
 			this->timer_cancel ();
@@ -552,7 +549,7 @@ public:
 	{
 	}
 
-	void connect (std::string host_a, uint16_t port_a, std::function<void(nano::error)> callback_a)
+	void connect (std::string const & host_a, uint16_t port_a, std::function<void(nano::error)> callback_a)
 	{
 		tcp_client = std::make_shared<socket_client<boost::asio::ip::tcp::socket, boost::asio::ip::tcp::endpoint>> (io_ctx, boost::asio::ip::tcp::endpoint (boost::asio::ip::tcp::v6 (), port_a));
 
@@ -570,7 +567,7 @@ public:
 		});
 	}
 
-	nano::error connect (std::string path_a)
+	nano::error connect (std::string const & path_a)
 	{
 		nano::error err;
 #if defined(BOOST_ASIO_HAS_LOCAL_SOCKETS)
@@ -607,20 +604,20 @@ nano::ipc::ipc_client::~ipc_client ()
 {
 }
 
-nano::error nano::ipc::ipc_client::connect (std::string path_a)
+nano::error nano::ipc::ipc_client::connect (std::string const & path_a)
 {
 	impl = std::make_unique<client_impl> (io_ctx);
 	return boost::polymorphic_downcast<client_impl *> (impl.get ())->connect (path_a);
 }
 
-void nano::ipc::ipc_client::async_connect (std::string host_a, uint16_t port_a, std::function<void(nano::error)> callback_a)
+void nano::ipc::ipc_client::async_connect (std::string const & host_a, uint16_t port_a, std::function<void(nano::error)> callback_a)
 {
 	impl = std::make_unique<client_impl> (io_ctx);
 	auto client (boost::polymorphic_downcast<client_impl *> (impl.get ()));
 	client->connect (host_a, port_a, callback_a);
 }
 
-nano::error nano::ipc::ipc_client::connect (std::string host, uint16_t port)
+nano::error nano::ipc::ipc_client::connect (std::string const & host, uint16_t port)
 {
 	std::promise<nano::error> result_l;
 	async_connect (host, port, [&result_l](nano::error err_a) {
@@ -645,7 +642,7 @@ void nano::ipc::ipc_client::async_read (std::shared_ptr<std::vector<uint8_t>> bu
 	});
 }
 
-std::shared_ptr<std::vector<uint8_t>> nano::ipc::ipc_client::prepare_request (nano::ipc::payload_encoding encoding_a, std::string payload_a)
+std::shared_ptr<std::vector<uint8_t>> nano::ipc::ipc_client::prepare_request (nano::ipc::payload_encoding encoding_a, std::string const & payload_a)
 {
 	auto buffer_l (std::make_shared<std::vector<uint8_t>> ());
 	if (encoding_a == nano::ipc::payload_encoding::json_legacy)
@@ -664,7 +661,7 @@ std::shared_ptr<std::vector<uint8_t>> nano::ipc::ipc_client::prepare_request (na
 	return buffer_l;
 }
 
-std::string nano::ipc::rpc_ipc_client::request (std::string rpc_action_a)
+std::string nano::ipc::rpc_ipc_client::request (std::string const & rpc_action_a)
 {
 	auto req (prepare_request (nano::ipc::payload_encoding::json_legacy, rpc_action_a));
 	auto res (std::make_shared<std::vector<uint8_t>> ());
