@@ -556,10 +556,6 @@ public:
 	{
 		assert (false);
 	}
-	void bulk_pull_blocks (nano::bulk_pull_blocks const &) override
-	{
-		assert (false);
-	}
 	void bulk_push (nano::bulk_push const &) override
 	{
 		assert (false);
