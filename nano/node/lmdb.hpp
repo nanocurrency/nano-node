@@ -59,6 +59,7 @@ public:
 	mdb_val (nano::endpoint_key const &);
 	mdb_val (std::shared_ptr<nano::block> const &);
 	mdb_val (std::shared_ptr<nano::vote> const &);
+	mdb_val (uint64_t);
 	void * data () const;
 	size_t size () const;
 	explicit operator nano::account_info () const;
@@ -237,6 +238,13 @@ public:
 	void flush (nano::transaction const &) override;
 	nano::store_iterator<nano::account, std::shared_ptr<nano::vote>> vote_begin (nano::transaction const &) override;
 	nano::store_iterator<nano::account, std::shared_ptr<nano::vote>> vote_end () override;
+
+	void online_weight_put (nano::transaction const &, uint64_t, nano::amount const &) override;
+	void online_weight_del (nano::transaction const &, uint64_t) override;
+	nano::store_iterator<uint64_t, nano::amount> online_weight_begin (nano::transaction const &) override;
+	nano::store_iterator<uint64_t, nano::amount> online_weight_end () override;
+	size_t online_weight_count (nano::transaction const &) override;
+
 	std::mutex cache_mutex;
 	std::unordered_map<nano::account, std::shared_ptr<nano::vote>> vote_cache_l1;
 	std::unordered_map<nano::account, std::shared_ptr<nano::vote>> vote_cache_l2;
@@ -369,6 +377,12 @@ public:
 	 * nano::account -> uint64_t
 	 */
 	MDB_dbi vote{ 0 };
+
+	/**
+	 * Samples of online vote weight
+	 * uint64_t -> nano::amount
+	 */
+	MDB_dbi online_weight;
 
 	/**
 	 * Meta information about block store, such as versions.
