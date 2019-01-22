@@ -3243,17 +3243,31 @@ void nano::rpc_handler::wallet_create ()
 	rpc_control_impl ();
 	if (!ec)
 	{
-		nano::keypair wallet_id;
-		node.wallets.create (wallet_id.pub);
-		auto transaction (node.store.tx_begin_read ());
-		auto existing (node.wallets.items.find (wallet_id.pub));
-		if (existing != node.wallets.items.end ())
+		nano::raw_key seed;
+		auto seed_text (request.get_optional<std::string> ("seed"));
+		if (seed_text.is_initialized () && seed.data.decode_hex (seed_text.get ()))
 		{
-			response_l.put ("wallet", wallet_id.pub.to_string ());
+			ec = nano::error_common::bad_seed;
 		}
-		else
+		if (!ec)
 		{
-			ec = nano::error_common::wallet_lmdb_max_dbs;
+			nano::keypair wallet_id;
+			auto wallet (node.wallets.create (wallet_id.pub));
+			auto existing (node.wallets.items.find (wallet_id.pub));
+			if (existing != node.wallets.items.end ())
+			{
+				response_l.put ("wallet", wallet_id.pub.to_string ());
+			}
+			else
+			{
+				ec = nano::error_common::wallet_lmdb_max_dbs;
+			}
+			if (!ec && seed_text.is_initialized ())
+			{
+				auto transaction (node.wallets.tx_begin_write ());
+				nano::public_key account (wallet->change_seed (transaction, seed));
+				response_l.put ("account", account.to_account ());
+			}
 		}
 	}
 	response_errors ();
