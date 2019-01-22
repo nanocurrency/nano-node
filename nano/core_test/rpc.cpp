@@ -4016,8 +4016,5 @@ TEST (rpc, uptime)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
-	ASSERT_EQ ("0", response.json.get<std::string> ("days"));
-	ASSERT_EQ ("0", response.json.get<std::string> ("hours"));
-	ASSERT_EQ ("0", response.json.get<std::string> ("minutes"));
 	ASSERT_LE (1, response.json.get<int> ("seconds"));
 }
