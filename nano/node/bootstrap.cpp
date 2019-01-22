@@ -2018,19 +2018,6 @@ void nano::bootstrap_server::receive_header_action (boost::system::error_code co
 					});
 					break;
 				}
-				case nano::message_type::bulk_pull_blocks:
-				{
-					if (node->config.logging.network_logging ())
-					{
-						BOOST_LOG (node->log) << boost::str (boost::format ("Received deprecated \"bulk_pull_block\" from bootstrap connection %1%") % static_cast<uint8_t> (header.type));
-					}
-
-					auto this_l (shared_from_this ());
-					socket->async_read (receive_buffer, sizeof (nano::uint256_union) + sizeof (nano::uint256_union) + sizeof (bulk_pull_blocks_mode) + sizeof (uint32_t), [this_l, header](boost::system::error_code const & ec, size_t size_a) {
-						this_l->receive_bulk_pull_blocks_action (ec, size_a, header);
-					});
-					break;
-				}
 				case nano::message_type::frontier_req:
 				{
 					node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::frontier_req, nano::stat::dir::in);
@@ -2098,25 +2085,6 @@ void nano::bootstrap_server::receive_bulk_pull_account_action (boost::system::er
 			if (node->config.logging.bulk_pull_logging ())
 			{
 				BOOST_LOG (node->log) << boost::str (boost::format ("Received bulk pull account for %1% with a minimum amount of %2%") % request->account.to_account () % nano::amount (request->minimum_amount).format_balance (nano::Mxrb_ratio, 10, true));
-			}
-			add_request (std::unique_ptr<nano::message> (request.release ()));
-			receive ();
-		}
-	}
-}
-
-void nano::bootstrap_server::receive_bulk_pull_blocks_action (boost::system::error_code const & ec, size_t size_a, nano::message_header const & header_a)
-{
-	if (!ec)
-	{
-		auto error (false);
-		nano::bufferstream stream (receive_buffer->data (), sizeof (nano::uint256_union) + sizeof (nano::uint256_union) + sizeof (bulk_pull_blocks_mode) + sizeof (uint32_t));
-		std::unique_ptr<nano::bulk_pull_blocks> request (new nano::bulk_pull_blocks (error, stream, header_a));
-		if (!error)
-		{
-			if (node->config.logging.bulk_pull_logging ())
-			{
-				BOOST_LOG (node->log) << boost::str (boost::format ("Received deprecated bulk pull blocks for %1% to %2%") % request->min_hash.to_string () % request->max_hash.to_string ());
 			}
 			add_request (std::unique_ptr<nano::message> (request.release ()));
 			receive ();
@@ -2206,11 +2174,6 @@ public:
 	{
 		auto response (std::make_shared<nano::bulk_pull_account_server> (connection, std::unique_ptr<nano::bulk_pull_account> (static_cast<nano::bulk_pull_account *> (connection->requests.front ().release ()))));
 		response->send_frontier ();
-	}
-	void bulk_pull_blocks (nano::bulk_pull_blocks const &) override
-	{
-		auto response (std::make_shared<nano::bulk_pull_blocks_server> (connection, std::unique_ptr<nano::bulk_pull_blocks> (static_cast<nano::bulk_pull_blocks *> (connection->requests.front ().release ()))));
-		response->send_next ();
 	}
 	void bulk_push (nano::bulk_push const &) override
 	{
@@ -2807,46 +2770,6 @@ current_key (0, 0)
 	/*
 	 * Setup the streaming response for the first call to "send_frontier" and  "send_next_block"
 	 */
-	set_params ();
-}
-
-/**
- * DEPRECATED
- */
-void nano::bulk_pull_blocks_server::set_params ()
-{
-	assert (request != nullptr);
-}
-
-void nano::bulk_pull_blocks_server::send_next ()
-{
-	send_finished ();
-}
-
-void nano::bulk_pull_blocks_server::send_finished ()
-{
-	send_buffer->clear ();
-	send_buffer->push_back (static_cast<uint8_t> (nano::block_type::not_a_block));
-	auto this_l (shared_from_this ());
-	connection->socket->async_write (send_buffer, [this_l](boost::system::error_code const & ec, size_t size_a) {
-		this_l->no_block_sent (ec, size_a);
-	});
-}
-
-void nano::bulk_pull_blocks_server::no_block_sent (boost::system::error_code const & ec, size_t size_a)
-{
-	if (!ec)
-	{
-		assert (size_a == 1);
-		connection->finish_request ();
-	}
-}
-
-nano::bulk_pull_blocks_server::bulk_pull_blocks_server (std::shared_ptr<nano::bootstrap_server> const & connection_a, std::unique_ptr<nano::bulk_pull_blocks> request_a) :
-connection (connection_a),
-request (std::move (request_a)),
-send_buffer (std::make_shared<std::vector<uint8_t>> ())
-{
 	set_params ();
 }
 
