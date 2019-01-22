@@ -531,7 +531,7 @@ void nano::confirm_req::serialize (nano::stream & stream_a) const
 		}
 		write (stream_a, roots_previous);
 		// Write hashes & roots
-		for (auto root_hash : roots_hashes)
+		for (auto & root_hash : roots_hashes)
 		{
 			write (stream_a, root_hash.first);
 			write (stream_a, root_hash.second.uint256s[1]);
@@ -561,7 +561,7 @@ bool nano::confirm_req::operator== (nano::confirm_req const & other_a) const
 std::string nano::confirm_req::roots_string () const
 {
 	std::string result;
-	for (auto root_hash : roots_hashes)
+	for (auto & root_hash : roots_hashes)
 	{
 		result += root_hash.first.to_string ();
 		result += ":";

@@ -632,7 +632,7 @@ public:
 			else if (!message_a.roots_hashes.empty ())
 			{
 				std::vector<nano::block_hash> blocks_bundle;
-				for (auto root_hash : message_a.roots_hashes)
+				for (auto & root_hash : message_a.roots_hashes)
 				{
 					auto successor (node.ledger.successor (transaction, root_hash.second));
 					if (successor != nullptr)
@@ -3547,7 +3547,7 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 					}
 					else
 					{
-						for (auto j (reps->begin ()), m (reps->end ()); j != m; j++)
+						for (auto & j : reps)
 						{
 							auto rep_request (requests_bundle.find (j->endpoint));
 							auto block (i->election->status.winner);
@@ -3575,7 +3575,7 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 					}
 					else
 					{
-						for (auto j (reps->begin ()), m (reps->end ()); j != m; j++)
+						for (auto & j : reps)
 						{
 							auto rep_request (requests_bundle.find (j->endpoint));
 							auto block (i->election->status.winner);
