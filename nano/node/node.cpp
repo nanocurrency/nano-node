@@ -2274,6 +2274,9 @@ void nano::node::backup_wallet ()
 
 void nano::node::search_pending ()
 {
+	// Reload wallets from disk
+	wallets.reload ();
+	// Search pending
 	wallets.search_pending_all ();
 	auto this_l (shared ());
 	alarm.add (std::chrono::steady_clock::now () + search_pending_interval, [this_l]() {
