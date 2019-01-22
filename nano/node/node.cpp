@@ -684,10 +684,6 @@ public:
 	{
 		assert (false);
 	}
-	void bulk_pull_blocks (nano::bulk_pull_blocks const &) override
-	{
-		assert (false);
-	}
 	void bulk_push (nano::bulk_push const &) override
 	{
 		assert (false);
@@ -2384,7 +2380,7 @@ void nano::node::ongoing_store_flush ()
 
 void nano::node::backup_wallet ()
 {
-	auto transaction (store.tx_begin_read ());
+	auto transaction (wallets.tx_begin_read ());
 	for (auto i (wallets.items.begin ()), n (wallets.items.end ()); i != n; ++i)
 	{
 		boost::system::error_code error_chmod;
@@ -2781,11 +2777,12 @@ public:
 		for (auto i (node.wallets.items.begin ()), n (node.wallets.items.end ()); i != n; ++i)
 		{
 			auto wallet (i->second);
-			if (wallet->store.exists (transaction, account_a))
+			auto transaction_l (node.wallets.tx_begin_read ());
+			if (wallet->store.exists (transaction_l, account_a))
 			{
 				nano::account representative;
 				nano::pending_info pending;
-				representative = wallet->store.representative (transaction);
+				representative = wallet->store.representative (transaction_l);
 				auto error (node.store.pending_get (transaction, nano::pending_key (account_a, hash), pending));
 				if (!error)
 				{
