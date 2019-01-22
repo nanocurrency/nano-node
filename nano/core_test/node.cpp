@@ -9,6 +9,11 @@
 
 using namespace std::chrono_literals;
 
+namespace
+{
+void add_required_children_node_config_tree (nano::jsonconfig & tree);
+}
+
 TEST (node, stop)
 {
 	nano::system system (24000, 1);
@@ -547,21 +552,6 @@ TEST (node_config, serialization)
 	ASSERT_EQ (config2.lmdb_max_dbs, config1.lmdb_max_dbs);
 }
 
-void add_barebones_node_config_tree (nano::jsonconfig & tree)
-{
-	nano::logging logging1;
-	nano::jsonconfig logging_l;
-	logging1.serialize_json (logging_l);
-	tree.put_child ("logging", logging_l);
-	nano::jsonconfig preconfigured_peers_l;
-	tree.put_child ("preconfigured_peers", preconfigured_peers_l);
-	nano::jsonconfig preconfigured_representatives_l;
-	tree.put_child ("preconfigured_representatives", preconfigured_representatives_l);
-	nano::jsonconfig work_peers_l;
-	tree.put_child ("work_peers", work_peers_l);
-	tree.put ("version", std::to_string (nano::node_config::json_version ()));
-}
-
 TEST (node_config, v1_v2_upgrade)
 {
 	auto path (nano::unique_path ());
@@ -593,7 +583,7 @@ TEST (node_config, v1_v2_upgrade)
 TEST (node_config, v2_v3_upgrade)
 {
 	nano::jsonconfig tree;
-	add_barebones_node_config_tree (tree);
+	add_required_children_node_config_tree (tree);
 	tree.put ("peering_port", std::to_string (0));
 	tree.put ("packet_delay_microseconds", std::to_string (0));
 	tree.put ("bootstrap_fraction_numerator", std::to_string (0));
@@ -628,7 +618,7 @@ TEST (node_config, v15_v16_upgrade)
 	auto test_upgrade = [](auto old_preconfigured_peers_url, auto new_preconfigured_peers_url) {
 		auto path (nano::unique_path ());
 		nano::jsonconfig tree;
-		add_barebones_node_config_tree (tree);
+		add_required_children_node_config_tree (tree);
 		tree.put ("version", "15");
 
 		const char * dummy_peer = "127.5.2.1";
@@ -669,7 +659,7 @@ TEST (node_config, v15_v16_upgrade)
 TEST (node_config, allow_local_peers)
 {
 	nano::jsonconfig tree;
-	add_barebones_node_config_tree (tree);
+	add_required_children_node_config_tree (tree);
 
 	auto path (nano::unique_path ());
 	auto upgraded (false);
@@ -2123,4 +2113,22 @@ TEST (node, confirm_back)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
+}
+
+namespace
+{
+void add_required_children_node_config_tree (nano::jsonconfig & tree)
+{
+	nano::logging logging1;
+	nano::jsonconfig logging_l;
+	logging1.serialize_json (logging_l);
+	tree.put_child ("logging", logging_l);
+	nano::jsonconfig preconfigured_peers_l;
+	tree.put_child ("preconfigured_peers", preconfigured_peers_l);
+	nano::jsonconfig preconfigured_representatives_l;
+	tree.put_child ("preconfigured_representatives", preconfigured_representatives_l);
+	nano::jsonconfig work_peers_l;
+	tree.put_child ("work_peers", work_peers_l);
+	tree.put ("version", std::to_string (nano::node_config::json_version ()));
+}
 }
