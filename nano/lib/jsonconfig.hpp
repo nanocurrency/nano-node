@@ -367,7 +367,7 @@ protected:
 				target = static_cast<uint8_t> (tmp);
 			}
 		}
-		catch (boost::property_tree::ptree_bad_path const & ex)
+		catch (boost::property_tree::ptree_bad_path const &)
 		{
 			if (!optional)
 			{
@@ -438,7 +438,7 @@ protected:
 				conditionally_set_error<T> (nano::error_config::invalid_value, optional, key);
 			}
 		}
-		catch (boost::property_tree::ptree_bad_path const & ex)
+		catch (boost::property_tree::ptree_bad_path const &)
 		{
 			if (!optional)
 			{

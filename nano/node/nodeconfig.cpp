@@ -202,14 +202,13 @@ bool nano::node_config::upgrade_json (unsigned version_a, nano::jsonconfig & jso
 			json.put ("block_processor_batch_max_time", block_processor_batch_max_time.count ());
 			upgraded = true;
 		case 15:
-			json.put ("allow_local_peers", allow_local_peers);
-			upgraded = true;
-		case 16:
 		{
+			json.put ("allow_local_peers", allow_local_peers);
+
 			// Update to the new preconfigured_peers url for rebrand if it is found (rai -> nano)
-			auto reps_l (json.get_required_child (preconfigured_peers_key));
+			auto peers_l (json.get_required_child (preconfigured_peers_key));
 			nano::jsonconfig peers;
-			reps_l.array_entries<std::string> ([&peers](std::string entry) {
+			peers_l.array_entries<std::string> ([&peers](std::string entry) {
 				if (entry == "rai-beta.raiblocks.net")
 				{
 					entry = default_beta_peer_network;
@@ -225,7 +224,7 @@ bool nano::node_config::upgrade_json (unsigned version_a, nano::jsonconfig & jso
 			json.replace_child (preconfigured_peers_key, peers);
 			upgraded = true;
 		}
-		case 17:
+		case 16:
 			break;
 		default:
 			throw std::runtime_error ("Unknown node_config version");
@@ -330,6 +329,7 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		json.get<std::string> ("callback_target", callback_target);
 		json.get<int> ("lmdb_max_dbs", lmdb_max_dbs);
 		json.get<bool> ("enable_voting", enable_voting);
+		json.get<bool> ("allow_local_peers", allow_local_peers);
 
 		// Validate ranges
 
