@@ -4000,3 +4000,24 @@ TEST (rpc, node_id_delete)
 	nano::keypair node_id (system.nodes[0]->store.get_node_id (transaction));
 	ASSERT_NE (node_id.pub.to_string (), system.nodes[0]->node_id.pub.to_string ());
 }
+
+TEST (rpc, uptime)
+{
+	nano::system system (24000, 1);
+	nano::rpc rpc (system.io_ctx, *system.nodes[0], nano::rpc_config (true));
+	rpc.start ();
+	boost::property_tree::ptree request;
+	request.put ("action", "uptime");
+	std::this_thread::sleep_for (std::chrono::seconds (1));
+	test_response response (request, rpc, system.io_ctx);
+	system.deadline_set (5s);
+	while (response.status == 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (200, response.status);
+	ASSERT_EQ ("0", response.json.get<std::string> ("days"));
+	ASSERT_EQ ("0", response.json.get<std::string> ("hours"));
+	ASSERT_EQ ("0", response.json.get<std::string> ("minutes"));
+	ASSERT_LE (1, response.json.get<int> ("seconds"));
+}

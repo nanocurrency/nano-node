@@ -3055,6 +3055,27 @@ void nano::rpc_handler::unchecked_keys ()
 	response_errors ();
 }
 
+void nano::rpc_handler::uptime ()
+{
+	using namespace std::chrono;
+	typedef duration<int, std::ratio<86400>> days; // 60*60*24
+
+	auto uptime_duration (system_clock::now () - node.startup_time);
+	auto d (duration_cast<days> (uptime_duration));
+	uptime_duration -= d;
+	auto h (duration_cast<hours> (uptime_duration));
+	uptime_duration -= h;
+	auto m (duration_cast<minutes> (uptime_duration));
+	uptime_duration -= m;
+	auto s (duration_cast<seconds> (uptime_duration));
+
+	response_l.put ("days", d.count ());
+	response_l.put ("hours", h.count ());
+	response_l.put ("minutes", m.count ());
+	response_l.put ("seconds", s.count ());
+	response_errors ();
+}
+
 void nano::rpc_handler::version ()
 {
 	response_l.put ("rpc_version", "1");
@@ -4222,6 +4243,10 @@ void nano::rpc_handler::process_request ()
 			else if (action == "unchecked_keys")
 			{
 				unchecked_keys ();
+			}
+			else if (action == "uptime")
+			{
+				uptime ();
 			}
 			else if (action == "validate_account_number")
 			{
