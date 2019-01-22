@@ -1,5 +1,6 @@
 #pragma once
 
+#include <nano/lib/thread_pool.hpp>
 #include <nano/lib/work.hpp>
 #include <nano/node/bootstrap.hpp>
 #include <nano/node/logging.hpp>
@@ -404,6 +405,7 @@ private:
 	void run ();
 	void verify (nano::signature_check_set & check_a);
 	std::deque<nano::signature_check_set> checks;
+	thread_pool<bool> pool;
 	bool started;
 	bool stopped;
 	std::mutex mutex;
