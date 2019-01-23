@@ -1074,19 +1074,18 @@ void nano::bootstrap_attempt::run ()
 	{
 		BOOST_LOG (node->log) << "Completed pulls";
 		request_push (lock);
+		runs_count++;
 		// Start wallet lazy bootstrap if required
 		if (!wallet_accounts.empty () && !node->flags.disable_wallet_bootstrap)
 		{
-			runs_count++;
 			lock.unlock ();
 			mode = nano::bootstrap_mode::wallet_lazy;
 			wallet_run ();
 			lock.lock ();
 		}
 		// Start lazy bootstrap if some lazy keys were inserted
-		else if (runs_count < 2 && !lazy_finished () && !node->flags.disable_lazy_bootstrap)
+		else if (runs_count < 3 && !lazy_finished () && !node->flags.disable_lazy_bootstrap)
 		{
-			runs_count++;
 			lock.unlock ();
 			mode = nano::bootstrap_mode::lazy;
 			lazy_run ();
@@ -1473,10 +1472,10 @@ void nano::bootstrap_attempt::lazy_run ()
 	{
 		BOOST_LOG (node->log) << "Completed lazy pulls";
 		std::unique_lock<std::mutex> lazy_lock (lazy_mutex);
+		runs_count++;
 		// Start wallet lazy bootstrap if required
 		if (!wallet_accounts.empty () && !node->flags.disable_wallet_bootstrap)
 		{
-			runs_count++;
 			pulls.clear ();
 			lazy_clear ();
 			mode = nano::bootstrap_mode::wallet_lazy;
@@ -1486,9 +1485,8 @@ void nano::bootstrap_attempt::lazy_run ()
 			lock.lock ();
 		}
 		// Fallback to legacy bootstrap
-		else if (runs_count < 2 && !lazy_keys.empty () && !node->flags.disable_legacy_bootstrap)
+		else if (runs_count < 3 && !lazy_keys.empty () && !node->flags.disable_legacy_bootstrap)
 		{
-			runs_count++;
 			pulls.clear ();
 			lazy_clear ();
 			mode = nano::bootstrap_mode::legacy;
@@ -1719,10 +1717,10 @@ void nano::bootstrap_attempt::wallet_run ()
 	if (!stopped)
 	{
 		BOOST_LOG (node->log) << "Completed wallet lazy pulls";
+		runs_count++;
 		// Start lazy bootstrap if some lazy keys were inserted
 		if (!lazy_finished ())
 		{
-			runs_count++;
 			lock.unlock ();
 			lazy_run ();
 			lock.lock ();
