@@ -443,7 +443,6 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 			std::cerr << "wallet_create command allows one optional <key> parameter\n";
 			ec = nano::error_cli::invalid_arguments;
 		}
-		
 		if (!ec)
 		{
 			inactive_node node (data_path);
