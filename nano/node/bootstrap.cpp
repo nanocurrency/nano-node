@@ -974,7 +974,8 @@ void nano::bootstrap_attempt::request_pull (std::unique_lock<std::mutex> & lock_
 		{
 			// Check if pull is obsolete (head was processed)
 			std::unique_lock<std::mutex> lock (lazy_mutex);
-			while (!pulls.empty () && !pull.head.is_zero () && lazy_blocks.find (pull.head) != lazy_blocks.end ())
+			auto transaction (node->store.tx_begin_read ());
+			while (!pulls.empty () && !pull.head.is_zero () && (lazy_blocks.find (pull.head) != lazy_blocks.end () || node->store.block_exists (transaction, pull.head)))
 			{
 				pull = pulls.front ();
 				pulls.pop_front ();
@@ -1080,7 +1081,7 @@ void nano::bootstrap_attempt::run ()
 			lock.lock ();
 		}
 		// Start lazy bootstrap if some lazy keys were inserted
-		else if (!lazy_keys.empty () && !node->flags.disable_lazy_bootstrap)
+		else if (!lazy_finished () && !node->flags.disable_lazy_bootstrap)
 		{
 			lock.unlock ();
 			mode = nano::bootstrap_mode::lazy;
@@ -1373,10 +1374,11 @@ void nano::bootstrap_attempt::lazy_add (nano::block_hash const & hash_a)
 void nano::bootstrap_attempt::lazy_pull_flush ()
 {
 	std::unique_lock<std::mutex> lock (lazy_mutex);
+	auto transaction (node->store.tx_begin_read ());
 	for (auto & pull_start : lazy_pulls)
 	{
 		// Recheck if block was already processed
-		if (lazy_blocks.find (pull_start) == lazy_blocks.end ())
+		if (lazy_blocks.find (pull_start) == lazy_blocks.end () && !node->store.block_exists (transaction, pull_start))
 		{
 			add_pull (nano::pull_info (pull_start, pull_start, nano::block_hash (0), lazy_max_pull_blocks));
 		}
@@ -1393,7 +1395,6 @@ bool nano::bootstrap_attempt::lazy_finished ()
 	{
 		if (node->store.block_exists (transaction, *it))
 		{
-			// Could be not safe enough
 			it = lazy_keys.erase (it);
 		}
 		else
@@ -1713,7 +1714,7 @@ void nano::bootstrap_attempt::wallet_run ()
 	{
 		BOOST_LOG (node->log) << "Completed wallet lazy pulls";
 		// Start lazy bootstrap if some lazy keys were inserted
-		if (!lazy_keys.empty ())
+		if (!lazy_finished ())
 		{
 			lock.unlock ();
 			lazy_run ();
