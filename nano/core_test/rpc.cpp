@@ -3839,7 +3839,8 @@ TEST (rpc, online_reps)
 	nano::system system (24000, 2);
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	ASSERT_TRUE (system.nodes[1]->online_reps.online_stake () == system.nodes[1]->config.online_weight_minimum.number ());
-	system.wallet (0)->send_action (nano::test_genesis_key.pub, nano::test_genesis_key.pub, nano::Gxrb_ratio);
+	auto send_block (system.wallet (0)->send_action (nano::test_genesis_key.pub, nano::test_genesis_key.pub, nano::Gxrb_ratio));
+	ASSERT_NE (nullptr, send_block);
 	system.deadline_set (10s);
 	while (system.nodes[1]->online_reps.online_stake () == system.nodes[1]->config.online_weight_minimum.number ())
 	{
@@ -3851,7 +3852,6 @@ TEST (rpc, online_reps)
 	request.put ("action", "representatives_online");
 	test_response response (request, rpc, system.io_ctx);
 	system.deadline_set (5s);
-	system.deadline_set (5s);
 	while (response.status == 0)
 	{
 		ASSERT_NO_ERROR (system.poll ());
@@ -3860,9 +3860,13 @@ TEST (rpc, online_reps)
 	auto representatives (response.json.get_child ("representatives"));
 	auto item (representatives.begin ());
 	ASSERT_NE (representatives.end (), item);
-	ASSERT_EQ (nano::test_genesis_key.pub.to_account (), item->first);
+	ASSERT_EQ (nano::test_genesis_key.pub.to_account (), item->second.get<std::string> (""));
 	boost::optional<std::string> weight (item->second.get_optional<std::string> ("weight"));
 	ASSERT_FALSE (weight.is_initialized ());
+	while (system.nodes[1]->block (send_block->hash ()) == nullptr)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
 	//Test weight option
 	request.put ("weight", "true");
 	test_response response2 (request, rpc, system.io_ctx);
@@ -3881,10 +3885,22 @@ TEST (rpc, online_reps)
 	auto new_rep (system.wallet (1)->deterministic_insert ());
 	auto send (system.wallet (1)->send_action (nano::test_genesis_key.pub, new_rep, system.nodes[0]->config.receive_minimum.number ()));
 	ASSERT_NE (nullptr, send);
+	while (system.nodes[1]->block (send->hash ()) == nullptr)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
 	auto receive (system.wallet (1)->receive_action (*send, new_rep, system.nodes[0]->config.receive_minimum.number ()));
 	ASSERT_NE (nullptr, receive);
+	while (system.nodes[1]->block (receive->hash ()) == nullptr)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
 	auto change (system.wallet (1)->change_action (nano::test_genesis_key.pub, new_rep));
 	ASSERT_NE (nullptr, change);
+	while (system.nodes[1]->block (change->hash ()) == nullptr)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
 	system.deadline_set (5s);
 	while (system.nodes[1]->online_reps.list ().size () != 2)
 	{
