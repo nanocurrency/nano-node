@@ -96,10 +96,6 @@ size_t nano::message_header::payload_length_bytes () const
 		{
 			return nano::bulk_pull::size + (bulk_pull_is_count_present () ? nano::bulk_pull::extended_parameters_size : 0);
 		}
-		case nano::message_type::bulk_pull_blocks:
-		{
-			return nano::bulk_pull_blocks::size;
-		}
 		case nano::message_type::bulk_push:
 		{
 			// bulk_push doesn't have a payload
