@@ -434,7 +434,7 @@ public:
 
 private:
 	void queue_unchecked (nano::transaction const &, nano::block_hash const &, std::chrono::steady_clock::time_point = std::chrono::steady_clock::time_point ());
-	void verify_state_blocks (std::unique_lock<std::mutex> &, size_t = std::numeric_limits<size_t>::max ());
+	void verify_state_blocks (nano::transaction const & transaction_a, std::unique_lock<std::mutex> &, size_t = std::numeric_limits<size_t>::max ());
 	void process_batch (std::unique_lock<std::mutex> &);
 	bool stopped;
 	bool active;
@@ -468,7 +468,7 @@ public:
 	}
 	void send_keepalive (nano::endpoint const &);
 	bool copy_with_compaction (boost::filesystem::path const &);
-	void keepalive (std::string const &, uint16_t);
+	void keepalive (std::string const &, uint16_t, bool = false);
 	void start ();
 	void stop ();
 	std::shared_ptr<nano::node> shared ();

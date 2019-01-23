@@ -143,10 +143,8 @@ public:
 	void run ();
 	void receive_frontier ();
 	void received_frontier (boost::system::error_code const &, size_t);
-	void request_account (nano::account const &, nano::block_hash const &);
 	void unsynced (nano::block_hash const &, nano::block_hash const &);
 	void next (nano::transaction const &);
-	void insert_pull (nano::pull_info const &);
 	std::shared_ptr<nano::bootstrap_client> connection;
 	nano::account current;
 	nano::block_hash frontier;
@@ -158,6 +156,7 @@ public:
 	/** A very rough estimate of the cost of `bulk_push`ing missing blocks */
 	uint64_t bulk_push_cost;
 	std::deque<std::pair<nano::account, nano::block_hash>> accounts;
+	static size_t constexpr size_frontier = sizeof (nano::account) + sizeof (nano::block_hash);
 };
 class bulk_pull_client : public std::enable_shared_from_this<nano::bulk_pull_client>
 {
@@ -272,9 +271,7 @@ public:
 	void receive_header_action (boost::system::error_code const &, size_t);
 	void receive_bulk_pull_action (boost::system::error_code const &, size_t, nano::message_header const &);
 	void receive_bulk_pull_account_action (boost::system::error_code const &, size_t, nano::message_header const &);
-	void receive_bulk_pull_blocks_action (boost::system::error_code const &, size_t, nano::message_header const &);
 	void receive_frontier_req_action (boost::system::error_code const &, size_t, nano::message_header const &);
-	void receive_bulk_push_action ();
 	void add_request (std::unique_ptr<nano::message>);
 	void finish_request ();
 	void run_next ();
@@ -324,26 +321,11 @@ public:
 	bool pending_include_address;
 	bool invalid_request;
 };
-class bulk_pull_blocks;
-class bulk_pull_blocks_server : public std::enable_shared_from_this<nano::bulk_pull_blocks_server>
-{
-public:
-	bulk_pull_blocks_server (std::shared_ptr<nano::bootstrap_server> const &, std::unique_ptr<nano::bulk_pull_blocks>);
-	void set_params ();
-	std::shared_ptr<nano::block> get_next ();
-	void send_next ();
-	void send_finished ();
-	void no_block_sent (boost::system::error_code const &, size_t);
-	std::shared_ptr<nano::bootstrap_server> connection;
-	std::unique_ptr<nano::bulk_pull_blocks> request;
-	std::shared_ptr<std::vector<uint8_t>> send_buffer;
-};
 class bulk_push_server : public std::enable_shared_from_this<nano::bulk_push_server>
 {
 public:
 	bulk_push_server (std::shared_ptr<nano::bootstrap_server> const &);
 	void receive ();
-	void receive_block ();
 	void received_type ();
 	void received_block (boost::system::error_code const &, size_t, nano::block_type);
 	std::shared_ptr<std::vector<uint8_t>> receive_buffer;
