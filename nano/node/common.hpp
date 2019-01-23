@@ -41,12 +41,13 @@ uint64_t endpoint_hash_raw (nano::tcp_endpoint const & endpoint_a)
 	assert (endpoint_a.address ().is_v6 ());
 	nano::uint128_union address;
 	address.bytes = endpoint_a.address ().to_v6 ().to_bytes ();
-	XXH64_state_t hash;
-	XXH64_reset (&hash, 0);
-	XXH64_update (&hash, address.bytes.data (), address.bytes.size ());
+	XXH64_state_t * const state = XXH64_createState ();
+	XXH64_reset (state, 0);
+	XXH64_update (state, address.bytes.data (), address.bytes.size ());
 	auto port (endpoint_a.port ());
-	XXH64_update (&hash, &port, sizeof (port));
-	auto result (XXH64_digest (&hash));
+	XXH64_update (state, &port, sizeof (port));
+	auto result (XXH64_digest (state));
+	XXH64_freeState (state);
 	return result;
 }
 uint64_t ip_address_hash_raw (boost::asio::ip::address const & ip_a)
