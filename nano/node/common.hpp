@@ -35,6 +35,19 @@ uint64_t endpoint_hash_raw (nano::endpoint const & endpoint_a)
 	auto result (XXH64_digest (&hash));
 	return result;
 }
+uint64_t endpoint_hash_raw (nano::tcp_endpoint const & endpoint_a)
+{
+	assert (endpoint_a.address ().is_v6 ());
+	nano::uint128_union address;
+	address.bytes = endpoint_a.address ().to_v6 ().to_bytes ();
+	XXH64_state_t hash;
+	XXH64_reset (&hash, 0);
+	XXH64_update (&hash, address.bytes.data (), address.bytes.size ());
+	auto port (endpoint_a.port ());
+	XXH64_update (&hash, &port, sizeof (port));
+	auto result (XXH64_digest (&hash));
+	return result;
+}
 uint64_t ip_address_hash_raw (boost::asio::ip::address const & ip_a)
 {
 	assert (ip_a.is_v6 ());
@@ -58,11 +71,21 @@ struct endpoint_hash<8>
 	{
 		return endpoint_hash_raw (endpoint_a);
 	}
+	size_t operator() (nano::tcp_endpoint const & endpoint_a) const
+	{
+		return endpoint_hash_raw (endpoint_a);
+	}
 };
 template <>
 struct endpoint_hash<4>
 {
 	size_t operator() (nano::endpoint const & endpoint_a) const
+	{
+		uint64_t big (endpoint_hash_raw (endpoint_a));
+		uint32_t result (static_cast<uint32_t> (big) ^ static_cast<uint32_t> (big >> 32));
+		return result;
+	}
+	size_t operator() (nano::tcp_endpoint const & endpoint_a) const
 	{
 		uint64_t big (endpoint_hash_raw (endpoint_a));
 		uint32_t result (static_cast<uint32_t> (big) ^ static_cast<uint32_t> (big >> 32));
@@ -99,6 +122,15 @@ template <>
 struct hash<::nano::endpoint>
 {
 	size_t operator() (::nano::endpoint const & endpoint_a) const
+	{
+		endpoint_hash<sizeof (size_t)> ehash;
+		return ehash (endpoint_a);
+	}
+};
+template <>
+struct hash<::nano::tcp_endpoint>
+{
+	size_t operator() (::nano::tcp_endpoint const & endpoint_a) const
 	{
 		endpoint_hash<sizeof (size_t)> ehash;
 		return ehash (endpoint_a);
