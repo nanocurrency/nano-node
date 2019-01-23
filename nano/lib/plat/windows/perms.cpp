@@ -1,5 +1,5 @@
-#include <assert.h>
 #include <boost/filesystem.hpp>
+#include <cassert>
 #include <nano/lib/utility.hpp>
 
 #include <io.h>

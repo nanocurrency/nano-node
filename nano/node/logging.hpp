@@ -61,7 +61,7 @@ public:
 	boost::log::sources::logger_mt log;
 	int json_version () const
 	{
-		return 5;
+		return 6;
 	}
 };
 }

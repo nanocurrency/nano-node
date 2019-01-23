@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <boost/system/error_code.hpp>
+#include <cassert>
 #include <memory>
 #include <nano/lib/expected.hpp>
 #include <string>
