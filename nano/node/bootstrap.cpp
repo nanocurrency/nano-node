@@ -14,6 +14,8 @@ constexpr double bootstrap_minimum_termination_time_sec = 30.0;
 constexpr unsigned bootstrap_max_new_connections = 10;
 constexpr unsigned bulk_push_cost_limit = 200;
 
+size_t constexpr nano::frontier_req_client::size_frontier;
+
 nano::socket::socket (std::shared_ptr<nano::node> node_a) :
 socket_m (node_a->io_ctx),
 cutoff (std::numeric_limits<uint64_t>::max ()),
@@ -239,11 +241,10 @@ nano::frontier_req_client::~frontier_req_client ()
 void nano::frontier_req_client::receive_frontier ()
 {
 	auto this_l (shared_from_this ());
-	size_t size_l (sizeof (nano::uint256_union) + sizeof (nano::uint256_union));
-	connection->socket->async_read (connection->receive_buffer, size_l, [this_l, size_l](boost::system::error_code const & ec, size_t size_a) {
+	connection->socket->async_read (connection->receive_buffer, nano::frontier_req_client::size_frontier, [this_l](boost::system::error_code const & ec, size_t size_a) {
 		// An issue with asio is that sometimes, instead of reporting a bad file descriptor during disconnect,
 		// we simply get a size of 0.
-		if (size_a == size_l)
+		if (size_a == nano::frontier_req_client::size_frontier)
 		{
 			this_l->received_frontier (ec, size_a);
 		}
@@ -251,7 +252,7 @@ void nano::frontier_req_client::receive_frontier ()
 		{
 			if (this_l->connection->node->config.logging.network_message_logging ())
 			{
-				BOOST_LOG (this_l->connection->node->log) << boost::str (boost::format ("Invalid size: expected %1%, got %2%") % size_l % size_a);
+				BOOST_LOG (this_l->connection->node->log) << boost::str (boost::format ("Invalid size: expected %1%, got %2%") % nano::frontier_req_client::size_frontier % size_a);
 			}
 		}
 	});
@@ -277,13 +278,13 @@ void nano::frontier_req_client::received_frontier (boost::system::error_code con
 {
 	if (!ec)
 	{
-		assert (size_a == sizeof (nano::uint256_union) + sizeof (nano::uint256_union));
+		assert (size_a == nano::frontier_req_client::size_frontier);
 		nano::account account;
-		nano::bufferstream account_stream (connection->receive_buffer->data (), sizeof (nano::uint256_union));
+		nano::bufferstream account_stream (connection->receive_buffer->data (), sizeof (account));
 		auto error1 (nano::read (account_stream, account));
 		assert (!error1);
 		nano::block_hash latest;
-		nano::bufferstream latest_stream (connection->receive_buffer->data () + sizeof (nano::uint256_union), sizeof (nano::uint256_union));
+		nano::bufferstream latest_stream (connection->receive_buffer->data () + sizeof (account), sizeof (latest));
 		auto error2 (nano::read (latest_stream, latest));
 		assert (!error2);
 		if (count == 0)
@@ -1999,20 +2000,10 @@ void nano::bootstrap_server::receive_header_action (boost::system::error_code co
 			{
 				case nano::message_type::bulk_pull:
 				{
-					uint32_t extended_size;
 					node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::bulk_pull, nano::stat::dir::in);
 
-					if (header.bulk_pull_is_count_present ())
-					{
-						extended_size = nano::bulk_pull::extended_parameters_size;
-					}
-					else
-					{
-						extended_size = 0;
-					}
-
 					auto this_l (shared_from_this ());
-					socket->async_read (receive_buffer, sizeof (nano::uint256_union) + sizeof (nano::uint256_union) + extended_size, [this_l, header](boost::system::error_code const & ec, size_t size_a) {
+					socket->async_read (receive_buffer, header.payload_length_bytes (), [this_l, header](boost::system::error_code const & ec, size_t size_a) {
 						this_l->receive_bulk_pull_action (ec, size_a, header);
 					});
 					break;
@@ -2021,7 +2012,7 @@ void nano::bootstrap_server::receive_header_action (boost::system::error_code co
 				{
 					node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::bulk_pull_account, nano::stat::dir::in);
 					auto this_l (shared_from_this ());
-					socket->async_read (receive_buffer, sizeof (nano::uint256_union) + sizeof (nano::uint128_union) + sizeof (uint8_t), [this_l, header](boost::system::error_code const & ec, size_t size_a) {
+					socket->async_read (receive_buffer, header.payload_length_bytes (), [this_l, header](boost::system::error_code const & ec, size_t size_a) {
 						this_l->receive_bulk_pull_account_action (ec, size_a, header);
 					});
 					break;
@@ -2030,7 +2021,7 @@ void nano::bootstrap_server::receive_header_action (boost::system::error_code co
 				{
 					node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::frontier_req, nano::stat::dir::in);
 					auto this_l (shared_from_this ());
-					socket->async_read (receive_buffer, sizeof (nano::uint256_union) + sizeof (uint32_t) + sizeof (uint32_t), [this_l, header](boost::system::error_code const & ec, size_t size_a) {
+					socket->async_read (receive_buffer, header.payload_length_bytes (), [this_l, header](boost::system::error_code const & ec, size_t size_a) {
 						this_l->receive_frontier_req_action (ec, size_a, header);
 					});
 					break;
@@ -2085,7 +2076,7 @@ void nano::bootstrap_server::receive_bulk_pull_account_action (boost::system::er
 	if (!ec)
 	{
 		auto error (false);
-		assert (size_a == (sizeof (nano::uint256_union) + sizeof (nano::uint128_union) + sizeof (uint8_t)));
+		assert (size_a == header_a.payload_length_bytes ());
 		nano::bufferstream stream (receive_buffer->data (), size_a);
 		std::unique_ptr<nano::bulk_pull_account> request (new nano::bulk_pull_account (error, stream, header_a));
 		if (!error)
@@ -2105,7 +2096,7 @@ void nano::bootstrap_server::receive_frontier_req_action (boost::system::error_c
 	if (!ec)
 	{
 		auto error (false);
-		nano::bufferstream stream (receive_buffer->data (), sizeof (nano::uint256_union) + sizeof (uint32_t) + sizeof (uint32_t));
+		nano::bufferstream stream (receive_buffer->data (), header_a.payload_length_bytes ());
 		std::unique_ptr<nano::frontier_req> request (new nano::frontier_req (error, stream, header_a));
 		if (!error)
 		{

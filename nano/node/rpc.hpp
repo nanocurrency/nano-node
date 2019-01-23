@@ -242,6 +242,7 @@ public:
 	uint64_t work_optional_impl ();
 	uint64_t count_impl ();
 	uint64_t count_optional_impl (uint64_t = std::numeric_limits<uint64_t>::max ());
+	uint64_t offset_optional_impl (uint64_t = 0);
 	bool rpc_control_impl ();
 };
 /** Returns the correct RPC implementation based on TLS configuration */

@@ -925,6 +925,39 @@ TEST (rpc, chain_limit)
 	ASSERT_EQ (block->hash (), blocks[0]);
 }
 
+TEST (rpc, chain_offset)
+{
+	nano::system system (24000, 1);
+	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
+	nano::keypair key;
+	auto genesis (system.nodes[0]->latest (nano::test_genesis_key.pub));
+	ASSERT_FALSE (genesis.is_zero ());
+	auto block (system.wallet (0)->send_action (nano::test_genesis_key.pub, key.pub, 1));
+	ASSERT_NE (nullptr, block);
+	nano::rpc rpc (system.io_ctx, *system.nodes[0], nano::rpc_config (true));
+	rpc.start ();
+	boost::property_tree::ptree request;
+	request.put ("action", "chain");
+	request.put ("block", block->hash ().to_string ());
+	request.put ("count", std::to_string (std::numeric_limits<uint64_t>::max ()));
+	request.put ("offset", 1);
+	test_response response (request, rpc, system.io_ctx);
+	system.deadline_set (5s);
+	while (response.status == 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (200, response.status);
+	auto & blocks_node (response.json.get_child ("blocks"));
+	std::vector<nano::block_hash> blocks;
+	for (auto i (blocks_node.begin ()), n (blocks_node.end ()); i != n; ++i)
+	{
+		blocks.push_back (nano::block_hash (i->second.get<std::string> ("")));
+	}
+	ASSERT_EQ (1, blocks.size ());
+	ASSERT_EQ (genesis, blocks[0]);
+}
+
 TEST (rpc, frontier)
 {
 	nano::system system (24000, 1);
@@ -2302,6 +2335,16 @@ TEST (rpc, successors)
 	ASSERT_EQ (2, blocks.size ());
 	ASSERT_EQ (genesis, blocks[0]);
 	ASSERT_EQ (block->hash (), blocks[1]);
+	// RPC chain "reverse" option
+	request.put ("action", "chain");
+	request.put ("reverse", "true");
+	test_response response2 (request, rpc, system.io_ctx);
+	while (response2.status == 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (200, response2.status);
+	ASSERT_EQ (response.json, response2.json);
 }
 
 TEST (rpc, bootstrap_any)
