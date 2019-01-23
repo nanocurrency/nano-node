@@ -88,6 +88,37 @@ bool nano::message_header::bulk_pull_is_count_present () const
 	return result;
 }
 
+size_t nano::message_header::payload_length_bytes () const
+{
+	switch (type)
+	{
+		case nano::message_type::bulk_pull:
+		{
+			return nano::bulk_pull::size + (bulk_pull_is_count_present () ? nano::bulk_pull::extended_parameters_size : 0);
+		}
+		case nano::message_type::bulk_push:
+		{
+			// bulk_push doesn't have a payload
+			return 0;
+		}
+		case nano::message_type::frontier_req:
+		{
+			return nano::frontier_req::size;
+		}
+		case nano::message_type::bulk_pull_account:
+		{
+			return nano::bulk_pull_account::size;
+		}
+		// Add realtime network messages once they get framing support; currently the
+		// realtime messages all fit in a datagram from which they're deserialized.
+		default:
+		{
+			assert (false);
+			return 0;
+		}
+	}
+}
+
 // MTU - IP header - UDP header
 const size_t nano::message_parser::max_safe_udp_message_size = 508;
 
@@ -171,6 +202,10 @@ void nano::message_parser::deserialize_buffer (uint8_t const * buffer_a, size_t 
 		if (!error)
 		{
 			if (nano::nano_network == nano::nano_networks::nano_beta_network && header.version_using < nano::protocol_version_reasonable_min)
+			{
+				status = parse_status::outdated_version;
+			}
+			else if (header.version_using < nano::protocol_version_min)
 			{
 				status = parse_status::outdated_version;
 			}
@@ -609,17 +644,17 @@ bool nano::bulk_pull::deserialize (nano::stream & stream_a)
 		{
 			if (is_count_present ())
 			{
-				std::array<uint8_t, extended_parameters_size> count_buffer;
-				static_assert (sizeof (count) < (count_buffer.size () - 1), "count must fit within buffer");
+				std::array<uint8_t, extended_parameters_size> extended_parameters_buffers;
+				static_assert (sizeof (count) < (extended_parameters_buffers.size () - 1), "count must fit within buffer");
 
-				result = read (stream_a, count_buffer);
-				if (count_buffer[0] != 0)
+				result = read (stream_a, extended_parameters_buffers);
+				if (extended_parameters_buffers[0] != 0)
 				{
 					result = true;
 				}
 				else
 				{
-					memcpy (&count, count_buffer.data () + 1, sizeof (count));
+					memcpy (&count, extended_parameters_buffers.data () + 1, sizeof (count));
 					boost::endian::little_to_native_inplace (count);
 				}
 			}
@@ -711,53 +746,6 @@ void nano::bulk_pull_account::serialize (nano::stream & stream_a) const
 	write (stream_a, account);
 	write (stream_a, minimum_amount);
 	write (stream_a, flags);
-}
-
-nano::bulk_pull_blocks::bulk_pull_blocks () :
-message (nano::message_type::bulk_pull_blocks)
-{
-}
-
-nano::bulk_pull_blocks::bulk_pull_blocks (bool & error_a, nano::stream & stream_a, nano::message_header const & header_a) :
-message (header_a)
-{
-	if (!error_a)
-	{
-		error_a = deserialize (stream_a);
-	}
-}
-
-void nano::bulk_pull_blocks::visit (nano::message_visitor & visitor_a) const
-{
-	visitor_a.bulk_pull_blocks (*this);
-}
-
-bool nano::bulk_pull_blocks::deserialize (nano::stream & stream_a)
-{
-	assert (header.type == nano::message_type::bulk_pull_blocks);
-	auto result (read (stream_a, min_hash));
-	if (!result)
-	{
-		result = read (stream_a, max_hash);
-		if (!result)
-		{
-			result = read (stream_a, mode);
-			if (!result)
-			{
-				result = read (stream_a, max_count);
-			}
-		}
-	}
-	return result;
-}
-
-void nano::bulk_pull_blocks::serialize (nano::stream & stream_a) const
-{
-	header.serialize (stream_a);
-	write (stream_a, min_hash);
-	write (stream_a, max_hash);
-	write (stream_a, mode);
-	write (stream_a, max_count);
 }
 
 nano::bulk_push::bulk_push () :

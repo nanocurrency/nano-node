@@ -24,7 +24,7 @@ upnp_details_logging_value (false),
 timing_logging_value (false),
 log_to_cerr_value (false),
 flush (true),
-max_size (16 * 1024 * 1024),
+max_size (128 * 1024 * 1024),
 rotation_size (4 * 1024 * 1024)
 {
 }
@@ -90,6 +90,12 @@ bool nano::logging::upgrade_json (unsigned version_a, nano::jsonconfig & json)
 			json.put ("timing", "false");
 			upgraded_l = true;
 		case 5:
+			uintmax_t config_max_size;
+			json.get<uintmax_t> ("max_size", config_max_size);
+			max_size = std::max (max_size, config_max_size);
+			json.put ("max_size", max_size);
+			upgraded_l = true;
+		case 6:
 			break;
 		default:
 			throw std::runtime_error ("Unknown logging_config version");
