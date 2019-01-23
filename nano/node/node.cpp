@@ -3547,7 +3547,7 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 					}
 					else
 					{
-						for (auto & j : reps)
+						for (auto j (reps->begin ()), m (reps->end ()); j != m; j++)
 						{
 							auto rep_request (requests_bundle.find (j->endpoint));
 							auto block (i->election->status.winner);
@@ -3575,7 +3575,7 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 					}
 					else
 					{
-						for (auto & j : reps)
+						for (auto j (reps->begin ()), m (reps->end ()); j != m; j++)
 						{
 							auto rep_request (requests_bundle.find (j->endpoint));
 							auto block (i->election->status.winner);
