@@ -190,6 +190,7 @@ public:
 	void search_pending_all ();
 	void send ();
 	void stats ();
+	void stats_clear ();
 	void stop ();
 	void unchecked ();
 	void unchecked_clear ();

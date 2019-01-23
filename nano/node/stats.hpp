@@ -381,6 +381,12 @@ public:
 		return get_entry (key_of (type, detail, dir))->counter.value;
 	}
 
+	/** Returns the number of seconds since clear() was last called, or node startup if it's never called. */
+	std::chrono::seconds last_reset ();
+
+	/** Clear all stats */
+	void clear ();
+
 	/** Log counters to the given log link */
 	void log_counters (stat_log_sink & sink);
 
@@ -425,6 +431,9 @@ private:
 
 	/** Unlocked implementation of log_samples() to avoid using recursive locking */
 	void log_samples_impl (stat_log_sink & sink);
+
+	/** Time of last clear() call */
+	std::chrono::steady_clock::time_point timestamp{ std::chrono::steady_clock::now () };
 
 	/** Configuration deserialized from config.json */
 	nano::stat_config config;

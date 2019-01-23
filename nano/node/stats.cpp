@@ -310,6 +310,20 @@ void nano::stat::update (uint32_t key_a, uint64_t value)
 	}
 }
 
+std::chrono::seconds nano::stat::last_reset ()
+{
+	std::unique_lock<std::mutex> lock (stat_mutex);
+	auto now (std::chrono::steady_clock::now ());
+	return std::chrono::duration_cast<std::chrono::seconds> (now - timestamp);
+}
+
+void nano::stat::clear ()
+{
+	std::unique_lock<std::mutex> lock (stat_mutex);
+	entries.clear ();
+	timestamp = std::chrono::steady_clock::now ();
+}
+
 std::string nano::stat::type_to_string (uint32_t key)
 {
 	auto type = static_cast<stat::type> (key >> 16 & 0x000000ff);
