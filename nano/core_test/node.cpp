@@ -9,6 +9,11 @@
 
 using namespace std::chrono_literals;
 
+namespace
+{
+void add_required_children_node_config_tree (nano::jsonconfig & tree);
+}
+
 TEST (node, stop)
 {
 	nano::system system (24000, 1);
@@ -577,10 +582,8 @@ TEST (node_config, v1_v2_upgrade)
 
 TEST (node_config, v2_v3_upgrade)
 {
-	auto path (nano::unique_path ());
-	nano::logging logging1;
-	logging1.init (path);
 	nano::jsonconfig tree;
+	add_required_children_node_config_tree (tree);
 	tree.put ("peering_port", std::to_string (0));
 	tree.put ("packet_delay_microseconds", std::to_string (0));
 	tree.put ("bootstrap_fraction_numerator", std::to_string (0));
@@ -588,18 +591,14 @@ TEST (node_config, v2_v3_upgrade)
 	tree.put ("rebroadcast_delay", std::to_string (0));
 	tree.put ("receive_minimum", nano::amount (0).to_string_dec ());
 	tree.put ("version", "2");
-	nano::jsonconfig logging_l;
-	logging1.serialize_json (logging_l);
-	tree.put_child ("logging", logging_l);
-	nano::jsonconfig preconfigured_peers_l;
-	tree.put_child ("preconfigured_peers", preconfigured_peers_l);
+
 	nano::jsonconfig preconfigured_representatives_l;
 	preconfigured_representatives_l.push ("TR6ZJ4pdp6HC76xMRpVDny5x2s8AEbrhFue3NKVxYYdmKuTEib");
-	tree.put_child ("preconfigured_representatives", preconfigured_representatives_l);
-	nano::jsonconfig work_peers_l;
-	tree.put_child ("work_peers", work_peers_l);
+	tree.replace_child ("preconfigured_representatives", preconfigured_representatives_l);
+
 	bool upgraded (false);
 	nano::node_config config1;
+	auto path (nano::unique_path ());
 	config1.logging.init (path);
 	ASSERT_FALSE (tree.get_optional<std::string> ("inactive_supply"));
 	ASSERT_FALSE (tree.get_optional<std::string> ("password_fanout"));
@@ -609,10 +608,76 @@ TEST (node_config, v2_v3_upgrade)
 	//ASSERT_EQ (nano::uint128_union (0).to_string_dec (), tree.get<std::string> ("inactive_supply"));
 	ASSERT_EQ ("1024", tree.get<std::string> ("password_fanout"));
 	ASSERT_NE (0, std::stoul (tree.get<std::string> ("password_fanout")));
-	ASSERT_NE (0, std::stoul (tree.get<std::string> ("password_fanout")));
 	ASSERT_TRUE (upgraded);
 	auto version (tree.get<std::string> ("version"));
 	ASSERT_GT (std::stoull (version), 2);
+}
+
+TEST (node_config, v15_v16_upgrade)
+{
+	auto test_upgrade = [](auto old_preconfigured_peers_url, auto new_preconfigured_peers_url) {
+		auto path (nano::unique_path ());
+		nano::jsonconfig tree;
+		add_required_children_node_config_tree (tree);
+		tree.put ("version", "15");
+
+		const char * dummy_peer = "127.5.2.1";
+		nano::jsonconfig preconfigured_peers_json;
+		preconfigured_peers_json.push (old_preconfigured_peers_url);
+		preconfigured_peers_json.push (dummy_peer);
+		tree.replace_child ("preconfigured_peers", preconfigured_peers_json);
+
+		auto upgraded (false);
+		nano::node_config config;
+		config.logging.init (path);
+		ASSERT_FALSE (tree.get_optional_child ("allow_local_peers")); // allow_local_peers should not be present now
+		config.deserialize_json (upgraded, tree);
+		ASSERT_TRUE (!!tree.get_optional_child ("allow_local_peers")); // allow_local_peers should be added after the update
+		ASSERT_TRUE (upgraded);
+		auto version (tree.get<std::string> ("version"));
+
+		auto read_preconfigured_peers_json (tree.get_required_child ("preconfigured_peers"));
+		std::vector<std::string> preconfigured_peers;
+		read_preconfigured_peers_json.array_entries<std::string> ([&preconfigured_peers](const auto & entry) {
+			preconfigured_peers.push_back (entry);
+		});
+
+		// Check that the new peer is updated while the other peer is untouched
+		ASSERT_EQ (preconfigured_peers.size (), 2);
+		ASSERT_EQ (preconfigured_peers.front (), new_preconfigured_peers_url);
+		ASSERT_EQ (preconfigured_peers.back (), dummy_peer);
+
+		// Check version is updated
+		ASSERT_GT (std::stoull (version), 15);
+	};
+
+	// Check that upgrades work with both
+	test_upgrade ("rai.raiblocks.net", "peering.nano.org");
+	test_upgrade ("rai-beta.raiblocks.net", "peering-beta.nano.org");
+}
+
+TEST (node_config, allow_local_peers)
+{
+	nano::jsonconfig tree;
+	add_required_children_node_config_tree (tree);
+
+	auto path (nano::unique_path ());
+	auto upgraded (false);
+	nano::node_config config;
+	config.logging.init (path);
+
+	// Check config is correct when allow_local_peers is false
+	tree.put ("allow_local_peers", false);
+	config.deserialize_json (upgraded, tree);
+	ASSERT_FALSE (upgraded);
+	ASSERT_FALSE (config.allow_local_peers);
+
+	// Check config is correct when allow_local_peers is true
+	tree.put ("allow_local_peers", true);
+	upgraded = false;
+	config.deserialize_json (upgraded, tree);
+	ASSERT_FALSE (upgraded);
+	ASSERT_TRUE (config.allow_local_peers);
 }
 
 // Regression test to ensure that deserializing includes changes node via get_required_child
@@ -2078,4 +2143,22 @@ TEST (node, unchecked_cleaning)
 		auto unchecked_count (node.store.unchecked_count (transaction));
 		ASSERT_EQ (unchecked_count, 0);
 	}
+}
+
+namespace
+{
+void add_required_children_node_config_tree (nano::jsonconfig & tree)
+{
+	nano::logging logging1;
+	nano::jsonconfig logging_l;
+	logging1.serialize_json (logging_l);
+	tree.put_child ("logging", logging_l);
+	nano::jsonconfig preconfigured_peers_l;
+	tree.put_child ("preconfigured_peers", preconfigured_peers_l);
+	nano::jsonconfig preconfigured_representatives_l;
+	tree.put_child ("preconfigured_representatives", preconfigured_representatives_l);
+	nano::jsonconfig work_peers_l;
+	tree.put_child ("work_peers", work_peers_l);
+	tree.put ("version", std::to_string (nano::node_config::json_version ()));
+}
 }

@@ -13,7 +13,6 @@ public:
 	confirm_ack_count (0),
 	bulk_pull_count (0),
 	bulk_pull_account_count (0),
-	bulk_pull_blocks_count (0),
 	bulk_push_count (0),
 	frontier_req_count (0)
 	{
@@ -42,10 +41,6 @@ public:
 	{
 		++bulk_pull_account_count;
 	}
-	void bulk_pull_blocks (nano::bulk_pull_blocks const &) override
-	{
-		++bulk_pull_blocks_count;
-	}
 	void bulk_push (nano::bulk_push const &) override
 	{
 		++bulk_push_count;
@@ -64,7 +59,6 @@ public:
 	uint64_t confirm_ack_count;
 	uint64_t bulk_pull_count;
 	uint64_t bulk_pull_account_count;
-	uint64_t bulk_pull_blocks_count;
 	uint64_t bulk_push_count;
 	uint64_t frontier_req_count;
 	uint64_t node_id_handshake_count;
