@@ -53,7 +53,7 @@
         "password_fanout": "1024",
         "io_threads": "4",
         "work_threads": "4",
-        "enable_voting": "true",
+        "enable_voting": "false",
         "bootstrap_connections": "16",
         "bootstrap_connections_max": "64",
         "callback_address": "",

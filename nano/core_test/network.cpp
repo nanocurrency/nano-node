@@ -116,6 +116,39 @@ TEST (network, keepalive_ipv4)
 	node1->stop ();
 }
 
+TEST (network, last_contacted)
+{
+	nano::system system (24000, 1);
+	auto list1 (system.nodes[0]->peers.list ());
+	ASSERT_EQ (0, list1.size ());
+	nano::node_init init1;
+	auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, 24001, nano::unique_path (), system.alarm, system.logging, system.work));
+	node1->start ();
+	system.nodes.push_back (node1);
+	node1->send_keepalive (nano::endpoint (boost::asio::ip::address_v4::loopback (), 24000));
+	system.deadline_set (10s);
+
+	// Wait until the handshake is complete
+	while (system.nodes[0]->peers.size () < 1)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (system.nodes[0]->peers.size (), 1);
+
+	// Make sure last_contact gets updated on receiving a non-handshake message
+	auto timestamp_before_keepalive = system.nodes[0]->peers.list_vector (1).front ().last_contact;
+	node1->send_keepalive (nano::endpoint (boost::asio::ip::address_v4::loopback (), 24000));
+	while (system.nodes[0]->stats.count (nano::stat::type::message, nano::stat::detail::keepalive, nano::stat::dir::in) < 2)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (system.nodes[0]->peers.size (), 1);
+	auto timestamp_after_keepalive = system.nodes[0]->peers.list_vector (1).front ().last_contact;
+	ASSERT_GT (timestamp_after_keepalive, timestamp_before_keepalive);
+
+	node1->stop ();
+}
+
 TEST (network, multi_keepalive)
 {
 	nano::system system (24000, 1);
@@ -330,7 +363,7 @@ TEST (network, receive_weight_change)
 	nano::keypair key2;
 	system.wallet (1)->insert_adhoc (key2.prv);
 	{
-		auto transaction (system.nodes[1]->store.tx_begin (true));
+		auto transaction (system.nodes[1]->wallets.tx_begin (true));
 		system.wallet (1)->store.representative_set (transaction, key2.pub);
 	}
 	ASSERT_NE (nullptr, system.wallet (0)->send_action (nano::test_genesis_key.pub, key2.pub, system.nodes[0]->config.receive_minimum.number ()));
@@ -805,6 +838,72 @@ TEST (bootstrap_processor, lazy_max_pull_count)
 	node1->stop ();
 }
 
+TEST (bootstrap_processor, wallet_lazy_frontier)
+{
+	nano::system system (24000, 1);
+	nano::node_init init1;
+	nano::genesis genesis;
+	nano::keypair key1;
+	nano::keypair key2;
+	// Generating test chain
+	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, key1.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.nodes[0]->work_generate_blocking (genesis.hash ())));
+	auto receive1 (std::make_shared<nano::state_block> (key1.pub, 0, key1.pub, nano::Gxrb_ratio, send1->hash (), key1.prv, key1.pub, system.nodes[0]->work_generate_blocking (key1.pub)));
+	auto send2 (std::make_shared<nano::state_block> (key1.pub, receive1->hash (), key1.pub, 0, key2.pub, key1.prv, key1.pub, system.nodes[0]->work_generate_blocking (receive1->hash ())));
+	auto receive2 (std::make_shared<nano::state_block> (key2.pub, 0, key2.pub, nano::Gxrb_ratio, send2->hash (), key2.prv, key2.pub, system.nodes[0]->work_generate_blocking (key2.pub)));
+	// Processing test chain
+	system.nodes[0]->block_processor.add (send1, std::chrono::steady_clock::time_point ());
+	system.nodes[0]->block_processor.add (receive1, std::chrono::steady_clock::time_point ());
+	system.nodes[0]->block_processor.add (send2, std::chrono::steady_clock::time_point ());
+	system.nodes[0]->block_processor.add (receive2, std::chrono::steady_clock::time_point ());
+	system.nodes[0]->block_processor.flush ();
+	// Start wallet lazy bootstrap
+	auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, 24001, nano::unique_path (), system.alarm, system.logging, system.work));
+	node1->peers.insert (system.nodes[0]->network.endpoint (), nano::protocol_version);
+	auto wallet (node1->wallets.create (nano::uint256_union ()));
+	ASSERT_NE (nullptr, wallet);
+	wallet->insert_adhoc (key2.prv);
+	node1->bootstrap_wallet ();
+	// Check processed blocks
+	system.deadline_set (10s);
+	while (!node1->ledger.block_exists (receive2->hash ()))
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	node1->stop ();
+}
+
+TEST (bootstrap_processor, wallet_lazy_pending)
+{
+	nano::system system (24000, 1);
+	nano::node_init init1;
+	nano::genesis genesis;
+	nano::keypair key1;
+	nano::keypair key2;
+	// Generating test chain
+	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, key1.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.nodes[0]->work_generate_blocking (genesis.hash ())));
+	auto receive1 (std::make_shared<nano::state_block> (key1.pub, 0, key1.pub, nano::Gxrb_ratio, send1->hash (), key1.prv, key1.pub, system.nodes[0]->work_generate_blocking (key1.pub)));
+	auto send2 (std::make_shared<nano::state_block> (key1.pub, receive1->hash (), key1.pub, 0, key2.pub, key1.prv, key1.pub, system.nodes[0]->work_generate_blocking (receive1->hash ())));
+	// Processing test chain
+	system.nodes[0]->block_processor.add (send1, std::chrono::steady_clock::time_point ());
+	system.nodes[0]->block_processor.add (receive1, std::chrono::steady_clock::time_point ());
+	system.nodes[0]->block_processor.add (send2, std::chrono::steady_clock::time_point ());
+	system.nodes[0]->block_processor.flush ();
+	// Start wallet lazy bootstrap
+	auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, 24001, nano::unique_path (), system.alarm, system.logging, system.work));
+	node1->peers.insert (system.nodes[0]->network.endpoint (), nano::protocol_version);
+	auto wallet (node1->wallets.create (nano::uint256_union ()));
+	ASSERT_NE (nullptr, wallet);
+	wallet->insert_adhoc (key2.prv);
+	node1->bootstrap_wallet ();
+	// Check processed blocks
+	system.deadline_set (10s);
+	while (!node1->ledger.block_exists (send2->hash ()))
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	node1->stop ();
+}
+
 TEST (frontier_req_response, DISABLED_destruction)
 {
 	{
@@ -881,16 +980,16 @@ TEST (frontier_req, time_bound)
 	auto connection (std::make_shared<nano::bootstrap_server> (nullptr, system.nodes[0]));
 	std::unique_ptr<nano::frontier_req> req (new nano::frontier_req);
 	req->start.clear ();
-	req->age = 0;
+	req->age = 1;
 	req->count = std::numeric_limits<decltype (req->count)>::max ();
 	connection->requests.push (std::unique_ptr<nano::message>{});
 	auto request (std::make_shared<nano::frontier_req_server> (connection, std::move (req)));
 	ASSERT_EQ (nano::test_genesis_key.pub, request->current);
-	// Wait for next second when age of account will be > 0 seconds
-	std::this_thread::sleep_for (std::chrono::milliseconds (1001));
+	// Wait 2 seconds until age of account will be > 1 seconds
+	std::this_thread::sleep_for (std::chrono::milliseconds (2100));
 	std::unique_ptr<nano::frontier_req> req2 (new nano::frontier_req);
 	req2->start.clear ();
-	req2->age = 0;
+	req2->age = 1;
 	req2->count = std::numeric_limits<decltype (req->count)>::max ();
 	auto connection2 (std::make_shared<nano::bootstrap_server> (nullptr, system.nodes[0]));
 	connection2->requests.push (std::unique_ptr<nano::message>{});
@@ -911,8 +1010,8 @@ TEST (frontier_req, time_cutoff)
 	ASSERT_EQ (nano::test_genesis_key.pub, request->current);
 	nano::genesis genesis;
 	ASSERT_EQ (genesis.hash (), request->frontier);
-	// Wait 4 seconds when age of account will be > 3 seconds
-	std::this_thread::sleep_for (std::chrono::milliseconds (4001));
+	// Wait 4 seconds until age of account will be > 3 seconds
+	std::this_thread::sleep_for (std::chrono::milliseconds (4100));
 	std::unique_ptr<nano::frontier_req> req2 (new nano::frontier_req);
 	req2->start.clear ();
 	req2->age = 3;
@@ -1256,20 +1355,39 @@ TEST (bulk_pull_account, basics)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	auto connection (std::make_shared<nano::bootstrap_server> (nullptr, system.nodes[0]));
-	std::unique_ptr<nano::bulk_pull_account> req (new nano::bulk_pull_account{});
-	req->account = key1.pub;
-	req->minimum_amount = 5;
-	req->flags = nano::bulk_pull_account_flags ();
-	connection->requests.push (std::unique_ptr<nano::message>{});
-	auto request (std::make_shared<nano::bulk_pull_account_server> (connection, std::move (req)));
-	ASSERT_FALSE (request->invalid_request);
-	ASSERT_FALSE (request->pending_include_address);
-	ASSERT_FALSE (request->pending_address_only);
-	ASSERT_EQ (request->current_key.account, key1.pub);
-	ASSERT_EQ (request->current_key.hash, 0);
-	auto block_data (request->get_next ());
-	ASSERT_EQ (send2->hash (), block_data.first.get ()->hash);
-	ASSERT_EQ (nano::uint128_union (10), block_data.second.get ()->amount);
-	ASSERT_EQ (nano::genesis_account, block_data.second.get ()->source);
-	ASSERT_EQ (nullptr, request->get_next ().first.get ());
+
+	{
+		std::unique_ptr<nano::bulk_pull_account> req (new nano::bulk_pull_account{});
+		req->account = key1.pub;
+		req->minimum_amount = 5;
+		req->flags = nano::bulk_pull_account_flags ();
+		connection->requests.push (std::unique_ptr<nano::message>{});
+		auto request (std::make_shared<nano::bulk_pull_account_server> (connection, std::move (req)));
+		ASSERT_FALSE (request->invalid_request);
+		ASSERT_FALSE (request->pending_include_address);
+		ASSERT_FALSE (request->pending_address_only);
+		ASSERT_EQ (request->current_key.account, key1.pub);
+		ASSERT_EQ (request->current_key.hash, 0);
+		auto block_data (request->get_next ());
+		ASSERT_EQ (send2->hash (), block_data.first.get ()->hash);
+		ASSERT_EQ (nano::uint128_union (10), block_data.second.get ()->amount);
+		ASSERT_EQ (nano::genesis_account, block_data.second.get ()->source);
+		ASSERT_EQ (nullptr, request->get_next ().first.get ());
+	}
+
+	{
+		std::unique_ptr<nano::bulk_pull_account> req (new nano::bulk_pull_account{});
+		req->account = key1.pub;
+		req->minimum_amount = 0;
+		req->flags = nano::bulk_pull_account_flags::pending_address_only;
+		auto request (std::make_shared<nano::bulk_pull_account_server> (connection, std::move (req)));
+		ASSERT_TRUE (request->pending_address_only);
+		auto block_data (request->get_next ());
+		ASSERT_NE (nullptr, block_data.first.get ());
+		ASSERT_NE (nullptr, block_data.second.get ());
+		ASSERT_EQ (nano::genesis_account, block_data.second.get ()->source);
+		block_data = request->get_next ();
+		ASSERT_EQ (nullptr, block_data.first.get ());
+		ASSERT_EQ (nullptr, block_data.second.get ());
+	}
 }

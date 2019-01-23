@@ -8,7 +8,7 @@
 
 #include <queue>
 
-nano::mdb_env::mdb_env (bool & error_a, boost::filesystem::path const & path_a, int max_dbs)
+nano::mdb_env::mdb_env (bool & error_a, boost::filesystem::path const & path_a, int max_dbs, size_t map_size_a)
 {
 	boost::system::error_code error_mkdir, error_chmod;
 	if (path_a.has_parent_path ())
@@ -21,11 +21,12 @@ nano::mdb_env::mdb_env (bool & error_a, boost::filesystem::path const & path_a, 
 			release_assert (status1 == 0);
 			auto status2 (mdb_env_set_maxdbs (environment, max_dbs));
 			release_assert (status2 == 0);
-			auto status3 (mdb_env_set_mapsize (environment, 1ULL * 1024 * 1024 * 1024 * 128)); // 128 Gigabyte
+			auto status3 (mdb_env_set_mapsize (environment, map_size_a));
 			release_assert (status3 == 0);
 			// It seems if there's ever more threads than mdb_env_set_maxreaders has read slots available, we get failures on transaction creation unless MDB_NOTLS is specified
 			// This can happen if something like 256 io_threads are specified in the node config
-			auto status4 (mdb_env_open (environment, path_a.string ().c_str (), MDB_NOSUBDIR | MDB_NOTLS, 00600));
+			// MDB_NORDAHEAD will allow platforms that support it to load the DB in memory as needed.
+			auto status4 (mdb_env_open (environment, path_a.string ().c_str (), MDB_NOSUBDIR | MDB_NOTLS | MDB_NORDAHEAD, 00600));
 			release_assert (status4 == 0);
 			error_a = status4 != 0;
 		}
@@ -318,7 +319,7 @@ public:
 		auto version (store.block_version (transaction, block_a.previous ()));
 		assert (value.mv_size != 0);
 		std::vector<uint8_t> data (static_cast<uint8_t *> (value.mv_data), static_cast<uint8_t *> (value.mv_data) + value.mv_size);
-		std::copy (hash.bytes.begin (), hash.bytes.end (), data.end () - hash.bytes.size ());
+		std::copy (hash.bytes.begin (), hash.bytes.end (), data.begin () + store.block_successor_offset (transaction, value, type));
 		store.block_raw_put (transaction, store.block_database (type, version), block_a.previous (), nano::mdb_val (data.size (), data.data ()));
 	}
 	void send_block (nano::send_block const & block_a) override
@@ -716,7 +717,8 @@ nano::store_iterator<nano::account, std::shared_ptr<nano::vote>> nano::mdb_store
 	return nano::store_iterator<nano::account, std::shared_ptr<nano::vote>> (nullptr);
 }
 
-nano::mdb_store::mdb_store (bool & error_a, boost::filesystem::path const & path_a, int lmdb_max_dbs) :
+nano::mdb_store::mdb_store (bool & error_a, nano::logging & logging_a, boost::filesystem::path const & path_a, int lmdb_max_dbs) :
+logging (logging_a),
 env (error_a, path_a, lmdb_max_dbs),
 frontiers (0),
 accounts_v0 (0),
@@ -732,7 +734,6 @@ pending_v1 (0),
 blocks_info (0),
 representation (0),
 unchecked (0),
-checksum (0),
 vote (0),
 meta (0)
 {
@@ -753,13 +754,11 @@ meta (0)
 		error_a |= mdb_dbi_open (env.tx (transaction), "blocks_info", MDB_CREATE, &blocks_info) != 0;
 		error_a |= mdb_dbi_open (env.tx (transaction), "representation", MDB_CREATE, &representation) != 0;
 		error_a |= mdb_dbi_open (env.tx (transaction), "unchecked", MDB_CREATE, &unchecked) != 0;
-		error_a |= mdb_dbi_open (env.tx (transaction), "checksum", MDB_CREATE, &checksum) != 0;
 		error_a |= mdb_dbi_open (env.tx (transaction), "vote", MDB_CREATE, &vote) != 0;
 		error_a |= mdb_dbi_open (env.tx (transaction), "meta", MDB_CREATE, &meta) != 0;
 		if (!error_a)
 		{
 			do_upgrades (transaction);
-			checksum_put (transaction, 0, 0, 0);
 		}
 	}
 }
@@ -787,7 +786,6 @@ void nano::mdb_store::initialize (nano::transaction const & transaction_a, nano:
 	block_put (transaction_a, hash_l, *genesis_a.open);
 	account_put (transaction_a, genesis_account, { hash_l, genesis_a.open->hash (), genesis_a.open->hash (), std::numeric_limits<nano::uint128_t>::max (), nano::seconds_since_epoch (), 1, nano::epoch::epoch_0 });
 	representation_put (transaction_a, genesis_account, std::numeric_limits<nano::uint128_t>::max ());
-	checksum_put (transaction_a, 0, 0, hash_l);
 	frontier_put (transaction_a, hash_l, genesis_account);
 }
 
@@ -1075,6 +1073,9 @@ void nano::mdb_store::upgrade_v11_to_v12 (nano::transaction const & transaction_
 	version_put (transaction_a, 12);
 	mdb_drop (env.tx (transaction_a), unchecked, 1);
 	mdb_dbi_open (env.tx (transaction_a), "unchecked", MDB_CREATE, &unchecked);
+	MDB_dbi checksum;
+	mdb_dbi_open (env.tx (transaction_a), "checksum", MDB_CREATE, &checksum);
+	mdb_drop (env.tx (transaction_a), checksum, 1);
 }
 
 void nano::mdb_store::clear (MDB_dbi db_a)
@@ -1298,6 +1299,15 @@ std::shared_ptr<nano::block> nano::mdb_store::block_random (nano::transaction co
 	return result;
 }
 
+size_t nano::mdb_store::block_successor_offset (nano::transaction const &, MDB_val entry_a, nano::block_type type_a)
+{
+	size_t result;
+	// Read old successor-only sideband
+	assert (entry_a.mv_size = nano::block::size (type_a) + sizeof (nano::uint256_union));
+	result = entry_a.mv_size - sizeof (nano::uint256_union);
+	return result;
+}
+
 nano::block_hash nano::mdb_store::block_successor (nano::transaction const & transaction_a, nano::block_hash const & hash_a)
 {
 	nano::block_type type;
@@ -1306,7 +1316,7 @@ nano::block_hash nano::mdb_store::block_successor (nano::transaction const & tra
 	if (value.mv_size != 0)
 	{
 		assert (value.mv_size >= result.bytes.size ());
-		nano::bufferstream stream (reinterpret_cast<uint8_t const *> (value.mv_data) + value.mv_size - result.bytes.size (), result.bytes.size ());
+		nano::bufferstream stream (reinterpret_cast<uint8_t const *> (value.mv_data) + block_successor_offset (transaction_a, value, type), result.bytes.size ());
 		auto error (nano::read (stream, result.bytes));
 		assert (!error);
 	}
@@ -1825,40 +1835,6 @@ size_t nano::mdb_store::unchecked_count (nano::transaction const & transaction_a
 	release_assert (status == 0);
 	auto result (unchecked_stats.ms_entries);
 	return result;
-}
-
-void nano::mdb_store::checksum_put (nano::transaction const & transaction_a, uint64_t prefix, uint8_t mask, nano::uint256_union const & hash_a)
-{
-	assert ((prefix & 0xff) == 0);
-	uint64_t key (prefix | mask);
-	auto status (mdb_put (env.tx (transaction_a), checksum, nano::mdb_val (sizeof (key), &key), nano::mdb_val (hash_a), 0));
-	release_assert (status == 0);
-}
-
-bool nano::mdb_store::checksum_get (nano::transaction const & transaction_a, uint64_t prefix, uint8_t mask, nano::uint256_union & hash_a)
-{
-	assert ((prefix & 0xff) == 0);
-	uint64_t key (prefix | mask);
-	nano::mdb_val value;
-	auto status (mdb_get (env.tx (transaction_a), checksum, nano::mdb_val (sizeof (key), &key), value));
-	release_assert (status == 0 || status == MDB_NOTFOUND);
-	bool result (true);
-	if (status == 0)
-	{
-		result = false;
-		nano::bufferstream stream (reinterpret_cast<uint8_t const *> (value.data ()), value.size ());
-		auto error (nano::read (stream, hash_a));
-		assert (!error);
-	}
-	return result;
-}
-
-void nano::mdb_store::checksum_del (nano::transaction const & transaction_a, uint64_t prefix, uint8_t mask)
-{
-	assert ((prefix & 0xff) == 0);
-	uint64_t key (prefix | mask);
-	auto status (mdb_del (env.tx (transaction_a), checksum, nano::mdb_val (sizeof (key), &key), nullptr));
-	release_assert (status == 0);
 }
 
 void nano::mdb_store::flush (nano::transaction const & transaction_a)

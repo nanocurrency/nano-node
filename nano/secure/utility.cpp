@@ -5,21 +5,78 @@
 
 static std::vector<boost::filesystem::path> all_unique_paths;
 
-boost::filesystem::path nano::working_path ()
+boost::filesystem::path nano::working_path (bool legacy)
 {
 	auto result (nano::app_path ());
 	switch (nano::nano_network)
 	{
 		case nano::nano_networks::nano_test_network:
-			result /= "NanoTest";
+			if (!legacy)
+			{
+				result /= "NanoTest";
+			}
+			else
+			{
+				result /= "RaiBlocksTest";
+			}
 			break;
 		case nano::nano_networks::nano_beta_network:
-			result /= "NanoBeta";
+			if (!legacy)
+			{
+				result /= "NanoBeta";
+			}
+			else
+			{
+				result /= "RaiBlocksBeta";
+			}
 			break;
 		case nano::nano_networks::nano_live_network:
-			result /= "Nano";
+			if (!legacy)
+			{
+				result /= "Nano";
+			}
+			else
+			{
+				result /= "RaiBlocks";
+			}
 			break;
 	}
+	return result;
+}
+
+bool nano::migrate_working_path (std::string & error_string)
+{
+	bool result (true);
+	auto old_path (nano::working_path (true));
+	auto new_path (nano::working_path ());
+
+	if (old_path != new_path)
+	{
+		boost::system::error_code status_error;
+
+		auto old_path_status (boost::filesystem::status (old_path, status_error));
+		if (status_error == boost::system::errc::success && boost::filesystem::exists (old_path_status) && boost::filesystem::is_directory (old_path_status))
+		{
+			auto new_path_status (boost::filesystem::status (new_path, status_error));
+			if (!boost::filesystem::exists (new_path_status))
+			{
+				boost::system::error_code rename_error;
+
+				boost::filesystem::rename (old_path, new_path, rename_error);
+				if (rename_error != boost::system::errc::success)
+				{
+					std::stringstream error_string_stream;
+
+					error_string_stream << "Unable to migrate data from " << old_path << " to " << new_path;
+
+					error_string = error_string_stream.str ();
+
+					result = false;
+				}
+			}
+		}
+	}
+
 	return result;
 }
 
@@ -51,15 +108,4 @@ std::vector<boost::filesystem::path> nano::remove_temporary_directories ()
 		}
 	}
 	return all_unique_paths;
-}
-
-void nano::open_or_create (std::fstream & stream_a, std::string const & path_a)
-{
-	stream_a.open (path_a, std::ios_base::in);
-	if (stream_a.fail ())
-	{
-		stream_a.open (path_a, std::ios_base::out);
-	}
-	stream_a.close ();
-	stream_a.open (path_a, std::ios_base::in | std::ios_base::out);
 }

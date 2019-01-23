@@ -1,15 +1,12 @@
 #pragma once
 
 #include <boost/thread/thread.hpp>
-#include <nano/node/common.hpp>
 #include <nano/node/lmdb.hpp>
 #include <nano/node/openclwork.hpp>
 #include <nano/secure/blockstore.hpp>
 #include <nano/secure/common.hpp>
 
 #include <mutex>
-#include <queue>
-#include <thread>
 #include <unordered_set>
 
 namespace nano
@@ -57,6 +54,7 @@ public:
 	void seed_set (nano::transaction const &, nano::raw_key const &);
 	nano::key_type key_type (nano::wallet_value const &);
 	nano::public_key deterministic_insert (nano::transaction const &);
+	nano::public_key deterministic_insert (nano::transaction const &, uint32_t const);
 	void deterministic_key (nano::raw_key &, nano::transaction const &, uint32_t);
 	uint32_t deterministic_index_get (nano::transaction const &);
 	void deterministic_index_set (nano::transaction const &, uint32_t);
@@ -121,9 +119,9 @@ class wallets;
 class wallet : public std::enable_shared_from_this<nano::wallet>
 {
 public:
-	std::shared_ptr<nano::block> change_action (nano::account const &, nano::account const &, bool = true);
-	std::shared_ptr<nano::block> receive_action (nano::block const &, nano::account const &, nano::uint128_union const &, bool = true);
-	std::shared_ptr<nano::block> send_action (nano::account const &, nano::account const &, nano::uint128_t const &, bool = true, boost::optional<std::string> = {});
+	std::shared_ptr<nano::block> change_action (nano::account const &, nano::account const &, uint64_t = 0, bool = true);
+	std::shared_ptr<nano::block> receive_action (nano::block const &, nano::account const &, nano::uint128_union const &, uint64_t = 0, bool = true);
+	std::shared_ptr<nano::block> send_action (nano::account const &, nano::account const &, nano::uint128_t const &, uint64_t = 0, bool = true, boost::optional<std::string> = {});
 	wallet (bool &, nano::transaction &, nano::wallets &, std::string const &);
 	wallet (bool &, nano::transaction &, nano::wallets &, std::string const &, std::string const &);
 	void enter_initial_password ();
@@ -132,16 +130,17 @@ public:
 	nano::public_key insert_adhoc (nano::transaction const &, nano::raw_key const &, bool = true);
 	void insert_watch (nano::transaction const &, nano::public_key const &);
 	nano::public_key deterministic_insert (nano::transaction const &, bool = true);
+	nano::public_key deterministic_insert (uint32_t, bool = true);
 	nano::public_key deterministic_insert (bool = true);
 	bool exists (nano::public_key const &);
 	bool import (std::string const &, std::string const &);
 	void serialize (std::string &);
 	bool change_sync (nano::account const &, nano::account const &);
-	void change_async (nano::account const &, nano::account const &, std::function<void(std::shared_ptr<nano::block>)> const &, bool = true);
+	void change_async (nano::account const &, nano::account const &, std::function<void(std::shared_ptr<nano::block>)> const &, uint64_t = 0, bool = true);
 	bool receive_sync (std::shared_ptr<nano::block>, nano::account const &, nano::uint128_t const &);
-	void receive_async (std::shared_ptr<nano::block>, nano::account const &, nano::uint128_t const &, std::function<void(std::shared_ptr<nano::block>)> const &, bool = true);
+	void receive_async (std::shared_ptr<nano::block>, nano::account const &, nano::uint128_t const &, std::function<void(std::shared_ptr<nano::block>)> const &, uint64_t = 0, bool = true);
 	nano::block_hash send_sync (nano::account const &, nano::account const &, nano::uint128_t const &);
-	void send_async (nano::account const &, nano::account const &, nano::uint128_t const &, std::function<void(std::shared_ptr<nano::block>)> const &, bool = true, boost::optional<std::string> = {});
+	void send_async (nano::account const &, nano::account const &, nano::uint128_t const &, std::function<void(std::shared_ptr<nano::block>)> const &, uint64_t = 0, bool = true, boost::optional<std::string> = {});
 	void work_apply (nano::account const &, std::function<void(uint64_t)>);
 	void work_cache_blocking (nano::account const &, nano::block_hash const &);
 	void work_update (nano::transaction const &, nano::account const &, nano::block_hash const &, uint64_t);
@@ -149,7 +148,7 @@ public:
 	bool search_pending ();
 	void init_free_accounts (nano::transaction const &);
 	/** Changes the wallet seed and returns the first account */
-	nano::public_key change_seed (nano::transaction const & transaction_a, nano::raw_key const & prv_a);
+	nano::public_key change_seed (nano::transaction const & transaction_a, nano::raw_key const & prv_a, uint32_t = 0);
 	bool live ();
 	std::unordered_set<nano::account> free_accounts;
 	std::function<void(bool, bool)> lock_observer;

@@ -104,15 +104,15 @@ else
 	keepArchive='true'
 fi
 
-if [ -n  "${buildCArgs[*]}" ]; then
+if [ -n "${buildCArgs[*]}" ]; then
 	buildArgs+=(cflags="${buildCArgs[*]}")
 fi
 
-if [ -n  "${buildCXXArgs[*]}" ]; then
+if [ -n "${buildCXXArgs[*]}" ]; then
 	buildArgs+=(cxxflags="${buildCXXArgs[*]}")
 fi
 
-if [ -n  "${buildLDArgs[*]}" ]; then
+if [ -n "${buildLDArgs[*]}" ]; then
 	buildArgs+=(linkflags="${buildLDArgs[*]}")
 fi
 
