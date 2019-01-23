@@ -7,6 +7,7 @@
 #include <boost/property_tree/json_parser.hpp>
 #include <fstream>
 #include <nano/lib/errors.hpp>
+#include <nano/lib/utility.hpp>
 
 namespace nano
 {
@@ -118,16 +119,19 @@ public:
 		boost::property_tree::read_json (stream_a, tree);
 	}
 
-	/** Open confiruation file, create if necessary */
+	/** Open configuration file, create if necessary */
 	void open_or_create (std::fstream & stream_a, std::string const & path_a)
 	{
-		stream_a.open (path_a, std::ios_base::in);
-		if (stream_a.fail ())
+		if (!boost::filesystem::exists (path_a))
 		{
-			stream_a.open (path_a, std::ios_base::out);
+			// Create temp stream to first create the file
+			std::ofstream stream (path_a);
+
+			// Set permissions before opening otherwise Windows only has read permissions
+			nano::set_secure_perm_file (path_a);
 		}
-		stream_a.close ();
-		stream_a.open (path_a, std::ios_base::in | std::ios_base::out);
+
+		stream_a.open (path_a);
 	}
 
 	/** Returns the boost property node managed by this instance */
