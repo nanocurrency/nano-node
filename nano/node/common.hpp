@@ -144,14 +144,9 @@ enum class message_type : uint8_t
 	bulk_pull = 0x6,
 	bulk_push = 0x7,
 	frontier_req = 0x8,
-	bulk_pull_blocks = 0x9,
+	/* deleted 0x9 */
 	node_id_handshake = 0x0a,
 	bulk_pull_account = 0x0b
-};
-enum class bulk_pull_blocks_mode : uint8_t
-{
-	list_blocks,
-	checksum_blocks
 };
 enum class bulk_pull_account_flags : uint8_t
 {
@@ -333,20 +328,6 @@ public:
 	bulk_pull_account_flags flags;
 	static size_t constexpr size = sizeof (account) + sizeof (minimum_amount) + sizeof (bulk_pull_account_flags);
 };
-class bulk_pull_blocks : public message
-{
-public:
-	bulk_pull_blocks ();
-	bulk_pull_blocks (bool &, nano::stream &, nano::message_header const &);
-	bool deserialize (nano::stream &);
-	void serialize (nano::stream &) const override;
-	void visit (nano::message_visitor &) const override;
-	nano::block_hash min_hash;
-	nano::block_hash max_hash;
-	bulk_pull_blocks_mode mode;
-	uint32_t max_count;
-	static size_t constexpr size = sizeof (min_hash) + sizeof (max_hash) + sizeof (mode) + sizeof (max_count);
-};
 class bulk_push : public message
 {
 public:
@@ -383,7 +364,6 @@ public:
 	virtual void confirm_ack (nano::confirm_ack const &) = 0;
 	virtual void bulk_pull (nano::bulk_pull const &) = 0;
 	virtual void bulk_pull_account (nano::bulk_pull_account const &) = 0;
-	virtual void bulk_pull_blocks (nano::bulk_pull_blocks const &) = 0;
 	virtual void bulk_push (nano::bulk_push const &) = 0;
 	virtual void frontier_req (nano::frontier_req const &) = 0;
 	virtual void node_id_handshake (nano::node_id_handshake const &) = 0;

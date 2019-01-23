@@ -748,53 +748,6 @@ void nano::bulk_pull_account::serialize (nano::stream & stream_a) const
 	write (stream_a, flags);
 }
 
-nano::bulk_pull_blocks::bulk_pull_blocks () :
-message (nano::message_type::bulk_pull_blocks)
-{
-}
-
-nano::bulk_pull_blocks::bulk_pull_blocks (bool & error_a, nano::stream & stream_a, nano::message_header const & header_a) :
-message (header_a)
-{
-	if (!error_a)
-	{
-		error_a = deserialize (stream_a);
-	}
-}
-
-void nano::bulk_pull_blocks::visit (nano::message_visitor & visitor_a) const
-{
-	visitor_a.bulk_pull_blocks (*this);
-}
-
-bool nano::bulk_pull_blocks::deserialize (nano::stream & stream_a)
-{
-	assert (header.type == nano::message_type::bulk_pull_blocks);
-	auto result (read (stream_a, min_hash));
-	if (!result)
-	{
-		result = read (stream_a, max_hash);
-		if (!result)
-		{
-			result = read (stream_a, mode);
-			if (!result)
-			{
-				result = read (stream_a, max_count);
-			}
-		}
-	}
-	return result;
-}
-
-void nano::bulk_pull_blocks::serialize (nano::stream & stream_a) const
-{
-	header.serialize (stream_a);
-	write (stream_a, min_hash);
-	write (stream_a, max_hash);
-	write (stream_a, mode);
-	write (stream_a, max_count);
-}
-
 nano::bulk_push::bulk_push () :
 message (nano::message_type::bulk_push)
 {

@@ -94,7 +94,6 @@ using account = uint256_union;
 using public_key = uint256_union;
 using private_key = uint256_union;
 using secret_key = uint256_union;
-using checksum = uint256_union;
 class raw_key
 {
 public:
@@ -108,6 +107,7 @@ public:
 union uint512_union
 {
 	uint512_union () = default;
+	uint512_union (nano::uint256_union const &, nano::uint256_union const &);
 	uint512_union (nano::uint512_t const &);
 	bool operator== (nano::uint512_union const &) const;
 	bool operator!= (nano::uint512_union const &) const;
@@ -149,6 +149,14 @@ struct hash<::nano::uint256_t>
 	size_t operator() (::nano::uint256_t const & number_a) const
 	{
 		return number_a.convert_to<size_t> ();
+	}
+};
+template <>
+struct hash<::nano::uint512_union>
+{
+	size_t operator() (::nano::uint512_union const & data_a) const
+	{
+		return *reinterpret_cast<size_t const *> (data_a.bytes.data ());
 	}
 };
 }
