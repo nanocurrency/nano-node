@@ -9,7 +9,7 @@
 #include <nano/node/common.hpp>
 #include <nano/node/node.hpp>
 
-#include <ed25519-donna/ed25519.h>
+#include <crypto/ed25519-donna/ed25519.h>
 
 TEST (ed25519, signing)
 {
