@@ -1444,16 +1444,26 @@ void nano::rpc_handler::confirmation_history ()
 	boost::property_tree::ptree elections;
 	boost::property_tree::ptree confirmation_stats;
 	std::chrono::milliseconds running_total (0);
+	nano::block_hash hash (0);
+	boost::optional<std::string> hash_text (request.get_optional<std::string> ("hash"));
+	if (hash_text.is_initialized ())
+	{
+		hash = hash_impl ();
+	}
+	if (!ec)
 	{
 		std::lock_guard<std::mutex> lock (node.active.mutex);
 		for (auto i (node.active.confirmed.begin ()), n (node.active.confirmed.end ()); i != n; ++i)
 		{
-			boost::property_tree::ptree election;
-			election.put ("hash", i->winner->hash ().to_string ());
-			election.put ("duration", i->election_duration.count ());
-			election.put ("time", i->election_end.count ());
-			election.put ("tally", i->tally.to_string_dec ());
-			elections.push_back (std::make_pair ("", election));
+			if (hash.is_zero () || i->winner->hash () == hash)
+			{
+				boost::property_tree::ptree election;
+				election.put ("hash", i->winner->hash ().to_string ());
+				election.put ("duration", i->election_duration.count ());
+				election.put ("time", i->election_end.count ());
+				election.put ("tally", i->tally.to_string_dec ());
+				elections.push_back (std::make_pair ("", election));
+			}
 			running_total += i->election_duration;
 		}
 	}
