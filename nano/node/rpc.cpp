@@ -623,11 +623,7 @@ void nano::rpc_handler::account_representative_set ()
 					nano::account_info info;
 					if (!node.store.account_get (transaction, account, info))
 					{
-						if (!nano::work_validate (info.head, work))
-						{
-							wallet->store.work_put (transaction, account, work);
-						}
-						else
+						if (nano::work_validate (info.head, work))
 						{
 							ec = nano::error_common::invalid_work;
 						}
@@ -644,6 +640,7 @@ void nano::rpc_handler::account_representative_set ()
 			}
 			if (!ec)
 			{
+				bool generate_work (work == 0); // Disable work generation if "work" option is provided
 				auto response_a (response);
 				wallet->change_async (account, representative, [response_a](std::shared_ptr<nano::block> block) {
 					nano::block_hash hash (0);
@@ -655,7 +652,7 @@ void nano::rpc_handler::account_representative_set ()
 					response_l.put ("block", hash.to_string ());
 					response_a (response_l);
 				},
-				work == 0);
+				work, generate_work);
 			}
 		}
 		else
@@ -2526,18 +2523,14 @@ void nano::rpc_handler::receive ()
 							{
 								head = account;
 							}
-							if (!nano::work_validate (head, work))
-							{
-								auto transaction_a (node.store.tx_begin_write ());
-								wallet->store.work_put (transaction_a, account, work);
-							}
-							else
+							if (nano::work_validate (head, work))
 							{
 								ec = nano::error_common::invalid_work;
 							}
 						}
 						if (!ec)
 						{
+							bool generate_work (work == 0); // Disable work generation if "work" option is provided
 							auto response_a (response);
 							wallet->receive_async (std::move (block), account, nano::genesis_amount, [response_a](std::shared_ptr<nano::block> block_a) {
 								nano::uint256_union hash_a (0);
@@ -2549,7 +2542,7 @@ void nano::rpc_handler::receive ()
 								response_l.put ("block", hash_a.to_string ());
 								response_a (response_l);
 							},
-							work == 0);
+							work, generate_work);
 						}
 					}
 					else
@@ -2850,29 +2843,32 @@ void nano::rpc_handler::send ()
 				nano::uint128_t balance (0);
 				if (!ec)
 				{
-					auto transaction (node.wallets.tx_begin (work != 0)); // false if no "work" in request, true if work > 0
+					auto transaction (node.wallets.tx_begin_read ());
 					auto block_transaction (node.store.tx_begin_read ());
 					if (wallet->store.valid_password (transaction))
 					{
-						nano::account_info info;
-						if (!node.store.account_get (block_transaction, source, info))
+						if (wallet->store.find (transaction, source) != wallet->store.end ())
 						{
-							balance = (info.balance).number ();
-						}
-						else
-						{
-							ec = nano::error_common::account_not_found;
-						}
-						if (!ec && work)
-						{
-							if (!nano::work_validate (info.head, work))
+							nano::account_info info;
+							if (!node.store.account_get (block_transaction, source, info))
 							{
-								wallet->store.work_put (transaction, source, work);
+								balance = (info.balance).number ();
 							}
 							else
 							{
-								ec = nano::error_common::invalid_work;
+								ec = nano::error_common::account_not_found;
 							}
+							if (!ec && work)
+							{
+								if (nano::work_validate (info.head, work))
+								{
+									ec = nano::error_common::invalid_work;
+								}
+							}
+						}
+						else
+						{
+							ec = nano::error_common::account_not_found_wallet;
 						}
 					}
 					else
@@ -2882,6 +2878,7 @@ void nano::rpc_handler::send ()
 				}
 				if (!ec)
 				{
+					bool generate_work (work == 0); // Disable work generation if "work" option is provided
 					boost::optional<std::string> send_id (request.get_optional<std::string> ("id"));
 					auto rpc_l (shared_from_this ());
 					auto response_a (response);
@@ -2906,7 +2903,7 @@ void nano::rpc_handler::send ()
 							}
 						}
 					},
-					work == 0, send_id);
+					work, generate_work, send_id);
 				}
 			}
 			else
@@ -3537,7 +3534,7 @@ void nano::rpc_handler::wallet_representative_set ()
 				}
 				for (auto & account : accounts)
 				{
-					wallet->change_async (account, representative, [](std::shared_ptr<nano::block>) {}, false);
+					wallet->change_async (account, representative, [](std::shared_ptr<nano::block>) {}, 0, false);
 				}
 			}
 			response_l.put ("set", "1");

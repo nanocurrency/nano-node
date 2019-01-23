@@ -334,7 +334,7 @@ TEST (rpc, send_fail)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	done = true;
-	ASSERT_EQ (response.json.get<std::string> ("error"), "Error generating block");
+	ASSERT_EQ (response.json.get<std::string> ("error"), "Account not found in wallet");
 	thread2.join ();
 }
 
