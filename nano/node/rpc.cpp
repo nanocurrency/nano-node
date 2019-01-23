@@ -3057,7 +3057,7 @@ void nano::rpc_handler::unchecked_keys ()
 
 void nano::rpc_handler::uptime ()
 {
-	response_l.put ("seconds", std::chrono::duration_cast<std::chrono::seconds> (std::chrono::system_clock::now () - node.startup_time).count ());
+	response_l.put ("seconds", std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - node.startup_time).count ());
 	response_errors ();
 }
 

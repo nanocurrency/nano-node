@@ -1622,7 +1622,6 @@ node (init_a, io_ctx_a, application_path_a, alarm_a, nano::node_config (peering_
 }
 
 nano::node::node (nano::node_init & init_a, boost::asio::io_context & io_ctx_a, boost::filesystem::path const & application_path_a, nano::alarm & alarm_a, nano::node_config const & config_a, nano::work_pool & work_a) :
-startup_time (std::chrono::system_clock::now ()),
 io_ctx (io_ctx_a),
 config (config_a),
 alarm (alarm_a),
@@ -1648,7 +1647,8 @@ block_processor_thread ([this]() {
 }),
 online_reps (*this),
 stats (config.stat_config),
-vote_uniquer (block_uniquer)
+vote_uniquer (block_uniquer),
+startup_time (std::chrono::steady_clock::now ())
 {
 	wallets.observer = [this](bool active) {
 		observers.wallet.notify (active);
