@@ -3438,10 +3438,11 @@ void nano::rpc_handler::wallet_ledger ()
 
 void nano::rpc_handler::wallet_list ()
 {
-	if (rpc.config.enable_control)
+	rpc_control_impl ();
+	if (!ec)
 	{
-		boost::property_tree::ptree response_l;
 		boost::property_tree::ptree wallets;
+		std::lock_guard<std::mutex> lock (node.wallets.mutex);
 		for (auto i (node.wallets.items.begin ()), n (node.wallets.items.end ()); i != n; ++i)
 		{
 			boost::property_tree::ptree entry;
@@ -3449,12 +3450,8 @@ void nano::rpc_handler::wallet_list ()
 			wallets.push_back (std::make_pair ("", entry));
 		}
 		response_l.add_child ("wallets", wallets);
-		response (response_l);
 	}
-	else
-	{
-		error_response (response, "RPC control is disabled");
-	}
+	response_errors ();
 }
 
 void nano::rpc_handler::wallet_lock ()
@@ -3640,42 +3637,23 @@ void nano::rpc_handler::wallet_republish ()
 
 void nano::rpc_handler::wallet_seed ()
 {
-	if (rpc.config.enable_control)
+	rpc_control_impl ();
+	auto wallet (wallet_impl ());
+	if (!ec)
 	{
-		auto transaction (node.store.tx_begin_read ());
+		auto transaction (node.wallets.tx_begin_read ());
 		if (wallet->store.valid_password (transaction))
 		{
-			auto existing (node.wallets.items.find (wallet));
-			if (existing != node.wallets.items.end ())
-			{
-				nano::transaction transaction (node.store.environment, nullptr, false);
-				if (existing->second->store.valid_password (transaction))
-				{
-					nano::raw_key seed;
-					existing->second->store.seed (seed, transaction);
-					boost::property_tree::ptree response_l;
-					response_l.put ("seed", seed.data.to_string ());
-					response (response_l);
-				}
-				else
-				{
-					error_response (response, "Wallet locked");
-				}
-			}
-			else
-			{
-				error_response (response, "Wallet not found");
-			}
+			nano::raw_key seed;
+			wallet->store.seed (seed, transaction);
+			response_l.put ("seed", seed.data.to_string ());
 		}
 		else
 		{
-			error_response (response, "Bad wallet number");
+			ec = nano::error_common::wallet_locked;
 		}
 	}
-	else
-	{
-		error_response (response, "RPC control is disabled");
-	}
+	response_errors ();
 }
 
 void nano::rpc_handler::wallet_work_get ()
