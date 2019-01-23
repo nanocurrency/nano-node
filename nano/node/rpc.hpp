@@ -227,6 +227,7 @@ public:
 	void wallet_representative ();
 	void wallet_representative_set ();
 	void wallet_republish ();
+	void wallet_seed ();
 	void wallet_work_get ();
 	void work_generate ();
 	void work_cancel ();
