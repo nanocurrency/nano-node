@@ -1401,7 +1401,7 @@ void nano::rpc_handler::bootstrap_status ()
 
 void nano::rpc_handler::chain (bool successors)
 {
-	successors = successors ^ request.get<bool> ("reverse", false);
+	successors = successors != request.get<bool> ("reverse", false);
 	auto hash (hash_impl ("block"));
 	auto count (count_impl ());
 	auto offset (offset_optional_impl (0));
