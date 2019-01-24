@@ -227,16 +227,13 @@ bool nano::node_config::upgrade_json (unsigned version_a, nano::jsonconfig & jso
 			});
 
 			json.replace_child (preconfigured_peers_key, peers);
-			upgraded = true;
-		}
-		case 16:
-		{
+
 			nano::jsonconfig ipc_l;
 			ipc_config.serialize_json (ipc_l);
 			json.put_child ("ipc", ipc_l);
 			upgraded = true;
 		}
-		case 17:
+		case 16:
 			break;
 		default:
 			throw std::runtime_error ("Unknown node_config version");

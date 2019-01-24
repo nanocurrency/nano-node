@@ -125,7 +125,8 @@ public:
 	void timer_cancel ()
 	{
 		boost::system::error_code ec;
-		this->io_timer.cancel (ec);
+		io_timer.cancel (ec);
+		assert (!ec);
 	}
 
 private:
@@ -148,10 +149,6 @@ public:
 		{
 			BOOST_LOG (node.log) << "IPC: created session with id: " << session_id;
 		}
-	}
-
-	~session ()
-	{
 	}
 
 	SOCKET_TYPE & get_socket ()
@@ -211,7 +208,7 @@ public:
 			ostream.flush ();
 			std::string response_body = ostream.str ();
 
-			uint32_t size_response = boost::endian::native_to_big ((uint32_t)response_body.size ());
+			uint32_t size_response = boost::endian::native_to_big (static_cast<uint32_t> (response_body.size ()));
 			std::vector<boost::asio::mutable_buffer> bufs = {
 				boost::asio::buffer (&size_response, sizeof (size_response)),
 				boost::asio::buffer (response_body)
@@ -237,7 +234,7 @@ public:
 		});
 
 		node.stats.inc (nano::stat::type::ipc, nano::stat::detail::invocations);
-		auto body (std::string ((char *)buffer.data (), buffer.size ()));
+		auto body (std::string (reinterpret_cast<char *> (buffer.data ()), buffer.size ()));
 
 		// Note that if the rpc action is async, the shared_ptr<rpc_handler> lifetime will be extended by the action handler
 		nano::rpc_handler handler (node, server.rpc, body, request_id_l, response_handler_l);
@@ -545,9 +542,6 @@ public:
 	io_ctx (io_ctx_a)
 	{
 	}
-	~client_impl ()
-	{
-	}
 
 	void connect (std::string const & host_a, uint16_t port_a, std::function<void(nano::error)> callback_a)
 	{
@@ -597,10 +591,6 @@ private:
 
 nano::ipc::ipc_client::ipc_client (boost::asio::io_context & io_ctx_a) :
 io_ctx (io_ctx_a)
-{
-}
-
-nano::ipc::ipc_client::~ipc_client ()
 {
 }
 

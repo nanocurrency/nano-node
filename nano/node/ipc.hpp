@@ -45,6 +45,7 @@ namespace ipc
 	class ipc_config_transport
 	{
 	public:
+		~ipc_config_transport () = default;
 		bool enabled{ false };
 		size_t io_timeout{ 15 };
 		long io_threads{ -1 };
@@ -84,7 +85,7 @@ namespace ipc
 	{
 	public:
 		ipc_server (nano::node & node, nano::rpc & rpc);
-		~ipc_server ();
+		virtual ~ipc_server ();
 		void stop ();
 
 		nano::node & node;
@@ -109,7 +110,7 @@ namespace ipc
 	{
 	public:
 		ipc_client (boost::asio::io_context & io_ctx_a);
-		~ipc_client ();
+		virtual ~ipc_client () = default;
 
 		/** Connect to a domain socket */
 		nano::error connect (std::string const & path);
