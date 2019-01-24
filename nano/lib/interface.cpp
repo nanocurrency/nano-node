@@ -1,10 +1,10 @@
 #include <nano/lib/interface.h>
 
-#include <xxhash/xxhash.h>
+#include <crypto/xxhash/xxhash.h>
 
-#include <ed25519-donna/ed25519.h>
+#include <crypto/ed25519-donna/ed25519.h>
 
-#include <blake2/blake2.h>
+#include <crypto/blake2/blake2.h>
 
 #include <boost/property_tree/json_parser.hpp>
 
@@ -139,7 +139,7 @@ char * xrb_work_transaction (const char * transaction)
 	return result;
 }
 
-#include <ed25519-donna/ed25519-hash-custom.h>
+#include <crypto/ed25519-donna/ed25519-hash-custom.h>
 void ed25519_randombytes_unsafe (void * out, size_t outlen)
 {
 	nano::random_pool.GenerateBlock (reinterpret_cast<uint8_t *> (out), outlen);
