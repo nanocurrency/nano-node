@@ -1892,6 +1892,23 @@ void nano::bootstrap_initiator::notify_listeners (bool in_progress_a)
 	}
 }
 
+namespace nano
+{
+std::unique_ptr<seq_con_info_component> collect_seq_con_info (bootstrap_initiator & bootstrap_initiator, const std::string & name)
+{
+	size_t count = 0;
+	{
+		std::lock_guard<std::mutex> guard (bootstrap_initiator.mutex);
+		count = bootstrap_initiator.observers.size ();
+	}
+
+	auto sizeof_element = sizeof (decltype (bootstrap_initiator.observers)::value_type);
+	auto composite = std::make_unique<seq_con_info_composite> (name);
+	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "observers", count, sizeof_element }));
+	return composite;
+}
+}
+
 nano::bootstrap_listener::bootstrap_listener (boost::asio::io_context & io_ctx_a, uint16_t port_a, nano::node & node_a) :
 acceptor (io_ctx_a),
 defer_acceptor (io_ctx_a),
@@ -1992,6 +2009,23 @@ void nano::bootstrap_listener::accept_action (boost::system::error_code const & 
 boost::asio::ip::tcp::endpoint nano::bootstrap_listener::endpoint ()
 {
 	return boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v6::loopback (), local.port ());
+}
+
+namespace nano
+{
+std::unique_ptr<seq_con_info_component> collect_seq_con_info (bootstrap_listener & bootstrap_listener, const std::string & name)
+{
+	size_t count = 0;
+	{
+		std::lock_guard<std::mutex> guard (bootstrap_listener.mutex);
+		count = bootstrap_listener.connections.size ();
+	}
+
+	auto sizeof_element = sizeof (decltype (bootstrap_listener.connections)::value_type);
+	auto composite = std::make_unique<seq_con_info_composite> (name);
+	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "connections", count, sizeof_element }));
+	return composite;
+}
 }
 
 nano::bootstrap_server::~bootstrap_server ()

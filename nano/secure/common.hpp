@@ -2,6 +2,7 @@
 
 #include <nano/lib/blockbuilders.hpp>
 #include <nano/lib/blocks.hpp>
+#include <nano/lib/utility.hpp>
 #include <nano/secure/utility.hpp>
 
 #include <boost/iterator/transform_iterator.hpp>
@@ -225,6 +226,8 @@ public:
 class vote_uniquer
 {
 public:
+	using value_type = std::pair<const nano::uint256_union, std::weak_ptr<nano::vote>>;
+
 	vote_uniquer (nano::block_uniquer &);
 	std::shared_ptr<nano::vote> unique (std::shared_ptr<nano::vote>);
 	size_t size ();
@@ -232,9 +235,12 @@ public:
 private:
 	nano::block_uniquer & uniquer;
 	std::mutex mutex;
-	std::unordered_map<nano::uint256_union, std::weak_ptr<nano::vote>> votes;
+	std::unordered_map<std::remove_const_t<value_type::first_type>, value_type::second_type> votes;
 	static unsigned constexpr cleanup_count = 2;
 };
+
+std::unique_ptr<seq_con_info_component> collect_seq_con_info (vote_uniquer & vote_uniquer, const std::string & name);
+
 enum class vote_code
 {
 	invalid, // Vote is not signed correctly

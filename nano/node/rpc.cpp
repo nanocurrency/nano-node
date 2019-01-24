@@ -9,6 +9,11 @@
 
 #include <nano/lib/errors.hpp>
 
+namespace
+{
+void construct_json (nano::seq_con_info_component * component, boost::property_tree::ptree & parent);
+}
+
 nano::rpc_secure_config::rpc_secure_config () :
 enable (false),
 verbose_logging (false)
@@ -3086,19 +3091,30 @@ void nano::rpc_handler::stats ()
 {
 	auto sink = node.stats.log_sink_json ();
 	std::string type (request.get<std::string> ("type", ""));
+	bool use_sink = false;
 	if (type == "counters")
 	{
 		node.stats.log_counters (*sink);
+		use_sink = true;
+	}
+	else if (type == "objects")
+	{
+		rpc_control_impl ();
+		if (!ec)
+		{
+			construct_json (collect_seq_con_info (node, "node").get (), response_l);
+		}
 	}
 	else if (type == "samples")
 	{
 		node.stats.log_samples (*sink);
+		use_sink = true;
 	}
 	else
 	{
 		ec = nano::error_rpc::invalid_missing_type;
 	}
-	if (!ec)
+	if (!ec && use_sink)
 	{
 		auto stat_tree_l (*static_cast<boost::property_tree::ptree *> (sink->to_object ()));
 		stat_tree_l.put ("stat_duration_seconds", node.stats.last_reset ().count ());
@@ -4629,7 +4645,7 @@ void nano::rpc_handler::process_request ()
 			}
 		}
 	}
-	catch (std::runtime_error const & err)
+	catch (std::runtime_error const &)
 	{
 		error_response (response, "Unable to parse JSON");
 	}
@@ -4723,4 +4739,31 @@ std::unique_ptr<nano::rpc> nano::get_rpc (boost::asio::io_context & io_ctx_a, na
 	}
 
 	return impl;
+}
+
+namespace
+{
+void construct_json (nano::seq_con_info_component * component, boost::property_tree::ptree & parent)
+{
+	// We are a leaf node, print name and exit
+	if (!component->is_composite ())
+	{
+		auto & leaf_info = static_cast<nano::seq_con_info_leaf *> (component)->get_info ();
+		boost::property_tree::ptree child;
+		child.put ("count", leaf_info.count);
+		child.put ("size", leaf_info.count * leaf_info.sizeof_element);
+		parent.add_child (leaf_info.name, child);
+		return;
+	}
+
+	auto composite = static_cast<nano::seq_con_info_composite *> (component);
+
+	boost::property_tree::ptree current;
+	for (auto & child : composite->get_children ())
+	{
+		construct_json (child.get (), current);
+	}
+
+	parent.add_child (composite->get_name (), current);
+}
 }

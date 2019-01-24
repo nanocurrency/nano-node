@@ -968,3 +968,15 @@ std::shared_ptr<nano::block> nano::ledger::forked_block (nano::transaction const
 	}
 	return result;
 }
+
+namespace nano
+{
+std::unique_ptr<seq_con_info_component> collect_seq_con_info (ledger & ledger, const std::string & name)
+{
+	auto composite = std::make_unique<seq_con_info_composite> (name);
+	auto count = ledger.bootstrap_weights.size ();
+	auto sizeof_element = sizeof (decltype (ledger.bootstrap_weights)::value_type);
+	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "bootstrap_weights", count, sizeof_element }));
+	return composite;
+}
+}

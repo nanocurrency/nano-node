@@ -140,3 +140,20 @@ std::vector<std::shared_ptr<nano::vote>> nano::votes_cache::find (nano::block_ha
 	}
 	return result;
 }
+
+namespace nano
+{
+std::unique_ptr<seq_con_info_component> collect_seq_con_info (vote_generator & vote_generator, const std::string & name)
+{
+	size_t hashes_count = 0;
+
+	{
+		std::lock_guard<std::mutex> guard (vote_generator.mutex);
+		hashes_count = vote_generator.hashes.size ();
+	}
+	auto sizeof_element = sizeof (decltype (vote_generator.hashes)::value_type);
+	auto composite = std::make_unique<seq_con_info_composite> (name);
+	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "state_blocks", hashes_count, sizeof_element }));
+	return composite;
+}
+}

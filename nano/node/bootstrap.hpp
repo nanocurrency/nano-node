@@ -242,7 +242,12 @@ private:
 	std::condition_variable condition;
 	std::vector<std::function<void(bool)>> observers;
 	boost::thread thread;
+
+	friend std::unique_ptr<seq_con_info_component> collect_seq_con_info (bootstrap_initiator & bootstrap_initiator, const std::string & name);
 };
+
+std::unique_ptr<seq_con_info_component> collect_seq_con_info (bootstrap_initiator & bootstrap_initiator, const std::string & name);
+
 class bootstrap_server;
 class bootstrap_listener
 {
@@ -264,6 +269,9 @@ public:
 private:
 	boost::asio::steady_timer defer_acceptor;
 };
+
+std::unique_ptr<seq_con_info_component> collect_seq_con_info (bootstrap_listener & bootstrap_listener, const std::string & name);
+
 class message;
 class bootstrap_server : public std::enable_shared_from_this<nano::bootstrap_server>
 {
