@@ -2,7 +2,9 @@
 #include <nano/nano_node/daemon.hpp>
 #include <nano/node/cli.hpp>
 #include <nano/node/node.hpp>
+#include <nano/node/rpc.hpp>
 #include <nano/node/testing.hpp>
+#include <sstream>
 
 #include <argon2.h>
 
@@ -24,6 +26,7 @@ int main (int argc, char * const * argv)
 		("disable_backup", "Disable wallet automatic backups")
 		("disable_lazy_bootstrap", "Disables lazy bootstrap")
 		("disable_legacy_bootstrap", "Disables legacy bootstrap")
+		("disable_wallet_bootstrap", "Disables wallet lazy bootstrap")
 		("disable_bootstrap_listener", "Disables bootstrap listener (incoming connections)")
 		("debug_block_count", "Display the number of block")
 		("debug_bootstrap_generate", "Generate bootstrap sequence of blocks")
@@ -40,6 +43,7 @@ int main (int argc, char * const * argv)
 		("debug_profile_sign", "Profile signature generation")
 		("debug_profile_process", "Profile active blocks processing (only for nano_test_network)")
 		("debug_profile_votes", "Profile votes processing (only for nano_test_network)")
+		("debug_rpc", "Read an RPC command from stdin and invoke it. Network operations will have no effect.")
 		("debug_validate_blocks", "Check all blocks for correct hash, signature, work value")
 		("platform", boost::program_options::value<std::string> (), "Defines the <platform> for OpenCL commands")
 		("device", boost::program_options::value<std::string> (), "Defines <device> for OpenCL command")
@@ -83,6 +87,7 @@ int main (int argc, char * const * argv)
 			flags.disable_backup = (vm.count ("disable_backup") > 0);
 			flags.disable_lazy_bootstrap = (vm.count ("disable_lazy_bootstrap") > 0);
 			flags.disable_legacy_bootstrap = (vm.count ("disable_legacy_bootstrap") > 0);
+			flags.disable_wallet_bootstrap = (vm.count ("disable_wallet_bootstrap") > 0);
 			flags.disable_bootstrap_listener = (vm.count ("disable_bootstrap_listener") > 0);
 			daemon.run (data_path, flags);
 		}
@@ -606,6 +611,29 @@ int main (int argc, char * const * argv)
 			{
 				std::cerr << "For this test ACTIVE_NETWORK should be nano_test_network" << std::endl;
 			}
+		}
+		else if (vm.count ("debug_rpc"))
+		{
+			std::string rpc_input_l;
+			std::ostringstream command_l;
+			while (std::cin >> rpc_input_l)
+			{
+				command_l << rpc_input_l;
+			}
+
+			auto response_handler_l ([](boost::property_tree::ptree const & tree_a) {
+				boost::property_tree::write_json (std::cout, tree_a);
+				// Terminate as soon as we have the result, even if background threads (like work generation) are running.
+				std::exit (0);
+			});
+
+			nano::inactive_node inactive_node_l (data_path);
+			nano::rpc_config rpc_config_l;
+			rpc_config_l.enable_control = true;
+			std::unique_ptr<nano::rpc> rpc_l = get_rpc (inactive_node_l.node->io_ctx, *inactive_node_l.node, rpc_config_l);
+			std::string req_id_l ("1");
+			nano::rpc_handler handler_l (*inactive_node_l.node, *rpc_l, command_l.str (), req_id_l, response_handler_l);
+			handler_l.process_request ();
 		}
 		else if (vm.count ("debug_validate_blocks"))
 		{

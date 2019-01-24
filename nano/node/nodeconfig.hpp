@@ -50,7 +50,7 @@ public:
 	static std::chrono::seconds constexpr keepalive_period = std::chrono::seconds (60);
 	static std::chrono::seconds constexpr keepalive_cutoff = keepalive_period * 5;
 	static std::chrono::minutes constexpr wallet_backup_interval = std::chrono::minutes (5);
-	inline int json_version () const
+	static int json_version ()
 	{
 		return 16;
 	}
@@ -63,6 +63,7 @@ public:
 	bool disable_backup;
 	bool disable_lazy_bootstrap;
 	bool disable_legacy_bootstrap;
+	bool disable_wallet_bootstrap;
 	bool disable_bootstrap_listener;
 };
 }
