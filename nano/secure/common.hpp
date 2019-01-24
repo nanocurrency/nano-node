@@ -10,7 +10,7 @@
 
 #include <unordered_map>
 
-#include <blake2/blake2.h>
+#include <crypto/blake2/blake2.h>
 
 namespace boost
 {
