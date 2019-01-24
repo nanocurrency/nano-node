@@ -7,6 +7,7 @@
 #include <boost/property_tree/json_parser.hpp>
 #include <fstream>
 #include <nano/lib/errors.hpp>
+#include <nano/lib/utility.hpp>
 
 namespace nano
 {
@@ -118,16 +119,19 @@ public:
 		boost::property_tree::read_json (stream_a, tree);
 	}
 
-	/** Open confiruation file, create if necessary */
+	/** Open configuration file, create if necessary */
 	void open_or_create (std::fstream & stream_a, std::string const & path_a)
 	{
-		stream_a.open (path_a, std::ios_base::in);
-		if (stream_a.fail ())
+		if (!boost::filesystem::exists (path_a))
 		{
-			stream_a.open (path_a, std::ios_base::out);
+			// Create temp stream to first create the file
+			std::ofstream stream (path_a);
+
+			// Set permissions before opening otherwise Windows only has read permissions
+			nano::set_secure_perm_file (path_a);
 		}
-		stream_a.close ();
-		stream_a.open (path_a, std::ios_base::in | std::ios_base::out);
+
+		stream_a.open (path_a);
 	}
 
 	/** Returns the boost property node managed by this instance */
@@ -172,8 +176,8 @@ public:
 
 	jsonconfig & replace_child (std::string const & key_a, nano::jsonconfig & conf_a)
 	{
-		conf_a.erase (key_a);
-		conf_a.put_child (key_a, conf_a);
+		tree.erase (key_a);
+		put_child (key_a, conf_a);
 		return *this;
 	}
 
@@ -332,7 +336,7 @@ protected:
 				conditionally_set_error<T> (nano::error_config::invalid_value, optional, key);
 			}
 		}
-		catch (boost::property_tree::ptree_bad_path const & ex)
+		catch (boost::property_tree::ptree_bad_path const &)
 		{
 			if (!optional)
 			{
@@ -367,7 +371,7 @@ protected:
 				target = static_cast<uint8_t> (tmp);
 			}
 		}
-		catch (boost::property_tree::ptree_bad_path const & ex)
+		catch (boost::property_tree::ptree_bad_path const &)
 		{
 			if (!optional)
 			{
@@ -407,7 +411,7 @@ protected:
 			auto val (tree.get<std::string> (key));
 			bool_conv (val);
 		}
-		catch (boost::property_tree::ptree_bad_path const & ex)
+		catch (boost::property_tree::ptree_bad_path const &)
 		{
 			if (!optional)
 			{
@@ -438,7 +442,7 @@ protected:
 				conditionally_set_error<T> (nano::error_config::invalid_value, optional, key);
 			}
 		}
-		catch (boost::property_tree::ptree_bad_path const & ex)
+		catch (boost::property_tree::ptree_bad_path const &)
 		{
 			if (!optional)
 			{

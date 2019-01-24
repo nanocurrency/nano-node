@@ -10,7 +10,7 @@
 #include <boost/iostreams/stream.hpp>
 #include <boost/property_tree/json_parser.hpp>
 
-#include <cryptopp/osrng.h>
+#include <crypto/cryptopp/osrng.h>
 
 #include <nano/lib/config.hpp>
 #include <nano/lib/errors.hpp>

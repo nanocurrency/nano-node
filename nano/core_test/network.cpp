@@ -980,16 +980,16 @@ TEST (frontier_req, time_bound)
 	auto connection (std::make_shared<nano::bootstrap_server> (nullptr, system.nodes[0]));
 	std::unique_ptr<nano::frontier_req> req (new nano::frontier_req);
 	req->start.clear ();
-	req->age = 0;
+	req->age = 1;
 	req->count = std::numeric_limits<decltype (req->count)>::max ();
 	connection->requests.push (std::unique_ptr<nano::message>{});
 	auto request (std::make_shared<nano::frontier_req_server> (connection, std::move (req)));
 	ASSERT_EQ (nano::test_genesis_key.pub, request->current);
-	// Wait for next second when age of account will be > 0 seconds
-	std::this_thread::sleep_for (std::chrono::milliseconds (1001));
+	// Wait 2 seconds until age of account will be > 1 seconds
+	std::this_thread::sleep_for (std::chrono::milliseconds (2100));
 	std::unique_ptr<nano::frontier_req> req2 (new nano::frontier_req);
 	req2->start.clear ();
-	req2->age = 0;
+	req2->age = 1;
 	req2->count = std::numeric_limits<decltype (req->count)>::max ();
 	auto connection2 (std::make_shared<nano::bootstrap_server> (nullptr, system.nodes[0]));
 	connection2->requests.push (std::unique_ptr<nano::message>{});
@@ -1010,8 +1010,8 @@ TEST (frontier_req, time_cutoff)
 	ASSERT_EQ (nano::test_genesis_key.pub, request->current);
 	nano::genesis genesis;
 	ASSERT_EQ (genesis.hash (), request->frontier);
-	// Wait 4 seconds when age of account will be > 3 seconds
-	std::this_thread::sleep_for (std::chrono::milliseconds (4001));
+	// Wait 4 seconds until age of account will be > 3 seconds
+	std::this_thread::sleep_for (std::chrono::milliseconds (4100));
 	std::unique_ptr<nano::frontier_req> req2 (new nano::frontier_req);
 	req2->start.clear ();
 	req2->age = 3;
