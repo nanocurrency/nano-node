@@ -294,7 +294,7 @@ void nano::frontier_req_client::received_frontier (boost::system::error_code con
 		++count;
 		std::chrono::duration<double> time_span = std::chrono::duration_cast<std::chrono::duration<double>> (std::chrono::steady_clock::now () - start_time);
 		double elapsed_sec = time_span.count ();
-		double blocks_per_sec = (double)count / elapsed_sec;
+		double blocks_per_sec = elapsed_sec > 0.0 ? (static_cast<double> (count) / elapsed_sec) : 0.0;
 		if (elapsed_sec > bootstrap_connection_warmup_time_sec && blocks_per_sec < bootstrap_minimum_frontier_blocks_per_sec)
 		{
 			BOOST_LOG (connection->node->log) << boost::str (boost::format ("Aborting frontier req because it was too slow"));
