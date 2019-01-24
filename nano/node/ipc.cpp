@@ -393,8 +393,8 @@ private:
 	std::unique_ptr<ACCEPTOR_TYPE> acceptor;
 };
 
-/** The domain socket file is attemped removed at both startup and shutdown. */
-class nano::ipc::dsock_file_remover
+/** The domain socket file is attempted removed at both startup and shutdown. */
+class nano::ipc::dsock_file_remover final
 {
 public:
 	dsock_file_remover (std::string const & file_a) :
