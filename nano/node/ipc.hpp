@@ -45,7 +45,7 @@ namespace ipc
 	class ipc_config_transport
 	{
 	public:
-		~ipc_config_transport () = default;
+		virtual ~ipc_config_transport () = default;
 		bool enabled{ false };
 		size_t io_timeout{ 15 };
 		long io_threads{ -1 };
