@@ -155,6 +155,7 @@ public:
 	/** A very rough estimate of the cost of `bulk_push`ing missing blocks */
 	uint64_t bulk_push_cost;
 	std::deque<std::pair<nano::account, nano::block_hash>> accounts;
+	static size_t constexpr size_frontier = sizeof (nano::account) + sizeof (nano::block_hash);
 };
 class bulk_pull_client : public std::enable_shared_from_this<nano::bulk_pull_client>
 {
