@@ -2430,7 +2430,7 @@ void nano::rpc_handler::payment_wait ()
 
 void nano::rpc_handler::process ()
 {
-	auto block (block_impl ());
+	auto block (block_impl (true));
 	if (!ec)
 	{
 		if (!nano::work_validate (*block))
@@ -2963,7 +2963,7 @@ void nano::rpc_handler::sign ()
 	boost::optional<std::string> block_text (request.get_optional<std::string> ("block"));
 	if (!ec && block_text.is_initialized ())
 	{
-		block = block_impl ();
+		block = block_impl (true);
 		if (block != nullptr)
 		{
 			hash = block->hash ();
