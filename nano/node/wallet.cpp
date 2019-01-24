@@ -1450,13 +1450,14 @@ void nano::wallets::queue_wallet_action (nano::uint128_t const & amount_a, std::
 
 void nano::wallets::foreach_representative (nano::transaction const & transaction_a, std::function<void(nano::public_key const & pub_a, nano::raw_key const & prv_a)> const & action_a)
 {
-	auto transaction_l (tx_begin_read ());
 	if (node.config.enable_voting)
 	{
+		std::lock_guard<std::mutex> lock (mutex);
+		auto transaction_l (tx_begin_read ());
 		for (auto i (items.begin ()), n (items.end ()); i != n; ++i)
 		{
 			auto & wallet (*i->second);
-			std::lock_guard<std::mutex> lock (wallet.representatives_mutex);
+			std::lock_guard<std::mutex> representatives_lock (wallet.representatives_mutex);
 			for (auto ii (wallet.representatives.begin ()), nn (wallet.representatives.end ()); ii != nn; ++ii)
 			{
 				nano::account account (*ii);
@@ -1534,6 +1535,7 @@ void nano::wallets::clear_send_ids (nano::transaction const & transaction_a)
 
 void nano::wallets::compute_reps ()
 {
+	std::lock_guard<std::mutex> lock (mutex);
 	auto ledger_transaction (node.store.tx_begin_read ());
 	auto transaction (tx_begin_read ());
 	for (auto i (items.begin ()), n (items.end ()); i != n; ++i)
