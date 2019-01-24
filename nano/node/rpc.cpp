@@ -39,16 +39,6 @@ nano::error nano::rpc_secure_config::deserialize_json (nano::jsonconfig & json)
 	return json.get_error ();
 }
 
-nano::rpc_config::rpc_config () :
-address (boost::asio::ip::address_v6::loopback ()),
-port (nano::rpc::rpc_port),
-enable_control (false),
-frontier_request_limit (16384),
-chain_request_limit (16384),
-max_json_depth (20)
-{
-}
-
 nano::rpc_config::rpc_config (bool enable_control_a) :
 address (boost::asio::ip::address_v6::loopback ()),
 port (nano::rpc::rpc_port),

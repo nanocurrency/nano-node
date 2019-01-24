@@ -42,8 +42,7 @@ public:
 class rpc_config
 {
 public:
-	rpc_config ();
-	rpc_config (bool);
+	rpc_config (bool = false);
 	nano::error serialize_json (nano::jsonconfig &) const;
 	nano::error deserialize_json (nano::jsonconfig &);
 	boost::asio::ip::address_v6 address;
