@@ -139,12 +139,11 @@ inline std::unique_ptr<seq_con_info_component> collect_seq_con_info (observer_se
 		count = observer_set.observers.size ();
 	}
 
-	auto sizeof_element = sizeof (decltype (observer_set.observers)::value_type);
+	auto sizeof_element = sizeof (typename decltype (observer_set.observers)::value_type);
 	auto composite = std::make_unique<seq_con_info_composite> (name);
-	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "observers", count }));
+	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "observers", count, sizeof_element }));
 	return composite;
 }
-
 }
 
 void release_assert_internal (bool check, const char * check_expr, const char * file, unsigned int line);
