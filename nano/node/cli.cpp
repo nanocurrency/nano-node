@@ -423,16 +423,57 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		}
 		else
 		{
-			std::cerr << "wallet_add command requires one <wallet> option and one <key> option and optionally one <password> option\n";
+			std::cerr << "wallet_change_seed command requires one <wallet> option and one <key> option and optionally one <password> option\n";
 			ec = nano::error_cli::invalid_arguments;
 		}
 	}
 	else if (vm.count ("wallet_create"))
 	{
-		inactive_node node (data_path);
-		nano::keypair key;
-		std::cout << key.pub.to_string () << std::endl;
-		auto wallet (node.node->wallets.create (key.pub));
+		nano::raw_key seed_key;
+		if (vm.count ("key") == 1)
+		{
+			if (seed_key.data.decode_hex (vm["key"].as<std::string> ()))
+			{
+				std::cerr << "Invalid key\n";
+				ec = nano::error_cli::invalid_arguments;
+			}
+		}
+		else if (vm.count ("key") > 1)
+		{
+			std::cerr << "wallet_create command allows one optional <key> parameter\n";
+			ec = nano::error_cli::invalid_arguments;
+		}
+		if (!ec)
+		{
+			inactive_node node (data_path);
+			nano::keypair wallet_key;
+			auto wallet (node.node->wallets.create (wallet_key.pub));
+			if (wallet != nullptr)
+			{
+				if (vm.count ("password") > 0)
+				{
+					std::string password (vm["password"].as<std::string> ());
+					auto transaction (wallet->wallets.tx_begin_write ());
+					auto error (wallet->store.rekey (transaction, password));
+					if (error)
+					{
+						std::cerr << "Password change error\n";
+						ec = nano::error_cli::invalid_arguments;
+					}
+				}
+				if (vm.count ("key"))
+				{
+					auto transaction (wallet->wallets.tx_begin_write ());
+					wallet->change_seed (transaction, seed_key);
+				}
+				std::cout << wallet_key.pub.to_string () << std::endl;
+			}
+			else
+			{
+				std::cerr << "Wallet creation error\n";
+				ec = nano::error_cli::invalid_arguments;
+			}
+		}
 	}
 	else if (vm.count ("wallet_decrypt_unsafe"))
 	{
