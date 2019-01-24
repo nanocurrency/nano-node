@@ -3531,13 +3531,13 @@ void nano::rpc_handler::wallet_representative_set ()
 {
 	rpc_control_impl ();
 	auto wallet (wallet_impl ());
-	bool update_existing_accounts (request.get<bool> ("update_existing_accounts", false));
 	if (!ec)
 	{
 		std::string representative_text (request.get<std::string> ("representative"));
 		nano::account representative;
 		if (!representative.decode_account (representative_text))
 		{
+			bool update_existing_accounts (request.get<bool> ("update_existing_accounts", false));
 			{
 				auto transaction (node.wallets.tx_begin_write ());
 				if (wallet->store.valid_password (transaction) || !update_existing_accounts)
