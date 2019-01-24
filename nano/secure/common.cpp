@@ -326,7 +326,7 @@ void nano::unchecked_info::serialize (nano::stream & stream_a) const
 	nano::serialize_block (stream_a, *block);
 	nano::write (stream_a, account.bytes);
 	nano::write (stream_a, boost::endian::native_to_big (modified));
-	nano::write (stream_a, verified);
+	nano::write (stream_a,  boost::endian::native_to_big (static_cast<uint8_t> (verified)));
 }
 
 bool nano::unchecked_info::deserialize (nano::stream & stream_a)
@@ -342,7 +342,10 @@ bool nano::unchecked_info::deserialize (nano::stream & stream_a)
 			boost::endian::big_to_native_inplace (modified);
 			if (!error)
 			{
-				error = nano::read (stream_a, verified);
+				uint8_t verified_uint8_t;
+				error = nano::read (stream_a, verified_uint8_t);
+				boost::endian::big_to_native_inplace (verified_uint8_t);
+				verified = static_cast<nano::signature_verification> (verified_uint8_t);
 			}
 		}
 	}
