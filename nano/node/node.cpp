@@ -513,9 +513,9 @@ void nano::network::send_confirm_req (nano::endpoint const & endpoint_a, std::sh
 void nano::network::send_confirm_req_hashes (nano::endpoint const & endpoint_a, std::vector<std::pair<nano::block_hash, nano::uint512_union>> const & roots_hashes_a)
 {
 	nano::confirm_req message (roots_hashes_a);
-	std::shared_ptr<std::vector<uint8_t>> bytes (new std::vector<uint8_t>);
+	std::vector<uint8_t> bytes;
 	{
-		nano::vectorstream stream (*bytes);
+		nano::vectorstream stream (bytes);
 		message.serialize (stream);
 	}
 	if (node.config.logging.network_message_logging ())
@@ -524,7 +524,7 @@ void nano::network::send_confirm_req_hashes (nano::endpoint const & endpoint_a, 
 	}
 	std::weak_ptr<nano::node> node_w (node.shared ());
 	node.stats.inc (nano::stat::type::message, nano::stat::detail::confirm_req, nano::stat::dir::out);
-	send_buffer (bytes->data (), bytes->size (), endpoint_a, [bytes, node_w](boost::system::error_code const & ec, size_t size) {
+	send_buffer (bytes.data (), bytes.size (), endpoint_a, [node_w](boost::system::error_code const & ec, size_t size) {
 		if (auto node_l = node_w.lock ())
 		{
 			if (ec && node_l->config.logging.network_logging ())
