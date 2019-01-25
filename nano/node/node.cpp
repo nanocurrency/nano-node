@@ -1581,7 +1581,10 @@ nano::process_return nano::block_processor::process_one (nano::transaction const
 			{
 				BOOST_LOG (node.log) << boost::str (boost::format ("Old for: %1%") % hash.to_string ());
 			}
-			queue_unchecked (transaction_a, hash);
+			if (!node.flags.fast_bootstrap)
+			{
+				queue_unchecked (transaction_a, hash);
+			}
 			node.active.update_difficulty (*(info_a.block));
 			break;
 		}
