@@ -235,7 +235,7 @@ void nano::network::republish (nano::block_hash const & hash_a, std::shared_ptr<
 		BOOST_LOG (node.log) << boost::str (boost::format ("Publishing %1% to %2%") % hash_a.to_string () % endpoint_a);
 	}
 	std::weak_ptr<nano::node> node_w (node.shared ());
-	send_buffer (buffer_a->data (), buffer_a->size (), endpoint_a, [buffer_a, node_w, endpoint_a](boost::system::error_code const & ec, size_t size) {
+	send_buffer (buffer_a->data (), buffer_a->size (), endpoint_a, [node_w, endpoint_a](boost::system::error_code const & ec, size_t size) {
 		if (auto node_l = node_w.lock ())
 		{
 			if (ec && node_l->config.logging.network_logging ())
@@ -326,12 +326,12 @@ void nano::network::republish_block (std::shared_ptr<nano::block> block, nano::e
 {
 	auto hash (block->hash ());
 	nano::publish message (block);
-	std::shared_ptr<std::vector<uint8_t>> bytes (new std::vector<uint8_t>);
+	std::vector<uint8_t> bytes;
 	{
-		nano::vectorstream stream (*bytes);
+		nano::vectorstream stream (bytes);
 		message.serialize (stream);
 	}
-	republish (hash, bytes, peer_a);
+	republish (hash, std::make_shared<std::vector<uint8_t>> (bytes), peer_a);
 	if (node.config.logging.network_logging ())
 	{
 		BOOST_LOG (node.log) << boost::str (boost::format ("Block %1% was republished to peer") % hash.to_string ());
