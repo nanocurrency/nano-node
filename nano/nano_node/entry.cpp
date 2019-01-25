@@ -2,7 +2,9 @@
 #include <nano/nano_node/daemon.hpp>
 #include <nano/node/cli.hpp>
 #include <nano/node/node.hpp>
+#include <nano/node/rpc.hpp>
 #include <nano/node/testing.hpp>
+#include <sstream>
 
 #include <argon2.h>
 
@@ -24,6 +26,7 @@ int main (int argc, char * const * argv)
 		("disable_backup", "Disable wallet automatic backups")
 		("disable_lazy_bootstrap", "Disables lazy bootstrap")
 		("disable_legacy_bootstrap", "Disables legacy bootstrap")
+		("disable_wallet_bootstrap", "Disables wallet lazy bootstrap")
 		("disable_bootstrap_listener", "Disables bootstrap listener (incoming connections)")
 		("debug_block_count", "Display the number of block")
 		("debug_bootstrap_generate", "Generate bootstrap sequence of blocks")
@@ -40,6 +43,7 @@ int main (int argc, char * const * argv)
 		("debug_profile_sign", "Profile signature generation")
 		("debug_profile_process", "Profile active blocks processing (only for nano_test_network)")
 		("debug_profile_votes", "Profile votes processing (only for nano_test_network)")
+		("debug_rpc", "Read an RPC command from stdin and invoke it. Network operations will have no effect.")
 		("debug_validate_blocks", "Check all blocks for correct hash, signature, work value")
 		("platform", boost::program_options::value<std::string> (), "Defines the <platform> for OpenCL commands")
 		("device", boost::program_options::value<std::string> (), "Defines <device> for OpenCL command")
@@ -83,6 +87,7 @@ int main (int argc, char * const * argv)
 			flags.disable_backup = (vm.count ("disable_backup") > 0);
 			flags.disable_lazy_bootstrap = (vm.count ("disable_lazy_bootstrap") > 0);
 			flags.disable_legacy_bootstrap = (vm.count ("disable_legacy_bootstrap") > 0);
+			flags.disable_wallet_bootstrap = (vm.count ("disable_wallet_bootstrap") > 0);
 			flags.disable_bootstrap_listener = (vm.count ("disable_bootstrap_listener") > 0);
 			daemon.run (data_path, flags);
 		}
@@ -380,6 +385,7 @@ int main (int argc, char * const * argv)
 		{
 			if (nano::nano_network == nano::nano_networks::nano_test_network)
 			{
+				nano::block_builder builder;
 				size_t num_accounts (100000);
 				size_t num_interations (5); // 100,000 * 5 * 2 = 1,000,000 blocks
 				size_t max_blocks (2 * num_accounts * num_interations + num_accounts * 2); //  1,000,000 + 2* 100,000 = 1,200,000 blocks
@@ -402,10 +408,30 @@ int main (int argc, char * const * argv)
 				for (auto i (0); i != num_accounts; ++i)
 				{
 					genesis_balance = genesis_balance - 1000000000;
-					auto send (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis_latest, nano::test_genesis_key.pub, genesis_balance, keys[i].pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, work.generate (genesis_latest)));
+
+					auto send = builder.state ()
+					            .account (nano::test_genesis_key.pub)
+					            .previous (genesis_latest)
+					            .representative (nano::test_genesis_key.pub)
+					            .balance (genesis_balance)
+					            .link (keys[i].pub)
+					            .sign (keys[i].prv, keys[i].pub)
+					            .work (work.generate (genesis_latest))
+					            .build ();
+
 					genesis_latest = send->hash ();
 					blocks.push_back (std::move (send));
-					auto open (std::make_shared<nano::state_block> (keys[i].pub, 0, keys[i].pub, balances[i], genesis_latest, keys[i].prv, keys[i].pub, work.generate (keys[i].pub)));
+
+					auto open = builder.state ()
+					            .account (keys[i].pub)
+					            .previous (0)
+					            .representative (keys[i].pub)
+					            .balance (balances[i])
+					            .link (genesis_latest)
+					            .sign (nano::test_genesis_key.prv, nano::test_genesis_key.pub)
+					            .work (work.generate (keys[i].pub))
+					            .build ();
+
 					frontiers[i] = open->hash ();
 					blocks.push_back (std::move (open));
 				}
@@ -416,12 +442,32 @@ int main (int argc, char * const * argv)
 						size_t other (num_accounts - j - 1);
 						// Sending to other account
 						--balances[j];
-						auto send (std::make_shared<nano::state_block> (keys[j].pub, frontiers[j], keys[j].pub, balances[j], keys[other].pub, keys[j].prv, keys[j].pub, work.generate (frontiers[j])));
+
+						auto send = builder.state ()
+						            .account (keys[j].pub)
+						            .previous (frontiers[j])
+						            .representative (keys[j].pub)
+						            .balance (balances[j])
+						            .link (keys[other].pub)
+						            .sign (keys[j].prv, keys[j].pub)
+						            .work (work.generate (frontiers[j]))
+						            .build ();
+
 						frontiers[j] = send->hash ();
 						blocks.push_back (std::move (send));
 						// Receiving
 						++balances[other];
-						auto receive (std::make_shared<nano::state_block> (keys[other].pub, frontiers[other], keys[other].pub, balances[other], frontiers[j], keys[other].prv, keys[other].pub, work.generate (frontiers[other])));
+
+						auto receive = builder.state ()
+						               .account (keys[other].pub)
+						               .previous (frontiers[other])
+						               .representative (keys[other].pub)
+						               .balance (balances[other])
+						               .link (frontiers[j])
+						               .sign (keys[other].prv, keys[other].pub)
+						               .work (work.generate (frontiers[other]))
+						               .build ();
+
 						frontiers[other] = receive->hash ();
 						blocks.push_back (std::move (receive));
 					}
@@ -456,6 +502,7 @@ int main (int argc, char * const * argv)
 		{
 			if (nano::nano_network == nano::nano_networks::nano_test_network)
 			{
+				nano::block_builder builder;
 				size_t num_elections (40000);
 				size_t num_representatives (25);
 				size_t max_votes (num_elections * num_representatives); // 40,000 * 25 = 1,000,000 votes
@@ -476,11 +523,31 @@ int main (int argc, char * const * argv)
 				{
 					auto transaction (node->store.tx_begin_write ());
 					genesis_balance = genesis_balance - balance;
-					nano::state_block send (nano::test_genesis_key.pub, genesis_latest, nano::test_genesis_key.pub, genesis_balance, keys[i].pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, work.generate (genesis_latest));
-					genesis_latest = send.hash ();
-					node->ledger.process (transaction, send);
-					nano::state_block open (keys[i].pub, 0, keys[i].pub, balance, genesis_latest, keys[i].prv, keys[i].pub, work.generate (keys[i].pub));
-					node->ledger.process (transaction, open);
+
+					auto send = builder.state ()
+					            .account (nano::test_genesis_key.pub)
+					            .previous (genesis_latest)
+					            .representative (nano::test_genesis_key.pub)
+					            .balance (genesis_balance)
+					            .link (keys[i].pub)
+					            .sign (nano::test_genesis_key.prv, nano::test_genesis_key.pub)
+					            .work (work.generate (genesis_latest))
+					            .build ();
+
+					genesis_latest = send->hash ();
+					node->ledger.process (transaction, *send);
+
+					auto open = builder.state ()
+					            .account (keys[i].pub)
+					            .previous (0)
+					            .representative (keys[i].pub)
+					            .balance (balance)
+					            .link (genesis_latest)
+					            .sign (keys[i].prv, keys[i].pub)
+					            .work (work.generate (keys[i].pub))
+					            .build ();
+
+					node->ledger.process (transaction, *open);
 				}
 				// Generating blocks
 				std::deque<std::shared_ptr<nano::block>> blocks;
@@ -488,9 +555,19 @@ int main (int argc, char * const * argv)
 				{
 					genesis_balance = genesis_balance - 1;
 					nano::keypair destination;
-					auto send (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis_latest, nano::test_genesis_key.pub, genesis_balance, destination.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, work.generate (genesis_latest)));
+
+					auto send = builder.state ()
+					            .account (nano::test_genesis_key.pub)
+					            .previous (genesis_latest)
+					            .representative (nano::test_genesis_key.pub)
+					            .balance (genesis_balance)
+					            .link (destination.pub)
+					            .sign (nano::test_genesis_key.prv, nano::test_genesis_key.pub)
+					            .work (work.generate (genesis_latest))
+					            .build ();
+
 					genesis_latest = send->hash ();
-					blocks.push_back (send);
+					blocks.push_back (std::move (send));
 				}
 				// Generating votes
 				std::deque<std::shared_ptr<nano::vote>> votes;
@@ -534,6 +611,29 @@ int main (int argc, char * const * argv)
 			{
 				std::cerr << "For this test ACTIVE_NETWORK should be nano_test_network" << std::endl;
 			}
+		}
+		else if (vm.count ("debug_rpc"))
+		{
+			std::string rpc_input_l;
+			std::ostringstream command_l;
+			while (std::cin >> rpc_input_l)
+			{
+				command_l << rpc_input_l;
+			}
+
+			auto response_handler_l ([](boost::property_tree::ptree const & tree_a) {
+				boost::property_tree::write_json (std::cout, tree_a);
+				// Terminate as soon as we have the result, even if background threads (like work generation) are running.
+				std::exit (0);
+			});
+
+			nano::inactive_node inactive_node_l (data_path);
+			nano::rpc_config rpc_config_l;
+			rpc_config_l.enable_control = true;
+			std::unique_ptr<nano::rpc> rpc_l = get_rpc (inactive_node_l.node->io_ctx, *inactive_node_l.node, rpc_config_l);
+			std::string req_id_l ("1");
+			nano::rpc_handler handler_l (*inactive_node_l.node, *rpc_l, command_l.str (), req_id_l, response_handler_l);
+			handler_l.process_request ();
 		}
 		else if (vm.count ("debug_validate_blocks"))
 		{
