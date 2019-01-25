@@ -1931,6 +1931,7 @@ void nano::bootstrap_listener::accept_connection ()
 	auto socket (std::make_shared<nano::socket> (node.shared ()));
 	acceptor.async_accept (socket->socket_m, [this, socket](boost::system::error_code const & ec) {
 		socket->checkup ();
+		socket->stop ();
 		accept_action (ec, socket);
 	});
 }
