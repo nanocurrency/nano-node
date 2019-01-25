@@ -14,6 +14,7 @@
 #include <condition_variable>
 #include <queue>
 
+#include <boost/asio/thread_pool.hpp>
 #include <boost/iostreams/device/array.hpp>
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/member.hpp>
@@ -21,7 +22,6 @@
 #include <boost/multi_index/random_access_index.hpp>
 #include <boost/multi_index_container.hpp>
 #include <boost/thread/thread.hpp>
-#include <boost/asio/thread_pool.hpp>
 
 namespace nano
 {
@@ -407,7 +407,6 @@ private:
 	bool verify_batch (const nano::signature_check_set & check_a, unsigned index, unsigned size);
 	void verify_threaded (nano::signature_check_set & check_a);
 	std::deque<nano::signature_check_set> checks;
-	std::mutex results_mutex;
 	boost::asio::thread_pool thread_pool;
 	bool started;
 	bool stopped;

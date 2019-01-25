@@ -1104,7 +1104,7 @@ bool nano::rep_crawler::exists (nano::block_hash const & hash_a)
 }
 
 nano::signature_checker::signature_checker () :
-thread_pool(std::thread::hardware_concurrency()),
+thread_pool (std::thread::hardware_concurrency ()),
 started (false),
 stopped (false),
 thread ([this]() { run (); })
@@ -1163,10 +1163,10 @@ bool nano::signature_checker::verify_batch (const nano::signature_check_set & ch
 
 void nano::signature_checker::verify_threaded (nano::signature_check_set & check_a)
 {
-	std::vector<bool> results;
 	unsigned int batch_size = 256;
 	unsigned int overflow = check_a.size % batch_size;
 	unsigned int batches = check_a.size / batch_size;
+	std::vector<bool> results (batches + 1, false);
 
 	// Add an additonal batch that will contain the remainder verifications
 	for (unsigned int batch = 0; batch < batches + 1; ++batch)
@@ -1178,11 +1178,10 @@ void nano::signature_checker::verify_threaded (nano::signature_check_set & check
 		if (index + batch_size > check_a.size)
 			size = overflow;
 
-		boost::asio::post (thread_pool, [=, &results]	{
+		boost::asio::post (thread_pool, [=, &results] {
 			bool result = verify_batch (check_a, index, size);
 
-			std::lock_guard<std::mutex> lock (results_mutex);
-			results.push_back (result);
+			results[batch] = result;
 		});
 	}
 
@@ -1195,7 +1194,7 @@ void nano::signature_checker::verify_threaded (nano::signature_check_set & check
 
 void nano::signature_checker::verify (nano::signature_check_set & check_a)
 {
-	if (check_a.size <= 10000)
+	if (check_a.size <= 1000)
 		release_assert (verify_batch (check_a, 0, check_a.size));
 	else
 		verify_threaded (check_a);
