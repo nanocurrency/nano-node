@@ -1,5 +1,11 @@
 #pragma once
 
+#include <chrono>
+#include <iomanip>
+#include <iostream>
+#include <sstream>
+#include <string>
+
 namespace nano
 {
 enum class timer_state
