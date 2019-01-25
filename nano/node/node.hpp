@@ -407,7 +407,6 @@ private:
 	bool verify_batch (const nano::signature_check_set & check_a, unsigned index, unsigned size);
 	void verify_threaded (nano::signature_check_set & check_a);
 	std::deque<nano::signature_check_set> checks;
-	boost::asio::thread_pool thread_pool;
 	bool started;
 	bool stopped;
 	std::mutex mutex;

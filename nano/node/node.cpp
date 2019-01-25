@@ -1104,7 +1104,6 @@ bool nano::rep_crawler::exists (nano::block_hash const & hash_a)
 }
 
 nano::signature_checker::signature_checker () :
-thread_pool (std::thread::hardware_concurrency ()),
 started (false),
 stopped (false),
 thread ([this]() { run (); })
@@ -1165,11 +1164,11 @@ void nano::signature_checker::verify_threaded (nano::signature_check_set & check
 {
 	unsigned int batch_size = 256;
 	unsigned int overflow = check_a.size % batch_size;
-	unsigned int batches = check_a.size / batch_size;
-	std::vector<bool> results (batches + 1, false);
+	unsigned int batches = check_a.size / batch_size + (overflow ? 1 : 0);
+	std::vector<bool> results (batches, false);
+	boost::asio::thread_pool thread_pool (batches);
 
-	// Add an additonal batch that will contain the remainder verifications
-	for (unsigned int batch = 0; batch < batches + 1; ++batch)
+	for (unsigned int batch = 0; batch < batches; ++batch)
 	{
 		int size = batch_size - 1;
 		int index = batch * batch_size;
@@ -1178,23 +1177,24 @@ void nano::signature_checker::verify_threaded (nano::signature_check_set & check
 		if (index + batch_size > check_a.size)
 			size = overflow;
 
-		boost::asio::post (thread_pool, [=, &results] {
-			bool result = verify_batch (check_a, index, size);
-
-			results[batch] = result;
+		boost::asio::post (thread_pool, [=, &check_a, &results]	{
+			results[batch] = verify_batch (check_a, index, size);
 		});
 	}
 
-	// Waiting for thread pool to finish all outstanding work
 	thread_pool.join ();
 
 	release_assert (std::all_of (results.begin (), results.end (),
-	[](auto result) { return result; }));
+		[](auto result) { return result; }));
 }
 
 void nano::signature_checker::verify (nano::signature_check_set & check_a)
 {
+<<<<<< HEAD
 	if (check_a.size <= 1000)
+=======
+	if (check_a.size <= 512)
+>>>>>>> 96762965... Fix thread pool re-use, number of batches, and lower cut-off
 		release_assert (verify_batch (check_a, 0, check_a.size));
 	else
 		verify_threaded (check_a);
