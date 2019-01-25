@@ -336,8 +336,8 @@ TEST (block, confirm_req_hash_serialization)
 {
 	nano::keypair key1;
 	nano::keypair key2;
-	auto block (std::unique_ptr<nano::send_block> (new nano::send_block (1, key2.pub, 200, nano::keypair ().prv, 2, 3)));
-	nano::confirm_req req (block->hash (), nano::uint512_union (block->previous (), block->root ()));
+	nano::send_block block (1, key2.pub, 200, nano::keypair ().prv, 2, 3);
+	nano::confirm_req req (block.hash (), nano::uint512_union (block.previous (), block.root ()));
 	std::vector<uint8_t> bytes;
 	{
 		nano::vectorstream stream (bytes);
@@ -357,16 +357,16 @@ TEST (block, confirm_req_hash_batch_serialization)
 	nano::keypair key;
 	nano::keypair representative;
 	std::vector<std::pair<nano::block_hash, nano::uint512_union>> roots_hashes;
-	auto open (std::unique_ptr<nano::state_block> (new nano::state_block (key.pub, 0, representative.pub, 2, 4, key.prv, key.pub, 5)));
-	roots_hashes.push_back (std::make_pair (open->hash (), nano::uint512_union (open->previous (), open->root ())));
+	nano::state_block open (key.pub, 0, representative.pub, 2, 4, key.prv, key.pub, 5);
+	roots_hashes.push_back (std::make_pair (open.hash (), nano::uint512_union (open.previous (), open.root ())));
 	for (auto i (roots_hashes.size ()); i < 7; i++)
 	{
 		nano::keypair key1;
 		nano::keypair previous;
-		auto block (std::unique_ptr<nano::state_block> (new nano::state_block (key1.pub, previous.pub, representative.pub, 2, 4, key1.prv, key1.pub, 5)));
-		roots_hashes.push_back (std::make_pair (block->hash (), nano::uint512_union (block->previous (), block->root ())));
+		nano::state_block block (key1.pub, previous.pub, representative.pub, 2, 4, key1.prv, key1.pub, 5);
+		roots_hashes.push_back (std::make_pair (block.hash (), nano::uint512_union (block.previous (), block.root ())));
 	}
-	roots_hashes.push_back (std::make_pair (open->hash (), nano::uint512_union (0, open->root ())));
+	roots_hashes.push_back (std::make_pair (open.hash (), nano::uint512_union (0, open.root ())));
 	nano::confirm_req req (roots_hashes);
 	std::vector<uint8_t> bytes;
 	{
