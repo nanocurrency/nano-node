@@ -325,6 +325,7 @@ public:
 	bool on;
 	static uint16_t const node_port = nano::nano_network == nano::nano_networks::nano_live_network ? 7075 : 54000;
 	static size_t const buffer_size = 512;
+	static size_t const confirm_req_hashes_max = 6;
 };
 
 class node_init

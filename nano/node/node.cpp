@@ -440,8 +440,8 @@ void nano::network::broadcast_confirm_req_batch (std::unordered_map<nano::endpoi
 		auto j (request_bundle_a.begin ());
 		count++;
 		std::vector<std::pair<nano::block_hash, nano::uint512_union>> roots_hashes;
-		// Limit max request size hash + root to 7 pairs
-		while (roots_hashes.size () < 7 && !j->second.empty ())
+		// Limit max request size hash + root to 6 pairs
+		while (roots_hashes.size () <= confirm_req_hashes_max && !j->second.empty ())
 		{
 			roots_hashes.push_back (j->second.back ());
 			j->second.pop_back ();
@@ -3559,13 +3559,13 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 							auto root_hash (std::make_pair (block->hash (), nano::uint512_union (block->previous (), block->root ())));
 							if (rep_request == requests_bundle.end ())
 							{
-								if (requests_bundle.size () < max_broadcast_queue * 2)
+								if (requests_bundle.size () < max_broadcast_queue)
 								{
 									std::vector<std::pair<nano::block_hash, nano::uint512_union>> insert_vector = { root_hash };
 									requests_bundle.insert (std::make_pair (rep.endpoint, insert_vector));
 								}
 							}
-							else if (rep_request->second.size () < max_broadcast_queue * 6)
+							else if (rep_request->second.size () < max_broadcast_queue * nano::network::confirm_req_hashes_max)
 							{
 								rep_request->second.push_back (root_hash);
 							}
