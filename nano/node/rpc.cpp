@@ -3083,6 +3083,12 @@ void nano::rpc_handler::unchecked_keys ()
 	response_errors ();
 }
 
+void nano::rpc_handler::uptime ()
+{
+	response_l.put ("seconds", std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - node.startup_time).count ());
+	response_errors ();
+}
+
 void nano::rpc_handler::version ()
 {
 	response_l.put ("rpc_version", "1");
@@ -4264,6 +4270,10 @@ void nano::rpc_handler::process_request ()
 			else if (action == "unchecked_keys")
 			{
 				unchecked_keys ();
+			}
+			else if (action == "uptime")
+			{
+				uptime ();
 			}
 			else if (action == "validate_account_number")
 			{
