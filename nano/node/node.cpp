@@ -1185,16 +1185,12 @@ void nano::signature_checker::verify_threaded (nano::signature_check_set & check
 	thread_pool.join ();
 
 	release_assert (std::all_of (results.begin (), results.end (),
-		[](auto result) { return result; }));
+	[](auto result) { return result; }));
 }
 
 void nano::signature_checker::verify (nano::signature_check_set & check_a)
 {
-<<<<<< HEAD
-	if (check_a.size <= 1000)
-=======
 	if (check_a.size <= 512)
->>>>>>> 96762965... Fix thread pool re-use, number of batches, and lower cut-off
 		release_assert (verify_batch (check_a, 0, check_a.size));
 	else
 		verify_threaded (check_a);
