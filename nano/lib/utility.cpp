@@ -69,7 +69,7 @@ namespace thread_role
 		assert (thread_role_name_string.size () < 16);
 		return (thread_role_name_string);
 	}
-	
+
 	std::string get_string ()
 	{
 		return get_string (current_thread_role);
