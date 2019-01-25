@@ -1884,6 +1884,7 @@ void nano::bootstrap_initiator::notify_listeners (bool in_progress_a)
 
 nano::bootstrap_listener::bootstrap_listener (boost::asio::io_context & io_ctx_a, uint16_t port_a, nano::node & node_a) :
 acceptor (io_ctx_a),
+defer_acceptor (io_ctx_a),
 local (boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v6::any (), port_a)),
 io_ctx (io_ctx_a),
 node (node_a)
@@ -1928,26 +1929,49 @@ void nano::bootstrap_listener::stop ()
 
 void nano::bootstrap_listener::accept_connection ()
 {
-	auto socket (std::make_shared<nano::socket> (node.shared ()));
-	acceptor.async_accept (socket->socket_m, [this, socket](boost::system::error_code const & ec) {
-		accept_action (ec, socket);
-	});
+	if (acceptor.is_open ())
+	{
+		if (connections.size () < node.config.bootstrap_connections_max)
+		{
+			auto socket (std::make_shared<nano::socket> (node.shared ()));
+			acceptor.async_accept (socket->socket_m, [this, socket](boost::system::error_code const & ec) {
+				accept_action (ec, socket);
+			});
+		}
+		else
+		{
+			BOOST_LOG (node.log) << boost::str (boost::format ("Unable to accept new TCP network sockets (have %1% concurrent connections, limit of %2%), will try to accept again in 1s") % connections.size () % node.config.bootstrap_connections_max);
+			defer_acceptor.expires_after (std::chrono::seconds (1));
+			defer_acceptor.async_wait([this](const boost::system::error_code & ec) {
+				/*
+				 * There should be no other call points that can invoke
+				 * accept_connect() after starting the listener, so if we
+				 * get an error from the I/O context, something is probably
+				 * wrong.
+				 */
+				assert (!ec);
+				if (!ec) {
+					accept_connection ();
+				}
+			});
+		}
+	}
 }
 
 void nano::bootstrap_listener::accept_action (boost::system::error_code const & ec, std::shared_ptr<nano::socket> socket_a)
 {
 	if (!ec)
 	{
-		accept_connection ();
 		auto connection (std::make_shared<nano::bootstrap_server> (socket_a, node.shared ()));
 		{
 			std::lock_guard<std::mutex> lock (mutex);
-			if (connections.size () < node.config.bootstrap_connections_max && acceptor.is_open ())
+			if (acceptor.is_open ())
 			{
 				connections[connection.get ()] = connection;
 				connection->receive ();
 			}
 		}
+		accept_connection ();
 	}
 	else
 	{
