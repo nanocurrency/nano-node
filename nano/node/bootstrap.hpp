@@ -259,6 +259,7 @@ public:
 	boost::asio::io_context & io_ctx;
 	nano::node & node;
 	bool on;
+
 private:
 	boost::asio::steady_timer defer_acceptor;
 };

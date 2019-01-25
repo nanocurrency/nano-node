@@ -1942,7 +1942,7 @@ void nano::bootstrap_listener::accept_connection ()
 		{
 			BOOST_LOG (node.log) << boost::str (boost::format ("Unable to accept new TCP network sockets (have %1% concurrent connections, limit of %2%), will try to accept again in 1s") % connections.size () % node.config.bootstrap_connections_max);
 			defer_acceptor.expires_after (std::chrono::seconds (1));
-			defer_acceptor.async_wait([this](const boost::system::error_code & ec) {
+			defer_acceptor.async_wait ([this](const boost::system::error_code & ec) {
 				/*
 				 * There should be no other call points that can invoke
 				 * accept_connect() after starting the listener, so if we
@@ -1950,7 +1950,8 @@ void nano::bootstrap_listener::accept_connection ()
 				 * wrong.
 				 */
 				assert (!ec);
-				if (!ec) {
+				if (!ec)
+				{
 					accept_connection ();
 				}
 			});
