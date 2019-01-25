@@ -726,18 +726,18 @@ TEST (rpc, wallet_create_seed)
 	std::string wallet_text (response.json.get<std::string> ("wallet"));
 	nano::uint256_union wallet_id;
 	ASSERT_FALSE (wallet_id.decode_hex (wallet_text));
-	auto wallet (system.nodes[0]->wallets.items.find (wallet_id));
-	ASSERT_NE (system.nodes[0]->wallets.items.end (), wallet);
+	auto existing (system.nodes[0]->wallets.items.find (wallet_id));
+	ASSERT_NE (system.nodes[0]->wallets.items.end (), existing);
 	{
 		auto transaction (system.nodes[0]->wallets.tx_begin_read ());
 		nano::raw_key seed0;
-		wallet->second->store.seed (seed0, transaction);
+		existing->second->store.seed (seed0, transaction);
 		ASSERT_EQ (seed.pub, seed0.data);
 	}
 	auto account_text (response.json.get<std::string> ("account"));
 	nano::uint256_union account;
 	ASSERT_FALSE (account.decode_account (account_text));
-	ASSERT_TRUE (system.wallet (0)->exists (account));
+	ASSERT_TRUE (existing->second->exists (account));
 }
 
 TEST (rpc, wallet_export)
