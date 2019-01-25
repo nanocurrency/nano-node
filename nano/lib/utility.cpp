@@ -11,12 +11,12 @@ namespace thread_role
 	 * Manage thread role
 	 */
 	static thread_local nano::thread_role::name current_thread_role = nano::thread_role::name::unknown;
-	nano::thread_role::name get (void)
+	nano::thread_role::name get ()
 	{
 		return current_thread_role;
 	}
-
-	void set (nano::thread_role::name role)
+	
+	static std::string get_string (nano::thread_role::name role)
 	{
 		std::string thread_role_name_string;
 
@@ -67,6 +67,17 @@ namespace thread_role
 		 * (specifically, Linux)
 		 */
 		assert (thread_role_name_string.size () < 16);
+		return (thread_role_name_string);
+	}
+	
+	std::string get_string ()
+	{
+		return get_string (current_thread_role);
+	}
+
+	void set (nano::thread_role::name role)
+	{
+		auto thread_role_name_string (get_string (role));
 
 		nano::thread_role::set_os_name (thread_role_name_string);
 
