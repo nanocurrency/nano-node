@@ -3552,9 +3552,9 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 					}
 					else
 					{
-						for (auto j (reps->begin ()), m (reps->end ()); j != m; j++)
+						for (auto & rep : *reps)
 						{
-							auto rep_request (requests_bundle.find (j->endpoint));
+							auto rep_request (requests_bundle.find (rep.endpoint));
 							auto block (i->election->status.winner);
 							auto root_hash (std::make_pair (block->hash (), nano::uint512_union (block->previous (), block->root ())));
 							if (rep_request == requests_bundle.end ())
@@ -3562,7 +3562,7 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 								std::vector<std::pair<nano::block_hash, nano::uint512_union>> insert_vector (1, root_hash);
 								if (requests_bundle.size () < max_broadcast_queue * 2)
 								{
-									requests_bundle.insert (std::make_pair (j->endpoint, insert_vector));
+									requests_bundle.insert (std::make_pair (rep.endpoint, insert_vector));
 								}
 							}
 							else if (rep_request->second.size () < max_broadcast_queue * 6)
@@ -3580,15 +3580,15 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 					}
 					else
 					{
-						for (auto j (reps->begin ()), m (reps->end ()); j != m; j++)
+						for (auto & rep : *reps)
 						{
-							auto rep_request (requests_bundle.find (j->endpoint));
+							auto rep_request (requests_bundle.find (rep.endpoint));
 							auto block (i->election->status.winner);
 							auto root_hash (std::make_pair (block->hash (), nano::uint512_union (block->previous (), block->root ())));
 							if (rep_request == requests_bundle.end ())
 							{
 								std::vector<std::pair<nano::block_hash, nano::uint512_union>> insert_vector (1, root_hash);
-								requests_bundle.insert (std::make_pair (j->endpoint, insert_vector));
+								requests_bundle.insert (std::make_pair (rep.endpoint, insert_vector));
 							}
 							else
 							{
