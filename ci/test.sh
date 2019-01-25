@@ -58,7 +58,11 @@ run_tests() {
             sleep $[60 + (${RANDOM} % 30)]
         fi
 
-        ${TIMEOUT_CMD} ${TIMEOUT_TIME_ARG} ${TIMEOUT_SEC-${TIMEOUT_DEFAULT}} ./core_test
+        if [ -d /c/ ]; then
+            ${TIMEOUT_CMD} ${TIMEOUT_TIME_ARG} ${TIMEOUT_SEC-${TIMEOUT_DEFAULT}} ./core_test.exe
+        else
+            ${TIMEOUT_CMD} ${TIMEOUT_TIME_ARG} ${TIMEOUT_SEC-${TIMEOUT_DEFAULT}} ./core_test
+        fi
         core_test_res=${?}
         if [ "${core_test_res}" = '0' ]; then
             break
@@ -76,6 +80,8 @@ run_tests() {
     echo "Load Test return code: ${load_test_res}"
     return ${core_test_res}
 }
+
+
 
 cd ${build_dir}
 run_tests
