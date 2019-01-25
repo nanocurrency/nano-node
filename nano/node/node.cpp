@@ -1104,6 +1104,7 @@ bool nano::rep_crawler::exists (nano::block_hash const & hash_a)
 }
 
 nano::signature_checker::signature_checker () :
+thread_pool(std::thread::hardware_concurrency()),
 started (false),
 stopped (false),
 thread ([this]() { run (); })
@@ -1150,22 +1151,19 @@ void nano::signature_checker::flush ()
 	}
 }
 
-void nano::signature_checker::verify (nano::signature_check_set & check_a)
+bool nano::signature_checker::verify_batch (const nano::signature_check_set & check_a, unsigned index, unsigned size)
 {
-	// Run single threaded for smaller number of verifications, and return
-	// from the function early
-	if (check_a.size <= 1000)
-	{
-		/* Verifications is vector if signatures check results validate_message_batch
-			 returing "true" if there are at least 1 invalid signature */
-		auto code (nano::validate_message_batch (check_a.messages, check_a.message_lengths, check_a.pub_keys, check_a.signatures, check_a.size, check_a.verifications));
-		(void)code;
-		release_assert (std::all_of (check_a.verifications, check_a.verifications + check_a.size, [](int verification) { return verification == 0 || verification == 1; }));
-		check_a.promise->set_value ();
-		return;
-	}
+	/* Verifications is vector if signatures check results validate_message_batch
+		 returing "true" if there are at least 1 invalid signature */
+	auto code (nano::validate_message_batch (check_a.messages, check_a.message_lengths, check_a.pub_keys, check_a.signatures, size, check_a.verifications + index));
+	(void)code;
 
-	std::vector<std::shared_future<bool>> results;
+	return std::all_of (check_a.verifications + index, check_a.verifications + index + size, [](int verification) { return verification == 0 || verification == 1; });
+}
+
+void nano::signature_checker::verify_threaded (nano::signature_check_set & check_a)
+{
+	std::vector<bool> results;
 	unsigned int batch_size = 256;
 	unsigned int overflow = check_a.size % batch_size;
 	unsigned int batches = check_a.size / batch_size;
@@ -1180,20 +1178,27 @@ void nano::signature_checker::verify (nano::signature_check_set & check_a)
 		if (index + batch_size > check_a.size)
 			size = overflow;
 
-		auto result = pool.submit ([=]() -> bool {
-			auto code (nano::validate_message_batch (check_a.messages, check_a.message_lengths, check_a.pub_keys, check_a.signatures, size, check_a.verifications + index));
-			(void)code;
+		boost::asio::post (thread_pool, [=, &results]	{
+			bool result = verify_batch (check_a, index, size);
 
-			return std::all_of (check_a.verifications + index, check_a.verifications + index + size, [](int verification) { return verification == 0 || verification == 1; });
+			std::lock_guard<std::mutex> lock (results_mutex);
+			results.push_back (result);
 		});
-
-		results.push_back (result);
 	}
 
+	// Waiting for thread pool to finish all outstanding work
+	thread_pool.join ();
+
 	release_assert (std::all_of (results.begin (), results.end (),
-	[](auto result) {
-		return result.get ();
-	}));
+	[](auto result) { return result; }));
+}
+
+void nano::signature_checker::verify (nano::signature_check_set & check_a)
+{
+	if (check_a.size <= 10000)
+		release_assert (verify_batch (check_a, 0, check_a.size));
+	else
+		verify_threaded (check_a);
 
 	check_a.promise->set_value ();
 }
