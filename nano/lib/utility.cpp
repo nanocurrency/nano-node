@@ -68,7 +68,7 @@ namespace thread_role
 		 */
 		assert (thread_role_name_string.size () < 16);
 
-		nano::thread_role::set_name (thread_role_name_string);
+		nano::thread_role::set_os_name (thread_role_name_string);
 
 		nano::thread_role::current_thread_role = role;
 	}
