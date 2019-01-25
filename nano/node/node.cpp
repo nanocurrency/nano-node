@@ -3559,9 +3559,9 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 							auto root_hash (std::make_pair (block->hash (), nano::uint512_union (block->previous (), block->root ())));
 							if (rep_request == requests_bundle.end ())
 							{
-								std::vector<std::pair<nano::block_hash, nano::uint512_union>> insert_vector (1, root_hash);
 								if (requests_bundle.size () < max_broadcast_queue * 2)
 								{
+									std::vector<std::pair<nano::block_hash, nano::uint512_union>> insert_vector = { root_hash };
 									requests_bundle.insert (std::make_pair (rep.endpoint, insert_vector));
 								}
 							}
@@ -3587,7 +3587,7 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 							auto root_hash (std::make_pair (block->hash (), nano::uint512_union (block->previous (), block->root ())));
 							if (rep_request == requests_bundle.end ())
 							{
-								std::vector<std::pair<nano::block_hash, nano::uint512_union>> insert_vector (1, root_hash);
+								std::vector<std::pair<nano::block_hash, nano::uint512_union>> insert_vector = { root_hash };
 								requests_bundle.insert (std::make_pair (rep.endpoint, insert_vector));
 							}
 							else
