@@ -552,9 +552,9 @@ void nano::confirm_req::serialize (nano::stream & stream_a) const
 	{
 		assert (!roots_hashes.empty ());
 		// Calculate size
+		assert (roots_hashes.size () <= 32);
 		uint8_t count (roots_hashes.size ());
 		write (stream_a, count);
-		assert (count <= 32);
 		/* Calculate uint512_union roots status
 		true = previous == root
 		false = previous == 0 */
