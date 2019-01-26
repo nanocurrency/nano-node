@@ -43,9 +43,21 @@ namespace thread_role
 		voting,
 		signature_checking,
 	};
-	nano::thread_role::name get (void);
+	/*
+	 * Get/Set the identifier for the current thread
+	 */
+	nano::thread_role::name get ();
 	void set (nano::thread_role::name);
-	void set_name (std::string);
+
+	/*
+	 * Get the current thread's role as a string
+	 */
+	std::string get_string ();
+
+	/*
+	 * Internal only, should not be called directly
+	 */
+	void set_os_name (std::string);
 }
 
 namespace thread_attributes
