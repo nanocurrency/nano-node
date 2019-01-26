@@ -726,18 +726,18 @@ TEST (rpc, wallet_create_seed)
 	std::string wallet_text (response.json.get<std::string> ("wallet"));
 	nano::uint256_union wallet_id;
 	ASSERT_FALSE (wallet_id.decode_hex (wallet_text));
-	auto wallet (system.nodes[0]->wallets.items.find (wallet_id));
-	ASSERT_NE (system.nodes[0]->wallets.items.end (), wallet);
+	auto existing (system.nodes[0]->wallets.items.find (wallet_id));
+	ASSERT_NE (system.nodes[0]->wallets.items.end (), existing);
 	{
 		auto transaction (system.nodes[0]->wallets.tx_begin_read ());
 		nano::raw_key seed0;
-		wallet->second->store.seed (seed0, transaction);
+		existing->second->store.seed (seed0, transaction);
 		ASSERT_EQ (seed.pub, seed0.data);
 	}
 	auto account_text (response.json.get<std::string> ("account"));
 	nano::uint256_union account;
 	ASSERT_FALSE (account.decode_account (account_text));
-	ASSERT_TRUE (system.wallet (0)->exists (account));
+	ASSERT_TRUE (existing->second->exists (account));
 }
 
 TEST (rpc, wallet_export)
@@ -4134,6 +4134,24 @@ TEST (rpc, node_id_delete)
 	auto transaction (system.nodes[0]->store.tx_begin_write ());
 	nano::keypair node_id (system.nodes[0]->store.get_node_id (transaction));
 	ASSERT_NE (node_id.pub.to_string (), system.nodes[0]->node_id.pub.to_string ());
+}
+
+TEST (rpc, uptime)
+{
+	nano::system system (24000, 1);
+	nano::rpc rpc (system.io_ctx, *system.nodes[0], nano::rpc_config (true));
+	rpc.start ();
+	boost::property_tree::ptree request;
+	request.put ("action", "uptime");
+	std::this_thread::sleep_for (std::chrono::seconds (1));
+	test_response response (request, rpc, system.io_ctx);
+	system.deadline_set (5s);
+	while (response.status == 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (200, response.status);
+	ASSERT_LE (1, response.json.get<int> ("seconds"));
 }
 
 TEST (rpc, sign_hash)
