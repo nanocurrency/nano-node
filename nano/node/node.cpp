@@ -1177,7 +1177,7 @@ void nano::signature_checker::verify_threaded (nano::signature_check_set & check
 		if (index + batch_size > check_a.size)
 			size = overflow;
 
-		boost::asio::post (thread_pool, [=, &check_a, &results]	{
+		boost::asio::post (thread_pool, [=, &check_a, &results] {
 			results[batch] = verify_batch (check_a, index, size);
 		});
 	}

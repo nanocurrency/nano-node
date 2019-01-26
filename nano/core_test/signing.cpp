@@ -76,7 +76,7 @@ TEST (signature_checker, multi_add_100k)
 	nano::keypair key;
 	nano::state_block block (key.pub, 0, key.pub, 0, 0, key.prv, key.pub, 0);
 	nano::signature_checker checker;
-	const std::vector<size_t> sizes ({1, 256, 257, 1, 1, 512, 1, 2048, 1024, 1, 64, 1, 1, 1, 1, 1, 1, 1, 1});
+	const std::vector<size_t> sizes ({ 1, 256, 257, 1, 1, 512, 1, 2048, 1024, 1, 64, 1, 1, 1, 1, 1, 1, 1, 1 });
 	size_t total (100000);
 	auto size_inc (0);
 	auto size_it (sizes.begin ());
@@ -113,27 +113,6 @@ TEST (signature_checker, multi_add_100k)
 
 		nano::signature_check_set check = { size, messages.data (), lengths.data (), pub_keys.data (), signatures.data (), verifications.data (), &promise };
 		checker.add (check);
-		promise.get_future ().wait();
+		promise.get_future ().wait ();
 	}
-}
-
-TEST (sanity, thread_pool)
-{
-	boost::asio::thread_pool thread_pool (4);
-	std::vector<bool> v(4, false);
-	for (int i=0; i<=1; ++i)
-		boost::asio::post (thread_pool, [i, &v] { v[i] = true; });
-
-	thread_pool.join ();
-
-	for (int i=2; i<=3; ++i)
-		boost::asio::post (thread_pool, [i, &v] { v[i] = true; });
-
-	thread_pool.join ();
-
-	ASSERT_EQ (4, v.size ());
-	ASSERT_EQ (true, v[0]);
-	ASSERT_EQ (true, v[1]);
-	ASSERT_EQ (true, v[2]);
-	ASSERT_EQ (true, v[3]);
 }
