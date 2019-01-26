@@ -12,6 +12,7 @@
 #include <nano/secure/ledger.hpp>
 
 #include <condition_variable>
+#include <queue>
 
 #include <boost/iostreams/device/array.hpp>
 #include <boost/multi_index/hashed_index.hpp>
