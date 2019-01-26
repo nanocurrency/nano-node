@@ -11,8 +11,6 @@
 #include <nano/node/wallet.hpp>
 #include <nano/secure/ledger.hpp>
 
-#include <condition_variable>
-#include <queue>
 #include <boost/iostreams/device/array.hpp>
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/member.hpp>
@@ -22,6 +20,7 @@
 #include <boost/thread/thread.hpp>
 #include <condition_variable>
 #include <memory>
+#include <queue>
 
 namespace nano
 {
