@@ -72,7 +72,7 @@ TEST (wallet, startup_balance)
 	auto wallet (std::make_shared<nano_qt::wallet> (*test_application, processor, *system.nodes[0], wallet_l, key.pub));
 	wallet->needs_balance_refresh = true;
 	wallet->start ();
-	wallet->application.processEvents(QEventLoop::AllEvents);
+	wallet->application.processEvents (QEventLoop::AllEvents);
 	ASSERT_EQ ("Balance: 0 NANO", wallet->self.balance_label->text ().toStdString ());
 }
 
