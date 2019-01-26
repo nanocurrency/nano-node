@@ -1309,6 +1309,7 @@ thread ([this]() {
 	do_wallet_actions ();
 })
 {
+	std::lock_guard<std::mutex> lock (mutex);
 	if (!error_a)
 	{
 		auto transaction (tx_begin_write ());
@@ -1354,6 +1355,7 @@ nano::wallets::~wallets ()
 
 std::shared_ptr<nano::wallet> nano::wallets::open (nano::uint256_union const & id_a)
 {
+	std::lock_guard<std::mutex> lock (mutex);
 	std::shared_ptr<nano::wallet> result;
 	auto existing (items.find (id_a));
 	if (existing != items.end ())
@@ -1365,6 +1367,7 @@ std::shared_ptr<nano::wallet> nano::wallets::open (nano::uint256_union const & i
 
 std::shared_ptr<nano::wallet> nano::wallets::create (nano::uint256_union const & id_a)
 {
+	std::lock_guard<std::mutex> lock (mutex);
 	assert (items.find (id_a) == items.end ());
 	std::shared_ptr<nano::wallet> result;
 	bool error;
@@ -1382,6 +1385,7 @@ std::shared_ptr<nano::wallet> nano::wallets::create (nano::uint256_union const &
 
 bool nano::wallets::search_pending (nano::uint256_union const & wallet_a)
 {
+	std::lock_guard<std::mutex> lock (mutex);
 	auto result (false);
 	auto existing (items.find (wallet_a));
 	result = existing == items.end ();
@@ -1395,6 +1399,7 @@ bool nano::wallets::search_pending (nano::uint256_union const & wallet_a)
 
 void nano::wallets::search_pending_all ()
 {
+	std::lock_guard<std::mutex> lock (mutex);
 	for (auto i : items)
 	{
 		i.second->search_pending ();
@@ -1410,6 +1415,49 @@ void nano::wallets::destroy (nano::uint256_union const & id_a)
 	auto wallet (existing->second);
 	items.erase (existing);
 	wallet->store.destroy (transaction);
+}
+
+void nano::wallets::reload ()
+{
+	std::lock_guard<std::mutex> lock (mutex);
+	auto transaction (tx_begin_write ());
+	std::unordered_set<nano::uint256_union> stored_items;
+	std::string beginning (nano::uint256_union (0).to_string ());
+	std::string end ((nano::uint256_union (nano::uint256_t (0) - nano::uint256_t (1))).to_string ());
+	nano::store_iterator<std::array<char, 64>, nano::mdb_val::no_value> i (std::make_unique<nano::mdb_iterator<std::array<char, 64>, nano::mdb_val::no_value>> (transaction, handle, nano::mdb_val (beginning.size (), const_cast<char *> (beginning.c_str ()))));
+	nano::store_iterator<std::array<char, 64>, nano::mdb_val::no_value> n (std::make_unique<nano::mdb_iterator<std::array<char, 64>, nano::mdb_val::no_value>> (transaction, handle, nano::mdb_val (end.size (), const_cast<char *> (end.c_str ()))));
+	for (; i != n; ++i)
+	{
+		nano::uint256_union id;
+		std::string text (i->first.data (), i->first.size ());
+		auto error (id.decode_hex (text));
+		assert (!error);
+		// New wallet
+		if (items.find (id) == items.end ())
+		{
+			auto wallet (std::make_shared<nano::wallet> (error, transaction, *this, text));
+			if (!error)
+			{
+				items[id] = wallet;
+			}
+		}
+		// List of wallets on disk
+		stored_items.insert (id);
+	}
+	// Delete non existing wallets from memory
+	std::vector<nano::uint256_union> deleted_items;
+	for (auto i : items)
+	{
+		if (stored_items.find (i.first) == stored_items.end ())
+		{
+			deleted_items.push_back (i.first);
+		}
+	}
+	for (auto & i : deleted_items)
+	{
+		assert (items.find (i) == items.end ());
+		items.erase (i);
+	}
 }
 
 void nano::wallets::do_wallet_actions ()
@@ -1457,6 +1505,7 @@ void nano::wallets::foreach_representative (nano::transaction const & transactio
 		for (auto i (items.begin ()), n (items.end ()); i != n; ++i)
 		{
 			auto & wallet (*i->second);
+			std::lock_guard<std::recursive_mutex> store_lock (wallet.store.mutex);
 			std::lock_guard<std::mutex> representatives_lock (wallet.representatives_mutex);
 			for (auto ii (wallet.representatives.begin ()), nn (wallet.representatives.end ()); ii != nn; ++ii)
 			{
@@ -1490,6 +1539,7 @@ void nano::wallets::foreach_representative (nano::transaction const & transactio
 
 bool nano::wallets::exists (nano::transaction const & transaction_a, nano::public_key const & account_a)
 {
+	std::lock_guard<std::mutex> lock (mutex);
 	auto result (false);
 	for (auto i (items.begin ()), n (items.end ()); !result && i != n; ++i)
 	{

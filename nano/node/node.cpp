@@ -1648,7 +1648,8 @@ block_processor_thread ([this]() {
 }),
 online_reps (*this),
 stats (config.stat_config),
-vote_uniquer (block_uniquer)
+vote_uniquer (block_uniquer),
+startup_time (std::chrono::steady_clock::now ())
 {
 	wallets.observer = [this](bool active) {
 		observers.wallet.notify (active);
@@ -2275,6 +2276,9 @@ void nano::node::backup_wallet ()
 
 void nano::node::search_pending ()
 {
+	// Reload wallets from disk
+	wallets.reload ();
+	// Search pending
 	wallets.search_pending_all ();
 	auto this_l (shared ());
 	alarm.add (std::chrono::steady_clock::now () + search_pending_interval, [this_l]() {

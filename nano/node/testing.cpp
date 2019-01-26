@@ -83,7 +83,7 @@ std::shared_ptr<nano::wallet> nano::system::wallet (size_t index_a)
 {
 	assert (nodes.size () > index_a);
 	auto size (nodes[index_a]->wallets.items.size ());
-	assert (size >= 1);
+	assert (size == 1);
 	return nodes[index_a]->wallets.items.begin ()->second;
 }
 
