@@ -14,6 +14,7 @@
 #include <condition_variable>
 #include <queue>
 
+#include <boost/asio/thread_pool.hpp>
 #include <boost/iostreams/device/array.hpp>
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/member.hpp>
@@ -386,9 +387,14 @@ public:
 	std::unordered_set<nano::block_hash> active;
 };
 class block_processor;
-class signature_check_set
+class signature_check_set final
 {
 public:
+	signature_check_set (size_t size, unsigned char const ** messages, size_t * message_lengths, unsigned char const ** pub_keys, unsigned char const ** signatures, int * verifications, std::promise<void> * promise) :
+	size (size), messages (messages), message_lengths (message_lengths), pub_keys (pub_keys), signatures (signatures), verifications (verifications), promise (promise)
+	{
+	}
+
 	size_t size;
 	unsigned char const ** messages;
 	size_t * message_lengths;
@@ -397,25 +403,38 @@ public:
 	int * verifications;
 	std::promise<void> * promise;
 };
-class signature_checker
+class signature_checker final
 {
 public:
-	signature_checker ();
+	signature_checker (unsigned num_threads);
 	~signature_checker ();
-	void add (signature_check_set &);
+	void verify (signature_check_set &);
 	void stop ();
 	void flush ();
 
 private:
-	void run ();
-	void verify (nano::signature_check_set & check_a);
-	std::deque<nano::signature_check_set> checks;
-	bool started;
-	bool stopped;
+	struct Task final
+	{
+		Task (nano::signature_check_set & check, int pending) :
+		check (check), pending (pending)
+		{
+		}
+		nano::signature_check_set & check;
+		std::mutex pending_mutex;
+		int pending;
+	};
+
+	bool verify_batch (const nano::signature_check_set & check_a, unsigned index, unsigned size);
+	void verify_threaded (nano::signature_check_set & check_a);
+	void set_name_threads (unsigned num_threads);
+	boost::asio::thread_pool thread_pool;
+	std::atomic<int> tasks_remaining{ 0 };
+	static constexpr unsigned multithreaded_cutoff = 513; // minimum signature_check_set size eligible to be multithreaded
+	const bool single_threaded;
 	std::mutex mutex;
-	std::condition_variable condition;
-	std::thread thread;
+	bool stopped {false};
 };
+
 class rolled_hash
 {
 public:

@@ -1102,7 +1102,7 @@ void nano::vote_processor::verify_votes (std::deque<std::pair<std::shared_ptr<na
 	}
 	std::promise<void> promise;
 	nano::signature_check_set check = { size, messages.data (), lengths.data (), pub_keys.data (), signatures.data (), verifications.data (), &promise };
-	node.checker.add (check);
+	node.checker.verify (check);
 	promise.get_future ().wait ();
 	std::remove_reference_t<decltype (votes_a)> result;
 	auto i (0);
@@ -1244,15 +1244,13 @@ bool nano::rep_crawler::exists (nano::block_hash const & hash_a)
 	return active.count (hash_a) != 0;
 }
 
-nano::signature_checker::signature_checker () :
-started (false),
-stopped (false),
-thread ([this]() { run (); })
+nano::signature_checker::signature_checker (unsigned num_threads) :
+thread_pool (num_threads),
+single_threaded (num_threads == 1)
 {
-	std::unique_lock<std::mutex> lock (mutex);
-	while (!started)
+	if (!single_threaded)
 	{
-		condition.wait (lock);
+		set_name_threads (num_threads);
 	}
 }
 
@@ -1261,72 +1259,125 @@ nano::signature_checker::~signature_checker ()
 	stop ();
 }
 
-void nano::signature_checker::add (nano::signature_check_set & check_a)
+void nano::signature_checker::verify (nano::signature_check_set & check_a)
 {
 	{
-		std::lock_guard<std::mutex> lock (mutex);
-		checks.push_back (check_a);
+		// Don't process anything else if we have stopped
+		std::lock_guard<std::mutex> guard (mutex);
+		if (stopped)
+		{
+			return;
+		}
 	}
-	condition.notify_all ();
+
+	if (check_a.size < multithreaded_cutoff || single_threaded)
+	{
+		// Use the same thread as the calling thread
+		verify_batch (check_a, 0, check_a.size);
+		check_a.promise->set_value ();
+		return;
+	}
+
+	// Verify over a number of threads
+	verify_threaded (check_a);
 }
 
 void nano::signature_checker::stop ()
 {
-	std::unique_lock<std::mutex> lock (mutex);
-	stopped = true;
-	lock.unlock ();
-	condition.notify_all ();
-	if (thread.joinable ())
+	std::lock_guard<std::mutex> guard (mutex);
+	if (!stopped)
 	{
-		thread.join ();
+		stopped = true;
+		thread_pool.join ();
 	}
 }
 
 void nano::signature_checker::flush ()
 {
-	std::unique_lock<std::mutex> lock (mutex);
-	while (!stopped && !checks.empty ())
-	{
-		condition.wait (lock);
-	}
+	std::lock_guard<std::mutex> guard (mutex);
+	while (!stopped && tasks_remaining != 0)
+		;
 }
 
-void nano::signature_checker::verify (nano::signature_check_set & check_a)
+bool nano::signature_checker::verify_batch (const nano::signature_check_set & check_a, unsigned start_index, unsigned size)
 {
-	/* Verifications is vector if signatures check results
-	 validate_message_batch returing "true" if there are at least 1 invalid signature */
-	auto code (nano::validate_message_batch (check_a.messages, check_a.message_lengths, check_a.pub_keys, check_a.signatures, check_a.size, check_a.verifications));
+	/* Returns false if there are at least 1 invalid signature */
+	auto code (nano::validate_message_batch (check_a.messages + start_index, check_a.message_lengths + start_index, check_a.pub_keys + start_index, check_a.signatures + start_index, size, check_a.verifications + start_index));
 	(void)code;
-	release_assert (std::all_of (check_a.verifications, check_a.verifications + check_a.size, [](int verification) { return verification == 0 || verification == 1; }));
-	check_a.promise->set_value ();
+
+	return std::all_of (check_a.verifications + start_index, check_a.verifications + start_index + size, [](int verification) { return verification == 0 || verification == 1; });
 }
 
-void nano::signature_checker::run ()
+void nano::signature_checker::verify_threaded (nano::signature_check_set & check_a)
 {
-	nano::thread_role::set (nano::thread_role::name::signature_checking);
-	std::unique_lock<std::mutex> lock (mutex);
-	started = true;
+	constexpr unsigned batch_size = 256;
+	unsigned int overflow = check_a.size % batch_size;
+	unsigned int full_batches = check_a.size / batch_size;
 
-	lock.unlock ();
-	condition.notify_all ();
-	lock.lock ();
+	auto batches = full_batches + ((overflow != 0) ? 1 : 0);
+	auto results = std::make_shared<std::vector<char>> (batches, false);
 
-	while (!stopped)
+	auto task = std::make_shared<Task> (check_a, batches);
+	++tasks_remaining;
+
+	for (unsigned batch = 0; batch < batches; ++batch)
 	{
-		if (!checks.empty ())
+		int size = batch_size;
+		int start_index = batch * batch_size;
+
+		// Clamp it to the max number of verifications
+		if (start_index + batch_size > check_a.size)
 		{
-			auto check (checks.front ());
-			checks.pop_front ();
-			lock.unlock ();
-			verify (check);
-			condition.notify_all ();
-			lock.lock ();
+			size = overflow;
 		}
-		else
-		{
-			condition.wait (lock);
-		}
+
+		boost::asio::post (thread_pool, [this, task, size, start_index, batch, results] {
+			auto result = verify_batch (task->check, start_index, size);
+			(*results)[batch] = static_cast<char> (result);
+
+			std::lock_guard<std::mutex> guard (task->pending_mutex);
+			--task->pending;
+			if (task->pending == 0)
+			{
+				// All parts have finished, set the promise to done.
+				release_assert (std::all_of (results->begin (), results->end (), [](auto result) { return static_cast<bool> (result); }));
+				task->check.promise->set_value ();
+				--tasks_remaining;
+			}
+		});
 	}
+}
+
+// Set the names of all the threads in the thread pool for easier identification
+void nano::signature_checker::set_name_threads (unsigned num_threads)
+{
+	bool ready = false;
+	int pending = num_threads;
+	std::condition_variable cv;
+	std::mutex mutex_l;
+	std::unique_lock<std::mutex> lk (mutex_l);
+
+	for (int i = 0; i < num_threads; ++i)
+	{
+		boost::asio::post (thread_pool, [&cv, &ready, &pending, &mutex_l]() {
+			nano::thread_role::set (nano::thread_role::name::signature_checking);
+			std::unique_lock<std::mutex> lk (mutex_l);
+			--pending;
+			if (pending == 0)
+			{
+				// All threads have finished
+				ready = true;
+				lk.unlock ();
+				cv.notify_one ();
+			}
+		});
+	}
+
+	while (!ready)
+	{
+		cv.wait (lk);
+	}
+	release_assert (pending == 0);
 }
 
 nano::block_processor::block_processor (nano::node & node_a) :
@@ -1490,7 +1541,7 @@ void nano::block_processor::verify_state_blocks (nano::transaction const & trans
 		}
 		std::promise<void> promise;
 		nano::signature_check_set check = { size, messages.data (), lengths.data (), pub_keys.data (), signatures.data (), verifications.data (), &promise };
-		node.checker.add (check);
+		node.checker.verify (check);
 		promise.get_future ().wait ();
 		lock_a.lock ();
 		for (auto i (0); i < size; ++i)
@@ -1783,6 +1834,7 @@ peers (network.endpoint ()),
 application_path (application_path_a),
 wallets (init_a.wallet_init, *this),
 port_mapping (*this),
+checker (config.signature_checker_threads),
 vote_processor (*this),
 warmed_up (0),
 block_processor (*this),
