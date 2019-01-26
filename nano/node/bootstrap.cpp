@@ -1949,7 +1949,6 @@ void nano::bootstrap_listener::accept_connection ()
 				 * get an error from the I/O context, something is probably
 				 * wrong.
 				 */
-				assert (!ec);
 				if (!ec)
 				{
 					accept_connection ();
