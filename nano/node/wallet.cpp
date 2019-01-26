@@ -1309,7 +1309,7 @@ thread ([this]() {
 	do_wallet_actions ();
 })
 {
-	std::lock_guard<std::mutex> lock (mutex);
+	std::unique_lock<std::mutex> lock (mutex);
 	if (!error_a)
 	{
 		auto transaction (tx_begin_write ());
@@ -1344,6 +1344,7 @@ thread ([this]() {
 	}
 	if (node_a.config.enable_voting)
 	{
+		lock.unlock ();
 		ongoing_compute_reps ();
 	}
 }
@@ -1600,7 +1601,7 @@ void nano::wallets::compute_reps ()
 				representatives_l.insert (account);
 			}
 		}
-		std::lock_guard<std::mutex> lock (wallet.representatives_mutex);
+		std::lock_guard<std::mutex> representatives_lock (wallet.representatives_mutex);
 		wallet.representatives.swap (representatives_l);
 	}
 }
