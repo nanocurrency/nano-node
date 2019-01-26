@@ -1104,7 +1104,7 @@ bool nano::rep_crawler::exists (nano::block_hash const & hash_a)
 }
 
 nano::signature_checker::signature_checker () :
-pool(std::thread::hardware_concurrency ()),
+pool (std::thread::hardware_concurrency ()),
 started (false),
 stopped (false),
 thread ([this]() { run (); })
