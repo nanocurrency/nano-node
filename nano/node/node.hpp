@@ -396,6 +396,7 @@ class signature_checker
 {
 public:
 	signature_checker ();
+	signature_checker (unsigned nr_threads);
 	~signature_checker ();
 	void add (signature_check_set &);
 	void stop ();
