@@ -1776,7 +1776,8 @@ block_processor_thread ([this]() {
 }),
 online_reps (*this),
 stats (config.stat_config),
-vote_uniquer (block_uniquer)
+vote_uniquer (block_uniquer),
+startup_time (std::chrono::steady_clock::now ())
 {
 	wallets.observer = [this](bool active) {
 		observers.wallet.notify (active);

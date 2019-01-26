@@ -12,6 +12,7 @@
 #include <nano/secure/ledger.hpp>
 
 #include <condition_variable>
+#include <queue>
 
 #include <boost/iostreams/device/array.hpp>
 #include <boost/multi_index/hashed_index.hpp>
@@ -539,6 +540,7 @@ public:
 	nano::keypair node_id;
 	nano::block_uniquer block_uniquer;
 	nano::vote_uniquer vote_uniquer;
+	const std::chrono::steady_clock::time_point startup_time;
 	static double constexpr price_max = 16.0;
 	static double constexpr free_cutoff = 1024.0;
 	static std::chrono::seconds constexpr period = std::chrono::seconds (60);
