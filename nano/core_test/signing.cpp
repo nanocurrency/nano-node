@@ -48,7 +48,7 @@ TEST (signature_checker, bulk_single_thread)
 
 TEST (signature_checker, many_multi_threaded)
 {
-	nano::signature_checker checker (8);
+	nano::signature_checker checker (4);
 
 	auto signature_checker_work_func = [&checker]() {
 		nano::keypair key;

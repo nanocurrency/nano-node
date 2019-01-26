@@ -432,7 +432,7 @@ private:
 	static constexpr unsigned multithreaded_cutoff = 513; // minimum signature_check_set size eligible to be multithreaded
 	const bool single_threaded;
 	std::mutex mutex;
-	bool stopped {false};
+	bool stopped{ false };
 };
 
 class rolled_hash
