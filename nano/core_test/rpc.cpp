@@ -3924,7 +3924,7 @@ TEST (rpc, online_reps)
 	auto send_block (system.wallet (0)->send_action (nano::test_genesis_key.pub, nano::test_genesis_key.pub, nano::Gxrb_ratio));
 	ASSERT_NE (nullptr, send_block);
 	system.deadline_set (10s);
-	while (system.nodes[1]->online_reps.online_stake () == system.nodes[1]->config.online_weight_minimum.number ())
+	while (system.nodes[1]->online_reps.list ().empty ())
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
