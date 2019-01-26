@@ -2186,7 +2186,7 @@ void nano::rpc_handler::peers ()
 		if (!deprecated)
 		{
 			boost::property_tree::ptree pending_tree;
-			pending_tree.put ("version", std::to_string (i->network_version));
+			pending_tree.put ("protocol_version", std::to_string (i->network_version));
 			if (i->node_id.is_initialized ())
 			{
 				pending_tree.put ("node_id", i->node_id.get ().to_account ());

@@ -1575,12 +1575,12 @@ TEST (rpc, peers_node_id)
 	auto & peers_node (response.json.get_child ("peers"));
 	ASSERT_EQ (2, peers_node.size ());
 	auto tree1 (peers_node.get_child ("[::1]:24001"));
-	ASSERT_EQ (std::to_string (nano::protocol_version), tree1.get<std::string> ("version"));
+	ASSERT_EQ (std::to_string (nano::protocol_version), tree1.get<std::string> ("protocol_version"));
 	ASSERT_EQ (system.nodes[1]->node_id.pub.to_account (), tree1.get<std::string> ("node_id"));
 	std::stringstream endpoint_text;
 	endpoint_text << endpoint;
 	auto tree2 (peers_node.get_child (endpoint_text.str ()));
-	ASSERT_EQ (std::to_string (nano::protocol_version), tree2.get<std::string> ("version"));
+	ASSERT_EQ (std::to_string (nano::protocol_version), tree2.get<std::string> ("protocol_version"));
 	ASSERT_EQ ("", tree2.get<std::string> ("node_id"));
 }
 
