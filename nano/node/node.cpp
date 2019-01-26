@@ -1748,7 +1748,15 @@ startup_time (std::chrono::steady_clock::now ())
 			}
 		}
 	});
-	BOOST_LOG (log) << "Node starting, version: " << NANO_VERSION_MAJOR << "." << NANO_VERSION_MINOR;
+	if (NANO_VERSION_PATCH == 0)
+	{
+		BOOST_LOG (log) << "Node starting, version: " << NANO_VERSION_MAJOR << "." << NANO_VERSION_MINOR;
+	}
+	else
+	{
+		BOOST_LOG (log) << "Node starting, version: " << NANO_VERSION_MAJOR << "." << NANO_VERSION_MINOR << "RC" << NANO_VERSION_PATCH;
+	}
+
 	BOOST_LOG (log) << boost::str (boost::format ("Work pool running %1% threads") % work.threads.size ());
 	if (!init_a.error ())
 	{
