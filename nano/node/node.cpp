@@ -1104,6 +1104,7 @@ bool nano::rep_crawler::exists (nano::block_hash const & hash_a)
 }
 
 nano::signature_checker::signature_checker () :
+pool(std::thread::hardware_concurrency ()),
 started (false),
 stopped (false),
 thread ([this]() { run (); })
@@ -1165,8 +1166,8 @@ void nano::signature_checker::verify_threaded (nano::signature_check_set & check
 	unsigned int batch_size = 256;
 	unsigned int overflow = check_a.size % batch_size;
 	unsigned int batches = check_a.size / batch_size + (overflow ? 1 : 0);
-	std::vector<bool> results (batches, false);
-	boost::asio::thread_pool thread_pool (batches);
+	std::vector<std::future<bool>> futures;
+	std::vector<std::promise<bool>> promises (batches);
 
 	for (unsigned int batch = 0; batch < batches; ++batch)
 	{
@@ -1177,15 +1178,15 @@ void nano::signature_checker::verify_threaded (nano::signature_check_set & check
 		if (index + batch_size > check_a.size)
 			size = overflow;
 
-		boost::asio::post (thread_pool, [=, &check_a, &results] {
-			results[batch] = verify_batch (check_a, index, size);
+		futures.push_back (promises[batch].get_future ());
+
+		boost::asio::post (pool, [=, &check_a, &promises] {
+			promises[batch].set_value (verify_batch (check_a, index, size));
 		});
 	}
 
-	thread_pool.join ();
-
-	release_assert (std::all_of (results.begin (), results.end (),
-	[](auto result) { return result; }));
+	release_assert (std::all_of (futures.begin (), futures.end (),
+	[](auto & result) { return result.get (); }));
 }
 
 void nano::signature_checker::verify (nano::signature_check_set & check_a)
