@@ -419,6 +419,10 @@ private:
 		check (check), pending (pending)
 		{
 		}
+		~Task ()
+		{
+			release_assert (pending == 0);
+		}
 		nano::signature_check_set & check;
 		std::atomic<int> pending;
 	};
