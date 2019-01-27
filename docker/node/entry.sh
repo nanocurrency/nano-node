@@ -28,6 +28,10 @@ if [ ! -f "${nanodir}/config.json" ]; then
         cp "/usr/share/nano/config/${network}.json" "${nanodir}/config.json"
 fi
 
+# Start watching the log file we are going to log output to
+logfile="${nanodir}/nano-docker-output.log"
+tail -F "${logfile}" &
+
 pid=''
 firstTimeComplete=''
 while true; do
@@ -62,4 +66,10 @@ while true; do
 		nano_node --daemon &
 		pid="$!"
 	fi
-done
+
+	if [ "$(stat -c '%s' "${logfile}")" -gt 4194304 ]; then
+		cp "${logfile}" "${logfile}.old"
+		: > "${logfile}"
+		echo "$(date) Rotated log file"
+	fi
+done >> "${logfile}" 2>&1

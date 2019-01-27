@@ -396,25 +396,6 @@ TEST (unchecked, multiple_get)
 	ASSERT_EQ (unchecked5.size (), 0);
 }
 
-TEST (checksum, simple)
-{
-	nano::logging logging;
-	bool init (false);
-	nano::mdb_store store (init, logging, nano::unique_path ());
-	ASSERT_TRUE (!init);
-	nano::block_hash hash0 (0);
-	auto transaction (store.tx_begin (true));
-	ASSERT_TRUE (store.checksum_get (transaction, 0x100, 0x10, hash0));
-	nano::block_hash hash1 (0);
-	store.checksum_put (transaction, 0x100, 0x10, hash1);
-	nano::block_hash hash2;
-	ASSERT_FALSE (store.checksum_get (transaction, 0x100, 0x10, hash2));
-	ASSERT_EQ (hash1, hash2);
-	store.checksum_del (transaction, 0x100, 0x10);
-	nano::block_hash hash3;
-	ASSERT_TRUE (store.checksum_get (transaction, 0x100, 0x10, hash3));
-}
-
 TEST (block_store, empty_accounts)
 {
 	nano::logging logging;

@@ -1,15 +1,12 @@
 #pragma once
 
 #include <boost/thread/thread.hpp>
-#include <nano/node/common.hpp>
 #include <nano/node/lmdb.hpp>
 #include <nano/node/openclwork.hpp>
 #include <nano/secure/blockstore.hpp>
 #include <nano/secure/common.hpp>
 
 #include <mutex>
-#include <queue>
-#include <thread>
 #include <unordered_set>
 
 namespace nano
@@ -151,7 +148,7 @@ public:
 	bool search_pending ();
 	void init_free_accounts (nano::transaction const &);
 	/** Changes the wallet seed and returns the first account */
-	nano::public_key change_seed (nano::transaction const & transaction_a, nano::raw_key const & prv_a);
+	nano::public_key change_seed (nano::transaction const & transaction_a, nano::raw_key const & prv_a, uint32_t = 0);
 	bool live ();
 	std::unordered_set<nano::account> free_accounts;
 	std::function<void(bool, bool)> lock_observer;
