@@ -1310,13 +1310,11 @@ bool nano::signature_checker::verify_batch (const nano::signature_check_set & ch
 
 void nano::signature_checker::verify_threaded (nano::signature_check_set & check_a)
 {
-	constexpr unsigned batch_size = 256;
-	unsigned int overflow = check_a.size % batch_size;
-	unsigned int full_batches = check_a.size / batch_size;
+	constexpr size_t batch_size = 256;
+	size_t overflow = check_a.size % batch_size;
+	size_t full_batches = check_a.size / batch_size;
 
 	auto batches = full_batches + ((overflow != 0) ? 1 : 0);
-	auto results = std::make_shared<std::vector<char>> (batches, false);
-
 	auto task = std::make_shared<Task> (check_a, batches);
 	++tasks_remaining;
 
@@ -1331,16 +1329,12 @@ void nano::signature_checker::verify_threaded (nano::signature_check_set & check
 			size = overflow;
 		}
 
-		boost::asio::post (thread_pool, [this, task, size, start_index, batch, results] {
+		boost::asio::post (thread_pool, [this, task, size, start_index, batch] {
 			auto result = verify_batch (task->check, start_index, size);
-			(*results)[batch] = static_cast<char> (result);
+			release_assert (result);
 
-			std::lock_guard<std::mutex> guard (task->pending_mutex);
-			--task->pending;
-			if (task->pending == 0)
+			if (--task->pending == 0)
 			{
-				// All parts have finished, set the promise to done.
-				release_assert (std::all_of (results->begin (), results->end (), [](auto result) { return static_cast<bool> (result); }));
 				task->check.promise->set_value ();
 				--tasks_remaining;
 			}

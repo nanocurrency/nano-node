@@ -420,8 +420,7 @@ private:
 		{
 		}
 		nano::signature_check_set & check;
-		std::mutex pending_mutex;
-		int pending;
+		std::atomic<int> pending;
 	};
 
 	bool verify_batch (const nano::signature_check_set & check_a, unsigned index, unsigned size);
