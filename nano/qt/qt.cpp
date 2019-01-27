@@ -1441,6 +1441,8 @@ void nano_qt::wallet::change_rendering_ratio (nano::uint128_t const & rendering_
 {
 	application.postEvent (&processor, new eventloop_event ([this, rendering_ratio_a]() {
 		this->rendering_ratio = rendering_ratio_a;
+		auto balance_l (this->node.balance_pending (account));
+		this->self.set_balance_text (balance_l);
 		this->refresh ();
 	}));
 }

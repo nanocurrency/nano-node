@@ -42,6 +42,7 @@ namespace thread_role
 		bootstrap_initiator,
 		voting,
 		signature_checking,
+		slow_db_upgrade,
 	};
 	/*
 	 * Get/Set the identifier for the current thread
