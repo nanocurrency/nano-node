@@ -177,15 +177,20 @@ void nano::network::send_keepalive (nano::endpoint const & endpoint_a)
 	});
 }
 
-void nano::node::keepalive (std::string const & address_a, uint16_t port_a)
+void nano::node::keepalive (std::string const & address_a, uint16_t port_a, bool preconfigured_peer_a)
 {
 	auto node_l (shared_from_this ());
-	network.resolver.async_resolve (boost::asio::ip::udp::resolver::query (address_a, std::to_string (port_a)), [node_l, address_a, port_a](boost::system::error_code const & ec, boost::asio::ip::udp::resolver::iterator i_a) {
+	network.resolver.async_resolve (boost::asio::ip::udp::resolver::query (address_a, std::to_string (port_a)), [node_l, address_a, port_a, preconfigured_peer_a](boost::system::error_code const & ec, boost::asio::ip::udp::resolver::iterator i_a) {
 		if (!ec)
 		{
 			for (auto i (i_a), n (boost::asio::ip::udp::resolver::iterator{}); i != n; ++i)
 			{
-				node_l->send_keepalive (nano::map_endpoint_to_v6 (i->endpoint ()));
+				auto endpoint (nano::map_endpoint_to_v6 (i->endpoint ()));
+				node_l->send_keepalive (endpoint);
+				if (preconfigured_peer_a)
+				{
+					node_l->peers.insert (endpoint, nano::protocol_version, true);
+				}
 			}
 		}
 		else
@@ -553,10 +558,6 @@ public:
 		assert (false);
 	}
 	void bulk_pull_account (nano::bulk_pull_account const &) override
-	{
-		assert (false);
-	}
-	void bulk_pull_blocks (nano::bulk_pull_blocks const &) override
 	{
 		assert (false);
 	}
@@ -1564,6 +1565,7 @@ nano::process_return nano::block_processor::process_one (nano::transaction const
 			{
 				// Only let the bootstrap attempt know about forked blocks that not originate recently.
 				node.process_fork (transaction_a, block_a);
+				node.stats.inc (nano::stat::type::ledger, nano::stat::detail::fork, nano::stat::dir::in);
 			}
 			if (node.config.logging.ledger_logging ())
 			{
@@ -1647,7 +1649,8 @@ block_processor_thread ([this]() {
 }),
 online_reps (*this),
 stats (config.stat_config),
-vote_uniquer (block_uniquer)
+vote_uniquer (block_uniquer),
+startup_time (std::chrono::steady_clock::now ())
 {
 	wallets.observer = [this](bool active) {
 		observers.wallet.notify (active);
@@ -2109,7 +2112,7 @@ void nano::node::keepalive_preconfigured (std::vector<std::string> const & peers
 {
 	for (auto i (peers_a.begin ()), n (peers_a.end ()); i != n; ++i)
 	{
-		keepalive (*i, nano::network::node_port);
+		keepalive (*i, nano::network::node_port, true);
 	}
 }
 
@@ -2274,6 +2277,9 @@ void nano::node::backup_wallet ()
 
 void nano::node::search_pending ()
 {
+	// Reload wallets from disk
+	wallets.reload ();
+	// Search pending
 	wallets.search_pending_all ();
 	auto this_l (shared ());
 	alarm.add (std::chrono::steady_clock::now () + search_pending_interval, [this_l]() {

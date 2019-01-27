@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include <nano/core_test/testutil.hpp>
+#include <nano/node/node.hpp>
 #include <nano/node/testing.hpp>
 
 using namespace std::chrono_literals;
@@ -94,4 +95,24 @@ TEST (wallets, DISABLED_wallet_create_max)
 	wallets.create (key.pub);
 	auto existing = wallets.items.find (key.pub);
 	ASSERT_TRUE (existing == wallets.items.end ());
+}
+
+TEST (wallets, reload)
+{
+	nano::system system (24000, 1);
+	nano::uint256_union one (1);
+	bool error (false);
+	ASSERT_FALSE (error);
+	ASSERT_EQ (1, system.nodes[0]->wallets.items.size ());
+	{
+		nano::inactive_node node (system.nodes[0]->application_path, 24001);
+		auto wallet (node.node->wallets.create (one));
+		ASSERT_NE (wallet, nullptr);
+	}
+	system.deadline_set (5s);
+	while (system.nodes[0]->wallets.open (one) == nullptr)
+	{
+		system.poll ();
+	}
+	ASSERT_EQ (2, system.nodes[0]->wallets.items.size ());
 }
