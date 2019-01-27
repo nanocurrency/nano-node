@@ -800,7 +800,8 @@ nano::public_key nano::wallet::deterministic_insert (nano::transaction const & t
 		{
 			work_ensure (key, key);
 		}
-		if (wallets.node.ledger.weight (transaction_a, key) >= wallets.node.config.vote_minimum.number ())
+		auto block_transaction (wallets.node.store.tx_begin_read ());
+		if (wallets.node.ledger.weight (block_transaction, key) >= wallets.node.config.vote_minimum.number ())
 		{
 			std::lock_guard<std::mutex> lock (representatives_mutex);
 			representatives.insert (key);
@@ -837,12 +838,12 @@ nano::public_key nano::wallet::insert_adhoc (nano::transaction const & transacti
 	if (store.valid_password (transaction_a))
 	{
 		key = store.insert_adhoc (transaction_a, key_a);
+		auto block_transaction (wallets.node.store.tx_begin_read ());
 		if (generate_work_a)
 		{
-			auto block_transaction (wallets.node.store.tx_begin_read ());
 			work_ensure (key, wallets.node.ledger.latest_root (block_transaction, key));
 		}
-		if (wallets.node.ledger.weight (transaction_a, key) >= wallets.node.config.vote_minimum.number ())
+		if (wallets.node.ledger.weight (block_transaction, key) >= wallets.node.config.vote_minimum.number ())
 		{
 			std::lock_guard<std::mutex> lock (representatives_mutex);
 			representatives.insert (key);
