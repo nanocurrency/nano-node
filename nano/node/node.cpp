@@ -1102,8 +1102,9 @@ void nano::vote_processor::verify_votes (std::deque<std::pair<std::shared_ptr<na
 	}
 	std::promise<void> promise;
 	nano::signature_check_set check = { size, messages.data (), lengths.data (), pub_keys.data (), signatures.data (), verifications.data (), &promise };
+	std::future<void> future = promise.get_future ();
 	node.checker.verify (check);
-	promise.get_future ().wait ();
+	future.wait ();
 	std::remove_reference_t<decltype (votes_a)> result;
 	auto i (0);
 	for (auto & vote : votes_a)
@@ -1299,7 +1300,7 @@ void nano::signature_checker::flush ()
 		;
 }
 
-bool nano::signature_checker::verify_batch (const nano::signature_check_set & check_a, unsigned start_index, unsigned size)
+bool nano::signature_checker::verify_batch (const nano::signature_check_set & check_a, size_t start_index, size_t size)
 {
 	/* Returns false if there are at least 1 invalid signature */
 	auto code (nano::validate_message_batch (check_a.messages + start_index, check_a.message_lengths + start_index, check_a.pub_keys + start_index, check_a.signatures + start_index, size, check_a.verifications + start_index));
@@ -1318,7 +1319,7 @@ void nano::signature_checker::verify_threaded (nano::signature_check_set & check
 	auto task = std::make_shared<Task> (check_a, batches);
 	++tasks_remaining;
 
-	for (unsigned batch = 0; batch < batches; ++batch)
+	for (size_t batch = 0; batch < batches; ++batch)
 	{
 		int size = batch_size;
 		int start_index = batch * batch_size;
@@ -1329,7 +1330,7 @@ void nano::signature_checker::verify_threaded (nano::signature_check_set & check
 			size = overflow;
 		}
 
-		boost::asio::post (thread_pool, [this, task, size, start_index, batch] {
+		boost::asio::post (thread_pool, [this, task, size, start_index] {
 			auto result = verify_batch (task->check, start_index, size);
 			release_assert (result);
 
@@ -1345,31 +1346,42 @@ void nano::signature_checker::verify_threaded (nano::signature_check_set & check
 // Set the names of all the threads in the thread pool for easier identification
 void nano::signature_checker::set_name_threads (unsigned num_threads)
 {
-	bool ready = false;
-	int pending = num_threads;
+	auto ready = false;
+	auto pending = num_threads;
 	std::condition_variable cv;
 	std::mutex mutex_l;
-	std::unique_lock<std::mutex> lk (mutex_l);
+	std::vector<std::promise<void>> promises (num_threads);
+	std::vector<std::future<void>> futures;
+	futures.reserve (num_threads);
+	std::transform (promises.begin (), promises.end (), std::back_inserter (futures), [](auto & promise) {
+		return promise.get_future ();
+	});
 
-	for (int i = 0; i < num_threads; ++i)
+	for (auto i = 0u; i < num_threads; ++i)
 	{
-		boost::asio::post (thread_pool, [&cv, &ready, &pending, &mutex_l]() {
-			nano::thread_role::set (nano::thread_role::name::signature_checking);
+		boost::asio::post (thread_pool, [&cv, &ready, &pending, &mutex_l, &promise = promises[i]]() {
 			std::unique_lock<std::mutex> lk (mutex_l);
-			--pending;
-			if (pending == 0)
+			nano::thread_role::set (nano::thread_role::name::signature_checking);
+			if (--pending == 0)
 			{
-				// All threads have finished
+				// All threads have been reached
 				ready = true;
 				lk.unlock ();
-				cv.notify_one ();
+				cv.notify_all ();
 			}
+			else
+			{
+				// We need to wait until the other threads are finished
+				cv.wait (lk, [&ready]() { return ready; });
+			}
+			promise.set_value ();
 		});
 	}
 
-	while (!ready)
+	// Wait until all threads have finished
+	for (auto & future : futures)
 	{
-		cv.wait (lk);
+		future.wait ();
 	}
 	release_assert (pending == 0);
 }
@@ -1534,9 +1546,10 @@ void nano::block_processor::verify_state_blocks (nano::transaction const & trans
 			signatures.push_back (block.signature.bytes.data ());
 		}
 		std::promise<void> promise;
+		std::future<void> future = promise.get_future ();
 		nano::signature_check_set check = { size, messages.data (), lengths.data (), pub_keys.data (), signatures.data (), verifications.data (), &promise };
 		node.checker.verify (check);
-		promise.get_future ().wait ();
+		future.wait ();
 		lock_a.lock ();
 		for (auto i (0); i < size; ++i)
 		{
@@ -3718,7 +3731,7 @@ void nano::active_transactions::request_loop ()
 	while (!stopped)
 	{
 		request_confirm (lock);
-		unsigned extra_delay (std::min (roots.size (), max_broadcast_queue) * node.network.broadcast_interval_ms * 2);
+		const auto extra_delay (std::min (roots.size (), max_broadcast_queue) * node.network.broadcast_interval_ms * 2);
 		condition.wait_for (lock, std::chrono::milliseconds (request_interval_ms + extra_delay));
 	}
 }
@@ -3906,7 +3919,7 @@ nano::thread_runner::thread_runner (boost::asio::io_context & io_ctx_a, unsigned
 {
 	boost::thread::attributes attrs;
 	nano::thread_attributes::set (attrs);
-	for (auto i (0); i < service_threads_a; ++i)
+	for (auto i (0u); i < service_threads_a; ++i)
 	{
 		threads.push_back (boost::thread (attrs, [&io_ctx_a]() {
 			nano::thread_role::set (nano::thread_role::name::io);

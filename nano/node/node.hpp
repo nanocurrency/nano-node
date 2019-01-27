@@ -427,12 +427,12 @@ private:
 		std::atomic<int> pending;
 	};
 
-	bool verify_batch (const nano::signature_check_set & check_a, unsigned index, unsigned size);
+	bool verify_batch (const nano::signature_check_set & check_a, size_t index, size_t size);
 	void verify_threaded (nano::signature_check_set & check_a);
 	void set_name_threads (unsigned num_threads);
 	boost::asio::thread_pool thread_pool;
 	std::atomic<int> tasks_remaining{ 0 };
-	static constexpr unsigned multithreaded_cutoff = 513; // minimum signature_check_set size eligible to be multithreaded
+	static constexpr size_t multithreaded_cutoff = 513; // minimum signature_check_set size eligible to be multithreaded
 	const bool single_threaded;
 	std::mutex mutex;
 	bool stopped{ false };
