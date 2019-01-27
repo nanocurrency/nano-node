@@ -1110,7 +1110,7 @@ signature_checker (std::thread::hardware_concurrency ())
 
 nano::signature_checker::signature_checker (unsigned nr_threads) :
 pool (nr_threads),
-multithreaded_cutoff(513),
+multithreaded_cutoff (513),
 started (false),
 stopped (false),
 thread ([this]() { run (); })
