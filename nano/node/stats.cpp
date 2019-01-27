@@ -389,6 +389,9 @@ std::string nano::stat::detail_to_string (uint32_t key)
 		case nano::stat::detail::confirm_req:
 			res = "confirm_req";
 			break;
+		case nano::stat::detail::fork:
+			res = "fork";
+			break;
 		case nano::stat::detail::frontier_req:
 			res = "frontier_req";
 			break;

@@ -209,6 +209,7 @@ public:
 		change,
 		state_block,
 		epoch_block,
+		fork,
 
 		// message specific
 		keepalive,
