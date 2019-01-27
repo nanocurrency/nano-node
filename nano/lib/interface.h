@@ -9,7 +9,7 @@ typedef unsigned char * xrb_uint128; // 16byte array for public and private keys
 typedef unsigned char * xrb_uint256; // 32byte array for public and private keys
 typedef unsigned char * xrb_uint512; // 64byte array for signatures
 typedef void * xrb_transaction;
-
+// clang-format off
 // Convert amount bytes 'source' to a 40 byte null-terminated decimal string 'destination'
 [[deprecated]] void xrb_uint128_to_dec (const xrb_uint128 source, char * destination);
 // Convert public/private key bytes 'source' to a 65 byte null-terminated hex string 'destination'
@@ -41,10 +41,11 @@ typedef void * xrb_transaction;
 [[deprecated]] void xrb_key_account (xrb_uint256 key, xrb_uint256 pub);
 
 // Sign 'transaction' using 'private_key' and write to 'signature'
-[[deprecated]] char * xrb_sign_transaction (const char * transaction, const xrb_uint256 private_key);
+char * xrb_sign_transaction (const char * transaction, const xrb_uint256 private_key);
 // Generate work for 'transaction'
-[[deprecated]] char * xrb_work_transaction (const char * transaction);
-
+[[deprecated]]
+char * xrb_work_transaction (const char * transaction);
+// clang-format on
 #if __cplusplus
 } // extern "C"
 #endif

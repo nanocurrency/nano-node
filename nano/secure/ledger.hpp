@@ -24,7 +24,7 @@ public:
 	nano::uint128_t account_balance (nano::transaction const &, nano::account const &);
 	nano::uint128_t account_pending (nano::transaction const &, nano::account const &);
 	nano::uint128_t weight (nano::transaction const &, nano::account const &);
-	std::shared_ptr<nano::block> successor (nano::transaction const &, nano::block_hash const &);
+	std::shared_ptr<nano::block> successor (nano::transaction const &, nano::uint512_union const &);
 	std::shared_ptr<nano::block> forked_block (nano::transaction const &, nano::block const &);
 	nano::block_hash latest (nano::transaction const &, nano::account const &);
 	nano::block_hash latest_root (nano::transaction const &, nano::account const &);
@@ -40,8 +40,6 @@ public:
 	nano::process_return process (nano::transaction const &, nano::block const &, bool = false);
 	void rollback (nano::transaction const &, nano::block_hash const &);
 	void change_latest (nano::transaction const &, nano::account const &, nano::block_hash const &, nano::account const &, nano::uint128_union const &, uint64_t, bool = false, nano::epoch = nano::epoch::epoch_0);
-	void checksum_update (nano::transaction const &, nano::block_hash const &);
-	nano::checksum checksum (nano::transaction const &, nano::account const &, nano::account const &);
 	void dump_account_chain (nano::account const &);
 	bool could_fit (nano::transaction const &, nano::block const &);
 	bool is_epoch_link (nano::uint256_union const &);

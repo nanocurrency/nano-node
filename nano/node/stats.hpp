@@ -6,6 +6,8 @@
 #include <chrono>
 #include <map>
 #include <memory>
+#include <nano/lib/errors.hpp>
+#include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/utility.hpp>
 #include <string>
 #include <unordered_map>
@@ -23,7 +25,7 @@ class stat_config
 {
 public:
 	/** Reads the JSON statistics node */
-	bool deserialize_json (boost::property_tree::ptree & tree_a);
+	nano::error deserialize_json (nano::jsonconfig & json);
 
 	/** If true, sampling of counters is enabled */
 	bool sampling_enabled{ false };
@@ -63,7 +65,7 @@ public:
 	std::chrono::system_clock::time_point timestamp{ std::chrono::system_clock::now () };
 
 	/** Add \addend to the current value and optionally update the timestamp */
-	inline void add (uint64_t addend, bool update_timestamp = true)
+	void add (uint64_t addend, bool update_timestamp = true)
 	{
 		value += addend;
 		if (update_timestamp)
@@ -139,7 +141,7 @@ public:
 	}
 
 	/** Returns a reference to the log entry counter */
-	inline size_t & entries ()
+	size_t & entries ()
 	{
 		return log_entries;
 	}
@@ -207,6 +209,7 @@ public:
 		change,
 		state_block,
 		epoch_block,
+		fork,
 
 		// message specific
 		keepalive,
@@ -219,6 +222,7 @@ public:
 		// bootstrap, callback
 		initiate,
 		initiate_lazy,
+		initiate_wallet_lazy,
 
 		// bootstrap specific
 		bulk_pull,
@@ -272,7 +276,7 @@ public:
 	 * Call this to override the default sample interval and capacity, for a specific stat entry.
 	 * This must be called before any stat entries are added, as part of the node initialiation.
 	 */
-	inline void configure (stat::type type, stat::detail detail, stat::dir dir, size_t interval, size_t capacity)
+	void configure (stat::type type, stat::detail detail, stat::dir dir, size_t interval, size_t capacity)
 	{
 		get_entry (key_of (type, detail, dir), interval, capacity);
 	}
@@ -280,32 +284,32 @@ public:
 	/**
 	 * Disables sampling for a given type/detail/dir combination
 	 */
-	inline void disable_sampling (stat::type type, stat::detail detail, stat::dir dir)
+	void disable_sampling (stat::type type, stat::detail detail, stat::dir dir)
 	{
 		auto entry = get_entry (key_of (type, detail, dir));
 		entry->sample_interval = 0;
 	}
 
 	/** Increments the given counter */
-	inline void inc (stat::type type, stat::dir dir = stat::dir::in)
+	void inc (stat::type type, stat::dir dir = stat::dir::in)
 	{
 		add (type, dir, 1);
 	}
 
 	/** Increments the counter for \detail, but doesn't update at the type level */
-	inline void inc_detail_only (stat::type type, stat::detail detail, stat::dir dir = stat::dir::in)
+	void inc_detail_only (stat::type type, stat::detail detail, stat::dir dir = stat::dir::in)
 	{
 		add (type, detail, dir, 1);
 	}
 
 	/** Increments the given counter */
-	inline void inc (stat::type type, stat::detail detail, stat::dir dir = stat::dir::in)
+	void inc (stat::type type, stat::detail detail, stat::dir dir = stat::dir::in)
 	{
 		add (type, detail, dir, 1);
 	}
 
 	/** Adds \p value to the given counter */
-	inline void add (stat::type type, stat::dir dir, uint64_t value)
+	void add (stat::type type, stat::dir dir, uint64_t value)
 	{
 		add (type, detail::all, dir, value);
 	}
@@ -320,7 +324,7 @@ public:
 	 * @param value The amount to add
 	 * @param detail_only If true, only update the detail-level counter
 	 */
-	inline void add (stat::type type, stat::detail detail, stat::dir dir, uint64_t value, bool detail_only = false)
+	void add (stat::type type, stat::detail detail, stat::dir dir, uint64_t value, bool detail_only = false)
 	{
 		constexpr uint32_t no_detail_mask = 0xffff00ff;
 		uint32_t key = key_of (type, detail, dir);
@@ -340,12 +344,12 @@ public:
 	 * To avoid recursion, the observer callback must only use the received data point snapshop, not query the stat object.
 	 * @param observer The observer receives a snapshot of the current samples.
 	 */
-	inline void observe_sample (stat::type type, stat::detail detail, stat::dir dir, std::function<void(boost::circular_buffer<stat_datapoint> &)> observer)
+	void observe_sample (stat::type type, stat::detail detail, stat::dir dir, std::function<void(boost::circular_buffer<stat_datapoint> &)> observer)
 	{
 		get_entry (key_of (type, detail, dir))->sample_observers.add (observer);
 	}
 
-	inline void observe_sample (stat::type type, stat::dir dir, std::function<void(boost::circular_buffer<stat_datapoint> &)> observer)
+	void observe_sample (stat::type type, stat::dir dir, std::function<void(boost::circular_buffer<stat_datapoint> &)> observer)
 	{
 		observe_sample (type, stat::detail::all, dir, observer);
 	}
@@ -355,25 +359,25 @@ public:
 	 * To avoid recursion, the observer callback must only use the received counts, not query the stat object.
 	 * @param observer The observer receives the old and the new count.
 	 */
-	inline void observe_count (stat::type type, stat::detail detail, stat::dir dir, std::function<void(uint64_t, uint64_t)> observer)
+	void observe_count (stat::type type, stat::detail detail, stat::dir dir, std::function<void(uint64_t, uint64_t)> observer)
 	{
 		get_entry (key_of (type, detail, dir))->count_observers.add (observer);
 	}
 
 	/** Returns a potentially empty list of the last N samples, where N is determined by the 'capacity' configuration */
-	inline boost::circular_buffer<stat_datapoint> * samples (stat::type type, stat::detail detail, stat::dir dir)
+	boost::circular_buffer<stat_datapoint> * samples (stat::type type, stat::detail detail, stat::dir dir)
 	{
 		return &get_entry (key_of (type, detail, dir))->samples;
 	}
 
 	/** Returns current value for the given counter at the type level */
-	inline uint64_t count (stat::type type, stat::dir dir = stat::dir::in)
+	uint64_t count (stat::type type, stat::dir dir = stat::dir::in)
 	{
 		return count (type, stat::detail::all, dir);
 	}
 
 	/** Returns current value for the given counter at the detail level */
-	inline uint64_t count (stat::type type, stat::detail detail, stat::dir dir = stat::dir::in)
+	uint64_t count (stat::type type, stat::detail detail, stat::dir dir = stat::dir::in)
 	{
 		return get_entry (key_of (type, detail, dir))->counter.value;
 	}
@@ -396,7 +400,7 @@ private:
 	static std::string dir_to_string (uint32_t key);
 
 	/** Constructs a key given type, detail and direction. This is used as input to update(...) and get_entry(...) */
-	inline uint32_t key_of (stat::type type, stat::detail detail, stat::dir dir) const
+	uint32_t key_of (stat::type type, stat::detail detail, stat::dir dir) const
 	{
 		return static_cast<uint8_t> (type) << 16 | static_cast<uint8_t> (detail) << 8 | static_cast<uint8_t> (dir);
 	}

@@ -12,6 +12,7 @@
 #include <nano/secure/ledger.hpp>
 
 #include <condition_variable>
+#include <queue>
 
 #include <boost/iostreams/device/array.hpp>
 #include <boost/multi_index/hashed_index.hpp>
@@ -50,8 +51,8 @@ public:
 class election : public std::enable_shared_from_this<nano::election>
 {
 	std::function<void(std::shared_ptr<nano::block>)> confirmation_action;
-	void confirm_once (nano::transaction const &);
-	void confirm_back (nano::transaction const &);
+	void confirm_once (nano::transaction const &, uint8_t &);
+	void confirm_back (nano::transaction const &, uint8_t &);
 
 public:
 	election (nano::node &, std::shared_ptr<nano::block>, std::function<void(std::shared_ptr<nano::block>)> const &);
@@ -69,7 +70,6 @@ public:
 	nano::node & node;
 	std::unordered_map<nano::account, nano::vote_info> last_votes;
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> blocks;
-	nano::block_hash root;
 	std::chrono::steady_clock::time_point election_start;
 	nano::election_status status;
 	std::atomic<bool> confirmed;
@@ -80,7 +80,7 @@ public:
 class conflict_info
 {
 public:
-	nano::block_hash root;
+	nano::uint512_union root;
 	uint64_t difficulty;
 	std::shared_ptr<nano::election> election;
 };
@@ -108,7 +108,7 @@ public:
 	nano::conflict_info,
 	boost::multi_index::indexed_by<
 	boost::multi_index::hashed_unique<
-	boost::multi_index::member<nano::conflict_info, nano::block_hash, &nano::conflict_info::root>>,
+	boost::multi_index::member<nano::conflict_info, nano::uint512_union, &nano::conflict_info::root>>,
 	boost::multi_index::ordered_non_unique<
 	boost::multi_index::member<nano::conflict_info, uint64_t, &nano::conflict_info::difficulty>,
 	std::greater<uint64_t>>>>
@@ -123,15 +123,15 @@ public:
 	static unsigned constexpr announcement_min = 2;
 	// Threshold to start logging blocks haven't yet been confirmed
 	static unsigned constexpr announcement_long = 20;
-	static unsigned constexpr announce_interval_ms = (nano::nano_network == nano::nano_networks::nano_test_network) ? 10 : 16000;
+	static unsigned constexpr request_interval_ms = (nano::nano_network == nano::nano_networks::nano_test_network) ? 10 : 16000;
 	static size_t constexpr election_history_size = 2048;
 	static size_t constexpr max_broadcast_queue = 1000;
 
 private:
 	// Call action with confirmed block, may be different than what we started with
 	bool add (std::shared_ptr<nano::block>, std::function<void(std::shared_ptr<nano::block>)> const & = [](std::shared_ptr<nano::block>) {});
-	void announce_loop ();
-	void announce_votes (std::unique_lock<std::mutex> &);
+	void request_loop ();
+	void request_confirm (std::unique_lock<std::mutex> &);
 	std::condition_variable condition;
 	bool started;
 	bool stopped;
@@ -168,7 +168,7 @@ class gap_cache
 {
 public:
 	gap_cache (nano::node &);
-	void add (nano::transaction const &, std::shared_ptr<nano::block>);
+	void add (nano::transaction const &, nano::block_hash const &, std::chrono::steady_clock::time_point = std::chrono::steady_clock::now ());
 	void vote (std::shared_ptr<nano::vote>);
 	nano::uint128_t bootstrap_threshold (nano::transaction const &);
 	boost::multi_index_container<
@@ -410,6 +410,12 @@ private:
 	std::condition_variable condition;
 	std::thread thread;
 };
+class rolled_hash
+{
+public:
+	std::chrono::steady_clock::time_point time;
+	nano::block_hash hash;
+};
 // Processing blocks is a potentially long IO operation
 // This class isolates block insertion from other operations like servicing network operations
 class block_processor
@@ -429,7 +435,7 @@ public:
 
 private:
 	void queue_unchecked (nano::transaction const &, nano::block_hash const &, std::chrono::steady_clock::time_point = std::chrono::steady_clock::time_point ());
-	void verify_state_blocks (std::unique_lock<std::mutex> &, size_t = std::numeric_limits<size_t>::max ());
+	void verify_state_blocks (nano::transaction const & transaction_a, std::unique_lock<std::mutex> &, size_t = std::numeric_limits<size_t>::max ());
 	void process_batch (std::unique_lock<std::mutex> &);
 	bool stopped;
 	bool active;
@@ -438,6 +444,13 @@ private:
 	std::deque<std::pair<std::shared_ptr<nano::block>, std::chrono::steady_clock::time_point>> blocks;
 	std::unordered_set<nano::block_hash> blocks_hashes;
 	std::deque<std::shared_ptr<nano::block>> forced;
+	boost::multi_index_container<
+	nano::rolled_hash,
+	boost::multi_index::indexed_by<
+	boost::multi_index::ordered_non_unique<boost::multi_index::member<nano::rolled_hash, std::chrono::steady_clock::time_point, &nano::rolled_hash::time>>,
+	boost::multi_index::hashed_unique<boost::multi_index::member<nano::rolled_hash, nano::block_hash, &nano::rolled_hash::hash>>>>
+	rolled_back;
+	static size_t const rolled_back_max = 1024;
 	std::condition_variable condition;
 	nano::node & node;
 	nano::vote_generator generator;
@@ -456,7 +469,7 @@ public:
 	}
 	void send_keepalive (nano::endpoint const &);
 	bool copy_with_compaction (boost::filesystem::path const &);
-	void keepalive (std::string const &, uint16_t);
+	void keepalive (std::string const &, uint16_t, bool = false);
 	void start ();
 	void stop ();
 	std::shared_ptr<nano::node> shared ();
@@ -480,6 +493,7 @@ public:
 	void ongoing_store_flush ();
 	void backup_wallet ();
 	void search_pending ();
+	void bootstrap_wallet ();
 	int price (nano::uint128_t const &, int);
 	void work_generate_blocking (nano::block &, uint64_t = nano::work_pool::publish_threshold);
 	uint64_t work_generate_blocking (nano::uint256_union const &, uint64_t = nano::work_pool::publish_threshold);
@@ -521,6 +535,7 @@ public:
 	nano::keypair node_id;
 	nano::block_uniquer block_uniquer;
 	nano::vote_uniquer vote_uniquer;
+	const std::chrono::steady_clock::time_point startup_time;
 	static double constexpr price_max = 16.0;
 	static double constexpr free_cutoff = 1024.0;
 	static std::chrono::seconds constexpr period = std::chrono::seconds (60);

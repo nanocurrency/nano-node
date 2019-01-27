@@ -10,7 +10,7 @@
 
 #include <unordered_map>
 
-#include <blake2/blake2.h>
+#include <crypto/blake2/blake2.h>
 
 namespace boost
 {
@@ -20,6 +20,15 @@ struct hash<::nano::uint256_union>
 	size_t operator() (::nano::uint256_union const & value_a) const
 	{
 		std::hash<::nano::uint256_union> hash;
+		return hash (value_a);
+	}
+};
+template <>
+struct hash<::nano::uint512_union>
+{
+	size_t operator() (::nano::uint512_union const & value_a) const
+	{
+		std::hash<::nano::uint512_union> hash;
 		return hash (value_a);
 	}
 };

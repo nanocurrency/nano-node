@@ -32,7 +32,7 @@ public:
 class mdb_env
 {
 public:
-	mdb_env (bool &, boost::filesystem::path const &, int max_dbs = 128);
+	mdb_env (bool &, boost::filesystem::path const &, int max_dbs = 128, size_t map_size = 128ULL * 1024 * 1024 * 1024);
 	~mdb_env ();
 	operator MDB_env * () const;
 	nano::transaction tx_begin (bool = false) const;
@@ -224,10 +224,6 @@ public:
 	nano::store_iterator<nano::unchecked_key, std::shared_ptr<nano::block>> unchecked_end () override;
 	size_t unchecked_count (nano::transaction const &) override;
 
-	void checksum_put (nano::transaction const &, uint64_t, uint8_t, nano::checksum const &) override;
-	bool checksum_get (nano::transaction const &, uint64_t, uint8_t, nano::checksum &) override;
-	void checksum_del (nano::transaction const &, uint64_t, uint8_t) override;
-
 	// Return latest vote for an account from store
 	std::shared_ptr<nano::vote> vote_get (nano::transaction const &, nano::account const &) override;
 	// Populate vote with the next sequence number
@@ -257,8 +253,10 @@ public:
 	void upgrade_v8_to_v9 (nano::transaction const &);
 	void upgrade_v9_to_v10 (nano::transaction const &);
 	void upgrade_v10_to_v11 (nano::transaction const &);
+	void upgrade_v11_to_v12 (nano::transaction const &);
 	void do_slow_upgrades ();
-	void upgrade_v11_to_v12 ();
+	void upgrade_v12_to_v13 ();
+	bool full_sideband (nano::transaction const &);
 
 	// Requires a write transaction
 	nano::raw_key get_node_id (nano::transaction const &) override;
@@ -357,12 +355,6 @@ public:
 	MDB_dbi unchecked;
 
 	/**
-	 * Mapping of region to checksum.
-	 * (uint56_t, uint8_t) -> nano::block_hash
-	 */
-	MDB_dbi checksum;
-
-	/**
 	 * Highest vote observed for account.
 	 * nano::account -> uint64_t
 	 */
@@ -375,7 +367,6 @@ public:
 	MDB_dbi meta;
 
 private:
-	bool full_sideband (nano::transaction const &);
 	bool entry_has_sideband (MDB_val, nano::block_type);
 	nano::account block_account_computed (nano::transaction const &, nano::block_hash const &);
 	nano::uint128_t block_balance_computed (nano::transaction const &, nano::block_hash const &);

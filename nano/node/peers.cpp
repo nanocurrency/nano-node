@@ -443,11 +443,11 @@ bool nano::peer_container::reachout (nano::endpoint const & endpoint_a)
 	return error;
 }
 
-bool nano::peer_container::insert (nano::endpoint const & endpoint_a, unsigned version_a)
+bool nano::peer_container::insert (nano::endpoint const & endpoint_a, unsigned version_a, bool preconfigured_a)
 {
 	assert (endpoint_a.address ().is_v6 ());
 	auto unknown (false);
-	auto result (not_a_peer (endpoint_a, false));
+	auto result (!preconfigured_a && not_a_peer (endpoint_a, false));
 	if (!result)
 	{
 		if (version_a >= nano::protocol_version_min)
