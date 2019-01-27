@@ -81,7 +81,5 @@ run_tests() {
     return ${core_test_res}
 }
 
-
-
 cd ${build_dir}
 run_tests
