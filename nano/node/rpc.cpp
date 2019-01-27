@@ -3399,26 +3399,27 @@ void nano::rpc_handler::wallet_history ()
 	if (!ec)
 	{
 		std::multimap<uint64_t, boost::property_tree::ptree, std::greater<uint64_t>> entries;
-		auto transaction (node.store.tx_begin_read ());
+		auto transaction (node.wallets.tx_begin_read ());
+		auto block_transaction (node.store.tx_begin_read ());
 		for (auto i (wallet->store.begin (transaction)), n (wallet->store.end ()); i != n; ++i)
 		{
 			nano::account account (i->first);
 			nano::account_info info;
-			if (!node.store.account_get (transaction, account, info))
+			if (!node.store.account_get (block_transaction, account, info))
 			{
 				auto timestamp (info.modified);
 				auto hash (info.head);
 				while (timestamp >= modified_since && timestamp != std::numeric_limits<uint32_t>::max () && !hash.is_zero ())
 				{
 					nano::block_sideband sideband;
-					auto block (node.store.block_get (transaction, hash, &sideband));
+					auto block (node.store.block_get (block_transaction, hash, &sideband));
 					timestamp = sideband.timestamp;
 					if (block != nullptr && timestamp >= modified_since && timestamp != std::numeric_limits<uint64_t>::max ())
 					{
 						boost::property_tree::ptree entry;
 						entry.put ("wallet_account", account.to_account ());
 						entry.put ("hash", hash.to_string ());
-						history_visitor visitor (*this, false, transaction, entry, hash);
+						history_visitor visitor (*this, false, block_transaction, entry, hash);
 						block->visit (visitor);
 						entry.put ("local_timestamp", std::to_string (timestamp));
 						entries.insert (std::make_pair (timestamp, entry));
