@@ -1302,7 +1302,7 @@ void nano::wallet::work_cache_blocking (nano::account const & account_a, nano::b
 nano::wallets::wallets (bool & error_a, nano::node & node_a) :
 observer ([](bool) {}),
 node (node_a),
-env (boost::polymorphic_downcast<nano::mdb_store *> (node_a.store_impl.get ())->env),
+env (boost::polymorphic_downcast<nano::mdb_wallets_store *> (node_a.wallets_store_impl.get ())->environment),
 stopped (false),
 thread ([this]() {
 	nano::thread_role::set (nano::thread_role::name::wallet_actions);
@@ -1314,6 +1314,7 @@ thread ([this]() {
 	{
 		auto transaction (tx_begin_write ());
 		auto status (mdb_dbi_open (env.tx (transaction), nullptr, MDB_CREATE, &handle));
+		split_if_needed (transaction, node.store);
 		status |= mdb_dbi_open (env.tx (transaction), "send_action_ids", MDB_CREATE, &send_action_ids);
 		assert (status == 0);
 		std::string beginning (nano::uint256_union (0).to_string ());
@@ -1338,9 +1339,9 @@ thread ([this]() {
 			}
 		}
 	}
-	for (auto i (items.begin ()), n (items.end ()); i != n; ++i)
+	for (auto & item : items)
 	{
-		i->second->enter_initial_password ();
+		item.second->enter_initial_password ();
 	}
 	if (node_a.config.enable_voting)
 	{
@@ -1616,6 +1617,57 @@ void nano::wallets::ongoing_compute_reps ()
 	});
 }
 
+void nano::wallets::split_if_needed (nano::transaction & transaction_destination, nano::block_store & store_a)
+{
+	auto store_l (dynamic_cast<nano::mdb_store *> (&store_a));
+	if (store_l != nullptr)
+	{
+		auto transaction_source (store_l->tx_begin_write ());
+		MDB_txn * tx_source (*boost::polymorphic_downcast<nano::mdb_txn *> (transaction_source.impl.get ()));
+		if (items.empty ())
+		{
+			MDB_txn * tx_destination (*boost::polymorphic_downcast<nano::mdb_txn *> (transaction_destination.impl.get ()));
+			std::string beginning (nano::uint256_union (0).to_string ());
+			std::string end ((nano::uint256_union (nano::uint256_t (0) - nano::uint256_t (1))).to_string ());
+			nano::store_iterator<std::array<char, 64>, nano::mdb_val::no_value> i (std::make_unique<nano::mdb_iterator<std::array<char, 64>, nano::mdb_val::no_value>> (transaction_source, handle, nano::mdb_val (beginning.size (), const_cast<char *> (beginning.c_str ()))));
+			nano::store_iterator<std::array<char, 64>, nano::mdb_val::no_value> n (std::make_unique<nano::mdb_iterator<std::array<char, 64>, nano::mdb_val::no_value>> (transaction_source, handle, nano::mdb_val (end.size (), const_cast<char *> (end.c_str ()))));
+			for (; i != n; ++i)
+			{
+				nano::uint256_union id;
+				std::string text (i->first.data (), i->first.size ());
+				auto error1 (id.decode_hex (text));
+				assert (!error1);
+				assert (strlen (text.c_str ()) == text.size ());
+				move_table (text, tx_source, tx_destination);
+			}
+		}
+	}
+}
+
+void nano::wallets::move_table (std::string const & name_a, MDB_txn * tx_source, MDB_txn * tx_destination)
+{
+	MDB_dbi handle_source;
+	auto error2 (mdb_dbi_open (tx_source, name_a.c_str (), MDB_CREATE, &handle_source));
+	assert (!error2);
+	MDB_dbi handle_destination;
+	auto error3 (mdb_dbi_open (tx_destination, name_a.c_str (), MDB_CREATE, &handle_destination));
+	assert (!error3);
+	MDB_cursor * cursor;
+	auto error4 (mdb_cursor_open (tx_source, handle_source, &cursor));
+	assert (!error4);
+	MDB_val val_key;
+	MDB_val val_value;
+	auto cursor_status (mdb_cursor_get (cursor, &val_key, &val_value, MDB_FIRST));
+	while (cursor_status == MDB_SUCCESS)
+	{
+		auto error5 (mdb_put (tx_destination, handle_destination, &val_key, &val_value, 0));
+		assert (!error5);
+		cursor_status = mdb_cursor_get (cursor, &val_key, &val_value, MDB_NEXT);
+	}
+	auto error6 (mdb_drop (tx_source, handle_source, 1));
+	assert (!error6);
+}
+
 nano::uint128_t const nano::wallets::generate_priority = std::numeric_limits<nano::uint128_t>::max ();
 nano::uint128_t const nano::wallets::high_priority = std::numeric_limits<nano::uint128_t>::max () - 1;
 
@@ -1657,7 +1709,10 @@ nano::store_iterator<nano::uint256_union, nano::wallet_value> nano::wallet_store
 {
 	return nano::store_iterator<nano::uint256_union, nano::wallet_value> (nullptr);
 }
-
+nano::mdb_wallets_store::mdb_wallets_store (bool & error_a, boost::filesystem::path const & path_a, int lmdb_max_dbs) :
+environment (error_a, path_a, lmdb_max_dbs, 1ULL * 1024 * 1024 * 1024)
+{
+}
 MDB_txn * nano::wallet_store::tx (nano::transaction const & transaction_a) const
 {
 	auto result (boost::polymorphic_downcast<nano::mdb_txn *> (transaction_a.impl.get ()));
