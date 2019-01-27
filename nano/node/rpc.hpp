@@ -140,7 +140,7 @@ public:
 	void accounts_frontiers ();
 	void accounts_pending ();
 	void available_supply ();
-	void block ();
+	void block_info ();
 	void block_confirm ();
 	void blocks ();
 	void blocks_info ();
