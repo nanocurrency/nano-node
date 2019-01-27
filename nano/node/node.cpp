@@ -1617,7 +1617,8 @@ nano::process_return nano::block_processor::process_one (nano::transaction const
 			if (info_a.modified < nano::seconds_since_epoch () - 15)
 			{
 				// Only let the bootstrap attempt know about forked blocks that not originate recently.
-				node.process_fork (transaction_a, info_a.block);
+				node.process_fork (transaction_a, info_a.block_a);
+				node.stats.inc (nano::stat::type::ledger, nano::stat::detail::fork, nano::stat::dir::in);
 			}
 			if (node.config.logging.ledger_logging ())
 			{
@@ -1711,7 +1712,8 @@ block_processor_thread ([this]() {
 }),
 online_reps (*this),
 stats (config.stat_config),
-vote_uniquer (block_uniquer)
+vote_uniquer (block_uniquer),
+startup_time (std::chrono::steady_clock::now ())
 {
 	wallets.observer = [this](bool active) {
 		observers.wallet.notify (active);
@@ -2342,6 +2344,9 @@ void nano::node::backup_wallet ()
 
 void nano::node::search_pending ()
 {
+	// Reload wallets from disk
+	wallets.reload ();
+	// Search pending
 	wallets.search_pending_all ();
 	auto this_l (shared ());
 	alarm.add (std::chrono::steady_clock::now () + search_pending_interval, [this_l]() {
