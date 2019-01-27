@@ -11,6 +11,7 @@
 #include <nano/node/wallet.hpp>
 #include <nano/secure/ledger.hpp>
 
+#include <atomic>
 #include <condition_variable>
 #include <queue>
 
@@ -319,7 +320,7 @@ public:
 	boost::asio::ip::udp::resolver resolver;
 	std::vector<boost::thread> packet_processing_threads;
 	nano::node & node;
-	bool on;
+	std::atomic<bool> on;
 	static uint16_t const node_port = nano::nano_network == nano::nano_networks::nano_live_network ? 7075 : 54000;
 	static size_t const buffer_size = 512;
 };
