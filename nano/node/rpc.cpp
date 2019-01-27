@@ -3543,17 +3543,26 @@ void nano::rpc_handler::wallet_representative_set ()
 		nano::account representative;
 		if (!representative.decode_account (representative_text))
 		{
+			bool update_existing_accounts (request.get<bool> ("update_existing_accounts", false));
 			{
 				auto transaction (node.wallets.tx_begin_write ());
-				wallet->store.representative_set (transaction, representative);
+				if (wallet->store.valid_password (transaction) || !update_existing_accounts)
+				{
+					wallet->store.representative_set (transaction, representative);
+					response_l.put ("set", "1");
+				}
+				else
+				{
+					ec = nano::error_common::wallet_locked;
+				}
 			}
 			// Change representative for all wallet accounts
-			if (request.get<bool> ("update_existing_accounts", false))
+			if (!ec && update_existing_accounts)
 			{
 				std::vector<nano::account> accounts;
 				{
 					auto transaction (node.wallets.tx_begin_read ());
-					auto block_transaction (node.store.tx_begin_write ());
+					auto block_transaction (node.store.tx_begin_read ());
 					for (auto i (wallet->store.begin (transaction)), n (wallet->store.end ()); i != n; ++i)
 					{
 						nano::account account (i->first);
@@ -3574,7 +3583,6 @@ void nano::rpc_handler::wallet_representative_set ()
 					wallet->change_async (account, representative, [](std::shared_ptr<nano::block>) {}, 0, false);
 				}
 			}
-			response_l.put ("set", "1");
 		}
 		else
 		{
