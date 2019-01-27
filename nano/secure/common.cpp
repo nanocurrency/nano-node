@@ -6,6 +6,7 @@
 #include <nano/secure/blockstore.hpp>
 #include <nano/secure/versioning.hpp>
 
+#include <boost/endian/conversion.hpp>
 #include <boost/property_tree/json_parser.hpp>
 
 #include <queue>

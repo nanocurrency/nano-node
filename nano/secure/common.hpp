@@ -8,8 +8,6 @@
 #include <boost/property_tree/ptree.hpp>
 #include <boost/variant.hpp>
 
-#include <boost/endian/conversion.hpp>
-
 #include <unordered_map>
 
 #include <crypto/blake2/blake2.h>
