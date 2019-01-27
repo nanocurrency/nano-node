@@ -408,6 +408,10 @@ private:
 	bool verify_batch (const nano::signature_check_set & check_a, unsigned index, unsigned size);
 	void verify_threaded (nano::signature_check_set & check_a);
 	boost::asio::thread_pool pool;
+
+	// minimum signature_check_set size eligible to be multithreaded
+	unsigned multithreaded_cutoff;
+
 	std::deque<nano::signature_check_set> checks;
 	bool started;
 	bool stopped;

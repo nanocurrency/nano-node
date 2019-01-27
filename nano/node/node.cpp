@@ -1110,6 +1110,7 @@ signature_checker (std::thread::hardware_concurrency ())
 
 nano::signature_checker::signature_checker (unsigned nr_threads) :
 pool (nr_threads),
+multithreaded_cutoff(513),
 started (false),
 stopped (false),
 thread ([this]() { run (); })
@@ -1176,7 +1177,7 @@ void nano::signature_checker::verify_threaded (nano::signature_check_set & check
 
 	for (unsigned int batch = 0; batch < batches; ++batch)
 	{
-		int size = batch_size - 1;
+		int size = batch_size;
 		int index = batch * batch_size;
 
 		// Clamp it to the max number of verifications
@@ -1196,7 +1197,7 @@ void nano::signature_checker::verify_threaded (nano::signature_check_set & check
 
 void nano::signature_checker::verify (nano::signature_check_set & check_a)
 {
-	if (check_a.size <= 512)
+	if (check_a.size <= multithreaded_cutoff)
 		release_assert (verify_batch (check_a, 0, check_a.size));
 	else
 		verify_threaded (check_a);
