@@ -91,6 +91,7 @@ TEST (wallets, upgrade)
 		auto transaction_source (node1->wallets.env.tx_begin (true));
 		MDB_txn * tx_source (*boost::polymorphic_downcast<nano::mdb_txn *> (transaction_source.impl.get ()));
 		node1->wallets.move_table (id.pub.to_string (), tx_source, tx_destination);
+		node1->store.version_put (transaction_destination, 11);
 	}
 	nano::node_init init1;
 	auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, 24001, path, system.alarm, system.logging, system.work));

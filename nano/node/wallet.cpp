@@ -1570,7 +1570,7 @@ void nano::wallets::split_if_needed (nano::transaction & transaction_destination
 	{
 		auto transaction_source (store_l->tx_begin_write ());
 		MDB_txn * tx_source (*boost::polymorphic_downcast<nano::mdb_txn *> (transaction_source.impl.get ()));
-		if (store_a.version_get (transaction_source) < 13)
+		if (items.empty ())
 		{
 			MDB_txn * tx_destination (*boost::polymorphic_downcast<nano::mdb_txn *> (transaction_destination.impl.get ()));
 			std::string beginning (nano::uint256_union (0).to_string ());
