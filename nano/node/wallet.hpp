@@ -178,6 +178,8 @@ public:
 	bool exists (nano::transaction const &, nano::public_key const &);
 	void stop ();
 	void clear_send_ids (nano::transaction const &);
+	void split_if_needed (nano::transaction &, nano::block_store &);
+	void move_table (std::string const &, MDB_txn *, MDB_txn *);
 	std::function<void(bool)> observer;
 	std::unordered_map<nano::uint256_union, std::shared_ptr<nano::wallet>> items;
 	std::multimap<nano::uint128_t, std::pair<std::shared_ptr<nano::wallet>, std::function<void(nano::wallet &)>>, std::greater<nano::uint128_t>> actions;
@@ -204,5 +206,16 @@ public:
 	 * @param write If true, start a read-write transaction
 	 */
 	nano::transaction tx_begin (bool write = false);
+};
+class wallets_store
+{
+public:
+	virtual ~wallets_store () = default;
+};
+class mdb_wallets_store : public wallets_store
+{
+public:
+	mdb_wallets_store (bool &, boost::filesystem::path const &, int lmdb_max_dbs = 128);
+	nano::mdb_env environment;
 };
 }

@@ -778,7 +778,7 @@ wallet_init (false)
 
 bool nano::node_init::error ()
 {
-	return block_store_init || wallet_init;
+	return block_store_init || wallet_init || wallets_store_init;
 }
 
 nano::vote_processor::vote_processor (nano::node & node_a) :
@@ -1630,6 +1630,8 @@ alarm (alarm_a),
 work (work_a),
 store_impl (std::make_unique<nano::mdb_store> (init_a.block_store_init, config.logging, application_path_a / "data.ldb", config_a.lmdb_max_dbs)),
 store (*store_impl),
+wallets_store_impl (std::make_unique<nano::mdb_wallets_store> (init_a.wallets_store_init, application_path_a / "wallets.ldb", config_a.lmdb_max_dbs)),
+wallets_store (*wallets_store_impl),
 gap_cache (*this),
 ledger (store, stats, config.epoch_block_link, config.epoch_block_signer),
 active (*this),
@@ -1638,7 +1640,7 @@ bootstrap_initiator (*this),
 bootstrap (io_ctx_a, config.peering_port, *this),
 peers (network.endpoint ()),
 application_path (application_path_a),
-wallets (init_a.block_store_init, *this),
+wallets (init_a.wallet_init, *this),
 port_mapping (*this),
 vote_processor (*this),
 warmed_up (0),
@@ -2292,7 +2294,7 @@ void nano::node::bootstrap_wallet ()
 	std::deque<nano::account> accounts;
 	{
 		std::lock_guard<std::mutex> lock (wallets.mutex);
-		auto transaction (store.tx_begin_read ());
+		auto transaction (wallets.tx_begin_read ());
 		for (auto i (wallets.items.begin ()), n (wallets.items.end ()); i != n && accounts.size () < 128; ++i)
 		{
 			auto & wallet (*i->second);
