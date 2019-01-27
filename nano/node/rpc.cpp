@@ -668,12 +668,13 @@ void nano::rpc_handler::account_representative_set ()
 			auto work (work_optional_impl ());
 			if (!ec && work)
 			{
-				auto transaction (node.store.tx_begin_write ());
+				auto transaction (node.wallets.tx_begin_write ());
 				wallet_locked_impl (transaction, wallet);
 				if (!ec)
 				{
 					nano::account_info info;
-					if (!node.store.account_get (transaction, account, info))
+					auto block_transaction (node.store.tx_begin_read ());
+					if (!node.store.account_get (block_transaction, account, info))
 					{
 						if (nano::work_validate (info.head, work))
 						{
@@ -2538,22 +2539,23 @@ void nano::rpc_handler::receive ()
 	auto hash (hash_impl ("block"));
 	if (!ec)
 	{
-		auto transaction (node.store.tx_begin_read ());
+		auto transaction (node.wallets.tx_begin_read ());
 		wallet_locked_impl (transaction, wallet);
 		wallet_account_impl (transaction, wallet, account);
 		if (!ec)
 		{
-			auto block (node.store.block_get (transaction, hash));
+			auto block_transaction (node.store.tx_begin_read ());
+			auto block (node.store.block_get (block_transaction, hash));
 			if (block != nullptr)
 			{
-				if (node.store.pending_exists (transaction, nano::pending_key (account, hash)))
+				if (node.store.pending_exists (block_transaction, nano::pending_key (account, hash)))
 				{
 					auto work (work_optional_impl ());
 					if (!ec && work)
 					{
 						nano::account_info info;
 						nano::uint256_union head;
-						if (!node.store.account_get (transaction, account, info))
+						if (!node.store.account_get (block_transaction, account, info))
 						{
 							head = info.head;
 						}
@@ -3013,7 +3015,7 @@ void nano::rpc_handler::sign ()
 				auto wallet (wallet_impl ());
 				if (!ec)
 				{
-					auto transaction (node.store.tx_begin_read ());
+					auto transaction (node.wallets.tx_begin_read ());
 					wallet_locked_impl (transaction, wallet);
 					wallet_account_impl (transaction, wallet, account);
 					if (!ec)
