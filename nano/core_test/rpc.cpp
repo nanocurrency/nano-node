@@ -334,7 +334,7 @@ TEST (rpc, send_fail)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	done = true;
-	ASSERT_EQ (response.json.get<std::string> ("error"), "Error generating block");
+	ASSERT_EQ (response.json.get<std::string> ("error"), "Account not found in wallet");
 	thread2.join ();
 }
 
@@ -708,6 +708,38 @@ TEST (rpc, wallet_create)
 	ASSERT_NE (system.nodes[0]->wallets.items.end (), system.nodes[0]->wallets.items.find (wallet_id));
 }
 
+TEST (rpc, wallet_create_seed)
+{
+	nano::system system (24000, 1);
+	nano::rpc rpc (system.io_ctx, *system.nodes[0], nano::rpc_config (true));
+	rpc.start ();
+	boost::property_tree::ptree request;
+	request.put ("action", "wallet_create");
+	nano::keypair seed;
+	request.put ("seed", seed.pub.to_string ());
+	test_response response (request, rpc, system.io_ctx);
+	while (response.status == 0)
+	{
+		system.poll ();
+	}
+	ASSERT_EQ (200, response.status);
+	std::string wallet_text (response.json.get<std::string> ("wallet"));
+	nano::uint256_union wallet_id;
+	ASSERT_FALSE (wallet_id.decode_hex (wallet_text));
+	auto existing (system.nodes[0]->wallets.items.find (wallet_id));
+	ASSERT_NE (system.nodes[0]->wallets.items.end (), existing);
+	{
+		auto transaction (system.nodes[0]->wallets.tx_begin_read ());
+		nano::raw_key seed0;
+		existing->second->store.seed (seed0, transaction);
+		ASSERT_EQ (seed.pub, seed0.data);
+	}
+	auto account_text (response.json.get<std::string> ("account"));
+	nano::uint256_union account;
+	ASSERT_FALSE (account.decode_account (account_text));
+	ASSERT_TRUE (existing->second->exists (account));
+}
+
 TEST (rpc, wallet_export)
 {
 	nano::system system (24000, 1);
@@ -891,6 +923,39 @@ TEST (rpc, chain_limit)
 	}
 	ASSERT_EQ (1, blocks.size ());
 	ASSERT_EQ (block->hash (), blocks[0]);
+}
+
+TEST (rpc, chain_offset)
+{
+	nano::system system (24000, 1);
+	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
+	nano::keypair key;
+	auto genesis (system.nodes[0]->latest (nano::test_genesis_key.pub));
+	ASSERT_FALSE (genesis.is_zero ());
+	auto block (system.wallet (0)->send_action (nano::test_genesis_key.pub, key.pub, 1));
+	ASSERT_NE (nullptr, block);
+	nano::rpc rpc (system.io_ctx, *system.nodes[0], nano::rpc_config (true));
+	rpc.start ();
+	boost::property_tree::ptree request;
+	request.put ("action", "chain");
+	request.put ("block", block->hash ().to_string ());
+	request.put ("count", std::to_string (std::numeric_limits<uint64_t>::max ()));
+	request.put ("offset", 1);
+	test_response response (request, rpc, system.io_ctx);
+	system.deadline_set (5s);
+	while (response.status == 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (200, response.status);
+	auto & blocks_node (response.json.get_child ("blocks"));
+	std::vector<nano::block_hash> blocks;
+	for (auto i (blocks_node.begin ()), n (blocks_node.end ()); i != n; ++i)
+	{
+		blocks.push_back (nano::block_hash (i->second.get<std::string> ("")));
+	}
+	ASSERT_EQ (1, blocks.size ());
+	ASSERT_EQ (genesis, blocks[0]);
 }
 
 TEST (rpc, frontier)
@@ -2270,6 +2335,16 @@ TEST (rpc, successors)
 	ASSERT_EQ (2, blocks.size ());
 	ASSERT_EQ (genesis, blocks[0]);
 	ASSERT_EQ (block->hash (), blocks[1]);
+	// RPC chain "reverse" option
+	request.put ("action", "chain");
+	request.put ("reverse", "true");
+	test_response response2 (request, rpc, system.io_ctx);
+	while (response2.status == 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (200, response2.status);
+	ASSERT_EQ (response.json, response2.json);
 }
 
 TEST (rpc, bootstrap_any)
@@ -3149,13 +3224,12 @@ TEST (rpc, blocks_info)
 		ASSERT_FALSE (pending.is_initialized ());
 		boost::optional<std::string> source (blocks.second.get_optional<std::string> ("source_account"));
 		ASSERT_FALSE (source.is_initialized ());
-		boost::optional<std::string> balance (blocks.second.get_optional<std::string> ("balance"));
-		ASSERT_FALSE (balance.is_initialized ());
+		std::string balance_text (blocks.second.get<std::string> ("balance"));
+		ASSERT_EQ (nano::genesis_amount.convert_to<std::string> (), balance_text);
 	}
 	// Test for optional values
 	request.put ("source", "true");
 	request.put ("pending", "1");
-	request.put ("balance", "true");
 	test_response response2 (request, rpc, system.io_ctx);
 	system.deadline_set (5s);
 	while (response2.status == 0)
@@ -3169,8 +3243,6 @@ TEST (rpc, blocks_info)
 		ASSERT_EQ ("0", source);
 		std::string pending (blocks.second.get<std::string> ("pending"));
 		ASSERT_EQ ("0", pending);
-		std::string balance_text (blocks.second.get<std::string> ("balance"));
-		ASSERT_EQ (nano::genesis_amount.convert_to<std::string> (), balance_text);
 	}
 }
 
@@ -3807,7 +3879,8 @@ TEST (rpc, online_reps)
 	nano::system system (24000, 2);
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	ASSERT_TRUE (system.nodes[1]->online_reps.online_stake () == system.nodes[1]->config.online_weight_minimum.number ());
-	system.wallet (0)->send_action (nano::test_genesis_key.pub, nano::test_genesis_key.pub, nano::Gxrb_ratio);
+	auto send_block (system.wallet (0)->send_action (nano::test_genesis_key.pub, nano::test_genesis_key.pub, nano::Gxrb_ratio));
+	ASSERT_NE (nullptr, send_block);
 	system.deadline_set (10s);
 	while (system.nodes[1]->online_reps.online_stake () == system.nodes[1]->config.online_weight_minimum.number ())
 	{
@@ -3819,7 +3892,6 @@ TEST (rpc, online_reps)
 	request.put ("action", "representatives_online");
 	test_response response (request, rpc, system.io_ctx);
 	system.deadline_set (5s);
-	system.deadline_set (5s);
 	while (response.status == 0)
 	{
 		ASSERT_NO_ERROR (system.poll ());
@@ -3828,9 +3900,13 @@ TEST (rpc, online_reps)
 	auto representatives (response.json.get_child ("representatives"));
 	auto item (representatives.begin ());
 	ASSERT_NE (representatives.end (), item);
-	ASSERT_EQ (nano::test_genesis_key.pub.to_account (), item->first);
+	ASSERT_EQ (nano::test_genesis_key.pub.to_account (), item->second.get<std::string> (""));
 	boost::optional<std::string> weight (item->second.get_optional<std::string> ("weight"));
 	ASSERT_FALSE (weight.is_initialized ());
+	while (system.nodes[1]->block (send_block->hash ()) == nullptr)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
 	//Test weight option
 	request.put ("weight", "true");
 	test_response response2 (request, rpc, system.io_ctx);
@@ -3849,10 +3925,22 @@ TEST (rpc, online_reps)
 	auto new_rep (system.wallet (1)->deterministic_insert ());
 	auto send (system.wallet (1)->send_action (nano::test_genesis_key.pub, new_rep, system.nodes[0]->config.receive_minimum.number ()));
 	ASSERT_NE (nullptr, send);
-	auto receive (system.wallet (1)->receive_action (static_cast<nano::send_block &> (*send), new_rep, system.nodes[0]->config.receive_minimum.number ()));
+	while (system.nodes[1]->block (send->hash ()) == nullptr)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	auto receive (system.wallet (1)->receive_action (*send, new_rep, system.nodes[0]->config.receive_minimum.number ()));
 	ASSERT_NE (nullptr, receive);
+	while (system.nodes[1]->block (receive->hash ()) == nullptr)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
 	auto change (system.wallet (1)->change_action (nano::test_genesis_key.pub, new_rep));
 	ASSERT_NE (nullptr, change);
+	while (system.nodes[1]->block (change->hash ()) == nullptr)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
 	system.deadline_set (5s);
 	while (system.nodes[1]->online_reps.list ().size () != 2)
 	{
@@ -3880,9 +3968,10 @@ TEST (rpc, online_reps)
 TEST (rpc, confirmation_history)
 {
 	nano::system system (24000, 1);
+	nano::keypair key;
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
-	auto block (system.wallet (0)->send_action (nano::test_genesis_key.pub, nano::test_genesis_key.pub, nano::Gxrb_ratio));
 	ASSERT_TRUE (system.nodes[0]->active.confirmed.empty ());
+	auto block (system.wallet (0)->send_action (nano::test_genesis_key.pub, key.pub, nano::Gxrb_ratio));
 	system.deadline_set (10s);
 	while (system.nodes[0]->active.confirmed.empty ())
 	{
@@ -3904,10 +3993,53 @@ TEST (rpc, confirmation_history)
 	ASSERT_NE (representatives.end (), item);
 	auto hash (item->second.get<std::string> ("hash"));
 	auto tally (item->second.get<std::string> ("tally"));
+	ASSERT_FALSE (item->second.get<std::string> ("duration", "").empty ());
+	ASSERT_FALSE (item->second.get<std::string> ("time", "").empty ());
 	ASSERT_EQ (block->hash ().to_string (), hash);
 	nano::amount tally_num;
 	tally_num.decode_dec (tally);
 	assert (tally_num == nano::genesis_amount || tally_num == (nano::genesis_amount - nano::Gxrb_ratio));
+	system.stop ();
+}
+
+TEST (rpc, confirmation_history_hash)
+{
+	nano::system system (24000, 1);
+	nano::keypair key;
+	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
+	ASSERT_TRUE (system.nodes[0]->active.confirmed.empty ());
+	auto send1 (system.wallet (0)->send_action (nano::test_genesis_key.pub, key.pub, nano::Gxrb_ratio));
+	auto send2 (system.wallet (0)->send_action (nano::test_genesis_key.pub, key.pub, nano::Gxrb_ratio));
+	auto send3 (system.wallet (0)->send_action (nano::test_genesis_key.pub, key.pub, nano::Gxrb_ratio));
+	system.deadline_set (10s);
+	while (system.nodes[0]->active.confirmed.size () != 3)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	nano::rpc rpc (system.io_ctx, *system.nodes[0], nano::rpc_config (true));
+	rpc.start ();
+	boost::property_tree::ptree request;
+	request.put ("action", "confirmation_history");
+	request.put ("hash", send2->hash ().to_string ());
+	test_response response (request, rpc, system.io_ctx);
+	system.deadline_set (5s);
+	while (response.status == 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (200, response.status);
+	auto representatives (response.json.get_child ("confirmations"));
+	ASSERT_EQ (representatives.size (), 1);
+	auto item (representatives.begin ());
+	ASSERT_NE (representatives.end (), item);
+	auto hash (item->second.get<std::string> ("hash"));
+	auto tally (item->second.get<std::string> ("tally"));
+	ASSERT_FALSE (item->second.get<std::string> ("duration", "").empty ());
+	ASSERT_FALSE (item->second.get<std::string> ("time", "").empty ());
+	ASSERT_EQ (send2->hash ().to_string (), hash);
+	nano::amount tally_num;
+	tally_num.decode_dec (tally);
+	assert (tally_num == nano::genesis_amount || tally_num == (nano::genesis_amount - nano::Gxrb_ratio) || tally_num == (nano::genesis_amount - 2 * nano::Gxrb_ratio) || tally_num == (nano::genesis_amount - 3 * nano::Gxrb_ratio));
 	system.stop ();
 }
 
@@ -3999,4 +4131,22 @@ TEST (rpc, node_id_delete)
 	auto transaction (system.nodes[0]->store.tx_begin_write ());
 	nano::keypair node_id (system.nodes[0]->store.get_node_id (transaction));
 	ASSERT_NE (node_id.pub.to_string (), system.nodes[0]->node_id.pub.to_string ());
+}
+
+TEST (rpc, uptime)
+{
+	nano::system system (24000, 1);
+	nano::rpc rpc (system.io_ctx, *system.nodes[0], nano::rpc_config (true));
+	rpc.start ();
+	boost::property_tree::ptree request;
+	request.put ("action", "uptime");
+	std::this_thread::sleep_for (std::chrono::seconds (1));
+	test_response response (request, rpc, system.io_ctx);
+	system.deadline_set (5s);
+	while (response.status == 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (200, response.status);
+	ASSERT_LE (1, response.json.get<int> ("seconds"));
 }

@@ -12,6 +12,7 @@
 #include <nano/secure/ledger.hpp>
 
 #include <condition_variable>
+#include <queue>
 
 #include <boost/iostreams/device/array.hpp>
 #include <boost/multi_index/hashed_index.hpp>
@@ -469,7 +470,7 @@ public:
 	}
 	void send_keepalive (nano::endpoint const &);
 	bool copy_with_compaction (boost::filesystem::path const &);
-	void keepalive (std::string const &, uint16_t);
+	void keepalive (std::string const &, uint16_t, bool = false);
 	void start ();
 	void stop ();
 	std::shared_ptr<nano::node> shared ();
@@ -537,6 +538,7 @@ public:
 	nano::keypair node_id;
 	nano::block_uniquer block_uniquer;
 	nano::vote_uniquer vote_uniquer;
+	const std::chrono::steady_clock::time_point startup_time;
 	static double constexpr price_max = 16.0;
 	static double constexpr free_cutoff = 1024.0;
 	static std::chrono::seconds constexpr period = std::chrono::seconds (60);

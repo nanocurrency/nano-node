@@ -72,7 +72,16 @@ balance_label (new QLabel),
 wallet (wallet_a)
 {
 	your_account_label->setStyleSheet ("font-weight: bold;");
-	version = new QLabel (boost::str (boost::format ("Version %1%.%2%") % NANO_VERSION_MAJOR % NANO_VERSION_MINOR).c_str ());
+	std::string network = "Live";
+	if (nano::nano_network == nano::nano_networks::nano_beta_network)
+	{
+		network = "Beta";
+	}
+	else if (nano::nano_network == nano::nano_networks::nano_test_network)
+	{
+		network = "Test";
+	}
+	version = new QLabel (boost::str (boost::format ("Version %1%.%2% %3% network") % NANO_VERSION_MAJOR % NANO_VERSION_MINOR % network).c_str ());
 	self_layout->addWidget (your_account_label);
 	self_layout->addStretch ();
 	self_layout->addWidget (version);
@@ -1419,6 +1428,8 @@ void nano_qt::wallet::change_rendering_ratio (nano::uint128_t const & rendering_
 {
 	application.postEvent (&processor, new eventloop_event ([this, rendering_ratio_a]() {
 		this->rendering_ratio = rendering_ratio_a;
+		auto balance_l (this->node.balance_pending (account));
+		this->self.set_balance_text (balance_l);
 		this->refresh ();
 	}));
 }
