@@ -887,8 +887,13 @@ void nano::mdb_store::do_upgrades (nano::transaction const & transaction_a, bool
 		case 10:
 			upgrade_v10_to_v11 (transaction_a);
 		case 11:
-			slow_upgrade = true;
+			// Signal the start of sideband upgrade
+			version_put (transaction_a, 12);
+			// [[fallthrough]];
 		case 12:
+			slow_upgrade = true;
+			break;
+		case 13:
 			break;
 		default:
 			assert (false);
@@ -1100,10 +1105,12 @@ void nano::mdb_store::do_slow_upgrades ()
 		case 8:
 		case 9:
 		case 10:
-			break;
 		case 11:
-			upgrade_v11_to_v12 ();
+			break;
 		case 12:
+			upgrade_v12_to_v13 ();
+			break;
+		case 13:
 			break;
 		default:
 			assert (false);
@@ -1111,7 +1118,7 @@ void nano::mdb_store::do_slow_upgrades ()
 	}
 }
 
-void nano::mdb_store::upgrade_v11_to_v12 ()
+void nano::mdb_store::upgrade_v12_to_v13 ()
 {
 	size_t cost (0);
 	size_t const max (16384);
@@ -1172,7 +1179,7 @@ void nano::mdb_store::upgrade_v11_to_v12 ()
 	if (account == nano::not_an_account)
 	{
 		BOOST_LOG (logging.log) << boost::str (boost::format ("Completed sideband upgrade"));
-		version_put (transaction, 12);
+		version_put (transaction, 13);
 	}
 }
 
@@ -1427,7 +1434,7 @@ std::shared_ptr<nano::block> nano::mdb_store::block_random (nano::transaction co
 
 bool nano::mdb_store::full_sideband (nano::transaction const & transaction_a)
 {
-	return version_get (transaction_a) > 11;
+	return version_get (transaction_a) > 12;
 }
 
 bool nano::mdb_store::entry_has_sideband (MDB_val entry_a, nano::block_type type_a)

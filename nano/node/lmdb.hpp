@@ -258,7 +258,8 @@ public:
 	void upgrade_v9_to_v10 (nano::transaction const &);
 	void upgrade_v10_to_v11 (nano::transaction const &);
 	void do_slow_upgrades ();
-	void upgrade_v11_to_v12 ();
+	void upgrade_v12_to_v13 ();
+	bool full_sideband (nano::transaction const &);
 
 	// Requires a write transaction
 	nano::raw_key get_node_id (nano::transaction const &) override;
@@ -375,7 +376,6 @@ public:
 	MDB_dbi meta;
 
 private:
-	bool full_sideband (nano::transaction const &);
 	bool entry_has_sideband (MDB_val, nano::block_type);
 	nano::account block_account_computed (nano::transaction const &, nano::block_hash const &);
 	nano::uint128_t block_balance_computed (nano::transaction const &, nano::block_hash const &);

@@ -1215,7 +1215,7 @@ TEST (block_store, upgrade_sideband_genesis)
 	{
 		std::this_thread::sleep_for (std::chrono::milliseconds (10));
 		auto transaction (store.tx_begin (false));
-		done = store.version_get (transaction) == 12;
+		done = store.full_sideband (transaction);
 		ASSERT_LT (iterations, 200);
 		++iterations;
 	}
@@ -1257,7 +1257,7 @@ TEST (block_store, upgrade_sideband_two_blocks)
 	{
 		std::this_thread::sleep_for (std::chrono::milliseconds (10));
 		auto transaction (store.tx_begin (false));
-		done = store.version_get (transaction) == 12;
+		done = store.full_sideband (transaction);
 		ASSERT_LT (iterations, 200);
 		++iterations;
 	}
@@ -1309,7 +1309,7 @@ TEST (block_store, upgrade_sideband_two_accounts)
 	{
 		std::this_thread::sleep_for (std::chrono::milliseconds (10));
 		auto transaction (store.tx_begin (false));
-		done = store.version_get (transaction) == 12;
+		done = store.full_sideband (transaction);
 		ASSERT_LT (iterations, 200);
 		++iterations;
 	}
@@ -1394,7 +1394,6 @@ TEST (block_store, upgrade_sideband_epoch)
 	bool error (false);
 	nano::genesis genesis;
 	nano::block_hash hash2;
-	nano::block_hash hash3;
 	auto path (nano::unique_path ());
 	{
 		nano::logging logging;
@@ -1424,7 +1423,7 @@ TEST (block_store, upgrade_sideband_epoch)
 	{
 		std::this_thread::sleep_for (std::chrono::milliseconds (10));
 		auto transaction (store.tx_begin (false));
-		done = store.version_get (transaction) == 12;
+		done = store.full_sideband (transaction);
 		ASSERT_LT (iterations, 200);
 		++iterations;
 	}
