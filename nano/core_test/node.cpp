@@ -368,6 +368,10 @@ TEST (node, unlock_search)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
+	while (!system.nodes[0]->active.roots.empty ())
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
 	system.wallet (0)->insert_adhoc (key2.prv);
 	{
 		std::lock_guard<std::recursive_mutex> lock (system.wallet (0)->store.mutex);

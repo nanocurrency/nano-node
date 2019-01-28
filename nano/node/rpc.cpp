@@ -1392,6 +1392,7 @@ void nano::rpc_handler::bootstrap_status ()
 		response_l.put ("idle", std::to_string (attempt->idle.size ()));
 		response_l.put ("target_connections", std::to_string (attempt->target_connections (attempt->pulls.size ())));
 		response_l.put ("total_blocks", std::to_string (attempt->total_blocks));
+		response_l.put ("runs_count", std::to_string (attempt->runs_count));
 		std::string mode_text;
 		if (attempt->mode == nano::bootstrap_mode::legacy)
 		{
@@ -2206,12 +2207,31 @@ void nano::rpc_handler::password_valid (bool wallet_locked)
 void nano::rpc_handler::peers ()
 {
 	boost::property_tree::ptree peers_l;
-	auto peers_list (node.peers.list_version ());
+	const bool deprecated = request.get<bool> ("deprecated", false);
+	auto peers_list (node.peers.list_vector (std::numeric_limits<size_t>::max ()));
+	std::sort (peers_list.begin (), peers_list.end ());
 	for (auto i (peers_list.begin ()), n (peers_list.end ()); i != n; ++i)
 	{
 		std::stringstream text;
-		text << i->first;
-		peers_l.push_back (boost::property_tree::ptree::value_type (text.str (), boost::property_tree::ptree (std::to_string (i->second))));
+		text << i->endpoint;
+		if (!deprecated)
+		{
+			boost::property_tree::ptree pending_tree;
+			pending_tree.put ("protocol_version", std::to_string (i->network_version));
+			if (i->node_id.is_initialized ())
+			{
+				pending_tree.put ("node_id", i->node_id.get ().to_account ());
+			}
+			else
+			{
+				pending_tree.put ("node_id", "");
+			}
+			peers_l.push_back (boost::property_tree::ptree::value_type (text.str (), pending_tree));
+		}
+		else
+		{
+			peers_l.push_back (boost::property_tree::ptree::value_type (text.str (), boost::property_tree::ptree (std::to_string (i->network_version))));
+		}
 	}
 	response_l.add_child ("peers", peers_l);
 	response_errors ();
@@ -3500,12 +3520,15 @@ void nano::rpc_handler::wallet_history ()
 					if (block != nullptr && timestamp >= modified_since && timestamp != std::numeric_limits<uint64_t>::max ())
 					{
 						boost::property_tree::ptree entry;
-						entry.put ("wallet_account", account.to_account ());
-						entry.put ("hash", hash.to_string ());
 						history_visitor visitor (*this, false, block_transaction, entry, hash);
 						block->visit (visitor);
-						entry.put ("local_timestamp", std::to_string (timestamp));
-						entries.insert (std::make_pair (timestamp, entry));
+						if (!entry.empty ())
+						{
+							entry.put ("block_account", account.to_account ());
+							entry.put ("hash", hash.to_string ());
+							entry.put ("local_timestamp", std::to_string (timestamp));
+							entries.insert (std::make_pair (timestamp, entry));
+						}
 						hash = block->previous ();
 					}
 					else
