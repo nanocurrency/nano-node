@@ -53,7 +53,7 @@ public:
 	static std::chrono::minutes constexpr wallet_backup_interval = std::chrono::minutes (5);
 	static int json_version ()
 	{
-		return 17;
+		return 16;
 	}
 };
 

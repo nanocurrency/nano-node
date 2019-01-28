@@ -224,12 +224,10 @@ bool nano::node_config::upgrade_json (unsigned version_a, nano::jsonconfig & jso
 			});
 
 			json.replace_child (preconfigured_peers_key, peers);
+			json.put ("vote_minimum", vote_minimum.to_string_dec ());
 			upgraded = true;
 		}
 		case 16:
-			json.put ("vote_minimum", vote_minimum.to_string_dec ());
-			upgraded = true;
-		case 17:
 			break;
 		default:
 			throw std::runtime_error ("Unknown node_config version");
