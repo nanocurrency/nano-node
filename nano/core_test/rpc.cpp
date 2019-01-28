@@ -4221,7 +4221,7 @@ TEST (rpc, wallet_history)
 	auto & history_node (response.json.get_child ("history"));
 	for (auto i (history_node.begin ()), n (history_node.end ()); i != n; ++i)
 	{
-		history_l.push_back (std::make_tuple (i->second.get<std::string> ("type"), i->second.get<std::string> ("account"), i->second.get<std::string> ("amount"), i->second.get<std::string> ("hash"), i->second.get<std::string> ("wallet_account"), i->second.get<std::string> ("local_timestamp")));
+		history_l.push_back (std::make_tuple (i->second.get<std::string> ("type"), i->second.get<std::string> ("account"), i->second.get<std::string> ("amount"), i->second.get<std::string> ("hash"), i->second.get<std::string> ("block_account"), i->second.get<std::string> ("local_timestamp")));
 	}
 	ASSERT_EQ (4, history_l.size ());
 	ASSERT_EQ ("send", std::get<0> (history_l[0]));
