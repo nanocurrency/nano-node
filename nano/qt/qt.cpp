@@ -1789,6 +1789,7 @@ wallet (wallet_a)
 
 	peers_model->setHorizontalHeaderItem (0, new QStandardItem ("IPv6 address:port"));
 	peers_model->setHorizontalHeaderItem (1, new QStandardItem ("Net version"));
+	peers_model->setHorizontalHeaderItem (2, new QStandardItem ("Node ID"));
 	peers_view->setEditTriggers (QAbstractItemView::NoEditTriggers);
 	peers_view->verticalHeader ()->hide ();
 	peers_view->setModel (peers_model);
@@ -1927,19 +1928,26 @@ wallet (wallet_a)
 void nano_qt::advanced_actions::refresh_peers ()
 {
 	peers_model->removeRows (0, peers_model->rowCount ());
-	auto list (wallet.node.peers.list_version ());
+	auto list (wallet.node.peers.list_vector (std::numeric_limits<size_t>::max ()));
+	std::sort (list.begin (), list.end ());
 	for (auto i (list.begin ()), n (list.end ()); i != n; ++i)
 	{
 		std::stringstream endpoint;
-		endpoint << i->first.address ().to_string ();
+		endpoint << i->endpoint.address ().to_string ();
 		endpoint << ':';
-		endpoint << i->first.port ();
+		endpoint << i->endpoint.port ();
 		QString qendpoint (endpoint.str ().c_str ());
 		QList<QStandardItem *> items;
 		items.push_back (new QStandardItem (qendpoint));
 		auto version = new QStandardItem ();
-		version->setData (QVariant (i->second), Qt::DisplayRole);
+		version->setData (QVariant (i->network_version), Qt::DisplayRole);
 		items.push_back (version);
+		QString node_id ("");
+		if (i->node_id.is_initialized ())
+		{
+			node_id = i->node_id.get ().to_account ().c_str ();
+		}
+		items.push_back (new QStandardItem (node_id));
 		peers_model->appendRow (items);
 	}
 	peer_count_label->setText (QString ("%1 peers").arg (peers_model->rowCount ()));
