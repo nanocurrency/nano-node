@@ -2635,6 +2635,11 @@ void nano::node::block_confirm (std::shared_ptr<nano::block> block_a)
 {
 	active.start (block_a);
 	network.broadcast_confirm_req (block_a);
+	// Calculate votes for local representatives
+	if (config.enable_voting && active.active (*block_a))
+	{
+		block_processor.generator.add (block_a->hash ());
+	}
 }
 
 nano::uint128_t nano::node::delta ()
