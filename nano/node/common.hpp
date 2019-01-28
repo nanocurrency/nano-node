@@ -297,11 +297,15 @@ class confirm_req : public message
 public:
 	confirm_req (bool &, nano::stream &, nano::message_header const &, nano::block_uniquer * = nullptr);
 	confirm_req (std::shared_ptr<nano::block>);
+	confirm_req (std::vector<std::pair<nano::block_hash, nano::block_hash>> const &);
+	confirm_req (nano::block_hash const &, nano::block_hash const &);
 	bool deserialize (nano::stream &, nano::block_uniquer * = nullptr);
 	void serialize (nano::stream &) const override;
 	void visit (nano::message_visitor &) const override;
 	bool operator== (nano::confirm_req const &) const;
 	std::shared_ptr<nano::block> block;
+	std::vector<std::pair<nano::block_hash, nano::block_hash>> roots_hashes;
+	std::string roots_string () const;
 };
 class confirm_ack : public message
 {
