@@ -7,7 +7,6 @@
 #include <boost/make_shared.hpp>
 #include <boost/program_options.hpp>
 
-
 int main (int argc, char * const * argv)
 {
 	nano::set_umask ();
