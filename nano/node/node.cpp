@@ -1271,8 +1271,9 @@ void nano::signature_checker::verify (nano::signature_check_set & check_a)
 
 	if (check_a.size < multithreaded_cutoff || single_threaded)
 	{
-		// Not dealing with many signatures so just use the calling thread for checking signatrure
-		verify_batch (check_a, 0, check_a.size);
+		// Not dealing with many so just use the calling thread for checking signatures
+		auto result = verify_batch (check_a, 0, check_a.size);
+		release_assert (result);
 		return;
 	}
 
@@ -1599,7 +1600,7 @@ void nano::block_processor::process_batch (std::unique_lock<std::mutex> & lock_a
 		auto transaction (node.store.tx_begin_read ());
 		while (!state_blocks.empty () && timer_l.before_deadline (std::chrono::seconds (2)))
 		{
-			verify_state_blocks (transaction, lock_a, 2048);
+			verify_state_blocks (transaction, lock_a, 2048 * node.config.signature_checker_threads);
 		}
 	}
 	lock_a.unlock ();
@@ -1684,7 +1685,7 @@ void nano::block_processor::process_batch (std::unique_lock<std::mutex> & lock_a
 		Because verification is long process, avoid large deque verification inside of write transaction */
 		if (blocks.empty () && !state_blocks.empty ())
 		{
-			verify_state_blocks (transaction, lock_a, 256);
+			verify_state_blocks (transaction, lock_a, 256 * node.config.signature_checker_threads);
 		}
 	}
 	lock_a.unlock ();
