@@ -1392,6 +1392,7 @@ void nano::rpc_handler::bootstrap_status ()
 		response_l.put ("idle", std::to_string (attempt->idle.size ()));
 		response_l.put ("target_connections", std::to_string (attempt->target_connections (attempt->pulls.size ())));
 		response_l.put ("total_blocks", std::to_string (attempt->total_blocks));
+		response_l.put ("runs_count", std::to_string (attempt->runs_count));
 		std::string mode_text;
 		if (attempt->mode == nano::bootstrap_mode::legacy)
 		{
