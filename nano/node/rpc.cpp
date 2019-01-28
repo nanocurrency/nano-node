@@ -1981,7 +1981,10 @@ void nano::rpc_handler::ledger ()
 		boost::optional<std::string> modified_since_text (request.get_optional<std::string> ("modified_since"));
 		if (modified_since_text.is_initialized ())
 		{
-			modified_since = strtoul (modified_since_text.get ().c_str (), NULL, 10);
+			if (decode_unsigned (modified_since_text.get (), modified_since))
+			{
+				ec = nano::error_rpc::invalid_timestamp;
+			}
 		}
 		const bool sorting = request.get<bool> ("sorting", false);
 		const bool representative = request.get<bool> ("representative", false);
@@ -3381,6 +3384,64 @@ void nano::rpc_handler::wallet_frontiers ()
 	response_errors ();
 }
 
+void nano::rpc_handler::wallet_history ()
+{
+	uint64_t modified_since (1);
+	boost::optional<std::string> modified_since_text (request.get_optional<std::string> ("modified_since"));
+	if (modified_since_text.is_initialized ())
+	{
+		if (decode_unsigned (modified_since_text.get (), modified_since))
+		{
+			ec = nano::error_rpc::invalid_timestamp;
+		}
+	}
+	auto wallet (wallet_impl ());
+	if (!ec)
+	{
+		std::multimap<uint64_t, boost::property_tree::ptree, std::greater<uint64_t>> entries;
+		auto transaction (node.wallets.tx_begin_read ());
+		auto block_transaction (node.store.tx_begin_read ());
+		for (auto i (wallet->store.begin (transaction)), n (wallet->store.end ()); i != n; ++i)
+		{
+			nano::account account (i->first);
+			nano::account_info info;
+			if (!node.store.account_get (block_transaction, account, info))
+			{
+				auto timestamp (info.modified);
+				auto hash (info.head);
+				while (timestamp >= modified_since && timestamp != std::numeric_limits<uint32_t>::max () && !hash.is_zero ())
+				{
+					nano::block_sideband sideband;
+					auto block (node.store.block_get (block_transaction, hash, &sideband));
+					timestamp = sideband.timestamp;
+					if (block != nullptr && timestamp >= modified_since && timestamp != std::numeric_limits<uint64_t>::max ())
+					{
+						boost::property_tree::ptree entry;
+						entry.put ("wallet_account", account.to_account ());
+						entry.put ("hash", hash.to_string ());
+						history_visitor visitor (*this, false, block_transaction, entry, hash);
+						block->visit (visitor);
+						entry.put ("local_timestamp", std::to_string (timestamp));
+						entries.insert (std::make_pair (timestamp, entry));
+						hash = block->previous ();
+					}
+					else
+					{
+						hash.clear ();
+					}
+				}
+			}
+		}
+		boost::property_tree::ptree history;
+		for (auto i (entries.begin ()), n (entries.end ()); i != n; ++i)
+		{
+			history.push_back (std::make_pair ("", i->second));
+		}
+		response_l.add_child ("history", history);
+	}
+	response_errors ();
+}
+
 void nano::rpc_handler::wallet_key_valid ()
 {
 	auto wallet (wallet_impl ());
@@ -4345,6 +4406,10 @@ void nano::rpc_handler::process_request ()
 			else if (action == "wallet_frontiers")
 			{
 				wallet_frontiers ();
+			}
+			else if (action == "wallet_history")
+			{
+				wallet_history ();
 			}
 			else if (action == "wallet_info")
 			{
