@@ -4152,6 +4152,8 @@ TEST (rpc, stats_clear)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
+	std::string success (response.json.get<std::string> ("success"));
+	ASSERT_TRUE (success.empty ());
 	ASSERT_EQ (0, system.nodes[0]->stats.count (nano::stat::type::ledger, nano::stat::dir::in));
 	ASSERT_LE (system.nodes[0]->stats.last_reset ().count (), 5);
 }
