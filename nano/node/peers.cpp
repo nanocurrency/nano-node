@@ -10,7 +10,7 @@ nano::endpoint nano::map_endpoint_to_v6 (nano::endpoint const & endpoint_a)
 	return endpoint_l;
 }
 
-nano::peer_information::peer_information (nano::endpoint const & endpoint_a, unsigned network_version_a) :
+nano::peer_information::peer_information (nano::endpoint const & endpoint_a, unsigned network_version_a, boost::optional<nano::account> node_id_a) :
 endpoint (endpoint_a),
 ip_address (endpoint_a.address ()),
 last_contact (std::chrono::steady_clock::now ()),
@@ -20,7 +20,7 @@ last_rep_request (std::chrono::steady_clock::time_point ()),
 last_rep_response (std::chrono::steady_clock::time_point ()),
 rep_weight (0),
 network_version (network_version_a),
-node_id ()
+node_id (node_id_a)
 {
 }
 
@@ -36,6 +36,11 @@ rep_weight (0),
 network_version (nano::protocol_version),
 node_id ()
 {
+}
+
+bool nano::peer_information::operator< (nano::peer_information const & peer_information_a) const
+{
+	return endpoint < peer_information_a.endpoint;
 }
 
 nano::peer_container::peer_container (nano::endpoint const & self_a) :
@@ -104,17 +109,6 @@ std::deque<nano::endpoint> nano::peer_container::list ()
 		result.push_back (i->endpoint);
 	}
 	random_pool.Shuffle (result.begin (), result.end ());
-	return result;
-}
-
-std::map<nano::endpoint, unsigned> nano::peer_container::list_version ()
-{
-	std::map<nano::endpoint, unsigned> result;
-	std::lock_guard<std::mutex> lock (mutex);
-	for (auto i (peers.begin ()), j (peers.end ()); i != j; ++i)
-	{
-		result.insert (std::pair<nano::endpoint, unsigned> (i->endpoint, i->network_version));
-	}
 	return result;
 }
 
@@ -443,7 +437,7 @@ bool nano::peer_container::reachout (nano::endpoint const & endpoint_a)
 	return error;
 }
 
-bool nano::peer_container::insert (nano::endpoint const & endpoint_a, unsigned version_a, bool preconfigured_a)
+bool nano::peer_container::insert (nano::endpoint const & endpoint_a, unsigned version_a, bool preconfigured_a, boost::optional<nano::account> node_id_a)
 {
 	assert (endpoint_a.address ().is_v6 ());
 	auto unknown (false);
@@ -456,8 +450,12 @@ bool nano::peer_container::insert (nano::endpoint const & endpoint_a, unsigned v
 			auto existing (peers.find (endpoint_a));
 			if (existing != peers.end ())
 			{
-				peers.modify (existing, [](nano::peer_information & info) {
+				peers.modify (existing, [node_id_a](nano::peer_information & info) {
 					info.last_contact = std::chrono::steady_clock::now ();
+					if (node_id_a.is_initialized ())
+					{
+						info.node_id = node_id_a;
+					}
 				});
 				result = true;
 			}
@@ -474,7 +472,7 @@ bool nano::peer_container::insert (nano::endpoint const & endpoint_a, unsigned v
 				}
 				if (!result)
 				{
-					peers.insert (nano::peer_information (endpoint_a, version_a));
+					peers.insert (nano::peer_information (endpoint_a, version_a, node_id_a));
 				}
 			}
 		}
