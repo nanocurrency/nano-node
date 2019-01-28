@@ -902,7 +902,6 @@ nano::store_iterator<nano::endpoint_key, nano::no_value> nano::mdb_store::peers_
 	return result;
 }
 
-void nano::mdb_store::do_upgrades (nano::transaction const & transaction_a)
 void nano::mdb_store::do_upgrades (nano::transaction const & transaction_a, bool & slow_upgrade)
 {
 	switch (version_get (transaction_a))

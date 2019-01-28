@@ -1427,8 +1427,8 @@ void nano::wallets::reload ()
 	std::unordered_set<nano::uint256_union> stored_items;
 	std::string beginning (nano::uint256_union (0).to_string ());
 	std::string end ((nano::uint256_union (nano::uint256_t (0) - nano::uint256_t (1))).to_string ());
-	nano::store_iterator<std::array<char, 64>, nano::mdb_val::no_value> i (std::make_unique<nano::mdb_iterator<std::array<char, 64>, nano::mdb_val::no_value>> (transaction, handle, nano::mdb_val (beginning.size (), const_cast<char *> (beginning.c_str ()))));
-	nano::store_iterator<std::array<char, 64>, nano::mdb_val::no_value> n (std::make_unique<nano::mdb_iterator<std::array<char, 64>, nano::mdb_val::no_value>> (transaction, handle, nano::mdb_val (end.size (), const_cast<char *> (end.c_str ()))));
+	nano::store_iterator<std::array<char, 64>, nano::no_value> i (std::make_unique<nano::mdb_iterator<std::array<char, 64>, nano::no_value>> (transaction, handle, nano::mdb_val (beginning.size (), const_cast<char *> (beginning.c_str ()))));
+	nano::store_iterator<std::array<char, 64>, nano::no_value> n (std::make_unique<nano::mdb_iterator<std::array<char, 64>, nano::no_value>> (transaction, handle, nano::mdb_val (end.size (), const_cast<char *> (end.c_str ()))));
 	for (; i != n; ++i)
 	{
 		nano::uint256_union id;
@@ -1591,8 +1591,8 @@ void nano::wallets::split_if_needed (nano::transaction & transaction_destination
 			MDB_txn * tx_destination (*boost::polymorphic_downcast<nano::mdb_txn *> (transaction_destination.impl.get ()));
 			std::string beginning (nano::uint256_union (0).to_string ());
 			std::string end ((nano::uint256_union (nano::uint256_t (0) - nano::uint256_t (1))).to_string ());
-			nano::store_iterator<std::array<char, 64>, nano::mdb_val::no_value> i (std::make_unique<nano::mdb_iterator<std::array<char, 64>, nano::mdb_val::no_value>> (transaction_source, handle, nano::mdb_val (beginning.size (), const_cast<char *> (beginning.c_str ()))));
-			nano::store_iterator<std::array<char, 64>, nano::mdb_val::no_value> n (std::make_unique<nano::mdb_iterator<std::array<char, 64>, nano::mdb_val::no_value>> (transaction_source, handle, nano::mdb_val (end.size (), const_cast<char *> (end.c_str ()))));
+			nano::store_iterator<std::array<char, 64>, nano::no_value> i (std::make_unique<nano::mdb_iterator<std::array<char, 64>, nano::no_value>> (transaction_source, handle, nano::mdb_val (beginning.size (), const_cast<char *> (beginning.c_str ()))));
+			nano::store_iterator<std::array<char, 64>, nano::no_value> n (std::make_unique<nano::mdb_iterator<std::array<char, 64>, nano::no_value>> (transaction_source, handle, nano::mdb_val (end.size (), const_cast<char *> (end.c_str ()))));
 			for (; i != n; ++i)
 			{
 				nano::uint256_union id;
