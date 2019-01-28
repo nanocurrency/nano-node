@@ -1154,7 +1154,7 @@ void write_legacy_sideband (nano::mdb_store & store_a, nano::transaction & trans
 		block_a.serialize (stream);
 		nano::write (stream, successor_a);
 	}
-	MDB_val val ({ vector.size (), vector.data () });
+	MDB_val val{ vector.size (), vector.data () };
 	auto hash (block_a.hash ());
 	auto status2 (mdb_put (store_a.env.tx (transaction_a), db_a, nano::mdb_val (hash), &val, 0));
 	ASSERT_EQ (0, status2);

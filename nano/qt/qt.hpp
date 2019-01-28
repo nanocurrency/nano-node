@@ -353,5 +353,6 @@ public:
 	void push_main_stack (QWidget *);
 	void ongoing_refresh ();
 	std::atomic<bool> needs_balance_refresh;
+	std::atomic<bool> needs_deterministic_restore;
 };
 }
