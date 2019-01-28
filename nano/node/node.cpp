@@ -647,7 +647,7 @@ public:
 					{
 						nano::block_hash successor (0);
 						// Search for block root
-						successor = store.block_successor (transaction, root_hash.second);
+						successor = node.store.block_successor (transaction, root_hash.second);
 						// Search for account root
 						if (successor.is_zero () && node.store.account_exists (transaction, root_hash.second))
 						{
@@ -3604,7 +3604,7 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 						{
 							auto rep_request (requests_bundle.find (rep.endpoint));
 							auto block (i->election->status.winner);
-							auto root_hash (std::make_pair (block->hash (), block->previous (), block->root ()));
+							auto root_hash (std::make_pair (block->hash (), block->root ()));
 							if (rep_request == requests_bundle.end ())
 							{
 								std::vector<std::pair<nano::block_hash, nano::block_hash>> insert_vector = { root_hash };
