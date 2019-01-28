@@ -28,7 +28,7 @@ password_fanout (1024),
 io_threads (std::max<unsigned> (4, boost::thread::hardware_concurrency ())),
 network_threads (std::max<unsigned> (4, boost::thread::hardware_concurrency ())),
 work_threads (std::max<unsigned> (4, boost::thread::hardware_concurrency ())),
-signature_checker_threads (boost::thread::hardware_concurrency () - 1), /* The calling thread does checks as well so remove it from the number of threads needed */
+signature_checker_threads ((boost::thread::hardware_concurrency () != 0) ? boost::thread::hardware_concurrency () - 1 : 0), /* The calling thread does checks as well so remove it from the number of threads used */
 enable_voting (false),
 bootstrap_connections (4),
 bootstrap_connections_max (64),
