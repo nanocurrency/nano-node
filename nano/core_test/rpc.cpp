@@ -4214,3 +4214,70 @@ TEST (rpc, wallet_history)
 	ASSERT_EQ (genesis.hash ().to_string (), std::get<3> (history_l[3]));
 	ASSERT_EQ (nano::test_genesis_key.pub.to_account (), std::get<4> (history_l[3]));
 }
+
+TEST (rpc, sign_hash)
+{
+	nano::system system (24000, 1);
+	nano::keypair key;
+	auto & node1 (*system.nodes[0]);
+	nano::state_block send (nano::genesis_account, node1.latest (nano::test_genesis_key.pub), nano::genesis_account, nano::genesis_amount - nano::Gxrb_ratio, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
+	nano::rpc rpc (system.io_ctx, node1, nano::rpc_config (true));
+	rpc.start ();
+	boost::property_tree::ptree request;
+	request.put ("action", "sign");
+	request.put ("hash", send.hash ().to_string ());
+	request.put ("key", key.prv.data.to_string ());
+	test_response response (request, rpc, system.io_ctx);
+	while (response.status == 0)
+	{
+		system.poll ();
+	}
+	ASSERT_EQ (200, response.status);
+	std::error_code ec (nano::error_rpc::sign_hash_disabled);
+	ASSERT_EQ (response.json.get<std::string> ("error"), ec.message ());
+	rpc.config.enable_sign_hash = true;
+	test_response response2 (request, rpc, system.io_ctx);
+	while (response2.status == 0)
+	{
+		system.poll ();
+	}
+	ASSERT_EQ (200, response2.status);
+	nano::signature signature;
+	std::string signature_text (response2.json.get<std::string> ("signature"));
+	ASSERT_FALSE (signature.decode_hex (signature_text));
+	ASSERT_FALSE (nano::validate_message (key.pub, send.hash (), signature));
+}
+
+TEST (rpc, sign_block)
+{
+	nano::system system (24000, 1);
+	nano::keypair key;
+	auto & node1 (*system.nodes[0]);
+	nano::state_block send (nano::genesis_account, node1.latest (nano::test_genesis_key.pub), nano::genesis_account, nano::genesis_amount - nano::Gxrb_ratio, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
+	nano::rpc rpc (system.io_ctx, node1, nano::rpc_config (true));
+	rpc.start ();
+	boost::property_tree::ptree request;
+	request.put ("action", "sign");
+	system.wallet (0)->insert_adhoc (key.prv);
+	std::string wallet;
+	system.nodes[0]->wallets.items.begin ()->first.encode_hex (wallet);
+	request.put ("wallet", wallet);
+	request.put ("account", key.pub.to_account ());
+	std::string json;
+	send.serialize_json (json);
+	request.put ("block", json);
+	test_response response (request, rpc, system.io_ctx);
+	while (response.status == 0)
+	{
+		system.poll ();
+	}
+	ASSERT_EQ (200, response.status);
+	auto contents (response.json.get<std::string> ("block"));
+	boost::property_tree::ptree block_l;
+	std::stringstream block_stream (contents);
+	boost::property_tree::read_json (block_stream, block_l);
+	auto block (nano::deserialize_block_json (block_l));
+	ASSERT_FALSE (nano::validate_message (key.pub, send.hash (), block->block_signature ()));
+	ASSERT_NE (block->block_signature (), send.block_signature ());
+	ASSERT_EQ (block->hash (), send.hash ());
+}
