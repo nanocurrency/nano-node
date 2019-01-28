@@ -1403,7 +1403,7 @@ void nano::signature_checker::set_thread_names (unsigned num_threads)
 	{
 		future.wait ();
 	}
-	release_assert (pending == 0);
+	assert (pending == 0);
 }
 
 nano::block_processor::block_processor (nano::node & node_a) :
