@@ -2206,12 +2206,31 @@ void nano::rpc_handler::password_valid (bool wallet_locked)
 void nano::rpc_handler::peers ()
 {
 	boost::property_tree::ptree peers_l;
-	auto peers_list (node.peers.list_version ());
+	const bool deprecated = request.get<bool> ("deprecated", false);
+	auto peers_list (node.peers.list_vector (std::numeric_limits<size_t>::max ()));
+	std::sort (peers_list.begin (), peers_list.end ());
 	for (auto i (peers_list.begin ()), n (peers_list.end ()); i != n; ++i)
 	{
 		std::stringstream text;
-		text << i->first;
-		peers_l.push_back (boost::property_tree::ptree::value_type (text.str (), boost::property_tree::ptree (std::to_string (i->second))));
+		text << i->endpoint;
+		if (!deprecated)
+		{
+			boost::property_tree::ptree pending_tree;
+			pending_tree.put ("protocol_version", std::to_string (i->network_version));
+			if (i->node_id.is_initialized ())
+			{
+				pending_tree.put ("node_id", i->node_id.get ().to_account ());
+			}
+			else
+			{
+				pending_tree.put ("node_id", "");
+			}
+			peers_l.push_back (boost::property_tree::ptree::value_type (text.str (), pending_tree));
+		}
+		else
+		{
+			peers_l.push_back (boost::property_tree::ptree::value_type (text.str (), boost::property_tree::ptree (std::to_string (i->network_version))));
+		}
 	}
 	response_l.add_child ("peers", peers_l);
 	response_errors ();
