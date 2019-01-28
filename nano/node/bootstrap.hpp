@@ -116,6 +116,7 @@ public:
 	std::shared_ptr<nano::node> node;
 	std::atomic<unsigned> account_count;
 	std::atomic<uint64_t> total_blocks;
+	std::atomic<unsigned> runs_count;
 	std::vector<std::pair<nano::block_hash, nano::block_hash>> bulk_push_targets;
 	bool stopped;
 	nano::bootstrap_mode mode;
@@ -259,6 +260,9 @@ public:
 	boost::asio::io_context & io_ctx;
 	nano::node & node;
 	bool on;
+
+private:
+	boost::asio::steady_timer defer_acceptor;
 };
 class message;
 class bootstrap_server : public std::enable_shared_from_this<nano::bootstrap_server>
