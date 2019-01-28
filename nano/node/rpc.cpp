@@ -3417,12 +3417,15 @@ void nano::rpc_handler::wallet_history ()
 					if (block != nullptr && timestamp >= modified_since && timestamp != std::numeric_limits<uint64_t>::max ())
 					{
 						boost::property_tree::ptree entry;
-						entry.put ("wallet_account", account.to_account ());
-						entry.put ("hash", hash.to_string ());
 						history_visitor visitor (*this, false, block_transaction, entry, hash);
 						block->visit (visitor);
-						entry.put ("local_timestamp", std::to_string (timestamp));
-						entries.insert (std::make_pair (timestamp, entry));
+						if (!entry.empty ())
+						{
+							entry.put ("block_account", account.to_account ());
+							entry.put ("hash", hash.to_string ());
+							entry.put ("local_timestamp", std::to_string (timestamp));
+							entries.insert (std::make_pair (timestamp, entry));
+						}
 						hash = block->previous ();
 					}
 					else
