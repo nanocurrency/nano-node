@@ -389,7 +389,7 @@ private:
 	MDB_val block_raw_get (nano::transaction const &, nano::block_hash const &, nano::block_type &);
 	void block_raw_put (nano::transaction const &, MDB_dbi, nano::block_hash const &, MDB_val);
 	void clear (MDB_dbi);
-	bool stopped;
+	bool stopped { false };
 	std::thread upgrades;
 };
 class wallet_value
