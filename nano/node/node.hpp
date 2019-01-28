@@ -330,6 +330,7 @@ public:
 	node_init ();
 	bool error ();
 	bool block_store_init;
+	bool wallets_store_init;
 	bool wallet_init;
 };
 class node_observers
@@ -432,6 +433,7 @@ public:
 	bool have_blocks ();
 	void process_blocks ();
 	nano::process_return process_one (nano::transaction const &, std::shared_ptr<nano::block>, std::chrono::steady_clock::time_point = std::chrono::steady_clock::now (), bool = false);
+	nano::vote_generator generator;
 	// Delay required for average network propagartion before requesting confirmation
 	static std::chrono::milliseconds constexpr confirmation_request_delay{ 1500 };
 
@@ -455,7 +457,6 @@ private:
 	static size_t const rolled_back_max = 1024;
 	std::condition_variable condition;
 	nano::node & node;
-	nano::vote_generator generator;
 	std::mutex mutex;
 };
 class node : public std::enable_shared_from_this<nano::node>
@@ -514,6 +515,8 @@ public:
 	boost::log::sources::logger_mt log;
 	std::unique_ptr<nano::block_store> store_impl;
 	nano::block_store & store;
+	std::unique_ptr<nano::wallets_store> wallets_store_impl;
+	nano::wallets_store & wallets_store;
 	nano::gap_cache gap_cache;
 	nano::ledger ledger;
 	nano::active_transactions active;

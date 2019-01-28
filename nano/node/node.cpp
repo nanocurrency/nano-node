@@ -591,7 +591,7 @@ public:
 				validated_response = true;
 				if (message_a.response->first != node.node_id.pub)
 				{
-					node.peers.insert (endpoint_l, message_a.header.version_using);
+					node.peers.insert (endpoint_l, message_a.header.version_using, false, message_a.response->first);
 				}
 			}
 			else if (node.config.logging.network_node_id_handshake_logging ())
@@ -675,7 +675,7 @@ void nano::network::receive_action (nano::udp_data * data_a)
 					break;
 			}
 
-			if (node.config.logging.network_logging ())
+			if (node.config.logging.network_logging () && parser.status != nano::message_parser::parse_status::outdated_version)
 			{
 				BOOST_LOG (node.log) << "Could not parse message.  Error: " << parser.status_string ();
 			}
@@ -779,7 +779,7 @@ wallet_init (false)
 
 bool nano::node_init::error ()
 {
-	return block_store_init || wallet_init;
+	return block_store_init || wallet_init || wallets_store_init;
 }
 
 nano::vote_processor::vote_processor (nano::node & node_a) :
@@ -1576,6 +1576,7 @@ nano::process_return nano::block_processor::process_one (nano::transaction const
 			{
 				// Only let the bootstrap attempt know about forked blocks that not originate recently.
 				node.process_fork (transaction_a, block_a);
+				node.stats.inc (nano::stat::type::ledger, nano::stat::detail::fork, nano::stat::dir::in);
 			}
 			if (node.config.logging.ledger_logging ())
 			{
@@ -1640,6 +1641,8 @@ alarm (alarm_a),
 work (work_a),
 store_impl (std::make_unique<nano::mdb_store> (init_a.block_store_init, config.logging, application_path_a / "data.ldb", config_a.lmdb_max_dbs)),
 store (*store_impl),
+wallets_store_impl (std::make_unique<nano::mdb_wallets_store> (init_a.wallets_store_init, application_path_a / "wallets.ldb", config_a.lmdb_max_dbs)),
+wallets_store (*wallets_store_impl),
 gap_cache (*this),
 ledger (store, stats, config.epoch_block_link, config.epoch_block_signer),
 active (*this),
@@ -1648,7 +1651,7 @@ bootstrap_initiator (*this),
 bootstrap (io_ctx_a, config.peering_port, *this),
 peers (network.endpoint ()),
 application_path (application_path_a),
-wallets (init_a.block_store_init, *this),
+wallets (init_a.wallet_init, *this),
 port_mapping (*this),
 vote_processor (*this),
 warmed_up (0),
@@ -2302,7 +2305,7 @@ void nano::node::bootstrap_wallet ()
 	std::deque<nano::account> accounts;
 	{
 		std::lock_guard<std::mutex> lock (wallets.mutex);
-		auto transaction (store.tx_begin_read ());
+		auto transaction (wallets.tx_begin_read ());
 		for (auto i (wallets.items.begin ()), n (wallets.items.end ()); i != n && accounts.size () < 128; ++i)
 		{
 			auto & wallet (*i->second);
@@ -2643,6 +2646,11 @@ void nano::node::block_confirm (std::shared_ptr<nano::block> block_a)
 {
 	active.start (block_a);
 	network.broadcast_confirm_req (block_a);
+	// Calculate votes for local representatives
+	if (config.enable_voting && active.active (*block_a))
+	{
+		block_processor.generator.add (block_a->hash ());
+	}
 }
 
 nano::uint128_t nano::node::delta ()
