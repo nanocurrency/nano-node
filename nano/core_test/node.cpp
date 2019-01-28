@@ -631,8 +631,10 @@ TEST (node_config, v15_v16_upgrade)
 		nano::node_config config;
 		config.logging.init (path);
 		ASSERT_FALSE (tree.get_optional_child ("allow_local_peers")); // allow_local_peers should not be present now
+		ASSERT_FALSE (tree.get_optional_child ("vote_minimum"));
 		config.deserialize_json (upgraded, tree);
 		ASSERT_TRUE (!!tree.get_optional_child ("allow_local_peers")); // allow_local_peers should be added after the update
+		ASSERT_TRUE (!!tree.get_optional_child ("vote_minimum"));
 		ASSERT_TRUE (upgraded);
 		auto version (tree.get<std::string> ("version"));
 
