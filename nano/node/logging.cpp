@@ -18,6 +18,7 @@ network_node_id_handshake_logging_value (false),
 node_lifetime_tracing_value (false),
 insufficient_work_logging_value (true),
 log_rpc_value (true),
+log_ipc_value (true),
 bulk_pull_logging_value (false),
 work_generation_time_value (true),
 upnp_details_logging_value (false),
@@ -58,6 +59,7 @@ nano::error nano::logging::serialize_json (nano::jsonconfig & json) const
 	json.put ("node_lifetime_tracing", node_lifetime_tracing_value);
 	json.put ("insufficient_work", insufficient_work_logging_value);
 	json.put ("log_rpc", log_rpc_value);
+	json.put ("log_ipc", log_ipc_value);
 	json.put ("bulk_pull", bulk_pull_logging_value);
 	json.put ("work_generation_time", work_generation_time_value);
 	json.put ("upnp_details", upnp_details_logging_value);
@@ -94,6 +96,7 @@ bool nano::logging::upgrade_json (unsigned version_a, nano::jsonconfig & json)
 			json.get<uintmax_t> ("max_size", config_max_size);
 			max_size = std::max (max_size, config_max_size);
 			json.put ("max_size", max_size);
+			json.put ("log_ipc", true);
 			upgraded_l = true;
 		case 6:
 			break;
@@ -138,6 +141,7 @@ nano::error nano::logging::deserialize_json (bool & upgraded_a, nano::jsonconfig
 	json.get<bool> ("node_lifetime_tracing", node_lifetime_tracing_value);
 	json.get<bool> ("insufficient_work", insufficient_work_logging_value);
 	json.get<bool> ("log_rpc", log_rpc_value);
+	json.get<bool> ("log_ipc", log_ipc_value);
 	json.get<bool> ("bulk_pull", bulk_pull_logging_value);
 	json.get<bool> ("work_generation_time", work_generation_time_value);
 	json.get<bool> ("upnp_details", upnp_details_logging_value);
@@ -208,6 +212,11 @@ bool nano::logging::insufficient_work_logging () const
 bool nano::logging::log_rpc () const
 {
 	return network_logging () && log_rpc_value;
+}
+
+bool nano::logging::log_ipc () const
+{
+	return network_logging () && log_ipc_value;
 }
 
 bool nano::logging::bulk_pull_logging () const

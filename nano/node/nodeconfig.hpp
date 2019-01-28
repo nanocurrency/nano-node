@@ -4,6 +4,7 @@
 #include <nano/lib/errors.hpp>
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/numbers.hpp>
+#include <nano/node/ipc.hpp>
 #include <nano/node/logging.hpp>
 #include <nano/node/stats.hpp>
 #include <vector>
@@ -44,6 +45,7 @@ public:
 	int lmdb_max_dbs;
 	bool allow_local_peers;
 	nano::stat_config stat_config;
+	nano::ipc::ipc_config ipc_config;
 	nano::uint256_union epoch_block_link;
 	nano::account epoch_block_signer;
 	std::chrono::milliseconds block_processor_batch_max_time;
