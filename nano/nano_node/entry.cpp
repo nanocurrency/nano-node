@@ -1,7 +1,6 @@
 #include <nano/lib/utility.hpp>
 #include <nano/nano_node/daemon.hpp>
 #include <nano/node/cli.hpp>
-#include <nano/node/common.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/rpc.hpp>
 #include <nano/node/testing.hpp>
@@ -818,11 +817,11 @@ int main (int argc, char * const * argv)
 		{
 			if (NANO_VERSION_PATCH == 0)
 			{
-				std::cout << "Version " << NANO_MAJOR_MINOR_VERSION << std::endl;
+				std::cout << "Version " << NANO_VERSION_MAJOR << "." << NANO_VERSION_MINOR << std::endl;
 			}
 			else
 			{
-				std::cout << "Version " << NANO_MAJOR_MINOR_RC_VERSION << std::endl;
+				std::cout << "Version " << NANO_VERSION_MAJOR << "." << NANO_VERSION_MINOR << "RC" << NANO_VERSION_PATCH << std::endl;
 			}
 		}
 		else

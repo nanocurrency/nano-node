@@ -3096,11 +3096,11 @@ void nano::rpc_handler::version ()
 	response_l.put ("protocol_version", std::to_string (nano::protocol_version));
 	if (NANO_VERSION_PATCH == 0)
 	{
-		response_l.put ("node_vendor", boost::str (boost::format ("Nano %1%") % NANO_MAJOR_MINOR_VERSION));
+		response_l.put ("node_vendor", boost::str (boost::format ("Nano %1%.%2%") % NANO_VERSION_MAJOR % NANO_VERSION_MINOR));
 	}
 	else
 	{
-		response_l.put ("node_vendor", boost::str (boost::format ("Nano %1%") % NANO_MAJOR_MINOR_RC_VERSION));
+		response_l.put ("node_vendor", boost::str (boost::format ("Nano %1%.%2%RC%3%") % NANO_VERSION_MAJOR % NANO_VERSION_MINOR % NANO_VERSION_PATCH));
 	}
 	response_errors ();
 }
