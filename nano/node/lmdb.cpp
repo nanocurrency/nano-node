@@ -1686,7 +1686,7 @@ bool nano::mdb_store::root_exists (nano::transaction const & transaction_a, nano
 
 bool nano::mdb_store::source_exists (nano::transaction const & transaction_a, nano::block_hash const & source_a)
 {
-	return block_exists (transaction_a, nano::block_type::state, source_a) || block_exists (transaction_a, nano::block_type::send, source_a)
+	return block_exists (transaction_a, nano::block_type::state, source_a) || block_exists (transaction_a, nano::block_type::send, source_a);
 }
 
 nano::account nano::mdb_store::block_account (nano::transaction const & transaction_a, nano::block_hash const & hash_a)
