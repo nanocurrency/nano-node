@@ -1748,7 +1748,14 @@ TEST (rpc, version)
 		ASSERT_EQ (std::to_string (node1->store.version_get (transaction)), response1.json.get<std::string> ("store_version"));
 	}
 	ASSERT_EQ (std::to_string (nano::protocol_version), response1.json.get<std::string> ("protocol_version"));
-	ASSERT_EQ (boost::str (boost::format ("Nano %1%.%2%") % NANO_VERSION_MAJOR % NANO_VERSION_MINOR), response1.json.get<std::string> ("node_vendor"));
+	if (NANO_VERSION_PATCH == 0)
+	{
+		ASSERT_EQ (boost::str (boost::format ("Nano %1%") % NANO_MAJOR_MINOR_VERSION), response1.json.get<std::string> ("node_vendor"));
+	}
+	else
+	{
+		ASSERT_EQ (boost::str (boost::format ("Nano %1%") % NANO_MAJOR_MINOR_RC_VERSION), response1.json.get<std::string> ("node_vendor"));
+	}
 	auto headers (response1.resp.base ());
 	auto allowed_origin (headers.at ("Access-Control-Allow-Origin"));
 	auto allowed_headers (headers.at ("Access-Control-Allow-Headers"));

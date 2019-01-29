@@ -37,6 +37,7 @@ public:
 	unsigned io_threads;
 	unsigned network_threads;
 	unsigned work_threads;
+	unsigned signature_checker_threads;
 	bool enable_voting;
 	unsigned bootstrap_connections;
 	unsigned bootstrap_connections_max;
