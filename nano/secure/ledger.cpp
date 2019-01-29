@@ -188,19 +188,20 @@ void ledger_processor::state_block (nano::state_block const & block_a)
 				// Check for possible regular state blocks with epoch link (send subtype)
 				if (validate_message (block_a.hashables.account, block_a.hash (), block_a.signature))
 				{
-					result.verified = nano::signature_verification::unknown
+					// Is epoch block signed correctly
+					if (validate_message (ledger.epoch_signer, block_a.hash (), block_a.signature))
+					{
+						result.verified = nano::signature_verification::invalid;
+						result.code = nano::process_result::bad_signature;
+					}
+					else
+					{
+						result.verified = nano::signature_verification::valid_epoch;
+					}
 				}
 				else
 				{
 					result.verified = nano::signature_verification::valid;
-				}
-				if (result.verified == nano::signature_verification::unknown)
-				{
-					result.verified = validate_message (ledger.epoch_signer, block_a.hash (), block_a.signature) ? nano::signature_verification::invalid : nano::signature_verification::valid_epoch; // Is epoch block signed correctly
-				}
-				if (result.verified == nano::signature_verification::invalid)
-				{
-					result.code = nano::process_result::bad_signature;
 				}
 			}
 		}
