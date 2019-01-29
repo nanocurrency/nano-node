@@ -77,6 +77,8 @@ else ()
 				add_definitions(-DPERMUTE_WITH_SHUFFLES)
 			endif()
 		endif()
+	elseif (CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64")
+		add_compile_options(-march=armv8-a+crypto)
 	endif()
 endif ()
 
