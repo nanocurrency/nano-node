@@ -1843,9 +1843,9 @@ TEST (node, local_votes_cache)
 		auto current_vote (node.store.vote_current (transaction, nano::test_genesis_key.pub));
 		ASSERT_EQ (current_vote->sequence, 3);
 	}
-	ASSERT_TRUE (node.block_processor.generator.cache_find (send1->hash ()).empty ());
-	ASSERT_FALSE (node.block_processor.generator.cache_find (send2->hash ()).empty ());
-	ASSERT_FALSE (node.block_processor.generator.cache_find (send3->hash ()).empty ());
+	ASSERT_TRUE (node.votes_cache.find (send1->hash ()).empty ());
+	ASSERT_FALSE (node.votes_cache.find (send2->hash ()).empty ());
+	ASSERT_FALSE (node.votes_cache.find (send3->hash ()).empty ());
 }
 
 TEST (node, vote_republish)

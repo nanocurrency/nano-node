@@ -258,7 +258,7 @@ bool confirm_block (nano::transaction const & transaction_a, nano::node & node_a
 	{
 		auto hash (block_a->hash ());
 		// Search in cache
-		auto votes (node_a.block_processor.generator.cache_find (hash));
+		auto votes (node_a.votes_cache.find (hash));
 		if (votes.empty ())
 		{
 			// Generate new vote
@@ -271,7 +271,7 @@ bool confirm_block (nano::transaction const & transaction_a, nano::node & node_a
 				{
 					node_a.network.confirm_send (confirm, vote_bytes, *j);
 				}
-				node_a.block_processor.generator.cache_add (vote);
+				node_a.votes_cache.add (vote);
 			});
 		}
 		else
@@ -323,6 +323,7 @@ void nano::network::confirm_hashes (nano::transaction const & transaction_a, nan
 				confirm.serialize (stream);
 			}
 			this->node.network.confirm_send (confirm, bytes, peer_a);
+			this->node.votes_cache.add (vote);
 		});
 	}
 }
@@ -662,7 +663,22 @@ public:
 				{
 					if (node.store.block_exists (transaction, root_hash.first))
 					{
-						blocks_bundle.push_back (root_hash.first);
+						// Search in cache
+						auto votes (node.votes_cache.find (root_hash.first));
+						if (votes.empty ())
+						{
+							blocks_bundle.push_back (root_hash.first);
+						}
+						else
+						{
+							// Send from cache
+							for (auto & vote : votes)
+							{
+								nano::confirm_ack confirm (vote);
+								auto vote_bytes = confirm.to_bytes ();
+								node.network.confirm_send (confirm, vote_bytes, sender);
+							}
+						}
 					}
 					else
 					{
@@ -679,7 +695,22 @@ public:
 						}
 						if (!successor.is_zero ())
 						{
-							blocks_bundle.push_back (successor);
+							// Search in cache
+							auto votes (node.votes_cache.find (successor));
+							if (votes.empty ())
+							{
+								blocks_bundle.push_back (successor);
+							}
+							else
+							{
+								// Send from cache
+								for (auto & vote : votes)
+								{
+									nano::confirm_ack confirm (vote);
+									auto vote_bytes = confirm.to_bytes ();
+									node.network.confirm_send (confirm, vote_bytes, sender);
+								}
+							}
 							auto successor_block (node.store.block_get (transaction, successor));
 							assert (successor_block != nullptr);
 							node.network.republish_block (std::move (successor_block), sender);
