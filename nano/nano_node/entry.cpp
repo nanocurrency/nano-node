@@ -826,7 +826,14 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("version"))
 		{
-			std::cout << "Version " << NANO_VERSION_MAJOR << "." << NANO_VERSION_MINOR << std::endl;
+			if (NANO_VERSION_PATCH == 0)
+			{
+				std::cout << "Version " << NANO_MAJOR_MINOR_VERSION << std::endl;
+			}
+			else
+			{
+				std::cout << "Version " << NANO_MAJOR_MINOR_RC_VERSION << std::endl;
+			}
 		}
 		else
 		{
