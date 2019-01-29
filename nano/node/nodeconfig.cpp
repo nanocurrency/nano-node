@@ -117,6 +117,11 @@ nano::error nano::node_config::serialize_json (nano::jsonconfig & json) const
 	json.put ("block_processor_batch_max_time", block_processor_batch_max_time.count ());
 	json.put ("allow_local_peers", allow_local_peers);
 	json.put ("vote_minimum", vote_minimum.to_string_dec ());
+
+	nano::jsonconfig ipc_l;
+	ipc_config.serialize_json (ipc_l);
+	json.put_child ("ipc", ipc_l);
+
 	return json.get_error ();
 }
 
@@ -225,6 +230,10 @@ bool nano::node_config::upgrade_json (unsigned version_a, nano::jsonconfig & jso
 
 			json.replace_child (preconfigured_peers_key, peers);
 			json.put ("vote_minimum", vote_minimum.to_string_dec ());
+
+			nano::jsonconfig ipc_l;
+			ipc_config.serialize_json (ipc_l);
+			json.put_child ("ipc", ipc_l);
 			upgraded = true;
 		}
 		case 16:
@@ -323,6 +332,12 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 
 		auto block_processor_batch_max_time_l (json.get<unsigned long> ("block_processor_batch_max_time"));
 		block_processor_batch_max_time = std::chrono::milliseconds (block_processor_batch_max_time_l);
+
+		auto ipc_config_l (json.get_optional_child ("ipc"));
+		if (ipc_config_l)
+		{
+			ipc_config.deserialize_json (ipc_config_l.get ());
+		}
 
 		json.get<uint16_t> ("peering_port", peering_port);
 		json.get<unsigned> ("bootstrap_fraction_numerator", bootstrap_fraction_numerator);
