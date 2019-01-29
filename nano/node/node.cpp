@@ -21,6 +21,8 @@ std::chrono::seconds constexpr nano::node::cutoff;
 std::chrono::seconds constexpr nano::node::syn_cookie_cutoff;
 std::chrono::minutes constexpr nano::node::backup_interval;
 std::chrono::seconds constexpr nano::node::search_pending_interval;
+std::chrono::seconds constexpr nano::node::peer_interval;
+
 int constexpr nano::port_mapping::mapping_timeout;
 int constexpr nano::port_mapping::check_timeout;
 unsigned constexpr nano::active_transactions::request_interval_ms;
@@ -2279,6 +2281,7 @@ nano::process_return nano::node::process (nano::block const & block_a)
 void nano::node::start ()
 {
 	network.start ();
+	add_initial_peers ();
 	ongoing_keepalive ();
 	ongoing_syn_cookie_cleanup ();
 	if (!flags.disable_legacy_bootstrap)
@@ -2288,6 +2291,7 @@ void nano::node::start ()
 	ongoing_store_flush ();
 	ongoing_rep_crawl ();
 	ongoing_rep_calculation ();
+	ongoing_peer_store ();
 	if (!flags.disable_bootstrap_listener)
 	{
 		bootstrap.start ();
@@ -2307,7 +2311,6 @@ void nano::node::start ()
 	}
 	online_reps.recalculate_stake ();
 	port_mapping.start ();
-	add_initial_peers ();
 }
 
 void nano::node::stop ()
@@ -2473,6 +2476,30 @@ void nano::node::ongoing_store_flush ()
 		if (auto node_l = node_w.lock ())
 		{
 			node_l->ongoing_store_flush ();
+		}
+	});
+}
+
+void nano::node::ongoing_peer_store ()
+{
+	auto endpoint_peers = peers.list ();
+	if (!endpoint_peers.empty ())
+	{
+		// Clear all peers then refresh with the current list of peers
+		auto transaction (store.tx_begin_write ());
+		store.peer_clear (transaction);
+		for (const auto & endpoint : endpoint_peers)
+		{
+			nano::endpoint_key endpoint_key (endpoint.address ().to_v6 ().to_bytes (), endpoint.port ());
+			store.peer_put (transaction, std::move (endpoint_key));
+		}
+	}
+
+	std::weak_ptr<nano::node> node_w (shared_from_this ());
+	alarm.add (std::chrono::steady_clock::now () + peer_interval, [node_w]() {
+		if (auto node_l = node_w.lock ())
+		{
+			node_l->ongoing_peer_store ();
 		}
 	});
 }
@@ -2847,6 +2874,15 @@ uint64_t nano::node::work_generate_blocking (nano::uint256_union const & hash_a,
 
 void nano::node::add_initial_peers ()
 {
+	auto transaction (store.tx_begin_read ());
+	for (auto i (store.peers_begin (transaction)), n (store.peers_end ()); i != n; ++i)
+	{
+		nano::endpoint endpoint (boost::asio::ip::address_v6 (i->first.address_bytes ()), i->first.port ());
+		if (!peers.reachout (endpoint))
+		{
+			send_keepalive (endpoint);
+		}
+	}
 }
 
 void nano::node::block_confirm (std::shared_ptr<nano::block> block_a)
