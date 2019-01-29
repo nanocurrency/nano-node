@@ -3100,12 +3100,21 @@ void nano::rpc_handler::stats ()
 	}
 	if (!ec)
 	{
-		response (*static_cast<boost::property_tree::ptree *> (sink->to_object ()));
+		auto stat_tree_l (*static_cast<boost::property_tree::ptree *> (sink->to_object ()));
+		stat_tree_l.put ("stat_duration_seconds", node.stats.last_reset ().count ());
+		response (stat_tree_l);
 	}
 	else
 	{
 		response_errors ();
 	}
+}
+
+void nano::rpc_handler::stats_clear ()
+{
+	node.stats.clear ();
+	response_l.put ("success", "");
+	response (response_l);
 }
 
 void nano::rpc_handler::stop ()
@@ -4449,6 +4458,10 @@ void nano::rpc_handler::process_request ()
 			else if (action == "stats")
 			{
 				stats ();
+			}
+			else if (action == "stats_clear")
+			{
+				stats_clear ();
 			}
 			else if (action == "stop")
 			{
