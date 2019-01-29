@@ -2,9 +2,9 @@
 
 #include <nano/lib/numbers.hpp>
 
-#include <assert.h>
-#include <blake2/blake2.h>
 #include <boost/property_tree/json_parser.hpp>
+#include <cassert>
+#include <crypto/blake2/blake2.h>
 #include <streambuf>
 #include <unordered_map>
 
@@ -47,7 +47,7 @@ public:
 	nano::block_hash hash () const;
 	// Return a digest of hashables and non-hashables in this block.
 	nano::block_hash full_hash () const;
-	std::string to_json ();
+	std::string to_json () const;
 	virtual void hash (blake2b_state &) const = 0;
 	virtual uint64_t block_work () const = 0;
 	virtual void block_work_set (uint64_t) = 0;

@@ -4,7 +4,7 @@
 </div>
 <hr />
 
-[![Build Status](https://travis-ci.org/nanocurrency/raiblocks.svg?branch=master)](https://travis-ci.org/nanocurrency/raiblocks)
+[![Build Status](https://travis-ci.org/nanocurrency/nano-node.svg?branch=master)](https://travis-ci.org/nanocurrency/nano-node)
 [![Build status](https://ci.appveyor.com/api/projects/status/q66rbt2ux6apjj03/branch/master?svg=true)](https://ci.appveyor.com/project/argakiig/raiblocks/branch/master)
 ### What is Nano?
 

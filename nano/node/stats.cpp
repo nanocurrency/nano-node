@@ -9,33 +9,34 @@
 #include <sstream>
 #include <tuple>
 
-bool nano::stat_config::deserialize_json (boost::property_tree::ptree & tree_a)
+nano::error nano::stat_config::deserialize_json (nano::jsonconfig & json)
 {
-	bool error = false;
-
-	auto sampling_l (tree_a.get_child_optional ("sampling"));
+	auto sampling_l (json.get_optional_child ("sampling"));
 	if (sampling_l)
 	{
-		sampling_enabled = sampling_l->get<bool> ("enabled", sampling_enabled);
-		capacity = sampling_l->get<size_t> ("capacity", capacity);
-		interval = sampling_l->get<size_t> ("interval", interval);
+		sampling_l->get<bool> ("enabled", sampling_enabled);
+		sampling_l->get<size_t> ("capacity", capacity);
+		sampling_l->get<size_t> ("interval", interval);
 	}
 
-	auto log_l (tree_a.get_child_optional ("log"));
+	auto log_l (json.get_optional_child ("log"));
 	if (log_l)
 	{
-		log_headers = log_l->get<bool> ("headers", log_headers);
-		log_interval_counters = log_l->get<size_t> ("interval_counters", log_interval_counters);
-		log_interval_samples = log_l->get<size_t> ("interval_samples", log_interval_samples);
-		log_rotation_count = log_l->get<size_t> ("rotation_count", log_rotation_count);
-		log_counters_filename = log_l->get<std::string> ("filename_counters", log_counters_filename);
-		log_samples_filename = log_l->get<std::string> ("filename_samples", log_samples_filename);
+		log_l->get<bool> ("headers", log_headers);
+		log_l->get<size_t> ("interval_counters", log_interval_counters);
+		log_l->get<size_t> ("interval_samples", log_interval_samples);
+		log_l->get<size_t> ("rotation_count", log_rotation_count);
+		log_l->get<std::string> ("filename_counters", log_counters_filename);
+		log_l->get<std::string> ("filename_samples", log_samples_filename);
 
 		// Don't allow specifying the same file name for counter and samples logs
-		error = (log_counters_filename == log_samples_filename);
+		if (log_counters_filename == log_samples_filename)
+		{
+			json.get_error ().set ("The statistics counter and samples config values must be different");
+		}
 	}
 
-	return error;
+	return json.get_error ();
 }
 
 std::string nano::stat_log_sink::tm_to_string (tm & tm)
@@ -315,6 +316,9 @@ std::string nano::stat::type_to_string (uint32_t key)
 	std::string res;
 	switch (type)
 	{
+		case nano::stat::type::ipc:
+			res = "ipc";
+			break;
 		case nano::stat::type::block:
 			res = "block";
 			break;
@@ -388,6 +392,9 @@ std::string nano::stat::detail_to_string (uint32_t key)
 		case nano::stat::detail::confirm_req:
 			res = "confirm_req";
 			break;
+		case nano::stat::detail::fork:
+			res = "fork";
+			break;
 		case nano::stat::detail::frontier_req:
 			res = "frontier_req";
 			break;
@@ -403,8 +410,14 @@ std::string nano::stat::detail_to_string (uint32_t key)
 		case nano::stat::detail::initiate_lazy:
 			res = "initiate_lazy";
 			break;
+		case nano::stat::detail::initiate_wallet_lazy:
+			res = "initiate_wallet_lazy";
+			break;
 		case nano::stat::detail::insufficient_work:
 			res = "insufficient_work";
+			break;
+		case nano::stat::detail::invocations:
+			res = "invocations";
 			break;
 		case nano::stat::detail::keepalive:
 			res = "keepalive";

@@ -3,8 +3,9 @@
 #include <boost/filesystem.hpp>
 #include <boost/log/sources/logger.hpp>
 #include <boost/log/trivial.hpp>
-#include <boost/property_tree/ptree.hpp>
 #include <cstdint>
+#include <nano/lib/errors.hpp>
+#include <nano/lib/jsonconfig.hpp>
 
 #define FATAL_LOG_PREFIX "FATAL ERROR: "
 
@@ -14,9 +15,9 @@ class logging
 {
 public:
 	logging ();
-	void serialize_json (boost::property_tree::ptree &) const;
-	bool deserialize_json (bool &, boost::property_tree::ptree &);
-	bool upgrade_json (unsigned, boost::property_tree::ptree &);
+	nano::error serialize_json (nano::jsonconfig &) const;
+	nano::error deserialize_json (bool &, nano::jsonconfig &);
+	bool upgrade_json (unsigned, nano::jsonconfig &);
 	bool ledger_logging () const;
 	bool ledger_duplicate_logging () const;
 	bool vote_logging () const;
@@ -31,6 +32,7 @@ public:
 	bool upnp_details_logging () const;
 	bool timing_logging () const;
 	bool log_rpc () const;
+	bool log_ipc () const;
 	bool bulk_pull_logging () const;
 	bool callback_logging () const;
 	bool work_generation_time () const;
@@ -49,6 +51,7 @@ public:
 	bool node_lifetime_tracing_value;
 	bool insufficient_work_logging_value;
 	bool log_rpc_value;
+	bool log_ipc_value;
 	bool bulk_pull_logging_value;
 	bool work_generation_time_value;
 	bool upnp_details_logging_value;
@@ -58,6 +61,9 @@ public:
 	uintmax_t max_size;
 	uintmax_t rotation_size;
 	boost::log::sources::logger_mt log;
-	static constexpr int json_version = 5;
+	int json_version () const
+	{
+		return 6;
+	}
 };
 }

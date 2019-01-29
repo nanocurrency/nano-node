@@ -44,7 +44,7 @@ public:
 class peer_information
 {
 public:
-	peer_information (nano::endpoint const &, unsigned);
+	peer_information (nano::endpoint const &, unsigned, boost::optional<nano::account> = boost::none);
 	peer_information (nano::endpoint const &, std::chrono::steady_clock::time_point const &, std::chrono::steady_clock::time_point const &);
 	nano::endpoint endpoint;
 	boost::asio::ip::address ip_address;
@@ -57,6 +57,7 @@ public:
 	nano::account probable_rep_account;
 	unsigned network_version;
 	boost::optional<nano::account> node_id;
+	bool operator< (nano::peer_information const &) const;
 };
 
 /** Manages a set of disovered peers */
@@ -72,14 +73,13 @@ public:
 	// Returns true if peer was already known
 	bool known_peer (nano::endpoint const &);
 	// Notify of peer we received from
-	bool insert (nano::endpoint const &, unsigned);
+	bool insert (nano::endpoint const &, unsigned, bool = false, boost::optional<nano::account> = boost::none);
 	std::unordered_set<nano::endpoint> random_set (size_t);
 	void random_fill (std::array<nano::endpoint, 8> &);
 	// Request a list of the top known representatives
 	std::vector<peer_information> representatives (size_t);
 	// List of all peers
 	std::deque<nano::endpoint> list ();
-	std::map<nano::endpoint, unsigned> list_version ();
 	std::vector<peer_information> list_vector (size_t);
 	// A list of random peers sized for the configured rebroadcast fanout
 	std::deque<nano::endpoint> list_fanout ();

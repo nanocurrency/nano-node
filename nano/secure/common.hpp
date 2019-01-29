@@ -10,7 +10,7 @@
 
 #include <unordered_map>
 
-#include <blake2/blake2.h>
+#include <crypto/blake2/blake2.h>
 
 namespace boost
 {
@@ -23,10 +23,19 @@ struct hash<::nano::uint256_union>
 		return hash (value_a);
 	}
 };
+template <>
+struct hash<::nano::uint512_union>
+{
+	size_t operator() (::nano::uint512_union const & value_a) const
+	{
+		std::hash<::nano::uint512_union> hash;
+		return hash (value_a);
+	}
+};
 }
 namespace nano
 {
-const uint8_t protocol_version = 0x0f;
+const uint8_t protocol_version = 0x10;
 const uint8_t protocol_version_min = 0x0d;
 const uint8_t node_id_version = 0x0c;
 

@@ -5,6 +5,21 @@
 
 namespace nano
 {
+class block_sideband
+{
+public:
+	block_sideband () = default;
+	block_sideband (nano::block_type, nano::account const &, nano::block_hash const &, nano::amount const &, uint64_t, uint64_t);
+	void serialize (nano::stream &) const;
+	bool deserialize (nano::stream &);
+	static size_t size (nano::block_type);
+	nano::block_type type;
+	nano::block_hash successor;
+	nano::account account;
+	nano::amount balance;
+	uint64_t height;
+	uint64_t timestamp;
+};
 class transaction;
 class block_store;
 
@@ -193,16 +208,17 @@ class block_store
 public:
 	virtual ~block_store () = default;
 	virtual void initialize (nano::transaction const &, nano::genesis const &) = 0;
-	virtual void block_put (nano::transaction const &, nano::block_hash const &, nano::block const &, nano::block_hash const & = nano::block_hash (0), nano::epoch version = nano::epoch::epoch_0) = 0;
+	virtual void block_put (nano::transaction const &, nano::block_hash const &, nano::block const &, nano::block_sideband const &, nano::epoch version = nano::epoch::epoch_0) = 0;
 	virtual nano::block_hash block_successor (nano::transaction const &, nano::block_hash const &) = 0;
 	virtual void block_successor_clear (nano::transaction const &, nano::block_hash const &) = 0;
-	virtual std::shared_ptr<nano::block> block_get (nano::transaction const &, nano::block_hash const &) = 0;
+	virtual std::shared_ptr<nano::block> block_get (nano::transaction const &, nano::block_hash const &, nano::block_sideband * = nullptr) = 0;
 	virtual std::shared_ptr<nano::block> block_random (nano::transaction const &) = 0;
 	virtual void block_del (nano::transaction const &, nano::block_hash const &) = 0;
 	virtual bool block_exists (nano::transaction const &, nano::block_hash const &) = 0;
 	virtual bool block_exists (nano::transaction const &, nano::block_type, nano::block_hash const &) = 0;
 	virtual nano::block_counts block_count (nano::transaction const &) = 0;
 	virtual bool root_exists (nano::transaction const &, nano::uint256_union const &) = 0;
+	virtual nano::account block_account (nano::transaction const &, nano::block_hash const &) = 0;
 
 	virtual void frontier_put (nano::transaction const &, nano::block_hash const &, nano::account const &) = 0;
 	virtual nano::account frontier_get (nano::transaction const &, nano::block_hash const &) = 0;
@@ -237,16 +253,9 @@ public:
 	virtual nano::store_iterator<nano::pending_key, nano::pending_info> pending_begin (nano::transaction const &) = 0;
 	virtual nano::store_iterator<nano::pending_key, nano::pending_info> pending_end () = 0;
 
-	virtual void block_info_put (nano::transaction const &, nano::block_hash const &, nano::block_info const &) = 0;
-	virtual void block_info_del (nano::transaction const &, nano::block_hash const &) = 0;
 	virtual bool block_info_get (nano::transaction const &, nano::block_hash const &, nano::block_info &) = 0;
-	virtual bool block_info_exists (nano::transaction const &, nano::block_hash const &) = 0;
-	virtual nano::store_iterator<nano::block_hash, nano::block_info> block_info_begin (nano::transaction const &, nano::block_hash const &) = 0;
-	virtual nano::store_iterator<nano::block_hash, nano::block_info> block_info_begin (nano::transaction const &) = 0;
-	virtual nano::store_iterator<nano::block_hash, nano::block_info> block_info_end () = 0;
 	virtual nano::uint128_t block_balance (nano::transaction const &, nano::block_hash const &) = 0;
 	virtual nano::epoch block_version (nano::transaction const &, nano::block_hash const &) = 0;
-	static size_t const block_info_max = 32;
 
 	virtual nano::uint128_t representation_get (nano::transaction const &, nano::account const &) = 0;
 	virtual void representation_put (nano::transaction const &, nano::account const &, nano::uint128_t const &) = 0;
@@ -264,10 +273,6 @@ public:
 	virtual nano::store_iterator<nano::unchecked_key, std::shared_ptr<nano::block>> unchecked_begin (nano::transaction const &, nano::unchecked_key const &) = 0;
 	virtual nano::store_iterator<nano::unchecked_key, std::shared_ptr<nano::block>> unchecked_end () = 0;
 	virtual size_t unchecked_count (nano::transaction const &) = 0;
-
-	virtual void checksum_put (nano::transaction const &, uint64_t, uint8_t, nano::checksum const &) = 0;
-	virtual bool checksum_get (nano::transaction const &, uint64_t, uint8_t, nano::checksum &) = 0;
-	virtual void checksum_del (nano::transaction const &, uint64_t, uint8_t) = 0;
 
 	// Return latest vote for an account from store
 	virtual std::shared_ptr<nano::vote> vote_get (nano::transaction const &, nano::account const &) = 0;
