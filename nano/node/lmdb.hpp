@@ -1,7 +1,7 @@
 #pragma once
 
 #include <boost/filesystem.hpp>
-
+#include <boost/optional.hpp>
 #include <lmdb/libraries/liblmdb/lmdb.h>
 
 #include <nano/lib/numbers.hpp>
@@ -374,6 +374,7 @@ private:
 	template <typename T>
 	std::shared_ptr<nano::block> block_random (nano::transaction const &, MDB_dbi);
 	MDB_val block_raw_get (nano::transaction const &, nano::block_hash const &, nano::block_type &);
+	boost::optional<MDB_val> block_raw_get_by_type (nano::transaction const &, nano::block_hash const &, nano::block_type &);
 	void block_raw_put (nano::transaction const &, MDB_dbi, nano::block_hash const &, MDB_val);
 	void clear (MDB_dbi);
 	bool stopped;
