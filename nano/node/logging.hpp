@@ -32,6 +32,7 @@ public:
 	bool upnp_details_logging () const;
 	bool timing_logging () const;
 	bool log_rpc () const;
+	bool log_ipc () const;
 	bool bulk_pull_logging () const;
 	bool callback_logging () const;
 	bool work_generation_time () const;
@@ -50,6 +51,7 @@ public:
 	bool node_lifetime_tracing_value;
 	bool insufficient_work_logging_value;
 	bool log_rpc_value;
+	bool log_ipc_value;
 	bool bulk_pull_logging_value;
 	bool work_generation_time_value;
 	bool upnp_details_logging_value;
