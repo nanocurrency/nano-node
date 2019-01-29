@@ -199,6 +199,7 @@ public:
 	void send ();
 	void sign ();
 	void stats ();
+	void stats_clear ();
 	void stop ();
 	void unchecked ();
 	void unchecked_clear ();
