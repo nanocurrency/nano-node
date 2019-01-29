@@ -235,7 +235,7 @@ void nano::network::republish (nano::block_hash const & hash_a, std::shared_ptr<
 		BOOST_LOG (node.log) << boost::str (boost::format ("Publishing %1% to %2%") % hash_a.to_string () % endpoint_a);
 	}
 	std::weak_ptr<nano::node> node_w (node.shared ());
-	send_buffer (buffer_a->data (), buffer_a->size (), endpoint_a, [node_w, endpoint_a, hash_a](boost::system::error_code const & ec, size_t size) {
+	send_buffer (buffer_a->data (), buffer_a->size (), endpoint_a, [node_w, endpoint_a](boost::system::error_code const & ec, size_t size) {
 		if (auto node_l = node_w.lock ())
 		{
 			if (ec && node_l->config.logging.network_logging ())
@@ -244,7 +244,6 @@ void nano::network::republish (nano::block_hash const & hash_a, std::shared_ptr<
 			}
 			else
 			{
-				//node_l->active.log_rebroadcast (hash_a);
 				node_l->stats.inc (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::out);
 			}
 		}
@@ -3183,8 +3182,7 @@ election_start (std::chrono::steady_clock::now ()),
 status ({ block_a, 0 }),
 confirmed (false),
 stopped (false),
-announcements (0),
-rebroadcast_logged (false)
+announcements (0)
 {
 	last_votes.insert (std::make_pair (nano::not_an_account, nano::vote_info{ std::chrono::steady_clock::now (), 0, block_a->hash () }));
 	blocks.insert (std::make_pair (block_a->hash (), block_a));
@@ -3239,16 +3237,6 @@ void nano::election::confirm_back (nano::transaction const & transaction_a, uint
 void nano::election::stop ()
 {
 	stopped = true;
-}
-
-void nano::election::log_rebroadcast (nano::block_hash const & hash_a)
-{
-	if (!rebroadcast_logged)
-	{
-		auto gap (std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now () - election_start));
-		std::cerr << boost::str (boost::format ("Rebroadcasting %1% after %2%ms\n") % hash_a.to_string () % std::to_string (gap.count ()));
-		rebroadcast_logged = true;
-	}
 }
 
 bool nano::election::have_quorum (nano::tally_t const & tally_a, nano::uint128_t tally_sum)
@@ -3869,16 +3857,6 @@ bool nano::active_transactions::publish (std::shared_ptr<nano::block> block_a)
 		}
 	}
 	return result;
-}
-
-void nano::active_transactions::log_rebroadcast (nano::block_hash const & hash_a)
-{
-	std::lock_guard<std::mutex> lock (mutex);
-	auto existing (blocks.find (hash_a));
-	if (existing != blocks.end ())
-	{
-		existing->second->log_rebroadcast (hash_a);
-	}
 }
 
 int nano::node::store_version ()

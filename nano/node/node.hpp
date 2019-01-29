@@ -67,7 +67,6 @@ public:
 	void log_votes (nano::tally_t const &);
 	bool publish (std::shared_ptr<nano::block> block_a);
 	void stop ();
-	void log_rebroadcast (nano::block_hash const &);
 	nano::node & node;
 	std::unordered_map<nano::account, nano::vote_info> last_votes;
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> blocks;
@@ -77,7 +76,6 @@ public:
 	bool stopped;
 	std::unordered_map<nano::block_hash, nano::uint128_t> last_tally;
 	unsigned announcements;
-	bool rebroadcast_logged;
 };
 class conflict_info
 {
@@ -106,7 +104,6 @@ public:
 	void erase (nano::block const &);
 	void stop ();
 	bool publish (std::shared_ptr<nano::block> block_a);
-	void log_rebroadcast (nano::block_hash const &);
 	boost::multi_index_container<
 	nano::conflict_info,
 	boost::multi_index::indexed_by<
