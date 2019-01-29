@@ -1417,3 +1417,74 @@ TEST (block_store, upgrade_sideband_epoch)
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, block2).code);
 	ASSERT_EQ (nano::epoch::epoch_1, store.block_version (transaction, block2.hash ()));
 }
+
+TEST (block_store, peers)
+{
+	nano::logging logging;
+	auto init (false);
+	nano::mdb_store store (init, logging, nano::unique_path ());
+	ASSERT_TRUE (!init);
+
+	auto transaction (store.tx_begin_write ());
+	nano::endpoint_key endpoint (boost::asio::ip::address_v6::any ().to_bytes (), 100);
+
+	// Confirm that the store is empty
+	ASSERT_FALSE (store.peer_exists (transaction, endpoint));
+	ASSERT_EQ (store.peer_count (transaction), 0);
+
+	// Add one, confirm that it can be found
+	store.peer_put (transaction, endpoint);
+	ASSERT_TRUE (store.peer_exists (transaction, endpoint));
+	ASSERT_EQ (store.peer_count (transaction), 1);
+
+	// Add another one and check that it (and the existing one) can be found
+	nano::endpoint_key endpoint1 (boost::asio::ip::address_v6::any ().to_bytes (), 101);
+	store.peer_put (transaction, endpoint1);
+	ASSERT_TRUE (store.peer_exists (transaction, endpoint1)); // Check new peer is here
+	ASSERT_TRUE (store.peer_exists (transaction, endpoint)); // Check first peer is still here
+	ASSERT_EQ (store.peer_count (transaction), 2);
+
+	// Delete the first one
+	store.peer_del (transaction, endpoint1);
+	ASSERT_FALSE (store.peer_exists (transaction, endpoint1)); // Confirm it no longer exists
+	ASSERT_TRUE (store.peer_exists (transaction, endpoint)); // Check first peer is still here
+	ASSERT_EQ (store.peer_count (transaction), 1);
+
+	// Delete original one
+	store.peer_del (transaction, endpoint);
+	ASSERT_EQ (store.peer_count (transaction), 0);
+	ASSERT_FALSE (store.peer_exists (transaction, endpoint));
+}
+
+TEST (block_store, endpoint_key_byte_order)
+{
+	boost::asio::ip::address_v6 address (boost::asio::ip::address_v6::from_string ("::ffff:127.0.0.1"));
+	auto port = 100;
+	nano::endpoint_key endpoint_key (address.to_bytes (), port);
+
+	std::vector<uint8_t> bytes;
+	{
+		nano::vectorstream stream (bytes);
+		nano::write (stream, endpoint_key);
+	}
+
+	// This checks that the endpoint is serialized as expected, with a size
+	// of 18 bytes (16 for ipv6 address and 2 for port), both in network byte order.
+	ASSERT_EQ (bytes.size (), 18);
+	ASSERT_EQ (bytes[10], 0xff);
+	ASSERT_EQ (bytes[11], 0xff);
+	ASSERT_EQ (bytes[12], 127);
+	ASSERT_EQ (bytes[bytes.size () - 2], 0);
+	ASSERT_EQ (bytes.back (), 100);
+
+	// Deserialize the same stream bytes
+	nano::bufferstream stream1 (bytes.data (), bytes.size ());
+	nano::endpoint_key endpoint_key1;
+	nano::read (stream1, endpoint_key1);
+
+	// This should be in network bytes order
+	ASSERT_EQ (address.to_bytes (), endpoint_key1.address_bytes ());
+
+	// This should be in host byte order
+	ASSERT_EQ (port, endpoint_key1.port ());
+}

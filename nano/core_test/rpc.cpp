@@ -1748,7 +1748,14 @@ TEST (rpc, version)
 		ASSERT_EQ (std::to_string (node1->store.version_get (transaction)), response1.json.get<std::string> ("store_version"));
 	}
 	ASSERT_EQ (std::to_string (nano::protocol_version), response1.json.get<std::string> ("protocol_version"));
-	ASSERT_EQ (boost::str (boost::format ("Nano %1%.%2%") % NANO_VERSION_MAJOR % NANO_VERSION_MINOR), response1.json.get<std::string> ("node_vendor"));
+	if (NANO_VERSION_PATCH == 0)
+	{
+		ASSERT_EQ (boost::str (boost::format ("Nano %1%") % NANO_MAJOR_MINOR_VERSION), response1.json.get<std::string> ("node_vendor"));
+	}
+	else
+	{
+		ASSERT_EQ (boost::str (boost::format ("Nano %1%") % NANO_MAJOR_MINOR_RC_VERSION), response1.json.get<std::string> ("node_vendor"));
+	}
 	auto headers (response1.resp.base ());
 	auto allowed_origin (headers.at ("Access-Control-Allow-Origin"));
 	auto allowed_headers (headers.at ("Access-Control-Allow-Headers"));
@@ -4166,6 +4173,28 @@ TEST (rpc, node_id_delete)
 	auto transaction (system.nodes[0]->store.tx_begin_write ());
 	nano::keypair node_id (system.nodes[0]->store.get_node_id (transaction));
 	ASSERT_NE (node_id.pub.to_string (), system.nodes[0]->node_id.pub.to_string ());
+}
+
+TEST (rpc, stats_clear)
+{
+	nano::system system (24000, 1);
+	nano::keypair key;
+	nano::rpc rpc (system.io_ctx, *system.nodes[0], nano::rpc_config (true));
+	rpc.start ();
+	system.nodes[0]->stats.inc (nano::stat::type::ledger, nano::stat::dir::in);
+	ASSERT_EQ (1, system.nodes[0]->stats.count (nano::stat::type::ledger, nano::stat::dir::in));
+	boost::property_tree::ptree request;
+	request.put ("action", "stats_clear");
+	test_response response (request, rpc, system.io_ctx);
+	system.deadline_set (5s);
+	while (response.status == 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	std::string success (response.json.get<std::string> ("success"));
+	ASSERT_TRUE (success.empty ());
+	ASSERT_EQ (0, system.nodes[0]->stats.count (nano::stat::type::ledger, nano::stat::dir::in));
+	ASSERT_LE (system.nodes[0]->stats.last_reset ().count (), 5);
 }
 
 TEST (rpc, uptime)

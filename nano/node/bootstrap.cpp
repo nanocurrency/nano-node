@@ -38,23 +38,29 @@ void nano::socket::async_read (std::shared_ptr<std::vector<uint8_t>> buffer_a, s
 {
 	assert (size_a <= buffer_a->size ());
 	auto this_l (shared_from_this ());
-	start ();
-	boost::asio::async_read (socket_m, boost::asio::buffer (buffer_a->data (), size_a), [this_l, callback_a](boost::system::error_code const & ec, size_t size_a) {
-		this_l->node->stats.add (nano::stat::type::traffic_bootstrap, nano::stat::dir::in, size_a);
-		this_l->stop ();
-		callback_a (ec, size_a);
-	});
+	if (socket_m.is_open ())
+	{
+		start ();
+		boost::asio::async_read (socket_m, boost::asio::buffer (buffer_a->data (), size_a), [this_l, callback_a](boost::system::error_code const & ec, size_t size_a) {
+			this_l->node->stats.add (nano::stat::type::traffic_bootstrap, nano::stat::dir::in, size_a);
+			this_l->stop ();
+			callback_a (ec, size_a);
+		});
+	}
 }
 
 void nano::socket::async_write (std::shared_ptr<std::vector<uint8_t>> buffer_a, std::function<void(boost::system::error_code const &, size_t)> callback_a)
 {
 	auto this_l (shared_from_this ());
-	start ();
-	boost::asio::async_write (socket_m, boost::asio::buffer (buffer_a->data (), buffer_a->size ()), [this_l, callback_a, buffer_a](boost::system::error_code const & ec, size_t size_a) {
-		this_l->node->stats.add (nano::stat::type::traffic_bootstrap, nano::stat::dir::out, size_a);
-		this_l->stop ();
-		callback_a (ec, size_a);
-	});
+	if (socket_m.is_open ())
+	{
+		start ();
+		boost::asio::async_write (socket_m, boost::asio::buffer (buffer_a->data (), buffer_a->size ()), [this_l, callback_a, buffer_a](boost::system::error_code const & ec, size_t size_a) {
+			this_l->node->stats.add (nano::stat::type::traffic_bootstrap, nano::stat::dir::out, size_a);
+			this_l->stop ();
+			callback_a (ec, size_a);
+		});
+	}
 }
 
 void nano::socket::start (std::chrono::steady_clock::time_point timeout_a)

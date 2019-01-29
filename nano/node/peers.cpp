@@ -15,10 +15,7 @@ endpoint (endpoint_a),
 ip_address (endpoint_a.address ()),
 last_contact (std::chrono::steady_clock::now ()),
 last_attempt (last_contact),
-last_bootstrap_attempt (std::chrono::steady_clock::time_point ()),
-last_rep_request (std::chrono::steady_clock::time_point ()),
-last_rep_response (std::chrono::steady_clock::time_point ()),
-rep_weight (0),
+
 network_version (network_version_a),
 node_id (node_id_a)
 {
@@ -28,13 +25,7 @@ nano::peer_information::peer_information (nano::endpoint const & endpoint_a, std
 endpoint (endpoint_a),
 ip_address (endpoint_a.address ()),
 last_contact (last_contact_a),
-last_attempt (last_attempt_a),
-last_bootstrap_attempt (std::chrono::steady_clock::time_point ()),
-last_rep_request (std::chrono::steady_clock::time_point ()),
-last_rep_response (std::chrono::steady_clock::time_point ()),
-rep_weight (0),
-network_version (nano::protocol_version),
-node_id ()
+last_attempt (last_attempt_a)
 {
 }
 

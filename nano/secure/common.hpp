@@ -122,6 +122,39 @@ public:
 	nano::block_hash hash;
 	nano::block_hash key () const;
 };
+
+class endpoint_key
+{
+public:
+	endpoint_key () = default;
+
+	/*
+	 * @param address_a This should be in network byte order
+	 * @param port_a This should be in host byte order
+	 */
+	endpoint_key (const std::array<uint8_t, 16> & address_a, uint16_t port_a);
+
+	/*
+	 * @return The ipv6 address in network byte order
+	 */
+	const std::array<uint8_t, 16> & address_bytes () const;
+
+	/*
+	 * @return The port in host byte order
+	 */
+	uint16_t port () const;
+
+private:
+	// Both stored internally in network byte order
+	std::array<uint8_t, 16> address;
+	uint16_t network_port{ 0 };
+};
+
+enum class no_value
+{
+	dummy
+};
+
 // Internally unchecked_key is equal to pending_key (2x uint256_union)
 using unchecked_key = pending_key;
 
