@@ -60,13 +60,10 @@ else ()
 			else ()
 				add_definitions(-DCRYPTOPP_DISABLE_AESNI)
 			endif ()
-			# Fix failing builds after commit https://github.com/weidai11/cryptopp/commit/df9fa62205f2d341e2b1b26595a3a1b6377c60c5
-			add_definitions(-DCRYPTOPP_DISABLE_CLMUL)
 		elseif (CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
 			add_compile_options(-msse2)
 			add_definitions(-DCRYPTOPP_DISABLE_SSSE3
-							-DCRYPTOPP_DISABLE_AESNI
-							-DCRYPTOPP_DISABLE_CLMUL)
+							-DCRYPTOPP_DISABLE_AESNI)
 		endif()
 
 		if (ENABLE_AVX2)
@@ -154,8 +151,7 @@ if (WIN32)
 	enable_language(ASM_MASM)
 	# similar to SSE2 settings
 	add_definitions(-DCRYPTOPP_DISABLE_SSSE3
-					-DCRYPTOPP_DISABLE_AESNI
-					-DCRYPTOPP_DISABLE_CLMUL)
+					-DCRYPTOPP_DISABLE_AESNI)
 endif ()
 # Some Clang cannot handle mixed asm with positional arguments, where the
 # body is Intel style with no prefix and the templates are AT&T style.
@@ -166,6 +162,8 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 	message("CryptoPP with disabled ASM for ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}")
 endif ()
 add_definitions(-DCRYPTOPP_DISABLE_SHANI)
+# Fix failing builds after commit https://github.com/weidai11/cryptopp/commit/df9fa62205f2d341e2b1b26595a3a1b6377c60c5
+add_definitions(-DCRYPTOPP_DISABLE_CLMUL)
 
 set (CRYPTOPP_LIBRARY cryptopp)
 add_library (cryptopp
