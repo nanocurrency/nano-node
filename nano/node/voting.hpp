@@ -57,6 +57,6 @@ private:
 	boost::multi_index::ordered_non_unique<boost::multi_index::member<nano::cached_votes, std::chrono::steady_clock::time_point, &nano::cached_votes::time>>,
 	boost::multi_index::hashed_unique<boost::multi_index::member<nano::cached_votes, nano::block_hash, &nano::cached_votes::hash>>>>
 	cache;
-	size_t max_cache = (nano::nano_network == nano::nano_networks::nano_test_network) ? 2 : 1000;
+	static size_t constexpr max_cache = (nano::nano_network == nano::nano_networks::nano_test_network) ? 2 : 1000;
 };
 }
