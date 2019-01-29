@@ -6,7 +6,6 @@
 #include <nano/secure/blockstore.hpp>
 #include <nano/secure/versioning.hpp>
 
-#include <boost/endian/conversion.hpp>
 #include <boost/property_tree/json_parser.hpp>
 
 #include <queue>
@@ -326,8 +325,8 @@ void nano::unchecked_info::serialize (nano::stream & stream_a) const
 	assert (block != nullptr);
 	nano::serialize_block (stream_a, *block);
 	nano::write (stream_a, account.bytes);
-	nano::write (stream_a, boost::endian::native_to_big (modified));
-	nano::write (stream_a, boost::endian::native_to_big (static_cast<uint8_t> (verified)));
+	nano::write (stream_a, modified);
+	nano::write (stream_a, verified);
 }
 
 bool nano::unchecked_info::deserialize (nano::stream & stream_a)
@@ -340,13 +339,9 @@ bool nano::unchecked_info::deserialize (nano::stream & stream_a)
 		if (!error)
 		{
 			error = nano::read (stream_a, modified);
-			boost::endian::big_to_native_inplace (modified);
 			if (!error)
 			{
-				uint8_t verified_uint8_t;
-				error = nano::read (stream_a, verified_uint8_t);
-				boost::endian::big_to_native_inplace (verified_uint8_t);
-				verified = static_cast<nano::signature_verification> (verified_uint8_t);
+				error = nano::read (stream_a, verified);
 			}
 		}
 	}
