@@ -23,6 +23,8 @@ add_library (node
 	cli.cpp
 	common.cpp
 	common.hpp
+	ipc.hpp
+	ipc.cpp
 	lmdb.cpp
 	lmdb.hpp
 	logging.cpp

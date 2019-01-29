@@ -3,6 +3,7 @@
 #include <nano/lib/utility.hpp>
 #include <nano/nano_wallet/icon.hpp>
 #include <nano/node/cli.hpp>
+#include <nano/node/ipc.hpp>
 #include <nano/node/rpc.hpp>
 #include <nano/node/working.hpp>
 #include <nano/qt/qt.hpp>
@@ -277,12 +278,14 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 			update_config (config, config_path);
 			node->start ();
 			std::unique_ptr<nano::rpc> rpc = get_rpc (io_ctx, *node, config.rpc);
-			if (rpc && config.rpc_enable)
+			if (rpc)
 			{
-				rpc->start ();
+				rpc->start (config.rpc_enable);
 			}
+			nano::ipc::ipc_server ipc (*node, *rpc);
 			nano::thread_runner runner (io_ctx, node->config.io_threads);
 			QObject::connect (&application, &QApplication::aboutToQuit, [&]() {
+				ipc.stop ();
 				rpc->stop ();
 				node->stop ();
 			});
