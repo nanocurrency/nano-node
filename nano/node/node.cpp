@@ -1600,7 +1600,7 @@ void nano::block_processor::process_batch (std::unique_lock<std::mutex> & lock_a
 		auto transaction (node.store.tx_begin_read ());
 		while (!state_blocks.empty () && timer_l.before_deadline (std::chrono::seconds (2)))
 		{
-			verify_state_blocks (transaction, lock_a, 2048 * node.config.signature_checker_threads);
+			verify_state_blocks (transaction, lock_a, 2048 * (node.config.signature_checker_threads + 1));
 		}
 	}
 	lock_a.unlock ();
@@ -1685,7 +1685,7 @@ void nano::block_processor::process_batch (std::unique_lock<std::mutex> & lock_a
 		Because verification is long process, avoid large deque verification inside of write transaction */
 		if (blocks.empty () && !state_blocks.empty ())
 		{
-			verify_state_blocks (transaction, lock_a, 256 * node.config.signature_checker_threads);
+			verify_state_blocks (transaction, lock_a, 256 * (node.config.signature_checker_threads + 1));
 		}
 	}
 	lock_a.unlock ();
