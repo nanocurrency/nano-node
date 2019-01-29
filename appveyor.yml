@@ -21,7 +21,7 @@ install:
 
 
 
-- ps: Invoke-WebRequest -Uri https://download.microsoft.com/download/5/7/b/57b2947c-7221-4f33-b35e-2fc78cb10df4/vc_redist.x64.exe -OutFile .\vc_redist.x64.exe
+- ps: Invoke-WebRequest -Uri https://aka.ms/vs/15/release/vc_redist.x64.exe -OutFile .\vc_redist.x64.exe
 build:
   project: INSTALL.vcxproj
   parallel: true
