@@ -235,7 +235,7 @@ void nano::network::republish (nano::block_hash const & hash_a, std::shared_ptr<
 		BOOST_LOG (node.log) << boost::str (boost::format ("Publishing %1% to %2%") % hash_a.to_string () % endpoint_a);
 	}
 	std::weak_ptr<nano::node> node_w (node.shared ());
-	send_buffer (buffer_a->data (), buffer_a->size (), endpoint_a, [buffer_a, node_w, endpoint_a](boost::system::error_code const & ec, size_t size) {
+	send_buffer (buffer_a->data (), buffer_a->size (), endpoint_a, [node_w, endpoint_a](boost::system::error_code const & ec, size_t size) {
 		if (auto node_l = node_w.lock ())
 		{
 			if (ec && node_l->config.logging.network_logging ())
@@ -289,6 +289,23 @@ bool confirm_block (nano::transaction const & transaction_a, nano::node & node_a
 	return result;
 }
 
+void nano::network::confirm_hashes (nano::transaction const & transaction_a, nano::endpoint const & peer_a, std::vector<nano::block_hash> blocks_bundle_a)
+{
+	if (node.config.enable_voting)
+	{
+		node.wallets.foreach_representative (transaction_a, [this, &blocks_bundle_a, &peer_a, &transaction_a](nano::public_key const & pub_a, nano::raw_key const & prv_a) {
+			auto vote (this->node.store.vote_generate (transaction_a, pub_a, prv_a, blocks_bundle_a));
+			nano::confirm_ack confirm (vote);
+			std::shared_ptr<std::vector<uint8_t>> bytes (new std::vector<uint8_t>);
+			{
+				nano::vectorstream stream (*bytes);
+				confirm.serialize (stream);
+			}
+			this->node.network.confirm_send (confirm, bytes, peer_a);
+		});
+	}
+}
+
 void nano::network::republish_block (std::shared_ptr<nano::block> block)
 {
 	auto hash (block->hash ());
@@ -302,6 +319,22 @@ void nano::network::republish_block (std::shared_ptr<nano::block> block)
 	if (node.config.logging.network_logging ())
 	{
 		BOOST_LOG (node.log) << boost::str (boost::format ("Block %1% was republished to peers") % hash.to_string ());
+	}
+}
+
+void nano::network::republish_block (std::shared_ptr<nano::block> block, nano::endpoint const & peer_a)
+{
+	auto hash (block->hash ());
+	nano::publish message (block);
+	std::vector<uint8_t> bytes;
+	{
+		nano::vectorstream stream (bytes);
+		message.serialize (stream);
+	}
+	republish (hash, std::make_shared<std::vector<uint8_t>> (bytes), peer_a);
+	if (node.config.logging.network_logging ())
+	{
+		BOOST_LOG (node.log) << boost::str (boost::format ("Block %1% was republished to peer") % hash.to_string ());
 	}
 }
 
@@ -394,6 +427,43 @@ void nano::network::broadcast_confirm_req_base (std::shared_ptr<nano::block> blo
 	}
 }
 
+void nano::network::broadcast_confirm_req_batch (std::unordered_map<nano::endpoint, std::vector<std::pair<nano::block_hash, nano::block_hash>>> request_bundle_a, unsigned delay_a, bool resumption)
+{
+	const size_t max_reps = 10;
+	if (!resumption && node.config.logging.network_logging ())
+	{
+		BOOST_LOG (node.log) << boost::str (boost::format ("Broadcasting batch confirm req to %1% representatives") % request_bundle_a.size ());
+	}
+	auto count (0);
+	while (!request_bundle_a.empty () && count < max_reps)
+	{
+		auto j (request_bundle_a.begin ());
+		count++;
+		std::vector<std::pair<nano::block_hash, nano::block_hash>> roots_hashes;
+		// Limit max request size hash + root to 6 pairs
+		while (roots_hashes.size () <= confirm_req_hashes_max && !j->second.empty ())
+		{
+			roots_hashes.push_back (j->second.back ());
+			j->second.pop_back ();
+		}
+		send_confirm_req_hashes (j->first, roots_hashes);
+		if (j->second.empty ())
+		{
+			request_bundle_a.erase (j);
+		}
+	}
+	if (!request_bundle_a.empty ())
+	{
+		std::weak_ptr<nano::node> node_w (node.shared ());
+		node.alarm.add (std::chrono::steady_clock::now () + std::chrono::milliseconds (delay_a), [node_w, request_bundle_a, delay_a]() {
+			if (auto node_l = node_w.lock ())
+			{
+				node_l->network.broadcast_confirm_req_batch (request_bundle_a, delay_a + 50, true);
+			}
+		});
+	}
+}
+
 void nano::network::broadcast_confirm_req_batch (std::deque<std::pair<std::shared_ptr<nano::block>, std::shared_ptr<std::vector<nano::peer_information>>>> deque_a, unsigned delay_a)
 {
 	auto pair (deque_a.front ());
@@ -430,6 +500,31 @@ void nano::network::send_confirm_req (nano::endpoint const & endpoint_a, std::sh
 	std::weak_ptr<nano::node> node_w (node.shared ());
 	node.stats.inc (nano::stat::type::message, nano::stat::detail::confirm_req, nano::stat::dir::out);
 	send_buffer (bytes->data (), bytes->size (), endpoint_a, [bytes, node_w](boost::system::error_code const & ec, size_t size) {
+		if (auto node_l = node_w.lock ())
+		{
+			if (ec && node_l->config.logging.network_logging ())
+			{
+				BOOST_LOG (node_l->log) << boost::str (boost::format ("Error sending confirm request: %1%") % ec.message ());
+			}
+		}
+	});
+}
+
+void nano::network::send_confirm_req_hashes (nano::endpoint const & endpoint_a, std::vector<std::pair<nano::block_hash, nano::block_hash>> const & roots_hashes_a)
+{
+	nano::confirm_req message (roots_hashes_a);
+	std::vector<uint8_t> bytes;
+	{
+		nano::vectorstream stream (bytes);
+		message.serialize (stream);
+	}
+	if (node.config.logging.network_message_logging ())
+	{
+		BOOST_LOG (node.log) << boost::str (boost::format ("Sending confirm req hashes to %1%") % endpoint_a);
+	}
+	std::weak_ptr<nano::node> node_w (node.shared ());
+	node.stats.inc (nano::stat::type::message, nano::stat::detail::confirm_req, nano::stat::dir::out);
+	send_buffer (bytes.data (), bytes.size (), endpoint_a, [node_w](boost::system::error_code const & ec, size_t size) {
 		if (auto node_l = node_w.lock ())
 		{
 			if (ec && node_l->config.logging.network_logging ())
@@ -515,7 +610,14 @@ public:
 	{
 		if (node.config.logging.network_message_logging ())
 		{
-			BOOST_LOG (node.log) << boost::str (boost::format ("Confirm_req message from %1% for %2%") % sender % message_a.block->hash ().to_string ());
+			if (!message_a.roots_hashes.empty ())
+			{
+				BOOST_LOG (node.log) << boost::str (boost::format ("Confirm_req message from %1% for hashes:roots %2%") % sender % message_a.roots_string ());
+			}
+			else
+			{
+				BOOST_LOG (node.log) << boost::str (boost::format ("Confirm_req message from %1% for %2%") % sender % message_a.block->hash ().to_string ());
+			}
 		}
 		node.stats.inc (nano::stat::type::message, nano::stat::detail::confirm_req, nano::stat::dir::in);
 		node.peers.contacted (sender, message_a.header.version_using);
@@ -523,11 +625,50 @@ public:
 		if (node.config.enable_voting)
 		{
 			auto transaction (node.store.tx_begin_read ());
-			auto successor (node.ledger.successor (transaction, nano::uint512_union (message_a.block->previous (), message_a.block->root ())));
-			if (successor != nullptr)
+			if (message_a.block != nullptr)
 			{
-				auto same_block (successor->hash () == message_a.block->hash ());
-				confirm_block (transaction, node, sender, std::move (successor), !same_block);
+				auto successor (node.ledger.successor (transaction, nano::uint512_union (message_a.block->previous (), message_a.block->root ())));
+				if (successor != nullptr)
+				{
+					auto same_block (successor->hash () == message_a.block->hash ());
+					confirm_block (transaction, node, sender, std::move (successor), !same_block);
+				}
+			}
+			else if (!message_a.roots_hashes.empty ())
+			{
+				std::vector<nano::block_hash> blocks_bundle;
+				for (auto & root_hash : message_a.roots_hashes)
+				{
+					if (node.store.block_exists (transaction, root_hash.first))
+					{
+						blocks_bundle.push_back (root_hash.first);
+					}
+					else
+					{
+						nano::block_hash successor (0);
+						// Search for block root
+						successor = node.store.block_successor (transaction, root_hash.second);
+						// Search for account root
+						if (successor.is_zero () && node.store.account_exists (transaction, root_hash.second))
+						{
+							nano::account_info info;
+							auto error (node.store.account_get (transaction, root_hash.second, info));
+							assert (!error);
+							successor = info.open_block;
+						}
+						if (!successor.is_zero ())
+						{
+							blocks_bundle.push_back (successor);
+							auto successor_block (node.store.block_get (transaction, successor));
+							assert (successor_block != nullptr);
+							node.network.republish_block (std::move (successor_block), sender);
+						}
+					}
+				}
+				if (!blocks_bundle.empty ())
+				{
+					node.network.confirm_hashes (transaction, sender, blocks_bundle);
+				}
 			}
 		}
 	}
@@ -590,7 +731,7 @@ public:
 				validated_response = true;
 				if (message_a.response->first != node.node_id.pub)
 				{
-					node.peers.insert (endpoint_l, message_a.header.version_using);
+					node.peers.insert (endpoint_l, message_a.header.version_using, false, message_a.response->first);
 				}
 			}
 			else if (node.config.logging.network_node_id_handshake_logging ())
@@ -2635,6 +2776,11 @@ void nano::node::block_confirm (std::shared_ptr<nano::block> block_a)
 {
 	active.start (block_a);
 	network.broadcast_confirm_req (block_a);
+	// Calculate votes for local representatives
+	if (config.enable_voting && active.active (*block_a))
+	{
+		block_processor.generator.add (block_a->hash ());
+	}
 }
 
 nano::uint128_t nano::node::delta ()
@@ -3300,6 +3446,7 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 	auto transaction (node.store.tx_begin_read ());
 	unsigned unconfirmed_count (0);
 	unsigned unconfirmed_announcements (0);
+	std::unordered_map<nano::endpoint, std::vector<std::pair<nano::block_hash, nano::block_hash>>> requests_bundle;
 	std::deque<std::shared_ptr<nano::block>> rebroadcast_bundle;
 	std::deque<std::pair<std::shared_ptr<nano::block>, std::shared_ptr<std::vector<nano::peer_information>>>> confirm_req_bundle;
 
@@ -3420,15 +3567,60 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 				}
 				if ((!reps->empty () && total_weight > node.config.online_weight_minimum.number ()) || roots_size > 5)
 				{
-					if (confirm_req_bundle.size () < max_broadcast_queue)
+					// broadcast_confirm_req_base modifies reps, so we clone it once to avoid aliasing
+					if (nano::nano_network != nano::nano_networks::nano_test_network)
 					{
-						confirm_req_bundle.push_back (std::make_pair (i->election->status.winner, reps));
+						if (confirm_req_bundle.size () < max_broadcast_queue)
+						{
+							confirm_req_bundle.push_back (std::make_pair (i->election->status.winner, reps));
+						}
+					}
+					else
+					{
+						for (auto & rep : *reps)
+						{
+							auto rep_request (requests_bundle.find (rep.endpoint));
+							auto block (i->election->status.winner);
+							auto root_hash (std::make_pair (block->hash (), block->root ()));
+							if (rep_request == requests_bundle.end ())
+							{
+								if (requests_bundle.size () < max_broadcast_queue)
+								{
+									std::vector<std::pair<nano::block_hash, nano::block_hash>> insert_vector = { root_hash };
+									requests_bundle.insert (std::make_pair (rep.endpoint, insert_vector));
+								}
+							}
+							else if (rep_request->second.size () < max_broadcast_queue * nano::network::confirm_req_hashes_max)
+							{
+								rep_request->second.push_back (root_hash);
+							}
+						}
 					}
 				}
 				else
 				{
-					// broadcast request to all peers
-					confirm_req_bundle.push_back (std::make_pair (i->election->status.winner, std::make_shared<std::vector<nano::peer_information>> (node.peers.list_vector (100))));
+					if (nano::nano_network != nano::nano_networks::nano_test_network)
+					{
+						confirm_req_bundle.push_back (std::make_pair (i->election->status.winner, std::make_shared<std::vector<nano::peer_information>> (node.peers.list_vector (100))));
+					}
+					else
+					{
+						for (auto & rep : *reps)
+						{
+							auto rep_request (requests_bundle.find (rep.endpoint));
+							auto block (i->election->status.winner);
+							auto root_hash (std::make_pair (block->hash (), block->root ()));
+							if (rep_request == requests_bundle.end ())
+							{
+								std::vector<std::pair<nano::block_hash, nano::block_hash>> insert_vector = { root_hash };
+								requests_bundle.insert (std::make_pair (rep.endpoint, insert_vector));
+							}
+							else
+							{
+								rep_request->second.push_back (root_hash);
+							}
+						}
+					}
 				}
 			}
 		}
@@ -3439,6 +3631,11 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 	if (!rebroadcast_bundle.empty ())
 	{
 		node.network.republish_block_batch (rebroadcast_bundle);
+	}
+	// Batch confirmation request
+	if (nano::nano_network != nano::nano_networks::nano_live_network && !requests_bundle.empty ())
+	{
+		node.network.broadcast_confirm_req_batch (requests_bundle, 50);
 	}
 	//confirm_req broadcast
 	if (!confirm_req_bundle.empty ())

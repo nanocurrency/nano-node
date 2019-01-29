@@ -300,6 +300,7 @@ public:
 	void rpc_action (boost::system::error_code const &, size_t);
 	void republish_vote (std::shared_ptr<nano::vote>);
 	void republish_block (std::shared_ptr<nano::block>);
+	void republish_block (std::shared_ptr<nano::block>, nano::endpoint const &);
 	static unsigned const broadcast_interval_ms = 10;
 	void republish_block_batch (std::deque<std::shared_ptr<nano::block>>, unsigned = broadcast_interval_ms);
 	void republish (nano::block_hash const &, std::shared_ptr<std::vector<uint8_t>>, nano::endpoint);
@@ -309,8 +310,11 @@ public:
 	void send_node_id_handshake (nano::endpoint const &, boost::optional<nano::uint256_union> const & query, boost::optional<nano::uint256_union> const & respond_to);
 	void broadcast_confirm_req (std::shared_ptr<nano::block>);
 	void broadcast_confirm_req_base (std::shared_ptr<nano::block>, std::shared_ptr<std::vector<nano::peer_information>>, unsigned, bool = false);
+	void broadcast_confirm_req_batch (std::unordered_map<nano::endpoint, std::vector<std::pair<nano::block_hash, nano::block_hash>>>, unsigned = broadcast_interval_ms, bool = false);
 	void broadcast_confirm_req_batch (std::deque<std::pair<std::shared_ptr<nano::block>, std::shared_ptr<std::vector<nano::peer_information>>>>, unsigned = broadcast_interval_ms);
 	void send_confirm_req (nano::endpoint const &, std::shared_ptr<nano::block>);
+	void send_confirm_req_hashes (nano::endpoint const &, std::vector<std::pair<nano::block_hash, nano::block_hash>> const &);
+	void confirm_hashes (nano::transaction const &, nano::endpoint const &, std::vector<nano::block_hash>);
 	void send_buffer (uint8_t const *, size_t, nano::endpoint const &, std::function<void(boost::system::error_code const &, size_t)>);
 	nano::endpoint endpoint ();
 	nano::udp_buffer buffer_container;
@@ -322,6 +326,7 @@ public:
 	bool on;
 	static uint16_t const node_port = nano::nano_network == nano::nano_networks::nano_live_network ? 7075 : 54000;
 	static size_t const buffer_size = 512;
+	static size_t const confirm_req_hashes_max = 6;
 };
 
 class node_init
@@ -433,6 +438,7 @@ public:
 	bool have_blocks ();
 	void process_blocks ();
 	nano::process_return process_one (nano::transaction const &, std::shared_ptr<nano::block>, std::chrono::steady_clock::time_point = std::chrono::steady_clock::now (), bool = false);
+	nano::vote_generator generator;
 
 private:
 	void queue_unchecked (nano::transaction const &, nano::block_hash const &, std::chrono::steady_clock::time_point = std::chrono::steady_clock::time_point ());
@@ -454,7 +460,6 @@ private:
 	static size_t const rolled_back_max = 1024;
 	std::condition_variable condition;
 	nano::node & node;
-	nano::vote_generator generator;
 	std::mutex mutex;
 };
 class node : public std::enable_shared_from_this<nano::node>

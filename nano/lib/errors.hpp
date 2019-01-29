@@ -95,9 +95,11 @@ enum class error_rpc
 	invalid_missing_type,
 	invalid_root,
 	invalid_sources,
+	invalid_timestamp,
 	payment_account_balance,
 	payment_unable_create_account,
 	rpc_control_disabled,
+	sign_hash_disabled,
 	source_not_found
 };
 
