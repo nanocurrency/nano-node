@@ -278,7 +278,7 @@ void ledger_processor::state_block_impl (nano::state_block const & block_a)
 					{
 						if (!block_a.hashables.link.is_zero ())
 						{
-							result.code = (ledger.store.block_exists (transaction, nano::block_type::state, block_a.hashables.link) || ledger.store.block_exists (transaction, nano::block_type::send, block_a.hashables.link)) ? nano::process_result::progress : nano::process_result::gap_source; // Have we seen the source block already? (Harmless)
+							result.code = ledger.store.source_exists (transaction, block_a.hashables.link) ? nano::process_result::progress : nano::process_result::gap_source; // Have we seen the source block already? (Harmless)
 							if (result.code == nano::process_result::progress)
 							{
 								nano::pending_key key (block_a.hashables.account, block_a.hashables.link);
@@ -533,7 +533,7 @@ void ledger_processor::receive_block (nano::receive_block const & block_a)
 					{
 						assert (!validate_message (account, hash, block_a.signature));
 						result.verified = nano::signature_verification::valid;
-						result.code = (ledger.store.block_exists (transaction, nano::block_type::send, block_a.hashables.source) || ledger.store.block_exists (transaction, nano::block_type::state, block_a.hashables.source)) ? nano::process_result::progress : nano::process_result::gap_source; // Have we seen the source block already? (Harmless)
+						result.code = ledger.store.source_exists (transaction, block_a.hashables.source) ? nano::process_result::progress : nano::process_result::gap_source; // Have we seen the source block already? (Harmless)
 						if (result.code == nano::process_result::progress)
 						{
 							nano::account_info info;
@@ -594,8 +594,7 @@ void ledger_processor::open_block (nano::open_block const & block_a)
 		{
 			assert (!validate_message (block_a.hashables.account, hash, block_a.signature));
 			result.verified = nano::signature_verification::valid;
-			auto source_missing (!ledger.store.block_exists (transaction, nano::block_type::send, block_a.hashables.source) && !ledger.store.block_exists (transaction, nano::block_type::state, block_a.hashables.source));
-			result.code = source_missing ? nano::process_result::gap_source : nano::process_result::progress; // Have we seen the source block? (Harmless)
+			result.code = ledger.store.source_exists (transaction, block_a.hashables.source) ? nano::process_result::progress : nano::process_result::gap_source; // Have we seen the source block? (Harmless)
 			if (result.code == nano::process_result::progress)
 			{
 				nano::account_info info;

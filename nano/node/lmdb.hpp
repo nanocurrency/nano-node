@@ -170,6 +170,7 @@ public:
 	bool block_exists (nano::transaction const &, nano::block_type, nano::block_hash const &) override;
 	nano::block_counts block_count (nano::transaction const &) override;
 	bool root_exists (nano::transaction const &, nano::uint256_union const &) override;
+	bool source_exists (nano::transaction const &, nano::block_hash const &) override;
 	nano::account block_account (nano::transaction const &, nano::block_hash const &) override;
 
 	void frontier_put (nano::transaction const &, nano::block_hash const &, nano::account const &) override;
