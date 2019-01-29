@@ -3184,7 +3184,7 @@ status ({ block_a, 0 }),
 confirmed (false),
 stopped (false),
 announcements (0),
-start (std::chrono::system_clock::now ())
+rebroadcast_logged (false)
 {
 	last_votes.insert (std::make_pair (nano::not_an_account, nano::vote_info{ std::chrono::steady_clock::now (), 0, block_a->hash () }));
 	blocks.insert (std::make_pair (block_a->hash (), block_a));
@@ -3243,11 +3243,11 @@ void nano::election::stop ()
 
 void nano::election::log_rebroadcast (nano::block_hash const & hash_a)
 {
-	if (start != std::numeric_limits<std::chrono::system_clock::time_point>::min ())
+	if (!rebroadcast_logged)
 	{
-		auto gap (std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now () - start));
-		std::cerr << boost::str (boost::format ("Rebroadcasting %1% after %2%ms\n") % root.to_string () % std::to_string (gap.count ()));
-		start = std::numeric_limits<std::chrono::system_clock::time_point>::min ();
+		auto gap (std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now () - election_start));
+		std::cerr << boost::str (boost::format ("Rebroadcasting %1% after %2%ms\n") % hash_a.to_string () % std::to_string (gap.count ()));
+		rebroadcast_logged = true;
 	}
 }
 

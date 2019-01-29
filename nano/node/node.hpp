@@ -77,7 +77,7 @@ public:
 	bool stopped;
 	std::unordered_map<nano::block_hash, nano::uint128_t> last_tally;
 	unsigned announcements;
-	std::chrono::system_clock::time_point start;
+	bool rebroadcast_logged;
 };
 class conflict_info
 {
