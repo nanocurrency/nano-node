@@ -58,11 +58,15 @@ run_tests() {
             sleep $[60 + (${RANDOM} % 30)]
         fi
 
-        if [ -d /c/ ]; then
-            ${TIMEOUT_CMD} ${TIMEOUT_TIME_ARG} ${TIMEOUT_SEC-${TIMEOUT_DEFAULT}} ./core_test.exe
-        else
-            ${TIMEOUT_CMD} ${TIMEOUT_TIME_ARG} ${TIMEOUT_SEC-${TIMEOUT_DEFAULT}} ./core_test
-        fi
+        case "${OSTYPE}" in
+                msys|cygwin)
+                        executableSuffix='.exe'
+                        ;;
+                 *)
+                        executableSuffix=''
+                        ;;
+        esac
+        ${TIMEOUT_CMD} ${TIMEOUT_TIME_ARG} ${TIMEOUT_SEC-${TIMEOUT_DEFAULT}} ./core_test${executableSuffix}
         core_test_res=${?}
         if [ "${core_test_res}" = '0' ]; then
             break
