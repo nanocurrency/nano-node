@@ -130,7 +130,7 @@ void nano::network::receive ()
 
 void nano::network::process_packets ()
 {
-	while (on)
+	while (on.load ())
 	{
 		auto data (buffer_container.dequeue ());
 		if (data == nullptr)
