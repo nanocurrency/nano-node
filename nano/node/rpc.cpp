@@ -87,26 +87,38 @@ node (node_a)
 {
 }
 
-void nano::rpc::start ()
+void nano::rpc::add_block_observer ()
 {
-	auto endpoint (nano::tcp_endpoint (config.address, config.port));
-	acceptor.open (endpoint.protocol ());
-	acceptor.set_option (boost::asio::ip::tcp::acceptor::reuse_address (true));
-
-	boost::system::error_code ec;
-	acceptor.bind (endpoint, ec);
-	if (ec)
-	{
-		BOOST_LOG (node.log) << boost::str (boost::format ("Error while binding for RPC on port %1%: %2%") % endpoint.port () % ec.message ());
-		throw std::runtime_error (ec.message ());
-	}
-
-	acceptor.listen ();
 	node.observers.blocks.add ([this](std::shared_ptr<nano::block> block_a, nano::account const & account_a, nano::uint128_t const &, bool) {
 		observer_action (account_a);
 	});
+}
 
-	accept ();
+void nano::rpc::start (bool rpc_enabled_a)
+{
+	if (rpc_enabled_a)
+	{
+		auto endpoint (nano::tcp_endpoint (config.address, config.port));
+		acceptor.open (endpoint.protocol ());
+		acceptor.set_option (boost::asio::ip::tcp::acceptor::reuse_address (true));
+
+		boost::system::error_code ec;
+		acceptor.bind (endpoint, ec);
+		if (ec)
+		{
+			BOOST_LOG (node.log) << boost::str (boost::format ("Error while binding for RPC on port %1%: %2%") % endpoint.port () % ec.message ());
+			throw std::runtime_error (ec.message ());
+		}
+
+		acceptor.listen ();
+	}
+
+	add_block_observer ();
+
+	if (rpc_enabled_a)
+	{
+		accept ();
+	}
 }
 
 void nano::rpc::accept ()

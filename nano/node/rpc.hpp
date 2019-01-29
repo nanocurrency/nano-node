@@ -71,7 +71,13 @@ class rpc
 public:
 	rpc (boost::asio::io_context &, nano::node &, nano::rpc_config const &);
 	virtual ~rpc () = default;
-	void start ();
+
+	/**
+	 * Start serving RPC requests if \p rpc_enabled_a, otherwise this will only
+	 * add a block observer since requests may still arrive via IPC.
+	 */
+	void start (bool rpc_enabled_a = true);
+	void add_block_observer ();
 	virtual void accept ();
 	void stop ();
 	void observer_action (nano::account const &);

@@ -130,6 +130,38 @@ TEST (message_parser, exact_confirm_req_size)
 	ASSERT_NE (parser.status, nano::message_parser::parse_status::success);
 }
 
+TEST (message_parser, exact_confirm_req_hash_size)
+{
+	nano::system system (24000, 1);
+	test_visitor visitor;
+	nano::block_uniquer block_uniquer;
+	nano::vote_uniquer vote_uniquer (block_uniquer);
+	nano::message_parser parser (block_uniquer, vote_uniquer, visitor, system.work);
+	nano::send_block block (1, 1, 2, nano::keypair ().prv, 4, system.work.generate (1));
+	nano::confirm_req message (block.hash (), block.root ());
+	std::vector<uint8_t> bytes;
+	{
+		nano::vectorstream stream (bytes);
+		message.serialize (stream);
+	}
+	ASSERT_EQ (0, visitor.confirm_req_count);
+	ASSERT_EQ (parser.status, nano::message_parser::parse_status::success);
+	auto error (false);
+	nano::bufferstream stream1 (bytes.data (), bytes.size ());
+	nano::message_header header1 (error, stream1);
+	ASSERT_FALSE (error);
+	parser.deserialize_confirm_req (stream1, header1);
+	ASSERT_EQ (1, visitor.confirm_req_count);
+	ASSERT_EQ (parser.status, nano::message_parser::parse_status::success);
+	bytes.push_back (0);
+	nano::bufferstream stream2 (bytes.data (), bytes.size ());
+	nano::message_header header2 (error, stream2);
+	ASSERT_FALSE (error);
+	parser.deserialize_confirm_req (stream2, header2);
+	ASSERT_EQ (1, visitor.confirm_req_count);
+	ASSERT_NE (parser.status, nano::message_parser::parse_status::success);
+}
+
 TEST (message_parser, exact_publish_size)
 {
 	nano::system system (24000, 1);
