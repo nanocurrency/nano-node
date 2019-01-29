@@ -258,27 +258,48 @@ bool confirm_block (nano::transaction const & transaction_a, nano::node & node_a
 	bool result (false);
 	if (node_a.config.enable_voting)
 	{
-		node_a.wallets.foreach_representative (transaction_a, [&result, &block_a, &list_a, &node_a, &transaction_a, also_publish](nano::public_key const & pub_a, nano::raw_key const & prv_a) {
-			result = true;
-			auto hash (block_a->hash ());
-			auto vote (node_a.store.vote_generate (transaction_a, pub_a, prv_a, std::vector<nano::block_hash> (1, hash)));
-			nano::confirm_ack confirm (vote);
-			auto vote_bytes = confirm.to_bytes ();
-			nano::publish publish (block_a);
-			std::shared_ptr<std::vector<uint8_t>> publish_bytes;
-			if (also_publish)
-			{
-				publish_bytes = publish.to_bytes ();
-			}
-			for (auto j (list_a.begin ()), m (list_a.end ()); j != m; ++j)
-			{
-				node_a.network.confirm_send (confirm, vote_bytes, *j);
-				if (also_publish)
+		auto hash (block_a->hash ());
+		// Search in cache
+		auto votes (node_a.votes_cache.find (hash));
+		if (votes.empty ())
+		{
+			// Generate new vote
+			node_a.wallets.foreach_representative (transaction_a, [&result, &block_a, &list_a, &node_a, &transaction_a, &hash](nano::public_key const & pub_a, nano::raw_key const & prv_a) {
+				result = true;
+				auto vote (node_a.store.vote_generate (transaction_a, pub_a, prv_a, std::vector<nano::block_hash> (1, hash)));
+				nano::confirm_ack confirm (vote);
+				auto vote_bytes = confirm.to_bytes ();
+				for (auto j (list_a.begin ()), m (list_a.end ()); j != m; ++j)
 				{
-					node_a.network.republish (hash, publish_bytes, *j);
+					node_a.network.confirm_send (confirm, vote_bytes, *j);
+				}
+				node_a.votes_cache.add (vote);
+			});
+		}
+		else
+		{
+			// Send from cache
+			for (auto & vote : votes)
+			{
+				nano::confirm_ack confirm (vote);
+				auto vote_bytes = confirm.to_bytes ();
+				for (auto j (list_a.begin ()), m (list_a.end ()); j != m; ++j)
+				{
+					node_a.network.confirm_send (confirm, vote_bytes, *j);
 				}
 			}
-		});
+		}
+		// Republish if required
+		if (also_publish)
+		{
+			nano::publish publish (block_a);
+			std::shared_ptr<std::vector<uint8_t>> publish_bytes;
+			publish_bytes = publish.to_bytes ();
+			for (auto j (list_a.begin ()), m (list_a.end ()); j != m; ++j)
+			{
+				node_a.network.republish (hash, publish_bytes, *j);
+			}
+		}
 	}
 	return result;
 }
@@ -304,6 +325,7 @@ void nano::network::confirm_hashes (nano::transaction const & transaction_a, nan
 				confirm.serialize (stream);
 			}
 			this->node.network.confirm_send (confirm, bytes, peer_a);
+			this->node.votes_cache.add (vote);
 		});
 	}
 }
@@ -643,7 +665,22 @@ public:
 				{
 					if (node.store.block_exists (transaction, root_hash.first))
 					{
-						blocks_bundle.push_back (root_hash.first);
+						// Search in cache
+						auto votes (node.votes_cache.find (root_hash.first));
+						if (votes.empty ())
+						{
+							blocks_bundle.push_back (root_hash.first);
+						}
+						else
+						{
+							// Send from cache
+							for (auto & vote : votes)
+							{
+								nano::confirm_ack confirm (vote);
+								auto vote_bytes = confirm.to_bytes ();
+								node.network.confirm_send (confirm, vote_bytes, sender);
+							}
+						}
 					}
 					else
 					{
@@ -660,7 +697,22 @@ public:
 						}
 						if (!successor.is_zero ())
 						{
-							blocks_bundle.push_back (successor);
+							// Search in cache
+							auto votes (node.votes_cache.find (successor));
+							if (votes.empty ())
+							{
+								blocks_bundle.push_back (successor);
+							}
+							else
+							{
+								// Send from cache
+								for (auto & vote : votes)
+								{
+									nano::confirm_ack confirm (vote);
+									auto vote_bytes = confirm.to_bytes ();
+									node.network.confirm_send (confirm, vote_bytes, sender);
+								}
+							}
 							auto successor_block (node.store.block_get (transaction, successor));
 							assert (successor_block != nullptr);
 							node.network.republish_block (std::move (successor_block), sender);

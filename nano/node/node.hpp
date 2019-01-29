@@ -573,6 +573,7 @@ public:
 	boost::thread block_processor_thread;
 	nano::block_arrival block_arrival;
 	nano::online_reps online_reps;
+	nano::votes_cache votes_cache;
 	nano::stat stats;
 	nano::keypair node_id;
 	nano::block_uniquer block_uniquer;
