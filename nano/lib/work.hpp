@@ -48,4 +48,6 @@ public:
 	static uint64_t const publish_full_threshold = 0xffffffc000000000;
 	static uint64_t const publish_threshold = nano::nano_network == nano::nano_networks::nano_test_network ? publish_test_threshold : publish_full_threshold;
 };
+
+std::unique_ptr<seq_con_info_component> collect_seq_con_info (work_pool & work_pool, const std::string & name);
 }

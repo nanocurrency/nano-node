@@ -52,4 +52,6 @@ public:
 	nano::uint256_union epoch_link;
 	nano::account epoch_signer;
 };
-};
+
+std::unique_ptr<seq_con_info_component> collect_seq_con_info (ledger & ledger, const std::string & name);
+}
