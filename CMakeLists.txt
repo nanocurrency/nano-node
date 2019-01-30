@@ -218,7 +218,7 @@ add_library (cryptopp
 	crypto/cryptopp/sse_simd.cpp
 	${CRYPTOPP_EXTRA})
 
-if (NANO_SIMD_OPTIMIZATIONS OR RAIBLOCKS_SIMD_OPTIMIZATIONS)
+if ((NANO_SIMD_OPTIMIZATIONS OR RAIBLOCKS_SIMD_OPTIMIZATIONS) AND NOT CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64")
 	set (ARGON_CORE crypto/phc-winner-argon2/src/opt.c)
 else ()
 	set (ARGON_CORE crypto/phc-winner-argon2/src/ref.c)
