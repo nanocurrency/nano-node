@@ -1492,7 +1492,7 @@ void nano::signature_checker::set_thread_names (unsigned num_threads)
 
 	for (auto i = 0u; i < num_threads; ++i)
 	{
-		boost::asio::post (thread_pool, [&cv, &ready, &pending, &mutex_l, &promise = promises[i]]() {
+		boost::asio::post (thread_pool, [&cv, &ready, &pending, &mutex_l, &promise = promises[i] ]() {
 			std::unique_lock<std::mutex> lk (mutex_l);
 			nano::thread_role::set (nano::thread_role::name::signature_checking);
 			if (--pending == 0)
@@ -3099,8 +3099,7 @@ public:
 				if (node->config.work_threads != 0 || node->work.opencl)
 				{
 					auto callback_l (callback);
-					node->work.generate (
-					root, [callback_l](boost::optional<uint64_t> const & work_a) {
+					node->work.generate (root, [callback_l](boost::optional<uint64_t> const & work_a) {
 						callback_l (work_a.value ());
 					},
 					difficulty);
@@ -3161,8 +3160,7 @@ void nano::node::work_generate (nano::uint256_union const & hash_a, std::functio
 uint64_t nano::node::work_generate_blocking (nano::uint256_union const & hash_a, uint64_t difficulty_a)
 {
 	std::promise<uint64_t> promise;
-	work_generate (
-	hash_a, [&promise](uint64_t work_a) {
+	work_generate (hash_a, [&promise](uint64_t work_a) {
 		promise.set_value (work_a);
 	},
 	difficulty_a);
