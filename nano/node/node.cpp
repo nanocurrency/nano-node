@@ -1844,6 +1844,19 @@ void nano::block_processor::process_batch (std::unique_lock<std::mutex> & lock_a
 	}
 }
 
+void nano::block_processor::process_live (nano::block_hash const & hash_a, std::shared_ptr<nano::block> block_a)
+{
+	// Start collecting quorum on block
+	node.active.start (block_a);
+	// Announce block contents to the network
+	node.network.republish_block (block_a);
+	if (node.config.enable_voting)
+	{
+		// Announce our weighted vote to the network
+		generator.add (hash_a);
+	}
+}
+
 nano::process_return nano::block_processor::process_one (nano::transaction const & transaction_a, nano::unchecked_info info_a)
 {
 	nano::process_return result;
@@ -1862,11 +1875,7 @@ nano::process_return nano::block_processor::process_one (nano::transaction const
 			}
 			if (info_a.modified > nano::seconds_since_epoch () - 300 && node.block_arrival.recent (hash))
 			{
-				node.active.start (info_a.block);
-				if (node.config.enable_voting)
-				{
-					generator.add (hash);
-				}
+				process_live (hash, info_a.block);
 			}
 			queue_unchecked (transaction_a, hash);
 			break;
