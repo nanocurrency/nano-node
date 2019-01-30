@@ -1687,15 +1687,17 @@ TEST (node, stat_counting)
 
 TEST (node, online_reps)
 {
-	nano::system system (24000, 2);
-	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
-	ASSERT_EQ (system.nodes[1]->config.online_weight_minimum.number (), system.nodes[1]->online_reps.online_stake ());
-	system.wallet (0)->send_action (nano::test_genesis_key.pub, nano::test_genesis_key.pub, nano::Gxrb_ratio);
-	system.deadline_set (10s);
-	while (system.nodes[1]->online_reps.online_stake () == system.nodes[1]->config.online_weight_minimum.number ())
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	nano::system system (24000, 1);
+	// 1 sample of minimum weight
+	ASSERT_EQ (system.nodes[0]->config.online_weight_minimum, system.nodes[0]->online_reps.online_stake ());
+	auto vote (std::make_shared<nano::vote> ());
+	system.nodes[0]->online_reps.observe (nano::test_genesis_key.pub);
+	// 1 minimum, 1 maximum
+	system.nodes[0]->online_reps.sample ();
+	ASSERT_EQ (nano::genesis_amount, system.nodes[0]->online_reps.online_stake ());
+	// 2 minimum, 1 maximum
+	system.nodes[0]->online_reps.sample ();
+	ASSERT_EQ (system.nodes[0]->config.online_weight_minimum, system.nodes[0]->online_reps.online_stake ());
 }
 
 TEST (node, block_confirm)

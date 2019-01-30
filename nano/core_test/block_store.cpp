@@ -1488,3 +1488,23 @@ TEST (block_store, endpoint_key_byte_order)
 	// This should be in host byte order
 	ASSERT_EQ (port, endpoint_key1.port ());
 }
+
+TEST (block_store, online_weight)
+{
+	nano::logging logging;
+	bool error (false);
+	nano::mdb_store store (error, logging, nano::unique_path ());
+	ASSERT_FALSE (error);
+	auto transaction (store.tx_begin (true));
+	ASSERT_EQ (0, store.online_weight_count (transaction));
+	ASSERT_EQ (store.online_weight_end (), store.online_weight_begin (transaction));
+	store.online_weight_put (transaction, 1, 2);
+	ASSERT_EQ (1, store.online_weight_count (transaction));
+	auto item (store.online_weight_begin (transaction));
+	ASSERT_NE (store.online_weight_end (), item);
+	ASSERT_EQ (1, item->first);
+	ASSERT_EQ (2, item->second.number ());
+	store.online_weight_del (transaction, 1);
+	ASSERT_EQ (0, store.online_weight_count (transaction));
+	ASSERT_EQ (store.online_weight_end (), store.online_weight_begin (transaction));
+}
