@@ -23,6 +23,7 @@ std::chrono::minutes constexpr nano::node::backup_interval;
 std::chrono::seconds constexpr nano::node::search_pending_interval;
 std::chrono::seconds constexpr nano::node::peer_interval;
 std::chrono::hours constexpr nano::node::unchecked_cleaning_interval;
+std::chrono::milliseconds constexpr nano::node::process_confirmed_interval;
 
 int constexpr nano::port_mapping::mapping_timeout;
 int constexpr nano::port_mapping::check_timeout;
@@ -3264,18 +3265,10 @@ public:
 };
 }
 
-void nano::node::process_confirmed (std::shared_ptr<nano::block> block_a)
+void nano::node::process_confirmed (std::shared_ptr<nano::block> block_a, uint8_t iteration)
 {
 	auto hash (block_a->hash ());
-	bool exists (ledger.block_exists (block_a->type (), hash));
-	// Attempt to process confirmed block if it's not in ledger yet
-	if (!exists)
-	{
-		auto transaction (store.tx_begin_write ());
-		block_processor.process_one (transaction, block_a);
-		exists = store.block_exists (transaction, block_a->type (), hash);
-	}
-	if (exists)
+	if (ledger.block_exists (block_a->type (), hash))
 	{
 		auto transaction (store.tx_begin_read ());
 		confirmed_visitor visitor (transaction, *this, block_a, hash);
@@ -3302,6 +3295,18 @@ void nano::node::process_confirmed (std::shared_ptr<nano::block> block_a)
 				observers.account_balance.notify (pending_account, true);
 			}
 		}
+	}
+	// Limit to 0.5 * 20 = 10 seconds (more than max block_processor::process_batch finish time)
+	else if (iteration < 20)
+	{
+		iteration++;
+		std::weak_ptr<nano::node> node_w (shared ());
+		alarm.add (std::chrono::steady_clock::now () + process_confirmed_interval, [node_w, block_a, iteration]() {
+			if (auto node_l = node_w.lock ())
+			{
+				node_l->process_confirmed (block_a, iteration);
+			}
+		});
 	}
 }
 

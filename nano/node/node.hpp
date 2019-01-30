@@ -546,7 +546,7 @@ public:
 	void stop ();
 	std::shared_ptr<nano::node> shared ();
 	int store_version ();
-	void process_confirmed (std::shared_ptr<nano::block>);
+	void process_confirmed (std::shared_ptr<nano::block>, uint8_t = 0);
 	void process_message (nano::message &, nano::endpoint const &);
 	void process_active (std::shared_ptr<nano::block>);
 	nano::process_return process (nano::block const &);
@@ -623,6 +623,7 @@ public:
 	static std::chrono::seconds constexpr peer_interval = search_pending_interval;
 	static std::chrono::hours constexpr unchecked_cleaning_interval = std::chrono::hours (2);
 	std::chrono::seconds unchecked_cutoff = std::chrono::seconds (7 * 24 * 60 * 60); // Week
+	static std::chrono::milliseconds constexpr process_confirmed_interval = (nano::nano_network == nano::nano_networks::nano_test_network) ? std::chrono::milliseconds (50) : std::chrono::milliseconds (500);
 };
 
 std::unique_ptr<seq_con_info_component> collect_seq_con_info (node & node, const std::string & name);
