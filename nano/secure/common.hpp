@@ -158,6 +158,35 @@ enum class no_value
 // Internally unchecked_key is equal to pending_key (2x uint256_union)
 using unchecked_key = pending_key;
 
+/**
+ * Tag for block signature verification result
+ */
+enum class signature_verification : uint8_t
+{
+	unknown = 0,
+	invalid = 1,
+	valid = 2,
+	valid_epoch = 3 // Valid for epoch blocks
+};
+
+/**
+ * Information on an unchecked block
+ */
+class unchecked_info
+{
+public:
+	unchecked_info ();
+	unchecked_info (std::shared_ptr<nano::block>, nano::account const &, uint64_t, nano::signature_verification = nano::signature_verification::unknown);
+	void serialize (nano::stream &) const;
+	bool deserialize (nano::stream &);
+	bool operator== (nano::unchecked_info const &) const;
+	std::shared_ptr<nano::block> block;
+	nano::account account;
+	/** Seconds since posix epoch */
+	uint64_t modified;
+	nano::signature_verification verified;
+};
+
 class block_info
 {
 public:
@@ -265,6 +294,7 @@ public:
 	nano::amount amount;
 	nano::account pending_account;
 	boost::optional<bool> state_is_send;
+	nano::signature_verification verified;
 };
 enum class tally_result
 {

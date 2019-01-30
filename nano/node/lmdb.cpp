@@ -110,6 +110,16 @@ mdb_val (sizeof (val_a), const_cast<nano::pending_key *> (&val_a))
 {
 }
 
+nano::mdb_val::mdb_val (nano::unchecked_info const & val_a) :
+buffer (std::make_shared<std::vector<uint8_t>> ())
+{
+	{
+		nano::vectorstream stream (*buffer);
+		val_a.serialize (stream);
+	}
+	value = { buffer->size (), const_cast<uint8_t *> (buffer->data ()) };
+}
+
 nano::mdb_val::mdb_val (nano::block_info const & val_a) :
 mdb_val (sizeof (val_a), const_cast<nano::block_info *> (&val_a))
 {
@@ -172,6 +182,15 @@ nano::mdb_val::operator nano::pending_key () const
 	assert (value.mv_size == sizeof (result));
 	static_assert (sizeof (nano::pending_key::account) + sizeof (nano::pending_key::hash) == sizeof (result), "Packed class");
 	std::copy (reinterpret_cast<uint8_t const *> (value.mv_data), reinterpret_cast<uint8_t const *> (value.mv_data) + sizeof (result), reinterpret_cast<uint8_t *> (&result));
+	return result;
+}
+
+nano::mdb_val::operator nano::unchecked_info () const
+{
+	nano::bufferstream stream (reinterpret_cast<uint8_t const *> (value.mv_data), value.mv_size);
+	nano::unchecked_info result;
+	bool error (result.deserialize (stream));
+	assert (!error);
 	return result;
 }
 
@@ -683,21 +702,21 @@ nano::store_iterator<nano::account, nano::uint128_union> nano::mdb_store::repres
 	return result;
 }
 
-nano::store_iterator<nano::unchecked_key, std::shared_ptr<nano::block>> nano::mdb_store::unchecked_begin (nano::transaction const & transaction_a)
+nano::store_iterator<nano::unchecked_key, nano::unchecked_info> nano::mdb_store::unchecked_begin (nano::transaction const & transaction_a)
 {
-	nano::store_iterator<nano::unchecked_key, std::shared_ptr<nano::block>> result (std::make_unique<nano::mdb_iterator<nano::unchecked_key, std::shared_ptr<nano::block>>> (transaction_a, unchecked));
+	nano::store_iterator<nano::unchecked_key, nano::unchecked_info> result (std::make_unique<nano::mdb_iterator<nano::unchecked_key, nano::unchecked_info>> (transaction_a, unchecked));
 	return result;
 }
 
-nano::store_iterator<nano::unchecked_key, std::shared_ptr<nano::block>> nano::mdb_store::unchecked_begin (nano::transaction const & transaction_a, nano::unchecked_key const & key_a)
+nano::store_iterator<nano::unchecked_key, nano::unchecked_info> nano::mdb_store::unchecked_begin (nano::transaction const & transaction_a, nano::unchecked_key const & key_a)
 {
-	nano::store_iterator<nano::unchecked_key, std::shared_ptr<nano::block>> result (std::make_unique<nano::mdb_iterator<nano::unchecked_key, std::shared_ptr<nano::block>>> (transaction_a, unchecked, nano::mdb_val (key_a)));
+	nano::store_iterator<nano::unchecked_key, nano::unchecked_info> result (std::make_unique<nano::mdb_iterator<nano::unchecked_key, nano::unchecked_info>> (transaction_a, unchecked, nano::mdb_val (key_a)));
 	return result;
 }
 
-nano::store_iterator<nano::unchecked_key, std::shared_ptr<nano::block>> nano::mdb_store::unchecked_end ()
+nano::store_iterator<nano::unchecked_key, nano::unchecked_info> nano::mdb_store::unchecked_end ()
 {
-	nano::store_iterator<nano::unchecked_key, std::shared_ptr<nano::block>> result (nullptr);
+	nano::store_iterator<nano::unchecked_key, nano::unchecked_info> result (nullptr);
 	return result;
 }
 
@@ -711,7 +730,7 @@ nano::store_iterator<nano::account, std::shared_ptr<nano::vote>> nano::mdb_store
 	return nano::store_iterator<nano::account, std::shared_ptr<nano::vote>> (nullptr);
 }
 
-nano::mdb_store::mdb_store (bool & error_a, nano::logging & logging_a, boost::filesystem::path const & path_a, int lmdb_max_dbs) :
+nano::mdb_store::mdb_store (bool & error_a, nano::logging & logging_a, boost::filesystem::path const & path_a, int lmdb_max_dbs, bool drop_unchecked) :
 logging (logging_a),
 env (error_a, path_a, lmdb_max_dbs)
 {
@@ -742,6 +761,10 @@ env (error_a, path_a, lmdb_max_dbs)
 		if (!error_a)
 		{
 			do_upgrades (transaction, slow_upgrade);
+			if (drop_unchecked)
+			{
+				unchecked_clear (transaction);
+			}
 		}
 	}
 	if (slow_upgrade)
@@ -1714,6 +1737,11 @@ bool nano::mdb_store::root_exists (nano::transaction const & transaction_a, nano
 	return block_exists (transaction_a, root_a) || account_exists (transaction_a, root_a);
 }
 
+bool nano::mdb_store::source_exists (nano::transaction const & transaction_a, nano::block_hash const & source_a)
+{
+	return block_exists (transaction_a, nano::block_type::state, source_a) || block_exists (transaction_a, nano::block_type::send, source_a);
+}
+
 nano::account nano::mdb_store::block_account (nano::transaction const & transaction_a, nano::block_hash const & hash_a)
 {
 	nano::block_sideband sideband;
@@ -2049,17 +2077,17 @@ void nano::mdb_store::unchecked_clear (nano::transaction const & transaction_a)
 	release_assert (status == 0);
 }
 
-void nano::mdb_store::unchecked_put (nano::transaction const & transaction_a, nano::unchecked_key const & key_a, std::shared_ptr<nano::block> const & block_a)
+void nano::mdb_store::unchecked_put (nano::transaction const & transaction_a, nano::unchecked_key const & key_a, nano::unchecked_info const & info_a)
 {
-	mdb_val block (block_a);
-	auto status (mdb_put (env.tx (transaction_a), unchecked, nano::mdb_val (key_a), block, 0));
+	auto status (mdb_put (env.tx (transaction_a), unchecked, nano::mdb_val (key_a), nano::mdb_val (info_a), 0));
 	release_assert (status == 0);
 }
 
 void nano::mdb_store::unchecked_put (nano::transaction const & transaction_a, nano::block_hash const & hash_a, std::shared_ptr<nano::block> const & block_a)
 {
 	nano::unchecked_key key (hash_a, block_a->hash ());
-	unchecked_put (transaction_a, key, block_a);
+	nano::unchecked_info info (block_a, block_a->account (), nano::seconds_since_epoch (), nano::signature_verification::unknown);
+	unchecked_put (transaction_a, key, info);
 }
 
 std::shared_ptr<nano::vote> nano::mdb_store::vote_get (nano::transaction const & transaction_a, nano::account const & account_a)
@@ -2076,13 +2104,13 @@ std::shared_ptr<nano::vote> nano::mdb_store::vote_get (nano::transaction const &
 	return nullptr;
 }
 
-std::vector<std::shared_ptr<nano::block>> nano::mdb_store::unchecked_get (nano::transaction const & transaction_a, nano::block_hash const & hash_a)
+std::vector<nano::unchecked_info> nano::mdb_store::unchecked_get (nano::transaction const & transaction_a, nano::block_hash const & hash_a)
 {
-	std::vector<std::shared_ptr<nano::block>> result;
+	std::vector<nano::unchecked_info> result;
 	for (auto i (unchecked_begin (transaction_a, nano::unchecked_key (hash_a, 0))), n (unchecked_end ()); i != n && nano::block_hash (i->first.key ()) == hash_a; ++i)
 	{
-		std::shared_ptr<nano::block> block (i->second);
-		result.push_back (block);
+		nano::unchecked_info unchecked_info (i->second);
+		result.push_back (unchecked_info);
 	}
 	return result;
 }

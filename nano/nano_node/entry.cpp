@@ -28,6 +28,8 @@ int main (int argc, char * const * argv)
 		("disable_legacy_bootstrap", "Disables legacy bootstrap")
 		("disable_wallet_bootstrap", "Disables wallet lazy bootstrap")
 		("disable_bootstrap_listener", "Disables bootstrap listener (incoming connections)")
+		("disable_unchecked_cleaning", "Disables periodic cleaning of old records from unchecked table")
+		("fast_bootstrap", "Increase bootstrap speed for high end nodes with higher limits")
 		("debug_block_count", "Display the number of block")
 		("debug_bootstrap_generate", "Generate bootstrap sequence of blocks")
 		("debug_dump_representatives", "List representatives and weights")
@@ -90,6 +92,8 @@ int main (int argc, char * const * argv)
 			flags.disable_legacy_bootstrap = (vm.count ("disable_legacy_bootstrap") > 0);
 			flags.disable_wallet_bootstrap = (vm.count ("disable_wallet_bootstrap") > 0);
 			flags.disable_bootstrap_listener = (vm.count ("disable_bootstrap_listener") > 0);
+			flags.disable_unchecked_cleaning = (vm.count ("disable_unchecked_cleaning") > 0);
+			flags.fast_bootstrap = (vm.count ("fast_bootstrap") > 0);
 			daemon.run (data_path, flags);
 		}
 		else if (vm.count ("debug_block_count"))
@@ -764,6 +768,7 @@ int main (int argc, char * const * argv)
 		else if (vm.count ("debug_profile_bootstrap"))
 		{
 			nano::inactive_node node2 (nano::unique_path (), 24001);
+			node2.node->flags.fast_bootstrap = (vm.count ("fast_bootstrap") > 0);
 			nano::genesis genesis;
 			auto begin (std::chrono::high_resolution_clock::now ());
 			uint64_t block_count (0);
@@ -775,6 +780,7 @@ int main (int argc, char * const * argv)
 				std::cout << boost::str (boost::format ("Performing bootstrap emulation, %1% blocks in ledger...") % block_count) << std::endl;
 				for (auto i (node.node->store.latest_begin (transaction)), n (node.node->store.latest_end ()); i != n; ++i)
 				{
+					nano::account account (i->first);
 					nano::account_info info (i->second);
 					auto hash (info.head);
 					while (!hash.is_zero ())
@@ -788,7 +794,8 @@ int main (int argc, char * const * argv)
 							{
 								std::cout << boost::str (boost::format ("%1% blocks retrieved") % count) << std::endl;
 							}
-							node2.node->block_processor.add (block, std::chrono::steady_clock::time_point ());
+							nano::unchecked_info unchecked_info (block, account, 0, nano::signature_verification::unknown);
+							node2.node->block_processor.add (unchecked_info);
 							// Retrieving previous block hash
 							hash = block->previous ();
 						}
