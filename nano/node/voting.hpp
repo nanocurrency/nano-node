@@ -68,5 +68,4 @@ private:
 };
 
 std::unique_ptr<seq_con_info_component> collect_seq_con_info (votes_cache & votes_cache, const std::string & name);
-
 }
