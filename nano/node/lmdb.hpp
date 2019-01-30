@@ -243,7 +243,7 @@ public:
 	void online_weight_del (nano::transaction const &, uint64_t) override;
 	nano::store_iterator<uint64_t, nano::amount> online_weight_begin (nano::transaction const &) override;
 	nano::store_iterator<uint64_t, nano::amount> online_weight_end () override;
-	size_t online_weight_count (nano::transaction const &) override;
+	size_t online_weight_count (nano::transaction const &) const override;
 
 	std::mutex cache_mutex;
 	std::unordered_map<nano::account, std::shared_ptr<nano::vote>> vote_cache_l1;
@@ -382,7 +382,7 @@ public:
 	 * Samples of online vote weight
 	 * uint64_t -> nano::amount
 	 */
-	MDB_dbi online_weight;
+	MDB_dbi online_weight{ 0 };
 
 	/**
 	 * Meta information about block store, such as versions.

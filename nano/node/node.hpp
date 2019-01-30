@@ -243,7 +243,8 @@ public:
 	nano::uint128_t online_stake ();
 	std::vector<nano::account> list ();
 	static uint64_t constexpr weight_period = 5 * 60; // 5 minutes
-	static uint64_t constexpr weight_samples = 4032; // 2 weeks
+	// The maximum amount of samples for a 2 week period on live or 3 days on beta
+	static uint64_t constexpr weight_samples = (nano::nano_network == nano::nano_networks::nano_live_network) ? 4032 : 864;
 
 private:
 	nano::uint128_t trend (nano::transaction &);
@@ -252,6 +253,8 @@ private:
 	std::unordered_set<nano::account> reps;
 	nano::uint128_t online;
 	nano::uint128_t minimum;
+
+	friend std::unique_ptr<seq_con_info_component> collect_seq_con_info (online_reps & online_reps, const std::string & name);
 };
 
 std::unique_ptr<seq_con_info_component> collect_seq_con_info (online_reps & online_reps, const std::string & name);
