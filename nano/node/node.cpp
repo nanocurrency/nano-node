@@ -2317,6 +2317,7 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (node & node, const
 	composite->add_component (collect_seq_con_info (node.block_processor, "block_processor"));
 	composite->add_component (collect_seq_con_info (node.block_arrival, "block_arrival"));
 	composite->add_component (collect_seq_con_info (node.online_reps, "online_reps"));
+	composite->add_component (collect_seq_con_info (node.votes_cache, "votes_cache"));
 	composite->add_component (collect_seq_con_info (node.block_uniquer, "block_uniquer"));
 	composite->add_component (collect_seq_con_info (node.vote_uniquer, "vote_uniquer"));
 	return composite;
