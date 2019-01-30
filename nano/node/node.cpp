@@ -3172,7 +3172,7 @@ void nano::node::process_confirmed (std::shared_ptr<nano::block> block_a, uint8_
 	{
 		iteration++;
 		std::weak_ptr<nano::node> node_w (shared ());
-		alarm.add (now + std::chrono::seconds (1), [node_w, block_a, iteration]() {
+		alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (1), [node_w, block_a, iteration]() {
 			if (auto node_l = node_w.lock ())
 			{
 				node_l->process_confirmed (block_a, iteration);
