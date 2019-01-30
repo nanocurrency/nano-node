@@ -634,9 +634,14 @@ TEST (node_config, v15_v16_upgrade)
 		auto upgraded (false);
 		nano::node_config config;
 		config.logging.init (path);
-		ASSERT_FALSE (tree.get_optional_child ("allow_local_peers")); // allow_local_peers should not be present now
+		// These config options should not be present at version 15
+		ASSERT_FALSE (tree.get_optional_child ("allow_local_peers"));
+		ASSERT_FALSE (tree.get_optional_child ("signature_checker_threads"));
 		config.deserialize_json (upgraded, tree);
-		ASSERT_TRUE (!!tree.get_optional_child ("allow_local_peers")); // allow_local_peers should be added after the update
+		// The config options should be added after the upgrade
+		ASSERT_TRUE (!!tree.get_optional_child ("allow_local_peers"));
+		ASSERT_TRUE (!!tree.get_optional_child ("signature_checker_threads"));
+
 		ASSERT_TRUE (upgraded);
 		auto version (tree.get<std::string> ("version"));
 
@@ -670,18 +675,22 @@ TEST (node_config, allow_local_peers)
 	nano::node_config config;
 	config.logging.init (path);
 
-	// Check config is correct when allow_local_peers is false
+	// Check config is correct
 	tree.put ("allow_local_peers", false);
+	tree.put ("signature_checker_threads", 1);
 	config.deserialize_json (upgraded, tree);
 	ASSERT_FALSE (upgraded);
 	ASSERT_FALSE (config.allow_local_peers);
+	ASSERT_EQ (config.signature_checker_threads, 1);
 
-	// Check config is correct when allow_local_peers is true
+	// Check config is correct with other values
 	tree.put ("allow_local_peers", true);
+	tree.put ("signature_checker_threads", 4);
 	upgraded = false;
 	config.deserialize_json (upgraded, tree);
 	ASSERT_FALSE (upgraded);
 	ASSERT_TRUE (config.allow_local_peers);
+	ASSERT_EQ (config.signature_checker_threads, 4);
 }
 
 // Regression test to ensure that deserializing includes changes node via get_required_child
@@ -1800,6 +1809,54 @@ TEST (node, confirm_quorum)
 	ASSERT_EQ (0, system.nodes[0]->balance (nano::test_genesis_key.pub));
 }
 
+TEST (node, local_votes_cache)
+{
+	nano::system system (24000, 1);
+	auto & node (*system.nodes[0]);
+	nano::genesis genesis;
+	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
+	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, node.work_generate_blocking (genesis.hash ())));
+	auto send2 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, send1->hash (), nano::test_genesis_key.pub, nano::genesis_amount - 2 * nano::Gxrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, node.work_generate_blocking (send1->hash ())));
+	auto send3 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, send2->hash (), nano::test_genesis_key.pub, nano::genesis_amount - 3 * nano::Gxrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, node.work_generate_blocking (send2->hash ())));
+	{
+		auto transaction (node.store.tx_begin (true));
+		ASSERT_EQ (nano::process_result::progress, node.ledger.process (transaction, *send1).code);
+		ASSERT_EQ (nano::process_result::progress, node.ledger.process (transaction, *send2).code);
+	}
+	nano::confirm_req message1 (send1);
+	nano::confirm_req message2 (send2);
+	for (auto i (0); i < 100; ++i)
+	{
+		node.process_message (message1, node.network.endpoint ());
+		node.process_message (message2, node.network.endpoint ());
+	}
+	{
+		std::lock_guard<std::mutex> lock (boost::polymorphic_downcast<nano::mdb_store *> (node.store_impl.get ())->cache_mutex);
+		auto transaction (node.store.tx_begin (false));
+		auto current_vote (node.store.vote_current (transaction, nano::test_genesis_key.pub));
+		ASSERT_EQ (current_vote->sequence, 2);
+	}
+	// Max cache
+	{
+		auto transaction (node.store.tx_begin (true));
+		ASSERT_EQ (nano::process_result::progress, node.ledger.process (transaction, *send3).code);
+	}
+	nano::confirm_req message3 (send3);
+	for (auto i (0); i < 100; ++i)
+	{
+		node.process_message (message3, node.network.endpoint ());
+	}
+	{
+		std::lock_guard<std::mutex> lock (boost::polymorphic_downcast<nano::mdb_store *> (node.store_impl.get ())->cache_mutex);
+		auto transaction (node.store.tx_begin (false));
+		auto current_vote (node.store.vote_current (transaction, nano::test_genesis_key.pub));
+		ASSERT_EQ (current_vote->sequence, 3);
+	}
+	ASSERT_TRUE (node.votes_cache.find (send1->hash ()).empty ());
+	ASSERT_FALSE (node.votes_cache.find (send2->hash ()).empty ());
+	ASSERT_FALSE (node.votes_cache.find (send3->hash ()).empty ());
+}
+
 TEST (node, vote_republish)
 {
 	nano::system system (24000, 2);
@@ -2117,6 +2174,60 @@ TEST (node, confirm_back)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
+}
+
+TEST (node, peers)
+{
+	nano::system system (24000, 1);
+	auto list (system.nodes.front ()->peers.list ());
+	ASSERT_TRUE (list.empty ());
+
+	nano::node_init init;
+	auto node (std::make_shared<nano::node> (init, system.io_ctx, 24001, nano::unique_path (), system.alarm, system.logging, system.work));
+	system.nodes.push_back (node);
+
+	auto endpoint = system.nodes.front ()->network.endpoint ();
+	nano::endpoint_key endpoint_key{ endpoint.address ().to_v6 ().to_bytes (), endpoint.port () };
+	auto & store = system.nodes.back ()->store;
+	{
+		// Add a peer to the database
+		auto transaction (store.tx_begin_write ());
+		store.peer_put (transaction, endpoint_key);
+
+		// Add a peer which is not contactable
+		store.peer_put (transaction, nano::endpoint_key{ boost::asio::ip::address_v6::any ().to_bytes (), 55555 });
+	}
+
+	node->start ();
+	system.deadline_set (10s);
+	while (system.nodes.back ()->peers.empty ())
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+
+	// Confirm that the peers match with the endpoints we are expecting
+	ASSERT_EQ (1, system.nodes.front ()->peers.list ().size ());
+	ASSERT_EQ (system.nodes.front ()->peers.list ().front (), system.nodes.back ()->network.endpoint ());
+	ASSERT_EQ (1, node->peers.list ().size ());
+	ASSERT_EQ (system.nodes.back ()->peers.list ().front (), system.nodes.front ()->network.endpoint ());
+
+	// Stop the peer node and check that it is removed from the store
+	system.nodes.front ()->stop ();
+
+	system.deadline_set (10s);
+	while (system.nodes.back ()->peers.size () == 1)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+
+	ASSERT_TRUE (system.nodes.back ()->peers.empty ());
+
+	// Uncontactable peer should not be stored
+	auto transaction (store.tx_begin_read ());
+	ASSERT_EQ (store.peer_count (transaction), 1);
+	ASSERT_TRUE (store.peer_exists (transaction, endpoint_key));
+
+	node->stop ();
 }
 
 namespace

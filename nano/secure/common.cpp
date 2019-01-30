@@ -6,6 +6,7 @@
 #include <nano/secure/blockstore.hpp>
 #include <nano/secure/versioning.hpp>
 
+#include <boost/endian/conversion.hpp>
 #include <boost/property_tree/json_parser.hpp>
 
 #include <queue>
@@ -302,6 +303,21 @@ bool nano::pending_key::operator== (nano::pending_key const & other_a) const
 nano::block_hash nano::pending_key::key () const
 {
 	return account;
+}
+
+nano::endpoint_key::endpoint_key (const std::array<uint8_t, 16> & address_a, uint16_t port_a) :
+address (address_a), network_port (boost::endian::native_to_big (port_a))
+{
+}
+
+const std::array<uint8_t, 16> & nano::endpoint_key::address_bytes () const
+{
+	return address;
+}
+
+uint16_t nano::endpoint_key::port () const
+{
+	return boost::endian::big_to_native (network_port);
 }
 
 nano::block_info::block_info () :
