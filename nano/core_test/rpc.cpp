@@ -1539,7 +1539,6 @@ TEST (rpc, peers)
 	rpc.start ();
 	boost::property_tree::ptree request;
 	request.put ("action", "peers");
-	request.put ("deprecated", true);
 	test_response response (request, rpc, system.io_ctx);
 	system.deadline_set (5s);
 	while (response.status == 0)
@@ -1565,6 +1564,7 @@ TEST (rpc, peers_node_id)
 	rpc.start ();
 	boost::property_tree::ptree request;
 	request.put ("action", "peers");
+	request.put ("peer_details", true);
 	test_response response (request, rpc, system.io_ctx);
 	system.deadline_set (5s);
 	while (response.status == 0)
