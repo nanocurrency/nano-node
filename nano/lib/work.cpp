@@ -193,3 +193,21 @@ uint64_t nano::work_pool::generate (nano::uint256_union const & hash_a, uint64_t
 	auto result (work.get_future ().get ());
 	return result.value ();
 }
+
+namespace nano
+{
+std::unique_ptr<seq_con_info_component> collect_seq_con_info (work_pool & work_pool, const std::string & name)
+{
+	auto composite = std::make_unique<seq_con_info_composite> (name);
+
+	size_t count = 0;
+	{
+		std::lock_guard<std::mutex> (work_pool.mutex);
+		count = work_pool.pending.size ();
+	}
+	auto sizeof_element = sizeof (decltype (work_pool.pending)::value_type);
+	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "pending", count, sizeof_element }));
+	composite->add_component (collect_seq_con_info (work_pool.work_observers, "work_observers"));
+	return composite;
+}
+}

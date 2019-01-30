@@ -92,7 +92,7 @@ public:
 	unsigned target_connections (size_t pulls_remaining);
 	bool should_log ();
 	void add_bulk_push_target (nano::block_hash const &, nano::block_hash const &);
-	bool process_block (std::shared_ptr<nano::block>, uint64_t, bool);
+	bool process_block (std::shared_ptr<nano::block>, nano::account const &, uint64_t, bool);
 	void lazy_run ();
 	void lazy_start (nano::block_hash const &);
 	void lazy_add (nano::block_hash const &);
@@ -170,6 +170,7 @@ public:
 	nano::block_hash first ();
 	std::shared_ptr<nano::bootstrap_client> connection;
 	nano::block_hash expected;
+	nano::account known_account;
 	nano::pull_info pull;
 	uint64_t total_blocks;
 	uint64_t unexpected_count;
@@ -242,7 +243,12 @@ private:
 	std::condition_variable condition;
 	std::vector<std::function<void(bool)>> observers;
 	boost::thread thread;
+
+	friend std::unique_ptr<seq_con_info_component> collect_seq_con_info (bootstrap_initiator & bootstrap_initiator, const std::string & name);
 };
+
+std::unique_ptr<seq_con_info_component> collect_seq_con_info (bootstrap_initiator & bootstrap_initiator, const std::string & name);
+
 class bootstrap_server;
 class bootstrap_listener
 {
@@ -264,6 +270,9 @@ public:
 private:
 	boost::asio::steady_timer defer_acceptor;
 };
+
+std::unique_ptr<seq_con_info_component> collect_seq_con_info (bootstrap_listener & bootstrap_listener, const std::string & name);
+
 class message;
 class bootstrap_server : public std::enable_shared_from_this<nano::bootstrap_server>
 {

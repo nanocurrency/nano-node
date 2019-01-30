@@ -1735,3 +1735,24 @@ MDB_txn * nano::wallet_store::tx (nano::transaction const & transaction_a) const
 	auto result (boost::polymorphic_downcast<nano::mdb_txn *> (transaction_a.impl.get ()));
 	return *result;
 }
+
+namespace nano
+{
+std::unique_ptr<seq_con_info_component> collect_seq_con_info (wallets & wallets, const std::string & name)
+{
+	size_t items_count = 0;
+	size_t actions_count = 0;
+	{
+		std::lock_guard<std::mutex> guard (wallets.mutex);
+		items_count = wallets.items.size ();
+		actions_count = wallets.actions.size ();
+	}
+
+	auto composite = std::make_unique<seq_con_info_composite> (name);
+	auto sizeof_item_element = sizeof (decltype (wallets.items)::value_type);
+	auto sizeof_actions_element = sizeof (decltype (wallets.actions)::value_type);
+	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "items", items_count, sizeof_item_element }));
+	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "actions_count", actions_count, sizeof_actions_element }));
+	return composite;
+}
+}

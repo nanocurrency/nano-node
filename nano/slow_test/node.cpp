@@ -438,6 +438,6 @@ TEST (node, mass_vote_by_hash)
 	}
 	for (auto i (blocks.begin ()), n (blocks.end ()); i != n; ++i)
 	{
-		system.nodes[0]->block_processor.add (*i, std::chrono::steady_clock::now ());
+		system.nodes[0]->block_processor.add (*i, nano::seconds_since_epoch ());
 	}
 }

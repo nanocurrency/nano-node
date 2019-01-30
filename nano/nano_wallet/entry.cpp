@@ -243,7 +243,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 		                                                       : std::function<boost::optional<uint64_t> (nano::uint256_union const &)> (nullptr));
 		nano::alarm alarm (io_ctx);
 		nano::node_init init;
-		node = std::make_shared<nano::node> (init, io_ctx, data_path, alarm, config.node, work);
+		node = std::make_shared<nano::node> (init, io_ctx, data_path, alarm, config.node, work, true);
 		if (!init.error ())
 		{
 			auto wallet (node->wallets.open (config.wallet));
@@ -364,6 +364,7 @@ int main (int argc, char * const * argv)
 					flags.disable_legacy_bootstrap = (vm.count ("disable_legacy_bootstrap") > 0);
 					flags.disable_wallet_bootstrap = (vm.count ("disable_wallet_bootstrap") > 0);
 					flags.disable_bootstrap_listener = (vm.count ("disable_bootstrap_listener") > 0);
+					flags.fast_bootstrap = (vm.count ("fast_bootstrap") > 0);
 					result = run_wallet (application, argc, argv, data_path, flags);
 				}
 				catch (std::exception const & e)

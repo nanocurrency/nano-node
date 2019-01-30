@@ -304,7 +304,7 @@ TEST (bootstrap, simple)
 	store.unchecked_put (transaction, block1->previous (), block1);
 	auto block3 (store.unchecked_get (transaction, block1->previous ()));
 	ASSERT_FALSE (block3.empty ());
-	ASSERT_EQ (*block1, *block3[0]);
+	ASSERT_EQ (*block1, *(block3[0].block));
 	store.unchecked_del (transaction, nano::unchecked_key (block1->previous (), block1->hash ()));
 	auto block4 (store.unchecked_get (transaction, block1->previous ()));
 	ASSERT_TRUE (block4.empty ());
@@ -372,7 +372,7 @@ TEST (unchecked, multiple_get)
 	ASSERT_EQ (unchecked1_blocks.size (), 3);
 	for (auto & i : unchecked1_blocks)
 	{
-		unchecked1.push_back (i->hash ());
+		unchecked1.push_back (i.block->hash ());
 	}
 	ASSERT_TRUE (std::find (unchecked1.begin (), unchecked1.end (), block1->hash ()) != unchecked1.end ());
 	ASSERT_TRUE (std::find (unchecked1.begin (), unchecked1.end (), block2->hash ()) != unchecked1.end ());
@@ -382,16 +382,16 @@ TEST (unchecked, multiple_get)
 	ASSERT_EQ (unchecked2_blocks.size (), 2);
 	for (auto & i : unchecked2_blocks)
 	{
-		unchecked2.push_back (i->hash ());
+		unchecked2.push_back (i.block->hash ());
 	}
 	ASSERT_TRUE (std::find (unchecked2.begin (), unchecked2.end (), block1->hash ()) != unchecked2.end ());
 	ASSERT_TRUE (std::find (unchecked2.begin (), unchecked2.end (), block2->hash ()) != unchecked2.end ());
 	auto unchecked3 (store.unchecked_get (transaction, block2->previous ()));
 	ASSERT_EQ (unchecked3.size (), 1);
-	ASSERT_EQ (unchecked3[0]->hash (), block2->hash ());
+	ASSERT_EQ (unchecked3[0].block->hash (), block2->hash ());
 	auto unchecked4 (store.unchecked_get (transaction, block3->hash ()));
 	ASSERT_EQ (unchecked4.size (), 1);
-	ASSERT_EQ (unchecked4[0]->hash (), block3->hash ());
+	ASSERT_EQ (unchecked4[0].block->hash (), block3->hash ());
 	auto unchecked5 (store.unchecked_get (transaction, block2->hash ()));
 	ASSERT_EQ (unchecked5.size (), 0);
 }
@@ -450,7 +450,7 @@ TEST (block_store, one_bootstrap)
 	ASSERT_EQ (block1->hash (), hash1);
 	auto blocks (store.unchecked_get (transaction, hash1));
 	ASSERT_EQ (1, blocks.size ());
-	auto block2 (blocks[0]);
+	auto block2 (blocks[0].block);
 	ASSERT_EQ (*block1, *block2);
 	++begin;
 	ASSERT_EQ (end, begin);
@@ -1487,4 +1487,24 @@ TEST (block_store, endpoint_key_byte_order)
 
 	// This should be in host byte order
 	ASSERT_EQ (port, endpoint_key1.port ());
+}
+
+TEST (block_store, online_weight)
+{
+	nano::logging logging;
+	bool error (false);
+	nano::mdb_store store (error, logging, nano::unique_path ());
+	ASSERT_FALSE (error);
+	auto transaction (store.tx_begin (true));
+	ASSERT_EQ (0, store.online_weight_count (transaction));
+	ASSERT_EQ (store.online_weight_end (), store.online_weight_begin (transaction));
+	store.online_weight_put (transaction, 1, 2);
+	ASSERT_EQ (1, store.online_weight_count (transaction));
+	auto item (store.online_weight_begin (transaction));
+	ASSERT_NE (store.online_weight_end (), item);
+	ASSERT_EQ (1, item->first);
+	ASSERT_EQ (2, item->second.number ());
+	store.online_weight_del (transaction, 1);
+	ASSERT_EQ (0, store.online_weight_count (transaction));
+	ASSERT_EQ (store.online_weight_end (), store.online_weight_begin (transaction));
 }

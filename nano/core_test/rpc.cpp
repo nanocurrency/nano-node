@@ -44,7 +44,7 @@ public:
 									boost::property_tree::read_json (body, json);
 									status = 200;
 								}
-								catch (std::exception & e)
+								catch (std::exception &)
 								{
 									status = 500;
 								}
@@ -3924,7 +3924,7 @@ TEST (rpc, online_reps)
 	auto send_block (system.wallet (0)->send_action (nano::test_genesis_key.pub, nano::test_genesis_key.pub, nano::Gxrb_ratio));
 	ASSERT_NE (nullptr, send_block);
 	system.deadline_set (10s);
-	while (system.nodes[1]->online_reps.online_stake () == system.nodes[1]->config.online_weight_minimum.number ())
+	while (system.nodes[1]->online_reps.list ().empty ())
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
@@ -4243,7 +4243,7 @@ TEST (rpc, wallet_history)
 	system.deadline_set (5s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
 	std::vector<std::tuple<std::string, std::string, std::string, std::string, std::string, std::string>> history_l;
@@ -4344,4 +4344,32 @@ TEST (rpc, sign_block)
 	ASSERT_FALSE (nano::validate_message (key.pub, send.hash (), block->block_signature ()));
 	ASSERT_NE (block->block_signature (), send.block_signature ());
 	ASSERT_EQ (block->hash (), send.hash ());
+}
+
+TEST (rpc, memory_stats)
+{
+	nano::system system (24000, 1);
+	auto node = system.nodes.front ();
+	nano::rpc rpc (system.io_ctx, *node, nano::rpc_config (true));
+
+	// Preliminary test adding to the vote uniquer and checking json output is correct
+	nano::keypair key;
+	auto block (std::make_shared<nano::state_block> (0, 0, 0, 0, 0, key.prv, key.pub, 0));
+	std::vector<nano::block_hash> hashes;
+	hashes.push_back (block->hash ());
+	auto vote (std::make_shared<nano::vote> (key.pub, key.prv, 0, hashes));
+	node->vote_uniquer.unique (vote);
+	rpc.start ();
+	boost::property_tree::ptree request;
+	request.put ("action", "stats");
+	request.put ("type", "objects");
+	test_response response (request, rpc, system.io_ctx);
+	system.deadline_set (5s);
+	while (response.status == 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (200, response.status);
+
+	ASSERT_EQ (response.json.get_child ("node").get_child ("vote_uniquer").get_child ("votes").get<std::string> ("count"), "1");
 }

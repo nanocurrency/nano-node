@@ -474,3 +474,33 @@ bool nano::peer_container::insert (nano::endpoint const & endpoint_a, unsigned v
 	}
 	return result;
 }
+
+namespace nano
+{
+std::unique_ptr<seq_con_info_component> collect_seq_con_info (peer_container & peer_container, const std::string & name)
+{
+	size_t peers_count = 0;
+	size_t attemps_count = 0;
+	{
+		std::lock_guard<std::mutex> guard (peer_container.mutex);
+		peers_count = peer_container.peers.size ();
+		attemps_count = peer_container.attempts.size ();
+	}
+
+	auto composite = std::make_unique<seq_con_info_composite> (name);
+	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "peers", peers_count, sizeof (decltype (peer_container.peers)::value_type) }));
+	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "attempts", attemps_count, sizeof (decltype (peer_container.attempts)::value_type) }));
+
+	size_t syn_cookies_count = 0;
+	size_t syn_cookies_per_ip_count = 0;
+	{
+		std::lock_guard<std::mutex> guard (peer_container.syn_cookie_mutex);
+		syn_cookies_count = peer_container.syn_cookies.size ();
+		syn_cookies_per_ip_count = peer_container.syn_cookies_per_ip.size ();
+	}
+
+	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "syn_cookies", syn_cookies_count, sizeof (decltype (peer_container.syn_cookies)::value_type) }));
+	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "syn_cookies_per_ip", syn_cookies_per_ip_count, sizeof (decltype (peer_container.syn_cookies_per_ip)::value_type) }));
+	return composite;
+}
+}

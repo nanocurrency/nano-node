@@ -205,14 +205,14 @@ void nano::stat::log_counters_impl (stat_log_sink & sink)
 
 	for (auto & it : entries)
 	{
-		std::time_t time = std::chrono::system_clock::to_time_t (it.second->counter.timestamp);
+		std::time_t time = std::chrono::system_clock::to_time_t (it.second->counter.get_timestamp ());
 		tm local_tm = *localtime (&time);
 
 		auto key = it.first;
 		std::string type = type_to_string (key);
 		std::string detail = detail_to_string (key);
 		std::string dir = dir_to_string (key);
-		sink.write_entry (local_tm, type, detail, dir, it.second->counter.value);
+		sink.write_entry (local_tm, type, detail, dir, it.second->counter.get_value ());
 	}
 	sink.entries ()++;
 	sink.finalize ();
@@ -247,9 +247,9 @@ void nano::stat::log_samples_impl (stat_log_sink & sink)
 
 		for (auto & datapoint : it.second->samples)
 		{
-			std::time_t time = std::chrono::system_clock::to_time_t (datapoint.timestamp);
+			std::time_t time = std::chrono::system_clock::to_time_t (datapoint.get_timestamp ());
 			tm local_tm = *localtime (&time);
-			sink.write_entry (local_tm, type, detail, dir, datapoint.value);
+			sink.write_entry (local_tm, type, detail, dir, datapoint.get_value ());
 		}
 	}
 	sink.entries ()++;
@@ -267,9 +267,9 @@ void nano::stat::update (uint32_t key_a, uint64_t value)
 	auto entry (get_entry_impl (key_a, config.interval, config.capacity));
 
 	// Counters
-	auto old (entry->counter.value);
+	auto old (entry->counter.get_value ());
 	entry->counter.add (value);
-	entry->count_observers.notify (old, entry->counter.value);
+	entry->count_observers.notify (old, entry->counter.get_value ());
 
 	std::chrono::duration<double, std::milli> duration = now - log_last_count_writeout;
 	if (config.log_interval_counters > 0 && duration.count () > config.log_interval_counters)
@@ -289,9 +289,9 @@ void nano::stat::update (uint32_t key_a, uint64_t value)
 			entry->sample_start_time = now;
 
 			// Make a snapshot of samples for thread safety and to get a stable container
-			entry->sample_current.timestamp = std::chrono::system_clock::now ();
+			entry->sample_current.set_timestamp (std::chrono::system_clock::now ());
 			entry->samples.push_back (entry->sample_current);
-			entry->sample_current.value = 0;
+			entry->sample_current.set_value (0);
 
 			if (entry->sample_observers.observers.size () > 0)
 			{

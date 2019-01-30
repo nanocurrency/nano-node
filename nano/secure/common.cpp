@@ -305,6 +305,55 @@ nano::block_hash nano::pending_key::key () const
 	return account;
 }
 
+nano::unchecked_info::unchecked_info () :
+block (nullptr),
+account (0),
+modified (0),
+verified (nano::signature_verification::unknown)
+{
+}
+
+nano::unchecked_info::unchecked_info (std::shared_ptr<nano::block> block_a, nano::account const & account_a, uint64_t modified_a, nano::signature_verification verified_a) :
+block (block_a),
+account (account_a),
+modified (modified_a),
+verified (verified_a)
+{
+}
+
+void nano::unchecked_info::serialize (nano::stream & stream_a) const
+{
+	assert (block != nullptr);
+	nano::serialize_block (stream_a, *block);
+	nano::write (stream_a, account.bytes);
+	nano::write (stream_a, modified);
+	nano::write (stream_a, verified);
+}
+
+bool nano::unchecked_info::deserialize (nano::stream & stream_a)
+{
+	block = nano::deserialize_block (stream_a);
+	bool error (block == nullptr);
+	if (!error)
+	{
+		error = nano::read (stream_a, account.bytes);
+		if (!error)
+		{
+			error = nano::read (stream_a, modified);
+			if (!error)
+			{
+				error = nano::read (stream_a, verified);
+			}
+		}
+	}
+	return error;
+}
+
+bool nano::unchecked_info::operator== (nano::unchecked_info const & other_a) const
+{
+	return block->hash () == other_a.block->hash () && account == other_a.account && modified == other_a.modified && verified == other_a.verified;
+}
+
 nano::endpoint_key::endpoint_key (const std::array<uint8_t, 16> & address_a, uint16_t port_a) :
 address (address_a), network_port (boost::endian::native_to_big (port_a))
 {
@@ -723,6 +772,18 @@ size_t nano::vote_uniquer::size ()
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	return votes.size ();
+}
+
+namespace nano
+{
+std::unique_ptr<seq_con_info_component> collect_seq_con_info (vote_uniquer & vote_uniquer, const std::string & name)
+{
+	auto count = vote_uniquer.size ();
+	auto sizeof_element = sizeof (vote_uniquer::value_type);
+	auto composite = std::make_unique<seq_con_info_composite> (name);
+	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "votes", count, sizeof_element }));
+	return composite;
+}
 }
 
 nano::genesis::genesis ()

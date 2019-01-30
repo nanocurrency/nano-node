@@ -9,6 +9,11 @@
 
 #include <nano/lib/errors.hpp>
 
+namespace
+{
+void construct_json (nano::seq_con_info_component * component, boost::property_tree::ptree & parent);
+}
+
 nano::rpc_secure_config::rpc_secure_config () :
 enable (false),
 verbose_logging (false)
@@ -1609,7 +1614,7 @@ void nano::rpc_handler::confirmation_quorum ()
 	response_l.put ("quorum_delta", node.delta ().convert_to<std::string> ());
 	response_l.put ("online_weight_quorum_percent", std::to_string (node.config.online_weight_quorum));
 	response_l.put ("online_weight_minimum", node.config.online_weight_minimum.to_string_dec ());
-	response_l.put ("online_stake_total", node.online_reps.online_stake_total.convert_to<std::string> ());
+	response_l.put ("online_stake_total", node.online_reps.online_stake ().convert_to<std::string> ());
 	response_l.put ("peers_stake_total", node.peers.total_weight ().convert_to<std::string> ());
 	if (request.get<bool> ("peer_details", false))
 	{
@@ -2486,7 +2491,9 @@ void nano::rpc_handler::process ()
 			nano::process_return result;
 			{
 				auto transaction (node.store.tx_begin_write ());
-				result = node.block_processor.process_one (transaction, block, std::chrono::steady_clock::time_point ());
+				// Set current time to trigger automatic rebroadcast and election
+				nano::unchecked_info info (block, block->account (), nano::seconds_since_epoch (), nano::signature_verification::unknown);
+				result = node.block_processor.process_one (transaction, info);
 			}
 			switch (result.code)
 			{
@@ -3086,19 +3093,30 @@ void nano::rpc_handler::stats ()
 {
 	auto sink = node.stats.log_sink_json ();
 	std::string type (request.get<std::string> ("type", ""));
+	bool use_sink = false;
 	if (type == "counters")
 	{
 		node.stats.log_counters (*sink);
+		use_sink = true;
+	}
+	else if (type == "objects")
+	{
+		rpc_control_impl ();
+		if (!ec)
+		{
+			construct_json (collect_seq_con_info (node, "node").get (), response_l);
+		}
 	}
 	else if (type == "samples")
 	{
 		node.stats.log_samples (*sink);
+		use_sink = true;
 	}
 	else
 	{
 		ec = nano::error_rpc::invalid_missing_type;
 	}
-	if (!ec)
+	if (!ec && use_sink)
 	{
 		auto stat_tree_l (*static_cast<boost::property_tree::ptree *> (sink->to_object ()));
 		stat_tree_l.put ("stat_duration_seconds", node.stats.last_reset ().count ());
@@ -3141,10 +3159,10 @@ void nano::rpc_handler::unchecked ()
 		auto transaction (node.store.tx_begin_read ());
 		for (auto i (node.store.unchecked_begin (transaction)), n (node.store.unchecked_end ()); i != n && unchecked.size () < count; ++i)
 		{
-			auto block (i->second);
+			nano::unchecked_info info (i->second);
 			std::string contents;
-			block->serialize_json (contents);
-			unchecked.put (block->hash ().to_string (), contents);
+			info.block->serialize_json (contents);
+			unchecked.put (info.block->hash ().to_string (), contents);
 		}
 		response_l.add_child ("blocks", unchecked);
 	}
@@ -3171,11 +3189,13 @@ void nano::rpc_handler::unchecked_get ()
 		auto transaction (node.store.tx_begin_read ());
 		for (auto i (node.store.unchecked_begin (transaction)), n (node.store.unchecked_end ()); i != n; ++i)
 		{
-			std::shared_ptr<nano::block> block (i->second);
-			if (block->hash () == hash)
+			nano::unchecked_key key (i->first);
+			if (key.hash == hash)
 			{
+				nano::unchecked_info info (i->second);
+				response_l.put ("modified_timestamp", std::to_string (info.modified));
 				std::string contents;
-				block->serialize_json (contents);
+				info.block->serialize_json (contents);
 				response_l.put ("contents", contents);
 				break;
 			}
@@ -3207,11 +3227,12 @@ void nano::rpc_handler::unchecked_keys ()
 		for (auto i (node.store.unchecked_begin (transaction, nano::unchecked_key (key, 0))), n (node.store.unchecked_end ()); i != n && unchecked.size () < count; ++i)
 		{
 			boost::property_tree::ptree entry;
-			auto block (i->second);
+			nano::unchecked_info info (i->second);
 			std::string contents;
-			block->serialize_json (contents);
+			info.block->serialize_json (contents);
 			entry.put ("key", nano::block_hash (i->first.key ()).to_string ());
-			entry.put ("hash", block->hash ().to_string ());
+			entry.put ("hash", info.block->hash ().to_string ());
+			entry.put ("modified_timestamp", std::to_string (info.modified));
 			entry.put ("contents", contents);
 			unchecked.push_back (std::make_pair ("", entry));
 		}
@@ -4629,7 +4650,7 @@ void nano::rpc_handler::process_request ()
 			}
 		}
 	}
-	catch (std::runtime_error const & err)
+	catch (std::runtime_error const &)
 	{
 		error_response (response, "Unable to parse JSON");
 	}
@@ -4723,4 +4744,31 @@ std::unique_ptr<nano::rpc> nano::get_rpc (boost::asio::io_context & io_ctx_a, na
 	}
 
 	return impl;
+}
+
+namespace
+{
+void construct_json (nano::seq_con_info_component * component, boost::property_tree::ptree & parent)
+{
+	// We are a leaf node, print name and exit
+	if (!component->is_composite ())
+	{
+		auto & leaf_info = static_cast<nano::seq_con_info_leaf *> (component)->get_info ();
+		boost::property_tree::ptree child;
+		child.put ("count", leaf_info.count);
+		child.put ("size", leaf_info.count * leaf_info.sizeof_element);
+		parent.add_child (leaf_info.name, child);
+		return;
+	}
+
+	auto composite = static_cast<nano::seq_con_info_composite *> (component);
+
+	boost::property_tree::ptree current;
+	for (auto & child : composite->get_children ())
+	{
+		construct_json (child.get (), current);
+	}
+
+	parent.add_child (composite->get_name (), current);
+}
 }
