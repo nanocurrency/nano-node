@@ -667,7 +667,7 @@ TEST (node_config, v15_v16_upgrade)
 	test_upgrade ("rai-beta.raiblocks.net", "peering-beta.nano.org");
 }
 
-TEST (node_config, allow_local_peers)
+TEST (node_config, v16_values)
 {
 	nano::jsonconfig tree;
 	add_required_children_node_config_tree (tree);
@@ -680,19 +680,23 @@ TEST (node_config, allow_local_peers)
 	// Check config is correct
 	tree.put ("allow_local_peers", false);
 	tree.put ("signature_checker_threads", 1);
+	tree.put ("vote_minimum", nano::Gxrb_ratio.convert_to<std::string> ());
 	config.deserialize_json (upgraded, tree);
 	ASSERT_FALSE (upgraded);
 	ASSERT_FALSE (config.allow_local_peers);
 	ASSERT_EQ (config.signature_checker_threads, 1);
+	ASSERT_EQ (config.vote_minimum.number (), nano::Gxrb_ratio);
 
 	// Check config is correct with other values
 	tree.put ("allow_local_peers", true);
 	tree.put ("signature_checker_threads", 4);
+	tree.put ("vote_minimum", (std::numeric_limits<nano::uint128_t>::max () - 100).convert_to<std::string> ());
 	upgraded = false;
 	config.deserialize_json (upgraded, tree);
 	ASSERT_FALSE (upgraded);
 	ASSERT_TRUE (config.allow_local_peers);
 	ASSERT_EQ (config.signature_checker_threads, 4);
+	ASSERT_EQ (config.vote_minimum.number (), std::numeric_limits<nano::uint128_t>::max () - 100);
 }
 
 // Regression test to ensure that deserializing includes changes node via get_required_child
