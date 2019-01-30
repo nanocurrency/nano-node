@@ -4,6 +4,7 @@
 #include <nano/node/common.hpp>
 #include <nano/secure/versioning.hpp>
 
+#include <boost/endian/conversion.hpp>
 #include <boost/polymorphic_cast.hpp>
 
 #include <queue>
@@ -136,6 +137,17 @@ buffer (std::make_shared<std::vector<uint8_t>> ())
 	{
 		nano::vectorstream stream (*buffer);
 		nano::serialize_block (stream, *val_a);
+	}
+	value = { buffer->size (), const_cast<uint8_t *> (buffer->data ()) };
+}
+
+nano::mdb_val::mdb_val (uint64_t val_a) :
+buffer (std::make_shared<std::vector<uint8_t>> ())
+{
+	{
+		boost::endian::native_to_big_inplace (val_a);
+		nano::vectorstream stream (*buffer);
+		nano::write (stream, val_a);
 	}
 	value = { buffer->size (), const_cast<uint8_t *> (buffer->data ()) };
 }
@@ -297,6 +309,7 @@ nano::mdb_val::operator uint64_t () const
 	nano::bufferstream stream (reinterpret_cast<uint8_t const *> (value.mv_data), value.mv_size);
 	auto error (nano::read (stream, result));
 	assert (!error);
+	boost::endian::big_to_native_inplace (result);
 	return result;
 }
 
@@ -752,6 +765,7 @@ env (error_a, path_a, lmdb_max_dbs)
 		error_a |= mdb_dbi_open (env.tx (transaction), "representation", MDB_CREATE, &representation) != 0;
 		error_a |= mdb_dbi_open (env.tx (transaction), "unchecked", MDB_CREATE, &unchecked) != 0;
 		error_a |= mdb_dbi_open (env.tx (transaction), "vote", MDB_CREATE, &vote) != 0;
+		error_a |= mdb_dbi_open (env.tx (transaction), "online_weight", MDB_CREATE, &online_weight) != 0;
 		error_a |= mdb_dbi_open (env.tx (transaction), "meta", MDB_CREATE, &meta) != 0;
 		error_a |= mdb_dbi_open (env.tx (transaction), "peers", MDB_CREATE, &peers) != 0;
 		if (!full_sideband (transaction))
@@ -2134,6 +2148,36 @@ size_t nano::mdb_store::unchecked_count (nano::transaction const & transaction_a
 	release_assert (status == 0);
 	auto result (unchecked_stats.ms_entries);
 	return result;
+}
+
+void nano::mdb_store::online_weight_put (nano::transaction const & transaction_a, uint64_t time_a, nano::amount const & amount_a)
+{
+	auto status (mdb_put (env.tx (transaction_a), online_weight, nano::mdb_val (time_a), nano::mdb_val (amount_a), 0));
+	release_assert (status == 0);
+}
+
+void nano::mdb_store::online_weight_del (nano::transaction const & transaction_a, uint64_t time_a)
+{
+	auto status (mdb_del (env.tx (transaction_a), online_weight, nano::mdb_val (time_a), nullptr));
+	release_assert (status == 0);
+}
+
+nano::store_iterator<uint64_t, nano::amount> nano::mdb_store::online_weight_begin (nano::transaction const & transaction_a)
+{
+	return nano::store_iterator<uint64_t, nano::amount> (std::make_unique<nano::mdb_iterator<uint64_t, nano::amount>> (transaction_a, online_weight));
+}
+
+nano::store_iterator<uint64_t, nano::amount> nano::mdb_store::online_weight_end ()
+{
+	return nano::store_iterator<uint64_t, nano::amount> (nullptr);
+}
+
+size_t nano::mdb_store::online_weight_count (nano::transaction const & transaction_a) const
+{
+	MDB_stat online_weight_stats;
+	auto status1 (mdb_stat (env.tx (transaction_a), online_weight, &online_weight_stats));
+	release_assert (status1 == 0);
+	return online_weight_stats.ms_entries;
 }
 
 void nano::mdb_store::flush (nano::transaction const & transaction_a)
