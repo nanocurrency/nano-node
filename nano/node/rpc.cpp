@@ -2486,7 +2486,7 @@ void nano::rpc_handler::process ()
 			nano::process_return result;
 			{
 				auto transaction (node.store.tx_begin_write ());
-				result = node.block_processor.process_one (transaction, block, std::chrono::steady_clock::time_point ());
+				result = node.block_processor.process_one (transaction, block);
 			}
 			switch (result.code)
 			{
@@ -3141,10 +3141,10 @@ void nano::rpc_handler::unchecked ()
 		auto transaction (node.store.tx_begin_read ());
 		for (auto i (node.store.unchecked_begin (transaction)), n (node.store.unchecked_end ()); i != n && unchecked.size () < count; ++i)
 		{
-			auto block (i->second);
+			nano::unchecked_info info (i->second);
 			std::string contents;
-			block->serialize_json (contents);
-			unchecked.put (block->hash ().to_string (), contents);
+			info.block->serialize_json (contents);
+			unchecked.put (info.block->hash ().to_string (), contents);
 		}
 		response_l.add_child ("blocks", unchecked);
 	}
@@ -3171,11 +3171,13 @@ void nano::rpc_handler::unchecked_get ()
 		auto transaction (node.store.tx_begin_read ());
 		for (auto i (node.store.unchecked_begin (transaction)), n (node.store.unchecked_end ()); i != n; ++i)
 		{
-			std::shared_ptr<nano::block> block (i->second);
-			if (block->hash () == hash)
+			nano::unchecked_key key (i->first);
+			if (key.hash == hash)
 			{
+				nano::unchecked_info info (i->second);
+				response_l.put ("modified_timestamp", std::to_string (info.modified));
 				std::string contents;
-				block->serialize_json (contents);
+				info.block->serialize_json (contents);
 				response_l.put ("contents", contents);
 				break;
 			}
@@ -3207,11 +3209,12 @@ void nano::rpc_handler::unchecked_keys ()
 		for (auto i (node.store.unchecked_begin (transaction, nano::unchecked_key (key, 0))), n (node.store.unchecked_end ()); i != n && unchecked.size () < count; ++i)
 		{
 			boost::property_tree::ptree entry;
-			auto block (i->second);
+			nano::unchecked_info info (i->second);
 			std::string contents;
-			block->serialize_json (contents);
+			info.block->serialize_json (contents);
 			entry.put ("key", nano::block_hash (i->first.key ()).to_string ());
-			entry.put ("hash", block->hash ().to_string ());
+			entry.put ("hash", info.block->hash ().to_string ());
+			entry.put ("modified_timestamp", std::to_string (info.modified));
 			entry.put ("contents", contents);
 			unchecked.push_back (std::make_pair ("", entry));
 		}

@@ -1015,9 +1015,9 @@ TEST (node, fork_bootstrap_flip)
 	nano::keypair key2;
 	auto send2 (std::make_shared<nano::send_block> (latest, key2.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system0.work.generate (latest)));
 	// Insert but don't rebroadcast, simulating settled blocks
-	node1.block_processor.add (send1, std::chrono::steady_clock::now ());
+	node1.block_processor.add (send1, nano::seconds_since_epoch ());
 	node1.block_processor.flush ();
-	node2.block_processor.add (send2, std::chrono::steady_clock::now ());
+	node2.block_processor.add (send2, nano::seconds_since_epoch ());
 	node2.block_processor.flush ();
 	{
 		auto transaction (node2.store.tx_begin ());
@@ -1705,8 +1705,8 @@ TEST (node, block_confirm)
 	nano::keypair key;
 	system.wallet (1)->insert_adhoc (nano::test_genesis_key.prv);
 	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.nodes[0]->work_generate_blocking (genesis.hash ())));
-	system.nodes[0]->block_processor.add (send1, std::chrono::steady_clock::now ());
-	system.nodes[1]->block_processor.add (send1, std::chrono::steady_clock::now ());
+	system.nodes[0]->block_processor.add (send1, nano::seconds_since_epoch ());
+	system.nodes[1]->block_processor.add (send1, nano::seconds_since_epoch ());
 	system.deadline_set (std::chrono::seconds (5));
 	while (!system.nodes[0]->ledger.block_exists (send1->hash ()) || !system.nodes[1]->ledger.block_exists (send1->hash ()))
 	{
@@ -2128,7 +2128,7 @@ TEST (node, block_processor_reject_rolled_back)
 	nano::genesis genesis;
 	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
 	node.work_generate_blocking (*send1);
-	node.block_processor.add (send1, std::chrono::steady_clock::time_point ());
+	node.block_processor.add (send1);
 	node.block_processor.flush ();
 	ASSERT_TRUE (node.ledger.block_exists (send1->hash ()));
 	auto send2 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - 2 * nano::Gxrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
@@ -2140,7 +2140,7 @@ TEST (node, block_processor_reject_rolled_back)
 	ASSERT_TRUE (node.ledger.block_exists (send2->hash ()));
 	ASSERT_TRUE (node.active.roots.empty ());
 	// Block send1 cannot be processed & start fork resolution election
-	node.block_processor.add (send1, std::chrono::steady_clock::time_point ());
+	node.block_processor.add (send1);
 	node.block_processor.flush ();
 	ASSERT_FALSE (node.ledger.block_exists (send1->hash ()));
 	ASSERT_TRUE (node.active.roots.empty ());
@@ -2228,6 +2228,36 @@ TEST (node, peers)
 	ASSERT_TRUE (store.peer_exists (transaction, endpoint_key));
 
 	node->stop ();
+}
+
+TEST (node, unchecked_cleaning)
+{
+	nano::system system (24000, 1);
+	nano::keypair key;
+	auto & node (*system.nodes[0]);
+	auto open (std::make_shared<nano::state_block> (key.pub, 0, key.pub, 1, key.pub, key.prv, key.pub, system.work.generate (key.pub)));
+	node.process_active (open);
+	node.block_processor.flush ();
+	node.unchecked_cutoff = std::chrono::seconds (2);
+	{
+		auto transaction (node.store.tx_begin ());
+		auto unchecked_count (node.store.unchecked_count (transaction));
+		ASSERT_EQ (unchecked_count, 1);
+	}
+	std::this_thread::sleep_for (std::chrono::seconds (1));
+	node.unchecked_cleaning ();
+	{
+		auto transaction (node.store.tx_begin ());
+		auto unchecked_count (node.store.unchecked_count (transaction));
+		ASSERT_EQ (unchecked_count, 1);
+	}
+	std::this_thread::sleep_for (std::chrono::seconds (2));
+	node.unchecked_cleaning ();
+	{
+		auto transaction (node.store.tx_begin ());
+		auto unchecked_count (node.store.unchecked_count (transaction));
+		ASSERT_EQ (unchecked_count, 0);
+	}
 }
 
 namespace
