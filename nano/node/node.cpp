@@ -3137,18 +3137,10 @@ public:
 };
 }
 
-void nano::node::process_confirmed (std::shared_ptr<nano::block> block_a)
+void nano::node::process_confirmed (std::shared_ptr<nano::block> block_a, uint8_t iteration)
 {
 	auto hash (block_a->hash ());
-	bool exists (ledger.block_exists (block_a->type (), hash));
-	// Attempt to process confirmed block if it's not in ledger yet
-	if (!exists)
-	{
-		auto transaction (store.tx_begin_write ());
-		block_processor.process_one (transaction, block_a);
-		exists = store.block_exists (transaction, block_a->type (), hash);
-	}
-	if (exists)
+	if (ledger.block_exists (block_a->type (), hash))
 	{
 		auto transaction (store.tx_begin_read ());
 		confirmed_visitor visitor (transaction, *this, block_a, hash);
@@ -3175,6 +3167,17 @@ void nano::node::process_confirmed (std::shared_ptr<nano::block> block_a)
 				observers.account_balance.notify (pending_account, true);
 			}
 		}
+	}
+	else if (iteration < 10)
+	{
+		iteration++;
+		std::weak_ptr<nano::node> node_w (shared ());
+		alarm.add (now + std::chrono::seconds (1), [node_w, block_a, iteration]() {
+			if (auto node_l = node_w.lock ())
+			{
+				node_l->process_confirmed (block_a, iteration);
+			}
+		});
 	}
 }
 
