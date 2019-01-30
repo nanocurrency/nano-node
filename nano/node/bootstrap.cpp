@@ -3,11 +3,13 @@
 #include <nano/node/common.hpp>
 #include <nano/node/node.hpp>
 
+#include <algorithm>
 #include <boost/log/trivial.hpp>
 
 constexpr double bootstrap_connection_scale_target_blocks = 50000.0;
 constexpr double bootstrap_connection_warmup_time_sec = 5.0;
 constexpr double bootstrap_minimum_blocks_per_sec = 10.0;
+constexpr double bootstrap_minimum_elapsed_seconds_blockrate = 0.02;
 constexpr double bootstrap_minimum_frontier_blocks_per_sec = 1000.0;
 constexpr unsigned bootstrap_frontier_retry_limit = 16;
 constexpr double bootstrap_minimum_termination_time_sec = 30.0;
@@ -147,8 +149,8 @@ nano::bootstrap_client::~bootstrap_client ()
 
 double nano::bootstrap_client::block_rate () const
 {
-	auto elapsed = elapsed_seconds ();
-	return elapsed > 0.0 ? (double)block_count.load () / elapsed : 0.0;
+	auto elapsed = std::max (elapsed_seconds (), bootstrap_minimum_elapsed_seconds_blockrate);
+	return static_cast<double> (block_count.load () / elapsed);
 }
 
 double nano::bootstrap_client::elapsed_seconds () const
@@ -299,8 +301,9 @@ void nano::frontier_req_client::received_frontier (boost::system::error_code con
 		}
 		++count;
 		std::chrono::duration<double> time_span = std::chrono::duration_cast<std::chrono::duration<double>> (std::chrono::steady_clock::now () - start_time);
-		double elapsed_sec = time_span.count ();
-		double blocks_per_sec = (double)count / elapsed_sec;
+
+		double elapsed_sec = std::max (time_span.count (), bootstrap_minimum_elapsed_seconds_blockrate);
+		double blocks_per_sec = static_cast<double> (count) / elapsed_sec;
 		if (elapsed_sec > bootstrap_connection_warmup_time_sec && blocks_per_sec < bootstrap_minimum_frontier_blocks_per_sec)
 		{
 			BOOST_LOG (connection->node->log) << boost::str (boost::format ("Aborting frontier req because it was too slow"));
