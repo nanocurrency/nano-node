@@ -35,7 +35,8 @@ bootstrap_connections_max (64),
 callback_port (0),
 lmdb_max_dbs (128),
 allow_local_peers (false),
-block_processor_batch_max_time (std::chrono::milliseconds (5000))
+block_processor_batch_max_time (std::chrono::milliseconds (5000)),
+vote_minimum (nano::Gxrb_ratio)
 {
 	const char * epoch_message ("epoch v1 block");
 	strncpy ((char *)epoch_block_link.bytes.data (), epoch_message, epoch_block_link.bytes.size ());
@@ -118,6 +119,7 @@ nano::error nano::node_config::serialize_json (nano::jsonconfig & json) const
 	json.put ("lmdb_max_dbs", lmdb_max_dbs);
 	json.put ("block_processor_batch_max_time", block_processor_batch_max_time.count ());
 	json.put ("allow_local_peers", allow_local_peers);
+	json.put ("vote_minimum", vote_minimum.to_string_dec ());
 
 	nano::jsonconfig ipc_l;
 	ipc_config.serialize_json (ipc_l);
@@ -230,6 +232,7 @@ bool nano::node_config::upgrade_json (unsigned version_a, nano::jsonconfig & jso
 			});
 
 			json.replace_child (preconfigured_peers_key, peers);
+			json.put ("vote_minimum", vote_minimum.to_string_dec ());
 
 			nano::jsonconfig ipc_l;
 			ipc_config.serialize_json (ipc_l);
@@ -325,6 +328,12 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		if (online_weight_minimum.decode_dec (online_weight_minimum_l))
 		{
 			json.get_error ().set ("online_weight_minimum contains an invalid decimal amount");
+		}
+
+		auto vote_minimum_l (json.get<std::string> ("vote_minimum"));
+		if (vote_minimum.decode_dec (vote_minimum_l))
+		{
+			json.get_error ().set ("vote_minimum contains an invalid decimal amount");
 		}
 
 		auto block_processor_batch_max_time_l (json.get<unsigned long> ("block_processor_batch_max_time"));

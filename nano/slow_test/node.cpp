@@ -406,6 +406,22 @@ TEST (store, vote_load)
 	}
 }
 
+TEST (wallets, rep_scan)
+{
+	nano::system system (24000, 1);
+	auto & node (*system.nodes[0]);
+	auto wallet (system.wallet (0));
+	auto transaction (node.wallets.tx_begin_write ());
+	for (auto i (0); i < 10000; ++i)
+	{
+		wallet->deterministic_insert (transaction);
+	}
+	auto begin (std::chrono::steady_clock::now ());
+	node.wallets.foreach_representative (transaction, [](nano::public_key const & pub_a, nano::raw_key const & prv_a) {
+	});
+	ASSERT_LT (std::chrono::steady_clock::now () - begin, std::chrono::milliseconds (5));
+}
+
 TEST (node, mass_vote_by_hash)
 {
 	nano::system system (24000, 1);

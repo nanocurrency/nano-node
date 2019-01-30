@@ -156,6 +156,8 @@ public:
 	std::function<void(bool, bool)> lock_observer;
 	nano::wallet_store store;
 	nano::wallets & wallets;
+	std::mutex representatives_mutex;
+	std::unordered_set<nano::account> representatives;
 };
 class node;
 
@@ -180,6 +182,8 @@ public:
 	bool exists (nano::transaction const &, nano::public_key const &);
 	void stop ();
 	void clear_send_ids (nano::transaction const &);
+	void compute_reps ();
+	void ongoing_compute_reps ();
 	void split_if_needed (nano::transaction &, nano::block_store &);
 	void move_table (std::string const &, MDB_txn *, MDB_txn *);
 	std::function<void(bool)> observer;

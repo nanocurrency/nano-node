@@ -150,3 +150,31 @@ TEST (wallets, reload)
 	}
 	ASSERT_EQ (2, system.nodes[0]->wallets.items.size ());
 }
+
+TEST (wallets, vote_minimum)
+{
+	nano::system system (24000, 1);
+	auto & node1 (*system.nodes[0]);
+	bool error (false);
+	nano::wallets wallets (error, node1);
+	ASSERT_FALSE (error);
+	nano::keypair key1;
+	nano::keypair key2;
+	nano::genesis genesis;
+	nano::state_block send1 (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, std::numeric_limits<nano::uint128_t>::max () - node1.config.vote_minimum.number (), key1.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (genesis.hash ()));
+	ASSERT_EQ (nano::process_result::progress, node1.process (send1).code);
+	nano::state_block open1 (key1.pub, 0, key1.pub, node1.config.vote_minimum.number (), send1.hash (), key1.prv, key1.pub, system.work.generate (key1.pub));
+	ASSERT_EQ (nano::process_result::progress, node1.process (open1).code);
+	// send2 with amount vote_minimum - 1 (not voting representative)
+	nano::state_block send2 (nano::test_genesis_key.pub, send1.hash (), nano::test_genesis_key.pub, std::numeric_limits<nano::uint128_t>::max () - 2 * node1.config.vote_minimum.number () + 1, key2.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (send1.hash ()));
+	ASSERT_EQ (nano::process_result::progress, node1.process (send2).code);
+	nano::state_block open2 (key2.pub, 0, key2.pub, node1.config.vote_minimum.number () - 1, send2.hash (), key2.prv, key2.pub, system.work.generate (key2.pub));
+	ASSERT_EQ (nano::process_result::progress, node1.process (open2).code);
+	auto wallet (wallets.items.begin ()->second);
+	ASSERT_EQ (0, wallet->representatives.size ());
+	wallet->insert_adhoc (nano::test_genesis_key.prv);
+	wallet->insert_adhoc (key1.prv);
+	wallet->insert_adhoc (key2.prv);
+	wallets.compute_reps ();
+	ASSERT_EQ (2, wallet->representatives.size ());
+}
