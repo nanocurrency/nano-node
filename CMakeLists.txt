@@ -75,7 +75,7 @@ else ()
 			endif()
 		endif()
 	elseif (CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64")
-		add_compile_options(-march=armv8-a+crypto)
+		add_compile_options(-march=armv8-a+crc+crypto)
 	endif()
 endif ()
 
@@ -143,15 +143,21 @@ set_target_properties(libminiupnpc-static PROPERTIES INTERFACE_INCLUDE_DIRECTORI
 set (BUILD_SHARED OFF CACHE BOOL "")
 set (BUILD_TESTING OFF CACHE BOOL "")
 set (USE_INTERMEDIATE_OBJECTS_TARGET OFF CACHE BOOL "")
-set (CRYPTOPP_WIN "")
+set (CRYPTOPP_EXTRA "")
 if (WIN32)
-	set (CRYPTOPP_WIN crypto/cryptopp/x64dll.asm
+	set (CRYPTOPP_EXTRA crypto/cryptopp/x64dll.asm
 					crypto/cryptopp/x64masm.asm)
 	enable_language(ASM)
 	enable_language(ASM_MASM)
 	# similar to SSE2 settings
 	add_definitions(-DCRYPTOPP_DISABLE_SSSE3
 					-DCRYPTOPP_DISABLE_AESNI)
+elseif (CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64")
+	set (CRYPTOPP_EXTRA crypto/cryptopp/crc_simd.cpp
+					crypto/cryptopp/gcm_simd.cpp
+					crypto/cryptopp/gf2n_simd.cpp
+					crypto/cryptopp/neon_simd.cpp)
+	add_definitions(-DCRYPTOPP_NO_CPU_FEATURE_PROBES)
 endif ()
 # Some Clang cannot handle mixed asm with positional arguments, where the
 # body is Intel style with no prefix and the templates are AT&T style.
@@ -205,7 +211,7 @@ add_library (cryptopp
 	crypto/cryptopp/sha_simd.cpp
 	crypto/cryptopp/simple.cpp
 	crypto/cryptopp/sse_simd.cpp
-	${CRYPTOPP_WIN})
+	${CRYPTOPP_EXTRA})
 
 if (NANO_SIMD_OPTIMIZATIONS OR RAIBLOCKS_SIMD_OPTIMIZATIONS)
 	set (ARGON_CORE crypto/phc-winner-argon2/src/opt.c)
