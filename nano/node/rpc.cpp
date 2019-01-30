@@ -2486,7 +2486,7 @@ void nano::rpc_handler::process ()
 			nano::process_return result;
 			{
 				auto transaction (node.store.tx_begin_write ());
-				result = node.block_processor.process_one (transaction, block, std::chrono::steady_clock::time_point ());
+				result = node.block_processor.process_one (transaction, block);
 			}
 			switch (result.code)
 			{
@@ -3100,12 +3100,21 @@ void nano::rpc_handler::stats ()
 	}
 	if (!ec)
 	{
-		response (*static_cast<boost::property_tree::ptree *> (sink->to_object ()));
+		auto stat_tree_l (*static_cast<boost::property_tree::ptree *> (sink->to_object ()));
+		stat_tree_l.put ("stat_duration_seconds", node.stats.last_reset ().count ());
+		response (stat_tree_l);
 	}
 	else
 	{
 		response_errors ();
 	}
+}
+
+void nano::rpc_handler::stats_clear ()
+{
+	node.stats.clear ();
+	response_l.put ("success", "");
+	response (response_l);
 }
 
 void nano::rpc_handler::stop ()
@@ -3132,10 +3141,10 @@ void nano::rpc_handler::unchecked ()
 		auto transaction (node.store.tx_begin_read ());
 		for (auto i (node.store.unchecked_begin (transaction)), n (node.store.unchecked_end ()); i != n && unchecked.size () < count; ++i)
 		{
-			auto block (i->second);
+			nano::unchecked_info info (i->second);
 			std::string contents;
-			block->serialize_json (contents);
-			unchecked.put (block->hash ().to_string (), contents);
+			info.block->serialize_json (contents);
+			unchecked.put (info.block->hash ().to_string (), contents);
 		}
 		response_l.add_child ("blocks", unchecked);
 	}
@@ -3162,11 +3171,13 @@ void nano::rpc_handler::unchecked_get ()
 		auto transaction (node.store.tx_begin_read ());
 		for (auto i (node.store.unchecked_begin (transaction)), n (node.store.unchecked_end ()); i != n; ++i)
 		{
-			std::shared_ptr<nano::block> block (i->second);
-			if (block->hash () == hash)
+			nano::unchecked_key key (i->first);
+			if (key.hash == hash)
 			{
+				nano::unchecked_info info (i->second);
+				response_l.put ("modified_timestamp", std::to_string (info.modified));
 				std::string contents;
-				block->serialize_json (contents);
+				info.block->serialize_json (contents);
 				response_l.put ("contents", contents);
 				break;
 			}
@@ -3198,11 +3209,12 @@ void nano::rpc_handler::unchecked_keys ()
 		for (auto i (node.store.unchecked_begin (transaction, nano::unchecked_key (key, 0))), n (node.store.unchecked_end ()); i != n && unchecked.size () < count; ++i)
 		{
 			boost::property_tree::ptree entry;
-			auto block (i->second);
+			nano::unchecked_info info (i->second);
 			std::string contents;
-			block->serialize_json (contents);
+			info.block->serialize_json (contents);
 			entry.put ("key", nano::block_hash (i->first.key ()).to_string ());
-			entry.put ("hash", block->hash ().to_string ());
+			entry.put ("hash", info.block->hash ().to_string ());
+			entry.put ("modified_timestamp", std::to_string (info.modified));
 			entry.put ("contents", contents);
 			unchecked.push_back (std::make_pair ("", entry));
 		}
@@ -3222,7 +3234,14 @@ void nano::rpc_handler::version ()
 	response_l.put ("rpc_version", "1");
 	response_l.put ("store_version", std::to_string (node.store_version ()));
 	response_l.put ("protocol_version", std::to_string (nano::protocol_version));
-	response_l.put ("node_vendor", boost::str (boost::format ("Nano %1%.%2%") % NANO_VERSION_MAJOR % NANO_VERSION_MINOR));
+	if (NANO_VERSION_PATCH == 0)
+	{
+		response_l.put ("node_vendor", boost::str (boost::format ("Nano %1%") % NANO_MAJOR_MINOR_VERSION));
+	}
+	else
+	{
+		response_l.put ("node_vendor", boost::str (boost::format ("Nano %1%") % NANO_MAJOR_MINOR_RC_VERSION));
+	}
 	response_errors ();
 }
 
@@ -4449,6 +4468,10 @@ void nano::rpc_handler::process_request ()
 			else if (action == "stats")
 			{
 				stats ();
+			}
+			else if (action == "stats_clear")
+			{
+				stats_clear ();
 			}
 			else if (action == "stop")
 			{

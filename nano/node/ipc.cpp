@@ -206,12 +206,12 @@ public:
 			std::stringstream ostream;
 			boost::property_tree::write_json (ostream, tree_a);
 			ostream.flush ();
-			std::string response_body = ostream.str ();
+			this_l->response_body = ostream.str ();
 
-			uint32_t size_response = boost::endian::native_to_big (static_cast<uint32_t> (response_body.size ()));
+			uint32_t size_response = boost::endian::native_to_big (static_cast<uint32_t> (this_l->response_body.size ()));
 			std::vector<boost::asio::mutable_buffer> bufs = {
 				boost::asio::buffer (&size_response, sizeof (size_response)),
-				boost::asio::buffer (response_body)
+				boost::asio::buffer (this_l->response_body)
 			};
 
 			this_l->timer_start (std::chrono::seconds (this_l->config_transport.io_timeout));
@@ -303,6 +303,9 @@ private:
 
 	/** Buffer sizes are read into this */
 	uint32_t buffer_size{ 0 };
+
+	/** RPC response */
+	std::string response_body;
 
 	/** Buffer used to store data received from the client */
 	std::vector<uint8_t> buffer;

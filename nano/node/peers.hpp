@@ -50,12 +50,12 @@ public:
 	boost::asio::ip::address ip_address;
 	std::chrono::steady_clock::time_point last_contact;
 	std::chrono::steady_clock::time_point last_attempt;
-	std::chrono::steady_clock::time_point last_bootstrap_attempt;
-	std::chrono::steady_clock::time_point last_rep_request;
-	std::chrono::steady_clock::time_point last_rep_response;
-	nano::amount rep_weight;
+	std::chrono::steady_clock::time_point last_bootstrap_attempt{ std::chrono::steady_clock::time_point () };
+	std::chrono::steady_clock::time_point last_rep_request{ std::chrono::steady_clock::time_point () };
+	std::chrono::steady_clock::time_point last_rep_response{ std::chrono::steady_clock::time_point () };
+	nano::amount rep_weight{ 0 };
 	nano::account probable_rep_account;
-	unsigned network_version;
+	unsigned network_version{ nano::protocol_version };
 	boost::optional<nano::account> node_id;
 	bool operator< (nano::peer_information const &) const;
 };

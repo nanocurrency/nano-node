@@ -11,9 +11,11 @@
 #include <nano/node/wallet.hpp>
 #include <nano/secure/ledger.hpp>
 
+#include <atomic>
 #include <condition_variable>
 #include <queue>
 
+#include <boost/asio/thread_pool.hpp>
 #include <boost/iostreams/device/array.hpp>
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/member.hpp>
@@ -21,6 +23,15 @@
 #include <boost/multi_index/random_access_index.hpp>
 #include <boost/multi_index_container.hpp>
 #include <boost/thread/thread.hpp>
+
+#define xstr(a) ver_str (a)
+#define ver_str(a) #a
+
+/**
+* Returns build version information
+*/
+static const char * NANO_MAJOR_MINOR_VERSION = xstr (NANO_VERSION_MAJOR) "." xstr (NANO_VERSION_MINOR);
+static const char * NANO_MAJOR_MINOR_RC_VERSION = xstr (NANO_VERSION_MAJOR) "." xstr (NANO_VERSION_MINOR) "RC" xstr (NANO_VERSION_PATCH);
 
 namespace nano
 {
@@ -323,7 +334,7 @@ public:
 	boost::asio::ip::udp::resolver resolver;
 	std::vector<boost::thread> packet_processing_threads;
 	nano::node & node;
-	bool on;
+	std::atomic<bool> on;
 	static uint16_t const node_port = nano::nano_network == nano::nano_networks::nano_live_network ? 7075 : 54000;
 	static size_t const buffer_size = 512;
 	static size_t const confirm_req_hashes_max = 6;
@@ -386,36 +397,58 @@ public:
 	std::unordered_set<nano::block_hash> active;
 };
 class block_processor;
-class signature_check_set
+class signature_check_set final
 {
 public:
+	signature_check_set (size_t size, unsigned char const ** messages, size_t * message_lengths, unsigned char const ** pub_keys, unsigned char const ** signatures, int * verifications) :
+	size (size), messages (messages), message_lengths (message_lengths), pub_keys (pub_keys), signatures (signatures), verifications (verifications)
+	{
+	}
+
 	size_t size;
 	unsigned char const ** messages;
 	size_t * message_lengths;
 	unsigned char const ** pub_keys;
 	unsigned char const ** signatures;
 	int * verifications;
-	std::promise<void> * promise;
 };
-class signature_checker
+class signature_checker final
 {
 public:
-	signature_checker ();
+	signature_checker (unsigned num_threads);
 	~signature_checker ();
-	void add (signature_check_set &);
+	void verify (signature_check_set &);
 	void stop ();
 	void flush ();
 
 private:
-	void run ();
-	void verify (nano::signature_check_set & check_a);
-	std::deque<nano::signature_check_set> checks;
-	bool started;
-	bool stopped;
-	std::mutex mutex;
-	std::condition_variable condition;
-	std::thread thread;
+	struct Task final
+	{
+		Task (nano::signature_check_set & check, int pending) :
+		check (check), pending (pending)
+		{
+		}
+		~Task ()
+		{
+			release_assert (pending == 0);
+		}
+		nano::signature_check_set & check;
+		std::atomic<int> pending;
+	};
+
+	bool verify_batch (const nano::signature_check_set & check_a, size_t index, size_t size);
+	void verify_async (nano::signature_check_set & check_a, size_t num_batches, std::promise<void> & promise);
+	void set_thread_names (unsigned num_threads);
+	boost::asio::thread_pool thread_pool;
+	std::atomic<int> tasks_remaining{ 0 };
+	static constexpr size_t multithreaded_cutoff = 513; // minimum signature_check_set size eligible to be multithreaded
+	static constexpr size_t batch_size = 256;
+	const bool single_threaded;
+	unsigned num_threads;
+	std::mutex stopped_mutex;
+	bool stopped{ false };
 };
+
 class rolled_hash
 {
 public:
@@ -432,25 +465,27 @@ public:
 	void stop ();
 	void flush ();
 	bool full ();
-	void add (std::shared_ptr<nano::block>, std::chrono::steady_clock::time_point);
+	void add (nano::unchecked_info const &);
+	void add (std::shared_ptr<nano::block>, uint64_t = 0);
 	void force (std::shared_ptr<nano::block>);
 	bool should_log (bool);
 	bool have_blocks ();
 	void process_blocks ();
-	nano::process_return process_one (nano::transaction const &, std::shared_ptr<nano::block>, std::chrono::steady_clock::time_point = std::chrono::steady_clock::now (), bool = false);
+	nano::process_return process_one (nano::transaction const &, nano::unchecked_info);
+	nano::process_return process_one (nano::transaction const &, std::shared_ptr<nano::block>);
 	nano::vote_generator generator;
 	// Delay required for average network propagartion before requesting confirmation
 	static std::chrono::milliseconds constexpr confirmation_request_delay{ 1500 };
 
 private:
-	void queue_unchecked (nano::transaction const &, nano::block_hash const &, std::chrono::steady_clock::time_point = std::chrono::steady_clock::time_point ());
+	void queue_unchecked (nano::transaction const &, nano::block_hash const &);
 	void verify_state_blocks (nano::transaction const & transaction_a, std::unique_lock<std::mutex> &, size_t = std::numeric_limits<size_t>::max ());
 	void process_batch (std::unique_lock<std::mutex> &);
 	bool stopped;
 	bool active;
 	std::chrono::steady_clock::time_point next_log;
-	std::deque<std::pair<std::shared_ptr<nano::block>, std::chrono::steady_clock::time_point>> state_blocks;
-	std::deque<std::pair<std::shared_ptr<nano::block>, std::chrono::steady_clock::time_point>> blocks;
+	std::deque<nano::unchecked_info> state_blocks;
+	std::deque<nano::unchecked_info> blocks;
 	std::unordered_set<nano::block_hash> blocks_hashes;
 	std::deque<std::shared_ptr<nano::block>> forced;
 	boost::multi_index_container<
@@ -468,7 +503,7 @@ class node : public std::enable_shared_from_this<nano::node>
 {
 public:
 	node (nano::node_init &, boost::asio::io_context &, uint16_t, boost::filesystem::path const &, nano::alarm &, nano::logging const &, nano::work_pool &);
-	node (nano::node_init &, boost::asio::io_context &, boost::filesystem::path const &, nano::alarm &, nano::node_config const &, nano::work_pool &);
+	node (nano::node_init &, boost::asio::io_context &, boost::filesystem::path const &, nano::alarm &, nano::node_config const &, nano::work_pool &, bool drop_unchecked = false);
 	~node ();
 	template <typename T>
 	void background (T action_a)
@@ -499,9 +534,11 @@ public:
 	void ongoing_rep_calculation ();
 	void ongoing_bootstrap ();
 	void ongoing_store_flush ();
+	void ongoing_peer_store ();
 	void backup_wallet ();
 	void search_pending ();
 	void bootstrap_wallet ();
+	void unchecked_cleaning ();
 	int price (nano::uint128_t const &, int);
 	void work_generate_blocking (nano::block &, uint64_t = nano::work_pool::publish_threshold);
 	uint64_t work_generate_blocking (nano::uint256_union const &, uint64_t = nano::work_pool::publish_threshold);
@@ -541,6 +578,7 @@ public:
 	boost::thread block_processor_thread;
 	nano::block_arrival block_arrival;
 	nano::online_reps online_reps;
+	nano::votes_cache votes_cache;
 	nano::stat stats;
 	nano::keypair node_id;
 	nano::block_uniquer block_uniquer;
@@ -548,11 +586,14 @@ public:
 	const std::chrono::steady_clock::time_point startup_time;
 	static double constexpr price_max = 16.0;
 	static double constexpr free_cutoff = 1024.0;
-	static std::chrono::seconds constexpr period = std::chrono::seconds (60);
+	static std::chrono::seconds constexpr period = (nano::nano_network == nano::nano_networks::nano_test_network) ? std::chrono::seconds (1) : std::chrono::seconds (60);
 	static std::chrono::seconds constexpr cutoff = period * 5;
 	static std::chrono::seconds constexpr syn_cookie_cutoff = std::chrono::seconds (5);
 	static std::chrono::minutes constexpr backup_interval = std::chrono::minutes (5);
 	static std::chrono::seconds constexpr search_pending_interval = (nano::nano_network == nano::nano_networks::nano_test_network) ? std::chrono::seconds (1) : std::chrono::seconds (5 * 60);
+	static std::chrono::seconds constexpr peer_interval = search_pending_interval;
+	static std::chrono::hours constexpr unchecked_cleaning_interval = std::chrono::hours (2);
+	std::chrono::seconds unchecked_cutoff = std::chrono::seconds (7 * 24 * 60 * 60); // Week
 };
 class thread_runner
 {

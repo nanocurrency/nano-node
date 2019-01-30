@@ -304,7 +304,7 @@ TEST (bootstrap, simple)
 	store.unchecked_put (transaction, block1->previous (), block1);
 	auto block3 (store.unchecked_get (transaction, block1->previous ()));
 	ASSERT_FALSE (block3.empty ());
-	ASSERT_EQ (*block1, *block3[0]);
+	ASSERT_EQ (*block1, *(block3[0].block));
 	store.unchecked_del (transaction, nano::unchecked_key (block1->previous (), block1->hash ()));
 	auto block4 (store.unchecked_get (transaction, block1->previous ()));
 	ASSERT_TRUE (block4.empty ());
@@ -372,7 +372,7 @@ TEST (unchecked, multiple_get)
 	ASSERT_EQ (unchecked1_blocks.size (), 3);
 	for (auto & i : unchecked1_blocks)
 	{
-		unchecked1.push_back (i->hash ());
+		unchecked1.push_back (i.block->hash ());
 	}
 	ASSERT_TRUE (std::find (unchecked1.begin (), unchecked1.end (), block1->hash ()) != unchecked1.end ());
 	ASSERT_TRUE (std::find (unchecked1.begin (), unchecked1.end (), block2->hash ()) != unchecked1.end ());
@@ -382,16 +382,16 @@ TEST (unchecked, multiple_get)
 	ASSERT_EQ (unchecked2_blocks.size (), 2);
 	for (auto & i : unchecked2_blocks)
 	{
-		unchecked2.push_back (i->hash ());
+		unchecked2.push_back (i.block->hash ());
 	}
 	ASSERT_TRUE (std::find (unchecked2.begin (), unchecked2.end (), block1->hash ()) != unchecked2.end ());
 	ASSERT_TRUE (std::find (unchecked2.begin (), unchecked2.end (), block2->hash ()) != unchecked2.end ());
 	auto unchecked3 (store.unchecked_get (transaction, block2->previous ()));
 	ASSERT_EQ (unchecked3.size (), 1);
-	ASSERT_EQ (unchecked3[0]->hash (), block2->hash ());
+	ASSERT_EQ (unchecked3[0].block->hash (), block2->hash ());
 	auto unchecked4 (store.unchecked_get (transaction, block3->hash ()));
 	ASSERT_EQ (unchecked4.size (), 1);
-	ASSERT_EQ (unchecked4[0]->hash (), block3->hash ());
+	ASSERT_EQ (unchecked4[0].block->hash (), block3->hash ());
 	auto unchecked5 (store.unchecked_get (transaction, block2->hash ()));
 	ASSERT_EQ (unchecked5.size (), 0);
 }
@@ -450,7 +450,7 @@ TEST (block_store, one_bootstrap)
 	ASSERT_EQ (block1->hash (), hash1);
 	auto blocks (store.unchecked_get (transaction, hash1));
 	ASSERT_EQ (1, blocks.size ());
-	auto block2 (blocks[0]);
+	auto block2 (blocks[0].block);
 	ASSERT_EQ (*block1, *block2);
 	++begin;
 	ASSERT_EQ (end, begin);
@@ -1416,4 +1416,75 @@ TEST (block_store, upgrade_sideband_epoch)
 	nano::state_block block2 (nano::test_genesis_key.pub, hash2, nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, block2).code);
 	ASSERT_EQ (nano::epoch::epoch_1, store.block_version (transaction, block2.hash ()));
+}
+
+TEST (block_store, peers)
+{
+	nano::logging logging;
+	auto init (false);
+	nano::mdb_store store (init, logging, nano::unique_path ());
+	ASSERT_TRUE (!init);
+
+	auto transaction (store.tx_begin_write ());
+	nano::endpoint_key endpoint (boost::asio::ip::address_v6::any ().to_bytes (), 100);
+
+	// Confirm that the store is empty
+	ASSERT_FALSE (store.peer_exists (transaction, endpoint));
+	ASSERT_EQ (store.peer_count (transaction), 0);
+
+	// Add one, confirm that it can be found
+	store.peer_put (transaction, endpoint);
+	ASSERT_TRUE (store.peer_exists (transaction, endpoint));
+	ASSERT_EQ (store.peer_count (transaction), 1);
+
+	// Add another one and check that it (and the existing one) can be found
+	nano::endpoint_key endpoint1 (boost::asio::ip::address_v6::any ().to_bytes (), 101);
+	store.peer_put (transaction, endpoint1);
+	ASSERT_TRUE (store.peer_exists (transaction, endpoint1)); // Check new peer is here
+	ASSERT_TRUE (store.peer_exists (transaction, endpoint)); // Check first peer is still here
+	ASSERT_EQ (store.peer_count (transaction), 2);
+
+	// Delete the first one
+	store.peer_del (transaction, endpoint1);
+	ASSERT_FALSE (store.peer_exists (transaction, endpoint1)); // Confirm it no longer exists
+	ASSERT_TRUE (store.peer_exists (transaction, endpoint)); // Check first peer is still here
+	ASSERT_EQ (store.peer_count (transaction), 1);
+
+	// Delete original one
+	store.peer_del (transaction, endpoint);
+	ASSERT_EQ (store.peer_count (transaction), 0);
+	ASSERT_FALSE (store.peer_exists (transaction, endpoint));
+}
+
+TEST (block_store, endpoint_key_byte_order)
+{
+	boost::asio::ip::address_v6 address (boost::asio::ip::address_v6::from_string ("::ffff:127.0.0.1"));
+	auto port = 100;
+	nano::endpoint_key endpoint_key (address.to_bytes (), port);
+
+	std::vector<uint8_t> bytes;
+	{
+		nano::vectorstream stream (bytes);
+		nano::write (stream, endpoint_key);
+	}
+
+	// This checks that the endpoint is serialized as expected, with a size
+	// of 18 bytes (16 for ipv6 address and 2 for port), both in network byte order.
+	ASSERT_EQ (bytes.size (), 18);
+	ASSERT_EQ (bytes[10], 0xff);
+	ASSERT_EQ (bytes[11], 0xff);
+	ASSERT_EQ (bytes[12], 127);
+	ASSERT_EQ (bytes[bytes.size () - 2], 0);
+	ASSERT_EQ (bytes.back (), 100);
+
+	// Deserialize the same stream bytes
+	nano::bufferstream stream1 (bytes.data (), bytes.size ());
+	nano::endpoint_key endpoint_key1;
+	nano::read (stream1, endpoint_key1);
+
+	// This should be in network bytes order
+	ASSERT_EQ (address.to_bytes (), endpoint_key1.address_bytes ());
+
+	// This should be in host byte order
+	ASSERT_EQ (port, endpoint_key1.port ());
 }

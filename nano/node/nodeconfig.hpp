@@ -36,6 +36,7 @@ public:
 	unsigned io_threads;
 	unsigned network_threads;
 	unsigned work_threads;
+	unsigned signature_checker_threads;
 	bool enable_voting;
 	unsigned bootstrap_connections;
 	unsigned bootstrap_connections_max;
@@ -67,5 +68,7 @@ public:
 	bool disable_legacy_bootstrap;
 	bool disable_wallet_bootstrap;
 	bool disable_bootstrap_listener;
+	bool disable_unchecked_cleaning;
+	bool fast_bootstrap;
 };
 }

@@ -6,6 +6,7 @@
 #include <nano/secure/blockstore.hpp>
 #include <nano/secure/versioning.hpp>
 
+#include <boost/endian/conversion.hpp>
 #include <boost/property_tree/json_parser.hpp>
 
 #include <queue>
@@ -302,6 +303,70 @@ bool nano::pending_key::operator== (nano::pending_key const & other_a) const
 nano::block_hash nano::pending_key::key () const
 {
 	return account;
+}
+
+nano::unchecked_info::unchecked_info () :
+block (nullptr),
+account (0),
+modified (0),
+verified (nano::signature_verification::unknown)
+{
+}
+
+nano::unchecked_info::unchecked_info (std::shared_ptr<nano::block> block_a, nano::account const & account_a, uint64_t modified_a, nano::signature_verification verified_a) :
+block (block_a),
+account (account_a),
+modified (modified_a),
+verified (verified_a)
+{
+}
+
+void nano::unchecked_info::serialize (nano::stream & stream_a) const
+{
+	assert (block != nullptr);
+	nano::serialize_block (stream_a, *block);
+	nano::write (stream_a, account.bytes);
+	nano::write (stream_a, modified);
+	nano::write (stream_a, verified);
+}
+
+bool nano::unchecked_info::deserialize (nano::stream & stream_a)
+{
+	block = nano::deserialize_block (stream_a);
+	bool error (block == nullptr);
+	if (!error)
+	{
+		error = nano::read (stream_a, account.bytes);
+		if (!error)
+		{
+			error = nano::read (stream_a, modified);
+			if (!error)
+			{
+				error = nano::read (stream_a, verified);
+			}
+		}
+	}
+	return error;
+}
+
+bool nano::unchecked_info::operator== (nano::unchecked_info const & other_a) const
+{
+	return block->hash () == other_a.block->hash () && account == other_a.account && modified == other_a.modified && verified == other_a.verified;
+}
+
+nano::endpoint_key::endpoint_key (const std::array<uint8_t, 16> & address_a, uint16_t port_a) :
+address (address_a), network_port (boost::endian::native_to_big (port_a))
+{
+}
+
+const std::array<uint8_t, 16> & nano::endpoint_key::address_bytes () const
+{
+	return address;
+}
+
+uint16_t nano::endpoint_key::port () const
+{
+	return boost::endian::big_to_native (network_port);
 }
 
 nano::block_info::block_info () :

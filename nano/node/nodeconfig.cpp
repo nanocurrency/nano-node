@@ -7,6 +7,7 @@
 namespace
 {
 const char * preconfigured_peers_key = "preconfigured_peers";
+const char * signature_checker_threads_key = "signature_checker_threads";
 const char * default_beta_peer_network = "peering-beta.nano.org";
 const char * default_live_peer_network = "peering.nano.org";
 }
@@ -27,6 +28,7 @@ password_fanout (1024),
 io_threads (std::max<unsigned> (4, boost::thread::hardware_concurrency ())),
 network_threads (std::max<unsigned> (4, boost::thread::hardware_concurrency ())),
 work_threads (std::max<unsigned> (4, boost::thread::hardware_concurrency ())),
+signature_checker_threads ((boost::thread::hardware_concurrency () != 0) ? boost::thread::hardware_concurrency () - 1 : 0), /* The calling thread does checks as well so remove it from the number of threads used */
 enable_voting (false),
 bootstrap_connections (4),
 bootstrap_connections_max (64),
@@ -106,6 +108,7 @@ nano::error nano::node_config::serialize_json (nano::jsonconfig & json) const
 	json.put ("io_threads", io_threads);
 	json.put ("network_threads", network_threads);
 	json.put ("work_threads", work_threads);
+	json.put (signature_checker_threads_key, signature_checker_threads);
 	json.put ("enable_voting", enable_voting);
 	json.put ("bootstrap_connections", bootstrap_connections);
 	json.put ("bootstrap_connections_max", bootstrap_connections_max);
@@ -231,6 +234,9 @@ bool nano::node_config::upgrade_json (unsigned version_a, nano::jsonconfig & jso
 			nano::jsonconfig ipc_l;
 			ipc_config.serialize_json (ipc_l);
 			json.put_child ("ipc", ipc_l);
+
+			json.put (signature_checker_threads_key, signature_checker_threads);
+
 			upgraded = true;
 		}
 		case 16:
@@ -345,6 +351,7 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		json.get<int> ("lmdb_max_dbs", lmdb_max_dbs);
 		json.get<bool> ("enable_voting", enable_voting);
 		json.get<bool> ("allow_local_peers", allow_local_peers);
+		json.get<unsigned> (signature_checker_threads_key, signature_checker_threads);
 
 		// Validate ranges
 
@@ -381,6 +388,8 @@ disable_backup (false),
 disable_lazy_bootstrap (false),
 disable_legacy_bootstrap (false),
 disable_wallet_bootstrap (false),
-disable_bootstrap_listener (false)
+disable_bootstrap_listener (false),
+disable_unchecked_cleaning (false),
+fast_bootstrap (false)
 {
 }
