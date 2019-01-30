@@ -75,7 +75,12 @@ else ()
 			endif()
 		endif()
 	elseif (CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64")
-		add_compile_options(-march=armv8-a+crc+crypto)
+		if (NANO_SIMD_OPTIMIZATIONS OR RAIBLOCKS_SIMD_OPTIMIZATIONS)
+			add_compile_options(-march=armv8-a+crc+crypto)
+		else ()
+			add_compile_options(-march=armv8-a)
+			add_definitions(-DCRYPTOPP_DISABLE_ASM)
+		endif ()
 	endif()
 endif ()
 
@@ -152,7 +157,7 @@ if (WIN32)
 	# similar to SSE2 settings
 	add_definitions(-DCRYPTOPP_DISABLE_SSSE3
 					-DCRYPTOPP_DISABLE_AESNI)
-elseif (CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64")
+elseif (CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64" AND (NANO_SIMD_OPTIMIZATIONS OR RAIBLOCKS_SIMD_OPTIMIZATIONS))
 	set (CRYPTOPP_EXTRA crypto/cryptopp/crc_simd.cpp
 					crypto/cryptopp/gcm_simd.cpp
 					crypto/cryptopp/gf2n_simd.cpp
