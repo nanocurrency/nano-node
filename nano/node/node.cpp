@@ -1814,13 +1814,13 @@ nano::process_return nano::block_processor::process_one (nano::transaction const
 					generator.add (hash);
 				}
 				// Broadcast new block
-				node.network.republish_block (block_a);
+				node.network.republish_block (info_a.block);
 				// Request confirmation for new block with delay
 				std::weak_ptr<nano::node> node_w (node.shared ());
-				node.alarm.add (std::chrono::steady_clock::now () + confirmation_request_delay, [node_w, block_a]() {
+				node.alarm.add (std::chrono::steady_clock::now () + confirmation_request_delay, [node_w, info_a]() {
 					if (auto node_l = node_w.lock ())
 					{
-						node_l->network.broadcast_confirm_req (block_a);
+						node_l->network.broadcast_confirm_req (info_a.block);
 					}
 				});
 			}
