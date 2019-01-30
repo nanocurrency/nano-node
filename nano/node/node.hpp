@@ -592,6 +592,7 @@ public:
 	static std::chrono::seconds constexpr peer_interval = search_pending_interval;
 	static std::chrono::hours constexpr unchecked_cleaning_interval = std::chrono::hours (2);
 	std::chrono::seconds unchecked_cutoff = std::chrono::seconds (7 * 24 * 60 * 60); // Week
+	static std::chrono::milliseconds constexpr process_confirmed_interval = (nano::nano_network == nano::nano_networks::nano_test_network) ? std::chrono::milliseconds (50) : std::chrono::milliseconds (500);
 };
 class thread_runner
 {
