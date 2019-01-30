@@ -426,7 +426,7 @@ nano::opencl_environment::opencl_environment (bool & error_a)
 void nano::opencl_environment::dump (std::ostream & stream)
 {
 	auto index (0);
-	auto device_count (0);
+	size_t device_count (0);
 	for (auto & i : platforms)
 	{
 		device_count += i.devices.size ();
@@ -555,7 +555,7 @@ logging (logging_a)
 				0, 0
 			};
 			cl_int createContextError (0);
-			context = clCreateContext (contextProperties, selected_devices.size (), selected_devices.data (), nullptr, nullptr, &createContextError);
+			context = clCreateContext (contextProperties, static_cast<cl_uint> (selected_devices.size ()), selected_devices.data (), nullptr, nullptr, &createContextError);
 			error_a |= createContextError != CL_SUCCESS;
 			if (!error_a)
 			{
@@ -587,7 +587,7 @@ logging (logging_a)
 								error_a |= program_error != CL_SUCCESS;
 								if (!error_a)
 								{
-									auto clBuildProgramError (clBuildProgram (program, selected_devices.size (), selected_devices.data (), "-D __APPLE__", nullptr, nullptr));
+									auto clBuildProgramError (clBuildProgram (program, static_cast<cl_uint> (selected_devices.size ()), selected_devices.data (), "-D __APPLE__", nullptr, nullptr));
 									error_a |= clBuildProgramError != CL_SUCCESS;
 									if (!error_a)
 									{

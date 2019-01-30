@@ -18,25 +18,25 @@ extern "C" {
 void xrb_uint128_to_dec (xrb_uint128 source, char * destination)
 {
 	auto const & number (*reinterpret_cast<nano::uint128_union *> (source));
-	strncpy (destination, number.to_string_dec ().c_str (), 40);
+	strncpy_s (destination, 16, number.to_string_dec ().c_str (), 40);
 }
 
 void xrb_uint256_to_string (xrb_uint256 source, char * destination)
 {
 	auto const & number (*reinterpret_cast<nano::uint256_union *> (source));
-	strncpy (destination, number.to_string ().c_str (), 65);
+	strncpy_s (destination, 32, number.to_string ().c_str (), 65);
 }
 
 void xrb_uint256_to_address (xrb_uint256 source, char * destination)
 {
 	auto const & number (*reinterpret_cast<nano::uint256_union *> (source));
-	strncpy (destination, number.to_account ().c_str (), 65);
+	strncpy_s (destination, 32, number.to_account ().c_str (), 65);
 }
 
 void xrb_uint512_to_string (xrb_uint512 source, char * destination)
 {
 	auto const & number (*reinterpret_cast<nano::uint512_union *> (source));
-	strncpy (destination, number.to_string ().c_str (), 129);
+	strncpy_s (destination, 64, number.to_string ().c_str (), 129);
 }
 
 int xrb_uint128_from_dec (const char * source, xrb_uint128 destination)
@@ -104,10 +104,10 @@ char * xrb_sign_transaction (const char * transaction, const xrb_uint256 private
 			block->signature_set (nano::sign_message (prv, pub, block->hash ()));
 			auto json (block->to_json ());
 			result = reinterpret_cast<char *> (malloc (json.size () + 1));
-			strncpy (result, json.c_str (), json.size () + 1);
+			strncpy_s (result, json.size () + 1, json.c_str (), strlen (json.c_str ()) + 1);
 		}
 	}
-	catch (std::runtime_error const & err)
+	catch (std::runtime_error const &)
 	{
 	}
 	return result;
@@ -130,10 +130,10 @@ char * xrb_work_transaction (const char * transaction)
 			block->block_work_set (work);
 			auto json (block->to_json ());
 			result = reinterpret_cast<char *> (malloc (json.size () + 1));
-			strncpy (result, json.c_str (), json.size () + 1);
+			strncpy_s (result, json.size () + 1, json.c_str (), strlen (json.c_str ()) + 1);
 		}
 	}
-	catch (std::runtime_error const & err)
+	catch (std::runtime_error const &)
 	{
 	}
 	return result;

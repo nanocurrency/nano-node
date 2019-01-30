@@ -7,7 +7,7 @@ TEST (system, generate_mass_activity)
 {
 	nano::system system (24000, 1);
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
-	size_t count (20);
+	uint32_t count (20);
 	system.generate_mass_activity (count, *system.nodes[0]);
 	size_t accounts (0);
 	auto transaction (system.nodes[0]->store.tx_begin ());
@@ -22,7 +22,7 @@ TEST (system, generate_mass_activity_long)
 	nano::system system (24000, 1);
 	nano::thread_runner runner (system.io_ctx, system.nodes[0]->config.io_threads);
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
-	size_t count (1000000000);
+	uint32_t count (1000000000);
 	system.generate_mass_activity (count, *system.nodes[0]);
 	size_t accounts (0);
 	auto transaction (system.nodes[0]->store.tx_begin ());
@@ -41,7 +41,7 @@ TEST (system, receive_while_synchronizing)
 		nano::system system (24000, 1);
 		nano::thread_runner runner (system.io_ctx, system.nodes[0]->config.io_threads);
 		system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
-		size_t count (1000);
+		uint32_t count (1000);
 		system.generate_mass_activity (count, *system.nodes[0]);
 		nano::keypair key;
 		nano::node_init init1;

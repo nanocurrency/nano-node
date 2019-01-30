@@ -39,8 +39,8 @@ opencl (opencl_a)
 	static_assert (ATOMIC_INT_LOCK_FREE == 2, "Atomic int needed");
 	boost::thread::attributes attrs;
 	nano::thread_attributes::set (attrs);
-	auto count (nano::nano_network == nano::nano_networks::nano_test_network ? 1 : std::min (max_threads_a, std::max (1u, boost::thread::hardware_concurrency ())));
-	for (auto i (0); i < count; ++i)
+	auto count (nano::nano_network == nano::nano_networks::nano_test_network ? 1u : std::min (max_threads_a, std::max (1u, boost::thread::hardware_concurrency ())));
+	for (auto i (0u); i < count; ++i)
 	{
 		auto thread (boost::thread (attrs, [this, i]() {
 			nano::thread_role::set (nano::thread_role::name::work);

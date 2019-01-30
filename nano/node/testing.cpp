@@ -17,18 +17,24 @@ std::string nano::error_system_messages::message (int ev) const
 	return "Invalid error code";
 }
 
-nano::system::system (uint16_t port_a, size_t count_a) :
+nano::system::system (uint16_t port_a, uint16_t count_a) :
 alarm (io_ctx),
 work (1, nullptr)
 {
-	auto scale_str = std::getenv ("DEADLINE_SCALE_FACTOR");
-	if (scale_str)
+	size_t required_size;
+	auto env_var = "DEADLINE_SCALE_FACTOR";
+	getenv_s (&required_size, nullptr, 0, env_var);
+	if (required_size != 0)
 	{
-		deadline_scaling_factor = std::stod (scale_str);
+		// Actually get the environment variable
+		std::vector<char> v (required_size);
+		getenv_s (&required_size, v.data (), required_size, env_var);
+		deadline_scaling_factor = std::stod (v.data ());
 	}
+
 	logging.init (nano::unique_path ());
 	nodes.reserve (count_a);
-	for (size_t i (0); i < count_a; ++i)
+	for (uint16_t i (0); i < count_a; ++i)
 	{
 		nano::node_init init;
 		nano::node_config config (port_a + i, logging);
@@ -73,7 +79,9 @@ nano::system::~system ()
 	// Clean up tmp directories created by the tests. Since it's sometimes useful to
 	// see log files after test failures, an environment variable is supported to
 	// retain the files.
-	if (std::getenv ("TEST_KEEP_TMPDIRS") == nullptr)
+	size_t required_size;
+	getenv_s (&required_size, nullptr, 0, "TEST_KEEP_TMPDIRS");
+	if (required_size == 0)
 	{
 		nano::remove_temporary_directories ();
 	}
@@ -165,7 +173,8 @@ void nano::system::generate_usage_traffic (uint32_t count_a, uint32_t wait_a, si
 void nano::system::generate_rollback (nano::node & node_a, std::vector<nano::account> & accounts_a)
 {
 	auto transaction (node_a.store.tx_begin_write ());
-	auto index (random_pool.GenerateWord32 (0, accounts_a.size () - 1));
+	assert (std::numeric_limits<CryptoPP::word32>::max () > accounts_a.size ());
+	auto index (random_pool.GenerateWord32 (0, static_cast<CryptoPP::word32> (accounts_a.size () - 1)));
 	auto account (accounts_a[index]);
 	nano::account_info info;
 	auto error (node_a.store.account_get (transaction, account, info));
@@ -234,7 +243,8 @@ void nano::system::generate_activity (nano::node & node_a, std::vector<nano::acc
 
 nano::account nano::system::get_random_account (std::vector<nano::account> & accounts_a)
 {
-	auto index (random_pool.GenerateWord32 (0, accounts_a.size () - 1));
+	assert (std::numeric_limits<CryptoPP::word32>::max () > accounts_a.size ());
+	auto index (random_pool.GenerateWord32 (0, static_cast<CryptoPP::word32> (accounts_a.size () - 1)));
 	auto result (accounts_a[index]);
 	return result;
 }

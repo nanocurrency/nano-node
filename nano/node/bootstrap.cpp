@@ -97,7 +97,7 @@ void nano::socket::checkup ()
 	node->alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (10), [this_w]() {
 		if (auto this_l = this_w.lock ())
 		{
-			if (this_l->cutoff != std::numeric_limits<uint64_t>::max () && this_l->cutoff < std::chrono::steady_clock::now ().time_since_epoch ().count ())
+			if (this_l->cutoff != std::numeric_limits<uint64_t>::max () && this_l->cutoff < static_cast<uint64_t> (std::chrono::steady_clock::now ().time_since_epoch ().count ()))
 			{
 				if (this_l->node->config.logging.bulk_pull_logging ())
 				{
@@ -1053,7 +1053,8 @@ void nano::bootstrap_attempt::run ()
 		frontier_failure = request_frontier (lock);
 	}
 	// Shuffle pulls.
-	for (int i = pulls.size () - 1; i > 0; i--)
+	release_assert (std::numeric_limits<CryptoPP::word32>::max () > pulls.size ());
+	for (auto i = static_cast<CryptoPP::word32> (pulls.size () - 1); i > 0; --i)
 	{
 		auto k = nano::random_pool.GenerateWord32 (0, i);
 		std::swap (pulls[i], pulls[k]);
@@ -1241,7 +1242,7 @@ void nano::bootstrap_attempt::populate_connections ()
 		auto delta = std::min ((target - connections) * 2, bootstrap_max_new_connections);
 		// TODO - tune this better
 		// Not many peers respond, need to try to make more connections than we need.
-		for (int i = 0; i < delta; i++)
+		for (auto i = 0u; i < delta; i++)
 		{
 			auto peer (node->peers.bootstrap_peer ());
 			auto endpoint (nano::tcp_endpoint (peer.address (), peer.port ()));

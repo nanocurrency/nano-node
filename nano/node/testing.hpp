@@ -15,7 +15,7 @@ enum class error_system
 class system
 {
 public:
-	system (uint16_t, size_t);
+	system (uint16_t, uint16_t);
 	~system ();
 	void generate_activity (nano::node &, std::vector<nano::account> &);
 	void generate_mass_activity (uint32_t, nano::node &);

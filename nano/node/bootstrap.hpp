@@ -129,7 +129,7 @@ public:
 	std::unordered_set<nano::block_hash> lazy_keys;
 	std::deque<nano::block_hash> lazy_pulls;
 	std::atomic<uint64_t> lazy_stopped;
-	uint64_t lazy_max_pull_blocks = (nano::nano_network == nano::nano_networks::nano_test_network) ? 2 : 512;
+	pull_info::count_t lazy_max_pull_blocks = (nano::nano_network == nano::nano_networks::nano_test_network) ? 2 : 512;
 	uint64_t lazy_max_stopped = 256;
 	std::mutex lazy_mutex;
 	// Wallet lazy bootstrap
