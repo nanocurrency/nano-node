@@ -2491,7 +2491,9 @@ void nano::rpc_handler::process ()
 			nano::process_return result;
 			{
 				auto transaction (node.store.tx_begin_write ());
-				result = node.block_processor.process_one (transaction, block);
+				// Set current time to trigger automatic rebroadcast and election
+				nano::unchecked_info info (block, block->account (), nano::seconds_since_epoch (), nano::signature_verification::unknown);
+				result = node.block_processor.process_one (transaction, info);
 			}
 			switch (result.code)
 			{
