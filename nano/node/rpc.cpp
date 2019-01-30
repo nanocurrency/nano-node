@@ -2224,14 +2224,14 @@ void nano::rpc_handler::password_valid (bool wallet_locked)
 void nano::rpc_handler::peers ()
 {
 	boost::property_tree::ptree peers_l;
-	const bool deprecated = request.get<bool> ("deprecated", false);
+	const bool peer_details = request.get<bool> ("peer_details", false);
 	auto peers_list (node.peers.list_vector (std::numeric_limits<size_t>::max ()));
 	std::sort (peers_list.begin (), peers_list.end ());
 	for (auto i (peers_list.begin ()), n (peers_list.end ()); i != n; ++i)
 	{
 		std::stringstream text;
 		text << i->endpoint;
-		if (!deprecated)
+		if (peer_details)
 		{
 			boost::property_tree::ptree pending_tree;
 			pending_tree.put ("protocol_version", std::to_string (i->network_version));
