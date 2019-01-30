@@ -148,6 +148,9 @@ private:
 	bool stopped;
 	boost::thread thread;
 };
+
+std::unique_ptr<seq_con_info_component> collect_seq_con_info (active_transactions & active_transactions, const std::string & name);
+
 class operation
 {
 public:
@@ -192,6 +195,9 @@ public:
 	std::mutex mutex;
 	nano::node & node;
 };
+
+std::unique_ptr<seq_con_info_component> collect_seq_con_info (gap_cache & gap_cache, const std::string & name);
+
 class work_pool;
 class send_info
 {
@@ -225,6 +231,9 @@ public:
 	static size_t constexpr arrival_size_min = 8 * 1024;
 	static std::chrono::seconds constexpr arrival_time_min = std::chrono::seconds (300);
 };
+
+std::unique_ptr<seq_con_info_component> collect_seq_con_info (block_arrival & block_arrival, const std::string & name);
+
 class rep_last_heard_info
 {
 public:
@@ -240,6 +249,8 @@ public:
 	nano::uint128_t online_stake ();
 	nano::uint128_t online_stake_total;
 	std::vector<nano::account> list ();
+
+private:
 	boost::multi_index_container<
 	nano::rep_last_heard_info,
 	boost::multi_index::indexed_by<
@@ -247,10 +258,14 @@ public:
 	boost::multi_index::hashed_unique<boost::multi_index::member<nano::rep_last_heard_info, nano::account, &nano::rep_last_heard_info::representative>>>>
 	reps;
 
-private:
 	std::mutex mutex;
 	nano::node & node;
+
+	friend std::unique_ptr<seq_con_info_component> collect_seq_con_info (online_reps & online_reps, const std::string & name);
 };
+
+std::unique_ptr<seq_con_info_component> collect_seq_con_info (online_reps & online_reps, const std::string & name);
+
 class udp_data
 {
 public:
@@ -359,6 +374,9 @@ public:
 	nano::observer_set<nano::endpoint const &> endpoint;
 	nano::observer_set<> disconnect;
 };
+
+std::unique_ptr<seq_con_info_component> collect_seq_con_info (node_observers & node_observers, const std::string & name);
+
 class vote_processor
 {
 public:
@@ -385,7 +403,12 @@ private:
 	bool stopped;
 	bool active;
 	boost::thread thread;
+
+	friend std::unique_ptr<seq_con_info_component> collect_seq_con_info (vote_processor & vote_processor, const std::string & name);
 };
+
+std::unique_ptr<seq_con_info_component> collect_seq_con_info (vote_processor & vote_processor, const std::string & name);
+
 // The network is crawled for representatives by occasionally sending a unicast confirm_req for a specific block and watching to see if it's acknowledged with a vote.
 class rep_crawler
 {
@@ -396,6 +419,9 @@ public:
 	std::mutex mutex;
 	std::unordered_set<nano::block_hash> active;
 };
+
+std::unique_ptr<seq_con_info_component> collect_seq_con_info (rep_crawler & rep_crawler, const std::string & name);
+
 class block_processor;
 class signature_check_set final
 {
@@ -481,6 +507,7 @@ private:
 	void queue_unchecked (nano::transaction const &, nano::block_hash const &);
 	void verify_state_blocks (nano::transaction const & transaction_a, std::unique_lock<std::mutex> &, size_t = std::numeric_limits<size_t>::max ());
 	void process_batch (std::unique_lock<std::mutex> &);
+	void process_live (nano::block_hash const &, std::shared_ptr<nano::block>);
 	bool stopped;
 	bool active;
 	std::chrono::steady_clock::time_point next_log;
@@ -498,7 +525,12 @@ private:
 	std::condition_variable condition;
 	nano::node & node;
 	std::mutex mutex;
+
+	friend std::unique_ptr<seq_con_info_component> collect_seq_con_info (block_processor & block_processor, const std::string & name);
 };
+
+std::unique_ptr<seq_con_info_component> collect_seq_con_info (block_processor & block_processor, const std::string & name);
+
 class node : public std::enable_shared_from_this<nano::node>
 {
 public:
@@ -517,7 +549,7 @@ public:
 	void stop ();
 	std::shared_ptr<nano::node> shared ();
 	int store_version ();
-	void process_confirmed (std::shared_ptr<nano::block>);
+	void process_confirmed (std::shared_ptr<nano::block>, uint8_t = 0);
 	void process_message (nano::message &, nano::endpoint const &);
 	void process_active (std::shared_ptr<nano::block>);
 	nano::process_return process (nano::block const &);
@@ -594,7 +626,11 @@ public:
 	static std::chrono::seconds constexpr peer_interval = search_pending_interval;
 	static std::chrono::hours constexpr unchecked_cleaning_interval = std::chrono::hours (2);
 	std::chrono::seconds unchecked_cutoff = std::chrono::seconds (7 * 24 * 60 * 60); // Week
+	static std::chrono::milliseconds constexpr process_confirmed_interval = (nano::nano_network == nano::nano_networks::nano_test_network) ? std::chrono::milliseconds (50) : std::chrono::milliseconds (500);
 };
+
+std::unique_ptr<seq_con_info_component> collect_seq_con_info (node & node, const std::string & name);
+
 class thread_runner
 {
 public:

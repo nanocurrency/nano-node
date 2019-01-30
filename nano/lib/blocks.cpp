@@ -1607,3 +1607,15 @@ size_t nano::block_uniquer::size ()
 	std::lock_guard<std::mutex> lock (mutex);
 	return blocks.size ();
 }
+
+namespace nano
+{
+std::unique_ptr<seq_con_info_component> collect_seq_con_info (block_uniquer & block_uniquer, const std::string & name)
+{
+	auto count = block_uniquer.size ();
+	auto sizeof_element = sizeof (block_uniquer::value_type);
+	auto composite = std::make_unique<seq_con_info_composite> (name);
+	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "blocks", count, sizeof_element }));
+	return composite;
+}
+}

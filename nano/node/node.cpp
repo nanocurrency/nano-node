@@ -23,6 +23,7 @@ std::chrono::minutes constexpr nano::node::backup_interval;
 std::chrono::seconds constexpr nano::node::search_pending_interval;
 std::chrono::seconds constexpr nano::node::peer_interval;
 std::chrono::hours constexpr nano::node::unchecked_cleaning_interval;
+std::chrono::milliseconds constexpr nano::node::process_confirmed_interval;
 
 int constexpr nano::port_mapping::mapping_timeout;
 int constexpr nano::port_mapping::check_timeout;
@@ -1280,6 +1281,44 @@ void nano::vote_processor::calculate_weights ()
 	}
 }
 
+namespace nano
+{
+std::unique_ptr<seq_con_info_component> collect_seq_con_info (node_observers & node_observers, const std::string & name)
+{
+	auto composite = std::make_unique<seq_con_info_composite> (name);
+	composite->add_component (collect_seq_con_info (node_observers.blocks, "blocks"));
+	composite->add_component (collect_seq_con_info (node_observers.wallet, "wallet"));
+	composite->add_component (collect_seq_con_info (node_observers.vote, "vote"));
+	composite->add_component (collect_seq_con_info (node_observers.account_balance, "account_balance"));
+	composite->add_component (collect_seq_con_info (node_observers.endpoint, "endpoint"));
+	composite->add_component (collect_seq_con_info (node_observers.disconnect, "disconnect"));
+	return composite;
+}
+
+std::unique_ptr<seq_con_info_component> collect_seq_con_info (vote_processor & vote_processor, const std::string & name)
+{
+	size_t votes_count = 0;
+	size_t representatives_1_count = 0;
+	size_t representatives_2_count = 0;
+	size_t representatives_3_count = 0;
+
+	{
+		std::lock_guard<std::mutex> (vote_processor.mutex);
+		votes_count = vote_processor.votes.size ();
+		representatives_1_count = vote_processor.representatives_1.size ();
+		representatives_2_count = vote_processor.representatives_2.size ();
+		representatives_3_count = vote_processor.representatives_3.size ();
+	}
+
+	auto composite = std::make_unique<seq_con_info_composite> (name);
+	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "votes", votes_count, sizeof (decltype (vote_processor.votes)::value_type) }));
+	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "representatives_1", representatives_1_count, sizeof (decltype (vote_processor.representatives_1)::value_type) }));
+	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "representatives_2", representatives_2_count, sizeof (decltype (vote_processor.representatives_2)::value_type) }));
+	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "representatives_3", representatives_3_count, sizeof (decltype (vote_processor.representatives_3)::value_type) }));
+	return composite;
+}
+}
+
 void nano::rep_crawler::add (nano::block_hash const & hash_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
@@ -1298,6 +1337,22 @@ bool nano::rep_crawler::exists (nano::block_hash const & hash_a)
 	return active.count (hash_a) != 0;
 }
 
+namespace nano
+{
+std::unique_ptr<seq_con_info_component> collect_seq_con_info (rep_crawler & rep_crawler, const std::string & name)
+{
+	size_t count = 0;
+	{
+		std::lock_guard<std::mutex> guard (rep_crawler.mutex);
+		count = rep_crawler.active.size ();
+	}
+
+	auto sizeof_element = sizeof (decltype (rep_crawler.active)::value_type);
+	auto composite = std::make_unique<seq_con_info_composite> (name);
+	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "active", count, sizeof_element }));
+	return composite;
+}
+}
 nano::signature_checker::signature_checker (unsigned num_threads) :
 thread_pool (num_threads),
 single_threaded (num_threads == 0),
@@ -1436,7 +1491,8 @@ void nano::signature_checker::set_thread_names (unsigned num_threads)
 
 	for (auto i = 0u; i < num_threads; ++i)
 	{
-		boost::asio::post (thread_pool, [&cv, &ready, &pending, &mutex_l, &promise = promises[i] ]() {
+		// clang-format off
+		boost::asio::post (thread_pool, [&cv, &ready, &pending, &mutex_l, &promise = promises[i]]() {
 			std::unique_lock<std::mutex> lk (mutex_l);
 			nano::thread_role::set (nano::thread_role::name::signature_checking);
 			if (--pending == 0)
@@ -1453,6 +1509,7 @@ void nano::signature_checker::set_thread_names (unsigned num_threads)
 			}
 			promise.set_value ();
 		});
+		// clang-format on
 	}
 
 	// Wait until all threads have finished
@@ -1790,6 +1847,27 @@ void nano::block_processor::process_batch (std::unique_lock<std::mutex> & lock_a
 	}
 }
 
+void nano::block_processor::process_live (nano::block_hash const & hash_a, std::shared_ptr<nano::block> block_a)
+{
+	// Start collecting quorum on block
+	node.active.start (block_a);
+	// Announce block contents to the network
+	node.network.republish_block (block_a);
+	// Request confirmation for new block with delay
+	std::weak_ptr<nano::node> node_w (node.shared ());
+	node.alarm.add (std::chrono::steady_clock::now () + confirmation_request_delay, [node_w, block_a]() {
+		if (auto node_l = node_w.lock ())
+		{
+			node_l->network.broadcast_confirm_req (block_a);
+		}
+	});
+	if (node.config.enable_voting)
+	{
+		// Announce our weighted vote to the network
+		generator.add (hash_a);
+	}
+}
+
 nano::process_return nano::block_processor::process_one (nano::transaction const & transaction_a, nano::unchecked_info info_a)
 {
 	nano::process_return result;
@@ -1808,21 +1886,7 @@ nano::process_return nano::block_processor::process_one (nano::transaction const
 			}
 			if (info_a.modified > nano::seconds_since_epoch () - 300 && node.block_arrival.recent (hash))
 			{
-				node.active.start (info_a.block);
-				if (node.config.enable_voting)
-				{
-					generator.add (hash);
-				}
-				// Broadcast new block
-				node.network.republish_block (info_a.block);
-				// Request confirmation for new block with delay
-				std::weak_ptr<nano::node> node_w (node.shared ());
-				node.alarm.add (std::chrono::steady_clock::now () + confirmation_request_delay, [node_w, info_a]() {
-					if (auto node_l = node_w.lock ())
-					{
-						node_l->network.broadcast_confirm_req (info_a.block);
-					}
-				});
+				process_live (hash, info_a.block);
 			}
 			queue_unchecked (transaction_a, hash);
 			break;
@@ -1961,6 +2025,36 @@ void nano::block_processor::queue_unchecked (nano::transaction const & transacti
 	}
 	std::lock_guard<std::mutex> lock (node.gap_cache.mutex);
 	node.gap_cache.blocks.get<1> ().erase (hash_a);
+}
+
+namespace nano
+{
+std::unique_ptr<seq_con_info_component> collect_seq_con_info (block_processor & block_processor, const std::string & name)
+{
+	size_t state_blocks_count = 0;
+	size_t blocks_count = 0;
+	size_t blocks_hashes_count = 0;
+	size_t forced_count = 0;
+	size_t rolled_back_count = 0;
+
+	{
+		std::lock_guard<std::mutex> guard (block_processor.mutex);
+		state_blocks_count = block_processor.state_blocks.size ();
+		blocks_count = block_processor.blocks.size ();
+		blocks_hashes_count = block_processor.blocks_hashes.size ();
+		forced_count = block_processor.forced.size ();
+		rolled_back_count = block_processor.rolled_back.size ();
+	}
+
+	auto composite = std::make_unique<seq_con_info_composite> (name);
+	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "state_blocks", state_blocks_count, sizeof (decltype (block_processor.state_blocks)::value_type) }));
+	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "blocks", blocks_count, sizeof (decltype (block_processor.blocks)::value_type) }));
+	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "blocks_hashes", blocks_hashes_count, sizeof (decltype (block_processor.blocks_hashes)::value_type) }));
+	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "forced", forced_count, sizeof (decltype (block_processor.forced)::value_type) }));
+	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "rolled_back", rolled_back_count, sizeof (decltype (block_processor.rolled_back)::value_type) }));
+	composite->add_component (collect_seq_con_info (block_processor.generator, "generator"));
+	return composite;
+}
 }
 
 nano::node::node (nano::node_init & init_a, boost::asio::io_context & io_ctx_a, uint16_t peering_port_a, boost::filesystem::path const & application_path_a, nano::alarm & alarm_a, nano::logging const & logging_a, nano::work_pool & work_a) :
@@ -2288,6 +2382,32 @@ void nano::node::process_fork (nano::transaction const & transaction_a, std::sha
 	}
 }
 
+namespace nano
+{
+std::unique_ptr<seq_con_info_component> collect_seq_con_info (node & node, const std::string & name)
+{
+	auto composite = std::make_unique<seq_con_info_composite> (name);
+	composite->add_component (collect_seq_con_info (node.work, "work"));
+	composite->add_component (collect_seq_con_info (node.gap_cache, "gap_cache"));
+	composite->add_component (collect_seq_con_info (node.ledger, "ledger"));
+	composite->add_component (collect_seq_con_info (node.active, "active"));
+	composite->add_component (collect_seq_con_info (node.bootstrap_initiator, "bootstrap_initiator"));
+	composite->add_component (collect_seq_con_info (node.bootstrap, "bootstrap"));
+	composite->add_component (collect_seq_con_info (node.peers, "peers"));
+	composite->add_component (collect_seq_con_info (node.observers, "observers"));
+	composite->add_component (collect_seq_con_info (node.wallets, "wallets"));
+	composite->add_component (collect_seq_con_info (node.vote_processor, "vote_processor"));
+	composite->add_component (collect_seq_con_info (node.rep_crawler, "rep_crawler"));
+	composite->add_component (collect_seq_con_info (node.block_processor, "block_processor"));
+	composite->add_component (collect_seq_con_info (node.block_arrival, "block_arrival"));
+	composite->add_component (collect_seq_con_info (node.online_reps, "online_reps"));
+	composite->add_component (collect_seq_con_info (node.votes_cache, "votes_cache"));
+	composite->add_component (collect_seq_con_info (node.block_uniquer, "block_uniquer"));
+	composite->add_component (collect_seq_con_info (node.vote_uniquer, "vote_uniquer"));
+	return composite;
+}
+}
+
 nano::gap_cache::gap_cache (nano::node & node_a) :
 node (node_a)
 {
@@ -2375,6 +2495,23 @@ nano::uint128_t nano::gap_cache::bootstrap_threshold (nano::transaction const & 
 {
 	auto result ((node.online_reps.online_stake () / 256) * node.config.bootstrap_fraction_numerator);
 	return result;
+}
+
+namespace nano
+{
+std::unique_ptr<seq_con_info_component> collect_seq_con_info (gap_cache & gap_cache, const std::string & name)
+{
+	size_t count = 0;
+	{
+		std::lock_guard<std::mutex> (gap_cache.mutex);
+		count = gap_cache.blocks.size ();
+	}
+
+	auto sizeof_element = sizeof (decltype (gap_cache.blocks)::value_type);
+	auto composite = std::make_unique<seq_con_info_composite> (name);
+	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "blocks", count, sizeof_element }));
+	return composite;
+}
 }
 
 void nano::network::confirm_send (nano::confirm_ack const & confirm_a, std::shared_ptr<std::vector<uint8_t>> bytes_a, nano::endpoint const & endpoint_a)
@@ -3148,18 +3285,10 @@ public:
 };
 }
 
-void nano::node::process_confirmed (std::shared_ptr<nano::block> block_a)
+void nano::node::process_confirmed (std::shared_ptr<nano::block> block_a, uint8_t iteration)
 {
 	auto hash (block_a->hash ());
-	bool exists (ledger.block_exists (block_a->type (), hash));
-	// Attempt to process confirmed block if it's not in ledger yet
-	if (!exists)
-	{
-		auto transaction (store.tx_begin_write ());
-		block_processor.process_one (transaction, block_a);
-		exists = store.block_exists (transaction, block_a->type (), hash);
-	}
-	if (exists)
+	if (ledger.block_exists (block_a->type (), hash))
 	{
 		auto transaction (store.tx_begin_read ());
 		confirmed_visitor visitor (transaction, *this, block_a, hash);
@@ -3186,6 +3315,18 @@ void nano::node::process_confirmed (std::shared_ptr<nano::block> block_a)
 				observers.account_balance.notify (pending_account, true);
 			}
 		}
+	}
+	// Limit to 0.5 * 20 = 10 seconds (more than max block_processor::process_batch finish time)
+	else if (iteration < 20)
+	{
+		iteration++;
+		std::weak_ptr<nano::node> node_w (shared ());
+		alarm.add (std::chrono::steady_clock::now () + process_confirmed_interval, [node_w, block_a, iteration]() {
+			if (auto node_l = node_w.lock ())
+			{
+				node_l->process_confirmed (block_a, iteration);
+			}
+		});
 	}
 }
 
@@ -3224,6 +3365,23 @@ bool nano::block_arrival::recent (nano::block_hash const & hash_a)
 		arrival.erase (arrival.begin ());
 	}
 	return arrival.get<1> ().find (hash_a) != arrival.get<1> ().end ();
+}
+
+namespace nano
+{
+std::unique_ptr<seq_con_info_component> collect_seq_con_info (block_arrival & block_arrival, const std::string & name)
+{
+	size_t count = 0;
+	{
+		std::lock_guard<std::mutex> guard (block_arrival.mutex);
+		count = block_arrival.arrival.size ();
+	}
+
+	auto sizeof_element = sizeof (decltype (block_arrival.arrival)::value_type);
+	auto composite = std::make_unique<seq_con_info_composite> (name);
+	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "arrival", count, sizeof_element }));
+	return composite;
+}
 }
 
 nano::online_reps::online_reps (nano::node & node) :
@@ -3302,6 +3460,23 @@ std::vector<nano::account> nano::online_reps::list ()
 		result.push_back (i->representative);
 	}
 	return result;
+}
+
+namespace nano
+{
+std::unique_ptr<seq_con_info_component> collect_seq_con_info (online_reps & online_reps, const std::string & name)
+{
+	size_t count = 0;
+	{
+		std::lock_guard<std::mutex> guard (online_reps.mutex);
+		count = online_reps.reps.size ();
+	}
+
+	auto sizeof_element = sizeof (decltype (online_reps.reps)::value_type);
+	auto composite = std::make_unique<seq_con_info_composite> (name);
+	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "arrival", count, sizeof_element }));
+	return composite;
+}
 }
 
 namespace
@@ -4139,6 +4314,28 @@ bool nano::active_transactions::publish (std::shared_ptr<nano::block> block_a)
 	return result;
 }
 
+namespace nano
+{
+std::unique_ptr<seq_con_info_component> collect_seq_con_info (active_transactions & active_transactions, const std::string & name)
+{
+	size_t roots_count = 0;
+	size_t blocks_count = 0;
+	size_t confirmed_count = 0;
+
+	{
+		std::lock_guard<std::mutex> guard (active_transactions.mutex);
+		roots_count = active_transactions.roots.size ();
+		blocks_count = active_transactions.blocks.size ();
+		confirmed_count = active_transactions.confirmed.size ();
+	}
+
+	auto composite = std::make_unique<seq_con_info_composite> (name);
+	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "roots", roots_count, sizeof (decltype (active_transactions.roots)::value_type) }));
+	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "blocks", blocks_count, sizeof (decltype (active_transactions.blocks)::value_type) }));
+	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "confirmed", confirmed_count, sizeof (decltype (active_transactions.confirmed)::value_type) }));
+	return composite;
+}
+}
 int nano::node::store_version ()
 {
 	auto transaction (store.tx_begin_read ());

@@ -209,6 +209,9 @@ public:
 	 */
 	nano::transaction tx_begin (bool write = false);
 };
+
+std::unique_ptr<seq_con_info_component> collect_seq_con_info (wallets & wallets, const std::string & name);
+
 class wallets_store
 {
 public:
