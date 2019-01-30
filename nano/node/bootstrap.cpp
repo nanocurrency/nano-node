@@ -2922,7 +2922,10 @@ void nano::bulk_push_server::received_block (boost::system::error_code const & e
 		auto block (nano::deserialize_block (stream, type_a));
 		if (block != nullptr && !nano::work_validate (*block))
 		{
-			connection->node->process_active (std::move (block));
+			if (!connection->node->block_processor.full ())
+			{
+				connection->node->process_active (std::move (block));
+			}
 			receive ();
 		}
 		else
