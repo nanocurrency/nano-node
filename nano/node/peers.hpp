@@ -137,4 +137,6 @@ public:
 	// Maximum number of peers per IP
 	static size_t constexpr max_peers_per_ip = 10;
 };
+
+std::unique_ptr<seq_con_info_component> collect_seq_con_info (peer_container & peer_container, const std::string & name);
 }

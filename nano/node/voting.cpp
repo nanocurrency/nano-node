@@ -140,3 +140,35 @@ std::vector<std::shared_ptr<nano::vote>> nano::votes_cache::find (nano::block_ha
 	}
 	return result;
 }
+
+namespace nano
+{
+std::unique_ptr<seq_con_info_component> collect_seq_con_info (vote_generator & vote_generator, const std::string & name)
+{
+	size_t hashes_count = 0;
+
+	{
+		std::lock_guard<std::mutex> guard (vote_generator.mutex);
+		hashes_count = vote_generator.hashes.size ();
+	}
+	auto sizeof_element = sizeof (decltype (vote_generator.hashes)::value_type);
+	auto composite = std::make_unique<seq_con_info_composite> (name);
+	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "state_blocks", hashes_count, sizeof_element }));
+	return composite;
+}
+
+std::unique_ptr<seq_con_info_component> collect_seq_con_info (votes_cache & votes_cache, const std::string & name)
+{
+	size_t cache_count = 0;
+
+	{
+		std::lock_guard<std::mutex> guard (votes_cache.cache_mutex);
+		cache_count = votes_cache.cache.size ();
+	}
+	auto sizeof_element = sizeof (decltype (votes_cache.cache)::value_type);
+	auto composite = std::make_unique<seq_con_info_composite> (name);
+	/* This does not currently loop over each element inside the cache to get the sizes of the votes inside cached_votes */
+	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "cache", cache_count, sizeof_element }));
+	return composite;
+}
+}

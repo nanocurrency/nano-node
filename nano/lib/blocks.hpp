@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nano/lib/numbers.hpp>
+#include <nano/lib/utility.hpp>
 
 #include <boost/property_tree/json_parser.hpp>
 #include <cassert>
@@ -322,14 +323,19 @@ public:
 class block_uniquer
 {
 public:
+	using value_type = std::pair<const nano::uint256_union, std::weak_ptr<nano::block>>;
+
 	std::shared_ptr<nano::block> unique (std::shared_ptr<nano::block>);
 	size_t size ();
 
 private:
 	std::mutex mutex;
-	std::unordered_map<nano::uint256_union, std::weak_ptr<nano::block>> blocks;
+	std::unordered_map<std::remove_const_t<value_type::first_type>, value_type::second_type> blocks;
 	static unsigned constexpr cleanup_count = 2;
 };
+
+std::unique_ptr<seq_con_info_component> collect_seq_con_info (block_uniquer & block_uniquer, const std::string & name);
+
 std::shared_ptr<nano::block> deserialize_block (nano::stream &, nano::block_uniquer * = nullptr);
 std::shared_ptr<nano::block> deserialize_block (nano::stream &, nano::block_type, nano::block_uniquer * = nullptr);
 std::shared_ptr<nano::block> deserialize_block_json (boost::property_tree::ptree const &, nano::block_uniquer * = nullptr);

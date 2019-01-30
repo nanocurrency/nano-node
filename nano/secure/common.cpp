@@ -774,6 +774,18 @@ size_t nano::vote_uniquer::size ()
 	return votes.size ();
 }
 
+namespace nano
+{
+std::unique_ptr<seq_con_info_component> collect_seq_con_info (vote_uniquer & vote_uniquer, const std::string & name)
+{
+	auto count = vote_uniquer.size ();
+	auto sizeof_element = sizeof (vote_uniquer::value_type);
+	auto composite = std::make_unique<seq_con_info_composite> (name);
+	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "votes", count, sizeof_element }));
+	return composite;
+}
+}
+
 nano::genesis::genesis ()
 {
 	boost::property_tree::ptree tree;

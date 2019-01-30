@@ -3,6 +3,44 @@
 
 namespace nano
 {
+seq_con_info_composite::seq_con_info_composite (const std::string & name) :
+name (name)
+{
+}
+
+bool seq_con_info_composite::is_composite () const
+{
+	return true;
+}
+
+void seq_con_info_composite::add_component (std::unique_ptr<seq_con_info_component> child)
+{
+	children.push_back (std::move (child));
+}
+
+const std::vector<std::unique_ptr<seq_con_info_component>> & seq_con_info_composite::get_children () const
+{
+	return children;
+}
+
+const std::string & seq_con_info_composite::get_name () const
+{
+	return name;
+}
+
+seq_con_info_leaf::seq_con_info_leaf (const seq_con_info & info) :
+info (info)
+{
+}
+bool seq_con_info_leaf::is_composite () const
+{
+	return false;
+}
+const seq_con_info & seq_con_info_leaf::get_info () const
+{
+	return info;
+}
+
 namespace thread_role
 {
 	/*
