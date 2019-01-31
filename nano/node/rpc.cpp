@@ -4038,17 +4038,24 @@ void nano::rpc_connection::parse_connection ()
 	read ();
 }
 
-void nano::rpc_connection::write_result (std::string body, unsigned version)
+void nano::rpc_connection::prepare_head (unsigned version, boost::beast::http::status status)
+{
+	res.version (version);
+	res.result (status);
+	res.set (boost::beast::http::field::allow, "POST, OPTIONS");
+	res.set (boost::beast::http::field::content_type, "application/json");
+	res.set (boost::beast::http::field::access_control_allow_origin, "*");
+	res.set (boost::beast::http::field::access_control_allow_methods, "POST, OPTIONS");
+	res.set (boost::beast::http::field::access_control_allow_headers, "Accept, Accept-Language, Content-Language, Content-Type");
+	res.set (boost::beast::http::field::connection, "close");
+}
+
+void nano::rpc_connection::write_result (std::string body, unsigned version, boost::beast::http::status status)
 {
 	if (!responded.test_and_set ())
 	{
-		res.set ("Content-Type", "application/json");
-		res.set ("Access-Control-Allow-Origin", "*");
-		res.set ("Access-Control-Allow-Headers", "Accept, Accept-Language, Content-Language, Content-Type");
-		res.set ("Connection", "close");
-		res.result (boost::beast::http::status::ok);
+		prepare_head (version, status);
 		res.body () = body;
-		res.version (version);
 		res.prepare_payload ();
 	}
 	else
@@ -4082,14 +4089,28 @@ void nano::rpc_connection::read ()
 						BOOST_LOG (this_l->node->log) << boost::str (boost::format ("RPC request %2% completed in: %1% microseconds") % std::chrono::duration_cast<std::chrono::microseconds> (std::chrono::steady_clock::now () - start).count () % request_id);
 					}
 				});
-				if (this_l->request.method () == boost::beast::http::verb::post)
+				auto method = this_l->request.method ();
+				switch (method)
 				{
-					auto handler (std::make_shared<nano::rpc_handler> (*this_l->node, this_l->rpc, this_l->request.body (), request_id, response_handler));
-					handler->process_request ();
-				}
-				else
-				{
-					error_response (response_handler, "Can only POST requests");
+					case boost::beast::http::verb::post:
+					{
+						auto handler (std::make_shared<nano::rpc_handler> (*this_l->node, this_l->rpc, this_l->request.body (), request_id, response_handler));
+						handler->process_request ();
+						break;
+					}
+					case boost::beast::http::verb::options:
+					{
+						this_l->prepare_head (version);
+						this_l->res.prepare_payload ();
+						boost::beast::http::async_write (this_l->socket, this_l->res, [this_l](boost::system::error_code const & ec, size_t bytes_transferred) {
+						});
+						break;
+					}
+					default:
+					{
+						error_response (response_handler, "Can only POST requests");
+						break;
+					}
 				}
 			});
 		}
