@@ -1110,12 +1110,14 @@ std::shared_ptr<nano::block> nano::wallet::send_action (nano::account const & so
 bool nano::wallet::change_sync (nano::account const & source_a, nano::account const & representative_a)
 {
 	std::promise<bool> result;
-	change_async (
-	source_a, representative_a, [&result](std::shared_ptr<nano::block> block_a) {
+	std::future<bool> future = result.get_future ();
+	// clang-format off
+    change_async (source_a, representative_a, [&result](std::shared_ptr<nano::block> block_a) {
 		result.set_value (block_a == nullptr);
 	},
 	true);
-	return result.get_future ().get ();
+	// clang-format on
+	return future.get ();
 }
 
 void nano::wallet::change_async (nano::account const & source_a, nano::account const & representative_a, std::function<void(std::shared_ptr<nano::block>)> const & action_a, uint64_t work_a, bool generate_work_a)
@@ -1129,12 +1131,14 @@ void nano::wallet::change_async (nano::account const & source_a, nano::account c
 bool nano::wallet::receive_sync (std::shared_ptr<nano::block> block_a, nano::account const & representative_a, nano::uint128_t const & amount_a)
 {
 	std::promise<bool> result;
-	receive_async (
-	block_a, representative_a, amount_a, [&result](std::shared_ptr<nano::block> block_a) {
+	std::future<bool> future = result.get_future ();
+	// clang-format off
+    receive_async (block_a, representative_a, amount_a, [&result](std::shared_ptr<nano::block> block_a) {
 		result.set_value (block_a == nullptr);
 	},
 	true);
-	return result.get_future ().get ();
+	// clang-format on
+	return future.get ();
 }
 
 void nano::wallet::receive_async (std::shared_ptr<nano::block> block_a, nano::account const & representative_a, nano::uint128_t const & amount_a, std::function<void(std::shared_ptr<nano::block>)> const & action_a, uint64_t work_a, bool generate_work_a)
@@ -1149,12 +1153,15 @@ void nano::wallet::receive_async (std::shared_ptr<nano::block> block_a, nano::ac
 nano::block_hash nano::wallet::send_sync (nano::account const & source_a, nano::account const & account_a, nano::uint128_t const & amount_a)
 {
 	std::promise<nano::block_hash> result;
+	std::future<nano::block_hash> future = result.get_future ();
+	// clang-format on
 	send_async (
 	source_a, account_a, amount_a, [&result](std::shared_ptr<nano::block> block_a) {
 		result.set_value (block_a->hash ());
 	},
 	true);
-	return result.get_future ().get ();
+	// clang-format off
+	return future.get ();
 }
 
 void nano::wallet::send_async (nano::account const & source_a, nano::account const & account_a, nano::uint128_t const & amount_a, std::function<void(std::shared_ptr<nano::block>)> const & action_a, uint64_t work_a, bool generate_work_a, boost::optional<std::string> id_a)
