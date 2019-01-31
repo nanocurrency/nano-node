@@ -1054,10 +1054,13 @@ void nano::bootstrap_attempt::run ()
 	}
 	// Shuffle pulls.
 	release_assert (std::numeric_limits<CryptoPP::word32>::max () > pulls.size ());
-	for (auto i = static_cast<CryptoPP::word32> (pulls.size () - 1); i > 0; --i)
+	if (!pulls.empty ())
 	{
-		auto k = nano::random_pool.GenerateWord32 (0, i);
-		std::swap (pulls[i], pulls[k]);
+		for (auto i = static_cast<CryptoPP::word32> (pulls.size () - 1); i > 0; --i)
+		{
+			auto k = nano::random_pool.GenerateWord32 (0, i);
+			std::swap (pulls[i], pulls[k]);
+		}
 	}
 	while (still_pulling ())
 	{
