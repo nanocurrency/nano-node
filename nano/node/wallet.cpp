@@ -1154,13 +1154,12 @@ nano::block_hash nano::wallet::send_sync (nano::account const & source_a, nano::
 {
 	std::promise<nano::block_hash> result;
 	std::future<nano::block_hash> future = result.get_future ();
-	// clang-format on
-	send_async (
-	source_a, account_a, amount_a, [&result](std::shared_ptr<nano::block> block_a) {
+	// clang-format off
+	send_async (source_a, account_a, amount_a, [&result](std::shared_ptr<nano::block> block_a) {
 		result.set_value (block_a->hash ());
 	},
 	true);
-	// clang-format off
+	// clang-format on
 	return future.get ();
 }
 
