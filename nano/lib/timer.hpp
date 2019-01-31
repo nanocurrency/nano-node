@@ -37,8 +37,8 @@ public:
 	}
 
 	timer (std::string description_a, timer * parent_a) :
-    parent (parent_a),
-    desc (description_a)
+	parent (parent_a),
+	desc (description_a)
 	{
 	}
 

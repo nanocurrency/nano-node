@@ -186,7 +186,8 @@ void nano::work_pool::generate (nano::uint256_union const & root_a, std::functio
 uint64_t nano::work_pool::generate (nano::uint256_union const & hash_a, uint64_t difficulty_a)
 {
 	std::promise<boost::optional<uint64_t>> work;
-	generate (hash_a, [&work](boost::optional<uint64_t> work_a) {
+	generate (
+	hash_a, [&work](boost::optional<uint64_t> work_a) {
 		work.set_value (work_a);
 	},
 	difficulty_a);

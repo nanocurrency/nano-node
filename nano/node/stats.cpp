@@ -254,7 +254,7 @@ void nano::stat::log_samples_impl (stat_log_sink & sink)
 			sink.write_entry (local_tm, type, detail, dir, datapoint.get_value ());
 =======
 			std::time_t time = std::chrono::system_clock::to_time_t (datapoint.timestamp);
-			tm local_tm = *localtime(&time);
+			tm local_tm = *localtime (&time);
 			sink.write_entry (local_tm, type, detail, dir, datapoint.value);
 >>>>>>> af2a87bb... Fix our own warnings
 		}
