@@ -3424,11 +3424,15 @@ void nano::online_reps::sample ()
 	}
 	// Calculate current active rep weight
 	nano::uint128_t current;
-	for (auto & i : reps)
+	std::unordered_set<nano::account> reps_copy;
+	{
+		std::lock_guard<std::mutex> lock (mutex);
+		reps_copy.swap (reps);
+	}
+	for (auto & i : reps_copy)
 	{
 		current += ledger.weight (transaction, i);
 	}
-	reps.clear ();
 	ledger.store.online_weight_put (transaction, std::chrono::system_clock::now ().time_since_epoch ().count (), current);
 	auto trend_l (trend (transaction));
 	std::lock_guard<std::mutex> lock (mutex);
