@@ -35,8 +35,8 @@ bootstrap_connections_max (64),
 callback_port (0),
 lmdb_max_dbs (128),
 allow_local_peers (false),
-block_processor_batch_max_time (std::chrono::milliseconds (5000)),
-vote_minimum (nano::Gxrb_ratio)
+vote_minimum (nano::Gxrb_ratio),
+block_processor_batch_max_time (std::chrono::milliseconds (5000))
 {
 	const char * epoch_message ("epoch v1 block");
 	strncpy ((char *)epoch_block_link.bytes.data (), epoch_message, epoch_block_link.bytes.size ());

@@ -206,8 +206,7 @@ void nano::stat::log_counters_impl (stat_log_sink & sink)
 	for (auto & it : entries)
 	{
 		std::time_t time = std::chrono::system_clock::to_time_t (it.second->counter.get_timestamp ());
-		tm local_tm;
-		localtime_s (&local_tm, &time);
+		tm local_tm = *localtime (&time);
 
 		auto key = it.first;
 		std::string type = type_to_string (key);
@@ -248,15 +247,9 @@ void nano::stat::log_samples_impl (stat_log_sink & sink)
 
 		for (auto & datapoint : it.second->samples)
 		{
-<<<<<<< HEAD
 			std::time_t time = std::chrono::system_clock::to_time_t (datapoint.get_timestamp ());
 			tm local_tm = *localtime (&time);
 			sink.write_entry (local_tm, type, detail, dir, datapoint.get_value ());
-=======
-			std::time_t time = std::chrono::system_clock::to_time_t (datapoint.timestamp);
-			tm local_tm = *localtime (&time);
-			sink.write_entry (local_tm, type, detail, dir, datapoint.value);
->>>>>>> af2a87bb... Fix our own warnings
 		}
 	}
 	sink.entries ()++;
