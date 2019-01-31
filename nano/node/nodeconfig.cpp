@@ -39,7 +39,7 @@ block_processor_batch_max_time (std::chrono::milliseconds (5000)),
 vote_minimum (nano::Gxrb_ratio)
 {
 	const char * epoch_message ("epoch v1 block");
-	strncpy_s ((char *)epoch_block_link.bytes.data (), epoch_block_link.bytes.size (), epoch_message, strlen (epoch_message));
+	strncpy ((char *)epoch_block_link.bytes.data (), epoch_message, epoch_block_link.bytes.size ());
 	epoch_block_signer = nano::genesis_account;
 	switch (nano::nano_network)
 	{

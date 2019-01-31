@@ -64,8 +64,7 @@ public:
 	void write_header (std::string header, std::chrono::system_clock::time_point & walltime) override
 	{
 		std::time_t now = std::chrono::system_clock::to_time_t (walltime);
-		tm tm;
-		localtime_s (&tm, &now);
+		tm tm = *localtime (&now);
 		tree.put ("type", header);
 		tree.put ("created", tm_to_string (tm));
 	}
@@ -125,8 +124,7 @@ public:
 	void write_header (std::string header, std::chrono::system_clock::time_point & walltime) override
 	{
 		std::time_t now = std::chrono::system_clock::to_time_t (walltime);
-		tm tm;
-		localtime_s (&tm, &now);
+		tm tm = *localtime (&now);
 		log << header << "," << boost::format ("%04d.%02d.%02d %02d:%02d:%02d") % (1900 + tm.tm_year) % (tm.tm_mon + 1) % tm.tm_mday % tm.tm_hour % tm.tm_min % tm.tm_sec << std::endl;
 	}
 
@@ -207,7 +205,7 @@ void nano::stat::log_counters_impl (stat_log_sink & sink)
 
 	for (auto & it : entries)
 	{
-		std::time_t time = std::chrono::system_clock::to_time_t (it.second->counter.get_timestamp ()§);
+		std::time_t time = std::chrono::system_clock::to_time_t (it.second->counter.get_timestamp ());
 		tm local_tm;
 		localtime_s (&local_tm, &time);
 
@@ -256,8 +254,7 @@ void nano::stat::log_samples_impl (stat_log_sink & sink)
 			sink.write_entry (local_tm, type, detail, dir, datapoint.get_value ());
 =======
 			std::time_t time = std::chrono::system_clock::to_time_t (datapoint.timestamp);
-			tm local_tm;
-			localtime_s (&local_tm, &time);
+			tm local_tm = *localtime(&time);
 			sink.write_entry (local_tm, type, detail, dir, datapoint.value);
 >>>>>>> af2a87bb... Fix our own warnings
 		}

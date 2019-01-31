@@ -963,7 +963,7 @@ nano::message_visitor::~message_visitor ()
 
 bool nano::parse_port (std::string const & string_a, uint16_t & port_a)
 {
-	bool result;
+    bool result = false;
 	try
 	{
 		port_a = boost::lexical_cast<uint16_t> (string_a);

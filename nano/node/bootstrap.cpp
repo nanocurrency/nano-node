@@ -420,8 +420,8 @@ void nano::frontier_req_client::next (nano::transaction const & transaction_a)
 
 nano::bulk_pull_client::bulk_pull_client (std::shared_ptr<nano::bootstrap_client> connection_a, nano::pull_info const & pull_a) :
 connection (connection_a),
-pull (pull_a),
 known_account (0),
+pull (pull_a),
 total_blocks (0),
 unexpected_count (0)
 {
@@ -1923,10 +1923,10 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (bootstrap_initiato
 
 nano::bootstrap_listener::bootstrap_listener (boost::asio::io_context & io_ctx_a, uint16_t port_a, nano::node & node_a) :
 acceptor (io_ctx_a),
-defer_acceptor (io_ctx_a),
 local (boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v6::any (), port_a)),
 io_ctx (io_ctx_a),
-node (node_a)
+node (node_a),
+defer_acceptor (io_ctx_a)
 {
 }
 

@@ -38,7 +38,8 @@ if (WIN32)
 	add_definitions(-D_WIN32_WINNT=0x0600
 					-DWINVER=0x0600
 					-DWIN32_LEAN_AND_MEAN
-					-DMINIUPNP_STATICLIB)
+					-DMINIUPNP_STATICLIB
+					-D_CRT_SECURE_NO_WARNINGS)
 else ()
 	add_compile_options(-Werror=switch)
 	if (NANO_ASAN OR RAIBLOCKS_ASAN)

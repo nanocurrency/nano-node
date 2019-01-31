@@ -2590,7 +2590,6 @@ TEST (rpc, accounts_pending)
 	nano::keypair key1;
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	auto block1 (system.wallet (0)->send_action (nano::test_genesis_key.pub, key1.pub, 100));
-	auto iterations (0);
 	system.deadline_set (5s);
 	while (system.nodes[0]->active.active (*block1))
 	{

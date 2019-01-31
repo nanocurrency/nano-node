@@ -21,17 +21,11 @@ nano::system::system (uint16_t port_a, uint16_t count_a) :
 alarm (io_ctx),
 work (1, nullptr)
 {
-	size_t required_size;
-	auto env_var = "DEADLINE_SCALE_FACTOR";
-	getenv_s (&required_size, nullptr, 0, env_var);
-	if (required_size != 0)
-	{
-		// Actually get the environment variable
-		std::vector<char> v (required_size);
-		getenv_s (&required_size, v.data (), required_size, env_var);
-		deadline_scaling_factor = std::stod (v.data ());
-	}
-
+    auto scale_str = std::getenv ("DEADLINE_SCALE_FACTOR");
+    if (scale_str)
+    {
+        deadline_scaling_factor = std::stod (scale_str);
+    }
 	logging.init (nano::unique_path ());
 	nodes.reserve (count_a);
 	for (uint16_t i (0); i < count_a; ++i)
@@ -79,9 +73,7 @@ nano::system::~system ()
 	// Clean up tmp directories created by the tests. Since it's sometimes useful to
 	// see log files after test failures, an environment variable is supported to
 	// retain the files.
-	size_t required_size;
-	getenv_s (&required_size, nullptr, 0, "TEST_KEEP_TMPDIRS");
-	if (required_size == 0)
+    if (std::getenv ("TEST_KEEP_TMPDIRS") == nullptr)
 	{
 		nano::remove_temporary_directories ();
 	}
