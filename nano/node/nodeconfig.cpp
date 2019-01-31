@@ -22,6 +22,7 @@ peering_port (peering_port_a),
 logging (logging_a),
 bootstrap_fraction_numerator (1),
 receive_minimum (nano::xrb_ratio),
+vote_minimum (nano::Gxrb_ratio),
 online_weight_minimum (60000 * nano::Gxrb_ratio),
 online_weight_quorum (50),
 password_fanout (1024),
@@ -35,7 +36,6 @@ bootstrap_connections_max (64),
 callback_port (0),
 lmdb_max_dbs (128),
 allow_local_peers (false),
-vote_minimum (nano::Gxrb_ratio),
 block_processor_batch_max_time (std::chrono::milliseconds (5000))
 {
 	const char * epoch_message ("epoch v1 block");
