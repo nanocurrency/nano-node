@@ -53,7 +53,7 @@ class votes_cache
 public:
 	void add (std::shared_ptr<nano::vote> const &);
 	std::vector<std::shared_ptr<nano::vote>> find (nano::block_hash const &);
-	void remove (std::shared_ptr<nano::vote> const &);
+	void remove (nano::block_hash const &);
 
 private:
 	std::mutex cache_mutex;

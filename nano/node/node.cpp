@@ -337,7 +337,7 @@ void nano::network::confirm_hashes (nano::transaction const & transaction_a, nan
 bool nano::network::send_votes_cache (nano::block_hash const & hash_a, nano::endpoint const & peer_a)
 {
 	// Search in cache
-	auto votes (node.votes_cache.find (root_hash.first));
+	auto votes (node.votes_cache.find (hash_a));
 	// Send from cache
 	for (auto & vote : votes)
 	{
@@ -1805,8 +1805,9 @@ void nano::block_processor::process_batch (std::unique_lock<std::mutex> & lock_a
 			{
 				// Replace our block with the winner and roll back any dependent blocks
 				BOOST_LOG (node.log) << boost::str (boost::format ("Rolling back %1% and replacing with %2%") % successor->hash ().to_string () % hash.to_string ());
-				std::vector<nano::block_hash> list;
-				node.ledger.rollback (transaction, successor->hash (), list);
+				std::vector<nano::block_hash> rollback_list;
+				node.ledger.rollback (transaction, successor->hash (), rollback_list);
+				BOOST_LOG (node.log) << boost::str (boost::format ("%1% blocks rolled back") % rollback_list.size ());
 				lock_a.lock ();
 				// Prevent rolled back blocks second insertion
 				auto inserted (rolled_back.insert (nano::rolled_hash{ std::chrono::steady_clock::now (), successor->hash () }));
@@ -1822,7 +1823,7 @@ void nano::block_processor::process_batch (std::unique_lock<std::mutex> & lock_a
 				}
 				lock_a.unlock ();
 				// Deleting from votes cache
-				for (auto & i : list)
+				for (auto & i : rollback_list)
 				{
 					node.votes_cache.remove (i);
 				}

@@ -842,6 +842,12 @@ void nano::ledger::rollback (nano::transaction const & transaction_a, nano::bloc
 	}
 }
 
+void nano::ledger::rollback (nano::transaction const & transaction_a, nano::block_hash const & block_a)
+{
+	std::vector<nano::block_hash> rollback_list;
+	rollback (transaction_a, block_a, rollback_list);
+}
+
 // Return account containing hash
 nano::account nano::ledger::account (nano::transaction const & transaction_a, nano::block_hash const & hash_a)
 {
