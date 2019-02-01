@@ -666,7 +666,7 @@ public:
 		node.stats.inc (nano::stat::type::message, nano::stat::detail::confirm_req, nano::stat::dir::in);
 		node.peers.contacted (sender, message_a.header.version_using);
 		// Don't load nodes with disabled voting
-		if (node.config.enable_voting)
+		if (node.config.enable_voting && node.wallets.reps_count)
 		{
 			if (message_a.block != nullptr)
 			{

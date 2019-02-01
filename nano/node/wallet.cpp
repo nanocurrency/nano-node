@@ -1605,6 +1605,7 @@ void nano::wallets::clear_send_ids (nano::transaction const & transaction_a)
 void nano::wallets::compute_reps ()
 {
 	std::lock_guard<std::mutex> lock (mutex);
+	reps_count = 0;
 	auto ledger_transaction (node.store.tx_begin_read ());
 	auto transaction (tx_begin_read ());
 	for (auto i (items.begin ()), n (items.end ()); i != n; ++i)
@@ -1617,6 +1618,7 @@ void nano::wallets::compute_reps ()
 			if (node.ledger.weight (ledger_transaction, account) >= node.config.vote_minimum.number ())
 			{
 				representatives_l.insert (account);
+				reps_count++;
 			}
 		}
 		std::lock_guard<std::mutex> representatives_lock (wallet.representatives_mutex);

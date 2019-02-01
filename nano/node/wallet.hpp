@@ -200,6 +200,7 @@ public:
 	boost::thread thread;
 	static nano::uint128_t const generate_priority;
 	static nano::uint128_t const high_priority;
+	std::atomic<uint64_t> reps_count{ 0 };
 
 	/** Start read-write transaction */
 	nano::transaction tx_begin_write ();
