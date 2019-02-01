@@ -21,6 +21,10 @@ enum class nano_networks
 	nano_live_network = 2,
 	rai_live_network = 2,
 };
-nano::nano_networks const nano_network = nano_networks::ACTIVE_NETWORK;
+nano::nano_networks constexpr nano_network = nano_networks::ACTIVE_NETWORK;
+bool constexpr is_live_network = nano_network == nano_networks::nano_live_network;
+bool constexpr is_beta_network = nano_network == nano_networks::nano_beta_network;
+bool constexpr is_test_network = nano_network == nano_networks::nano_test_network;
+
 std::chrono::milliseconds const transaction_timeout = std::chrono::milliseconds (1000);
 }

@@ -1,10 +1,10 @@
 #include <nano/lib/interface.h>
 
-#include <xxhash/xxhash.h>
+#include <crypto/xxhash/xxhash.h>
 
-#include <ed25519-donna/ed25519.h>
+#include <crypto/ed25519-donna/ed25519.h>
 
-#include <blake2/blake2.h>
+#include <crypto/blake2/blake2.h>
 
 #include <boost/property_tree/json_parser.hpp>
 
@@ -18,13 +18,13 @@ extern "C" {
 void xrb_uint128_to_dec (xrb_uint128 source, char * destination)
 {
 	auto const & number (*reinterpret_cast<nano::uint128_union *> (source));
-	strncpy (destination, number.to_string_dec ().c_str (), 32);
+	strncpy (destination, number.to_string_dec ().c_str (), 40);
 }
 
 void xrb_uint256_to_string (xrb_uint256 source, char * destination)
 {
 	auto const & number (*reinterpret_cast<nano::uint256_union *> (source));
-	strncpy (destination, number.to_string ().c_str (), 64);
+	strncpy (destination, number.to_string ().c_str (), 65);
 }
 
 void xrb_uint256_to_address (xrb_uint256 source, char * destination)
@@ -36,7 +36,7 @@ void xrb_uint256_to_address (xrb_uint256 source, char * destination)
 void xrb_uint512_to_string (xrb_uint512 source, char * destination)
 {
 	auto const & number (*reinterpret_cast<nano::uint512_union *> (source));
-	strncpy (destination, number.to_string ().c_str (), 128);
+	strncpy (destination, number.to_string ().c_str (), 129);
 }
 
 int xrb_uint128_from_dec (const char * source, xrb_uint128 destination)
@@ -139,7 +139,7 @@ char * xrb_work_transaction (const char * transaction)
 	return result;
 }
 
-#include <ed25519-donna/ed25519-hash-custom.h>
+#include <crypto/ed25519-donna/ed25519-hash-custom.h>
 void ed25519_randombytes_unsafe (void * out, size_t outlen)
 {
 	nano::random_pool.GenerateBlock (reinterpret_cast<uint8_t *> (out), outlen);

@@ -5,7 +5,7 @@
 
 typedef HRESULT (*SetThreadDescription_t) (HANDLE, PCWSTR);
 
-void nano::thread_role::set_name (std::string thread_name)
+void nano::thread_role::set_os_name (std::string thread_name)
 {
 	SetThreadDescription_t SetThreadDescription_local;
 

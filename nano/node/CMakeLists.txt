@@ -23,6 +23,8 @@ add_library (node
 	cli.cpp
 	common.cpp
 	common.hpp
+	ipc.hpp
+	ipc.cpp
 	lmdb.cpp
 	lmdb.hpp
 	logging.cpp
@@ -70,4 +72,5 @@ target_link_libraries (node
 target_compile_definitions(node
 	PRIVATE
 		-DNANO_VERSION_MAJOR=${CPACK_PACKAGE_VERSION_MAJOR}
-		-DNANO_VERSION_MINOR=${CPACK_PACKAGE_VERSION_MINOR})
+		-DNANO_VERSION_MINOR=${CPACK_PACKAGE_VERSION_MINOR}
+		-DNANO_VERSION_PATCH=${CPACK_PACKAGE_VERSION_PATCH})

@@ -6,6 +6,9 @@
 #include <chrono>
 #include <map>
 #include <memory>
+#include <mutex>
+#include <nano/lib/errors.hpp>
+#include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/utility.hpp>
 #include <string>
 #include <unordered_map>
@@ -23,7 +26,7 @@ class stat_config
 {
 public:
 	/** Reads the JSON statistics node */
-	bool deserialize_json (boost::property_tree::ptree & tree_a);
+	nano::error deserialize_json (nano::jsonconfig & json);
 
 	/** If true, sampling of counters is enabled */
 	bool sampling_enabled{ false };
@@ -57,20 +60,58 @@ public:
 class stat_datapoint
 {
 public:
-	/** Value of the sample interval */
-	uint64_t value{ 0 };
-	/** When the sample was added. This is wall time (system_clock), suitable for display purposes. */
-	std::chrono::system_clock::time_point timestamp{ std::chrono::system_clock::now () };
-
-	/** Add \addend to the current value and optionally update the timestamp */
-	inline void add (uint64_t addend, bool update_timestamp = true)
+	stat_datapoint () = default;
+	stat_datapoint (stat_datapoint const & other_a)
 	{
+		std::lock_guard<std::mutex> lock (other_a.datapoint_mutex);
+		value = other_a.value;
+		timestamp = other_a.timestamp;
+	}
+	stat_datapoint & operator= (stat_datapoint const & other_a)
+	{
+		std::lock_guard<std::mutex> lock (other_a.datapoint_mutex);
+		value = other_a.value;
+		timestamp = other_a.timestamp;
+		return *this;
+	}
+
+	uint64_t get_value ()
+	{
+		std::lock_guard<std::mutex> lock (datapoint_mutex);
+		return value;
+	}
+	void set_value (uint64_t value_a)
+	{
+		std::lock_guard<std::mutex> lock (datapoint_mutex);
+		value = value_a;
+	}
+	std::chrono::system_clock::time_point get_timestamp ()
+	{
+		std::lock_guard<std::mutex> lock (datapoint_mutex);
+		return timestamp;
+	}
+	void set_timestamp (std::chrono::system_clock::time_point timestamp_a)
+	{
+		std::lock_guard<std::mutex> lock (datapoint_mutex);
+		timestamp = timestamp_a;
+	}
+	/** Add \addend to the current value and optionally update the timestamp */
+	void add (uint64_t addend, bool update_timestamp = true)
+	{
+		std::lock_guard<std::mutex> lock (datapoint_mutex);
 		value += addend;
 		if (update_timestamp)
 		{
 			timestamp = std::chrono::system_clock::now ();
 		}
 	}
+
+private:
+	mutable std::mutex datapoint_mutex;
+	/** Value of the sample interval */
+	uint64_t value{ 0 };
+	/** When the sample was added. This is wall time (system_clock), suitable for display purposes. */
+	std::chrono::system_clock::time_point timestamp{ std::chrono::system_clock::now () };
 };
 
 /** Bookkeeping of statistics for a specific type/detail/direction combination */
@@ -139,7 +180,7 @@ public:
 	}
 
 	/** Returns a reference to the log entry counter */
-	inline size_t & entries ()
+	size_t & entries ()
 	{
 		return log_entries;
 	}
@@ -186,6 +227,7 @@ public:
 		vote,
 		http_callback,
 		peering,
+		ipc,
 		udp
 	};
 
@@ -207,6 +249,7 @@ public:
 		change,
 		state_block,
 		epoch_block,
+		fork,
 
 		// message specific
 		keepalive,
@@ -219,6 +262,7 @@ public:
 		// bootstrap, callback
 		initiate,
 		initiate_lazy,
+		initiate_wallet_lazy,
 
 		// bootstrap specific
 		bulk_pull,
@@ -246,6 +290,9 @@ public:
 		invalid_node_id_handshake_message,
 		outdated_version,
 
+		// ipc
+		invocations,
+
 		// peering
 		handshake,
 	};
@@ -272,7 +319,7 @@ public:
 	 * Call this to override the default sample interval and capacity, for a specific stat entry.
 	 * This must be called before any stat entries are added, as part of the node initialiation.
 	 */
-	inline void configure (stat::type type, stat::detail detail, stat::dir dir, size_t interval, size_t capacity)
+	void configure (stat::type type, stat::detail detail, stat::dir dir, size_t interval, size_t capacity)
 	{
 		get_entry (key_of (type, detail, dir), interval, capacity);
 	}
@@ -280,32 +327,32 @@ public:
 	/**
 	 * Disables sampling for a given type/detail/dir combination
 	 */
-	inline void disable_sampling (stat::type type, stat::detail detail, stat::dir dir)
+	void disable_sampling (stat::type type, stat::detail detail, stat::dir dir)
 	{
 		auto entry = get_entry (key_of (type, detail, dir));
 		entry->sample_interval = 0;
 	}
 
 	/** Increments the given counter */
-	inline void inc (stat::type type, stat::dir dir = stat::dir::in)
+	void inc (stat::type type, stat::dir dir = stat::dir::in)
 	{
 		add (type, dir, 1);
 	}
 
 	/** Increments the counter for \detail, but doesn't update at the type level */
-	inline void inc_detail_only (stat::type type, stat::detail detail, stat::dir dir = stat::dir::in)
+	void inc_detail_only (stat::type type, stat::detail detail, stat::dir dir = stat::dir::in)
 	{
 		add (type, detail, dir, 1);
 	}
 
 	/** Increments the given counter */
-	inline void inc (stat::type type, stat::detail detail, stat::dir dir = stat::dir::in)
+	void inc (stat::type type, stat::detail detail, stat::dir dir = stat::dir::in)
 	{
 		add (type, detail, dir, 1);
 	}
 
 	/** Adds \p value to the given counter */
-	inline void add (stat::type type, stat::dir dir, uint64_t value)
+	void add (stat::type type, stat::dir dir, uint64_t value)
 	{
 		add (type, detail::all, dir, value);
 	}
@@ -320,7 +367,7 @@ public:
 	 * @param value The amount to add
 	 * @param detail_only If true, only update the detail-level counter
 	 */
-	inline void add (stat::type type, stat::detail detail, stat::dir dir, uint64_t value, bool detail_only = false)
+	void add (stat::type type, stat::detail detail, stat::dir dir, uint64_t value, bool detail_only = false)
 	{
 		constexpr uint32_t no_detail_mask = 0xffff00ff;
 		uint32_t key = key_of (type, detail, dir);
@@ -340,12 +387,12 @@ public:
 	 * To avoid recursion, the observer callback must only use the received data point snapshop, not query the stat object.
 	 * @param observer The observer receives a snapshot of the current samples.
 	 */
-	inline void observe_sample (stat::type type, stat::detail detail, stat::dir dir, std::function<void(boost::circular_buffer<stat_datapoint> &)> observer)
+	void observe_sample (stat::type type, stat::detail detail, stat::dir dir, std::function<void(boost::circular_buffer<stat_datapoint> &)> observer)
 	{
 		get_entry (key_of (type, detail, dir))->sample_observers.add (observer);
 	}
 
-	inline void observe_sample (stat::type type, stat::dir dir, std::function<void(boost::circular_buffer<stat_datapoint> &)> observer)
+	void observe_sample (stat::type type, stat::dir dir, std::function<void(boost::circular_buffer<stat_datapoint> &)> observer)
 	{
 		observe_sample (type, stat::detail::all, dir, observer);
 	}
@@ -355,28 +402,34 @@ public:
 	 * To avoid recursion, the observer callback must only use the received counts, not query the stat object.
 	 * @param observer The observer receives the old and the new count.
 	 */
-	inline void observe_count (stat::type type, stat::detail detail, stat::dir dir, std::function<void(uint64_t, uint64_t)> observer)
+	void observe_count (stat::type type, stat::detail detail, stat::dir dir, std::function<void(uint64_t, uint64_t)> observer)
 	{
 		get_entry (key_of (type, detail, dir))->count_observers.add (observer);
 	}
 
 	/** Returns a potentially empty list of the last N samples, where N is determined by the 'capacity' configuration */
-	inline boost::circular_buffer<stat_datapoint> * samples (stat::type type, stat::detail detail, stat::dir dir)
+	boost::circular_buffer<stat_datapoint> * samples (stat::type type, stat::detail detail, stat::dir dir)
 	{
 		return &get_entry (key_of (type, detail, dir))->samples;
 	}
 
 	/** Returns current value for the given counter at the type level */
-	inline uint64_t count (stat::type type, stat::dir dir = stat::dir::in)
+	uint64_t count (stat::type type, stat::dir dir = stat::dir::in)
 	{
 		return count (type, stat::detail::all, dir);
 	}
 
 	/** Returns current value for the given counter at the detail level */
-	inline uint64_t count (stat::type type, stat::detail detail, stat::dir dir = stat::dir::in)
+	uint64_t count (stat::type type, stat::detail detail, stat::dir dir = stat::dir::in)
 	{
-		return get_entry (key_of (type, detail, dir))->counter.value;
+		return get_entry (key_of (type, detail, dir))->counter.get_value ();
 	}
+
+	/** Returns the number of seconds since clear() was last called, or node startup if it's never called. */
+	std::chrono::seconds last_reset ();
+
+	/** Clear all stats */
+	void clear ();
 
 	/** Log counters to the given log link */
 	void log_counters (stat_log_sink & sink);
@@ -396,7 +449,7 @@ private:
 	static std::string dir_to_string (uint32_t key);
 
 	/** Constructs a key given type, detail and direction. This is used as input to update(...) and get_entry(...) */
-	inline uint32_t key_of (stat::type type, stat::detail detail, stat::dir dir) const
+	uint32_t key_of (stat::type type, stat::detail detail, stat::dir dir) const
 	{
 		return static_cast<uint8_t> (type) << 16 | static_cast<uint8_t> (detail) << 8 | static_cast<uint8_t> (dir);
 	}
@@ -422,6 +475,9 @@ private:
 
 	/** Unlocked implementation of log_samples() to avoid using recursive locking */
 	void log_samples_impl (stat_log_sink & sink);
+
+	/** Time of last clear() call */
+	std::chrono::steady_clock::time_point timestamp{ std::chrono::steady_clock::now () };
 
 	/** Configuration deserialized from config.json */
 	nano::stat_config config;

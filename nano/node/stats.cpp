@@ -9,33 +9,34 @@
 #include <sstream>
 #include <tuple>
 
-bool nano::stat_config::deserialize_json (boost::property_tree::ptree & tree_a)
+nano::error nano::stat_config::deserialize_json (nano::jsonconfig & json)
 {
-	bool error = false;
-
-	auto sampling_l (tree_a.get_child_optional ("sampling"));
+	auto sampling_l (json.get_optional_child ("sampling"));
 	if (sampling_l)
 	{
-		sampling_enabled = sampling_l->get<bool> ("enabled", sampling_enabled);
-		capacity = sampling_l->get<size_t> ("capacity", capacity);
-		interval = sampling_l->get<size_t> ("interval", interval);
+		sampling_l->get<bool> ("enabled", sampling_enabled);
+		sampling_l->get<size_t> ("capacity", capacity);
+		sampling_l->get<size_t> ("interval", interval);
 	}
 
-	auto log_l (tree_a.get_child_optional ("log"));
+	auto log_l (json.get_optional_child ("log"));
 	if (log_l)
 	{
-		log_headers = log_l->get<bool> ("headers", log_headers);
-		log_interval_counters = log_l->get<size_t> ("interval_counters", log_interval_counters);
-		log_interval_samples = log_l->get<size_t> ("interval_samples", log_interval_samples);
-		log_rotation_count = log_l->get<size_t> ("rotation_count", log_rotation_count);
-		log_counters_filename = log_l->get<std::string> ("filename_counters", log_counters_filename);
-		log_samples_filename = log_l->get<std::string> ("filename_samples", log_samples_filename);
+		log_l->get<bool> ("headers", log_headers);
+		log_l->get<size_t> ("interval_counters", log_interval_counters);
+		log_l->get<size_t> ("interval_samples", log_interval_samples);
+		log_l->get<size_t> ("rotation_count", log_rotation_count);
+		log_l->get<std::string> ("filename_counters", log_counters_filename);
+		log_l->get<std::string> ("filename_samples", log_samples_filename);
 
 		// Don't allow specifying the same file name for counter and samples logs
-		error = (log_counters_filename == log_samples_filename);
+		if (log_counters_filename == log_samples_filename)
+		{
+			json.get_error ().set ("The statistics counter and samples config values must be different");
+		}
 	}
 
-	return error;
+	return json.get_error ();
 }
 
 std::string nano::stat_log_sink::tm_to_string (tm & tm)
@@ -204,14 +205,14 @@ void nano::stat::log_counters_impl (stat_log_sink & sink)
 
 	for (auto & it : entries)
 	{
-		std::time_t time = std::chrono::system_clock::to_time_t (it.second->counter.timestamp);
+		std::time_t time = std::chrono::system_clock::to_time_t (it.second->counter.get_timestamp ());
 		tm local_tm = *localtime (&time);
 
 		auto key = it.first;
 		std::string type = type_to_string (key);
 		std::string detail = detail_to_string (key);
 		std::string dir = dir_to_string (key);
-		sink.write_entry (local_tm, type, detail, dir, it.second->counter.value);
+		sink.write_entry (local_tm, type, detail, dir, it.second->counter.get_value ());
 	}
 	sink.entries ()++;
 	sink.finalize ();
@@ -246,9 +247,9 @@ void nano::stat::log_samples_impl (stat_log_sink & sink)
 
 		for (auto & datapoint : it.second->samples)
 		{
-			std::time_t time = std::chrono::system_clock::to_time_t (datapoint.timestamp);
+			std::time_t time = std::chrono::system_clock::to_time_t (datapoint.get_timestamp ());
 			tm local_tm = *localtime (&time);
-			sink.write_entry (local_tm, type, detail, dir, datapoint.value);
+			sink.write_entry (local_tm, type, detail, dir, datapoint.get_value ());
 		}
 	}
 	sink.entries ()++;
@@ -266,9 +267,9 @@ void nano::stat::update (uint32_t key_a, uint64_t value)
 	auto entry (get_entry_impl (key_a, config.interval, config.capacity));
 
 	// Counters
-	auto old (entry->counter.value);
+	auto old (entry->counter.get_value ());
 	entry->counter.add (value);
-	entry->count_observers.notify (old, entry->counter.value);
+	entry->count_observers.notify (old, entry->counter.get_value ());
 
 	std::chrono::duration<double, std::milli> duration = now - log_last_count_writeout;
 	if (config.log_interval_counters > 0 && duration.count () > config.log_interval_counters)
@@ -288,9 +289,9 @@ void nano::stat::update (uint32_t key_a, uint64_t value)
 			entry->sample_start_time = now;
 
 			// Make a snapshot of samples for thread safety and to get a stable container
-			entry->sample_current.timestamp = std::chrono::system_clock::now ();
+			entry->sample_current.set_timestamp (std::chrono::system_clock::now ());
 			entry->samples.push_back (entry->sample_current);
-			entry->sample_current.value = 0;
+			entry->sample_current.set_value (0);
 
 			if (entry->sample_observers.observers.size () > 0)
 			{
@@ -309,12 +310,29 @@ void nano::stat::update (uint32_t key_a, uint64_t value)
 	}
 }
 
+std::chrono::seconds nano::stat::last_reset ()
+{
+	std::unique_lock<std::mutex> lock (stat_mutex);
+	auto now (std::chrono::steady_clock::now ());
+	return std::chrono::duration_cast<std::chrono::seconds> (now - timestamp);
+}
+
+void nano::stat::clear ()
+{
+	std::unique_lock<std::mutex> lock (stat_mutex);
+	entries.clear ();
+	timestamp = std::chrono::steady_clock::now ();
+}
+
 std::string nano::stat::type_to_string (uint32_t key)
 {
 	auto type = static_cast<stat::type> (key >> 16 & 0x000000ff);
 	std::string res;
 	switch (type)
 	{
+		case nano::stat::type::ipc:
+			res = "ipc";
+			break;
 		case nano::stat::type::block:
 			res = "block";
 			break;
@@ -388,6 +406,9 @@ std::string nano::stat::detail_to_string (uint32_t key)
 		case nano::stat::detail::confirm_req:
 			res = "confirm_req";
 			break;
+		case nano::stat::detail::fork:
+			res = "fork";
+			break;
 		case nano::stat::detail::frontier_req:
 			res = "frontier_req";
 			break;
@@ -403,8 +424,14 @@ std::string nano::stat::detail_to_string (uint32_t key)
 		case nano::stat::detail::initiate_lazy:
 			res = "initiate_lazy";
 			break;
+		case nano::stat::detail::initiate_wallet_lazy:
+			res = "initiate_wallet_lazy";
+			break;
 		case nano::stat::detail::insufficient_work:
 			res = "insufficient_work";
+			break;
+		case nano::stat::detail::invocations:
+			res = "invocations";
 			break;
 		case nano::stat::detail::keepalive:
 			res = "keepalive";

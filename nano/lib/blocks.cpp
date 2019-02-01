@@ -3,7 +3,7 @@
 
 #include <boost/endian/conversion.hpp>
 
-#include <xxhash/xxhash.h>
+#include <crypto/xxhash/xxhash.h>
 
 /** Compare blocks, first by type, then content. This is an optimization over dynamic_cast, which is very slow on some platforms. */
 namespace
@@ -53,10 +53,38 @@ bool nano::from_string_hex (std::string const & value_a, uint64_t & target_a)
 	return error;
 }
 
-std::string nano::block::to_json ()
+std::string nano::block::to_json () const
 {
 	std::string result;
 	serialize_json (result);
+	return result;
+}
+
+size_t nano::block::size (nano::block_type type_a)
+{
+	size_t result (0);
+	switch (type_a)
+	{
+		case nano::block_type::invalid:
+		case nano::block_type::not_a_block:
+			assert (false);
+			break;
+		case nano::block_type::send:
+			result = nano::send_block::size;
+			break;
+		case nano::block_type::receive:
+			result = nano::receive_block::size;
+			break;
+		case nano::block_type::change:
+			result = nano::change_block::size;
+			break;
+		case nano::block_type::open:
+			result = nano::open_block::size;
+			break;
+		case nano::block_type::state:
+			result = nano::state_block::size;
+			break;
+	}
 	return result;
 }
 
@@ -1578,4 +1606,16 @@ size_t nano::block_uniquer::size ()
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	return blocks.size ();
+}
+
+namespace nano
+{
+std::unique_ptr<seq_con_info_component> collect_seq_con_info (block_uniquer & block_uniquer, const std::string & name)
+{
+	auto count = block_uniquer.size ();
+	auto sizeof_element = sizeof (block_uniquer::value_type);
+	auto composite = std::make_unique<seq_con_info_composite> (name);
+	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "blocks", count, sizeof_element }));
+	return composite;
+}
 }

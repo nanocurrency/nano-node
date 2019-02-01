@@ -1,13 +1,15 @@
 #pragma once
 
 #include <boost/filesystem.hpp>
-
+#include <boost/optional.hpp>
 #include <lmdb/libraries/liblmdb/lmdb.h>
 
 #include <nano/lib/numbers.hpp>
 #include <nano/node/logging.hpp>
 #include <nano/secure/blockstore.hpp>
 #include <nano/secure/common.hpp>
+
+#include <thread>
 
 namespace nano
 {
@@ -30,7 +32,7 @@ public:
 class mdb_env
 {
 public:
-	mdb_env (bool &, boost::filesystem::path const &, int max_dbs = 128);
+	mdb_env (bool &, boost::filesystem::path const &, int max_dbs = 128, size_t map_size = 128ULL * 1024 * 1024 * 1024);
 	~mdb_env ();
 	operator MDB_env * () const;
 	nano::transaction tx_begin (bool = false) const;
@@ -44,31 +46,32 @@ public:
 class mdb_val
 {
 public:
-	enum class no_value
-	{
-		dummy
-	};
 	mdb_val (nano::epoch = nano::epoch::unspecified);
 	mdb_val (nano::account_info const &);
 	mdb_val (nano::block_info const &);
 	mdb_val (MDB_val const &, nano::epoch = nano::epoch::unspecified);
 	mdb_val (nano::pending_info const &);
 	mdb_val (nano::pending_key const &);
+	mdb_val (nano::unchecked_info const &);
 	mdb_val (size_t, void *);
 	mdb_val (nano::uint128_union const &);
 	mdb_val (nano::uint256_union const &);
+	mdb_val (nano::endpoint_key const &);
 	mdb_val (std::shared_ptr<nano::block> const &);
 	mdb_val (std::shared_ptr<nano::vote> const &);
+	mdb_val (uint64_t);
 	void * data () const;
 	size_t size () const;
 	explicit operator nano::account_info () const;
 	explicit operator nano::block_info () const;
 	explicit operator nano::pending_info () const;
 	explicit operator nano::pending_key () const;
+	explicit operator nano::unchecked_info () const;
 	explicit operator nano::uint128_union () const;
 	explicit operator nano::uint256_union () const;
 	explicit operator std::array<char, 64> () const;
-	explicit operator no_value () const;
+	explicit operator nano::endpoint_key () const;
+	explicit operator nano::no_value () const;
 	explicit operator std::shared_ptr<nano::block> () const;
 	explicit operator std::shared_ptr<nano::send_block> () const;
 	explicit operator std::shared_ptr<nano::receive_block> () const;
@@ -147,23 +150,27 @@ class mdb_store : public block_store
 	friend class nano::block_predecessor_set;
 
 public:
-	mdb_store (bool &, nano::logging &, boost::filesystem::path const &, int lmdb_max_dbs = 128);
+	mdb_store (bool &, nano::logging &, boost::filesystem::path const &, int lmdb_max_dbs = 128, bool drop_unchecked = false);
+	~mdb_store ();
 
 	nano::transaction tx_begin_write () override;
 	nano::transaction tx_begin_read () override;
 	nano::transaction tx_begin (bool write = false) override;
 
 	void initialize (nano::transaction const &, nano::genesis const &) override;
-	void block_put (nano::transaction const &, nano::block_hash const &, nano::block const &, nano::block_hash const & = nano::block_hash (0), nano::epoch version = nano::epoch::epoch_0) override;
+	void block_put (nano::transaction const &, nano::block_hash const &, nano::block const &, nano::block_sideband const &, nano::epoch version = nano::epoch::epoch_0) override;
+	size_t block_successor_offset (nano::transaction const &, MDB_val, nano::block_type);
 	nano::block_hash block_successor (nano::transaction const &, nano::block_hash const &) override;
 	void block_successor_clear (nano::transaction const &, nano::block_hash const &) override;
-	std::shared_ptr<nano::block> block_get (nano::transaction const &, nano::block_hash const &) override;
+	std::shared_ptr<nano::block> block_get (nano::transaction const &, nano::block_hash const &, nano::block_sideband * = nullptr) override;
 	std::shared_ptr<nano::block> block_random (nano::transaction const &) override;
 	void block_del (nano::transaction const &, nano::block_hash const &) override;
 	bool block_exists (nano::transaction const &, nano::block_hash const &) override;
 	bool block_exists (nano::transaction const &, nano::block_type, nano::block_hash const &) override;
 	nano::block_counts block_count (nano::transaction const &) override;
 	bool root_exists (nano::transaction const &, nano::uint256_union const &) override;
+	bool source_exists (nano::transaction const &, nano::block_hash const &) override;
+	nano::account block_account (nano::transaction const &, nano::block_hash const &) override;
 
 	void frontier_put (nano::transaction const &, nano::block_hash const &, nano::account const &) override;
 	nano::account frontier_get (nano::transaction const &, nano::block_hash const &) override;
@@ -198,13 +205,7 @@ public:
 	nano::store_iterator<nano::pending_key, nano::pending_info> pending_begin (nano::transaction const &) override;
 	nano::store_iterator<nano::pending_key, nano::pending_info> pending_end () override;
 
-	void block_info_put (nano::transaction const &, nano::block_hash const &, nano::block_info const &) override;
-	void block_info_del (nano::transaction const &, nano::block_hash const &) override;
 	bool block_info_get (nano::transaction const &, nano::block_hash const &, nano::block_info &) override;
-	bool block_info_exists (nano::transaction const &, nano::block_hash const &) override;
-	nano::store_iterator<nano::block_hash, nano::block_info> block_info_begin (nano::transaction const &, nano::block_hash const &) override;
-	nano::store_iterator<nano::block_hash, nano::block_info> block_info_begin (nano::transaction const &) override;
-	nano::store_iterator<nano::block_hash, nano::block_info> block_info_end () override;
 	nano::uint128_t block_balance (nano::transaction const &, nano::block_hash const &) override;
 	nano::epoch block_version (nano::transaction const &, nano::block_hash const &) override;
 
@@ -215,19 +216,15 @@ public:
 	nano::store_iterator<nano::account, nano::uint128_union> representation_end () override;
 
 	void unchecked_clear (nano::transaction const &) override;
-	void unchecked_put (nano::transaction const &, nano::unchecked_key const &, std::shared_ptr<nano::block> const &) override;
+	void unchecked_put (nano::transaction const &, nano::unchecked_key const &, nano::unchecked_info const &) override;
 	void unchecked_put (nano::transaction const &, nano::block_hash const &, std::shared_ptr<nano::block> const &) override;
-	std::vector<std::shared_ptr<nano::block>> unchecked_get (nano::transaction const &, nano::block_hash const &) override;
+	std::vector<nano::unchecked_info> unchecked_get (nano::transaction const &, nano::block_hash const &) override;
 	bool unchecked_exists (nano::transaction const &, nano::unchecked_key const &) override;
 	void unchecked_del (nano::transaction const &, nano::unchecked_key const &) override;
-	nano::store_iterator<nano::unchecked_key, std::shared_ptr<nano::block>> unchecked_begin (nano::transaction const &) override;
-	nano::store_iterator<nano::unchecked_key, std::shared_ptr<nano::block>> unchecked_begin (nano::transaction const &, nano::unchecked_key const &) override;
-	nano::store_iterator<nano::unchecked_key, std::shared_ptr<nano::block>> unchecked_end () override;
+	nano::store_iterator<nano::unchecked_key, nano::unchecked_info> unchecked_begin (nano::transaction const &) override;
+	nano::store_iterator<nano::unchecked_key, nano::unchecked_info> unchecked_begin (nano::transaction const &, nano::unchecked_key const &) override;
+	nano::store_iterator<nano::unchecked_key, nano::unchecked_info> unchecked_end () override;
 	size_t unchecked_count (nano::transaction const &) override;
-
-	void checksum_put (nano::transaction const &, uint64_t, uint8_t, nano::checksum const &) override;
-	bool checksum_get (nano::transaction const &, uint64_t, uint8_t, nano::checksum &) override;
-	void checksum_del (nano::transaction const &, uint64_t, uint8_t) override;
 
 	// Return latest vote for an account from store
 	std::shared_ptr<nano::vote> vote_get (nano::transaction const &, nano::account const &) override;
@@ -241,13 +238,20 @@ public:
 	void flush (nano::transaction const &) override;
 	nano::store_iterator<nano::account, std::shared_ptr<nano::vote>> vote_begin (nano::transaction const &) override;
 	nano::store_iterator<nano::account, std::shared_ptr<nano::vote>> vote_end () override;
+
+	void online_weight_put (nano::transaction const &, uint64_t, nano::amount const &) override;
+	void online_weight_del (nano::transaction const &, uint64_t) override;
+	nano::store_iterator<uint64_t, nano::amount> online_weight_begin (nano::transaction const &) override;
+	nano::store_iterator<uint64_t, nano::amount> online_weight_end () override;
+	size_t online_weight_count (nano::transaction const &) const override;
+
 	std::mutex cache_mutex;
 	std::unordered_map<nano::account, std::shared_ptr<nano::vote>> vote_cache_l1;
 	std::unordered_map<nano::account, std::shared_ptr<nano::vote>> vote_cache_l2;
 
 	void version_put (nano::transaction const &, int) override;
 	int version_get (nano::transaction const &) override;
-	void do_upgrades (nano::transaction const &);
+	void do_upgrades (nano::transaction const &, bool &);
 	void upgrade_v1_to_v2 (nano::transaction const &);
 	void upgrade_v2_to_v3 (nano::transaction const &);
 	void upgrade_v3_to_v4 (nano::transaction const &);
@@ -259,12 +263,26 @@ public:
 	void upgrade_v9_to_v10 (nano::transaction const &);
 	void upgrade_v10_to_v11 (nano::transaction const &);
 	void upgrade_v11_to_v12 (nano::transaction const &);
+	void do_slow_upgrades ();
+	void upgrade_v12_to_v13 ();
+	bool full_sideband (nano::transaction const &);
 
 	// Requires a write transaction
 	nano::raw_key get_node_id (nano::transaction const &) override;
 
 	/** Deletes the node ID from the store */
 	void delete_node_id (nano::transaction const &) override;
+
+	void peer_put (nano::transaction const & transaction_a, nano::endpoint_key const & endpoint_a);
+	bool peer_exists (nano::transaction const & transaction_a, nano::endpoint_key const & endpoint_a) const;
+	void peer_del (nano::transaction const & transaction_a, nano::endpoint_key const & endpoint_a);
+	size_t peer_count (nano::transaction const & transaction_a) const;
+	void peer_clear (nano::transaction const & transaction_a);
+
+	nano::store_iterator<nano::endpoint_key, nano::no_value> peers_begin (nano::transaction const & transaction_a);
+	nano::store_iterator<nano::endpoint_key, nano::no_value> peers_end ();
+
+	void stop ();
 
 	nano::logging & logging;
 
@@ -274,111 +292,123 @@ public:
 	 * Maps head block to owning account
 	 * nano::block_hash -> nano::account
 	 */
-	MDB_dbi frontiers;
+	MDB_dbi frontiers{ 0 };
 
 	/**
 	 * Maps account v1 to account information, head, rep, open, balance, timestamp and block count.
 	 * nano::account -> nano::block_hash, nano::block_hash, nano::block_hash, nano::amount, uint64_t, uint64_t
 	 */
-	MDB_dbi accounts_v0;
+	MDB_dbi accounts_v0{ 0 };
 
 	/**
 	 * Maps account v0 to account information, head, rep, open, balance, timestamp and block count.
 	 * nano::account -> nano::block_hash, nano::block_hash, nano::block_hash, nano::amount, uint64_t, uint64_t
 	 */
-	MDB_dbi accounts_v1;
+	MDB_dbi accounts_v1{ 0 };
 
 	/**
 	 * Maps block hash to send block.
 	 * nano::block_hash -> nano::send_block
 	 */
-	MDB_dbi send_blocks;
+	MDB_dbi send_blocks{ 0 };
 
 	/**
 	 * Maps block hash to receive block.
 	 * nano::block_hash -> nano::receive_block
 	 */
-	MDB_dbi receive_blocks;
+	MDB_dbi receive_blocks{ 0 };
 
 	/**
 	 * Maps block hash to open block.
 	 * nano::block_hash -> nano::open_block
 	 */
-	MDB_dbi open_blocks;
+	MDB_dbi open_blocks{ 0 };
 
 	/**
 	 * Maps block hash to change block.
 	 * nano::block_hash -> nano::change_block
 	 */
-	MDB_dbi change_blocks;
+	MDB_dbi change_blocks{ 0 };
 
 	/**
 	 * Maps block hash to v0 state block.
 	 * nano::block_hash -> nano::state_block
 	 */
-	MDB_dbi state_blocks_v0;
+	MDB_dbi state_blocks_v0{ 0 };
 
 	/**
 	 * Maps block hash to v1 state block.
 	 * nano::block_hash -> nano::state_block
 	 */
-	MDB_dbi state_blocks_v1;
+	MDB_dbi state_blocks_v1{ 0 };
 
 	/**
 	 * Maps min_version 0 (destination account, pending block) to (source account, amount).
 	 * nano::account, nano::block_hash -> nano::account, nano::amount
 	 */
-	MDB_dbi pending_v0;
+	MDB_dbi pending_v0{ 0 };
 
 	/**
 	 * Maps min_version 1 (destination account, pending block) to (source account, amount).
 	 * nano::account, nano::block_hash -> nano::account, nano::amount
 	 */
-	MDB_dbi pending_v1;
+	MDB_dbi pending_v1{ 0 };
 
 	/**
 	 * Maps block hash to account and balance.
 	 * block_hash -> nano::account, nano::amount
 	 */
-	MDB_dbi blocks_info;
+	MDB_dbi blocks_info{ 0 };
 
 	/**
 	 * Representative weights.
 	 * nano::account -> nano::uint128_t
 	 */
-	MDB_dbi representation;
+	MDB_dbi representation{ 0 };
 
 	/**
-	 * Unchecked bootstrap blocks.
-	 * nano::block_hash -> nano::block
+	 * Unchecked bootstrap blocks info.
+	 * nano::block_hash -> nano::unchecked_info
 	 */
-	MDB_dbi unchecked;
-
-	/**
-	 * Mapping of region to checksum.
-	 * (uint56_t, uint8_t) -> nano::block_hash
-	 */
-	MDB_dbi checksum;
+	MDB_dbi unchecked{ 0 };
 
 	/**
 	 * Highest vote observed for account.
 	 * nano::account -> uint64_t
 	 */
-	MDB_dbi vote;
+	MDB_dbi vote{ 0 };
+
+	/**
+	 * Samples of online vote weight
+	 * uint64_t -> nano::amount
+	 */
+	MDB_dbi online_weight{ 0 };
 
 	/**
 	 * Meta information about block store, such as versions.
 	 * nano::uint256_union (arbitrary key) -> blob
 	 */
-	MDB_dbi meta;
+	MDB_dbi meta{ 0 };
+
+	/*
+	 * Endpoints for peers
+	 * nano::endpoint_key -> no_value
+	*/
+	MDB_dbi peers{ 0 };
 
 private:
+	bool entry_has_sideband (MDB_val, nano::block_type);
+	nano::account block_account_computed (nano::transaction const &, nano::block_hash const &);
+	nano::uint128_t block_balance_computed (nano::transaction const &, nano::block_hash const &);
 	MDB_dbi block_database (nano::block_type, nano::epoch);
 	template <typename T>
 	std::shared_ptr<nano::block> block_random (nano::transaction const &, MDB_dbi);
 	MDB_val block_raw_get (nano::transaction const &, nano::block_hash const &, nano::block_type &);
+	boost::optional<MDB_val> block_raw_get_by_type (nano::transaction const &, nano::block_hash const &, nano::block_type &);
 	void block_raw_put (nano::transaction const &, MDB_dbi, nano::block_hash const &, MDB_val);
 	void clear (MDB_dbi);
+	bool stopped{ false };
+	std::thread upgrades;
 };
 class wallet_value
 {

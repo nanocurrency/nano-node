@@ -3,6 +3,44 @@
 
 namespace nano
 {
+seq_con_info_composite::seq_con_info_composite (const std::string & name) :
+name (name)
+{
+}
+
+bool seq_con_info_composite::is_composite () const
+{
+	return true;
+}
+
+void seq_con_info_composite::add_component (std::unique_ptr<seq_con_info_component> child)
+{
+	children.push_back (std::move (child));
+}
+
+const std::vector<std::unique_ptr<seq_con_info_component>> & seq_con_info_composite::get_children () const
+{
+	return children;
+}
+
+const std::string & seq_con_info_composite::get_name () const
+{
+	return name;
+}
+
+seq_con_info_leaf::seq_con_info_leaf (const seq_con_info & info) :
+info (info)
+{
+}
+bool seq_con_info_leaf::is_composite () const
+{
+	return false;
+}
+const seq_con_info & seq_con_info_leaf::get_info () const
+{
+	return info;
+}
+
 namespace thread_role
 {
 	/*
@@ -11,12 +49,12 @@ namespace thread_role
 	 * Manage thread role
 	 */
 	static thread_local nano::thread_role::name current_thread_role = nano::thread_role::name::unknown;
-	nano::thread_role::name get (void)
+	nano::thread_role::name get ()
 	{
 		return current_thread_role;
 	}
 
-	void set (nano::thread_role::name role)
+	static std::string get_string (nano::thread_role::name role)
 	{
 		std::string thread_role_name_string;
 
@@ -43,8 +81,8 @@ namespace thread_role
 			case nano::thread_role::name::block_processing:
 				thread_role_name_string = "Blck processing";
 				break;
-			case nano::thread_role::name::announce_loop:
-				thread_role_name_string = "Announce loop";
+			case nano::thread_role::name::request_loop:
+				thread_role_name_string = "Request loop";
 				break;
 			case nano::thread_role::name::wallet_actions:
 				thread_role_name_string = "Wallet actions";
@@ -58,6 +96,9 @@ namespace thread_role
 			case nano::thread_role::name::signature_checking:
 				thread_role_name_string = "Signature check";
 				break;
+			case nano::thread_role::name::slow_db_upgrade:
+				thread_role_name_string = "Slow db upgrade";
+				break;
 		}
 
 		/*
@@ -67,8 +108,19 @@ namespace thread_role
 		 * (specifically, Linux)
 		 */
 		assert (thread_role_name_string.size () < 16);
+		return (thread_role_name_string);
+	}
 
-		nano::thread_role::set_name (thread_role_name_string);
+	std::string get_string ()
+	{
+		return get_string (current_thread_role);
+	}
+
+	void set (nano::thread_role::name role)
+	{
+		auto thread_role_name_string (get_string (role));
+
+		nano::thread_role::set_os_name (thread_role_name_string);
 
 		nano::thread_role::current_thread_role = role;
 	}

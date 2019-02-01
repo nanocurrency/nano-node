@@ -39,7 +39,7 @@ opencl (opencl_a)
 	static_assert (ATOMIC_INT_LOCK_FREE == 2, "Atomic int needed");
 	boost::thread::attributes attrs;
 	nano::thread_attributes::set (attrs);
-	auto count (nano::nano_network == nano::nano_networks::nano_test_network ? 1 : std::min (max_threads_a, std::max (1u, boost::thread::hardware_concurrency ())));
+	auto count (nano::is_test_network ? 1 : std::min (max_threads_a, std::max (1u, boost::thread::hardware_concurrency ())));
 	for (auto i (0); i < count; ++i)
 	{
 		auto thread (boost::thread (attrs, [this, i]() {
@@ -192,4 +192,22 @@ uint64_t nano::work_pool::generate (nano::uint256_union const & hash_a, uint64_t
 	difficulty_a);
 	auto result (work.get_future ().get ());
 	return result.value ();
+}
+
+namespace nano
+{
+std::unique_ptr<seq_con_info_component> collect_seq_con_info (work_pool & work_pool, const std::string & name)
+{
+	auto composite = std::make_unique<seq_con_info_composite> (name);
+
+	size_t count = 0;
+	{
+		std::lock_guard<std::mutex> (work_pool.mutex);
+		count = work_pool.pending.size ();
+	}
+	auto sizeof_element = sizeof (decltype (work_pool.pending)::value_type);
+	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "pending", count, sizeof_element }));
+	composite->add_component (collect_seq_con_info (work_pool.work_observers, "work_observers"));
+	return composite;
+}
 }

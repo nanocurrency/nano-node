@@ -20,6 +20,8 @@ std::string nano::error_common_messages::message (int ev) const
 			return "Missing signature";
 		case nano::error_common::missing_work:
 			return "Missing work";
+		case nano::error_common::exception:
+			return "Exception thrown";
 		case nano::error_common::account_exists:
 			return "Account already exists";
 		case nano::error_common::account_not_found:
@@ -66,6 +68,8 @@ std::string nano::error_common_messages::message (int ev) const
 			return "Invalid port";
 		case nano::error_common::invalid_index:
 			return "Invalid index";
+		case nano::error_common::invalid_type_conversion:
+			return "Invalid type conversion";
 		case nano::error_common::invalid_work:
 			return "Invalid work";
 		case nano::error_common::numeric_conversion:
@@ -154,12 +158,16 @@ std::string nano::error_rpc_messages::message (int ev) const
 			return "Invalid root hash";
 		case nano::error_rpc::invalid_sources:
 			return "Invalid sources number";
+		case nano::error_rpc::invalid_timestamp:
+			return "Invalid timestamp";
 		case nano::error_rpc::payment_account_balance:
 			return "Account has non-zero balance";
 		case nano::error_rpc::payment_unable_create_account:
 			return "Unable to create transaction account";
 		case nano::error_rpc::rpc_control_disabled:
 			return "RPC control is disabled";
+		case nano::error_rpc::sign_hash_disabled:
+			return "Signing by block hash is disabled";
 		case nano::error_rpc::source_not_found:
 			return "Source not found";
 	}
@@ -195,6 +203,21 @@ std::string nano::error_process_messages::message (int ev) const
 			return "This block cannot follow the previous block";
 		case nano::error_process::other:
 			return "Error processing block";
+	}
+
+	return "Invalid error code";
+}
+
+std::string nano::error_config_messages::message (int ev) const
+{
+	switch (static_cast<nano::error_config> (ev))
+	{
+		case nano::error_config::generic:
+			return "Unknown error";
+		case nano::error_config::invalid_value:
+			return "Invalid configuration value";
+		case nano::error_config::missing_value:
+			return "Missing value in configuration";
 	}
 
 	return "Invalid error code";

@@ -7,7 +7,7 @@
 
 #include <bitset>
 
-#include <xxhash/xxhash.h>
+#include <crypto/xxhash/xxhash.h>
 
 namespace nano
 {
@@ -27,12 +27,27 @@ uint64_t endpoint_hash_raw (nano::endpoint const & endpoint_a)
 	assert (endpoint_a.address ().is_v6 ());
 	nano::uint128_union address;
 	address.bytes = endpoint_a.address ().to_v6 ().to_bytes ();
-	XXH64_state_t hash;
-	XXH64_reset (&hash, 0);
-	XXH64_update (&hash, address.bytes.data (), address.bytes.size ());
+	XXH64_state_t * const state = XXH64_createState ();
+	XXH64_reset (state, 0);
+	XXH64_update (state, address.bytes.data (), address.bytes.size ());
 	auto port (endpoint_a.port ());
-	XXH64_update (&hash, &port, sizeof (port));
-	auto result (XXH64_digest (&hash));
+	XXH64_update (state, &port, sizeof (port));
+	auto result (XXH64_digest (state));
+	XXH64_freeState (state);
+	return result;
+}
+uint64_t endpoint_hash_raw (nano::tcp_endpoint const & endpoint_a)
+{
+	assert (endpoint_a.address ().is_v6 ());
+	nano::uint128_union address;
+	address.bytes = endpoint_a.address ().to_v6 ().to_bytes ();
+	XXH64_state_t * const state = XXH64_createState ();
+	XXH64_reset (state, 0);
+	XXH64_update (state, address.bytes.data (), address.bytes.size ());
+	auto port (endpoint_a.port ());
+	XXH64_update (state, &port, sizeof (port));
+	auto result (XXH64_digest (state));
+	XXH64_freeState (state);
 	return result;
 }
 uint64_t ip_address_hash_raw (boost::asio::ip::address const & ip_a)
@@ -40,10 +55,7 @@ uint64_t ip_address_hash_raw (boost::asio::ip::address const & ip_a)
 	assert (ip_a.is_v6 ());
 	nano::uint128_union bytes;
 	bytes.bytes = ip_a.to_v6 ().to_bytes ();
-	XXH64_state_t hash;
-	XXH64_reset (&hash, 0);
-	XXH64_update (&hash, bytes.bytes.data (), bytes.bytes.size ());
-	auto result (XXH64_digest (&hash));
+	auto result (XXH64 (bytes.bytes.data (), bytes.bytes.size (), 0));
 	return result;
 }
 
@@ -58,6 +70,10 @@ struct endpoint_hash<8>
 	{
 		return endpoint_hash_raw (endpoint_a);
 	}
+	size_t operator() (nano::tcp_endpoint const & endpoint_a) const
+	{
+		return endpoint_hash_raw (endpoint_a);
+	}
 };
 template <>
 struct endpoint_hash<4>
@@ -68,18 +84,11 @@ struct endpoint_hash<4>
 		uint32_t result (static_cast<uint32_t> (big) ^ static_cast<uint32_t> (big >> 32));
 		return result;
 	}
-};
-}
-
-namespace std
-{
-template <>
-struct hash<::nano::endpoint>
-{
-	size_t operator() (::nano::endpoint const & endpoint_a) const
+	size_t operator() (nano::tcp_endpoint const & endpoint_a) const
 	{
-		endpoint_hash<sizeof (size_t)> ehash;
-		return ehash (endpoint_a);
+		uint64_t big (endpoint_hash_raw (endpoint_a));
+		uint32_t result (static_cast<uint32_t> (big) ^ static_cast<uint32_t> (big >> 32));
+		return result;
 	}
 };
 template <size_t size>
@@ -102,6 +111,28 @@ struct ip_address_hash<4>
 		uint64_t big (ip_address_hash_raw (ip_address_a));
 		uint32_t result (static_cast<uint32_t> (big) ^ static_cast<uint32_t> (big >> 32));
 		return result;
+	}
+};
+}
+
+namespace std
+{
+template <>
+struct hash<::nano::endpoint>
+{
+	size_t operator() (::nano::endpoint const & endpoint_a) const
+	{
+		endpoint_hash<sizeof (size_t)> ehash;
+		return ehash (endpoint_a);
+	}
+};
+template <>
+struct hash<::nano::tcp_endpoint>
+{
+	size_t operator() (::nano::tcp_endpoint const & endpoint_a) const
+	{
+		endpoint_hash<sizeof (size_t)> ehash;
+		return ehash (endpoint_a);
 	}
 };
 template <>
@@ -144,14 +175,9 @@ enum class message_type : uint8_t
 	bulk_pull = 0x6,
 	bulk_push = 0x7,
 	frontier_req = 0x8,
-	bulk_pull_blocks = 0x9,
+	/* deleted 0x9 */
 	node_id_handshake = 0x0a,
 	bulk_pull_account = 0x0b
-};
-enum class bulk_pull_blocks_mode : uint8_t
-{
-	list_blocks,
-	checksum_blocks
 };
 enum class bulk_pull_account_flags : uint8_t
 {
@@ -169,27 +195,25 @@ public:
 	bool deserialize (nano::stream &);
 	nano::block_type block_type () const;
 	void block_type_set (nano::block_type);
-	static std::array<uint8_t, 2> constexpr magic_number = nano::nano_network == nano::nano_networks::nano_test_network ? std::array<uint8_t, 2>{ { 'R', 'A' } } : nano::nano_network == nano::nano_networks::nano_beta_network ? std::array<uint8_t, 2>{ { 'R', 'B' } } : std::array<uint8_t, 2>{ { 'R', 'C' } };
+	static std::array<uint8_t, 2> constexpr magic_number = nano::is_test_network ? std::array<uint8_t, 2>{ { 'R', 'A' } } : nano::is_beta_network ? std::array<uint8_t, 2>{ { 'R', 'B' } } : std::array<uint8_t, 2>{ { 'R', 'C' } };
 	uint8_t version_max;
 	uint8_t version_using;
 	uint8_t version_min;
 	nano::message_type type;
 	std::bitset<16> extensions;
-	//static size_t constexpr ipv4_only_position = 1;  // Not in use, deprecated, was conflicting
-	//static size_t constexpr bootstrap_server_position = 2;  // Not in use, deprecated
-	/*
-	 * A better approach might be to return the size of the message
-	 * payload based on the header
-	 */
+
 	static size_t constexpr bulk_pull_count_present_flag = 0;
 	bool bulk_pull_is_count_present () const;
 
+	/** Size of the payload in bytes. For some messages, the payload size is based on header flags. */
+	size_t payload_length_bytes () const;
+
 	static std::bitset<16> constexpr block_type_mask = std::bitset<16> (0x0f00);
-	inline bool valid_magic () const
+	bool valid_magic () const
 	{
 		return magic_number[0] == 'R' && magic_number[1] >= 'A' && magic_number[1] <= 'C';
 	}
-	inline bool valid_network () const
+	bool valid_network () const
 	{
 		return (magic_number[1] - 'A') == static_cast<int> (nano::nano_network);
 	}
@@ -202,7 +226,7 @@ public:
 	virtual ~message () = default;
 	virtual void serialize (nano::stream &) const = 0;
 	virtual void visit (nano::message_visitor &) const = 0;
-	virtual inline std::shared_ptr<std::vector<uint8_t>> to_bytes () const
+	virtual std::shared_ptr<std::vector<uint8_t>> to_bytes () const
 	{
 		std::shared_ptr<std::vector<uint8_t>> bytes (new std::vector<uint8_t>);
 		nano::vectorstream stream (*bytes);
@@ -273,11 +297,15 @@ class confirm_req : public message
 public:
 	confirm_req (bool &, nano::stream &, nano::message_header const &, nano::block_uniquer * = nullptr);
 	confirm_req (std::shared_ptr<nano::block>);
+	confirm_req (std::vector<std::pair<nano::block_hash, nano::block_hash>> const &);
+	confirm_req (nano::block_hash const &, nano::block_hash const &);
 	bool deserialize (nano::stream &, nano::block_uniquer * = nullptr);
 	void serialize (nano::stream &) const override;
 	void visit (nano::message_visitor &) const override;
 	bool operator== (nano::confirm_req const &) const;
 	std::shared_ptr<nano::block> block;
+	std::vector<std::pair<nano::block_hash, nano::block_hash>> roots_hashes;
+	std::string roots_string () const;
 };
 class confirm_ack : public message
 {
@@ -302,6 +330,7 @@ public:
 	nano::account start;
 	uint32_t age;
 	uint32_t count;
+	static size_t constexpr size = sizeof (start) + sizeof (age) + sizeof (count);
 };
 class bulk_pull : public message
 {
@@ -319,6 +348,7 @@ public:
 	void set_count_present (bool);
 	static size_t constexpr count_present_flag = nano::message_header::bulk_pull_count_present_flag;
 	static size_t constexpr extended_parameters_size = 8;
+	static size_t constexpr size = sizeof (start) + sizeof (end);
 };
 class bulk_pull_account : public message
 {
@@ -331,19 +361,7 @@ public:
 	nano::uint256_union account;
 	nano::uint128_union minimum_amount;
 	bulk_pull_account_flags flags;
-};
-class bulk_pull_blocks : public message
-{
-public:
-	bulk_pull_blocks ();
-	bulk_pull_blocks (bool &, nano::stream &, nano::message_header const &);
-	bool deserialize (nano::stream &);
-	void serialize (nano::stream &) const override;
-	void visit (nano::message_visitor &) const override;
-	nano::block_hash min_hash;
-	nano::block_hash max_hash;
-	bulk_pull_blocks_mode mode;
-	uint32_t max_count;
+	static size_t constexpr size = sizeof (account) + sizeof (minimum_amount) + sizeof (bulk_pull_account_flags);
 };
 class bulk_push : public message
 {
@@ -381,7 +399,6 @@ public:
 	virtual void confirm_ack (nano::confirm_ack const &) = 0;
 	virtual void bulk_pull (nano::bulk_pull const &) = 0;
 	virtual void bulk_pull_account (nano::bulk_pull_account const &) = 0;
-	virtual void bulk_pull_blocks (nano::bulk_pull_blocks const &) = 0;
 	virtual void bulk_push (nano::bulk_push const &) = 0;
 	virtual void frontier_req (nano::frontier_req const &) = 0;
 	virtual void node_id_handshake (nano::node_id_handshake const &) = 0;
