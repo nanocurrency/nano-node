@@ -130,7 +130,7 @@ void nano::rpc::accept ()
 {
 	auto connection (std::make_shared<nano::rpc_connection> (node, *this));
 	acceptor.async_accept (connection->socket, [this, connection](boost::system::error_code const & ec) {
-		if (acceptor.is_open () && ec != boost::asio::error::operation_aborted)
+		if (ec != boost::asio::error::operation_aborted && acceptor.is_open ())
 		{
 			accept ();
 		}
