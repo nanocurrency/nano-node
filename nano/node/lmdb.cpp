@@ -743,7 +743,7 @@ nano::store_iterator<nano::account, std::shared_ptr<nano::vote>> nano::mdb_store
 	return nano::store_iterator<nano::account, std::shared_ptr<nano::vote>> (nullptr);
 }
 
-nano::mdb_store::mdb_store (bool & error_a, nano::logging & logging_a, boost::filesystem::path const & path_a, int lmdb_max_dbs, bool drop_unchecked) :
+nano::mdb_store::mdb_store (bool & error_a, nano::logging & logging_a, boost::filesystem::path const & path_a, int lmdb_max_dbs, bool drop_unchecked, size_t const batch_size) :
 logging (logging_a),
 env (error_a, path_a, lmdb_max_dbs)
 {
@@ -783,9 +783,9 @@ env (error_a, path_a, lmdb_max_dbs)
 	}
 	if (slow_upgrade)
 	{
-		upgrades = std::thread ([this]() {
+		upgrades = std::thread ([this, batch_size]() {
 			nano::thread_role::set (nano::thread_role::name::slow_db_upgrade);
-			do_slow_upgrades ();
+			do_slow_upgrades (batch_size);
 		});
 	}
 }
@@ -1162,7 +1162,7 @@ void nano::mdb_store::upgrade_v10_to_v11 (nano::transaction const & transaction_
 	mdb_drop (env.tx (transaction_a), unsynced, 1);
 }
 
-void nano::mdb_store::do_slow_upgrades ()
+void nano::mdb_store::do_slow_upgrades (size_t const batch_size)
 {
 	int version;
 	{
@@ -1185,7 +1185,7 @@ void nano::mdb_store::do_slow_upgrades ()
 		case 11:
 			break;
 		case 12:
-			upgrade_v12_to_v13 ();
+			upgrade_v12_to_v13 (batch_size);
 			break;
 		case 13:
 			break;
@@ -1205,10 +1205,9 @@ void nano::mdb_store::upgrade_v11_to_v12 (nano::transaction const & transaction_
 	mdb_drop (env.tx (transaction_a), checksum, 1);
 }
 
-void nano::mdb_store::upgrade_v12_to_v13 ()
+void nano::mdb_store::upgrade_v12_to_v13 (size_t const batch_size)
 {
 	size_t cost (0);
-	size_t const max (16384);
 	nano::account account (0);
 	auto transaction (tx_begin_write ());
 	while (!stopped && account != nano::not_an_account)
@@ -1230,7 +1229,7 @@ void nano::mdb_store::upgrade_v12_to_v13 ()
 			nano::block_sideband sideband;
 			while (!stopped && !hash.is_zero ())
 			{
-				if (cost >= max)
+				if (cost >= batch_size)
 				{
 					BOOST_LOG (logging.log) << boost::str (boost::format ("Upgrading sideband information for account %1%... height %2%") % first.to_account ().substr (0, 24) % std::to_string (height));
 					auto tx (boost::polymorphic_downcast<nano::mdb_txn *> (transaction.impl.get ()));

@@ -2055,12 +2055,13 @@ node (init_a, io_ctx_a, application_path_a, alarm_a, nano::node_config (peering_
 {
 }
 
-nano::node::node (nano::node_init & init_a, boost::asio::io_context & io_ctx_a, boost::filesystem::path const & application_path_a, nano::alarm & alarm_a, nano::node_config const & config_a, nano::work_pool & work_a, bool drop_unchecked) :
+nano::node::node (nano::node_init & init_a, boost::asio::io_context & io_ctx_a, boost::filesystem::path const & application_path_a, nano::alarm & alarm_a, nano::node_config const & config_a, nano::work_pool & work_a, nano::node_flags flags_a) :
 io_ctx (io_ctx_a),
 config (config_a),
 alarm (alarm_a),
 work (work_a),
-store_impl (std::make_unique<nano::mdb_store> (init_a.block_store_init, config.logging, application_path_a / "data.ldb", config_a.lmdb_max_dbs, drop_unchecked)),
+flags (flags_a),
+store_impl (std::make_unique<nano::mdb_store> (init_a.block_store_init, config.logging, application_path_a / "data.ldb", config_a.lmdb_max_dbs, !flags.disable_unchecked_drop, flags.sideband_batch_size)),
 store (*store_impl),
 wallets_store_impl (std::make_unique<nano::mdb_wallets_store> (init_a.wallets_store_init, application_path_a / "wallets.ldb", config_a.lmdb_max_dbs)),
 wallets_store (*wallets_store_impl),

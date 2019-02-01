@@ -70,6 +70,8 @@ public:
 	bool disable_wallet_bootstrap;
 	bool disable_bootstrap_listener;
 	bool disable_unchecked_cleaning;
+	bool disable_unchecked_drop;
 	bool fast_bootstrap;
+	size_t sideband_batch_size;
 };
 }
