@@ -130,10 +130,6 @@ include_directories (${CMAKE_SOURCE_DIR})
 set(Boost_USE_STATIC_LIBS        ON)
 set(Boost_USE_MULTITHREADED      ON)
 
-if (BOOST_ROOT)
-	list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/Modules")
-endif ()
-
 find_package (Boost 1.66.0 REQUIRED COMPONENTS filesystem log thread program_options)
 
 add_subdirectory(crypto/ed25519-donna)
