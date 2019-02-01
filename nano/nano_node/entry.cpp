@@ -79,16 +79,6 @@ int main (int argc, char * const * argv)
 		}
 	}
 
-	size_t batch_size;
-	if (vm.count ("batch_size"))
-	{
-		batch_size = (vm["batch_size"].as<size_t> ());
-	}
-	else
-	{
-		batch_size = 512;
-	}
-
 	boost::filesystem::path data_path ((data_path_it != vm.end ()) ? data_path_it->second.as<std::string> () : nano::working_path ());
 	auto ec = nano::handle_node_options (vm);
 	if (ec == nano::error_cli::unknown_command)
@@ -97,6 +87,11 @@ int main (int argc, char * const * argv)
 		{
 			nano_daemon::daemon daemon;
 			nano::node_flags flags;
+			auto batch_size_it = vm.find ("batch_size");
+			if (batch_size_it != vm.end ())
+			{
+				flags.sideband_batch_size = batch_size_it->second.as<size_t> ();
+			}
 			flags.disable_backup = (vm.count ("disable_backup") > 0);
 			flags.disable_lazy_bootstrap = (vm.count ("disable_lazy_bootstrap") > 0);
 			flags.disable_legacy_bootstrap = (vm.count ("disable_legacy_bootstrap") > 0);
@@ -104,7 +99,6 @@ int main (int argc, char * const * argv)
 			flags.disable_bootstrap_listener = (vm.count ("disable_bootstrap_listener") > 0);
 			flags.disable_unchecked_cleaning = (vm.count ("disable_unchecked_cleaning") > 0);
 			flags.fast_bootstrap = (vm.count ("fast_bootstrap") > 0);
-			flags.sideband_batch_size = batch_size;
 			daemon.run (data_path, flags);
 		}
 		else if (vm.count ("debug_block_count"))
