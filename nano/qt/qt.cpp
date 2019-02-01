@@ -73,11 +73,11 @@ wallet (wallet_a)
 {
 	your_account_label->setStyleSheet ("font-weight: bold;");
 	std::string network = "Live";
-	if (nano::nano_network == nano::nano_networks::nano_beta_network)
+	if (nano::is_beta_network)
 	{
 		network = "Beta";
 	}
-	else if (nano::nano_network == nano::nano_networks::nano_test_network)
+	else if (nano::is_test_network)
 	{
 		network = "Test";
 	}
