@@ -359,10 +359,10 @@ int main (int argc, char * const * argv)
 						data_path = nano::working_path ();
 					}
 					nano::node_flags flags;
-					auto batch_size_it = vm.find("batch_size"); 
-					if (batch_size_it != vm.end ()) 
-					{ 
-						flags.sideband_batch_size = batch_size_it->second.as<size_t> (); 
+					auto batch_size_it = vm.find ("batch_size");
+					if (batch_size_it != vm.end ())
+					{
+						flags.sideband_batch_size = batch_size_it->second.as<size_t> ();
 					}
 					flags.disable_backup = (vm.count ("disable_backup") > 0);
 					flags.disable_lazy_bootstrap = (vm.count ("disable_lazy_bootstrap") > 0);
