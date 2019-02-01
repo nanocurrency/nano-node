@@ -134,7 +134,7 @@ if (BOOST_ROOT)
 	list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/Modules")
 endif ()
 
-find_package (Boost 1.66.0 REQUIRED COMPONENTS filesystem log thread program_options)
+find_package (Boost 1.66.0 REQUIRED COMPONENTS filesystem log thread program_options system)
 
 add_subdirectory(crypto/ed25519-donna)
 
