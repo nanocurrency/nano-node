@@ -709,7 +709,7 @@ void nano::rpc_handler::account_representative_set ()
 				bool generate_work (work == 0); // Disable work generation if "work" option is provided
 				auto response_a (response);
 				// clang-format off
-                wallet->change_async (account, representative, [response_a](std::shared_ptr<nano::block> block) {
+				wallet->change_async (account, representative, [response_a](std::shared_ptr<nano::block> block) {
 					nano::block_hash hash (0);
 					if (block != nullptr)
 					{
