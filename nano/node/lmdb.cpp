@@ -1208,7 +1208,7 @@ void nano::mdb_store::upgrade_v11_to_v12 (nano::transaction const & transaction_
 void nano::mdb_store::upgrade_v12_to_v13 ()
 {
 	size_t cost (0);
-	size_t const max (16384);
+	size_t const max (512);
 	nano::account account (0);
 	auto transaction (tx_begin_write ());
 	while (!stopped && account != nano::not_an_account)
