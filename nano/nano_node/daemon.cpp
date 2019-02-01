@@ -133,10 +133,9 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 		nano::node_init init;
 		try
 		{
-			auto node (std::make_shared<nano::node> (init, io_ctx, data_path, alarm, config.node, opencl_work, true));
+			auto node (std::make_shared<nano::node> (init, io_ctx, data_path, alarm, config.node, opencl_work, flags));
 			if (!init.error ())
 			{
-				node->flags = flags;
 				node->start ();
 				std::unique_ptr<nano::rpc> rpc = get_rpc (io_ctx, *node, config.rpc);
 				if (rpc)

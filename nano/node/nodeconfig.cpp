@@ -399,6 +399,7 @@ disable_legacy_bootstrap (false),
 disable_wallet_bootstrap (false),
 disable_bootstrap_listener (false),
 disable_unchecked_cleaning (false),
+disable_unchecked_drop (true),
 fast_bootstrap (false),
 sideband_batch_size (512)
 {
