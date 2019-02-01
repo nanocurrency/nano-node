@@ -59,8 +59,8 @@ public:
 	nano_test_genesis (test_genesis_data),
 	nano_beta_genesis (beta_genesis_data),
 	nano_live_genesis (live_genesis_data),
-	genesis_account (nano::nano_network == nano::nano_networks::nano_test_network ? nano_test_account : nano::nano_network == nano::nano_networks::nano_beta_network ? nano_beta_account : nano_live_account),
-	genesis_block (nano::nano_network == nano::nano_networks::nano_test_network ? nano_test_genesis : nano::nano_network == nano::nano_networks::nano_beta_network ? nano_beta_genesis : nano_live_genesis),
+	genesis_account (nano::is_test_network ? nano_test_account : nano::is_beta_network ? nano_beta_account : nano_live_account),
+	genesis_block (nano::is_test_network ? nano_test_genesis : nano::is_beta_network ? nano_beta_genesis : nano_live_genesis),
 	genesis_amount (std::numeric_limits<nano::uint128_t>::max ()),
 	burn_account (0)
 	{

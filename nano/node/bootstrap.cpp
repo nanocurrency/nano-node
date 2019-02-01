@@ -1255,6 +1255,7 @@ void nano::bootstrap_attempt::populate_connections ()
 				client->run ();
 				std::lock_guard<std::mutex> lock (mutex);
 				clients.push_back (client);
+				endpoints.insert (endpoint);
 			}
 			else if (connections == 0)
 			{

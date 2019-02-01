@@ -53,6 +53,7 @@ class votes_cache
 public:
 	void add (std::shared_ptr<nano::vote> const &);
 	std::vector<std::shared_ptr<nano::vote>> find (nano::block_hash const &);
+	void remove (nano::block_hash const &);
 
 private:
 	std::mutex cache_mutex;
@@ -62,7 +63,7 @@ private:
 	boost::multi_index::ordered_non_unique<boost::multi_index::member<nano::cached_votes, std::chrono::steady_clock::time_point, &nano::cached_votes::time>>,
 	boost::multi_index::hashed_unique<boost::multi_index::member<nano::cached_votes, nano::block_hash, &nano::cached_votes::hash>>>>
 	cache;
-	static size_t constexpr max_cache = (nano::nano_network == nano::nano_networks::nano_test_network) ? 2 : 1000;
+	static size_t constexpr max_cache = (nano::is_test_network) ? 2 : 1000;
 
 	friend std::unique_ptr<seq_con_info_component> collect_seq_con_info (votes_cache & votes_cache, const std::string & name);
 };

@@ -195,7 +195,7 @@ public:
 	bool deserialize (nano::stream &);
 	nano::block_type block_type () const;
 	void block_type_set (nano::block_type);
-	static std::array<uint8_t, 2> constexpr magic_number = nano::nano_network == nano::nano_networks::nano_test_network ? std::array<uint8_t, 2>{ { 'R', 'A' } } : nano::nano_network == nano::nano_networks::nano_beta_network ? std::array<uint8_t, 2>{ { 'R', 'B' } } : std::array<uint8_t, 2>{ { 'R', 'C' } };
+	static std::array<uint8_t, 2> constexpr magic_number = nano::is_test_network ? std::array<uint8_t, 2>{ { 'R', 'A' } } : nano::is_beta_network ? std::array<uint8_t, 2>{ { 'R', 'B' } } : std::array<uint8_t, 2>{ { 'R', 'C' } };
 	uint8_t version_max;
 	uint8_t version_using;
 	uint8_t version_min;

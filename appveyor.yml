@@ -19,7 +19,7 @@ install:
 
 
 
-- ps: Invoke-WebRequest -Uri https://download.microsoft.com/download/5/7/b/57b2947c-7221-4f33-b35e-2fc78cb10df4/vc_redist.x64.exe -OutFile .\vc_redist.x64.exe
+- ps: Invoke-WebRequest -Uri https://aka.ms/vs/15/release/vc_redist.x64.exe -OutFile .\vc_redist.x64.exe
 build:
   project: INSTALL.vcxproj
   parallel: true
@@ -28,7 +28,7 @@ after_build:
 - cmd: >-
     cpack -NSIS --verbose
 
-    7z a nano.zip %APPVEYOR_BUILD_FOLDER%\Release\*.exe
+    7z a nano.zip %APPVEYOR_BUILD_FOLDER%\Release\*.exe %APPVEYOR_BUILD_FOLDER%\Release\*.com
 artifacts:
 - path: nano.zip
   name: nano_release_%network%

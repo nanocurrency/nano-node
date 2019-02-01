@@ -334,6 +334,22 @@ void nano::network::confirm_hashes (nano::transaction const & transaction_a, nan
 	}
 }
 
+bool nano::network::send_votes_cache (nano::block_hash const & hash_a, nano::endpoint const & peer_a)
+{
+	// Search in cache
+	auto votes (node.votes_cache.find (hash_a));
+	// Send from cache
+	for (auto & vote : votes)
+	{
+		nano::confirm_ack confirm (vote);
+		auto vote_bytes = confirm.to_bytes ();
+		confirm_send (confirm, vote_bytes, peer_a);
+	}
+	// Returns true if votes were sent
+	bool result (!votes.empty ());
+	return result;
+}
+
 void nano::network::republish_block (std::shared_ptr<nano::block> block)
 {
 	auto hash (block->hash ());
@@ -650,41 +666,31 @@ public:
 		node.stats.inc (nano::stat::type::message, nano::stat::detail::confirm_req, nano::stat::dir::in);
 		node.peers.contacted (sender, message_a.header.version_using);
 		// Don't load nodes with disabled voting
-		if (node.config.enable_voting)
+		if (node.config.enable_voting && node.wallets.reps_count)
 		{
-			auto transaction (node.store.tx_begin_read ());
 			if (message_a.block != nullptr)
 			{
-				auto successor (node.ledger.successor (transaction, nano::uint512_union (message_a.block->previous (), message_a.block->root ())));
-				if (successor != nullptr)
+				auto hash (message_a.block->hash ());
+				if (!node.network.send_votes_cache (hash, sender))
 				{
-					auto same_block (successor->hash () == message_a.block->hash ());
-					confirm_block (transaction, node, sender, std::move (successor), !same_block);
+					auto transaction (node.store.tx_begin_read ());
+					auto successor (node.ledger.successor (transaction, nano::uint512_union (message_a.block->previous (), message_a.block->root ())));
+					if (successor != nullptr)
+					{
+						auto same_block (successor->hash () == hash);
+						confirm_block (transaction, node, sender, std::move (successor), !same_block);
+					}
 				}
 			}
 			else if (!message_a.roots_hashes.empty ())
 			{
+				auto transaction (node.store.tx_begin_read ());
 				std::vector<nano::block_hash> blocks_bundle;
 				for (auto & root_hash : message_a.roots_hashes)
 				{
-					if (node.store.block_exists (transaction, root_hash.first))
+					if (!node.network.send_votes_cache (root_hash.first, sender) && node.store.block_exists (transaction, root_hash.first))
 					{
-						// Search in cache
-						auto votes (node.votes_cache.find (root_hash.first));
-						if (votes.empty ())
-						{
-							blocks_bundle.push_back (root_hash.first);
-						}
-						else
-						{
-							// Send from cache
-							for (auto & vote : votes)
-							{
-								nano::confirm_ack confirm (vote);
-								auto vote_bytes = confirm.to_bytes ();
-								node.network.confirm_send (confirm, vote_bytes, sender);
-							}
-						}
+						blocks_bundle.push_back (root_hash.first);
 					}
 					else
 					{
@@ -701,21 +707,9 @@ public:
 						}
 						if (!successor.is_zero ())
 						{
-							// Search in cache
-							auto votes (node.votes_cache.find (successor));
-							if (votes.empty ())
+							if (!node.network.send_votes_cache (successor, sender))
 							{
 								blocks_bundle.push_back (successor);
-							}
-							else
-							{
-								// Send from cache
-								for (auto & vote : votes)
-								{
-									nano::confirm_ack confirm (vote);
-									auto vote_bytes = confirm.to_bytes ();
-									node.network.confirm_send (confirm, vote_bytes, sender);
-								}
 							}
 							auto successor_block (node.store.block_get (transaction, successor));
 							assert (successor_block != nullptr);
@@ -1090,7 +1084,7 @@ void nano::vote_processor::vote (std::shared_ptr<nano::vote> vote_a, nano::endpo
 		/* Random early delection levels
 		Always process votes for test network (process = true)
 		Stop processing with max 144 * 1024 votes */
-		if (nano::nano_network != nano::nano_networks::nano_test_network)
+		if (!nano::is_test_network)
 		{
 			// Level 0 (< 0.1%)
 			if (votes.size () < 96 * 1024)
@@ -1521,7 +1515,7 @@ void nano::signature_checker::set_thread_names (unsigned num_threads)
 }
 
 nano::block_processor::block_processor (nano::node & node_a) :
-generator (node_a, nano::nano_network == nano::nano_networks::nano_test_network ? std::chrono::milliseconds (10) : std::chrono::milliseconds (500)),
+generator (node_a, nano::is_test_network ? std::chrono::milliseconds (10) : std::chrono::milliseconds (500)),
 stopped (false),
 active (false),
 next_log (std::chrono::steady_clock::now ()),
@@ -1811,7 +1805,9 @@ void nano::block_processor::process_batch (std::unique_lock<std::mutex> & lock_a
 			{
 				// Replace our block with the winner and roll back any dependent blocks
 				BOOST_LOG (node.log) << boost::str (boost::format ("Rolling back %1% and replacing with %2%") % successor->hash ().to_string () % hash.to_string ());
-				node.ledger.rollback (transaction, successor->hash ());
+				std::vector<nano::block_hash> rollback_list;
+				node.ledger.rollback (transaction, successor->hash (), rollback_list);
+				BOOST_LOG (node.log) << boost::str (boost::format ("%1% blocks rolled back") % rollback_list.size ());
 				lock_a.lock ();
 				// Prevent rolled back blocks second insertion
 				auto inserted (rolled_back.insert (nano::rolled_hash{ std::chrono::steady_clock::now (), successor->hash () }));
@@ -1826,6 +1822,11 @@ void nano::block_processor::process_batch (std::unique_lock<std::mutex> & lock_a
 					}
 				}
 				lock_a.unlock ();
+				// Deleting from votes cache
+				for (auto & i : rollback_list)
+				{
+					node.votes_cache.remove (i);
+				}
 			}
 		}
 		number_of_blocks_processed++;
@@ -2459,7 +2460,7 @@ void nano::gap_cache::vote (std::shared_ptr<nano::vote> vote_a)
 				{
 					auto node_l (node.shared ());
 					auto now (std::chrono::steady_clock::now ());
-					node.alarm.add (nano::nano_network == nano::nano_networks::nano_test_network ? now + std::chrono::milliseconds (5) : now + std::chrono::seconds (5), [node_l, hash]() {
+					node.alarm.add (nano::is_test_network ? now + std::chrono::milliseconds (5) : now + std::chrono::seconds (5), [node_l, hash]() {
 						auto transaction (node_l->store.tx_begin_read ());
 						if (!node_l->store.block_exists (transaction, hash))
 						{
@@ -3795,7 +3796,7 @@ nano::election_vote_result nano::election::vote (nano::account rep, uint64_t seq
 	auto supply (node.online_reps.online_stake ());
 	auto weight (node.ledger.weight (transaction, rep));
 	auto should_process (false);
-	if (nano::nano_network == nano::nano_networks::nano_test_network || weight > supply / 1000) // 0.1% or above
+	if (nano::is_test_network || weight > supply / 1000) // 0.1% or above
 	{
 		unsigned int cooldown;
 		if (weight < supply / 100) // 0.1% to 1%
@@ -3961,7 +3962,7 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 				/* Escalation for long unconfirmed elections
 				Start new elections for previous block & source
 				if there are less than 100 active elections */
-				if (i->election->announcements % announcement_long == 1 && roots_size < 100 && nano::nano_network != nano::nano_networks::nano_test_network)
+				if (i->election->announcements % announcement_long == 1 && roots_size < 100 && !nano::is_test_network)
 				{
 					std::shared_ptr<nano::block> previous;
 					auto previous_hash (election_l->status.winner->previous ());
@@ -4046,7 +4047,7 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 				if ((!reps->empty () && total_weight > node.config.online_weight_minimum.number ()) || roots_size > 5)
 				{
 					// broadcast_confirm_req_base modifies reps, so we clone it once to avoid aliasing
-					if (nano::nano_network != nano::nano_networks::nano_test_network)
+					if (!nano::is_test_network)
 					{
 						if (confirm_req_bundle.size () < max_broadcast_queue)
 						{
@@ -4077,7 +4078,7 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 				}
 				else
 				{
-					if (nano::nano_network != nano::nano_networks::nano_test_network)
+					if (!nano::is_test_network)
 					{
 						confirm_req_bundle.push_back (std::make_pair (i->election->status.winner, std::make_shared<std::vector<nano::peer_information>> (node.peers.list_vector (100))));
 					}

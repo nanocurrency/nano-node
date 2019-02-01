@@ -1757,10 +1757,18 @@ TEST (rpc, version)
 		ASSERT_EQ (boost::str (boost::format ("Nano %1%") % NANO_MAJOR_MINOR_RC_VERSION), response1.json.get<std::string> ("node_vendor"));
 	}
 	auto headers (response1.resp.base ());
-	auto allowed_origin (headers.at ("Access-Control-Allow-Origin"));
-	auto allowed_headers (headers.at ("Access-Control-Allow-Headers"));
-	ASSERT_EQ ("*", allowed_origin);
-	ASSERT_EQ ("Accept, Accept-Language, Content-Language, Content-Type", allowed_headers);
+	auto allow (headers.at ("Allow"));
+	auto content_type (headers.at ("Content-Type"));
+	auto access_control_allow_origin (headers.at ("Access-Control-Allow-Origin"));
+	auto access_control_allow_methods (headers.at ("Access-Control-Allow-Methods"));
+	auto access_control_allow_headers (headers.at ("Access-Control-Allow-Headers"));
+	auto connection (headers.at ("Connection"));
+	ASSERT_EQ ("POST, OPTIONS", allow);
+	ASSERT_EQ ("application/json", content_type);
+	ASSERT_EQ ("*", access_control_allow_origin);
+	ASSERT_EQ (allow, access_control_allow_methods);
+	ASSERT_EQ ("Accept, Accept-Language, Content-Language, Content-Type", access_control_allow_headers);
+	ASSERT_EQ ("close", connection);
 }
 
 TEST (rpc, work_generate)

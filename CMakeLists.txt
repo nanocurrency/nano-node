@@ -135,7 +135,7 @@ if (BOOST_ROOT)
 	list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/Modules")
 endif ()
 
-find_package (Boost 1.66.0 REQUIRED COMPONENTS filesystem log thread program_options)
+find_package (Boost 1.66.0 REQUIRED COMPONENTS filesystem log thread program_options system)
 
 add_subdirectory(crypto/ed25519-donna)
 
@@ -351,6 +351,12 @@ if (NANO_GUI OR RAIBLOCKS_GUI)
 
 	if (WIN32)
 		target_link_libraries (nano_wallet Qt5::WinExtras)
+		# nano_wallet.com executable for Windows console
+		add_executable(nano_wallet_com
+			nano/nano_wallet/entry_com.cpp)
+		target_link_libraries (nano_wallet_com
+			node)
+		set_target_properties (nano_wallet_com PROPERTIES COMPILE_FLAGS "-DBOOST_ASIO_HAS_STD_ARRAY=1" OUTPUT_NAME "nano_wallet" SUFFIX ".com")
 	endif()
 
 	add_executable (qt_system
@@ -400,6 +406,7 @@ if (NANO_GUI OR RAIBLOCKS_GUI)
 		get_target_property (Qt5WindowsPlugin Qt5::QWindowsIntegrationPlugin LOCATION)
 		get_filename_component (Qt5_bin_DIR ${Qt5_DIR}/../../../bin ABSOLUTE)
 		install (TARGETS nano_wallet DESTINATION .)
+		install (TARGETS nano_wallet_com DESTINATION .)
 		install (FILES ${CMAKE_CURRENT_BINARY_DIR}/${WIN_REDIST} DESTINATION .)
 		install (FILES ${Qt5_bin_DIR}/libGLESv2.dll DESTINATION .)
 		install (FILES ${Qt5_bin_DIR}/Qt5Core.dll DESTINATION .)

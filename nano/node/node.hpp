@@ -136,7 +136,7 @@ public:
 	static unsigned constexpr announcement_min = 2;
 	// Threshold to start logging blocks haven't yet been confirmed
 	static unsigned constexpr announcement_long = 20;
-	static unsigned constexpr request_interval_ms = (nano::nano_network == nano::nano_networks::nano_test_network) ? 10 : 16000;
+	static unsigned constexpr request_interval_ms = nano::is_test_network ? 10 : 16000;
 	static size_t constexpr election_history_size = 2048;
 	static size_t constexpr max_broadcast_queue = 1000;
 
@@ -338,6 +338,7 @@ public:
 	void send_confirm_req (nano::endpoint const &, std::shared_ptr<nano::block>);
 	void send_confirm_req_hashes (nano::endpoint const &, std::vector<std::pair<nano::block_hash, nano::block_hash>> const &);
 	void confirm_hashes (nano::transaction const &, nano::endpoint const &, std::vector<nano::block_hash>);
+	bool send_votes_cache (nano::block_hash const &, nano::endpoint const &);
 	void send_buffer (uint8_t const *, size_t, nano::endpoint const &, std::function<void(boost::system::error_code const &, size_t)>);
 	nano::endpoint endpoint ();
 	nano::udp_buffer buffer_container;
@@ -615,15 +616,15 @@ public:
 	const std::chrono::steady_clock::time_point startup_time;
 	static double constexpr price_max = 16.0;
 	static double constexpr free_cutoff = 1024.0;
-	static std::chrono::seconds constexpr period = (nano::nano_network == nano::nano_networks::nano_test_network) ? std::chrono::seconds (1) : std::chrono::seconds (60);
+	static std::chrono::seconds constexpr period = nano::is_test_network ? std::chrono::seconds (1) : std::chrono::seconds (60);
 	static std::chrono::seconds constexpr cutoff = period * 5;
 	static std::chrono::seconds constexpr syn_cookie_cutoff = std::chrono::seconds (5);
 	static std::chrono::minutes constexpr backup_interval = std::chrono::minutes (5);
-	static std::chrono::seconds constexpr search_pending_interval = (nano::nano_network == nano::nano_networks::nano_test_network) ? std::chrono::seconds (1) : std::chrono::seconds (5 * 60);
+	static std::chrono::seconds constexpr search_pending_interval = nano::is_test_network ? std::chrono::seconds (1) : std::chrono::seconds (5 * 60);
 	static std::chrono::seconds constexpr peer_interval = search_pending_interval;
 	static std::chrono::hours constexpr unchecked_cleaning_interval = std::chrono::hours (2);
 	std::chrono::seconds unchecked_cutoff = std::chrono::seconds (7 * 24 * 60 * 60); // Week
-	static std::chrono::milliseconds constexpr process_confirmed_interval = (nano::nano_network == nano::nano_networks::nano_test_network) ? std::chrono::milliseconds (50) : std::chrono::milliseconds (500);
+	static std::chrono::milliseconds constexpr process_confirmed_interval = nano::is_test_network ? std::chrono::milliseconds (50) : std::chrono::milliseconds (500);
 };
 
 std::unique_ptr<seq_con_info_component> collect_seq_con_info (node & node, const std::string & name);

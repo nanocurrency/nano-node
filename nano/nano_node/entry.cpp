@@ -388,7 +388,7 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_profile_process"))
 		{
-			if (nano::nano_network == nano::nano_networks::nano_test_network)
+			if (nano::is_test_network)
 			{
 				nano::block_builder builder;
 				size_t num_accounts (100000);
@@ -505,7 +505,7 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_profile_votes"))
 		{
-			if (nano::nano_network == nano::nano_networks::nano_test_network)
+			if (nano::is_test_network)
 			{
 				nano::block_builder builder;
 				size_t num_elections (40000);
