@@ -11,9 +11,10 @@ namespace
 class rollback_visitor : public nano::block_visitor
 {
 public:
-	rollback_visitor (nano::transaction const & transaction_a, nano::ledger & ledger_a) :
+	rollback_visitor (nano::transaction const & transaction_a, nano::ledger & ledger_a, std::vector<nano::block_hash> & list_a) :
 	transaction (transaction_a),
-	ledger (ledger_a)
+	ledger (ledger_a),
+	list (list_a)
 	{
 	}
 	virtual ~rollback_visitor () = default;
@@ -24,7 +25,7 @@ public:
 		nano::pending_key key (block_a.hashables.destination, hash);
 		while (ledger.store.pending_get (transaction, key, pending))
 		{
-			ledger.rollback (transaction, ledger.latest (transaction, block_a.hashables.destination));
+			ledger.rollback (transaction, ledger.latest (transaction, block_a.hashables.destination), list);
 		}
 		nano::account_info info;
 		auto error (ledger.store.account_get (transaction, pending.source, info));
@@ -114,7 +115,7 @@ public:
 			nano::pending_key key (block_a.hashables.link, hash);
 			while (!ledger.store.pending_exists (transaction, key))
 			{
-				ledger.rollback (transaction, ledger.latest (transaction, block_a.hashables.link));
+				ledger.rollback (transaction, ledger.latest (transaction, block_a.hashables.link), list);
 			}
 			ledger.store.pending_del (transaction, key);
 			ledger.stats.inc (nano::stat::type::rollback, nano::stat::detail::send);
@@ -148,6 +149,7 @@ public:
 	}
 	nano::transaction const & transaction;
 	nano::ledger & ledger;
+	std::vector<nano::block_hash> & list;
 };
 
 class ledger_processor : public nano::block_visitor
@@ -824,19 +826,26 @@ nano::uint128_t nano::ledger::weight (nano::transaction const & transaction_a, n
 }
 
 // Rollback blocks until `block_a' doesn't exist
-void nano::ledger::rollback (nano::transaction const & transaction_a, nano::block_hash const & block_a)
+void nano::ledger::rollback (nano::transaction const & transaction_a, nano::block_hash const & block_a, std::vector<nano::block_hash> & list_a)
 {
 	assert (store.block_exists (transaction_a, block_a));
 	auto account_l (account (transaction_a, block_a));
-	rollback_visitor rollback (transaction_a, *this);
+	rollback_visitor rollback (transaction_a, *this, list_a);
 	nano::account_info info;
 	while (store.block_exists (transaction_a, block_a))
 	{
 		auto latest_error (store.account_get (transaction_a, account_l, info));
 		assert (!latest_error);
 		auto block (store.block_get (transaction_a, info.head));
+		list_a.push_back (info.head);
 		block->visit (rollback);
 	}
+}
+
+void nano::ledger::rollback (nano::transaction const & transaction_a, nano::block_hash const & block_a)
+{
+	std::vector<nano::block_hash> rollback_list;
+	rollback (transaction_a, block_a, rollback_list);
 }
 
 // Return account containing hash

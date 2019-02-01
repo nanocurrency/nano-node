@@ -141,6 +141,12 @@ std::vector<std::shared_ptr<nano::vote>> nano::votes_cache::find (nano::block_ha
 	return result;
 }
 
+void nano::votes_cache::remove (nano::block_hash const & hash_a)
+{
+	std::lock_guard<std::mutex> lock (cache_mutex);
+	cache.get<1> ().erase (hash_a);
+}
+
 namespace nano
 {
 std::unique_ptr<seq_con_info_component> collect_seq_con_info (vote_generator & vote_generator, const std::string & name)

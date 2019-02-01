@@ -334,6 +334,22 @@ void nano::network::confirm_hashes (nano::transaction const & transaction_a, nan
 	}
 }
 
+bool nano::network::send_votes_cache (nano::block_hash const & hash_a, nano::endpoint const & peer_a)
+{
+	// Search in cache
+	auto votes (node.votes_cache.find (hash_a));
+	// Send from cache
+	for (auto & vote : votes)
+	{
+		nano::confirm_ack confirm (vote);
+		auto vote_bytes = confirm.to_bytes ();
+		confirm_send (confirm, vote_bytes, peer_a);
+	}
+	// Returns true if votes were sent
+	bool result (!votes.empty ());
+	return result;
+}
+
 void nano::network::republish_block (std::shared_ptr<nano::block> block)
 {
 	auto hash (block->hash ());
@@ -650,41 +666,31 @@ public:
 		node.stats.inc (nano::stat::type::message, nano::stat::detail::confirm_req, nano::stat::dir::in);
 		node.peers.contacted (sender, message_a.header.version_using);
 		// Don't load nodes with disabled voting
-		if (node.config.enable_voting)
+		if (node.config.enable_voting && node.wallets.reps_count)
 		{
-			auto transaction (node.store.tx_begin_read ());
 			if (message_a.block != nullptr)
 			{
-				auto successor (node.ledger.successor (transaction, nano::uint512_union (message_a.block->previous (), message_a.block->root ())));
-				if (successor != nullptr)
+				auto hash (message_a.block->hash ());
+				if (!node.network.send_votes_cache (hash, sender))
 				{
-					auto same_block (successor->hash () == message_a.block->hash ());
-					confirm_block (transaction, node, sender, std::move (successor), !same_block);
+					auto transaction (node.store.tx_begin_read ());
+					auto successor (node.ledger.successor (transaction, nano::uint512_union (message_a.block->previous (), message_a.block->root ())));
+					if (successor != nullptr)
+					{
+						auto same_block (successor->hash () == hash);
+						confirm_block (transaction, node, sender, std::move (successor), !same_block);
+					}
 				}
 			}
 			else if (!message_a.roots_hashes.empty ())
 			{
+				auto transaction (node.store.tx_begin_read ());
 				std::vector<nano::block_hash> blocks_bundle;
 				for (auto & root_hash : message_a.roots_hashes)
 				{
-					if (node.store.block_exists (transaction, root_hash.first))
+					if (!node.network.send_votes_cache (root_hash.first, sender) && node.store.block_exists (transaction, root_hash.first))
 					{
-						// Search in cache
-						auto votes (node.votes_cache.find (root_hash.first));
-						if (votes.empty ())
-						{
-							blocks_bundle.push_back (root_hash.first);
-						}
-						else
-						{
-							// Send from cache
-							for (auto & vote : votes)
-							{
-								nano::confirm_ack confirm (vote);
-								auto vote_bytes = confirm.to_bytes ();
-								node.network.confirm_send (confirm, vote_bytes, sender);
-							}
-						}
+						blocks_bundle.push_back (root_hash.first);
 					}
 					else
 					{
@@ -701,21 +707,9 @@ public:
 						}
 						if (!successor.is_zero ())
 						{
-							// Search in cache
-							auto votes (node.votes_cache.find (successor));
-							if (votes.empty ())
+							if (!node.network.send_votes_cache (successor, sender))
 							{
 								blocks_bundle.push_back (successor);
-							}
-							else
-							{
-								// Send from cache
-								for (auto & vote : votes)
-								{
-									nano::confirm_ack confirm (vote);
-									auto vote_bytes = confirm.to_bytes ();
-									node.network.confirm_send (confirm, vote_bytes, sender);
-								}
 							}
 							auto successor_block (node.store.block_get (transaction, successor));
 							assert (successor_block != nullptr);
@@ -1811,7 +1805,9 @@ void nano::block_processor::process_batch (std::unique_lock<std::mutex> & lock_a
 			{
 				// Replace our block with the winner and roll back any dependent blocks
 				BOOST_LOG (node.log) << boost::str (boost::format ("Rolling back %1% and replacing with %2%") % successor->hash ().to_string () % hash.to_string ());
-				node.ledger.rollback (transaction, successor->hash ());
+				std::vector<nano::block_hash> rollback_list;
+				node.ledger.rollback (transaction, successor->hash (), rollback_list);
+				BOOST_LOG (node.log) << boost::str (boost::format ("%1% blocks rolled back") % rollback_list.size ());
 				lock_a.lock ();
 				// Prevent rolled back blocks second insertion
 				auto inserted (rolled_back.insert (nano::rolled_hash{ std::chrono::steady_clock::now (), successor->hash () }));
@@ -1826,6 +1822,11 @@ void nano::block_processor::process_batch (std::unique_lock<std::mutex> & lock_a
 					}
 				}
 				lock_a.unlock ();
+				// Deleting from votes cache
+				for (auto & i : rollback_list)
+				{
+					node.votes_cache.remove (i);
+				}
 			}
 		}
 		number_of_blocks_processed++;
