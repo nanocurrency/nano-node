@@ -71,5 +71,6 @@ public:
 	bool disable_bootstrap_listener;
 	bool disable_unchecked_cleaning;
 	bool fast_bootstrap;
+	size_t sideband_batch_size;
 };
 }

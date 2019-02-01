@@ -150,7 +150,7 @@ class mdb_store : public block_store
 	friend class nano::block_predecessor_set;
 
 public:
-	mdb_store (bool &, nano::logging &, boost::filesystem::path const &, int lmdb_max_dbs = 128, bool drop_unchecked = false);
+	mdb_store (bool &, nano::logging &, boost::filesystem::path const &, int lmdb_max_dbs = 128, bool drop_unchecked = false, size_t batch_size = 512);
 	~mdb_store ();
 
 	nano::transaction tx_begin_write () override;
@@ -263,8 +263,8 @@ public:
 	void upgrade_v9_to_v10 (nano::transaction const &);
 	void upgrade_v10_to_v11 (nano::transaction const &);
 	void upgrade_v11_to_v12 (nano::transaction const &);
-	void do_slow_upgrades ();
-	void upgrade_v12_to_v13 ();
+	void do_slow_upgrades (size_t const);
+	void upgrade_v12_to_v13 (size_t const);
 	bool full_sideband (nano::transaction const &);
 
 	// Requires a write transaction

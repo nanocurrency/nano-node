@@ -30,6 +30,7 @@ int main (int argc, char * const * argv)
 		("disable_bootstrap_listener", "Disables bootstrap listener (incoming connections)")
 		("disable_unchecked_cleaning", "Disables periodic cleaning of old records from unchecked table")
 		("fast_bootstrap", "Increase bootstrap speed for high end nodes with higher limits")
+		("batch_size",boost::program_options::value<std::size_t> (), "Increase sideband batch size, default 512")
 		("debug_block_count", "Display the number of block")
 		("debug_bootstrap_generate", "Generate bootstrap sequence of blocks")
 		("debug_dump_representatives", "List representatives and weights")
@@ -78,9 +79,18 @@ int main (int argc, char * const * argv)
 		}
 	}
 
+	size_t batch_size;
+	if (vm.count ("batch_size"))
+	{
+		batch_size = (vm["batch_size"].as<size_t> ());
+	}
+	else
+	{
+		batch_size = 512;
+	}
+
 	boost::filesystem::path data_path ((data_path_it != vm.end ()) ? data_path_it->second.as<std::string> () : nano::working_path ());
 	auto ec = nano::handle_node_options (vm);
-
 	if (ec == nano::error_cli::unknown_command)
 	{
 		if (vm.count ("daemon") > 0)
@@ -94,6 +104,7 @@ int main (int argc, char * const * argv)
 			flags.disable_bootstrap_listener = (vm.count ("disable_bootstrap_listener") > 0);
 			flags.disable_unchecked_cleaning = (vm.count ("disable_unchecked_cleaning") > 0);
 			flags.fast_bootstrap = (vm.count ("fast_bootstrap") > 0);
+			flags.sideband_batch_size = batch_size;
 			daemon.run (data_path, flags);
 		}
 		else if (vm.count ("debug_block_count"))
