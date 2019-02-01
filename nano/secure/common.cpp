@@ -744,9 +744,11 @@ std::shared_ptr<nano::vote> nano::vote_uniquer::unique (std::shared_ptr<nano::vo
 		{
 			existing = vote_a;
 		}
+
+		release_assert (std::numeric_limits<CryptoPP::word32>::max () > votes.size ());
 		for (auto i (0); i < cleanup_count && votes.size () > 0; ++i)
 		{
-			auto random_offset (nano::random_pool.GenerateWord32 (0, votes.size () - 1));
+			auto random_offset (nano::random_pool.GenerateWord32 (0, static_cast<CryptoPP::word32> (votes.size () - 1)));
 			auto existing (std::next (votes.begin (), random_offset));
 			if (existing == votes.end ())
 			{

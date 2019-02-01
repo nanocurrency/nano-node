@@ -708,6 +708,7 @@ void nano::rpc_handler::account_representative_set ()
 			{
 				bool generate_work (work == 0); // Disable work generation if "work" option is provided
 				auto response_a (response);
+				// clang-format off
 				wallet->change_async (account, representative, [response_a](std::shared_ptr<nano::block> block) {
 					nano::block_hash hash (0);
 					if (block != nullptr)
@@ -719,6 +720,7 @@ void nano::rpc_handler::account_representative_set ()
 					response_a (response_l);
 				},
 				work, generate_work);
+				// clang-format on
 			}
 		}
 		else
@@ -2614,6 +2616,7 @@ void nano::rpc_handler::receive ()
 					{
 						bool generate_work (work == 0); // Disable work generation if "work" option is provided
 						auto response_a (response);
+						// clang-format off
 						wallet->receive_async (std::move (block), account, nano::genesis_amount, [response_a](std::shared_ptr<nano::block> block_a) {
 							nano::uint256_union hash_a (0);
 							if (block_a != nullptr)
@@ -2625,6 +2628,7 @@ void nano::rpc_handler::receive ()
 							response_a (response_l);
 						},
 						work, generate_work);
+						// clang-format on
 					}
 				}
 				else
@@ -2962,6 +2966,7 @@ void nano::rpc_handler::send ()
 					boost::optional<std::string> send_id (request.get_optional<std::string> ("id"));
 					auto rpc_l (shared_from_this ());
 					auto response_a (response);
+					// clang-format off
 					wallet->send_async (source, destination, amount.number (), [balance, amount, response_a](std::shared_ptr<nano::block> block_a) {
 						if (block_a != nullptr)
 						{
@@ -2984,6 +2989,7 @@ void nano::rpc_handler::send ()
 						}
 					},
 					work, generate_work, send_id);
+					// clang-format on
 				}
 			}
 			else
@@ -3404,7 +3410,7 @@ void nano::rpc_handler::wallet_change_seed ()
 		nano::raw_key seed;
 		if (!seed.data.decode_hex (seed_text))
 		{
-			auto count (count_optional_impl (0));
+			auto count (static_cast<uint32_t> (count_optional_impl (0)));
 			auto transaction (node.wallets.tx_begin_write ());
 			if (wallet->store.valid_password (transaction))
 			{
@@ -3806,7 +3812,9 @@ void nano::rpc_handler::wallet_representative_set ()
 				}
 				for (auto & account : accounts)
 				{
+					// clang-format off
 					wallet->change_async (account, representative, [](std::shared_ptr<nano::block>) {}, 0, false);
+					// clang-format on
 				}
 			}
 		}

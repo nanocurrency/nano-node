@@ -549,7 +549,7 @@ void nano::confirm_req::serialize (nano::stream & stream_a) const
 		assert (!roots_hashes.empty ());
 		// Calculate size
 		assert (roots_hashes.size () <= 32);
-		uint8_t count (roots_hashes.size ());
+		auto count = static_cast<uint8_t> (roots_hashes.size ());
 		write (stream_a, count);
 		// Write hashes & roots
 		for (auto & root_hash : roots_hashes)
@@ -963,12 +963,10 @@ nano::message_visitor::~message_visitor ()
 
 bool nano::parse_port (std::string const & string_a, uint16_t & port_a)
 {
-	bool result;
-	size_t converted;
+	bool result = false;
 	try
 	{
-		port_a = std::stoul (string_a, &converted);
-		result = converted != string_a.size () || converted > std::numeric_limits<uint16_t>::max ();
+		port_a = boost::lexical_cast<uint16_t> (string_a);
 	}
 	catch (...)
 	{

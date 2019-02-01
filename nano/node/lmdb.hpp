@@ -273,14 +273,14 @@ public:
 	/** Deletes the node ID from the store */
 	void delete_node_id (nano::transaction const &) override;
 
-	void peer_put (nano::transaction const & transaction_a, nano::endpoint_key const & endpoint_a);
-	bool peer_exists (nano::transaction const & transaction_a, nano::endpoint_key const & endpoint_a) const;
-	void peer_del (nano::transaction const & transaction_a, nano::endpoint_key const & endpoint_a);
-	size_t peer_count (nano::transaction const & transaction_a) const;
-	void peer_clear (nano::transaction const & transaction_a);
+	void peer_put (nano::transaction const & transaction_a, nano::endpoint_key const & endpoint_a) override;
+	bool peer_exists (nano::transaction const & transaction_a, nano::endpoint_key const & endpoint_a) const override;
+	void peer_del (nano::transaction const & transaction_a, nano::endpoint_key const & endpoint_a) override;
+	size_t peer_count (nano::transaction const & transaction_a) const override;
+	void peer_clear (nano::transaction const & transaction_a) override;
 
-	nano::store_iterator<nano::endpoint_key, nano::no_value> peers_begin (nano::transaction const & transaction_a);
-	nano::store_iterator<nano::endpoint_key, nano::no_value> peers_end ();
+	nano::store_iterator<nano::endpoint_key, nano::no_value> peers_begin (nano::transaction const & transaction_a) override;
+	nano::store_iterator<nano::endpoint_key, nano::no_value> peers_end () override;
 
 	void stop ();
 

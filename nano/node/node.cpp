@@ -268,7 +268,7 @@ bool confirm_block (nano::transaction const & transaction_a, nano::node & node_a
 		if (votes.empty ())
 		{
 			// Generate new vote
-			node_a.wallets.foreach_representative (transaction_a, [&result, &block_a, &list_a, &node_a, &transaction_a, &hash](nano::public_key const & pub_a, nano::raw_key const & prv_a) {
+			node_a.wallets.foreach_representative (transaction_a, [&result, &list_a, &node_a, &transaction_a, &hash](nano::public_key const & pub_a, nano::raw_key const & prv_a) {
 				result = true;
 				auto vote (node_a.store.vote_generate (transaction_a, pub_a, prv_a, std::vector<nano::block_hash> (1, hash)));
 				nano::confirm_ack confirm (vote);
@@ -1515,11 +1515,11 @@ void nano::signature_checker::set_thread_names (unsigned num_threads)
 }
 
 nano::block_processor::block_processor (nano::node & node_a) :
+generator (node_a, nano::is_test_network ? std::chrono::milliseconds (10) : std::chrono::milliseconds (500)),
 stopped (false),
 active (false),
 next_log (std::chrono::steady_clock::now ()),
-node (node_a),
-generator (node_a, nano::is_test_network ? std::chrono::milliseconds (10) : std::chrono::milliseconds (500))
+node (node_a)
 {
 }
 
@@ -3110,10 +3110,12 @@ public:
 				if (node->config.work_threads != 0 || node->work.opencl)
 				{
 					auto callback_l (callback);
+					// clang-format off
 					node->work.generate (root, [callback_l](boost::optional<uint64_t> const & work_a) {
 						callback_l (work_a.value ());
 					},
 					difficulty);
+					// clang-format on
 				}
 				else
 				{
@@ -3171,11 +3173,14 @@ void nano::node::work_generate (nano::uint256_union const & hash_a, std::functio
 uint64_t nano::node::work_generate_blocking (nano::uint256_union const & hash_a, uint64_t difficulty_a)
 {
 	std::promise<uint64_t> promise;
+	std::future<uint64_t> future = promise.get_future ();
+	// clang-format off
 	work_generate (hash_a, [&promise](uint64_t work_a) {
 		promise.set_value (work_a);
 	},
 	difficulty_a);
-	return promise.get_future ().get ();
+	// clang-format on
+	return future.get ();
 }
 
 void nano::node::add_initial_peers ()

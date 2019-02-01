@@ -22,6 +22,7 @@ peering_port (peering_port_a),
 logging (logging_a),
 bootstrap_fraction_numerator (1),
 receive_minimum (nano::xrb_ratio),
+vote_minimum (nano::Gxrb_ratio),
 online_weight_minimum (60000 * nano::Gxrb_ratio),
 online_weight_quorum (50),
 password_fanout (1024),
@@ -35,8 +36,7 @@ bootstrap_connections_max (64),
 callback_port (0),
 lmdb_max_dbs (128),
 allow_local_peers (false),
-block_processor_batch_max_time (std::chrono::milliseconds (5000)),
-vote_minimum (nano::Gxrb_ratio)
+block_processor_batch_max_time (std::chrono::milliseconds (5000))
 {
 	const char * epoch_message ("epoch v1 block");
 	strncpy ((char *)epoch_block_link.bytes.data (), epoch_message, epoch_block_link.bytes.size ());
@@ -387,7 +387,7 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 nano::account nano::node_config::random_representative ()
 {
 	assert (preconfigured_representatives.size () > 0);
-	size_t index (nano::random_pool.GenerateWord32 (0, preconfigured_representatives.size () - 1));
+	size_t index (nano::random_pool.GenerateWord32 (0, static_cast<CryptoPP::word32> (preconfigured_representatives.size () - 1)));
 	auto result (preconfigured_representatives[index]);
 	return result;
 }

@@ -107,7 +107,7 @@ char * xrb_sign_transaction (const char * transaction, const xrb_uint256 private
 			strncpy (result, json.c_str (), json.size () + 1);
 		}
 	}
-	catch (std::runtime_error const & err)
+	catch (std::runtime_error const &)
 	{
 	}
 	return result;
@@ -133,7 +133,7 @@ char * xrb_work_transaction (const char * transaction)
 			strncpy (result, json.c_str (), json.size () + 1);
 		}
 	}
-	catch (std::runtime_error const & err)
+	catch (std::runtime_error const &)
 	{
 	}
 	return result;

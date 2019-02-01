@@ -97,7 +97,7 @@ void nano::socket::checkup ()
 	node->alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (10), [this_w]() {
 		if (auto this_l = this_w.lock ())
 		{
-			if (this_l->cutoff != std::numeric_limits<uint64_t>::max () && this_l->cutoff < std::chrono::steady_clock::now ().time_since_epoch ().count ())
+			if (this_l->cutoff != std::numeric_limits<uint64_t>::max () && this_l->cutoff < static_cast<uint64_t> (std::chrono::steady_clock::now ().time_since_epoch ().count ()))
 			{
 				if (this_l->node->config.logging.bulk_pull_logging ())
 				{
@@ -420,8 +420,8 @@ void nano::frontier_req_client::next (nano::transaction const & transaction_a)
 
 nano::bulk_pull_client::bulk_pull_client (std::shared_ptr<nano::bootstrap_client> connection_a, nano::pull_info const & pull_a) :
 connection (connection_a),
-pull (pull_a),
 known_account (0),
+pull (pull_a),
 total_blocks (0),
 unexpected_count (0)
 {
@@ -1053,10 +1053,14 @@ void nano::bootstrap_attempt::run ()
 		frontier_failure = request_frontier (lock);
 	}
 	// Shuffle pulls.
-	for (int i = pulls.size () - 1; i > 0; i--)
+	release_assert (std::numeric_limits<CryptoPP::word32>::max () > pulls.size ());
+	if (!pulls.empty ())
 	{
-		auto k = nano::random_pool.GenerateWord32 (0, i);
-		std::swap (pulls[i], pulls[k]);
+		for (auto i = static_cast<CryptoPP::word32> (pulls.size () - 1); i > 0; --i)
+		{
+			auto k = nano::random_pool.GenerateWord32 (0, i);
+			std::swap (pulls[i], pulls[k]);
+		}
 	}
 	while (still_pulling ())
 	{
@@ -1241,7 +1245,7 @@ void nano::bootstrap_attempt::populate_connections ()
 		auto delta = std::min ((target - connections) * 2, bootstrap_max_new_connections);
 		// TODO - tune this better
 		// Not many peers respond, need to try to make more connections than we need.
-		for (int i = 0; i < delta; i++)
+		for (auto i = 0u; i < delta; i++)
 		{
 			auto peer (node->peers.bootstrap_peer ());
 			auto endpoint (nano::tcp_endpoint (peer.address (), peer.port ()));
@@ -1923,10 +1927,10 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (bootstrap_initiato
 
 nano::bootstrap_listener::bootstrap_listener (boost::asio::io_context & io_ctx_a, uint16_t port_a, nano::node & node_a) :
 acceptor (io_ctx_a),
-defer_acceptor (io_ctx_a),
 local (boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v6::any (), port_a)),
 io_ctx (io_ctx_a),
-node (node_a)
+node (node_a),
+defer_acceptor (io_ctx_a)
 {
 }
 

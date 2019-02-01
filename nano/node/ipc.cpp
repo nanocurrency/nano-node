@@ -107,7 +107,7 @@ public:
 	{
 		if (timeout_a < std::chrono::seconds::max ())
 		{
-			io_timer.expires_from_now (boost::posix_time::seconds (timeout_a.count ()));
+			io_timer.expires_from_now (boost::posix_time::seconds (static_cast<long> (timeout_a.count ())));
 			io_timer.async_wait ([this](const boost::system::error_code & ec) {
 				if (!ec)
 				{
@@ -645,7 +645,7 @@ std::shared_ptr<std::vector<uint8_t>> nano::ipc::ipc_client::prepare_request (na
 		buffer_l->push_back (0);
 		buffer_l->push_back (0);
 
-		uint32_t payload_length = payload_a.size ();
+		auto payload_length = static_cast<uint32_t> (payload_a.size ());
 		uint32_t be = boost::endian::native_to_big (payload_length);
 		char * chars = reinterpret_cast<char *> (&be);
 		buffer_l->insert (buffer_l->end (), chars, chars + sizeof (uint32_t));

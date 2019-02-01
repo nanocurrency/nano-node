@@ -1483,7 +1483,8 @@ std::shared_ptr<nano::block> nano::mdb_store::block_random (nano::transaction co
 std::shared_ptr<nano::block> nano::mdb_store::block_random (nano::transaction const & transaction_a)
 {
 	auto count (block_count (transaction_a));
-	auto region (nano::random_pool.GenerateWord32 (0, count.sum () - 1));
+	release_assert (std::numeric_limits<CryptoPP::word32>::max () > count.sum ());
+	auto region = static_cast<size_t> (nano::random_pool.GenerateWord32 (0, static_cast<CryptoPP::word32> (count.sum () - 1)));
 	std::shared_ptr<nano::block> result;
 	if (region < count.send)
 	{
