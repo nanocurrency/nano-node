@@ -1208,7 +1208,6 @@ void nano::mdb_store::upgrade_v11_to_v12 (nano::transaction const & transaction_
 void nano::mdb_store::upgrade_v12_to_v13 (size_t const batch_size)
 {
 	size_t cost (0);
-	size_t const max (batch_size);
 	nano::account account (0);
 	auto transaction (tx_begin_write ());
 	while (!stopped && account != nano::not_an_account)
@@ -1230,7 +1229,7 @@ void nano::mdb_store::upgrade_v12_to_v13 (size_t const batch_size)
 			nano::block_sideband sideband;
 			while (!stopped && !hash.is_zero ())
 			{
-				if (cost >= max)
+				if (cost >= batch_size)
 				{
 					BOOST_LOG (logging.log) << boost::str (boost::format ("Upgrading sideband information for account %1%... height %2%") % first.to_account ().substr (0, 24) % std::to_string (height));
 					auto tx (boost::polymorphic_downcast<nano::mdb_txn *> (transaction.impl.get ()));
