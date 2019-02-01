@@ -20,7 +20,7 @@ void nano::port_mapping::start ()
 
 void nano::port_mapping::refresh_devices ()
 {
-	if (nano::nano_network != nano::nano_networks::nano_test_network)
+	if (!nano::is_test_network)
 	{
 		std::lock_guard<std::mutex> lock (mutex);
 		int discover_error = 0;
@@ -50,7 +50,7 @@ void nano::port_mapping::refresh_devices ()
 
 void nano::port_mapping::refresh_mapping ()
 {
-	if (nano::nano_network != nano::nano_networks::nano_test_network)
+	if (!nano::is_test_network)
 	{
 		std::lock_guard<std::mutex> lock (mutex);
 		auto node_port (std::to_string (node.network.endpoint ().port ()));
@@ -80,7 +80,7 @@ void nano::port_mapping::refresh_mapping ()
 int nano::port_mapping::check_mapping ()
 {
 	int result (3600);
-	if (nano::nano_network != nano::nano_networks::nano_test_network)
+	if (!nano::is_test_network)
 	{
 		// Long discovery time and fast setup/teardown make this impractical for testing
 		std::lock_guard<std::mutex> lock (mutex);

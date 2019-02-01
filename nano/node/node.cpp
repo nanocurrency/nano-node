@@ -1090,7 +1090,7 @@ void nano::vote_processor::vote (std::shared_ptr<nano::vote> vote_a, nano::endpo
 		/* Random early delection levels
 		Always process votes for test network (process = true)
 		Stop processing with max 144 * 1024 votes */
-		if (nano::nano_network != nano::nano_networks::nano_test_network)
+		if (!nano::is_test_network)
 		{
 			// Level 0 (< 0.1%)
 			if (votes.size () < 96 * 1024)
@@ -1525,7 +1525,7 @@ stopped (false),
 active (false),
 next_log (std::chrono::steady_clock::now ()),
 node (node_a),
-generator (node_a, nano::nano_network == nano::nano_networks::nano_test_network ? std::chrono::milliseconds (10) : std::chrono::milliseconds (500))
+generator (node_a, nano::is_test_network ? std::chrono::milliseconds (10) : std::chrono::milliseconds (500))
 {
 }
 
@@ -2459,7 +2459,7 @@ void nano::gap_cache::vote (std::shared_ptr<nano::vote> vote_a)
 				{
 					auto node_l (node.shared ());
 					auto now (std::chrono::steady_clock::now ());
-					node.alarm.add (nano::nano_network == nano::nano_networks::nano_test_network ? now + std::chrono::milliseconds (5) : now + std::chrono::seconds (5), [node_l, hash]() {
+					node.alarm.add (nano::is_test_network ? now + std::chrono::milliseconds (5) : now + std::chrono::seconds (5), [node_l, hash]() {
 						auto transaction (node_l->store.tx_begin_read ());
 						if (!node_l->store.block_exists (transaction, hash))
 						{
@@ -3790,7 +3790,7 @@ nano::election_vote_result nano::election::vote (nano::account rep, uint64_t seq
 	auto supply (node.online_reps.online_stake ());
 	auto weight (node.ledger.weight (transaction, rep));
 	auto should_process (false);
-	if (nano::nano_network == nano::nano_networks::nano_test_network || weight > supply / 1000) // 0.1% or above
+	if (nano::is_test_network || weight > supply / 1000) // 0.1% or above
 	{
 		unsigned int cooldown;
 		if (weight < supply / 100) // 0.1% to 1%
@@ -3956,7 +3956,7 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 				/* Escalation for long unconfirmed elections
 				Start new elections for previous block & source
 				if there are less than 100 active elections */
-				if (i->election->announcements % announcement_long == 1 && roots_size < 100 && nano::nano_network != nano::nano_networks::nano_test_network)
+				if (i->election->announcements % announcement_long == 1 && roots_size < 100 && !nano::is_test_network)
 				{
 					std::shared_ptr<nano::block> previous;
 					auto previous_hash (election_l->status.winner->previous ());
@@ -4041,7 +4041,7 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 				if ((!reps->empty () && total_weight > node.config.online_weight_minimum.number ()) || roots_size > 5)
 				{
 					// broadcast_confirm_req_base modifies reps, so we clone it once to avoid aliasing
-					if (nano::nano_network != nano::nano_networks::nano_test_network)
+					if (!nano::is_test_network)
 					{
 						if (confirm_req_bundle.size () < max_broadcast_queue)
 						{
@@ -4072,7 +4072,7 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 				}
 				else
 				{
-					if (nano::nano_network != nano::nano_networks::nano_test_network)
+					if (!nano::is_test_network)
 					{
 						confirm_req_bundle.push_back (std::make_pair (i->election->status.winner, std::make_shared<std::vector<nano::peer_information>> (node.peers.list_vector (100))));
 					}

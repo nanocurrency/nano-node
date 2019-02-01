@@ -106,7 +106,7 @@ public:
 	static int const special_count;
 	static unsigned const kdf_full_work = 64 * 1024;
 	static unsigned const kdf_test_work = 8;
-	static unsigned const kdf_work = nano::nano_network == nano::nano_networks::nano_test_network ? kdf_test_work : kdf_full_work;
+	static unsigned const kdf_work = nano::is_test_network ? kdf_test_work : kdf_full_work;
 	nano::kdf & kdf;
 	MDB_dbi handle;
 	std::recursive_mutex mutex;
