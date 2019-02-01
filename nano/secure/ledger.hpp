@@ -38,7 +38,7 @@ public:
 	nano::block_hash block_destination (nano::transaction const &, nano::block const &);
 	nano::block_hash block_source (nano::transaction const &, nano::block const &);
 	nano::process_return process (nano::transaction const &, nano::block const &, nano::signature_verification = nano::signature_verification::unknown);
-	void rollback (nano::transaction const &, nano::block_hash const &);
+	void rollback (nano::transaction const &, nano::block_hash const &, std::vector<nano::block_hash> &);
 	void change_latest (nano::transaction const &, nano::account const &, nano::block_hash const &, nano::account const &, nano::uint128_union const &, uint64_t, bool = false, nano::epoch = nano::epoch::epoch_0);
 	void dump_account_chain (nano::account const &);
 	bool could_fit (nano::transaction const &, nano::block const &);
