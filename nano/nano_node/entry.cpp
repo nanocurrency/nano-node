@@ -29,6 +29,7 @@ int main (int argc, char * const * argv)
 		("disable_wallet_bootstrap", "Disables wallet lazy bootstrap")
 		("disable_bootstrap_listener", "Disables bootstrap listener (incoming connections)")
 		("disable_unchecked_cleaning", "Disables periodic cleaning of old records from unchecked table")
+		("disable_unchecked_drop", "Disables drop of unchecked table at startup")
 		("fast_bootstrap", "Increase bootstrap speed for high end nodes with higher limits")
 		("batch_size",boost::program_options::value<std::size_t> (), "Increase sideband batch size, default 512")
 		("debug_block_count", "Display the number of block")
@@ -98,6 +99,7 @@ int main (int argc, char * const * argv)
 			flags.disable_wallet_bootstrap = (vm.count ("disable_wallet_bootstrap") > 0);
 			flags.disable_bootstrap_listener = (vm.count ("disable_bootstrap_listener") > 0);
 			flags.disable_unchecked_cleaning = (vm.count ("disable_unchecked_cleaning") > 0);
+			flags.disable_unchecked_drop = (vm.count ("disable_unchecked_drop") > 0);
 			flags.fast_bootstrap = (vm.count ("fast_bootstrap") > 0);
 			daemon.run (data_path, flags);
 		}
