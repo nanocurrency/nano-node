@@ -73,15 +73,22 @@ wallet (wallet_a)
 {
 	your_account_label->setStyleSheet ("font-weight: bold;");
 	std::string network = "Live";
-	if (nano::nano_network == nano::nano_networks::nano_beta_network)
+	if (nano::is_beta_network)
 	{
 		network = "Beta";
 	}
-	else if (nano::nano_network == nano::nano_networks::nano_test_network)
+	else if (nano::is_test_network)
 	{
 		network = "Test";
 	}
-	version = new QLabel (boost::str (boost::format ("Version %1%.%2% %3% network") % NANO_VERSION_MAJOR % NANO_VERSION_MINOR % network).c_str ());
+	if (NANO_VERSION_PATCH == 0)
+	{
+		version = new QLabel (boost::str (boost::format ("Version %1% %2% network") % NANO_MAJOR_MINOR_VERSION % network).c_str ());
+	}
+	else
+	{
+		version = new QLabel (boost::str (boost::format ("Version %1% %2% network") % NANO_MAJOR_MINOR_RC_VERSION % network).c_str ());
+	}
 	self_layout->addWidget (your_account_label);
 	self_layout->addStretch ();
 	self_layout->addWidget (version);
@@ -396,6 +403,11 @@ wallet (wallet_a)
 					{
 						this->wallet.account = this->wallet.wallet_m->change_seed (transaction, seed_l);
 						successful = true;
+						// Pending check for accounts to restore if bootstrap is in progress
+						if (this->wallet.node.bootstrap_initiator.in_progress ())
+						{
+							this->wallet.needs_deterministic_restore = true;
+						}
 					}
 					else
 					{
@@ -999,7 +1011,8 @@ send_count_label (new QLabel ("Amount:")),
 send_count (new QLineEdit),
 send_blocks_send (new QPushButton ("Send")),
 send_blocks_back (new QPushButton ("Back")),
-active_status (*this)
+active_status (*this),
+needs_deterministic_restore (false)
 {
 	update_connected ();
 	empty_password ();
@@ -1353,6 +1366,13 @@ void nano_qt::wallet::start ()
 					else
 					{
 						this_l->active_status.erase (nano_qt::status_types::synchronizing);
+						// Check for accounts to restore
+						if (this_l->needs_deterministic_restore)
+						{
+							this_l->needs_deterministic_restore = false;
+							auto transaction (this_l->wallet_m->wallets.tx_begin_write ());
+							this_l->wallet_m->deterministic_restore (transaction);
+						}
 					}
 				}
 			}));
@@ -1428,6 +1448,8 @@ void nano_qt::wallet::change_rendering_ratio (nano::uint128_t const & rendering_
 {
 	application.postEvent (&processor, new eventloop_event ([this, rendering_ratio_a]() {
 		this->rendering_ratio = rendering_ratio_a;
+		auto balance_l (this->node.balance_pending (account));
+		this->self.set_balance_text (balance_l);
 		this->refresh ();
 	}));
 }
@@ -1774,6 +1796,7 @@ wallet (wallet_a)
 
 	peers_model->setHorizontalHeaderItem (0, new QStandardItem ("IPv6 address:port"));
 	peers_model->setHorizontalHeaderItem (1, new QStandardItem ("Net version"));
+	peers_model->setHorizontalHeaderItem (2, new QStandardItem ("Node ID"));
 	peers_view->setEditTriggers (QAbstractItemView::NoEditTriggers);
 	peers_view->verticalHeader ()->hide ();
 	peers_view->setModel (peers_model);
@@ -1912,19 +1935,26 @@ wallet (wallet_a)
 void nano_qt::advanced_actions::refresh_peers ()
 {
 	peers_model->removeRows (0, peers_model->rowCount ());
-	auto list (wallet.node.peers.list_version ());
+	auto list (wallet.node.peers.list_vector (std::numeric_limits<size_t>::max ()));
+	std::sort (list.begin (), list.end ());
 	for (auto i (list.begin ()), n (list.end ()); i != n; ++i)
 	{
 		std::stringstream endpoint;
-		endpoint << i->first.address ().to_string ();
+		endpoint << i->endpoint.address ().to_string ();
 		endpoint << ':';
-		endpoint << i->first.port ();
+		endpoint << i->endpoint.port ();
 		QString qendpoint (endpoint.str ().c_str ());
 		QList<QStandardItem *> items;
 		items.push_back (new QStandardItem (qendpoint));
 		auto version = new QStandardItem ();
-		version->setData (QVariant (i->second), Qt::DisplayRole);
+		version->setData (QVariant (i->network_version), Qt::DisplayRole);
 		items.push_back (version);
+		QString node_id ("");
+		if (i->node_id.is_initialized ())
+		{
+			node_id = i->node_id.get ().to_account ().c_str ();
+		}
+		items.push_back (new QStandardItem (node_id));
 		peers_model->appendRow (items);
 	}
 	peer_count_label->setText (QString ("%1 peers").arg (peers_model->rowCount ()));

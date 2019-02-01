@@ -3,6 +3,7 @@
 #include <nano/lib/utility.hpp>
 #include <nano/nano_wallet/icon.hpp>
 #include <nano/node/cli.hpp>
+#include <nano/node/ipc.hpp>
 #include <nano/node/rpc.hpp>
 #include <nano/node/working.hpp>
 #include <nano/qt/qt.hpp>
@@ -242,7 +243,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 		                                                       : std::function<boost::optional<uint64_t> (nano::uint256_union const &)> (nullptr));
 		nano::alarm alarm (io_ctx);
 		nano::node_init init;
-		node = std::make_shared<nano::node> (init, io_ctx, data_path, alarm, config.node, work);
+		node = std::make_shared<nano::node> (init, io_ctx, data_path, alarm, config.node, work, true);
 		if (!init.error ())
 		{
 			auto wallet (node->wallets.open (config.wallet));
@@ -277,12 +278,14 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 			update_config (config, config_path);
 			node->start ();
 			std::unique_ptr<nano::rpc> rpc = get_rpc (io_ctx, *node, config.rpc);
-			if (rpc && config.rpc_enable)
+			if (rpc)
 			{
-				rpc->start ();
+				rpc->start (config.rpc_enable);
 			}
+			nano::ipc::ipc_server ipc (*node, *rpc);
 			nano::thread_runner runner (io_ctx, node->config.io_threads);
 			QObject::connect (&application, &QApplication::aboutToQuit, [&]() {
+				ipc.stop ();
 				rpc->stop ();
 				node->stop ();
 			});
@@ -361,6 +364,7 @@ int main (int argc, char * const * argv)
 					flags.disable_legacy_bootstrap = (vm.count ("disable_legacy_bootstrap") > 0);
 					flags.disable_wallet_bootstrap = (vm.count ("disable_wallet_bootstrap") > 0);
 					flags.disable_bootstrap_listener = (vm.count ("disable_bootstrap_listener") > 0);
+					flags.fast_bootstrap = (vm.count ("fast_bootstrap") > 0);
 					result = run_wallet (application, argc, argv, data_path, flags);
 				}
 				catch (std::exception const & e)

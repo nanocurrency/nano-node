@@ -1,10 +1,10 @@
-#include <nano/lib/jsonconfig.hpp>
-#include <nano/lib/utility.hpp>
-#include <nano/nano_node/daemon.hpp>
-
 #include <boost/property_tree/json_parser.hpp>
 #include <fstream>
 #include <iostream>
+#include <nano/lib/jsonconfig.hpp>
+#include <nano/lib/utility.hpp>
+#include <nano/nano_node/daemon.hpp>
+#include <nano/node/ipc.hpp>
 #include <nano/node/working.hpp>
 
 nano_daemon::daemon_config::daemon_config () :
@@ -133,16 +133,17 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 		nano::node_init init;
 		try
 		{
-			auto node (std::make_shared<nano::node> (init, io_ctx, data_path, alarm, config.node, opencl_work));
+			auto node (std::make_shared<nano::node> (init, io_ctx, data_path, alarm, config.node, opencl_work, true));
 			if (!init.error ())
 			{
 				node->flags = flags;
 				node->start ();
 				std::unique_ptr<nano::rpc> rpc = get_rpc (io_ctx, *node, config.rpc);
-				if (rpc && config.rpc_enable)
+				if (rpc)
 				{
-					rpc->start ();
+					rpc->start (config.rpc_enable);
 				}
+				nano::ipc::ipc_server ipc (*node, *rpc);
 				runner = std::make_unique<nano::thread_runner> (io_ctx, node->config.io_threads);
 				runner->join ();
 			}

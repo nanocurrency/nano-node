@@ -3,11 +3,13 @@
 #include <nano/node/common.hpp>
 #include <nano/node/node.hpp>
 
+#include <algorithm>
 #include <boost/log/trivial.hpp>
 
 constexpr double bootstrap_connection_scale_target_blocks = 50000.0;
 constexpr double bootstrap_connection_warmup_time_sec = 5.0;
 constexpr double bootstrap_minimum_blocks_per_sec = 10.0;
+constexpr double bootstrap_minimum_elapsed_seconds_blockrate = 0.02;
 constexpr double bootstrap_minimum_frontier_blocks_per_sec = 1000.0;
 constexpr unsigned bootstrap_frontier_retry_limit = 16;
 constexpr double bootstrap_minimum_termination_time_sec = 30.0;
@@ -38,23 +40,29 @@ void nano::socket::async_read (std::shared_ptr<std::vector<uint8_t>> buffer_a, s
 {
 	assert (size_a <= buffer_a->size ());
 	auto this_l (shared_from_this ());
-	start ();
-	boost::asio::async_read (socket_m, boost::asio::buffer (buffer_a->data (), size_a), [this_l, callback_a](boost::system::error_code const & ec, size_t size_a) {
-		this_l->node->stats.add (nano::stat::type::traffic_bootstrap, nano::stat::dir::in, size_a);
-		this_l->stop ();
-		callback_a (ec, size_a);
-	});
+	if (socket_m.is_open ())
+	{
+		start ();
+		boost::asio::async_read (socket_m, boost::asio::buffer (buffer_a->data (), size_a), [this_l, callback_a](boost::system::error_code const & ec, size_t size_a) {
+			this_l->node->stats.add (nano::stat::type::traffic_bootstrap, nano::stat::dir::in, size_a);
+			this_l->stop ();
+			callback_a (ec, size_a);
+		});
+	}
 }
 
 void nano::socket::async_write (std::shared_ptr<std::vector<uint8_t>> buffer_a, std::function<void(boost::system::error_code const &, size_t)> callback_a)
 {
 	auto this_l (shared_from_this ());
-	start ();
-	boost::asio::async_write (socket_m, boost::asio::buffer (buffer_a->data (), buffer_a->size ()), [this_l, callback_a, buffer_a](boost::system::error_code const & ec, size_t size_a) {
-		this_l->node->stats.add (nano::stat::type::traffic_bootstrap, nano::stat::dir::out, size_a);
-		this_l->stop ();
-		callback_a (ec, size_a);
-	});
+	if (socket_m.is_open ())
+	{
+		start ();
+		boost::asio::async_write (socket_m, boost::asio::buffer (buffer_a->data (), buffer_a->size ()), [this_l, callback_a, buffer_a](boost::system::error_code const & ec, size_t size_a) {
+			this_l->node->stats.add (nano::stat::type::traffic_bootstrap, nano::stat::dir::out, size_a);
+			this_l->stop ();
+			callback_a (ec, size_a);
+		});
+	}
 }
 
 void nano::socket::start (std::chrono::steady_clock::time_point timeout_a)
@@ -141,8 +149,8 @@ nano::bootstrap_client::~bootstrap_client ()
 
 double nano::bootstrap_client::block_rate () const
 {
-	auto elapsed = elapsed_seconds ();
-	return elapsed > 0.0 ? (double)block_count.load () / elapsed : 0.0;
+	auto elapsed = std::max (elapsed_seconds (), bootstrap_minimum_elapsed_seconds_blockrate);
+	return static_cast<double> (block_count.load () / elapsed);
 }
 
 double nano::bootstrap_client::elapsed_seconds () const
@@ -293,8 +301,9 @@ void nano::frontier_req_client::received_frontier (boost::system::error_code con
 		}
 		++count;
 		std::chrono::duration<double> time_span = std::chrono::duration_cast<std::chrono::duration<double>> (std::chrono::steady_clock::now () - start_time);
-		double elapsed_sec = time_span.count ();
-		double blocks_per_sec = (double)count / elapsed_sec;
+
+		double elapsed_sec = std::max (time_span.count (), bootstrap_minimum_elapsed_seconds_blockrate);
+		double blocks_per_sec = static_cast<double> (count) / elapsed_sec;
 		if (elapsed_sec > bootstrap_connection_warmup_time_sec && blocks_per_sec < bootstrap_minimum_frontier_blocks_per_sec)
 		{
 			BOOST_LOG (connection->node->log) << boost::str (boost::format ("Aborting frontier req because it was too slow"));
@@ -412,6 +421,7 @@ void nano::frontier_req_client::next (nano::transaction const & transaction_a)
 nano::bulk_pull_client::bulk_pull_client (std::shared_ptr<nano::bootstrap_client> connection_a, nano::pull_info const & pull_a) :
 connection (connection_a),
 pull (pull_a),
+known_account (0),
 total_blocks (0),
 unexpected_count (0)
 {
@@ -576,6 +586,7 @@ void nano::bulk_pull_client::received_block (boost::system::error_code const & e
 				block->serialize_json (block_l);
 				BOOST_LOG (connection->node->log) << boost::str (boost::format ("Pulled block %1% %2%") % hash.to_string () % block_l);
 			}
+			// Is block expected?
 			bool block_expected (false);
 			if (hash == expected)
 			{
@@ -586,13 +597,17 @@ void nano::bulk_pull_client::received_block (boost::system::error_code const & e
 			{
 				unexpected_count++;
 			}
+			if (total_blocks == 0 && block_expected)
+			{
+				known_account = block->account ();
+			}
 			if (connection->block_count++ == 0)
 			{
 				connection->start_time = std::chrono::steady_clock::now ();
 			}
 			connection->attempt->total_blocks++;
 			total_blocks++;
-			bool stop_pull (connection->attempt->process_block (block, total_blocks, block_expected));
+			bool stop_pull (connection->attempt->process_block (block, known_account, total_blocks, block_expected));
 			if (!stop_pull && !connection->hard_stop.load ())
 			{
 				/* Process block in lazy pull if not stopped
@@ -901,6 +916,7 @@ pulling (0),
 node (node_a),
 account_count (0),
 total_blocks (0),
+runs_count (0),
 stopped (false),
 mode (nano::bootstrap_mode::legacy),
 lazy_stopped (0)
@@ -1073,6 +1089,7 @@ void nano::bootstrap_attempt::run ()
 	{
 		BOOST_LOG (node->log) << "Completed pulls";
 		request_push (lock);
+		runs_count++;
 		// Start wallet lazy bootstrap if required
 		if (!wallet_accounts.empty () && !node->flags.disable_wallet_bootstrap)
 		{
@@ -1082,7 +1099,7 @@ void nano::bootstrap_attempt::run ()
 			lock.lock ();
 		}
 		// Start lazy bootstrap if some lazy keys were inserted
-		else if (!lazy_finished () && !node->flags.disable_lazy_bootstrap)
+		else if (runs_count < 3 && !lazy_finished () && !node->flags.disable_lazy_bootstrap)
 		{
 			lock.unlock ();
 			mode = nano::bootstrap_mode::lazy;
@@ -1234,6 +1251,7 @@ void nano::bootstrap_attempt::populate_connections ()
 				client->run ();
 				std::lock_guard<std::mutex> lock (mutex);
 				clients.push_back (client);
+				endpoints.insert (endpoint);
 			}
 			else if (connections == 0)
 			{
@@ -1470,6 +1488,7 @@ void nano::bootstrap_attempt::lazy_run ()
 	{
 		BOOST_LOG (node->log) << "Completed lazy pulls";
 		std::unique_lock<std::mutex> lazy_lock (lazy_mutex);
+		runs_count++;
 		// Start wallet lazy bootstrap if required
 		if (!wallet_accounts.empty () && !node->flags.disable_wallet_bootstrap)
 		{
@@ -1482,7 +1501,7 @@ void nano::bootstrap_attempt::lazy_run ()
 			lock.lock ();
 		}
 		// Fallback to legacy bootstrap
-		else if (!lazy_keys.empty () && !node->flags.disable_legacy_bootstrap)
+		else if (runs_count < 3 && !lazy_keys.empty () && !node->flags.disable_legacy_bootstrap)
 		{
 			pulls.clear ();
 			lazy_clear ();
@@ -1498,7 +1517,7 @@ void nano::bootstrap_attempt::lazy_run ()
 	idle.clear ();
 }
 
-bool nano::bootstrap_attempt::process_block (std::shared_ptr<nano::block> block_a, uint64_t total_blocks, bool block_expected)
+bool nano::bootstrap_attempt::process_block (std::shared_ptr<nano::block> block_a, nano::account const & known_account_a, uint64_t total_blocks, bool block_expected)
 {
 	bool stop_pull (false);
 	if (mode != nano::bootstrap_mode::legacy && block_expected)
@@ -1513,7 +1532,8 @@ bool nano::bootstrap_attempt::process_block (std::shared_ptr<nano::block> block_
 			if (!node->store.block_exists (transaction, block_a->type (), hash))
 			{
 				nano::uint128_t balance (std::numeric_limits<nano::uint128_t>::max ());
-				node->block_processor.add (block_a, std::chrono::steady_clock::time_point ());
+				nano::unchecked_info info (block_a, known_account_a, 0, nano::signature_verification::unknown);
+				node->block_processor.add (info);
 				// Search for new dependencies
 				if (!block_a->source ().is_zero () && !node->store.block_exists (transaction, block_a->source ()))
 				{
@@ -1647,7 +1667,8 @@ bool nano::bootstrap_attempt::process_block (std::shared_ptr<nano::block> block_
 	}
 	else
 	{
-		node->block_processor.add (block_a, std::chrono::steady_clock::time_point ());
+		nano::unchecked_info info (block_a, known_account_a, 0, nano::signature_verification::unknown);
+		node->block_processor.add (info);
 	}
 	return stop_pull;
 }
@@ -1714,6 +1735,7 @@ void nano::bootstrap_attempt::wallet_run ()
 	if (!stopped)
 	{
 		BOOST_LOG (node->log) << "Completed wallet lazy pulls";
+		runs_count++;
 		// Start lazy bootstrap if some lazy keys were inserted
 		if (!lazy_finished ())
 		{
@@ -1882,8 +1904,26 @@ void nano::bootstrap_initiator::notify_listeners (bool in_progress_a)
 	}
 }
 
+namespace nano
+{
+std::unique_ptr<seq_con_info_component> collect_seq_con_info (bootstrap_initiator & bootstrap_initiator, const std::string & name)
+{
+	size_t count = 0;
+	{
+		std::lock_guard<std::mutex> guard (bootstrap_initiator.mutex);
+		count = bootstrap_initiator.observers.size ();
+	}
+
+	auto sizeof_element = sizeof (decltype (bootstrap_initiator.observers)::value_type);
+	auto composite = std::make_unique<seq_con_info_composite> (name);
+	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "observers", count, sizeof_element }));
+	return composite;
+}
+}
+
 nano::bootstrap_listener::bootstrap_listener (boost::asio::io_context & io_ctx_a, uint16_t port_a, nano::node & node_a) :
 acceptor (io_ctx_a),
+defer_acceptor (io_ctx_a),
 local (boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v6::any (), port_a)),
 io_ctx (io_ctx_a),
 node (node_a)
@@ -1928,26 +1968,49 @@ void nano::bootstrap_listener::stop ()
 
 void nano::bootstrap_listener::accept_connection ()
 {
-	auto socket (std::make_shared<nano::socket> (node.shared ()));
-	acceptor.async_accept (socket->socket_m, [this, socket](boost::system::error_code const & ec) {
-		accept_action (ec, socket);
-	});
+	if (acceptor.is_open ())
+	{
+		if (connections.size () < node.config.bootstrap_connections_max)
+		{
+			auto socket (std::make_shared<nano::socket> (node.shared ()));
+			acceptor.async_accept (socket->socket_m, [this, socket](boost::system::error_code const & ec) {
+				accept_action (ec, socket);
+			});
+		}
+		else
+		{
+			BOOST_LOG (node.log) << boost::str (boost::format ("Unable to accept new TCP network sockets (have %1% concurrent connections, limit of %2%), will try to accept again in 1s") % connections.size () % node.config.bootstrap_connections_max);
+			defer_acceptor.expires_after (std::chrono::seconds (1));
+			defer_acceptor.async_wait ([this](const boost::system::error_code & ec) {
+				/*
+				 * There should be no other call points that can invoke
+				 * accept_connect() after starting the listener, so if we
+				 * get an error from the I/O context, something is probably
+				 * wrong.
+				 */
+				if (!ec)
+				{
+					accept_connection ();
+				}
+			});
+		}
+	}
 }
 
 void nano::bootstrap_listener::accept_action (boost::system::error_code const & ec, std::shared_ptr<nano::socket> socket_a)
 {
 	if (!ec)
 	{
-		accept_connection ();
 		auto connection (std::make_shared<nano::bootstrap_server> (socket_a, node.shared ()));
 		{
 			std::lock_guard<std::mutex> lock (mutex);
-			if (connections.size () < node.config.bootstrap_connections_max && acceptor.is_open ())
+			if (acceptor.is_open ())
 			{
 				connections[connection.get ()] = connection;
 				connection->receive ();
 			}
 		}
+		accept_connection ();
 	}
 	else
 	{
@@ -1958,6 +2021,23 @@ void nano::bootstrap_listener::accept_action (boost::system::error_code const & 
 boost::asio::ip::tcp::endpoint nano::bootstrap_listener::endpoint ()
 {
 	return boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v6::loopback (), local.port ());
+}
+
+namespace nano
+{
+std::unique_ptr<seq_con_info_component> collect_seq_con_info (bootstrap_listener & bootstrap_listener, const std::string & name)
+{
+	size_t count = 0;
+	{
+		std::lock_guard<std::mutex> guard (bootstrap_listener.mutex);
+		count = bootstrap_listener.connections.size ();
+	}
+
+	auto sizeof_element = sizeof (decltype (bootstrap_listener.connections)::value_type);
+	auto composite = std::make_unique<seq_con_info_composite> (name);
+	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "connections", count, sizeof_element }));
+	return composite;
+}
 }
 
 nano::bootstrap_server::~bootstrap_server ()

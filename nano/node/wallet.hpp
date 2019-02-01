@@ -106,7 +106,7 @@ public:
 	static int const special_count;
 	static unsigned const kdf_full_work = 64 * 1024;
 	static unsigned const kdf_test_work = 8;
-	static unsigned const kdf_work = nano::nano_network == nano::nano_networks::nano_test_network ? kdf_test_work : kdf_full_work;
+	static unsigned const kdf_work = nano::is_test_network ? kdf_test_work : kdf_full_work;
 	nano::kdf & kdf;
 	MDB_dbi handle;
 	std::recursive_mutex mutex;
@@ -147,13 +147,17 @@ public:
 	void work_ensure (nano::account const &, nano::block_hash const &);
 	bool search_pending ();
 	void init_free_accounts (nano::transaction const &);
+	uint32_t deterministic_check (nano::transaction const & transaction_a, uint32_t index);
 	/** Changes the wallet seed and returns the first account */
-	nano::public_key change_seed (nano::transaction const & transaction_a, nano::raw_key const & prv_a, uint32_t = 0);
+	nano::public_key change_seed (nano::transaction const & transaction_a, nano::raw_key const & prv_a, uint32_t count = 0);
+	void deterministic_restore (nano::transaction const & transaction_a);
 	bool live ();
 	std::unordered_set<nano::account> free_accounts;
 	std::function<void(bool, bool)> lock_observer;
 	nano::wallet_store store;
 	nano::wallets & wallets;
+	std::mutex representatives_mutex;
+	std::unordered_set<nano::account> representatives;
 };
 class node;
 
@@ -171,12 +175,17 @@ public:
 	bool search_pending (nano::uint256_union const &);
 	void search_pending_all ();
 	void destroy (nano::uint256_union const &);
+	void reload ();
 	void do_wallet_actions ();
 	void queue_wallet_action (nano::uint128_t const &, std::shared_ptr<nano::wallet>, std::function<void(nano::wallet &)> const &);
 	void foreach_representative (nano::transaction const &, std::function<void(nano::public_key const &, nano::raw_key const &)> const &);
 	bool exists (nano::transaction const &, nano::public_key const &);
 	void stop ();
 	void clear_send_ids (nano::transaction const &);
+	void compute_reps ();
+	void ongoing_compute_reps ();
+	void split_if_needed (nano::transaction &, nano::block_store &);
+	void move_table (std::string const &, MDB_txn *, MDB_txn *);
 	std::function<void(bool)> observer;
 	std::unordered_map<nano::uint256_union, std::shared_ptr<nano::wallet>> items;
 	std::multimap<nano::uint128_t, std::pair<std::shared_ptr<nano::wallet>, std::function<void(nano::wallet &)>>, std::greater<nano::uint128_t>> actions;
@@ -191,6 +200,7 @@ public:
 	boost::thread thread;
 	static nano::uint128_t const generate_priority;
 	static nano::uint128_t const high_priority;
+	std::atomic<uint64_t> reps_count{ 0 };
 
 	/** Start read-write transaction */
 	nano::transaction tx_begin_write ();
@@ -203,5 +213,19 @@ public:
 	 * @param write If true, start a read-write transaction
 	 */
 	nano::transaction tx_begin (bool write = false);
+};
+
+std::unique_ptr<seq_con_info_component> collect_seq_con_info (wallets & wallets, const std::string & name);
+
+class wallets_store
+{
+public:
+	virtual ~wallets_store () = default;
+};
+class mdb_wallets_store : public wallets_store
+{
+public:
+	mdb_wallets_store (bool &, boost::filesystem::path const &, int lmdb_max_dbs = 128);
+	nano::mdb_env environment;
 };
 }

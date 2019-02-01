@@ -6,11 +6,12 @@
 #include <nano/secure/blockstore.hpp>
 #include <nano/secure/versioning.hpp>
 
+#include <boost/endian/conversion.hpp>
 #include <boost/property_tree/json_parser.hpp>
 
 #include <queue>
 
-#include <ed25519-donna/ed25519.h>
+#include <crypto/ed25519-donna/ed25519.h>
 
 // Genesis keys for network variants
 namespace
@@ -58,8 +59,8 @@ public:
 	nano_test_genesis (test_genesis_data),
 	nano_beta_genesis (beta_genesis_data),
 	nano_live_genesis (live_genesis_data),
-	genesis_account (nano::nano_network == nano::nano_networks::nano_test_network ? nano_test_account : nano::nano_network == nano::nano_networks::nano_beta_network ? nano_beta_account : nano_live_account),
-	genesis_block (nano::nano_network == nano::nano_networks::nano_test_network ? nano_test_genesis : nano::nano_network == nano::nano_networks::nano_beta_network ? nano_beta_genesis : nano_live_genesis),
+	genesis_account (nano::is_test_network ? nano_test_account : nano::is_beta_network ? nano_beta_account : nano_live_account),
+	genesis_block (nano::is_test_network ? nano_test_genesis : nano::is_beta_network ? nano_beta_genesis : nano_live_genesis),
 	genesis_amount (std::numeric_limits<nano::uint128_t>::max ()),
 	burn_account (0)
 	{
@@ -302,6 +303,70 @@ bool nano::pending_key::operator== (nano::pending_key const & other_a) const
 nano::block_hash nano::pending_key::key () const
 {
 	return account;
+}
+
+nano::unchecked_info::unchecked_info () :
+block (nullptr),
+account (0),
+modified (0),
+verified (nano::signature_verification::unknown)
+{
+}
+
+nano::unchecked_info::unchecked_info (std::shared_ptr<nano::block> block_a, nano::account const & account_a, uint64_t modified_a, nano::signature_verification verified_a) :
+block (block_a),
+account (account_a),
+modified (modified_a),
+verified (verified_a)
+{
+}
+
+void nano::unchecked_info::serialize (nano::stream & stream_a) const
+{
+	assert (block != nullptr);
+	nano::serialize_block (stream_a, *block);
+	nano::write (stream_a, account.bytes);
+	nano::write (stream_a, modified);
+	nano::write (stream_a, verified);
+}
+
+bool nano::unchecked_info::deserialize (nano::stream & stream_a)
+{
+	block = nano::deserialize_block (stream_a);
+	bool error (block == nullptr);
+	if (!error)
+	{
+		error = nano::read (stream_a, account.bytes);
+		if (!error)
+		{
+			error = nano::read (stream_a, modified);
+			if (!error)
+			{
+				error = nano::read (stream_a, verified);
+			}
+		}
+	}
+	return error;
+}
+
+bool nano::unchecked_info::operator== (nano::unchecked_info const & other_a) const
+{
+	return block->hash () == other_a.block->hash () && account == other_a.account && modified == other_a.modified && verified == other_a.verified;
+}
+
+nano::endpoint_key::endpoint_key (const std::array<uint8_t, 16> & address_a, uint16_t port_a) :
+address (address_a), network_port (boost::endian::native_to_big (port_a))
+{
+}
+
+const std::array<uint8_t, 16> & nano::endpoint_key::address_bytes () const
+{
+	return address;
+}
+
+uint16_t nano::endpoint_key::port () const
+{
+	return boost::endian::big_to_native (network_port);
 }
 
 nano::block_info::block_info () :
@@ -707,6 +772,18 @@ size_t nano::vote_uniquer::size ()
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	return votes.size ();
+}
+
+namespace nano
+{
+std::unique_ptr<seq_con_info_component> collect_seq_con_info (vote_uniquer & vote_uniquer, const std::string & name)
+{
+	auto count = vote_uniquer.size ();
+	auto sizeof_element = sizeof (vote_uniquer::value_type);
+	auto composite = std::make_unique<seq_con_info_composite> (name);
+	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "votes", count, sizeof_element }));
+	return composite;
+}
 }
 
 nano::genesis::genesis ()

@@ -5,8 +5,10 @@
 #include <boost/beast.hpp>
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
+#include <nano/lib/blocks.hpp>
 #include <nano/lib/errors.hpp>
 #include <nano/lib/jsonconfig.hpp>
+#include <nano/secure/blockstore.hpp>
 #include <nano/secure/utility.hpp>
 #include <unordered_map>
 
@@ -40,8 +42,7 @@ public:
 class rpc_config
 {
 public:
-	rpc_config ();
-	rpc_config (bool);
+	rpc_config (bool = false);
 	nano::error serialize_json (nano::jsonconfig &) const;
 	nano::error deserialize_json (nano::jsonconfig &);
 	boost::asio::ip::address_v6 address;
@@ -51,6 +52,7 @@ public:
 	uint64_t chain_request_limit;
 	rpc_secure_config secure;
 	uint8_t max_json_depth;
+	bool enable_sign_hash;
 };
 enum class payment_status
 {
@@ -69,7 +71,13 @@ class rpc
 public:
 	rpc (boost::asio::io_context &, nano::node &, nano::rpc_config const &);
 	virtual ~rpc () = default;
-	void start ();
+
+	/**
+	 * Start serving RPC requests if \p rpc_enabled_a, otherwise this will only
+	 * add a block observer since requests may still arrive via IPC.
+	 */
+	void start (bool rpc_enabled_a = true);
+	void add_block_observer ();
 	virtual void accept ();
 	void stop ();
 	void observer_action (nano::account const &);
@@ -88,7 +96,8 @@ public:
 	virtual ~rpc_connection () = default;
 	virtual void parse_connection ();
 	virtual void read ();
-	virtual void write_result (std::string body, unsigned version);
+	virtual void prepare_head (unsigned version, boost::beast::http::status status = boost::beast::http::status::ok);
+	virtual void write_result (std::string body, unsigned version, boost::beast::http::status status = boost::beast::http::status::ok);
 	std::shared_ptr<nano::node> node;
 	nano::rpc & rpc;
 	boost::asio::ip::tcp::socket socket;
@@ -138,7 +147,7 @@ public:
 	void accounts_frontiers ();
 	void accounts_pending ();
 	void available_supply ();
-	void block ();
+	void block_info ();
 	void block_confirm ();
 	void blocks ();
 	void blocks_info ();
@@ -189,12 +198,15 @@ public:
 	void search_pending ();
 	void search_pending_all ();
 	void send ();
+	void sign ();
 	void stats ();
+	void stats_clear ();
 	void stop ();
 	void unchecked ();
 	void unchecked_clear ();
 	void unchecked_get ();
 	void unchecked_keys ();
+	void uptime ();
 	void validate_account_number ();
 	void version ();
 	void wallet_add ();
@@ -206,6 +218,7 @@ public:
 	void wallet_destroy ();
 	void wallet_export ();
 	void wallet_frontiers ();
+	void wallet_history ();
 	void wallet_info ();
 	void wallet_key_valid ();
 	void wallet_ledger ();
@@ -235,8 +248,11 @@ public:
 	std::error_code ec;
 	boost::property_tree::ptree response_l;
 	std::shared_ptr<nano::wallet> wallet_impl ();
+	bool wallet_locked_impl (nano::transaction const &, std::shared_ptr<nano::wallet>);
+	bool wallet_account_impl (nano::transaction const &, std::shared_ptr<nano::wallet>, nano::account const &);
 	nano::account account_impl (std::string = "");
 	nano::amount amount_impl ();
+	std::shared_ptr<nano::block> block_impl (bool = true);
 	nano::block_hash hash_impl (std::string = "hash");
 	nano::amount threshold_optional_impl ();
 	uint64_t work_optional_impl ();

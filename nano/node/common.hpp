@@ -7,7 +7,7 @@
 
 #include <bitset>
 
-#include <xxhash/xxhash.h>
+#include <crypto/xxhash/xxhash.h>
 
 namespace nano
 {
@@ -27,12 +27,13 @@ uint64_t endpoint_hash_raw (nano::endpoint const & endpoint_a)
 	assert (endpoint_a.address ().is_v6 ());
 	nano::uint128_union address;
 	address.bytes = endpoint_a.address ().to_v6 ().to_bytes ();
-	XXH64_state_t hash;
-	XXH64_reset (&hash, 0);
-	XXH64_update (&hash, address.bytes.data (), address.bytes.size ());
+	XXH64_state_t * const state = XXH64_createState ();
+	XXH64_reset (state, 0);
+	XXH64_update (state, address.bytes.data (), address.bytes.size ());
 	auto port (endpoint_a.port ());
-	XXH64_update (&hash, &port, sizeof (port));
-	auto result (XXH64_digest (&hash));
+	XXH64_update (state, &port, sizeof (port));
+	auto result (XXH64_digest (state));
+	XXH64_freeState (state);
 	return result;
 }
 uint64_t endpoint_hash_raw (nano::tcp_endpoint const & endpoint_a)
@@ -40,12 +41,13 @@ uint64_t endpoint_hash_raw (nano::tcp_endpoint const & endpoint_a)
 	assert (endpoint_a.address ().is_v6 ());
 	nano::uint128_union address;
 	address.bytes = endpoint_a.address ().to_v6 ().to_bytes ();
-	XXH64_state_t hash;
-	XXH64_reset (&hash, 0);
-	XXH64_update (&hash, address.bytes.data (), address.bytes.size ());
+	XXH64_state_t * const state = XXH64_createState ();
+	XXH64_reset (state, 0);
+	XXH64_update (state, address.bytes.data (), address.bytes.size ());
 	auto port (endpoint_a.port ());
-	XXH64_update (&hash, &port, sizeof (port));
-	auto result (XXH64_digest (&hash));
+	XXH64_update (state, &port, sizeof (port));
+	auto result (XXH64_digest (state));
+	XXH64_freeState (state);
 	return result;
 }
 uint64_t ip_address_hash_raw (boost::asio::ip::address const & ip_a)
@@ -53,10 +55,7 @@ uint64_t ip_address_hash_raw (boost::asio::ip::address const & ip_a)
 	assert (ip_a.is_v6 ());
 	nano::uint128_union bytes;
 	bytes.bytes = ip_a.to_v6 ().to_bytes ();
-	XXH64_state_t hash;
-	XXH64_reset (&hash, 0);
-	XXH64_update (&hash, bytes.bytes.data (), bytes.bytes.size ());
-	auto result (XXH64_digest (&hash));
+	auto result (XXH64 (bytes.bytes.data (), bytes.bytes.size (), 0));
 	return result;
 }
 
@@ -196,7 +195,7 @@ public:
 	bool deserialize (nano::stream &);
 	nano::block_type block_type () const;
 	void block_type_set (nano::block_type);
-	static std::array<uint8_t, 2> constexpr magic_number = nano::nano_network == nano::nano_networks::nano_test_network ? std::array<uint8_t, 2>{ { 'R', 'A' } } : nano::nano_network == nano::nano_networks::nano_beta_network ? std::array<uint8_t, 2>{ { 'R', 'B' } } : std::array<uint8_t, 2>{ { 'R', 'C' } };
+	static std::array<uint8_t, 2> constexpr magic_number = nano::is_test_network ? std::array<uint8_t, 2>{ { 'R', 'A' } } : nano::is_beta_network ? std::array<uint8_t, 2>{ { 'R', 'B' } } : std::array<uint8_t, 2>{ { 'R', 'C' } };
 	uint8_t version_max;
 	uint8_t version_using;
 	uint8_t version_min;
@@ -298,11 +297,15 @@ class confirm_req : public message
 public:
 	confirm_req (bool &, nano::stream &, nano::message_header const &, nano::block_uniquer * = nullptr);
 	confirm_req (std::shared_ptr<nano::block>);
+	confirm_req (std::vector<std::pair<nano::block_hash, nano::block_hash>> const &);
+	confirm_req (nano::block_hash const &, nano::block_hash const &);
 	bool deserialize (nano::stream &, nano::block_uniquer * = nullptr);
 	void serialize (nano::stream &) const override;
 	void visit (nano::message_visitor &) const override;
 	bool operator== (nano::confirm_req const &) const;
 	std::shared_ptr<nano::block> block;
+	std::vector<std::pair<nano::block_hash, nano::block_hash>> roots_hashes;
+	std::string roots_string () const;
 };
 class confirm_ack : public message
 {

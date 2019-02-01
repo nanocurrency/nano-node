@@ -4,9 +4,6 @@ project (nano-node)
 set (CPACK_PACKAGE_VERSION_MAJOR "18")
 set (CPACK_PACKAGE_VERSION_MINOR "0")
 set (CPACK_PACKAGE_VERSION_PATCH "0")
-if (DEFINED GIT_COMMIT)
-	set (CPACK_PACKAGE_VERSION_PATCH "GIT-${GIT_COMMIT}")
-endif ()
 set (CPACK_PACKAGE_VENDOR "Nano Currency")
 
 set(CMAKE_INSTALL_RPATH "@executable_path/../Frameworks")
@@ -21,6 +18,8 @@ option(NANO_ASAN_INT "Enable ASan+UBSan+Integer overflow" OFF)
 option(NANO_ASAN "Enable ASan+UBSan" OFF)
 option(NANO_TSAN "Enable TSan" OFF)
 option(NANO_SIMD_OPTIMIZATIONS "Enable CPU-specific SIMD optimizations (SSE/AVX or NEON, e.g.)" OFF)
+option(ENABLE_AES "Enable AES optimizations (enabled by default with NANO_SIMD_OPTIMIZATIONS, set OFF to disable" ON)
+option(ENABLE_AVX2 "Enable AVX2 optimizations" OFF)
 
 SET (ACTIVE_NETWORK nano_live_network CACHE STRING "Selects which network parameters are used")
 set_property (CACHE ACTIVE_NETWORK PROPERTY STRINGS nano_test_network nano_beta_network nano_live_network)
@@ -49,25 +48,39 @@ else ()
 		add_compile_options(-fsanitize=address,undefined,integer)
 		add_definitions(-DED25519_NO_INLINE_ASM)
 	elseif (NANO_TSAN OR RAIBLOCKS_TSAN)
-		add_compile_options(-fsanitize=thread)
+		add_compile_options(-fsanitize=thread -fsanitize-blacklist=tsan_blacklist)
 		add_definitions(-DED25519_NO_INLINE_ASM)
 	endif()
 
-	IF (CMAKE_SYSTEM_PROCESSOR MATCHES "^(i.86|x86(_64)?)$")
+	if (CMAKE_SYSTEM_PROCESSOR MATCHES "^(i.86|x86(_64)?)$")
 		if (NANO_SIMD_OPTIMIZATIONS OR RAIBLOCKS_SIMD_OPTIMIZATIONS)
 			add_compile_options(-msse4)
-		elseif(CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
+			if (ENABLE_AES)
+				add_compile_options(-maes)
+			else ()
+				add_definitions(-DCRYPTOPP_DISABLE_AESNI)
+			endif ()
+		elseif (CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
 			add_compile_options(-msse2)
+			add_definitions(-DCRYPTOPP_DISABLE_SSSE3
+							-DCRYPTOPP_DISABLE_AESNI)
 		endif()
 
 		if (ENABLE_AVX2)
-			add_compile_options(-mavx2 -mbmi -mbmi2)
+			add_compile_options(-mavx2 -mbmi -mbmi2 -maes)
 			if (PERMUTE_WITH_GATHER)
 				add_definitions(-DPERMUTE_WITH_GATHER)
 			elseif (PERMUTE_WITH_SHUFFLES)
 				add_definitions(-DPERMUTE_WITH_SHUFFLES)
 			endif()
 		endif()
+	elseif (CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64")
+		if (NANO_SIMD_OPTIMIZATIONS OR RAIBLOCKS_SIMD_OPTIMIZATIONS)
+			add_compile_options(-march=armv8-a+crc+crypto)
+		else ()
+			add_compile_options(-march=armv8-a)
+			add_definitions(-DCRYPTOPP_DISABLE_ASM)
+		endif ()
 	endif()
 endif ()
 
@@ -94,7 +107,7 @@ else ()
 	elseif (NANO_ASAN_INT OR RAIBLOCKS_ASAN_INT)
 		set (PLATFORM_LINK_FLAGS "${PLATFORM_LINK_FLAGS} -fsanitize=address,undefined,integer")
 	elseif (NANO_TSAN OR RAIBLOCKS_TSAN)
-		set (PLATFORM_LINK_FLAGS "${PLATFORM_LINK_FLAGS} -fsanitize=thread")
+		set (PLATFORM_LINK_FLAGS "${PLATFORM_LINK_FLAGS} -fsanitize=thread -fsanitize-blacklist=tsan_blacklist")
 	endif()
 endif ()
 
@@ -118,12 +131,12 @@ set(Boost_USE_STATIC_LIBS        ON)
 set(Boost_USE_MULTITHREADED      ON)
 
 if (BOOST_ROOT)
-    list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/Modules")
+	list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/Modules")
 endif ()
 
 find_package (Boost 1.66.0 REQUIRED COMPONENTS filesystem log thread program_options)
 
-add_subdirectory(ed25519-donna)
+add_subdirectory(crypto/ed25519-donna)
 
 set (UPNPC_BUILD_SHARED OFF CACHE BOOL "")
 add_subdirectory (miniupnp/miniupnpc)
@@ -135,71 +148,97 @@ set_target_properties(libminiupnpc-static PROPERTIES INTERFACE_INCLUDE_DIRECTORI
 set (BUILD_SHARED OFF CACHE BOOL "")
 set (BUILD_TESTING OFF CACHE BOOL "")
 set (USE_INTERMEDIATE_OBJECTS_TARGET OFF CACHE BOOL "")
-if (CRYPTOPP_CUSTOM OR NOT (NANO_SIMD_OPTIMIZATIONS OR RAIBLOCKS_SIMD_OPTIMIZATIONS))
-	set (CRYPTOPP_LIBRARY cryptopp)
-	add_library (cryptopp
-		cryptopp/algparam.cpp
-		cryptopp/asn.cpp
-		cryptopp/basecode.cpp
-		cryptopp/cpu.cpp
-		cryptopp/cryptlib.cpp
-		cryptopp/default.cpp
-		cryptopp/des.cpp
-		cryptopp/dessp.cpp
-		cryptopp/dll.cpp
-		cryptopp/ec2n.cpp
-		cryptopp/ecp.cpp
-		cryptopp/filters.cpp
-		cryptopp/fips140.cpp
-		cryptopp/gcm.cpp
-		cryptopp/gf2n.cpp
-		cryptopp/gfpcrypt.cpp
-		cryptopp/hex.cpp
-		cryptopp/hmac.cpp
-		cryptopp/hrtimer.cpp
-		cryptopp/integer.cpp
-		cryptopp/iterhash.cpp
-		cryptopp/misc.cpp
-		cryptopp/modes.cpp
-		cryptopp/mqueue.cpp
-		cryptopp/nbtheory.cpp
-		cryptopp/oaep.cpp
-		cryptopp/osrng.cpp
-		cryptopp/pubkey.cpp
-		cryptopp/queue.cpp
-		cryptopp/randpool.cpp
-		cryptopp/rdtables.cpp
-		cryptopp/rijndael.cpp
-		cryptopp/rng.cpp
-		cryptopp/sha.cpp
-		cryptopp/simple.cpp
-		cryptopp/winpipes.cpp)
-else ()
-	set (CRYPTOPP_LIBRARY cryptopp-static)
-	add_subdirectory (cryptopp)
+set (CRYPTOPP_EXTRA "")
+if (WIN32)
+	set (CRYPTOPP_EXTRA crypto/cryptopp/x64dll.asm
+					crypto/cryptopp/x64masm.asm)
+	enable_language(ASM)
+	enable_language(ASM_MASM)
+	# similar to SSE2 settings
+	add_definitions(-DCRYPTOPP_DISABLE_SSSE3
+					-DCRYPTOPP_DISABLE_AESNI)
+elseif (CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64" AND (NANO_SIMD_OPTIMIZATIONS OR RAIBLOCKS_SIMD_OPTIMIZATIONS))
+	set (CRYPTOPP_EXTRA crypto/cryptopp/crc_simd.cpp
+					crypto/cryptopp/gcm_simd.cpp
+					crypto/cryptopp/gf2n_simd.cpp
+					crypto/cryptopp/neon_simd.cpp)
+	add_definitions(-DCRYPTOPP_NO_CPU_FEATURE_PROBES)
 endif ()
+# Some Clang cannot handle mixed asm with positional arguments, where the
+# body is Intel style with no prefix and the templates are AT&T style.
+# See: crypto/cryptopp/config.h
+# Also see https://bugs.llvm.org/show_bug.cgi?id=39895
+if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+	add_definitions(-DCRYPTOPP_DISABLE_MIXED_ASM -DCRYPTOPP_DISABLE_ASM)
+	message("CryptoPP with disabled ASM for ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}")
+endif ()
+add_definitions(-DCRYPTOPP_DISABLE_SHANI)
+# Fix failing builds after commit https://github.com/weidai11/cryptopp/commit/df9fa62205f2d341e2b1b26595a3a1b6377c60c5
+add_definitions(-DCRYPTOPP_DISABLE_CLMUL)
 
-if (CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
-	set (ARGON_CORE phc-winner-argon2/src/opt.c)
+set (CRYPTOPP_LIBRARY cryptopp)
+add_library (cryptopp
+	crypto/cryptopp/algparam.cpp
+	crypto/cryptopp/asn.cpp
+	crypto/cryptopp/basecode.cpp
+	crypto/cryptopp/cpu.cpp
+	crypto/cryptopp/cryptlib.cpp
+	crypto/cryptopp/default.cpp
+	crypto/cryptopp/des.cpp
+	crypto/cryptopp/dessp.cpp
+	crypto/cryptopp/dll.cpp
+	crypto/cryptopp/ec2n.cpp
+	crypto/cryptopp/ecp.cpp
+	crypto/cryptopp/filters.cpp
+	crypto/cryptopp/fips140.cpp
+	crypto/cryptopp/gcm.cpp
+	crypto/cryptopp/gf2n.cpp
+	crypto/cryptopp/gfpcrypt.cpp
+	crypto/cryptopp/hex.cpp
+	crypto/cryptopp/hmac.cpp
+	crypto/cryptopp/hrtimer.cpp
+	crypto/cryptopp/integer.cpp
+	crypto/cryptopp/iterhash.cpp
+	crypto/cryptopp/misc.cpp
+	crypto/cryptopp/modes.cpp
+	crypto/cryptopp/mqueue.cpp
+	crypto/cryptopp/nbtheory.cpp
+	crypto/cryptopp/oaep.cpp
+	crypto/cryptopp/osrng.cpp
+	crypto/cryptopp/pubkey.cpp
+	crypto/cryptopp/queue.cpp
+	crypto/cryptopp/randpool.cpp
+	crypto/cryptopp/rdtables.cpp
+	crypto/cryptopp/rijndael.cpp
+	crypto/cryptopp/rijndael_simd.cpp
+	crypto/cryptopp/rng.cpp
+	crypto/cryptopp/sha.cpp
+	crypto/cryptopp/sha_simd.cpp
+	crypto/cryptopp/simple.cpp
+	crypto/cryptopp/sse_simd.cpp
+	${CRYPTOPP_EXTRA})
+
+if ((NANO_SIMD_OPTIMIZATIONS OR RAIBLOCKS_SIMD_OPTIMIZATIONS) AND NOT CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64")
+	set (ARGON_CORE crypto/phc-winner-argon2/src/opt.c)
 else ()
-	set (ARGON_CORE phc-winner-argon2/src/ref.c)
+	set (ARGON_CORE crypto/phc-winner-argon2/src/ref.c)
 endif ()
 
 add_library (argon2
-	phc-winner-argon2/src/argon2.c
-	phc-winner-argon2/include/argon2.h
-	phc-winner-argon2/src/core.c
-	phc-winner-argon2/src/thread.c
-	phc-winner-argon2/src/encoding.c
+	crypto/phc-winner-argon2/src/argon2.c
+	crypto/phc-winner-argon2/include/argon2.h
+	crypto/phc-winner-argon2/src/core.c
+	crypto/phc-winner-argon2/src/thread.c
+	crypto/phc-winner-argon2/src/encoding.c
 	${ARGON_CORE})
 
-target_include_directories(argon2 PUBLIC phc-winner-argon2/include)
-target_include_directories(argon2 PUBLIC phc-winner-argon2/src)
-target_include_directories(argon2 PUBLIC blake2)
+target_include_directories(argon2 PUBLIC crypto/phc-winner-argon2/include)
+target_include_directories(argon2 PUBLIC crypto/phc-winner-argon2/src)
+target_include_directories(argon2 PUBLIC crypto/blake2)
 
 add_library (xxhash
-	xxhash/xxhash.c
-	xxhash/xxhash.h)
+	crypto/xxhash/xxhash.c
+	crypto/xxhash/xxhash.h)
 
 add_library (lmdb
 	lmdb/libraries/liblmdb/lmdb.h
@@ -211,19 +250,19 @@ if (WIN32)
 endif()
 
 if (WIN32)
-	set (BLAKE2_IMPLEMENTATION "blake2/blake2b.c")
+	set (BLAKE2_IMPLEMENTATION "crypto/blake2/blake2b.c")
 else ()
 	IF (CMAKE_SYSTEM_PROCESSOR MATCHES "^(i.86|x86(_64)?)$")
-		set (BLAKE2_IMPLEMENTATION "blake2/blake2b.c")
+		set (BLAKE2_IMPLEMENTATION "crypto/blake2/blake2b.c")
 	else()
-		set (BLAKE2_IMPLEMENTATION "blake2/blake2b-ref.c")
+		set (BLAKE2_IMPLEMENTATION "crypto/blake2/blake2b-ref.c")
 	endif()
 endif ()
 
 add_library (blake2
-	blake2/blake2-config.h
-	blake2/blake2-impl.h
-	blake2/blake2.h
+	crypto/blake2/blake2-config.h
+	crypto/blake2/blake2-impl.h
+	crypto/blake2/blake2.h
 	${BLAKE2_IMPLEMENTATION})
 
 target_compile_definitions(blake2 PRIVATE -D__SSE2__)
@@ -276,7 +315,8 @@ if (NANO_GUI OR RAIBLOCKS_GUI)
 	target_compile_definitions(qt
 		PRIVATE
 		-DNANO_VERSION_MAJOR=${CPACK_PACKAGE_VERSION_MAJOR}
-		-DNANO_VERSION_MINOR=${CPACK_PACKAGE_VERSION_MINOR})
+		-DNANO_VERSION_MINOR=${CPACK_PACKAGE_VERSION_MINOR}
+		-DNANO_VERSION_PATCH=${CPACK_PACKAGE_VERSION_PATCH})
 
 	if (WIN32)
 		set (PLATFORM_GUI_TARGET_PROPERTIES WIN32)
@@ -310,6 +350,12 @@ if (NANO_GUI OR RAIBLOCKS_GUI)
 
 	if (WIN32)
 		target_link_libraries (nano_wallet Qt5::WinExtras)
+		# nano_wallet.com executable for Windows console
+		add_executable(nano_wallet_com
+			nano/nano_wallet/entry_com.cpp)
+		target_link_libraries (nano_wallet_com
+			node)
+		set_target_properties (nano_wallet_com PROPERTIES COMPILE_FLAGS "-DBOOST_ASIO_HAS_STD_ARRAY=1" OUTPUT_NAME "nano_wallet" SUFFIX ".com")
 	endif()
 
 	add_executable (qt_system
@@ -330,6 +376,7 @@ if (NANO_GUI OR RAIBLOCKS_GUI)
 	endif ()
 
 	if (APPLE)
+		CONFIGURE_FILE(Info.plist.in Info.plist @ONLY)
 		install (TARGETS nano_wallet DESTINATION Nano.app/Contents/MacOS)
 		install (FILES Info.plist DESTINATION Nano.app/Contents)
 		install (FILES qt.conf DESTINATION Nano.app/Contents/Resources)
@@ -358,6 +405,7 @@ if (NANO_GUI OR RAIBLOCKS_GUI)
 		get_target_property (Qt5WindowsPlugin Qt5::QWindowsIntegrationPlugin LOCATION)
 		get_filename_component (Qt5_bin_DIR ${Qt5_DIR}/../../../bin ABSOLUTE)
 		install (TARGETS nano_wallet DESTINATION .)
+		install (TARGETS nano_wallet_com DESTINATION .)
 		install (FILES ${CMAKE_CURRENT_BINARY_DIR}/${WIN_REDIST} DESTINATION .)
 		install (FILES ${Qt5_bin_DIR}/libGLESv2.dll DESTINATION .)
 		install (FILES ${Qt5_bin_DIR}/Qt5Core.dll DESTINATION .)

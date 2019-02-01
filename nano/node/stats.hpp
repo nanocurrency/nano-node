@@ -6,6 +6,7 @@
 #include <chrono>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <nano/lib/errors.hpp>
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/utility.hpp>
@@ -59,20 +60,58 @@ public:
 class stat_datapoint
 {
 public:
-	/** Value of the sample interval */
-	uint64_t value{ 0 };
-	/** When the sample was added. This is wall time (system_clock), suitable for display purposes. */
-	std::chrono::system_clock::time_point timestamp{ std::chrono::system_clock::now () };
+	stat_datapoint () = default;
+	stat_datapoint (stat_datapoint const & other_a)
+	{
+		std::lock_guard<std::mutex> lock (other_a.datapoint_mutex);
+		value = other_a.value;
+		timestamp = other_a.timestamp;
+	}
+	stat_datapoint & operator= (stat_datapoint const & other_a)
+	{
+		std::lock_guard<std::mutex> lock (other_a.datapoint_mutex);
+		value = other_a.value;
+		timestamp = other_a.timestamp;
+		return *this;
+	}
 
+	uint64_t get_value ()
+	{
+		std::lock_guard<std::mutex> lock (datapoint_mutex);
+		return value;
+	}
+	void set_value (uint64_t value_a)
+	{
+		std::lock_guard<std::mutex> lock (datapoint_mutex);
+		value = value_a;
+	}
+	std::chrono::system_clock::time_point get_timestamp ()
+	{
+		std::lock_guard<std::mutex> lock (datapoint_mutex);
+		return timestamp;
+	}
+	void set_timestamp (std::chrono::system_clock::time_point timestamp_a)
+	{
+		std::lock_guard<std::mutex> lock (datapoint_mutex);
+		timestamp = timestamp_a;
+	}
 	/** Add \addend to the current value and optionally update the timestamp */
 	void add (uint64_t addend, bool update_timestamp = true)
 	{
+		std::lock_guard<std::mutex> lock (datapoint_mutex);
 		value += addend;
 		if (update_timestamp)
 		{
 			timestamp = std::chrono::system_clock::now ();
 		}
 	}
+
+private:
+	mutable std::mutex datapoint_mutex;
+	/** Value of the sample interval */
+	uint64_t value{ 0 };
+	/** When the sample was added. This is wall time (system_clock), suitable for display purposes. */
+	std::chrono::system_clock::time_point timestamp{ std::chrono::system_clock::now () };
 };
 
 /** Bookkeeping of statistics for a specific type/detail/direction combination */
@@ -188,6 +227,7 @@ public:
 		vote,
 		http_callback,
 		peering,
+		ipc,
 		udp
 	};
 
@@ -209,6 +249,7 @@ public:
 		change,
 		state_block,
 		epoch_block,
+		fork,
 
 		// message specific
 		keepalive,
@@ -248,6 +289,9 @@ public:
 		invalid_confirm_ack_message,
 		invalid_node_id_handshake_message,
 		outdated_version,
+
+		// ipc
+		invocations,
 
 		// peering
 		handshake,
@@ -378,8 +422,14 @@ public:
 	/** Returns current value for the given counter at the detail level */
 	uint64_t count (stat::type type, stat::detail detail, stat::dir dir = stat::dir::in)
 	{
-		return get_entry (key_of (type, detail, dir))->counter.value;
+		return get_entry (key_of (type, detail, dir))->counter.get_value ();
 	}
+
+	/** Returns the number of seconds since clear() was last called, or node startup if it's never called. */
+	std::chrono::seconds last_reset ();
+
+	/** Clear all stats */
+	void clear ();
 
 	/** Log counters to the given log link */
 	void log_counters (stat_log_sink & sink);
@@ -425,6 +475,9 @@ private:
 
 	/** Unlocked implementation of log_samples() to avoid using recursive locking */
 	void log_samples_impl (stat_log_sink & sink);
+
+	/** Time of last clear() call */
+	std::chrono::steady_clock::time_point timestamp{ std::chrono::steady_clock::now () };
 
 	/** Configuration deserialized from config.json */
 	nano::stat_config config;

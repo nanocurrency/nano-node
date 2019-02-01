@@ -16,6 +16,10 @@
 	<string>Nano.icns</string>
 	<key>CFBundleIdentifier</key>
 	<string>org.nano.nano_wallet</string>
+	<key>CFBundleShortVersionString</key>
+	<string>@CPACK_PACKAGE_VERSION_MAJOR@.@CPACK_PACKAGE_VERSION_MINOR@.@CPACK_PACKAGE_VERSION_PATCH@</string>
+	<key>CFBundleVersion</key>
+	<string>@CPACK_PACKAGE_VERSION_MAJOR@.@CPACK_PACKAGE_VERSION_MINOR@.@CPACK_PACKAGE_VERSION_PATCH@</string>
 	<key>NSRequiresAquaSystemAppearance</key>
 	<true/>
 </dict>

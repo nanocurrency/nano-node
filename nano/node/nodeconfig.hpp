@@ -4,6 +4,7 @@
 #include <nano/lib/errors.hpp>
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/numbers.hpp>
+#include <nano/node/ipc.hpp>
 #include <nano/node/logging.hpp>
 #include <nano/node/stats.hpp>
 #include <vector>
@@ -29,12 +30,14 @@ public:
 	std::vector<nano::account> preconfigured_representatives;
 	unsigned bootstrap_fraction_numerator;
 	nano::amount receive_minimum;
+	nano::amount vote_minimum;
 	nano::amount online_weight_minimum;
 	unsigned online_weight_quorum;
 	unsigned password_fanout;
 	unsigned io_threads;
 	unsigned network_threads;
 	unsigned work_threads;
+	unsigned signature_checker_threads;
 	bool enable_voting;
 	unsigned bootstrap_connections;
 	unsigned bootstrap_connections_max;
@@ -44,6 +47,7 @@ public:
 	int lmdb_max_dbs;
 	bool allow_local_peers;
 	nano::stat_config stat_config;
+	nano::ipc::ipc_config ipc_config;
 	nano::uint256_union epoch_block_link;
 	nano::account epoch_block_signer;
 	std::chrono::milliseconds block_processor_batch_max_time;
@@ -65,5 +69,7 @@ public:
 	bool disable_legacy_bootstrap;
 	bool disable_wallet_bootstrap;
 	bool disable_bootstrap_listener;
+	bool disable_unchecked_cleaning;
+	bool fast_bootstrap;
 };
 }

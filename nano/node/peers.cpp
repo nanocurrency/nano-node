@@ -10,17 +10,14 @@ nano::endpoint nano::map_endpoint_to_v6 (nano::endpoint const & endpoint_a)
 	return endpoint_l;
 }
 
-nano::peer_information::peer_information (nano::endpoint const & endpoint_a, unsigned network_version_a) :
+nano::peer_information::peer_information (nano::endpoint const & endpoint_a, unsigned network_version_a, boost::optional<nano::account> node_id_a) :
 endpoint (endpoint_a),
 ip_address (endpoint_a.address ()),
 last_contact (std::chrono::steady_clock::now ()),
 last_attempt (last_contact),
-last_bootstrap_attempt (std::chrono::steady_clock::time_point ()),
-last_rep_request (std::chrono::steady_clock::time_point ()),
-last_rep_response (std::chrono::steady_clock::time_point ()),
-rep_weight (0),
+
 network_version (network_version_a),
-node_id ()
+node_id (node_id_a)
 {
 }
 
@@ -28,14 +25,13 @@ nano::peer_information::peer_information (nano::endpoint const & endpoint_a, std
 endpoint (endpoint_a),
 ip_address (endpoint_a.address ()),
 last_contact (last_contact_a),
-last_attempt (last_attempt_a),
-last_bootstrap_attempt (std::chrono::steady_clock::time_point ()),
-last_rep_request (std::chrono::steady_clock::time_point ()),
-last_rep_response (std::chrono::steady_clock::time_point ()),
-rep_weight (0),
-network_version (nano::protocol_version),
-node_id ()
+last_attempt (last_attempt_a)
 {
+}
+
+bool nano::peer_information::operator< (nano::peer_information const & peer_information_a) const
+{
+	return endpoint < peer_information_a.endpoint;
 }
 
 nano::peer_container::peer_container (nano::endpoint const & self_a) :
@@ -104,17 +100,6 @@ std::deque<nano::endpoint> nano::peer_container::list ()
 		result.push_back (i->endpoint);
 	}
 	random_pool.Shuffle (result.begin (), result.end ());
-	return result;
-}
-
-std::map<nano::endpoint, unsigned> nano::peer_container::list_version ()
-{
-	std::map<nano::endpoint, unsigned> result;
-	std::lock_guard<std::mutex> lock (mutex);
-	for (auto i (peers.begin ()), j (peers.end ()); i != j; ++i)
-	{
-		result.insert (std::pair<nano::endpoint, unsigned> (i->endpoint, i->network_version));
-	}
 	return result;
 }
 
@@ -443,7 +428,7 @@ bool nano::peer_container::reachout (nano::endpoint const & endpoint_a)
 	return error;
 }
 
-bool nano::peer_container::insert (nano::endpoint const & endpoint_a, unsigned version_a, bool preconfigured_a)
+bool nano::peer_container::insert (nano::endpoint const & endpoint_a, unsigned version_a, bool preconfigured_a, boost::optional<nano::account> node_id_a)
 {
 	assert (endpoint_a.address ().is_v6 ());
 	auto unknown (false);
@@ -456,15 +441,19 @@ bool nano::peer_container::insert (nano::endpoint const & endpoint_a, unsigned v
 			auto existing (peers.find (endpoint_a));
 			if (existing != peers.end ())
 			{
-				peers.modify (existing, [](nano::peer_information & info) {
+				peers.modify (existing, [node_id_a](nano::peer_information & info) {
 					info.last_contact = std::chrono::steady_clock::now ();
+					if (node_id_a.is_initialized ())
+					{
+						info.node_id = node_id_a;
+					}
 				});
 				result = true;
 			}
 			else
 			{
 				unknown = true;
-				if (!result && nano_network != nano_networks::nano_test_network)
+				if (!result && !nano::is_test_network)
 				{
 					auto ip_peers (peers.get<nano::peer_by_ip_addr> ().count (endpoint_a.address ()));
 					if (ip_peers >= max_peers_per_ip)
@@ -474,7 +463,7 @@ bool nano::peer_container::insert (nano::endpoint const & endpoint_a, unsigned v
 				}
 				if (!result)
 				{
-					peers.insert (nano::peer_information (endpoint_a, version_a));
+					peers.insert (nano::peer_information (endpoint_a, version_a, node_id_a));
 				}
 			}
 		}
@@ -484,4 +473,34 @@ bool nano::peer_container::insert (nano::endpoint const & endpoint_a, unsigned v
 		peer_observer (endpoint_a);
 	}
 	return result;
+}
+
+namespace nano
+{
+std::unique_ptr<seq_con_info_component> collect_seq_con_info (peer_container & peer_container, const std::string & name)
+{
+	size_t peers_count = 0;
+	size_t attemps_count = 0;
+	{
+		std::lock_guard<std::mutex> guard (peer_container.mutex);
+		peers_count = peer_container.peers.size ();
+		attemps_count = peer_container.attempts.size ();
+	}
+
+	auto composite = std::make_unique<seq_con_info_composite> (name);
+	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "peers", peers_count, sizeof (decltype (peer_container.peers)::value_type) }));
+	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "attempts", attemps_count, sizeof (decltype (peer_container.attempts)::value_type) }));
+
+	size_t syn_cookies_count = 0;
+	size_t syn_cookies_per_ip_count = 0;
+	{
+		std::lock_guard<std::mutex> guard (peer_container.syn_cookie_mutex);
+		syn_cookies_count = peer_container.syn_cookies.size ();
+		syn_cookies_per_ip_count = peer_container.syn_cookies_per_ip.size ();
+	}
+
+	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "syn_cookies", syn_cookies_count, sizeof (decltype (peer_container.syn_cookies)::value_type) }));
+	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "syn_cookies_per_ip", syn_cookies_per_ip_count, sizeof (decltype (peer_container.syn_cookies_per_ip)::value_type) }));
+	return composite;
+}
 }
