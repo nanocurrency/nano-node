@@ -805,7 +805,7 @@ nano::public_key nano::wallet::deterministic_insert (nano::transaction const & t
 		{
 			std::lock_guard<std::mutex> lock (representatives_mutex);
 			representatives.insert (key);
-			wallets.reps_count++;
+			++wallets.reps_count;
 		}
 	}
 	return key;
@@ -848,7 +848,7 @@ nano::public_key nano::wallet::insert_adhoc (nano::transaction const & transacti
 		{
 			std::lock_guard<std::mutex> lock (representatives_mutex);
 			representatives.insert (key);
-			wallets.reps_count++;
+			++wallets.reps_count;
 		}
 	}
 	return key;
@@ -1620,7 +1620,7 @@ void nano::wallets::compute_reps ()
 			if (node.ledger.weight (ledger_transaction, account) >= node.config.vote_minimum.number ())
 			{
 				representatives_l.insert (account);
-				reps_count++;
+				++reps_count;
 			}
 		}
 		std::lock_guard<std::mutex> representatives_lock (wallet.representatives_mutex);
