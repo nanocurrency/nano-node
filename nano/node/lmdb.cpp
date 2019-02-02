@@ -2180,6 +2180,12 @@ size_t nano::mdb_store::online_weight_count (nano::transaction const & transacti
 	return online_weight_stats.ms_entries;
 }
 
+void nano::mdb_store::online_weight_clear (nano::transaction const & transaction_a)
+{
+	auto status (mdb_drop (env.tx (transaction_a), online_weight, 0));
+	release_assert (status == 0);
+}
+
 void nano::mdb_store::flush (nano::transaction const & transaction_a)
 {
 	{

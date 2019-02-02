@@ -29,10 +29,12 @@ void nano::add_node_options (boost::program_options::options_description & descr
 	("account_key", "Get the public key for <account>")
 	("vacuum", "Compact database. If data_path is missing, the database in data directory is compacted.")
 	("snapshot", "Compact database and create snapshot, functions similar to vacuum but does not replace the existing database")
-	("unchecked_clear", "Clear unchecked blocks")
 	("data_path", boost::program_options::value<std::string> (), "Use the supplied path as the data directory")
-	("delete_node_id", "Delete the node ID in the database")
 	("clear_send_ids", "Remove all send IDs from the database (dangerous: not intended for production use)")
+	("delete_node_id", "Delete the node ID in the database")
+	("online_weight_clear", "Clear online weight history records")
+	("peer_clear", "Clear online peers database dump")
+	("unchecked_clear", "Clear unchecked blocks")
 	("diagnostics", "Run internal diagnostics")
 	("key_create", "Generates a adhoc random keypair and prints it to stdout")
 	("key_expand", "Derive public key and account number from <key>")
@@ -166,6 +168,16 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 					auto transaction (node.node->store.tx_begin_write ());
 					node.node->wallets.clear_send_ids (transaction);
 				}
+				if (vm.count ("online_weight_clear"))
+				{
+					auto transaction (node.node->store.tx_begin_write ());
+					node.node->wallets.online_weight_clear (transaction);
+				}
+				if (vm.count ("peer_clear"))
+				{
+					auto transaction (node.node->store.tx_begin_write ());
+					node.node->wallets.peer_clear (transaction);
+				}
 				success = node.node->copy_with_compaction (vacuum_path);
 			}
 
@@ -222,6 +234,16 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 					auto transaction (node.node->store.tx_begin_write ());
 					node.node->wallets.clear_send_ids (transaction);
 				}
+				if (vm.count ("online_weight_clear"))
+				{
+					auto transaction (node.node->store.tx_begin_write ());
+					node.node->wallets.online_weight_clear (transaction);
+				}
+				if (vm.count ("peer_clear"))
+				{
+					auto transaction (node.node->store.tx_begin_write ());
+					node.node->wallets.peer_clear (transaction);
+				}
 				success = node.node->copy_with_compaction (snapshot_path);
 			}
 			if (success)
@@ -265,6 +287,22 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		auto transaction (node.node->store.tx_begin_write ());
 		node.node->wallets.clear_send_ids (transaction);
 		std::cerr << "Send IDs deleted" << std::endl;
+	}
+	else if (vm.count ("online_weight_clear"))
+	{
+		boost::filesystem::path data_path = vm.count ("data_path") ? boost::filesystem::path (vm["data_path"].as<std::string> ()) : nano::working_path ();
+		inactive_node node (data_path);
+		auto transaction (node.node->store.tx_begin_write ());
+		node.node->store.online_weight_clear (transaction);
+		std::cerr << "Onine weight records are removed" << std::endl;
+	}
+	else if (vm.count ("peer_clear"))
+	{
+		boost::filesystem::path data_path = vm.count ("data_path") ? boost::filesystem::path (vm["data_path"].as<std::string> ()) : nano::working_path ();
+		inactive_node node (data_path);
+		auto transaction (node.node->store.tx_begin_write ());
+		node.node->store.peer_clear (transaction);
+		std::cerr << "Database peers are removed" << std::endl;
 	}
 	else if (vm.count ("diagnostics"))
 	{
