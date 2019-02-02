@@ -377,7 +377,7 @@ if (NANO_GUI OR RAIBLOCKS_GUI)
 	endif ()
 
 	if (APPLE)
-		CONFIGURE_FILE(Info.plist.in Info.plist @ONLY)
+		CONFIGURE_FILE(${CMAKE_SOURCE_DIR}/Info.plist.in ${CMAKE_SOURCE_DIR}/Info.plist @ONLY)
 		install (TARGETS nano_wallet DESTINATION Nano.app/Contents/MacOS)
 		install (FILES Info.plist DESTINATION Nano.app/Contents)
 		install (FILES qt.conf DESTINATION Nano.app/Contents/Resources)
