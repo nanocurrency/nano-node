@@ -244,7 +244,7 @@ public:
 	nano::store_iterator<uint64_t, nano::amount> online_weight_begin (nano::transaction const &) override;
 	nano::store_iterator<uint64_t, nano::amount> online_weight_end () override;
 	size_t online_weight_count (nano::transaction const &) const override;
-	void online_weight_clear (nano::transaction const &, uint64_t) override;
+	void online_weight_clear (nano::transaction const &) override;
 
 	std::mutex cache_mutex;
 	std::unordered_map<nano::account, std::shared_ptr<nano::vote>> vote_cache_l1;
