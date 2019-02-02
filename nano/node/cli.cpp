@@ -165,18 +165,18 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 				}
 				if (vm.count ("clear_send_ids"))
 				{
-					auto transaction (node.node->store.tx_begin_write ());
+					auto transaction (node.node->wallets.tx_begin_write ());
 					node.node->wallets.clear_send_ids (transaction);
 				}
 				if (vm.count ("online_weight_clear"))
 				{
 					auto transaction (node.node->store.tx_begin_write ());
-					node.node->wallets.online_weight_clear (transaction);
+					node.node->store.online_weight_clear (transaction);
 				}
 				if (vm.count ("peer_clear"))
 				{
 					auto transaction (node.node->store.tx_begin_write ());
-					node.node->wallets.peer_clear (transaction);
+					node.node->store.peer_clear (transaction);
 				}
 				success = node.node->copy_with_compaction (vacuum_path);
 			}
@@ -231,18 +231,18 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 				}
 				if (vm.count ("clear_send_ids"))
 				{
-					auto transaction (node.node->store.tx_begin_write ());
+					auto transaction (node.node->wallets.tx_begin_write ());
 					node.node->wallets.clear_send_ids (transaction);
 				}
 				if (vm.count ("online_weight_clear"))
 				{
 					auto transaction (node.node->store.tx_begin_write ());
-					node.node->wallets.online_weight_clear (transaction);
+					node.node->store.online_weight_clear (transaction);
 				}
 				if (vm.count ("peer_clear"))
 				{
 					auto transaction (node.node->store.tx_begin_write ());
-					node.node->wallets.peer_clear (transaction);
+					node.node->store.peer_clear (transaction);
 				}
 				success = node.node->copy_with_compaction (snapshot_path);
 			}
@@ -284,7 +284,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	{
 		boost::filesystem::path data_path = vm.count ("data_path") ? boost::filesystem::path (vm["data_path"].as<std::string> ()) : nano::working_path ();
 		inactive_node node (data_path);
-		auto transaction (node.node->store.tx_begin_write ());
+		auto transaction (node.node->wallets.tx_begin_write ());
 		node.node->wallets.clear_send_ids (transaction);
 		std::cerr << "Send IDs deleted" << std::endl;
 	}
