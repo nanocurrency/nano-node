@@ -135,7 +135,7 @@ public:
 		json.put ("account", account.to_account ());
 		nano::jsonconfig node_l;
 		node.enable_voting = false;
-		node.bootstrap_connections_max = 4;
+		json.put ("bootstrap_connections_max", node.bootstrap_connections_max);
 		node.serialize_json (node_l);
 		json.put_child ("node", node_l);
 		nano::jsonconfig rpc_l;
