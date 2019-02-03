@@ -3996,10 +3996,7 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 				if (node.ledger.could_fit (transaction, *election_l->status.winner))
 				{
 					// Broadcast winner
-					if (rebroadcast_bundle.size () < max_broadcast_queue)
-					{
-						rebroadcast_bundle.push_back (election_l->status.winner);
-					}
+					rebroadcast_bundle.push_back (election_l->status.winner);
 				}
 				else
 				{
@@ -4050,10 +4047,7 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 					// broadcast_confirm_req_base modifies reps, so we clone it once to avoid aliasing
 					if (!nano::is_test_network)
 					{
-						if (confirm_req_bundle.size () < max_broadcast_queue)
-						{
-							confirm_req_bundle.push_back (std::make_pair (i->election->status.winner, reps));
-						}
+						confirm_req_bundle.push_back (std::make_pair (i->election->status.winner, reps));
 					}
 					else
 					{
@@ -4064,11 +4058,8 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 							auto root_hash (std::make_pair (block->hash (), block->root ()));
 							if (rep_request == requests_bundle.end ())
 							{
-								if (requests_bundle.size () < max_broadcast_queue)
-								{
-									std::vector<std::pair<nano::block_hash, nano::block_hash>> insert_vector = { root_hash };
-									requests_bundle.insert (std::make_pair (rep.endpoint, insert_vector));
-								}
+								std::vector<std::pair<nano::block_hash, nano::block_hash>> insert_vector = { root_hash };
+								requests_bundle.insert (std::make_pair (rep.endpoint, insert_vector));
 							}
 							else if (rep_request->second.size () < max_broadcast_queue * nano::network::confirm_req_hashes_max)
 							{
@@ -4110,16 +4101,30 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 	// Rebroadcast unconfirmed blocks
 	if (!rebroadcast_bundle.empty ())
 	{
+		if (rebroadcast_bundle.size () > max_broadcast_queue)
+		{
+			random_pool.Shuffle (rebroadcast_bundle.begin (), rebroadcast_bundle.end ());
+			rebroadcast_bundle.resize (max_broadcast_queue);
+		}
 		node.network.republish_block_batch (rebroadcast_bundle);
 	}
 	// Batch confirmation request
-	if (nano::nano_network != nano::nano_networks::nano_live_network && !requests_bundle.empty ())
+	if (!requests_bundle.empty ())
 	{
+		while (requests_bundle.size () > max_broadcast_queue)
+		{
+			requests_bundle.erase (requests_bundle.begin ());
+		}
 		node.network.broadcast_confirm_req_batch (requests_bundle, 50);
 	}
 	//confirm_req broadcast
 	if (!confirm_req_bundle.empty ())
 	{
+		if (confirm_req_bundle.size () > max_broadcast_queue)
+		{
+			random_pool.Shuffle (confirm_req_bundle.begin (), confirm_req_bundle.end ());
+			confirm_req_bundle.resize (max_broadcast_queue);
+		}
 		node.network.broadcast_confirm_req_batch (confirm_req_bundle);
 	}
 	for (auto i (inactive.begin ()), n (inactive.end ()); i != n; ++i)
