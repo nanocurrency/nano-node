@@ -9,15 +9,15 @@ platform: x64
 environment:
   matrix:
     - network: nano_live_network
+      configuration: Release
     - network: nano_beta_network
+      configuration: RelWithDebInfo
 clone_folder: C:\projects\myproject
 install:
 - cmd: >-
     git submodule update --init --recursive
 
-    cmake -DNANO_GUI=ON -DACTIVE_NETWORK=%NETWORK% -DQt5_DIR="C:\Qt\5.9\msvc2017_64\lib\cmake\Qt5" -DNANO_SIMD_OPTIMIZATIONS=TRUE -DBoost_COMPILER="-vc141" -DBOOST_ROOT="C:/Libraries/boost_1_66_0" -DBOOST_LIBRARYDIR="C:/Libraries/boost_1_66_0/lib64-msvc-14.1" -G "Visual Studio 15 2017 Win64" -DIPHLPAPI_LIBRARY="C:/Program Files (x86)/Windows Kits/10/Lib/10.0.14393.0/um/x64/iphlpapi.lib" -DWINSOCK2_LIBRARY="C:/Program Files (x86)/Windows Kits/10/Lib/10.0.14393.0/um/x64/WS2_32.lib"
-
-
+    cmake -DNANO_GUI=ON -DCMAKE_BUILD_TYPE=%CONFIGURATION% -DACTIVE_NETWORK=%NETWORK% -DQt5_DIR="C:\Qt\5.9\msvc2017_64\lib\cmake\Qt5" -DNANO_SIMD_OPTIMIZATIONS=TRUE -DBoost_COMPILER="-vc141" -DBOOST_ROOT="C:/Libraries/boost_1_66_0" -DBOOST_LIBRARYDIR="C:/Libraries/boost_1_66_0/lib64-msvc-14.1" -G "Visual Studio 15 2017 Win64" -DIPHLPAPI_LIBRARY="C:/Program Files (x86)/Windows Kits/10/Lib/10.0.14393.0/um/x64/iphlpapi.lib" -DWINSOCK2_LIBRARY="C:/Program Files (x86)/Windows Kits/10/Lib/10.0.14393.0/um/x64/WS2_32.lib"
 
 - ps: Invoke-WebRequest -Uri https://aka.ms/vs/15/release/vc_redist.x64.exe -OutFile .\vc_redist.x64.exe
 build:
@@ -26,9 +26,9 @@ build:
   verbosity: minimal
 after_build:
 - cmd: >-
-    cpack -NSIS --verbose
+    cpack -C %CONFIGURATION% --verbose --config ./CPackConfig.cmake
 
-    7z a nano.zip %APPVEYOR_BUILD_FOLDER%\Release\*.exe %APPVEYOR_BUILD_FOLDER%\Release\*.com
+    7z a nano.zip %APPVEYOR_BUILD_FOLDER%\%CONFIGURATION%\*.exe %APPVEYOR_BUILD_FOLDER%\%CONFIGURATION%\*.com
 artifacts:
 - path: nano.zip
   name: nano_release_%network%
