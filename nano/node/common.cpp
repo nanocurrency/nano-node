@@ -201,7 +201,7 @@ void nano::message_parser::deserialize_buffer (uint8_t const * buffer_a, size_t 
 		nano::message_header header (error, stream);
 		if (!error)
 		{
-			if (nano::nano_network == nano::nano_networks::nano_beta_network && header.version_using < nano::protocol_version_reasonable_min)
+			if (nano::is_beta_network && header.version_using < nano::protocol_version_reasonable_min)
 			{
 				status = parse_status::outdated_version;
 			}
