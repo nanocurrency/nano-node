@@ -28,7 +28,7 @@ after_build:
 - cmd: >-
     cpack -C %CONFIGURATION% --verbose --config ./CPackConfig.cmake
 
-    7z a nano.zip %APPVEYOR_BUILD_FOLDER%\Release\*.exe %APPVEYOR_BUILD_FOLDER%\Release\*.com
+    7z a nano.zip %APPVEYOR_BUILD_FOLDER%\%CONFIGURATION%\*.exe %APPVEYOR_BUILD_FOLDER%\%CONFIGURATION%\*.com
 artifacts:
 - path: nano.zip
   name: nano_release_%network%
