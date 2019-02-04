@@ -963,6 +963,18 @@ void nano::alarm::add (std::chrono::steady_clock::time_point const & wakeup_a, s
 	condition.notify_all ();
 }
 
+namespace nano
+{
+std::unique_ptr<seq_con_info_component> collect_seq_con_info (alarm & alarm, const std::string & name)
+{
+	auto composite = std::make_unique<seq_con_info_composite> (name);
+	auto count = alarm.operations.size ();
+	auto sizeof_element = sizeof (decltype (alarm.operations)::value_type);
+	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "operations", count, sizeof_element }));
+	return composite;
+}
+}
+
 nano::node_init::node_init () :
 block_store_init (false),
 wallet_init (false)
@@ -2381,6 +2393,7 @@ namespace nano
 std::unique_ptr<seq_con_info_component> collect_seq_con_info (node & node, const std::string & name)
 {
 	auto composite = std::make_unique<seq_con_info_composite> (name);
+	composite->add_component (collect_seq_con_info (node.alarm, "alarm"));
 	composite->add_component (collect_seq_con_info (node.work, "work"));
 	composite->add_component (collect_seq_con_info (node.gap_cache, "gap_cache"));
 	composite->add_component (collect_seq_con_info (node.ledger, "ledger"));
