@@ -2230,7 +2230,7 @@ startup_time (std::chrono::steady_clock::now ())
 		BOOST_LOG (log) << "Node ID: " << node_id.pub.to_account ();
 	}
 	peers.online_weight_minimum = config.online_weight_minimum.number ();
-	if (nano::nano_network == nano::nano_networks::nano_live_network || nano::nano_network == nano::nano_networks::nano_beta_network)
+	if (nano::is_live_network || nano::is_beta_network)
 	{
 		nano::bufferstream weight_stream ((const uint8_t *)nano_bootstrap_weights, nano_bootstrap_weights_size);
 		nano::uint128_union block_height;
@@ -3595,7 +3595,7 @@ bool nano::reserved_address (nano::endpoint const & endpoint_a, bool blacklist_l
 	{
 		result = true;
 	}
-	else if (nano::nano_network == nano::nano_networks::nano_live_network)
+	else if (nano::is_live_network)
 	{
 		if (bytes >= rfc1918_1_min && bytes <= rfc1918_1_max)
 		{
@@ -4126,7 +4126,7 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 		node.network.republish_block_batch (rebroadcast_bundle);
 	}
 	// Batch confirmation request
-	if (nano::nano_network != nano::nano_networks::nano_live_network && !requests_bundle.empty ())
+	if (!nano::is_live_network && !requests_bundle.empty ())
 	{
 		node.network.broadcast_confirm_req_batch (requests_bundle, 50);
 	}

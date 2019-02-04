@@ -87,7 +87,7 @@ public:
 	nano::rpc_config config;
 	nano::node & node;
 	bool on;
-	static uint16_t const rpc_port = nano::nano_network == nano::nano_networks::nano_live_network ? 7076 : 55000;
+	static uint16_t const rpc_port = nano::is_live_network ? 7076 : 55000;
 };
 class rpc_connection : public std::enable_shared_from_this<nano::rpc_connection>
 {
