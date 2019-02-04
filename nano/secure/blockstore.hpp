@@ -293,6 +293,7 @@ public:
 	virtual nano::store_iterator<uint64_t, nano::amount> online_weight_begin (nano::transaction const &) = 0;
 	virtual nano::store_iterator<uint64_t, nano::amount> online_weight_end () = 0;
 	virtual size_t online_weight_count (nano::transaction const &) const = 0;
+	virtual void online_weight_clear (nano::transaction const &) = 0;
 
 	virtual void version_put (nano::transaction const &, int) = 0;
 	virtual int version_get (nano::transaction const &) = 0;
