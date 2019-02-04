@@ -248,7 +248,7 @@ public:
 	std::vector<nano::account> list ();
 	static uint64_t constexpr weight_period = 5 * 60; // 5 minutes
 	// The maximum amount of samples for a 2 week period on live or 3 days on beta
-	static uint64_t constexpr weight_samples = (nano::nano_network == nano::nano_networks::nano_live_network) ? 4032 : 864;
+	static uint64_t constexpr weight_samples = nano::is_live_network ? 4032 : 864;
 
 private:
 	nano::uint128_t trend (nano::transaction &);
@@ -348,7 +348,7 @@ public:
 	std::vector<boost::thread> packet_processing_threads;
 	nano::node & node;
 	std::atomic<bool> on;
-	static uint16_t const node_port = nano::nano_network == nano::nano_networks::nano_live_network ? 7075 : 54000;
+	static uint16_t const node_port = nano::is_live_network ? 7075 : 54000;
 	static size_t const buffer_size = 512;
 	static size_t const confirm_req_hashes_max = 6;
 };
