@@ -175,6 +175,9 @@ public:
 	std::priority_queue<operation, std::vector<operation>, std::greater<operation>> operations;
 	boost::thread thread;
 };
+
+std::unique_ptr<seq_con_info_component> collect_seq_con_info (alarm & alarm, const std::string & name);
+
 class gap_information
 {
 public:
