@@ -4,6 +4,8 @@
 #include <nano/node/node.hpp>
 #include <nano/secure/blockstore.hpp>
 
+std::chrono::milliseconds constexpr nano::block_processor::confirmation_request_delay;
+
 nano::block_processor::block_processor (nano::node & node_a) :
 generator (node_a, nano::is_test_network ? std::chrono::milliseconds (10) : std::chrono::milliseconds (500)),
 stopped (false),
@@ -349,6 +351,28 @@ void nano::block_processor::process_live (nano::block_hash const & hash_a, std::
 		// Announce our weighted vote to the network
 		generator.add (hash_a);
 	}
+	// Request confirmation for new block with delay
+	std::weak_ptr<nano::node> node_w (node.shared ());
+	node.alarm.add (std::chrono::steady_clock::now () + confirmation_request_delay, [node_w, block_a]() {
+		if (auto node_l = node_w.lock ())
+		{
+			// Check if votes were already requested
+			bool send_request (false);
+			{
+				std::lock_guard<std::mutex> lock (node_l->active.mutex);
+				auto existing (node_l->active.blocks.find (block_a->hash ()));
+				if (existing != node_l->active.blocks.end () && !existing->second->confirmed && !existing->second->stopped && existing->second->announcements == 0)
+				{
+					send_request = true;
+				}
+			}
+			// Request votes
+			if (send_request)
+			{
+				node_l->network.broadcast_confirm_req (block_a);
+			}
+		}
+	});
 }
 
 nano::process_return nano::block_processor::process_one (nano::transaction const & transaction_a, nano::unchecked_info info_a)

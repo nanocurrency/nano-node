@@ -44,6 +44,8 @@ public:
 	nano::process_return process_one (nano::transaction const &, nano::unchecked_info);
 	nano::process_return process_one (nano::transaction const &, std::shared_ptr<nano::block>);
 	nano::vote_generator generator;
+	// Delay required for average network propagartion before requesting confirmation
+	static std::chrono::milliseconds constexpr confirmation_request_delay{ 1500 };
 
 private:
 	void queue_unchecked (nano::transaction const &, nano::block_hash const &);
