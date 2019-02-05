@@ -45,6 +45,8 @@ add_library (node
 	rpc.cpp
 	testing.hpp
 	testing.cpp
+	signatures.hpp
+	signatures.cpp
 	wallet.hpp
 	wallet.cpp
 	stats.hpp
