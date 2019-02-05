@@ -342,14 +342,15 @@ bool nano::unchecked_info::deserialize (nano::stream & stream_a)
 	bool error (block == nullptr);
 	if (!error)
 	{
-		error = nano::read (stream_a, account.bytes);
-		if (!error)
+		try
 		{
-			error = nano::read (stream_a, modified);
-			if (!error)
-			{
-				error = nano::read (stream_a, verified);
-			}
+			nano::read (stream_a, account.bytes);
+			nano::read (stream_a, modified);
+			nano::read (stream_a, verified);
+		}
+		catch (std::runtime_error const &)
+		{
+			error = true;
 		}
 	}
 	return error;
