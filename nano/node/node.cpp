@@ -33,7 +33,6 @@ size_t constexpr nano::block_arrival::arrival_size_min;
 std::chrono::seconds constexpr nano::block_arrival::arrival_time_min;
 uint64_t constexpr nano::online_reps::weight_period;
 uint64_t constexpr nano::online_reps::weight_samples;
-std::chrono::milliseconds constexpr nano::block_processor::confirmation_request_delay;
 
 namespace nano
 {
