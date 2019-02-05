@@ -56,8 +56,8 @@ public:
 	nano::account destination;
 	uint64_t start;
 	uint64_t last;
-	bool deserialize (std::istream &);
 	void serialize (std::ostream &) const;
+	bool deserialize (std::istream &);
 	bool operator== (nano::landing_store const &) const;
 };
 class landing

@@ -1563,7 +1563,7 @@ startup_time (std::chrono::steady_clock::now ())
 	{
 		nano::bufferstream weight_stream ((const uint8_t *)nano_bootstrap_weights, nano_bootstrap_weights_size);
 		nano::uint128_union block_height;
-		if (!nano::read (weight_stream, block_height))
+		if (!nano::try_read (weight_stream, block_height))
 		{
 			auto max_blocks = (uint64_t)block_height.number ();
 			auto transaction (store.tx_begin_read ());
@@ -1573,12 +1573,12 @@ startup_time (std::chrono::steady_clock::now ())
 				while (true)
 				{
 					nano::account account;
-					if (nano::read (weight_stream, account.bytes))
+					if (nano::try_read (weight_stream, account.bytes))
 					{
 						break;
 					}
 					nano::amount weight;
-					if (nano::read (weight_stream, weight.bytes))
+					if (nano::try_read (weight_stream, weight.bytes))
 					{
 						break;
 					}
