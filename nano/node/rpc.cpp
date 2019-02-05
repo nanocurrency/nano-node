@@ -2492,70 +2492,61 @@ void nano::rpc_handler::process ()
 		{
 			std::shared_ptr<nano::state_block> block_state (std::static_pointer_cast<nano::state_block> (block));
 			auto transaction (node.store.tx_begin_read ());
-			if (!block_state->hashables.previous.is_zero () && !ledger.store.block_exists (transaction, block_state->hashables.previous))
+			if (!block_state->hashables.previous.is_zero () && !node.store.block_exists (transaction, block_state->hashables.previous))
 			{
-				ec = nano::process_result::gap_previous;
+				ec = nano::error_process::gap_previous;
 			}
 			else
 			{
 				auto balance (node.ledger.account_balance (transaction, block_state->hashables.account));
-				switch (subtype_text)
+				if (subtype_text == "send")
 				{
-					case "send":
+					if (balance <= block_state->hashables.balance.number ())
 					{
-						if (balance <= block_state->hashables.balance)
-						{
-							ec = nano::error_rpc::invalid_subtype_balance;
-						}
-						// Send with previous == 0 fails balance check. No previous != 0 check required
-						break;
+						ec = nano::error_rpc::invalid_subtype_balance;
 					}
-					case "receive":
+					// Send with previous == 0 fails balance check. No previous != 0 check required
+				}
+				else if (subtype_text == "receive")
+				{
+					if (balance > block_state->hashables.balance.number ())
 					{
-						if (balance > block_state->hashables.balance)
-						{
-							ec = nano::error_rpc::invalid_subtype_balance;
-						}
-						// Receive can be point to open block. No previous != 0 check required
-						break;
+						ec = nano::error_rpc::invalid_subtype_balance;
 					}
-					case "open":
+					// Receive can be point to open block. No previous != 0 check required
+				}
+				else if (subtype_text == "open")
+				{
+					if (!block_state->hashables.previous.is_zero ())
 					{
-						if (!block_state->hashables.previous.is_zero ())
-						{
-							ec = nano::error_rpc::invalid_subtype_previous;
-						}
-						break;
+						ec = nano::error_rpc::invalid_subtype_previous;
 					}
-					case "change":
+				}
+				else if (subtype_text == "change")
+				{
+					if (balance != block_state->hashables.balance.number ())
 					{
-						if (balance != block_state->hashables.balance)
-						{
-							ec = nano::error_rpc::invalid_subtype_balance;
-						}
-						else if (block_state->hashables.previous.is_zero ())
-						{
-							ec = nano::error_rpc::invalid_subtype_previous;
-						}
-						break;
+						ec = nano::error_rpc::invalid_subtype_balance;
 					}
-					case "epoch":
+					else if (block_state->hashables.previous.is_zero ())
 					{
-						if (balance != block_state->hashables.balance)
-						{
-							ec = nano::error_rpc::invalid_subtype_balance;
-						}
-						else if (!node.ledger.is_epoch_link (block_state->hashables.link))
-						{
-							ec = ec = nano::error_rpc::invalid_subtype_epoch_link;
-						}
-						break;
+						ec = nano::error_rpc::invalid_subtype_previous;
 					}
-					default:
+				}
+				else if (subtype_text == "epoch")
+				{
+					if (balance != block_state->hashables.balance.number ())
 					{
-						ec = nano::error_rpc::invalid_subtype;
-						break;
+						ec = nano::error_rpc::invalid_subtype_balance;
 					}
+					else if (!node.ledger.is_epoch_link (block_state->hashables.link))
+					{
+						ec = ec = nano::error_rpc::invalid_subtype_epoch_link;
+					}
+				}
+				else
+				{
+					ec = nano::error_rpc::invalid_subtype;
 				}
 			}
 		}
