@@ -172,27 +172,21 @@ void nano::account_info::serialize (nano::stream & stream_a) const
 
 bool nano::account_info::deserialize (nano::stream & stream_a)
 {
-	auto error (read (stream_a, head.bytes));
-	if (!error)
+	auto error (false);
+	try
 	{
-		error = read (stream_a, rep_block.bytes);
-		if (!error)
-		{
-			error = read (stream_a, open_block.bytes);
-			if (!error)
-			{
-				error = read (stream_a, balance.bytes);
-				if (!error)
-				{
-					error = read (stream_a, modified);
-					if (!error)
-					{
-						error = read (stream_a, block_count);
-					}
-				}
-			}
-		}
+		nano::read (stream_a, head.bytes);
+		nano::read (stream_a, rep_block.bytes);
+		nano::read (stream_a, open_block.bytes);
+		nano::read (stream_a, balance.bytes);
+		nano::read (stream_a, modified);
+		nano::read (stream_a, block_count);
 	}
+	catch (std::runtime_error const &)
+	{
+		error = true;
+	}
+
 	return error;
 }
 
@@ -254,12 +248,18 @@ void nano::pending_info::serialize (nano::stream & stream_a) const
 
 bool nano::pending_info::deserialize (nano::stream & stream_a)
 {
-	auto result (nano::read (stream_a, source.bytes));
-	if (!result)
+	auto error (false);
+	try
 	{
-		result = nano::read (stream_a, amount.bytes);
+		nano::read (stream_a, source.bytes);
+		nano::read (stream_a, amount.bytes);
 	}
-	return result;
+	catch (std::runtime_error const &)
+	{
+		error = true;
+	}
+
+	return error;
 }
 
 bool nano::pending_info::operator== (nano::pending_info const & other_a) const
@@ -287,11 +287,17 @@ void nano::pending_key::serialize (nano::stream & stream_a) const
 
 bool nano::pending_key::deserialize (nano::stream & stream_a)
 {
-	auto error (nano::read (stream_a, account.bytes));
-	if (!error)
+	auto error (false);
+	try
 	{
-		error = nano::read (stream_a, hash.bytes);
+		nano::read (stream_a, account.bytes);
+		nano::read (stream_a, hash.bytes);
 	}
+	catch (std::runtime_error const &)
+	{
+		error = true;
+	}
+
 	return error;
 }
 
@@ -336,14 +342,15 @@ bool nano::unchecked_info::deserialize (nano::stream & stream_a)
 	bool error (block == nullptr);
 	if (!error)
 	{
-		error = nano::read (stream_a, account.bytes);
-		if (!error)
+		try
 		{
-			error = nano::read (stream_a, modified);
-			if (!error)
-			{
-				error = nano::read (stream_a, verified);
-			}
+			nano::read (stream_a, account.bytes);
+			nano::read (stream_a, modified);
+			nano::read (stream_a, verified);
+		}
+		catch (std::runtime_error const &)
+		{
+			error = true;
 		}
 	}
 	return error;
@@ -389,11 +396,17 @@ void nano::block_info::serialize (nano::stream & stream_a) const
 
 bool nano::block_info::deserialize (nano::stream & stream_a)
 {
-	auto error (nano::read (stream_a, account.bytes));
-	if (!error)
+	auto error (false);
+	try
 	{
-		error = nano::read (stream_a, balance.bytes);
+		nano::read (stream_a, account.bytes);
+		nano::read (stream_a, balance.bytes);
 	}
+	catch (std::runtime_error const &)
+	{
+		error = true;
+	}
+
 	return error;
 }
 
@@ -482,45 +495,39 @@ nano::vote::vote (bool & error_a, nano::stream & stream_a, nano::block_uniquer *
 
 nano::vote::vote (bool & error_a, nano::stream & stream_a, nano::block_type type_a, nano::block_uniquer * uniquer_a)
 {
-	if (!error_a)
+	try
 	{
-		error_a = nano::read (stream_a, account.bytes);
-		if (!error_a)
+		nano::read (stream_a, account.bytes);
+		nano::read (stream_a, signature.bytes);
+		nano::read (stream_a, sequence);
+
+		while (stream_a.in_avail () > 0)
 		{
-			error_a = nano::read (stream_a, signature.bytes);
-			if (!error_a)
+			if (type_a == nano::block_type::not_a_block)
 			{
-				error_a = nano::read (stream_a, sequence);
-				if (!error_a)
+				nano::block_hash block_hash;
+				nano::read (stream_a, block_hash);
+				blocks.push_back (block_hash);
+			}
+			else
+			{
+				std::shared_ptr<nano::block> block (nano::deserialize_block (stream_a, type_a, uniquer_a));
+				if (block == nullptr)
 				{
-					while (!error_a && stream_a.in_avail () > 0)
-					{
-						if (type_a == nano::block_type::not_a_block)
-						{
-							nano::block_hash block_hash;
-							error_a = nano::read (stream_a, block_hash);
-							if (!error_a)
-							{
-								blocks.push_back (block_hash);
-							}
-						}
-						else
-						{
-							std::shared_ptr<nano::block> block (nano::deserialize_block (stream_a, type_a, uniquer_a));
-							error_a = block == nullptr;
-							if (!error_a)
-							{
-								blocks.push_back (block);
-							}
-						}
-					}
-					if (blocks.empty ())
-					{
-						error_a = true;
-					}
+					throw std::runtime_error ("Block is null");
 				}
+				blocks.push_back (block);
 			}
 		}
+	}
+	catch (std::runtime_error const &)
+	{
+		error_a = true;
+	}
+
+	if (blocks.empty ())
+	{
+		error_a = true;
 	}
 }
 
@@ -641,52 +648,52 @@ void nano::vote::serialize (nano::stream & stream_a)
 
 bool nano::vote::deserialize (nano::stream & stream_a, nano::block_uniquer * uniquer_a)
 {
-	auto result (read (stream_a, account));
-	if (!result)
+	auto error (false);
+	try
 	{
-		result = read (stream_a, signature);
-		if (!result)
+		nano::read (stream_a, account);
+		nano::read (stream_a, signature);
+		nano::read (stream_a, sequence);
+
+		nano::block_type type;
+
+		while (true)
 		{
-			result = read (stream_a, sequence);
-			if (!result)
+			if (nano::try_read (stream_a, type))
 			{
-				nano::block_type type;
-				while (!result)
+				// Reached the end of the stream
+				break;
+			}
+
+			if (type == nano::block_type::not_a_block)
+			{
+				nano::block_hash block_hash;
+				nano::read (stream_a, block_hash);
+				blocks.push_back (block_hash);
+			}
+			else
+			{
+				std::shared_ptr<nano::block> block (nano::deserialize_block (stream_a, type, uniquer_a));
+				if (block == nullptr)
 				{
-					if (nano::read (stream_a, type))
-					{
-						if (blocks.empty ())
-						{
-							result = true;
-						}
-						break;
-					}
-					if (!result)
-					{
-						if (type == nano::block_type::not_a_block)
-						{
-							nano::block_hash block_hash;
-							result = nano::read (stream_a, block_hash);
-							if (!result)
-							{
-								blocks.push_back (block_hash);
-							}
-						}
-						else
-						{
-							std::shared_ptr<nano::block> block (nano::deserialize_block (stream_a, type, uniquer_a));
-							result = block == nullptr;
-							if (!result)
-							{
-								blocks.push_back (block);
-							}
-						}
-					}
+					throw std::runtime_error ("Block is empty");
 				}
+
+				blocks.push_back (block);
 			}
 		}
 	}
-	return result;
+	catch (std::runtime_error const &)
+	{
+		error = true;
+	}
+
+	if (blocks.empty ())
+	{
+		error = true;
+	}
+
+	return error;
 }
 
 bool nano::vote::validate ()

@@ -1399,9 +1399,9 @@ node (init_a, io_ctx_a, application_path_a, alarm_a, nano::node_config (peering_
 nano::node::node (nano::node_init & init_a, boost::asio::io_context & io_ctx_a, boost::filesystem::path const & application_path_a, nano::alarm & alarm_a, nano::node_config const & config_a, nano::work_pool & work_a, nano::node_flags flags_a) :
 io_ctx (io_ctx_a),
 config (config_a),
+flags (flags_a),
 alarm (alarm_a),
 work (work_a),
-flags (flags_a),
 store_impl (std::make_unique<nano::mdb_store> (init_a.block_store_init, config.logging, application_path_a / "data.ldb", config_a.lmdb_max_dbs, !flags.disable_unchecked_drop, flags.sideband_batch_size)),
 store (*store_impl),
 wallets_store_impl (std::make_unique<nano::mdb_wallets_store> (init_a.wallets_store_init, application_path_a / "wallets.ldb", config_a.lmdb_max_dbs)),
@@ -1563,7 +1563,7 @@ startup_time (std::chrono::steady_clock::now ())
 	{
 		nano::bufferstream weight_stream ((const uint8_t *)nano_bootstrap_weights, nano_bootstrap_weights_size);
 		nano::uint128_union block_height;
-		if (!nano::read (weight_stream, block_height))
+		if (!nano::try_read (weight_stream, block_height))
 		{
 			auto max_blocks = (uint64_t)block_height.number ();
 			auto transaction (store.tx_begin_read ());
@@ -1573,12 +1573,12 @@ startup_time (std::chrono::steady_clock::now ())
 				while (true)
 				{
 					nano::account account;
-					if (nano::read (weight_stream, account.bytes))
+					if (nano::try_read (weight_stream, account.bytes))
 					{
 						break;
 					}
 					nano::amount weight;
-					if (nano::read (weight_stream, weight.bytes))
+					if (nano::try_read (weight_stream, weight.bytes))
 					{
 						break;
 					}
