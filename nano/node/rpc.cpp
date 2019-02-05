@@ -2484,6 +2484,73 @@ void nano::rpc_handler::payment_wait ()
 void nano::rpc_handler::process ()
 {
 	auto block (block_impl (true));
+	// State blocks subtype check
+	if (!ec && block->type () == nano::block_type::state)
+	{
+		std::string subtype_text (request.get<std::string> ("subtype", ""));
+		if (!subtype_text.empty ())
+		{
+			std::shared_ptr<nano::state_block> block_state (std::static_pointer_cast<nano::state_block> (block));
+			auto transaction (node.store.tx_begin_read ());
+			if (!block_state->hashables.previous.is_zero () && !node.store.block_exists (transaction, block_state->hashables.previous))
+			{
+				ec = nano::error_process::gap_previous;
+			}
+			else
+			{
+				auto balance (node.ledger.account_balance (transaction, block_state->hashables.account));
+				if (subtype_text == "send")
+				{
+					if (balance <= block_state->hashables.balance.number ())
+					{
+						ec = nano::error_rpc::invalid_subtype_balance;
+					}
+					// Send with previous == 0 fails balance check. No previous != 0 check required
+				}
+				else if (subtype_text == "receive")
+				{
+					if (balance > block_state->hashables.balance.number ())
+					{
+						ec = nano::error_rpc::invalid_subtype_balance;
+					}
+					// Receive can be point to open block. No previous != 0 check required
+				}
+				else if (subtype_text == "open")
+				{
+					if (!block_state->hashables.previous.is_zero ())
+					{
+						ec = nano::error_rpc::invalid_subtype_previous;
+					}
+				}
+				else if (subtype_text == "change")
+				{
+					if (balance != block_state->hashables.balance.number ())
+					{
+						ec = nano::error_rpc::invalid_subtype_balance;
+					}
+					else if (block_state->hashables.previous.is_zero ())
+					{
+						ec = nano::error_rpc::invalid_subtype_previous;
+					}
+				}
+				else if (subtype_text == "epoch")
+				{
+					if (balance != block_state->hashables.balance.number ())
+					{
+						ec = nano::error_rpc::invalid_subtype_balance;
+					}
+					else if (!node.ledger.is_epoch_link (block_state->hashables.link))
+					{
+						ec = ec = nano::error_rpc::invalid_subtype_epoch_link;
+					}
+				}
+				else
+				{
+					ec = nano::error_rpc::invalid_subtype;
+				}
+			}
+		}
+	}
 	if (!ec)
 	{
 		if (!nano::work_validate (*block))
