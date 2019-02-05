@@ -7,7 +7,7 @@ TEST (system, generate_mass_activity)
 {
 	nano::system system (24000, 1);
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
-	size_t count (20);
+	uint32_t count (20);
 	system.generate_mass_activity (count, *system.nodes[0]);
 	size_t accounts (0);
 	auto transaction (system.nodes[0]->store.tx_begin ());
@@ -22,7 +22,7 @@ TEST (system, generate_mass_activity_long)
 	nano::system system (24000, 1);
 	nano::thread_runner runner (system.io_ctx, system.nodes[0]->config.io_threads);
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
-	size_t count (1000000000);
+	uint32_t count (1000000000);
 	system.generate_mass_activity (count, *system.nodes[0]);
 	size_t accounts (0);
 	auto transaction (system.nodes[0]->store.tx_begin ());
@@ -41,7 +41,7 @@ TEST (system, receive_while_synchronizing)
 		nano::system system (24000, 1);
 		nano::thread_runner runner (system.io_ctx, system.nodes[0]->config.io_threads);
 		system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
-		size_t count (1000);
+		uint32_t count (1000);
 		system.generate_mass_activity (count, *system.nodes[0]);
 		nano::keypair key;
 		nano::node_init init1;
@@ -296,7 +296,6 @@ TEST (broadcast, world_broadcast_simulate)
 	}
 	auto count (heard_count (nodes));
 	(void)count;
-	printf ("");
 }
 
 TEST (broadcast, sqrt_broadcast_simulate)
@@ -350,7 +349,6 @@ TEST (broadcast, sqrt_broadcast_simulate)
 	}
 	auto count (heard_count (nodes));
 	(void)count;
-	printf ("");
 }
 
 TEST (peer_container, random_set)
@@ -404,6 +402,22 @@ TEST (store, vote_load)
 		auto vote (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, i, block));
 		node.vote_processor.vote (vote, system.nodes[0]->network.endpoint ());
 	}
+}
+
+TEST (wallets, rep_scan)
+{
+	nano::system system (24000, 1);
+	auto & node (*system.nodes[0]);
+	auto wallet (system.wallet (0));
+	auto transaction (node.wallets.tx_begin_write ());
+	for (auto i (0); i < 10000; ++i)
+	{
+		wallet->deterministic_insert (transaction);
+	}
+	auto begin (std::chrono::steady_clock::now ());
+	node.wallets.foreach_representative (transaction, [](nano::public_key const & pub_a, nano::raw_key const & prv_a) {
+	});
+	ASSERT_LT (std::chrono::steady_clock::now () - begin, std::chrono::milliseconds (5));
 }
 
 TEST (node, mass_vote_by_hash)

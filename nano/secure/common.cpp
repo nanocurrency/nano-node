@@ -59,8 +59,8 @@ public:
 	nano_test_genesis (test_genesis_data),
 	nano_beta_genesis (beta_genesis_data),
 	nano_live_genesis (live_genesis_data),
-	genesis_account (nano::nano_network == nano::nano_networks::nano_test_network ? nano_test_account : nano::nano_network == nano::nano_networks::nano_beta_network ? nano_beta_account : nano_live_account),
-	genesis_block (nano::nano_network == nano::nano_networks::nano_test_network ? nano_test_genesis : nano::nano_network == nano::nano_networks::nano_beta_network ? nano_beta_genesis : nano_live_genesis),
+	genesis_account (nano::is_test_network ? nano_test_account : nano::is_beta_network ? nano_beta_account : nano_live_account),
+	genesis_block (nano::is_test_network ? nano_test_genesis : nano::is_beta_network ? nano_beta_genesis : nano_live_genesis),
 	genesis_amount (std::numeric_limits<nano::uint128_t>::max ()),
 	burn_account (0)
 	{
@@ -744,9 +744,11 @@ std::shared_ptr<nano::vote> nano::vote_uniquer::unique (std::shared_ptr<nano::vo
 		{
 			existing = vote_a;
 		}
+
+		release_assert (std::numeric_limits<CryptoPP::word32>::max () > votes.size ());
 		for (auto i (0); i < cleanup_count && votes.size () > 0; ++i)
 		{
-			auto random_offset (nano::random_pool.GenerateWord32 (0, votes.size () - 1));
+			auto random_offset (nano::random_pool.GenerateWord32 (0, static_cast<CryptoPP::word32> (votes.size () - 1)));
 			auto existing (std::next (votes.begin (), random_offset));
 			if (existing == votes.end ())
 			{

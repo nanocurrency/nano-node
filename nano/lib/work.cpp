@@ -39,7 +39,7 @@ opencl (opencl_a)
 	static_assert (ATOMIC_INT_LOCK_FREE == 2, "Atomic int needed");
 	boost::thread::attributes attrs;
 	nano::thread_attributes::set (attrs);
-	auto count (nano::nano_network == nano::nano_networks::nano_test_network ? 1 : std::min (max_threads_a, std::max (1u, boost::thread::hardware_concurrency ())));
+	auto count (nano::is_test_network ? 1 : std::min (max_threads_a, std::max (1u, boost::thread::hardware_concurrency ())));
 	for (auto i (0); i < count; ++i)
 	{
 		auto thread (boost::thread (attrs, [this, i]() {
@@ -186,11 +186,14 @@ void nano::work_pool::generate (nano::uint256_union const & root_a, std::functio
 uint64_t nano::work_pool::generate (nano::uint256_union const & hash_a, uint64_t difficulty_a)
 {
 	std::promise<boost::optional<uint64_t>> work;
+	std::future<boost::optional<uint64_t>> future = work.get_future ();
+	// clang-format off
 	generate (hash_a, [&work](boost::optional<uint64_t> work_a) {
 		work.set_value (work_a);
 	},
 	difficulty_a);
-	auto result (work.get_future ().get ());
+	// clang-format on
+	auto result (future.get ());
 	return result.value ();
 }
 

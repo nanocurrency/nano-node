@@ -29,7 +29,9 @@ int main (int argc, char * const * argv)
 		("disable_wallet_bootstrap", "Disables wallet lazy bootstrap")
 		("disable_bootstrap_listener", "Disables bootstrap listener (incoming connections)")
 		("disable_unchecked_cleaning", "Disables periodic cleaning of old records from unchecked table")
+		("disable_unchecked_drop", "Disables drop of unchecked table at startup")
 		("fast_bootstrap", "Increase bootstrap speed for high end nodes with higher limits")
+		("batch_size",boost::program_options::value<std::size_t> (), "Increase sideband batch size, default 512")
 		("debug_block_count", "Display the number of block")
 		("debug_bootstrap_generate", "Generate bootstrap sequence of blocks")
 		("debug_dump_representatives", "List representatives and weights")
@@ -80,19 +82,24 @@ int main (int argc, char * const * argv)
 
 	boost::filesystem::path data_path ((data_path_it != vm.end ()) ? data_path_it->second.as<std::string> () : nano::working_path ());
 	auto ec = nano::handle_node_options (vm);
-
 	if (ec == nano::error_cli::unknown_command)
 	{
 		if (vm.count ("daemon") > 0)
 		{
 			nano_daemon::daemon daemon;
 			nano::node_flags flags;
+			auto batch_size_it = vm.find ("batch_size");
+			if (batch_size_it != vm.end ())
+			{
+				flags.sideband_batch_size = batch_size_it->second.as<size_t> ();
+			}
 			flags.disable_backup = (vm.count ("disable_backup") > 0);
 			flags.disable_lazy_bootstrap = (vm.count ("disable_lazy_bootstrap") > 0);
 			flags.disable_legacy_bootstrap = (vm.count ("disable_legacy_bootstrap") > 0);
 			flags.disable_wallet_bootstrap = (vm.count ("disable_wallet_bootstrap") > 0);
 			flags.disable_bootstrap_listener = (vm.count ("disable_bootstrap_listener") > 0);
 			flags.disable_unchecked_cleaning = (vm.count ("disable_unchecked_cleaning") > 0);
+			flags.disable_unchecked_drop = (vm.count ("disable_unchecked_drop") > 0);
 			flags.fast_bootstrap = (vm.count ("fast_bootstrap") > 0);
 			daemon.run (data_path, flags);
 		}
@@ -388,7 +395,7 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_profile_process"))
 		{
-			if (nano::nano_network == nano::nano_networks::nano_test_network)
+			if (nano::is_test_network)
 			{
 				nano::block_builder builder;
 				size_t num_accounts (100000);
@@ -505,7 +512,7 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_profile_votes"))
 		{
-			if (nano::nano_network == nano::nano_networks::nano_test_network)
+			if (nano::is_test_network)
 			{
 				nano::block_builder builder;
 				size_t num_elections (40000);

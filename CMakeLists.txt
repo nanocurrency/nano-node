@@ -1,7 +1,7 @@
 cmake_minimum_required (VERSION 3.4)
 project (nano-node)
 
-set (CPACK_PACKAGE_VERSION_MAJOR "18")
+set (CPACK_PACKAGE_VERSION_MAJOR "19")
 set (CPACK_PACKAGE_VERSION_MINOR "0")
 set (CPACK_PACKAGE_VERSION_PATCH "0")
 set (CPACK_PACKAGE_VENDOR "Nano Currency")
@@ -38,7 +38,8 @@ if (WIN32)
 	add_definitions(-D_WIN32_WINNT=0x0600
 					-DWINVER=0x0600
 					-DWIN32_LEAN_AND_MEAN
-					-DMINIUPNP_STATICLIB)
+					-DMINIUPNP_STATICLIB
+					-D_CRT_SECURE_NO_WARNINGS)
 else ()
 	add_compile_options(-Werror=switch)
 	if (NANO_ASAN OR RAIBLOCKS_ASAN)
@@ -60,13 +61,10 @@ else ()
 			else ()
 				add_definitions(-DCRYPTOPP_DISABLE_AESNI)
 			endif ()
-			# Fix failing builds after commit https://github.com/weidai11/cryptopp/commit/df9fa62205f2d341e2b1b26595a3a1b6377c60c5
-			add_definitions(-DCRYPTOPP_DISABLE_CLMUL)
 		elseif (CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
 			add_compile_options(-msse2)
 			add_definitions(-DCRYPTOPP_DISABLE_SSSE3
-							-DCRYPTOPP_DISABLE_AESNI
-							-DCRYPTOPP_DISABLE_CLMUL)
+							-DCRYPTOPP_DISABLE_AESNI)
 		endif()
 
 		if (ENABLE_AVX2)
@@ -77,6 +75,13 @@ else ()
 				add_definitions(-DPERMUTE_WITH_SHUFFLES)
 			endif()
 		endif()
+	elseif (CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64")
+		if (NANO_SIMD_OPTIMIZATIONS OR RAIBLOCKS_SIMD_OPTIMIZATIONS)
+			add_compile_options(-march=armv8-a+crc+crypto)
+		else ()
+			add_compile_options(-march=armv8-a)
+			add_definitions(-DCRYPTOPP_DISABLE_ASM)
+		endif ()
 	endif()
 endif ()
 
@@ -130,7 +135,7 @@ if (BOOST_ROOT)
 	list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/Modules")
 endif ()
 
-find_package (Boost 1.66.0 REQUIRED COMPONENTS filesystem log thread program_options)
+find_package (Boost 1.66.0 REQUIRED COMPONENTS filesystem log thread program_options system)
 
 add_subdirectory(crypto/ed25519-donna)
 
@@ -144,16 +149,21 @@ set_target_properties(libminiupnpc-static PROPERTIES INTERFACE_INCLUDE_DIRECTORI
 set (BUILD_SHARED OFF CACHE BOOL "")
 set (BUILD_TESTING OFF CACHE BOOL "")
 set (USE_INTERMEDIATE_OBJECTS_TARGET OFF CACHE BOOL "")
-set (CRYPTOPP_WIN "")
+set (CRYPTOPP_EXTRA "")
 if (WIN32)
-	set (CRYPTOPP_WIN crypto/cryptopp/x64dll.asm
+	set (CRYPTOPP_EXTRA crypto/cryptopp/x64dll.asm
 					crypto/cryptopp/x64masm.asm)
 	enable_language(ASM)
 	enable_language(ASM_MASM)
 	# similar to SSE2 settings
 	add_definitions(-DCRYPTOPP_DISABLE_SSSE3
-					-DCRYPTOPP_DISABLE_AESNI
-					-DCRYPTOPP_DISABLE_CLMUL)
+					-DCRYPTOPP_DISABLE_AESNI)
+elseif (CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64" AND (NANO_SIMD_OPTIMIZATIONS OR RAIBLOCKS_SIMD_OPTIMIZATIONS))
+	set (CRYPTOPP_EXTRA crypto/cryptopp/crc_simd.cpp
+					crypto/cryptopp/gcm_simd.cpp
+					crypto/cryptopp/gf2n_simd.cpp
+					crypto/cryptopp/neon_simd.cpp)
+	add_definitions(-DCRYPTOPP_NO_CPU_FEATURE_PROBES)
 endif ()
 # Some Clang cannot handle mixed asm with positional arguments, where the
 # body is Intel style with no prefix and the templates are AT&T style.
@@ -164,6 +174,8 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 	message("CryptoPP with disabled ASM for ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}")
 endif ()
 add_definitions(-DCRYPTOPP_DISABLE_SHANI)
+# Fix failing builds after commit https://github.com/weidai11/cryptopp/commit/df9fa62205f2d341e2b1b26595a3a1b6377c60c5
+add_definitions(-DCRYPTOPP_DISABLE_CLMUL)
 
 set (CRYPTOPP_LIBRARY cryptopp)
 add_library (cryptopp
@@ -205,9 +217,9 @@ add_library (cryptopp
 	crypto/cryptopp/sha_simd.cpp
 	crypto/cryptopp/simple.cpp
 	crypto/cryptopp/sse_simd.cpp
-	${CRYPTOPP_WIN})
+	${CRYPTOPP_EXTRA})
 
-if (NANO_SIMD_OPTIMIZATIONS OR RAIBLOCKS_SIMD_OPTIMIZATIONS)
+if ((NANO_SIMD_OPTIMIZATIONS OR RAIBLOCKS_SIMD_OPTIMIZATIONS) AND NOT CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64")
 	set (ARGON_CORE crypto/phc-winner-argon2/src/opt.c)
 else ()
 	set (ARGON_CORE crypto/phc-winner-argon2/src/ref.c)
@@ -339,6 +351,12 @@ if (NANO_GUI OR RAIBLOCKS_GUI)
 
 	if (WIN32)
 		target_link_libraries (nano_wallet Qt5::WinExtras)
+		# nano_wallet.com executable for Windows console
+		add_executable(nano_wallet_com
+			nano/nano_wallet/entry_com.cpp)
+		target_link_libraries (nano_wallet_com
+			node)
+		set_target_properties (nano_wallet_com PROPERTIES COMPILE_FLAGS "-DBOOST_ASIO_HAS_STD_ARRAY=1" OUTPUT_NAME "nano_wallet" SUFFIX ".com")
 	endif()
 
 	add_executable (qt_system
@@ -359,7 +377,7 @@ if (NANO_GUI OR RAIBLOCKS_GUI)
 	endif ()
 
 	if (APPLE)
-		CONFIGURE_FILE(Info.plist.in Info.plist @ONLY)
+		CONFIGURE_FILE(${CMAKE_SOURCE_DIR}/Info.plist.in ${CMAKE_SOURCE_DIR}/Info.plist @ONLY)
 		install (TARGETS nano_wallet DESTINATION Nano.app/Contents/MacOS)
 		install (FILES Info.plist DESTINATION Nano.app/Contents)
 		install (FILES qt.conf DESTINATION Nano.app/Contents/Resources)
@@ -388,6 +406,7 @@ if (NANO_GUI OR RAIBLOCKS_GUI)
 		get_target_property (Qt5WindowsPlugin Qt5::QWindowsIntegrationPlugin LOCATION)
 		get_filename_component (Qt5_bin_DIR ${Qt5_DIR}/../../../bin ABSOLUTE)
 		install (TARGETS nano_wallet DESTINATION .)
+		install (TARGETS nano_wallet_com DESTINATION .)
 		install (FILES ${CMAKE_CURRENT_BINARY_DIR}/${WIN_REDIST} DESTINATION .)
 		install (FILES ${Qt5_bin_DIR}/libGLESv2.dll DESTINATION .)
 		install (FILES ${Qt5_bin_DIR}/Qt5Core.dll DESTINATION .)

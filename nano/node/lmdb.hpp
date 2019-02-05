@@ -150,7 +150,7 @@ class mdb_store : public block_store
 	friend class nano::block_predecessor_set;
 
 public:
-	mdb_store (bool &, nano::logging &, boost::filesystem::path const &, int lmdb_max_dbs = 128, bool drop_unchecked = false);
+	mdb_store (bool &, nano::logging &, boost::filesystem::path const &, int lmdb_max_dbs = 128, bool drop_unchecked = false, size_t batch_size = 512);
 	~mdb_store ();
 
 	nano::transaction tx_begin_write () override;
@@ -244,6 +244,7 @@ public:
 	nano::store_iterator<uint64_t, nano::amount> online_weight_begin (nano::transaction const &) override;
 	nano::store_iterator<uint64_t, nano::amount> online_weight_end () override;
 	size_t online_weight_count (nano::transaction const &) const override;
+	void online_weight_clear (nano::transaction const &) override;
 
 	std::mutex cache_mutex;
 	std::unordered_map<nano::account, std::shared_ptr<nano::vote>> vote_cache_l1;
@@ -263,8 +264,8 @@ public:
 	void upgrade_v9_to_v10 (nano::transaction const &);
 	void upgrade_v10_to_v11 (nano::transaction const &);
 	void upgrade_v11_to_v12 (nano::transaction const &);
-	void do_slow_upgrades ();
-	void upgrade_v12_to_v13 ();
+	void do_slow_upgrades (size_t const);
+	void upgrade_v12_to_v13 (size_t const);
 	bool full_sideband (nano::transaction const &);
 
 	// Requires a write transaction
@@ -273,14 +274,14 @@ public:
 	/** Deletes the node ID from the store */
 	void delete_node_id (nano::transaction const &) override;
 
-	void peer_put (nano::transaction const & transaction_a, nano::endpoint_key const & endpoint_a);
-	bool peer_exists (nano::transaction const & transaction_a, nano::endpoint_key const & endpoint_a) const;
-	void peer_del (nano::transaction const & transaction_a, nano::endpoint_key const & endpoint_a);
-	size_t peer_count (nano::transaction const & transaction_a) const;
-	void peer_clear (nano::transaction const & transaction_a);
+	void peer_put (nano::transaction const & transaction_a, nano::endpoint_key const & endpoint_a) override;
+	bool peer_exists (nano::transaction const & transaction_a, nano::endpoint_key const & endpoint_a) const override;
+	void peer_del (nano::transaction const & transaction_a, nano::endpoint_key const & endpoint_a) override;
+	size_t peer_count (nano::transaction const & transaction_a) const override;
+	void peer_clear (nano::transaction const & transaction_a) override;
 
-	nano::store_iterator<nano::endpoint_key, nano::no_value> peers_begin (nano::transaction const & transaction_a);
-	nano::store_iterator<nano::endpoint_key, nano::no_value> peers_end ();
+	nano::store_iterator<nano::endpoint_key, nano::no_value> peers_begin (nano::transaction const & transaction_a) override;
+	nano::store_iterator<nano::endpoint_key, nano::no_value> peers_end () override;
 
 	void stop ();
 

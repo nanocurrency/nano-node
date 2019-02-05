@@ -30,6 +30,7 @@ public:
 	std::vector<nano::account> preconfigured_representatives;
 	unsigned bootstrap_fraction_numerator;
 	nano::amount receive_minimum;
+	nano::amount vote_minimum;
 	nano::amount online_weight_minimum;
 	unsigned online_weight_quorum;
 	unsigned password_fanout;
@@ -69,6 +70,8 @@ public:
 	bool disable_wallet_bootstrap;
 	bool disable_bootstrap_listener;
 	bool disable_unchecked_cleaning;
+	bool disable_unchecked_drop;
 	bool fast_bootstrap;
+	size_t sideband_batch_size;
 };
 }

@@ -202,7 +202,7 @@ std::unordered_set<nano::endpoint> nano::peer_container::random_set (size_t coun
 	{
 		for (auto i (0); i < random_cutoff && result.size () < count_a; ++i)
 		{
-			auto index (random_pool.GenerateWord32 (0, peers_size - 1));
+			auto index (random_pool.GenerateWord32 (0, static_cast<CryptoPP::word32> (peers_size - 1)));
 			result.insert (peers.get<3> ()[index].endpoint);
 		}
 	}
@@ -321,8 +321,7 @@ size_t nano::peer_container::size ()
 
 size_t nano::peer_container::size_sqrt ()
 {
-	auto result (std::ceil (std::sqrt (size ())));
-	return result;
+	return (static_cast<size_t> (std::ceil (std::sqrt (size ()))));
 }
 
 std::vector<nano::peer_information> nano::peer_container::list_probable_rep_weights ()
@@ -453,7 +452,7 @@ bool nano::peer_container::insert (nano::endpoint const & endpoint_a, unsigned v
 			else
 			{
 				unknown = true;
-				if (!result && nano_network != nano_networks::nano_test_network)
+				if (!result && !nano::is_test_network)
 				{
 					auto ip_peers (peers.get<nano::peer_by_ip_addr> ().count (endpoint_a.address ()));
 					if (ip_peers >= max_peers_per_ip)

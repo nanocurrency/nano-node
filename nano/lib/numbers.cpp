@@ -17,8 +17,7 @@ uint8_t base58_decode (char value)
 {
 	assert (value >= '0');
 	assert (value <= '~');
-	auto result (base58_reverse[value - 0x30] - 0x30);
-	return result;
+	return static_cast<uint8_t> (base58_reverse[value - 0x30] - 0x30);
 }
 char const * account_lookup ("13456789abcdefghijkmnopqrstuwxyz");
 char const * account_reverse ("~0~1234567~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~89:;<=>?@AB~CDEFGHIJK~LMNO~~~~~");

@@ -1,5 +1,6 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/numbers.hpp>
+#include <nano/lib/utility.hpp>
 
 #include <boost/endian/conversion.hpp>
 
@@ -1578,9 +1579,10 @@ std::shared_ptr<nano::block> nano::block_uniquer::unique (std::shared_ptr<nano::
 		{
 			existing = block_a;
 		}
+		release_assert (std::numeric_limits<CryptoPP::word32>::max () > blocks.size ());
 		for (auto i (0); i < cleanup_count && blocks.size () > 0; ++i)
 		{
-			auto random_offset (nano::random_pool.GenerateWord32 (0, blocks.size () - 1));
+			auto random_offset (nano::random_pool.GenerateWord32 (0, static_cast<CryptoPP::word32> (blocks.size () - 1)));
 			auto existing (std::next (blocks.begin (), random_offset));
 			if (existing == blocks.end ())
 			{

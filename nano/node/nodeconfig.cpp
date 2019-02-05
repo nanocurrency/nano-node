@@ -22,6 +22,7 @@ peering_port (peering_port_a),
 logging (logging_a),
 bootstrap_fraction_numerator (1),
 receive_minimum (nano::xrb_ratio),
+vote_minimum (nano::Gxrb_ratio),
 online_weight_minimum (60000 * nano::Gxrb_ratio),
 online_weight_quorum (50),
 password_fanout (1024),
@@ -118,6 +119,7 @@ nano::error nano::node_config::serialize_json (nano::jsonconfig & json) const
 	json.put ("lmdb_max_dbs", lmdb_max_dbs);
 	json.put ("block_processor_batch_max_time", block_processor_batch_max_time.count ());
 	json.put ("allow_local_peers", allow_local_peers);
+	json.put ("vote_minimum", vote_minimum.to_string_dec ());
 
 	nano::jsonconfig ipc_l;
 	ipc_config.serialize_json (ipc_l);
@@ -230,6 +232,7 @@ bool nano::node_config::upgrade_json (unsigned version_a, nano::jsonconfig & jso
 			});
 
 			json.replace_child (preconfigured_peers_key, peers);
+			json.put ("vote_minimum", vote_minimum.to_string_dec ());
 
 			nano::jsonconfig ipc_l;
 			ipc_config.serialize_json (ipc_l);
@@ -327,6 +330,12 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 			json.get_error ().set ("online_weight_minimum contains an invalid decimal amount");
 		}
 
+		auto vote_minimum_l (json.get<std::string> ("vote_minimum"));
+		if (vote_minimum.decode_dec (vote_minimum_l))
+		{
+			json.get_error ().set ("vote_minimum contains an invalid decimal amount");
+		}
+
 		auto block_processor_batch_max_time_l (json.get<unsigned long> ("block_processor_batch_max_time"));
 		block_processor_batch_max_time = std::chrono::milliseconds (block_processor_batch_max_time_l);
 
@@ -378,7 +387,7 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 nano::account nano::node_config::random_representative ()
 {
 	assert (preconfigured_representatives.size () > 0);
-	size_t index (nano::random_pool.GenerateWord32 (0, preconfigured_representatives.size () - 1));
+	size_t index (nano::random_pool.GenerateWord32 (0, static_cast<CryptoPP::word32> (preconfigured_representatives.size () - 1)));
 	auto result (preconfigured_representatives[index]);
 	return result;
 }
@@ -390,6 +399,8 @@ disable_legacy_bootstrap (false),
 disable_wallet_bootstrap (false),
 disable_bootstrap_listener (false),
 disable_unchecked_cleaning (false),
-fast_bootstrap (false)
+disable_unchecked_drop (true),
+fast_bootstrap (false),
+sideband_batch_size (512)
 {
 }

@@ -637,10 +637,12 @@ TEST (node_config, v15_v16_upgrade)
 		// These config options should not be present at version 15
 		ASSERT_FALSE (tree.get_optional_child ("allow_local_peers"));
 		ASSERT_FALSE (tree.get_optional_child ("signature_checker_threads"));
+		ASSERT_FALSE (tree.get_optional_child ("vote_minimum"));
 		config.deserialize_json (upgraded, tree);
 		// The config options should be added after the upgrade
 		ASSERT_TRUE (!!tree.get_optional_child ("allow_local_peers"));
 		ASSERT_TRUE (!!tree.get_optional_child ("signature_checker_threads"));
+		ASSERT_TRUE (!!tree.get_optional_child ("vote_minimum"));
 
 		ASSERT_TRUE (upgraded);
 		auto version (tree.get<std::string> ("version"));
@@ -665,7 +667,7 @@ TEST (node_config, v15_v16_upgrade)
 	test_upgrade ("rai-beta.raiblocks.net", "peering-beta.nano.org");
 }
 
-TEST (node_config, allow_local_peers)
+TEST (node_config, v16_values)
 {
 	nano::jsonconfig tree;
 	add_required_children_node_config_tree (tree);
@@ -678,19 +680,23 @@ TEST (node_config, allow_local_peers)
 	// Check config is correct
 	tree.put ("allow_local_peers", false);
 	tree.put ("signature_checker_threads", 1);
+	tree.put ("vote_minimum", nano::Gxrb_ratio.convert_to<std::string> ());
 	config.deserialize_json (upgraded, tree);
 	ASSERT_FALSE (upgraded);
 	ASSERT_FALSE (config.allow_local_peers);
 	ASSERT_EQ (config.signature_checker_threads, 1);
+	ASSERT_EQ (config.vote_minimum.number (), nano::Gxrb_ratio);
 
 	// Check config is correct with other values
 	tree.put ("allow_local_peers", true);
 	tree.put ("signature_checker_threads", 4);
+	tree.put ("vote_minimum", (std::numeric_limits<nano::uint128_t>::max () - 100).convert_to<std::string> ());
 	upgraded = false;
 	config.deserialize_json (upgraded, tree);
 	ASSERT_FALSE (upgraded);
 	ASSERT_TRUE (config.allow_local_peers);
 	ASSERT_EQ (config.signature_checker_threads, 4);
+	ASSERT_EQ (config.vote_minimum.number (), std::numeric_limits<nano::uint128_t>::max () - 100);
 }
 
 // Regression test to ensure that deserializing includes changes node via get_required_child
@@ -820,15 +826,21 @@ TEST (node, fork_publish)
 		auto existing (node1.active.roots.find (nano::uint512_union (send1->previous (), send1->root ())));
 		ASSERT_NE (node1.active.roots.end (), existing);
 		auto election (existing->election);
-		auto transaction (node1.store.tx_begin ());
-		election->compute_rep_votes (transaction);
-		node1.vote_processor.flush ();
-		ASSERT_EQ (2, election->last_votes.size ());
+		system.deadline_set (1s);
+		// Wait until the genesis rep activated & makes vote
+		while (election->last_votes.size () != 2)
+		{
+			auto transaction (node1.store.tx_begin ());
+			election->compute_rep_votes (transaction);
+			node1.vote_processor.flush ();
+			ASSERT_NO_ERROR (system.poll ());
+		}
 		node1.process_active (send2);
 		node1.block_processor.flush ();
 		auto existing1 (election->last_votes.find (nano::test_genesis_key.pub));
 		ASSERT_NE (election->last_votes.end (), existing1);
 		ASSERT_EQ (send1->hash (), existing1->second.hash);
+		auto transaction (node1.store.tx_begin ());
 		auto winner (*election->tally (transaction).begin ());
 		ASSERT_EQ (*send1, *winner.second);
 		ASSERT_EQ (nano::genesis_amount - 100, winner.first);
@@ -1376,11 +1388,16 @@ TEST (node, rep_self_vote)
 	active.start (block0);
 	auto existing (active.roots.find (nano::uint512_union (block0->previous (), block0->root ())));
 	ASSERT_NE (active.roots.end (), existing);
-	auto transaction (node0->store.tx_begin ());
-	existing->election->compute_rep_votes (transaction);
-	node0->vote_processor.flush ();
+	system.deadline_set (1s);
+	// Wait until representatives are activated & make vote
+	while (existing->election->last_votes.size () != 3)
+	{
+		auto transaction (node0->store.tx_begin ());
+		existing->election->compute_rep_votes (transaction);
+		node0->vote_processor.flush ();
+		ASSERT_NO_ERROR (system.poll ());
+	}
 	auto & rep_votes (existing->election->last_votes);
-	ASSERT_EQ (3, rep_votes.size ());
 	ASSERT_NE (rep_votes.end (), rep_votes.find (nano::test_genesis_key.pub));
 	ASSERT_NE (rep_votes.end (), rep_votes.find (rep_big.pub));
 }

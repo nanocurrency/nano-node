@@ -106,7 +106,7 @@ public:
 	static int const special_count;
 	static unsigned const kdf_full_work = 64 * 1024;
 	static unsigned const kdf_test_work = 8;
-	static unsigned const kdf_work = nano::nano_network == nano::nano_networks::nano_test_network ? kdf_test_work : kdf_full_work;
+	static unsigned const kdf_work = nano::is_test_network ? kdf_test_work : kdf_full_work;
 	nano::kdf & kdf;
 	MDB_dbi handle;
 	std::recursive_mutex mutex;
@@ -156,6 +156,8 @@ public:
 	std::function<void(bool, bool)> lock_observer;
 	nano::wallet_store store;
 	nano::wallets & wallets;
+	std::mutex representatives_mutex;
+	std::unordered_set<nano::account> representatives;
 };
 class node;
 
@@ -180,6 +182,8 @@ public:
 	bool exists (nano::transaction const &, nano::public_key const &);
 	void stop ();
 	void clear_send_ids (nano::transaction const &);
+	void compute_reps ();
+	void ongoing_compute_reps ();
 	void split_if_needed (nano::transaction &, nano::block_store &);
 	void move_table (std::string const &, MDB_txn *, MDB_txn *);
 	std::function<void(bool)> observer;
@@ -196,6 +200,7 @@ public:
 	boost::thread thread;
 	static nano::uint128_t const generate_priority;
 	static nano::uint128_t const high_priority;
+	std::atomic<uint64_t> reps_count{ 0 };
 
 	/** Start read-write transaction */
 	nano::transaction tx_begin_write ();

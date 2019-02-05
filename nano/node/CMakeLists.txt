@@ -17,6 +17,8 @@ endif ()
 add_library (node
 	${platform_sources}
 	${secure_rpc_sources}
+	blockprocessor.cpp
+	blockprocessor.hpp
 	bootstrap.cpp
 	bootstrap.hpp
 	cli.hpp

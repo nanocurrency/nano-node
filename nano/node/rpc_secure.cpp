@@ -176,15 +176,37 @@ void nano::rpc_connection_secure::read ()
 						BOOST_LOG (this_l->node->log) << boost::str (boost::format ("TLS: RPC request %2% completed in: %1% microseconds") % std::chrono::duration_cast<std::chrono::microseconds> (std::chrono::steady_clock::now () - start).count () % request_id);
 					}
 				});
+				auto method = this_l->request.method ();
+				switch (method)
+				{
+					case boost::beast::http::verb::post:
+					{
+						auto handler (std::make_shared<rai::rpc_handler> (*this_l->node, this_l->rpc, this_l->request.body (), request_id, response_handler));
+						handler->process_request ();
+						break;
+					}
+					case boost::beast::http::verb::options:
+					{
+						this_l->prepare_head (version);
+						this_l->res.set (boost::beast::http::field::allow, "POST, OPTIONS");
+						this_l->res.prepare_payload ();
+						boost::beast::http::async_write (this_l->stream, this_l->res, [this_l](boost::system::error_code const & ec, size_t bytes_transferred) {
 
-				if (this_l->request.method () == boost::beast::http::verb::post)
-				{
-					auto handler (std::make_shared<nano::rpc_handler> (*this_l->node, this_l->rpc, this_l->request.body (), request_id, response_handler));
-					handler->process_request ();
-				}
-				else
-				{
-					error_response (response_handler, "Can only POST requests");
+							// Perform the SSL shutdown
+							this_l->stream.async_shutdown (
+							std::bind (
+							&rai::rpc_connection_secure::on_shutdown,
+							this_l,
+							std::placeholders::_1));
+
+						});
+						break;
+					}
+					default:
+					{
+						error_response (response_handler, "Can only POST requests");
+						break;
+					}
 				}
 			});
 		}

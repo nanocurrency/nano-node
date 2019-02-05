@@ -130,7 +130,7 @@ void nano::rpc::accept ()
 {
 	auto connection (std::make_shared<nano::rpc_connection> (node, *this));
 	acceptor.async_accept (connection->socket, [this, connection](boost::system::error_code const & ec) {
-		if (acceptor.is_open () && ec != boost::asio::error::operation_aborted)
+		if (ec != boost::asio::error::operation_aborted && acceptor.is_open ())
 		{
 			accept ();
 		}
@@ -708,6 +708,7 @@ void nano::rpc_handler::account_representative_set ()
 			{
 				bool generate_work (work == 0); // Disable work generation if "work" option is provided
 				auto response_a (response);
+				// clang-format off
 				wallet->change_async (account, representative, [response_a](std::shared_ptr<nano::block> block) {
 					nano::block_hash hash (0);
 					if (block != nullptr)
@@ -719,6 +720,7 @@ void nano::rpc_handler::account_representative_set ()
 					response_a (response_l);
 				},
 				work, generate_work);
+				// clang-format on
 			}
 		}
 		else
@@ -2224,14 +2226,14 @@ void nano::rpc_handler::password_valid (bool wallet_locked)
 void nano::rpc_handler::peers ()
 {
 	boost::property_tree::ptree peers_l;
-	const bool deprecated = request.get<bool> ("deprecated", false);
+	const bool peer_details = request.get<bool> ("peer_details", false);
 	auto peers_list (node.peers.list_vector (std::numeric_limits<size_t>::max ()));
 	std::sort (peers_list.begin (), peers_list.end ());
 	for (auto i (peers_list.begin ()), n (peers_list.end ()); i != n; ++i)
 	{
 		std::stringstream text;
 		text << i->endpoint;
-		if (!deprecated)
+		if (peer_details)
 		{
 			boost::property_tree::ptree pending_tree;
 			pending_tree.put ("protocol_version", std::to_string (i->network_version));
@@ -2614,6 +2616,7 @@ void nano::rpc_handler::receive ()
 					{
 						bool generate_work (work == 0); // Disable work generation if "work" option is provided
 						auto response_a (response);
+						// clang-format off
 						wallet->receive_async (std::move (block), account, nano::genesis_amount, [response_a](std::shared_ptr<nano::block> block_a) {
 							nano::uint256_union hash_a (0);
 							if (block_a != nullptr)
@@ -2625,6 +2628,7 @@ void nano::rpc_handler::receive ()
 							response_a (response_l);
 						},
 						work, generate_work);
+						// clang-format on
 					}
 				}
 				else
@@ -2962,6 +2966,7 @@ void nano::rpc_handler::send ()
 					boost::optional<std::string> send_id (request.get_optional<std::string> ("id"));
 					auto rpc_l (shared_from_this ());
 					auto response_a (response);
+					// clang-format off
 					wallet->send_async (source, destination, amount.number (), [balance, amount, response_a](std::shared_ptr<nano::block> block_a) {
 						if (block_a != nullptr)
 						{
@@ -2984,6 +2989,7 @@ void nano::rpc_handler::send ()
 						}
 					},
 					work, generate_work, send_id);
+					// clang-format on
 				}
 			}
 			else
@@ -3404,7 +3410,7 @@ void nano::rpc_handler::wallet_change_seed ()
 		nano::raw_key seed;
 		if (!seed.data.decode_hex (seed_text))
 		{
-			auto count (count_optional_impl (0));
+			auto count (static_cast<uint32_t> (count_optional_impl (0)));
 			auto transaction (node.wallets.tx_begin_write ());
 			if (wallet->store.valid_password (transaction))
 			{
@@ -3806,7 +3812,9 @@ void nano::rpc_handler::wallet_representative_set ()
 				}
 				for (auto & account : accounts)
 				{
+					// clang-format off
 					wallet->change_async (account, representative, [](std::shared_ptr<nano::block>) {}, 0, false);
+					// clang-format on
 				}
 			}
 		}
@@ -4038,17 +4046,24 @@ void nano::rpc_connection::parse_connection ()
 	read ();
 }
 
-void nano::rpc_connection::write_result (std::string body, unsigned version)
+void nano::rpc_connection::prepare_head (unsigned version, boost::beast::http::status status)
+{
+	res.version (version);
+	res.result (status);
+	res.set (boost::beast::http::field::allow, "POST, OPTIONS");
+	res.set (boost::beast::http::field::content_type, "application/json");
+	res.set (boost::beast::http::field::access_control_allow_origin, "*");
+	res.set (boost::beast::http::field::access_control_allow_methods, "POST, OPTIONS");
+	res.set (boost::beast::http::field::access_control_allow_headers, "Accept, Accept-Language, Content-Language, Content-Type");
+	res.set (boost::beast::http::field::connection, "close");
+}
+
+void nano::rpc_connection::write_result (std::string body, unsigned version, boost::beast::http::status status)
 {
 	if (!responded.test_and_set ())
 	{
-		res.set ("Content-Type", "application/json");
-		res.set ("Access-Control-Allow-Origin", "*");
-		res.set ("Access-Control-Allow-Headers", "Accept, Accept-Language, Content-Language, Content-Type");
-		res.set ("Connection", "close");
-		res.result (boost::beast::http::status::ok);
+		prepare_head (version, status);
 		res.body () = body;
-		res.version (version);
 		res.prepare_payload ();
 	}
 	else
@@ -4082,14 +4097,28 @@ void nano::rpc_connection::read ()
 						BOOST_LOG (this_l->node->log) << boost::str (boost::format ("RPC request %2% completed in: %1% microseconds") % std::chrono::duration_cast<std::chrono::microseconds> (std::chrono::steady_clock::now () - start).count () % request_id);
 					}
 				});
-				if (this_l->request.method () == boost::beast::http::verb::post)
+				auto method = this_l->request.method ();
+				switch (method)
 				{
-					auto handler (std::make_shared<nano::rpc_handler> (*this_l->node, this_l->rpc, this_l->request.body (), request_id, response_handler));
-					handler->process_request ();
-				}
-				else
-				{
-					error_response (response_handler, "Can only POST requests");
+					case boost::beast::http::verb::post:
+					{
+						auto handler (std::make_shared<nano::rpc_handler> (*this_l->node, this_l->rpc, this_l->request.body (), request_id, response_handler));
+						handler->process_request ();
+						break;
+					}
+					case boost::beast::http::verb::options:
+					{
+						this_l->prepare_head (version);
+						this_l->res.prepare_payload ();
+						boost::beast::http::async_write (this_l->socket, this_l->res, [this_l](boost::system::error_code const & ec, size_t bytes_transferred) {
+						});
+						break;
+					}
+					default:
+					{
+						error_response (response_handler, "Can only POST requests");
+						break;
+					}
 				}
 			});
 		}
