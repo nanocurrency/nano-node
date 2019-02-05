@@ -128,8 +128,6 @@ enum class error_config
 	missing_value,
 };
 
-} // nano namespace
-
 /** Returns the error code if non-zero, otherwise the value */
 template <class T>
 auto either (T && value, std::error_code ec) -> expected<typename std::remove_reference_t<T>, std::error_code>
@@ -143,6 +141,7 @@ auto either (T && value, std::error_code ec) -> expected<typename std::remove_re
 		return std::move (value);
 	}
 }
+} // nano namespace
 
 // Convenience macro to implement the standard boilerplate for using std::error_code with enums
 // Use this at the end of any header defining one or more error code enums.
