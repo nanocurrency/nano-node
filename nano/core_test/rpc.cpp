@@ -1236,6 +1236,159 @@ TEST (rpc, process_republish)
 	}
 }
 
+TEST (rpc, process_subtype_send)
+{
+	nano::system system (24000, 2);
+	nano::keypair key;
+	auto latest (system.nodes[0]->latest (nano::test_genesis_key.pub));
+	auto & node1 (*system.nodes[0]);
+	nano::state_block send (nano::genesis_account, latest, nano::genesis_account, nano::genesis_amount - nano::Gxrb_ratio, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, node1.work_generate_blocking (latest));
+	nano::rpc rpc (system.io_ctx, node1, nano::rpc_config (true));
+	rpc.start ();
+	boost::property_tree::ptree request;
+	request.put ("action", "process");
+	std::string json;
+	send.serialize_json (json);
+	request.put ("block", json);
+	request.put ("subtype", "receive");
+	test_response response (request, rpc, system.io_ctx);
+	system.deadline_set (5s);
+	while (response.status == 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (200, response.status);
+	std::error_code ec (nano::error_rpc::invalid_subtype_balance);
+	ASSERT_EQ (response.json.get<std::string> ("error"), ec.message ());
+	request.put ("subtype", "change");
+	test_response response2 (request, rpc, system.io_ctx);
+	while (response2.status == 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (200, response2.status);
+	ASSERT_EQ (response2.json.get<std::string> ("error"), ec.message ());
+	request.put ("subtype", "send");
+	test_response response3 (request, rpc, system.io_ctx);
+	while (response3.status == 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (200, response3.status);
+	ASSERT_EQ (send.hash ().to_string (), response3.json.get<std::string> ("hash"));
+	system.deadline_set (10s);
+	while (system.nodes[1]->latest (nano::test_genesis_key.pub) != send.hash ())
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+}
+
+TEST (rpc, process_subtype_open)
+{
+	nano::system system (24000, 2);
+	nano::keypair key;
+	auto latest (system.nodes[0]->latest (nano::test_genesis_key.pub));
+	auto & node1 (*system.nodes[0]);
+	nano::state_block send (nano::genesis_account, latest, nano::genesis_account, nano::genesis_amount - nano::Gxrb_ratio, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, node1.work_generate_blocking (latest));
+	{
+		auto transaction (node1.store.tx_begin_write ());
+		ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, send).code);
+	}
+	node1.active.start (std::make_shared<nano::state_block> (send));
+	nano::state_block open (key.pub, 0, key.pub, nano::Gxrb_ratio, send.hash (), key.prv, key.pub, node1.work_generate_blocking (key.pub));
+	nano::rpc rpc (system.io_ctx, node1, nano::rpc_config (true));
+	rpc.start ();
+	boost::property_tree::ptree request;
+	request.put ("action", "process");
+	std::string json;
+	open.serialize_json (json);
+	request.put ("block", json);
+	request.put ("subtype", "send");
+	test_response response (request, rpc, system.io_ctx);
+	system.deadline_set (5s);
+	while (response.status == 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (200, response.status);
+	std::error_code ec (nano::error_rpc::invalid_subtype_balance);
+	ASSERT_EQ (response.json.get<std::string> ("error"), ec.message ());
+	request.put ("subtype", "epoch");
+	test_response response2 (request, rpc, system.io_ctx);
+	while (response2.status == 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (200, response2.status);
+	ASSERT_EQ (response2.json.get<std::string> ("error"), ec.message ());
+	request.put ("subtype", "open");
+	test_response response3 (request, rpc, system.io_ctx);
+	while (response3.status == 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (200, response3.status);
+	ASSERT_EQ (open.hash ().to_string (), response3.json.get<std::string> ("hash"));
+	system.deadline_set (10s);
+	while (system.nodes[1]->latest (key.pub) != open.hash ())
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+}
+
+TEST (rpc, process_subtype_receive)
+{
+	nano::system system (24000, 2);
+	auto latest (system.nodes[0]->latest (nano::test_genesis_key.pub));
+	auto & node1 (*system.nodes[0]);
+	nano::state_block send (nano::genesis_account, latest, nano::genesis_account, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, node1.work_generate_blocking (latest));
+	{
+		auto transaction (node1.store.tx_begin_write ());
+		ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, send).code);
+	}
+	node1.active.start (std::make_shared<nano::state_block> (send));
+	nano::state_block receive (nano::test_genesis_key.pub, send.hash (), nano::test_genesis_key.pub, nano::genesis_amount, send.hash (), nano::test_genesis_key.prv, nano::test_genesis_key.pub, node1.work_generate_blocking (send.hash ()));
+	nano::rpc rpc (system.io_ctx, node1, nano::rpc_config (true));
+	rpc.start ();
+	boost::property_tree::ptree request;
+	request.put ("action", "process");
+	std::string json;
+	receive.serialize_json (json);
+	request.put ("block", json);
+	request.put ("subtype", "send");
+	test_response response (request, rpc, system.io_ctx);
+	system.deadline_set (5s);
+	while (response.status == 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (200, response.status);
+	std::error_code ec (nano::error_rpc::invalid_subtype_balance);
+	ASSERT_EQ (response.json.get<std::string> ("error"), ec.message ());
+	request.put ("subtype", "open");
+	test_response response2 (request, rpc, system.io_ctx);
+	while (response2.status == 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (200, response2.status);
+	ec = nano::error_rpc::invalid_subtype_previous;
+	ASSERT_EQ (response2.json.get<std::string> ("error"), ec.message ());
+	request.put ("subtype", "receive");
+	test_response response3 (request, rpc, system.io_ctx);
+	while (response3.status == 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (200, response3.status);
+	ASSERT_EQ (receive.hash ().to_string (), response3.json.get<std::string> ("hash"));
+	system.deadline_set (10s);
+	while (system.nodes[1]->latest (nano::test_genesis_key.pub) != receive.hash ())
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+}
+
 TEST (rpc, keepalive)
 {
 	nano::system system (24000, 1);
