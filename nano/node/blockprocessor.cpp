@@ -356,7 +356,21 @@ void nano::block_processor::process_live (nano::block_hash const & hash_a, std::
 	node.alarm.add (std::chrono::steady_clock::now () + confirmation_request_delay, [node_w, block_a]() {
 		if (auto node_l = node_w.lock ())
 		{
-			node_l->network.broadcast_confirm_req (block_a);
+			// Check if votes were already requested
+			bool send_request (false);
+			{
+				std::lock_guard<std::mutex> lock (node_l->active.mutex);
+				auto existing (node_l->active.blocks.find (block_a->hash ()));
+				if (existing != node_l->active.blocks.end () && !existing->second->confirmed && !existing->second->stopped && existing->second->announcements == 0)
+				{
+					send_request = true;
+				}
+			}
+			// Request votes
+			if (send_request)
+			{
+				node_l->network.broadcast_confirm_req (block_a);
+			}
 		}
 	});
 }
