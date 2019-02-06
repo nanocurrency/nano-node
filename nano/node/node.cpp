@@ -136,6 +136,7 @@ void nano::network::receive ()
 
 void nano::network::process_packets ()
 {
+	auto local_endpoint (endpoint ());
 	while (on.load ())
 	{
 		auto data (buffer_container.dequeue ());
@@ -144,7 +145,7 @@ void nano::network::process_packets ()
 			break;
 		}
 		//std::cerr << data->endpoint.address ().to_string ();
-		receive_action (data);
+		receive_action (data, local_endpoint);
 		buffer_container.release (data);
 	}
 }
@@ -807,14 +808,14 @@ public:
 };
 }
 
-void nano::network::receive_action (nano::udp_data * data_a)
+void nano::network::receive_action (nano::udp_data * data_a, nano::endpoint const & local_endpoint_a)
 {
 	auto allowed_sender (true);
 	if (!on)
 	{
 		allowed_sender = false;
 	}
-	else if (data_a->endpoint == endpoint ())
+	else if (data_a->endpoint == local_endpoint_a)
 	{
 		allowed_sender = false;
 	}

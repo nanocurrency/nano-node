@@ -328,7 +328,7 @@ public:
 	void process_packets ();
 	void start ();
 	void stop ();
-	void receive_action (nano::udp_data *);
+	void receive_action (nano::udp_data *, nano::endpoint const &);
 	void rpc_action (boost::system::error_code const &, size_t);
 	void republish_vote (std::shared_ptr<nano::vote>);
 	void republish_block (std::shared_ptr<nano::block>);
