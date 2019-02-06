@@ -812,8 +812,12 @@ public:
 
 void nano::network::receive_action (nano::udp_data * data_a)
 {
-	auto allowed_sender (true);
-	if (data_a->endpoint == endpoint)
+	bool allowed_sender (true);
+	if (!on)
+	{
+		allowed_sender = false;
+	}
+	else if (data_a->endpoint == endpoint)
 	{
 		allowed_sender = false;
 	}
