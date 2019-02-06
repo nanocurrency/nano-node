@@ -3047,12 +3047,6 @@ void nano::election::confirm_back (nano::transaction const & transaction_a, uint
 	}
 }
 
-size_t nano::election::last_votes_size ()
-{
-	std::lock_guard<std::mutex> lock (node.active.mutex);
-	return last_votes.size ();
-}
-
 void nano::election::stop ()
 {
 	stopped = true;
@@ -3266,6 +3260,12 @@ bool nano::election::publish (std::shared_ptr<nano::block> block_a)
 		}
 	}
 	return result;
+}
+
+size_t nano::election::last_votes_size ()
+{
+	std::lock_guard<std::mutex> lock (node.active.mutex);
+	return last_votes.size ();
 }
 
 void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & lock_a)
