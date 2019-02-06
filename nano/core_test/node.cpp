@@ -32,7 +32,7 @@ TEST (node, block_store_path_failure)
 	nano::logging logging;
 	logging.init (path);
 	nano::work_pool work (std::numeric_limits<unsigned>::max (), nullptr);
-	auto node (std::make_shared<nano::node> (init, *service, 0, path, alarm, logging, work));
+	auto node (std::make_shared<nano::node> (init, *service, 24000, path, alarm, logging, work));
 	ASSERT_TRUE (node->wallets.items.empty ());
 	node->stop ();
 }
