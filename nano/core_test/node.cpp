@@ -828,7 +828,7 @@ TEST (node, fork_publish)
 		auto election (existing->election);
 		system.deadline_set (1s);
 		// Wait until the genesis rep activated & makes vote
-		while (election->last_votes.size () != 2)
+		while (election->last_votes_size () != 2)
 		{
 			auto transaction (node1.store.tx_begin ());
 			election->compute_rep_votes (transaction);
@@ -875,7 +875,7 @@ TEST (node, fork_keep)
 	ASSERT_NE (node2.active.roots.end (), conflict);
 	auto votes1 (conflict->election);
 	ASSERT_NE (nullptr, votes1);
-	ASSERT_EQ (1, votes1->last_votes.size ());
+	ASSERT_EQ (1, votes1->last_votes_size ());
 	{
 		auto transaction0 (system.nodes[0]->store.tx_begin ());
 		auto transaction1 (system.nodes[1]->store.tx_begin ());
@@ -884,7 +884,7 @@ TEST (node, fork_keep)
 	}
 	system.deadline_set (1.5min);
 	// Wait until the genesis rep makes a vote
-	while (votes1->last_votes.size () == 1)
+	while (votes1->last_votes_size () == 1)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
@@ -926,7 +926,7 @@ TEST (node, fork_flip)
 	ASSERT_NE (node2.active.roots.end (), conflict);
 	auto votes1 (conflict->election);
 	ASSERT_NE (nullptr, votes1);
-	ASSERT_EQ (1, votes1->last_votes.size ());
+	ASSERT_EQ (1, votes1->last_votes_size ());
 	{
 		auto transaction (system.nodes[0]->store.tx_begin ());
 		ASSERT_TRUE (node1.store.block_exists (transaction, publish1.block->hash ()));
@@ -984,7 +984,7 @@ TEST (node, fork_multi_flip)
 	ASSERT_NE (node2.active.roots.end (), conflict);
 	auto votes1 (conflict->election);
 	ASSERT_NE (nullptr, votes1);
-	ASSERT_EQ (1, votes1->last_votes.size ());
+	ASSERT_EQ (1, votes1->last_votes_size ());
 	{
 		auto transaction (system.nodes[0]->store.tx_begin ());
 		ASSERT_TRUE (node1.store.block_exists (transaction, publish1.block->hash ()));
@@ -1112,7 +1112,7 @@ TEST (node, fork_open_flip)
 	ASSERT_NE (node2.active.roots.end (), conflict);
 	auto votes1 (conflict->election);
 	ASSERT_NE (nullptr, votes1);
-	ASSERT_EQ (1, votes1->last_votes.size ());
+	ASSERT_EQ (1, votes1->last_votes_size ());
 	ASSERT_TRUE (node1.block (open1->hash ()) != nullptr);
 	ASSERT_TRUE (node2.block (open2->hash ()) != nullptr);
 	system.deadline_set (10s);
@@ -1390,7 +1390,7 @@ TEST (node, rep_self_vote)
 	ASSERT_NE (active.roots.end (), existing);
 	system.deadline_set (1s);
 	// Wait until representatives are activated & make vote
-	while (existing->election->last_votes.size () != 3)
+	while (existing->election->last_votes_size () != 3)
 	{
 		auto transaction (node0->store.tx_begin ());
 		existing->election->compute_rep_votes (transaction);

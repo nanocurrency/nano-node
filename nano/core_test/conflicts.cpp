@@ -18,7 +18,7 @@ TEST (conflicts, start_stop)
 	ASSERT_NE (node1.active.roots.end (), existing1);
 	auto votes1 (existing1->election);
 	ASSERT_NE (nullptr, votes1);
-	ASSERT_EQ (1, votes1->last_votes.size ());
+	ASSERT_EQ (1, votes1->last_votes_size ());
 }
 
 TEST (conflicts, add_existing)
@@ -40,7 +40,7 @@ TEST (conflicts, add_existing)
 	ASSERT_EQ (1, node1.active.size ());
 	auto votes1 (node1.active.roots.find (nano::uint512_union (send2->previous (), send2->root ()))->election);
 	ASSERT_NE (nullptr, votes1);
-	ASSERT_EQ (2, votes1->last_votes.size ());
+	ASSERT_EQ (2, votes1->last_votes_size ());
 	ASSERT_NE (votes1->last_votes.end (), votes1->last_votes.find (key2.pub));
 }
 
