@@ -132,6 +132,7 @@ public:
 	std::greater<uint64_t>>>>
 	roots;
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::election>> blocks;
+	std::deque<nano::election_status> list_confirmed ();
 	std::deque<nano::election_status> confirmed;
 	nano::node & node;
 	std::mutex mutex;

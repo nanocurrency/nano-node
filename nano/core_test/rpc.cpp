@@ -4178,10 +4178,10 @@ TEST (rpc, confirmation_history)
 	nano::system system (24000, 1);
 	nano::keypair key;
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
-	ASSERT_TRUE (system.nodes[0]->active.confirmed.empty ());
+	ASSERT_TRUE (system.nodes[0]->active.list_confirmed ().empty ());
 	auto block (system.wallet (0)->send_action (nano::test_genesis_key.pub, key.pub, nano::Gxrb_ratio));
 	system.deadline_set (10s);
-	while (system.nodes[0]->active.confirmed.empty ())
+	while (system.nodes[0]->active.list_confirmed ().empty ())
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
@@ -4215,12 +4215,12 @@ TEST (rpc, confirmation_history_hash)
 	nano::system system (24000, 1);
 	nano::keypair key;
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
-	ASSERT_TRUE (system.nodes[0]->active.confirmed.empty ());
+	ASSERT_TRUE (system.nodes[0]->active.list_confirmed ().empty ());
 	auto send1 (system.wallet (0)->send_action (nano::test_genesis_key.pub, key.pub, nano::Gxrb_ratio));
 	auto send2 (system.wallet (0)->send_action (nano::test_genesis_key.pub, key.pub, nano::Gxrb_ratio));
 	auto send3 (system.wallet (0)->send_action (nano::test_genesis_key.pub, key.pub, nano::Gxrb_ratio));
 	system.deadline_set (10s);
-	while (system.nodes[0]->active.confirmed.size () != 3)
+	while (system.nodes[0]->active.list_confirmed ().size () != 3)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}

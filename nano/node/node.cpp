@@ -3640,6 +3640,12 @@ std::deque<std::shared_ptr<nano::block>> nano::active_transactions::list_blocks 
 	return result;
 }
 
+std::deque<nano::election_status> nano::active_transactions::list_confirmed ()
+{
+	std::lock_guard<std::mutex> lock (mutex);
+	return confirmed;
+}
+
 void nano::active_transactions::erase (nano::block const & block_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);

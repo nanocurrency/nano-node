@@ -1519,8 +1519,8 @@ void nano::rpc_handler::confirmation_history ()
 	}
 	if (!ec)
 	{
-		std::lock_guard<std::mutex> lock (node.active.mutex);
-		for (auto i (node.active.confirmed.begin ()), n (node.active.confirmed.end ()); i != n; ++i)
+		auto confirmed (node.active.list_confirmed ());
+		for (auto i (confirmed.begin ()), n (confirmed.end ()); i != n; ++i)
 		{
 			if (hash.is_zero () || i->winner->hash () == hash)
 			{
