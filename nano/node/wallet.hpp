@@ -190,13 +190,14 @@ public:
 	std::unordered_map<nano::uint256_union, std::shared_ptr<nano::wallet>> items;
 	std::multimap<nano::uint128_t, std::pair<std::shared_ptr<nano::wallet>, std::function<void(nano::wallet &)>>, std::greater<nano::uint128_t>> actions;
 	std::mutex mutex;
+	std::mutex action_mutex;
 	std::condition_variable condition;
 	nano::kdf kdf;
 	MDB_dbi handle;
 	MDB_dbi send_action_ids;
 	nano::node & node;
 	nano::mdb_env & env;
-	bool stopped;
+	std::atomic<bool> stopped;
 	boost::thread thread;
 	static nano::uint128_t const generate_priority;
 	static nano::uint128_t const high_priority;
