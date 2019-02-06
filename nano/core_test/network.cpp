@@ -1168,9 +1168,6 @@ TEST (network, endpoint_bad_fd)
 	auto endpoint (system.nodes[0]->network.endpoint);
 	ASSERT_TRUE (endpoint.address ().is_loopback ());
 	ASSERT_EQ (0, endpoint.port ());
-	auto local_endpoint (system.nodes[0]->network.local_endpoint ());
-	ASSERT_TRUE (local_endpoint.address ().is_loopback ());
-	ASSERT_EQ (0, local_endpoint.port ());
 }
 
 TEST (network, reserved_address)
