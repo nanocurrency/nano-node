@@ -156,6 +156,7 @@ void nano::network::stop ()
 	on = false;
 	std::lock_guard<std::mutex> lock (socket_mutex);
 	socket.close ();
+	endpoint = nano::endpoint (boost::asio::ip::address_v6::loopback (), 0);
 	resolver.cancel ();
 	buffer_container.stop ();
 }
