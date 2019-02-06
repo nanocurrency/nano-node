@@ -2495,7 +2495,7 @@ TEST (ledger, unchecked_epoch_invalid)
 		auto transaction (node1.store.tx_begin ());
 		ASSERT_FALSE (node1.store.block_exists (transaction, epoch1->hash ()));
 		ASSERT_TRUE (node1.store.block_exists (transaction, epoch2->hash ()));
-		ASSERT_TRUE (node1.active.roots.empty ());
+		ASSERT_TRUE (node1.active.empty ());
 		auto unchecked_count (node1.store.unchecked_count (transaction));
 		ASSERT_EQ (unchecked_count, 0);
 		nano::account_info info;

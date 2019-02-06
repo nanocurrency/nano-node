@@ -368,7 +368,7 @@ TEST (node, unlock_search)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	while (!system.nodes[0]->active.roots.empty ())
+	while (!system.nodes[0]->active.empty ())
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
@@ -1418,7 +1418,7 @@ TEST (node, DISABLED_bootstrap_no_publish)
 	}
 	ASSERT_FALSE (node1->bootstrap_initiator.in_progress ());
 	node1->bootstrap_initiator.bootstrap (node0->network.endpoint ());
-	ASSERT_TRUE (node1->active.roots.empty ());
+	ASSERT_TRUE (node1->active.empty ());
 	system1.deadline_set (10s);
 	while (node1->block (send0.hash ()) == nullptr)
 	{
@@ -1426,7 +1426,7 @@ TEST (node, DISABLED_bootstrap_no_publish)
 		system0.poll ();
 		auto ec = system1.poll ();
 		// There should never be an active transaction because the only activity is bootstrapping 1 block which shouldn't be publishing.
-		ASSERT_TRUE (node1->active.roots.empty ());
+		ASSERT_TRUE (node1->active.empty ());
 		ASSERT_NO_ERROR (ec);
 	}
 }
@@ -1448,7 +1448,7 @@ TEST (node, bootstrap_bulk_push)
 	}
 	ASSERT_FALSE (node0->bootstrap_initiator.in_progress ());
 	ASSERT_FALSE (node1->bootstrap_initiator.in_progress ());
-	ASSERT_TRUE (node1->active.roots.empty ());
+	ASSERT_TRUE (node1->active.empty ());
 	node0->bootstrap_initiator.bootstrap (node1->network.endpoint (), false);
 	system1.deadline_set (10s);
 	while (node1->block (send0.hash ()) == nullptr)
@@ -1457,7 +1457,7 @@ TEST (node, bootstrap_bulk_push)
 		ASSERT_NO_ERROR (system1.poll ());
 	}
 	// since this uses bulk_push, the new block should be republished
-	ASSERT_FALSE (node1->active.roots.empty ());
+	ASSERT_FALSE (node1->active.empty ());
 }
 
 // Bootstrapping a forked open block should succeed.
@@ -1486,7 +1486,7 @@ TEST (node, bootstrap_fork_open)
 	}
 	ASSERT_FALSE (node1->bootstrap_initiator.in_progress ());
 	node1->bootstrap_initiator.bootstrap (node0->network.endpoint ());
-	ASSERT_TRUE (node1->active.roots.empty ());
+	ASSERT_TRUE (node1->active.empty ());
 	system0.deadline_set (10s);
 	while (node1->ledger.block_exists (open1.hash ()))
 	{
@@ -1575,7 +1575,7 @@ TEST (node, no_voting)
 	// Broadcast a confirm so others should know this is a rep node
 	wallet0->send_action (nano::test_genesis_key.pub, key1.pub, nano::Mxrb_ratio);
 	system.deadline_set (10s);
-	while (!node1.active.roots.empty ())
+	while (!node1.active.empty ())
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
@@ -1812,14 +1812,14 @@ TEST (node, confirm_quorum)
 	}
 	system.wallet (0)->send_action (nano::test_genesis_key.pub, nano::test_genesis_key.pub, new_balance.number ());
 	system.deadline_set (10s);
-	while (system.nodes[0]->active.roots.empty ())
+	while (system.nodes[0]->active.empty ())
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	auto done (false);
 	while (!done)
 	{
-		ASSERT_FALSE (system.nodes[0]->active.roots.empty ());
+		ASSERT_FALSE (system.nodes[0]->active.empty ());
 		auto info (system.nodes[0]->active.roots.find (nano::uint512_union (send1->hash (), send1->hash ())));
 		ASSERT_NE (system.nodes[0]->active.roots.end (), info);
 		done = info->election->announcements > nano::active_transactions::announcement_min;
@@ -2157,12 +2157,12 @@ TEST (node, block_processor_reject_rolled_back)
 	node.block_processor.flush ();
 	ASSERT_FALSE (node.ledger.block_exists (send1->hash ()));
 	ASSERT_TRUE (node.ledger.block_exists (send2->hash ()));
-	ASSERT_TRUE (node.active.roots.empty ());
+	ASSERT_TRUE (node.active.empty ());
 	// Block send1 cannot be processed & start fork resolution election
 	node.block_processor.add (send1);
 	node.block_processor.flush ();
 	ASSERT_FALSE (node.ledger.block_exists (send1->hash ()));
-	ASSERT_TRUE (node.active.roots.empty ());
+	ASSERT_TRUE (node.active.empty ());
 }
 
 TEST (node, confirm_back)
@@ -2189,7 +2189,7 @@ TEST (node, confirm_back)
 		node.vote_processor.vote_blocking (transaction, vote, node.network.endpoint ());
 	}
 	system.deadline_set (10s);
-	while (!node.active.roots.empty ())
+	while (!node.active.empty ())
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}

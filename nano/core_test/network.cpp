@@ -1062,7 +1062,7 @@ TEST (bulk, offline_send)
 	ASSERT_NE (std::numeric_limits<nano::uint256_t>::max (), system.nodes[0]->balance (nano::test_genesis_key.pub));
 	// Wait to finish election background tasks
 	system.deadline_set (10s);
-	while (!system.nodes[0]->active.roots.empty ())
+	while (!system.nodes[0]->active.empty ())
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}

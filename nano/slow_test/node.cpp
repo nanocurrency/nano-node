@@ -201,7 +201,7 @@ TEST (node, fork_storm)
 		empty = 0;
 		single = 0;
 		std::for_each (system.nodes.begin (), system.nodes.end (), [&](std::shared_ptr<nano::node> const & node_a) {
-			if (node_a->active.roots.empty ())
+			if (node_a->active.empty ())
 			{
 				++empty;
 			}

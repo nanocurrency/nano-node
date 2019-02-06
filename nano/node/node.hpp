@@ -117,6 +117,7 @@ public:
 	void update_difficulty (nano::block const &);
 	std::deque<std::shared_ptr<nano::block>> list_blocks (bool = false);
 	void erase (nano::block const &);
+	bool empty ();
 	void stop ();
 	bool publish (std::shared_ptr<nano::block> block_a);
 	boost::multi_index_container<

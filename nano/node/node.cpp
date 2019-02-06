@@ -3635,6 +3635,12 @@ void nano::active_transactions::erase (nano::block const & block_a)
 	}
 }
 
+bool nano::active_transactions::empty ()
+{
+	std::lock_guard<std::mutex> lock (mutex);
+	return roots.empty ();
+}
+
 nano::active_transactions::active_transactions (nano::node & node_a) :
 node (node_a),
 started (false),
