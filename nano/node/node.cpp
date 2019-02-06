@@ -43,11 +43,12 @@ extern size_t nano_bootstrap_weights_size;
 nano::network::network (nano::node & node_a, uint16_t port) :
 buffer_container (node_a.stats, nano::network::buffer_size, 4096), // 2Mb receive buffer
 socket (node_a.io_ctx, nano::endpoint (boost::asio::ip::address_v6::any (), port)),
-endpoint (local_endpoint ()),
+endpoint (nano::endpoint (boost::asio::ip::address_v6::loopback (), port)),
 resolver (node_a.io_ctx),
 node (node_a),
 on (true)
 {
+	assert (local_endpoint () == endpoint);
 	boost::thread::attributes attrs;
 	nano::thread_attributes::set (attrs);
 	for (size_t i = 0; i < node.config.network_threads; ++i)
@@ -2698,6 +2699,7 @@ void nano::node::process_message (nano::message & message_a, nano::endpoint cons
 
 nano::endpoint nano::network::local_endpoint ()
 {
+	std::unique_lock<std::mutex> lock (socket_mutex);
 	boost::system::error_code ec;
 	auto port (socket.local_endpoint (ec).port ());
 	if (ec)
