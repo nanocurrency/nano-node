@@ -1398,6 +1398,7 @@ TEST (node, rep_self_vote)
 	}
 	system.wallet (0)->insert_adhoc (rep_big.prv);
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
+	ASSERT_EQ (system.wallet(0)->wallets.reps_count, 2);
 	auto block0 (std::make_shared<nano::send_block> (node0->latest (nano::test_genesis_key.pub), rep_big.pub, nano::uint128_t ("0x60000000000000000000000000000000"), nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
 	node0->work_generate_blocking (*block0);
 	ASSERT_EQ (nano::process_result::progress, node0->process (*block0).code);
@@ -1406,17 +1407,21 @@ TEST (node, rep_self_vote)
 	std::unique_lock<std::mutex> lock (active.mutex);
 	auto existing (active.roots.find (nano::uint512_union (block0->previous (), block0->root ())));
 	ASSERT_NE (active.roots.end (), existing);
+	auto election (existing->election);
 	lock.unlock ();
 	system.deadline_set (1s);
 	// Wait until representatives are activated & make vote
-	while (existing->election->last_votes_size () != 3)
+	while (election->last_votes_size () != 3)
 	{
-		node0->block_processor.generator.add (block0->hash ());
+		lock.lock ();
+		auto transaction (node0->store.tx_begin ());
+		election->compute_rep_votes (transaction);
+		lock.unlock ();
 		node0->vote_processor.flush ();
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	lock.lock ();
-	auto & rep_votes (existing->election->last_votes);
+	auto & rep_votes (election->last_votes);
 	ASSERT_NE (rep_votes.end (), rep_votes.find (nano::test_genesis_key.pub));
 	ASSERT_NE (rep_votes.end (), rep_votes.find (rep_big.pub));
 }
