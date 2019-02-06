@@ -1339,9 +1339,9 @@ thread ([this]() {
 	do_wallet_actions ();
 })
 {
+	std::unique_lock<std::mutex> lock (mutex);
 	if (!error_a)
 	{
-		std::lock_guard<std::mutex> lock (mutex);
 		auto transaction (tx_begin_write ());
 		auto status (mdb_dbi_open (env.tx (transaction), nullptr, MDB_CREATE, &handle));
 		split_if_needed (transaction, node.store);
@@ -1368,13 +1368,14 @@ thread ([this]() {
 				// Couldn't open wallet
 			}
 		}
-		for (auto & item : items)
-		{
-			item.second->enter_initial_password ();
-		}
+	}
+	for (auto & item : items)
+	{
+		item.second->enter_initial_password ();
 	}
 	if (node_a.config.enable_voting)
 	{
+		lock.unlock ();
 		ongoing_compute_reps ();
 	}
 }
