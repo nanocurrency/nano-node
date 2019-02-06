@@ -53,7 +53,7 @@ void nano::port_mapping::refresh_mapping ()
 	if (!nano::is_test_network)
 	{
 		std::lock_guard<std::mutex> lock (mutex);
-		auto node_port (std::to_string (node.network.endpoint ().port ()));
+		auto node_port (std::to_string (node.network.endpoint.port ()));
 
 		// We don't map the RPC port because, unless RPC authentication was added, this would almost always be a security risk
 		for (auto & protocol : protocols)
@@ -84,7 +84,7 @@ int nano::port_mapping::check_mapping ()
 	{
 		// Long discovery time and fast setup/teardown make this impractical for testing
 		std::lock_guard<std::mutex> lock (mutex);
-		auto node_port (std::to_string (node.network.endpoint ().port ()));
+		auto node_port (std::to_string (node.network.endpoint.port ()));
 		for (auto & protocol : protocols)
 		{
 			std::array<char, 64> int_client;

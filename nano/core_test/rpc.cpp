@@ -1400,11 +1400,11 @@ TEST (rpc, keepalive)
 	rpc.start ();
 	boost::property_tree::ptree request;
 	request.put ("action", "keepalive");
-	auto address (boost::str (boost::format ("%1%") % node1->network.endpoint ().address ()));
-	auto port (boost::str (boost::format ("%1%") % node1->network.endpoint ().port ()));
+	auto address (boost::str (boost::format ("%1%") % node1->network.endpoint.address ()));
+	auto port (boost::str (boost::format ("%1%") % node1->network.endpoint.port ()));
 	request.put ("address", address);
 	request.put ("port", port);
-	ASSERT_FALSE (system.nodes[0]->peers.known_peer (node1->network.endpoint ()));
+	ASSERT_FALSE (system.nodes[0]->peers.known_peer (node1->network.endpoint));
 	ASSERT_EQ (0, system.nodes[0]->peers.size ());
 	test_response response (request, rpc, system.io_ctx);
 	system.deadline_set (5s);
@@ -1414,7 +1414,7 @@ TEST (rpc, keepalive)
 	}
 	ASSERT_EQ (200, response.status);
 	system.deadline_set (10s);
-	while (!system.nodes[0]->peers.known_peer (node1->network.endpoint ()))
+	while (!system.nodes[0]->peers.known_peer (node1->network.endpoint))
 	{
 		ASSERT_EQ (0, system.nodes[0]->peers.size ());
 		ASSERT_NO_ERROR (system.poll ());
@@ -2018,7 +2018,7 @@ TEST (rpc, work_peer_one)
 	system.wallet (0)->insert_adhoc (key.prv);
 	nano::rpc rpc (system.io_ctx, node1, nano::rpc_config (true));
 	rpc.start ();
-	node2.config.work_peers.push_back (std::make_pair (node1.network.endpoint ().address ().to_string (), rpc.config.port));
+	node2.config.work_peers.push_back (std::make_pair (node1.network.endpoint.address ().to_string (), rpc.config.port));
 	nano::keypair key1;
 	uint64_t work (0);
 	node2.work_generate (key1.pub, [&work](uint64_t work_a) {
@@ -2055,9 +2055,9 @@ TEST (rpc, work_peer_many)
 	config4.port += 2;
 	nano::rpc rpc4 (system4.io_ctx, node4, config4);
 	rpc4.start ();
-	node1.config.work_peers.push_back (std::make_pair (node2.network.endpoint ().address ().to_string (), rpc2.config.port));
-	node1.config.work_peers.push_back (std::make_pair (node3.network.endpoint ().address ().to_string (), rpc3.config.port));
-	node1.config.work_peers.push_back (std::make_pair (node4.network.endpoint ().address ().to_string (), rpc4.config.port));
+	node1.config.work_peers.push_back (std::make_pair (node2.network.endpoint.address ().to_string (), rpc2.config.port));
+	node1.config.work_peers.push_back (std::make_pair (node3.network.endpoint.address ().to_string (), rpc3.config.port));
+	node1.config.work_peers.push_back (std::make_pair (node4.network.endpoint.address ().to_string (), rpc4.config.port));
 	for (auto i (0); i < 10; ++i)
 	{
 		nano::keypair key1;
@@ -2355,7 +2355,7 @@ TEST (rpc, bootstrap)
 	boost::property_tree::ptree request;
 	request.put ("action", "bootstrap");
 	request.put ("address", "::ffff:127.0.0.1");
-	request.put ("port", system1.nodes[0]->network.endpoint ().port ());
+	request.put ("port", system1.nodes[0]->network.endpoint.port ());
 	test_response response (request, rpc, system0.io_ctx);
 	while (response.status == 0)
 	{
