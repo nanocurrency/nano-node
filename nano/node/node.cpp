@@ -974,8 +974,12 @@ namespace nano
 std::unique_ptr<seq_con_info_component> collect_seq_con_info (alarm & alarm, const std::string & name)
 {
 	auto composite = std::make_unique<seq_con_info_composite> (name);
-	auto count = alarm.operations.size ();
-	auto sizeof_element = sizeof (decltype (alarm.operations)::value_type);
+	size_t count = 0;
+	{
+		std::lock_guard<std::mutex> guard (alarm.mutex);
+		count = alarm.operations.size ();
+		auto sizeof_element = sizeof (decltype (alarm.operations)::value_type);
+	}
 	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "operations", count, sizeof_element }));
 	return composite;
 }

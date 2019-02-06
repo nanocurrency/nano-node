@@ -284,15 +284,14 @@ TEST (rpc, send)
 	request.put ("source", nano::test_genesis_key.pub.to_account ());
 	request.put ("destination", nano::test_genesis_key.pub.to_account ());
 	request.put ("amount", "100");
+	system.deadline_set (10s);
 	boost::thread thread2 ([&system]() {
-		system.deadline_set (10s);
 		while (system.nodes[0]->balance (nano::test_genesis_key.pub) == nano::genesis_amount)
 		{
 			ASSERT_NO_ERROR (system.poll ());
 		}
 	});
 	test_response response (request, rpc, system.io_ctx);
-	system.deadline_set (5s);
 	while (response.status == 0)
 	{
 		ASSERT_NO_ERROR (system.poll ());
@@ -320,15 +319,14 @@ TEST (rpc, send_fail)
 	request.put ("destination", nano::test_genesis_key.pub.to_account ());
 	request.put ("amount", "100");
 	std::atomic<bool> done (false);
+	system.deadline_set (10s);
 	boost::thread thread2 ([&system, &done]() {
-		system.deadline_set (10s);
 		while (!done)
 		{
 			ASSERT_NO_ERROR (system.poll ());
 		}
 	});
 	test_response response (request, rpc, system.io_ctx);
-	system.deadline_set (5s);
 	while (response.status == 0)
 	{
 		ASSERT_NO_ERROR (system.poll ());
