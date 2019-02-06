@@ -42,8 +42,7 @@ extern size_t nano_bootstrap_weights_size;
 
 nano::network::network (nano::node & node_a, uint16_t port) :
 buffer_container (node_a.stats, nano::network::buffer_size, 4096), // 2Mb receive buffer
-endpoint (nano::endpoint (boost::asio::ip::address_v6::any (), port)),
-socket (node_a.io_ctx, endpoint),
+socket (node_a.io_ctx, nano::endpoint (boost::asio::ip::address_v6::any (), port)),
 resolver (node_a.io_ctx),
 node (node_a),
 on (true)
@@ -153,7 +152,7 @@ void nano::network::process_packets ()
 void nano::network::stop ()
 {
 	on = false;
-	std::lock_guard<std::mutex> lock (socket_mutex);
+	std::unique_lock<std::mutex> lock (socket_mutex);
 	socket.close ();
 	resolver.cancel ();
 	buffer_container.stop ();
@@ -810,12 +809,12 @@ public:
 
 void nano::network::receive_action (nano::udp_data * data_a)
 {
-	bool allowed_sender (true);
+	auto allowed_sender (true);
 	if (!on)
 	{
 		allowed_sender = false;
 	}
-	else if (data_a->endpoint == endpoint)
+	else if (data_a->endpoint == endpoint ())
 	{
 		allowed_sender = false;
 	}
@@ -1418,7 +1417,7 @@ active (*this),
 network (*this, config.peering_port),
 bootstrap_initiator (*this),
 bootstrap (io_ctx_a, config.peering_port, *this),
-peers (network.endpoint),
+peers (network.endpoint ()),
 application_path (application_path_a),
 wallets (init_a.wallet_init, *this),
 port_mapping (*this),
@@ -2700,9 +2699,10 @@ void nano::node::process_message (nano::message & message_a, nano::endpoint cons
 	message_a.visit (visitor);
 }
 
-nano::endpoint nano::network::local_endpoint ()
+nano::endpoint nano::network::endpoint ()
 {
 	boost::system::error_code ec;
+	std::unique_lock<std::mutex> lock (socket_mutex);
 	auto port (socket.local_endpoint (ec).port ());
 	if (ec)
 	{
@@ -3013,7 +3013,7 @@ void nano::election::compute_rep_votes (nano::transaction const & transaction_a)
 	{
 		node.wallets.foreach_representative (transaction_a, [this, &transaction_a](nano::public_key const & pub_a, nano::raw_key const & prv_a) {
 			auto vote (this->node.store.vote_generate (transaction_a, pub_a, prv_a, status.winner));
-			this->node.vote_processor.vote (vote, this->node.network.endpoint);
+			this->node.vote_processor.vote (vote, this->node.network.endpoint ());
 		});
 	}
 }
