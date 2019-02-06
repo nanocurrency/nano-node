@@ -612,7 +612,7 @@ TEST (bootstrap_processor, process_one)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	ASSERT_EQ (0, node1->active.roots.size ());
+	ASSERT_EQ (0, node1->active.size ());
 	node1->stop ();
 }
 
@@ -665,7 +665,7 @@ TEST (bootstrap_processor, process_state)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	ASSERT_EQ (0, node1->active.roots.size ());
+	ASSERT_EQ (0, node1->active.size ());
 	node1->stop ();
 }
 

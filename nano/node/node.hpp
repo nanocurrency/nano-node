@@ -118,6 +118,7 @@ public:
 	std::deque<std::shared_ptr<nano::block>> list_blocks (bool = false);
 	void erase (nano::block const &);
 	bool empty ();
+	size_t size ();
 	void stop ();
 	bool publish (std::shared_ptr<nano::block> block_a);
 	boost::multi_index_container<

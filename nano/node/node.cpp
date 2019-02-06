@@ -3641,6 +3641,12 @@ bool nano::active_transactions::empty ()
 	return roots.empty ();
 }
 
+size_t nano::active_transactions::size ()
+{
+	std::lock_guard<std::mutex> lock (mutex);
+	return roots.size ();
+}
+
 nano::active_transactions::active_transactions (nano::node & node_a) :
 node (node_a),
 started (false),

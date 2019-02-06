@@ -822,7 +822,7 @@ TEST (node, fork_publish)
 		node1.work_generate_blocking (*send2);
 		node1.process_active (send1);
 		node1.block_processor.flush ();
-		ASSERT_EQ (1, node1.active.roots.size ());
+		ASSERT_EQ (1, node1.active.size ());
 		auto existing (node1.active.roots.find (nano::uint512_union (send1->previous (), send1->root ())));
 		ASSERT_NE (node1.active.roots.end (), existing);
 		auto election (existing->election);
@@ -864,8 +864,8 @@ TEST (node, fork_keep)
 	node1.block_processor.flush ();
 	node2.process_active (send1);
 	node2.block_processor.flush ();
-	ASSERT_EQ (1, node1.active.roots.size ());
-	ASSERT_EQ (1, node2.active.roots.size ());
+	ASSERT_EQ (1, node1.active.size ());
+	ASSERT_EQ (1, node2.active.size ());
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	node1.process_active (send2);
 	node1.block_processor.flush ();
@@ -915,8 +915,8 @@ TEST (node, fork_flip)
 	node1.block_processor.flush ();
 	node2.process_message (publish2, node1.network.endpoint ());
 	node2.block_processor.flush ();
-	ASSERT_EQ (1, node1.active.roots.size ());
-	ASSERT_EQ (1, node2.active.roots.size ());
+	ASSERT_EQ (1, node1.active.size ());
+	ASSERT_EQ (1, node2.active.size ());
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	node1.process_message (publish2, node1.network.endpoint ());
 	node1.block_processor.flush ();
@@ -972,8 +972,8 @@ TEST (node, fork_multi_flip)
 	node2.process_message (publish2, node2.network.endpoint ());
 	node2.process_message (publish3, node2.network.endpoint ());
 	node2.block_processor.flush ();
-	ASSERT_EQ (1, node1.active.roots.size ());
-	ASSERT_EQ (2, node2.active.roots.size ());
+	ASSERT_EQ (1, node1.active.size ());
+	ASSERT_EQ (2, node2.active.size ());
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	node1.process_message (publish2, node1.network.endpoint ());
 	node1.process_message (publish3, node1.network.endpoint ());
@@ -1070,7 +1070,7 @@ TEST (node, fork_open)
 	node1.block_processor.flush ();
 	auto open2 (std::make_shared<nano::open_block> (publish1.block->hash (), 2, key1.pub, key1.prv, key1.pub, system.work.generate (key1.pub)));
 	nano::publish publish3 (open2);
-	ASSERT_EQ (2, node1.active.roots.size ());
+	ASSERT_EQ (2, node1.active.size ());
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	node1.process_message (publish3, node1.network.endpoint ());
 	node1.block_processor.flush ();
@@ -1100,8 +1100,8 @@ TEST (node, fork_open_flip)
 	// node2 gets copy that will be evicted
 	node2.process_active (open2);
 	node2.block_processor.flush ();
-	ASSERT_EQ (2, node1.active.roots.size ());
-	ASSERT_EQ (2, node2.active.roots.size ());
+	ASSERT_EQ (2, node1.active.size ());
+	ASSERT_EQ (2, node2.active.size ());
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	// Notify both nodes that a fork exists
 	node1.process_active (open2);
@@ -2179,7 +2179,7 @@ TEST (node, confirm_back)
 	node.process_active (open);
 	node.process_active (send2);
 	node.block_processor.flush ();
-	ASSERT_EQ (3, node.active.roots.size ());
+	ASSERT_EQ (3, node.active.size ());
 	std::vector<nano::block_hash> vote_blocks;
 	vote_blocks.push_back (send2->hash ());
 	auto vote (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 0, vote_blocks));
