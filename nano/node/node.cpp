@@ -806,7 +806,7 @@ public:
 };
 }
 
-void nano::network::receive_action (nano::udp_data * data_a)
+void nano::network::receive_action (nano::message_buffer * data_a)
 {
 	auto allowed_sender (true);
 	if (data_a->endpoint == endpoint ())
@@ -3767,7 +3767,7 @@ nano::inactive_node::~inactive_node ()
 	node->stop ();
 }
 
-nano::udp_buffer::udp_buffer (nano::stat & stats, size_t size, size_t count) :
+nano::message_buffer_manager::message_buffer_manager (nano::stat & stats, size_t size, size_t count) :
 stats (stats),
 free (count),
 full (count),
@@ -3785,7 +3785,7 @@ stopped (false)
 		free.push_back (entry_data);
 	}
 }
-nano::udp_data * nano::udp_buffer::allocate ()
+nano::message_buffer * nano::message_buffer_manager::allocate ()
 {
 	std::unique_lock<std::mutex> lock (mutex);
 	while (!stopped && free.empty () && full.empty ())
@@ -3793,7 +3793,7 @@ nano::udp_data * nano::udp_buffer::allocate ()
 		stats.inc (nano::stat::type::udp, nano::stat::detail::blocking, nano::stat::dir::in);
 		condition.wait (lock);
 	}
-	nano::udp_data * result (nullptr);
+	nano::message_buffer * result (nullptr);
 	if (!free.empty ())
 	{
 		result = free.front ();
@@ -3807,7 +3807,7 @@ nano::udp_data * nano::udp_buffer::allocate ()
 	}
 	return result;
 }
-void nano::udp_buffer::enqueue (nano::udp_data * data_a)
+void nano::message_buffer_manager::enqueue (nano::message_buffer * data_a)
 {
 	assert (data_a != nullptr);
 	{
@@ -3816,14 +3816,14 @@ void nano::udp_buffer::enqueue (nano::udp_data * data_a)
 	}
 	condition.notify_all ();
 }
-nano::udp_data * nano::udp_buffer::dequeue ()
+nano::message_buffer * nano::message_buffer_manager::dequeue ()
 {
 	std::unique_lock<std::mutex> lock (mutex);
 	while (!stopped && full.empty ())
 	{
 		condition.wait (lock);
 	}
-	nano::udp_data * result (nullptr);
+	nano::message_buffer * result (nullptr);
 	if (!full.empty ())
 	{
 		result = full.front ();
@@ -3831,7 +3831,7 @@ nano::udp_data * nano::udp_buffer::dequeue ()
 	}
 	return result;
 }
-void nano::udp_buffer::release (nano::udp_data * data_a)
+void nano::message_buffer_manager::release (nano::message_buffer * data_a)
 {
 	assert (data_a != nullptr);
 	{
@@ -3840,7 +3840,7 @@ void nano::udp_buffer::release (nano::udp_data * data_a)
 	}
 	condition.notify_all ();
 }
-void nano::udp_buffer::stop ()
+void nano::message_buffer_manager::stop ()
 {
 	{
 		std::lock_guard<std::mutex> lock (mutex);
