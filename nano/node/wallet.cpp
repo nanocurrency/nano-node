@@ -758,9 +758,11 @@ wallets (wallets_a)
 
 void nano::wallet::enter_initial_password ()
 {
-	std::lock_guard<std::recursive_mutex> lock (store.mutex);
 	nano::raw_key password_l;
-	store.password.value (password_l);
+	{
+		std::lock_guard<std::recursive_mutex> lock (store.mutex);
+		store.password.value (password_l);
+	}
 	if (password_l.data.is_zero ())
 	{
 		auto transaction (wallets.tx_begin_write ());
