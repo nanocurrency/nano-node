@@ -42,8 +42,8 @@ extern size_t nano_bootstrap_weights_size;
 
 nano::network::network (nano::node & node_a, uint16_t port) :
 buffer_container (node_a.stats, nano::network::buffer_size, 4096), // 2Mb receive buffer
-socket (node_a.io_ctx, nano::endpoint (boost::asio::ip::address_v6::any (), port)),
-endpoint (local_endpoint ()),
+endpoint (nano::endpoint (boost::asio::ip::address_v6::any (), port)),
+socket (node_a.io_ctx, endpoint),
 resolver (node_a.io_ctx),
 node (node_a),
 on (true)
