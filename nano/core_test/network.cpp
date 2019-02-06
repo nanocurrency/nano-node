@@ -58,7 +58,7 @@ TEST (network, self_discard)
 	nano::udp_data data;
 	data.endpoint = system.nodes[0]->network.endpoint ();
 	ASSERT_EQ (0, system.nodes[0]->stats.count (nano::stat::type::error, nano::stat::detail::bad_sender));
-	system.nodes[0]->network.receive_action (&data);
+	system.nodes[0]->network.receive_action (&data, system.nodes[0]->network.endpoint ());
 	ASSERT_EQ (1, system.nodes[0]->stats.count (nano::stat::type::error, nano::stat::detail::bad_sender));
 }
 

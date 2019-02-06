@@ -199,10 +199,12 @@ TEST (node, node_receive_quorum)
 	auto done (false);
 	while (!done)
 	{
-		std::lock_guard<std::mutex> guard (system.nodes[0]->active.mutex);
-		auto info (system.nodes[0]->active.roots.find (nano::uint512_union (previous, previous)));
-		ASSERT_NE (system.nodes[0]->active.roots.end (), info);
-		done = info->election->announcements > nano::active_transactions::announcement_min;
+		{
+			std::lock_guard<std::mutex> guard (system.nodes[0]->active.mutex);
+			auto info (system.nodes[0]->active.roots.find (nano::uint512_union (previous, previous)));
+			ASSERT_NE (system.nodes[0]->active.roots.end (), info);
+			done = info->election->announcements > nano::active_transactions::announcement_min;
+		}
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	nano::system system2 (24001, 1);
@@ -833,10 +835,7 @@ TEST (node, fork_publish)
 		// Wait until the genesis rep activated & makes vote
 		while (election->last_votes_size () != 2)
 		{
-			lock.lock ();
-			auto transaction (node1.store.tx_begin ());
-			election->compute_rep_votes (transaction);
-			lock.unlock ();
+			node1.block_processor.generator.add (send1->hash ());
 			node1.vote_processor.flush ();
 			ASSERT_NO_ERROR (system.poll ());
 		}
@@ -1412,10 +1411,7 @@ TEST (node, rep_self_vote)
 	// Wait until representatives are activated & make vote
 	while (existing->election->last_votes_size () != 3)
 	{
-		lock.lock ();
-		auto transaction (node0->store.tx_begin ());
-		existing->election->compute_rep_votes (transaction);
-		lock.unlock ();
+		node0->block_processor.generator.add (block0->hash ());
 		node0->vote_processor.flush ();
 		ASSERT_NO_ERROR (system.poll ());
 	}
@@ -1843,10 +1839,12 @@ TEST (node, confirm_quorum)
 	while (!done)
 	{
 		ASSERT_FALSE (system.nodes[0]->active.empty ());
-		std::lock_guard<std::mutex> guard (system.nodes[0]->active.mutex);
-		auto info (system.nodes[0]->active.roots.find (nano::uint512_union (send1->hash (), send1->hash ())));
-		ASSERT_NE (system.nodes[0]->active.roots.end (), info);
-		done = info->election->announcements > nano::active_transactions::announcement_min;
+		{
+			std::lock_guard<std::mutex> guard (system.nodes[0]->active.mutex);
+			auto info (system.nodes[0]->active.roots.find (nano::uint512_union (send1->hash (), send1->hash ())));
+			ASSERT_NE (system.nodes[0]->active.roots.end (), info);
+			done = info->election->announcements > nano::active_transactions::announcement_min;
+		}
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (0, system.nodes[0]->balance (nano::test_genesis_key.pub));

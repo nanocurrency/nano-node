@@ -717,11 +717,9 @@ TEST (votes, check_signature)
 	ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, *send1).code);
 	auto node_l (system.nodes[0]);
 	node1.active.start (send1);
-	{
-		std::unique_lock<std::mutex> lock (node1.active.mutex);
-		auto votes1 (node1.active.roots.find (nano::uint512_union (send1->previous (), send1->root ()))->election);
-		ASSERT_EQ (1, votes1->last_votes.size ());
-	}
+	std::lock_guard<std::mutex> lock (node1.active.mutex);
+	auto votes1 (node1.active.roots.find (nano::uint512_union (send1->previous (), send1->root ()))->election);
+	ASSERT_EQ (1, votes1->last_votes.size ());
 	auto vote1 (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 1, send1));
 	vote1->signature.bytes[0] ^= 1;
 	ASSERT_EQ (nano::vote_code::invalid, node1.vote_processor.vote_blocking (transaction, vote1, nano::endpoint (boost::asio::ip::address_v6 (), 0)));
@@ -741,25 +739,22 @@ TEST (votes, add_one)
 	auto transaction (node1.store.tx_begin (true));
 	ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, *send1).code);
 	node1.active.start (send1);
-	{
-		std::lock_guard<std::mutex> lock (node1.active.mutex);
-		auto votes1 (node1.active.roots.find (nano::uint512_union (send1->previous (), send1->root ()))->election);
-		ASSERT_EQ (1, votes1->last_votes.size ());
-	}
+	std::unique_lock<std::mutex> lock (node1.active.mutex);
+	auto votes1 (node1.active.roots.find (nano::uint512_union (send1->previous (), send1->root ()))->election);
+	ASSERT_EQ (1, votes1->last_votes.size ());
+	lock.unlock ();
 	auto vote1 (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 1, send1));
 	ASSERT_FALSE (node1.active.vote (vote1));
 	auto vote2 (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 2, send1));
 	ASSERT_FALSE (node1.active.vote (vote2));
-	{
-		std::lock_guard<std::mutex> lock (node1.active.mutex);
-		ASSERT_EQ (2, votes1->last_votes.size ());
-		auto existing1 (votes1->last_votes.find (nano::test_genesis_key.pub));
-		ASSERT_NE (votes1->last_votes.end (), existing1);
-		ASSERT_EQ (send1->hash (), existing1->second.hash);
-		auto winner (*votes1->tally (transaction).begin ());
-		ASSERT_EQ (*send1, *winner.second);
-		ASSERT_EQ (nano::genesis_amount - 100, winner.first);
-	}
+	lock.lock ();
+	ASSERT_EQ (2, votes1->last_votes.size ());
+	auto existing1 (votes1->last_votes.find (nano::test_genesis_key.pub));
+	ASSERT_NE (votes1->last_votes.end (), existing1);
+	ASSERT_EQ (send1->hash (), existing1->second.hash);
+	auto winner (*votes1->tally (transaction).begin ());
+	ASSERT_EQ (*send1, *winner.second);
+	ASSERT_EQ (nano::genesis_amount - 100, winner.first);
 }
 
 TEST (votes, add_two)
@@ -846,17 +841,15 @@ TEST (votes, add_old)
 	ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, *send1).code);
 	node1.active.start (send1);
 	auto vote1 (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 2, send1));
-	std::unique_lock<std::mutex> lock (node1.active.mutex);
+	std::lock_guard<std::mutex> lock (node1.active.mutex);
 	auto votes1 (node1.active.roots.find (nano::uint512_union (send1->previous (), send1->root ()))->election);
 	node1.vote_processor.vote_blocking (transaction, vote1, node1.network.endpoint ());
-	lock.unlock ();
 	nano::keypair key2;
 	auto send2 (std::make_shared<nano::send_block> (genesis.hash (), key2.pub, 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
 	auto vote2 (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 1, send2));
-	lock.lock ();
 	votes1->last_votes[nano::test_genesis_key.pub].time = std::chrono::steady_clock::now () - std::chrono::seconds (20);
 	node1.vote_processor.vote_blocking (transaction, vote2, node1.network.endpoint ());
-	ASSERT_EQ (2, votes1->last_votes_size ());
+	ASSERT_EQ (2, votes1->last_votes.size ());
 	ASSERT_NE (votes1->last_votes.end (), votes1->last_votes.find (nano::test_genesis_key.pub));
 	ASSERT_EQ (send1->hash (), votes1->last_votes[nano::test_genesis_key.pub].hash);
 	auto winner (*votes1->tally (transaction).begin ());
@@ -925,7 +918,7 @@ TEST (votes, add_cooldown)
 	node1.work_generate_blocking (*send2);
 	auto vote2 (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 2, send2));
 	node1.vote_processor.vote_blocking (transaction, vote2, node1.network.endpoint ());
-	ASSERT_EQ (2, votes1->last_votes_size ());
+	ASSERT_EQ (2, votes1->last_votes.size ());
 	ASSERT_NE (votes1->last_votes.end (), votes1->last_votes.find (nano::test_genesis_key.pub));
 	ASSERT_EQ (send1->hash (), votes1->last_votes[nano::test_genesis_key.pub].hash);
 	auto winner (*votes1->tally (transaction).begin ());

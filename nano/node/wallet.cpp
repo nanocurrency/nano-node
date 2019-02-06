@@ -1323,7 +1323,7 @@ void nano::wallet::work_cache_blocking (nano::account const & account_a, nano::b
 		BOOST_LOG (wallets.node.log) << "Work generation for " << root_a.to_string () << ", with a difficulty of " << difficulty << " complete: " << (std::chrono::duration_cast<std::chrono::microseconds> (std::chrono::steady_clock::now () - begin).count ()) << " us";
 	}
 	auto transaction (wallets.tx_begin_write ());
-	if (store.exists (transaction, account_a))
+	if (live () && store.exists (transaction, account_a))
 	{
 		work_update (transaction, account_a, root_a, work);
 	}
@@ -1441,8 +1441,9 @@ void nano::wallets::search_pending_all ()
 void nano::wallets::destroy (nano::uint256_union const & id_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
-	std::lock_guard<std::mutex> action_lock (action_mutex);
 	auto transaction (tx_begin_write ());
+	// action_mutex should be after transactions to prevent deadlocks in deterministic_insert () & insert_adhoc ()
+	std::lock_guard<std::mutex> action_lock (action_mutex);
 	auto existing (items.find (id_a));
 	assert (existing != items.end ());
 	auto wallet (existing->second);
