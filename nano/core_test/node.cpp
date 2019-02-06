@@ -199,6 +199,7 @@ TEST (node, node_receive_quorum)
 	auto done (false);
 	while (!done)
 	{
+		std::lock_guard<std::mutex> guard (system.nodes[0]->active.mutex);
 		auto info (system.nodes[0]->active.roots.find (nano::uint512_union (previous, previous)));
 		ASSERT_NE (system.nodes[0]->active.roots.end (), info);
 		done = info->election->announcements > nano::active_transactions::announcement_min;
@@ -823,20 +824,25 @@ TEST (node, fork_publish)
 		node1.process_active (send1);
 		node1.block_processor.flush ();
 		ASSERT_EQ (1, node1.active.size ());
+		std::unique_lock<std::mutex> lock (node1.active.mutex);
 		auto existing (node1.active.roots.find (nano::uint512_union (send1->previous (), send1->root ())));
 		ASSERT_NE (node1.active.roots.end (), existing);
 		auto election (existing->election);
+		lock.unlock ();
 		system.deadline_set (1s);
 		// Wait until the genesis rep activated & makes vote
 		while (election->last_votes_size () != 2)
 		{
+			lock.lock ();
 			auto transaction (node1.store.tx_begin ());
 			election->compute_rep_votes (transaction);
+			lock.unlock ();
 			node1.vote_processor.flush ();
 			ASSERT_NO_ERROR (system.poll ());
 		}
 		node1.process_active (send2);
 		node1.block_processor.flush ();
+		lock.lock ();
 		auto existing1 (election->last_votes.find (nano::test_genesis_key.pub));
 		ASSERT_NE (election->last_votes.end (), existing1);
 		ASSERT_EQ (send1->hash (), existing1->second.hash);
@@ -871,11 +877,13 @@ TEST (node, fork_keep)
 	node1.block_processor.flush ();
 	node2.process_active (send2);
 	node2.block_processor.flush ();
+	std::unique_lock<std::mutex> lock (node2.active.mutex);
 	auto conflict (node2.active.roots.find (nano::uint512_union (genesis.hash (), genesis.hash ())));
 	ASSERT_NE (node2.active.roots.end (), conflict);
 	auto votes1 (conflict->election);
 	ASSERT_NE (nullptr, votes1);
-	ASSERT_EQ (1, votes1->last_votes_size ());
+	ASSERT_EQ (1, votes1->last_votes.size ());
+	lock.unlock ();
 	{
 		auto transaction0 (system.nodes[0]->store.tx_begin ());
 		auto transaction1 (system.nodes[1]->store.tx_begin ());
@@ -891,6 +899,7 @@ TEST (node, fork_keep)
 	auto transaction0 (system.nodes[0]->store.tx_begin ());
 	auto transaction1 (system.nodes[1]->store.tx_begin ());
 	// The vote should be in agreement with what we already have.
+	lock.lock ();
 	auto winner (*votes1->tally (transaction1).begin ());
 	ASSERT_EQ (*send1, *winner.second);
 	ASSERT_EQ (nano::genesis_amount - 100, winner.first);
@@ -922,11 +931,13 @@ TEST (node, fork_flip)
 	node1.block_processor.flush ();
 	node2.process_message (publish1, node2.network.endpoint ());
 	node2.block_processor.flush ();
+	std::unique_lock<std::mutex> lock (node2.active.mutex);
 	auto conflict (node2.active.roots.find (nano::uint512_union (genesis.hash (), genesis.hash ())));
 	ASSERT_NE (node2.active.roots.end (), conflict);
 	auto votes1 (conflict->election);
 	ASSERT_NE (nullptr, votes1);
-	ASSERT_EQ (1, votes1->last_votes_size ());
+	ASSERT_EQ (1, votes1->last_votes.size ());
+	lock.unlock ();
 	{
 		auto transaction (system.nodes[0]->store.tx_begin ());
 		ASSERT_TRUE (node1.store.block_exists (transaction, publish1.block->hash ()));
@@ -944,6 +955,7 @@ TEST (node, fork_flip)
 	}
 	auto transaction1 (system.nodes[0]->store.tx_begin ());
 	auto transaction2 (system.nodes[1]->store.tx_begin ());
+	lock.lock ();
 	auto winner (*votes1->tally (transaction2).begin ());
 	ASSERT_EQ (*publish1.block, *winner.second);
 	ASSERT_EQ (nano::genesis_amount - 100, winner.first);
@@ -980,11 +992,13 @@ TEST (node, fork_multi_flip)
 	node1.block_processor.flush ();
 	node2.process_message (publish1, node2.network.endpoint ());
 	node2.block_processor.flush ();
+	std::unique_lock<std::mutex> lock (node2.active.mutex);
 	auto conflict (node2.active.roots.find (nano::uint512_union (genesis.hash (), genesis.hash ())));
 	ASSERT_NE (node2.active.roots.end (), conflict);
 	auto votes1 (conflict->election);
 	ASSERT_NE (nullptr, votes1);
-	ASSERT_EQ (1, votes1->last_votes_size ());
+	ASSERT_EQ (1, votes1->last_votes.size ());
+	lock.unlock ();
 	{
 		auto transaction (system.nodes[0]->store.tx_begin ());
 		ASSERT_TRUE (node1.store.block_exists (transaction, publish1.block->hash ()));
@@ -1003,6 +1017,7 @@ TEST (node, fork_multi_flip)
 	}
 	auto transaction1 (system.nodes[0]->store.tx_begin ());
 	auto transaction2 (system.nodes[1]->store.tx_begin ());
+	lock.lock ();
 	auto winner (*votes1->tally (transaction2).begin ());
 	ASSERT_EQ (*publish1.block, *winner.second);
 	ASSERT_EQ (nano::genesis_amount - 100, winner.first);
@@ -1108,11 +1123,13 @@ TEST (node, fork_open_flip)
 	node1.block_processor.flush ();
 	node2.process_active (open1);
 	node2.block_processor.flush ();
+	std::unique_lock<std::mutex> lock (node2.active.mutex);
 	auto conflict (node2.active.roots.find (nano::uint512_union (open1->previous (), open1->root ())));
 	ASSERT_NE (node2.active.roots.end (), conflict);
 	auto votes1 (conflict->election);
 	ASSERT_NE (nullptr, votes1);
-	ASSERT_EQ (1, votes1->last_votes_size ());
+	ASSERT_EQ (1, votes1->last_votes.size ());
+	lock.unlock ();
 	ASSERT_TRUE (node1.block (open1->hash ()) != nullptr);
 	ASSERT_TRUE (node2.block (open2->hash ()) != nullptr);
 	system.deadline_set (10s);
@@ -1124,6 +1141,7 @@ TEST (node, fork_open_flip)
 	node2.block_processor.flush ();
 	auto transaction1 (system.nodes[0]->store.tx_begin ());
 	auto transaction2 (system.nodes[1]->store.tx_begin ());
+	lock.lock ();
 	auto winner (*votes1->tally (transaction2).begin ());
 	ASSERT_EQ (*open1, *winner.second);
 	ASSERT_EQ (nano::genesis_amount - 1, winner.first);
@@ -1386,17 +1404,22 @@ TEST (node, rep_self_vote)
 	ASSERT_EQ (nano::process_result::progress, node0->process (*block0).code);
 	auto & active (node0->active);
 	active.start (block0);
+	std::unique_lock<std::mutex> lock (active.mutex);
 	auto existing (active.roots.find (nano::uint512_union (block0->previous (), block0->root ())));
 	ASSERT_NE (active.roots.end (), existing);
+	lock.unlock ();
 	system.deadline_set (1s);
 	// Wait until representatives are activated & make vote
 	while (existing->election->last_votes_size () != 3)
 	{
+		lock.lock ();
 		auto transaction (node0->store.tx_begin ());
 		existing->election->compute_rep_votes (transaction);
+		lock.unlock ();
 		node0->vote_processor.flush ();
 		ASSERT_NO_ERROR (system.poll ());
 	}
+	lock.lock ();
 	auto & rep_votes (existing->election->last_votes);
 	ASSERT_NE (rep_votes.end (), rep_votes.find (nano::test_genesis_key.pub));
 	ASSERT_NE (rep_votes.end (), rep_votes.find (rep_big.pub));
@@ -1820,6 +1843,7 @@ TEST (node, confirm_quorum)
 	while (!done)
 	{
 		ASSERT_FALSE (system.nodes[0]->active.empty ());
+		std::lock_guard<std::mutex> guard (system.nodes[0]->active.mutex);
 		auto info (system.nodes[0]->active.roots.find (nano::uint512_union (send1->hash (), send1->hash ())));
 		ASSERT_NE (system.nodes[0]->active.roots.end (), info);
 		done = info->election->announcements > nano::active_transactions::announcement_min;
