@@ -97,7 +97,7 @@ public:
 	void lazy_start (nano::block_hash const &);
 	void lazy_add (nano::block_hash const &);
 	bool lazy_finished ();
-	void lazy_pull_flush (std::unique_lock<std::mutex> &);
+	void lazy_pull_flush ();
 	void lazy_clear ();
 	void request_pending (std::unique_lock<std::mutex> &);
 	void requeue_pending (nano::account const &);

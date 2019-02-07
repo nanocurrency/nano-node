@@ -1394,8 +1394,9 @@ void nano::bootstrap_attempt::lazy_add (nano::block_hash const & hash_a)
 	}
 }
 
-void nano::bootstrap_attempt::lazy_pull_flush (std::unique_lock<std::mutex> & lock_a)
+void nano::bootstrap_attempt::lazy_pull_flush ()
 {
+	assert (!mutex.try_lock ());
 	std::unique_lock<std::mutex> lazy_lock (lazy_mutex);
 	auto transaction (node->store.tx_begin_read ());
 	for (auto & pull_start : lazy_pulls)
@@ -1476,7 +1477,7 @@ void nano::bootstrap_attempt::lazy_run ()
 			// Flushing lazy pulls
 			if (iterations % 100 == 0)
 			{
-				lazy_pull_flush (lock);
+				lazy_pull_flush ();
 			}
 		}
 		// Flushing may resolve forks which can add more pulls
@@ -1484,7 +1485,7 @@ void nano::bootstrap_attempt::lazy_run ()
 		lock.unlock ();
 		node->block_processor.flush ();
 		lock.lock ();
-		lazy_pull_flush (lock);
+		lazy_pull_flush ();
 	}
 	if (!stopped)
 	{
