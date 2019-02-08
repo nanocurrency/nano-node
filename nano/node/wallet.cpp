@@ -884,7 +884,7 @@ bool nano::wallet::import (std::string const & json_a, std::string const & passw
 	}
 	if (!error)
 	{
-		auto transaction (wallets.tx_begin_read ());
+		auto transaction (wallets.tx_begin_write ());
 		error = temp->attempt_password (transaction, password_a);
 	}
 	auto transaction (wallets.tx_begin_write ());
