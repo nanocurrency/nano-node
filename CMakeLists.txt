@@ -34,9 +34,6 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 #find_package(Threads REQUIRED)
 #set (PLATFORM_LIBS ${CMAKE_THREAD_LIBS_INIT} ${CMAKE_DL_LIBS})
 
-include (CheckCXXCompilerFlag)
-check_cxx_compiler_flag (-fsanitize-blacklist COMPILER_SUPPORTS_SANITIZE_BLACKLIST)
-
 if (WIN32)
 	add_definitions(-D_WIN32_WINNT=0x0600
 					-DWINVER=0x0600
