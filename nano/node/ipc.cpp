@@ -237,8 +237,8 @@ public:
 		auto body (std::string (reinterpret_cast<char *> (buffer.data ()), buffer.size ()));
 
 		// Note that if the rpc action is async, the shared_ptr<rpc_handler> lifetime will be extended by the action handler
-		nano::rpc_handler handler (node, server.rpc, body, request_id_l, response_handler_l);
-		handler.process_request ();
+		auto handler (std::make_shared<nano::rpc_handler> (node, server.rpc, body, request_id_l, response_handler_l));
+		handler->process_request ();
 	}
 
 	/** Async request reader */
