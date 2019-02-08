@@ -181,7 +181,7 @@ void nano::rpc_connection_secure::read ()
 				{
 					case boost::beast::http::verb::post:
 					{
-						auto handler (std::make_shared<rai::rpc_handler> (*this_l->node, this_l->rpc, this_l->request.body (), request_id, response_handler));
+						auto handler (std::make_shared<nano::rpc_handler> (*this_l->node, this_l->rpc, this_l->request.body (), request_id, response_handler));
 						handler->process_request ();
 						break;
 					}
@@ -195,7 +195,7 @@ void nano::rpc_connection_secure::read ()
 							// Perform the SSL shutdown
 							this_l->stream.async_shutdown (
 							std::bind (
-							&rai::rpc_connection_secure::on_shutdown,
+							&nano::rpc_connection_secure::on_shutdown,
 							this_l,
 							std::placeholders::_1));
 
