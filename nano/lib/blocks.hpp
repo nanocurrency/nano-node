@@ -26,7 +26,7 @@ bool try_read (nano::stream & stream_a, T & value)
 }
 // A wrapper of try_read which throws if there is an error
 template <typename T>
-void read (nano::stream & stream_a, T & value) throw (std::runtime_error)
+void read (nano::stream & stream_a, T & value)
 {
 	auto error = try_read (stream_a, value);
 	if (error)
