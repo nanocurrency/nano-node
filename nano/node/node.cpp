@@ -154,7 +154,10 @@ void nano::network::stop ()
 {
 	on = false;
 	std::unique_lock<std::mutex> lock (socket_mutex);
-	socket.close ();
+	if (socket.is_open ())
+	{
+		socket.close ();
+	}
 	resolver.cancel ();
 	buffer_container.stop ();
 }
@@ -2968,18 +2971,21 @@ void nano::network::send_buffer (uint8_t const * data_a, size_t size_a, nano::en
 	{
 		BOOST_LOG (node.log) << "Sending packet";
 	}
-	socket.async_send_to (boost::asio::buffer (data_a, size_a), endpoint_a, [this, callback_a](boost::system::error_code const & ec, size_t size_a) {
-		callback_a (ec, size_a);
-		this->node.stats.add (nano::stat::type::traffic, nano::stat::dir::out, size_a);
-		if (ec == boost::system::errc::host_unreachable)
-		{
-			this->node.stats.inc (nano::stat::type::error, nano::stat::detail::unreachable_host, nano::stat::dir::out);
-		}
-		if (this->node.config.logging.network_packet_logging ())
-		{
-			BOOST_LOG (this->node.log) << "Packet send complete";
-		}
-	});
+	if (on.load ())
+	{
+		socket.async_send_to (boost::asio::buffer (data_a, size_a), endpoint_a, [this, callback_a](boost::system::error_code const & ec, size_t size_a) {
+			callback_a (ec, size_a);
+			this->node.stats.add (nano::stat::type::traffic, nano::stat::dir::out, size_a);
+			if (ec == boost::system::errc::host_unreachable)
+			{
+				this->node.stats.inc (nano::stat::type::error, nano::stat::detail::unreachable_host, nano::stat::dir::out);
+			}
+			if (this->node.config.logging.network_packet_logging ())
+			{
+				BOOST_LOG (this->node.log) << "Packet send complete";
+			}
+		});
+	}
 }
 
 std::shared_ptr<nano::node> nano::node::shared ()
