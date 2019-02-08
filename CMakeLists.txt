@@ -30,9 +30,7 @@ endif()
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-# TODO check if any library requires these
-#find_package(Threads REQUIRED)
-#set (PLATFORM_LIBS ${CMAKE_THREAD_LIBS_INIT} ${CMAKE_DL_LIBS})
+find_package(Threads REQUIRED)
 
 if (WIN32)
 	add_definitions(-D_WIN32_WINNT=0x0600
