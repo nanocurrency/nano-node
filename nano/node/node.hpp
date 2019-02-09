@@ -198,6 +198,7 @@ public:
 	void add (nano::transaction const &, nano::block_hash const &, std::chrono::steady_clock::time_point = std::chrono::steady_clock::now ());
 	void vote (std::shared_ptr<nano::vote>);
 	nano::uint128_t bootstrap_threshold (nano::transaction const &);
+	size_t size ();
 	boost::multi_index_container<
 	nano::gap_information,
 	boost::multi_index::indexed_by<

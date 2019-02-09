@@ -278,13 +278,13 @@ TEST (node, receive_gap)
 {
 	nano::system system (24000, 1);
 	auto & node1 (*system.nodes[0]);
-	ASSERT_EQ (0, node1.gap_cache.blocks.size ());
+	ASSERT_EQ (0, node1.gap_cache.size ());
 	auto block (std::make_shared<nano::send_block> (5, 1, 2, nano::keypair ().prv, 4, 0));
 	node1.work_generate_blocking (*block);
 	nano::publish message (block);
 	node1.process_message (message, node1.network.endpoint ());
 	node1.block_processor.flush ();
-	ASSERT_EQ (1, node1.gap_cache.blocks.size ());
+	ASSERT_EQ (1, node1.gap_cache.size ());
 }
 
 TEST (node, merge_peers)
