@@ -713,8 +713,8 @@ TEST (rpc, wallet_create_seed)
 	nano::system system (24000, 1);
 	nano::keypair seed;
 	nano::raw_key prv;
-	nano::deterministic_key (seed.data, 0, prv.data);
-	pub = nano::pub_key (prv.data);
+	nano::deterministic_key (seed.pub, 0, prv.data);
+	auto pub (nano::pub_key (prv.data));
 	nano::rpc rpc (system.io_ctx, *system.nodes[0], nano::rpc_config (true));
 	rpc.start ();
 	boost::property_tree::ptree request;
@@ -2429,8 +2429,8 @@ TEST (rpc, wallet_change_seed)
 		ASSERT_NE (seed.pub, seed0.data);
 	}
 	nano::raw_key prv;
-	nano::deterministic_key (seed.data, 0, prv.data);
-	pub = nano::pub_key (prv.data);
+	nano::deterministic_key (seed.pub, 0, prv.data);
+	auto pub (nano::pub_key (prv.data));
 	nano::rpc rpc (system0.io_ctx, *system0.nodes[0], nano::rpc_config (true));
 	rpc.start ();
 	boost::property_tree::ptree request;
@@ -2453,7 +2453,7 @@ TEST (rpc, wallet_change_seed)
 	auto account_text (response.json.get<std::string> ("last_restored_account"));
 	nano::uint256_union account;
 	ASSERT_FALSE (account.decode_account (account_text));
-	ASSERT_TRUE (existing->second->exists (account));
+	ASSERT_TRUE (system0.wallet (0)->exists (account));
 	ASSERT_EQ (pub, account);
 	ASSERT_EQ ("1", response.json.get<std::string> ("restored_count"));
 }
