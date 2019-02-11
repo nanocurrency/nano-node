@@ -3481,8 +3481,12 @@ void nano::rpc_handler::wallet_change_seed ()
 			auto transaction (node.wallets.tx_begin_write ());
 			if (wallet->store.valid_password (transaction))
 			{
-				wallet->change_seed (transaction, seed, count);
+				nano::public_key account (wallet->change_seed (transaction, seed, count));
 				response_l.put ("success", "");
+				response_l.put ("last_restored_account", account.to_account ());
+				auto index (wallet->store.deterministic_index_get (transaction));
+				assert (index > 0);
+				response_l.put ("restored_count", std::to_string (index));
 			}
 			else
 			{
@@ -3538,7 +3542,10 @@ void nano::rpc_handler::wallet_create ()
 			{
 				auto transaction (node.wallets.tx_begin_write ());
 				nano::public_key account (wallet->change_seed (transaction, seed));
-				response_l.put ("account", account.to_account ());
+				response_l.put ("last_restored_account", account.to_account ());
+				auto index (wallet->store.deterministic_index_get (transaction));
+				assert (index > 0);
+				response_l.put ("restored_count", std::to_string (index));
 			}
 		}
 	}
