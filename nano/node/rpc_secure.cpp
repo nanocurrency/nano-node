@@ -83,7 +83,7 @@ void nano::rpc_secure::load_certs (boost::asio::ssl::context & context_a)
 		context_a.set_verify_mode (boost::asio::ssl::verify_fail_if_no_peer_cert | boost::asio::ssl::verify_peer);
 		context_a.add_verify_path (config.secure.client_certs_path);
 		context_a.set_verify_callback ([this](auto preverified, auto & ctx) {
-			return on_verify_certificate (preverified, ctx);
+			return this->on_verify_certificate (preverified, ctx);
 		});
 	}
 }
