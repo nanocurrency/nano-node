@@ -26,19 +26,20 @@ build:
   verbosity: minimal
 after_build:
 - ps: |
-    $path = Join-Path -Path "$env:TMP" -ChildPath csc.p12
-    [IO.File]::WriteAllBytes($path, [Convert]::FromBase64String($env:CSC_LINK))
-    Set-AppveyorBuildVariable -Name 'CSC_LINK' -Value $path
-- cmd: |
-    "C:\Program Files (x86)\Microsoft SDKs\Windows\v7.1A\Bin\signtool.exe" sign /a /ph /tr http://timestamp.digicert.com /td sha256 /fd sha256 /f "%CSC_LINK%" /p "%CSC_KEY_PASSWORD%" "%APPVEYOR_BUILD_FOLDER%/%CONFIGURATION%/*.exe"
-- ps: Remove-Item env:CSC_KEY_PASSWORD
-- ps: Remove-Item -Path $env:CSC_LINK
+    if (Test-Path env:CSC_LINK) {
+      $path = Join-Path -Path "$env:TMP" -ChildPath csc.p12
+      [IO.File]::WriteAllBytes($path, [Convert]::FromBase64String($env:CSC_LINK))
+
+      $args = -split 'sign /a /ph /tr http://timestamp.digicert.com /td sha256 /fd sha256'
+      $args += @('/f', $path, '/p', $env:CSC_KEY_PASSWORD, "$env:APPVEYOR_BUILD_FOLDER\$env:CONFIGURATION\*.exe")
+      . 'C:\Program Files (x86)\Microsoft SDKs\Windows\v7.1A\Bin\signtool.exe' $args
+    }
 - cmd: >-
     cpack -C %CONFIGURATION% --verbose --config ./CPackConfig.cmake
 
-    7z a nano.zip %APPVEYOR_BUILD_FOLDER%\%CONFIGURATION%\*.exe %APPVEYOR_BUILD_FOLDER%\%CONFIGURATION%\*.com
+    cpack -G ZIP -C %CONFIGURATION% --verbose --config ./CPackConfig.cmake
 artifacts:
-- path: nano.zip
+- path: nano*.zip
   name: nano_release_%network%
 - path: Nano_Installer-*.exe
   name: Nano_Installer_%network%
