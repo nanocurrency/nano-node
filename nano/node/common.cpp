@@ -573,7 +573,7 @@ bool nano::confirm_req::deserialize (nano::stream & stream_a, nano::block_unique
 			result = block == nullptr;
 		}
 	}
-	catch (const std::runtime_error & error)
+	catch (const std::runtime_error &)
 	{
 		result = true;
 	}

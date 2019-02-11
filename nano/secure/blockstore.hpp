@@ -296,7 +296,7 @@ public:
 	virtual void online_weight_clear (nano::transaction const &) = 0;
 
 	virtual void version_put (nano::transaction const &, int) = 0;
-	virtual int version_get (nano::transaction const &) = 0;
+	virtual int version_get (nano::transaction const &) const = 0;
 
 	virtual void peer_put (nano::transaction const & transaction_a, nano::endpoint_key const & endpoint_a) = 0;
 	virtual void peer_del (nano::transaction const & transaction_a, nano::endpoint_key const & endpoint_a) = 0;
@@ -307,7 +307,7 @@ public:
 	virtual nano::store_iterator<nano::endpoint_key, nano::no_value> peers_end () = 0;
 
 	// Requires a write transaction
-	virtual nano::raw_key get_node_id (nano::transaction const &) = 0;
+	virtual nano::raw_key get_node_id (nano::transaction const &) const = 0;
 
 	/** Deletes the node ID from the store */
 	virtual void delete_node_id (nano::transaction const &) = 0;

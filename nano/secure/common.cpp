@@ -138,36 +138,16 @@ void nano::serialize_block (nano::stream & stream_a, nano::block const & block_a
 	block_a.serialize (stream_a);
 }
 
-nano::account_info::account_info () :
-head (0),
-rep_block (0),
-open_block (0),
-balance (0),
-modified (0),
-block_count (0),
-epoch (nano::epoch::epoch_0)
-{
-}
-
-nano::account_info::account_info (nano::block_hash const & head_a, nano::block_hash const & rep_block_a, nano::block_hash const & open_block_a, nano::amount const & balance_a, uint64_t modified_a, uint64_t block_count_a, nano::epoch epoch_a) :
+nano::account_info::account_info (nano::block_hash const & head_a, nano::block_hash const & rep_block_a, nano::block_hash const & open_block_a, nano::amount const & balance_a, uint64_t modified_a, uint64_t block_count_a, uint64_t confirmation_height_a, nano::epoch epoch_a) :
 head (head_a),
 rep_block (rep_block_a),
 open_block (open_block_a),
 balance (balance_a),
 modified (modified_a),
 block_count (block_count_a),
+confirmation_height (confirmation_height_a),
 epoch (epoch_a)
 {
-}
-
-void nano::account_info::serialize (nano::stream & stream_a) const
-{
-	write (stream_a, head.bytes);
-	write (stream_a, rep_block.bytes);
-	write (stream_a, open_block.bytes);
-	write (stream_a, balance.bytes);
-	write (stream_a, modified);
-	write (stream_a, block_count);
 }
 
 bool nano::account_info::deserialize (nano::stream & stream_a)
@@ -181,6 +161,7 @@ bool nano::account_info::deserialize (nano::stream & stream_a)
 		nano::read (stream_a, balance.bytes);
 		nano::read (stream_a, modified);
 		nano::read (stream_a, block_count);
+		nano::read (stream_a, confirmation_height);
 	}
 	catch (std::runtime_error const &)
 	{
@@ -192,7 +173,7 @@ bool nano::account_info::deserialize (nano::stream & stream_a)
 
 bool nano::account_info::operator== (nano::account_info const & other_a) const
 {
-	return head == other_a.head && rep_block == other_a.rep_block && open_block == other_a.open_block && balance == other_a.balance && modified == other_a.modified && block_count == other_a.block_count && epoch == other_a.epoch;
+	return head == other_a.head && rep_block == other_a.rep_block && open_block == other_a.open_block && balance == other_a.balance && modified == other_a.modified && block_count == other_a.block_count && confirmation_height == other_a.confirmation_height && epoch == other_a.epoch;
 }
 
 bool nano::account_info::operator!= (nano::account_info const & other_a) const
@@ -208,7 +189,8 @@ size_t nano::account_info::db_size () const
 	assert (reinterpret_cast<const uint8_t *> (&open_block) + sizeof (open_block) == reinterpret_cast<const uint8_t *> (&balance));
 	assert (reinterpret_cast<const uint8_t *> (&balance) + sizeof (balance) == reinterpret_cast<const uint8_t *> (&modified));
 	assert (reinterpret_cast<const uint8_t *> (&modified) + sizeof (modified) == reinterpret_cast<const uint8_t *> (&block_count));
-	return sizeof (head) + sizeof (rep_block) + sizeof (open_block) + sizeof (balance) + sizeof (modified) + sizeof (block_count);
+	assert (reinterpret_cast<const uint8_t *> (&block_count) + sizeof (block_count) == reinterpret_cast<const uint8_t *> (&confirmation_height));
+	return sizeof (head) + sizeof (rep_block) + sizeof (open_block) + sizeof (balance) + sizeof (modified) + sizeof (block_count) + sizeof (confirmation_height);
 }
 
 nano::block_counts::block_counts () :
@@ -238,12 +220,6 @@ source (source_a),
 amount (amount_a),
 epoch (epoch_a)
 {
-}
-
-void nano::pending_info::serialize (nano::stream & stream_a) const
-{
-	nano::write (stream_a, source.bytes);
-	nano::write (stream_a, amount.bytes);
 }
 
 bool nano::pending_info::deserialize (nano::stream & stream_a)
@@ -277,12 +253,6 @@ nano::pending_key::pending_key (nano::account const & account_a, nano::block_has
 account (account_a),
 hash (hash_a)
 {
-}
-
-void nano::pending_key::serialize (nano::stream & stream_a) const
-{
-	nano::write (stream_a, account.bytes);
-	nano::write (stream_a, hash.bytes);
 }
 
 bool nano::pending_key::deserialize (nano::stream & stream_a)

@@ -14,6 +14,7 @@
 namespace nano
 {
 class mdb_env;
+class account_info_v13;
 class mdb_txn : public transaction_impl
 {
 public:
@@ -48,6 +49,7 @@ class mdb_val
 public:
 	mdb_val (nano::epoch = nano::epoch::unspecified);
 	mdb_val (nano::account_info const &);
+	mdb_val (nano::account_info_v13 const &);
 	mdb_val (nano::block_info const &);
 	mdb_val (MDB_val const &, nano::epoch = nano::epoch::unspecified);
 	mdb_val (nano::pending_info const &);
@@ -63,6 +65,7 @@ public:
 	void * data () const;
 	size_t size () const;
 	explicit operator nano::account_info () const;
+	explicit operator nano::account_info_v13 () const;
 	explicit operator nano::block_info () const;
 	explicit operator nano::pending_info () const;
 	explicit operator nano::pending_key () const;
@@ -151,8 +154,6 @@ class mdb_store : public block_store
 
 public:
 	mdb_store (bool &, nano::logging &, boost::filesystem::path const &, int lmdb_max_dbs = 128, bool drop_unchecked = false, size_t batch_size = 512);
-	~mdb_store ();
-
 	nano::transaction tx_begin_write () override;
 	nano::transaction tx_begin_read () override;
 	nano::transaction tx_begin (bool write = false) override;
@@ -251,25 +252,10 @@ public:
 	std::unordered_map<nano::account, std::shared_ptr<nano::vote>> vote_cache_l2;
 
 	void version_put (nano::transaction const &, int) override;
-	int version_get (nano::transaction const &) override;
-	void do_upgrades (nano::transaction const &, bool &);
-	void upgrade_v1_to_v2 (nano::transaction const &);
-	void upgrade_v2_to_v3 (nano::transaction const &);
-	void upgrade_v3_to_v4 (nano::transaction const &);
-	void upgrade_v4_to_v5 (nano::transaction const &);
-	void upgrade_v5_to_v6 (nano::transaction const &);
-	void upgrade_v6_to_v7 (nano::transaction const &);
-	void upgrade_v7_to_v8 (nano::transaction const &);
-	void upgrade_v8_to_v9 (nano::transaction const &);
-	void upgrade_v9_to_v10 (nano::transaction const &);
-	void upgrade_v10_to_v11 (nano::transaction const &);
-	void upgrade_v11_to_v12 (nano::transaction const &);
-	void do_slow_upgrades (size_t const);
-	void upgrade_v12_to_v13 (size_t const);
-	bool full_sideband (nano::transaction const &);
+	int version_get (nano::transaction const &) const override;
 
 	// Requires a write transaction
-	nano::raw_key get_node_id (nano::transaction const &) override;
+	nano::raw_key get_node_id (nano::transaction const &) const override;
 
 	/** Deletes the node ID from the store */
 	void delete_node_id (nano::transaction const &) override;
@@ -283,7 +269,8 @@ public:
 	nano::store_iterator<nano::endpoint_key, nano::no_value> peers_begin (nano::transaction const & transaction_a) override;
 	nano::store_iterator<nano::endpoint_key, nano::no_value> peers_end () override;
 
-	void stop ();
+	bool full_sideband (nano::transaction const &) const;
+	MDB_dbi get_account_db (nano::epoch epoch_a) const;
 
 	nano::logging & logging;
 
@@ -408,8 +395,21 @@ private:
 	boost::optional<MDB_val> block_raw_get_by_type (nano::transaction const &, nano::block_hash const &, nano::block_type &);
 	void block_raw_put (nano::transaction const &, MDB_dbi, nano::block_hash const &, MDB_val);
 	void clear (MDB_dbi);
-	std::atomic<bool> stopped{ false };
-	std::thread upgrades;
+	void do_upgrades (nano::transaction const &, size_t);
+	void upgrade_v1_to_v2 (nano::transaction const &);
+	void upgrade_v2_to_v3 (nano::transaction const &);
+	void upgrade_v3_to_v4 (nano::transaction const &);
+	void upgrade_v4_to_v5 (nano::transaction const &);
+	void upgrade_v5_to_v6 (nano::transaction const &);
+	void upgrade_v6_to_v7 (nano::transaction const &);
+	void upgrade_v7_to_v8 (nano::transaction const &);
+	void upgrade_v8_to_v9 (nano::transaction const &);
+	void upgrade_v9_to_v10 (nano::transaction const &);
+	void upgrade_v10_to_v11 (nano::transaction const &);
+	void upgrade_v11_to_v12 (nano::transaction const &);
+	void upgrade_v12_to_v13 (nano::transaction const &, size_t);
+	void upgrade_v13_to_v14 (nano::transaction const &);
+	MDB_dbi get_pending_db (nano::epoch epoch_a) const;
 };
 class wallet_value
 {

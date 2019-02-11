@@ -78,22 +78,21 @@ enum class epoch : uint8_t
 class account_info
 {
 public:
-	account_info ();
-	account_info (nano::account_info const &) = default;
-	account_info (nano::block_hash const &, nano::block_hash const &, nano::block_hash const &, nano::amount const &, uint64_t, uint64_t, epoch);
-	void serialize (nano::stream &) const;
+	account_info () = default;
+	account_info (nano::block_hash const &, nano::block_hash const &, nano::block_hash const &, nano::amount const &, uint64_t, uint64_t, uint64_t, epoch);
 	bool deserialize (nano::stream &);
 	bool operator== (nano::account_info const &) const;
 	bool operator!= (nano::account_info const &) const;
 	size_t db_size () const;
-	nano::block_hash head;
-	nano::block_hash rep_block;
-	nano::block_hash open_block;
-	nano::amount balance;
+	nano::block_hash head{ 0 };
+	nano::block_hash rep_block{ 0 };
+	nano::block_hash open_block{ 0 };
+	nano::amount balance{ 0 };
 	/** Seconds since posix epoch */
-	uint64_t modified;
-	uint64_t block_count;
-	nano::epoch epoch;
+	uint64_t modified{ 0 };
+	uint64_t block_count{ 0 };
+	uint64_t confirmation_height{ 0 };
+	nano::epoch epoch{ nano::epoch::epoch_0 };
 };
 
 /**
@@ -104,7 +103,6 @@ class pending_info
 public:
 	pending_info ();
 	pending_info (nano::account const &, nano::amount const &, epoch);
-	void serialize (nano::stream &) const;
 	bool deserialize (nano::stream &);
 	bool operator== (nano::pending_info const &) const;
 	nano::account source;
@@ -116,7 +114,6 @@ class pending_key
 public:
 	pending_key ();
 	pending_key (nano::account const &, nano::block_hash const &);
-	void serialize (nano::stream &) const;
 	bool deserialize (nano::stream &);
 	bool operator== (nano::pending_key const &) const;
 	nano::account account;

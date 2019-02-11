@@ -968,7 +968,7 @@ TEST (rpc, frontier)
 		{
 			nano::keypair key;
 			source[key.pub] = key.prv.data;
-			system.nodes[0]->store.account_put (transaction, key.pub, nano::account_info (key.prv.data, 0, 0, 0, 0, 0, nano::epoch::epoch_0));
+			system.nodes[0]->store.account_put (transaction, key.pub, nano::account_info (key.prv.data, 0, 0, 0, 0, 0, 0, nano::epoch::epoch_0));
 		}
 	}
 	nano::keypair key;
@@ -1009,7 +1009,7 @@ TEST (rpc, frontier_limited)
 		{
 			nano::keypair key;
 			source[key.pub] = key.prv.data;
-			system.nodes[0]->store.account_put (transaction, key.pub, nano::account_info (key.prv.data, 0, 0, 0, 0, 0, nano::epoch::epoch_0));
+			system.nodes[0]->store.account_put (transaction, key.pub, nano::account_info (key.prv.data, 0, 0, 0, 0, 0, 0, nano::epoch::epoch_0));
 		}
 	}
 	nano::keypair key;
@@ -1040,7 +1040,7 @@ TEST (rpc, frontier_startpoint)
 		{
 			nano::keypair key;
 			source[key.pub] = key.prv.data;
-			system.nodes[0]->store.account_put (transaction, key.pub, nano::account_info (key.prv.data, 0, 0, 0, 0, 0, nano::epoch::epoch_0));
+			system.nodes[0]->store.account_put (transaction, key.pub, nano::account_info (key.prv.data, 0, 0, 0, 0, 0, 0, nano::epoch::epoch_0));
 		}
 	}
 	nano::keypair key;

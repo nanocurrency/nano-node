@@ -101,6 +101,11 @@ mdb_val (val_a.db_size (), const_cast<nano::account_info *> (&val_a))
 {
 }
 
+nano::mdb_val::mdb_val (nano::account_info_v13 const & val_a) :
+mdb_val (val_a.db_size (), const_cast<nano::account_info_v13 *> (&val_a))
+{
+}
+
 nano::mdb_val::mdb_val (nano::pending_info const & val_a) :
 mdb_val (sizeof (val_a.source) + sizeof (val_a.amount), const_cast<nano::pending_info *> (&val_a))
 {
@@ -165,6 +170,15 @@ size_t nano::mdb_val::size () const
 nano::mdb_val::operator nano::account_info () const
 {
 	nano::account_info result;
+	result.epoch = epoch;
+	assert (value.mv_size == result.db_size ());
+	std::copy (reinterpret_cast<uint8_t const *> (value.mv_data), reinterpret_cast<uint8_t const *> (value.mv_data) + result.db_size (), reinterpret_cast<uint8_t *> (&result));
+	return result;
+}
+
+nano::mdb_val::operator nano::account_info_v13 () const
+{
+	nano::account_info_v13 result;
 	result.epoch = epoch;
 	assert (value.mv_size == result.db_size ());
 	std::copy (reinterpret_cast<uint8_t const *> (value.mv_data), reinterpret_cast<uint8_t const *> (value.mv_data) + result.db_size (), reinterpret_cast<uint8_t *> (&result));
@@ -748,7 +762,6 @@ nano::mdb_store::mdb_store (bool & error_a, nano::logging & logging_a, boost::fi
 logging (logging_a),
 env (error_a, path_a, lmdb_max_dbs)
 {
-	auto slow_upgrade (false);
 	if (!error_a)
 	{
 		auto transaction (tx_begin_write ());
@@ -775,33 +788,12 @@ env (error_a, path_a, lmdb_max_dbs)
 		}
 		if (!error_a)
 		{
-			do_upgrades (transaction, slow_upgrade);
+			do_upgrades (transaction, batch_size);
 			if (drop_unchecked)
 			{
 				unchecked_clear (transaction);
 			}
 		}
-	}
-	if (slow_upgrade)
-	{
-		upgrades = std::thread ([this, batch_size]() {
-			nano::thread_role::set (nano::thread_role::name::slow_db_upgrade);
-			do_slow_upgrades (batch_size);
-		});
-	}
-}
-
-nano::mdb_store::~mdb_store ()
-{
-	stop ();
-}
-
-void nano::mdb_store::stop ()
-{
-	stopped = true;
-	if (upgrades.joinable ())
-	{
-		upgrades.join ();
 	}
 }
 
@@ -820,6 +812,7 @@ nano::transaction nano::mdb_store::tx_begin (bool write_a)
 	return env.tx_begin (write_a);
 }
 
+/** This is only used with testing. If using a different version than the latest then you may need to modify the versions of some of the values here before an upgrade. */
 void nano::mdb_store::initialize (nano::transaction const & transaction_a, nano::genesis const & genesis_a)
 {
 	auto hash_l (genesis_a.hash ());
@@ -827,7 +820,7 @@ void nano::mdb_store::initialize (nano::transaction const & transaction_a, nano:
 	assert (latest_v1_begin (transaction_a) == latest_v1_end ());
 	nano::block_sideband sideband (nano::block_type::open, nano::genesis_account, 0, nano::genesis_amount, 0, nano::seconds_since_epoch ());
 	block_put (transaction_a, hash_l, *genesis_a.open, sideband);
-	account_put (transaction_a, genesis_account, { hash_l, genesis_a.open->hash (), genesis_a.open->hash (), std::numeric_limits<nano::uint128_t>::max (), nano::seconds_since_epoch (), 1, nano::epoch::epoch_0 });
+	account_put (transaction_a, genesis_account, { hash_l, genesis_a.open->hash (), genesis_a.open->hash (), std::numeric_limits<nano::uint128_t>::max (), nano::seconds_since_epoch (), 1, 1, nano::epoch::epoch_0 });
 	representation_put (transaction_a, genesis_account, std::numeric_limits<nano::uint128_t>::max ());
 	frontier_put (transaction_a, hash_l, genesis_account);
 }
@@ -847,10 +840,11 @@ void nano::mdb_store::version_put (nano::transaction const & transaction_a, int 
 	{
 		auto status (mdb_drop (env.tx (transaction_a), blocks_info, 1));
 		release_assert (status == MDB_SUCCESS);
+		blocks_info = 0;
 	}
 }
 
-int nano::mdb_store::version_get (nano::transaction const & transaction_a)
+int nano::mdb_store::version_get (nano::transaction const & transaction_a) const
 {
 	nano::uint256_union version_key (1);
 	nano::mdb_val data;
@@ -865,7 +859,7 @@ int nano::mdb_store::version_get (nano::transaction const & transaction_a)
 	return result;
 }
 
-nano::raw_key nano::mdb_store::get_node_id (nano::transaction const & transaction_a)
+nano::raw_key nano::mdb_store::get_node_id (nano::transaction const & transaction_a) const
 {
 	nano::uint256_union node_id_mdb_key (3);
 	nano::raw_key node_id;
@@ -940,7 +934,7 @@ nano::store_iterator<nano::endpoint_key, nano::no_value> nano::mdb_store::peers_
 	return result;
 }
 
-void nano::mdb_store::do_upgrades (nano::transaction const & transaction_a, bool & slow_upgrade)
+void nano::mdb_store::do_upgrades (nano::transaction const & transaction_a, size_t batch_size)
 {
 	switch (version_get (transaction_a))
 	{
@@ -969,9 +963,10 @@ void nano::mdb_store::do_upgrades (nano::transaction const & transaction_a, bool
 			upgrade_v11_to_v12 (transaction_a);
 			// [[fallthrough]];
 		case 12:
-			slow_upgrade = true;
-			break;
+			upgrade_v12_to_v13 (transaction_a, batch_size);
 		case 13:
+			upgrade_v13_to_v14 (transaction_a);
+		case 14:
 			break;
 		default:
 			assert (false);
@@ -1088,7 +1083,7 @@ void nano::mdb_store::upgrade_v4_to_v5 (nano::transaction const & transaction_a)
 void nano::mdb_store::upgrade_v5_to_v6 (nano::transaction const & transaction_a)
 {
 	version_put (transaction_a, 6);
-	std::deque<std::pair<nano::account, nano::account_info>> headers;
+	std::deque<std::pair<nano::account, nano::account_info_v13>> headers;
 	for (auto i (nano::store_iterator<nano::account, nano::account_info_v5> (std::make_unique<nano::mdb_iterator<nano::account, nano::account_info_v5>> (transaction_a, accounts_v0))), n (nano::store_iterator<nano::account, nano::account_info_v5> (nullptr)); i != n; ++i)
 	{
 		nano::account account (i->first);
@@ -1102,12 +1097,12 @@ void nano::mdb_store::upgrade_v5_to_v6 (nano::transaction const & transaction_a)
 			assert (block != nullptr);
 			hash = block->previous ();
 		}
-		nano::account_info info (info_old.head, info_old.rep_block, info_old.open_block, info_old.balance, info_old.modified, block_count, nano::epoch::epoch_0);
-		headers.push_back (std::make_pair (account, info));
+		headers.emplace_back (account, nano::account_info_v13{ info_old.head, info_old.rep_block, info_old.open_block, info_old.balance, info_old.modified, block_count, nano::epoch::epoch_0 });
 	}
 	for (auto i (headers.begin ()), n (headers.end ()); i != n; ++i)
 	{
-		account_put (transaction_a, i->first, i->second);
+		auto status (mdb_put (env.tx (transaction_a), accounts_v0, nano::mdb_val (i->first), nano::mdb_val (i->second), 0));
+		release_assert (status == 0);
 	}
 }
 
@@ -1163,39 +1158,6 @@ void nano::mdb_store::upgrade_v10_to_v11 (nano::transaction const & transaction_
 	mdb_drop (env.tx (transaction_a), unsynced, 1);
 }
 
-void nano::mdb_store::do_slow_upgrades (size_t const batch_size)
-{
-	int version;
-	{
-		nano::transaction transaction (tx_begin_read ());
-		version = version_get (transaction);
-	}
-	switch (version)
-	{
-		case 0:
-		case 1:
-		case 2:
-		case 3:
-		case 4:
-		case 5:
-		case 6:
-		case 7:
-		case 8:
-		case 9:
-		case 10:
-		case 11:
-			break;
-		case 12:
-			upgrade_v12_to_v13 (batch_size);
-			break;
-		case 13:
-			break;
-		default:
-			assert (false);
-			break;
-	}
-}
-
 void nano::mdb_store::upgrade_v11_to_v12 (nano::transaction const & transaction_a)
 {
 	version_put (transaction_a, 12);
@@ -1206,18 +1168,18 @@ void nano::mdb_store::upgrade_v11_to_v12 (nano::transaction const & transaction_
 	mdb_drop (env.tx (transaction_a), checksum, 1);
 }
 
-void nano::mdb_store::upgrade_v12_to_v13 (size_t const batch_size)
+void nano::mdb_store::upgrade_v12_to_v13 (nano::transaction const & transaction_a, size_t const batch_size)
 {
 	size_t cost (0);
 	nano::account account (0);
-	auto transaction (tx_begin_write ());
-	while (!stopped && account != nano::not_an_account)
+	while (account != nano::not_an_account)
 	{
 		nano::account first (0);
-		nano::account_info second;
+		nano::account_info_v13 second;
 		{
-			auto current (latest_begin (transaction, account));
-			if (current != latest_end ())
+			nano::store_iterator<nano::account, nano::account_info_v13> current (std::make_unique<nano::mdb_merge_iterator<nano::account, nano::account_info_v13>> (transaction_a, accounts_v0, accounts_v1, nano::mdb_val (account)));
+			nano::store_iterator<nano::account, nano::account_info_v13> end (nullptr);
+			if (current != end)
 			{
 				first = current->first;
 				second = current->second;
@@ -1228,12 +1190,12 @@ void nano::mdb_store::upgrade_v12_to_v13 (size_t const batch_size)
 			auto hash (second.open_block);
 			uint64_t height (0);
 			nano::block_sideband sideband;
-			while (!stopped && !hash.is_zero ())
+			while (!hash.is_zero ())
 			{
 				if (cost >= batch_size)
 				{
 					BOOST_LOG (logging.log) << boost::str (boost::format ("Upgrading sideband information for account %1%... height %2%") % first.to_account ().substr (0, 24) % std::to_string (height));
-					auto tx (boost::polymorphic_downcast<nano::mdb_txn *> (transaction.impl.get ()));
+					auto tx (boost::polymorphic_downcast<nano::mdb_txn *> (transaction_a.impl.get ()));
 					auto status0 (mdb_txn_commit (*tx));
 					release_assert (status0 == MDB_SUCCESS);
 					std::this_thread::yield ();
@@ -1241,12 +1203,12 @@ void nano::mdb_store::upgrade_v12_to_v13 (size_t const batch_size)
 					release_assert (status1 == MDB_SUCCESS);
 					cost = 0;
 				}
-				auto block (block_get (transaction, hash, &sideband));
+				auto block (block_get (transaction_a, hash, &sideband));
 				assert (block != nullptr);
 				if (sideband.height == std::numeric_limits<uint64_t>::max ())
 				{
 					sideband.height = height;
-					block_put (transaction, hash, *block, sideband, block_version (transaction, hash));
+					block_put (transaction_a, hash, *block, sideband, block_version (transaction_a, hash));
 					cost += 16;
 				}
 				else
@@ -1266,8 +1228,26 @@ void nano::mdb_store::upgrade_v12_to_v13 (size_t const batch_size)
 	if (account == nano::not_an_account)
 	{
 		BOOST_LOG (logging.log) << boost::str (boost::format ("Completed sideband upgrade"));
-		version_put (transaction, 13);
+		version_put (transaction_a, 13);
 	}
+}
+
+void nano::mdb_store::upgrade_v13_to_v14 (nano::transaction const & transaction_a)
+{
+	// Upgrade all accounts to have a confirmation of 0
+	version_put (transaction_a, 14);
+	nano::store_iterator<nano::account, nano::account_info_v13> i (std::make_unique<nano::mdb_merge_iterator<nano::account, nano::account_info_v13>> (transaction_a, accounts_v0, accounts_v1));
+	nano::store_iterator<nano::account, nano::account_info_v13> n (nullptr);
+	constexpr uint64_t zeroed_confirmation_height (0);
+
+	for (; i != n; ++i)
+	{
+		nano::account_info_v13 account_info_v13 (i->second);
+		nano::account_info account_info (account_info_v13.head, account_info_v13.rep_block, account_info_v13.open_block, account_info_v13.balance, account_info_v13.modified, account_info_v13.block_count, zeroed_confirmation_height, account_info_v13.epoch);
+		account_put (transaction_a, i->first, account_info);
+	}
+
+	BOOST_LOG (logging.log) << boost::str (boost::format ("Completed confirmation height upgrade"));
 }
 
 void nano::mdb_store::clear (MDB_dbi db_a)
@@ -1530,7 +1510,7 @@ std::shared_ptr<nano::block> nano::mdb_store::block_random (nano::transaction co
 	return result;
 }
 
-bool nano::mdb_store::full_sideband (nano::transaction const & transaction_a)
+bool nano::mdb_store::full_sideband (nano::transaction const & transaction_a) const
 {
 	return version_get (transaction_a) > 12;
 }
@@ -1858,7 +1838,7 @@ bool nano::mdb_store::account_get (nano::transaction const & transaction_a, nano
 	{
 		nano::bufferstream stream (reinterpret_cast<uint8_t const *> (value.data ()), value.size ());
 		info_a.epoch = epoch;
-		info_a.deserialize (stream);
+		result = info_a.deserialize (stream);
 	}
 	return result;
 }
@@ -1900,10 +1880,10 @@ size_t nano::mdb_store::account_count (nano::transaction const & transaction_a)
 	return result;
 }
 
-void nano::mdb_store::account_put (nano::transaction const & transaction_a, nano::account const & account_a, nano::account_info const & info_a)
+MDB_dbi nano::mdb_store::get_account_db (nano::epoch epoch_a) const
 {
 	MDB_dbi db;
-	switch (info_a.epoch)
+	switch (epoch_a)
 	{
 		case nano::epoch::invalid:
 		case nano::epoch::unspecified:
@@ -1915,14 +1895,13 @@ void nano::mdb_store::account_put (nano::transaction const & transaction_a, nano
 			db = accounts_v1;
 			break;
 	}
-	auto status (mdb_put (env.tx (transaction_a), db, nano::mdb_val (account_a), nano::mdb_val (info_a), 0));
-	release_assert (status == 0);
+	return db;
 }
 
-void nano::mdb_store::pending_put (nano::transaction const & transaction_a, nano::pending_key const & key_a, nano::pending_info const & pending_a)
+MDB_dbi nano::mdb_store::get_pending_db (nano::epoch epoch_a) const
 {
 	MDB_dbi db;
-	switch (pending_a.epoch)
+	switch (epoch_a)
 	{
 		case nano::epoch::invalid:
 		case nano::epoch::unspecified:
@@ -1934,7 +1913,18 @@ void nano::mdb_store::pending_put (nano::transaction const & transaction_a, nano
 			db = pending_v1;
 			break;
 	}
-	auto status (mdb_put (env.tx (transaction_a), db, nano::mdb_val (key_a), nano::mdb_val (pending_a), 0));
+	return db;
+}
+
+void nano::mdb_store::account_put (nano::transaction const & transaction_a, nano::account const & account_a, nano::account_info const & info_a)
+{
+	auto status (mdb_put (env.tx (transaction_a), get_account_db (info_a.epoch), nano::mdb_val (account_a), nano::mdb_val (info_a), 0));
+	release_assert (status == 0);
+}
+
+void nano::mdb_store::pending_put (nano::transaction const & transaction_a, nano::pending_key const & key_a, nano::pending_info const & pending_a)
+{
+	auto status (mdb_put (env.tx (transaction_a), get_pending_db (pending_a.epoch), nano::mdb_val (key_a), nano::mdb_val (pending_a), 0));
 	release_assert (status == 0);
 }
 
@@ -1983,7 +1973,7 @@ bool nano::mdb_store::pending_get (nano::transaction const & transaction_a, nano
 	{
 		nano::bufferstream stream (reinterpret_cast<uint8_t const *> (value.data ()), value.size ());
 		pending_a.epoch = epoch;
-		pending_a.deserialize (stream);
+		result = pending_a.deserialize (stream);
 	}
 	return result;
 }
