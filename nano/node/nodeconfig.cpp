@@ -341,7 +341,8 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 
 		auto block_processor_batch_max_time_l (json.get<unsigned long> ("block_processor_batch_max_time"));
 		block_processor_batch_max_time = std::chrono::milliseconds (block_processor_batch_max_time_l);
-		auto unchecked_cutoff_time_l (json.get<unsigned long> ("unchecked_cutoff_time"));
+		unsigned long unchecked_cutoff_time_l (unchecked_cutoff_time.count ());
+		json.get ("unchecked_cutoff_time", unchecked_cutoff_time_l);
 		unchecked_cutoff_time = std::chrono::seconds (unchecked_cutoff_time_l);
 
 		auto ipc_config_l (json.get_optional_child ("ipc"));
