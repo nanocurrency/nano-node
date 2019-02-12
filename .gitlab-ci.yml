@@ -159,13 +159,3 @@ Artful OPTIMIZED:
 
   script:
     - ./ci/build-gitlab.sh
-
-Centos:
-  stage: build
-  image: centos:centos7
-
-  before_script:
-    - ./util/build_prep/update-common && ./util/build_prep/centos/prep.sh
-
-  script:
-    - ./ci/build-centos.sh
