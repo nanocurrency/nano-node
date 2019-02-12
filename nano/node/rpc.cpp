@@ -2118,7 +2118,7 @@ void nano::rpc_handler::ledger ()
 	response_errors ();
 }
 
-void nano::rpc_handler::mrai_from_raw (nano::uint128_t ratio)
+void nano::rpc_handler::mnano_from_raw (nano::uint128_t ratio)
 {
 	auto amount (amount_impl ());
 	if (!ec)
@@ -2129,7 +2129,7 @@ void nano::rpc_handler::mrai_from_raw (nano::uint128_t ratio)
 	response_errors ();
 }
 
-void nano::rpc_handler::mrai_to_raw (nano::uint128_t ratio)
+void nano::rpc_handler::mnano_to_raw (nano::uint128_t ratio)
 {
 	auto amount (amount_impl ());
 	if (!ec)
@@ -4459,25 +4459,25 @@ void nano::rpc_handler::process_request ()
 			{
 				key_expand ();
 			}
-			else if (action == "krai_from_raw")
+			else if (action == "knano_from_raw" || action == "krai_from_raw")
 			{
-				mrai_from_raw (nano::kxrb_ratio);
+				mnano_from_raw (nano::kxrb_ratio);
 			}
-			else if (action == "krai_to_raw")
+			else if (action == "knano_to_raw" || action == "krai_to_raw")
 			{
-				mrai_to_raw (nano::kxrb_ratio);
+				mnano_to_raw (nano::kxrb_ratio);
 			}
 			else if (action == "ledger")
 			{
 				ledger ();
 			}
-			else if (action == "mrai_from_raw")
+			else if (action == "mnano_from_raw" || action == "mrai_from_raw")
 			{
-				mrai_from_raw ();
+				mnano_from_raw ();
 			}
-			else if (action == "mrai_to_raw")
+			else if (action == "mnano_to_raw" || action == "mrai_to_raw")
 			{
-				mrai_to_raw ();
+				mnano_to_raw ();
 			}
 			else if (action == "node_id")
 			{
@@ -4531,13 +4531,13 @@ void nano::rpc_handler::process_request ()
 			{
 				process ();
 			}
-			else if (action == "nano_from_raw")
+			else if (action == "nano_from_raw" || action == "rai_from_raw")
 			{
-				mrai_from_raw (nano::xrb_ratio);
+				mnano_from_raw (nano::xrb_ratio);
 			}
-			else if (action == "nano_to_raw")
+			else if (action == "nano_to_raw" || action == "rai_to_raw")
 			{
-				mrai_to_raw (nano::xrb_ratio);
+				mnano_to_raw (nano::xrb_ratio);
 			}
 			else if (action == "receive")
 			{
