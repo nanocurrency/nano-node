@@ -42,7 +42,7 @@ extern size_t nano_bootstrap_weights_size;
 
 nano::network::network (nano::node & node_a, uint16_t port) :
 buffer_container (node_a.stats, nano::network::buffer_size, 4096), // 2Mb receive buffer
-socket (node_a.io_ctx, nano::endpoint (boost::asio::ip::address_v6::any (), port)),
+socket (std::make_shared<nano::net::udp_client> (node_a, nano::net::socket_addr::make_udp (boost::asio::ip::address_v6::any (), port))),
 resolver (node_a.io_ctx),
 node (node_a),
 on (true)
@@ -109,15 +109,21 @@ void nano::network::receive ()
 	}
 	std::unique_lock<std::mutex> lock (socket_mutex);
 	auto data (buffer_container.allocate ());
-	socket.async_receive_from (boost::asio::buffer (data->buffer, nano::network::buffer_size), data->endpoint, [this, data](boost::system::error_code const & error, size_t size_a) {
+	socket->async_read (data->buffer, nano::network::buffer_size, [this, data](boost::system::error_code const & error, size_t size_a, nano::net::socket_addr const & remote_a) {
 		if (!error && this->on)
 		{
 			data->size = size_a;
+			assert (remote_a.valid ());
+			data->sending_endpoint = remote_a.map_to_v6 ();
+			//std::cout << "SUCCESS: remote: " << data->sending_endpoint << std::endl;
 			this->buffer_container.enqueue (data);
 			this->receive ();
 		}
 		else
 		{
+			boost::system::error_code ec;
+			//std::cout << "ERROR: local: " << this->socket->local_endpoint(ec) << "remote: " << remote_a << std::endl;
+
 			this->buffer_container.release (data);
 			if (error)
 			{
@@ -132,6 +138,7 @@ void nano::network::receive ()
 			}
 		}
 	});
+	//});
 }
 
 void nano::network::process_packets ()
@@ -152,12 +159,12 @@ void nano::network::process_packets ()
 void nano::network::stop ()
 {
 	on = false;
-	socket.close ();
+	socket->close ();
 	resolver.cancel ();
 	buffer_container.stop ();
 }
 
-void nano::network::send_keepalive (nano::endpoint const & endpoint_a)
+void nano::network::send_keepalive (nano::net::socket_addr const & endpoint_a)
 {
 	assert (endpoint_a.address ().is_v6 ());
 	nano::keepalive message;
@@ -191,7 +198,8 @@ void nano::node::keepalive (std::string const & address_a, uint16_t port_a, bool
 		{
 			for (auto i (i_a), n (boost::asio::ip::udp::resolver::iterator{}); i != n; ++i)
 			{
-				auto endpoint (nano::map_endpoint_to_v6 (i->endpoint ()));
+				// TODO: support tcp
+				auto endpoint (nano::net::socket_addr::udp_map_to_v6 (i->endpoint ()));
 				node_l->send_keepalive (endpoint);
 				if (preconfigured_peer_a)
 				{
@@ -206,7 +214,7 @@ void nano::node::keepalive (std::string const & address_a, uint16_t port_a, bool
 	});
 }
 
-void nano::network::send_node_id_handshake (nano::endpoint const & endpoint_a, boost::optional<nano::uint256_union> const & query, boost::optional<nano::uint256_union> const & respond_to)
+void nano::network::send_node_id_handshake (nano::net::socket_addr const & endpoint_a, boost::optional<nano::uint256_union> const & query, boost::optional<nano::uint256_union> const & respond_to)
 {
 	assert (endpoint_a.address ().is_v6 ());
 	boost::optional<std::pair<nano::account, nano::signature>> response (boost::none);
@@ -234,7 +242,7 @@ void nano::network::send_node_id_handshake (nano::endpoint const & endpoint_a, b
 	});
 }
 
-void nano::network::republish (nano::block_hash const & hash_a, std::shared_ptr<std::vector<uint8_t>> buffer_a, nano::endpoint endpoint_a)
+void nano::network::republish (nano::block_hash const & hash_a, std::shared_ptr<std::vector<uint8_t>> buffer_a, nano::net::socket_addr endpoint_a)
 {
 	if (node.config.logging.network_publish_logging ())
 	{
@@ -308,15 +316,15 @@ bool confirm_block (nano::transaction const & transaction_a, nano::node & node_a
 	return result;
 }
 
-bool confirm_block (nano::transaction const & transaction_a, nano::node & node_a, nano::endpoint & peer_a, std::shared_ptr<nano::block> block_a, bool also_publish)
+bool confirm_block (nano::transaction const & transaction_a, nano::node & node_a, nano::net::socket_addr & peer_a, std::shared_ptr<nano::block> block_a, bool also_publish)
 {
-	std::array<nano::endpoint, 1> endpoints;
+	std::array<nano::net::socket_addr, 1> endpoints;
 	endpoints[0] = peer_a;
 	auto result (confirm_block (transaction_a, node_a, endpoints, std::move (block_a), also_publish));
 	return result;
 }
 
-void nano::network::confirm_hashes (nano::transaction const & transaction_a, nano::endpoint const & peer_a, std::vector<nano::block_hash> blocks_bundle_a)
+void nano::network::confirm_hashes (nano::transaction const & transaction_a, nano::net::socket_addr const & peer_a, std::vector<nano::block_hash> blocks_bundle_a)
 {
 	if (node.config.enable_voting)
 	{
@@ -334,7 +342,7 @@ void nano::network::confirm_hashes (nano::transaction const & transaction_a, nan
 	}
 }
 
-bool nano::network::send_votes_cache (nano::block_hash const & hash_a, nano::endpoint const & peer_a)
+bool nano::network::send_votes_cache (nano::block_hash const & hash_a, nano::net::socket_addr const & peer_a)
 {
 	// Search in cache
 	auto votes (node.votes_cache.find (hash_a));
@@ -366,7 +374,7 @@ void nano::network::republish_block (std::shared_ptr<nano::block> block)
 	}
 }
 
-void nano::network::republish_block (std::shared_ptr<nano::block> block, nano::endpoint const & peer_a)
+void nano::network::republish_block (std::shared_ptr<nano::block> block, nano::net::socket_addr const & peer_a)
 {
 	auto hash (block->hash ());
 	nano::publish message (block);
@@ -471,7 +479,7 @@ void nano::network::broadcast_confirm_req_base (std::shared_ptr<nano::block> blo
 	}
 }
 
-void nano::network::broadcast_confirm_req_batch (std::unordered_map<nano::endpoint, std::vector<std::pair<nano::block_hash, nano::block_hash>>> request_bundle_a, unsigned delay_a, bool resumption)
+void nano::network::broadcast_confirm_req_batch (std::unordered_map<nano::net::socket_addr, std::vector<std::pair<nano::block_hash, nano::block_hash>>> request_bundle_a, unsigned delay_a, bool resumption)
 {
 	const size_t max_reps = 10;
 	if (!resumption && node.config.logging.network_logging ())
@@ -533,7 +541,7 @@ void nano::network::broadcast_confirm_req_batch (std::deque<std::pair<std::share
 	}
 }
 
-void nano::network::send_confirm_req (nano::endpoint const & endpoint_a, std::shared_ptr<nano::block> block)
+void nano::network::send_confirm_req (nano::net::socket_addr const & endpoint_a, std::shared_ptr<nano::block> block)
 {
 	nano::confirm_req message (block);
 	auto bytes = message.to_bytes ();
@@ -554,7 +562,7 @@ void nano::network::send_confirm_req (nano::endpoint const & endpoint_a, std::sh
 	});
 }
 
-void nano::network::send_confirm_req_hashes (nano::endpoint const & endpoint_a, std::vector<std::pair<nano::block_hash, nano::block_hash>> const & roots_hashes_a)
+void nano::network::send_confirm_req_hashes (nano::net::socket_addr const & endpoint_a, std::vector<std::pair<nano::block_hash, nano::block_hash>> const & roots_hashes_a)
 {
 	nano::confirm_req message (roots_hashes_a);
 	std::vector<uint8_t> bytes;
@@ -600,9 +608,9 @@ void rep_query (nano::node & node_a, T const & peers_a)
 	});
 }
 
-void rep_query (nano::node & node_a, nano::endpoint const & peers_a)
+void rep_query (nano::node & node_a, nano::net::socket_addr const & peers_a)
 {
-	std::array<nano::endpoint, 1> peers;
+	std::array<nano::net::socket_addr, 1> peers;
 	peers[0] = peers_a;
 	rep_query (node_a, peers);
 }
@@ -612,7 +620,7 @@ namespace
 class network_message_visitor : public nano::message_visitor
 {
 public:
-	network_message_visitor (nano::node & node_a, nano::endpoint const & sender_a) :
+	network_message_visitor (nano::node & node_a, nano::net::socket_addr const & sender_a) :
 	node (node_a),
 	sender (sender_a)
 	{
@@ -627,7 +635,7 @@ public:
 		node.stats.inc (nano::stat::type::message, nano::stat::detail::keepalive, nano::stat::dir::in);
 		if (node.peers.contacted (sender, message_a.header.version_using))
 		{
-			auto endpoint_l (nano::map_endpoint_to_v6 (sender));
+			auto endpoint_l (sender.map_to_v6 ());
 			auto cookie (node.peers.assign_syn_cookie (endpoint_l));
 			if (cookie)
 			{
@@ -768,7 +776,7 @@ public:
 		{
 			BOOST_LOG (node.log) << boost::str (boost::format ("Received node_id_handshake message from %1% with query %2% and response account %3%") % sender % (message_a.query ? message_a.query->to_string () : std::string ("[none]")) % (message_a.response ? message_a.response->first.to_account () : std::string ("[none]")));
 		}
-		auto endpoint_l (nano::map_endpoint_to_v6 (sender));
+		auto endpoint_l (sender.map_to_v6 ());
 		boost::optional<nano::uint256_union> out_query;
 		boost::optional<nano::uint256_union> out_respond_to;
 		if (message_a.query)
@@ -802,24 +810,24 @@ public:
 		node.stats.inc (nano::stat::type::message, nano::stat::detail::node_id_handshake, nano::stat::dir::in);
 	}
 	nano::node & node;
-	nano::endpoint sender;
+	nano::net::socket_addr sender;
 };
 }
 
-void nano::network::receive_action (nano::udp_data * data_a)
+void nano::network::receive_action (nano::message_buffer * data_a)
 {
 	auto allowed_sender (true);
-	if (data_a->endpoint == endpoint ())
+	if (data_a->sending_endpoint == endpoint ())
 	{
 		allowed_sender = false;
 	}
-	else if (nano::reserved_address (data_a->endpoint, false) && !node.config.allow_local_peers)
+	else if (nano::reserved_address (data_a->sending_endpoint, false) && !node.config.allow_local_peers)
 	{
 		allowed_sender = false;
 	}
 	if (allowed_sender)
 	{
-		network_message_visitor visitor (node, data_a->endpoint);
+		network_message_visitor visitor (node, data_a->sending_endpoint);
 		nano::message_parser parser (node.block_uniquer, node.vote_uniquer, visitor, node.work);
 		parser.deserialize_buffer (data_a->buffer, data_a->size);
 		if (parser.status != nano::message_parser::parse_status::success)
@@ -881,7 +889,7 @@ void nano::network::receive_action (nano::udp_data * data_a)
 	{
 		if (node.config.logging.network_logging ())
 		{
-			BOOST_LOG (node.log) << boost::str (boost::format ("Reserved sender %1%") % data_a->endpoint.address ().to_string ());
+			BOOST_LOG (node.log) << boost::str (boost::format ("Reserved sender %1%") % data_a->sending_endpoint.address ().to_string ());
 		}
 
 		node.stats.inc_detail_only (nano::stat::type::error, nano::stat::detail::bad_sender);
@@ -889,7 +897,7 @@ void nano::network::receive_action (nano::udp_data * data_a)
 }
 
 // Send keepalives to all the peers we've been notified of
-void nano::network::merge_peers (std::array<nano::endpoint, 8> const & peers_a)
+void nano::network::merge_peers (std::array<nano::net::socket_addr, 8> const & peers_a)
 {
 	for (auto i (peers_a.begin ()), j (peers_a.end ()); i != j; ++i)
 	{
@@ -1022,7 +1030,7 @@ void nano::vote_processor::process_loop ()
 	{
 		if (!votes.empty ())
 		{
-			std::deque<std::pair<std::shared_ptr<nano::vote>, nano::endpoint>> votes_l;
+			std::deque<std::pair<std::shared_ptr<nano::vote>, nano::net::socket_addr>> votes_l;
 			votes_l.swap (votes);
 
 			log_this_iteration = false;
@@ -1086,7 +1094,7 @@ void nano::vote_processor::process_loop ()
 	}
 }
 
-void nano::vote_processor::vote (std::shared_ptr<nano::vote> vote_a, nano::endpoint endpoint_a)
+void nano::vote_processor::vote (std::shared_ptr<nano::vote> vote_a, nano::net::socket_addr endpoint_a)
 {
 	assert (endpoint_a.address ().is_v6 ());
 	std::unique_lock<std::mutex> lock (mutex);
@@ -1143,7 +1151,7 @@ void nano::vote_processor::vote (std::shared_ptr<nano::vote> vote_a, nano::endpo
 	}
 }
 
-void nano::vote_processor::verify_votes (std::deque<std::pair<std::shared_ptr<nano::vote>, nano::endpoint>> & votes_a)
+void nano::vote_processor::verify_votes (std::deque<std::pair<std::shared_ptr<nano::vote>, nano::net::socket_addr>> & votes_a)
 {
 	auto size (votes_a.size ());
 	std::vector<unsigned char const *> messages;
@@ -1181,7 +1189,7 @@ void nano::vote_processor::verify_votes (std::deque<std::pair<std::shared_ptr<na
 }
 
 // node.active.mutex lock required
-nano::vote_code nano::vote_processor::vote_blocking (nano::transaction const & transaction_a, std::shared_ptr<nano::vote> vote_a, nano::endpoint endpoint_a, bool validated)
+nano::vote_code nano::vote_processor::vote_blocking (nano::transaction const & transaction_a, std::shared_ptr<nano::vote> vote_a, nano::net::socket_addr endpoint_a, bool validated)
 {
 	assert (endpoint_a.address ().is_v6 ());
 	assert (!node.active.mutex.try_lock ());
@@ -1432,7 +1440,7 @@ startup_time (std::chrono::steady_clock::now ())
 	wallets.observer = [this](bool active) {
 		observers.wallet.notify (active);
 	};
-	peers.peer_observer = [this](nano::endpoint const & endpoint_a) {
+	peers.peer_observer = [this](nano::net::socket_addr const & endpoint_a) {
 		observers.endpoint.notify (endpoint_a);
 	};
 	peers.disconnect_observer = [this]() {
@@ -1482,11 +1490,11 @@ startup_time (std::chrono::steady_clock::now ())
 			}
 		});
 	}
-	observers.endpoint.add ([this](nano::endpoint const & endpoint_a) {
+	observers.endpoint.add ([this](nano::net::socket_addr const & endpoint_a) {
 		this->network.send_keepalive (endpoint_a);
 		rep_query (*this, endpoint_a);
 	});
-	observers.vote.add ([this](nano::transaction const & transaction, std::shared_ptr<nano::vote> vote_a, nano::endpoint const & endpoint_a) {
+	observers.vote.add ([this](nano::transaction const & transaction, std::shared_ptr<nano::vote> vote_a, nano::net::socket_addr const & endpoint_a) {
 		assert (endpoint_a.address ().is_v6 ());
 		this->gap_cache.vote (vote_a);
 		this->online_reps.observe (vote_a->account);
@@ -1676,9 +1684,9 @@ bool nano::node::copy_with_compaction (boost::filesystem::path const & destinati
 	return !mdb_env_copy2 (boost::polymorphic_downcast<nano::mdb_store *> (store_impl.get ())->env.environment, destination_file.string ().c_str (), MDB_CP_COMPACT);
 }
 
-void nano::node::send_keepalive (nano::endpoint const & endpoint_a)
+void nano::node::send_keepalive (nano::net::socket_addr const & endpoint_a)
 {
-	network.send_keepalive (nano::map_endpoint_to_v6 (endpoint_a));
+	network.send_keepalive (endpoint_a.map_to_v6 ());
 }
 
 void nano::node::process_fork (nano::transaction const & transaction_a, std::shared_ptr<nano::block> block_a)
@@ -1850,7 +1858,7 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (gap_cache & gap_ca
 }
 }
 
-void nano::network::confirm_send (nano::confirm_ack const & confirm_a, std::shared_ptr<std::vector<uint8_t>> bytes_a, nano::endpoint const & endpoint_a)
+void nano::network::confirm_send (nano::confirm_ack const & confirm_a, std::shared_ptr<std::vector<uint8_t>> bytes_a, nano::net::socket_addr const & endpoint_a)
 {
 	if (node.config.logging.network_publish_logging ())
 	{
@@ -2305,7 +2313,7 @@ public:
 				auto service (i.second);
 				node->background ([this_l, host, service]() {
 					auto connection (std::make_shared<work_request> (this_l->node->io_ctx, host, service));
-					connection->socket.async_connect (nano::tcp_endpoint (host, service), [this_l, connection](boost::system::error_code const & ec) {
+					connection->socket.async_connect (boost::asio::ip::tcp::endpoint (host, service), [this_l, connection](boost::system::error_code const & ec) {
 						if (!ec)
 						{
 							std::string request_string;
@@ -2531,7 +2539,7 @@ void nano::node::add_initial_peers ()
 	auto transaction (store.tx_begin_read ());
 	for (auto i (store.peers_begin (transaction)), n (store.peers_end ()); i != n; ++i)
 	{
-		nano::endpoint endpoint (boost::asio::ip::address_v6 (i->first.address_bytes ()), i->first.port ());
+		auto endpoint (nano::net::socket_addr::make_udp (boost::asio::ip::address_v6 (i->first.address_bytes ()), i->first.port ()));
 		if (!peers.reachout (endpoint))
 		{
 			send_keepalive (endpoint);
@@ -2688,21 +2696,21 @@ void nano::node::process_confirmed (std::shared_ptr<nano::block> block_a, uint8_
 	}
 }
 
-void nano::node::process_message (nano::message & message_a, nano::endpoint const & sender_a)
+void nano::node::process_message (nano::message & message_a, nano::net::socket_addr const & sender_a)
 {
 	network_message_visitor visitor (*this, sender_a);
 	message_a.visit (visitor);
 }
 
-nano::endpoint nano::network::endpoint ()
+nano::net::socket_addr nano::network::endpoint ()
 {
 	boost::system::error_code ec;
-	auto port (socket.local_endpoint (ec).port ());
+	auto port (socket->local_endpoint (ec).port ());
 	if (ec)
 	{
 		BOOST_LOG (node.log) << "Unable to retrieve port: " << ec.message ();
 	}
-	return nano::endpoint (boost::asio::ip::address_v6::loopback (), port);
+	return nano::net::socket_addr::make_udp (boost::asio::ip::address_v6::loopback (), port);
 }
 
 bool nano::block_arrival::add (nano::block_hash const & hash_a)
@@ -2845,7 +2853,7 @@ boost::asio::ip::address_v6 mapped_from_v4_bytes (unsigned long address_a)
 }
 }
 
-bool nano::reserved_address (nano::endpoint const & endpoint_a, bool blacklist_loopback)
+bool nano::reserved_address (nano::net::socket_addr const & endpoint_a, bool blacklist_loopback)
 {
 	assert (endpoint_a.address ().is_v6 ());
 	auto bytes (endpoint_a.address ().to_v6 ());
@@ -2950,24 +2958,29 @@ bool nano::reserved_address (nano::endpoint const & endpoint_a, bool blacklist_l
 	return result;
 }
 
-void nano::network::send_buffer (uint8_t const * data_a, size_t size_a, nano::endpoint const & endpoint_a, std::function<void(boost::system::error_code const &, size_t)> callback_a)
+void nano::network::send_buffer (uint8_t const * data_a, size_t size_a, nano::net::socket_addr const & endpoint_a, std::function<void(boost::system::error_code const &, size_t)> callback_a)
 {
 	std::unique_lock<std::mutex> lock (socket_mutex);
 	if (node.config.logging.network_packet_logging ())
 	{
 		BOOST_LOG (node.log) << "Sending packet";
 	}
-	socket.async_send_to (boost::asio::buffer (data_a, size_a), endpoint_a, [this, callback_a](boost::system::error_code const & ec, size_t size_a) {
-		callback_a (ec, size_a);
-		this->node.stats.add (nano::stat::type::traffic, nano::stat::dir::out, size_a);
-		if (ec == boost::system::errc::host_unreachable)
-		{
-			this->node.stats.inc (nano::stat::type::error, nano::stat::detail::unreachable_host, nano::stat::dir::out);
-		}
-		if (this->node.config.logging.network_packet_logging ())
-		{
-			BOOST_LOG (this->node.log) << "Packet send complete";
-		}
+
+	// Note that udp connects merely sets the target address.
+	// TODO: for tcp sends, use a connection pool.
+	socket->async_connect (endpoint_a, [this, callback_a, data_a, size_a](boost::system::error_code const & error) {
+		socket->async_write (data_a, size_a, [this, callback_a](boost::system::error_code const & ec, size_t size_a) {
+			callback_a (ec, size_a);
+			this->node.stats.add (nano::stat::type::traffic, nano::stat::dir::out, size_a);
+			if (ec == boost::system::errc::host_unreachable)
+			{
+				this->node.stats.inc (nano::stat::type::error, nano::stat::detail::unreachable_host, nano::stat::dir::out);
+			}
+			if (this->node.config.logging.network_packet_logging ())
+			{
+				BOOST_LOG (this->node.log) << "Packet send complete";
+			}
+		});
 	});
 }
 
@@ -3268,7 +3281,7 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 	auto transaction (node.store.tx_begin_read ());
 	unsigned unconfirmed_count (0);
 	unsigned unconfirmed_announcements (0);
-	std::unordered_map<nano::endpoint, std::vector<std::pair<nano::block_hash, nano::block_hash>>> requests_bundle;
+	std::unordered_map<nano::net::socket_addr, std::vector<std::pair<nano::block_hash, nano::block_hash>>> requests_bundle;
 	std::deque<std::shared_ptr<nano::block>> rebroadcast_bundle;
 	std::deque<std::pair<std::shared_ptr<nano::block>, std::shared_ptr<std::vector<nano::peer_information>>>> confirm_req_bundle;
 
@@ -3712,6 +3725,11 @@ nano::thread_runner::thread_runner (boost::asio::io_context & io_ctx_a, unsigned
 			{
 				io_ctx_a.run ();
 			}
+			catch (std::exception const & ex)
+			{
+				std::cerr << ex.what () << std::endl;
+				throw;
+			}
 			catch (...)
 			{
 #ifndef NDEBUG
@@ -3767,7 +3785,7 @@ nano::inactive_node::~inactive_node ()
 	node->stop ();
 }
 
-nano::udp_buffer::udp_buffer (nano::stat & stats, size_t size, size_t count) :
+nano::message_buffer_manager::message_buffer_manager (nano::stat & stats, size_t size, size_t count) :
 stats (stats),
 free (count),
 full (count),
@@ -3781,11 +3799,13 @@ stopped (false)
 	auto entry_data (entries.data ());
 	for (auto i (0); i < count; ++i, ++entry_data)
 	{
-		*entry_data = { slab_data + i * size, 0, nano::endpoint () };
+		//*entry_data = { slab_data + i * size, 0, nano::net::remote::make_udp (boost::asio::ip::address_v6{}, 0) };
+		*entry_data = { slab_data + i * size, 0, boost::asio::ip::udp::endpoint () };
+		// std::cout << "Address: " << entry_data->endpoint.address().to_string() << ":" << entry_data->endpoint.port() << std::endl;
 		free.push_back (entry_data);
 	}
 }
-nano::udp_data * nano::udp_buffer::allocate ()
+nano::message_buffer * nano::message_buffer_manager::allocate ()
 {
 	std::unique_lock<std::mutex> lock (mutex);
 	while (!stopped && free.empty () && full.empty ())
@@ -3793,7 +3813,7 @@ nano::udp_data * nano::udp_buffer::allocate ()
 		stats.inc (nano::stat::type::udp, nano::stat::detail::blocking, nano::stat::dir::in);
 		condition.wait (lock);
 	}
-	nano::udp_data * result (nullptr);
+	nano::message_buffer * result (nullptr);
 	if (!free.empty ())
 	{
 		result = free.front ();
@@ -3807,7 +3827,7 @@ nano::udp_data * nano::udp_buffer::allocate ()
 	}
 	return result;
 }
-void nano::udp_buffer::enqueue (nano::udp_data * data_a)
+void nano::message_buffer_manager::enqueue (nano::message_buffer * data_a)
 {
 	assert (data_a != nullptr);
 	{
@@ -3816,14 +3836,14 @@ void nano::udp_buffer::enqueue (nano::udp_data * data_a)
 	}
 	condition.notify_all ();
 }
-nano::udp_data * nano::udp_buffer::dequeue ()
+nano::message_buffer * nano::message_buffer_manager::dequeue ()
 {
 	std::unique_lock<std::mutex> lock (mutex);
 	while (!stopped && full.empty ())
 	{
 		condition.wait (lock);
 	}
-	nano::udp_data * result (nullptr);
+	nano::message_buffer * result (nullptr);
 	if (!full.empty ())
 	{
 		result = full.front ();
@@ -3831,7 +3851,7 @@ nano::udp_data * nano::udp_buffer::dequeue ()
 	}
 	return result;
 }
-void nano::udp_buffer::release (nano::udp_data * data_a)
+void nano::message_buffer_manager::release (nano::message_buffer * data_a)
 {
 	assert (data_a != nullptr);
 	{
@@ -3840,7 +3860,7 @@ void nano::udp_buffer::release (nano::udp_data * data_a)
 	}
 	condition.notify_all ();
 }
-void nano::udp_buffer::stop ()
+void nano::message_buffer_manager::stop ()
 {
 	{
 		std::lock_guard<std::mutex> lock (mutex);

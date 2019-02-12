@@ -49,14 +49,14 @@ TEST (network, construction)
 {
 	nano::system system (24000, 1);
 	ASSERT_EQ (1, system.nodes.size ());
-	ASSERT_EQ (24000, system.nodes[0]->network.socket.local_endpoint ().port ());
+	ASSERT_EQ (24000, system.nodes[0]->network.socket->local_endpoint ().port ());
 }
 
 TEST (network, self_discard)
 {
 	nano::system system (24000, 1);
-	nano::udp_data data;
-	data.endpoint = system.nodes[0]->network.endpoint ();
+	nano::message_buffer data;
+	data.sending_endpoint = system.nodes[0]->network.endpoint ();
 	ASSERT_EQ (0, system.nodes[0]->stats.count (nano::stat::type::error, nano::stat::detail::bad_sender));
 	system.nodes[0]->network.receive_action (&data);
 	ASSERT_EQ (1, system.nodes[0]->stats.count (nano::stat::type::error, nano::stat::detail::bad_sender));
@@ -106,7 +106,7 @@ TEST (network, keepalive_ipv4)
 	auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, 24001, nano::unique_path (), system.alarm, system.logging, system.work));
 	node1->start ();
 	system.nodes.push_back (node1);
-	node1->send_keepalive (nano::endpoint (boost::asio::ip::address_v4::loopback (), 24000));
+	node1->send_keepalive (nano::net::socket_addr::make_udp (boost::asio::ip::address_v4::loopback (), 24000));
 	auto initial (system.nodes[0]->stats.count (nano::stat::type::message, nano::stat::detail::keepalive, nano::stat::dir::in));
 	system.deadline_set (10s);
 	while (system.nodes[0]->stats.count (nano::stat::type::message, nano::stat::detail::keepalive, nano::stat::dir::in) == initial)
@@ -125,7 +125,7 @@ TEST (network, last_contacted)
 	auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, 24001, nano::unique_path (), system.alarm, system.logging, system.work));
 	node1->start ();
 	system.nodes.push_back (node1);
-	node1->send_keepalive (nano::endpoint (boost::asio::ip::address_v4::loopback (), 24000));
+	node1->send_keepalive (nano::net::socket_addr::make_udp (boost::asio::ip::address_v4::loopback (), 24000));
 	system.deadline_set (10s);
 
 	// Wait until the handshake is complete
@@ -137,7 +137,7 @@ TEST (network, last_contacted)
 
 	// Make sure last_contact gets updated on receiving a non-handshake message
 	auto timestamp_before_keepalive = system.nodes[0]->peers.list_vector (1).front ().last_contact;
-	node1->send_keepalive (nano::endpoint (boost::asio::ip::address_v4::loopback (), 24000));
+	node1->send_keepalive (nano::net::socket_addr::make_udp (boost::asio::ip::address_v4::loopback (), 24000));
 	while (system.nodes[0]->stats.count (nano::stat::type::message, nano::stat::detail::keepalive, nano::stat::dir::in) < 2)
 	{
 		ASSERT_NO_ERROR (system.poll ());
@@ -377,7 +377,7 @@ TEST (network, receive_weight_change)
 TEST (parse_endpoint, valid)
 {
 	std::string string ("::1:24000");
-	nano::endpoint endpoint;
+	boost::asio::ip::udp::endpoint endpoint;
 	ASSERT_FALSE (nano::parse_endpoint (string, endpoint));
 	ASSERT_EQ (boost::asio::ip::address_v6::loopback (), endpoint.address ());
 	ASSERT_EQ (24000, endpoint.port ());
@@ -386,35 +386,35 @@ TEST (parse_endpoint, valid)
 TEST (parse_endpoint, invalid_port)
 {
 	std::string string ("::1:24a00");
-	nano::endpoint endpoint;
+	boost::asio::ip::udp::endpoint endpoint;
 	ASSERT_TRUE (nano::parse_endpoint (string, endpoint));
 }
 
 TEST (parse_endpoint, invalid_address)
 {
 	std::string string ("::q:24000");
-	nano::endpoint endpoint;
+	boost::asio::ip::udp::endpoint endpoint;
 	ASSERT_TRUE (nano::parse_endpoint (string, endpoint));
 }
 
 TEST (parse_endpoint, no_address)
 {
 	std::string string (":24000");
-	nano::endpoint endpoint;
+	boost::asio::ip::udp::endpoint endpoint;
 	ASSERT_TRUE (nano::parse_endpoint (string, endpoint));
 }
 
 TEST (parse_endpoint, no_port)
 {
 	std::string string ("::1:");
-	nano::endpoint endpoint;
+	boost::asio::ip::udp::endpoint endpoint;
 	ASSERT_TRUE (nano::parse_endpoint (string, endpoint));
 }
 
 TEST (parse_endpoint, no_colon)
 {
 	std::string string ("::1");
-	nano::endpoint endpoint;
+	boost::asio::ip::udp::endpoint endpoint;
 	ASSERT_TRUE (nano::parse_endpoint (string, endpoint));
 }
 
@@ -1091,7 +1091,7 @@ TEST (network, ipv6)
 {
 	boost::asio::ip::address_v6 address (boost::asio::ip::address_v6::from_string ("::ffff:127.0.0.1"));
 	ASSERT_TRUE (address.is_v4_mapped ());
-	nano::endpoint endpoint1 (address, 16384);
+	boost::asio::ip::udp::endpoint endpoint1 (address, 16384);
 	std::vector<uint8_t> bytes1;
 	{
 		nano::vectorstream stream (bytes1);
@@ -1108,26 +1108,26 @@ TEST (network, ipv6)
 	nano::bufferstream stream (bytes1.data (), bytes1.size ());
 	auto error (nano::try_read (stream, bytes2));
 	ASSERT_FALSE (error);
-	nano::endpoint endpoint2 (boost::asio::ip::address_v6 (bytes2), 16384);
+	boost::asio::ip::udp::endpoint endpoint2 (boost::asio::ip::address_v6 (bytes2), 16384);
 	ASSERT_EQ (endpoint1, endpoint2);
 }
 
 TEST (network, ipv6_from_ipv4)
 {
-	nano::endpoint endpoint1 (boost::asio::ip::address_v4::loopback (), 16000);
+	boost::asio::ip::udp::endpoint endpoint1 (boost::asio::ip::address_v4::loopback (), 16000);
 	ASSERT_TRUE (endpoint1.address ().is_v4 ());
-	nano::endpoint endpoint2 (boost::asio::ip::address_v6::v4_mapped (endpoint1.address ().to_v4 ()), 16000);
+	boost::asio::ip::udp::endpoint endpoint2 (boost::asio::ip::address_v6::v4_mapped (endpoint1.address ().to_v4 ()), 16000);
 	ASSERT_TRUE (endpoint2.address ().is_v6 ());
 }
 
 TEST (network, ipv6_bind_send_ipv4)
 {
 	boost::asio::io_context io_ctx;
-	nano::endpoint endpoint1 (boost::asio::ip::address_v6::any (), 24000);
-	nano::endpoint endpoint2 (boost::asio::ip::address_v4::any (), 24001);
+	boost::asio::ip::udp::endpoint endpoint1 (boost::asio::ip::address_v6::any (), 24000);
+	boost::asio::ip::udp::endpoint endpoint2 (boost::asio::ip::address_v4::any (), 24001);
 	std::array<uint8_t, 16> bytes1;
 	auto finish1 (false);
-	nano::endpoint endpoint3;
+	boost::asio::ip::udp::endpoint endpoint3;
 	boost::asio::ip::udp::socket socket1 (io_ctx, endpoint1);
 	socket1.async_receive_from (boost::asio::buffer (bytes1.data (), bytes1.size ()), endpoint3, [&finish1](boost::system::error_code const & error, size_t size_a) {
 		ASSERT_FALSE (error);
@@ -1135,8 +1135,8 @@ TEST (network, ipv6_bind_send_ipv4)
 		finish1 = true;
 	});
 	boost::asio::ip::udp::socket socket2 (io_ctx, endpoint2);
-	nano::endpoint endpoint5 (boost::asio::ip::address_v4::loopback (), 24000);
-	nano::endpoint endpoint6 (boost::asio::ip::address_v6::v4_mapped (boost::asio::ip::address_v4::loopback ()), 24001);
+	boost::asio::ip::udp::endpoint endpoint5 (boost::asio::ip::address_v4::loopback (), 24000);
+	boost::asio::ip::udp::endpoint endpoint6 (boost::asio::ip::address_v6::v4_mapped (boost::asio::ip::address_v4::loopback ()), 24001);
 	socket2.async_send_to (boost::asio::buffer (std::array<uint8_t, 16>{}, 16), endpoint5, [](boost::system::error_code const & error, size_t size_a) {
 		ASSERT_FALSE (error);
 		ASSERT_EQ (16, size_a);
@@ -1150,7 +1150,7 @@ TEST (network, ipv6_bind_send_ipv4)
 	}
 	ASSERT_EQ (endpoint6, endpoint3);
 	std::array<uint8_t, 16> bytes2;
-	nano::endpoint endpoint4;
+	boost::asio::ip::udp::endpoint endpoint4;
 	socket2.async_receive_from (boost::asio::buffer (bytes2.data (), bytes2.size ()), endpoint4, [](boost::system::error_code const & error, size_t size_a) {
 		ASSERT_FALSE (!error);
 		ASSERT_EQ (16, size_a);
@@ -1172,8 +1172,8 @@ TEST (network, endpoint_bad_fd)
 
 TEST (network, reserved_address)
 {
-	ASSERT_FALSE (nano::reserved_address (nano::endpoint (boost::asio::ip::address_v6::from_string ("2001::"), 0), true));
-	nano::endpoint loopback (boost::asio::ip::address_v6::from_string ("::1"), 1);
+	ASSERT_FALSE (nano::reserved_address (boost::asio::ip::udp::endpoint (boost::asio::ip::address_v6::from_string ("2001::"), 0), true));
+	boost::asio::ip::udp::endpoint loopback (boost::asio::ip::address_v6::from_string ("::1"), 1);
 	ASSERT_FALSE (nano::reserved_address (loopback, false));
 	ASSERT_TRUE (nano::reserved_address (loopback, true));
 }
@@ -1195,7 +1195,7 @@ TEST (node, port_mapping)
 TEST (udp_buffer, one_buffer)
 {
 	nano::stat stats;
-	nano::udp_buffer buffer (stats, 512, 1);
+	nano::message_buffer_manager buffer (stats, 512, 1);
 	auto buffer1 (buffer.allocate ());
 	ASSERT_NE (nullptr, buffer1);
 	buffer.enqueue (buffer1);
@@ -1209,7 +1209,7 @@ TEST (udp_buffer, one_buffer)
 TEST (udp_buffer, two_buffers)
 {
 	nano::stat stats;
-	nano::udp_buffer buffer (stats, 512, 2);
+	nano::message_buffer_manager buffer (stats, 512, 2);
 	auto buffer1 (buffer.allocate ());
 	ASSERT_NE (nullptr, buffer1);
 	auto buffer2 (buffer.allocate ());
@@ -1232,7 +1232,7 @@ TEST (udp_buffer, two_buffers)
 TEST (udp_buffer, one_overflow)
 {
 	nano::stat stats;
-	nano::udp_buffer buffer (stats, 512, 1);
+	nano::message_buffer_manager buffer (stats, 512, 1);
 	auto buffer1 (buffer.allocate ());
 	ASSERT_NE (nullptr, buffer1);
 	buffer.enqueue (buffer1);
@@ -1243,7 +1243,7 @@ TEST (udp_buffer, one_overflow)
 TEST (udp_buffer, two_overflow)
 {
 	nano::stat stats;
-	nano::udp_buffer buffer (stats, 512, 2);
+	nano::message_buffer_manager buffer (stats, 512, 2);
 	auto buffer1 (buffer.allocate ());
 	ASSERT_NE (nullptr, buffer1);
 	buffer.enqueue (buffer1);
@@ -1260,7 +1260,7 @@ TEST (udp_buffer, two_overflow)
 TEST (udp_buffer, one_buffer_multithreaded)
 {
 	nano::stat stats;
-	nano::udp_buffer buffer (stats, 512, 1);
+	nano::message_buffer_manager buffer (stats, 512, 1);
 	boost::thread thread ([&buffer]() {
 		auto done (false);
 		while (!done)
@@ -1285,7 +1285,7 @@ TEST (udp_buffer, one_buffer_multithreaded)
 TEST (udp_buffer, many_buffers_multithreaded)
 {
 	nano::stat stats;
-	nano::udp_buffer buffer (stats, 512, 16);
+	nano::message_buffer_manager buffer (stats, 512, 16);
 	std::vector<boost::thread> threads;
 	for (auto i (0); i < 4; ++i)
 	{
@@ -1333,7 +1333,7 @@ TEST (udp_buffer, many_buffers_multithreaded)
 TEST (udp_buffer, stats)
 {
 	nano::stat stats;
-	nano::udp_buffer buffer (stats, 512, 1);
+	nano::message_buffer_manager buffer (stats, 512, 1);
 	auto buffer1 (buffer.allocate ());
 	buffer.enqueue (buffer1);
 	buffer.allocate ();

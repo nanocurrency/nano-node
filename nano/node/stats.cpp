@@ -360,7 +360,7 @@ std::string nano::stat::type_to_string (uint32_t key)
 		case nano::stat::type::traffic:
 			res = "traffic";
 			break;
-		case nano::stat::type::traffic_bootstrap:
+		case nano::stat::type::traffic_tcp:
 			res = "traffic_bootstrap";
 			break;
 		case nano::stat::type::vote:

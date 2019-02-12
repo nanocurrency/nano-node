@@ -12,12 +12,13 @@
 #include <mutex>
 #include <nano/lib/numbers.hpp>
 #include <nano/node/common.hpp>
+#include <nano/node/network_generic.hpp>
 #include <unordered_set>
 #include <vector>
 
 namespace nano
 {
-nano::endpoint map_endpoint_to_v6 (nano::endpoint const &);
+//nano::endpoint map_endpoint_to_v6 (nano::endpoint const &);
 
 /** Multi-index helper */
 class peer_by_ip_addr
@@ -28,7 +29,7 @@ class peer_by_ip_addr
 class peer_attempt
 {
 public:
-	nano::endpoint endpoint;
+	nano::net::socket_addr endpoint;
 	std::chrono::steady_clock::time_point last_attempt;
 };
 
@@ -44,9 +45,9 @@ public:
 class peer_information
 {
 public:
-	peer_information (nano::endpoint const &, unsigned, boost::optional<nano::account> = boost::none);
-	peer_information (nano::endpoint const &, std::chrono::steady_clock::time_point const &, std::chrono::steady_clock::time_point const &);
-	nano::endpoint endpoint;
+	peer_information (nano::net::socket_addr const &, unsigned, boost::optional<nano::account> = boost::none);
+	peer_information (nano::net::socket_addr const &, std::chrono::steady_clock::time_point const &, std::chrono::steady_clock::time_point const &);
+	nano::net::socket_addr endpoint;
 	boost::asio::ip::address ip_address;
 	std::chrono::steady_clock::time_point last_contact;
 	std::chrono::steady_clock::time_point last_attempt;
@@ -64,54 +65,54 @@ public:
 class peer_container
 {
 public:
-	peer_container (nano::endpoint const &);
+	peer_container (nano::net::socket_addr const &);
 	// We were contacted by endpoint, update peers
 	// Returns true if a Node ID handshake should begin
-	bool contacted (nano::endpoint const &, unsigned);
+	bool contacted (nano::net::socket_addr const &, unsigned);
 	// Unassigned, reserved, self
-	bool not_a_peer (nano::endpoint const &, bool);
+	bool not_a_peer (nano::net::socket_addr const &, bool);
 	// Returns true if peer was already known
-	bool known_peer (nano::endpoint const &);
+	bool known_peer (nano::net::socket_addr const &);
 	// Notify of peer we received from
-	bool insert (nano::endpoint const &, unsigned, bool = false, boost::optional<nano::account> = boost::none);
-	std::unordered_set<nano::endpoint> random_set (size_t);
-	void random_fill (std::array<nano::endpoint, 8> &);
+	bool insert (nano::net::socket_addr const &, unsigned, bool = false, boost::optional<nano::account> = boost::none);
+	std::unordered_set<nano::net::socket_addr> random_set (size_t);
+	void random_fill (std::array<nano::net::socket_addr, 8> &);
 	// Request a list of the top known representatives
 	std::vector<peer_information> representatives (size_t);
 	// List of all peers
-	std::deque<nano::endpoint> list ();
+	std::deque<nano::net::socket_addr> list ();
 	std::vector<peer_information> list_vector (size_t);
 	// A list of random peers sized for the configured rebroadcast fanout
-	std::deque<nano::endpoint> list_fanout ();
+	std::deque<nano::net::socket_addr> list_fanout ();
 	// Returns a list of probable reps and their weight
 	std::vector<peer_information> list_probable_rep_weights ();
 	// Get the next peer for attempting bootstrap
-	nano::endpoint bootstrap_peer ();
+	nano::net::socket_addr bootstrap_peer ();
 	// Purge any peer where last_contact < time_point and return what was left
 	std::vector<nano::peer_information> purge_list (std::chrono::steady_clock::time_point const &);
 	void purge_syn_cookies (std::chrono::steady_clock::time_point const &);
-	std::vector<nano::endpoint> rep_crawl ();
-	bool rep_response (nano::endpoint const &, nano::account const &, nano::amount const &);
-	void rep_request (nano::endpoint const &);
+	std::vector<nano::net::socket_addr> rep_crawl ();
+	bool rep_response (nano::net::socket_addr const &, nano::account const &, nano::amount const &);
+	void rep_request (nano::net::socket_addr const &);
 	// Should we reach out to this endpoint with a keepalive message
-	bool reachout (nano::endpoint const &);
+	bool reachout (nano::net::socket_addr const &);
 	// Returns boost::none if the IP is rate capped on syn cookie requests,
 	// or if the endpoint already has a syn cookie query
-	boost::optional<nano::uint256_union> assign_syn_cookie (nano::endpoint const &);
+	boost::optional<nano::uint256_union> assign_syn_cookie (nano::net::socket_addr const &);
 	// Returns false if valid, true if invalid (true on error convention)
 	// Also removes the syn cookie from the store if valid
-	bool validate_syn_cookie (nano::endpoint const &, nano::account, nano::signature);
+	bool validate_syn_cookie (nano::net::socket_addr const &, nano::account, nano::signature);
 	size_t size ();
 	size_t size_sqrt ();
 	nano::uint128_t total_weight ();
 	nano::uint128_t online_weight_minimum;
 	bool empty ();
 	std::mutex mutex;
-	nano::endpoint self;
+	nano::net::socket_addr self;
 	boost::multi_index_container<
 	peer_information,
 	boost::multi_index::indexed_by<
-	boost::multi_index::hashed_unique<boost::multi_index::member<peer_information, nano::endpoint, &peer_information::endpoint>>,
+	boost::multi_index::hashed_unique<boost::multi_index::member<peer_information, nano::net::socket_addr, &peer_information::endpoint>>,
 	boost::multi_index::ordered_non_unique<boost::multi_index::member<peer_information, std::chrono::steady_clock::time_point, &peer_information::last_contact>>,
 	boost::multi_index::ordered_non_unique<boost::multi_index::member<peer_information, std::chrono::steady_clock::time_point, &peer_information::last_attempt>, std::greater<std::chrono::steady_clock::time_point>>,
 	boost::multi_index::random_access<>,
@@ -123,14 +124,14 @@ public:
 	boost::multi_index_container<
 	peer_attempt,
 	boost::multi_index::indexed_by<
-	boost::multi_index::hashed_unique<boost::multi_index::member<peer_attempt, nano::endpoint, &peer_attempt::endpoint>>,
+	boost::multi_index::hashed_unique<boost::multi_index::member<peer_attempt, nano::net::socket_addr, &peer_attempt::endpoint>>,
 	boost::multi_index::ordered_non_unique<boost::multi_index::member<peer_attempt, std::chrono::steady_clock::time_point, &peer_attempt::last_attempt>>>>
 	attempts;
 	std::mutex syn_cookie_mutex;
-	std::unordered_map<nano::endpoint, syn_cookie_info> syn_cookies;
+	std::unordered_map<nano::net::socket_addr, syn_cookie_info> syn_cookies;
 	std::unordered_map<boost::asio::ip::address, unsigned> syn_cookies_per_ip;
 	// Called when a new peer is observed
-	std::function<void(nano::endpoint const &)> peer_observer;
+	std::function<void(nano::net::socket_addr const &)> peer_observer;
 	std::function<void()> disconnect_observer;
 	// Number of peers to crawl for being a rep every period
 	static size_t constexpr peers_per_crawl = 8;

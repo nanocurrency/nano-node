@@ -21,7 +21,7 @@ public:
 	sock (io_ctx),
 	status (0)
 	{
-		sock.async_connect (nano::tcp_endpoint (boost::asio::ip::address_v6::loopback (), rpc_a.config.port), [this](boost::system::error_code const & ec) {
+		sock.async_connect (boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v6::loopback (), rpc_a.config.port), [this](boost::system::error_code const & ec) {
 			if (!ec)
 			{
 				std::stringstream ostream;
@@ -1686,7 +1686,7 @@ TEST (rpc, payment_wait)
 TEST (rpc, peers)
 {
 	nano::system system (24000, 2);
-	nano::endpoint endpoint (boost::asio::ip::address_v6::from_string ("fc00::1"), 4000);
+	nano::net::socket_addr endpoint (boost::asio::ip::address_v6::from_string ("fc00::1"), 4000);
 	system.nodes[0]->peers.insert (endpoint, nano::protocol_version);
 	nano::rpc rpc (system.io_ctx, *system.nodes[0], nano::rpc_config (true));
 	rpc.start ();
@@ -1711,7 +1711,7 @@ TEST (rpc, peers)
 TEST (rpc, peers_node_id)
 {
 	nano::system system (24000, 2);
-	nano::endpoint endpoint (boost::asio::ip::address_v6::from_string ("fc00::1"), 4000);
+	nano::net::socket_addr endpoint (boost::asio::ip::address_v6::from_string ("fc00::1"), 4000);
 	system.nodes[0]->peers.insert (endpoint, nano::protocol_version);
 	nano::rpc rpc (system.io_ctx, *system.nodes[0], nano::rpc_config (true));
 	rpc.start ();

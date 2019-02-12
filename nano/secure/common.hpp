@@ -124,6 +124,7 @@ public:
 	nano::block_hash key () const;
 };
 
+// TODO: expand with supported protocols?
 class endpoint_key
 {
 public:

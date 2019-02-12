@@ -103,7 +103,7 @@ void nano::rpc::start (bool rpc_enabled_a)
 {
 	if (rpc_enabled_a)
 	{
-		auto endpoint (nano::tcp_endpoint (config.address, config.port));
+		auto endpoint (boost::asio::ip::tcp::endpoint (config.address, config.port));
 		acceptor.open (endpoint.protocol ());
 		acceptor.set_option (boost::asio::ip::tcp::acceptor::reuse_address (true));
 
@@ -1361,7 +1361,7 @@ void nano::rpc_handler::bootstrap ()
 		uint16_t port;
 		if (!nano::parse_port (port_text, port))
 		{
-			node.bootstrap_initiator.bootstrap (nano::endpoint (address, port));
+			node.bootstrap_initiator.bootstrap (nano::net::socket_addr::make_tcp (address, port));
 			response_l.put ("success", "");
 		}
 		else

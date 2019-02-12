@@ -1,16 +1,6 @@
 #include <nano/node/peers.hpp>
 
-nano::endpoint nano::map_endpoint_to_v6 (nano::endpoint const & endpoint_a)
-{
-	auto endpoint_l (endpoint_a);
-	if (endpoint_l.address ().is_v4 ())
-	{
-		endpoint_l = nano::endpoint (boost::asio::ip::address_v6::v4_mapped (endpoint_l.address ().to_v4 ()), endpoint_l.port ());
-	}
-	return endpoint_l;
-}
-
-nano::peer_information::peer_information (nano::endpoint const & endpoint_a, unsigned network_version_a, boost::optional<nano::account> node_id_a) :
+nano::peer_information::peer_information (nano::net::socket_addr const & endpoint_a, unsigned network_version_a, boost::optional<nano::account> node_id_a) :
 endpoint (endpoint_a),
 ip_address (endpoint_a.address ()),
 last_contact (std::chrono::steady_clock::now ()),
@@ -21,7 +11,7 @@ node_id (node_id_a)
 {
 }
 
-nano::peer_information::peer_information (nano::endpoint const & endpoint_a, std::chrono::steady_clock::time_point const & last_contact_a, std::chrono::steady_clock::time_point const & last_attempt_a) :
+nano::peer_information::peer_information (nano::net::socket_addr const & endpoint_a, std::chrono::steady_clock::time_point const & last_contact_a, std::chrono::steady_clock::time_point const & last_attempt_a) :
 endpoint (endpoint_a),
 ip_address (endpoint_a.address ()),
 last_contact (last_contact_a),
@@ -34,16 +24,16 @@ bool nano::peer_information::operator< (nano::peer_information const & peer_info
 	return endpoint < peer_information_a.endpoint;
 }
 
-nano::peer_container::peer_container (nano::endpoint const & self_a) :
+nano::peer_container::peer_container (nano::net::socket_addr const & self_a) :
 self (self_a),
-peer_observer ([](nano::endpoint const &) {}),
+peer_observer ([](nano::net::socket_addr const &) {}),
 disconnect_observer ([]() {})
 {
 }
 
-bool nano::peer_container::contacted (nano::endpoint const & endpoint_a, unsigned version_a)
+bool nano::peer_container::contacted (nano::net::socket_addr const & endpoint_a, unsigned version_a)
 {
-	auto endpoint_l (nano::map_endpoint_to_v6 (endpoint_a));
+	auto endpoint_l (endpoint_a.map_to_v6 ());
 	auto should_handshake (false);
 	if (version_a < nano::node_id_version)
 	{
@@ -72,7 +62,7 @@ bool nano::peer_container::contacted (nano::endpoint const & endpoint_a, unsigne
 	return should_handshake;
 }
 
-bool nano::peer_container::known_peer (nano::endpoint const & endpoint_a)
+bool nano::peer_container::known_peer (nano::net::socket_addr const & endpoint_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	auto existing (peers.find (endpoint_a));
@@ -80,10 +70,10 @@ bool nano::peer_container::known_peer (nano::endpoint const & endpoint_a)
 }
 
 // Simulating with sqrt_broadcast_simulate shows we only need to broadcast to sqrt(total_peers) random peers in order to successfully publish to everyone with high probability
-std::deque<nano::endpoint> nano::peer_container::list_fanout ()
+std::deque<nano::net::socket_addr> nano::peer_container::list_fanout ()
 {
 	auto peers (random_set (size_sqrt ()));
-	std::deque<nano::endpoint> result;
+	std::deque<nano::net::socket_addr> result;
 	for (auto i (peers.begin ()), n (peers.end ()); i != n; ++i)
 	{
 		result.push_back (*i);
@@ -91,9 +81,9 @@ std::deque<nano::endpoint> nano::peer_container::list_fanout ()
 	return result;
 }
 
-std::deque<nano::endpoint> nano::peer_container::list ()
+std::deque<nano::net::socket_addr> nano::peer_container::list ()
 {
-	std::deque<nano::endpoint> result;
+	std::deque<nano::net::socket_addr> result;
 	std::lock_guard<std::mutex> lock (mutex);
 	for (auto i (peers.begin ()), j (peers.end ()); i != j; ++i)
 	{
@@ -114,21 +104,21 @@ std::vector<nano::peer_information> nano::peer_container::list_vector (size_t co
 	random_pool.Shuffle (result.begin (), result.end ());
 	if (result.size () > count_a)
 	{
-		result.resize (count_a, nano::peer_information (nano::endpoint{}, 0));
+		result.resize (count_a, nano::peer_information (nano::net::socket_addr{}, 0));
 	}
 	return result;
 }
 
-nano::endpoint nano::peer_container::bootstrap_peer ()
+nano::net::socket_addr nano::peer_container::bootstrap_peer ()
 {
-	nano::endpoint result (boost::asio::ip::address_v6::any (), 0);
+	auto result (nano::net::socket_addr::make_tcp (boost::asio::ip::address_v6::any (), 0));
 	std::lock_guard<std::mutex> lock (mutex);
 	;
 	for (auto i (peers.get<4> ().begin ()), n (peers.get<4> ().end ()); i != n;)
 	{
 		if (i->network_version >= protocol_version_reasonable_min)
 		{
-			result = i->endpoint;
+			result = i->endpoint.as_tcp ();
 			peers.get<4> ().modify (i, [](nano::peer_information & peer_a) {
 				peer_a.last_bootstrap_attempt = std::chrono::steady_clock::now ();
 			});
@@ -142,7 +132,7 @@ nano::endpoint nano::peer_container::bootstrap_peer ()
 	return result;
 }
 
-boost::optional<nano::uint256_union> nano::peer_container::assign_syn_cookie (nano::endpoint const & endpoint)
+boost::optional<nano::uint256_union> nano::peer_container::assign_syn_cookie (nano::net::socket_addr const & endpoint)
 {
 	auto ip_addr (endpoint.address ());
 	assert (ip_addr.is_v6 ());
@@ -164,7 +154,7 @@ boost::optional<nano::uint256_union> nano::peer_container::assign_syn_cookie (na
 	return result;
 }
 
-bool nano::peer_container::validate_syn_cookie (nano::endpoint const & endpoint, nano::account node_id, nano::signature sig)
+bool nano::peer_container::validate_syn_cookie (nano::net::socket_addr const & endpoint, nano::account node_id, nano::signature sig)
 {
 	auto ip_addr (endpoint.address ());
 	assert (ip_addr.is_v6 ());
@@ -188,9 +178,9 @@ bool nano::peer_container::validate_syn_cookie (nano::endpoint const & endpoint,
 	return result;
 }
 
-std::unordered_set<nano::endpoint> nano::peer_container::random_set (size_t count_a)
+std::unordered_set<nano::net::socket_addr> nano::peer_container::random_set (size_t count_a)
 {
-	std::unordered_set<nano::endpoint> result;
+	std::unordered_set<nano::net::socket_addr> result;
 	result.reserve (count_a);
 	std::lock_guard<std::mutex> lock (mutex);
 	// Stop trying to fill result with random samples after this many attempts
@@ -214,11 +204,11 @@ std::unordered_set<nano::endpoint> nano::peer_container::random_set (size_t coun
 	return result;
 }
 
-void nano::peer_container::random_fill (std::array<nano::endpoint, 8> & target_a)
+void nano::peer_container::random_fill (std::array<nano::net::socket_addr, 8> & target_a)
 {
 	auto peers (random_set (target_a.size ()));
 	assert (peers.size () <= target_a.size ());
-	auto endpoint (nano::endpoint (boost::asio::ip::address_v6{}, 0));
+	auto endpoint (nano::net::socket_addr::make_udp (boost::asio::ip::address_v6{}, 0));
 	assert (endpoint.address ().is_v6 ());
 	std::fill (target_a.begin (), target_a.end (), endpoint);
 	auto j (target_a.begin ());
@@ -298,9 +288,9 @@ std::vector<nano::peer_information> nano::peer_container::purge_list (std::chron
 	return result;
 }
 
-std::vector<nano::endpoint> nano::peer_container::rep_crawl ()
+std::vector<nano::net::socket_addr> nano::peer_container::rep_crawl ()
 {
-	std::vector<nano::endpoint> result;
+	std::vector<nano::net::socket_addr> result;
 	// If there is enough observed peers weight, crawl 10 peers. Otherwise - 40
 	uint16_t max_count = (total_weight () > online_weight_minimum) ? 10 : 40;
 	result.reserve (max_count);
@@ -359,7 +349,7 @@ bool nano::peer_container::empty ()
 	return size () == 0;
 }
 
-bool nano::peer_container::not_a_peer (nano::endpoint const & endpoint_a, bool blacklist_loopback)
+bool nano::peer_container::not_a_peer (nano::net::socket_addr const & endpoint_a, bool blacklist_loopback)
 {
 	bool result (false);
 	if (endpoint_a.address ().to_v6 ().is_unspecified ())
@@ -377,7 +367,7 @@ bool nano::peer_container::not_a_peer (nano::endpoint const & endpoint_a, bool b
 	return result;
 }
 
-bool nano::peer_container::rep_response (nano::endpoint const & endpoint_a, nano::account const & rep_account_a, nano::amount const & weight_a)
+bool nano::peer_container::rep_response (nano::net::socket_addr const & endpoint_a, nano::account const & rep_account_a, nano::amount const & weight_a)
 {
 	assert (endpoint_a.address ().is_v6 ());
 	auto updated (false);
@@ -398,7 +388,7 @@ bool nano::peer_container::rep_response (nano::endpoint const & endpoint_a, nano
 	return updated;
 }
 
-void nano::peer_container::rep_request (nano::endpoint const & endpoint_a)
+void nano::peer_container::rep_request (nano::net::socket_addr const & endpoint_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	auto existing (peers.find (endpoint_a));
@@ -410,13 +400,13 @@ void nano::peer_container::rep_request (nano::endpoint const & endpoint_a)
 	}
 }
 
-bool nano::peer_container::reachout (nano::endpoint const & endpoint_a)
+bool nano::peer_container::reachout (nano::net::socket_addr const & endpoint_a)
 {
 	// Don't contact invalid IPs
 	bool error = not_a_peer (endpoint_a, false);
 	if (!error)
 	{
-		auto endpoint_l (nano::map_endpoint_to_v6 (endpoint_a));
+		auto endpoint_l (endpoint_a.map_to_v6 ());
 		// Don't keepalive to nodes that already sent us something
 		error |= known_peer (endpoint_l);
 		std::lock_guard<std::mutex> lock (mutex);
@@ -427,7 +417,7 @@ bool nano::peer_container::reachout (nano::endpoint const & endpoint_a)
 	return error;
 }
 
-bool nano::peer_container::insert (nano::endpoint const & endpoint_a, unsigned version_a, bool preconfigured_a, boost::optional<nano::account> node_id_a)
+bool nano::peer_container::insert (nano::net::socket_addr const & endpoint_a, unsigned version_a, bool preconfigured_a, boost::optional<nano::account> node_id_a)
 {
 	assert (endpoint_a.address ().is_v6 ());
 	auto unknown (false);

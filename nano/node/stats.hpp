@@ -217,7 +217,7 @@ public:
 	enum class type : uint8_t
 	{
 		traffic,
-		traffic_bootstrap,
+		traffic_tcp,
 		error,
 		message,
 		block,

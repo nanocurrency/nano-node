@@ -722,10 +722,10 @@ TEST (votes, check_signature)
 	std::unique_lock<std::mutex> lock (node1.active.mutex);
 	auto vote1 (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 1, send1));
 	vote1->signature.bytes[0] ^= 1;
-	ASSERT_EQ (nano::vote_code::invalid, node1.vote_processor.vote_blocking (transaction, vote1, nano::endpoint (boost::asio::ip::address_v6 (), 0)));
+	ASSERT_EQ (nano::vote_code::invalid, node1.vote_processor.vote_blocking (transaction, vote1, nano::net::socket_addr (boost::asio::ip::address_v6 (), 0)));
 	vote1->signature.bytes[0] ^= 1;
-	ASSERT_EQ (nano::vote_code::vote, node1.vote_processor.vote_blocking (transaction, vote1, nano::endpoint (boost::asio::ip::address_v6 (), 0)));
-	ASSERT_EQ (nano::vote_code::replay, node1.vote_processor.vote_blocking (transaction, vote1, nano::endpoint (boost::asio::ip::address_v6 (), 0)));
+	ASSERT_EQ (nano::vote_code::vote, node1.vote_processor.vote_blocking (transaction, vote1, nano::net::socket_addr (boost::asio::ip::address_v6 (), 0)));
+	ASSERT_EQ (nano::vote_code::replay, node1.vote_processor.vote_blocking (transaction, vote1, nano::net::socket_addr (boost::asio::ip::address_v6 (), 0)));
 }
 
 TEST (votes, add_one)

@@ -4,6 +4,7 @@
 #include <nano/node/blockprocessor.hpp>
 #include <nano/node/bootstrap.hpp>
 #include <nano/node/logging.hpp>
+#include <nano/node/network_generic.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/peers.hpp>
 #include <nano/node/portmapping.hpp>
@@ -213,7 +214,7 @@ class send_info
 public:
 	uint8_t const * data;
 	size_t size;
-	nano::endpoint endpoint;
+	nano::net::socket_addr endpoint;
 	std::function<void(boost::system::error_code const &, size_t)> callback;
 };
 class block_arrival_info
@@ -268,40 +269,42 @@ private:
 
 std::unique_ptr<seq_con_info_component> collect_seq_con_info (online_reps & online_reps, const std::string & name);
 
-class udp_data
+class message_buffer
 {
 public:
 	uint8_t * buffer;
 	size_t size;
-	nano::endpoint endpoint;
+	nano::net::socket_addr sending_endpoint;
 };
 /**
-  * A circular buffer for servicing UDP datagrams. This container follows a producer/consumer model where the operating system is producing data in to buffers which are serviced by internal threads.
+  * A circular buffer for servicing nano realtime messages.
+  * This container follows a producer/consumer model where the operating system is producing data in to
+  * buffers which are serviced by internal threads.
   * If buffers are not serviced fast enough they're internally dropped.
   * This container has a maximum space to hold N buffers of M size and will allocate them in round-robin order.
   * All public methods are thread-safe
 */
-class udp_buffer
+class message_buffer_manager
 {
 public:
 	// Stats - Statistics
 	// Size - Size of each individual buffer
 	// Count - Number of buffers to allocate
-	udp_buffer (nano::stat & stats, size_t, size_t);
-	// Return a buffer where UDP data can be put
+	message_buffer_manager (nano::stat & stats, size_t, size_t);
+	// Return a buffer where message data can be put
 	// Method will attempt to return the first free buffer
 	// If there are no free buffers, an unserviced buffer will be dequeued and returned
 	// Function will block if there are no free or unserviced buffers
 	// Return nullptr if the container has stopped
-	nano::udp_data * allocate ();
-	// Queue a buffer that has been filled with UDP data and notify servicing threads
-	void enqueue (nano::udp_data *);
-	// Return a buffer that has been filled with UDP data
+	nano::message_buffer * allocate ();
+	// Queue a buffer that has been filled with message data and notify servicing threads
+	void enqueue (nano::message_buffer *);
+	// Return a buffer that has been filled with message data
 	// Function will block until a buffer has been added
 	// Return nullptr if the container has stopped
-	nano::udp_data * dequeue ();
+	nano::message_buffer * dequeue ();
 	// Return a buffer to the freelist after is has been serviced
-	void release (nano::udp_data *);
+	void release (nano::message_buffer *);
 	// Stop container and notify waiting threads
 	void stop ();
 
@@ -309,10 +312,10 @@ private:
 	nano::stat & stats;
 	std::mutex mutex;
 	std::condition_variable condition;
-	boost::circular_buffer<nano::udp_data *> free;
-	boost::circular_buffer<nano::udp_data *> full;
+	boost::circular_buffer<nano::message_buffer *> free;
+	boost::circular_buffer<nano::message_buffer *> full;
 	std::vector<uint8_t> slab;
-	std::vector<nano::udp_data> entries;
+	std::vector<nano::message_buffer> entries;
 	bool stopped;
 };
 class network
@@ -324,30 +327,30 @@ public:
 	void process_packets ();
 	void start ();
 	void stop ();
-	void receive_action (nano::udp_data *);
+	void receive_action (nano::message_buffer *);
 	void rpc_action (boost::system::error_code const &, size_t);
 	void republish_vote (std::shared_ptr<nano::vote>);
 	void republish_block (std::shared_ptr<nano::block>);
-	void republish_block (std::shared_ptr<nano::block>, nano::endpoint const &);
+	void republish_block (std::shared_ptr<nano::block>, nano::net::socket_addr const &);
 	static unsigned const broadcast_interval_ms = 10;
 	void republish_block_batch (std::deque<std::shared_ptr<nano::block>>, unsigned = broadcast_interval_ms);
-	void republish (nano::block_hash const &, std::shared_ptr<std::vector<uint8_t>>, nano::endpoint);
-	void confirm_send (nano::confirm_ack const &, std::shared_ptr<std::vector<uint8_t>>, nano::endpoint const &);
-	void merge_peers (std::array<nano::endpoint, 8> const &);
-	void send_keepalive (nano::endpoint const &);
-	void send_node_id_handshake (nano::endpoint const &, boost::optional<nano::uint256_union> const & query, boost::optional<nano::uint256_union> const & respond_to);
+	void republish (nano::block_hash const &, std::shared_ptr<std::vector<uint8_t>>, nano::net::socket_addr);
+	void confirm_send (nano::confirm_ack const &, std::shared_ptr<std::vector<uint8_t>>, nano::net::socket_addr const &);
+	void merge_peers (std::array<nano::net::socket_addr, 8> const &);
+	void send_keepalive (nano::net::socket_addr const &);
+	void send_node_id_handshake (nano::net::socket_addr const &, boost::optional<nano::uint256_union> const & query, boost::optional<nano::uint256_union> const & respond_to);
 	void broadcast_confirm_req (std::shared_ptr<nano::block>);
 	void broadcast_confirm_req_base (std::shared_ptr<nano::block>, std::shared_ptr<std::vector<nano::peer_information>>, unsigned, bool = false);
-	void broadcast_confirm_req_batch (std::unordered_map<nano::endpoint, std::vector<std::pair<nano::block_hash, nano::block_hash>>>, unsigned = broadcast_interval_ms, bool = false);
+	void broadcast_confirm_req_batch (std::unordered_map<nano::net::socket_addr, std::vector<std::pair<nano::block_hash, nano::block_hash>>>, unsigned = broadcast_interval_ms, bool = false);
 	void broadcast_confirm_req_batch (std::deque<std::pair<std::shared_ptr<nano::block>, std::shared_ptr<std::vector<nano::peer_information>>>>, unsigned = broadcast_interval_ms);
-	void send_confirm_req (nano::endpoint const &, std::shared_ptr<nano::block>);
-	void send_confirm_req_hashes (nano::endpoint const &, std::vector<std::pair<nano::block_hash, nano::block_hash>> const &);
-	void confirm_hashes (nano::transaction const &, nano::endpoint const &, std::vector<nano::block_hash>);
-	bool send_votes_cache (nano::block_hash const &, nano::endpoint const &);
-	void send_buffer (uint8_t const *, size_t, nano::endpoint const &, std::function<void(boost::system::error_code const &, size_t)>);
-	nano::endpoint endpoint ();
-	nano::udp_buffer buffer_container;
-	boost::asio::ip::udp::socket socket;
+	void send_confirm_req (nano::net::socket_addr const &, std::shared_ptr<nano::block>);
+	void send_confirm_req_hashes (nano::net::socket_addr const &, std::vector<std::pair<nano::block_hash, nano::block_hash>> const &);
+	void confirm_hashes (nano::transaction const &, nano::net::socket_addr const &, std::vector<nano::block_hash>);
+	bool send_votes_cache (nano::block_hash const &, nano::net::socket_addr const &);
+	void send_buffer (uint8_t const *, size_t, nano::net::socket_addr const &, std::function<void(boost::system::error_code const &, size_t)>);
+	nano::net::socket_addr endpoint ();
+	nano::message_buffer_manager buffer_container;
+	std::shared_ptr<nano::net::client> socket;
 	std::mutex socket_mutex;
 	boost::asio::ip::udp::resolver resolver;
 	std::vector<boost::thread> packet_processing_threads;
@@ -372,9 +375,9 @@ class node_observers
 public:
 	nano::observer_set<std::shared_ptr<nano::block>, nano::account const &, nano::uint128_t const &, bool> blocks;
 	nano::observer_set<bool> wallet;
-	nano::observer_set<nano::transaction const &, std::shared_ptr<nano::vote>, nano::endpoint const &> vote;
+	nano::observer_set<nano::transaction const &, std::shared_ptr<nano::vote>, nano::net::socket_addr const &> vote;
 	nano::observer_set<nano::account const &, bool> account_balance;
-	nano::observer_set<nano::endpoint const &> endpoint;
+	nano::observer_set<nano::net::socket_addr const &> endpoint;
 	nano::observer_set<> disconnect;
 };
 
@@ -384,10 +387,10 @@ class vote_processor
 {
 public:
 	vote_processor (nano::node &);
-	void vote (std::shared_ptr<nano::vote>, nano::endpoint);
+	void vote (std::shared_ptr<nano::vote>, nano::net::socket_addr);
 	// node.active.mutex lock required
-	nano::vote_code vote_blocking (nano::transaction const &, std::shared_ptr<nano::vote>, nano::endpoint, bool = false);
-	void verify_votes (std::deque<std::pair<std::shared_ptr<nano::vote>, nano::endpoint>> &);
+	nano::vote_code vote_blocking (nano::transaction const &, std::shared_ptr<nano::vote>, nano::net::socket_addr, bool = false);
+	void verify_votes (std::deque<std::pair<std::shared_ptr<nano::vote>, nano::net::socket_addr>> &);
 	void flush ();
 	void calculate_weights ();
 	nano::node & node;
@@ -395,7 +398,7 @@ public:
 
 private:
 	void process_loop ();
-	std::deque<std::pair<std::shared_ptr<nano::vote>, nano::endpoint>> votes;
+	std::deque<std::pair<std::shared_ptr<nano::vote>, nano::net::socket_addr>> votes;
 	// Representatives levels for random early detection
 	std::unordered_set<nano::account> representatives_1;
 	std::unordered_set<nano::account> representatives_2;
@@ -437,7 +440,7 @@ public:
 	{
 		alarm.io_ctx.post (action_a);
 	}
-	void send_keepalive (nano::endpoint const &);
+	void send_keepalive (nano::net::socket_addr const &);
 	bool copy_with_compaction (boost::filesystem::path const &);
 	void keepalive (std::string const &, uint16_t, bool = false);
 	void start ();
@@ -445,7 +448,7 @@ public:
 	std::shared_ptr<nano::node> shared ();
 	int store_version ();
 	void process_confirmed (std::shared_ptr<nano::block>, uint8_t = 0);
-	void process_message (nano::message &, nano::endpoint const &);
+	void process_message (nano::message &, nano::net::socket_addr const &);
 	void process_active (std::shared_ptr<nano::block>);
 	nano::process_return process (nano::block const &);
 	void keepalive_preconfigured (std::vector<std::string> const &);

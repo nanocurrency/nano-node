@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nano/lib/interface.h>
+#include <nano/node/network_generic.hpp>
 #include <nano/secure/common.hpp>
 
 #include <boost/asio.hpp>
@@ -11,45 +12,17 @@
 
 namespace nano
 {
-using endpoint = boost::asio::ip::udp::endpoint;
 bool parse_port (std::string const &, uint16_t &);
 bool parse_address_port (std::string const &, boost::asio::ip::address &, uint16_t &);
-using tcp_endpoint = boost::asio::ip::tcp::endpoint;
-bool parse_endpoint (std::string const &, nano::endpoint &);
-bool parse_tcp_endpoint (std::string const &, nano::tcp_endpoint &);
-bool reserved_address (nano::endpoint const &, bool);
+bool parse_tcp_endpoint (std::string const &, nano::net::socket_addr &);
+bool parse_udp_endpoint (std::string const &, nano::net::socket_addr &);
+bool parse_endpoint (std::string const &, boost::asio::ip::udp::endpoint &);
+bool parse_tcp_endpoint (std::string const &, boost::asio::ip::tcp::endpoint &);
+bool reserved_address (nano::net::socket_addr const &, bool);
 }
 
 namespace
 {
-uint64_t endpoint_hash_raw (nano::endpoint const & endpoint_a)
-{
-	assert (endpoint_a.address ().is_v6 ());
-	nano::uint128_union address;
-	address.bytes = endpoint_a.address ().to_v6 ().to_bytes ();
-	XXH64_state_t * const state = XXH64_createState ();
-	XXH64_reset (state, 0);
-	XXH64_update (state, address.bytes.data (), address.bytes.size ());
-	auto port (endpoint_a.port ());
-	XXH64_update (state, &port, sizeof (port));
-	auto result (XXH64_digest (state));
-	XXH64_freeState (state);
-	return result;
-}
-uint64_t endpoint_hash_raw (nano::tcp_endpoint const & endpoint_a)
-{
-	assert (endpoint_a.address ().is_v6 ());
-	nano::uint128_union address;
-	address.bytes = endpoint_a.address ().to_v6 ().to_bytes ();
-	XXH64_state_t * const state = XXH64_createState ();
-	XXH64_reset (state, 0);
-	XXH64_update (state, address.bytes.data (), address.bytes.size ());
-	auto port (endpoint_a.port ());
-	XXH64_update (state, &port, sizeof (port));
-	auto result (XXH64_digest (state));
-	XXH64_freeState (state);
-	return result;
-}
 uint64_t ip_address_hash_raw (boost::asio::ip::address const & ip_a)
 {
 	assert (ip_a.is_v6 ());
@@ -58,39 +31,6 @@ uint64_t ip_address_hash_raw (boost::asio::ip::address const & ip_a)
 	auto result (XXH64 (bytes.bytes.data (), bytes.bytes.size (), 0));
 	return result;
 }
-
-template <size_t size>
-struct endpoint_hash
-{
-};
-template <>
-struct endpoint_hash<8>
-{
-	size_t operator() (nano::endpoint const & endpoint_a) const
-	{
-		return endpoint_hash_raw (endpoint_a);
-	}
-	size_t operator() (nano::tcp_endpoint const & endpoint_a) const
-	{
-		return endpoint_hash_raw (endpoint_a);
-	}
-};
-template <>
-struct endpoint_hash<4>
-{
-	size_t operator() (nano::endpoint const & endpoint_a) const
-	{
-		uint64_t big (endpoint_hash_raw (endpoint_a));
-		uint32_t result (static_cast<uint32_t> (big) ^ static_cast<uint32_t> (big >> 32));
-		return result;
-	}
-	size_t operator() (nano::tcp_endpoint const & endpoint_a) const
-	{
-		uint64_t big (endpoint_hash_raw (endpoint_a));
-		uint32_t result (static_cast<uint32_t> (big) ^ static_cast<uint32_t> (big >> 32));
-		return result;
-	}
-};
 template <size_t size>
 struct ip_address_hash
 {
@@ -118,42 +58,12 @@ struct ip_address_hash<4>
 namespace std
 {
 template <>
-struct hash<::nano::endpoint>
-{
-	size_t operator() (::nano::endpoint const & endpoint_a) const
-	{
-		endpoint_hash<sizeof (size_t)> ehash;
-		return ehash (endpoint_a);
-	}
-};
-template <>
-struct hash<::nano::tcp_endpoint>
-{
-	size_t operator() (::nano::tcp_endpoint const & endpoint_a) const
-	{
-		endpoint_hash<sizeof (size_t)> ehash;
-		return ehash (endpoint_a);
-	}
-};
-template <>
 struct hash<boost::asio::ip::address>
 {
 	size_t operator() (boost::asio::ip::address const & ip_a) const
 	{
 		ip_address_hash<sizeof (size_t)> ihash;
 		return ihash (ip_a);
-	}
-};
-}
-namespace boost
-{
-template <>
-struct hash<::nano::endpoint>
-{
-	size_t operator() (::nano::endpoint const & endpoint_a) const
-	{
-		std::hash<::nano::endpoint> hash;
-		return hash (endpoint_a);
 	}
 };
 }
@@ -177,7 +87,9 @@ enum class message_type : uint8_t
 	frontier_req = 0x8,
 	/* deleted 0x9 */
 	node_id_handshake = 0x0a,
-	bulk_pull_account = 0x0b
+	bulk_pull_account = 0x0b,
+	/** TODO: Framing message. Extension fields will contain the size, max-version field the number of messages. */
+	message_envelope = 0x0c
 };
 enum class bulk_pull_account_flags : uint8_t
 {
@@ -279,7 +191,7 @@ public:
 	void serialize (nano::stream &) const override;
 	bool deserialize (nano::stream &);
 	bool operator== (nano::keepalive const &) const;
-	std::array<nano::endpoint, 8> peers;
+	std::array<nano::net::socket_addr, 8> peers;
 };
 class publish : public message
 {

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nano/node/common.hpp>
+#include <nano/node/network_generic.hpp>
 #include <nano/secure/blockstore.hpp>
 #include <nano/secure/ledger.hpp>
 
@@ -23,24 +24,6 @@ enum class sync_result
 	success,
 	error,
 	fork
-};
-class socket : public std::enable_shared_from_this<nano::socket>
-{
-public:
-	socket (std::shared_ptr<nano::node>);
-	void async_connect (nano::tcp_endpoint const &, std::function<void(boost::system::error_code const &)>);
-	void async_read (std::shared_ptr<std::vector<uint8_t>>, size_t, std::function<void(boost::system::error_code const &, size_t)>);
-	void async_write (std::shared_ptr<std::vector<uint8_t>>, std::function<void(boost::system::error_code const &, size_t)>);
-	void start (std::chrono::steady_clock::time_point = std::chrono::steady_clock::now () + std::chrono::seconds (5));
-	void stop ();
-	void close ();
-	void checkup ();
-	nano::tcp_endpoint remote_endpoint ();
-	boost::asio::ip::tcp::socket socket_m;
-
-private:
-	std::atomic<uint64_t> cutoff;
-	std::shared_ptr<nano::node> node;
 };
 
 /**
@@ -83,7 +66,7 @@ public:
 	bool request_frontier (std::unique_lock<std::mutex> &);
 	void request_pull (std::unique_lock<std::mutex> &);
 	void request_push (std::unique_lock<std::mutex> &);
-	void add_connection (nano::endpoint const &);
+	void add_connection (nano::net::socket_addr const &);
 	void pool_connection (std::shared_ptr<nano::bootstrap_client>);
 	void stop ();
 	void requeue_pull (nano::pull_info const &);
@@ -178,7 +161,7 @@ public:
 class bootstrap_client : public std::enable_shared_from_this<bootstrap_client>
 {
 public:
-	bootstrap_client (std::shared_ptr<nano::node>, std::shared_ptr<nano::bootstrap_attempt>, nano::tcp_endpoint const &);
+	bootstrap_client (std::shared_ptr<nano::node>, std::shared_ptr<nano::bootstrap_attempt>, nano::net::socket_addr const &);
 	~bootstrap_client ();
 	void run ();
 	std::shared_ptr<nano::bootstrap_client> shared ();
@@ -187,9 +170,9 @@ public:
 	double elapsed_seconds () const;
 	std::shared_ptr<nano::node> node;
 	std::shared_ptr<nano::bootstrap_attempt> attempt;
-	std::shared_ptr<nano::socket> socket;
+	std::shared_ptr<nano::net::client> socket;
 	std::shared_ptr<std::vector<uint8_t>> receive_buffer;
-	nano::tcp_endpoint endpoint;
+	nano::net::socket_addr endpoint;
 	std::chrono::steady_clock::time_point start_time;
 	std::atomic<uint64_t> block_count;
 	std::atomic<bool> pending_stop;
@@ -224,7 +207,7 @@ class bootstrap_initiator
 public:
 	bootstrap_initiator (nano::node &);
 	~bootstrap_initiator ();
-	void bootstrap (nano::endpoint const &, bool add_to_peers = true);
+	void bootstrap (nano::net::socket_addr const &, bool add_to_peers = true);
 	void bootstrap ();
 	void bootstrap_lazy (nano::block_hash const &, bool = false);
 	void bootstrap_wallet (std::deque<nano::account> &);
@@ -257,12 +240,12 @@ public:
 	void start ();
 	void stop ();
 	void accept_connection ();
-	void accept_action (boost::system::error_code const &, std::shared_ptr<nano::socket>);
+	void accept_action (boost::system::error_code const &, std::shared_ptr<nano::net::client>);
 	std::mutex mutex;
 	std::unordered_map<nano::bootstrap_server *, std::weak_ptr<nano::bootstrap_server>> connections;
-	nano::tcp_endpoint endpoint ();
+	nano::net::socket_addr endpoint ();
 	boost::asio::ip::tcp::acceptor acceptor;
-	nano::tcp_endpoint local;
+	nano::net::socket_addr local;
 	boost::asio::io_context & io_ctx;
 	nano::node & node;
 	bool on;
@@ -277,7 +260,7 @@ class message;
 class bootstrap_server : public std::enable_shared_from_this<nano::bootstrap_server>
 {
 public:
-	bootstrap_server (std::shared_ptr<nano::socket>, std::shared_ptr<nano::node>);
+	bootstrap_server (std::shared_ptr<nano::net::client>, std::shared_ptr<nano::node>);
 	~bootstrap_server ();
 	void receive ();
 	void receive_header_action (boost::system::error_code const &, size_t);
@@ -288,7 +271,7 @@ public:
 	void finish_request ();
 	void run_next ();
 	std::shared_ptr<std::vector<uint8_t>> receive_buffer;
-	std::shared_ptr<nano::socket> socket;
+	std::shared_ptr<nano::net::client> socket;
 	std::shared_ptr<nano::node> node;
 	std::mutex mutex;
 	std::queue<std::unique_ptr<nano::message>> requests;

@@ -3,6 +3,7 @@
 #include <gtest/gtest.h>
 
 #include <nano/core_test/testutil.hpp>
+#include <nano/node/network_generic.hpp>
 #include <nano/node/testing.hpp>
 
 #include <nano/qt/qt.hpp>
@@ -44,7 +45,7 @@ TEST (wallet, status)
 		return wallet->active_status.active.find (status_ty) != wallet->active_status.active.end ();
 	};
 	ASSERT_EQ ("Status: Disconnected, Blocks: 1", wallet->status->text ().toStdString ());
-	system.nodes[0]->peers.insert (nano::endpoint (boost::asio::ip::address_v6::loopback (), 10000), 0);
+	system.nodes[0]->peers.insert (nano::net::socket_addr (boost::asio::ip::address_v6::loopback (), 10000), 0);
 	// Because of the wallet "vulnerable" message, this won't be the message displayed.
 	// However, it will still be part of the status set.
 	ASSERT_FALSE (wallet_has (nano_qt::status_types::synchronizing));

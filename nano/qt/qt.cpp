@@ -1,10 +1,10 @@
-#include <nano/qt/qt.hpp>
-
 #include <boost/foreach.hpp>
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
 #include <cmath>
 #include <iomanip>
+#include <nano/node/network_generic.hpp>
+#include <nano/qt/qt.hpp>
 #include <sstream>
 
 namespace
@@ -1331,7 +1331,7 @@ void nano_qt::wallet::start ()
 			}));
 		}
 	});
-	node.observers.endpoint.add ([this_w](nano::endpoint const &) {
+	node.observers.endpoint.add ([this_w](nano::net::socket_addr const &) {
 		if (auto this_l = this_w.lock ())
 		{
 			this_l->application.postEvent (&this_l->processor, new eventloop_event ([this_w]() {
@@ -1881,8 +1881,8 @@ wallet (wallet_a)
 		this->wallet.pop_main_stack ();
 	});
 	QObject::connect (peers_bootstrap, &QPushButton::released, [this]() {
-		nano::endpoint endpoint;
-		auto error (nano::parse_endpoint (bootstrap_line->text ().toStdString (), endpoint));
+		bool error;
+		auto endpoint (nano::net::socket_addr::make_tcp (bootstrap_line->text ().toStdString (), error));
 		if (!error)
 		{
 			show_line_ok (*bootstrap_line);

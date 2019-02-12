@@ -31,6 +31,8 @@ add_library (node
 	lmdb.hpp
 	logging.cpp
 	logging.hpp
+	network_generic.hpp
+	network_generic.cpp
 	nodeconfig.hpp
 	nodeconfig.cpp
 	node.hpp

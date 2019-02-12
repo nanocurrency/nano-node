@@ -10,6 +10,7 @@ add_executable (core_test
 	gap_cache.cpp
 	ledger.cpp
 	network.cpp
+	network_generic.cpp
 	node.cpp
 	message.cpp
 	message_parser.cpp

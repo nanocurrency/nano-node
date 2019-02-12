@@ -22,7 +22,7 @@ TEST (message, keepalive_serialization)
 TEST (message, keepalive_deserialize)
 {
 	nano::keepalive message1;
-	message1.peers[0] = nano::endpoint (boost::asio::ip::address_v6::loopback (), 10000);
+	message1.peers[0] = nano::net::socket_addr::make_udp (boost::asio::ip::address_v6::loopback (), 10000);
 	std::vector<uint8_t> bytes;
 	{
 		nano::vectorstream stream (bytes);

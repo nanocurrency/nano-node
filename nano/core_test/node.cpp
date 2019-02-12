@@ -287,9 +287,9 @@ TEST (node, receive_gap)
 TEST (node, merge_peers)
 {
 	nano::system system (24000, 1);
-	std::array<nano::endpoint, 8> endpoints;
-	endpoints.fill (nano::endpoint (boost::asio::ip::address_v6::loopback (), 24000));
-	endpoints[0] = nano::endpoint (boost::asio::ip::address_v6::loopback (), 24001);
+	std::array<nano::net::socket_addr, 8> endpoints;
+	endpoints.fill (nano::net::socket_addr (boost::asio::ip::address_v6::loopback (), 24000));
+	endpoints[0] = nano::net::socket_addr (boost::asio::ip::address_v6::loopback (), 24001);
 	system.nodes[0]->network.merge_peers (endpoints);
 	ASSERT_EQ (0, system.nodes[0]->peers.peers.size ());
 }
@@ -395,7 +395,11 @@ TEST (node, connect_after_junk)
 	nano::node_init init1;
 	auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, 24001, nano::unique_path (), system.alarm, system.logging, system.work));
 	uint64_t junk (0);
-	node1->network.socket.async_send_to (boost::asio::buffer (&junk, sizeof (junk)), system.nodes[0]->network.endpoint (), [](boost::system::error_code const &, size_t) {});
+	node1->network.socket->async_connect (system.nodes[0]->network.endpoint (), [this, node1, junk](boost::system::error_code const & error) {
+		node1->network.socket->async_write (reinterpret_cast<const uint8_t *> (&junk), sizeof (junk), [](boost::system::error_code const & ec, size_t size_a) {
+		});
+	});
+	//node1->network.socket.async_send_to (boost::asio::buffer (&junk, sizeof (junk)), system.nodes[0]->network.endpoint (), [](boost::system::error_code const &, size_t) {});
 	system.deadline_set (10s);
 	while (system.nodes[0]->stats.count (nano::stat::type::error) == 0)
 	{

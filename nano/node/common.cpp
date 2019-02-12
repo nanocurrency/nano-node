@@ -1,7 +1,7 @@
 
-#include <nano/node/common.hpp>
-
 #include <nano/lib/work.hpp>
+#include <nano/node/common.hpp>
+#include <nano/node/network_generic.hpp>
 #include <nano/node/wallet.hpp>
 
 #include <boost/endian/conversion.hpp>
@@ -380,7 +380,8 @@ bool nano::message_parser::at_end (nano::stream & stream_a)
 nano::keepalive::keepalive () :
 message (nano::message_type::keepalive)
 {
-	nano::endpoint endpoint (boost::asio::ip::address_v6{}, 0);
+	// TODO: make protocol agnostic
+	auto endpoint (nano::net::socket_addr::make_udp (boost::asio::ip::address_v6{}, 0));
 	for (auto i (peers.begin ()), n (peers.end ()); i != n; ++i)
 	{
 		*i = endpoint;
@@ -423,7 +424,8 @@ bool nano::keepalive::deserialize (nano::stream & stream_a)
 		uint16_t port;
 		if (!try_read (stream_a, address) && !try_read (stream_a, port))
 		{
-			*i = nano::endpoint (boost::asio::ip::address_v6 (address), port);
+			// TODO: protocol agnostic... make_any?
+			*i = nano::net::socket_addr::make_udp (boost::asio::ip::address_v6 (address), port);
 		}
 		else
 		{
@@ -1042,26 +1044,48 @@ bool nano::parse_address_port (std::string const & string, boost::asio::ip::addr
 	return result;
 }
 
-bool nano::parse_endpoint (std::string const & string, nano::endpoint & endpoint_a)
+bool nano::parse_tcp_endpoint (std::string const & string, nano::net::socket_addr & endpoint_a)
+{
+	boost::asio::ip::tcp::endpoint tcp;
+	bool error (parse_tcp_endpoint (string, tcp));
+	if (!error)
+	{
+		endpoint_a = tcp;
+	}
+	return error;
+}
+
+bool nano::parse_udp_endpoint (std::string const & string, nano::net::socket_addr & endpoint_a)
+{
+	boost::asio::ip::udp::endpoint udp;
+	bool error (parse_endpoint (string, udp));
+	if (!error)
+	{
+		endpoint_a = udp;
+	}
+	return error;
+}
+
+bool nano::parse_endpoint (std::string const & string, boost::asio::ip::udp::endpoint & endpoint_a)
 {
 	boost::asio::ip::address address;
 	uint16_t port;
 	auto result (parse_address_port (string, address, port));
 	if (!result)
 	{
-		endpoint_a = nano::endpoint (address, port);
+		endpoint_a = boost::asio::ip::udp::endpoint (address, port);
 	}
 	return result;
 }
 
-bool nano::parse_tcp_endpoint (std::string const & string, nano::tcp_endpoint & endpoint_a)
+bool nano::parse_tcp_endpoint (std::string const & string, boost::asio::ip::tcp::endpoint & endpoint_a)
 {
 	boost::asio::ip::address address;
 	uint16_t port;
 	auto result (parse_address_port (string, address, port));
 	if (!result)
 	{
-		endpoint_a = nano::tcp_endpoint (address, port);
+		endpoint_a = boost::asio::ip::tcp::endpoint (address, port);
 	}
 	return result;
 }
