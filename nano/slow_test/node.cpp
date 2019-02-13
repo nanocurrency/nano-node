@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include <nano/node/testing.hpp>
+#include <nano/node/udp.hpp>
 
 #include <thread>
 
@@ -47,7 +48,8 @@ TEST (system, receive_while_synchronizing)
 		nano::node_init init1;
 		auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, 24001, nano::unique_path (), system.alarm, system.logging, system.work));
 		ASSERT_FALSE (init1.error ());
-		node1->network.send_keepalive (system.nodes[0]->network.endpoint ());
+		nano::message_sink_udp sink (*node1, system.nodes[0]->network.endpoint ());
+		node1->network.send_keepalive (sink);
 		auto wallet (node1->wallets.create (1));
 		ASSERT_EQ (key.pub, wallet->insert_adhoc (key.prv));
 		node1->start ();

@@ -99,25 +99,6 @@ TEST (network, send_node_id_handshake)
 	node1->stop ();
 }
 
-TEST (network, keepalive_ipv4)
-{
-	nano::system system (24000, 1);
-	auto list1 (system.nodes[0]->peers.list ());
-	ASSERT_EQ (0, list1.size ());
-	nano::node_init init1;
-	auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, 24001, nano::unique_path (), system.alarm, system.logging, system.work));
-	node1->start ();
-	system.nodes.push_back (node1);
-	node1->send_keepalive (nano::endpoint (boost::asio::ip::address_v4::loopback (), 24000));
-	auto initial (system.nodes[0]->stats.count (nano::stat::type::message, nano::stat::detail::keepalive, nano::stat::dir::in));
-	system.deadline_set (10s);
-	while (system.nodes[0]->stats.count (nano::stat::type::message, nano::stat::detail::keepalive, nano::stat::dir::in) == initial)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
-	node1->stop ();
-}
-
 TEST (network, last_contacted)
 {
 	nano::system system (24000, 1);
@@ -127,7 +108,8 @@ TEST (network, last_contacted)
 	auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, 24001, nano::unique_path (), system.alarm, system.logging, system.work));
 	node1->start ();
 	system.nodes.push_back (node1);
-	node1->send_keepalive (nano::endpoint (boost::asio::ip::address_v4::loopback (), 24000));
+	nano::message_sink_udp sink (*node1, nano::endpoint (boost::asio::ip::address_v6::loopback (), 24000));
+	node1->network.send_keepalive (sink);
 	system.deadline_set (10s);
 
 	// Wait until the handshake is complete
@@ -139,7 +121,7 @@ TEST (network, last_contacted)
 
 	// Make sure last_contact gets updated on receiving a non-handshake message
 	auto timestamp_before_keepalive = system.nodes[0]->peers.list_vector (1).front ().last_contact;
-	node1->send_keepalive (nano::endpoint (boost::asio::ip::address_v4::loopback (), 24000));
+	node1->network.send_keepalive (sink);
 	while (system.nodes[0]->stats.count (nano::stat::type::message, nano::stat::detail::keepalive, nano::stat::dir::in) < 2)
 	{
 		ASSERT_NO_ERROR (system.poll ());
@@ -287,7 +269,7 @@ TEST (network, send_insufficient_work)
 		publish.serialize (stream);
 	}
 	nano::message_sink_udp sink (*system.nodes[0], system.nodes[1]->network.endpoint ());
-	sink.send_buffer (bytes->data (), bytes->size (), [bytes](boost::system::error_code const & ec, size_t size) {});
+	sink.send_buffer_raw (bytes->data (), bytes->size (), [bytes](boost::system::error_code const & ec, size_t size) {});
 	ASSERT_EQ (0, system.nodes[0]->stats.count (nano::stat::type::error, nano::stat::detail::insufficient_work));
 	system.deadline_set (10s);
 	while (system.nodes[1]->stats.count (nano::stat::type::error, nano::stat::detail::insufficient_work) == 0)

@@ -39,6 +39,61 @@ namespace nano
 {
 extern unsigned char nano_bootstrap_weights[];
 extern size_t nano_bootstrap_weights_size;
+
+class callback_visitor : public nano::message_visitor
+{
+public:
+	void keepalive (nano::keepalive const & message_a) override
+	{
+		result = nano::stat::detail::keepalive;
+	}
+	void publish (nano::publish const & message_a) override
+	{
+		result = nano::stat::detail::publish;
+	}
+	void confirm_req (nano::confirm_req const & message_a) override
+	{
+		result = nano::stat::detail::confirm_req;
+	}
+	void confirm_ack (nano::confirm_ack const & message_a) override
+	{
+		result = nano::stat::detail::confirm_ack;
+	}
+	void bulk_pull (nano::bulk_pull const & message_a) override
+	{
+		result = nano::stat::detail::bulk_pull;
+	}
+	void bulk_pull_account (nano::bulk_pull_account const & message_a) override
+	{
+		result = nano::stat::detail::bulk_pull_account;
+	}
+	void bulk_push (nano::bulk_push const & message_a) override
+	{
+		result = nano::stat::detail::bulk_push;
+	}
+	void frontier_req (nano::frontier_req const & message_a) override
+	{
+		result = nano::stat::detail::frontier_req;
+	}
+	void node_id_handshake (nano::node_id_handshake const & message_a) override
+	{
+		result = nano::stat::detail::node_id_handshake;
+	}
+	nano::stat::detail result;
+};
+}
+
+void nano::message_sink::send_buffer (std::shared_ptr<std::vector<uint8_t>> buffer_a, nano::stat::detail detail_a) const
+{
+	send_buffer_raw (buffer_a->data (), buffer_a->size (), callback (buffer_a, detail_a));
+}
+
+void nano::message_sink::sink (nano::message const & message_a) const
+{
+	callback_visitor visitor;
+	message_a.visit (visitor);
+	auto buffer (message_a.to_bytes ());
+	send_buffer (buffer, visitor.result);
 }
 
 nano::network::network (nano::node & node_a, uint16_t port) :
@@ -174,7 +229,8 @@ void nano::node::keepalive (std::string const & address_a, uint16_t port_a, bool
 			for (auto i (i_a), n (boost::asio::ip::udp::resolver::iterator{}); i != n; ++i)
 			{
 				auto endpoint (nano::map_endpoint_to_v6 (i->endpoint ()));
-				node_l->send_keepalive (endpoint);
+				nano::message_sink_udp sink (*node_l, endpoint);
+				node_l->network.send_keepalive (sink);
 				if (preconfigured_peer_a)
 				{
 					node_l->peers.insert (endpoint, nano::protocol_version, true);
@@ -213,7 +269,7 @@ void nano::network::republish (nano::block_hash const & hash_a, std::shared_ptr<
 		BOOST_LOG (node.log) << boost::str (boost::format ("Publishing %1% to %2%") % hash_a.to_string () % endpoint_a);
 	}
 	nano::message_sink_udp sink (node, endpoint_a);
-	sink.send_buffer (buffer_a->data (), buffer_a->size (), sink.callback (buffer_a, nano::stat::detail::publish));
+	sink.send_buffer (buffer_a, nano::stat::detail::publish);
 }
 
 template <typename T>
@@ -235,7 +291,8 @@ bool confirm_block (nano::transaction const & transaction_a, nano::node & node_a
 				auto vote_bytes = confirm.to_bytes ();
 				for (auto j (list_a.begin ()), m (list_a.end ()); j != m; ++j)
 				{
-					node_a.network.confirm_send (confirm, vote_bytes, *j);
+					nano::message_sink_udp sink (node_a, *j);
+					sink.send_buffer (vote_bytes, nano::stat::detail::confirm_ack);
 				}
 				node_a.votes_cache.add (vote);
 			});
@@ -249,7 +306,8 @@ bool confirm_block (nano::transaction const & transaction_a, nano::node & node_a
 				auto vote_bytes = confirm.to_bytes ();
 				for (auto j (list_a.begin ()), m (list_a.end ()); j != m; ++j)
 				{
-					node_a.network.confirm_send (confirm, vote_bytes, *j);
+					nano::message_sink_udp sink (node_a, *j);
+					sink.send_buffer (vote_bytes, nano::stat::detail::confirm_ack);
 				}
 			}
 		}
@@ -288,7 +346,8 @@ void nano::network::confirm_hashes (nano::transaction const & transaction_a, nan
 				nano::vectorstream stream (*bytes);
 				confirm.serialize (stream);
 			}
-			this->node.network.confirm_send (confirm, bytes, peer_a);
+			nano::message_sink_udp sink (this->node, peer_a);
+			sink.send_buffer (bytes, nano::stat::detail::confirm_ack);
 			this->node.votes_cache.add (vote);
 		});
 	}
@@ -303,7 +362,8 @@ bool nano::network::send_votes_cache (nano::block_hash const & hash_a, nano::end
 	{
 		nano::confirm_ack confirm (vote);
 		auto vote_bytes = confirm.to_bytes ();
-		confirm_send (confirm, vote_bytes, peer_a);
+		nano::message_sink_udp sink (node, peer_a);
+		sink.send_buffer (vote_bytes, nano::stat::detail::confirm_ack);
 	}
 	// Returns true if votes were sent
 	bool result (!votes.empty ());
@@ -373,7 +433,8 @@ void nano::network::republish_vote (std::shared_ptr<nano::vote> vote_a)
 	auto list (node.peers.list_fanout ());
 	for (auto j (list.begin ()), m (list.end ()); j != m; ++j)
 	{
-		node.network.confirm_send (confirm, bytes, *j);
+		nano::message_sink_udp sink (node, *j);
+		sink.send_buffer (bytes, nano::stat::detail::confirm_ack);
 	}
 }
 
@@ -1142,7 +1203,8 @@ nano::vote_code nano::vote_processor::vote_blocking (nano::transaction const & t
 				if (max_vote->sequence > vote_a->sequence + 10000)
 				{
 					nano::confirm_ack confirm (max_vote);
-					node.network.confirm_send (confirm, confirm.to_bytes (), endpoint_a);
+					nano::message_sink_udp sink (node, endpoint_a);
+					sink.send_buffer (confirm.to_bytes (), nano::stat::detail::confirm_ack);
 				}
 				break;
 			case nano::vote_code::invalid:
@@ -1614,12 +1676,6 @@ bool nano::node::copy_with_compaction (boost::filesystem::path const & destinati
 	return !mdb_env_copy2 (boost::polymorphic_downcast<nano::mdb_store *> (store_impl.get ())->env.environment, destination_file.string ().c_str (), MDB_CP_COMPACT);
 }
 
-void nano::node::send_keepalive (nano::endpoint const & endpoint_a)
-{
-	nano::message_sink_udp sink (*this, nano::map_endpoint_to_v6 (endpoint_a));
-	network.send_keepalive (sink);
-}
-
 void nano::node::process_fork (nano::transaction const & transaction_a, std::shared_ptr<nano::block> block_a)
 {
 	auto root (block_a->root ());
@@ -1787,16 +1843,6 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (gap_cache & gap_ca
 	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "blocks", count, sizeof_element }));
 	return composite;
 }
-}
-
-void nano::network::confirm_send (nano::confirm_ack const & confirm_a, std::shared_ptr<std::vector<uint8_t>> bytes_a, nano::endpoint const & endpoint_a)
-{
-	if (node.config.logging.network_publish_logging ())
-	{
-		BOOST_LOG (node.log) << boost::str (boost::format ("Sending confirm_ack for block(s) %1%to %2% sequence %3%") % confirm_a.vote->hashes_string () % endpoint_a % std::to_string (confirm_a.vote->sequence));
-	}
-	nano::message_sink_udp sink (node, endpoint_a);
-	sink.send_buffer (bytes_a->data (), bytes_a->size (), sink.callback (bytes_a, nano::stat::detail::confirm_ack));
 }
 
 void nano::node::process_active (std::shared_ptr<nano::block> incoming)
@@ -2462,7 +2508,8 @@ void nano::node::add_initial_peers ()
 		nano::endpoint endpoint (boost::asio::ip::address_v6 (i->first.address_bytes ()), i->first.port ());
 		if (!peers.reachout (endpoint))
 		{
-			send_keepalive (endpoint);
+			nano::message_sink_udp sink (*this, endpoint);
+			network.send_keepalive (sink);
 		}
 	}
 }

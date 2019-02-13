@@ -1191,7 +1191,8 @@ TEST (node, fork_no_vote_quorum)
 		nano::vectorstream stream (*bytes);
 		confirm.serialize (stream);
 	}
-	node2.network.confirm_send (confirm, bytes, node3.network.endpoint ());
+	nano::message_sink_udp sink (node2, node3.network.endpoint ());
+	sink.send_buffer (bytes, nano::stat::detail::confirm_ack);
 	while (node3.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::in) < 3)
 	{
 		ASSERT_NO_ERROR (system.poll ());

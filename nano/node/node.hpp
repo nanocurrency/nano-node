@@ -321,7 +321,10 @@ class message_sink
 {
 public:
 	virtual ~message_sink () = default;
-	virtual void sink (nano::message const &) const = 0;
+	void sink (nano::message const &) const;
+	void send_buffer (std::shared_ptr<std::vector<uint8_t>>, nano::stat::detail) const;
+	virtual void send_buffer_raw (uint8_t const *, size_t, std::function<void(boost::system::error_code const &, size_t)>) const = 0;
+	virtual std::function<void(boost::system::error_code const &, size_t)> callback (std::shared_ptr<std::vector<uint8_t>>, nano::stat::detail) const = 0;
 };
 class network
 {
@@ -340,7 +343,6 @@ public:
 	static unsigned const broadcast_interval_ms = 10;
 	void republish_block_batch (std::deque<std::shared_ptr<nano::block>>, unsigned = broadcast_interval_ms);
 	void republish (nano::block_hash const &, std::shared_ptr<std::vector<uint8_t>>, nano::endpoint);
-	void confirm_send (nano::confirm_ack const &, std::shared_ptr<std::vector<uint8_t>>, nano::endpoint const &);
 	void merge_peers (std::array<nano::endpoint, 8> const &);
 	void send_keepalive (nano::message_sink const &);
 	void send_node_id_handshake (nano::endpoint const &, boost::optional<nano::uint256_union> const & query, boost::optional<nano::uint256_union> const & respond_to);
@@ -444,7 +446,6 @@ public:
 	{
 		alarm.io_ctx.post (action_a);
 	}
-	void send_keepalive (nano::endpoint const &);
 	bool copy_with_compaction (boost::filesystem::path const &);
 	void keepalive (std::string const &, uint16_t, bool = false);
 	void start ();
