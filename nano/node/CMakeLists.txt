@@ -51,6 +51,8 @@ add_library (node
 	wallet.cpp
 	stats.hpp
 	stats.cpp
+	udp.cpp
+	udp.hpp
 	voting.hpp
 	voting.cpp
 	working.hpp

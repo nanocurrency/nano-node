@@ -2,6 +2,7 @@
 #include <gtest/gtest.h>
 #include <nano/core_test/testutil.hpp>
 #include <nano/node/testing.hpp>
+#include <nano/node/udp.hpp>
 
 using namespace std::chrono_literals;
 
@@ -282,8 +283,8 @@ TEST (network, send_insufficient_work)
 		nano::vectorstream stream (*bytes);
 		publish.serialize (stream);
 	}
-	auto node1 (system.nodes[1]->shared ());
-	system.nodes[0]->network.send_buffer (bytes->data (), bytes->size (), system.nodes[1]->network.endpoint (), [bytes, node1](boost::system::error_code const & ec, size_t size) {});
+	nano::message_sink_udp sink (*system.nodes[0], system.nodes[1]->network.endpoint ());
+	sink.send_buffer (bytes->data (), bytes->size (), [bytes](boost::system::error_code const & ec, size_t size) {});
 	ASSERT_EQ (0, system.nodes[0]->stats.count (nano::stat::type::error, nano::stat::detail::insufficient_work));
 	system.deadline_set (10s);
 	while (system.nodes[1]->stats.count (nano::stat::type::error, nano::stat::detail::insufficient_work) == 0)

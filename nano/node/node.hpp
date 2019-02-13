@@ -317,6 +317,12 @@ private:
 	std::vector<nano::message_buffer> entries;
 	bool stopped;
 };
+class message_sink
+{
+public:
+	virtual ~message_sink () = default;
+	virtual void sink (nano::message const &) = 0;
+};
 class network
 {
 public:
@@ -346,7 +352,6 @@ public:
 	void send_confirm_req_hashes (nano::endpoint const &, std::vector<std::pair<nano::block_hash, nano::block_hash>> const &);
 	void confirm_hashes (nano::transaction const &, nano::endpoint const &, std::vector<nano::block_hash>);
 	bool send_votes_cache (nano::block_hash const &, nano::endpoint const &);
-	void send_buffer (uint8_t const *, size_t, nano::endpoint const &, std::function<void(boost::system::error_code const &, size_t)>);
 	nano::endpoint endpoint ();
 	nano::message_buffer_manager buffer_container;
 	boost::asio::ip::udp::socket socket;
