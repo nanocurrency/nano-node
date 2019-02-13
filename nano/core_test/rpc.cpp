@@ -4357,6 +4357,29 @@ TEST (rpc, stats_clear)
 	ASSERT_LE (system.nodes[0]->stats.last_reset ().count (), 5);
 }
 
+TEST (rpc, unopened)
+{
+	nano::system system (24000, 1);
+	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
+	nano::keypair key;
+	auto genesis (system.nodes[0]->latest (nano::test_genesis_key.pub));
+	ASSERT_FALSE (genesis.is_zero ());
+	auto send (system.wallet (0)->send_action (nano::test_genesis_key.pub, key.pub, 1));
+	ASSERT_NE (nullptr, send);
+	nano::rpc rpc (system.io_ctx, *system.nodes[0], nano::rpc_config (true));
+	rpc.start ();
+	boost::property_tree::ptree request;
+	request.put ("action", "unopened");
+	test_response response (request, rpc, system.io_ctx);
+	system.deadline_set (5s);
+	while (response.status == 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (200, response.status);
+	ASSERT_EQ ("1", response.json.get<std::string> (key.pub.to_account ()));
+}
+
 TEST (rpc, uptime)
 {
 	nano::system system (24000, 1);

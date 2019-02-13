@@ -3314,6 +3314,46 @@ void nano::rpc_handler::unchecked_keys ()
 	response_errors ();
 }
 
+void nano::rpc_handler::unopened ()
+{
+	std::unordered_map<nano::account, nano::uint128_t> unopened;
+	auto transaction (node.store.tx_begin_read ());
+	for (auto i (node.store.latest_begin (transaction)), n (node.store.latest_end ()); i != n; ++i)
+	{
+		auto account (i->first);
+		auto hash = node.ledger.latest (transaction, account);
+		auto block (node.store.block_get (transaction, hash));
+		while (block != nullptr)
+		{
+			auto hash_d (node.ledger.block_destination (transaction, *block));
+			if (!hash_d.is_zero ())
+			{
+				nano::account account_d (hash_d);
+				if (node.ledger.latest (transaction, account_d).is_zero ()) // no blocks = unopened
+				{
+					auto u (unopened.find (account_d));
+					if (u == unopened.end ())
+					{
+						unopened.insert ({ account_d, node.ledger.amount (transaction, hash) });
+					}
+					else
+					{
+						u->second += node.ledger.amount (transaction, hash);
+					}
+				}
+			}
+
+			hash = block->previous ();
+			block = node.store.block_get (transaction, hash);
+		}
+	}
+	for (const auto & kv : unopened)
+	{
+		response_l.put (kv.first.to_account (), kv.second.convert_to<std::string> ());
+	}
+	response_errors ();
+}
+
 void nano::rpc_handler::uptime ()
 {
 	response_l.put ("seconds", std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - node.startup_time).count ());
@@ -4606,6 +4646,10 @@ void nano::rpc_handler::process_request ()
 			else if (action == "unchecked_keys")
 			{
 				unchecked_keys ();
+			}
+			else if (action == "unopened")
+			{
+				unopened ();
 			}
 			else if (action == "uptime")
 			{
