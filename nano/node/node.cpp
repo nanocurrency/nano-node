@@ -474,7 +474,9 @@ void nano::network::broadcast_confirm_req_base (std::shared_ptr<nano::block> blo
 	auto count (0);
 	while (!endpoints_a->empty () && count < max_reps)
 	{
-		send_confirm_req (endpoints_a->back ().endpoint, block_a);
+		nano::message_sink_udp sink (node, endpoints_a->back ().endpoint);
+		nano::confirm_req req (block_a);
+		sink.sink (req);
 		endpoints_a->pop_back ();
 		count++;
 	}
@@ -511,7 +513,9 @@ void nano::network::broadcast_confirm_req_batch (std::unordered_map<nano::endpoi
 			roots_hashes.push_back (j->second.back ());
 			j->second.pop_back ();
 		}
-		send_confirm_req_hashes (j->first, roots_hashes);
+		nano::confirm_req req (roots_hashes);
+		nano::message_sink_udp sink (node, j->first);
+		sink.sink (req);
 		if (j->second.empty ())
 		{
 			request_bundle_a.erase (j);
@@ -554,28 +558,6 @@ void nano::network::broadcast_confirm_req_batch (std::deque<std::pair<std::share
 	}
 }
 
-void nano::network::send_confirm_req (nano::endpoint const & endpoint_a, std::shared_ptr<nano::block> block)
-{
-	nano::confirm_req message (block);
-	if (node.config.logging.network_message_logging ())
-	{
-		BOOST_LOG (node.log) << boost::str (boost::format ("Sending confirm req to %1%") % endpoint_a);
-	}
-	nano::message_sink_udp sink (node, endpoint_a);
-	sink.sink (message);
-}
-
-void nano::network::send_confirm_req_hashes (nano::endpoint const & endpoint_a, std::vector<std::pair<nano::block_hash, nano::block_hash>> const & roots_hashes_a)
-{
-	nano::confirm_req message (roots_hashes_a);
-	if (node.config.logging.network_message_logging ())
-	{
-		BOOST_LOG (node.log) << boost::str (boost::format ("Sending confirm req hashes to %1%") % endpoint_a);
-	}
-	nano::message_sink_udp sink (node, endpoint_a);
-	sink.sink (message);
-}
-
 template <typename T>
 void rep_query (nano::node & node_a, T const & peers_a)
 {
@@ -586,7 +568,9 @@ void rep_query (nano::node & node_a, T const & peers_a)
 	for (auto i (peers_a.begin ()), n (peers_a.end ()); i != n; ++i)
 	{
 		node_a.peers.rep_request (*i);
-		node_a.network.send_confirm_req (*i, block);
+		nano::message_sink_udp sink (node_a, *i);
+		nano::confirm_req req (block);
+		sink.sink (req);
 	}
 	std::weak_ptr<nano::node> node_w (node_a.shared ());
 	node_a.alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (5), [node_w, hash]() {
@@ -1519,7 +1503,9 @@ startup_time (std::chrono::steady_clock::now ())
 					{
 						if (*i != nullptr)
 						{
-							this->network.send_confirm_req (endpoint_a, *i);
+							nano::message_sink_udp sink (*this, endpoint_a);
+							nano::confirm_req req (*i);
+							sink.sink (req);
 						}
 					}
 				}
