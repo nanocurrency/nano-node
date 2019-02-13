@@ -49,14 +49,15 @@ nano::message_sink_udp::message_sink_udp (nano::node & node_a, nano::endpoint co
 node (node_a),
 endpoint (endpoint_a)
 {
+	assert (endpoint_a.address ().is_v6 ());
 }
 
-void nano::message_sink_udp::send_buffer (uint8_t const * data_a, size_t size_a, std::function<void(boost::system::error_code const &, size_t)> callback_a)
+void nano::message_sink_udp::send_buffer (uint8_t const * data_a, size_t size_a, std::function<void(boost::system::error_code const &, size_t)> callback_a) const
 {
 	node.network.socket.async_send_to (boost::asio::buffer (data_a, size_a), endpoint, callback_a);
 }
 
-void nano::message_sink_udp::sink (nano::message const & message_a)
+void nano::message_sink_udp::sink (nano::message const & message_a) const
 {
 	callback_visitor visitor;
 	message_a.visit (visitor);
@@ -64,7 +65,7 @@ void nano::message_sink_udp::sink (nano::message const & message_a)
 	send_buffer (buffer->data (), buffer->size (), callback (buffer, visitor.result));
 }
 
-std::function<void(boost::system::error_code const &, size_t)> nano::message_sink_udp::callback (std::shared_ptr<std::vector<uint8_t>> buffer_a, nano::stat::detail detail_a)
+std::function<void(boost::system::error_code const &, size_t)> nano::message_sink_udp::callback (std::shared_ptr<std::vector<uint8_t>> buffer_a, nano::stat::detail detail_a) const
 {
 	return [ buffer_a, node = std::weak_ptr<nano::node> (node.shared ()), detail_a ](boost::system::error_code const & ec, size_t size_a)
 	{

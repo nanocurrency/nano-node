@@ -321,7 +321,7 @@ class message_sink
 {
 public:
 	virtual ~message_sink () = default;
-	virtual void sink (nano::message const &) = 0;
+	virtual void sink (nano::message const &) const = 0;
 };
 class network
 {
@@ -342,7 +342,7 @@ public:
 	void republish (nano::block_hash const &, std::shared_ptr<std::vector<uint8_t>>, nano::endpoint);
 	void confirm_send (nano::confirm_ack const &, std::shared_ptr<std::vector<uint8_t>>, nano::endpoint const &);
 	void merge_peers (std::array<nano::endpoint, 8> const &);
-	void send_keepalive (nano::endpoint const &);
+	void send_keepalive (nano::message_sink const &);
 	void send_node_id_handshake (nano::endpoint const &, boost::optional<nano::uint256_union> const & query, boost::optional<nano::uint256_union> const & respond_to);
 	void broadcast_confirm_req (std::shared_ptr<nano::block>);
 	void broadcast_confirm_req_base (std::shared_ptr<nano::block>, std::shared_ptr<std::vector<nano::peer_information>>, unsigned, bool = false);

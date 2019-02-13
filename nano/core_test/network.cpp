@@ -74,7 +74,8 @@ TEST (network, send_node_id_handshake)
 	system.nodes.push_back (node1);
 	auto initial (system.nodes[0]->stats.count (nano::stat::type::message, nano::stat::detail::node_id_handshake, nano::stat::dir::in));
 	auto initial_node1 (node1->stats.count (nano::stat::type::message, nano::stat::detail::node_id_handshake, nano::stat::dir::in));
-	system.nodes[0]->network.send_keepalive (node1->network.endpoint ());
+	nano::message_sink_udp sink (*system.nodes[0], node1->network.endpoint ());
+	system.nodes[0]->network.send_keepalive (sink);
 	ASSERT_EQ (0, system.nodes[0]->peers.list ().size ());
 	ASSERT_EQ (0, node1->peers.list ().size ());
 	system.deadline_set (10s);
@@ -161,7 +162,8 @@ TEST (network, multi_keepalive)
 	node1->start ();
 	system.nodes.push_back (node1);
 	ASSERT_EQ (0, node1->peers.size ());
-	node1->network.send_keepalive (system.nodes[0]->network.endpoint ());
+	nano::message_sink_udp sink1 (*node1, system.nodes[0]->network.endpoint ());
+	node1->network.send_keepalive (sink1);
 	ASSERT_EQ (0, node1->peers.size ());
 	ASSERT_EQ (0, system.nodes[0]->peers.size ());
 	system.deadline_set (10s);
@@ -174,7 +176,8 @@ TEST (network, multi_keepalive)
 	ASSERT_FALSE (init2.error ());
 	node2->start ();
 	system.nodes.push_back (node2);
-	node2->network.send_keepalive (system.nodes[0]->network.endpoint ());
+	nano::message_sink_udp sink (*node2, system.nodes[0]->network.endpoint ());
+	node2->network.send_keepalive (sink);
 	system.deadline_set (10s);
 	while (node1->peers.size () != 2 || system.nodes[0]->peers.size () != 2 || node2->peers.size () != 2)
 	{

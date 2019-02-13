@@ -3,6 +3,7 @@
 #include <cstdlib>
 #include <nano/node/common.hpp>
 #include <nano/node/testing.hpp>
+#include <nano/node/udp.hpp>
 
 std::string nano::error_system_messages::message (int ev) const
 {
@@ -46,7 +47,8 @@ work (1, nullptr)
 		decltype (starting1) new1;
 		auto starting2 ((*j)->peers.size ());
 		decltype (starting2) new2;
-		(*j)->network.send_keepalive ((*i)->network.endpoint ());
+		nano::message_sink_udp sink (**j, (*i)->network.endpoint ());
+		(*j)->network.send_keepalive (sink);
 		do
 		{
 			poll ();

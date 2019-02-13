@@ -2,6 +2,7 @@
 #include <nano/core_test/testutil.hpp>
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/node/testing.hpp>
+#include <nano/node/udp.hpp>
 #include <nano/node/working.hpp>
 
 #include <boost/make_shared.hpp>
@@ -207,7 +208,8 @@ TEST (node, node_receive_quorum)
 	nano::system system2 (24001, 1);
 	system2.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	ASSERT_TRUE (system.nodes[0]->balance (key.pub).is_zero ());
-	system.nodes[0]->network.send_keepalive (system2.nodes[0]->network.endpoint ());
+	nano::message_sink_udp sink (*system.nodes[0], system2.nodes[0]->network.endpoint ());
+	system.nodes[0]->network.send_keepalive (sink);
 	while (system.nodes[0]->balance (key.pub).is_zero ())
 	{
 		ASSERT_NO_ERROR (system.poll ());
@@ -230,7 +232,8 @@ TEST (node, auto_bootstrap)
 	nano::node_init init1;
 	auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, 24001, nano::unique_path (), system.alarm, system.logging, system.work));
 	ASSERT_FALSE (init1.error ());
-	node1->network.send_keepalive (system.nodes[0]->network.endpoint ());
+	nano::message_sink_udp sink (*node1, system.nodes[0]->network.endpoint ());
+	node1->network.send_keepalive (sink);
 	node1->start ();
 	system.nodes.push_back (node1);
 	while (!node1->bootstrap_initiator.in_progress ())
@@ -260,7 +263,8 @@ TEST (node, auto_bootstrap_reverse)
 	auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, 24001, nano::unique_path (), system.alarm, system.logging, system.work));
 	ASSERT_FALSE (init1.error ());
 	ASSERT_NE (nullptr, system.wallet (0)->send_action (nano::test_genesis_key.pub, key2.pub, system.nodes[0]->config.receive_minimum.number ()));
-	system.nodes[0]->network.send_keepalive (node1->network.endpoint ());
+	nano::message_sink_udp sink (*system.nodes[0], node1->network.endpoint ());
+	system.nodes[0]->network.send_keepalive (sink);
 	node1->start ();
 	system.nodes.push_back (node1);
 	system.deadline_set (10s);
@@ -403,7 +407,8 @@ TEST (node, connect_after_junk)
 	}
 	node1->start ();
 	system.nodes.push_back (node1);
-	node1->network.send_keepalive (system.nodes[0]->network.endpoint ());
+	nano::message_sink_udp sink (*node1, system.nodes[0]->network.endpoint ());
+	node1->network.send_keepalive (sink);
 	system.deadline_set (10s);
 	while (node1->peers.empty ())
 	{
@@ -1035,7 +1040,8 @@ TEST (node, fork_bootstrap_flip)
 		auto transaction (node2.store.tx_begin ());
 		ASSERT_TRUE (node2.store.block_exists (transaction, send2->hash ()));
 	}
-	node1.network.send_keepalive (node2.network.endpoint ());
+	nano::message_sink_udp sink (node1, node2.network.endpoint ());
+	node1.network.send_keepalive (sink);
 	system1.deadline_set (50s);
 	while (node2.peers.empty ())
 	{

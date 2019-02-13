@@ -158,13 +158,11 @@ void nano::network::stop ()
 	buffer_container.stop ();
 }
 
-void nano::network::send_keepalive (nano::endpoint const & endpoint_a)
+void nano::network::send_keepalive (nano::message_sink const & sink_a)
 {
-	assert (endpoint_a.address ().is_v6 ());
 	nano::keepalive message;
 	node.peers.random_fill (message.peers);
-	nano::message_sink_udp sink (node, endpoint_a);
-	sink.sink (message);
+	sink_a.sink (message);
 }
 
 void nano::node::keepalive (std::string const & address_a, uint16_t port_a, bool preconfigured_peer_a)
@@ -833,7 +831,8 @@ void nano::network::merge_peers (std::array<nano::endpoint, 8> const & peers_a)
 	{
 		if (!node.peers.reachout (*i))
 		{
-			send_keepalive (*i);
+			nano::message_sink_udp sink (node, *i);
+			send_keepalive (sink);
 		}
 	}
 }
@@ -1421,7 +1420,8 @@ startup_time (std::chrono::steady_clock::now ())
 		});
 	}
 	observers.endpoint.add ([this](nano::endpoint const & endpoint_a) {
-		this->network.send_keepalive (endpoint_a);
+		nano::message_sink_udp sink (*this, endpoint_a);
+		this->network.send_keepalive (sink);
 		rep_query (*this, endpoint_a);
 	});
 	observers.vote.add ([this](nano::transaction const & transaction, std::shared_ptr<nano::vote> vote_a, nano::endpoint const & endpoint_a) {
@@ -1616,7 +1616,8 @@ bool nano::node::copy_with_compaction (boost::filesystem::path const & destinati
 
 void nano::node::send_keepalive (nano::endpoint const & endpoint_a)
 {
-	network.send_keepalive (nano::map_endpoint_to_v6 (endpoint_a));
+	nano::message_sink_udp sink (*this, nano::map_endpoint_to_v6 (endpoint_a));
+	network.send_keepalive (sink);
 }
 
 void nano::node::process_fork (nano::transaction const & transaction_a, std::shared_ptr<nano::block> block_a)
@@ -1927,7 +1928,8 @@ void nano::node::ongoing_keepalive ()
 	auto peers_l (peers.purge_list (std::chrono::steady_clock::now () - cutoff));
 	for (auto i (peers_l.begin ()), j (peers_l.end ()); i != j && std::chrono::steady_clock::now () - i->last_attempt > period; ++i)
 	{
-		network.send_keepalive (i->endpoint);
+		nano::message_sink_udp sink (*this, i->endpoint);
+		network.send_keepalive (sink);
 	}
 	std::weak_ptr<nano::node> node_w (shared_from_this ());
 	alarm.add (std::chrono::steady_clock::now () + period, [node_w]() {
