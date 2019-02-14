@@ -520,9 +520,9 @@ namespace
 class network_message_visitor : public nano::message_visitor
 {
 public:
-	network_message_visitor (nano::node & node_a, nano::endpoint const & sender_a) :
+	network_message_visitor (nano::node & node_a, nano::message_sink_udp const & sink_a) :
 	node (node_a),
-	sender (sender_a)
+	sink (sink_a)
 	{
 	}
 	virtual ~network_message_visitor () = default;
@@ -530,16 +530,14 @@ public:
 	{
 		if (node.config.logging.network_keepalive_logging ())
 		{
-			BOOST_LOG (node.log) << boost::str (boost::format ("Received keepalive message from %1%") % sender);
+			BOOST_LOG (node.log) << boost::str (boost::format ("Received keepalive message from %1%") % sink.to_string ());
 		}
 		node.stats.inc (nano::stat::type::message, nano::stat::detail::keepalive, nano::stat::dir::in);
-		if (node.peers.contacted (sender, message_a.header.version_using))
+		if (node.peers.contacted (sink.endpoint, message_a.header.version_using))
 		{
-			auto endpoint_l (nano::map_endpoint_to_v6 (sender));
-			auto cookie (node.peers.assign_syn_cookie (endpoint_l));
+			auto cookie (node.peers.assign_syn_cookie (sink.endpoint));
 			if (cookie)
 			{
-				nano::message_sink_udp sink (node, endpoint_l);
 				node.network.send_node_id_handshake (sink, *cookie, boost::none);
 			}
 		}
@@ -549,10 +547,10 @@ public:
 	{
 		if (node.config.logging.network_message_logging ())
 		{
-			BOOST_LOG (node.log) << boost::str (boost::format ("Publish message from %1% for %2%") % sender % message_a.block->hash ().to_string ());
+			BOOST_LOG (node.log) << boost::str (boost::format ("Publish message from %1% for %2%") % sink.to_string () % message_a.block->hash ().to_string ());
 		}
 		node.stats.inc (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::in);
-		node.peers.contacted (sender, message_a.header.version_using);
+		node.peers.contacted (sink.endpoint, message_a.header.version_using);
 		if (!node.block_processor.full ())
 		{
 			node.process_active (message_a.block);
@@ -565,22 +563,21 @@ public:
 		{
 			if (!message_a.roots_hashes.empty ())
 			{
-				BOOST_LOG (node.log) << boost::str (boost::format ("Confirm_req message from %1% for hashes:roots %2%") % sender % message_a.roots_string ());
+				BOOST_LOG (node.log) << boost::str (boost::format ("Confirm_req message from %1% for hashes:roots %2%") % sink.to_string () % message_a.roots_string ());
 			}
 			else
 			{
-				BOOST_LOG (node.log) << boost::str (boost::format ("Confirm_req message from %1% for %2%") % sender % message_a.block->hash ().to_string ());
+				BOOST_LOG (node.log) << boost::str (boost::format ("Confirm_req message from %1% for %2%") % sink.to_string () % message_a.block->hash ().to_string ());
 			}
 		}
 		node.stats.inc (nano::stat::type::message, nano::stat::detail::confirm_req, nano::stat::dir::in);
-		node.peers.contacted (sender, message_a.header.version_using);
+		node.peers.contacted (sink.endpoint, message_a.header.version_using);
 		// Don't load nodes with disabled voting
 		if (node.config.enable_voting && node.wallets.reps_count)
 		{
 			if (message_a.block != nullptr)
 			{
 				auto hash (message_a.block->hash ());
-				nano::message_sink_udp sink (node, sender);
 				if (!node.network.send_votes_cache (sink, hash))
 				{
 					auto transaction (node.store.tx_begin_read ());
@@ -588,7 +585,6 @@ public:
 					if (successor != nullptr)
 					{
 						auto same_block (successor->hash () == hash);
-						nano::message_sink_udp sink (node, sender);
 						confirm_block (transaction, node, std::cref (sink), std::move (successor), !same_block);
 					}
 				}
@@ -599,7 +595,6 @@ public:
 				std::vector<nano::block_hash> blocks_bundle;
 				for (auto & root_hash : message_a.roots_hashes)
 				{
-					nano::message_sink_udp sink (node, sender);
 					if (!node.network.send_votes_cache (sink, root_hash.first) && node.store.block_exists (transaction, root_hash.first))
 					{
 						blocks_bundle.push_back (root_hash.first);
@@ -631,7 +626,6 @@ public:
 				}
 				if (!blocks_bundle.empty ())
 				{
-					nano::message_sink_udp sink (node, sender);
 					node.network.confirm_hashes (transaction, sink, blocks_bundle);
 				}
 			}
@@ -641,10 +635,10 @@ public:
 	{
 		if (node.config.logging.network_message_logging ())
 		{
-			BOOST_LOG (node.log) << boost::str (boost::format ("Received confirm_ack message from %1% for %2%sequence %3%") % sender % message_a.vote->hashes_string () % std::to_string (message_a.vote->sequence));
+			BOOST_LOG (node.log) << boost::str (boost::format ("Received confirm_ack message from %1% for %2%sequence %3%") % sink.to_string () % message_a.vote->hashes_string () % std::to_string (message_a.vote->sequence));
 		}
 		node.stats.inc (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::in);
-		node.peers.contacted (sender, message_a.header.version_using);
+		node.peers.contacted (sink.endpoint, message_a.header.version_using);
 		for (auto & vote_block : message_a.vote->blocks)
 		{
 			if (!vote_block.which ())
@@ -657,7 +651,6 @@ public:
 				node.active.publish (block);
 			}
 		}
-		nano::message_sink_udp sink (node, sender);
 		node.vote_processor.vote (message_a.vote, sink);
 	}
 	void bulk_pull (nano::bulk_pull const &) override
@@ -680,9 +673,8 @@ public:
 	{
 		if (node.config.logging.network_node_id_handshake_logging ())
 		{
-			BOOST_LOG (node.log) << boost::str (boost::format ("Received node_id_handshake message from %1% with query %2% and response account %3%") % sender % (message_a.query ? message_a.query->to_string () : std::string ("[none]")) % (message_a.response ? message_a.response->first.to_account () : std::string ("[none]")));
+			BOOST_LOG (node.log) << boost::str (boost::format ("Received node_id_handshake message from %1% with query %2% and response account %3%") % sink.to_string () % (message_a.query ? message_a.query->to_string () : std::string ("[none]")) % (message_a.response ? message_a.response->first.to_account () : std::string ("[none]")));
 		}
-		auto endpoint_l (nano::map_endpoint_to_v6 (sender));
 		boost::optional<nano::uint256_union> out_query;
 		boost::optional<nano::uint256_union> out_respond_to;
 		if (message_a.query)
@@ -692,12 +684,12 @@ public:
 		auto validated_response (false);
 		if (message_a.response)
 		{
-			if (!node.peers.validate_syn_cookie (endpoint_l, message_a.response->first, message_a.response->second))
+			if (!node.peers.validate_syn_cookie (sink.endpoint, message_a.response->first, message_a.response->second))
 			{
 				validated_response = true;
 				if (message_a.response->first != node.node_id.pub)
 				{
-					node.peers.insert (endpoint_l, message_a.header.version_using, false, message_a.response->first);
+					node.peers.insert (sink.endpoint, message_a.header.version_using, false, message_a.response->first);
 				}
 			}
 			else if (node.config.logging.network_node_id_handshake_logging ())
@@ -705,19 +697,18 @@ public:
 				BOOST_LOG (node.log) << boost::str (boost::format ("Failed to validate syn cookie signature %1% by %2%") % message_a.response->second.to_string () % message_a.response->first.to_account ());
 			}
 		}
-		if (!validated_response && !node.peers.known_peer (endpoint_l))
+		if (!validated_response && !node.peers.known_peer (sink.endpoint))
 		{
-			out_query = node.peers.assign_syn_cookie (endpoint_l);
+			out_query = node.peers.assign_syn_cookie (sink.endpoint);
 		}
 		if (out_query || out_respond_to)
 		{
-			nano::message_sink_udp sink (node, sender);
 			node.network.send_node_id_handshake (sink, out_query, out_respond_to);
 		}
 		node.stats.inc (nano::stat::type::message, nano::stat::detail::node_id_handshake, nano::stat::dir::in);
 	}
 	nano::node & node;
-	nano::endpoint sender;
+	nano::message_sink_udp sink;
 };
 }
 
@@ -734,7 +725,8 @@ void nano::network::receive_action (nano::message_buffer * data_a)
 	}
 	if (allowed_sender)
 	{
-		network_message_visitor visitor (node, data_a->endpoint);
+		nano::message_sink_udp sink (node, data_a->endpoint);
+		network_message_visitor visitor (node, sink);
 		nano::message_parser parser (node.block_uniquer, node.vote_uniquer, visitor, node.work);
 		parser.deserialize_buffer (data_a->buffer, data_a->size);
 		if (parser.status != nano::message_parser::parse_status::success)
@@ -2580,7 +2572,8 @@ void nano::node::process_confirmed (std::shared_ptr<nano::block> block_a, uint8_
 
 void nano::node::process_message (nano::message & message_a, nano::endpoint const & sender_a)
 {
-	network_message_visitor visitor (*this, sender_a);
+	nano::message_sink_udp sink (*this, sender_a);
+	network_message_visitor visitor (*this, sink);
 	message_a.visit (visitor);
 }
 
