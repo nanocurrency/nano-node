@@ -262,16 +262,6 @@ void nano::network::send_node_id_handshake (nano::endpoint const & endpoint_a, b
 	sink.sink (message);
 }
 
-void nano::network::republish (nano::block_hash const & hash_a, std::shared_ptr<std::vector<uint8_t>> buffer_a, nano::endpoint endpoint_a)
-{
-	if (node.config.logging.network_publish_logging ())
-	{
-		BOOST_LOG (node.log) << boost::str (boost::format ("Publishing %1% to %2%") % hash_a.to_string () % endpoint_a);
-	}
-	nano::message_sink_udp sink (node, endpoint_a);
-	sink.send_buffer (buffer_a, nano::stat::detail::publish);
-}
-
 template <typename T>
 bool confirm_block (nano::transaction const & transaction_a, nano::node & node_a, T & list_a, std::shared_ptr<nano::block> block_a, bool also_publish)
 {
@@ -319,7 +309,8 @@ bool confirm_block (nano::transaction const & transaction_a, nano::node & node_a
 			publish_bytes = publish.to_bytes ();
 			for (auto j (list_a.begin ()), m (list_a.end ()); j != m; ++j)
 			{
-				node_a.network.republish (hash, publish_bytes, *j);
+				nano::message_sink_udp sink (node_a, *j);
+				sink.send_buffer (publish_bytes, nano::stat::detail::publish);
 			}
 		}
 	}
@@ -376,7 +367,8 @@ void nano::network::republish_block (std::shared_ptr<nano::block> block)
 	auto bytes = message.to_bytes ();
 	for (auto i (list.begin ()), n (list.end ()); i != n; ++i)
 	{
-		republish (hash, bytes, *i);
+		nano::message_sink_udp sink (node, *i);
+		sink.send_buffer (bytes, nano::stat::detail::publish);
 	}
 	if (node.config.logging.network_logging ())
 	{
@@ -384,16 +376,16 @@ void nano::network::republish_block (std::shared_ptr<nano::block> block)
 	}
 }
 
-void nano::network::republish_block (std::shared_ptr<nano::block> block, nano::endpoint const & peer_a)
+void nano::network::republish_block (nano::message_sink const & sink_a, std::shared_ptr<nano::block> block)
 {
 	auto hash (block->hash ());
 	nano::publish message (block);
-	std::vector<uint8_t> bytes;
+	auto bytes (std::make_shared <std::vector<uint8_t>> ());
 	{
-		nano::vectorstream stream (bytes);
+		nano::vectorstream stream (*bytes);
 		message.serialize (stream);
 	}
-	republish (hash, std::make_shared<std::vector<uint8_t>> (bytes), peer_a);
+	sink_a.send_buffer (bytes, nano::stat::detail::publish);
 	if (node.config.logging.network_logging ())
 	{
 		BOOST_LOG (node.log) << boost::str (boost::format ("Block %1% was republished to peer") % hash.to_string ());
@@ -694,7 +686,7 @@ public:
 							}
 							auto successor_block (node.store.block_get (transaction, successor));
 							assert (successor_block != nullptr);
-							node.network.republish_block (std::move (successor_block), sender);
+							node.network.republish_block (sink, std::move (successor_block));
 						}
 					}
 				}
