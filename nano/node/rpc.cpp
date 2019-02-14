@@ -3316,6 +3316,7 @@ void nano::rpc_handler::unchecked_keys ()
 
 void nano::rpc_handler::unopened ()
 {
+	rpc_control_impl ();
 	auto transaction (node.store.tx_begin_read ());
 	auto iterator (node.store.pending_begin (transaction, nano::pending_key (1, 0))); // exclude burn account
 	auto end (node.store.pending_end ());
