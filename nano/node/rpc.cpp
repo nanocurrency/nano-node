@@ -3328,6 +3328,10 @@ void nano::rpc_handler::unopened ()
 		nano::pending_info info (iterator->second);
 		if (node.store.account_exists (transaction, account))
 		{
+			if (account.number () == std::numeric_limits<nano::uint256_t>::max ())
+			{
+				break;
+			}
 			// Skip existing accounts
 			iterator = node.store.pending_begin (transaction, nano::pending_key (account.number () + 1, 0));
 		}
