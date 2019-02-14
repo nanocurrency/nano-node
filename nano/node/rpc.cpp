@@ -3340,15 +3340,22 @@ void nano::rpc_handler::unopened ()
 		{
 			if (account != current_account)
 			{
-				accounts.put (current_account.to_account (), current_account_sum.convert_to<std::string> ());
+				if (current_account_sum > 0)
+				{
+					accounts.put (current_account.to_account (), current_account_sum.convert_to<std::string> ());
+					current_account_sum = 0;
+				}
 				current_account = account;
-				current_account_sum = 0;
 			}
 			current_account_sum += info.amount.number ();
 			++iterator;
 		}
 	}
-	accounts.put (current_account.to_account (), current_account_sum.convert_to<std::string> ()); // last one
+	// last one after iterator reaches end
+	if (current_account_sum > 0)
+	{
+		accounts.put (current_account.to_account (), current_account_sum.convert_to<std::string> ());
+	}
 	response_l.add_child ("accounts", accounts);
 	response_errors ();
 }
