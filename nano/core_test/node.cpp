@@ -2,7 +2,7 @@
 #include <nano/core_test/testutil.hpp>
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/node/testing.hpp>
-#include <nano/node/udp.hpp>
+#include <nano/node/transport/udp.hpp>
 #include <nano/node/working.hpp>
 
 #include <boost/make_shared.hpp>

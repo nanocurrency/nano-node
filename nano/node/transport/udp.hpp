@@ -1,7 +1,8 @@
 #pragma once
 
-#include <nano/node/node.hpp>
+#include <nano/node/common.hpp>
 #include <nano/node/stats.hpp>
+#include <nano/node/transport/transport.hpp>
 
 namespace nano
 {

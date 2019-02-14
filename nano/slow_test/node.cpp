@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 #include <nano/node/testing.hpp>
-#include <nano/node/udp.hpp>
+#include <nano/node/transport/udp.hpp>
 
 #include <thread>
 

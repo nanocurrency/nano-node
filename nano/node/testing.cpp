@@ -3,7 +3,7 @@
 #include <cstdlib>
 #include <nano/node/common.hpp>
 #include <nano/node/testing.hpp>
-#include <nano/node/udp.hpp>
+#include <nano/node/transport/udp.hpp>
 
 std::string nano::error_system_messages::message (int ev) const
 {
