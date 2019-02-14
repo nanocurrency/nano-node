@@ -30,3 +30,8 @@ std::function<void(boost::system::error_code const &, size_t)> nano::message_sin
 		}
 	};
 }
+
+std::string nano::message_sink_udp::to_string () const
+{
+	return boost::str (boost::format ("UDP: %1%") % endpoint);
+}

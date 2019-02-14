@@ -244,9 +244,8 @@ void nano::node::keepalive (std::string const & address_a, uint16_t port_a, bool
 	});
 }
 
-void nano::network::send_node_id_handshake (nano::endpoint const & endpoint_a, boost::optional<nano::uint256_union> const & query, boost::optional<nano::uint256_union> const & respond_to)
+void nano::network::send_node_id_handshake (nano::message_sink const & sink_a, boost::optional<nano::uint256_union> const & query, boost::optional<nano::uint256_union> const & respond_to)
 {
-	assert (endpoint_a.address ().is_v6 ());
 	boost::optional<std::pair<nano::account, nano::signature>> response (boost::none);
 	if (respond_to)
 	{
@@ -256,10 +255,9 @@ void nano::network::send_node_id_handshake (nano::endpoint const & endpoint_a, b
 	nano::node_id_handshake message (query, response);
 	if (node.config.logging.network_node_id_handshake_logging ())
 	{
-		BOOST_LOG (node.log) << boost::str (boost::format ("Node ID handshake sent with node ID %1% to %2%: query %3%, respond_to %4% (signature %5%)") % node.node_id.pub.to_account () % endpoint_a % (query ? query->to_string () : std::string ("[none]")) % (respond_to ? respond_to->to_string () : std::string ("[none]")) % (response ? response->second.to_string () : std::string ("[none]")));
+		BOOST_LOG (node.log) << boost::str (boost::format ("Node ID handshake sent with node ID %1% to %2%: query %3%, respond_to %4% (signature %5%)") % node.node_id.pub.to_account () % sink_a.to_string () % (query ? query->to_string () : std::string ("[none]")) % (respond_to ? respond_to->to_string () : std::string ("[none]")) % (response ? response->second.to_string () : std::string ("[none]")));
 	}
-	nano::message_sink_udp sink (node, endpoint_a);
-	sink.sink (message);
+	sink_a.sink (message);
 }
 
 template <typename T>
@@ -602,7 +600,8 @@ public:
 			auto cookie (node.peers.assign_syn_cookie (endpoint_l));
 			if (cookie)
 			{
-				node.network.send_node_id_handshake (endpoint_l, *cookie, boost::none);
+				nano::message_sink_udp sink (node, endpoint_l);
+				node.network.send_node_id_handshake (sink, *cookie, boost::none);
 			}
 		}
 		node.network.merge_peers (message_a.peers);
@@ -771,7 +770,8 @@ public:
 		}
 		if (out_query || out_respond_to)
 		{
-			node.network.send_node_id_handshake (sender, out_query, out_respond_to);
+			nano::message_sink_udp sink (node, sender);
+			node.network.send_node_id_handshake (sink, out_query, out_respond_to);
 		}
 		node.stats.inc (nano::stat::type::message, nano::stat::detail::node_id_handshake, nano::stat::dir::in);
 	}
