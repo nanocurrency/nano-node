@@ -3321,6 +3321,7 @@ void nano::rpc_handler::unopened ()
 	auto end (node.store.pending_end ());
 	nano::account current_account;
 	nano::uint128_t current_account_sum{ 0 };
+	boost::property_tree::ptree accounts;
 	while (iterator != end)
 	{
 		nano::pending_key key (iterator->first);
@@ -3339,7 +3340,7 @@ void nano::rpc_handler::unopened ()
 		{
 			if (account != current_account)
 			{
-				response_l.put (current_account.to_account (), current_account_sum.convert_to<std::string> ());
+				accounts.put (current_account.to_account (), current_account_sum.convert_to<std::string> ());
 				current_account = account;
 				current_account_sum = 0;
 			}
@@ -3347,7 +3348,8 @@ void nano::rpc_handler::unopened ()
 			++iterator;
 		}
 	}
-	response_l.put (current_account.to_account (), current_account_sum.convert_to<std::string> ()); // last one
+	accounts.put (current_account.to_account (), current_account_sum.convert_to<std::string> ()); // last one
+	response_l.add_child ("accounts", accounts);
 	response_errors ();
 }
 

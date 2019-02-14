@@ -4377,7 +4377,9 @@ TEST (rpc, unopened)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
-	ASSERT_EQ ("1", response.json.get<std::string> (key.pub.to_account ()));
+	auto & accounts (response.json.get_child ("accounts"));
+	ASSERT_EQ (1, accounts.size ());
+	ASSERT_EQ ("1", accounts.get<std::string> (key.pub.to_account ()));
 }
 
 TEST (rpc, unopened_burn)
@@ -4399,7 +4401,8 @@ TEST (rpc, unopened_burn)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
-	ASSERT_EQ (response.json.not_found (), response.json.find (nano::burn_account.to_account ()));
+	auto & accounts (response.json.get_child ("accounts"));
+	ASSERT_EQ (0, accounts.size ());
 }
 
 TEST (rpc, uptime)
