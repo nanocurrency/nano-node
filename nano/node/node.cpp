@@ -223,8 +223,7 @@ bool confirm_block (nano::transaction const & transaction_a, nano::node & node_a
 				auto vote_bytes = confirm.to_bytes ();
 				for (auto j (list_a.begin ()), m (list_a.end ()); j != m; ++j)
 				{
-					nano::message_sink_udp sink (node_a, *j);
-					sink.send_buffer (vote_bytes, nano::stat::detail::confirm_ack);
+					j->get ().send_buffer (vote_bytes, nano::stat::detail::confirm_ack);
 				}
 				node_a.votes_cache.add (vote);
 			});
@@ -238,8 +237,7 @@ bool confirm_block (nano::transaction const & transaction_a, nano::node & node_a
 				auto vote_bytes = confirm.to_bytes ();
 				for (auto j (list_a.begin ()), m (list_a.end ()); j != m; ++j)
 				{
-					nano::message_sink_udp sink (node_a, *j);
-					sink.send_buffer (vote_bytes, nano::stat::detail::confirm_ack);
+					j->get ().send_buffer (vote_bytes, nano::stat::detail::confirm_ack);
 				}
 			}
 		}
@@ -251,18 +249,16 @@ bool confirm_block (nano::transaction const & transaction_a, nano::node & node_a
 			publish_bytes = publish.to_bytes ();
 			for (auto j (list_a.begin ()), m (list_a.end ()); j != m; ++j)
 			{
-				nano::message_sink_udp sink (node_a, *j);
-				sink.send_buffer (publish_bytes, nano::stat::detail::publish);
+				j->get ().send_buffer (publish_bytes, nano::stat::detail::publish);
 			}
 		}
 	}
 	return result;
 }
 
-bool confirm_block (nano::transaction const & transaction_a, nano::node & node_a, nano::endpoint & peer_a, std::shared_ptr<nano::block> block_a, bool also_publish)
+bool confirm_block (nano::transaction const & transaction_a, nano::node & node_a, nano::message_sink const & sink_a, std::shared_ptr<nano::block> block_a, bool also_publish)
 {
-	std::array<nano::endpoint, 1> endpoints;
-	endpoints[0] = peer_a;
+	std::array<std::reference_wrapper<nano::message_sink const>, 1> endpoints = { sink_a };
 	auto result (confirm_block (transaction_a, node_a, endpoints, std::move (block_a), also_publish));
 	return result;
 }
@@ -592,7 +588,8 @@ public:
 					if (successor != nullptr)
 					{
 						auto same_block (successor->hash () == hash);
-						confirm_block (transaction, node, sender, std::move (successor), !same_block);
+						nano::message_sink_udp sink (node, sender);
+						confirm_block (transaction, node, std::cref (sink), std::move (successor), !same_block);
 					}
 				}
 			}
