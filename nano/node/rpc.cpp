@@ -3316,10 +3316,11 @@ void nano::rpc_handler::unchecked_keys ()
 
 void nano::rpc_handler::unopened ()
 {
-	std::unordered_map<nano::account, nano::uint128_t> unopened;
 	auto transaction (node.store.tx_begin_read ());
-	auto iterator (node.store.pending_begin (transaction));
+	auto iterator (node.store.pending_begin (transaction, nano::pending_key (1, 0))); // exclude burn account
 	auto end (node.store.pending_end ());
+	nano::account current_account;
+	nano::uint128_t current_account_sum{ 0 };
 	while (iterator != end)
 	{
 		nano::pending_key key (iterator->first);
@@ -3332,23 +3333,17 @@ void nano::rpc_handler::unopened ()
 		}
 		else
 		{
-			auto pending_block_amount (info.amount.number ());
-			auto u (unopened.find (account));
-			if (u == unopened.end ())
+			if (account != current_account)
 			{
-				unopened.insert ({ account, pending_block_amount });
+				response_l.put (current_account.to_account (), current_account_sum.convert_to<std::string> ());
+				current_account = account;
+				current_account_sum = 0;
 			}
-			else
-			{
-				u->second += pending_block_amount;
-			}
+			current_account_sum += info.amount.number ();
 			++iterator;
 		}
 	}
-	for (const auto & kv : unopened)
-	{
-		response_l.put (kv.first.to_account (), kv.second.convert_to<std::string> ());
-	}
+	response_l.put (current_account.to_account (), current_account_sum.convert_to<std::string> ()); // last one
 	response_errors ();
 }
 
