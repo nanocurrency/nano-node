@@ -1477,7 +1477,7 @@ TEST (block_store, upgrade_v13_v14)
 		store.initialize (transaction, genesis);
 		nano::account_info account_info;
 		ASSERT_FALSE (store.account_get (transaction, nano::genesis_account, account_info));
-		ASSERT_EQ (account_info.confirmation_height, 1);
+		ASSERT_EQ (account_info.confirmation_height, 0);
 		store.version_put (transaction, 13);
 		modify_account_info_to_v13 (store, transaction, nano::genesis_account);
 

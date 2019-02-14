@@ -178,7 +178,8 @@ void nano::system::generate_rollback (nano::node & node_a, std::vector<nano::acc
 		{
 			accounts_a[index] = accounts_a[accounts_a.size () - 1];
 			accounts_a.pop_back ();
-			node_a.ledger.rollback (transaction, hash);
+			auto error = node_a.ledger.rollback (transaction, hash);
+			assert (!error);
 		}
 	}
 }
