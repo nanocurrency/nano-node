@@ -371,7 +371,7 @@ class node_observers
 public:
 	nano::observer_set<std::shared_ptr<nano::block>, nano::account const &, nano::uint128_t const &, bool> blocks;
 	nano::observer_set<bool> wallet;
-	nano::observer_set<nano::transaction const &, std::shared_ptr<nano::vote>, nano::endpoint const &> vote;
+	nano::observer_set<nano::transaction const &, std::shared_ptr<nano::vote>, nano::message_sink_udp const &> vote;
 	nano::observer_set<nano::account const &, bool> account_balance;
 	nano::observer_set<nano::endpoint const &> endpoint;
 	nano::observer_set<> disconnect;
@@ -383,10 +383,10 @@ class vote_processor
 {
 public:
 	vote_processor (nano::node &);
-	void vote (std::shared_ptr<nano::vote>, nano::endpoint);
+	void vote (std::shared_ptr<nano::vote>, nano::message_sink_udp const &);
 	// node.active.mutex lock required
-	nano::vote_code vote_blocking (nano::transaction const &, std::shared_ptr<nano::vote>, nano::endpoint, bool = false);
-	void verify_votes (std::deque<std::pair<std::shared_ptr<nano::vote>, nano::endpoint>> &);
+	nano::vote_code vote_blocking (nano::transaction const &, std::shared_ptr<nano::vote>, nano::message_sink_udp const &, bool = false);
+	void verify_votes (std::deque<std::pair<std::shared_ptr<nano::vote>, nano::message_sink_udp>> &);
 	void flush ();
 	void calculate_weights ();
 	nano::node & node;
@@ -394,7 +394,7 @@ public:
 
 private:
 	void process_loop ();
-	std::deque<std::pair<std::shared_ptr<nano::vote>, nano::endpoint>> votes;
+	std::deque<std::pair<std::shared_ptr<nano::vote>, nano::message_sink_udp>> votes;
 	// Representatives levels for random early detection
 	std::unordered_set<nano::account> representatives_1;
 	std::unordered_set<nano::account> representatives_2;

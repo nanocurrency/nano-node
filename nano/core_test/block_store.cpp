@@ -1338,7 +1338,6 @@ TEST (block_store, upgrade_sideband_rollback_old)
 	nano::stat stat;
 	nano::ledger ledger (store, stat);
 	auto transaction (store.tx_begin (true));
-	store.version_put (transaction, 11);
 	store.initialize (transaction, genesis);
 	nano::send_block block1 (genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, block1).code);
@@ -1347,6 +1346,7 @@ TEST (block_store, upgrade_sideband_rollback_old)
 	write_legacy_sideband (store, transaction, *genesis.open, block1.hash (), store.open_blocks);
 	write_legacy_sideband (store, transaction, block1, block2.hash (), store.send_blocks);
 	write_legacy_sideband (store, transaction, block2, 0, store.send_blocks);
+	store.version_put (transaction, 11);
 	ASSERT_TRUE (store.block_exists (transaction, block2.hash ()));
 	ledger.rollback (transaction, block2.hash ());
 	ASSERT_FALSE (store.block_exists (transaction, block2.hash ()));

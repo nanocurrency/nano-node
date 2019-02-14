@@ -607,7 +607,7 @@ int main (int argc, char * const * argv)
 				while (!votes.empty ())
 				{
 					auto vote (votes.front ());
-					node->vote_processor.vote (vote, node->network.endpoint ());
+					node->vote_processor.vote (vote, nano::message_sink_udp (*node, node->network.endpoint ()));
 					votes.pop_front ();
 				}
 				while (!node->active.roots.empty ())

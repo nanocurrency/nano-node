@@ -660,7 +660,8 @@ public:
 				node.active.publish (block);
 			}
 		}
-		node.vote_processor.vote (message_a.vote, sender);
+		nano::message_sink_udp sink (node, sender);
+		node.vote_processor.vote (message_a.vote, sink);
 	}
 	void bulk_pull (nano::bulk_pull const &) override
 	{
@@ -940,7 +941,7 @@ void nano::vote_processor::process_loop ()
 	{
 		if (!votes.empty ())
 		{
-			std::deque<std::pair<std::shared_ptr<nano::vote>, nano::endpoint>> votes_l;
+			std::deque<std::pair<std::shared_ptr<nano::vote>, nano::message_sink_udp>> votes_l;
 			votes_l.swap (votes);
 
 			log_this_iteration = false;
@@ -1004,9 +1005,8 @@ void nano::vote_processor::process_loop ()
 	}
 }
 
-void nano::vote_processor::vote (std::shared_ptr<nano::vote> vote_a, nano::endpoint endpoint_a)
+void nano::vote_processor::vote (std::shared_ptr<nano::vote> vote_a, nano::message_sink_udp const & sink_a)
 {
-	assert (endpoint_a.address ().is_v6 ());
 	std::unique_lock<std::mutex> lock (mutex);
 	if (!stopped)
 	{
@@ -1044,7 +1044,7 @@ void nano::vote_processor::vote (std::shared_ptr<nano::vote> vote_a, nano::endpo
 		}
 		if (process)
 		{
-			votes.push_back (std::make_pair (vote_a, endpoint_a));
+			votes.push_back (std::make_pair (vote_a, sink_a));
 
 			lock.unlock ();
 			condition.notify_all ();
@@ -1061,7 +1061,7 @@ void nano::vote_processor::vote (std::shared_ptr<nano::vote> vote_a, nano::endpo
 	}
 }
 
-void nano::vote_processor::verify_votes (std::deque<std::pair<std::shared_ptr<nano::vote>, nano::endpoint>> & votes_a)
+void nano::vote_processor::verify_votes (std::deque<std::pair<std::shared_ptr<nano::vote>, nano::message_sink_udp>> & votes_a)
 {
 	auto size (votes_a.size ());
 	std::vector<unsigned char const *> messages;
@@ -1099,9 +1099,8 @@ void nano::vote_processor::verify_votes (std::deque<std::pair<std::shared_ptr<na
 }
 
 // node.active.mutex lock required
-nano::vote_code nano::vote_processor::vote_blocking (nano::transaction const & transaction_a, std::shared_ptr<nano::vote> vote_a, nano::endpoint endpoint_a, bool validated)
+nano::vote_code nano::vote_processor::vote_blocking (nano::transaction const & transaction_a, std::shared_ptr<nano::vote> vote_a, nano::message_sink_udp const & sink_a, bool validated)
 {
-	assert (endpoint_a.address ().is_v6 ());
 	assert (!node.active.mutex.try_lock ());
 	auto result (nano::vote_code::invalid);
 	if (validated || !vote_a->validate ())
@@ -1115,7 +1114,7 @@ nano::vote_code nano::vote_processor::vote_blocking (nano::transaction const & t
 		switch (result)
 		{
 			case nano::vote_code::vote:
-				node.observers.vote.notify (transaction_a, vote_a, endpoint_a);
+				node.observers.vote.notify (transaction_a, vote_a, sink_a);
 			case nano::vote_code::replay:
 				// This tries to assist rep nodes that have lost track of their highest sequence number by replaying our highest known vote back to them
 				// Only do this if the sequence number is significantly different to account for network reordering
@@ -1123,8 +1122,7 @@ nano::vote_code nano::vote_processor::vote_blocking (nano::transaction const & t
 				if (max_vote->sequence > vote_a->sequence + 10000)
 				{
 					nano::confirm_ack confirm (max_vote);
-					nano::message_sink_udp sink (node, endpoint_a);
-					sink.send_buffer (confirm.to_bytes (), nano::stat::detail::confirm_ack);
+					sink_a.send_buffer (confirm.to_bytes (), nano::stat::detail::confirm_ack);
 				}
 				break;
 			case nano::vote_code::invalid:
@@ -1406,8 +1404,7 @@ startup_time (std::chrono::steady_clock::now ())
 		this->network.send_keepalive (sink);
 		rep_query (*this, endpoint_a);
 	});
-	observers.vote.add ([this](nano::transaction const & transaction, std::shared_ptr<nano::vote> vote_a, nano::endpoint const & endpoint_a) {
-		assert (endpoint_a.address ().is_v6 ());
+	observers.vote.add ([this](nano::transaction const & transaction, std::shared_ptr<nano::vote> vote_a, nano::message_sink_udp const & sink_a) {
 		this->gap_cache.vote (vote_a);
 		this->online_reps.observe (vote_a->account);
 		nano::uint128_t rep_weight;
@@ -1430,18 +1427,17 @@ startup_time (std::chrono::steady_clock::now ())
 			if (rep_crawler_exists)
 			{
 				// We see a valid non-replay vote for a block we requested, this node is probably a representative
-				if (this->peers.rep_response (endpoint_a, vote_a->account, rep_weight))
+				if (this->peers.rep_response (sink_a.endpoint, vote_a->account, rep_weight))
 				{
-					BOOST_LOG (log) << boost::str (boost::format ("Found a representative at %1%") % endpoint_a);
+					BOOST_LOG (log) << boost::str (boost::format ("Found a representative at %1%") % sink_a.to_string ());
 					// Rebroadcasting all active votes to new representative
 					auto blocks (this->active.list_blocks (true));
 					for (auto i (blocks.begin ()), n (blocks.end ()); i != n; ++i)
 					{
 						if (*i != nullptr)
 						{
-							nano::message_sink_udp sink (*this, endpoint_a);
 							nano::confirm_req req (*i);
-							sink.sink (req);
+							sink_a.sink (req);
 						}
 					}
 				}
@@ -2883,7 +2879,7 @@ void nano::election::compute_rep_votes (nano::transaction const & transaction_a)
 	{
 		node.wallets.foreach_representative (transaction_a, [this, &transaction_a](nano::public_key const & pub_a, nano::raw_key const & prv_a) {
 			auto vote (this->node.store.vote_generate (transaction_a, pub_a, prv_a, status.winner));
-			this->node.vote_processor.vote (vote, this->node.network.endpoint ());
+			this->node.vote_processor.vote (vote, nano::message_sink_udp (this->node, this->node.network.endpoint ()));
 		});
 	}
 }

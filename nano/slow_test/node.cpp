@@ -402,7 +402,7 @@ TEST (store, vote_load)
 	for (auto i (0); i < 1000000; ++i)
 	{
 		auto vote (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, i, block));
-		node.vote_processor.vote (vote, system.nodes[0]->network.endpoint ());
+		node.vote_processor.vote (vote, nano::message_sink_udp (*system.nodes[0], system.nodes[0]->network.endpoint ()));
 	}
 }
 
