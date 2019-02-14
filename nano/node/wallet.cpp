@@ -12,8 +12,6 @@
 
 #include <future>
 
-uint64_t const nano::work_pool::publish_threshold;
-
 nano::uint256_union nano::wallet_store::check (nano::transaction const & transaction_a)
 {
 	nano::wallet_value value (entry_get_raw (transaction_a, nano::wallet_store::check_special));
@@ -736,8 +734,9 @@ void nano::wallet_store::upgrade_v3_v4 (nano::transaction const & transaction_a)
 
 void nano::kdf::phs (nano::raw_key & result_a, std::string const & password_a, nano::uint256_union const & salt_a)
 {
+	static nano::network_params network_params;
 	std::lock_guard<std::mutex> lock (mutex);
-	auto success (argon2_hash (1, nano::wallet_store::kdf_work, 1, password_a.data (), password_a.size (), salt_a.bytes.data (), salt_a.bytes.size (), result_a.data.bytes.data (), result_a.data.bytes.size (), NULL, 0, Argon2_d, 0x10));
+	auto success (argon2_hash (1, network_params.kdf_work, 1, password_a.data (), password_a.size (), salt_a.bytes.data (), salt_a.bytes.size (), result_a.data.bytes.data (), result_a.data.bytes.size (), NULL, 0, Argon2_d, 0x10));
 	assert (success == 0);
 	(void)success;
 }
@@ -1317,7 +1316,7 @@ void nano::wallet::work_cache_blocking (nano::account const & account_a, nano::b
 		 * The difficulty parameter is the second parameter for `work_generate_blocking()`,
 		 * currently we don't supply one so we must fetch the default value.
 		 */
-		auto difficulty (nano::work_pool::publish_threshold);
+		auto difficulty (wallets.node.network_params.publish_threshold);
 
 		wallets.node.logger.try_log ("Work generation for ", root_a.to_string (), ", with a difficulty of ", difficulty, " complete: ", (std::chrono::duration_cast<std::chrono::microseconds> (std::chrono::steady_clock::now () - begin).count ()), " us");
 	}
@@ -1644,7 +1643,7 @@ void nano::wallets::ongoing_compute_reps ()
 {
 	compute_reps ();
 	auto & node_l (node);
-	auto compute_delay (nano::is_test_network ? std::chrono::milliseconds (10) : std::chrono::milliseconds (15 * 60 * 1000)); // Representation drifts quickly on the test network but very slowly on the live network
+	auto compute_delay (network_params.is_test_network () ? std::chrono::milliseconds (10) : std::chrono::milliseconds (15 * 60 * 1000)); // Representation drifts quickly on the test network but very slowly on the live network
 	node.alarm.add (std::chrono::steady_clock::now () + compute_delay, [&node_l]() {
 		node_l.wallets.ongoing_compute_reps ();
 	});

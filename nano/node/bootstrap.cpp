@@ -1408,7 +1408,7 @@ void nano::bootstrap_attempt::lazy_pull_flush ()
 		// Recheck if block was already processed
 		if (lazy_blocks.find (pull_start) == lazy_blocks.end () && !node->store.block_exists (transaction, pull_start))
 		{
-			pulls.push_back (nano::pull_info (pull_start, pull_start, nano::block_hash (0), lazy_max_pull_blocks));
+			pulls.push_back (nano::pull_info (pull_start, pull_start, nano::block_hash (0), node->network_params.bootstrap.lazy_max_pull_blocks));
 		}
 	}
 	lazy_pulls.clear ();
@@ -1619,7 +1619,7 @@ bool nano::bootstrap_attempt::process_block (std::shared_ptr<nano::block> block_
 				// Disabled until server rewrite
 				// stop_pull = true;
 				// Force drop lazy bootstrap connection for long bulk_pull
-				if (total_blocks > lazy_max_pull_blocks)
+				if (total_blocks > node->network_params.bootstrap.lazy_max_pull_blocks)
 				{
 					stop_pull = true;
 				}
@@ -1661,7 +1661,7 @@ bool nano::bootstrap_attempt::process_block (std::shared_ptr<nano::block> block_
 			// Disabled until server rewrite
 			// stop_pull = true;
 			// Force drop lazy bootstrap connection for long bulk_pull
-			if (total_blocks > lazy_max_pull_blocks)
+			if (total_blocks > node->network_params.bootstrap.lazy_max_pull_blocks)
 			{
 				stop_pull = true;
 			}

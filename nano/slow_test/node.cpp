@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
+#include <nano/core_test/testutil.hpp>
 #include <nano/node/testing.hpp>
-
 #include <thread>
 
 TEST (system, generate_mass_activity)

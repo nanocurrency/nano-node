@@ -361,7 +361,7 @@ bool nano::peer_container::insert (nano::endpoint const & endpoint_a, unsigned v
 			else
 			{
 				unknown = true;
-				if (!result && !nano::is_test_network)
+				if (!result && !network_params.is_test_network ())
 				{
 					auto ip_peers (peers.get<nano::peer_by_ip_addr> ().count (endpoint_a.address ()));
 					if (ip_peers >= max_peers_per_ip)

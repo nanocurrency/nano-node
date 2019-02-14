@@ -821,11 +821,11 @@ void nano::mdb_store::initialize (nano::transaction const & transaction_a, nano:
 	auto hash_l (genesis_a.hash ());
 	assert (latest_v0_begin (transaction_a) == latest_v0_end ());
 	assert (latest_v1_begin (transaction_a) == latest_v1_end ());
-	nano::block_sideband sideband (nano::block_type::open, nano::genesis_account, 0, nano::genesis_amount, 1, nano::seconds_since_epoch ());
+	nano::block_sideband sideband (nano::block_type::open, network_params.ledger.genesis_account, 0, network_params.ledger.genesis_amount, 1, nano::seconds_since_epoch ());
 	block_put (transaction_a, hash_l, *genesis_a.open, sideband);
-	account_put (transaction_a, genesis_account, { hash_l, genesis_a.open->hash (), genesis_a.open->hash (), std::numeric_limits<nano::uint128_t>::max (), nano::seconds_since_epoch (), 1, 0, nano::epoch::epoch_0 });
-	representation_put (transaction_a, genesis_account, std::numeric_limits<nano::uint128_t>::max ());
-	frontier_put (transaction_a, hash_l, genesis_account);
+	account_put (transaction_a, network_params.ledger.genesis_accoun, { hash_l, genesis_a.open->hash (), genesis_a.open->hash (), std::numeric_limits<nano::uint128_t>::max (), nano::seconds_since_epoch (), 1, 0, nano::epoch::epoch_0 });
+	representation_put (transaction_a, network_params.ledger.genesis_accoun, std::numeric_limits<nano::uint128_t>::max ());
+	frontier_put (transaction_a, hash_l, network_params.ledger.genesis_accoun);
 }
 
 void nano::mdb_store::version_put (nano::transaction const & transaction_a, int version_a)
@@ -1173,7 +1173,7 @@ void nano::mdb_store::upgrade_v12_to_v13 (nano::transaction const & transaction_
 {
 	size_t cost (0);
 	nano::account account (0);
-	auto const & not_an_account (nano::not_an_account ());
+	auto const & not_an_account (network_params.ledger.not_an_account ());
 	while (account != not_an_account)
 	{
 		nano::account first (0);

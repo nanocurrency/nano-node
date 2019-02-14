@@ -1,4 +1,5 @@
 #include <boost/algorithm/string.hpp>
+#include <nano/lib/config.hpp>
 #include <nano/lib/interface.h>
 #include <nano/node/node.hpp>
 #include <nano/node/rpc.hpp>
@@ -820,11 +821,11 @@ void nano::rpc_handler::accounts_pending ()
 
 void nano::rpc_handler::available_supply ()
 {
-	auto genesis_balance (node.balance (nano::genesis_account)); // Cold storage genesis
+	auto genesis_balance (node.balance (node.network_params.ledger.genesis_account)); // Cold storage genesis
 	auto landing_balance (node.balance (nano::account ("059F68AAB29DE0D3A27443625C7EA9CDDB6517A8B76FE37727EF6A4D76832AD5"))); // Active unavailable account
 	auto faucet_balance (node.balance (nano::account ("8E319CE6F3025E5B2DF66DA7AB1467FE48F1679C13DD43BFDB29FA2E9FC40D3B"))); // Faucet account
 	auto burned_balance ((node.balance_pending (nano::account (0))).second); // Burning 0 account
-	auto available (nano::genesis_amount - genesis_balance - landing_balance - faucet_balance - burned_balance);
+	auto available (node.network_params.ledger.genesis_amount - genesis_balance - landing_balance - faucet_balance - burned_balance);
 	response_l.put ("available", available.convert_to<std::string> ());
 	response_errors ();
 }
@@ -1860,15 +1861,15 @@ public:
 			// Report opens as a receive
 			tree.put ("type", "receive");
 		}
-		if (block_a.hashables.source != nano::genesis_account)
+		if (block_a.hashables.source != network_params.ledger.genesis_account)
 		{
 			tree.put ("account", handler.node.ledger.account (transaction, block_a.hashables.source).to_account ());
 			tree.put ("amount", handler.node.ledger.amount (transaction, hash).convert_to<std::string> ());
 		}
 		else
 		{
-			tree.put ("account", nano::genesis_account.to_account ());
-			tree.put ("amount", nano::genesis_amount.convert_to<std::string> ());
+			tree.put ("account", network_params.ledger.genesis_account.to_account ());
+			tree.put ("amount", network_params.ledger.genesis_amount.convert_to<std::string> ());
 		}
 	}
 	void change_block (nano::change_block const & block_a)
@@ -1942,6 +1943,7 @@ public:
 	nano::transaction & transaction;
 	boost::property_tree::ptree & tree;
 	nano::block_hash const & hash;
+	nano::network_params network_params;
 };
 }
 
@@ -2768,7 +2770,7 @@ void nano::rpc_handler::receive ()
 						bool generate_work (work == 0); // Disable work generation if "work" option is provided
 						auto response_a (response);
 						// clang-format off
-						wallet->receive_async (std::move (block), account, nano::genesis_amount, [response_a](std::shared_ptr<nano::block> block_a) {
+						wallet->receive_async (std::move (block), account, node.network_params.ledger.genesis_amount, [response_a](std::shared_ptr<nano::block> block_a) {
 							if (block_a != nullptr)
 							{
 								boost::property_tree::ptree response_l;

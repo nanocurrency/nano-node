@@ -612,7 +612,7 @@ void ledger_processor::open_block (nano::open_block const & block_a)
 					result.code = ledger.store.pending_get (transaction, key, pending) ? nano::process_result::unreceivable : nano::process_result::progress; // Has this source already been received (Malformed)
 					if (result.code == nano::process_result::progress)
 					{
-						result.code = block_a.hashables.account == nano::burn_account ? nano::process_result::opened_burn_account : nano::process_result::progress; // Is it burning 0 account? (Malicious)
+						result.code = block_a.hashables.account == ledger.network_params.ledger.burn_account ? nano::process_result::opened_burn_account : nano::process_result::progress; // Is it burning 0 account? (Malicious)
 						if (result.code == nano::process_result::progress)
 						{
 							result.code = pending.epoch == nano::epoch::epoch_0 ? nano::process_result::progress : nano::process_result::unreceivable; // Are we receiving a state-only send? (Malformed)
@@ -873,7 +873,7 @@ nano::account nano::ledger::account (nano::transaction const & transaction_a, na
 nano::uint128_t nano::ledger::amount (nano::transaction const & transaction_a, nano::block_hash const & hash_a)
 {
 	nano::uint128_t result;
-	if (hash_a != nano::genesis_account)
+	if (hash_a != network_params.ledger.genesis_account)
 	{
 		auto block (store.block_get (transaction_a, hash_a));
 		auto block_balance (balance (transaction_a, hash_a));
@@ -882,7 +882,7 @@ nano::uint128_t nano::ledger::amount (nano::transaction const & transaction_a, n
 	}
 	else
 	{
-		result = nano::genesis_amount;
+		result = network_params.ledger.genesis_amount;
 	}
 	return result;
 }
