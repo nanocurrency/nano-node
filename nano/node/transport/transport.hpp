@@ -2,7 +2,8 @@
 
 #include <nano/node/stats.hpp>
 
-namespace nano {
+namespace nano
+{
 class message;
 class message_sink
 {

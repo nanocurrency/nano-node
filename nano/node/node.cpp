@@ -5,7 +5,6 @@
 #include <nano/lib/utility.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/rpc.hpp>
-#include <nano/node/transport/udp.hpp>
 
 #include <algorithm>
 #include <cstdlib>
@@ -323,7 +322,7 @@ void nano::network::republish_block (nano::message_sink const & sink_a, std::sha
 {
 	auto hash (block->hash ());
 	nano::publish message (block);
-	auto bytes (std::make_shared <std::vector<uint8_t>> ());
+	auto bytes (std::make_shared<std::vector<uint8_t>> ());
 	{
 		nano::vectorstream stream (*bytes);
 		message.serialize (stream);
@@ -427,7 +426,7 @@ void nano::network::broadcast_confirm_req_base (std::shared_ptr<nano::block> blo
 	}
 }
 
-void nano::network::broadcast_confirm_req_batch (std::unordered_map<nano::endpoint, std::vector<std::pair<nano::block_hash, nano::block_hash>>> request_bundle_a, unsigned delay_a, bool resumption)
+void nano::network::broadcast_confirm_req_batch (std::unordered_map<nano::message_sink_udp, std::vector<std::pair<nano::block_hash, nano::block_hash>>> request_bundle_a, unsigned delay_a, bool resumption)
 {
 	const size_t max_reps = 10;
 	if (!resumption && node.config.logging.network_logging ())
@@ -447,8 +446,7 @@ void nano::network::broadcast_confirm_req_batch (std::unordered_map<nano::endpoi
 			j->second.pop_back ();
 		}
 		nano::confirm_req req (roots_hashes);
-		nano::message_sink_udp sink (node, j->first);
-		sink.sink (req);
+		j->first.sink (req);
 		if (j->second.empty ())
 		{
 			request_bundle_a.erase (j);
@@ -3146,7 +3144,7 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 	auto transaction (node.store.tx_begin_read ());
 	unsigned unconfirmed_count (0);
 	unsigned unconfirmed_announcements (0);
-	std::unordered_map<nano::endpoint, std::vector<std::pair<nano::block_hash, nano::block_hash>>> requests_bundle;
+	std::unordered_map<nano::message_sink_udp, std::vector<std::pair<nano::block_hash, nano::block_hash>>> requests_bundle;
 	std::deque<std::shared_ptr<nano::block>> rebroadcast_bundle;
 	std::deque<std::pair<std::shared_ptr<nano::block>, std::shared_ptr<std::vector<nano::peer_information>>>> confirm_req_bundle;
 
@@ -3279,7 +3277,7 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 					{
 						for (auto & rep : *reps)
 						{
-							auto rep_request (requests_bundle.find (rep.endpoint));
+							auto rep_request (requests_bundle.find (nano::message_sink_udp (node, rep.endpoint)));
 							auto block (i->election->status.winner);
 							auto root_hash (std::make_pair (block->hash (), block->root ()));
 							if (rep_request == requests_bundle.end ())
@@ -3287,7 +3285,7 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 								if (requests_bundle.size () < max_broadcast_queue)
 								{
 									std::vector<std::pair<nano::block_hash, nano::block_hash>> insert_vector = { root_hash };
-									requests_bundle.insert (std::make_pair (rep.endpoint, insert_vector));
+									requests_bundle.insert (std::make_pair (nano::message_sink_udp (node, rep.endpoint), insert_vector));
 								}
 							}
 							else if (rep_request->second.size () < max_broadcast_queue * nano::network::confirm_req_hashes_max)
@@ -3307,13 +3305,13 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 					{
 						for (auto & rep : *reps)
 						{
-							auto rep_request (requests_bundle.find (rep.endpoint));
+							auto rep_request (requests_bundle.find (nano::message_sink_udp (node, rep.endpoint)));
 							auto block (i->election->status.winner);
 							auto root_hash (std::make_pair (block->hash (), block->root ()));
 							if (rep_request == requests_bundle.end ())
 							{
 								std::vector<std::pair<nano::block_hash, nano::block_hash>> insert_vector = { root_hash };
-								requests_bundle.insert (std::make_pair (rep.endpoint, insert_vector));
+								requests_bundle.insert (std::make_pair (nano::message_sink_udp (node, rep.endpoint), insert_vector));
 							}
 							else
 							{

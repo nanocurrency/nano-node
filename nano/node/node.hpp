@@ -9,6 +9,7 @@
 #include <nano/node/portmapping.hpp>
 #include <nano/node/signatures.hpp>
 #include <nano/node/stats.hpp>
+#include <nano/node/transport/udp.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/secure/ledger.hpp>
 
@@ -339,7 +340,7 @@ public:
 	void send_node_id_handshake (nano::message_sink const &, boost::optional<nano::uint256_union> const & query, boost::optional<nano::uint256_union> const & respond_to);
 	void broadcast_confirm_req (std::shared_ptr<nano::block>);
 	void broadcast_confirm_req_base (std::shared_ptr<nano::block>, std::shared_ptr<std::vector<nano::peer_information>>, unsigned, bool = false);
-	void broadcast_confirm_req_batch (std::unordered_map<nano::endpoint, std::vector<std::pair<nano::block_hash, nano::block_hash>>>, unsigned = broadcast_interval_ms, bool = false);
+	void broadcast_confirm_req_batch (std::unordered_map<nano::message_sink_udp, std::vector<std::pair<nano::block_hash, nano::block_hash>>>, unsigned = broadcast_interval_ms, bool = false);
 	void broadcast_confirm_req_batch (std::deque<std::pair<std::shared_ptr<nano::block>, std::shared_ptr<std::vector<nano::peer_information>>>>, unsigned = broadcast_interval_ms);
 	void confirm_hashes (nano::transaction const &, nano::message_sink const &, std::vector<nano::block_hash>);
 	bool send_votes_cache (nano::message_sink const &, nano::block_hash const &);

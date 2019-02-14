@@ -1,7 +1,8 @@
-#include <nano/node/transport/transport.hpp>
 #include <nano/node/common.hpp>
+#include <nano/node/transport/transport.hpp>
 
-namespace {
+namespace
+{
 class callback_visitor : public nano::message_visitor
 {
 public:

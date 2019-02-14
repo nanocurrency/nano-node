@@ -1,5 +1,5 @@
-#include <nano/node/transport/udp.hpp>
 #include <nano/node/node.hpp>
+#include <nano/node/transport/udp.hpp>
 
 nano::message_sink_udp::message_sink_udp (nano::node & node_a, nano::endpoint const & endpoint_a) :
 node (node_a),
