@@ -3317,47 +3317,50 @@ void nano::rpc_handler::unchecked_keys ()
 void nano::rpc_handler::unopened ()
 {
 	rpc_control_impl ();
-	auto transaction (node.store.tx_begin_read ());
-	auto iterator (node.store.pending_begin (transaction, nano::pending_key (1, 0))); // exclude burn account
-	auto end (node.store.pending_end ());
-	nano::account current_account;
-	nano::uint128_t current_account_sum{ 0 };
-	boost::property_tree::ptree accounts;
-	while (iterator != end)
+	if (!ec)
 	{
-		nano::pending_key key (iterator->first);
-		nano::account account (key.account);
-		nano::pending_info info (iterator->second);
-		if (node.store.account_exists (transaction, account))
+		auto transaction (node.store.tx_begin_read ());
+		auto iterator (node.store.pending_begin (transaction, nano::pending_key (1, 0))); // exclude burn account
+		auto end (node.store.pending_end ());
+		nano::account current_account;
+		nano::uint128_t current_account_sum{ 0 };
+		boost::property_tree::ptree accounts;
+		while (iterator != end)
 		{
-			if (account.number () == std::numeric_limits<nano::uint256_t>::max ())
+			nano::pending_key key (iterator->first);
+			nano::account account (key.account);
+			nano::pending_info info (iterator->second);
+			if (node.store.account_exists (transaction, account))
 			{
-				break;
-			}
-			// Skip existing accounts
-			iterator = node.store.pending_begin (transaction, nano::pending_key (account.number () + 1, 0));
-		}
-		else
-		{
-			if (account != current_account)
-			{
-				if (current_account_sum > 0)
+				if (account.number () == std::numeric_limits<nano::uint256_t>::max ())
 				{
-					accounts.put (current_account.to_account (), current_account_sum.convert_to<std::string> ());
-					current_account_sum = 0;
+					break;
 				}
-				current_account = account;
+				// Skip existing accounts
+				iterator = node.store.pending_begin (transaction, nano::pending_key (account.number () + 1, 0));
 			}
-			current_account_sum += info.amount.number ();
-			++iterator;
+			else
+			{
+				if (account != current_account)
+				{
+					if (current_account_sum > 0)
+					{
+						accounts.put (current_account.to_account (), current_account_sum.convert_to<std::string> ());
+						current_account_sum = 0;
+					}
+					current_account = account;
+				}
+				current_account_sum += info.amount.number ();
+				++iterator;
+			}
 		}
+		// last one after iterator reaches end
+		if (current_account_sum > 0)
+		{
+			accounts.put (current_account.to_account (), current_account_sum.convert_to<std::string> ());
+		}
+		response_l.add_child ("accounts", accounts);
 	}
-	// last one after iterator reaches end
-	if (current_account_sum > 0)
-	{
-		accounts.put (current_account.to_account (), current_account_sum.convert_to<std::string> ());
-	}
-	response_l.add_child ("accounts", accounts);
 	response_errors ();
 }
 
