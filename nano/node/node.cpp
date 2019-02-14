@@ -334,11 +334,11 @@ bool confirm_block (nano::transaction const & transaction_a, nano::node & node_a
 	return result;
 }
 
-void nano::network::confirm_hashes (nano::transaction const & transaction_a, nano::endpoint const & peer_a, std::vector<nano::block_hash> blocks_bundle_a)
+void nano::network::confirm_hashes (nano::transaction const & transaction_a, nano::message_sink const & sink_a, std::vector<nano::block_hash> blocks_bundle_a)
 {
 	if (node.config.enable_voting)
 	{
-		node.wallets.foreach_representative (transaction_a, [this, &blocks_bundle_a, &peer_a, &transaction_a](nano::public_key const & pub_a, nano::raw_key const & prv_a) {
+		node.wallets.foreach_representative (transaction_a, [this, &blocks_bundle_a, &sink_a, &transaction_a](nano::public_key const & pub_a, nano::raw_key const & prv_a) {
 			auto vote (this->node.store.vote_generate (transaction_a, pub_a, prv_a, blocks_bundle_a));
 			nano::confirm_ack confirm (vote);
 			std::shared_ptr<std::vector<uint8_t>> bytes (new std::vector<uint8_t>);
@@ -346,14 +346,13 @@ void nano::network::confirm_hashes (nano::transaction const & transaction_a, nan
 				nano::vectorstream stream (*bytes);
 				confirm.serialize (stream);
 			}
-			nano::message_sink_udp sink (this->node, peer_a);
-			sink.send_buffer (bytes, nano::stat::detail::confirm_ack);
+			sink_a.send_buffer (bytes, nano::stat::detail::confirm_ack);
 			this->node.votes_cache.add (vote);
 		});
 	}
 }
 
-bool nano::network::send_votes_cache (nano::block_hash const & hash_a, nano::endpoint const & peer_a)
+bool nano::network::send_votes_cache (nano::message_sink const & sink_a, nano::block_hash const & hash_a)
 {
 	// Search in cache
 	auto votes (node.votes_cache.find (hash_a));
@@ -362,8 +361,7 @@ bool nano::network::send_votes_cache (nano::block_hash const & hash_a, nano::end
 	{
 		nano::confirm_ack confirm (vote);
 		auto vote_bytes = confirm.to_bytes ();
-		nano::message_sink_udp sink (node, peer_a);
-		sink.send_buffer (vote_bytes, nano::stat::detail::confirm_ack);
+		sink_a.send_buffer (vote_bytes, nano::stat::detail::confirm_ack);
 	}
 	// Returns true if votes were sent
 	bool result (!votes.empty ());
@@ -652,7 +650,8 @@ public:
 			if (message_a.block != nullptr)
 			{
 				auto hash (message_a.block->hash ());
-				if (!node.network.send_votes_cache (hash, sender))
+				nano::message_sink_udp sink (node, sender);
+				if (!node.network.send_votes_cache (sink, hash))
 				{
 					auto transaction (node.store.tx_begin_read ());
 					auto successor (node.ledger.successor (transaction, nano::uint512_union (message_a.block->previous (), message_a.block->root ())));
@@ -669,7 +668,8 @@ public:
 				std::vector<nano::block_hash> blocks_bundle;
 				for (auto & root_hash : message_a.roots_hashes)
 				{
-					if (!node.network.send_votes_cache (root_hash.first, sender) && node.store.block_exists (transaction, root_hash.first))
+					nano::message_sink_udp sink (node, sender);
+					if (!node.network.send_votes_cache (sink, root_hash.first) && node.store.block_exists (transaction, root_hash.first))
 					{
 						blocks_bundle.push_back (root_hash.first);
 					}
@@ -688,7 +688,7 @@ public:
 						}
 						if (!successor.is_zero ())
 						{
-							if (!node.network.send_votes_cache (successor, sender))
+							if (!node.network.send_votes_cache (sink, successor))
 							{
 								blocks_bundle.push_back (successor);
 							}
@@ -700,7 +700,8 @@ public:
 				}
 				if (!blocks_bundle.empty ())
 				{
-					node.network.confirm_hashes (transaction, sender, blocks_bundle);
+					nano::message_sink_udp sink (node, sender);
+					node.network.confirm_hashes (transaction, sink, blocks_bundle);
 				}
 			}
 		}
