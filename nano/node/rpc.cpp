@@ -3318,33 +3318,31 @@ void nano::rpc_handler::unopened ()
 {
 	std::unordered_map<nano::account, nano::uint128_t> unopened;
 	auto transaction (node.store.tx_begin_read ());
-	for (auto i (node.store.latest_begin (transaction)), n (node.store.latest_end ()); i != n; ++i)
+	auto iterator (node.store.pending_begin (transaction));
+	auto end (node.store.pending_end ());
+	while (iterator != end)
 	{
-		auto account (i->first);
-		auto hash = node.ledger.latest (transaction, account);
-		auto block (node.store.block_get (transaction, hash));
-		while (block != nullptr)
+		nano::pending_key key (iterator->first);
+		nano::account account (key.account);
+		nano::pending_info info (iterator->second);
+		if (node.store.account_exists (transaction, account))
 		{
-			auto hash_d (node.ledger.block_destination (transaction, *block));
-			if (!hash_d.is_zero ())
+			// Skip existing accounts
+			iterator = node.store.pending_begin (transaction, nano::pending_key (account.number () + 1, 0));
+		}
+		else
+		{
+			auto pending_block_amount (info.amount.number ());
+			auto u (unopened.find (account));
+			if (u == unopened.end ())
 			{
-				nano::account account_d (hash_d);
-				if (node.ledger.latest (transaction, account_d).is_zero ()) // no blocks = unopened
-				{
-					auto u (unopened.find (account_d));
-					if (u == unopened.end ())
-					{
-						unopened.insert ({ account_d, node.ledger.amount (transaction, hash) });
-					}
-					else
-					{
-						u->second += node.ledger.amount (transaction, hash);
-					}
-				}
+				unopened.insert ({ account, pending_block_amount });
 			}
-
-			hash = block->previous ();
-			block = node.store.block_get (transaction, hash);
+			else
+			{
+				u->second += pending_block_amount;
+			}
+			++iterator;
 		}
 	}
 	for (const auto & kv : unopened)
