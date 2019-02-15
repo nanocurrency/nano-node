@@ -174,8 +174,8 @@ public:
 	void key_create ();
 	void key_expand ();
 	void ledger ();
-	void mrai_to_raw (nano::uint128_t = nano::Mxrb_ratio);
-	void mrai_from_raw (nano::uint128_t = nano::Mxrb_ratio);
+	void mnano_to_raw (nano::uint128_t = nano::Mxrb_ratio);
+	void mnano_from_raw (nano::uint128_t = nano::Mxrb_ratio);
 	void node_id ();
 	void node_id_delete ();
 	void password_change ();
