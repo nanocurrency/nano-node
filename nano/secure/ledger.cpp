@@ -721,12 +721,17 @@ nano::process_return nano::ledger::process (nano::transaction const & transactio
 				current = receive_blocks.top ();
 				receive_blocks.pop ();
 
-				nano::block_hash source_hash = block_a.source ();
 				nano::block_sideband sideband;
-				auto block (store.block_get (transaction_a, source_hash, &sideband));
+				auto block (store.block_get (transaction_a, current, &sideband));
 				if (block != nullptr)
 				{
-					current = block->hash ();
+					nano::block_hash source_hash = block->source ();
+					nano::block_sideband source_sideband;
+					auto source_block (store.block_get (transaction_a, source_hash, &source_sideband));
+					if (source_block != nullptr)
+					{
+						current = source_block->hash ();
+					}
 				}
 			}
 
@@ -752,12 +757,7 @@ nano::process_return nano::ledger::process (nano::transaction const & transactio
 					auto block (store.block_get (transaction_a, current, &sideband));
 					if (block != nullptr)
 					{
-						// Check block just confirmed, the
-						auto balance_l (balance (transaction_a, sideband.successor));
-						auto balance1_l = balance (transaction_a, current);
-						auto is_receive (balance_l < balance1_l);
-
-						if (is_receive)
+						if (sideband.type == nano::block_type::receive)
 						{
 							receive_blocks.push (current);
 						}
@@ -915,6 +915,12 @@ bool nano::ledger::rollback (nano::transaction const & transaction_a, nano::bloc
 		}
 	}
 	return error;
+}
+
+bool nano::ledger::rollback (nano::transaction const & transaction_a, nano::block_hash const & block_a)
+{
+	std::vector<nano::block_hash> rollback_list;
+	return rollback (transaction_a, block_a, rollback_list);
 }
 
 // Return account containing hash

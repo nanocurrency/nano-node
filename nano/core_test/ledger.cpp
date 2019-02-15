@@ -2745,6 +2745,14 @@ TEST (ledger, confirmation_height_multiple_senders)
 	nano::receive_block receive2 (send6.hash (), send5.hash (), key2.prv, key2.pub, 0);
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, receive2).code);
 
+	// Confirm the heights are what we expect
+	ASSERT_FALSE (store.account_get (transaction, nano::test_genesis_key.pub, account_info));
+	ASSERT_EQ (4, account_info.confirmation_height);
+	ASSERT_FALSE (store.account_get (transaction, key1.pub, account_info));
+	ASSERT_EQ (3, account_info.confirmation_height);
+	ASSERT_FALSE (store.account_get (transaction, key2.pub, account_info));
+	ASSERT_EQ (4, account_info.confirmation_height); // Block height should be 5 though.
+	
 	// Set confirmation heights to 0 for all accounts, so this emulates being stored in the ledger before anything has been confirmed yet
 	clear_confirmation_height (store, transaction, nano::test_genesis_key.pub);
 	clear_confirmation_height (store, transaction, key1.pub);
@@ -2752,18 +2760,16 @@ TEST (ledger, confirmation_height_multiple_senders)
 	ASSERT_FALSE (store.account_get (transaction, key3.pub, account_info));
 	ASSERT_EQ (0, account_info.confirmation_height);
 
-	// Then have a live receive and check confirmation heights propagate correctly
-
-	// TODO: Not working as expected yet
+	// Then have a "live" receive and check confirmation heights propagate correctly
 	nano::receive_block receive3 (open3.hash (), send6.hash (), key3.prv, key3.pub, 0);
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, receive3).code);
 
 	ASSERT_FALSE (store.account_get (transaction, nano::test_genesis_key.pub, account_info));
-	ASSERT_EQ (0, account_info.confirmation_height); // Nothing confirms sends which open an account, hmmm....
+	ASSERT_EQ (0, account_info.confirmation_height); // Nothing confirms sends which open an account, hmmm.... is this correct??
 	ASSERT_FALSE (store.account_get (transaction, key1.pub, account_info));
 	ASSERT_EQ (3, account_info.confirmation_height);
 	ASSERT_FALSE (store.account_get (transaction, key2.pub, account_info));
-	ASSERT_EQ (4, account_info.confirmation_height); // Block height should be 5 though.
+	ASSERT_EQ (3, account_info.confirmation_height); // Block height is 4
 	ASSERT_FALSE (store.account_get (transaction, key3.pub, account_info));
 	ASSERT_EQ (2, account_info.confirmation_height);
 }
