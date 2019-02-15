@@ -210,14 +210,6 @@ public:
 std::unique_ptr<seq_con_info_component> collect_seq_con_info (gap_cache & gap_cache, const std::string & name);
 
 class work_pool;
-class send_info
-{
-public:
-	uint8_t const * data;
-	size_t size;
-	nano::endpoint endpoint;
-	std::function<void(boost::system::error_code const &, size_t)> callback;
-};
 class block_arrival_info
 {
 public:
