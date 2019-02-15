@@ -19,7 +19,7 @@ yes | yum install -y llvm-toolset-7-cmake devtoolset-7-llvm|| exit 1
 (
 	eval "$(scl enable llvm-toolset-7 devtoolset-7 "bash -c 'set | grep ^PATH='")"
 	if ! have boost; then
-		bootstrap_boost -m -k
+		bootstrap_boost -m
 	fi
 
 	if ! have boost; then
