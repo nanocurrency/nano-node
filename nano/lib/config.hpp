@@ -1,5 +1,6 @@
 #pragma once
 
+#include <boost/filesystem.hpp>
 #include <chrono>
 #include <cstddef>
 
@@ -27,4 +28,9 @@ bool constexpr is_beta_network = nano_network == nano_networks::nano_beta_networ
 bool constexpr is_test_network = nano_network == nano_networks::nano_test_network;
 
 std::chrono::milliseconds const transaction_timeout = std::chrono::milliseconds (1000);
+
+inline boost::filesystem::path get_config_path (boost::filesystem::path const & data_path)
+{
+	return data_path / "config.json";
+}
 }
