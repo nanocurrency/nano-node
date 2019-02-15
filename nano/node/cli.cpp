@@ -67,15 +67,6 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 {
 	std::error_code ec;
 	boost::filesystem::path data_path = vm.count ("data_path") ? boost::filesystem::path (vm["data_path"].as<std::string> ()) : nano::working_path ();
-	auto network (vm.find ("network"));
-	if (network != vm.end ())
-	{
-		auto err (nano::network_params::set_active_network (network->second.as<std::string> ()));
-		if (err)
-		{
-			std::cout << err.get_message () << std::endl;
-		}
-	}
 
 	if (vm.count ("account_create"))
 	{
