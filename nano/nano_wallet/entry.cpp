@@ -369,7 +369,7 @@ int main (int argc, char * const * argv)
 					flags.disable_legacy_bootstrap = (vm.count ("disable_legacy_bootstrap") > 0);
 					flags.disable_wallet_bootstrap = (vm.count ("disable_wallet_bootstrap") > 0);
 					flags.disable_bootstrap_listener = (vm.count ("disable_bootstrap_listener") > 0);
-					flags.disable_unchecked_cleaning = (vm.count ("disable_unchecked_cleaning") > 0);
+					flags.disable_unchecked_cleanup = (vm.count ("disable_unchecked_cleanup") > 0);
 					flags.disable_unchecked_drop = (vm.count ("disable_unchecked_drop") > 0);
 					flags.fast_bootstrap = (vm.count ("fast_bootstrap") > 0);
 					result = run_wallet (application, argc, argv, data_path, flags);
