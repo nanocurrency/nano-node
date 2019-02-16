@@ -1142,7 +1142,7 @@ TEST (rpc, account_history)
 	nano::state_block ureceive (nano::genesis_account, usend.hash (), nano::genesis_account, nano::genesis_amount, usend.hash (), nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
 	nano::state_block uchange (nano::genesis_account, ureceive.hash (), nano::keypair ().pub, nano::genesis_amount, 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
 	{
-		auto transaction (node0->wallets.tx_begin (true));
+		auto transaction (node0->store.tx_begin (true));
 		ASSERT_EQ (nano::process_result::progress, node0->ledger.process (transaction, usend).code);
 		ASSERT_EQ (nano::process_result::progress, node0->ledger.process (transaction, ureceive).code);
 		ASSERT_EQ (nano::process_result::progress, node0->ledger.process (transaction, uchange).code);
@@ -1156,7 +1156,7 @@ TEST (rpc, account_history)
 	test_response response (request, rpc, system.io_ctx);
 	while (response.status == 0)
 	{
-		system.poll ();
+        ASSERT_NO_ERROR(system.poll());
 	}
 	ASSERT_EQ (200, response.status);
 	std::vector<std::tuple<std::string, std::string, std::string, std::string>> history_l;
