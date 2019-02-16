@@ -18,6 +18,7 @@
 
 namespace nano
 {
+class message_sink_udp;
 class node;
 nano::endpoint map_endpoint_to_v6 (nano::endpoint const &);
 
@@ -46,13 +47,11 @@ public:
 class peer_information
 {
 public:
-	peer_information (nano::endpoint const &, unsigned, boost::optional<nano::account> = boost::none);
-	peer_information (nano::endpoint const &, std::chrono::steady_clock::time_point const &, std::chrono::steady_clock::time_point const &);
-	nano::endpoint endpoint;
-	boost::asio::ip::address ip_address () const
-	{
-		return endpoint.address ();
-	}
+	peer_information (std::shared_ptr<nano::message_sink_udp>, unsigned, boost::optional<nano::account> = boost::none);
+	peer_information (std::shared_ptr<nano::message_sink_udp>, std::chrono::steady_clock::time_point const &, std::chrono::steady_clock::time_point const &);
+	std::shared_ptr<nano::message_sink_udp> sink;
+	boost::asio::ip::address ip_address () const;
+	nano::endpoint endpoint () const;
 	std::chrono::steady_clock::time_point last_contact;
 	std::chrono::steady_clock::time_point last_attempt;
 	std::chrono::steady_clock::time_point last_bootstrap_attempt{ std::chrono::steady_clock::time_point () };
@@ -116,7 +115,7 @@ public:
 	boost::multi_index_container<
 	peer_information,
 	boost::multi_index::indexed_by<
-	boost::multi_index::hashed_unique<boost::multi_index::member<peer_information, nano::endpoint, &peer_information::endpoint>>,
+	boost::multi_index::hashed_unique<boost::multi_index::const_mem_fun<peer_information, nano::endpoint, &peer_information::endpoint>>,
 	boost::multi_index::ordered_non_unique<boost::multi_index::member<peer_information, std::chrono::steady_clock::time_point, &peer_information::last_contact>>,
 	boost::multi_index::ordered_non_unique<boost::multi_index::member<peer_information, std::chrono::steady_clock::time_point, &peer_information::last_attempt>, std::greater<std::chrono::steady_clock::time_point>>,
 	boost::multi_index::random_access<>,

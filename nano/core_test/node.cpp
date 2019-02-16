@@ -1554,7 +1554,7 @@ TEST (node, rep_list)
 		auto reps (node1.peers.representatives (1));
 		if (!reps.empty ())
 		{
-			if (reps[0].endpoint == node0.network.endpoint ())
+			if (reps[0].endpoint () == node0.network.endpoint ())
 			{
 				if (!reps[0].rep_weight.is_zero ())
 				{

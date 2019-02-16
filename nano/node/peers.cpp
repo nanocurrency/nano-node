@@ -1,6 +1,7 @@
 #include <nano/node/peers.hpp>
 
 #include <nano/node/node.hpp>
+#include <nano/node/transport/udp.hpp>
 
 nano::endpoint nano::map_endpoint_to_v6 (nano::endpoint const & endpoint_a)
 {
@@ -12,8 +13,8 @@ nano::endpoint nano::map_endpoint_to_v6 (nano::endpoint const & endpoint_a)
 	return endpoint_l;
 }
 
-nano::peer_information::peer_information (nano::endpoint const & endpoint_a, unsigned network_version_a, boost::optional<nano::account> node_id_a) :
-endpoint (endpoint_a),
+nano::peer_information::peer_information (std::shared_ptr<nano::message_sink_udp> sink_a, unsigned network_version_a, boost::optional<nano::account> node_id_a) :
+sink (sink_a),
 last_contact (std::chrono::steady_clock::now ()),
 last_attempt (last_contact),
 
@@ -22,16 +23,26 @@ node_id (node_id_a)
 {
 }
 
-nano::peer_information::peer_information (nano::endpoint const & endpoint_a, std::chrono::steady_clock::time_point const & last_contact_a, std::chrono::steady_clock::time_point const & last_attempt_a) :
-endpoint (endpoint_a),
+nano::peer_information::peer_information (std::shared_ptr<nano::message_sink_udp> sink_a, std::chrono::steady_clock::time_point const & last_contact_a, std::chrono::steady_clock::time_point const & last_attempt_a) :
+sink (sink_a),
 last_contact (last_contact_a),
 last_attempt (last_attempt_a)
 {
 }
 
+boost::asio::ip::address nano::peer_information::ip_address () const
+{
+	return sink->endpoint.address ();
+}
+
+nano::endpoint nano::peer_information::endpoint () const
+{
+	return sink->endpoint;
+}
+
 bool nano::peer_information::operator< (nano::peer_information const & peer_information_a) const
 {
-	return endpoint < peer_information_a.endpoint;
+	return endpoint () < peer_information_a.endpoint ();
 }
 
 nano::peer_container::peer_container (nano::node & node_a) :
@@ -97,7 +108,7 @@ std::deque<nano::endpoint> nano::peer_container::list ()
 	std::lock_guard<std::mutex> lock (mutex);
 	for (auto i (peers.begin ()), j (peers.end ()); i != j; ++i)
 	{
-		result.push_back (i->endpoint);
+		result.push_back (i->endpoint ());
 	}
 	random_pool.Shuffle (result.begin (), result.end ());
 	return result;
@@ -112,9 +123,9 @@ std::vector<nano::peer_information> nano::peer_container::list_vector (size_t co
 		result.push_back (*i);
 	}
 	random_pool.Shuffle (result.begin (), result.end ());
-	if (result.size () > count_a)
+	while (result.size () > count_a)
 	{
-		result.resize (count_a, nano::peer_information (nano::endpoint{}, 0));
+		result.pop_back ();
 	}
 	return result;
 }
@@ -128,7 +139,7 @@ nano::endpoint nano::peer_container::bootstrap_peer ()
 	{
 		if (i->network_version >= protocol_version_reasonable_min)
 		{
-			result = i->endpoint;
+			result = i->endpoint ();
 			peers.get<4> ().modify (i, [](nano::peer_information & peer_a) {
 				peer_a.last_bootstrap_attempt = std::chrono::steady_clock::now ();
 			});
@@ -203,13 +214,13 @@ std::unordered_set<nano::endpoint> nano::peer_container::random_set (size_t coun
 		for (auto i (0); i < random_cutoff && result.size () < count_a; ++i)
 		{
 			auto index (random_pool.GenerateWord32 (0, static_cast<CryptoPP::word32> (peers_size - 1)));
-			result.insert (peers.get<3> ()[index].endpoint);
+			result.insert (peers.get<3> ()[index].endpoint ());
 		}
 	}
 	// Fill the remainder with most recent contact
 	for (auto i (peers.get<1> ().begin ()), n (peers.get<1> ().end ()); i != n && result.size () < count_a; ++i)
 	{
-		result.insert (i->endpoint);
+		result.insert (i->endpoint ());
 	}
 	return result;
 }
@@ -308,7 +319,7 @@ std::vector<nano::endpoint> nano::peer_container::rep_crawl ()
 	uint16_t count (0);
 	for (auto i (peers.get<5> ().begin ()), n (peers.get<5> ().end ()); i != n && count < max_count; ++i, ++count)
 	{
-		result.push_back (i->endpoint);
+		result.push_back (i->endpoint ());
 	};
 	return result;
 }
@@ -462,7 +473,7 @@ bool nano::peer_container::insert (nano::endpoint const & endpoint_a, unsigned v
 				}
 				if (!result)
 				{
-					peers.insert (nano::peer_information (endpoint_a, version_a, node_id_a));
+					peers.insert (nano::peer_information (std::make_shared<nano::message_sink_udp> (node, endpoint_a), version_a, node_id_a));
 				}
 			}
 		}

@@ -402,9 +402,8 @@ void nano::network::broadcast_confirm_req_base (std::shared_ptr<nano::block> blo
 	auto count (0);
 	while (!endpoints_a->empty () && count < max_reps)
 	{
-		nano::message_sink_udp sink (node, endpoints_a->back ().endpoint);
 		nano::confirm_req req (block_a);
-		sink.sink (req);
+		endpoints_a->back ().sink->sink (req);
 		endpoints_a->pop_back ();
 		count++;
 	}
@@ -422,7 +421,7 @@ void nano::network::broadcast_confirm_req_base (std::shared_ptr<nano::block> blo
 	}
 }
 
-void nano::network::broadcast_confirm_req_batch (std::unordered_map<nano::message_sink_udp, std::vector<std::pair<nano::block_hash, nano::block_hash>>> request_bundle_a, unsigned delay_a, bool resumption)
+void nano::network::broadcast_confirm_req_batch (std::unordered_map<std::shared_ptr<nano::message_sink_udp>, std::vector<std::pair<nano::block_hash, nano::block_hash>>> request_bundle_a, unsigned delay_a, bool resumption)
 {
 	const size_t max_reps = 10;
 	if (!resumption && node.config.logging.network_logging ())
@@ -442,7 +441,7 @@ void nano::network::broadcast_confirm_req_batch (std::unordered_map<nano::messag
 			j->second.pop_back ();
 		}
 		nano::confirm_req req (roots_hashes);
-		j->first.sink (req);
+		j->first->sink (req);
 		if (j->second.empty ())
 		{
 			request_bundle_a.erase (j);
@@ -1881,8 +1880,7 @@ void nano::node::ongoing_keepalive ()
 	auto peers_l (peers.purge_list (std::chrono::steady_clock::now () - cutoff));
 	for (auto i (peers_l.begin ()), j (peers_l.end ()); i != j && std::chrono::steady_clock::now () - i->last_attempt > period; ++i)
 	{
-		nano::message_sink_udp sink (*this, i->endpoint);
-		network.send_keepalive (sink);
+		network.send_keepalive (*i->sink);
 	}
 	std::weak_ptr<nano::node> node_w (shared_from_this ());
 	alarm.add (std::chrono::steady_clock::now () + period, [node_w]() {
@@ -3130,7 +3128,7 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 	auto transaction (node.store.tx_begin_read ());
 	unsigned unconfirmed_count (0);
 	unsigned unconfirmed_announcements (0);
-	std::unordered_map<nano::message_sink_udp, std::vector<std::pair<nano::block_hash, nano::block_hash>>> requests_bundle;
+	std::unordered_map<std::shared_ptr<nano::message_sink_udp>, std::vector<std::pair<nano::block_hash, nano::block_hash>>> requests_bundle;
 	std::deque<std::shared_ptr<nano::block>> rebroadcast_bundle;
 	std::deque<std::pair<std::shared_ptr<nano::block>, std::shared_ptr<std::vector<nano::peer_information>>>> confirm_req_bundle;
 
@@ -3263,7 +3261,7 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 					{
 						for (auto & rep : *reps)
 						{
-							auto rep_request (requests_bundle.find (nano::message_sink_udp (node, rep.endpoint)));
+							auto rep_request (requests_bundle.find (rep.sink));
 							auto block (i->election->status.winner);
 							auto root_hash (std::make_pair (block->hash (), block->root ()));
 							if (rep_request == requests_bundle.end ())
@@ -3271,7 +3269,7 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 								if (requests_bundle.size () < max_broadcast_queue)
 								{
 									std::vector<std::pair<nano::block_hash, nano::block_hash>> insert_vector = { root_hash };
-									requests_bundle.insert (std::make_pair (nano::message_sink_udp (node, rep.endpoint), insert_vector));
+									requests_bundle.insert (std::make_pair (rep.sink, insert_vector));
 								}
 							}
 							else if (rep_request->second.size () < max_broadcast_queue * nano::network::confirm_req_hashes_max)
@@ -3291,13 +3289,13 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 					{
 						for (auto & rep : *reps)
 						{
-							auto rep_request (requests_bundle.find (nano::message_sink_udp (node, rep.endpoint)));
+							auto rep_request (requests_bundle.find (rep.sink));
 							auto block (i->election->status.winner);
 							auto root_hash (std::make_pair (block->hash (), block->root ()));
 							if (rep_request == requests_bundle.end ())
 							{
 								std::vector<std::pair<nano::block_hash, nano::block_hash>> insert_vector = { root_hash };
-								requests_bundle.insert (std::make_pair (nano::message_sink_udp (node, rep.endpoint), insert_vector));
+								requests_bundle.insert (std::make_pair (rep.sink, insert_vector));
 							}
 							else
 							{

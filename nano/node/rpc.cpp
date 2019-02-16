@@ -2232,7 +2232,7 @@ void nano::rpc_handler::peers ()
 	for (auto i (peers_list.begin ()), n (peers_list.end ()); i != n; ++i)
 	{
 		std::stringstream text;
-		text << i->endpoint;
+		text << i->sink->to_string ();
 		if (peer_details)
 		{
 			boost::property_tree::ptree pending_tree;

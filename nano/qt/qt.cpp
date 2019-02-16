@@ -1940,9 +1940,7 @@ void nano_qt::advanced_actions::refresh_peers ()
 	for (auto i (list.begin ()), n (list.end ()); i != n; ++i)
 	{
 		std::stringstream endpoint;
-		endpoint << i->endpoint.address ().to_string ();
-		endpoint << ':';
-		endpoint << i->endpoint.port ();
+		endpoint << i->sink->to_string ();
 		QString qendpoint (endpoint.str ().c_str ());
 		QList<QStandardItem *> items;
 		items.push_back (new QStandardItem (qendpoint));

@@ -66,13 +66,13 @@ TEST (peer_container, split)
 	auto now (std::chrono::steady_clock::now ());
 	nano::endpoint endpoint1 (boost::asio::ip::address_v6::any (), 100);
 	nano::endpoint endpoint2 (boost::asio::ip::address_v6::any (), 101);
-	peers.peers.insert (nano::peer_information (endpoint1, now - std::chrono::seconds (1), now));
-	peers.peers.insert (nano::peer_information (endpoint2, now + std::chrono::seconds (1), now));
+	peers.peers.insert (nano::peer_information (std::make_shared<nano::message_sink_udp> (*system.nodes[0], endpoint1), now - std::chrono::seconds (1), now));
+	peers.peers.insert (nano::peer_information (std::make_shared<nano::message_sink_udp> (*system.nodes[0], endpoint2), now + std::chrono::seconds (1), now));
 	ASSERT_EQ (2, peers.peers.size ());
 	auto list (peers.purge_list (now));
 	ASSERT_EQ (1, peers.peers.size ());
 	ASSERT_EQ (1, list.size ());
-	ASSERT_EQ (endpoint2, list[0].endpoint);
+	ASSERT_EQ (endpoint2, list[0].sink->endpoint);
 }
 
 TEST (peer_container, fill_random_clear)
@@ -149,7 +149,7 @@ TEST (peer_container, rep_weight)
 	ASSERT_EQ (1, reps.size ());
 	ASSERT_EQ (100, reps[0].rep_weight.number ());
 	ASSERT_EQ (keypair.pub, reps[0].probable_rep_account);
-	ASSERT_EQ (endpoint0, reps[0].endpoint);
+	ASSERT_EQ (endpoint0, reps[0].sink->endpoint);
 }
 
 // Test to make sure we don't repeatedly send keepalive messages to nodes that aren't responding
