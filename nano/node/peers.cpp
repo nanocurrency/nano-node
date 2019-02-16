@@ -12,7 +12,6 @@ nano::endpoint nano::map_endpoint_to_v6 (nano::endpoint const & endpoint_a)
 
 nano::peer_information::peer_information (nano::endpoint const & endpoint_a, unsigned network_version_a, boost::optional<nano::account> node_id_a) :
 endpoint (endpoint_a),
-ip_address (endpoint_a.address ()),
 last_contact (std::chrono::steady_clock::now ()),
 last_attempt (last_contact),
 
@@ -23,7 +22,6 @@ node_id (node_id_a)
 
 nano::peer_information::peer_information (nano::endpoint const & endpoint_a, std::chrono::steady_clock::time_point const & last_contact_a, std::chrono::steady_clock::time_point const & last_attempt_a) :
 endpoint (endpoint_a),
-ip_address (endpoint_a.address ()),
 last_contact (last_contact_a),
 last_attempt (last_attempt_a)
 {

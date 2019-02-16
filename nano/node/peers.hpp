@@ -2,6 +2,7 @@
 
 #include <boost/asio/ip/address.hpp>
 #include <boost/multi_index/hashed_index.hpp>
+#include <boost/multi_index/mem_fun.hpp>
 #include <boost/multi_index/member.hpp>
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index/random_access_index.hpp>
@@ -47,7 +48,10 @@ public:
 	peer_information (nano::endpoint const &, unsigned, boost::optional<nano::account> = boost::none);
 	peer_information (nano::endpoint const &, std::chrono::steady_clock::time_point const &, std::chrono::steady_clock::time_point const &);
 	nano::endpoint endpoint;
-	boost::asio::ip::address ip_address;
+	boost::asio::ip::address ip_address () const
+	{
+		return endpoint.address ();
+	}
 	std::chrono::steady_clock::time_point last_contact;
 	std::chrono::steady_clock::time_point last_attempt;
 	std::chrono::steady_clock::time_point last_bootstrap_attempt{ std::chrono::steady_clock::time_point () };
@@ -118,7 +122,7 @@ public:
 	boost::multi_index::ordered_non_unique<boost::multi_index::member<peer_information, std::chrono::steady_clock::time_point, &peer_information::last_bootstrap_attempt>>,
 	boost::multi_index::ordered_non_unique<boost::multi_index::member<peer_information, std::chrono::steady_clock::time_point, &peer_information::last_rep_request>>,
 	boost::multi_index::ordered_non_unique<boost::multi_index::member<peer_information, nano::amount, &peer_information::rep_weight>, std::greater<nano::amount>>,
-	boost::multi_index::ordered_non_unique<boost::multi_index::tag<peer_by_ip_addr>, boost::multi_index::member<peer_information, boost::asio::ip::address, &peer_information::ip_address>>>>
+	boost::multi_index::ordered_non_unique<boost::multi_index::tag<peer_by_ip_addr>, boost::multi_index::const_mem_fun<peer_information, boost::asio::ip::address, &peer_information::ip_address>>>>
 	peers;
 	boost::multi_index_container<
 	peer_attempt,

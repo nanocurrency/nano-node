@@ -1625,7 +1625,7 @@ void nano::rpc_handler::confirmation_quorum ()
 		{
 			boost::property_tree::ptree peer_node;
 			peer_node.put ("account", peer.probable_rep_account.to_account ());
-			peer_node.put ("ip", peer.ip_address.to_string ());
+			peer_node.put ("ip", peer.ip_address ().to_string ());
 			peer_node.put ("weight", peer.rep_weight.to_string_dec ());
 			peers.push_back (std::make_pair ("", peer_node));
 		}
