@@ -1418,6 +1418,39 @@ TEST (block_store, upgrade_sideband_epoch)
 	ASSERT_EQ (nano::epoch::epoch_1, store.block_version (transaction, block2.hash ()));
 }
 
+TEST (block_store, sideband_height)
+{
+	nano::logging logging;
+	bool error (false);
+	nano::genesis genesis;
+	nano::mdb_store store (error, logging, nano::unique_path ());
+	ASSERT_FALSE (error);
+	store.stop ();
+	nano::stat stat;
+	nano::ledger ledger (store, stat);
+	auto transaction (store.tx_begin (true));
+	store.initialize (transaction, genesis);
+	nano::send_block send (genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
+	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send).code);
+	nano::receive_block receive (send.hash (), send.hash (), nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
+	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, receive).code);
+	nano::change_block change (receive.hash (), 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
+	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, change).code);
+	nano::state_block state (nano::test_genesis_key.pub, change.hash (), 0, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
+	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, state).code);
+	nano::block_sideband sideband;
+	auto block1 (store.block_get (transaction, genesis.hash (), &sideband));
+	ASSERT_EQ (sideband.height, 0);
+	auto block2 (store.block_get (transaction, send.hash (), &sideband));
+	ASSERT_EQ (sideband.height, 1);
+	auto block3 (store.block_get (transaction, receive.hash (), &sideband));
+	ASSERT_EQ (sideband.height, 2);
+	auto block4 (store.block_get (transaction, change.hash (), &sideband));
+	ASSERT_EQ (sideband.height, 3);
+	auto block5 (store.block_get (transaction, state.hash (), &sideband));
+	ASSERT_EQ (sideband.height, 4);
+}
+
 TEST (block_store, peers)
 {
 	nano::logging logging;
