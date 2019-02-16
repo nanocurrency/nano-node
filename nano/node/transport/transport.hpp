@@ -29,4 +29,34 @@ struct hash<::nano::message_sink>
 		return sink_a.hash_code ();
 	}
 };
+template <>
+struct equal_to<std::reference_wrapper<::nano::message_sink const>>
+{
+	bool operator() (std::reference_wrapper<::nano::message_sink const> const & lhs, std::reference_wrapper<::nano::message_sink const> const & rhs) const
+	{
+		return lhs.get () == rhs.get ();
+	}
+};
+}
+
+namespace boost
+{
+template <>
+struct hash<::nano::message_sink>
+{
+	size_t operator() (::nano::message_sink const & sink_a) const
+	{
+		std::hash<::nano::message_sink> hash;
+		return hash (sink_a);
+	}
+};
+template <>
+struct hash<std::reference_wrapper<::nano::message_sink const>>
+{
+	size_t operator() (std::reference_wrapper<::nano::message_sink const> const & sink_a) const
+	{
+		std::hash<::nano::message_sink> hash;
+		return hash (sink_a.get ());
+	}
+};
 }

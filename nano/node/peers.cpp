@@ -40,6 +40,11 @@ nano::endpoint nano::peer_information::endpoint () const
 	return sink->endpoint;
 }
 
+std::reference_wrapper<nano::message_sink const> nano::peer_information::sink_ref () const
+{
+	return *sink;
+}
+
 bool nano::peer_information::operator< (nano::peer_information const & peer_information_a) const
 {
 	return endpoint () < peer_information_a.endpoint ();
@@ -72,7 +77,8 @@ bool nano::peer_container::contacted (nano::endpoint const & endpoint_a, unsigne
 	else
 	{
 		std::lock_guard<std::mutex> lock (mutex);
-		auto existing (peers.find (endpoint_a));
+		nano::message_sink_udp sink (node, endpoint_a);
+		auto existing (peers.find (std::reference_wrapper<nano::message_sink const> (sink)));
 		if (existing != peers.end ())
 		{
 			peers.modify (existing, [](nano::peer_information & info) {
@@ -86,7 +92,8 @@ bool nano::peer_container::contacted (nano::endpoint const & endpoint_a, unsigne
 bool nano::peer_container::known_peer (nano::endpoint const & endpoint_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
-	auto existing (peers.find (endpoint_a));
+	nano::message_sink_udp sink (node, endpoint_a);
+	auto existing (peers.find (std::reference_wrapper<nano::message_sink const> (sink)));
 	return existing != peers.end ();
 }
 
@@ -393,7 +400,8 @@ bool nano::peer_container::rep_response (nano::endpoint const & endpoint_a, nano
 	assert (endpoint_a.address ().is_v6 ());
 	auto updated (false);
 	std::lock_guard<std::mutex> lock (mutex);
-	auto existing (peers.find (endpoint_a));
+	nano::message_sink_udp sink (node, endpoint_a);
+	auto existing (peers.find (std::reference_wrapper<nano::message_sink const> (sink)));
 	if (existing != peers.end ())
 	{
 		peers.modify (existing, [weight_a, &updated, rep_account_a](nano::peer_information & info) {
@@ -412,7 +420,8 @@ bool nano::peer_container::rep_response (nano::endpoint const & endpoint_a, nano
 void nano::peer_container::rep_request (nano::endpoint const & endpoint_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
-	auto existing (peers.find (endpoint_a));
+	nano::message_sink_udp sink (node, endpoint_a);
+	auto existing (peers.find (std::reference_wrapper<nano::message_sink const> (sink)));
 	if (existing != peers.end ())
 	{
 		peers.modify (existing, [](nano::peer_information & info) {
@@ -448,7 +457,8 @@ bool nano::peer_container::insert (nano::endpoint const & endpoint_a, unsigned v
 		if (version_a >= nano::protocol_version_min)
 		{
 			std::lock_guard<std::mutex> lock (mutex);
-			auto existing (peers.find (endpoint_a));
+			nano::message_sink_udp sink (node, endpoint_a);
+			auto existing (peers.find (std::reference_wrapper<nano::message_sink const> (sink)));
 			if (existing != peers.end ())
 			{
 				peers.modify (existing, [node_id_a](nano::peer_information & info) {

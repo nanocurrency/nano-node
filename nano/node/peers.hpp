@@ -13,6 +13,7 @@
 #include <mutex>
 #include <nano/lib/numbers.hpp>
 #include <nano/node/common.hpp>
+#include <nano/node/transport/transport.hpp>
 #include <unordered_set>
 #include <vector>
 
@@ -52,6 +53,7 @@ public:
 	std::shared_ptr<nano::message_sink_udp> sink;
 	boost::asio::ip::address ip_address () const;
 	nano::endpoint endpoint () const;
+	std::reference_wrapper<nano::message_sink const> sink_ref () const;
 	std::chrono::steady_clock::time_point last_contact;
 	std::chrono::steady_clock::time_point last_attempt;
 	std::chrono::steady_clock::time_point last_bootstrap_attempt{ std::chrono::steady_clock::time_point () };
@@ -115,7 +117,7 @@ public:
 	boost::multi_index_container<
 	peer_information,
 	boost::multi_index::indexed_by<
-	boost::multi_index::hashed_unique<boost::multi_index::const_mem_fun<peer_information, nano::endpoint, &peer_information::endpoint>>,
+	boost::multi_index::hashed_unique<boost::multi_index::const_mem_fun<peer_information, std::reference_wrapper<nano::message_sink const>, &peer_information::sink_ref>>,
 	boost::multi_index::ordered_non_unique<boost::multi_index::member<peer_information, std::chrono::steady_clock::time_point, &peer_information::last_contact>>,
 	boost::multi_index::ordered_non_unique<boost::multi_index::member<peer_information, std::chrono::steady_clock::time_point, &peer_information::last_attempt>, std::greater<std::chrono::steady_clock::time_point>>,
 	boost::multi_index::random_access<>,
