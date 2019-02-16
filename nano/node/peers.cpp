@@ -1,5 +1,7 @@
 #include <nano/node/peers.hpp>
 
+#include <nano/node/node.hpp>
+
 nano::endpoint nano::map_endpoint_to_v6 (nano::endpoint const & endpoint_a)
 {
 	auto endpoint_l (endpoint_a);
@@ -32,8 +34,8 @@ bool nano::peer_information::operator< (nano::peer_information const & peer_info
 	return endpoint < peer_information_a.endpoint;
 }
 
-nano::peer_container::peer_container (nano::endpoint const & self_a) :
-self (self_a),
+nano::peer_container::peer_container (nano::node & node_a) :
+node (node_a),
 peer_observer ([](nano::endpoint const &) {}),
 disconnect_observer ([]() {})
 {
@@ -368,7 +370,7 @@ bool nano::peer_container::not_a_peer (nano::endpoint const & endpoint_a, bool b
 	{
 		result = true;
 	}
-	else if (endpoint_a == self)
+	else if (endpoint_a == node.network.endpoint ())
 	{
 		result = true;
 	}

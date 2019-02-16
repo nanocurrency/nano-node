@@ -1,16 +1,19 @@
 #include <gtest/gtest.h>
 #include <nano/node/node.hpp>
+#include <nano/node/testing.hpp>
 
 TEST (peer_container, empty_peers)
 {
-	nano::peer_container peers (nano::endpoint{});
+	nano::system system (24000, 1);
+	nano::peer_container & peers (system.nodes[0]->peers);
 	auto list (peers.purge_list (std::chrono::steady_clock::now ()));
 	ASSERT_EQ (0, list.size ());
 }
 
 TEST (peer_container, no_recontact)
 {
-	nano::peer_container peers (nano::endpoint{});
+	nano::system system (24000, 1);
+	nano::peer_container & peers (system.nodes[0]->peers);
 	auto observed_peer (0);
 	auto observed_disconnect (false);
 	nano::endpoint endpoint1 (boost::asio::ip::address_v6::loopback (), 10000);
@@ -28,23 +31,24 @@ TEST (peer_container, no_recontact)
 
 TEST (peer_container, no_self_incoming)
 {
-	nano::endpoint self (boost::asio::ip::address_v6::loopback (), 10000);
-	nano::peer_container peers (self);
-	peers.insert (self, 0);
+	nano::system system (24000, 1);
+	nano::peer_container & peers (system.nodes[0]->peers);
+	peers.insert (system.nodes[0]->network.endpoint (), 0);
 	ASSERT_TRUE (peers.peers.empty ());
 }
 
 TEST (peer_container, no_self_contacting)
 {
-	nano::endpoint self (boost::asio::ip::address_v6::loopback (), 10000);
-	nano::peer_container peers (self);
-	peers.insert (self, 0);
+	nano::system system (24000, 1);
+	nano::peer_container & peers (system.nodes[0]->peers);
+	peers.insert (system.nodes[0]->network.endpoint (), 0);
 	ASSERT_TRUE (peers.peers.empty ());
 }
 
 TEST (peer_container, reserved_peers_no_contact)
 {
-	nano::peer_container peers (nano::endpoint{});
+	nano::system system (24000, 1);
+	nano::peer_container & peers (system.nodes[0]->peers);
 	ASSERT_TRUE (peers.insert (nano::endpoint (boost::asio::ip::address_v6::v4_mapped (boost::asio::ip::address_v4 (0x00000001)), 10000), 0));
 	ASSERT_TRUE (peers.insert (nano::endpoint (boost::asio::ip::address_v6::v4_mapped (boost::asio::ip::address_v4 (0xc0000201)), 10000), 0));
 	ASSERT_TRUE (peers.insert (nano::endpoint (boost::asio::ip::address_v6::v4_mapped (boost::asio::ip::address_v4 (0xc6336401)), 10000), 0));
@@ -57,7 +61,8 @@ TEST (peer_container, reserved_peers_no_contact)
 
 TEST (peer_container, split)
 {
-	nano::peer_container peers (nano::endpoint{});
+	nano::system system (24000, 1);
+	nano::peer_container & peers (system.nodes[0]->peers);
 	auto now (std::chrono::steady_clock::now ());
 	nano::endpoint endpoint1 (boost::asio::ip::address_v6::any (), 100);
 	nano::endpoint endpoint2 (boost::asio::ip::address_v6::any (), 101);
@@ -72,7 +77,8 @@ TEST (peer_container, split)
 
 TEST (peer_container, fill_random_clear)
 {
-	nano::peer_container peers (nano::endpoint{});
+	nano::system system (24000, 1);
+	nano::peer_container & peers (system.nodes[0]->peers);
 	std::array<nano::endpoint, 8> target;
 	std::fill (target.begin (), target.end (), nano::endpoint (boost::asio::ip::address_v6::loopback (), 10000));
 	peers.random_fill (target);
@@ -81,7 +87,8 @@ TEST (peer_container, fill_random_clear)
 
 TEST (peer_container, fill_random_full)
 {
-	nano::peer_container peers (nano::endpoint{});
+	nano::system system (24000, 1);
+	nano::peer_container & peers (system.nodes[0]->peers);
 	for (auto i (0); i < 100; ++i)
 	{
 		peers.insert (nano::endpoint (boost::asio::ip::address_v6::loopback (), i), 0);
@@ -94,7 +101,8 @@ TEST (peer_container, fill_random_full)
 
 TEST (peer_container, fill_random_part)
 {
-	nano::peer_container peers (nano::endpoint{});
+	nano::system system (24000, 1);
+	nano::peer_container & peers (system.nodes[0]->peers);
 	std::array<nano::endpoint, 8> target;
 	auto half (target.size () / 2);
 	for (auto i (0); i < half; ++i)
@@ -110,7 +118,8 @@ TEST (peer_container, fill_random_part)
 
 TEST (peer_container, list_fanout)
 {
-	nano::peer_container peers (nano::endpoint{});
+	nano::system system (24000, 1);
+	nano::peer_container & peers (system.nodes[0]->peers);
 	auto list1 (peers.list_fanout ());
 	ASSERT_TRUE (list1.empty ());
 	for (auto i (0); i < 1000; ++i)
@@ -123,7 +132,8 @@ TEST (peer_container, list_fanout)
 
 TEST (peer_container, rep_weight)
 {
-	nano::peer_container peers (nano::endpoint{});
+	nano::system system (25000, 1);
+	nano::peer_container & peers (system.nodes[0]->peers);
 	peers.insert (nano::endpoint (boost::asio::ip::address_v6::loopback (), 24001), 0);
 	ASSERT_TRUE (peers.representatives (1).empty ());
 	nano::endpoint endpoint0 (boost::asio::ip::address_v6::loopback (), 24000);
@@ -145,7 +155,8 @@ TEST (peer_container, rep_weight)
 // Test to make sure we don't repeatedly send keepalive messages to nodes that aren't responding
 TEST (peer_container, reachout)
 {
-	nano::peer_container peers (nano::endpoint{});
+	nano::system system (24000, 1);
+	nano::peer_container & peers (system.nodes[0]->peers);
 	nano::endpoint endpoint0 (boost::asio::ip::address_v6::loopback (), 24000);
 	// Make sure having been contacted by them already indicates we shouldn't reach out
 	peers.insert (endpoint0, nano::protocol_version);
@@ -164,7 +175,8 @@ TEST (peer_container, reachout)
 
 TEST (peer_container, depeer)
 {
-	nano::peer_container peers (nano::endpoint{});
+	nano::system system (24000, 1);
+	nano::peer_container & peers (system.nodes[0]->peers);
 	nano::endpoint endpoint0 (boost::asio::ip::address_v6::loopback (), 24000);
 	peers.contacted (endpoint0, nano::protocol_version_min - 1);
 	ASSERT_EQ (0, peers.size ());

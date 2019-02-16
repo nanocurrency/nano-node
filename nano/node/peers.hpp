@@ -18,6 +18,7 @@
 
 namespace nano
 {
+class node;
 nano::endpoint map_endpoint_to_v6 (nano::endpoint const &);
 
 /** Multi-index helper */
@@ -68,7 +69,7 @@ public:
 class peer_container
 {
 public:
-	peer_container (nano::endpoint const &);
+	peer_container (nano::node &);
 	// We were contacted by endpoint, update peers
 	// Returns true if a Node ID handshake should begin
 	bool contacted (nano::endpoint const &, unsigned);
@@ -111,7 +112,7 @@ public:
 	nano::uint128_t online_weight_minimum;
 	bool empty ();
 	std::mutex mutex;
-	nano::endpoint self;
+	nano::node & node;
 	boost::multi_index_container<
 	peer_information,
 	boost::multi_index::indexed_by<
