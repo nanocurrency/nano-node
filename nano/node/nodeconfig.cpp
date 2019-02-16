@@ -8,6 +8,7 @@ namespace
 {
 const char * preconfigured_peers_key = "preconfigured_peers";
 const char * signature_checker_threads_key = "signature_checker_threads";
+const char * work_pow_calc_interval_key = "work_pow_calc_interval";
 const char * default_beta_peer_network = "peering-beta.nano.org";
 const char * default_live_peer_network = "peering.nano.org";
 }
@@ -36,8 +37,9 @@ bootstrap_connections_max (64),
 callback_port (0),
 lmdb_max_dbs (128),
 allow_local_peers (false),
-block_processor_batch_max_time (std::chrono::milliseconds (5000)),
-unchecked_cutoff_time (std::chrono::seconds (4 * 60 * 60)) // 4 hours
+block_processor_batch_max_time (5000),
+unchecked_cutoff_time (4 * 60 * 60), // 4 hours
+work_pow_calc_interval (0)
 {
 	const char * epoch_message ("epoch v1 block");
 	strncpy ((char *)epoch_block_link.bytes.data (), epoch_message, epoch_block_link.bytes.size ());
@@ -122,6 +124,7 @@ nano::error nano::node_config::serialize_json (nano::jsonconfig & json) const
 	json.put ("allow_local_peers", allow_local_peers);
 	json.put ("vote_minimum", vote_minimum.to_string_dec ());
 	json.put ("unchecked_cutoff_time", unchecked_cutoff_time.count ());
+	json.put ("work_pow_calc_interval", work_pow_calc_interval.count ());
 
 	nano::jsonconfig ipc_l;
 	ipc_config.serialize_json (ipc_l);
@@ -246,6 +249,9 @@ bool nano::node_config::upgrade_json (unsigned version_a, nano::jsonconfig & jso
 			upgraded = true;
 		}
 		case 16:
+			json.put (work_pow_calc_interval_key, work_pow_calc_interval.count ());
+			upgraded = true;
+		case 17:
 			break;
 		default:
 			throw std::runtime_error ("Unknown node_config version");
@@ -368,8 +374,11 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		json.get<bool> ("allow_local_peers", allow_local_peers);
 		json.get<unsigned> (signature_checker_threads_key, signature_checker_threads);
 
-		// Validate ranges
+		unsigned long work_pow_calc_interval_l (work_pow_calc_interval.count ());
+		json.get (work_pow_calc_interval_key, work_pow_calc_interval_l);
+		work_pow_calc_interval = std::chrono::nanoseconds (work_pow_calc_interval_l);
 
+		// Validate ranges
 		if (online_weight_quorum > 100)
 		{
 			json.get_error ().set ("online_weight_quorum must be less than 100");

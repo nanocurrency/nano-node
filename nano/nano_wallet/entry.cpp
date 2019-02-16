@@ -237,10 +237,10 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 		std::shared_ptr<nano_qt::wallet> gui;
 		nano::set_application_icon (application);
 		auto opencl (nano::opencl_work::create (config.opencl_enable, config.opencl, config.node.logging));
-		nano::work_pool work (config.node.work_threads, opencl ? [&opencl](nano::uint256_union const & root_a) {
+		nano::work_pool work (config.node.work_threads, config.node.work_pow_calc_interval, opencl ? [&opencl](nano::uint256_union const & root_a) {
 			return opencl->generate_work (root_a);
 		}
-		                                                       : std::function<boost::optional<uint64_t> (nano::uint256_union const &)> (nullptr));
+		                                                                                           : std::function<boost::optional<uint64_t> (nano::uint256_union const &)> (nullptr));
 		nano::alarm alarm (io_ctx);
 		nano::node_init init;
 		node = std::make_shared<nano::node> (init, io_ctx, data_path, alarm, config.node, work, flags);

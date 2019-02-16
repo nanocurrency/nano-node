@@ -125,10 +125,10 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 		config.node.logging.init (data_path);
 		boost::asio::io_context io_ctx;
 		auto opencl (nano::opencl_work::create (config.opencl_enable, config.opencl, config.node.logging));
-		nano::work_pool opencl_work (config.node.work_threads, opencl ? [&opencl](nano::uint256_union const & root_a) {
+		nano::work_pool opencl_work (config.node.work_threads, config.node.work_pow_calc_interval, opencl ? [&opencl](nano::uint256_union const & root_a) {
 			return opencl->generate_work (root_a);
 		}
-		                                                              : std::function<boost::optional<uint64_t> (nano::uint256_union const &)> (nullptr));
+		                                                                                                  : std::function<boost::optional<uint64_t> (nano::uint256_union const &)> (nullptr));
 		nano::alarm alarm (io_ctx);
 		nano::node_init init;
 		try

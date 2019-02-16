@@ -31,7 +31,7 @@ TEST (node, block_store_path_failure)
 	auto path (nano::unique_path ());
 	nano::logging logging;
 	logging.init (path);
-	nano::work_pool work (std::numeric_limits<unsigned>::max (), nullptr);
+	nano::work_pool work (std::numeric_limits<unsigned>::max ());
 	auto node (std::make_shared<nano::node> (init, *service, 0, path, alarm, logging, work));
 	ASSERT_TRUE (node->wallets.items.empty ());
 	node->stop ();
@@ -46,7 +46,7 @@ TEST (node, password_fanout)
 	nano::node_config config;
 	config.peering_port = 24000;
 	config.logging.init (path);
-	nano::work_pool work (std::numeric_limits<unsigned>::max (), nullptr);
+	nano::work_pool work (std::numeric_limits<unsigned>::max ());
 	config.password_fanout = 10;
 	auto node (std::make_shared<nano::node> (init, *service, path, alarm, config, work));
 	auto wallet (node->wallets.create (100));
@@ -697,6 +697,53 @@ TEST (node_config, v16_values)
 	ASSERT_TRUE (config.allow_local_peers);
 	ASSERT_EQ (config.signature_checker_threads, 4);
 	ASSERT_EQ (config.vote_minimum.number (), std::numeric_limits<nano::uint128_t>::max () - 100);
+}
+
+TEST (node_config, v16_v17_upgrade)
+{
+	auto path (nano::unique_path ());
+	nano::jsonconfig tree;
+	add_required_children_node_config_tree (tree);
+	tree.put ("version", "16");
+
+	auto upgraded (false);
+	nano::node_config config;
+	config.logging.init (path);
+	// These config options should not be present
+	ASSERT_FALSE (tree.get_optional_child ("work_pow_calc_interval"));
+	config.deserialize_json (upgraded, tree);
+	// The config options should be added after the upgrade
+	ASSERT_TRUE (!!tree.get_optional_child ("work_pow_calc_interval"));
+
+	ASSERT_TRUE (upgraded);
+	auto version (tree.get<std::string> ("version"));
+
+	// Check version is updated
+	ASSERT_GT (std::stoull (version), 16);
+}
+
+TEST (node_config, v17_values)
+{
+	nano::jsonconfig tree;
+	add_required_children_node_config_tree (tree);
+
+	auto path (nano::unique_path ());
+	auto upgraded (false);
+	nano::node_config config;
+	config.logging.init (path);
+
+	// Check config is correct
+	tree.put ("work_pow_calc_interval", 0);
+	config.deserialize_json (upgraded, tree);
+	ASSERT_FALSE (upgraded);
+	ASSERT_EQ (config.work_pow_calc_interval.count (), 0);
+
+	// Check config is correct with other values
+	tree.put ("work_pow_calc_interval", std::numeric_limits<unsigned long>::max () - 100);
+	upgraded = false;
+	config.deserialize_json (upgraded, tree);
+	ASSERT_FALSE (upgraded);
+	ASSERT_EQ (config.work_pow_calc_interval.count (), std::numeric_limits<unsigned long>::max () - 100);
 }
 
 // Regression test to ensure that deserializing includes changes node via get_required_child

@@ -31,9 +31,10 @@ uint64_t nano::work_value (nano::block_hash const & root_a, uint64_t work_a)
 	return result;
 }
 
-nano::work_pool::work_pool (unsigned max_threads_a, std::function<boost::optional<uint64_t> (nano::uint256_union const &)> opencl_a) :
+nano::work_pool::work_pool (unsigned max_threads_a, std::chrono::nanoseconds pow_rate_limiter_a, std::function<boost::optional<uint64_t> (nano::uint256_union const &)> opencl_a) :
 ticket (0),
 done (false),
+pow_rate_limiter (pow_rate_limiter_a),
 opencl (opencl_a)
 {
 	static_assert (ATOMIC_INT_LOCK_FREE == 2, "Atomic int needed");
@@ -70,6 +71,7 @@ void nano::work_pool::loop (uint64_t thread)
 	blake2b_state hash;
 	blake2b_init (&hash, sizeof (output));
 	std::unique_lock<std::mutex> lock (mutex);
+	auto pow_sleep = pow_rate_limiter;
 	while (!done || !pending.empty ())
 	{
 		auto empty (pending.empty ());
@@ -99,6 +101,12 @@ void nano::work_pool::loop (uint64_t thread)
 					blake2b_final (&hash, reinterpret_cast<uint8_t *> (&output), sizeof (output));
 					blake2b_init (&hash, sizeof (output));
 					iteration -= 1;
+
+					// Add a rate limiter (if specified) to the pow calculation to save some CPUs which don't want to operate at full throttle
+					if (pow_sleep != std::chrono::nanoseconds (0))
+					{
+						std::this_thread::sleep_for (pow_sleep);
+					}
 				}
 			}
 			lock.lock ();

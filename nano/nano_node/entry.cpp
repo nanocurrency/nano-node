@@ -118,7 +118,7 @@ int main (int argc, char * const * argv)
 				if (!key.decode_hex (key_it->second.as<std::string> ()))
 				{
 					nano::keypair genesis (key.to_string ());
-					nano::work_pool work (std::numeric_limits<unsigned>::max (), nullptr);
+					nano::work_pool work (std::numeric_limits<unsigned>::max ());
 					std::cout << "Genesis: " << genesis.prv.data.to_string () << "\n"
 					          << "Public: " << genesis.pub.to_string () << "\n"
 					          << "Account: " << genesis.pub.to_account () << "\n";
@@ -220,7 +220,7 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_profile_generate"))
 		{
-			nano::work_pool work (std::numeric_limits<unsigned>::max (), nullptr);
+			nano::work_pool work (std::numeric_limits<unsigned>::max ());
 			nano::change_block block (0, 0, nano::keypair ().prv, 0, 0);
 			std::cerr << "Starting generation profiling\n";
 			while (true)
@@ -290,10 +290,10 @@ int main (int argc, char * const * argv)
 						{
 							nano::logging logging;
 							auto opencl (nano::opencl_work::create (true, { platform, device, threads }, logging));
-							nano::work_pool work_pool (std::numeric_limits<unsigned>::max (), opencl ? [&opencl](nano::uint256_union const & root_a) {
+							nano::work_pool work_pool (std::numeric_limits<unsigned>::max (), std::chrono::nanoseconds (0), opencl ? [&opencl](nano::uint256_union const & root_a) {
 								return opencl->generate_work (root_a);
 							}
-							                                                                         : std::function<boost::optional<uint64_t> (nano::uint256_union const &)> (nullptr));
+							                                                                                                       : std::function<boost::optional<uint64_t> (nano::uint256_union const &)> (nullptr));
 							nano::change_block block (0, 0, nano::keypair ().prv, 0, 0);
 							std::cerr << boost::str (boost::format ("Starting OpenCL generation profiling. Platform: %1%. Device: %2%. Threads: %3%\n") % platform % device % threads);
 							for (uint64_t i (0); true; ++i)
@@ -328,7 +328,7 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_profile_verify"))
 		{
-			nano::work_pool work (std::numeric_limits<unsigned>::max (), nullptr);
+			nano::work_pool work (std::numeric_limits<unsigned>::max ());
 			nano::change_block block (0, 0, nano::keypair ().prv, 0, 0);
 			std::cerr << "Starting verification profiling\n";
 			while (true)
@@ -404,7 +404,7 @@ int main (int argc, char * const * argv)
 				std::cerr << boost::str (boost::format ("Starting pregenerating %1% blocks\n") % max_blocks);
 				nano::system system (24000, 1);
 				nano::node_init init;
-				nano::work_pool work (std::numeric_limits<unsigned>::max (), nullptr);
+				nano::work_pool work (std::numeric_limits<unsigned>::max ());
 				nano::logging logging;
 				auto path (nano::unique_path ());
 				logging.init (path);
@@ -521,7 +521,7 @@ int main (int argc, char * const * argv)
 				std::cerr << boost::str (boost::format ("Starting pregenerating %1% votes\n") % max_votes);
 				nano::system system (24000, 1);
 				nano::node_init init;
-				nano::work_pool work (std::numeric_limits<unsigned>::max (), nullptr);
+				nano::work_pool work (std::numeric_limits<unsigned>::max ());
 				nano::logging logging;
 				auto path (nano::unique_path ());
 				logging.init (path);

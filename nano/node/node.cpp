@@ -3753,7 +3753,7 @@ nano::inactive_node::inactive_node (boost::filesystem::path const & path, uint16
 path (path),
 io_context (std::make_shared<boost::asio::io_context> ()),
 alarm (*io_context),
-work (1, nullptr),
+work (1),
 peering_port (peering_port_a)
 {
 	boost::system::error_code error_chmod;
