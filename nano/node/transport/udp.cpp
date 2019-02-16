@@ -8,6 +8,23 @@ endpoint (endpoint_a)
 	assert (endpoint_a.address ().is_v6 ());
 }
 
+size_t nano::message_sink_udp::hash_code () const
+{
+	std::hash<::nano::endpoint> hash;
+	return hash (endpoint);
+}
+
+bool nano::message_sink_udp::operator== (nano::message_sink const & other_a) const
+{
+	bool result (false);
+	auto other_l (dynamic_cast<nano::message_sink_udp const *> (&other_a));
+	if (other_l != nullptr)
+	{
+		return *this == *other_l;
+	}
+	return result;
+}
+
 void nano::message_sink_udp::send_buffer_raw (uint8_t const * data_a, size_t size_a, std::function<void(boost::system::error_code const &, size_t)> callback_a) const
 {
 	node.network.socket.async_send_to (boost::asio::buffer (data_a, size_a), endpoint, callback_a);
