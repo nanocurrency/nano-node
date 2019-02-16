@@ -98,10 +98,10 @@ bool nano::peer_container::known_peer (nano::endpoint const & endpoint_a)
 }
 
 // Simulating with sqrt_broadcast_simulate shows we only need to broadcast to sqrt(total_peers) random peers in order to successfully publish to everyone with high probability
-std::deque<nano::endpoint> nano::peer_container::list_fanout ()
+std::deque<std::shared_ptr<nano::message_sink_udp>> nano::peer_container::list_fanout ()
 {
 	auto peers (random_set (size_sqrt ()));
-	std::deque<nano::endpoint> result;
+	std::deque<std::shared_ptr<nano::message_sink_udp>> result;
 	for (auto i (peers.begin ()), n (peers.end ()); i != n; ++i)
 	{
 		result.push_back (*i);
@@ -206,9 +206,9 @@ bool nano::peer_container::validate_syn_cookie (nano::endpoint const & endpoint,
 	return result;
 }
 
-std::unordered_set<nano::endpoint> nano::peer_container::random_set (size_t count_a)
+std::unordered_set<std::shared_ptr<nano::message_sink_udp>> nano::peer_container::random_set (size_t count_a)
 {
-	std::unordered_set<nano::endpoint> result;
+	std::unordered_set<std::shared_ptr<nano::message_sink_udp>> result;
 	result.reserve (count_a);
 	std::lock_guard<std::mutex> lock (mutex);
 	// Stop trying to fill result with random samples after this many attempts
@@ -221,13 +221,13 @@ std::unordered_set<nano::endpoint> nano::peer_container::random_set (size_t coun
 		for (auto i (0); i < random_cutoff && result.size () < count_a; ++i)
 		{
 			auto index (random_pool.GenerateWord32 (0, static_cast<CryptoPP::word32> (peers_size - 1)));
-			result.insert (peers.get<3> ()[index].endpoint ());
+			result.insert (peers.get<3> ()[index].sink);
 		}
 	}
 	// Fill the remainder with most recent contact
 	for (auto i (peers.get<1> ().begin ()), n (peers.get<1> ().end ()); i != n && result.size () < count_a; ++i)
 	{
-		result.insert (i->endpoint ());
+		result.insert (i->sink);
 	}
 	return result;
 }
@@ -242,9 +242,9 @@ void nano::peer_container::random_fill (std::array<nano::endpoint, 8> & target_a
 	auto j (target_a.begin ());
 	for (auto i (peers.begin ()), n (peers.end ()); i != n; ++i, ++j)
 	{
-		assert (i->address ().is_v6 ());
+		assert ((*i)->endpoint.address ().is_v6 ());
 		assert (j < target_a.end ());
-		*j = *i;
+		*j = (*i)->endpoint;
 	}
 }
 

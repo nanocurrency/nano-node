@@ -305,8 +305,7 @@ void nano::network::republish_block (std::shared_ptr<nano::block> block)
 	auto bytes = message.to_bytes ();
 	for (auto i (list.begin ()), n (list.end ()); i != n; ++i)
 	{
-		nano::message_sink_udp sink (node, *i);
-		sink.send_buffer (bytes, nano::stat::detail::publish);
+		(*i)->send_buffer (bytes, nano::stat::detail::publish);
 	}
 	if (node.config.logging.network_logging ())
 	{
@@ -361,8 +360,7 @@ void nano::network::republish_vote (std::shared_ptr<nano::vote> vote_a)
 	auto list (node.peers.list_fanout ());
 	for (auto j (list.begin ()), m (list.end ()); j != m; ++j)
 	{
-		nano::message_sink_udp sink (node, *j);
-		sink.send_buffer (bytes, nano::stat::detail::confirm_ack);
+		(*j)->send_buffer (bytes, nano::stat::detail::confirm_ack);
 	}
 }
 

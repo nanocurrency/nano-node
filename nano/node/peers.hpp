@@ -80,7 +80,7 @@ public:
 	bool known_peer (nano::endpoint const &);
 	// Notify of peer we received from
 	bool insert (nano::endpoint const &, unsigned, bool = false, boost::optional<nano::account> = boost::none);
-	std::unordered_set<nano::endpoint> random_set (size_t);
+	std::unordered_set<std::shared_ptr<nano::message_sink_udp>> random_set (size_t);
 	void random_fill (std::array<nano::endpoint, 8> &);
 	// Request a list of the top known representatives
 	std::vector<peer_information> representatives (size_t);
@@ -88,7 +88,7 @@ public:
 	std::deque<nano::endpoint> list ();
 	std::vector<peer_information> list_vector (size_t);
 	// A list of random peers sized for the configured rebroadcast fanout
-	std::deque<nano::endpoint> list_fanout ();
+	std::deque<std::shared_ptr<nano::message_sink_udp>> list_fanout ();
 	// Returns a list of probable reps and their weight
 	std::vector<peer_information> list_probable_rep_weights ();
 	// Get the next peer for attempting bootstrap
