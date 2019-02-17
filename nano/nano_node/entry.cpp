@@ -734,7 +734,7 @@ int main (int argc, char * const * argv)
 					{
 						std::cerr << boost::str (boost::format ("Incorrect sideband timestamp for block %1%\n") % hash.to_string ());
 					}
-					previous_timestamp = (sideband.timestamp == std::numeric_limits<uint64_t>::max ()) ? 0 : sideband.timestamp;
+					previous_timestamp = sideband.timestamp;
 					// Retrieving successor block hash
 					hash = node.node->store.block_successor (transaction, hash);
 				}
