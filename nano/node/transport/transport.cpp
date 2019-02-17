@@ -48,7 +48,7 @@ public:
 
 void nano::message_sink::send_buffer (std::shared_ptr<std::vector<uint8_t>> buffer_a, nano::stat::detail detail_a) const
 {
-	send_buffer_raw (buffer_a->data (), buffer_a->size (), callback (buffer_a, detail_a));
+	send_buffer_raw (boost::asio::buffer (buffer_a->data (), buffer_a->size ()), callback (buffer_a, detail_a));
 }
 
 void nano::message_sink::sink (nano::message const & message_a) const

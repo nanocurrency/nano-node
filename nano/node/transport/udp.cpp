@@ -25,9 +25,9 @@ bool nano::message_sink_udp::operator== (nano::message_sink const & other_a) con
 	return result;
 }
 
-void nano::message_sink_udp::send_buffer_raw (uint8_t const * data_a, size_t size_a, std::function<void(boost::system::error_code const &, size_t)> callback_a) const
+void nano::message_sink_udp::send_buffer_raw (boost::asio::const_buffer buffer_a, std::function<void(boost::system::error_code const &, size_t)> callback_a) const
 {
-	node.network.socket.async_send_to (boost::asio::buffer (data_a, size_a), endpoint, callback_a);
+	node.network.socket.async_send_to (buffer_a, endpoint, callback_a);
 }
 
 std::function<void(boost::system::error_code const &, size_t)> nano::message_sink_udp::callback (std::shared_ptr<std::vector<uint8_t>> buffer_a, nano::stat::detail detail_a) const

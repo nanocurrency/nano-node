@@ -269,7 +269,7 @@ TEST (network, send_insufficient_work)
 		publish.serialize (stream);
 	}
 	nano::message_sink_udp sink (*system.nodes[0], system.nodes[1]->network.endpoint ());
-	sink.send_buffer_raw (bytes->data (), bytes->size (), [bytes](boost::system::error_code const & ec, size_t size) {});
+	sink.send_buffer_raw (boost::asio::buffer (bytes->data (), bytes->size ()), [bytes](boost::system::error_code const & ec, size_t size) {});
 	ASSERT_EQ (0, system.nodes[0]->stats.count (nano::stat::type::error, nano::stat::detail::insufficient_work));
 	system.deadline_set (10s);
 	while (system.nodes[1]->stats.count (nano::stat::type::error, nano::stat::detail::insufficient_work) == 0)
