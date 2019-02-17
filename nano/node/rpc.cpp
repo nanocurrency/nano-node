@@ -3634,12 +3634,12 @@ void nano::rpc_handler::wallet_history ()
 			{
 				auto timestamp (info.modified);
 				auto hash (info.head);
-				while (timestamp >= modified_since && timestamp != std::numeric_limits<uint32_t>::max () && !hash.is_zero ())
+				while (timestamp >= modified_since && !hash.is_zero ())
 				{
 					nano::block_sideband sideband;
 					auto block (node.store.block_get (block_transaction, hash, &sideband));
 					timestamp = sideband.timestamp;
-					if (block != nullptr && timestamp >= modified_since && timestamp != std::numeric_limits<uint64_t>::max ())
+					if (block != nullptr && timestamp >= modified_since)
 					{
 						boost::property_tree::ptree entry;
 						history_visitor visitor (*this, false, block_transaction, entry, hash);
