@@ -179,9 +179,9 @@ public:
 class bootstrap_client : public std::enable_shared_from_this<bootstrap_client>
 {
 public:
-	bootstrap_client (std::shared_ptr<nano::node>, std::shared_ptr<nano::bootstrap_attempt>, nano::tcp_endpoint const &);
+	bootstrap_client (std::shared_ptr<nano::node>, std::shared_ptr<nano::bootstrap_attempt>);
 	~bootstrap_client ();
-	void run ();
+	void run (nano::tcp_endpoint const &);
 	std::shared_ptr<nano::bootstrap_client> shared ();
 	void stop (bool force);
 	double block_rate () const;
@@ -190,7 +190,6 @@ public:
 	std::shared_ptr<nano::bootstrap_attempt> attempt;
 	std::shared_ptr<nano::socket> socket;
 	std::shared_ptr<std::vector<uint8_t>> receive_buffer;
-	nano::tcp_endpoint endpoint;
 	std::chrono::steady_clock::time_point start_time;
 	std::atomic<uint64_t> block_count;
 	std::atomic<bool> pending_stop;
