@@ -664,14 +664,25 @@ int main (int argc, char * const * argv)
 				nano::account account (i->first);
 				auto hash (info.open_block);
 				nano::block_hash calculated_hash (0);
+				nano::block_sideband sideband;
+				uint64_t height (0);
+				uint64_t previous_timestamp (0);
 				while (!hash.is_zero ())
 				{
 					// Retrieving block data
-					auto block (node.node->store.block_get (transaction, hash));
+					auto block (node.node->store.block_get (transaction, hash, &sideband));
 					// Check for state & open blocks if account field is correct
-					if ((block->type () == nano::block_type::open && block->root () != account) || (block->type () == nano::block_type::state && static_cast<nano::state_block const &> (*block.get ()).hashables.account != account))
+					if (block->type () == nano::block_type::open || block->type () == nano::block_type::state)
 					{
-						std::cerr << boost::str (boost::format ("Incorrect account field for block %1%\n") % hash.to_string ());
+						if (block->account () != account)
+						{
+							std::cerr << boost::str (boost::format ("Incorrect account field for block %1%\n") % hash.to_string ());
+						}
+					}
+					// Check if sideband account is correct
+					else if (sideband.account != account)
+					{
+						std::cerr << boost::str (boost::format ("Incorrect sideband account for block %1%\n") % hash.to_string ());
 					}
 					// Check if previous field is correct
 					if (calculated_hash != block->previous ())
@@ -712,8 +723,28 @@ int main (int argc, char * const * argv)
 					{
 						std::cerr << boost::str (boost::format ("Invalid work for block %1% value: %2%\n") % hash.to_string () % nano::to_string_hex (block->block_work ()));
 					}
+					// Check if sideband height is correct
+					++height;
+					if (sideband.height != height)
+					{
+						std::cerr << boost::str (boost::format ("Incorrect sideband height for block %1%. Sideband: %2%. Expected: %3%\n") % hash.to_string () % sideband.height % height);
+					}
+					// Check if sideband timestamp is after previous timestamp
+					if (sideband.timestamp < previous_timestamp)
+					{
+						std::cerr << boost::str (boost::format ("Incorrect sideband timestamp for block %1%\n") % hash.to_string ());
+					}
+					previous_timestamp = sideband.timestamp;
 					// Retrieving successor block hash
 					hash = node.node->store.block_successor (transaction, hash);
+				}
+				if (info.block_count != height)
+				{
+					std::cerr << boost::str (boost::format ("Incorrect block count for account %1%. Actual: %2%. Expected: %3%\n") % account.to_account () % height % info.block_count);
+				}
+				if (info.head != calculated_hash)
+				{
+					std::cerr << boost::str (boost::format ("Incorrect frontier for account %1%. Actual: %2%. Expected: %3%\n") % account.to_account () % calculated_hash.to_string () % info.head.to_string ());
 				}
 			}
 			std::cout << boost::str (boost::format ("%1% accounts validated\n") % count);
