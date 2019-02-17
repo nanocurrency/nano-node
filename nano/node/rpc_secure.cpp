@@ -191,14 +191,12 @@ void nano::rpc_connection_secure::read ()
 						this_l->res.set (boost::beast::http::field::allow, "POST, OPTIONS");
 						this_l->res.prepare_payload ();
 						boost::beast::http::async_write (this_l->stream, this_l->res, [this_l](boost::system::error_code const & ec, size_t bytes_transferred) {
-
 							// Perform the SSL shutdown
 							this_l->stream.async_shutdown (
 							std::bind (
 							&rai::rpc_connection_secure::on_shutdown,
 							this_l,
 							std::placeholders::_1));
-
 						});
 						break;
 					}

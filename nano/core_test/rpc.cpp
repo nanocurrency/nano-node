@@ -1147,7 +1147,7 @@ TEST (rpc, account_history)
 		ASSERT_EQ (nano::process_result::progress, node0->ledger.process (transaction, ureceive).code);
 		ASSERT_EQ (nano::process_result::progress, node0->ledger.process (transaction, uchange).code);
 	}
-    nano::rpc rpc(system.io_ctx, *node0, nano::rpc_config(true));
+	nano::rpc rpc (system.io_ctx, *node0, nano::rpc_config (true));
 	rpc.start ();
 	boost::property_tree::ptree request;
 	request.put ("action", "account_history");
@@ -1156,7 +1156,7 @@ TEST (rpc, account_history)
 	test_response response (request, rpc, system.io_ctx);
 	while (response.status == 0)
 	{
-        ASSERT_NO_ERROR(system.poll());
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
 	std::vector<std::tuple<std::string, std::string, std::string, std::string>> history_l;
