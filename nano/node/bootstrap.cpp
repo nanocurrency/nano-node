@@ -57,12 +57,17 @@ void nano::socket::async_write (std::shared_ptr<std::vector<uint8_t>> buffer_a, 
 	if (socket_m.is_open ())
 	{
 		start ();
-		boost::asio::async_write (socket_m, boost::asio::buffer (buffer_a->data (), buffer_a->size ()), [this_l, callback_a, buffer_a](boost::system::error_code const & ec, size_t size_a) {
+		async_write (boost::asio::buffer (buffer_a->data (), buffer_a->size ()), [this_l, callback_a, buffer_a](boost::system::error_code const & ec, size_t size_a) {
 			this_l->node->stats.add (nano::stat::type::traffic_bootstrap, nano::stat::dir::out, size_a);
 			this_l->stop ();
 			callback_a (ec, size_a);
 		});
 	}
+}
+
+void nano::socket::async_write (boost::asio::const_buffer buffer_a, std::function<void(boost::system::error_code const &, size_t)> callback_a)
+{
+	boost::asio::async_write (socket_m, buffer_a, callback_a);
 }
 
 void nano::socket::start (std::chrono::steady_clock::time_point timeout_a)

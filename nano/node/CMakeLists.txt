@@ -45,6 +45,8 @@ add_library (node
 	rpc.cpp
 	testing.hpp
 	testing.cpp
+	transport/tcp.cpp
+	transport/tcp.hpp
 	transport/transport.cpp
 	transport/transport.hpp
 	transport/udp.cpp

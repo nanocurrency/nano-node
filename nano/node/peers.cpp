@@ -1,6 +1,7 @@
 #include <nano/node/peers.hpp>
 
 #include <nano/node/node.hpp>
+#include <nano/node/transport/tcp.hpp>
 #include <nano/node/transport/udp.hpp>
 
 nano::endpoint nano::map_endpoint_to_v6 (nano::endpoint const & endpoint_a)
