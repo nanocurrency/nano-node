@@ -1226,7 +1226,7 @@ void nano::mdb_store::upgrade_v12_to_v13 (size_t const batch_size)
 		if (!first.is_zero ())
 		{
 			auto hash (second.open_block);
-			uint64_t height (0);
+			uint64_t height (1);
 			nano::block_sideband sideband;
 			while (!stopped && !hash.is_zero ())
 			{
@@ -1245,7 +1245,7 @@ void nano::mdb_store::upgrade_v12_to_v13 (size_t const batch_size)
 				assert (block != nullptr);
 				if (sideband.height == 0)
 				{
-					sideband.height = height + 1;
+					sideband.height = height;
 					block_put (transaction, hash, *block, sideband, block_version (transaction, hash));
 					cost += 16;
 				}
