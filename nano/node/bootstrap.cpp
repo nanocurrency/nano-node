@@ -132,10 +132,10 @@ nano::tcp_endpoint nano::socket::remote_endpoint ()
 	return endpoint;
 }
 
-nano::bootstrap_client::bootstrap_client (std::shared_ptr<nano::node> node_a, std::shared_ptr<nano::bootstrap_attempt> attempt_a) :
+nano::bootstrap_client::bootstrap_client (std::shared_ptr<nano::node> node_a, std::shared_ptr<nano::bootstrap_attempt> attempt_a, std::shared_ptr<nano::socket> socket_a) :
 node (node_a),
 attempt (attempt_a),
-socket (std::make_shared<nano::socket> (node_a)),
+socket (socket_a),
 receive_buffer (std::make_shared<std::vector<uint8_t>> ()),
 start_time (std::chrono::steady_clock::now ()),
 block_count (0),
@@ -169,39 +169,6 @@ void nano::bootstrap_client::stop (bool force)
 	{
 		hard_stop = true;
 	}
-}
-
-void nano::bootstrap_client::run (nano::tcp_endpoint const & endpoint_a)
-{
-	auto this_l (shared_from_this ());
-	socket->async_connect (endpoint_a, [this_l, endpoint_a](boost::system::error_code const & ec) {
-		if (!ec)
-		{
-			if (this_l->node->config.logging.bulk_pull_logging ())
-			{
-				BOOST_LOG (this_l->node->log) << boost::str (boost::format ("Connection established to %1%") % endpoint_a);
-			}
-			this_l->attempt->pool_connection (this_l->shared_from_this ());
-		}
-		else
-		{
-			if (this_l->node->config.logging.network_logging ())
-			{
-				switch (ec.value ())
-				{
-					default:
-						BOOST_LOG (this_l->node->log) << boost::str (boost::format ("Error initiating bootstrap connection to %1%: %2%") % endpoint_a % ec.message ());
-						break;
-					case boost::system::errc::connection_refused:
-					case boost::system::errc::operation_canceled:
-					case boost::system::errc::timed_out:
-					case 995: //Windows The I/O operation has been aborted because of either a thread exit or an application request
-					case 10061: //Windows No connection could be made because the target machine actively refused it
-						break;
-				}
-			}
-		}
-	});
 }
 
 void nano::frontier_req_client::run ()
@@ -1255,10 +1222,8 @@ void nano::bootstrap_attempt::populate_connections ()
 			auto endpoint (nano::tcp_endpoint (peer.address (), peer.port ()));
 			if (peer != nano::endpoint (boost::asio::ip::address_v6::any (), 0) && endpoints.find (endpoint) == endpoints.end ())
 			{
-				auto client (std::make_shared<nano::bootstrap_client> (node, shared_from_this ()));
-				client->run (endpoint);
+				connect_client (endpoint);
 				std::lock_guard<std::mutex> lock (mutex);
-				clients.push_back (client);
 				endpoints.insert (endpoint);
 			}
 			else if (connections == 0)
@@ -1283,18 +1248,52 @@ void nano::bootstrap_attempt::populate_connections ()
 
 void nano::bootstrap_attempt::add_connection (nano::endpoint const & endpoint_a)
 {
-	auto client (std::make_shared<nano::bootstrap_client> (node, shared_from_this ()));
-	client->run (nano::tcp_endpoint (endpoint_a.address (), endpoint_a.port ()));
+	connect_client (nano::tcp_endpoint (endpoint_a.address (), endpoint_a.port ()));
+}
+
+void nano::bootstrap_attempt::connect_client (nano::tcp_endpoint const & endpoint_a)
+{
+	++connections;
+	auto socket (std::make_shared<nano::socket> (node));
+	auto this_l (shared_from_this ());
+	socket->async_connect (endpoint_a, [this_l, socket, endpoint_a](boost::system::error_code const & ec) {
+		if (!ec)
+		{
+			if (this_l->node->config.logging.bulk_pull_logging ())
+			{
+				BOOST_LOG (this_l->node->log) << boost::str (boost::format ("Connection established to %1%") % endpoint_a);
+			}
+			auto client (std::make_shared<nano::bootstrap_client> (this_l->node, this_l, socket));
+			this_l->pool_connection (client);
+		}
+		else
+		{
+			if (this_l->node->config.logging.network_logging ())
+			{
+				switch (ec.value ())
+				{
+					default:
+						BOOST_LOG (this_l->node->log) << boost::str (boost::format ("Error initiating bootstrap connection to %1%: %2%") % endpoint_a % ec.message ());
+						break;
+					case boost::system::errc::connection_refused:
+					case boost::system::errc::operation_canceled:
+					case boost::system::errc::timed_out:
+					case 995: //Windows The I/O operation has been aborted because of either a thread exit or an application request
+					case 10061: //Windows No connection could be made because the target machine actively refused it
+						break;
+				}
+			}
+		}
+		--this_l->connections;
+	});
 }
 
 void nano::bootstrap_attempt::pool_connection (std::shared_ptr<nano::bootstrap_client> client_a)
 {
+	std::lock_guard<std::mutex> lock (mutex);
+	if (!stopped && !client_a->pending_stop)
 	{
-		std::lock_guard<std::mutex> lock (mutex);
-		if (!stopped && !client_a->pending_stop)
-		{
-			idle.push_front (client_a);
-		}
+		idle.push_front (client_a);
 	}
 	condition.notify_all ();
 }

@@ -85,6 +85,7 @@ public:
 	void request_pull (std::unique_lock<std::mutex> &);
 	void request_push (std::unique_lock<std::mutex> &);
 	void add_connection (nano::endpoint const &);
+	void connect_client (nano::tcp_endpoint const &);
 	void pool_connection (std::shared_ptr<nano::bootstrap_client>);
 	void stop ();
 	void requeue_pull (nano::pull_info const &);
@@ -179,9 +180,8 @@ public:
 class bootstrap_client : public std::enable_shared_from_this<bootstrap_client>
 {
 public:
-	bootstrap_client (std::shared_ptr<nano::node>, std::shared_ptr<nano::bootstrap_attempt>);
+	bootstrap_client (std::shared_ptr<nano::node>, std::shared_ptr<nano::bootstrap_attempt>, std::shared_ptr<nano::socket>);
 	~bootstrap_client ();
-	void run (nano::tcp_endpoint const &);
 	std::shared_ptr<nano::bootstrap_client> shared ();
 	void stop (bool force);
 	double block_rate () const;
