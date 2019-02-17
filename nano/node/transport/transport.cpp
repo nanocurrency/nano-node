@@ -46,15 +46,15 @@ public:
 };
 }
 
-void nano::message_sink::send_buffer (std::shared_ptr<std::vector<uint8_t>> buffer_a, nano::stat::detail detail_a) const
+void nano::message_sink::send_buffer (std::shared_ptr<std::vector<uint8_t>> buffer_a, nano::stat::detail detail_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a) const
 {
-	send_buffer_raw (boost::asio::buffer (buffer_a->data (), buffer_a->size ()), callback (buffer_a, detail_a));
+	send_buffer_raw (boost::asio::buffer (buffer_a->data (), buffer_a->size ()), callback (buffer_a, detail_a, callback_a));
 }
 
-void nano::message_sink::sink (nano::message const & message_a) const
+void nano::message_sink::sink (nano::message const & message_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a) const
 {
 	callback_visitor visitor;
 	message_a.visit (visitor);
 	auto buffer (message_a.to_bytes ());
-	send_buffer (buffer, visitor.result);
+	send_buffer (buffer, visitor.result, callback_a);
 }

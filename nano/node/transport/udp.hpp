@@ -12,8 +12,8 @@ public:
 	message_sink_udp (nano::node &, nano::endpoint const &);
 	size_t hash_code () const override;
 	bool operator== (nano::message_sink const &) const override;
-	void send_buffer_raw (boost::asio::const_buffer, std::function<void(boost::system::error_code const &, size_t)>) const override;
-	std::function<void(boost::system::error_code const &, size_t)> callback (std::shared_ptr<std::vector<uint8_t>>, nano::stat::detail) const override;
+	void send_buffer_raw (boost::asio::const_buffer, std::function<void(boost::system::error_code const &, size_t)> const &) const override;
+	std::function<void(boost::system::error_code const &, size_t)> callback (std::shared_ptr<std::vector<uint8_t>>, nano::stat::detail, std::function<void(boost::system::error_code const &, size_t)> const & = nullptr) const override;
 	std::string to_string () const override;
 	bool operator== (nano::message_sink_udp const & other_a) const
 	{
