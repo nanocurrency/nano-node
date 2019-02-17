@@ -24,9 +24,9 @@ namespace ipc
 	{
 	public:
 		/**
-	 * Default domain socket path for Unix systems. Once Boost supports Windows 10 usocks,
-	 * this value will be conditional on OS.
-	 */
+		 * Default domain socket path for Unix systems. Once Boost supports Windows 10 usocks,
+		 * this value will be conditional on OS.
+		 */
 		std::string path{ "/tmp/nano" };
 	};
 
