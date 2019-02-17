@@ -54,7 +54,7 @@ public:
 	std::chrono::steady_clock::time_point last_rep_request{ std::chrono::steady_clock::time_point () };
 	std::chrono::steady_clock::time_point last_rep_response{ std::chrono::steady_clock::time_point () };
 	nano::amount rep_weight{ 0 };
-	nano::account probable_rep_account;
+	nano::account probable_rep_account{ 0 };
 	unsigned network_version{ nano::protocol_version };
 	boost::optional<nano::account> node_id;
 	bool operator< (nano::peer_information const &) const;
