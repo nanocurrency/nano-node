@@ -2,6 +2,7 @@
 
 #include <nano/node/common.hpp>
 #include <nano/node/node.hpp>
+#include <nano/node/transport/tcp.hpp>
 
 #include <algorithm>
 #include <boost/log/trivial.hpp>
@@ -132,10 +133,10 @@ nano::tcp_endpoint nano::socket::remote_endpoint ()
 	return endpoint;
 }
 
-nano::bootstrap_client::bootstrap_client (std::shared_ptr<nano::node> node_a, std::shared_ptr<nano::bootstrap_attempt> attempt_a, std::shared_ptr<nano::socket> socket_a) :
+nano::bootstrap_client::bootstrap_client (std::shared_ptr<nano::node> node_a, std::shared_ptr<nano::bootstrap_attempt> attempt_a, std::shared_ptr<nano::message_sink_tcp> sink_a) :
 node (node_a),
 attempt (attempt_a),
-socket (socket_a),
+sink (sink_a),
 receive_buffer (std::make_shared<std::vector<uint8_t>> ()),
 start_time (std::chrono::steady_clock::now ()),
 block_count (0),
@@ -173,17 +174,12 @@ void nano::bootstrap_client::stop (bool force)
 
 void nano::frontier_req_client::run ()
 {
-	std::unique_ptr<nano::frontier_req> request (new nano::frontier_req);
-	request->start.clear ();
-	request->age = std::numeric_limits<decltype (request->age)>::max ();
-	request->count = std::numeric_limits<decltype (request->count)>::max ();
-	auto send_buffer (std::make_shared<std::vector<uint8_t>> ());
-	{
-		nano::vectorstream stream (*send_buffer);
-		request->serialize (stream);
-	}
+	nano::frontier_req request;
+	request.start.clear ();
+	request.age = std::numeric_limits<decltype (request.age)>::max ();
+	request.count = std::numeric_limits<decltype (request.count)>::max ();
 	auto this_l (shared_from_this ());
-	connection->socket->async_write (send_buffer, [this_l](boost::system::error_code const & ec, size_t size_a) {
+	connection->sink->sink (request, [this_l](boost::system::error_code const & ec, size_t size_a) {
 		if (!ec)
 		{
 			this_l->receive_frontier ();
@@ -220,7 +216,7 @@ nano::frontier_req_client::~frontier_req_client ()
 void nano::frontier_req_client::receive_frontier ()
 {
 	auto this_l (shared_from_this ());
-	connection->socket->async_read (connection->receive_buffer, nano::frontier_req_client::size_frontier, [this_l](boost::system::error_code const & ec, size_t size_a) {
+	connection->sink->socket->async_read (connection->receive_buffer, nano::frontier_req_client::size_frontier, [this_l](boost::system::error_code const & ec, size_t size_a) {
 		// An issue with asio is that sometimes, instead of reporting a bad file descriptor during disconnect,
 		// we simply get a size of 0.
 		if (size_a == nano::frontier_req_client::size_frontier)
@@ -283,7 +279,7 @@ void nano::frontier_req_client::received_frontier (boost::system::error_code con
 		}
 		if (connection->attempt->should_log ())
 		{
-			BOOST_LOG (connection->node->log) << boost::str (boost::format ("Received %1% frontiers from %2%") % std::to_string (count) % connection->socket->remote_endpoint ());
+			BOOST_LOG (connection->node->log) << boost::str (boost::format ("Received %1% frontiers from %2%") % std::to_string (count) % connection->sink->socket->remote_endpoint ());
 		}
 		auto transaction (connection->node->store.tx_begin_read ());
 		if (!account.is_zero ())
@@ -432,15 +428,10 @@ void nano::bulk_pull_client::request ()
 	req.count = pull.count;
 	req.set_count_present (pull.count != 0);
 
-	auto buffer (std::make_shared<std::vector<uint8_t>> ());
-	{
-		nano::vectorstream stream (*buffer);
-		req.serialize (stream);
-	}
 	if (connection->node->config.logging.bulk_pull_logging ())
 	{
 		std::unique_lock<std::mutex> lock (connection->attempt->mutex);
-		BOOST_LOG (connection->node->log) << boost::str (boost::format ("Requesting account %1% from %2%. %3% accounts in queue") % req.start.to_account () % connection->socket->remote_endpoint () % connection->attempt->pulls.size ());
+		BOOST_LOG (connection->node->log) << boost::str (boost::format ("Requesting account %1% from %2%. %3% accounts in queue") % req.start.to_account () % connection->sink->socket->remote_endpoint () % connection->attempt->pulls.size ());
 	}
 	else if (connection->node->config.logging.network_logging () && connection->attempt->should_log ())
 	{
@@ -448,7 +439,7 @@ void nano::bulk_pull_client::request ()
 		BOOST_LOG (connection->node->log) << boost::str (boost::format ("%1% accounts in pull queue") % connection->attempt->pulls.size ());
 	}
 	auto this_l (shared_from_this ());
-	connection->socket->async_write (buffer, [this_l](boost::system::error_code const & ec, size_t size_a) {
+	connection->sink->sink (req, [this_l](boost::system::error_code const & ec, size_t size_a) {
 		if (!ec)
 		{
 			this_l->receive_block ();
@@ -457,7 +448,7 @@ void nano::bulk_pull_client::request ()
 		{
 			if (this_l->connection->node->config.logging.bulk_pull_logging ())
 			{
-				BOOST_LOG (this_l->connection->node->log) << boost::str (boost::format ("Error sending bulk pull request to %1%: to %2%") % ec.message () % this_l->connection->socket->remote_endpoint ());
+				BOOST_LOG (this_l->connection->node->log) << boost::str (boost::format ("Error sending bulk pull request to %1%: to %2%") % ec.message () % this_l->connection->sink->socket->remote_endpoint ());
 			}
 		}
 	});
@@ -466,7 +457,7 @@ void nano::bulk_pull_client::request ()
 void nano::bulk_pull_client::receive_block ()
 {
 	auto this_l (shared_from_this ());
-	connection->socket->async_read (connection->receive_buffer, 1, [this_l](boost::system::error_code const & ec, size_t size_a) {
+	connection->sink->socket->async_read (connection->receive_buffer, 1, [this_l](boost::system::error_code const & ec, size_t size_a) {
 		if (!ec)
 		{
 			this_l->received_type ();
@@ -489,35 +480,35 @@ void nano::bulk_pull_client::received_type ()
 	{
 		case nano::block_type::send:
 		{
-			connection->socket->async_read (connection->receive_buffer, nano::send_block::size, [this_l, type](boost::system::error_code const & ec, size_t size_a) {
+			connection->sink->socket->async_read (connection->receive_buffer, nano::send_block::size, [this_l, type](boost::system::error_code const & ec, size_t size_a) {
 				this_l->received_block (ec, size_a, type);
 			});
 			break;
 		}
 		case nano::block_type::receive:
 		{
-			connection->socket->async_read (connection->receive_buffer, nano::receive_block::size, [this_l, type](boost::system::error_code const & ec, size_t size_a) {
+			connection->sink->socket->async_read (connection->receive_buffer, nano::receive_block::size, [this_l, type](boost::system::error_code const & ec, size_t size_a) {
 				this_l->received_block (ec, size_a, type);
 			});
 			break;
 		}
 		case nano::block_type::open:
 		{
-			connection->socket->async_read (connection->receive_buffer, nano::open_block::size, [this_l, type](boost::system::error_code const & ec, size_t size_a) {
+			connection->sink->socket->async_read (connection->receive_buffer, nano::open_block::size, [this_l, type](boost::system::error_code const & ec, size_t size_a) {
 				this_l->received_block (ec, size_a, type);
 			});
 			break;
 		}
 		case nano::block_type::change:
 		{
-			connection->socket->async_read (connection->receive_buffer, nano::change_block::size, [this_l, type](boost::system::error_code const & ec, size_t size_a) {
+			connection->sink->socket->async_read (connection->receive_buffer, nano::change_block::size, [this_l, type](boost::system::error_code const & ec, size_t size_a) {
 				this_l->received_block (ec, size_a, type);
 			});
 			break;
 		}
 		case nano::block_type::state:
 		{
-			connection->socket->async_read (connection->receive_buffer, nano::state_block::size, [this_l, type](boost::system::error_code const & ec, size_t size_a) {
+			connection->sink->socket->async_read (connection->receive_buffer, nano::state_block::size, [this_l, type](boost::system::error_code const & ec, size_t size_a) {
 				this_l->received_block (ec, size_a, type);
 			});
 			break;
@@ -628,13 +619,8 @@ nano::bulk_push_client::~bulk_push_client ()
 void nano::bulk_push_client::start ()
 {
 	nano::bulk_push message;
-	auto buffer (std::make_shared<std::vector<uint8_t>> ());
-	{
-		nano::vectorstream stream (*buffer);
-		message.serialize (stream);
-	}
 	auto this_l (shared_from_this ());
-	connection->socket->async_write (buffer, [this_l](boost::system::error_code const & ec, size_t size_a) {
+	connection->sink->sink (message, [this_l](boost::system::error_code const & ec, size_t size_a) {
 		auto transaction (this_l->connection->node->store.tx_begin_read ());
 		if (!ec)
 		{
@@ -700,13 +686,8 @@ void nano::bulk_push_client::send_finished ()
 {
 	auto buffer (std::make_shared<std::vector<uint8_t>> ());
 	buffer->push_back (static_cast<uint8_t> (nano::block_type::not_a_block));
-	connection->node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::bulk_push, nano::stat::dir::out);
-	if (connection->node->config.logging.network_logging ())
-	{
-		BOOST_LOG (connection->node->log) << "Bulk push finished";
-	}
 	auto this_l (shared_from_this ());
-	connection->socket->async_write (buffer, [this_l](boost::system::error_code const & ec, size_t size_a) {
+	connection->sink->socket->async_write (buffer, [this_l](boost::system::error_code const & ec, size_t size_a) {
 		try
 		{
 			this_l->promise.set_value (false);
@@ -725,7 +706,7 @@ void nano::bulk_push_client::push_block (nano::block const & block_a)
 		nano::serialize_block (stream, block_a);
 	}
 	auto this_l (shared_from_this ());
-	connection->socket->async_write (buffer, [this_l](boost::system::error_code const & ec, size_t size_a) {
+	connection->sink->socket->async_write (buffer, [this_l](boost::system::error_code const & ec, size_t size_a) {
 		if (!ec)
 		{
 			auto transaction (this_l->connection->node->store.tx_begin_read ());
@@ -764,16 +745,10 @@ void nano::bulk_pull_account_client::request ()
 	req.account = account;
 	req.minimum_amount = connection->node->config.receive_minimum;
 	req.flags = nano::bulk_pull_account_flags::pending_hash_and_amount;
-
-	auto buffer (std::make_shared<std::vector<uint8_t>> ());
-	{
-		nano::vectorstream stream (*buffer);
-		req.serialize (stream);
-	}
 	if (connection->node->config.logging.bulk_pull_logging ())
 	{
 		std::unique_lock<std::mutex> lock (connection->attempt->mutex);
-		BOOST_LOG (connection->node->log) << boost::str (boost::format ("Requesting pending for account %1% from %2%. %3% accounts in queue") % req.account.to_account () % connection->socket->remote_endpoint () % connection->attempt->wallet_accounts.size ());
+		BOOST_LOG (connection->node->log) << boost::str (boost::format ("Requesting pending for account %1% from %2%. %3% accounts in queue") % req.account.to_account () % connection->sink->socket->remote_endpoint () % connection->attempt->wallet_accounts.size ());
 	}
 	else if (connection->node->config.logging.network_logging () && connection->attempt->should_log ())
 	{
@@ -781,7 +756,7 @@ void nano::bulk_pull_account_client::request ()
 		BOOST_LOG (connection->node->log) << boost::str (boost::format ("%1% accounts in pull queue") % connection->attempt->wallet_accounts.size ());
 	}
 	auto this_l (shared_from_this ());
-	connection->socket->async_write (buffer, [this_l](boost::system::error_code const & ec, size_t size_a) {
+	connection->sink->sink (req, [this_l](boost::system::error_code const & ec, size_t size_a) {
 		if (!ec)
 		{
 			this_l->receive_pending ();
@@ -791,7 +766,7 @@ void nano::bulk_pull_account_client::request ()
 			this_l->connection->attempt->requeue_pending (this_l->account);
 			if (this_l->connection->node->config.logging.bulk_pull_logging ())
 			{
-				BOOST_LOG (this_l->connection->node->log) << boost::str (boost::format ("Error starting bulk pull request to %1%: to %2%") % ec.message () % this_l->connection->socket->remote_endpoint ());
+				BOOST_LOG (this_l->connection->node->log) << boost::str (boost::format ("Error starting bulk pull request to %1%: to %2%") % ec.message () % this_l->connection->sink->socket->remote_endpoint ());
 			}
 		}
 	});
@@ -801,7 +776,7 @@ void nano::bulk_pull_account_client::receive_pending ()
 {
 	auto this_l (shared_from_this ());
 	size_t size_l (sizeof (nano::uint256_union) + sizeof (nano::uint128_union));
-	connection->socket->async_read (connection->receive_buffer, size_l, [this_l, size_l](boost::system::error_code const & ec, size_t size_a) {
+	connection->sink->socket->async_read (connection->receive_buffer, size_l, [this_l, size_l](boost::system::error_code const & ec, size_t size_a) {
 		// An issue with asio is that sometimes, instead of reporting a bad file descriptor during disconnect,
 		// we simply get a size of 0.
 		if (size_a == size_l)
@@ -940,7 +915,7 @@ bool nano::bootstrap_attempt::request_frontier (std::unique_lock<std::mutex> & l
 		{
 			if (!result)
 			{
-				BOOST_LOG (node->log) << boost::str (boost::format ("Completed frontier request, %1% out of sync accounts according to %2%") % pulls.size () % connection_l->socket->remote_endpoint ());
+				BOOST_LOG (node->log) << boost::str (boost::format ("Completed frontier request, %1% out of sync accounts according to %2%") % pulls.size () % connection_l->sink->socket->remote_endpoint ());
 			}
 			else
 			{
@@ -1152,7 +1127,7 @@ void nano::bootstrap_attempt::populate_connections ()
 			if (auto client = c.lock ())
 			{
 				new_clients.push_back (client);
-				endpoints.insert (client->socket->remote_endpoint ());
+				endpoints.insert (client->sink->socket->remote_endpoint ());
 				double elapsed_sec = client->elapsed_seconds ();
 				auto blocks_per_sec = client->block_rate ();
 				rate_sum += blocks_per_sec;
@@ -1166,7 +1141,7 @@ void nano::bootstrap_attempt::populate_connections ()
 				{
 					if (node->config.logging.bulk_pull_logging ())
 					{
-						BOOST_LOG (node->log) << boost::str (boost::format ("Stopping slow peer %1% (elapsed sec %2%s > %3%s and %4% blocks per second < %5%)") % client->socket->remote_endpoint ().address ().to_string () % elapsed_sec % bootstrap_minimum_termination_time_sec % blocks_per_sec % bootstrap_minimum_blocks_per_sec);
+						BOOST_LOG (node->log) << boost::str (boost::format ("Stopping slow peer %1% (elapsed sec %2%s > %3%s and %4% blocks per second < %5%)") % client->sink->socket->remote_endpoint ().address ().to_string () % elapsed_sec % bootstrap_minimum_termination_time_sec % blocks_per_sec % bootstrap_minimum_blocks_per_sec);
 					}
 
 					client->stop (true);
@@ -1197,7 +1172,7 @@ void nano::bootstrap_attempt::populate_connections ()
 
 			if (node->config.logging.bulk_pull_logging ())
 			{
-				BOOST_LOG (node->log) << boost::str (boost::format ("Dropping peer with block rate %1%, block count %2% (%3%) ") % client->block_rate () % client->block_count % client->socket->remote_endpoint ().address ().to_string ());
+				BOOST_LOG (node->log) << boost::str (boost::format ("Dropping peer with block rate %1%, block count %2% (%3%) ") % client->block_rate () % client->block_count % client->sink->socket->remote_endpoint ().address ().to_string ());
 			}
 
 			client->stop (false);
@@ -1263,7 +1238,7 @@ void nano::bootstrap_attempt::connect_client (nano::tcp_endpoint const & endpoin
 			{
 				BOOST_LOG (this_l->node->log) << boost::str (boost::format ("Connection established to %1%") % endpoint_a);
 			}
-			auto client (std::make_shared<nano::bootstrap_client> (this_l->node, this_l, socket));
+			auto client (std::make_shared<nano::bootstrap_client> (this_l->node, this_l, std::make_shared<nano::message_sink_tcp> (*this_l->node, socket)));
 			this_l->pool_connection (client);
 		}
 		else
@@ -1307,7 +1282,7 @@ void nano::bootstrap_attempt::stop ()
 	{
 		if (auto client = i.lock ())
 		{
-			client->socket->close ();
+			client->sink->socket->close ();
 		}
 	}
 	if (auto i = frontiers.lock ())

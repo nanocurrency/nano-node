@@ -17,6 +17,7 @@ namespace nano
 {
 class bootstrap_attempt;
 class bootstrap_client;
+class message_sink_tcp;
 class node;
 enum class sync_result
 {
@@ -180,7 +181,7 @@ public:
 class bootstrap_client : public std::enable_shared_from_this<bootstrap_client>
 {
 public:
-	bootstrap_client (std::shared_ptr<nano::node>, std::shared_ptr<nano::bootstrap_attempt>, std::shared_ptr<nano::socket>);
+	bootstrap_client (std::shared_ptr<nano::node>, std::shared_ptr<nano::bootstrap_attempt>, std::shared_ptr<nano::message_sink_tcp>);
 	~bootstrap_client ();
 	std::shared_ptr<nano::bootstrap_client> shared ();
 	void stop (bool force);
@@ -188,7 +189,7 @@ public:
 	double elapsed_seconds () const;
 	std::shared_ptr<nano::node> node;
 	std::shared_ptr<nano::bootstrap_attempt> attempt;
-	std::shared_ptr<nano::socket> socket;
+	std::shared_ptr<nano::message_sink_tcp> sink;
 	std::shared_ptr<std::vector<uint8_t>> receive_buffer;
 	std::chrono::steady_clock::time_point start_time;
 	std::atomic<uint64_t> block_count;
