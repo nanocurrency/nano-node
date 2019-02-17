@@ -724,11 +724,11 @@ int main (int argc, char * const * argv)
 						std::cerr << boost::str (boost::format ("Invalid work for block %1% value: %2%\n") % hash.to_string () % nano::to_string_hex (block->block_work ()));
 					}
 					// Check if sideband height is correct
+					++height;
 					if (sideband.height != height)
 					{
 						std::cerr << boost::str (boost::format ("Incorrect sideband height for block %1%. Sideband: %2%. Expected: %3%\n") % hash.to_string () % sideband.height % height);
 					}
-					++height;
 					// Check if sideband timestamp is after previous timestamp
 					if (sideband.timestamp < previous_timestamp)
 					{
