@@ -34,6 +34,8 @@ int main (int argc, char * const * argv)
 		("batch_size",boost::program_options::value<std::size_t> (), "Increase sideband batch size, default 512")
 		("debug_block_count", "Display the number of block")
 		("debug_bootstrap_generate", "Generate bootstrap sequence of blocks")
+	    ("debug_clear_online_weight", "clear online_weights table")
+		("debug_dump_online_weight", "dump online_weights table")
 		("debug_dump_representatives", "List representatives and weights")
 		("debug_account_count", "Display the number of accounts")
 		("debug_mass_activity", "Generates fake debug activity")
@@ -163,6 +165,25 @@ int main (int argc, char * const * argv)
 			{
 				std::cerr << "Bootstrapping requires one <key> option\n";
 				result = -1;
+			}
+		}
+		else if (vm.count ("debug_clear_online_weight"))
+		{
+			nano::inactive_node node (data_path);
+			auto transaction (node.node->store.tx_begin ());
+			node.node->store.online_weight_clear (transaction);
+		}
+		else if (vm.count ("debug_dump_online_weight"))
+		{
+			nano::inactive_node node (data_path);
+			auto current (node.node->online_reps.online_stake ());
+			std::cout << boost::str (boost::format ("Online Weight %1%\n") % current);
+			auto transaction (node.node->store.tx_begin_read ());
+			for (auto i (node.node->store.online_weight_begin (transaction)), n (node.node->store.online_weight_end ()); i != n; ++i)
+			{
+				std::string weight;
+				i->second.encode_dec (weight);
+				std::cout << boost::str (boost::format ("Date %1% Weight %2%\n") % i->first % weight);
 			}
 		}
 		else if (vm.count ("debug_dump_representatives"))
