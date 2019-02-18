@@ -1392,3 +1392,31 @@ TEST (bulk_pull_account, basics)
 		ASSERT_EQ (nullptr, block_data.second.get ());
 	}
 }
+
+TEST (bootstrap, keepalive)
+{
+	nano::system system (24000, 1);
+	auto socket (std::make_shared<nano::socket> (system.nodes[0]));
+	nano::keepalive keepalive;
+	auto input (keepalive.to_bytes ());
+	socket->async_connect (system.nodes[0]->bootstrap.endpoint (), [&input, socket](boost::system::error_code const & ec) {
+		ASSERT_FALSE (ec);
+		socket->async_write (input, [&input](boost::system::error_code const & ec, size_t size_a) {
+			ASSERT_FALSE (ec);
+			ASSERT_EQ (input->size (), size_a);
+		});
+	});
+
+	auto output (keepalive.to_bytes ());
+	bool done (false);
+	socket->async_read (output, output->size (), [&output, &done](boost::system::error_code const & ec, size_t size_a) {
+		ASSERT_FALSE (ec);
+		ASSERT_EQ (output->size (), size_a);
+		done = true;
+	});
+	system.deadline_set (std::chrono::seconds (5));
+	while (!done)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+}
