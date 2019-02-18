@@ -734,7 +734,7 @@ uniquer (uniquer_a)
 std::shared_ptr<nano::vote> nano::vote_uniquer::unique (std::shared_ptr<nano::vote> vote_a)
 {
 	auto result (vote_a);
-	if (result != nullptr)
+	if (result != nullptr && !result->blocks.empty ())
 	{
 		if (!result->blocks[0].which ())
 		{

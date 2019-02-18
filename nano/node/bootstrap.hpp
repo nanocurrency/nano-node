@@ -118,7 +118,7 @@ public:
 	std::atomic<uint64_t> total_blocks;
 	std::atomic<unsigned> runs_count;
 	std::vector<std::pair<nano::block_hash, nano::block_hash>> bulk_push_targets;
-	bool stopped;
+	std::atomic<bool> stopped;
 	nano::bootstrap_mode mode;
 	std::mutex mutex;
 	std::condition_variable condition;

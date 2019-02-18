@@ -178,7 +178,7 @@ TEST (wallet, send_async)
 			ASSERT_NO_ERROR (system.poll ());
 		}
 	});
-	bool success (false);
+	std::atomic<bool> success (false);
 	system.wallet (0)->send_async (nano::test_genesis_key.pub, key2.pub, std::numeric_limits<nano::uint128_t>::max (), [&success](std::shared_ptr<nano::block> block_a) { ASSERT_NE (nullptr, block_a); success = true; });
 	thread.join ();
 	ASSERT_TRUE (success);
