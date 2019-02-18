@@ -1,0 +1,39 @@
+#! /usr/bin/env bash
+
+# -----BEGIN COMMON.SH-----
+# -----END COMMON.SH-----
+
+yes | yum update -y
+
+yes | yum install -y git wget openssl bzip2; # <boost>
+
+yes | yum install https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm; # epel 7
+yes | yum install -y jq || exit 1
+
+yes | yum install -y rpm-build || exit 1
+yes | yum install -y glibc-devel glibc-headers make which libstdc++-static || exit 1
+yes | yum install -y centos-release-scl || exit 1
+yes | yum install -y llvm-toolset-7-cmake devtoolset-7-llvm|| exit 1
+
+# Ensure we have a new enough Boost
+(
+	eval "$(scl enable llvm-toolset-7 devtoolset-7 "bash -c 'set | grep ^PATH='")"
+	if ! have boost; then
+		bootstrap_boost -m
+	fi
+
+	if ! have boost; then
+	        echo "Unable to install boost" >&2
+
+		exit 1
+	fi
+
+	if ! version_min 'boost --version' 1.65.999; then
+		echo "boost version too low (1.66.0+ required)" >&2
+	        exit 1
+	fi
+
+	exit 0
+) || exit 1
+
+exit 0

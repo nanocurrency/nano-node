@@ -71,7 +71,7 @@ bool nano::block_sideband::deserialize (nano::stream & stream_a)
 		}
 		else
 		{
-			height = 0;
+			height = 1;
 		}
 		if (type == nano::block_type::receive || type == nano::block_type::change || type == nano::block_type::open)
 		{

@@ -462,10 +462,11 @@ public:
 	void ongoing_bootstrap ();
 	void ongoing_store_flush ();
 	void ongoing_peer_store ();
+	void ongoing_unchecked_cleanup ();
 	void backup_wallet ();
 	void search_pending ();
 	void bootstrap_wallet ();
-	void unchecked_cleaning ();
+	void unchecked_cleanup ();
 	int price (nano::uint128_t const &, int);
 	void work_generate_blocking (nano::block &, uint64_t = nano::work_pool::publish_threshold);
 	uint64_t work_generate_blocking (nano::uint256_union const &, uint64_t = nano::work_pool::publish_threshold);
@@ -521,8 +522,7 @@ public:
 	static std::chrono::minutes constexpr backup_interval = std::chrono::minutes (5);
 	static std::chrono::seconds constexpr search_pending_interval = nano::is_test_network ? std::chrono::seconds (1) : std::chrono::seconds (5 * 60);
 	static std::chrono::seconds constexpr peer_interval = search_pending_interval;
-	static std::chrono::hours constexpr unchecked_cleaning_interval = std::chrono::hours (2);
-	std::chrono::seconds unchecked_cutoff = std::chrono::seconds (7 * 24 * 60 * 60); // Week
+	static std::chrono::hours constexpr unchecked_cleanup_interval = std::chrono::hours (1);
 	static std::chrono::milliseconds constexpr process_confirmed_interval = nano::is_test_network ? std::chrono::milliseconds (50) : std::chrono::milliseconds (500);
 };
 

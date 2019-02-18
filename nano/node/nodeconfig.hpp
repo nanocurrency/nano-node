@@ -51,6 +51,7 @@ public:
 	nano::uint256_union epoch_block_link;
 	nano::account epoch_block_signer;
 	std::chrono::milliseconds block_processor_batch_max_time;
+	std::chrono::seconds unchecked_cutoff_time;
 	static std::chrono::seconds constexpr keepalive_period = std::chrono::seconds (60);
 	static std::chrono::seconds constexpr keepalive_cutoff = keepalive_period * 5;
 	static std::chrono::minutes constexpr wallet_backup_interval = std::chrono::minutes (5);
@@ -69,7 +70,7 @@ public:
 	bool disable_legacy_bootstrap;
 	bool disable_wallet_bootstrap;
 	bool disable_bootstrap_listener;
-	bool disable_unchecked_cleaning;
+	bool disable_unchecked_cleanup;
 	bool disable_unchecked_drop;
 	bool fast_bootstrap;
 	size_t sideband_batch_size;
