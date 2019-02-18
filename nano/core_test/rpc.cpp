@@ -4390,7 +4390,7 @@ TEST (rpc, wallet_history)
 	ASSERT_NE (nullptr, send);
 	std::this_thread::sleep_for (std::chrono::milliseconds (1000));
 	auto timestamp2 (nano::seconds_since_epoch ());
-	auto receive (system.wallet (0)->receive_action (static_cast<nano::send_block &> (*send), nano::test_genesis_key.pub, node0->config.receive_minimum.number ()));
+	auto receive (system.wallet (0)->receive_action (*send, nano::test_genesis_key.pub, node0->config.receive_minimum.number ()));
 	ASSERT_NE (nullptr, receive);
 	nano::keypair key;
 	std::this_thread::sleep_for (std::chrono::milliseconds (1000));
