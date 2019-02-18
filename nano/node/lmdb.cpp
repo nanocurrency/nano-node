@@ -896,8 +896,8 @@ void nano::mdb_store::delete_node_id (nano::transaction const & transaction_a)
 
 void nano::mdb_store::peer_put (nano::transaction const & transaction_a, nano::endpoint_key const & endpoint_a)
 {
-	nano::mdb_val junk;
-	auto status (mdb_put (env.tx (transaction_a), peers, nano::mdb_val (endpoint_a), junk, 0));
+	nano::mdb_val zero (0);
+	auto status (mdb_put (env.tx (transaction_a), peers, nano::mdb_val (endpoint_a), zero, 0));
 	release_assert (status == 0);
 }
 
