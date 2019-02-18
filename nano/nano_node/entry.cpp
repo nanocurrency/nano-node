@@ -610,7 +610,7 @@ int main (int argc, char * const * argv)
 					node->vote_processor.vote (vote, node->network.endpoint ());
 					votes.pop_front ();
 				}
-				while (!node->active.roots.empty ())
+				while (!node->active.empty ())
 				{
 					std::this_thread::sleep_for (std::chrono::milliseconds (100));
 				}

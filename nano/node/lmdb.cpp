@@ -847,6 +847,7 @@ void nano::mdb_store::version_put (nano::transaction const & transaction_a, int 
 	{
 		auto status (mdb_drop (env.tx (transaction_a), blocks_info, 1));
 		release_assert (status == MDB_SUCCESS);
+		blocks_info = 0;
 	}
 }
 
