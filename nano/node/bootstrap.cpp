@@ -2062,7 +2062,7 @@ receive_buffer (std::make_shared<std::vector<uint8_t>> ()),
 socket (socket_a),
 node (node_a)
 {
-	receive_buffer->resize (128);
+	receive_buffer->resize (512);
 }
 
 void nano::bootstrap_server::receive ()
@@ -2117,6 +2117,14 @@ void nano::bootstrap_server::receive_header_action (boost::system::error_code co
 				{
 					node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::bulk_push, nano::stat::dir::in);
 					add_request (std::unique_ptr<nano::message> (new nano::bulk_push (header)));
+					break;
+				}
+				case nano::message_type::keepalive:
+				{
+					auto this_l (shared_from_this ());
+					socket->async_read (receive_buffer, header.payload_length_bytes (), [this_l, header](boost::system::error_code const & ec, size_t size_a) {
+						this_l->receive_keepalive_action (ec, size_a, header);
+					});
 					break;
 				}
 				default:
@@ -2178,6 +2186,28 @@ void nano::bootstrap_server::receive_bulk_pull_account_action (boost::system::er
 	}
 }
 
+void nano::bootstrap_server::receive_keepalive_action (boost::system::error_code const & ec, size_t size_a, nano::message_header const & header_a)
+{
+	if (!ec)
+	{
+		auto error (false);
+		nano::bufferstream stream (receive_buffer->data (), header_a.payload_length_bytes ());
+		std::unique_ptr<nano::keepalive> request (new nano::keepalive (error, stream, header_a));
+		if (!error)
+		{
+			add_request (std::unique_ptr<nano::message> (request.release ()));
+			receive ();
+		}
+	}
+	else
+	{
+		if (node->config.logging.network_keepalive_logging ())
+		{
+			BOOST_LOG (node->log) << boost::str (boost::format ("Error receiving keepalive from: %1%") % ec.message ());
+		}
+	}
+}
+
 void nano::bootstrap_server::receive_frontier_req_action (boost::system::error_code const & ec, size_t size_a, nano::message_header const & header_a)
 {
 	if (!ec)
@@ -2235,9 +2265,35 @@ public:
 	{
 	}
 	virtual ~request_response_visitor () = default;
-	void keepalive (nano::keepalive const &) override
+	void keepalive (nano::keepalive const & message_a) override
 	{
-		assert (false);
+		if (connection->node->config.logging.network_keepalive_logging ())
+		{
+			BOOST_LOG (connection->node->log) << boost::str (boost::format ("Received keepalive message from %1%") % connection->socket->remote_endpoint ());
+		}
+		connection->node->stats.inc (nano::stat::type::message, nano::stat::detail::keepalive, nano::stat::dir::in);
+		connection->node->network.merge_peers (message_a.peers);
+		nano::keepalive message;
+		connection->node->peers.random_fill (message.peers);
+		auto bytes = message.to_bytes ();
+		if (connection->node->config.logging.network_keepalive_logging ())
+		{
+			BOOST_LOG (connection->node->log) << boost::str (boost::format ("Keepalive req sent to %1%") % connection->socket->remote_endpoint ());
+		}
+		connection->socket->async_write (bytes, [connection = connection](boost::system::error_code const & ec, size_t size_a) {
+			if (ec)
+			{
+				if (connection->node->config.logging.network_keepalive_logging ())
+				{
+					BOOST_LOG (connection->node->log) << boost::str (boost::format ("Error sending keepalive to %1%: %2%") % connection->socket->remote_endpoint () % ec.message ());
+				}
+			}
+			else
+			{
+				connection->node->stats.inc (nano::stat::type::message, nano::stat::detail::keepalive, nano::stat::dir::out);
+				connection->finish_request ();
+			}
+		});
 	}
 	void publish (nano::publish const &) override
 	{
