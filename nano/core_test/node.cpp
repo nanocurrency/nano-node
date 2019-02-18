@@ -713,7 +713,7 @@ TEST (node_config, required_child)
 	tree.put_child ("logging", logging_l);
 	auto child_l (tree.get_required_child ("logging"));
 	child_l.put<bool> ("flush", !logging1.flush);
-	bool upgraded;
+	bool upgraded (false);
 	logging2.deserialize_json (upgraded, child_l);
 
 	ASSERT_NE (logging1.flush, logging2.flush);
