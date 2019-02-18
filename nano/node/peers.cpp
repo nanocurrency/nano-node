@@ -15,7 +15,6 @@ endpoint (endpoint_a),
 ip_address (endpoint_a.address ()),
 last_contact (std::chrono::steady_clock::now ()),
 last_attempt (last_contact),
-
 network_version (network_version_a),
 node_id (node_id_a)
 {
