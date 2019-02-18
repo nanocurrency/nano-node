@@ -891,9 +891,20 @@ void nano::rpc_handler::block_info ()
 			response_l.put ("balance", balance.convert_to<std::string> ());
 			response_l.put ("height", std::to_string (sideband.height));
 			response_l.put ("local_timestamp", std::to_string (sideband.timestamp));
-			std::string contents;
-			block->serialize_json (contents);
-			response_l.put ("contents", contents);
+
+			bool json_block_l = request.get<bool> ("json_block", false);
+			if (json_block_l)
+			{
+				boost::property_tree::ptree block_node_l;
+				block->serialize_json (block_node_l);
+				response_l.add_child ("contents", block_node_l);
+			}
+			else
+			{
+				std::string contents;
+				block->serialize_json (contents);
+				response_l.put ("contents", contents);
+			}
 		}
 		else
 		{
