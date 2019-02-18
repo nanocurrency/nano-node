@@ -1313,6 +1313,12 @@ TEST (block_store, upgrade_sideband_rollback_old)
 	write_legacy_sideband (store, transaction, block1, block2.hash (), store.send_blocks);
 	write_legacy_sideband (store, transaction, block2, 0, store.send_blocks);
 	ASSERT_TRUE (store.block_exists (transaction, block2.hash ()));
+
+	nano::account_info account_info;
+	ASSERT_FALSE (store.account_get (transaction, nano::test_genesis_key.pub, account_info));
+	account_info.confirmation_height = 0; // Otherwise block cementing prevents the rollback
+	store.account_put (transaction, nano::test_genesis_key.pub, account_info);
+
 	ASSERT_FALSE (ledger.rollback (transaction, block2.hash ()));
 	ASSERT_FALSE (store.block_exists (transaction, block2.hash ()));
 }
@@ -1384,7 +1390,6 @@ TEST (block_store, sideband_height)
 	nano::keypair key3;
 	nano::mdb_store store (error, logging, nano::unique_path ());
 	ASSERT_FALSE (error);
-	store.stop ();
 	nano::stat stat;
 	nano::ledger ledger (store, stat);
 	ledger.epoch_signer = epoch_key.pub;
