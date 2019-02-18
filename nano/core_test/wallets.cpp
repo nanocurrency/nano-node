@@ -155,9 +155,6 @@ TEST (wallets, vote_minimum)
 {
 	nano::system system (24000, 1);
 	auto & node1 (*system.nodes[0]);
-	bool error (false);
-	nano::wallets wallets (error, node1);
-	ASSERT_FALSE (error);
 	nano::keypair key1;
 	nano::keypair key2;
 	nano::genesis genesis;
@@ -170,11 +167,11 @@ TEST (wallets, vote_minimum)
 	ASSERT_EQ (nano::process_result::progress, node1.process (send2).code);
 	nano::state_block open2 (key2.pub, 0, key2.pub, node1.config.vote_minimum.number () - 1, send2.hash (), key2.prv, key2.pub, system.work.generate (key2.pub));
 	ASSERT_EQ (nano::process_result::progress, node1.process (open2).code);
-	auto wallet (wallets.items.begin ()->second);
+	auto wallet (node1.wallets.items.begin ()->second);
 	ASSERT_EQ (0, wallet->representatives.size ());
 	wallet->insert_adhoc (nano::test_genesis_key.prv);
 	wallet->insert_adhoc (key1.prv);
 	wallet->insert_adhoc (key2.prv);
-	wallets.compute_reps ();
+	node1.wallets.compute_reps ();
 	ASSERT_EQ (2, wallet->representatives.size ());
 }
