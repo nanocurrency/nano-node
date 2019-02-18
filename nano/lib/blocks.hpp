@@ -306,6 +306,7 @@ public:
 	void serialize (nano::stream &) const override;
 	bool deserialize (nano::stream &);
 	void serialize_json (std::string &) const override;
+	void serialize_json (boost::property_tree::ptree &) const;
 	bool deserialize_json (boost::property_tree::ptree const &);
 	void visit (nano::block_visitor &) const override;
 	nano::block_type type () const override;

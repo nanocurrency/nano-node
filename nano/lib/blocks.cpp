@@ -1072,9 +1072,8 @@ bool nano::state_block::deserialize (nano::stream & stream_a)
 	return error;
 }
 
-void nano::state_block::serialize_json (std::string & string_a) const
+void nano::state_block::serialize_json (boost::property_tree::ptree & tree) const
 {
-	boost::property_tree::ptree tree;
 	tree.put ("type", "state");
 	tree.put ("account", hashables.account.to_account ());
 	tree.put ("previous", hashables.previous.to_string ());
@@ -1086,6 +1085,12 @@ void nano::state_block::serialize_json (std::string & string_a) const
 	signature.encode_hex (signature_l);
 	tree.put ("signature", signature_l);
 	tree.put ("work", nano::to_string_hex (work));
+}
+
+void nano::state_block::serialize_json (std::string & string_a) const
+{
+	boost::property_tree::ptree tree;
+	serialize_json (tree);
 	std::stringstream ostream;
 	boost::property_tree::write_json (ostream, tree);
 	string_a = ostream.str ();

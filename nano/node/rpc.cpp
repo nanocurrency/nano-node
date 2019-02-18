@@ -1235,9 +1235,19 @@ void nano::rpc_handler::block_create ()
 					}
 					nano::state_block state (pub, previous, representative, balance, link, prv, pub, work);
 					response_l.put ("hash", state.hash ().to_string ());
-					std::string contents;
-					state.serialize_json (contents);
-					response_l.put ("block", contents);
+					bool block_only = request.get<bool> ("json_block", false);
+					if (block_only)
+					{
+						boost::property_tree::ptree block_node_l;
+						state.serialize_json (block_node_l);
+						response_l.add_child ("block", block_node_l);
+					}
+					else
+					{
+						std::string contents;
+						state.serialize_json (contents);
+						response_l.put ("block", contents);
+					}
 				}
 				else
 				{
