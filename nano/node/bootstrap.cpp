@@ -2202,9 +2202,9 @@ void nano::bootstrap_server::receive_keepalive_action (boost::system::error_code
 	}
 	else
 	{
-		if (node->config.logging.network_logging ())
+		if (node->config.logging.network_keepalive_logging ())
 		{
-			BOOST_LOG (node->log) << boost::str (boost::format ("Error sending receiving frontier request: %1%") % ec.message ());
+			BOOST_LOG (node->log) << boost::str (boost::format ("Error receiving keepalive from: %1%") % ec.message ());
 		}
 	}
 }
