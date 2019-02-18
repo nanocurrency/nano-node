@@ -174,9 +174,12 @@ int main (int argc, char * const * argv)
 			auto transaction (node.node->store.tx_begin_read ());
 			for (auto i (node.node->store.online_weight_begin (transaction)), n (node.node->store.online_weight_end ()); i != n; ++i)
 			{
+				using time_point = std::chrono::system_clock::time_point;
+				time_point ts (std::chrono::duration_cast<time_point::duration> (std::chrono::nanoseconds (i->first)));
+				std::time_t timestamp = std::chrono::system_clock::to_time_t (ts);
 				std::string weight;
 				i->second.encode_dec (weight);
-				std::cout << boost::str (boost::format ("Timestamp %1% Weight %2%\n") % i->first % weight);
+				std::cout << boost::str (boost::format ("Timestamp %1% Weight %2%\n") % ctime (&timestamp) % weight);
 			}
 		}
 		else if (vm.count ("debug_dump_representatives"))
