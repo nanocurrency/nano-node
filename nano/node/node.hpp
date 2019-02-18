@@ -81,6 +81,7 @@ public:
 	void confirm_if_quorum (nano::transaction const &);
 	void log_votes (nano::tally_t const &);
 	bool publish (std::shared_ptr<nano::block> block_a);
+	size_t last_votes_size ();
 	void stop ();
 	nano::node & node;
 	std::unordered_map<nano::account, nano::vote_info> last_votes;
@@ -119,6 +120,8 @@ public:
 	void update_difficulty (nano::block const &);
 	std::deque<std::shared_ptr<nano::block>> list_blocks (bool = false);
 	void erase (nano::block const &);
+	bool empty ();
+	size_t size ();
 	void stop ();
 	bool publish (std::shared_ptr<nano::block> block_a);
 	boost::multi_index_container<
@@ -131,6 +134,7 @@ public:
 	std::greater<uint64_t>>>>
 	roots;
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::election>> blocks;
+	std::deque<nano::election_status> list_confirmed ();
 	std::deque<nano::election_status> confirmed;
 	nano::node & node;
 	std::mutex mutex;
@@ -196,6 +200,7 @@ public:
 	void add (nano::transaction const &, nano::block_hash const &, std::chrono::steady_clock::time_point = std::chrono::steady_clock::now ());
 	void vote (std::shared_ptr<nano::vote>);
 	nano::uint128_t bootstrap_threshold (nano::transaction const &);
+	size_t size ();
 	boost::multi_index_container<
 	nano::gap_information,
 	boost::multi_index::indexed_by<
@@ -320,7 +325,7 @@ public:
 	void process_packets ();
 	void start ();
 	void stop ();
-	void receive_action (nano::message_buffer *);
+	void receive_action (nano::message_buffer *, nano::endpoint const &);
 	void rpc_action (boost::system::error_code const &, size_t);
 	void republish_vote (std::shared_ptr<nano::vote>);
 	void republish_block (std::shared_ptr<nano::block>);
@@ -452,10 +457,11 @@ public:
 	void ongoing_bootstrap ();
 	void ongoing_store_flush ();
 	void ongoing_peer_store ();
+	void ongoing_unchecked_cleanup ();
 	void backup_wallet ();
 	void search_pending ();
 	void bootstrap_wallet ();
-	void unchecked_cleaning ();
+	void unchecked_cleanup ();
 	int price (nano::uint128_t const &, int);
 	void work_generate_blocking (nano::block &, uint64_t = nano::work_pool::publish_threshold);
 	uint64_t work_generate_blocking (nano::uint256_union const &, uint64_t = nano::work_pool::publish_threshold);
@@ -511,8 +517,7 @@ public:
 	static std::chrono::minutes constexpr backup_interval = std::chrono::minutes (5);
 	static std::chrono::seconds constexpr search_pending_interval = nano::is_test_network ? std::chrono::seconds (1) : std::chrono::seconds (5 * 60);
 	static std::chrono::seconds constexpr peer_interval = search_pending_interval;
-	static std::chrono::hours constexpr unchecked_cleaning_interval = std::chrono::hours (2);
-	std::chrono::seconds unchecked_cutoff = std::chrono::seconds (7 * 24 * 60 * 60); // Week
+	static std::chrono::hours constexpr unchecked_cleanup_interval = std::chrono::hours (1);
 	static std::chrono::milliseconds constexpr process_confirmed_interval = nano::is_test_network ? std::chrono::milliseconds (50) : std::chrono::milliseconds (500);
 };
 

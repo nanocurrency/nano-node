@@ -1161,7 +1161,7 @@ void write_legacy_sideband (nano::mdb_store & store_a, nano::transaction & trans
 	nano::block_sideband sideband;
 	auto block2 (store_a.block_get (transaction_a, block_a.hash (), &sideband));
 	ASSERT_NE (nullptr, block2);
-	ASSERT_EQ (std::numeric_limits<uint64_t>::max (), sideband.height);
+	ASSERT_EQ (0, sideband.height);
 };
 }
 
@@ -1181,11 +1181,11 @@ TEST (block_store, upgrade_sideband_genesis)
 		nano::block_sideband sideband;
 		auto genesis_block (store.block_get (transaction, genesis.hash (), &sideband));
 		ASSERT_NE (nullptr, genesis_block);
-		ASSERT_EQ (0, sideband.height);
+		ASSERT_EQ (1, sideband.height);
 		write_legacy_sideband (store, transaction, *genesis_block, 0, store.open_blocks);
 		auto genesis_block2 (store.block_get (transaction, genesis.hash (), &sideband));
 		ASSERT_NE (nullptr, genesis_block);
-		ASSERT_EQ (std::numeric_limits<uint64_t>::max (), sideband.height);
+		ASSERT_EQ (0, sideband.height);
 	}
 	nano::logging logging;
 	nano::mdb_store store (error, logging, path);
@@ -1204,7 +1204,7 @@ TEST (block_store, upgrade_sideband_genesis)
 	nano::block_sideband sideband;
 	auto genesis_block (store.block_get (transaction, genesis.hash (), &sideband));
 	ASSERT_NE (nullptr, genesis_block);
-	ASSERT_EQ (0, sideband.height);
+	ASSERT_EQ (1, sideband.height);
 }
 
 TEST (block_store, upgrade_sideband_two_blocks)
@@ -1246,11 +1246,11 @@ TEST (block_store, upgrade_sideband_two_blocks)
 	nano::block_sideband sideband;
 	auto genesis_block (store.block_get (transaction, genesis.hash (), &sideband));
 	ASSERT_NE (nullptr, genesis_block);
-	ASSERT_EQ (0, sideband.height);
+	ASSERT_EQ (1, sideband.height);
 	nano::block_sideband sideband2;
 	auto block2 (store.block_get (transaction, hash2, &sideband2));
 	ASSERT_NE (nullptr, block2);
-	ASSERT_EQ (1, sideband2.height);
+	ASSERT_EQ (2, sideband2.height);
 }
 
 TEST (block_store, upgrade_sideband_two_accounts)
@@ -1298,15 +1298,15 @@ TEST (block_store, upgrade_sideband_two_accounts)
 	nano::block_sideband sideband;
 	auto genesis_block (store.block_get (transaction, genesis.hash (), &sideband));
 	ASSERT_NE (nullptr, genesis_block);
-	ASSERT_EQ (0, sideband.height);
+	ASSERT_EQ (1, sideband.height);
 	nano::block_sideband sideband2;
 	auto block2 (store.block_get (transaction, hash2, &sideband2));
 	ASSERT_NE (nullptr, block2);
-	ASSERT_EQ (1, sideband2.height);
+	ASSERT_EQ (2, sideband2.height);
 	nano::block_sideband sideband3;
 	auto block3 (store.block_get (transaction, hash3, &sideband3));
 	ASSERT_NE (nullptr, block3);
-	ASSERT_EQ (0, sideband3.height);
+	ASSERT_EQ (1, sideband3.height);
 }
 
 TEST (block_store, insert_after_legacy)
@@ -1412,10 +1412,89 @@ TEST (block_store, upgrade_sideband_epoch)
 	ASSERT_EQ (nano::epoch::epoch_1, store.block_version (transaction, hash2));
 	nano::block_sideband sideband;
 	auto block1 (store.block_get (transaction, hash2, &sideband));
-	ASSERT_NE (std::numeric_limits<uint64_t>::max (), sideband.height);
+	ASSERT_NE (0, sideband.height);
 	nano::state_block block2 (nano::test_genesis_key.pub, hash2, nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, block2).code);
 	ASSERT_EQ (nano::epoch::epoch_1, store.block_version (transaction, block2.hash ()));
+}
+
+TEST (block_store, sideband_height)
+{
+	nano::logging logging;
+	bool error (false);
+	nano::genesis genesis;
+	nano::keypair epoch_key;
+	nano::keypair key1;
+	nano::keypair key2;
+	nano::keypair key3;
+	nano::mdb_store store (error, logging, nano::unique_path ());
+	ASSERT_FALSE (error);
+	store.stop ();
+	nano::stat stat;
+	nano::ledger ledger (store, stat);
+	ledger.epoch_signer = epoch_key.pub;
+	auto transaction (store.tx_begin (true));
+	store.initialize (transaction, genesis);
+	nano::send_block send (genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
+	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send).code);
+	nano::receive_block receive (send.hash (), send.hash (), nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
+	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, receive).code);
+	nano::change_block change (receive.hash (), 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
+	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, change).code);
+	nano::state_block state_send1 (nano::test_genesis_key.pub, change.hash (), 0, nano::genesis_amount - nano::Gxrb_ratio, key1.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
+	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, state_send1).code);
+	nano::state_block state_send2 (nano::test_genesis_key.pub, state_send1.hash (), 0, nano::genesis_amount - 2 * nano::Gxrb_ratio, key2.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
+	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, state_send2).code);
+	nano::state_block state_send3 (nano::test_genesis_key.pub, state_send2.hash (), 0, nano::genesis_amount - 3 * nano::Gxrb_ratio, key3.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
+	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, state_send3).code);
+	nano::state_block state_open (key1.pub, 0, 0, nano::Gxrb_ratio, state_send1.hash (), key1.prv, key1.pub, 0);
+	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, state_open).code);
+	nano::state_block epoch (key1.pub, state_open.hash (), 0, nano::Gxrb_ratio, ledger.epoch_link, epoch_key.prv, epoch_key.pub, 0);
+	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, epoch).code);
+	ASSERT_EQ (nano::epoch::epoch_1, store.block_version (transaction, epoch.hash ()));
+	nano::state_block epoch_open (key2.pub, 0, 0, 0, ledger.epoch_link, epoch_key.prv, epoch_key.pub, 0);
+	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, epoch_open).code);
+	ASSERT_EQ (nano::epoch::epoch_1, store.block_version (transaction, epoch_open.hash ()));
+	nano::state_block state_receive (key2.pub, epoch_open.hash (), 0, nano::Gxrb_ratio, state_send2.hash (), key2.prv, key2.pub, 0);
+	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, state_receive).code);
+	nano::open_block open (state_send3.hash (), nano::test_genesis_key.pub, key3.pub, key3.prv, key3.pub, 0);
+	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, open).code);
+	nano::block_sideband sideband1;
+	auto block1 (store.block_get (transaction, genesis.hash (), &sideband1));
+	ASSERT_EQ (sideband1.height, 1);
+	nano::block_sideband sideband2;
+	auto block2 (store.block_get (transaction, send.hash (), &sideband2));
+	ASSERT_EQ (sideband2.height, 2);
+	nano::block_sideband sideband3;
+	auto block3 (store.block_get (transaction, receive.hash (), &sideband3));
+	ASSERT_EQ (sideband3.height, 3);
+	nano::block_sideband sideband4;
+	auto block4 (store.block_get (transaction, change.hash (), &sideband4));
+	ASSERT_EQ (sideband4.height, 4);
+	nano::block_sideband sideband5;
+	auto block5 (store.block_get (transaction, state_send1.hash (), &sideband5));
+	ASSERT_EQ (sideband5.height, 5);
+	nano::block_sideband sideband6;
+	auto block6 (store.block_get (transaction, state_send2.hash (), &sideband6));
+	ASSERT_EQ (sideband6.height, 6);
+	nano::block_sideband sideband7;
+	auto block7 (store.block_get (transaction, state_send3.hash (), &sideband7));
+	ASSERT_EQ (sideband7.height, 7);
+	nano::block_sideband sideband8;
+	auto block8 (store.block_get (transaction, state_open.hash (), &sideband8));
+	ASSERT_EQ (sideband8.height, 1);
+	nano::block_sideband sideband9;
+	auto block9 (store.block_get (transaction, epoch.hash (), &sideband9));
+	ASSERT_EQ (sideband9.height, 2);
+	nano::block_sideband sideband10;
+	auto block10 (store.block_get (transaction, epoch_open.hash (), &sideband10));
+	ASSERT_EQ (sideband10.height, 1);
+	nano::block_sideband sideband11;
+	auto block11 (store.block_get (transaction, state_receive.hash (), &sideband11));
+	ASSERT_EQ (sideband11.height, 2);
+	nano::block_sideband sideband12;
+	auto block12 (store.block_get (transaction, open.hash (), &sideband12));
+	ASSERT_EQ (sideband12.height, 1);
 }
 
 TEST (block_store, peers)

@@ -197,7 +197,7 @@ ge25519_is_neutral_vartime(const ge25519 *p) {
 	curve25519_contract(point_buffer[0], p->x);
 	curve25519_contract(point_buffer[1], p->y);
 	curve25519_contract(point_buffer[2], p->z);
-	memcpy(batch_point_buffer[1], point_buffer[1], 32);
+	// memcpy(batch_point_buffer[1], point_buffer[1], 32); // remove used in testing batch_point_buffer to fix tsan warnings
 	return (memcmp(point_buffer[0], zero, 32) == 0) && (memcmp(point_buffer[1], point_buffer[2], 32) == 0);
 }
 

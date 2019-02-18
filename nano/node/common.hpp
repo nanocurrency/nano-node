@@ -313,7 +313,6 @@ public:
 	confirm_ack (bool &, nano::stream &, nano::message_header const &, nano::vote_uniquer * = nullptr);
 	confirm_ack (std::shared_ptr<nano::vote>);
 	void serialize (nano::stream &) const override;
-	bool deserialize (nano::stream &, nano::vote_uniquer * = nullptr);
 	void visit (nano::message_visitor &) const override;
 	bool operator== (nano::confirm_ack const &) const;
 	std::shared_ptr<nano::vote> vote;

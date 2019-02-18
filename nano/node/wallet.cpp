@@ -758,9 +758,11 @@ wallets (wallets_a)
 
 void nano::wallet::enter_initial_password ()
 {
-	std::lock_guard<std::recursive_mutex> lock (store.mutex);
 	nano::raw_key password_l;
-	store.password.value (password_l);
+	{
+		std::lock_guard<std::recursive_mutex> lock (store.mutex);
+		store.password.value (password_l);
+	}
 	if (password_l.data.is_zero ())
 	{
 		auto transaction (wallets.tx_begin_write ());
@@ -884,7 +886,7 @@ bool nano::wallet::import (std::string const & json_a, std::string const & passw
 	}
 	if (!error)
 	{
-		auto transaction (wallets.tx_begin_read ());
+		auto transaction (wallets.tx_begin_write ());
 		error = temp->attempt_password (transaction, password_a);
 	}
 	auto transaction (wallets.tx_begin_write ());
@@ -1145,9 +1147,8 @@ bool nano::wallet::receive_sync (std::shared_ptr<nano::block> block_a, nano::acc
 
 void nano::wallet::receive_async (std::shared_ptr<nano::block> block_a, nano::account const & representative_a, nano::uint128_t const & amount_a, std::function<void(std::shared_ptr<nano::block>)> const & action_a, uint64_t work_a, bool generate_work_a)
 {
-	//assert (dynamic_cast<nano::send_block *> (block_a.get ()) != nullptr);
 	wallets.node.wallets.queue_wallet_action (amount_a, shared_from_this (), [block_a, representative_a, amount_a, action_a, work_a, generate_work_a](nano::wallet & wallet_a) {
-		auto block (wallet_a.receive_action (*static_cast<nano::block *> (block_a.get ()), representative_a, amount_a, work_a, generate_work_a));
+		auto block (wallet_a.receive_action (*block_a, representative_a, amount_a, work_a, generate_work_a));
 		action_a (block);
 	});
 }
@@ -1321,7 +1322,7 @@ void nano::wallet::work_cache_blocking (nano::account const & account_a, nano::b
 		BOOST_LOG (wallets.node.log) << "Work generation for " << root_a.to_string () << ", with a difficulty of " << difficulty << " complete: " << (std::chrono::duration_cast<std::chrono::microseconds> (std::chrono::steady_clock::now () - begin).count ()) << " us";
 	}
 	auto transaction (wallets.tx_begin_write ());
-	if (store.exists (transaction, account_a))
+	if (live () && store.exists (transaction, account_a))
 	{
 		work_update (transaction, account_a, root_a, work);
 	}
@@ -1440,6 +1441,8 @@ void nano::wallets::destroy (nano::uint256_union const & id_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	auto transaction (tx_begin_write ());
+	// action_mutex should be after transactions to prevent deadlocks in deterministic_insert () & insert_adhoc ()
+	std::lock_guard<std::mutex> action_lock (action_mutex);
 	auto existing (items.find (id_a));
 	assert (existing != items.end ());
 	auto wallet (existing->second);
@@ -1492,7 +1495,7 @@ void nano::wallets::reload ()
 
 void nano::wallets::do_wallet_actions ()
 {
-	std::unique_lock<std::mutex> lock (mutex);
+	std::unique_lock<std::mutex> action_lock (action_mutex);
 	while (!stopped)
 	{
 		if (!actions.empty ())
@@ -1503,16 +1506,16 @@ void nano::wallets::do_wallet_actions ()
 			actions.erase (first);
 			if (wallet->live ())
 			{
-				lock.unlock ();
+				action_lock.unlock ();
 				observer (true);
 				current (*wallet);
 				observer (false);
-				lock.lock ();
+				action_lock.lock ();
 			}
 		}
 		else
 		{
-			condition.wait (lock);
+			condition.wait (action_lock);
 		}
 	}
 }
@@ -1520,7 +1523,7 @@ void nano::wallets::do_wallet_actions ()
 void nano::wallets::queue_wallet_action (nano::uint128_t const & amount_a, std::shared_ptr<nano::wallet> wallet_a, std::function<void(nano::wallet &)> const & action_a)
 {
 	{
-		std::lock_guard<std::mutex> lock (mutex);
+		std::lock_guard<std::mutex> action_lock (action_mutex);
 		actions.insert (std::make_pair (amount_a, std::make_pair (wallet_a, std::move (action_a))));
 	}
 	condition.notify_all ();
@@ -1581,7 +1584,7 @@ bool nano::wallets::exists (nano::transaction const & transaction_a, nano::publi
 void nano::wallets::stop ()
 {
 	{
-		std::lock_guard<std::mutex> lock (mutex);
+		std::lock_guard<std::mutex> action_lock (action_mutex);
 		stopped = true;
 		actions.clear ();
 	}

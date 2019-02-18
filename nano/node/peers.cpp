@@ -18,7 +18,6 @@ nano::peer_information::peer_information (std::shared_ptr<nano::message_sink_udp
 sink (sink_a),
 last_contact (std::chrono::steady_clock::now ()),
 last_attempt (last_contact),
-
 network_version (network_version_a),
 node_id (node_id_a)
 {

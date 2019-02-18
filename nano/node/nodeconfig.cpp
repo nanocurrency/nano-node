@@ -36,7 +36,8 @@ bootstrap_connections_max (64),
 callback_port (0),
 lmdb_max_dbs (128),
 allow_local_peers (false),
-block_processor_batch_max_time (std::chrono::milliseconds (5000))
+block_processor_batch_max_time (std::chrono::milliseconds (5000)),
+unchecked_cutoff_time (std::chrono::seconds (4 * 60 * 60)) // 4 hours
 {
 	const char * epoch_message ("epoch v1 block");
 	strncpy ((char *)epoch_block_link.bytes.data (), epoch_message, epoch_block_link.bytes.size ());
@@ -120,6 +121,7 @@ nano::error nano::node_config::serialize_json (nano::jsonconfig & json) const
 	json.put ("block_processor_batch_max_time", block_processor_batch_max_time.count ());
 	json.put ("allow_local_peers", allow_local_peers);
 	json.put ("vote_minimum", vote_minimum.to_string_dec ());
+	json.put ("unchecked_cutoff_time", unchecked_cutoff_time.count ());
 
 	nano::jsonconfig ipc_l;
 	ipc_config.serialize_json (ipc_l);
@@ -239,6 +241,7 @@ bool nano::node_config::upgrade_json (unsigned version_a, nano::jsonconfig & jso
 			json.put_child ("ipc", ipc_l);
 
 			json.put (signature_checker_threads_key, signature_checker_threads);
+			json.put ("unchecked_cutoff_time", unchecked_cutoff_time.count ());
 
 			upgraded = true;
 		}
@@ -338,6 +341,9 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 
 		auto block_processor_batch_max_time_l (json.get<unsigned long> ("block_processor_batch_max_time"));
 		block_processor_batch_max_time = std::chrono::milliseconds (block_processor_batch_max_time_l);
+		unsigned long unchecked_cutoff_time_l (unchecked_cutoff_time.count ());
+		json.get ("unchecked_cutoff_time", unchecked_cutoff_time_l);
+		unchecked_cutoff_time = std::chrono::seconds (unchecked_cutoff_time_l);
 
 		auto ipc_config_l (json.get_optional_child ("ipc"));
 		if (ipc_config_l)
@@ -398,7 +404,7 @@ disable_lazy_bootstrap (false),
 disable_legacy_bootstrap (false),
 disable_wallet_bootstrap (false),
 disable_bootstrap_listener (false),
-disable_unchecked_cleaning (false),
+disable_unchecked_cleanup (false),
 disable_unchecked_drop (true),
 fast_bootstrap (false),
 sideband_batch_size (512)

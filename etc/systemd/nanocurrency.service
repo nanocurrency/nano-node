@@ -1,0 +1,13 @@
+[Unit]
+Description=Nano Daemon live network
+After=network.target
+
+[Service]
+Type=simple
+User=nanocurrency
+WorkingDirectory=/var/nanocurrency/Nano
+ExecStart=/usr/bin/nano_node --daemon
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

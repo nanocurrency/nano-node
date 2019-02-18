@@ -59,7 +59,7 @@ TEST (network, self_discard)
 	nano::message_buffer data;
 	data.endpoint = system.nodes[0]->network.endpoint ();
 	ASSERT_EQ (0, system.nodes[0]->stats.count (nano::stat::type::error, nano::stat::detail::bad_sender));
-	system.nodes[0]->network.receive_action (&data);
+	system.nodes[0]->network.receive_action (&data, system.nodes[0]->network.endpoint ());
 	ASSERT_EQ (1, system.nodes[0]->stats.count (nano::stat::type::error, nano::stat::detail::bad_sender));
 }
 
@@ -598,7 +598,7 @@ TEST (bootstrap_processor, process_one)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	ASSERT_EQ (0, node1->active.roots.size ());
+	ASSERT_EQ (0, node1->active.size ());
 	node1->stop ();
 }
 
@@ -651,7 +651,7 @@ TEST (bootstrap_processor, process_state)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	ASSERT_EQ (0, node1->active.roots.size ());
+	ASSERT_EQ (0, node1->active.size ());
 	node1->stop ();
 }
 
@@ -1048,7 +1048,7 @@ TEST (bulk, offline_send)
 	ASSERT_NE (std::numeric_limits<nano::uint256_t>::max (), system.nodes[0]->balance (nano::test_genesis_key.pub));
 	// Wait to finish election background tasks
 	system.deadline_set (10s);
-	while (!system.nodes[0]->active.roots.empty ())
+	while (!system.nodes[0]->active.empty ())
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
