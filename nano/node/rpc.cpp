@@ -973,6 +973,8 @@ void nano::rpc_handler::blocks_info ()
 {
 	const bool pending = request.get<bool> ("pending", false);
 	const bool source = request.get<bool> ("source", false);
+	const bool json_block_l = request.get<bool> ("json_block", false);
+
 	std::vector<std::string> hashes;
 	boost::property_tree::ptree blocks;
 	auto transaction (node.store.tx_begin_read ());
@@ -997,9 +999,20 @@ void nano::rpc_handler::blocks_info ()
 					entry.put ("balance", balance.convert_to<std::string> ());
 					entry.put ("height", std::to_string (sideband.height));
 					entry.put ("local_timestamp", std::to_string (sideband.timestamp));
-					std::string contents;
-					block->serialize_json (contents);
-					entry.put ("contents", contents);
+
+					if (json_block_l)
+					{
+						boost::property_tree::ptree block_node_l;
+						block->serialize_json (block_node_l);
+						entry.add_child ("contents", block_node_l);
+					}
+					else
+					{
+						std::string contents;
+						block->serialize_json (contents);
+						entry.put ("contents", contents);
+					}
+
 					if (pending)
 					{
 						bool exists (false);
@@ -1569,6 +1582,7 @@ void nano::rpc_handler::confirmation_info ()
 {
 	const bool representatives = request.get<bool> ("representatives", false);
 	const bool contents = request.get<bool> ("contents", true);
+	const bool json_block_l = request.get<bool> ("json_block", false);
 	std::string root_text (request.get<std::string> ("root"));
 	nano::uint512_union root;
 	if (!root.decode_hex (root_text))
@@ -1592,9 +1606,18 @@ void nano::rpc_handler::confirmation_info ()
 				total += tally;
 				if (contents)
 				{
-					std::string contents;
-					i->second->serialize_json (contents);
-					entry.put ("contents", contents);
+					if (json_block_l)
+					{
+						boost::property_tree::ptree block_node_l;
+						i->second->serialize_json (block_node_l);
+						entry.add_child ("contents", block_node_l);
+					}
+					else
+					{
+						std::string contents;
+						i->second->serialize_json (contents);
+						entry.put ("contents", contents);
+					}
 				}
 				if (representatives)
 				{
@@ -3277,6 +3300,7 @@ void nano::rpc_handler::unchecked_clear ()
 
 void nano::rpc_handler::unchecked_get ()
 {
+	const bool json_block_l = request.get<bool> ("json_block", false);
 	auto hash (hash_impl ());
 	if (!ec)
 	{
@@ -3288,9 +3312,19 @@ void nano::rpc_handler::unchecked_get ()
 			{
 				nano::unchecked_info info (i->second);
 				response_l.put ("modified_timestamp", std::to_string (info.modified));
-				std::string contents;
-				info.block->serialize_json (contents);
-				response_l.put ("contents", contents);
+
+				if (json_block_l)
+				{
+					boost::property_tree::ptree block_node_l;
+					info.block->serialize_json (block_node_l);
+					response_l.add_child ("contents", block_node_l);
+				}
+				else
+				{
+					std::string contents;
+					info.block->serialize_json (contents);
+					response_l.put ("contents", contents);
+				}
 				break;
 			}
 		}
@@ -3304,6 +3338,7 @@ void nano::rpc_handler::unchecked_get ()
 
 void nano::rpc_handler::unchecked_keys ()
 {
+	const bool json_block_l = request.get<bool> ("json_block", false);
 	auto count (count_optional_impl ());
 	nano::uint256_union key (0);
 	boost::optional<std::string> hash_text (request.get_optional<std::string> ("key"));
@@ -3322,12 +3357,21 @@ void nano::rpc_handler::unchecked_keys ()
 		{
 			boost::property_tree::ptree entry;
 			nano::unchecked_info info (i->second);
-			std::string contents;
-			info.block->serialize_json (contents);
 			entry.put ("key", nano::block_hash (i->first.key ()).to_string ());
 			entry.put ("hash", info.block->hash ().to_string ());
 			entry.put ("modified_timestamp", std::to_string (info.modified));
-			entry.put ("contents", contents);
+			if (json_block_l)
+			{
+				boost::property_tree::ptree block_node_l;
+				info.block->serialize_json (block_node_l);
+				entry.add_child ("contents", block_node_l);
+			}
+			else
+			{
+				std::string contents;
+				info.block->serialize_json (contents);
+				entry.put ("contents", contents);
+			}
 			unchecked.push_back (std::make_pair ("", entry));
 		}
 		response_l.add_child ("unchecked", unchecked);
