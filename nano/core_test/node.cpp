@@ -2276,7 +2276,7 @@ TEST (node, peers)
 	node->stop ();
 }
 
-TEST (node, unchecked_cleaning)
+TEST (node, unchecked_cleanup)
 {
 	nano::system system (24000, 1);
 	nano::keypair key;
@@ -2284,21 +2284,21 @@ TEST (node, unchecked_cleaning)
 	auto open (std::make_shared<nano::state_block> (key.pub, 0, key.pub, 1, key.pub, key.prv, key.pub, system.work.generate (key.pub)));
 	node.process_active (open);
 	node.block_processor.flush ();
-	node.unchecked_cutoff = std::chrono::seconds (2);
+	node.config.unchecked_cutoff_time = std::chrono::seconds (2);
 	{
 		auto transaction (node.store.tx_begin ());
 		auto unchecked_count (node.store.unchecked_count (transaction));
 		ASSERT_EQ (unchecked_count, 1);
 	}
 	std::this_thread::sleep_for (std::chrono::seconds (1));
-	node.unchecked_cleaning ();
+	node.unchecked_cleanup ();
 	{
 		auto transaction (node.store.tx_begin ());
 		auto unchecked_count (node.store.unchecked_count (transaction));
 		ASSERT_EQ (unchecked_count, 1);
 	}
 	std::this_thread::sleep_for (std::chrono::seconds (2));
-	node.unchecked_cleaning ();
+	node.unchecked_cleanup ();
 	{
 		auto transaction (node.store.tx_begin ());
 		auto unchecked_count (node.store.unchecked_count (transaction));

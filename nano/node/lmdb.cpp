@@ -825,7 +825,7 @@ void nano::mdb_store::initialize (nano::transaction const & transaction_a, nano:
 	auto hash_l (genesis_a.hash ());
 	assert (latest_v0_begin (transaction_a) == latest_v0_end ());
 	assert (latest_v1_begin (transaction_a) == latest_v1_end ());
-	nano::block_sideband sideband (nano::block_type::open, nano::genesis_account, 0, nano::genesis_amount, 0, nano::seconds_since_epoch ());
+	nano::block_sideband sideband (nano::block_type::open, nano::genesis_account, 0, nano::genesis_amount, 1, nano::seconds_since_epoch ());
 	block_put (transaction_a, hash_l, *genesis_a.open, sideband);
 	account_put (transaction_a, genesis_account, { hash_l, genesis_a.open->hash (), genesis_a.open->hash (), std::numeric_limits<nano::uint128_t>::max (), nano::seconds_since_epoch (), 1, nano::epoch::epoch_0 });
 	representation_put (transaction_a, genesis_account, std::numeric_limits<nano::uint128_t>::max ());
@@ -1227,7 +1227,7 @@ void nano::mdb_store::upgrade_v12_to_v13 (size_t const batch_size)
 		if (!first.is_zero ())
 		{
 			auto hash (second.open_block);
-			uint64_t height (0);
+			uint64_t height (1);
 			nano::block_sideband sideband;
 			while (!stopped && !hash.is_zero ())
 			{
@@ -1244,7 +1244,7 @@ void nano::mdb_store::upgrade_v12_to_v13 (size_t const batch_size)
 				}
 				auto block (block_get (transaction, hash, &sideband));
 				assert (block != nullptr);
-				if (sideband.height == std::numeric_limits<uint64_t>::max ())
+				if (sideband.height == 0)
 				{
 					sideband.height = height;
 					block_put (transaction, hash, *block, sideband, block_version (transaction, hash));
@@ -1611,8 +1611,8 @@ std::shared_ptr<nano::block> nano::mdb_store::block_get (nano::transaction const
 				sideband_a->account = block_account_computed (transaction_a, hash_a);
 				sideband_a->balance = block_balance_computed (transaction_a, hash_a);
 				sideband_a->successor = block_successor (transaction_a, hash_a);
-				sideband_a->height = std::numeric_limits<uint64_t>::max ();
-				sideband_a->timestamp = std::numeric_limits<uint64_t>::max ();
+				sideband_a->height = 0;
+				sideband_a->timestamp = 0;
 			}
 		}
 	}

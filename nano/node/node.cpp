@@ -22,7 +22,7 @@ std::chrono::seconds constexpr nano::node::syn_cookie_cutoff;
 std::chrono::minutes constexpr nano::node::backup_interval;
 std::chrono::seconds constexpr nano::node::search_pending_interval;
 std::chrono::seconds constexpr nano::node::peer_interval;
-std::chrono::hours constexpr nano::node::unchecked_cleaning_interval;
+std::chrono::hours constexpr nano::node::unchecked_cleanup_interval;
 std::chrono::milliseconds constexpr nano::node::process_confirmed_interval;
 
 int constexpr nano::port_mapping::mapping_timeout;
@@ -1909,6 +1909,10 @@ void nano::node::start ()
 	{
 		ongoing_bootstrap ();
 	}
+	else if (!flags.disable_unchecked_cleanup)
+	{
+		ongoing_unchecked_cleanup ();
+	}
 	ongoing_store_flush ();
 	ongoing_rep_crawl ();
 	ongoing_rep_calculation ();
@@ -1932,10 +1936,6 @@ void nano::node::start ()
 		});
 	}
 	port_mapping.start ();
-	if (!flags.disable_unchecked_cleaning)
-	{
-		unchecked_cleaning ();
-	}
 }
 
 void nano::node::stop ()
@@ -2179,41 +2179,47 @@ void nano::node::bootstrap_wallet ()
 	bootstrap_initiator.bootstrap_wallet (accounts);
 }
 
-void nano::node::unchecked_cleaning ()
+void nano::node::unchecked_cleanup ()
 {
-	std::deque<nano::unchecked_key> cleaning;
+	std::deque<nano::unchecked_key> cleaning_list;
 	// Collect old unchecked keys
-	if (!bootstrap_initiator.in_progress ())
 	{
 		auto now (nano::seconds_since_epoch ());
 		auto transaction (store.tx_begin_read ());
-		// Max 32k records to clean, max 60 seconds reading to prevent slow i/o systems start issues
-		for (auto i (store.unchecked_begin (transaction)), n (store.unchecked_end ()); i != n && cleaning.size () < 64 * 1024 && nano::seconds_since_epoch () - now < 60; ++i)
+		// Max 128k records to clean, max 2 minutes reading to prevent slow i/o systems start issues
+		for (auto i (store.unchecked_begin (transaction)), n (store.unchecked_end ()); i != n && cleaning_list.size () < 128 * 1024 && nano::seconds_since_epoch () - now < 120; ++i)
 		{
 			nano::unchecked_key key (i->first);
 			nano::unchecked_info info (i->second);
-			if ((now - info.modified) > unchecked_cutoff.count ())
+			if ((now - info.modified) > config.unchecked_cutoff_time.count ())
 			{
-				cleaning.push_back (key);
+				cleaning_list.push_back (key);
 			}
 		}
 	}
 	// Delete old unchecked keys in batches
-	while (!cleaning.empty () && !bootstrap_initiator.in_progress ())
+	while (!cleaning_list.empty ())
 	{
 		size_t deleted_count (0);
 		auto transaction (store.tx_begin_write ());
-		while (deleted_count++ < 2 * 1024 && !cleaning.empty ())
+		while (deleted_count++ < 2 * 1024 && !cleaning_list.empty ())
 		{
-			auto key (cleaning.front ());
-			cleaning.pop_front ();
+			auto key (cleaning_list.front ());
+			cleaning_list.pop_front ();
 			store.unchecked_del (transaction, key);
 		}
 	}
-	cleaning.clear ();
+}
+
+void nano::node::ongoing_unchecked_cleanup ()
+{
+	if (!bootstrap_initiator.in_progress ())
+	{
+		unchecked_cleanup ();
+	}
 	auto this_l (shared ());
-	alarm.add (std::chrono::steady_clock::now () + unchecked_cleaning_interval, [this_l]() {
-		this_l->unchecked_cleaning ();
+	alarm.add (std::chrono::steady_clock::now () + unchecked_cleanup_interval, [this_l]() {
+		this_l->ongoing_unchecked_cleanup ();
 	});
 }
 
