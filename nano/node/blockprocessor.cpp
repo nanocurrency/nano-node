@@ -106,13 +106,8 @@ void nano::block_processor::process_blocks ()
 		}
 		else
 		{
-			lock.unlock ();
 			condition.notify_all ();
-			lock.lock ();
-			if (!stopped && !have_blocks ())
-			{
-				condition.wait (lock);
-			}
+			condition.wait (lock);
 		}
 	}
 }
