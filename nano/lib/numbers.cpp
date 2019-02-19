@@ -198,7 +198,7 @@ void nano::uint256_union::clear ()
 nano::uint256_t nano::uint256_union::number () const
 {
 	nano::uint256_t result;
-	boost::multiprecision::import_bits (result, bytes.begin (), bytes.end (), false);
+	boost::multiprecision::import_bits (result, bytes.begin (), bytes.end ());
 	return result;
 }
 
@@ -315,7 +315,7 @@ void nano::uint512_union::clear ()
 nano::uint512_t nano::uint512_union::number () const
 {
 	nano::uint512_t result;
-	boost::multiprecision::import_bits (result, bytes.begin (), bytes.end (), false);
+	boost::multiprecision::import_bits (result, bytes.begin (), bytes.end ());
 	return result;
 }
 
@@ -472,7 +472,7 @@ bool nano::uint128_union::operator> (nano::uint128_union const & other_a) const
 nano::uint128_t nano::uint128_union::number () const
 {
 	nano::uint128_t result;
-	boost::multiprecision::import_bits (result, bytes.begin (), bytes.end (), false);
+	boost::multiprecision::import_bits (result, bytes.begin (), bytes.end ());
 	return result;
 }
 
