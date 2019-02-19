@@ -3319,47 +3319,60 @@ void nano::rpc_handler::unopened ()
 	rpc_control_impl ();
 	if (!ec)
 	{
-		auto transaction (node.store.tx_begin_read ());
-		auto iterator (node.store.pending_begin (transaction, nano::pending_key (1, 0))); // exclude burn account
-		auto end (node.store.pending_end ());
-		nano::account current_account;
-		nano::uint128_t current_account_sum{ 0 };
-		boost::property_tree::ptree accounts;
-		while (iterator != end)
+		auto count (count_optional_impl ());
+		nano::account start (1); // exclude burn account by default
+		boost::optional<std::string> account_text (request.get_optional<std::string> ("account"));
+		if (account_text.is_initialized ())
 		{
-			nano::pending_key key (iterator->first);
-			nano::account account (key.account);
-			nano::pending_info info (iterator->second);
-			if (node.store.account_exists (transaction, account))
+			if (start.decode_account (account_text.get ()))
 			{
-				if (account.number () == std::numeric_limits<nano::uint256_t>::max ())
-				{
-					break;
-				}
-				// Skip existing accounts
-				iterator = node.store.pending_begin (transaction, nano::pending_key (account.number () + 1, 0));
+				ec = nano::error_common::bad_account_number;
 			}
-			else
+		}
+		if (!ec)
+		{
+			auto transaction (node.store.tx_begin_read ());
+			auto iterator (node.store.pending_begin (transaction, nano::pending_key (start, 0)));
+			auto end (node.store.pending_end ());
+			nano::account current_account (start);
+			nano::uint128_t current_account_sum{ 0 };
+			boost::property_tree::ptree accounts;
+			while (iterator != end && accounts.size () < count)
 			{
-				if (account != current_account)
+				nano::pending_key key (iterator->first);
+				nano::account account (key.account);
+				nano::pending_info info (iterator->second);
+				if (node.store.account_exists (transaction, account))
 				{
-					if (current_account_sum > 0)
+					if (account.number () == std::numeric_limits<nano::uint256_t>::max ())
 					{
-						accounts.put (current_account.to_account (), current_account_sum.convert_to<std::string> ());
-						current_account_sum = 0;
+						break;
 					}
-					current_account = account;
+					// Skip existing accounts
+					iterator = node.store.pending_begin (transaction, nano::pending_key (account.number () + 1, 0));
 				}
-				current_account_sum += info.amount.number ();
-				++iterator;
+				else
+				{
+					if (account != current_account)
+					{
+						if (current_account_sum > 0)
+						{
+							accounts.put (current_account.to_account (), current_account_sum.convert_to<std::string> ());
+							current_account_sum = 0;
+						}
+						current_account = account;
+					}
+					current_account_sum += info.amount.number ();
+					++iterator;
+				}
 			}
+			// last one after iterator reaches end
+			if (current_account_sum > 0 && accounts.size () < count)
+			{
+				accounts.put (current_account.to_account (), current_account_sum.convert_to<std::string> ());
+			}
+			response_l.add_child ("accounts", accounts);
 		}
-		// last one after iterator reaches end
-		if (current_account_sum > 0)
-		{
-			accounts.put (current_account.to_account (), current_account_sum.convert_to<std::string> ());
-		}
-		response_l.add_child ("accounts", accounts);
 	}
 	response_errors ();
 }
