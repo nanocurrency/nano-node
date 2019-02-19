@@ -47,9 +47,11 @@ public:
 	nano::account genesis_account;
 	std::string genesis_block;
 	nano::uint128_t genesis_amount;
-	nano::block_hash not_a_block;
-	nano::account not_an_account;
+	nano::account const & not_an_account ();
 	nano::account burn_account;
+
+private:
+	nano::account not_an_account_m;
 };
 
 /** Node related constants whose value depends on the active network */

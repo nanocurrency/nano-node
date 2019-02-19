@@ -648,11 +648,14 @@ int main (int argc, char * const * argv)
 			}
 			while (!node->active.empty ())
 			{
-				auto vote (std::make_shared<nano::vote> (keys[j].pub, keys[j].prv, sequence, std::vector<nano::block_hash> (1, i->hash ())));
-				votes.push_back (vote);
-				sequence++;
+				std::this_thread::sleep_for (std::chrono::milliseconds (100));
 			}
+			auto end (std::chrono::high_resolution_clock::now ());
+			auto time (std::chrono::duration_cast<std::chrono::microseconds> (end - begin).count ());
+			node->stop ();
+			std::cerr << boost::str (boost::format ("%|1$ 12d| us \n%2% votes per second\n") % time % (max_votes * 1000000 / time));
 		}
+<<<<<<< HEAD
 		else if (vm.count ("debug_random_feed"))
 		{
 			/*
@@ -700,262 +703,269 @@ int main (int argc, char * const * argv)
 		std::string rpc_input_l;
 		std::ostringstream command_l;
 		while (std::cin >> rpc_input_l)
+=======
+		else if (vm.count ("debug_rpc"))
+>>>>>>> Fix merge error
 		{
-			command_l << rpc_input_l;
-		}
+			std::string rpc_input_l;
+			std::ostringstream command_l;
+			while (std::cin >> rpc_input_l)
+			{
+				command_l << rpc_input_l;
+			}
 
-		auto response_handler_l ([](boost::property_tree::ptree const & tree_a) {
-			boost::property_tree::write_json (std::cout, tree_a);
-			// Terminate as soon as we have the result, even if background threads (like work generation) are running.
-			std::exit (0);
-		});
+			auto response_handler_l ([](boost::property_tree::ptree const & tree_a) {
+				boost::property_tree::write_json (std::cout, tree_a);
+				// Terminate as soon as we have the result, even if background threads (like work generation) are running.
+				std::exit (0);
+			});
 
-		nano::inactive_node inactive_node_l (data_path);
-		nano::rpc_config rpc_config_l;
-		rpc_config_l.enable_control = true;
-		std::unique_ptr<nano::rpc> rpc_l = get_rpc (inactive_node_l.node->io_ctx, *inactive_node_l.node, rpc_config_l);
-		std::string req_id_l ("1");
-		nano::rpc_handler handler_l (*inactive_node_l.node, *rpc_l, command_l.str (), req_id_l, response_handler_l);
-		handler_l.process_request ();
-	}
-	else if (vm.count ("debug_validate_blocks"))
-	{
-		nano::inactive_node node (data_path);
-		auto transaction (node.node->store.tx_begin ());
-		std::cerr << boost::str (boost::format ("Performing blocks hash, signature, work validation...\n"));
-		size_t count (0);
-		for (auto i (node.node->store.latest_begin (transaction)), n (node.node->store.latest_end ()); i != n; ++i)
-		{
-			++count;
-			if ((count % 20000) == 0)
-			{
-				std::cout << boost::str (boost::format ("%1% accounts validated\n") % count);
-			}
-			nano::account_info info (i->second);
-			nano::account account (i->first);
-			auto hash (info.open_block);
-			nano::block_hash calculated_hash (0);
-			nano::block_sideband sideband;
-			uint64_t height (0);
-			uint64_t previous_timestamp (0);
-			while (!hash.is_zero ())
-			{
-				// Retrieving block data
-				auto block (node.node->store.block_get (transaction, hash, &sideband));
-				// Check for state & open blocks if account field is correct
-				if (block->type () == nano::block_type::open || block->type () == nano::block_type::state)
-				{
-					if (block->account () != account)
-					{
-						std::cerr << boost::str (boost::format ("Incorrect account field for block %1%\n") % hash.to_string ());
-					}
-				}
-				// Check if sideband account is correct
-				else if (sideband.account != account)
-				{
-					std::cerr << boost::str (boost::format ("Incorrect sideband account for block %1%\n") % hash.to_string ());
-				}
-				// Check if previous field is correct
-				if (calculated_hash != block->previous ())
-				{
-					std::cerr << boost::str (boost::format ("Incorrect previous field for block %1%\n") % hash.to_string ());
-				}
-				// Check if block data is correct (calculating hash)
-				calculated_hash = block->hash ();
-				if (calculated_hash != hash)
-				{
-					std::cerr << boost::str (boost::format ("Invalid data inside block %1% calculated hash: %2%\n") % hash.to_string () % calculated_hash.to_string ());
-				}
-				// Check if block signature is correct
-				if (validate_message (account, hash, block->block_signature ()))
-				{
-					bool invalid (true);
-					// Epoch blocks
-					if (!node.node->ledger.epoch_link.is_zero () && block->type () == nano::block_type::state)
-					{
-						auto & state_block (static_cast<nano::state_block &> (*block.get ()));
-						nano::amount prev_balance (0);
-						if (!state_block.hashables.previous.is_zero ())
-						{
-							prev_balance = node.node->ledger.balance (transaction, state_block.hashables.previous);
-						}
-						if (node.node->ledger.is_epoch_link (state_block.hashables.link) && state_block.hashables.balance == prev_balance)
-						{
-							invalid = validate_message (node.node->ledger.epoch_signer, hash, block->block_signature ());
-						}
-					}
-					if (invalid)
-					{
-						std::cerr << boost::str (boost::format ("Invalid signature for block %1%\n") % hash.to_string ());
-					}
-				}
-				// Check if block work value is correct
-				if (nano::work_validate (*block.get ()))
-				{
-					std::cerr << boost::str (boost::format ("Invalid work for block %1% value: %2%\n") % hash.to_string () % nano::to_string_hex (block->block_work ()));
-				}
-				// Check if sideband height is correct
-				++height;
-				if (sideband.height != height)
-				{
-					std::cerr << boost::str (boost::format ("Incorrect sideband height for block %1%. Sideband: %2%. Expected: %3%\n") % hash.to_string () % sideband.height % height);
-				}
-				// Check if sideband timestamp is after previous timestamp
-				if (sideband.timestamp < previous_timestamp)
-				{
-					std::cerr << boost::str (boost::format ("Incorrect sideband timestamp for block %1%\n") % hash.to_string ());
-				}
-				previous_timestamp = sideband.timestamp;
-				// Retrieving successor block hash
-				hash = node.node->store.block_successor (transaction, hash);
-			}
-			if (info.block_count != height)
-			{
-				std::cerr << boost::str (boost::format ("Incorrect block count for account %1%. Actual: %2%. Expected: %3%\n") % account.to_account () % height % info.block_count);
-			}
-			if (info.head != calculated_hash)
-			{
-				std::cerr << boost::str (boost::format ("Incorrect frontier for account %1%. Actual: %2%. Expected: %3%\n") % account.to_account () % calculated_hash.to_string () % info.head.to_string ());
-			}
+			nano::inactive_node inactive_node_l (data_path);
+			nano::rpc_config rpc_config_l;
+			rpc_config_l.enable_control = true;
+			std::unique_ptr<nano::rpc> rpc_l = get_rpc (inactive_node_l.node->io_ctx, *inactive_node_l.node, rpc_config_l);
+			std::string req_id_l ("1");
+			nano::rpc_handler handler_l (*inactive_node_l.node, *rpc_l, command_l.str (), req_id_l, response_handler_l);
+			handler_l.process_request ();
 		}
-		std::cout << boost::str (boost::format ("%1% accounts validated\n") % count);
-		count = 0;
-		for (auto i (node.node->store.pending_begin (transaction)), n (node.node->store.pending_end ()); i != n; ++i)
+		else if (vm.count ("debug_validate_blocks"))
 		{
-			++count;
-			if ((count % 50000) == 0)
-			{
-				std::cout << boost::str (boost::format ("%1% pending blocks validated\n") % count);
-			}
-			nano::pending_key key (i->first);
-			nano::pending_info info (i->second);
-			// Check block existance
-			auto block (node.node->store.block_get (transaction, key.hash));
-			if (block == nullptr)
-			{
-				std::cerr << boost::str (boost::format ("Pending block not existing %1%\n") % key.hash.to_string ());
-			}
-			else
-			{
-				// Check if pending destination is correct
-				nano::account destination (0);
-				if (auto state = dynamic_cast<nano::state_block *> (block.get ()))
-				{
-					if (node.node->ledger.is_send (transaction, *state))
-					{
-						destination = state->hashables.link;
-					}
-				}
-				else if (auto send = dynamic_cast<nano::send_block *> (block.get ()))
-				{
-					destination = send->hashables.destination;
-				}
-				else
-				{
-					std::cerr << boost::str (boost::format ("Incorrect type for pending block %1%\n") % key.hash.to_string ());
-				}
-				if (key.account != destination)
-				{
-					std::cerr << boost::str (boost::format ("Incorrect destination for pending block %1%\n") % key.hash.to_string ());
-				}
-				// Check if pending source is correct
-				auto account (node.node->ledger.account (transaction, key.hash));
-				if (info.source != account)
-				{
-					std::cerr << boost::str (boost::format ("Incorrect source for pending block %1%\n") % key.hash.to_string ());
-				}
-				// Check if pending amount is correct
-				auto amount (node.node->ledger.amount (transaction, key.hash));
-				if (info.amount != amount)
-				{
-					std::cerr << boost::str (boost::format ("Incorrect amount for pending block %1%\n") % key.hash.to_string ());
-				}
-			}
-		}
-		std::cout << boost::str (boost::format ("%1% pending blocks validated\n") % count);
-	}
-	else if (vm.count ("debug_profile_bootstrap"))
-	{
-		nano::inactive_node node2 (nano::unique_path (), 24001);
-		node2.node->flags.fast_bootstrap = (vm.count ("fast_bootstrap") > 0);
-		nano::genesis genesis;
-		auto begin (std::chrono::high_resolution_clock::now ());
-		uint64_t block_count (0);
-		size_t count (0);
-		{
-			nano::inactive_node node (data_path, 24000);
+			nano::inactive_node node (data_path);
 			auto transaction (node.node->store.tx_begin ());
-			block_count = node.node->store.block_count (transaction).sum ();
-			std::cout << boost::str (boost::format ("Performing bootstrap emulation, %1% blocks in ledger...") % block_count) << std::endl;
+			std::cerr << boost::str (boost::format ("Performing blocks hash, signature, work validation...\n"));
+			size_t count (0);
 			for (auto i (node.node->store.latest_begin (transaction)), n (node.node->store.latest_end ()); i != n; ++i)
 			{
-				nano::account account (i->first);
+				++count;
+				if ((count % 20000) == 0)
+				{
+					std::cout << boost::str (boost::format ("%1% accounts validated\n") % count);
+				}
 				nano::account_info info (i->second);
-				auto hash (info.head);
+				nano::account account (i->first);
+				auto hash (info.open_block);
+				nano::block_hash calculated_hash (0);
+				nano::block_sideband sideband;
+				uint64_t height (0);
+				uint64_t previous_timestamp (0);
 				while (!hash.is_zero ())
 				{
 					// Retrieving block data
-					auto block (node.node->store.block_get (transaction, hash));
-					if (block != nullptr)
+					auto block (node.node->store.block_get (transaction, hash, &sideband));
+					// Check for state & open blocks if account field is correct
+					if (block->type () == nano::block_type::open || block->type () == nano::block_type::state)
 					{
-						++count;
-						if ((count % 100000) == 0)
+						if (block->account () != account)
 						{
-							std::cout << boost::str (boost::format ("%1% blocks retrieved") % count) << std::endl;
+							std::cerr << boost::str (boost::format ("Incorrect account field for block %1%\n") % hash.to_string ());
 						}
-						nano::unchecked_info unchecked_info (block, account, 0, nano::signature_verification::unknown);
-						node2.node->block_processor.add (unchecked_info);
-						// Retrieving previous block hash
-						hash = block->previous ();
+					}
+					// Check if sideband account is correct
+					else if (sideband.account != account)
+					{
+						std::cerr << boost::str (boost::format ("Incorrect sideband account for block %1%\n") % hash.to_string ());
+					}
+					// Check if previous field is correct
+					if (calculated_hash != block->previous ())
+					{
+						std::cerr << boost::str (boost::format ("Incorrect previous field for block %1%\n") % hash.to_string ());
+					}
+					// Check if block data is correct (calculating hash)
+					calculated_hash = block->hash ();
+					if (calculated_hash != hash)
+					{
+						std::cerr << boost::str (boost::format ("Invalid data inside block %1% calculated hash: %2%\n") % hash.to_string () % calculated_hash.to_string ());
+					}
+					// Check if block signature is correct
+					if (validate_message (account, hash, block->block_signature ()))
+					{
+						bool invalid (true);
+						// Epoch blocks
+						if (!node.node->ledger.epoch_link.is_zero () && block->type () == nano::block_type::state)
+						{
+							auto & state_block (static_cast<nano::state_block &> (*block.get ()));
+							nano::amount prev_balance (0);
+							if (!state_block.hashables.previous.is_zero ())
+							{
+								prev_balance = node.node->ledger.balance (transaction, state_block.hashables.previous);
+							}
+							if (node.node->ledger.is_epoch_link (state_block.hashables.link) && state_block.hashables.balance == prev_balance)
+							{
+								invalid = validate_message (node.node->ledger.epoch_signer, hash, block->block_signature ());
+							}
+						}
+						if (invalid)
+						{
+							std::cerr << boost::str (boost::format ("Invalid signature for block %1%\n") % hash.to_string ());
+						}
+					}
+					// Check if block work value is correct
+					if (nano::work_validate (*block.get ()))
+					{
+						std::cerr << boost::str (boost::format ("Invalid work for block %1% value: %2%\n") % hash.to_string () % nano::to_string_hex (block->block_work ()));
+					}
+					// Check if sideband height is correct
+					++height;
+					if (sideband.height != height)
+					{
+						std::cerr << boost::str (boost::format ("Incorrect sideband height for block %1%. Sideband: %2%. Expected: %3%\n") % hash.to_string () % sideband.height % height);
+					}
+					// Check if sideband timestamp is after previous timestamp
+					if (sideband.timestamp < previous_timestamp)
+					{
+						std::cerr << boost::str (boost::format ("Incorrect sideband timestamp for block %1%\n") % hash.to_string ());
+					}
+					previous_timestamp = sideband.timestamp;
+					// Retrieving successor block hash
+					hash = node.node->store.block_successor (transaction, hash);
+				}
+				if (info.block_count != height)
+				{
+					std::cerr << boost::str (boost::format ("Incorrect block count for account %1%. Actual: %2%. Expected: %3%\n") % account.to_account () % height % info.block_count);
+				}
+				if (info.head != calculated_hash)
+				{
+					std::cerr << boost::str (boost::format ("Incorrect frontier for account %1%. Actual: %2%. Expected: %3%\n") % account.to_account () % calculated_hash.to_string () % info.head.to_string ());
+				}
+			}
+			std::cout << boost::str (boost::format ("%1% accounts validated\n") % count);
+			count = 0;
+			for (auto i (node.node->store.pending_begin (transaction)), n (node.node->store.pending_end ()); i != n; ++i)
+			{
+				++count;
+				if ((count % 50000) == 0)
+				{
+					std::cout << boost::str (boost::format ("%1% pending blocks validated\n") % count);
+				}
+				nano::pending_key key (i->first);
+				nano::pending_info info (i->second);
+				// Check block existance
+				auto block (node.node->store.block_get (transaction, key.hash));
+				if (block == nullptr)
+				{
+					std::cerr << boost::str (boost::format ("Pending block not existing %1%\n") % key.hash.to_string ());
+				}
+				else
+				{
+					// Check if pending destination is correct
+					nano::account destination (0);
+					if (auto state = dynamic_cast<nano::state_block *> (block.get ()))
+					{
+						if (node.node->ledger.is_send (transaction, *state))
+						{
+							destination = state->hashables.link;
+						}
+					}
+					else if (auto send = dynamic_cast<nano::send_block *> (block.get ()))
+					{
+						destination = send->hashables.destination;
+					}
+					else
+					{
+						std::cerr << boost::str (boost::format ("Incorrect type for pending block %1%\n") % key.hash.to_string ());
+					}
+					if (key.account != destination)
+					{
+						std::cerr << boost::str (boost::format ("Incorrect destination for pending block %1%\n") % key.hash.to_string ());
+					}
+					// Check if pending source is correct
+					auto account (node.node->ledger.account (transaction, key.hash));
+					if (info.source != account)
+					{
+						std::cerr << boost::str (boost::format ("Incorrect source for pending block %1%\n") % key.hash.to_string ());
+					}
+					// Check if pending amount is correct
+					auto amount (node.node->ledger.amount (transaction, key.hash));
+					if (info.amount != amount)
+					{
+						std::cerr << boost::str (boost::format ("Incorrect amount for pending block %1%\n") % key.hash.to_string ());
 					}
 				}
 			}
+			std::cout << boost::str (boost::format ("%1% pending blocks validated\n") % count);
 		}
-		count = 0;
-		uint64_t block_count_2 (0);
-		while (block_count_2 != block_count)
+		else if (vm.count ("debug_profile_bootstrap"))
 		{
-			std::this_thread::sleep_for (std::chrono::seconds (1));
-			auto transaction_2 (node2.node->store.tx_begin ());
-			block_count_2 = node2.node->store.block_count (transaction_2).sum ();
-			if ((count % 60) == 0)
+			nano::inactive_node node2 (nano::unique_path (), 24001);
+			node2.node->flags.fast_bootstrap = (vm.count ("fast_bootstrap") > 0);
+			nano::genesis genesis;
+			auto begin (std::chrono::high_resolution_clock::now ());
+			uint64_t block_count (0);
+			size_t count (0);
 			{
-				std::cout << boost::str (boost::format ("%1% (%2%) blocks processed") % block_count_2 % node2.node->store.unchecked_count (transaction_2)) << std::endl;
+				nano::inactive_node node (data_path, 24000);
+				auto transaction (node.node->store.tx_begin ());
+				block_count = node.node->store.block_count (transaction).sum ();
+				std::cout << boost::str (boost::format ("Performing bootstrap emulation, %1% blocks in ledger...") % block_count) << std::endl;
+				for (auto i (node.node->store.latest_begin (transaction)), n (node.node->store.latest_end ()); i != n; ++i)
+				{
+					nano::account account (i->first);
+					nano::account_info info (i->second);
+					auto hash (info.head);
+					while (!hash.is_zero ())
+					{
+						// Retrieving block data
+						auto block (node.node->store.block_get (transaction, hash));
+						if (block != nullptr)
+						{
+							++count;
+							if ((count % 100000) == 0)
+							{
+								std::cout << boost::str (boost::format ("%1% blocks retrieved") % count) << std::endl;
+							}
+							nano::unchecked_info unchecked_info (block, account, 0, nano::signature_verification::unknown);
+							node2.node->block_processor.add (unchecked_info);
+							// Retrieving previous block hash
+							hash = block->previous ();
+						}
+					}
+				}
 			}
-			count++;
+			count = 0;
+			uint64_t block_count_2 (0);
+			while (block_count_2 != block_count)
+			{
+				std::this_thread::sleep_for (std::chrono::seconds (1));
+				auto transaction_2 (node2.node->store.tx_begin ());
+				block_count_2 = node2.node->store.block_count (transaction_2).sum ();
+				if ((count % 60) == 0)
+				{
+					std::cout << boost::str (boost::format ("%1% (%2%) blocks processed") % block_count_2 % node2.node->store.unchecked_count (transaction_2)) << std::endl;
+				}
+				count++;
+			}
+			auto end (std::chrono::high_resolution_clock::now ());
+			auto time (std::chrono::duration_cast<std::chrono::microseconds> (end - begin).count ());
+			auto seconds (time / 1000000);
+			nano::remove_temporary_directories ();
+			std::cout << boost::str (boost::format ("%|1$ 12d| seconds \n%2% blocks per second") % seconds % (block_count / seconds)) << std::endl;
 		}
-		auto end (std::chrono::high_resolution_clock::now ());
-		auto time (std::chrono::duration_cast<std::chrono::microseconds> (end - begin).count ());
-		auto seconds (time / 1000000);
-		nano::remove_temporary_directories ();
-		std::cout << boost::str (boost::format ("%|1$ 12d| seconds \n%2% blocks per second") % seconds % (block_count / seconds)) << std::endl;
-	}
-	else if (vm.count ("debug_peers"))
-	{
-		nano::inactive_node node (data_path);
-		auto transaction (node.node->store.tx_begin ());
+		else if (vm.count ("debug_peers"))
+		{
+			nano::inactive_node node (data_path);
+			auto transaction (node.node->store.tx_begin ());
 
-		for (auto i (node.node->store.peers_begin (transaction)), n (node.node->store.peers_end ()); i != n; ++i)
-		{
-			std::cout << boost::str (boost::format ("%1%\n") % nano::endpoint (boost::asio::ip::address_v6 (i->first.address_bytes ()), i->first.port ()));
+			for (auto i (node.node->store.peers_begin (transaction)), n (node.node->store.peers_end ()); i != n; ++i)
+			{
+				std::cout << boost::str (boost::format ("%1%\n") % nano::endpoint (boost::asio::ip::address_v6 (i->first.address_bytes ()), i->first.port ()));
+			}
 		}
-	}
-	else if (vm.count ("version"))
-	{
-		if (NANO_VERSION_PATCH == 0)
+		else if (vm.count ("version"))
 		{
-			std::cout << "Version " << NANO_MAJOR_MINOR_VERSION << std::endl;
+			if (NANO_VERSION_PATCH == 0)
+			{
+				std::cout << "Version " << NANO_MAJOR_MINOR_VERSION << std::endl;
+			}
+			else
+			{
+				std::cout << "Version " << NANO_MAJOR_MINOR_RC_VERSION << std::endl;
+			}
 		}
 		else
 		{
-			std::cout << "Version " << NANO_MAJOR_MINOR_RC_VERSION << std::endl;
+			std::cout << description << std::endl;
+			result = -1;
 		}
 	}
-	else
-	{
-		std::cout << description << std::endl;
-		result = -1;
-	}
-}
-return result;
+	return result;
 }

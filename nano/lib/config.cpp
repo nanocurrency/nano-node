@@ -79,11 +79,19 @@ nano_live_genesis (live_genesis_data),
 genesis_account (network_a == nano::nano_networks::nano_test_network ? nano_test_account : network_a == nano::nano_networks::nano_beta_network ? nano_beta_account : nano_live_account),
 genesis_block (network_a == nano::nano_networks::nano_test_network ? nano_test_genesis : network_a == nano::nano_networks::nano_beta_network ? nano_beta_genesis : nano_live_genesis),
 genesis_amount (std::numeric_limits<nano::uint128_t>::max ()),
-burn_account (0)
+burn_account (0),
+not_an_account_m (0)
 {
-	// Randomly generating these mean no two nodes will ever have the same sentinel values which protects against some insecure algorithms
-	random_pool.GenerateBlock (not_a_block.bytes.data (), not_a_block.bytes.size ());
-	random_pool.GenerateBlock (not_an_account.bytes.data (), not_an_account.bytes.size ());
+}
+
+nano::account const & nano::ledger_constants::not_an_account ()
+{
+	if (not_an_account_m.is_zero ())
+	{
+		// Randomly generating these mean no two nodes will ever have the same sentinel values which protects against some insecure algorithms
+		nano::random_pool::generate_block (not_an_account_m.bytes.data (), not_an_account_m.bytes.size ());
+	}
+	return not_an_account_m;
 }
 
 nano::node_constants::node_constants (nano::network_params & params_a)
@@ -136,6 +144,4 @@ std::string const & nano::nano_test_genesis (test_constants.nano_test_genesis);
 nano::account const & nano::genesis_account (test_constants.genesis_account);
 std::string const & nano::genesis_block (test_constants.genesis_block);
 nano::uint128_t const & nano::genesis_amount (test_constants.genesis_amount);
-nano::block_hash const & nano::not_a_block (test_constants.not_a_block);
-nano::block_hash const & nano::not_an_account (test_constants.not_an_account);
 nano::account const & nano::burn_account (test_constants.burn_account);

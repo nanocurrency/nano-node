@@ -36,8 +36,4 @@ extern nano::uint256_union const & nano_test_account;
 extern nano::uint256_union const & genesis_account;
 extern nano::uint256_union const & burn_account;
 extern nano::uint128_t const & genesis_amount;
-// A block hash that compares inequal to any real block hash
-extern nano::uint256_union const & not_a_block;
-// An account number that compares inequal to any real account number
-extern nano::uint256_union const & not_an_account;
 }
