@@ -2264,6 +2264,7 @@ void nano::rpc_handler::pending ()
 	const bool source = request.get<bool> ("source", false);
 	const bool min_version = request.get<bool> ("min_version", false);
 	const bool include_active = request.get<bool> ("include_active", false);
+	const bool sorting = request.get<bool> ("sorting", false);
 	if (!ec)
 	{
 		boost::property_tree::ptree peers_l;
@@ -2274,15 +2275,13 @@ void nano::rpc_handler::pending ()
 			std::shared_ptr<nano::block> block (include_active ? nullptr : node.store.block_get (transaction, key.hash));
 			if (include_active || (block && !node.active.active (*block)))
 			{
+				nano::pending_info info (i->second);
 				if (threshold.is_zero () && !source && !min_version)
 				{
-					boost::property_tree::ptree entry;
-					entry.put ("", key.hash.to_string ());
-					peers_l.push_back (std::make_pair ("", entry));
+					peers_l.put (key.hash.to_string (), info.amount.number ().convert_to<std::string> ());
 				}
 				else
 				{
-					nano::pending_info info (i->second);
 					if (info.amount.number () >= threshold.number ())
 					{
 						if (source || min_version)
@@ -2305,6 +2304,21 @@ void nano::rpc_handler::pending ()
 						}
 					}
 				}
+			}
+		}
+		if (sorting)
+		{
+			if (source || min_version)
+			{
+				peers_l.sort ([](const auto & child1, const auto & child2) -> bool {
+					return child1.second.template get<nano::uint128_t> ("amount") > child2.second.template get<nano::uint128_t> ("amount");
+				});
+			}
+			else
+			{
+				peers_l.sort ([](const auto & child1, const auto & child2) -> bool {
+					return child1.second.template get<nano::uint128_t> ("") > child2.second.template get<nano::uint128_t> ("");
+				});
 			}
 		}
 		response_l.add_child ("blocks", peers_l);

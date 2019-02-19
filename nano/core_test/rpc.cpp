@@ -1761,7 +1761,7 @@ TEST (rpc, pending)
 	ASSERT_EQ (200, response.status);
 	auto & blocks_node (response.json.get_child ("blocks"));
 	ASSERT_EQ (1, blocks_node.size ());
-	nano::block_hash hash1 (blocks_node.begin ()->second.get<std::string> (""));
+	nano::block_hash hash1 (blocks_node.begin ()->first);
 	ASSERT_EQ (block1->hash (), hash1);
 	request.put ("threshold", "100"); // Threshold test
 	test_response response0 (request, rpc, system.io_ctx);
