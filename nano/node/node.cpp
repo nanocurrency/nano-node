@@ -3817,10 +3817,10 @@ nano::inactive_node::~inactive_node ()
 
 nano::udp_buffer::udp_buffer (nano::stat & stats, size_t size, size_t count) :
 stats (stats),
-slab (size * count),
-entries (count),
 free (count),
 full (count),
+slab (size * count),
+entries (count),
 stopped (false)
 {
 	assert (count > 0);

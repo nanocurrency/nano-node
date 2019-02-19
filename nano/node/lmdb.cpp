@@ -1212,7 +1212,8 @@ void nano::mdb_store::upgrade_v12_to_v13 (size_t const batch_size)
 	size_t cost (0);
 	nano::account account (0);
 	auto transaction (tx_begin_write ());
-	while (!stopped && account != nano::not_an_account ())
+	auto const & not_an_account (nano::not_an_account ());
+	while (!stopped && account != not_an_account)
 	{
 		nano::account first (0);
 		nano::account_info second;
@@ -1261,10 +1262,10 @@ void nano::mdb_store::upgrade_v12_to_v13 (size_t const batch_size)
 		}
 		else
 		{
-			account = nano::not_an_account ();
+			account = not_an_account;
 		}
 	}
-	if (account == nano::not_an_account ())
+	if (account == not_an_account)
 	{
 		BOOST_LOG (logging.log) << boost::str (boost::format ("Completed sideband upgrade"));
 		version_put (transaction, 13);
