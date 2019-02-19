@@ -3068,6 +3068,7 @@ void nano::election::confirm_back (nano::transaction const & transaction_a)
 			auto existing (node.active.blocks.find (hash));
 			if (existing != node.active.blocks.end () && !existing->second->confirmed && !existing->second->stopped && existing->second->blocks.size () == 1)
 			{
+				release_assert (existing->second->status.winner->hash () == hash);
 				existing->second->confirm_once (transaction_a, true); // Avoid recursive actions
 				hashes.push_back (existing->second->status.winner->previous ());
 				hashes.push_back (existing->second->status.winner->source ());
