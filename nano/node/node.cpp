@@ -3142,8 +3142,7 @@ void nano::election::confirm_if_quorum (nano::transaction const & transaction_a)
 		{
 			log_votes (tally_l);
 		}
-		uint8_t depth (0);
-		confirm_once (transaction_a, depth);
+		confirm_once (transaction_a);
 	}
 }
 
