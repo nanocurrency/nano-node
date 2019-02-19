@@ -3021,7 +3021,7 @@ confirmed (false),
 stopped (false),
 announcements (0)
 {
-	last_votes.insert (std::make_pair (nano::not_an_account, nano::vote_info{ std::chrono::steady_clock::now (), 0, block_a->hash () }));
+	last_votes.insert (std::make_pair (nano::not_an_account (), nano::vote_info{ std::chrono::steady_clock::now (), 0, block_a->hash () }));
 	blocks.insert (std::make_pair (block_a->hash (), block_a));
 }
 
