@@ -577,8 +577,9 @@ TEST (block_builder, state_equality)
 	ASSERT_EQ (block1.work, block2->work);
 }
 
-TEST (block_builder, state_errors)
+TEST (block_builderDeathTest, state_errors)
 {
+	::testing::FLAGS_gtest_death_test_style = "threadsafe";
 	std::error_code ec;
 	nano::block_builder builder;
 
