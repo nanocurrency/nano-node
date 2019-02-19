@@ -3021,7 +3021,7 @@ confirmed (false),
 stopped (false),
 announcements (0)
 {
-	last_votes.insert (std::make_pair (nano::not_an_account, nano::vote_info{ std::chrono::steady_clock::now (), 0, block_a->hash () }));
+	last_votes.insert (std::make_pair (nano::not_an_account (), nano::vote_info{ std::chrono::steady_clock::now (), 0, block_a->hash () }));
 	blocks.insert (std::make_pair (block_a->hash (), block_a));
 }
 
@@ -3817,10 +3817,10 @@ nano::inactive_node::~inactive_node ()
 
 nano::udp_buffer::udp_buffer (nano::stat & stats, size_t size, size_t count) :
 stats (stats),
-free (count),
-full (count),
 slab (size * count),
 entries (count),
+free (count),
+full (count),
 stopped (false)
 {
 	assert (count > 0);
@@ -3847,12 +3847,13 @@ nano::udp_data * nano::udp_buffer::allocate ()
 		result = free.front ();
 		free.pop_front ();
 	}
-	if (result == nullptr)
+	if (result == nullptr && !full.empty ())
 	{
 		result = full.front ();
 		full.pop_front ();
 		stats.inc (nano::stat::type::udp, nano::stat::detail::overflow, nano::stat::dir::in);
 	}
+	assert (result);
 	return result;
 }
 void nano::udp_buffer::enqueue (nano::udp_data * data_a)

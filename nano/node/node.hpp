@@ -314,10 +314,10 @@ private:
 	nano::stat & stats;
 	std::mutex mutex;
 	std::condition_variable condition;
-	boost::circular_buffer<nano::udp_data *> free;
-	boost::circular_buffer<nano::udp_data *> full;
 	std::vector<uint8_t> slab;
 	std::vector<nano::udp_data> entries;
+	boost::circular_buffer<nano::udp_data *> free;
+	boost::circular_buffer<nano::udp_data *> full;
 	bool stopped;
 };
 class network

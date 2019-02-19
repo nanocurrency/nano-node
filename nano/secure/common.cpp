@@ -64,10 +64,6 @@ public:
 	genesis_amount (std::numeric_limits<nano::uint128_t>::max ()),
 	burn_account (0)
 	{
-		CryptoPP::AutoSeededRandomPool random_pool;
-		// Randomly generating these mean no two nodes will ever have the same sentinel values which protects against some insecure algorithms
-		random_pool.GenerateBlock (not_a_block.bytes.data (), not_a_block.bytes.size ());
-		random_pool.GenerateBlock (not_an_account.bytes.data (), not_an_account.bytes.size ());
 	}
 	nano::keypair zero_key;
 	nano::keypair test_genesis_key;
@@ -80,9 +76,24 @@ public:
 	nano::account genesis_account;
 	std::string genesis_block;
 	nano::uint128_t genesis_amount;
-	nano::block_hash not_a_block;
-	nano::account not_an_account;
 	nano::account burn_account;
+
+	nano::account const & not_an_account ()
+	{
+		static bool is_initialized = false;
+		static std::mutex mutex;
+		std::lock_guard<std::mutex> lk (mutex);
+		if (!is_initialized)
+		{
+			// Randomly generating these mean no two nodes will ever have the same sentinel values which protects against some insecure algorithms
+			nano::random_pool.GenerateBlock (not_an_account_m.bytes.data (), not_an_account_m.bytes.size ());
+			is_initialized = true;
+		}
+		return not_an_account_m;
+	}
+
+private:
+	nano::account not_an_account_m;
 };
 ledger_constants globals;
 }
@@ -105,10 +116,11 @@ std::string const & nano::nano_live_genesis (globals.nano_live_genesis);
 nano::account const & nano::genesis_account (globals.genesis_account);
 std::string const & nano::genesis_block (globals.genesis_block);
 nano::uint128_t const & nano::genesis_amount (globals.genesis_amount);
-nano::block_hash const & nano::not_a_block (globals.not_a_block);
-nano::block_hash const & nano::not_an_account (globals.not_an_account);
 nano::account const & nano::burn_account (globals.burn_account);
-
+nano::account const & nano::not_an_account ()
+{
+	return globals.not_an_account ();
+}
 // Create a new random keypair
 nano::keypair::keypair ()
 {
