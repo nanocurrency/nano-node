@@ -64,8 +64,8 @@ public:
 class election : public std::enable_shared_from_this<nano::election>
 {
 	std::function<void(std::shared_ptr<nano::block>)> confirmation_action;
-	void confirm_once (nano::transaction const &, uint8_t &);
-	void confirm_back (nano::transaction const &, uint8_t &);
+	void confirm_once (nano::transaction const &, bool = false);
+	void confirm_back (nano::transaction const &);
 
 public:
 	election (nano::node &, std::shared_ptr<nano::block>, std::function<void(std::shared_ptr<nano::block>)> const &);

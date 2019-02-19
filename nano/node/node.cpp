@@ -3036,9 +3036,8 @@ void nano::election::compute_rep_votes (nano::transaction const & transaction_a)
 	}
 }
 
-void nano::election::confirm_once (nano::transaction const & transaction_a, uint8_t & depth_a)
+void nano::election::confirm_once (nano::transaction const & transaction_a, bool confirmed_back)
 {
-	depth_a++;
 	if (!confirmed.exchange (true))
 	{
 		status.election_end = std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ());
@@ -3050,22 +3049,29 @@ void nano::election::confirm_once (nano::transaction const & transaction_a, uint
 			node_l->process_confirmed (winner_l);
 			confirmation_action_l (winner_l);
 		});
-		confirm_back (transaction_a, depth_a);
+		if (!confirmed_back)
+		{
+			confirm_back (transaction_a);
+		}
 	}
 }
 
-void nano::election::confirm_back (nano::transaction const & transaction_a, uint8_t & depth_a)
+void nano::election::confirm_back (nano::transaction const & transaction_a)
 {
-	std::vector<nano::block_hash> hashes = { status.winner->previous (), status.winner->source (), status.winner->link () };
-	for (auto & hash : hashes)
+	std::deque<nano::block_hash> hashes = { status.winner->previous (), status.winner->source (), status.winner->link () };
+	while (!hashes.empty ())
 	{
-		// Depth is limited to 200
-		if (!hash.is_zero () && !node.ledger.is_epoch_link (hash) && depth_a < 200)
+		auto hash (hashes.front ());
+		hashes.pop_front ();
+		if (!hash.is_zero () && !node.ledger.is_epoch_link (hash))
 		{
 			auto existing (node.active.blocks.find (hash));
 			if (existing != node.active.blocks.end () && !existing->second->confirmed && !existing->second->stopped && existing->second->blocks.size () == 1)
 			{
-				existing->second->confirm_once (transaction_a, depth_a);
+				existing->second->confirm_once (transaction_a, true); // Avoid recursive actions
+				hashes.push_back (existing->second->status.winner->previous ());
+				hashes.push_back (existing->second->status.winner->source ());
+				hashes.push_back (existing->second->status.winner->link ());
 			}
 		}
 	}
