@@ -3847,12 +3847,13 @@ nano::udp_data * nano::udp_buffer::allocate ()
 		result = free.front ();
 		free.pop_front ();
 	}
-	if (result == nullptr)
+	if (result == nullptr && !full.empty ())
 	{
 		result = full.front ();
 		full.pop_front ();
 		stats.inc (nano::stat::type::udp, nano::stat::detail::overflow, nano::stat::dir::in);
 	}
+	release_assert (result || stopped);
 	return result;
 }
 void nano::udp_buffer::enqueue (nano::udp_data * data_a)
