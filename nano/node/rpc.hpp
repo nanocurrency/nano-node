@@ -113,7 +113,6 @@ public:
 	~payment_observer ();
 	void start (uint64_t);
 	void observe ();
-	void timeout ();
 	void complete (nano::payment_status);
 	std::mutex mutex;
 	std::condition_variable condition;
@@ -169,7 +168,6 @@ public:
 	void delegators_count ();
 	void deterministic_key ();
 	void frontiers ();
-	void history ();
 	void keepalive ();
 	void key_create ();
 	void key_expand ();
