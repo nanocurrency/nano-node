@@ -217,7 +217,7 @@ public:
 	vote (bool &, nano::stream &, nano::block_uniquer * = nullptr);
 	vote (bool &, nano::stream &, nano::block_type, nano::block_uniquer * = nullptr);
 	vote (nano::account const &, nano::raw_key const &, uint64_t, std::shared_ptr<nano::block>);
-	vote (nano::account const &, nano::raw_key const &, uint64_t, std::vector<nano::block_hash>);
+	vote (nano::account const &, nano::raw_key const &, uint64_t, std::vector<nano::block_hash> const &);
 	std::string hashes_string () const;
 	nano::uint256_union hash () const;
 	nano::uint256_union full_hash () const;

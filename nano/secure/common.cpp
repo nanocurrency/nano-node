@@ -449,16 +449,14 @@ signature (nano::sign_message (prv_a, account_a, hash ()))
 {
 }
 
-nano::vote::vote (nano::account const & account_a, nano::raw_key const & prv_a, uint64_t sequence_a, std::vector<nano::block_hash> blocks_a) :
+nano::vote::vote (nano::account const & account_a, nano::raw_key const & prv_a, uint64_t sequence_a, std::vector<nano::block_hash> const & blocks_a) :
 sequence (sequence_a),
 account (account_a)
 {
 	assert (!blocks_a.empty ());
 	assert (blocks_a.size () <= 12);
-	for (auto hash : blocks_a)
-	{
-		blocks.push_back (hash);
-	}
+	blocks.reserve (blocks_a.size ());
+	std::copy (blocks_a.cbegin (), blocks_a.cend (), std::back_inserter (blocks));
 	signature = nano::sign_message (prv_a, account_a, hash ());
 }
 
@@ -516,7 +514,7 @@ void nano::vote::serialize (nano::stream & stream_a, nano::block_type type) cons
 	write (stream_a, account);
 	write (stream_a, signature);
 	write (stream_a, sequence);
-	for (auto block : blocks)
+	for (auto const & block : blocks)
 	{
 		if (block.which ())
 		{
@@ -542,7 +540,7 @@ void nano::vote::serialize (nano::stream & stream_a) const
 	write (stream_a, account);
 	write (stream_a, signature);
 	write (stream_a, sequence);
-	for (auto block : blocks)
+	for (auto const & block : blocks)
 	{
 		if (block.which ())
 		{
@@ -655,6 +653,10 @@ std::shared_ptr<nano::vote> nano::vote_uniquer::unique (std::shared_ptr<nano::vo
 		if (auto block_l = existing.lock ())
 		{
 			result = block_l;
+		}
+		else
+		{
+			existing = vote_a;
 		}
 
 		release_assert (std::numeric_limits<CryptoPP::word32>::max () > votes.size ());
