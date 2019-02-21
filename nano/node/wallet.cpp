@@ -212,7 +212,7 @@ nano::fan::fan (nano::uint256_union const & key, size_t count_a)
 	for (auto i (1); i < count_a; ++i)
 	{
 		std::unique_ptr<nano::uint256_union> entry (new nano::uint256_union);
-		random_pool.GenerateBlock (entry->bytes.data (), entry->bytes.size ());
+		nano::random_pool::generate_block (entry->bytes.data (), entry->bytes.size ());
 		*first ^= *entry;
 		values.push_back (std::move (entry));
 	}
@@ -334,11 +334,11 @@ kdf (kdf_a)
 		{
 			version_put (transaction_a, version_current);
 			nano::uint256_union salt_l;
-			random_pool.GenerateBlock (salt_l.bytes.data (), salt_l.bytes.size ());
+			random_pool::generate_block (salt_l.bytes.data (), salt_l.bytes.size ());
 			entry_put_raw (transaction_a, nano::wallet_store::salt_special, nano::wallet_value (salt_l, 0));
 			// Wallet key is a fixed random key that encrypts all entries
 			nano::raw_key wallet_key;
-			random_pool.GenerateBlock (wallet_key.data.bytes.data (), sizeof (wallet_key.data.bytes));
+			random_pool::generate_block (wallet_key.data.bytes.data (), sizeof (wallet_key.data.bytes));
 			nano::raw_key password_l;
 			password_l.data.clear ();
 			password.value_set (password_l);
@@ -356,7 +356,7 @@ kdf (kdf_a)
 			entry_put_raw (transaction_a, nano::wallet_store::check_special, nano::wallet_value (check, 0));
 			entry_put_raw (transaction_a, nano::wallet_store::representative_special, nano::wallet_value (representative_a, 0));
 			nano::raw_key seed;
-			random_pool.GenerateBlock (seed.data.bytes.data (), seed.data.bytes.size ());
+			random_pool::generate_block (seed.data.bytes.data (), seed.data.bytes.size ());
 			seed_set (transaction_a, seed);
 			entry_put_raw (transaction_a, nano::wallet_store::deterministic_index_special, nano::wallet_value (nano::uint256_union (0), 0));
 		}
@@ -685,7 +685,7 @@ void nano::wallet_store::upgrade_v2_v3 (nano::transaction const & transaction_a)
 {
 	assert (version (transaction_a) == 2);
 	nano::raw_key seed;
-	random_pool.GenerateBlock (seed.data.bytes.data (), seed.data.bytes.size ());
+	random_pool::generate_block (seed.data.bytes.data (), seed.data.bytes.size ());
 	seed_set (transaction_a, seed);
 	entry_put_raw (transaction_a, nano::wallet_store::deterministic_index_special, nano::wallet_value (nano::uint256_union (0), 0));
 	version_put (transaction_a, 3);
@@ -881,7 +881,7 @@ bool nano::wallet::import (std::string const & json_a, std::string const & passw
 	{
 		auto transaction (wallets.tx_begin_write ());
 		nano::uint256_union id;
-		random_pool.GenerateBlock (id.bytes.data (), id.bytes.size ());
+		random_pool::generate_block (id.bytes.data (), id.bytes.size ());
 		temp.reset (new nano::wallet_store (error, wallets.node.wallets.kdf, transaction, 0, 1, id.to_string (), json_a));
 	}
 	if (!error)

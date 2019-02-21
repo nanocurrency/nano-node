@@ -1058,7 +1058,7 @@ void nano::bootstrap_attempt::run ()
 	{
 		for (auto i = static_cast<CryptoPP::word32> (pulls.size () - 1); i > 0; --i)
 		{
-			auto k = nano::random_pool.GenerateWord32 (0, i);
+			auto k = nano::random_pool::generate_word32 (0, i);
 			std::swap (pulls[i], pulls[k]);
 		}
 	}

@@ -546,7 +546,7 @@ logging (logging_a)
 		error_a |= config.device >= platform.devices.size ();
 		if (!error_a)
 		{
-			nano::random_pool.GenerateBlock (reinterpret_cast<uint8_t *> (rand.s.data ()), rand.s.size () * sizeof (decltype (rand.s)::value_type));
+			nano::random_pool::generate_block (reinterpret_cast<uint8_t *> (rand.s.data ()), rand.s.size () * sizeof (decltype (rand.s)::value_type));
 			std::array<cl_device_id, 1> selected_devices;
 			selected_devices[0] = platform.devices[config.device];
 			cl_context_properties contextProperties[] = {

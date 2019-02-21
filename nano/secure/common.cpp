@@ -80,13 +80,11 @@ public:
 
 	nano::account const & not_an_account ()
 	{
-		static bool is_initialized = false;
-		static std::mutex mutex;
 		std::lock_guard<std::mutex> lk (mutex);
 		if (!is_initialized)
 		{
-			// Randomly generating these mean no two nodes will ever have the same sentinel values which protects against some insecure algorithms
-			nano::random_pool.GenerateBlock (not_an_account_m.bytes.data (), not_an_account_m.bytes.size ());
+			// Randomly generating this means that no two nodes will ever have the same sentinel value which protects against some insecure algorithms
+			nano::random_pool::generate_block (not_an_account_m.bytes.data (), not_an_account_m.bytes.size ());
 			is_initialized = true;
 		}
 		return not_an_account_m;
@@ -94,6 +92,8 @@ public:
 
 private:
 	nano::account not_an_account_m;
+	std::mutex mutex;
+	bool is_initialized{ false };
 };
 ledger_constants globals;
 }
@@ -124,7 +124,7 @@ nano::account const & nano::not_an_account ()
 // Create a new random keypair
 nano::keypair::keypair ()
 {
-	random_pool.GenerateBlock (prv.data.bytes.data (), prv.data.bytes.size ());
+	random_pool::generate_block (prv.data.bytes.data (), prv.data.bytes.size ());
 	ed25519_publickey (prv.data.bytes.data (), pub.bytes.data ());
 }
 
@@ -767,7 +767,8 @@ std::shared_ptr<nano::vote> nano::vote_uniquer::unique (std::shared_ptr<nano::vo
 		release_assert (std::numeric_limits<CryptoPP::word32>::max () > votes.size ());
 		for (auto i (0); i < cleanup_count && votes.size () > 0; ++i)
 		{
-			auto random_offset (nano::random_pool.GenerateWord32 (0, static_cast<CryptoPP::word32> (votes.size () - 1)));
+			auto random_offset = nano::random_pool::generate_word32 (0, static_cast<CryptoPP::word32> (votes.size () - 1));
+
 			auto existing (std::next (votes.begin (), random_offset));
 			if (existing == votes.end ())
 			{
