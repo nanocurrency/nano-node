@@ -17,7 +17,7 @@ int main (int argc, char ** argv)
 	for (auto i (0); i < count; ++i)
 	{
 		nano::uint256_union wallet_id;
-		nano::random_pool.GenerateBlock (wallet_id.bytes.data (), wallet_id.bytes.size ());
+		nano::random_pool::generate_block (wallet_id.bytes.data (), wallet_id.bytes.size ());
 		auto wallet (system.nodes[i]->wallets.create (wallet_id));
 		nano::keypair key;
 		wallet->insert_adhoc (key.prv);
