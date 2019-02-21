@@ -880,10 +880,7 @@ nano::raw_key nano::mdb_store::get_node_id (nano::transaction const & transactio
 	}
 	if (error)
 	{
-		{
-			std::lock_guard<std::mutex> lk (nano::random_pool_mutex);
-			nano::random_pool.GenerateBlock (node_id.data.bytes.data (), node_id.data.bytes.size ());
-		}
+		nano::random_pool::generate_block (node_id.data.bytes.data (), node_id.data.bytes.size ());
 		error = mdb_put (env.tx (transaction_a), meta, nano::mdb_val (node_id_mdb_key), nano::mdb_val (node_id.data), 0);
 	}
 	assert (!error);
@@ -1474,10 +1471,7 @@ template <typename T>
 std::shared_ptr<nano::block> nano::mdb_store::block_random (nano::transaction const & transaction_a, MDB_dbi database)
 {
 	nano::block_hash hash;
-	{
-		std::lock_guard<std::mutex> lk (nano::random_pool_mutex);
-		nano::random_pool.GenerateBlock (hash.bytes.data (), hash.bytes.size ());
-	}
+	nano::random_pool::generate_block (hash.bytes.data (), hash.bytes.size ());
 	nano::store_iterator<nano::block_hash, std::shared_ptr<T>> existing (std::make_unique<nano::mdb_iterator<nano::block_hash, std::shared_ptr<T>>> (transaction_a, database, nano::mdb_val (hash)));
 	if (existing == nano::store_iterator<nano::block_hash, std::shared_ptr<T>> (nullptr))
 	{
@@ -1492,11 +1486,7 @@ std::shared_ptr<nano::block> nano::mdb_store::block_random (nano::transaction co
 {
 	auto count (block_count (transaction_a));
 	release_assert (std::numeric_limits<CryptoPP::word32>::max () > count.sum ());
-	size_t region = 0;
-	{
-		std::lock_guard<std::mutex> lk (nano::random_pool_mutex);
-		region = nano::random_pool.GenerateWord32 (0, static_cast<CryptoPP::word32> (count.sum () - 1));
-	}
+	auto region = static_cast<size_t> (nano::random_pool::generate_word32 (0, static_cast<CryptoPP::word32> (count.sum () - 1)));
 	std::shared_ptr<nano::block> result;
 	if (region < count.send)
 	{
