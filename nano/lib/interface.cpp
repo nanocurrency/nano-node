@@ -70,6 +70,7 @@ int xrb_valid_address (const char * account_a)
 void xrb_generate_random (xrb_uint256 seed)
 {
 	auto & number (*reinterpret_cast<nano::uint256_union *> (seed));
+	std::lock_guard<std::mutex> lk (nano::random_pool_mutex);
 	nano::random_pool.GenerateBlock (number.bytes.data (), number.bytes.size ());
 }
 
@@ -142,6 +143,7 @@ char * xrb_work_transaction (const char * transaction)
 #include <crypto/ed25519-donna/ed25519-hash-custom.h>
 void ed25519_randombytes_unsafe (void * out, size_t outlen)
 {
+	std::lock_guard<std::mutex> lk (nano::random_pool_mutex);
 	nano::random_pool.GenerateBlock (reinterpret_cast<uint8_t *> (out), outlen);
 }
 void ed25519_hash_init (ed25519_hash_context * ctx)

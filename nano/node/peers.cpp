@@ -98,7 +98,10 @@ std::deque<nano::endpoint> nano::peer_container::list ()
 	{
 		result.push_back (i->endpoint);
 	}
-	random_pool.Shuffle (result.begin (), result.end ());
+	{
+		std::lock_guard<std::mutex> lk (nano::random_pool_mutex);
+		random_pool.Shuffle (result.begin (), result.end ());
+	}
 	return result;
 }
 
@@ -110,7 +113,10 @@ std::vector<nano::peer_information> nano::peer_container::list_vector (size_t co
 	{
 		result.push_back (*i);
 	}
-	random_pool.Shuffle (result.begin (), result.end ());
+	{
+		std::lock_guard<std::mutex> lk (nano::random_pool_mutex);
+		random_pool.Shuffle (result.begin (), result.end ());
+	}
 	if (result.size () > count_a)
 	{
 		result.resize (count_a, nano::peer_information (nano::endpoint{}, 0));
@@ -153,7 +159,10 @@ boost::optional<nano::uint256_union> nano::peer_container::assign_syn_cookie (na
 		if (syn_cookies.find (endpoint) == syn_cookies.end ())
 		{
 			nano::uint256_union query;
-			random_pool.GenerateBlock (query.bytes.data (), query.bytes.size ());
+			{
+				std::lock_guard<std::mutex> lk (nano::random_pool_mutex);
+				random_pool.GenerateBlock (query.bytes.data (), query.bytes.size ());
+			}
 			syn_cookie_info info{ query, std::chrono::steady_clock::now () };
 			syn_cookies[endpoint] = info;
 			++ip_cookies;
@@ -201,7 +210,11 @@ std::unordered_set<nano::endpoint> nano::peer_container::random_set (size_t coun
 	{
 		for (auto i (0); i < random_cutoff && result.size () < count_a; ++i)
 		{
-			auto index (random_pool.GenerateWord32 (0, static_cast<CryptoPP::word32> (peers_size - 1)));
+			size_t index = 0;
+			{
+				std::lock_guard<std::mutex> lk (nano::random_pool_mutex);
+				index = random_pool.GenerateWord32 (0, static_cast<CryptoPP::word32> (peers_size - 1));
+			}
 			result.insert (peers.get<3> ()[index].endpoint);
 		}
 	}

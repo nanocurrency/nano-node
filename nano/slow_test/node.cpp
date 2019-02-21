@@ -153,7 +153,10 @@ TEST (store, load)
 				for (auto j (0); j != 10; ++j)
 				{
 					nano::block_hash hash;
-					nano::random_pool.GenerateBlock (hash.bytes.data (), hash.bytes.size ());
+					{
+						std::lock_guard<std::mutex> lk (nano::random_pool_mutex);
+						nano::random_pool.GenerateBlock (hash.bytes.data (), hash.bytes.size ());
+					}
 					system.nodes[0]->store.account_put (transaction, hash, nano::account_info ());
 				}
 			}
@@ -323,7 +326,11 @@ TEST (broadcast, sqrt_broadcast_simulate)
 					for (auto j (0); j != broadcast_count; ++j)
 					{
 						++message_count;
-						auto entry (nano::random_pool.GenerateWord32 (0, node_count - 1));
+						size_t entry = 0;
+						{
+							std::lock_guard<std::mutex> lk (nano::random_pool_mutex);
+							entry = nano::random_pool.GenerateWord32 (0, node_count - 1);
+						}
 						switch (nodes[entry])
 						{
 							case 0:

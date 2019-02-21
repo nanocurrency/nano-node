@@ -7,8 +7,8 @@
 namespace nano
 {
 // Random pool used by Nano.
-// This must be thread_local as long as the AutoSeededRandomPool implementation requires it
-extern thread_local CryptoPP::AutoSeededRandomPool random_pool;
+extern std::mutex random_pool_mutex;
+extern CryptoPP::AutoSeededRandomPool random_pool;
 using uint128_t = boost::multiprecision::uint128_t;
 using uint256_t = boost::multiprecision::uint256_t;
 using uint512_t = boost::multiprecision::uint512_t;

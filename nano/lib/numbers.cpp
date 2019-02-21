@@ -8,7 +8,8 @@
 #include <crypto/cryptopp/aes.h>
 #include <crypto/cryptopp/modes.h>
 
-thread_local CryptoPP::AutoSeededRandomPool nano::random_pool;
+std::mutex nano::random_pool_mutex;
+CryptoPP::AutoSeededRandomPool nano::random_pool;
 
 namespace
 {

@@ -76,7 +76,10 @@ TEST (work, DISABLED_opencl)
 		nano::uint256_union root;
 		for (auto i (0); i < 1; ++i)
 		{
-			nano::random_pool.GenerateBlock (root.bytes.data (), root.bytes.size ());
+			{
+				std::lock_guard<std::mutex> lk (nano::random_pool_mutex);
+				nano::random_pool.GenerateBlock (root.bytes.data (), root.bytes.size ());
+			}
 			auto result (pool.generate (root));
 			ASSERT_FALSE (nano::work_validate (root, result));
 		}
