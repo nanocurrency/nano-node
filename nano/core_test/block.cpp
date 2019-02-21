@@ -582,13 +582,6 @@ TEST (block_builder, state_errors)
 	std::error_code ec;
 	nano::block_builder builder;
 
-	// Make sure we assert when building a block without an std::error_code
-	EXPECT_DEATH (builder
-	              .state ()
-	              .account_hex ("xyz")
-	              .build (),
-	".*");
-
 	// Ensure the proper error is generated
 	builder.state ().account_hex ("xrb_bad").build (ec);
 	ASSERT_EQ (ec, nano::error_common::bad_account_number);
