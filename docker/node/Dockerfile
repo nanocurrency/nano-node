@@ -24,4 +24,5 @@ COPY --from=0 /etc/nano-network /etc
 COPY docker/node/entry.sh /entry.sh
 COPY docker/node/config /usr/share/nano/config
 RUN chmod +x /entry.sh
+RUN ln -s /usr/bin/nano_node /usr/bin/rai_node
 CMD ["/bin/bash",  "/entry.sh"]
