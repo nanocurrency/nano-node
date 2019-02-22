@@ -198,7 +198,8 @@ void nano::node::keepalive (std::string const & address_a, uint16_t port_a, bool
 			{
 				auto endpoint (nano::map_endpoint_to_v6 (i->endpoint ()));
 				node_l->send_keepalive (endpoint);
-				if (preconfigured_peer_a)
+				// Force insert only for local preconfigured peers
+				if (preconfigured_peer_a && node_l->config.allow_local_peers && node_l->peers.not_a_peer (endpoint, false))
 				{
 					node_l->peers.insert (endpoint, nano::protocol_version, true);
 				}
