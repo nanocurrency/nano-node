@@ -8,6 +8,7 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/errors.hpp>
 #include <nano/lib/jsonconfig.hpp>
+#include <nano/node/rpcconfig.hpp>
 #include <nano/secure/blockstore.hpp>
 #include <nano/secure/utility.hpp>
 #include <unordered_map>
@@ -16,44 +17,6 @@ namespace nano
 {
 void error_response (std::function<void(boost::property_tree::ptree const &)> response_a, std::string const & message_a);
 class node;
-/** Configuration options for RPC TLS */
-class rpc_secure_config
-{
-public:
-	rpc_secure_config ();
-	nano::error serialize_json (nano::jsonconfig &) const;
-	nano::error deserialize_json (nano::jsonconfig &);
-
-	/** If true, enable TLS */
-	bool enable;
-	/** If true, log certificate verification details */
-	bool verbose_logging;
-	/** Must be set if the private key PEM is password protected */
-	std::string server_key_passphrase;
-	/** Path to certificate- or chain file. Must be PEM formatted. */
-	std::string server_cert_path;
-	/** Path to private key file. Must be PEM formatted.*/
-	std::string server_key_path;
-	/** Path to dhparam file */
-	std::string server_dh_path;
-	/** Optional path to directory containing client certificates */
-	std::string client_certs_path;
-};
-class rpc_config
-{
-public:
-	rpc_config (bool = false);
-	nano::error serialize_json (nano::jsonconfig &) const;
-	nano::error deserialize_json (nano::jsonconfig &);
-	boost::asio::ip::address_v6 address;
-	uint16_t port;
-	bool enable_control;
-	uint64_t frontier_request_limit;
-	uint64_t chain_request_limit;
-	rpc_secure_config secure;
-	uint8_t max_json_depth;
-	bool enable_sign_hash;
-};
 enum class payment_status
 {
 	not_a_status,
@@ -87,7 +50,6 @@ public:
 	nano::rpc_config config;
 	nano::node & node;
 	bool on;
-	static uint16_t const rpc_port = nano::is_live_network ? 7076 : 55000;
 };
 class rpc_connection : public std::enable_shared_from_this<nano::rpc_connection>
 {

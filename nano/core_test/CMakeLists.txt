@@ -5,7 +5,6 @@ add_executable (core_test
 	interface.cpp
 	ipc.cpp
 	conflicts.cpp
-	daemon.cpp
 	entry.cpp
 	gap_cache.cpp
 	ledger.cpp
