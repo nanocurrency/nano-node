@@ -1392,3 +1392,165 @@ TEST (bulk_pull_account, basics)
 		ASSERT_EQ (nullptr, block_data.second.get ());
 	}
 }
+
+TEST (confirmation_height, single)
+{
+	auto amount (std::numeric_limits<nano::uint128_t>::max ());
+	nano::system system (24000, 2);
+	nano::keypair key1;
+	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
+	nano::block_hash latest1 (system.nodes[0]->latest (nano::test_genesis_key.pub));
+	system.wallet (1)->insert_adhoc (key1.prv);
+	auto block1 (std::make_shared<nano::send_block> (latest1, key1.pub, amount - system.nodes[0]->config.receive_minimum.number (), nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (latest1)));
+
+	// Check confirmation_heights before, should be uninitialized (0)
+	nano::account_info account_info;
+	{
+		auto transaction = system.nodes[0]->store.tx_begin_read ();
+		ASSERT_FALSE (system.nodes[0]->store.account_get (transaction, nano::test_genesis_key.pub, account_info));
+		ASSERT_EQ (0, account_info.confirmation_height);
+
+		auto transaction1 = system.nodes[1]->store.tx_begin_read ();
+		ASSERT_FALSE (system.nodes[1]->store.account_get (transaction1, nano::test_genesis_key.pub, account_info));
+		ASSERT_EQ (0, account_info.confirmation_height);
+	}
+
+	system.nodes[0]->process_active (block1);
+	system.nodes[0]->block_processor.flush ();
+	system.nodes[1]->process_active (block1);
+	system.nodes[1]->block_processor.flush ();
+
+	system.deadline_set (10s);
+	while (system.nodes[0]->balance (key1.pub) != system.nodes[0]->config.receive_minimum.number ())
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+
+	// Check confirmation_heights after
+	{
+		auto transaction = system.nodes[0]->store.tx_begin_write ();
+		ASSERT_FALSE (system.nodes[0]->store.account_get (transaction, nano::test_genesis_key.pub, account_info));
+		ASSERT_EQ (2, account_info.confirmation_height);
+
+		auto transaction1 = system.nodes[1]->store.tx_begin_read ();
+		ASSERT_FALSE (system.nodes[1]->store.account_get (transaction1, nano::test_genesis_key.pub, account_info));
+		ASSERT_EQ (2, account_info.confirmation_height);
+
+		// Rollback should fail as this transaction has been cemented
+		ASSERT_TRUE (system.nodes[0]->ledger.rollback (transaction, block1->hash ()));
+	}
+}
+
+TEST (confirmation_height, multiple)
+{
+	auto amount (std::numeric_limits<nano::uint128_t>::max ());
+	nano::system system (24000, 2);
+	nano::keypair key1;
+	nano::keypair key2;
+	nano::keypair key3;
+	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
+	nano::block_hash latest1 (system.nodes[0]->latest (nano::test_genesis_key.pub));
+	system.wallet (1)->insert_adhoc (key1.prv);
+	system.wallet (0)->insert_adhoc (key2.prv);
+	system.wallet (1)->insert_adhoc (key3.prv);
+
+	// Send to all accounts
+	nano::send_block send1 (latest1, key1.pub, 300, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
+	nano::send_block send2 (send1.hash (), key2.pub, 1, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
+	nano::send_block send3 (send2.hash (), key3.pub, 1, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
+
+	// Open all accounts
+	nano::open_block open1 (send1.hash (), nano::genesis_account, key1.pub, key1.prv, key1.pub, 0);
+	nano::open_block open2 (send2.hash (), nano::genesis_account, key2.pub, key2.prv, key2.pub, 0);
+	nano::open_block open3 (send3.hash (), nano::genesis_account, key3.pub, key3.prv, key3.pub, 0);
+
+	// Send and recieve various blocks to these accounts
+	nano::send_block send4 (open1.hash (), key2.pub, 50, key1.prv, key1.pub, 0);
+	nano::send_block send5 (send4.hash (), key2.pub, 10, key1.prv, key1.pub, 0);
+
+	nano::receive_block receive1 (open2.hash (), send4.hash (), key2.prv, key2.pub, 0);
+	nano::send_block send6 (receive1.hash (), key3.pub, 10, key2.prv, key2.pub, 0);
+	nano::receive_block receive2 (send6.hash (), send5.hash (), key2.prv, key2.pub, 0);
+
+	for (auto & node : system.nodes)
+	{
+		auto transaction = node->store.tx_begin_write ();
+		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send1).code);
+		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send2).code);
+		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send3).code);
+
+		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, open1).code);
+		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, open2).code);
+		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, open3).code);
+
+		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send4).code);
+		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send5).code);
+
+		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, receive1).code);
+		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send6).code);
+		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, receive2).code);
+
+		// Check confirmation_heights of all the accounts are uninitialized (0),
+		// as we have any just added them to the ledger and not processed any live transactions yet.
+		nano::account_info account_info;
+		ASSERT_FALSE (node->store.account_get (transaction, nano::test_genesis_key.pub, account_info));
+		ASSERT_EQ (0, account_info.confirmation_height);
+		ASSERT_FALSE (node->store.account_get (transaction, key1.pub, account_info));
+		ASSERT_EQ (0, account_info.confirmation_height);
+		ASSERT_FALSE (node->store.account_get (transaction, key2.pub, account_info));
+		ASSERT_EQ (0, account_info.confirmation_height);
+		ASSERT_FALSE (node->store.account_get (transaction, key3.pub, account_info));
+		ASSERT_EQ (0, account_info.confirmation_height);
+	}
+
+	// The nodes process a live receive which propagates across to all accounts
+	auto receive3 = std::make_shared<nano::receive_block> (open3.hash (), send6.hash (), key3.prv, key3.pub, system.work.generate (open3.hash ()));
+
+	for (auto & node : system.nodes)
+	{
+		node->process_active (receive3);
+		node->block_processor.flush ();
+
+		system.deadline_set (10s);
+		while (true)
+		{
+			auto transaction = node->store.tx_begin_read ();
+			if (node->ledger.block_confirmed (transaction, receive3->hash ()))
+			{
+				break;
+			}
+
+			ASSERT_NO_ERROR (system.poll ());
+		}
+
+		nano::account_info account_info;
+		auto & store = node->store;
+		auto transaction = node->store.tx_begin_read ();
+		ASSERT_FALSE (store.account_get (transaction, nano::test_genesis_key.pub, account_info));
+		ASSERT_EQ (4, account_info.confirmation_height);
+		ASSERT_EQ (4, account_info.block_count);
+		ASSERT_FALSE (store.account_get (transaction, key1.pub, account_info));
+		ASSERT_EQ (2, account_info.confirmation_height);
+		ASSERT_EQ (3, account_info.block_count);
+		ASSERT_FALSE (store.account_get (transaction, key2.pub, account_info));
+		ASSERT_EQ (3, account_info.confirmation_height);
+		ASSERT_EQ (4, account_info.block_count);
+		ASSERT_FALSE (store.account_get (transaction, key3.pub, account_info));
+		ASSERT_EQ (2, account_info.confirmation_height);
+		ASSERT_EQ (2, account_info.block_count);
+
+		// The account for key2 has 1 more block in the chain than is confirmed.
+		// So this can be rolledback, but the one previous to that cannot. Make sure this is the case
+		{
+			auto transaction = node->store.tx_begin_write ();
+			ASSERT_FALSE (node->ledger.rollback (transaction, node->latest (key2.pub)));
+			ASSERT_FALSE (node->ledger.rollback (transaction, node->latest (key1.pub)));
+		}
+		{
+			// These rollbacks should fail
+			auto transaction = node->store.tx_begin_write ();
+			ASSERT_TRUE (node->ledger.rollback (transaction, node->latest (key2.pub)));
+			ASSERT_TRUE (node->ledger.rollback (transaction, node->latest (key1.pub)));
+		}
+	}
+}

@@ -2177,7 +2177,7 @@ void nano::node::unchecked_cleanup ()
 		{
 			nano::unchecked_key key (i->first);
 			nano::unchecked_info info (i->second);
-			if ((now - info.modified) > config.unchecked_cutoff_time.count ())
+			if ((now - info.modified) > static_cast<unsigned long long> (config.unchecked_cutoff_time.count ()))
 			{
 				cleaning_list.push_back (key);
 			}
@@ -2654,7 +2654,7 @@ void nano::node::process_confirmed (std::shared_ptr<nano::block> block_a, uint8_
 	auto hash (block_a->hash ());
 	if (ledger.block_exists (block_a->type (), hash))
 	{
-		auto transaction (store.tx_begin_read ());
+		auto transaction (store.tx_begin_write ());
 		confirmed_visitor visitor (transaction, *this, block_a, hash);
 		block_a->visit (visitor);
 		auto account (ledger.account (transaction, hash));
@@ -2679,6 +2679,8 @@ void nano::node::process_confirmed (std::shared_ptr<nano::block> block_a, uint8_
 				observers.account_balance.notify (pending_account, true);
 			}
 		}
+
+		add_confirmation_heights (transaction, hash);
 	}
 	// Limit to 0.5 * 20 = 10 seconds (more than max block_processor::process_batch finish time)
 	else if (iteration < 20)
@@ -3700,6 +3702,90 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (active_transaction
 	return composite;
 }
 }
+
+/**
+ * Confirm the block of the hash passed in. If this has implicitly confirmed other blocks
+ * then check if these are open/receive blocks and follow the source of these blocks
+ * and iteratively confirm these blocks as well. This will be slow if there is a large
+ * chain to follow.
+ */
+void nano::node::add_confirmation_heights (nano::transaction const & transaction, nano::block_hash const & hash)
+{
+	std::stack<nano::block_hash, std::vector<nano::block_hash>> open_receive_blocks;
+	auto current = hash;
+
+	do
+	{
+		if (!open_receive_blocks.empty ())
+		{
+			current = open_receive_blocks.top ();
+			open_receive_blocks.pop ();
+
+			auto block (store.block_get (transaction, current));
+			if (block != nullptr)
+			{
+				nano::block_hash source_hash = block->source ();
+				auto source_block (store.block_get (transaction, source_hash));
+				if (source_block != nullptr)
+				{
+					current = source_block->hash ();
+				}
+			}
+		}
+
+		auto hash (current);
+		auto block_height (store.block_account_height (transaction, hash));
+		assert (block_height >= 0);
+		nano::account_info account_info;
+		nano::account account (ledger.account (transaction, hash));
+		release_assert (!store.account_get (transaction, account, account_info));
+		auto confirmation_height = account_info.confirmation_height;
+		if (block_height > confirmation_height)
+		{
+			account_info.confirmation_height = block_height;
+			store.account_put (transaction, account, account_info);
+
+			// Get the difference and check if any of these are recieve blocks
+			auto newly_confirmed_blocks = block_height - confirmation_height;
+
+			// Start from the most recent one and work our way through
+			for (int i = 0; i < newly_confirmed_blocks; ++i)
+			{
+				nano::block_sideband sideband;
+				auto block (store.block_get (transaction, current, &sideband));
+				if (block != nullptr)
+				{
+					// First check legacy receive/open
+					auto should_process = (sideband.type == nano::block_type::receive || (sideband.type == nano::block_type::open && !current.is_zero ()));
+					if (!should_process)
+					{
+						// Then check state blocks
+						auto state = std::dynamic_pointer_cast<nano::state_block> (block);
+						if (state)
+						{
+							nano::block_hash previous (state->previous ());
+							if (!previous.is_zero ())
+							{
+								if (state->hashables.balance > ledger.balance (transaction, previous))
+								{
+									should_process = true;
+								}
+							}
+						}
+					}			
+
+					if (should_process)
+					{
+						open_receive_blocks.push (current);
+					}
+
+					current = block->previous ();
+				}
+			}
+		}
+	} while (!open_receive_blocks.empty ());
+}
+
 int nano::node::store_version ()
 {
 	auto transaction (store.tx_begin_read ());

@@ -12,6 +12,7 @@ using namespace std::chrono_literals;
 namespace
 {
 void add_required_children_node_config_tree (nano::jsonconfig & tree);
+void clear_confirmation_height (nano::block_store & store, nano::transaction const & transaction, nano::public_key const & pub);
 }
 
 TEST (node, stop)
@@ -936,6 +937,17 @@ TEST (node, fork_flip)
 		ASSERT_TRUE (node2.store.block_exists (transaction, publish2.block->hash ()));
 	}
 	system.deadline_set (10s);
+
+	{
+		auto transaction = node1.store.tx_begin (true);
+		clear_confirmation_height (node1.store, transaction, nano::test_genesis_key.pub);
+	}
+
+	{
+		auto transaction = node2.store.tx_begin (true);
+		clear_confirmation_height (node2.store, transaction, nano::test_genesis_key.pub);
+	}
+
 	auto done (false);
 	while (!done)
 	{
@@ -994,6 +1006,17 @@ TEST (node, fork_multi_flip)
 		ASSERT_TRUE (node2.store.block_exists (transaction, publish2.block->hash ()));
 		ASSERT_TRUE (node2.store.block_exists (transaction, publish3.block->hash ()));
 	}
+
+	{
+		auto transaction = node1.store.tx_begin (true);
+		clear_confirmation_height (node1.store, transaction, nano::test_genesis_key.pub);
+	}
+
+	{
+		auto transaction = node2.store.tx_begin (true);
+		clear_confirmation_height (node2.store, transaction, nano::test_genesis_key.pub);
+	}
+
 	system.deadline_set (10s);
 	auto done (false);
 	while (!done)
@@ -1035,6 +1058,17 @@ TEST (node, fork_bootstrap_flip)
 		auto transaction (node2.store.tx_begin ());
 		ASSERT_TRUE (node2.store.block_exists (transaction, send2->hash ()));
 	}
+
+	{
+		auto transaction = node1.store.tx_begin (true);
+		clear_confirmation_height (node1.store, transaction, nano::test_genesis_key.pub);
+	}
+
+	{
+		auto transaction = node2.store.tx_begin (true);
+		clear_confirmation_height (node2.store, transaction, nano::test_genesis_key.pub);
+	}
+
 	node1.network.send_keepalive (node2.network.endpoint ());
 	system1.deadline_set (50s);
 	while (node2.peers.empty ())
@@ -1116,6 +1150,17 @@ TEST (node, fork_open_flip)
 	ASSERT_TRUE (node1.block (open1->hash ()) != nullptr);
 	ASSERT_TRUE (node2.block (open2->hash ()) != nullptr);
 	system.deadline_set (10s);
+
+	{
+		auto transaction = node1.store.tx_begin (true);
+		clear_confirmation_height (node1.store, transaction, nano::test_genesis_key.pub);
+	}
+
+	{
+		auto transaction = node2.store.tx_begin (true);
+		clear_confirmation_height (node2.store, transaction, nano::test_genesis_key.pub);
+	}
+
 	// Node2 should eventually settle on open1
 	while (node2.block (open1->hash ()) == nullptr)
 	{
@@ -2294,5 +2339,17 @@ void add_required_children_node_config_tree (nano::jsonconfig & tree)
 	nano::jsonconfig work_peers_l;
 	tree.put_child ("work_peers", work_peers_l);
 	tree.put ("version", std::to_string (nano::node_config::json_version ()));
+}
+
+void clear_confirmation_height (nano::block_store & store, nano::transaction const & transaction, nano::public_key const & pub)
+{
+	nano::account_info account_info;
+	ASSERT_FALSE (store.account_get (transaction, pub, account_info));
+	account_info.confirmation_height = 0; // Otherwise block cementing prevents the rollback
+	store.account_put (transaction, pub, account_info);
+
+	// Confirm it is cleared
+	ASSERT_FALSE (store.account_get (transaction, pub, account_info));
+	ASSERT_EQ (account_info.confirmation_height, 0);
 }
 }

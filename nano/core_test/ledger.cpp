@@ -7,11 +7,6 @@
 
 using namespace std::chrono_literals;
 
-namespace
-{
-void clear_confirmation_height (nano::block_store & store, nano::transaction const & transaction, nano::public_key const & pub);
-}
-
 // Init returns an error if it can't open files at the path
 TEST (ledger, store_error)
 {
@@ -114,7 +109,6 @@ TEST (ledger, process_send)
 	nano::block_hash hash2 (open.hash ());
 	// This was a valid block, it should progress.
 	auto return2 (ledger.process (transaction, open));
-	clear_confirmation_height (ledger.store, transaction, key2.pub);
 	ASSERT_EQ (nano::genesis_amount - 50, ledger.amount (transaction, hash2));
 	ASSERT_EQ (nano::process_result::progress, return2.code);
 	ASSERT_EQ (key2.pub, return2.account);
@@ -154,7 +148,6 @@ TEST (ledger, process_send)
 	nano::account_info info6;
 	ASSERT_FALSE (ledger.store.account_get (transaction, nano::test_genesis_key.pub, info6));
 	ASSERT_EQ (hash1, info6.head);
-	clear_confirmation_height (ledger.store, transaction, nano::test_genesis_key.pub);
 	ASSERT_FALSE (ledger.rollback (transaction, info6.head));
 	ASSERT_EQ (nano::genesis_amount, ledger.weight (transaction, nano::test_genesis_key.pub));
 	ASSERT_EQ (nano::test_genesis_key.pub, store.frontier_get (transaction, info1.head));
@@ -212,7 +205,6 @@ TEST (ledger, process_receive)
 	ASSERT_EQ (0, ledger.account_pending (transaction, key2.pub));
 	ASSERT_EQ (nano::genesis_amount - 25, ledger.account_balance (transaction, key2.pub));
 	ASSERT_EQ (nano::genesis_amount - 25, ledger.weight (transaction, key3.pub));
-	clear_confirmation_height (ledger.store, transaction, key2.pub);
 	ASSERT_FALSE (ledger.rollback (transaction, hash4));
 	ASSERT_TRUE (store.block_successor (transaction, hash2).is_zero ());
 	ASSERT_EQ (key2.pub, store.frontier_get (transaction, hash2));
@@ -255,8 +247,6 @@ TEST (ledger, rollback_receiver)
 	ASSERT_EQ (50, ledger.weight (transaction, nano::test_genesis_key.pub));
 	ASSERT_EQ (0, ledger.weight (transaction, key2.pub));
 	ASSERT_EQ (nano::genesis_amount - 50, ledger.weight (transaction, key3.pub));
-	clear_confirmation_height (ledger.store, transaction, nano::test_genesis_key.pub);
-	clear_confirmation_height (ledger.store, transaction, key2.pub);
 	ASSERT_FALSE (ledger.rollback (transaction, hash1));
 	ASSERT_EQ (nano::genesis_amount, ledger.account_balance (transaction, nano::test_genesis_key.pub));
 	ASSERT_EQ (0, ledger.account_balance (transaction, key2.pub));
@@ -301,14 +291,12 @@ TEST (ledger, rollback_representation)
 	nano::account_info info1;
 	ASSERT_FALSE (store.account_get (transaction, key2.pub, info1));
 	ASSERT_EQ (open.hash (), info1.rep_block);
-	clear_confirmation_height (ledger.store, transaction, key2.pub);
 	ASSERT_FALSE (ledger.rollback (transaction, receive1.hash ()));
 	nano::account_info info2;
 	ASSERT_FALSE (store.account_get (transaction, key2.pub, info2));
 	ASSERT_EQ (open.hash (), info2.rep_block);
 	ASSERT_EQ (0, ledger.weight (transaction, key2.pub));
 	ASSERT_EQ (nano::genesis_amount - 50, ledger.weight (transaction, key4.pub));
-	clear_confirmation_height (ledger.store, transaction, nano::test_genesis_key.pub);
 	ASSERT_FALSE (ledger.rollback (transaction, open.hash ()));
 	ASSERT_EQ (1, ledger.weight (transaction, key3.pub));
 	ASSERT_EQ (0, ledger.weight (transaction, key4.pub));
@@ -340,7 +328,6 @@ TEST (ledger, receive_rollback)
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send).code);
 	nano::receive_block receive (send.hash (), send.hash (), nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, receive).code);
-	clear_confirmation_height (store, transaction, nano::test_genesis_key.pub);
 	ASSERT_FALSE (ledger.rollback (transaction, receive.hash ()));
 }
 
@@ -426,7 +413,6 @@ TEST (ledger, representative_change)
 	nano::account_info info2;
 	ASSERT_FALSE (store.account_get (transaction, nano::test_genesis_key.pub, info2));
 	ASSERT_EQ (block.hash (), info2.head);
-	clear_confirmation_height (ledger.store, transaction, nano::test_genesis_key.pub);
 	ASSERT_FALSE (ledger.rollback (transaction, info2.head));
 	ASSERT_EQ (nano::test_genesis_key.pub, store.frontier_get (transaction, info1.head));
 	ASSERT_TRUE (store.frontier_get (transaction, block.hash ()).is_zero ());
@@ -1521,8 +1507,6 @@ TEST (ledger, send_open_receive_rollback)
 	ASSERT_EQ (100, ledger.weight (transaction, key2.pub));
 	ASSERT_EQ (0, ledger.weight (transaction, nano::test_genesis_key.pub));
 	ASSERT_EQ (nano::genesis_amount - 100, ledger.weight (transaction, key3.pub));
-	clear_confirmation_height (ledger.store, transaction, nano::test_genesis_key.pub);
-	clear_confirmation_height (ledger.store, transaction, key1.pub);
 	ASSERT_FALSE (ledger.rollback (transaction, receive.hash ()));
 	ASSERT_EQ (50, ledger.weight (transaction, key2.pub));
 	ASSERT_EQ (0, ledger.weight (transaction, nano::test_genesis_key.pub));
@@ -2115,7 +2099,6 @@ TEST (ledger, state_rollback_send)
 	ASSERT_FALSE (store.pending_get (transaction, nano::pending_key (nano::genesis_account, send1.hash ()), info));
 	ASSERT_EQ (nano::genesis_account, info.source);
 	ASSERT_EQ (nano::Gxrb_ratio, info.amount.number ());
-	clear_confirmation_height (store, transaction, nano::genesis_account);
 	ASSERT_FALSE (ledger.rollback (transaction, send1.hash ()));
 	ASSERT_FALSE (store.block_exists (transaction, send1.hash ()));
 	ASSERT_EQ (nano::genesis_amount, ledger.account_balance (transaction, nano::genesis_account));
@@ -2140,7 +2123,6 @@ TEST (ledger, state_rollback_receive)
 	nano::state_block receive1 (nano::genesis_account, send1.hash (), nano::genesis_account, nano::genesis_amount, send1.hash (), nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, receive1).code);
 	ASSERT_FALSE (store.pending_exists (transaction, nano::pending_key (nano::genesis_account, receive1.hash ())));
-	clear_confirmation_height (store, transaction, nano::test_genesis_key.pub);
 	ASSERT_FALSE (ledger.rollback (transaction, receive1.hash ()));
 	nano::pending_info info;
 	ASSERT_FALSE (store.pending_get (transaction, nano::pending_key (nano::genesis_account, send1.hash ()), info));
@@ -2168,8 +2150,6 @@ TEST (ledger, state_rollback_received_send)
 	nano::state_block receive1 (key.pub, 0, key.pub, nano::Gxrb_ratio, send1.hash (), key.prv, key.pub, 0);
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, receive1).code);
 	ASSERT_FALSE (store.pending_exists (transaction, nano::pending_key (nano::genesis_account, receive1.hash ())));
-	clear_confirmation_height (ledger.store, transaction, nano::test_genesis_key.pub);
-	clear_confirmation_height (ledger.store, transaction, key.pub);
 	ASSERT_FALSE (ledger.rollback (transaction, send1.hash ()));
 	ASSERT_FALSE (store.pending_exists (transaction, nano::pending_key (nano::genesis_account, send1.hash ())));
 	ASSERT_FALSE (store.block_exists (transaction, send1.hash ()));
@@ -2194,7 +2174,6 @@ TEST (ledger, state_rep_change_rollback)
 	nano::keypair rep;
 	nano::state_block change1 (nano::genesis_account, genesis.hash (), rep.pub, nano::genesis_amount, 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, change1).code);
-	clear_confirmation_height (store, transaction, nano::test_genesis_key.pub);
 	ASSERT_FALSE (ledger.rollback (transaction, change1.hash ()));
 	ASSERT_FALSE (store.block_exists (transaction, change1.hash ()));
 	ASSERT_EQ (nano::genesis_amount, ledger.account_balance (transaction, nano::genesis_account));
@@ -2218,7 +2197,6 @@ TEST (ledger, state_open_rollback)
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send1).code);
 	nano::state_block open1 (destination.pub, 0, nano::genesis_account, nano::Gxrb_ratio, send1.hash (), destination.prv, destination.pub, 0);
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, open1).code);
-	clear_confirmation_height (store, transaction, destination.pub);
 	ASSERT_FALSE (ledger.rollback (transaction, open1.hash ()));
 	ASSERT_FALSE (store.block_exists (transaction, open1.hash ()));
 	ASSERT_EQ (0, ledger.account_balance (transaction, destination.pub));
@@ -2243,7 +2221,6 @@ TEST (ledger, state_send_change_rollback)
 	nano::keypair rep;
 	nano::state_block send1 (nano::genesis_account, genesis.hash (), rep.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::genesis_account, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send1).code);
-	clear_confirmation_height (store, transaction, nano::test_genesis_key.pub);
 	ASSERT_FALSE (ledger.rollback (transaction, send1.hash ()));
 	ASSERT_FALSE (store.block_exists (transaction, send1.hash ()));
 	ASSERT_EQ (nano::genesis_amount, ledger.account_balance (transaction, nano::genesis_account));
@@ -2267,7 +2244,6 @@ TEST (ledger, state_receive_change_rollback)
 	nano::keypair rep;
 	nano::state_block receive1 (nano::genesis_account, send1.hash (), rep.pub, nano::genesis_amount, send1.hash (), nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, receive1).code);
-	clear_confirmation_height (store, transaction, nano::test_genesis_key.pub);
 	ASSERT_FALSE (ledger.rollback (transaction, receive1.hash ()));
 	ASSERT_FALSE (store.block_exists (transaction, receive1.hash ()));
 	ASSERT_EQ (nano::genesis_amount - nano::Gxrb_ratio, ledger.account_balance (transaction, nano::genesis_account));
@@ -2295,7 +2271,6 @@ TEST (ledger, epoch_blocks_general)
 	nano::account_info genesis_info;
 	ASSERT_FALSE (ledger.store.account_get (transaction, nano::genesis_account, genesis_info));
 	ASSERT_EQ (genesis_info.epoch, nano::epoch::epoch_1);
-	clear_confirmation_height (store, transaction, nano::genesis_account);
 	ASSERT_FALSE (ledger.rollback (transaction, epoch1.hash ()));
 	ASSERT_FALSE (ledger.store.account_get (transaction, nano::genesis_account, genesis_info));
 	ASSERT_EQ (genesis_info.epoch, nano::epoch::epoch_0);
@@ -2351,7 +2326,6 @@ TEST (ledger, epoch_blocks_receive_upgrade)
 	nano::account_info destination_info;
 	ASSERT_FALSE (ledger.store.account_get (transaction, destination.pub, destination_info));
 	ASSERT_EQ (destination_info.epoch, nano::epoch::epoch_1);
-	clear_confirmation_height (ledger.store, transaction, destination.pub);
 	ASSERT_FALSE (ledger.rollback (transaction, receive2.hash ()));
 	ASSERT_FALSE (ledger.store.account_get (transaction, destination.pub, destination_info));
 	ASSERT_EQ (destination_info.epoch, nano::epoch::epoch_0);
@@ -2612,7 +2586,7 @@ TEST (ledger, unchecked_receive)
 	}
 }
 
-TEST (ledger, confirmation_height_single)
+TEST (ledger, confirmation_height_not_updated)
 {
 	bool error (false);
 	nano::logging logging;
@@ -2630,167 +2604,10 @@ TEST (ledger, confirmation_height_single)
 	ASSERT_EQ (0, account_info.confirmation_height);
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send1).code);
 	ASSERT_FALSE (store.account_get (transaction, nano::test_genesis_key.pub, account_info));
-	ASSERT_EQ (2, account_info.confirmation_height);
-
-	// Test legacy and state open
+	ASSERT_EQ (0, account_info.confirmation_height);
 	nano::open_block open1 (send1.hash (), nano::genesis_account, key.pub, key.prv, key.pub, 0);
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, open1).code);
 	nano::account_info account_info1;
 	ASSERT_FALSE (store.account_get (transaction, key.pub, account_info1));
-	ASSERT_EQ (1, account_info1.confirmation_height);
-
-	nano::send_block send2 (send1.hash (), key.pub, 25, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
-	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send2).code);
-	ASSERT_FALSE (store.account_get (transaction, nano::test_genesis_key.pub, account_info));
-	ASSERT_EQ (3, account_info.confirmation_height);
-
-	// Test legacy and state receive
-	nano::receive_block receive1 (open1.hash (), send2.hash (), key.prv, key.pub, 0);
-	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, receive1).code);
-	nano::account_info account_info2;
-	ASSERT_FALSE (store.account_get (transaction, key.pub, account_info2));
-	ASSERT_EQ (2, account_info2.confirmation_height);
-}
-
-TEST (ledger, confirmation_height_setting_sender_single)
-{
-	// For all blocks which are confirmed if there are any receive blocks we update the confirmation height of the sender.
-	bool error (false);
-	nano::logging logging;
-	nano::mdb_store store (error, logging, nano::unique_path ());
-	ASSERT_TRUE (!error);
-	nano::stat stats;
-	nano::ledger ledger (store, stats);
-	auto transaction (store.tx_begin (true));
-	nano::genesis genesis;
-	nano::keypair key;
-	store.initialize (transaction, genesis);
-	nano::account_info account_info;
-	ASSERT_FALSE (store.account_get (transaction, nano::test_genesis_key.pub, account_info));
-	nano::send_block send1 (account_info.head, key.pub, 50, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
-	ASSERT_EQ (0, account_info.confirmation_height);
-	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send1).code);
-	ASSERT_FALSE (store.account_get (transaction, nano::test_genesis_key.pub, account_info));
-	ASSERT_EQ (2, account_info.confirmation_height);
-	nano::send_block send2 (send1.hash (), key.pub, 25, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
-	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send2).code);
-	ASSERT_FALSE (store.account_get (transaction, nano::test_genesis_key.pub, account_info));
-	ASSERT_EQ (3, account_info.confirmation_height);
-	account_info.confirmation_height = 0; /* Clear confirmation height */
-	store.account_put (transaction, nano::test_genesis_key.pub, account_info);
-	ASSERT_FALSE (store.account_get (transaction, nano::test_genesis_key.pub, account_info));
-	ASSERT_EQ (0, account_info.confirmation_height);
-
-	// Test legacy and state open
-	nano::open_block open1 (send1.hash (), nano::genesis_account, key.pub, key.prv, key.pub, 0);
-	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, open1).code);
-	nano::account_info account_info1;
-	ASSERT_FALSE (store.account_get (transaction, key.pub, account_info1));
-	ASSERT_EQ (1, account_info1.confirmation_height);
-
-	// Test legacy and state receive
-	nano::receive_block receive1 (open1.hash (), send2.hash (), key.prv, key.pub, 0);
-	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, receive1).code);
-	nano::account_info account_info2;
-	ASSERT_FALSE (store.account_get (transaction, key.pub, account_info2));
-	ASSERT_EQ (2, account_info2.confirmation_height);
-
-	ASSERT_FALSE (store.account_get (transaction, nano::test_genesis_key.pub, account_info));
-	ASSERT_EQ (3, account_info.confirmation_height);
-}
-
-TEST (ledger, confirmation_height_multiple_senders)
-{
-	// For all blocks which are confirmed if there are any receive blocks we update the confirmation height of the sender.
-	auto error (false);
-	nano::logging logging;
-	nano::mdb_store store (error, logging, nano::unique_path ());
-	ASSERT_TRUE (!error);
-	nano::stat stats;
-	nano::ledger ledger (store, stats);
-	auto transaction (store.tx_begin (true));
-	nano::genesis genesis;
-	nano::keypair key1;
-	nano::keypair key2;
-	nano::keypair key3;
-	store.initialize (transaction, genesis);
-	nano::account_info account_info;
-	ASSERT_FALSE (store.account_get (transaction, nano::test_genesis_key.pub, account_info));
-	ASSERT_EQ (0, account_info.confirmation_height);
-
-	// Send to all accounts
-	nano::send_block send1 (account_info.head, key1.pub, 300, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
-	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send1).code);
-	nano::send_block send2 (send1.hash (), key2.pub, 1, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
-	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send2).code);
-	nano::send_block send3 (send2.hash (), key3.pub, 1, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
-	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send3).code);
-
-	// Open all accounts
-	nano::open_block open1 (send1.hash (), nano::genesis_account, key1.pub, key1.prv, key1.pub, 0);
-	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, open1).code);
-	nano::open_block open2 (send2.hash (), nano::genesis_account, key2.pub, key2.prv, key2.pub, 0);
-	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, open2).code);
-	nano::open_block open3 (send3.hash (), nano::genesis_account, key3.pub, key3.prv, key3.pub, 0);
-	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, open3).code);
-
-	// Send and recieve various blocks to these accounts
-	nano::send_block send4 (open1.hash (), key2.pub, 50, key1.prv, key1.pub, 0);
-	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send4).code);
-	nano::send_block send5 (send4.hash (), key2.pub, 10, key1.prv, key1.pub, 0);
-	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send5).code);
-
-	nano::receive_block receive1 (open2.hash (), send4.hash (), key2.prv, key2.pub, 0);
-	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, receive1).code);
-	nano::send_block send6 (receive1.hash (), key3.pub, 10, key2.prv, key2.pub, 0);
-	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send6).code);
-	nano::receive_block receive2 (send6.hash (), send5.hash (), key2.prv, key2.pub, 0);
-	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, receive2).code);
-
-	// Confirm the heights are what we expect
-	ASSERT_FALSE (store.account_get (transaction, nano::test_genesis_key.pub, account_info));
-	ASSERT_EQ (4, account_info.confirmation_height);
-	ASSERT_FALSE (store.account_get (transaction, key1.pub, account_info));
-	ASSERT_EQ (3, account_info.confirmation_height);
-	ASSERT_FALSE (store.account_get (transaction, key2.pub, account_info));
-	ASSERT_EQ (4, account_info.confirmation_height); // Block height should be 5 though.
-	
-	// Set confirmation heights to 0 for all accounts, so this emulates being stored in the ledger before anything has been confirmed yet
-	clear_confirmation_height (store, transaction, nano::test_genesis_key.pub);
-	clear_confirmation_height (store, transaction, key1.pub);
-	clear_confirmation_height (store, transaction, key2.pub);
-	clear_confirmation_height (store, transaction, key3.pub);
-//	ASSERT_FALSE (store.account_get (transaction, key3.pub, account_info));
-//	ASSERT_EQ (0, account_info.confirmation_height);
-
-	// Then have a "live" receive and check confirmation heights propagate correctly
-	nano::receive_block receive3 (open3.hash (), send6.hash (), key3.prv, key3.pub, 0);
-	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, receive3).code);
-
-	ASSERT_FALSE (store.account_get (transaction, nano::test_genesis_key.pub, account_info));
-	ASSERT_EQ (0, account_info.confirmation_height); // Nothing confirms sends which open an account, hmmm.... is this correct??
-	ASSERT_FALSE (store.account_get (transaction, key1.pub, account_info));
-	ASSERT_EQ (3, account_info.confirmation_height);
-	ASSERT_FALSE (store.account_get (transaction, key2.pub, account_info));
-	ASSERT_EQ (3, account_info.confirmation_height); // Block height is 4
-	ASSERT_FALSE (store.account_get (transaction, key3.pub, account_info));
-	ASSERT_EQ (2, account_info.confirmation_height);
-}
-
-// TODO: Rollbacks.... (fail and not)
-// TODO: State blocks
-
-namespace
-{
-void clear_confirmation_height (nano::block_store & store, nano::transaction const & transaction, nano::public_key const & pub)
-{
-	nano::account_info account_info;
-	ASSERT_FALSE (store.account_get (transaction, pub, account_info));
-	account_info.confirmation_height = 0; // Otherwise block cementing prevents the rollback
-	store.account_put (transaction, pub, account_info);
-
-	// Confirm it is cleared
-	ASSERT_FALSE (store.account_get (transaction, pub, account_info));
-	ASSERT_EQ (account_info.confirmation_height, 0);
-}
+	ASSERT_EQ (0, account_info1.confirmation_height);
 }

@@ -1049,6 +1049,25 @@ void nano::rpc_handler::block_account ()
 	response_errors ();
 }
 
+void nano::rpc_handler::block_confirmed ()
+{
+	auto hash (hash_impl ());
+	if (!ec)
+	{
+		auto transaction (node.store.tx_begin_read ());
+		if (node.store.block_exists (transaction, hash))
+		{
+			auto confirmed (node.ledger.block_confirmed (transaction, hash));
+			response_l.put ("confirmed", confirmed);
+		}
+		else
+		{
+			ec = nano::error_blocks::not_found;
+		}
+	}
+	response_errors ();
+}
+
 void nano::rpc_handler::block_count ()
 {
 	auto transaction (node.store.tx_begin_read ());
@@ -4365,6 +4384,10 @@ void nano::rpc_handler::process_request ()
 			else if (action == "block_account")
 			{
 				block_account ();
+			}
+			else if (action == "block_confirmed")
+			{
+				block_confirmed ();
 			}
 			else if (action == "block_count")
 			{

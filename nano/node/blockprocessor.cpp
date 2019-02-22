@@ -301,9 +301,11 @@ void nano::block_processor::process_batch (std::unique_lock<std::mutex> & lock_a
 				if (node.ledger.rollback (transaction, successor->hash (), rollback_list))
 				{
 					BOOST_LOG (node.log) << boost::str (boost::format ("Failed to roll back %1% because it or a successor was confirmed") % successor->hash ().to_string ());
-					release_assert (false); // TODO: What to do here?
 				}
-				BOOST_LOG (node.log) << boost::str (boost::format ("%1% blocks rolled back") % rollback_list.size ());
+				else
+				{
+					BOOST_LOG (node.log) << boost::str (boost::format ("%1% blocks rolled back") % rollback_list.size ());
+				}
 				lock_a.lock ();
 				// Prevent rolled back blocks second insertion
 				auto inserted (rolled_back.insert (nano::rolled_hash{ std::chrono::steady_clock::now (), successor->hash () }));

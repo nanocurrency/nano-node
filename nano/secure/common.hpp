@@ -103,6 +103,7 @@ class pending_info
 public:
 	pending_info ();
 	pending_info (nano::account const &, nano::amount const &, epoch);
+	void serialize (nano::stream &) const;
 	bool deserialize (nano::stream &);
 	bool operator== (nano::pending_info const &) const;
 	nano::account source;
@@ -114,6 +115,7 @@ class pending_key
 public:
 	pending_key ();
 	pending_key (nano::account const &, nano::block_hash const &);
+	void serialize (nano::stream &) const;
 	bool deserialize (nano::stream &);
 	bool operator== (nano::pending_key const &) const;
 	nano::account account;

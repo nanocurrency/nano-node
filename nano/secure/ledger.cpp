@@ -709,66 +709,6 @@ nano::process_return nano::ledger::process (nano::transaction const & transactio
 {
 	ledger_processor processor (*this, transaction_a, verification);
 	block_a.visit (processor);
-	if (processor.result.code == nano::process_result::progress)
-	{
-		std::stack<nano::block_hash, std::vector<nano::block_hash>> receive_blocks;
-		auto current = block_a.hash ();
-
-		do
-		{
-			if (!receive_blocks.empty ())
-			{
-				current = receive_blocks.top ();
-				receive_blocks.pop ();
-
-				nano::block_sideband sideband;
-				auto block (store.block_get (transaction_a, current, &sideband));
-				if (block != nullptr)
-				{
-					nano::block_hash source_hash = block->source ();
-					nano::block_sideband source_sideband;
-					auto source_block (store.block_get (transaction_a, source_hash, &source_sideband));
-					if (source_block != nullptr)
-					{
-						current = source_block->hash ();
-					}
-				}
-			}
-
-			auto hash (current);
-			auto block_height (store.block_account_height (transaction_a, hash));
-			assert (block_height >= 0);
-			nano::account_info account_info;
-			nano::account account_l (account (transaction_a, hash));
-			release_assert (!store.account_get (transaction_a, account_l, account_info));
-			auto confirmation_height = account_info.confirmation_height;
-			if (block_height > confirmation_height)
-			{
-				account_info.confirmation_height = block_height;
-				store.account_put (transaction_a, account_l, account_info);
-
-				// Get the difference and check if any of these are recieve blocks
-				auto newly_confirmed_blocks = block_height - confirmation_height;
-
-				// Start from the most recent one and work our way through
-				for (int i = 0; i < newly_confirmed_blocks; ++i)
-				{
-					nano::block_sideband sideband;
-					auto block (store.block_get (transaction_a, current, &sideband));
-					if (block != nullptr)
-					{
-						if (sideband.type == nano::block_type::receive)
-						{
-							receive_blocks.push (current);
-						}
-
-						current = sideband.successor;
-					}
-				}
-			}
-		} while (!receive_blocks.empty ());
-	}
-
 	return processor.result;
 }
 
@@ -1038,27 +978,27 @@ bool nano::ledger::is_epoch_link (nano::uint256_union const & link_a)
 
 void nano::ledger::change_latest (nano::transaction const & transaction_a, nano::account const & account_a, nano::block_hash const & hash_a, nano::block_hash const & rep_block_a, nano::amount const & balance_a, uint64_t block_count_a, bool is_state, nano::epoch epoch_a)
 {
-	nano::account_info account_info;
-	auto exists (!store.account_get (transaction_a, account_a, account_info));
+	nano::account_info info;
+	auto exists (!store.account_get (transaction_a, account_a, info));
 	if (!exists)
 	{
 		assert (store.block_get (transaction_a, hash_a)->previous ().is_zero ());
-		account_info.open_block = hash_a;
+		info.open_block = hash_a;
 	}
 	if (!hash_a.is_zero ())
 	{
-		account_info.head = hash_a;
-		account_info.rep_block = rep_block_a;
-		account_info.balance = balance_a;
-		account_info.modified = nano::seconds_since_epoch ();
-		account_info.block_count = block_count_a;
-		if (exists && account_info.epoch != epoch_a)
+		info.head = hash_a;
+		info.rep_block = rep_block_a;
+		info.balance = balance_a;
+		info.modified = nano::seconds_since_epoch ();
+		info.block_count = block_count_a;
+		if (exists && info.epoch != epoch_a)
 		{
 			// otherwise we'd end up with a duplicate
 			store.account_del (transaction_a, account_a);
 		}
-		account_info.epoch = epoch_a;
-		store.account_put (transaction_a, account_a, account_info);
+		info.epoch = epoch_a;
+		store.account_put (transaction_a, account_a, info);
 	}
 	else
 	{
@@ -1110,9 +1050,9 @@ bool nano::ledger::block_confirmed (nano::transaction const & transaction_a, nan
 {
 	auto confirmed (false);
 	auto block_height (store.block_account_height (transaction_a, hash_a));
-	if (block_height) // 0 indicates block doesn't exist
+	if (block_height) // 0 indicates that the block doesn't exist
 	{
-		auto account_l (this->account (transaction_a, hash_a));
+		auto account_l (account (transaction_a, hash_a));
 		nano::account_info account_info;
 		release_assert (!store.account_get (transaction_a, account_l, account_info));
 		confirmed = account_info.confirmation_height >= block_height;

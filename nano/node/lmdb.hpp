@@ -36,7 +36,7 @@ public:
 	mdb_env (bool &, boost::filesystem::path const &, int max_dbs = 128, size_t map_size = 128ULL * 1024 * 1024 * 1024);
 	~mdb_env ();
 	operator MDB_env * () const;
-	nano::transaction tx_begin (bool = false) const;
+	nano::transaction tx_begin (bool = false);
 	MDB_txn * tx (nano::transaction const &) const;
 	MDB_env * environment;
 };
@@ -154,22 +154,22 @@ class mdb_store : public block_store
 
 public:
 	mdb_store (bool &, nano::logging &, boost::filesystem::path const &, int lmdb_max_dbs = 128, bool drop_unchecked = false, size_t batch_size = 512);
-	nano::transaction tx_begin_write () const override;
-	nano::transaction tx_begin_read () const override;
-	nano::transaction tx_begin (bool write = false) const override;
+	nano::transaction tx_begin_write () override;
+	nano::transaction tx_begin_read () override;
+	nano::transaction tx_begin (bool write = false) override;
 
 	void initialize (nano::transaction const &, nano::genesis const &) override;
 	void block_put (nano::transaction const &, nano::block_hash const &, nano::block const &, nano::block_sideband const &, nano::epoch version = nano::epoch::epoch_0) override;
 	nano::block_hash block_successor (nano::transaction const &, nano::block_hash const &) const override;
 	void block_successor_clear (nano::transaction const &, nano::block_hash const &) override;
 	std::shared_ptr<nano::block> block_get (nano::transaction const &, nano::block_hash const &, nano::block_sideband * = nullptr) const override;
-	std::shared_ptr<nano::block> block_random (nano::transaction const &) const override;
+	std::shared_ptr<nano::block> block_random (nano::transaction const &) override;
 	void block_del (nano::transaction const &, nano::block_hash const &) override;
-	bool block_exists (nano::transaction const &, nano::block_hash const &) const override;
-	bool block_exists (nano::transaction const &, nano::block_type, nano::block_hash const &) const override;
-	nano::block_counts block_count (nano::transaction const &) const override;
-	bool root_exists (nano::transaction const &, nano::uint256_union const &) const override;
-	bool source_exists (nano::transaction const &, nano::block_hash const &) const override;
+	bool block_exists (nano::transaction const &, nano::block_hash const &) override;
+	bool block_exists (nano::transaction const &, nano::block_type, nano::block_hash const &) override;
+	nano::block_counts block_count (nano::transaction const &) override;
+	bool root_exists (nano::transaction const &, nano::uint256_union const &) override;
+	bool source_exists (nano::transaction const &, nano::block_hash const &) override;
 	nano::account block_account (nano::transaction const &, nano::block_hash const &) const override;
 
 	void frontier_put (nano::transaction const &, nano::block_hash const &, nano::account const &) override;
@@ -177,57 +177,57 @@ public:
 	void frontier_del (nano::transaction const &, nano::block_hash const &) override;
 
 	void account_put (nano::transaction const &, nano::account const &, nano::account_info const &) override;
-	bool account_get (nano::transaction const &, nano::account const &, nano::account_info &) const override;
+	bool account_get (nano::transaction const &, nano::account const &, nano::account_info &) override;
 	void account_del (nano::transaction const &, nano::account const &) override;
-	bool account_exists (nano::transaction const &, nano::account const &) const override;
-	size_t account_count (nano::transaction const &) const override;
-	nano::store_iterator<nano::account, nano::account_info> latest_v0_begin (nano::transaction const &, nano::account const &) const override;
-	nano::store_iterator<nano::account, nano::account_info> latest_v0_begin (nano::transaction const &) const override;
-	nano::store_iterator<nano::account, nano::account_info> latest_v0_end () const override;
-	nano::store_iterator<nano::account, nano::account_info> latest_v1_begin (nano::transaction const &, nano::account const &) const override;
-	nano::store_iterator<nano::account, nano::account_info> latest_v1_begin (nano::transaction const &) const override;
-	nano::store_iterator<nano::account, nano::account_info> latest_v1_end () const override;
-	nano::store_iterator<nano::account, nano::account_info> latest_begin (nano::transaction const &, nano::account const &) const override;
-	nano::store_iterator<nano::account, nano::account_info> latest_begin (nano::transaction const &) const override;
-	nano::store_iterator<nano::account, nano::account_info> latest_end () const override;
+	bool account_exists (nano::transaction const &, nano::account const &) override;
+	size_t account_count (nano::transaction const &) override;
+	nano::store_iterator<nano::account, nano::account_info> latest_v0_begin (nano::transaction const &, nano::account const &) override;
+	nano::store_iterator<nano::account, nano::account_info> latest_v0_begin (nano::transaction const &) override;
+	nano::store_iterator<nano::account, nano::account_info> latest_v0_end () override;
+	nano::store_iterator<nano::account, nano::account_info> latest_v1_begin (nano::transaction const &, nano::account const &) override;
+	nano::store_iterator<nano::account, nano::account_info> latest_v1_begin (nano::transaction const &) override;
+	nano::store_iterator<nano::account, nano::account_info> latest_v1_end () override;
+	nano::store_iterator<nano::account, nano::account_info> latest_begin (nano::transaction const &, nano::account const &) override;
+	nano::store_iterator<nano::account, nano::account_info> latest_begin (nano::transaction const &) override;
+	nano::store_iterator<nano::account, nano::account_info> latest_end () override;
 
 	void pending_put (nano::transaction const &, nano::pending_key const &, nano::pending_info const &) override;
 	void pending_del (nano::transaction const &, nano::pending_key const &) override;
-	bool pending_get (nano::transaction const &, nano::pending_key const &, nano::pending_info &) const override;
-	bool pending_exists (nano::transaction const &, nano::pending_key const &) const override;
-	nano::store_iterator<nano::pending_key, nano::pending_info> pending_v0_begin (nano::transaction const &, nano::pending_key const &) const override;
-	nano::store_iterator<nano::pending_key, nano::pending_info> pending_v0_begin (nano::transaction const &) const override;
-	nano::store_iterator<nano::pending_key, nano::pending_info> pending_v0_end () const override;
-	nano::store_iterator<nano::pending_key, nano::pending_info> pending_v1_begin (nano::transaction const &, nano::pending_key const &) const override;
-	nano::store_iterator<nano::pending_key, nano::pending_info> pending_v1_begin (nano::transaction const &) const override;
-	nano::store_iterator<nano::pending_key, nano::pending_info> pending_v1_end () const override;
-	nano::store_iterator<nano::pending_key, nano::pending_info> pending_begin (nano::transaction const &, nano::pending_key const &) const override;
-	nano::store_iterator<nano::pending_key, nano::pending_info> pending_begin (nano::transaction const &) const override;
-	nano::store_iterator<nano::pending_key, nano::pending_info> pending_end () const override;
+	bool pending_get (nano::transaction const &, nano::pending_key const &, nano::pending_info &) override;
+	bool pending_exists (nano::transaction const &, nano::pending_key const &) override;
+	nano::store_iterator<nano::pending_key, nano::pending_info> pending_v0_begin (nano::transaction const &, nano::pending_key const &) override;
+	nano::store_iterator<nano::pending_key, nano::pending_info> pending_v0_begin (nano::transaction const &) override;
+	nano::store_iterator<nano::pending_key, nano::pending_info> pending_v0_end () override;
+	nano::store_iterator<nano::pending_key, nano::pending_info> pending_v1_begin (nano::transaction const &, nano::pending_key const &) override;
+	nano::store_iterator<nano::pending_key, nano::pending_info> pending_v1_begin (nano::transaction const &) override;
+	nano::store_iterator<nano::pending_key, nano::pending_info> pending_v1_end () override;
+	nano::store_iterator<nano::pending_key, nano::pending_info> pending_begin (nano::transaction const &, nano::pending_key const &) override;
+	nano::store_iterator<nano::pending_key, nano::pending_info> pending_begin (nano::transaction const &) override;
+	nano::store_iterator<nano::pending_key, nano::pending_info> pending_end () override;
 
 	bool block_info_get (nano::transaction const &, nano::block_hash const &, nano::block_info &) const override;
-	nano::uint128_t block_balance (nano::transaction const &, nano::block_hash const &) const override;
-	nano::epoch block_version (nano::transaction const &, nano::block_hash const &) const override;
+	nano::uint128_t block_balance (nano::transaction const &, nano::block_hash const &) override;
+	nano::epoch block_version (nano::transaction const &, nano::block_hash const &) override;
 
-	nano::uint128_t representation_get (nano::transaction const &, nano::account const &) const override;
+	nano::uint128_t representation_get (nano::transaction const &, nano::account const &) override;
 	void representation_put (nano::transaction const &, nano::account const &, nano::uint128_t const &) override;
 	void representation_add (nano::transaction const &, nano::account const &, nano::uint128_t const &) override;
-	nano::store_iterator<nano::account, nano::uint128_union> representation_begin (nano::transaction const &) const override;
-	nano::store_iterator<nano::account, nano::uint128_union> representation_end () const override;
+	nano::store_iterator<nano::account, nano::uint128_union> representation_begin (nano::transaction const &) override;
+	nano::store_iterator<nano::account, nano::uint128_union> representation_end () override;
 
 	void unchecked_clear (nano::transaction const &) override;
 	void unchecked_put (nano::transaction const &, nano::unchecked_key const &, nano::unchecked_info const &) override;
 	void unchecked_put (nano::transaction const &, nano::block_hash const &, std::shared_ptr<nano::block> const &) override;
-	std::vector<nano::unchecked_info> unchecked_get (nano::transaction const &, nano::block_hash const &) const override;
-	bool unchecked_exists (nano::transaction const &, nano::unchecked_key const &) const override;
+	std::vector<nano::unchecked_info> unchecked_get (nano::transaction const &, nano::block_hash const &) override;
+	bool unchecked_exists (nano::transaction const &, nano::unchecked_key const &) override;
 	void unchecked_del (nano::transaction const &, nano::unchecked_key const &) override;
-	nano::store_iterator<nano::unchecked_key, nano::unchecked_info> unchecked_begin (nano::transaction const &) const override;
-	nano::store_iterator<nano::unchecked_key, nano::unchecked_info> unchecked_begin (nano::transaction const &, nano::unchecked_key const &) const override;
-	nano::store_iterator<nano::unchecked_key, nano::unchecked_info> unchecked_end () const override;
-	size_t unchecked_count (nano::transaction const &)  const override;
+	nano::store_iterator<nano::unchecked_key, nano::unchecked_info> unchecked_begin (nano::transaction const &) override;
+	nano::store_iterator<nano::unchecked_key, nano::unchecked_info> unchecked_begin (nano::transaction const &, nano::unchecked_key const &) override;
+	nano::store_iterator<nano::unchecked_key, nano::unchecked_info> unchecked_end () override;
+	size_t unchecked_count (nano::transaction const &) override;
 
 	// Return latest vote for an account from store
-	std::shared_ptr<nano::vote> vote_get (nano::transaction const &, nano::account const &) const override;
+	std::shared_ptr<nano::vote> vote_get (nano::transaction const &, nano::account const &) override;
 	// Populate vote with the next sequence number
 	std::shared_ptr<nano::vote> vote_generate (nano::transaction const &, nano::account const &, nano::raw_key const &, std::shared_ptr<nano::block>) override;
 	std::shared_ptr<nano::vote> vote_generate (nano::transaction const &, nano::account const &, nano::raw_key const &, std::vector<nano::block_hash>) override;
@@ -236,13 +236,13 @@ public:
 	// Return latest vote for an account considering the vote cache
 	std::shared_ptr<nano::vote> vote_current (nano::transaction const &, nano::account const &) override;
 	void flush (nano::transaction const &) override;
-	nano::store_iterator<nano::account, std::shared_ptr<nano::vote>> vote_begin (nano::transaction const &) const override;
-	nano::store_iterator<nano::account, std::shared_ptr<nano::vote>> vote_end () const override;
+	nano::store_iterator<nano::account, std::shared_ptr<nano::vote>> vote_begin (nano::transaction const &) override;
+	nano::store_iterator<nano::account, std::shared_ptr<nano::vote>> vote_end () override;
 
 	void online_weight_put (nano::transaction const &, uint64_t, nano::amount const &) override;
 	void online_weight_del (nano::transaction const &, uint64_t) override;
-	nano::store_iterator<uint64_t, nano::amount> online_weight_begin (nano::transaction const &) const override;
-	nano::store_iterator<uint64_t, nano::amount> online_weight_end ()  const override;
+	nano::store_iterator<uint64_t, nano::amount> online_weight_begin (nano::transaction const &) override;
+	nano::store_iterator<uint64_t, nano::amount> online_weight_end () override;
 	size_t online_weight_count (nano::transaction const &) const override;
 	void online_weight_clear (nano::transaction const &) override;
 
@@ -265,8 +265,8 @@ public:
 	size_t peer_count (nano::transaction const & transaction_a) const override;
 	void peer_clear (nano::transaction const & transaction_a) override;
 
-	nano::store_iterator<nano::endpoint_key, nano::no_value> peers_begin (nano::transaction const & transaction_a) const override;
-	nano::store_iterator<nano::endpoint_key, nano::no_value> peers_end () const override;
+	nano::store_iterator<nano::endpoint_key, nano::no_value> peers_begin (nano::transaction const & transaction_a) override;
+	nano::store_iterator<nano::endpoint_key, nano::no_value> peers_end () override;
 
 	uint64_t block_account_height (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const override;
 
@@ -387,12 +387,12 @@ public:
 	MDB_dbi peers{ 0 };
 
 private:
-	bool entry_has_sideband (MDB_val, nano::block_type)  const;
-	nano::account block_account_computed (nano::transaction const &, nano::block_hash const &)  const;
-	nano::uint128_t block_balance_computed (nano::transaction const &, nano::block_hash const &)  const;
-	MDB_dbi block_database (nano::block_type, nano::epoch)  const;
+	bool entry_has_sideband (MDB_val, nano::block_type) const;
+	nano::account block_account_computed (nano::transaction const &, nano::block_hash const &) const;
+	nano::uint128_t block_balance_computed (nano::transaction const &, nano::block_hash const &) const;
+	MDB_dbi block_database (nano::block_type, nano::epoch);
 	template <typename T>
-	std::shared_ptr<nano::block> block_random (nano::transaction const &, MDB_dbi)  const;
+	std::shared_ptr<nano::block> block_random (nano::transaction const &, MDB_dbi);
 	MDB_val block_raw_get (nano::transaction const &, nano::block_hash const &, nano::block_type &) const;
 	boost::optional<MDB_val> block_raw_get_by_type (nano::transaction const &, nano::block_hash const &, nano::block_type &) const;
 	void block_raw_put (nano::transaction const &, MDB_dbi, nano::block_hash const &, MDB_val);

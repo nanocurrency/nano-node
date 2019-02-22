@@ -4533,3 +4533,84 @@ TEST (rpc, memory_stats)
 
 	ASSERT_EQ (response.json.get_child ("node").get_child ("vote_uniquer").get_child ("votes").get<std::string> ("count"), "1");
 }
+
+TEST (rpc, block_confirmed)
+{
+	nano::system system (24000, 1);
+	auto node = system.nodes.front ();
+	nano::rpc rpc (system.io_ctx, *node, nano::rpc_config (true));
+	rpc.start ();
+	boost::property_tree::ptree request;
+	request.put ("action", "block_confirmed");
+	request.put ("hash", "bad_hash1337");
+	test_response response (request, rpc, system.io_ctx);
+	while (response.status == 0)
+	{
+		system.poll ();
+	}
+	ASSERT_EQ (200, response.status);
+	ASSERT_EQ ("Invalid block hash", response.json.get<std::string> ("error"));
+
+	request.put ("hash", "0");
+	test_response response1 (request, rpc, system.io_ctx);
+	while (response1.status == 0)
+	{
+		system.poll ();
+	}
+	ASSERT_EQ (200, response1.status);
+	ASSERT_EQ ("Block not found", response1.json.get<std::string> ("error"));
+
+	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
+	nano::keypair key;
+	system.wallet (0)->insert_adhoc (key.prv);
+
+	{
+		auto transaction = node->store.tx_begin_write ();
+		nano::block_hash latest (node->latest (nano::test_genesis_key.pub));
+		nano::send_block send1 (latest, key.pub, 300, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
+		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send1).code);
+
+		nano::open_block open1 (send1.hash (), nano::genesis_account, key.pub, key.prv, key.pub, 0);
+		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, open1).code);
+	}
+
+	// This should not be confirmed
+	nano::block_hash latest (node->latest (nano::test_genesis_key.pub));
+	request.put ("hash", latest.to_string ());
+	test_response response2 (request, rpc, system.io_ctx);
+	while (response2.status == 0)
+	{
+		system.poll ();
+	}
+
+	ASSERT_EQ (200, response2.status);
+	ASSERT_FALSE (response2.json.get<bool> ("confirmed"));
+
+	// Create a new send block
+	auto send = std::make_shared<nano::send_block> (latest, key.pub, 10, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (latest));
+	node->process_active (send);
+	node->block_processor.flush ();
+
+	// Wait until it has been confirmed by the network
+	system.deadline_set (10s);
+	while (true)
+	{
+		auto transaction = node->store.tx_begin_read ();
+		if (node->ledger.block_confirmed (transaction, send->hash ()))
+		{
+			break;
+		}
+
+		ASSERT_NO_ERROR (system.poll ());
+	}
+
+	request.put ("hash", send->hash ().to_string ());
+	test_response response3 (request, rpc, system.io_ctx);
+	while (response3.status == 0)
+	{
+		system.poll ();
+	}
+
+	ASSERT_EQ (200, response3.status);
+	ASSERT_TRUE (response3.json.get<bool> ("confirmed"));
+}
