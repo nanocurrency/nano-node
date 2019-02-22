@@ -1704,13 +1704,14 @@ bool nano::mdb_store::block_exists (nano::transaction const & transaction_a, nan
 
 bool nano::mdb_store::block_exists (nano::transaction const & tx_a, nano::block_hash const & hash_a)
 {
+	// Table lookups are ordered by match probability
 	// clang-format off
 	return
+		block_exists (tx_a, nano::block_type::state, hash_a) ||
 		block_exists (tx_a, nano::block_type::send, hash_a) ||
 		block_exists (tx_a, nano::block_type::receive, hash_a) ||
 		block_exists (tx_a, nano::block_type::open, hash_a) ||
-		block_exists (tx_a, nano::block_type::change, hash_a) ||
-		block_exists (tx_a, nano::block_type::state, hash_a);
+		block_exists (tx_a, nano::block_type::change, hash_a);
 	// clang-format on
 }
 

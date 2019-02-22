@@ -738,11 +738,14 @@ TEST (rpc, wallet_create)
 TEST (rpc, wallet_create_seed)
 {
 	nano::system system (24000, 1);
+	nano::keypair seed;
+	nano::raw_key prv;
+	nano::deterministic_key (seed.pub, 0, prv.data);
+	auto pub (nano::pub_key (prv.data));
 	nano::rpc rpc (system.io_ctx, *system.nodes[0], nano::rpc_config (true));
 	rpc.start ();
 	boost::property_tree::ptree request;
 	request.put ("action", "wallet_create");
-	nano::keypair seed;
 	request.put ("seed", seed.pub.to_string ());
 	test_response response (request, rpc, system.io_ctx);
 	while (response.status == 0)
@@ -761,10 +764,12 @@ TEST (rpc, wallet_create_seed)
 		existing->second->store.seed (seed0, transaction);
 		ASSERT_EQ (seed.pub, seed0.data);
 	}
-	auto account_text (response.json.get<std::string> ("account"));
+	auto account_text (response.json.get<std::string> ("last_restored_account"));
 	nano::uint256_union account;
 	ASSERT_FALSE (account.decode_account (account_text));
 	ASSERT_TRUE (existing->second->exists (account));
+	ASSERT_EQ (pub, account);
+	ASSERT_EQ ("1", response.json.get<std::string> ("restored_count"));
 }
 
 TEST (rpc, wallet_export)
@@ -2453,6 +2458,9 @@ TEST (rpc, wallet_change_seed)
 		system0.wallet (0)->store.seed (seed0, transaction);
 		ASSERT_NE (seed.pub, seed0.data);
 	}
+	nano::raw_key prv;
+	nano::deterministic_key (seed.pub, 0, prv.data);
+	auto pub (nano::pub_key (prv.data));
 	nano::rpc rpc (system0.io_ctx, *system0.nodes[0], nano::rpc_config (true));
 	rpc.start ();
 	boost::property_tree::ptree request;
@@ -2472,6 +2480,12 @@ TEST (rpc, wallet_change_seed)
 		system0.wallet (0)->store.seed (seed0, transaction);
 		ASSERT_EQ (seed.pub, seed0.data);
 	}
+	auto account_text (response.json.get<std::string> ("last_restored_account"));
+	nano::uint256_union account;
+	ASSERT_FALSE (account.decode_account (account_text));
+	ASSERT_TRUE (system0.wallet (0)->exists (account));
+	ASSERT_EQ (pub, account);
+	ASSERT_EQ ("1", response.json.get<std::string> ("restored_count"));
 }
 
 TEST (rpc, wallet_frontiers)
@@ -4388,6 +4402,125 @@ TEST (rpc, stats_clear)
 	ASSERT_TRUE (success.empty ());
 	ASSERT_EQ (0, system.nodes[0]->stats.count (nano::stat::type::ledger, nano::stat::dir::in));
 	ASSERT_LE (system.nodes[0]->stats.last_reset ().count (), 5);
+}
+
+TEST (rpc, unopened)
+{
+	nano::system system (24000, 1);
+	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
+	auto transaction (system.wallet (0)->wallets.tx_begin_write ());
+	nano::account account1 (1), account2 (account1.number () + 1);
+	auto genesis (system.nodes[0]->latest (nano::test_genesis_key.pub));
+	ASSERT_FALSE (genesis.is_zero ());
+	auto send (system.wallet (0)->send_action (nano::test_genesis_key.pub, account1, 1));
+	ASSERT_NE (nullptr, send);
+	auto send2 (system.wallet (0)->send_action (nano::test_genesis_key.pub, account2, 2));
+	ASSERT_NE (nullptr, send2);
+	nano::rpc rpc (system.io_ctx, *system.nodes[0], nano::rpc_config (true));
+	rpc.start ();
+	{
+		boost::property_tree::ptree request;
+		request.put ("action", "unopened");
+		test_response response (request, rpc, system.io_ctx);
+		system.deadline_set (5s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response.status);
+		auto & accounts (response.json.get_child ("accounts"));
+		ASSERT_EQ (2, accounts.size ());
+		ASSERT_EQ ("1", accounts.get<std::string> (account1.to_account ()));
+		ASSERT_EQ ("2", accounts.get<std::string> (account2.to_account ()));
+	}
+	{
+		// starting at second account should get a single result
+		boost::property_tree::ptree request;
+		request.put ("action", "unopened");
+		request.put ("account", account2.to_account ());
+		test_response response (request, rpc, system.io_ctx);
+		system.deadline_set (5s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response.status);
+		auto & accounts (response.json.get_child ("accounts"));
+		ASSERT_EQ (1, accounts.size ());
+		ASSERT_EQ ("2", accounts.get<std::string> (account2.to_account ()));
+	}
+	{
+		// starting at third account should get no results
+		boost::property_tree::ptree request;
+		request.put ("action", "unopened");
+		request.put ("account", nano::account (account2.number () + 1).to_account ());
+		test_response response (request, rpc, system.io_ctx);
+		system.deadline_set (5s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response.status);
+		auto & accounts (response.json.get_child ("accounts"));
+		ASSERT_EQ (0, accounts.size ());
+	}
+	{
+		// using count=1 should get a single result
+		boost::property_tree::ptree request;
+		request.put ("action", "unopened");
+		request.put ("count", "1");
+		test_response response (request, rpc, system.io_ctx);
+		system.deadline_set (5s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response.status);
+		auto & accounts (response.json.get_child ("accounts"));
+		ASSERT_EQ (1, accounts.size ());
+		ASSERT_EQ ("1", accounts.get<std::string> (account1.to_account ()));
+	}
+}
+
+TEST (rpc, unopened_burn)
+{
+	nano::system system (24000, 1);
+	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
+	auto genesis (system.nodes[0]->latest (nano::test_genesis_key.pub));
+	ASSERT_FALSE (genesis.is_zero ());
+	auto send (system.wallet (0)->send_action (nano::test_genesis_key.pub, nano::burn_account, 1));
+	ASSERT_NE (nullptr, send);
+	nano::rpc rpc (system.io_ctx, *system.nodes[0], nano::rpc_config (true));
+	rpc.start ();
+	boost::property_tree::ptree request;
+	request.put ("action", "unopened");
+	test_response response (request, rpc, system.io_ctx);
+	system.deadline_set (5s);
+	while (response.status == 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (200, response.status);
+	auto & accounts (response.json.get_child ("accounts"));
+	ASSERT_EQ (0, accounts.size ());
+}
+
+TEST (rpc, unopened_no_accounts)
+{
+	nano::system system (24000, 1);
+	nano::rpc rpc (system.io_ctx, *system.nodes[0], nano::rpc_config (true));
+	rpc.start ();
+	boost::property_tree::ptree request;
+	request.put ("action", "unopened");
+	test_response response (request, rpc, system.io_ctx);
+	system.deadline_set (5s);
+	while (response.status == 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (200, response.status);
+	auto & accounts (response.json.get_child ("accounts"));
+	ASSERT_EQ (0, accounts.size ());
 }
 
 TEST (rpc, uptime)

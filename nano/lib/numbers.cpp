@@ -270,7 +270,7 @@ void nano::uint256_union::encode_dec (std::string & text) const
 
 bool nano::uint256_union::decode_dec (std::string const & text)
 {
-	auto error (text.size () > 78 || (text.size () > 1 && text[0] == '0') || (text.size () > 0 && text[0] == '-'));
+	auto error (text.size () > 78 || (text.size () > 1 && text.front () == '0') || (!text.empty () && text.front () == '-'));
 	if (!error)
 	{
 		std::stringstream stream (text);
@@ -540,7 +540,7 @@ void nano::uint128_union::encode_dec (std::string & text) const
 
 bool nano::uint128_union::decode_dec (std::string const & text)
 {
-	auto error (text.size () > 39 || (text.size () > 1 && text[0] == '0') || (text.size () > 0 && text[0] == '-'));
+	auto error (text.size () > 39 || (text.size () > 1 && text.front () == '0') || (!text.empty () && text.front () == '-'));
 	if (!error)
 	{
 		std::stringstream stream (text);

@@ -3123,7 +3123,7 @@ nano::tally_t nano::election::tally (nano::transaction const & transaction_a)
 void nano::election::confirm_if_quorum (nano::transaction const & transaction_a)
 {
 	auto tally_l (tally (transaction_a));
-	assert (tally_l.size () > 0);
+	assert (!tally_l.empty ());
 	auto winner (tally_l.begin ());
 	auto block_l (winner->second);
 	status.tally = winner->first;
