@@ -150,17 +150,6 @@ void nano::serialize_block (nano::stream & stream_a, nano::block const & block_a
 	block_a.serialize (stream_a);
 }
 
-nano::account_info::account_info () :
-head (0),
-rep_block (0),
-open_block (0),
-balance (0),
-modified (0),
-block_count (0),
-epoch (nano::epoch::epoch_0)
-{
-}
-
 nano::account_info::account_info (nano::block_hash const & head_a, nano::block_hash const & rep_block_a, nano::block_hash const & open_block_a, nano::amount const & balance_a, uint64_t modified_a, uint64_t block_count_a, nano::epoch epoch_a) :
 head (head_a),
 rep_block (rep_block_a),
@@ -170,16 +159,6 @@ modified (modified_a),
 block_count (block_count_a),
 epoch (epoch_a)
 {
-}
-
-void nano::account_info::serialize (nano::stream & stream_a) const
-{
-	write (stream_a, head.bytes);
-	write (stream_a, rep_block.bytes);
-	write (stream_a, open_block.bytes);
-	write (stream_a, balance.bytes);
-	write (stream_a, modified);
-	write (stream_a, block_count);
 }
 
 bool nano::account_info::deserialize (nano::stream & stream_a)
@@ -223,26 +202,9 @@ size_t nano::account_info::db_size () const
 	return sizeof (head) + sizeof (rep_block) + sizeof (open_block) + sizeof (balance) + sizeof (modified) + sizeof (block_count);
 }
 
-nano::block_counts::block_counts () :
-send (0),
-receive (0),
-open (0),
-change (0),
-state_v0 (0),
-state_v1 (0)
-{
-}
-
-size_t nano::block_counts::sum ()
+size_t nano::block_counts::sum () const
 {
 	return send + receive + open + change + state_v0 + state_v1;
-}
-
-nano::pending_info::pending_info () :
-source (0),
-amount (0),
-epoch (nano::epoch::epoch_0)
-{
 }
 
 nano::pending_info::pending_info (nano::account const & source_a, nano::amount const & amount_a, nano::epoch epoch_a) :
@@ -250,12 +212,6 @@ source (source_a),
 amount (amount_a),
 epoch (epoch_a)
 {
-}
-
-void nano::pending_info::serialize (nano::stream & stream_a) const
-{
-	nano::write (stream_a, source.bytes);
-	nano::write (stream_a, amount.bytes);
 }
 
 bool nano::pending_info::deserialize (nano::stream & stream_a)
@@ -279,22 +235,10 @@ bool nano::pending_info::operator== (nano::pending_info const & other_a) const
 	return source == other_a.source && amount == other_a.amount && epoch == other_a.epoch;
 }
 
-nano::pending_key::pending_key () :
-account (0),
-hash (0)
-{
-}
-
 nano::pending_key::pending_key (nano::account const & account_a, nano::block_hash const & hash_a) :
 account (account_a),
 hash (hash_a)
 {
-}
-
-void nano::pending_key::serialize (nano::stream & stream_a) const
-{
-	nano::write (stream_a, account.bytes);
-	nano::write (stream_a, hash.bytes);
 }
 
 bool nano::pending_key::deserialize (nano::stream & stream_a)
@@ -321,14 +265,6 @@ bool nano::pending_key::operator== (nano::pending_key const & other_a) const
 nano::block_hash nano::pending_key::key () const
 {
 	return account;
-}
-
-nano::unchecked_info::unchecked_info () :
-block (nullptr),
-account (0),
-modified (0),
-verified (nano::signature_verification::unknown)
-{
 }
 
 nano::unchecked_info::unchecked_info (std::shared_ptr<nano::block> block_a, nano::account const & account_a, uint64_t modified_a, nano::signature_verification verified_a) :
@@ -368,11 +304,6 @@ bool nano::unchecked_info::deserialize (nano::stream & stream_a)
 	return error;
 }
 
-bool nano::unchecked_info::operator== (nano::unchecked_info const & other_a) const
-{
-	return block->hash () == other_a.block->hash () && account == other_a.account && modified == other_a.modified && verified == other_a.verified;
-}
-
 nano::endpoint_key::endpoint_key (const std::array<uint8_t, 16> & address_a, uint16_t port_a) :
 address (address_a), network_port (boost::endian::native_to_big (port_a))
 {
@@ -388,43 +319,10 @@ uint16_t nano::endpoint_key::port () const
 	return boost::endian::big_to_native (network_port);
 }
 
-nano::block_info::block_info () :
-account (0),
-balance (0)
-{
-}
-
 nano::block_info::block_info (nano::account const & account_a, nano::amount const & balance_a) :
 account (account_a),
 balance (balance_a)
 {
-}
-
-void nano::block_info::serialize (nano::stream & stream_a) const
-{
-	nano::write (stream_a, account.bytes);
-	nano::write (stream_a, balance.bytes);
-}
-
-bool nano::block_info::deserialize (nano::stream & stream_a)
-{
-	auto error (false);
-	try
-	{
-		nano::read (stream_a, account.bytes);
-		nano::read (stream_a, balance.bytes);
-	}
-	catch (std::runtime_error const &)
-	{
-		error = true;
-	}
-
-	return error;
-}
-
-bool nano::block_info::operator== (nano::block_info const & other_a) const
-{
-	return account == other_a.account && balance == other_a.balance;
 }
 
 bool nano::vote::operator== (nano::vote const & other_a) const
@@ -551,16 +449,14 @@ signature (nano::sign_message (prv_a, account_a, hash ()))
 {
 }
 
-nano::vote::vote (nano::account const & account_a, nano::raw_key const & prv_a, uint64_t sequence_a, std::vector<nano::block_hash> blocks_a) :
+nano::vote::vote (nano::account const & account_a, nano::raw_key const & prv_a, uint64_t sequence_a, std::vector<nano::block_hash> const & blocks_a) :
 sequence (sequence_a),
 account (account_a)
 {
-	assert (blocks_a.size () > 0);
+	assert (!blocks_a.empty ());
 	assert (blocks_a.size () <= 12);
-	for (auto hash : blocks_a)
-	{
-		blocks.push_back (hash);
-	}
+	blocks.reserve (blocks_a.size ());
+	std::copy (blocks_a.cbegin (), blocks_a.cend (), std::back_inserter (blocks));
 	signature = nano::sign_message (prv_a, account_a, hash ());
 }
 
@@ -582,7 +478,7 @@ nano::uint256_union nano::vote::hash () const
 	nano::uint256_union result;
 	blake2b_state hash;
 	blake2b_init (&hash, sizeof (result.bytes));
-	if (blocks.size () > 1 || (blocks.size () > 0 && blocks[0].which ()))
+	if (blocks.size () > 1 || (!blocks.empty () && blocks.front ().which ()))
 	{
 		blake2b_update (&hash, hash_prefix.data (), hash_prefix.size ());
 	}
@@ -613,12 +509,12 @@ nano::uint256_union nano::vote::full_hash () const
 	return result;
 }
 
-void nano::vote::serialize (nano::stream & stream_a, nano::block_type type)
+void nano::vote::serialize (nano::stream & stream_a, nano::block_type type) const
 {
 	write (stream_a, account);
 	write (stream_a, signature);
 	write (stream_a, sequence);
-	for (auto block : blocks)
+	for (auto const & block : blocks)
 	{
 		if (block.which ())
 		{
@@ -639,12 +535,12 @@ void nano::vote::serialize (nano::stream & stream_a, nano::block_type type)
 	}
 }
 
-void nano::vote::serialize (nano::stream & stream_a)
+void nano::vote::serialize (nano::stream & stream_a) const
 {
 	write (stream_a, account);
 	write (stream_a, signature);
 	write (stream_a, sequence);
-	for (auto block : blocks)
+	for (auto const & block : blocks)
 	{
 		if (block.which ())
 		{
@@ -708,10 +604,9 @@ bool nano::vote::deserialize (nano::stream & stream_a, nano::block_uniquer * uni
 	return error;
 }
 
-bool nano::vote::validate ()
+bool nano::vote::validate () const
 {
-	auto result (nano::validate_message (account, hash (), signature));
-	return result;
+	return nano::validate_message (account, hash (), signature);
 }
 
 nano::block_hash nano::iterate_vote_blocks_as_hash::operator() (boost::variant<std::shared_ptr<nano::block>, nano::block_hash> const & item) const
@@ -748,9 +643,9 @@ std::shared_ptr<nano::vote> nano::vote_uniquer::unique (std::shared_ptr<nano::vo
 	auto result (vote_a);
 	if (result != nullptr && !result->blocks.empty ())
 	{
-		if (!result->blocks[0].which ())
+		if (!result->blocks.front ().which ())
 		{
-			result->blocks[0] = uniquer.unique (boost::get<std::shared_ptr<nano::block>> (result->blocks[0]));
+			result->blocks.front () = uniquer.unique (boost::get<std::shared_ptr<nano::block>> (result->blocks.front ()));
 		}
 		nano::uint256_union key (vote_a->full_hash ());
 		std::lock_guard<std::mutex> lock (mutex);
@@ -765,7 +660,7 @@ std::shared_ptr<nano::vote> nano::vote_uniquer::unique (std::shared_ptr<nano::vo
 		}
 
 		release_assert (std::numeric_limits<CryptoPP::word32>::max () > votes.size ());
-		for (auto i (0); i < cleanup_count && votes.size () > 0; ++i)
+		for (auto i (0); i < cleanup_count && !votes.empty (); ++i)
 		{
 			auto random_offset = nano::random_pool::generate_word32 (0, static_cast<CryptoPP::word32> (votes.size () - 1));
 
