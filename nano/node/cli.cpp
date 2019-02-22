@@ -1,6 +1,7 @@
 #include <nano/lib/interface.h>
 #include <nano/node/cli.hpp>
 #include <nano/node/common.hpp>
+#include <nano/node/daemonconfig.hpp>
 #include <nano/node/node.hpp>
 
 std::string nano::error_cli_messages::message (int ev) const
@@ -307,6 +308,17 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	else if (vm.count ("diagnostics"))
 	{
 		inactive_node node (data_path);
+
+		// Check/upgrade the config.json file.
+		{
+			nano::daemon_config config;
+			auto error = nano::read_and_update_daemon_config (data_path, config);
+			if (error)
+			{
+				std::cerr << "Error deserializing config: " << error.get_message () << std::endl;
+			}
+		}
+
 		std::cout << "Testing hash function" << std::endl;
 		nano::raw_key key;
 		key.data.clear ();

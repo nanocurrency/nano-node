@@ -873,7 +873,7 @@ nano::raw_key nano::mdb_store::get_node_id (nano::transaction const & transactio
 	}
 	if (error)
 	{
-		nano::random_pool.GenerateBlock (node_id.data.bytes.data (), node_id.data.bytes.size ());
+		nano::random_pool::generate_block (node_id.data.bytes.data (), node_id.data.bytes.size ());
 		error = mdb_put (env.tx (transaction_a), meta, nano::mdb_val (node_id_mdb_key), nano::mdb_val (node_id.data), 0);
 	}
 	assert (!error);
@@ -889,8 +889,8 @@ void nano::mdb_store::delete_node_id (nano::transaction const & transaction_a)
 
 void nano::mdb_store::peer_put (nano::transaction const & transaction_a, nano::endpoint_key const & endpoint_a)
 {
-	nano::mdb_val junk;
-	auto status (mdb_put (env.tx (transaction_a), peers, nano::mdb_val (endpoint_a), junk, 0));
+	nano::mdb_val zero (0);
+	auto status (mdb_put (env.tx (transaction_a), peers, nano::mdb_val (endpoint_a), zero, 0));
 	release_assert (status == 0);
 }
 
@@ -1172,6 +1172,7 @@ void nano::mdb_store::upgrade_v12_to_v13 (nano::transaction const & transaction_
 {
 	size_t cost (0);
 	nano::account account (0);
+	auto const & not_an_account (nano::not_an_account ());
 	while (account != nano::not_an_account)
 	{
 		nano::account first (0);
@@ -1222,10 +1223,10 @@ void nano::mdb_store::upgrade_v12_to_v13 (nano::transaction const & transaction_
 		}
 		else
 		{
-			account = nano::not_an_account;
+			account = not_an_account;
 		}
 	}
-	if (account == nano::not_an_account)
+	if (account == not_an_account)
 	{
 		BOOST_LOG (logging.log) << boost::str (boost::format ("Completed sideband upgrade"));
 		version_put (transaction_a, 13);
@@ -1449,7 +1450,7 @@ template <typename T>
 std::shared_ptr<nano::block> nano::mdb_store::block_random (nano::transaction const & transaction_a, MDB_dbi database)
 {
 	nano::block_hash hash;
-	nano::random_pool.GenerateBlock (hash.bytes.data (), hash.bytes.size ());
+	nano::random_pool::generate_block (hash.bytes.data (), hash.bytes.size ());
 	nano::store_iterator<nano::block_hash, std::shared_ptr<T>> existing (std::make_unique<nano::mdb_iterator<nano::block_hash, std::shared_ptr<T>>> (transaction_a, database, nano::mdb_val (hash)));
 	if (existing == nano::store_iterator<nano::block_hash, std::shared_ptr<T>> (nullptr))
 	{
@@ -1464,7 +1465,7 @@ std::shared_ptr<nano::block> nano::mdb_store::block_random (nano::transaction co
 {
 	auto count (block_count (transaction_a));
 	release_assert (std::numeric_limits<CryptoPP::word32>::max () > count.sum ());
-	auto region = static_cast<size_t> (nano::random_pool.GenerateWord32 (0, static_cast<CryptoPP::word32> (count.sum () - 1)));
+	auto region = static_cast<size_t> (nano::random_pool::generate_word32 (0, static_cast<CryptoPP::word32> (count.sum () - 1)));
 	std::shared_ptr<nano::block> result;
 	if (region < count.send)
 	{

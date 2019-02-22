@@ -319,10 +319,8 @@ extern std::string const & genesis_block;
 extern nano::account const & genesis_account;
 extern nano::account const & burn_account;
 extern nano::uint128_t const & genesis_amount;
-// A block hash that compares inequal to any real block hash
-extern nano::block_hash const & not_a_block;
 // An account number that compares inequal to any real account number
-extern nano::block_hash const & not_an_account;
+extern nano::account const & not_an_account ();
 class genesis
 {
 public:

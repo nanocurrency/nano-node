@@ -72,8 +72,8 @@ void nano::block_processor::add (nano::unchecked_info const & info_a)
 				}
 				blocks_hashes.insert (hash);
 			}
-			condition.notify_all ();
 		}
+		condition.notify_all ();
 	}
 	else
 	{
@@ -106,10 +106,7 @@ void nano::block_processor::process_blocks ()
 		}
 		else
 		{
-			lock.unlock ();
 			condition.notify_all ();
-			lock.lock ();
-
 			condition.wait (lock);
 		}
 	}

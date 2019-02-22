@@ -280,6 +280,7 @@ public:
 	bool deserialize (nano::stream &);
 	bool operator== (nano::keepalive const &) const;
 	std::array<nano::endpoint, 8> peers;
+	static size_t constexpr size = 8 * (16 + 2);
 };
 class publish : public message
 {
@@ -313,7 +314,6 @@ public:
 	confirm_ack (bool &, nano::stream &, nano::message_header const &, nano::vote_uniquer * = nullptr);
 	confirm_ack (std::shared_ptr<nano::vote>);
 	void serialize (nano::stream &) const override;
-	bool deserialize (nano::stream &, nano::vote_uniquer * = nullptr);
 	void visit (nano::message_visitor &) const override;
 	bool operator== (nano::confirm_ack const &) const;
 	std::shared_ptr<nano::vote> vote;

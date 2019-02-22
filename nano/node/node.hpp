@@ -64,8 +64,8 @@ public:
 class election : public std::enable_shared_from_this<nano::election>
 {
 	std::function<void(std::shared_ptr<nano::block>)> confirmation_action;
-	void confirm_once (nano::transaction const &, uint8_t &);
-	void confirm_back (nano::transaction const &, uint8_t &);
+	void confirm_once (nano::transaction const &, bool = false);
+	void confirm_back (nano::transaction const &);
 
 public:
 	election (nano::node &, std::shared_ptr<nano::block>, std::function<void(std::shared_ptr<nano::block>)> const &);
@@ -79,6 +79,7 @@ public:
 	void confirm_if_quorum (nano::transaction const &);
 	void log_votes (nano::tally_t const &);
 	bool publish (std::shared_ptr<nano::block> block_a);
+	size_t last_votes_size ();
 	void stop ();
 	nano::node & node;
 	std::unordered_map<nano::account, nano::vote_info> last_votes;
@@ -117,6 +118,8 @@ public:
 	void update_difficulty (nano::block const &);
 	std::deque<std::shared_ptr<nano::block>> list_blocks (bool = false);
 	void erase (nano::block const &);
+	bool empty ();
+	size_t size ();
 	void stop ();
 	bool publish (std::shared_ptr<nano::block> block_a);
 	boost::multi_index_container<
@@ -129,6 +132,7 @@ public:
 	std::greater<uint64_t>>>>
 	roots;
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::election>> blocks;
+	std::deque<nano::election_status> list_confirmed ();
 	std::deque<nano::election_status> confirmed;
 	nano::node & node;
 	std::mutex mutex;
@@ -194,6 +198,7 @@ public:
 	void add (nano::transaction const &, nano::block_hash const &, std::chrono::steady_clock::time_point = std::chrono::steady_clock::now ());
 	void vote (std::shared_ptr<nano::vote>);
 	nano::uint128_t bootstrap_threshold (nano::transaction const &);
+	size_t size ();
 	boost::multi_index_container<
 	nano::gap_information,
 	boost::multi_index::indexed_by<
@@ -324,7 +329,7 @@ public:
 	void process_packets ();
 	void start ();
 	void stop ();
-	void receive_action (nano::udp_data *);
+	void receive_action (nano::udp_data *, nano::endpoint const &);
 	void rpc_action (boost::system::error_code const &, size_t);
 	void republish_vote (std::shared_ptr<nano::vote>);
 	void republish_block (std::shared_ptr<nano::block>);

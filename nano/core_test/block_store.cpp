@@ -673,7 +673,7 @@ TEST (block_store, large_iteration)
 	{
 		auto transaction (store.tx_begin (true));
 		nano::account account;
-		nano::random_pool.GenerateBlock (account.bytes.data (), account.bytes.size ());
+		nano::random_pool::generate_block (account.bytes.data (), account.bytes.size ());
 		accounts1.insert (account);
 		store.account_put (transaction, account, nano::account_info ());
 	}

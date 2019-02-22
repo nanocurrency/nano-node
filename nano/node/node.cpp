@@ -136,6 +136,7 @@ void nano::network::receive ()
 
 void nano::network::process_packets ()
 {
+	auto local_endpoint (endpoint ());
 	while (on.load ())
 	{
 		auto data (buffer_container.dequeue ());
@@ -144,7 +145,7 @@ void nano::network::process_packets ()
 			break;
 		}
 		//std::cerr << data->endpoint.address ().to_string ();
-		receive_action (data);
+		receive_action (data, local_endpoint);
 		buffer_container.release (data);
 	}
 }
@@ -152,7 +153,11 @@ void nano::network::process_packets ()
 void nano::network::stop ()
 {
 	on = false;
-	socket.close ();
+	std::unique_lock<std::mutex> lock (socket_mutex);
+	if (socket.is_open ())
+	{
+		socket.close ();
+	}
 	resolver.cancel ();
 	buffer_container.stop ();
 }
@@ -434,7 +439,7 @@ void nano::network::broadcast_confirm_req (std::shared_ptr<nano::block> block_a)
 	 * if the votes for a block have not arrived in time.
 	 */
 	const size_t max_endpoints = 32;
-	random_pool.Shuffle (list->begin (), list->end ());
+	random_pool::shuffle (list->begin (), list->end ());
 	if (list->size () > max_endpoints)
 	{
 		list->erase (list->begin () + max_endpoints, list->end ());
@@ -806,10 +811,14 @@ public:
 };
 }
 
-void nano::network::receive_action (nano::udp_data * data_a)
+void nano::network::receive_action (nano::udp_data * data_a, nano::endpoint const & local_endpoint_a)
 {
 	auto allowed_sender (true);
-	if (data_a->endpoint == endpoint ())
+	if (!on)
+	{
+		allowed_sender = false;
+	}
+	else if (data_a->endpoint == local_endpoint_a)
 	{
 		allowed_sender = false;
 	}
@@ -968,7 +977,11 @@ namespace nano
 std::unique_ptr<seq_con_info_component> collect_seq_con_info (alarm & alarm, const std::string & name)
 {
 	auto composite = std::make_unique<seq_con_info_composite> (name);
-	auto count = alarm.operations.size ();
+	size_t count = 0;
+	{
+		std::lock_guard<std::mutex> guard (alarm.mutex);
+		count = alarm.operations.size ();
+	}
 	auto sizeof_element = sizeof (decltype (alarm.operations)::value_type);
 	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "operations", count, sizeof_element }));
 	return composite;
@@ -1833,16 +1846,17 @@ nano::uint128_t nano::gap_cache::bootstrap_threshold (nano::transaction const & 
 	return result;
 }
 
+size_t nano::gap_cache::size ()
+{
+	std::lock_guard<std::mutex> lock (mutex);
+	return blocks.size ();
+}
+
 namespace nano
 {
 std::unique_ptr<seq_con_info_component> collect_seq_con_info (gap_cache & gap_cache, const std::string & name)
 {
-	size_t count = 0;
-	{
-		std::lock_guard<std::mutex> (gap_cache.mutex);
-		count = gap_cache.blocks.size ();
-	}
-
+	auto count = gap_cache.size ();
 	auto sizeof_element = sizeof (decltype (gap_cache.blocks)::value_type);
 	auto composite = std::make_unique<seq_con_info_composite> (name);
 	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "blocks", count, sizeof_element }));
@@ -2705,6 +2719,7 @@ void nano::node::process_message (nano::message & message_a, nano::endpoint cons
 nano::endpoint nano::network::endpoint ()
 {
 	boost::system::error_code ec;
+	std::unique_lock<std::mutex> lock (socket_mutex);
 	auto port (socket.local_endpoint (ec).port ());
 	if (ec)
 	{
@@ -2965,18 +2980,21 @@ void nano::network::send_buffer (uint8_t const * data_a, size_t size_a, nano::en
 	{
 		BOOST_LOG (node.log) << "Sending packet";
 	}
-	socket.async_send_to (boost::asio::buffer (data_a, size_a), endpoint_a, [this, callback_a](boost::system::error_code const & ec, size_t size_a) {
-		callback_a (ec, size_a);
-		this->node.stats.add (nano::stat::type::traffic, nano::stat::dir::out, size_a);
-		if (ec == boost::system::errc::host_unreachable)
-		{
-			this->node.stats.inc (nano::stat::type::error, nano::stat::detail::unreachable_host, nano::stat::dir::out);
-		}
-		if (this->node.config.logging.network_packet_logging ())
-		{
-			BOOST_LOG (this->node.log) << "Packet send complete";
-		}
-	});
+	if (on.load ())
+	{
+		socket.async_send_to (boost::asio::buffer (data_a, size_a), endpoint_a, [this, callback_a](boost::system::error_code const & ec, size_t size_a) {
+			callback_a (ec, size_a);
+			this->node.stats.add (nano::stat::type::traffic, nano::stat::dir::out, size_a);
+			if (ec == boost::system::errc::host_unreachable)
+			{
+				this->node.stats.inc (nano::stat::type::error, nano::stat::detail::unreachable_host, nano::stat::dir::out);
+			}
+			if (this->node.config.logging.network_packet_logging ())
+			{
+				BOOST_LOG (this->node.log) << "Packet send complete";
+			}
+		});
+	}
 }
 
 std::shared_ptr<nano::node> nano::node::shared ()
@@ -3005,7 +3023,7 @@ confirmed (false),
 stopped (false),
 announcements (0)
 {
-	last_votes.insert (std::make_pair (nano::not_an_account, nano::vote_info{ std::chrono::steady_clock::now (), 0, block_a->hash () }));
+	last_votes.insert (std::make_pair (nano::not_an_account (), nano::vote_info{ std::chrono::steady_clock::now (), 0, block_a->hash () }));
 	blocks.insert (std::make_pair (block_a->hash (), block_a));
 }
 
@@ -3020,9 +3038,8 @@ void nano::election::compute_rep_votes (nano::transaction const & transaction_a)
 	}
 }
 
-void nano::election::confirm_once (nano::transaction const & transaction_a, uint8_t & depth_a)
+void nano::election::confirm_once (nano::transaction const & transaction_a, bool confirmed_back)
 {
-	depth_a++;
 	if (!confirmed.exchange (true))
 	{
 		status.election_end = std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ());
@@ -3034,22 +3051,30 @@ void nano::election::confirm_once (nano::transaction const & transaction_a, uint
 			node_l->process_confirmed (winner_l);
 			confirmation_action_l (winner_l);
 		});
-		confirm_back (transaction_a, depth_a);
+		if (!confirmed_back)
+		{
+			confirm_back (transaction_a);
+		}
 	}
 }
 
-void nano::election::confirm_back (nano::transaction const & transaction_a, uint8_t & depth_a)
+void nano::election::confirm_back (nano::transaction const & transaction_a)
 {
-	std::vector<nano::block_hash> hashes = { status.winner->previous (), status.winner->source (), status.winner->link () };
-	for (auto & hash : hashes)
+	std::deque<nano::block_hash> hashes = { status.winner->previous (), status.winner->source (), status.winner->link () };
+	while (!hashes.empty ())
 	{
-		// Depth is limited to 200
-		if (!hash.is_zero () && !node.ledger.is_epoch_link (hash) && depth_a < 200)
+		auto hash (hashes.front ());
+		hashes.pop_front ();
+		if (!hash.is_zero () && !node.ledger.is_epoch_link (hash))
 		{
 			auto existing (node.active.blocks.find (hash));
 			if (existing != node.active.blocks.end () && !existing->second->confirmed && !existing->second->stopped && existing->second->blocks.size () == 1)
 			{
-				existing->second->confirm_once (transaction_a, depth_a);
+				release_assert (existing->second->status.winner->hash () == hash);
+				existing->second->confirm_once (transaction_a, true); // Avoid recursive actions
+				hashes.push_back (existing->second->status.winner->previous ());
+				hashes.push_back (existing->second->status.winner->source ());
+				hashes.push_back (existing->second->status.winner->link ());
 			}
 		}
 	}
@@ -3119,8 +3144,7 @@ void nano::election::confirm_if_quorum (nano::transaction const & transaction_a)
 		{
 			log_votes (tally_l);
 		}
-		uint8_t depth (0);
-		confirm_once (transaction_a, depth);
+		confirm_once (transaction_a);
 	}
 }
 
@@ -3270,6 +3294,12 @@ bool nano::election::publish (std::shared_ptr<nano::block> block_a)
 	return result;
 }
 
+size_t nano::election::last_votes_size ()
+{
+	std::lock_guard<std::mutex> lock (node.active.mutex);
+	return last_votes.size ();
+}
+
 void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & lock_a)
 {
 	std::unordered_set<nano::uint512_union> inactive;
@@ -3284,13 +3314,12 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 	for (auto i (roots.get<1> ().begin ()), n (roots.get<1> ().end ()); i != n; ++i)
 	{
 		auto root (i->root);
-		lock_a.unlock ();
 		auto election_l (i->election);
-		if ((election_l->confirmed || election_l->stopped) && i->election->announcements >= announcement_min - 1)
+		if ((election_l->confirmed || election_l->stopped) && election_l->announcements >= announcement_min - 1)
 		{
 			if (election_l->confirmed)
 			{
-				confirmed.push_back (i->election->status);
+				confirmed.push_back (election_l->status);
 				if (confirmed.size () > election_history_size)
 				{
 					confirmed.pop_front ();
@@ -3300,12 +3329,12 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 		}
 		else
 		{
-			if (i->election->announcements > announcement_long)
+			if (election_l->announcements > announcement_long)
 			{
 				++unconfirmed_count;
-				unconfirmed_announcements += i->election->announcements;
+				unconfirmed_announcements += election_l->announcements;
 				// Log votes for very long unconfirmed elections
-				if (i->election->announcements % 50 == 1)
+				if (election_l->announcements % 50 == 1)
 				{
 					auto tally_l (election_l->tally (transaction));
 					election_l->log_votes (tally_l);
@@ -3313,7 +3342,7 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 				/* Escalation for long unconfirmed elections
 				Start new elections for previous block & source
 				if there are less than 100 active elections */
-				if (i->election->announcements % announcement_long == 1 && roots_size < 100 && !nano::is_test_network)
+				if (election_l->announcements % announcement_long == 1 && roots_size < 100 && !nano::is_test_network)
 				{
 					std::shared_ptr<nano::block> previous;
 					auto previous_hash (election_l->status.winner->previous ());
@@ -3341,7 +3370,7 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 					}
 				}
 			}
-			if (i->election->announcements < announcement_long || i->election->announcements % announcement_long == 1)
+			if (election_l->announcements < announcement_long || election_l->announcements % announcement_long == 1)
 			{
 				if (node.ledger.could_fit (transaction, *election_l->status.winner))
 				{
@@ -3353,20 +3382,20 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 				}
 				else
 				{
-					if (i->election->announcements != 0)
+					if (election_l->announcements != 0)
 					{
 						election_l->stop ();
 					}
 				}
 			}
-			if (i->election->announcements % 4 == 1)
+			if (election_l->announcements % 4 == 1)
 			{
 				auto reps (std::make_shared<std::vector<nano::peer_information>> (node.peers.representatives (std::numeric_limits<size_t>::max ())));
 				std::unordered_set<nano::account> probable_reps;
 				nano::uint128_t total_weight (0);
 				for (auto j (reps->begin ()), m (reps->end ()); j != m;)
 				{
-					auto & rep_votes (i->election->last_votes);
+					auto & rep_votes (election_l->last_votes);
 					auto rep_acct (j->probable_rep_account);
 					// Calculate if representative isn't recorded for several IP addresses
 					if (probable_reps.find (rep_acct) == probable_reps.end ())
@@ -3402,7 +3431,7 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 					{
 						if (confirm_req_bundle.size () < max_broadcast_queue)
 						{
-							confirm_req_bundle.push_back (std::make_pair (i->election->status.winner, reps));
+							confirm_req_bundle.push_back (std::make_pair (election_l->status.winner, reps));
 						}
 					}
 					else
@@ -3410,7 +3439,7 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 						for (auto & rep : *reps)
 						{
 							auto rep_request (requests_bundle.find (rep.endpoint));
-							auto block (i->election->status.winner);
+							auto block (election_l->status.winner);
 							auto root_hash (std::make_pair (block->hash (), block->root ()));
 							if (rep_request == requests_bundle.end ())
 							{
@@ -3431,14 +3460,14 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 				{
 					if (!nano::is_test_network)
 					{
-						confirm_req_bundle.push_back (std::make_pair (i->election->status.winner, std::make_shared<std::vector<nano::peer_information>> (node.peers.list_vector (100))));
+						confirm_req_bundle.push_back (std::make_pair (election_l->status.winner, std::make_shared<std::vector<nano::peer_information>> (node.peers.list_vector (100))));
 					}
 					else
 					{
 						for (auto & rep : *reps)
 						{
 							auto rep_request (requests_bundle.find (rep.endpoint));
-							auto block (i->election->status.winner);
+							auto block (election_l->status.winner);
 							auto root_hash (std::make_pair (block->hash (), block->root ()));
 							if (rep_request == requests_bundle.end ())
 							{
@@ -3455,8 +3484,8 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 			}
 		}
 		++election_l->announcements;
-		lock_a.lock ();
 	}
+	lock_a.unlock ();
 	// Rebroadcast unconfirmed blocks
 	if (!rebroadcast_bundle.empty ())
 	{
@@ -3472,6 +3501,7 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 	{
 		node.network.broadcast_confirm_req_batch (confirm_req_bundle);
 	}
+	lock_a.lock ();
 	for (auto i (inactive.begin ()), n (inactive.end ()); i != n; ++i)
 	{
 		auto root_it (roots.find (*i));
@@ -3633,6 +3663,12 @@ std::deque<std::shared_ptr<nano::block>> nano::active_transactions::list_blocks 
 	return result;
 }
 
+std::deque<nano::election_status> nano::active_transactions::list_confirmed ()
+{
+	std::lock_guard<std::mutex> lock (mutex);
+	return confirmed;
+}
+
 void nano::active_transactions::erase (nano::block const & block_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
@@ -3641,6 +3677,18 @@ void nano::active_transactions::erase (nano::block const & block_a)
 		roots.erase (nano::uint512_union (block_a.previous (), block_a.root ()));
 		BOOST_LOG (node.log) << boost::str (boost::format ("Election erased for block block %1% root %2%") % block_a.hash ().to_string () % block_a.root ().to_string ());
 	}
+}
+
+bool nano::active_transactions::empty ()
+{
+	std::lock_guard<std::mutex> lock (mutex);
+	return roots.empty ();
+}
+
+size_t nano::active_transactions::size ()
+{
+	std::lock_guard<std::mutex> lock (mutex);
+	return roots.size ();
 }
 
 nano::active_transactions::active_transactions (nano::node & node_a) :
@@ -3891,12 +3939,13 @@ nano::udp_data * nano::udp_buffer::allocate ()
 		result = free.front ();
 		free.pop_front ();
 	}
-	if (result == nullptr)
+	if (result == nullptr && !full.empty ())
 	{
 		result = full.front ();
 		full.pop_front ();
 		stats.inc (nano::stat::type::udp, nano::stat::detail::overflow, nano::stat::dir::in);
 	}
+	release_assert (result || stopped);
 	return result;
 }
 void nano::udp_buffer::enqueue (nano::udp_data * data_a)

@@ -119,6 +119,10 @@ size_t nano::message_header::payload_length_bytes () const
 		{
 			return nano::bulk_pull_account::size;
 		}
+		case nano::message_type::keepalive:
+		{
+			return nano::keepalive::size;
+		}
 		// Add realtime network messages once they get framing support; currently the
 		// realtime messages all fit in a datagram from which they're deserialized.
 		default:
@@ -612,7 +616,7 @@ nano::confirm_ack::confirm_ack (bool & error_a, nano::stream & stream_a, nano::m
 message (header_a),
 vote (std::make_shared<nano::vote> (error_a, stream_a, header.block_type ()))
 {
-	if (uniquer_a)
+	if (!error_a && uniquer_a)
 	{
 		vote = uniquer_a->unique (vote);
 	}
@@ -622,6 +626,7 @@ nano::confirm_ack::confirm_ack (std::shared_ptr<nano::vote> vote_a) :
 message (nano::message_type::confirm_ack),
 vote (vote_a)
 {
+	assert (!vote_a->blocks.empty ());
 	auto & first_vote_block (vote_a->blocks[0]);
 	if (first_vote_block.which ())
 	{
@@ -638,17 +643,6 @@ void nano::confirm_ack::serialize (nano::stream & stream_a) const
 	assert (header.block_type () == nano::block_type::not_a_block || header.block_type () == nano::block_type::send || header.block_type () == nano::block_type::receive || header.block_type () == nano::block_type::open || header.block_type () == nano::block_type::change || header.block_type () == nano::block_type::state);
 	header.serialize (stream_a);
 	vote->serialize (stream_a, header.block_type ());
-}
-
-bool nano::confirm_ack::deserialize (nano::stream & stream_a, nano::vote_uniquer * uniquer_a)
-{
-	assert (header.type == nano::message_type::confirm_ack);
-	auto result (vote->deserialize (stream_a));
-	if (uniquer_a)
-	{
-		vote = uniquer_a->unique (vote);
-	}
-	return result;
 }
 
 bool nano::confirm_ack::operator== (nano::confirm_ack const & other_a) const

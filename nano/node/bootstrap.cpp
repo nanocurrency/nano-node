@@ -1058,7 +1058,7 @@ void nano::bootstrap_attempt::run ()
 	{
 		for (auto i = static_cast<CryptoPP::word32> (pulls.size () - 1); i > 0; --i)
 		{
-			auto k = nano::random_pool.GenerateWord32 (0, i);
+			auto k = nano::random_pool::generate_word32 (0, i);
 			std::swap (pulls[i], pulls[k]);
 		}
 	}
@@ -1400,14 +1400,15 @@ void nano::bootstrap_attempt::lazy_add (nano::block_hash const & hash_a)
 
 void nano::bootstrap_attempt::lazy_pull_flush ()
 {
-	std::unique_lock<std::mutex> lock (lazy_mutex);
+	assert (!mutex.try_lock ());
+	std::unique_lock<std::mutex> lazy_lock (lazy_mutex);
 	auto transaction (node->store.tx_begin_read ());
 	for (auto & pull_start : lazy_pulls)
 	{
 		// Recheck if block was already processed
 		if (lazy_blocks.find (pull_start) == lazy_blocks.end () && !node->store.block_exists (transaction, pull_start))
 		{
-			add_pull (nano::pull_info (pull_start, pull_start, nano::block_hash (0), lazy_max_pull_blocks));
+			pulls.push_back (nano::pull_info (pull_start, pull_start, nano::block_hash (0), lazy_max_pull_blocks));
 		}
 	}
 	lazy_pulls.clear ();
@@ -1480,17 +1481,15 @@ void nano::bootstrap_attempt::lazy_run ()
 			// Flushing lazy pulls
 			if (iterations % 100 == 0)
 			{
-				lock.unlock ();
 				lazy_pull_flush ();
-				lock.lock ();
 			}
 		}
 		// Flushing may resolve forks which can add more pulls
 		// Flushing lazy pulls
 		lock.unlock ();
 		node->block_processor.flush ();
-		lazy_pull_flush ();
 		lock.lock ();
+		lazy_pull_flush ();
 	}
 	if (!stopped)
 	{
@@ -2063,7 +2062,7 @@ receive_buffer (std::make_shared<std::vector<uint8_t>> ()),
 socket (socket_a),
 node (node_a)
 {
-	receive_buffer->resize (128);
+	receive_buffer->resize (512);
 }
 
 void nano::bootstrap_server::receive ()
@@ -2118,6 +2117,14 @@ void nano::bootstrap_server::receive_header_action (boost::system::error_code co
 				{
 					node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::bulk_push, nano::stat::dir::in);
 					add_request (std::unique_ptr<nano::message> (new nano::bulk_push (header)));
+					break;
+				}
+				case nano::message_type::keepalive:
+				{
+					auto this_l (shared_from_this ());
+					socket->async_read (receive_buffer, header.payload_length_bytes (), [this_l, header](boost::system::error_code const & ec, size_t size_a) {
+						this_l->receive_keepalive_action (ec, size_a, header);
+					});
 					break;
 				}
 				default:
@@ -2179,6 +2186,28 @@ void nano::bootstrap_server::receive_bulk_pull_account_action (boost::system::er
 	}
 }
 
+void nano::bootstrap_server::receive_keepalive_action (boost::system::error_code const & ec, size_t size_a, nano::message_header const & header_a)
+{
+	if (!ec)
+	{
+		auto error (false);
+		nano::bufferstream stream (receive_buffer->data (), header_a.payload_length_bytes ());
+		std::unique_ptr<nano::keepalive> request (new nano::keepalive (error, stream, header_a));
+		if (!error)
+		{
+			add_request (std::unique_ptr<nano::message> (request.release ()));
+			receive ();
+		}
+	}
+	else
+	{
+		if (node->config.logging.network_keepalive_logging ())
+		{
+			BOOST_LOG (node->log) << boost::str (boost::format ("Error receiving keepalive from: %1%") % ec.message ());
+		}
+	}
+}
+
 void nano::bootstrap_server::receive_frontier_req_action (boost::system::error_code const & ec, size_t size_a, nano::message_header const & header_a)
 {
 	if (!ec)
@@ -2236,9 +2265,35 @@ public:
 	{
 	}
 	virtual ~request_response_visitor () = default;
-	void keepalive (nano::keepalive const &) override
+	void keepalive (nano::keepalive const & message_a) override
 	{
-		assert (false);
+		if (connection->node->config.logging.network_keepalive_logging ())
+		{
+			BOOST_LOG (connection->node->log) << boost::str (boost::format ("Received keepalive message from %1%") % connection->socket->remote_endpoint ());
+		}
+		connection->node->stats.inc (nano::stat::type::message, nano::stat::detail::keepalive, nano::stat::dir::in);
+		connection->node->network.merge_peers (message_a.peers);
+		nano::keepalive message;
+		connection->node->peers.random_fill (message.peers);
+		auto bytes = message.to_bytes ();
+		if (connection->node->config.logging.network_keepalive_logging ())
+		{
+			BOOST_LOG (connection->node->log) << boost::str (boost::format ("Keepalive req sent to %1%") % connection->socket->remote_endpoint ());
+		}
+		connection->socket->async_write (bytes, [connection = connection](boost::system::error_code const & ec, size_t size_a) {
+			if (ec)
+			{
+				if (connection->node->config.logging.network_keepalive_logging ())
+				{
+					BOOST_LOG (connection->node->log) << boost::str (boost::format ("Error sending keepalive to %1%: %2%") % connection->socket->remote_endpoint () % ec.message ());
+				}
+			}
+			else
+			{
+				connection->node->stats.inc (nano::stat::type::message, nano::stat::detail::keepalive, nano::stat::dir::out);
+				connection->finish_request ();
+			}
+		});
 	}
 	void publish (nano::publish const &) override
 	{
@@ -2965,7 +3020,10 @@ void nano::bulk_push_server::received_block (boost::system::error_code const & e
 		auto block (nano::deserialize_block (stream, type_a));
 		if (block != nullptr && !nano::work_validate (*block))
 		{
-			connection->node->process_active (std::move (block));
+			if (!connection->node->block_processor.full ())
+			{
+				connection->node->process_active (std::move (block));
+			}
 			receive ();
 		}
 		else

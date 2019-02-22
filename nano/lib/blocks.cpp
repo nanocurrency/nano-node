@@ -1590,7 +1590,7 @@ std::shared_ptr<nano::block> nano::block_uniquer::unique (std::shared_ptr<nano::
 		release_assert (std::numeric_limits<CryptoPP::word32>::max () > blocks.size ());
 		for (auto i (0); i < cleanup_count && blocks.size () > 0; ++i)
 		{
-			auto random_offset (nano::random_pool.GenerateWord32 (0, static_cast<CryptoPP::word32> (blocks.size () - 1)));
+			auto random_offset (nano::random_pool::generate_word32 (0, static_cast<CryptoPP::word32> (blocks.size () - 1)));
 			auto existing (std::next (blocks.begin (), random_offset));
 			if (existing == blocks.end ())
 			{
