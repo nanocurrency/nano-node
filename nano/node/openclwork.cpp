@@ -47,7 +47,7 @@ typedef struct __blake2b_state
 	uchar  last_node;
 } blake2b_state;
 
-__constant static ulong blake2b_IV[8] =
+__constant static const ulong blake2b_IV[8] =
 {
 	0x6a09e667f3bcc908UL, 0xbb67ae8584caa73bUL,
 	0x3c6ef372fe94f82bUL, 0xa54ff53a5f1d36f1UL,
@@ -55,7 +55,7 @@ __constant static ulong blake2b_IV[8] =
 	0x1f83d9abfb41bd6bUL, 0x5be0cd19137e2179UL
 };
 
-__constant static uchar blake2b_sigma[12][16] =
+__constant static const uchar blake2b_sigma[12][16] =
 {
   {  0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15 } ,
   { 14, 10,  4,  8,  9, 15, 13,  6,  1, 12,  0,  2, 11,  7,  5,  3 } ,
@@ -94,23 +94,9 @@ static inline int blake2b_increment_counter( blake2b_state *S, const ulong inc )
   return 0;
 }
 
-static inline uint load32( const void *src )
-{
-#if defined(NATIVE_LITTLE_ENDIAN)
-  return *( uint * )( src );
-#else
-  const uchar *p = ( uchar * )src;
-  uint w = *p++;
-  w |= ( uint )( *p++ ) <<  8;
-  w |= ( uint )( *p++ ) << 16;
-  w |= ( uint )( *p++ ) << 24;
-  return w;
-#endif
-}
-
 static inline ulong load64( const void *src )
 {
-#if defined(NATIVE_LITTLE_ENDIAN)
+#if defined(__ENDIAN_LITTLE__)
   return *( ulong * )( src );
 #else
   const uchar *p = ( uchar * )src;
@@ -359,7 +345,7 @@ static void ucharcpyglb (uchar * dst, __global uchar const * src, size_t count)
 	}
 }
 	
-__kernel void nano_work (__global ulong * attempt, __global ulong * result_a, __global uchar * item_a)
+__kernel void nano_work (__global ulong const * attempt, __global ulong * result_a, __global uchar const * item_a)
 {
 	int const thread = get_global_id (0);
 	uchar item_l [32];
