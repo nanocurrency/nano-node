@@ -393,7 +393,7 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 nano::account nano::node_config::random_representative ()
 {
 	assert (!preconfigured_representatives.empty ());
-	size_t index (nano::random_pool.GenerateWord32 (0, static_cast<CryptoPP::word32> (preconfigured_representatives.size () - 1)));
+	size_t index (nano::random_pool::generate_word32 (0, static_cast<CryptoPP::word32> (preconfigured_representatives.size () - 1)));
 	auto result (preconfigured_representatives[index]);
 	return result;
 }

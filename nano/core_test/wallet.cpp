@@ -827,7 +827,7 @@ TEST (wallet, version_3_upgrade)
 	nano::keypair key;
 	nano::raw_key seed;
 	nano::uint256_union seed_ciphertext;
-	nano::random_pool.GenerateBlock (seed.data.bytes.data (), seed.data.bytes.size ());
+	nano::random_pool::generate_block (seed.data.bytes.data (), seed.data.bytes.size ());
 	nano::raw_key password_l;
 	nano::wallet_value value (wallet->store.entry_get_raw (transaction, nano::wallet_store::wallet_key_special));
 	nano::raw_key kdf;
