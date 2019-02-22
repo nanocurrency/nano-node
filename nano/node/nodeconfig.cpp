@@ -35,7 +35,7 @@ bootstrap_connections (4),
 bootstrap_connections_max (64),
 callback_port (0),
 lmdb_max_dbs (128),
-allow_local_peers (false),
+allow_local_peers (!nano::is_live_network), // disable by default for live network
 block_processor_batch_max_time (std::chrono::milliseconds (5000)),
 unchecked_cutoff_time (std::chrono::seconds (4 * 60 * 60)) // 4 hours
 {

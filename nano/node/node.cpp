@@ -2933,7 +2933,7 @@ bool nano::reserved_address (nano::endpoint const & endpoint_a, bool allow_local
 	{
 		result = true;
 	}
-	else if (nano::is_live_network && !allow_local_peers)
+	else if (!allow_local_peers)
 	{
 		if (bytes >= rfc1918_1_min && bytes <= rfc1918_1_max)
 		{
