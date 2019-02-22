@@ -959,9 +959,7 @@ void nano::mdb_store::do_upgrades (nano::transaction const & transaction_a, size
 		case 10:
 			upgrade_v10_to_v11 (transaction_a);
 		case 11:
-			// Signal the start of sideband upgrade
 			upgrade_v11_to_v12 (transaction_a);
-			// [[fallthrough]];
 		case 12:
 			upgrade_v12_to_v13 (transaction_a, batch_size);
 		case 13:
@@ -1241,11 +1239,17 @@ void nano::mdb_store::upgrade_v13_to_v14 (nano::transaction const & transaction_
 	nano::store_iterator<nano::account, nano::account_info_v13> n (nullptr);
 	constexpr uint64_t zeroed_confirmation_height (0);
 
+	std::vector<std::pair<nano::account, nano::account_info>> account_infos;
+	account_infos.reserve (account_count (transaction_a));
 	for (; i != n; ++i)
 	{
 		nano::account_info_v13 account_info_v13 (i->second);
-		nano::account_info account_info (account_info_v13.head, account_info_v13.rep_block, account_info_v13.open_block, account_info_v13.balance, account_info_v13.modified, account_info_v13.block_count, zeroed_confirmation_height, account_info_v13.epoch);
-		account_put (transaction_a, i->first, account_info);
+		account_infos.emplace_back (i->first, nano::account_info{ account_info_v13.head, account_info_v13.rep_block, account_info_v13.open_block, account_info_v13.balance, account_info_v13.modified, account_info_v13.block_count, zeroed_confirmation_height, account_info_v13.epoch });
+	}
+
+	for (auto const & account_info : account_infos)
+	{
+		account_put (transaction_a, account_info.first, account_info.second);
 	}
 
 	BOOST_LOG (logging.log) << boost::str (boost::format ("Completed confirmation height upgrade"));
