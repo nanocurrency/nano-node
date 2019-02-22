@@ -166,6 +166,7 @@ public:
 	void unchecked_clear ();
 	void unchecked_get ();
 	void unchecked_keys ();
+	void unopened ();
 	void uptime ();
 	void validate_account_number ();
 	void version ();
