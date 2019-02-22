@@ -52,7 +52,6 @@ public:
 	nano::amount balance;
 	uint64_t modified;
 };
-// Latest information about an account
 class account_info_v13
 {
 public:

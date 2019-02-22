@@ -1173,7 +1173,7 @@ void nano::mdb_store::upgrade_v12_to_v13 (nano::transaction const & transaction_
 	size_t cost (0);
 	nano::account account (0);
 	auto const & not_an_account (nano::not_an_account ());
-	while (account != nano::not_an_account)
+	while (account != not_an_account)
 	{
 		nano::account first (0);
 		nano::account_info_v13 second;
