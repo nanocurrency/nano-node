@@ -57,7 +57,7 @@ nano::mdb_env::operator MDB_env * () const
 	return environment;
 }
 
-nano::transaction nano::mdb_env::tx_begin (bool write_a)
+nano::transaction nano::mdb_env::tx_begin (bool write_a) const
 {
 	return { std::make_unique<nano::mdb_txn> (*this, write_a) };
 }

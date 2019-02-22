@@ -222,10 +222,10 @@ epoch (epoch_a)
 {
 }
 
-void nano::pending_info::serialize (nano::stream & stream_a) const	
-{	
-	nano::write (stream_a, source.bytes);	
-	nano::write (stream_a, amount.bytes);	
+void nano::pending_info::serialize (nano::stream & stream_a) const
+{
+	nano::write (stream_a, source.bytes);
+	nano::write (stream_a, amount.bytes);
 }
 
 bool nano::pending_info::deserialize (nano::stream & stream_a)
@@ -261,10 +261,10 @@ hash (hash_a)
 {
 }
 
-void nano::pending_key::serialize (nano::stream & stream_a) const	
-{	
-	nano::write (stream_a, account.bytes);	
-	nano::write (stream_a, hash.bytes);	
+void nano::pending_key::serialize (nano::stream & stream_a) const
+{
+	nano::write (stream_a, account.bytes);
+	nano::write (stream_a, hash.bytes);
 }
 
 bool nano::pending_key::deserialize (nano::stream & stream_a)

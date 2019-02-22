@@ -4564,6 +4564,7 @@ TEST (rpc, block_confirmed)
 	nano::keypair key;
 	system.wallet (0)->insert_adhoc (key.prv);
 
+	// Open an account directly in the ledger
 	{
 		auto transaction = node->store.tx_begin_write ();
 		nano::block_hash latest (node->latest (nano::test_genesis_key.pub));
@@ -4604,6 +4605,7 @@ TEST (rpc, block_confirmed)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 
+	// Requesting confirmation for this should now succeed
 	request.put ("hash", send->hash ().to_string ());
 	test_response response3 (request, rpc, system.io_ctx);
 	while (response3.status == 0)

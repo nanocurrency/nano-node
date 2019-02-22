@@ -36,7 +36,7 @@ public:
 	mdb_env (bool &, boost::filesystem::path const &, int max_dbs = 128, size_t map_size = 128ULL * 1024 * 1024 * 1024);
 	~mdb_env ();
 	operator MDB_env * () const;
-	nano::transaction tx_begin (bool = false);
+	nano::transaction tx_begin (bool = false) const;
 	MDB_txn * tx (nano::transaction const &) const;
 	MDB_env * environment;
 };

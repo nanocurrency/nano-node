@@ -1578,7 +1578,7 @@ TEST (block_store, upgrade_v13_v14)
 	ASSERT_LT (13, store.version_get (transaction));
 }
 
-// Test various confirmaiton height values
+// Test various confirmation height values
 TEST (block_store, confirmation_height)
 {
 	auto path (nano::unique_path ());
@@ -1655,6 +1655,7 @@ TEST (block_store, upgrade_confirmation_height_many)
 
 namespace
 {
+// These functions take the latest account_info and create a legacy one so that upgrade tests can be emulated more easily.
 void modify_account_info_to_v13 (nano::mdb_store & store, nano::transaction const & transaction_a, nano::account const & account)
 {
 	nano::account_info info;

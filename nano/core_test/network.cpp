@@ -1403,7 +1403,7 @@ TEST (confirmation_height, single)
 	system.wallet (1)->insert_adhoc (key1.prv);
 	auto block1 (std::make_shared<nano::send_block> (latest1, key1.pub, amount - system.nodes[0]->config.receive_minimum.number (), nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (latest1)));
 
-	// Check confirmation_heights before, should be uninitialized (0)
+	// Check confirmation heights before, should be uninitialized (0)
 	nano::account_info account_info;
 	{
 		auto transaction = system.nodes[0]->store.tx_begin_read ();
@@ -1426,7 +1426,7 @@ TEST (confirmation_height, single)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 
-	// Check confirmation_heights after
+	// Check confirmation heights after
 	{
 		auto transaction = system.nodes[0]->store.tx_begin_write ();
 		ASSERT_FALSE (system.nodes[0]->store.account_get (transaction, nano::test_genesis_key.pub, account_info));
@@ -1490,7 +1490,7 @@ TEST (confirmation_height, multiple)
 		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send6).code);
 		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, receive2).code);
 
-		// Check confirmation_heights of all the accounts are uninitialized (0),
+		// Check confirmation heights of all the accounts are uninitialized (0),
 		// as we have any just added them to the ledger and not processed any live transactions yet.
 		nano::account_info account_info;
 		ASSERT_FALSE (node->store.account_get (transaction, nano::test_genesis_key.pub, account_info));
@@ -1539,8 +1539,8 @@ TEST (confirmation_height, multiple)
 		ASSERT_EQ (2, account_info.confirmation_height);
 		ASSERT_EQ (2, account_info.block_count);
 
-		// The account for key2 has 1 more block in the chain than is confirmed.
-		// So this can be rolledback, but the one previous to that cannot. Make sure this is the case
+		// The accounts for key1 and key2 have 1 more block in the chain than is confirmed.
+		// So this can be rolled back, but the one before that cannot. Check that this is the case
 		{
 			auto transaction = node->store.tx_begin_write ();
 			ASSERT_FALSE (node->ledger.rollback (transaction, node->latest (key2.pub)));

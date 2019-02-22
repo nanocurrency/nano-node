@@ -2345,10 +2345,10 @@ void clear_confirmation_height (nano::block_store & store, nano::transaction con
 {
 	nano::account_info account_info;
 	ASSERT_FALSE (store.account_get (transaction, pub, account_info));
-	account_info.confirmation_height = 0; // Otherwise block cementing prevents the rollback
+	account_info.confirmation_height = 0;
 	store.account_put (transaction, pub, account_info);
 
-	// Confirm it is cleared
+	// Check that it is cleared
 	ASSERT_FALSE (store.account_get (transaction, pub, account_info));
 	ASSERT_EQ (account_info.confirmation_height, 0);
 }

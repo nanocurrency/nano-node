@@ -306,7 +306,7 @@ public:
 	virtual nano::store_iterator<nano::endpoint_key, nano::no_value> peers_begin (nano::transaction const & transaction_a) = 0;
 	virtual nano::store_iterator<nano::endpoint_key, nano::no_value> peers_end () = 0;
 
-	virtual	uint64_t block_account_height (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const = 0;
+	virtual uint64_t block_account_height (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const = 0;
 
 	// Requires a write transaction
 	virtual nano::raw_key get_node_id (nano::transaction const &) const = 0;

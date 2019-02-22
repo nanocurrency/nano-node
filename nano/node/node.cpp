@@ -3772,7 +3772,7 @@ void nano::node::add_confirmation_heights (nano::transaction const & transaction
 								}
 							}
 						}
-					}			
+					}
 
 					if (should_process)
 					{
