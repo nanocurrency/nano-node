@@ -812,7 +812,10 @@ nano::transaction nano::mdb_store::tx_begin (bool write_a)
 	return env.tx_begin (write_a);
 }
 
-/** This is only used with testing. If using a different version than the latest then you may need to modify the versions of some of the values here before an upgrade. */
+/**
+ * This is only used with testing. If using a different store version than the latest then you may need
+ * to modify some of the objects in the store to be appropriate for the version before an upgrade.
+ */
 void nano::mdb_store::initialize (nano::transaction const & transaction_a, nano::genesis const & genesis_a)
 {
 	auto hash_l (genesis_a.hash ());

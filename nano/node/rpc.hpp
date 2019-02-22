@@ -92,6 +92,7 @@ public:
 	void process_request ();
 	void account_balance ();
 	void account_block_count ();
+	void account_confirmation_height ();
 	void account_count ();
 	void account_create ();
 	void account_get ();

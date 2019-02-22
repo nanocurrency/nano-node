@@ -3752,10 +3752,9 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (active_transaction
 }
 
 /**
- * Confirm the block of the hash passed in. If this has implicitly confirmed other blocks
- * then check if these are open/receive blocks and follow the source of these blocks
- * and iteratively confirm these blocks as well. This will be slow if there is a large
- * chain to follow.
+ * Confirms the height of the block for the block hash passed in. If this has implicitly
+ * confirms other blocks then check if these are open/receive blocks, and if so follow
+ * the source of these blocks iteratively confirm them as well.
  */
 void nano::node::add_confirmation_heights (nano::transaction const & transaction, nano::block_hash const & hash)
 {
@@ -3794,10 +3793,10 @@ void nano::node::add_confirmation_heights (nano::transaction const & transaction
 			store.account_put (transaction, account, account_info);
 
 			// Get the difference and check if any of these are recieve blocks
-			auto newly_confirmed_blocks = block_height - confirmation_height;
+			auto newly_confirmed_num_blocks = block_height - confirmation_height;
 
 			// Start from the most recent one and work our way through
-			for (int i = 0; i < newly_confirmed_blocks; ++i)
+			for (uint64_t i = 0; i < newly_confirmed_num_blocks; ++i)
 			{
 				nano::block_sideband sideband;
 				auto block (store.block_get (transaction, current, &sideband));

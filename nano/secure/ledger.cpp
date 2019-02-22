@@ -829,7 +829,7 @@ nano::uint128_t nano::ledger::weight (nano::transaction const & transaction_a, n
 	return store.representation_get (transaction_a, account_a);
 }
 
-// Rollback blocks until `block_a' doesn't exist or it trys to penetrate the confirmation height
+// Rollback blocks until `block_a' doesn't exist or it tries to penetrate the confirmation height
 bool nano::ledger::rollback (nano::transaction const & transaction_a, nano::block_hash const & block_a, std::vector<nano::block_hash> & list_a)
 {
 	assert (store.block_exists (transaction_a, block_a));
