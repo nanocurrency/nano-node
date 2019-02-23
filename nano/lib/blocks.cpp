@@ -240,6 +240,14 @@ bool nano::send_block::deserialize (nano::stream & stream_a)
 void nano::send_block::serialize_json (std::string & string_a) const
 {
 	boost::property_tree::ptree tree;
+	serialize_json (tree);
+	std::stringstream ostream;
+	boost::property_tree::write_json (ostream, tree);
+	string_a = ostream.str ();
+}
+
+void nano::send_block::serialize_json (boost::property_tree::ptree & tree) const
+{
 	tree.put ("type", "send");
 	std::string previous;
 	hashables.previous.encode_hex (previous);
@@ -252,9 +260,6 @@ void nano::send_block::serialize_json (std::string & string_a) const
 	signature.encode_hex (signature_l);
 	tree.put ("work", nano::to_string_hex (work));
 	tree.put ("signature", signature_l);
-	std::stringstream ostream;
-	boost::property_tree::write_json (ostream, tree);
-	string_a = ostream.str ();
 }
 
 bool nano::send_block::deserialize_json (boost::property_tree::ptree const & tree_a)
@@ -555,6 +560,14 @@ bool nano::open_block::deserialize (nano::stream & stream_a)
 void nano::open_block::serialize_json (std::string & string_a) const
 {
 	boost::property_tree::ptree tree;
+	serialize_json (tree);
+	std::stringstream ostream;
+	boost::property_tree::write_json (ostream, tree);
+	string_a = ostream.str ();
+}
+
+void nano::open_block::serialize_json (boost::property_tree::ptree & tree) const
+{
 	tree.put ("type", "open");
 	tree.put ("source", hashables.source.to_string ());
 	tree.put ("representative", representative ().to_account ());
@@ -563,9 +576,6 @@ void nano::open_block::serialize_json (std::string & string_a) const
 	signature.encode_hex (signature_l);
 	tree.put ("work", nano::to_string_hex (work));
 	tree.put ("signature", signature_l);
-	std::stringstream ostream;
-	boost::property_tree::write_json (ostream, tree);
-	string_a = ostream.str ();
 }
 
 bool nano::open_block::deserialize_json (boost::property_tree::ptree const & tree_a)
@@ -792,6 +802,14 @@ bool nano::change_block::deserialize (nano::stream & stream_a)
 void nano::change_block::serialize_json (std::string & string_a) const
 {
 	boost::property_tree::ptree tree;
+	serialize_json (tree);
+	std::stringstream ostream;
+	boost::property_tree::write_json (ostream, tree);
+	string_a = ostream.str ();
+}
+
+void nano::change_block::serialize_json (boost::property_tree::ptree & tree) const
+{
 	tree.put ("type", "change");
 	tree.put ("previous", hashables.previous.to_string ());
 	tree.put ("representative", representative ().to_account ());
@@ -799,9 +817,6 @@ void nano::change_block::serialize_json (std::string & string_a) const
 	std::string signature_l;
 	signature.encode_hex (signature_l);
 	tree.put ("signature", signature_l);
-	std::stringstream ostream;
-	boost::property_tree::write_json (ostream, tree);
-	string_a = ostream.str ();
 }
 
 bool nano::change_block::deserialize_json (boost::property_tree::ptree const & tree_a)
@@ -1075,6 +1090,14 @@ bool nano::state_block::deserialize (nano::stream & stream_a)
 void nano::state_block::serialize_json (std::string & string_a) const
 {
 	boost::property_tree::ptree tree;
+	serialize_json (tree);
+	std::stringstream ostream;
+	boost::property_tree::write_json (ostream, tree);
+	string_a = ostream.str ();
+}
+
+void nano::state_block::serialize_json (boost::property_tree::ptree & tree) const
+{
 	tree.put ("type", "state");
 	tree.put ("account", hashables.account.to_account ());
 	tree.put ("previous", hashables.previous.to_string ());
@@ -1086,9 +1109,6 @@ void nano::state_block::serialize_json (std::string & string_a) const
 	signature.encode_hex (signature_l);
 	tree.put ("signature", signature_l);
 	tree.put ("work", nano::to_string_hex (work));
-	std::stringstream ostream;
-	boost::property_tree::write_json (ostream, tree);
-	string_a = ostream.str ();
 }
 
 bool nano::state_block::deserialize_json (boost::property_tree::ptree const & tree_a)
@@ -1367,6 +1387,14 @@ bool nano::receive_block::deserialize (nano::stream & stream_a)
 void nano::receive_block::serialize_json (std::string & string_a) const
 {
 	boost::property_tree::ptree tree;
+	serialize_json (tree);
+	std::stringstream ostream;
+	boost::property_tree::write_json (ostream, tree);
+	string_a = ostream.str ();
+}
+
+void nano::receive_block::serialize_json (boost::property_tree::ptree & tree) const
+{
 	tree.put ("type", "receive");
 	std::string previous;
 	hashables.previous.encode_hex (previous);
@@ -1378,9 +1406,6 @@ void nano::receive_block::serialize_json (std::string & string_a) const
 	signature.encode_hex (signature_l);
 	tree.put ("work", nano::to_string_hex (work));
 	tree.put ("signature", signature_l);
-	std::stringstream ostream;
-	boost::property_tree::write_json (ostream, tree);
-	string_a = ostream.str ();
 }
 
 bool nano::receive_block::deserialize_json (boost::property_tree::ptree const & tree_a)
