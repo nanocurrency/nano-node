@@ -1833,22 +1833,17 @@ TEST (rpc_config, serialization)
 	config1.address = boost::asio::ip::address_v6::any ();
 	config1.port = 10;
 	config1.enable_control = true;
-	config1.frontier_request_limit = 8192;
-	config1.chain_request_limit = 4096;
 	nano::jsonconfig tree;
 	config1.serialize_json (tree);
 	nano::rpc_config config2;
 	ASSERT_NE (config2.address, config1.address);
 	ASSERT_NE (config2.port, config1.port);
 	ASSERT_NE (config2.enable_control, config1.enable_control);
-	ASSERT_NE (config2.frontier_request_limit, config1.frontier_request_limit);
-	ASSERT_NE (config2.chain_request_limit, config1.chain_request_limit);
-	config2.deserialize_json (tree);
+	bool upgraded{ false };
+	config2.deserialize_json (upgraded, tree);
 	ASSERT_EQ (config2.address, config1.address);
 	ASSERT_EQ (config2.port, config1.port);
 	ASSERT_EQ (config2.enable_control, config1.enable_control);
-	ASSERT_EQ (config2.frontier_request_limit, config1.frontier_request_limit);
-	ASSERT_EQ (config2.chain_request_limit, config1.chain_request_limit);
 }
 
 TEST (rpc, search_pending)
