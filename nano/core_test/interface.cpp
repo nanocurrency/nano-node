@@ -28,7 +28,19 @@ TEST (interface, xrb_uint256_to_address)
 	nano::uint256_union zero (0);
 	char text[65] = { 0 };
 	xrb_uint256_to_address (zero.bytes.data (), text);
-	ASSERT_STREQ ("xrb_1111111111111111111111111111111111111111111111111111hifc8npp", text);
+
+	/*
+	 * Handle both "xrb_" and "nano_" results, since it is not
+	 * specified which is returned
+	 */
+	if (text[0] == 'x')
+	{
+		ASSERT_STREQ ("xrb_1111111111111111111111111111111111111111111111111111hifc8npp", text);
+	}
+	else
+	{
+		ASSERT_STREQ ("nano_1111111111111111111111111111111111111111111111111111hifc8npp", text);
+	}
 }
 
 TEST (interface, xrb_uint512_to_string)
@@ -68,6 +80,9 @@ TEST (interface, xrb_valid_address)
 	ASSERT_EQ (0, xrb_valid_address ("xrb_1111111111111111111111111111111111111111111111111111hifc8npp"));
 	ASSERT_EQ (1, xrb_valid_address ("xrb_1111111111111111111111111111111111111111111111111111hifc8nppp"));
 	ASSERT_EQ (1, xrb_valid_address ("xrb_1111111211111111111111111111111111111111111111111111hifc8npp"));
+	ASSERT_EQ (0, xrb_valid_address ("nano_1111111111111111111111111111111111111111111111111111hifc8npp"));
+	ASSERT_EQ (1, xrb_valid_address ("nano_1111111111111111111111111111111111111111111111111111hifc8nppp"));
+	ASSERT_EQ (1, xrb_valid_address ("nano_1111111211111111111111111111111111111111111111111111hifc8npp"));
 }
 
 TEST (interface, xrb_seed_create)
