@@ -4532,33 +4532,40 @@ void nano::rpc_handler::process_request ()
 			{
 				node_id_delete ();
 			}
-			else if (action == "password_change")
+			// Password and Payment temporarily changed until a better solution to nested if/else block limit of 128 with MSVC compilers is resolved.
+			else if (action == "password_change" || action == "password_enter" || action == "password_valid")
 			{
-				password_change ();
+				if (action == "password_change")
+				{
+					password_change ();
+				}
+				else if (action == "password_enter")
+				{
+					password_enter ();
+				}
+				else if (action == "password_valid")
+				{
+					password_valid ();
+				}
 			}
-			else if (action == "password_enter")
+			else if (action == "payment_begin" || action == "payment_init" || action == "payment_end" || action == "payment_wait")
 			{
-				password_enter ();
-			}
-			else if (action == "password_valid")
-			{
-				password_valid ();
-			}
-			else if (action == "payment_begin")
-			{
-				payment_begin ();
-			}
-			else if (action == "payment_init")
-			{
-				payment_init ();
-			}
-			else if (action == "payment_end")
-			{
-				payment_end ();
-			}
-			else if (action == "payment_wait")
-			{
-				payment_wait ();
+				if (action == "payment_begin")
+				{
+					payment_begin ();
+				}
+				else if (action == "payment_init")
+				{
+					payment_init ();
+				}
+				else if (action == "payment_end")
+				{
+					payment_end ();
+				}
+				else if (action == "payment_wait")
+				{
+					payment_wait ();
+				}
 			}
 			else if (action == "peers")
 			{
