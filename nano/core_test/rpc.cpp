@@ -3397,6 +3397,36 @@ TEST (rpc, account_info)
 	ASSERT_EQ (nano::test_genesis_key.pub.to_account (), representative2);
 }
 
+TEST (rpc, json_block)
+{
+	nano::system system (24000, 1);
+	nano::keypair key;
+	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
+	system.wallet (0)->insert_adhoc (key.prv);
+	auto & node1 (*system.nodes[0]);
+	auto latest (system.nodes[0]->latest (nano::test_genesis_key.pub));
+	nano::send_block send (latest, key.pub, 100, nano::test_genesis_key.prv, nano::test_genesis_key.pub, node1.work_generate_blocking (latest));
+	system.nodes[0]->process (send);
+	nano::rpc rpc (system.io_ctx, *system.nodes[0], nano::rpc_config (true));
+	rpc.start ();
+	boost::property_tree::ptree request;
+	request.put ("action", "block_info");
+	request.put ("json_block", "true");
+	request.put ("hash", send.hash ().to_string ());
+	test_response response (request, rpc, system.io_ctx);
+	system.deadline_set (5s);
+	while (response.status == 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (200, response.status);
+
+	// Make sure contents contains a valid JSON subtree instread of stringified json
+	bool json_error{ false };
+	nano::send_block send_from_json (json_error, response.json.get_child ("contents"));
+	ASSERT_FALSE (json_error);
+}
+
 TEST (rpc, blocks_info)
 {
 	nano::system system (24000, 1);
