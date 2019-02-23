@@ -2,7 +2,6 @@
 
 #include <nano/lib/blocks.hpp>
 #include <nano/node/lmdb.hpp>
-#include <nano/secure/common.hpp>
 #include <nano/secure/utility.hpp>
 
 namespace nano
