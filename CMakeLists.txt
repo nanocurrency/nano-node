@@ -42,6 +42,11 @@ if (WIN32)
 					-DWIN32_LEAN_AND_MEAN
 					-DMINIUPNP_STATICLIB
 					-D_CRT_SECURE_NO_WARNINGS)
+
+	if (${USING_TSAN} OR ${USING_ASAN} OR ${USING_ASAN_INT})
+		message (WARNING "Cannot use TSAN or ASAN on Windows, sanitizers ignored")
+	endif()
+
 else ()
 	add_compile_options(-Werror=switch)
 
