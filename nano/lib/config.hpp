@@ -1,7 +1,7 @@
 #pragma once
 
-#include <boost/filesystem.hpp>
 #include <array>
+#include <boost/filesystem.hpp>
 #include <chrono>
 #include <nano/lib/errors.hpp>
 #include <nano/lib/numbers.hpp>
