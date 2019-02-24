@@ -834,6 +834,31 @@ void nano::rpc_handler::block_info ()
 				block->serialize_json (contents);
 				response_l.put ("contents", contents);
 			}
+			
+			// Subtype check
+			if (block->type == nano::block_type::state)
+			{
+				auto previous_balance (node.ledger.balance (transaction, block->previous ()));
+				if (balance < previous_balance)
+				{
+					response_l.put ("subtype", "send");
+				}
+				else
+				{
+					if (block->link ().is_zero ())
+					{
+						response_l.put ("subtype", "change");
+					}
+					else if (balance == previous_balance && !node.ledger.epoch_link.is_zero () && node.ledger.is_epoch_link (block->link ()))
+					{
+						response_l.put ("subtype", "epoch");
+					}
+					else
+					{
+						response_l.put ("subtype", "receive");
+					}
+				}
+			}
 		}
 		else
 		{
@@ -941,7 +966,30 @@ void nano::rpc_handler::blocks_info ()
 						block->serialize_json (contents);
 						entry.put ("contents", contents);
 					}
-
+					// Subtype check
+					if (block->type == nano::block_type::state)
+					{
+						auto previous_balance (node.ledger.balance (transaction, block->previous ()));
+						if (balance < previous_balance)
+						{
+							entry.put ("subtype", "send");
+						}
+						else
+						{
+							if (block->link ().is_zero ())
+							{
+								entry.put ("subtype", "change");
+							}
+							else if (balance == previous_balance && !node.ledger.epoch_link.is_zero () && node.ledger.is_epoch_link (block->link ()))
+							{
+								entry.put ("subtype", "epoch");
+							}
+							else
+							{
+								entry.put ("subtype", "receive");
+							}
+						}
+					}
 					if (pending)
 					{
 						bool exists (false);
