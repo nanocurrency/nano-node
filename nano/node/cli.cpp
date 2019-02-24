@@ -53,6 +53,7 @@ void nano::add_node_options (boost::program_options::options_description & descr
 	("account", boost::program_options::value<std::string> (), "Defines <account> for other commands")
 	("file", boost::program_options::value<std::string> (), "Defines <file> for other commands")
 	("key", boost::program_options::value<std::string> (), "Defines the <key> for other commands, hex")
+	("seed", boost::program_options::value<std::string> (), "Defines the <seed> for other commands, hex")
 	("password", boost::program_options::value<std::string> (), "Defines <password> for other commands")
 	("wallet", boost::program_options::value<std::string> (), "Defines <wallet> for other commands")
 	("force", boost::program_options::value<bool>(), "Bool to force command if allowed");
@@ -424,7 +425,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	}
 	else if (vm.count ("wallet_change_seed"))
 	{
-		if (vm.count ("wallet") == 1 && vm.count ("key") == 1)
+		if (vm.count ("wallet") == 1 && (vm.count ("seed") == 1 || vm.count ("key") == 1))
 		{
 			nano::uint256_union wallet_id;
 			if (!wallet_id.decode_hex (vm["wallet"].as<std::string> ()))
@@ -441,16 +442,24 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 					auto transaction (wallet->wallets.tx_begin_write ());
 					if (!wallet->enter_password (transaction, password))
 					{
-						nano::raw_key key;
-						if (!key.data.decode_hex (vm["key"].as<std::string> ()))
+						nano::raw_key seed;
+						if (vm.count ("seed"))
+						{
+							if (seed.data.decode_hex (vm["seed"].as<std::string> ()))
+							{
+								std::cerr << "Invalid seed\n";
+								ec = nano::error_cli::invalid_arguments;
+							}
+						}
+						else if (seed.data.decode_hex (vm["key"].as<std::string> ()))
+						{
+							std::cerr << "Invalid key seed\n";
+							ec = nano::error_cli::invalid_arguments;
+						}
+						if (!ec)
 						{
 							std::cout << "Changing seed and caching work. Please wait..." << std::endl;
-							wallet->change_seed (transaction, key);
-						}
-						else
-						{
-							std::cerr << "Invalid key\n";
-							ec = nano::error_cli::invalid_arguments;
+							wallet->change_seed (transaction, seed);
 						}
 					}
 					else
@@ -473,24 +482,37 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		}
 		else
 		{
-			std::cerr << "wallet_change_seed command requires one <wallet> option and one <key> option and optionally one <password> option\n";
+			std::cerr << "wallet_change_seed command requires one <wallet> option and one <seed> option and optionally one <password> option\n";
 			ec = nano::error_cli::invalid_arguments;
 		}
 	}
 	else if (vm.count ("wallet_create"))
 	{
 		nano::raw_key seed_key;
-		if (vm.count ("key") == 1)
+		if (vm.count ("seed") == 1)
+		{
+			if (seed_key.data.decode_hex (vm["seed"].as<std::string> ()))
+			{
+				std::cerr << "Invalid seed\n";
+				ec = nano::error_cli::invalid_arguments;
+			}
+		}
+		else if (vm.count ("seed") > 1)
+		{
+			std::cerr << "wallet_create command allows one optional <seed> parameter\n";
+			ec = nano::error_cli::invalid_arguments;
+		}
+		else if (vm.count ("key") == 1)
 		{
 			if (seed_key.data.decode_hex (vm["key"].as<std::string> ()))
 			{
-				std::cerr << "Invalid key\n";
+				std::cerr << "Invalid seed key\n";
 				ec = nano::error_cli::invalid_arguments;
 			}
 		}
 		else if (vm.count ("key") > 1)
 		{
-			std::cerr << "wallet_create command allows one optional <key> parameter\n";
+			std::cerr << "wallet_create command allows one optional <key> seed parameter\n";
 			ec = nano::error_cli::invalid_arguments;
 		}
 		if (!ec)
@@ -511,7 +533,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 						ec = nano::error_cli::invalid_arguments;
 					}
 				}
-				if (vm.count ("key"))
+				if (vm.count ("seed") || vm.count ("key"))
 				{
 					auto transaction (wallet->wallets.tx_begin_write ());
 					wallet->change_seed (transaction, seed_key);
