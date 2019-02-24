@@ -836,7 +836,7 @@ void nano::rpc_handler::block_info ()
 			}
 			
 			// Subtype check
-			if (block->type == nano::block_type::state)
+			if (block->type () == nano::block_type::state)
 			{
 				auto previous_balance (node.ledger.balance (transaction, block->previous ()));
 				if (balance < previous_balance)
@@ -967,7 +967,7 @@ void nano::rpc_handler::blocks_info ()
 						entry.put ("contents", contents);
 					}
 					// Subtype check
-					if (block->type == nano::block_type::state)
+					if (block->type () == nano::block_type::state)
 					{
 						auto previous_balance (node.ledger.balance (transaction, block->previous ()));
 						if (balance < previous_balance)
