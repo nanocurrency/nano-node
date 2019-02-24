@@ -451,13 +451,10 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 								ec = nano::error_cli::invalid_arguments;
 							}
 						}
-						else
+						else if (seed.data.decode_hex (vm["key"].as<std::string> ()))
 						{
-							if (seed.data.decode_hex (vm["key"].as<std::string> ()))
-							{
-								std::cerr << "Invalid key seed\n";
-								ec = nano::error_cli::invalid_arguments;
-							}
+							std::cerr << "Invalid key seed\n";
+							ec = nano::error_cli::invalid_arguments;
 						}
 						if (!ec)
 						{
