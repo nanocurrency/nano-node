@@ -616,6 +616,7 @@ void nano::rpc_handler::account_representative_set ()
 			{
 				auto transaction (node.wallets.tx_begin_write ());
 				wallet_locked_impl (transaction, wallet);
+				wallet_account_impl (transaction, wallet, account);
 				if (!ec)
 				{
 					nano::account_info info;
