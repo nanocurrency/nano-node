@@ -834,7 +834,7 @@ void nano::rpc_handler::block_info ()
 				block->serialize_json (contents);
 				response_l.put ("contents", contents);
 			}
-			
+
 			// Subtype check
 			if (block->type () == nano::block_type::state)
 			{
