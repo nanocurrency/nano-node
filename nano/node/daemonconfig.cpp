@@ -40,7 +40,7 @@ nano::error nano::daemon_config::deserialize_json (bool & upgraded_a, nano::json
 			json.get_optional<bool> ("rpc_enable", rpc_enable);
 			auto rpc_l (json.get_required_child ("rpc"));
 
-			if (!rpc.deserialize_json (rpc_l))
+			if (!rpc.deserialize_json (upgraded_a, rpc_l))
 			{
 				auto node_l (json.get_required_child ("node"));
 				if (!json.get_error ())

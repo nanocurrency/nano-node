@@ -106,7 +106,7 @@ public:
 			}
 			if (!rpc_l.get_error ())
 			{
-				rpc.deserialize_json (rpc_l);
+				rpc.deserialize_json (upgraded_a, rpc_l);
 			}
 			if (!opencl_l.get_error ())
 			{
