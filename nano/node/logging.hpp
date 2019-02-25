@@ -110,7 +110,6 @@ public:
 	bool work_generation_time () const;
 	bool log_to_cerr () const;
 	void init (boost::filesystem::path const &);
-	static std::string const & log_path ();
 
 	bool ledger_logging_value{ false };
 	bool ledger_duplicate_logging_value{ false };
@@ -139,8 +138,5 @@ public:
 	{
 		return 7;
 	}
-
-private:
-	static std::string log_path_value;
 };
 }

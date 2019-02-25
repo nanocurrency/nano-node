@@ -1,3 +1,4 @@
+#include <boost/log/utility/setup/console.hpp>
 #include <chrono>
 #include <gtest/gtest.h>
 #include <nano/node/logging.hpp>
@@ -5,12 +6,6 @@
 #include <regex>
 
 using namespace std::chrono_literals;
-
-namespace
-{
-std::string strip_timestamp (const std::string & line);
-std::vector<std::string> get_last_lines_from_log_file (const std::string & log_path, unsigned count);
-}
 
 TEST (logging, serialization)
 {
@@ -95,6 +90,29 @@ TEST (logging, upgrade_v6_v7)
 	ASSERT_EQ (5, tree.get<uintmax_t> ("min_time_between_output"));
 }
 
+namespace
+{
+class boost_log_cerr_redirect
+{
+public:
+	boost_log_cerr_redirect (std::streambuf * new_buffer) :
+	old (std::cerr.rdbuf (new_buffer))
+	{
+		console_sink = (boost::log::add_console_log (std::cerr, boost::log::keywords::format = "%Message%"));
+	}
+
+	~boost_log_cerr_redirect ()
+	{
+		std::cerr.rdbuf (old);
+		boost::log::core::get ()->remove_sink (console_sink);
+	}
+
+private:
+	std::streambuf * old;
+	boost::shared_ptr<boost::log::sinks::synchronous_sink<boost::log::sinks::text_ostream_backend>> console_sink;
+};
+}
+
 TEST (logger, changing_time_interval)
 {
 	auto path1 (nano::unique_path ());
@@ -113,15 +131,14 @@ TEST (logger, changing_time_interval)
 TEST (logger, try_log)
 {
 	auto path1 (nano::unique_path ());
-	nano::logging logging;
-	logging.init (path1);
 	nano::logger_mt my_logger (3ms);
+	std::stringstream ss;
+	boost_log_cerr_redirect redirect_cerr (ss.rdbuf ());
 
 	auto output1 = "logger.try_log1";
-	auto output2 = "logger.try_log2";
-
 	auto success (my_logger.try_log (output1));
 	ASSERT_TRUE (success);
+	auto output2 = "logger.try_log2";
 	success = my_logger.try_log (output2);
 	ASSERT_FALSE (success); // Fails as it is occuring too soon
 
@@ -130,18 +147,18 @@ TEST (logger, try_log)
 	success = my_logger.try_log (output2);
 	ASSERT_TRUE (success);
 
-	auto log_path = logging.log_path ();
-	auto last_lines = get_last_lines_from_log_file (log_path, 2);
-	// Remove the timestamp from the line in the log file to make comparisons timestamp independent
-	ASSERT_STREQ (strip_timestamp (last_lines.front ()).c_str (), output1);
-	ASSERT_STREQ (strip_timestamp (last_lines.back ()).c_str (), output2);
+	std::string str;
+	std::getline (ss, str, '\n');
+	ASSERT_STREQ (str.c_str (), output1);
+	std::getline (ss, str, '\n');
+	ASSERT_STREQ (str.c_str (), output2);
 }
 
 TEST (logger, always_log)
 {
 	auto path1 (nano::unique_path ());
-	nano::logging logging;
-	logging.init (path1);
+	std::stringstream ss;
+	boost_log_cerr_redirect redirect_cerr (ss.rdbuf ());
 	nano::logger_mt my_logger (20s); // Make time interval effectively unreachable
 	auto output1 = "logger.always_log1";
 	auto success (my_logger.try_log (output1));
@@ -155,57 +172,9 @@ TEST (logger, always_log)
 	// Force it to be logged
 	my_logger.always_log (output2);
 
-	// Now check
-	auto log_path = logging.log_path ();
-	auto last_lines = get_last_lines_from_log_file (log_path, 2);
-	ASSERT_STREQ (strip_timestamp (last_lines.front ()).c_str (), output1);
-	ASSERT_STREQ (strip_timestamp (last_lines.back ()).c_str (), output2);
-}
-
-namespace
-{
-std::string strip_timestamp (const std::string & line)
-{
-	std::regex line_regex (".+\\]: (.+)");
-	return std::regex_replace (line, line_regex, "$1");
-}
-
-std::vector<std::string> get_last_lines_from_log_file (const std::string & log_path, unsigned count)
-{
-	assert (count > 0);
-	boost::filesystem::directory_iterator it{ log_path };
-
-	auto log_file = it->path ();
-	std::ifstream in_file (log_file.c_str ());
-
-	std::vector<std::string> v (count);
-	for (std::string line; std::getline (in_file, line);)
-	{
-		std::string next_line;
-		if (!std::getline (in_file, next_line))
-		{
-			// Already reached last line so shift others to the left and update last line
-			std::rotate (v.begin (), v.begin () + 1, v.end ());
-			v.back () = std::move (line);
-		}
-		else
-		{
-			if (count == 1)
-			{
-				v.front () = next_line;
-			}
-			else if (count > 1)
-			{
-				v.front () = line;
-				v[1] = next_line;
-
-				for (unsigned i = 0; i < count - 2; ++i)
-				{
-					std::getline (in_file, v[i + 2]);
-				}
-			}
-		}
-	}
-	return v;
-}
+	std::string str;
+	std::getline (ss, str, '\n');
+	ASSERT_STREQ (str.c_str (), output1);
+	std::getline (ss, str, '\n');
+	ASSERT_STREQ (str.c_str (), output2);
 }

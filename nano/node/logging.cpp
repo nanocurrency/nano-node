@@ -5,8 +5,6 @@
 #include <boost/property_tree/ptree.hpp>
 #include <nano/node/logging.hpp>
 
-std::string nano::logging::log_path_value;
-
 void nano::logging::init (boost::filesystem::path const & application_path_a)
 {
 	static std::atomic_flag logging_already_added = ATOMIC_FLAG_INIT;
@@ -18,20 +16,8 @@ void nano::logging::init (boost::filesystem::path const & application_path_a)
 			boost::log::add_console_log (std::cerr, boost::log::keywords::format = "[%TimeStamp%]: %Message%");
 		}
 		auto path = application_path_a / "log";
-		log_path_value = path.string ();
 		boost::log::add_file_log (boost::log::keywords::target = path, boost::log::keywords::file_name = path / "log_%Y-%m-%d_%H-%M-%S.%N.log", boost::log::keywords::rotation_size = rotation_size, boost::log::keywords::auto_flush = flush, boost::log::keywords::scan_method = boost::log::sinks::file::scan_method::scan_matching, boost::log::keywords::max_size = max_size, boost::log::keywords::format = "[%TimeStamp%]: %Message%");
 	}
-}
-
-// This is currently only used by tests currently
-std::string const & nano::logging::log_path ()
-{
-	if (log_path_value.empty ())
-	{
-		throw std::runtime_error ("init () has not been called yet");
-	}
-
-	return log_path_value;
 }
 
 nano::error nano::logging::serialize_json (nano::jsonconfig & json) const
