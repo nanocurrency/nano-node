@@ -84,7 +84,7 @@ TEST (work, opencl)
 			for (auto i (0); i < 16; ++i)
 			{
 				nano::random_pool::generate_block (root.bytes.data (), root.bytes.size ());
-				auto result (pool.generate (root));
+				auto result (pool.generate (root, difficulty));
 				uint64_t result_difficulty (0);
 				ASSERT_FALSE (nano::work_validate (root, result, &result_difficulty));
 				ASSERT_GE (result_difficulty, difficulty);
