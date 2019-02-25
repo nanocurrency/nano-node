@@ -1464,6 +1464,23 @@ startup_time (std::chrono::steady_clock::now ())
 					if (is_state_send_a)
 					{
 						event.add ("is_send", is_state_send_a);
+						event.add ("subtype", "send");
+					}
+					// Subtype field
+					else if (block_a->type () == nano::block_type::state)
+					{
+						if (block_a->link ().is_zero ())
+						{
+							event.add ("subtype", "change");
+						}
+						else if (amount_a == 0 && !node_l->ledger.epoch_link.is_zero () && node_l->ledger.is_epoch_link (block_a->link ()))
+						{
+							event.add ("subtype", "epoch");
+						}
+						else
+						{
+							event.add ("subtype", "receive");
+						}
 					}
 					std::stringstream ostream;
 					boost::property_tree::write_json (ostream, event);
