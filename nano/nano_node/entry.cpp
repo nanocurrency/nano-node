@@ -48,6 +48,7 @@ int main (int argc, char * const * argv)
 		("debug_profile_sign", "Profile signature generation")
 		("debug_profile_process", "Profile active blocks processing (only for nano_test_network)")
 		("debug_profile_votes", "Profile votes processing (only for nano_test_network)")
+		("debug_random_feed", "Generates output to RNG test suites")
 		("debug_rpc", "Read an RPC command from stdin and invoke it. Network operations will have no effect.")
 		("debug_validate_blocks", "Check all blocks for correct hash, signature, work value")
 		("debug_peers", "Display peer IPv6:port connections")
@@ -650,6 +651,23 @@ int main (int argc, char * const * argv)
 			else
 			{
 				std::cerr << "For this test ACTIVE_NETWORK should be nano_test_network" << std::endl;
+			}
+		}
+		else if (vm.count ("debug_random_feed"))
+		{
+			/*
+			 * This command redirects an infinite stream of bytes from the random pool to standard out.
+			 * The result can be fed into various tools for testing RNGs and entropy pools.
+			 *
+			 * Example, running the entire dieharder test suite:
+			 *
+			 *   ./nano_node --debug_random_feed | dieharder -a -g 200
+			 */
+			nano::raw_key seed;
+			for (;;)
+			{
+				nano::random_pool::generate_block (seed.data.bytes.data (), seed.data.bytes.size ());
+				std::cout.write (reinterpret_cast<const char *> (seed.data.bytes.data ()), seed.data.bytes.size ());
 			}
 		}
 		else if (vm.count ("debug_rpc"))
