@@ -3411,7 +3411,44 @@ TEST (rpc, account_info)
 	ASSERT_EQ (nano::test_genesis_key.pub.to_account (), representative2);
 }
 
-TEST (rpc, json_block)
+/** Make sure we can use json block literals instead of string as input */
+TEST (rpc, json_block_input)
+{
+	nano::system system (24000, 1);
+	nano::keypair key;
+	auto & node1 (*system.nodes[0]);
+	nano::state_block send (nano::genesis_account, node1.latest (nano::test_genesis_key.pub), nano::genesis_account, nano::genesis_amount - nano::Gxrb_ratio, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
+	nano::rpc rpc (system.io_ctx, node1, nano::rpc_config (true));
+	rpc.start ();
+	boost::property_tree::ptree request;
+	request.put ("action", "sign");
+	request.put ("json_block", "true");
+	system.wallet (0)->insert_adhoc (key.prv);
+	std::string wallet;
+	system.nodes[0]->wallets.items.begin ()->first.encode_hex (wallet);
+	request.put ("wallet", wallet);
+	request.put ("account", key.pub.to_account ());
+	boost::property_tree::ptree json;
+	send.serialize_json (json);
+	request.add_child ("block", json);
+	test_response response (request, rpc, system.io_ctx);
+	while (response.status == 0)
+	{
+		system.poll ();
+	}
+	ASSERT_EQ (200, response.status);
+
+	bool json_error{ false };
+	nano::state_block block (json_error, response.json.get_child ("block"));
+	ASSERT_FALSE (json_error);
+
+	ASSERT_FALSE (nano::validate_message (key.pub, send.hash (), block.block_signature ()));
+	ASSERT_NE (block.block_signature (), send.block_signature ());
+	ASSERT_EQ (block.hash (), send.hash ());
+}
+
+/** Make sure we can receive json block literals instead of string as output */
+TEST (rpc, json_block_output)
 {
 	nano::system system (24000, 1);
 	nano::keypair key;
