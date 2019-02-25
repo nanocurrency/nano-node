@@ -61,25 +61,44 @@ TEST (work, cancel_many)
 	pool.cancel (key1);
 }
 
-TEST (work, DISABLED_opencl)
+TEST (work, opencl)
 {
 	nano::logging logging;
 	logging.init (nano::unique_path ());
-	auto opencl (nano::opencl_work::create (true, { 0, 1, 1024 * 1024 }, logging));
-	if (opencl != nullptr)
+	bool error (false);
+	nano::opencl_environment environment (error);
+	ASSERT_FALSE (error);
+	if (!environment.platforms.empty () && !environment.platforms.begin ()->devices.empty ())
 	{
-		nano::work_pool pool (std::numeric_limits<unsigned>::max (), opencl ? [&opencl](nano::uint256_union const & root_a, uint64_t difficulty_a) {
-			return opencl->generate_work (root_a, difficulty_a);
-		}
-		                                                                    : std::function<boost::optional<uint64_t> (nano::uint256_union const &, uint64_t)> (nullptr));
-		ASSERT_NE (nullptr, pool.opencl);
-		nano::uint256_union root;
-		for (auto i (0); i < 1; ++i)
+		auto opencl (nano::opencl_work::create (true, { 0, 0, 16 * 1024 }, logging));
+		if (opencl != nullptr)
 		{
-			nano::random_pool::generate_block (root.bytes.data (), root.bytes.size ());
-			auto result (pool.generate (root));
-			ASSERT_FALSE (nano::work_validate (root, result));
+			nano::work_pool pool (std::numeric_limits<unsigned>::max (), opencl ? [&opencl](nano::uint256_union const & root_a, uint64_t difficulty_a) {
+				return opencl->generate_work (root_a, difficulty_a);
+			}
+																				: std::function<boost::optional<uint64_t> (nano::uint256_union const &, uint64_t)> (nullptr));
+			ASSERT_NE (nullptr, pool.opencl);
+			nano::uint256_union root;
+			uint64_t difficulty (0xff00000000000000);
+			uint64_t difficulty_add (0x000f000000000000);
+			for (auto i (0); i < 16; ++i)
+			{
+				nano::random_pool::generate_block (root.bytes.data (), root.bytes.size ());
+				auto result (pool.generate (root));
+				uint64_t result_difficulty (0);
+				ASSERT_FALSE (nano::work_validate (root, result, &result_difficulty));
+				ASSERT_GE (result_difficulty, difficulty);
+				difficulty += difficulty_add;
+			}
 		}
+		else
+		{
+			std::cerr << "Error starting OpenCL test" << std::endl;
+		}
+	}
+	else
+	{
+		std::cout << "Device with OpenCL support not found. Skipping OpenCL test" << std::endl;
 	}
 }
 
