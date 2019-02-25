@@ -242,7 +242,7 @@ void nano::network::republish (nano::block_hash const & hash_a, std::shared_ptr<
 		BOOST_LOG (node.log) << boost::str (boost::format ("Publishing %1% to %2%") % hash_a.to_string () % endpoint_a);
 	}
 	std::weak_ptr<nano::node> node_w (node.shared ());
-	send_buffer (buffer_a->data (), buffer_a->size (), endpoint_a, [node_w, endpoint_a](boost::system::error_code const & ec, size_t size) {
+	send_buffer (buffer_a->data (), buffer_a->size (), endpoint_a, [buffer_a, node_w, endpoint_a](boost::system::error_code const & ec, size_t size) {
 		if (auto node_l = node_w.lock ())
 		{
 			if (ec && node_l->config.logging.network_logging ())
@@ -558,18 +558,14 @@ void nano::network::send_confirm_req (nano::endpoint const & endpoint_a, std::sh
 void nano::network::send_confirm_req_hashes (nano::endpoint const & endpoint_a, std::vector<std::pair<nano::block_hash, nano::block_hash>> const & roots_hashes_a)
 {
 	nano::confirm_req message (roots_hashes_a);
-	std::vector<uint8_t> bytes;
-	{
-		nano::vectorstream stream (bytes);
-		message.serialize (stream);
-	}
+	auto buffer_l (message.to_bytes ());
 	if (node.config.logging.network_message_logging ())
 	{
 		BOOST_LOG (node.log) << boost::str (boost::format ("Sending confirm req hashes to %1%") % endpoint_a);
 	}
 	std::weak_ptr<nano::node> node_w (node.shared ());
 	node.stats.inc (nano::stat::type::message, nano::stat::detail::confirm_req, nano::stat::dir::out);
-	send_buffer (bytes.data (), bytes.size (), endpoint_a, [node_w](boost::system::error_code const & ec, size_t size) {
+	send_buffer (buffer_l->data (), buffer_l->size (), endpoint_a, [buffer_l, node_w](boost::system::error_code const & ec, size_t size) {
 		if (auto node_l = node_w.lock ())
 		{
 			if (ec && node_l->config.logging.network_logging ())
