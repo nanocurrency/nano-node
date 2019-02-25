@@ -2770,7 +2770,7 @@ minimum (minimum_a)
 void nano::online_reps::observe (nano::account const & rep_a)
 {
 	auto transaction (ledger.store.tx_begin_read ());
-	if (ledger.weight (transaction, rep_a) > nano::Gxrb_ratio)
+	if (ledger.weight (transaction, rep_a) > 0)
 	{
 		std::lock_guard<std::mutex> lock (mutex);
 		reps.insert (rep_a);
