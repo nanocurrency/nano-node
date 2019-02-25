@@ -388,7 +388,7 @@ node (node_a), rpc (rpc_a)
 			transports.push_back (std::make_shared<socket_transport<boost::asio::ip::tcp::acceptor, boost::asio::ip::tcp::socket, boost::asio::ip::tcp::endpoint>> (*this, boost::asio::ip::tcp::endpoint (boost::asio::ip::tcp::v6 (), node_a.config.ipc_config.transport_tcp.port), node_a.config.ipc_config.transport_tcp, threads));
 		}
 
-		node.logger.try_log ("IPC: server started");
+		node.logger.always_log ("IPC: server started");
 	}
 	catch (std::runtime_error const & ex)
 	{
