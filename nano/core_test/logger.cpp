@@ -120,7 +120,6 @@ TEST (logger, changing_time_interval)
 	logging.init (path1);
 	logging.min_time_between_log_output = 0ms;
 	nano::logger_mt my_logger (logging.min_time_between_log_output);
-	auto log_path = logging.log_path ();
 	auto success (my_logger.try_log ("logger.changing_time_interval1"));
 	ASSERT_TRUE (success);
 	logging.min_time_between_log_output = 20s;
