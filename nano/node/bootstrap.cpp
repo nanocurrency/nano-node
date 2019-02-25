@@ -82,7 +82,7 @@ void nano::socket::close ()
 	/* Ignore error code for shutdown as it is a best effort anyway. */
 
 	socket_m.close (ec);
-	if (ec != 0)
+	if (ec)
 	{
 		// The underlying file descriptor is closed anyway, so just log the error.
 		BOOST_LOG (node->log) << "Failed to close socket gracefully: " << ec.message ();
