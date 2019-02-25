@@ -948,7 +948,7 @@ std::shared_ptr<nano::block> nano::wallet::receive_action (nano::block const & s
 				}
 				else
 				{
-					BOOST_LOG (wallets.node.log) << "Unable to receive, wallet locked";
+					wallets.node.logger.try_log ("Unable to receive, wallet locked");
 				}
 			}
 			else
@@ -963,14 +963,14 @@ std::shared_ptr<nano::block> nano::wallet::receive_action (nano::block const & s
 	}
 	else
 	{
-		BOOST_LOG (wallets.node.log) << boost::str (boost::format ("Not receiving block %1% due to minimum receive threshold") % hash.to_string ());
+		wallets.node.logger.try_log (boost::str (boost::format ("Not receiving block %1% due to minimum receive threshold") % hash.to_string ()));
 		// Someone sent us something below the threshold of receiving
 	}
 	if (block != nullptr)
 	{
 		if (nano::work_validate (*block))
 		{
-			BOOST_LOG (wallets.node.log) << boost::str (boost::format ("Cached or provided work for block %1% account %2% is invalid, regenerating") % block->hash ().to_string () % account.to_account ());
+			wallets.node.logger.try_log (boost::str (boost::format ("Cached or provided work for block %1% account %2% is invalid, regenerating") % block->hash ().to_string () % account.to_account ()));
 			wallets.node.work_generate_blocking (*block);
 		}
 		wallets.node.process_active (block);
@@ -1012,7 +1012,7 @@ std::shared_ptr<nano::block> nano::wallet::change_action (nano::account const & 
 	{
 		if (nano::work_validate (*block))
 		{
-			BOOST_LOG (wallets.node.log) << boost::str (boost::format ("Cached or provided work for block %1% account %2% is invalid, regenerating") % block->hash ().to_string () % source_a.to_account ());
+			wallets.node.logger.try_log (boost::str (boost::format ("Cached or provided work for block %1% account %2% is invalid, regenerating") % block->hash ().to_string () % source_a.to_account ()));
 			wallets.node.work_generate_blocking (*block);
 		}
 		wallets.node.process_active (block);
@@ -1098,7 +1098,7 @@ std::shared_ptr<nano::block> nano::wallet::send_action (nano::account const & so
 	{
 		if (nano::work_validate (*block))
 		{
-			BOOST_LOG (wallets.node.log) << boost::str (boost::format ("Cached or provided work for block %1% account %2% is invalid, regenerating") % block->hash ().to_string () % account_a.to_account ());
+			wallets.node.logger.try_log (boost::str (boost::format ("Cached or provided work for block %1% account %2% is invalid, regenerating") % block->hash ().to_string () % account_a.to_account ()));
 			wallets.node.work_generate_blocking (*block);
 		}
 		wallets.node.process_active (block);
@@ -1187,7 +1187,7 @@ void nano::wallet::work_update (nano::transaction const & transaction_a, nano::a
 	}
 	else
 	{
-		BOOST_LOG (wallets.node.log) << "Cached work no longer valid, discarding";
+		wallets.node.logger.try_log ("Cached work no longer valid, discarding");
 	}
 }
 
@@ -1204,7 +1204,7 @@ bool nano::wallet::search_pending ()
 	auto result (!store.valid_password (transaction));
 	if (!result)
 	{
-		BOOST_LOG (wallets.node.log) << "Beginning pending block search";
+		wallets.node.logger.try_log ("Beginning pending block search");
 		for (auto i (store.begin (transaction)), n (store.end ()); i != n; ++i)
 		{
 			auto block_transaction (wallets.node.store.tx_begin_read ());
@@ -1220,17 +1220,17 @@ bool nano::wallet::search_pending ()
 					auto amount (pending.amount.number ());
 					if (wallets.node.config.receive_minimum.number () <= amount)
 					{
-						BOOST_LOG (wallets.node.log) << boost::str (boost::format ("Found a pending block %1% for account %2%") % hash.to_string () % pending.source.to_account ());
+						wallets.node.logger.try_log (boost::str (boost::format ("Found a pending block %1% for account %2%") % hash.to_string () % pending.source.to_account ()));
 						wallets.node.block_confirm (wallets.node.store.block_get (block_transaction, hash));
 					}
 				}
 			}
 		}
-		BOOST_LOG (wallets.node.log) << "Pending block search phase complete";
+		wallets.node.logger.try_log ("Pending block search phase complete");
 	}
 	else
 	{
-		BOOST_LOG (wallets.node.log) << "Stopping search, wallet is locked";
+		wallets.node.logger.try_log ("Stopping search, wallet is locked");
 	}
 	return result;
 }
@@ -1319,7 +1319,7 @@ void nano::wallet::work_cache_blocking (nano::account const & account_a, nano::b
 		 */
 		auto difficulty (nano::work_pool::publish_threshold);
 
-		BOOST_LOG (wallets.node.log) << "Work generation for " << root_a.to_string () << ", with a difficulty of " << difficulty << " complete: " << (std::chrono::duration_cast<std::chrono::microseconds> (std::chrono::steady_clock::now () - begin).count ()) << " us";
+		wallets.node.logger.try_log ("Work generation for ", root_a.to_string (), ", with a difficulty of ", difficulty, " complete: ", (std::chrono::duration_cast<std::chrono::microseconds> (std::chrono::steady_clock::now () - begin).count ()), " us");
 	}
 	auto transaction (wallets.tx_begin_write ());
 	if (live () && store.exists (transaction, account_a))
@@ -1560,7 +1560,7 @@ void nano::wallets::foreach_representative (nano::transaction const & transactio
 							if (last_log < std::chrono::steady_clock::now () - std::chrono::seconds (60))
 							{
 								last_log = std::chrono::steady_clock::now ();
-								BOOST_LOG (node.log) << boost::str (boost::format ("Representative locked inside wallet %1%") % i->first.to_string ());
+								node.logger.try_log (boost::str (boost::format ("Representative locked inside wallet %1%") % i->first.to_string ()));
 							}
 						}
 					}

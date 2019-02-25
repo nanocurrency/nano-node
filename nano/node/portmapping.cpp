@@ -36,12 +36,12 @@ void nano::port_mapping::refresh_devices ()
 		}
 		if (check_count % 15 == 0)
 		{
-			BOOST_LOG (node.log) << boost::str (boost::format ("UPnP local address: %1%, discovery: %2%, IGD search: %3%") % local_address.data () % discover_error % igd_error);
+			node.logger.try_log (boost::str (boost::format ("UPnP local address: %1%, discovery: %2%, IGD search: %3%") % local_address.data () % discover_error % igd_error));
 			if (node.config.logging.upnp_details_logging ())
 			{
 				for (auto i (devices); i != nullptr; i = i->pNext)
 				{
-					BOOST_LOG (node.log) << boost::str (boost::format ("UPnP device url: %1% st: %2% usn: %3%") % i->descURL % i->st % i->usn);
+					node.logger.try_log (boost::str (boost::format ("UPnP device url: %1% st: %2% usn: %3%") % i->descURL % i->st % i->usn));
 				}
 			}
 		}
@@ -63,7 +63,7 @@ void nano::port_mapping::refresh_mapping ()
 			auto add_port_mapping_error (UPNP_AddAnyPortMapping (urls.controlURL, data.first.servicetype, node_port.c_str (), node_port.c_str (), address.to_string ().c_str (), nullptr, protocol.name, nullptr, std::to_string (mapping_timeout).c_str (), actual_external_port.data ()));
 			if (check_count % 15 == 0)
 			{
-				BOOST_LOG (node.log) << boost::str (boost::format ("UPnP %1% port mapping response: %2%, actual external port %3%") % protocol.name % add_port_mapping_error % actual_external_port.data ());
+				node.logger.try_log (boost::str (boost::format ("UPnP %1% port mapping response: %2%, actual external port %3%") % protocol.name % add_port_mapping_error % actual_external_port.data ()));
 			}
 			if (add_port_mapping_error == UPNPCOMMAND_SUCCESS)
 			{
@@ -115,7 +115,7 @@ int nano::port_mapping::check_mapping ()
 			}
 			if (check_count % 15 == 0)
 			{
-				BOOST_LOG (node.log) << boost::str (boost::format ("UPnP %1% mapping verification response: %2%, external ip response: %3%, external ip: %4%, internal ip: %5%, remaining lease: %6%") % protocol.name % verify_port_mapping_error % external_ip_error % external_address.data () % address.to_string () % remaining_mapping_duration.data ());
+				node.logger.try_log (boost::str (boost::format ("UPnP %1% mapping verification response: %2%, external ip response: %3%, external ip: %4%, internal ip: %5%, remaining lease: %6%") % protocol.name % verify_port_mapping_error % external_ip_error % external_address.data () % address.to_string () % remaining_mapping_duration.data ()));
 			}
 		}
 	}
@@ -140,7 +140,7 @@ void nano::port_mapping::check_mapping_loop ()
 		wait_duration = 300;
 		if (check_count < 10)
 		{
-			BOOST_LOG (node.log) << boost::str (boost::format ("UPnP No IGD devices found"));
+			node.logger.try_log (boost::str (boost::format ("UPnP No IGD devices found")));
 		}
 	}
 	++check_count;
@@ -163,7 +163,7 @@ void nano::port_mapping::stop ()
 		{
 			// Be a good citizen for the router and shut down our mapping
 			auto delete_error (UPNP_DeletePortMapping (urls.controlURL, data.first.servicetype, std::to_string (protocol.external_port).c_str (), protocol.name, address.to_string ().c_str ()));
-			BOOST_LOG (node.log) << boost::str (boost::format ("Shutdown port mapping response: %1%") % delete_error);
+			node.logger.always_log (boost::str (boost::format ("Shutdown port mapping response: %1%") % delete_error));
 		}
 	}
 	freeUPNPDevlist (devices);

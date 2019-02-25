@@ -77,7 +77,7 @@ void nano::block_processor::add (nano::unchecked_info const & info_a)
 	}
 	else
 	{
-		BOOST_LOG (node.log) << "nano::block_processor::add called for hash " << info_a.block->hash ().to_string () << " with invalid work " << nano::to_string_hex (info_a.block->block_work ());
+		node.logger.try_log ("nano::block_processor::add called for hash ", info_a.block->hash ().to_string (), " with invalid work ", nano::to_string_hex (info_a.block->block_work ()));
 		assert (false && "nano::block_processor::add called with invalid work");
 	}
 }
@@ -216,7 +216,7 @@ void nano::block_processor::verify_state_blocks (nano::transaction const & trans
 		}
 		if (node.config.logging.timing_logging ())
 		{
-			BOOST_LOG (node.log) << boost::str (boost::format ("Batch verified %1% state blocks in %2% %3%") % size % timer_l.stop ().count () % timer_l.unit ());
+			node.logger.try_log (boost::str (boost::format ("Batch verified %1% state blocks in %2% %3%") % size % timer_l.stop ().count () % timer_l.unit ()));
 		}
 	}
 	else
@@ -268,7 +268,7 @@ void nano::block_processor::process_batch (std::unique_lock<std::mutex> & lock_a
 		if (log_this_record)
 		{
 			first_time = false;
-			BOOST_LOG (node.log) << boost::str (boost::format ("%1% blocks (+ %2% state blocks) (+ %3% forced) in processing queue") % blocks.size () % state_blocks.size () % forced.size ());
+			node.logger.try_log (boost::str (boost::format ("%1% blocks (+ %2% state blocks) (+ %3% forced) in processing queue") % blocks.size () % state_blocks.size () % forced.size ()));
 		}
 		nano::unchecked_info info;
 		bool force (false);
@@ -293,10 +293,10 @@ void nano::block_processor::process_batch (std::unique_lock<std::mutex> & lock_a
 			if (successor != nullptr && successor->hash () != hash)
 			{
 				// Replace our block with the winner and roll back any dependent blocks
-				BOOST_LOG (node.log) << boost::str (boost::format ("Rolling back %1% and replacing with %2%") % successor->hash ().to_string () % hash.to_string ());
+				node.logger.always_log (boost::str (boost::format ("Rolling back %1% and replacing with %2%") % successor->hash ().to_string () % hash.to_string ()));
 				std::vector<nano::block_hash> rollback_list;
 				node.ledger.rollback (transaction, successor->hash (), rollback_list);
-				BOOST_LOG (node.log) << boost::str (boost::format ("%1% blocks rolled back") % rollback_list.size ());
+				node.logger.always_log (boost::str (boost::format ("%1% blocks rolled back") % rollback_list.size ()));
 				lock_a.lock ();
 				// Prevent rolled back blocks second insertion
 				auto inserted (rolled_back.insert (nano::rolled_hash{ std::chrono::steady_clock::now (), successor->hash () }));
@@ -333,7 +333,7 @@ void nano::block_processor::process_batch (std::unique_lock<std::mutex> & lock_a
 
 	if (node.config.logging.timing_logging ())
 	{
-		BOOST_LOG (node.log) << boost::str (boost::format ("Processed %1% blocks (%2% blocks were forced) in %3% %4%") % number_of_blocks_processed % number_of_forced_processed % timer_l.stop ().count () % timer_l.unit ());
+		node.logger.always_log (boost::str (boost::format ("Processed %1% blocks (%2% blocks were forced) in %3% %4%") % number_of_blocks_processed % number_of_forced_processed % timer_l.stop ().count () % timer_l.unit ()));
 	}
 }
 
@@ -386,7 +386,7 @@ nano::process_return nano::block_processor::process_one (nano::transaction const
 			{
 				std::string block;
 				info_a.block->serialize_json (block);
-				BOOST_LOG (node.log) << boost::str (boost::format ("Processing block %1%: %2%") % hash.to_string () % block);
+				node.logger.try_log (boost::str (boost::format ("Processing block %1%: %2%") % hash.to_string () % block));
 			}
 			if (info_a.modified > nano::seconds_since_epoch () - 300 && node.block_arrival.recent (hash))
 			{
@@ -399,7 +399,7 @@ nano::process_return nano::block_processor::process_one (nano::transaction const
 		{
 			if (node.config.logging.ledger_logging ())
 			{
-				BOOST_LOG (node.log) << boost::str (boost::format ("Gap previous for: %1%") % hash.to_string ());
+				node.logger.try_log (boost::str (boost::format ("Gap previous for: %1%") % hash.to_string ()));
 			}
 			info_a.verified = result.verified;
 			if (info_a.modified == 0)
@@ -414,7 +414,7 @@ nano::process_return nano::block_processor::process_one (nano::transaction const
 		{
 			if (node.config.logging.ledger_logging ())
 			{
-				BOOST_LOG (node.log) << boost::str (boost::format ("Gap source for: %1%") % hash.to_string ());
+				node.logger.try_log (boost::str (boost::format ("Gap source for: %1%") % hash.to_string ()));
 			}
 			info_a.verified = result.verified;
 			if (info_a.modified == 0)
@@ -429,7 +429,7 @@ nano::process_return nano::block_processor::process_one (nano::transaction const
 		{
 			if (node.config.logging.ledger_duplicate_logging ())
 			{
-				BOOST_LOG (node.log) << boost::str (boost::format ("Old for: %1%") % hash.to_string ());
+				node.logger.try_log (boost::str (boost::format ("Old for: %1%") % hash.to_string ()));
 			}
 			if (!node.flags.fast_bootstrap)
 			{
@@ -442,7 +442,7 @@ nano::process_return nano::block_processor::process_one (nano::transaction const
 		{
 			if (node.config.logging.ledger_logging ())
 			{
-				BOOST_LOG (node.log) << boost::str (boost::format ("Bad signature for: %1%") % hash.to_string ());
+				node.logger.try_log (boost::str (boost::format ("Bad signature for: %1%") % hash.to_string ()));
 			}
 			break;
 		}
@@ -450,7 +450,7 @@ nano::process_return nano::block_processor::process_one (nano::transaction const
 		{
 			if (node.config.logging.ledger_logging ())
 			{
-				BOOST_LOG (node.log) << boost::str (boost::format ("Negative spend for: %1%") % hash.to_string ());
+				node.logger.try_log (boost::str (boost::format ("Negative spend for: %1%") % hash.to_string ()));
 			}
 			break;
 		}
@@ -458,7 +458,7 @@ nano::process_return nano::block_processor::process_one (nano::transaction const
 		{
 			if (node.config.logging.ledger_logging ())
 			{
-				BOOST_LOG (node.log) << boost::str (boost::format ("Unreceivable for: %1%") % hash.to_string ());
+				node.logger.try_log (boost::str (boost::format ("Unreceivable for: %1%") % hash.to_string ()));
 			}
 			break;
 		}
@@ -472,20 +472,20 @@ nano::process_return nano::block_processor::process_one (nano::transaction const
 			}
 			if (node.config.logging.ledger_logging ())
 			{
-				BOOST_LOG (node.log) << boost::str (boost::format ("Fork for: %1% root: %2%") % hash.to_string () % info_a.block->root ().to_string ());
+				node.logger.try_log (boost::str (boost::format ("Fork for: %1% root: %2%") % hash.to_string () % info_a.block->root ().to_string ()));
 			}
 			break;
 		}
 		case nano::process_result::opened_burn_account:
 		{
-			BOOST_LOG (node.log) << boost::str (boost::format ("*** Rejecting open block for burn account ***: %1%") % hash.to_string ());
+			node.logger.try_log (boost::str (boost::format ("*** Rejecting open block for burn account ***: %1%") % hash.to_string ()));
 			break;
 		}
 		case nano::process_result::balance_mismatch:
 		{
 			if (node.config.logging.ledger_logging ())
 			{
-				BOOST_LOG (node.log) << boost::str (boost::format ("Balance mismatch for: %1%") % hash.to_string ());
+				node.logger.try_log (boost::str (boost::format ("Balance mismatch for: %1%") % hash.to_string ()));
 			}
 			break;
 		}
@@ -493,7 +493,7 @@ nano::process_return nano::block_processor::process_one (nano::transaction const
 		{
 			if (node.config.logging.ledger_logging ())
 			{
-				BOOST_LOG (node.log) << boost::str (boost::format ("Representative mismatch for: %1%") % hash.to_string ());
+				node.logger.try_log (boost::str (boost::format ("Representative mismatch for: %1%") % hash.to_string ()));
 			}
 			break;
 		}
@@ -501,7 +501,7 @@ nano::process_return nano::block_processor::process_one (nano::transaction const
 		{
 			if (node.config.logging.ledger_logging ())
 			{
-				BOOST_LOG (node.log) << boost::str (boost::format ("Block %1% cannot follow predecessor %2%") % hash.to_string () % info_a.block->previous ().to_string ());
+				node.logger.try_log (boost::str (boost::format ("Block %1% cannot follow predecessor %2%") % hash.to_string () % info_a.block->previous ().to_string ()));
 			}
 			break;
 		}

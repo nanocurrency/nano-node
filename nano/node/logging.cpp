@@ -5,30 +5,7 @@
 #include <boost/property_tree/ptree.hpp>
 #include <nano/node/logging.hpp>
 
-nano::logging::logging () :
-ledger_logging_value (false),
-ledger_duplicate_logging_value (false),
-vote_logging_value (false),
-network_logging_value (true),
-network_message_logging_value (false),
-network_publish_logging_value (false),
-network_packet_logging_value (false),
-network_keepalive_logging_value (false),
-network_node_id_handshake_logging_value (false),
-node_lifetime_tracing_value (false),
-insufficient_work_logging_value (true),
-log_rpc_value (true),
-log_ipc_value (true),
-bulk_pull_logging_value (false),
-work_generation_time_value (true),
-upnp_details_logging_value (false),
-timing_logging_value (false),
-log_to_cerr_value (false),
-flush (true),
-max_size (128 * 1024 * 1024),
-rotation_size (4 * 1024 * 1024)
-{
-}
+std::string nano::logging::log_path_value;
 
 void nano::logging::init (boost::filesystem::path const & application_path_a)
 {
@@ -40,8 +17,21 @@ void nano::logging::init (boost::filesystem::path const & application_path_a)
 		{
 			boost::log::add_console_log (std::cerr, boost::log::keywords::format = "[%TimeStamp%]: %Message%");
 		}
-		boost::log::add_file_log (boost::log::keywords::target = application_path_a / "log", boost::log::keywords::file_name = application_path_a / "log" / "log_%Y-%m-%d_%H-%M-%S.%N.log", boost::log::keywords::rotation_size = rotation_size, boost::log::keywords::auto_flush = flush, boost::log::keywords::scan_method = boost::log::sinks::file::scan_method::scan_matching, boost::log::keywords::max_size = max_size, boost::log::keywords::format = "[%TimeStamp%]: %Message%");
+		auto path = application_path_a / "log";
+		log_path_value = path.string ();
+		boost::log::add_file_log (boost::log::keywords::target = path, boost::log::keywords::file_name = path / "log_%Y-%m-%d_%H-%M-%S.%N.log", boost::log::keywords::rotation_size = rotation_size, boost::log::keywords::auto_flush = flush, boost::log::keywords::scan_method = boost::log::sinks::file::scan_method::scan_matching, boost::log::keywords::max_size = max_size, boost::log::keywords::format = "[%TimeStamp%]: %Message%");
 	}
+}
+
+// This is currently only used by tests currently
+std::string const & nano::logging::log_path ()
+{
+	if (log_path_value.empty ())
+	{
+		throw std::runtime_error ("init () has not been called yet");
+	}
+
+	return log_path_value;
 }
 
 nano::error nano::logging::serialize_json (nano::jsonconfig & json) const
@@ -68,6 +58,7 @@ nano::error nano::logging::serialize_json (nano::jsonconfig & json) const
 	json.put ("max_size", max_size);
 	json.put ("rotation_size", rotation_size);
 	json.put ("flush", flush);
+	json.put ("min_time_between_output", min_time_between_log_output.count ());
 	return json.get_error ();
 }
 
@@ -99,6 +90,10 @@ bool nano::logging::upgrade_json (unsigned version_a, nano::jsonconfig & json)
 			json.put ("log_ipc", true);
 			upgraded_l = true;
 		case 6:
+			json.put ("min_time_between_output", min_time_between_log_output.count ());
+			upgraded_l = true;
+			break;
+		case 7:
 			break;
 		default:
 			throw std::runtime_error ("Unknown logging_config version");
@@ -150,7 +145,9 @@ nano::error nano::logging::deserialize_json (bool & upgraded_a, nano::jsonconfig
 	json.get<bool> ("flush", flush);
 	json.get<uintmax_t> ("max_size", max_size);
 	json.get<uintmax_t> ("rotation_size", rotation_size);
-
+	uintmax_t min_time_between_log_output_raw;
+	json.get<uintmax_t> ("min_time_between_output", min_time_between_log_output_raw);
+	min_time_between_log_output = std::chrono::milliseconds (min_time_between_log_output_raw);
 	return json.get_error ();
 }
 

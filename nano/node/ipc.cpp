@@ -100,7 +100,7 @@ public:
 	{
 		if (node.config.logging.log_ipc ())
 		{
-			BOOST_LOG (node.log) << "IPC: created session with id: " << session_id;
+			node.logger.always_log ("IPC: created session with id: ", session_id);
 		}
 	}
 
@@ -136,7 +136,7 @@ public:
 			{
 				if (this_l->node.config.logging.log_ipc ())
 				{
-					BOOST_LOG (this_l->node.log) << boost::str (boost::format ("IPC: error reading %1% ") % ec.message ());
+					this_l->node.logger.always_log (boost::str (boost::format ("IPC: error reading %1% ") % ec.message ()));
 				}
 			}
 			else if (bytes_transferred_a > 0)
@@ -176,13 +176,13 @@ public:
 				}
 				else if (this_l->node.config.logging.log_ipc ())
 				{
-					BOOST_LOG (this_l->node.log) << "IPC: Write failed: " << error_a.message ();
+					this_l->node.logger.always_log ("IPC: Write failed: ", error_a.message ());
 				}
 			});
 
 			if (this_l->node.config.logging.log_ipc ())
 			{
-				BOOST_LOG (this_l->node.log) << boost::str (boost::format ("IPC/RPC request %1% completed in: %2% %3%") % request_id_l % this_l->session_timer.stop ().count () % this_l->session_timer.unit ());
+				this_l->node.logger.always_log (boost::str (boost::format ("IPC/RPC request %1% completed in: %2% %3%") % request_id_l % this_l->session_timer.stop ().count () % this_l->session_timer.unit ()));
 			}
 		});
 
@@ -206,7 +206,7 @@ public:
 			{
 				if (this_l->node.config.logging.log_ipc ())
 				{
-					BOOST_LOG (this_l->node.log) << "IPC: Invalid preamble";
+					this_l->node.logger.always_log ("IPC: Invalid preamble");
 				}
 			}
 			else if (this_l->buffer[preamble_offset::encoding] == static_cast<uint8_t> (nano::ipc::payload_encoding::json_legacy))
@@ -223,7 +223,7 @@ public:
 			}
 			else if (this_l->node.config.logging.log_ipc ())
 			{
-				BOOST_LOG (this_l->node.log) << "IPC: Unsupported payload encoding";
+				this_l->node.logger.always_log ("IPC: Unsupported payload encoding");
 			}
 		});
 	}
@@ -313,7 +313,7 @@ public:
 			}
 			else
 			{
-				BOOST_LOG (server.node.log) << "IPC: acceptor error: " << ec.message ();
+				server.node.logger.always_log ("IPC: acceptor error: ", ec.message ());
 			}
 
 			if (acceptor->is_open () && ec != boost::asio::error::operation_aborted)
@@ -322,7 +322,7 @@ public:
 			}
 			else
 			{
-				BOOST_LOG (server.node.log) << "IPC: shutting down";
+				server.node.logger.always_log ("IPC: shutting down");
 			}
 		});
 	}
@@ -378,7 +378,7 @@ node (node_a), rpc (rpc_a)
 			boost::asio::local::stream_protocol::endpoint ep{ node_a.config.ipc_config.transport_domain.path };
 			transports.push_back (std::make_shared<socket_transport<boost::asio::local::stream_protocol::acceptor, boost::asio::local::stream_protocol::socket, boost::asio::local::stream_protocol::endpoint>> (*this, ep, node_a.config.ipc_config.transport_domain, threads));
 #else
-			BOOST_LOG (node.log) << "IPC: Domain sockets are not supported on this platform";
+			node.logger.always_log ("IPC: Domain sockets are not supported on this platform");
 #endif
 		}
 
@@ -388,17 +388,17 @@ node (node_a), rpc (rpc_a)
 			transports.push_back (std::make_shared<socket_transport<boost::asio::ip::tcp::acceptor, boost::asio::ip::tcp::socket, boost::asio::ip::tcp::endpoint>> (*this, boost::asio::ip::tcp::endpoint (boost::asio::ip::tcp::v6 (), node_a.config.ipc_config.transport_tcp.port), node_a.config.ipc_config.transport_tcp, threads));
 		}
 
-		BOOST_LOG (node.log) << "IPC: server started";
+		node.logger.try_log ("IPC: server started");
 	}
 	catch (std::runtime_error const & ex)
 	{
-		BOOST_LOG (node.log) << "IPC: " << ex.what ();
+		node.logger.always_log ("IPC: ", ex.what ());
 	}
 }
 
 nano::ipc::ipc_server::~ipc_server ()
 {
-	BOOST_LOG (node.log) << "IPC: server stopped";
+	node.logger.always_log ("IPC: server stopped");
 }
 
 void nano::ipc::ipc_server::stop ()

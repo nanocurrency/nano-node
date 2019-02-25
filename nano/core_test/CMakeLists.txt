@@ -8,6 +8,7 @@ add_executable (core_test
 	entry.cpp
 	gap_cache.cpp
 	ledger.cpp
+	logger.cpp
 	network.cpp
 	node.cpp
 	message.cpp
