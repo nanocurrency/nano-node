@@ -872,7 +872,8 @@ void nano::network::receive_action (nano::udp_data * data_a, nano::endpoint cons
 					break;
 			}
 
-			if (node.config.logging.network_logging () && parser.status != nano::message_parser::parse_status::outdated_version)
+			auto ignore ((parser.status == nano::message_parser::parse_status::outdated_version) || (parser.status == nano::message_parser::parse_status::invalid_header));
+			if (node.config.logging.network_logging () && !ignore)
 			{
 				BOOST_LOG (node.log) << "Could not parse message.  Error: " << parser.status_string ();
 			}

@@ -971,10 +971,6 @@ bool nano::bootstrap_attempt::request_frontier (std::unique_lock<std::mutex> & l
 			{
 				BOOST_LOG (node->log) << boost::str (boost::format ("Completed frontier request, %1% out of sync accounts according to %2%") % pulls.size () % connection_l->endpoint);
 			}
-			else
-			{
-				BOOST_LOG (node->log) << "frontier_req failed, reattempting";
-			}
 		}
 	}
 	return result;
