@@ -4510,11 +4510,7 @@ void nano::rpc_handler::process_request ()
 			{
 				available_supply ();
 			}
-			else if (action == "block")
-			{
-				block_info ();
-			}
-			else if (action == "block_info")
+			else if (action == "block_info" || action == "block")
 			{
 				block_info ();
 			}
@@ -4659,7 +4655,7 @@ void nano::rpc_handler::process_request ()
 			{
 				password_change ();
 			}
-			else if (action == "password_enter")
+			else if (action == "password_enter" || action == "wallet_unlock")
 			{
 				password_enter ();
 			}
@@ -4799,11 +4795,6 @@ void nano::rpc_handler::process_request ()
 			{
 				wallet_add_watch ();
 			}
-			// Obsolete
-			else if (action == "wallet_balance_total")
-			{
-				wallet_info ();
-			}
 			else if (action == "wallet_balances")
 			{
 				wallet_balances ();
@@ -4836,7 +4827,7 @@ void nano::rpc_handler::process_request ()
 			{
 				wallet_history ();
 			}
-			else if (action == "wallet_info")
+			else if (action == "wallet_info" || action == "wallet_balance_total")
 			{
 				wallet_info ();
 			}
@@ -4871,10 +4862,6 @@ void nano::rpc_handler::process_request ()
 			else if (action == "wallet_republish")
 			{
 				wallet_republish ();
-			}
-			else if (action == "wallet_unlock")
-			{
-				password_enter ();
 			}
 			else if (action == "wallet_work_get")
 			{
