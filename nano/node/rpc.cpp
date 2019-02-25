@@ -822,6 +822,31 @@ void nano::rpc_handler::available_supply ()
 	response_errors ();
 }
 
+void state_subtype (nano::transaction const & transaction_a, nano::node & node_a, std::shared_ptr<nano::block> block_a, nano::uint128_t const & balance_a, boost::property_tree::ptree & tree_a)
+{
+	// Subtype check
+	auto previous_balance (node_a.ledger.balance (transaction_a, block_a->previous ()));
+	if (balance_a < previous_balance)
+	{
+		tree_a.put ("subtype", "send");
+	}
+	else
+	{
+		if (block_a->link ().is_zero ())
+		{
+			tree_a.put ("subtype", "change");
+		}
+		else if (balance_a == previous_balance && !node_a.ledger.epoch_link.is_zero () && node_a.ledger.is_epoch_link (block_a->link ()))
+		{
+			tree_a.put ("subtype", "epoch");
+		}
+		else
+		{
+			tree_a.put ("subtype", "receive");
+		}
+	}
+}
+
 void nano::rpc_handler::block_info ()
 {
 	auto hash (hash_impl ());
@@ -853,6 +878,10 @@ void nano::rpc_handler::block_info ()
 				std::string contents;
 				block->serialize_json (contents);
 				response_l.put ("contents", contents);
+			}
+			if (block->type () == nano::block_type::state)
+			{
+				state_subtype (transaction, node, block, balance, response_l);
 			}
 		}
 		else
@@ -971,7 +1000,10 @@ void nano::rpc_handler::blocks_info ()
 						block->serialize_json (contents);
 						entry.put ("contents", contents);
 					}
-
+					if (block->type () == nano::block_type::state)
+					{
+						state_subtype (transaction, node, block, balance, entry);
+					}
 					if (pending)
 					{
 						bool exists (false);

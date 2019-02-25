@@ -3528,6 +3528,48 @@ TEST (rpc, blocks_info)
 	}
 }
 
+TEST (rpc, blocks_info_subtype)
+{
+	nano::system system (24000, 1);
+	auto & node1 (*system.nodes[0]);
+	nano::keypair key;
+	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
+	system.wallet (0)->insert_adhoc (key.prv);
+	auto send (system.wallet (0)->send_action (nano::test_genesis_key.pub, nano::test_genesis_key.pub, nano::Gxrb_ratio));
+	ASSERT_NE (nullptr, send);
+	auto receive (system.wallet (0)->receive_action (*send, key.pub, nano::Gxrb_ratio));
+	ASSERT_NE (nullptr, receive);
+	auto change (system.wallet (0)->change_action (nano::test_genesis_key.pub, key.pub));
+	ASSERT_NE (nullptr, change);
+	nano::rpc rpc (system.io_ctx, node1, nano::rpc_config (true));
+	rpc.start ();
+	boost::property_tree::ptree request;
+	request.put ("action", "blocks_info");
+	boost::property_tree::ptree peers_l;
+	boost::property_tree::ptree entry;
+	entry.put ("", send->hash ().to_string ());
+	peers_l.push_back (std::make_pair ("", entry));
+	entry.put ("", receive->hash ().to_string ());
+	peers_l.push_back (std::make_pair ("", entry));
+	entry.put ("", change->hash ().to_string ());
+	peers_l.push_back (std::make_pair ("", entry));
+	request.add_child ("hashes", peers_l);
+	test_response response (request, rpc, system.io_ctx);
+	system.deadline_set (5s);
+	while (response.status == 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	auto & blocks (response.json.get_child ("blocks"));
+	ASSERT_EQ (3, blocks.size ());
+	auto send_subtype (blocks.get_child (send->hash ().to_string ()).get<std::string> ("subtype"));
+	ASSERT_EQ (send_subtype, "send");
+	auto receive_subtype (blocks.get_child (receive->hash ().to_string ()).get<std::string> ("subtype"));
+	ASSERT_EQ (receive_subtype, "receive");
+	auto change_subtype (blocks.get_child (change->hash ().to_string ()).get<std::string> ("subtype"));
+	ASSERT_EQ (change_subtype, "change");
+}
+
 TEST (rpc, work_peers_all)
 {
 	nano::system system (24000, 1);
