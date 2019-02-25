@@ -2396,6 +2396,7 @@ void nano::rpc_handler::payment_begin ()
 				} while (account.is_zero ());
 				if (!account.is_zero ())
 				{
+					response_l.put ("deprecated", "1");
 					response_l.put ("account", account.to_account ());
 				}
 				else
@@ -2429,6 +2430,7 @@ void nano::rpc_handler::payment_init ()
 		if (wallet->store.valid_password (transaction))
 		{
 			wallet->init_free_accounts (transaction);
+			response_l.put ("deprecated", "1");
 			response_l.put ("status", "Ready");
 		}
 		else
@@ -2453,6 +2455,7 @@ void nano::rpc_handler::payment_end ()
 			if (node.ledger.account_balance (block_transaction, account).is_zero ())
 			{
 				wallet->free_accounts.insert (account);
+				response_l.put ("deprecated", "1");
 				response_l.put ("ended", "1");
 			}
 			else
@@ -4936,6 +4939,7 @@ void nano::payment_observer::complete (nano::payment_status status)
 			case nano::payment_status::nothing:
 			{
 				boost::property_tree::ptree response_l;
+				response_l.put ("deprecated", "1");
 				response_l.put ("status", "nothing");
 				response (response_l);
 				break;
@@ -4943,6 +4947,7 @@ void nano::payment_observer::complete (nano::payment_status status)
 			case nano::payment_status::success:
 			{
 				boost::property_tree::ptree response_l;
+				response_l.put ("deprecated", "1");
 				response_l.put ("status", "success");
 				response (response_l);
 				break;
