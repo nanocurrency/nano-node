@@ -2723,7 +2723,7 @@ minimum (minimum_a)
 
 void nano::online_reps::observe (nano::account const & rep_a)
 {
-	auto transaction (ledger.store.tx_begin_read ());
+	auto transaction (node.ledger.store.tx_begin_read ());
 	if (node.ledger.weight (transaction, rep_a) > 0)
 	{
 		std::lock_guard<std::mutex> lock (mutex);
