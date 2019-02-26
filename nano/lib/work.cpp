@@ -169,19 +169,19 @@ void nano::work_pool::stop ()
 	producer_condition.notify_all ();
 }
 
-void nano::work_pool::generate (nano::uint256_union const & root_a, std::function<void(boost::optional<uint64_t> const &)> callback_a, uint64_t difficulty_a)
+void nano::work_pool::generate (nano::uint256_union const & hash_a, std::function<void(boost::optional<uint64_t> const &)> callback_a, uint64_t difficulty_a)
 {
-	assert (!root_a.is_zero ());
+	assert (!hash_a.is_zero ());
 	boost::optional<uint64_t> result;
 	if (opencl)
 	{
-		result = opencl (root_a, difficulty_a);
+		result = opencl (hash_a, difficulty_a);
 	}
 	if (!result)
 	{
 		{
 			std::lock_guard<std::mutex> lock (mutex);
-			pending.push_back ({ root_a, callback_a, difficulty_a });
+			pending.push_back ({ hash_a, callback_a, difficulty_a });
 		}
 		producer_condition.notify_all ();
 	}

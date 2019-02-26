@@ -713,10 +713,10 @@ TEST (node_config, v16_v17_upgrade)
 	nano::node_config config;
 	config.logging.init (path);
 	// These config options should not be present
-	ASSERT_FALSE (tree.get_optional_child ("work_pow_calc_interval"));
+	ASSERT_FALSE (tree.get_optional_child ("pow_sleep_interval"));
 	config.deserialize_json (upgraded, tree);
 	// The config options should be added after the upgrade
-	ASSERT_TRUE (!!tree.get_optional_child ("work_pow_calc_interval"));
+	ASSERT_TRUE (!!tree.get_optional_child ("pow_sleep_interval"));
 
 	ASSERT_TRUE (upgraded);
 	auto version (tree.get<std::string> ("version"));
@@ -736,17 +736,17 @@ TEST (node_config, v17_values)
 	config.logging.init (path);
 
 	// Check config is correct
-	tree.put ("work_pow_calc_interval", 0);
+	tree.put ("pow_sleep_interval", 0);
 	config.deserialize_json (upgraded, tree);
 	ASSERT_FALSE (upgraded);
-	ASSERT_EQ (config.work_pow_calc_interval.count (), 0);
+	ASSERT_EQ (config.pow_sleep_interval.count (), 0);
 
 	// Check config is correct with other values
-	tree.put ("work_pow_calc_interval", std::numeric_limits<unsigned long>::max () - 100);
+	tree.put ("pow_sleep_interval", std::numeric_limits<unsigned long>::max () - 100);
 	upgraded = false;
 	config.deserialize_json (upgraded, tree);
 	ASSERT_FALSE (upgraded);
-	ASSERT_EQ (config.work_pow_calc_interval.count (), std::numeric_limits<unsigned long>::max () - 100);
+	ASSERT_EQ (config.pow_sleep_interval.count (), std::numeric_limits<unsigned long>::max () - 100);
 }
 
 // Regression test to ensure that deserializing includes changes node via get_required_child

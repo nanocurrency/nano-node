@@ -55,7 +55,8 @@ int main (int argc, char * const * argv)
 		("platform", boost::program_options::value<std::string> (), "Defines the <platform> for OpenCL commands")
 		("device", boost::program_options::value<std::string> (), "Defines <device> for OpenCL command")
 		("threads", boost::program_options::value<std::string> (), "Defines <threads> count for OpenCL command")
-		("difficulty", boost::program_options::value<std::string> (), "Defines <difficulty> for OpenCL command, HEX");
+		("difficulty", boost::program_options::value<std::string> (), "Defines <difficulty> for OpenCL command, HEX")
+		("pow_sleep_interval", boost::program_options::value<std::string> (), "Defines the amount to sleep inbetween each pow calculation attempt");
 	// clang-format on
 
 	boost::program_options::variables_map vm;
@@ -239,7 +240,14 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_profile_generate"))
 		{
-			nano::work_pool work (std::numeric_limits<unsigned>::max ());
+			auto pow_rate_limiter = std::chrono::nanoseconds (0);
+			auto pow_sleep_interval_it = vm.find ("pow_sleep_interval");
+			if (pow_sleep_interval_it != vm.cend ())
+			{
+				pow_rate_limiter = std::chrono::nanoseconds (boost::lexical_cast<uint64_t> (pow_sleep_interval_it->second.as<std::string> ()));
+			}
+
+			nano::work_pool work (std::numeric_limits<unsigned>::max (), pow_rate_limiter);
 			nano::change_block block (0, 0, nano::keypair ().prv, 0, 0);
 			std::cerr << "Starting generation profiling\n";
 			while (true)
