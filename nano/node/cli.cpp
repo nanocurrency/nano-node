@@ -245,6 +245,12 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 					auto transaction (node.node->store.tx_begin_write ());
 					node.node->store.peer_clear (transaction);
 				}
+				if (vm.count ("confirmation_height_clear"))
+				{
+					auto transaction (node.node->store.tx_begin_write ());
+					node.node->store.confirmation_height_clear (transaction);
+				}
+
 				success = node.node->copy_with_compaction (snapshot_path);
 			}
 			if (success)

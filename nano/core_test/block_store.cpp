@@ -1578,7 +1578,7 @@ TEST (block_store, upgrade_v13_v14)
 	ASSERT_LT (13, store.version_get (transaction));
 }
 
-// Test various confirmation height values
+// Test various confirmation height values as well as clearing them
 TEST (block_store, confirmation_height)
 {
 	auto path (nano::unique_path ());
@@ -1608,6 +1608,19 @@ TEST (block_store, confirmation_height)
 
 	ASSERT_FALSE (store.account_get (transaction, account3, stored_account_info));
 	ASSERT_EQ (stored_account_info.confirmation_height, 10);
+
+	// Check clearning of confirmation heights
+	store.confirmation_height_clear (transaction);
+	ASSERT_EQ (store.account_count (transaction), 3);
+
+	ASSERT_FALSE (store.account_get (transaction, account1, stored_account_info));
+	ASSERT_EQ (stored_account_info.confirmation_height, 0);
+
+	ASSERT_FALSE (store.account_get (transaction, account2, stored_account_info));
+	ASSERT_EQ (stored_account_info.confirmation_height, 0);
+
+	ASSERT_FALSE (store.account_get (transaction, account3, stored_account_info));
+	ASSERT_EQ (stored_account_info.confirmation_height, 0);
 }
 
 // Upgrade many accounts to add a confirmation height of 0

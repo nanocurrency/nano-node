@@ -1940,6 +1940,16 @@ void nano::mdb_store::account_put (nano::transaction const & transaction_a, nano
 	release_assert (status == 0);
 }
 
+void nano::mdb_store::confirmation_height_clear (nano::transaction const & transaction_a)
+{
+	for (auto i (latest_begin (transaction_a)), n (latest_end ()); i != n; ++i)
+	{
+		nano::account_info info (i->second);
+		info.confirmation_height = 0;
+		account_put (transaction_a, i->first, info);
+	}
+}
+
 void nano::mdb_store::pending_put (nano::transaction const & transaction_a, nano::pending_key const & key_a, nano::pending_info const & pending_a)
 {
 	auto status (mdb_put (env.tx (transaction_a), get_pending_db (pending_a.epoch), nano::mdb_val (key_a), nano::mdb_val (pending_a), 0));
