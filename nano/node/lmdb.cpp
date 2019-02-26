@@ -1945,8 +1945,11 @@ void nano::mdb_store::confirmation_height_clear (nano::transaction const & trans
 	for (auto i (latest_begin (transaction_a)), n (latest_end ()); i != n; ++i)
 	{
 		nano::account_info info (i->second);
-		info.confirmation_height = 0;
-		account_put (transaction_a, i->first, info);
+		if (info.confirmation_height > 0)
+		{
+			info.confirmation_height = 0;
+			account_put (transaction_a, i->first, info);
+		}
 	}
 }
 
