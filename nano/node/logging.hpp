@@ -9,6 +9,8 @@
 
 #define FATAL_LOG_PREFIX "FATAL ERROR: "
 
+using namespace std::chrono;
+
 namespace nano
 {
 // A wrapper around a boost logger object to allow
@@ -67,20 +69,20 @@ public:
 	template <typename... LogItems>
 	bool try_log (LogItems &&... log_items)
 	{
-		auto logged (false);
-		auto time_now = std::chrono::steady_clock::now ();
-		if ((time_now - last_log_time) > min_log_delta)
+		auto error (true);
+		auto time_now = steady_clock::now ();
+		if (((time_now - last_log_time) > min_log_delta) || last_log_time == steady_clock::time_point{})
 		{
 			output (std::forward<LogItems> (log_items)...);
 			last_log_time = time_now;
-			logged = true;
+			error = false;
 		}
-		return logged;
+		return error;
 	}
 
 private:
-	std::chrono::milliseconds const & min_log_delta;
-	std::chrono::steady_clock::time_point last_log_time;
+	milliseconds const & min_log_delta;
+	steady_clock::time_point last_log_time;
 	boost::log::sources::logger_mt boost_logger_mt;
 };
 
@@ -132,7 +134,7 @@ public:
 	bool flush{ true };
 	uintmax_t max_size{ 128 * 1024 * 1024 };
 	uintmax_t rotation_size{ 4 * 1024 * 1024 };
-	std::chrono::milliseconds min_time_between_log_output{ 5 };
+	milliseconds min_time_between_log_output{ 5 };
 	nano::logger_mt logger{ min_time_between_log_output };
 	int json_version () const
 	{

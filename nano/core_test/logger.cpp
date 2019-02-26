@@ -120,31 +120,30 @@ TEST (logger, changing_time_interval)
 	logging.init (path1);
 	logging.min_time_between_log_output = 0ms;
 	nano::logger_mt my_logger (logging.min_time_between_log_output);
-	auto success (my_logger.try_log ("logger.changing_time_interval1"));
-	ASSERT_TRUE (success);
+	auto error (my_logger.try_log ("logger.changing_time_interval1"));
+	ASSERT_FALSE (error);
 	logging.min_time_between_log_output = 20s;
-	success = my_logger.try_log ("logger, changing_time_interval2");
-	ASSERT_FALSE (success);
+	error = my_logger.try_log ("logger, changing_time_interval2");
+	ASSERT_TRUE (error);
 }
 
 TEST (logger, try_log)
 {
 	auto path1 (nano::unique_path ());
-	nano::logger_mt my_logger (3ms);
 	std::stringstream ss;
 	boost_log_cerr_redirect redirect_cerr (ss.rdbuf ());
-
+	nano::logger_mt my_logger (3ms);
 	auto output1 = "logger.try_log1";
-	auto success (my_logger.try_log (output1));
-	ASSERT_TRUE (success);
+	auto error (my_logger.try_log (output1));
+	ASSERT_FALSE (error);
 	auto output2 = "logger.try_log2";
-	success = my_logger.try_log (output2);
-	ASSERT_FALSE (success); // Fails as it is occuring too soon
+	error = my_logger.try_log (output2);
+	ASSERT_TRUE (error); // Fails as it is occuring too soon
 
 	// Sleep for a bit and then confirm
 	std::this_thread::sleep_for (3ms);
-	success = my_logger.try_log (output2);
-	ASSERT_TRUE (success);
+	error = my_logger.try_log (output2);
+	ASSERT_FALSE (error);
 
 	std::string str;
 	std::getline (ss, str, '\n');
@@ -160,13 +159,13 @@ TEST (logger, always_log)
 	boost_log_cerr_redirect redirect_cerr (ss.rdbuf ());
 	nano::logger_mt my_logger (20s); // Make time interval effectively unreachable
 	auto output1 = "logger.always_log1";
-	auto success (my_logger.try_log (output1));
-	ASSERT_TRUE (success);
+	auto error (my_logger.try_log (output1));
+	ASSERT_FALSE (error);
 
 	// Time is too soon after, so it won't be logged
 	auto output2 = "logger.always_log2";
-	success = my_logger.try_log (output2);
-	ASSERT_FALSE (success);
+	error = my_logger.try_log (output2);
+	ASSERT_TRUE (error);
 
 	// Force it to be logged
 	my_logger.always_log (output2);
