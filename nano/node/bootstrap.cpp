@@ -20,7 +20,7 @@ size_t constexpr nano::frontier_req_client::size_frontier;
 
 nano::socket::socket (std::shared_ptr<nano::node> node_a) :
 socket_m (node_a->io_ctx),
-cutoff (std::numeric_limits<uint64_t>::max ()),
+async_start_time (std::numeric_limits<uint64_t>::max ()),
 node (node_a)
 {
 }
@@ -65,14 +65,14 @@ void nano::socket::async_write (std::shared_ptr<std::vector<uint8_t>> buffer_a, 
 	}
 }
 
-void nano::socket::start (std::chrono::steady_clock::time_point timeout_a)
+void nano::socket::start ()
 {
-	cutoff = timeout_a.time_since_epoch ().count ();
+	async_start_time = std::chrono::steady_clock::now ().time_since_epoch ().count ();
 }
 
 void nano::socket::stop ()
 {
-	cutoff = std::numeric_limits<uint64_t>::max ();
+	async_start_time = std::numeric_limits<uint64_t>::max ();
 }
 
 void nano::socket::close ()
@@ -97,7 +97,7 @@ void nano::socket::checkup (uint64_t timeout_a)
 	node->alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (10), [this_w, timeout_a]() {
 		if (auto this_l = this_w.lock ())
 		{
-			if (this_l->cutoff != std::numeric_limits<uint64_t>::max () && this_l->cutoff + timeout_a < static_cast<uint64_t> (std::chrono::steady_clock::now ().time_since_epoch ().count ()))
+			if (this_l->async_start_time != std::numeric_limits<uint64_t>::max () && this_l->async_start_time + timeout_a < static_cast<uint64_t> (std::chrono::steady_clock::now ().time_since_epoch ().count ()))
 			{
 				if (this_l->node->config.logging.bulk_pull_logging ())
 				{

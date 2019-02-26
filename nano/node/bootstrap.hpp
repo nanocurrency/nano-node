@@ -31,7 +31,7 @@ public:
 	void async_connect (nano::tcp_endpoint const &, std::function<void(boost::system::error_code const &)>);
 	void async_read (std::shared_ptr<std::vector<uint8_t>>, size_t, std::function<void(boost::system::error_code const &, size_t)>);
 	void async_write (std::shared_ptr<std::vector<uint8_t>>, std::function<void(boost::system::error_code const &, size_t)>);
-	void start (std::chrono::steady_clock::time_point = std::chrono::steady_clock::now ());
+	void start ();
 	void stop ();
 	void close ();
 	void checkup (uint64_t);
@@ -39,7 +39,7 @@ public:
 	boost::asio::ip::tcp::socket socket_m;
 
 private:
-	std::atomic<uint64_t> cutoff;
+	std::atomic<uint64_t> async_start_time;
 	std::shared_ptr<nano::node> node;
 };
 
