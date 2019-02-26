@@ -240,7 +240,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 		nano::work_pool work (config.node.work_threads, config.node.work_pow_calc_interval, opencl ? [&opencl](nano::uint256_union const & root_a, uint64_t difficulty_a) {
 			return opencl->generate_work (root_a, difficulty_a);
 		}
-		                                                       : std::function<boost::optional<uint64_t> (nano::uint256_union const &, uint64_t)> (nullptr));
+		                                                                                           : std::function<boost::optional<uint64_t> (nano::uint256_union const &, uint64_t)> (nullptr));
 		nano::alarm alarm (io_ctx);
 		nano::node_init init;
 		node = std::make_shared<nano::node> (init, io_ctx, data_path, alarm, config.node, work, flags);

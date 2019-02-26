@@ -77,7 +77,7 @@ TEST (work, opencl)
 			nano::work_pool pool (std::numeric_limits<unsigned>::max (), std::chrono::nanoseconds (0), opencl ? [&opencl](nano::uint256_union const & root_a, uint64_t difficulty_a) {
 				return opencl->generate_work (root_a, difficulty_a);
 			}
-			                                                                    : std::function<boost::optional<uint64_t> (nano::uint256_union const &, uint64_t)> (nullptr));
+			                                                                                                  : std::function<boost::optional<uint64_t> (nano::uint256_union const &, uint64_t)> (nullptr));
 			ASSERT_NE (nullptr, pool.opencl);
 			nano::uint256_union root;
 			uint64_t difficulty (0xff00000000000000);
