@@ -106,7 +106,7 @@ public:
 			}
 			if (!rpc_l.get_error ())
 			{
-				rpc.deserialize_json (rpc_l);
+				rpc.deserialize_json (upgraded_a, rpc_l);
 			}
 			if (!opencl_l.get_error ())
 			{
@@ -237,10 +237,10 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 		std::shared_ptr<nano_qt::wallet> gui;
 		nano::set_application_icon (application);
 		auto opencl (nano::opencl_work::create (config.opencl_enable, config.opencl, config.node.logging));
-		nano::work_pool work (config.node.work_threads, config.node.work_pow_calc_interval, opencl ? [&opencl](nano::uint256_union const & root_a) {
-			return opencl->generate_work (root_a);
+		nano::work_pool work (config.node.work_threads, config.node.work_pow_calc_interval, opencl ? [&opencl](nano::uint256_union const & root_a, uint64_t difficulty_a) {
+			return opencl->generate_work (root_a, difficulty_a);
 		}
-		                                                                                           : std::function<boost::optional<uint64_t> (nano::uint256_union const &)> (nullptr));
+		                                                       : std::function<boost::optional<uint64_t> (nano::uint256_union const &, uint64_t)> (nullptr));
 		nano::alarm alarm (io_ctx);
 		nano::node_init init;
 		node = std::make_shared<nano::node> (init, io_ctx, data_path, alarm, config.node, work, flags);

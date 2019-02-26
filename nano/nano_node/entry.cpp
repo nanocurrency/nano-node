@@ -54,7 +54,8 @@ int main (int argc, char * const * argv)
 		("debug_peers", "Display peer IPv6:port connections")
 		("platform", boost::program_options::value<std::string> (), "Defines the <platform> for OpenCL commands")
 		("device", boost::program_options::value<std::string> (), "Defines <device> for OpenCL command")
-		("threads", boost::program_options::value<std::string> (), "Defines <threads> count for OpenCL command");
+		("threads", boost::program_options::value<std::string> (), "Defines <threads> count for OpenCL command")
+		("difficulty", boost::program_options::value<std::string> (), "Defines <difficulty> for OpenCL command, HEX");
 	// clang-format on
 
 	boost::program_options::variables_map vm;
@@ -298,6 +299,16 @@ int main (int argc, char * const * argv)
 						result = -1;
 					}
 				}
+				uint64_t difficulty (nano::work_pool::publish_threshold);
+				auto difficulty_it = vm.find ("difficulty");
+				if (difficulty_it != vm.end ())
+				{
+					if (nano::from_string_hex (difficulty_it->second.as<std::string> (), difficulty))
+					{
+						std::cerr << "Invalid difficulty\n";
+						result = -1;
+					}
+				}
 				if (!result)
 				{
 					error |= platform >= environment.platforms.size ();
@@ -308,17 +319,17 @@ int main (int argc, char * const * argv)
 						{
 							nano::logging logging;
 							auto opencl (nano::opencl_work::create (true, { platform, device, threads }, logging));
-							nano::work_pool work_pool (std::numeric_limits<unsigned>::max (), std::chrono::nanoseconds (0), opencl ? [&opencl](nano::uint256_union const & root_a) {
-								return opencl->generate_work (root_a);
+							nano::work_pool work_pool (std::numeric_limits<unsigned>::max (), std::chrono::nanoseconds (0), opencl ? [&opencl](nano::uint256_union const & root_a, uint64_t difficulty_a) {
+								return opencl->generate_work (root_a, difficulty_a);
 							}
-							                                                                                                       : std::function<boost::optional<uint64_t> (nano::uint256_union const &)> (nullptr));
+							                                                                         : std::function<boost::optional<uint64_t> (nano::uint256_union const &, uint64_t)> (nullptr));
 							nano::change_block block (0, 0, nano::keypair ().prv, 0, 0);
-							std::cerr << boost::str (boost::format ("Starting OpenCL generation profiling. Platform: %1%. Device: %2%. Threads: %3%\n") % platform % device % threads);
+							std::cerr << boost::str (boost::format ("Starting OpenCL generation profiling. Platform: %1%. Device: %2%. Threads: %3%. Difficulty: %4$#x\n") % platform % device % threads % difficulty);
 							for (uint64_t i (0); true; ++i)
 							{
 								block.hashables.previous.qwords[0] += 1;
 								auto begin1 (std::chrono::high_resolution_clock::now ());
-								block.block_work_set (work_pool.generate (block.root ()));
+								block.block_work_set (work_pool.generate (block.root (), difficulty));
 								auto end1 (std::chrono::high_resolution_clock::now ());
 								std::cerr << boost::str (boost::format ("%|1$ 12d|\n") % std::chrono::duration_cast<std::chrono::microseconds> (end1 - begin1).count ());
 							}

@@ -31,7 +31,7 @@ uint64_t nano::work_value (nano::block_hash const & root_a, uint64_t work_a)
 	return result;
 }
 
-nano::work_pool::work_pool (unsigned max_threads_a, std::chrono::nanoseconds pow_rate_limiter_a, std::function<boost::optional<uint64_t> (nano::uint256_union const &)> opencl_a) :
+nano::work_pool::work_pool (unsigned max_threads_a, std::chrono::nanoseconds pow_rate_limiter_a, std::function<boost::optional<uint64_t> (nano::uint256_union const &, uint64_t)> opencl_a) :
 ticket (0),
 done (false),
 pow_rate_limiter (pow_rate_limiter_a),
@@ -175,7 +175,7 @@ void nano::work_pool::generate (nano::uint256_union const & root_a, std::functio
 	boost::optional<uint64_t> result;
 	if (opencl)
 	{
-		result = opencl (root_a);
+		result = opencl (root_a, difficulty_a);
 	}
 	if (!result)
 	{

@@ -28,7 +28,7 @@ public:
 class work_pool
 {
 public:
-	work_pool (unsigned, std::chrono::nanoseconds = std::chrono::nanoseconds (0), std::function<boost::optional<uint64_t> (nano::uint256_union const &)> = nullptr);
+	work_pool (unsigned, std::chrono::nanoseconds = std::chrono::nanoseconds (0), std::function<boost::optional<uint64_t> (nano::uint256_union const &, uint64_t)> = nullptr);
 	~work_pool ();
 	void loop (uint64_t);
 	void stop ();
@@ -42,7 +42,7 @@ public:
 	std::mutex mutex;
 	std::condition_variable producer_condition;
 	std::chrono::nanoseconds pow_rate_limiter;
-	std::function<boost::optional<uint64_t> (nano::uint256_union const &)> opencl;
+	std::function<boost::optional<uint64_t> (nano::uint256_union const &, uint64_t)> opencl;
 	nano::observer_set<bool> work_observers;
 	// Local work threshold for rate-limiting publishing blocks. ~5 seconds of work.
 	static uint64_t const publish_test_threshold = 0xff00000000000000;
