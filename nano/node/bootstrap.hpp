@@ -118,7 +118,7 @@ public:
 	std::atomic<uint64_t> total_blocks;
 	std::atomic<unsigned> runs_count;
 	std::vector<std::pair<nano::block_hash, nano::block_hash>> bulk_push_targets;
-	bool stopped;
+	std::atomic<bool> stopped;
 	nano::bootstrap_mode mode;
 	std::mutex mutex;
 	std::condition_variable condition;
@@ -284,6 +284,7 @@ public:
 	void receive_bulk_pull_action (boost::system::error_code const &, size_t, nano::message_header const &);
 	void receive_bulk_pull_account_action (boost::system::error_code const &, size_t, nano::message_header const &);
 	void receive_frontier_req_action (boost::system::error_code const &, size_t, nano::message_header const &);
+	void receive_keepalive_action (boost::system::error_code const &, size_t, nano::message_header const &);
 	void add_request (std::unique_ptr<nano::message>);
 	void finish_request ();
 	void run_next ();

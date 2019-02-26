@@ -71,7 +71,7 @@ bool nano::block_sideband::deserialize (nano::stream & stream_a)
 		}
 		else
 		{
-			height = 0;
+			height = 1;
 		}
 		if (type == nano::block_type::receive || type == nano::block_type::change || type == nano::block_type::open)
 		{
@@ -223,7 +223,7 @@ nano::uint128_t nano::summation_visitor::compute_internal (nano::summation_visit
 	 compiler optimizing that into a loop, though a future alternative is to do a
 	 CPS-style implementation to enforce tail calls.)
 	*/
-	while (frames.size () > 0)
+	while (!frames.empty ())
 	{
 		current = &frames.top ();
 		assert (current->type != summation_type::invalid && current != nullptr);
@@ -308,7 +308,7 @@ void nano::summation_visitor::epilogue ()
 	if (!current->awaiting_result)
 	{
 		frames.pop ();
-		if (frames.size () > 0)
+		if (!frames.empty ())
 		{
 			frames.top ().incoming_result = current->sum;
 		}

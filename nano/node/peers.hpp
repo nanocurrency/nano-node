@@ -54,7 +54,7 @@ public:
 	std::chrono::steady_clock::time_point last_rep_request{ std::chrono::steady_clock::time_point () };
 	std::chrono::steady_clock::time_point last_rep_response{ std::chrono::steady_clock::time_point () };
 	nano::amount rep_weight{ 0 };
-	nano::account probable_rep_account;
+	nano::account probable_rep_account{ 0 };
 	unsigned network_version{ nano::protocol_version };
 	boost::optional<nano::account> node_id;
 	bool operator< (nano::peer_information const &) const;
@@ -69,7 +69,7 @@ public:
 	// Returns true if a Node ID handshake should begin
 	bool contacted (nano::endpoint const &, unsigned);
 	// Unassigned, reserved, self
-	bool not_a_peer (nano::endpoint const &, bool);
+	bool not_a_peer (nano::endpoint const &, bool = false);
 	// Returns true if peer was already known
 	bool known_peer (nano::endpoint const &);
 	// Notify of peer we received from
@@ -94,7 +94,7 @@ public:
 	bool rep_response (nano::endpoint const &, nano::account const &, nano::amount const &);
 	void rep_request (nano::endpoint const &);
 	// Should we reach out to this endpoint with a keepalive message
-	bool reachout (nano::endpoint const &);
+	bool reachout (nano::endpoint const &, bool = false);
 	// Returns boost::none if the IP is rate capped on syn cookie requests,
 	// or if the endpoint already has a syn cookie query
 	boost::optional<nano::uint256_union> assign_syn_cookie (nano::endpoint const &);

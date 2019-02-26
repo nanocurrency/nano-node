@@ -36,7 +36,7 @@ bootstrap_connections (4),
 bootstrap_connections_max (64),
 callback_port (0),
 lmdb_max_dbs (128),
-allow_local_peers (false),
+allow_local_peers (!nano::is_live_network),
 block_processor_batch_max_time (5000),
 unchecked_cutoff_time (4 * 60 * 60), // 4 hours
 work_pow_calc_interval (0)
@@ -401,8 +401,8 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 
 nano::account nano::node_config::random_representative ()
 {
-	assert (preconfigured_representatives.size () > 0);
-	size_t index (nano::random_pool.GenerateWord32 (0, static_cast<CryptoPP::word32> (preconfigured_representatives.size () - 1)));
+	assert (!preconfigured_representatives.empty ());
+	size_t index (nano::random_pool::generate_word32 (0, static_cast<CryptoPP::word32> (preconfigured_representatives.size () - 1)));
 	auto result (preconfigured_representatives[index]);
 	return result;
 }

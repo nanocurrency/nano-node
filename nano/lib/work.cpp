@@ -65,7 +65,7 @@ void nano::work_pool::loop (uint64_t thread)
 {
 	// Quick RNG for work attempts.
 	xorshift1024star rng;
-	nano::random_pool.GenerateBlock (reinterpret_cast<uint8_t *> (rng.s.data ()), rng.s.size () * sizeof (decltype (rng.s)::value_type));
+	nano::random_pool::generate_block (reinterpret_cast<uint8_t *> (rng.s.data ()), rng.s.size () * sizeof (decltype (rng.s)::value_type));
 	uint64_t work;
 	uint64_t output;
 	blake2b_state hash;

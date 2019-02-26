@@ -4,7 +4,7 @@
 #include <nano/lib/errors.hpp>
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/numbers.hpp>
-#include <nano/node/ipc.hpp>
+#include <nano/node/ipcconfig.hpp>
 #include <nano/node/logging.hpp>
 #include <nano/node/stats.hpp>
 #include <vector>

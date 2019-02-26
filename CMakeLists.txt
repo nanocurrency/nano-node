@@ -30,9 +30,7 @@ endif()
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-# TODO check if any library requires these
-#find_package(Threads REQUIRED)
-#set (PLATFORM_LIBS ${CMAKE_THREAD_LIBS_INIT} ${CMAKE_DL_LIBS})
+find_package(Threads)
 
 if (WIN32)
 	add_definitions(-D_WIN32_WINNT=0x0600
@@ -49,7 +47,10 @@ else ()
 		add_compile_options(-fsanitize=address,undefined,integer)
 		add_definitions(-DED25519_NO_INLINE_ASM)
 	elseif (NANO_TSAN OR RAIBLOCKS_TSAN)
-		add_compile_options(-fsanitize=thread "-fsanitize-blacklist=${PROJECT_SOURCE_DIR}/tsan_blacklist")
+		add_compile_options(-fsanitize=thread)
+		if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+			add_compile_options("-fsanitize-blacklist=${PROJECT_SOURCE_DIR}/tsan_blacklist")
+		endif()
 		add_definitions(-DED25519_NO_INLINE_ASM)
 	endif()
 
@@ -108,7 +109,10 @@ else ()
 	elseif (NANO_ASAN_INT OR RAIBLOCKS_ASAN_INT)
 		set (PLATFORM_LINK_FLAGS "${PLATFORM_LINK_FLAGS} -fsanitize=address,undefined,integer")
 	elseif (NANO_TSAN OR RAIBLOCKS_TSAN)
-		set (PLATFORM_LINK_FLAGS "${PLATFORM_LINK_FLAGS} -fsanitize=thread -fsanitize-blacklist=${PROJECT_SOURCE_DIR}/tsan_blacklist")
+		set (PLATFORM_LINK_FLAGS "${PLATFORM_LINK_FLAGS} -fsanitize=thread")
+		if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+			set (PLATFORM_LINK_FLAGS "${PLATFORM_LINK_FLAGS} -fsanitize-blacklist=${PROJECT_SOURCE_DIR}/tsan_blacklist")
+		endif()
 	endif()
 endif ()
 
@@ -219,7 +223,7 @@ add_library (cryptopp
 	crypto/cryptopp/sse_simd.cpp
 	${CRYPTOPP_EXTRA})
 
-if ((NANO_SIMD_OPTIMIZATIONS OR RAIBLOCKS_SIMD_OPTIMIZATIONS) AND NOT CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64")
+if (WIN32 OR CMAKE_SYSTEM_PROCESSOR MATCHES "^(i.86|x86(_64)?)$")
 	set (ARGON_CORE crypto/phc-winner-argon2/src/opt.c)
 else ()
 	set (ARGON_CORE crypto/phc-winner-argon2/src/ref.c)

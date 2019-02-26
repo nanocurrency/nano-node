@@ -58,7 +58,7 @@ TEST (network, self_discard)
 	nano::udp_data data;
 	data.endpoint = system.nodes[0]->network.endpoint ();
 	ASSERT_EQ (0, system.nodes[0]->stats.count (nano::stat::type::error, nano::stat::detail::bad_sender));
-	system.nodes[0]->network.receive_action (&data);
+	system.nodes[0]->network.receive_action (&data, system.nodes[0]->network.endpoint ());
 	ASSERT_EQ (1, system.nodes[0]->stats.count (nano::stat::type::error, nano::stat::detail::bad_sender));
 }
 
@@ -612,7 +612,7 @@ TEST (bootstrap_processor, process_one)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	ASSERT_EQ (0, node1->active.roots.size ());
+	ASSERT_EQ (0, node1->active.size ());
 	node1->stop ();
 }
 
@@ -665,7 +665,7 @@ TEST (bootstrap_processor, process_state)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	ASSERT_EQ (0, node1->active.roots.size ());
+	ASSERT_EQ (0, node1->active.size ());
 	node1->stop ();
 }
 
@@ -1062,7 +1062,7 @@ TEST (bulk, offline_send)
 	ASSERT_NE (std::numeric_limits<nano::uint256_t>::max (), system.nodes[0]->balance (nano::test_genesis_key.pub));
 	// Wait to finish election background tasks
 	system.deadline_set (10s);
-	while (!system.nodes[0]->active.roots.empty ())
+	while (!system.nodes[0]->active.empty ())
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
@@ -1175,7 +1175,10 @@ TEST (network, reserved_address)
 	ASSERT_FALSE (nano::reserved_address (nano::endpoint (boost::asio::ip::address_v6::from_string ("2001::"), 0), true));
 	nano::endpoint loopback (boost::asio::ip::address_v6::from_string ("::1"), 1);
 	ASSERT_FALSE (nano::reserved_address (loopback, false));
-	ASSERT_TRUE (nano::reserved_address (loopback, true));
+	ASSERT_FALSE (nano::reserved_address (loopback, true));
+	nano::endpoint private_network_peer (boost::asio::ip::address_v6::from_string ("::ffff:10.0.0.0"), 1);
+	ASSERT_TRUE (nano::reserved_address (private_network_peer, false));
+	ASSERT_FALSE (nano::reserved_address (private_network_peer, true));
 }
 
 TEST (node, port_mapping)
@@ -1390,5 +1393,33 @@ TEST (bulk_pull_account, basics)
 		block_data = request->get_next ();
 		ASSERT_EQ (nullptr, block_data.first.get ());
 		ASSERT_EQ (nullptr, block_data.second.get ());
+	}
+}
+
+TEST (bootstrap, keepalive)
+{
+	nano::system system (24000, 1);
+	auto socket (std::make_shared<nano::socket> (system.nodes[0]));
+	nano::keepalive keepalive;
+	auto input (keepalive.to_bytes ());
+	socket->async_connect (system.nodes[0]->bootstrap.endpoint (), [&input, socket](boost::system::error_code const & ec) {
+		ASSERT_FALSE (ec);
+		socket->async_write (input, [&input](boost::system::error_code const & ec, size_t size_a) {
+			ASSERT_FALSE (ec);
+			ASSERT_EQ (input->size (), size_a);
+		});
+	});
+
+	auto output (keepalive.to_bytes ());
+	bool done (false);
+	socket->async_read (output, output->size (), [&output, &done](boost::system::error_code const & ec, size_t size_a) {
+		ASSERT_FALSE (ec);
+		ASSERT_EQ (output->size (), size_a);
+		done = true;
+	});
+	system.deadline_set (std::chrono::seconds (5));
+	while (!done)
+	{
+		ASSERT_NO_ERROR (system.poll ());
 	}
 }

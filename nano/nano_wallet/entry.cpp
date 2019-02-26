@@ -21,7 +21,7 @@ public:
 	rpc_enable (false),
 	opencl_enable (false)
 	{
-		nano::random_pool.GenerateBlock (wallet.bytes.data (), wallet.bytes.size ());
+		nano::random_pool::generate_block (wallet.bytes.data (), wallet.bytes.size ());
 		assert (!wallet.is_zero ());
 	}
 	bool upgrade_json (unsigned version_a, nano::jsonconfig & json)
@@ -114,7 +114,7 @@ public:
 			}
 			if (wallet.is_zero ())
 			{
-				nano::random_pool.GenerateBlock (wallet.bytes.data (), wallet.bytes.size ());
+				nano::random_pool::generate_block (wallet.bytes.data (), wallet.bytes.size ());
 				upgraded_a = true;
 			}
 		}

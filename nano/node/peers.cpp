@@ -15,7 +15,6 @@ endpoint (endpoint_a),
 ip_address (endpoint_a.address ()),
 last_contact (std::chrono::steady_clock::now ()),
 last_attempt (last_contact),
-
 network_version (network_version_a),
 node_id (node_id_a)
 {
@@ -99,7 +98,7 @@ std::deque<nano::endpoint> nano::peer_container::list ()
 	{
 		result.push_back (i->endpoint);
 	}
-	random_pool.Shuffle (result.begin (), result.end ());
+	nano::random_pool::shuffle (result.begin (), result.end ());
 	return result;
 }
 
@@ -111,7 +110,7 @@ std::vector<nano::peer_information> nano::peer_container::list_vector (size_t co
 	{
 		result.push_back (*i);
 	}
-	random_pool.Shuffle (result.begin (), result.end ());
+	random_pool::shuffle (result.begin (), result.end ());
 	if (result.size () > count_a)
 	{
 		result.resize (count_a, nano::peer_information (nano::endpoint{}, 0));
@@ -154,7 +153,7 @@ boost::optional<nano::uint256_union> nano::peer_container::assign_syn_cookie (na
 		if (syn_cookies.find (endpoint) == syn_cookies.end ())
 		{
 			nano::uint256_union query;
-			random_pool.GenerateBlock (query.bytes.data (), query.bytes.size ());
+			random_pool::generate_block (query.bytes.data (), query.bytes.size ());
 			syn_cookie_info info{ query, std::chrono::steady_clock::now () };
 			syn_cookies[endpoint] = info;
 			++ip_cookies;
@@ -202,7 +201,7 @@ std::unordered_set<nano::endpoint> nano::peer_container::random_set (size_t coun
 	{
 		for (auto i (0); i < random_cutoff && result.size () < count_a; ++i)
 		{
-			auto index (random_pool.GenerateWord32 (0, static_cast<CryptoPP::word32> (peers_size - 1)));
+			auto index (nano::random_pool::generate_word32 (0, static_cast<CryptoPP::word32> (peers_size - 1)));
 			result.insert (peers.get<3> ()[index].endpoint);
 		}
 	}
@@ -359,14 +358,14 @@ bool nano::peer_container::empty ()
 	return size () == 0;
 }
 
-bool nano::peer_container::not_a_peer (nano::endpoint const & endpoint_a, bool blacklist_loopback)
+bool nano::peer_container::not_a_peer (nano::endpoint const & endpoint_a, bool allow_local_peers)
 {
 	bool result (false);
 	if (endpoint_a.address ().to_v6 ().is_unspecified ())
 	{
 		result = true;
 	}
-	else if (nano::reserved_address (endpoint_a, blacklist_loopback))
+	else if (nano::reserved_address (endpoint_a, allow_local_peers))
 	{
 		result = true;
 	}
@@ -410,10 +409,10 @@ void nano::peer_container::rep_request (nano::endpoint const & endpoint_a)
 	}
 }
 
-bool nano::peer_container::reachout (nano::endpoint const & endpoint_a)
+bool nano::peer_container::reachout (nano::endpoint const & endpoint_a, bool allow_local_peers)
 {
 	// Don't contact invalid IPs
-	bool error = not_a_peer (endpoint_a, false);
+	bool error = not_a_peer (endpoint_a, allow_local_peers);
 	if (!error)
 	{
 		auto endpoint_l (nano::map_endpoint_to_v6 (endpoint_a));
@@ -427,11 +426,11 @@ bool nano::peer_container::reachout (nano::endpoint const & endpoint_a)
 	return error;
 }
 
-bool nano::peer_container::insert (nano::endpoint const & endpoint_a, unsigned version_a, bool preconfigured_a, boost::optional<nano::account> node_id_a)
+bool nano::peer_container::insert (nano::endpoint const & endpoint_a, unsigned version_a, bool allow_local_peers, boost::optional<nano::account> node_id_a)
 {
 	assert (endpoint_a.address ().is_v6 ());
 	auto unknown (false);
-	auto result (!preconfigured_a && not_a_peer (endpoint_a, false));
+	auto result (not_a_peer (endpoint_a, allow_local_peers));
 	if (!result)
 	{
 		if (version_a >= nano::protocol_version_min)

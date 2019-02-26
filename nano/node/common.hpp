@@ -17,7 +17,7 @@ bool parse_address_port (std::string const &, boost::asio::ip::address &, uint16
 using tcp_endpoint = boost::asio::ip::tcp::endpoint;
 bool parse_endpoint (std::string const &, nano::endpoint &);
 bool parse_tcp_endpoint (std::string const &, nano::tcp_endpoint &);
-bool reserved_address (nano::endpoint const &, bool);
+bool reserved_address (nano::endpoint const &, bool = false);
 }
 
 namespace
@@ -280,6 +280,7 @@ public:
 	bool deserialize (nano::stream &);
 	bool operator== (nano::keepalive const &) const;
 	std::array<nano::endpoint, 8> peers;
+	static size_t constexpr size = 8 * (16 + 2);
 };
 class publish : public message
 {
@@ -313,7 +314,6 @@ public:
 	confirm_ack (bool &, nano::stream &, nano::message_header const &, nano::vote_uniquer * = nullptr);
 	confirm_ack (std::shared_ptr<nano::vote>);
 	void serialize (nano::stream &) const override;
-	bool deserialize (nano::stream &, nano::vote_uniquer * = nullptr);
 	void visit (nano::message_visitor &) const override;
 	bool operator== (nano::confirm_ack const &) const;
 	std::shared_ptr<nano::vote> vote;
