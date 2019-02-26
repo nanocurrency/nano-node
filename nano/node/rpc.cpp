@@ -40,7 +40,7 @@ void nano::rpc::start (bool rpc_enabled_a)
 		acceptor.bind (endpoint, ec);
 		if (ec)
 		{
-			BOOST_LOG (node.log) << boost::str (boost::format ("Error while binding for RPC on port %1%: %2%") % endpoint.port () % ec.message ());
+			node.logger.always_log (boost::str (boost::format ("Error while binding for RPC on port %1%: %2%") % endpoint.port () % ec.message ()));
 			throw std::runtime_error (ec.message ());
 		}
 
@@ -69,7 +69,7 @@ void nano::rpc::accept ()
 		}
 		else
 		{
-			BOOST_LOG (this->node.log) << boost::str (boost::format ("Error accepting RPC connections: %1% (%2%)") % ec.message () % ec.value ());
+			this->node.logger.always_log (boost::str (boost::format ("Error accepting RPC connections: %1% (%2%)") % ec.message () % ec.value ()));
 		}
 	});
 }
@@ -2407,7 +2407,7 @@ void nano::rpc_handler::payment_begin ()
 						wallet->free_accounts.erase (existing);
 						if (wallet->store.find (transaction, account) == wallet->store.end ())
 						{
-							BOOST_LOG (node.log) << boost::str (boost::format ("Transaction wallet %1% externally modified listing account %2% as free but no longer exists") % id.to_string () % account.to_account ());
+							node.logger.always_log (boost::str (boost::format ("Transaction wallet %1% externally modified listing account %2% as free but no longer exists") % id.to_string () % account.to_account ()));
 							account.clear ();
 						}
 						else
@@ -2415,7 +2415,7 @@ void nano::rpc_handler::payment_begin ()
 							auto block_transaction (node.store.tx_begin_read ());
 							if (!node.ledger.account_balance (block_transaction, account).is_zero ())
 							{
-								BOOST_LOG (node.log) << boost::str (boost::format ("Skipping account %1% for use as a transaction account: non-zero balance") % account.to_account ());
+								node.logger.always_log (boost::str (boost::format ("Skipping account %1% for use as a transaction account: non-zero balance") % account.to_account ()));
 								account.clear ();
 							}
 						}
@@ -4329,7 +4329,7 @@ void nano::rpc_connection::read ()
 
 					if (this_l->node->config.logging.log_rpc ())
 					{
-						BOOST_LOG (this_l->node->log) << boost::str (boost::format ("RPC request %2% completed in: %1% microseconds") % std::chrono::duration_cast<std::chrono::microseconds> (std::chrono::steady_clock::now () - start).count () % request_id);
+						this_l->node->logger.always_log (boost::str (boost::format ("RPC request %2% completed in: %1% microseconds") % std::chrono::duration_cast<std::chrono::microseconds> (std::chrono::steady_clock::now () - start).count () % request_id));
 					}
 				});
 				auto method = this_l->request.method ();
@@ -4359,7 +4359,7 @@ void nano::rpc_connection::read ()
 		}
 		else
 		{
-			BOOST_LOG (this_l->node->log) << "RPC read error: " << ec.message ();
+			this_l->node->logger.always_log ("RPC read error: ", ec.message ());
 		}
 	});
 }
@@ -4432,7 +4432,7 @@ void nano::rpc_handler::process_request ()
 			std::string action (request.get<std::string> ("action"));
 			if (node.config.logging.log_rpc ())
 			{
-				BOOST_LOG (node.log) << boost::str (boost::format ("%1% ") % request_id) << filter_request (request);
+				rpc.node.logger.always_log (boost::str (boost::format ("%1% ") % request_id), filter_request (request));
 			}
 			if (action == "account_balance")
 			{
@@ -4964,7 +4964,7 @@ void nano::payment_observer::complete (nano::payment_status status)
 	{
 		if (rpc.node.config.logging.log_rpc ())
 		{
-			BOOST_LOG (rpc.node.log) << boost::str (boost::format ("Exiting payment_observer for account %1% status %2%") % account.to_account () % static_cast<unsigned> (status));
+			rpc.node.logger.always_log (boost::str (boost::format ("Exiting payment_observer for account %1% status %2%") % account.to_account () % static_cast<unsigned> (status)));
 		}
 		switch (status)
 		{
