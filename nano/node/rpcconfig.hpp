@@ -37,14 +37,16 @@ class rpc_config
 public:
 	rpc_config (bool = false);
 	nano::error serialize_json (nano::jsonconfig &) const;
-	nano::error deserialize_json (nano::jsonconfig &);
+	nano::error deserialize_json (bool & upgraded_a, nano::jsonconfig &);
 	boost::asio::ip::address_v6 address;
 	uint16_t port;
 	bool enable_control;
-	uint64_t frontier_request_limit;
-	uint64_t chain_request_limit;
 	rpc_secure_config secure;
 	uint8_t max_json_depth;
 	bool enable_sign_hash;
+	static int json_version ()
+	{
+		return 1;
+	}
 };
 }

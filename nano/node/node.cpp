@@ -198,10 +198,6 @@ void nano::node::keepalive (std::string const & address_a, uint16_t port_a, bool
 			{
 				auto endpoint (nano::map_endpoint_to_v6 (i->endpoint ()));
 				node_l->send_keepalive (endpoint);
-				if (preconfigured_peer_a)
-				{
-					node_l->peers.insert (endpoint, nano::protocol_version, true);
-				}
 			}
 		}
 		else
@@ -788,7 +784,7 @@ public:
 				validated_response = true;
 				if (message_a.response->first != node.node_id.pub)
 				{
-					node.peers.insert (endpoint_l, message_a.header.version_using, false, message_a.response->first);
+					node.peers.insert (endpoint_l, message_a.header.version_using, node.config.allow_local_peers, message_a.response->first);
 				}
 			}
 			else if (node.config.logging.network_node_id_handshake_logging ())
@@ -822,7 +818,7 @@ void nano::network::receive_action (nano::udp_data * data_a, nano::endpoint cons
 	{
 		allowed_sender = false;
 	}
-	else if (nano::reserved_address (data_a->endpoint, false) && !node.config.allow_local_peers)
+	else if (nano::reserved_address (data_a->endpoint, node.config.allow_local_peers))
 	{
 		allowed_sender = false;
 	}
@@ -902,7 +898,7 @@ void nano::network::merge_peers (std::array<nano::endpoint, 8> const & peers_a)
 {
 	for (auto i (peers_a.begin ()), j (peers_a.end ()); i != j; ++i)
 	{
-		if (!node.peers.reachout (*i))
+		if (!node.peers.reachout (*i, node.config.allow_local_peers))
 		{
 			send_keepalive (*i);
 		}
@@ -1469,6 +1465,23 @@ startup_time (std::chrono::steady_clock::now ())
 					if (is_state_send_a)
 					{
 						event.add ("is_send", is_state_send_a);
+						event.add ("subtype", "send");
+					}
+					// Subtype field
+					else if (block_a->type () == nano::block_type::state)
+					{
+						if (block_a->link ().is_zero ())
+						{
+							event.add ("subtype", "change");
+						}
+						else if (amount_a == 0 && !node_l->ledger.epoch_link.is_zero () && node_l->ledger.is_epoch_link (block_a->link ()))
+						{
+							event.add ("subtype", "epoch");
+						}
+						else
+						{
+							event.add ("subtype", "receive");
+						}
 					}
 					std::stringstream ostream;
 					boost::property_tree::write_json (ostream, event);
@@ -2553,7 +2566,7 @@ void nano::node::add_initial_peers ()
 	for (auto i (store.peers_begin (transaction)), n (store.peers_end ()); i != n; ++i)
 	{
 		nano::endpoint endpoint (boost::asio::ip::address_v6 (i->first.address_bytes ()), i->first.port ());
-		if (!peers.reachout (endpoint))
+		if (!peers.reachout (endpoint, config.allow_local_peers))
 		{
 			send_keepalive (endpoint);
 		}
@@ -2775,7 +2788,7 @@ minimum (minimum_a)
 void nano::online_reps::observe (nano::account const & rep_a)
 {
 	auto transaction (ledger.store.tx_begin_read ());
-	if (ledger.weight (transaction, rep_a) > nano::Gxrb_ratio)
+	if (ledger.weight (transaction, rep_a) > 0)
 	{
 		std::lock_guard<std::mutex> lock (mutex);
 		reps.insert (rep_a);
@@ -2867,7 +2880,7 @@ boost::asio::ip::address_v6 mapped_from_v4_bytes (unsigned long address_a)
 }
 }
 
-bool nano::reserved_address (nano::endpoint const & endpoint_a, bool blacklist_loopback)
+bool nano::reserved_address (nano::endpoint const & endpoint_a, bool allow_local_peers)
 {
 	assert (endpoint_a.address ().is_v6 ());
 	auto bytes (endpoint_a.address ().to_v6 ());
@@ -2938,15 +2951,7 @@ bool nano::reserved_address (nano::endpoint const & endpoint_a, bool blacklist_l
 	{
 		result = true;
 	}
-	else if (blacklist_loopback && bytes.is_loopback ())
-	{
-		result = true;
-	}
-	else if (blacklist_loopback && bytes >= ipv4_loopback_min && bytes <= ipv4_loopback_max)
-	{
-		result = true;
-	}
-	else if (nano::is_live_network)
+	else if (!allow_local_peers)
 	{
 		if (bytes >= rfc1918_1_min && bytes <= rfc1918_1_max)
 		{

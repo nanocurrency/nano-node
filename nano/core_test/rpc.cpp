@@ -1690,7 +1690,7 @@ TEST (rpc, peers)
 {
 	nano::system system (24000, 2);
 	nano::endpoint endpoint (boost::asio::ip::address_v6::from_string ("fc00::1"), 4000);
-	system.nodes[0]->peers.insert (endpoint, nano::protocol_version);
+	system.nodes[0]->peers.insert (endpoint, nano::protocol_version, system.nodes[0]->config.allow_local_peers);
 	nano::rpc rpc (system.io_ctx, *system.nodes[0], nano::rpc_config (true));
 	rpc.start ();
 	boost::property_tree::ptree request;
@@ -1715,7 +1715,7 @@ TEST (rpc, peers_node_id)
 {
 	nano::system system (24000, 2);
 	nano::endpoint endpoint (boost::asio::ip::address_v6::from_string ("fc00::1"), 4000);
-	system.nodes[0]->peers.insert (endpoint, nano::protocol_version);
+	system.nodes[0]->peers.insert (endpoint, nano::protocol_version, system.nodes[0]->config.allow_local_peers);
 	nano::rpc rpc (system.io_ctx, *system.nodes[0], nano::rpc_config (true));
 	rpc.start ();
 	boost::property_tree::ptree request;
@@ -1833,22 +1833,17 @@ TEST (rpc_config, serialization)
 	config1.address = boost::asio::ip::address_v6::any ();
 	config1.port = 10;
 	config1.enable_control = true;
-	config1.frontier_request_limit = 8192;
-	config1.chain_request_limit = 4096;
 	nano::jsonconfig tree;
 	config1.serialize_json (tree);
 	nano::rpc_config config2;
 	ASSERT_NE (config2.address, config1.address);
 	ASSERT_NE (config2.port, config1.port);
 	ASSERT_NE (config2.enable_control, config1.enable_control);
-	ASSERT_NE (config2.frontier_request_limit, config1.frontier_request_limit);
-	ASSERT_NE (config2.chain_request_limit, config1.chain_request_limit);
-	config2.deserialize_json (tree);
+	bool upgraded{ false };
+	config2.deserialize_json (upgraded, tree);
 	ASSERT_EQ (config2.address, config1.address);
 	ASSERT_EQ (config2.port, config1.port);
 	ASSERT_EQ (config2.enable_control, config1.enable_control);
-	ASSERT_EQ (config2.frontier_request_limit, config1.frontier_request_limit);
-	ASSERT_EQ (config2.chain_request_limit, config1.chain_request_limit);
 }
 
 TEST (rpc, search_pending)
@@ -3411,6 +3406,73 @@ TEST (rpc, account_info)
 	ASSERT_EQ (nano::test_genesis_key.pub.to_account (), representative2);
 }
 
+/** Make sure we can use json block literals instead of string as input */
+TEST (rpc, json_block_input)
+{
+	nano::system system (24000, 1);
+	nano::keypair key;
+	auto & node1 (*system.nodes[0]);
+	nano::state_block send (nano::genesis_account, node1.latest (nano::test_genesis_key.pub), nano::genesis_account, nano::genesis_amount - nano::Gxrb_ratio, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
+	nano::rpc rpc (system.io_ctx, node1, nano::rpc_config (true));
+	rpc.start ();
+	boost::property_tree::ptree request;
+	request.put ("action", "sign");
+	request.put ("json_block", "true");
+	system.wallet (0)->insert_adhoc (key.prv);
+	std::string wallet;
+	system.nodes[0]->wallets.items.begin ()->first.encode_hex (wallet);
+	request.put ("wallet", wallet);
+	request.put ("account", key.pub.to_account ());
+	boost::property_tree::ptree json;
+	send.serialize_json (json);
+	request.add_child ("block", json);
+	test_response response (request, rpc, system.io_ctx);
+	while (response.status == 0)
+	{
+		system.poll ();
+	}
+	ASSERT_EQ (200, response.status);
+
+	bool json_error{ false };
+	nano::state_block block (json_error, response.json.get_child ("block"));
+	ASSERT_FALSE (json_error);
+
+	ASSERT_FALSE (nano::validate_message (key.pub, send.hash (), block.block_signature ()));
+	ASSERT_NE (block.block_signature (), send.block_signature ());
+	ASSERT_EQ (block.hash (), send.hash ());
+}
+
+/** Make sure we can receive json block literals instead of string as output */
+TEST (rpc, json_block_output)
+{
+	nano::system system (24000, 1);
+	nano::keypair key;
+	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
+	system.wallet (0)->insert_adhoc (key.prv);
+	auto & node1 (*system.nodes[0]);
+	auto latest (system.nodes[0]->latest (nano::test_genesis_key.pub));
+	nano::send_block send (latest, key.pub, 100, nano::test_genesis_key.prv, nano::test_genesis_key.pub, node1.work_generate_blocking (latest));
+	system.nodes[0]->process (send);
+	nano::rpc rpc (system.io_ctx, *system.nodes[0], nano::rpc_config (true));
+	rpc.start ();
+	boost::property_tree::ptree request;
+	request.put ("action", "block_info");
+	request.put ("json_block", "true");
+	request.put ("hash", send.hash ().to_string ());
+	test_response response (request, rpc, system.io_ctx);
+	system.deadline_set (5s);
+	while (response.status == 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (200, response.status);
+
+	// Make sure contents contains a valid JSON subtree instread of stringified json
+	bool json_error{ false };
+	nano::send_block send_from_json (json_error, response.json.get_child ("contents"));
+	ASSERT_FALSE (json_error);
+}
+
 TEST (rpc, blocks_info)
 {
 	nano::system system (24000, 1);
@@ -3464,6 +3526,48 @@ TEST (rpc, blocks_info)
 		std::string pending (blocks.second.get<std::string> ("pending"));
 		ASSERT_EQ ("0", pending);
 	}
+}
+
+TEST (rpc, blocks_info_subtype)
+{
+	nano::system system (24000, 1);
+	auto & node1 (*system.nodes[0]);
+	nano::keypair key;
+	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
+	system.wallet (0)->insert_adhoc (key.prv);
+	auto send (system.wallet (0)->send_action (nano::test_genesis_key.pub, nano::test_genesis_key.pub, nano::Gxrb_ratio));
+	ASSERT_NE (nullptr, send);
+	auto receive (system.wallet (0)->receive_action (*send, key.pub, nano::Gxrb_ratio));
+	ASSERT_NE (nullptr, receive);
+	auto change (system.wallet (0)->change_action (nano::test_genesis_key.pub, key.pub));
+	ASSERT_NE (nullptr, change);
+	nano::rpc rpc (system.io_ctx, node1, nano::rpc_config (true));
+	rpc.start ();
+	boost::property_tree::ptree request;
+	request.put ("action", "blocks_info");
+	boost::property_tree::ptree peers_l;
+	boost::property_tree::ptree entry;
+	entry.put ("", send->hash ().to_string ());
+	peers_l.push_back (std::make_pair ("", entry));
+	entry.put ("", receive->hash ().to_string ());
+	peers_l.push_back (std::make_pair ("", entry));
+	entry.put ("", change->hash ().to_string ());
+	peers_l.push_back (std::make_pair ("", entry));
+	request.add_child ("hashes", peers_l);
+	test_response response (request, rpc, system.io_ctx);
+	system.deadline_set (5s);
+	while (response.status == 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	auto & blocks (response.json.get_child ("blocks"));
+	ASSERT_EQ (3, blocks.size ());
+	auto send_subtype (blocks.get_child (send->hash ().to_string ()).get<std::string> ("subtype"));
+	ASSERT_EQ (send_subtype, "send");
+	auto receive_subtype (blocks.get_child (receive->hash ().to_string ()).get<std::string> ("subtype"));
+	ASSERT_EQ (receive_subtype, "receive");
+	auto change_subtype (blocks.get_child (change->hash ().to_string ()).get<std::string> ("subtype"));
+	ASSERT_EQ (change_subtype, "change");
 }
 
 TEST (rpc, work_peers_all)

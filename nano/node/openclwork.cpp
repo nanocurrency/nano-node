@@ -345,7 +345,7 @@ static void ucharcpyglb (uchar * dst, __global uchar const * src, size_t count)
 	}
 }
 	
-__kernel void nano_work (__global ulong const * attempt, __global ulong * result_a, __global uchar const * item_a)
+__kernel void nano_work (__global ulong const * attempt, __global ulong * result_a, __global uchar const * item_a, __global ulong const * difficulty_a)
 {
 	int const thread = get_global_id (0);
 	uchar item_l [32];
@@ -357,8 +357,7 @@ __kernel void nano_work (__global ulong const * attempt, __global ulong * result
 	blake2b_update (&state, item_l, 32);
 	ulong result;
 	blake2b_final (&state, (uchar *) &result, sizeof (result));
-	if (result >= 0xffffffc000000000ul)
-	//if (result >= 0xff00000000000000ul)
+	if (result >= *difficulty_a)
 	{
 		*result_a = attempt_l;
 	}
@@ -520,6 +519,7 @@ context (0),
 attempt_buffer (0),
 result_buffer (0),
 item_buffer (0),
+difficulty_buffer (0),
 program (0),
 kernel (0),
 queue (0),
@@ -566,71 +566,90 @@ logging (logging_a)
 							error_a |= item_error != CL_SUCCESS;
 							if (!error_a)
 							{
-								cl_int program_error (0);
-								char const * program_data (opencl_program.data ());
-								size_t program_length (opencl_program.size ());
-								program = clCreateProgramWithSource (context, 1, &program_data, &program_length, &program_error);
-								error_a |= program_error != CL_SUCCESS;
+								cl_int difficulty_error (0);
+								difficulty_buffer = clCreateBuffer (context, 0, sizeof (uint64_t), nullptr, &difficulty_error);
+								error_a |= difficulty_error != CL_SUCCESS;
 								if (!error_a)
 								{
-									auto clBuildProgramError (clBuildProgram (program, static_cast<cl_uint> (selected_devices.size ()), selected_devices.data (), "-D __APPLE__", nullptr, nullptr));
-									error_a |= clBuildProgramError != CL_SUCCESS;
+									cl_int program_error (0);
+									char const * program_data (opencl_program.data ());
+									size_t program_length (opencl_program.size ());
+									program = clCreateProgramWithSource (context, 1, &program_data, &program_length, &program_error);
+									error_a |= program_error != CL_SUCCESS;
 									if (!error_a)
 									{
-										cl_int kernel_error (0);
-										kernel = clCreateKernel (program, "nano_work", &kernel_error);
-										error_a |= kernel_error != CL_SUCCESS;
+										auto clBuildProgramError (clBuildProgram (program, static_cast<cl_uint> (selected_devices.size ()), selected_devices.data (), "-D __APPLE__", nullptr, nullptr));
+										error_a |= clBuildProgramError != CL_SUCCESS;
 										if (!error_a)
 										{
-											cl_int arg0_error (clSetKernelArg (kernel, 0, sizeof (attempt_buffer), &attempt_buffer));
-											error_a |= arg0_error != CL_SUCCESS;
+											cl_int kernel_error (0);
+											kernel = clCreateKernel (program, "nano_work", &kernel_error);
+											error_a |= kernel_error != CL_SUCCESS;
 											if (!error_a)
 											{
-												cl_int arg1_error (clSetKernelArg (kernel, 1, sizeof (result_buffer), &result_buffer));
-												error_a |= arg1_error != CL_SUCCESS;
+												cl_int arg0_error (clSetKernelArg (kernel, 0, sizeof (attempt_buffer), &attempt_buffer));
+												error_a |= arg0_error != CL_SUCCESS;
 												if (!error_a)
 												{
-													cl_int arg2_error (clSetKernelArg (kernel, 2, sizeof (item_buffer), &item_buffer));
-													error_a |= arg2_error != CL_SUCCESS;
+													cl_int arg1_error (clSetKernelArg (kernel, 1, sizeof (result_buffer), &result_buffer));
+													error_a |= arg1_error != CL_SUCCESS;
 													if (!error_a)
 													{
+														cl_int arg2_error (clSetKernelArg (kernel, 2, sizeof (item_buffer), &item_buffer));
+														error_a |= arg2_error != CL_SUCCESS;
+														if (!error_a)
+														{
+															cl_int arg3_error (clSetKernelArg (kernel, 3, sizeof (difficulty_buffer), &difficulty_buffer));
+															error_a |= arg3_error != CL_SUCCESS;
+															if (!error_a)
+															{
+															}
+															else
+															{
+																logging.logger.always_log (boost::str (boost::format ("Bind argument 3 error %1%") % arg3_error));
+															}
+														}
+														else
+														{
+															logging.logger.always_log (boost::str (boost::format ("Bind argument 2 error %1%") % arg2_error));
+														}
 													}
 													else
 													{
-														logging.logger.always_log (boost::str (boost::format ("Bind argument 2 error %1%") % arg2_error));
+														logging.logger.always_log (boost::str (boost::format ("Bind argument 1 error %1%") % arg1_error));
 													}
 												}
 												else
 												{
-													logging.logger.always_log (boost::str (boost::format ("Bind argument 1 error %1%") % arg1_error));
+													logging.logger.always_log (boost::str (boost::format ("Bind argument 0 error %1%") % arg0_error));
 												}
 											}
 											else
 											{
-												logging.logger.always_log (boost::str (boost::format ("Bind argument 0 error %1%") % arg0_error));
+												logging.logger.always_log (boost::str (boost::format ("Create kernel error %1%") % kernel_error));
 											}
 										}
 										else
 										{
-											logging.logger.always_log (boost::str (boost::format ("Create kernel error %1%") % kernel_error));
+											logging.logger.always_log (boost::str (boost::format ("Build program error %1%") % clBuildProgramError));
+											for (auto i (selected_devices.begin ()), n (selected_devices.end ()); i != n; ++i)
+											{
+												size_t log_size (0);
+												clGetProgramBuildInfo (program, *i, CL_PROGRAM_BUILD_LOG, 0, nullptr, &log_size);
+												std::vector<char> log (log_size);
+												clGetProgramBuildInfo (program, *i, CL_PROGRAM_BUILD_LOG, log.size (), log.data (), nullptr);
+												logging.logger.always_log (log.data ());
+											}
 										}
 									}
 									else
 									{
-										logging.logger.always_log (boost::str (boost::format ("Build program error %1%") % clBuildProgramError));
-										for (auto i (selected_devices.begin ()), n (selected_devices.end ()); i != n; ++i)
-										{
-											size_t log_size (0);
-											clGetProgramBuildInfo (program, *i, CL_PROGRAM_BUILD_LOG, 0, nullptr, &log_size);
-											std::vector<char> log (log_size);
-											clGetProgramBuildInfo (program, *i, CL_PROGRAM_BUILD_LOG, log.size (), log.data (), nullptr);
-											logging.logger.always_log (log.data ());
-										}
+										logging.logger.always_log (boost::str (boost::format ("Create program error %1%") % program_error));
 									}
 								}
 								else
 								{
-									logging.logger.always_log (boost::str (boost::format ("Create program error %1%") % program_error));
+									logging.logger.always_log (boost::str (boost::format ("Difficulty buffer error %1%") % difficulty_error));
 								}
 							}
 							else
@@ -685,14 +704,15 @@ nano::opencl_work::~opencl_work ()
 	}
 }
 
-boost::optional<uint64_t> nano::opencl_work::generate_work (nano::uint256_union const & root_a)
+boost::optional<uint64_t> nano::opencl_work::generate_work (nano::uint256_union const & root_a, uint64_t const difficulty_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	bool error (false);
 	uint64_t result (0);
+	uint64_t computed_difficulty (0);
 	unsigned thread_count (config.threads);
 	size_t work_size[] = { thread_count, 0, 0 };
-	while (nano::work_validate (root_a, result) && !error)
+	while ((nano::work_validate (root_a, result, &computed_difficulty) || computed_difficulty < difficulty_a) && !error)
 	{
 		result = rand.next ();
 		cl_int write_error1 = clEnqueueWriteBuffer (queue, attempt_buffer, false, 0, sizeof (uint64_t), &result, 0, nullptr, nullptr);
@@ -701,32 +721,41 @@ boost::optional<uint64_t> nano::opencl_work::generate_work (nano::uint256_union 
 			cl_int write_error2 = clEnqueueWriteBuffer (queue, item_buffer, false, 0, sizeof (nano::uint256_union), root_a.bytes.data (), 0, nullptr, nullptr);
 			if (write_error2 == CL_SUCCESS)
 			{
-				cl_int enqueue_error = clEnqueueNDRangeKernel (queue, kernel, 1, nullptr, work_size, nullptr, 0, nullptr, nullptr);
-				if (enqueue_error == CL_SUCCESS)
+				cl_int write_error3 = clEnqueueWriteBuffer (queue, difficulty_buffer, false, 0, sizeof (uint64_t), &difficulty_a, 0, nullptr, nullptr);
+				if (write_error3 == CL_SUCCESS)
 				{
-					cl_int read_error1 = clEnqueueReadBuffer (queue, result_buffer, false, 0, sizeof (uint64_t), &result, 0, nullptr, nullptr);
-					if (read_error1 == CL_SUCCESS)
+					cl_int enqueue_error = clEnqueueNDRangeKernel (queue, kernel, 1, nullptr, work_size, nullptr, 0, nullptr, nullptr);
+					if (enqueue_error == CL_SUCCESS)
 					{
-						cl_int finishError = clFinish (queue);
-						if (finishError == CL_SUCCESS)
+						cl_int read_error1 = clEnqueueReadBuffer (queue, result_buffer, false, 0, sizeof (uint64_t), &result, 0, nullptr, nullptr);
+						if (read_error1 == CL_SUCCESS)
 						{
+							cl_int finishError = clFinish (queue);
+							if (finishError == CL_SUCCESS)
+							{
+							}
+							else
+							{
+								error = true;
+								logging.logger.always_log (boost::str (boost::format ("Error finishing queue %1%") % finishError));
+							}
 						}
 						else
 						{
 							error = true;
-							logging.logger.always_log (boost::str (boost::format ("Error finishing queue %1%") % finishError));
+							logging.logger.always_log (boost::str (boost::format ("Error reading result %1%") % read_error1));
 						}
 					}
 					else
 					{
 						error = true;
-						logging.logger.always_log (boost::str (boost::format ("Error reading result %1%") % read_error1));
+						logging.logger.always_log (boost::str (boost::format ("Error enqueueing kernel %1%") % enqueue_error));
 					}
 				}
 				else
 				{
 					error = true;
-					logging.logger.always_log (boost::str (boost::format ("Error enqueueing kernel %1%") % enqueue_error));
+					logging.logger.always_log (boost::str (boost::format ("Error writing item %1%") % write_error3));
 				}
 			}
 			else
