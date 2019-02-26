@@ -265,6 +265,7 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_opencl"))
 		{
+			nano::network_params network_params;
 			bool error (false);
 			nano::opencl_environment environment (error);
 			if (!error)
@@ -311,7 +312,7 @@ int main (int argc, char * const * argv)
 						result = -1;
 					}
 				}
-				uint64_t difficulty (nano::work_pool::publish_threshold);
+				uint64_t difficulty (network_params.publish_threshold);
 				auto difficulty_it = vm.find ("difficulty");
 				if (difficulty_it != vm.end ())
 				{
@@ -655,7 +656,6 @@ int main (int argc, char * const * argv)
 			node->stop ();
 			std::cerr << boost::str (boost::format ("%|1$ 12d| us \n%2% votes per second\n") % time % (max_votes * 1000000 / time));
 		}
-<<<<<<< HEAD
 		else if (vm.count ("debug_random_feed"))
 		{
 			/*
@@ -674,38 +674,6 @@ int main (int argc, char * const * argv)
 			}
 		}
 		else if (vm.count ("debug_rpc"))
-		{
-			auto block (blocks.front ());
-			node->process_active (block);
-			blocks.pop_front ();
-		}
-		node->block_processor.flush ();
-		// Processing votes
-		std::cerr << boost::str (boost::format ("Starting processing %1% votes\n") % max_votes);
-		auto begin (std::chrono::high_resolution_clock::now ());
-		while (!votes.empty ())
-		{
-			auto vote (votes.front ());
-			node->vote_processor.vote (vote, node->network.endpoint ());
-			votes.pop_front ();
-		}
-		while (!node->active.roots.empty ())
-		{
-			std::this_thread::sleep_for (std::chrono::milliseconds (100));
-		}
-		auto end (std::chrono::high_resolution_clock::now ());
-		auto time (std::chrono::duration_cast<std::chrono::microseconds> (end - begin).count ());
-		node->stop ();
-		std::cerr << boost::str (boost::format ("%|1$ 12d| us \n%2% votes per second\n") % time % (max_votes * 1000000 / time));
-	}
-	else if (vm.count ("debug_rpc"))
-	{
-		std::string rpc_input_l;
-		std::ostringstream command_l;
-		while (std::cin >> rpc_input_l)
-=======
-		else if (vm.count ("debug_rpc"))
->>>>>>> Fix merge error
 		{
 			std::string rpc_input_l;
 			std::ostringstream command_l;
