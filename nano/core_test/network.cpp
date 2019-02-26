@@ -15,7 +15,7 @@ TEST (network, tcp_connection)
 	acceptor.bind (endpoint);
 	acceptor.listen ();
 	boost::asio::ip::tcp::socket incoming (io_ctx);
-	auto done1 (false);
+	std::atomic<bool> done1 (false);
 	std::string message1;
 	acceptor.async_accept (incoming,
 	[&done1, &message1](boost::system::error_code const & ec_a) {
@@ -26,7 +26,7 @@ TEST (network, tcp_connection)
 		   }
 		   done1 = true; });
 	boost::asio::ip::tcp::socket connector (io_ctx);
-	auto done2 (false);
+	std::atomic<bool> done2 (false);
 	std::string message2;
 	connector.async_connect (boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v4::loopback (), 24000),
 	[&done2, &message2](boost::system::error_code const & ec_a) {
@@ -1411,7 +1411,7 @@ TEST (bootstrap, keepalive)
 	});
 
 	auto output (keepalive.to_bytes ());
-	bool done (false);
+	std::atomic<bool> done (false);
 	socket->async_read (output, output->size (), [&output, &done](boost::system::error_code const & ec, size_t size_a) {
 		ASSERT_FALSE (ec);
 		ASSERT_EQ (output->size (), size_a);
@@ -1420,6 +1420,72 @@ TEST (bootstrap, keepalive)
 	system.deadline_set (std::chrono::seconds (5));
 	while (!done)
 	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+}
+
+TEST (bootstrap, tcp_listener_timeout_empty)
+{
+	nano::system system (24000, 1);
+	auto node0 (system.nodes[0]);
+	node0->config.tcp_server_timeout = std::chrono::seconds (1);
+	auto socket (std::make_shared<nano::socket> (node0));
+	nano::keepalive keepalive;
+	auto input (keepalive.to_bytes ());
+	std::atomic<bool> connected (false);
+	socket->async_connect (node0->bootstrap.endpoint (), [&input, socket, &connected](boost::system::error_code const & ec) {
+		ASSERT_FALSE (ec);
+		connected = true;
+	});
+	system.deadline_set (std::chrono::seconds (5));
+	while (!connected)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	bool disconnected (false);
+	while (!disconnected)
+	{
+		{
+			std::lock_guard<std::mutex> guard (node0->bootstrap.mutex);
+			disconnected = node0->bootstrap.connections.empty ();
+		}
+		ASSERT_NO_ERROR (system.poll ());
+	}
+}
+
+TEST (bootstrap, tcp_listener_timeout_keepalive)
+{
+	nano::system system (24000, 1);
+	auto node0 (system.nodes[0]);
+	node0->config.tcp_server_timeout = std::chrono::seconds (1);
+	auto socket (std::make_shared<nano::socket> (node0));
+	nano::keepalive keepalive;
+	auto input (keepalive.to_bytes ());
+	std::atomic<bool> connected (false);
+	socket->async_connect (node0->bootstrap.endpoint (), [&input, socket, &connected](boost::system::error_code const & ec) {
+		ASSERT_FALSE (ec);
+		socket->async_write (input, [&input, &connected](boost::system::error_code const & ec, size_t size_a) {
+			ASSERT_FALSE (ec);
+			ASSERT_EQ (input->size (), size_a);
+			connected = true;
+		});
+	});
+	system.deadline_set (std::chrono::seconds (5));
+	while (!connected)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	{
+		std::lock_guard<std::mutex> guard (node0->bootstrap.mutex);
+		ASSERT_EQ (node0->bootstrap.connections.size (), 1);
+	}
+	bool disconnected (false);
+	while (!disconnected)
+	{
+		{
+			std::lock_guard<std::mutex> guard (node0->bootstrap.mutex);
+			disconnected = node0->bootstrap.connections.empty ();
+		}
 		ASSERT_NO_ERROR (system.poll ());
 	}
 }
