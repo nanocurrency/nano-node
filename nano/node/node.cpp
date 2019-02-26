@@ -1500,7 +1500,7 @@ startup_time (std::chrono::steady_clock::now ())
 						{
 							if (node_l->config.logging.callback_logging ())
 							{
-								node_l->logger.try_log (boost::str (boost::format ("Error resolving callback: %1%:%2%: %3%") % address % port % ec.message ()));
+								node_l->logger.always_log (boost::str (boost::format ("Error resolving callback: %1%:%2%: %3%") % address % port % ec.message ()));
 							}
 							node_l->stats.inc (nano::stat::type::error, nano::stat::detail::http_callback, nano::stat::dir::out);
 						}
@@ -1555,19 +1555,19 @@ startup_time (std::chrono::steady_clock::now ())
 	});
 	if (NANO_VERSION_PATCH == 0)
 	{
-		logger.try_log ("Node starting, version: ", NANO_MAJOR_MINOR_VERSION);
+		logger.always_log ("Node starting, version: ", NANO_MAJOR_MINOR_VERSION);
 	}
 	else
 	{
-		logger.try_log ("Node starting, version: ", NANO_MAJOR_MINOR_RC_VERSION);
+		logger.always_log ("Node starting, version: ", NANO_MAJOR_MINOR_RC_VERSION);
 	}
 
-	logger.try_log (boost::str (boost::format ("Work pool running %1% threads") % work.threads.size ()));
+	logger.always_log (boost::str (boost::format ("Work pool running %1% threads") % work.threads.size ()));
 	if (!init_a.error ())
 	{
 		if (config.logging.node_lifetime_tracing ())
 		{
-			logger.try_log ("Constructing node");
+			logger.always_log ("Constructing node");
 		}
 		nano::genesis genesis;
 		auto transaction (store.tx_begin_write ());
@@ -1578,12 +1578,12 @@ startup_time (std::chrono::steady_clock::now ())
 		}
 		if (!store.block_exists (transaction, genesis.hash ()))
 		{
-			logger.try_log ("Genesis block not found. Make sure the node network ID is correct.");
+			logger.always_log ("Genesis block not found. Make sure the node network ID is correct.");
 			std::exit (1);
 		}
 
 		node_id = nano::keypair (store.get_node_id (transaction));
-		logger.try_log ("Node ID: ", node_id.pub.to_account ());
+		logger.always_log ("Node ID: ", node_id.pub.to_account ());
 	}
 	peers.online_weight_minimum = config.online_weight_minimum.number ();
 	if (nano::is_live_network || nano::is_beta_network)
@@ -1609,7 +1609,7 @@ startup_time (std::chrono::steady_clock::now ())
 					{
 						break;
 					}
-					logger.try_log ("Using bootstrap rep weight: ", account.to_account (), " -> ", weight.format_balance (Mxrb_ratio, 0, true), " XRB");
+					logger.always_log ("Using bootstrap rep weight: ", account.to_account (), " -> ", weight.format_balance (Mxrb_ratio, 0, true), " XRB");
 					ledger.bootstrap_weights[account] = weight.number ();
 				}
 			}
@@ -1621,7 +1621,7 @@ nano::node::~node ()
 {
 	if (config.logging.node_lifetime_tracing ())
 	{
-		logger.try_log ("Destructing node");
+		logger.always_log ("Destructing node");
 	}
 	stop ();
 }
@@ -1737,7 +1737,7 @@ void nano::node::process_fork (nano::transaction const & transaction_a, std::sha
 				    }
 			    }))
 			{
-				logger.try_log (boost::str (boost::format ("Resolving fork between our block: %1% and block %2% both with root %3%") % ledger_block->hash ().to_string () % block_a->hash ().to_string () % block_a->root ().to_string ()));
+				logger.always_log (boost::str (boost::format ("Resolving fork between our block: %1% and block %2% both with root %3%") % ledger_block->hash ().to_string () % block_a->hash ().to_string () % block_a->root ().to_string ()));
 				network.broadcast_confirm_req (ledger_block);
 			}
 		}
@@ -1954,7 +1954,7 @@ void nano::node::start ()
 
 void nano::node::stop ()
 {
-	logger.try_log ("Node stopping");
+	logger.always_log ("Node stopping");
 	block_processor.stop ();
 	if (block_processor_thread.joinable ())
 	{
