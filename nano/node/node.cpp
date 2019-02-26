@@ -871,12 +871,6 @@ void nano::network::receive_action (nano::udp_data * data_a, nano::endpoint cons
 					/* Already checked, unreachable */
 					break;
 			}
-
-			auto ignore ((parser.status == nano::message_parser::parse_status::outdated_version) || (parser.status == nano::message_parser::parse_status::invalid_header));
-			if (node.config.logging.network_logging () && !ignore)
-			{
-				BOOST_LOG (node.log) << "Could not parse message.  Error: " << parser.status_string ();
-			}
 		}
 		else
 		{
@@ -1145,10 +1139,6 @@ void nano::vote_processor::vote (std::shared_ptr<nano::vote> vote_a, nano::endpo
 		else
 		{
 			node.stats.inc (nano::stat::type::vote, nano::stat::detail::vote_overflow);
-			if (node.config.logging.vote_logging ())
-			{
-				BOOST_LOG (node.log) << "Votes overflow";
-			}
 		}
 	}
 }
@@ -2975,10 +2965,6 @@ void nano::network::send_buffer (uint8_t const * data_a, size_t size_a, nano::en
 			if (ec == boost::system::errc::host_unreachable)
 			{
 				this->node.stats.inc (nano::stat::type::error, nano::stat::detail::unreachable_host, nano::stat::dir::out);
-			}
-			if (this->node.config.logging.network_packet_logging ())
-			{
-				BOOST_LOG (this->node.log) << "Packet send complete";
 			}
 		});
 	}
