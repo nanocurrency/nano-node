@@ -312,7 +312,7 @@ void nano::frontier_req_client::received_frontier (boost::system::error_code con
 		}
 		if (connection->attempt->should_log ())
 		{
-			connection->node->logger.try_log (boost::str (boost::format ("Received %1% frontiers from %2%") % std::to_string (count) % connection->socket->remote_endpoint ()));
+			connection->node->logger.always_log (boost::str (boost::format ("Received %1% frontiers from %2%") % std::to_string (count) % connection->socket->remote_endpoint ()));
 		}
 		auto transaction (connection->node->store.tx_begin_read ());
 		if (!account.is_zero ())
@@ -474,7 +474,7 @@ void nano::bulk_pull_client::request ()
 	else if (connection->node->config.logging.network_logging () && connection->attempt->should_log ())
 	{
 		std::unique_lock<std::mutex> lock (connection->attempt->mutex);
-		connection->node->logger.try_log (boost::str (boost::format ("%1% accounts in pull queue") % connection->attempt->pulls.size ()));
+		connection->node->logger.always_log (boost::str (boost::format ("%1% accounts in pull queue") % connection->attempt->pulls.size ()));
 	}
 	auto this_l (shared_from_this ());
 	connection->socket->async_write (buffer, [this_l](boost::system::error_code const & ec, size_t size_a) {
@@ -807,7 +807,7 @@ void nano::bulk_pull_account_client::request ()
 	else if (connection->node->config.logging.network_logging () && connection->attempt->should_log ())
 	{
 		std::unique_lock<std::mutex> lock (connection->attempt->mutex);
-		connection->node->logger.try_log (boost::str (boost::format ("%1% accounts in pull queue") % connection->attempt->wallet_accounts.size ()));
+		connection->node->logger.always_log (boost::str (boost::format ("%1% accounts in pull queue") % connection->attempt->wallet_accounts.size ()));
 	}
 	auto this_l (shared_from_this ());
 	connection->socket->async_write (buffer, [this_l](boost::system::error_code const & ec, size_t size_a) {

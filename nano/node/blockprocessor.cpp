@@ -268,7 +268,7 @@ void nano::block_processor::process_batch (std::unique_lock<std::mutex> & lock_a
 		if (log_this_record)
 		{
 			first_time = false;
-			node.logger.try_log (boost::str (boost::format ("%1% blocks (+ %2% state blocks) (+ %3% forced) in processing queue") % blocks.size () % state_blocks.size () % forced.size ()));
+			node.logger.always_log (boost::str (boost::format ("%1% blocks (+ %2% state blocks) (+ %3% forced) in processing queue") % blocks.size () % state_blocks.size () % forced.size ()));
 		}
 		nano::unchecked_info info;
 		bool force (false);

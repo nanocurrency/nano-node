@@ -1560,7 +1560,7 @@ void nano::wallets::foreach_representative (nano::transaction const & transactio
 							if (last_log < std::chrono::steady_clock::now () - std::chrono::seconds (60))
 							{
 								last_log = std::chrono::steady_clock::now ();
-								node.logger.try_log (boost::str (boost::format ("Representative locked inside wallet %1%") % i->first.to_string ()));
+								node.logger.always_log (boost::str (boost::format ("Representative locked inside wallet %1%") % i->first.to_string ()));
 							}
 						}
 					}
