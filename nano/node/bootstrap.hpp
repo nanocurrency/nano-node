@@ -288,11 +288,14 @@ public:
 	void add_request (std::unique_ptr<nano::message>);
 	void finish_request ();
 	void run_next ();
+	void update_time ();
+	void timeout ();
 	std::shared_ptr<std::vector<uint8_t>> receive_buffer;
 	std::shared_ptr<nano::socket> socket;
 	std::shared_ptr<nano::node> node;
 	std::mutex mutex;
 	std::queue<std::unique_ptr<nano::message>> requests;
+	std::atomic<uint64_t> last_action_time;
 };
 class bulk_pull;
 class bulk_pull_server : public std::enable_shared_from_this<nano::bulk_pull_server>
