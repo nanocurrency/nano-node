@@ -311,6 +311,14 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		node.node->store.peer_clear (transaction);
 		std::cerr << "Database peers are removed" << std::endl;
 	}
+	else if (vm.count ("confirmation_height_clear"))
+	{
+		boost::filesystem::path data_path = vm.count ("data_path") ? boost::filesystem::path (vm["data_path"].as<std::string> ()) : nano::working_path ();
+		inactive_node node (data_path);
+		auto transaction (node.node->store.tx_begin_write ());
+		node.node->store.confirmation_height_clear (transaction);
+		std::cerr << "Confirmation heights of all accounts are set to 0" << std::endl;
+	}
 	else if (vm.count ("diagnostics"))
 	{
 		inactive_node node (data_path);
