@@ -37,6 +37,7 @@ public:
 	void checkup (uint64_t);
 	nano::tcp_endpoint remote_endpoint ();
 	boost::asio::ip::tcp::socket socket_m;
+	std::atomic<uint64_t> last_action_time;
 
 private:
 	std::atomic<uint64_t> async_start_time;
@@ -288,14 +289,12 @@ public:
 	void add_request (std::unique_ptr<nano::message>);
 	void finish_request ();
 	void run_next ();
-	void update_time ();
 	void timeout ();
 	std::shared_ptr<std::vector<uint8_t>> receive_buffer;
 	std::shared_ptr<nano::socket> socket;
 	std::shared_ptr<nano::node> node;
 	std::mutex mutex;
 	std::queue<std::unique_ptr<nano::message>> requests;
-	std::atomic<uint64_t> last_action_time;
 };
 class bulk_pull;
 class bulk_pull_server : public std::enable_shared_from_this<nano::bulk_pull_server>

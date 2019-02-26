@@ -67,12 +67,15 @@ void nano::socket::async_write (std::shared_ptr<std::vector<uint8_t>> buffer_a, 
 
 void nano::socket::start ()
 {
-	async_start_time = std::chrono::steady_clock::now ().time_since_epoch ().count ();
+	auto now (std::chrono::steady_clock::now ().time_since_epoch ().count ());
+	async_start_time = now;
+	last_action_time = now;
 }
 
 void nano::socket::stop ()
 {
 	async_start_time = std::numeric_limits<uint64_t>::max ();
+	last_action_time = std::chrono::steady_clock::now ().time_since_epoch ().count ();
 }
 
 void nano::socket::close ()
@@ -2064,7 +2067,6 @@ socket (socket_a),
 node (node_a)
 {
 	receive_buffer->resize (512);
-	update_time ();
 }
 
 void nano::bootstrap_server::receive ()
@@ -2073,7 +2075,6 @@ void nano::bootstrap_server::receive ()
 	socket->async_read (receive_buffer, 8, [this_l](boost::system::error_code const & ec, size_t size_a) {
 		this_l->receive_header_action (ec, size_a);
 	});
-	update_time ();
 }
 
 void nano::bootstrap_server::receive_header_action (boost::system::error_code const & ec, size_t size_a)
@@ -2096,7 +2097,6 @@ void nano::bootstrap_server::receive_header_action (boost::system::error_code co
 					socket->async_read (receive_buffer, header.payload_length_bytes (), [this_l, header](boost::system::error_code const & ec, size_t size_a) {
 						this_l->receive_bulk_pull_action (ec, size_a, header);
 					});
-					update_time ();
 					break;
 				}
 				case nano::message_type::bulk_pull_account:
@@ -2106,7 +2106,6 @@ void nano::bootstrap_server::receive_header_action (boost::system::error_code co
 					socket->async_read (receive_buffer, header.payload_length_bytes (), [this_l, header](boost::system::error_code const & ec, size_t size_a) {
 						this_l->receive_bulk_pull_account_action (ec, size_a, header);
 					});
-					update_time ();
 					break;
 				}
 				case nano::message_type::frontier_req:
@@ -2116,7 +2115,6 @@ void nano::bootstrap_server::receive_header_action (boost::system::error_code co
 					socket->async_read (receive_buffer, header.payload_length_bytes (), [this_l, header](boost::system::error_code const & ec, size_t size_a) {
 						this_l->receive_frontier_req_action (ec, size_a, header);
 					});
-					update_time ();
 					break;
 				}
 				case nano::message_type::bulk_push:
@@ -2131,7 +2129,6 @@ void nano::bootstrap_server::receive_header_action (boost::system::error_code co
 					socket->async_read (receive_buffer, header.payload_length_bytes (), [this_l, header](boost::system::error_code const & ec, size_t size_a) {
 						this_l->receive_keepalive_action (ec, size_a, header);
 					});
-					update_time ();
 					break;
 				}
 				default:
@@ -2262,7 +2259,6 @@ void nano::bootstrap_server::finish_request ()
 	}
 	else
 	{
-		update_time ();
 		auto this_l (shared_from_this ());
 		std::weak_ptr<nano::bootstrap_server> this_w (shared_from_this ());
 		node->alarm.add (std::chrono::steady_clock::now () + node->config.tcp_server_timeout + std::chrono::seconds (1), [this_w]() {
@@ -2274,14 +2270,9 @@ void nano::bootstrap_server::finish_request ()
 	}
 }
 
-void nano::bootstrap_server::update_time ()
-{
-	last_action_time = std::chrono::steady_clock::now ().time_since_epoch ().count ();
-}
-
 void nano::bootstrap_server::timeout ()
 {
-	if (last_action_time + node->config.tcp_server_timeout.count () < static_cast<uint64_t> (std::chrono::steady_clock::now ().time_since_epoch ().count ()))
+	if (socket->last_action_time + node->config.tcp_server_timeout.count () < static_cast<uint64_t> (std::chrono::steady_clock::now ().time_since_epoch ().count ()))
 	{
 		if (node->config.logging.bulk_pull_logging ())
 		{
@@ -2334,7 +2325,6 @@ public:
 				connection->finish_request ();
 			}
 		});
-		connection->update_time ();
 	}
 	void publish (nano::publish const &) override
 	{
@@ -2481,7 +2471,6 @@ void nano::bulk_pull_server::send_next ()
 		connection->socket->async_write (send_buffer, [this_l](boost::system::error_code const & ec, size_t size_a) {
 			this_l->sent_action (ec, size_a);
 		});
-		connection->update_time ();
 	}
 	else
 	{
@@ -2588,7 +2577,6 @@ void nano::bulk_pull_server::send_finished ()
 	connection->socket->async_write (send_buffer, [this_l](boost::system::error_code const & ec, size_t size_a) {
 		this_l->no_block_sent (ec, size_a);
 	});
-	connection->update_time ();
 }
 
 void nano::bulk_pull_server::no_block_sent (boost::system::error_code const & ec, size_t size_a)
@@ -2710,7 +2698,6 @@ void nano::bulk_pull_account_server::send_frontier ()
 	connection->socket->async_write (send_buffer, [this_l](boost::system::error_code const & ec, size_t size_a) {
 		this_l->sent_action (ec, size_a);
 	});
-	connection->update_time ();
 }
 
 void nano::bulk_pull_account_server::send_next_block ()
@@ -2766,7 +2753,6 @@ void nano::bulk_pull_account_server::send_next_block ()
 		connection->socket->async_write (send_buffer, [this_l](boost::system::error_code const & ec, size_t size_a) {
 			this_l->sent_action (ec, size_a);
 		});
-		connection->update_time ();
 	}
 	else
 	{
@@ -2915,7 +2901,6 @@ void nano::bulk_pull_account_server::send_finished ()
 	connection->socket->async_write (send_buffer, [this_l](boost::system::error_code const & ec, size_t size_a) {
 		this_l->complete (ec, size_a);
 	});
-	connection->update_time ();
 }
 
 void nano::bulk_pull_account_server::complete (boost::system::error_code const & ec, size_t size_a)
@@ -2993,7 +2978,6 @@ void nano::bulk_push_server::receive ()
 				}
 			}
 		});
-		connection->update_time ();
 	}
 }
 
@@ -3009,7 +2993,6 @@ void nano::bulk_push_server::received_type ()
 			connection->socket->async_read (receive_buffer, nano::send_block::size, [this_l, type](boost::system::error_code const & ec, size_t size_a) {
 				this_l->received_block (ec, size_a, type);
 			});
-			connection->update_time ();
 			break;
 		}
 		case nano::block_type::receive:
@@ -3018,7 +3001,6 @@ void nano::bulk_push_server::received_type ()
 			connection->socket->async_read (receive_buffer, nano::receive_block::size, [this_l, type](boost::system::error_code const & ec, size_t size_a) {
 				this_l->received_block (ec, size_a, type);
 			});
-			connection->update_time ();
 			break;
 		}
 		case nano::block_type::open:
@@ -3027,7 +3009,6 @@ void nano::bulk_push_server::received_type ()
 			connection->socket->async_read (receive_buffer, nano::open_block::size, [this_l, type](boost::system::error_code const & ec, size_t size_a) {
 				this_l->received_block (ec, size_a, type);
 			});
-			connection->update_time ();
 			break;
 		}
 		case nano::block_type::change:
@@ -3036,7 +3017,6 @@ void nano::bulk_push_server::received_type ()
 			connection->socket->async_read (receive_buffer, nano::change_block::size, [this_l, type](boost::system::error_code const & ec, size_t size_a) {
 				this_l->received_block (ec, size_a, type);
 			});
-			connection->update_time ();
 			break;
 		}
 		case nano::block_type::state:
@@ -3045,7 +3025,6 @@ void nano::bulk_push_server::received_type ()
 			connection->socket->async_read (receive_buffer, nano::state_block::size, [this_l, type](boost::system::error_code const & ec, size_t size_a) {
 				this_l->received_block (ec, size_a, type);
 			});
-			connection->update_time ();
 			break;
 		}
 		case nano::block_type::not_a_block:
@@ -3118,7 +3097,6 @@ void nano::frontier_req_server::send_next ()
 		connection->socket->async_write (send_buffer, [this_l](boost::system::error_code const & ec, size_t size_a) {
 			this_l->sent_action (ec, size_a);
 		});
-		connection->update_time ();
 	}
 	else
 	{
@@ -3143,7 +3121,6 @@ void nano::frontier_req_server::send_finished ()
 	connection->socket->async_write (send_buffer, [this_l](boost::system::error_code const & ec, size_t size_a) {
 		this_l->no_block_sent (ec, size_a);
 	});
-	connection->update_time ();
 }
 
 void nano::frontier_req_server::no_block_sent (boost::system::error_code const & ec, size_t size_a)
