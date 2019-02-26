@@ -62,8 +62,7 @@ public:
 	}
 
 	/*
-	 * @param log_items A collection of objects with overloaded operator<< to be output to the log file
-	 *					if the last time an item was logged was over min_log_delta time ago.
+	 * @param log_items Output to the log file if the last write was over min_log_delta time ago.
 	 * @return true if the log was successful
 	 */
 	template <typename... LogItems>
