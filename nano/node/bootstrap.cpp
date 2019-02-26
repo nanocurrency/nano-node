@@ -27,7 +27,7 @@ node (node_a)
 
 void nano::socket::async_connect (nano::tcp_endpoint const & endpoint_a, std::function<void(boost::system::error_code const &)> callback_a)
 {
-	checkup ();
+	checkup (node->config.tcp_client_timeout.count ());
 	auto this_l (shared_from_this ());
 	start ();
 	socket_m.async_connect (endpoint_a, [this_l, callback_a](boost::system::error_code const & ec) {
@@ -91,13 +91,13 @@ void nano::socket::close ()
 	}
 }
 
-void nano::socket::checkup ()
+void nano::socket::checkup (uint64_t timeout_a)
 {
 	std::weak_ptr<nano::socket> this_w (shared_from_this ());
-	node->alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (10), [this_w]() {
+	node->alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (10), [this_w, timeout_a]() {
 		if (auto this_l = this_w.lock ())
 		{
-			if (this_l->cutoff != std::numeric_limits<uint64_t>::max () && this_l->cutoff < static_cast<uint64_t> (std::chrono::steady_clock::now ().time_since_epoch ().count ()))
+			if (this_l->cutoff != std::numeric_limits<uint64_t>::max () && this_l->cutoff + timeout_a < static_cast<uint64_t> (std::chrono::steady_clock::now ().time_since_epoch ().count ()))
 			{
 				if (this_l->node->config.logging.bulk_pull_logging ())
 				{
@@ -107,7 +107,7 @@ void nano::socket::checkup ()
 			}
 			else
 			{
-				this_l->checkup ();
+				this_l->checkup (timeout_a);
 			}
 		}
 	});
@@ -1980,6 +1980,7 @@ void nano::bootstrap_listener::accept_connection ()
 		if (connections.size () < node.config.bootstrap_connections_max)
 		{
 			auto socket (std::make_shared<nano::socket> (node.shared ()));
+			socket->checkup (node.config.tcp_server_timeout.count ());
 			acceptor.async_accept (socket->socket_m, [this, socket](boost::system::error_code const & ec) {
 				accept_action (ec, socket);
 			});
