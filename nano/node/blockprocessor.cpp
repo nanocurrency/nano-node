@@ -478,7 +478,7 @@ nano::process_return nano::block_processor::process_one (nano::transaction const
 		}
 		case nano::process_result::opened_burn_account:
 		{
-			node.logger.try_log (boost::str (boost::format ("*** Rejecting open block for burn account ***: %1%") % hash.to_string ()));
+			node.logger.always_log (boost::str (boost::format ("*** Rejecting open block for burn account ***: %1%") % hash.to_string ()));
 			break;
 		}
 		case nano::process_result::balance_mismatch:
