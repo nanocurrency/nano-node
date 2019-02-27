@@ -97,7 +97,7 @@ public:
 	std::vector<nano::peer_information> purge_list (std::chrono::steady_clock::time_point const &);
 	void purge_syn_cookies (std::chrono::steady_clock::time_point const &);
 	std::vector<nano::endpoint> rep_crawl ();
-	bool rep_response (nano::endpoint const &, nano::account const &, nano::amount const &);
+	bool rep_response (nano::message_sink const &, nano::account const &, nano::amount const &);
 	void rep_request (nano::endpoint const &);
 	// Should we reach out to this endpoint with a keepalive message
 	bool reachout (nano::endpoint const &);

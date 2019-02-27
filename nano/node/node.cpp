@@ -1426,7 +1426,7 @@ startup_time (std::chrono::steady_clock::now ())
 			if (rep_crawler_exists)
 			{
 				// We see a valid non-replay vote for a block we requested, this node is probably a representative
-				if (this->peers.rep_response (sink_a.endpoint, vote_a->account, rep_weight))
+				if (this->peers.rep_response (sink_a, vote_a->account, rep_weight))
 				{
 					BOOST_LOG (log) << boost::str (boost::format ("Found a representative at %1%") % sink_a.to_string ());
 					// Rebroadcasting all active votes to new representative

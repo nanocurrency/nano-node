@@ -144,7 +144,8 @@ TEST (peer_container, rep_weight)
 	peers.insert (endpoint0, nano::protocol_version);
 	peers.insert (endpoint1, nano::protocol_version);
 	nano::keypair keypair;
-	peers.rep_response (endpoint0, keypair.pub, amount);
+	nano::message_sink_udp sink (*system.nodes[0], endpoint0);
+	peers.rep_response (sink, keypair.pub, amount);
 	auto reps (peers.representatives (1));
 	ASSERT_EQ (1, reps.size ());
 	ASSERT_EQ (100, reps[0].rep_weight.number ());

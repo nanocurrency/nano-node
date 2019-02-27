@@ -395,13 +395,11 @@ bool nano::peer_container::not_a_peer (nano::endpoint const & endpoint_a, bool b
 	return result;
 }
 
-bool nano::peer_container::rep_response (nano::endpoint const & endpoint_a, nano::account const & rep_account_a, nano::amount const & weight_a)
+bool nano::peer_container::rep_response (nano::message_sink const & sink_a, nano::account const & rep_account_a, nano::amount const & weight_a)
 {
-	assert (endpoint_a.address ().is_v6 ());
 	auto updated (false);
 	std::lock_guard<std::mutex> lock (mutex);
-	nano::message_sink_udp sink (node, endpoint_a);
-	auto existing (peers.find (std::reference_wrapper<nano::message_sink const> (sink)));
+	auto existing (peers.find (std::reference_wrapper<nano::message_sink const> (sink_a)));
 	if (existing != peers.end ())
 	{
 		peers.modify (existing, [weight_a, &updated, rep_account_a](nano::peer_information & info) {
