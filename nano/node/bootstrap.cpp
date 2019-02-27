@@ -21,6 +21,7 @@ size_t constexpr nano::frontier_req_client::size_frontier;
 nano::socket::socket (std::shared_ptr<nano::node> node_a) :
 socket_m (node_a->io_ctx),
 async_start_time (std::numeric_limits<uint64_t>::max ()),
+last_action_time (0),
 node (node_a)
 {
 }
