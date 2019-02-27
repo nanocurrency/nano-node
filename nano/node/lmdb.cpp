@@ -1234,7 +1234,7 @@ void nano::mdb_store::upgrade_v12_to_v13 (size_t const batch_size)
 			{
 				if (cost >= batch_size)
 				{
-					BOOST_LOG (logging.log) << boost::str (boost::format ("Upgrading sideband information for account %1%... height %2%") % first.to_account ().substr (0, 24) % std::to_string (height));
+					logging.logger.always_log (boost::str (boost::format ("Upgrading sideband information for account %1%... height %2%") % first.to_account ().substr (0, 24) % std::to_string (height)));
 					auto tx (boost::polymorphic_downcast<nano::mdb_txn *> (transaction.impl.get ()));
 					auto status0 (mdb_txn_commit (*tx));
 					release_assert (status0 == MDB_SUCCESS);
@@ -1267,7 +1267,7 @@ void nano::mdb_store::upgrade_v12_to_v13 (size_t const batch_size)
 	}
 	if (account == not_an_account)
 	{
-		BOOST_LOG (logging.log) << boost::str (boost::format ("Completed sideband upgrade"));
+		logging.logger.always_log (boost::str (boost::format ("Completed sideband upgrade")));
 		version_put (transaction, 13);
 	}
 }
