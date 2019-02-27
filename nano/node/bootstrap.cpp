@@ -2272,17 +2272,25 @@ void nano::bootstrap_server::finish_request ()
 
 void nano::bootstrap_server::timeout ()
 {
-	if (socket->last_action_time + node->config.tcp_server_timeout.count () < static_cast<uint64_t> (std::chrono::steady_clock::now ().time_since_epoch ().count ()))
+	if (socket != nullptr)
 	{
-		if (node->config.logging.bulk_pull_logging ())
+		if (socket->last_action_time + node->config.tcp_server_timeout.count () < static_cast<uint64_t> (std::chrono::steady_clock::now ().time_since_epoch ().count ()))
 		{
-			node->logger.try_log ("Closing bootstrap server by timeout");
+			if (node->config.logging.bulk_pull_logging ())
+			{
+				node->logger.try_log ("Closing bootstrap server by timeout");
+			}
+			{
+				std::lock_guard<std::mutex> lock (node->bootstrap.mutex);
+				node->bootstrap.connections.erase (this);
+			}
+			socket->close ();
 		}
-		{
-			std::lock_guard<std::mutex> lock (node->bootstrap.mutex);
-			node->bootstrap.connections.erase (this);
-		}
-		socket->close ();
+	}
+	else
+	{
+		std::lock_guard<std::mutex> lock (node->bootstrap.mutex);
+		node->bootstrap.connections.erase (this);
 	}
 }
 
