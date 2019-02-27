@@ -85,7 +85,7 @@ void nano::socket::close ()
 	if (ec)
 	{
 		// The underlying file descriptor is closed anyway, so just log the error.
-		BOOST_LOG (node->log) << "Failed to close socket gracefully: " << ec.message ();
+		node->logger.try_log ("Failed to close socket gracefully: ", ec.message ());
 	}
 }
 
