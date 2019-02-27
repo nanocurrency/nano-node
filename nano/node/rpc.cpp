@@ -2265,6 +2265,7 @@ void nano::rpc_handler::pending ()
 	const bool min_version = request.get<bool> ("min_version", false);
 	const bool include_active = request.get<bool> ("include_active", false);
 	const bool sorting = request.get<bool> ("sorting", false);
+	auto simple (threshold.is_zero () && !source && !min_version && !sorting); // if simple, response is a list of hashes
 	if (!ec)
 	{
 		boost::property_tree::ptree peers_l;
@@ -2275,13 +2276,15 @@ void nano::rpc_handler::pending ()
 			std::shared_ptr<nano::block> block (include_active ? nullptr : node.store.block_get (transaction, key.hash));
 			if (include_active || (block && !node.active.active (*block)))
 			{
-				nano::pending_info info (i->second);
-				if (threshold.is_zero () && !source && !min_version)
+				if (simple)
 				{
-					peers_l.put (key.hash.to_string (), info.amount.number ().convert_to<std::string> ());
+					boost::property_tree::ptree entry;
+					entry.put ("", key.hash.to_string ());
+					peers_l.push_back (std::make_pair ("", entry));
 				}
 				else
 				{
+					nano::pending_info info (i->second);
 					if (info.amount.number () >= threshold.number ())
 					{
 						if (source || min_version)
@@ -2306,7 +2309,7 @@ void nano::rpc_handler::pending ()
 				}
 			}
 		}
-		if (sorting)
+		if (sorting && !simple)
 		{
 			if (source || min_version)
 			{
