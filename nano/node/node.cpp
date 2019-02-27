@@ -496,10 +496,9 @@ void rep_query (nano::node & node_a, T const & peers_a)
 	node_a.rep_crawler.add (hash);
 	for (auto i (peers_a.begin ()), n (peers_a.end ()); i != n; ++i)
 	{
-		node_a.peers.rep_request (*i);
-		nano::message_sink_udp sink (node_a, *i);
+		node_a.peers.rep_request (**i);
 		nano::confirm_req req (block);
-		sink.sink (req);
+		(*i)->sink (req);
 	}
 	std::weak_ptr<nano::node> node_w (node_a.shared ());
 	node_a.alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (5), [node_w, hash]() {
@@ -510,9 +509,9 @@ void rep_query (nano::node & node_a, T const & peers_a)
 	});
 }
 
-void rep_query (nano::node & node_a, nano::endpoint const & peers_a)
+void rep_query (nano::node & node_a, std::shared_ptr<nano::message_sink> peers_a)
 {
-	std::array<nano::endpoint, 1> peers;
+	std::array<std::shared_ptr<nano::message_sink>, 1> peers;
 	peers[0] = peers_a;
 	rep_query (node_a, peers);
 }
@@ -1348,8 +1347,8 @@ startup_time (std::chrono::steady_clock::now ())
 	wallets.observer = [this](bool active) {
 		observers.wallet.notify (active);
 	};
-	peers.peer_observer = [this](nano::endpoint const & endpoint_a) {
-		observers.endpoint.notify (endpoint_a);
+	peers.peer_observer = [this](std::shared_ptr<nano::message_sink> sink_a) {
+		observers.endpoint.notify (sink_a);
 	};
 	peers.disconnect_observer = [this]() {
 		observers.disconnect.notify ();
@@ -1398,10 +1397,9 @@ startup_time (std::chrono::steady_clock::now ())
 			}
 		});
 	}
-	observers.endpoint.add ([this](nano::endpoint const & endpoint_a) {
-		nano::message_sink_udp sink (*this, endpoint_a);
-		this->network.send_keepalive (sink);
-		rep_query (*this, endpoint_a);
+	observers.endpoint.add ([this](std::shared_ptr<nano::message_sink> sink_a) {
+		this->network.send_keepalive (*sink_a);
+		rep_query (*this, sink_a);
 	});
 	observers.vote.add ([this](nano::transaction const & transaction, std::shared_ptr<nano::vote> vote_a, nano::message_sink_udp const & sink_a) {
 		this->gap_cache.vote (vote_a);

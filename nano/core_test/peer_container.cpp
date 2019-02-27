@@ -18,7 +18,7 @@ TEST (peer_container, no_recontact)
 	auto observed_disconnect (false);
 	nano::endpoint endpoint1 (boost::asio::ip::address_v6::loopback (), 10000);
 	ASSERT_EQ (0, peers.size ());
-	peers.peer_observer = [&observed_peer](nano::endpoint const &) { ++observed_peer; };
+	peers.peer_observer = [&observed_peer](std::shared_ptr<nano::message_sink>) { ++observed_peer; };
 	peers.disconnect_observer = [&observed_disconnect]() { observed_disconnect = true; };
 	ASSERT_FALSE (peers.insert (endpoint1, nano::protocol_version));
 	ASSERT_EQ (1, peers.size ());

@@ -52,7 +52,7 @@ bool nano::peer_information::operator< (nano::peer_information const & peer_info
 
 nano::peer_container::peer_container (nano::node & node_a) :
 node (node_a),
-peer_observer ([](nano::endpoint const &) {}),
+peer_observer ([](std::shared_ptr<nano::message_sink>) {}),
 disconnect_observer ([]() {})
 {
 }
@@ -316,9 +316,9 @@ std::vector<nano::peer_information> nano::peer_container::purge_list (std::chron
 	return result;
 }
 
-std::vector<nano::endpoint> nano::peer_container::rep_crawl ()
+std::vector<std::shared_ptr<nano::message_sink>> nano::peer_container::rep_crawl ()
 {
-	std::vector<nano::endpoint> result;
+	std::vector<std::shared_ptr<nano::message_sink>> result;
 	// If there is enough observed peers weight, crawl 10 peers. Otherwise - 40
 	uint16_t max_count = (total_weight () > online_weight_minimum) ? 10 : 40;
 	result.reserve (max_count);
@@ -326,7 +326,7 @@ std::vector<nano::endpoint> nano::peer_container::rep_crawl ()
 	uint16_t count (0);
 	for (auto i (peers.get<5> ().begin ()), n (peers.get<5> ().end ()); i != n && count < max_count; ++i, ++count)
 	{
-		result.push_back (i->endpoint ());
+		result.push_back (i->sink);
 	};
 	return result;
 }
@@ -415,11 +415,10 @@ bool nano::peer_container::rep_response (nano::message_sink const & sink_a, nano
 	return updated;
 }
 
-void nano::peer_container::rep_request (nano::endpoint const & endpoint_a)
+void nano::peer_container::rep_request (nano::message_sink const & sink_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
-	nano::message_sink_udp sink (node, endpoint_a);
-	auto existing (peers.find (std::reference_wrapper<nano::message_sink const> (sink)));
+	auto existing (peers.find (std::reference_wrapper<nano::message_sink const> (sink_a)));
 	if (existing != peers.end ())
 	{
 		peers.modify (existing, [](nano::peer_information & info) {
@@ -448,7 +447,7 @@ bool nano::peer_container::reachout (nano::endpoint const & endpoint_a)
 bool nano::peer_container::insert (nano::endpoint const & endpoint_a, unsigned version_a, bool preconfigured_a, boost::optional<nano::account> node_id_a)
 {
 	assert (endpoint_a.address ().is_v6 ());
-	auto unknown (false);
+	std::shared_ptr<nano::message_sink_udp> new_peer;
 	auto result (!preconfigured_a && not_a_peer (endpoint_a, false));
 	if (!result)
 	{
@@ -470,7 +469,6 @@ bool nano::peer_container::insert (nano::endpoint const & endpoint_a, unsigned v
 			}
 			else
 			{
-				unknown = true;
 				if (!result && !nano::is_test_network)
 				{
 					auto ip_peers (peers.get<nano::peer_by_ip_addr> ().count (endpoint_a.address ()));
@@ -481,14 +479,15 @@ bool nano::peer_container::insert (nano::endpoint const & endpoint_a, unsigned v
 				}
 				if (!result)
 				{
-					peers.insert (nano::peer_information (std::make_shared<nano::message_sink_udp> (node, endpoint_a), version_a, node_id_a));
+					new_peer = std::make_shared<nano::message_sink_udp> (node, endpoint_a);
+					peers.insert (nano::peer_information (new_peer, version_a, node_id_a));
 				}
 			}
 		}
 	}
-	if (unknown && !result)
+	if (new_peer != nullptr)
 	{
-		peer_observer (endpoint_a);
+		peer_observer (new_peer);
 	}
 	return result;
 }

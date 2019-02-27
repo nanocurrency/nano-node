@@ -1331,7 +1331,7 @@ void nano_qt::wallet::start ()
 			}));
 		}
 	});
-	node.observers.endpoint.add ([this_w](nano::endpoint const &) {
+	node.observers.endpoint.add ([this_w](std::shared_ptr<nano::message_sink>) {
 		if (auto this_l = this_w.lock ())
 		{
 			this_l->application.postEvent (&this_l->processor, new eventloop_event ([this_w]() {

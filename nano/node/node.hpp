@@ -370,7 +370,7 @@ public:
 	nano::observer_set<bool> wallet;
 	nano::observer_set<nano::transaction const &, std::shared_ptr<nano::vote>, nano::message_sink_udp const &> vote;
 	nano::observer_set<nano::account const &, bool> account_balance;
-	nano::observer_set<nano::endpoint const &> endpoint;
+	nano::observer_set<std::shared_ptr<nano::message_sink>> endpoint;
 	nano::observer_set<> disconnect;
 };
 
