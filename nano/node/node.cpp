@@ -2678,6 +2678,11 @@ void nano::node::process_confirmed (std::shared_ptr<nano::block> block_a, uint8_
 	auto hash (block_a->hash ());
 	if (ledger.block_exists (block_a->type (), hash))
 	{
+		{
+			auto transaction (store.tx_begin_write ());
+			add_confirmation_heights (transaction, hash);
+		}
+
 		auto transaction (store.tx_begin_write ());
 		confirmed_visitor visitor (transaction, *this, block_a, hash);
 		block_a->visit (visitor);
@@ -2703,8 +2708,6 @@ void nano::node::process_confirmed (std::shared_ptr<nano::block> block_a, uint8_
 				observers.account_balance.notify (pending_account, true);
 			}
 		}
-
-		add_confirmation_heights (transaction, hash);
 	}
 	// Limit to 0.5 * 20 = 10 seconds (more than max block_processor::process_batch finish time)
 	else if (iteration < 20)
@@ -3754,15 +3757,15 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (active_transaction
 }
 
 /**
- * Confirms the height of the block for the block hash passed in. If this has implicitly
- * confirms other blocks then check if these are open/receive blocks, and if so follow
- * the source of these blocks iteratively confirm them as well.
+ * For all the blocks below this height which have been implicitly confirmed check if they
+ * are open/receive blocks, and if so follow the source blocks and iteratively repeat to genesis.
  */
 void nano::node::add_confirmation_heights (nano::transaction const & transaction, nano::block_hash const & hash)
 {
 	std::stack<nano::block_hash, std::vector<nano::block_hash>> open_receive_blocks;
 	auto current = hash;
 
+	nano::genesis genesis;
 	do
 	{
 		if (!open_receive_blocks.empty ())
@@ -3795,37 +3798,34 @@ void nano::node::add_confirmation_heights (nano::transaction const & transaction
 			store.account_put (transaction, account, account_info);
 
 			// Get the difference and check if any of these are recieve blocks
-			auto newly_confirmed_num_blocks = block_height - confirmation_height;
+			auto num_confirmed_blocks = block_height - confirmation_height;
 
 			// Start from the most recent one and work our way through
-			for (uint64_t i = 0; i < newly_confirmed_num_blocks; ++i)
+			for (uint64_t i = 0; i < num_confirmed_blocks && !current.is_zero (); ++i)
 			{
-				nano::block_sideband sideband;
-				auto block (store.block_get (transaction, current, &sideband));
+				auto block (store.block_get (transaction, current));
 				if (block != nullptr)
 				{
 					// First check legacy receive/open
-					auto should_process = (sideband.type == nano::block_type::receive || (sideband.type == nano::block_type::open && !current.is_zero ()));
-					if (!should_process)
+					if (block->type () == nano::block_type::receive || (block->type () == nano::block_type::open && current != genesis.hash ()))
+					{
+						open_receive_blocks.push (block->source ());
+					}
+					else
 					{
 						// Then check state blocks
 						auto state = std::dynamic_pointer_cast<nano::state_block> (block);
-						if (state)
+						if (state != nullptr)
 						{
-							nano::block_hash previous (state->previous ());
+							nano::block_hash previous (state->hashables.previous);
 							if (!previous.is_zero ())
 							{
 								if (state->hashables.balance > ledger.balance (transaction, previous))
 								{
-									should_process = true;
+									open_receive_blocks.push (state->hashables.link);
 								}
 							}
 						}
-					}
-
-					if (should_process)
-					{
-						open_receive_blocks.push (current);
 					}
 
 					current = block->previous ();

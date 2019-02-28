@@ -1197,7 +1197,7 @@ void nano::mdb_store::upgrade_v12_to_v13 (nano::transaction const & transaction_
 				if (cost >= batch_size)
 				{
 					logging.logger.always_log (boost::str (boost::format ("Upgrading sideband information for account %1%... height %2%") % first.to_account ().substr (0, 24) % std::to_string (height)));
-					auto tx (boost::polymorphic_downcast<nano::mdb_txn *> (transaction.impl.get ()));
+					auto tx (boost::polymorphic_downcast<nano::mdb_txn *> (transaction_a.impl.get ()));
 					auto status0 (mdb_txn_commit (*tx));
 					release_assert (status0 == MDB_SUCCESS);
 					std::this_thread::yield ();
@@ -1255,7 +1255,7 @@ void nano::mdb_store::upgrade_v13_to_v14 (nano::transaction const & transaction_
 		account_put (transaction_a, account_info.first, account_info.second);
 	}
 
-	BOOST_LOG (logging.log) << boost::str (boost::format ("Completed confirmation height upgrade"));
+	logging.logger.always_log (boost::str (boost::format ("Completed confirmation height upgrade")));
 }
 
 void nano::mdb_store::clear (MDB_dbi db_a)

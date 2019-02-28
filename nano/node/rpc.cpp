@@ -411,25 +411,6 @@ void nano::rpc_handler::account_block_count ()
 	response_errors ();
 }
 
-void nano::rpc_handler::account_confirmation_height ()
-{
-	auto account (account_impl ());
-	if (!ec)
-	{
-		auto transaction (node.store.tx_begin_read ());
-		nano::account_info info;
-		if (!node.store.account_get (transaction, account, info))
-		{
-			response_l.put ("confirmation_height", std::to_string (info.confirmation_height));
-		}
-		else
-		{
-			ec = nano::error_common::account_not_found;
-		}
-	}
-	response_errors ();
-}
-
 void nano::rpc_handler::account_create ()
 {
 	rpc_control_impl ();
@@ -507,6 +488,7 @@ void nano::rpc_handler::account_info ()
 			response_l.put ("modified_timestamp", std::to_string (info.modified));
 			response_l.put ("block_count", std::to_string (info.block_count));
 			response_l.put ("account_version", info.epoch == nano::epoch::epoch_1 ? "1" : "0");
+			response_l.put ("confirmation_height", std::to_string (info.confirmation_height));
 			if (representative)
 			{
 				auto block (node.store.block_get (transaction, info.rep_block));
@@ -4479,10 +4461,6 @@ void nano::rpc_handler::process_request ()
 			else if (action == "account_block_count")
 			{
 				account_block_count ();
-			}
-			else if (action == "account_confirmation_height")
-			{
-				account_confirmation_height ();
 			}
 			else if (action == "account_count")
 			{

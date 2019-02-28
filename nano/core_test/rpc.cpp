@@ -116,35 +116,6 @@ TEST (rpc, account_block_count)
 	ASSERT_EQ ("1", block_count_text);
 }
 
-TEST (rpc, account_confirmation_height)
-{
-	nano::system system (24000, 1);
-	auto & node = system.nodes.front ();
-	nano::rpc rpc (system.io_ctx, *node, nano::rpc_config (true));
-	rpc.start ();
-	boost::property_tree::ptree request;
-	request.put ("action", "account_confirmation_height");
-	request.put ("account", nano::test_genesis_key.pub.to_account ());
-
-	{
-		auto transaction = node->store.tx_begin_write ();
-		nano::account_info account_info;
-		ASSERT_FALSE (node->store.account_get (transaction, nano::test_genesis_key.pub, account_info));
-		account_info.confirmation_height = 10;
-		node->store.account_put (transaction, nano::test_genesis_key.pub, account_info);
-	}
-
-	test_response response (request, rpc, system.io_ctx);
-	system.deadline_set (5s);
-	while (response.status == 0)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
-	ASSERT_EQ (200, response.status);
-	std::string confirmation_height_text (response.json.get<std::string> ("confirmation_height"));
-	ASSERT_EQ ("10", confirmation_height_text);
-}
-
 TEST (rpc, account_create)
 {
 	nano::system system (24000, 1);
@@ -3386,6 +3357,14 @@ TEST (rpc, account_info)
 	system.nodes[0]->process (send);
 	auto time (nano::seconds_since_epoch ());
 
+	{
+		auto transaction = system.nodes[0]->store.tx_begin_write ();
+		nano::account_info account_info;
+		ASSERT_FALSE (system.nodes[0]->store.account_get (transaction, nano::test_genesis_key.pub, account_info));
+		account_info.confirmation_height = 1;
+		system.nodes[0]->store.account_put (transaction, nano::test_genesis_key.pub, account_info);
+	}
+
 	nano::rpc rpc (system.io_ctx, *system.nodes[0], nano::rpc_config (true));
 	rpc.start ();
 	boost::property_tree::ptree request;
@@ -3410,6 +3389,8 @@ TEST (rpc, account_info)
 	ASSERT_LT (std::abs ((long)time - stol (modified_timestamp)), 5);
 	std::string block_count (response.json.get<std::string> ("block_count"));
 	ASSERT_EQ ("2", block_count);
+	std::string confirmation_height (response.json.get<std::string> ("confirmation_height"));
+	ASSERT_EQ ("1", confirmation_height);
 	ASSERT_EQ (0, response.json.get<uint8_t> ("account_version"));
 	boost::optional<std::string> weight (response.json.get_optional<std::string> ("weight"));
 	ASSERT_FALSE (weight.is_initialized ());

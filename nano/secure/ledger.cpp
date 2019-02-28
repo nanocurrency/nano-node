@@ -1055,7 +1055,7 @@ bool nano::ledger::block_confirmed (nano::transaction const & transaction_a, nan
 		auto account_l (account (transaction_a, hash_a));
 		nano::account_info account_info;
 		release_assert (!store.account_get (transaction_a, account_l, account_info));
-		confirmed = account_info.confirmation_height >= block_height;
+		confirmed = (account_info.confirmation_height >= block_height);
 	}
 	return confirmed;
 }
