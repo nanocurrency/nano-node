@@ -1175,7 +1175,10 @@ TEST (network, reserved_address)
 	ASSERT_FALSE (nano::reserved_address (nano::endpoint (boost::asio::ip::address_v6::from_string ("2001::"), 0), true));
 	nano::endpoint loopback (boost::asio::ip::address_v6::from_string ("::1"), 1);
 	ASSERT_FALSE (nano::reserved_address (loopback, false));
-	ASSERT_TRUE (nano::reserved_address (loopback, true));
+	ASSERT_FALSE (nano::reserved_address (loopback, true));
+	nano::endpoint private_network_peer (boost::asio::ip::address_v6::from_string ("::ffff:10.0.0.0"), 1);
+	ASSERT_TRUE (nano::reserved_address (private_network_peer, false));
+	ASSERT_FALSE (nano::reserved_address (private_network_peer, true));
 }
 
 TEST (node, port_mapping)

@@ -489,7 +489,7 @@ public:
 	nano::node_flags flags;
 	nano::alarm & alarm;
 	nano::work_pool & work;
-	boost::log::sources::logger_mt log;
+	nano::logger_mt logger;
 	std::unique_ptr<nano::block_store> store_impl;
 	nano::block_store & store;
 	std::unique_ptr<nano::wallets_store> wallets_store_impl;

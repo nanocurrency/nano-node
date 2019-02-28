@@ -442,7 +442,7 @@ void nano::landing::write_store ()
 	{
 		std::stringstream str;
 		store.serialize (str);
-		BOOST_LOG (node.log) << boost::str (boost::format ("Error writing store file %1%") % str.str ());
+		node.logger.always_log (boost::str (boost::format ("Error writing store file %1%") % str.str ()));
 	}
 }
 
@@ -503,13 +503,13 @@ void nano::landing::distribute_one ()
 		last = wallet->send_sync (store.source, store.destination, amount);
 		if (!last.is_zero ())
 		{
-			BOOST_LOG (node.log) << boost::str (boost::format ("Successfully distributed %1% in block %2%") % amount % last.to_string ());
+			node.logger.always_log (boost::str (boost::format ("Successfully distributed %1% in block %2%") % amount % last.to_string ()));
 			store.last += distribution_interval.count ();
 			write_store ();
 		}
 		else
 		{
-			BOOST_LOG (node.log) << "Error while sending distribution";
+			node.logger.always_log ("Error while sending distribution");
 		}
 	}
 }
@@ -517,7 +517,7 @@ void nano::landing::distribute_one ()
 void nano::landing::distribute_ongoing ()
 {
 	distribute_one ();
-	BOOST_LOG (node.log) << "Waiting for next distribution cycle";
+	node.logger.always_log ("Waiting for next distribution cycle");
 	node.alarm.add (std::chrono::steady_clock::now () + sleep_seconds, [this]() { distribute_ongoing (); });
 }
 

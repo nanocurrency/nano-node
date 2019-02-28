@@ -59,27 +59,27 @@ on (true)
 			}
 			catch (boost::system::error_code & ec)
 			{
-				BOOST_LOG (this->node.log) << FATAL_LOG_PREFIX << ec.message ();
+				this->node.logger.try_log (FATAL_LOG_PREFIX, ec.message ());
 				release_assert (false);
 			}
 			catch (std::error_code & ec)
 			{
-				BOOST_LOG (this->node.log) << FATAL_LOG_PREFIX << ec.message ();
+				this->node.logger.try_log (FATAL_LOG_PREFIX, ec.message ());
 				release_assert (false);
 			}
 			catch (std::runtime_error & err)
 			{
-				BOOST_LOG (this->node.log) << FATAL_LOG_PREFIX << err.what ();
+				this->node.logger.try_log (FATAL_LOG_PREFIX, err.what ());
 				release_assert (false);
 			}
 			catch (...)
 			{
-				BOOST_LOG (this->node.log) << FATAL_LOG_PREFIX << "Unknown exception";
+				this->node.logger.try_log (FATAL_LOG_PREFIX, "Unknown exception");
 				release_assert (false);
 			}
 			if (this->node.config.logging.network_packet_logging ())
 			{
-				BOOST_LOG (this->node.log) << "Exiting packet processing thread";
+				this->node.logger.try_log ("Exiting packet processing thread");
 			}
 		}));
 	}
@@ -105,7 +105,7 @@ void nano::network::receive ()
 {
 	if (node.config.logging.network_packet_logging ())
 	{
-		BOOST_LOG (node.log) << "Receiving packet";
+		node.logger.try_log ("Receiving packet");
 	}
 	std::unique_lock<std::mutex> lock (socket_mutex);
 	auto data (buffer_container.allocate ());
@@ -123,7 +123,7 @@ void nano::network::receive ()
 			{
 				if (this->node.config.logging.network_logging ())
 				{
-					BOOST_LOG (this->node.log) << boost::str (boost::format ("UDP Receive error: %1%") % error.message ());
+					this->node.logger.try_log (boost::str (boost::format ("UDP Receive error: %1%") % error.message ()));
 				}
 			}
 			if (this->on)
@@ -170,7 +170,7 @@ void nano::network::send_keepalive (nano::endpoint const & endpoint_a)
 	auto bytes = message.to_bytes ();
 	if (node.config.logging.network_keepalive_logging ())
 	{
-		BOOST_LOG (node.log) << boost::str (boost::format ("Keepalive req sent to %1%") % endpoint_a);
+		node.logger.try_log (boost::str (boost::format ("Keepalive req sent to %1%") % endpoint_a));
 	}
 	std::weak_ptr<nano::node> node_w (node.shared ());
 	send_buffer (bytes->data (), bytes->size (), endpoint_a, [bytes, node_w, endpoint_a](boost::system::error_code const & ec, size_t) {
@@ -178,7 +178,7 @@ void nano::network::send_keepalive (nano::endpoint const & endpoint_a)
 		{
 			if (ec && node_l->config.logging.network_keepalive_logging ())
 			{
-				BOOST_LOG (node_l->log) << boost::str (boost::format ("Error sending keepalive to %1%: %2%") % endpoint_a % ec.message ());
+				node_l->logger.try_log (boost::str (boost::format ("Error sending keepalive to %1%: %2%") % endpoint_a % ec.message ()));
 			}
 			else
 			{
@@ -198,15 +198,11 @@ void nano::node::keepalive (std::string const & address_a, uint16_t port_a, bool
 			{
 				auto endpoint (nano::map_endpoint_to_v6 (i->endpoint ()));
 				node_l->send_keepalive (endpoint);
-				if (preconfigured_peer_a)
-				{
-					node_l->peers.insert (endpoint, nano::protocol_version, true);
-				}
 			}
 		}
 		else
 		{
-			BOOST_LOG (node_l->log) << boost::str (boost::format ("Error resolving address: %1%:%2%: %3%") % address_a % port_a % ec.message ());
+			node_l->logger.try_log (boost::str (boost::format ("Error resolving address: %1%:%2%: %3%") % address_a % port_a % ec.message ()));
 		}
 	});
 }
@@ -224,7 +220,7 @@ void nano::network::send_node_id_handshake (nano::endpoint const & endpoint_a, b
 	auto bytes = message.to_bytes ();
 	if (node.config.logging.network_node_id_handshake_logging ())
 	{
-		BOOST_LOG (node.log) << boost::str (boost::format ("Node ID handshake sent with node ID %1% to %2%: query %3%, respond_to %4% (signature %5%)") % node.node_id.pub.to_account () % endpoint_a % (query ? query->to_string () : std::string ("[none]")) % (respond_to ? respond_to->to_string () : std::string ("[none]")) % (response ? response->second.to_string () : std::string ("[none]")));
+		node.logger.try_log (boost::str (boost::format ("Node ID handshake sent with node ID %1% to %2%: query %3%, respond_to %4% (signature %5%)") % node.node_id.pub.to_account () % endpoint_a % (query ? query->to_string () : std::string ("[none]")) % (respond_to ? respond_to->to_string () : std::string ("[none]")) % (response ? response->second.to_string () : std::string ("[none]"))));
 	}
 	node.stats.inc (nano::stat::type::message, nano::stat::detail::node_id_handshake, nano::stat::dir::out);
 	std::weak_ptr<nano::node> node_w (node.shared ());
@@ -233,7 +229,7 @@ void nano::network::send_node_id_handshake (nano::endpoint const & endpoint_a, b
 		{
 			if (ec && node_l->config.logging.network_node_id_handshake_logging ())
 			{
-				BOOST_LOG (node_l->log) << boost::str (boost::format ("Error sending node ID handshake to %1% %2%") % endpoint_a % ec.message ());
+				node_l->logger.try_log (boost::str (boost::format ("Error sending node ID handshake to %1% %2%") % endpoint_a % ec.message ()));
 			}
 		}
 	});
@@ -243,15 +239,15 @@ void nano::network::republish (nano::block_hash const & hash_a, std::shared_ptr<
 {
 	if (node.config.logging.network_publish_logging ())
 	{
-		BOOST_LOG (node.log) << boost::str (boost::format ("Publishing %1% to %2%") % hash_a.to_string () % endpoint_a);
+		node.logger.try_log (boost::str (boost::format ("Publishing %1% to %2%") % hash_a.to_string () % endpoint_a));
 	}
 	std::weak_ptr<nano::node> node_w (node.shared ());
-	send_buffer (buffer_a->data (), buffer_a->size (), endpoint_a, [node_w, endpoint_a](boost::system::error_code const & ec, size_t size) {
+	send_buffer (buffer_a->data (), buffer_a->size (), endpoint_a, [buffer_a, node_w, endpoint_a](boost::system::error_code const & ec, size_t size) {
 		if (auto node_l = node_w.lock ())
 		{
 			if (ec && node_l->config.logging.network_logging ())
 			{
-				BOOST_LOG (node_l->log) << boost::str (boost::format ("Error sending publish to %1%: %2%") % endpoint_a % ec.message ());
+				node_l->logger.try_log (boost::str (boost::format ("Error sending publish to %1%: %2%") % endpoint_a % ec.message ()));
 			}
 			else
 			{
@@ -367,7 +363,7 @@ void nano::network::republish_block (std::shared_ptr<nano::block> block)
 	}
 	if (node.config.logging.network_logging ())
 	{
-		BOOST_LOG (node.log) << boost::str (boost::format ("Block %1% was republished to peers") % hash.to_string ());
+		node.logger.try_log (boost::str (boost::format ("Block %1% was republished to peers") % hash.to_string ()));
 	}
 }
 
@@ -383,7 +379,7 @@ void nano::network::republish_block (std::shared_ptr<nano::block> block, nano::e
 	republish (hash, std::make_shared<std::vector<uint8_t>> (bytes), peer_a);
 	if (node.config.logging.network_logging ())
 	{
-		BOOST_LOG (node.log) << boost::str (boost::format ("Block %1% was republished to peer") % hash.to_string ());
+		node.logger.try_log (boost::str (boost::format ("Block %1% was republished to peers") % hash.to_string ()));
 	}
 }
 
@@ -453,7 +449,7 @@ void nano::network::broadcast_confirm_req_base (std::shared_ptr<nano::block> blo
 	const size_t max_reps = 10;
 	if (!resumption && node.config.logging.network_logging ())
 	{
-		BOOST_LOG (node.log) << boost::str (boost::format ("Broadcasting confirm req for block %1% to %2% representatives") % block_a->hash ().to_string () % endpoints_a->size ());
+		node.logger.try_log (boost::str (boost::format ("Broadcasting confirm req for block %1% to %2% representatives") % block_a->hash ().to_string () % endpoints_a->size ()));
 	}
 	auto count (0);
 	while (!endpoints_a->empty () && count < max_reps)
@@ -481,7 +477,7 @@ void nano::network::broadcast_confirm_req_batch (std::unordered_map<nano::endpoi
 	const size_t max_reps = 10;
 	if (!resumption && node.config.logging.network_logging ())
 	{
-		BOOST_LOG (node.log) << boost::str (boost::format ("Broadcasting batch confirm req to %1% representatives") % request_bundle_a.size ());
+		node.logger.try_log (boost::str (boost::format ("Broadcasting batch confirm req to %1% representatives") % request_bundle_a.size ()));
 	}
 	auto count (0);
 	while (!request_bundle_a.empty () && count < max_reps)
@@ -544,7 +540,7 @@ void nano::network::send_confirm_req (nano::endpoint const & endpoint_a, std::sh
 	auto bytes = message.to_bytes ();
 	if (node.config.logging.network_message_logging ())
 	{
-		BOOST_LOG (node.log) << boost::str (boost::format ("Sending confirm req to %1%") % endpoint_a);
+		node.logger.try_log (boost::str (boost::format ("Sending confirm req to %1%") % endpoint_a));
 	}
 	std::weak_ptr<nano::node> node_w (node.shared ());
 	node.stats.inc (nano::stat::type::message, nano::stat::detail::confirm_req, nano::stat::dir::out);
@@ -553,7 +549,7 @@ void nano::network::send_confirm_req (nano::endpoint const & endpoint_a, std::sh
 		{
 			if (ec && node_l->config.logging.network_logging ())
 			{
-				BOOST_LOG (node_l->log) << boost::str (boost::format ("Error sending confirm request: %1%") % ec.message ());
+				node_l->logger.try_log (boost::str (boost::format ("Error sending confirm request: %1%") % ec.message ()));
 			}
 		}
 	});
@@ -562,23 +558,19 @@ void nano::network::send_confirm_req (nano::endpoint const & endpoint_a, std::sh
 void nano::network::send_confirm_req_hashes (nano::endpoint const & endpoint_a, std::vector<std::pair<nano::block_hash, nano::block_hash>> const & roots_hashes_a)
 {
 	nano::confirm_req message (roots_hashes_a);
-	std::vector<uint8_t> bytes;
-	{
-		nano::vectorstream stream (bytes);
-		message.serialize (stream);
-	}
+	auto buffer_l (message.to_bytes ());
 	if (node.config.logging.network_message_logging ())
 	{
-		BOOST_LOG (node.log) << boost::str (boost::format ("Sending confirm req hashes to %1%") % endpoint_a);
+		node.logger.try_log (boost::str (boost::format ("Sending confirm req hashes to %1%") % endpoint_a));
 	}
 	std::weak_ptr<nano::node> node_w (node.shared ());
 	node.stats.inc (nano::stat::type::message, nano::stat::detail::confirm_req, nano::stat::dir::out);
-	send_buffer (bytes.data (), bytes.size (), endpoint_a, [node_w](boost::system::error_code const & ec, size_t size) {
+	send_buffer (buffer_l->data (), buffer_l->size (), endpoint_a, [buffer_l, node_w](boost::system::error_code const & ec, size_t size) {
 		if (auto node_l = node_w.lock ())
 		{
 			if (ec && node_l->config.logging.network_logging ())
 			{
-				BOOST_LOG (node_l->log) << boost::str (boost::format ("Error sending confirm request: %1%") % ec.message ());
+				node_l->logger.try_log (boost::str (boost::format ("Error sending confirm request: %1%") % ec.message ()));
 			}
 		}
 	});
@@ -627,7 +619,7 @@ public:
 	{
 		if (node.config.logging.network_keepalive_logging ())
 		{
-			BOOST_LOG (node.log) << boost::str (boost::format ("Received keepalive message from %1%") % sender);
+			node.logger.try_log (boost::str (boost::format ("Received keepalive message from %1%") % sender));
 		}
 		node.stats.inc (nano::stat::type::message, nano::stat::detail::keepalive, nano::stat::dir::in);
 		if (node.peers.contacted (sender, message_a.header.version_using))
@@ -645,7 +637,7 @@ public:
 	{
 		if (node.config.logging.network_message_logging ())
 		{
-			BOOST_LOG (node.log) << boost::str (boost::format ("Publish message from %1% for %2%") % sender % message_a.block->hash ().to_string ());
+			node.logger.try_log (boost::str (boost::format ("Publish message from %1% for %2%") % sender % message_a.block->hash ().to_string ()));
 		}
 		node.stats.inc (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::in);
 		node.peers.contacted (sender, message_a.header.version_using);
@@ -661,11 +653,11 @@ public:
 		{
 			if (!message_a.roots_hashes.empty ())
 			{
-				BOOST_LOG (node.log) << boost::str (boost::format ("Confirm_req message from %1% for hashes:roots %2%") % sender % message_a.roots_string ());
+				node.logger.try_log (boost::str (boost::format ("Confirm_req message from %1% for hashes:roots %2%") % sender % message_a.roots_string ()));
 			}
 			else
 			{
-				BOOST_LOG (node.log) << boost::str (boost::format ("Confirm_req message from %1% for %2%") % sender % message_a.block->hash ().to_string ());
+				node.logger.try_log (boost::str (boost::format ("Confirm_req message from %1% for %2%") % sender % message_a.block->hash ().to_string ()));
 			}
 		}
 		node.stats.inc (nano::stat::type::message, nano::stat::detail::confirm_req, nano::stat::dir::in);
@@ -733,7 +725,7 @@ public:
 	{
 		if (node.config.logging.network_message_logging ())
 		{
-			BOOST_LOG (node.log) << boost::str (boost::format ("Received confirm_ack message from %1% for %2%sequence %3%") % sender % message_a.vote->hashes_string () % std::to_string (message_a.vote->sequence));
+			node.logger.try_log (boost::str (boost::format ("Received confirm_ack message from %1% for %2%sequence %3%") % sender % message_a.vote->hashes_string () % std::to_string (message_a.vote->sequence)));
 		}
 		node.stats.inc (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::in);
 		node.peers.contacted (sender, message_a.header.version_using);
@@ -771,7 +763,7 @@ public:
 	{
 		if (node.config.logging.network_node_id_handshake_logging ())
 		{
-			BOOST_LOG (node.log) << boost::str (boost::format ("Received node_id_handshake message from %1% with query %2% and response account %3%") % sender % (message_a.query ? message_a.query->to_string () : std::string ("[none]")) % (message_a.response ? message_a.response->first.to_account () : std::string ("[none]")));
+			node.logger.try_log (boost::str (boost::format ("Received node_id_handshake message from %1% with query %2% and response account %3%") % sender % (message_a.query ? message_a.query->to_string () : std::string ("[none]")) % (message_a.response ? message_a.response->first.to_account () : std::string ("[none]"))));
 		}
 		auto endpoint_l (nano::map_endpoint_to_v6 (sender));
 		boost::optional<nano::uint256_union> out_query;
@@ -788,12 +780,12 @@ public:
 				validated_response = true;
 				if (message_a.response->first != node.node_id.pub)
 				{
-					node.peers.insert (endpoint_l, message_a.header.version_using, false, message_a.response->first);
+					node.peers.insert (endpoint_l, message_a.header.version_using, node.config.allow_local_peers, message_a.response->first);
 				}
 			}
 			else if (node.config.logging.network_node_id_handshake_logging ())
 			{
-				BOOST_LOG (node.log) << boost::str (boost::format ("Failed to validate syn cookie signature %1% by %2%") % message_a.response->second.to_string () % message_a.response->first.to_account ());
+				node.logger.try_log (boost::str (boost::format ("Failed to validate syn cookie signature %1% by %2%") % message_a.response->second.to_string () % message_a.response->first.to_account ()));
 			}
 		}
 		if (!validated_response && !node.peers.known_peer (endpoint_l))
@@ -822,7 +814,7 @@ void nano::network::receive_action (nano::udp_data * data_a, nano::endpoint cons
 	{
 		allowed_sender = false;
 	}
-	else if (nano::reserved_address (data_a->endpoint, false) && !node.config.allow_local_peers)
+	else if (nano::reserved_address (data_a->endpoint, node.config.allow_local_peers))
 	{
 		allowed_sender = false;
 	}
@@ -878,7 +870,7 @@ void nano::network::receive_action (nano::udp_data * data_a, nano::endpoint cons
 
 			if (node.config.logging.network_logging () && parser.status != nano::message_parser::parse_status::outdated_version)
 			{
-				BOOST_LOG (node.log) << "Could not parse message.  Error: " << parser.status_string ();
+				node.logger.try_log ("Could not parse message.  Error: ", parser.status_string ());
 			}
 		}
 		else
@@ -890,7 +882,7 @@ void nano::network::receive_action (nano::udp_data * data_a, nano::endpoint cons
 	{
 		if (node.config.logging.network_logging ())
 		{
-			BOOST_LOG (node.log) << boost::str (boost::format ("Reserved sender %1%") % data_a->endpoint.address ().to_string ());
+			node.logger.try_log (boost::str (boost::format ("Reserved sender %1%") % data_a->endpoint.address ().to_string ()));
 		}
 
 		node.stats.inc_detail_only (nano::stat::type::error, nano::stat::detail::bad_sender);
@@ -902,7 +894,7 @@ void nano::network::merge_peers (std::array<nano::endpoint, 8> const & peers_a)
 {
 	for (auto i (peers_a.begin ()), j (peers_a.end ()); i != j; ++i)
 	{
-		if (!node.peers.reachout (*i))
+		if (!node.peers.reachout (*i, node.config.allow_local_peers))
 		{
 			send_keepalive (*i);
 		}
@@ -1088,7 +1080,7 @@ void nano::vote_processor::process_loop ()
 					 * the results are probably not useful as well,
 					 * so don't spam the logs.
 					 */
-					BOOST_LOG (node.log) << boost::str (boost::format ("Processed %1% votes in %2% milliseconds (rate of %3% votes per second)") % votes_l.size () % elapsed_time_ms_int % ((votes_l.size () * 1000ULL) / elapsed_time_ms_int));
+					node.logger.try_log (boost::str (boost::format ("Processed %1% votes in %2% milliseconds (rate of %3% votes per second)") % votes_l.size () % elapsed_time_ms_int % ((votes_l.size () * 1000ULL) / elapsed_time_ms_int)));
 				}
 			}
 		}
@@ -1150,7 +1142,7 @@ void nano::vote_processor::vote (std::shared_ptr<nano::vote> vote_a, nano::endpo
 			node.stats.inc (nano::stat::type::vote, nano::stat::detail::vote_overflow);
 			if (node.config.logging.vote_logging ())
 			{
-				BOOST_LOG (node.log) << "Votes overflow";
+				node.logger.try_log ("Votes overflow");
 			}
 		}
 	}
@@ -1244,7 +1236,7 @@ nano::vote_code nano::vote_processor::vote_blocking (nano::transaction const & t
 	}
 	if (node.config.logging.vote_logging ())
 	{
-		BOOST_LOG (node.log) << boost::str (boost::format ("Vote from: %1% sequence: %2% block(s): %3%status: %4%") % vote_a->account.to_account () % std::to_string (vote_a->sequence) % vote_a->hashes_string () % status);
+		node.logger.try_log (boost::str (boost::format ("Vote from: %1% sequence: %2% block(s): %3%status: %4%") % vote_a->account.to_account () % std::to_string (vote_a->sequence) % vote_a->hashes_string () % status));
 	}
 	return result;
 }
@@ -1415,6 +1407,7 @@ config (config_a),
 flags (flags_a),
 alarm (alarm_a),
 work (work_a),
+logger (config_a.logging.min_time_between_log_output),
 store_impl (std::make_unique<nano::mdb_store> (init_a.block_store_init, config.logging, application_path_a / "data.ldb", config_a.lmdb_max_dbs, !flags.disable_unchecked_drop, flags.sideband_batch_size)),
 store (*store_impl),
 wallets_store_impl (std::make_unique<nano::mdb_wallets_store> (init_a.wallets_store_init, application_path_a / "wallets.ldb", config_a.lmdb_max_dbs)),
@@ -1468,6 +1461,23 @@ startup_time (std::chrono::steady_clock::now ())
 					if (is_state_send_a)
 					{
 						event.add ("is_send", is_state_send_a);
+						event.add ("subtype", "send");
+					}
+					// Subtype field
+					else if (block_a->type () == nano::block_type::state)
+					{
+						if (block_a->link ().is_zero ())
+						{
+							event.add ("subtype", "change");
+						}
+						else if (amount_a == 0 && !node_l->ledger.epoch_link.is_zero () && node_l->ledger.is_epoch_link (block_a->link ()))
+						{
+							event.add ("subtype", "epoch");
+						}
+						else
+						{
+							event.add ("subtype", "receive");
+						}
 					}
 					std::stringstream ostream;
 					boost::property_tree::write_json (ostream, event);
@@ -1486,7 +1496,7 @@ startup_time (std::chrono::steady_clock::now ())
 						{
 							if (node_l->config.logging.callback_logging ())
 							{
-								BOOST_LOG (node_l->log) << boost::str (boost::format ("Error resolving callback: %1%:%2%: %3%") % address % port % ec.message ());
+								node_l->logger.always_log (boost::str (boost::format ("Error resolving callback: %1%:%2%: %3%") % address % port % ec.message ()));
 							}
 							node_l->stats.inc (nano::stat::type::error, nano::stat::detail::http_callback, nano::stat::dir::out);
 						}
@@ -1525,7 +1535,7 @@ startup_time (std::chrono::steady_clock::now ())
 				// We see a valid non-replay vote for a block we requested, this node is probably a representative
 				if (this->peers.rep_response (endpoint_a, vote_a->account, rep_weight))
 				{
-					BOOST_LOG (log) << boost::str (boost::format ("Found a representative at %1%") % endpoint_a);
+					logger.try_log (boost::str (boost::format ("Found a representative at %1%") % endpoint_a));
 					// Rebroadcasting all active votes to new representative
 					auto blocks (this->active.list_blocks (true));
 					for (auto i (blocks.begin ()), n (blocks.end ()); i != n; ++i)
@@ -1541,19 +1551,19 @@ startup_time (std::chrono::steady_clock::now ())
 	});
 	if (NANO_VERSION_PATCH == 0)
 	{
-		BOOST_LOG (log) << "Node starting, version: " << NANO_MAJOR_MINOR_VERSION;
+		logger.always_log ("Node starting, version: ", NANO_MAJOR_MINOR_VERSION);
 	}
 	else
 	{
-		BOOST_LOG (log) << "Node starting, version: " << NANO_MAJOR_MINOR_RC_VERSION;
+		logger.always_log ("Node starting, version: ", NANO_MAJOR_MINOR_RC_VERSION);
 	}
 
-	BOOST_LOG (log) << boost::str (boost::format ("Work pool running %1% threads") % work.threads.size ());
+	logger.always_log (boost::str (boost::format ("Work pool running %1% threads") % work.threads.size ()));
 	if (!init_a.error ())
 	{
 		if (config.logging.node_lifetime_tracing ())
 		{
-			BOOST_LOG (log) << "Constructing node";
+			logger.always_log ("Constructing node");
 		}
 		nano::genesis genesis;
 		auto transaction (store.tx_begin_write ());
@@ -1564,12 +1574,12 @@ startup_time (std::chrono::steady_clock::now ())
 		}
 		if (!store.block_exists (transaction, genesis.hash ()))
 		{
-			BOOST_LOG (log) << "Genesis block not found. Make sure the node network ID is correct.";
+			logger.always_log ("Genesis block not found. Make sure the node network ID is correct.");
 			std::exit (1);
 		}
 
 		node_id = nano::keypair (store.get_node_id (transaction));
-		BOOST_LOG (log) << "Node ID: " << node_id.pub.to_account ();
+		logger.always_log ("Node ID: ", node_id.pub.to_account ());
 	}
 	peers.online_weight_minimum = config.online_weight_minimum.number ();
 	if (nano::is_live_network || nano::is_beta_network)
@@ -1595,7 +1605,7 @@ startup_time (std::chrono::steady_clock::now ())
 					{
 						break;
 					}
-					BOOST_LOG (log) << "Using bootstrap rep weight: " << account.to_account () << " -> " << weight.format_balance (Mxrb_ratio, 0, true) << " XRB";
+					logger.always_log ("Using bootstrap rep weight: ", account.to_account (), " -> ", weight.format_balance (Mxrb_ratio, 0, true), " XRB");
 					ledger.bootstrap_weights[account] = weight.number ();
 				}
 			}
@@ -1607,7 +1617,7 @@ nano::node::~node ()
 {
 	if (config.logging.node_lifetime_tracing ())
 	{
-		BOOST_LOG (log) << "Destructing node";
+		logger.always_log ("Destructing node");
 	}
 	stop ();
 }
@@ -1645,7 +1655,7 @@ void nano::node::do_rpc_callback (boost::asio::ip::tcp::resolver::iterator i_a, 
 								{
 									if (node_l->config.logging.callback_logging ())
 									{
-										BOOST_LOG (node_l->log) << boost::str (boost::format ("Callback to %1%:%2% failed with status: %3%") % address % port % resp->result ());
+										node_l->logger.try_log (boost::str (boost::format ("Callback to %1%:%2% failed with status: %3%") % address % port % resp->result ()));
 									}
 									node_l->stats.inc (nano::stat::type::error, nano::stat::detail::http_callback, nano::stat::dir::out);
 								}
@@ -1654,7 +1664,7 @@ void nano::node::do_rpc_callback (boost::asio::ip::tcp::resolver::iterator i_a, 
 							{
 								if (node_l->config.logging.callback_logging ())
 								{
-									BOOST_LOG (node_l->log) << boost::str (boost::format ("Unable complete callback: %1%:%2%: %3%") % address % port % ec.message ());
+									node_l->logger.try_log (boost::str (boost::format ("Unable complete callback: %1%:%2%: %3%") % address % port % ec.message ()));
 								}
 								node_l->stats.inc (nano::stat::type::error, nano::stat::detail::http_callback, nano::stat::dir::out);
 							};
@@ -1664,7 +1674,7 @@ void nano::node::do_rpc_callback (boost::asio::ip::tcp::resolver::iterator i_a, 
 					{
 						if (node_l->config.logging.callback_logging ())
 						{
-							BOOST_LOG (node_l->log) << boost::str (boost::format ("Unable to send callback: %1%:%2%: %3%") % address % port % ec.message ());
+							node_l->logger.try_log (boost::str (boost::format ("Unable to send callback: %1%:%2%: %3%") % address % port % ec.message ()));
 						}
 						node_l->stats.inc (nano::stat::type::error, nano::stat::detail::http_callback, nano::stat::dir::out);
 					}
@@ -1674,7 +1684,7 @@ void nano::node::do_rpc_callback (boost::asio::ip::tcp::resolver::iterator i_a, 
 			{
 				if (node_l->config.logging.callback_logging ())
 				{
-					BOOST_LOG (node_l->log) << boost::str (boost::format ("Unable to connect to callback address: %1%:%2%: %3%") % address % port % ec.message ());
+					node_l->logger.try_log (boost::str (boost::format ("Unable to connect to callback address: %1%:%2%: %3%") % address % port % ec.message ()));
 				}
 				node_l->stats.inc (nano::stat::type::error, nano::stat::detail::http_callback, nano::stat::dir::out);
 				++i_a;
@@ -1723,7 +1733,7 @@ void nano::node::process_fork (nano::transaction const & transaction_a, std::sha
 				    }
 			    }))
 			{
-				BOOST_LOG (log) << boost::str (boost::format ("Resolving fork between our block: %1% and block %2% both with root %3%") % ledger_block->hash ().to_string () % block_a->hash ().to_string () % block_a->root ().to_string ());
+				logger.always_log (boost::str (boost::format ("Resolving fork between our block: %1% and block %2% both with root %3%") % ledger_block->hash ().to_string () % block_a->hash ().to_string () % block_a->root ().to_string ()));
 				network.broadcast_confirm_req (ledger_block);
 			}
 		}
@@ -1822,7 +1832,7 @@ void nano::gap_cache::vote (std::shared_ptr<nano::vote> vote_a)
 						{
 							if (!node_l->bootstrap_initiator.in_progress ())
 							{
-								BOOST_LOG (node_l->log) << boost::str (boost::format ("Missing block %1% which has enough votes to warrant lazy bootstrapping it") % hash.to_string ());
+								node_l->logger.try_log (boost::str (boost::format ("Missing block %1% which has enough votes to warrant lazy bootstrapping it") % hash.to_string ()));
 							}
 							if (!node_l->flags.disable_lazy_bootstrap)
 							{
@@ -1868,7 +1878,7 @@ void nano::network::confirm_send (nano::confirm_ack const & confirm_a, std::shar
 {
 	if (node.config.logging.network_publish_logging ())
 	{
-		BOOST_LOG (node.log) << boost::str (boost::format ("Sending confirm_ack for block(s) %1%to %2% sequence %3%") % confirm_a.vote->hashes_string () % endpoint_a % std::to_string (confirm_a.vote->sequence));
+		node.logger.try_log (boost::str (boost::format ("Sending confirm_ack for block(s) %1%to %2% sequence %3%") % confirm_a.vote->hashes_string () % endpoint_a % std::to_string (confirm_a.vote->sequence)));
 	}
 	std::weak_ptr<nano::node> node_w (node.shared ());
 	node.network.send_buffer (bytes_a->data (), bytes_a->size (), endpoint_a, [bytes_a, node_w, endpoint_a](boost::system::error_code const & ec, size_t size_a) {
@@ -1876,7 +1886,7 @@ void nano::network::confirm_send (nano::confirm_ack const & confirm_a, std::shar
 		{
 			if (ec && node_l->config.logging.network_logging ())
 			{
-				BOOST_LOG (node_l->log) << boost::str (boost::format ("Error broadcasting confirm_ack to %1%: %2%") % endpoint_a % ec.message ());
+				node_l->logger.try_log (boost::str (boost::format ("Error broadcasting confirm_ack to %1%: %2%") % endpoint_a % ec.message ()));
 			}
 			else
 			{
@@ -1940,7 +1950,7 @@ void nano::node::start ()
 
 void nano::node::stop ()
 {
-	BOOST_LOG (log) << "Node stopping";
+	logger.always_log ("Node stopping");
 	block_processor.stop ();
 	if (block_processor_thread.joinable ())
 	{
@@ -2306,7 +2316,7 @@ public:
 					}
 					else
 					{
-						BOOST_LOG (this_l->node->log) << boost::str (boost::format ("Error resolving work peer: %1%:%2%: %3%") % current.first % current.second % ec.message ());
+						this_l->node->logger.try_log (boost::str (boost::format ("Error resolving work peer: %1%:%2%: %3%") % current.first % current.second % ec.message ()));
 					}
 					this_l->start ();
 				});
@@ -2355,27 +2365,27 @@ public:
 											}
 											else
 											{
-												BOOST_LOG (this_l->node->log) << boost::str (boost::format ("Work peer responded with an error %1% %2%: %3%") % connection->address % connection->port % connection->response.result ());
+												this_l->node->logger.try_log (boost::str (boost::format ("Work peer responded with an error %1% %2%: %3%") % connection->address % connection->port % connection->response.result ()));
 												this_l->failure (connection->address);
 											}
 										}
 										else
 										{
-											BOOST_LOG (this_l->node->log) << boost::str (boost::format ("Unable to read from work_peer %1% %2%: %3% (%4%)") % connection->address % connection->port % ec.message () % ec.value ());
+											this_l->node->logger.try_log (boost::str (boost::format ("Unable to read from work_peer %1% %2%: %3% (%4%)") % connection->address % connection->port % ec.message () % ec.value ()));
 											this_l->failure (connection->address);
 										}
 									});
 								}
 								else
 								{
-									BOOST_LOG (this_l->node->log) << boost::str (boost::format ("Unable to write to work_peer %1% %2%: %3% (%4%)") % connection->address % connection->port % ec.message () % ec.value ());
+									this_l->node->logger.try_log (boost::str (boost::format ("Unable to write to work_peer %1% %2%: %3% (%4%)") % connection->address % connection->port % ec.message () % ec.value ()));
 									this_l->failure (connection->address);
 								}
 							});
 						}
 						else
 						{
-							BOOST_LOG (this_l->node->log) << boost::str (boost::format ("Unable to connect to work_peer %1% %2%: %3% (%4%)") % connection->address % connection->port % ec.message () % ec.value ());
+							this_l->node->logger.try_log (boost::str (boost::format ("Unable to connect to work_peer %1% %2%: %3% (%4%)") % connection->address % connection->port % ec.message () % ec.value ()));
 							this_l->failure (connection->address);
 						}
 					});
@@ -2436,19 +2446,19 @@ public:
 				}
 				else
 				{
-					BOOST_LOG (node->log) << boost::str (boost::format ("Incorrect work response from %1% for root %2%: %3%") % address % root.to_string () % work_text);
+					node->logger.try_log (boost::str (boost::format ("Incorrect work response from %1% for root %2%: %3%") % address % root.to_string () % work_text));
 					handle_failure (last);
 				}
 			}
 			else
 			{
-				BOOST_LOG (node->log) << boost::str (boost::format ("Work response from %1% wasn't a number: %2%") % address % work_text);
+				node->logger.try_log (boost::str (boost::format ("Work response from %1% wasn't a number: %2%") % address % work_text));
 				handle_failure (last);
 			}
 		}
 		catch (...)
 		{
-			BOOST_LOG (node->log) << boost::str (boost::format ("Work response from %1% wasn't parsable: %2%") % address % body_a);
+			node->logger.try_log (boost::str (boost::format ("Work response from %1% wasn't parsable: %2%") % address % body_a));
 			handle_failure (last);
 		}
 	}
@@ -2484,7 +2494,7 @@ public:
 				{
 					if (backoff == 1 && node->config.logging.work_generation_time ())
 					{
-						BOOST_LOG (node->log) << "Work peer(s) failed to generate work for root " << root.to_string () << ", retrying...";
+						node->logger.try_log ("Work peer(s) failed to generate work for root ", root.to_string (), ", retrying...");
 					}
 					auto now (std::chrono::steady_clock::now ());
 					auto root_l (root);
@@ -2552,7 +2562,7 @@ void nano::node::add_initial_peers ()
 	for (auto i (store.peers_begin (transaction)), n (store.peers_end ()); i != n; ++i)
 	{
 		nano::endpoint endpoint (boost::asio::ip::address_v6 (i->first.address_bytes ()), i->first.port ());
-		if (!peers.reachout (endpoint))
+		if (!peers.reachout (endpoint, config.allow_local_peers))
 		{
 			send_keepalive (endpoint);
 		}
@@ -2628,12 +2638,12 @@ public:
 				{
 					if (!node.store.block_exists (transaction, hash))
 					{
-						BOOST_LOG (node.log) << boost::str (boost::format ("Confirmed block is missing:  %1%") % hash.to_string ());
+						node.logger.try_log (boost::str (boost::format ("Confirmed block is missing:  %1%") % hash.to_string ()));
 						assert (false && "Confirmed block is missing");
 					}
 					else
 					{
-						BOOST_LOG (node.log) << boost::str (boost::format ("Block %1% has already been received") % hash.to_string ());
+						node.logger.try_log (boost::str (boost::format ("Block %1% has already been received") % hash.to_string ()));
 					}
 				}
 			}
@@ -2723,7 +2733,7 @@ nano::endpoint nano::network::endpoint ()
 	auto port (socket.local_endpoint (ec).port ());
 	if (ec)
 	{
-		BOOST_LOG (node.log) << "Unable to retrieve port: " << ec.message ();
+		node.logger.try_log ("Unable to retrieve port: ", ec.message ());
 	}
 	return nano::endpoint (boost::asio::ip::address_v6::loopback (), port);
 }
@@ -2776,7 +2786,7 @@ minimum (minimum_a)
 void nano::online_reps::observe (nano::account const & rep_a)
 {
 	auto transaction (ledger.store.tx_begin_read ());
-	if (ledger.weight (transaction, rep_a) > nano::Gxrb_ratio)
+	if (ledger.weight (transaction, rep_a) > 0)
 	{
 		std::lock_guard<std::mutex> lock (mutex);
 		reps.insert (rep_a);
@@ -2868,7 +2878,7 @@ boost::asio::ip::address_v6 mapped_from_v4_bytes (unsigned long address_a)
 }
 }
 
-bool nano::reserved_address (nano::endpoint const & endpoint_a, bool blacklist_loopback)
+bool nano::reserved_address (nano::endpoint const & endpoint_a, bool allow_local_peers)
 {
 	assert (endpoint_a.address ().is_v6 ());
 	auto bytes (endpoint_a.address ().to_v6 ());
@@ -2939,15 +2949,7 @@ bool nano::reserved_address (nano::endpoint const & endpoint_a, bool blacklist_l
 	{
 		result = true;
 	}
-	else if (blacklist_loopback && bytes.is_loopback ())
-	{
-		result = true;
-	}
-	else if (blacklist_loopback && bytes >= ipv4_loopback_min && bytes <= ipv4_loopback_max)
-	{
-		result = true;
-	}
-	else if (nano::is_live_network)
+	else if (!allow_local_peers)
 	{
 		if (bytes >= rfc1918_1_min && bytes <= rfc1918_1_max)
 		{
@@ -2978,7 +2980,7 @@ void nano::network::send_buffer (uint8_t const * data_a, size_t size_a, nano::en
 	std::unique_lock<std::mutex> lock (socket_mutex);
 	if (node.config.logging.network_packet_logging ())
 	{
-		BOOST_LOG (node.log) << "Sending packet";
+		node.logger.try_log ("Sending packet");
 	}
 	if (on.load ())
 	{
@@ -2991,7 +2993,7 @@ void nano::network::send_buffer (uint8_t const * data_a, size_t size_a, nano::en
 			}
 			if (this->node.config.logging.network_packet_logging ())
 			{
-				BOOST_LOG (this->node.log) << "Packet send complete";
+				this->node.logger.try_log ("Packet send complete");
 			}
 		});
 	}
@@ -3160,7 +3162,7 @@ void nano::election::log_votes (nano::tally_t const & tally_a)
 	{
 		tally << boost::str (boost::format ("\n%1% %2%") % i->first.to_account () % i->second.hash.to_string ());
 	}
-	BOOST_LOG (node.log) << tally.str ();
+	node.logger.try_log (tally.str ());
 }
 
 nano::election_vote_result nano::election::vote (nano::account rep, uint64_t sequence, nano::block_hash block_hash)
@@ -3420,7 +3422,7 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 						++j;
 						if (node.config.logging.vote_logging ())
 						{
-							BOOST_LOG (node.log) << "Representative did not respond to confirm_req, retrying: " << rep_acct.to_account ();
+							node.logger.try_log ("Representative did not respond to confirm_req, retrying: ", rep_acct.to_account ());
 						}
 					}
 				}
@@ -3516,7 +3518,7 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 	}
 	if (unconfirmed_count > 0)
 	{
-		BOOST_LOG (node.log) << boost::str (boost::format ("%1% blocks have been unconfirmed averaging %2% announcements") % unconfirmed_count % (unconfirmed_announcements / unconfirmed_count));
+		node.logger.try_log (boost::str (boost::format ("%1% blocks have been unconfirmed averaging %2% announcements") % unconfirmed_count % (unconfirmed_announcements / unconfirmed_count)));
 	}
 }
 
@@ -3675,7 +3677,7 @@ void nano::active_transactions::erase (nano::block const & block_a)
 	if (roots.find (nano::uint512_union (block_a.previous (), block_a.root ())) != roots.end ())
 	{
 		roots.erase (nano::uint512_union (block_a.previous (), block_a.root ()));
-		BOOST_LOG (node.log) << boost::str (boost::format ("Election erased for block block %1% root %2%") % block_a.hash ().to_string () % block_a.root ().to_string ());
+		node.logger.try_log (boost::str (boost::format ("Election erased for block block %1% root %2%") % block_a.hash ().to_string () % block_a.root ().to_string ()));
 	}
 }
 
