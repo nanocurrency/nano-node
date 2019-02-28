@@ -1940,16 +1940,21 @@ void nano::mdb_store::account_put (nano::transaction const & transaction_a, nano
 	release_assert (status == 0);
 }
 
+void nano::mdb_store::confirmation_height_clear (nano::transaction const & transaction_a, nano::account const & account, nano::account_info const & account_info)
+{
+	nano::account_info info_copy (account_info);
+	if (info_copy.confirmation_height > 0)
+	{
+		info_copy.confirmation_height = 0;
+		account_put (transaction_a, account, info_copy);
+	}
+}
+
 void nano::mdb_store::confirmation_height_clear (nano::transaction const & transaction_a)
 {
 	for (auto i (latest_begin (transaction_a)), n (latest_end ()); i != n; ++i)
 	{
-		nano::account_info info (i->second);
-		if (info.confirmation_height > 0)
-		{
-			info.confirmation_height = 0;
-			account_put (transaction_a, i->first, info);
-		}
+		confirmation_height_clear (transaction_a, i->first, i->second);
 	}
 }
 

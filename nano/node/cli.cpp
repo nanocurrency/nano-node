@@ -36,6 +36,7 @@ void nano::add_node_options (boost::program_options::options_description & descr
 	("online_weight_clear", "Clear online weight history records")
 	("peer_clear", "Clear online peers database dump")
 	("unchecked_clear", "Clear unchecked blocks")
+	("confirmation_height_clear", "Clear confirmation height")
 	("diagnostics", "Run internal diagnostics")
 	("key_create", "Generates a adhoc random keypair and prints it to stdout")
 	("key_expand", "Derive public key and account number from <key>")
@@ -316,9 +317,40 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	{
 		boost::filesystem::path data_path = vm.count ("data_path") ? boost::filesystem::path (vm["data_path"].as<std::string> ()) : nano::working_path ();
 		inactive_node node (data_path);
-		auto transaction (node.node->store.tx_begin_write ());
-		node.node->store.confirmation_height_clear (transaction);
-		std::cerr << "Confirmation heights of all accounts are set to 0" << std::endl;
+		auto account_it = vm.find ("account");
+		if (account_it != vm.cend ())
+		{
+			auto account_str = account_it->second.as<std::string> ();
+			nano::account account;
+			if (!account.decode_account (account_str))
+			{
+				nano::account_info account_info;
+				auto transaction (node.node->store.tx_begin_read ());
+				if (!node.node->store.account_get (transaction, account, account_info))
+				{
+					auto transaction (node.node->store.tx_begin_write ());
+					node.node->store.confirmation_height_clear (transaction, account, account_info);
+					std::cerr << "Confirmation height of account " << account_str << " is set to 0" << std::endl;
+				}
+				else
+				{
+					std::cerr << "Could not find account" << std::endl;
+					ec = nano::error_cli::generic;	
+				}
+			}
+			else
+			{
+				std::cerr << "Invalid account id\n";
+				ec = nano::error_cli::invalid_arguments;	
+			}
+
+		}
+		else
+		{
+			auto transaction (node.node->store.tx_begin_write ());
+			node.node->store.confirmation_height_clear (transaction);
+			std::cerr << "Confirmation heights of all accounts are set to 0" << std::endl;
+		}
 	}
 	else if (vm.count ("diagnostics"))
 	{

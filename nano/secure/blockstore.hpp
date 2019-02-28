@@ -230,6 +230,7 @@ public:
 	virtual void account_del (nano::transaction const &, nano::account const &) = 0;
 	virtual bool account_exists (nano::transaction const &, nano::account const &) = 0;
 	virtual size_t account_count (nano::transaction const &) = 0;
+	virtual void confirmation_height_clear (nano::transaction const &, nano::account const& account, nano::account_info const& account_info) = 0;
 	virtual void confirmation_height_clear (nano::transaction const &) = 0;
 	virtual nano::store_iterator<nano::account, nano::account_info> latest_v0_begin (nano::transaction const &, nano::account const &) = 0;
 	virtual nano::store_iterator<nano::account, nano::account_info> latest_v0_begin (nano::transaction const &) = 0;
