@@ -938,7 +938,7 @@ void nano::vote_processor::process_loop ()
 	{
 		if (!votes.empty ())
 		{
-			std::deque<std::pair<std::shared_ptr<nano::vote>, std::shared_ptr<nano::message_sink_udp>>> votes_l;
+			std::deque<std::pair<std::shared_ptr<nano::vote>, std::shared_ptr<nano::message_sink>>> votes_l;
 			votes_l.swap (votes);
 
 			log_this_iteration = false;
@@ -1002,7 +1002,7 @@ void nano::vote_processor::process_loop ()
 	}
 }
 
-void nano::vote_processor::vote (std::shared_ptr<nano::vote> vote_a, std::shared_ptr<nano::message_sink_udp> sink_a)
+void nano::vote_processor::vote (std::shared_ptr<nano::vote> vote_a, std::shared_ptr<nano::message_sink> sink_a)
 {
 	std::unique_lock<std::mutex> lock (mutex);
 	if (!stopped)
@@ -1058,7 +1058,7 @@ void nano::vote_processor::vote (std::shared_ptr<nano::vote> vote_a, std::shared
 	}
 }
 
-void nano::vote_processor::verify_votes (std::deque<std::pair<std::shared_ptr<nano::vote>, std::shared_ptr<nano::message_sink_udp>>> & votes_a)
+void nano::vote_processor::verify_votes (std::deque<std::pair<std::shared_ptr<nano::vote>, std::shared_ptr<nano::message_sink>>> & votes_a)
 {
 	auto size (votes_a.size ());
 	std::vector<unsigned char const *> messages;
@@ -1096,7 +1096,7 @@ void nano::vote_processor::verify_votes (std::deque<std::pair<std::shared_ptr<na
 }
 
 // node.active.mutex lock required
-nano::vote_code nano::vote_processor::vote_blocking (nano::transaction const & transaction_a, std::shared_ptr<nano::vote> vote_a, std::shared_ptr<nano::message_sink_udp> sink_a, bool validated)
+nano::vote_code nano::vote_processor::vote_blocking (nano::transaction const & transaction_a, std::shared_ptr<nano::vote> vote_a, std::shared_ptr<nano::message_sink> sink_a, bool validated)
 {
 	assert (!node.active.mutex.try_lock ());
 	auto result (nano::vote_code::invalid);
@@ -1400,7 +1400,7 @@ startup_time (std::chrono::steady_clock::now ())
 		this->network.send_keepalive (*sink_a);
 		rep_query (*this, sink_a);
 	});
-	observers.vote.add ([this](nano::transaction const & transaction, std::shared_ptr<nano::vote> vote_a, nano::message_sink_udp const & sink_a) {
+	observers.vote.add ([this](nano::transaction const & transaction, std::shared_ptr<nano::vote> vote_a, nano::message_sink const & sink_a) {
 		this->gap_cache.vote (vote_a);
 		this->online_reps.observe (vote_a->account);
 		nano::uint128_t rep_weight;
