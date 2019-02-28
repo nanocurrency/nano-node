@@ -61,11 +61,12 @@ bool nano::peer_container::contacted (nano::endpoint const & endpoint_a, unsigne
 {
 	auto endpoint_l (nano::map_endpoint_to_v6 (endpoint_a));
 	auto should_handshake (false);
+	nano::message_sink_udp sink (node, endpoint_l);
 	if (version_a < nano::node_id_version)
 	{
 		insert (endpoint_l, version_a);
 	}
-	else if (!known_peer (endpoint_l))
+	else if (!known_peer (sink))
 	{
 		std::lock_guard<std::mutex> lock (mutex);
 
@@ -89,11 +90,10 @@ bool nano::peer_container::contacted (nano::endpoint const & endpoint_a, unsigne
 	return should_handshake;
 }
 
-bool nano::peer_container::known_peer (nano::endpoint const & endpoint_a)
+bool nano::peer_container::known_peer (nano::message_sink const & sink_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
-	nano::message_sink_udp sink (node, endpoint_a);
-	auto existing (peers.find (std::reference_wrapper<nano::message_sink const> (sink)));
+	auto existing (peers.find (std::reference_wrapper<nano::message_sink const> (sink_a)));
 	return existing != peers.end ();
 }
 
@@ -435,7 +435,8 @@ bool nano::peer_container::reachout (nano::endpoint const & endpoint_a)
 	{
 		auto endpoint_l (nano::map_endpoint_to_v6 (endpoint_a));
 		// Don't keepalive to nodes that already sent us something
-		error |= known_peer (endpoint_l);
+		nano::message_sink_udp sink (node, endpoint_l);
+		error |= known_peer (sink);
 		std::lock_guard<std::mutex> lock (mutex);
 		auto existing (attempts.find (endpoint_l));
 		error |= existing != attempts.end ();

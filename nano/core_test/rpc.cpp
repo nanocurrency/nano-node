@@ -1402,7 +1402,8 @@ TEST (rpc, keepalive)
 	auto port (boost::str (boost::format ("%1%") % node1->network.endpoint ().port ()));
 	request.put ("address", address);
 	request.put ("port", port);
-	ASSERT_FALSE (system.nodes[0]->peers.known_peer (node1->network.endpoint ()));
+	nano::message_sink_udp sink (*system.nodes[0], node1->network.endpoint ());
+	ASSERT_FALSE (system.nodes[0]->peers.known_peer (sink));
 	ASSERT_EQ (0, system.nodes[0]->peers.size ());
 	test_response response (request, rpc, system.io_ctx);
 	system.deadline_set (5s);
@@ -1412,7 +1413,7 @@ TEST (rpc, keepalive)
 	}
 	ASSERT_EQ (200, response.status);
 	system.deadline_set (10s);
-	while (!system.nodes[0]->peers.known_peer (node1->network.endpoint ()))
+	while (!system.nodes[0]->peers.known_peer (sink))
 	{
 		ASSERT_EQ (0, system.nodes[0]->peers.size ());
 		ASSERT_NO_ERROR (system.poll ());
