@@ -1293,30 +1293,6 @@ TEST (block_store, insert_after_legacy)
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, block).code);
 }
 
-TEST (block_store, upgrade_sideband_rollback_old)
-{
-	nano::logging logging;
-	bool error (false);
-	nano::genesis genesis;
-	nano::mdb_store store (error, logging, nano::unique_path ());
-	ASSERT_FALSE (error);
-	nano::stat stat;
-	nano::ledger ledger (store, stat);
-	auto transaction (store.tx_begin (true));
-	store.version_put (transaction, 11);
-	store.initialize (transaction, genesis);
-	nano::send_block block1 (genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
-	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, block1).code);
-	nano::send_block block2 (block1.hash (), nano::test_genesis_key.pub, nano::genesis_amount - 2 * nano::Gxrb_ratio, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
-	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, block2).code);
-	write_legacy_sideband (store, transaction, *genesis.open, block1.hash (), store.open_blocks);
-	write_legacy_sideband (store, transaction, block1, block2.hash (), store.send_blocks);
-	write_legacy_sideband (store, transaction, block2, 0, store.send_blocks);
-	ASSERT_TRUE (store.block_exists (transaction, block2.hash ()));
-	ASSERT_FALSE (ledger.rollback (transaction, block2.hash ()));
-	ASSERT_FALSE (store.block_exists (transaction, block2.hash ()));
-}
-
 // Account for an open block should be retrievable
 TEST (block_store, legacy_account_computed)
 {
@@ -1609,7 +1585,7 @@ TEST (block_store, confirmation_height)
 	ASSERT_FALSE (store.account_get (transaction, account3, stored_account_info));
 	ASSERT_EQ (stored_account_info.confirmation_height, 10);
 
-	// Check clearning of confirmation heights
+	// Check cleaning of confirmation heights
 	store.confirmation_height_clear (transaction);
 	ASSERT_EQ (store.account_count (transaction), 3);
 

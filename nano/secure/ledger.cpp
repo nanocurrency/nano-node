@@ -842,7 +842,7 @@ bool nano::ledger::rollback (nano::transaction const & transaction_a, nano::bloc
 	{
 		auto latest_error (store.account_get (transaction_a, account_l, account_info));
 		assert (!latest_error);
-		if ((block_account_height > account_info.confirmation_height) || (account_info.confirmation_height == 0))
+		if (block_account_height > account_info.confirmation_height)
 		{
 			auto block (store.block_get (transaction_a, account_info.head));
 			list_a.push_back (account_info.head);

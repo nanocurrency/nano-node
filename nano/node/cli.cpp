@@ -279,7 +279,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		inactive_node node (data_path);
 		auto transaction (node.node->store.tx_begin_write ());
 		node.node->store.unchecked_clear (transaction);
-		std::cerr << "Unchecked blocks deleted" << std::endl;
+		std::cout << "Unchecked blocks deleted" << std::endl;
 	}
 	else if (vm.count ("delete_node_id"))
 	{
@@ -287,7 +287,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		inactive_node node (data_path);
 		auto transaction (node.node->store.tx_begin_write ());
 		node.node->store.delete_node_id (transaction);
-		std::cerr << "Deleted Node ID" << std::endl;
+		std::cout << "Deleted Node ID" << std::endl;
 	}
 	else if (vm.count ("clear_send_ids"))
 	{
@@ -295,7 +295,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		inactive_node node (data_path);
 		auto transaction (node.node->wallets.tx_begin_write ());
 		node.node->wallets.clear_send_ids (transaction);
-		std::cerr << "Send IDs deleted" << std::endl;
+		std::cout << "Send IDs deleted" << std::endl;
 	}
 	else if (vm.count ("online_weight_clear"))
 	{
@@ -303,7 +303,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		inactive_node node (data_path);
 		auto transaction (node.node->store.tx_begin_write ());
 		node.node->store.online_weight_clear (transaction);
-		std::cerr << "Onine weight records are removed" << std::endl;
+		std::cout << "Onine weight records are removed" << std::endl;
 	}
 	else if (vm.count ("peer_clear"))
 	{
@@ -311,7 +311,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		inactive_node node (data_path);
 		auto transaction (node.node->store.tx_begin_write ());
 		node.node->store.peer_clear (transaction);
-		std::cerr << "Database peers are removed" << std::endl;
+		std::cout << "Database peers are removed" << std::endl;
 	}
 	else if (vm.count ("confirmation_height_clear"))
 	{
@@ -330,26 +330,25 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 				{
 					auto transaction (node.node->store.tx_begin_write ());
 					node.node->store.confirmation_height_clear (transaction, account, account_info);
-					std::cerr << "Confirmation height of account " << account_str << " is set to 0" << std::endl;
+					std::cout << "Confirmation height of account " << account_str << " is set to 0" << std::endl;
 				}
 				else
 				{
 					std::cerr << "Could not find account" << std::endl;
-					ec = nano::error_cli::generic;	
+					ec = nano::error_cli::generic;
 				}
 			}
 			else
 			{
 				std::cerr << "Invalid account id\n";
-				ec = nano::error_cli::invalid_arguments;	
+				ec = nano::error_cli::invalid_arguments;
 			}
-
 		}
 		else
 		{
 			auto transaction (node.node->store.tx_begin_write ());
 			node.node->store.confirmation_height_clear (transaction);
-			std::cerr << "Confirmation heights of all accounts are set to 0" << std::endl;
+			std::cout << "Confirmation heights of all accounts are set to 0" << std::endl;
 		}
 	}
 	else if (vm.count ("diagnostics"))
@@ -388,7 +387,8 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		}
 		else
 		{
-			std::cout << "Error initializing OpenCL" << std::endl;
+			std::cerr << "Error initializing OpenCL" << std::endl;
+			ec = nano::error_cli::generic;
 		}
 	}
 	else if (vm.count ("key_create"))

@@ -1580,8 +1580,16 @@ TEST (confirmation_height, multiple)
 		{
 			// These rollbacks should fail
 			auto transaction = node->store.tx_begin_write ();
-			ASSERT_TRUE (node->ledger.rollback (transaction, node->latest (key2.pub)));
 			ASSERT_TRUE (node->ledger.rollback (transaction, node->latest (key1.pub)));
+			ASSERT_TRUE (node->ledger.rollback (transaction, node->latest (key2.pub)));
+
+			// Confirm the other latest can't be rolled back either
+			ASSERT_TRUE (node->ledger.rollback (transaction, node->latest (key3.pub)));
+			ASSERT_TRUE (node->ledger.rollback (transaction, node->latest (nano::test_genesis_key.pub)));
+
+			// Attempt some others which have been cemented
+			ASSERT_TRUE (node->ledger.rollback (transaction, open1.hash ()));
+			ASSERT_TRUE (node->ledger.rollback (transaction, send2.hash ()));
 		}
 	}
 }
