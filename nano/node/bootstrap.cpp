@@ -973,7 +973,7 @@ bool nano::bootstrap_attempt::request_frontier (std::unique_lock<std::mutex> & l
 			}
 			else
 			{
-				node->logger.try_log ("frontier_req failed, reattempting");
+				node->stats.inc (nano::stat::type::error, nano::stat::detail::frontier_req, nano::stat::dir::out);
 			}
 		}
 	}
