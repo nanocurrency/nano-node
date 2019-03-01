@@ -636,6 +636,7 @@ void nano::rpc_handler::account_representative_set ()
 			{
 				auto transaction (node.wallets.tx_begin_write ());
 				wallet_locked_impl (transaction, wallet);
+				wallet_account_impl (transaction, wallet, account);
 				if (!ec)
 				{
 					nano::account_info info;
@@ -659,14 +660,16 @@ void nano::rpc_handler::account_representative_set ()
 				auto response_a (response);
 				// clang-format off
 				wallet->change_async (account, representative, [response_a](std::shared_ptr<nano::block> block) {
-					nano::block_hash hash (0);
 					if (block != nullptr)
 					{
-						hash = block->hash ();
+						boost::property_tree::ptree response_l;
+						response_l.put ("block", block->hash ().to_string ());
+						response_a (response_l);
 					}
-					boost::property_tree::ptree response_l;
-					response_l.put ("block", hash.to_string ());
-					response_a (response_l);
+					else
+					{
+						error_response (response_a, "Error generating block");
+					}
 				},
 				work, generate_work);
 				// clang-format on
@@ -2743,14 +2746,16 @@ void nano::rpc_handler::receive ()
 						auto response_a (response);
 						// clang-format off
 						wallet->receive_async (std::move (block), account, nano::genesis_amount, [response_a](std::shared_ptr<nano::block> block_a) {
-							nano::uint256_union hash_a (0);
 							if (block_a != nullptr)
 							{
-								hash_a = block_a->hash ();
+								boost::property_tree::ptree response_l;
+								response_l.put ("block", block_a->hash ().to_string ());
+								response_a (response_l);
 							}
-							boost::property_tree::ptree response_l;
-							response_l.put ("block", hash_a.to_string ());
-							response_a (response_l);
+							else
+							{
+								error_response (response_a, "Error generating block");
+							}
 						},
 						work, generate_work);
 						// clang-format on
@@ -3095,9 +3100,8 @@ void nano::rpc_handler::send ()
 					wallet->send_async (source, destination, amount.number (), [balance, amount, response_a](std::shared_ptr<nano::block> block_a) {
 						if (block_a != nullptr)
 						{
-							nano::uint256_union hash (block_a->hash ());
 							boost::property_tree::ptree response_l;
-							response_l.put ("block", hash.to_string ());
+							response_l.put ("block", block_a->hash ().to_string ());
 							response_a (response_l);
 						}
 						else
