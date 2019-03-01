@@ -1430,10 +1430,8 @@ TEST (bootstrap, tcp_listener_timeout_empty)
 	auto node0 (system.nodes[0]);
 	node0->config.tcp_server_timeout = std::chrono::seconds (1);
 	auto socket (std::make_shared<nano::socket> (node0));
-	nano::keepalive keepalive;
-	auto input (keepalive.to_bytes ());
 	std::atomic<bool> connected (false);
-	socket->async_connect (node0->bootstrap.endpoint (), [&input, socket, &connected](boost::system::error_code const & ec) {
+	socket->async_connect (node0->bootstrap.endpoint (), [&connected](boost::system::error_code const & ec) {
 		ASSERT_FALSE (ec);
 		connected = true;
 	});
@@ -1443,6 +1441,7 @@ TEST (bootstrap, tcp_listener_timeout_empty)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	bool disconnected (false);
+	system.deadline_set (std::chrono::seconds (5));
 	while (!disconnected)
 	{
 		{
@@ -1480,6 +1479,7 @@ TEST (bootstrap, tcp_listener_timeout_keepalive)
 		ASSERT_EQ (node0->bootstrap.connections.size (), 1);
 	}
 	bool disconnected (false);
+	system.deadline_set (std::chrono::seconds (5));
 	while (!disconnected)
 	{
 		{

@@ -2260,7 +2260,6 @@ void nano::bootstrap_server::finish_request ()
 	}
 	else
 	{
-		auto this_l (shared_from_this ());
 		std::weak_ptr<nano::bootstrap_server> this_w (shared_from_this ());
 		node->alarm.add (std::chrono::steady_clock::now () + node->config.tcp_server_timeout + std::chrono::seconds (1), [this_w]() {
 			if (auto this_l = this_w.lock ())
