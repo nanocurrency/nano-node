@@ -38,7 +38,7 @@ static const char * NANO_MAJOR_MINOR_RC_VERSION = xstr (NANO_VERSION_MAJOR) "." 
 
 namespace nano
 {
-class message_sink;
+class channel;
 class node;
 class election_status
 {
@@ -329,18 +329,18 @@ public:
 	void rpc_action (boost::system::error_code const &, size_t);
 	void republish_vote (std::shared_ptr<nano::vote>);
 	void republish_block (std::shared_ptr<nano::block>);
-	void republish_block (nano::message_sink const &, std::shared_ptr<nano::block>);
+	void republish_block (nano::transport::channel const &, std::shared_ptr<nano::block>);
 	static unsigned const broadcast_interval_ms = 10;
 	void republish_block_batch (std::deque<std::shared_ptr<nano::block>>, unsigned = broadcast_interval_ms);
 	void merge_peers (std::array<nano::endpoint, 8> const &);
-	void send_keepalive (nano::message_sink const &);
-	void send_node_id_handshake (nano::message_sink const &, boost::optional<nano::uint256_union> const & query, boost::optional<nano::uint256_union> const & respond_to);
+	void send_keepalive (nano::transport::channel const &);
+	void send_node_id_handshake (nano::transport::channel const &, boost::optional<nano::uint256_union> const & query, boost::optional<nano::uint256_union> const & respond_to);
 	void broadcast_confirm_req (std::shared_ptr<nano::block>);
 	void broadcast_confirm_req_base (std::shared_ptr<nano::block>, std::shared_ptr<std::vector<nano::peer_information>>, unsigned, bool = false);
-	void broadcast_confirm_req_batch (std::unordered_map<std::shared_ptr<nano::message_sink>, std::vector<std::pair<nano::block_hash, nano::block_hash>>>, unsigned = broadcast_interval_ms, bool = false);
+	void broadcast_confirm_req_batch (std::unordered_map<std::shared_ptr<nano::transport::channel>, std::vector<std::pair<nano::block_hash, nano::block_hash>>>, unsigned = broadcast_interval_ms, bool = false);
 	void broadcast_confirm_req_batch (std::deque<std::pair<std::shared_ptr<nano::block>, std::shared_ptr<std::vector<nano::peer_information>>>>, unsigned = broadcast_interval_ms);
-	void confirm_hashes (nano::transaction const &, nano::message_sink const &, std::vector<nano::block_hash>);
-	bool send_votes_cache (nano::message_sink const &, nano::block_hash const &);
+	void confirm_hashes (nano::transaction const &, nano::transport::channel const &, std::vector<nano::block_hash>);
+	bool send_votes_cache (nano::transport::channel const &, nano::block_hash const &);
 	nano::endpoint endpoint ();
 	nano::message_buffer_manager buffer_container;
 	boost::asio::ip::udp::socket socket;
@@ -368,9 +368,9 @@ class node_observers
 public:
 	nano::observer_set<std::shared_ptr<nano::block>, nano::account const &, nano::uint128_t const &, bool> blocks;
 	nano::observer_set<bool> wallet;
-	nano::observer_set<nano::transaction const &, std::shared_ptr<nano::vote>, nano::message_sink const &> vote;
+	nano::observer_set<nano::transaction const &, std::shared_ptr<nano::vote>, nano::transport::channel const &> vote;
 	nano::observer_set<nano::account const &, bool> account_balance;
-	nano::observer_set<std::shared_ptr<nano::message_sink>> endpoint;
+	nano::observer_set<std::shared_ptr<nano::transport::channel>> endpoint;
 	nano::observer_set<> disconnect;
 };
 
@@ -380,10 +380,10 @@ class vote_processor
 {
 public:
 	vote_processor (nano::node &);
-	void vote (std::shared_ptr<nano::vote>, std::shared_ptr<nano::message_sink>);
+	void vote (std::shared_ptr<nano::vote>, std::shared_ptr<nano::transport::channel>);
 	// node.active.mutex lock required
-	nano::vote_code vote_blocking (nano::transaction const &, std::shared_ptr<nano::vote>, std::shared_ptr<nano::message_sink>, bool = false);
-	void verify_votes (std::deque<std::pair<std::shared_ptr<nano::vote>, std::shared_ptr<nano::message_sink>>> &);
+	nano::vote_code vote_blocking (nano::transaction const &, std::shared_ptr<nano::vote>, std::shared_ptr<nano::transport::channel>, bool = false);
+	void verify_votes (std::deque<std::pair<std::shared_ptr<nano::vote>, std::shared_ptr<nano::transport::channel>>> &);
 	void flush ();
 	void calculate_weights ();
 	nano::node & node;
@@ -391,7 +391,7 @@ public:
 
 private:
 	void process_loop ();
-	std::deque<std::pair<std::shared_ptr<nano::vote>, std::shared_ptr<nano::message_sink>>> votes;
+	std::deque<std::pair<std::shared_ptr<nano::vote>, std::shared_ptr<nano::transport::channel>>> votes;
 	// Representatives levels for random early detection
 	std::unordered_set<nano::account> representatives_1;
 	std::unordered_set<nano::account> representatives_2;

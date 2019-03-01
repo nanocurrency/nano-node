@@ -1402,7 +1402,7 @@ TEST (rpc, keepalive)
 	auto port (boost::str (boost::format ("%1%") % node1->network.endpoint ().port ()));
 	request.put ("address", address);
 	request.put ("port", port);
-	nano::message_sink_udp sink (*system.nodes[0], node1->network.endpoint ());
+	nano::transport::channel_udp sink (*system.nodes[0], node1->network.endpoint ());
 	ASSERT_FALSE (system.nodes[0]->peers.known_peer (sink));
 	ASSERT_EQ (0, system.nodes[0]->peers.size ());
 	test_response response (request, rpc, system.io_ctx);

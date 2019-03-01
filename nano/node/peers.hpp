@@ -19,8 +19,11 @@
 
 namespace nano
 {
-class message_sink_udp;
 class node;
+namespace transport
+{
+	class channel_udp;
+}
 nano::endpoint map_endpoint_to_v6 (nano::endpoint const &);
 
 /** Multi-index helper */
@@ -48,12 +51,12 @@ public:
 class peer_information
 {
 public:
-	peer_information (std::shared_ptr<nano::message_sink_udp>, unsigned, boost::optional<nano::account> = boost::none);
-	peer_information (std::shared_ptr<nano::message_sink_udp>, std::chrono::steady_clock::time_point const &, std::chrono::steady_clock::time_point const &);
-	std::shared_ptr<nano::message_sink_udp> sink;
+	peer_information (std::shared_ptr<nano::transport::channel_udp>, unsigned, boost::optional<nano::account> = boost::none);
+	peer_information (std::shared_ptr<nano::transport::channel_udp>, std::chrono::steady_clock::time_point const &, std::chrono::steady_clock::time_point const &);
+	std::shared_ptr<nano::transport::channel_udp> sink;
 	boost::asio::ip::address ip_address () const;
 	nano::endpoint endpoint () const;
-	std::reference_wrapper<nano::message_sink const> sink_ref () const;
+	std::reference_wrapper<nano::transport::channel const> sink_ref () const;
 	std::chrono::steady_clock::time_point last_contact;
 	std::chrono::steady_clock::time_point last_attempt;
 	std::chrono::steady_clock::time_point last_bootstrap_attempt{ std::chrono::steady_clock::time_point () };
@@ -77,10 +80,10 @@ public:
 	// Unassigned, reserved, self
 	bool not_a_peer (nano::endpoint const &, bool);
 	// Returns true if peer was already known
-	bool known_peer (nano::message_sink const &);
+	bool known_peer (nano::transport::channel const &);
 	// Notify of peer we received from
 	bool insert (nano::endpoint const &, unsigned, bool = false, boost::optional<nano::account> = boost::none);
-	std::unordered_set<std::shared_ptr<nano::message_sink_udp>> random_set (size_t);
+	std::unordered_set<std::shared_ptr<nano::transport::channel_udp>> random_set (size_t);
 	void random_fill (std::array<nano::endpoint, 8> &);
 	// Request a list of the top known representatives
 	std::vector<peer_information> representatives (size_t);
@@ -88,7 +91,7 @@ public:
 	std::deque<nano::endpoint> list ();
 	std::vector<peer_information> list_vector (size_t);
 	// A list of random peers sized for the configured rebroadcast fanout
-	std::deque<std::shared_ptr<nano::message_sink_udp>> list_fanout ();
+	std::deque<std::shared_ptr<nano::transport::channel_udp>> list_fanout ();
 	// Returns a list of probable reps and their weight
 	std::vector<peer_information> list_probable_rep_weights ();
 	// Get the next peer for attempting bootstrap
@@ -96,9 +99,9 @@ public:
 	// Purge any peer where last_contact < time_point and return what was left
 	std::vector<nano::peer_information> purge_list (std::chrono::steady_clock::time_point const &);
 	void purge_syn_cookies (std::chrono::steady_clock::time_point const &);
-	std::vector<std::shared_ptr<nano::message_sink>> rep_crawl ();
-	bool rep_response (nano::message_sink const &, nano::account const &, nano::amount const &);
-	void rep_request (nano::message_sink const &);
+	std::vector<std::shared_ptr<nano::transport::channel>> rep_crawl ();
+	bool rep_response (nano::transport::channel const &, nano::account const &, nano::amount const &);
+	void rep_request (nano::transport::channel const &);
 	// Should we reach out to this endpoint with a keepalive message
 	bool reachout (nano::endpoint const &);
 	// Returns boost::none if the IP is rate capped on syn cookie requests,
@@ -117,7 +120,7 @@ public:
 	boost::multi_index_container<
 	peer_information,
 	boost::multi_index::indexed_by<
-	boost::multi_index::hashed_unique<boost::multi_index::const_mem_fun<peer_information, std::reference_wrapper<nano::message_sink const>, &peer_information::sink_ref>>,
+	boost::multi_index::hashed_unique<boost::multi_index::const_mem_fun<peer_information, std::reference_wrapper<nano::transport::channel const>, &peer_information::sink_ref>>,
 	boost::multi_index::ordered_non_unique<boost::multi_index::member<peer_information, std::chrono::steady_clock::time_point, &peer_information::last_contact>>,
 	boost::multi_index::ordered_non_unique<boost::multi_index::member<peer_information, std::chrono::steady_clock::time_point, &peer_information::last_attempt>, std::greater<std::chrono::steady_clock::time_point>>,
 	boost::multi_index::random_access<>,
@@ -136,7 +139,7 @@ public:
 	std::unordered_map<nano::endpoint, syn_cookie_info> syn_cookies;
 	std::unordered_map<boost::asio::ip::address, unsigned> syn_cookies_per_ip;
 	// Called when a new peer is observed
-	std::function<void(std::shared_ptr<nano::message_sink>)> peer_observer;
+	std::function<void(std::shared_ptr<nano::transport::channel>)> peer_observer;
 	std::function<void()> disconnect_observer;
 	// Number of peers to crawl for being a rep every period
 	static size_t constexpr peers_per_crawl = 8;

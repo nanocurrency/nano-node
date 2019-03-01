@@ -6,35 +6,38 @@
 
 namespace nano
 {
-class message;
-class message_sink
+namespace transport
 {
-public:
-	virtual ~message_sink () = default;
-	virtual size_t hash_code () const = 0;
-	virtual bool operator== (nano::message_sink const &) const = 0;
-	void sink (nano::message const &, std::function<void(boost::system::error_code const &, size_t)> const & = nullptr) const;
-	void send_buffer (std::shared_ptr<std::vector<uint8_t>>, nano::stat::detail, std::function<void(boost::system::error_code const &, size_t)> const & = nullptr) const;
-	virtual void send_buffer_raw (boost::asio::const_buffer, std::function<void(boost::system::error_code const &, size_t)> const &) const = 0;
-	virtual std::function<void(boost::system::error_code const &, size_t)> callback (std::shared_ptr<std::vector<uint8_t>>, nano::stat::detail, std::function<void(boost::system::error_code const &, size_t)> const & = nullptr) const = 0;
-	virtual std::string to_string () const = 0;
-};
-}
+	class message;
+	class channel
+	{
+	public:
+		virtual ~channel () = default;
+		virtual size_t hash_code () const = 0;
+		virtual bool operator== (nano::transport::channel const &) const = 0;
+		void sink (nano::message const &, std::function<void(boost::system::error_code const &, size_t)> const & = nullptr) const;
+		void send_buffer (std::shared_ptr<std::vector<uint8_t>>, nano::stat::detail, std::function<void(boost::system::error_code const &, size_t)> const & = nullptr) const;
+		virtual void send_buffer_raw (boost::asio::const_buffer, std::function<void(boost::system::error_code const &, size_t)> const &) const = 0;
+		virtual std::function<void(boost::system::error_code const &, size_t)> callback (std::shared_ptr<std::vector<uint8_t>>, nano::stat::detail, std::function<void(boost::system::error_code const &, size_t)> const & = nullptr) const = 0;
+		virtual std::string to_string () const = 0;
+	};
+} // namespace transport
+} // namespace nano
 
 namespace std
 {
 template <>
-struct hash<::nano::message_sink>
+struct hash<::nano::transport::channel>
 {
-	size_t operator() (::nano::message_sink const & sink_a) const
+	size_t operator() (::nano::transport::channel const & sink_a) const
 	{
 		return sink_a.hash_code ();
 	}
 };
 template <>
-struct equal_to<std::reference_wrapper<::nano::message_sink const>>
+struct equal_to<std::reference_wrapper<::nano::transport::channel const>>
 {
-	bool operator() (std::reference_wrapper<::nano::message_sink const> const & lhs, std::reference_wrapper<::nano::message_sink const> const & rhs) const
+	bool operator() (std::reference_wrapper<::nano::transport::channel const> const & lhs, std::reference_wrapper<::nano::transport::channel const> const & rhs) const
 	{
 		return lhs.get () == rhs.get ();
 	}
@@ -44,20 +47,20 @@ struct equal_to<std::reference_wrapper<::nano::message_sink const>>
 namespace boost
 {
 template <>
-struct hash<::nano::message_sink>
+struct hash<::nano::transport::channel>
 {
-	size_t operator() (::nano::message_sink const & sink_a) const
+	size_t operator() (::nano::transport::channel const & sink_a) const
 	{
-		std::hash<::nano::message_sink> hash;
+		std::hash<::nano::transport::channel> hash;
 		return hash (sink_a);
 	}
 };
 template <>
-struct hash<std::reference_wrapper<::nano::message_sink const>>
+struct hash<std::reference_wrapper<::nano::transport::channel const>>
 {
-	size_t operator() (std::reference_wrapper<::nano::message_sink const> const & sink_a) const
+	size_t operator() (std::reference_wrapper<::nano::transport::channel const> const & sink_a) const
 	{
-		std::hash<::nano::message_sink> hash;
+		std::hash<::nano::transport::channel> hash;
 		return hash (sink_a.get ());
 	}
 };

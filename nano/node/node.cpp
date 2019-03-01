@@ -162,7 +162,7 @@ void nano::network::stop ()
 	buffer_container.stop ();
 }
 
-void nano::network::send_keepalive (nano::message_sink const & sink_a)
+void nano::network::send_keepalive (nano::transport::channel const & sink_a)
 {
 	nano::keepalive message;
 	node.peers.random_fill (message.peers);
@@ -178,7 +178,7 @@ void nano::node::keepalive (std::string const & address_a, uint16_t port_a, bool
 			for (auto i (i_a), n (boost::asio::ip::udp::resolver::iterator{}); i != n; ++i)
 			{
 				auto endpoint (nano::map_endpoint_to_v6 (i->endpoint ()));
-				nano::message_sink_udp sink (*node_l, endpoint);
+				nano::transport::channel_udp sink (*node_l, endpoint);
 				node_l->network.send_keepalive (sink);
 				if (preconfigured_peer_a)
 				{
@@ -193,7 +193,7 @@ void nano::node::keepalive (std::string const & address_a, uint16_t port_a, bool
 	});
 }
 
-void nano::network::send_node_id_handshake (nano::message_sink const & sink_a, boost::optional<nano::uint256_union> const & query, boost::optional<nano::uint256_union> const & respond_to)
+void nano::network::send_node_id_handshake (nano::transport::channel const & sink_a, boost::optional<nano::uint256_union> const & query, boost::optional<nano::uint256_union> const & respond_to)
 {
 	boost::optional<std::pair<nano::account, nano::signature>> response (boost::none);
 	if (respond_to)
@@ -261,14 +261,14 @@ bool confirm_block (nano::transaction const & transaction_a, nano::node & node_a
 	return result;
 }
 
-bool confirm_block (nano::transaction const & transaction_a, nano::node & node_a, nano::message_sink const & sink_a, std::shared_ptr<nano::block> block_a, bool also_publish)
+bool confirm_block (nano::transaction const & transaction_a, nano::node & node_a, nano::transport::channel const & sink_a, std::shared_ptr<nano::block> block_a, bool also_publish)
 {
-	std::array<std::reference_wrapper<nano::message_sink const>, 1> endpoints = { sink_a };
+	std::array<std::reference_wrapper<nano::transport::channel const>, 1> endpoints = { sink_a };
 	auto result (confirm_block (transaction_a, node_a, endpoints, std::move (block_a), also_publish));
 	return result;
 }
 
-void nano::network::confirm_hashes (nano::transaction const & transaction_a, nano::message_sink const & sink_a, std::vector<nano::block_hash> blocks_bundle_a)
+void nano::network::confirm_hashes (nano::transaction const & transaction_a, nano::transport::channel const & sink_a, std::vector<nano::block_hash> blocks_bundle_a)
 {
 	if (node.config.enable_voting)
 	{
@@ -286,7 +286,7 @@ void nano::network::confirm_hashes (nano::transaction const & transaction_a, nan
 	}
 }
 
-bool nano::network::send_votes_cache (nano::message_sink const & sink_a, nano::block_hash const & hash_a)
+bool nano::network::send_votes_cache (nano::transport::channel const & sink_a, nano::block_hash const & hash_a)
 {
 	// Search in cache
 	auto votes (node.votes_cache.find (hash_a));
@@ -318,7 +318,7 @@ void nano::network::republish_block (std::shared_ptr<nano::block> block)
 	}
 }
 
-void nano::network::republish_block (nano::message_sink const & sink_a, std::shared_ptr<nano::block> block)
+void nano::network::republish_block (nano::transport::channel const & sink_a, std::shared_ptr<nano::block> block)
 {
 	auto hash (block->hash ());
 	nano::publish message (block);
@@ -424,7 +424,7 @@ void nano::network::broadcast_confirm_req_base (std::shared_ptr<nano::block> blo
 	}
 }
 
-void nano::network::broadcast_confirm_req_batch (std::unordered_map<std::shared_ptr<nano::message_sink>, std::vector<std::pair<nano::block_hash, nano::block_hash>>> request_bundle_a, unsigned delay_a, bool resumption)
+void nano::network::broadcast_confirm_req_batch (std::unordered_map<std::shared_ptr<nano::transport::channel>, std::vector<std::pair<nano::block_hash, nano::block_hash>>> request_bundle_a, unsigned delay_a, bool resumption)
 {
 	const size_t max_reps = 10;
 	if (!resumption && node.config.logging.network_logging ())
@@ -509,9 +509,9 @@ void rep_query (nano::node & node_a, T const & peers_a)
 	});
 }
 
-void rep_query (nano::node & node_a, std::shared_ptr<nano::message_sink> peers_a)
+void rep_query (nano::node & node_a, std::shared_ptr<nano::transport::channel> peers_a)
 {
-	std::array<std::shared_ptr<nano::message_sink>, 1> peers;
+	std::array<std::shared_ptr<nano::transport::channel>, 1> peers;
 	peers[0] = peers_a;
 	rep_query (node_a, peers);
 }
@@ -521,7 +521,7 @@ namespace
 class udp_message_visitor : public nano::message_visitor
 {
 public:
-	udp_message_visitor (nano::node & node_a, std::shared_ptr<nano::message_sink_udp> sink_a, nano::message_visitor & visitor_a) :
+	udp_message_visitor (nano::node & node_a, std::shared_ptr<nano::transport::channel_udp> sink_a, nano::message_visitor & visitor_a) :
 	node (node_a),
 	sink (sink_a),
 	visitor (visitor_a)
@@ -609,13 +609,13 @@ public:
 		node.stats.inc (nano::stat::type::message, nano::stat::detail::node_id_handshake, nano::stat::dir::in);
 	}
 	nano::node & node;
-	std::shared_ptr<nano::message_sink_udp> sink;
+	std::shared_ptr<nano::transport::channel_udp> sink;
 	nano::message_visitor & visitor;
 };
 class network_message_visitor : public nano::message_visitor
 {
 public:
-	network_message_visitor (nano::node & node_a, std::shared_ptr<nano::message_sink> sink_a) :
+	network_message_visitor (nano::node & node_a, std::shared_ptr<nano::transport::channel> sink_a) :
 	node (node_a),
 	sink (sink_a)
 	{
@@ -757,7 +757,7 @@ public:
 		assert (false);
 	}
 	nano::node & node;
-	std::shared_ptr<nano::message_sink> sink;
+	std::shared_ptr<nano::transport::channel> sink;
 };
 }
 
@@ -778,7 +778,7 @@ void nano::network::receive_action (nano::message_buffer * data_a, nano::endpoin
 	}
 	if (allowed_sender)
 	{
-		auto sink (std::make_shared<nano::message_sink_udp> (node, data_a->endpoint));
+		auto sink (std::make_shared<nano::transport::channel_udp> (node, data_a->endpoint));
 		network_message_visitor message_visitor (node, sink);
 		udp_message_visitor visitor (node, sink, message_visitor);
 		nano::message_parser parser (node.block_uniquer, node.vote_uniquer, visitor, node.work);
@@ -856,7 +856,7 @@ void nano::network::merge_peers (std::array<nano::endpoint, 8> const & peers_a)
 	{
 		if (!node.peers.reachout (*i))
 		{
-			nano::message_sink_udp sink (node, *i);
+			nano::transport::channel_udp sink (node, *i);
 			send_keepalive (sink);
 		}
 	}
@@ -988,7 +988,7 @@ void nano::vote_processor::process_loop ()
 	{
 		if (!votes.empty ())
 		{
-			std::deque<std::pair<std::shared_ptr<nano::vote>, std::shared_ptr<nano::message_sink>>> votes_l;
+			std::deque<std::pair<std::shared_ptr<nano::vote>, std::shared_ptr<nano::transport::channel>>> votes_l;
 			votes_l.swap (votes);
 
 			log_this_iteration = false;
@@ -1052,7 +1052,7 @@ void nano::vote_processor::process_loop ()
 	}
 }
 
-void nano::vote_processor::vote (std::shared_ptr<nano::vote> vote_a, std::shared_ptr<nano::message_sink> sink_a)
+void nano::vote_processor::vote (std::shared_ptr<nano::vote> vote_a, std::shared_ptr<nano::transport::channel> sink_a)
 {
 	std::unique_lock<std::mutex> lock (mutex);
 	if (!stopped)
@@ -1108,7 +1108,7 @@ void nano::vote_processor::vote (std::shared_ptr<nano::vote> vote_a, std::shared
 	}
 }
 
-void nano::vote_processor::verify_votes (std::deque<std::pair<std::shared_ptr<nano::vote>, std::shared_ptr<nano::message_sink>>> & votes_a)
+void nano::vote_processor::verify_votes (std::deque<std::pair<std::shared_ptr<nano::vote>, std::shared_ptr<nano::transport::channel>>> & votes_a)
 {
 	auto size (votes_a.size ());
 	std::vector<unsigned char const *> messages;
@@ -1146,7 +1146,7 @@ void nano::vote_processor::verify_votes (std::deque<std::pair<std::shared_ptr<na
 }
 
 // node.active.mutex lock required
-nano::vote_code nano::vote_processor::vote_blocking (nano::transaction const & transaction_a, std::shared_ptr<nano::vote> vote_a, std::shared_ptr<nano::message_sink> sink_a, bool validated)
+nano::vote_code nano::vote_processor::vote_blocking (nano::transaction const & transaction_a, std::shared_ptr<nano::vote> vote_a, std::shared_ptr<nano::transport::channel> sink_a, bool validated)
 {
 	assert (!node.active.mutex.try_lock ());
 	auto result (nano::vote_code::invalid);
@@ -1396,7 +1396,7 @@ startup_time (std::chrono::steady_clock::now ())
 	wallets.observer = [this](bool active) {
 		observers.wallet.notify (active);
 	};
-	peers.peer_observer = [this](std::shared_ptr<nano::message_sink> sink_a) {
+	peers.peer_observer = [this](std::shared_ptr<nano::transport::channel> sink_a) {
 		observers.endpoint.notify (sink_a);
 	};
 	peers.disconnect_observer = [this]() {
@@ -1446,11 +1446,11 @@ startup_time (std::chrono::steady_clock::now ())
 			}
 		});
 	}
-	observers.endpoint.add ([this](std::shared_ptr<nano::message_sink> sink_a) {
+	observers.endpoint.add ([this](std::shared_ptr<nano::transport::channel> sink_a) {
 		this->network.send_keepalive (*sink_a);
 		rep_query (*this, sink_a);
 	});
-	observers.vote.add ([this](nano::transaction const & transaction, std::shared_ptr<nano::vote> vote_a, nano::message_sink const & sink_a) {
+	observers.vote.add ([this](nano::transaction const & transaction, std::shared_ptr<nano::vote> vote_a, nano::transport::channel const & sink_a) {
 		this->gap_cache.vote (vote_a);
 		this->online_reps.observe (vote_a->account);
 		nano::uint128_t rep_weight;
@@ -2478,7 +2478,7 @@ void nano::node::add_initial_peers ()
 		nano::endpoint endpoint (boost::asio::ip::address_v6 (i->first.address_bytes ()), i->first.port ());
 		if (!peers.reachout (endpoint))
 		{
-			nano::message_sink_udp sink (*this, endpoint);
+			nano::transport::channel_udp sink (*this, endpoint);
 			network.send_keepalive (sink);
 		}
 	}
@@ -2635,7 +2635,7 @@ void nano::node::process_confirmed (std::shared_ptr<nano::block> block_a, uint8_
 
 void nano::node::process_message (nano::message & message_a, nano::endpoint const & sender_a)
 {
-	network_message_visitor visitor (*this, std::make_shared<nano::message_sink_udp> (*this, sender_a));
+	network_message_visitor visitor (*this, std::make_shared<nano::transport::channel_udp> (*this, sender_a));
 	message_a.visit (visitor);
 }
 
@@ -2932,7 +2932,7 @@ void nano::election::compute_rep_votes (nano::transaction const & transaction_a)
 	{
 		node.wallets.foreach_representative (transaction_a, [this, &transaction_a](nano::public_key const & pub_a, nano::raw_key const & prv_a) {
 			auto vote (this->node.store.vote_generate (transaction_a, pub_a, prv_a, status.winner));
-			this->node.vote_processor.vote (vote, std::make_shared<nano::message_sink_udp> (this->node, this->node.network.endpoint ()));
+			this->node.vote_processor.vote (vote, std::make_shared<nano::transport::channel_udp> (this->node, this->node.network.endpoint ()));
 		});
 	}
 }
@@ -3199,7 +3199,7 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 	auto transaction (node.store.tx_begin_read ());
 	unsigned unconfirmed_count (0);
 	unsigned unconfirmed_announcements (0);
-	std::unordered_map<std::shared_ptr<nano::message_sink>, std::vector<std::pair<nano::block_hash, nano::block_hash>>> requests_bundle;
+	std::unordered_map<std::shared_ptr<nano::transport::channel>, std::vector<std::pair<nano::block_hash, nano::block_hash>>> requests_bundle;
 	std::deque<std::shared_ptr<nano::block>> rebroadcast_bundle;
 	std::deque<std::pair<std::shared_ptr<nano::block>, std::shared_ptr<std::vector<nano::peer_information>>>> confirm_req_bundle;
 

@@ -133,7 +133,7 @@ nano::tcp_endpoint nano::socket::remote_endpoint ()
 	return endpoint;
 }
 
-nano::bootstrap_client::bootstrap_client (std::shared_ptr<nano::node> node_a, std::shared_ptr<nano::bootstrap_attempt> attempt_a, std::shared_ptr<nano::message_sink_tcp> sink_a) :
+nano::bootstrap_client::bootstrap_client (std::shared_ptr<nano::node> node_a, std::shared_ptr<nano::bootstrap_attempt> attempt_a, std::shared_ptr<nano::transport::channel_tcp> sink_a) :
 node (node_a),
 attempt (attempt_a),
 sink (sink_a),
@@ -1242,7 +1242,7 @@ void nano::bootstrap_attempt::connect_client (nano::tcp_endpoint const & endpoin
 			{
 				BOOST_LOG (this_l->node->log) << boost::str (boost::format ("Connection established to %1%") % endpoint_a);
 			}
-			auto client (std::make_shared<nano::bootstrap_client> (this_l->node, this_l, std::make_shared<nano::message_sink_tcp> (*this_l->node, socket)));
+			auto client (std::make_shared<nano::bootstrap_client> (this_l->node, this_l, std::make_shared<nano::transport::channel_tcp> (*this_l->node, socket)));
 			this_l->pool_connection (client);
 		}
 		else

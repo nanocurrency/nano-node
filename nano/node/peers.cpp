@@ -14,7 +14,7 @@ nano::endpoint nano::map_endpoint_to_v6 (nano::endpoint const & endpoint_a)
 	return endpoint_l;
 }
 
-nano::peer_information::peer_information (std::shared_ptr<nano::message_sink_udp> sink_a, unsigned network_version_a, boost::optional<nano::account> node_id_a) :
+nano::peer_information::peer_information (std::shared_ptr<nano::transport::channel_udp> sink_a, unsigned network_version_a, boost::optional<nano::account> node_id_a) :
 sink (sink_a),
 last_contact (std::chrono::steady_clock::now ()),
 last_attempt (last_contact),
@@ -23,7 +23,7 @@ node_id (node_id_a)
 {
 }
 
-nano::peer_information::peer_information (std::shared_ptr<nano::message_sink_udp> sink_a, std::chrono::steady_clock::time_point const & last_contact_a, std::chrono::steady_clock::time_point const & last_attempt_a) :
+nano::peer_information::peer_information (std::shared_ptr<nano::transport::channel_udp> sink_a, std::chrono::steady_clock::time_point const & last_contact_a, std::chrono::steady_clock::time_point const & last_attempt_a) :
 sink (sink_a),
 last_contact (last_contact_a),
 last_attempt (last_attempt_a)
@@ -40,7 +40,7 @@ nano::endpoint nano::peer_information::endpoint () const
 	return sink->endpoint;
 }
 
-std::reference_wrapper<nano::message_sink const> nano::peer_information::sink_ref () const
+std::reference_wrapper<nano::transport::channel const> nano::peer_information::sink_ref () const
 {
 	return *sink;
 }
@@ -52,7 +52,7 @@ bool nano::peer_information::operator< (nano::peer_information const & peer_info
 
 nano::peer_container::peer_container (nano::node & node_a) :
 node (node_a),
-peer_observer ([](std::shared_ptr<nano::message_sink>) {}),
+peer_observer ([](std::shared_ptr<nano::transport::channel>) {}),
 disconnect_observer ([]() {})
 {
 }
@@ -61,7 +61,7 @@ bool nano::peer_container::contacted (nano::endpoint const & endpoint_a, unsigne
 {
 	auto endpoint_l (nano::map_endpoint_to_v6 (endpoint_a));
 	auto should_handshake (false);
-	nano::message_sink_udp sink (node, endpoint_l);
+	nano::transport::channel_udp sink (node, endpoint_l);
 	if (version_a < nano::node_id_version)
 	{
 		insert (endpoint_l, version_a);
@@ -78,8 +78,8 @@ bool nano::peer_container::contacted (nano::endpoint const & endpoint_a, unsigne
 	else
 	{
 		std::lock_guard<std::mutex> lock (mutex);
-		nano::message_sink_udp sink (node, endpoint_a);
-		auto existing (peers.find (std::reference_wrapper<nano::message_sink const> (sink)));
+		nano::transport::channel_udp sink (node, endpoint_a);
+		auto existing (peers.find (std::reference_wrapper<nano::transport::channel const> (sink)));
 		if (existing != peers.end ())
 		{
 			peers.modify (existing, [](nano::peer_information & info) {
@@ -90,18 +90,18 @@ bool nano::peer_container::contacted (nano::endpoint const & endpoint_a, unsigne
 	return should_handshake;
 }
 
-bool nano::peer_container::known_peer (nano::message_sink const & sink_a)
+bool nano::peer_container::known_peer (nano::transport::channel const & sink_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
-	auto existing (peers.find (std::reference_wrapper<nano::message_sink const> (sink_a)));
+	auto existing (peers.find (std::reference_wrapper<nano::transport::channel const> (sink_a)));
 	return existing != peers.end ();
 }
 
 // Simulating with sqrt_broadcast_simulate shows we only need to broadcast to sqrt(total_peers) random peers in order to successfully publish to everyone with high probability
-std::deque<std::shared_ptr<nano::message_sink_udp>> nano::peer_container::list_fanout ()
+std::deque<std::shared_ptr<nano::transport::channel_udp>> nano::peer_container::list_fanout ()
 {
 	auto peers (random_set (size_sqrt ()));
-	std::deque<std::shared_ptr<nano::message_sink_udp>> result;
+	std::deque<std::shared_ptr<nano::transport::channel_udp>> result;
 	for (auto i (peers.begin ()), n (peers.end ()); i != n; ++i)
 	{
 		result.push_back (*i);
@@ -206,9 +206,9 @@ bool nano::peer_container::validate_syn_cookie (nano::endpoint const & endpoint,
 	return result;
 }
 
-std::unordered_set<std::shared_ptr<nano::message_sink_udp>> nano::peer_container::random_set (size_t count_a)
+std::unordered_set<std::shared_ptr<nano::transport::channel_udp>> nano::peer_container::random_set (size_t count_a)
 {
-	std::unordered_set<std::shared_ptr<nano::message_sink_udp>> result;
+	std::unordered_set<std::shared_ptr<nano::transport::channel_udp>> result;
 	result.reserve (count_a);
 	std::lock_guard<std::mutex> lock (mutex);
 	// Stop trying to fill result with random samples after this many attempts
@@ -316,9 +316,9 @@ std::vector<nano::peer_information> nano::peer_container::purge_list (std::chron
 	return result;
 }
 
-std::vector<std::shared_ptr<nano::message_sink>> nano::peer_container::rep_crawl ()
+std::vector<std::shared_ptr<nano::transport::channel>> nano::peer_container::rep_crawl ()
 {
-	std::vector<std::shared_ptr<nano::message_sink>> result;
+	std::vector<std::shared_ptr<nano::transport::channel>> result;
 	// If there is enough observed peers weight, crawl 10 peers. Otherwise - 40
 	uint16_t max_count = (total_weight () > online_weight_minimum) ? 10 : 40;
 	result.reserve (max_count);
@@ -395,11 +395,11 @@ bool nano::peer_container::not_a_peer (nano::endpoint const & endpoint_a, bool b
 	return result;
 }
 
-bool nano::peer_container::rep_response (nano::message_sink const & sink_a, nano::account const & rep_account_a, nano::amount const & weight_a)
+bool nano::peer_container::rep_response (nano::transport::channel const & sink_a, nano::account const & rep_account_a, nano::amount const & weight_a)
 {
 	auto updated (false);
 	std::lock_guard<std::mutex> lock (mutex);
-	auto existing (peers.find (std::reference_wrapper<nano::message_sink const> (sink_a)));
+	auto existing (peers.find (std::reference_wrapper<nano::transport::channel const> (sink_a)));
 	if (existing != peers.end ())
 	{
 		peers.modify (existing, [weight_a, &updated, rep_account_a](nano::peer_information & info) {
@@ -415,10 +415,10 @@ bool nano::peer_container::rep_response (nano::message_sink const & sink_a, nano
 	return updated;
 }
 
-void nano::peer_container::rep_request (nano::message_sink const & sink_a)
+void nano::peer_container::rep_request (nano::transport::channel const & sink_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
-	auto existing (peers.find (std::reference_wrapper<nano::message_sink const> (sink_a)));
+	auto existing (peers.find (std::reference_wrapper<nano::transport::channel const> (sink_a)));
 	if (existing != peers.end ())
 	{
 		peers.modify (existing, [](nano::peer_information & info) {
@@ -435,7 +435,7 @@ bool nano::peer_container::reachout (nano::endpoint const & endpoint_a)
 	{
 		auto endpoint_l (nano::map_endpoint_to_v6 (endpoint_a));
 		// Don't keepalive to nodes that already sent us something
-		nano::message_sink_udp sink (node, endpoint_l);
+		nano::transport::channel_udp sink (node, endpoint_l);
 		error |= known_peer (sink);
 		std::lock_guard<std::mutex> lock (mutex);
 		auto existing (attempts.find (endpoint_l));
@@ -448,15 +448,15 @@ bool nano::peer_container::reachout (nano::endpoint const & endpoint_a)
 bool nano::peer_container::insert (nano::endpoint const & endpoint_a, unsigned version_a, bool preconfigured_a, boost::optional<nano::account> node_id_a)
 {
 	assert (endpoint_a.address ().is_v6 ());
-	std::shared_ptr<nano::message_sink_udp> new_peer;
+	std::shared_ptr<nano::transport::channel_udp> new_peer;
 	auto result (!preconfigured_a && not_a_peer (endpoint_a, false));
 	if (!result)
 	{
 		if (version_a >= nano::protocol_version_min)
 		{
 			std::lock_guard<std::mutex> lock (mutex);
-			nano::message_sink_udp sink (node, endpoint_a);
-			auto existing (peers.find (std::reference_wrapper<nano::message_sink const> (sink)));
+			nano::transport::channel_udp sink (node, endpoint_a);
+			auto existing (peers.find (std::reference_wrapper<nano::transport::channel const> (sink)));
 			if (existing != peers.end ())
 			{
 				peers.modify (existing, [node_id_a](nano::peer_information & info) {
@@ -480,7 +480,7 @@ bool nano::peer_container::insert (nano::endpoint const & endpoint_a, unsigned v
 				}
 				if (!result)
 				{
-					new_peer = std::make_shared<nano::message_sink_udp> (node, endpoint_a);
+					new_peer = std::make_shared<nano::transport::channel_udp> (node, endpoint_a);
 					peers.insert (nano::peer_information (new_peer, version_a, node_id_a));
 				}
 			}
