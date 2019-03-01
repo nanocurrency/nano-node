@@ -12,7 +12,8 @@
 namespace
 {
 void construct_json (nano::seq_con_info_component * component, boost::property_tree::ptree & parent);
-std::unordered_map<std::string, std::function<void(nano::rpc_handler *)>> create_rpc_handler_no_arg_func_map ();
+using rpc_handler_no_arg_func_map = std::unordered_map<std::string, std::function<void(nano::rpc_handler *)>>;
+rpc_handler_no_arg_func_map create_rpc_handler_no_arg_func_map ();
 auto rpc_handler_no_arg_funcs = create_rpc_handler_no_arg_func_map ();
 }
 
@@ -4622,9 +4623,9 @@ void construct_json (nano::seq_con_info_component * component, boost::property_t
 	parent.add_child (composite->get_name (), current);
 }
 
-std::unordered_map<std::string, std::function<void(nano::rpc_handler *)>> create_rpc_handler_no_arg_func_map ()
+rpc_handler_no_arg_func_map create_rpc_handler_no_arg_func_map ()
 {
-	std::unordered_map<std::string, std::function<void(nano::rpc_handler *)>> no_arg_funcs;
+	rpc_handler_no_arg_func_map no_arg_funcs;
 	no_arg_funcs.emplace ("account_balance", &nano::rpc_handler::account_balance);
 	no_arg_funcs.emplace ("account_block_count", &nano::rpc_handler::account_block_count);
 	no_arg_funcs.emplace ("account_count", &nano::rpc_handler::account_count);
