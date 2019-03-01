@@ -2156,12 +2156,6 @@ std::vector<nano::unchecked_info> nano::mdb_store::unchecked_get (nano::transact
 	return result;
 }
 
-bool nano::mdb_store::unchecked_exists (nano::transaction const & transaction_a, nano::unchecked_key const & key_a)
-{
-	auto iterator (unchecked_begin (transaction_a, key_a));
-	return iterator != unchecked_end () && nano::unchecked_key (iterator->first) == key_a;
-}
-
 void nano::mdb_store::unchecked_del (nano::transaction const & transaction_a, nano::unchecked_key const & key_a)
 {
 	auto status (mdb_del (env.tx (transaction_a), unchecked, nano::mdb_val (key_a), nullptr));

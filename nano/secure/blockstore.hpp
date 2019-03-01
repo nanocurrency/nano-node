@@ -270,7 +270,6 @@ public:
 	virtual void unchecked_put (nano::transaction const &, nano::unchecked_key const &, nano::unchecked_info const &) = 0;
 	virtual void unchecked_put (nano::transaction const &, nano::block_hash const &, std::shared_ptr<nano::block> const &) = 0;
 	virtual std::vector<nano::unchecked_info> unchecked_get (nano::transaction const &, nano::block_hash const &) = 0;
-	virtual bool unchecked_exists (nano::transaction const &, nano::unchecked_key const &) = 0;
 	virtual void unchecked_del (nano::transaction const &, nano::unchecked_key const &) = 0;
 	virtual nano::store_iterator<nano::unchecked_key, nano::unchecked_info> unchecked_begin (nano::transaction const &) = 0;
 	virtual nano::store_iterator<nano::unchecked_key, nano::unchecked_info> unchecked_begin (nano::transaction const &, nano::unchecked_key const &) = 0;

@@ -1593,3 +1593,140 @@ TEST (confirmation_height, multiple)
 		}
 	}
 }
+
+TEST (confirmation_height, gap_bootstrap)
+{
+	nano::system system (24000, 1);
+	auto & node1 (*system.nodes[0]);
+	nano::genesis genesis;
+	nano::keypair destination;
+	auto send1 (std::make_shared<nano::state_block> (nano::genesis_account, genesis.hash (), nano::genesis_account, nano::genesis_amount - nano::Gxrb_ratio, destination.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
+	node1.work_generate_blocking (*send1);
+	auto send2 (std::make_shared<nano::state_block> (nano::genesis_account, send1->hash (), nano::genesis_account, nano::genesis_amount - 2 * nano::Gxrb_ratio, destination.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
+	node1.work_generate_blocking (*send2);
+	auto send3 (std::make_shared<nano::state_block> (nano::genesis_account, send2->hash (), nano::genesis_account, nano::genesis_amount - 3 * nano::Gxrb_ratio, destination.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
+	node1.work_generate_blocking (*send3);
+	auto open1 (std::make_shared<nano::open_block> (send1->hash (), destination.pub, destination.pub, destination.prv, destination.pub, 0));
+	node1.work_generate_blocking (*open1);
+
+	// Receive
+	auto receive1 (std::make_shared<nano::receive_block> (open1->hash (), send2->hash (), destination.prv, destination.pub, 0));
+	node1.work_generate_blocking (*receive1);
+	auto receive2 (std::make_shared<nano::receive_block> (receive1->hash (), send3->hash (), destination.prv, destination.pub, 0));
+	node1.work_generate_blocking (*receive2);
+
+	node1.block_processor.add (send1);
+	node1.block_processor.add (send2);
+	node1.block_processor.add (send3);
+	node1.block_processor.add (receive1);
+	node1.block_processor.flush ();
+
+	// Receive 2 comes in on the live network, however the chain has not been finished so it gets added to unchecked
+	node1.process_active (receive2);
+	node1.block_processor.flush ();
+
+	// Confirmation heights should not be updated
+	{
+		auto transaction (node1.store.tx_begin ());
+		auto unchecked_count (node1.store.unchecked_count (transaction));
+		ASSERT_EQ (unchecked_count, 2);
+
+		nano::account_info account_info;
+		ASSERT_FALSE (node1.store.account_get (transaction, nano::test_genesis_key.pub, account_info));
+		ASSERT_EQ (0, account_info.confirmation_height);
+	}
+
+	// Now complete the chain where the block comes in on the bootstrap network.
+	node1.block_processor.add (open1);
+	node1.block_processor.flush ();
+
+	// Confirmation height should still be 0 and unchecked should now be 0
+	{
+		auto transaction (node1.store.tx_begin ());
+		auto unchecked_count (node1.store.unchecked_count (transaction));
+		ASSERT_EQ (unchecked_count, 0);
+
+		nano::account_info account_info;
+		ASSERT_FALSE (node1.store.account_get (transaction, nano::test_genesis_key.pub, account_info));
+		ASSERT_EQ (0, account_info.confirmation_height);
+		ASSERT_FALSE (node1.store.account_get (transaction, destination.pub, account_info));
+		ASSERT_EQ (0, account_info.confirmation_height);
+	}
+}
+
+TEST (confirmation_height, gap_live)
+{
+	nano::system system (24000, 2);
+	nano::keypair destination;
+	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
+	nano::block_hash latest1 (system.nodes[0]->latest (nano::test_genesis_key.pub));
+	system.wallet (1)->insert_adhoc (destination.prv);
+
+	nano::genesis genesis;
+	auto send1 (std::make_shared<nano::state_block> (nano::genesis_account, genesis.hash (), nano::genesis_account, nano::genesis_amount - nano::Gxrb_ratio, destination.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
+	auto send2 (std::make_shared<nano::state_block> (nano::genesis_account, send1->hash (), nano::genesis_account, nano::genesis_amount - 2 * nano::Gxrb_ratio, destination.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
+	auto send3 (std::make_shared<nano::state_block> (nano::genesis_account, send2->hash (), nano::genesis_account, nano::genesis_amount - 3 * nano::Gxrb_ratio, destination.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
+
+	auto open1 (std::make_shared<nano::open_block> (send1->hash (), destination.pub, destination.pub, destination.prv, destination.pub, 0));
+	auto receive1 (std::make_shared<nano::receive_block> (open1->hash (), send2->hash (), destination.prv, destination.pub, 0));
+	auto receive2 (std::make_shared<nano::receive_block> (receive1->hash (), send3->hash (), destination.prv, destination.pub, 0));
+
+	for (auto & node : system.nodes)
+	{
+		node->work_generate_blocking (*send1);
+		node->work_generate_blocking (*send2);
+		node->work_generate_blocking (*send3);
+		node->work_generate_blocking (*open1);
+		node->work_generate_blocking (*receive1);
+		node->work_generate_blocking (*receive2);
+
+		node->block_processor.add (send1);
+		node->block_processor.add (send2);
+		node->block_processor.add (send3);
+		node->block_processor.add (receive1);
+		node->block_processor.flush ();
+
+		// Receive 2 comes in on the live network, however the chain has not been finished so it gets added to unchecked
+		node->process_active (receive2);
+		node->block_processor.flush ();
+
+		// Confirmation heights should not be updated
+		{
+			auto transaction = node->store.tx_begin_read ();
+			nano::account_info account_info;
+			ASSERT_FALSE (node->store.account_get (transaction, nano::test_genesis_key.pub, account_info));
+			ASSERT_EQ (0, account_info.confirmation_height);
+		}
+
+		// Now complete the chain where the block comes in on the live network
+		node->process_active (open1);
+		node->block_processor.flush ();
+
+		system.deadline_set (10s);
+		while (true)
+		{
+			auto transaction = node->store.tx_begin_read ();
+			if (node->ledger.block_confirmed (transaction, open1->hash ()))
+			{
+				break;
+			}
+
+			ASSERT_NO_ERROR (system.poll ());
+		}
+
+		// This should confirm the open block and the source of the receive blocks
+		{
+			auto transaction (node->store.tx_begin ());
+			auto unchecked_count (node->store.unchecked_count (transaction));
+			ASSERT_EQ (unchecked_count, 0);
+
+			nano::account_info account_info;
+			ASSERT_FALSE (node->store.account_get (transaction, nano::test_genesis_key.pub, account_info));
+			ASSERT_EQ (4, account_info.block_count);
+			ASSERT_EQ (2, account_info.confirmation_height);
+			ASSERT_FALSE (node->store.account_get (transaction, destination.pub, account_info));
+			ASSERT_EQ (1, account_info.confirmation_height);
+			ASSERT_EQ (3, account_info.block_count);
+		}
+	}
+}
