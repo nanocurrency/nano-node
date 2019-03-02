@@ -2334,6 +2334,7 @@ public:
 								boost::property_tree::ptree request;
 								request.put ("action", "work_generate");
 								request.put ("hash", this_l->root.to_string ());
+								request.put ("difficulty", nano::to_string_hex (this_l->difficulty));
 								std::stringstream ostream;
 								boost::property_tree::write_json (ostream, request);
 								request_string = ostream.str ();
@@ -2430,14 +2431,15 @@ public:
 			uint64_t work;
 			if (!nano::from_string_hex (work_text, work))
 			{
-				if (!nano::work_validate (root, work))
+				uint64_t result_difficulty (0);
+				if (!nano::work_validate (root, work, &result_difficulty) && result_difficulty >= difficulty)
 				{
 					set_once (work);
 					stop ();
 				}
 				else
 				{
-					node->logger.try_log (boost::str (boost::format ("Incorrect work response from %1% for root %2%: %3%") % address % root.to_string () % work_text));
+					node->logger.try_log (boost::str (boost::format ("Incorrect work response from %1% for root %2% with diffuculty %3%: %4%") % address % root.to_string () % nano::to_string_hex (difficulty) % work_text));
 					handle_failure (last);
 				}
 			}
