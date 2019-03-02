@@ -70,7 +70,7 @@ bool nano::peer_container::contacted (nano::endpoint const & endpoint_a, unsigne
 	{
 		std::lock_guard<std::mutex> lock (mutex);
 
-		if (peers.get<nano::peer_by_ip_addr> ().count (endpoint_l.address ()) < max_peers_per_ip)
+		if (peers.get<nano::peer_container::id_address_tag> ().count (endpoint_l.address ()) < max_peers_per_ip)
 		{
 			should_handshake = true;
 		}
@@ -135,12 +135,12 @@ nano::endpoint nano::peer_container::bootstrap_peer ()
 	nano::endpoint result (boost::asio::ip::address_v6::any (), 0);
 	std::lock_guard<std::mutex> lock (mutex);
 	;
-	for (auto i (peers.get<4> ().begin ()), n (peers.get<4> ().end ()); i != n;)
+	for (auto i (peers.get<nano::peer_container::last_bootstrap_attempt_tag> ().begin ()), n (peers.get<nano::peer_container::last_bootstrap_attempt_tag> ().end ()); i != n;)
 	{
 		if (i->network_version >= protocol_version_reasonable_min)
 		{
 			result = i->endpoint ();
-			peers.get<4> ().modify (i, [](nano::peer_information & peer_a) {
+			peers.get<nano::peer_container::last_bootstrap_attempt_tag> ().modify (i, [](nano::peer_information & peer_a) {
 				peer_a.last_bootstrap_attempt = std::chrono::steady_clock::now ();
 			});
 			i = n;
@@ -214,11 +214,11 @@ std::unordered_set<std::shared_ptr<nano::transport::channel_udp>> nano::peer_con
 		for (auto i (0); i < random_cutoff && result.size () < count_a; ++i)
 		{
 			auto index (random_pool.GenerateWord32 (0, static_cast<CryptoPP::word32> (peers_size - 1)));
-			result.insert (peers.get<3> ()[index].sink);
+			result.insert (peers.get<nano::peer_container::random_access_tag> ()[index].sink);
 		}
 	}
 	// Fill the remainder with most recent contact
-	for (auto i (peers.get<1> ().begin ()), n (peers.get<1> ().end ()); i != n && result.size () < count_a; ++i)
+	for (auto i (peers.get<nano::peer_container::last_contact_tag> ().begin ()), n (peers.get<nano::peer_container::last_contact_tag> ().end ()); i != n && result.size () < count_a; ++i)
 	{
 		result.insert (i->sink);
 	}
@@ -247,7 +247,7 @@ std::vector<nano::peer_information> nano::peer_container::representatives (size_
 	std::vector<peer_information> result;
 	result.reserve (std::min (count_a, size_t (16)));
 	std::lock_guard<std::mutex> lock (mutex);
-	for (auto i (peers.get<6> ().begin ()), n (peers.get<6> ().end ()); i != n && result.size () < count_a; ++i)
+	for (auto i (peers.get<nano::peer_container::rep_weight_tag> ().begin ()), n (peers.get<nano::peer_container::rep_weight_tag> ().end ()); i != n && result.size () < count_a; ++i)
 	{
 		if (!i->rep_weight.is_zero ())
 		{
@@ -289,14 +289,14 @@ std::vector<nano::peer_information> nano::peer_container::purge_list (std::chron
 	std::vector<nano::peer_information> result;
 	{
 		std::lock_guard<std::mutex> lock (mutex);
-		auto pivot (peers.get<1> ().lower_bound (cutoff));
-		result.assign (pivot, peers.get<1> ().end ());
+		auto pivot (peers.get<nano::peer_container::last_contact_tag> ().lower_bound (cutoff));
+		result.assign (pivot, peers.get<nano::peer_container::last_contact_tag> ().end ());
 		// Remove peers that haven't been heard from past the cutoff
-		for (auto i (peers.get<1> ().begin ()); i != pivot; ++i)
+		for (auto i (peers.get<nano::peer_container::last_contact_tag> ().begin ()); i != pivot; ++i)
 		{
 			node.network.udp_channels.erase (i->endpoint ());
 		}
-		peers.get<1> ().erase (peers.get<1> ().begin (), pivot);
+		peers.get<nano::peer_container::last_contact_tag> ().erase (peers.get<nano::peer_container::last_contact_tag> ().begin (), pivot);
 		for (auto i (peers.begin ()), n (peers.end ()); i != n; ++i)
 		{
 			peers.modify (i, [](nano::peer_information & info) { info.last_attempt = std::chrono::steady_clock::now (); });
@@ -321,7 +321,7 @@ std::vector<std::shared_ptr<nano::transport::channel>> nano::peer_container::rep
 	result.reserve (max_count);
 	std::lock_guard<std::mutex> lock (mutex);
 	uint16_t count (0);
-	for (auto i (peers.get<5> ().begin ()), n (peers.get<5> ().end ()); i != n && count < max_count; ++i, ++count)
+	for (auto i (peers.get<nano::peer_container::last_rep_request_tag> ().begin ()), n (peers.get<nano::peer_container::last_rep_request_tag> ().end ()); i != n && count < max_count; ++i, ++count)
 	{
 		result.push_back (i->sink);
 	};
@@ -344,7 +344,7 @@ std::vector<nano::peer_information> nano::peer_container::list_probable_rep_weig
 	std::vector<nano::peer_information> result;
 	std::unordered_set<nano::account> probable_reps;
 	std::lock_guard<std::mutex> lock (mutex);
-	for (auto i (peers.get<6> ().begin ()), n (peers.get<6> ().end ()); i != n; ++i)
+	for (auto i (peers.get<nano::peer_container::rep_weight_tag> ().begin ()), n (peers.get<nano::peer_container::rep_weight_tag> ().end ()); i != n; ++i)
 	{
 		// Calculate if representative isn't recorded for several IP addresses
 		if (probable_reps.find (i->probable_rep_account) == probable_reps.end ())
@@ -469,7 +469,7 @@ bool nano::peer_container::insert (nano::endpoint const & endpoint_a, unsigned v
 			{
 				if (!result && !nano::is_test_network)
 				{
-					auto ip_peers (peers.get<nano::peer_by_ip_addr> ().count (endpoint_a.address ()));
+					auto ip_peers (peers.get<nano::peer_container::id_address_tag> ().count (endpoint_a.address ()));
 					if (ip_peers >= max_peers_per_ip)
 					{
 						result = true;

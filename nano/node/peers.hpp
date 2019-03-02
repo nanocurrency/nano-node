@@ -24,12 +24,8 @@ namespace transport
 {
 	class channel_udp;
 }
-nano::endpoint map_endpoint_to_v6 (nano::endpoint const &);
 
-/** Multi-index helper */
-class peer_by_ip_addr
-{
-};
+nano::endpoint map_endpoint_to_v6 (nano::endpoint const &);
 
 /** Multi-index helper */
 class peer_attempt
@@ -73,6 +69,30 @@ public:
 class peer_container
 {
 public:
+	class id_address_tag
+	{
+	};
+	class rep_weight_tag
+	{
+	};
+	class last_rep_request_tag
+	{
+	};
+	class last_bootstrap_attempt_tag
+	{
+	};
+	class last_attempt_tag
+	{
+	};
+	class last_contact_tag
+	{
+	};
+	class sink_ref_tag
+	{
+	};
+	class random_access_tag
+	{
+	};
 	peer_container (nano::node &);
 	// We were contacted by endpoint, update peers
 	// Returns true if a Node ID handshake should begin
@@ -118,14 +138,13 @@ public:
 	boost::multi_index_container<
 	peer_information,
 	boost::multi_index::indexed_by<
-	boost::multi_index::hashed_unique<boost::multi_index::const_mem_fun<peer_information, std::reference_wrapper<nano::transport::channel const>, &peer_information::sink_ref>>,
-	boost::multi_index::ordered_non_unique<boost::multi_index::member<peer_information, std::chrono::steady_clock::time_point, &peer_information::last_contact>>,
-	boost::multi_index::ordered_non_unique<boost::multi_index::member<peer_information, std::chrono::steady_clock::time_point, &peer_information::last_attempt>, std::greater<std::chrono::steady_clock::time_point>>,
-	boost::multi_index::random_access<>,
-	boost::multi_index::ordered_non_unique<boost::multi_index::member<peer_information, std::chrono::steady_clock::time_point, &peer_information::last_bootstrap_attempt>>,
-	boost::multi_index::ordered_non_unique<boost::multi_index::member<peer_information, std::chrono::steady_clock::time_point, &peer_information::last_rep_request>>,
-	boost::multi_index::ordered_non_unique<boost::multi_index::member<peer_information, nano::amount, &peer_information::rep_weight>, std::greater<nano::amount>>,
-	boost::multi_index::ordered_non_unique<boost::multi_index::tag<peer_by_ip_addr>, boost::multi_index::const_mem_fun<peer_information, boost::asio::ip::address, &peer_information::ip_address>>>>
+	boost::multi_index::hashed_unique<boost::multi_index::tag<sink_ref_tag>, boost::multi_index::const_mem_fun<peer_information, std::reference_wrapper<nano::transport::channel const>, &peer_information::sink_ref>>,
+	boost::multi_index::ordered_non_unique<boost::multi_index::tag<last_contact_tag>, boost::multi_index::member<peer_information, std::chrono::steady_clock::time_point, &peer_information::last_contact>>,
+	boost::multi_index::random_access<boost::multi_index::tag<random_access_tag>>,
+	boost::multi_index::ordered_non_unique<boost::multi_index::tag<last_bootstrap_attempt_tag>, boost::multi_index::member<peer_information, std::chrono::steady_clock::time_point, &peer_information::last_bootstrap_attempt>>,
+	boost::multi_index::ordered_non_unique<boost::multi_index::tag<last_rep_request_tag>, boost::multi_index::member<peer_information, std::chrono::steady_clock::time_point, &peer_information::last_rep_request>>,
+	boost::multi_index::ordered_non_unique<boost::multi_index::tag<rep_weight_tag>, boost::multi_index::member<peer_information, nano::amount, &peer_information::rep_weight>, std::greater<nano::amount>>,
+	boost::multi_index::ordered_non_unique<boost::multi_index::tag<id_address_tag>, boost::multi_index::const_mem_fun<peer_information, boost::asio::ip::address, &peer_information::ip_address>>>>
 	peers;
 	boost::multi_index_container<
 	peer_attempt,
