@@ -334,7 +334,7 @@ public:
 	void republish_block_batch (std::deque<std::shared_ptr<nano::block>>, unsigned = broadcast_interval_ms);
 	void merge_peers (std::array<nano::endpoint, 8> const &);
 	void send_keepalive (nano::transport::channel const &);
-	void send_node_id_handshake (nano::transport::channel const &, boost::optional<nano::uint256_union> const & query, boost::optional<nano::uint256_union> const & respond_to);
+	void send_node_id_handshake (nano::endpoint const &, boost::optional<nano::uint256_union> const & query, boost::optional<nano::uint256_union> const & respond_to);
 	void broadcast_confirm_req (std::shared_ptr<nano::block>);
 	void broadcast_confirm_req_base (std::shared_ptr<nano::block>, std::shared_ptr<std::vector<nano::peer_information>>, unsigned, bool = false);
 	void broadcast_confirm_req_batch (std::unordered_map<std::shared_ptr<nano::transport::channel>, std::vector<std::pair<nano::block_hash, nano::block_hash>>>, unsigned = broadcast_interval_ms, bool = false);
@@ -349,6 +349,7 @@ public:
 	std::vector<boost::thread> packet_processing_threads;
 	nano::node & node;
 	std::atomic<bool> on;
+	nano::transport::udp_channels udp_channels;
 	static uint16_t const node_port = nano::is_live_network ? 7075 : 54000;
 	static size_t const buffer_size = 512;
 	static size_t const confirm_req_hashes_max = 6;

@@ -79,8 +79,6 @@ public:
 	bool contacted (nano::endpoint const &, unsigned);
 	// Unassigned, reserved, self
 	bool not_a_peer (nano::endpoint const &, bool);
-	// Returns true if peer was already known
-	bool known_peer (nano::transport::channel const &);
 	// Notify of peer we received from
 	bool insert (nano::endpoint const &, unsigned, bool = false, boost::optional<nano::account> = boost::none);
 	std::unordered_set<std::shared_ptr<nano::transport::channel_udp>> random_set (size_t);

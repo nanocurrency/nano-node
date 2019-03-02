@@ -24,5 +24,17 @@ namespace transport
 		nano::node & node;
 		nano::endpoint endpoint;
 	};
+	class udp_channels
+	{
+	public:
+		void add (nano::endpoint const &, std::shared_ptr<nano::transport::channel_udp>);
+		void erase (nano::endpoint const &);
+		size_t size () const;
+		std::shared_ptr<nano::transport::channel_udp> channel (nano::endpoint const &) const;
+
+	private:
+		mutable std::mutex mutex;
+		std::unordered_map<nano::endpoint, std::shared_ptr<nano::transport::channel_udp>> channels;
+	};
 } // namespace transport
 } // namespace nano

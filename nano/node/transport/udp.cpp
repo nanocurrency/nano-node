@@ -57,3 +57,33 @@ std::string nano::transport::channel_udp::to_string () const
 {
 	return boost::str (boost::format ("UDP: %1%") % endpoint);
 }
+
+void nano::transport::udp_channels::add (nano::endpoint const & endpoint_a, std::shared_ptr<nano::transport::channel_udp> channel_a)
+{
+	std::lock_guard<std::mutex> lock (mutex);
+	channels.insert (std::make_pair (endpoint_a, channel_a));
+}
+
+void nano::transport::udp_channels::erase (nano::endpoint const & endpoint_a)
+{
+	std::lock_guard<std::mutex> lock (mutex);
+	channels.erase (endpoint_a);
+}
+
+size_t nano::transport::udp_channels::size () const
+{
+	std::lock_guard<std::mutex> lock (mutex);
+	return channels.size ();
+}
+
+std::shared_ptr<nano::transport::channel_udp> nano::transport::udp_channels::channel (nano::endpoint const & endpoint_a) const
+{
+	std::lock_guard<std::mutex> lock (mutex);
+	std::shared_ptr<nano::transport::channel_udp> result;
+	auto existing (channels.find (endpoint_a));
+	if (existing != channels.end ())
+	{
+		result = existing->second;
+	}
+	return result;
+}

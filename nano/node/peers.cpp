@@ -66,7 +66,7 @@ bool nano::peer_container::contacted (nano::endpoint const & endpoint_a, unsigne
 	{
 		insert (endpoint_l, version_a);
 	}
-	else if (!known_peer (sink))
+	else if (node.network.udp_channels.channel (endpoint_a) == nullptr)
 	{
 		std::lock_guard<std::mutex> lock (mutex);
 
@@ -88,13 +88,6 @@ bool nano::peer_container::contacted (nano::endpoint const & endpoint_a, unsigne
 		}
 	}
 	return should_handshake;
-}
-
-bool nano::peer_container::known_peer (nano::transport::channel const & sink_a)
-{
-	std::lock_guard<std::mutex> lock (mutex);
-	auto existing (peers.find (std::reference_wrapper<nano::transport::channel const> (sink_a)));
-	return existing != peers.end ();
 }
 
 // Simulating with sqrt_broadcast_simulate shows we only need to broadcast to sqrt(total_peers) random peers in order to successfully publish to everyone with high probability
@@ -299,6 +292,10 @@ std::vector<nano::peer_information> nano::peer_container::purge_list (std::chron
 		auto pivot (peers.get<1> ().lower_bound (cutoff));
 		result.assign (pivot, peers.get<1> ().end ());
 		// Remove peers that haven't been heard from past the cutoff
+		for (auto i (peers.get<1> ().begin ()); i != pivot; ++i)
+		{
+			node.network.udp_channels.erase (i->endpoint ());
+		}
 		peers.get<1> ().erase (peers.get<1> ().begin (), pivot);
 		for (auto i (peers.begin ()), n (peers.end ()); i != n; ++i)
 		{
@@ -436,7 +433,7 @@ bool nano::peer_container::reachout (nano::endpoint const & endpoint_a)
 		auto endpoint_l (nano::map_endpoint_to_v6 (endpoint_a));
 		// Don't keepalive to nodes that already sent us something
 		nano::transport::channel_udp sink (node, endpoint_l);
-		error |= known_peer (sink);
+		error |= node.network.udp_channels.channel (endpoint_l) != nullptr;
 		std::lock_guard<std::mutex> lock (mutex);
 		auto existing (attempts.find (endpoint_l));
 		error |= existing != attempts.end ();
@@ -482,6 +479,7 @@ bool nano::peer_container::insert (nano::endpoint const & endpoint_a, unsigned v
 				{
 					new_peer = std::make_shared<nano::transport::channel_udp> (node, endpoint_a);
 					peers.insert (nano::peer_information (new_peer, version_a, node_id_a));
+					node.network.udp_channels.add (endpoint_a, new_peer);
 				}
 			}
 		}
