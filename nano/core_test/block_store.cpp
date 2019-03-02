@@ -1623,7 +1623,7 @@ TEST (block_store, upgrade_confirmation_height_many)
 			nano::open_block open (1, 2, 3, nullptr);
 			nano::account_info_v13 account_info_v13 (open.hash (), open.hash (), open.hash (), 3, 4, 1, nano::epoch::epoch_1);
 			auto status (mdb_put (store.env.tx (transaction), store.accounts_v1, nano::mdb_val (account), nano::mdb_val (account_info_v13), 0));
-			release_assert (status == 0);
+			ASSERT_EQ (status, 0);
 		}
 
 		ASSERT_EQ (store.account_count (transaction), total_num_accounts);
