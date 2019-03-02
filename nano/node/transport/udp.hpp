@@ -33,8 +33,24 @@ namespace transport
 		std::shared_ptr<nano::transport::channel_udp> channel (nano::endpoint const &) const;
 
 	private:
+		class endpoint_tag
+		{
+		};
+		class channel_udp_wrapper
+		{
+		public:
+			std::shared_ptr<nano::transport::channel_udp> channel;
+			nano::endpoint endpoint () const
+			{
+				return channel->endpoint;
+			}
+		};
 		mutable std::mutex mutex;
-		std::unordered_map<nano::endpoint, std::shared_ptr<nano::transport::channel_udp>> channels;
+		boost::multi_index_container<
+		channel_udp_wrapper,
+		boost::multi_index::indexed_by<
+		boost::multi_index::hashed_unique<boost::multi_index::tag<endpoint_tag>, boost::multi_index::const_mem_fun<channel_udp_wrapper, nano::endpoint, &channel_udp_wrapper::endpoint>>>>
+		channels;
 	};
 } // namespace transport
 } // namespace nano
