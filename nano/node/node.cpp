@@ -2669,10 +2669,7 @@ void nano::node::process_confirmed (std::shared_ptr<nano::block> block_a, uint8_
 	auto hash (block_a->hash ());
 	if (ledger.block_exists (block_a->type (), hash))
 	{
-		{
-			auto transaction (store.tx_begin_write ());
-			add_confirmation_heights (transaction, hash);
-		}
+		add_confirmation_heights (hash);
 
 		auto transaction (store.tx_begin_read ());
 		confirmed_visitor visitor (transaction, *this, block_a, hash);
@@ -3747,8 +3744,9 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (active_transaction
  * For all the blocks below this height which have been implicitly confirmed check if they
  * are open/receive blocks, and if so follow the source blocks and iteratively repeat to genesis.
  */
-void nano::node::add_confirmation_heights (nano::transaction const & transaction, nano::block_hash const & hash)
+void nano::node::add_confirmation_heights (nano::block_hash const & hash)
 {
+	auto transaction (store.tx_begin_write ());
 	std::stack<nano::block_hash, std::vector<nano::block_hash>> open_receive_blocks;
 	auto current = hash;
 
