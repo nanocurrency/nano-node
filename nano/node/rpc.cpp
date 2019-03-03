@@ -782,8 +782,7 @@ void nano::rpc_handler::accounts_pending ()
 			for (auto i (node.store.pending_begin (transaction, nano::pending_key (account, 0))); nano::pending_key (i->first).account == account && peers_l.size () < count; ++i)
 			{
 				nano::pending_key key (i->first);
-				std::shared_ptr<nano::block> block (include_active ? nullptr : node.store.block_get (transaction, key.hash));
-				if (include_active || (block && !node.active.active (*block)))
+				if (include_active || node.ledger.block_confirmed (transaction, key.hash))
 				{
 					if (threshold.is_zero () && !source)
 					{
@@ -2342,8 +2341,7 @@ void nano::rpc_handler::pending ()
 		for (auto i (node.store.pending_begin (transaction, nano::pending_key (account, 0))); nano::pending_key (i->first).account == account && peers_l.size () < count; ++i)
 		{
 			nano::pending_key key (i->first);
-			std::shared_ptr<nano::block> block (include_active ? nullptr : node.store.block_get (transaction, key.hash));
-			if (include_active || (block && !node.active.active (*block)))
+			if (include_active || node.ledger.block_confirmed (transaction, key.hash))
 			{
 				if (threshold.is_zero () && !source && !min_version)
 				{
@@ -2399,7 +2397,7 @@ void nano::rpc_handler::pending_exists ()
 			{
 				exists = node.store.pending_exists (transaction, nano::pending_key (destination, hash));
 			}
-			exists = exists && (include_active || !node.active.active (*block));
+			exists = exists && (include_active || node.ledger.block_confirmed (transaction, hash));
 			response_l.put ("exists", exists ? "1" : "0");
 		}
 		else
@@ -3970,8 +3968,7 @@ void nano::rpc_handler::wallet_pending ()
 			for (auto ii (node.store.pending_begin (block_transaction, nano::pending_key (account, 0))); nano::pending_key (ii->first).account == account && peers_l.size () < count; ++ii)
 			{
 				nano::pending_key key (ii->first);
-				std::shared_ptr<nano::block> block (include_active ? nullptr : node.store.block_get (block_transaction, key.hash));
-				if (include_active || (block && !node.active.active (*block)))
+				if (include_active || node.ledger.block_confirmed (block_transaction, key.hash))
 				{
 					if (threshold.is_zero () && !source)
 					{
