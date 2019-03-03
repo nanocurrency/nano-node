@@ -2664,6 +2664,12 @@ public:
 };
 }
 
+void nano::node::receive_confirmed (nano::transaction const & transaction_a, std::shared_ptr<nano::block> block_a, nano::block_hash const & hash_a)
+{
+	confirmed_visitor visitor (transaction_a, *this, block_a, hash_a);
+	block_a->visit (visitor);
+}
+
 void nano::node::process_confirmed (std::shared_ptr<nano::block> block_a, uint8_t iteration)
 {
 	auto hash (block_a->hash ());
@@ -2672,8 +2678,7 @@ void nano::node::process_confirmed (std::shared_ptr<nano::block> block_a, uint8_
 		add_confirmation_heights (hash);
 
 		auto transaction (store.tx_begin_read ());
-		confirmed_visitor visitor (transaction, *this, block_a, hash);
-		block_a->visit (visitor);
+		receive_confirmed (transaction, block_a, hash);
 		auto account (ledger.account (transaction, hash));
 		auto amount (ledger.amount (transaction, hash));
 		bool is_state_send (false);
@@ -3780,10 +3785,15 @@ void nano::node::add_confirmation_heights (nano::block_hash const & hash_a)
 							nano::block_hash previous (state->hashables.previous);
 							if (!previous.is_zero ())
 							{
-								if (state->hashables.balance > ledger.balance (transaction, previous))
+								if (state->hashables.balance.number () >= ledger.balance (transaction, previous) && !state->hashables.link.is_zero () && !ledger.is_epoch_link (state->hashables.link))
 								{
 									open_receive_blocks.push (state->hashables.link);
 								}
+							}
+							// State open blocks are always receive or epoch
+							else if (!ledger.is_epoch_link (state->hashables.link))
+							{
+								open_receive_blocks.push (state->hashables.link);
 							}
 						}
 					}

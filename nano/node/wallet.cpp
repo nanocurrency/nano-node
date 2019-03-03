@@ -1221,7 +1221,21 @@ bool nano::wallet::search_pending ()
 					if (wallets.node.config.receive_minimum.number () <= amount)
 					{
 						wallets.node.logger.try_log (boost::str (boost::format ("Found a pending block %1% for account %2%") % hash.to_string () % pending.source.to_account ()));
-						wallets.node.block_confirm (wallets.node.store.block_get (block_transaction, hash));
+						auto block (wallets.node.store.block_get (block_transaction, hash));
+						if (wallets.node.ledger.block_confirmed (block_transaction, hash))
+						{
+							// Receive confirmed block
+							auto node_l (wallets.node.shared ());
+							wallets.node.background ([node_l, block, hash]() {
+								auto transaction (node_l->store.tx_begin_read ());
+								node_l->receive_confirmed (transaction, block, hash);
+							});
+						}
+						else
+						{
+							// Request confirmation for unconfirmed block
+							wallets.node.block_confirm (block);
+						}
 					}
 				}
 			}
