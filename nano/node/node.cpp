@@ -3757,17 +3757,6 @@ void nano::node::add_confirmation_heights (nano::block_hash const & hash)
 		{
 			current = open_receive_blocks.top ();
 			open_receive_blocks.pop ();
-
-			auto block (store.block_get (transaction, current));
-			if (block != nullptr)
-			{
-				nano::block_hash source_hash = block->source ();
-				auto source_block (store.block_get (transaction, source_hash));
-				if (source_block != nullptr)
-				{
-					current = source_block->hash ();
-				}
-			}
 		}
 
 		auto hash (current);
