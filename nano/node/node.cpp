@@ -1701,7 +1701,7 @@ void nano::node::process_fork (nano::transaction const & transaction_a, std::sha
 	if (!store.block_exists (transaction_a, block_a->type (), block_a->hash ()) && store.root_exists (transaction_a, block_a->root ()))
 	{
 		std::shared_ptr<nano::block> ledger_block (ledger.forked_block (transaction_a, *block_a));
-		if (ledger_block)
+		if (ledger_block && !ledger.block_confirmed (transaction_a, ledger_block->hash ()))
 		{
 			std::weak_ptr<nano::node> this_w (shared_from_this ());
 			if (!active.start (ledger_block, [this_w, root](std::shared_ptr<nano::block>) {
