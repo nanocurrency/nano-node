@@ -355,6 +355,45 @@ TEST (node, search_pending_multiple)
 	}
 }
 
+TEST (node, search_pending_confirmed)
+{
+	nano::system system (24000, 1);
+	auto node (system.nodes[0]);
+	nano::keypair key2;
+	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
+	auto send1 (system.wallet (0)->send_action (nano::test_genesis_key.pub, key2.pub, node->config.receive_minimum.number ()));
+	ASSERT_NE (nullptr, send1);
+	auto send2 (system.wallet (0)->send_action (nano::test_genesis_key.pub, key2.pub, node->config.receive_minimum.number ()));
+	ASSERT_NE (nullptr, send2);
+	system.deadline_set (10s);
+	while (!node->active.empty ())
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	{
+		auto transaction (node->store.tx_begin_read ());
+		ASSERT_TRUE (node->ledger.block_confirmed (transaction, send2->hash ()));
+	}
+	{
+		auto transaction (node->wallets.tx_begin_write ());
+		system.wallet (0)->store.erase (transaction, nano::test_genesis_key.pub);
+	}
+	system.wallet (0)->insert_adhoc (key2.prv);
+	ASSERT_FALSE (system.wallet (0)->search_pending ());
+	{
+		std::lock_guard<std::mutex> guard (node->active.mutex);
+		auto existing1 (node->active.blocks.find (send1->hash ()));
+		ASSERT_EQ (node->active.blocks.end (), existing1);
+		auto existing2 (node->active.blocks.find (send2->hash ()));
+		ASSERT_EQ (node->active.blocks.end (), existing2);
+	}
+	system.deadline_set (10s);
+	while (node->balance (key2.pub) != 2 * node->config.receive_minimum.number ())
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+}
+
 TEST (node, unlock_search)
 {
 	nano::system system (24000, 1);
