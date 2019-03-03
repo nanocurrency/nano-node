@@ -176,7 +176,7 @@ TEST (network, send_discarded_publish)
 	nano::genesis genesis;
 	{
 		auto transaction (system.nodes[0]->store.tx_begin ());
-		system.nodes[0]->network.republish_block (block);
+		system.nodes[0]->network.flood_block (block);
 		ASSERT_EQ (genesis.hash (), system.nodes[0]->ledger.latest (transaction, nano::test_genesis_key.pub));
 		ASSERT_EQ (genesis.hash (), system.nodes[1]->latest (nano::test_genesis_key.pub));
 	}
@@ -197,7 +197,7 @@ TEST (network, send_invalid_publish)
 	auto block (std::make_shared<nano::send_block> (1, 1, 20, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (1)));
 	{
 		auto transaction (system.nodes[0]->store.tx_begin ());
-		system.nodes[0]->network.republish_block (block);
+		system.nodes[0]->network.flood_block (block);
 		ASSERT_EQ (genesis.hash (), system.nodes[0]->ledger.latest (transaction, nano::test_genesis_key.pub));
 		ASSERT_EQ (genesis.hash (), system.nodes[1]->latest (nano::test_genesis_key.pub));
 	}

@@ -327,8 +327,17 @@ public:
 	void stop ();
 	void receive_action (nano::message_buffer *, nano::endpoint const &);
 	void rpc_action (boost::system::error_code const &, size_t);
-	void republish_vote (std::shared_ptr<nano::vote>);
-	void republish_block (std::shared_ptr<nano::block>);
+	void flood_message (nano::message const &);
+	void flood_vote (std::shared_ptr<nano::vote> vote_a)
+	{
+		nano::confirm_ack message (vote_a);
+		flood_message (message);
+	}
+	void flood_block (std::shared_ptr<nano::block> block_a)
+	{
+		nano::publish publish (block_a);
+		flood_message (publish);
+	}
 	void republish_block (nano::transport::channel const &, std::shared_ptr<nano::block>);
 	static unsigned const broadcast_interval_ms = 10;
 	void republish_block_batch (std::deque<std::shared_ptr<nano::block>>, unsigned = broadcast_interval_ms);
