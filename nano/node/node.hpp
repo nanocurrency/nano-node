@@ -529,6 +529,9 @@ public:
 	static std::chrono::seconds constexpr peer_interval = search_pending_interval;
 	static std::chrono::hours constexpr unchecked_cleanup_interval = std::chrono::hours (1);
 	static std::chrono::milliseconds constexpr process_confirmed_interval = nano::is_test_network ? std::chrono::milliseconds (50) : std::chrono::milliseconds (500);
+
+private:
+	void add_confirmation_heights (nano::transaction const & transaction, nano::block_hash const & hash);
 };
 
 std::unique_ptr<seq_con_info_component> collect_seq_con_info (node & node, const std::string & name);

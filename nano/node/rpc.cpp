@@ -491,6 +491,7 @@ void nano::rpc_handler::account_info ()
 			response_l.put ("modified_timestamp", std::to_string (info.modified));
 			response_l.put ("block_count", std::to_string (info.block_count));
 			response_l.put ("account_version", info.epoch == nano::epoch::epoch_1 ? "1" : "0");
+			response_l.put ("confirmation_height", std::to_string (info.confirmation_height));
 			if (representative)
 			{
 				auto block (node.store.block_get (transaction, info.rep_block));
@@ -1061,6 +1062,25 @@ void nano::rpc_handler::block_account ()
 		{
 			auto account (node.ledger.account (transaction, hash));
 			response_l.put ("account", account.to_account ());
+		}
+		else
+		{
+			ec = nano::error_blocks::not_found;
+		}
+	}
+	response_errors ();
+}
+
+void nano::rpc_handler::block_confirmed ()
+{
+	auto hash (hash_impl ());
+	if (!ec)
+	{
+		auto transaction (node.store.tx_begin_read ());
+		if (node.store.block_exists (transaction, hash))
+		{
+			auto confirmed (node.ledger.block_confirmed (transaction, hash));
+			response_l.put ("confirmed", confirmed);
 		}
 		else
 		{
@@ -4655,6 +4675,7 @@ rpc_handler_no_arg_func_map create_rpc_handler_no_arg_func_map ()
 	no_arg_funcs.emplace ("blocks", &nano::rpc_handler::blocks);
 	no_arg_funcs.emplace ("blocks_info", &nano::rpc_handler::blocks_info);
 	no_arg_funcs.emplace ("block_account", &nano::rpc_handler::block_account);
+	no_arg_funcs.emplace ("block_confirmed", &nano::rpc_handler::block_confirmed);
 	no_arg_funcs.emplace ("block_count", &nano::rpc_handler::block_count);
 	no_arg_funcs.emplace ("block_count_type", &nano::rpc_handler::block_count_type);
 	no_arg_funcs.emplace ("block_create", &nano::rpc_handler::block_create);
