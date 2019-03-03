@@ -2674,7 +2674,7 @@ void nano::node::process_confirmed (std::shared_ptr<nano::block> block_a, uint8_
 			add_confirmation_heights (transaction, hash);
 		}
 
-		auto transaction (store.tx_begin_write ());
+		auto transaction (store.tx_begin_read ());
 		confirmed_visitor visitor (transaction, *this, block_a, hash);
 		block_a->visit (visitor);
 		auto account (ledger.account (transaction, hash));
