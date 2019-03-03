@@ -3027,7 +3027,7 @@ void nano::election::compute_rep_votes (nano::transaction const & transaction_a)
 	}
 }
 
-void nano::election::confirm_once (nano::transaction const & transaction_a, bool confirmed_back)
+void nano::election::confirm_once ()
 {
 	if (!confirmed.exchange (true))
 	{
@@ -3040,32 +3040,6 @@ void nano::election::confirm_once (nano::transaction const & transaction_a, bool
 			node_l->process_confirmed (winner_l);
 			confirmation_action_l (winner_l);
 		});
-		if (!confirmed_back)
-		{
-			confirm_back (transaction_a);
-		}
-	}
-}
-
-void nano::election::confirm_back (nano::transaction const & transaction_a)
-{
-	std::deque<nano::block_hash> hashes = { status.winner->previous (), status.winner->source (), status.winner->link () };
-	while (!hashes.empty ())
-	{
-		auto hash (hashes.front ());
-		hashes.pop_front ();
-		if (!hash.is_zero () && !node.ledger.is_epoch_link (hash))
-		{
-			auto existing (node.active.blocks.find (hash));
-			if (existing != node.active.blocks.end () && !existing->second->confirmed && !existing->second->stopped && existing->second->blocks.size () == 1)
-			{
-				release_assert (existing->second->status.winner->hash () == hash);
-				existing->second->confirm_once (transaction_a, true); // Avoid recursive actions
-				hashes.push_back (existing->second->status.winner->previous ());
-				hashes.push_back (existing->second->status.winner->source ());
-				hashes.push_back (existing->second->status.winner->link ());
-			}
-		}
 	}
 }
 
@@ -3133,7 +3107,7 @@ void nano::election::confirm_if_quorum (nano::transaction const & transaction_a)
 		{
 			log_votes (tally_l);
 		}
-		confirm_once (transaction_a);
+		confirm_once ();
 	}
 }
 
@@ -3717,6 +3691,16 @@ bool nano::active_transactions::publish (std::shared_ptr<nano::block> block_a)
 	return result;
 }
 
+void nano::active_transactions::confirm_block (nano::block_hash const & hash_a)
+{
+	std::lock_guard<std::mutex> lock (mutex);
+	auto existing (blocks.find (hash_a));
+	if (existing != blocks.end () && !existing->second->confirmed && !existing->second->stopped && existing->second->status.winner->hash () == hash_a)
+	{
+		existing->second->confirm_once ();
+	}
+}
+
 namespace nano
 {
 std::unique_ptr<seq_con_info_component> collect_seq_con_info (active_transactions & active_transactions, const std::string & name)
@@ -3744,11 +3728,11 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (active_transaction
  * For all the blocks below this height which have been implicitly confirmed check if they
  * are open/receive blocks, and if so follow the source blocks and iteratively repeat to genesis.
  */
-void nano::node::add_confirmation_heights (nano::block_hash const & hash)
+void nano::node::add_confirmation_heights (nano::block_hash const & hash_a)
 {
 	auto transaction (store.tx_begin_write ());
 	std::stack<nano::block_hash, std::vector<nano::block_hash>> open_receive_blocks;
-	auto current = hash;
+	auto current = hash_a;
 
 	nano::genesis genesis;
 	do
@@ -3780,6 +3764,8 @@ void nano::node::add_confirmation_heights (nano::block_hash const & hash)
 				auto block (store.block_get (transaction, current));
 				if (block != nullptr)
 				{
+					// Confirm blocks back
+					active.confirm_block (current);
 					// First check legacy receive/open
 					if (block->type () == nano::block_type::receive || (block->type () == nano::block_type::open && current != genesis.hash ()))
 					{

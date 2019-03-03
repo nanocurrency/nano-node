@@ -64,8 +64,6 @@ public:
 class election : public std::enable_shared_from_this<nano::election>
 {
 	std::function<void(std::shared_ptr<nano::block>)> confirmation_action;
-	void confirm_once (nano::transaction const &, bool = false);
-	void confirm_back (nano::transaction const &);
 
 public:
 	election (nano::node &, std::shared_ptr<nano::block>, std::function<void(std::shared_ptr<nano::block>)> const &);
@@ -75,6 +73,7 @@ public:
 	bool have_quorum (nano::tally_t const &, nano::uint128_t);
 	// Change our winner to agree with the network
 	void compute_rep_votes (nano::transaction const &);
+	void confirm_once ();
 	// Confirm this block if quorum is met
 	void confirm_if_quorum (nano::transaction const &);
 	void log_votes (nano::tally_t const &);
@@ -122,6 +121,7 @@ public:
 	size_t size ();
 	void stop ();
 	bool publish (std::shared_ptr<nano::block> block_a);
+	void confirm_block (nano::block_hash const &);
 	boost::multi_index_container<
 	nano::conflict_info,
 	boost::multi_index::indexed_by<
