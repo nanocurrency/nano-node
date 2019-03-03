@@ -93,7 +93,7 @@ bool nano::peer_container::contacted (nano::endpoint const & endpoint_a, unsigne
 // Simulating with sqrt_broadcast_simulate shows we only need to broadcast to sqrt(total_peers) random peers in order to successfully publish to everyone with high probability
 std::deque<std::shared_ptr<nano::transport::channel_udp>> nano::peer_container::list_fanout ()
 {
-	auto peers (random_set (size_sqrt ()));
+	auto peers (node.network.udp_channels.random_set (size_sqrt ()));
 	std::deque<std::shared_ptr<nano::transport::channel_udp>> result;
 	for (auto i (peers.begin ()), n (peers.end ()); i != n; ++i)
 	{
@@ -197,48 +197,6 @@ bool nano::peer_container::validate_syn_cookie (nano::endpoint const & endpoint,
 		}
 	}
 	return result;
-}
-
-std::unordered_set<std::shared_ptr<nano::transport::channel_udp>> nano::peer_container::random_set (size_t count_a)
-{
-	std::unordered_set<std::shared_ptr<nano::transport::channel_udp>> result;
-	result.reserve (count_a);
-	std::lock_guard<std::mutex> lock (mutex);
-	// Stop trying to fill result with random samples after this many attempts
-	auto random_cutoff (count_a * 2);
-	auto peers_size (peers.size ());
-	// Usually count_a will be much smaller than peers.size()
-	// Otherwise make sure we have a cutoff on attempting to randomly fill
-	if (!peers.empty ())
-	{
-		for (auto i (0); i < random_cutoff && result.size () < count_a; ++i)
-		{
-			auto index (random_pool.GenerateWord32 (0, static_cast<CryptoPP::word32> (peers_size - 1)));
-			result.insert (peers.get<nano::peer_container::random_access_tag> ()[index].sink);
-		}
-	}
-	// Fill the remainder with most recent contact
-	for (auto i (peers.get<nano::peer_container::last_contact_tag> ().begin ()), n (peers.get<nano::peer_container::last_contact_tag> ().end ()); i != n && result.size () < count_a; ++i)
-	{
-		result.insert (i->sink);
-	}
-	return result;
-}
-
-void nano::peer_container::random_fill (std::array<nano::endpoint, 8> & target_a)
-{
-	auto peers (random_set (target_a.size ()));
-	assert (peers.size () <= target_a.size ());
-	auto endpoint (nano::endpoint (boost::asio::ip::address_v6{}, 0));
-	assert (endpoint.address ().is_v6 ());
-	std::fill (target_a.begin (), target_a.end (), endpoint);
-	auto j (target_a.begin ());
-	for (auto i (peers.begin ()), n (peers.end ()); i != n; ++i, ++j)
-	{
-		assert ((*i)->endpoint.address ().is_v6 ());
-		assert (j < target_a.end ());
-		*j = (*i)->endpoint;
-	}
 }
 
 // Request a list of the top known representatives
@@ -479,7 +437,7 @@ bool nano::peer_container::insert (nano::endpoint const & endpoint_a, unsigned v
 				{
 					new_peer = std::make_shared<nano::transport::channel_udp> (node, endpoint_a);
 					peers.insert (nano::peer_information (new_peer, version_a, node_id_a));
-					node.network.udp_channels.add (endpoint_a, new_peer);
+					node.network.udp_channels.add (new_peer);
 				}
 			}
 		}

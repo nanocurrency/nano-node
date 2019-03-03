@@ -27,13 +27,18 @@ namespace transport
 	class udp_channels
 	{
 	public:
-		void add (nano::endpoint const &, std::shared_ptr<nano::transport::channel_udp>);
+		void add (std::shared_ptr<nano::transport::channel_udp>);
 		void erase (nano::endpoint const &);
 		size_t size () const;
 		std::shared_ptr<nano::transport::channel_udp> channel (nano::endpoint const &) const;
+		void random_fill (std::array<nano::endpoint, 8> &) const;
+		std::unordered_set<std::shared_ptr<nano::transport::channel_udp>> random_set (size_t) const;
 
 	private:
 		class endpoint_tag
+		{
+		};
+		class random_access_tag
 		{
 		};
 		class channel_udp_wrapper
@@ -49,6 +54,7 @@ namespace transport
 		boost::multi_index_container<
 		channel_udp_wrapper,
 		boost::multi_index::indexed_by<
+		boost::multi_index::random_access<boost::multi_index::tag<random_access_tag>>,
 		boost::multi_index::hashed_unique<boost::multi_index::tag<endpoint_tag>, boost::multi_index::const_mem_fun<channel_udp_wrapper, nano::endpoint, &channel_udp_wrapper::endpoint>>>>
 		channels;
 	};

@@ -165,7 +165,7 @@ void nano::network::stop ()
 void nano::network::send_keepalive (nano::transport::channel const & sink_a)
 {
 	nano::keepalive message;
-	node.peers.random_fill (message.peers);
+	udp_channels.random_fill (message.peers);
 	sink_a.sink (message);
 }
 

@@ -101,8 +101,6 @@ public:
 	bool not_a_peer (nano::endpoint const &, bool);
 	// Notify of peer we received from
 	bool insert (nano::endpoint const &, unsigned, bool = false, boost::optional<nano::account> = boost::none);
-	std::unordered_set<std::shared_ptr<nano::transport::channel_udp>> random_set (size_t);
-	void random_fill (std::array<nano::endpoint, 8> &);
 	// Request a list of the top known representatives
 	std::vector<peer_information> representatives (size_t);
 	// List of all peers

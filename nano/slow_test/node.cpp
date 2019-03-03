@@ -370,7 +370,7 @@ TEST (peer_container, random_set)
 	auto current (std::chrono::steady_clock::now ());
 	for (auto i (0); i < 10000; ++i)
 	{
-		auto list (container.random_set (15));
+		auto list (system.nodes[0]->network.udp_channels.random_set (15));
 	}
 	auto end (std::chrono::steady_clock::now ());
 	(void)end;
