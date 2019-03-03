@@ -2012,19 +2012,7 @@ void nano::node::ongoing_store_flush ()
 
 void nano::node::ongoing_peer_store ()
 {
-	auto endpoint_peers = peers.list ();
-	if (!endpoint_peers.empty ())
-	{
-		// Clear all peers then refresh with the current list of peers
-		auto transaction (store.tx_begin_write ());
-		store.peer_clear (transaction);
-		for (const auto & endpoint : endpoint_peers)
-		{
-			nano::endpoint_key endpoint_key (endpoint.address ().to_v6 ().to_bytes (), endpoint.port ());
-			store.peer_put (transaction, std::move (endpoint_key));
-		}
-	}
-
+	network.udp_channels.store_all (*this);
 	std::weak_ptr<nano::node> node_w (shared_from_this ());
 	alarm.add (std::chrono::steady_clock::now () + peer_interval, [node_w]() {
 		if (auto node_l = node_w.lock ())

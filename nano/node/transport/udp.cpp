@@ -124,3 +124,20 @@ void nano::transport::udp_channels::random_fill (std::array<nano::endpoint, 8> &
 		*j = (*i)->endpoint;
 	}
 }
+
+void nano::transport::udp_channels::store_all (nano::node & node_a)
+{
+	std::lock_guard<std::mutex> lock (mutex);
+	if (!channels.empty ())
+	{
+		// Clear all peers then refresh with the current list of peers
+		auto transaction (node_a.store.tx_begin_write ());
+		node_a.store.peer_clear (transaction);
+		for (auto channel : channels)
+		{
+			auto endpoint (channel.endpoint ());
+			nano::endpoint_key endpoint_key (endpoint.address ().to_v6 ().to_bytes (), endpoint.port ());
+			node_a.store.peer_put (transaction, std::move (endpoint_key));
+		}
+	}
+}

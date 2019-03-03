@@ -33,6 +33,7 @@ namespace transport
 		std::shared_ptr<nano::transport::channel_udp> channel (nano::endpoint const &) const;
 		void random_fill (std::array<nano::endpoint, 8> &) const;
 		std::unordered_set<std::shared_ptr<nano::transport::channel_udp>> random_set (size_t) const;
+		void store_all (nano::node &);
 
 	private:
 		class endpoint_tag
