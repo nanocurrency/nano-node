@@ -327,7 +327,7 @@ bool nano::peer_container::not_a_peer (nano::endpoint const & endpoint_a)
 	{
 		result = true;
 	}
-	else if (nano::reserved_address (endpoint_a))
+	else if (node.network.udp_channels.reserved_address (endpoint_a))
 	{
 		result = true;
 	}

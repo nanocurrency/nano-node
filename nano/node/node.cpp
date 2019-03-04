@@ -755,7 +755,7 @@ void nano::network::receive_action (nano::message_buffer * data_a, nano::endpoin
 	{
 		allowed_sender = false;
 	}
-	else if (nano::reserved_address (data_a->endpoint) && !node.config.allow_local_peers)
+	else if (udp_channels.reserved_address (data_a->endpoint) && !node.config.allow_local_peers)
 	{
 		allowed_sender = false;
 	}
@@ -2750,109 +2750,6 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (online_reps & onli
 	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "arrival", count, sizeof_element }));
 	return composite;
 }
-}
-
-namespace
-{
-boost::asio::ip::address_v6 mapped_from_v4_bytes (unsigned long address_a)
-{
-	return boost::asio::ip::address_v6::v4_mapped (boost::asio::ip::address_v4 (address_a));
-}
-}
-
-bool nano::reserved_address (nano::endpoint const & endpoint_a)
-{
-	assert (endpoint_a.address ().is_v6 ());
-	auto bytes (endpoint_a.address ().to_v6 ());
-	auto result (false);
-	static auto const rfc1700_min (mapped_from_v4_bytes (0x00000000ul));
-	static auto const rfc1700_max (mapped_from_v4_bytes (0x00fffffful));
-	static auto const rfc1918_1_min (mapped_from_v4_bytes (0x0a000000ul));
-	static auto const rfc1918_1_max (mapped_from_v4_bytes (0x0afffffful));
-	static auto const rfc1918_2_min (mapped_from_v4_bytes (0xac100000ul));
-	static auto const rfc1918_2_max (mapped_from_v4_bytes (0xac1ffffful));
-	static auto const rfc1918_3_min (mapped_from_v4_bytes (0xc0a80000ul));
-	static auto const rfc1918_3_max (mapped_from_v4_bytes (0xc0a8fffful));
-	static auto const rfc6598_min (mapped_from_v4_bytes (0x64400000ul));
-	static auto const rfc6598_max (mapped_from_v4_bytes (0x647ffffful));
-	static auto const rfc5737_1_min (mapped_from_v4_bytes (0xc0000200ul));
-	static auto const rfc5737_1_max (mapped_from_v4_bytes (0xc00002fful));
-	static auto const rfc5737_2_min (mapped_from_v4_bytes (0xc6336400ul));
-	static auto const rfc5737_2_max (mapped_from_v4_bytes (0xc63364fful));
-	static auto const rfc5737_3_min (mapped_from_v4_bytes (0xcb007100ul));
-	static auto const rfc5737_3_max (mapped_from_v4_bytes (0xcb0071fful));
-	static auto const ipv4_multicast_min (mapped_from_v4_bytes (0xe0000000ul));
-	static auto const ipv4_multicast_max (mapped_from_v4_bytes (0xeffffffful));
-	static auto const rfc6890_min (mapped_from_v4_bytes (0xf0000000ul));
-	static auto const rfc6890_max (mapped_from_v4_bytes (0xfffffffful));
-	static auto const rfc6666_min (boost::asio::ip::address_v6::from_string ("100::"));
-	static auto const rfc6666_max (boost::asio::ip::address_v6::from_string ("100::ffff:ffff:ffff:ffff"));
-	static auto const rfc3849_min (boost::asio::ip::address_v6::from_string ("2001:db8::"));
-	static auto const rfc3849_max (boost::asio::ip::address_v6::from_string ("2001:db8:ffff:ffff:ffff:ffff:ffff:ffff"));
-	static auto const rfc4193_min (boost::asio::ip::address_v6::from_string ("fc00::"));
-	static auto const rfc4193_max (boost::asio::ip::address_v6::from_string ("fd00:ffff:ffff:ffff:ffff:ffff:ffff:ffff"));
-	static auto const ipv6_multicast_min (boost::asio::ip::address_v6::from_string ("ff00::"));
-	static auto const ipv6_multicast_max (boost::asio::ip::address_v6::from_string ("ff00:ffff:ffff:ffff:ffff:ffff:ffff:ffff"));
-	if (bytes >= rfc1700_min && bytes <= rfc1700_max)
-	{
-		result = true;
-	}
-	else if (bytes >= rfc5737_1_min && bytes <= rfc5737_1_max)
-	{
-		result = true;
-	}
-	else if (bytes >= rfc5737_2_min && bytes <= rfc5737_2_max)
-	{
-		result = true;
-	}
-	else if (bytes >= rfc5737_3_min && bytes <= rfc5737_3_max)
-	{
-		result = true;
-	}
-	else if (bytes >= ipv4_multicast_min && bytes <= ipv4_multicast_max)
-	{
-		result = true;
-	}
-	else if (bytes >= rfc6890_min && bytes <= rfc6890_max)
-	{
-		result = true;
-	}
-	else if (bytes >= rfc6666_min && bytes <= rfc6666_max)
-	{
-		result = true;
-	}
-	else if (bytes >= rfc3849_min && bytes <= rfc3849_max)
-	{
-		result = true;
-	}
-	else if (bytes >= ipv6_multicast_min && bytes <= ipv6_multicast_max)
-	{
-		result = true;
-	}
-	else if (nano::is_live_network)
-	{
-		if (bytes >= rfc1918_1_min && bytes <= rfc1918_1_max)
-		{
-			result = true;
-		}
-		else if (bytes >= rfc1918_2_min && bytes <= rfc1918_2_max)
-		{
-			result = true;
-		}
-		else if (bytes >= rfc1918_3_min && bytes <= rfc1918_3_max)
-		{
-			result = true;
-		}
-		else if (bytes >= rfc6598_min && bytes <= rfc6598_max)
-		{
-			result = true;
-		}
-		else if (bytes >= rfc4193_min && bytes <= rfc4193_max)
-		{
-			result = true;
-		}
-	}
-	return result;
 }
 
 std::shared_ptr<nano::node> nano::node::shared ()

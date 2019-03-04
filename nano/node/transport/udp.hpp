@@ -34,6 +34,7 @@ namespace transport
 		void random_fill (std::array<nano::endpoint, 8> &) const;
 		std::unordered_set<std::shared_ptr<nano::transport::channel_udp>> random_set (size_t) const;
 		void store_all (nano::node &);
+		bool reserved_address (nano::endpoint const &);
 
 	private:
 		class endpoint_tag

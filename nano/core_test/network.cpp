@@ -1153,9 +1153,10 @@ TEST (network, endpoint_bad_fd)
 
 TEST (network, reserved_address)
 {
-	ASSERT_FALSE (nano::reserved_address (nano::endpoint (boost::asio::ip::address_v6::from_string ("2001::"), 0)));
+	nano::system system (24000, 1);
+	ASSERT_FALSE (system.nodes[0]->network.udp_channels.reserved_address (nano::endpoint (boost::asio::ip::address_v6::from_string ("2001::"), 0)));
 	nano::endpoint loopback (boost::asio::ip::address_v6::from_string ("::1"), 1);
-	ASSERT_FALSE (nano::reserved_address (loopback));
+	ASSERT_FALSE (system.nodes[0]->network.udp_channels.reserved_address (loopback));
 }
 
 TEST (node, port_mapping)
