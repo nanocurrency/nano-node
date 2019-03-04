@@ -755,7 +755,7 @@ void nano::network::receive_action (nano::message_buffer * data_a, nano::endpoin
 	{
 		allowed_sender = false;
 	}
-	else if (nano::reserved_address (data_a->endpoint, false) && !node.config.allow_local_peers)
+	else if (nano::reserved_address (data_a->endpoint) && !node.config.allow_local_peers)
 	{
 		allowed_sender = false;
 	}
@@ -2760,15 +2760,13 @@ boost::asio::ip::address_v6 mapped_from_v4_bytes (unsigned long address_a)
 }
 }
 
-bool nano::reserved_address (nano::endpoint const & endpoint_a, bool blacklist_loopback)
+bool nano::reserved_address (nano::endpoint const & endpoint_a)
 {
 	assert (endpoint_a.address ().is_v6 ());
 	auto bytes (endpoint_a.address ().to_v6 ());
 	auto result (false);
 	static auto const rfc1700_min (mapped_from_v4_bytes (0x00000000ul));
 	static auto const rfc1700_max (mapped_from_v4_bytes (0x00fffffful));
-	static auto const ipv4_loopback_min (mapped_from_v4_bytes (0x7f000000ul));
-	static auto const ipv4_loopback_max (mapped_from_v4_bytes (0x7ffffffful));
 	static auto const rfc1918_1_min (mapped_from_v4_bytes (0x0a000000ul));
 	static auto const rfc1918_1_max (mapped_from_v4_bytes (0x0afffffful));
 	static auto const rfc1918_2_min (mapped_from_v4_bytes (0xac100000ul));
@@ -2828,14 +2826,6 @@ bool nano::reserved_address (nano::endpoint const & endpoint_a, bool blacklist_l
 		result = true;
 	}
 	else if (bytes >= ipv6_multicast_min && bytes <= ipv6_multicast_max)
-	{
-		result = true;
-	}
-	else if (blacklist_loopback && bytes.is_loopback ())
-	{
-		result = true;
-	}
-	else if (blacklist_loopback && bytes >= ipv4_loopback_min && bytes <= ipv4_loopback_max)
 	{
 		result = true;
 	}

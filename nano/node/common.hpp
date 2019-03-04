@@ -17,7 +17,7 @@ bool parse_address_port (std::string const &, boost::asio::ip::address &, uint16
 using tcp_endpoint = boost::asio::ip::tcp::endpoint;
 bool parse_endpoint (std::string const &, nano::endpoint &);
 bool parse_tcp_endpoint (std::string const &, nano::tcp_endpoint &);
-bool reserved_address (nano::endpoint const &, bool);
+bool reserved_address (nano::endpoint const &);
 }
 
 namespace

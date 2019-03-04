@@ -98,7 +98,7 @@ public:
 	// Returns true if a Node ID handshake should begin
 	bool contacted (nano::endpoint const &, unsigned);
 	// Unassigned, reserved, self
-	bool not_a_peer (nano::endpoint const &, bool);
+	bool not_a_peer (nano::endpoint const &);
 	// Notify of peer we received from
 	bool insert (nano::endpoint const &, unsigned, bool = false, boost::optional<nano::account> = boost::none);
 	// Request a list of the top known representatives
