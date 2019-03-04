@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+#include <nano/core_test/testutil.hpp>
 #include <nano/node/testing.hpp>
 
 #include <thread>
@@ -112,7 +113,7 @@ TEST (ledger, deep_account_compute)
 	}
 }
 
-TEST (wallet, multithreaded_send)
+TEST (wallet, multithreaded_send_async)
 {
 	std::vector<boost::thread> threads;
 	{
@@ -120,18 +121,23 @@ TEST (wallet, multithreaded_send)
 		nano::keypair key;
 		auto wallet_l (system.wallet (0));
 		wallet_l->insert_adhoc (nano::test_genesis_key.prv);
+		wallet_l->insert_adhoc (key.prv);
 		for (auto i (0); i < 20; ++i)
 		{
 			threads.push_back (boost::thread ([wallet_l, &key]() {
 				for (auto i (0); i < 1000; ++i)
 				{
-					wallet_l->send_action (nano::test_genesis_key.pub, key.pub, 1000);
+					wallet_l->send_async (nano::test_genesis_key.pub, key.pub, 1000, [](std::shared_ptr<nano::block> block_a) {
+						ASSERT_FALSE (block_a == nullptr);
+						ASSERT_FALSE (block_a->hash ().is_zero ());
+					});
 				}
 			}));
 		}
+		system.deadline_set (1000s);
 		while (system.nodes[0]->balance (nano::test_genesis_key.pub) != (nano::genesis_amount - 20 * 1000 * 1000))
 		{
-			system.poll ();
+			ASSERT_NO_ERROR (system.poll ());
 		}
 	}
 	for (auto i (threads.begin ()), n (threads.end ()); i != n; ++i)
