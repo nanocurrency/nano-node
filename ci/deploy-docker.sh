@@ -3,18 +3,18 @@ set -e
 
 scripts="$(dirname "$0")"
 
-echo "$DOCKER_PASSWORD" | docker login -u nanocurrency --password-stdin
+echo "$DOCKER_PASSWORD" | docker login -u nanoreleaseteam --password-stdin
 
 # We push this just so it can be a cache next time
 if [ "$TRAVIS_BRANCH" = "master" ]; then
-    "$scripts"/custom-timeout.sh 30 docker push BananoCoin/banano-ci
+    "$scripts"/custom-timeout.sh 30 docker push nanocurrency/nano-ci
 fi
 
 tags=()
 if [[ "${TRAVIS_TAG}" =~ 'RC' ]]; then
-    tags+=("$TRAVIS_TAG")
+    tags+=("$TRAVIS_TAG" latest-including-rc)
 elif [ -n "$TRAVIS_TAG" ]; then
-    tags+=("$TRAVIS_TAG" latest)
+    tags+=("$TRAVIS_TAG" latest latest-including-rc)
 elif [ -n "$TRAVIS_BRANCH" ]; then
     tags+=("$TRAVIS_BRANCH")
 fi
@@ -26,7 +26,7 @@ for network in live beta; do
         network_tag_suffix="-${network}"
     fi
 
-    docker_image_name="BananoCoin/banano${network_tag_suffix}"
+    docker_image_name="nanocurrency/nano${network_tag_suffix}"
 
     "$scripts"/custom-timeout.sh 30 docker build --build-arg NETWORK="$network" -f docker/node/Dockerfile -t "$docker_image_name" .
     for tag in "${tags[@]}"; do

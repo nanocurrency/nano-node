@@ -6,7 +6,7 @@ export PATH
 set -euo pipefail
 IFS=$'\n\t'
 
-network="$(cat /etc/banano-network)"
+network="$(cat /etc/nano-network)"
 case "${network}" in
         live|'')
                 network='live'
@@ -20,13 +20,25 @@ case "${network}" in
                 ;;
 esac
 
-bananodir="${HOME}/Banano${dirSuffix}"
-dbFile="${bananodir}/data.ldb"
-mkdir -p "${bananodir}"
-if [ ! -f "${bananodir}/config.json" ]; then
-        echo "Config File not found, adding default."
-        cp "/usr/share/banano/config/${network}.json" "${bananodir}/config.json"
+raidir="${HOME}/RaiBlocks${dirSuffix}"
+nanodir="${HOME}/Nano${dirSuffix}"
+dbFile="${nanodir}/data.ldb"
+
+if [ -d "${raidir}" ]; then
+	echo "Moving ${raidir} to ${nanodir}"
+	mv $raidir $nanodir
+else
+	mkdir -p "${nanodir}"
 fi
+
+if [ ! -f "${nanodir}/config.json" ]; then
+        echo "Config File not found, adding default."
+        cp "/usr/share/nano/config/${network}.json" "${nanodir}/config.json"
+fi
+
+# Start watching the log file we are going to log output to
+logfile="${nanodir}/nano-docker-output.log"
+tail -F "${logfile}" &
 
 pid=''
 firstTimeComplete=''
@@ -48,7 +60,7 @@ while true; do
 				fi
 			done
 
-			bananode --vacuum
+			nano_node --vacuum
 		fi
 	fi
 
@@ -59,7 +71,13 @@ while true; do
 	fi
 
 	if [ -z "${pid}" ]; then
-		bananode --daemon &
+		nano_node --daemon &
 		pid="$!"
 	fi
-done
+
+	if [ "$(stat -c '%s' "${logfile}")" -gt 4194304 ]; then
+		cp "${logfile}" "${logfile}.old"
+		: > "${logfile}"
+		echo "$(date) Rotated log file"
+	fi
+done >> "${logfile}" 2>&1

@@ -12,20 +12,20 @@ mkdir build
 pushd build
 
 if [[ ${ASAN_INT-0} -eq 1 ]]; then
-    SANITIZERS="-DBANANO_ASAN_INT=ON"
+    SANITIZERS="-DNANO_ASAN_INT=ON"
 elif [[ ${ASAN-0} -eq 1 ]]; then
-    SANITIZERS="-DBANANO_ASAN=ON"
+    SANITIZERS="-DNANO_ASAN=ON"
 elif [[ ${TSAN-0} -eq 1 ]]; then
-    SANITIZERS="-DBANANO_TSAN=ON"
+    SANITIZERS="-DNANO_TSAN=ON"
 else
     SANITIZERS=""
 fi
 
 cmake \
     -G'Unix Makefiles' \
-    -DACTIVE_NETWORK=banano_test_network \
-    -DBANANO_TEST=ON \
-    -DBANANO_GUI=ON \
+    -DACTIVE_NETWORK=nano_test_network \
+    -DNANO_TEST=ON \
+    -DNANO_GUI=ON \
     -DCMAKE_BUILD_TYPE=Debug \
     -DCMAKE_VERBOSE_MAKEFILE=ON \
     -DBOOST_ROOT=/usr/local \
@@ -46,6 +46,6 @@ popd
 pushd load-tester
 cargo build --release
 popd
-cp ./load-tester/target/release/banano-load-tester ./build/load_test
+cp ./load-tester/target/release/nano-load-tester ./build/load_test
 
 ./ci/test.sh ./build
