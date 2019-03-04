@@ -867,11 +867,6 @@ void nano::network::receive_action (nano::udp_data * data_a, nano::endpoint cons
 					/* Already checked, unreachable */
 					break;
 			}
-
-			if (node.config.logging.network_logging () && parser.status != nano::message_parser::parse_status::outdated_version)
-			{
-				node.logger.try_log ("Could not parse message.  Error: ", parser.status_string ());
-			}
 		}
 		else
 		{
@@ -1140,10 +1135,6 @@ void nano::vote_processor::vote (std::shared_ptr<nano::vote> vote_a, nano::endpo
 		else
 		{
 			node.stats.inc (nano::stat::type::vote, nano::stat::detail::vote_overflow);
-			if (node.config.logging.vote_logging ())
-			{
-				node.logger.try_log ("Votes overflow");
-			}
 		}
 	}
 }
@@ -2678,6 +2669,11 @@ void nano::node::process_confirmed (std::shared_ptr<nano::block> block_a, uint8_
 	auto hash (block_a->hash ());
 	if (ledger.block_exists (block_a->type (), hash))
 	{
+		{
+			auto transaction (store.tx_begin_write ());
+			add_confirmation_heights (transaction, hash);
+		}
+
 		auto transaction (store.tx_begin_read ());
 		confirmed_visitor visitor (transaction, *this, block_a, hash);
 		block_a->visit (visitor);
@@ -2988,10 +2984,6 @@ void nano::network::send_buffer (uint8_t const * data_a, size_t size_a, nano::en
 			if (ec == boost::system::errc::host_unreachable)
 			{
 				this->node.stats.inc (nano::stat::type::error, nano::stat::detail::unreachable_host, nano::stat::dir::out);
-			}
-			if (this->node.config.logging.network_packet_logging ())
-			{
-				this->node.logger.try_log ("Packet send complete");
 			}
 		});
 	}
@@ -3750,6 +3742,86 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (active_transaction
 	return composite;
 }
 }
+
+/**
+ * For all the blocks below this height which have been implicitly confirmed check if they
+ * are open/receive blocks, and if so follow the source blocks and iteratively repeat to genesis.
+ */
+void nano::node::add_confirmation_heights (nano::transaction const & transaction, nano::block_hash const & hash)
+{
+	std::stack<nano::block_hash, std::vector<nano::block_hash>> open_receive_blocks;
+	auto current = hash;
+
+	nano::genesis genesis;
+	do
+	{
+		if (!open_receive_blocks.empty ())
+		{
+			current = open_receive_blocks.top ();
+			open_receive_blocks.pop ();
+
+			auto block (store.block_get (transaction, current));
+			if (block != nullptr)
+			{
+				nano::block_hash source_hash = block->source ();
+				auto source_block (store.block_get (transaction, source_hash));
+				if (source_block != nullptr)
+				{
+					current = source_block->hash ();
+				}
+			}
+		}
+
+		auto hash (current);
+		auto block_height (store.block_account_height (transaction, hash));
+		assert (block_height >= 0);
+		nano::account_info account_info;
+		nano::account account (ledger.account (transaction, hash));
+		release_assert (!store.account_get (transaction, account, account_info));
+		auto confirmation_height = account_info.confirmation_height;
+		if (block_height > confirmation_height)
+		{
+			account_info.confirmation_height = block_height;
+			store.account_put (transaction, account, account_info);
+
+			// Get the difference and check if any of these are recieve blocks
+			auto num_confirmed_blocks = block_height - confirmation_height;
+
+			// Start from the most recent one and work our way through
+			for (uint64_t i = 0; i < num_confirmed_blocks && !current.is_zero (); ++i)
+			{
+				auto block (store.block_get (transaction, current));
+				if (block != nullptr)
+				{
+					// First check legacy receive/open
+					if (block->type () == nano::block_type::receive || (block->type () == nano::block_type::open && current != genesis.hash ()))
+					{
+						open_receive_blocks.push (block->source ());
+					}
+					else
+					{
+						// Then check state blocks
+						auto state = std::dynamic_pointer_cast<nano::state_block> (block);
+						if (state != nullptr)
+						{
+							nano::block_hash previous (state->hashables.previous);
+							if (!previous.is_zero ())
+							{
+								if (state->hashables.balance > ledger.balance (transaction, previous))
+								{
+									open_receive_blocks.push (state->hashables.link);
+								}
+							}
+						}
+					}
+
+					current = block->previous ();
+				}
+			}
+		}
+	} while (!open_receive_blocks.empty ());
+}
+
 int nano::node::store_version ()
 {
 	auto transaction (store.tx_begin_read ());

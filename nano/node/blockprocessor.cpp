@@ -295,8 +295,14 @@ void nano::block_processor::process_batch (std::unique_lock<std::mutex> & lock_a
 				// Replace our block with the winner and roll back any dependent blocks
 				node.logger.always_log (boost::str (boost::format ("Rolling back %1% and replacing with %2%") % successor->hash ().to_string () % hash.to_string ()));
 				std::vector<nano::block_hash> rollback_list;
-				node.ledger.rollback (transaction, successor->hash (), rollback_list);
-				node.logger.always_log (boost::str (boost::format ("%1% blocks rolled back") % rollback_list.size ()));
+				if (node.ledger.rollback (transaction, successor->hash (), rollback_list))
+				{
+					node.logger.always_log (boost::str (boost::format ("Failed to roll back %1% because it or a successor was confirmed") % successor->hash ().to_string ()));
+				}
+				else
+				{
+					node.logger.always_log (boost::str (boost::format ("%1% blocks rolled back") % rollback_list.size ()));
+				}
 				lock_a.lock ();
 				// Prevent rolled back blocks second insertion
 				auto inserted (rolled_back.insert (nano::rolled_hash{ std::chrono::steady_clock::now (), successor->hash () }));
