@@ -2233,8 +2233,7 @@ TEST (node, confirm_back)
 TEST (node, peers)
 {
 	nano::system system (24000, 1);
-	auto list (system.nodes.front ()->peers.list ());
-	ASSERT_TRUE (list.empty ());
+	ASSERT_TRUE (system.nodes.front ()->peers.empty ());
 
 	nano::node_init init;
 	auto node (std::make_shared<nano::node> (init, system.io_ctx, 24001, nano::unique_path (), system.alarm, system.logging, system.work));
@@ -2260,9 +2259,9 @@ TEST (node, peers)
 	}
 
 	// Confirm that the peers match with the endpoints we are expecting
-	ASSERT_EQ (1, system.nodes.front ()->peers.list ().size ());
+	ASSERT_EQ (1, system.nodes.front ()->peers.size ());
 	ASSERT_EQ (system.nodes.front ()->peers.list ().front (), system.nodes.back ()->network.endpoint ());
-	ASSERT_EQ (1, node->peers.list ().size ());
+	ASSERT_EQ (1, node->peers.size ());
 	ASSERT_EQ (system.nodes.back ()->peers.list ().front (), system.nodes.front ()->network.endpoint ());
 
 	// Stop the peer node and check that it is removed from the store

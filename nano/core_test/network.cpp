@@ -66,8 +66,7 @@ TEST (network, self_discard)
 TEST (network, send_node_id_handshake)
 {
 	nano::system system (24000, 1);
-	auto list1 (system.nodes[0]->peers.list ());
-	ASSERT_EQ (0, list1.size ());
+	ASSERT_EQ (0, system.nodes[0]->peers.size ());
 	nano::node_init init1;
 	auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, 24001, nano::unique_path (), system.alarm, system.logging, system.work));
 	node1->start ();
@@ -76,15 +75,15 @@ TEST (network, send_node_id_handshake)
 	auto initial_node1 (node1->stats.count (nano::stat::type::message, nano::stat::detail::node_id_handshake, nano::stat::dir::in));
 	nano::transport::channel_udp sink (*system.nodes[0], node1->network.endpoint ());
 	system.nodes[0]->network.send_keepalive (sink);
-	ASSERT_EQ (0, system.nodes[0]->peers.list ().size ());
-	ASSERT_EQ (0, node1->peers.list ().size ());
+	ASSERT_EQ (0, system.nodes[0]->peers.size ());
+	ASSERT_EQ (0, node1->peers.size ());
 	system.deadline_set (10s);
 	while (node1->stats.count (nano::stat::type::message, nano::stat::detail::node_id_handshake, nano::stat::dir::in) == initial_node1)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	ASSERT_EQ (0, system.nodes[0]->peers.list ().size ());
-	ASSERT_EQ (1, node1->peers.list ().size ());
+	ASSERT_EQ (0, system.nodes[0]->peers.size ());
+	ASSERT_EQ (1, node1->peers.size ());
 	system.deadline_set (10s);
 	while (system.nodes[0]->stats.count (nano::stat::type::message, nano::stat::detail::node_id_handshake, nano::stat::dir::in) < initial + 2)
 	{
