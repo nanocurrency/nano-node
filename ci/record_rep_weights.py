@@ -8,7 +8,7 @@ from binascii import hexlify, unhexlify
 
 parser = argparse.ArgumentParser(description='Generate bootstrap representative weight file.')
 parser.add_argument("output", type=str, help="output weight file")
-parser.add_argument("--rpc", help="node rpc host:port", default="http://[::1]:7076")
+parser.add_argument("--rpc", help="node rpc host:port", default="http://[::1]:7072")
 parser.add_argument("--limit", help="percentage of the active supply represented", default=0.99)
 parser.add_argument("--cutoff", help="stop using bootstrap reps this many blocks before the current block height", default=250000)
 args = parser.parse_args()

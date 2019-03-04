@@ -371,7 +371,7 @@ __kernel void nano_work (__global ulong * attempt, __global ulong * result_a, __
 	blake2b_update (&state, item_l, 32);
 	ulong result;
 	blake2b_final (&state, (uchar *) &result, sizeof (result));
-	if (result >= 0xffffffc000000000ul)
+	if (result >= 0xfffffe0000000000ul)
 	//if (result >= 0xff00000000000000ul)
 	{
 		*result_a = attempt_l;

@@ -77,7 +77,7 @@ void nano::uint256_union::encode_account (std::string & destination_a) const
 		number_l >>= 5;
 		destination_a.push_back (account_encode (r));
 	}
-	destination_a.append ("_brx"); // xrb_
+	destination_a.append ("_nab"); // xrb_
 	std::reverse (destination_a.begin (), destination_a.end ());
 }
 
@@ -93,14 +93,14 @@ bool nano::uint256_union::decode_account (std::string const & source_a)
 	auto error (source_a.size () < 5);
 	if (!error)
 	{
-		auto xrb_prefix (source_a[0] == 'x' && source_a[1] == 'r' && source_a[2] == 'b' && (source_a[3] == '_' || source_a[3] == '-'));
-		auto nano_prefix (source_a[0] == 'n' && source_a[1] == 'a' && source_a[2] == 'n' && source_a[3] == 'o' && (source_a[4] == '_' || source_a[4] == '-'));
-		error = (xrb_prefix && source_a.size () != 64) || (nano_prefix && source_a.size () != 65);
+		
+		auto banano_prefix (source_a[0] == 'b' && source_a[1] == 'a' && source_a[2] == 'n' && (source_a[3] == '_' || source_a[3] == '-'));
+		error = (banano_prefix && source_a.size () != 64) ;
 		if (!error)
 		{
-			if (xrb_prefix || nano_prefix)
+			if (banano_prefix)
 			{
-				auto i (source_a.begin () + (xrb_prefix ? 4 : 5));
+				auto i (source_a.begin () + (banano_prefix ? 4 : 5));
 				if (*i == '1' || *i == '3')
 				{
 					nano::uint512_t number_l;

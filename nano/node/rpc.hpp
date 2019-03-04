@@ -87,7 +87,7 @@ public:
 	nano::rpc_config config;
 	nano::node & node;
 	bool on;
-	static uint16_t const rpc_port = nano::is_live_network ? 7076 : 55000;
+	static uint16_t const rpc_port = nano::is_live_network ? 7072 : 55000;
 };
 class rpc_connection : public std::enable_shared_from_this<nano::rpc_connection>
 {
@@ -174,8 +174,8 @@ public:
 	void key_create ();
 	void key_expand ();
 	void ledger ();
-	void mnano_to_raw (nano::uint128_t = nano::Mxrb_ratio);
-	void mnano_from_raw (nano::uint128_t = nano::Mxrb_ratio);
+	void ban_to_raw (nano::uint128_t = nano::BAN_ratio);
+	void ban_from_raw (nano::uint128_t = nano::BAN_ratio);
 	void node_id ();
 	void node_id_delete ();
 	void password_change ();

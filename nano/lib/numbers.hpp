@@ -34,12 +34,12 @@ using uint128_t = boost::multiprecision::uint128_t;
 using uint256_t = boost::multiprecision::uint256_t;
 using uint512_t = boost::multiprecision::uint512_t;
 // SI dividers
-nano::uint128_t const Gxrb_ratio = nano::uint128_t ("1000000000000000000000000000000000"); // 10^33
-nano::uint128_t const Mxrb_ratio = nano::uint128_t ("1000000000000000000000000000000"); // 10^30
-nano::uint128_t const kxrb_ratio = nano::uint128_t ("1000000000000000000000000000"); // 10^27
-nano::uint128_t const xrb_ratio = nano::uint128_t ("1000000000000000000000000"); // 10^24
-nano::uint128_t const mxrb_ratio = nano::uint128_t ("1000000000000000000000"); // 10^21
-nano::uint128_t const uxrb_ratio = nano::uint128_t ("1000000000000000000"); // 10^18
+nano::uint128_t const kBAN_ratio = nano::uint128_t ("100000000000000000000000000000000"); // 10^32
+nano::uint128_t const BAN_ratio = nano::uint128_t ("100000000000000000000000000000"); // 10^29
+nano::uint128_t const banoshi_ratio = nano::uint128_t ("1000000000000000000000000000"); // 10^27
+nano::uint128_t const RAW_ratio = nano::uint128_t ("1"); // 10^0
+nano::uint128_t const mBAN_ratio = nano::uint128_t ("100000000000000000000000000"); // 10^26
+nano::uint128_t const uBAN_ratio = nano::uint128_t ("100000000000000000000000"); // 10^23
 
 union uint128_union
 {

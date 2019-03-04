@@ -189,7 +189,7 @@ TEST (node, node_receive_quorum)
 	nano::keypair key;
 	nano::block_hash previous (system.nodes[0]->latest (nano::test_genesis_key.pub));
 	system.wallet (0)->insert_adhoc (key.prv);
-	auto send (std::make_shared<nano::send_block> (previous, key.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (previous)));
+	auto send (std::make_shared<nano::send_block> (previous, key.pub, nano::genesis_amount - nano::kBAN_ratio, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (previous)));
 	system.nodes[0]->process_active (send);
 	system.deadline_set (10s);
 	while (!system.nodes[0]->ledger.block_exists (send->hash ()))
@@ -486,13 +486,13 @@ TEST (logging, upgrade_v1_v2)
 TEST (node, price)
 {
 	nano::system system (24000, 1);
-	auto price1 (system.nodes[0]->price (nano::Gxrb_ratio, 1));
+	auto price1 (system.nodes[0]->price (nano::kBAN_ratio, 1));
 	ASSERT_EQ (nano::node::price_max * 100.0, price1);
-	auto price2 (system.nodes[0]->price (nano::Gxrb_ratio * int(nano::node::free_cutoff + 1), 1));
+	auto price2 (system.nodes[0]->price (nano::kBAN_ratio * int(nano::node::free_cutoff + 1), 1));
 	ASSERT_EQ (0, price2);
-	auto price3 (system.nodes[0]->price (nano::Gxrb_ratio * int(nano::node::free_cutoff + 2) / 2, 1));
+	auto price3 (system.nodes[0]->price (nano::kBAN_ratio * int(nano::node::free_cutoff + 2) / 2, 1));
 	ASSERT_EQ (nano::node::price_max * 100.0 / 2, price3);
-	auto price4 (system.nodes[0]->price (nano::Gxrb_ratio * int(nano::node::free_cutoff) * 2, 1));
+	auto price4 (system.nodes[0]->price (nano::kBAN_ratio * int(nano::node::free_cutoff) * 2, 1));
 	ASSERT_EQ (0, price4);
 }
 
@@ -666,8 +666,8 @@ TEST (node_config, v15_v16_upgrade)
 	};
 
 	// Check that upgrades work with both
-	test_upgrade ("rai.raiblocks.net", "peering.nano.org");
-	test_upgrade ("rai-beta.raiblocks.net", "peering-beta.nano.org");
+	test_upgrade ("tarzan.banano.co.in", "livenet.banano.cc");
+	test_upgrade ("peers-beta.banano.co.in", "peering-beta.banano.cc");
 }
 
 TEST (node_config, v16_values)
@@ -683,12 +683,12 @@ TEST (node_config, v16_values)
 	// Check config is correct
 	tree.put ("allow_local_peers", false);
 	tree.put ("signature_checker_threads", 1);
-	tree.put ("vote_minimum", nano::Gxrb_ratio.convert_to<std::string> ());
+	tree.put ("vote_minimum", nano::kBAN_ratio.convert_to<std::string> ());
 	config.deserialize_json (upgraded, tree);
 	ASSERT_FALSE (upgraded);
 	ASSERT_FALSE (config.allow_local_peers);
 	ASSERT_EQ (config.signature_checker_threads, 1);
-	ASSERT_EQ (config.vote_minimum.number (), nano::Gxrb_ratio);
+	ASSERT_EQ (config.vote_minimum.number (), nano::kBAN_ratio);
 
 	// Check config is correct with other values
 	tree.put ("allow_local_peers", true);
@@ -1037,9 +1037,9 @@ TEST (node, fork_bootstrap_flip)
 	system0.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	nano::block_hash latest (system0.nodes[0]->latest (nano::test_genesis_key.pub));
 	nano::keypair key1;
-	auto send1 (std::make_shared<nano::send_block> (latest, key1.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system0.work.generate (latest)));
+	auto send1 (std::make_shared<nano::send_block> (latest, key1.pub, nano::genesis_amount - nano::kBAN_ratio, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system0.work.generate (latest)));
 	nano::keypair key2;
-	auto send2 (std::make_shared<nano::send_block> (latest, key2.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system0.work.generate (latest)));
+	auto send2 (std::make_shared<nano::send_block> (latest, key2.pub, nano::genesis_amount - nano::kBAN_ratio, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system0.work.generate (latest)));
 	// Insert but don't rebroadcast, simulating settled blocks
 	node1.block_processor.add (send1, nano::seconds_since_epoch ());
 	node1.block_processor.flush ();
@@ -1279,7 +1279,7 @@ TEST (node, DISABLED_fork_stale)
 	nano::genesis genesis;
 	nano::keypair key1;
 	nano::keypair key2;
-	auto send3 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Mxrb_ratio, key1.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
+	auto send3 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::BAN_ratio, key1.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
 	node1.work_generate_blocking (*send3);
 	node1.process_active (send3);
 	system2.deadline_set (10s);
@@ -1288,9 +1288,9 @@ TEST (node, DISABLED_fork_stale)
 		system1.poll ();
 		ASSERT_NO_ERROR (system2.poll ());
 	}
-	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, send3->hash (), nano::test_genesis_key.pub, nano::genesis_amount - 2 * nano::Mxrb_ratio, key1.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
+	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, send3->hash (), nano::test_genesis_key.pub, nano::genesis_amount - 2 * nano::BAN_ratio, key1.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
 	node1.work_generate_blocking (*send1);
-	auto send2 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, send3->hash (), nano::test_genesis_key.pub, nano::genesis_amount - 2 * nano::Mxrb_ratio, key2.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
+	auto send2 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, send3->hash (), nano::test_genesis_key.pub, nano::genesis_amount - 2 * nano::BAN_ratio, key2.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
 	node1.work_generate_blocking (*send2);
 	{
 		auto transaction1 (node1.store.tx_begin (true));
@@ -1326,11 +1326,11 @@ TEST (node, broadcast_elected)
 		auto transaction0 (node0->store.tx_begin (true));
 		auto transaction1 (node1->store.tx_begin (true));
 		auto transaction2 (node2->store.tx_begin (true));
-		nano::send_block fund_big (node0->ledger.latest (transaction0, nano::test_genesis_key.pub), rep_big.pub, nano::Gxrb_ratio * 5, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
+		nano::send_block fund_big (node0->ledger.latest (transaction0, nano::test_genesis_key.pub), rep_big.pub, nano::kBAN_ratio * 5, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
 		nano::open_block open_big (fund_big.hash (), rep_big.pub, rep_big.pub, rep_big.prv, rep_big.pub, 0);
-		nano::send_block fund_small (fund_big.hash (), rep_small.pub, nano::Gxrb_ratio * 2, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
+		nano::send_block fund_small (fund_big.hash (), rep_small.pub, nano::kBAN_ratio * 2, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
 		nano::open_block open_small (fund_small.hash (), rep_small.pub, rep_small.pub, rep_small.prv, rep_small.pub, 0);
-		nano::send_block fund_other (fund_small.hash (), rep_other.pub, nano::Gxrb_ratio * 1, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
+		nano::send_block fund_other (fund_small.hash (), rep_other.pub, nano::kBAN_ratio * 1, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
 		nano::open_block open_other (fund_other.hash (), rep_other.pub, rep_other.pub, rep_other.prv, rep_other.pub, 0);
 		node0->work_generate_blocking (fund_big);
 		node0->work_generate_blocking (open_big);
@@ -1530,19 +1530,19 @@ TEST (node, DISABLED_unconfirmed_send)
 	nano::keypair key0;
 	wallet1->insert_adhoc (key0.prv);
 	wallet0->insert_adhoc (nano::test_genesis_key.prv);
-	auto send1 (wallet0->send_action (nano::genesis_account, key0.pub, 2 * nano::Mxrb_ratio));
+	auto send1 (wallet0->send_action (nano::genesis_account, key0.pub, 2 * nano::BAN_ratio));
 	system.deadline_set (10s);
-	while (node1.balance (key0.pub) != 2 * nano::Mxrb_ratio || node1.bootstrap_initiator.in_progress ())
+	while (node1.balance (key0.pub) != 2 * nano::BAN_ratio || node1.bootstrap_initiator.in_progress ())
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	auto latest (node1.latest (key0.pub));
-	nano::state_block send2 (key0.pub, latest, nano::genesis_account, nano::Mxrb_ratio, nano::genesis_account, key0.prv, key0.pub, node0.work_generate_blocking (latest));
+	nano::state_block send2 (key0.pub, latest, nano::genesis_account, nano::BAN_ratio, nano::genesis_account, key0.prv, key0.pub, node0.work_generate_blocking (latest));
 	{
 		auto transaction (node1.store.tx_begin (true));
 		ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, send2).code);
 	}
-	auto send3 (wallet1->send_action (key0.pub, nano::genesis_account, nano::Mxrb_ratio));
+	auto send3 (wallet1->send_action (key0.pub, nano::genesis_account, nano::BAN_ratio));
 	system.deadline_set (10s);
 	while (node0.balance (nano::genesis_account) != nano::genesis_amount)
 	{
@@ -1562,7 +1562,7 @@ TEST (node, rep_list)
 	wallet0->insert_adhoc (nano::test_genesis_key.prv);
 	nano::keypair key1;
 	// Broadcast a confirm so others should know this is a rep node
-	wallet0->send_action (nano::test_genesis_key.pub, key1.pub, nano::Mxrb_ratio);
+	wallet0->send_action (nano::test_genesis_key.pub, key1.pub, nano::BAN_ratio);
 	ASSERT_EQ (0, node1.peers.representatives (1).size ());
 	system.deadline_set (10s);
 	auto done (false);
@@ -1597,7 +1597,7 @@ TEST (node, no_voting)
 	nano::keypair key1;
 	wallet1->insert_adhoc (key1.prv);
 	// Broadcast a confirm so others should know this is a rep node
-	wallet0->send_action (nano::test_genesis_key.pub, key1.pub, nano::Mxrb_ratio);
+	wallet0->send_action (nano::test_genesis_key.pub, key1.pub, nano::BAN_ratio);
 	system.deadline_set (10s);
 	while (!node1.active.empty ())
 	{
@@ -1644,7 +1644,7 @@ TEST (node, vote_replay)
 		ASSERT_EQ (nullptr, vote);
 	}
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
-	auto block (system.wallet (0)->send_action (nano::test_genesis_key.pub, key.pub, nano::Gxrb_ratio));
+	auto block (system.wallet (0)->send_action (nano::test_genesis_key.pub, key.pub, nano::kBAN_ratio));
 	ASSERT_NE (nullptr, block);
 	auto done (false);
 	system.deadline_set (20s);
@@ -1747,7 +1747,7 @@ TEST (node, block_confirm)
 	nano::genesis genesis;
 	nano::keypair key;
 	system.wallet (1)->insert_adhoc (nano::test_genesis_key.prv);
-	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.nodes[0]->work_generate_blocking (genesis.hash ())));
+	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::kBAN_ratio, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.nodes[0]->work_generate_blocking (genesis.hash ())));
 	system.nodes[0]->block_processor.add (send1, nano::seconds_since_epoch ());
 	system.nodes[1]->block_processor.add (send1, nano::seconds_since_epoch ());
 	system.deadline_set (std::chrono::seconds (5));
@@ -1757,7 +1757,7 @@ TEST (node, block_confirm)
 	}
 	ASSERT_TRUE (system.nodes[0]->ledger.block_exists (send1->hash ()));
 	ASSERT_TRUE (system.nodes[1]->ledger.block_exists (send1->hash ()));
-	auto send2 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, send1->hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio * 2, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.nodes[0]->work_generate_blocking (send1->hash ())));
+	auto send2 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, send1->hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::kBAN_ratio * 2, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.nodes[0]->work_generate_blocking (send1->hash ())));
 	{
 		auto transaction (system.nodes[0]->store.tx_begin (true));
 		ASSERT_EQ (nano::process_result::progress, system.nodes[0]->ledger.process (transaction, *send2).code);
@@ -1828,7 +1828,7 @@ TEST (node, confirm_quorum)
 	nano::genesis genesis;
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	// Put greater than online_weight_minimum in pending so quorum can't be reached
-	nano::uint128_union new_balance (system.nodes[0]->config.online_weight_minimum.number () - nano::Gxrb_ratio);
+	nano::uint128_union new_balance (system.nodes[0]->config.online_weight_minimum.number () - nano::kBAN_ratio);
 	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, new_balance, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.nodes[0]->work_generate_blocking (genesis.hash ())));
 	{
 		auto transaction (system.nodes[0]->store.tx_begin (true));
@@ -1861,9 +1861,9 @@ TEST (node, local_votes_cache)
 	auto & node (*system.nodes[0]);
 	nano::genesis genesis;
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
-	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, node.work_generate_blocking (genesis.hash ())));
-	auto send2 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, send1->hash (), nano::test_genesis_key.pub, nano::genesis_amount - 2 * nano::Gxrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, node.work_generate_blocking (send1->hash ())));
-	auto send3 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, send2->hash (), nano::test_genesis_key.pub, nano::genesis_amount - 3 * nano::Gxrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, node.work_generate_blocking (send2->hash ())));
+	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::kBAN_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, node.work_generate_blocking (genesis.hash ())));
+	auto send2 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, send1->hash (), nano::test_genesis_key.pub, nano::genesis_amount - 2 * nano::kBAN_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, node.work_generate_blocking (send1->hash ())));
+	auto send3 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, send2->hash (), nano::test_genesis_key.pub, nano::genesis_amount - 3 * nano::kBAN_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, node.work_generate_blocking (send2->hash ())));
 	{
 		auto transaction (node.store.tx_begin (true));
 		ASSERT_EQ (nano::process_result::progress, node.ledger.process (transaction, *send1).code);
@@ -2096,20 +2096,20 @@ TEST (node, block_processor_signatures)
 	system0.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	nano::block_hash latest (system0.nodes[0]->latest (nano::test_genesis_key.pub));
 	nano::keypair key1;
-	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, latest, nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, key1.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
+	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, latest, nano::test_genesis_key.pub, nano::genesis_amount - nano::kBAN_ratio, key1.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
 	node1.work_generate_blocking (*send1);
 	nano::keypair key2;
-	auto send2 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, send1->hash (), nano::test_genesis_key.pub, nano::genesis_amount - 2 * nano::Gxrb_ratio, key2.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
+	auto send2 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, send1->hash (), nano::test_genesis_key.pub, nano::genesis_amount - 2 * nano::kBAN_ratio, key2.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
 	node1.work_generate_blocking (*send2);
 	nano::keypair key3;
-	auto send3 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, send2->hash (), nano::test_genesis_key.pub, nano::genesis_amount - 3 * nano::Gxrb_ratio, key3.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
+	auto send3 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, send2->hash (), nano::test_genesis_key.pub, nano::genesis_amount - 3 * nano::kBAN_ratio, key3.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
 	node1.work_generate_blocking (*send3);
 	// Invalid signature bit
-	auto send4 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, send3->hash (), nano::test_genesis_key.pub, nano::genesis_amount - 4 * nano::Gxrb_ratio, key3.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
+	auto send4 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, send3->hash (), nano::test_genesis_key.pub, nano::genesis_amount - 4 * nano::kBAN_ratio, key3.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
 	node1.work_generate_blocking (*send4);
 	send4->signature.bytes[32] ^= 0x1;
 	// Invalid signature bit (force)
-	auto send5 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, send3->hash (), nano::test_genesis_key.pub, nano::genesis_amount - 5 * nano::Gxrb_ratio, key3.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
+	auto send5 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, send3->hash (), nano::test_genesis_key.pub, nano::genesis_amount - 5 * nano::kBAN_ratio, key3.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
 	node1.work_generate_blocking (*send5);
 	send5->signature.bytes[31] ^= 0x1;
 	// Invalid signature to unchecked
@@ -2117,12 +2117,12 @@ TEST (node, block_processor_signatures)
 		auto transaction (node1.store.tx_begin_write ());
 		node1.store.unchecked_put (transaction, send5->previous (), send5);
 	}
-	auto receive1 (std::make_shared<nano::state_block> (key1.pub, 0, nano::test_genesis_key.pub, nano::Gxrb_ratio, send1->hash (), key1.prv, key1.pub, 0));
+	auto receive1 (std::make_shared<nano::state_block> (key1.pub, 0, nano::test_genesis_key.pub, nano::kBAN_ratio, send1->hash (), key1.prv, key1.pub, 0));
 	node1.work_generate_blocking (*receive1);
-	auto receive2 (std::make_shared<nano::state_block> (key2.pub, 0, nano::test_genesis_key.pub, nano::Gxrb_ratio, send2->hash (), key2.prv, key2.pub, 0));
+	auto receive2 (std::make_shared<nano::state_block> (key2.pub, 0, nano::test_genesis_key.pub, nano::kBAN_ratio, send2->hash (), key2.prv, key2.pub, 0));
 	node1.work_generate_blocking (*receive2);
 	// Invalid private key
-	auto receive3 (std::make_shared<nano::state_block> (key3.pub, 0, nano::test_genesis_key.pub, nano::Gxrb_ratio, send3->hash (), key2.prv, key3.pub, 0));
+	auto receive3 (std::make_shared<nano::state_block> (key3.pub, 0, nano::test_genesis_key.pub, nano::kBAN_ratio, send3->hash (), key2.prv, key3.pub, 0));
 	node1.work_generate_blocking (*receive3);
 	node1.process_active (send1);
 	node1.process_active (send2);
@@ -2153,14 +2153,14 @@ TEST (node, block_processor_reject_state)
 	nano::system system (24000, 1);
 	auto & node (*system.nodes[0]);
 	nano::genesis genesis;
-	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
+	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::kBAN_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
 	node.work_generate_blocking (*send1);
 	send1->signature.bytes[0] ^= 1;
 	ASSERT_FALSE (node.ledger.block_exists (send1->hash ()));
 	node.process_active (send1);
 	node.block_processor.flush ();
 	ASSERT_FALSE (node.ledger.block_exists (send1->hash ()));
-	auto send2 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - 2 * nano::Gxrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
+	auto send2 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - 2 * nano::kBAN_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
 	node.work_generate_blocking (*send2);
 	node.process_active (send2);
 	node.block_processor.flush ();
@@ -2172,12 +2172,12 @@ TEST (node, block_processor_reject_rolled_back)
 	nano::system system (24000, 1);
 	auto & node (*system.nodes[0]);
 	nano::genesis genesis;
-	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
+	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::kBAN_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
 	node.work_generate_blocking (*send1);
 	node.block_processor.add (send1);
 	node.block_processor.flush ();
 	ASSERT_TRUE (node.ledger.block_exists (send1->hash ()));
-	auto send2 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - 2 * nano::Gxrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
+	auto send2 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - 2 * nano::kBAN_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
 	node.work_generate_blocking (*send2);
 	// Force block send2 & rolling back block send1
 	node.block_processor.force (send2);

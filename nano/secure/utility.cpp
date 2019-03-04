@@ -13,31 +13,31 @@ boost::filesystem::path nano::working_path (bool legacy)
 		case nano::nano_networks::nano_test_network:
 			if (!legacy)
 			{
-				result /= "NanoTest";
+				result /= "BananoTestData";
 			}
 			else
 			{
-				result /= "RaiBlocksTest";
+				result /= "BananoTest";
 			}
 			break;
 		case nano::nano_networks::nano_beta_network:
 			if (!legacy)
 			{
-				result /= "NanoBeta";
+				result /= "BananoBetaData";
 			}
 			else
 			{
-				result /= "RaiBlocksBeta";
+				result /= "BananoBeta";
 			}
 			break;
 		case nano::nano_networks::nano_live_network:
 			if (!legacy)
 			{
-				result /= "Nano";
+				result /= "BananoData";
 			}
 			else
 			{
-				result /= "RaiBlocks";
+				result /= "Banano";
 			}
 			break;
 	}

@@ -1,55 +1,47 @@
-<hr />
-<div align="center">
-    <img src="images/logo.svg" alt="Logo" width='300px' height='auto'/>
-</div>
-<hr />
+<p align="center">
+  <img src="https://github.com/BananoCoin/banano/blob/master/logo.png" width="50%" height="50%"/></p>
 
-[![Build Status](https://travis-ci.org/nanocurrency/nano-node.svg?branch=master)](https://travis-ci.org/nanocurrency/nano-node)
-[![Build status](https://ci.appveyor.com/api/projects/status/q66rbt2ux6apjj03/branch/master?svg=true)](https://ci.appveyor.com/project/argakiig/raiblocks/branch/master)
-### What is Nano?
 
----
+# What is Banano?
+Banano is designed to be a feeless, instant, high throughput cryptocurrency for the meme economy. 
 
-Nano's goal is to become _"a global currency with instantaneous transactions and zero fees over a secure, decentralized network."_
+### Key features
+* Banano utilizes a novel block-lettuce architecture.
+* Instant and Feeless transactions.
+* Fungible (& Edible).
+* Daily potassium airdrops.
+* Ripe for memes.
+* Literally grows on trees, no mining required.
+* Not a Shitcoin (until digested).
+* No more confusing prefix, Bananos contain Banoshis.
+* Replay Protection to stop attackers from executing replay attacks from chain X on chain Y and vice versa.
 
-We've applied the philosophy of _"do one thing and do it well."_ We are focused on building the best medium for value exchange in the world.
+### Key facts
+* Forked from NANO (raiblocks)
+* Total Supply: 3,402,823,669.20
+* Born in Feb. 2018, Mainnet launch April 1st, 2018
 
----
+For more information, see [Banano.cc](https://banano.cc).
 
-### Key Features
+### Resources
+- [Banano website](https://banano.cc)
+- [Yellowpaper](https://banano.cc/)
+- [Discord chat](https://chat.banano.cc)
+- [Reddit](http://reddit.com/r/banano)
+- [Fritter](http://twitter.com/bananocoin)
+- [GitHub wiki](http://github.com/bananocoin/banano/wiki)
+- [BananoVault](https://vault.banano.cc)
+- [Telegram](https://t.me/joinchat/HX-rIQ-t9Ad2xRcJjztVzg)
+- [Banano.how all links at a glance](http://banano.how/)
 
-* Nano utilizes a novel [block-lattice](https://github.com/nanocurrency/nano-node/wiki/Block-lattice) architecture, unlike conventional blockchains used in many other cryptocurrencies.
-* The network requires minimal resources, no high-power mining hardware, and can process high transaction throughput.
-* Offers instantaneous transactions with zero fees and unlimited scalability, making Nano an ideal solution for peer-to-peer transactions.
-* As of August 2018, the Nano network has processed over twelve million blocks with an unpruned ledger size of only 4.6GB.
+### Build instructions
+- [Building Banano from source](https://github.com/BananoCoin/banano/wiki/Building-a-Bananode-from-sources)
 
-For more information, see [Nano.org](https://nano.org/) or read the [whitepaper](https://nano.org/en/whitepaper).
+### Running a Docker node
+- [Running a Docker node](https://github.com/BananoCoin/banano/wiki/Running-a-Docker-Bananode)
 
-### Guides & Documentation
-
-* [Whitepaper](https://nano.org/en/whitepaper)
-* [Build Instructions](https://github.com/nanocurrency/nano-node/wiki/Build-Instructions)
-* [Command Line Interface](https://github.com/nanocurrency/nano-node/wiki/Command-line-interface)
-* [RPC Protocol](https://github.com/nanocurrency/nano-node/wiki/RPC-protocol)
-* [Wallet Design](https://github.com/nanocurrency/nano-node/wiki/Wallet-design)
-* [Block-Lattice](https://github.com/nanocurrency/nano-node/wiki/Block-lattice)
-* [Design Features](https://github.com/nanocurrency/nano-node/wiki/Design-features)
-
-### Links & Resources
-
-* [Nano Website](https://nano.org)
-* [Nano Roadmap](https://developers.nano.org/roadmap)
-* [Discord Chat](https://chat.nano.org/)
-* [Reddit](https://reddit.com/r/nanocurrency)
-* [Medium](https://medium.com/nanocurrency)
-* [Twitter](https://twitter.com/nano)
-* [GitHub wiki](https://github.com/nanocurrency/nano-node/wiki)
-
-### Want to Contribute?
-
-Please see the [contributors guide](https://github.com/nanocurrency/nano-node/wiki/Contributing).
+### Want to contribute?
 
 ### Contact us
-
-We want to hear about any trouble, success, delight, or pain you experience when
-using Nano. Let us know by [filing an issue](https://github.com/nanocurrency/nano-node/issues), joining us on [reddit](https://reddit.com/r/nanocurrency), or joining us on [Discord](https://chat.nano.org/).
+You can reach us via the [Discord](https://chat.banano.cc) or our [Reddit](http://reddit.com/r/banano).
+You can also [file an issue](http://github.com/bananocoin/banano/issues).

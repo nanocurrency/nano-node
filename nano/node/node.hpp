@@ -358,7 +358,7 @@ public:
 	std::vector<boost::thread> packet_processing_threads;
 	nano::node & node;
 	std::atomic<bool> on;
-	static uint16_t const node_port = nano::is_live_network ? 7075 : 54000;
+	static uint16_t const node_port = nano::is_live_network ? 7071 : 54000;
 	static size_t const buffer_size = 512;
 	static size_t const confirm_req_hashes_max = 6;
 };

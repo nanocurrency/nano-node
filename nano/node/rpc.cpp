@@ -2118,7 +2118,7 @@ void nano::rpc_handler::ledger ()
 	response_errors ();
 }
 
-void nano::rpc_handler::mnano_from_raw (nano::uint128_t ratio)
+void nano::rpc_handler::ban_from_raw (nano::uint128_t ratio)
 {
 	auto amount (amount_impl ());
 	if (!ec)
@@ -2129,7 +2129,7 @@ void nano::rpc_handler::mnano_from_raw (nano::uint128_t ratio)
 	response_errors ();
 }
 
-void nano::rpc_handler::mnano_to_raw (nano::uint128_t ratio)
+void nano::rpc_handler::ban_to_raw (nano::uint128_t ratio)
 {
 	auto amount (amount_impl ());
 	if (!ec)
@@ -4459,25 +4459,25 @@ void nano::rpc_handler::process_request ()
 			{
 				key_expand ();
 			}
-			else if (action == "knano_from_raw" || action == "krai_from_raw")
+			else if (action == "knano_from_raw" || action == "banoshi_from_raw")
 			{
-				mnano_from_raw (nano::kxrb_ratio);
+				ban_from_raw (nano::banoshi_ratio);
 			}
-			else if (action == "knano_to_raw" || action == "krai_to_raw")
+			else if (action == "knano_to_raw" || action == "banoshi_to_raw")
 			{
-				mnano_to_raw (nano::kxrb_ratio);
+				ban_to_raw (nano::banoshi_ratio);
 			}
 			else if (action == "ledger")
 			{
 				ledger ();
 			}
-			else if (action == "mnano_from_raw" || action == "mrai_from_raw")
+			else if (action == "ban_from_raw" || action == "ban_from_raw")
 			{
-				mnano_from_raw ();
+				ban_from_raw ();
 			}
-			else if (action == "mnano_to_raw" || action == "mrai_to_raw")
+			else if (action == "ban_to_raw" || action == "ban_to_raw")
 			{
-				mnano_to_raw ();
+				ban_to_raw ();
 			}
 			else if (action == "node_id")
 			{
@@ -4531,13 +4531,13 @@ void nano::rpc_handler::process_request ()
 			{
 				process ();
 			}
-			else if (action == "nano_from_raw" || action == "rai_from_raw")
+			else if (action == "nano_from_raw" || action == "raw_from_raw")
 			{
-				mnano_from_raw (nano::xrb_ratio);
+				ban_from_raw (nano::RAW_ratio);
 			}
-			else if (action == "nano_to_raw" || action == "rai_to_raw")
+			else if (action == "nano_to_raw" || action == "raw_to_raw")
 			{
-				mnano_to_raw (nano::xrb_ratio);
+				ban_to_raw (nano::RAW_ratio);
 			}
 			else if (action == "receive")
 			{

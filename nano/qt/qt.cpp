@@ -974,7 +974,7 @@ std::string nano_qt::status::color ()
 }
 
 nano_qt::wallet::wallet (QApplication & application_a, nano_qt::eventloop_processor & processor_a, nano::node & node_a, std::shared_ptr<nano::wallet> wallet_a, nano::account & account_a) :
-rendering_ratio (nano::Mxrb_ratio),
+rendering_ratio (nano::BAN_ratio),
 node (node_a),
 wallet_m (wallet_a),
 account (account_a),
@@ -1458,11 +1458,11 @@ std::string nano_qt::wallet::format_balance (nano::uint128_t const & balance) co
 {
 	auto balance_str = nano::amount (balance).format_balance (rendering_ratio, 0, false);
 	auto unit = std::string ("NANO");
-	if (rendering_ratio == nano::kxrb_ratio)
+	if (rendering_ratio == nano::banoshi_ratio)
 	{
 		unit = std::string ("knano");
 	}
-	else if (rendering_ratio == nano::xrb_ratio)
+	else if (rendering_ratio == nano::RAW_ratio)
 	{
 		unit = std::string ("nano");
 	}
@@ -1761,7 +1761,7 @@ peers_layout (new QVBoxLayout),
 peers_model (new QStandardItemModel),
 peers_view (new QTableView),
 peer_summary_layout (new QHBoxLayout),
-bootstrap_label (new QLabel ("IPV6:port \"::ffff:192.168.0.1:7075\"")),
+bootstrap_label (new QLabel ("IPV6:port \"::ffff:192.168.0.1:7071\"")),
 peer_count_label (new QLabel ("")),
 bootstrap_line (new QLineEdit),
 peers_bootstrap (new QPushButton ("Initiate Bootstrap")),
@@ -1834,21 +1834,21 @@ wallet (wallet_a)
 		if (mnano_unit->isChecked ())
 		{
 			QSettings ().setValue (saved_ratio_key, ratio_group->id (mnano_unit));
-			this->wallet.change_rendering_ratio (nano::Mxrb_ratio);
+			this->wallet.change_rendering_ratio (nano::BAN_ratio);
 		}
 	});
 	QObject::connect (knano_unit, &QRadioButton::toggled, [this]() {
 		if (knano_unit->isChecked ())
 		{
 			QSettings ().setValue (saved_ratio_key, ratio_group->id (knano_unit));
-			this->wallet.change_rendering_ratio (nano::kxrb_ratio);
+			this->wallet.change_rendering_ratio (nano::banoshi_ratio);
 		}
 	});
 	QObject::connect (nano_unit, &QRadioButton::toggled, [this]() {
 		if (nano_unit->isChecked ())
 		{
 			QSettings ().setValue (saved_ratio_key, ratio_group->id (nano_unit));
-			this->wallet.change_rendering_ratio (nano::xrb_ratio);
+			this->wallet.change_rendering_ratio (nano::RAW_ratio);
 		}
 	});
 	auto selected_ratio_id (QSettings ().value (saved_ratio_key, ratio_group->id (mnano_unit)).toInt ());

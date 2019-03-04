@@ -881,7 +881,7 @@ TEST (block_store, upgrade_v4_v5)
 		nano::account_info info;
 		store.account_get (transaction, nano::test_genesis_key.pub, info);
 		nano::keypair key0;
-		nano::send_block block0 (info.head, key0.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
+		nano::send_block block0 (info.head, key0.pub, nano::genesis_amount - nano::kBAN_ratio, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
 		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, block0).code);
 		hash = block0.hash ();
 		auto original (store.block_get (transaction, info.head));
@@ -1223,7 +1223,7 @@ TEST (block_store, upgrade_sideband_two_blocks)
 		auto transaction (store.tx_begin (true));
 		store.version_put (transaction, 11);
 		store.initialize (transaction, genesis);
-		nano::state_block block (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
+		nano::state_block block (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::kBAN_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
 		hash2 = block.hash ();
 		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, block).code);
 		write_legacy_sideband (store, transaction, *genesis.open, hash2, store.open_blocks);
@@ -1271,10 +1271,10 @@ TEST (block_store, upgrade_sideband_two_accounts)
 		auto transaction (store.tx_begin (true));
 		store.version_put (transaction, 11);
 		store.initialize (transaction, genesis);
-		nano::state_block block1 (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
+		nano::state_block block1 (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::kBAN_ratio, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
 		hash2 = block1.hash ();
 		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, block1).code);
-		nano::state_block block2 (key.pub, 0, nano::test_genesis_key.pub, nano::Gxrb_ratio, hash2, key.prv, key.pub, 0);
+		nano::state_block block2 (key.pub, 0, nano::test_genesis_key.pub, nano::kBAN_ratio, hash2, key.prv, key.pub, 0);
 		hash3 = block2.hash ();
 		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, block2).code);
 		write_legacy_sideband (store, transaction, *genesis.open, hash2, store.open_blocks);
@@ -1323,7 +1323,7 @@ TEST (block_store, insert_after_legacy)
 	store.version_put (transaction, 11);
 	store.initialize (transaction, genesis);
 	write_legacy_sideband (store, transaction, *genesis.open, 0, store.open_blocks);
-	nano::state_block block (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
+	nano::state_block block (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::kBAN_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, block).code);
 }
 
@@ -1340,9 +1340,9 @@ TEST (block_store, upgrade_sideband_rollback_old)
 	auto transaction (store.tx_begin (true));
 	store.version_put (transaction, 11);
 	store.initialize (transaction, genesis);
-	nano::send_block block1 (genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
+	nano::send_block block1 (genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::kBAN_ratio, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, block1).code);
-	nano::send_block block2 (block1.hash (), nano::test_genesis_key.pub, nano::genesis_amount - 2 * nano::Gxrb_ratio, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
+	nano::send_block block2 (block1.hash (), nano::test_genesis_key.pub, nano::genesis_amount - 2 * nano::kBAN_ratio, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, block2).code);
 	write_legacy_sideband (store, transaction, *genesis.open, block1.hash (), store.open_blocks);
 	write_legacy_sideband (store, transaction, block1, block2.hash (), store.send_blocks);
@@ -1413,7 +1413,7 @@ TEST (block_store, upgrade_sideband_epoch)
 	nano::block_sideband sideband;
 	auto block1 (store.block_get (transaction, hash2, &sideband));
 	ASSERT_NE (0, sideband.height);
-	nano::state_block block2 (nano::test_genesis_key.pub, hash2, nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
+	nano::state_block block2 (nano::test_genesis_key.pub, hash2, nano::test_genesis_key.pub, nano::genesis_amount - nano::kBAN_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, block2).code);
 	ASSERT_EQ (nano::epoch::epoch_1, store.block_version (transaction, block2.hash ()));
 }
@@ -1435,27 +1435,27 @@ TEST (block_store, sideband_height)
 	ledger.epoch_signer = epoch_key.pub;
 	auto transaction (store.tx_begin (true));
 	store.initialize (transaction, genesis);
-	nano::send_block send (genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
+	nano::send_block send (genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::kBAN_ratio, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send).code);
 	nano::receive_block receive (send.hash (), send.hash (), nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, receive).code);
 	nano::change_block change (receive.hash (), 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, change).code);
-	nano::state_block state_send1 (nano::test_genesis_key.pub, change.hash (), 0, nano::genesis_amount - nano::Gxrb_ratio, key1.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
+	nano::state_block state_send1 (nano::test_genesis_key.pub, change.hash (), 0, nano::genesis_amount - nano::kBAN_ratio, key1.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, state_send1).code);
-	nano::state_block state_send2 (nano::test_genesis_key.pub, state_send1.hash (), 0, nano::genesis_amount - 2 * nano::Gxrb_ratio, key2.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
+	nano::state_block state_send2 (nano::test_genesis_key.pub, state_send1.hash (), 0, nano::genesis_amount - 2 * nano::kBAN_ratio, key2.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, state_send2).code);
-	nano::state_block state_send3 (nano::test_genesis_key.pub, state_send2.hash (), 0, nano::genesis_amount - 3 * nano::Gxrb_ratio, key3.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
+	nano::state_block state_send3 (nano::test_genesis_key.pub, state_send2.hash (), 0, nano::genesis_amount - 3 * nano::kBAN_ratio, key3.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, state_send3).code);
-	nano::state_block state_open (key1.pub, 0, 0, nano::Gxrb_ratio, state_send1.hash (), key1.prv, key1.pub, 0);
+	nano::state_block state_open (key1.pub, 0, 0, nano::kBAN_ratio, state_send1.hash (), key1.prv, key1.pub, 0);
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, state_open).code);
-	nano::state_block epoch (key1.pub, state_open.hash (), 0, nano::Gxrb_ratio, ledger.epoch_link, epoch_key.prv, epoch_key.pub, 0);
+	nano::state_block epoch (key1.pub, state_open.hash (), 0, nano::kBAN_ratio, ledger.epoch_link, epoch_key.prv, epoch_key.pub, 0);
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, epoch).code);
 	ASSERT_EQ (nano::epoch::epoch_1, store.block_version (transaction, epoch.hash ()));
 	nano::state_block epoch_open (key2.pub, 0, 0, 0, ledger.epoch_link, epoch_key.prv, epoch_key.pub, 0);
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, epoch_open).code);
 	ASSERT_EQ (nano::epoch::epoch_1, store.block_version (transaction, epoch_open.hash ()));
-	nano::state_block state_receive (key2.pub, epoch_open.hash (), 0, nano::Gxrb_ratio, state_send2.hash (), key2.prv, key2.pub, 0);
+	nano::state_block state_receive (key2.pub, epoch_open.hash (), 0, nano::kBAN_ratio, state_send2.hash (), key2.prv, key2.pub, 0);
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, state_receive).code);
 	nano::open_block open (state_send3.hash (), nano::test_genesis_key.pub, key3.pub, key3.prv, key3.pub, 0);
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, open).code);
