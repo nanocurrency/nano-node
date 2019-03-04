@@ -67,7 +67,7 @@ namespace ipc
 	{
 	public:
 		/** Listening port */
-		uint16_t port{ 7077 };
+		uint16_t port{ 7073 };
 	};
 
 	/** IPC configuration */
