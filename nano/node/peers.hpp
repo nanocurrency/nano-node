@@ -103,8 +103,6 @@ public:
 	bool insert (nano::endpoint const &, unsigned, bool = false, boost::optional<nano::account> = boost::none);
 	// Request a list of the top known representatives
 	std::vector<peer_information> representatives (size_t);
-	// List of all peers
-	std::deque<nano::endpoint> list ();
 	std::vector<peer_information> list_vector (size_t);
 	// A list of random peers sized for the configured rebroadcast fanout
 	std::deque<std::shared_ptr<nano::transport::channel_udp>> list_fanout ();

@@ -102,18 +102,6 @@ std::deque<std::shared_ptr<nano::transport::channel_udp>> nano::peer_container::
 	return result;
 }
 
-std::deque<nano::endpoint> nano::peer_container::list ()
-{
-	std::deque<nano::endpoint> result;
-	std::lock_guard<std::mutex> lock (mutex);
-	for (auto i (peers.begin ()), j (peers.end ()); i != j; ++i)
-	{
-		result.push_back (i->endpoint ());
-	}
-	random_pool.Shuffle (result.begin (), result.end ());
-	return result;
-}
-
 std::vector<nano::peer_information> nano::peer_container::list_vector (size_t count_a)
 {
 	std::vector<peer_information> result;

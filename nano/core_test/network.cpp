@@ -89,20 +89,17 @@ TEST (network, send_node_id_handshake)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	auto peers1 (system.nodes[0]->peers.list ());
-	auto peers2 (node1->peers.list ());
-	ASSERT_EQ (1, peers1.size ());
-	ASSERT_EQ (1, peers2.size ());
-	ASSERT_EQ (node1->network.endpoint (), peers1[0]);
-	ASSERT_EQ (system.nodes[0]->network.endpoint (), peers2[0]);
+	ASSERT_EQ (1, system.nodes[0]->peers.size ());
+	ASSERT_EQ (1, node1->peers.size ());
+	ASSERT_EQ (node1->network.endpoint (), system.nodes[0]->peers.peers.get<nano::peer_container::random_access_tag> ().begin ()->endpoint ());
+	ASSERT_EQ (system.nodes[0]->network.endpoint (), node1->peers.peers.get<nano::peer_container::random_access_tag> ().begin ()->endpoint ());
 	node1->stop ();
 }
 
 TEST (network, last_contacted)
 {
 	nano::system system (24000, 1);
-	auto list1 (system.nodes[0]->peers.list ());
-	ASSERT_EQ (0, list1.size ());
+	ASSERT_EQ (0, system.nodes[0]->peers.size ());
 	nano::node_init init1;
 	auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, 24001, nano::unique_path (), system.alarm, system.logging, system.work));
 	node1->start ();
@@ -135,8 +132,7 @@ TEST (network, last_contacted)
 TEST (network, multi_keepalive)
 {
 	nano::system system (24000, 1);
-	auto list1 (system.nodes[0]->peers.list ());
-	ASSERT_EQ (0, list1.size ());
+	ASSERT_EQ (0, system.nodes[0]->peers.size ());
 	nano::node_init init1;
 	auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, 24001, nano::unique_path (), system.alarm, system.logging, system.work));
 	ASSERT_FALSE (init1.error ());

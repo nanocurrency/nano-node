@@ -2260,10 +2260,9 @@ TEST (node, peers)
 
 	// Confirm that the peers match with the endpoints we are expecting
 	ASSERT_EQ (1, system.nodes.front ()->peers.size ());
-	ASSERT_EQ (system.nodes.front ()->peers.list ().front (), system.nodes.back ()->network.endpoint ());
+	ASSERT_EQ (system.nodes.front ()->peers.peers.get<nano::peer_container::random_access_tag> ().begin ()->endpoint (), system.nodes.back ()->network.endpoint ());
 	ASSERT_EQ (1, node->peers.size ());
-	ASSERT_EQ (system.nodes.back ()->peers.list ().front (), system.nodes.front ()->network.endpoint ());
-
+	ASSERT_EQ (system.nodes.back ()->peers.peers.get<nano::peer_container::random_access_tag> ().begin ()->endpoint (), system.nodes.front ()->network.endpoint ());
 	// Stop the peer node and check that it is removed from the store
 	system.nodes.front ()->stop ();
 
