@@ -1,5 +1,6 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/numbers.hpp>
+#include <nano/lib/utility.hpp>
 
 #include <boost/endian/conversion.hpp>
 
@@ -163,14 +164,15 @@ balance (balance_a)
 
 nano::send_hashables::send_hashables (bool & error_a, nano::stream & stream_a)
 {
-	error_a = nano::read (stream_a, previous.bytes);
-	if (!error_a)
+	try
 	{
-		error_a = nano::read (stream_a, destination.bytes);
-		if (!error_a)
-		{
-			error_a = nano::read (stream_a, balance.bytes);
-		}
+		nano::read (stream_a, previous.bytes);
+		nano::read (stream_a, destination.bytes);
+		nano::read (stream_a, balance.bytes);
+	}
+	catch (std::runtime_error const &)
+	{
+		error_a = true;
 	}
 }
 
@@ -216,9 +218,36 @@ void nano::send_block::serialize (nano::stream & stream_a) const
 	write (stream_a, work);
 }
 
+bool nano::send_block::deserialize (nano::stream & stream_a)
+{
+	auto error (false);
+	try
+	{
+		read (stream_a, hashables.previous.bytes);
+		read (stream_a, hashables.destination.bytes);
+		read (stream_a, hashables.balance.bytes);
+		read (stream_a, signature.bytes);
+		read (stream_a, work);
+	}
+	catch (std::exception const &)
+	{
+		error = true;
+	}
+
+	return error;
+}
+
 void nano::send_block::serialize_json (std::string & string_a) const
 {
 	boost::property_tree::ptree tree;
+	serialize_json (tree);
+	std::stringstream ostream;
+	boost::property_tree::write_json (ostream, tree);
+	string_a = ostream.str ();
+}
+
+void nano::send_block::serialize_json (boost::property_tree::ptree & tree) const
+{
 	tree.put ("type", "send");
 	std::string previous;
 	hashables.previous.encode_hex (previous);
@@ -231,32 +260,6 @@ void nano::send_block::serialize_json (std::string & string_a) const
 	signature.encode_hex (signature_l);
 	tree.put ("work", nano::to_string_hex (work));
 	tree.put ("signature", signature_l);
-	std::stringstream ostream;
-	boost::property_tree::write_json (ostream, tree);
-	string_a = ostream.str ();
-}
-
-bool nano::send_block::deserialize (nano::stream & stream_a)
-{
-	auto error (false);
-	error = read (stream_a, hashables.previous.bytes);
-	if (!error)
-	{
-		error = read (stream_a, hashables.destination.bytes);
-		if (!error)
-		{
-			error = read (stream_a, hashables.balance.bytes);
-			if (!error)
-			{
-				error = read (stream_a, signature.bytes);
-				if (!error)
-				{
-					error = read (stream_a, work);
-				}
-			}
-		}
-	}
-	return error;
 }
 
 bool nano::send_block::deserialize_json (boost::property_tree::ptree const & tree_a)
@@ -307,10 +310,14 @@ hashables (error_a, stream_a)
 {
 	if (!error_a)
 	{
-		error_a = nano::read (stream_a, signature.bytes);
-		if (!error_a)
+		try
 		{
-			error_a = nano::read (stream_a, work);
+			nano::read (stream_a, signature.bytes);
+			nano::read (stream_a, work);
+		}
+		catch (std::runtime_error const &)
+		{
+			error_a = true;
 		}
 	}
 }
@@ -400,14 +407,15 @@ account (account_a)
 
 nano::open_hashables::open_hashables (bool & error_a, nano::stream & stream_a)
 {
-	error_a = nano::read (stream_a, source.bytes);
-	if (!error_a)
+	try
 	{
-		error_a = nano::read (stream_a, representative.bytes);
-		if (!error_a)
-		{
-			error_a = nano::read (stream_a, account.bytes);
-		}
+		nano::read (stream_a, source.bytes);
+		nano::read (stream_a, representative.bytes);
+		nano::read (stream_a, account.bytes);
+	}
+	catch (std::runtime_error const &)
+	{
+		error_a = true;
 	}
 }
 
@@ -461,10 +469,14 @@ hashables (error_a, stream_a)
 {
 	if (!error_a)
 	{
-		error_a = nano::read (stream_a, signature);
-		if (!error_a)
+		try
 		{
-			error_a = nano::read (stream_a, work);
+			nano::read (stream_a, signature);
+			nano::read (stream_a, work);
+		}
+		catch (std::runtime_error const &)
+		{
+			error_a = true;
 		}
 	}
 }
@@ -526,9 +538,36 @@ void nano::open_block::serialize (nano::stream & stream_a) const
 	write (stream_a, work);
 }
 
+bool nano::open_block::deserialize (nano::stream & stream_a)
+{
+	auto error (false);
+	try
+	{
+		read (stream_a, hashables.source);
+		read (stream_a, hashables.representative);
+		read (stream_a, hashables.account);
+		read (stream_a, signature);
+		read (stream_a, work);
+	}
+	catch (std::runtime_error const &)
+	{
+		error = true;
+	}
+
+	return error;
+}
+
 void nano::open_block::serialize_json (std::string & string_a) const
 {
 	boost::property_tree::ptree tree;
+	serialize_json (tree);
+	std::stringstream ostream;
+	boost::property_tree::write_json (ostream, tree);
+	string_a = ostream.str ();
+}
+
+void nano::open_block::serialize_json (boost::property_tree::ptree & tree) const
+{
 	tree.put ("type", "open");
 	tree.put ("source", hashables.source.to_string ());
 	tree.put ("representative", representative ().to_account ());
@@ -537,31 +576,6 @@ void nano::open_block::serialize_json (std::string & string_a) const
 	signature.encode_hex (signature_l);
 	tree.put ("work", nano::to_string_hex (work));
 	tree.put ("signature", signature_l);
-	std::stringstream ostream;
-	boost::property_tree::write_json (ostream, tree);
-	string_a = ostream.str ();
-}
-
-bool nano::open_block::deserialize (nano::stream & stream_a)
-{
-	auto error (read (stream_a, hashables.source));
-	if (!error)
-	{
-		error = read (stream_a, hashables.representative);
-		if (!error)
-		{
-			error = read (stream_a, hashables.account);
-			if (!error)
-			{
-				error = read (stream_a, signature);
-				if (!error)
-				{
-					error = read (stream_a, work);
-				}
-			}
-		}
-	}
-	return error;
 }
 
 bool nano::open_block::deserialize_json (boost::property_tree::ptree const & tree_a)
@@ -658,10 +672,14 @@ representative (representative_a)
 
 nano::change_hashables::change_hashables (bool & error_a, nano::stream & stream_a)
 {
-	error_a = nano::read (stream_a, previous);
-	if (!error_a)
+	try
 	{
-		error_a = nano::read (stream_a, representative);
+		nano::read (stream_a, previous);
+		nano::read (stream_a, representative);
+	}
+	catch (std::runtime_error const &)
+	{
+		error_a = true;
 	}
 }
 
@@ -701,10 +719,14 @@ hashables (error_a, stream_a)
 {
 	if (!error_a)
 	{
-		error_a = nano::read (stream_a, signature);
-		if (!error_a)
+		try
 		{
-			error_a = nano::read (stream_a, work);
+			nano::read (stream_a, signature);
+			nano::read (stream_a, work);
+		}
+		catch (std::runtime_error const &)
+		{
+			error_a = true;
 		}
 	}
 }
@@ -759,9 +781,35 @@ void nano::change_block::serialize (nano::stream & stream_a) const
 	write (stream_a, work);
 }
 
+bool nano::change_block::deserialize (nano::stream & stream_a)
+{
+	auto error (false);
+	try
+	{
+		read (stream_a, hashables.previous);
+		read (stream_a, hashables.representative);
+		read (stream_a, signature);
+		read (stream_a, work);
+	}
+	catch (std::runtime_error const &)
+	{
+		error = true;
+	}
+
+	return error;
+}
+
 void nano::change_block::serialize_json (std::string & string_a) const
 {
 	boost::property_tree::ptree tree;
+	serialize_json (tree);
+	std::stringstream ostream;
+	boost::property_tree::write_json (ostream, tree);
+	string_a = ostream.str ();
+}
+
+void nano::change_block::serialize_json (boost::property_tree::ptree & tree) const
+{
 	tree.put ("type", "change");
 	tree.put ("previous", hashables.previous.to_string ());
 	tree.put ("representative", representative ().to_account ());
@@ -769,27 +817,6 @@ void nano::change_block::serialize_json (std::string & string_a) const
 	std::string signature_l;
 	signature.encode_hex (signature_l);
 	tree.put ("signature", signature_l);
-	std::stringstream ostream;
-	boost::property_tree::write_json (ostream, tree);
-	string_a = ostream.str ();
-}
-
-bool nano::change_block::deserialize (nano::stream & stream_a)
-{
-	auto error (read (stream_a, hashables.previous));
-	if (!error)
-	{
-		error = read (stream_a, hashables.representative);
-		if (!error)
-		{
-			error = read (stream_a, signature);
-			if (!error)
-			{
-				error = read (stream_a, work);
-			}
-		}
-	}
-	return error;
 }
 
 bool nano::change_block::deserialize_json (boost::property_tree::ptree const & tree_a)
@@ -892,22 +919,17 @@ link (link_a)
 
 nano::state_hashables::state_hashables (bool & error_a, nano::stream & stream_a)
 {
-	error_a = nano::read (stream_a, account);
-	if (!error_a)
+	try
 	{
-		error_a = nano::read (stream_a, previous);
-		if (!error_a)
-		{
-			error_a = nano::read (stream_a, representative);
-			if (!error_a)
-			{
-				error_a = nano::read (stream_a, balance);
-				if (!error_a)
-				{
-					error_a = nano::read (stream_a, link);
-				}
-			}
-		}
+		nano::read (stream_a, account);
+		nano::read (stream_a, previous);
+		nano::read (stream_a, representative);
+		nano::read (stream_a, balance);
+		nano::read (stream_a, link);
+	}
+	catch (std::runtime_error const &)
+	{
+		error_a = true;
 	}
 }
 
@@ -965,11 +987,15 @@ hashables (error_a, stream_a)
 {
 	if (!error_a)
 	{
-		error_a = nano::read (stream_a, signature);
-		if (!error_a)
+		try
 		{
-			error_a = nano::read (stream_a, work);
+			nano::read (stream_a, signature);
+			nano::read (stream_a, work);
 			boost::endian::big_to_native_inplace (work);
+		}
+		catch (std::runtime_error const &)
+		{
+			error_a = true;
 		}
 	}
 }
@@ -1039,9 +1065,39 @@ void nano::state_block::serialize (nano::stream & stream_a) const
 	write (stream_a, boost::endian::native_to_big (work));
 }
 
+bool nano::state_block::deserialize (nano::stream & stream_a)
+{
+	auto error (false);
+	try
+	{
+		read (stream_a, hashables.account);
+		read (stream_a, hashables.previous);
+		read (stream_a, hashables.representative);
+		read (stream_a, hashables.balance);
+		read (stream_a, hashables.link);
+		read (stream_a, signature);
+		read (stream_a, work);
+		boost::endian::big_to_native_inplace (work);
+	}
+	catch (std::runtime_error const &)
+	{
+		error = true;
+	}
+
+	return error;
+}
+
 void nano::state_block::serialize_json (std::string & string_a) const
 {
 	boost::property_tree::ptree tree;
+	serialize_json (tree);
+	std::stringstream ostream;
+	boost::property_tree::write_json (ostream, tree);
+	string_a = ostream.str ();
+}
+
+void nano::state_block::serialize_json (boost::property_tree::ptree & tree) const
+{
 	tree.put ("type", "state");
 	tree.put ("account", hashables.account.to_account ());
 	tree.put ("previous", hashables.previous.to_string ());
@@ -1053,40 +1109,6 @@ void nano::state_block::serialize_json (std::string & string_a) const
 	signature.encode_hex (signature_l);
 	tree.put ("signature", signature_l);
 	tree.put ("work", nano::to_string_hex (work));
-	std::stringstream ostream;
-	boost::property_tree::write_json (ostream, tree);
-	string_a = ostream.str ();
-}
-
-bool nano::state_block::deserialize (nano::stream & stream_a)
-{
-	auto error (read (stream_a, hashables.account));
-	if (!error)
-	{
-		error = read (stream_a, hashables.previous);
-		if (!error)
-		{
-			error = read (stream_a, hashables.representative);
-			if (!error)
-			{
-				error = read (stream_a, hashables.balance);
-				if (!error)
-				{
-					error = read (stream_a, hashables.link);
-					if (!error)
-					{
-						error = read (stream_a, signature);
-						if (!error)
-						{
-							error = read (stream_a, work);
-							boost::endian::big_to_native_inplace (work);
-						}
-					}
-				}
-			}
-		}
-	}
-	return error;
 }
 
 bool nano::state_block::deserialize_json (boost::property_tree::ptree const & tree_a)
@@ -1250,7 +1272,7 @@ std::shared_ptr<nano::block> nano::deserialize_block_json (boost::property_tree:
 std::shared_ptr<nano::block> nano::deserialize_block (nano::stream & stream_a, nano::block_uniquer * uniquer_a)
 {
 	nano::block_type type;
-	auto error (read (stream_a, type));
+	auto error (try_read (stream_a, type));
 	std::shared_ptr<nano::block> result;
 	if (!error)
 	{
@@ -1336,23 +1358,54 @@ bool nano::receive_block::operator== (nano::receive_block const & other_a) const
 	return result;
 }
 
+void nano::receive_block::serialize (nano::stream & stream_a) const
+{
+	write (stream_a, hashables.previous.bytes);
+	write (stream_a, hashables.source.bytes);
+	write (stream_a, signature.bytes);
+	write (stream_a, work);
+}
+
 bool nano::receive_block::deserialize (nano::stream & stream_a)
 {
 	auto error (false);
-	error = read (stream_a, hashables.previous.bytes);
-	if (!error)
+	try
 	{
-		error = read (stream_a, hashables.source.bytes);
-		if (!error)
-		{
-			error = read (stream_a, signature.bytes);
-			if (!error)
-			{
-				error = read (stream_a, work);
-			}
-		}
+		read (stream_a, hashables.previous.bytes);
+		read (stream_a, hashables.source.bytes);
+		read (stream_a, signature.bytes);
+		read (stream_a, work);
 	}
+	catch (std::runtime_error const &)
+	{
+		error = true;
+	}
+
 	return error;
+}
+
+void nano::receive_block::serialize_json (std::string & string_a) const
+{
+	boost::property_tree::ptree tree;
+	serialize_json (tree);
+	std::stringstream ostream;
+	boost::property_tree::write_json (ostream, tree);
+	string_a = ostream.str ();
+}
+
+void nano::receive_block::serialize_json (boost::property_tree::ptree & tree) const
+{
+	tree.put ("type", "receive");
+	std::string previous;
+	hashables.previous.encode_hex (previous);
+	tree.put ("previous", previous);
+	std::string source;
+	hashables.source.encode_hex (source);
+	tree.put ("source", source);
+	std::string signature_l;
+	signature.encode_hex (signature_l);
+	tree.put ("work", nano::to_string_hex (work));
+	tree.put ("signature", signature_l);
 }
 
 bool nano::receive_block::deserialize_json (boost::property_tree::ptree const & tree_a)
@@ -1386,33 +1439,6 @@ bool nano::receive_block::deserialize_json (boost::property_tree::ptree const & 
 	return error;
 }
 
-void nano::receive_block::serialize (nano::stream & stream_a) const
-{
-	write (stream_a, hashables.previous.bytes);
-	write (stream_a, hashables.source.bytes);
-	write (stream_a, signature.bytes);
-	write (stream_a, work);
-}
-
-void nano::receive_block::serialize_json (std::string & string_a) const
-{
-	boost::property_tree::ptree tree;
-	tree.put ("type", "receive");
-	std::string previous;
-	hashables.previous.encode_hex (previous);
-	tree.put ("previous", previous);
-	std::string source;
-	hashables.source.encode_hex (source);
-	tree.put ("source", source);
-	std::string signature_l;
-	signature.encode_hex (signature_l);
-	tree.put ("work", nano::to_string_hex (work));
-	tree.put ("signature", signature_l);
-	std::stringstream ostream;
-	boost::property_tree::write_json (ostream, tree);
-	string_a = ostream.str ();
-}
-
 nano::receive_block::receive_block (nano::block_hash const & previous_a, nano::block_hash const & source_a, nano::raw_key const & prv_a, nano::public_key const & pub_a, uint64_t work_a) :
 hashables (previous_a, source_a),
 signature (nano::sign_message (prv_a, pub_a, hash ())),
@@ -1425,10 +1451,14 @@ hashables (error_a, stream_a)
 {
 	if (!error_a)
 	{
-		error_a = nano::read (stream_a, signature);
-		if (!error_a)
+		try
 		{
-			error_a = nano::read (stream_a, work);
+			nano::read (stream_a, signature);
+			nano::read (stream_a, work);
+		}
+		catch (std::runtime_error const &)
+		{
+			error_a = true;
 		}
 	}
 }
@@ -1531,10 +1561,14 @@ source (source_a)
 
 nano::receive_hashables::receive_hashables (bool & error_a, nano::stream & stream_a)
 {
-	error_a = nano::read (stream_a, previous.bytes);
-	if (!error_a)
+	try
 	{
-		error_a = nano::read (stream_a, source.bytes);
+		nano::read (stream_a, previous.bytes);
+		nano::read (stream_a, source.bytes);
+	}
+	catch (std::runtime_error const &)
+	{
+		error_a = true;
 	}
 }
 
@@ -1578,9 +1612,10 @@ std::shared_ptr<nano::block> nano::block_uniquer::unique (std::shared_ptr<nano::
 		{
 			existing = block_a;
 		}
-		for (auto i (0); i < cleanup_count && blocks.size () > 0; ++i)
+		release_assert (std::numeric_limits<CryptoPP::word32>::max () > blocks.size ());
+		for (auto i (0); i < cleanup_count && !blocks.empty (); ++i)
 		{
-			auto random_offset (nano::random_pool.GenerateWord32 (0, blocks.size () - 1));
+			auto random_offset (nano::random_pool::generate_word32 (0, static_cast<CryptoPP::word32> (blocks.size () - 1)));
 			auto existing (std::next (blocks.begin (), random_offset));
 			if (existing == blocks.end ())
 			{

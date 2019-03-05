@@ -17,7 +17,7 @@ bool parse_address_port (std::string const &, boost::asio::ip::address &, uint16
 using tcp_endpoint = boost::asio::ip::tcp::endpoint;
 bool parse_endpoint (std::string const &, nano::endpoint &);
 bool parse_tcp_endpoint (std::string const &, nano::tcp_endpoint &);
-bool reserved_address (nano::endpoint const &, bool);
+bool reserved_address (nano::endpoint const &, bool = false);
 }
 
 namespace
@@ -276,10 +276,11 @@ public:
 	keepalive (bool &, nano::stream &, nano::message_header const &);
 	keepalive ();
 	void visit (nano::message_visitor &) const override;
-	bool deserialize (nano::stream &);
 	void serialize (nano::stream &) const override;
+	bool deserialize (nano::stream &);
 	bool operator== (nano::keepalive const &) const;
 	std::array<nano::endpoint, 8> peers;
+	static size_t constexpr size = 8 * (16 + 2);
 };
 class publish : public message
 {
@@ -287,8 +288,8 @@ public:
 	publish (bool &, nano::stream &, nano::message_header const &, nano::block_uniquer * = nullptr);
 	publish (std::shared_ptr<nano::block>);
 	void visit (nano::message_visitor &) const override;
-	bool deserialize (nano::stream &, nano::block_uniquer * = nullptr);
 	void serialize (nano::stream &) const override;
+	bool deserialize (nano::stream &, nano::block_uniquer * = nullptr);
 	bool operator== (nano::publish const &) const;
 	std::shared_ptr<nano::block> block;
 };
@@ -299,8 +300,8 @@ public:
 	confirm_req (std::shared_ptr<nano::block>);
 	confirm_req (std::vector<std::pair<nano::block_hash, nano::block_hash>> const &);
 	confirm_req (nano::block_hash const &, nano::block_hash const &);
-	bool deserialize (nano::stream &, nano::block_uniquer * = nullptr);
 	void serialize (nano::stream &) const override;
+	bool deserialize (nano::stream &, nano::block_uniquer * = nullptr);
 	void visit (nano::message_visitor &) const override;
 	bool operator== (nano::confirm_req const &) const;
 	std::shared_ptr<nano::block> block;
@@ -312,7 +313,6 @@ class confirm_ack : public message
 public:
 	confirm_ack (bool &, nano::stream &, nano::message_header const &, nano::vote_uniquer * = nullptr);
 	confirm_ack (std::shared_ptr<nano::vote>);
-	bool deserialize (nano::stream &, nano::vote_uniquer * = nullptr);
 	void serialize (nano::stream &) const override;
 	void visit (nano::message_visitor &) const override;
 	bool operator== (nano::confirm_ack const &) const;
@@ -323,8 +323,8 @@ class frontier_req : public message
 public:
 	frontier_req ();
 	frontier_req (bool &, nano::stream &, nano::message_header const &);
-	bool deserialize (nano::stream &);
 	void serialize (nano::stream &) const override;
+	bool deserialize (nano::stream &);
 	void visit (nano::message_visitor &) const override;
 	bool operator== (nano::frontier_req const &) const;
 	nano::account start;
@@ -338,8 +338,8 @@ public:
 	typedef uint32_t count_t;
 	bulk_pull ();
 	bulk_pull (bool &, nano::stream &, nano::message_header const &);
-	bool deserialize (nano::stream &);
 	void serialize (nano::stream &) const override;
+	bool deserialize (nano::stream &);
 	void visit (nano::message_visitor &) const override;
 	nano::uint256_union start;
 	nano::block_hash end;
@@ -355,8 +355,8 @@ class bulk_pull_account : public message
 public:
 	bulk_pull_account ();
 	bulk_pull_account (bool &, nano::stream &, nano::message_header const &);
-	bool deserialize (nano::stream &);
 	void serialize (nano::stream &) const override;
+	bool deserialize (nano::stream &);
 	void visit (nano::message_visitor &) const override;
 	nano::uint256_union account;
 	nano::uint128_union minimum_amount;
@@ -368,8 +368,8 @@ class bulk_push : public message
 public:
 	bulk_push ();
 	bulk_push (nano::message_header const &);
-	bool deserialize (nano::stream &);
 	void serialize (nano::stream &) const override;
+	bool deserialize (nano::stream &);
 	void visit (nano::message_visitor &) const override;
 };
 class node_id_handshake : public message
@@ -377,8 +377,8 @@ class node_id_handshake : public message
 public:
 	node_id_handshake (bool &, nano::stream &, nano::message_header const &);
 	node_id_handshake (boost::optional<nano::block_hash>, boost::optional<std::pair<nano::account, nano::signature>>);
-	bool deserialize (nano::stream &);
 	void serialize (nano::stream &) const override;
+	bool deserialize (nano::stream &);
 	void visit (nano::message_visitor &) const override;
 	bool operator== (nano::node_id_handshake const &) const;
 	bool is_query_flag () const;

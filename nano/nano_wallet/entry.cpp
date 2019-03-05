@@ -21,7 +21,7 @@ public:
 	rpc_enable (false),
 	opencl_enable (false)
 	{
-		nano::random_pool.GenerateBlock (wallet.bytes.data (), wallet.bytes.size ());
+		nano::random_pool::generate_block (wallet.bytes.data (), wallet.bytes.size ());
 		assert (!wallet.is_zero ());
 	}
 	bool upgrade_json (unsigned version_a, nano::jsonconfig & json)
@@ -106,7 +106,7 @@ public:
 			}
 			if (!rpc_l.get_error ())
 			{
-				rpc.deserialize_json (rpc_l);
+				rpc.deserialize_json (upgraded_a, rpc_l);
 			}
 			if (!opencl_l.get_error ())
 			{
@@ -114,7 +114,7 @@ public:
 			}
 			if (wallet.is_zero ())
 			{
-				nano::random_pool.GenerateBlock (wallet.bytes.data (), wallet.bytes.size ());
+				nano::random_pool::generate_block (wallet.bytes.data (), wallet.bytes.size ());
 				upgraded_a = true;
 			}
 		}
@@ -237,13 +237,13 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 		std::shared_ptr<nano_qt::wallet> gui;
 		nano::set_application_icon (application);
 		auto opencl (nano::opencl_work::create (config.opencl_enable, config.opencl, config.node.logging));
-		nano::work_pool work (config.node.work_threads, opencl ? [&opencl](nano::uint256_union const & root_a) {
-			return opencl->generate_work (root_a);
+		nano::work_pool work (config.node.work_threads, opencl ? [&opencl](nano::uint256_union const & root_a, uint64_t difficulty_a) {
+			return opencl->generate_work (root_a, difficulty_a);
 		}
-		                                                       : std::function<boost::optional<uint64_t> (nano::uint256_union const &)> (nullptr));
+		                                                       : std::function<boost::optional<uint64_t> (nano::uint256_union const &, uint64_t)> (nullptr));
 		nano::alarm alarm (io_ctx);
 		nano::node_init init;
-		node = std::make_shared<nano::node> (init, io_ctx, data_path, alarm, config.node, work, true);
+		node = std::make_shared<nano::node> (init, io_ctx, data_path, alarm, config.node, work, flags);
 		if (!init.error ())
 		{
 			auto wallet (node->wallets.open (config.wallet));
@@ -359,11 +359,18 @@ int main (int argc, char * const * argv)
 						data_path = nano::working_path ();
 					}
 					nano::node_flags flags;
+					auto batch_size_it = vm.find ("batch_size");
+					if (batch_size_it != vm.end ())
+					{
+						flags.sideband_batch_size = batch_size_it->second.as<size_t> ();
+					}
 					flags.disable_backup = (vm.count ("disable_backup") > 0);
 					flags.disable_lazy_bootstrap = (vm.count ("disable_lazy_bootstrap") > 0);
 					flags.disable_legacy_bootstrap = (vm.count ("disable_legacy_bootstrap") > 0);
 					flags.disable_wallet_bootstrap = (vm.count ("disable_wallet_bootstrap") > 0);
 					flags.disable_bootstrap_listener = (vm.count ("disable_bootstrap_listener") > 0);
+					flags.disable_unchecked_cleanup = (vm.count ("disable_unchecked_cleanup") > 0);
+					flags.disable_unchecked_drop = (vm.count ("disable_unchecked_drop") > 0);
 					flags.fast_bootstrap = (vm.count ("fast_bootstrap") > 0);
 					result = run_wallet (application, argc, argv, data_path, flags);
 				}

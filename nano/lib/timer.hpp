@@ -16,7 +16,7 @@ enum class timer_state
 };
 
 /** Timer utility with nesting support */
-template <typename UNIT = std::chrono::milliseconds>
+template <typename UNIT = std::chrono::milliseconds, typename CLOCK = std::chrono::steady_clock>
 class timer
 {
 public:
@@ -37,7 +37,8 @@ public:
 	}
 
 	timer (std::string description_a, timer * parent_a) :
-	desc (description_a), parent (parent_a)
+	parent (parent_a),
+	desc (description_a)
 	{
 	}
 
@@ -72,14 +73,14 @@ public:
 	{
 		assert (state == nano::timer_state::stopped);
 		state = nano::timer_state::started;
-		begin = std::chrono::high_resolution_clock::now ();
+		begin = CLOCK::now ();
 	}
 
 	/** Restarts the timer */
 	void restart ()
 	{
 		state = nano::timer_state::started;
-		begin = std::chrono::high_resolution_clock::now ();
+		begin = CLOCK::now ();
 		ticks = UNIT::zero ();
 		measurements = 0;
 	}
@@ -104,7 +105,7 @@ public:
 		assert (state == nano::timer_state::started);
 		state = nano::timer_state::stopped;
 
-		auto end = std::chrono::high_resolution_clock::now ();
+		auto end = CLOCK::now ();
 		ticks += std::chrono::duration_cast<UNIT> (end - begin);
 		return ticks;
 	}
@@ -120,21 +121,21 @@ public:
 	/** Returns the duration in UNIT since the timer was last started. */
 	UNIT since_start ()
 	{
-		auto end = std::chrono::high_resolution_clock::now ();
+		auto end = CLOCK::now ();
 		return std::chrono::duration_cast<UNIT> (end - begin);
 	}
 
 	/** Returns true if the timer was last started longer than \p duration_a units ago*/
 	bool after_deadline (UNIT duration_a)
 	{
-		auto end = std::chrono::high_resolution_clock::now ();
+		auto end = CLOCK::now ();
 		return std::chrono::duration_cast<UNIT> (end - begin) > duration_a;
 	}
 
 	/** Returns true if the timer was last started shorter than \p duration_a units ago*/
 	bool before_deadline (UNIT duration_a)
 	{
-		auto end = std::chrono::high_resolution_clock::now ();
+		auto end = CLOCK::now ();
 		return std::chrono::duration_cast<UNIT> (end - begin) < duration_a;
 	}
 
@@ -199,7 +200,7 @@ private:
 	std::vector<timer> children;
 	nano::timer_state state{ nano::timer_state::stopped };
 	std::string desc;
-	std::chrono::time_point<std::chrono::high_resolution_clock> begin;
+	std::chrono::time_point<CLOCK> begin;
 	UNIT ticks{ 0 };
 	UNIT minimum{ UNIT::zero () };
 	unsigned measurements{ 0 };

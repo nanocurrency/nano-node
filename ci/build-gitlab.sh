@@ -54,8 +54,10 @@ fi
 
 if [[ "${BETA}" -eq 1 ]]; then
     NETWORK_CFG="-DACTIVE_NETWORK=nano_beta_network"
+    CONFIGURATION="RelWithDebInfo"
 else
     NETWORK_CFG="-DACTIVE_NETWORK=nano_live_network"
+    CONFIGURATION="Release"
 fi
 
 set -o nounset
@@ -67,7 +69,7 @@ run_build() {
     cd ${build_dir}
     cmake -GNinja \
        -DNANO_GUI=ON \
-       -DCMAKE_BUILD_TYPE=Release \
+       -DCMAKE_BUILD_TYPE=${CONFIGURATION} \
        -DCMAKE_VERBOSE_MAKEFILE=ON \
        -DCMAKE_INSTALL_PREFIX="../install" \
        ${NETWORK_CFG} \
@@ -80,7 +82,7 @@ run_build() {
 
     cmake --build ${PWD} -- -v
     cmake --build ${PWD} -- install -v
-    cpack -G ${CPACK_TYPE} ${PWD}
+    cpack -G ${CPACK_TYPE} -C ${CONFIGURATION} ${PWD}
     sha1sum *.tar* > SHA1SUMS
 }
 

@@ -70,6 +70,7 @@ public:
 	QRadioButton * mnano_unit;
 	QRadioButton * knano_unit;
 	QRadioButton * nano_unit;
+	QRadioButton * raw_unit;
 	QPushButton * back;
 
 	QWidget * ledger_window;

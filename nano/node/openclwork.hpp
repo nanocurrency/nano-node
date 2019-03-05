@@ -11,6 +11,7 @@
 #include <vector>
 
 #ifdef __APPLE__
+#define CL_SILENCE_DEPRECATION
 #include <OpenCL/opencl.h>
 #else
 #define CL_USE_DEPRECATED_OPENCL_1_2_APIS
@@ -51,7 +52,7 @@ class opencl_work
 public:
 	opencl_work (bool &, nano::opencl_config const &, nano::opencl_environment &, nano::logging &);
 	~opencl_work ();
-	boost::optional<uint64_t> generate_work (nano::uint256_union const &);
+	boost::optional<uint64_t> generate_work (nano::uint256_union const &, uint64_t const);
 	static std::unique_ptr<opencl_work> create (bool, nano::opencl_config const &, nano::logging &);
 	nano::opencl_config const & config;
 	std::mutex mutex;
@@ -59,6 +60,7 @@ public:
 	cl_mem attempt_buffer;
 	cl_mem result_buffer;
 	cl_mem item_buffer;
+	cl_mem difficulty_buffer;
 	cl_program program;
 	cl_kernel kernel;
 	cl_command_queue queue;

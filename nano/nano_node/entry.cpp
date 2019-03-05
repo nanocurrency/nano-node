@@ -28,10 +28,13 @@ int main (int argc, char * const * argv)
 		("disable_legacy_bootstrap", "Disables legacy bootstrap")
 		("disable_wallet_bootstrap", "Disables wallet lazy bootstrap")
 		("disable_bootstrap_listener", "Disables bootstrap listener (incoming connections)")
-		("disable_unchecked_cleaning", "Disables periodic cleaning of old records from unchecked table")
+		("disable_unchecked_cleanup", "Disables periodic cleanup of old records from unchecked table")
+		("disable_unchecked_drop", "Disables drop of unchecked table at startup")
 		("fast_bootstrap", "Increase bootstrap speed for high end nodes with higher limits")
+		("batch_size",boost::program_options::value<std::size_t> (), "Increase sideband batch size, default 512")
 		("debug_block_count", "Display the number of block")
 		("debug_bootstrap_generate", "Generate bootstrap sequence of blocks")
+		("debug_dump_online_weight", "Dump online_weights table")
 		("debug_dump_representatives", "List representatives and weights")
 		("debug_account_count", "Display the number of accounts")
 		("debug_mass_activity", "Generates fake debug activity")
@@ -45,12 +48,14 @@ int main (int argc, char * const * argv)
 		("debug_profile_sign", "Profile signature generation")
 		("debug_profile_process", "Profile active blocks processing (only for nano_test_network)")
 		("debug_profile_votes", "Profile votes processing (only for nano_test_network)")
+		("debug_random_feed", "Generates output to RNG test suites")
 		("debug_rpc", "Read an RPC command from stdin and invoke it. Network operations will have no effect.")
 		("debug_validate_blocks", "Check all blocks for correct hash, signature, work value")
 		("debug_peers", "Display peer IPv6:port connections")
 		("platform", boost::program_options::value<std::string> (), "Defines the <platform> for OpenCL commands")
 		("device", boost::program_options::value<std::string> (), "Defines <device> for OpenCL command")
-		("threads", boost::program_options::value<std::string> (), "Defines <threads> count for OpenCL command");
+		("threads", boost::program_options::value<std::string> (), "Defines <threads> count for OpenCL command")
+		("difficulty", boost::program_options::value<std::string> (), "Defines <difficulty> for OpenCL command, HEX");
 	// clang-format on
 
 	boost::program_options::variables_map vm;
@@ -80,19 +85,24 @@ int main (int argc, char * const * argv)
 
 	boost::filesystem::path data_path ((data_path_it != vm.end ()) ? data_path_it->second.as<std::string> () : nano::working_path ());
 	auto ec = nano::handle_node_options (vm);
-
 	if (ec == nano::error_cli::unknown_command)
 	{
 		if (vm.count ("daemon") > 0)
 		{
 			nano_daemon::daemon daemon;
 			nano::node_flags flags;
+			auto batch_size_it = vm.find ("batch_size");
+			if (batch_size_it != vm.end ())
+			{
+				flags.sideband_batch_size = batch_size_it->second.as<size_t> ();
+			}
 			flags.disable_backup = (vm.count ("disable_backup") > 0);
 			flags.disable_lazy_bootstrap = (vm.count ("disable_lazy_bootstrap") > 0);
 			flags.disable_legacy_bootstrap = (vm.count ("disable_legacy_bootstrap") > 0);
 			flags.disable_wallet_bootstrap = (vm.count ("disable_wallet_bootstrap") > 0);
 			flags.disable_bootstrap_listener = (vm.count ("disable_bootstrap_listener") > 0);
-			flags.disable_unchecked_cleaning = (vm.count ("disable_unchecked_cleaning") > 0);
+			flags.disable_unchecked_cleanup = (vm.count ("disable_unchecked_cleanup") > 0);
+			flags.disable_unchecked_drop = (vm.count ("disable_unchecked_drop") > 0);
 			flags.fast_bootstrap = (vm.count ("fast_bootstrap") > 0);
 			daemon.run (data_path, flags);
 		}
@@ -156,6 +166,22 @@ int main (int argc, char * const * argv)
 			{
 				std::cerr << "Bootstrapping requires one <key> option\n";
 				result = -1;
+			}
+		}
+		else if (vm.count ("debug_dump_online_weight"))
+		{
+			nano::inactive_node node (data_path);
+			auto current (node.node->online_reps.online_stake ());
+			std::cout << boost::str (boost::format ("Online Weight %1%\n") % current);
+			auto transaction (node.node->store.tx_begin_read ());
+			for (auto i (node.node->store.online_weight_begin (transaction)), n (node.node->store.online_weight_end ()); i != n; ++i)
+			{
+				using time_point = std::chrono::system_clock::time_point;
+				time_point ts (std::chrono::duration_cast<time_point::duration> (std::chrono::nanoseconds (i->first)));
+				std::time_t timestamp = std::chrono::system_clock::to_time_t (ts);
+				std::string weight;
+				i->second.encode_dec (weight);
+				std::cout << boost::str (boost::format ("Timestamp %1% Weight %2%\n") % ctime (&timestamp) % weight);
 			}
 		}
 		else if (vm.count ("debug_dump_representatives"))
@@ -273,6 +299,16 @@ int main (int argc, char * const * argv)
 						result = -1;
 					}
 				}
+				uint64_t difficulty (nano::work_pool::publish_threshold);
+				auto difficulty_it = vm.find ("difficulty");
+				if (difficulty_it != vm.end ())
+				{
+					if (nano::from_string_hex (difficulty_it->second.as<std::string> (), difficulty))
+					{
+						std::cerr << "Invalid difficulty\n";
+						result = -1;
+					}
+				}
 				if (!result)
 				{
 					error |= platform >= environment.platforms.size ();
@@ -283,17 +319,17 @@ int main (int argc, char * const * argv)
 						{
 							nano::logging logging;
 							auto opencl (nano::opencl_work::create (true, { platform, device, threads }, logging));
-							nano::work_pool work_pool (std::numeric_limits<unsigned>::max (), opencl ? [&opencl](nano::uint256_union const & root_a) {
-								return opencl->generate_work (root_a);
+							nano::work_pool work_pool (std::numeric_limits<unsigned>::max (), opencl ? [&opencl](nano::uint256_union const & root_a, uint64_t difficulty_a) {
+								return opencl->generate_work (root_a, difficulty_a);
 							}
-							                                                                         : std::function<boost::optional<uint64_t> (nano::uint256_union const &)> (nullptr));
+							                                                                         : std::function<boost::optional<uint64_t> (nano::uint256_union const &, uint64_t)> (nullptr));
 							nano::change_block block (0, 0, nano::keypair ().prv, 0, 0);
-							std::cerr << boost::str (boost::format ("Starting OpenCL generation profiling. Platform: %1%. Device: %2%. Threads: %3%\n") % platform % device % threads);
+							std::cerr << boost::str (boost::format ("Starting OpenCL generation profiling. Platform: %1%. Device: %2%. Threads: %3%. Difficulty: %4$#x\n") % platform % device % threads % difficulty);
 							for (uint64_t i (0); true; ++i)
 							{
 								block.hashables.previous.qwords[0] += 1;
 								auto begin1 (std::chrono::high_resolution_clock::now ());
-								block.block_work_set (work_pool.generate (block.root ()));
+								block.block_work_set (work_pool.generate (block.root (), difficulty));
 								auto end1 (std::chrono::high_resolution_clock::now ());
 								std::cerr << boost::str (boost::format ("%|1$ 12d|\n") % std::chrono::duration_cast<std::chrono::microseconds> (end1 - begin1).count ());
 							}
@@ -603,7 +639,7 @@ int main (int argc, char * const * argv)
 					node->vote_processor.vote (vote, node->network.endpoint ());
 					votes.pop_front ();
 				}
-				while (!node->active.roots.empty ())
+				while (!node->active.empty ())
 				{
 					std::this_thread::sleep_for (std::chrono::milliseconds (100));
 				}
@@ -615,6 +651,23 @@ int main (int argc, char * const * argv)
 			else
 			{
 				std::cerr << "For this test ACTIVE_NETWORK should be nano_test_network" << std::endl;
+			}
+		}
+		else if (vm.count ("debug_random_feed"))
+		{
+			/*
+			 * This command redirects an infinite stream of bytes from the random pool to standard out.
+			 * The result can be fed into various tools for testing RNGs and entropy pools.
+			 *
+			 * Example, running the entire dieharder test suite:
+			 *
+			 *   ./nano_node --debug_random_feed | dieharder -a -g 200
+			 */
+			nano::raw_key seed;
+			for (;;)
+			{
+				nano::random_pool::generate_block (seed.data.bytes.data (), seed.data.bytes.size ());
+				std::cout.write (reinterpret_cast<const char *> (seed.data.bytes.data ()), seed.data.bytes.size ());
 			}
 		}
 		else if (vm.count ("debug_rpc"))
@@ -657,14 +710,25 @@ int main (int argc, char * const * argv)
 				nano::account account (i->first);
 				auto hash (info.open_block);
 				nano::block_hash calculated_hash (0);
+				nano::block_sideband sideband;
+				uint64_t height (0);
+				uint64_t previous_timestamp (0);
 				while (!hash.is_zero ())
 				{
 					// Retrieving block data
-					auto block (node.node->store.block_get (transaction, hash));
+					auto block (node.node->store.block_get (transaction, hash, &sideband));
 					// Check for state & open blocks if account field is correct
-					if ((block->type () == nano::block_type::open && block->root () != account) || (block->type () == nano::block_type::state && static_cast<nano::state_block const &> (*block.get ()).hashables.account != account))
+					if (block->type () == nano::block_type::open || block->type () == nano::block_type::state)
 					{
-						std::cerr << boost::str (boost::format ("Incorrect account field for block %1%\n") % hash.to_string ());
+						if (block->account () != account)
+						{
+							std::cerr << boost::str (boost::format ("Incorrect account field for block %1%\n") % hash.to_string ());
+						}
+					}
+					// Check if sideband account is correct
+					else if (sideband.account != account)
+					{
+						std::cerr << boost::str (boost::format ("Incorrect sideband account for block %1%\n") % hash.to_string ());
 					}
 					// Check if previous field is correct
 					if (calculated_hash != block->previous ())
@@ -705,8 +769,28 @@ int main (int argc, char * const * argv)
 					{
 						std::cerr << boost::str (boost::format ("Invalid work for block %1% value: %2%\n") % hash.to_string () % nano::to_string_hex (block->block_work ()));
 					}
+					// Check if sideband height is correct
+					++height;
+					if (sideband.height != height)
+					{
+						std::cerr << boost::str (boost::format ("Incorrect sideband height for block %1%. Sideband: %2%. Expected: %3%\n") % hash.to_string () % sideband.height % height);
+					}
+					// Check if sideband timestamp is after previous timestamp
+					if (sideband.timestamp < previous_timestamp)
+					{
+						std::cerr << boost::str (boost::format ("Incorrect sideband timestamp for block %1%\n") % hash.to_string ());
+					}
+					previous_timestamp = sideband.timestamp;
 					// Retrieving successor block hash
 					hash = node.node->store.block_successor (transaction, hash);
+				}
+				if (info.block_count != height)
+				{
+					std::cerr << boost::str (boost::format ("Incorrect block count for account %1%. Actual: %2%. Expected: %3%\n") % account.to_account () % height % info.block_count);
+				}
+				if (info.head != calculated_hash)
+				{
+					std::cerr << boost::str (boost::format ("Incorrect frontier for account %1%. Actual: %2%. Expected: %3%\n") % account.to_account () % calculated_hash.to_string () % info.head.to_string ());
 				}
 			}
 			std::cout << boost::str (boost::format ("%1% accounts validated\n") % count);

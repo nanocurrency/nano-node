@@ -70,7 +70,7 @@ int xrb_valid_address (const char * account_a)
 void xrb_generate_random (xrb_uint256 seed)
 {
 	auto & number (*reinterpret_cast<nano::uint256_union *> (seed));
-	nano::random_pool.GenerateBlock (number.bytes.data (), number.bytes.size ());
+	nano::random_pool::generate_block (number.bytes.data (), number.bytes.size ());
 }
 
 void xrb_seed_key (xrb_uint256 seed, int index, xrb_uint256 destination)
@@ -107,7 +107,7 @@ char * xrb_sign_transaction (const char * transaction, const xrb_uint256 private
 			strncpy (result, json.c_str (), json.size () + 1);
 		}
 	}
-	catch (std::runtime_error const & err)
+	catch (std::runtime_error const &)
 	{
 	}
 	return result;
@@ -133,7 +133,7 @@ char * xrb_work_transaction (const char * transaction)
 			strncpy (result, json.c_str (), json.size () + 1);
 		}
 	}
-	catch (std::runtime_error const & err)
+	catch (std::runtime_error const &)
 	{
 	}
 	return result;
@@ -142,7 +142,7 @@ char * xrb_work_transaction (const char * transaction)
 #include <crypto/ed25519-donna/ed25519-hash-custom.h>
 void ed25519_randombytes_unsafe (void * out, size_t outlen)
 {
-	nano::random_pool.GenerateBlock (reinterpret_cast<uint8_t *> (out), outlen);
+	nano::random_pool::generate_block (reinterpret_cast<uint8_t *> (out), outlen);
 }
 void ed25519_hash_init (ed25519_hash_context * ctx)
 {

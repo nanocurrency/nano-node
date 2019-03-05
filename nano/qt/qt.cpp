@@ -1466,6 +1466,10 @@ std::string nano_qt::wallet::format_balance (nano::uint128_t const & balance) co
 	{
 		unit = std::string ("nano");
 	}
+	else if (rendering_ratio == nano::raw_ratio)
+	{
+		unit = std::string ("raw");
+	}
 	return balance_str + " " + unit;
 }
 
@@ -1749,6 +1753,7 @@ ratio_group (new QButtonGroup),
 mnano_unit (new QRadioButton ("Mnano")),
 knano_unit (new QRadioButton ("knano")),
 nano_unit (new QRadioButton ("nano")),
+raw_unit (new QRadioButton ("raw")),
 back (new QPushButton ("Back")),
 ledger_window (new QWidget),
 ledger_layout (new QVBoxLayout),
@@ -1772,13 +1777,16 @@ wallet (wallet_a)
 	ratio_group->addButton (mnano_unit);
 	ratio_group->addButton (knano_unit);
 	ratio_group->addButton (nano_unit);
+	ratio_group->addButton (raw_unit);
 	ratio_group->setId (mnano_unit, 0);
 	ratio_group->setId (knano_unit, 1);
 	ratio_group->setId (nano_unit, 2);
+	ratio_group->setId (raw_unit, 3);
 	scale_layout->addWidget (scale_label);
 	scale_layout->addWidget (mnano_unit);
 	scale_layout->addWidget (knano_unit);
 	scale_layout->addWidget (nano_unit);
+	scale_layout->addWidget (raw_unit);
 	scale_window->setLayout (scale_layout);
 
 	ledger_model->setHorizontalHeaderItem (0, new QStandardItem ("Account"));
@@ -1849,6 +1857,13 @@ wallet (wallet_a)
 		{
 			QSettings ().setValue (saved_ratio_key, ratio_group->id (nano_unit));
 			this->wallet.change_rendering_ratio (nano::xrb_ratio);
+		}
+	});
+	QObject::connect (raw_unit, &QRadioButton::toggled, [this]() {
+		if (raw_unit->isChecked ())
+		{
+			QSettings ().setValue (saved_ratio_key, ratio_group->id (raw_unit));
+			this->wallet.change_rendering_ratio (nano::raw_ratio);
 		}
 	});
 	auto selected_ratio_id (QSettings ().value (saved_ratio_key, ratio_group->id (mnano_unit)).toInt ());

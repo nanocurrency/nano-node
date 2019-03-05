@@ -11,7 +11,7 @@ RUN apt-get update -qq && apt-get install -yqq \
 
 ENV BOOST_ROOT=/usr/local
 ADD util/build_prep/bootstrap_boost.sh bootstrap_boost.sh
-RUN ./bootstrap_boost.sh -m -B 1.66
+RUN ./bootstrap_boost.sh -m
 RUN rm bootstrap_boost.sh
 
 RUN apt-get update -qq && apt-get install -yqq \

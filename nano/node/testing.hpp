@@ -15,7 +15,7 @@ enum class error_system
 class system
 {
 public:
-	system (uint16_t, size_t);
+	system (uint16_t, uint16_t);
 	~system ();
 	void generate_activity (nano::node &, std::vector<nano::account> &);
 	void generate_mass_activity (uint32_t, nano::node &);
@@ -56,8 +56,8 @@ public:
 	nano::account destination;
 	uint64_t start;
 	uint64_t last;
-	bool deserialize (std::istream &);
 	void serialize (std::ostream &) const;
+	bool deserialize (std::istream &);
 	bool operator== (nano::landing_store const &) const;
 };
 class landing

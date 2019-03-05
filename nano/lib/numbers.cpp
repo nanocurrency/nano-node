@@ -8,7 +8,26 @@
 #include <crypto/cryptopp/aes.h>
 #include <crypto/cryptopp/modes.h>
 
-thread_local CryptoPP::AutoSeededRandomPool nano::random_pool;
+std::mutex nano::random_pool::mutex;
+CryptoPP::AutoSeededRandomPool nano::random_pool::pool;
+
+void nano::random_pool::generate_block (unsigned char * output, size_t size)
+{
+	std::lock_guard<std::mutex> lk (mutex);
+	pool.GenerateBlock (output, size);
+}
+
+unsigned nano::random_pool::generate_word32 (unsigned min, unsigned max)
+{
+	std::lock_guard<std::mutex> lk (mutex);
+	return pool.GenerateWord32 (min, max);
+}
+
+unsigned char nano::random_pool::generate_byte ()
+{
+	std::lock_guard<std::mutex> lk (mutex);
+	return pool.GenerateByte ();
+}
 
 namespace
 {
@@ -17,8 +36,7 @@ uint8_t base58_decode (char value)
 {
 	assert (value >= '0');
 	assert (value <= '~');
-	auto result (base58_reverse[value - 0x30] - 0x30);
-	return result;
+	return static_cast<uint8_t> (base58_reverse[value - 0x30] - 0x30);
 }
 char const * account_lookup ("13456789abcdefghijkmnopqrstuwxyz");
 char const * account_reverse ("~0~1234567~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~89:;<=>?@AB~CDEFGHIJK~LMNO~~~~~");
@@ -199,7 +217,7 @@ void nano::uint256_union::clear ()
 nano::uint256_t nano::uint256_union::number () const
 {
 	nano::uint256_t result;
-	boost::multiprecision::import_bits (result, bytes.begin (), bytes.end (), false);
+	boost::multiprecision::import_bits (result, bytes.begin (), bytes.end ());
 	return result;
 }
 
@@ -252,7 +270,7 @@ void nano::uint256_union::encode_dec (std::string & text) const
 
 bool nano::uint256_union::decode_dec (std::string const & text)
 {
-	auto error (text.size () > 78 || (text.size () > 1 && text[0] == '0') || (text.size () > 0 && text[0] == '-'));
+	auto error (text.size () > 78 || (text.size () > 1 && text.front () == '0') || (!text.empty () && text.front () == '-'));
 	if (!error)
 	{
 		std::stringstream stream (text);
@@ -316,7 +334,7 @@ void nano::uint512_union::clear ()
 nano::uint512_t nano::uint512_union::number () const
 {
 	nano::uint512_t result;
-	boost::multiprecision::import_bits (result, bytes.begin (), bytes.end (), false);
+	boost::multiprecision::import_bits (result, bytes.begin (), bytes.end ());
 	return result;
 }
 
@@ -473,7 +491,7 @@ bool nano::uint128_union::operator> (nano::uint128_union const & other_a) const
 nano::uint128_t nano::uint128_union::number () const
 {
 	nano::uint128_t result;
-	boost::multiprecision::import_bits (result, bytes.begin (), bytes.end (), false);
+	boost::multiprecision::import_bits (result, bytes.begin (), bytes.end ());
 	return result;
 }
 
@@ -522,7 +540,7 @@ void nano::uint128_union::encode_dec (std::string & text) const
 
 bool nano::uint128_union::decode_dec (std::string const & text)
 {
-	auto error (text.size () > 39 || (text.size () > 1 && text[0] == '0') || (text.size () > 0 && text[0] == '-'));
+	auto error (text.size () > 39 || (text.size () > 1 && text.front () == '0') || (!text.empty () && text.front () == '-'));
 	if (!error)
 	{
 		std::stringstream stream (text);
