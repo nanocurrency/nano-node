@@ -871,6 +871,8 @@ void nano::rpc_handler::block_info ()
 			response_l.put ("balance", balance.convert_to<std::string> ());
 			response_l.put ("height", std::to_string (sideband.height));
 			response_l.put ("local_timestamp", std::to_string (sideband.timestamp));
+			auto confirmed (node.ledger.block_confirmed (transaction, hash));
+			response_l.put ("confirmed", confirmed);
 
 			bool json_block_l = request.get<bool> ("json_block", false);
 			if (json_block_l)
@@ -993,6 +995,8 @@ void nano::rpc_handler::blocks_info ()
 					entry.put ("balance", balance.convert_to<std::string> ());
 					entry.put ("height", std::to_string (sideband.height));
 					entry.put ("local_timestamp", std::to_string (sideband.timestamp));
+					auto confirmed (node.ledger.block_confirmed (transaction, hash));
+					entry.put ("confirmed", confirmed);
 
 					if (json_block_l)
 					{
@@ -1061,25 +1065,6 @@ void nano::rpc_handler::block_account ()
 		{
 			auto account (node.ledger.account (transaction, hash));
 			response_l.put ("account", account.to_account ());
-		}
-		else
-		{
-			ec = nano::error_blocks::not_found;
-		}
-	}
-	response_errors ();
-}
-
-void nano::rpc_handler::block_confirmed ()
-{
-	auto hash (hash_impl ());
-	if (!ec)
-	{
-		auto transaction (node.store.tx_begin_read ());
-		if (node.store.block_exists (transaction, hash))
-		{
-			auto confirmed (node.ledger.block_confirmed (transaction, hash));
-			response_l.put ("confirmed", confirmed);
 		}
 		else
 		{
