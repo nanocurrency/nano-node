@@ -236,3 +236,10 @@ std::vector<nano::endpoint> nano::rep_crawler::representative_endpoints (size_t 
 	}
 	return result;
 }
+
+/** Total number of representatives */
+size_t nano::rep_crawler::representative_count ()
+{
+	std::lock_guard<std::mutex> lock (probable_reps_mutex);
+	return probable_reps.size ();
+}

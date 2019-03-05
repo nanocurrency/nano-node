@@ -1540,6 +1540,7 @@ TEST (node, rep_weight)
 	nano::keypair keypair2;
 	node.rep_crawler.response (endpoint0, keypair1.pub, amount100);
 	node.rep_crawler.response (endpoint1, keypair2.pub, amount50);
+	ASSERT_EQ (2, node.rep_crawler.representative_count ());
 	// Make sure we get the rep with the most weight first
 	auto reps (node.rep_crawler.representatives (1));
 	ASSERT_EQ (1, reps.size ());

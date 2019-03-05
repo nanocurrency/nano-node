@@ -98,6 +98,9 @@ public:
 	/** Returns all representatives registered with weight in descending order */
 	std::vector<nano::representative> representatives_by_weight ();
 
+	/** Total number of representatives */
+	size_t representative_count ();
+
 private:
 	nano::node & node;
 
