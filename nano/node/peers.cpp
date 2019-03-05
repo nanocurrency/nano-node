@@ -14,11 +14,10 @@ nano::endpoint nano::map_endpoint_to_v6 (nano::endpoint const & endpoint_a)
 	return endpoint_l;
 }
 
-nano::peer_information::peer_information (std::shared_ptr<nano::transport::channel_udp> sink_a, unsigned network_version_a, boost::optional<nano::account> node_id_a) :
+nano::peer_information::peer_information (std::shared_ptr<nano::transport::channel_udp> sink_a, boost::optional<nano::account> node_id_a) :
 sink (sink_a),
 last_contact (std::chrono::steady_clock::now ()),
 last_attempt (last_contact),
-network_version (network_version_a),
 node_id (node_id_a)
 {
 }
@@ -114,29 +113,6 @@ std::vector<nano::peer_information> nano::peer_container::list_vector (size_t co
 	while (result.size () > count_a)
 	{
 		result.pop_back ();
-	}
-	return result;
-}
-
-nano::endpoint nano::peer_container::bootstrap_peer ()
-{
-	nano::endpoint result (boost::asio::ip::address_v6::any (), 0);
-	std::lock_guard<std::mutex> lock (mutex);
-	;
-	for (auto i (peers.get<nano::peer_container::last_bootstrap_attempt_tag> ().begin ()), n (peers.get<nano::peer_container::last_bootstrap_attempt_tag> ().end ()); i != n;)
-	{
-		if (i->network_version >= protocol_version_reasonable_min)
-		{
-			result = i->endpoint ();
-			peers.get<nano::peer_container::last_bootstrap_attempt_tag> ().modify (i, [](nano::peer_information & peer_a) {
-				peer_a.last_bootstrap_attempt = std::chrono::steady_clock::now ();
-			});
-			i = n;
-		}
-		else
-		{
-			++i;
-		}
 	}
 	return result;
 }
@@ -423,8 +399,8 @@ bool nano::peer_container::insert (nano::endpoint const & endpoint_a, unsigned v
 				}
 				if (!result)
 				{
-					new_peer = std::make_shared<nano::transport::channel_udp> (node, endpoint_a);
-					peers.insert (nano::peer_information (new_peer, version_a, node_id_a));
+					new_peer = std::make_shared<nano::transport::channel_udp> (node, endpoint_a, version_a);
+					peers.insert (nano::peer_information (new_peer, node_id_a));
 					node.network.udp_channels.add (new_peer);
 				}
 			}

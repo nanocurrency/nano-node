@@ -1197,7 +1197,7 @@ void nano::bootstrap_attempt::populate_connections ()
 		// Not many peers respond, need to try to make more connections than we need.
 		for (auto i = 0u; i < delta; i++)
 		{
-			auto peer (node->peers.bootstrap_peer ());
+			auto peer (node->network.udp_channels.tcp_peer ());
 			auto endpoint (nano::tcp_endpoint (peer.address (), peer.port ()));
 			if (peer != nano::endpoint (boost::asio::ip::address_v6::any (), 0) && endpoints.find (endpoint) == endpoints.end ())
 			{

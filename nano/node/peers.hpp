@@ -47,7 +47,7 @@ public:
 class peer_information
 {
 public:
-	peer_information (std::shared_ptr<nano::transport::channel_udp>, unsigned, boost::optional<nano::account> = boost::none);
+	peer_information (std::shared_ptr<nano::transport::channel_udp>, boost::optional<nano::account> = boost::none);
 	peer_information (std::shared_ptr<nano::transport::channel_udp>, std::chrono::steady_clock::time_point const &, std::chrono::steady_clock::time_point const &);
 	std::shared_ptr<nano::transport::channel_udp> sink;
 	boost::asio::ip::address ip_address () const;
@@ -55,12 +55,10 @@ public:
 	std::reference_wrapper<nano::transport::channel const> sink_ref () const;
 	std::chrono::steady_clock::time_point last_contact;
 	std::chrono::steady_clock::time_point last_attempt;
-	std::chrono::steady_clock::time_point last_bootstrap_attempt{ std::chrono::steady_clock::time_point () };
 	std::chrono::steady_clock::time_point last_rep_request{ std::chrono::steady_clock::time_point () };
 	std::chrono::steady_clock::time_point last_rep_response{ std::chrono::steady_clock::time_point () };
 	nano::amount rep_weight{ 0 };
 	nano::account probable_rep_account{ 0 };
-	unsigned network_version{ nano::protocol_version };
 	boost::optional<nano::account> node_id;
 	bool operator< (nano::peer_information const &) const;
 };
@@ -76,9 +74,6 @@ public:
 	{
 	};
 	class last_rep_request_tag
-	{
-	};
-	class last_bootstrap_attempt_tag
 	{
 	};
 	class last_attempt_tag
@@ -108,8 +103,6 @@ public:
 	std::deque<std::shared_ptr<nano::transport::channel_udp>> list_fanout ();
 	// Returns a list of probable reps and their weight
 	std::vector<peer_information> list_probable_rep_weights ();
-	// Get the next peer for attempting bootstrap
-	nano::endpoint bootstrap_peer ();
 	// Purge any peer where last_contact < time_point and return what was left
 	std::vector<nano::peer_information> purge_list (std::chrono::steady_clock::time_point const &);
 	void purge_syn_cookies (std::chrono::steady_clock::time_point const &);
@@ -137,7 +130,6 @@ public:
 	boost::multi_index::hashed_unique<boost::multi_index::tag<sink_ref_tag>, boost::multi_index::const_mem_fun<peer_information, std::reference_wrapper<nano::transport::channel const>, &peer_information::sink_ref>>,
 	boost::multi_index::ordered_non_unique<boost::multi_index::tag<last_contact_tag>, boost::multi_index::member<peer_information, std::chrono::steady_clock::time_point, &peer_information::last_contact>>,
 	boost::multi_index::random_access<boost::multi_index::tag<random_access_tag>>,
-	boost::multi_index::ordered_non_unique<boost::multi_index::tag<last_bootstrap_attempt_tag>, boost::multi_index::member<peer_information, std::chrono::steady_clock::time_point, &peer_information::last_bootstrap_attempt>>,
 	boost::multi_index::ordered_non_unique<boost::multi_index::tag<last_rep_request_tag>, boost::multi_index::member<peer_information, std::chrono::steady_clock::time_point, &peer_information::last_rep_request>>,
 	boost::multi_index::ordered_non_unique<boost::multi_index::tag<rep_weight_tag>, boost::multi_index::member<peer_information, nano::amount, &peer_information::rep_weight>, std::greater<nano::amount>>,
 	boost::multi_index::ordered_non_unique<boost::multi_index::tag<id_address_tag>, boost::multi_index::const_mem_fun<peer_information, boost::asio::ip::address, &peer_information::ip_address>>>>

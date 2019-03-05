@@ -1,9 +1,10 @@
 #include <nano/node/node.hpp>
 #include <nano/node/transport/udp.hpp>
 
-nano::transport::channel_udp::channel_udp (nano::node & node_a, nano::endpoint const & endpoint_a) :
+nano::transport::channel_udp::channel_udp (nano::node & node_a, nano::endpoint const & endpoint_a, unsigned network_version_a) :
 node (node_a),
-endpoint (endpoint_a)
+endpoint (endpoint_a),
+network_version (network_version_a)
 {
 	assert (endpoint_a.address ().is_v6 ());
 }
@@ -240,6 +241,28 @@ bool nano::transport::udp_channels::reserved_address (nano::endpoint const & end
 		else if (bytes >= rfc4193_min && bytes <= rfc4193_max)
 		{
 			result = true;
+		}
+	}
+	return result;
+}
+
+nano::endpoint nano::transport::udp_channels::tcp_peer ()
+{
+	nano::endpoint result (boost::asio::ip::address_v6::any (), 0);
+	std::lock_guard<std::mutex> lock (mutex);
+	for (auto i (channels.get<last_tcp_attempt_tag> ().begin ()), n (channels.get<last_tcp_attempt_tag> ().end ()); i != n;)
+	{
+		if (i->channel->network_version >= protocol_version_reasonable_min)
+		{
+			result = i->endpoint ();
+			channels.get<last_tcp_attempt_tag> ().modify (i, [](channel_udp_wrapper & wrapper_a) {
+				wrapper_a.channel->last_tcp_attempt = std::chrono::steady_clock::now ();
+			});
+			i = n;
+		}
+		else
+		{
+			++i;
 		}
 	}
 	return result;

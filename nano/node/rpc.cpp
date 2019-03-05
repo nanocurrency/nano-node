@@ -2236,7 +2236,7 @@ void nano::rpc_handler::peers ()
 		if (peer_details)
 		{
 			boost::property_tree::ptree pending_tree;
-			pending_tree.put ("protocol_version", std::to_string (i->network_version));
+			pending_tree.put ("protocol_version", std::to_string (i->sink->network_version));
 			if (i->node_id.is_initialized ())
 			{
 				pending_tree.put ("node_id", i->node_id.get ().to_account ());
@@ -2249,7 +2249,7 @@ void nano::rpc_handler::peers ()
 		}
 		else
 		{
-			peers_l.push_back (boost::property_tree::ptree::value_type (text.str (), boost::property_tree::ptree (std::to_string (i->network_version))));
+			peers_l.push_back (boost::property_tree::ptree::value_type (text.str (), boost::property_tree::ptree (std::to_string (i->sink->network_version))));
 		}
 	}
 	response_l.add_child ("peers", peers_l);
