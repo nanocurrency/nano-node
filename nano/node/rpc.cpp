@@ -4507,22 +4507,6 @@ void nano::rpc_handler::process_request (bool tls_auth)
 				// First try the map of options with no arguments
 				no_arg_func_iter->second (this);
 			}
-			else if (tls_auth)
-			{
-				// Commands available only with TLS connection
-				if (action == "wallet_list")
-				{
-					wallet_list ();
-				}
-				else if (action == "wallet_seed")
-				{
-					wallet_seed ();
-				}
-				else
-				{
-					error_response (response, "Unknown command");
-				}
-			}
 			else
 			{
 				// Try the rest of the options
@@ -4570,6 +4554,22 @@ void nano::rpc_handler::process_request (bool tls_auth)
 				else if (action == "wallet_locked")
 				{
 					password_valid (true);
+				}
+				else if (tls_auth)
+				{
+					// Commands available only with TLS connection
+					if (action == "wallet_list")
+					{
+						wallet_list ();
+					}
+					else if (action == "wallet_seed")
+					{
+						wallet_seed ();
+					}
+					else
+					{
+						error_response (response, "Unknown command");
+					}
 				}
 				else
 				{
