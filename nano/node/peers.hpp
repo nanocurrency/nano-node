@@ -51,10 +51,6 @@ public:
 	std::chrono::steady_clock::time_point last_contact;
 	std::chrono::steady_clock::time_point last_attempt;
 	std::chrono::steady_clock::time_point last_bootstrap_attempt{ std::chrono::steady_clock::time_point () };
-	std::chrono::steady_clock::time_point last_rep_request{ std::chrono::steady_clock::time_point () };
-	std::chrono::steady_clock::time_point last_rep_response{ std::chrono::steady_clock::time_point () };
-	nano::amount rep_weight{ 0 };
-	nano::account probable_rep_account{ 0 };
 	unsigned network_version{ nano::protocol_version };
 	boost::optional<nano::account> node_id;
 	bool operator< (nano::peer_information const &) const;
@@ -76,10 +72,8 @@ public:
 	bool insert (nano::endpoint const &, unsigned, bool = false, boost::optional<nano::account> = boost::none);
 	std::unordered_set<nano::endpoint> random_set (size_t);
 	void random_fill (std::array<nano::endpoint, 8> &);
-	// Request a list of the top known representatives
-	std::vector<peer_information> representatives (size_t);
 	// List of all peers
-	std::deque<nano::endpoint> list ();
+	std::deque<nano::endpoint> list (size_t count_a = std::numeric_limits<size_t>::max ());
 	std::vector<peer_information> list_vector (size_t);
 	// A list of random peers sized for the configured rebroadcast fanout
 	std::deque<nano::endpoint> list_fanout ();
@@ -90,9 +84,6 @@ public:
 	// Purge any peer where last_contact < time_point and return what was left
 	std::vector<nano::peer_information> purge_list (std::chrono::steady_clock::time_point const &);
 	void purge_syn_cookies (std::chrono::steady_clock::time_point const &);
-	std::vector<nano::endpoint> rep_crawl ();
-	bool rep_response (nano::endpoint const &, nano::account const &, nano::amount const &);
-	void rep_request (nano::endpoint const &);
 	// Should we reach out to this endpoint with a keepalive message
 	bool reachout (nano::endpoint const &, bool = false);
 	// Returns boost::none if the IP is rate capped on syn cookie requests,
@@ -103,8 +94,6 @@ public:
 	bool validate_syn_cookie (nano::endpoint const &, nano::account, nano::signature);
 	size_t size ();
 	size_t size_sqrt ();
-	nano::uint128_t total_weight ();
-	nano::uint128_t online_weight_minimum;
 	bool empty ();
 	std::mutex mutex;
 	nano::endpoint self;
@@ -116,8 +105,6 @@ public:
 	boost::multi_index::ordered_non_unique<boost::multi_index::member<peer_information, std::chrono::steady_clock::time_point, &peer_information::last_attempt>, std::greater<std::chrono::steady_clock::time_point>>,
 	boost::multi_index::random_access<>,
 	boost::multi_index::ordered_non_unique<boost::multi_index::member<peer_information, std::chrono::steady_clock::time_point, &peer_information::last_bootstrap_attempt>>,
-	boost::multi_index::ordered_non_unique<boost::multi_index::member<peer_information, std::chrono::steady_clock::time_point, &peer_information::last_rep_request>>,
-	boost::multi_index::ordered_non_unique<boost::multi_index::member<peer_information, nano::amount, &peer_information::rep_weight>, std::greater<nano::amount>>,
 	boost::multi_index::ordered_non_unique<boost::multi_index::tag<peer_by_ip_addr>, boost::multi_index::member<peer_information, boost::asio::ip::address, &peer_information::ip_address>>>>
 	peers;
 	boost::multi_index_container<

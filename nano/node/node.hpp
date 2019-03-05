@@ -7,6 +7,7 @@
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/peers.hpp>
 #include <nano/node/portmapping.hpp>
+#include <nano/node/repcrawler.hpp>
 #include <nano/node/signatures.hpp>
 #include <nano/node/stats.hpp>
 #include <nano/node/wallet.hpp>
@@ -342,9 +343,9 @@ public:
 	void send_keepalive (nano::endpoint const &);
 	void send_node_id_handshake (nano::endpoint const &, boost::optional<nano::uint256_union> const & query, boost::optional<nano::uint256_union> const & respond_to);
 	void broadcast_confirm_req (std::shared_ptr<nano::block>);
-	void broadcast_confirm_req_base (std::shared_ptr<nano::block>, std::shared_ptr<std::vector<nano::peer_information>>, unsigned, bool = false);
+	void broadcast_confirm_req_base (std::shared_ptr<nano::block>, std::shared_ptr<std::vector<nano::endpoint>>, unsigned, bool = false);
 	void broadcast_confirm_req_batch (std::unordered_map<nano::endpoint, std::vector<std::pair<nano::block_hash, nano::block_hash>>>, unsigned = broadcast_interval_ms, bool = false);
-	void broadcast_confirm_req_batch (std::deque<std::pair<std::shared_ptr<nano::block>, std::shared_ptr<std::vector<nano::peer_information>>>>, unsigned = broadcast_interval_ms);
+	void broadcast_confirm_req_batch (std::deque<std::pair<std::shared_ptr<nano::block>, std::shared_ptr<std::vector<nano::endpoint>>>>, unsigned = broadcast_interval_ms);
 	void send_confirm_req (nano::endpoint const &, std::shared_ptr<nano::block>);
 	void send_confirm_req_hashes (nano::endpoint const &, std::vector<std::pair<nano::block_hash, nano::block_hash>> const &);
 	void confirm_hashes (nano::transaction const &, nano::endpoint const &, std::vector<nano::block_hash>);
@@ -416,18 +417,6 @@ private:
 };
 
 std::unique_ptr<seq_con_info_component> collect_seq_con_info (vote_processor & vote_processor, const std::string & name);
-
-// The network is crawled for representatives by occasionally sending a unicast confirm_req for a specific block and watching to see if it's acknowledged with a vote.
-class rep_crawler
-{
-public:
-	void add (nano::block_hash const &);
-	void remove (nano::block_hash const &);
-	bool exists (nano::block_hash const &);
-	std::mutex mutex;
-	std::unordered_set<nano::block_hash> active;
-};
-
 std::unique_ptr<seq_con_info_component> collect_seq_con_info (rep_crawler & rep_crawler, const std::string & name);
 std::unique_ptr<seq_con_info_component> collect_seq_con_info (block_processor & block_processor, const std::string & name);
 
@@ -462,7 +451,6 @@ public:
 	nano::account representative (nano::account const &);
 	void ongoing_keepalive ();
 	void ongoing_syn_cookie_cleanup ();
-	void ongoing_rep_crawl ();
 	void ongoing_rep_calculation ();
 	void ongoing_bootstrap ();
 	void ongoing_store_flush ();

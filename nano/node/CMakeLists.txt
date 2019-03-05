@@ -45,6 +45,8 @@ add_library (node
 	peers.hpp
 	portmapping.hpp
 	portmapping.cpp
+	repcrawler.hpp
+	repcrawler.cpp
 	rpc.hpp
 	rpc.cpp
 	rpcconfig.hpp
