@@ -3519,7 +3519,7 @@ TEST (rpc, blocks_info)
 		ASSERT_FALSE (source.is_initialized ());
 		std::string balance_text (blocks.second.get<std::string> ("balance"));
 		ASSERT_EQ (nano::genesis_amount.convert_to<std::string> (), balance_text);
-		ASSERT_FALSE (response.json.get<bool> ("confirmed"));
+		ASSERT_FALSE (blocks.second.get<bool> ("confirmed"));
 	}
 	// Test for optional values
 	request.put ("source", "true");
