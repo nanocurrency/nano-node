@@ -4657,7 +4657,6 @@ rpc_handler_no_arg_func_map create_rpc_handler_no_arg_func_map ()
 	no_arg_funcs.emplace ("blocks", &nano::rpc_handler::blocks);
 	no_arg_funcs.emplace ("blocks_info", &nano::rpc_handler::blocks_info);
 	no_arg_funcs.emplace ("block_account", &nano::rpc_handler::block_account);
-	no_arg_funcs.emplace ("block_confirmed", &nano::rpc_handler::block_confirmed);
 	no_arg_funcs.emplace ("block_count", &nano::rpc_handler::block_count);
 	no_arg_funcs.emplace ("block_count_type", &nano::rpc_handler::block_count_type);
 	no_arg_funcs.emplace ("block_create", &nano::rpc_handler::block_create);
