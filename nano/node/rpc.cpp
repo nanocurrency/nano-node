@@ -4154,7 +4154,7 @@ void nano::rpc_handler::work_generate ()
 {
 	rpc_control_impl ();
 	auto hash (hash_impl ());
-	uint64_t difficulty (nano::work_pool::publish_threshold);
+	uint64_t difficulty (node.network_params.publish_threshold);
 	boost::optional<std::string> difficulty_text (request.get_optional<std::string> ("difficulty"));
 	if (!ec && difficulty_text.is_initialized ())
 	{
