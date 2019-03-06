@@ -712,9 +712,30 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 						auto existing (node.node->wallets.items.find (wallet_id));
 						if (existing != node.node->wallets.items.end ())
 						{
-							if (existing->second->import (contents.str (), password))
+							bool valid (false);
 							{
-								std::cerr << "Unable to import wallet\n";
+								auto transaction (node.node->wallets.tx_begin_write ());
+								valid = existing->second->store.valid_password (transaction);
+								if (!valid)
+								{
+									valid = !existing->second->enter_password (transaction, password);
+								}
+							}
+							if (valid)
+							{
+								if (existing->second->import (contents.str (), password))
+								{
+									std::cerr << "Unable to import wallet\n";
+									ec = nano::error_cli::invalid_arguments;
+								}
+								else
+								{
+									std::cout << "Import completed\n";
+								}
+							}
+							else
+							{
+								std::cerr << boost::str (boost::format ("Invalid password for wallet %1%\nNew wallet should have empty (default) password or passwords for new wallet & json file should match\n") % wallet_id.to_string ());
 								ec = nano::error_cli::invalid_arguments;
 							}
 						}
@@ -727,12 +748,23 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 							}
 							else
 							{
-								node.node->wallets.create (wallet_id);
-								auto existing (node.node->wallets.items.find (wallet_id));
-								if (existing->second->import (contents.str (), password))
+								bool error (true);
+								{
+									std::lock_guard<std::mutex> lock (node.node->wallets.mutex);
+									auto transaction (node.node->wallets.tx_begin_write ());
+									nano::wallet wallet (error, transaction, node.node->wallets, wallet_id.to_string (), contents.str ());
+								}
+								if (error)
 								{
 									std::cerr << "Unable to import wallet\n";
 									ec = nano::error_cli::invalid_arguments;
+								}
+								else
+								{
+									node.node->wallets.reload ();
+									std::lock_guard<std::mutex> lock (node.node->wallets.mutex);
+									release_assert (node.node->wallets.items.find (wallet_id) != node.node->wallets.items.end ());
+									std::cout << "Import completed\n";
 								}
 							}
 						}
