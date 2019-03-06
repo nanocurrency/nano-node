@@ -109,11 +109,13 @@ mdb_val (val_a.db_size (), const_cast<nano::account_info_v13 *> (&val_a))
 nano::mdb_val::mdb_val (nano::pending_info const & val_a) :
 mdb_val (sizeof (val_a.source) + sizeof (val_a.amount), const_cast<nano::pending_info *> (&val_a))
 {
+	static_assert (std::is_standard_layout<nano::pending_info>::value, "Standard layout is required");
 }
 
 nano::mdb_val::mdb_val (nano::pending_key const & val_a) :
 mdb_val (sizeof (val_a), const_cast<nano::pending_key *> (&val_a))
 {
+	static_assert (std::is_standard_layout<nano::pending_key>::value, "Standard layout is required");
 }
 
 nano::mdb_val::mdb_val (nano::unchecked_info const & val_a) :
@@ -129,11 +131,13 @@ buffer (std::make_shared<std::vector<uint8_t>> ())
 nano::mdb_val::mdb_val (nano::block_info const & val_a) :
 mdb_val (sizeof (val_a), const_cast<nano::block_info *> (&val_a))
 {
+	static_assert (std::is_standard_layout<nano::block_info>::value, "Standard layout is required");
 }
 
 nano::mdb_val::mdb_val (nano::endpoint_key const & val_a) :
 mdb_val (sizeof (val_a), const_cast<nano::endpoint_key *> (&val_a))
 {
+	static_assert (std::is_standard_layout<nano::endpoint_key>::value, "Standard layout is required");
 }
 
 nano::mdb_val::mdb_val (std::shared_ptr<nano::block> const & val_a) :
