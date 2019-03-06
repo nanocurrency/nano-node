@@ -17,12 +17,6 @@ namespace mi = boost::multi_index;
 namespace nano
 {
 class node;
-// clang-format off
-class tag_endpoint {};
-class tag_last_request {};
-class tag_account {};
-class tag_weight {};
-// clang-format on
 
 /**
  * A representative picked up during repcrawl.
@@ -41,15 +35,6 @@ public:
 	std::chrono::steady_clock::time_point last_response{ std::chrono::steady_clock::time_point () };
 };
 
-using PROBABLE_REP_TYPE = boost::multi_index_container<
-representative,
-mi::indexed_by<
-mi::hashed_unique<mi::member<representative, nano::account, &representative::account>>,
-mi::random_access<>,
-mi::ordered_non_unique<mi::tag<tag_last_request>, mi::member<representative, std::chrono::steady_clock::time_point, &representative::last_request>>,
-mi::ordered_non_unique<mi::tag<tag_weight>, mi::member<representative, nano::amount, &representative::weight>, std::greater<nano::amount>>,
-mi::ordered_non_unique<mi::tag<tag_endpoint>, mi::member<representative, nano::endpoint, &representative::endpoint>>>>;
-
 /**
  * Crawls the network for representatives. Queries are performed by requesting confirmation of a
  * random block and observing the corresponding vote.
@@ -57,6 +42,24 @@ mi::ordered_non_unique<mi::tag<tag_endpoint>, mi::member<representative, nano::e
 class rep_crawler
 {
 	friend std::unique_ptr<seq_con_info_component> collect_seq_con_info (rep_crawler & rep_crawler, const std::string & name);
+
+	// clang-format off
+	class tag_endpoint {};
+	class tag_last_request {};
+	class tag_account {};
+	class tag_weight {};
+
+	using probably_rep_t = boost::multi_index_container<representative,
+	mi::indexed_by<
+		mi::hashed_unique<mi::member<representative, nano::account, &representative::account>>,
+		mi::random_access<>,
+		mi::ordered_non_unique<mi::tag<tag_last_request>,
+			mi::member<representative, std::chrono::steady_clock::time_point, &representative::last_request>>,
+		mi::ordered_non_unique<mi::tag<tag_weight>,
+			mi::member<representative, nano::amount, &representative::weight>, std::greater<nano::amount>>,
+		mi::ordered_non_unique<mi::tag<tag_endpoint>,
+			mi::member<representative, nano::endpoint, &representative::endpoint>>>>;
+	// clang-format on
 
 public:
 	rep_crawler (nano::node & node_a);
@@ -126,6 +129,6 @@ private:
 	nano::uint128_t total_weight_internal ();
 
 	/** Probable representatives */
-	PROBABLE_REP_TYPE probable_reps;
+	probably_rep_t probable_reps;
 };
 }

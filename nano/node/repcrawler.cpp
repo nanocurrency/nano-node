@@ -62,7 +62,7 @@ std::vector<nano::endpoint> nano::rep_crawler::get_crawl_targets ()
 	std::lock_guard<std::mutex> lock (probable_reps_mutex);
 
 	// First, add known rep endpoints, ordered by ascending last-requested time.
-	for (auto i (probable_reps.get<nano::tag_last_request> ().begin ()), n (probable_reps.get<nano::tag_last_request> ().end ()); i != n && endpoints.size () < required_peer_count; ++i)
+	for (auto i (probable_reps.get<tag_last_request> ().begin ()), n (probable_reps.get<tag_last_request> ().end ()); i != n && endpoints.size () < required_peer_count; ++i)
 	{
 		endpoints.insert (i->endpoint);
 	};
@@ -148,7 +148,7 @@ bool nano::rep_crawler::response (nano::endpoint const & endpoint_a, nano::accou
 nano::uint128_t nano::rep_crawler::total_weight_internal ()
 {
 	nano::uint128_t result (0);
-	for (auto i (probable_reps.get<nano::tag_weight> ().begin ()), n (probable_reps.get<nano::tag_weight> ().end ()); i != n; ++i)
+	for (auto i (probable_reps.get<tag_weight> ().begin ()), n (probable_reps.get<tag_weight> ().end ()); i != n; ++i)
 	{
 		auto weight (i->weight.number ());
 		if (weight > 0)
@@ -173,7 +173,7 @@ std::vector<nano::representative> nano::rep_crawler::representatives_by_weight (
 {
 	std::vector<nano::representative> result;
 	std::lock_guard<std::mutex> lock (probable_reps_mutex);
-	for (auto i (probable_reps.get<nano::tag_weight> ().begin ()), n (probable_reps.get<nano::tag_weight> ().end ()); i != n; ++i)
+	for (auto i (probable_reps.get<tag_weight> ().begin ()), n (probable_reps.get<tag_weight> ().end ()); i != n; ++i)
 	{
 		auto weight (i->weight.number ());
 		if (weight > 0)
@@ -192,20 +192,15 @@ void nano::rep_crawler::on_rep_request (nano::endpoint const & endpoint_a)
 {
 	std::lock_guard<std::mutex> lock (probable_reps_mutex);
 
-	using PROBABLE_REP_ITR = PROBABLE_REP_TYPE::index<nano::tag_endpoint>::type::iterator;
-	PROBABLE_REP_TYPE::index<nano::tag_endpoint>::type & endpoint_index = probable_reps.get<nano::tag_endpoint> ();
+	using probable_rep_itr_t = probably_rep_t::index<tag_endpoint>::type::iterator;
+	probably_rep_t::index<tag_endpoint>::type & endpoint_index = probable_reps.get<tag_endpoint> ();
 
 	// Find and update the timestamp on all reps available on the endpoint (a single host may have multiple reps)
-	std::vector<PROBABLE_REP_ITR> view;
-	auto itr_pair = probable_reps.get<nano::tag_endpoint> ().equal_range (endpoint_a);
+	std::vector<probable_rep_itr_t> view;
+	auto itr_pair = probable_reps.get<tag_endpoint> ().equal_range (endpoint_a);
 	for (; itr_pair.first != itr_pair.second; itr_pair.first++)
 	{
-		view.push_back (itr_pair.first);
-	}
-
-	for (auto & entry : view)
-	{
-		endpoint_index.modify (entry, [](nano::representative & value_a) {
+		endpoint_index.modify (itr_pair.first, [](nano::representative & value_a) {
 			value_a.last_request = std::chrono::steady_clock::now ();
 		});
 	}
@@ -216,7 +211,7 @@ std::vector<nano::representative> nano::rep_crawler::representatives (size_t cou
 	std::vector<representative> result;
 	result.reserve (std::min (count_a, size_t (16)));
 	std::lock_guard<std::mutex> lock (probable_reps_mutex);
-	for (auto i (probable_reps.get<nano::tag_weight> ().begin ()), n (probable_reps.get<nano::tag_weight> ().end ()); i != n && result.size () < count_a; ++i)
+	for (auto i (probable_reps.get<tag_weight> ().begin ()), n (probable_reps.get<tag_weight> ().end ()); i != n && result.size () < count_a; ++i)
 	{
 		if (!i->weight.is_zero ())
 		{
