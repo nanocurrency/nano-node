@@ -4152,6 +4152,15 @@ void nano::rpc_handler::work_generate ()
 {
 	rpc_control_impl ();
 	auto hash (hash_impl ());
+	uint64_t difficulty (nano::work_pool::publish_threshold);
+	boost::optional<std::string> difficulty_text (request.get_optional<std::string> ("difficulty"));
+	if (!ec && difficulty_text.is_initialized ())
+	{
+		if (nano::from_string_hex (difficulty_text.get (), difficulty))
+		{
+			ec = nano::error_rpc::bad_difficulty_format;
+		}
+	}
 	if (!ec)
 	{
 		bool use_peers (request.get_optional<bool> ("use_peers") == true);
@@ -4170,11 +4179,11 @@ void nano::rpc_handler::work_generate ()
 		};
 		if (!use_peers)
 		{
-			node.work.generate (hash, callback);
+			node.work.generate (hash, callback, difficulty);
 		}
 		else
 		{
-			node.work_generate (hash, callback);
+			node.work_generate (hash, callback, difficulty);
 		}
 	}
 	// Because of callback
