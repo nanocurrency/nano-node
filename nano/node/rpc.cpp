@@ -1688,16 +1688,16 @@ void nano::rpc_handler::confirmation_quorum ()
 	response_l.put ("online_weight_quorum_percent", std::to_string (node.config.online_weight_quorum));
 	response_l.put ("online_weight_minimum", node.config.online_weight_minimum.to_string_dec ());
 	response_l.put ("online_stake_total", node.online_reps.online_stake ().convert_to<std::string> ());
-	response_l.put ("peers_stake_total", node.peers.total_weight ().convert_to<std::string> ());
+	response_l.put ("peers_stake_total", node.rep_crawler.total_weight ().convert_to<std::string> ());
 	if (request.get<bool> ("peer_details", false))
 	{
 		boost::property_tree::ptree peers;
-		for (auto & peer : node.peers.list_probable_rep_weights ())
+		for (auto & peer : node.rep_crawler.representatives_by_weight ())
 		{
 			boost::property_tree::ptree peer_node;
-			peer_node.put ("account", peer.probable_rep_account.to_account ());
-			peer_node.put ("ip", peer.ip_address.to_string ());
-			peer_node.put ("weight", peer.rep_weight.to_string_dec ());
+			peer_node.put ("account", peer.account.to_account ());
+			peer_node.put ("ip", peer.endpoint.address ().to_string ());
+			peer_node.put ("weight", peer.weight.to_string_dec ());
 			peers.push_back (std::make_pair ("", peer_node));
 		}
 		response_l.add_child ("peers", peers);

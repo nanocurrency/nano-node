@@ -121,27 +121,6 @@ TEST (peer_container, list_fanout)
 	ASSERT_EQ (32, list2.size ());
 }
 
-TEST (peer_container, rep_weight)
-{
-	nano::peer_container peers (nano::endpoint{});
-	peers.insert (nano::endpoint (boost::asio::ip::address_v6::loopback (), 24001), 0);
-	ASSERT_TRUE (peers.representatives (1).empty ());
-	nano::endpoint endpoint0 (boost::asio::ip::address_v6::loopback (), 24000);
-	nano::endpoint endpoint1 (boost::asio::ip::address_v6::loopback (), 24002);
-	nano::endpoint endpoint2 (boost::asio::ip::address_v6::loopback (), 24003);
-	nano::amount amount (100);
-	peers.insert (endpoint2, nano::protocol_version);
-	peers.insert (endpoint0, nano::protocol_version);
-	peers.insert (endpoint1, nano::protocol_version);
-	nano::keypair keypair;
-	peers.rep_response (endpoint0, keypair.pub, amount);
-	auto reps (peers.representatives (1));
-	ASSERT_EQ (1, reps.size ());
-	ASSERT_EQ (100, reps[0].rep_weight.number ());
-	ASSERT_EQ (keypair.pub, reps[0].probable_rep_account);
-	ASSERT_EQ (endpoint0, reps[0].endpoint);
-}
-
 // Test to make sure we don't repeatedly send keepalive messages to nodes that aren't responding
 TEST (peer_container, reachout)
 {
