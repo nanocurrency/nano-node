@@ -3468,6 +3468,10 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 			(void)erased;
 			assert (erased == 1);
 		}
+		for (auto & dependent_block : root_it->election->dependent_blocks)
+		{
+			adjust_difficulty (dependent_block);
+		}
 		roots.erase (*i);
 	}
 	if (unconfirmed_count > 0)
@@ -3666,6 +3670,17 @@ void nano::active_transactions::adjust_difficulty (nano::block_hash const & hash
 			uint64_t difficulty_a (average + item.second);
 			roots.modify (existing_root, [difficulty_a](nano::conflict_info & info_a) {
 				info_a.adjusted_difficulty = difficulty_a;
+			});
+		}
+	}
+	// Return difficulty instead of adjusted value
+	else if (elections_list.size () == 1)
+	{
+		auto existing_root (roots.find (elections_list.begin ()->first));
+		if (existing_root->difficulty != existing_root->adjusted_difficulty)
+		{
+			roots.modify (existing_root, [](nano::conflict_info & info_a) {
+				info_a.adjusted_difficulty = info_a.difficulty;
 			});
 		}
 	}
