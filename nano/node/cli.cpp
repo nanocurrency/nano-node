@@ -1,6 +1,7 @@
 #include <nano/lib/interface.h>
 #include <nano/node/cli.hpp>
 #include <nano/node/common.hpp>
+#include <nano/node/daemonconfig.hpp>
 #include <nano/node/node.hpp>
 
 std::string nano::error_cli_messages::message (int ev) const
@@ -35,6 +36,7 @@ void nano::add_node_options (boost::program_options::options_description & descr
 	("online_weight_clear", "Clear online weight history records")
 	("peer_clear", "Clear online peers database dump")
 	("unchecked_clear", "Clear unchecked blocks")
+	("confirmation_height_clear", "Clear confirmation height")
 	("diagnostics", "Run internal diagnostics")
 	("key_create", "Generates a adhoc random keypair and prints it to stdout")
 	("key_expand", "Derive public key and account number from <key>")
@@ -52,6 +54,7 @@ void nano::add_node_options (boost::program_options::options_description & descr
 	("account", boost::program_options::value<std::string> (), "Defines <account> for other commands")
 	("file", boost::program_options::value<std::string> (), "Defines <file> for other commands")
 	("key", boost::program_options::value<std::string> (), "Defines the <key> for other commands, hex")
+	("seed", boost::program_options::value<std::string> (), "Defines the <seed> for other commands, hex")
 	("password", boost::program_options::value<std::string> (), "Defines <password> for other commands")
 	("wallet", boost::program_options::value<std::string> (), "Defines <wallet> for other commands")
 	("force", boost::program_options::value<bool>(), "Bool to force command if allowed");
@@ -244,6 +247,12 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 					auto transaction (node.node->store.tx_begin_write ());
 					node.node->store.peer_clear (transaction);
 				}
+				if (vm.count ("confirmation_height_clear"))
+				{
+					auto transaction (node.node->store.tx_begin_write ());
+					node.node->store.confirmation_height_clear (transaction);
+				}
+
 				success = node.node->copy_with_compaction (snapshot_path);
 			}
 			if (success)
@@ -270,7 +279,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		inactive_node node (data_path);
 		auto transaction (node.node->store.tx_begin_write ());
 		node.node->store.unchecked_clear (transaction);
-		std::cerr << "Unchecked blocks deleted" << std::endl;
+		std::cout << "Unchecked blocks deleted" << std::endl;
 	}
 	else if (vm.count ("delete_node_id"))
 	{
@@ -278,7 +287,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		inactive_node node (data_path);
 		auto transaction (node.node->store.tx_begin_write ());
 		node.node->store.delete_node_id (transaction);
-		std::cerr << "Deleted Node ID" << std::endl;
+		std::cout << "Deleted Node ID" << std::endl;
 	}
 	else if (vm.count ("clear_send_ids"))
 	{
@@ -286,7 +295,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		inactive_node node (data_path);
 		auto transaction (node.node->wallets.tx_begin_write ());
 		node.node->wallets.clear_send_ids (transaction);
-		std::cerr << "Send IDs deleted" << std::endl;
+		std::cout << "Send IDs deleted" << std::endl;
 	}
 	else if (vm.count ("online_weight_clear"))
 	{
@@ -294,7 +303,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		inactive_node node (data_path);
 		auto transaction (node.node->store.tx_begin_write ());
 		node.node->store.online_weight_clear (transaction);
-		std::cerr << "Onine weight records are removed" << std::endl;
+		std::cout << "Onine weight records are removed" << std::endl;
 	}
 	else if (vm.count ("peer_clear"))
 	{
@@ -302,11 +311,60 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		inactive_node node (data_path);
 		auto transaction (node.node->store.tx_begin_write ());
 		node.node->store.peer_clear (transaction);
-		std::cerr << "Database peers are removed" << std::endl;
+		std::cout << "Database peers are removed" << std::endl;
+	}
+	else if (vm.count ("confirmation_height_clear"))
+	{
+		boost::filesystem::path data_path = vm.count ("data_path") ? boost::filesystem::path (vm["data_path"].as<std::string> ()) : nano::working_path ();
+		inactive_node node (data_path);
+		auto account_it = vm.find ("account");
+		if (account_it != vm.cend ())
+		{
+			auto account_str = account_it->second.as<std::string> ();
+			nano::account account;
+			if (!account.decode_account (account_str))
+			{
+				nano::account_info account_info;
+				auto transaction (node.node->store.tx_begin_read ());
+				if (!node.node->store.account_get (transaction, account, account_info))
+				{
+					auto transaction (node.node->store.tx_begin_write ());
+					node.node->store.confirmation_height_clear (transaction, account, account_info);
+					std::cout << "Confirmation height of account " << account_str << " is set to 0" << std::endl;
+				}
+				else
+				{
+					std::cerr << "Could not find account" << std::endl;
+					ec = nano::error_cli::generic;
+				}
+			}
+			else
+			{
+				std::cerr << "Invalid account id\n";
+				ec = nano::error_cli::invalid_arguments;
+			}
+		}
+		else
+		{
+			auto transaction (node.node->store.tx_begin_write ());
+			node.node->store.confirmation_height_clear (transaction);
+			std::cout << "Confirmation heights of all accounts are set to 0" << std::endl;
+		}
 	}
 	else if (vm.count ("diagnostics"))
 	{
 		inactive_node node (data_path);
+
+		// Check/upgrade the config.json file.
+		{
+			nano::daemon_config config;
+			auto error = nano::read_and_update_daemon_config (data_path, config);
+			if (error)
+			{
+				std::cerr << "Error deserializing config: " << error.get_message () << std::endl;
+			}
+		}
+
 		std::cout << "Testing hash function" << std::endl;
 		nano::raw_key key;
 		key.data.clear ();
@@ -325,11 +383,12 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 			environment.dump (std::cout);
 			std::stringstream stream;
 			environment.dump (stream);
-			BOOST_LOG (node.logging.log) << stream.str ();
+			node.logging.logger.always_log (stream.str ());
 		}
 		else
 		{
-			std::cout << "Error initializing OpenCL" << std::endl;
+			std::cerr << "Error initializing OpenCL" << std::endl;
+			ec = nano::error_cli::generic;
 		}
 	}
 	else if (vm.count ("key_create"))
@@ -412,7 +471,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	}
 	else if (vm.count ("wallet_change_seed"))
 	{
-		if (vm.count ("wallet") == 1 && vm.count ("key") == 1)
+		if (vm.count ("wallet") == 1 && (vm.count ("seed") == 1 || vm.count ("key") == 1))
 		{
 			nano::uint256_union wallet_id;
 			if (!wallet_id.decode_hex (vm["wallet"].as<std::string> ()))
@@ -429,16 +488,24 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 					auto transaction (wallet->wallets.tx_begin_write ());
 					if (!wallet->enter_password (transaction, password))
 					{
-						nano::raw_key key;
-						if (!key.data.decode_hex (vm["key"].as<std::string> ()))
+						nano::raw_key seed;
+						if (vm.count ("seed"))
+						{
+							if (seed.data.decode_hex (vm["seed"].as<std::string> ()))
+							{
+								std::cerr << "Invalid seed\n";
+								ec = nano::error_cli::invalid_arguments;
+							}
+						}
+						else if (seed.data.decode_hex (vm["key"].as<std::string> ()))
+						{
+							std::cerr << "Invalid key seed\n";
+							ec = nano::error_cli::invalid_arguments;
+						}
+						if (!ec)
 						{
 							std::cout << "Changing seed and caching work. Please wait..." << std::endl;
-							wallet->change_seed (transaction, key);
-						}
-						else
-						{
-							std::cerr << "Invalid key\n";
-							ec = nano::error_cli::invalid_arguments;
+							wallet->change_seed (transaction, seed);
 						}
 					}
 					else
@@ -461,24 +528,37 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		}
 		else
 		{
-			std::cerr << "wallet_change_seed command requires one <wallet> option and one <key> option and optionally one <password> option\n";
+			std::cerr << "wallet_change_seed command requires one <wallet> option and one <seed> option and optionally one <password> option\n";
 			ec = nano::error_cli::invalid_arguments;
 		}
 	}
 	else if (vm.count ("wallet_create"))
 	{
 		nano::raw_key seed_key;
-		if (vm.count ("key") == 1)
+		if (vm.count ("seed") == 1)
+		{
+			if (seed_key.data.decode_hex (vm["seed"].as<std::string> ()))
+			{
+				std::cerr << "Invalid seed\n";
+				ec = nano::error_cli::invalid_arguments;
+			}
+		}
+		else if (vm.count ("seed") > 1)
+		{
+			std::cerr << "wallet_create command allows one optional <seed> parameter\n";
+			ec = nano::error_cli::invalid_arguments;
+		}
+		else if (vm.count ("key") == 1)
 		{
 			if (seed_key.data.decode_hex (vm["key"].as<std::string> ()))
 			{
-				std::cerr << "Invalid key\n";
+				std::cerr << "Invalid seed key\n";
 				ec = nano::error_cli::invalid_arguments;
 			}
 		}
 		else if (vm.count ("key") > 1)
 		{
-			std::cerr << "wallet_create command allows one optional <key> parameter\n";
+			std::cerr << "wallet_create command allows one optional <key> seed parameter\n";
 			ec = nano::error_cli::invalid_arguments;
 		}
 		if (!ec)
@@ -499,7 +579,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 						ec = nano::error_cli::invalid_arguments;
 					}
 				}
-				if (vm.count ("key"))
+				if (vm.count ("seed") || vm.count ("key"))
 				{
 					auto transaction (wallet->wallets.tx_begin_write ());
 					wallet->change_seed (transaction, seed_key);

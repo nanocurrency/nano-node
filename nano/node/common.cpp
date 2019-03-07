@@ -119,6 +119,10 @@ size_t nano::message_header::payload_length_bytes () const
 		{
 			return nano::bulk_pull_account::size;
 		}
+		case nano::message_type::keepalive:
+		{
+			return nano::keepalive::size;
+		}
 		// Add realtime network messages once they get framing support; currently the
 		// realtime messages all fit in a datagram from which they're deserialized.
 		default:
@@ -573,7 +577,7 @@ bool nano::confirm_req::deserialize (nano::stream & stream_a, nano::block_unique
 			result = block == nullptr;
 		}
 	}
-	catch (const std::runtime_error & error)
+	catch (const std::runtime_error &)
 	{
 		result = true;
 	}

@@ -109,10 +109,10 @@ std::vector<nano::peer_information> nano::peer_container::list_vector (size_t co
 	{
 		result.push_back (*i);
 	}
-	random_pool.Shuffle (result.begin (), result.end ());
-	while (result.size () > count_a)
+	random_pool::shuffle (result.begin (), result.end ());
+	if (result.size () > count_a)
 	{
-		result.pop_back ();
+		result.resize (count_a, nano::peer_information (nullptr));
 	}
 	return result;
 }
@@ -129,7 +129,7 @@ boost::optional<nano::uint256_union> nano::peer_container::assign_syn_cookie (na
 		if (syn_cookies.find (endpoint) == syn_cookies.end ())
 		{
 			nano::uint256_union query;
-			random_pool.GenerateBlock (query.bytes.data (), query.bytes.size ());
+			random_pool::generate_block (query.bytes.data (), query.bytes.size ());
 			syn_cookie_info info{ query, std::chrono::steady_clock::now () };
 			syn_cookies[endpoint] = info;
 			++ip_cookies;
@@ -296,14 +296,14 @@ bool nano::peer_container::empty ()
 	return size () == 0;
 }
 
-bool nano::peer_container::not_a_peer (nano::endpoint const & endpoint_a)
+bool nano::peer_container::not_a_peer (nano::endpoint const & endpoint_a, bool allow_local_peers)
 {
 	bool result (false);
 	if (endpoint_a.address ().to_v6 ().is_unspecified ())
 	{
 		result = true;
 	}
-	else if (node.network.udp_channels.reserved_address (endpoint_a))
+	else if (node.network.udp_channels.reserved_address (endpoint_a, allow_local_peers))
 	{
 		result = true;
 	}
@@ -346,10 +346,10 @@ void nano::peer_container::rep_request (nano::transport::channel const & sink_a)
 	}
 }
 
-bool nano::peer_container::reachout (nano::endpoint const & endpoint_a)
+bool nano::peer_container::reachout (nano::endpoint const & endpoint_a, bool allow_local_peers)
 {
 	// Don't contact invalid IPs
-	bool error = not_a_peer (endpoint_a);
+	bool error = not_a_peer (endpoint_a, allow_local_peers);
 	if (!error)
 	{
 		auto endpoint_l (nano::map_endpoint_to_v6 (endpoint_a));
@@ -364,11 +364,11 @@ bool nano::peer_container::reachout (nano::endpoint const & endpoint_a)
 	return error;
 }
 
-bool nano::peer_container::insert (nano::endpoint const & endpoint_a, unsigned version_a, bool preconfigured_a, boost::optional<nano::account> node_id_a)
+bool nano::peer_container::insert (nano::endpoint const & endpoint_a, unsigned version_a, bool allow_local_peers, boost::optional<nano::account> node_id_a)
 {
 	assert (endpoint_a.address ().is_v6 ());
 	std::shared_ptr<nano::transport::channel_udp> new_peer;
-	auto result (!preconfigured_a && not_a_peer (endpoint_a));
+	auto result (not_a_peer (endpoint_a, allow_local_peers));
 	if (!result)
 	{
 		if (version_a >= nano::protocol_version_min)

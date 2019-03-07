@@ -3,6 +3,7 @@
 #include <nano/core_test/testutil.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/testing.hpp>
+#include <nano/secure/versioning.hpp>
 
 #include <boost/polymorphic_cast.hpp>
 
@@ -92,6 +93,12 @@ TEST (wallets, upgrade)
 		MDB_txn * tx_destination (*boost::polymorphic_downcast<nano::mdb_txn *> (transaction_destination.impl.get ()));
 		node1->wallets.move_table (id.pub.to_string (), tx_source, tx_destination);
 		node1->store.version_put (transaction_destination, 11);
+
+		nano::account_info info;
+		ASSERT_FALSE (mdb_store.account_get (transaction_destination, nano::genesis_account, info));
+		nano::account_info_v13 account_info_v13 (info.head, info.rep_block, info.open_block, info.balance, info.modified, info.block_count, info.epoch);
+		auto status (mdb_put (mdb_store.env.tx (transaction_destination), mdb_store.get_account_db (info.epoch), nano::mdb_val (nano::test_genesis_key.pub), nano::mdb_val (account_info_v13), 0));
+		assert (status == 0);
 	}
 	nano::node_init init1;
 	auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, 24001, path, system.alarm, system.logging, system.work));
@@ -155,9 +162,6 @@ TEST (wallets, vote_minimum)
 {
 	nano::system system (24000, 1);
 	auto & node1 (*system.nodes[0]);
-	bool error (false);
-	nano::wallets wallets (error, node1);
-	ASSERT_FALSE (error);
 	nano::keypair key1;
 	nano::keypair key2;
 	nano::genesis genesis;
@@ -170,11 +174,11 @@ TEST (wallets, vote_minimum)
 	ASSERT_EQ (nano::process_result::progress, node1.process (send2).code);
 	nano::state_block open2 (key2.pub, 0, key2.pub, node1.config.vote_minimum.number () - 1, send2.hash (), key2.prv, key2.pub, system.work.generate (key2.pub));
 	ASSERT_EQ (nano::process_result::progress, node1.process (open2).code);
-	auto wallet (wallets.items.begin ()->second);
+	auto wallet (node1.wallets.items.begin ()->second);
 	ASSERT_EQ (0, wallet->representatives.size ());
 	wallet->insert_adhoc (nano::test_genesis_key.prv);
 	wallet->insert_adhoc (key1.prv);
 	wallet->insert_adhoc (key2.prv);
-	wallets.compute_reps ();
+	node1.wallets.compute_reps ();
 	ASSERT_EQ (2, wallet->representatives.size ());
 }

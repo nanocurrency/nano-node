@@ -34,6 +34,7 @@ int main (int argc, char * const * argv)
 		("batch_size",boost::program_options::value<std::size_t> (), "Increase sideband batch size, default 512")
 		("debug_block_count", "Display the number of block")
 		("debug_bootstrap_generate", "Generate bootstrap sequence of blocks")
+		("debug_dump_online_weight", "Dump online_weights table")
 		("debug_dump_representatives", "List representatives and weights")
 		("debug_account_count", "Display the number of accounts")
 		("debug_mass_activity", "Generates fake debug activity")
@@ -47,12 +48,14 @@ int main (int argc, char * const * argv)
 		("debug_profile_sign", "Profile signature generation")
 		("debug_profile_process", "Profile active blocks processing (only for nano_test_network)")
 		("debug_profile_votes", "Profile votes processing (only for nano_test_network)")
+		("debug_random_feed", "Generates output to RNG test suites")
 		("debug_rpc", "Read an RPC command from stdin and invoke it. Network operations will have no effect.")
 		("debug_validate_blocks", "Check all blocks for correct hash, signature, work value")
 		("debug_peers", "Display peer IPv6:port connections")
 		("platform", boost::program_options::value<std::string> (), "Defines the <platform> for OpenCL commands")
 		("device", boost::program_options::value<std::string> (), "Defines <device> for OpenCL command")
-		("threads", boost::program_options::value<std::string> (), "Defines <threads> count for OpenCL command");
+		("threads", boost::program_options::value<std::string> (), "Defines <threads> count for OpenCL command")
+		("difficulty", boost::program_options::value<std::string> (), "Defines <difficulty> for OpenCL command, HEX");
 	// clang-format on
 
 	boost::program_options::variables_map vm;
@@ -163,6 +166,22 @@ int main (int argc, char * const * argv)
 			{
 				std::cerr << "Bootstrapping requires one <key> option\n";
 				result = -1;
+			}
+		}
+		else if (vm.count ("debug_dump_online_weight"))
+		{
+			nano::inactive_node node (data_path);
+			auto current (node.node->online_reps.online_stake ());
+			std::cout << boost::str (boost::format ("Online Weight %1%\n") % current);
+			auto transaction (node.node->store.tx_begin_read ());
+			for (auto i (node.node->store.online_weight_begin (transaction)), n (node.node->store.online_weight_end ()); i != n; ++i)
+			{
+				using time_point = std::chrono::system_clock::time_point;
+				time_point ts (std::chrono::duration_cast<time_point::duration> (std::chrono::nanoseconds (i->first)));
+				std::time_t timestamp = std::chrono::system_clock::to_time_t (ts);
+				std::string weight;
+				i->second.encode_dec (weight);
+				std::cout << boost::str (boost::format ("Timestamp %1% Weight %2%\n") % ctime (&timestamp) % weight);
 			}
 		}
 		else if (vm.count ("debug_dump_representatives"))
@@ -280,6 +299,16 @@ int main (int argc, char * const * argv)
 						result = -1;
 					}
 				}
+				uint64_t difficulty (nano::work_pool::publish_threshold);
+				auto difficulty_it = vm.find ("difficulty");
+				if (difficulty_it != vm.end ())
+				{
+					if (nano::from_string_hex (difficulty_it->second.as<std::string> (), difficulty))
+					{
+						std::cerr << "Invalid difficulty\n";
+						result = -1;
+					}
+				}
 				if (!result)
 				{
 					error |= platform >= environment.platforms.size ();
@@ -290,17 +319,17 @@ int main (int argc, char * const * argv)
 						{
 							nano::logging logging;
 							auto opencl (nano::opencl_work::create (true, { platform, device, threads }, logging));
-							nano::work_pool work_pool (std::numeric_limits<unsigned>::max (), opencl ? [&opencl](nano::uint256_union const & root_a) {
-								return opencl->generate_work (root_a);
+							nano::work_pool work_pool (std::numeric_limits<unsigned>::max (), opencl ? [&opencl](nano::uint256_union const & root_a, uint64_t difficulty_a) {
+								return opencl->generate_work (root_a, difficulty_a);
 							}
-							                                                                         : std::function<boost::optional<uint64_t> (nano::uint256_union const &)> (nullptr));
+							                                                                         : std::function<boost::optional<uint64_t> (nano::uint256_union const &, uint64_t)> (nullptr));
 							nano::change_block block (0, 0, nano::keypair ().prv, 0, 0);
-							std::cerr << boost::str (boost::format ("Starting OpenCL generation profiling. Platform: %1%. Device: %2%. Threads: %3%\n") % platform % device % threads);
+							std::cerr << boost::str (boost::format ("Starting OpenCL generation profiling. Platform: %1%. Device: %2%. Threads: %3%. Difficulty: %4$#x\n") % platform % device % threads % difficulty);
 							for (uint64_t i (0); true; ++i)
 							{
 								block.hashables.previous.qwords[0] += 1;
 								auto begin1 (std::chrono::high_resolution_clock::now ());
-								block.block_work_set (work_pool.generate (block.root ()));
+								block.block_work_set (work_pool.generate (block.root (), difficulty));
 								auto end1 (std::chrono::high_resolution_clock::now ());
 								std::cerr << boost::str (boost::format ("%|1$ 12d|\n") % std::chrono::duration_cast<std::chrono::microseconds> (end1 - begin1).count ());
 							}
@@ -622,6 +651,23 @@ int main (int argc, char * const * argv)
 			else
 			{
 				std::cerr << "For this test ACTIVE_NETWORK should be nano_test_network" << std::endl;
+			}
+		}
+		else if (vm.count ("debug_random_feed"))
+		{
+			/*
+			 * This command redirects an infinite stream of bytes from the random pool to standard out.
+			 * The result can be fed into various tools for testing RNGs and entropy pools.
+			 *
+			 * Example, running the entire dieharder test suite:
+			 *
+			 *   ./nano_node --debug_random_feed | dieharder -a -g 200
+			 */
+			nano::raw_key seed;
+			for (;;)
+			{
+				nano::random_pool::generate_block (seed.data.bytes.data (), seed.data.bytes.size ());
+				std::cout.write (reinterpret_cast<const char *> (seed.data.bytes.data ()), seed.data.bytes.size ());
 			}
 		}
 		else if (vm.count ("debug_rpc"))

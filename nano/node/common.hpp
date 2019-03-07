@@ -279,6 +279,7 @@ public:
 	bool deserialize (nano::stream &);
 	bool operator== (nano::keepalive const &) const;
 	std::array<nano::endpoint, 8> peers;
+	static size_t constexpr size = 8 * (16 + 2);
 };
 class publish : public message
 {

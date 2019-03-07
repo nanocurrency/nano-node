@@ -426,68 +426,6 @@ TEST (node, working)
 	ASSERT_FALSE (path.empty ());
 }
 
-TEST (logging, serialization)
-{
-	auto path (nano::unique_path ());
-	nano::logging logging1;
-	logging1.init (path);
-	logging1.ledger_logging_value = !logging1.ledger_logging_value;
-	logging1.ledger_duplicate_logging_value = !logging1.ledger_duplicate_logging_value;
-	logging1.network_logging_value = !logging1.network_logging_value;
-	logging1.network_message_logging_value = !logging1.network_message_logging_value;
-	logging1.network_publish_logging_value = !logging1.network_publish_logging_value;
-	logging1.network_packet_logging_value = !logging1.network_packet_logging_value;
-	logging1.network_keepalive_logging_value = !logging1.network_keepalive_logging_value;
-	logging1.network_node_id_handshake_logging_value = !logging1.network_node_id_handshake_logging_value;
-	logging1.node_lifetime_tracing_value = !logging1.node_lifetime_tracing_value;
-	logging1.insufficient_work_logging_value = !logging1.insufficient_work_logging_value;
-	logging1.log_rpc_value = !logging1.log_rpc_value;
-	logging1.bulk_pull_logging_value = !logging1.bulk_pull_logging_value;
-	logging1.work_generation_time_value = !logging1.work_generation_time_value;
-	logging1.log_to_cerr_value = !logging1.log_to_cerr_value;
-	logging1.max_size = 10;
-	nano::jsonconfig tree;
-	logging1.serialize_json (tree);
-	nano::logging logging2;
-	logging2.init (path);
-	bool upgraded (false);
-	ASSERT_FALSE (logging2.deserialize_json (upgraded, tree));
-	ASSERT_FALSE (upgraded);
-	ASSERT_EQ (logging1.ledger_logging_value, logging2.ledger_logging_value);
-	ASSERT_EQ (logging1.ledger_duplicate_logging_value, logging2.ledger_duplicate_logging_value);
-	ASSERT_EQ (logging1.network_logging_value, logging2.network_logging_value);
-	ASSERT_EQ (logging1.network_message_logging_value, logging2.network_message_logging_value);
-	ASSERT_EQ (logging1.network_publish_logging_value, logging2.network_publish_logging_value);
-	ASSERT_EQ (logging1.network_packet_logging_value, logging2.network_packet_logging_value);
-	ASSERT_EQ (logging1.network_keepalive_logging_value, logging2.network_keepalive_logging_value);
-	ASSERT_EQ (logging1.network_node_id_handshake_logging_value, logging2.network_node_id_handshake_logging_value);
-	ASSERT_EQ (logging1.node_lifetime_tracing_value, logging2.node_lifetime_tracing_value);
-	ASSERT_EQ (logging1.insufficient_work_logging_value, logging2.insufficient_work_logging_value);
-	ASSERT_EQ (logging1.log_rpc_value, logging2.log_rpc_value);
-	ASSERT_EQ (logging1.bulk_pull_logging_value, logging2.bulk_pull_logging_value);
-	ASSERT_EQ (logging1.work_generation_time_value, logging2.work_generation_time_value);
-	ASSERT_EQ (logging1.log_to_cerr_value, logging2.log_to_cerr_value);
-	ASSERT_EQ (logging1.max_size, logging2.max_size);
-}
-
-TEST (logging, upgrade_v1_v2)
-{
-	auto path1 (nano::unique_path ());
-	auto path2 (nano::unique_path ());
-	nano::logging logging1;
-	logging1.init (path1);
-	nano::logging logging2;
-	logging2.init (path2);
-	nano::jsonconfig tree;
-	logging1.serialize_json (tree);
-	tree.erase ("version");
-	tree.erase ("vote");
-	bool upgraded (false);
-	ASSERT_FALSE (logging2.deserialize_json (upgraded, tree));
-	ASSERT_LE (2, tree.get<int> ("version"));
-	ASSERT_FALSE (tree.get<bool> ("vote"));
-}
-
 TEST (node, price)
 {
 	nano::system system (24000, 1);
@@ -721,7 +659,7 @@ TEST (node_config, required_child)
 	tree.put_child ("logging", logging_l);
 	auto child_l (tree.get_required_child ("logging"));
 	child_l.put<bool> ("flush", !logging1.flush);
-	bool upgraded;
+	bool upgraded (false);
 	logging2.deserialize_json (upgraded, child_l);
 
 	ASSERT_NE (logging1.flush, logging2.flush);

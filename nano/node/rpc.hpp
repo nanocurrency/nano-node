@@ -8,6 +8,7 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/errors.hpp>
 #include <nano/lib/jsonconfig.hpp>
+#include <nano/node/rpcconfig.hpp>
 #include <nano/secure/blockstore.hpp>
 #include <nano/secure/utility.hpp>
 #include <unordered_map>
@@ -16,44 +17,6 @@ namespace nano
 {
 void error_response (std::function<void(boost::property_tree::ptree const &)> response_a, std::string const & message_a);
 class node;
-/** Configuration options for RPC TLS */
-class rpc_secure_config
-{
-public:
-	rpc_secure_config ();
-	nano::error serialize_json (nano::jsonconfig &) const;
-	nano::error deserialize_json (nano::jsonconfig &);
-
-	/** If true, enable TLS */
-	bool enable;
-	/** If true, log certificate verification details */
-	bool verbose_logging;
-	/** Must be set if the private key PEM is password protected */
-	std::string server_key_passphrase;
-	/** Path to certificate- or chain file. Must be PEM formatted. */
-	std::string server_cert_path;
-	/** Path to private key file. Must be PEM formatted.*/
-	std::string server_key_path;
-	/** Path to dhparam file */
-	std::string server_dh_path;
-	/** Optional path to directory containing client certificates */
-	std::string client_certs_path;
-};
-class rpc_config
-{
-public:
-	rpc_config (bool = false);
-	nano::error serialize_json (nano::jsonconfig &) const;
-	nano::error deserialize_json (nano::jsonconfig &);
-	boost::asio::ip::address_v6 address;
-	uint16_t port;
-	bool enable_control;
-	uint64_t frontier_request_limit;
-	uint64_t chain_request_limit;
-	rpc_secure_config secure;
-	uint8_t max_json_depth;
-	bool enable_sign_hash;
-};
 enum class payment_status
 {
 	not_a_status,
@@ -87,7 +50,6 @@ public:
 	nano::rpc_config config;
 	nano::node & node;
 	bool on;
-	static uint16_t const rpc_port = nano::is_live_network ? 7076 : 55000;
 };
 class rpc_connection : public std::enable_shared_from_this<nano::rpc_connection>
 {
@@ -113,7 +75,6 @@ public:
 	~payment_observer ();
 	void start (uint64_t);
 	void observe ();
-	void timeout ();
 	void complete (nano::payment_status);
 	std::mutex mutex;
 	std::condition_variable condition;
@@ -152,6 +113,7 @@ public:
 	void blocks ();
 	void blocks_info ();
 	void block_account ();
+	void block_confirmed ();
 	void block_count ();
 	void block_count_type ();
 	void block_create ();
@@ -169,7 +131,6 @@ public:
 	void delegators_count ();
 	void deterministic_key ();
 	void frontiers ();
-	void history ();
 	void keepalive ();
 	void key_create ();
 	void key_expand ();
@@ -206,6 +167,7 @@ public:
 	void unchecked_clear ();
 	void unchecked_get ();
 	void unchecked_keys ();
+	void unopened ();
 	void uptime ();
 	void validate_account_number ();
 	void version ();
@@ -251,6 +213,7 @@ public:
 	nano::account account_impl (std::string = "");
 	nano::amount amount_impl ();
 	std::shared_ptr<nano::block> block_impl (bool = true);
+	std::shared_ptr<nano::block> block_json_impl (bool = true);
 	nano::block_hash hash_impl (std::string = "hash");
 	nano::amount threshold_optional_impl ();
 	uint64_t work_optional_impl ();

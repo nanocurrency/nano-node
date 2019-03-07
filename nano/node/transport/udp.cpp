@@ -103,7 +103,7 @@ std::unordered_set<std::shared_ptr<nano::transport::channel_udp>> nano::transpor
 	{
 		for (auto i (0); i < random_cutoff && result.size () < count_a; ++i)
 		{
-			auto index (random_pool.GenerateWord32 (0, static_cast<CryptoPP::word32> (peers_size - 1)));
+			auto index (nano::random_pool::generate_word32 (0, static_cast<CryptoPP::word32> (peers_size - 1)));
 			result.insert (channels.get<random_access_tag> ()[index].channel);
 		}
 	}
@@ -151,7 +151,7 @@ boost::asio::ip::address_v6 mapped_from_v4_bytes (unsigned long address_a)
 }
 }
 
-bool nano::transport::udp_channels::reserved_address (nano::endpoint const & endpoint_a)
+bool nano::transport::udp_channels::reserved_address (nano::endpoint const & endpoint_a, bool allow_local_peers)
 {
 	assert (endpoint_a.address ().is_v6 ());
 	auto bytes (endpoint_a.address ().to_v6 ());
@@ -220,7 +220,7 @@ bool nano::transport::udp_channels::reserved_address (nano::endpoint const & end
 	{
 		result = true;
 	}
-	else if (nano::is_live_network)
+	else if (!allow_local_peers)
 	{
 		if (bytes >= rfc1918_1_min && bytes <= rfc1918_1_max)
 		{

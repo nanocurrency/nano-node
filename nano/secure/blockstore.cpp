@@ -88,7 +88,7 @@ bool nano::block_sideband::deserialize (nano::stream & stream_a)
 	return result;
 }
 
-nano::summation_visitor::summation_visitor (nano::transaction const & transaction_a, nano::block_store & store_a) :
+nano::summation_visitor::summation_visitor (nano::transaction const & transaction_a, nano::block_store const & store_a) :
 transaction (transaction_a),
 store (store_a)
 {
@@ -223,7 +223,7 @@ nano::uint128_t nano::summation_visitor::compute_internal (nano::summation_visit
 	 compiler optimizing that into a loop, though a future alternative is to do a
 	 CPS-style implementation to enforce tail calls.)
 	*/
-	while (frames.size () > 0)
+	while (!frames.empty ())
 	{
 		current = &frames.top ();
 		assert (current->type != summation_type::invalid && current != nullptr);
@@ -308,7 +308,7 @@ void nano::summation_visitor::epilogue ()
 	if (!current->awaiting_result)
 	{
 		frames.pop ();
-		if (frames.size () > 0)
+		if (!frames.empty ())
 		{
 			frames.top ().incoming_result = current->sum;
 		}

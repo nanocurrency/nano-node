@@ -12,77 +12,9 @@
 namespace
 {
 void construct_json (nano::seq_con_info_component * component, boost::property_tree::ptree & parent);
-}
-
-nano::rpc_secure_config::rpc_secure_config () :
-enable (false),
-verbose_logging (false)
-{
-}
-
-nano::error nano::rpc_secure_config::serialize_json (nano::jsonconfig & json) const
-{
-	json.put ("enable", enable);
-	json.put ("verbose_logging", verbose_logging);
-	json.put ("server_key_passphrase", server_key_passphrase);
-	json.put ("server_cert_path", server_cert_path);
-	json.put ("server_key_path", server_key_path);
-	json.put ("server_dh_path", server_dh_path);
-	json.put ("client_certs_path", client_certs_path);
-	return json.get_error ();
-}
-
-nano::error nano::rpc_secure_config::deserialize_json (nano::jsonconfig & json)
-{
-	json.get_required<bool> ("enable", enable);
-	json.get_required<bool> ("verbose_logging", verbose_logging);
-	json.get_required<std::string> ("server_key_passphrase", server_key_passphrase);
-	json.get_required<std::string> ("server_cert_path", server_cert_path);
-	json.get_required<std::string> ("server_key_path", server_key_path);
-	json.get_required<std::string> ("server_dh_path", server_dh_path);
-	json.get_required<std::string> ("client_certs_path", client_certs_path);
-	return json.get_error ();
-}
-
-nano::rpc_config::rpc_config (bool enable_control_a) :
-address (boost::asio::ip::address_v6::loopback ()),
-port (nano::rpc::rpc_port),
-enable_control (enable_control_a),
-frontier_request_limit (16384),
-chain_request_limit (16384),
-max_json_depth (20),
-enable_sign_hash (false)
-{
-}
-
-nano::error nano::rpc_config::serialize_json (nano::jsonconfig & json) const
-{
-	json.put ("address", address.to_string ());
-	json.put ("port", port);
-	json.put ("enable_control", enable_control);
-	json.put ("frontier_request_limit", frontier_request_limit);
-	json.put ("chain_request_limit", chain_request_limit);
-	json.put ("max_json_depth", max_json_depth);
-	json.put ("enable_sign_hash", enable_sign_hash);
-	return json.get_error ();
-}
-
-nano::error nano::rpc_config::deserialize_json (nano::jsonconfig & json)
-{
-	auto rpc_secure_l (json.get_optional_child ("secure"));
-	if (rpc_secure_l)
-	{
-		secure.deserialize_json (*rpc_secure_l);
-	}
-
-	json.get_required<boost::asio::ip::address_v6> ("address", address);
-	json.get_optional<uint16_t> ("port", port);
-	json.get_optional<bool> ("enable_control", enable_control);
-	json.get_optional<uint64_t> ("frontier_request_limit", frontier_request_limit);
-	json.get_optional<uint64_t> ("chain_request_limit", chain_request_limit);
-	json.get_optional<uint8_t> ("max_json_depth", max_json_depth);
-	json.get_optional<bool> ("enable_sign_hash", enable_sign_hash);
-	return json.get_error ();
+using rpc_handler_no_arg_func_map = std::unordered_map<std::string, std::function<void(nano::rpc_handler *)>>;
+rpc_handler_no_arg_func_map create_rpc_handler_no_arg_func_map ();
+auto rpc_handler_no_arg_funcs = create_rpc_handler_no_arg_func_map ();
 }
 
 nano::rpc::rpc (boost::asio::io_context & io_ctx_a, nano::node & node_a, nano::rpc_config const & config_a) :
@@ -111,7 +43,7 @@ void nano::rpc::start (bool rpc_enabled_a)
 		acceptor.bind (endpoint, ec);
 		if (ec)
 		{
-			BOOST_LOG (node.log) << boost::str (boost::format ("Error while binding for RPC on port %1%: %2%") % endpoint.port () % ec.message ());
+			node.logger.always_log (boost::str (boost::format ("Error while binding for RPC on port %1%: %2%") % endpoint.port () % ec.message ()));
 			throw std::runtime_error (ec.message ());
 		}
 
@@ -140,7 +72,7 @@ void nano::rpc::accept ()
 		}
 		else
 		{
-			BOOST_LOG (this->node.log) << boost::str (boost::format ("Error accepting RPC connections: %1% (%2%)") % ec.message () % ec.value ());
+			this->node.logger.always_log (boost::str (boost::format ("Error accepting RPC connections: %1% (%2%)") % ec.message () % ec.value ()));
 		}
 	});
 }
@@ -148,15 +80,6 @@ void nano::rpc::accept ()
 void nano::rpc::stop ()
 {
 	acceptor.close ();
-}
-
-nano::rpc_handler::rpc_handler (nano::node & node_a, nano::rpc & rpc_a, std::string const & body_a, std::string const & request_id_a, std::function<void(boost::property_tree::ptree const &)> const & response_a) :
-body (body_a),
-request_id (request_id_a),
-node (node_a),
-rpc (rpc_a),
-response (response_a)
-{
 }
 
 void nano::rpc::observer_action (nano::account const & account_a)
@@ -181,6 +104,15 @@ void nano::error_response (std::function<void(boost::property_tree::ptree const 
 	boost::property_tree::ptree response_l;
 	response_l.put ("error", message_a);
 	response_a (response_l);
+}
+
+nano::rpc_handler::rpc_handler (nano::node & node_a, nano::rpc & rpc_a, std::string const & body_a, std::string const & request_id_a, std::function<void(boost::property_tree::ptree const &)> const & response_a) :
+body (body_a),
+request_id (request_id_a),
+node (node_a),
+rpc (rpc_a),
+response (response_a)
+{
 }
 
 void nano::rpc_handler::response_errors ()
@@ -294,6 +226,26 @@ std::shared_ptr<nano::block> nano::rpc_handler::block_impl (bool signature_work_
 		boost::property_tree::ptree block_l;
 		std::stringstream block_stream (block_text);
 		boost::property_tree::read_json (block_stream, block_l);
+		if (!signature_work_required)
+		{
+			block_l.put ("signature", "0");
+			block_l.put ("work", "0");
+		}
+		result = nano::deserialize_block_json (block_l);
+		if (result == nullptr)
+		{
+			ec = nano::error_blocks::invalid_block;
+		}
+	}
+	return result;
+}
+
+std::shared_ptr<nano::block> nano::rpc_handler::block_json_impl (bool signature_work_required)
+{
+	std::shared_ptr<nano::block> result;
+	if (!ec)
+	{
+		auto block_l (request.get_child ("block"));
 		if (!signature_work_required)
 		{
 			block_l.put ("signature", "0");
@@ -539,6 +491,7 @@ void nano::rpc_handler::account_info ()
 			response_l.put ("modified_timestamp", std::to_string (info.modified));
 			response_l.put ("block_count", std::to_string (info.block_count));
 			response_l.put ("account_version", info.epoch == nano::epoch::epoch_1 ? "1" : "0");
+			response_l.put ("confirmation_height", std::to_string (info.confirmation_height));
 			if (representative)
 			{
 				auto block (node.store.block_get (transaction, info.rep_block));
@@ -687,6 +640,7 @@ void nano::rpc_handler::account_representative_set ()
 			{
 				auto transaction (node.wallets.tx_begin_write ());
 				wallet_locked_impl (transaction, wallet);
+				wallet_account_impl (transaction, wallet, account);
 				if (!ec)
 				{
 					nano::account_info info;
@@ -710,14 +664,16 @@ void nano::rpc_handler::account_representative_set ()
 				auto response_a (response);
 				// clang-format off
 				wallet->change_async (account, representative, [response_a](std::shared_ptr<nano::block> block) {
-					nano::block_hash hash (0);
 					if (block != nullptr)
 					{
-						hash = block->hash ();
+						boost::property_tree::ptree response_l;
+						response_l.put ("block", block->hash ().to_string ());
+						response_a (response_l);
 					}
-					boost::property_tree::ptree response_l;
-					response_l.put ("block", hash.to_string ());
-					response_a (response_l);
+					else
+					{
+						error_response (response_a, "Error generating block");
+					}
 				},
 				work, generate_work);
 				// clang-format on
@@ -873,6 +829,31 @@ void nano::rpc_handler::available_supply ()
 	response_errors ();
 }
 
+void state_subtype (nano::transaction const & transaction_a, nano::node & node_a, std::shared_ptr<nano::block> block_a, nano::uint128_t const & balance_a, boost::property_tree::ptree & tree_a)
+{
+	// Subtype check
+	auto previous_balance (node_a.ledger.balance (transaction_a, block_a->previous ()));
+	if (balance_a < previous_balance)
+	{
+		tree_a.put ("subtype", "send");
+	}
+	else
+	{
+		if (block_a->link ().is_zero ())
+		{
+			tree_a.put ("subtype", "change");
+		}
+		else if (balance_a == previous_balance && !node_a.ledger.epoch_link.is_zero () && node_a.ledger.is_epoch_link (block_a->link ()))
+		{
+			tree_a.put ("subtype", "epoch");
+		}
+		else
+		{
+			tree_a.put ("subtype", "receive");
+		}
+	}
+}
+
 void nano::rpc_handler::block_info ()
 {
 	auto hash (hash_impl ());
@@ -891,9 +872,24 @@ void nano::rpc_handler::block_info ()
 			response_l.put ("balance", balance.convert_to<std::string> ());
 			response_l.put ("height", std::to_string (sideband.height));
 			response_l.put ("local_timestamp", std::to_string (sideband.timestamp));
-			std::string contents;
-			block->serialize_json (contents);
-			response_l.put ("contents", contents);
+
+			bool json_block_l = request.get<bool> ("json_block", false);
+			if (json_block_l)
+			{
+				boost::property_tree::ptree block_node_l;
+				block->serialize_json (block_node_l);
+				response_l.add_child ("contents", block_node_l);
+			}
+			else
+			{
+				std::string contents;
+				block->serialize_json (contents);
+				response_l.put ("contents", contents);
+			}
+			if (block->type () == nano::block_type::state)
+			{
+				state_subtype (transaction, node, block, balance, response_l);
+			}
 		}
 		else
 		{
@@ -925,6 +921,7 @@ void nano::rpc_handler::block_confirm ()
 
 void nano::rpc_handler::blocks ()
 {
+	const bool json_block_l = request.get<bool> ("json_block", false);
 	std::vector<std::string> hashes;
 	boost::property_tree::ptree blocks;
 	auto transaction (node.store.tx_begin_read ());
@@ -939,9 +936,18 @@ void nano::rpc_handler::blocks ()
 				auto block (node.store.block_get (transaction, hash));
 				if (block != nullptr)
 				{
-					std::string contents;
-					block->serialize_json (contents);
-					blocks.put (hash_text, contents);
+					if (json_block_l)
+					{
+						boost::property_tree::ptree block_node_l;
+						block->serialize_json (block_node_l);
+						blocks.add_child (hash_text, block_node_l);
+					}
+					else
+					{
+						std::string contents;
+						block->serialize_json (contents);
+						blocks.put (hash_text, contents);
+					}
 				}
 				else
 				{
@@ -962,6 +968,8 @@ void nano::rpc_handler::blocks_info ()
 {
 	const bool pending = request.get<bool> ("pending", false);
 	const bool source = request.get<bool> ("source", false);
+	const bool json_block_l = request.get<bool> ("json_block", false);
+
 	std::vector<std::string> hashes;
 	boost::property_tree::ptree blocks;
 	auto transaction (node.store.tx_begin_read ());
@@ -986,9 +994,23 @@ void nano::rpc_handler::blocks_info ()
 					entry.put ("balance", balance.convert_to<std::string> ());
 					entry.put ("height", std::to_string (sideband.height));
 					entry.put ("local_timestamp", std::to_string (sideband.timestamp));
-					std::string contents;
-					block->serialize_json (contents);
-					entry.put ("contents", contents);
+
+					if (json_block_l)
+					{
+						boost::property_tree::ptree block_node_l;
+						block->serialize_json (block_node_l);
+						entry.add_child ("contents", block_node_l);
+					}
+					else
+					{
+						std::string contents;
+						block->serialize_json (contents);
+						entry.put ("contents", contents);
+					}
+					if (block->type () == nano::block_type::state)
+					{
+						state_subtype (transaction, node, block, balance, entry);
+					}
 					if (pending)
 					{
 						bool exists (false);
@@ -1040,6 +1062,25 @@ void nano::rpc_handler::block_account ()
 		{
 			auto account (node.ledger.account (transaction, hash));
 			response_l.put ("account", account.to_account ());
+		}
+		else
+		{
+			ec = nano::error_blocks::not_found;
+		}
+	}
+	response_errors ();
+}
+
+void nano::rpc_handler::block_confirmed ()
+{
+	auto hash (hash_impl ());
+	if (!ec)
+	{
+		auto transaction (node.store.tx_begin_read ());
+		if (node.store.block_exists (transaction, hash))
+		{
+			auto confirmed (node.ledger.block_confirmed (transaction, hash));
+			response_l.put ("confirmed", confirmed);
 		}
 		else
 		{
@@ -1235,9 +1276,19 @@ void nano::rpc_handler::block_create ()
 					}
 					nano::state_block state (pub, previous, representative, balance, link, prv, pub, work);
 					response_l.put ("hash", state.hash ().to_string ());
-					std::string contents;
-					state.serialize_json (contents);
-					response_l.put ("block", contents);
+					bool json_block_l = request.get<bool> ("json_block", false);
+					if (json_block_l)
+					{
+						boost::property_tree::ptree block_node_l;
+						state.serialize_json (block_node_l);
+						response_l.add_child ("block", block_node_l);
+					}
+					else
+					{
+						std::string contents;
+						state.serialize_json (contents);
+						response_l.put ("block", contents);
+					}
 				}
 				else
 				{
@@ -1342,7 +1393,17 @@ void nano::rpc_handler::block_create ()
 
 void nano::rpc_handler::block_hash ()
 {
-	auto block (block_impl (false));
+	const bool json_block_l = request.get<bool> ("json_block", false);
+	std::shared_ptr<nano::block> block;
+	if (json_block_l)
+	{
+		block = block_json_impl (true);
+	}
+	else
+	{
+		block = block_impl (true);
+	}
+
 	if (!ec)
 	{
 		response_l.put ("hash", block->hash ().to_string ());
@@ -1548,6 +1609,7 @@ void nano::rpc_handler::confirmation_info ()
 {
 	const bool representatives = request.get<bool> ("representatives", false);
 	const bool contents = request.get<bool> ("contents", true);
+	const bool json_block_l = request.get<bool> ("json_block", false);
 	std::string root_text (request.get<std::string> ("root"));
 	nano::uint512_union root;
 	if (!root.decode_hex (root_text))
@@ -1571,9 +1633,18 @@ void nano::rpc_handler::confirmation_info ()
 				total += tally;
 				if (contents)
 				{
-					std::string contents;
-					i->second->serialize_json (contents);
-					entry.put ("contents", contents);
+					if (json_block_l)
+					{
+						boost::property_tree::ptree block_node_l;
+						i->second->serialize_json (block_node_l);
+						entry.add_child ("contents", block_node_l);
+					}
+					else
+					{
+						std::string contents;
+						i->second->serialize_json (contents);
+						entry.put ("contents", contents);
+					}
 				}
 				if (representatives)
 				{
@@ -2362,7 +2433,7 @@ void nano::rpc_handler::payment_begin ()
 						wallet->free_accounts.erase (existing);
 						if (wallet->store.find (transaction, account) == wallet->store.end ())
 						{
-							BOOST_LOG (node.log) << boost::str (boost::format ("Transaction wallet %1% externally modified listing account %2% as free but no longer exists") % id.to_string () % account.to_account ());
+							node.logger.always_log (boost::str (boost::format ("Transaction wallet %1% externally modified listing account %2% as free but no longer exists") % id.to_string () % account.to_account ()));
 							account.clear ();
 						}
 						else
@@ -2370,7 +2441,7 @@ void nano::rpc_handler::payment_begin ()
 							auto block_transaction (node.store.tx_begin_read ());
 							if (!node.ledger.account_balance (block_transaction, account).is_zero ())
 							{
-								BOOST_LOG (node.log) << boost::str (boost::format ("Skipping account %1% for use as a transaction account: non-zero balance") % account.to_account ());
+								node.logger.always_log (boost::str (boost::format ("Skipping account %1% for use as a transaction account: non-zero balance") % account.to_account ()));
 								account.clear ();
 							}
 						}
@@ -2383,6 +2454,7 @@ void nano::rpc_handler::payment_begin ()
 				} while (account.is_zero ());
 				if (!account.is_zero ())
 				{
+					response_l.put ("deprecated", "1");
 					response_l.put ("account", account.to_account ());
 				}
 				else
@@ -2416,6 +2488,7 @@ void nano::rpc_handler::payment_init ()
 		if (wallet->store.valid_password (transaction))
 		{
 			wallet->init_free_accounts (transaction);
+			response_l.put ("deprecated", "1");
 			response_l.put ("status", "Ready");
 		}
 		else
@@ -2440,6 +2513,7 @@ void nano::rpc_handler::payment_end ()
 			if (node.ledger.account_balance (block_transaction, account).is_zero ())
 			{
 				wallet->free_accounts.insert (account);
+				response_l.put ("deprecated", "1");
 				response_l.put ("ended", "1");
 			}
 			else
@@ -2483,7 +2557,17 @@ void nano::rpc_handler::payment_wait ()
 
 void nano::rpc_handler::process ()
 {
-	auto block (block_impl (true));
+	const bool json_block_l = request.get<bool> ("json_block", false);
+	std::shared_ptr<nano::block> block;
+	if (json_block_l)
+	{
+		block = block_json_impl (true);
+	}
+	else
+	{
+		block = block_impl (true);
+	}
+
 	// State blocks subtype check
 	if (!ec && block->type () == nano::block_type::state)
 	{
@@ -2685,14 +2769,16 @@ void nano::rpc_handler::receive ()
 						auto response_a (response);
 						// clang-format off
 						wallet->receive_async (std::move (block), account, nano::genesis_amount, [response_a](std::shared_ptr<nano::block> block_a) {
-							nano::uint256_union hash_a (0);
 							if (block_a != nullptr)
 							{
-								hash_a = block_a->hash ();
+								boost::property_tree::ptree response_l;
+								response_l.put ("block", block_a->hash ().to_string ());
+								response_a (response_l);
 							}
-							boost::property_tree::ptree response_l;
-							response_l.put ("block", hash_a.to_string ());
-							response_a (response_l);
+							else
+							{
+								error_response (response_a, "Error generating block");
+							}
 						},
 						work, generate_work);
 						// clang-format on
@@ -3037,9 +3123,8 @@ void nano::rpc_handler::send ()
 					wallet->send_async (source, destination, amount.number (), [balance, amount, response_a](std::shared_ptr<nano::block> block_a) {
 						if (block_a != nullptr)
 						{
-							nano::uint256_union hash (block_a->hash ());
 							boost::property_tree::ptree response_l;
-							response_l.put ("block", hash.to_string ());
+							response_l.put ("block", block_a->hash ().to_string ());
 							response_a (response_l);
 						}
 						else
@@ -3078,6 +3163,7 @@ void nano::rpc_handler::send ()
 
 void nano::rpc_handler::sign ()
 {
+	const bool json_block_l = request.get<bool> ("json_block", false);
 	// Retrieving hash
 	nano::block_hash hash (0);
 	boost::optional<std::string> hash_text (request.get_optional<std::string> ("hash"));
@@ -3090,12 +3176,20 @@ void nano::rpc_handler::sign ()
 	boost::optional<std::string> block_text (request.get_optional<std::string> ("block"));
 	if (!ec && block_text.is_initialized ())
 	{
-		block = block_impl (true);
+		if (json_block_l)
+		{
+			block = block_json_impl (true);
+		}
+		else
+		{
+			block = block_impl (true);
+		}
 		if (block != nullptr)
 		{
 			hash = block->hash ();
 		}
 	}
+
 	// Hash or block are not initialized
 	if (!ec && hash.is_zero ())
 	{
@@ -3149,9 +3243,19 @@ void nano::rpc_handler::sign ()
 			if (block != nullptr)
 			{
 				block->signature_set (signature);
-				std::string contents;
-				block->serialize_json (contents);
-				response_l.put ("block", contents);
+
+				if (json_block_l)
+				{
+					boost::property_tree::ptree block_node_l;
+					block->serialize_json (block_node_l);
+					response_l.add_child ("block", block_node_l);
+				}
+				else
+				{
+					std::string contents;
+					block->serialize_json (contents);
+					response_l.put ("block", contents);
+				}
 			}
 		}
 		else
@@ -3256,6 +3360,7 @@ void nano::rpc_handler::unchecked_clear ()
 
 void nano::rpc_handler::unchecked_get ()
 {
+	const bool json_block_l = request.get<bool> ("json_block", false);
 	auto hash (hash_impl ());
 	if (!ec)
 	{
@@ -3267,9 +3372,19 @@ void nano::rpc_handler::unchecked_get ()
 			{
 				nano::unchecked_info info (i->second);
 				response_l.put ("modified_timestamp", std::to_string (info.modified));
-				std::string contents;
-				info.block->serialize_json (contents);
-				response_l.put ("contents", contents);
+
+				if (json_block_l)
+				{
+					boost::property_tree::ptree block_node_l;
+					info.block->serialize_json (block_node_l);
+					response_l.add_child ("contents", block_node_l);
+				}
+				else
+				{
+					std::string contents;
+					info.block->serialize_json (contents);
+					response_l.put ("contents", contents);
+				}
 				break;
 			}
 		}
@@ -3283,6 +3398,7 @@ void nano::rpc_handler::unchecked_get ()
 
 void nano::rpc_handler::unchecked_keys ()
 {
+	const bool json_block_l = request.get<bool> ("json_block", false);
 	auto count (count_optional_impl ());
 	nano::uint256_union key (0);
 	boost::optional<std::string> hash_text (request.get_optional<std::string> ("key"));
@@ -3301,15 +3417,87 @@ void nano::rpc_handler::unchecked_keys ()
 		{
 			boost::property_tree::ptree entry;
 			nano::unchecked_info info (i->second);
-			std::string contents;
-			info.block->serialize_json (contents);
 			entry.put ("key", nano::block_hash (i->first.key ()).to_string ());
 			entry.put ("hash", info.block->hash ().to_string ());
 			entry.put ("modified_timestamp", std::to_string (info.modified));
-			entry.put ("contents", contents);
+			if (json_block_l)
+			{
+				boost::property_tree::ptree block_node_l;
+				info.block->serialize_json (block_node_l);
+				entry.add_child ("contents", block_node_l);
+			}
+			else
+			{
+				std::string contents;
+				info.block->serialize_json (contents);
+				entry.put ("contents", contents);
+			}
 			unchecked.push_back (std::make_pair ("", entry));
 		}
 		response_l.add_child ("unchecked", unchecked);
+	}
+	response_errors ();
+}
+
+void nano::rpc_handler::unopened ()
+{
+	rpc_control_impl ();
+	if (!ec)
+	{
+		auto count (count_optional_impl ());
+		nano::account start (1); // exclude burn account by default
+		boost::optional<std::string> account_text (request.get_optional<std::string> ("account"));
+		if (account_text.is_initialized ())
+		{
+			if (start.decode_account (account_text.get ()))
+			{
+				ec = nano::error_common::bad_account_number;
+			}
+		}
+		if (!ec)
+		{
+			auto transaction (node.store.tx_begin_read ());
+			auto iterator (node.store.pending_begin (transaction, nano::pending_key (start, 0)));
+			auto end (node.store.pending_end ());
+			nano::account current_account (start);
+			nano::uint128_t current_account_sum{ 0 };
+			boost::property_tree::ptree accounts;
+			while (iterator != end && accounts.size () < count)
+			{
+				nano::pending_key key (iterator->first);
+				nano::account account (key.account);
+				nano::pending_info info (iterator->second);
+				if (node.store.account_exists (transaction, account))
+				{
+					if (account.number () == std::numeric_limits<nano::uint256_t>::max ())
+					{
+						break;
+					}
+					// Skip existing accounts
+					iterator = node.store.pending_begin (transaction, nano::pending_key (account.number () + 1, 0));
+				}
+				else
+				{
+					if (account != current_account)
+					{
+						if (current_account_sum > 0)
+						{
+							accounts.put (current_account.to_account (), current_account_sum.convert_to<std::string> ());
+							current_account_sum = 0;
+						}
+						current_account = account;
+					}
+					current_account_sum += info.amount.number ();
+					++iterator;
+				}
+			}
+			// last one after iterator reaches end
+			if (current_account_sum > 0 && accounts.size () < count)
+			{
+				accounts.put (current_account.to_account (), current_account_sum.convert_to<std::string> ());
+			}
+			response_l.add_child ("accounts", accounts);
+		}
 	}
 	response_errors ();
 }
@@ -3481,8 +3669,12 @@ void nano::rpc_handler::wallet_change_seed ()
 			auto transaction (node.wallets.tx_begin_write ());
 			if (wallet->store.valid_password (transaction))
 			{
-				wallet->change_seed (transaction, seed, count);
+				nano::public_key account (wallet->change_seed (transaction, seed, count));
 				response_l.put ("success", "");
+				response_l.put ("last_restored_account", account.to_account ());
+				auto index (wallet->store.deterministic_index_get (transaction));
+				assert (index > 0);
+				response_l.put ("restored_count", std::to_string (index));
 			}
 			else
 			{
@@ -3538,7 +3730,10 @@ void nano::rpc_handler::wallet_create ()
 			{
 				auto transaction (node.wallets.tx_begin_write ());
 				nano::public_key account (wallet->change_seed (transaction, seed));
-				response_l.put ("account", account.to_account ());
+				response_l.put ("last_restored_account", account.to_account ());
+				auto index (wallet->store.deterministic_index_get (transaction));
+				assert (index > 0);
+				response_l.put ("restored_count", std::to_string (index));
 			}
 		}
 	}
@@ -4161,7 +4356,7 @@ void nano::rpc_connection::read ()
 
 					if (this_l->node->config.logging.log_rpc ())
 					{
-						BOOST_LOG (this_l->node->log) << boost::str (boost::format ("RPC request %2% completed in: %1% microseconds") % std::chrono::duration_cast<std::chrono::microseconds> (std::chrono::steady_clock::now () - start).count () % request_id);
+						this_l->node->logger.always_log (boost::str (boost::format ("RPC request %2% completed in: %1% microseconds") % std::chrono::duration_cast<std::chrono::microseconds> (std::chrono::steady_clock::now () - start).count () % request_id));
 					}
 				});
 				auto method = this_l->request.method ();
@@ -4191,7 +4386,7 @@ void nano::rpc_connection::read ()
 		}
 		else
 		{
-			BOOST_LOG (this_l->node->log) << "RPC read error: " << ec.message ();
+			this_l->node->logger.always_log ("RPC read error: ", ec.message ());
 		}
 	});
 }
@@ -4264,485 +4459,67 @@ void nano::rpc_handler::process_request ()
 			std::string action (request.get<std::string> ("action"));
 			if (node.config.logging.log_rpc ())
 			{
-				BOOST_LOG (node.log) << boost::str (boost::format ("%1% ") % request_id) << filter_request (request);
+				rpc.node.logger.always_log (boost::str (boost::format ("%1% ") % request_id), filter_request (request));
 			}
-			if (action == "account_balance")
+
+			auto no_arg_func_iter = rpc_handler_no_arg_funcs.find (action);
+			if (no_arg_func_iter != rpc_handler_no_arg_funcs.cend ())
 			{
-				account_balance ();
-			}
-			else if (action == "account_block_count")
-			{
-				account_block_count ();
-			}
-			else if (action == "account_count")
-			{
-				account_count ();
-			}
-			else if (action == "account_create")
-			{
-				account_create ();
-			}
-			else if (action == "account_get")
-			{
-				account_get ();
-			}
-			else if (action == "account_history")
-			{
-				account_history ();
-			}
-			else if (action == "account_info")
-			{
-				account_info ();
-			}
-			else if (action == "account_key")
-			{
-				account_key ();
-			}
-			else if (action == "account_list")
-			{
-				account_list ();
-			}
-			else if (action == "account_move")
-			{
-				account_move ();
-			}
-			else if (action == "account_remove")
-			{
-				account_remove ();
-			}
-			else if (action == "account_representative")
-			{
-				account_representative ();
-			}
-			else if (action == "account_representative_set")
-			{
-				account_representative_set ();
-			}
-			else if (action == "account_weight")
-			{
-				account_weight ();
-			}
-			else if (action == "accounts_balances")
-			{
-				accounts_balances ();
-			}
-			else if (action == "accounts_create")
-			{
-				accounts_create ();
-			}
-			else if (action == "accounts_frontiers")
-			{
-				accounts_frontiers ();
-			}
-			else if (action == "accounts_pending")
-			{
-				accounts_pending ();
-			}
-			else if (action == "available_supply")
-			{
-				available_supply ();
-			}
-			else if (action == "block")
-			{
-				block_info ();
-			}
-			else if (action == "block_info")
-			{
-				block_info ();
-			}
-			else if (action == "block_confirm")
-			{
-				block_confirm ();
-			}
-			else if (action == "blocks")
-			{
-				blocks ();
-			}
-			else if (action == "blocks_info")
-			{
-				blocks_info ();
-			}
-			else if (action == "block_account")
-			{
-				block_account ();
-			}
-			else if (action == "block_count")
-			{
-				block_count ();
-			}
-			else if (action == "block_count_type")
-			{
-				block_count_type ();
-			}
-			else if (action == "block_create")
-			{
-				block_create ();
-			}
-			else if (action == "block_hash")
-			{
-				block_hash ();
-			}
-			else if (action == "successors")
-			{
-				chain (true);
-			}
-			else if (action == "bootstrap")
-			{
-				bootstrap ();
-			}
-			else if (action == "bootstrap_any")
-			{
-				bootstrap_any ();
-			}
-			else if (action == "bootstrap_lazy")
-			{
-				bootstrap_lazy ();
-			}
-			else if (action == "bootstrap_status")
-			{
-				bootstrap_status ();
-			}
-			else if (action == "chain")
-			{
-				chain ();
-			}
-			else if (action == "delegators")
-			{
-				delegators ();
-			}
-			else if (action == "delegators_count")
-			{
-				delegators_count ();
-			}
-			else if (action == "deterministic_key")
-			{
-				deterministic_key ();
-			}
-			else if (action == "confirmation_active")
-			{
-				confirmation_active ();
-			}
-			else if (action == "confirmation_history")
-			{
-				confirmation_history ();
-			}
-			else if (action == "confirmation_info")
-			{
-				confirmation_info ();
-			}
-			else if (action == "confirmation_quorum")
-			{
-				confirmation_quorum ();
-			}
-			else if (action == "frontiers")
-			{
-				frontiers ();
-			}
-			else if (action == "frontier_count")
-			{
-				account_count ();
-			}
-			else if (action == "history")
-			{
-				request.put ("head", request.get<std::string> ("hash"));
-				account_history ();
-			}
-			else if (action == "keepalive")
-			{
-				keepalive ();
-			}
-			else if (action == "key_create")
-			{
-				key_create ();
-			}
-			else if (action == "key_expand")
-			{
-				key_expand ();
-			}
-			else if (action == "knano_from_raw" || action == "krai_from_raw")
-			{
-				mnano_from_raw (nano::kxrb_ratio);
-			}
-			else if (action == "knano_to_raw" || action == "krai_to_raw")
-			{
-				mnano_to_raw (nano::kxrb_ratio);
-			}
-			else if (action == "ledger")
-			{
-				ledger ();
-			}
-			else if (action == "mnano_from_raw" || action == "mrai_from_raw")
-			{
-				mnano_from_raw ();
-			}
-			else if (action == "mnano_to_raw" || action == "mrai_to_raw")
-			{
-				mnano_to_raw ();
-			}
-			else if (action == "node_id")
-			{
-				node_id ();
-			}
-			else if (action == "node_id_delete")
-			{
-				node_id_delete ();
-			}
-			else if (action == "password_change")
-			{
-				password_change ();
-			}
-			else if (action == "password_enter")
-			{
-				password_enter ();
-			}
-			else if (action == "password_valid")
-			{
-				password_valid ();
-			}
-			else if (action == "payment_begin")
-			{
-				payment_begin ();
-			}
-			else if (action == "payment_init")
-			{
-				payment_init ();
-			}
-			else if (action == "payment_end")
-			{
-				payment_end ();
-			}
-			else if (action == "payment_wait")
-			{
-				payment_wait ();
-			}
-			else if (action == "peers")
-			{
-				peers ();
-			}
-			else if (action == "pending")
-			{
-				pending ();
-			}
-			else if (action == "pending_exists")
-			{
-				pending_exists ();
-			}
-			else if (action == "process")
-			{
-				process ();
-			}
-			else if (action == "nano_from_raw" || action == "rai_from_raw")
-			{
-				mnano_from_raw (nano::xrb_ratio);
-			}
-			else if (action == "nano_to_raw" || action == "rai_to_raw")
-			{
-				mnano_to_raw (nano::xrb_ratio);
-			}
-			else if (action == "receive")
-			{
-				receive ();
-			}
-			else if (action == "receive_minimum")
-			{
-				receive_minimum ();
-			}
-			else if (action == "receive_minimum_set")
-			{
-				receive_minimum_set ();
-			}
-			else if (action == "representatives")
-			{
-				representatives ();
-			}
-			else if (action == "representatives_online")
-			{
-				representatives_online ();
-			}
-			else if (action == "republish")
-			{
-				republish ();
-			}
-			else if (action == "search_pending")
-			{
-				search_pending ();
-			}
-			else if (action == "search_pending_all")
-			{
-				search_pending_all ();
-			}
-			else if (action == "send")
-			{
-				send ();
-			}
-			else if (action == "sign")
-			{
-				sign ();
-			}
-			else if (action == "stats")
-			{
-				stats ();
-			}
-			else if (action == "stats_clear")
-			{
-				stats_clear ();
-			}
-			else if (action == "stop")
-			{
-				stop ();
-			}
-			else if (action == "unchecked")
-			{
-				unchecked ();
-			}
-			else if (action == "unchecked_clear")
-			{
-				unchecked_clear ();
-			}
-			else if (action == "unchecked_get")
-			{
-				unchecked_get ();
-			}
-			else if (action == "unchecked_keys")
-			{
-				unchecked_keys ();
-			}
-			else if (action == "uptime")
-			{
-				uptime ();
-			}
-			else if (action == "validate_account_number")
-			{
-				validate_account_number ();
-			}
-			else if (action == "version")
-			{
-				version ();
-			}
-			else if (action == "wallet_add")
-			{
-				wallet_add ();
-			}
-			else if (action == "wallet_add_watch")
-			{
-				wallet_add_watch ();
-			}
-			// Obsolete
-			else if (action == "wallet_balance_total")
-			{
-				wallet_info ();
-			}
-			else if (action == "wallet_balances")
-			{
-				wallet_balances ();
-			}
-			else if (action == "wallet_change_seed")
-			{
-				wallet_change_seed ();
-			}
-			else if (action == "wallet_contains")
-			{
-				wallet_contains ();
-			}
-			else if (action == "wallet_create")
-			{
-				wallet_create ();
-			}
-			else if (action == "wallet_destroy")
-			{
-				wallet_destroy ();
-			}
-			else if (action == "wallet_export")
-			{
-				wallet_export ();
-			}
-			else if (action == "wallet_frontiers")
-			{
-				wallet_frontiers ();
-			}
-			else if (action == "wallet_history")
-			{
-				wallet_history ();
-			}
-			else if (action == "wallet_info")
-			{
-				wallet_info ();
-			}
-			else if (action == "wallet_key_valid")
-			{
-				wallet_key_valid ();
-			}
-			else if (action == "wallet_ledger")
-			{
-				wallet_ledger ();
-			}
-			else if (action == "wallet_lock")
-			{
-				wallet_lock ();
-			}
-			else if (action == "wallet_locked")
-			{
-				password_valid (true);
-			}
-			else if (action == "wallet_pending")
-			{
-				wallet_pending ();
-			}
-			else if (action == "wallet_representative")
-			{
-				wallet_representative ();
-			}
-			else if (action == "wallet_representative_set")
-			{
-				wallet_representative_set ();
-			}
-			else if (action == "wallet_republish")
-			{
-				wallet_republish ();
-			}
-			else if (action == "wallet_unlock")
-			{
-				password_enter ();
-			}
-			else if (action == "wallet_work_get")
-			{
-				wallet_work_get ();
-			}
-			else if (action == "work_generate")
-			{
-				work_generate ();
-			}
-			else if (action == "work_cancel")
-			{
-				work_cancel ();
-			}
-			else if (action == "work_get")
-			{
-				work_get ();
-			}
-			else if (action == "work_set")
-			{
-				work_set ();
-			}
-			else if (action == "work_validate")
-			{
-				work_validate ();
-			}
-			else if (action == "work_peer_add")
-			{
-				work_peer_add ();
-			}
-			else if (action == "work_peers")
-			{
-				work_peers ();
-			}
-			else if (action == "work_peers_clear")
-			{
-				work_peers_clear ();
+				// First try the map of options with no arguments
+				no_arg_func_iter->second (this);
 			}
 			else
 			{
-				error_response (response, "Unknown command");
+				// Try the rest of the options
+				if (action == "chain")
+				{
+					chain ();
+				}
+				else if (action == "successors")
+				{
+					chain (true);
+				}
+				else if (action == "history")
+				{
+					request.put ("head", request.get<std::string> ("hash"));
+					account_history ();
+				}
+				else if (action == "knano_from_raw" || action == "krai_from_raw")
+				{
+					mnano_from_raw (nano::kxrb_ratio);
+				}
+				else if (action == "knano_to_raw" || action == "krai_to_raw")
+				{
+					mnano_to_raw (nano::kxrb_ratio);
+				}
+				else if (action == "nano_from_raw" || action == "rai_from_raw")
+				{
+					mnano_from_raw (nano::xrb_ratio);
+				}
+				else if (action == "nano_to_raw" || action == "rai_to_raw")
+				{
+					mnano_to_raw (nano::xrb_ratio);
+				}
+				else if (action == "mnano_from_raw" || action == "mrai_from_raw")
+				{
+					mnano_from_raw ();
+				}
+				else if (action == "mnano_to_raw" || action == "mrai_to_raw")
+				{
+					mnano_to_raw ();
+				}
+				else if (action == "password_valid")
+				{
+					password_valid ();
+				}
+				else if (action == "wallet_locked")
+				{
+					password_valid (true);
+				}
+				else
+				{
+					error_response (response, "Unknown command");
+				}
 			}
 		}
 	}
@@ -4792,13 +4569,14 @@ void nano::payment_observer::complete (nano::payment_status status)
 	{
 		if (rpc.node.config.logging.log_rpc ())
 		{
-			BOOST_LOG (rpc.node.log) << boost::str (boost::format ("Exiting payment_observer for account %1% status %2%") % account.to_account () % static_cast<unsigned> (status));
+			rpc.node.logger.always_log (boost::str (boost::format ("Exiting payment_observer for account %1% status %2%") % account.to_account () % static_cast<unsigned> (status)));
 		}
 		switch (status)
 		{
 			case nano::payment_status::nothing:
 			{
 				boost::property_tree::ptree response_l;
+				response_l.put ("deprecated", "1");
 				response_l.put ("status", "nothing");
 				response (response_l);
 				break;
@@ -4806,6 +4584,7 @@ void nano::payment_observer::complete (nano::payment_status status)
 			case nano::payment_status::success:
 			{
 				boost::property_tree::ptree response_l;
+				response_l.put ("deprecated", "1");
 				response_l.put ("status", "success");
 				response (response_l);
 				break;
@@ -4866,5 +4645,120 @@ void construct_json (nano::seq_con_info_component * component, boost::property_t
 	}
 
 	parent.add_child (composite->get_name (), current);
+}
+
+rpc_handler_no_arg_func_map create_rpc_handler_no_arg_func_map ()
+{
+	rpc_handler_no_arg_func_map no_arg_funcs;
+	no_arg_funcs.emplace ("account_balance", &nano::rpc_handler::account_balance);
+	no_arg_funcs.emplace ("account_block_count", &nano::rpc_handler::account_block_count);
+	no_arg_funcs.emplace ("account_count", &nano::rpc_handler::account_count);
+	no_arg_funcs.emplace ("account_create", &nano::rpc_handler::account_create);
+	no_arg_funcs.emplace ("account_get", &nano::rpc_handler::account_get);
+	no_arg_funcs.emplace ("account_history", &nano::rpc_handler::account_history);
+	no_arg_funcs.emplace ("account_info", &nano::rpc_handler::account_info);
+	no_arg_funcs.emplace ("account_key", &nano::rpc_handler::account_key);
+	no_arg_funcs.emplace ("account_list", &nano::rpc_handler::account_list);
+	no_arg_funcs.emplace ("account_move", &nano::rpc_handler::account_move);
+	no_arg_funcs.emplace ("account_remove", &nano::rpc_handler::account_remove);
+	no_arg_funcs.emplace ("account_representative", &nano::rpc_handler::account_representative);
+	no_arg_funcs.emplace ("account_representative_set", &nano::rpc_handler::account_representative_set);
+	no_arg_funcs.emplace ("account_weight", &nano::rpc_handler::account_weight);
+	no_arg_funcs.emplace ("accounts_balances", &nano::rpc_handler::accounts_balances);
+	no_arg_funcs.emplace ("accounts_create", &nano::rpc_handler::accounts_create);
+	no_arg_funcs.emplace ("accounts_frontiers", &nano::rpc_handler::accounts_frontiers);
+	no_arg_funcs.emplace ("accounts_pending", &nano::rpc_handler::accounts_pending);
+	no_arg_funcs.emplace ("available_supply", &nano::rpc_handler::available_supply);
+	no_arg_funcs.emplace ("block_info", &nano::rpc_handler::block_info);
+	no_arg_funcs.emplace ("block", &nano::rpc_handler::block_info);
+	no_arg_funcs.emplace ("block_confirm", &nano::rpc_handler::block_confirm);
+	no_arg_funcs.emplace ("blocks", &nano::rpc_handler::blocks);
+	no_arg_funcs.emplace ("blocks_info", &nano::rpc_handler::blocks_info);
+	no_arg_funcs.emplace ("block_account", &nano::rpc_handler::block_account);
+	no_arg_funcs.emplace ("block_confirmed", &nano::rpc_handler::block_confirmed);
+	no_arg_funcs.emplace ("block_count", &nano::rpc_handler::block_count);
+	no_arg_funcs.emplace ("block_count_type", &nano::rpc_handler::block_count_type);
+	no_arg_funcs.emplace ("block_create", &nano::rpc_handler::block_create);
+	no_arg_funcs.emplace ("block_hash", &nano::rpc_handler::block_hash);
+	no_arg_funcs.emplace ("bootstrap", &nano::rpc_handler::bootstrap);
+	no_arg_funcs.emplace ("bootstrap_any", &nano::rpc_handler::bootstrap_any);
+	no_arg_funcs.emplace ("bootstrap_lazy", &nano::rpc_handler::bootstrap_lazy);
+	no_arg_funcs.emplace ("bootstrap_status", &nano::rpc_handler::bootstrap_status);
+	no_arg_funcs.emplace ("delegators", &nano::rpc_handler::delegators);
+	no_arg_funcs.emplace ("delegators_count", &nano::rpc_handler::delegators_count);
+	no_arg_funcs.emplace ("deterministic_key", &nano::rpc_handler::deterministic_key);
+	no_arg_funcs.emplace ("confirmation_active", &nano::rpc_handler::confirmation_active);
+	no_arg_funcs.emplace ("confirmation_history", &nano::rpc_handler::confirmation_history);
+	no_arg_funcs.emplace ("confirmation_info", &nano::rpc_handler::confirmation_info);
+	no_arg_funcs.emplace ("confirmation_quorum", &nano::rpc_handler::confirmation_quorum);
+	no_arg_funcs.emplace ("frontiers", &nano::rpc_handler::frontiers);
+	no_arg_funcs.emplace ("frontier_count", &nano::rpc_handler::account_count);
+	no_arg_funcs.emplace ("keepalive", &nano::rpc_handler::keepalive);
+	no_arg_funcs.emplace ("key_create", &nano::rpc_handler::key_create);
+	no_arg_funcs.emplace ("key_expand", &nano::rpc_handler::key_expand);
+	no_arg_funcs.emplace ("ledger", &nano::rpc_handler::ledger);
+	no_arg_funcs.emplace ("node_id", &nano::rpc_handler::node_id);
+	no_arg_funcs.emplace ("node_id_delete", &nano::rpc_handler::node_id_delete);
+	no_arg_funcs.emplace ("password_change", &nano::rpc_handler::password_change);
+	no_arg_funcs.emplace ("password_enter", &nano::rpc_handler::password_enter);
+	no_arg_funcs.emplace ("wallet_unlock", &nano::rpc_handler::password_enter);
+	no_arg_funcs.emplace ("payment_begin", &nano::rpc_handler::payment_begin);
+	no_arg_funcs.emplace ("payment_init", &nano::rpc_handler::payment_init);
+	no_arg_funcs.emplace ("payment_end", &nano::rpc_handler::payment_end);
+	no_arg_funcs.emplace ("payment_wait", &nano::rpc_handler::payment_wait);
+	no_arg_funcs.emplace ("peers", &nano::rpc_handler::peers);
+	no_arg_funcs.emplace ("pending", &nano::rpc_handler::pending);
+	no_arg_funcs.emplace ("pending_exists", &nano::rpc_handler::pending_exists);
+	no_arg_funcs.emplace ("process", &nano::rpc_handler::process);
+	no_arg_funcs.emplace ("receive", &nano::rpc_handler::receive);
+	no_arg_funcs.emplace ("receive_minimum", &nano::rpc_handler::receive_minimum);
+	no_arg_funcs.emplace ("receive_minimum_set", &nano::rpc_handler::receive_minimum_set);
+	no_arg_funcs.emplace ("representatives", &nano::rpc_handler::representatives);
+	no_arg_funcs.emplace ("representatives_online", &nano::rpc_handler::representatives_online);
+	no_arg_funcs.emplace ("republish", &nano::rpc_handler::republish);
+	no_arg_funcs.emplace ("search_pending", &nano::rpc_handler::search_pending);
+	no_arg_funcs.emplace ("search_pending_all", &nano::rpc_handler::search_pending_all);
+	no_arg_funcs.emplace ("send", &nano::rpc_handler::send);
+	no_arg_funcs.emplace ("sign", &nano::rpc_handler::sign);
+	no_arg_funcs.emplace ("stats", &nano::rpc_handler::stats);
+	no_arg_funcs.emplace ("stats_clear", &nano::rpc_handler::stats_clear);
+	no_arg_funcs.emplace ("stop", &nano::rpc_handler::stop);
+	no_arg_funcs.emplace ("unchecked", &nano::rpc_handler::unchecked);
+	no_arg_funcs.emplace ("unchecked_clear", &nano::rpc_handler::unchecked_clear);
+	no_arg_funcs.emplace ("unchecked_get", &nano::rpc_handler::unchecked_get);
+	no_arg_funcs.emplace ("unchecked_keys", &nano::rpc_handler::unchecked_keys);
+	no_arg_funcs.emplace ("unopened", &nano::rpc_handler::unopened);
+	no_arg_funcs.emplace ("uptime", &nano::rpc_handler::uptime);
+	no_arg_funcs.emplace ("validate_account_number", &nano::rpc_handler::validate_account_number);
+	no_arg_funcs.emplace ("version", &nano::rpc_handler::version);
+	no_arg_funcs.emplace ("wallet_add", &nano::rpc_handler::wallet_add);
+	no_arg_funcs.emplace ("wallet_add_watch", &nano::rpc_handler::wallet_add_watch);
+	no_arg_funcs.emplace ("wallet_balances", &nano::rpc_handler::wallet_balances);
+	no_arg_funcs.emplace ("wallet_change_seed", &nano::rpc_handler::wallet_change_seed);
+	no_arg_funcs.emplace ("wallet_contains", &nano::rpc_handler::wallet_contains);
+	no_arg_funcs.emplace ("wallet_create", &nano::rpc_handler::wallet_create);
+	no_arg_funcs.emplace ("wallet_destroy", &nano::rpc_handler::wallet_destroy);
+	no_arg_funcs.emplace ("wallet_export", &nano::rpc_handler::wallet_export);
+	no_arg_funcs.emplace ("wallet_frontiers", &nano::rpc_handler::wallet_frontiers);
+	no_arg_funcs.emplace ("wallet_history", &nano::rpc_handler::wallet_history);
+	no_arg_funcs.emplace ("wallet_info", &nano::rpc_handler::wallet_info);
+	no_arg_funcs.emplace ("wallet_balance_total", &nano::rpc_handler::wallet_info);
+	no_arg_funcs.emplace ("wallet_key_valid", &nano::rpc_handler::wallet_key_valid);
+	no_arg_funcs.emplace ("wallet_ledger", &nano::rpc_handler::wallet_ledger);
+	no_arg_funcs.emplace ("wallet_lock", &nano::rpc_handler::wallet_lock);
+	no_arg_funcs.emplace ("wallet_pending", &nano::rpc_handler::wallet_pending);
+	no_arg_funcs.emplace ("wallet_representative", &nano::rpc_handler::wallet_representative);
+	no_arg_funcs.emplace ("wallet_representative_set", &nano::rpc_handler::wallet_representative_set);
+	no_arg_funcs.emplace ("wallet_republish", &nano::rpc_handler::wallet_republish);
+	no_arg_funcs.emplace ("wallet_work_get", &nano::rpc_handler::wallet_work_get);
+	no_arg_funcs.emplace ("work_generate", &nano::rpc_handler::work_generate);
+	no_arg_funcs.emplace ("work_cancel", &nano::rpc_handler::work_cancel);
+	no_arg_funcs.emplace ("work_get", &nano::rpc_handler::work_get);
+	no_arg_funcs.emplace ("work_set", &nano::rpc_handler::work_set);
+	no_arg_funcs.emplace ("work_validate", &nano::rpc_handler::work_validate);
+	no_arg_funcs.emplace ("work_peer_add", &nano::rpc_handler::work_peer_add);
+	no_arg_funcs.emplace ("work_peers", &nano::rpc_handler::work_peers);
+	no_arg_funcs.emplace ("work_peers_clear", &nano::rpc_handler::work_peers_clear);
+	return no_arg_funcs;
 }
 }

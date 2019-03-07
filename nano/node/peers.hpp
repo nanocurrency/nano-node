@@ -93,7 +93,7 @@ public:
 	// Returns true if a Node ID handshake should begin
 	bool contacted (nano::endpoint const &, unsigned);
 	// Unassigned, reserved, self
-	bool not_a_peer (nano::endpoint const &);
+	bool not_a_peer (nano::endpoint const &, bool);
 	// Notify of peer we received from
 	bool insert (nano::endpoint const &, unsigned, bool = false, boost::optional<nano::account> = boost::none);
 	// Request a list of the top known representatives
@@ -110,7 +110,7 @@ public:
 	bool rep_response (nano::transport::channel const &, nano::account const &, nano::amount const &);
 	void rep_request (nano::transport::channel const &);
 	// Should we reach out to this endpoint with a keepalive message
-	bool reachout (nano::endpoint const &);
+	bool reachout (nano::endpoint const &, bool = false);
 	// Returns boost::none if the IP is rate capped on syn cookie requests,
 	// or if the endpoint already has a syn cookie query
 	boost::optional<nano::uint256_union> assign_syn_cookie (nano::endpoint const &);

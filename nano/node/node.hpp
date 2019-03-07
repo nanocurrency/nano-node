@@ -66,8 +66,8 @@ public:
 class election : public std::enable_shared_from_this<nano::election>
 {
 	std::function<void(std::shared_ptr<nano::block>)> confirmation_action;
-	void confirm_once (nano::transaction const &, uint8_t &);
-	void confirm_back (nano::transaction const &, uint8_t &);
+	void confirm_once (nano::transaction const &, bool = false);
+	void confirm_back (nano::transaction const &);
 
 public:
 	election (nano::node &, std::shared_ptr<nano::block>, std::function<void(std::shared_ptr<nano::block>)> const &);
@@ -489,7 +489,7 @@ public:
 	nano::node_flags flags;
 	nano::alarm & alarm;
 	nano::work_pool & work;
-	boost::log::sources::logger_mt log;
+	nano::logger_mt logger;
 	std::unique_ptr<nano::block_store> store_impl;
 	nano::block_store & store;
 	std::unique_ptr<nano::wallets_store> wallets_store_impl;
@@ -529,6 +529,9 @@ public:
 	static std::chrono::seconds constexpr peer_interval = search_pending_interval;
 	static std::chrono::hours constexpr unchecked_cleanup_interval = std::chrono::hours (1);
 	static std::chrono::milliseconds constexpr process_confirmed_interval = nano::is_test_network ? std::chrono::milliseconds (50) : std::chrono::milliseconds (500);
+
+private:
+	void add_confirmation_heights (nano::transaction const & transaction, nano::block_hash const & hash);
 };
 
 std::unique_ptr<seq_con_info_component> collect_seq_con_info (node & node, const std::string & name);

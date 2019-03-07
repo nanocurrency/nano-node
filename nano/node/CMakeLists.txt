@@ -25,8 +25,12 @@ add_library (node
 	cli.cpp
 	common.cpp
 	common.hpp
+	daemonconfig.hpp
+	daemonconfig.cpp
 	ipc.hpp
 	ipc.cpp
+	ipcconfig.hpp
+	ipcconfig.cpp
 	lmdb.cpp
 	lmdb.hpp
 	logging.cpp
@@ -43,6 +47,8 @@ add_library (node
 	portmapping.cpp
 	rpc.hpp
 	rpc.cpp
+	rpcconfig.hpp
+	rpcconfig.cpp
 	testing.hpp
 	testing.cpp
 	transport/tcp.cpp
