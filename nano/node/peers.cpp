@@ -163,22 +163,6 @@ bool nano::peer_container::validate_syn_cookie (nano::endpoint const & endpoint,
 	return result;
 }
 
-// Request a list of the top known representatives
-std::vector<nano::peer_information> nano::peer_container::representatives (size_t count_a)
-{
-	std::vector<peer_information> result;
-	result.reserve (std::min (count_a, size_t (16)));
-	std::lock_guard<std::mutex> lock (mutex);
-	for (auto i (peers.get<nano::peer_container::rep_weight_tag> ().begin ()), n (peers.get<nano::peer_container::rep_weight_tag> ().end ()); i != n && result.size () < count_a; ++i)
-	{
-		if (!i->rep_weight.is_zero ())
-		{
-			result.push_back (*i);
-		}
-	}
-	return result;
-}
-
 void nano::peer_container::purge_syn_cookies (std::chrono::steady_clock::time_point const & cutoff)
 {
 	std::lock_guard<std::mutex> lock (syn_cookie_mutex);
@@ -235,21 +219,6 @@ std::vector<nano::peer_information> nano::peer_container::purge_list (std::chron
 	return result;
 }
 
-std::vector<std::shared_ptr<nano::transport::channel>> nano::peer_container::rep_crawl ()
-{
-	std::vector<std::shared_ptr<nano::transport::channel>> result;
-	// If there is enough observed peers weight, crawl 10 peers. Otherwise - 40
-	uint16_t max_count = (total_weight () > online_weight_minimum) ? 10 : 40;
-	result.reserve (max_count);
-	std::lock_guard<std::mutex> lock (mutex);
-	uint16_t count (0);
-	for (auto i (peers.get<nano::peer_container::last_rep_request_tag> ().begin ()), n (peers.get<nano::peer_container::last_rep_request_tag> ().end ()); i != n && count < max_count; ++i, ++count)
-	{
-		result.push_back (i->sink);
-	};
-	return result;
-}
-
 size_t nano::peer_container::size ()
 {
 	std::lock_guard<std::mutex> lock (mutex);
@@ -259,36 +228,6 @@ size_t nano::peer_container::size ()
 size_t nano::peer_container::size_sqrt ()
 {
 	return (static_cast<size_t> (std::ceil (std::sqrt (size ()))));
-}
-
-std::vector<nano::peer_information> nano::peer_container::list_probable_rep_weights ()
-{
-	std::vector<nano::peer_information> result;
-	std::unordered_set<nano::account> probable_reps;
-	std::lock_guard<std::mutex> lock (mutex);
-	for (auto i (peers.get<nano::peer_container::rep_weight_tag> ().begin ()), n (peers.get<nano::peer_container::rep_weight_tag> ().end ()); i != n; ++i)
-	{
-		// Calculate if representative isn't recorded for several IP addresses
-		if (probable_reps.find (i->probable_rep_account) == probable_reps.end ())
-		{
-			if (!i->rep_weight.number ().is_zero ())
-			{
-				result.push_back (*i);
-			}
-			probable_reps.insert (i->probable_rep_account);
-		}
-	}
-	return result;
-}
-
-nano::uint128_t nano::peer_container::total_weight ()
-{
-	nano::uint128_t result (0);
-	for (auto & entry : list_probable_rep_weights ())
-	{
-		result = result + entry.rep_weight.number ();
-	}
-	return result;
 }
 
 bool nano::peer_container::empty ()
@@ -312,38 +251,6 @@ bool nano::peer_container::not_a_peer (nano::endpoint const & endpoint_a, bool a
 		result = true;
 	}
 	return result;
-}
-
-bool nano::peer_container::rep_response (nano::transport::channel const & sink_a, nano::account const & rep_account_a, nano::amount const & weight_a)
-{
-	auto updated (false);
-	std::lock_guard<std::mutex> lock (mutex);
-	auto existing (peers.find (std::reference_wrapper<nano::transport::channel const> (sink_a)));
-	if (existing != peers.end ())
-	{
-		peers.modify (existing, [weight_a, &updated, rep_account_a](nano::peer_information & info) {
-			info.last_rep_response = std::chrono::steady_clock::now ();
-			if (info.rep_weight < weight_a)
-			{
-				updated = true;
-				info.rep_weight = weight_a;
-				info.probable_rep_account = rep_account_a;
-			}
-		});
-	}
-	return updated;
-}
-
-void nano::peer_container::rep_request (nano::transport::channel const & sink_a)
-{
-	std::lock_guard<std::mutex> lock (mutex);
-	auto existing (peers.find (std::reference_wrapper<nano::transport::channel const> (sink_a)));
-	if (existing != peers.end ())
-	{
-		peers.modify (existing, [](nano::peer_information & info) {
-			info.last_rep_request = std::chrono::steady_clock::now ();
-		});
-	}
 }
 
 bool nano::peer_container::reachout (nano::endpoint const & endpoint_a, bool allow_local_peers)

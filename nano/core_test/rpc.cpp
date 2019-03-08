@@ -1952,6 +1952,49 @@ TEST (rpc, work_generate)
 	ASSERT_FALSE (nano::work_validate (hash1, work2));
 }
 
+TEST (rpc, work_generate_difficulty)
+{
+	nano::system system (24000, 1);
+	nano::node_init init1;
+	auto node1 (system.nodes[0]);
+	nano::rpc rpc (system.io_ctx, *system.nodes[0], nano::rpc_config (true));
+	rpc.start ();
+	nano::block_hash hash1 (1);
+	uint64_t difficulty1 (0xfff0000000000000);
+	boost::property_tree::ptree request1;
+	request1.put ("action", "work_generate");
+	request1.put ("hash", hash1.to_string ());
+	request1.put ("difficulty", nano::to_string_hex (difficulty1));
+	test_response response1 (request1, rpc, system.io_ctx);
+	system.deadline_set (5s);
+	while (response1.status == 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (200, response1.status);
+	auto work_text1 (response1.json.get<std::string> ("work"));
+	uint64_t work1;
+	ASSERT_FALSE (nano::from_string_hex (work_text1, work1));
+	uint64_t result_difficulty1;
+	ASSERT_FALSE (nano::work_validate (hash1, work1, &result_difficulty1));
+	ASSERT_GE (result_difficulty1, difficulty1);
+	uint64_t difficulty2 (0xffff000000000000);
+	request1.put ("difficulty", nano::to_string_hex (difficulty2));
+	test_response response2 (request1, rpc, system.io_ctx);
+	system.deadline_set (10s);
+	while (response2.status == 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (200, response2.status);
+	auto work_text2 (response2.json.get<std::string> ("work"));
+	uint64_t work2;
+	ASSERT_FALSE (nano::from_string_hex (work_text2, work2));
+	uint64_t result_difficulty2;
+	ASSERT_FALSE (nano::work_validate (hash1, work2, &result_difficulty2));
+	ASSERT_GE (result_difficulty2, difficulty2);
+}
+
 TEST (rpc, work_cancel)
 {
 	nano::system system (24000, 1);

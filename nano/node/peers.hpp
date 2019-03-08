@@ -55,10 +55,6 @@ public:
 	std::reference_wrapper<nano::transport::channel const> sink_ref () const;
 	std::chrono::steady_clock::time_point last_contact;
 	std::chrono::steady_clock::time_point last_attempt;
-	std::chrono::steady_clock::time_point last_rep_request{ std::chrono::steady_clock::time_point () };
-	std::chrono::steady_clock::time_point last_rep_response{ std::chrono::steady_clock::time_point () };
-	nano::amount rep_weight{ 0 };
-	nano::account probable_rep_account{ 0 };
 	boost::optional<nano::account> node_id;
 	bool operator< (nano::peer_information const &) const;
 };
@@ -96,8 +92,6 @@ public:
 	bool not_a_peer (nano::endpoint const &, bool);
 	// Notify of peer we received from
 	bool insert (nano::endpoint const &, unsigned, bool = false, boost::optional<nano::account> = boost::none);
-	// Request a list of the top known representatives
-	std::vector<peer_information> representatives (size_t);
 	std::vector<peer_information> list_vector (size_t);
 	// A list of random peers sized for the configured rebroadcast fanout
 	std::deque<std::shared_ptr<nano::transport::channel_udp>> list_fanout ();
@@ -106,9 +100,6 @@ public:
 	// Purge any peer where last_contact < time_point and return what was left
 	std::vector<nano::peer_information> purge_list (std::chrono::steady_clock::time_point const &);
 	void purge_syn_cookies (std::chrono::steady_clock::time_point const &);
-	std::vector<std::shared_ptr<nano::transport::channel>> rep_crawl ();
-	bool rep_response (nano::transport::channel const &, nano::account const &, nano::amount const &);
-	void rep_request (nano::transport::channel const &);
 	// Should we reach out to this endpoint with a keepalive message
 	bool reachout (nano::endpoint const &, bool = false);
 	// Returns boost::none if the IP is rate capped on syn cookie requests,
@@ -119,8 +110,6 @@ public:
 	bool validate_syn_cookie (nano::endpoint const &, nano::account, nano::signature);
 	size_t size ();
 	size_t size_sqrt ();
-	nano::uint128_t total_weight ();
-	nano::uint128_t online_weight_minimum;
 	bool empty ();
 	std::mutex mutex;
 	nano::node & node;
@@ -130,8 +119,6 @@ public:
 	boost::multi_index::hashed_unique<boost::multi_index::tag<sink_ref_tag>, boost::multi_index::const_mem_fun<peer_information, std::reference_wrapper<nano::transport::channel const>, &peer_information::sink_ref>>,
 	boost::multi_index::ordered_non_unique<boost::multi_index::tag<last_contact_tag>, boost::multi_index::member<peer_information, std::chrono::steady_clock::time_point, &peer_information::last_contact>>,
 	boost::multi_index::random_access<boost::multi_index::tag<random_access_tag>>,
-	boost::multi_index::ordered_non_unique<boost::multi_index::tag<last_rep_request_tag>, boost::multi_index::member<peer_information, std::chrono::steady_clock::time_point, &peer_information::last_rep_request>>,
-	boost::multi_index::ordered_non_unique<boost::multi_index::tag<rep_weight_tag>, boost::multi_index::member<peer_information, nano::amount, &peer_information::rep_weight>, std::greater<nano::amount>>,
 	boost::multi_index::ordered_non_unique<boost::multi_index::tag<id_address_tag>, boost::multi_index::const_mem_fun<peer_information, boost::asio::ip::address, &peer_information::ip_address>>>>
 	peers;
 	boost::multi_index_container<

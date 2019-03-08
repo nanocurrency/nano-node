@@ -116,6 +116,8 @@ std::string nano::error_rpc_messages::message (int ev) const
 			return "Unknown error";
 		case nano::error_rpc::bad_destination:
 			return "Bad destination account";
+		case nano::error_rpc::bad_difficulty_format:
+			return "Bad difficulty";
 		case nano::error_rpc::bad_key:
 			return "Bad key";
 		case nano::error_rpc::bad_link:

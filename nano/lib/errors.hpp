@@ -74,6 +74,7 @@ enum class error_rpc
 {
 	generic = 1,
 	bad_destination,
+	bad_difficulty_format,
 	bad_key,
 	bad_link,
 	bad_previous,
