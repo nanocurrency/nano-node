@@ -491,6 +491,7 @@ void nano::rpc_handler::account_info ()
 			response_l.put ("modified_timestamp", std::to_string (info.modified));
 			response_l.put ("block_count", std::to_string (info.block_count));
 			response_l.put ("account_version", info.epoch == nano::epoch::epoch_1 ? "1" : "0");
+			response_l.put ("confirmation_height", std::to_string (info.confirmation_height));
 			if (representative)
 			{
 				auto block (node.store.block_get (transaction, info.rep_block));
@@ -1061,6 +1062,25 @@ void nano::rpc_handler::block_account ()
 		{
 			auto account (node.ledger.account (transaction, hash));
 			response_l.put ("account", account.to_account ());
+		}
+		else
+		{
+			ec = nano::error_blocks::not_found;
+		}
+	}
+	response_errors ();
+}
+
+void nano::rpc_handler::block_confirmed ()
+{
+	auto hash (hash_impl ());
+	if (!ec)
+	{
+		auto transaction (node.store.tx_begin_read ());
+		if (node.store.block_exists (transaction, hash))
+		{
+			auto confirmed (node.ledger.block_confirmed (transaction, hash));
+			response_l.put ("confirmed", confirmed);
 		}
 		else
 		{
@@ -1668,16 +1688,16 @@ void nano::rpc_handler::confirmation_quorum ()
 	response_l.put ("online_weight_quorum_percent", std::to_string (node.config.online_weight_quorum));
 	response_l.put ("online_weight_minimum", node.config.online_weight_minimum.to_string_dec ());
 	response_l.put ("online_stake_total", node.online_reps.online_stake ().convert_to<std::string> ());
-	response_l.put ("peers_stake_total", node.peers.total_weight ().convert_to<std::string> ());
+	response_l.put ("peers_stake_total", node.rep_crawler.total_weight ().convert_to<std::string> ());
 	if (request.get<bool> ("peer_details", false))
 	{
 		boost::property_tree::ptree peers;
-		for (auto & peer : node.peers.list_probable_rep_weights ())
+		for (auto & peer : node.rep_crawler.representatives_by_weight ())
 		{
 			boost::property_tree::ptree peer_node;
-			peer_node.put ("account", peer.probable_rep_account.to_account ());
-			peer_node.put ("ip", peer.ip_address.to_string ());
-			peer_node.put ("weight", peer.rep_weight.to_string_dec ());
+			peer_node.put ("account", peer.account.to_account ());
+			peer_node.put ("ip", peer.endpoint.address ().to_string ());
+			peer_node.put ("weight", peer.weight.to_string_dec ());
 			peers.push_back (std::make_pair ("", peer_node));
 		}
 		response_l.add_child ("peers", peers);
@@ -4132,6 +4152,15 @@ void nano::rpc_handler::work_generate ()
 {
 	rpc_control_impl ();
 	auto hash (hash_impl ());
+	uint64_t difficulty (nano::work_pool::publish_threshold);
+	boost::optional<std::string> difficulty_text (request.get_optional<std::string> ("difficulty"));
+	if (!ec && difficulty_text.is_initialized ())
+	{
+		if (nano::from_string_hex (difficulty_text.get (), difficulty))
+		{
+			ec = nano::error_rpc::bad_difficulty_format;
+		}
+	}
 	if (!ec)
 	{
 		bool use_peers (request.get_optional<bool> ("use_peers") == true);
@@ -4150,11 +4179,11 @@ void nano::rpc_handler::work_generate ()
 		};
 		if (!use_peers)
 		{
-			node.work.generate (hash, callback);
+			node.work.generate (hash, callback, difficulty);
 		}
 		else
 		{
-			node.work_generate (hash, callback);
+			node.work_generate (hash, callback, difficulty);
 		}
 	}
 	// Because of callback
@@ -4655,6 +4684,7 @@ rpc_handler_no_arg_func_map create_rpc_handler_no_arg_func_map ()
 	no_arg_funcs.emplace ("blocks", &nano::rpc_handler::blocks);
 	no_arg_funcs.emplace ("blocks_info", &nano::rpc_handler::blocks_info);
 	no_arg_funcs.emplace ("block_account", &nano::rpc_handler::block_account);
+	no_arg_funcs.emplace ("block_confirmed", &nano::rpc_handler::block_confirmed);
 	no_arg_funcs.emplace ("block_count", &nano::rpc_handler::block_count);
 	no_arg_funcs.emplace ("block_count_type", &nano::rpc_handler::block_count_type);
 	no_arg_funcs.emplace ("block_create", &nano::rpc_handler::block_create);

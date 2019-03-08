@@ -1,0 +1,134 @@
+#pragma once
+
+#include <boost/asio.hpp>
+#include <boost/multi_index/hashed_index.hpp>
+#include <boost/multi_index/member.hpp>
+#include <boost/multi_index/ordered_index.hpp>
+#include <boost/multi_index/random_access_index.hpp>
+#include <boost/multi_index_container.hpp>
+#include <chrono>
+#include <memory>
+#include <nano/node/common.hpp>
+#include <unordered_map>
+#include <unordered_set>
+
+namespace mi = boost::multi_index;
+
+namespace nano
+{
+class node;
+
+/**
+ * A representative picked up during repcrawl.
+ */
+class representative
+{
+public:
+	representative (nano::account account_a, nano::amount weight_a, nano::endpoint endpoint_a) :
+	account (account_a), weight (weight_a), endpoint (endpoint_a)
+	{
+	}
+	nano::account account{ 0 };
+	nano::amount weight{ 0 };
+	nano::endpoint endpoint;
+	std::chrono::steady_clock::time_point last_request{ std::chrono::steady_clock::time_point () };
+	std::chrono::steady_clock::time_point last_response{ std::chrono::steady_clock::time_point () };
+};
+
+/**
+ * Crawls the network for representatives. Queries are performed by requesting confirmation of a
+ * random block and observing the corresponding vote.
+ */
+class rep_crawler
+{
+	friend std::unique_ptr<seq_con_info_component> collect_seq_con_info (rep_crawler & rep_crawler, const std::string & name);
+
+	// clang-format off
+	class tag_endpoint {};
+	class tag_last_request {};
+	class tag_account {};
+	class tag_weight {};
+
+	using probably_rep_t = boost::multi_index_container<representative,
+	mi::indexed_by<
+		mi::hashed_unique<mi::member<representative, nano::account, &representative::account>>,
+		mi::random_access<>,
+		mi::ordered_non_unique<mi::tag<tag_last_request>,
+			mi::member<representative, std::chrono::steady_clock::time_point, &representative::last_request>>,
+		mi::ordered_non_unique<mi::tag<tag_weight>,
+			mi::member<representative, nano::amount, &representative::weight>, std::greater<nano::amount>>,
+		mi::ordered_non_unique<mi::tag<tag_endpoint>,
+			mi::member<representative, nano::endpoint, &representative::endpoint>>>>;
+	// clang-format on
+
+public:
+	rep_crawler (nano::node & node_a);
+
+	/** Start crawling */
+	void start ();
+
+	/** Add block hash to list of active rep queries */
+	void add (nano::block_hash const &);
+
+	/** Remove block hash from list of active rep queries */
+	void remove (nano::block_hash const &);
+
+	/** Check if block hash is in the list of active rep queries */
+	bool exists (nano::block_hash const &);
+
+	/** Attempt to determine if the peer manages one or more representative accounts */
+	void query (std::vector<nano::endpoint> const & endpoints_a);
+
+	/** Attempt to determine if the peer manages one or more representative accounts */
+	void query (nano::endpoint const & endpoint_a);
+
+	/**
+	 * Called when a non-replay vote on a block previously sent by query() is received. This indiciates
+	 * with high probability that the endpoint is a representative node.
+	 * @return True if the rep entry was updated with new information due to increase in weight.
+	 */
+	bool response (nano::endpoint const & endpoint_a, nano::account const & rep_account_a, nano::amount const & weight_a);
+
+	/** Get total available weight from representatives */
+	nano::uint128_t total_weight ();
+
+	/** Request a list of the top \p count_a known representatives. The maximum number of reps returned is 16. */
+	std::vector<representative> representatives (size_t count_a);
+
+	/** Request a list of the top \p count_a known representative endpoints. The maximum number of reps returned is 16. */
+	std::vector<nano::endpoint> representative_endpoints (size_t count_a);
+
+	/** Returns all representatives registered with weight in descending order */
+	std::vector<nano::representative> representatives_by_weight ();
+
+	/** Total number of representatives */
+	size_t representative_count ();
+
+private:
+	nano::node & node;
+
+	/** Protects the active-hash container */
+	std::mutex active_mutex;
+
+	/** We have solicted votes for these random blocks */
+	std::unordered_set<nano::block_hash> active;
+
+	/** Called continuously to crawl for representatives */
+	void ongoing_crawl ();
+
+	/** Returns a list of endpoints to crawl */
+	std::vector<nano::endpoint> get_crawl_targets ();
+
+	/** When a rep request is made, this is called to update the last-request timestamp. */
+	void on_rep_request (nano::endpoint const & endpoint_a);
+
+	/** Protects the probable_reps container */
+	std::mutex probable_reps_mutex;
+
+	/** Get total available weight from representatives (must be called with a lock on probable_reps_mutex) */
+	nano::uint128_t total_weight_internal ();
+
+	/** Probable representatives */
+	probably_rep_t probable_reps;
+};
+}

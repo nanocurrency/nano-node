@@ -206,11 +206,7 @@ void nano::frontier_req_client::run ()
 	request->start.clear ();
 	request->age = std::numeric_limits<decltype (request->age)>::max ();
 	request->count = std::numeric_limits<decltype (request->count)>::max ();
-	auto send_buffer (std::make_shared<std::vector<uint8_t>> ());
-	{
-		nano::vectorstream stream (*send_buffer);
-		request->serialize (stream);
-	}
+	auto send_buffer (request->to_bytes ());
 	auto this_l (shared_from_this ());
 	connection->socket->async_write (send_buffer, [this_l](boost::system::error_code const & ec, size_t size_a) {
 		if (!ec)
@@ -461,11 +457,7 @@ void nano::bulk_pull_client::request ()
 	req.count = pull.count;
 	req.set_count_present (pull.count != 0);
 
-	auto buffer (std::make_shared<std::vector<uint8_t>> ());
-	{
-		nano::vectorstream stream (*buffer);
-		req.serialize (stream);
-	}
+	auto buffer (req.to_bytes ());
 	if (connection->node->config.logging.bulk_pull_logging ())
 	{
 		std::unique_lock<std::mutex> lock (connection->attempt->mutex);
@@ -657,11 +649,7 @@ nano::bulk_push_client::~bulk_push_client ()
 void nano::bulk_push_client::start ()
 {
 	nano::bulk_push message;
-	auto buffer (std::make_shared<std::vector<uint8_t>> ());
-	{
-		nano::vectorstream stream (*buffer);
-		message.serialize (stream);
-	}
+	auto buffer (message.to_bytes ());
 	auto this_l (shared_from_this ());
 	connection->socket->async_write (buffer, [this_l](boost::system::error_code const & ec, size_t size_a) {
 		auto transaction (this_l->connection->node->store.tx_begin_read ());
@@ -793,12 +781,7 @@ void nano::bulk_pull_account_client::request ()
 	req.account = account;
 	req.minimum_amount = connection->node->config.receive_minimum;
 	req.flags = nano::bulk_pull_account_flags::pending_hash_and_amount;
-
-	auto buffer (std::make_shared<std::vector<uint8_t>> ());
-	{
-		nano::vectorstream stream (*buffer);
-		req.serialize (stream);
-	}
+	auto buffer (req.to_bytes ());
 	if (connection->node->config.logging.bulk_pull_logging ())
 	{
 		std::unique_lock<std::mutex> lock (connection->attempt->mutex);
