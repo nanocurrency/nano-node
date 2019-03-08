@@ -30,7 +30,13 @@ nano::mdb_env::mdb_env (bool & error_a, boost::filesystem::path const & path_a, 
 			auto status4 (mdb_env_open (environment, path_a.string ().c_str (), MDB_NOSUBDIR | MDB_NOTLS | MDB_NORDAHEAD, 00600));
 			if (status4 != 0)
 			{
-				std::cerr << "Could not open lmdb environment. Error code: " << status4 << std::endl;
+				std::cerr << "Could not open lmdb environment: " << status4;
+				char * error_str (mdb_strerror (status4));
+				if (error_str)
+				{
+					std::cerr << ", " << error_str;
+				}
+				std::cerr << std::endl;
 			}
 			release_assert (status4 == 0);
 			error_a = status4 != 0;
