@@ -2583,7 +2583,7 @@ TEST (rpc, work_validate)
 	}
 	ASSERT_EQ (200, response4.status);
 	bool validate4 (response4.json.get<bool> ("valid"));
-	ASSERT_EQ (result_difficulty >=difficulty4, validate4);
+	ASSERT_EQ (result_difficulty >= difficulty4, validate4);
 	uint64_t work3 (node1.work_generate_blocking (hash, difficulty4));
 	request.put ("work", nano::to_string_hex (work3));
 	test_response response5 (request, rpc, system.io_ctx);
