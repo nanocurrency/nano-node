@@ -4247,10 +4247,21 @@ void nano::rpc_handler::work_validate ()
 {
 	auto hash (hash_impl ());
 	auto work (work_optional_impl ());
+	uint64_t difficulty (nano::work_pool::publish_threshold);
+	boost::optional<std::string> difficulty_text (request.get_optional<std::string> ("difficulty"));
+	if (!ec && difficulty_text.is_initialized ())
+	{
+		if (nano::from_string_hex (difficulty_text.get (), difficulty))
+		{
+			ec = nano::error_rpc::bad_difficulty_format;
+		}
+	}
 	if (!ec)
 	{
-		auto validate (nano::work_validate (hash, work));
-		response_l.put ("valid", validate ? "0" : "1");
+		uint64_t result_difficulty (0);
+		bool invalid (nano::work_validate (hash, work, &result_difficulty));
+		bool valid (!invalid && result_difficulty >= difficulty);
+		response_l.put ("valid", valid ? "1" : "0");
 	}
 	response_errors ();
 }

@@ -2558,6 +2558,43 @@ TEST (rpc, work_validate)
 	ASSERT_EQ (200, response2.status);
 	std::string validate_text2 (response2.json.get<std::string> ("valid"));
 	ASSERT_EQ ("0", validate_text2);
+	uint64_t result_difficulty;
+	ASSERT_FALSE (nano::work_validate (hash, work1, &result_difficulty));
+	ASSERT_GE (result_difficulty, nano::work_pool::publish_threshold);
+	request.put ("work", nano::to_string_hex (work1));
+	request.put ("difficulty", nano::to_string_hex (result_difficulty));
+	test_response response3 (request, rpc, system.io_ctx);
+	system.deadline_set (5s);
+	while (response3.status == 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (200, response3.status);
+	bool validate3 (response3.json.get<bool> ("valid"));
+	ASSERT_TRUE (validate3);
+	uint64_t difficulty4 (0xfff0000000000000);
+	request.put ("work", nano::to_string_hex (work1));
+	request.put ("difficulty", nano::to_string_hex (difficulty4));
+	test_response response4 (request, rpc, system.io_ctx);
+	system.deadline_set (5s);
+	while (response4.status == 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (200, response4.status);
+	bool validate4 (response4.json.get<bool> ("valid"));
+	ASSERT_EQ (result_difficulty >=difficulty4, validate4);
+	uint64_t work3 (node1.work_generate_blocking (hash, difficulty4));
+	request.put ("work", nano::to_string_hex (work3));
+	test_response response5 (request, rpc, system.io_ctx);
+	system.deadline_set (5s);
+	while (response5.status == 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (200, response5.status);
+	bool validate5 (response5.json.get<bool> ("valid"));
+	ASSERT_TRUE (validate5);
 }
 
 TEST (rpc, successors)
