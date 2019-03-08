@@ -28,6 +28,16 @@ nano::mdb_env::mdb_env (bool & error_a, boost::filesystem::path const & path_a, 
 			// This can happen if something like 256 io_threads are specified in the node config
 			// MDB_NORDAHEAD will allow platforms that support it to load the DB in memory as needed.
 			auto status4 (mdb_env_open (environment, path_a.string ().c_str (), MDB_NOSUBDIR | MDB_NOTLS | MDB_NORDAHEAD, 00600));
+			if (status4 != 0)
+			{
+				std::cerr << "Could not open lmdb environment: " << status4;
+				char * error_str (mdb_strerror (status4));
+				if (error_str)
+				{
+					std::cerr << ", " << error_str;
+				}
+				std::cerr << std::endl;
+			}
 			release_assert (status4 == 0);
 			error_a = status4 != 0;
 		}
