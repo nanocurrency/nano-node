@@ -6,8 +6,8 @@ TEST (peer_container, empty_peers)
 {
 	nano::system system (24000, 1);
 	nano::peer_container & peers (system.nodes[0]->peers);
-	auto list (peers.purge_list (std::chrono::steady_clock::now ()));
-	ASSERT_EQ (0, list.size ());
+	peers.purge_list (std::chrono::steady_clock::now ());
+	ASSERT_EQ (0, peers.size ());
 }
 
 TEST (peer_container, no_recontact)
@@ -23,8 +23,8 @@ TEST (peer_container, no_recontact)
 	ASSERT_FALSE (peers.insert (endpoint1, nano::protocol_version));
 	ASSERT_EQ (1, peers.size ());
 	ASSERT_TRUE (peers.insert (endpoint1, nano::protocol_version));
-	auto remaining (peers.purge_list (std::chrono::steady_clock::now () + std::chrono::seconds (5)));
-	ASSERT_TRUE (remaining.empty ());
+	peers.purge_list (std::chrono::steady_clock::now () + std::chrono::seconds (5));
+	ASSERT_TRUE (peers.empty ());
 	ASSERT_EQ (1, observed_peer);
 	ASSERT_TRUE (observed_disconnect);
 }
@@ -74,11 +74,10 @@ TEST (peer_container, split)
 	system.nodes[0]->network.udp_channels.add (channel2);
 	ASSERT_EQ (2, peers.peers.size ());
 	ASSERT_EQ (2, system.nodes[0]->network.udp_channels.size ());
-	auto list (peers.purge_list (now));
+	peers.purge_list (now);
 	ASSERT_EQ (1, peers.peers.size ());
 	ASSERT_EQ (1, system.nodes[0]->network.udp_channels.size ());
-	ASSERT_EQ (1, list.size ());
-	ASSERT_EQ (endpoint2, list[0].sink->endpoint);
+	ASSERT_EQ (endpoint2, peers.peers.get<nano::peer_container::random_access_tag> ()[0].sink->endpoint);
 }
 
 TEST (udp_channels, fill_random_clear)

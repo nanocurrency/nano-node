@@ -1535,9 +1535,9 @@ TEST (node, rep_weight)
 	nano::endpoint endpoint0 (boost::asio::ip::address_v6::loopback (), 24000);
 	nano::endpoint endpoint1 (boost::asio::ip::address_v6::loopback (), 24002);
 	nano::endpoint endpoint2 (boost::asio::ip::address_v6::loopback (), 24003);
-	auto channel0 (std::make_shared <nano::transport::channel_udp> (node, endpoint0));
-	auto channel1 (std::make_shared <nano::transport::channel_udp> (node, endpoint1));
-	auto channel2 (std::make_shared <nano::transport::channel_udp> (node, endpoint2));
+	auto channel0 (std::make_shared<nano::transport::channel_udp> (node, endpoint0));
+	auto channel1 (std::make_shared<nano::transport::channel_udp> (node, endpoint1));
+	auto channel2 (std::make_shared<nano::transport::channel_udp> (node, endpoint2));
 	nano::amount amount100 (100);
 	nano::amount amount50 (50);
 	node.peers.insert (endpoint2, nano::protocol_version);

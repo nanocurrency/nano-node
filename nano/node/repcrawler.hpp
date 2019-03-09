@@ -28,7 +28,10 @@ public:
 	account (account_a), weight (weight_a), channel (channel_a)
 	{
 	}
-	std::reference_wrapper<nano::transport::channel const> channel_ref () const { return *channel; };
+	std::reference_wrapper<nano::transport::channel const> channel_ref () const
+	{
+		return *channel;
+	};
 	nano::account account{ 0 };
 	nano::amount weight{ 0 };
 	std::shared_ptr<nano::transport::channel> channel;

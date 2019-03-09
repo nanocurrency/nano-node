@@ -98,7 +98,7 @@ public:
 	// Returns a list of probable reps and their weight
 	std::vector<peer_information> list_probable_rep_weights ();
 	// Purge any peer where last_contact < time_point and return what was left
-	std::vector<nano::peer_information> purge_list (std::chrono::steady_clock::time_point const &);
+	void purge_list (std::chrono::steady_clock::time_point const &);
 	void purge_syn_cookies (std::chrono::steady_clock::time_point const &);
 	// Should we reach out to this endpoint with a keepalive message
 	bool reachout (nano::endpoint const &, bool = false);
@@ -111,6 +111,7 @@ public:
 	size_t size ();
 	size_t size_sqrt ();
 	bool empty ();
+	void ongoing_keepalive ();
 	std::mutex mutex;
 	nano::node & node;
 	boost::multi_index_container<
@@ -137,6 +138,8 @@ public:
 	static size_t constexpr peers_per_crawl = 8;
 	// Maximum number of peers per IP
 	static size_t constexpr max_peers_per_ip = 10;
+	static std::chrono::seconds constexpr period = nano::is_test_network ? std::chrono::seconds (1) : std::chrono::seconds (60);
+	static std::chrono::seconds constexpr cutoff = period * 5;
 };
 
 std::unique_ptr<seq_con_info_component> collect_seq_con_info (peer_container & peer_container, const std::string & name);

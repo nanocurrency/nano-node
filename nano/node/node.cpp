@@ -16,8 +16,6 @@
 
 double constexpr nano::node::price_max;
 double constexpr nano::node::free_cutoff;
-std::chrono::seconds constexpr nano::node::period;
-std::chrono::seconds constexpr nano::node::cutoff;
 std::chrono::seconds constexpr nano::node::syn_cookie_cutoff;
 std::chrono::minutes constexpr nano::node::backup_interval;
 std::chrono::seconds constexpr nano::node::search_pending_interval;
@@ -1764,7 +1762,7 @@ void nano::node::start ()
 {
 	network.start ();
 	add_initial_peers ();
-	ongoing_keepalive ();
+	peers.ongoing_keepalive ();
 	ongoing_syn_cookie_cleanup ();
 	if (!flags.disable_legacy_bootstrap)
 	{
@@ -1868,23 +1866,6 @@ nano::account nano::node::representative (nano::account const & account_a)
 		result = info.rep_block;
 	}
 	return result;
-}
-
-void nano::node::ongoing_keepalive ()
-{
-	keepalive_preconfigured (config.preconfigured_peers);
-	auto peers_l (peers.purge_list (std::chrono::steady_clock::now () - cutoff));
-	for (auto i (peers_l.begin ()), j (peers_l.end ()); i != j && std::chrono::steady_clock::now () - i->last_attempt > period; ++i)
-	{
-		network.send_keepalive (*i->sink);
-	}
-	std::weak_ptr<nano::node> node_w (shared_from_this ());
-	alarm.add (std::chrono::steady_clock::now () + period, [node_w]() {
-		if (auto node_l = node_w.lock ())
-		{
-			node_l->ongoing_keepalive ();
-		}
-	});
 }
 
 void nano::node::ongoing_syn_cookie_cleanup ()
@@ -3151,7 +3132,7 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 					{
 						auto deque_l (node.network.udp_channels.random_set (100));
 						auto vec (std::make_shared<std::vector<std::shared_ptr<nano::transport::channel>>> ());
-						for (auto i: deque_l)
+						for (auto i : deque_l)
 						{
 							vec->push_back (i);
 						}
