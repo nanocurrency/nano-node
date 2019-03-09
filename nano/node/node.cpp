@@ -1653,7 +1653,7 @@ void nano::node::process_fork (nano::transaction const & transaction_a, std::sha
 	if (!store.block_exists (transaction_a, block_a->type (), block_a->hash ()) && store.root_exists (transaction_a, block_a->root ()))
 	{
 		std::shared_ptr<nano::block> ledger_block (ledger.forked_block (transaction_a, *block_a));
-		if (ledger_block)
+		if (ledger_block && !ledger.block_confirmed (transaction_a, ledger_block->hash ()))
 		{
 			std::weak_ptr<nano::node> this_w (shared_from_this ());
 			if (!active.start (ledger_block, [this_w, root](std::shared_ptr<nano::block>) {
@@ -2602,19 +2602,21 @@ public:
 };
 }
 
+void nano::node::receive_confirmed (nano::transaction const & transaction_a, std::shared_ptr<nano::block> block_a, nano::block_hash const & hash_a)
+{
+	confirmed_visitor visitor (transaction_a, *this, block_a, hash_a);
+	block_a->visit (visitor);
+}
+
 void nano::node::process_confirmed (std::shared_ptr<nano::block> block_a, uint8_t iteration)
 {
 	auto hash (block_a->hash ());
 	if (ledger.block_exists (block_a->type (), hash))
 	{
-		{
-			auto transaction (store.tx_begin_write ());
-			add_confirmation_heights (transaction, hash);
-		}
+		add_confirmation_heights (hash);
 
 		auto transaction (store.tx_begin_read ());
-		confirmed_visitor visitor (transaction, *this, block_a, hash);
-		block_a->visit (visitor);
+		receive_confirmed (transaction, block_a, hash);
 		auto account (ledger.account (transaction, hash));
 		auto amount (ledger.amount (transaction, hash));
 		bool is_state_send (false);
@@ -2968,7 +2970,7 @@ void nano::election::compute_rep_votes (nano::transaction const & transaction_a)
 	}
 }
 
-void nano::election::confirm_once (nano::transaction const & transaction_a, bool confirmed_back)
+void nano::election::confirm_once ()
 {
 	if (!confirmed.exchange (true))
 	{
@@ -2981,32 +2983,6 @@ void nano::election::confirm_once (nano::transaction const & transaction_a, bool
 			node_l->process_confirmed (winner_l);
 			confirmation_action_l (winner_l);
 		});
-		if (!confirmed_back)
-		{
-			confirm_back (transaction_a);
-		}
-	}
-}
-
-void nano::election::confirm_back (nano::transaction const & transaction_a)
-{
-	std::deque<nano::block_hash> hashes = { status.winner->previous (), status.winner->source (), status.winner->link () };
-	while (!hashes.empty ())
-	{
-		auto hash (hashes.front ());
-		hashes.pop_front ();
-		if (!hash.is_zero () && !node.ledger.is_epoch_link (hash))
-		{
-			auto existing (node.active.blocks.find (hash));
-			if (existing != node.active.blocks.end () && !existing->second->confirmed && !existing->second->stopped && existing->second->blocks.size () == 1)
-			{
-				release_assert (existing->second->status.winner->hash () == hash);
-				existing->second->confirm_once (transaction_a, true); // Avoid recursive actions
-				hashes.push_back (existing->second->status.winner->previous ());
-				hashes.push_back (existing->second->status.winner->source ());
-				hashes.push_back (existing->second->status.winner->link ());
-			}
-		}
 	}
 }
 
@@ -3074,7 +3050,7 @@ void nano::election::confirm_if_quorum (nano::transaction const & transaction_a)
 		{
 			log_votes (tally_l);
 		}
-		confirm_once (transaction_a);
+		confirm_once ();
 	}
 }
 
@@ -3647,6 +3623,16 @@ bool nano::active_transactions::publish (std::shared_ptr<nano::block> block_a)
 	return result;
 }
 
+void nano::active_transactions::confirm_block (nano::block_hash const & hash_a)
+{
+	std::lock_guard<std::mutex> lock (mutex);
+	auto existing (blocks.find (hash_a));
+	if (existing != blocks.end () && !existing->second->confirmed && !existing->second->stopped && existing->second->status.winner->hash () == hash_a)
+	{
+		existing->second->confirm_once ();
+	}
+}
+
 namespace nano
 {
 std::unique_ptr<seq_con_info_component> collect_seq_con_info (active_transactions & active_transactions, const std::string & name)
@@ -3674,10 +3660,11 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (active_transaction
  * For all the blocks below this height which have been implicitly confirmed check if they
  * are open/receive blocks, and if so follow the source blocks and iteratively repeat to genesis.
  */
-void nano::node::add_confirmation_heights (nano::transaction const & transaction, nano::block_hash const & hash)
+void nano::node::add_confirmation_heights (nano::block_hash const & hash_a)
 {
+	auto transaction (store.tx_begin_write ());
 	std::stack<nano::block_hash, std::vector<nano::block_hash>> open_receive_blocks;
-	auto current = hash;
+	auto current = hash_a;
 
 	nano::genesis genesis;
 	do
@@ -3686,17 +3673,6 @@ void nano::node::add_confirmation_heights (nano::transaction const & transaction
 		{
 			current = open_receive_blocks.top ();
 			open_receive_blocks.pop ();
-
-			auto block (store.block_get (transaction, current));
-			if (block != nullptr)
-			{
-				nano::block_hash source_hash = block->source ();
-				auto source_block (store.block_get (transaction, source_hash));
-				if (source_block != nullptr)
-				{
-					current = source_block->hash ();
-				}
-			}
 		}
 
 		auto hash (current);
@@ -3720,6 +3696,8 @@ void nano::node::add_confirmation_heights (nano::transaction const & transaction
 				auto block (store.block_get (transaction, current));
 				if (block != nullptr)
 				{
+					// Confirm blocks back
+					active.confirm_block (current);
 					// First check legacy receive/open
 					if (block->type () == nano::block_type::receive || (block->type () == nano::block_type::open && current != genesis.hash ()))
 					{
@@ -3734,10 +3712,15 @@ void nano::node::add_confirmation_heights (nano::transaction const & transaction
 							nano::block_hash previous (state->hashables.previous);
 							if (!previous.is_zero ())
 							{
-								if (state->hashables.balance > ledger.balance (transaction, previous))
+								if (state->hashables.balance.number () >= ledger.balance (transaction, previous) && !state->hashables.link.is_zero () && !ledger.is_epoch_link (state->hashables.link))
 								{
 									open_receive_blocks.push (state->hashables.link);
 								}
+							}
+							// State open blocks are always receive or epoch
+							else if (!ledger.is_epoch_link (state->hashables.link))
+							{
+								open_receive_blocks.push (state->hashables.link);
 							}
 						}
 					}

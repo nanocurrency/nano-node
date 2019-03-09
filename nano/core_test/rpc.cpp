@@ -840,6 +840,7 @@ TEST (rpc, block)
 	ASSERT_EQ (200, response.status);
 	auto contents (response.json.get<std::string> ("contents"));
 	ASSERT_FALSE (contents.empty ());
+	ASSERT_FALSE (response.json.get<bool> ("confirmed"));
 }
 
 TEST (rpc, block_account)
@@ -3598,6 +3599,7 @@ TEST (rpc, blocks_info)
 		ASSERT_FALSE (source.is_initialized ());
 		std::string balance_text (blocks.second.get<std::string> ("balance"));
 		ASSERT_EQ (nano::genesis_amount.convert_to<std::string> (), balance_text);
+		ASSERT_FALSE (blocks.second.get<bool> ("confirmed"));
 	}
 	// Test for optional values
 	request.put ("source", "true");
@@ -4872,7 +4874,7 @@ TEST (rpc, block_confirmed)
 	nano::rpc rpc (system.io_ctx, *node, nano::rpc_config (true));
 	rpc.start ();
 	boost::property_tree::ptree request;
-	request.put ("action", "block_confirmed");
+	request.put ("action", "block_info");
 	request.put ("hash", "bad_hash1337");
 	test_response response (request, rpc, system.io_ctx);
 	while (response.status == 0)

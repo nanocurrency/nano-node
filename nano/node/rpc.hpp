@@ -113,7 +113,6 @@ public:
 	void blocks ();
 	void blocks_info ();
 	void block_account ();
-	void block_confirmed ();
 	void block_count ();
 	void block_count_type ();
 	void block_create ();

@@ -782,8 +782,7 @@ void nano::rpc_handler::accounts_pending ()
 			for (auto i (node.store.pending_begin (transaction, nano::pending_key (account, 0))); nano::pending_key (i->first).account == account && peers_l.size () < count; ++i)
 			{
 				nano::pending_key key (i->first);
-				std::shared_ptr<nano::block> block (include_active ? nullptr : node.store.block_get (transaction, key.hash));
-				if (include_active || (block && !node.active.active (*block)))
+				if (include_active || node.ledger.block_confirmed (transaction, key.hash))
 				{
 					if (threshold.is_zero () && !source)
 					{
@@ -872,6 +871,8 @@ void nano::rpc_handler::block_info ()
 			response_l.put ("balance", balance.convert_to<std::string> ());
 			response_l.put ("height", std::to_string (sideband.height));
 			response_l.put ("local_timestamp", std::to_string (sideband.timestamp));
+			auto confirmed (node.ledger.block_confirmed (transaction, hash));
+			response_l.put ("confirmed", confirmed);
 
 			bool json_block_l = request.get<bool> ("json_block", false);
 			if (json_block_l)
@@ -994,6 +995,8 @@ void nano::rpc_handler::blocks_info ()
 					entry.put ("balance", balance.convert_to<std::string> ());
 					entry.put ("height", std::to_string (sideband.height));
 					entry.put ("local_timestamp", std::to_string (sideband.timestamp));
+					auto confirmed (node.ledger.block_confirmed (transaction, hash));
+					entry.put ("confirmed", confirmed);
 
 					if (json_block_l)
 					{
@@ -1062,25 +1065,6 @@ void nano::rpc_handler::block_account ()
 		{
 			auto account (node.ledger.account (transaction, hash));
 			response_l.put ("account", account.to_account ());
-		}
-		else
-		{
-			ec = nano::error_blocks::not_found;
-		}
-	}
-	response_errors ();
-}
-
-void nano::rpc_handler::block_confirmed ()
-{
-	auto hash (hash_impl ());
-	if (!ec)
-	{
-		auto transaction (node.store.tx_begin_read ());
-		if (node.store.block_exists (transaction, hash))
-		{
-			auto confirmed (node.ledger.block_confirmed (transaction, hash));
-			response_l.put ("confirmed", confirmed);
 		}
 		else
 		{
@@ -2342,8 +2326,7 @@ void nano::rpc_handler::pending ()
 		for (auto i (node.store.pending_begin (transaction, nano::pending_key (account, 0))); nano::pending_key (i->first).account == account && peers_l.size () < count; ++i)
 		{
 			nano::pending_key key (i->first);
-			std::shared_ptr<nano::block> block (include_active ? nullptr : node.store.block_get (transaction, key.hash));
-			if (include_active || (block && !node.active.active (*block)))
+			if (include_active || node.ledger.block_confirmed (transaction, key.hash))
 			{
 				if (threshold.is_zero () && !source && !min_version)
 				{
@@ -2399,7 +2382,7 @@ void nano::rpc_handler::pending_exists ()
 			{
 				exists = node.store.pending_exists (transaction, nano::pending_key (destination, hash));
 			}
-			exists = exists && (include_active || !node.active.active (*block));
+			exists = exists && (include_active || node.ledger.block_confirmed (transaction, hash));
 			response_l.put ("exists", exists ? "1" : "0");
 		}
 		else
@@ -3970,8 +3953,7 @@ void nano::rpc_handler::wallet_pending ()
 			for (auto ii (node.store.pending_begin (block_transaction, nano::pending_key (account, 0))); nano::pending_key (ii->first).account == account && peers_l.size () < count; ++ii)
 			{
 				nano::pending_key key (ii->first);
-				std::shared_ptr<nano::block> block (include_active ? nullptr : node.store.block_get (block_transaction, key.hash));
-				if (include_active || (block && !node.active.active (*block)))
+				if (include_active || node.ledger.block_confirmed (block_transaction, key.hash))
 				{
 					if (threshold.is_zero () && !source)
 					{
@@ -4695,7 +4677,6 @@ rpc_handler_no_arg_func_map create_rpc_handler_no_arg_func_map ()
 	no_arg_funcs.emplace ("blocks", &nano::rpc_handler::blocks);
 	no_arg_funcs.emplace ("blocks_info", &nano::rpc_handler::blocks_info);
 	no_arg_funcs.emplace ("block_account", &nano::rpc_handler::block_account);
-	no_arg_funcs.emplace ("block_confirmed", &nano::rpc_handler::block_confirmed);
 	no_arg_funcs.emplace ("block_count", &nano::rpc_handler::block_count);
 	no_arg_funcs.emplace ("block_count_type", &nano::rpc_handler::block_count_type);
 	no_arg_funcs.emplace ("block_create", &nano::rpc_handler::block_create);
