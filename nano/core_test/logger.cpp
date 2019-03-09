@@ -122,7 +122,7 @@ TEST (logger, changing_time_interval)
 	nano::logger_mt my_logger (logging.min_time_between_log_output);
 	auto error (my_logger.try_log ("logger.changing_time_interval1"));
 	ASSERT_FALSE (error);
-	logging.min_time_between_log_output = 20s;
+	my_logger.min_log_delta = 20s;
 	error = my_logger.try_log ("logger, changing_time_interval2");
 	ASSERT_TRUE (error);
 }
