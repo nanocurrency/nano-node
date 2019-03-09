@@ -470,12 +470,8 @@ nano::process_return nano::block_processor::process_one (nano::transaction const
 		}
 		case nano::process_result::fork:
 		{
-			if (info_a.modified < nano::seconds_since_epoch () - 15)
-			{
-				// Only let the bootstrap attempt know about forked blocks that not originate recently.
-				node.process_fork (transaction_a, info_a.block);
-				node.stats.inc (nano::stat::type::ledger, nano::stat::detail::fork, nano::stat::dir::in);
-			}
+			node.process_fork (transaction_a, info_a.block);
+			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::fork, nano::stat::dir::in);
 			if (node.config.logging.ledger_logging ())
 			{
 				node.logger.try_log (boost::str (boost::format ("Fork for: %1% root: %2%") % hash.to_string () % info_a.block->root ().to_string ()));
