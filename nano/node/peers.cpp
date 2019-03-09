@@ -20,15 +20,13 @@ nano::endpoint nano::map_endpoint_to_v6 (nano::endpoint const & endpoint_a)
 nano::peer_information::peer_information (std::shared_ptr<nano::transport::channel_udp> sink_a, boost::optional<nano::account> node_id_a) :
 sink (sink_a),
 last_contact (std::chrono::steady_clock::now ()),
-last_attempt (last_contact),
 node_id (node_id_a)
 {
 }
 
-nano::peer_information::peer_information (std::shared_ptr<nano::transport::channel_udp> sink_a, std::chrono::steady_clock::time_point const & last_contact_a, std::chrono::steady_clock::time_point const & last_attempt_a) :
+nano::peer_information::peer_information (std::shared_ptr<nano::transport::channel_udp> sink_a, std::chrono::steady_clock::time_point const & last_contact_a) :
 sink (sink_a),
-last_contact (last_contact_a),
-last_attempt (last_attempt_a)
+last_contact (last_contact_a)
 {
 }
 
@@ -330,7 +328,6 @@ void nano::peer_container::ongoing_keepalive ()
 		}
 		for (auto i (peers.get<last_contact_tag> ().begin ()); i != keepalive_cutoff; ++i)
 		{
-			peers.get<last_contact_tag> ().modify (i, [](nano::peer_information & info) { info.last_attempt = std::chrono::steady_clock::now (); });
 			node.network.send_keepalive (*i->sink);
 		}
 	}
